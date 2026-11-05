@@ -45,16 +45,19 @@ describe('rateChatMessage — 真实 DB 集成测试(D49①)', () => {
         nickname: 'D49反馈测试用户',
       })
       .returning()
+    if (!u) throw new Error('chat-message-feedbacks.real.test.ts: 插入未返回行(u)')
     userId = u!.id
     const [c] = await db
       .insert(chatConversations)
       .values({ userId, title: 'D49反馈测试会话' })
       .returning()
+    if (!c) throw new Error('chat-message-feedbacks.real.test.ts: 插入未返回行(c)')
     conversationId = c!.id
     const [m] = await db
       .insert(chatMessages)
       .values({ conversationId, role: 'assistant', content: 'D49 测试回答' })
       .returning()
+    if (!m) throw new Error('chat-message-feedbacks.real.test.ts: 插入未返回行(m)')
     messageId = m!.id
   })
 
@@ -92,6 +95,7 @@ describe('rateChatMessage — 真实 DB 集成测试(D49①)', () => {
         nickname: 'D49其他用户',
       })
       .returning()
+    if (!other) throw new Error('chat-message-feedbacks.real.test.ts: 插入未返回行(other)')
     const result = await rateChatMessage(other!.id, messageId, 'like')
     expect(result).toEqual({ ok: false, reason: 'not-found' })
     // 未落任何行

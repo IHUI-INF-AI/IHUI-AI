@@ -1,0 +1,35 @@
+{
+  "$comment": "K2 台账:安装器清单里每一处版本号(含 release tag 段)必须逐字等于它打包的那个包的 version(2026-11-04 立)。这三份清单此前手写 1.0.0,而全仓零作业读它们 —— scoop/winget/snap 都按 docs/RELEASE.md 由人手工提交,没有构建期派生点可挂,所以只能由本判据当尺子。extracts 每条都必须含 1 个捕获组并按全局匹配取**全部**命中:命中 0 处 ⇒ 判红并点名(台账与文件已脱节 ⇒ 要人说一次改哪边,§0.10;不是'读不到就当过');任一命中值 ≠ 源值 ⇒ 判红。引号在 YAML/TOML 里可选,提取式一律容忍两种写法,别把人正常的写法变更变成假红。本维刻意只挂 CI 不接提交链(理由 = scripts/check-version-drift.mjs 头注的接线档位段)。",
+  "pairs": [
+    {
+      "path": "deploy/scoop/ihui.json",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["\"version\"\\s*:\\s*\"([^\"]+)\"", "cli-v(\\d+\\.\\d+\\.\\d+)"],
+      "why": "Scoop 清单装的是 ihui CLI:version 字段与两条 release 资产 URL 里的 tag 段"
+    },
+    {
+      "path": "deploy/winget/IHUI.IHUI.yaml",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["DisplayVersion:\\s*['\"]?(\\d+\\.\\d+\\.\\d+)", "cli-v(\\d+\\.\\d+\\.\\d+)"],
+      "why": "WinGet 清单装的是 ihui CLI:两个 installer 的 DisplayVersion 与 URL/tag 里的 cli-v 段"
+    },
+    {
+      "path": "deploy/snap/snapcraft.yaml",
+      "sourcePkg": "apps/cli/package.json",
+      "extracts": ["^version:\\s*['\"]?([^'\"\\s#]+)['\"]?\\s*(?:#.*)?$"],
+      "why": "Snap 清单装的是 ihui CLI"
+    },
+    {
+      "path": "packages/sdk/python/pyproject.toml",
+      "sourcePkg": "packages/sdk/package.json",
+      "extracts": ["^version\\s*=\\s*[\"']([^\"']+)[\"']"],
+      "why": "scripts/release-assets.mjs 用 packages/sdk/package.json 的 version 给**全部** SDK 产物命名(ihui-sdk-python-<同一号>.tar.gz),pip 侧读的是 pyproject ⇒ 两者必须同值,否则包名与实际版本各说一套"
+    },
+    {
+      "path": "packages/sdk/python/ihui_ai/__init__.py",
+      "sourcePkg": "packages/sdk/package.json",
+      "extracts": ["__version__\\s*=\\s*\"([^\"]+)\""],
+      "why": "SDK 客户端 self.__version__ 会进 User-Agent / 诊断输出;与 pyproject 各写一份就是第三套号(现读三处同为 0.1.0)"
+    }
+  ]
+}

@@ -39,20 +39,20 @@ export function TopupFailScreen({
       </View>
       <View style={styles.body}>
         <XCircle size={64} color={tk.danger.DEFAULT} />
-        <Text style={styles.titleText}>充值失败</Text>
+        <Text style={styles.titleText}>{t('wallet.rechargeFail')}</Text>
         <View style={styles.card}>
           <Text style={styles.reason}>{reason}</Text>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.7} onPress={onRetry}>
-            <Text style={styles.primaryText}>重试</Text>
+            <Text style={styles.primaryText}>{t('wallet.retryRecharge')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.secondaryBtn}
             activeOpacity={0.7}
             onPress={onContactService}
           >
-            <Text style={styles.secondaryText}>联系客服</Text>
+            <Text style={styles.secondaryText}>{t('wallet.contactSupport')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -73,7 +73,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
     icon: { fontSize: 64, marginTop: rnSpacing.md },
-    titleText: { fontSize: 22, fontWeight: '700', color: tk.danger.DEFAULT },
+    titleText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.danger.DEFAULT },
     card: {
       width: '100%',
       backgroundColor: tk.danger.light,

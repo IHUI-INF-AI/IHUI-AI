@@ -26,7 +26,11 @@
  */
 import * as React from 'react'
 
-import { createNotificationClient } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   createReplayWatermark,
@@ -43,7 +47,6 @@ import type {
   ComputerControlActionType,
   WSNotification,
 } from '@ihui/types'
-import { fetchApi } from '@/lib/api'
 import {
   clipboardGet,
   clipboardSet,
@@ -70,7 +73,6 @@ import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
  */
 const API_BASE = resolveWsApiBaseUrl()
 const CAPABILITY_INTERVAL_MS = 60_000
-const VERSION = '1.0.0'
 const PROCESSED_IDS_MAX = 100
 
 const COMPUTER_ACTIONS: ComputerControlActionType[] = [
@@ -147,17 +149,15 @@ function buildCapability(): AgentControlCapability {
     instanceId: getInstanceId(),
     browserActions: [],
     computerActions: COMPUTER_ACTIONS,
-    version: VERSION,
+    // 不报版本:web 端没有可追溯的版本源头(apps/web/package.json 恒 0.0.0、
+    // NEXT_PUBLIC_APP_VERSION 全仓无注入方)⇒ 宁缺不编,与 downloads.config.ts 的 web 段同一口径。
     reportedAt: new Date().toISOString(),
   }
 }
 
 async function reportCapability(): Promise<void> {
   try {
-    const res = await fetchApi<{ registered: boolean; instanceId: string }>(
-      '/api/agent-control/capability',
-      { method: 'POST', body: JSON.stringify(buildCapability()) },
-    )
+    const res = await reportAgentControlCapability(buildCapability())
     if (!res.success) {
       console.warn('[desktop] agent-control capability report failed')
     }
@@ -171,10 +171,7 @@ async function reportCapability(): Promise<void> {
 async function reportResult(response: AgentActionResponse): Promise<void> {
   const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
-    const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    const res = await reportAgentControlResult(payload)
     if (!res.success) {
       console.warn('[desktop] agent-control result report failed')
     }

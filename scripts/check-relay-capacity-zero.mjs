@@ -164,6 +164,26 @@ export function sliceTopLevelFunction(src, startIdx) {
 }
 
 /**
+ * 定位一个判据函数的**顶层声明**起点。刻意同时接受两种形态:
+ *   export function NAME(   ← 本哨兵 2026-10-26 立时唯一的形态
+ *   function NAME(          ← 生产侧把符号收成模块内部(2026-11-03 实测 isRelayPoolRowSchedulable 即此形)
+ * 只认"顶格(第 0 列)+ 可选 export + function + 空白 + 名字 + 非标识符"的声明位,
+ * 绝不拿裸 indexOf(name) 当声明:那会把注释里的同名、以及 `isRelayPoolRowSchedulable(row)` 这种
+ * **调用点**当成声明,于是从错误的一段里"抽出"一个恰好能跑的函数 —— 那种绿是假的(§12f)。
+ * @returns {{index:number,exported:boolean}|null}
+ */
+export function findTopLevelDeclaration(src, name) {
+  const text = String(src ?? '')
+  const esc = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(`^(?:(export)[ \\t]+)?function[ \\t]+${esc}(?![\\w$])`, 'm')
+  const m = re.exec(text)
+  if (!m) return null
+  // index 一律取"export 或 function 的那个词起点"(m 有 ^ 锚,故 m.index 正是它)——
+  // 取 function 词起点会把 export 前缀切掉,求值时就取不到导出(2026-11-04 自证踩到)。
+  return { index: m.index, exported: Boolean(m[1]) }
+}
+
+/**
  * 装载生产判据(读源文件 → 逐函数取段 → typescript 剥类型 → data URL 求值)。
  * 任何一步不成立都返回 `{ ok:false, why }` ⇒ 调用方落 unjudged。
  */
@@ -176,12 +196,17 @@ export async function loadPoolJudges({ repo = REPO } = {}) {
   }
   const parts = []
   for (const name of REQUIRED_JUDGES) {
-    const anchor = `export function ${name}(`
-    const at = src.indexOf(anchor)
-    if (at < 0) return { ok: false, why: `${STATS_TS_REL} 里找不到锚点「${anchor}」⇒ 判据已漂移` }
-    const end = sliceTopLevelFunction(src, at)
+    const decl = findTopLevelDeclaration(src, name)
+    if (!decl) {
+      return {
+        ok: false,
+        why: `${STATS_TS_REL} 里找不到顶层声明「${name}」(export function / function 两形态都试过)⇒ 判据已漂移`,
+      }
+    }
+    const end = sliceTopLevelFunction(src, decl.index)
     if (end < 0) return { ok: false, why: `${name} 的函数体括号不配平 ⇒ 抽不出可信的一段` }
-    parts.push(src.slice(at, end + 1))
+    // 内部符号没有 export ⇒ 求值时取不到,补一个合成导出。这不改判据内容,也不放宽存在性要求。
+    parts.push(decl.exported ? src.slice(decl.index, end + 1) : `export ${src.slice(decl.index, end + 1)}`)
   }
   let js = ''
   try {
@@ -969,6 +994,7 @@ export const __test__ = {
   buildSql,
   isLocalHost,
   sliceTopLevelFunction,
+  findTopLevelDeclaration,
   breachKeyOf,
   ratchetOf,
   readBaseline,

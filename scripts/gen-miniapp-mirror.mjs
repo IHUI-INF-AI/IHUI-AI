@@ -27,8 +27,12 @@
  *   ⑥ 值零新译:每个键的值**逐语取自 packages/i18n/messages/mobile-rn/<lang>.json 同键原文**;
  *      缺任一语言该键 ⇒ 该键整体弃用(不造译、不中文兜底),并在结论行点名。
  *
- * 判据分工(§0.6):镜像标记识别、RN 消费判定 import check-cross-end-screen-coverage 的 __test__
- * (cov.mirroredSpecs / cov.rnConsumes),本文件不复制这两把尺子;路由枚举/页面候选解析与
+ * 判据分工(§0.6,2026-11-05 收尺):镜像标记识别、RN 消费判定 import check-cross-end-screen-coverage 的 __test__
+ * (cov.mirrorDeclarations + cov.buildSharedIndex / cov.rnConsumes);cov.mirroredSpecs 旧硬尺只剩
+ * mirrorRulerReadings 一处对照读数(legacy=,只报差不判),不再参与任何判定 —— 写盘侧与读盘侧
+ * (report-rn-miniapp-gaps / 门 237 覆盖桶)必须同用宽尺(形1∪2∪3∪4),否则新形声明一出现,
+ * 造页器把已镜像屏判成"未镜像"重复造页,而报告器与门同时报绿;本文件不复制这些尺子;
+ * 路由枚举/页面候选解析与
  * KEY_RE/GENERIC_NS 是**本地实现**,因为 cov 把 ROOT 硬绑在自己文件所在仓、而本器物必须支持
  * `--repo=` 指到夹具仓跑端到端(§22c 的 import 通道对"ROOT 硬绑"与"顶层直跑不可 import"
  * (auto-register-cross-end.mjs 无 __test__ 且 import 即触发主流程)两种源结构性关闭);
@@ -57,6 +61,7 @@ import { execFileSync } from 'node:child_process'
 
 import { catBatch, listFaceFiles, readWorktreeFile } from './lib/face-reader.mjs'
 import { shellExportShapeOf } from './lib/rn-shell-refs.mjs'
+import { maskComments } from './lib/code-mask.mjs'
 import { walkClosure, aliasKeysOf, uncoveredNativePackages } from './lib/rn-shell-closure.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { VERDICTS_PATH, indexVerdicts, parseVerdictRows } from './lib/cross-end-verdicts.mjs'
@@ -622,12 +627,29 @@ export function rendersSharedIn(text, symbol) {
   return false
 }
 
+/**
+ * 屏侧是否真的发布分享正文(2026-11-01 立,承载面分享的唯一判据出口)。
+ *
+ * 为什么判「屏发布」而不是「页注册」:小程序的转发卡在页面级注册,而卡上的标题/封面只有屏
+ * 取到数据才算得出。壳承载后页面不再自己写正文 ⇒ 若屏没把正文交给宿主,转壳就会把
+ * 「分享这条内容」静默降成「分享首页默认文案」(实测 news/detail 的 `news.title`、
+ * course/detail 的 `course.title` 就是这一型)。所以宿主注册只在屏真发布时才产出。
+ * 遮注释:注释里提一句 `usePublishShareIntent` 不算实现(假销账比误拒危险)。
+ */
+export function screenPublishesShare(sharedText, shellText) {
+  const src = `${maskComments(String(sharedText ?? ''))}\n${maskComments(String(shellText ?? ''))}`
+  return /usePublishShareIntent\s*\(/.test(src)
+}
+
 export function buildShellPage({
   spec,
   base,
   shellText = '',
   shellName = null,
+  sharedText = '',
   navTitle = null,
+  navTitleHook = 'useDidShow',
+  navTitleDeps = null,
   authGate = false,
 }) {
   // shellName 允许与被承载的共享屏**不同名**(2026-10-27):平台侧薄壳常叫 PlanScreen /
@@ -648,6 +670,19 @@ export function buildShellPage({
     }
   }
   const jsxTag = `${shellSymbol}Shell`
+  // 壳渲染链现读校验(2026-11-01 G-998102 收口,F 组翻车根因):壳可能与镜像目标**不同屏**
+  // (如 AssistantScreen 壳实际渲染 chat-room/ChatRoomScreen),按「同名壳=渲染同名共享屏」
+  // 假设写出的「渲染 = spec」标记就是假声明(R1 凭据),镜像页上线而真相错位。此处现读壳的
+  // import 面,共享屏名不在其中 ⇒ 打点警告(不阻断:壳可能经再导出二跳承载,由人工轮裁决)。
+  const sharedName = spec.split('/').pop()?.replace(/\.tsx$/, '') ?? ''
+  const importsShared =
+    sharedName.length > 0 &&
+    new RegExp(`import\\s+[^;]*\\b${sharedName}\\b[^;]*from\\s+['"][^'"]+['"]`).test(shellText)
+  if (!importsShared) {
+    console.warn(
+      `[gen-miniapp-mirror] ⚠ 壳渲染链不符: apps/mobile-rn/src/screens/${shellSymbol}.tsx 的 import 面不含共享屏名 ${sharedName} —— 壳可能承载的是另一屏,本页「镜像 ${spec}」声明将成为假凭据,请先核对壳的实际渲染目标再落页`,
+    )
+  }
   const L = []
   L.push(`// 镜像 ${spec}`, '')
   L.push('/**')
@@ -656,6 +691,11 @@ export function buildShellPage({
   L.push(` *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/${shellSymbol}.tsx 本体,`)
   L.push(' *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。')
   L.push(' * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。')
+  // 收藏字段口径(2026-11-01 补):favorites 壳承载页虽不写正文,但数据经 RN 壳透传
+  // resourceType / resourceId(取消收藏与跳详情靠它);契约见 packages/api-client/tests/favorites-field-contract.test.ts。
+  if (shellSymbol === 'FavoriteScreen') {
+    L.push(' *   收藏字段口径:经本壳透传 resourceType / resourceId(取消收藏与跳详情靠它;契约见 packages/api-client/tests/favorites-field-contract.test.ts)。')
+  }
   L.push(' */')
   L.push("import ThemeRoot from '@/components/ThemeRoot'")
   if (authGate) L.push("import AuthReadyGate from '@/components/AuthReadyGate'")
@@ -665,8 +705,32 @@ export function buildShellPage({
   // 取词入口按表达式现读:原页可能用 t(useI18n) 也可能用 tt(useTt,带回退文案的第二参)。
   const usesT = navTitle ? /(^|[^\w.$])t\s*\(/.test(navTitle) : false
   const usesTt = navTitle ? /(^|[^\w.$])tt\s*\(/.test(navTitle) : false
-  if (navTitle) {
-    L.push("import Taro, { useDidShow } from '@tarojs/taro'")
+  // 标题原来住在哪条钩子就按哪条生成(2026-11-01):useEffect + 依赖数组是"随语言切换重设"的节律,
+  // 统一改写成 useDidShow 会把标题冻在进屏那一刻的语言上 —— 转壳的等价性就破在这里。
+  const titleViaEffect = navTitleHook === 'useEffect'
+  // 分享:屏发布正文 ⇒ 宿主补页面级注册(转发/朋友圈/右上角菜单三条),正文由 shareHost.read() 现读
+  const withShare = screenPublishesShare(sharedText, shellText)
+  if (navTitle || withShare) {
+    const names = []
+    if (navTitle && !titleViaEffect) names.push('useDidShow')
+    if (withShare) names.push('useDidShow', 'useRouter', 'useShareAppMessage', 'useShareTimeline')
+    const uniq = [...new Set(names)]
+    if (navTitle) {
+      L.push(
+        titleViaEffect && !withShare
+          ? "import Taro from '@tarojs/taro'"
+          : `import Taro, { ${uniq.join(', ')} } from '@tarojs/taro'`,
+      )
+    } else {
+      L.push(`import { ${uniq.join(', ')} } from '@tarojs/taro'`)
+    }
+    if (titleViaEffect) L.push("import { useEffect } from 'react'")
+    if (withShare) {
+      L.push("import { useShareIntentHost } from '@ihui/shared/share'")
+      L.push(
+        "import { currentPageSharePath, currentPageShareQuery, getShareInfo, getTimelineShareInfo, showShareMenu } from '@/utils/share'",
+      )
+    }
     if (usesT) L.push("import { useI18n } from '@/i18n'")
     if (usesTt) L.push("import { useTt } from '@/i18n'")
   }
@@ -675,15 +739,45 @@ export function buildShellPage({
   if (navTitle) {
     if (usesT) L.push('  const { t } = useI18n()')
     if (usesTt) L.push('  const tt = useTt()')
-    L.push('  useDidShow(() => {')
+    L.push(titleViaEffect ? '  useEffect(() => {' : '  useDidShow(() => {')
     L.push(`    Taro.setNavigationBarTitle({ title: ${navTitle} })`)
+    L.push(titleViaEffect ? (navTitleDeps ? `  }, ${navTitleDeps})` : '  })') : '  })')
+  }
+  if (withShare) {
+    L.push('  const shareHost = useShareIntentHost()')
+    L.push('  const ShareWrap = shareHost.Wrapper')
+    L.push('  const router = useRouter()')
+    L.push('  useShareAppMessage(() => {')
+    L.push('    const intent = shareHost.read()')
+    L.push(
+      '    return getShareInfo(intent?.path ?? currentPageSharePath(router), intent?.title, intent?.imageUrl)',
+    )
     L.push('  })')
+    L.push('  useShareTimeline(() => {')
+    L.push('    const intent = shareHost.read()')
+    L.push(
+      '    const info = getTimelineShareInfo(intent?.timelineTitle ?? intent?.title, intent?.imageUrl)',
+    )
+    L.push('    const own = intent?.query ?? currentPageShareQuery(router)')
+    L.push("    return { ...info, query: [own, info.query].filter(Boolean).join('&') }")
+    L.push('  })')
+    L.push('  useDidShow(() => showShareMenu())')
   }
   L.push('  return (')
   L.push('    <ThemeRoot>')
-  if (authGate) L.push('      <AuthReadyGate>')
-  L.push(authGate ? `        <${jsxTag} />` : `      <${jsxTag} />`)
-  if (authGate) L.push('      </AuthReadyGate>')
+  // 宿主把自己的分享槽包在屏外面:屏的 usePublishShareIntent 才落得到这一页
+  const wrapOpen = withShare ? ['ShareWrap'] : []
+  if (authGate) wrapOpen.push('AuthReadyGate')
+  let depth = 3
+  for (const tag of wrapOpen) {
+    L.push(`${'  '.repeat(depth)}<${tag}>`)
+    depth += 1
+  }
+  L.push(`${'  '.repeat(depth)}<${jsxTag} />`)
+  for (let i = wrapOpen.length - 1; i >= 0; i -= 1) {
+    depth -= 1
+    L.push(`${'  '.repeat(depth)}</${wrapOpen[i]}>`)
+  }
   L.push('    </ThemeRoot>')
   L.push('  )')
   L.push('}')
@@ -703,9 +797,12 @@ export function buildPage({ spec, fnName, titleKey, subtitleKey, pairs, singles 
     '// 由 scripts/gen-miniapp-mirror.mjs 依首例 aa4c418bff1a 形制生成:文案骨架镜像自共享屏的 i18n 键,',
   )
   L.push(
-    '// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)需按共享屏人工补齐 ——',
+    '// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)按共享屏的实际字段/端点核实后再补 ——',
   )
-  L.push('// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链,页面级还原度由后续人工轮提升。')
+  L.push(
+    '// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链;**本头注不声明任何待办**:这一页的功能对齐',
+  )
+  L.push('// 状态由判定台账的 evidence 分桶单源给出(report-rn-miniapp-gaps.mjs 文末),不在这里各写一份。')
   // 键表必须显式给元素类型:`[] as const` 推成 readonly [],解构元素为 never ⇒ TS2488。
   if (pairs.length === 0) L.push('const PAIR_KEYS: readonly (readonly [string, string])[] = []')
   else {
@@ -900,6 +997,15 @@ function makeContext(rootDir) {
     typeof verdictsText === 'string'
       ? indexVerdicts(parseVerdictRows(verdictsText).rows)
       : new Map()
+  // 宽尺的共享屏索引(2026-11-05,批级:与读盘侧同尺同装配,判据 import 门 128 的
+  // buildSharedIndex;枚举走本地 —— cov.collectShared 把 ROOT 硬绑在自己文件所在仓,
+  // 而本器物必须支持 --repo= 指到夹具仓,见文件头"判据分工"注)。
+  const sharedIndex = cov.buildSharedIndex(
+    listSharedScreens(rootDir).map((rel) => {
+      const sh = screenShapeOf(rel)
+      return { name: `${sh.base}Screen`, domain: sh.domain, spec: sh.spec }
+    }),
+  )
   const packObjs = {}
   let packError = null
   for (const l of LANGS) {
@@ -928,7 +1034,29 @@ function makeContext(rootDir) {
     closureCache,
     taroCfgText,
     verdicts,
+    sharedIndex,
   }
+}
+
+/**
+ * 两尺对照读数(2026-11-05 立):**只是把差报出来,不新增判据**。
+ * wide = 判定档(与读盘侧同一装配的宽尺,形1∪2∪3∪4);legacy = 旧硬尺(形1),不参与任何判定。
+ * 对称差非 0 ⇒ 说明出现了"只被其中一把尺认出"的声明形态:那是内容状态,不判红,但逐条点名,
+ * 否则两尺何时再次分叉又只能靠人工探针去量(本函数与 .ihui-agent/tmp 探针同装配逐字同基准)。
+ */
+export function mirrorRulerReadings(pages, sharedIndex) {
+  const wide = new Set()
+  const legacy = new Set()
+  for (const p of pages) {
+    if (p.file) {
+      const hay = `${p.text || ''}\n${p.cssText || ''}`
+      for (const s of cov.mirrorDeclarations(hay, sharedIndex).specs) wide.add(s)
+    }
+    for (const s of cov.mirroredSpecs(p)) legacy.add(s)
+  }
+  const wideOnly = [...wide].filter((s) => !legacy.has(s)).sort()
+  const legacyOnly = [...legacy].filter((s) => !wide.has(s)).sort()
+  return { wide: wide.size, legacy: legacy.size, wideOnly, legacyOnly }
 }
 
 /**
@@ -1011,15 +1139,26 @@ export function planGeneration(rootDir, opts, ctx = null) {
   if (screenText === null)
     return { kind: 'undetermined', why: `未判定:HEAD 面取不到 ${shape.spec}` }
 
-  // 已被镜像?(判据 import cov.mirroredSpecs —— 生成完读数必须涨,这里用同一把尺子闭环)
+  // 已被镜像?(判据 import cov.mirrorDeclarations —— **与读盘侧同尺同装配**(report-rn-miniapp-gaps:70 / 门 237 覆盖桶):
+  // hay = 页面正文 ⊕ 伴生样式表,共享屏索引 = cov.buildSharedIndex(本器物 rootDir 的 HEAD 面枚举)。
+  // 旧硬尺 cov.mirroredSpecs 只认形1;一旦出现只被宽尺认出的新形声明,旧尺会把已镜像屏判成"未镜像"
+  // ⇒ 重复造页,而报告器与门同时报绿(2026-11-05 实测两尺对称差为 0,这是潜伏缺陷的前置收口)。
   const { pages, cfgText } = c.miniapp
-  for (const p of pages)
-    if (cov.mirroredSpecs(p).has(shape.spec)) {
+  if (pages.length > 0 && !c.sharedIndex)
+    return {
+      kind: 'undetermined',
+      why: `未判定:ctx 缺共享屏索引(sharedIndex),宽尺无分母(§0.4 同面同轮,不回落旧硬尺)`,
+    }
+  for (const p of pages) {
+    if (!p.file) continue
+    const hay = `${p.text || ''}\n${p.cssText || ''}`
+    if (cov.mirrorDeclarations(hay, c.sharedIndex).specs.has(shape.spec)) {
       return {
         kind: 'skip',
-        why: `该屏已被小程序页镜像:${p.route}(${p.file}),依据=标记行命中 cov.mirroredSpecs;不重复造页`,
+        why: `该屏已被小程序页镜像:${p.route}(${p.file}),依据=标记行命中 cov.mirrorDeclarations(宽尺,形1∪2∪3∪4);不重复造页`,
       }
     }
+  }
 
   // registry 在册配对?
   const regText = c.regText
@@ -1127,7 +1266,11 @@ export function planGeneration(rootDir, opts, ctx = null) {
     const occupiedByOther = (root) => {
       const rel = `${MP_SRC}/${root}/${kebabDir}/index.tsx`
       const p = pages.find((x) => x.file === rel)
-      if (p) return !cov.mirroredSpecs(p).has(shape.spec)
+      if (p) {
+        // 同尺同装配(宽尺,见上方"已被镜像?"注):只被新形声明认出的页也算"本屏的页",不得改道重造
+        const hay = `${p.text || ''}\n${p.cssText || ''}`
+        return !cov.mirrorDeclarations(hay, c.sharedIndex).specs.has(shape.spec)
+      }
       return existsSync(join(rootDir, rel))
     }
     // 同 kebab 路径被**另一张屏**的页占着时,不能判"本屏已落" —— 那是上一轮实测卡死两枚的形态
@@ -1460,7 +1603,11 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
     console.error(`❓ 未判定:${e?.message ?? e}`)
     return 2
   }
-  const { planned, skipped, refused, notApplicable, undetermined } = batch
+  const { planned, skipped, refused, notApplicable, undetermined, ruler } = batch
+  // 两尺对照:差非 0 不判红(内容状态),但逐条点名(§0.2:只补数不新增判据)
+  const rulerTag = ` wide=${ruler.wide} legacy=${ruler.legacy}`
+  for (const s of ruler.wideOnly) console.log(`  [宽尺独有·旧尺认不出] ${s}`)
+  for (const s of ruler.legacyOnly) console.log(`  [旧尺独有·宽尺未认] ${s}`)
   console.log(
     `共享屏判定汇总:可生成 ${planned.length} / 已存在跳过 ${skipped.length} / 拒绝 ${refused.length} / 已判不承载 ${notApplicable.length} / 未判定 ${undetermined.length}`,
   )
@@ -1476,7 +1623,7 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
 
   if (planned.length === 0) {
     console.log(
-      `GEN-MIRROR-BATCH-RESULT planned=0 applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+      `GEN-MIRROR-BATCH-RESULT planned=0 applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}${rulerTag}`,
     )
     return code()
   }
@@ -1490,7 +1637,7 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
   if (!applyMode) {
     console.log('\n(预演模式,未写盘;加 --apply 落地)')
     console.log(
-      `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+      `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=0 refused=${refused.length} not_applicable=${notApplicable.length} undetermined=${undetermined.length}${rulerTag}`,
     )
     return code()
   }
@@ -1516,7 +1663,7 @@ async function runBatch(rootDir, { applyMode, subpackage, page }) {
     }
   }
   console.log(
-    `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=${applied} skipped=${skippedN} refused=${refusedN} not_applicable=${notApplicable.length} undetermined=${undetermined.length}`,
+    `GEN-MIRROR-BATCH-RESULT planned=${planned.length} applied=${applied} skipped=${skippedN} refused=${refusedN} not_applicable=${notApplicable.length} undetermined=${undetermined.length}${rulerTag}`,
   )
   return undetermined.length > 0 ? 2 : refusedN > 0 ? 1 : 0
 }
@@ -1556,12 +1703,30 @@ async function main() {
     console.error('❌ 未判定:缺 --screen 输入')
     return 2
   }
-  const plan = planGeneration(rootDir, {
-    screenRel: screenArg.slice('--screen='.length),
-    subpackage: subArg ? subArg.slice('--subpackage='.length) : null,
-    page: pageArg ? pageArg.slice('--page='.length) : null,
-    form: formArg ? formArg.slice('--form='.length) : 'skeleton',
-  })
+  // 上下文一次自建并传入 planGeneration:两尺对照读数与判定共用同一份输入(§0.4 同面同轮)
+  let ctx
+  try {
+    ctx = makeContext(rootDir)
+  } catch (e) {
+    console.error(`❓ 未判定(取不到被审面):${e?.message ?? e}`)
+    return 2
+  }
+  const ruler = mirrorRulerReadings(ctx.miniapp.pages, ctx.sharedIndex)
+  console.log(
+    `MIRROR-RULER wide=${ruler.wide} legacy=${ruler.legacy}(判定档=宽尺;legacy 只报差不判红)`,
+  )
+  for (const s of ruler.wideOnly) console.log(`  [宽尺独有·旧尺认不出] ${s}`)
+  for (const s of ruler.legacyOnly) console.log(`  [旧尺独有·宽尺未认] ${s}`)
+  const plan = planGeneration(
+    rootDir,
+    {
+      screenRel: screenArg.slice('--screen='.length),
+      subpackage: subArg ? subArg.slice('--subpackage='.length) : null,
+      page: pageArg ? pageArg.slice('--page='.length) : null,
+      form: formArg ? formArg.slice('--form='.length) : 'skeleton',
+    },
+    ctx,
+  )
 
   if (plan.kind === 'skip') {
     console.log(`⏭ 点名跳过:${plan.why}`)
@@ -1628,7 +1793,7 @@ async function main() {
   const skipped = results.filter((r) => r.state === 'skipped').length
   const refused = results.filter((r) => r.state === 'refused').length
   console.log(
-    `GEN-MIRROR-RESULT screen=${plan.spec} applied=${applied} skipped=${skipped} refused=${refused}`,
+    `GEN-MIRROR-RESULT screen=${plan.spec} applied=${applied} skipped=${skipped} refused=${refused} wide=${ruler.wide} legacy=${ruler.legacy}`,
   )
   return refused > 0 ? 1 : 0
 }
@@ -1644,12 +1809,13 @@ async function main() {
  *   重复的"选屏 → 预演 → 落地",每屏 4 个接缝,一次跑错就前功尽弃。
  *   批量档把"枚举 + 逐屏计划 + 汇总"变成一条命令,落地仍走同一套接缝落地器。
  *
- * 返回:{planned, skipped, refused, notApplicable, undetermined}
+ * 返回:{planned, skipped, refused, notApplicable, undetermined, ruler}
  *   planned[]        = kind==='plan' 的 plan 对象
  *   skipped[]        = kind==='skip'(已镜像/页面已存在)
  *   refused[]        = kind==='refuse'(本器物判定成立但不该造)
  *   notApplicable[]  = kind==='not-applicable'(判决台账已裁「不承载」的终态 ⇒ 不计红)
  *   undetermined[]   = kind==='undetermined'(取不到输入/形态不符 ⇒ 一次定向说明)
+ *   ruler            = 两尺对照读数(mirrorRulerReadings;wide=判定档,legacy=只报差不判)
  */
 export function planBatch(rootDir, opts = {}) {
   const screens = opts.screens || listSharedScreens(rootDir)
@@ -1677,7 +1843,9 @@ export function planBatch(rootDir, opts = {}) {
     else if (plan.kind === 'not-applicable') notApplicable.push({ spec, why: plan.why })
     else undetermined.push({ spec, why: plan.why })
   }
-  return { planned, skipped, refused, notApplicable, undetermined }
+  // 两尺对照(只报差不判红;判定档恒为宽尺,legacy 仅供对照)
+  const ruler = mirrorRulerReadings(ctx.miniapp.pages, ctx.sharedIndex)
+  return { planned, skipped, refused, notApplicable, undetermined, ruler }
 }
 
 /** 枚举全部共享屏 spec(HEAD 面)。取不到 ⇒ 抛错(上层判未判定,不回落别的面)。 */
@@ -1907,9 +2075,11 @@ export const __test__ = {
   insertRegistryEntry,
   buildPage,
   buildShellPage,
+  screenPublishesShare,
   workDiverges,
   planGeneration,
   applyGeneration,
+  mirrorRulerReadings,
   topLevelNamespaces,
   planBatch,
   applyBatch,

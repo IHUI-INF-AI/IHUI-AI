@@ -28,7 +28,7 @@ export function TokenValueCards({ cards, isLoading }: Props) {
           <div className="flex items-center justify-between gap-2">
             <TruncatedText
               value={c.label}
-              className="min-w-0 flex-1 text-sm text-muted-foreground"
+              className="min-w-0 flex-1 text-body text-muted-foreground"
             />
             {c.big && (
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -39,7 +39,7 @@ export function TokenValueCards({ cards, isLoading }: Props) {
           <div
             className={cn(
               'mt-2 font-bold tabular-nums tracking-tight',
-              c.big ? 'text-2xl min-[768px]:text-3xl' : 'text-lg min-[768px]:text-xl',
+              c.big ? 'text-display min-[768px]:text-3xl' : 'text-lg min-[768px]:text-heading',
               c.tone,
             )}
           >

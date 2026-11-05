@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.md,
     borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
   },
   heroIconTile: {
     width: rnGeometry.tapBox,

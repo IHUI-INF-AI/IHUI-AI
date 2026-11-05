@@ -23,7 +23,8 @@ export default defineConfig({
   manifest: {
     name: 'IHUI AI',
     description: 'IHUI AI 浏览器助手',
-    version: '1.0.0',
+    // 版本不在此声明:WXT 在 manifest.version 缺省时回落本目录 package.json,
+    // 而下载文件名与下载页版本也取 package.json —— 写死字面量等于两套号各走各的源头。
     minimum_chrome_version: '114',
     permissions: [
       'storage',

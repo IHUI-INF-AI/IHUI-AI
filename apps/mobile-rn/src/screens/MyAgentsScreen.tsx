@@ -74,6 +74,7 @@ export function MyAgentsScreen() {
       }}
       onPressItem={(id) => navigation.navigate('AgentDetail', { id })}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

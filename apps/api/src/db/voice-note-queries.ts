@@ -14,17 +14,17 @@ import type {
 } from '@ihui/types'
 
 import { db } from './index.js'
+import { asContainsTerm } from '../utils/like-escape.js'
 
 /** 单次返回上限:分页参数越界时按此夹紧(与分页只读路由同一档)。 */
 export const VOICE_NOTE_MAX_PAGE_SIZE = 100
 /** 关键词最长长度:超长直接截断而不是拒绝 —— 搜索框粘贴整段文字是常规操作。 */
 export const VOICE_NOTE_MAX_QUERY_LENGTH = 200
 
-const LIKE_ESCAPE = /[%_\\]/g
-
-/** ILIKE 的转义:把用户输入里的 % 与 _ 当字面量,否则"搜 100%"会命中一切。 */
+/** ILIKE 的转义:把用户输入里的 % 与 _ 当字面量,否则"搜 100%"会命中一切。
+ *  判据本体在 utils/like-escape.ts(§0.6 单源),本文件只保留"截断到 200 字"这条本面独有的输入边界。 */
 function asLikeTerm(q: string): string {
-  return `%${q.slice(0, VOICE_NOTE_MAX_QUERY_LENGTH).replace(LIKE_ESCAPE, (c) => `\\${c}`)}%`
+  return asContainsTerm(q.slice(0, VOICE_NOTE_MAX_QUERY_LENGTH))
 }
 
 function toVoiceNoteItem(row: ChatVoiceNote): VoiceNoteItem {

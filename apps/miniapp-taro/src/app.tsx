@@ -35,6 +35,7 @@ import { createTaroTransport } from './utils/api-client-transport'
 import { createTaroStreamTransport } from './utils/taro-stream-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { useUserBroadcastSync } from './hooks/use-user-broadcast-sync'
+import { HostToastLayer } from './host/HostToastLayer'
 import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
@@ -314,6 +315,7 @@ function App({ children }: PropsWithChildren<unknown>) {
       <SsoLaunchHandler />
       <UiControlBridgeHandler />
       <UserBroadcastHandler />
+      <HostToastLayer />
       {children}
       <CustomerServiceFloat />
       <FontLoader />

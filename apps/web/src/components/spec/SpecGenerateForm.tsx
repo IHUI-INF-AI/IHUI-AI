@@ -99,7 +99,7 @@ export function SpecGenerateForm({
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="font-[weight:inherit] rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {error}
             </div>
           )}
@@ -130,7 +130,7 @@ export function SpecGenerateForm({
                   }`}
                 >
                   <div className="text-body font-medium">{opt.label}</div>
-                  <div className="text-xs opacity-70">{opt.desc}</div>
+                  <div className="font-[weight:inherit] text-label opacity-70">{opt.desc}</div>
                 </button>
               ))}
             </div>
@@ -146,10 +146,12 @@ export function SpecGenerateForm({
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="spec-deps" className="text-sm">
+              <Label htmlFor="spec-deps" className="font-[weight:inherit] text-body">
                 包含依赖关系
               </Label>
-              <p className="text-xs text-muted-foreground">提取模块间的依赖调用</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
+                提取模块间的依赖调用
+              </p>
             </div>
             <Switch
               id="spec-deps"
@@ -165,7 +167,7 @@ export function SpecGenerateForm({
               {languageOptions.map((lang) => (
                 <label
                   key={lang}
-                  className="flex cursor-pointer items-center gap-1.5 text-sm text-muted-foreground"
+                  className="font-[weight:inherit] flex cursor-pointer items-center gap-1.5 text-body text-muted-foreground"
                 >
                   <Checkbox
                     checked={languages.includes(lang)}
@@ -194,12 +196,14 @@ export function SpecGenerateForm({
                   }`}
                 >
                   <div className="text-body font-medium text-foreground">{tpl.name}</div>
-                  <div className="text-xs text-muted-foreground">{tpl.description}</div>
+                  <div className="font-[weight:inherit] text-label text-muted-foreground">
+                    {tpl.description}
+                  </div>
                 </button>
               ))}
             </div>
             {selectedTemplate && (
-              <p className="text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
                 已选择「{selectedTemplate.name}」模板(模板选择仅作参考,生成结果由后端决定)
               </p>
             )}

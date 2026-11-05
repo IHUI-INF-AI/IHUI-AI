@@ -85,7 +85,7 @@ export function DictTypeDialog({
               aria-invalid={!!nameErr}
             />
             {nameErr ? (
-              <p className="text-xs text-destructive">
+              <p className="text-label text-destructive">
                 {tValidation(nameErr as Parameters<typeof tValidation>[0])}
               </p>
             ) : null}
@@ -99,7 +99,7 @@ export function DictTypeDialog({
               aria-invalid={!!codeErr}
             />
             {codeErr ? (
-              <p className="text-xs text-destructive">
+              <p className="text-label text-destructive">
                 {tValidation(codeErr as Parameters<typeof tValidation>[0])}
               </p>
             ) : null}
@@ -228,7 +228,7 @@ export function DictItemDialog({
                     form.setValue('status', checked ? 1 : 0, { shouldDirty: true })
                   }
                 />
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {form.watch('status') === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
                 </span>
               </div>

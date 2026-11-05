@@ -32,8 +32,9 @@ export function BusinessCardScreen({
   onCustomize,
   onShareWechat,
   onShareMoments,
-  colorScheme = 'light',
-}: BusinessCardScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: BusinessCardScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -56,7 +57,7 @@ export function BusinessCardScreen({
       {loading ? (
         <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       ) : error ? (
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       ) : card ? (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -130,7 +131,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     card: {
       marginHorizontal: rnSpacing.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -158,7 +159,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     contactsBox: {
       marginTop: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },

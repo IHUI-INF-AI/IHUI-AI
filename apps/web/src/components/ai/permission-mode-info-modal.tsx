@@ -53,7 +53,7 @@ export function PermissionModeInfoModal({ mode, onClose }: PermissionModeInfoMod
         </DialogHeader>
 
         <div className="space-y-2">
-          <ul className="space-y-1.5 text-xs text-muted-foreground">
+          <ul className="space-y-1.5 text-label text-muted-foreground">
             <li className="flex items-start gap-2">
               <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
               <span>{t('infoModalBullet1')}</span>

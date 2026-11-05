@@ -22,6 +22,7 @@ import { LecturerDetailScreen, type LecturerDetailInfo } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'TeacherDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'TeacherDetail'>
@@ -69,6 +70,8 @@ export function TeacherDetailScreen() {
   const reviews: TeacherReview[] = []
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [following, setFollowing] = useState(false)
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export function TeacherDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   // 关注/取消关注(乐观更新,失败回滚)
   const onToggleFollow = async () => {
@@ -126,6 +129,8 @@ export function TeacherDetailScreen() {
     ])
   }
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <LecturerDetailScreen
       t={t}
@@ -149,9 +154,11 @@ export function TeacherDetailScreen() {
       error={error}
       onToggleFollow={() => void onToggleFollow()}
       onContact={onContact}
-      onOpenCourse={(courseId) => navigation.navigate('CourseDetail', { id: courseId })}
+      onOpenCourse={(courseId) => onNavigate('CourseDetail', { id: courseId })}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

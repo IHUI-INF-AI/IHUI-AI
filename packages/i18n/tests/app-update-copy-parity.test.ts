@@ -83,6 +83,20 @@ const RN_ONLY_KEYS = [
   'readyBody',
   'installingHint',
   'restartNow',
+  // APK 直链升级卡(2026-11 新增,渲染方 apps/mobile-rn/src/components/ApkUpdatePrompt.tsx
+  // 与 SettingsScreen.tsx 的安装包更新提示)。web/extension/miniapp 走 PWA/OTA,没有"安装包"
+  // 概念,所以整组是 RN 独占;但翻译纪律与 SHARED 一致,五语言必须齐备非空,故必须进本清单
+  // 才能被 S2/S5 的同尺判据覆盖(漏登记等于给"写了不渲染/漏翻"开后门)。
+  'apkTitle',
+  'apkBody',
+  'apkAction',
+  'apkActionBrowser',
+  'apkDownloading',
+  'apkEta',
+  'apkInstalling',
+  'apkBrowserOpening',
+  'apkCancel',
+  'apkHint',
 ] as const
 
 /**

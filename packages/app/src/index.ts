@@ -377,11 +377,16 @@ export { AccountCancelScreen } from './features/account-cancel/AccountCancelScre
 export { AppTopupScreen } from './features/app-topup/AppTopupScreen'
 export { CategoryDetailScreen } from './features/category-detail/CategoryDetailScreen'
 export { CoursePlanetScreen } from './features/course-planet/CoursePlanetScreen'
+export type { CoursePlanetMenuEntry } from './features/course-planet/CoursePlanetScreen'
 export { DevEnterCoverScreen } from './features/dev-enter-cover/DevEnterCoverScreen'
 export { DistributionOrderListScreen } from './features/distribution-order-list/DistributionOrderListScreen'
 export { KnowledgePlanetScreen } from './features/knowledge-planet/KnowledgePlanetScreen'
 export { LearnScreen } from './features/learn/LearnScreen'
 export { MoreCourseScreen } from './features/more-course/MoreCourseScreen'
+export type {
+  MoreCoursePlanetItem,
+  MoreCoursePlanetSection,
+} from './features/more-course/MoreCourseScreen'
 export { PlazaScreen } from './features/plaza/PlazaScreen'
 export type { PlazaScreenProps } from './features/plaza/PlazaScreen'
 export { SquareScreen } from './features/square/SquareScreen'
@@ -461,6 +466,18 @@ export type { BackChevronProps } from './components'
 export { ScrollJumpButton } from './components'
 export type { ScrollJumpButtonProps } from './components'
 
+/** 跨端共享同构组件(PayButton/TabBar):随 TabBar 液态玻璃接入(068af74ddf),
+ * 尚未挂到静态可达入口;自本 barrel 导出使 web/desktop/mobile-rn 宿主可 import(消费接线由各端负责)。
+ * 该族零消费者 DOM 副本不得从本 barrel 出口 —— 拓扑锁见 navbar-wiring 的 topologyProblems。 */
+export { PayButton, TabBar } from './components'
+export type {
+  PayButtonProps,
+  PayButtonType,
+  TabBarProps,
+  TabBarKey,
+  TabBarItemConfig,
+} from './components'
+
 /** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
 export { CategoryInlineBar, CategoryDropdown } from './components'
 export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'
@@ -516,6 +533,8 @@ export type {
   WalletBalance,
   WalletRecordType,
   WalletRecordItem,
+  WalletFlowItem,
+  WalletFlowsState,
   WalletScreenProps,
   CourseCatalogItem,
   CourseCatalogScreenProps,
@@ -834,6 +853,7 @@ export type {
   TeamTab,
   TeamStats,
   TeamMember,
+  TeamTreeNode,
   TeamScreenProps,
   VideoPlayerProgress,
   VideoPlayerScreenProps,
@@ -938,6 +958,15 @@ export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
 export { AppPermissionScreen } from './features/app-permission/AppPermissionScreen'
 export { UsageRulesScreen } from './features/usage-rules/UsageRulesScreen'
 export { LearnDevelopScreen } from './features/learn-develop/LearnDevelopScreen'
+export {
+  LEARN_DEVELOP_DATA_SOURCE,
+  LEARN_DEVELOP_ENDPOINT,
+  LEARN_DEVELOP_ENTRY_SPECS,
+} from './features/learn-develop/learn-develop-data'
+export type {
+  LearnDevelopEntryId,
+  LearnDevelopEntrySpec,
+} from './features/learn-develop/learn-develop-data'
 export type {
   IcpRecordScreenProps,
   AppPermissionScreenProps,
@@ -971,6 +1000,8 @@ export { AiSkillDetailScreen } from './features/ai-skill/AiSkillDetailScreen'
 export type {
   AiSkillDetailData,
   AiSkillDetailScreenProps,
+  SkillInvokeResult,
+  SkillRatingStats,
 } from './features/ai-skill/AiSkillDetailScreen'
 export { KnowledgeBaseScreen } from './features/knowledge-base/KnowledgeBaseScreen'
 export type {

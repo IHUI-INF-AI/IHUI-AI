@@ -40,8 +40,12 @@
  *     `opts.env` 整体不落登记面 —— 原样 push 就是把凭据抄进一份内存镜像,这一格在本票写作过程
  *     中真的先写错过一次,被 ④ 的哨兵锁当场抓住(留档于此,不是马后炮)。
  *  ⑨⑩ §22d 双形态闸 + 夹具落 `mkScratch()`(§15b)+ 体内 `--self-test` 全绿。
- *  附:两把判据层直尺(`parseCountRow` 形态、`classifyDsnTarget` 分类 —— 后者锁"只分类不拒绝"
- *     这一格与 `lib/db-probe-client` 的取证纪律**刻意分歧**的根据必须在头注里写清)。
+ *  ⑪⑪b⑪c⑪d 库侧取证闸 —— `collect()` 库侧入口在 spawn 之前过 `guardDbDsn`,默认档对
+ *     prod-tunnel / 非回环 host 一律拒且 **psqlRunner 零调用**;放行**只认 CLI `--allow-prod-dsn`**
+ *     (绝不从 env/.env/PGPORT 推断),命中时 stderr 固定一行脱敏留痕;回环非 8810 照常(不误伤)。
+ *  附:两把判据层直尺(`parseCountRow` 形态、`classifyDsnTarget` 分类)。后者的口径已正名:
+ *     **只做展示分类,不构成任何闸**;闸在 `collect()` 的库侧入口(`guardDbDsn` + `--allow-prod-dsn`)。
+ *     把展示分类当闸是分层错位,把"它有分类"读成"连接路径有闸"更是本票要修的那一格。
  *
  * 夹具落点 = `scripts/lib/scratch-dir.mjs` 的 `mkScratch()`(§15b:禁 `os.tmpdir()`)。本仓批准的
  * scratch 根按当次实测取值:本机 `scratchRoot()` 落在仓库内被 `.gitignore` 覆盖、并由该层打 git
@@ -49,7 +53,7 @@
  * scripts/apps/packages/deploy 这些被跟踪的源码树"(门 208 怕的是工作树里长出夹具)。
  */
 import { test } from 'node:test'
-import assert from 'node:assert/strict'
+import assert, { AssertionError } from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -302,6 +306,99 @@ test('判据层:目标分类只分类不拒绝(与 lib/db-probe-client 的取证
   assert.equal(gate.classifyDsnTarget(`postgres://u:p@127.0.0.1:${gate.prodTunnelPort}/d`).klass, 'prod-tunnel')
   assert.equal(gate.classifyDsnTarget('postgres://u:p@db.internal:5432/d').klass, 'remote-other')
   assert.equal(gate.classifyDsnTarget('mysql://u:p@h/d').klass, 'unjudged')
+})
+
+// ─────────────────────── ⑪ 库侧取证闸(guardDbDsn + 只认 CLI --allow-prod-dsn) ───────────────────────
+/** 生产隧道口 DSN(口令仍是哨兵:放行留痕行也必须脱敏)。 */
+const PROD_TUNNEL_DSN = `postgres://ihui_ro:${SENTINEL_PW}@localhost:${gate.prodTunnelPort}/ihui_dev`
+
+/** 库侧四维必须全 unjudged 且理由自足;返回 M2 的理由供调用方断言。 */
+function assertDbSideUnjudged(r, label) {
+  const byId = Object.fromEntries(r.dimensions.map((d) => [d.id, d.state]))
+  for (const id of ['M2-db-target', 'M3-db-rows', 'M4-db-publish', 'M5-db-feed-total']) {
+    assert.equal(byId[id], 'unjudged', `${label}:${id} 被记成了 ${byId[id]}`)
+  }
+  const reasons = r.dimensions.filter((d) => d.state === 'unjudged').map((d) => d.why)
+  for (const why of reasons) assert.ok(typeof why === 'string' && why.length > 8, `${label}:未判定维度缺自足理由`)
+  return r.dimensions.find((d) => d.id === 'M2-db-target').why
+}
+
+test('取证闸①:prod-tunnel DSN 默认档 ⇒ 库侧四维全 unjudged、psqlRunner 零调用,理由点名 --allow-prod-dsn', async () => {
+  let calls = 0
+  const r = await gate.collect({
+    ...fixtureIO({ rows: FULL_ROWS, fetchResult: { status: 200, total: 2 } }),
+    // 桩被调即抛:默认档一旦真 spawn,这条断言直接炸,而不是"静默连上再来判"
+    psqlRunner: () => {
+      calls += 1
+      throw new AssertionError({ message: '默认档不得调用 psqlRunner(闸没生效)' })
+    },
+    argvDsn: PROD_TUNNEL_DSN,
+    baseUrl: 'https://fixture.invalid',
+  })
+  assert.equal(calls, 0, `默认档调用了 psqlRunner ${calls} 次 ⇒ 闸没在 spawn 之前`)
+  const why = assertDbSideUnjudged(r, 'prod-tunnel 默认档')
+  assert.match(why, /--allow-prod-dsn/, '拒绝理由未给出可操作提示')
+  assert.match(why, new RegExp(gate.prodTunnelPort), '拒绝理由未点名生产隧道口')
+})
+
+test('取证闸②:同 DSN 加 --allow-prod-dsn ⇒ 恢复正常判定,psqlRunner 恰 2 次,stderr 有脱敏留痕行', async () => {
+  let calls = 0
+  const io = fixtureIO({ rows: FULL_ROWS, fetchResult: { status: 200, total: 2 } })
+  const counting = (psql, dsn, sql) => {
+    calls += 1
+    return io.psqlRunner(psql, dsn, sql)
+  }
+  const errLines = []
+  const origError = console.error
+  console.error = (...args) => errLines.push(args.map(String).join(' '))
+  let r
+  try {
+    r = await gate.collect({ ...io, psqlRunner: counting, argvDsn: PROD_TUNNEL_DSN, allowProdDsn: true, baseUrl: 'https://fixture.invalid' })
+  } finally {
+    console.error = origError
+  }
+  assert.equal(calls, 2, `显式放行后应发 2 条只读 SELECT(实得 ${calls})`)
+  assert.equal(r.overall, 'ok', gate.render(r))
+  assert.equal(r.exitCode, 0)
+  const trail = errLines.find((l) => l.includes('--allow-prod-dsn'))
+  assert.ok(trail, `stderr 缺放行留痕行:${JSON.stringify(errLines)}`)
+  assert.ok(!trail.includes(SENTINEL_PW), `留痕行泄露口令:${trail}`)
+  assert.ok(trail.includes('klass=prod-tunnel'), `留痕行未写 klass:${trail}`)
+  assert.ok(trail.includes('2 条'), `留痕行未写只读 SELECT 条数:${trail}`)
+})
+
+test('取证闸③:非回环 host(10.0.0.5:5432)默认 ⇒ 拒,零 spawn 且理由点名 host', async () => {
+  let calls = 0
+  const r = await gate.collect({
+    ...fixtureIO({ rows: FULL_ROWS, fetchResult: { status: 200, total: 2 } }),
+    psqlRunner: () => {
+      calls += 1
+      throw new AssertionError({ message: '非回环 host 默认档不得调用 psqlRunner' })
+    },
+    argvDsn: 'postgres://u:p@10.0.0.5:5432/ihui',
+    baseUrl: 'https://fixture.invalid',
+  })
+  assert.equal(calls, 0, `非回环 host 默认档调用了 psqlRunner ${calls} 次`)
+  const why = assertDbSideUnjudged(r, '非回环 host 默认档')
+  assert.match(why, /10\.0\.0\.5/, '拒绝理由未点名目标 host')
+  assert.match(why, /--allow-prod-dsn/, '拒绝理由未给出可操作提示')
+})
+
+test('取证闸④:回环 + 非 8810 端口(127.0.0.1:5433)默认放行照常,不误伤正当本机取证', async () => {
+  let calls = 0
+  const io = fixtureIO({ rows: FULL_ROWS, fetchResult: { status: 200, total: 2 } })
+  const r = await gate.collect({
+    ...io,
+    psqlRunner: (psql, dsn, sql) => {
+      calls += 1
+      return io.psqlRunner(psql, dsn, sql)
+    },
+    argvDsn: 'postgres://u:p@127.0.0.1:5433/ihui',
+    baseUrl: 'https://fixture.invalid',
+  })
+  assert.equal(calls, 2, `回环非 8810 应照常发 2 条(实得 ${calls})`)
+  assert.equal(r.overall, 'ok', `误伤了正当本机取证:${gate.render(r)}`)
+  assert.equal(r.exitCode, 0)
 })
 
 test('夹具落点纪律:manifest 夹具落 mkScratch,不落被跟踪的产品/守门源码树(§15b/门 208)', () => {

@@ -80,12 +80,12 @@ export default function KnowledgeRagChunksPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4 px-4">
         <Link
           href={`/knowledge-rag/${id}`}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToDetail')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error | null)?.message ?? (docError as Error | null)?.message ?? t('notFound')}
         </div>
       </div>
@@ -98,21 +98,23 @@ export default function KnowledgeRagChunksPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href={`/knowledge-rag/${id}`}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToDetail')}
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{doc.title}</h1>
-        <p className="text-xs text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {doc.title}
+        </h1>
+        <p className="text-label text-muted-foreground">
           {t('totalCount', { count: doc.chunkCount })}
         </p>
       </header>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed p-12 text-center text-body text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -130,13 +132,13 @@ export default function KnowledgeRagChunksPage() {
                       <Hash className="h-4 w-4 text-muted-foreground" />
                       {t('chunkIndex', { index: c.chunkIndex + 1 })}
                     </div>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {t('charCount', { count: c.content.length })}
                     </span>
                   </div>
                   <pre
                     className={cn(
-                      'whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed',
+                      'whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-body leading-relaxed',
                       !isExpanded && 'max-h-40 overflow-hidden',
                     )}
                   >
@@ -146,7 +148,7 @@ export default function KnowledgeRagChunksPage() {
                     <button
                       type="button"
                       onClick={() => toggle(c.id)}
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary transition-colors hover:underline"
+                      className="mt-2 inline-flex items-center gap-1 text-label text-primary transition-colors hover:underline"
                     >
                       {isExpanded ? (
                         <>

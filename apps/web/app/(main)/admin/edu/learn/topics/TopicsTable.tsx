@@ -95,7 +95,7 @@ export function TopicsTable({
                         className="h-10 w-10 rounded object-cover"
                       />
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-label text-muted-foreground">—</span>
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -103,7 +103,7 @@ export function TopicsTable({
                       ¥{tp.price ?? '0'}
                     </span>
                     {tp.originalPrice && tp.originalPrice !== '0' && (
-                      <span className="ml-1 text-xs text-muted-foreground line-through">
+                      <span className="ml-1 text-label text-muted-foreground line-through">
                         ¥{tp.originalPrice}
                       </span>
                     )}

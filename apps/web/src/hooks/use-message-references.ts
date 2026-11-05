@@ -68,6 +68,10 @@ const UPLOADABLE_EXTENSIONS = new Set([
   'mp4',
   'webm',
   'mov',
+  // 2026-11-04(格式对账尺 ③ 桶收口):m4v 与 mp4 同 MP4 容器,后端 EXT_MIME_MAP 已收,
+  // 小程序(AGENT 对话 VIDEO_EXTS)与 RN(ChatRoomScreen VIDEO_EXT)早已按视频档处理它,
+  // 唯独 web 聊天附件不列 ⇒ 同一文件三端行为不一致。
+  'm4v',
 ])
 
 /** 上传端点(与 AttachmentsUpload 默认端点一致) */
@@ -83,7 +87,7 @@ export const CHAT_ATTACHMENT_MAX_SIZE_BYTES = 50 * 1024 * 1024
 /** 单条消息附件数量上限:30 —— G-833 票验收口径("31 个附件 ⇒ 收到前 30 个并回报被拒 1 个") */
 export const CHAT_ATTACHMENT_MAX_FILES = 30
 /** 媒体类扩展名(accept 侧由 image 与 video 的 MIME 通配前缀覆盖,不再逐列) */
-const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov'])
+const MEDIA_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'webm', 'mov', 'm4v'])
 /** DOM input accept 派生值 —— 与 UPLOADABLE_EXTENSIONS 单一白名单同源
  *  (message-input.tsx 原写死串已改为引用本派生值,两处漂移即由它消除) */
 export const CHAT_ATTACHMENT_ACCEPT = [
@@ -106,11 +110,24 @@ export interface AttachmentRejection {
   fileNames: string[]
 }
 
+/** 取小写无点扩展名;名字里不含点 ⇒ 空串(剪贴板粘贴出来的 File 常无扩展名)。 */
+function extOfName(name: string): string {
+  const dotIndex = name.lastIndexOf('.')
+  return dotIndex >= 0 ? name.slice(dotIndex + 1).toLowerCase() : ''
+}
+
+/**
+ * 附件准入判据。服务端闸 = apps/api 的 EXT_MIME_MAP(按扩展名)+ 魔数,预筛的意义就是
+ * "服务端会拒的我先拒",所以**有扩展名一律按表判**。
+ *
+ * 2026-11-04 改前:image/*|video/* 的 MIME 前缀**无条件**放行 ⇒ 浏览器认得的 .avi/.mkv/.ogv
+ * 等能过前端、到 /api/files/upload/form 才吃 400(白名单不收,见 EXT_MIME_MAP),
+ * 用户看到的是"传失败"而不是"这种文件不收"。改后只在文件名不含扩展名时退回 MIME 前缀。
+ */
 function isAttachmentTypeAllowed(file: File): boolean {
-  if (file.type.startsWith('image/') || file.type.startsWith('video/')) return true
-  const dotIndex = file.name.lastIndexOf('.')
-  const ext = dotIndex >= 0 ? file.name.slice(dotIndex + 1).toLowerCase() : ''
-  return UPLOADABLE_EXTENSIONS.has(ext)
+  const ext = extOfName(file.name)
+  if (ext !== '') return UPLOADABLE_EXTENSIONS.has(ext)
+  return file.type.startsWith('image/') || file.type.startsWith('video/')
 }
 
 function pushRejection(

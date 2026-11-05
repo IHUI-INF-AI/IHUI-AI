@@ -5,6 +5,7 @@
 // 对齐目标(RN 共享屏): packages/app/src/features/settings/SettingsScreen.tsx
 import { useI18n } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
+import { getMiniappVersion } from '@/utils/app-version'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -15,6 +16,7 @@ import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { RowsSection, NotificationSection, PasswordModal, type SettingRow } from './parts'
+import { onToast } from '@/host/on-toast'
 
 export default function SettingIndexPage() {
   const { t } = useI18n()
@@ -23,11 +25,9 @@ export default function SettingIndexPage() {
   // 资料是否真的取到:未登录 / 取失败时不渲染用户卡(与 RN 侧 `user && onEditProfile` 同判)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [pwdVisible, setPwdVisible] = useState(false)
-  /* 版本号取端上真实来源(与「关于我们」页 api/index.ts getAboutInfo 同一口径):
-     `miniProgram.version` 只有线上版非空,开发/体验版为空串 ⇒ 空串时整行不渲染,
-     对齐 RN 侧 `appVersion ? <Text>{t('settings.version')} {appVersion}</Text> : null`。
-     此处此前写死 '1.0.0' —— 屏上那个数字与任何构建都没有关系,是编出来的。 */
-  const appVersion = Taro.getAccountInfoSync?.()?.miniProgram?.version ?? ''
+  /* 版本号走全端唯一出口 utils/app-version(线上版非空、开发/体验版空串);
+     空串时整行不渲染,对齐 RN 侧 `appVersion ? … : null`。 */
+  const appVersion = getMiniappVersion()
 
   // 本地 fallback:t(key) 未命中时返回 fb,保证页面可用(主 agent 补 i18n key 后自动切换)
   const tt = useCallback(
@@ -44,7 +44,7 @@ export default function SettingIndexPage() {
       setProfileLoaded(true)
     } catch (e) {
       logger.error('setting/index', '获取用户信息', e)
-      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     }
   }, [tt])
 
@@ -62,7 +62,7 @@ export default function SettingIndexPage() {
             await logout()
           } catch (e) {
             logger.error('setting/index', '退出登录', e)
-            Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+            onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
           }
           // 本页 `logout` 是 `@/api` 的后端登出接口(只吊销服务端会话),不清本地凭据。
           // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作:只落标记不清凭据 ⇒ 内存/存储里

@@ -12,7 +12,7 @@
  * - rejected rose   → 资源已驳回(status=3)
  * 品牌色(进度条/进行中数值/快捷入口图标底)一律走 tk.brand token,不硬编码。
  */
-import { rnDarkTokens, rnHue, rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnDarkTokens, rnHue, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 
@@ -37,7 +37,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    headerTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     headerActions: {
       marginLeft: 'auto',
       flexDirection: 'row',
@@ -46,10 +46,10 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
-    heroTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary },
+    heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    heroSubtitle: { fontSize: rnType.label.size, color: tk.text.secondary },
     sectionTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '700',
       color: tk.text.primary,
       marginBottom: rnSpacing['sm-loose'],
@@ -81,10 +81,14 @@ export function createStudentStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
     },
     statHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    statLabel: { fontSize: 12, color: tk.text.secondary },
-    statValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    statValueCompleted: { fontSize: 22, fontWeight: '700', color: STUDENT_PALETTE.completed.fg },
-    statValueBrand: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
+    statLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    statValueCompleted: {
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: STUDENT_PALETTE.completed.fg,
+    },
+    statValueBrand: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     // —— 快捷入口(报告页)——
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     quickItem: {
@@ -107,7 +111,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.brandAccent.light,
     },
-    quickText: { fontSize: 14, fontWeight: '600', color: tk.text.primary, flex: 1 },
+    quickText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary, flex: 1 },
     // —— 导出按钮行 ——
     exportRow: { flexDirection: 'row', gap: rnSpacing.sm, flexWrap: 'wrap' },
     exportBtn: {
@@ -120,7 +124,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    exportBtnText: { fontSize: 12, fontWeight: '600', color: tk.text.primary },
+    exportBtnText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.primary },
     // —— 徽章 ——
     badge: {
       alignSelf: 'flex-start',
@@ -128,7 +132,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 11, fontWeight: '600' },
+    badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
     // —— 列表行 ——
     row: {
       flexDirection: 'row',
@@ -139,8 +143,8 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderBottomColor: tk.border.light,
     },
     rowMain: { flex: 1, gap: rnSpacing.xs },
-    rowTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    rowSub: { fontSize: 11, color: tk.text.tertiary },
+    rowTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowBody: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     rowMeta: {
       flexDirection: 'row',
@@ -149,7 +153,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       gap: rnSpacing['sm-loose'],
     },
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-    metaText: { fontSize: 11, color: tk.text.tertiary },
+    metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     thumb: {
       width: 84,
       height: 48,
@@ -178,18 +182,22 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     // —— 操作按钮 ——
     iconBtn: { padding: rnSpacing['xs-loose'], borderRadius: rnRadius.sm },
-    dangerText: { fontSize: 12, fontWeight: '600', color: STUDENT_PALETTE.rejected.fg },
+    dangerText: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: STUDENT_PALETTE.rejected.fg,
+    },
     ctaBtn: {
       alignSelf: 'stretch',
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
       gap: rnSpacing['xs-loose'],
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    ctaBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    ctaBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     ghostBtn: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -199,7 +207,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    ghostBtnText: { fontSize: 13, color: tk.text.secondary },
+    ghostBtnText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     // —— 分页 ——
     pagerRow: {
       flexDirection: 'row',
@@ -212,14 +220,14 @@ export function createStudentStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.xs,
       paddingVertical: rnSpacing.sm,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    pagerBtnText: { fontSize: 13, color: tk.text.primary },
-    pagerBtnTextDisabled: { fontSize: 13, color: tk.text.tertiary },
-    pageInfo: { fontSize: 12, color: tk.text.secondary },
+    pagerBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
+    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
+    pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     // —— 空态 / 错误 / 骨架 ——
     emptyBox: {
       alignItems: 'center',
@@ -230,10 +238,10 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       borderStyle: 'dashed',
     },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
-    errorText: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    errorSub: { fontSize: 12, color: tk.text.secondary },
+    errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },
     refreshBtn: {
       alignSelf: 'center',
       alignItems: 'center',
@@ -243,7 +251,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    refreshText: { fontSize: 14, fontWeight: '600', color: tk.brand.ctaForeground },
+    refreshText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     skeletonTitle: {
       height: 20,
       width: 160,
@@ -252,14 +260,18 @@ export function createStudentStyles(tk: AppThemeTokens) {
     },
     skeletonRow: { height: 56, borderRadius: rnRadius.lg, backgroundColor: tk.border.light },
     // —— 表单(线下学习记录)——
-    formLabel: { fontSize: 12, color: tk.text.secondary, marginBottom: rnSpacing.xs },
+    formLabel: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.xs,
+    },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.inputBg,
     },
@@ -269,14 +281,14 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.inputBg,
       minHeight: 64,
       textAlignVertical: 'top',
     },
     formRow: { flexDirection: 'row', gap: rnSpacing['sm-loose'] },
-    formErr: { fontSize: 12, color: STUDENT_PALETTE.rejected.fg },
+    formErr: { fontSize: rnType.label.size, color: STUDENT_PALETTE.rejected.fg },
     formActions: { flexDirection: 'row', gap: rnSpacing['sm-loose'] },
   })
 }

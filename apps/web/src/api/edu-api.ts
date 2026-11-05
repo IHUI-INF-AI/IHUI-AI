@@ -3,6 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '@/lib/api' // AI 助教已统一切到同源 /api 代理(G-978072)
+import {
+  getDueReviews as fetchDueReviews,
+  getReviewStats as fetchReviewStats,
+  submitReview as postReview,
+} from '@ihui/api-client'
 
 /** SRS 复习题目 */
 export interface ReviewQuestion {
@@ -39,32 +44,28 @@ async function srsGet<T>(url: string): Promise<T> {
   return r.data
 }
 
-async function srsPost<T>(url: string, body: unknown): Promise<T> {
-  const r = await fetchApi<T>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 /** 今日待复习列表 */
 export async function getDueReviews(
   page = 1,
   pageSize = 20,
 ): Promise<{ list: ReviewQuestion[]; total: number }> {
-  return srsGet(`/api/srs-review/due?page=${page}&pageSize=${pageSize}`)
+  const res = await fetchDueReviews<{ list: ReviewQuestion[]; total: number }>({ page, pageSize })
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }
 
 /** 提交复习结果(quality: 0-5 SM-2 评分) */
 export async function submitReview(questionId: string, quality: number): Promise<ReviewResult> {
-  return srsPost<ReviewResult>('/api/srs-review/review', { questionId, quality })
+  const res = await postReview<ReviewResult>({ questionId, quality })
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }
 
 /** 复习统计 */
 export async function getReviewStats(): Promise<ReviewStats> {
-  return srsGet<ReviewStats>('/api/srs-review/stats')
+  const res = await fetchReviewStats<ReviewStats>()
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }
 
 // ===== AI 助教(经 apps/api 同源代理 /api/ai-tutor/*,2026-09-30 弃直连 8803,G-978072)=====

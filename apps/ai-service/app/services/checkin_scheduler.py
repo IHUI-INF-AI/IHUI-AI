@@ -4,13 +4,19 @@
 
 """签到助手每日调度器(Phase1b,2026-10-03 立)。
 
-非 Qoder 账号每日 08:05(Asia/Shanghai)、Qoder 账号每日 10:05,分别遍历
-enabled 账号逐个执行(平台分发引擎),结果落 checkin_records;错误按引擎
-classify_error 的分类驱动冷却累积。
+非 Qoder 账号每日 00:05 与 08:05(Asia/Shanghai,2026-11-04 补零点窗口)、
+Qoder 账号每日 10:05,分别遍历 enabled 账号逐个执行(平台分发引擎),结果落
+checkin_records;错误按引擎 classify_error 的分类驱动冷却累积。08:05 保留为
+兜底:零点跑若撞上平台尚未重置(假 skip_already),主窗口会再补一次。
 
 Qoder 独立 10:05 窗口的原因:官方领取活动每日 10:00(UTC+8)才开放
 (docs.qoder.com/events/100credits),08:05 跑必然「活动未下发」且当天
 不再重试 ⇒ 主 job 排除 qoder 账号(partition_platforms 拆分)。
+
+Qoder 补跑轮(2026-11-01 立):活动是 10:00 之后**异步下发**,10:05 单跑一次
+会整池空手(当日 10:07 全池 8 个号一致「活动未下发或已结束」,12:53 同票同 uid
+已是 CLAIMABLE)⇒ 按 CHECKIN_QODER_RETRY_TIMES(默认 11:00 / 12:30)再跑几轮,
+只挑「今日还没有确定结果」的号,风控语义不放松(见 _daily_run_qoder_retry)。
 
 冷却累积语义(与桌面端 auto_checkin.py 一致,引擎 docstring 明确要求):
 - classified_error.type == "Server" → server_errors + 1;
@@ -33,7 +39,8 @@ import asyncio
 import json
 import os
 import random
-from datetime import UTC, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -88,11 +95,29 @@ _ERROR_COOLDOWN_THRESHOLD = 3
 _PERMANENT_COOLDOWN_DAYS = 3650
 
 _JOB_ID = "checkin_daily"
+# 零点窗口(2026-11-04 立):部分平台本地 0 点就刷新当日额度(WorkBuddy 00:00
+# UTC+8 后可领),等 08:05 等于白晚 8 小时。新增 00:05 job 复用 _daily_run
+# (partition_platforms 已把 Qoder 拆走,不会撞 10:00 窗口);08:05 主窗口保留
+# 当兜底,两者都不做「今日已结算就跳过」过滤(假 skip_already 会永久挡掉当天真签到)。
+_JOB_ID_MIDNIGHT = "checkin_daily_midnight"
 _CREDITS_JOB_ID = "checkin_credits_daily"
 # 平台化(2026-10-10):Qoder 领取窗口每日 10:00(UTC+8)才开放(官方 docs.qoder.com
 # /events/100credits),08:05 主 job 对 Qoder 账号必然「活动未下发」且当天不再重试
 # ⇒ Qoder 账号独立 10:05 job,主 job 排除 qoder 账号。
 _JOB_ID_QODER = "checkin_daily_qoder"
+# Qoder 补跑轮(2026-11-01 立,实证见下):10:05 主窗口每天只跑一次,**活动下发晚
+# 的那天整池空手** —— 上游并非 10:00 准点下发,而是 10:00 之后异步下发,时刻不可
+# 预期。2026-11-01 实测:10:07 全池 8 个号一致返回「活动未下发或已结束」;12:53
+# 用同一张票、同一个 uid 重查已是 CLAIMABLE(票没坏、号没废,纯粹是跑早了)。
+# 结论:Qoder 腿需要「只补今日还没有确定结果的号」的补跑轮,时刻由
+# CHECKIN_QODER_RETRY_TIMES 给(默认 11:00 / 12:30)。
+_JOB_ID_QODER_RETRY = "checkin_daily_qoder_retry"
+# 补跑时刻默认值:11:00 覆盖"下发比 10:05 晚一小时"的常见情形;12:30 覆盖
+# 2026-11-01 那种"12:53 才可领"的晚下发,同时仍在当日(不跨天、不占用次日额度)。
+_QODER_RETRY_DEFAULT_TIMES = "11:00,12:30"
+# 单轮补跑账号上限:异常数据(号池被灌进几千个 qoder 号)不得把上游一轮打爆;
+# 超出的留给下一个补跑时刻,而不是放宽风控去追。
+_QODER_RETRY_MAX_PER_ROUND = 200
 # 状态探针(2026-10-16 李总需求):每日 06:00 先把平台侧「今日已签到」同步落库
 # —— 半夜 0 点平台重置后用户常已在对应程序里手动签完,等 08:05 主窗口才落
 # 记录 = UI 一早上都亮着可点按钮。探针只读不 claim,未签账号不落任何记录。
@@ -111,6 +136,20 @@ _MINIMAX_TOKEN_URL = "https://account.minimax.cn/oauth2/token"
 # 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
 # 消除「每天同一秒起批」的机器信号(env CHECKIN_CRON_JITTER 可调,0 关闭)。
 _CRON_JITTER = int(os.environ.get("CHECKIN_CRON_JITTER", "420"))
+
+# 启动补偿(2026-11-04 立):进程内 cron 轮次会被重启从中间切断(实测 08:05 主窗口
+# 跑到 08:06:58,08:06:59 进程被优雅关闭,本轮总结行未打出、当天不再有人管)。
+# 调度器**没有**「本轮跑到第几个」的持久账本 —— 只有 checkin_records 的逐账号
+# 结果,故补偿判据只能落在这份持久结果上:今天该侧节拍窗口已过 ∧ 该侧仍有
+# enabled 账号今日无 ok 记录 ⇒ 判为「被切断/未完成」,只补这批账号。
+# 环境变量:CHECKIN_STARTUP_COMPENSATION_ENABLED(缺省 true)/
+# CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES(缺省 120)/ ..._DELAY_SECONDS(缺省 90)。
+# 宽限(分钟):节拍计划时刻之后超过这么久就不再补。默认 120 分钟 = 相邻同侧
+# 节拍的量级(Qoder 10:05→11:00→12:30 的间距),再晚就跨过下一次同类窗口,
+# 补跑会和下一个正常轮次叠在同一语义上;早上被切断的轮次也不该拖到下午才补。
+_STARTUP_COMPENSATION_DEFAULT_GRACE_MINUTES = 120
+# 启动后延迟(秒):避开「刚注册就撞上同一分钟」的 cron 触发,并等服务真正就绪。
+_STARTUP_COMPENSATION_DEFAULT_DELAY_SECONDS = 90
 
 
 class RateLimitedError(RuntimeError):
@@ -135,10 +174,10 @@ class CooldownActiveError(RuntimeError):
 def partition_platforms(
     accounts: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """按平台拆分账号列表,返回 (非 qoder 走 08:05 主窗口, qoder 走 10:05 窗口)。
+    """按平台拆分账号列表,返回 (非 qoder 走零点/主窗口, qoder 走 10:05 窗口)。
 
     platform 缺失按 'trae' 处理(存量账号语义,与 store 默认列值一致)。
-    workbuddy 随主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
+    workbuddy 随零点/主窗口跑(2026-10-12:Buddy 加油站每日 00:00(UTC+8)后随时
     可领,无需独立窗口;引擎分发在 checkin_one 按 platform 进行)。纯函数。
     """
     main_side: list[dict[str, Any]] = []
@@ -178,8 +217,30 @@ def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
 
 
 def _cron_enabled() -> bool:
-    """CHECKIN_CRON_ENABLED 是否为 "true";start() 与 status() 共用同一读取,防漂移。"""
+    """CHECKIN_CRON_ENABLED 是否为 "true";start() 与 status() 共用同一读取,防漂移。
+
+    代码缺省为 false(测试/裸跑安全);部署入口(docker-compose.yml 与
+    deploy\\scripts\\prod-bundle\\svc\\run-ai.ps1)以「未设置则 true」注入。
+    """
     return os.environ.get("CHECKIN_CRON_ENABLED", "false").lower() == "true"
+
+
+def _job_cron_expr(trigger: Any) -> str:
+    """把 APScheduler trigger 压成 cron 表达式,供启动日志核对注册了什么。
+
+    CronTrigger 只用 hour/minute(本调度器全部 job 均如此),其余位写 *;
+    IntervalTrigger 压成 ``*/N * * * *`` 的分钟形态。
+    """
+    fields = getattr(trigger, "fields", None)
+    if fields:
+        named = {field.name: str(field) for field in fields}
+        if "hour" in named and "minute" in named:
+            return f"{named['minute']} {named['hour']} * * *"
+    interval = getattr(trigger, "interval", None)
+    if interval is not None:
+        minutes = int(interval.total_seconds() // 60)
+        return f"*/{max(minutes, 1)} * * * *"
+    return str(trigger)
 
 
 def _wb_tasks_sweep_minutes() -> int:
@@ -236,6 +297,220 @@ def _wb_tasks_not_running_reason(
     return "job_not_registered"
 
 
+# ---------------------------------------------------------------------------
+# Qoder 补跑轮的口径(2026-11-01):时刻解析 / 北京自然日 / 「今日已有结果」判定
+# ---------------------------------------------------------------------------
+
+
+def _parse_hhmm(raw: str) -> tuple[int, int] | None:
+    """把 "HH:MM" 解成 (hour, minute);任何不合规写法回 None(调用方整条忽略)。"""
+    parts = raw.strip().split(":")
+    if len(parts) != 2:
+        return None
+    hh, mm = parts
+    # 分钟必须两位(11:5 这种含糊写法一律不认);小时容许 1~2 位(9:30 可读且无歧义)
+    if len(hh) not in (1, 2) or len(mm) != 2:
+        return None
+    if not (hh.isdigit() and mm.isdigit()):
+        return None
+    hour, minute = int(hh), int(mm)
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return hour, minute
+
+
+def _qoder_retry_times() -> list[tuple[int, int]]:
+    """CHECKIN_QODER_RETRY_TIMES 解析:start() 注册 job 与 status() 展示共用单一真源。
+
+    逗号分隔的 HH:MM;非法条目**整条忽略并告警**,不抛异常也不拖累其它条目 ——
+    一个手抖的 "25:00" 不该把整条补跑腿连带弄没(那等价于当天漏签)。空/未配置
+    回落默认 11:00 / 12:30;重复时刻去重保序(同一个 id 不能注册两次)。
+    """
+    raw = os.environ.get("CHECKIN_QODER_RETRY_TIMES") or _QODER_RETRY_DEFAULT_TIMES
+    out: list[tuple[int, int]] = []
+    for item in raw.split(","):
+        text = item.strip()
+        if not text:
+            continue
+        parsed = _parse_hhmm(text)
+        if parsed is None:
+            logger.warning(
+                "[checkin_scheduler] CHECKIN_QODER_RETRY_TIMES 条目非法已忽略: %r"
+                "(应为 HH:MM,00:00~23:59)",
+                text,
+            )
+            continue
+        if parsed not in out:
+            out.append(parsed)
+    return out
+
+
+def _qoder_retry_job_id(hour: int, minute: int) -> str:
+    """补跑 job id:start() 注册与 status() 取 next_run_time 必须算出同一个名字。"""
+    return f"{_JOB_ID_QODER_RETRY}_{hour:02d}{minute:02d}"
+
+
+def _cn_day(instant: datetime) -> date:
+    """把任意时刻折成 Asia/Shanghai 自然日(每日 00:00 UTC+8 换日,不是 UTC 0 点)。
+
+    补跑判定必须按**北京日**折日:2026-11-01 的实证跨了 UTC 日界 —— UTC
+    15:30 == 北京 11-01 23:30 仍属"今天";UTC 16:30 == 北京 11-02 00:30 已是
+    "明天"。按 UTC 折日会把 00:00~08:00 的记录算到前一天,补跑就会对着昨天
+    已领的号再打一遍。naive 时间按 UTC 解释(库里 created_at 是 timestamptz,
+    恒为 aware;naive 只可能来自测试手写)。
+    """
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=UTC)
+    return instant.astimezone(_CN_TZ).date()
+
+
+def _cn_day_start(day: date) -> datetime:
+    """Asia/Shanghai 某自然日 00:00 的 aware datetime(给 store 当查询下界)。"""
+    return datetime.combine(day, time.min, tzinfo=_CN_TZ)
+
+
+def _settled_today(record: dict[str, Any], today: date) -> bool:
+    """该记录是否构成「今日已有确定结果」:同一北京自然日 ∧ ok=true。
+
+    ok=true 同时覆盖 claim/checkin(本次真领到)与 skip_already(平台侧今日
+    已签)—— 两者都表示"这个号今天不用再打了"。失败记录、昨天的成功记录、
+    created_at 读不出来的脏行,一律不算(宁可补一次,不可漏签)。
+    """
+    if record.get("ok") is not True:
+        return False
+    created = record.get("created_at")
+    if not isinstance(created, datetime):
+        return False
+    return _cn_day(created) == today
+
+
+# ---------------------------------------------------------------------------
+# 启动补偿(2026-11-04):判据纯函数(可注入 now,脱离 DB / 调度器单测)
+# ---------------------------------------------------------------------------
+
+
+def _startup_compensation_enabled() -> bool:
+    """CHECKIN_STARTUP_COMPENSATION_ENABLED 是否为 true(缺省 true:默认就该补)。"""
+    return os.environ.get("CHECKIN_STARTUP_COMPENSATION_ENABLED", "true").lower() == "true"
+
+
+def _startup_compensation_grace_minutes() -> int:
+    """宽限分钟数(缺省 120):节拍计划时刻之后超过这么久就不再补。
+
+    非法值/负数:告警后回落缺省值(不让一个手抖的配置把补偿整条悄悄关死,
+    也不静默吞掉配置错误)。
+    """
+    raw = os.environ.get("CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES")
+    if raw is None or not raw.strip():
+        return _STARTUP_COMPENSATION_DEFAULT_GRACE_MINUTES
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "[checkin_scheduler] CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES 非法已回落缺省 %d: %r",
+            _STARTUP_COMPENSATION_DEFAULT_GRACE_MINUTES,
+            raw,
+        )
+        return _STARTUP_COMPENSATION_DEFAULT_GRACE_MINUTES
+    if value < 0:
+        logger.warning(
+            "[checkin_scheduler] CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES 为负已按 0 处理: %d",
+            value,
+        )
+        return 0
+    return value
+
+
+def _startup_compensation_delay_seconds() -> int:
+    """启动后延迟秒数(缺省 90,负数按 0)。"""
+    raw = os.environ.get("CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS")
+    if raw is None or not raw.strip():
+        return _STARTUP_COMPENSATION_DEFAULT_DELAY_SECONDS
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "[checkin_scheduler] CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS 非法已回落缺省 %d: %r",
+            _STARTUP_COMPENSATION_DEFAULT_DELAY_SECONDS,
+            raw,
+        )
+        return _STARTUP_COMPENSATION_DEFAULT_DELAY_SECONDS
+    return max(0, value)
+
+
+@dataclass(frozen=True)
+class _SigningBeat:
+    """一个**会真正签到**的节拍;同 side 的窗口语义一致,补跑口径也一致。"""
+
+    label: str
+    job_id: str
+    hour: int
+    minute: int
+    side: Literal["main", "qoder"]
+
+    def scheduled_today(self, day: date) -> datetime:
+        return datetime.combine(day, time(self.hour, self.minute), tzinfo=_CN_TZ)
+
+
+def _signing_beats() -> list[_SigningBeat]:
+    """今天全部签到节拍(升序):零点 / 主窗口 / Qoder 窗口 / Qoder 补跑。
+
+    刻意不含 06:00 状态探针与 08:10 积分快照:
+    - 探针按设计「未签账号不落记录」⇒ 它有没有被切断**不可判定**(没有逐账号
+      完成痕迹);补偿探针等于对全量账号再做一次查询,价值只剩 UI 提前亮,
+      而这点会被随后的签到节拍覆盖;
+    - 积分快照不是签到,补它不解决「当天没人签」。
+    """
+    beats = [
+        _SigningBeat("零点窗口", _JOB_ID_MIDNIGHT, 0, 5, "main"),
+        _SigningBeat("主窗口", _JOB_ID, 8, 5, "main"),
+        _SigningBeat("Qoder窗口", _JOB_ID_QODER, 10, 5, "qoder"),
+    ]
+    for retry_hour, retry_minute in _qoder_retry_times():
+        beats.append(
+            _SigningBeat(
+                "Qoder补跑",
+                _qoder_retry_job_id(retry_hour, retry_minute),
+                retry_hour,
+                retry_minute,
+                "qoder",
+            )
+        )
+    return beats
+
+
+def plan_startup_compensation(
+    now: datetime,
+    beats: list[_SigningBeat],
+    grace_minutes: int,
+) -> list[_SigningBeat]:
+    """纯函数:本次启动要补的节拍(每侧至多一个 = 该侧最晚的合格节拍)。
+
+    判据逐条(全部满足才进补跑):
+    1. 只取**今天**的节拍(Asia/Shanghai 折日)—— 昨天/明天一律不补;
+    2. 计划时刻已过(scheduled <= now)—— 未到点的交给 cron 自己跑;
+    3. 距计划时刻 ≤ grace_minutes —— 窗口结束过久不补(不越权);
+    4. 同侧多个合格节拍只留**最晚**一个:更晚的窗口天然覆盖同一批账号,
+       一次启动补两轮等于对同一批待补号叠打(风控红线)。
+
+    naive now 按 UTC 解释(与 _cn_day 同口径)。返回按计划时刻升序,日志稳定。
+    """
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    today = _cn_day(now)
+    latest: dict[str, tuple[datetime, _SigningBeat]] = {}
+    for beat in beats:
+        scheduled = beat.scheduled_today(today)
+        if scheduled > now:
+            continue
+        if now - scheduled > timedelta(minutes=grace_minutes):
+            continue
+        prev = latest.get(beat.side)
+        if prev is None or scheduled > prev[0]:
+            latest[beat.side] = (scheduled, beat)
+    return [beat for _scheduled, beat in sorted(latest.values(), key=lambda item: item[0])]
+
+
 class CheckinScheduler:
     """签到助手每日调度器(单例)。"""
 
@@ -251,12 +526,25 @@ class CheckinScheduler:
         # status() 暴露。**进程内**语义:重启即清空(不是持久账本,不写 checkin_records
         # —— 做任务 ≠ 每日签到,不混表);多 worker 部署下各进程各自一份。
         self._wb_sweep_last: dict[str, Any] | None = None
+        # Qoder 补跑轮防重入(2026-11-01):单轮最坏 200 号 × 错峰 8~45s 可跑近两
+        # 小时,可能跨过下一个补跑时刻;两轮叠打会把同一批待补号打两遍。标志位只
+        # 在进程内(多 worker 部署各算各的,见报告残留风险)。
+        self._qoder_retry_running: bool = False
+        # 启动补偿(2026-11-04):上一轮是否已跑过的**进程内**只读快照,供 status()
+        # 暴露「补了哪个节拍、为什么、几个账号、结果如何」。进程内语义(重启即清空);
+        # 幂等性不靠它,靠 checkin_records 的今日 ok 记录(见 run_startup_compensation)。
+        self._startup_compensation_last: dict[str, Any] | None = None
+        self._startup_compensation_task: asyncio.Task[None] | None = None
+        # 批内互斥(2026-11-04):启动补偿与正常 cron 批在补位边界可能同时开跑,
+        # 两批重叠会把同一批未落记录的号打两遍 ⇒ 全调度器同一时刻只允许一批。
+        self._batch_running: bool = False
 
     # ===== 启停(lifespan 钩子) =====
 
     async def start(self) -> None:
-        """启动每日 08:05(非 Qoder)/10:05(Qoder)定时任务(CHECKIN_CRON_ENABLED
-        控制两个 job,默认 false)。
+        """启动每日 00:05/08:05(非 Qoder)/10:05(Qoder)/补跑(CHECKIN_QODER_RETRY_TIMES,
+        默认 11:00、12:30)定时任务(CHECKIN_CRON_ENABLED 控制全部 job;代码缺省 false,
+        部署入口默认注入 true)。
 
         建表 fail-open:表建不出来时只告警,不阻塞主服务启动。
         """
@@ -264,7 +552,10 @@ class CheckinScheduler:
             return
         enabled = _cron_enabled()
         if not enabled:
-            logger.info("[checkin_scheduler] CHECKIN_CRON_ENABLED=false, 不启动每日签到调度")
+            logger.warning(
+                "[checkin_scheduler] CHECKIN_CRON_ENABLED=false, 每日签到 job 未注册"
+                "(自动签到/积分快照都不会跑;开启:设置环境变量 CHECKIN_CRON_ENABLED=true 后重启服务)"
+            )
             return
         try:
             await checkin_store.ensure_tables()
@@ -272,59 +563,117 @@ class CheckinScheduler:
             logger.warning("[checkin_scheduler] 签到建表异常(忽略,签到功能不可用): %s", e)
             return
         await self._restore_outbound_pause()
-        self._scheduler = AsyncIOScheduler(timezone=_CN_TZ)
-        self._scheduler.add_job(
+        # 本地变量持有实例:闭包里用 self._scheduler 会被 mypy 判成 Any|None(union-attr)
+        scheduler = AsyncIOScheduler(timezone=_CN_TZ)
+        self._scheduler = scheduler
+        registered: list[str] = []
+
+        def _add(func: Any, trigger: Any, job_id: str) -> None:
+            """注册一个 job 并记账(启动日志用;不依赖具体 scheduler 的 get_jobs)。"""
+            scheduler.add_job(func, trigger=trigger, id=job_id, replace_existing=True)
+            registered.append(f"{job_id}={_job_cron_expr(trigger)}")
+
+        _add(
+            self._daily_run_midnight,
+            CronTrigger(hour=0, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_MIDNIGHT,
+        )
+        _add(
             self._daily_run,
-            trigger=CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID,
-            replace_existing=True,
+            CronTrigger(hour=8, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID,
         )
-        self._scheduler.add_job(
+        _add(
             self._daily_run_qoder,
-            trigger=CronTrigger(hour=10, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID_QODER,
-            replace_existing=True,
+            CronTrigger(hour=10, minute=5, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_QODER,
         )
+        # Qoder 补跑轮(2026-11-01):10:05 单跑一次会撞上"活动还没下发",按
+        # CHECKIN_QODER_RETRY_TIMES 逐个注册补跑 job(同一 jitter,与其它 job 一致);
+        # 只挑今日无确定结果的号,风控语义不变(见 _daily_run_qoder_retry)。
+        for retry_hour, retry_minute in _qoder_retry_times():
+            _add(
+                self._daily_run_qoder_retry,
+                CronTrigger(
+                    hour=retry_hour,
+                    minute=retry_minute,
+                    timezone=_CN_TZ,
+                    jitter=_CRON_JITTER,
+                ),
+                _qoder_retry_job_id(retry_hour, retry_minute),
+            )
         # 06:00 状态探针:先于主窗口同步平台侧「已签」状态(见 _JOB_ID_PROBE 注)
-        self._scheduler.add_job(
+        _add(
             self._daily_status_probe,
-            trigger=CronTrigger(hour=6, minute=0, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_JOB_ID_PROBE,
-            replace_existing=True,
+            CronTrigger(hour=6, minute=0, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _JOB_ID_PROBE,
         )
         # WP-B(2026-10-09):每日积分快照 job,与签到 job 同一启用开关
-        self._scheduler.add_job(
+        _add(
             self._daily_credits_snapshot,
-            trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
-            id=_CREDITS_JOB_ID,
-            replace_existing=True,
+            CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
+            _CREDITS_JOB_ID,
         )
         # 本机凭据同步:与每日签到开关同一个门;客户端不在同机时任务内部直接跳过(不假装成功)
-        self._scheduler.add_job(
+        _add(
             self._sync_local_credentials,
-            trigger=IntervalTrigger(minutes=15),
-            id=_JOB_ID_LOCAL_SYNC,
-            replace_existing=True,
+            IntervalTrigger(minutes=15),
+            _JOB_ID_LOCAL_SYNC,
         )
         # O68 WorkBuddy 任务赚积分巡检:独立开关(默认 off),节拍可调;写侧另由
         # WORKBUDDY_TASKS_LIVE_RUN 把关,默认调度轮只 dry-run。
         if settings.workbuddy_tasks_enabled:
-            self._scheduler.add_job(
+            _add(
                 self._workbuddy_task_sweep,
-                trigger=IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
-                id=_JOB_ID_WB_TASKS,
-                replace_existing=True,
+                IntervalTrigger(minutes=_wb_tasks_sweep_minutes()),
+                _JOB_ID_WB_TASKS,
             )
-        self._scheduler.start()
+        scheduler.start()
         self._started = True
+        retry_label = "/".join(f"{h:02d}:{m:02d}" for h, m in _qoder_retry_times())
         logger.info(
-            "[checkin_scheduler] 已启动每日调度(06:00 状态探针 / 08:05 签到 / 10:05 Qoder 签到 / 08:10 积分快照,起批漂移 ≤%ds)",
+            "[checkin_scheduler] 已启动每日调度:注册 %d 个 job [%s]"
+            "(06:00 状态探针 / 00:05 零点签到 / 08:05 签到 / 10:05 Qoder 签到 /"
+            " Qoder 补跑 %s / 08:10 积分快照,起批漂移 ≤%ds)",
+            len(registered),
+            ", ".join(registered),
+            retry_label or "未配置",
             _CRON_JITTER,
         )
+        # 启动补偿(2026-11-04):**不等待**——后台任务,启动完成后再评估,避免把
+        # 服务就绪拖在错峰签到的分钟级耗时上;失败只进 error 日志 + status 快照,
+        # 绝不把主服务拖垮(start() 本身仍对 lifespan fail-open)。
+        if _startup_compensation_enabled():
+            delay = _startup_compensation_delay_seconds()
+            self._startup_compensation_task = asyncio.create_task(
+                self._run_startup_compensation_after_delay(delay)
+            )
+            logger.info(
+                "[checkin_scheduler] 启动补偿已安排:%ds 后评估今日节拍窗口"
+                "(只补今日无 ok 结果的账号,距计划时刻 ≤%d 分钟;"
+                " CHECKIN_STARTUP_COMPENSATION_ENABLED 可关)",
+                delay,
+                _startup_compensation_grace_minutes(),
+            )
+        else:
+            logger.warning(
+                "[checkin_scheduler] CHECKIN_STARTUP_COMPENSATION_ENABLED=false,"
+                " 重启切断的签到轮次不会被补跑"
+            )
 
     async def stop(self) -> None:
         if not self._started:
             return
+        # 先取消启动补偿后台任务(还在延迟睡眠就立刻结束;正在跑批则在下一个
+        # await 点中断,_run_batch 的 finally 会释放批互斥)
+        task = self._startup_compensation_task
+        self._startup_compensation_task = None
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
         if self._scheduler is not None:
             try:
                 self._scheduler.shutdown(wait=False)
@@ -367,13 +716,193 @@ class CheckinScheduler:
             created_at.isoformat(),
         )
 
+    # ===== 启动补偿(2026-11-04) =====
+
+    async def _run_startup_compensation_after_delay(self, delay_seconds: int) -> None:
+        """后台补偿入口:延迟后评估;异常**不吞**,落 error 日志 + status 快照。"""
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+        try:
+            await self.run_startup_compensation()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001 — 启动旁路异常不得拖垮主服务,但必须可见
+            logger.error("[checkin_scheduler] 启动补偿异常(未吞): %s", e, exc_info=True)
+            snapshot = dict(self._startup_compensation_last or {})
+            snapshot["decision"] = "exception"
+            snapshot["error"] = f"{type(e).__name__}: {e}"
+            self._startup_compensation_last = snapshot
+
+    async def run_startup_compensation(self, now: datetime | None = None) -> dict[str, Any]:
+        """启动补偿:对「今天已过且在宽限内」的节拍,只补今日还没有 ok 记录的账号。
+
+        为什么判据落在 checkin_records 上:调度器没有「本轮跑到第几个」的持久
+        状态(见模块常量注),逐账号的 ok 记录是唯一能跨重启判「这个号今天到底
+        签了没有」的事实。于是:
+
+        - **幂等**:待补 = 该侧 enabled 账号 − 今日已有 ok 记录(claim 或
+          skip_already)的账号;已成功的号一发不打,重复调用第二次集合为空 ⇒
+          不产生任何新记录(失败号会重试,那是补签收益,不是重复领取);
+        - **不越权**:只补今天、计划时刻已过、距计划 ≤ grace 分钟(默认 120)的
+          节拍,同侧只取最晚一个(判据纯函数见 plan_startup_compensation);
+        - **可观测**:每个节拍一条 `[checkin_scheduler] 启动补偿` 日志,进程内快照
+          进 status()["startup_compensation"]["last"](节拍/原因/待补/结果);
+        - **不静默**:账号或今日记录读不出来 ⇒ 不盲补,error 日志 + 快照 error;
+          批执行异常 ⇒ error 日志 + `batch_failed`,绝不悄悄放过。
+
+        now 参数只为测试注入假时钟(生产恒不传)。
+        """
+        eval_now = now or datetime.now(UTC)
+        if eval_now.tzinfo is None:
+            eval_now = eval_now.replace(tzinfo=UTC)
+        started_at = datetime.now(UTC)
+        grace = _startup_compensation_grace_minutes()
+        beats = plan_startup_compensation(eval_now, _signing_beats(), grace)
+        snapshot: dict[str, Any] = {
+            "at": started_at.isoformat(),
+            "now": eval_now.isoformat(),
+            "grace_minutes": grace,
+            "decision": "evaluated",
+            "beats": [],
+            "error": None,
+        }
+        self._startup_compensation_last = snapshot
+        if not beats:
+            logger.info(
+                "[checkin_scheduler] 启动补偿:今日无处于 %d 分钟宽限内的签到节拍,不补跑",
+                grace,
+            )
+            snapshot["decision"] = "no_due_beat"
+            return snapshot
+        if checkin_outbound_gate.paused_remaining() > 0:
+            logger.warning("[checkin_scheduler] 启动补偿:出站限流暂停中,本轮不补(不顶风打)")
+            snapshot["decision"] = "outbound_paused"
+            return snapshot
+        today = _cn_day(eval_now)
+        for beat in beats:
+            scheduled = beat.scheduled_today(today)
+            minutes_past = int((eval_now - scheduled).total_seconds() // 60)
+            entry: dict[str, Any] = {
+                "beat": beat.label,
+                "job_id": beat.job_id,
+                "scheduled": scheduled.isoformat(),
+                "minutes_past": minutes_past,
+                "decision": "no_pending",
+                "accounts": 0,
+                "settled": 0,
+                "pending": 0,
+                "claimed": 0,
+                "skipped": 0,
+                "failed": 0,
+                "error": None,
+            }
+            snapshot["beats"].append(entry)
+            loaded = await self._load_accounts_and_cooldowns(f"启动补偿:{beat.label}")
+            if loaded is None:
+                entry["decision"] = "accounts_read_failed"
+                entry["error"] = "读取签到账号失败"
+                logger.error(
+                    "[checkin_scheduler] 启动补偿 %s:账号读取失败,不补(不盲打)", beat.label
+                )
+                snapshot["error"] = snapshot["error"] or entry["error"]
+                continue
+            accounts, cooldowns = loaded
+            main_side, qoder_side = partition_platforms(accounts)
+            side_accounts = qoder_side if beat.side == "qoder" else main_side
+            entry["accounts"] = len(side_accounts)
+            if not side_accounts:
+                logger.info(
+                    "[checkin_scheduler] 启动补偿 %s:%s 侧无 enabled 账号,跳过",
+                    beat.label,
+                    beat.side,
+                )
+                continue
+            try:
+                records = await checkin_store.list_records_since(_cn_day_start(today))
+            except Exception as e:
+                # 判不出「今天有没有结果」就绝不动手:宁可漏补一次,也不能对今日
+                # 已领的号盲打(与 Qoder 补跑轮同一条风控红线)。
+                entry["decision"] = "records_read_failed"
+                entry["error"] = f"读取今日记录失败:{e}"
+                logger.error(
+                    "[checkin_scheduler] 启动补偿 %s:今日记录读取失败,不盲补: %s",
+                    beat.label,
+                    e,
+                )
+                snapshot["error"] = snapshot["error"] or entry["error"]
+                continue
+            settled = {r["account_id"] for r in records if _settled_today(r, today)}
+            pending = [acc for acc in side_accounts if acc["id"] not in settled]
+            entry["settled"] = len(side_accounts) - len(pending)
+            entry["pending"] = len(pending)
+            if not pending:
+                logger.info(
+                    "[checkin_scheduler] 启动补偿 %s(计划 %s,已过 %d 分钟):"
+                    "该侧 %d 个账号今日均已有 ok 结果,无需补跑",
+                    beat.label,
+                    scheduled.strftime("%H:%M"),
+                    minutes_past,
+                    len(side_accounts),
+                )
+                continue
+            logger.warning(
+                "[checkin_scheduler] 启动补偿触发:%s(计划 %s,已过 %d 分钟,宽限 %d 分钟)"
+                " —— 该侧 %d 个账号中 %d 个今日无 ok 记录,补跑这 %d 个"
+                "(已成功/已 skip_already 的一发不打)",
+                beat.label,
+                scheduled.strftime("%H:%M"),
+                minutes_past,
+                grace,
+                len(side_accounts),
+                len(pending),
+                len(pending),
+            )
+            try:
+                stats = (
+                    await self._run_batch(pending, cooldowns, f"启动补偿:{beat.label}")
+                ) or {}
+            except Exception as e:  # noqa: BLE001 — 单节拍失败不得吞掉,也不许拖垮其它节拍
+                entry["decision"] = "batch_failed"
+                entry["error"] = f"补跑批失败:{e}"
+                logger.error(
+                    "[checkin_scheduler] 启动补偿 %s 执行失败(未吞): %s",
+                    beat.label,
+                    e,
+                    exc_info=True,
+                )
+                snapshot["error"] = snapshot["error"] or entry["error"]
+                continue
+            entry["claimed"] = int(stats.get("claimed") or 0)
+            entry["skipped"] = int(stats.get("skipped") or 0)
+            entry["failed"] = int(stats.get("failed") or 0)
+            if stats.get("aborted"):
+                entry["decision"] = "aborted"
+                entry["error"] = str(stats.get("abort_reason") or "aborted")
+                snapshot["error"] = snapshot["error"] or entry["error"]
+            else:
+                entry["decision"] = "compensated"
+            logger.info(
+                "[checkin_scheduler] 启动补偿完成:%s —— 补跑 %d 个账号,"
+                "领取 %d / 已签跳过 %d / 失败 %d",
+                beat.label,
+                len(pending),
+                entry["claimed"],
+                entry["skipped"],
+                entry["failed"],
+            )
+        return snapshot
+
     def status(self) -> dict[str, Any]:
         """运行状态(公开只读视图,供 GET /api/checkin/scheduler/status)。
 
         enabled 与 start() 读同一环境变量(_cron_enabled 单一来源);started
-        为本单例是否已 start;next_run / next_run_qoder / next_run_probe /
-        next_run_wb_tasks 仅已启动时有值(APScheduler job 的 next_run_time,
-        带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+        为本单例是否已 start;next_run / next_run_midnight / next_run_qoder /
+        next_run_qoder_retry / next_run_probe / next_run_wb_tasks 仅已启动时有值
+        (APScheduler job 的 next_run_time,带 Asia/Shanghai 时区的 ISO8601),未启动为 None。
+
+        next_run_qoder_retry(2026-11-01 补):补跑轮按 env 逐个注册 job,这里取
+        这些 job 中**最近一次**触发时刻(job id 由 _qoder_retry_job_id 单一真源
+        算出,与 start() 注册的不许漂移);一个都没注册(env 全非法)则为 None。
 
         wb_tasks(2026-10-31 补):WorkBuddy 任务巡检这条 job 此前对前端完全不可见
         ⇒ 用户看不到「自动做任务」在不在跑、下次何时跑。这里与 start() 同源暴露。
@@ -395,7 +924,9 @@ class CheckinScheduler:
         没领到分。
         """
         next_run: str | None = None
+        next_run_midnight: str | None = None
         next_run_qoder: str | None = None
+        next_run_qoder_retry: str | None = None
         next_run_probe: str | None = None
         next_run_wb_tasks: str | None = None
         # 观测态取材:调度器不存在 ⇒ job 必然没注册(不回落成"按配置猜")
@@ -408,6 +939,12 @@ class CheckinScheduler:
                 # isoformat 的产出才有 str 看守(同 checkin_store :269 的钉法)。
                 next_run_time: datetime | None = job.next_run_time
                 next_run = next_run_time.isoformat() if next_run_time is not None else None
+            job_mid = self._scheduler.get_job(_JOB_ID_MIDNIGHT)
+            if job_mid is not None:
+                next_run_time_m: datetime | None = job_mid.next_run_time
+                next_run_midnight = (
+                    next_run_time_m.isoformat() if next_run_time_m is not None else None
+                )
             job_q = self._scheduler.get_job(_JOB_ID_QODER)
             if job_q is not None:
                 next_run_time_q: datetime | None = job_q.next_run_time
@@ -420,6 +957,19 @@ class CheckinScheduler:
                 next_run_probe = (
                     next_run_time_p.isoformat() if next_run_time_p is not None else None
                 )
+            # 补跑轮可能注册多条 job(每个时刻一条):取最近的一次触发给前端
+            retry_next: list[datetime] = []
+            for retry_hour, retry_minute in _qoder_retry_times():
+                job_retry = self._scheduler.get_job(
+                    _qoder_retry_job_id(retry_hour, retry_minute)
+                )
+                if job_retry is None:
+                    continue
+                next_run_time_r: datetime | None = job_retry.next_run_time
+                if next_run_time_r is not None:
+                    retry_next.append(next_run_time_r)
+            if retry_next:
+                next_run_qoder_retry = min(retry_next).isoformat()
             if wb_job is not None:
                 next_run_time_w: datetime | None = wb_job.next_run_time
                 next_run_wb_tasks = (
@@ -429,9 +979,13 @@ class CheckinScheduler:
         wb_cron_enabled = _cron_enabled()
         return {
             "enabled": wb_cron_enabled,
+            # 开关真实值(原样,不看 started):前端/运维据此判断「是没开还是开了没跑」
+            "cron_enabled": wb_cron_enabled,
             "started": self._started,
             "next_run": next_run,
+            "next_run_midnight": next_run_midnight,
             "next_run_qoder": next_run_qoder,
+            "next_run_qoder_retry": next_run_qoder_retry,
             "next_run_probe": next_run_probe,
             "next_run_wb_tasks": next_run_wb_tasks,
             "wb_tasks": {
@@ -458,6 +1012,18 @@ class CheckinScheduler:
                 # 「上次跑了 N 家、领了 M 项」或「上次跳过:原因」,而不是一片空白。
                 "last_sweep": self._wb_sweep_last,
             },
+            # 启动补偿(2026-11-04):配置意图 + 本进程是否已跑 + 上一轮快照。
+            # last=None 表示本进程还没评估过(不是"没有补偿",是"还不知道")。
+            "startup_compensation": {
+                "enabled": _startup_compensation_enabled(),
+                "grace_minutes": _startup_compensation_grace_minutes(),
+                "delay_seconds": _startup_compensation_delay_seconds(),
+                "running": bool(
+                    self._startup_compensation_task is not None
+                    and not self._startup_compensation_task.done()
+                ),
+                "last": self._startup_compensation_last,
+            },
         }
 
     # ===== 每日任务 =====
@@ -483,72 +1049,111 @@ class CheckinScheduler:
         accounts: list[dict[str, Any]],
         cooldowns: dict[int, datetime],
         label: str,
-    ) -> None:
+    ) -> dict[str, Any]:
         """遍历账号逐个签到;冷却中的账号跳过。单账号失败不中断整轮。
 
         多账号风控三件套之三:错峰——批内账号顺序随机打散,账号之间随机
         间隔(默认 8~45s,环境变量 CHECKIN_BATCH_JITTER_MIN/MAX 可调),
         消除"所有账号同一秒签到"的机器信号,使批量签到的时间模式与
         多个真人各自操作无法区分。
+
+        返回本轮计数(claimed/skipped/failed/aborted/abort_reason):
+        启动补偿要据此打「补了几个、结果如何」的日志与状态快照。
+
+        批互斥(2026-11-04):同一时刻只允许一批 —— 启动补偿与正常 cron 批在
+        窗口补位边界可能并发,两批会对着同一批尚未落记录的号各打一次。撞上
+        互斥直接跳过并告警(不排队,排队只会把错峰窗口拖长)。
         """
+        if self._batch_running:
+            logger.warning(
+                "[checkin_scheduler] %s:上一批签到仍在跑,本批跳过(不叠打上游)", label
+            )
+            return {
+                "accounts": len(accounts),
+                "claimed": 0,
+                "skipped": 0,
+                "failed": 0,
+                "aborted": True,
+                "abort_reason": "batch_busy",
+            }
+        self._batch_running = True
         now = datetime.now(UTC)
         claimed = 0
         skipped = 0
         failed = 0
-        shuffled = list(accounts)
-        random.shuffle(shuffled)
-        accounts = shuffled
-        _seen_any = False
-        for acc in accounts:
-            cd_end = cooldowns.get(acc["id"])
-            if cd_end is not None and cd_end > now:
-                logger.info(
-                    "[checkin_scheduler] 账号冷却中跳过",
-                    account=acc["name"],
-                    until=cd_end.isoformat(),
-                )
-                continue
-            if _seen_any:
-                delay = random.uniform(_BATCH_JITTER_MIN, _BATCH_JITTER_MAX)
-                logger.info(
-                    "[checkin_scheduler] 错峰延迟 %.0fs 后签到", delay, account=acc.get("name")
-                )
-                await asyncio.sleep(delay)
-            _seen_any = True
-            try:
-                result = await self.checkin_one(acc)
-                await self.record_result(acc["id"], result)
-                kind = classify_checkin_result(result)
-                if kind == "claimed":
-                    claimed += 1
-                elif kind == "skipped":
-                    skipped += 1
-                else:
-                    failed += 1
-            except OutboundPaused as e:
-                # 风控铁律:平台限流全局暂停中,整批立即中止(绝不换个账号继续打)
-                logger.warning(
-                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已领 %d / 已签跳过 %d / 失败 %d",
-                    label,
-                    e.remaining,
-                    len(accounts),
-                    claimed,
-                    skipped,
-                    failed,
-                )
-                break
-            except Exception as e:
-                logger.warning(
-                    "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
-                )
-        logger.info(
-            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,领取成功 %d / 今日已签跳过 %d / 失败 %d",
-            label,
-            len(accounts),
-            claimed,
-            skipped,
-            failed,
-        )
+        aborted = False
+        abort_reason: str | None = None
+        try:
+            shuffled = list(accounts)
+            random.shuffle(shuffled)
+            accounts = shuffled
+            _seen_any = False
+            for acc in accounts:
+                cd_end = cooldowns.get(acc["id"])
+                if cd_end is not None and cd_end > now:
+                    logger.info(
+                        "[checkin_scheduler] 账号冷却中跳过",
+                        account=acc["name"],
+                        until=cd_end.isoformat(),
+                    )
+                    continue
+                if _seen_any:
+                    delay = random.uniform(_BATCH_JITTER_MIN, _BATCH_JITTER_MAX)
+                    logger.info(
+                        "[checkin_scheduler] 错峰延迟 %.0fs 后签到",
+                        delay,
+                        account=acc.get("name"),
+                    )
+                    await asyncio.sleep(delay)
+                _seen_any = True
+                try:
+                    result = await self.checkin_one(acc)
+                    await self.record_result(acc["id"], result)
+                    kind = classify_checkin_result(result)
+                    if kind == "claimed":
+                        claimed += 1
+                    elif kind == "skipped":
+                        skipped += 1
+                    else:
+                        failed += 1
+                except OutboundPaused as e:
+                    # 风控铁律:平台限流全局暂停中,整批立即中止(绝不换个账号继续打)
+                    aborted = True
+                    abort_reason = "outbound_paused"
+                    logger.warning(
+                        "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已领 %d / 已签跳过 %d / 失败 %d",
+                        label,
+                        e.remaining,
+                        len(accounts),
+                        claimed,
+                        skipped,
+                        failed,
+                    )
+                    break
+                except Exception as e:
+                    logger.warning(
+                        "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s",
+                        acc.get("name"),
+                        e,
+                    )
+            logger.info(
+                "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,领取成功 %d / 今日已签跳过 %d / 失败 %d",
+                label,
+                len(accounts),
+                claimed,
+                skipped,
+                failed,
+            )
+            return {
+                "accounts": len(accounts),
+                "claimed": claimed,
+                "skipped": skipped,
+                "failed": failed,
+                "aborted": aborted,
+                "abort_reason": abort_reason,
+            }
+        finally:
+            self._batch_running = False
 
     async def _probe_platform(
         self,
@@ -985,13 +1590,25 @@ class CheckinScheduler:
             "; ".join(summary) if summary else "无可用账号",
         )
 
-    async def _daily_run(self) -> None:
-        """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
-        loaded = await self._load_accounts_and_cooldowns("主窗口")
+    async def _daily_run(self, label: str = "主窗口") -> None:
+        """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。
+
+        label 只用于日志/文案(零点窗口复用同一腿时传「零点窗口」),不改业务逻辑。
+        """
+        loaded = await self._load_accounts_and_cooldowns(label)
         if loaded is None:
             return
         main_side, _ = partition_platforms(loaded[0])
-        await self._run_batch(main_side, loaded[1], "主窗口")
+        await self._run_batch(main_side, loaded[1], label)
+
+    async def _daily_run_midnight(self) -> None:
+        """00:05 零点窗口:与 08:05 主窗口同一条腿(复用 _daily_run),仅换轮次标签。
+
+        平台 0 点刷新当日额度(WorkBuddy 00:00 UTC+8 后可领);08:05 仍保留作兜底,
+        故这里**不筛「今日已结算」**——零点若撞上平台尚未重置(status 报昨日已签),
+        8:05 会再跑一次补上。
+        """
+        await self._daily_run("零点窗口")
 
     async def _daily_status_probe(self) -> None:
         """06:00 状态探针(2026-10-16 李总需求):把平台侧「今日已签到」提前同步落库。
@@ -1074,6 +1691,85 @@ class CheckinScheduler:
         _, qoder_side = partition_platforms(loaded[0])
         await self._run_batch(qoder_side, loaded[1], "Qoder窗口")
 
+    async def _daily_run_qoder_retry(self) -> None:
+        """Qoder 补跑轮(默认 11:00 / 12:30,CHECKIN_QODER_RETRY_TIMES 可调)。
+
+        立因(2026-11-01 实证):Qoder 的 100 credits 活动由上游在 10:00 **之后
+        异步下发**(不是准点):当日 10:07 全池 8 个号一致返回「活动未下发或已
+        结束」,12:53 用同一张票、同一个 uid 重查已是 CLAIMABLE —— 票没坏、号没
+        废,纯粹是跑早了。而 `_daily_run_qoder` 每天只跑一次(当天不再重试),活动
+        下发晚的那天整池空手。故补跑轮只挑「今天还没有确定结果」的号再打一遍。
+
+        **为什么补跑不会放大风控**(三条同时成立才动手):
+        - 只挑今日无确定结果的号:今日已有 ok=true(claim / skip_already)的号
+          一律跳过,补跑绝不对已落袋的号重复打接口,请求量上界 = 今日失败的号数;
+        - 冷却与出站全局闸门照旧:本轮直接走 `_run_batch`,冷却中的号跳过、撞
+          429 / 挑战页时整批立即中止,错峰抖动也是同一套 —— 补跑没有任何放宽,
+          不允许为了补签破风控;
+        - 单轮上限 _QODER_RETRY_MAX_PER_ROUND:异常数据(号池被灌进几千个 qoder
+          号)也不会把上游一轮打爆,超出的顺延到下一个补跑时刻;
+        - 防重入:上一轮还在跑(200 号 × 错峰可能跨过下一个补跑时刻)就整轮跳过,
+          两轮叠打等于把同一批待补号打两遍。
+        """
+        if self._qoder_retry_running:
+            logger.warning(
+                "[checkin_scheduler] 上一轮 Qoder补跑 仍在跑,本次跳过(不叠打上游)"
+            )
+            return
+        self._qoder_retry_running = True
+        try:
+            await self._run_qoder_retry_round()
+        finally:
+            self._qoder_retry_running = False
+
+    async def _run_qoder_retry_round(self) -> None:
+        """补跑轮的实际执行体(筛今日无结果的号 → 走上限 → 交给 _run_batch)。"""
+        loaded = await self._load_accounts_and_cooldowns("Qoder补跑")
+        if loaded is None:
+            return
+        accounts, cooldowns = loaded
+        _, qoder_side = partition_platforms(accounts)
+        if not qoder_side:
+            logger.info("[checkin_scheduler] 补跑轮无待补账号(无 Qoder 账号)")
+            return
+        today = _cn_day(datetime.now(UTC))
+        try:
+            records = await checkin_store.list_records_since(_cn_day_start(today))
+        except Exception as e:
+            # 判不出"今天有没有结果"就绝不动手:宁可这天漏签一次,也不能对今日
+            # 已领的号盲打一轮(风控红线高于补签收益)。
+            logger.warning(
+                "[checkin_scheduler] 补跑轮读取今日记录失败(本轮放弃,不盲打): %s", e
+            )
+            return
+        settled = {r["account_id"] for r in records if _settled_today(r, today)}
+        pending = [acc for acc in qoder_side if acc["id"] not in settled]
+        pending_count = len(pending)
+        if not pending:
+            logger.info(
+                "[checkin_scheduler] 补跑轮无待补账号(Qoder %d 个号今日均已有结果)",
+                len(qoder_side),
+            )
+            return
+        if pending_count > _QODER_RETRY_MAX_PER_ROUND:
+            logger.warning(
+                "[checkin_scheduler] Qoder补跑待补 %d 个号超单轮上限 %d,本轮只跑前 %d 个"
+                "(其余顺延到下一个补跑时刻)",
+                pending_count,
+                _QODER_RETRY_MAX_PER_ROUND,
+                _QODER_RETRY_MAX_PER_ROUND,
+            )
+            pending = pending[:_QODER_RETRY_MAX_PER_ROUND]
+        logger.info(
+            "[checkin_scheduler] Qoder补跑轮: Qoder 共 %d 个号,今日已有结果 %d 个,"
+            "待补 %d 个,本轮执行 %d 个",
+            len(qoder_side),
+            len(qoder_side) - pending_count,
+            pending_count,
+            len(pending),
+        )
+        await self._run_batch(pending, cooldowns, "Qoder补跑")
+
     async def _daily_credits_snapshot(self) -> None:
         """每日积分快照:遍历 enabled 账号逐个查余额并 upsert 当日快照。
 
@@ -1100,6 +1796,7 @@ class CheckinScheduler:
         ok_count = 0
         fail_count = 0
         skip_count = 0
+        na_count = 0
         for acc in accounts:
             cd_end = cooldowns.get(acc["id"])
             if cd_end is not None and cd_end > datetime.now(UTC):
@@ -1113,7 +1810,33 @@ class CheckinScheduler:
             try:
                 if acc.get("platform") == "qoder":
                     device_map = dict(acc.get("device_map") or {})
-                    result = await checkin_qoder.qoder_query_credits(acc["jwt"], device_map)
+                    # 2026-11-04:与签到主路同源 —— relay 号池是 Qoder 凭证唯一真源。
+                    # 快照此前直接用 acc["jwt"](本地副本可能已被其它入口分叉/过期)
+                    # ⇒ 08:15 必 401。先取号池权威票覆盖;取不到则记「未判定」,
+                    # 不拿未确认权威的本地票去判(既不无谓打鉴权点,也不把没判过
+                    # 的 401 写成真实失败)。
+                    qoder_cred = await checkin_store.load_qoder_cred(
+                        str(device_map.get("uid") or acc.get("uid") or "")
+                    )
+                    if not qoder_cred or not qoder_cred.get("token"):
+                        na_count += 1
+                        logger.warning(
+                            "[checkin_scheduler] 账号 %s 号池无权威票,积分快照未判定(不计失败)",
+                            acc.get("name"),
+                        )
+                        continue
+                    if qoder_cred.get("refresh_token"):
+                        device_map["refresh_token"] = qoder_cred["refresh_token"]
+                    if qoder_cred.get("expires_at"):
+                        device_map["expires_at"] = qoder_cred["expires_at"]
+                    _cosy = qoder_cred.get("cosy") or {}
+                    if _cosy:
+                        _merged = dict(device_map.get("cosy") or {})
+                        _merged.update({k: v for k, v in _cosy.items() if v})
+                        device_map["cosy"] = _merged
+                    result = await checkin_qoder.qoder_query_credits(
+                        qoder_cred["token"], device_map
+                    )
                     # 401→refresh 会写回 device_map(新 token),落库持久化
                     try:
                         await checkin_store.save_device_map(acc["id"], device_map)
@@ -1122,6 +1845,22 @@ class CheckinScheduler:
                 elif acc.get("platform") == "workbuddy":
                     wb_dm = dict(acc.get("device_map") or {})
                     result = await checkin_workbuddy.workbuddy_query_credits(acc["jwt"], wb_dm)
+                elif acc.get("platform") == "minimax":
+                    mm_dm = dict(acc.get("device_map") or {})
+                    result = await checkin_minimax.minimax_query_credits(acc["jwt"], mm_dm)
+                    # MiniMax 无公开余额端点(见 checkin_minimax.minimax_query_credits):
+                    # err=None 且 remaining=None 属「平台无该指标」⇒ 记未判定:
+                    # 不落快照(不伪装成成功),也不计失败(不是 401/网络故障)。
+                    # err 有值(401/403/Challenge/网络)仍走下方失败分支。
+                    if result.get("error") is None and not isinstance(
+                        result.get("remaining"), int
+                    ):
+                        na_count += 1
+                        logger.info(
+                            "[checkin_scheduler] 账号 %s 平台无余额指标,快照未判定(不计失败)",
+                            acc.get("name"),
+                        )
+                        continue
                 else:
                     result = await checkin_credits.query_remaining_credits(acc["jwt"])
                 if result.get("error") is not None or not isinstance(
@@ -1156,11 +1895,13 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 积分快照异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info(
-            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d,冷却跳过 %d",
+            "[checkin_scheduler] 本轮积分快照完成: 共 %d 个账号,成功 %d,失败 %d,"
+            "冷却跳过 %d,无指标/未判定 %d",
             len(accounts),
             ok_count,
             fail_count,
             skip_count,
+            na_count,
         )
 
     # ===== 单账号执行 =====
@@ -1211,12 +1952,12 @@ class CheckinScheduler:
                     account["name"], account["jwt"], device_map, client=client
                 )
             elif platform == "workbuddy":
-                # WorkBuddy 每日 00:00(UTC+8)后随时可领,随 08:05 主窗口跑
+                # WorkBuddy 每日 00:00(UTC+8)后随时可领,随零点/主窗口跑
                 result = await checkin_workbuddy.workbuddy_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )
             elif platform == "minimax":
-                # MiniMax 每日随时可领(幂等),随 08:05 主窗口跑
+                # MiniMax 每日随时可领(幂等),随零点/主窗口跑
                 result = await checkin_minimax.minimax_checkin_account(
                     account["name"], account["jwt"], device_map, client=client
                 )

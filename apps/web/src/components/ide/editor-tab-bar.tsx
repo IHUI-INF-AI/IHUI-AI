@@ -181,7 +181,7 @@ export function EditorTabBar() {
             }}
             style={{ width: `${calcTabWidth(tab.filename)}px` }}
             className={cn(
-              'group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors',
+              'group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-label transition-colors',
               isActive
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:bg-muted/40',
@@ -222,7 +222,7 @@ export function EditorTabBar() {
       {menu && menuTab && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
-          className="fixed z-popover min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          className="fixed z-popover min-w-[160px] rounded-md border border-border bg-popover py-1 text-label shadow-md"
           style={{
             // 视口 clamp:右键菜单 5 项约 170px 高,防止贴近屏幕边缘时溢出
             left: Math.min(menu.x, window.innerWidth - 176),

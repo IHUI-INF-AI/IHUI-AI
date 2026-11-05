@@ -15,7 +15,7 @@
  * 3. 失败重试：attempts 递增，超过阈值标记 failed
  */
 
-import { eq, asc, lt, sql, and } from 'drizzle-orm'
+import { eq, asc, inArray, lt, sql, and } from 'drizzle-orm'
 import { db, type Database } from '../db/index.js'
 import { outboxEvents, type OutboxEvent } from '@ihui/database'
 
@@ -55,6 +55,9 @@ export const DEFAULT_MAX_ATTEMPTS = 5
 
 /** 默认单次处理事件数。 */
 export const DEFAULT_BATCH_SIZE = 100
+
+/** cleanupProcessedOutbox 的单批主键条数上界。 */
+export const DEFAULT_CLEANUP_BATCH_LIMIT = 500
 
 /**
  * 在业务事务内写入 outbox 事件。
@@ -161,15 +164,40 @@ export async function processOutbox(
 
 /**
  * 清理已处理（processed）且超过保留期的 outbox 事件。
- * @param beforeDate 清理此日期之前的 processed 事件
+ *
+ * 单轮批上界:先按 processedAt 升序取一批主键,再按主键删 —— 一条无界 DELETE 会把
+ * 全表行锁与 .returning() 返回集一次性摊进事务(积压可能是全量 processed 行)。
+ * 短批即止,单轮持锁面始终只有一批。
+ *
+ * @param beforeDate 清理此日期之前 processed 的事件
+ * @param options.limit 单批主键条数上界,默认 DEFAULT_CLEANUP_BATCH_LIMIT
  * @returns 删除的记录数
  */
-export async function cleanupProcessedOutbox(beforeDate: Date): Promise<number> {
-  const rows = await db
-    .delete(outboxEvents)
-    .where(and(eq(outboxEvents.status, 'processed'), lt(outboxEvents.processedAt, beforeDate)))
-    .returning({ id: outboxEvents.id })
-  return rows.length
+export async function cleanupProcessedOutbox(
+  beforeDate: Date,
+  options: { limit?: number } = {},
+): Promise<number> {
+  const batchLimit = options.limit ?? DEFAULT_CLEANUP_BATCH_LIMIT
+  // 取批与按批删除共用同一份谓词,防两半各写一遍漂移
+  const cond = and(eq(outboxEvents.status, 'processed'), lt(outboxEvents.processedAt, beforeDate))
+  let deleted = 0
+  while (true) {
+    const batch = await db
+      .select({ id: outboxEvents.id })
+      .from(outboxEvents)
+      .where(cond)
+      .orderBy(asc(outboxEvents.processedAt))
+      .limit(batchLimit)
+    if (batch.length === 0) return deleted
+    await db.delete(outboxEvents).where(
+      inArray(
+        outboxEvents.id,
+        batch.map((row) => row.id),
+      ),
+    )
+    deleted += batch.length
+    if (batch.length < batchLimit) return deleted
+  }
 }
 
 /**

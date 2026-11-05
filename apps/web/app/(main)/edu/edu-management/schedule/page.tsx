@@ -23,7 +23,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassCreate,
+  eduClassList,
+  eduScheduleCopyLastWeek,
+  eduScheduleCreate,
+  eduScheduleDelete,
+  eduScheduleExport,
+  eduScheduleList,
+  eduScheduleUpdate,
+  eduTermCreate,
+  eduTermList,
+  eduTermUpdate,
+} from '@ihui/api-client'
 import { BackButton, toast, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -372,14 +384,14 @@ function TermDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {terms.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTerms')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noTerms')}</p>
           ) : (
             terms.map((term) => (
               <div
                 key={term.id}
                 role="button"
                 tabIndex={0}
-                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
+                className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-body transition-colors hover:bg-accent"
                 onClick={() => resetForm(term)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') resetForm(term)
@@ -393,7 +405,7 @@ function TermDialog({
                     </Badge>
                   )}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {term.startDate} ~ {term.endDate}
                 </span>
               </div>
@@ -421,7 +433,7 @@ function TermDialog({
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               className="h-4 w-4 rounded-sm border-gray-300"
@@ -488,17 +500,17 @@ function ClassDialog({
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {classes.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noClasses')}</p>
+            <p className="py-4 text-center text-body text-muted-foreground">{t('noClasses')}</p>
           ) : (
             classes.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm"
+                className="flex items-center justify-between rounded-md px-2 py-1.5 text-body"
               >
                 <span>
                   {c.name}
                   {c.grade && (
-                    <span className="ml-2 text-xs text-muted-foreground">({c.grade})</span>
+                    <span className="ml-2 text-label text-muted-foreground">({c.grade})</span>
                   )}
                 </span>
               </div>
@@ -566,7 +578,11 @@ export default function SchedulePage() {
   } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
@@ -581,8 +597,11 @@ export default function SchedulePage() {
 
   const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow && !!selectedTermId,
   })
 
@@ -597,10 +616,14 @@ export default function SchedulePage() {
 
   const { data: schedulesData, isLoading: schedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'schedule', selectedTermId, selectedClassId],
-    queryFn: () =>
-      apiOrThrow<{ list: ScheduleEntry[] }>(
-        `/api/edu-ai-management/schedule?termId=${selectedTermId}&classId=${selectedClassId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduScheduleList<{ list: ScheduleEntry[] }>({
+        termId: selectedTermId,
+        classId: selectedClassId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow && !!selectedTermId && !!selectedClassId,
   })
 
@@ -612,67 +635,70 @@ export default function SchedulePage() {
   }, [queryClient])
 
   const createSchedule = useMutation({
-    mutationFn: (data: ScheduleFormData) =>
-      apiOrThrow('/api/edu-ai-management/schedule', {
-        method: 'POST',
-        body: JSON.stringify({
-          termId: selectedTermId,
-          classId: selectedClassId,
-          courseName: data.courseName,
-          teacher: data.teacher || null,
-          weekday: data.weekday,
-          startTime: data.startTime,
-          endTime: data.endTime,
-          classroom: data.classroom || null,
-          color: data.color || null,
-        }),
-      }),
+    mutationFn: async (data: ScheduleFormData) => {
+      const r = await eduScheduleCreate({
+        termId: selectedTermId,
+        classId: selectedClassId,
+        courseName: data.courseName,
+        teacher: data.teacher || null,
+        weekday: data.weekday,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        classroom: data.classroom || null,
+        color: data.color || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateSchedule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ScheduleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          courseName: data.courseName,
-          teacher: data.teacher || null,
-          weekday: data.weekday,
-          startTime: data.startTime,
-          endTime: data.endTime,
-          classroom: data.classroom || null,
-          color: data.color || null,
-        }),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: ScheduleFormData }) => {
+      const r = await eduScheduleUpdate(id, {
+        courseName: data.courseName,
+        teacher: data.teacher || null,
+        weekday: data.weekday,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        classroom: data.classroom || null,
+        color: data.color || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteSchedule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduScheduleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const saveTerm = useMutation({
-    mutationFn: (data: Partial<Term>) =>
-      data.id
-        ? apiOrThrow(`/api/edu-ai-management/term/${data.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-          })
-        : apiOrThrow('/api/edu-ai-management/term', {
-            method: 'POST',
-            body: JSON.stringify(data),
-          }),
+    mutationFn: async (data: Partial<Term>) => {
+      if (data.id) {
+        const r = await eduTermUpdate(data.id, data)
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      }
+      const r = await eduTermCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const saveClass = useMutation({
-    mutationFn: (data: { name: string; grade: string }) =>
-      apiOrThrow('/api/edu-ai-management/class', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: { name: string; grade: string }) => {
+      const r = await eduClassCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -684,16 +710,12 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setCopyingLastWeek(true)
     try {
-      const result = await apiOrThrow<{ count: number }>(
-        '/api/edu-ai-management/schedule/copy-last-week',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            classId: selectedClassId,
-            targetWeekStart: formatDate(currentMonday),
-          }),
-        },
-      )
+      const r = await eduScheduleCopyLastWeek<{ count: number }>({
+        classId: selectedClassId,
+        targetWeekStart: formatDate(currentMonday),
+      })
+      if (!r.success) throw new Error(r.error)
+      const result = r.data
       invalidate()
       toast.success(t('copiedCourses', { count: result.count }))
     } catch (e: unknown) {
@@ -707,14 +729,18 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setExporting(true)
     try {
-      const data = await apiOrThrow<{
+      const r = await eduScheduleExport<{
         schedules: ScheduleEntry[]
         class: { name: string } | null
         dateRange: { startDate: string; endDate: string }
         totalCount: number
-      }>(
-        `/api/edu-ai-management/schedule/export?classId=${selectedClassId}&startDate=${formatDate(weekDays[0]!)}&endDate=${formatDate(weekDays[6]!)}`,
-      )
+      }>({
+        classId: selectedClassId,
+        startDate: formatDate(weekDays[0]!),
+        endDate: formatDate(weekDays[6]!),
+      })
+      if (!r.success) throw new Error(r.error)
+      const data = r.data
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -818,7 +844,7 @@ export default function SchedulePage() {
         key={entry.id}
         type="button"
         className={cn(
-          'w-full ui-control rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-sm px-2 py-1 text-left text-label text-white transition-opacity hover:opacity-90',
           bgColor,
         )}
         onClick={() => handleEditSchedule(entry)}
@@ -893,7 +919,7 @@ export default function SchedulePage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
+        <p className="text-label text-muted-foreground">{t('description')}</p>
       </header>
 
       {/* Toolbar */}
@@ -1021,7 +1047,7 @@ export default function SchedulePage() {
         ) : !selectedClassId ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertCircle className="mb-2 h-8 w-8" />
-            <p className="text-sm">{t('selectTermAndClass')}</p>
+            <p className="text-body">{t('selectTermAndClass')}</p>
           </div>
         ) : viewMode === 'week' ? (
           <>
@@ -1057,7 +1083,7 @@ export default function SchedulePage() {
                 style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}
               >
                 {/* Header row */}
-                <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
+                <div className="sticky left-0 bg-background p-2 text-label text-muted-foreground" />
                 {WEEKDAY_KEYS.map((key, i) => {
                   const d = weekDays[i]
                   const isToday = d && formatDate(d) === formatDate(today)
@@ -1080,7 +1106,7 @@ export default function SchedulePage() {
                 {/* Time slots */}
                 {TIME_SLOTS.map((time) => (
                   <React.Fragment key={time}>
-                    <div className="sticky left-0 flex items-start justify-end bg-background pr-2 pt-2 text-xs text-muted-foreground">
+                    <div className="sticky left-0 flex items-start justify-end bg-background pr-2 pt-2 text-label text-muted-foreground">
                       {time}
                     </div>
                     {WEEKDAY_KEYS.map((_, wi) => {

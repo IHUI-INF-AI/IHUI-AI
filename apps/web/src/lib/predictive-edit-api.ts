@@ -24,16 +24,7 @@
 
 import * as React from 'react'
 
-import { fetchApi } from '@ihui/api-client'
-
-/** ai-service 端点(web 同源反代;后端路径为 /api/llm/fim/edit-intent)。 */
-export const PREDICTIVE_EDIT_ENDPOINT = '/api/llm/fim/edit-intent'
-
-/**
- * FIM 指标上报端点(与 CodeEditor 补全上报同一个后端入口,scene 分桶)。
- * 反代路径与 edit-intent 同前缀(`/api/llm/:path*` → ai-service)。
- */
-export const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
+import { postFimEditIntent, postFimMetrics } from '@ihui/api-client'
 
 /**
  * 本场景在 model×scene 聚合里的场景字面量。**逐字**取自后端
@@ -42,7 +33,7 @@ export const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
  * `_normalize_scene` 只剥分隔符/截断,不做白名单,故拼错的值会静默落进
  * 另一个桶而不是报错 —— 改动前必须回读后端。
  */
-export const PREDICTIVE_EDIT_METRICS_SCENE = 'edit_intent'
+const PREDICTIVE_EDIT_METRICS_SCENE = 'edit_intent'
 
 /** 对话输入区草稿的文件类型线索(后端只把它当语言提示,不参与区间坐标系)。 */
 export const PREDICTIVE_EDIT_LANGUAGE = 'markdown'
@@ -194,9 +185,7 @@ export async function fetchPredictiveEdit(
     ...(request.budget_ms !== undefined ? { budget_ms: request.budget_ms } : {}),
   }
   try {
-    const result = await fetchApi<PredictiveEditResponseData>(PREDICTIVE_EDIT_ENDPOINT, {
-      method: 'POST',
-      body: JSON.stringify(body),
+    const result = await postFimEditIntent<PredictiveEditResponseData>(body, {
       signal: options.signal,
       timeoutMs: options.timeoutMs ?? PREDICTIVE_EDIT_TIMEOUT_MS,
     })
@@ -275,7 +264,7 @@ export interface PredictiveEditMetricEvent {
  * 同本文件头注的降级纪律。Promise.resolve 包裹:mock/异常实现返回非 Promise 也不抛
  * (与 CodeEditor flushFimReport 同型防线)。
  */
-export function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
+function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
   const body = {
     model: event.model || 'auto',
     scene: PREDICTIVE_EDIT_METRICS_SCENE,
@@ -287,13 +276,7 @@ export function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): vo
       : {}),
   }
   try {
-    void Promise.resolve(
-      fetchApi<unknown>(FIM_METRICS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    )
+    void Promise.resolve(postFimMetrics(body))
       .then((result) => {
         if (result && result.success === false) debugSilently('metric 上报失败', result.error)
       })
@@ -318,7 +301,7 @@ export interface PredictiveEditSettlementPayload {
   latencyMs?: number
 }
 
-export function createPredictiveEditMetricSettler() {
+function createPredictiveEditMetricSettler() {
   let pending: PredictiveEditSettlementPayload | null = null
   return {
     /** 建议开始展示:登记为待结算(同一条目重复登记幂等)。 */

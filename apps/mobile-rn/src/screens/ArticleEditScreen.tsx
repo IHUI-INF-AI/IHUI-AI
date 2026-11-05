@@ -6,7 +6,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import {
+  getArticleDetail,
+  listArticleCategories,
+  publishArticle,
+  updateArticle,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -60,7 +65,7 @@ export default function ArticleEditScreen() {
 
   useEffect(() => {
     void (async () => {
-      const res = await fetchApi<ArticleCategory[]>('/api/article/categories')
+      const res = await listArticleCategories<ArticleCategory[]>()
       if (res.success && Array.isArray(res.data)) setCategories(res.data)
     })()
   }, [])
@@ -71,7 +76,7 @@ export default function ArticleEditScreen() {
       setLoading(true)
       setLoadFailed(false)
       try {
-        const res = await fetchApi<ArticleDetail>(`/api/article/detail/${id}`)
+        const res = await getArticleDetail<ArticleDetail>(id)
         if (!res.success || !res.data) {
           setLoadFailed(true)
           return
@@ -96,18 +101,16 @@ export default function ArticleEditScreen() {
       return
     }
     setSaving(true)
-    const body = JSON.stringify({
+    const body = {
       title: title.trim(),
       content: content.trim(),
       summary: summary.trim() || undefined,
       coverImage: coverImage.trim() || undefined,
       categoryId: categoryId ?? undefined,
       isPublished: publish,
-    })
+    }
     try {
-      const res = id
-        ? await fetchApi(`/api/article/${id}`, { method: 'PUT', body })
-        : await fetchApi('/api/article/publish', { method: 'POST', body })
+      const res = id ? await updateArticle(id, body) : await publishArticle(body)
       if (!res.success) {
         appAlert(t('common.error'), res.error || t('articleEdit.saveFailed'))
         return
@@ -135,7 +138,7 @@ export default function ArticleEditScreen() {
           <Text style={styles.errorText}>{t('articleEdit.loadFailed')}</Text>
         ) : (
           <>
-            <Text style={styles.label}>{t('articleEdit.articleTitle')}</Text>
+            <Text style={styles.label}>{t('articles.titleField')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={title}
@@ -155,7 +158,7 @@ export default function ArticleEditScreen() {
               style={[styles.input, styles.contentInput]}
               editable={!saving}
             />
-            <Text style={styles.label}>{t('articleEdit.summary')}</Text>
+            <Text style={styles.label}>{t('articles.summaryField')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={summary}
@@ -168,7 +171,7 @@ export default function ArticleEditScreen() {
             />
             {categories.length > 0 ? (
               <>
-                <Text style={styles.label}>{t('articleEdit.category')}</Text>
+                <Text style={styles.label}>{t('articles.categoryField')}</Text>
                 <View style={styles.chips}>
                   {categories.map((c) => (
                     <TouchableOpacity
@@ -262,13 +265,13 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
     },
     chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
-    chipText: { fontSize: 13, color: tokens.text.primary },
+    chipText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
     chipActiveText: { color: tokens.brand.ctaForeground },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
     },
     radio: {
       width: 20,

@@ -9,24 +9,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Copy, Loader2, Play, Square, Video } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { createSrsStream, getSrsStreams, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAuthStore } from '@/stores/auth'
 
-interface StreamItem {
-  id: string
-  streamKey: string
-  title: string
-  pushUrl: string | null
-  playUrl: string | null
-  hlsUrl: string | null
-  status: string
-  userId: string | null
-  createdAt: string
-}
+type StreamItem = SrsStream
 
 export default function LiveHostPage() {
   const t = useTranslations('liveHost')
@@ -40,17 +30,21 @@ export default function LiveHostPage() {
 
   const myStreamsQ = useQuery({
     queryKey: ['srs', 'streams'],
-    queryFn: () => apiOrThrow<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
+    queryFn: async () => {
+      const r = await getSrsStreams({ page: 1, pageSize: 50 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     select: (d) => d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
     enabled: allow,
   })
 
   const createQ = useMutation({
-    mutationFn: () =>
-      apiOrThrow<StreamItem>('/srs/streams', {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim() }),
-      }),
+    mutationFn: async () => {
+      const r = await createSrsStream({ title: title.trim() })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (stream) => {
       setCreated(stream)
       setTitle('')
@@ -61,11 +55,11 @@ export default function LiveHostPage() {
   })
 
   const endQ = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow<StreamItem>(`/srs/streams/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: 'inactive' }),
-      }),
+    mutationFn: async (id: string) => {
+      const r = await updateSrsStream(id, { status: 'inactive' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('endSuccess'))
       void qc.invalidateQueries({ queryKey: ['srs', 'streams'] })
@@ -122,22 +116,22 @@ export default function LiveHostPage() {
           <CardContent className="min-[640px]:p-3 space-y-2 p-3">
             <h3 className="text-body font-medium">{t('streamInfo')}</h3>
             {created.pushUrl ? (
-              <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
-                <span className="truncate font-mono text-xs">{created.pushUrl}</span>
+              <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-body">
+                <span className="truncate font-mono text-label">{created.pushUrl}</span>
                 <Button variant="ghost" size="sm" onClick={() => void copyText(created.pushUrl!)}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
             ) : null}
-            <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-sm">
-              <span className="truncate font-mono text-xs">
+            <div className="flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2 text-body">
+              <span className="truncate font-mono text-label">
                 {t('streamKey')}: {created.streamKey}
               </span>
               <Button variant="ghost" size="sm" onClick={() => void copyText(created.streamKey)}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">{t('obsHint')}</p>
+            <p className="text-label text-muted-foreground">{t('obsHint')}</p>
           </CardContent>
         </Card>
       ) : null}
@@ -156,7 +150,7 @@ export default function LiveHostPage() {
             </div>
           ) : (myStreamsQ.data ?? []).length === 0 ? (
             <Card>
-              <CardContent className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+              <CardContent className="flex items-center justify-center py-8 text-body text-muted-foreground">
                 {t('empty')}
               </CardContent>
             </Card>
@@ -167,7 +161,7 @@ export default function LiveHostPage() {
                   <CardContent className="min-[640px]:p-3 flex items-center justify-between gap-3 p-3">
                     <div className="min-w-0">
                       <h4 className="truncate text-body font-medium">{stream.title}</h4>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="mt-0.5 text-label text-muted-foreground">
                         {stream.status === 'active' ? t('statusActive') : t('statusInactive')}
                       </p>
                     </div>
@@ -186,7 +180,7 @@ export default function LiveHostPage() {
                         {t('endBtn')}
                       </Button>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-body text-muted-foreground">
                         <Play className="h-4 w-4" />
                         {t('statusInactive')}
                       </span>

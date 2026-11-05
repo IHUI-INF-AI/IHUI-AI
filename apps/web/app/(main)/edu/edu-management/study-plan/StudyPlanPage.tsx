@@ -12,7 +12,24 @@ import { Loader2 } from 'lucide-react'
 import { BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import {
-  api,
+  eduClassCreate,
+  eduClassList,
+  eduPlanItemDelete,
+  eduPlanItemUpdate,
+  eduStudyPlanAutoSplit,
+  eduStudyPlanCompletionStats,
+  eduStudyPlanCreate,
+  eduStudyPlanDelete,
+  eduStudyPlanItemCreate,
+  eduStudyPlanItems,
+  eduStudyPlanList,
+  eduStudyPlanProgressTimeline,
+  eduStudyPlanUpdate,
+  eduTermCreate,
+  eduTermList,
+  eduTermUpdate,
+} from '@ihui/api-client'
+import {
   type Term,
   type EduClass,
   type StudyPlan,
@@ -61,7 +78,11 @@ export default function StudyPlanPage() {
     error: termsError,
   } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => api<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
@@ -76,8 +97,11 @@ export default function StudyPlanPage() {
 
   const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      api<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
 
@@ -99,15 +123,15 @@ export default function StudyPlanPage() {
       planFilter,
       statusFilter,
     ],
-    queryFn: () => {
-      let url = `/api/edu-ai-management/study-plan?termId=${selectedTermId}&classId=${selectedClassId}`
-      if (planFilter !== 'all') {
-        url += `&planType=${planFilter}`
-      }
-      if (statusFilter !== 'all') {
-        url += `&status=${statusFilter}`
-      }
-      return api<{ list: StudyPlan[] }>(url)
+    queryFn: async () => {
+      const r = await eduStudyPlanList<{ list: StudyPlan[] }>({
+        termId: selectedTermId,
+        classId: selectedClassId,
+        planType: planFilter !== 'all' ? planFilter : undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedTermId && !!selectedClassId,
   })
@@ -142,8 +166,11 @@ export default function StudyPlanPage() {
 
   const { data: itemsData, isLoading: itemsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'study-plan', selectedPlan?.id, 'items'],
-    queryFn: () =>
-      api<{ list: PlanItem[] }>(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`),
+    queryFn: async () => {
+      const r = await eduStudyPlanItems<{ list: PlanItem[] }>(selectedPlan!.id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedPlan,
   })
 
@@ -207,7 +234,7 @@ export default function StudyPlanPage() {
   }, [queryClient])
 
   const createPlan = useMutation({
-    mutationFn: (data: {
+    mutationFn: async (data: {
       title: string
       planType: PlanType
       classId: string
@@ -215,28 +242,28 @@ export default function StudyPlanPage() {
       startDate: string
       endDate: string
       description: string
-    }) =>
-      api('/api/edu-ai-management/study-plan', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: data.title,
-          planType: data.planType,
-          classId: data.classId,
-          termId: data.termId,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          description: data.description || null,
-        }),
-      }),
+    }) => {
+      const r = await eduStudyPlanCreate({
+        title: data.title,
+        planType: data.planType,
+        classId: data.classId,
+        termId: data.termId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        description: data.description || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updatePlan = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<StudyPlanFormData> }) =>
-      api(`/api/edu-ai-management/study-plan/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<StudyPlanFormData> }) => {
+      const r = await eduStudyPlanUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (_, vars) => {
       invalidate()
       if (selectedPlan?.id === vars.id) {
@@ -248,8 +275,11 @@ export default function StudyPlanPage() {
   })
 
   const deletePlan = useMutation({
-    mutationFn: (id: string) =>
-      api(`/api/edu-ai-management/study-plan/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduStudyPlanDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       invalidate()
       if (selectedPlan && editingPlan?.id === selectedPlan.id) {
@@ -259,42 +289,42 @@ export default function StudyPlanPage() {
   })
 
   const autoSplitPlan = useMutation({
-    mutationFn: (id: string) =>
-      api<{ count: number; plans: StudyPlan[] }>(
-        `/api/edu-ai-management/study-plan/${id}/auto-split`,
-        { method: 'POST' },
-      ),
+    mutationFn: async (id: string) => {
+      const r = await eduStudyPlanAutoSplit<{ count: number; plans: StudyPlan[] }>(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updatePlanStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: PlanStatus }) =>
-      api(`/api/edu-ai-management/study-plan/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      }),
+    mutationFn: async ({ id, status }: { id: string; status: PlanStatus }) => {
+      const r = await eduStudyPlanUpdate(id, { status })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createItem = useMutation({
-    mutationFn: (data: {
+    mutationFn: async (data: {
       content: string
       objective?: string | null
       dueDate?: string | null
       notes?: string | null
       parentItemId?: string | null
-    }) =>
-      api(`/api/edu-ai-management/study-plan/${selectedPlan!.id}/items`, {
-        method: 'POST',
-        body: JSON.stringify({
-          content: data.content,
-          objective: data.objective ?? null,
-          dueDate: data.dueDate ?? null,
-          notes: data.notes ?? null,
-          parentItemId: data.parentItemId ?? null,
-          sortOrder: allItems.length,
-        }),
-      }),
+    }) => {
+      const r = await eduStudyPlanItemCreate(selectedPlan!.id, {
+        content: data.content,
+        objective: data.objective ?? null,
+        dueDate: data.dueDate ?? null,
+        notes: data.notes ?? null,
+        parentItemId: data.parentItemId ?? null,
+        sortOrder: allItems.length,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       invalidate()
       queryClient.invalidateQueries({
@@ -304,11 +334,11 @@ export default function StudyPlanPage() {
   })
 
   const updateItem = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      api(`/api/edu-ai-management/plan-item/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      const r = await eduPlanItemUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       invalidate()
       queryClient.invalidateQueries({
@@ -318,7 +348,11 @@ export default function StudyPlanPage() {
   })
 
   const deleteItem = useMutation({
-    mutationFn: (id: string) => api(`/api/edu-ai-management/plan-item/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduPlanItemDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       invalidate()
       queryClient.invalidateQueries({
@@ -328,11 +362,11 @@ export default function StudyPlanPage() {
   })
 
   const toggleItemCompleted = useMutation({
-    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
-      api(`/api/edu-ai-management/plan-item/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ completed }),
-      }),
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const r = await eduPlanItemUpdate(id, { completed })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       invalidate()
       queryClient.invalidateQueries({
@@ -342,25 +376,25 @@ export default function StudyPlanPage() {
   })
 
   const saveTerm = useMutation({
-    mutationFn: (data: Partial<Term>) =>
-      data.id
-        ? api(`/api/edu-ai-management/term/${data.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-          })
-        : api('/api/edu-ai-management/term', {
-            method: 'POST',
-            body: JSON.stringify(data),
-          }),
+    mutationFn: async (data: Partial<Term>) => {
+      if (data.id) {
+        const r = await eduTermUpdate(data.id, data)
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      }
+      const r = await eduTermCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const saveClass = useMutation({
-    mutationFn: (data: { name: string; grade: string }) =>
-      api('/api/edu-ai-management/class', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: { name: string; grade: string }) => {
+      const r = await eduClassCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -508,19 +542,26 @@ export default function StudyPlanPage() {
       selectedClassId,
       selectedTermId,
     ],
-    queryFn: () =>
-      api<CompletionStatsResponse>(
-        `/api/edu-ai-management/study-plan/completion-stats?classId=${selectedClassId}&termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduStudyPlanCompletionStats<CompletionStatsResponse>({
+        classId: selectedClassId,
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedClassId && !!selectedTermId,
   })
 
   const progressTimelineQuery = useQuery({
     queryKey: ['edu-ai-management', 'study-plan', 'progress-timeline', selectedPlan?.id],
-    queryFn: () =>
-      api<ProgressTimelineResponse>(
-        `/api/edu-ai-management/study-plan/progress-timeline?planId=${selectedPlan!.id}`,
-      ),
+    queryFn: async () => {
+      const r = await eduStudyPlanProgressTimeline<ProgressTimelineResponse>({
+        planId: selectedPlan!.id,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: false,
   })
 
@@ -558,7 +599,7 @@ export default function StudyPlanPage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <StudyPlanToolbar

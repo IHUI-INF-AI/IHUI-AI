@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 既有 `/api/voice/stt` faster-whisper 端点(`@ihui/api-client` voiceSttFromBlob),
 // phase 收敛全部走 `@ihui/shared` 的 transitionVoiceNotePhase(12 相判别联合,
 // 非法迁移 no-op),端内不散写 phase 判断。
@@ -20,6 +21,7 @@ import {
   Archive,
   ArchiveRestore,
   ClipboardPaste,
+  ChevronDown,
   Mic,
   RefreshCw,
   Square,
@@ -30,6 +32,11 @@ import {
 import { Button, SearchInput } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+} from '@/lib/composer-menu-row'
 import { Tooltip } from '@/components/feedback'
 import {
   createVoiceNote,
@@ -68,9 +75,15 @@ export interface VoiceNoteProps {
   conversationId?: string | null
   /** 转写端点开关:false = 显式降级(转写占位相可达但卡 pending) */
   sttEnabled?: boolean
+  /** row = + 菜单内的统一设置行(2026-11-04 第三轮) */
+  variant?: 'bar' | 'row'
 }
 
-export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNoteProps) {
+export function VoiceNote({
+  conversationId = null,
+  sttEnabled = true,
+  variant = 'bar',
+}: VoiceNoteProps) {
   const t = useTranslations('chat.voiceNote')
   /**
    * 归档/分组三枚文案借既有键(本席文件白名单不含 `packages/i18n`,不得新增键):
@@ -372,15 +385,42 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
 
   return (
     <div className="relative" data-testid="voice-note">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen((v) => !v)}
-        data-testid="voice-note-trigger"
-      >
-        <Mic className="h-4 w-4" />
-        {t('title')}
-      </Button>
+      {variant === 'row' ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          data-testid="voice-note-trigger"
+          data-variant="row"
+          aria-label={t('title')}
+          title={t('title')}
+          aria-expanded={open}
+          className={COMPOSER_MENU_ROW_CLASS}
+        >
+          <Mic className={COMPOSER_MENU_ROW_ICON_CLASS} />
+          <span className="min-w-0 flex-1 truncate">{t('title')}</span>
+          <ChevronDown
+            className={cn(
+              COMPOSER_MENU_ROW_CHEVRON_CLASS,
+              open && 'rotate-180 transition-transform',
+            )}
+            aria-hidden
+          />
+        </button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpen((v) => !v)}
+          data-testid="voice-note-trigger"
+          aria-label={t('title')}
+          title={t('title')}
+        >
+          <Mic className="h-4 w-4" />
+          {/* 底栏窄档由 globals.css @container 隐藏本标签(仅留麦克风图标),
+              无障碍名称不降级:aria-label/title 已提到触发按钮上 */}
+          <span className="voice-note-label">{t('title')}</span>
+        </Button>
+      )}
 
       {open && (
         <div
@@ -388,7 +428,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           data-testid="voice-note-panel"
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-medium">{t('title')}</span>
+            <span className="text-label font-medium">{t('title')}</span>
             <button
               type="button"
               aria-label={t('action.dismiss')}
@@ -407,7 +447,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {showPhaseLabel && (
             <div
               className={cn(
-                'mb-2 rounded-md border px-2 py-1 text-xs',
+                'mb-2 rounded-md border px-2 py-1 text-label',
                 phase === 'completed' && 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600',
                 phase === 'cancelled' && 'border-muted bg-muted/30 text-muted-foreground',
                 (phase === 'failed' || phase === 'error' || phase === 'interrupted') &&
@@ -429,7 +469,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 错误文案(权限拒绝/无设备/启动失败/保存失败/识别中断) */}
           {errorCode && (
             <div
-              className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+              className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
               data-testid="voice-note-error"
             >
               {t(`errors.${errorCode}`)}
@@ -439,14 +479,14 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 转写结果 */}
           {phase === 'completed' && transcript && !emptyResult && (
             <div
-              className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-xs"
+              className="mb-2 max-h-32 overflow-auto rounded-md border bg-muted/30 px-2 py-1 text-label"
               data-testid="voice-note-transcript"
             >
               {transcript}
             </div>
           )}
           {phase === 'completed' && emptyResult && (
-            <div className="mb-2 text-xs text-muted-foreground" data-testid="voice-note-empty">
+            <div className="mb-2 text-label text-muted-foreground" data-testid="voice-note-empty">
               {t('errors.emptyTranscript')}
             </div>
           )}
@@ -454,7 +494,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 降级文案:waitingTranscript 停留 pending(端点缺失) */}
           {isVoiceNoteTranscriptPending(phase) && !sttEnabled && (
             <div
-              className="mb-2 text-xs text-muted-foreground"
+              className="mb-2 text-label text-muted-foreground"
               data-testid="voice-note-stt-pending"
             >
               {t('errors.sttPending')}
@@ -583,7 +623,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
           {/* 归档列表(服务端事实源:新建→落库→插入对话→删除) */}
           {listError && (
             <div
-              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs text-destructive"
+              className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-label text-destructive"
               data-testid="voice-note-list-error"
             >
               {t('errors.loadFailed')}
@@ -597,7 +637,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                 .map((note) => (
                   <React.Fragment key={note.id}>
                     <div
-                      className="flex items-center gap-1.5 rounded px-1 py-1 text-xs hover:bg-accent"
+                      className="flex items-center gap-1.5 rounded px-1 py-1 text-label hover:bg-accent"
                       data-testid="voice-note-archive-item"
                     >
                       <span className="font-mono tabular-nums text-muted-foreground">
@@ -676,7 +716,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                         data-testid="voice-note-group-editor"
                       >
                         <input
-                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-xs"
+                          className="min-w-0 flex-1 rounded-sm border bg-background px-1.5 py-0.5 text-label"
                           value={groupDraft}
                           onChange={(e) => setGroupDraft(e.target.value)}
                           onKeyDown={(e) => {
@@ -706,3 +746,4 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
 }
 
 export default VoiceNote
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

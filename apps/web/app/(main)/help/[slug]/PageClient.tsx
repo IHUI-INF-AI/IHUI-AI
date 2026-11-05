@@ -11,15 +11,10 @@ import { useTranslations, useLocale } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, ArrowLeft, BookOpen, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 
+import { getHelpArticle, listHelpArticles } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import {
-  api,
-  markdownComponents,
-  extractToc,
-  type HelpArticleDetail,
-  type HelpArticleSummary,
-} from '@/lib/content'
+import { markdownComponents, extractToc } from '@/lib/content'
 
 export default function HelpArticlePage() {
   const { slug } = useParams<{ slug: string }>()
@@ -29,19 +24,24 @@ export default function HelpArticlePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['help-article', slug],
-    queryFn: () => api<HelpArticleDetail>(`/api/help/articles/${slug}`),
+    queryFn: async () => {
+      const res = await getHelpArticle(slug)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
   })
 
   const category = data?.article.category
   const { data: related = [] } = useQuery({
     queryKey: ['help-articles-related', category],
     queryFn: () =>
-      api<{ list: HelpArticleSummary[] }>(
-        `/api/help/articles${category ? `?category=${category}` : ''}`,
-      ).then((d) => d.list ?? []),
+      listHelpArticles(category).then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
     enabled: !!category,
   })
-  const relatedItems = related.filter((r: HelpArticleSummary) => r.slug !== slug).slice(0, 5)
+  const relatedItems = related.filter((r) => r.slug !== slug).slice(0, 5)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -68,12 +68,12 @@ export default function HelpArticlePage() {
         <button
           type="button"
           onClick={() => router.push('/help')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -86,15 +86,17 @@ export default function HelpArticlePage() {
     <div className="py-4 mx-auto w-full max-w-6xl space-y-4 px-4">
       <Link
         href="/help"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
       </Link>
 
       <header className="space-y-2">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{a.title}</h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {a.title}
+        </h1>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <BookOpen className="h-4 w-4" />
             {data.categoryName ?? a.category}
@@ -131,7 +133,7 @@ export default function HelpArticlePage() {
                           key={item.id}
                           href={`#${item.id}`}
                           className={cn(
-                            'block rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                            'block rounded px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
                             item.level === 3 && 'pl-4',
                           )}
                         >
@@ -149,11 +151,11 @@ export default function HelpArticlePage() {
                       {t('related')}
                     </p>
                     <nav className="space-y-1">
-                      {relatedItems.map((r: HelpArticleSummary) => (
+                      {relatedItems.map((r) => (
                         <Link
                           key={r.slug}
                           href={`/help/${r.slug}`}
-                          className="block rounded px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                          className="block rounded px-2 py-1 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                         >
                           {r.title}
                         </Link>
@@ -171,11 +173,11 @@ export default function HelpArticlePage() {
         {data.prev ? (
           <Link
             href={`/help/${data.prev.slug}`}
-            className="group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+            className="group flex items-center gap-2 rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
             <span>
-              <span className="block text-xs text-muted-foreground">{t('prev')}</span>
+              <span className="block text-label text-muted-foreground">{t('prev')}</span>
               <span className="font-medium">{data.prev.title}</span>
             </span>
           </Link>
@@ -185,10 +187,10 @@ export default function HelpArticlePage() {
         {data.next ? (
           <Link
             href={`/help/${data.next.slug}`}
-            className="group flex items-center gap-2 rounded-md px-3 py-2 text-right text-sm transition-colors hover:bg-accent"
+            className="group flex items-center gap-2 rounded-md px-3 py-2 text-right text-body transition-colors hover:bg-accent"
           >
             <span>
-              <span className="block text-xs text-muted-foreground">{t('next')}</span>
+              <span className="block text-label text-muted-foreground">{t('next')}</span>
               <span className="font-medium">{data.next.title}</span>
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />

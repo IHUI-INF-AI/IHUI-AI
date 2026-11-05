@@ -141,6 +141,7 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
         },
     )
     expect(err).toBeInstanceOf(Error)
+    if (!(err instanceof Error)) throw new Error('createUsdtPayment 未按预期抛错')
     expect((err as { statusCode?: number }).statusCode).toBe(500)
     expect(err.message).toContain('未配置')
     expect(mockInsertValues).not.toHaveBeenCalled()
@@ -155,6 +156,7 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
         },
     )
     expect(err).toBeInstanceOf(Error)
+    if (!(err instanceof Error)) throw new Error('createUsdtPayment 未按预期抛错')
     expect((err as { statusCode?: number }).statusCode).toBe(400)
     expect(err.message).not.toContain('T0aaaaaaaa')
     expect(mockInsertValues).not.toHaveBeenCalled()
@@ -166,7 +168,7 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
     expect(r.address).toBe(REAL_TRON)
     expect(r.network).toBe('TRC20')
     expect(mockInsertValues).toHaveBeenCalledTimes(1)
-    expect(mockInsertValues.mock.calls[0][0]).toMatchObject({
+    expect(mockInsertValues.mock.calls[0]![0]).toMatchObject({
       address: REAL_TRON,
       network: 'TRC20',
       status: 'pending',
@@ -228,7 +230,7 @@ describe('取证侧第二调用点 — verifyErc20OnChain 与 verifyTrc20OnChain
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: '1', result: [] }) })
     const r = await verifyUsdtOnChain('ERC20', 'tx-erc-3', 1, ERC20_SAMPLE)
     expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(String(mockFetch.mock.calls[0][0])).toContain(ERC20_SAMPLE)
+    expect(String(mockFetch.mock.calls[0]![0])).toContain(ERC20_SAMPLE)
     expect(r.verified).toBe(false)
     expect(r.reason).toContain('未在平台地址转入记录中找到')
     expect(r.reason).not.toContain('格式非法')

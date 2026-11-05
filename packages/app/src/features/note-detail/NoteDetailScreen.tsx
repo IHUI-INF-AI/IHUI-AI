@@ -8,7 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart } from 'lucide-react-native'
 import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -28,8 +28,9 @@ export function NoteDetailScreen({
   loading,
   error,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: NoteDetailScreenProps) {
+}: NoteDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function NoteDetailScreen({
       <View style={styles.container}>
         <ErrorState
           message={error || t('noteDetail.loadFailed')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
@@ -61,12 +62,16 @@ export function NoteDetailScreen({
       <View style={styles.metaRow}>
         <Text style={styles.author}>{item.author}</Text>
         <Text style={styles.meta}>
-          {t('noteDetail.views', { count: item.views })} · {item.createdAt}
+          {/* views 不在 /api/notes/:id 投影里 ⇒ 缺失时不渲染该段,只显示时间 */}
+          {item.views !== null && item.views !== undefined
+            ? `${t('noteDetail.views', { count: item.views })} · `
+            : ''}
+          {item.createdAt}
         </Text>
       </View>
-      {item.tags.length > 0 ? (
+      {(item.tags ?? []).length > 0 ? (
         <View style={styles.tagRow}>
-          {item.tags.map((tag) => (
+          {(item.tags ?? []).map((tag) => (
             <Text key={tag} style={styles.tag}>
               #{tag}
             </Text>
@@ -74,12 +79,15 @@ export function NoteDetailScreen({
         </View>
       ) : null}
       <Text style={styles.content}>{item.content}</Text>
-      <View style={styles.statRow}>
-        <View style={styles.stat}>
-          <Heart size={12} color={tk.text.medium} />
-          <Text style={styles.statText}>{item.likes}</Text>
+      {/* likes 同为可选字段:后端没给就不渲染点赞统计,不以 0 顶位 */}
+      {item.likes !== null && item.likes !== undefined ? (
+        <View style={styles.statRow}>
+          <View style={styles.stat}>
+            <Heart size={12} color={tk.text.medium} />
+            <Text style={styles.statText}>{item.likes}</Text>
+          </View>
         </View>
-      </View>
+      ) : null}
     </ScrollView>
   )
 }
@@ -92,15 +100,20 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       marginTop: rnSpacing['xs-loose'],
       marginBottom: rnSpacing['xs-loose'],
     },
-    author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
-    meta: { fontSize: 11, color: tk.text.tertiary },
+    author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
+    meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tagRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -108,7 +121,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     tag: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -127,7 +140,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
     },
     statText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.medium,
     },
   })

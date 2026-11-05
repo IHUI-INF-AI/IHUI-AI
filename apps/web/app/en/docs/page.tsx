@@ -215,7 +215,7 @@ export default function EnDocsPage() {
             <Rocket className="h-6 w-6 text-primary" />
             <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">Quick Start</h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
             Ship your first AI feature in minutes. Each guide links to the full Chinese documentation.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -228,7 +228,7 @@ export default function EnDocsPage() {
                       <Icon className="h-5 w-5" />
                     </div>
                     <CardTitle className="mt-3 text-base">{card.title}</CardTitle>
-                    <CardDescription className="mt-1 text-sm leading-relaxed">
+                    <CardDescription className="mt-1 text-body leading-relaxed">
                       {card.description}
                     </CardDescription>
                   </CardHeader>
@@ -255,7 +255,7 @@ export default function EnDocsPage() {
               Documentation Categories
             </h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
             Six core areas covering the full IHUI AI platform.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -268,7 +268,7 @@ export default function EnDocsPage() {
                       <Icon className="h-5 w-5" />
                     </div>
                     <CardTitle className="mt-3 text-base">{cat.title}</CardTitle>
-                    <CardDescription className="mt-1 text-sm leading-relaxed">
+                    <CardDescription className="mt-1 text-body leading-relaxed">
                       {cat.description}
                     </CardDescription>
                   </CardHeader>
@@ -294,10 +294,10 @@ export default function EnDocsPage() {
               Quick API Example
             </h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
             Install the CLI, scaffold a project, and start developing in three commands.
           </p>
-          <pre className="mt-6 overflow-x-auto rounded-lg border bg-background p-3 text-xs leading-relaxed text-foreground min-[768px]:text-sm">
+          <pre className="mt-6 overflow-x-auto rounded-lg border bg-background p-3 text-label leading-relaxed text-foreground min-[768px]:text-body">
             <code>{`# Install CLI
 npm install -g ihui-cli
 
@@ -317,7 +317,7 @@ cd my-ai-app && ihui dev`}</code>
               Architecture Overview
             </h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
             IHUI AI is a TypeScript monorepo (pnpm workspace + Turborepo) spanning 8 endpoints. One codebase, every platform.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
@@ -327,7 +327,7 @@ cd my-ai-app && ihui dev`}</code>
                 className="rounded-lg border bg-card p-3"
               >
                 <div className="font-mono text-body font-semibold text-primary">{mod.name}</div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{mod.desc}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{mod.desc}</p>
               </div>
             ))}
           </div>
@@ -349,7 +349,7 @@ cd my-ai-app && ihui dev`}</code>
               Community &amp; Support
             </h2>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
             Get help, report issues, and connect with other builders.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -362,7 +362,7 @@ cd my-ai-app && ihui dev`}</code>
                       <Icon className="h-5 w-5" />
                     </div>
                     <CardTitle className="mt-3 text-base">{card.title}</CardTitle>
-                    <CardDescription className="mt-1 text-sm leading-relaxed">
+                    <CardDescription className="mt-1 text-body leading-relaxed">
                       {card.description}
                     </CardDescription>
                   </CardHeader>
@@ -382,7 +382,7 @@ cd my-ai-app && ihui dev`}</code>
           <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
             Ready to build?
           </h2>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+          <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
             Launch your first AI agent on IHUI AI today. Apache 2.0 open source, 8-endpoint distribution.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

@@ -16,7 +16,7 @@ import { ChevronLeft, Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -35,8 +35,9 @@ export function LivePlaybackScreen({
   onPressItem,
   onClosePlayer,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: LivePlaybackScreenProps) {
+}: LivePlaybackScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -47,7 +48,7 @@ export function LivePlaybackScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('livePlayback.retry') || undefined}
         colorScheme={colorScheme}
       />
@@ -148,9 +149,14 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
       padding: rnSpacing.md,
@@ -166,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitle: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginRight: rnSpacing.sm,
@@ -177,10 +183,10 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
-    badgeText: { fontSize: 11, color: tk.text.secondary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    badgeText: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.sm },
-    cardMetaText: { fontSize: 14, color: tk.text.secondary },
+    cardMetaText: { fontSize: rnType.body.size, color: tk.text.secondary },
     cardFooter: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -193,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     playBtnDisabled: { backgroundColor: tk.border.medium },
-    playBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '600' },
+    playBtnText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     modalOverlay: {
       flex: 1,
       backgroundColor: tk.overlay.modal,
@@ -209,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
       padding: rnSpacing.lg,
     },
     modalTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -222,10 +228,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     playerIcon: { fontSize: 36, color: tk.surface.light },
-    playerHint: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.tertiary },
+    playerHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     playerUrl: {
       marginTop: rnSpacing.sm,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
       paddingHorizontal: rnSpacing['sm-loose'],
     },

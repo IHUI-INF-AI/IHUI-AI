@@ -14,13 +14,19 @@ import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
-import { normalizePermissionMode, permissionModeWire } from '@ihui/types/permission-mode'
+import {
+  isReadonlyPermissionMode,
+  normalizePermissionMode,
+  permissionModeWire,
+} from '@ihui/types/permission-mode'
 import type { PermissionModeId } from '@ihui/types/permission-mode'
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -36,6 +42,10 @@ import {
 } from '../utils/workspace-roots.js'
 import { promisify } from 'node:util'
 import { hasNestedQuantifier } from './rules-service.js'
+// 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
+// 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
+import { computeFacts, decideApproval } from '@ihui/shared/permission'
+import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
 
 const execAsync = promisify(exec)
 
@@ -253,45 +263,196 @@ export interface SubagentConfig {
   filePath: string
 }
 
+/**
+ * 子代理工作区授权失败(未配置权限 / 跨用户越权 / 登记根外)。
+ *
+ * 路由层统一映射 404:沿用本仓「未授权与不存在同形」的防枚举约定,不引 403 ——
+ * 否则 403/404 的差异本身就是一枚存在性探针,攻击者可据此枚举服务器上哪些路径
+ * 已被他人登记为工作区。message 刻意不含任何服务器路径。
+ */
+export class SubagentWorkspaceAccessError extends Error {
+  readonly statusCode = 404
+  constructor(message = '工作区不存在或无权访问') {
+    super(message)
+    this.name = 'SubagentWorkspaceAccessError'
+  }
+}
+
+/**
+ * 子代理脚手架符号链接失效(悬空 / 越界 / 不可解析)。
+ *
+ * 为什么单独一类:Windows 端创建 symlink/junction 后,`readFileSync` 对悬空链接会抛
+ * 裸 ENOENT、对目录链接抛 EISDIR —— 那是「崩溃」不是「拒绝」。这里把两类都收成
+ * 明确的中文错误,路由层映射 400;越界链接则按「拒绝」处理,绝不跟随到工作区外。
+ */
+export class SubagentLinkError extends Error {
+  readonly statusCode = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'SubagentLinkError'
+  }
+}
+
+/**
+ * 一条 `workspace_permissions` 行归一后代表的可访问范围。
+ *
+ * 口径一(2026-11-02 拍板,勿再翻案):permission 行的 `workspacePath` 是**根**,
+ * 授权范围 = **该根及其子树**。判定必须先把两侧都 realpath 归一,再用
+ * `isInsideRoot`(内部走 `path.relative` + 段比较),**不得**退化成字符串前缀 ——
+ * 前缀会把 `ws-a-other` 误认成 `ws-a` 的子目录,也会把符号链接指到的外部路径
+ * 当成根内路径。根自身与任意层子目录放行;看似子目录、实为别处(`..` 回跳、
+ * 邻名前缀、链接外指)一律拒绝。
+ */
+interface AuthorizedWorkspaceRoot {
+  /** realpath 归一后的授权根(permission 行路径) */
+  root: string
+  /**
+   * 该根是否只能读。
+   *
+   * 口径二(2026-11-02 拍板):`mode` **只管写面**。`plan` 是唯一只读档
+   * (`isReadonlyPermissionMode`);只读档对 `discover`/`list` 不设限(看自己的
+   * 定义是合理的),只对 `delegate`(会触发实际执行)设限。认不出的库值按只读
+   * 处理(fail-closed):不把"没人认识"读成"可写"。
+   */
+  readonly: boolean
+}
+
+/**
+ * 调用者在该用户级 `workspace_permissions` 表里真正有权的工作区根。
+ *
+ * 单一判据来源是 `listPermissionsByUser`(SQL 自带 userId 谓词,不会读到别人的行),
+ * 这里只做两道收窄:
+ *   ① 行里的 workspacePath 必须仍在服务端 `IHUI_WORKSPACE_ROOTS` 登记根内 ——
+ *      白名单启用(2026-10-27)之前落库的历史行不能成为绕过口;
+ *   ② 统一 realpath 归一,消解客户端字符串里的符号链接/相对形态。
+ * 这与「无归属的登记根」相反:登记根只有在**有归属行**时才可能被使用。
+ */
+async function listAuthorizedWorkspaceRoots(userId: string): Promise<AuthorizedWorkspaceRoot[]> {
+  const { listPermissionsByUser } = await import('../db/workspace-permission-queries.js')
+  const rows = await listPermissionsByUser(userId)
+  const registered = getRegisteredWorkspaceRoots()
+  const out: AuthorizedWorkspaceRoot[] = []
+  for (const row of rows) {
+    const real = realpathOrResolve(row.workspacePath)
+    if (!registered.some((r) => isInsideRoot(real, r))) continue
+    const mode = normalizePermissionMode(row.mode)
+    const readonly = mode === null || isReadonlyPermissionMode(mode)
+    const existing = out.find((x) => x.root === real)
+    // 同一 realpath 可能对应多行(历史别名/symlink 落库):取更严的那档
+    if (existing) existing.readonly = existing.readonly || readonly
+    else out.push({ root: real, readonly })
+  }
+  return out
+}
+
+/**
+ * 授权闸的唯一实现:登记根闸 + 用户级 permission 子树闸,两关缺一不可。
+ *
+ * 口径一在这里落地:命中的是 permission 行的根,**范围含该根及其子树**;
+ * 判定是 `isInsideRoot(root, authorizedRoot)`(realpath 之后的段比较),
+ * 不是 `root.startsWith(authorizedRoot)`。前者对 `..` 回跳、邻名前缀
+ * (`ws-a-other` vs `ws-a`)、symlink 外指都返回 false;后者会全部误放行。
+ *
+ * 返回命中的授权根与其读写档,供 `delegate` 做写面闸。
+ * 任一级失败都抛 404 语义错误,不区分「未登记」「不是你的」两种原因(防枚举)。
+ */
+async function resolveSubagentWorkspace(
+  userId: string,
+  workspacePath: string,
+): Promise<AuthorizedWorkspaceRoot & { requestedRoot: string }> {
+  let requestedRoot: string
+  try {
+    requestedRoot = assertWithinRegisteredRoots(workspacePath, '工作区')
+  } catch {
+    throw new SubagentWorkspaceAccessError()
+  }
+  const allowed = await listAuthorizedWorkspaceRoots(userId)
+  const hit = allowed.find((a) => isInsideRoot(requestedRoot, a.root))
+  if (!hit) throw new SubagentWorkspaceAccessError()
+  return { ...hit, requestedRoot }
+}
+
+/** 读面闸(`discover`/`list`):只看「这个请求路径是否在本人授权根的子树内」 */
+async function assertSubagentWorkspaceAccess(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  return (await resolveSubagentWorkspace(userId, workspacePath)).requestedRoot
+}
+
+/**
+ * 写面闸(`delegate`):在读面闸之上叠加 `mode`。
+ *
+ * 口径二:只读档(`plan`)必须拒绝,回 404 而不是 403 —— 与未授权同形,
+ * 不给"这个工作区存在、只是你只读"提供存在性探针。可写档(default /
+ * acceptEdits / bypassPermissions / manual)放行。
+ */
+async function assertSubagentWorkspaceWritable(
+  userId: string,
+  workspacePath: string,
+): Promise<string> {
+  const hit = await resolveSubagentWorkspace(userId, workspacePath)
+  if (hit.readonly) throw new SubagentWorkspaceAccessError()
+  return hit.requestedRoot
+}
+
 class SubagentManager {
-  private configs = new Map<string, SubagentConfig>()
+  /**
+   * 按**归一后的工作区根**分桶,而不是全服一个 name→config 映射。
+   *
+   * 旧实现把每次 discover 的结果塞进同一个 Map,`list()` 返回的是全局并集:
+   * 用户 A 在 A 工作区发现的子代理,用户 B 调 `/subagents`(不带 workspacePath)
+   * 就能读到;delegate 也只按 name 取,传任意 workspacePath 都能用别人的配置。
+   * 分桶后,读取面必须同时命中「调用者有权」与「该根自己的桶」两个条件。
+   */
+  private buckets = new Map<string, Map<string, SubagentConfig>>()
 
-  discover(workspacePath: string): SubagentConfig[] {
-    const dirs = [join(workspacePath, '.claude', 'agents'), join(homedir(), '.ihui', 'agents')]
-    const found: SubagentConfig[] = []
-    const seen = new Set<string>()
-    for (const dir of dirs) {
-      if (!existsSync(dir)) continue
-      for (const file of readdirSync(dir)) {
-        if (!file.endsWith('.md')) continue
-        const cfg = this.parseFile(join(dir, file))
-        if (cfg && !seen.has(cfg.name)) {
-          found.push(cfg)
-          seen.add(cfg.name)
-          this.configs.set(cfg.name, cfg)
-        }
-      }
+  /** 发现并登记某个工作区(**先授权,后落盘扫描**),返回该桶的配置 */
+  async discover(workspacePath: string, userId: string): Promise<SubagentConfig[]> {
+    const root = await assertSubagentWorkspaceAccess(userId, workspacePath)
+    const found = this.scanWorkspace(root)
+    const bucket = new Map<string, SubagentConfig>()
+    for (const cfg of found) {
+      if (!bucket.has(cfg.name)) bucket.set(cfg.name, cfg)
     }
-    return found
+    // 整桶替换而非合并:删除掉的 .md 不能在下一次 discover 后继续被 delegate 命中
+    this.buckets.set(root, bucket)
+    return Array.from(bucket.values())
   }
 
-  list(): SubagentConfig[] {
-    return Array.from(this.configs.values())
+  /**
+   * 列出调用者有权的工作区里已发现过的子代理。
+   * 显式给 workspacePath 时等价于一次 discover;未给时只并集**本人有权根**的桶,
+   * 不再回退到「全局已发现」(那正是跨用户泄漏面)。
+   */
+  async list(workspacePath: string | undefined, userId: string): Promise<SubagentConfig[]> {
+    if (workspacePath) return this.discover(workspacePath, userId)
+    // 读面不看 mode:只读档用户也应能看到自己有权根里已发现的配置
+    const roots = await listAuthorizedWorkspaceRoots(userId)
+    const out: SubagentConfig[] = []
+    for (const { root } of roots) {
+      const bucket = this.buckets.get(root)
+      if (bucket) out.push(...bucket.values())
+    }
+    return out
   }
 
-  get(name: string): SubagentConfig | null {
-    return this.configs.get(name) ?? null
-  }
-
-  /** 委派任务给子代理（独立上下文） */
+  /**
+   * 委派任务给子代理(独立上下文)。
+   * 写面闸:先过用户级授权与子树判定,再按 `mode` 拒绝只读档(404,防枚举)。
+   * 只查**本次 workspacePath 对应桶**,不跨桶兜底 —— 否则「有权进入 B 工作区」
+   * 就能调用只存在于 A 工作区(他人)的子代理配置。
+   */
   async delegate(params: {
     name: string
     prompt: string
     workspacePath: string
     model?: string
+    userId: string
   }): Promise<{ agentName: string; result: string }> {
-    const cfg = this.configs.get(params.name)
-    if (!cfg) throw new Error(`子代理不存在: ${params.name}`)
+    const root = await assertSubagentWorkspaceWritable(params.userId, params.workspacePath)
+    const cfg = this.buckets.get(root)?.get(params.name)
+    if (!cfg) throw new SubagentWorkspaceAccessError('子代理不存在或无权访问')
     // 简化：返回子代理执行结果（实际应调用 AgentLoopRuntime）
     return {
       agentName: cfg.name,
@@ -299,11 +460,97 @@ class SubagentManager {
     }
   }
 
-  private parseFile(filePath: string): SubagentConfig | null {
-    const content = readFileSync(filePath, 'utf-8')
+  /**
+   * 扫描 `<root>/.claude/agents`。
+   *
+   * 与旧实现的差别:
+   *   ① 只扫工作区内的这一处;`~/.ihui/agents` 是**服务器主目录**下的全局目录,
+   *      不归任何用户所有,按「configs 分桶必须落在调用者有权根内」的口径不再暴露
+   *      (需要全局内置代理时应落到某个用户已登记的根里)。
+   *   ② 每一级(目录自身 / 每个 .md)都先 realpath 消解再判 isInsideRoot:
+   *      目录级 junction 指向根外 → 拒绝;文件级 symlink 指向根外 → 拒绝;
+   *      链接目标不存在 → SubagentLinkError(明确错误),而不是 readFileSync 的裸 ENOENT。
+   *   ③ 同一目录里同名配置按先到先得去重(与旧实现 seen 集合同语义)。
+   */
+  private scanWorkspace(root: string): SubagentConfig[] {
+    const agentsDir = join(root, '.claude', 'agents')
+    // lstat 而不是 existsSync:悬空链接在 existsSync 下会被当成「不存在」而静默跳过,
+    // 那样「目标不存在」就永远走不到明确报错分支。
+    try {
+      lstatSync(agentsDir)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT') return []
+      throw new SubagentLinkError(`子代理目录 .claude/agents 无法读取(${code ?? '未知错误'})`)
+    }
+    const realDir = this.resolveInsideRoot(root, agentsDir, '子代理目录 .claude/agents')
+    let dirStat
+    try {
+      dirStat = statSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+    if (!dirStat.isDirectory()) return []
+
+    let names: string[]
+    try {
+      names = readdirSync(realDir)
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理目录 .claude/agents 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
+
+    const found: SubagentConfig[] = []
+    for (const name of names) {
+      if (!name.endsWith('.md')) continue
+      // 目录项可能是 symlink:realpath 消解后仍须在工作区内,否则拒绝该文件
+      const realFile = this.resolveInsideRoot(root, join(realDir, name), `子代理文件 ${name}`)
+      let fileStat
+      try {
+        fileStat = statSync(realFile)
+      } catch {
+        throw new SubagentLinkError(`子代理文件 ${name} 的符号链接目标不存在`)
+      }
+      if (!fileStat.isFile()) continue
+      const cfg = this.parseFile(realFile, basename(name, '.md'))
+      if (cfg) found.push(cfg)
+    }
+    return found
+  }
+
+  /** realpath 消解 → 必须仍在工作区根内;悬空/不可解析统一抛明确错误 */
+  private resolveInsideRoot(root: string, p: string, label: string): string {
+    let real: string
+    try {
+      real = realpathSync(p)
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        throw new SubagentLinkError(`${label} 的符号链接目标不存在`)
+      }
+      throw new SubagentLinkError(`${label} 无法解析(${code ?? '未知错误'})`)
+    }
+    if (!isInsideRoot(real, root)) {
+      throw new SubagentLinkError(`${label} 指向工作区外的路径`)
+    }
+    return real
+  }
+
+  private parseFile(filePath: string, fallbackName: string): SubagentConfig | null {
+    let content: string
+    try {
+      content = readFileSync(filePath, 'utf-8')
+    } catch (e) {
+      throw new SubagentLinkError(
+        `子代理文件 ${fallbackName} 无法读取(${(e as NodeJS.ErrnoException).code ?? '未知错误'})`,
+      )
+    }
     if (!content.startsWith('---')) {
       return {
-        name: basename(filePath, '.md'),
+        name: fallbackName,
         description: '',
         systemPrompt: content.trim(),
         tools: [],
@@ -324,7 +571,7 @@ class SubagentManager {
       meta[key] = key === 'tools' && val ? val.split(',').map((t) => t.trim()) : val
     }
     return {
-      name: (meta['name'] as string) ?? basename(filePath, '.md'),
+      name: (meta['name'] as string) ?? fallbackName,
       description: (meta['description'] as string) ?? '',
       systemPrompt: body,
       tools: (meta['tools'] as string[]) ?? [],
@@ -944,7 +1191,15 @@ class SandboxExecutor {
         }
         if (!candidate) continue
         // 路径形态:盘符(C:/ 或 C:\)、绝对(/ 或 \)、相对(./ 或 ../)。用 RegExp 构造避开字面量转义在评审工具链里的二次解释。
-        const looksLikePath = new RegExp('^([A-Za-z]:[/' + String.fromCharCode(92) + '/]|[/' + String.fromCharCode(92) + ']|\.\.?[/' + String.fromCharCode(92) + '/])').test(candidate)
+        const looksLikePath = new RegExp(
+          '^([A-Za-z]:[/' +
+            String.fromCharCode(92) +
+            '/]|[/' +
+            String.fromCharCode(92) +
+            ']|\.\.?[/' +
+            String.fromCharCode(92) +
+            '/])',
+        ).test(candidate)
         if (!looksLikePath) continue
         let abs: string
         try {
@@ -2191,6 +2446,80 @@ class PermissionManager {
     return true
   }
 
+  /**
+   * 规则级审批闸门(2026-11-04):把 `@ihui/shared/permission` 的规则引擎接进真实执行链路。
+   * 语义边界:
+   *  - 档位(decideByPermissionMode)仍是**上限**,这里固定以 tier.verdict='ask' 喂给引擎,
+   *    因此引擎的 allow 只可能来自**授权记忆**或**自动复核**,不会凭空放宽;
+   *  - deny 来自声明式风险规则(凭据读取/批量删除/高危命令/系统目录);
+   *  - ask 仍走既有人工审计,行为与改造前一致。
+   */
+  private async evaluateApprovalGate(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    matchedRule: string
+    reason: string
+    scopeKey: string
+  }> {
+    const now = Date.now()
+    // 本闸门是 FS Bridge 的热路径(既有用例按"加一个 tick 就出 pending"来断言),因此这里
+    // **不读库**:持久授权记忆的消费面在 `/api/agent-control/execute`(computer-use 应用白名单)
+    // 与 `/permission/grants`;工具链这边只消费进程内近因历史做自动复核。若日后要让工具链
+    // 也吃持久授权,注入 `loadPermissionGrants` 即可,但需同步给这条热路径补测试桩。
+    const request = {
+      tool: params.tool,
+      args: params.args,
+      context: {
+        workspaceId: params.workspacePath,
+        agentId: null,
+        userId: params.userId,
+        now,
+        grants: [],
+        history: listApprovalHistory(params.userId),
+      },
+    }
+    const result = decideApproval(request)
+    // 档位是上限:规则集的 `allow.read-only` 属于"引擎自行判定",在 default/acceptEdits
+    // 档里不得成为放宽通道 —— 只有**人类既往决定的复用**(自动复核)才允许 allow。
+    // (plan 档的硬 deny 与本档 bypass 分支都在本方法之前返回,不经过这里。)
+    const decision: 'allow' | 'ask' | 'deny' =
+      result.decision === 'allow' && !result.autoReview ? 'ask' : result.decision
+    const facts = computeFacts(request)
+    return {
+      decision,
+      matchedRule: result.matchedRule,
+      reason:
+        decision === result.decision
+          ? result.reason
+          : `${result.reason};档位上限:引擎放行未获既往人工决定背书,转人工`,
+      scopeKey: facts.commandPrefix ?? facts.appName ?? facts.tool,
+    }
+  }
+
+  /** 人工结论落近因历史,供下一次自动复核比对(只记真实发生的人类决定)。 */
+  private async recordApprovalOutcome(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    ruleId: string
+    scopeKey: string
+    allowed: boolean
+  }): Promise<void> {
+    recordApprovalHistory(params.userId, {
+      tool: params.tool,
+      decision: params.allowed ? 'allow' : 'deny',
+      ruleId: params.ruleId,
+      workspaceId: params.workspacePath,
+      agentId: null,
+      scopeKey: params.scopeKey,
+      at: Date.now(),
+    })
+  }
+
   listWorkspacePending(userId: string): PermissionRequest[] {
     return Array.from(this.workspacePending.values())
       .filter((e) => e.req.userId === userId)
@@ -2329,12 +2658,64 @@ class PermissionManager {
           }
         }
       }
-      // 无匹配 → 走人工审计
+      // 无匹配 → 规则级闸门(2026-11-04):授权记忆/自动复核可放行,风险规则可拒绝,
+      // 其余仍走人工审计 —— 引擎不会凭空放宽(allow 只来自人类的既往决定)
+      const gate = await this.evaluateApprovalGate(params)
+      if (gate.decision === 'deny') {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'deny',
+          reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: false,
+          mode: permModeWire,
+          configured: true,
+          reason: `规则拒绝: ${gate.reason}`,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      if (gate.decision === 'allow') {
+        await this.recordApprovalOutcome({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          ruleId: gate.matchedRule,
+          scopeKey: gate.scopeKey,
+          allowed: true,
+        })
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'allow',
+          reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: gate.reason,
+          matchedRule: gate.matchedRule,
+        }
+      }
       const audit = await this.requestWorkspaceConfirmation({
         userId: params.userId,
         workspacePath: params.workspacePath,
         tool: params.tool,
         args: params.args,
+      })
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: audit.allowed,
       })
       await appendAuditLog({
         userId: params.userId,
@@ -2342,22 +2723,75 @@ class PermissionManager {
         toolName: params.tool,
         args: JSON.stringify(params.args).slice(0, 1000),
         decision: audit.allowed ? 'allow' : 'deny',
-        reason: `accept-edits 无匹配规则,人工审计: ${audit.reason}`,
+        reason: `accept-edits 规则转人工(${gate.matchedRule}): ${audit.reason}`,
       })
       return {
         allowed: audit.allowed,
         mode: permModeWire,
         configured: true,
         reason: audit.reason,
+        matchedRule: gate.matchedRule,
       }
     }
 
-    // default → 全部人工审计
+    // default → 规则级闸门(2026-11-04):deny 规则直接拒绝;授权记忆/自动复核可放行;
+    // 其余仍走人工审计(与改造前一致,不新增放宽通道)
+    const gate = await this.evaluateApprovalGate(params)
+    if (gate.decision === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: false,
+        mode: permModeWire,
+        configured: true,
+        reason: `规则拒绝: ${gate.reason}`,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (gate.decision === 'allow') {
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: true,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: gate.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
     const audit = await this.requestWorkspaceConfirmation({
       userId: params.userId,
       workspacePath: params.workspacePath,
       tool: params.tool,
       args: params.args,
+    })
+    await this.recordApprovalOutcome({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      ruleId: gate.matchedRule,
+      scopeKey: gate.scopeKey,
+      allowed: audit.allowed,
     })
     await appendAuditLog({
       userId: params.userId,
@@ -2365,13 +2799,14 @@ class PermissionManager {
       toolName: params.tool,
       args: JSON.stringify(params.args).slice(0, 1000),
       decision: audit.allowed ? 'allow' : 'deny',
-      reason: `default 模式人工审计: ${audit.reason}`,
+      reason: `default 规则转人工(${gate.matchedRule}): ${audit.reason}`,
     })
     return {
       allowed: audit.allowed,
       mode: permModeWire,
       configured: true,
       reason: audit.reason,
+      matchedRule: gate.matchedRule,
     }
   }
 

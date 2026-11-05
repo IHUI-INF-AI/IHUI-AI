@@ -845,7 +845,7 @@ async def test_get_redis_connection_failure_returns_none(
     """_get_redis 在 Redis 连接失败时返回 None 并永久降级。"""
     monkeypatch.setattr(vm_mod, "_redis_checked", False)
     monkeypatch.setattr(vm_mod, "_redis_client", None)
-    monkeypatch.setattr("app.core.config.settings.redis_url", "redis://broken:8811/0")
+    monkeypatch.setattr("app.core.config.settings.redis_url", "redis://broken:6399/0")
 
     def _broken_from_url(*a, **kw):
         raise ConnectionError("redis not available")

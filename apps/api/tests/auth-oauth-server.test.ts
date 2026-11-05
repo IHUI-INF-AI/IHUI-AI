@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import cookie from '@fastify/cookie'
+import type { Redis } from 'ioredis'
 
 /**
  * OAuth2 Server 路由测试(2026-08-01 立)
@@ -302,7 +303,7 @@ describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', (
       set: vi.fn(),
       getdel: vi.fn(),
       del: vi.fn(),
-    })
+    } as unknown as Redis)
     // 注:不设置自定义 errorHandler,Fastify 默认会根据 err.statusCode 返回对应状态码
     await app.register(authExtendedRoutes, { prefix: '/api' })
     await app.ready()
@@ -814,7 +815,7 @@ describe('POST /api/oauth/device — client_id 绑定与过期清理', () => {
       set: vi.fn(),
       getdel: vi.fn(),
       del: vi.fn(),
-    })
+    } as unknown as Redis)
     await app.register(authExtendedRoutes, { prefix: '/api' })
     await app.ready()
   })

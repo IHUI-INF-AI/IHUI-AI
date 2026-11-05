@@ -91,6 +91,7 @@ import { redactObjectDeepKeyed } from '../redact.js';
 // G-729:截断口径只认码点出口(UTF-16 码元 slice 会切出半个代理对,而切坏的串可能恰好躲过脱敏正则)
 import { truncateToCodePoints } from '../utils/prompt-boundary.js';
 import { findSkill, type Skill } from '../skills/index.js';
+import { showSkillsCatalog } from './skills-catalog-view.js';
 import {
   getMemoryStore,
   loadMemory,
@@ -120,7 +121,7 @@ import {
   clearAllLoops,
 } from '../tools/background-registry.js';
 // 后台任务台账:跨进程"只报不恢复"。状态判据一律住在 background-ledger,本文件不复写任何推断。
-import { drainLedgerAlerts, ledgerStateLabel, summarizeLedger } from '../tools/background-ledger.js';
+import { drainLedgerAlerts, ledgerStateLabel, pruneLedger, summarizeLedger } from '../tools/background-ledger.js';
 import { runSandboxedAsync } from '../sandbox/index.js';
 import { estimateMessagesTokens } from '../context.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, setHookRewakeQueue } from '../hooks/index.js';
@@ -997,7 +998,7 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
     console.info(
       chalk.red(
         `│  LEDGER OVER LIMIT: ${ledger.oversize.lines} lines / ${ledger.oversize.bytes} B — ` +
-          `AUTO-CLEAN REFUSED. Clean it by hand: pruneLedger({ confirm: true })`,
+          `AUTO-CLEAN REFUSED. Clean it by hand: /bg prune (or pruneLedger({ confirm: true }))`,
       ),
     );
   }
@@ -1007,7 +1008,11 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
   for (const alert of drainLedgerAlerts()) console.info(chalk.red(`⚠ ${alert}`));
 }
 
-async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
+/**
+ * 斜杠命令装载器(唯一分发口)。导出理由:装车证明必须从**分发路径**打进去,
+ * 只测被调函数等于没证明"这条命令真会走到那一格"(AGENTS §0.9)。
+ */
+export async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
   const cmd = cmdRaw ?? '';
   switch (cmd) {
@@ -1165,19 +1170,9 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     }
 
     case 'skills': {
-      if (state.skills.length === 0) {
-        console.info(chalk.dim('暂无 skills(可在 .ihui/skills/*.md 或 ~/.ihui/skills/*.md 创建)'));
-      } else {
-        console.info(chalk.cyan(`\n╭─ 已加载 skills · ${state.skills.length} 项`));
-        const nameWidth = Math.max(...state.skills.map((s) => s.name.length), 8);
-        for (const s of state.skills) {
-          const name = chalk.bold(s.name.padEnd(nameWidth));
-          console.info(`│  ${name}  ${chalk.dim(s.description)}`);
-          console.info(`│  ${' '.repeat(nameWidth)}  ${chalk.dim(`↳ ${s.source}`)}`);
-        }
-        console.info(chalk.cyan('╰─ /skill <name> 查看详情'));
-        console.info('');
-      }
+      // W4 装车票(2026-11-05):清单走 `readSkillCatalog` 那一格(首屏读缓存 + 命中/失效出声)。
+      // 判据不在本文件复算(§0.6);`state.skills` 仍是 `/skill <name>` 取正文的来源(缓存不含正文)。
+      showSkillsCatalog({ cwd: state.opts.workspacePath });
       break;
     }
 
@@ -1628,7 +1623,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     case 'background': {
       const sub = args[0] ?? '';
       if (!sub) {
-        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg ledger | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
+        console.info(chalk.dim('用法:/bg <cmd> | /bg list | /bg ledger | /bg prune | /bg live <id> | /bg out <id> [N] | /bg wait <id> [ms] | /bg kill <id>'));
         break;
       }
       if (sub === 'list') {
@@ -1654,6 +1649,15 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         printBackgroundLedger(list.filter((t) => t.status === 'running').map((t) => t.id));
       } else if (sub === 'ledger') {
         printBackgroundLedger(listTasks().filter((t) => t.status === 'running').map((t) => t.id));
+      } else if (sub === 'prune') {
+        // S3 接线(2026-11-01):pruneLedger 的人工命令入口。它的设计口径是"只有 confirm:true
+        // 才动文件、且只搬走已落终态的记录"(未终态的是证据,永久保留)—— 敲下 /bg prune
+        // 这个显式动作本身即人工确认。结论逐条打印(ok/原因 + archived/retained 计数)。
+        const result = pruneLedger({ confirm: true });
+        console.info(chalk.cyan('\n╭─ bg ledger prune'));
+        console.info(`│  ${result.ok ? chalk.green(result.message) : chalk.yellow(result.message)}`);
+        console.info(chalk.cyan('╰─'));
+        console.info('');
       } else if (sub === 'live') {
         // W11 后台任务 live tail:增量跟随输出直至退出(对标 Claude Code 后台任务实时流)
         const id = args[1] ?? '';

@@ -50,7 +50,15 @@ type RecapView = 'recap' | 'handoff'
 
 type GeneratePhase = 'idle' | 'generating' | 'done' | 'error'
 
-export function TaskRecapEntry() {
+export function TaskRecapEntry(
+  props: {
+    /** 入口形态(2026-11-04 信息架构重构):
+     *  - 'icon'(默认):面板头部的独立图标按钮;
+     *  - 'menu-item':头部「⋯」溢出菜单内的一行菜单项(不再占标题栏槽位)。 */
+    variant?: 'icon' | 'menu-item'
+  } = {},
+) {
+  const { variant = 'icon' } = props
   const tc = useTranslations('aiChat')
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<RecapView>('recap')
@@ -133,17 +141,33 @@ export function TaskRecapEntry() {
 
   return (
     <>
-      <TooltipProvider>
-        <Tooltip content={tc('recap.title')}>
-          <IconButton
-            onClick={() => setOpen(true)}
-            aria-label={tc('recap.title')}
-            data-testid="ai-panel-recap-entry"
-          >
-            <ScrollText />
-          </IconButton>
-        </Tooltip>
-      </TooltipProvider>
+      {variant === 'menu-item' ? (
+        /* 2026-11-04 信息架构重构:头部只留「标题 + ⋯」,回顾入口作为溢出菜单的一行。
+           样式与 ai-side-panel 的 HEADER_MENU_ITEM_CLASS 同规格(该常量不导出,避免跨文件耦合)。 */
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => setOpen(true)}
+          aria-label={tc('recap.title')}
+          data-testid="ai-panel-recap-entry"
+          className="flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label outline-none hover:bg-accent hover:text-accent-foreground"
+        >
+          <ScrollText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate">{tc('recap.title')}</span>
+        </button>
+      ) : (
+        <TooltipProvider>
+          <Tooltip content={tc('recap.title')}>
+            <IconButton
+              onClick={() => setOpen(true)}
+              aria-label={tc('recap.title')}
+              data-testid="ai-panel-recap-entry"
+            >
+              <ScrollText />
+            </IconButton>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
         <DialogContent>
@@ -183,7 +207,7 @@ export function TaskRecapEntry() {
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   disabled={unavailable || generating}
-                  aria-disabled={(unavailable || generating) || undefined}
+                  aria-disabled={unavailable || generating || undefined}
                 />
               </div>
 
@@ -214,11 +238,11 @@ export function TaskRecapEntry() {
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {tc('recap.phase.done')}
                   </p>
-                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+                  <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground">
                     {summary}
                   </p>
                   {nextAction && (
-                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">
+                    <p className="whitespace-pre-wrap text-label leading-relaxed text-foreground/80">
                       {nextAction}
                     </p>
                   )}
@@ -252,7 +276,7 @@ export function TaskRecapEntry() {
                     size="sm"
                     data-testid="recap-generate-submit"
                     disabled={unavailable || generating || !conversationId}
-                    aria-disabled={(unavailable || generating || !conversationId) || undefined}
+                    aria-disabled={unavailable || generating || !conversationId || undefined}
                     onClick={() => void handleGenerate()}
                   >
                     {tc('recap.handoff.title')}

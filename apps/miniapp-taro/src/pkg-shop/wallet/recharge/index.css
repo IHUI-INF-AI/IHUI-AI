@@ -31,7 +31,7 @@
 }
 .rc-loading-text {
   margin-top: var(--spacing-sm-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary-foreground);
 }
 @keyframes rc-spin {
@@ -86,7 +86,7 @@
 
 /* 区块容器 — 对齐 RN section(透明底 + paddingHorizontal 10) */
 .rc-card {
-  padding: 0 20rpx;
+  padding: 0 var(--spacing-sm-loose);
   margin-bottom: var(--spacing-md);
   background: transparent;
   border: none;
@@ -108,7 +108,7 @@
 .rc-preset {
   width: calc((100% - 40rpx) / 3);
   box-sizing: border-box;
-  padding: 28rpx 0;
+  padding: var(--spacing-md-loose) 0;
   text-align: center;
   border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
@@ -131,14 +131,14 @@
 }
 .rc-custom-label {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   margin-bottom: var(--spacing-xs-loose);
 }
 /* 自定义金额 — 对齐 RN customInput(bg muted/height 50/radius 12/fontSize 16) */
 .rc-input {
   height: 100rpx;
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   font-size: var(--text-title);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -165,7 +165,7 @@
 
 /* 限时活动 — 复用 RN 卡片语言(白卡 + border.light 描边 + radius 12) */
 .rc-activity {
-  margin: 0 20rpx 24rpx;
+  margin: 0 var(--spacing-sm-loose) var(--spacing-md);
   border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-card);
@@ -188,7 +188,7 @@
 }
 .rc-activity-rule {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 1.6;
   white-space: pre-wrap;
@@ -217,7 +217,7 @@
 .rc-method {
   display: flex;
   align-items: center;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
@@ -232,7 +232,7 @@
   line-height: 56rpx;
   text-align: center;
   border-radius: var(--radius-lg);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-surface-light);
 }
 /* custom color: 微信支付绿 #09bb07 → --color-wechat-green;支付宝品牌蓝 #1677ff → --color-alipay-blue */
@@ -271,7 +271,7 @@
 
 /* 提交按钮 — 对齐 RN submitBtn(marginHorizontal 10/height 50/radius 12/brand 底) */
 .rc-submit {
-  margin: var(--spacing-sm-loose) 20rpx 24rpx;
+  margin: var(--spacing-sm-loose) var(--spacing-sm-loose) var(--spacing-md);
   height: 100rpx;
   line-height: 100rpx;
   background: var(--color-cta);

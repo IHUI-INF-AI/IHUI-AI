@@ -20,7 +20,7 @@
 
 .py-countdown {
   margin-bottom: var(--spacing-md);
-  padding: var(--spacing-sm-loose) 32rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-lg);
   background: var(--color-secondary);
   border-radius: var(--radius-md);
   border: 2rpx solid var(--color-border);
@@ -31,7 +31,7 @@
   background: var(--color-danger-tint);
 }
 .py-countdown-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -40,7 +40,7 @@
 }
 
 .py-amount-card {
-  padding: var(--spacing-xl) 32rpx;
+  padding: var(--spacing-xl) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -48,7 +48,7 @@
 }
 .py-amount-label {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-amount-value {
@@ -68,7 +68,7 @@
 
 .py-order-card {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -80,11 +80,11 @@
   padding: var(--spacing-xs-loose) 0;
 }
 .py-order-label {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-order-value {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   max-width: 360rpx;
   overflow: hidden;
@@ -94,7 +94,7 @@
 
 .py-method-card {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -109,7 +109,7 @@
 .py-method {
   display: flex;
   align-items: center;
-  padding: var(--spacing-sm-loose) 12rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-xs-loose);
   border-radius: var(--radius-md);
   border: 2rpx solid transparent;
 }
@@ -154,7 +154,7 @@
 }
 .py-recharge-link {
   /* 辅助描边按钮对齐 RN outlineBtn:success 描边 + success 字 */
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   font-size: var(--text-label);
   color: var(--color-success);
   border: 2rpx solid var(--color-success);
@@ -186,7 +186,7 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -206,7 +206,7 @@
   font-weight: 600;
 }
 .py-coupon-placeholder {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .py-coupon-arrow {

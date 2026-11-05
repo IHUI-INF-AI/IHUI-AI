@@ -118,7 +118,7 @@ export default function FansPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Users className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -132,12 +132,14 @@ export default function FansPage() {
                 <div className="flex items-center gap-3">
                   <Avatar src={fan.avatar ?? undefined} name={fan.nickname ?? '?'} size="md" />
                   <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="truncate text-body font-medium">{fan.nickname ?? t('anonymous')}</p>
+                    <p className="truncate text-body font-medium">
+                      {fan.nickname ?? t('anonymous')}
+                    </p>
                     {fan.bio ? (
-                      <p className="truncate text-xs text-muted-foreground">{fan.bio}</p>
+                      <p className="truncate text-label text-muted-foreground">{fan.bio}</p>
                     ) : null}
                     {fan.createdAt ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-label text-muted-foreground">
                         {dateFmt.format(new Date(fan.createdAt))}
                       </p>
                     ) : null}

@@ -65,7 +65,7 @@ function StateLine({
   const Icon = STATE_ICON[state]
   return (
     <div
-      className={cn('flex items-start gap-1.5 text-xs', STATE_CLASS[state])}
+      className={cn('flex items-start gap-1.5 text-label', STATE_CLASS[state])}
       data-testid={testId}
       data-state={state}
       role="status"
@@ -111,7 +111,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void authorize(root)}
           disabled={!root || busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-authorize-btn"
           data-has-root={root ? 'true' : 'false'}
         >
@@ -122,7 +122,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void refresh()}
           disabled={busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-refresh-btn"
         >
           <RefreshCw className="h-3 w-3" aria-hidden />
@@ -132,7 +132,7 @@ export function HostGitSection() {
           type="button"
           onClick={() => void scanIndex()}
           disabled={busy !== null}
-          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-6 items-center gap-1 rounded-sm border border-border px-2 text-label text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="host-git-index-btn"
         >
           <FolderTree className="h-3 w-3" aria-hidden />
@@ -174,10 +174,7 @@ export function HostGitSection() {
           </StateLine>
           <ul className="max-h-40 overflow-y-auto text-[11px]" data-testid="host-git-entry-list">
             {facts.entries.map((entry) => (
-              <li
-                key={`${entry.kind}:${entry.path}`}
-                className="rounded-sm hover:bg-accent"
-              >
+              <li key={`${entry.kind}:${entry.path}`} className="rounded-sm hover:bg-accent">
                 <button
                   type="button"
                   data-testid="host-git-entry"
@@ -203,7 +200,10 @@ export function HostGitSection() {
       {/* 差异面板:与 status 同一份三态纪律 —— 取不到(undetermined)/命令失败
           (command_failed)必须显式分格,正文只在 facts+dirty 之内参与渲染。 */}
       {diff && (
-        <div className="space-y-1 rounded-sm border border-border p-1.5" data-testid="host-git-diff-block">
+        <div
+          className="space-y-1 rounded-sm border border-border p-1.5"
+          data-testid="host-git-diff-block"
+        >
           <div className="flex items-center gap-1.5">
             <span className="flex-1 truncate text-[10px] font-medium text-muted-foreground">
               {t('hostGit.diffTitle', { path: diff.scope || '-' })}

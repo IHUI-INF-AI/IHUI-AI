@@ -343,7 +343,7 @@ function RankList({
   const t = useTranslations('eduProcurement')
   if (rows.length === 0) {
     return (
-      <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t('common.noData')}</p>
+      <p className="px-1 py-6 text-center text-body text-muted-foreground">{t('common.noData')}</p>
     )
   }
   const max = Math.max(...rows.map((r) => Number(r[amountKey] ?? 0)), 1)
@@ -355,7 +355,7 @@ function RankList({
         const pct = Math.round((amount / max) * 100)
         return (
           <div key={i} className="space-y-1">
-            <div className="flex items-baseline justify-between gap-2 text-sm">
+            <div className="flex items-baseline justify-between gap-2 text-body">
               <span className="truncate">
                 {String(r.category ?? r.supplierName ?? r.month ?? '—')}
               </span>
@@ -684,7 +684,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
                   className="max-h-80 w-full object-contain"
                 />
               </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center justify-between text-label text-muted-foreground">
                 <span>{(imageUrl.length / 1024 / 1024).toFixed(2)} MB(data URI)</span>
                 <Button
                   variant="outline"
@@ -705,7 +705,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
             >
               <Camera className="h-10 w-10" />
               <span className="text-body font-medium">{t('ai.clickToSelect')}</span>
-              <span className="text-xs">{t('ai.supportedFormats')}</span>
+              <span className="text-label">{t('ai.supportedFormats')}</span>
             </button>
           )}
 
@@ -732,7 +732,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
           </div>
 
           {/* Checkbox 组件内部已渲染 <label> 包裹,外层不可再嵌 label(嵌套 label 无效 HTML 且触发 a11y 守门) */}
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex items-center gap-2 text-body">
             <Checkbox
               checked={saveImage}
               onChange={(v) => setSaveImage(v)}
@@ -767,7 +767,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
             )}
           </div>
 
-          <p className="text-xs leading-relaxed text-muted-foreground">{t('ai.pipeline')}</p>
+          <p className="text-label leading-relaxed text-muted-foreground">{t('ai.pipeline')}</p>
         </CardContent>
       </Card>
 
@@ -785,21 +785,21 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               {AI_STEP_KEYS.map((stepKey) => (
                 <div
                   key={stepKey}
-                  className="flex items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-sm"
+                  className="flex items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-body"
                 >
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                   {t(stepKey)}
                 </div>
               ))}
-              <p className="text-center text-xs text-muted-foreground">{t('ai.slowNotice')}</p>
+              <p className="text-center text-label text-muted-foreground">{t('ai.slowNotice')}</p>
             </div>
           )}
 
           {!analyzing && !p && (
             <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
               <ScanLine className="h-10 w-10 opacity-30" />
-              <p className="text-sm">{t('ai.emptyHint1')}</p>
-              <p className="text-xs">{t('ai.emptyHint2')}</p>
+              <p className="text-body">{t('ai.emptyHint1')}</p>
+              <p className="text-label">{t('ai.emptyHint2')}</p>
             </div>
           )}
 
@@ -807,7 +807,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge status={p.status} />
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('ai.roundsConfidence', { rounds: String(p.aiRounds) })}{' '}
                   {p.aiConfidence !== null && p.aiConfidence !== undefined
                     ? `${Math.round(p.aiConfidence)}%`
@@ -824,17 +824,17 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               </div>
 
               {p.status === 'ai_conflict' && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-body text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
                   {t('ai.conflictNote')}
                 </div>
               )}
               {p.status === 'ai_verified' && (
-                <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 text-body text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
                   {t('ai.verifiedNote')}
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-body">
                 <div>
                   <span className="text-muted-foreground">{t('detail.supplierLabel')}</span>{' '}
                   {p.supplierName ?? '—'}
@@ -854,7 +854,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               </div>
 
               <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">{t('table.itemName')}</th>
@@ -897,7 +897,7 @@ function AiCaptureTab({ onGoLedger }: { onGoLedger: (id: string) => void }) {
               </div>
 
               {p.notes && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {t('detail.notesLabel')}
                   {p.notes}
                 </p>
@@ -1059,7 +1059,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
         <span className="tabular-nums">
           {t('unit.rounds', { rounds: String(r.aiRounds) })}
           {r.aiConfidence !== null && r.aiConfidence !== undefined && (
-            <span className="ml-1 text-xs text-muted-foreground">
+            <span className="ml-1 text-label text-muted-foreground">
               {Math.round(r.aiConfidence)}%
             </span>
           )}
@@ -1370,7 +1370,7 @@ function ReceiptDetailDialog({
         ) : (
           <div className="space-y-5">
             {/* 主信息 */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-sm md:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border bg-muted/30 p-4 text-body md:grid-cols-3">
               <div>
                 <span className="text-muted-foreground">{t('detail.dateLabel')}</span>{' '}
                 {p.procurementDate}
@@ -1419,7 +1419,7 @@ function ReceiptDetailDialog({
             <div>
               <h4 className="mb-2 text-body font-semibold">{t('detail.itemsTitle')}</h4>
               <div className="overflow-x-auto rounded-md border">
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-3 py-2 text-left font-medium">{t('table.itemName')}</th>
@@ -1480,7 +1480,7 @@ function ReceiptDetailDialog({
                   {verifications.map((v) => {
                     const typeKey = VERIFY_TYPE_KEYS[v.type]
                     return (
-                      <div key={`${v.round}-${v.at}`} className="rounded-md border p-3 text-sm">
+                      <div key={`${v.round}-${v.at}`} className="rounded-md border p-3 text-body">
                         <div className="mb-1 flex flex-wrap items-center gap-2">
                           <span className="font-medium">{typeKey ? t(typeKey) : v.type}</span>
                           {v.ok ? (
@@ -1490,16 +1490,16 @@ function ReceiptDetailDialog({
                               {v.error ? t('badge.failed') : t('badge.differed')}
                             </Badge>
                           )}
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             {v.model ?? '—'} · {fmtTime(v.at)} · {t('common.confidence')}{' '}
                             {v.confidence !== null && v.confidence !== undefined
                               ? `${Math.round(v.confidence)}%`
                               : '—'}
                           </span>
                         </div>
-                        {v.error && <p className="text-xs text-destructive">{v.error}</p>}
+                        {v.error && <p className="text-label text-destructive">{v.error}</p>}
                         {v.checks && v.checks.length > 0 && (
-                          <ul className="space-y-0.5 text-xs text-muted-foreground">
+                          <ul className="space-y-0.5 text-label text-muted-foreground">
                             {v.checks.map((c) => (
                               <li key={c.name} className="flex items-center gap-1.5">
                                 {c.passed ? (
@@ -1517,7 +1517,7 @@ function ReceiptDetailDialog({
                             {v.differences.map((d) => (
                               <div
                                 key={d.field}
-                                className="rounded bg-amber-50 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                                className="rounded bg-amber-50 px-2 py-1 text-label text-amber-800 dark:bg-amber-950 dark:text-amber-200"
                               >
                                 <span className="font-medium">{d.field}</span>: 「{d.previous}」→「
                                 {d.current}」
@@ -1913,7 +1913,7 @@ function ProcurementEditDialog({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t('edit.itemsHint')}</p>
+              <p className="mt-1 text-label text-muted-foreground">{t('edit.itemsHint')}</p>
             </div>
 
             <DialogFooter>
@@ -2306,7 +2306,7 @@ export default function CanteenProcurementPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-sm text-muted-foreground">{t('pageDescription')}</p>
+        <p className="text-body text-muted-foreground">{t('pageDescription')}</p>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>

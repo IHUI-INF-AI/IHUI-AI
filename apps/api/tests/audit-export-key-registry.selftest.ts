@@ -41,7 +41,7 @@ import {
   type AuditExportKeyIssueCode,
   type AuditExportKeyRegistryContext,
   type AuditExportKeyRegistryReport,
-} from '../src/services/audit-export-key-registry.ts'
+} from '../src/services/audit-export-key-registry.js'
 
 export interface SelfTestCase {
   name: string

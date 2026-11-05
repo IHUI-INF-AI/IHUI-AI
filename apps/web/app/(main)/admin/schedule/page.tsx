@@ -78,7 +78,7 @@ export default function AdminSchedulePage() {
             <Clock className="h-6 w-6 text-primary" />
             定时任务
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">可视化编排 Cron 调度</p>
+          <p className="mt-1 text-body text-muted-foreground">可视化编排 Cron 调度</p>
         </div>
         <Button size="sm" onClick={startNew}>
           <Plus className="h-4 w-4" />
@@ -97,7 +97,7 @@ export default function AdminSchedulePage() {
           </div>
         ) : list.length === 0 ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            <CardContent className="py-10 text-center text-body text-muted-foreground">
               暂无定时任务,点击右上角「新建」创建
             </CardContent>
           </Card>
@@ -123,7 +123,7 @@ export default function AdminSchedulePage() {
                     <span className="truncate font-medium">{t.name}</span>
                     <span
                       className={cn(
-                        'inline-flex rounded-md px-1.5 py-0.5 text-xs',
+                        'inline-flex rounded-md px-1.5 py-0.5 text-label',
                         t.enabled
                           ? 'bg-emerald-500/10 text-emerald-600'
                           : 'bg-muted text-muted-foreground',
@@ -132,13 +132,13 @@ export default function AdminSchedulePage() {
                       {t.enabled ? '启用' : '停用'}
                     </span>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="mt-0.5 flex items-center gap-2 text-label text-muted-foreground">
                     <code className="font-mono">{t.cron}</code>
                     <span>·</span>
                     <span className="truncate">{describeCron(t.cron)}</span>
                   </div>
                 </div>
-                <div className="hidden text-xs text-muted-foreground min-[640px]:block">
+                <div className="hidden text-label text-muted-foreground min-[640px]:block">
                   {t.nextRunAt ? dtf.format(new Date(t.nextRunAt)) : '-'}
                 </div>
                 <Switch checked={t.enabled} disabled aria-label="任务状态" />
@@ -159,16 +159,18 @@ export default function AdminSchedulePage() {
           <CardTitle className="flex items-center gap-2 text-base">
             <Calendar className="h-4 w-4 text-primary" />
             下次执行预览
-            {editingId && <span className="text-label font-normal text-muted-foreground">编辑中</span>}
+            {editingId && (
+              <span className="text-label font-normal text-muted-foreground">编辑中</span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {runs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">无效表达式,无法计算执行时间</p>
+            <p className="text-body text-muted-foreground">无效表达式,无法计算执行时间</p>
           ) : (
             <ul className="space-y-1.5">
               {runs.map((d, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
+                <li key={i} className="flex items-center gap-2 text-body">
                   <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-label font-medium text-primary">
                     {i + 1}
                   </span>

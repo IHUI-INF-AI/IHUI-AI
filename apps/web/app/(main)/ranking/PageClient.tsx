@@ -65,7 +65,7 @@ export default function RankingPageClient() {
           <Trophy className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs value={range} onValueChange={(v) => setRange(v as RankRange)}>
@@ -87,7 +87,7 @@ export default function RankingPageClient() {
                     {t('loading')}
                   </div>
                 ) : list.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+                  <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
                 ) : (
                   <Table>
                     <TableHeader>

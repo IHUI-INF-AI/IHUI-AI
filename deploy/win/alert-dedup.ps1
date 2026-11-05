@@ -595,4 +595,137 @@ function Clear-AlertRecoveredIdentities {
     }
     return @{ Ok = $true; Active = $active; Pending = $pending; NewlyMarked = $newlyMarked; Cleared = $cleared; Undetermined = $undetermined; PendingLabels = $pendingLabels; ClearedLabels = $clearedLabels; Error = $null }
 }
+
+function Get-DeployAlertFamily {
+    <#
+      部署失败告警的族名(2026-11-03 立)。
+      口径按身份签名(Get-AlertIdentitySig)的两种形态分开:
+        · 已知类 类别=build-failed / … ⇒ 族名只到类别:同一类失败 24h 只留首封(病因漂移不再多寄);
+        · 归不进枚举的 类别=generic|骨架=… ⇒ 族名保留**含病因的完整签名**:骨架相同但病因不同的
+          两次失败仍是两族 —— D3「不同原因各寄一封」是硬不变量,类别名不得把真新故障吞掉。
+      族窗口判据住在 scripts/lib/alert-family-gate.mjs,本函数只产族名。
+    #>
+    param([Parameter(Mandatory = $true)][string]$Sig)
+    $s = ($Sig -replace '\s+', ' ').Trim()
+    if (-not $s) { return '部署告警:类别=generic' }
+    if ($s -match '^类别=generic') {
+        if ($s.Length -gt 200) { $s = $s.Substring(0, 200) }
+        return "部署告警:$s"
+    }
+    if ($s -match '^类别=([^|]+)') {
+        return "部署告警:类别=$($matches[1])"
+    }
+    if ($s.Length -gt 200) { $s = $s.Substring(0, 200) }
+    return "部署告警:类别=$s"
+}
+
+function Invoke-AlertFamilyGate {
+    <#
+      族级窗口的唯一 PS 桥(2026-11-03 立)。判据只住在 scripts/lib/alert-family-gate.mjs,
+      本函数不重写前缀匹配/窗口算法 —— PS 侧的职责只是把族名(base64 UTF-8)与状态路径传过去、
+      再把 ASCII JSON 结果翻译成哈希表。任何失败(取不到 node/判据/输出读不懂)**一律 fail-open**:
+      Action=send,Ok=false。方向与 alert-dedup 头注同一条:宁可多喊一次,绝不静默。
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('check', 'commit')][string]$Mode,
+        [Parameter(Mandatory = $true)][string]$Family,
+        [string]$RepoRoot = '',
+        [string]$StateFile = '',
+        [string]$NodeExe = ''
+    )
+    $fallback = @{ Ok = $false; Action = 'send'; Suppressed = $false; Why = 'gate-unavailable'; AgeHours = 0; CooldownHours = 0; EntryId = ''; Error = '' }
+    # 参数留空时按本模块所在位置推导判据路径(deploy\win → 根)。
+    # **状态路径不推导**:调用方没显式给状态 ⇒ 不知道窗口该落哪 ⇒ 一律 fail-open(照发)。
+    # 这条是给镜像测试的硬隔离:测试会把 Invoke-FailNotify 抽到临时 harness 里跑,若这里顺手
+    # 推导成仓库 .ihui-agent/state,测试就会读写生产窗口、把同一族压成"没寄信"。
+    if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
+    if (-not $StateFile) {
+        $fallback.Error = '未提供族窗口状态路径 ⇒ 不判定,按 fail-open 放行'
+        return $fallback
+    }
+    $gate = Join-Path $RepoRoot 'scripts\lib\alert-family-gate.mjs'
+    if (-not (Test-Path -LiteralPath $gate)) {
+        $fallback.Error = "找不到族窗口判据: $gate"
+        return $fallback
+    }
+    $node = $NodeExe
+    if (-not $node -or -not (Test-Path -LiteralPath $node)) {
+        $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
+        if ($cmd -and (Test-Path $cmd.Source)) { $node = $cmd.Source }
+    }
+    if (-not $node) {
+        foreach ($p in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+            if (Test-Path -LiteralPath $p) { $node = $p; break }
+        }
+    }
+    if (-not $node) {
+        $fallback.Error = '取不到 node.exe,族窗口按未判定放行'
+        return $fallback
+    }
+    $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Family))
+    $raw = ''
+    try {
+        $raw = (& $node $gate $Mode '--family-b64' $b64 '--state' $StateFile 2>$null | Out-String).Trim()
+    } catch {
+        $fallback.Error = "族窗口判据调用失败: $($_.Exception.Message)"
+        return $fallback
+    }
+    if (-not $raw) {
+        $fallback.Error = "族窗口判据无输出(exit=$LASTEXITCODE)"
+        return $fallback
+    }
+    $obj = $null
+    try { $obj = $raw | ConvertFrom-Json } catch {
+        $fallback.Error = "族窗口判据输出不是 JSON: $raw"
+        return $fallback
+    }
+    $action = [string]$obj.action
+    if ($Mode -eq 'commit') {
+        if ($action -ne 'commit') {
+            $fallback.Error = "族窗口记账未返回 commit: $action"
+            return $fallback
+        }
+        return @{ Ok = [bool]$obj.ok; Action = 'commit'; Suppressed = $false; Why = 'committed'; AgeHours = 0; CooldownHours = 0; EntryId = ''; Error = [string]$obj.error }
+    }
+    if ($action -ne 'send' -and $action -ne 'suppress') {
+        $fallback.Error = "族窗口判据未知动作: $action"
+        return $fallback
+    }
+    $ageHours = 0
+    $cooldownHours = 0
+    if ($obj.ageMs) { $ageHours = [Math]::Round(([double]$obj.ageMs) / 3600000, 1) }
+    if ($obj.cooldownMs) { $cooldownHours = [Math]::Round(([double]$obj.cooldownMs) / 3600000, 1) }
+    return @{
+        Ok = $true
+        Action = $action
+        Suppressed = ($action -eq 'suppress')
+        Why = [string]$obj.why
+        AgeHours = $ageHours
+        CooldownHours = $cooldownHours
+        EntryId = [string]$obj.entryId
+        Error = ''
+    }
+}
+
+function Test-AlertFamilyWindow {
+    # 只判不记投递。Suppressed=true ⇒ 本族 24h 内已寄过首封,调用方跳过且**不得**登记自己的 4h 去重槽。
+    param(
+        [Parameter(Mandatory = $true)][string]$Family,
+        [string]$RepoRoot = '',
+        [string]$StateFile = '',
+        [string]$NodeExe = ''
+    )
+    return Invoke-AlertFamilyGate -Mode 'check' -Family $Family -RepoRoot $RepoRoot -StateFile $StateFile -NodeExe $NodeExe
+}
+
+function Confirm-AlertFamilyDelivery {
+    # 只在邮件**确认送达后**调用;失败不记 ⇒ 下一轮首封仍能重试。
+    param(
+        [Parameter(Mandatory = $true)][string]$Family,
+        [string]$RepoRoot = '',
+        [string]$StateFile = '',
+        [string]$NodeExe = ''
+    )
+    return Invoke-AlertFamilyGate -Mode 'commit' -Family $Family -RepoRoot $RepoRoot -StateFile $StateFile -NodeExe $NodeExe
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

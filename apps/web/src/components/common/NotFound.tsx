@@ -29,7 +29,7 @@ export function NotFound({
     >
       <div className="text-6xl font-bold text-muted-foreground/30 min-[640px]:text-7xl">{code}</div>
       <h1 className="text-heading font-semibold min-[640px]:text-display">{title}</h1>
-      <p className="max-w-md text-sm text-muted-foreground">{description}</p>
+      <p className="max-w-md text-body text-muted-foreground">{description}</p>
       {action && <div className="mt-2">{action}</div>}
     </div>
   )

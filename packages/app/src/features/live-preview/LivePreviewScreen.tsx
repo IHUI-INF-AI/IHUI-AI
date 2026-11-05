@@ -22,8 +22,9 @@ export function LivePreviewScreen({
   subscribing,
   onSubscribe,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: LivePreviewScreenProps) {
+}: LivePreviewScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -40,7 +41,7 @@ export function LivePreviewScreen({
         {error ? (
           <ErrorState
             message={error}
-            onRetry={onBack}
+            onRetry={onRetry}
             retryLabel={t('common.back')}
             colorScheme={colorScheme}
           />
@@ -114,7 +115,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       marginTop: rnSpacing.xl,
       backgroundColor: tk.brand.cta,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       alignItems: 'center',
     },

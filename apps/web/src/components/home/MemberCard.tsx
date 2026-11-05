@@ -114,7 +114,14 @@ export function MemberCard() {
               ? (walletSection.data as HomeWalletBalance)
               : null
           return [
-            { key: 'points', label: t('points'), href: '/settings', value: stats ? String(stats.points) : '—', unavailable: false, droppedCount: 0 },
+            {
+              key: 'points',
+              label: t('points'),
+              href: '/settings',
+              value: stats ? String(stats.points) : '—',
+              unavailable: false,
+              droppedCount: 0,
+            },
             {
               key: 'balance',
               label: t('balance'),
@@ -123,8 +130,22 @@ export function MemberCard() {
               unavailable: walletSection?.status === 'unavailable',
               droppedCount: walletDropped?.count ?? 0,
             },
-            { key: 'following', label: t('following'), href: '/settings', value: stats ? String(stats.followingCount) : '—', unavailable: false, droppedCount: 0 },
-            { key: 'fans', label: t('fans'), href: '/settings', value: stats ? String(stats.fansCount) : '—', unavailable: false, droppedCount: 0 },
+            {
+              key: 'following',
+              label: t('following'),
+              href: '/settings',
+              value: stats ? String(stats.followingCount) : '—',
+              unavailable: false,
+              droppedCount: 0,
+            },
+            {
+              key: 'fans',
+              label: t('fans'),
+              href: '/settings',
+              value: stats ? String(stats.fansCount) : '—',
+              unavailable: false,
+              droppedCount: 0,
+            },
           ]
         })()
       : null
@@ -154,7 +175,7 @@ export function MemberCard() {
               <button
                 onClick={() => checkInMut.mutate()}
                 disabled={checkedIn}
-                className={`mt-3 inline-flex items-center gap-1.5 rounded-sm border px-4 py-1.5 text-xs transition-colors ${
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-sm border px-4 py-1.5 text-label transition-colors ${
                   checkedIn
                     ? 'border-border text-muted-foreground'
                     : 'border-brand-accent-deep text-primary hover:bg-cta hover:text-cta-foreground'
@@ -168,7 +189,7 @@ export function MemberCard() {
               // G-652 (b) 整体红:后端报错(HTTP200 信封失败)或必须面失败,不渲染任何数字面
               <div
                 role="alert"
-                className="mt-5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-4 text-center text-xs text-destructive"
+                className="mt-5 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-4 text-center text-label text-destructive"
               >
                 用量数据加载失败:{usageAggregate.message}
               </div>
@@ -187,13 +208,15 @@ export function MemberCard() {
                           <strong className="text-lg font-semibold text-muted-foreground">
                             暂不可用
                           </strong>
-                          <span className="text-xs text-muted-foreground">{s.label}</span>
-                          <span className="text-xs text-destructive">失败 {s.droppedCount} 次</span>
+                          <span className="text-label text-muted-foreground">{s.label}</span>
+                          <span className="text-label text-destructive">
+                            失败 {s.droppedCount} 次
+                          </span>
                         </>
                       ) : (
                         <>
                           <strong className="text-lg font-semibold text-primary">{s.value}</strong>
-                          <span className="text-xs text-muted-foreground">{s.label}</span>
+                          <span className="text-label text-muted-foreground">{s.label}</span>
                         </>
                       )}
                     </Link>
@@ -209,7 +232,7 @@ export function MemberCard() {
                 <UserCircle2 className="h-8 w-8" />
               </div>
               <p className="mt-3 text-base font-medium">{t('welcome')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('loginHint')}</p>
+              <p className="mt-1 text-label text-muted-foreground">{t('loginHint')}</p>
               <Button
                 size="sm"
                 className="mt-4 w-full"
@@ -224,7 +247,7 @@ export function MemberCard() {
                 <Link
                   key={q.href}
                   href={q.href}
-                  className="flex flex-col items-center gap-1 rounded-lg bg-muted/50 py-3 text-xs text-muted-foreground transition-colors hover:bg-cta/10 hover:text-primary"
+                  className="flex flex-col items-center gap-1 rounded-lg bg-muted/50 py-3 text-label text-muted-foreground transition-colors hover:bg-cta/10 hover:text-primary"
                 >
                   {q.label}
                 </Link>

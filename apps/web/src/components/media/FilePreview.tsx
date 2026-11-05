@@ -33,11 +33,11 @@ import {
 } from '@ihui/shared/utils/image-preview-offset'
 import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
-import { downloadFilenameFor } from '@/lib/file-preview-attachment'
+import { downloadFilenameFor, previewExtFromHref } from '@/lib/file-preview-attachment'
 // 外部 http(s) 图片经同源代理走 /api/media/image,满足收窄后的 CSP img-src
 // 外部 http(s) 音视频经 /api/media/stream(CSP media-src 为 'self' blob:,无 https: 通配)
 import { toMediaImageUrl, toMediaStreamUrl } from '@/lib/media-proxy'
-import { OfficeViewer } from './OfficeViewer'
+import { OfficePreview } from './office-preview'
 import { PDFViewer } from './PDFViewer'
 import {
   PreviewExpiredState,
@@ -69,7 +69,12 @@ export interface ImagePreviewItem {
 
 // G-856,2026-10-07:画廊内逐项判定 video。媒体画廊是图片/视频混合的,判定只能按 item
 // 做,不能按整组做 —— 对位上游 image-preview-dialog 的 activeItemIsVideo。
-const GALLERY_VIDEO_EXTENSIONS: readonly string[] = ['mp4', 'webm', 'ogv', 'ogg', 'mov', 'm4v']
+// 2026-11-04(格式对账尺 ③ 桶收口):摘掉 'ogv' 这条虚假承诺 —— 全仓 `git grep -w ogv` 仅此一处,
+// 零生产者(ai-service/app/routers/media_tasks.py:520 的下载映射不含 ogv),而本组件 detectedType
+// 把 .ogv 归 'text',这条分支结构上走不到(同型先例:票 S4 摘小程序直开表里的 rar,17e305d180)。
+// 再往这行加档 = 必须同批进 apps/api 的 EXT_MIME_MAP,否则 node scripts/check-format-support-parity.mjs
+// 的 ③ 桶(有实现未登记)当场点名。
+const GALLERY_VIDEO_EXTENSIONS: readonly string[] = ['mp4', 'webm', 'ogg', 'mov', 'm4v']
 
 function isVideoSource(url: string): boolean {
   const path = url.split(/[?#]/)[0] ?? ''
@@ -132,7 +137,13 @@ export function FilePreview({
   }
 
   if (detectedType === 'office') {
-    return <OfficeViewer url={url} fileName={name} className={className} />
+    // 2026-11-01 隐私整改(老格式 Office 预览票):office 族一律交本地渲染器
+    // OfficePreview(docx/xlsx/pptx 本地真渲染;老 .doc/.xls/.ppt 本地无解,
+    // 由组件自身判「不支持 + 下载出口」)。默认路径**不再**把文件地址经
+    // view.officeapps.live.com 的 src 参数外发给微软 —— 原 OfficeViewer 分支
+    // 会在渲染时自动发起第三方请求,而老格式确有其上传入口(聊天附件 accept
+    // 与后端 EXT_MIME_MAP 均收),外发面必须收口。
+    return <OfficePreview src={url} ext={previewExtFromHref(url)} className={className} />
   }
 
   if (detectedType === '3d') {
@@ -154,7 +165,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
     window.open(url, '_blank', 'noopener')
   }, [url])
 
-  if (feed.loading) return <div className="p-3 text-sm text-muted-foreground">{t('loading')}</div>
+  if (feed.loading) return <div className="p-3 text-body text-muted-foreground">{t('loading')}</div>
 
   // D163 五态·expired:地址/记录已失效 —— 给"重试 + 打开原文"
   if (feed.notice === 'expired')
@@ -202,7 +213,7 @@ function TextPreview({ url, className }: { url: string; className?: string }) {
         copy={copy}
         onRetry={feed.refresh}
       />
-      <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+      <pre className="min-h-0 flex-1 overflow-auto p-3 text-body">
         <code>{feed.content}</code>
       </pre>
     </div>
@@ -523,13 +534,13 @@ function ImagePreview({
             loading/ready/unsupported 三态;解码失败只收口当前画廊项,预览壳与翻页不塌。 */}
         {currentIsVideo ? (
           videoState === 'unsupported' ? (
-            <p role="alert" className="px-6 text-center text-sm text-muted-foreground">
+            <p role="alert" className="px-6 text-center text-body text-muted-foreground">
               {t('videoLoadFailed')}
             </p>
           ) : (
             <>
               {videoState === 'loading' ? (
-                <p role="status" className="text-sm text-muted-foreground">
+                <p role="status" className="text-body text-muted-foreground">
                   {t('loading')}
                 </p>
               ) : null}

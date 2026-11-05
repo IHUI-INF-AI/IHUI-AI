@@ -18,10 +18,12 @@
  * 证明"摘掉即翻红"而不是恒绿。
  */
 import { describe, it, expect } from 'vitest'
-import orderSrc from '../src/routes/order.ts?raw'
-import messageSrc from '../src/routes/message.ts?raw'
-import vipSrc from '../src/routes/vip.ts?raw'
-import indexSrc from '../src/routes/index.ts?raw'
+import { readFileSync } from 'node:fs'
+
+const orderSrc = readFileSync(new URL('../src/routes/order.ts', import.meta.url), 'utf8')
+const messageSrc = readFileSync(new URL('../src/routes/message.ts', import.meta.url), 'utf8')
+const vipSrc = readFileSync(new URL('../src/routes/vip.ts', import.meta.url), 'utf8')
+const indexSrc = readFileSync(new URL('../src/routes/index.ts', import.meta.url), 'utf8')
 
 /**
  * 按锚点切片。锚点取不到 ⇒ 抛错(用例红),不回落空串:

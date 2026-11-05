@@ -10,6 +10,7 @@ import { fetchApi } from '@ihui/api-client'
 import { VipCompareScreen as SharedVipCompareScreen, type VipCompareRow } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -38,6 +39,8 @@ export function VipCompareScreen() {
     void load()
   }, [load])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedVipCompareScreen
       t={t}
@@ -46,6 +49,7 @@ export function VipCompareScreen() {
       error={error}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

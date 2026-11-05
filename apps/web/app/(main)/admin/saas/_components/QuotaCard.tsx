@@ -52,7 +52,7 @@ export function QuotaCard({ slug }: QuotaCardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-rose-600 dark:text-rose-500">
+          <p className="text-label text-rose-600 dark:text-rose-500">
             {error?.message ?? t('unavailable')}
           </p>
         </CardContent>
@@ -116,7 +116,7 @@ function QuotaRow({
   const t = useTranslations('admin.saas.quota')
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-label">
         <span className="flex items-center gap-1.5 text-muted-foreground">
           {icon}
           <span>{label}</span>
@@ -135,8 +135,7 @@ function QuotaRow({
         <div
           className="h-full rounded bg-primary/60"
           style={{
-            width:
-              limit && limit > 0 ? `${clampPercent((used / limit) * 100)}%` : '0%',
+            width: limit && limit > 0 ? `${clampPercent((used / limit) * 100)}%` : '0%',
           }}
         />
       </div>

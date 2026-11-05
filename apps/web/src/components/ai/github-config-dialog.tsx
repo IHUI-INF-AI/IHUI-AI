@@ -253,7 +253,7 @@ export function GithubConfigDialog() {
           type="button"
           onClick={() => closeGithubConfig()}
           disabled={busy !== null}
-          className="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-xs text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-label text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
           data-testid="github-token-cancel"
         >
           {tcommon('cancel')}
@@ -332,7 +332,7 @@ export function GithubConfigDialog() {
                     value={token}
                     onChange={(e) => setToken(e.target.value)}
                     placeholder={t('tokenPlaceholder')}
-                    className="h-8 w-full rounded-sm border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-brand-accent-deep"
+                    className="h-8 w-full rounded-sm border border-border bg-background px-3 text-label text-foreground outline-none focus:border-brand-accent-deep"
                     data-testid="github-token-input"
                     autoComplete="off"
                     spellCheck={false}
@@ -361,7 +361,7 @@ export function GithubConfigDialog() {
             {/* 状态二:等待授权 */}
             <div className="flex flex-col gap-2 rounded-md border border-border p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">{t('userCode')}</span>
+                <span className="text-label text-muted-foreground">{t('userCode')}</span>
                 <button
                   type="button"
                   onClick={() => void handleCopyCode()}
@@ -385,7 +385,7 @@ export function GithubConfigDialog() {
                 href={verificationUri}
                 target="_blank"
                 rel="noreferrer"
-                className="break-all text-xs text-primary underline-offset-2 hover:underline"
+                className="break-all text-label text-primary underline-offset-2 hover:underline"
                 data-testid="github-verification-uri"
               >
                 {verificationUri}
@@ -401,7 +401,7 @@ export function GithubConfigDialog() {
               {t('openAuthPage')}
             </button>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-label text-muted-foreground">
               {polling && <Loader2 className="h-3 w-3 animate-spin" aria-hidden />}
               <span>{t('authorizePending')}</span>
             </div>
@@ -409,7 +409,7 @@ export function GithubConfigDialog() {
             <button
               type="button"
               onClick={handleCancelAuth}
-              className="self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="self-start text-label text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               {tcommon('cancel')}
             </button>

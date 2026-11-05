@@ -213,8 +213,8 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
         <DialogHeader>
           <DialogTitle>{t('cropTitle')}</DialogTitle>
         </DialogHeader>
-        <p className="text-xs text-muted-foreground">{t('cropDesc')}</p>
-        {err && <div className="text-sm text-destructive">{err}</div>}
+        <p className="text-label text-muted-foreground">{t('cropDesc')}</p>
+        {err && <div className="text-body text-destructive">{err}</div>}
         <div className="flex flex-col items-center gap-3">
           <canvas
             ref={canvasRef}
@@ -240,7 +240,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
                 </Button>
               </span>
             </Tooltip>
-            <span className="text-xs text-muted-foreground">{t('cropScale')}</span>
+            <span className="text-label text-muted-foreground">{t('cropScale')}</span>
             <input
               type="range"
               min={MIN_SCALE}
@@ -252,7 +252,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
               aria-label={t('cropScale')}
               className="h-1 flex-1 cursor-pointer appearance-none rounded-sm bg-muted accent-primary disabled:opacity-50"
             />
-            <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+            <span className="w-10 text-right text-label tabular-nums text-muted-foreground">
               {userScale.toFixed(2)}x
             </span>
             <Tooltip content={t('cropRotateRight')}>
@@ -271,7 +271,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
             </Tooltip>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{t('cropPreview')}</span>
+            <span className="text-label text-muted-foreground">{t('cropPreview')}</span>
             <canvas
               ref={previewRef}
               width={PREVIEW_SIZE}
@@ -279,7 +279,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
               className="rounded-md border bg-muted"
             />
           </div>
-          <p className="text-xs text-muted-foreground">{t('cropHint')}</p>
+          <p className="text-label text-muted-foreground">{t('cropHint')}</p>
         </div>
         <DialogFooter className="gap-2 min-[640px]:flex-nowrap">
           <Button type="button" variant="outline" onClick={onCancel} className="shrink-0">

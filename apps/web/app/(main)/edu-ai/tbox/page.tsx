@@ -162,7 +162,7 @@ export default function TboxPage() {
   )
   const infoRow = (label: string, value: React.ReactNode) => (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-muted-foreground">{t(label)}</span>
+      <span className="text-label text-muted-foreground">{t(label)}</span>
       {value}
     </div>
   )
@@ -177,7 +177,7 @@ export default function TboxPage() {
           <Cpu className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -224,7 +224,7 @@ export default function TboxPage() {
         ) : devices.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10">
             <Cpu className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noDevices')}</p>
+            <p className="text-body text-muted-foreground">{t('noDevices')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -244,7 +244,7 @@ export default function TboxPage() {
                     </span>
                     <span className={badge(d.status, STATUS_STYLES)}>{t(d.status)}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-label text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Signal className="h-3.5 w-3.5" />
                       {t('signal')}: {d.signal ?? '-'}
@@ -255,10 +255,10 @@ export default function TboxPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="truncate text-label text-muted-foreground">
                       {d.deviceNo} · {d.deviceType}
                     </span>
-                    <span className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                    <span className="flex shrink-0 items-center gap-1 text-label text-primary">
                       {d.lastOnlineAt ? formatShortDateTime(d.lastOnlineAt, locale) : '-'}
                       <ChevronRight className="h-3.5 w-3.5" />
                     </span>
@@ -293,7 +293,7 @@ export default function TboxPage() {
               description={(detailQuery.error as Error).message}
             />
           ) : detail ? (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-body">
               <div className="space-y-2">
                 {infoRow(
                   'status',
@@ -367,7 +367,7 @@ export default function TboxPage() {
                     {t('loading')}
                   </div>
                 ) : commands.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">-</p>
+                  <p className="text-label text-muted-foreground">-</p>
                 ) : (
                   <div className="space-y-1.5">
                     {commands.map((c) => (
@@ -379,7 +379,7 @@ export default function TboxPage() {
                           <span className="text-label font-medium">{t(c.command)}</span>
                           <span className={badge(c.status, CMD_STATUS_STYLES)}>{t(c.status)}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-label text-muted-foreground">
                           {t('sentAt')}: {c.sentAt ? formatShortDateTime(c.sentAt, locale) : '-'}
                           {c.ackedAt && (
                             <span className="ml-2">

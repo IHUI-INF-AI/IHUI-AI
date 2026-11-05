@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { __test__ as G } from '../check-dockerfile-copy-paths.mjs'
+import { __test__ as G, readAtFace } from '../check-dockerfile-copy-paths.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -39,6 +39,9 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'lifecycleScriptRefs',
     'workflowContexts',
     'committedPaths',
+    'parseDockerignore',
+    'dockerignored',
+    'dockerignorePatterns',
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
@@ -68,6 +71,7 @@ test('判据样例表逐条与 want 一致(含"补上 COPY 必须放过"的修�
       content: c.dockerfile,
       refs: c.refs,
       rel: 'deploy/docker/Dockerfile.t',
+      ignorePatterns: c.ignore ?? [],
     })
     assert.equal(v.length ? 'violation' : 'pass', c.want, `样例失败: ${c.name}`)
   }
@@ -93,6 +97,46 @@ test('A 判据:缺 COPY 时报出的文件名与修法可执行', () => {
       rel: 'x',
     }).length,
     0,
+  )
+})
+
+test('A 判据:COPY 必须落在 `RUN pnpm install` 之前 —— 旧 Dockerfile 红、补后绿、事后补 COPY 仍红', () => {
+  const refs = ['scripts/fix-expo-metro-junction.mjs', 'scripts/lib/patch-lint-staged-stdio.mjs']
+  // 2026-11-03 build-api / build-web 双红的原样:postinstall 引用两个脚本,镜像只 COPY 了第一个
+  const oldDockerfile =
+    'FROM node:22-alpine\nWORKDIR /app\n' +
+    'COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./\n' +
+    'COPY scripts/fix-expo-metro-junction.mjs scripts/\n' +
+    'RUN pnpm install --frozen-lockfile\n'
+  const oldViolations = G.checkLifecycleCopies({
+    content: oldDockerfile,
+    refs,
+    rel: 'deploy/docker/Dockerfile.api',
+  })
+  assert.equal(oldViolations.length, 1, '旧 Dockerfile 必须红 —— 这正是 CI 双镜像失败现场')
+  assert.match(oldViolations[0].detail, /scripts\/lib\/patch-lint-staged-stdio\.mjs/)
+  assert.match(oldViolations[0].detail, /RUN pnpm install.*之前/)
+
+  // 修法:在 install 前补一行 → 归绿
+  const fixed = oldDockerfile.replace(
+    'RUN pnpm install',
+    'COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\nRUN pnpm install',
+  )
+  assert.equal(
+    G.checkLifecycleCopies({ content: fixed, refs, rel: 'deploy/docker/Dockerfile.api' }).length,
+    0,
+    'install 前补齐 COPY 必须归绿',
+  )
+
+  // 反向例:补在 install 之后不算覆盖(那次 install 仍会 MODULE_NOT_FOUND)
+  const afterInstall = oldDockerfile.replace(
+    'RUN pnpm install --frozen-lockfile\n',
+    'RUN pnpm install --frozen-lockfile\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\n',
+  )
+  assert.equal(
+    G.checkLifecycleCopies({ content: afterInstall, refs, rel: 'x' }).length,
+    1,
+    'install 之后才 COPY 不算覆盖,判据不得放宽',
   )
 })
 
@@ -209,6 +253,44 @@ test('parseCopies 正确剥离 flag 与续行,末 token 才是 dst', () => {
   assert.equal(copies[1].dst, '/')
   assert.equal(copies[1].line, 2, '行号要指向续行的起始行')
   assert.equal(copies[2].hasFrom, true)
+})
+
+test('D 判据:根 postinstall 脚本不得被 .dockerignore 排除(真仓真值)', () => {
+  const pkg = JSON.parse(readAtFace(ROOT, 'head', 'package.json'))
+  const refs = G.lifecycleScriptRefs(pkg)
+  assert.deepEqual(
+    refs,
+    ['scripts/fix-expo-metro-junction.mjs', 'scripts/lib/patch-lint-staged-stdio.mjs'],
+    '根 postinstall 的脚本引用集变了 ⇒ 必须同步核 .dockerignore 可达性',
+  )
+  const patterns = G.dockerignorePatterns(ROOT)
+  assert.ok(patterns.length > 10, `.dockerignore 规则数异常(${patterns.length}),不得静默判绿`)
+  for (const ref of refs) {
+    assert.equal(
+      G.dockerignored(ref, patterns),
+      false,
+      `${ref} 被 .dockerignore 排除 ⇒ 镜像里 COPY 也搬不进构建上下文`,
+    )
+  }
+})
+
+test('D 判据匹配语义:父目录 / `!` 取反 / 无斜杠模式限定根层(按 Docker 口径)', () => {
+  const ref = 'scripts/lib/patch-lint-staged-stdio.mjs'
+  assert.equal(G.dockerignored(ref, ['scripts/lib']), true, '规则命中父目录即排除')
+  assert.equal(G.dockerignored(ref, ['scripts/*']), true, '`*` 不跨 `/`,但命中父目录 scripts/lib')
+  assert.equal(G.dockerignored(ref, ['**/*.mjs']), true, '`**` 可跨任意层目录')
+  assert.equal(
+    G.dockerignored(ref, ['*.mjs']),
+    false,
+    '无斜杠模式只作用于上下文根层,不误伤 scripts/',
+  )
+  assert.equal(G.dockerignored('x.mjs', ['*.mjs']), true)
+  assert.equal(
+    G.dockerignored(ref, ['scripts/**', `!${ref}`]),
+    false,
+    '最后一条命中的 `!` 规则重新纳入',
+  )
+  assert.equal(G.parseDockerignore('# 注释\n\n**/node_modules/\n  \n').length, 1)
 })
 
 test('生命周期抽取:preinstall/prepare 同样要覆盖,内联 node -e 与 pnpm 调用不算文件依赖', () => {

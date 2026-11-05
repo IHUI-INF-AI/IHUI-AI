@@ -93,7 +93,7 @@ export function PlanVersionDiff({
           {versions.map((v) => renderOption(v.version, v.label))}
           {renderOption(null, liveSnapshot?.label ?? 'Latest')}
         </select>
-        <span className="text-xs text-muted-foreground">vs</span>
+        <span className="text-label text-muted-foreground">vs</span>
         <select
           value={toVersion === null ? 'live' : String(toVersion)}
           onChange={(e) => {
@@ -109,14 +109,14 @@ export function PlanVersionDiff({
       </div>
 
       {diff === null ? (
-        <p className="text-sm text-muted-foreground">Select two versions to view the diff</p>
+        <p className="text-body text-muted-foreground">Select two versions to view the diff</p>
       ) : sameVersion ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {labelOf(versions, liveSnapshot, fromVersion)} is identical; select two different versions
         </p>
       ) : (
         <div className="space-y-2">
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-label">
             <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-emerald-700">
               Added {diff.summary.added}
             </span>
@@ -131,7 +131,7 @@ export function PlanVersionDiff({
             </span>
           </div>
           {(diff.goalChanged || diff.scopeChanged) && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {[
                 diff.goalChanged ? 'Goal changed' : null,
                 diff.scopeChanged ? 'Scope/constraints changed' : null,
@@ -141,7 +141,7 @@ export function PlanVersionDiff({
             </p>
           )}
           {diff.changes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Steps are identical in both versions</p>
+            <p className="text-body text-muted-foreground">Steps are identical in both versions</p>
           ) : (
             diff.changes.map((change) => {
               const meta = KIND_META[change.kind]
@@ -152,9 +152,9 @@ export function PlanVersionDiff({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-body font-medium">{change.title}</span>
-                    <span className="shrink-0 text-xs opacity-80">{meta.label}</span>
+                    <span className="shrink-0 text-label opacity-80">{meta.label}</span>
                   </div>
-                  <p className="mt-0.5 text-xs opacity-80">{change.detail}</p>
+                  <p className="mt-0.5 text-label opacity-80">{change.detail}</p>
                 </div>
               )
             })

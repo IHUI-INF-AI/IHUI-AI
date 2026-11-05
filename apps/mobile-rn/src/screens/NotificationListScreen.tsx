@@ -5,7 +5,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { archiveNotification, getNotifications, restoreNotification } from '@ihui/api-client'
+import {
+  archiveNotification,
+  getNotifications,
+  markNotificationRead,
+  restoreNotification,
+} from '@ihui/api-client'
 import { apiFailureToError } from '@ihui/shared/utils'
 import type { NotificationItem, NotificationPartition } from '@ihui/types'
 import { NotificationListScreen as SharedNotificationListScreen } from '@ihui/rn-app'
@@ -91,6 +96,19 @@ export function NotificationListScreen() {
     await load()
   }
 
+  // 点击通知行 = 标已读(与 web NotificationFeed 点击即标已读同语义):
+  // 未读才发 PATCH /api/notifications/:id/read,成功后整表重拉刷新未读态;
+  // 失败如实透出,不假装已读(未读点保持亮)。
+  const handlePressItem = async (item: NotificationListItem) => {
+    if (item.read) return
+    const res = await markNotificationRead(item.id)
+    if (!res.success) {
+      setError(res.error || t('notificationList.loadFailed'))
+      return
+    }
+    await load()
+  }
+
   return (
     <SharedNotificationListScreen
       t={t}
@@ -102,6 +120,7 @@ export function NotificationListScreen() {
         setRefreshing(true)
         void load()
       }}
+      onPressItem={(item) => void handlePressItem(item)}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       partition={partition}

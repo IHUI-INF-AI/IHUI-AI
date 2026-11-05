@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -234,11 +234,11 @@ export default function MediaTasksPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <header className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
             <Clapperboard className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -340,7 +340,7 @@ export default function MediaTasksPage() {
                 <p className="text-[11px] text-muted-foreground">{c.label}</p>
                 <p
                   className={cn(
-                    'mt-1 flex items-center gap-1 text-xl font-bold tabular-nums',
+                    'mt-1 flex items-center gap-1 text-heading font-bold tabular-nums',
                     c.cls,
                   )}
                 >
@@ -390,7 +390,7 @@ export default function MediaTasksPage() {
                   type="button"
                   onClick={() => switchFilter(setStatusFilter)(f.key)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-xs transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     statusFilter === f.key
                       ? 'border-primary/50 bg-primary/10 text-primary'
                       : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -407,7 +407,7 @@ export default function MediaTasksPage() {
                   type="button"
                   onClick={() => switchFilter(setKindFilter)(f.key)}
                   className={cn(
-                    'rounded-sm border px-2.5 py-1 text-xs transition-colors',
+                    'rounded-sm border px-2.5 py-1 text-label transition-colors',
                     kindFilter === f.key
                       ? 'border-primary/50 bg-primary/10 text-primary'
                       : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -420,13 +420,13 @@ export default function MediaTasksPage() {
           </div>
 
           {error && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {error}
             </div>
           )}
 
           {clearInfo && (
-            <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-sm text-primary">
+            <div className="rounded-md border border-primary/40 bg-primary/10 p-3 text-body text-primary">
               {clearInfo}
             </div>
           )}
@@ -438,7 +438,7 @@ export default function MediaTasksPage() {
               onClick={() => setViewMode('list')}
               aria-pressed={viewMode === 'list'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
                 viewMode === 'list'
                   ? 'border-primary/50 bg-primary/10 text-primary'
                   : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -453,7 +453,7 @@ export default function MediaTasksPage() {
               onClick={() => setViewMode('board')}
               aria-pressed={viewMode === 'board'}
               className={cn(
-                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-xs transition-colors',
+                'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-label transition-colors',
                 viewMode === 'board'
                   ? 'border-primary/50 bg-primary/10 text-primary'
                   : 'border-border/50 text-muted-foreground hover:bg-muted/40',
@@ -484,13 +484,13 @@ export default function MediaTasksPage() {
                   {t('loading')}
                 </div>
               ) : listQuery.error ? (
-                <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
                   {(listQuery.error as Error).message}
                 </div>
               ) : tasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
                   <Clapperboard className="h-8 w-8 opacity-40" />
-                  <p className="text-sm">{t('empty')}</p>
+                  <p className="text-body">{t('empty')}</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -564,7 +564,7 @@ export default function MediaTasksPage() {
                           </div>
                         </div>
                         {task.message && (
-                          <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                          <p className="line-clamp-2 break-words text-label text-muted-foreground">
                             {task.message}
                           </p>
                         )}
@@ -584,7 +584,7 @@ export default function MediaTasksPage() {
 
           {/* 分页 */}
           {!listQuery.isLoading && !listQuery.error && pages > 1 && (
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-label text-muted-foreground">
               <span>{t('total', { total })}</span>
               <div className="flex items-center gap-1">
                 <Button
@@ -618,4 +618,4 @@ export default function MediaTasksPage() {
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

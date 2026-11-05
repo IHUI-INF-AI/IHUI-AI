@@ -21,15 +21,21 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = (rel) => readFileSync(resolve(HERE, '..', rel), 'utf8')
 const row = (k, n = 1) => `- [ ] ${k} **事${n}**:正文交代得很长以便过最短闸。`
 
-test('P1 超池识别:只看声明位号;999 恰在上限内不算超,>999 才算', () => {
-  const face = [row('G-999'), row('O23'), row('G-1038426'), row('D1047'), row('G-81439')].join('\n')
+test('P1 超池识别:只看声明位号;上限本身不算超,超一格才算', () => {
+  // 上限从单源来,不在这里写死第二个数:2026-10-29 起池宽回到两位数(LEASE_POOL_MAX=99,
+  // 见 963c5655da「回退取号池 99→999」),所以夹具必须按 LEASE_POOL_MAX 现算 ——
+  // 旧夹具把 999 当"恰在上限内",那是池宽 999 时代的读数,今天 999 本身就是超池。
+  const atMax = `G-${LEASE_POOL_MAX}`
+  const overMax = `G-${LEASE_POOL_MAX + 1}`
+  const face = [row(atMax), row('O23'), row('G-1038426'), row('D1047'), row('G-81439'), row(overMax)].join('\n')
   const keys = overPoolDeclarations(face)
     .map((x) => x.key)
     .sort()
-  assert.deepEqual(keys, ['D1047', 'G-1038426', 'G-81439'], `实得 ${keys.join(',')}`)
+  const expect = ['D1047', 'G-1038426', 'G-81439', overMax].sort()
+  assert.deepEqual(keys, expect, `实得 ${keys.join(',')}`)
   // 上限本身从单源来,不在测试里写死第二个数
   assert.equal(overPoolDeclarations(face, 1000).some((x) => x.key === 'G-1038426'), true)
-  assert.equal(overPoolDeclarations(row('G-999'), LEASE_POOL_MAX).length, 0)
+  assert.equal(overPoolDeclarations(row(atMax), LEASE_POOL_MAX).length, 0)
 })
 
 test('P2 占位注释里的历史号不参与(判据过宽就是把自己变成恒红门)', () => {

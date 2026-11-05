@@ -62,7 +62,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
         </div>
       </div>
 
-      <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">{entry.text}</p>
+      <p className="line-clamp-3 text-label leading-relaxed text-muted-foreground">{entry.text}</p>
 
       <div className="flex items-center justify-between pt-0.5 text-[11px] text-muted-foreground/70">
         <span>

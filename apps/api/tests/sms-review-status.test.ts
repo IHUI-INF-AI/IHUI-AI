@@ -66,8 +66,8 @@ describe('腾讯云模板/签名列表响应解析', () => {
     expect(parsed['2759147']).toMatchObject({ status: 'approved', reply: '审核通过' })
     expect(parsed['2759156']).toMatchObject({ status: 'pending' })
     expect(parsed['2759161']).toMatchObject({ status: 'rejected' })
-    expect(parsed['2759147'].updatedAt).toBe(new Date(1_700_000_000_000).toISOString())
-    expect(parsed['2759156'].updatedAt).toBeUndefined()
+    expect(parsed['2759147']!.updatedAt).toBe(new Date(1_700_000_000_000).toISOString())
+    expect(parsed['2759156']!.updatedAt).toBeUndefined()
   })
 
   it('签名响应按 SignId 建索引', () => {
@@ -79,8 +79,8 @@ describe('腾讯云模板/签名列表响应解析', () => {
       },
     }
     const parsed = parseSignReview(raw)
-    expect(parsed['730042'].status).toBe('pending')
-    expect(parsed['730042'].reply).toContain('营业执照全称')
+    expect(parsed['730042']!.status).toBe('pending')
+    expect(parsed['730042']!.reply).toContain('营业执照全称')
   })
 
   it('响应缺字段/非数组时返回空表,不抛错', () => {

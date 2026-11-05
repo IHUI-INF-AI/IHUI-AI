@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     borderColor: tokens.border.light,
     paddingHorizontal: rnSpacing.xl,
-    paddingTop: 18,
-    paddingBottom: 30,
+    paddingTop: rnSpacing.lg,
+    paddingBottom: rnSpacing['3xl'],
   } as ViewStyle,
   title: {
     fontSize: TITLE_FONT_SIZE,
@@ -225,12 +225,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.secondary,
     textAlign: 'center',
-    marginBottom: 18,
+    marginBottom: rnSpacing.lg,
   } as TextStyle,
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 18,
+    marginBottom: rnSpacing.lg,
   } as ViewStyle,
   option: {
     flex: 1,

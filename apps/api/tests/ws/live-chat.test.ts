@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { WebSocket } from '@fastify/websocket'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5399/test'
 })
 
 // 模拟 db.insert / db.select / db.delete
@@ -20,7 +20,9 @@ const insertedRows: unknown[] = []
 let insertCalls: { table?: string; values?: unknown }[] = []
 const selectRows: unknown[] = []
 
-const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown } = {
+type Chain = Record<string, (...a: unknown[]) => Chain> & { then: unknown }
+
+const chain: Chain = {
   then: undefined as never,
   from: () => chain,
   where: () => chain,
@@ -31,11 +33,9 @@ const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown
     return chain
   },
   returning: () => {
-    const next = {
-      ...chain,
-      then: (resolve: (v: unknown) => unknown) =>
-        Promise.resolve([insertedRows.shift()]).then(resolve),
-    }
+    const next: Chain = { ...chain }
+    next.then = (resolve: (v: unknown) => unknown) =>
+      Promise.resolve([insertedRows.shift()]).then(resolve)
     return next
   },
 }
@@ -73,6 +73,11 @@ vi.mock('../../src/db/index.js', () => ({
           orderBy: () => ({
             limit: () => Promise.resolve([]),
           }),
+          // 2026-10-31 安全强化第 19 批(chat-server.ts:234):展示身份改服务端取材,
+          // 新增了 db.select({...}).from(users).where(eq(...)).limit(1) 这一形态 ——
+          // 本替身的 where 链原先只有 orderBy().limit(),少了直接 limit() 就报
+          // "db.select(...).from(...).where(...).limit is not a function"。
+          limit: () => Promise.resolve([]),
         }),
       }),
     })),

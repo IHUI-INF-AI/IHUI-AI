@@ -49,8 +49,9 @@ export function FavoriteScreen({
   onDelete,
   onBack,
   onGoDiscover,
+  onRetry,
   colorScheme = 'light',
-}: FavoriteScreenProps) {
+}: FavoriteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -102,7 +103,7 @@ export function FavoriteScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -162,7 +163,7 @@ export function FavoriteScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.deleteBtnText}>{t('favorite.cancel')}</Text>
+              <Text style={styles.deleteBtnText}>{t('favorites.remove')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -190,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     tab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,

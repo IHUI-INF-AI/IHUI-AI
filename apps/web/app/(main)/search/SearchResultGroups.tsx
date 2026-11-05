@@ -37,7 +37,7 @@ function EmptyState({ icon: Icon, text }: { icon: IconType; text: string }) {
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
       <Icon className="h-8 w-8 opacity-40" />
-      <p className="text-sm">{text}</p>
+      <p className="text-body">{text}</p>
     </div>
   )
 }
@@ -117,11 +117,11 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
                       <User className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <CardTitle className="truncate text-sm">
+                      <CardTitle className="truncate text-body">
                         <Highlight text={u.nickname} keyword={q} />
                       </CardTitle>
                       {u.bio && (
-                        <CardDescription className="line-clamp-2 text-xs">
+                        <CardDescription className="line-clamp-2 text-label">
                           <Highlight text={u.bio} keyword={q} />
                         </CardDescription>
                       )}
@@ -141,14 +141,14 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
               <Link key={p.id} href={`/workspace/${p.id}`} className="group block">
                 <Card className="transition-colors hover:bg-accent">
                   <CardHeader className="p-3">
-                    <CardTitle className="text-sm">
+                    <CardTitle className="text-body">
                       <Highlight text={p.name} keyword={q} />
                     </CardTitle>
-                    <CardDescription className="text-xs">
+                    <CardDescription className="text-label">
                       <Highlight text={p.description} keyword={q} />
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="min-[640px]:p-3 p-3 pt-0 text-xs text-muted-foreground">
+                  <CardContent className="min-[640px]:p-3 p-3 pt-0 text-label text-muted-foreground">
                     {p.fileCount} files · {dateFmt.format(new Date(p.updatedAt))}
                   </CardContent>
                 </Card>
@@ -171,13 +171,13 @@ export function SearchResultGroups({ q, tab, isLoading, error, users, projects, 
                   <p className="break-words text-body font-medium">
                     <Highlight text={f.name} keyword={q} />
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {formatSize(f.size)} · {dateFmt.format(new Date(f.createdAt))}
                   </p>
                 </div>
                 <Link
                   href={`/workspace/${f.projectId}?file=${f.id}`}
-                  className="shrink-0 text-xs text-primary hover:underline"
+                  className="shrink-0 text-label text-primary hover:underline"
                 >
                   {t('open')}
                 </Link>

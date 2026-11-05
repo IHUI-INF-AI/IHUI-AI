@@ -27,8 +27,9 @@ export function FeedbackDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: FeedbackDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: FeedbackDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -44,7 +45,7 @@ export function FeedbackDetailScreen({
     return (
       <ErrorState
         message={error || t('feedbackDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -86,7 +87,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', gap: rnSpacing.sm, marginBottom: rnSpacing.md },
     typeBadge: {

@@ -140,7 +140,7 @@ function DetailsContent() {
 
   if (error) {
     return (
-      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -166,20 +166,20 @@ function DetailsContent() {
         <h1 className="text-display font-bold tracking-tight">
           {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           金额：<span className="font-bold text-foreground">{formatCNY(order.amount)}</span>
         </p>
         <div className="flex justify-center rounded-lg border border-border bg-white p-3">
           <QRCodeCanvas value={qrValue} size={240} level="M" />
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {isAlipay ? '请用支付宝扫描二维码完成支付' : '请用微信扫描二维码完成支付'}
         </p>
-        <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+        <p className="flex items-center justify-center gap-1 text-label text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           等待支付确认中,支付完成后本页自动更新
         </p>
-        <p className="text-xs text-muted-foreground">订单号：{order.orderNo}</p>
+        <p className="text-label text-muted-foreground">订单号：{order.orderNo}</p>
         <Button variant="outline" onClick={() => setOrder(null)}>
           {tc('back')}
         </Button>
@@ -190,7 +190,7 @@ function DetailsContent() {
   if (order && order.payInfo?.mock) {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-amber-700">
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 text-body text-amber-700">
           支付通道暂未开通（微信/支付宝商户配置缺失），订单已创建但无法支付。
           <br />
           订单号：{order.orderNo}。请联系管理员在服务端配置支付商户后重试。
@@ -205,7 +205,7 @@ function DetailsContent() {
   if (order && order.payInfo?.error) {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-body text-destructive">
           下单失败：{order.payInfo.error}
         </div>
         <Button variant="outline" onClick={() => setOrder(null)}>
@@ -219,7 +219,7 @@ function DetailsContent() {
     return (
       <div className="mx-auto w-full max-w-md space-y-4 py-10 text-center">
         <Crown className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+        <p className="text-body text-muted-foreground">{t('empty')}</p>
         <Button asChild variant="outline">
           <Link href="/vip">{tc('back')}</Link>
         </Button>
@@ -231,26 +231,28 @@ function DetailsContent() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/vip"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
       </Link>
 
-      <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('details')}</h1>
+      <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+        {t('details')}
+      </h1>
 
       <div className="grid grid-cols-1 gap-4 min-[1024px]:grid-cols-5">
         <div className="min-[1024px]:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl">{level.levelName}</CardTitle>
+              <CardTitle className="text-heading">{level.levelName}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-baseline gap-2">
                 <span className="text-display min-[768px]:text-3xl font-bold">
                   {formatCNY(level.price)}
                 </span>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {t('durationDays', { days: level.durationDays })}
                 </span>
               </div>
@@ -258,7 +260,7 @@ function DetailsContent() {
               <div>
                 <p className="mb-2 text-body font-medium text-muted-foreground">{t('benefits')}</p>
                 {benefits.length > 0 ? (
-                  <ul className="space-y-2 text-sm">
+                  <ul className="space-y-2 text-body">
                     {benefits.map((b, i) => (
                       <li key={`benefit-${i}`} className="flex items-start gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
@@ -267,7 +269,7 @@ function DetailsContent() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted-foreground">{t('empty')}</p>
+                  <p className="text-body text-muted-foreground">{t('empty')}</p>
                 )}
               </div>
             </CardContent>
@@ -284,7 +286,7 @@ function DetailsContent() {
                 <label
                   key={m.id}
                   className={cn(
-                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors',
+                    'flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-body transition-colors',
                     method === m.id ? 'border-brand-accent-deep bg-primary/5' : 'hover:bg-accent',
                   )}
                 >
@@ -307,7 +309,7 @@ function DetailsContent() {
               ))}
 
               {orderMut.isError ? (
-                <p className="pt-2 text-sm text-destructive">
+                <p className="pt-2 text-body text-destructive">
                   {t('purchaseFail')}: {(orderMut.error as Error).message}
                 </p>
               ) : null}

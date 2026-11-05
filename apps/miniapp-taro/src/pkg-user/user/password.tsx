@@ -2,19 +2,26 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/change-pwd/ChangePwdScreen.tsx
+// 镜像 packages/app/src/features/change-pwd/ChangePwdScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 端内保留的业务:校验规则(6-20 位 / 两次一致 / 新旧不同)、`changePassword` 端点契约
+// (`PUT /api/auth/password { oldPassword, newPassword }`)、成功 toast + navigateBack、
+// 「忘记原密码」跳转 `/pages/forgot-password/index`、失败文案 `settings.pwdChangeFailed`。
+// 渲染(页头、三个密码框、显示/隐藏、内联校验、忘记入口、提交按钮)全部委托共享屏。
 
+import Taro from '@tarojs/taro'
+import { useCallback, useState } from 'react'
+import { changePassword } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
-import Taro from '@tarojs/taro'
-import { useState, useCallback } from 'react'
-import { changePassword } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import { onToast } from '@/host/on-toast'
+import { ChangePwdScreen } from '@ihui/rn-app/features/change-pwd/ChangePwdScreen'
 
 export default function Password() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const [oldPwd, setOldPwd] = useState('')
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
@@ -34,153 +41,90 @@ export default function Password() {
   const newPwdValid = newPwd.length >= 6 && newPwd.length <= 20
   const confirmMatch = newPwd !== '' && newPwd === confirmPwd
 
-  async function onSubmit() {
+  const onSubmit = useCallback(async () => {
     if (submitting) return
     if (!oldPwd) {
-      return Taro.showToast({ title: tt('user.password.enterOld', '请输入原密码'), icon: 'none' })
+      onToast(tt('user.password.enterOld', '请输入原密码'), { kind: 'info' })
+      return
     }
-    if (newPwd.length < 6 || newPwd.length > 20) {
-      return Taro.showToast({
-        title: tt('user.password.tooShort', '密码长度 6-20 位'),
-        icon: 'none',
-      })
+    if (!newPwdValid) {
+      onToast(tt('user.password.tooShort', '密码长度 6-20 位'), { kind: 'error' })
+      return
     }
     if (newPwd !== confirmPwd) {
-      return Taro.showToast({
-        title: tt('user.password.mismatch', '两次输入的密码不一致'),
-        icon: 'none',
-      })
+      onToast(tt('user.password.mismatch', '两次输入的密码不一致'), { kind: 'info' })
+      return
     }
     if (oldPwd === newPwd) {
-      return Taro.showToast({
-        title: tt('user.password.sameAsOld', '新密码不能与原密码相同'),
-        icon: 'none',
-      })
+      onToast(tt('user.password.sameAsOld', '新密码不能与原密码相同'), { kind: 'error' })
+      return
     }
     setSubmitting(true)
     try {
-      /* 端点契约 = `PUT /api/auth/password { oldPassword, newPassword }`
-         (apps/api/src/routes/auth.ts:1768-1786)。此前走 `updatePassword(oldPwd,newPwd)`
-         → `POST /api/user/password` 发 `{ oldPwd, newPwd }`(api/index.ts:1028),与该
-         handler 的 zod 字段名不符(miniapp-compat-routes.ts:2490-2497)⇒ 必 400,
-         `user.password.success` 那一支从来渲染不出来。 */
       await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
-      Taro.showToast({ title: tt('user.password.success', '密码修改成功'), icon: 'success' })
+      onToast(tt('user.password.success', '密码修改成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/password', '修改密码', e)
       /* `common.failed` 五语言词条是「加载失败」,用在提交失败处是说谎文案;
          取已在册且语义精确的 `settings.pwdChangeFailed`(与设置页密码弹层同一句)。 */
-      Taro.showToast({ title: t('settings.pwdChangeFailed'), icon: 'none' })
+      onToast(t('settings.pwdChangeFailed'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [submitting, oldPwd, newPwdValid, newPwd, confirmPwd, tt, t])
 
-  function gotoForgot() {
-    Taro.navigateTo({ url: '/pages/forgot-password/index' })
-  }
+  // 共享屏要求注入导航端口;本屏内只剩「忘记原密码」一条真实跳转(已单独走 onForgotOld)。
+  const onNavigate = useCallback(() => {
+    onToast('导航未接入', { kind: 'error' })
+  }, [])
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN 共享 ChangePwdScreen:页面浅灰底 + 无卡片平铺(体 padding 28rpx + 字段间距 24rpx);
-          label 32rpx 次级字色;输入盒 muted 底 / 圆角 24rpx / 高 100rpx / 字 32rpx(无描边);
-          提交钮品牌底 100rpx 高圆角 24rpx,字 32rpx/600 对比白 */}
-      <View className="min-h-screen bg-background">
-        <View className="flex flex-col gap-[24rpx] p-[28rpx]">
-          <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-title text-muted-foreground">
-              {tt('settings.oldPassword', '旧密码')}
-            </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
-                password={!showOld}
-                maxlength={20}
-                placeholder={tt('user.password.oldPlaceholder', '请输入原密码')}
-                value={oldPwd}
-                onInput={(e) => setOldPwd(e.detail.value)}
-              />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
-                onClick={() => setShowOld((v) => !v)}
-              >
-                {showOld ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
-            </View>
-          </View>
-          <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-title text-muted-foreground">
-              {tt('user.password.newPassword', '新密码')}
-            </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
-                password={!showNew}
-                maxlength={20}
-                placeholder={tt('user.password.newPlaceholder', '请输入新密码')}
-                value={newPwd}
-                onInput={(e) => setNewPwd(e.detail.value)}
-              />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
-                onClick={() => setShowNew((v) => !v)}
-              >
-                {showNew ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
-            </View>
-            {newPwd !== '' && !newPwdValid && (
-              <Text className="mt-[12rpx] text-caption text-destructive">
-                {tt('user.password.tooShort', '密码长度 6-20 位')}
-              </Text>
-            )}
-          </View>
-          <View className="flex flex-col gap-[12rpx]">
-            <Text className="text-title text-muted-foreground">
-              {tt('settings.confirmPassword', '确认新密码')}
-            </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
-              <FocusInput
-                className="box-border h-full w-full bg-transparent pr-[120rpx] text-title text-foreground"
-                password={!showConfirm}
-                maxlength={20}
-                placeholder={tt('user.password.confirmPlaceholder', '请再次输入新密码')}
-                value={confirmPwd}
-                onInput={(e) => setConfirmPwd(e.detail.value)}
-              />
-              <Text
-                className="absolute right-[24rpx] text-body text-muted-foreground"
-                onClick={() => setShowConfirm((v) => !v)}
-              >
-                {showConfirm ? tt('user.password.hide', '隐藏') : tt('user.password.show', '显示')}
-              </Text>
-            </View>
-            {confirmPwd !== '' && !confirmMatch && (
-              <Text className="mt-[12rpx] text-caption text-destructive">
-                {tt('user.password.mismatch', '两次输入的密码不一致')}
-              </Text>
-            )}
-          </View>
-
-          <Text className="text-right text-body text-primary" onClick={gotoForgot}>
-            {tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
-          </Text>
-
-          <View
-            className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
-              oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-60'
-            }`}
-            hoverClass="opacity-70"
-            onClick={onSubmit}
-          >
-            <Text className="text-title font-semibold text-[var(--color-surface-light)]">
-              {submitting
-                ? tt('user.password.submitting', '修改中…')
-                : tt('user.password.submit', '修改密码')}
-            </Text>
-          </View>
-        </View>
-      </View>
+      <ChangePwdScreen
+        t={t}
+        colorScheme={resolvedTheme}
+        oldPwd={oldPwd}
+        newPwd={newPwd}
+        confirmPwd={confirmPwd}
+        showOld={showOld}
+        showNew={showNew}
+        showConfirm={showConfirm}
+        submitting={submitting}
+        onOldChange={setOldPwd}
+        onNewChange={setNewPwd}
+        onConfirmChange={setConfirmPwd}
+        onToggleOld={() => setShowOld((v) => !v)}
+        onToggleNew={() => setShowNew((v) => !v)}
+        onToggleConfirm={() => setShowConfirm((v) => !v)}
+        submitLabel={tt('user.password.submit', '修改密码')}
+        // 原页三个输入框都是 maxlength={20} 硬截断(重写时丢过一次) ⇒ 显式传回
+        inputMaxLength={20}
+        // 原页条件即 `newPwd !== '' && !newPwdValid` ⇒ 输入非空即显,与共享屏缺省同为 on-change
+        errorVisibility="on-change"
+        newPwdError={
+          newPwd !== '' && !newPwdValid
+            ? tt('user.password.tooShort', '密码长度 6-20 位')
+            : undefined
+        }
+        confirmPwdError={
+          confirmPwd !== '' && !confirmMatch
+            ? tt('user.password.mismatch', '两次输入的密码不一致')
+            : undefined
+        }
+        onForgotOld={() => {
+          void Taro.navigateTo({ url: '/pages/forgot-password/index' })
+        }}
+        forgotLabel={tt('user.password.forgotOld', '忘记原密码?通过手机验证修改')}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        onSubmit={() => {
+          void onSubmit()
+        }}
+        onNavigate={onNavigate}
+        onToast={onToast}
+      />
     </ThemeRoot>
   )
 }

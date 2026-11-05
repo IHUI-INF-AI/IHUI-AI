@@ -36,7 +36,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
     <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
       <nav className="flex items-center gap-1 rounded-md bg-muted/30 p-1">
         {TABS.map((tab) => {
@@ -47,7 +47,7 @@ export default function PublishLayout({ children }: { children: React.ReactNode 
               key={tab.href}
               href={tab.href}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body transition-colors',
                 active
                   ? 'bg-card font-medium text-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',

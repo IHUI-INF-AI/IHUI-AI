@@ -49,12 +49,12 @@ const WEBKIT_EPOCH_OFFSET_MS = 11_644_473_600_000
 // =============================================================================
 
 /** 大陆手机号全号形态(11 位,1[3-9] 开头) */
-export const CN_PHONE_RE = /^1[3-9]\d{9}$/
+const CN_PHONE_RE = /^1[3-9]\d{9}$/
 /**
  * 掩码手机号形态:前 3 位明文 + 2~8 个星 + 后 2~4 位明文。
  * Trae 会话实发 `180******69`(3+6*+2),通用形态 `138****5678`(3+4*+4)也认。
  */
-export const PHONE_MASK_RE = /^(\d{3})\*{2,8}(\d{2,4})$/
+const PHONE_MASK_RE = /^(\d{3})\*{2,8}(\d{2,4})$/
 
 export interface PhoneMaskShape {
   /** 掩码原文(如 180******69) */
@@ -150,18 +150,13 @@ export const RELAY_ACCOUNT_NAME_KEYS: Record<RelayProviderCode, readonly string[
 const RELAY_ACCOUNT_NAME_MAX = 128
 
 /** 按 `a.b.c` 键路径取字符串(只穿对象层;数组/标量中途即算取不到)。取不到 → `''` */
-export function readAccountKeyPath(row: Record<string, unknown>, path: string): string {
+function readAccountKeyPath(row: Record<string, unknown>, path: string): string {
   let cur: unknown = row
   for (const seg of path.split('.')) {
     if (cur === null || typeof cur !== 'object' || Array.isArray(cur)) return ''
     cur = (cur as Record<string, unknown>)[seg]
   }
   return cstr(cur)
-}
-
-/** 是不是号池统一名接受的手机号形态(全号或掩码;其余一律不算手机号) */
-export function isRelayNamePhoneShape(v: string): boolean {
-  return isFullPhone(v) || detectPhoneMask(v) !== null
 }
 
 export interface RelayAccountNameInput {
@@ -550,7 +545,7 @@ function issue(level: ImportIssueLevel, code: string, message: string): ImportIs
  * 「其他字段原样透传」的承诺 —— 此前服务端并没有真做透传,外来格式的
  * access_token/expires_at/uid 会在入口被整体丢弃,判成「缺少 token」)。
  */
-export const IMPORT_CANONICAL_KEYS = [
+const IMPORT_CANONICAL_KEYS = [
   'name',
   'uid',
   'token',
@@ -770,7 +765,7 @@ export interface RelayCredentialSlot {
  * - CLI 预检(validateAccountExport);
  * - 服务端落库映射(mapXxxImport 取凭据的唯一入口)。
  */
-export const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSlot[]> = {
+const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCredentialSlot[]> = {
   trae: [{ top: ['token'] }],
   workbuddy: [{ top: ['token'] }],
   // CodeArts 是复合凭据:STS 票 + AK + SK 三者全在才算一条完整账号
@@ -800,7 +795,7 @@ export const RELAY_IMPORT_CREDENTIAL_SLOTS: Record<RelayProviderCode, RelayCrede
  * 「认不出」时的人话原因(单源:服务端逐条报错 / 路由整批拒绝 / CLI 预检共用)。
  * 只报平台与键名,绝不回显任何凭据字符(§9)。
  */
-export const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
+const RELAY_IMPORT_SHAPE_REASON: Record<RelayProviderCode, string> = {
   trae: 'Trae 导入缺少 token',
   workbuddy: 'WorkBuddy 导入缺少 token',
   codearts: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',

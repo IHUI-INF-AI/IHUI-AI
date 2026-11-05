@@ -40,7 +40,7 @@ export function AgentPlanView({
       <div className="flex flex-wrap items-center gap-3">
         <StatusBadge status={detail.status} />
         <Tooltip content={detail.plan_id}>
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-label text-muted-foreground">
             {detail.plan_id.slice(0, 8)}…
           </span>
         </Tooltip>
@@ -71,21 +71,21 @@ export function AgentPlanView({
             autoResize
             value={editedMd}
             onChange={(e) => onEditedMdChange(e.target.value)}
-            className="min-h-[200px] font-mono text-sm"
+            className="min-h-[200px] font-mono text-body"
           />
         ) : (
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-mono text-sm">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-muted p-3 font-mono text-body">
             {detail.plan_md}
           </pre>
         )}
-        {isEditing && <p className="text-xs text-muted-foreground">{t('editHint')}</p>}
+        {isEditing && <p className="text-label text-muted-foreground">{t('editHint')}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
         <span className="text-body font-medium">{t('readonlyTools')}</span>
         <div className="flex flex-wrap gap-2 rounded-md bg-muted p-3">
           {detail.readonly_tools.length === 0 ? (
-            <span className="text-sm text-muted-foreground">—</span>
+            <span className="text-body text-muted-foreground">—</span>
           ) : (
             detail.readonly_tools.map((tool) => (
               <Badge key={tool} variant="secondary" className="font-mono">
@@ -117,7 +117,7 @@ export function AgentPlanView({
       </div>
 
       {busy && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <p className="flex items-center gap-2 text-body text-muted-foreground">
           <Loader2 className="animate-spin" />
           {t('executing')}
         </p>

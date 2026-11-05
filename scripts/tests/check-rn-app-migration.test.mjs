@@ -69,8 +69,12 @@ const SCREENS_REL = gate.SCREENS_REL
 const APP_REL = gate.APP_REL
 
 const MIGRATED_REL = `${SCREENS_REL}/PaymentScreen.tsx`
-const EXEMPT_REL = `${SCREENS_REL}/AboutScreen.tsx`
-const EXEMPT_BASE = 'AboutScreen.tsx'
+// 锚点取样换过一枚(2026-11-04 现读):AboutScreen 已被提升为共享屏真相源并摘除白名单登记
+// (门体 2026-10-23 注记在册),HEAD 面它 import @ihui/rn-app ⇒ 已是迁移 wrapper,不能再当
+// "RN 独占"反例,否则 T1/T3 把判据自证读成判据漂开。换 LearnMapScreen:HEAD 面无 @ihui/rn-app
+// import ∧ 在册未到期 ∧ 抽掉豁免恰多一枚红,三条件由探针逐条量过(不是挑名字)。
+const EXEMPT_REL = `${SCREENS_REL}/LearnMapScreen.tsx`
+const EXEMPT_BASE = 'LearnMapScreen.tsx'
 const IMPORT_ANCHOR = "import { PaymentScreen as SharedPaymentScreen, type PaymentOrderItem } from '@ihui/rn-app'"
 
 function gitRead(args, cwd = REPO) {
@@ -136,7 +140,7 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
     assert.equal(
       gate.hasRnAppImport(exempt),
       false,
-      'AboutScreen 的 HEAD 面只 import @ihui/design-tokens,判成已迁移 = 判据退化成包名子串搜索',
+      'LearnMapScreen 在 HEAD 面不 import @ihui/rn-app,判成已迁移 = 判据退化成包名子串搜索',
     )
     assert.ok(gate.WHITELIST.has(EXEMPT_BASE), '门体白名单里必须确实登记着这枚真屏(否则 T1 的反例只是巧合)')
     assert.ok(

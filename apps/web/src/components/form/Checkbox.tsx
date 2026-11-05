@@ -72,7 +72,7 @@ export const Checkbox = React.forwardRef<HTMLSpanElement, CheckboxProps>(functio
           <Check className="h-3 w-3" />
         ) : null}
       </span>
-      {label && <span className="text-sm">{label}</span>}
+      {label && <span className="text-body">{label}</span>}
     </label>
   )
 })

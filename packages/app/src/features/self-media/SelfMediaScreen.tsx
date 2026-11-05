@@ -437,7 +437,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'], // py-0.5
     },
     categoryBadgeText: {
-      fontSize: 10, // text-[10px]
+      fontSize: rnType.badge.size, // text-[10px]
     },
     skillDesc: {
       fontSize: rnType.label.size, // text-xs
@@ -488,7 +488,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     resultDuration: {
-      fontSize: 10, // text-[10px]
+      fontSize: rnType.badge.size, // text-[10px]
       color: tk.text.tertiary, // text-gray-400
     },
     resultShare: {
@@ -515,7 +515,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary, // dark:text-neutral-100
     },
     recordMeta: {
-      fontSize: 10, // text-[10px]
+      fontSize: rnType.badge.size, // text-[10px]
       marginTop: rnSpacing.xs, // mt-1
       color: tk.text.tertiary, // text-gray-400
     },

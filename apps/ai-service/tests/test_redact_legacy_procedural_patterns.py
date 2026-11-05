@@ -41,7 +41,7 @@ mod = _load_module()
 
 PLAIN_TAIL = '{"path":"G:/IHUI-AI/secret.txt","content":"李春川的口令是 abc123"}'
 PLAIN_TAIL_2 = '{"command":"rm -rf /tmp/x && cat ~/.ssh/id_rsa"}'
-DSN = "postgresql://u:p@127.0.0.1:8810/ihui"
+DSN = "postgresql://u:p@127.0.0.1:5399/ihui"
 
 
 @pytest.fixture(autouse=True)
@@ -260,7 +260,7 @@ def test_build_updates_carries_old_pattern_as_cas_condition() -> None:
 
 
 def test_database_name_from_dsn_url_and_keyvalue() -> None:
-    assert mod.database_name_from_dsn("postgresql://u:p@127.0.0.1:8810/ihui") == "ihui"
+    assert mod.database_name_from_dsn("postgresql://u:p@127.0.0.1:5399/ihui") == "ihui"
     assert mod.database_name_from_dsn("postgresql://u:p@h:5432/ihui?sslmode=disable") == "ihui"
     assert mod.database_name_from_dsn("host=127.0.0.1 dbname=ihui_prod user=x") == "ihui_prod"
     assert mod.database_name_from_dsn("host=127.0.0.1 dbname='quoted db'") == "quoted db"
@@ -268,7 +268,7 @@ def test_database_name_from_dsn_url_and_keyvalue() -> None:
 
 @pytest.mark.parametrize(
     "dsn",
-    ["", "   ", "postgresql://u:p@127.0.0.1:8810/", "host=127.0.0.1 user=x", "not a dsn at all"],
+    ["", "   ", "postgresql://u:p@127.0.0.1:5399/", "host=127.0.0.1 user=x", "not a dsn at all"],
 )
 def test_database_name_from_dsn_failures_raise_dserror(dsn: str) -> None:
     with pytest.raises(mod.DsnError):

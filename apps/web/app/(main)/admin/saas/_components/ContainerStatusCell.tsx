@@ -26,7 +26,7 @@ export function ContainerStatusCell({ running, total }: ContainerStatusCellProps
       ? 'text-emerald-600 dark:text-emerald-400'
       : 'text-amber-600 dark:text-amber-400'
   return (
-    <span className={cn('inline-flex items-center gap-1.5 font-mono text-sm', colorClass)}>
+    <span className={cn('inline-flex items-center gap-1.5 font-mono text-body', colorClass)}>
       {!allUp && !allDown ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
       {running} / {total}
     </span>

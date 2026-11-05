@@ -11,6 +11,7 @@ import rankingRoutes from '../src/routes/ranking.js'
 
 async function createUser(phone: string, nickname?: string) {
   const [row] = await db.insert(users).values({ phone, nickname }).returning()
+  if (!row) throw new Error('ranking-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -29,6 +30,7 @@ async function createUserPoints(data: {
       experience: data.experience ?? 0,
     })
     .returning()
+  if (!row) throw new Error('ranking-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -51,6 +53,7 @@ async function createAgent(data: {
       avatar: data.avatar,
     })
     .returning()
+  if (!row) throw new Error('ranking-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 
@@ -71,6 +74,7 @@ async function createLesson(data: {
       coverImage: data.coverImage,
     })
     .returning()
+  if (!row) throw new Error('ranking-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

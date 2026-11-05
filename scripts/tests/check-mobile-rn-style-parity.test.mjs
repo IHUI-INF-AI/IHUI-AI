@@ -32,6 +32,7 @@ const REPO = resolve(HERE, '..', '..')
 const TOOL = join(REPO, 'scripts', 'check-mobile-rn-style-parity.mjs')
 const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 const BASELINE = join(REPO, 'scripts', 'rn-style-parity-baseline.json')
+const ALLOWLIST = join(REPO, 'scripts', 'data', 'mobile-rn-hex-allowlist.json')
 
 const runOpts = {
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -49,12 +50,13 @@ test('① 取材面:源码走 face-reader(catBatch/readWorktreeFile/selectFace),
   assert.match(src, /selectFace\(/, '面旗互斥必须经 selectFace(不许自己解析后放行两面同给)')
   assert.match(src, /Undetermined/, '取不到 ⇒ Undetermined ⇒ exit 2 必须由层给出')
   assert.match(src, /FACE_LABEL\[face\]/, '结论行必须打印口径标签(FACE_LABEL)')
-  // 正文抽取点不得再磁盘读被审文件 —— 词法边界:readFileSync 只允许出现在**基线 JSON**上。
+  // 正文抽取点不得再磁盘读被审文件 —— 词法边界:readFileSync 只允许出现在**基线 JSON / 白名单 JSON**上
+  // (2026-11-02 色值归零:显式白名单是第二份对照面,同样是"判据数据"而非被审内容)。
   const bodyReads = [...src.matchAll(/readFileSync\s*\(([^)]*)/g)].map((m) => m[1])
   for (const arg of bodyReads) {
     assert.ok(
-      /BASELINE_PATH/.test(arg),
-      `readFileSync 只允许读基线 JSON,实得实参: ${arg} —— 被审内容按磁盘判 = 两头都错(见头注取材口径段)`,
+      /BASELINE_PATH|ALLOWLIST_PATH/.test(arg),
+      `readFileSync 只允许读基线/白名单 JSON,实得实参: ${arg} —— 被审内容按磁盘判 = 两头都错(见头注取材口径段)`,
     )
   }
 })
@@ -165,6 +167,19 @@ test('④ 基线文件在位且为 JSON 对象(RULE-1 的对照面不存在时�
   assert.ok(!Array.isArray(baseline), '基线不得是数组(形状漂移会让 RULE-1 全量放行)')
 })
 
+test('④b 白名单文件在位且 entries 为数组,每条都带到期日(豁免必须会到期)', () => {
+  assert.ok(existsSync(ALLOWLIST), '白名单文件不存在 ⇒ 门会 exit 2 无法判定,必须随门一起入库')
+  const raw = JSON.parse(readFileSync(ALLOWLIST, 'utf8'))
+  assert.ok(raw && Array.isArray(raw.entries), '白名单必须形如 {"note": string, "entries": [...]}')
+  for (const e of raw.entries) {
+    assert.match(
+      String(e.expires ?? ''),
+      /^\d{4}-\d{2}-\d{2}$/,
+      `白名单条目缺/坏 expires(${String(e.component)} ${String(e.value)})—— 无期限的豁免会慢慢变成永久基线`,
+    )
+  }
+})
+
 test('⑤ 源码头注与用法三面齐备(全量/ --staged / --worktree / --self-test)', () => {
   const src = readFileSync(TOOL, 'utf8')
   for (const flag of ['--staged', '--worktree', '--update-baseline', '--self-test']) {
@@ -174,8 +189,16 @@ test('⑤ 源码头注与用法三面齐备(全量/ --staged / --worktree / --se
 })
 
 test('⑥ import 面通道(G-239):判据从门体 __test__ 调,不在测试里复写一份', () => {
-  for (const k of ['extractHexes', 'diffAgainstBaseline', 'runSelfTest', 'main'])
+  for (const k of [
+    'extractHexes',
+    'diffAgainstBaseline',
+    'allowlistProblem',
+    'applyAllowlist',
+    'runSelfTest',
+    'main',
+  ])
     assert.equal(typeof gate[k], 'function', `__test__ 缺导出 ${k}`)
+  assert.equal(typeof gate.ALLOWLIST_PATH, 'string', '__test__ 缺导出 ALLOWLIST_PATH')
   // 注释内色值不计、真字面量必收(调生产导出口)
   assert.deepEqual(gate.extractHexes("const c = '#AbC' // #fff\n/* #00ff00 */"), ['#abc'])
   // RULE-1 判据:基线外新增必红、基线内必绿

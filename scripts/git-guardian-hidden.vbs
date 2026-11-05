@@ -58,8 +58,15 @@ Else
     cmd = """" & nodeBin & """ """ & target & """"
 End If
 
-' intWindowStyle = 0 (SW_HIDE), bWaitOnReturn = False
-Call shell.Run(cmd, 0, False)
+' intWindowStyle = 0 (SW_HIDE). bWaitOnReturn MUST be True:
+'   The task is registered with MultipleInstances=IgnoreNew, but the scheduler
+'   only counts the ACTION process (this wscript) as the running instance. With
+'   bWaitOnReturn=False the wrapper returns as soon as it detaches node.exe, so
+'   every 2-minute repetition launched yet another tick while the previous one
+'   was still working - measured 2026-10-24: 54 resident node processes piled up
+'   (118 git.exe children) and the watchdog never finished a single round.
+'   Waiting here makes IgnoreNew actually serialize ticks. Window stays hidden.
+Call shell.Run(cmd, 0, True)
 
 Set shell = Nothing
 Set fso = Nothing

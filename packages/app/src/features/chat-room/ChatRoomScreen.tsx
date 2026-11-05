@@ -404,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chatListContent: {
       padding: rnSpacing['sm-loose'], // 历史 .chat-messages padding 20rpx
-      paddingBottom: 30, // rpx(60)
+      paddingBottom: rnSpacing['3xl'], // rpx(60)
     },
     messageRow: {
       flexDirection: 'row',
@@ -445,7 +445,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium, // 历史 #333
     },
     readStatus: {
-      fontSize: 10, // rpx(20)
+      fontSize: rnType.badge.size, // rpx(20)
       color: tk.text.tertiary, // 历史 #999
       marginTop: rnSpacing.xs, // rpx(8)
       textAlign: 'right',
@@ -550,7 +550,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing['xs-loose'], // rpx(12)
     },
     unreadText: {
-      fontSize: 10, // rpx(20)
+      fontSize: rnType.badge.size, // rpx(20)
       color: tk.surface.light,
     },
     roomTime: {
@@ -559,7 +559,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     roomPreview: {
-      fontSize: 13, // rpx(26)
+      fontSize: rnType.bodySm.size, // rpx(26)
       color: tk.text.secondary,
       marginTop: rnSpacing.xs, // rpx(8)
     },

@@ -72,6 +72,11 @@ def _dm(**over: Any) -> dict[str, Any]:
     return base
 
 
+def _envelope(data: dict[str, Any]) -> dict[str, Any]:
+    """apps/api 统一响应信封:success(result) → {code,message,data}(utils/response.ts 唯一出口)。"""
+    return {"code": 0, "message": "success", "data": data}
+
+
 # =============================================================================
 # cred_fingerprint
 # =============================================================================
@@ -117,7 +122,7 @@ class TestMaybeWriteback:
         before = wb.cred_fingerprint(dict(dm))
         dm["refresh_token"] = "ref-new"
         dm["expires_at"] = 200.5
-        FakeClient.responses.append(FakeResponse(200, {"status": "applied", "credVersion": 8}))
+        FakeClient.responses.append(FakeResponse(200, _envelope({"status": "applied", "credVersion": 8})))
         dirty = await wb.maybe_writeback(dm, before)
         assert dirty is True
         call = FakeClient.calls[0]
@@ -163,7 +168,7 @@ class TestMaybeWriteback:
     async def test_pending_retry_success_clears(self):
         dm = _dm(pool_pending_cred={"at": "t0", "error": "old", "attempts": 2})
         before = wb.cred_fingerprint(dict(dm))
-        FakeClient.responses.append(FakeResponse(200, {"status": "applied", "credVersion": 8}))
+        FakeClient.responses.append(FakeResponse(200, _envelope({"status": "applied", "credVersion": 8})))
         assert await wb.maybe_writeback(dm, before) is True
         assert "pool_pending_cred" not in dm
         assert dm["pool_cred_version"] == 8
@@ -174,7 +179,7 @@ class TestMaybeWriteback:
         before = wb.cred_fingerprint(dict(dm))
         dm["refresh_token"] = "ref-new"
         FakeClient.responses.append(
-            FakeResponse(200, {"status": "conflict", "currentVersion": 12})
+            FakeResponse(200, _envelope({"status": "conflict", "currentVersion": 12}))
         )
         assert await wb.maybe_writeback(dm, before) is True
         # 以号池为准:丢弃本次回写(凭证留在签到侧),基准校正到号池当前版本
@@ -186,7 +191,7 @@ class TestMaybeWriteback:
     async def test_not_found_clears_pending_without_retry(self):
         dm = _dm(pool_pending_cred={"at": "t0", "error": "old", "attempts": 5})
         before = wb.cred_fingerprint(dict(dm))
-        FakeClient.responses.append(FakeResponse(200, {"status": "not_found"}))
+        FakeClient.responses.append(FakeResponse(200, _envelope({"status": "not_found"})))
         assert await wb.maybe_writeback(dm, before) is True
         assert "pool_pending_cred" not in dm
 
@@ -207,8 +212,31 @@ class TestMaybeWriteback:
         dm = _dm(expires_at={"bad": "shape"})
         before = wb.cred_fingerprint(dict(dm))
         dm["refresh_token"] = "ref-new"
-        FakeClient.responses.append(FakeResponse(200, {"status": "applied", "credVersion": 8}))
+        FakeClient.responses.append(FakeResponse(200, _envelope({"status": "applied", "credVersion": 8})))
         await wb.maybe_writeback(dm, before)
         body = FakeClient.calls[0]["json"]
         assert "expiresAt" not in body
         assert body["refreshToken"] == "ref-new"
+
+    @pytest.mark.asyncio
+    async def test_api_envelope_is_unwrapped(self):
+        """线上 200 体恒为 success() 信封;不拆信封时 status 恒 None(2026-10-29 两条真实 200 实测)。"""
+        dm = _dm()
+        before = wb.cred_fingerprint(dict(dm))
+        dm["refresh_token"] = "ref-new"
+        FakeClient.responses.append(
+            FakeResponse(200, _envelope({"status": "applied", "credVersion": 9}))
+        )
+        assert await wb.maybe_writeback(dm, before) is True
+        assert dm["pool_cred_version"] == 9, "信封 data 里的 credVersion 必须被采纳"
+        assert "pool_pending_cred" not in dm
+
+    @pytest.mark.asyncio
+    async def test_unknown_body_shape_never_advances_base(self):
+        """fail-closed:认不出 status 就当未生效,绝不许凭空推进版本基准。"""
+        dm = _dm(pool_pending_cred={"at": "t0", "error": "old", "attempts": 1})
+        before = wb.cred_fingerprint(dict(dm))
+        FakeClient.responses.append(FakeResponse(200, {"ok": True}))
+        assert await wb.maybe_writeback(dm, before) is True
+        assert "pool_pending_cred" not in dm
+        assert dm["pool_cred_version"] == 7, "拿不到 status 就不许改基准"

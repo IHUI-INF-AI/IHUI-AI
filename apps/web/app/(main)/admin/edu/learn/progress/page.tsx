@@ -73,24 +73,24 @@ export default function EduLearnProgressPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-3">
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('statCurrentPageStudents')}</div>
+            <div className="text-body text-muted-foreground">{t('statCurrentPageStudents')}</div>
             <div className="mt-1 text-display font-semibold">{rows.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('statAvgProgress')}</div>
+            <div className="text-body text-muted-foreground">{t('statAvgProgress')}</div>
             <div className="mt-1 text-display font-semibold">{avgProgress}%</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3">
-            <div className="text-sm text-muted-foreground">{t('statCompleted')}</div>
+            <div className="text-body text-muted-foreground">{t('statCompleted')}</div>
             <div className="mt-1 text-display font-semibold">{completed}</div>
           </CardContent>
         </Card>
@@ -165,13 +165,13 @@ export default function EduLearnProgressPage() {
                           style={{ width: `${r.progress}%` }}
                         />
                       </div>
-                      <span className="text-xs text-muted-foreground">{r.progress}%</span>
+                      <span className="text-label text-muted-foreground">{r.progress}%</span>
                     </div>
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
                     {t('hours', { hours: r.totalHours })}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {r.lastStudyAt}
                   </TableCell>
                 </TableRow>
@@ -181,7 +181,7 @@ export default function EduLearnProgressPage() {
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { count: total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { count: total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -192,7 +192,7 @@ export default function EduLearnProgressPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

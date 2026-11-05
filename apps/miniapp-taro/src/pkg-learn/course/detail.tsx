@@ -32,6 +32,7 @@ import {
   LessonsSection,
   type CourseLessonRow,
 } from './detail-sections'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 详情端点(apps/api miniapp-public-fallback-routes 的 toCourseRow)已返回 isFree / signupCount,
@@ -76,7 +77,7 @@ export default function CourseDetail() {
       } catch {
         // 只停骨架屏等于"加载中"永远不结束:失败必须留下可重试的错误态
         setLoadError(t('courseDetail.loadFailed'))
-        Taro.showToast({ title: t('course.loadFailed'), icon: 'none' })
+        onToast(t('course.loadFailed'), { kind: 'error' })
       }
     },
     [t],
@@ -111,7 +112,7 @@ export default function CourseDetail() {
       // 免费课返回 status='free'。改前不看 status 就一律跳收银台 ⇒ 用户余额已被扣一次，
       // 又被引到微信/支付宝再付一次（重复收费）。已支付/免费都在本页收口。
       if (res?.status === 'paid' || res?.status === 'free') {
-        Taro.showToast({ title: t('common.success'), icon: 'success' })
+        onToast(t('common.success'), { kind: 'success' })
         setTimeout(() => {
           void Taro.navigateBack()
         }, 600)
@@ -122,7 +123,7 @@ export default function CourseDetail() {
       const orderNo = res?.orderNo || res?.orderId || ''
       const amount = res?.amount ?? course?.price ?? 0
       if (!orderNo) {
-        Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+        onToast(t('course.buyDeveloping'), { kind: 'info' })
         return
       }
       Taro.navigateTo({
@@ -169,15 +170,15 @@ export default function CourseDetail() {
   // 三处原先都只弹"成功"toast、一个请求都不发 ⇒ 用户以为签到/评价/笔记已保存,
   // 实际什么都没落库(笔记尤其:写完的内容直接丢失)。接上后端真实端点。
   const handleSign = useCallback(async () => {
-      await post('/sign-in', {})
-      Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
-      Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    await post('/sign-in', {})
+    onToast(t('course.signSuccess'), { kind: 'success' })
+    onToast(t('common.failed'), { kind: 'error' })
   }, [t])
 
   const handleLessonClick = useCallback(
     (lesson: CourseLessonRow, idx: number) => {
       if (lesson.locked) {
-        Taro.showToast({ title: t('course.buyFirst'), icon: 'none' })
+        onToast(t('course.buyFirst'), { kind: 'info' })
         return
       }
       Taro.navigateTo({
@@ -199,9 +200,9 @@ export default function CourseDetail() {
           contentUtilityScore: Math.min(5, Math.max(1, Math.round(rating))),
         })
         setShowRating(false)
-        Taro.showToast({ title: t('course.rated', { n: rating }), icon: 'success' })
+        onToast(t('course.rated', { n: rating }), { kind: 'success' })
       } catch {
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        onToast(t('common.failed'), { kind: 'error' })
       }
     },
     [t, router.params.id],
@@ -216,9 +217,9 @@ export default function CourseDetail() {
         await post(`/edu/courses/${encodeURIComponent(courseId)}/notes`, { content: text })
         setNoteContent(content)
         setShowNote(false)
-        Taro.showToast({ title: t('course.noteSaved'), icon: 'success' })
+        onToast(t('course.noteSaved'), { kind: 'success' })
       } catch {
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        onToast(t('common.failed'), { kind: 'error' })
       }
     },
     [t, router.params.id],
@@ -227,7 +228,7 @@ export default function CourseDetail() {
   const handleLessonComplete = useCallback(() => {
     setShowComplete(false)
     setLearningProgress((p) => Math.min(100, p + 10))
-    Taro.showToast({ title: t('course.lessonComplete'), icon: 'success' })
+    onToast(t('course.lessonComplete'), { kind: 'success' })
   }, [t])
 
   if (!course) {
@@ -289,17 +290,17 @@ export default function CourseDetail() {
       <View className="min-h-screen pb-[120rpx] bg-background">
         <CourseHeader
           data={headerData}
-          onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
+          onTeacherClick={() => onToast(t('course.viewTeacher'), { kind: 'info' })}
         />
 
         {/* 共享屏 tagRow:等级 + 学习人数 */}
         <CourseMetaTags level={course.level} studentCount={detail.signupCount} />
 
         {/* 工具行卡片:对齐 RN card(白底 + border.light 描边 + radius12/padding14) */}
-        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-lg p-[28rpx] border border-border">
+        <View className="flex items-center justify-around mx-md my-md bg-card rounded-lg p-[28rpx] border border-border">
           <View className="flex flex-col items-center">
             <ProgressCircle percent={learningProgress} size={60} />
-            <Text className="text-xs text-muted-foreground mt-2">
+            <Text className="text-label text-muted-foreground mt-sm">
               {t('course.learningProgress')}
             </Text>
           </View>
@@ -311,7 +312,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
+            <Text className="text-label text-muted-foreground mt-sm">{t('course.note')}</Text>
           </View>
           <View
             className="flex flex-col items-center"
@@ -321,7 +322,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
               <LineIcon name="star-fill" size={40} color="var(--color-warning)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
+            <Text className="text-label text-muted-foreground mt-sm">{t('course.rating')}</Text>
           </View>
           <View
             className="flex flex-col items-center"
@@ -331,7 +332,7 @@ export default function CourseDetail() {
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
             </View>
-            <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
+            <Text className="text-label text-muted-foreground mt-sm">{t('course.share')}</Text>
           </View>
         </View>
 
@@ -361,7 +362,7 @@ export default function CourseDetail() {
           studentCount={1280}
           rating={4.8}
           isFollowing={false}
-          onFollow={() => Taro.showToast({ title: t('course.followed'), icon: 'success' })}
+          onFollow={() => onToast(t('course.followed'), { kind: 'success' })}
           onClick={handleTeacherClick}
         />
 
@@ -377,7 +378,7 @@ export default function CourseDetail() {
         {/* 课程目录(共享屏 lessons 区:section 标题 + 逐节完成态) */}
         <LessonsSection lessons={lessonRows} onLessonClick={handleLessonClick} />
 
-        <View className="mx-3 my-3">
+        <View className="mx-md my-md">
           <LessonListItem
             data={{
               id: 'next',

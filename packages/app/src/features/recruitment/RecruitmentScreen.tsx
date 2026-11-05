@@ -205,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 15,
       right: 15,
       bottom: 30,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brandAccent.light,
     },
@@ -214,7 +214,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: { width: 50, height: 50, borderRadius: rnRadius['2xl'] },
     founderText: { flex: 1, marginLeft: rnSpacing.md },
     founder: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
-    recommend: { marginTop: rnSpacing['2xs'], fontSize: 13, color: tk.text.secondary },
+    recommend: { marginTop: rnSpacing['2xs'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
     intro: {
       fontSize: rnType.body.size,
       lineHeight: 20,
@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     buyBtn: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,

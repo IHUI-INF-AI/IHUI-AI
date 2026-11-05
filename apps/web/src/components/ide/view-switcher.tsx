@@ -119,7 +119,7 @@ export function ViewSwitcher() {
           />
         </div>
         {filteredGroups.length === 0 ? (
-          <div className="px-3 py-3 text-center text-xs text-muted-foreground">
+          <div className="px-3 py-3 text-center text-label text-muted-foreground">
             {t('viewSwitcher.noMatch')}
           </div>
         ) : (
@@ -136,7 +136,7 @@ export function ViewSwitcher() {
                     setOpen(false)
                   }}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs transition-colors',
+                    'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-label transition-colors',
                     activeTopTab === opt.id
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',

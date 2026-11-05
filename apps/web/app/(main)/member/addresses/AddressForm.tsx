@@ -34,7 +34,7 @@ export function AddressForm({
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">{t('recipient')}</Label>
+              <Label className="text-label">{t('recipient')}</Label>
               <Input
                 value={editing.name}
                 onChange={(e) => onChange('name', e.target.value)}
@@ -42,7 +42,7 @@ export function AddressForm({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('phone')}</Label>
+              <Label className="text-label">{t('phone')}</Label>
               <Input
                 value={editing.phone}
                 onChange={(e) => onChange('phone', e.target.value)}
@@ -73,7 +73,7 @@ export function AddressForm({
             onChange={(e) => onChange('detail', e.target.value)}
             required
           />
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               checked={!!editing.isDefault}

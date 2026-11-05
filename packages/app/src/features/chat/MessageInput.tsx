@@ -430,7 +430,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      paddingHorizontal: 15,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       gap: rnSpacing['sm-loose'],
     },
@@ -469,7 +469,7 @@ function createStyles(tk: AppThemeTokens) {
     voiceBarLine: { width: 1, borderRadius: rnRadius.xs },
     rightActions: { flexDirection: 'row', alignItems: 'flex-end', gap: rnSpacing.xs },
     sendBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: primary,

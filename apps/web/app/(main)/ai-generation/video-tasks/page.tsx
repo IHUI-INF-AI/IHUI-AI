@@ -108,7 +108,7 @@ export default function VideoTasksPage() {
             <Video className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('description')}</p>
+          <p className="text-label text-muted-foreground">{t('description')}</p>
         </div>
         <Button
           variant="outline"
@@ -134,13 +134,13 @@ export default function VideoTasksPage() {
               {t('loading')}
             </div>
           ) : listQuery.error ? (
-            <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="m-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {(listQuery.error as Error).message}
             </div>
           ) : tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
               <Video className="h-8 w-8 opacity-40" />
-              <p className="text-sm">{t('empty')}</p>
+              <p className="text-body">{t('empty')}</p>
             </div>
           ) : (
             <Table>
@@ -169,14 +169,14 @@ export default function VideoTasksPage() {
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">#{task.id}</TableCell>
-                        <TableCell className="max-w-md truncate text-sm">
+                        <TableCell className="font-mono text-label">#{task.id}</TableCell>
+                        <TableCell className="max-w-md truncate text-body">
                           {task.message || '-'}
                         </TableCell>
                         <TableCell>
                           <VideoTaskStatusBadge status={task.status} />
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-label text-muted-foreground">
                           {fmt(task.createdAt)}
                         </TableCell>
                       </TableRow>

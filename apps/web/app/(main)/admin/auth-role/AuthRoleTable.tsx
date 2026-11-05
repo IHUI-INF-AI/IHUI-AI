@@ -24,8 +24,8 @@ export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete, onConfi
   const t = useTranslations('adminAuthRole')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>ID</th>
             <th className={th}>{t('colUserId')}</th>

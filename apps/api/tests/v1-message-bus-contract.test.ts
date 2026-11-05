@@ -28,7 +28,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import Fastify from 'fastify'
+import Fastify, {
+  type FastifyError,
+  type FastifyReply,
+  type FastifyRequest,
+} from 'fastify'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -231,7 +235,7 @@ describe('POST /v1/messages → ai-service PublishRequest', () => {
   beforeEach(async () => {
     captured = []
     server = Fastify({ logger: false })
-    server.setErrorHandler((err, _req, reply) => {
+    server.setErrorHandler((err: FastifyError, _req: FastifyRequest, reply: FastifyReply) => {
       const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500
       reply.status(statusCode).send({ code: statusCode, message: err.message })
     })

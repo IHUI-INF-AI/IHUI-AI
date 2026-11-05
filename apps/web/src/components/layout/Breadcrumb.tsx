@@ -25,7 +25,7 @@ export function Breadcrumb({ items, separator, className }: BreadcrumbProps) {
   const tA11y = useTranslations('a11y')
   const sep = separator ?? <ChevronRight className="h-4 w-4" />
   return (
-    <nav aria-label={tA11y('breadcrumb')} className={cn('flex items-center text-sm', className)}>
+    <nav aria-label={tA11y('breadcrumb')} className={cn('flex items-center text-body', className)}>
       <ol className="flex min-w-0 items-center gap-1.5">
         {items.map((item, i) => {
           const isLast = i === items.length - 1

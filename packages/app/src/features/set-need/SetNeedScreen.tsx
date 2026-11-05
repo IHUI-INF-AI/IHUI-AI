@@ -298,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
     } as TextStyle,
@@ -315,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,
     submitBtnPressed: { opacity: 0.85 } as ViewStyle,

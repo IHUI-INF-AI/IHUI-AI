@@ -14,7 +14,7 @@ job;这里只测拆分语义(不触 store / 引擎,纯函数无 IO)。
 from __future__ import annotations
 
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -165,6 +165,252 @@ async def test_credits_snapshot_queries_all_when_no_cooldown(monkeypatch):
 
     await cs.checkin_scheduler._daily_credits_snapshot()
     assert sorted(queried) == ["j1", "j2"]
+
+
+# ---------------------------------------------------------------------------
+# 2026-11-04 缺陷修复:快照平台分支(minimax 不再打 Trae / qoder 用号池权威票)
+# ---------------------------------------------------------------------------
+
+
+class _SnapshotLogCapture:
+    """捕获 structlog 日志(PrintLoggerFactory 直写 stderr,caplog 抓不到)。"""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, tuple[Any, ...], dict[str, Any]]] = []
+
+    def _record(self, level: str) -> Any:
+        def _inner(msg: Any, *args: Any, **kwargs: Any) -> None:
+            self.calls.append((level, str(msg), args, kwargs))
+
+        return _inner
+
+    def __getattr__(self, name: str) -> Any:
+        return self._record(name)
+
+    def summary_counts(self) -> tuple[int, int, int, int, int]:
+        """取汇总行 args:(总数, 成功, 失败, 冷却跳过, 无指标/未判定)。"""
+        for _level, msg, args, _kw in reversed(self.calls):
+            if "本轮积分快照完成" in msg:
+                return tuple(args)  # type: ignore[return-value]
+        raise AssertionError("未捕获到快照汇总日志")
+
+    def has(self, level: str, keyword: str) -> bool:
+        return any(lv == level and keyword in msg for lv, msg, _a, _k in self.calls)
+
+
+def _patch_snapshot_store(
+    monkeypatch: pytest.MonkeyPatch,
+    accounts: list[dict[str, Any]],
+    *,
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] | None = None,
+) -> None:
+    """快照依赖的 store 打桩:不触 DB,只留 upsert 调用记录。"""
+
+    async def fake_list_full() -> list[dict[str, Any]]:
+        return accounts
+
+    async def fake_cooldowns() -> dict[int, datetime]:
+        return {}
+
+    async def fake_sum(*_a: Any, **_k: Any) -> int:
+        return 0
+
+    async def fake_upsert(*a: Any, **k: Any) -> None:
+        if upserts is not None:
+            upserts.append((a, k))
+
+    monkeypatch.setattr(checkin_store, "list_enabled_accounts_full", fake_list_full)
+    monkeypatch.setattr(checkin_store, "get_active_cooldowns", fake_cooldowns)
+    monkeypatch.setattr(checkin_store, "sum_credits_delta_for_day", fake_sum)
+    monkeypatch.setattr(checkin_store, "upsert_credits_daily", fake_upsert)
+
+
+async def test_credits_snapshot_minimax_queries_minimax_not_trae(monkeypatch):
+    """缺陷 A①:minimax 账号必须走 MiniMax 状态查询,绝不打 Trae 余额端点。
+
+    (改前:落 else 分支 => query_remaining_credits(Trae) = 每天 08:15 的 401)
+    """
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    _patch_snapshot_store(monkeypatch, accounts)
+
+    mm_calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        mm_calls.append((jwt, dict(device_map)))
+        return {"remaining": None, "error": None, "checked_days": [1]}
+
+    async def forbidden_trae(jwt: str) -> dict[str, Any]:
+        raise AssertionError("minimax 账号不得调用 Trae 余额端点")
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+    monkeypatch.setattr(cs.checkin_credits, "query_remaining_credits", forbidden_trae)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    assert mm_calls == [("mm-jwt", {"uid": "u-mm"})]
+
+
+async def test_credits_snapshot_minimax_no_metric_is_neither_success_nor_failure(
+    monkeypatch,
+):
+    """缺陷 A②:MiniMax 无余额端点(err/remaining 皆 None)⇒ 记「未判定」:
+    不落快照(不伪装成功),也不计失败(不是 401)。"""
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        return {"remaining": None, "error": None, "checked_days": [1]}
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 0, 0, 1)
+    assert upserts == []  # 未判定不落快照(没有 remaining 可写)
+    assert not log.has("warning", "积分查询失败")
+
+
+async def test_credits_snapshot_minimax_real_error_still_counts_failure(monkeypatch):
+    """护栏:真故障不许被「未判定」吞掉 —— err 有值时仍按失败计。"""
+    accounts = [
+        {
+            "id": 12,
+            "owner_user_id": "o1",
+            "name": "minimax:cn",
+            "jwt": "mm-jwt",
+            "platform": "minimax",
+            "device_map": {"uid": "u-mm"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    _patch_snapshot_store(monkeypatch, accounts)
+
+    async def fake_mm(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        return {"remaining": None, "error": "token 无效或过期(401/403),请重新捕获"}
+
+    monkeypatch.setattr(cs.checkin_minimax, "minimax_query_credits", fake_mm)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 1, 0, 0)
+    assert log.has("warning", "积分查询失败")
+
+
+async def test_credits_snapshot_qoder_prefers_pool_cred(monkeypatch):
+    """缺陷 B③:qoder 快照优先用号池权威票(本地旧票必 401 的夹具有号池票即成功)。"""
+    accounts = [
+        {
+            "id": 18,
+            "owner_user_id": "o1",
+            "name": "Qoder-019f17c6",
+            "jwt": "stale-local-jwt",
+            "platform": "qoder",
+            "device_map": {"uid": "u18"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+        assert uid == "u18"
+        return {
+            "token": "pool-jwt",
+            "refresh_token": "pool-rt",
+            "expires_at": 1700000000,
+            "cosy": {"machine_id": "m1"},
+        }
+
+    used_tokens: list[str] = []
+    saved_maps: list[dict[str, Any]] = []
+
+    async def fake_qoder_query(jwt: str, device_map: dict[str, Any], **_kw: Any) -> dict[str, Any]:
+        used_tokens.append(jwt)
+        if jwt != "pool-jwt":  # 本地旧票 = 死票(实测 401)
+            return {"remaining": None, "packs": [], "error": "余额接口 HTTP 401"}
+        return {"remaining": 100, "packs": [], "error": None}
+
+    async def fake_save_map(account_id: int, device_map: dict[str, Any]) -> None:
+        saved_maps.append({"id": account_id, **device_map})
+
+    monkeypatch.setattr(checkin_store, "load_qoder_cred", fake_load_cred)
+    monkeypatch.setattr(cs.checkin_qoder, "qoder_query_credits", fake_qoder_query)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save_map)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    assert used_tokens == ["pool-jwt"]  # 号池票唯一被使用,旧本地票一发未打
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 1, 0, 0, 0)
+    assert upserts and upserts[0][0][3] == 100  # (account_id, owner, day, remaining, gained)
+    # 号池票的 refresh_token/expires_at/cosy 一并覆盖进持久化的 device_map
+    assert saved_maps[0]["refresh_token"] == "pool-rt"
+    assert saved_maps[0]["expires_at"] == 1700000000
+    assert saved_maps[0]["cosy"]["machine_id"] == "m1"
+
+
+async def test_credits_snapshot_qoder_without_pool_cred_is_undetermined(monkeypatch):
+    """缺陷 B④:号池取不到票 ⇒ 记「未判定」:不拿未确认权威的本地票去打鉴权点,
+    也不把没判过的结果写成 ok 或 401 失败。"""
+    accounts = [
+        {
+            "id": 18,
+            "owner_user_id": "o1",
+            "name": "Qoder-019f17c6",
+            "jwt": "stale-local-jwt",
+            "platform": "qoder",
+            "device_map": {"uid": "u18"},
+        }
+    ]
+    log = _SnapshotLogCapture()
+    monkeypatch.setattr(cs, "logger", log)
+    upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+    _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
+
+    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+        return None
+
+    async def forbidden_qoder_query(
+        jwt: str, device_map: dict[str, Any], **_kw: Any
+    ) -> dict[str, Any]:
+        raise AssertionError("号池无权威票时不得拿本地票查余额")
+
+    monkeypatch.setattr(checkin_store, "load_qoder_cred", fake_load_cred)
+    monkeypatch.setattr(cs.checkin_qoder, "qoder_query_credits", forbidden_qoder_query)
+
+    await cs.checkin_scheduler._daily_credits_snapshot()
+
+    total, ok, fail, skip, na = log.summary_counts()
+    assert (total, ok, fail, skip, na) == (1, 0, 0, 0, 1)
+    assert upserts == []
+    assert log.has("warning", "号池无权威票")
 
 
 async def test_record_result_challenge_cools_and_pauses(monkeypatch):
@@ -376,10 +622,19 @@ async def test_wb_sync_extract_failure_writes_nothing(monkeypatch):
 
 
 async def test_wb_sync_expiring_triggers_extraction(monkeypatch):
-    """临期(<24h)即使探活通过也要重抽,提前换新。"""
+    """临期(<24h)即使探活通过也要重抽,提前换新。
+
+    2026-11-01 补:本用例此前**只桩了取数/探活/抽取,没桩 save_device_map 与
+    clear_open_cooldowns** —— 于是 `_sync_workbuddy_local` 真的写库,假行 `id=7`
+    正好命中真库里的 qoder 号池账号,把它的 device_map 整体换成 WorkBuddy 测试
+    数据(pool_account_id / pool_uid / pool_cred_version 全丢,对账从此认不回该号)。
+    凡是"走到落库"的用例都必须桩住落库,否则测试库/生产库同 DSN 时就是一次写穿。
+    """
     sched = cs.CheckinScheduler()
     rows = _wb_rows({"uid": "u1", "web_cookie": "session=ok", "web_cookie_expires_at": int(time.time()) + 3600})
     extracts: list[Any] = []
+    saves: list[tuple[int, dict[str, Any]]] = []
+    cleared: list[int] = []
 
     async def fake_list(platform: str):
         return rows
@@ -391,11 +646,25 @@ async def test_wb_sync_expiring_triggers_extraction(monkeypatch):
         extracts.append(1)
         return {"cookie": "session=ok", "user_agent": "UA", "expires_at": 1}
 
+    async def fake_save(account_id: int, dm: dict[str, Any]):
+        saves.append((account_id, dict(dm)))
+
+    async def fake_clear(account_id: int):
+        cleared.append(account_id)
+
     monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
     monkeypatch.setattr(cs.checkin_workbuddy, "workbuddy_check_session", fake_session)
     monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
+    monkeypatch.setattr(checkin_store, "clear_open_cooldowns", fake_clear)
     await sched._sync_workbuddy_local()
     assert extracts == [1]
+    # 落库内容也要断言:只验"抽取被触发"会让真写库的内容完全失控(事故成因)
+    assert len(saves) == 1 and saves[0][0] == 7
+    assert saves[0][1]["web_cookie"] == "session=ok"
+    assert saves[0][1]["user_agent"] == "UA"
+    assert "web_cookie_synced_at" in saves[0][1]
+    assert cleared == [7]
 
 
 async def test_wb_sync_throttles_repeated_extraction(monkeypatch):
@@ -918,6 +1187,586 @@ async def test_wb_sweep_records_abort_note_on_outbound_pause_midway(monkeypatch)
     last = sched.status()["wb_tasks"]["last_sweep"]
     assert last["note"] == "中途中止:出站限流"
     assert last["families"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Qoder 补跑轮(2026-11-01)
+# 立因:活动由上游在 10:00 之后**异步下发**。当日 10:07 全池 8 个号一致返回
+# 「活动未下发或已结束」,12:53 同票同 uid 已是 CLAIMABLE ⇒ 10:05 单跑一次会
+# 整池空手。补跑轮只挑「今日还没有确定结果」的号,冷却/全局闸门/错峰一概照旧。
+# ---------------------------------------------------------------------------
+
+
+class _SpyLogger:
+    """logger 替身:structlog 用 PrintLogger 直写 stderr,caplog 抓不到,只能接管。"""
+
+    def __init__(self) -> None:
+        self.records: list[tuple[str, str]] = []
+
+    def _emit(self, level: str, args: tuple[Any, ...]) -> None:
+        msg = str(args[0]) if args else ""
+        if len(args) > 1:
+            try:
+                msg = msg % args[1:]
+            except (TypeError, ValueError):
+                msg = " ".join(str(a) for a in args)
+        self.records.append((level, msg))
+
+    def info(self, *args: Any, **kwargs: Any) -> None:
+        self._emit("info", args)
+
+    def warning(self, *args: Any, **kwargs: Any) -> None:
+        self._emit("warning", args)
+
+    def error(self, *args: Any, **kwargs: Any) -> None:
+        """启动补偿的失败路径必须走 error 级;替身缺这个方法会把「不静默」测成 AttributeError。"""
+        self._emit("error", args)
+
+    def events(self, level: str | None = None) -> list[str]:
+        return [m for lv, m in self.records if level is None or lv == level]
+
+
+def _qoder_acc(aid: int) -> dict[str, Any]:
+    return {"id": aid, "name": f"q{aid}", "jwt": f"j{aid}", "platform": "qoder", "device_map": {}}
+
+
+def _stub_retry_deps(
+    monkeypatch: pytest.MonkeyPatch,
+    sched: Any,
+    accounts: list[dict[str, Any]],
+    records: list[dict[str, Any]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """把账号/记录读口与 _run_batch 换成替身,返回 (每批收到的账号, 观测槽)。
+
+    _run_batch 是真风控入口(冷却/闸门/错峰都在里面),替身只记录**是否被调用**与
+    收到了哪些账号;因此断言"进了批"等价于断言风控语义仍走原路。
+    """
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        slot["since"] = since
+        return records
+
+    batches: list[list[dict[str, Any]]] = []
+    slot: dict[str, Any] = {}
+
+    async def _batch(
+        acc_list: list[dict[str, Any]], cooldowns: dict[int, datetime], label: str
+    ) -> None:
+        batches.append(acc_list)
+        slot["label"] = label
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _batch)
+    return batches, slot
+
+
+async def test_qoder_retry_filters_today_settled_accounts(monkeypatch):
+    """今日已有 ok=true 的号排除;只有失败记录/无记录/昨天成功的号进补跑批。"""
+    monkeypatch.setattr(cs, "logger", _SpyLogger())
+    sched = cs.CheckinScheduler()
+    now = datetime.now(UTC)
+    accounts = [
+        _qoder_acc(1),  # 今日已领 → 排除
+        _qoder_acc(2),  # 今日失败 → 补
+        _qoder_acc(3),  # 今日无记录 → 补
+        _qoder_acc(4),  # 只有昨天的成功 → 补(昨天的不算今天)
+        _full_acc(9, "trae-号"),  # 非 qoder:绝不进 Qoder 腿
+    ]
+    records = [
+        {"id": 1, "account_id": 1, "ok": True, "created_at": now},
+        {"id": 2, "account_id": 2, "ok": False, "created_at": now},
+        {"id": 3, "account_id": 4, "ok": True, "created_at": now - timedelta(days=2)},
+    ]
+    batches, slot = _stub_retry_deps(monkeypatch, sched, accounts, records)
+
+    await sched._daily_run_qoder_retry()
+
+    assert len(batches) == 1
+    assert [a["id"] for a in batches[0]] == [2, 3, 4]
+    assert slot["label"] == "Qoder补跑"
+
+
+async def test_qoder_retry_no_pending_skips_batch(monkeypatch):
+    """全部号今日已有结果 ⇒ 一行日志直接 return,不跑空批(_run_batch 一次都不进)。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    sched = cs.CheckinScheduler()
+    now = datetime.now(UTC)
+    accounts = [_qoder_acc(1), _qoder_acc(2)]
+    records = [
+        {"id": 1, "account_id": 1, "ok": True, "created_at": now},
+        {"id": 2, "account_id": 2, "ok": True, "created_at": now},
+    ]
+    batches, _slot = _stub_retry_deps(monkeypatch, sched, accounts, records)
+
+    await sched._daily_run_qoder_retry()
+
+    assert batches == []  # 不跑空批
+    assert any("补跑轮无待补账号" in m for m in spy.events())
+
+
+async def test_qoder_retry_caps_round_at_200(monkeypatch):
+    """单轮最多 200 个号(防异常数据把上游一轮打爆),超出的顺延并报数。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    sched = cs.CheckinScheduler()
+    accounts = [_qoder_acc(i) for i in range(1, 251)]  # 250 个待补
+    batches, _slot = _stub_retry_deps(monkeypatch, sched, accounts, [])
+
+    await sched._daily_run_qoder_retry()
+
+    assert len(batches) == 1
+    assert len(batches[0]) == cs._QODER_RETRY_MAX_PER_ROUND == 200
+    assert [a["id"] for a in batches[0]] == list(range(1, 201))  # 截断取前 200
+    warnings = spy.events("warning")
+    assert any("250" in m and "200" in m for m in warnings)  # 报数:待补 250 / 上限 200
+
+
+def test_qoder_retry_times_parsing(monkeypatch):
+    """合法 "11:00,12:30" → 2 条;非法 "25:00,abc" → 全忽略且不抛异常。"""
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "11:00,12:30")
+    assert cs._qoder_retry_times() == [(11, 0), (12, 30)]
+
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "25:00,abc")  # 越界 + 非时刻
+    assert cs._qoder_retry_times() == []  # 整条忽略,不抛
+    assert len(spy.events("warning")) == 2  # 每条非法各告警一次(不静默吞掉)
+
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "11:00,11:00,7:5")
+    assert cs._qoder_retry_times() == [(11, 0)]  # 去重保序;7:5 分钟不两位 → 忽略
+
+    monkeypatch.delenv("CHECKIN_QODER_RETRY_TIMES")
+    assert cs._qoder_retry_times() == [(11, 0), (12, 30)]  # 默认 11:00 / 12:30
+
+
+async def test_qoder_retry_uses_shanghai_natural_day(monkeypatch):
+    """今日判定按 Asia/Shanghai 自然日,不是 UTC 日(跨 UTC 日界实证)。
+
+    UTC 2026-11-01T15:30Z == 北京 11-01 23:30 ⇒ 算「今天」;
+    UTC 2026-11-01T16:30Z == 北京 11-02 00:30 ⇒ 已算「明天」。
+    按 UTC 折日会把 00:00~08:00 的记录算到前一天,补跑就会对着今天已领的号再打。
+    """
+    late_today = datetime(2026, 11, 1, 15, 30, tzinfo=UTC)
+    past_midnight = datetime(2026, 11, 1, 16, 30, tzinfo=UTC)
+
+    assert cs._cn_day(late_today) == date(2026, 11, 1)
+    assert cs._cn_day(past_midnight) == date(2026, 11, 2)
+    # 北京某日 00:00 == 前一日 16:00 UTC(16:00Z 才是换日点)
+    assert cs._cn_day_start(date(2026, 11, 1)) == datetime(2026, 10, 31, 16, 0, tzinfo=UTC)
+
+    # 同一条记录,折日不同结论不同:15:30Z 是 11-01 的、16:30Z 是 11-02 的
+    assert cs._settled_today({"ok": True, "created_at": late_today}, date(2026, 11, 1)) is True
+    assert cs._settled_today({"ok": True, "created_at": past_midnight}, date(2026, 11, 1)) is False
+    assert cs._settled_today({"ok": True, "created_at": past_midnight}, date(2026, 11, 2)) is True
+
+    # 端到端:补跑轮交给 store 的查询下界 == 北京当日 00:00(+08:00),不是 UTC 00:00
+    monkeypatch.setattr(cs, "logger", _SpyLogger())
+    sched = cs.CheckinScheduler()
+    batches, slot = _stub_retry_deps(monkeypatch, sched, [_qoder_acc(1)], [])
+    await sched._daily_run_qoder_retry()
+    assert len(batches) == 1
+    since = slot["since"]
+    assert (since.hour, since.minute) == (0, 0)
+    assert since.utcoffset() == timedelta(hours=8)
+    assert cs._cn_day(since) == cs._cn_day(datetime.now(UTC))
+
+
+async def test_qoder_retry_skips_when_previous_round_still_running(monkeypatch):
+    """上一轮还没跑完(200 号 × 错峰可能跨过下一个补跑时刻)⇒ 本轮整轮跳过,不叠打。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    sched = cs.CheckinScheduler()
+    batches, _slot = _stub_retry_deps(monkeypatch, sched, [_qoder_acc(1)], [])
+    sched._qoder_retry_running = True  # 模拟上一轮仍在跑
+
+    await sched._daily_run_qoder_retry()
+
+    assert batches == []
+    assert any("仍在跑" in m for m in spy.events("warning"))
+
+    sched._qoder_retry_running = False
+    await sched._daily_run_qoder_retry()
+    assert len(batches) == 1
+    assert sched._qoder_retry_running is False  # 跑完即解锁(异常也不会卡死)
+
+    async def _boom(*_a: Any) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(sched, "_run_batch", _boom)
+    with pytest.raises(RuntimeError):
+        await sched._daily_run_qoder_retry()
+    assert sched._qoder_retry_running is False  # finally 解锁
+
+
+async def test_midnight_job_registered_reuses_daily_run(monkeypatch):
+    """零点窗口(2026-11-04):00:05 job 存在、复用 _daily_run、8:05 主窗口未动。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    jobs = sched._scheduler.jobs  # type: ignore[union-attr]
+    # ① 0:05 job 真注册,且与主窗口同一 jitter;主窗口仍是 8:05(不许被挪成 0:05)
+    mid = jobs[cs._JOB_ID_MIDNIGHT]
+    assert cs._job_cron_expr(mid["trigger"]) == "5 0 * * *"
+    assert mid["trigger"].jitter == cs._CRON_JITTER
+    assert mid["func"] == sched._daily_run_midnight
+    main = jobs[cs._JOB_ID]
+    assert cs._job_cron_expr(main["trigger"]) == "5 8 * * *"
+    # 复用同一腿:零点入口只是带标签调用 _daily_run(不改业务逻辑)
+    labels: list[str] = []
+
+    async def _fake_daily_run(label: str = "主窗口") -> None:
+        labels.append(label)
+
+    monkeypatch.setattr(sched, "_daily_run", _fake_daily_run)
+    await sched._daily_run_midnight()
+    assert labels == ["零点窗口"]
+    # ③ status() 暴露下次零点窗口时刻(与 next_run 同级)
+    st = sched.status()
+    assert st["next_run_midnight"] is not None
+    assert datetime.fromisoformat(st["next_run_midnight"]).hour == 0
+    await sched.stop()
+    assert sched.status()["next_run_midnight"] is None
+
+
+async def test_midnight_run_excludes_qoder(monkeypatch):
+    """② 零点窗口的目标集不含 Qoder(Qoder 只走 10:05/补跑),轮次标签为「零点窗口」。"""
+    sched = cs.CheckinScheduler()
+    seen: dict[str, Any] = {}
+
+    async def _fake_load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_acc(1, "trae"), _acc(2, "qoder"), _acc(3, "workbuddy")], {}
+
+    async def _fake_run(accounts: list[dict[str, Any]], cooldowns: Any, label: str) -> None:
+        seen["ids"] = [a["id"] for a in accounts]
+        seen["label"] = label
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
+    monkeypatch.setattr(sched, "_run_batch", _fake_run)
+    await sched._daily_run_midnight()
+    assert 2 not in seen["ids"]  # Qoder 绝不进零点窗口
+    assert seen["ids"] == [1, 3]
+    assert seen["label"] == "零点窗口"
+
+
+async def test_qoder_retry_jobs_registered_and_status_exposed(monkeypatch):
+    """start() 按 env 逐个注册补跑 job(带同一 jitter),status() 暴露下次补跑时刻。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "11:00,12:30")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    jobs = sched._scheduler.jobs  # type: ignore[union-attr]
+    for hour, minute in ((11, 0), (12, 30)):
+        entry = jobs[cs._qoder_retry_job_id(hour, minute)]
+        assert entry["func"] == sched._daily_run_qoder_retry  # 同一补跑腿
+        assert entry["trigger"].jitter == cs._CRON_JITTER  # 与其它 job 同一漂移
+    st = sched.status()
+    assert st["next_run_qoder_retry"] is not None
+    assert st["next_run_qoder"] is not None  # 既有键不破
+    await sched.stop()
+    assert cs.CheckinScheduler().status()["next_run_qoder_retry"] is None
+
+
+async def test_start_disabled_registers_no_jobs(monkeypatch):
+    """总闸关 ⇒ start() 直接返回:不建表、不建调度器、零 job,status 如实报 cron_enabled=False。
+
+    反向例(2026-11-03 补):此前只有「开关 true 时注册了哪些 job」的正向用例,
+    没有「开关 false 时一个 job 都不许注册」的硬断言,关闸回归会静默放行。
+    """
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "false")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    ensure_calls: list[int] = []
+
+    async def _ensure() -> None:
+        ensure_calls.append(1)
+
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _ensure)
+    sched = cs.CheckinScheduler()
+    await sched.start()
+
+    assert sched._started is False
+    assert sched._scheduler is None  # 连调度器实例都不许建
+    assert ensure_calls == []  # 关闸时不做任何建表/网络动作
+    st = sched.status()
+    assert st["cron_enabled"] is False
+    assert st["enabled"] is False
+    assert st["next_run"] is None
+    assert st["next_run_qoder"] is None
+
+
+# ---------------------------------------------------------------------------
+# 启动补偿(2026-11-04):窗口切断后重启补跑。判据纯函数 + 幂等 + 过期不补。
+# ---------------------------------------------------------------------------
+
+
+def _cn_dt(hour: int, minute: int, day: int = 4) -> datetime:
+    """北京时区的一个时刻(2026-11-04 是实测事发日)。"""
+    return datetime(2026, 11, day, hour, minute, tzinfo=cs._CN_TZ)
+
+
+def _plan_labels(now: datetime, grace: int = 120) -> list[str]:
+    return [b.label for b in cs.plan_startup_compensation(now, cs._signing_beats(), grace)]
+
+
+def test_startup_compensation_plan_only_today_within_grace(monkeypatch):
+    """判据:未到点不补、超过宽限不补、同侧只取最晚一个、只补当天。"""
+    monkeypatch.setenv("CHECKIN_QODER_RETRY_TIMES", "11:00,12:30")
+    assert _plan_labels(_cn_dt(0, 4)) == []  # 00:05 还没到,交给 cron
+    assert _plan_labels(_cn_dt(0, 6)) == ["零点窗口"]
+    # 00:10 重启(实测 00:15 那次):当天零点窗口被切断 -> 补
+    assert _plan_labels(_cn_dt(0, 10)) == ["零点窗口"]
+    # 08:07 重启(实测 08:06:59 被切断):只补主窗口,零点窗口已过 8h 不越权
+    assert _plan_labels(_cn_dt(8, 7)) == ["主窗口"]
+    # 10:07 重启:主窗口刚好过 2h 宽限,只补 Qoder 窗口
+    assert _plan_labels(_cn_dt(10, 7)) == ["Qoder窗口"]
+    # 11:30:Qoder 10:05 与补跑 11:00 都在宽限内 -> 同侧只补最晚的 11:00
+    assert _plan_labels(_cn_dt(11, 30)) == ["Qoder补跑"]
+    # 13:30:11:00 已过宽限,12:30 仍在 -> 只补 12:30
+    assert _plan_labels(_cn_dt(13, 30)) == ["Qoder补跑"]
+    # 14:31:12:30 也过 2h -> 一律不补
+    assert _plan_labels(_cn_dt(14, 31)) == []
+    # 前一天 12:30 的窗口,不会被今天 00:10 当成本日窗口补跑
+    assert _plan_labels(_cn_dt(0, 10, day=5)) == ["零点窗口"]
+
+
+def test_status_exposes_startup_compensation_config(monkeypatch):
+    """只读面:配置意图 + 进程内快照位(未跑过 last=None)。"""
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_ENABLED", raising=False)
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_GRACE_MINUTES", raising=False)
+    monkeypatch.delenv("CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS", raising=False)
+    sc = cs.CheckinScheduler().status()["startup_compensation"]
+    assert sc["enabled"] is True
+    assert sc["grace_minutes"] == 120
+    assert sc["delay_seconds"] == 90
+    assert sc["running"] is False
+    assert sc["last"] is None
+
+
+async def test_startup_compensation_runs_when_window_cut(monkeypatch):
+    """实测场景复刻:08:06:59 主窗口被切断,08:07 重启 -> 只补今日无 ok 的号。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    batches: list[tuple[list[int], str]] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return []
+
+    async def _run_batch(
+        accs: list[dict[str, Any]], cooldowns: Any, label: str
+    ) -> dict[str, Any]:
+        batches.append(([a["id"] for a in accs], label))
+        return {
+            "accounts": len(accs),
+            "claimed": len(accs),
+            "skipped": 0,
+            "failed": 0,
+            "aborted": False,
+            "abort_reason": None,
+        }
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == [([1, 2], "启动补偿:主窗口")]
+    assert snap["beats"][0]["decision"] == "compensated"
+    assert snap["beats"][0]["pending"] == 2
+    assert snap["beats"][0]["claimed"] == 2
+    logs = "\n".join(spy.events())
+    assert "启动补偿触发:主窗口(计划 08:05,已过 2 分钟,宽限 120 分钟)" in logs
+    assert "启动补偿完成:主窗口" in logs
+    st = sched.status()["startup_compensation"]
+    assert st["last"]["beats"][0]["decision"] == "compensated"
+    assert st["last"]["beats"][0]["claimed"] == 2
+
+
+async def test_startup_compensation_skips_when_today_complete(monkeypatch):
+    """今日该侧全部已有 ok 记录(claim 或 skip_already)-> 一次都不打。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return [
+            {"account_id": 1, "ok": True, "action": "checkin", "created_at": _cn_dt(8, 6)},
+            {"account_id": 2, "ok": True, "action": "skip_already", "created_at": _cn_dt(8, 6)},
+        ]
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == []
+    assert snap["beats"][0]["decision"] == "no_pending"
+    assert snap["beats"][0]["settled"] == 2
+    assert snap["beats"][0]["pending"] == 0
+    assert "今日均已有 ok 结果,无需补跑" in "\n".join(spy.events())
+
+
+async def test_startup_compensation_skips_when_window_too_old(monkeypatch):
+    """15:00 重启:今天所有签到窗口都已过 2h 宽限 -> 不补(不越权)。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_full_acc(1, "a")], {}
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(15, 0))
+    assert batches == []
+    assert snap["decision"] == "no_due_beat"
+    assert "无处于 120 分钟宽限内的签到节拍" in "\n".join(spy.events())
+
+
+async def test_startup_compensation_is_idempotent(monkeypatch):
+    """重复调用补偿:第二次待补集合为空,不再领取、不再落任何新记录。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    monkeypatch.setattr(cs.random, "uniform", lambda _a, _b: 0.0)
+    sched = cs.CheckinScheduler()
+    accounts = [_full_acc(1, "a"), _full_acc(2, "b")]
+    records: list[dict[str, Any]] = []
+    checkin_calls: list[int] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return accounts, {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        return list(records)
+
+    async def _one(acc: dict[str, Any]) -> dict[str, Any]:
+        checkin_calls.append(acc["id"])
+        return {"ok": True, "action": "checkin"}
+
+    async def _record(aid: int, result: dict[str, Any]) -> dict[str, Any]:
+        records.append(
+            {
+                "id": len(records) + 1,
+                "account_id": aid,
+                "ok": bool(result.get("ok")),
+                "action": result.get("action"),
+                "created_at": _cn_dt(8, 8),
+            }
+        )
+        return records[-1]
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "checkin_one", _one)
+    monkeypatch.setattr(sched, "record_result", _record)
+
+    await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert sorted(checkin_calls) == [1, 2]
+    assert len(records) == 2
+
+    snap2 = await sched.run_startup_compensation(now=_cn_dt(8, 8))
+    assert sorted(checkin_calls) == [1, 2]  # 第二次零新增调用
+    assert len(records) == 2  # 第二次零新增记录
+    assert snap2["beats"][0]["decision"] == "no_pending"
+
+
+async def test_startup_compensation_does_not_run_blind_when_records_unreadable(monkeypatch):
+    """今日记录读不出来 -> 不盲补;error 日志 + status.error 明示原因。"""
+    spy = _SpyLogger()
+    monkeypatch.setattr(cs, "logger", spy)
+    monkeypatch.setattr(cs.checkin_outbound_gate, "paused_remaining", lambda: 0.0)
+    sched = cs.CheckinScheduler()
+    batches: list[str] = []
+
+    async def _load(label: str) -> tuple[list[dict[str, Any]], dict[int, datetime]]:
+        return [_full_acc(1, "a")], {}
+
+    async def _records(since: datetime) -> list[dict[str, Any]]:
+        raise RuntimeError("db down")
+
+    async def _run_batch(accs: Any, cooldowns: Any, label: str) -> dict[str, Any]:
+        batches.append(label)
+        return {}
+
+    monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _load)
+    monkeypatch.setattr(checkin_store, "list_records_since", _records)
+    monkeypatch.setattr(sched, "_run_batch", _run_batch)
+
+    snap = await sched.run_startup_compensation(now=_cn_dt(8, 7))
+    assert batches == []
+    assert snap["beats"][0]["decision"] == "records_read_failed"
+    assert "db down" in str(snap["error"])
+    assert any("db down" in msg for msg in spy.events("error"))
+
+
+async def test_start_schedules_startup_compensation_and_stop_cancels(monkeypatch):
+    """start() 安排后台补偿;stop() 取消(不留悬空任务拖住测试/重启)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setenv("CHECKIN_STARTUP_COMPENSATION_DELAY_SECONDS", "3600")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    assert sched._startup_compensation_task is not None
+    sc = sched.status()["startup_compensation"]
+    assert sc["running"] is True
+    assert sc["delay_seconds"] == 3600
+
+    await sched.stop()
+    assert sched._startup_compensation_task is None
+    assert sched.status()["startup_compensation"]["running"] is False
+
+
+async def test_start_does_not_schedule_startup_compensation_when_disabled(monkeypatch):
+    """显式关掉补偿 -> 不建后台任务(status 如实报 enabled=false)。"""
+    monkeypatch.setenv("CHECKIN_CRON_ENABLED", "true")
+    monkeypatch.setenv("CHECKIN_STARTUP_COMPENSATION_ENABLED", "false")
+    monkeypatch.setattr(cs, "AsyncIOScheduler", _FakeAsyncIOScheduler)
+    monkeypatch.setattr(cs.checkin_store, "ensure_tables", _noop_async)
+    sched = cs.CheckinScheduler()
+    monkeypatch.setattr(sched, "_restore_outbound_pause", _noop_async)
+    await sched.start()
+
+    assert sched._startup_compensation_task is None
+    assert sched.status()["startup_compensation"]["enabled"] is False
+    await sched.stop()
 
 
 # [IHUI-AI-PROVENANCE-TAIL]

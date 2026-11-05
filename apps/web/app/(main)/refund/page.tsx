@@ -82,7 +82,7 @@ export default function RefundPage() {
             <RotateCcw className="h-6 w-6 text-primary" />
             {t('listTitle')}
           </h1>
-          <p className="text-xs text-muted-foreground">{t('listSubtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('listSubtitle')}</p>
         </div>
         <Button>
           <RotateCcw className="h-4 w-4" />
@@ -100,7 +100,7 @@ export default function RefundPage() {
       ) : error ? (
         <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
       ) : items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
+        <p className="py-8 text-center text-body text-muted-foreground">{t('listEmpty')}</p>
       ) : (
         <div className="space-y-2">
           {items.map((item) => {
@@ -110,7 +110,9 @@ export default function RefundPage() {
               <Card key={item.id} className="transition-colors hover:bg-accent">
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-muted-foreground">{item.orderNo}</span>
+                    <span className="font-mono text-label text-muted-foreground">
+                      {item.orderNo}
+                    </span>
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label font-medium',
@@ -125,12 +127,12 @@ export default function RefundPage() {
                     <span className="text-lg font-semibold text-primary">
                       {currencyFmt.format(Number(item.refundAmount))}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-label text-muted-foreground">
                       {dateFmt.format(new Date(item.createdAt))}
                     </span>
                   </div>
                   {item.reason && (
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-label text-muted-foreground">
                       {t('listReason', { reason: item.reason })}
                     </p>
                   )}

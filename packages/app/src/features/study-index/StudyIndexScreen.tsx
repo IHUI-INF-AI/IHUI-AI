@@ -34,7 +34,7 @@ import { SearchInput } from '../../components/SearchInput'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { SectionHeader } from '../../components/SectionHeader'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
-import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
+import { Lightbulb, Play, Flame, Bot, Clapperboard, Plus } from 'lucide-react-native'
 import type { AppIcon, StudyTrackCategory, StudyVideoItem } from '@ihui/types'
 
 import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -82,6 +82,8 @@ export interface StudyIndexScreenProps {
   noMoreText: string
   loadingText: string
   loadingMoreText: string
+  /** 提供时在右下渲染发布 FAB（缺省不渲染，避免假按钮） */
+  onPublish?: () => void
 }
 
 /** 网格封面高度(对齐 Uniapp study_list .video height: 178rpx ≈ 89dp) */
@@ -121,6 +123,7 @@ export function StudyIndexScreen({
   noMoreText,
   loadingText,
   loadingMoreText,
+  onPublish,
 }: StudyIndexScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -386,6 +389,17 @@ export function StudyIndexScreen({
           }
         />
       )}
+
+      {onPublish ? (
+        <Pressable
+          onPress={onPublish}
+          style={styles.fab}
+          accessibilityRole="button"
+          accessibilityLabel="发布视频"
+        >
+          <Plus size={24} color={tk.brand.ctaForeground} />
+        </Pressable>
+      ) : null}
     </View>
   )
 }
@@ -393,6 +407,23 @@ export function StudyIndexScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
+    fab: {
+      position: 'absolute',
+      right: 24,
+      bottom: 32,
+      width: rnGeometry.fabBox,
+      height: rnGeometry.fabBox,
+      /**
+       * 正方 FAB 用相对式正圆:宽高同值(rnGeometry.fabBox=56)且半径恒为短边一半,
+       * 属守门 77 的 B9 / 守门 11 的 C7 明文承认的"几何正圆"例外,不写死 28
+       * (28 超 2xl=16 的定档上限)。视觉与原 56×56 / 半径 28 完全一致。
+       */
+      borderRadius: '50%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.brand.cta,
+      elevation: 4,
+    } as ViewStyle,
     searchBar: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
@@ -418,7 +449,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     } as ViewStyle,
     indexContent: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       paddingBottom: 96,
     } as ViewStyle,
     // 预览区块
@@ -507,7 +538,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     // 视频列表(双列网格)
     listContent: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       paddingBottom: 96,
     } as ViewStyle,
     gridRow: {

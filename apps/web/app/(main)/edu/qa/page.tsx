@@ -107,7 +107,7 @@ export default function EduQAPage() {
           <HelpCircle className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -165,7 +165,7 @@ export default function EduQAPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <HelpCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -179,7 +179,7 @@ export default function EduQAPage() {
                   </p>
                   <span
                     className={cn(
-                      'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                      'shrink-0 rounded-md px-2 py-0.5 text-label',
                       item.status === 'answered'
                         ? 'bg-emerald-500/10 text-emerald-600'
                         : 'bg-amber-500/10 text-amber-600',
@@ -188,8 +188,10 @@ export default function EduQAPage() {
                     {item.status === 'answered' ? t('answered') : t('pending')}
                   </span>
                 </div>
-                {item.answer && <p className="ml-6 text-sm text-muted-foreground">{item.answer}</p>}
-                <div className="ml-6 flex items-center gap-3 text-xs text-muted-foreground">
+                {item.answer && (
+                  <p className="ml-6 text-body text-muted-foreground">{item.answer}</p>
+                )}
+                <div className="ml-6 flex items-center gap-3 text-label text-muted-foreground">
                   <span>{item.author}</span>
                   {item.courseName && <span>· {item.courseName}</span>}
                   <span>· {fmt(item.createdAt)}</span>

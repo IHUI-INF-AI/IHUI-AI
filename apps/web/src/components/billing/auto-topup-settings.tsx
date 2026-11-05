@@ -198,7 +198,7 @@ export function AutoTopupSettings({
           aria-label={t('target.ariaLabel')}
           aria-invalid={targetValidation.errorKey !== null}
           data-target-input="true"
-          className="rounded-sm border border-input bg-background px-2 py-1 text-xs"
+          className="rounded-sm border border-input bg-background px-2 py-1 text-label"
         />
         <p className="text-[11px] text-muted-foreground" data-target-helper="true">
           {t('target.helper')}
@@ -230,7 +230,7 @@ export function AutoTopupSettings({
           aria-label={t('threshold.ariaLabel')}
           aria-invalid={thresholdValidation.errorKey !== null}
           data-threshold-input="true"
-          className="rounded-sm border border-input bg-background px-2 py-1 text-xs"
+          className="rounded-sm border border-input bg-background px-2 py-1 text-label"
         />
         <p className="text-[11px] text-muted-foreground" data-threshold-helper="true">
           {t('threshold.helper')}

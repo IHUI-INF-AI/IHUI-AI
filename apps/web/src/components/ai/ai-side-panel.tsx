@@ -26,11 +26,14 @@ import {
   Columns2,
   Loader2,
   GitPullRequest,
+  MoreHorizontal,
+  Check,
+  X,
 } from 'lucide-react'
-import { IconButton, CloseButton } from '@ihui/ui-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast, AuthGatePrompt } from '@/components/common'
-
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
 import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
@@ -205,6 +208,10 @@ function BrandIconDeferred({ size = 16, className, vendor, fallbackIcon }: Brand
   )
 }
 
+/** 头部「⋯」溢出菜单项的统一视觉规格(Radix Item 的高亮态与项目 DropdownMenu 惯例一致) */
+const HEADER_MENU_ITEM_CLASS =
+  'flex cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-label outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
+
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
  * - 紧贴 Sidebar 右侧(flex 顺序:Sidebar → AISidePanel → main)
@@ -295,13 +302,33 @@ function EnvInfoRounded({
   )
 }
 
+/**
+ * 公开文档路由判定(2026-11-03 立,S5 票:游客在手机上看文档正文被面板整屏抢占)。
+ * `/docs` 的精确条目住在 `src/lib/login-dialog-trigger.ts` 的 PUBLIC_PATHS(游客可达白名单,
+ * 与 proxy 对齐的那一份);文档子页(`/docs/api`、`/docs/manual` …)由 `app/(main)/docs/**` 提供,
+ * 白名单按精确路径匹配不含子页 ⇒ 此处只按 `/docs` 前缀补齐"文档站"这一族。
+ * 返回值仅作面板形态的输入,不落任何 store ⇒ 不构成第二份显示状态真相源。
+ */
+const PUBLIC_DOCS_PREFIX = '/docs'
+/**
+ * 游客公开文档页的面板形态:保留 `fixed inset-0` 类名(DevTools/E2E/globals.css 的
+ * `.ai-panel-root.fixed.inset-0 > aside` 安全区规则都靠它),只用 inline `top` 把盒子
+ * 下移到视口下沿 ⇒ 文档占首屏主体、面板成为底部抽屉。类名一个字未动,可整体回退。
+ */
+const GUEST_DOCS_FLOAT_STYLE: React.CSSProperties = { top: '52%' }
+function isPublicDocsRoute(pathname: string | null | undefined): boolean {
+  if (!pathname) return false
+  const pathOnly = pathname.split('?')[0]?.split('#')[0] ?? ''
+  return pathOnly === PUBLIC_DOCS_PREFIX || pathOnly.startsWith(`${PUBLIC_DOCS_PREFIX}/`)
+}
+
 export function AISidePanel() {
   const t = useTranslations('chat')
   const tc = useTranslations('aiChat')
   const tcommon = useTranslations('common')
   // 登录态门(与 settings 页同型):未就绪/未登录不发注定 401 的会话历史请求,消息区改显登录引导
   const tGate = useTranslations('chatHistory')
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
 
   // 性能修复(2026-07-25):全解构 → 单字段 selector。
   // zustand action 函数引用稳定,不会触发重渲染;state 字段(open/width/isResizing)
@@ -1232,7 +1259,20 @@ export function AISidePanel() {
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
   // 把项目名通过 onNameChange callback 回传给父组件(setWorkspaceName)。
   // pathname 变化只触发子组件重渲染,不触发 AISidePanel 根重渲染。
-  const workspaceNameSync = <WorkspaceNameSync onNameChange={setWorkspaceName} />
+  // S5(2026-11-03 立):同型口径再走一次 —— "当前是不是公开文档路由"也由子组件订阅 pathname
+  // 后回传**一个布尔**(面板根自己 usePathname 会把 2026-07-25 的根治抵消掉)。
+  // 值只在跨 /docs 边界时翻转 ⇒ 非文档路由的面板零额外重渲染。
+  const [publicDocsRoute, setPublicDocsRoute] = React.useState(false)
+  const handlePublicDocsRoute = React.useCallback(
+    (isPublicDocs: boolean) => setPublicDocsRoute(isPublicDocs),
+    [],
+  )
+  // 游客(auth 已就绪且未登录)+ 手机视口 + 公开文档页 ⇒ 面板不得整屏抢占文档正文。
+  // 已登录用户与非文档路由的条件项各自为假 ⇒ 行为逐字节不变。
+  const guestQuietDocs = ready && !allow && isMobileSmall && publicDocsRoute
+  const workspaceNameSync = (
+    <WorkspaceNameSync onNameChange={setWorkspaceName} onPublicDocsRoute={handlePublicDocsRoute} />
+  )
 
   // ─── D73 多任务窗格宿主侧:Hook 取值(2026-09-27 提到无条件位置)───
   // 这四行原本写在 1090 行的"打开态"分支里,而组件在 901/945/1041 有三处提前 return,
@@ -1266,7 +1306,7 @@ export function AISidePanel() {
           }}
           aria-label={tc('title')}
           className={cn(
-            'fixed z-sticky flex items-center justify-center rounded-sm border border-border bg-card shadow-lg transition-all hover:scale-105 hover:shadow-xl',
+            'fixed z-sticky flex items-center justify-center rounded-sm border border-border bg-card shadow-lg transition-all',
             // 手机:FAB 更大(56px 适合触屏),固定左下角(与桌面端浮窗默认位置一致)
             isMobileSmall
               ? 'h-14 w-14 bottom-4 left-4'
@@ -1312,7 +1352,9 @@ export function AISidePanel() {
             )}
             style={
               isMobileSmall
-                ? undefined
+                ? guestQuietDocs
+                  ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
+                  : undefined
                 : floatPosition.x < 0
                   ? {
                       width: floatWidth,
@@ -1669,7 +1711,9 @@ export function AISidePanel() {
           style={
             floatMode
               ? isMobileSmall
-                ? undefined // 手机:无定位 style,全屏由 inset-0 控制
+                ? guestQuietDocs
+                  ? GUEST_DOCS_FLOAT_STYLE // 游客公开文档页:盒子下移,不抢文档正文
+                  : undefined // 手机:无定位 style,全屏由 inset-0 控制
                 : floatPosition.x < 0
                   ? {
                       width: floatWidth,
@@ -1789,139 +1833,172 @@ export function AISidePanel() {
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
-              {/* D182(D182 票,对标竞品 chatSession.headerActions.panelGroupButtons"面板组按钮"):
-              头部操作按钮簇包 role=group + 组名,读屏用户可感知这一组按钮的语义边界 */}
+              {/* 2026-11-04 信息架构重构(对标 ChatGPT/Claude/Cursor 的 composer/panel 结构):
+                  头部只保留「标题 + ⋯」。此前 10 枚 32px 功能按钮(停靠/浮窗/最小化/
+                  环境信息/终端/工作展示区/工作面全屏/向右拆分/Draft PR/任务回顾/关闭)
+                  全部收进单一溢出菜单 —— 窄屏不再需要按宽度逐枚隐藏,标题也不再被按钮挤没。
+                  菜单项沿用原 data-testid,既有测试与自动化脚本可继续定位同一入口。
+                  D182 的 role=group + 组名保留在外层容器上,读屏用户仍可感知这是一个动作组。 */}
               <div
                 role="group"
                 aria-label={tc('headerActions.panelGroupButtons')}
-                className="flex items-center gap-2"
+                className="flex shrink-0 items-center"
                 data-testid="ai-panel-header-actions-group"
               >
-                {/* 浮窗模式切换按钮(2026-07-30):
-                - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
-                - float 模式:显示 PanelRightRounded(停靠) + Minus(最小化)两个按钮 */}
-                {floatMode ? (
-                  <>
-                    <Tooltip content={tc('dockPanel')}>
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip content={tc('headerActions.overflowMenu')}>
+                    <DropdownMenu.Trigger asChild>
                       <IconButton
-                        onClick={() => {
-                          setFloatMode(false)
-                          setFloatMinimized(false)
+                        aria-label={tc('headerActions.overflowMenu')}
+                        data-testid="ai-panel-overflow-trigger"
+                      >
+                        <MoreHorizontal />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                  </Tooltip>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="end"
+                      sideOffset={6}
+                      collisionPadding={8}
+                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      data-testid="ai-panel-overflow-menu"
+                    >
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupPanel')}
+                      </DropdownMenu.Label>
+                      {/* 浮窗模式切换(原头部第一枚):docked → 浮窗折叠态;float → 停靠 */}
+                      <DropdownMenu.Item
+                        data-testid="ai-panel-float-toggle"
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => {
+                          if (floatMode) {
+                            setFloatMode(false)
+                            setFloatMinimized(false)
+                          } else {
+                            setFloatMode(true)
+                            setFloatMinimized(false)
+                            setFloatCollapsed(true)
+                            openPanel()
+                          }
                         }}
-                        aria-label={tc('dockPanel')}
                       >
-                        <PanelRightRounded left />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip content={tc('minimize')}>
-                      <IconButton
-                        onClick={() => setFloatMinimized(true)}
-                        aria-label={tc('minimize')}
+                        {floatMode ? <PanelRightRounded left /> : <PictureInPicture2 />}
+                        <span className="truncate">
+                          {floatMode ? tc('dockPanel') : tc('floatMode')}
+                        </span>
+                      </DropdownMenu.Item>
+                      {floatMode && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => setFloatMinimized(true)}
+                        >
+                          <Minus />
+                          <span className="truncate">{tc('minimize')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      {/* 工作展示区开关:手机全屏浮窗没有工作区可折叠,这一项在 <640 不渲染
+                          (原先靠 max-[639px]:hidden 隐藏整枚按钮,现收敛为条件渲染) */}
+                      {!isMobileSmall && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => toggleWorkPanel()}
+                        >
+                          <PanelRightRounded left={workAreaCollapsed} />
+                          <span className="min-w-0 flex-1 truncate">
+                            {workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
+                          </span>
+                          {!workAreaCollapsed && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </DropdownMenu.Item>
+                      )}
+                      {/* D182 工作面全屏(仅 docked;浮窗本身是独立小窗,再全屏无意义) */}
+                      {!floatMode && !workspaceUnavailable && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-workspace-fullscreen"
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => setWorkAreaFullscreen(!workAreaFullscreen)}
+                        >
+                          {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
+                          <span className="min-w-0 flex-1 truncate">
+                            {workAreaFullscreen
+                              ? tc('headerActions.exitWorkspaceFullscreen')
+                              : tc('headerActions.enterWorkspaceFullscreen')}
+                          </span>
+                          {workAreaFullscreen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </DropdownMenu.Item>
+                      )}
+                      {/* 向右拆分(手机 <640 不渲染:无处可分) */}
+                      {!d73Expanded && !isMobileSmall && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          aria-label={tp('splitRight')}
+                          onSelect={() => d73HandleSplit()}
+                        >
+                          <Columns2 />
+                          <span className="truncate">{tp('splitRight')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupTools')}
+                      </DropdownMenu.Label>
+                      {/* 环境信息 / 终端(原 2026-08-17 三按钮组):勾选态与原高亮态等价 */}
+                      <DropdownMenu.Item
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => toggleEnvInfo()}
                       >
-                        <Minus />
-                      </IconButton>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <Tooltip content={tc('floatMode')}>
-                    <IconButton
-                      onClick={() => {
-                        setFloatMode(true)
-                        setFloatMinimized(false)
-                        setFloatCollapsed(true)
-                        openPanel()
-                      }}
-                      aria-label={tc('floatMode')}
-                    >
-                      <PictureInPicture2 />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {/* D176 任务回顾/「移交到新任务」入口(对标竞品 chatSession.highlights.recap.*):
-                  会话级回顾动作,挂头部按钮组;对话框内生成交接内容并创建新任务(组件自带 Dialog) */}
-                <TaskRecapEntry />
-                {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
-                ① 环境信息(齿轮+横线 → env info popover)
-                ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
-                ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
-                <Tooltip content={tc('envInfoButton')}>
-                  <IconButton
-                    onClick={toggleEnvInfo}
-                    aria-label={tc('envInfoButton')}
-                    className={cn(envInfoOpen && 'bg-accent text-accent-foreground')}
-                  >
-                    <EnvInfoRounded checked={envInfoOpen} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={tc('openTerminal')}>
-                  <IconButton
-                    onClick={toggleTerminalDock}
-                    aria-label={tc('openTerminal')}
-                    className={cn(terminalDockOpen && 'bg-accent text-accent-foreground')}
-                  >
-                    <SquareTerminal />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
-                  <IconButton
-                    onClick={toggleWorkPanel}
-                    aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
-                    className={cn(workAreaCollapsed && 'bg-accent text-accent-foreground')}
-                  >
-                    <PanelRightRounded left={workAreaCollapsed} />
-                  </IconButton>
-                </Tooltip>
-                {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
-                  与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2。
-                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位;
-                  创建中例外保留(转圈反馈不凭空消失,结果由 toast 兜底) */}
-                {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
-                  <Tooltip content={tc('headerActions.createDraftPullRequest')}>
-                    <IconButton
-                      onClick={() => void handleCreateDraftPR()}
-                      disabled={creatingDraftPR}
-                      aria-label={tc('headerActions.createDraftPullRequest')}
-                      aria-disabled={creatingDraftPR || undefined}
-                      data-testid="ai-panel-create-draft-pr"
-                    >
-                      {creatingDraftPR ? <Loader2 className="animate-spin" /> : <GitPullRequest />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
-                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位 */}
-                {!floatMode && !workspaceUnavailable && (
-                  <Tooltip
-                    content={
-                      workAreaFullscreen
-                        ? tc('headerActions.exitWorkspaceFullscreen')
-                        : tc('headerActions.enterWorkspaceFullscreen')
-                    }
-                  >
-                    <IconButton
-                      onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
-                      aria-label={
-                        workAreaFullscreen
-                          ? tc('headerActions.exitWorkspaceFullscreen')
-                          : tc('headerActions.enterWorkspaceFullscreen')
-                      }
-                      data-testid="ai-panel-workspace-fullscreen"
-                      className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
-                    >
-                      {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {!d73Expanded && (
-                  <Tooltip content={tp('splitRight')}>
-                    <IconButton onClick={d73HandleSplit} aria-label={tp('splitRight')}>
-                      <Columns2 />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip content={tcommon('close')}>
-                  <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
-                </Tooltip>
+                        <EnvInfoRounded checked={envInfoOpen} />
+                        <span className="min-w-0 flex-1 truncate">{tc('envInfoButton')}</span>
+                        {envInfoOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => toggleTerminalDock()}
+                      >
+                        <SquareTerminal />
+                        <span className="min-w-0 flex-1 truncate">{tc('openTerminal')}</span>
+                        {terminalDockOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupSession')}
+                      </DropdownMenu.Label>
+                      {/* D176 任务回顾(菜单项形态,组件内部自带 Dialog;不再占头部槽位) */}
+                      <TaskRecapEntry variant="menu-item" />
+                      {/* D183 一键创建 Draft PR:仅 docked、且有可用工作区时出现 */}
+                      {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-create-draft-pr"
+                          className={HEADER_MENU_ITEM_CLASS}
+                          disabled={creatingDraftPR}
+                          onSelect={(e) => {
+                            // 保持菜单关闭后再跑异步动作,避免 loading 态留在已卸载的菜单里
+                            e.preventDefault()
+                            void handleCreateDraftPR()
+                          }}
+                        >
+                          {creatingDraftPR ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            <GitPullRequest />
+                          )}
+                          <span className="truncate">
+                            {tc('headerActions.createDraftPullRequest')}
+                          </span>
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Item
+                        data-testid="ai-panel-close"
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={closePanel}
+                      >
+                        <X />
+                        <span className="truncate">{tcommon('close')}</span>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
               </div>
             </header>
 
@@ -1944,7 +2021,7 @@ export function AISidePanel() {
                         className="flex h-full flex-col items-center justify-center gap-1 px-3"
                         data-pane-marker={paneId}
                       >
-                        <span className="text-xs text-muted-foreground">{paneId}</span>
+                        <span className="text-label text-muted-foreground">{paneId}</span>
                       </div>
                     )
                   }
@@ -2004,10 +2081,18 @@ export function AISidePanel() {
  * - 渲染 null,无视觉开销
  * - 若 activeWorkspace 已绑定则跳过拉取(原逻辑保留)
  */
-function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | null) => void }) {
+function WorkspaceNameSync({
+  onNameChange,
+  onPublicDocsRoute,
+}: {
+  onNameChange: (name: string | null) => void
+  onPublicDocsRoute: (isPublicDocs: boolean) => void
+}) {
   const pathname = usePathname()
 
   React.useEffect(() => {
+    // 路由身份回传(2026-11-03 S5 票):公开文档路由判定留在本子组件,面板根只接一个布尔
+    onPublicDocsRoute(isPublicDocsRoute(pathname))
     if (!pathname) {
       onNameChange(null)
       return
@@ -2041,7 +2126,7 @@ function WorkspaceNameSync({ onNameChange }: { onNameChange: (name: string | nul
     return () => {
       cancelled = true
     }
-  }, [pathname, onNameChange])
+  }, [pathname, onNameChange, onPublicDocsRoute])
 
   return null
 }

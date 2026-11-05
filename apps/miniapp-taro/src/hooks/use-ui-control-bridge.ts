@@ -5,7 +5,11 @@
 // 平台特有:依赖 Taro 运行时(前后台生命周期 / connectSocket / eventCenter),不适合共享
 import { useEffect } from 'react'
 import Taro from '@tarojs/taro'
-import { createNotificationClient, fetchApi } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   isAgentActionAssignedToInstance,
@@ -29,6 +33,7 @@ import {
   type TaroUiActionResult,
 } from '@/lib/ui-action-registry'
 import { BASE_URL } from '@/utils/api-config'
+import { getMiniappVersion } from '@/utils/app-version'
 import { getToken } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { taroWebSocketFactory } from '@/utils/taro-websocket-adapter'
@@ -61,7 +66,6 @@ const CAPABILITY_INTERVAL_MS = 60_000
 /** 启动时静默登录是异步的,冷启后再各补一次(避免最长等 60s 才上报能力) */
 const AUTH_CATCHUP_DELAYS_MS: readonly number[] = [5_000, 20_000]
 const PROCESSED_IDS_MAX = 100
-const VERSION = '1.0.0'
 
 const TARO_UI_ACTIONS: readonly TaroUiActionType[] = [
   'describe',
@@ -155,42 +159,39 @@ function isTaroUiAction(action: unknown): action is TaroUiActionType {
 
 /* ────────────────────────── HTTP 上报 ────────────────────────── */
 
-/**
- * 走 @ihui/api-client 的 fetchApi(小程序侧已由 app.tsx 注入 Taro transport),
- * 刻意不复用 utils/api-bridge 的 post():那个封装会 toast + 401 跳登录页,
- * 而后台保活请求失败绝不能打扰用户(AGENTS.md §3 要求 HTTP 一律走 api-client)。
- */
-async function postQuiet<TBody, TRes>(url: string, body: TBody, action: string): Promise<void> {
-  try {
-    const res = await fetchApi<TRes>(url, { method: 'POST', body: JSON.stringify(body) })
-    if (!res.success) logger.warn('ui-bridge', action, res.error ?? '接口返回失败')
-  } catch (err) {
-    logger.warn('ui-bridge', action, err instanceof Error ? err.message : '请求异常')
-  }
-}
-
 function buildCapability(): AgentControlCapability {
+  // 版本走 utils/app-version(线上版才有值);开发/体验版取到空串 ⇒ 不报,不编(§0.3)
+  const version = getMiniappVersion()
   return {
     endpoint: 'miniapp',
     instanceId: INSTANCE_ID,
     taroUiActions: [...TARO_UI_ACTIONS],
-    version: VERSION,
+    ...(version ? { version } : {}),
     reportedAt: new Date().toISOString(),
   }
 }
 
 async function reportCapability(): Promise<void> {
   if (!getToken()) return
-  await postQuiet('/api/agent-control/capability', buildCapability(), '上报小程序端能力')
+  try {
+    const res = await reportAgentControlCapability(buildCapability())
+    if (!res.success) logger.warn('ui-bridge', '上报小程序端能力', res.error ?? '接口返回失败')
+  } catch (err) {
+    logger.warn('ui-bridge', '上报小程序端能力', err instanceof Error ? err.message : '请求异常')
+  }
 }
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
   // 回执身份回显:只回显服务端派发过的 token + 自报本实例(无 token = 旧服务端形态,原样回传)
-  await postQuiet(
-    '/api/agent-control/result',
-    withRespondedIdentity(response, assignmentTokens, selfIdentity()),
-    '回传小程序端执行结果',
-  )
+  const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
+  try {
+    const res = await reportAgentControlResult(payload)
+    if (!res.success) {
+      logger.warn('ui-bridge', '回传小程序端执行结果', res.error ?? '接口返回失败')
+    }
+  } catch (err) {
+    logger.warn('ui-bridge', '回传小程序端执行结果', err instanceof Error ? err.message : '请求异常')
+  }
 }
 
 function toResponse(

@@ -38,9 +38,14 @@ import { readdirSync, statSync, lstatSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 // §15b 外置根唯一出口:盘根由它推导,本文件不再自己截盘符首字符。
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+// 但 `devEnvRoot()` 是"整机外置根"的**粗出口**,遇上半搬迁态会选错:本机 `D:/IHUI-AI/.DevEnv`
+// 存在却只有 Temp/backups,logs 仍在 `D:/DevEnv` —— 按粗出口拼出来的 logs 目录不存在,
+// 回收器连续 6 夜 ENOENT(现读 log-prune.log 全 FAIL),等于轮转副本无人回收。
+// 巡检侧 P4b 早已改用"按件选根"(check-ops-patrol.mjs 的 devEnvArtifactRoot('logs')),
+// 本文件补齐同一出口,判据不复制(§0.6):问的是"这个用途的根在不在",不是"哪个根优先"。
+import { devEnvArtifactRoot } from './seal-c-root-stray.mjs'
 
-const LOGS_DIR = join(devEnvRoot(), 'logs')
+const LOGS_DIR = join(devEnvArtifactRoot('logs'), 'logs')
 
 // 流段可选:带 `-err-`/`-out-` 的是分双流配置,不带的是 stdout/stderr 合写一份文件的配置。
 // 时间戳仍是必需的那一格 —— 它才是"已轮转"的唯一凭据,活文件名里没有它。

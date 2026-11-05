@@ -170,6 +170,14 @@ minimumReleaseAge: 1440
 
 # 原 package.json pnpm.overrides 迁移至此:
 overrides:
+  # 2026-11-01:e2e 与 ci.yml 连红的真因 —— @wxt-dev/module-react@1.2.2 的依赖区间
+  # "^4.4.1 || ^5.0.0 || ^6.0.0" 同时允许了「plugin-react 6.x + vite 6.x」这个坏组合,
+  # 而 plugin-react 6.x 要从 vite **7** 的 ./internal 导出取值 ⇒ wxt build / wxt prepare
+  # 解析即炸("Package subpath ./internal is not defined"),web prebuild 连带死。
+  # 钉回 4.x:满足 module-react 的区间下界,且与 apps/mobile-rn 现用的 ^4.3.4 同线
+  # (4.7.0 与 vite 6.4.5 可跑)。升 vite 7 会波及 taro/web,不在本次射程。
+  # 上游修好区间后删本条并跑 --lockfile-only 复验。
+  '@vitejs/plugin-react': ^4.4.1
   ioredis: 6.0.0
   # webpack 钉版 = Taro 4.2.1 工具链兼容必需,不是配置遗漏(2026-10-28 安全审计第二刀实证):
   # 尝试抬到 ^5.104.1 后 `build:weapp` 在 Taro ProgressPlugin 的 ajv schema 校验处直接崩

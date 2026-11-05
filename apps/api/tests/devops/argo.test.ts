@@ -81,7 +81,7 @@ class ArgoController {
 
   /** 推进 git revision(模拟 push) */
   advanceRevision(): string {
-    const n = parseInt(this.currentRevision.split('-')[1], 10) + 1
+    const n = parseInt(this.currentRevision.split('-')[1] ?? '0', 10) + 1
     this.currentRevision = `rev-${n}`
     return this.currentRevision
   }
@@ -123,7 +123,7 @@ class ArgoController {
     let syncStatus: SyncStatus
     if (phase === 'Succeeded') {
       syncStatus = this.computeHealth(app)
-      this.history[app.name].push({ revision: app.targetRevision, syncedAt: Date.now() })
+      this.history[app.name]!.push({ revision: app.targetRevision, syncedAt: Date.now() })
     } else {
       syncStatus = 'Degraded'
     }
@@ -179,7 +179,7 @@ class ArgoController {
       attempts: 1,
       message: `rolled back to ${revision}`,
     }
-    this.history[app.name].push({ revision, syncedAt: Date.now() })
+    this.history[app.name]!.push({ revision, syncedAt: Date.now() })
     return result
   }
 

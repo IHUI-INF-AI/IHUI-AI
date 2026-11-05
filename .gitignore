@@ -8,6 +8,12 @@ browser_test_output/
 # 同一族的另一个落点:自动化会话在仓库根就地建的截图暂存目录(2026-10-26 现读:并发席位 16:33 在用,
 # 内仅 .tmp;登记进忽略层 = 守门 44 从"归属无从判定(exit 2)"落到只告警层,不删他人现场)
 .screenshots/
+# 2026-11-04 同一族的忽略层收口:qoder-chat-bridge 的运行期 cwd,代码默认落点
+# apps/api/src/services/qoder-bridge-client.ts:38(REPO_ROOT/.runtime/qoder-bridge-cwd,
+# 可用 QODER_BRIDGE_CWD 覆盖)。设计上是空目录,但桥一旦落文件就会以未跟踪形态被
+# 「收编未提交改动」的自动 git add 收进历史。与上面 .screenshots/ 同型:既已在守门 44
+# 白名单登记(scripts/check-root-dir-clean.mjs:335),也进忽略层,不搬不删。
+.runtime/
 # curl 导出的 Netscape cookie 文件(临时)
 cookies.txt
 apps/web/out/
@@ -16,6 +22,9 @@ apps/web/public/vs/
 # 下载构建产物 manifest(sync-downloads.mjs 生成,含 syncedAt 时间戳,每次同步都变化;
 # 下载包 exe/msi/zip 由 sync 脚本复制到 public/downloads/,按需跟踪,manifest 不入库)
 apps/web/public/downloads/manifest.json
+# 逐文件 sha256 清单同样是生成物(2026-11-05):内容随本机实物变化(桌面 exe 不入库),
+# 入库会让干净检出出现"清单列了不存在的文件" ⇒ verify 必红;它只随发布产物落盘,不入库。
+apps/web/public/downloads/update-files.json
 # Desktop 安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库。
 # 下载按钮 href 已指向 GitHub Release 官方资产(downloads.config.ts),本地文件仅供 dev 预览。
 apps/web/public/downloads/desktop/
@@ -149,6 +158,9 @@ dist.__lock
 **/.env
 **/.env.local
 **/.env.production
+# 2026-11-02 补漏:Cloudflare 优选 IP 的本地凭据(含令牌;源模板 deploy/cf-preferred-ip.env.example
+# 已入库)。合流带入 origin 新 .gitignore 后该文件不再被任何规则覆盖,`git status` 露出未跟踪态。
+deploy/cf-preferred-ip.env
 
 # 2026-09-25 D48② 桌面端本地保险库(主密钥落点,正常在 app_data_dir;开发机把数据目录指进仓库时
 # 仍有被 git add . 收进来的路径,故结构性排除)。文件名唯一源 apps/web/src/lib/local-vault.ts。
@@ -623,8 +635,6 @@ HRSoftstore/
 apps/web/.next-wbcheck/
 # 运行期告警静默账本（状态文件，非源码）
 deploy/win/.alert-quiet-ledger.jsonl
-# 含 Cloudflare API 令牌的运行配置（其 .example 模板才入库，勿将真 .env 提交）
-deploy/cf-preferred-ip.env
 
 # 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
 /deliverables/

@@ -2,7 +2,10 @@
   "workflows": {
     "title": "Workflows",
     "empty": "No workflows yet",
-    "loadFailed": "Failed to load workflows"
+    "loadFailed": "Failed to load workflows",
+    "instanceDetail": {
+      "notFound": "Instance not found"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "No run result yet",
     "rrule": "Schedule (RRULE)",
     "timezone": "Timezone",
-    "schedule": "Schedule"
+    "schedule": "Schedule",
+    "lastRunAt": "Last run"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -384,7 +388,8 @@
     "empty": "No live sessions yet",
     "lecturer": "Lecturer",
     "startAt": "Starts at",
-    "loadFailed": "Failed to load live"
+    "loadFailed": "Failed to load live",
+    "startTime": "Start Time"
   },
   "liveDetail": {
     "title": "Live Details",
@@ -633,9 +638,52 @@
     "runtimeEmpty": "No runtime activity yet",
     "runtimeInputPlaceholder": "Enter a message to send to the agent",
     "runtimeStop": "Stop",
-    "runtimeSend": "Send"
+    "runtimeSend": "Send",
+    "fieldName": "Name",
+    "fieldCategory": "Category",
+    "fieldDescription": "Description",
+    "fieldPrice": "Price",
+    "createTitle": "Create agent"
   },
   "chat": {
+    "assetCatText": "Text",
+    "assetCatImage": "Image",
+    "assetCatVideo": "Video",
+    "assetCatAudio": "Audio",
+    "loginToSend": "Please sign in before sending messages",
+    "vipOnlyModel": "VIP-only model. Subscribe to use.",
+    "openVipBtn": "Subscribe",
+    "reloginBtn": "Sign in again",
+    "connectFailRetry": "Connection failed. Please retry.",
+    "noMsgToTts": "No message to convert",
+    "ttsFailRetry": "Voice generation failed. Please retry.",
+    "noMsgToFav": "No message to favorite",
+    "favFailRetry": "Favorite failed. Try again later.",
+    "currentChatEmpty": "Current chat is empty",
+    "clearChatBody": "Clear all messages in this chat?",
+    "clearGoBtn": "Clear",
+    "exportMe": "Me",
+    "qrNeedPerm": "Photo permission required to save QR code",
+    "qrNotRendered": "QR not rendered yet. Try again later.",
+    "qrSaved": "QR code saved to album",
+    "qrSaveFail": "Save failed, please retry",
+    "favOn": "Favorited",
+    "favOff": "Unfavorited",
+    "annotHint": "Annotation inserted into input",
+    "histLoadFailRetry": "Failed to load history. Please retry.",
+    "annotImgAdded": "Annotation image inserted into input",
+    "annotAdded": "Annotation inserted into input",
+    "menuSwitchModel": "Switch model",
+    "menuClear": "Clear chat",
+    "menuExport": "Export chat",
+    "menuShare": "Share chat",
+    "menuToVoice": "To voice",
+    "menuFavorite": "Favorite",
+    "menuMaterial": "Materials",
+    "menuVoiceNote": "Voice notes",
+    "menuWebLink": "Web link",
+    "menuFileUpload": "Upload file",
+    "menuHistory": "History",
     "modelSwitchStopped": "Switched to {model}. This response was stopped.",
     "meta": {
       "pullOnly": "This conversation syncs the next time you open the list"
@@ -832,44 +880,6 @@
     "imagePreviewA11y": "Image preview",
     "menuAnnotateImage": "Annotate this image",
     "chatDeleteFailed2": "Delete failed",
-    "assetCatText": "Text",
-    "assetCatImage": "Image",
-    "assetCatVideo": "Video",
-    "assetCatAudio": "Audio",
-    "loginToSend": "Please sign in before sending messages",
-    "vipOnlyModel": "VIP-only model. Subscribe to use.",
-    "openVipBtn": "Subscribe",
-    "reloginBtn": "Sign in again",
-    "connectFailRetry": "Connection failed. Please retry.",
-    "noMsgToTts": "No message to convert",
-    "ttsFailRetry": "Voice generation failed. Please retry.",
-    "noMsgToFav": "No message to favorite",
-    "favFailRetry": "Favorite failed. Try again later.",
-    "currentChatEmpty": "Current chat is empty",
-    "clearChatBody": "Clear all messages in this chat?",
-    "clearGoBtn": "Clear",
-    "exportMe": "Me",
-    "qrNeedPerm": "Photo permission required to save QR code",
-    "qrNotRendered": "QR not rendered yet. Try again later.",
-    "qrSaved": "QR code saved to album",
-    "qrSaveFail": "Save failed, please retry",
-    "favOn": "Favorited",
-    "favOff": "Unfavorited",
-    "annotHint": "Annotation inserted into input",
-    "histLoadFailRetry": "Failed to load history. Please retry.",
-    "annotImgAdded": "Annotation image inserted into input",
-    "annotAdded": "Annotation inserted into input",
-    "menuSwitchModel": "Switch model",
-    "menuClear": "Clear chat",
-    "menuExport": "Export chat",
-    "menuShare": "Share chat",
-    "menuToVoice": "To voice",
-    "menuFavorite": "Favorite",
-    "menuMaterial": "Materials",
-    "menuVoiceNote": "Voice notes",
-    "menuWebLink": "Web link",
-    "menuFileUpload": "Upload file",
-    "menuHistory": "History",
     "terminal": {
       "waitingInput": "Waiting for input",
       "mobileUnsupported": "Terminal is not supported on mobile"
@@ -941,7 +951,18 @@
     "version": "Version",
     "language": "Language",
     "theme": "Theme",
-    "logoutConfirmBody": "Sign out of this account?"
+    "logoutConfirmBody": "Sign out of this account?",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion",
+    "revokeAuth": "Revoke Session",
+    "noAuthorizations": "No active sessions",
+    "authorizedAt": "Login Time",
+    "sessionExpiresAt": "Expires At",
+    "devices": {
+      "revokeConfirmTitle": "Revoke device",
+      "taskColCreated": "Created",
+      "taskColFinished": "Finished"
+    }
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -1180,10 +1201,10 @@
     "catWriting": "Writing",
     "catCoding": "Coding",
     "catOffice": "Office",
-    "catStudy": "Study",
-    "loadFailed": "Load failed",
     "vendorOther": "Other",
     "copyOkToast": "Link copied to clipboard",
+    "catStudy": "Study",
+    "loadFailed": "Load failed",
     "chat": {
       "title": "Start Chat",
       "message": "Starting a chat with \"{name}\""
@@ -1219,10 +1240,6 @@
     "compactionToast": "Context auto-compacted ({before} → {after} tokens)"
   },
   "aigcCover": {
-    "applied": {
-      "title": "Cover Applied",
-      "message": "Cover applied for \"{title}\": {label}"
-    },
     "aiGen": {
       "title": "AI Cover Generation",
       "message": "Feature under development"
@@ -1275,17 +1292,13 @@
   "aiGroup": {
     "join": {
       "title": "Join Group",
-      "message": "Requested to join \"{name}\""
+      "message": "Joined \"{name}\""
     },
     "cardMembers": "Members",
     "detailEnter": "Enter chat",
     "detailMembers": "Members",
     "detailRecent": "Recent",
     "empty": "No groups",
-    "enterChat": {
-      "message": "Are you sure you want to enter?",
-      "title": "Notice"
-    },
     "enterDiscover": "Discover",
     "enterMine": "Mine",
     "loadFailed": "Failed to load groups",
@@ -1341,7 +1354,11 @@
     "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
-    "becomeDeveloper": "Become a Developer"
+    "becomeDeveloper": "Become a Developer",
+    "settings": {
+      "infoName": "Name",
+      "infoTitle": "Developer Info"
+    }
   },
   "liveHost": {
     "error": {
@@ -1397,6 +1414,7 @@
     "labelPrice": "Price",
     "labelSaleType": "Sale type",
     "pricePlaceholder": "Enter price",
+    "readOnlyHint": "This field can't be changed yet",
     "submit": "Save",
     "submitting": "Submitting..."
   },
@@ -1458,15 +1476,6 @@
     "workflowTab": "Workflows"
   },
   "tokenValue": {
-    "recharge": {
-      "title": "Confirm Recharge",
-      "message": "Package: {tokens} Token · ¥{price}",
-      "payBtn": "Pay Now",
-      "success": {
-        "title": "Payment Successful",
-        "message": "{tokens} Token credited"
-      }
-    },
     "balanceLabel": "Token balance",
     "bonus": "Bonus",
     "empty": "No data",
@@ -1486,9 +1495,7 @@
     "range7d": "7 days",
     "range1m": "1 month",
     "range1y": "1 year",
-    "rangeAll": "All",
-    "unitYi": "{v}B",
-    "unitWan": "{v}K"
+    "rangeAll": "All"
   },
   "messageInput": {
     "document": "Document",
@@ -1530,7 +1537,8 @@
     "okSent": "Shared",
     "cancelled": "Share cancelled",
     "fail": "Share failed",
-    "needAlbum": "Album permission required"
+    "needAlbum": "Album permission required",
+    "courseTitle": "Recommended course: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1619,16 +1627,14 @@
     "empty": "No messages yet. Send the first one to start",
     "placeholder": "Type a message...",
     "send": "Send",
+    "stop": "Stop",
     "loadFailed": "Failed to load chat",
     "sendFailed": "Failed to send"
   },
   "agentCreate": {
     "title": "Create Agent",
-    "name": "Name",
     "namePlaceholder": "Name your agent",
-    "category": "Category",
     "categoryPlaceholder": "e.g. Office Assistant",
-    "description": "Description",
     "descPlaceholder": "Describe what this agent does",
     "systemPrompt": "System Prompt",
     "promptPlaceholder": "Define the role and behavior of the agent",
@@ -1656,6 +1662,11 @@
   },
   "agentStat": {
     "title": "Agent Stats",
+    "totalAgents": "Total Agents",
+    "totalUsers": "Creators",
+    "totalCalls": "Total Calls",
+    "publishedCount": "Published",
+    "pendingCount": "Pending",
     "conversations": "Conversations",
     "messages": "Messages",
     "tokens": "Tokens Used",
@@ -1776,7 +1787,6 @@
     "instructor": "Instructor",
     "rating": "Rating",
     "free": "Free",
-    "enrolled": "Enrolled",
     "enroll": "Enroll Now",
     "pay": "Pay ¥{amount}",
     "lessons": "Lessons",
@@ -1864,7 +1874,18 @@
     "email": "Email",
     "loadFailed": "Failed to load customer service"
   },
+  "artifacts": {
+    "previewFailed": "Failed to get the preview link, please try again later",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load artifacts"
+  },
   "distribution": {
+    "plan": {
+      "openVipTitle": "Open VIP membership",
+      "openVipContent": "Go to open VIP membership and join the commission plan?",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    },
     "title": "Distribution Center",
     "subtitle": "Promote products and earn commissions",
     "retry": "Retry",
@@ -1885,7 +1906,16 @@
     "sales": "{count} sold",
     "loadFailed": "Failed to load distribution",
     "withdrawFailed": "Withdrawal failed",
-    "withdrawSuccess": "Withdrawal successful"
+    "withdrawSuccess": "Withdrawal successful",
+    "treeTitle": "Distribution tree",
+    "treeEmpty": "No downline members yet",
+    "treeLoadFailed": "Failed to load tree",
+    "treeRetry": "Retry",
+    "treeLevelLabel": "Level {level}",
+    "treeCollapseHint": "Tap a node for details",
+    "teamTitle": "My team",
+    "colJoinedAt": "Joined at",
+    "colLevel": "Level"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -1900,9 +1930,7 @@
   "exam": {
     "subtitle": "Test yourself and track your learning",
     "retry": "Retry",
-    "questions": "Questions",
     "end": "Ends",
-    "startExam": "Start Exam",
     "attempts": "Attempts",
     "duration": "Duration",
     "empty": "No exams",
@@ -1913,14 +1941,20 @@
     "passScore": "Pass score",
     "start": "Start exam",
     "title": "Exam",
-    "totalScore": "Total score"
+    "totalScore": "Total score",
+    "questionCountLabel": "Questions",
+    "result": {
+      "shareTitle": "My exam score: {n} points"
+    },
+    "startExam": "Start Exam",
+    "wrongQuestions": {
+      "colTime": "Added"
+    }
   },
   "examQuestion": {
     "loadFailed": "Failed to load the exam",
     "single": "Single Choice",
     "multi": "Multiple Choice",
-    "prev": "Previous",
-    "next": "Next",
     "submit": "Submit",
     "submitFailed": "Submit failed"
   },
@@ -2080,7 +2114,6 @@
     "saveFailed": "Failed to save"
   },
   "notificationSettings": {
-    "title": "Notification Settings",
     "push": "Push Notifications",
     "message": "In-App Messages",
     "email": "Email",
@@ -2231,8 +2264,6 @@
     "unverifiedDesc": "Complete verification to unlock more services",
     "name": "Real Name",
     "namePlaceholder": "Enter your real name",
-    "idNumber": "ID Number",
-    "idNumberPlaceholder": "Enter your ID number",
     "submit": "Submit",
     "submitting": "Submitting...",
     "failed": "Verification failed",
@@ -2258,7 +2289,9 @@
     "bindFailed": "Failed to bind",
     "bindSuccess": "Bound successfully",
     "codeRequired": "Please enter invite code",
-    "loadFailed": "Failed to load referrer"
+    "loadFailed": "Failed to load referrer",
+    "noReferrer": "No referrer bound",
+    "bindBtn": "Bind"
   },
   "register": {
     "phone": "Phone Number",
@@ -2278,10 +2311,8 @@
   },
   "withdraw": {
     "availableBalance": "Available Balance (CNY)",
-    "amount": "Amount",
     "amountInvalid": "Invalid amount",
     "amountPlaceholder": "Enter amount",
-    "bankCard": "Bank card",
     "bankCardPlaceholder": "Select a bank card",
     "confirmMessage": "Confirm withdrawal of {amount} CNY?",
     "confirmTitle": "Confirm",
@@ -2360,7 +2391,17 @@
     "deleteFailed": "Failed to delete",
     "secretTitle": "Key created",
     "secretHint": "Copy and save it now. This secret is shown only once.",
-    "secretDone": "I saved it"
+    "secretDone": "I saved it",
+    "rotate": "Rotate",
+    "rotating": "Rotating...",
+    "rotateTitle": "Rotate key",
+    "rotateConfirm": "Rotate \"{name}\"? The old secret will stop working immediately.",
+    "rotateFailed": "Failed to rotate",
+    "rotateSecretTitle": "Key rotated",
+    "copySecret": "Copy",
+    "secretCopied": "Secret copied to clipboard",
+    "rateLimit": "Rate limit",
+    "rateLimitUnit": "req/min"
   },
   "devices": {
     "title": "Devices",
@@ -2622,7 +2663,6 @@
     "current": "Current points",
     "totalEarned": "Total earned",
     "totalSpent": "Total spent",
-    "level": "Level",
     "nextLevel": "{points} points to {name}",
     "maxLevel": "Highest level reached",
     "experience": "Experience",
@@ -2636,16 +2676,26 @@
       "signing": "Checking in...",
       "signInSuccess": "Checked in and earned {points} points",
       "signInFailed": "Check-in failed",
-      "alreadySigned": "Already checked in today"
+      "alreadySigned": "Already checked in today",
+      "historyTitle": "Check-in history",
+      "historyEmpty": "No check-in records",
+      "historyLoadFailed": "Failed to load check-in history",
+      "historyConsecutive": "{days}-day streak",
+      "consecutiveDays": "{days} day streak",
+      "history": "Sign-in History",
+      "empty": "No sign-in records"
     },
-    "mallLink": "Points mall",
-    "taskCenterLink": "Task center",
     "ruleLink": "Points rules",
     "txTitle": "Points history",
     "empty": "No points records",
     "loadFailed": "Failed to load points",
     "balance": "Balance",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "levelLabel": "Level",
+    "mallTitle": "Points Mall",
+    "tasks": {
+      "title": "Task Center"
+    }
   },
   "groups": {
     "title": "My groups",
@@ -2749,7 +2799,6 @@
     "submitFailed": "Submission failed, please try again later",
     "amountLabel": "Top-up amount (CNY)",
     "amountRange": "Amount must be between {min} and {max} CNY",
-    "payMethod": "Payment method",
     "wechat": "WeChat Pay",
     "alipay": "Alipay",
     "payNow": "Pay now",
@@ -3117,7 +3166,8 @@
     "priceInvalid": "Price must be a number greater than 0",
     "priceOrder": "Starting price cannot exceed max price",
     "submitting": "Publishing…",
-    "submit": "Publish request"
+    "submit": "Publish request",
+    "contactLabel": "Contact"
   },
   "businessCard": {
     "title": "My Business Card"
@@ -3282,7 +3332,10 @@
     "twoFactor": "Two-Factor Authentication",
     "loginAlert": "Login Alerts",
     "desc": "Manage your account security options",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "readOnlyHint": "This page only shows the current state; nothing changes here. Turn Two-Factor Authentication on or off in Security Center.",
+    "stateOn": "On",
+    "stateOff": "Off"
   },
   "settingsAccount": {
     "title": "Account Management",
@@ -3351,7 +3404,6 @@
     "loadFailed": "Failed to load study progress",
     "courses": "Courses (done/total)",
     "totalMinutes": "Total Minutes",
-    "weekMinutes": "This Week (min)",
     "streak": "Day Streak",
     "courseProgress": "Course Progress"
   },
@@ -3394,7 +3446,6 @@
     "tab_newbie": "Newbie"
   },
   "team": {
-    "title": "My Team",
     "subtitle": "Team size and performance at a glance",
     "retry": "Retry",
     "totalMembers": "Total Members",
@@ -3471,11 +3522,12 @@
     "viewNow": "View now"
   },
   "vipBenefit": {
-    "title": "Membership Benefits",
-    "loadFailed": "Failed to load benefits"
+    "title": "Membership Benefits"
   },
   "vipTrader": {
     "title": "VIP Trader",
+    "openTitle": "Open membership",
+    "confirmPay": "Confirm payment",
     "openTrader": "Open trader membership",
     "subtitle": "Exclusive trader benefits",
     "badge": "Trader Exclusive",
@@ -3499,12 +3551,36 @@
     "title": "My Wallet",
     "totalRecharge": "Total recharge",
     "totalWithdraw": "Total withdrawal",
-    "withdraw": "Withdraw"
+    "withdraw": "Withdraw",
+    "flowsTitle": "Fund flows",
+    "flowsEmpty": "No transactions yet",
+    "flowsLoadFailed": "Failed to load flows",
+    "flowsRetry": "Retry",
+    "flowsLoadMore": "Load more",
+    "flowsLoading": "Loading...",
+    "flowBalanceAfter": "Balance",
+    "flowRemarkEmpty": "No remark",
+    "opType1": "Top-up",
+    "opType2": "Deduction",
+    "opType3": "Expired",
+    "opType4": "Refund",
+    "opType5": "Commission",
+    "loginRequiredHint": "Sign in to view fund flows",
+    "goLogin": "Sign in",
+    "rechargeFail": "Recharge Failed",
+    "rechargeSuccess": "Recharge Successful",
+    "contactSupport": "Contact Support",
+    "retryRecharge": "Retry Recharge",
+    "withdrawAmount": "Amount",
+    "methodBank": "Bank Card",
+    "rechargeMethod": "Payment Method",
+    "flowBalance": "Balance",
+    "loading": "Loading...",
+    "rechargeOrderNo": "Order No."
   },
   "activity": {
     "empty": "No activities",
     "endTime": "End time",
-    "joinNow": "Join now",
     "loadFailed": "Failed to load",
     "participants": "Participants",
     "startTime": "Start time",
@@ -3515,7 +3591,6 @@
     "description": "Description",
     "free": "Free",
     "loadFailed": "Failed to load agent details",
-    "price": "Price",
     "rating": "Rating",
     "startChat": "Start chat",
     "uses": "Uses"
@@ -3671,7 +3746,15 @@
       "issued": "Issued",
       "revoked": "Revoked"
     },
-    "title": "My Certificates"
+    "title": "My Certificates",
+    "download": {
+      "noCertificates": "No certificates"
+    },
+    "detail": {
+      "issueDate": "Issue Date",
+      "statusValid": "Valid",
+      "statusRevoked": "Revoked"
+    }
   },
   "certDetail": {
     "certNo": "Certificate No.",
@@ -3688,8 +3771,7 @@
     "empty": "No certificates",
     "issuedAt": "Issue date",
     "issuer": "Issued by",
-    "loadFailed": "Failed to load",
-    "title": "Certificates"
+    "loadFailed": "Failed to load"
   },
   "certVerify": {
     "certNo": "Certificate No.",
@@ -3760,7 +3842,6 @@
   },
   "courseQAList": {
     "answers": "Answers",
-    "ask": "Ask",
     "asker": "Asker",
     "empty": "No Q&A",
     "loadFailed": "Failed to load",
@@ -3785,7 +3866,8 @@
   },
   "favorites": {
     "empty": "No favorites",
-    "title": "My Favorites"
+    "title": "My Favorites",
+    "remove": "Remove"
   },
   "feedback": {
     "contact": "Contact",
@@ -3801,7 +3883,8 @@
     "type": "Type",
     "imagesLabel": "Upload screenshots of the issue (max 9)",
     "imagePickFailed": "Failed to pick images, please retry",
-    "pickImages": "Pick images"
+    "pickImages": "Pick images",
+    "field_contact": "Contact"
   },
   "feedbackDetail": {
     "content": "Content",
@@ -3928,7 +4011,6 @@
     "today": "Today",
     "withdrawBtn": "Withdraw",
     "withdrawModal": {
-      "close": "Cancel",
       "confirm": "Confirm",
       "moreMethods": "More methods",
       "subtitle": "Choose withdrawal method",
@@ -4090,6 +4172,17 @@
     "deleteTitle": "Delete document",
     "deleteConfirm": "Delete this document?",
     "deleteFailed": "Delete failed",
+    "selectionStart": "Select",
+    "selectionDone": "Done",
+    "selectionAll": "Select all",
+    "selectionClearAll": "Clear selection",
+    "selectionCount": "{count} selected",
+    "batchDelete": "Delete selected",
+    "batchDeleting": "Deleting...",
+    "batchDeleteTitle": "Delete documents",
+    "batchDeleteConfirm": "Delete {count} selected document(s)?",
+    "batchDeletePartial": "Deleted {success}, {failed} failed",
+    "batchDeleteFailed": "Batch delete failed",
     "author": "Author",
     "category": "Category",
     "nextEntry": "Next",
@@ -4131,14 +4224,40 @@
     "loadFailed": "Failed to load skills",
     "retry": "Retry",
     "empty": "No skills",
-    "detail": "Details"
+    "detail": "Details",
+    "importTitle": "Import skill",
+    "importHint": "Paste skill JSON to import. Missing name or invalid JSON is rejected.",
+    "importButton": "Import",
+    "importing": "Importing...",
+    "importInvalidJson": "Invalid JSON",
+    "importMissingName": "Skill is missing the name field",
+    "importFailed": "Failed to import",
+    "importSuccess": "Imported"
   },
   "aiSkillDetail": {
     "loadFailed": "Failed to load skill",
     "retry": "Retry",
     "prompt": "Prompt template",
     "noPrompt": "No template",
-    "source": "Source"
+    "source": "Source",
+    "invoke": "Run",
+    "invoking": "Running...",
+    "invokeVariables": "Variables",
+    "invokeRequired": "Fill in the required variables",
+    "invokeFailed": "Run failed",
+    "invokeResult": "Result",
+    "export": "Export",
+    "exporting": "Exporting...",
+    "exportFailed": "Failed to export",
+    "exportBlocked": "Saved to cache; direct sharing is not supported on Android",
+    "rateTitle": "Rating",
+    "rateSubmit": "Submit rating",
+    "ratingSubmitted": "Rating submitted",
+    "ratingFailed": "Failed to submit rating",
+    "commentPlaceholder": "Leave a comment (optional)",
+    "ratingLoginHint": "Sign in to rate",
+    "importBtn": "Import",
+    "exportError": "Export failed"
   },
   "memory": {
     "detail": "Details",
@@ -4234,7 +4353,17 @@
     "platformXiaohongshu": "Xiaohongshu (RED)",
     "platformZhihu": "Zhihu",
     "platformJuejin": "Juejin",
-    "platformShipinhao": "WeChat Channels"
+    "platformShipinhao": "WeChat Channels",
+    "history": {
+      "retry": "Retry"
+    },
+    "accounts": {
+      "cancelScan": "Cancel scan"
+    },
+    "new": {
+      "submitNow": "Publish Now",
+      "submitSchedule": "Schedule Publish"
+    }
   },
   "spec": {
     "title": "Spec Templates",
@@ -4505,6 +4634,7 @@
       "eval": "Evaluation"
     },
     "workspace": "Workspace",
+    "workspacePermissions": "Workspace Permissions",
     "tags": "Tags",
     "topics": "Topics",
     "context": "Context",
@@ -4516,7 +4646,6 @@
     },
     "enterprise": "Enterprise",
     "featureCenter": "Feature Center",
-    "workspacePermissions": "Workspace Permissions",
     "admin": {
       "home": "Admin Home",
       "dashboardStat": "Dashboard",
@@ -4578,7 +4707,13 @@
     "searchEmpty": "No results found",
     "expand": "Expand",
     "collapse": "Collapse",
-    "score": "Score"
+    "score": "Score",
+    "chunks": {
+      "showLess": "Collapse"
+    },
+    "manage": {
+      "singleDelete": "Delete"
+    }
   },
   "changePhone": {
     "phoneRequired": "Enter your phone number",
@@ -5064,7 +5199,8 @@
     "empty": "No connectors",
     "items": "Docs",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "lastSyncAt": "Last synced"
   },
   "verify": {
     "getCode": "Enter verification code",
@@ -5128,7 +5264,17 @@
     "formSubmit": "Create",
     "formFailed": "Failed to create",
     "nameRequired": "Please enter a task name",
-    "rruleRequired": "Please enter a schedule"
+    "rruleRequired": "Please enter a schedule",
+    "toast": {
+      "runDone": "Patrol finished",
+      "resumed": "Resumed",
+      "paused": "Paused"
+    },
+    "action": {
+      "delete": "Delete",
+      "runNow": "Run now",
+      "history": "History"
+    }
   },
   "selfHealing": {
     "title": "Self-healing engine",
@@ -5319,7 +5465,8 @@
     "tierUnknown": "Unknown source",
     "generating": "Generating…",
     "restartConfirmTitle": "Research already in progress",
-    "restartConfirmBody": "Restarting will discard current progress. Continue?"
+    "restartConfirmBody": "Restarting will discard current progress. Continue?",
+    "reportTitle": "Research Report"
   },
   "resources": {
     "title": "Resources",
@@ -5373,7 +5520,8 @@
     "permDeleteFailed": "Failed to delete permission",
     "permSwitchConfirm": "Confirm permission switch",
     "permSwitchFailed": "Failed to switch permission",
-    "permSwitchRisk": "Switching may affect existing access"
+    "permSwitchRisk": "Switching may affect existing access",
+    "convertMarkdownFailed": "Conversion failed"
   },
   "stepDecision": {
     "decision": {
@@ -5435,7 +5583,8 @@
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
     "summary": "{total} accounts · {enabled} enabled",
-    "addSuccess": "Account added"
+    "addSuccess": "Account added",
+    "add": "Add account"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
@@ -5645,7 +5794,10 @@
     "fillField": "Please fill: {name}",
     "submitFail": "Submit failed. Retry later.",
     "doneTitle": "Submitted",
-    "doneBody": "Survey submitted. Your AI study plan will appear here."
+    "doneBody": "Survey submitted. Your AI study plan will appear here.",
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export",
+    "exportLoginRequired": "Sign in to export"
   },
   "pwd": {
     "oldRequired": "Enter old password",
@@ -5688,11 +5840,12 @@
   },
   "ia": {
     "remainingPoints": "Remaining points",
+    "loginRequired": "Please log in first to use",
     "recharge": "Top up"
   },
   "uiCard": {
     "inviteCodeBody": "Invite code: {code}\n(long press to copy)",
-    "userGreet": "AI IHUI丨{name}",
+    "userGreet": "AI IHUI | {name}",
     "growthA11y": "Growth progress. Tap for level info",
     "vipBenefitBody": "You are a VIP member with exclusive benefits. Keep earning growth points to reach higher levels.",
     "normalBenefitBody": "You are a standard member. Upgrade to VIP for more benefits."
@@ -5964,8 +6117,32 @@
       "present": "Present",
       "late": "Late",
       "absent": "Absent",
-      "leave": "Leave"
-    }
+      "leave": "Leave",
+      "early": "Left early"
+    },
+    "actionDone": "Action succeeded",
+    "actionFailed": "Action failed",
+    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
+    "batchTitle": "Whole-class check",
+    "chooseAction": "Choose action",
+    "chooseClass": "Choose a class to check",
+    "emptyTrend": "No trend data yet",
+    "loadStatsFailed": "Failed to load attendance statistics. Please try again later.",
+    "needClassId": "Missing class info; proxy check-in/out unavailable",
+    "noClass": "No selectable class in the current list",
+    "onlyTodayCheckIn": "Proxy check-in covers today only: backdating needs a time inside that day, not offered here",
+    "qrEntry": "Show check-in QR",
+    "statsAttendanceRate": "Attendance rate",
+    "statsTotalLabel": "Total check-ins",
+    "statusDistribution": "Status distribution",
+    "statusOther": "Other",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
+    "trendChartScope": "Scope: {scope}",
+    "trendChartTitle": "Attendance trend",
+    "trendWindow": "Last {days} days",
+    "studentPageTitle": "My Attendance",
+    "selectClass": "Select class",
+    "qrPanelTitle": "QR check-in"
   },
   "eduGrades": {
     "title": "Grades",
@@ -5973,7 +6150,8 @@
     "subject": "Subject",
     "exam": "Exam",
     "score": "Score",
-    "date": "Date"
+    "date": "Date",
+    "pageTitle": "Grade Management"
   },
   "toolbar": {
     "svcTraffic": "Traffic ops support",
@@ -6128,7 +6306,10 @@
     "teacher": "Teacher",
     "availability": "Availability",
     "available": "Available",
-    "busy": "Busy"
+    "busy": "Busy",
+    "form": {
+      "weekday": "Weekday"
+    }
   },
   "statusPage": {
     "title": "System Status",
@@ -7100,7 +7281,17 @@
     "bundleOta": "Hot update",
     "readyBody": "Update downloaded. Tap Update to apply it now.",
     "installingHint": "The app restarts automatically — usually within seconds.",
-    "restartNow": "Restart now"
+    "restartNow": "Restart now",
+    "apkTitle": "New version {{version}} available",
+    "apkBody": "Current {{current}} → latest {{latest}}",
+    "apkAction": "Download & install",
+    "apkActionBrowser": "Go to download",
+    "apkDownloading": "Downloading installer {{progress}}%",
+    "apkEta": "About {{eta}} left",
+    "apkInstalling": "Opening installer…",
+    "apkBrowserOpening": "Handed to your browser — follow the prompt to install",
+    "apkCancel": "Cancel",
+    "apkHint": "The package is large; Wi-Fi is recommended"
   },
   "cloudRuns": {
     "title": "Cloud Agent Runs",
@@ -7132,5 +7323,179 @@
     "empty": "Start a conversation",
     "searchNoResult": "No results",
     "retry": "Retry"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet",
+    "defaultTitle": "Learning Map"
+  },
+  "user": {
+    "security": {
+      "sendCode": "Send Code"
+    },
+    "realname": {
+      "form": {
+        "idCard": "ID Card Number",
+        "idCardPlaceholder": "Enter your ID number"
+      }
+    },
+    "articles": {
+      "prevPage": "Previous",
+      "nextPage": "Next"
+    }
+  },
+  "NavBar": {
+    "text1": "Daily News",
+    "z1": "Join Community",
+    "feedback": "Feedback",
+    "fenlei": "Categories"
+  },
+  "chatSettingsPage": {
+    "model": "Model"
+  },
+  "eduExamListPage": {
+    "start": "Start Exam"
+  },
+  "eduExamPage": {
+    "prevQuestion": "Previous",
+    "nextQuestion": "Next"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "Ask"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "Study hours this week",
+    "noData": "No data"
+  },
+  "learn": {
+    "signedUp": "Enrolled",
+    "signUp": "Enroll Now",
+    "dailyReview": {
+      "questionLabel": "Card",
+      "statAvgDifficulty": "Average difficulty"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "Payment Method"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "Cancel Subscription"
+  },
+  "student": {
+    "myCertsTitle": "My Certificates",
+    "wrongBookTitle": "Wrong Book"
+  },
+  "activities": {
+    "join": "Join Now",
+    "notFound": "Activity not found or offline"
+  },
+  "eduAttendanceQr": {
+    "chooseClass": "Select class",
+    "classLoadFailed": "Failed to load class list",
+    "expiresIn": "Expires in {s}s",
+    "needLogin": "Sign in before scanning",
+    "nextStepHint": "Enable an attendance rule and set the scan secret (qrSecret) for this class, then regenerate",
+    "noClass": "No class available",
+    "pickClassFirst": "Select a class first",
+    "qrTip": "Students scan this code with Scan to check in",
+    "refresh": "Regenerate code",
+    "scanDone": "Checked in",
+    "scanFailed": "Check-in failed",
+    "scanHint": "Put the teacher check-in QR code inside the frame",
+    "scanInvalidCode": "Not a check-in QR code of this system",
+    "scanSubmitting": "Checking in...",
+    "scanTitle": "Scan to check in",
+    "title": "Check-in QR code"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "date": "Date",
+    "notLoggedIn": "Not signed in; unavailable",
+    "scanCheckIn": "Scan to check in",
+    "selfCheckIn": "Check in",
+    "title": "My Attendance"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "Set as default address"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "Load failed"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "Data Export",
+      "portabilityCard": "Portability",
+      "eraseCard": "Data Erasure"
+    },
+    "groups": {
+      "title": "My Groups"
+    },
+    "stt": {
+      "error": "Failed"
+    },
+    "video": {
+      "error": "Compose failed"
+    }
+  },
+  "articles": {
+    "hotTitle": "Hot Articles",
+    "titleField": "Title",
+    "summaryField": "Summary",
+    "categoryField": "Category"
+  },
+  "agentsCategoriesPage": {
+    "total": "{count} total"
+  },
+  "kbEditPage": {
+    "submitLabel": "Save"
+  },
+  "models": {
+    "keys": {
+      "copy": "Copy",
+      "table": {
+        "name": "Name"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "Updated At",
+        "description": "Description"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "No subordinates"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "Study Plans"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "View detail"
+  },
+  "businessCardEditPage": {
+    "editTitle": "Edit Business Card",
+    "bioLabel": "Bio"
+  },
+  "checkin": {
+    "colEnabled": "Enabled",
+    "addAccount": "Add Account"
+  },
+  "circles": {
+    "title": "Circles"
+  },
+  "knowledgeCard": {
+    "delete": "Delete"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API Keys"
+  },
+  "agentTeams": {
+    "statsActive": "Running"
   }
 }

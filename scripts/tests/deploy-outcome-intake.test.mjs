@@ -11,7 +11,9 @@
 //  ④ 追加幂等(第二次跑 0 新行);
 //  ⑤ 输入缺失 exit 2 且末行点名「未判定」;
 //  ⑥ 契约新增 deploy_outcome 后既有校验器仍可校验;
-//  ⑦ 0 信号仍 exit 0 并打印机器行。
+//  ⑦ 0 信号仍 exit 0 并打印机器行;
+//  ⑧ 演练绝缘(B69):synthetic/旧 reason 前缀不产告警,同形真实回滚仍产 error,计数分离;
+//  ⑨ build-fail 跨 retry 换 TS 码 ⇒ 同 route 只产 1 条信号(B87/B88/B91),旧行仍能去重。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -20,11 +22,11 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { loadContract, validateSignal } from '../lib/incident-cluster.mjs'
+import { loadContract, identityOf, validateSignal } from '../lib/incident-cluster.mjs'
 
 const SRC = resolve(fileURLToPath(import.meta.url), '../../deploy-outcome-intake.mjs')
 const { __test__ } = await import(pathToFileURL(SRC).href)
-const { decisionToSignal, planIntake, DEFAULT_MINUTES, RESULT_PREFIX } = __test__
+const { decisionToSignal, planIntake, DEFAULT_MINUTES, RESULT_PREFIX, isSyntheticDecision, LEGACY_DRILL_REASON_PREFIX } = __test__
 
 const FULL_SHA = '0123456789abcdef0123456789abcdef01234567'
 
@@ -143,11 +145,11 @@ test('④ 追加幂等:同一份输入跑两次,第二次 0 新行且 --out 只�
 
     const first = runCli(['--in', input, '--out', out])
     assert.equal(first.status, 0, first.stderr)
-    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 undetermined=0`)
+    assert.equal(lastLine(first.stdout), `${RESULT_PREFIX} signals=1 skipped=0 synthetic=0 undetermined=0`)
 
     const second = runCli(['--in', input, '--out', out])
     assert.equal(second.status, 0, second.stderr)
-    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 undetermined=0`)
+    assert.equal(lastLine(second.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
 
     const lines = readFileSync(out, 'utf8').trim().split(/\r?\n/)
     assert.equal(lines.length, 1, `幂等失败,台账被重复追加:${lines.length} 行`)
@@ -193,9 +195,92 @@ test('⑦ 0 信号(只有 pass)仍 exit 0 并打印机器行', () => {
     writeFileSync(input, `${JSON.stringify(decision({ action: 'pass' }))}\n`, 'utf8')
     const r = runCli(['--in', input, '--out', out])
     assert.equal(r.status, 0, r.stderr)
-    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 undetermined=0`)
+    assert.equal(lastLine(r.stdout), `${RESULT_PREFIX} signals=0 skipped=1 synthetic=0 undetermined=0`)
     assert.equal(existsSync(out), false, '0 信号不应落空文件')
   } finally {
     rmScratch(dir)
   }
+})
+
+// B87/B88/B91 同题三登记:同一 /deploy/build-fail 因每轮重试的末次报错换 TS 号
+// (无码 → TS2339 → TS2554)被旧身份拆成 3 条信号,再各登记一张票。
+// 新口径:deploy_outcome 身份按 route(闭集 action)定,TS 号不进身份 ⇒ 3 条决策只产 1 条信号,
+// 两条 skipped=2;具体编号留给 cluster.codes 作证据(deploy-feedback 侧钉)。
+test('⑨ build-fail 跨 retry 换 TS 码 ⇒ 同 route 只产 1 条信号,旧行仍能去重', () => {
+  const contract = loadContract()
+  const fullReason = (code) =>
+    `构建失败,未切流,保持当前在线版本:next build 连续 1 次失败,保持当前在线版本(末次报错: ./apps/web/src/app/page.tsx:12:34 - error ${code}: Property 'x' does not exist on type 'Y')`
+  const rows = [
+    {
+      line: 1,
+      object: decision({
+        action: 'build-fail',
+        ts: '2026-10-29T07:32:13.093Z',
+        failDims: [],
+        reason: '构建失败,未切流,保持当前在线版本:next build 连续 1 次失败,保持当前在线版本(末轮报错行不可读,exit=1)',
+      }),
+    },
+    { line: 2, object: decision({ action: 'build-fail', ts: '2026-10-29T07:58:38.989Z', failDims: ['web'], reason: fullReason('TS2339') }) },
+    { line: 3, object: decision({ action: 'build-fail', ts: '2026-10-29T08:29:24.187Z', failDims: ['web'], reason: fullReason('TS2554') }) },
+  ]
+  const r = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: [] })
+  assert.equal(r.signals.length, 1, '同一 route 的三轮构建失败只能产 1 条信号')
+  assert.equal(r.skipped, 2)
+  assert.equal(r.undetermined, 0)
+  assert.equal(r.signals[0].route, 'deploy/build-fail')
+  // 保留同批最晚一轮(08:29 / TS2554):失败原因在最后一轮最可诊断,首轮"末轮报错行不可读"不固化。
+  assert.equal(r.signals[0].at, '2026-10-29T08:29:24.187Z')
+  assert.match(r.signals[0].message, /TS2554/)
+  assert.doesNotMatch(r.signals[0].message, /末轮报错行不可读/)
+  // 身份不带 code:具体 TS 号不再把同一件事拆成多键。
+  assert.equal(identityOf(r.signals[0]), 'deploy_outcome|alert_firing|route:/deploy/build-fail')
+  assert.doesNotMatch(identityOf(r.signals[0]), /code:/)
+
+  // 旧台账兼容:改造前落盘的信号(message 带 TS2339,旧身份带 |code:TS2339)仍按同 route 认账。
+  const legacy = decisionToSignal(rows[1].object, contract).signal
+  const again = planIntake({
+    decisions: [{ line: 1, object: decision({ action: 'build-fail', ts: '2026-10-29T09:10:00.000Z', reason: fullReason('TS2554') }) }],
+    contract,
+    minutes: DEFAULT_MINUTES,
+    existing: [legacy],
+  })
+  assert.equal(again.signals.length, 0, '旧信号行必须仍能拦住同一 route 的新信号(否则修复当天就多一条)')
+  assert.equal(again.skipped, 1)
+})
+
+test('⑧ 演练绝缘:synthetic 与旧 reason 前缀不产告警,同形真实回滚仍产 error,计数分离', () => {
+  const contract = loadContract()
+
+  // 显式 synthetic:true —— 联测/演练记录不得变成生产 error 告警。
+  const drill = decisionToSignal(decision({ synthetic: true, reason: '演练,不是事故' }), contract)
+  assert.equal(drill.produce, false, 'synthetic 记录不得产信号')
+  assert.equal(drill.synthetic, true)
+
+  // 旧形态(2026-10-31 那枚早于 --synthetic 字段):按 reason 显式前缀一次性归位。
+  const legacy = decisionToSignal(decision({ reason: `${LEGACY_DRILL_REASON_PREFIX}:以本仓 HEAD 模拟回滚` }), contract)
+  assert.equal(legacy.produce, false, '旧演练 reason 前缀不得产信号')
+  assert.equal(legacy.synthetic, true)
+  assert.equal(isSyntheticDecision({ reason: `${LEGACY_DRILL_REASON_PREFIX}:x` }), true)
+  assert.equal(isSyntheticDecision({ reason: '真实回滚:门禁失败' }), false)
+  // 字符串 "true" 不得冒充演练标记(只认显式布尔)。
+  assert.equal(isSyntheticDecision({ synthetic: 'true' }), false, '字符串 true 不得绝缘')
+
+  // 反向:同形但真实回滚(无演练标记/前缀)必须照旧产 alert_firing error。
+  const real = decisionToSignal(decision({ reason: '健康门禁未过' }), contract)
+  assert.equal(real.produce, true, '真实回滚必须产信号(绝缘不可过宽)')
+  assert.equal(real.signal.kind, 'alert_firing')
+  assert.equal(real.signal.severity, 'error')
+  assert.equal(real.signal.route, 'deploy/rollback')
+
+  // 计数分离:演练只进 synthetic,不与 skipped 混;真实信号照常产出。
+  const rows = [
+    { line: 1, object: decision({ ts: '2026-10-26T10:00:00.000Z', synthetic: true }) },
+    { line: 2, object: decision({ ts: '2026-10-26T10:30:00.000Z', reason: `${LEGACY_DRILL_REASON_PREFIX}:旧账` }) },
+    { line: 3, object: decision({ ts: '2026-10-26T11:00:00.000Z', reason: '健康门禁未过' }) },
+  ]
+  const plan = planIntake({ decisions: rows, contract, minutes: DEFAULT_MINUTES, existing: [] })
+  assert.equal(plan.signals.length, 1, '只有真实回滚产信号')
+  assert.equal(plan.synthetic, 2, '两条演练必须单列')
+  assert.equal(plan.skipped, 0, '演练不得混进 skipped')
+  assert.equal(plan.undetermined, 0)
 })

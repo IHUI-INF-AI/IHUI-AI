@@ -2,9 +2,21 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+# ============================================================================
+# 已退役(2026-09-07) — 仅存档，不是生产部署通道
+# 本工作流面向的 Linux + Docker Compose + Nginx upstream 蓝绿架构自 2026-09-07 起退役；
+# 现行生产为 原生 Windows Server + NSSM + Cloudflare Tunnel，部署与回滚由生产机上的
+# IHUI-DEPLOYLOOP(NSSM 服务，deploy/win/ihui-deploy-loop.ps1，-Daemon -IntervalSeconds 60)
+# 每 60s 轮询 origin/main 承担：拉取 → 构建 → 重启 → 健康门禁(web 200 + /api/health ok
+# + ai-service 8803) → 门禁未过自动回滚。GitHub Actions 不参与生产部署。
+#
+# 保留本文件是为了可追溯；为阻止「点一下就又跑一条红」，首个 step 是 fail-fast 闸：
+# workflow_dispatch 必须显式传 confirm_retired=yes 才继续，否则 5 秒内退出并打印指引。
+# 禁止把它改成 continue-on-error / 假绿 / 删除 —— 失败就要如实失败。
+# ============================================================================
 name: Blue-Green Deploy
 
-# 蓝绿部署工作流 — 零停机部署策略
+# 蓝绿部署工作流 — 零停机部署策略(已于 2026-09-07 退役，见上方头注)
 # 手动触发，可选 staging / production 环境
 on:
   workflow_dispatch:
@@ -19,6 +31,11 @@ on:
         description: '回滚到上一个环境(跳过部署,直接切换)'
         type: boolean
         default: false
+      confirm_retired:
+        description: '本工作流已于 2026-09-07 退役；确需尝试旧通道请输入 yes，否则立即退出。真实部署由生产机 IHUI-DEPLOYLOOP 承担'
+        type: string
+        required: false
+        default: ''
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Deployment uses SSH secrets, not GITHUB_TOKEN write perms.
 permissions:
@@ -34,7 +51,40 @@ jobs:
       SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
       COMPOSE_FILE: docker-compose.yml
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # fail-fast 闸(2026-11-04):本工作流已退役，见头注。未显式确认时不做任何 SSH/部署动作，
+      # 立即打印「真实部署走 deployloop」指引并以失败退出 —— 失败是如实表达「没有部署」，不是假绿。
+      - name: 退役闸 — 未显式确认则立即退出
+        env:
+          CONFIRM_RETIRED: ${{ inputs.confirm_retired }}
+        run: |
+          if [ "${CONFIRM_RETIRED}" != "yes" ]; then
+            cat <<'GUIDE'
+          ============================================================
+           blue-green-deploy 已于 2026-09-07 退役，本通道不再部署生产。
+          ============================================================
+          现行生产部署的唯一路径：
+            生产机(win-20251101pxt)上的 IHUI-DEPLOYLOOP 服务每 60s 轮询 origin/main，
+            自动完成 拉取 → 构建 → 重启 → 健康门禁(web 200 + /api/health ok + ai-service 8803)
+            → 门禁未过自动回滚。GitHub Actions 不参与生产部署。
+            推送 main 后通常 1~2 分钟内生效，无需在这里点任何按钮。
+          本工作流面向的 Linux + Docker + Nginx 蓝绿架构已不存在；继续运行只会在
+          SSH 步骤失败，不会产生部署效果。
+          如确需为考古/取证尝试旧通道：重新触发并填写 confirm_retired=yes。
+          ============================================================
+          GUIDE
+            {
+              echo "### blue-green-deploy 已退役(2026-09-07)"
+              echo ""
+              echo "- 真实部署路径：生产机 \`IHUI-DEPLOYLOOP\` 每 60s 轮询 \`origin/main\`（详见 docs/DEPLOYMENT_RUNBOOK.md）"
+              echo "- 本工作流面向的 Linux/Docker/Nginx 蓝绿架构已不存在，继续运行只会在 SSH 步骤失败"
+              echo "- 如确需尝试旧通道：重新触发并填写 \`confirm_retired=yes\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::blue-green-deploy 已于 2026-09-07 退役；生产部署由 IHUI-DEPLOYLOOP 承担，未传 confirm_retired=yes 故立即退出"
+            exit 1
+          fi
+          echo "::warning::已显式确认 confirm_retired=yes：继续尝试退役通道，预期仍会因主机/架构不存在而失败"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: 配置 SSH 连接
         run: |
@@ -207,47 +257,36 @@ jobs:
           echo "如需回滚, 重新运行此 workflow 并勾选 rollback=true"
           echo "旧环境 $ACTIVE 仍以独立端口运行, 可随时切换回去"
 
-      # 部署失败品牌邮件通知(2026-09-21 立):GitHub 平台默认失败通知是纯文本,
-      # 无法替换;此处在失败分支补发「智汇通报」品牌告警邮件(复用 email-templates,零漂移)。
-      # 配置后可在 GitHub 个人通知设置中关闭 Actions 失败邮件,只收品牌版。
-      - name: Install pnpm (failure notify)
-        if: failure()
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-
+      # 失败通知(2026-11-04 重构):原实现 `pnpm install --filter @ihui/api...` + `tsx
+      # scripts/notify-deploy-failure.ts` 依赖 `packages/shared/node_modules/@ihui/api-client/dist/index.js`,
+      # 该 dist 在 runner 上从未构建 ⇒ 09-27 / 10-22 / 11-03 三次同型 ERR_MODULE_NOT_FOUND,
+      # 失败邮件一封都发不出。改用零依赖实现:Node 内置模块 + runner 自带 curl 直连 SMTP。
+      # 取舍:放弃品牌模板/去重台账(它们住在 apps/api 的模板与 nodemailer 依赖链里),
+      # 换「失败时一定能发出去」的可靠性;品牌版式仍由生产机 deployloop 的调用路径承担。
+      # 退役闸拒绝的 run(confirm_retired!=yes)不发邮件 —— 那是预期内的拒绝,不是故障。
       - name: Setup Node.js (failure notify)
         if: failure()
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
 
-      - name: 部署失败品牌邮件通知
-        if: failure()
+      - name: 部署失败邮件通知(零依赖)
+        if: failure() && inputs.confirm_retired == 'yes'
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
         run: |
-          pnpm install --frozen-lockfile --filter @ihui/api... >/dev/null 2>&1 || \
-            pnpm install --filter @ihui/api...
-          pnpm --filter @ihui/api exec tsx scripts/notify-deploy-failure.ts \
+          node .github/scripts/notify-deploy-failure-ci.mjs \
             --environment "${{ inputs.environment }}" \
             --stage "job=${{ github.job }} / run#${{ github.run_attempt }}" \
             --trigger "${{ github.actor }}" \
             --source "github-actions/blue-green-deploy" \
             --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             --strict
-          # 为什么带 --strict(2026-10-18):不带它时"通道未配置/投递失败"都恒 exit 0,
-          # 于是**一封都没寄出去**这一步在 CI 上是绿的 —— §5e「失败必须响」在这一格失效,
-          # 机主只能靠"咦今天怎么没信"发现。这一步跑在 failure() 分支上,它再红也只是把
-          # 已经红着的 run 说得清楚一点,不会盖掉真失败。
-          # 为什么**不**带 --alert-id:去重状态与投递台账都住在"执行这份脚本的那份 checkout"的
-          # .ihui-agent/state/ 下(notify-deploy-failure.ts 里的 defaultDedupeStatePath /
-          # defaultMailSendLedgerPath 两个路径解析器),临时 runner 每次从空状态起、跑完连文件一起销毁
-          # ⇒ 跨 run 去重在 CI 上结构性做不到,本机量算仪也读不到 CI 寄的那几封(硬加一个不生效的
-          # --alert-id 只是把"有去重"写在脸上)。要真量到/压住 CI 侧,得给这两份状态换共享存储 ——
-          # 那是新增能力,按 AGENTS §24 需机主点头,不由这里替它决定。
 
       - name: 部署摘要
         if: always()

@@ -25,6 +25,9 @@ export * from './connectivity'
 // D20 会话组织(文件夹/标签)的归一化、回收与筛选规则唯一实现(端内不得再建第二套)
 export * from './conversation-org'
 export * from './dangerous-command-detector'
+// 命令风险的 AST 语义判定唯一出口(2026-11-04 立):先还原管道/子 shell/命令替换结构,
+// 再在"可执行位置"上判危险;字符串里的危险字样不算命令(旧正则实现只作兜底)。
+export * from './command-risk'
 export * from './date-utils'
 // G-854(2026-10-04 立)矢量图预览的视口数学唯一出口 —— 倍率域/适应视口/定点缩放/平移钳制,
 // 内联渲染器与独立预览 Modal 共用一份;端内不得再写第二遍(§「两处算同一件事必漂移」)
@@ -55,6 +58,8 @@ export * from './llm-templates'
 export * from './logger'
 export * from './markdown-mermaid-code'
 export * from './mcp-curated'
+// 模型编辑计费提交逻辑(2026-11-03 上收自 packages/app:buildModelEditBillingPayload / submitModelEdit)
+export * from './model-edit-billing'
 export * from './message-search'
 export * from './object'
 // 脱敏(共享层唯一实现;D94 交接单 / 日志 / 出库边界共用;规则为 ai-service

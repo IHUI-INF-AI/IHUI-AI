@@ -11,6 +11,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlanStatus, StudyPlanItem, StudyPlanScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 学习计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlanStatus, StudyPlanItem, StudyPlanScreenProps }
@@ -31,7 +32,10 @@ export function StudyPlanScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: StudyPlanScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -144,9 +148,9 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 14 },
+    listBody: { padding: rnSpacing['md-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -166,7 +170,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     statusBadge: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       fontWeight: '600',
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing.xs,

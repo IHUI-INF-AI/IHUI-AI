@@ -99,22 +99,24 @@ export function PayLogTable({
                     onCheckedChange={() => onToggleOne(r.id)}
                   />
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">{r.id}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
+                  {r.id}
+                </TableCell>
                 <TableCell
-                  className="max-w-[160px] truncate px-4 py-2.5 text-xs font-mono"
+                  className="max-w-[160px] truncate px-4 py-2.5 text-label font-mono"
                   title={r.userUuid}
                 >
                   {r.userUuid}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.courseId ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.videoId ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.outBillOn ?? '-'}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{r.payWay ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.courseId ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.videoId ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.outBillOn ?? '-'}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{r.payWay ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 font-semibold">{r.amount ?? '-'}</TableCell>
                 <TableCell className="px-4 py-2.5 font-semibold text-emerald-600">
                   {r.realAmount ?? '-'}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                   {r.createdAt ? formatDate(r.createdAt) : '-'}
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">

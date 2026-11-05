@@ -50,11 +50,13 @@ export function Timeline({ items, mode = 'left', className }: TimelineProps) {
               <div className={cn('flex-1 min-w-0 pt-0.5', mode === 'right' && 'text-right')}>
                 <div className="flex items-center gap-2">
                   <span className="text-body font-medium">{item.title}</span>
-                  {item.time && <span className="text-xs text-muted-foreground">{item.time}</span>}
+                  {item.time && (
+                    <span className="text-label text-muted-foreground">{item.time}</span>
+                  )}
                   {item.action && <div className="ml-auto shrink-0">{item.action}</div>}
                 </div>
                 {item.description && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
+                  <p className="mt-0.5 text-body text-muted-foreground">{item.description}</p>
                 )}
               </div>
             </div>

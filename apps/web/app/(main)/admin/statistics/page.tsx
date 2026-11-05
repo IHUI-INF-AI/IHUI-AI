@@ -154,7 +154,7 @@ export default function StatisticsPage() {
           </Button>
         </div>
         {error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-body text-destructive">
             统计加载失败:{(error as Error).message}
           </div>
         ) : !d ? (
@@ -187,7 +187,7 @@ export default function StatisticsPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">用户增长趋势</CardTitle>
-          <p className="text-xs text-muted-foreground">近 7 天累计与新增用户</p>
+          <p className="text-label text-muted-foreground">近 7 天累计与新增用户</p>
         </CardHeader>
         <CardContent>
           <EChart option={growthOption} loading={!d} />
@@ -198,7 +198,7 @@ export default function StatisticsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">各业务模块数据</CardTitle>
-            <p className="text-xs text-muted-foreground">核心指标横向对比</p>
+            <p className="text-label text-muted-foreground">核心指标横向对比</p>
           </CardHeader>
           <CardContent>
             <EChart option={moduleOption} loading={!d} height={280} />
@@ -208,7 +208,7 @@ export default function StatisticsPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">用户来源分布</CardTitle>
-            <p className="text-xs text-muted-foreground">访问渠道占比</p>
+            <p className="text-label text-muted-foreground">访问渠道占比</p>
           </CardHeader>
           <CardContent>
             <EChart option={sourceOption} loading={!d} height={280} />

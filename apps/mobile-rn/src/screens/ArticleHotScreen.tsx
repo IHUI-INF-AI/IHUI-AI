@@ -16,7 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, Flame, Newspaper } from 'lucide-react-native'
-import { fetchApi, resolveFileUrl } from '@ihui/api-client'
+import { listHotArticles, resolveFileUrl } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
@@ -62,7 +62,7 @@ export default function ArticleHotScreen() {
       else setLoading(true)
       setError('')
       try {
-        const res = await fetchApi<{ list: HotArticle[] }>('/api/article/hot')
+        const res = await listHotArticles<{ list: HotArticle[] }>()
         if (!res.success) throw new Error(apiFailureToText(res, t('articleHot.loadFailed')))
         setItems(res.data?.list ?? [])
       } catch (e) {
@@ -88,7 +88,7 @@ export default function ArticleHotScreen() {
   return (
     <View style={styles.container}>
       <NavChrome>
-        <NavBar title={t('articleHot.title')} onBack={() => navigation.goBack()} />
+        <NavBar title={t('articles.hotTitle')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
       {loading ? (
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing['sm-loose'],
     padding: rnSpacing['2xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary, textAlign: 'center' },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, textAlign: 'center' },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,

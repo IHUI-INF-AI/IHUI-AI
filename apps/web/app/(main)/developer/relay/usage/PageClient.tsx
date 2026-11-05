@@ -120,7 +120,7 @@ function ModeBadge({ byok, relay }: { byok: number; relay: number }) {
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-label text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
     </div>
   )
@@ -284,7 +284,7 @@ export default function RelayUsagePage() {
             <Activity className="h-6 w-6 text-primary" aria-hidden />
             {tu('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{tu('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{tu('subtitle')}</p>
         </div>
         <Button
           size="sm"
@@ -381,8 +381,8 @@ export default function RelayUsagePage() {
       {/* 基础用量明细表 */}
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="bg-muted/50 text-label uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">
                   {groupBy === 'day' ? tu('colDate') : tu('colModel')}
@@ -461,7 +461,7 @@ export default function RelayUsagePage() {
               <TrendingUp className="h-5 w-5 text-primary" aria-hidden />
               {t('analytics.title')}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">{t('analytics.subtitle')}</p>
+            <p className="mt-1 text-body text-muted-foreground">{t('analytics.subtitle')}</p>
           </div>
           <Button
             size="sm"
@@ -511,12 +511,12 @@ export default function RelayUsagePage() {
         </div>
 
         {anaLoading ? (
-          <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-body text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden />
             {t('loading')}
           </div>
         ) : !analytics || analytics.latency.count === 0 ? (
-          <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-body text-muted-foreground">
             {t('analytics.noData')}
           </div>
         ) : (
@@ -530,9 +530,9 @@ export default function RelayUsagePage() {
               <p className="mt-2 text-3xl font-bold tabular-nums">
                 {money.format(analytics.cost.actualCents / 100)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('analytics.actualPrice')}</p>
+              <p className="mt-1 text-label text-muted-foreground">{t('analytics.actualPrice')}</p>
               {analytics.cost.standardCents !== null && (
-                <div className="mt-2 pt-2 text-xs">
+                <div className="mt-2 pt-2 text-label">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">{t('analytics.standardPrice')}</span>
                     <span className="tabular-nums">
@@ -562,7 +562,7 @@ export default function RelayUsagePage() {
                   {t('analytics.cacheCard')}
                 </h3>
                 <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span>{t('analytics.hitRate')}</span>
                     <span className="tabular-nums">
                       {(analytics.tokens.cacheHitRate * 100).toFixed(1)}%
@@ -574,7 +574,7 @@ export default function RelayUsagePage() {
                       style={{ width: `${Math.min(100, analytics.tokens.cacheHitRate * 100)}%` }}
                     />
                   </div>
-                  <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
+                  <div className="mt-2 flex justify-between text-label text-muted-foreground tabular-nums">
                     <span>
                       {tu('cacheRead', { count: num.format(analytics.tokens.cacheRead) })}
                     </span>
@@ -593,24 +593,30 @@ export default function RelayUsagePage() {
                 </h3>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <p className="text-xs text-muted-foreground">{t('analytics.avg')}</p>
+                    <p className="text-label text-muted-foreground">{t('analytics.avg')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.avgMs)}
-                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">
+                        ms
+                      </span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">{t('analytics.p50')}</p>
+                    <p className="text-label text-muted-foreground">{t('analytics.p50')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.p50Ms)}
-                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">
+                        ms
+                      </span>
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">{t('analytics.p95')}</p>
+                    <p className="text-label text-muted-foreground">{t('analytics.p95')}</p>
                     <p className="mt-1 text-lg font-semibold tabular-nums">
                       {num.format(analytics.latency.p95Ms)}
-                      <span className="ml-0.5 text-label font-normal text-muted-foreground">ms</span>
+                      <span className="ml-0.5 text-label font-normal text-muted-foreground">
+                        ms
+                      </span>
                     </p>
                   </div>
                 </div>
@@ -625,7 +631,7 @@ export default function RelayUsagePage() {
               <div className="mt-3 space-y-2">
                 {analytics.endpoints.map((e) => (
                   <div key={e.endpoint}>
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-label">
                       <span className="font-medium">{e.endpoint}</span>
                       <span className="tabular-nums text-muted-foreground">
                         {num.format(e.calls)} · {money.format(e.costCents / 100)}
@@ -672,7 +678,7 @@ export default function RelayUsagePage() {
                 {analytics.models.slice(0, 12).map((m) => (
                   <div
                     key={m.model}
-                    className="flex items-center justify-between text-xs tabular-nums"
+                    className="flex items-center justify-between text-label tabular-nums"
                   >
                     <span className="truncate font-medium">{m.model}</span>
                     <span className="text-muted-foreground">

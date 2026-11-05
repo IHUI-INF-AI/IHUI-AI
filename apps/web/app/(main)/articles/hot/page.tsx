@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Flame, Loader2, Eye, ChevronLeft, ChevronRight, Newspaper, ArrowLeft } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listHotArticles } from '@ihui/api-client'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface HotArticle {
@@ -41,7 +41,11 @@ export default function HotArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'hot', page],
-    queryFn: () => apiOrThrow<ArticlesData>(`/api/article/hot?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: async () => {
+      const r = await listHotArticles<ArticlesData>({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const total = data?.total ?? 0
@@ -59,14 +63,16 @@ export default function HotArticlesPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Flame className="h-6 w-6 text-orange-500" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('hotTitle')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('hotTitle')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('hotSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('hotSubtitle')}</p>
       </header>
 
       <Link
         href="/articles"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -78,13 +84,13 @@ export default function HotArticlesPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Flame className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <>
@@ -107,9 +113,9 @@ export default function HotArticlesPage() {
                         {item.title}
                       </h2>
                       {item.summary && (
-                        <p className="mt-0.5 text-sm text-muted-foreground">{item.summary}</p>
+                        <p className="mt-0.5 text-body text-muted-foreground">{item.summary}</p>
                       )}
-                      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
+                      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-label text-muted-foreground">
                         {item.authorName && <span>{item.authorName}</span>}
                         <span>{t('publishedAt', { date: fmtDate(item.publishedAt) })}</span>
                         <span className="inline-flex items-center gap-1">
@@ -136,7 +142,7 @@ export default function HotArticlesPage() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+              <span className="text-body text-muted-foreground">{t('total', { total })}</span>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -147,7 +153,7 @@ export default function HotArticlesPage() {
                   <ChevronLeft className="h-4 w-4" />
                   {t('prev')}
                 </Button>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {page} / {totalPages}
                 </span>
                 <Button
@@ -167,7 +173,7 @@ export default function HotArticlesPage() {
 
       <div className="flex items-center justify-center pt-2 text-muted-foreground">
         <Newspaper className="mr-2 h-4 w-4" />
-        <span className="text-sm">{t('hotFooter')}</span>
+        <span className="text-body">{t('hotFooter')}</span>
       </div>
     </div>
   )

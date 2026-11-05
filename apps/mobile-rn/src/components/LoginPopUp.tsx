@@ -93,30 +93,53 @@ export interface LoginPopUpSavePayload {
   phone?: string
 }
 
+/**
+ * 与小程序端 `userInfo` 入参同形(platform: 小程序默认字段拼写 identityTypy 保留,
+ * 对齐后端契约;RN 侧只读不写)。
+ */
+export interface LoginPopUpUserInfo {
+  nickname?: string
+  avatar?: string
+  /** 0=普通 1=VIP */
+  isVip?: number
+  /** 0=普通/会员 1=操盘手(原项目拼写) */
+  identityTypy?: number
+}
+
 export interface LoginPopUpProps {
-  visible: boolean
-  title: string
-  description: string
-  primaryLabel: string
-  onPrimary: () => void
-  secondaryLabel: string
-  onSecondary: () => void
+  visible?: boolean
+  title?: string
+  description?: string
+  primaryLabel?: string
+  onPrimary?: () => void
+  secondaryLabel?: string
+  onSecondary?: () => void
   onClose: () => void
   agreeChecked?: boolean
   onAgreeChange?: (value: boolean) => void
-  // ===== 业务资料(可选) =====
-  avatarUrl?: string
-  nickname?: string
-  role?: LoginPopUpRole
-  phone?: string
-  phoneDisabled?: boolean
+  // ===== 业务资料(可选;与小程序端同槽:资料包 userInfo) =====
+  /** 用户资料包(与小程序端同形) */
+  userInfo?: LoginPopUpUserInfo
+  /** 无头像时的默认头像(与小程序端 defaultAvatar 同语义;不传则退回 initials) */
+  defaultAvatar?: string
+  /** 昵称输入变化回调(传已按两端同规则过滤后的值) */
+  onNicknameChange?: (nickname: string) => void
   // ===== 业务回调(可选,均待接后端/微信 SDK) =====
   onChooseAvatar?: () => void
   onBindPhone?: () => void
   onSave?: (payload: LoginPopUpSavePayload) => void
   onLogout?: () => void
   onUpgrade?: () => void
-  onUpgradeTrader?: () => void
+  // ===== 登录方式(与小程序端同槽;全部"传入才渲染",不传即零增量) =====
+  /**
+   * 一键登录结果回传。小程序端来源是微信 getPhoneNumber(loginCode + phoneCode);
+   * 本端来源是运营商 carrierLogin,`loginCode` 承载运营商 accessToken、`phoneCode` 承载本机号码。
+   */
+  onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void> | void
+  /** 账号密码兜底(传入才渲染收起态入口,点开才出两个字段) */
+  onPasswordLogin?: (account: string, password: string) => Promise<void> | void
+  /** 网页授权登录入口(导航由宿主页接管,本组件只回调) */
+  onWebAuthLogin?: () => void
 }
 
 // 可见几何数字唯一源在 @ihui/shared/ui/login-popup-spec(与小程序端同表,逐档裁决见该文件注释);
@@ -155,7 +178,7 @@ function roleLabelKey(role: LoginPopUpRole): string {
 }
 
 export function LoginPopUp({
-  visible,
+  visible = false,
   title,
   description,
   primaryLabel,
@@ -165,37 +188,73 @@ export function LoginPopUp({
   onClose,
   agreeChecked = false,
   onAgreeChange,
-  avatarUrl,
-  nickname,
-  role = 'normal',
-  phone,
-  phoneDisabled = false,
+  userInfo,
+  defaultAvatar,
+  onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
   onLogout,
   onUpgrade,
-  onUpgradeTrader,
+  onOneClickLogin,
+  onPasswordLogin,
+  onWebAuthLogin,
 }: LoginPopUpProps) {
   const { t } = useI18n()
+  const [oneClickLoading, setOneClickLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [account, setAccount] = useState('')
+  const [password, setPassword] = useState('')
+  const [pwdSubmitting, setPwdSubmitting] = useState(false)
+
+  // 一键登录 = 运营商取号(A 端能力) → 与小程序端同一回调槽位,
+  // loginCode 承载运营商 accessToken,phoneCode 承载本机号码。
+  const handleOneClickLogin = async () => {
+    if (!onOneClickLogin || oneClickLoading) return
+    setOneClickLoading(true)
+    setLoginError('')
+    try {
+      const res = await carrierLogin()
+      await onOneClickLogin({ loginCode: res.accessToken ?? '', phoneCode: res.phone ?? '' })
+    } catch {
+      setLoginError(t('lp.oneLoginFail'))
+    } finally {
+      setOneClickLoading(false)
+    }
+  }
+
+  const handlePasswordLogin = async () => {
+    if (!onPasswordLogin || pwdSubmitting) return
+    const acc = account.trim()
+    if (!acc || !password) {
+      setLoginError(t('login.accountPlaceholder'))
+      return
+    }
+    setPwdSubmitting(true)
+    setLoginError('')
+    try {
+      await onPasswordLogin(acc, password)
+    } catch (err) {
+      setLoginError(err instanceof Error && err.message ? err.message : t('login.loginFailed'))
+    } finally {
+      setPwdSubmitting(false)
+    }
+  }
   const handleAgreeToggle = () => {
     onAgreeChange?.(!agreeChecked)
   }
 
   const showAgreementRow = onAgreeChange !== undefined
 
+  // 资料包 → 展示字段(与小程序端同一 userInfo 槽位)
+  const resolvedAvatarUrl = userInfo?.avatar
+  const resolvedNickname = userInfo?.nickname
+  const resolvedRole: LoginPopUpRole =
+    userInfo?.isVip === 1 ? (userInfo?.identityTypy === 1 ? 'trader' : 'vip') : 'normal'
+
   const showProfile = Boolean(
-    onSave ||
-    onLogout ||
-    onChooseAvatar ||
-    onBindPhone ||
-    onUpgrade ||
-    onUpgradeTrader ||
-    avatarUrl !== undefined ||
-    nickname !== undefined ||
-    // role 有默认值 'normal' ⇒ 这一项恒真,不得当存在性判据:它曾把整支授权卡判成不可达
-    // (唯一调用点 ProfileScreen.tsx:639 只传 title/primary/secondary ⇒ 屏上是空白资料表单)。
-    phone !== undefined,
+    onSave || onLogout || onChooseAvatar || onBindPhone || onUpgrade || userInfo,
   )
 
   return (
@@ -220,17 +279,16 @@ export function LoginPopUp({
           </Tappable>
           {showProfile ? (
             <ProfileForm
-              avatarUrl={avatarUrl}
-              initialNickname={nickname}
-              role={role}
-              initialPhone={phone}
-              phoneDisabled={phoneDisabled}
+              avatarUrl={resolvedAvatarUrl}
+              defaultAvatar={defaultAvatar}
+              initialNickname={resolvedNickname}
+              role={resolvedRole}
+              onNicknameChange={onNicknameChange}
               onChooseAvatar={onChooseAvatar}
               onBindPhone={onBindPhone}
               onSave={onSave}
               onLogout={onLogout}
               onUpgrade={onUpgrade}
-              onUpgradeTrader={onUpgradeTrader}
             />
           ) : (
             <>
@@ -253,6 +311,75 @@ export function LoginPopUp({
                   </View>
                 )}
               </Pressable>
+              {/* 登录方式(与小程序端同槽;传入才渲染):一键登录 / 网页授权 / 账号密码兜底 */}
+              {onOneClickLogin ? (
+                <Pressable
+                  style={styles.primaryButton}
+                  onPress={() => void handleOneClickLogin()}
+                  disabled={oneClickLoading}
+                >
+                  {({ pressed }) => (
+                    <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                      {oneClickLoading ? (
+                        <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                      ) : (
+                        <Text style={styles.primaryButtonLabel}>{t('login.wechatOneClick')}</Text>
+                      )}
+                    </View>
+                  )}
+                </Pressable>
+              ) : null}
+              {onWebAuthLogin ? (
+                <Tappable style={styles.methodLink} onPress={onWebAuthLogin}>
+                  <Text style={styles.methodLinkText}>{t('login.webAuthLogin')}</Text>
+                </Tappable>
+              ) : null}
+              {onPasswordLogin ? (
+                <View style={styles.pwdBlock}>
+                  {pwdOpen ? (
+                    <>
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
+                        value={account}
+                        onChangeText={setAccount}
+                        placeholder={t('login.accountPlaceholder')}
+                        placeholderTextColor={tokens.text.tertiary}
+                        autoCapitalize="none"
+                      />
+                      <TextField
+                        colorScheme={currentRnTheme()}
+                        style={styles.pwdInput}
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder={t('login.passwordPlaceholder')}
+                        placeholderTextColor={tokens.text.tertiary}
+                        secureTextEntry
+                      />
+                      <Pressable
+                        style={styles.primaryButton}
+                        onPress={() => void handlePasswordLogin()}
+                        disabled={pwdSubmitting}
+                      >
+                        {({ pressed }) => (
+                          <View style={[styles.face, pressed ? styles.primaryButtonPressed : null]}>
+                            {pwdSubmitting ? (
+                              <ActivityIndicator size="small" color={tokens.brand.ctaForeground} />
+                            ) : (
+                              <Text style={styles.primaryButtonLabel}>{t('login.login')}</Text>
+                            )}
+                          </View>
+                        )}
+                      </Pressable>
+                    </>
+                  ) : (
+                    <Tappable style={styles.methodLink} onPress={() => setPwdOpen(true)}>
+                      <Text style={styles.methodLinkText}>{t('login.passwordLogin')}</Text>
+                    </Tappable>
+                  )}
+                </View>
+              ) : null}
+              {loginError ? <Text style={styles.loginErrorText}>{loginError}</Text> : null}
               {showAgreementRow ? (
                 <Tappable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
@@ -280,41 +407,42 @@ export function LoginPopUp({
 
 interface ProfileFormProps {
   avatarUrl?: string
+  defaultAvatar?: string
   initialNickname?: string
   role: LoginPopUpRole
-  initialPhone?: string
-  phoneDisabled?: boolean
+  onNicknameChange?: (nickname: string) => void
   onChooseAvatar?: () => void
   onBindPhone?: () => void
   onSave?: (payload: LoginPopUpSavePayload) => void
   onLogout?: () => void
   onUpgrade?: () => void
-  onUpgradeTrader?: () => void
 }
 
 function ProfileForm({
   avatarUrl,
+  defaultAvatar,
   initialNickname,
   role,
-  initialPhone,
-  phoneDisabled,
+  onNicknameChange,
   onChooseAvatar,
   onBindPhone,
   onSave,
   onLogout,
   onUpgrade,
-  onUpgradeTrader,
 }: ProfileFormProps) {
   const { t } = useI18n()
   const [nickname, setNickname] = useState(initialNickname ?? '')
-  const [phone, setPhone] = useState(initialPhone ?? '')
+  const displayAvatar = avatarUrl ?? defaultAvatar
+  const [phone, setPhone] = useState('')
   const [nicknameError, setNicknameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   // 运营商一键登录绑定中(绑定按钮 loading)
   const [bindPhoneLoading, setBindPhoneLoading] = useState(false)
 
   const handleNicknameChange = (raw: string) => {
-    setNickname(filterNickname(raw))
+    const next = filterNickname(raw)
+    setNickname(next)
+    onNicknameChange?.(next)
     if (nicknameError) setNicknameError('')
   }
 
@@ -385,8 +513,8 @@ function ProfileForm({
         >
           {({ pressed }) => (
             <View style={[styles.face, pressed ? styles.avatarPressed : null]}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+              {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarPlaceholder}>{nickname ? nickname[0] : '?'}</Text>
               )}
@@ -426,7 +554,7 @@ function ProfileForm({
         {showUpgrade ? (
           <Pressable
             style={styles.upgradeButton}
-            onPress={role === 'normal' ? onUpgrade : onUpgradeTrader}
+            onPress={onUpgrade}
             accessibilityLabel={t('lp.upgradeA11y')}
           >
             {({ pressed }) => (
@@ -452,7 +580,6 @@ function ProfileForm({
           placeholderTextColor={tokens.text.tertiary}
           maxLength={11}
           keyboardType="phone-pad"
-          editable={!phoneDisabled}
         />
         {onBindPhone ? (
           <Pressable
@@ -616,6 +743,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // ===== 登录方式(一键 / 网页授权 / 账号密码兜底) =====
+  methodLink: {
+    alignItems: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  methodLinkText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.text.secondary,
+  },
+  pwdBlock: {
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+  },
+  pwdInput: {
+    height: LOGIN_POPUP_BUTTON_HEIGHT_PX,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    paddingHorizontal: LOGIN_POPUP_ROW_PADDING_X_PX,
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
+    fontSize: LOGIN_POPUP_BODY_FONT_PX,
+    color: tokens.text.primary,
+  },
+  loginErrorText: {
+    fontSize: LOGIN_POPUP_NOTE_FONT_PX,
+    color: tokens.danger.DEFAULT,
+    textAlign: 'center',
+    marginBottom: LOGIN_POPUP_SECTION_GAP_PX,
   },
   checkbox: {
     width: LOGIN_POPUP_CHECKBOX_SIZE_PX,

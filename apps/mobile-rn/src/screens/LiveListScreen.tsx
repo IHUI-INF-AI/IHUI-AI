@@ -16,6 +16,7 @@ import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import { formatShortDateTime } from '../utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -63,10 +64,8 @@ export function LiveListScreen() {
     [statusTab, t],
   )
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveListItem>(
-    fetcher,
-    PAGE_SIZE,
-  )
+  const { items, loading, refreshing, loadingMore, hasMore, error, refresh, loadMore } =
+    usePaginatedList<LiveListItem>(fetcher, PAGE_SIZE)
 
   const onSelectTab = (tab: LiveListTab) => {
     if (tab === statusTab) return
@@ -74,6 +73,8 @@ export function LiveListScreen() {
     // fetcher 已随 statusTab 变化触发 usePaginatedList 的自动重取;这里再 refresh 一次
     // 调的是**上一次渲染**的闭包(绑旧 tab)⇒ 两个请求竞速,旧结果后到会覆盖新 tab 的列表。
   }
+
+  const { onNavigate } = useHostPorts()
 
   return (
     <SharedLiveListScreen
@@ -85,9 +86,13 @@ export function LiveListScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={refresh}
-      onPressItem={(item: LiveListItem) => navigation.navigate('LiveDetail', { id: item.id })}
+      onEndReached={hasMore ? loadMore : undefined}
+      loadingMore={loadingMore}
+      onPressItem={(item: LiveListItem) => onNavigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void refresh(); }}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

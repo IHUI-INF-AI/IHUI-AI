@@ -320,7 +320,7 @@ function FileRow({
   if (!file.filename) {
     return (
       <div
-        className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-red-600 dark:text-red-400"
+        className="flex items-center gap-1.5 rounded px-2 py-1 text-label text-red-600 dark:text-red-400"
         data-testid={`diff-render-error-${file.id}`}
       >
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -382,7 +382,7 @@ function FileRow({
         setMenuPos({ x: e.clientX, y: e.clientY })
       }}
       className={cn(
-        'group flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors',
+        'group flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-label transition-colors',
         isActive ? 'bg-muted text-foreground' : 'hover:bg-muted/50',
         reviewed && 'opacity-70',
       )}
@@ -449,7 +449,7 @@ function FileRow({
       {menuPos && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;菜单项按钮提供键盘等价交互
         <div
-          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-label shadow-md"
           style={{
             left: Math.min(menuPos.x, window.innerWidth - 180),
             top: Math.min(menuPos.y, window.innerHeight - 170),

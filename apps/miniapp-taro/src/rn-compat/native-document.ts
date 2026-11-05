@@ -44,7 +44,6 @@ const MIME_BY_EXT: Record<string, string> = {
   csv: 'text/csv',
   json: 'application/json',
   zip: 'application/zip',
-  rar: 'application/vnd.rar',
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
   wav: 'audio/wav',

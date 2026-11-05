@@ -10,12 +10,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { HelpCircle, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
+import { createAsk, getAsks } from '@ihui/api-client'
 
 import { BackButton } from '@/components/common'
 import { AsksFilter } from './AsksFilter'
 import { AsksList } from './AsksList'
 import { AsksDialog } from './AsksDialog'
-import { PAGE_SIZE, api } from './helpers'
+import { PAGE_SIZE } from './helpers'
 import type { AskItem, AsksData, Filter } from './types'
 
 export default function AsksPageClient() {
@@ -37,15 +38,19 @@ export default function AsksPageClient() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['asks', debounced],
-    queryFn: () =>
-      api<AsksData>(
-        `/api/asks?page=1&pageSize=${PAGE_SIZE}&search=${encodeURIComponent(debounced)}`,
-      ),
+    queryFn: async (): Promise<AsksData> => {
+      const r = await getAsks({ page: 1, pageSize: PAGE_SIZE, search: debounced })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as AsksData
+    },
   })
 
   const createMut = useMutation({
-    mutationFn: (payload: { title: string; content: string }) =>
-      api<{ ask: AskItem }>(`/api/asks`, { method: 'POST', body: JSON.stringify(payload) }),
+    mutationFn: async (payload: { title: string; content: string }): Promise<{ ask: AskItem }> => {
+      const r = await createAsk(payload)
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { ask: AskItem }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asks'] })
       setOpen(false)
@@ -79,7 +84,7 @@ export default function AsksPageClient() {
             <HelpCircle className="h-7 w-7 text-primary" />
             {t('title')}
           </h1>
-          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/asks/edit">

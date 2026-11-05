@@ -138,7 +138,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       alignItems: 'center',
     } as ViewStyle,
@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     primaryBtn: {
       backgroundColor: tk.brand.cta,
       borderRadius: rnRadius.sm,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       alignItems: 'center',
     } as ViewStyle,
     primaryBtnText: {

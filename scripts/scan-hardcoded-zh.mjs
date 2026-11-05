@@ -572,6 +572,10 @@ if (JSON_OUT || JSON_STDOUT) {
       files: fileHits,
     }, null, 2)
   if (JSON_OUT) {
+    // 产物目录可能不存在:CI 干净检出里 `.ihui-agent/tmp` 是 gitignored 目录,不随仓库下发;
+    // 直接 writeFileSync 会 ENOENT 抛出(exit 1),调用方(如 family-i18n-contract.test.ts
+    // 的 gate70Counts)拿到的是"命令失败"而不是可解析的 JSON。落盘前补建父目录。
+    fs.mkdirSync(path.dirname(JSON_OUT), { recursive: true })
     fs.writeFileSync(JSON_OUT, payload, 'utf8')
     console.log(`[scan-hardcoded-zh] Wrote ${fileHits.length} files / ${totalHits} hits to ${JSON_OUT}`)
   } else {

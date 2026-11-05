@@ -29,14 +29,16 @@ export default function LikeFavoriteShare({
 }: LikeFavoriteShareProps) {
   const tt = useTt()
   return (
-    <View className="flex items-center justify-around py-3 bg-card mt-2">
+    <View className="flex items-center justify-around py-md bg-card mt-sm">
       <View className="flex flex-col items-center" onClick={onLike} hoverClass="opacity-60">
         <LineIcon
           name="heart"
           size={36}
           color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text className={`text-xs mt-[4rpx] ${liked ? 'text-primary' : 'text-muted-foreground'}`}>
+        <Text
+          className={`text-label mt-[4rpx] ${liked ? 'text-primary' : 'text-muted-foreground'}`}
+        >
           {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
         </Text>
       </View>
@@ -47,14 +49,14 @@ export default function LikeFavoriteShare({
           color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
         <Text
-          className={`text-xs mt-[4rpx] ${favorited ? 'text-primary' : 'text-muted-foreground'}`}
+          className={`text-label mt-[4rpx] ${favorited ? 'text-primary' : 'text-muted-foreground'}`}
         >
           {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onShare} hoverClass="opacity-60">
         <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
-        <Text className="text-xs mt-[4rpx] text-muted-foreground">
+        <Text className="text-label mt-[4rpx] text-muted-foreground">
           {shareCount > 0 ? shareCount : tt('action.share', '分享')}
         </Text>
       </View>

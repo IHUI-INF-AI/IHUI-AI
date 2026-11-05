@@ -54,9 +54,9 @@ export function AgentCreateScreen({
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-      <Text style={styles.title}>{t('agentCreate.title')}</Text>
+      <Text style={styles.title}>{t('agent.createTitle')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Text style={styles.label}>{t('agentCreate.name')}</Text>
+      <Text style={styles.label}>{t('agent.fieldName')}</Text>
       <TextField
         colorScheme={colorScheme}
         style={styles.input}
@@ -65,7 +65,7 @@ export function AgentCreateScreen({
         placeholder={t('agentCreate.namePlaceholder')}
         placeholderTextColor={tk.text.tertiary}
       />
-      <Text style={styles.label}>{t('agentCreate.category')}</Text>
+      <Text style={styles.label}>{t('agent.fieldCategory')}</Text>
       <TextField
         colorScheme={colorScheme}
         style={styles.input}
@@ -74,7 +74,7 @@ export function AgentCreateScreen({
         placeholder={t('agentCreate.categoryPlaceholder')}
         placeholderTextColor={tk.text.tertiary}
       />
-      <Text style={styles.label}>{t('agentCreate.description')}</Text>
+      <Text style={styles.label}>{t('agent.fieldDescription')}</Text>
       <TextField
         colorScheme={colorScheme}
         style={[styles.input, styles.inputMultiline]}
@@ -158,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.xl,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       backgroundColor: tk.surface.light,
     },
     publicLabel: { fontSize: rnType.title.size, color: tk.text.primary },

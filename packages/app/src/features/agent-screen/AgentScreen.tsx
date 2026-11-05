@@ -17,6 +17,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps }
@@ -95,9 +96,13 @@ export function AgentScreen({
   onRefresh,
   onPressItem,
   onBack,
+  onRetry,
   colorScheme = 'light',
   nestedInScrollView = false,
-}: AgentScreenProps) {
+  onNavigate,
+}: AgentScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -156,7 +161,7 @@ export function AgentScreen({
         />
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -261,14 +266,14 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingTop: rnSpacing.sm,
       paddingBottom: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
     },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -293,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.warning.DEFAULT,
     },
-    vipText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
+    vipText: { fontSize: rnType.badge.size, fontWeight: '600', color: tk.surface.light },
     desc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

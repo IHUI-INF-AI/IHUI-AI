@@ -22,7 +22,23 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduScheduleChangeAction,
+  eduScheduleChangeList,
+  eduSchedulingAutoGenerate,
+  eduSchedulingCheckConflicts,
+  eduSchedulingRuleCreate,
+  eduSchedulingRuleDelete,
+  eduSchedulingRuleList,
+  eduSchedulingRuleUpdate,
+  eduTeacherList,
+  eduTeacherScheduleCreate,
+  eduTeacherScheduleDelete,
+  eduTeacherScheduleList,
+  eduTeacherScheduleUpdate,
+  eduTermList,
+} from '@ihui/api-client'
 import { BackButton, TruncatedText } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -508,7 +524,7 @@ function TeacherScheduleDialog({
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-body">
             <input
               type="checkbox"
               className="h-4 w-4 rounded-sm border-gray-300"
@@ -558,7 +574,11 @@ export default function SchedulingPage() {
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -571,18 +591,24 @@ export default function SchedulingPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const { data: rulesData, isLoading: rulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'rule', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: SchedulingRule[] }>(
-        `/api/edu-ai-management/scheduling-rule?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduSchedulingRuleList<{ list: SchedulingRule[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const rules = rulesData?.list ?? []
@@ -590,26 +616,36 @@ export default function SchedulingPage() {
   const { data: teachersData } = useQuery({
     queryKey: ['edu-ai-management', 'teachers'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
+    queryFn: async () => {
+      const r = await eduTeacherList<{ list: EduTeacher[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const teachers = React.useMemo(() => teachersData?.list ?? [], [teachersData])
 
   const { data: teacherSchedulesData, isLoading: teacherSchedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'teacher-schedule', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: TeacherSchedule[] }>(
-        `/api/edu-ai-management/teacher-schedule?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduTeacherScheduleList<{ list: TeacherSchedule[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const teacherSchedules = teacherSchedulesData?.list ?? []
 
   const { data: changesData, isLoading: changesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'change', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: ScheduleChange[] }>(
-        `/api/edu-ai-management/schedule-change?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduScheduleChangeList<{ list: ScheduleChange[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const changes = changesData?.list ?? []
@@ -620,47 +656,51 @@ export default function SchedulingPage() {
   }, [queryClient])
 
   const createRule = useMutation({
-    mutationFn: (data: RuleFormData) =>
-      apiOrThrow('/api/edu-ai-management/scheduling-rule', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: RuleFormData) => {
+      const r = await eduSchedulingRuleCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateRule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: RuleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: RuleFormData }) => {
+      const r = await eduSchedulingRuleUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteRule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduSchedulingRuleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const autoGenerate = useMutation({
-    mutationFn: () =>
-      apiOrThrow<{ success: boolean; message: string }>(
-        '/api/edu-ai-management/scheduling/auto-generate',
-        {
-          method: 'POST',
-          body: JSON.stringify({ termId: selectedTermId }),
-        },
-      ),
+    mutationFn: async () => {
+      const r = await eduSchedulingAutoGenerate<{ success: boolean; message: string }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const checkConflicts = useMutation({
-    mutationFn: () =>
-      apiOrThrow<{ conflicts: string[] }>('/api/edu-ai-management/scheduling/check-conflicts', {
-        method: 'POST',
-        body: JSON.stringify({ termId: selectedTermId }),
-      }),
+    mutationFn: async () => {
+      const r = await eduSchedulingCheckConflicts<{ conflicts: string[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (data) => {
       setConflicts(data.conflicts)
       setConflictDialogOpen(true)
@@ -668,35 +708,38 @@ export default function SchedulingPage() {
   })
 
   const createTeacherSchedule = useMutation({
-    mutationFn: (data: TeacherScheduleFormData) =>
-      apiOrThrow('/api/edu-ai-management/teacher-schedule', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: TeacherScheduleFormData) => {
+      const r = await eduTeacherScheduleCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateTeacherSchedule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TeacherScheduleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: TeacherScheduleFormData }) => {
+      const r = await eduTeacherScheduleUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteTeacherSchedule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduTeacherScheduleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const approveChange = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      apiOrThrow(`/api/edu-ai-management/schedule-change/${id}/${action}`, {
-        method: 'PUT',
-        body: JSON.stringify({}),
-      }),
+    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
+      const r = await eduScheduleChangeAction(id, action, {})
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -760,7 +803,7 @@ export default function SchedulingPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('description')}</p>
+        <p className="text-label text-muted-foreground">{t('description')}</p>
       </header>
 
       {/* Term Selector */}
@@ -843,7 +886,7 @@ export default function SchedulingPage() {
                 {t('actions.checkConflicts')}
               </Button>
               {rulesLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading.text')}
                 </div>
@@ -860,7 +903,7 @@ export default function SchedulingPage() {
             </Card>
           ) : rules.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.rules')}
               </CardContent>
             </Card>
@@ -868,7 +911,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -900,24 +943,24 @@ export default function SchedulingPage() {
                     <tbody>
                       {rules.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {classMap.get(r.classId) ?? r.classId}
                           </td>
                           <td className="px-4 py-3 text-label font-medium">{r.subject}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {teacherMap.get(r.teacherId) ?? r.teacherId}
                           </td>
-                          <td className="px-4 py-3 text-xs">{weekdayLabel(r.weekday)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{weekdayLabel(r.weekday)}</td>
+                          <td className="px-4 py-3 text-label">
                             {r.startTime} - {r.endTime}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.classroom ?? '—'}</td>
-                          <td className="px-4 py-3 text-xs">{r.priority ?? 0}</td>
+                          <td className="px-4 py-3 text-label">{r.classroom ?? '—'}</td>
+                          <td className="px-4 py-3 text-label">{r.priority ?? 0}</td>
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs"
+                              className="text-label"
                               onClick={() => {
                                 setEditingRule(r)
                                 setRuleOpen(true)
@@ -928,7 +971,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs text-red-500"
+                              className="text-label text-red-500"
                               onClick={() => deleteRule.mutate(r.id)}
                             >
                               {t('actions.delete')}
@@ -960,7 +1003,7 @@ export default function SchedulingPage() {
                 {t('actions.addTimeEntry')}
               </Button>
               {teacherSchedulesLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading.text')}
                 </div>
@@ -977,7 +1020,7 @@ export default function SchedulingPage() {
             </Card>
           ) : teacherSchedules.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.teachers')}
               </CardContent>
             </Card>
@@ -985,7 +1028,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1011,8 +1054,8 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-label font-medium">
                             {teacherMap.get(s.teacherId) ?? s.teacherId}
                           </td>
-                          <td className="px-4 py-3 text-xs">{weekdayLabel(s.dayOfWeek)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{weekdayLabel(s.dayOfWeek)}</td>
+                          <td className="px-4 py-3 text-label">
                             {s.startTime} - {s.endTime}
                           </td>
                           <td className="px-4 py-3">
@@ -1032,7 +1075,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs"
+                              className="text-label"
                               onClick={() => {
                                 setEditingTeacherSchedule(s)
                                 setTeacherScheduleOpen(true)
@@ -1043,7 +1086,7 @@ export default function SchedulingPage() {
                             <Button
                               variant="ghost"
                               size="xs"
-                              className="text-xs text-red-500"
+                              className="text-label text-red-500"
                               onClick={() => deleteTeacherSchedule.mutate(s.id)}
                             >
                               {t('actions.delete')}
@@ -1070,7 +1113,7 @@ export default function SchedulingPage() {
             </Card>
           ) : changes.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('empty.changes')}
               </CardContent>
             </Card>
@@ -1078,7 +1121,7 @@ export default function SchedulingPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1108,13 +1151,13 @@ export default function SchedulingPage() {
                       {changes.map((c) => (
                         <tr key={c.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{c.subject}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {fmtTime(c.originalWeekday, c.originalStartTime, c.originalEndTime)}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {fmtTime(c.newWeekday, c.newStartTime, c.newEndTime)}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             <TruncatedText value={c.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
@@ -1128,7 +1171,7 @@ export default function SchedulingPage() {
                               {statusLabel(c.status)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {c.originalTeacher ?? c.newTeacher ?? '—'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1137,7 +1180,7 @@ export default function SchedulingPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, action: 'approve' })
                                   }
@@ -1148,7 +1191,7 @@ export default function SchedulingPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, action: 'reject' })
                                   }
@@ -1208,7 +1251,7 @@ export default function SchedulingPage() {
                 {conflicts.map((msg, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700"
+                    className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-label text-red-700"
                   >
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{msg}</span>

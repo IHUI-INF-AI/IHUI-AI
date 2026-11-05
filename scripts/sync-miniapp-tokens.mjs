@@ -81,9 +81,6 @@ const COLORS_MAPPING = {
   // 色值真相源仍是 tokens.css,这里只是多派生两个消费面。
   glassBg: '--color-glass-bg',
   borderMedium: '--color-border-medium',
-  // 既有的 textTertiary 指的是 muted-foreground(#666/#a3a3a3),与 RN 端 text.tertiary
-  // (#a3a3a3/#737373)不是同一档;底部栏未选中态要与 RN 同值,只能按 token 名再派生一格。
-  tertiary: '--color-text-tertiary',
   // 2026-10-20:选中态强调色(与 RN 端 brandAccent.deep 同值)。必须进 JS 派生态:
   // 实测(微信开发者工具渲染级截图)自定义 tabBar 内联 style 里的 var(--color-*) 全部不解析
   // ⇒ 选中图标回落成默认黑、指示条透明、光晕 filter 因含 var() 而整体失效。
@@ -160,6 +157,10 @@ export const MINIAPP_SKIP_PREFIXES = [
   '--spacing-',
   '--text-',
   '--shadow-elevation-',
+  // --radius 同理(2026-11-03):只写 `@theme` 注册区、不写 :root 副本。
+  // 值在 tokens.css 的 @theme 块(rem),派生时逐字保留;进 v4 通道后产物里
+  // `--radius-*` 由 @theme static 输出为 :root 变量,运行期引用面不变。
+  '--radius',
 ]
 
 /** 本表是否覆盖该档(生成器不写它 ⇒ 守门也不得判它缺)。 */
@@ -229,12 +230,23 @@ export const THEME_SELECTORS = ['@theme', '@theme static']
  * 排除项:`--text-vcenter-offset`(0.3px 是 web 中文图标垂直补偿,不是字号档;
  * 进 @theme 会长出 `.text-vcenter-offset` 脏档)。`--font-weight-*` 不搬:值与 v4 默认
  * 逐字相同(400/500/600/700)且不随档表变化,搬它只会多一份要跟随的账。
+ *
+ * radius(2026-11-03 追加):6+1 档此前只在小程序 `:root` 手写、门 77 只对账值 ⇒ 源改档时
+ * app.css 得靠人跟着改。接进本条腿后与 spacing/text/shadow 同一条派生路径,手写副本删除;
+ * 值是 rem(0.125/0.25/0.375/0.5/0.75/1rem),与 tokens.css 逐字同值、不做 px→rpx 换算
+ * (rem 换算会改非 375 屏宽的观感,批 1 的验收就是零视觉变更)。
  */
 const THEME_SEMANTIC_EXCLUDE = new Set(['--text-vcenter-offset'])
 
 export function isThemeSemanticKey(name) {
   if (THEME_SEMANTIC_EXCLUDE.has(name)) return false
-  return name.startsWith('--spacing-') || name.startsWith('--text-') || name.startsWith('--shadow-elevation-')
+  return (
+    name === '--radius' ||
+    name.startsWith('--radius-') ||
+    name.startsWith('--spacing-') ||
+    name.startsWith('--text-') ||
+    name.startsWith('--shadow-elevation-')
+  )
 }
 
 /** px → rpx(唯一换算点;`0.05` 这类无单位成分不受影响,只吃 `<数>px`) */

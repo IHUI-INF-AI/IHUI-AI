@@ -117,29 +117,29 @@ export default function TaskReceiverPageClient() {
           <button
             type="button"
             onClick={onCopyDeviceId}
-            className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
+            className="rounded-sm border border-border bg-card px-2 py-1 font-mono text-label text-muted-foreground transition-colors hover:bg-muted"
           >
             {t('deviceLabel')} {deviceId.slice(0, 8)}…
           </button>
-          <span className={`text-xs ${isConnected ? 'text-primary' : 'text-muted-foreground'}`}>
+          <span className={`text-label ${isConnected ? 'text-primary' : 'text-muted-foreground'}`}>
             {isConnected ? t('wsConnected') : t('wsDisconnected')}
           </span>
         </div>
       </header>
 
-      {msg && <p className="mb-2 text-xs text-muted-foreground">{msg}</p>}
+      {msg && <p className="mb-2 text-label text-muted-foreground">{msg}</p>}
 
       {/* 待我拍板的委派(审批跟人:只有提问方与执行方两台设备看得到这一区) */}
       {pendingApprovals.length > 0 && (
         <div className="mb-3 flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">{t('approval.hint')}</p>
+          <p className="text-label text-muted-foreground">{t('approval.hint')}</p>
           {pendingApprovals.map((task) => (
             <div
               key={task.id}
               className="flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-card p-3"
             >
               <code className="break-all text-[13px]">{task.command}</code>
-              <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap gap-x-3 text-label text-muted-foreground">
                 <span>
                   {t('approval.origin')}: {task.fromDevice}
                 </span>
@@ -153,7 +153,7 @@ export default function TaskReceiverPageClient() {
                   type="button"
                   onClick={() => void onAnswer(task.id, true)}
                   disabled={busyId === task.id}
-                  className="rounded-sm bg-cta px-3 py-1 text-xs text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                  className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                 >
                   {busyId === task.id ? t('loading') : t('approval.approve')}
                 </button>
@@ -161,7 +161,7 @@ export default function TaskReceiverPageClient() {
                   type="button"
                   onClick={() => void onAnswer(task.id, false)}
                   disabled={busyId === task.id}
-                  className="rounded-sm border border-border px-3 py-1 text-xs transition-colors hover:bg-muted disabled:opacity-50"
+                  className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   {t('approval.deny')}
                 </button>
@@ -187,19 +187,19 @@ export default function TaskReceiverPageClient() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <code className="break-all text-[13px]">{task.command}</code>
-                  <span className={`flex shrink-0 items-center gap-1 text-xs ${st.className}`}>
+                  <span className={`flex shrink-0 items-center gap-1 text-label ${st.className}`}>
                     {st.dot && (
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
                     )}
                     {t(TASK_STATUS_KEYS[task.status]!)}
                   </span>
                   {task.approval && (
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-label text-muted-foreground">
                       {t(APPROVAL_STATE_KEYS[task.approval.state] ?? task.approval.state)}
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-x-3 text-label text-muted-foreground">
                   <span>
                     {t('source')}: {task.fromDevice}
                   </span>
@@ -209,7 +209,7 @@ export default function TaskReceiverPageClient() {
                   <span>{timeFmt.format(new Date(task.createdAt))}</span>
                 </div>
                 {task.result?.output && (
-                  <div className="rounded-md bg-muted p-1.5 text-xs text-muted-foreground">
+                  <div className="rounded-md bg-muted p-1.5 text-label text-muted-foreground">
                     {task.result.output}
                   </div>
                 )}
@@ -220,7 +220,7 @@ export default function TaskReceiverPageClient() {
                         type="button"
                         onClick={() => onExecute(task)}
                         disabled={busyId === task.id}
-                        className="rounded-sm bg-cta px-3 py-1 text-xs text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
+                        className="rounded-sm bg-cta px-3 py-1 text-label text-cta-foreground transition-colors hover:bg-cta/90 disabled:opacity-50"
                       >
                         {busyId === task.id ? t('loading') : t('execute')}
                       </button>
@@ -229,7 +229,7 @@ export default function TaskReceiverPageClient() {
                       <button
                         type="button"
                         onClick={() => onDownload(task.id)}
-                        className="rounded-sm border border-border px-3 py-1 text-xs transition-colors hover:bg-muted"
+                        className="rounded-sm border border-border px-3 py-1 text-label transition-colors hover:bg-muted"
                       >
                         {task.filePayload.filename}
                       </button>

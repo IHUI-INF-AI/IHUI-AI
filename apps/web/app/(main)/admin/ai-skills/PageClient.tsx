@@ -106,7 +106,7 @@ export default function AdminAiSkillStatsPage() {
     return (
       <div className="mx-auto w-full max-w-6xl space-y-4">
         <BackButton />
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       </div>
@@ -121,7 +121,7 @@ export default function AdminAiSkillStatsPage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 4 个统计卡片 */}
@@ -158,7 +158,7 @@ export default function AdminAiSkillStatsPage() {
           {t('callTrend')}
         </h2>
         {isLoading ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[200px] items-center justify-center text-body text-muted-foreground">
             {tc('loading')}
           </div>
         ) : (
@@ -236,7 +236,7 @@ export default function AdminAiSkillStatsPage() {
               <Link
                 key={skill.skillName}
                 href={`/ai-skills/${skill.skillName}`}
-                className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent/50"
+                className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-body transition-colors hover:bg-accent/50"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{skill.skillName}</span>
@@ -244,7 +244,7 @@ export default function AdminAiSkillStatsPage() {
                     {(skill.successRate * 100).toFixed(1)}%
                   </Badge>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-label text-muted-foreground">
                   <span>
                     {t('callCount')}: {skill.callCount}
                   </span>

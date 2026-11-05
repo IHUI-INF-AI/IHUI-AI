@@ -58,7 +58,7 @@ export function HomeFeatureGrid() {
           02
         </div>
         <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="font-edix text-label uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
       </RevealOnView>
@@ -69,7 +69,7 @@ export function HomeFeatureGrid() {
           <RevealOnView
             key={title}
             delay={0.08 * (i + 1)}
-            className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border bg-card p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 min-[640px]:p-3"
+            className="group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border bg-card p-3 text-center transition-all duration-300 hover:border-primary/30 min-[640px]:p-3"
           >
             {/* Ghost 编号 */}
             <span

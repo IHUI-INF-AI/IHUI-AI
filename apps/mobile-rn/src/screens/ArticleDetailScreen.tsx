@@ -28,7 +28,12 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
+import {
+  createComment,
+  getComments,
+  getPublicArticle,
+  type CommentItem,
+} from '@ihui/api-client'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
@@ -76,13 +81,14 @@ export function ArticleDetailScreen() {
   const [commentError, setCommentError] = useState('')
 
   const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((k) => k + 1)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ArticleDetailItem>(`/api/articles/${encodeURIComponent(id)}`)
+      const res = await getPublicArticle<ArticleDetailItem>(id)
       if (cancelled) return
       if (res.success) {
         setArticle(res.data)
@@ -169,6 +175,7 @@ export function ArticleDetailScreen() {
           item={article}
           loading={loading}
           error={error}
+          onRetry={reload}
           onBack={() => navigation.goBack()}
           colorScheme={resolvedTheme}
         />
@@ -311,11 +318,11 @@ const styles = StyleSheet.create({
     color: tokens.danger.bright,
   } as TextStyle,
   actionCount: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   actionLabel: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   // ── 评论弹窗 ──
@@ -335,7 +342,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    paddingTop: 14,
+    paddingTop: rnSpacing['md-loose'],
     minHeight: 360,
     maxHeight: '72%',
   } as ViewStyle,
@@ -376,7 +383,7 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['4xl'],
   } as ViewStyle,
   commentEmptyText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   } as TextStyle,
   commentItem: {
@@ -393,7 +400,7 @@ const styles = StyleSheet.create({
     marginRight: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentAvatarText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
@@ -401,7 +408,7 @@ const styles = StyleSheet.create({
     flex: 1,
   } as ViewStyle,
   commentNickname: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
@@ -430,14 +437,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing.sm,
     fontSize: rnType.body.size,
     color: tokens.text.primary,
   } as TextStyle,
   commentSendBtn: {
     height: 38,
-    paddingHorizontal: 18,
+    paddingHorizontal: rnSpacing.lg,
     borderRadius: rnRadius.sm, // 发送按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
     backgroundColor: tokens.brand.cta,
     alignItems: 'center',

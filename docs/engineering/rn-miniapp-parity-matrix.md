@@ -11,136 +11,55 @@
 > 候选列只是名字 token 线索(不判定),落地时须按该屏实际字段/接口核实。
 
 - 判定面: **HEAD blob**
-- 共享屏(真相源): **271**
-- 已被小程序显式镜像: **260**
-- 缺口合计: **11**(其中已判定 11 / 未判定 0)
-- 判定台账: **112** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
-- 台账三档: **缺页待造 1** / **已造页待补数据钩子 100** / **不承载 11**
-> ⚠ 已造页 100 条**已计入上面的覆盖率**,但数据钩子/交互尚未按共享屏补齐 ⇒ 覆盖率不等于功能对齐(§0.3「造好没装车 = 没有」);待补清单见文末「已造页·待补数据钩子」单。
+- 共享屏(真相源): **272**
+- 已被小程序显式镜像: **256**
+- 缺口合计: **16**(其中已判定 16 / 未判定 0) —— 本行**需要动手的只有 0 条**(= 判为缺页待造 + 未判定);其余 16 条是已判定「不承载」的结清凭据,派单等于重判一遍
+- 判定台账: **115** 行 — 路径与口径单源 `scripts/lib/cross-end-verdicts.mjs`
+- 台账三档: **缺页待造 0** / **已造页 97** / **不承载 18** — 已造页按台账 evidence 分桶:**已闭环 89** / **需裁决 8** / **真待补 0**
+> ⚠ 已造页 97 条**已计入上面的覆盖率**。按台账 evidence 的显式裁决:已闭环 89 条(aligned / 已修复 / 不构成缺口)、**需产品/端侧裁决 8 条**、无显式标记的「真待补」0 条(见文末分桶单)。
+> 「真待补 0」只说明台账里没有未裁决条目,**不等于三端功能 100% 对齐**:8 条 blocked 是真实存在的结构/端点缺口,需产品决策后才动得;覆盖率本身也不等于功能对齐(§0.3「造好没装车 = 没有」)。旧版把全部 97 条一律派单,是另一种失真,故本单只按台账已写明的结论分桶。
 
 ## 缺口清单
 
 | # | 共享屏(域) | RN 候选屏 | 小程序既有页线索 | 状态 | 判定依据 |
 |---|---|---|---|---|---|
-| 1 | `agent-review-detail/AgentReviewDetailScreen` | AgentDetailScreen / AgentReviewListScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🚫 不承载(已判定) | 全仓零渲染消费:RN 侧只有 AgentReviewListScreen(列表,渲染共享屏 agent-review-list),无详情入口、无 <AgentReviewDetailScreen,web 侧 apps/web/app/(main) 下无 agents/*/reviews 一类的详情路由,包内也只有类型再导出 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
-| 2 | `console-table/ConsoleTableScreen` | — | — | 🚫 不承载(已判定) | packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25 注释明写「通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆」,是列配置驱动的通用 UI 杠杆而非一个具体页面;其 RN 消费方为 20 个 edu/developer 薄壳(如 apps/mobile-rn/src/screens/EduGradesScreen.tsx),小程序对应页 apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx:5 已各自对齐其 RN 薄壳,不存在也不该造一个「控制台表」页。 |
-| 3 | `dashboard/DashboardScreen` | ★DashboardScreen / ★EduDashboardScreen | pkg-user/member-dashboard/index / pkg-user/edu-dashboard/index | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
-| 4 | `domain-hub/DomainHubScreen` | ★DomainHubScreen | — | 🚫 不承载(已判定) | packages/app/src/features/domain-hub/DomainHubScreen.tsx:16 头注自述跨端共享域入口二级屏(G-921),条目全靠平台注入(DomainHubItem key/label/icon),RN 壳 apps/mobile-rn/src/screens/DomainHubScreen.tsx:19 是 P3 侧边栏收敛用的域入口;小程序 app.config.ts:260-303 只有 5 tab+分包、无侧边栏形态,判通用导航组件屏 not-applicable。 |
-| 5 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🚫 不承载(已判定) | 全仓零渲染消费:apps/mobile-rn/src/screens 无任何屏渲染 <FinanceScreen(全量扫 0 命中;RN 的 EduFinanceScreen 用 ConsoleTableScreen),web 的财务页 apps/web/app/(main)/edu/edu-management/finance/page.tsx 对应 EduFinanceScreen(缴费记录)而非本屏四卡汇总,小程序仅 pkg-user/edu-mgmt-finance 注释里提到对齐目标 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
-| 6 | `following/FollowingScreen` | — | pkg-user/following/index | 🚫 不承载(已判定) | RN 端关注列表由 follow/FollowScreen 承载:apps/mobile-rn/src/screens/FollowScreen.tsx 渲染 <FollowScreen>(含关注/粉丝 Tab、取消关注),小程序 pkg-user/following/index.tsx 头注写「对齐目标(RN 共享屏): packages/app/src/features/follow/FollowScreen.tsx」但现读是端内手写页(自带 @tarojs/components + @/api/social + useDidShow/useReachBottom)，非镜像 ⇒ 它属手写页待转化面，不是已镜像;本屏在 RN 端零渲染方(全量扫 <FollowingScreen 0 命中)⇒ 镜像它会产出无数据腿的重复页,判不承载。web /following 与 FollowScreen 的等价性另记 web→RN 台账 gap(键空间 following.* vs follow.*)。 |
-| 7 | `help-detail/HelpDetailScreen` | ActivityDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🚫 不承载(已判定) | RN 端以列表内联展开承载同一阅读目的:packages/app/src/features/help/HelpScreen.tsx:63-65(expandedId 命中即渲染 item.answer),宿主 apps/mobile-rn/src/screens/HelpScreen.tsx:60-78 注入 expandedId/onToggle;本屏是 web 独立详情页(help/[slug]/PageClient.tsx)的投影,RN 端零渲染方(全量扫 <HelpDetailScreen 0 命中)⇒ 小程序镜像它 = 再造一个重复入口,判不承载。 |
-| 8 | `legal-doc/LegalDocScreen` | ★LegalDocScreen / KnowledgeDocScreen | pkg-user/legal-docs-hub/index / pkg-mirror/knowledge-doc/index | 🚫 不承载(已判定) | 头注自述为通用静态页(隐私政策/用户协议/Cookie 政策等,packages/app/src/features/legal-doc/LegalDocScreen.tsx:16),是多页共用杠杆而非具体页面,RN 侧亦无壳;小程序端每个具体法律页各有专属共享屏并已镜像(apps/miniapp-taro/src/pkg-about/about/privacy.tsx:4 镜像 privacy)=> 不由小程序端单独承载 |
-| 9 | `login/LoginScreen` | ★LoginScreen / ★ScanLoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
-| 10 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
-| 11 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
+| 1 | `agent-review-detail/AgentReviewDetailScreen` | ★AgentReviewDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-user/agent-review-list/index | 🚫 不承载(已判定) | 全仓零渲染消费:RN 侧只有 AgentReviewListScreen(列表,渲染共享屏 agent-review-list),无详情入口、无 <AgentReviewDetailScreen,web 侧 apps/web/app/(main) 下无 agents/*/reviews 一类的详情路由,包内也只有类型再导出 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
+| 2 | `ai-assistant-n8n/AiAssistantN8nScreen` | ★AiAssistantN8nScreen / AiAssistantScreen | pkg-ai/ai-assistant-n8n/index / pkg-mirror/ai-assistant-n8n/index | 🚫 不承载(已判定) | RN 壳为端内独占实现(迁移守门豁免 expires 2027-06-30),共享屏全仓零渲染调用方、22 props 无注入点;小程序页承载 @rn-shells 壳本体;2026-11-01 已订正 pkg-mirror/ai-assistant-n8n 页顶声明 |
+| 3 | `artifacts/ArtifactsScreen` | ★ArtifactsScreen | — | 🚫 不承载(已判定) | RN 原生承载已落地(bdd9129d407 链上 bc817cbc288:薄壳 apps/mobile-rn/src/screens/ArtifactsScreen.tsx + drawer AI 组入口);小程序侧由 web-portal 门户承载(webViewPortal.artifacts 词条五语言已随 bdd9129d40 落,pages/webview 打 /artifacts,同 2026-10-27 letters 判例「功能页进门户不各端再搓原生屏」)⇒ 不镜像,零开发拿功能。 |
+| 4 | `assistant/AssistantScreen` | ★AiAssistantN8nScreen / ★AiAssistantScreen | pkg-ai/ai-assistant/index / pkg-ai/ai-assistant-n8n/index | 🚫 不承载(已判定) | 小程序页从未承载:造页器按屏名同名误配,RN 壳 AssistantScreen 实为 IM 聊天室 wrapper(渲染 chat-room/ChatRoomScreen);本屏全仓零渲染调用方(仅 index.ts barrel 导出),孤儿,去留归人拍板;2026-11-01 已订正 pkg-user/assistant 页顶声明 |
+| 5 | `console-table/ConsoleTableScreen` | — | — | 🚫 不承载(已判定) | packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25 注释明写「通用控制台列表屏 —— 61 条控制台类页面(models/developer 网关族)的规模化杠杆」,是列配置驱动的通用 UI 杠杆而非一个具体页面;其 RN 消费方为 20 个 edu/developer 薄壳(如 apps/mobile-rn/src/screens/EduGradesScreen.tsx),小程序对应页 apps/miniapp-taro/src/pkg-user/edu-mgmt-grades/index.tsx:5 已各自对齐其 RN 薄壳,不存在也不该造一个「控制台表」页。 |
+| 6 | `course-screen/CourseScreen` | ★CourseAnnexScreen / ★CourseCatalogScreen | pkg-learn/course/list / pkg-learn/course/detail | 🚫 不承载(已判定) | RN 壳实际渲染 course-tab/CourseTabScreen(数据端点同源且 props 已注入),本屏全仓零业务调用方(仅 barrel 导出+单测),孤儿;2026-11-01 已订正 pkg-mirror/course 页顶声明 |
+| 7 | `dashboard/DashboardScreen` | ★DashboardScreen / ★EduDashboardScreen | pkg-user/member-dashboard/index / pkg-user/edu-dashboard/index | 🚫 不承载(已判定) | packages/app/src/features/dashboard/DashboardScreen.tsx:24 是全注入式指标看板(items/renderLoading/renderEmpty 全靠平台注入),RN 壳 apps/mobile-rn/src/screens/DashboardScreen.tsx:60 的数据源是 /api/admin/error-dashboard/stats 管理端错误看板;小程序 app.config.ts 无 admin 页,不由小程序承载,判 not-applicable。 |
+| 8 | `domain-hub/DomainHubScreen` | ★DomainHubScreen | — | 🚫 不承载(已判定) | packages/app/src/features/domain-hub/DomainHubScreen.tsx:16 头注自述跨端共享域入口二级屏(G-921),条目全靠平台注入(DomainHubItem key/label/icon),RN 壳 apps/mobile-rn/src/screens/DomainHubScreen.tsx:19 是 P3 侧边栏收敛用的域入口;小程序 app.config.ts:260-303 只有 5 tab+分包、无侧边栏形态,判通用导航组件屏 not-applicable。 |
+| 9 | `finance/FinanceScreen` | ★EduFinanceScreen | pkg-user/edu-mgmt-finance/index | 🚫 不承载(已判定) | 全仓零渲染消费:apps/mobile-rn/src/screens 无任何屏渲染 <FinanceScreen(全量扫 0 命中;RN 的 EduFinanceScreen 用 ConsoleTableScreen),web 的财务页 apps/web/app/(main)/edu/edu-management/finance/page.tsx 对应 EduFinanceScreen(缴费记录)而非本屏四卡汇总,小程序仅 pkg-user/edu-mgmt-finance 注释里提到对齐目标 ⇒ 镜像它会产出无数据腿的重复页,判不承载;本屏候选下线(零消费)。 |
+| 10 | `following/FollowingScreen` | — | pkg-user/following/index | 🚫 不承载(已判定) | RN 端关注列表由 follow/FollowScreen 承载:apps/mobile-rn/src/screens/FollowScreen.tsx 渲染 <FollowScreen>(含关注/粉丝 Tab、取消关注),小程序 pkg-user/following/index.tsx 头注写「对齐目标(RN 共享屏): packages/app/src/features/follow/FollowScreen.tsx」但现读是端内手写页(自带 @tarojs/components + @/api/social + useDidShow/useReachBottom)，非镜像 ⇒ 它属手写页待转化面，不是已镜像;本屏在 RN 端零渲染方(全量扫 <FollowingScreen 0 命中)⇒ 镜像它会产出无数据腿的重复页,判不承载。web /following 与 FollowScreen 的等价性另记 web→RN 台账 gap(键空间 following.* vs follow.*)。 |
+| 11 | `help-detail/HelpDetailScreen` | ActivityDetailScreen / AgentDetailScreen | pkg-ai/ai/agent-detail / pkg-ai/ai-skill/detail/index | 🚫 不承载(已判定) | RN 端以列表内联展开承载同一阅读目的:packages/app/src/features/help/HelpScreen.tsx:63-65(expandedId 命中即渲染 item.answer),宿主 apps/mobile-rn/src/screens/HelpScreen.tsx:60-78 注入 expandedId/onToggle;本屏是 web 独立详情页(help/[slug]/PageClient.tsx)的投影,RN 端零渲染方(全量扫 <HelpDetailScreen 0 命中)⇒ 小程序镜像它 = 再造一个重复入口,判不承载。 |
+| 12 | `legal-doc/LegalDocScreen` | ★LegalDocScreen / KnowledgeDocScreen | pkg-user/legal-docs-hub/index / pkg-mirror/knowledge-doc/index | 🚫 不承载(已判定) | 头注自述为通用静态页(隐私政策/用户协议/Cookie 政策等,packages/app/src/features/legal-doc/LegalDocScreen.tsx:16),是多页共用杠杆而非具体页面,RN 侧亦无壳;小程序端每个具体法律页各有专属共享屏并已镜像(apps/miniapp-taro/src/pkg-about/about/privacy.tsx:4 镜像 privacy)=> 不由小程序端单独承载 |
+| 13 | `login/LoginScreen` | ★LoginScreen / ★ScanLoginScreen | — | 🚫 不承载(已判定) | 机主定档小程序端不该有登录页,login 页已整个删除,登录只剩我的 tab 上的弹窗一个宿主(apps/miniapp-taro/src/app.config.ts:17);共享屏是 RN 端 4-tab 完整版(packages/app/src/features/login/LoginScreen.tsx:43),本就不由小程序承载 => not-applicable |
+| 14 | `mcp-store/McpStoreScreen` | ★McpStoreScreen | — | 🚫 不承载(已判定) | 该屏是 MCP Server 管理与安装能力,对应 Web /mcp-store(apps/mobile-rn/src/screens/McpStoreScreen.tsx:24),RN 侧入口全在开发者工作台屏(PatrolScreen/RepoWikiScreen/SelfHealingScreen/TeamMemoryScreen),小程序端无对应工作台域,apps/miniapp-taro/src/api/index.ts 无 mcp 端点 => 桌面/开发端专属 |
+| 15 | `more-course/MoreCourseScreen` | ★MoreCourseScreen / CourseAnnexScreen | pkg-mirror2/more-course/index / pkg-learn/course/list | 🚫 不承载(已判定) | RN 壳为端内独占课程列表(迁移守门显式豁免 expires 2027-06-30),共享屏全仓零渲染调用方(仅 barrel 导出),孤儿;小程序页承载 @rn-shells 壳本体;2026-11-01 已订正 pkg-mirror2/more-course 页顶声明 |
+| 16 | `switch-prefs/SwitchPrefsScreen` | — | — | 🚫 不承载(已判定) | 头注自述为通用杠杆屏:packages/app/src/features/switch-prefs/SwitchPrefsScreen.tsx:13-14「通用开关偏好屏 —— 开关型设置页(developer/notifications、developer/settings、settings/preferences 等)的规模化杠杆…本屏纯 UI」;RN 端无同名屏,只有薄壳 apps/mobile-rn/src/screens/DeveloperSettingsScreen.tsx:107 与 DeveloperNotificationsScreen.tsx:90 传 items,故该通用组件屏不该由小程序单页承载。 |
 
-> 合计 11 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
-> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。
+> 合计 16 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。
+> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 该屏已被小程序页显式镜像、已核验**结清**(判据单源 scripts/lib/cross-end-verdicts.mjs),它**不进本表**(本表只收未被镜像的屏),其功能对齐与否一律看文末 evidence 分桶单,不得在本列读成待办。
 
-## 已造页 · 待补数据钩子(已计入覆盖率,功能尚未跟上)
+## 已造页 · 功能对齐分桶(已计入覆盖率)
 
-| # | 共享屏 | 判定依据 |
-|---|---|---|
-| 1 | `packages/app/src/features/activity-detail/ActivityDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 2 | `packages/app/src/features/agent-chat/AgentChatScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 3 | `packages/app/src/features/agent-create/AgentCreateScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 4 | `packages/app/src/features/agent-market/AgentMarketScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 5 | `packages/app/src/features/agent-review-list/AgentReviewListScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 6 | `packages/app/src/features/agent-setting/AgentSettingScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 7 | `packages/app/src/features/agent-stat/AgentStatScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 8 | `packages/app/src/features/aigc-cover/AigcCoverScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 9 | `packages/app/src/features/ai-multimodal/AIMultimodalScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 10 | `packages/app/src/features/ai-world/AiWorldScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 11 | `packages/app/src/features/assistant/AssistantScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 12 | `packages/app/src/features/automations/AutomationsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 13 | `packages/app/src/features/bank-card/BankCardScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 14 | `packages/app/src/features/bookmark/BookmarkScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 15 | `packages/app/src/features/cert-apply/CertApplyScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 16 | `packages/app/src/features/cert-detail/CertDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 17 | `packages/app/src/features/certificate/CertificateScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 18 | `packages/app/src/features/cert-list/CertListScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 19 | `packages/app/src/features/cert-verify/CertVerifyScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 20 | `packages/app/src/features/circle-chat/CircleChatScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 21 | `packages/app/src/features/circle-member/CircleMemberScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 22 | `packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 23 | `packages/app/src/features/connectors/ConnectorsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 24 | `packages/app/src/features/context/ContextScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 25 | `packages/app/src/features/course-annex/CourseAnnexScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 26 | `packages/app/src/features/course-catalog/CourseCatalogScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 27 | `packages/app/src/features/course-chapter/CourseChapterScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 28 | `packages/app/src/features/course-comment/CourseCommentScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 29 | `packages/app/src/features/course-enroll/CourseEnrollScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 30 | `packages/app/src/features/course-filter/CourseFilterScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 31 | `packages/app/src/features/course-qa-ask/CourseQAAskScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 32 | `packages/app/src/features/course-qa-list/CourseQAListScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 33 | `packages/app/src/features/course-resource/CourseResourceScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 34 | `packages/app/src/features/course-screen/CourseScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 35 | `packages/app/src/features/customer-service/CustomerServiceScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 36 | `packages/app/src/features/exam-history/ExamHistoryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 37 | `packages/app/src/features/favorites/FavoritesScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 38 | `packages/app/src/features/feedback-detail/FeedbackDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 39 | `packages/app/src/features/feedback/FeedbackHistoryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 40 | `packages/app/src/features/history/HistoryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 41 | `packages/app/src/features/home/HomeScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 42 | `packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 43 | `packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 44 | `packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 45 | `packages/app/src/features/invite/InviteScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 46 | `packages/app/src/features/knowledge-base/KnowledgeBaseScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 47 | `packages/app/src/features/knowledge-base/KnowledgeCreateScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 48 | `packages/app/src/features/knowledge-base/KnowledgeDocScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 49 | `packages/app/src/features/knowledge-planet/KnowledgePlanetScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 50 | `packages/app/src/features/learn/LearnScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 51 | `packages/app/src/features/live-chat/LiveChatScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 52 | `packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 53 | `packages/app/src/features/live-preview/LivePreviewScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 54 | `packages/app/src/features/live/LiveScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 55 | `packages/app/src/features/memory/MemoryScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 56 | `packages/app/src/features/message-chat/MessageChatScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 57 | `packages/app/src/features/message-detail/MessageDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 58 | `packages/app/src/features/message-direct/MessageDirectScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 59 | `packages/app/src/features/message-group/MessageGroupScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 60 | `packages/app/src/features/message-system/MessageSystemScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 61 | `packages/app/src/features/more-course/MoreCourseScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 62 | `packages/app/src/features/note-create/NoteCreateScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 63 | `packages/app/src/features/note-detail/NoteDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 64 | `packages/app/src/features/note-list/NoteListScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 65 | `packages/app/src/features/note/NoteScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 66 | `packages/app/src/features/notification/NotificationListScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 67 | `packages/app/src/features/order-log/OrderLogScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 68 | `packages/app/src/features/order-track/OrderTrackScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 69 | `packages/app/src/features/payment/PaymentScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 70 | `packages/app/src/features/point-rule/PointRuleScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 71 | `packages/app/src/features/points-mall/PointsMallScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 72 | `packages/app/src/features/points-record/PointsRecordScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 73 | `packages/app/src/features/points/PointsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 74 | `packages/app/src/features/profile-edit/ProfileEditScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 75 | `packages/app/src/features/promote/PromoteScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 76 | `packages/app/src/features/promotion/PromotionScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 77 | `packages/app/src/features/publish/PublishScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 78 | `packages/app/src/features/qr-code/QrCodeScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 79 | `packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 80 | `packages/app/src/features/referrer/ReferrerScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 81 | `packages/app/src/features/refund-detail/RefundDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 82 | `packages/app/src/features/security-settings/SecuritySettingsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 83 | `packages/app/src/features/self-media/SelfMediaScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 84 | `packages/app/src/features/settings-account/SettingsAccountScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 85 | `packages/app/src/features/spec/SpecScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 86 | `packages/app/src/features/square/SquareScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 87 | `packages/app/src/features/study-progress/StudyProgressScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 88 | `packages/app/src/features/sub-package-index/SubPackageIndexScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 89 | `packages/app/src/features/team-detail/TeamDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 90 | `packages/app/src/features/topup-fail/TopupFailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 91 | `packages/app/src/features/usage/UsageScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 92 | `packages/app/src/features/vip-level/VipLevelScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 93 | `packages/app/src/features/wallet/WalletScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 94 | `packages/app/src/features/workflows/WorkflowsScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 95 | `packages/app/src/features/ai-group/AiGroupScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 96 | `packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 97 | `packages/app/src/features/circle-create/CircleCreateScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 98 | `packages/app/src/features/circle-detail/CircleDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 99 | `packages/app/src/features/ranking/RankingScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
-| 100 | `packages/app/src/features/ranking-detail/RankingDetailScreen.tsx` | 已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补 |
+> 分类依据:台账 `evidence` 里**已显式写出**的裁决前缀(`定档 aligned` / `复核后已修复` / `不构成缺口` / `[no-change-needed]` ⇒ 已闭环;`[blocked-*]` / `[mobile-only]` / `端内已尽可修` ⇒ 需裁决)。**未命中任何标记一律留「真待补」**;不新增判据、不改 `VERDICT_KINDS`,证据过期请改台账 evidence。
 
-> 共 100 条;每条都要按对应共享屏补齐取数/交互/跳转,才算功能真对齐。
+### 🟡 需人工/产品裁决(8)
+
+| # | 共享屏 | 阻塞类别 | 归属 | 裁决人 | 复核日 | 判定依据 |
+|---|---|---|---|---|---|---|
+| 1 | `packages/app/src/features/agent-create/AgentCreateScreen.tsx` | blocked-structure | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 两种产品对象,不合并。壳 POST /api/agents(agents.ts:513)创建运行时智能体:schema 仅 {name(必填),role,model,tools,permissionMode,maxIterations,systemPrompt},主记录走 createAgent+扩展列 agentModel/agentPrompt+agent_configs KV;web POST /api/agents/create(agents.ts:479)创建市场智能体:{name,description,avatar,cover,categoryId,workspaceId,status,price,isFree,sort,remark},面向上架售卖。壳提交的 description/category/isPublic 不在 /api/agents 的 zod schema 内会被静默剥离(实际仅 name+systemPrompt 生效);web 表单的分类下拉(GET /api/categories/list)、价格/免费/封面/排序字段与壳完全不同。需要产品决策:移动端创建的到底是哪一种对象——若对齐 web 市场智能体,壳需改打 /agents/create 并重做表单(categoryId 下拉+price/isFree/cover);若是运行时智能体,壳应去掉 description/category/isPublic 假字段改收 role/model/tools。当前两端各自成立,强改任一侧都会破坏既有产品语义。 [blocked-structure]。证据: apps/api/src/routes/agents.ts:513-527(POST /agents schema 仅运行时字段)+:531(createAgent+agentModel/agentPrompt 落列);apps/api/src/routes/agents.ts:479-503(POST /agents/create 市场字段族);apps/mobile-rn/src/screens/AgentCreateScreen.tsx:36-44(壳提交 description/category/isPublic 被 zod 剥离);apps/web/app/(main)/agents/create/page.tsx:29,46(市场表单) |
+| 2 | `packages/app/src/features/aigc-cover/AigcCoverScreen.tsx` | blocked-api | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 全仓确认无「写回作品封面」端点：aigc works 即 /api/ai/aigc/records 任务行，无任何 UPDATE/PATCH 路由(api-client ai.ts 仅 create/get/list/cancel；agents.ts 的 cover、admin crud 的 coverImage 均非该数据)。按红线移除假成功 Alert：onConfirm 不再弹「封面已应用」、不再 goBack，改为如实提示「功能开发中」(复用既有 aigcCover.aiGen.message 文案，零新增 key)。onGenerateAi 原本即如实提示，未动。 [blocked-api]。证据: packages/api-client/src/endpoints/ai.ts:456-478(aigc 仅 create/get/list);apps/mobile-rn/src/screens/AigcCoverScreen.tsx:90-94(onConfirm 如实提示) |
+| 3 | `packages/app/src/features/bank-card/BankCardScreen.tsx` | blocked-api | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 端到端缺口唯一在后端数据源:GET /api/wallet/bank-cards 是自述『数据源待接』的占位,恒 success([])(库无 bank_cards 表,提现账户落在 commission.accountInfo jsonb,形态不同)。壳侧取数/刷新/EmptyState 已正确接好,当前真实空态即真相;补真值需后端建 bank_cards 表或做提现账户投影端点,均超出本次红线(不建表/不迁移),不动 [blocked-api]。证据: apps/api/src/routes/wallet.ts:63-68(占位实现自述); packages/app/src/features/bank-card/BankCardScreen.tsx:55(EmptyState 已就位); apps/mobile-rn/src/screens/BankCardScreen.tsx:25-37 |
+| 4 | `packages/app/src/features/connectors/ConnectorsScreen.tsx` | blocked-structure | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 壳回调齐备且为真实现(启停/同步/删除四项同源)，不缺回调；缺的是结构挂点：1) 新增/编辑配置——共享屏 ConnectorsScreenProps 无 onCreate/onEditConfig 位(web PageClient 有 POST /api/connectors/config 表单；api-client 已有 saveConnectorConfig，仅差 UI 入口 prop)；2) 拉取正文——共享屏不渲染 sync_items 文档列表(ConnectorItem 仅存 syncItemsCount 计数)，无 onOpenDoc(item, docId) 位(api-client 已有 fetchConnectorDoc)。需先在共享屏补两个可选 prop + 文档列表/表单 UI，壳才有地方接端点，未凭空调用不存在的接口。 [blocked-structure]。证据: packages/app/src/features/connectors/ConnectorsScreen.tsx(ConnectorsScreenProps 仅 onToggle/onSync/onDelete/onRefresh/onRetry/onBack);packages/api-client/src/endpoints/connectors.ts(saveConnectorConfig:131,fetchConnectorDoc:159 均已存在无人消费) |
+| 5 | `packages/app/src/features/learn/LearnScreen.tsx` | blocked-structure | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 不改文件。复核发现 RN 侧声明链完好(原判定只对 web 对照侧成立,且三端点零命中的证据已部分过时):web 是否要建学习中心首页是产品决策。证据订正:① /api/learn/hot、/api/learn/recommend 已被 web 首页模块消费(HomeModules.tsx:76,93 经 getRecommendLearnCourses/getHotLearnCourses → learn.ts:243,248),并非全站零命中;仅 /api/study/statistics 在 apps/web 零命中;② RN 壳 LearnScreen.tsx:19,112-136 真实渲染 packages/app/src/features/learn/LearnScreen.tsx:51 且 props 全注入,登记表 learn/LearnScreen 条目配对成立;③ 断链仅在 web:apps/web/app/(main)/learn/page.tsx:56 是 /api/learn/lessons 课程列表页,不是学情统计+热门+推荐的学习中心首页版式。 [blocked-structure]。证据: apps/mobile-rn/src/screens/LearnScreen.tsx:19,112;packages/app/src/features/learn/LearnScreen.tsx:51;apps/web/src/components/home/HomeModules.tsx:76,93;packages/api-client/src/endpoints/learn.ts:243,248;apps/web/app/(main)/learn/page.tsx:56 |
+| 6 | `packages/app/src/features/note-list/NoteListScreen.tsx` | blocked-structure | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 未改。壳读全站公开笔记广场(GET /api/notes/public,notes 表,isPublic=true,含 author/likes);而 web 的 GET /api/edu/notes 在 edu-frontend-routes.ts:618-626 强制 userId:request.userId 过滤,同为『我的笔记』,edu_notes 域不存在全站公开笔记列表端点;且 NoteListItem{id,title,summary,author,likes,createdAt} 中 author/likes 在 edu_notes 查询(findNotesList 返回 EduNote 裸行,无 users join、无点赞数据)无来源,原 /api/notes/public 的 likes 本就是后端写死 0(notes-routes.ts:92)。红线『后端只允许加字段投影』禁止新增公开列表端点,无法把广场迁到 edu 域。两域字段对照:notes{id uuid,userId notNull,lessonId varchar100,title varchar200 notNull,content,isPublic,createdAt,updatedAt} ↔ edu_notes{id uuid,userId nullable,lessonId uuid,title varchar200 nullable,content,isPublic,attachments jsonb,createdAt,updatedAt}——单条 CRUD 可映射(已由 NoteScreen/NoteCreateScreen 完成),公开聚合列表不可映射 [blocked-structure]。证据: apps/mobile-rn/src/screens/NoteListScreen.tsx:28;apps/api/src/routes/other/notes-routes.ts:73,92;apps/api/src/routes/edu-frontend-routes.ts:618-626;apps/api/src/db/edu-extended-queries.ts:23-49;packages/types/src/app-content.ts:19-26 |
+| 7 | `packages/app/src/features/security-settings/SecuritySettingsScreen.tsx` | blocked-api | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 确认后端 user-security-routes.ts 只有 GET /user/security、零写端点(文件注释自述「只读端点」)。按指示不留假开关：Props 增可选 readOnly、onToggle 改可选；共享屏 readOnly 形态下四项渲染为「已开启/未开启」真实状态文字 + 明确只读提示(新增 3 个 i18n key，5 语言包)；壳不再注入 onToggle 本地假 state。注：改密/换绑/设备管理在 RN 无对应屏，超出本次回调修复范围。 [blocked-api]。证据: apps/api/src/routes/user-security-routes.ts:6,53-77(仅 server.get);packages/app/src/features/security-settings/SecuritySettingsScreen.tsx:79-93(readOnly 分支);apps/mobile-rn/src/screens/SecuritySettingsScreen.tsx:50-62 |
+| 8 | `packages/app/src/features/self-media/SelfMediaScreen.tsx` | blocked-structure | product | 待裁决 | 2026-12-04 | 2026-11-01 端内已尽可修,余缺见下: 产品决策阻塞:web /self-media 是 wechat/koubo/automation 三条工作流子页(各自独立取数与操作),小程序端只有 skills/records 通用入口一个镜像页。缺的端内承载:① wechat 工作流页(公众号内容生成/校验/历史,web 消费 6 处 API);② koubo 口播工作流页(生成/历史,5 处);③ automation 自动化任务页(任务列表/触发/开关,6 处)。且这三条工作流的端点(api-client self-media.ts 只封装了 skills/invoke/records 三个函数)在共享 api-client 层零封装,移动壳无从调用。每条都需要新共享屏+新壳+新路由与产品确认,不是字段对齐可解。 [blocked-structure]。证据: apps/web/app/(main)/self-media/wechat/page.tsx:71,159;koubo/page.tsx:67;automation/page.tsx:207;packages/api-client/src/endpoints/self-media.ts:52,68,100(仅 skills/invoke/records);apps/miniapp-taro/src/pkg-mirror3/self-media/index.tsx:15(唯一通用入口);apps/api/src/routes/self-media-routes.ts:99-108,219 |
+
+> 合计:已造页 97 条 = 已闭环 89 + 需裁决 8 + 真待补 0。只有「真待补」需要按对应共享屏补齐取数/交互/跳转;「已闭环」是台账自己写明的结论,不是本器新判的。
+> 侧车 `scripts/data/miniapp-blocked-ledger.jsonl` 只做 join 增列,**不参与分桶**(真相源仍是 evidence 正则,`VERDICT_KINDS` 与 115 行主台账均未改动):登记 8 / 未登记 0 / 坏行 0 / 腐烂 0 / 标签不符 0 / 到期 0 / 重复 0;待产品裁决 8 条(`decidedBy` 空是正常态,本器不替产品拍板)。任一异常都只会让本单多报并保留该行的 blocked 桶,绝不静默放行。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

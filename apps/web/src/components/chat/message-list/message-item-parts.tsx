@@ -358,7 +358,7 @@ export function MessageUsageMetrics({
   return (
     <Tooltip content={detail}>
       <span
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground"
+        className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-label text-muted-foreground"
         data-testid={`message-usage-metrics-${messageId}`}
         aria-label={tc('messageUsage.ariaLabel')}
       >

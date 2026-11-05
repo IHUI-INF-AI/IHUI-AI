@@ -40,6 +40,21 @@
  *              于是块内他句的「守门」会把顺带提到的脚本一并判成撒谎),现要求同句。
  *   R3 只报数 :脚本存在、五处零命中、且没有任何**肯定式**「已接线」声称 → 仅计数(本仓大量
  *              脚本是 CLI 工具或被分发器派生,判红会满天假红)
+ *   R3 台账  :gate-wiring-allowlist.json 的 `r3Register` 区块逐枚登记归属
+ *              (CLI-tool / deprecated / should-wire / unknown)+ `reviewBy`;本门只报
+ *              「已登记 N / 未登记 M」与过期 warning,并校验字段形态。**不并入 reds,
+ *              也不改 R3 的任何计数/判红阈值** —— 未登记者继续只报数,不判红。
+ *   R3 登记面(2026-11-05 扩面,治理债②「接」的一半):`filterR3FacePaths` 把**登记/留痕面**从
+ *              门形脚本(check-/scan-/guard-)扩到 `scripts/` 直属全部 `.mjs`。扩的只是
+ *              「逐枚定性留痕」那一层 ⇒ R3 未登记者**仍只报数、永不进 reds**(§12e:升 blocking
+ *              的前置 = 存量归零,而现读存量 = `summarizeR3Register().unregisteredCount` 远大于 0;
+ *              一装就把「零调用」变成天天逼人 --no-verify 的恒红门,连带废掉全部守门)。
+ *              R1/R2/R4/R5/R7/R8/R9/R13 的候选集**一字未动**(仍取 `filterGatePaths`)。
+ *   R3 腐烂  blocking(§0.7「验过才免」):`r3Register` 条目指向的脚本**在被审面(HEAD `scripts/`
+ *              直属)已不存在** ⇒ 判红。这一支与上面那条「只报数」是两件事:登记是**声明**,
+ *              声明失守必须响,否则台账会替已消失的脚本作保。前置 = 现读腐烂存量 0(2026-11-05
+ *              `findR3RegisterRot` 现读 0 枚)才升档;条目存在而已被接线(不再命中未接集)仍是
+ *              warning(现读存量 1 枚 check-format-support-parity.mjs ⇒ 升红即恒红,§12e)。
  *   弱接线    :仅点 5 命中 → 不算红,单独计数如实报出
  *   R4 blocking:**反向**差集 —— 已在五处权威点登记的门,AGENTS.md/README.md(文档面取材 =
  *              HEAD∪索引)通篇没点名(文档看不见的门会被重复造或被绕过)。2026-09-24 由"仅报数"升档,前置 =
@@ -434,6 +449,43 @@ export function filterGatePaths(lsTreeOut) {
       .map((p) => p.replace(/^scripts\//, ''))
       .sort()
   )
+}
+
+/**
+ * R3 **登记面**(2026-11-05 扩面):`scripts/` 直属全部 `.mjs`,不再只看门形脚本名。
+ *
+ * 与 `filterGatePaths` 的唯一差别就是那枚 `GATE_FILE_RE` —— 其余口径逐字相同:
+ * 只认 `scripts/` 直属(`scripts/lib/**` 是库不是可调用器物)、绝不读工作区、结果排序。
+ * 判据仍只有一份:命中与否由 `collect()` 的五处权威点 `git grep` 决定,本函数**不判接线**。
+ */
+export function filterR3FacePaths(lsTreeOut) {
+  return (
+    String(lsTreeOut)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((p) => p.startsWith('scripts/'))
+      .filter((p) => p.slice('scripts/'.length).indexOf('/') === -1)
+      .filter((p) => p.endsWith('.mjs'))
+      .map((p) => p.replace(/^scripts\//, ''))
+      .sort()
+  )
+}
+
+/**
+ * §0.7「验过才免」的腐烂支(纯函数):台账条目指向的脚本**不在被审面上**。
+ * 只认「面上不存在」这一种失守 —— 文件在而状态变了(已被接线)归 warning,由调用方分流。
+ * @param entries r3Register.entries
+ * @param trackedPaths Set<仓库相对路径>(HEAD `git ls-tree -r --name-only`)
+ */
+export function findR3RegisterRot(entries, trackedPaths) {
+  const out = []
+  const tracked = trackedPaths || new Set()
+  for (const e of entries || []) {
+    if (!e || typeof e.path !== 'string') continue
+    if (/^scripts\/[^/]+\.mjs$/.test(e.path) && !tracked.has(e.path)) out.push(e.path)
+  }
+  return out.sort()
 }
 
 /**
@@ -1315,6 +1367,87 @@ export function validateAllowlist(raw) {
   return { entries, problems }
 }
 
+/** R3 归属台账的合法四态(严格枚举:拼错即 warning,防止状态被手滑读丢) */
+export const R3_REGISTER_STATES = ['CLI-tool', 'deprecated', 'should-wire', 'unknown']
+
+/**
+ * 纯函数:校验 R3 归属台账(gate-wiring-allowlist.json 的 `r3Register` 区块)。
+ * 只产出 warning 级问题:本区块**不参与任何判红**,R3 计数口径保持原样。
+ */
+export function validateR3Register(raw) {
+  if (raw === undefined || raw === null) {
+    return { entries: [], problems: ['未登记 r3Register 区块(按零登记继续,只报数)'] }
+  }
+  const entries = Array.isArray(raw && raw.entries) ? raw.entries : null
+  if (!entries) return { entries: [], problems: ['r3Register 缺 entries 数组(按零登记继续)'] }
+  const problems = []
+  entries.forEach((e, i) => {
+    if (!e || typeof e.path !== 'string' || !/\.mjs$/.test(e.path)) {
+      problems.push(`r3Register.entries[${i}] 缺 path(须为 scripts/*.mjs 相对路径)`)
+      return
+    }
+    if (!R3_REGISTER_STATES.includes(e.state))
+      problems.push(`r3Register.entries[${i}](${e.path}) state 非法:${e.state}`)
+    if (!e.reason || String(e.reason).trim().length < 8)
+      problems.push(`r3Register.entries[${i}](${e.path}) 缺依据说明(reason < 8 字)`)
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(String(e.reviewBy ?? '')) ||
+      Number.isNaN(Date.parse(`${e.reviewBy}T00:00:00Z`))
+    )
+      problems.push(`r3Register.entries[${i}](${e.path}) reviewBy 非法:${e.reviewBy}`)
+    if (e.state === 'should-wire' && (!e.wireTo || String(e.wireTo).trim().length < 4))
+      problems.push(`r3Register.entries[${i}](${e.path}) should-wire 缺 wireTo`)
+  })
+  return { entries, problems }
+}
+
+/** 纯函数:本地日期 YYYY-MM-DD(到期按人所在时区判,不用 UTC 偏 8 小时) */
+export function localToday(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/**
+ * 纯函数:R3 台账读数(只报数,绝不进判红集)。
+ * registered/unregistered 只对**当前 R3 集合**计数;expired 是 warning 列表;
+ * stale 是台账里已经不在 R3 的条目(脚本坏掉/状态变了),同样只报 warning。
+ * `universe`(2026-11-05 扩面配套)= 本档台账**射程内**的路径全集;给了就只在这一集里判 stale。
+ * 立因:登记面扩到 scripts/ 直属全量后,门形档的读数若仍拿整个台账比,会把每一枚非门形条目
+ * 都报成「已不在 R3 集合」(现读 18 行噪音)。门形档传 `gateNames`,扩面档不传(全集口径)。
+ */
+export function summarizeR3Register(entries, r3Names, today = localToday(), universe = null) {
+  const byState = { 'CLI-tool': 0, deprecated: 0, 'should-wire': 0, unknown: 0 }
+  const registered = []
+  const expired = []
+  const stale = []
+  const r3 = new Set(r3Names || [])
+  // 台账写 `scripts/<名>.mjs`(可点进文件);R3 集合是裸文件名 ⇒ 比此前归一。
+  const norm = (p) => String(p ?? '').replace(/^scripts\//, '')
+  for (const e of entries || []) {
+    if (!e || typeof e.path !== 'string') continue
+    const name = norm(e.path)
+    if (universe && !universe.has(name)) continue
+    if (!r3.has(name)) {
+      stale.push(e.path)
+      continue
+    }
+    registered.push(e)
+    if (byState[e.state] !== undefined) byState[e.state] += 1
+    if (String(e.reviewBy ?? '') < today)
+      expired.push({ path: e.path, state: e.state, reviewBy: e.reviewBy })
+  }
+  const registeredSet = new Set(registered.map((e) => norm(e.path)))
+  const unregistered = [...r3].filter((n) => !registeredSet.has(n)).sort()
+  return {
+    registered: registered.length,
+    unregistered,
+    unregisteredCount: unregistered.length,
+    byState,
+    expired,
+    stale,
+  }
+}
+
 // ─── 主流程 ───────────────────────────────────────────────────────────
 // ─── R11(票 G-665):CI 永不自动刷新基线 ──────────────────────────────────
 /** CI 面目录(workflow 是唯一权威 CI 面:清单可枚举、内容可 grep) */
@@ -1581,14 +1714,18 @@ async function main(argv = process.argv.slice(2)) {
   // 2) 台账(原步骤 4 整块前移;唯一理由是 dispatcher 依据文件必须进**同一批**预取 —— 判据未动)
   let allowEntries = []
   let allowProblems = []
+  let r3RegisterRaw = null
   const allowPath = join(root, 'scripts', 'gate-wiring-allowlist.json')
   if (existsSync(allowPath)) {
     try {
-      const v = validateAllowlist(JSON.parse(readFileSync(allowPath, 'utf8')))
+      const allowRaw = JSON.parse(readFileSync(allowPath, 'utf8'))
+      const v = validateAllowlist(allowRaw)
       allowEntries = v.entries
       allowProblems = v.problems
+      r3RegisterRaw = allowRaw?.r3Register ?? null
     } catch (e) {
       allowProblems = [`台账 JSON 解析失败: ${e.message}`]
+      r3RegisterRaw = null
     }
   } else {
     allowProblems = ['缺 scripts/gate-wiring-allowlist.json(按空台账继续)']
@@ -1745,9 +1882,61 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   const by = (s) => results.filter((r) => r.status === s)
+  // R3 归属台账:只报数 + 到期 warning。**不并入 reds**,也不改 R3 的计数口径。
+  const r3Register = validateR3Register(r3RegisterRaw)
+  const r3Summary = summarizeR3Register(
+    r3Register.entries,
+    by('unwired-unclaimed').map((r) => r.script),
+    localToday(),
+    new Set(gateNames),
+  )
   const reds = [...by('red-r1'), ...by('red-r2')]
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
+
+  // ── R3 登记面扩面(2026-11-05,治理债②「接」的那一半)────────────────────
+  // 面从「门形脚本名」扩到 `scripts/` 直属全部 .mjs。命中口径**沿用上面那一支**
+  // (gitGrep -o -I -F + parseGrepHits + 同五个权威点),只对门形档没覆盖到的额外名字补跑一轮
+  // grep ⇒ 零第二份判据(§0.6)。档位不变:未登记只报数、不进 reds(§12e,现读存量见
+  // r3FaceSummary.unregisteredCount,远大于 0,装红即恒红门)。
+  // 唯一升红的是 §0.7「验过才免」那一支:条目指向的脚本在被审面已不存在 ⇒ 清单腐烂判红
+  // (前置 = findR3RegisterRot 现读存量 0,2026-11-05 实测)。
+  const r3FaceNames = filterR3FacePaths(lsTree)
+  const gateNameSet = new Set(gateNames)
+  const extraFaceNames = r3FaceNames.filter((n) => !gateNameSet.has(n))
+  const faceAnyHit = new Set(
+    gateNames.filter((n) => templateHit.has(n) || [...hitsByPoint.values()].some((s) => s.has(n))),
+  )
+  if (extraFaceNames.length) {
+    for (const pt of pointPathsWithFiles) {
+      if (pt.files.length === 0) continue
+      const pathsForGrep = pt.id === 'husky' ? ['.husky'] : pt.files
+      const r = gitGrep(extraFaceNames, 'HEAD', pathsForGrep, root)
+      if (!r.ok) {
+        console.error(`❌ git grep 失败(R3 扩面/${pt.id}): ${r.err}`)
+        return 2
+      }
+      for (const [path, names] of parseGrepHits(r.out, extraFaceNames)) {
+        if (pt.id === 'husky' && !path.startsWith('.husky/')) continue
+        for (const n of names) faceAnyHit.add(n)
+      }
+    }
+  }
+  const r3FaceUnwired = r3FaceNames.filter(
+    (n) => n !== SELF_EXEMPT_SCRIPT && !faceAnyHit.has(n),
+  )
+  const r3FaceSummary = summarizeR3Register(r3Register.entries, r3FaceUnwired)
+  const r3FaceRot = findR3RegisterRot(r3Register.entries, tracked)
+  if (r3FaceRot.length) {
+    reds.push(
+      ...r3FaceRot.map((p) => ({
+        script: `(r3Register ${p})`,
+        status: 'red-r3-rot',
+        reason:
+          '登记条目指向的脚本已不在被审面(HEAD scripts/ 直属)⇒ §0.7「验过才免」失守、清单腐烂;删条目或把脚本补回同一枚提交',
+      })),
+    )
+  }
   // R5 重复 id(判红)/ R6 共用 skipEnv(只报数):都是"接线层的结构性自撞",不是内容判据。
   const runnerHead = blobOf(`HEAD:${RUNNER_REL}`)
   if (runnerHead === null) {
@@ -2079,6 +2268,14 @@ async function main(argv = process.argv.slice(2)) {
             radiusDocOnlyR12: r12.docOnly.length,
             radiusCodeOnlyR12: r12.codeOnly.length,
             radiusPxMismatchR12: r12.pxMismatch.length,
+            r3Registered: r3Summary.registered,
+            r3Unregistered: r3Summary.unregisteredCount,
+            r3RegisterExpired: r3Summary.expired.length,
+            r3FaceTotal: r3FaceNames.length,
+            r3FaceUnwired: r3FaceUnwired.length,
+            r3FaceRegistered: r3FaceSummary.registered,
+            r3FaceUnregistered: r3FaceSummary.unregisteredCount,
+            r3FaceRot: r3FaceRot.length,
           },
           dispatcherProblems,
           // R11(票 G-665)明细:CI 面的 --update-baseline 命中(file:line),供复核
@@ -2095,6 +2292,31 @@ async function main(argv = process.argv.slice(2)) {
           revocableExemptions: revocable,
           staleExemptions: staleExempt,
           allowlistProblems: allowProblems,
+          // R3 归属台账读数:**只报数**,不进 reds/不改 R3 口径;expired 是到期 warning 列表
+          r3Register: {
+            registered: r3Summary.registered,
+            unregistered: r3Summary.unregisteredCount,
+            unregisteredList: r3Summary.unregistered,
+            byState: r3Summary.byState,
+            expired: r3Summary.expired,
+            stale: r3Summary.stale,
+            problems: r3Register.problems,
+            note: '只报数:不参与任何判红,也不改变 R3 计数口径',
+          },
+          // R3 扩面读数(2026-11-05):登记面 = scripts/ 直属全部 .mjs。
+          // 未登记**只报数**(§12e:存量非 0 时装红 = 恒红门);唯一进 reds 的是 rot(§0.7 验过才免)。
+          r3Face: {
+            faceTotal: r3FaceNames.length,
+            unwired: r3FaceUnwired.length,
+            registered: r3FaceSummary.registered,
+            unregistered: r3FaceSummary.unregisteredCount,
+            unregisteredList: r3FaceSummary.unregistered,
+            byState: r3FaceSummary.byState,
+            expired: r3FaceSummary.expired,
+            rot: r3FaceRot,
+            red: r3FaceRot.length > 0,
+            note: '只报数:未登记不进 reds;rot 支按 §0.7 判红(前置 = 现读存量 0)',
+          },
           // R10 三态**各给一份明细**(只给计数的报告无法复核,报名是它的判据的一部分)
           docNamedAbsentR10: {
             face: r10FaceLabel,
@@ -2122,6 +2344,32 @@ async function main(argv = process.argv.slice(2)) {
         ` | 台账豁免 ${by('exempt').length} | 本门自身豁免 ${by('self-exempt').length}`,
     )
     console.log(`   R3(五处零命中且无任何已接线声称,仅报数): ${by('unwired-unclaimed').length} 枚`)
+    console.log(
+      `   R3 台账(只报数,不判红): 已登记 ${r3Summary.registered} / 未登记 ${r3Summary.unregisteredCount}` +
+        `(CLI-tool ${r3Summary.byState['CLI-tool']} · should-wire ${r3Summary.byState['should-wire']}` +
+        ` · deprecated ${r3Summary.byState.deprecated} · unknown ${r3Summary.byState.unknown})`,
+    )
+    for (const x of r3Summary.expired)
+      console.log(
+        `     ⚠ 已过 reviewBy(仅 warning,不判红): ${x.path}(${x.state}, reviewBy ${x.reviewBy}) —— 需重裁`,
+      )
+    for (const p of r3Register.problems) console.log(`     ⚠ R3 台账:${p}`)
+    for (const p of r3Summary.stale)
+      console.log(`     ⚠ R3 台账条目已不在 R3 集合(仅 warning): ${p}`)
+    if (r3Summary.unregisteredCount)
+      console.log(`     ⚠ 未登记 R3 脚本(仅报数,下一单再裁): ${r3Summary.unregistered.join(' ')}`)
+    console.log(
+      `   R3 扩面(scripts/ 直属全部 .mjs · 只报数,不判红): 面 ${r3FaceNames.length} 枚` +
+        ` | 五处零命中 ${r3FaceUnwired.length} | 已登记 ${r3FaceSummary.registered}` +
+        ` / 未登记 ${r3FaceSummary.unregisteredCount}` +
+        ` | 台账腐烂(判红) ${r3FaceRot.length} 枚`,
+    )
+    console.log(
+      `     ↳ 为何不升 blocking(§12e):未登记存量现读 ${r3FaceSummary.unregisteredCount} 枚 ≠ 0,` +
+        `装红即恒红门、天天逼人 --no-verify 连带废掉全部守门;升档前置 = 该存量归零,本票不做。`,
+    )
+    for (const x of r3FaceSummary.expired)
+      console.log(`     ⚠ R3 扩面条目已过 reviewBy(仅 warning): ${x.path}(${x.state} · ${x.reviewBy})`)
     console.log(
       `   R4(已接线但 AGENTS.md/README.md 通篇未点名,判红): ${undocumented.length ? `${undocumented.length} 枚` : '0 枚'}`,
     )
@@ -3682,6 +3930,13 @@ export const __test__ = {
   stripJsComments,
   findDuplicateIds,
   filterGatePaths,
+  // R3 扩面(2026-11-05):登记面枚举与 §0.7 腐烂支都是纯函数,镜像测试按 §22c 直接 import,
+  // 不得在测试里再抄一份 ls-tree 过滤/路径正则。
+  filterR3FacePaths,
+  findR3RegisterRot,
+  summarizeR3Register,
+  validateR3Register,
+  localToday,
   extractHeaderRegion,
   extractHeaderClaims,
   claimWindow,

@@ -171,7 +171,7 @@ export default function AdminShopProductsPage() {
             <Package className="h-6 w-6 text-primary" />
             {t('products.title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('products.subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('products.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -199,7 +199,7 @@ export default function AdminShopProductsPage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('products.total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('products.total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -210,7 +210,7 @@ export default function AdminShopProductsPage() {
             <ChevronLeft className="h-4 w-4" />
             {t('products.prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

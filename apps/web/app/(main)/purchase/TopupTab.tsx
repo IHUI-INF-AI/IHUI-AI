@@ -159,7 +159,7 @@ export function TopupTab() {
           <div
             className={cn(
               'flex items-start gap-2 rounded-md border border-border/60 bg-muted/40 p-3',
-              'text-xs text-muted-foreground',
+              'text-label text-muted-foreground',
             )}
           >
             <Wallet className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />

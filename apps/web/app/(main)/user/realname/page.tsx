@@ -123,9 +123,9 @@ export default function RealnamePage() {
               <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">{t('realname.approvedTitle')}</p>
+              <p className="text-body text-muted-foreground">{t('realname.approvedTitle')}</p>
               <p className="text-lg font-semibold">{info?.realName ?? '-'}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('realname.auditTime')}：{info?.auditTime ? formatDate(info.auditTime) : '-'}
               </p>
             </div>
@@ -139,7 +139,7 @@ export default function RealnamePage() {
             </div>
             <div className="space-y-1">
               <p className="text-lg font-semibold">{t('realname.pendingTitle')}</p>
-              <p className="text-sm text-muted-foreground">{t('realname.pendingHint')}</p>
+              <p className="text-body text-muted-foreground">{t('realname.pendingHint')}</p>
             </div>
           </CardContent>
         </Card>
@@ -153,7 +153,7 @@ export default function RealnamePage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-lg font-semibold">{t('realname.rejectedTitle')}</p>
-                  <p className="text-sm text-red-600 dark:text-red-500">
+                  <p className="text-body text-red-600 dark:text-red-500">
                     {t('realname.rejectedReason')}：{info?.rejectReason ?? t('realname.noReason')}
                   </p>
                 </div>
@@ -177,7 +177,7 @@ export default function RealnamePage() {
                     {...register('realName')}
                   />
                   {errors.realName && (
-                    <p className="text-xs text-destructive">{errors.realName.message}</p>
+                    <p className="text-label text-destructive">{errors.realName.message}</p>
                   )}
                 </div>
 
@@ -189,7 +189,7 @@ export default function RealnamePage() {
                     {...register('idCard')}
                   />
                   {errors.idCard && (
-                    <p className="text-xs text-destructive">{errors.idCard.message}</p>
+                    <p className="text-label text-destructive">{errors.idCard.message}</p>
                   )}
                 </div>
 

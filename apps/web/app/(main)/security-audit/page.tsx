@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, ShieldAlert, KeyRound, LogIn, Settings } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { getSecurityAudit } from '@ihui/api-client'
 import { formatDate } from '@/lib/date-utils'
 
 import {
@@ -35,18 +35,6 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
  *  · `ip` 可为 null(渲染 `-`,与 CLI `security audit` 同一口径)。
  *  · 响应是 `{list,total,page,pageSize}`,不是裸数组 ⇒ 必须取 `.list`。
  */
-interface SecurityLogEntry {
-  id: string
-  action: string
-  ip: string | null
-  userAgent: string | null
-  createdAt: string
-}
-
-interface SecurityAuditResponse {
-  list?: SecurityLogEntry[]
-  total?: number
-}
 
 const TYPE_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   login: LogIn,
@@ -84,7 +72,7 @@ export default function SecurityAuditPage() {
     enabled: allow,
     queryFn: async () => {
       // 响应是 {list,total,page,pageSize},不是裸数组 ⇒ 取 .list
-      const r = await fetchApi<SecurityAuditResponse>('/api/security/audit')
+      const r = await getSecurityAudit()
       if (r.success && r.data) return r.data.list ?? []
       return []
     },
@@ -103,7 +91,7 @@ export default function SecurityAuditPage() {
           <ShieldAlert className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -116,7 +104,7 @@ export default function SecurityAuditPage() {
               {t('loading')}
             </div>
           ) : list.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -140,7 +128,9 @@ export default function SecurityAuditPage() {
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">{ev.action}</TableCell>
-                      <TableCell className="px-4 py-2.5 text-muted-foreground">{ev.ip ?? '-'}</TableCell>
+                      <TableCell className="px-4 py-2.5 text-muted-foreground">
+                        {ev.ip ?? '-'}
+                      </TableCell>
                       <TableCell className="px-4 py-2.5 text-muted-foreground">
                         {fmtDate(ev.createdAt)}
                       </TableCell>

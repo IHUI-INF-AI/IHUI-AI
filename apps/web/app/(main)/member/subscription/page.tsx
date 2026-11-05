@@ -9,7 +9,11 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  cancelSubscriptionRenewal,
+  getMembershipSubscription,
+  renewSubscription,
+} from '@ihui/api-client'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -50,18 +54,29 @@ export default function MemberSubscriptionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'subscription'],
     queryFn: () =>
-      apiOrThrow<{ subscription: Subscription | null }>('/api/subscriptions')
-        .then((d) => d.subscription)
+      getMembershipSubscription<{ subscription: Subscription | null }>()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.subscription
+        })
         .catch(() => null),
     enabled: allow,
   })
 
   const cancelMut = useMutation({
-    mutationFn: () => apiOrThrow('/api/subscriptions/cancel', { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await cancelSubscriptionRenewal()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
   const renewMut = useMutation({
-    mutationFn: () => apiOrThrow('/api/subscriptions/renew', { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await renewSubscription()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
 
@@ -84,7 +99,7 @@ export default function MemberSubscriptionPage() {
           <CreditCard className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -99,7 +114,7 @@ export default function MemberSubscriptionPage() {
       ) : !sub ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-8 text-center">
           <CreditCard className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{t('noSubscription')}</p>
+          <p className="text-body text-muted-foreground">{t('noSubscription')}</p>
           <Button onClick={() => router.push('/vip')}>{t('subscribeNow')}</Button>
         </div>
       ) : (
@@ -109,7 +124,7 @@ export default function MemberSubscriptionPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-base font-semibold">{sub.planName}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {dateFmt.format(new Date(sub.startTime))} ~{' '}
                     {dateFmt.format(new Date(sub.endTime))}
                   </p>
@@ -124,11 +139,11 @@ export default function MemberSubscriptionPage() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between mt-3 pt-3 text-sm">
+              <div className="flex items-center justify-between mt-3 pt-3 text-body">
                 <span className="text-muted-foreground">{t('subscriptionAmount')}</span>
                 <span className="font-semibold">{currencyFmt.format(Number(sub.amount))}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">{t('autoRenew')}</span>
                 <span
                   className={cn(

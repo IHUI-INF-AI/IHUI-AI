@@ -110,6 +110,7 @@ export function LecturerListScreen() {
         setRefreshing(true)
         void load()
       }}
+      onRetry={() => { void load(); }}
       onSelect={(item) => navigation.navigate('LecturerProfile', { id: item.id })}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}

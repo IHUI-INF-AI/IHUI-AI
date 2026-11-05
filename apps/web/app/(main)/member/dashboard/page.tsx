@@ -117,7 +117,7 @@ export default function MemberDashboardPage() {
       <BackButton />
       <div>
         <h1 className="text-heading font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('description')}</p>
       </div>
 
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
@@ -136,7 +136,7 @@ export default function MemberDashboardPage() {
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
               <p className="mt-2 truncate text-lg font-semibold">{s.value}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t(STAT_KEY[s.labelKey] ?? `stats.${s.labelKey}`)}
               </p>
             </Link>
@@ -146,7 +146,7 @@ export default function MemberDashboardPage() {
 
       {summary.expireAt && (
         <Card className="border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/10">
-          <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3 text-sm">
+          <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3 text-body">
             <span className="text-muted-foreground">
               {t('expireAt')}{' '}
               <span className="font-medium text-foreground">
@@ -166,7 +166,7 @@ export default function MemberDashboardPage() {
             <h2 className="text-body font-semibold">{t('recentOrders')}</h2>
             <Link
               href="/orders"
-              className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center text-label text-muted-foreground hover:text-foreground"
             >
               {t('viewAll')}
               <ArrowRight className="ml-0.5 h-3 w-3" />
@@ -178,21 +178,21 @@ export default function MemberDashboardPage() {
               {t('loading')}
             </div>
           ) : orders.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
           ) : (
             <ul className="space-y-2">
               {orders.map((o) => (
                 <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-medium">{o.targetTitle ?? o.orderNo}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {dateFmt.format(new Date(o.createdAt))}
                     </p>
                   </div>
                   <span className="shrink-0 text-body font-medium">
                     {currencyFmt.format(Number(o.payAmount))}
                   </span>
-                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                  <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                     {o.status}
                   </span>
                 </li>

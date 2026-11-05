@@ -24,6 +24,7 @@ import { rnRadius, withAlpha } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import { COLORS } from '@/constants/style'
+import { MINI_TAB_PAGE_ROUTES } from '@/constants/tab-bar-pages'
 import BottomFadeMask from '@/components/BottomFadeMask'
 import {
   TAB_BAR_HEIGHT,
@@ -47,13 +48,13 @@ interface TabItem {
   icon: IconName
 }
 
-// 与 app.config.ts tabBar.list 的 5 个 tab 严格对齐(顺序/路由/文案一致)
+// 页面路径与 app.config.ts tabBar.list 同源(constants/tab-bar-pages.ts),顺序/文案一致
 const TABS: TabItem[] = [
-  { pagePath: '/pages/index/index', labelKey: 'tabBar.community', icon: 'home' },
-  { pagePath: '/pages/community/index', labelKey: 'tabBar.agent', icon: 'bot' },
-  { pagePath: '/pages/plaza/index/index', labelKey: 'tabBar.square', icon: 'layout-grid' },
-  { pagePath: '/pages/user/index', labelKey: 'tabBar.user', icon: 'user' },
-  { pagePath: '/pages/share/index', labelKey: 'tabBar.share', icon: 'share-2' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.community}`, labelKey: 'tabBar.community', icon: 'home' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.agent}`, labelKey: 'tabBar.agent', icon: 'bot' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.plaza}`, labelKey: 'tabBar.square', icon: 'layout-grid' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.user}`, labelKey: 'tabBar.user', icon: 'user' },
+  { pagePath: `/${MINI_TAB_PAGE_ROUTES.share}`, labelKey: 'tabBar.share', icon: 'share-2' },
 ]
 
 /** 毛玻璃模糊半径(px):单一源头 = @ihui/shared/ui/tab-bar-spec 的 TAB_BAR_GLASS_BLUR_PX。

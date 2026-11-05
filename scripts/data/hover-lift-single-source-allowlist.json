@@ -1,0 +1,41 @@
+{
+  "note": "容器 hover 浮起单一数值源守门(id 287;原 285 与 props 对账门撞号后顺延)的具名豁免台账。口径见 scripts/check-hover-lift-single-source.mjs 头注:liftCalls 必须与逐文件命中数配平,到期或不再命中即腐烂红。2026-11-03 建账,计数为当次 --worktree 现读(容器级散写当日已整体清零,以下全部为非容器身份)。",
+  "entries": [
+    {
+      "file": "packages/ui-react/src/components/button.tsx",
+      "liftCalls": 4,
+      "reason": "CTA/VIP 主按钮档的浮起是按钮交互层级(共享 Button 基座设计),不是容器卡;归非容器豁免而非 --lift-* 源",
+      "until": "2027-11-03"
+    },
+    {
+      "file": "packages/ui-react/src/components/login-form/agreement-notice-dialog.tsx",
+      "liftCalls": 2,
+      "reason": "协议弹窗里外链箭头图标的 0.5px 微动是 group-hover 图标反馈(非容器浮起),属图标动效语言档",
+      "until": "2027-11-03"
+    },
+    {
+      "file": "apps/web/src/components/chat/add-menu-popover.tsx",
+      "liftCalls": 1,
+      "reason": "附件菜单按钮 1px 微提是浮层内轻交互反馈(非容器卡),数值远浅于 --lift 源,不并入卡片浮起档",
+      "until": "2027-11-03"
+    },
+    {
+      "file": "apps/web/src/components/ai/prompt-templates.tsx",
+      "liftCalls": 1,
+      "reason": "提示词模板 chip 的 1px 微提是行内选择控件反馈(非容器卡),与链接 hover 同档,不并入卡片浮起源",
+      "until": "2027-11-03"
+    },
+    {
+      "file": "apps/web/src/components/ui/float-indicator.tsx",
+      "liftCalls": 1,
+      "reason": "浮动指示器是工具 chrome 胶囊(hover 只加深 1 档投影无位移),不是内容容器卡,不在浮起源射程",
+      "until": "2027-11-03"
+    },
+    {
+      "file": "apps/web/app/(main)/agent-canvas/components/node-palette.tsx",
+      "liftCalls": 1,
+      "reason": "画布节点拖拽面板条目是工具 chrome(drag handle),hover 投影是给抓取 affordance,不是容器卡",
+      "until": "2027-11-03"
+    }
+  ]
+}

@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   toggleText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   },

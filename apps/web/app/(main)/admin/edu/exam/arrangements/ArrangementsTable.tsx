@@ -84,12 +84,12 @@ export function ArrangementsTable({
                     papers.find((p) => p.id === a.paperId)?.title ??
                     a.paperId.slice(0, 8)}
                 </TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{a.startTime}</TableCell>
-                <TableCell className="px-4 py-2.5 text-xs">{a.endTime}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{a.startTime}</TableCell>
+                <TableCell className="px-4 py-2.5 text-label">{a.endTime}</TableCell>
                 <TableCell className="px-4 py-2.5">{a.room}</TableCell>
                 <TableCell className="px-4 py-2.5">{a.invigilator}</TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{a.status}</span>
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-label">{a.status}</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">

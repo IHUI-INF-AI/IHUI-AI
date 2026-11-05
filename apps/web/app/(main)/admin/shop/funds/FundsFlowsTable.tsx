@@ -24,12 +24,12 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">{t('funds.table.user')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.type')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.amount')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.balance')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.remark')}</TableHead>
-            <TableHead className="text-xs uppercase">{t('funds.table.time')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.user')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.type')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.amount')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.balance')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.remark')}</TableHead>
+            <TableHead className="text-label uppercase">{t('funds.table.time')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -50,7 +50,7 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
               <TableRow key={f.id}>
                 <TableCell className="font-medium">{f.user}</TableCell>
                 <TableCell>
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                     {t(TYPE_LABEL[f.type])}
                   </span>
                 </TableCell>
@@ -70,10 +70,10 @@ export function FundsFlowsTable({ flows, isLoading }: Props) {
                   </span>
                 </TableCell>
                 <TableCell>¥{(f.balance / 100).toFixed(2)}</TableCell>
-                <TableCell className="max-w-[200px] break-words text-xs text-muted-foreground">
+                <TableCell className="max-w-[200px] break-words text-label text-muted-foreground">
                   {f.remark || '-'}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="text-label text-muted-foreground">
                   {formatDate(f.createdAt)}
                 </TableCell>
               </TableRow>

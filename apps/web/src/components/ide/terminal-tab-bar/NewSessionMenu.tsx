@@ -1,7 +1,6 @@
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -129,7 +128,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
           <button
             type="button"
             className={cn(
-              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-label transition-colors',
               connectKind === 'local'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -142,7 +141,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
           <button
             type="button"
             className={cn(
-              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs transition-colors',
+              'flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-label transition-colors',
               connectKind === 'ssh'
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -166,7 +165,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   key={opt.value}
                   type="button"
                   className={cn(
-                    'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-xs transition-colors',
+                    'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-label transition-colors',
                     'hover:bg-accent hover:text-accent-foreground',
                     selectedShell === opt.value && 'text-foreground',
                   )}
@@ -190,7 +189,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.host}
                 onChange={(e) => setSshField({ host: e.target.value })}
                 placeholder={t('terminalTabBar.hostPlaceholder')}
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:border-ring/50"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -201,7 +200,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 max={65535}
                 value={sshForm.port}
                 onChange={(e) => setSshField({ port: e.target.value })}
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:border-ring/50"
               />
             </label>
             <label className="flex flex-col gap-0.5">
@@ -213,7 +212,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                 value={sshForm.username}
                 onChange={(e) => setSshField({ username: e.target.value })}
                 placeholder="root"
-                className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:border-ring/50"
               />
             </label>
             {/* 认证方式单选 */}
@@ -252,7 +251,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                   type="password"
                   value={sshForm.password}
                   onChange={(e) => setSshField({ password: e.target.value })}
-                  className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                  className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:border-ring/50"
                 />
               </label>
             ) : (
@@ -290,7 +289,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
                     type="password"
                     value={sshForm.passphrase}
                     onChange={(e) => setSshField({ passphrase: e.target.value })}
-                    className="h-6 rounded-sm border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                    className="h-6 rounded-sm border border-border bg-background px-1.5 text-label outline-none focus:border-ring/50"
                   />
                 </label>
               </label>
@@ -307,7 +306,7 @@ export function NewSessionMenu({ loading, onNew }: NewSessionMenuProps) {
         <div className="bg-muted/40 py-0.5">
           <button
             type="button"
-            className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-label font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
             onClick={handleCreateSession}
             disabled={loading}
           >

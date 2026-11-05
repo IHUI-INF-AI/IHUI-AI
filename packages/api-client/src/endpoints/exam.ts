@@ -34,6 +34,92 @@ export interface ExamQuestion {
   analysis: string | null
 }
 
+/**
+ * 考试作答的跨端判据(web / RN / 小程序三端共用,端内不得再各抄一份)。
+ *
+ * 仓里同时住着两套题型词表,换算只许在这一处发生:
+ *  - 后端五档 `single|multiple|judge|fill|essay` —— `apps/api/src/routes/exam.ts` 的
+ *    `toApiQuestionType`(出参再过 `normalizeOptionsForApi` 把选项摊成 `{key,value}[]`);
+ *  - 共享屏五档 `single|multi|fill|subjective|judgment` —— `packages/types`
+ *    `ExamQuestionItem`,RN 共享屏 `typeLabel` 就按这一套逐 case 分派。
+ * 端内旧词表(`single_choice|multi_choice|judgment|fill_blank|subjective`)一并接受,
+ * 免得调用方为了「猜后端这次回了哪套」再写第二张表。
+ */
+export type ShellQuestionType = 'single' | 'multi' | 'fill' | 'subjective' | 'judgment'
+
+const SHELL_QUESTION_TYPE_ALIAS: Record<string, ShellQuestionType> = {
+  single: 'single',
+  single_choice: 'single',
+  multiple: 'multi',
+  multi_choice: 'multi',
+  multi: 'multi',
+  judge: 'judgment',
+  judgment: 'judgment',
+  fill: 'fill',
+  fill_blank: 'fill',
+  essay: 'subjective',
+  subjective: 'subjective',
+}
+
+/** 后端/端内题型 → 共享屏题型。认不出的一律按单选题(与共享屏 `typeLabel` 的 default 同落点)。 */
+export function toShellQuestionType(type: string): ShellQuestionType {
+  return SHELL_QUESTION_TYPE_ALIAS[type] ?? 'single'
+}
+
+/** 选项文案(纯文本)。渲染侧只吃这一份:后端交 `{key,value}[]`,共享屏吃 `string[]`。 */
+export function toShellOptionTexts(question: Pick<ExamQuestion, 'options'>): string[] {
+  return (question.options ?? []).map((option) => option.value)
+}
+
+/** 选项 key(`"A"`/`"B"`…,与 `toShellOptionTexts` 的下标一一对齐)。判分比的是它,不是下标。 */
+export function toShellOptionKeys(question: Pick<ExamQuestion, 'options'>): string[] {
+  return (question.options ?? []).map((option) => option.key)
+}
+
+/**
+ * 作答模型:键 = questionId;选项题存 0-based 下标(多选为下标数组),判断题存布尔,
+ * 填空/主观题存文本 —— 与 `ExamQuestionScreenProps['answers']` 同形。
+ */
+export type ExamAnswerValue = number | number[] | string | boolean
+
+/**
+ * 把端内作答模型序列化成 `POST /exam/records/:id/submit` 的入参。
+ *
+ * 为什么必须过这一层:题库 `answer` 列存的是**选项 key**("A" / ["A","B"]),后端
+ * `submitExamRecord`(`apps/api/src/db/exam-queries.ts`)对 single_choice/judgment 走
+ * `contentEqual(a.answer, q.answer)`、对 multi_choice 排序后逐元素比 ⇒ 直接交下标
+ * (0/1/…)恒为 false,客观题会整卷判错。填空题逐空 trim 后比,主观题不自动判分。
+ *
+ * 未作答的题不进数组(后端据此算 `unansweredCount`)。
+ */
+export function serializeExamAnswers(
+  questions: readonly Pick<ExamQuestion, 'id' | 'type' | 'options'>[],
+  answers: Readonly<Record<string, unknown>>,
+): { questionId: string; answer: string | string[] | boolean }[] {
+  const payload: { questionId: string; answer: string | string[] | boolean }[] = []
+  for (const question of questions) {
+    const value = answers[question.id]
+    if (value === undefined) continue
+    const keys = toShellOptionKeys(question)
+    if (question.type === 'single') {
+      if (typeof value !== 'number') continue
+      payload.push({ questionId: question.id, answer: keys[value] ?? String(value) })
+    } else if (question.type === 'multiple') {
+      if (!Array.isArray(value)) continue
+      const picked = value.filter((item): item is number => typeof item === 'number')
+      if (picked.length === 0) continue
+      payload.push({ questionId: question.id, answer: picked.map((i) => keys[i] ?? String(i)) })
+    } else if (question.type === 'judge') {
+      if (typeof value !== 'boolean') continue
+      payload.push({ questionId: question.id, answer: value })
+    } else {
+      if (typeof value !== 'string' || value.trim() === '') continue
+      payload.push({ questionId: question.id, answer: value })
+    }
+  }
+  return payload
+}
+
 export interface ExamResult {
   examId: string
   score: number
@@ -230,6 +316,64 @@ export async function getRecommendExams(
 
 export async function getHotExams(query: { limit?: number } = {}): Promise<ApiResult<Exam[]>> {
   return fetchApi<Exam[]>(`/exam/papers${buildQs({ ...query, hot: '1' })}`)
+}
+
+/** 卷详情 — GET /api/exam/papers/:id */
+export async function getExamPaper<T = { paper: Exam }>(examId: string): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/papers/${encodeURIComponent(examId)}`)
+}
+
+/** 开始答题 — POST /api/exam/papers/:id/start */
+export async function startExam<T = { record: { id: string } }>(examId: string): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/papers/${encodeURIComponent(examId)}/start`, { method: 'POST' })
+}
+
+/** 交卷(按答题记录) — POST /api/exam/records/:id/submit */
+export async function submitExamRecord<T = { result: ExamResult }>(
+  recordId: string,
+  body: { answers: Array<{ questionId: string; answer: unknown }> },
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/records/${encodeURIComponent(recordId)}/submit`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 待批改记录 — GET /api/exam/records/pending-marks */
+export async function listPendingMarks<T = PageData<ExamResult>>(
+  query: { page?: number; pageSize?: number; search?: string } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/records/pending-marks${buildQs(query)}`)
+}
+
+/** 错题列表 — GET /api/exam/wrong-questions */
+export async function listWrongQuestions<T = PageData<unknown>>(
+  query: Record<string, string | number | boolean | undefined> = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions${buildQs(query)}`)
+}
+
+/** 错题统计 — GET /api/exam/wrong-questions/stats */
+export async function getWrongQuestionStats<T = unknown>(
+  query: Record<string, string | number | boolean | undefined> = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/stats${buildQs(query)}`)
+}
+
+/** 标记错题已解决 — PUT /api/exam/wrong-questions/:id/resolve */
+export async function resolveWrongQuestion<T = unknown>(questionId: string): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/${encodeURIComponent(questionId)}/resolve`, {
+    method: 'PUT',
+  })
+}
+
+/** AI 讲解错题 — POST /api/exam/wrong-questions/:id/explain */
+export async function explainWrongQuestion<T = { explanation: string; cached?: boolean }>(
+  questionId: string,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/${encodeURIComponent(questionId)}/explain`, {
+    method: 'POST',
+  })
 }
 
 export async function getExamsByIds(ids: string[]): Promise<ApiResult<Exam[]>> {

@@ -323,12 +323,12 @@ export default function AiCostPage() {
             <Coins className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/admin/ai-metrics"
-            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-body shadow-sm hover:bg-muted/50"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>{t('toMetrics')}</span>
@@ -337,7 +337,7 @@ export default function AiCostPage() {
             aria-label={t('rangeLabel')}
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="h-9 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="h-9 rounded-sm border border-input bg-transparent px-3 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value={1}>{t('range1d')}</option>
             <option value={7}>{t('range7d')}</option>
@@ -355,8 +355,8 @@ export default function AiCostPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <Database className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
-            <p className="text-xs text-muted-foreground/70">{t('emptyHint')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
+            <p className="text-label text-muted-foreground/70">{t('emptyHint')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -372,7 +372,7 @@ export default function AiCostPage() {
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-xs text-muted-foreground">{c.label}</p>
+                      <p className="truncate text-label text-muted-foreground">{c.label}</p>
                       <p className="text-heading font-semibold tabular-nums">{c.value}</p>
                     </div>
                   </CardContent>
@@ -396,16 +396,16 @@ export default function AiCostPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {modelChart.rows.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
+                  <p className="py-8 text-center text-body text-muted-foreground">
                     {t('noModelData')}
                   </p>
                 ) : (
                   modelChart.rows.map((row) => (
                     <div key={row.isOther ? OTHER_SLICE_KEY : row.model} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between text-body">
                         <span
                           className={cn(
-                            'min-w-0 flex-1 truncate text-xs',
+                            'min-w-0 flex-1 truncate text-label',
                             row.isOther ? 'font-sans text-muted-foreground' : 'font-mono',
                           )}
                         >
@@ -448,12 +448,14 @@ export default function AiCostPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {d.byDay.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">{t('noDayData')}</p>
+                  <p className="py-8 text-center text-body text-muted-foreground">
+                    {t('noDayData')}
+                  </p>
                 ) : (
                   d.byDay.slice(-10).map((row) => (
                     <div key={row.date} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-mono text-xs">
+                      <div className="flex items-center justify-between text-body">
+                        <span className="font-mono text-label">
                           {formatDayLabel(dayFmt, row.date)}
                         </span>
                         <span className="ml-2 shrink-0 tabular-nums text-muted-foreground">
@@ -487,9 +489,9 @@ export default function AiCostPage() {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
-                      <tr className="text-left text-xs text-muted-foreground">
+                      <tr className="text-left text-label text-muted-foreground">
                         <th className="py-2 pr-4 font-medium">{t('budgetScope')}</th>
                         <th className="py-2 pr-4 font-medium">{t('budgetKey')}</th>
                         <th className="py-2 pr-4 text-right font-medium">
@@ -504,11 +506,11 @@ export default function AiCostPage() {
                       {budgets.map((b) => (
                         <tr key={b.id}>
                           <td className="py-2 pr-4">
-                            <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                               {b.scope}
                             </span>
                           </td>
-                          <td className="py-2 pr-4 font-mono text-xs">
+                          <td className="py-2 pr-4 font-mono text-label">
                             {b.scopeKey}
                             {b.model ? ` (${b.model})` : ''}
                           </td>

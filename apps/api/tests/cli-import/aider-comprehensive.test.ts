@@ -420,27 +420,27 @@ describe('aider parser — providerCode 推断', () => {
 describe('aider parser — meta + name 验证', () => {
   it('OpenAI provider meta.category = Aider', async () => {
     const res = await parseAider(makeText('openai-api-key: sk-xxx'))
-    expect(res.providers[0]!.meta.category).toBe('Aider')
+    expect(res.providers[0]!.meta!.category).toBe('Aider')
   })
 
   it('Anthropic provider meta.category = Aider', async () => {
     const res = await parseAider(makeText('anthropic-api-key: sk-ant-xxx'))
-    expect(res.providers[0]!.meta.category).toBe('Aider')
+    expect(res.providers[0]!.meta!.category).toBe('Aider')
   })
 
   it('meta.websiteUrl = https://aider.chat', async () => {
     const res = await parseAider(makeText('openai-api-key: sk-xxx'))
-    expect(res.providers[0]!.meta.websiteUrl).toBe('https://aider.chat')
+    expect(res.providers[0]!.meta!.websiteUrl).toBe('https://aider.chat')
   })
 
   it('有 model 时 meta.models = [model]', async () => {
     const res = await parseAider(makeText(['model: gpt-4o', 'openai-api-key: sk-xxx'].join('\n')))
-    expect(res.providers[0]!.meta.models).toEqual(['gpt-4o'])
+    expect(res.providers[0]!.meta!.models).toEqual(['gpt-4o'])
   })
 
   it('无 model 时 meta.models undefined', async () => {
     const res = await parseAider(makeText('openai-api-key: sk-xxx'))
-    expect(res.providers[0]!.meta.models).toBeUndefined()
+    expect(res.providers[0]!.meta!.models).toBeUndefined()
   })
 
   it('OpenAI provider name = Aider OpenAI', async () => {

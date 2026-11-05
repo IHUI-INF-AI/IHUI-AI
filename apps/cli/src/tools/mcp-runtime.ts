@@ -41,6 +41,12 @@ import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mc
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
 // 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
 import { killProcessTree } from '../util/spawn-isolated.js';
+// S6(parent-bound,2026-11-05):父死子随死的**崩溃兜底腿** —— 上面的 killProcessTree 只覆盖
+// 「优雅断连」;CLI 被硬杀/崩溃时断连腿不执行,MCP stdio 树成为无人认领孤儿(WorkBuddy 用
+// Win32 Job Object 挡的正是这一型,取证见 W1-workbuddy-main.md §3④,
+// docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/)。
+import { spawnParentWatchdog } from '../util/parent-bound.js';
+import { readCliPackage } from '../util/pkg-version.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
 import { startOAuthFlow, refreshAccessToken, type OAuthConfig } from './mcp-oauth.js';
@@ -946,6 +952,15 @@ export function buildMcpChildEnv(serverEnv?: Record<string, string>): NodeJS.Pro
 }
 
 /**
+ * 本客户端自报身份:版本单一源头 = 本包 package.json(SEA 构建改由 IHUI_BUILD_VERSION 注入),
+ * 与 apps/cli/src/index.ts:160 同一把尺。此前三处 transport 各写死 '1.0.0',发版后仍向对端报旧号。
+ * 读不到包信息时报 'unknown' 而不是 '0.0.0' —— 对端会把后者当成一个真实版本号做兼容判断。
+ */
+function cliClientInfo(): { name: string; version: string } {
+  return { name: 'ihui-cli', version: readCliPackage(import.meta.url)?.version ?? 'unknown' };
+}
+
+/**
  * 连接单个 MCP server:按 transport 完成 initialize + tools/list + resources/prompts 预加载。
  * 失败时调用 disconnectMcpServer 清理资源并抛错。
  *
@@ -981,11 +996,18 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // 失败从此有真因可报,而不是等满 10s 计时器报"请求超时")。
       ensureStdioDiagnostics(proc);
       conn.process = proc;
+      // S6:spawn 已成功(有 pid 才有看守目标);看门狗为脱离式独立进程,判据与杀树复用
+      // util/parent-bound.ts ⇒ spawn-isolated 同一份(身份复核 + PID 复用防误认,零复制)。
+      // 一切失败(含身份采集失败)折成显式降级,永不阻断连接主线;G-690 的 detached 分档
+      // 与 disconnectMcpServer 的断连回收腿(G-690 killProcessTree + G-692 补刀)均不因此改动。
+      if (proc.pid) {
+        void spawnParentWatchdog(proc, { label: `mcp-stdio:${server.name}` });
+      }
       stdioFraming.set(proc, server.framing === 'content-length' ? 'content-length' : 'ndjson');
 
       await sendStdioRpc(proc, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       }, server.requestTimeoutMs ?? 10_000);
       sendStdioNotification(proc, 'notifications/initialized', {});
@@ -998,7 +1020,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
 
       await sendHttpRpc(server.url, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       }, headers, server.requestTimeoutMs ?? 10_000, mcpConfigTrust(server));
     } else if (transport === 'sse') {
@@ -1074,7 +1096,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // 4. 发送 initialize(POST 到 endpoint,等 SSE 流响应)
       await sendSseRpc(conn, 'initialize', {
         protocolVersion: DEFAULT_PROTOCOL_VERSION,
-        clientInfo: { name: 'ihui-cli', version: '1.0.0' },
+        clientInfo: cliClientInfo(),
         capabilities: {},
       });
     }

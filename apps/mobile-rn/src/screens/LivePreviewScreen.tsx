@@ -65,6 +65,7 @@ export function LivePreviewScreen() {
       subscribing={subscribing}
       onSubscribe={subscribe}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

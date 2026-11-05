@@ -47,7 +47,7 @@ export interface PluginManifest {
   version: string;
   description?: string;
   author?: string;
-  /** 扩展的工具名(由集成方按名解析为 Tool 实现) */
+  /** 扩展的工具名(由集成方按名解析;运行期那一半见 `declaration-consumers.ts`,解析不出就出声) */
   tools?: string[];
   /** 扩展的 Hook 标识(格式 "<event>:<matcher>" 或纯事件名) */
   hooks?: string[];
@@ -160,11 +160,38 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
   'manifest-unexpected-error',
   /** 依赖环(G-682 的 dependencies 落地后由装载器产出;刻意不复用歧义码) */
   'plugin-dependency-cycle',
+  /**
+   * 贡献档被本宿主拒收(goal-b49/W2):档在词表内、但本 CLI 宿主没有落点(`no-host`),
+   * 或声明的贡献经 capability-catalog 求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-contribution-unknown-kind` **语义不同、文案不得复用** ——
+   * 前者是"认得但吃不下"(要改的是宿主/权限),后者是"词表里压根没这一档"(要改的是清单拼写)。
+   */
+  'plugin-contribution-declined',
+  /** 贡献档不在词表内(goal-b49/W2):诊断正文点名当前词表全量,免得用户对着不存在的落点瞎找 */
+  'plugin-contribution-unknown-kind',
+  /**
+   * 激活事件被本宿主拒收(goal-b49/W6):档在词表内、但本 CLI 没有该事件源(`runHook` 的在册触发点
+   * 只有 preToolCall/postToolCall),或声明的事件经能力目录求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-activation-unknown-event` **语义不同、文案不得复用** —— 前者要改的是宿主/权限,
+   * 后者是清单拼写。
+   */
+  'plugin-activation-rejected',
+  /** 激活事件不在词表内 / 形态不对(goal-b49/W6):正文点名当前词表全量 */
+  'plugin-activation-unknown-event',
+  /**
+   * 扩展声明在本宿主没有运行期消费者(goal-b49/Z1 立):名字被汇总口读到了,但对账拿不出消费者 ——
+   * 工具名背后没有 `Tool` 实现(装载器从不 import 插件代码)、hook 事件段永不派发、
+   * 命令族没有注册通道、contributor 声明没有回调。
+   * 与 `plugin-contribution-declined` **语义不同、文案不得复用** —— 那一条判的是清单里的
+   * `contributes` 档(词表维),这一条判的是 `tools` / `hooks` / `commands` 等扩展声明(运行期维)。
+   * 两条都在 `warning`:装载成功是事实,吃不下是另一回事,升档会把提示变成启动红旗(§12e)。
+   */
+  'plugin-declaration-unconsumed',
 ] as const;
 
 export type PluginDiagnosticCode = (typeof PLUGIN_DIAGNOSTIC_CODES)[number];
 
-/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略 */
+/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略(含被本宿主拒收的贡献档) */
 export type PluginDiagnosticSeverity = 'error' | 'warning';
 
 /**

@@ -96,7 +96,7 @@ export function CompanyTypeTable({
                       {enabled ? '启用' : '禁用'}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {type.createdAt ? formatDateOnly(type.createdAt) : '-'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

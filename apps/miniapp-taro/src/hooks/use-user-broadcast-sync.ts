@@ -7,7 +7,6 @@
 // `@ihui/shared/chat/user-broadcast-store`(AGENTS §3 共享层优先)—— 本文件只是挂载点。
 
 import { useEffect, useRef } from 'react'
-import Taro from '@tarojs/taro'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
 import { useI18n } from '@/i18n'
@@ -16,6 +15,7 @@ import { BASE_URL } from '@/utils/api-config'
 import { logger } from '@/utils/logger'
 import { taroWebSocketFactory } from '@/utils/taro-websocket-adapter'
 import { attachUserBroadcast, resetBroadcastNotices } from '@/lib/user-broadcast'
+import { onToast } from '@/host/on-toast'
 
 /**
  * D153b / D154(2026-09-30 立)App 级挂载点(`app.tsx` 的 `UserBroadcastHandler`)。
@@ -45,7 +45,7 @@ export function useUserBroadcastSync(): void {
       token,
       translate: (key, params) => translateRef.current(key, params),
       notify: (message) => {
-        Taro.showToast({ title: message, icon: 'none' })
+        onToast(message, { kind: 'info' })
       },
       webSocketFactory: taroWebSocketFactory,
       // 只打事件名,不打载荷内容(载荷可能带用户数据)

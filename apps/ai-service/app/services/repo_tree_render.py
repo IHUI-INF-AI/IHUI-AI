@@ -20,6 +20,8 @@
    调用方据此能判断"这份骨架是全仓还是被预算削过的"。
 """
 
+import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -27,12 +29,50 @@ from typing import Any
 from ..core.context_compaction import estimate_tokens
 from .codebase_indexer import _EXT_TO_LANG, _IGNORED_DIRS, MAX_FILES_PER_INDEX
 from .ignore_rules import DEFAULT_IGNORE_FILENAMES, filter_paths, load_ignore_set
+from .repo_tree_weight import (
+    DEFAULT_WEIGHTS,
+    NodeFacts,
+    WeightConfig,
+    env_weight_config,
+    order_rows,
+)
 from .rg_fallback_parity import enumerate_code_files
 
 INDENT = "  "
 LINE_TOKEN_COST = 1  # 行间换行按 1 token 记账(低估会让预算被突破,宁可高估)
 DEFAULT_MAX_TOKENS = 2000
 MIN_MAX_TOKENS = 32
+
+
+def collect_node_facts(root: Path, rel_paths: Sequence[str]) -> tuple[dict[str, NodeFacts], int]:
+    """落地层的 stat 采集(纯渲染层拿不到的两枚信号)→ (节点信号, 采集失败数)。
+
+    - 文件行:自己的 mtime/size;目录行:**后代里最新的那枚 mtime** + 后代 size 之和
+      (目录自己没有"上次改动"这个事实,借后代的)。
+    - 单条 stat 失败(oserror:改名/权限/坏链)只计数不冒充 0 —— 拿 0 当"很新"会让权重
+      把读不到的节点排到最前面。失败数由调用方写进 notes。
+    """
+    stamp = time.time()
+    facts: dict[str, NodeFacts] = {}
+    dir_age: dict[str, float] = {}
+    dir_size: dict[str, int] = {}
+    failed = 0
+    for rel in rel_paths:
+        try:
+            st = (root / rel).stat()
+        except OSError:
+            failed += 1
+            continue
+        age = max(0.0, (stamp - st.st_mtime) / 86400.0)
+        facts[rel] = NodeFacts(age_days=age, size_bytes=st.st_size)
+        parts = rel.split("/")
+        for i in range(len(parts) - 1):
+            d = "/".join(parts[: i + 1])
+            dir_age[d] = min(dir_age.get(d, age), age)
+            dir_size[d] = dir_size.get(d, 0) + st.st_size
+    for d, age in dir_age.items():
+        facts[d] = NodeFacts(age_days=age, size_bytes=dir_size[d])
+    return facts, failed
 
 
 @dataclass
@@ -69,6 +109,12 @@ class TreeRender:
     scope: str | None = None
     notes: list[str] = field(default_factory=list)
     ignored_by: list[str] = field(default_factory=list)
+    #: 排序档:"weighted"(带权 DFS) / "lexical"(纯词序,对照档)
+    ranking: str = "lexical"
+    #: 本轮**有信号源并真的参与打分**的维(名字与 `repo_tree_weight` 的表一一对应)
+    dims_applied: list[str] = field(default_factory=list)
+    #: 本轮惰性的维 —— 必须点名"为什么没有"(§0.3:不得用中性值冒充判过这一维)
+    dims_inert: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +137,9 @@ class TreeRender:
             "fallbackDetail": self.fallback_detail,
             "scope": self.scope,
             "notes": self.notes,
+            "ranking": self.ranking,
+            "dimsApplied": self.dims_applied,
+            "dimsInert": self.dims_inert,
         }
 
 
@@ -209,14 +258,29 @@ def render_rows(
     fallback_detail: str | None = None,
     files_ignored: int = 0,
     ignored_by: list[str] | None = None,
+    weights: WeightConfig | None = DEFAULT_WEIGHTS,
+    node_facts: Mapping[str, NodeFacts] | None = None,
 ) -> TreeRender:
-    """纯渲染档(不碰磁盘):路径清单进、骨架文本与核算出。夹具与判据都吃这一层。"""
+    """纯渲染档(不碰磁盘):路径清单进、骨架文本与核算出。夹具与判据都吃这一层。
+
+    排序档(2026-11-05 Z12 补):`weights` 给定时走**带权前序 DFS**(兄弟按权、父必先于子),
+    `weights=None` 保留原词序档(正向对照与"只想看字母序"的调用方走这一支)。
+    """
     budget = max(int(max_tokens), MIN_MAX_TOKENS)
     rows, counts = build_rows(rel_paths, scope)
+    ranking = "lexical"
+    dims_applied: list[str] = []
+    dims_inert: list[str] = []
+    orphans = 0
+    if weights is not None:
+        rows, orphans = order_rows(rows, weights, facts=node_facts)
+        ranking = "weighted"
+        dims_applied, dims_inert = weights.active_dims(node_facts)
     kept, dropped = select_rows(rows, budget)
 
+    seq = {row.path: i for i, row in enumerate(rows)}
     shown = [r for r in rows if r.path in kept]
-    shown.sort(key=lambda r: [p.lower() for p in r.path.split("/")])
+    shown.sort(key=lambda r: seq[r.path])
     lines = [_line(r) for r in shown]
     text = "\n".join(lines)
     tokens = estimate_tokens(text) if text else 0
@@ -255,6 +319,8 @@ def render_rows(
     notes: list[str] = []
     if counts["bad"]:
         notes.append(f"{counts['bad']} 条不可用路径条目被跳过(空串/纯目录名)")
+    if orphans:
+        notes.append(f"{orphans} 行没有可依附的父目录行(带权排序下仍原样保留在末尾)")
 
     return TreeRender(
         text=text,
@@ -276,6 +342,9 @@ def render_rows(
         fallback_detail=fallback_detail,
         scope=_norm_rel(scope) if scope else None,
         notes=notes,
+        ranking=ranking,
+        dims_applied=dims_applied,
+        dims_inert=dims_inert,
     )
 
 
@@ -286,15 +355,17 @@ def render_workspace_tree(
     scope: str | None = None,
     max_files: int | None = MAX_FILES_PER_INDEX,
     ignore_filenames: tuple[str, ...] | None = DEFAULT_IGNORE_FILENAMES,
+    weights: WeightConfig | None = None,
 ) -> TreeRender:
     """落地档:枚举走单源出口,其余交回纯渲染层。
 
     `enumerated` 取枚举出口自报的 `counted`(不是渲染行数)⇒ "被预算削掉多少"的分母
     始终是"这次到底量到了多少文件",与懒索引护栏同一个数。
 
-    ignore 剪枝**刻意只落在上下文装配这一层,没有同时改索引面**:本仓存在"跟踪但被
-    `.gitignore` 覆盖"的路径(守门 236 就是为这一型立的),把规则一口气接进索引枚举
-    会让这些文件静默从索引里消失 —— 那一格要单独开票带证据做。骨架侧吃掉构建产物是纯收益。
+    ignore 剪枝在本层是"一律剪":骨架是**受预算约束的投影**,少显示一枚不影响内容还在仓里。
+    索引面(P84,2026-11-01)另有一套口径 —— "跟踪但被 `.gitignore` 覆盖"的路径在那里
+    **默认保留并点名**,因为从索引里剔掉等于内容从检索面消失;那套口径与理由写在
+    `codebase_indexer.apply_index_ignore_rules`,两处共用同一个规则求值器(不各写一份)。
     """
     rel_paths, prov = enumerate_code_files(
         root,
@@ -317,6 +388,14 @@ def render_workspace_tree(
                     seen.add(where)
                     ignored_by.append(where)
         notes_extra.extend(f"ignore 规则读不动:{e}" for e in ignore.errors)
+    cfg = env_weight_config() if weights is None else weights
+    node_facts: Mapping[str, NodeFacts] | None = None
+    if cfg is not None and (cfg.time_decay_factor > 0.0 or cfg.size_impact_factor > 0.0):
+        node_facts, facts_failed = collect_node_facts(root, kept_paths)
+        if facts_failed:
+            notes_extra.append(
+                f"{facts_failed} 个节点 stat 读不到(时间/体积维对这些节点未判定,按中性处理)"
+            )
     out = render_rows(
         kept_paths,
         max_tokens=max_tokens,
@@ -327,6 +406,8 @@ def render_workspace_tree(
         fallback_detail=prov.fallback_detail,
         files_ignored=files_ignored,
         ignored_by=ignored_by,
+        weights=cfg,
+        node_facts=node_facts,
     )
     out.notes.extend(notes_extra)
     return out

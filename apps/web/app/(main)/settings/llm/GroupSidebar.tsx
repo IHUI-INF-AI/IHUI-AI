@@ -134,7 +134,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
             placeholder={t('groupPlaceholder')}
-            className="w-full rounded-sm border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-sm border border-input bg-background px-2 py-1 text-label focus:outline-none focus:ring-2 focus:ring-ring"
             ref={(el) => {
               if (el) el.focus()
             }}
@@ -143,7 +143,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
             <Button
               type="submit"
               size="sm"
-              className="h-6 flex-1 text-xs"
+              className="h-6 flex-1 text-label"
               disabled={!newGroupName.trim() || createGroupMut.isPending}
             >
               {createGroupMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : t('add')}
@@ -152,7 +152,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 text-xs"
+              className="h-6 text-label"
               onClick={() => {
                 setShowAddInput(false)
                 setNewGroupName('')
@@ -168,7 +168,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
       <button
         type="button"
         onClick={() => onChange('__all__')}
-        className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
+        className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors ${
           activeGroup === '__all__'
             ? 'bg-primary/10 text-primary'
             : 'text-foreground hover:bg-muted'
@@ -178,7 +178,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
           <ChevronRight className="h-3 w-3" />
           {t('all')}
         </span>
-        <span className="text-xs text-muted-foreground">{stats.get('__all__')?.total ?? 0}</span>
+        <span className="text-label text-muted-foreground">{stats.get('__all__')?.total ?? 0}</span>
       </button>
 
       {/* Ungrouped(占位) */}
@@ -187,7 +187,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
         <button
           type="button"
           onClick={() => onChange('__ungrouped__')}
-          className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
+          className={`flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-body transition-colors ${
             activeGroup === '__ungrouped__'
               ? 'bg-primary/10 text-primary'
               : 'text-foreground hover:bg-muted'
@@ -197,7 +197,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
             <ChevronRight className="h-3 w-3" />
             {t('ungrouped')}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-label text-muted-foreground">
             {groups
               .filter((g) => g.group === 'default' || g.group === '' || g.group === null)
               .reduce((acc, g) => acc + g.providers.length, 0)}
@@ -213,7 +213,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
           return (
             <div
               key={g.group}
-              className={`group flex items-center justify-between gap-1 rounded-md text-sm transition-colors ${
+              className={`group flex items-center justify-between gap-1 rounded-md text-body transition-colors ${
                 activeGroup === g.group
                   ? 'bg-primary/10 text-primary'
                   : 'text-foreground hover:bg-muted'
@@ -228,7 +228,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
                   <ChevronRight className="h-3 w-3 shrink-0" />
                   <TruncatedText value={g.groupLabel} className="max-w-[140px]" />
                 </span>
-                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+                <span className="shrink-0 whitespace-nowrap text-label text-muted-foreground">
                   {s?.enabled ?? 0}/{s?.total ?? 0}
                 </span>
               </button>

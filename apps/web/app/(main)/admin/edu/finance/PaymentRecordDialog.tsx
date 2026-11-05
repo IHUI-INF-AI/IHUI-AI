@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { apiOrThrow } from '@/lib/api'
+import { eduPaymentRecordCreate, eduStudentRoster } from '@ihui/api-client'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   SelectContent,
   SelectItem,
 } from '@ihui/ui-react'
-import { EDU_AI_BASE, PAYMENT_METHODS, EMPTY_PAYMENT_RECORD } from './helpers'
+import { PAYMENT_METHODS, EMPTY_PAYMENT_RECORD } from './helpers'
 import type { PaymentRecordForm, RosterEnrollment } from './types'
 
 interface Props {
@@ -46,10 +46,14 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
   const rosterQuery = useQuery({
     queryKey: ['edu-ai-management', 'student-roster', 'payable'],
     enabled: open,
-    queryFn: () =>
-      apiOrThrow<{ list: RosterEnrollment[]; total: number }>(
-        `${EDU_AI_BASE}/student-roster?page=1&pageSize=100`,
-      ),
+    queryFn: async () => {
+      const r = await eduStudentRoster<{ list: RosterEnrollment[]; total: number }>({
+        page: 1,
+        pageSize: 100,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const roster = rosterQuery.data?.list ?? []
 
@@ -78,17 +82,17 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
     !!form.paymentMethod
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      apiOrThrow(`${EDU_AI_BASE}/payment-record`, {
-        method: 'POST',
-        body: JSON.stringify({
-          enrollmentId: form.enrollmentId,
-          amount: amountInt,
-          paymentDate: form.paymentDate,
-          paymentMethod: form.paymentMethod,
-          remark: form.remark.trim() || undefined,
-        }),
-      }),
+    mutationFn: async () => {
+      const r = await eduPaymentRecordCreate({
+        enrollmentId: form.enrollmentId,
+        amount: amountInt,
+        paymentDate: form.paymentDate,
+        paymentMethod: form.paymentMethod,
+        remark: form.remark.trim() || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('createSuccess'))
       qc.invalidateQueries({ queryKey: ['edu-ai-management'] })
@@ -118,7 +122,7 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
             <DialogTitle>{t('recordTitle')}</DialogTitle>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -146,10 +150,10 @@ export function PaymentRecordDialog({ open, onClose }: Props) {
               </SelectContent>
             </Select>
             {rosterQuery.isLoading && (
-              <p className="text-sm text-muted-foreground">{t('loading')}</p>
+              <p className="text-body text-muted-foreground">{t('loading')}</p>
             )}
             {!rosterQuery.isLoading && roster.length === 0 && (
-              <p className="text-sm text-muted-foreground">{t('emptyRoster')}</p>
+              <p className="text-body text-muted-foreground">{t('emptyRoster')}</p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -14,10 +14,11 @@
  *    proof 步骤扑空)。**存在性判据问 git 的结论而不是解析它的输出**(G-801):`git show --name-only`
  *    的输出文本默认按 core.quotePath 把非 ASCII 路径八进制转写并加引号,拿输出字节当路径身份,
  *    中文/带空格路径必然比不中 ⇒ 已成功的交付被报成"缺路径";该清单只留作"是否混提"的辅助且必须 -c core.quotePath=false;
- *  - ② 逐路径把共享主索引对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
+ *  - ② 逐路径把共享主索引**与工作树**对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
  *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
  *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
- *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
+ *    索引对齐后磁盘仍缺该路径 ⇒ 才 `git checkout HEAD -- <path>` 补最后一格;
+ *    别人真暂存过的一律**不动并点名"归属他人"**(failed ⇒ 退出码 1 / 让路 ⇒ 2,绝不静默)。
  *  - ③ (G-816708,2026-10-05)声明的落地面含 `PROJECT_PLAN.md` 时,CAS 成功后**就地补跑一次守门 71
  *    台账自愈**(`--heal --commit`,与 `.husky/post-commit` 第 6 节同一条命令、同一个器物:
  *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
@@ -41,6 +42,11 @@
  *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
  *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
  *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *  - ⑥ [L33560 最后一格 · 2026-11-01] 落地(CAS)**之前**,对"将要进树的那份内容"跑一次冲突
+ *    标记判据(`lib/conflict-marker-landing-gate.mjs` 唯一实现,union-converge 落地闸同源):
+ *    `must-block` ⇒ 不落地 + 逐条点名(文件/行号/标记原文),exit 1;`strippable`(空区)只建议
+ *    摘除、不拦;取不到正文 ⇒ exit 2。默认开启,应急 `IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`
+ *    (跳过必打留痕;设了它本判据完全失效)。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -57,7 +63,7 @@
  *              ② **互斥**:同一路径不得同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS(自相矛盾);
  *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
  *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
- *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
+ *              他席已暂存的删除路径由 `alignLandingPaths`(内部 `alignSharedIndex`)保护:不动并点名(§12)。
  *  LAND_MSG    必填,提交信息
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
@@ -172,10 +178,27 @@ import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
+// (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
+import {
+  gateLandingMarkers,
+  LANDING_MARKER_SKIP_ENV,
+} from './lib/conflict-marker-landing-gate.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+// G-814414 补格(2026-11-05):台账「授权退休」的形态与身份口径只有一份实现,
+// 消费面(门 299 的台账读取)与本器共用它,不在两处各写一套标记名。
+import {
+  RETIRE_REASON_MIN_CHARS,
+  RETIRED_AT_RE,
+  RETIRED_FROM_SHA_RE,
+  isRetiredRecord,
+  retirementChannelFor,
+  retireIdentityOf,
+  stripRetireMarkers,
+} from './lib/ledger-retirement.mjs'
 
 import {
-  alignSharedIndex,
   casUpdateRef,
   commitTreeWithIndex,
   git,
@@ -188,6 +211,10 @@ import {
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
+// 2026-11-05:CAS 成功之后**索引 + 工作树**一并回写的唯一出口(与 union-converge 装车点同一份判据)。
+// 旧实现只调 alignSharedIndex,于是"索引已对齐、磁盘仍缺"会留下假 `D ` / 编译缺文件;本层在索引
+// 对齐后按"磁盘仍缺才 checkout HEAD -- <path>"补最后一格,判据不在这里另抄第二份。
+import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
 import {
   analyze as staleAncestorAnalysis,
   ancestorCommits,
@@ -564,6 +591,7 @@ export function detectStaleLanding({
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
     let delta = lineDelta(baseText, newText)
+    let retirementAudit = null
     const wholeHit = hitBy.get(p) ?? null
     /**
      * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
@@ -618,11 +646,12 @@ export function detectStaleLanding({
         text: texts.get(`${c}:${p}`) ?? null,
       }))
       const kind = jsonGuardKindFor(p)
-      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors }) : null
+      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors, path: p }) : null
       if (audit && audit.applicable) {
         jsonMode = true
         delta = audit.delta
         line = audit.line
+        retirementAudit = audit.retirement ?? null
         notes.push({
           path: p,
           kind: 'json-keypath-mode',
@@ -680,6 +709,42 @@ export function detectStaleLanding({
         : jsonMode
           ? (line.count ?? 0) > 0 || (delta.vanished ?? 0) > 0
           : line.status === 'judged' && line.count > 0
+    // G-814414 补格(2026-11-05):台账「授权退休」——**不是放宽**,是一条有载体、逐条可核验的收缩。
+    // 退休不成立(只删行/假登记/理由太短/原文对不上)⇒ 照拒;成立 ⇒ 只把退休覆盖的那几条从
+    // 键路径对账里剥掉,其余任何消失仍由上面两颗牙照拦。正常值编辑不进本通道(身份仍在)。
+    if (retirementAudit?.applicable && !retirementAudit.ok) {
+      refuseByLines = true
+      notes.push({
+        path: p,
+        kind: 'retirement-rejected',
+        why:
+          `台账授权退休不成立(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条 / 退休登记 ` +
+          `${retirementAudit.retired} 条 / 有效覆盖 ${retirementAudit.covered} 条 / rewritten=${retirementAudit.rewritten ?? 0} ⇒ 拒绝落地。` +
+          retirementAudit.problems.slice(0, 3).join(' ; '),
+      })
+    } else if (retirementAudit?.applicable && retirementAudit.covered > 0) {
+      notes.push({
+        path: p,
+        kind: 'retirement-accepted',
+        why:
+          `台账授权退休逐条核验通过(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条、` +
+          `退休登记 ${retirementAudit.retired} 条、有效覆盖 ${retirementAudit.covered} 条(双向等值)、` +
+          `rewritten=${retirementAudit.rewritten ?? 0};` +
+          `退休行已从在册条目中剥离,键路径对账只剩在册内容(消失 ${delta.vanished} / 重现 ${delta.appeared})。`,
+      })
+    } else if (retirementAudit?.applicable && (retirementAudit.rewritten ?? 0) > 0) {
+      // ④ 改写档**必须单独报名**:covered=0 时上面两支都不点火,不补这一支就是把"放过了一格"
+      // 写成静默 —— 本仓最高频失效型(§0.3:没判/判过/放行了,报告里必须长得就不一样)。
+      notes.push({
+        path: p,
+        kind: 'retirement-rewrite',
+        why:
+          `台账改写档(窄放行,不是放宽):${retirementAudit.channel} 下 rewritten=${retirementAudit.rewritten} 条 —— ` +
+          `这些条目在落地内容里有同 ${REWRITE_ANCHOR_KEYS.join('+')} 且逐字未变的新行,只是补了键 ⇒ 判为规范化改写,` +
+          `不计入被摘、不需退休登记。改 verdict / 改 evidence / 改或删任何已有键 / 整行删除都不在本档射程,` +
+          `仍须逐条登记 retired 或走人工。明细:${(retirementAudit.rewriteSample ?? []).slice(0, 3).join(' ; ')}`,
+      })
+    }
     // ── 声明式还原通道:白名单逐行配平(2026-10-30)──────────────────────────────
     // 放行条件**全部**成立才免:行级判据 judged(undetermined/out-of-scope 永不免,§0.3)∧
     // 非键路径档 ∧ 整 blob 未命中祖先(A 支另有 LAND_CLASH_SCOPE 出口)∧ lib 里算出的
@@ -1534,19 +1599,343 @@ function compareElementRestore({ evidence, overflow, declared }) {
 }
 
 /**
+ * G-814414 补格(2026-11-05):台账「授权退休」审计 —— **不是放宽判据**,而是给有意收缩
+ * 一个可核验的载体。判据三条:
+ *  ① 每一条被摘条目必须**有且只有一条**退休行(原条目保留 + retiredAt/Reason/By/From/FromSha);
+ *     只删行不写退休 ⇒ 红;文件被清空且无退休 ⇒ 红;多登记一条没被摘的 ⇒ 红(双向等值)。
+ *  ② `retiredFrom` 的规范形必须逐字等于上一版对应条目,`retiredFromSha` 必须是它的 sha256,
+ *     对不上 ⇒ 红(假登记/拿旧版别的行顶账都过不去)。
+ *  ③ retiredReason trim 后 ≥10 码点、retiredAt 是 ISO-8601、retiredBy 非空,缺/短 ⇒ 红。
+ * 值编辑不算摘除(身份仍在,交给原本的键路径/行级内容闸);只有身份消失才进本通道。
+ * 退休行被排除在"在册条数"之外,所以台账 `93 → 90` 与门 299 的「复制 90」账实相符。
+ *
+ * ④ 窄档「改写 ≠ 摘除」(2026-11-05 补格,现场 = 给 `scripts/data/miniapp-mirror-verdicts.jsonl`
+ *   某行**补一个必填键**被读成"摘除一条判定"):① 的身份口径按**整元素规范形**比 —— 该台账行的键集
+ *   落不进 `lib/ledger-retirement.mjs` 的 IDENTITY_GROUPS 任何一组(它要 `shared`+`domain`,而行里是
+ *   `shared`+`verdict`+`evidence`+`at`+`source`),于是退到 `canon:{整条 JSON}`;补一个键就把整条身份
+ *   改掉 ⇒ 旧元素读起来像被摘 ⇒ 拒落。**它分不开「规范化改写」与「真删一条判定」**,④ 只补这一格。
+ *   射程与牙见下方 `REWRITE_ANCHOR_KEYS` / `isLedgerRewrite` 的头注;本档**不削减**①②③ 任何一条。
+ */
+function parseJsonlForRetire(text) {
+  const out = []
+  for (const line of String(text).split('\n')) {
+    const raw = line.trim()
+    if (!raw) continue
+    const value = JSON.parse(raw)
+    out.push({ raw, value, canon: canonOf(value) })
+  }
+  return out
+}
+
+function collectArrayElements(value, path = '$', out = []) {
+  if (Array.isArray(value)) {
+    for (const el of value) {
+      out.push({ value: el, canon: canonOf(el), arrayPath: path })
+      collectArrayElements(el, `${path}[]`, out)
+    }
+    return out
+  }
+  if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) collectArrayElements(v, `${path}.${k}`, out)
+  }
+  return out
+}
+
+/** 深拷贝并摘掉 shouldDrop 命中的数组元素(对象键序保持,判据只看键路径)。 */
+function pruneJsonValue(v, shouldDrop) {
+  if (Array.isArray(v)) {
+    const out = []
+    for (const el of v) if (!shouldDrop(el)) out.push(pruneJsonValue(el, shouldDrop))
+    return out
+  }
+  if (v && typeof v === 'object') {
+    const o = {}
+    for (const [k, val] of Object.entries(v)) o[k] = pruneJsonValue(val, shouldDrop)
+    return o
+  }
+  return v
+}
+
+/**
+ * ④ 窄档「改写 ≠ 摘除」的锚点三字段(2026-11-05 立;判据只住本器这一处,§0.6 不抄第二份):
+ * `shared` = 判的是哪一对(主体)、`verdict` = 判定本身、`evidence` = 判定依据。
+ * 任一锚点缺失 / 非字符串 / 值变了 ⇒ 本档结构上不放行,照旧走 ①②③ 那三颗牙的拒
+ * (§0.10:失效方向恒为"多要一次说明",绝不是"多放一次跳门")。
+ */
+export const REWRITE_ANCHOR_KEYS = ['shared', 'verdict', 'evidence']
+
+/** 锚点分组键:三字段全为**非空字符串**才配得出锚点;元素形态坏 ⇒ null ⇒ 不进本档(取不到不猜)。 */
+function rewriteAnchorOf(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const parts = []
+  for (const k of REWRITE_ANCHOR_KEYS) {
+    const x = v[k]
+    if (typeof x !== 'string' || x === '') return null
+    parts.push(x)
+  }
+  // 用 \u0000 连接:字段值本身含任何标点,也不可能被折成"两对不同行同一锚点"。
+  return parts.join('\u0000')
+}
+
+/**
+ * E(基线里那一行)与 R(落地内容里那一行)构成「改写」而非「摘除」,三条**同时**成立才算:
+ *  ① 三个锚点 `shared`/`verdict`/`evidence` 两边都在且**逐字相同**;
+ *  ② E 里**已有的非锚点键**在 R 里必须都还在且取值不变(用本文件那一条 `canonOf` 尺:键序/缩进是
+ *     序列化形态,值变化不是)—— 改 `route`、改 `at`、改 `source`、改任何业务键的取值,或把已有键删掉,
+ *     都不在本档射程 ⇒ 仍拒;
+ *  ③ R 允许**新增键**(本档要放的正是"给某行补一个必填键"这一型)。
+ * 所以本档能放过的只有一型:判定本身一字未动,只是把那一行的形态补齐。
+ */
+export function isLedgerRewrite(baseValue, nextValue) {
+  const anchor = rewriteAnchorOf(baseValue)
+  if (anchor === null) return false
+  if (rewriteAnchorOf(nextValue) !== anchor) return false
+  for (const k of Object.keys(baseValue)) {
+    if (REWRITE_ANCHOR_KEYS.includes(k)) continue
+    if (!Object.prototype.hasOwnProperty.call(nextValue, k)) return false
+    if (canonOf(baseValue[k]) !== canonOf(nextValue[k])) return false
+  }
+  return true
+}
+
+export function jsonRetirementAudit({ baseText, newText, kind, path }) {
+  const channel = retirementChannelFor(path)
+  if (!channel)
+    return {
+      applicable: false,
+      ok: true,
+      channel: null,
+      reason: '该路径未启用退休通道(只覆盖 scripts/data/*.jsonl 与 web-rn-copy-diffs.json)',
+      problems: [],
+      dropped: 0,
+      retired: 0,
+      covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
+    }
+  let baseItems
+  let nextItems
+  try {
+    if (kind === 'jsonl') {
+      baseItems = parseJsonlForRetire(baseText)
+      nextItems = parseJsonlForRetire(newText)
+    } else {
+      baseItems = collectArrayElements(JSON.parse(baseText))
+      nextItems = collectArrayElements(JSON.parse(newText))
+    }
+  } catch (e) {
+    return {
+      applicable: true,
+      ok: false,
+      channel,
+      problems: [`退休通道解析失败:${String(e?.message ?? e).slice(0, 120)}`],
+      dropped: 0,
+      retired: 0,
+      covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
+    }
+  }
+  const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
+  const activeNext = nextItems.filter((it) => !isRetiredRecord(it.value))
+  // ① 先按身份做多重集匹配(同身份优先配同原文),剩余才是"被摘条目"。
+  const used = new Set()
+  const nextById = new Map()
+  activeNext.forEach((it, i) => {
+    const id = retireIdentityOf(it.value)
+    if (!nextById.has(id)) nextById.set(id, [])
+    nextById.get(id).push(i)
+  })
+  const dropped = []
+  for (const it of baseItems) {
+    const id = retireIdentityOf(it.value)
+    const pool = nextById.get(id) ?? []
+    let pick = pool.find((i) => !used.has(i) && activeNext[i].canon === it.canon)
+    if (pick === undefined) pick = pool.find((i) => !used.has(i))
+    if (pick === undefined) dropped.push({ ...it, id, __covered: false })
+    else used.add(pick)
+  }
+  const problems = []
+  /**
+   * ④ 窄档「改写 ≠ 摘除」(2026-11-05 立):上面那轮按**整元素规范形**比身份,补一个键就把身份改掉,
+   * 于是"规范化改写"被读成"摘除一条判定"。这里只补那一格 —— 三锚点(`shared`+`verdict`+`evidence`)
+   * 逐字未变、且只是**补键**(非锚点的已有键一个不许变、一个不许删)才算改写,不计入被摘。
+   * 配不上的照旧留在 dropped 里走 ①②③;锚点变了但主体还在 ⇒ 额外点名"这是改判定,须退休登记"。
+   * 消费纪律:只有 ① 那轮**没配走**的落地行才能进本档的候选池,且一条改写配掉一行(不许一鱼两吃)。
+   */
+  let rewritten = 0
+  const rewriteSample = []
+  if (dropped.length > 0) {
+    const pool = new Map()
+    activeNext.forEach((it, i) => {
+      if (used.has(i)) return
+      const a = rewriteAnchorOf(it.value)
+      if (a === null) return
+      if (!pool.has(a)) pool.set(a, [])
+      pool.get(a).push(i)
+    })
+    const still = []
+    for (const d of dropped) {
+      const anchor = rewriteAnchorOf(d.value)
+      let pick
+      if (anchor !== null) {
+        for (const i of pool.get(anchor) ?? []) {
+          if (used.has(i)) continue
+          if (isLedgerRewrite(d.value, activeNext[i].value)) {
+            pick = i
+            break
+          }
+        }
+      }
+      if (pick === undefined) {
+        // 同主体(同 `shared`)在落地内容里仍有活行,却配不成改写 ⇒ verdict/evidence 变了,或已有键被动过。
+        const s = d.value && typeof d.value === 'object' && typeof d.value.shared === 'string' ? d.value.shared : null
+        d.__sameSubject =
+          s !== null &&
+          activeNext.some((it, i) => !used.has(i) && it.value && typeof it.value === 'object' && it.value.shared === s)
+        still.push(d)
+        continue
+      }
+      used.add(pick)
+      rewritten++
+      if (rewriteSample.length < SAMPLE_LINES) {
+        const added = Object.keys(activeNext[pick].value).filter((k) => !Object.prototype.hasOwnProperty.call(d.value, k))
+        rewriteSample.push(`${String(d.value.shared).slice(0, 70)} ⇒ 补键[${added.join(',') || '—'}]`)
+      }
+    }
+    dropped.length = 0
+    dropped.push(...still)
+  }
+  const coveredCounters = new Map()
+  let covered = 0
+  const overDeclared = []
+  for (const it of retiredItems) {
+    const v = it.value
+    const where = `退休行 ${(v.retiredFrom ?? '').slice(0, 80) || '(无 retiredFrom)'}`
+    if (typeof v.retiredAt !== 'string' || !RETIRED_AT_RE.test(v.retiredAt) || Number.isNaN(Date.parse(v.retiredAt)))
+      problems.push(`${where}:retiredAt 不是 ISO-8601 时刻(${String(v.retiredAt).slice(0, 40)})`)
+    if (typeof v.retiredReason !== 'string' || [...v.retiredReason.trim()].length < RETIRE_REASON_MIN_CHARS)
+      problems.push(`${where}:retiredReason 至少 ${RETIRE_REASON_MIN_CHARS} 字(实得 ${typeof v.retiredReason === 'string' ? [...v.retiredReason.trim()].length : '非字符串'})`)
+    if (typeof v.retiredBy !== 'string' || !v.retiredBy.trim()) problems.push(`${where}:retiredBy 为空`)
+    if (typeof v.retiredFrom !== 'string') problems.push(`${where}:retiredFrom 缺失(必须是上一版原文的规范 JSON)`)
+    let fromCanon = null
+    if (typeof v.retiredFrom === 'string') {
+      try {
+        fromCanon = canonOf(JSON.parse(v.retiredFrom))
+      } catch {
+        problems.push(`${where}:retiredFrom 不是可解析 JSON`)
+      }
+    }
+    const stripped = stripRetireMarkers(v)
+    const strippedCanon = canonOf(stripped)
+    if (fromCanon !== null && fromCanon !== strippedCanon)
+      problems.push(`${where}:retiredFrom 与退休行原文对不上(剥标记后规范化不等)`)
+    if (typeof v.retiredFromSha !== 'string' || !RETIRED_FROM_SHA_RE.test(v.retiredFromSha))
+      problems.push(`${where}:retiredFromSha 必须是 64 位小写十六进制`)
+    else {
+      const want = createHash('sha256').update(fromCanon ?? strippedCanon, 'utf8').digest('hex')
+      if (v.retiredFromSha !== want)
+        problems.push(`${where}:retiredFromSha 与上一版原文不一致(声明 ${v.retiredFromSha.slice(0, 12)}… 实算 ${want.slice(0, 12)}…)`)
+    }
+    const id = retireIdentityOf(stripped)
+    const hit = dropped.find((d) => !d.__covered && d.id === id && d.canon === strippedCanon)
+    if (!hit) {
+      overDeclared.push(id)
+      problems.push(`${where}:上一版找不到对应的被摘条目(身份 ${id.slice(0, 80)})⇒ 假登记/多登记`)
+    } else {
+      hit.__covered = true
+      covered++
+      coveredCounters.set(strippedCanon, (coveredCounters.get(strippedCanon) ?? 0) + 1)
+    }
+  }
+  const uncovered = dropped.filter((d) => !d.__covered)
+  const sameSubjectDrift = uncovered.filter((d) => d.__sameSubject).length
+  if (sameSubjectDrift > 0)
+    problems.push(
+      `${sameSubjectDrift} 条条目在落地内容里有**同 shared 的新行但判定已变**(verdict 或 evidence 逐字不同,` +
+        `或已有键被改/被删)⇒ 这是改判定,不是改写:必须逐条登记 retired(retiredFrom/retiredFromSha 可核验)或走人工`,
+    )
+  if (uncovered.length)
+    problems.push(
+      `${uncovered.length} 条条目被摘除但未登记 retired(身份:${uncovered
+        .slice(0, 3)
+        .map((d) => d.id.slice(0, 80))
+        .join(' ; ')})⇒ 这是丢,不是退休`,
+    )
+  const ok = problems.length === 0
+  // ② 合法退休后,把被摘条目从基线、把退休行从落地内容里剥掉再做键路径对账 ——
+  //    "退休"与"丢失"从此在数据上分得开:只减退休覆盖的那几条,其余任何消失照旧红。
+  let filteredBaseText = baseText
+  let filteredNextText = newText
+  if (ok && covered > 0) {
+    if (kind === 'jsonl') {
+      const left = new Map(coveredCounters)
+      filteredBaseText =
+        baseItems
+          .filter((it) => {
+            const c = left.get(it.canon) ?? 0
+            if (c <= 0) return true
+            left.set(it.canon, c - 1)
+            return false
+          })
+          .map((it) => it.raw)
+          .join('\n') + '\n'
+      filteredNextText = activeNext.map((it) => it.raw).join('\n') + '\n'
+    } else {
+      const left = new Map(coveredCounters)
+      const prunedBase = pruneJsonValue(JSON.parse(baseText), (el) => {
+        const c = left.get(canonOf(el)) ?? 0
+        if (c <= 0) return false
+        left.set(canonOf(el), c - 1)
+        return true
+      })
+      const prunedNext = pruneJsonValue(JSON.parse(newText), (el) => isRetiredRecord(el))
+      filteredBaseText = JSON.stringify(prunedBase)
+      filteredNextText = JSON.stringify(prunedNext)
+    }
+  }
+  return {
+    applicable: true,
+    ok,
+    channel,
+    problems,
+    dropped: dropped.length,
+    retired: retiredItems.length,
+    covered,
+    overDeclared: overDeclared.length,
+    // ④ 窄档读数:改写条数 + 逐条补了什么键 + 有多少条是"同主体但判定变了"(只点名,不放行)。
+    rewritten,
+    rewriteSample,
+    sameSubjectDrift,
+    filteredBaseText,
+    filteredNextText,
+  }
+}
+
+/**
  * 档位总入口:`.json`/`.jsonl` 后缀路径的键路径对账。两侧任一解析不了 ⇒ applicable:false
  * (调用方退回原行级判据并逐条报名);适用 ⇒ 结构化 delta(丢/重现,票面第一格)+
  * 键路径复活判定(票面第二格)。祖先取正文失败(text 为 null)与解析失败同待遇:提供不了证据。
+ * `path` 只为「授权退休」通道而传:只有台账族路径启用,其余路径行为与改前逐字节一致。
  */
-export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
+export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [], path = null }) {
   if (kind !== 'json' && kind !== 'jsonl')
     return { applicable: false, reason: '档位不是 .json/.jsonl ⇒ 走原行级判据' }
   if (typeof baseText !== 'string' || typeof newText !== 'string')
     return { applicable: false, reason: '有一侧正文取不到 ⇒ 不启用键路径档' }
-  const base = jsonKeyPathFingerprint(baseText, kind)
-  if (!base.ok) return { applicable: false, reason: `基线${base.reason} ⇒ 走原行级判据` }
-  const next = jsonKeyPathFingerprint(newText, kind)
-  if (!next.ok) return { applicable: false, reason: `落地内容${next.reason} ⇒ 走原行级判据` }
+  const rawBase = jsonKeyPathFingerprint(baseText, kind)
+  if (!rawBase.ok) return { applicable: false, reason: `基线${rawBase.reason} ⇒ 走原行级判据` }
+  const rawNext = jsonKeyPathFingerprint(newText, kind)
+  if (!rawNext.ok) return { applicable: false, reason: `落地内容${rawNext.reason} ⇒ 走原行级判据` }
+  const retirement = jsonRetirementAudit({ baseText, newText, kind, path })
+  const base = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredBaseText, kind)
+    : rawBase
+  const next = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredNextText, kind)
+    : rawNext
+  if (!base.ok || !next.ok)
+    return { applicable: false, reason: '退休过滤后的内容不可解析 ⇒ 走原行级判据' }
   const delta = jsonKeyPathDelta(base, next)
   const line = jsonKeyPathResurrect({
     base,
@@ -1557,7 +1946,7 @@ export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
     })),
   })
   // 计数口径跟着档位走:报告层据此前置"键路径口径"而不是"证据行门槛"(unit 缺省 = 行)。
-  return { applicable: true, delta, line: { ...line, unit: 'key-path' } }
+  return { applicable: true, delta, line: { ...line, unit: 'key-path' }, retirement }
 }
 
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
@@ -2832,11 +3221,16 @@ async function main() {
       console.log(
         `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
       )
-    } else if (newPaths.length > 0) {
-      const preflight = watermarkPreflight({ root, paths: newPaths, blobs: mine })
+    } else if (paths.length > 0) {
+      // 2026-11-03 收紧:上一版 blob 模式只预检 `newPaths`,既有路径仅靠下面的 blobBannerPreserved
+      // (只认可见横幅在不在,不解载荷)。事故 0335facba1 正是**既有文件** agent-chat-stream.ts 的
+      // 零宽载荷被写坏(461 vs 485 码元)而横幅完好 —— 横幅闸绿灯,坏 blob 直接进 HEAD。
+      // 现在把本次落地的**全部路径**(新建 + 既有)都过同一支 verify(判据本体仍只在 watermark.mjs):
+      // 新建路径已由 injectNewPathBlobs 按同一构造注入,既有路径缺/坏载荷 ⇒ 拒落并点名。
+      const preflight = watermarkPreflight({ root, paths, blobs: mine })
       if (!preflight.ok) refusePreflight(preflight)
       console.log(
-        `✅ 水印预检通过(新建路径 ${newPaths.length}/${newPaths.length};判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
+        `✅ 水印预检通过(新建 ${newPaths.length} + 既有 ${paths.length - newPaths.length} = ${paths.length} 路径;判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
       )
     }
   } else if (skipWatermark) {
@@ -2845,6 +3239,79 @@ async function main() {
     // 读报告的人会以为有人绕过了守卫(而这类"账面声称的出路"正是本仓记过多次的失效型)。
     console.log('⚠️ IHUI_LAND_SKIP_WATERMARK=1 ⇒ 本次跳过水印预检(该行输出即留痕)')
   }
+  /**
+   * ── L33560 最后一格(2026-11-01 S-OSL):**落地前**的冲突标记闸 ──────────────────────
+   *
+   * 判据本体不在本文件:`lib/conflict-marker-landing-gate.mjs` 是唯一实现(§22c),本器只提供
+   * 取材面 —— `mine` 里那份**已经 hash 进对象库、正是 commitTreeWithIndex 要写进树的 oid**
+   * (与上面水印预检同一份字节,不再从盘上重读一次:两次读之间别人改盘 = 给未验证的字节发通行证)。
+   *
+   * 位置:水印预检之后、CAS 循环之前。拒落时对象库只多几枚**未被引用**的 blob(它们在本器
+   * 落地前就被 hash-object 造出来了),ref / 索引 / commit 面一个都没动 —— 与悬空引用预检、
+   * 门 98/231 的"拒落不留 commit 对象"同一语义。
+   *
+   * 分档(判据口径全在 lib 头注,这里不重述):
+   *   · `must-block`(任一侧有真内容)⇒ 不落地 + 逐条点名(文件 + 行号区间 + 标记原文),exit 1
+   *     —— 与 union-converge 的 bad 同档,沿用本文件既有退出码表里的"业务拒绝";
+   *   · `strippable`(区域内两侧零正文)⇒ **不拦**,只打一行"建议摘除";
+   *   · 取不到正文 ⇒ exit 2(未判定 ≠ 通过,§0.3)。
+   *
+   * 逃生口:`IHUI_LAND_SKIP_CONFLICT_MARKER_GATE=1`(与 `IHUI_LAND_SKIP_AFFECTED_GATES`
+   * 同族命名),由 lib 自己读并**必打一行留痕**。⚠️ 设了它,本判据完全失效:旁路落地可以
+   * 再次把冲突标记三行带进 HEAD。别名 `IHUI_OSL_SKIP_CONFLICT_MARKER_GATE=1` 只做转发
+   * (本器历史命名习惯),不构成第二个开关。
+   */
+  const OSL_CONFLICT_SKIP_ALIAS = 'IHUI_OSL_SKIP_CONFLICT_MARKER_GATE'
+  {
+    const gateEnv = { ...process.env }
+    if (gateEnv[OSL_CONFLICT_SKIP_ALIAS] === '1' && gateEnv[LANDING_MARKER_SKIP_ENV] !== '1') {
+      console.log(
+        `ℹ️ ${OSL_CONFLICT_SKIP_ALIAS}=1 视同 ${LANDING_MARKER_SKIP_ENV}=1(别名只转发到唯一判据的逃生口,不另立开关)`,
+      )
+      gateEnv[LANDING_MARKER_SKIP_ENV] = '1'
+    }
+    const gateEntries = paths.map((p) => {
+      const oid = mine.get(p)
+      if (!isOidLike(oid)) return { path: p, text: null }
+      const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+      return { path: p, text: text === null ? null : text }
+    })
+    const cgate = gateLandingMarkers(gateEntries, {
+      env: gateEnv,
+      log: (s) => console.log(s),
+    })
+    for (const a of cgate.advices) console.log(`⚠️ ${a}`)
+    if (cgate.violations.length > 0) {
+      console.error(
+        `❌ 落地内容里存在冲突标记区(${cgate.violations.length} 处)⇒ 拒绝落地(未创建 commit、HEAD 与主索引均未动):`,
+      )
+      for (const v of cgate.violations) console.error(`   ${v}`)
+      console.error(
+        '   为什么拦:这一档是"任一侧有真内容"—— 落地等于把 git 写给机器看的分界行当正文带进 HEAD,' +
+          '或逼人二选一而静默丢一侧。请先在内容里把冲突真正解掉再来。',
+      )
+      console.error(
+        `   应急跳过 ${LANDING_MARKER_SKIP_ENV}=1(该变量会让本判据完全失效,仅限确证无害时用,跳过会打留痕)`,
+      )
+      process.exit(1)
+    }
+    if (cgate.undetermined.length > 0) {
+      console.error(
+        `❌ 落地前冲突标记自检未能判定(${cgate.undetermined.length} 路径):取不到正文 ≠ 干净`,
+      )
+      for (const u of cgate.undetermined) console.error(`   ${u}`)
+      console.error('   方向:修好取材(blob 是否真在对象库)再跑,不得按"通过"重跑(§0.3)。')
+      process.exit(2)
+    }
+    // skipped 的留痕行由 lib 自己打(log 回调直通 stdout),这里不再复写第二遍。
+    if (!cgate.skipped) {
+      console.log(
+        `✅ 落地前冲突标记自检:${cgate.judged}/${paths.length} 路径无 must-block 区` +
+          `${cgate.advices.length ? `(另有 ${cgate.advices.length} 处空冲突区:只建议摘除,不拦)` : ''}`,
+      )
+    }
+  }
+
   // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
   // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
   let lastMadeCommit = ''
@@ -3146,31 +3613,42 @@ async function main() {
    */
   uiRoutesFreshnessNotice({ root, paths })
 
-  // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
-  //    删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉(否则 `git status` 显一条
-  //    `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件加回 HEAD —— 本仓 2026-09-27/28
-  //    连复活四次的孤儿组件正是这一型),且他席真暂存过的一律不动并点名(§12)。
-  const align = alignSharedIndex({ root, paths: paths.concat(removePaths), parentRef: parentSha })
-  if (align.lockAbandoned) {
+  // ② 共享主索引 + 工作树对齐(判据在 lib,只有一份):CAS 只推进 ref,**不碰主索引、不碰工作树**;
+  //    落地器若只对齐索引,新 HEAD 里的新增路径会留下「索引有、磁盘无」或假 `D `(下一次普通提交
+  //    就固化成删除)。删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉,且他席真暂存
+  //    过的一律不动并点名(§12)。失败/让路逐条打印并**影响退出码**,不静默:
+  //      failed / lockAbandoned / alignFailed ⇒ 1(落地已在 HEAD,但回写没做完)
+  //      undetermined / skipped(归属他人)⇒ 2(未判定/让路,不冒充完成)
+  const landingAlign = alignLandingPaths({
+    root,
+    paths: paths.concat(removePaths),
+    parentRef: parentSha,
+  })
+  console.log(
+    `✅ 主索引 + 工作树已对齐 ${landingAlign.aligned.length}/${paths.concat(removePaths).length} 路径(索引 ${landingAlign.aligned.length} / checkout ${landingAlign.checkedOut.length})`,
+  )
+  for (const f of landingAlign.failed) console.error(`❌ 落地回写失败:${f.path} —— ${f.reason}`)
+  for (const s of landingAlign.skipped) console.log(`⚠️ 落地回写未动(归属他人):${s.path} —— ${s.reason}`)
+  for (const u of landingAlign.undetermined) console.log(`⚠️ 落地回写未判定:${u.path} —— ${u.reason}`)
+  if (landingAlign.lockAbandoned) {
     console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后单跑索引对齐')
     process.exit(1)
   }
-  if (align.failed) {
-    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
+  if (landingAlign.alignFailed) {
+    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):HEAD 已推进 ${landed.slice(0, 11)}`)
     process.exit(1)
   }
-  console.log(
-    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
-  )
-  if (align.skipped.length > 0) {
-    console.log(
-      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+  if (landingAlign.failed.length > 0) {
+    console.error(
+      `❌ 落地回写未完成(${landingAlign.failed.length} 路径)⇒ HEAD 已推进 ${landed.slice(0, 11)},但索引/工作树没有全部对上`,
     )
+    process.exit(1)
   }
-  if (align.undetermined.length > 0) {
-    console.log(
-      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+  if (landingAlign.undetermined.length > 0 || landingAlign.skipped.length > 0) {
+    console.error(
+      `❌ 落地回写未判定/让路(${landingAlign.undetermined.length} 未判定 / ${landingAlign.skipped.length} 归属他人)⇒ HEAD 已推进 ${landed.slice(0, 11)},这些路径的索引/磁盘状态不记绿`,
     )
+    process.exit(2)
   }
 
   /**
@@ -3654,8 +4132,48 @@ async function runSelfTest() {
   return bad === 0 ? 0 : 1
 }
 
+/**
+ * 用法面(S-HELPRC 2026-11-01 立;口径 = L33582 / RP-79 残余的裁决,见
+ * `.ihui-agent/seats/S-HELPRC.md`)。
+ *
+ * 病:本器此前**根本没有 `--help` 处理**(头注只写了"CLI 契约(env 驱动,无参数)")。
+ * 于是 `node scripts/object-space-land.mjs --help` 这个 token 谁都不认,一路落进
+ * `parseArgs` 的"缺 LAND_PATHS"出口 —— 用户**主动要帮助**,拿到的是"你少给了必填项" exit 2。
+ * 同族另两器(git-sync-converge / union-converge)已是"打印用法 + rc=0",三器口径相反,
+ * 且"哪些 token 被认识"在本器上不可说 = 与 `git-sync-converge` 2026-10-30 踩过的
+ * "未知旗静默落进默认档"同一族(那次的后果是真跑了索引层收敛)。
+ *
+ * 裁决口径(与 POSIX/GNU 惯例及同族一致):
+ *   · `--help` / `-h` = 用户主动请求帮助 = **成功** ⇒ 打印用法 + rc=0;
+ *   · 未知旗标 / 缺必填 env / 互斥声明 = **用法错** ⇒ rc=2。
+ * 本器 env 契约下 token 不进场,未知 token 仍由 parseArgs 的缺清单出口 exit 2 —— **不动**
+ * (它不点名该 token,这一格登记为残留,见 seat 文件,不在本处顺手扩权)。
+ *
+ * 位置:排在 `isDirectRun` 的最前面,先于 `--self-test` 与 `main()` —— help 必须在
+ * **任何会动索引/refs 的动作之前**退出(零副作用是这条口径能被测的前提)。
+ */
+const USAGE = [
+  '用法: LAND_PATHS="<a.ts;b.ts>" LAND_MSG="<提交信息>" node scripts/object-space-land.mjs',
+  '      # CLI 契约是 env 驱动、无位置参数;每个 env 的含义:',
+  '  LAND_PATHS          必填(与 LAND_REMOVE_PATHS 至少给一边),";" 分隔的仓库相对路径',
+  '  LAND_REMOVE_PATHS   可选,要从结果树里摘掉(取消跟踪)的同一形清单;与 LAND_PATHS 不得有交集',
+  '  LAND_MSG            提交信息(只写能被回读证明的东西)',
+  '  LAND_BASE_REF       基线 ref(缺省 HEAD)',
+  '  LAND_BLOBS          内容清单 JSON 路径(给了就不读工作树,用于"同文件里有他人在飞改动")',
+  '  LAND_ROOT           仓库根(缺省本仓)',
+  '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
+  '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
+  '退出码: 0 正常/用法打印 · 1 判据红(自证不过) · 2 用法或环境错(空清单/空消息/路径不在盘上/根不可当仓库问)',
+]
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
+  // help 排在**第一位**:它不该被 env 契约(缺 LAND_PATHS 即拒 exit 2)挡成"用法错",
+  // 也不该排到 --self-test 之后 —— 用户要的是用法,不是自证。
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log(USAGE.join('\n'))
+    process.exit(0)
+  }
   // --self-test 先于 main:它是器物自证入口,不该被 env 契约(缺 LAND_PATHS 即拒)挡住
   if (process.argv.includes('--self-test')) {
     runSelfTest()
@@ -3685,6 +4203,11 @@ export const __test__ = {
   jsonStructuralSuperset,
   jsonGuardKindFor,
   jsonKeyPathAudit,
+  jsonRetirementAudit,
+  retirementChannelFor,
+  // ④ 窄档「改写 ≠ 摘除」:镜像测试按 §22c 直接 import 这两个出口,不在测试里另抄一份锚点表。
+  REWRITE_ANCHOR_KEYS,
+  isLedgerRewrite,
   staleReport,
   commitFacePresence,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)

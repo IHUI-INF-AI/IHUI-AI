@@ -275,7 +275,7 @@ export default function RelayKeysPage() {
             <Key className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <AuthGatePrompt message={t('needLogin')} />
       </div>
@@ -291,7 +291,7 @@ export default function RelayKeysPage() {
             <Key className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -308,7 +308,7 @@ export default function RelayKeysPage() {
             {td('loading')}
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{td('noData')}</p>
+          <p className="py-8 text-center text-body text-muted-foreground">{td('noData')}</p>
         ) : (
           <div className="space-y-2 p-3">
             {list.map((k) => {
@@ -332,20 +332,20 @@ export default function RelayKeysPage() {
                             ? t('statusActive')
                             : td('capabilities.keyRevoked')}
                         </span>
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                           {k.rateLimit}/min
                         </span>
                         {k.permissions.map((p) => (
                           <span
                             key={p}
-                            className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            className="rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                           >
                             {p}
                           </span>
                         ))}
                       </div>
                       <div className="mt-1 flex items-center gap-2">
-                        <code className="text-xs text-muted-foreground">
+                        <code className="text-label text-muted-foreground">
                           {visible[k.id] ? k.key : maskKey(k.key)}
                         </code>
                         <button
@@ -367,7 +367,7 @@ export default function RelayKeysPage() {
                           <Copy className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-label text-muted-foreground">
                         <span>
                           {t('tokenBalance')}
                           <span
@@ -403,7 +403,7 @@ export default function RelayKeysPage() {
                           </span>
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <p className="mt-1 text-label text-muted-foreground">
                         {t('createdOn', { time: dateFmt.format(new Date(k.createdAt)) })}
                         {k.lastUsedAt && (
                           <>
@@ -512,7 +512,7 @@ export default function RelayKeysPage() {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label className="text-sm">{t('keyNameLabel')}</Label>
+              <Label className="text-body">{t('keyNameLabel')}</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -520,7 +520,7 @@ export default function RelayKeysPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">{t('scopesLabel')}</Label>
+              <Label className="text-body">{t('scopesLabel')}</Label>
               <div className="flex flex-wrap gap-2">
                 {SCOPES.map((s) => (
                   <button
@@ -528,7 +528,7 @@ export default function RelayKeysPage() {
                     type="button"
                     onClick={() => toggleScope(s.value)}
                     className={cn(
-                      'rounded-sm border px-2.5 py-1 text-xs transition-colors',
+                      'rounded-sm border px-2.5 py-1 text-label transition-colors',
                       scopes.includes(s.value)
                         ? 'border-brand-accent-deep bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-accent',
@@ -538,7 +538,7 @@ export default function RelayKeysPage() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('scopesHint', { chat: t('scopeChat'), models: t('scopeModels') })}
               </p>
             </div>
@@ -569,9 +569,9 @@ export default function RelayKeysPage() {
           <div className="space-y-3 py-2">
             <Alert variant="warning" title={t('saveSecretNow')} description={t('secretOnceHint')} />
             <div className="space-y-1">
-              <Label className="text-sm">{t('keyIdLabel')}</Label>
+              <Label className="text-body">{t('keyIdLabel')}</Label>
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-label">
                   {created?.apiKey.key}
                 </code>
                 <Button
@@ -584,9 +584,9 @@ export default function RelayKeysPage() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">Secret</Label>
+              <Label className="text-body">Secret</Label>
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-label">
                   {created ? (secretVisible ? created.secret : maskKey(created.secret)) : ''}
                 </code>
                 <button
@@ -610,7 +610,7 @@ export default function RelayKeysPage() {
               </div>
             </div>
             {/* 2026-09-13 实测闭环补注:网关鉴权 Bearer 用 Key 标识(ihui_ 开头),sk_ Secret 仅用于 X-Api-Secret 辅助校验——不注明用户拿 sk_ 调用会 401 */}
-            <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            <p className="rounded-md bg-muted px-3 py-2 text-label text-muted-foreground">
               {t('gatewayHintA')}
               <code className="mx-1 rounded bg-background px-1 py-0.5">
                 Authorization: Bearer &lt;{t('keyIdLabel')}&gt;
@@ -636,7 +636,7 @@ export default function RelayKeysPage() {
               <DialogTitle>{t('rechargeTitle', { name: rechargeTarget.name })}</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <div className="text-sm text-muted-foreground">
+              <div className="text-body text-muted-foreground">
                 {t('walletBalance')}:
                 <span className="ml-1 font-medium text-foreground">
                   {walletBalance === null ? '...' : money.format(walletBalance / 100)}
@@ -652,7 +652,7 @@ export default function RelayKeysPage() {
                   onChange={(e) => setRechargeAmount(e.target.value)}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{t('rechargeHint')}</p>
+              <p className="text-label text-muted-foreground">{t('rechargeHint')}</p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setRechargeTarget(null)}>

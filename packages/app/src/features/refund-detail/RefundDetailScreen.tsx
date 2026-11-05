@@ -10,6 +10,7 @@ import type { RefundDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /**
  * 退款详情共享屏 — 平台无关渲染层。
  *
@@ -26,8 +27,9 @@ export function RefundDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
-}: RefundDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: RefundDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +47,7 @@ export function RefundDetailScreen({
         {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
         <ErrorState
           message={error || t('refundDetail.empty')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />
@@ -91,25 +93,25 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    body: { padding: 14 },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    body: { padding: rnSpacing['md-loose'] },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 10,
+      paddingVertical: rnSpacing['sm-loose'],
     },
-    label: { fontSize: 14, color: tk.text.secondary },
+    label: { fontSize: rnType.body.size, color: tk.text.secondary },
     value: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       fontWeight: '500',
       flexShrink: 1,
-      marginLeft: 12,
+      marginLeft: rnSpacing.md,
       textAlign: 'right',
     },
     valueSuccess: { color: tk.success.DEFAULT },

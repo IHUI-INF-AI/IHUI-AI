@@ -47,7 +47,7 @@
 
 .topic-detail-desc {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 36rpx;
 }
@@ -62,8 +62,8 @@
 .topic-detail-follow-btn {
   flex-shrink: 0;
   margin: 0;
-  padding: var(--spacing-xs-loose) 32rpx;
-  font-size: 26rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-lg);
+  font-size: var(--text-body-sm);
   font-weight: 600;
   line-height: 1.4;
   color: var(--color-cta-foreground);
@@ -91,7 +91,7 @@
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   background: var(--color-card);
 }
 
@@ -102,7 +102,7 @@
 
 .topic-detail-publish-text {
   flex: 1;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -111,14 +111,14 @@
 
 .topic-detail-publish-btn {
   flex-shrink: 0;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   font-weight: 600;
   color: var(--color-primary);
 }
 
 /* ===== 帖子列表(RN listContent: padding24/pb40/gap16) ===== */
 .topic-detail-list {
-  padding: var(--spacing-md) 24rpx 40rpx;
+  padding: var(--spacing-md) var(--spacing-md) var(--spacing-xl);
 }
 
 /* 帖子卡(RN post: gap12/padding24/radius16 白底) */
@@ -155,7 +155,7 @@
 }
 
 .topic-detail-author {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
 }
@@ -181,7 +181,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   overflow: hidden;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 38rpx;
 }
@@ -247,7 +247,7 @@
   justify-content: center;
   padding: 120rpx 0;
   color: var(--color-text-tertiary);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 
 /* 加载更多/没有更多(RN footer: py24 居中) */
@@ -257,6 +257,6 @@
   justify-content: center;
   padding: var(--spacing-md) 0;
   color: var(--color-text-tertiary);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -86,7 +86,7 @@ export default function AdminSearchHotWordsPage() {
           value={newWord}
           onChange={(e) => setNewWord(e.target.value)}
           placeholder={t('wordPlaceholder')}
-          className="h-9 flex-1 max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="h-9 flex-1 max-w-xs rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <button
           type="submit"
@@ -98,8 +98,8 @@ export default function AdminSearchHotWordsPage() {
       </form>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className={th}>{t('colWord')}</th>
               <th className={th}>{t('colSearchCount')}</th>

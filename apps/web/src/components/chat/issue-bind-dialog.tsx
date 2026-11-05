@@ -120,7 +120,7 @@ function LinkedIssueStripInner({ conversationId }: { conversationId: string | nu
   return (
     <div
       data-testid="task-monitor-linked-issue"
-      className="flex items-center gap-1.5 px-3 pb-1.5 text-xs text-muted-foreground"
+      className="flex items-center gap-1.5 px-3 pb-1.5 text-label text-muted-foreground"
     >
       <span className="shrink-0 font-medium text-foreground/80">{t('issueBinding')}</span>
       <a
@@ -226,15 +226,15 @@ export function IssueBindDialog({
   if (submitted !== null && search.isSuccess) {
     if (!search.data.configured) {
       emptyState = (
-        <div className="px-2 py-3 text-xs text-muted-foreground">{t('issueNotConfigured')}</div>
+        <div className="px-2 py-3 text-label text-muted-foreground">{t('issueNotConfigured')}</div>
       )
     } else if (items.length === 0) {
       emptyState = (
-        <div className="px-2 py-3 text-xs text-muted-foreground">{t('noMatchingIssues')}</div>
+        <div className="px-2 py-3 text-label text-muted-foreground">{t('noMatchingIssues')}</div>
       )
     }
   } else if (submitted === null) {
-    emptyState = <div className="px-2 py-3 text-xs text-muted-foreground">{t('noIssues')}</div>
+    emptyState = <div className="px-2 py-3 text-label text-muted-foreground">{t('noIssues')}</div>
   }
 
   return (
@@ -249,7 +249,7 @@ export function IssueBindDialog({
         {current && (
           <div
             data-testid="issue-bind-current"
-            className="flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1.5 text-xs"
+            className="flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1.5 text-label"
           >
             <Link2 className="h-3 w-3 shrink-0 text-primary" aria-hidden />
             <a
@@ -288,7 +288,7 @@ export function IssueBindDialog({
                 onClick={() => setProvider(p)}
                 data-testid={`issue-provider-${p}`}
                 className={cn(
-                  'rounded-sm px-2 py-1 text-xs transition-colors',
+                  'rounded-sm px-2 py-1 text-label transition-colors',
                   provider === p
                     ? 'bg-primary/10 font-medium text-primary'
                     : 'text-muted-foreground hover:bg-muted',
@@ -334,7 +334,7 @@ export function IssueBindDialog({
               onClick={() => bindMutation.mutate(item)}
               disabled={bindMutation.isPending}
               data-testid={`issue-search-item-${item.id}`}
-              className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+              className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-label transition-colors hover:bg-muted"
             >
               <span className="shrink-0 rounded-sm bg-muted px-1 text-[10px] uppercase leading-4 text-muted-foreground">
                 {item.provider}

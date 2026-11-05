@@ -54,7 +54,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1">
                     <p className="text-body font-medium">{t(item.titleKey)}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                    <p className="mt-0.5 text-label text-muted-foreground">{t(item.descKey)}</p>
                   </div>
                 </CardContent>
               </Card>

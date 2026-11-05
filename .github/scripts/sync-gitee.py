@@ -7,6 +7,12 @@
 """release-desktop 的 Gitee 同步 job(2026-09-17 立):
 1. 从 GitHub release(desktop-v*) 下载全平台安装包/更新签名
 2. 找/建 Gitee 同名 release 并逐资产上传(同名跳过,幂等)
+   ⚠️ 2026-11-04 修(0.1.77 实测 400「创建标签失败:desktop-v0.1.77」的根因):
+   Gitee v5 **没有**建 tag 的 API(POST /git/tags = 405,GET /git/refs* = 404,
+   2026-11-04 匿名实测)。POST /releases 在 tag 不存在时会走 Gitee 内部建 tag 腿,
+   必 400。故发布前必须先用 **git push 推 refs/tags/<tag>**(见 ensure_gitee_tag),
+   且 tag 只能指向 Gitee 侧已有的快照 main 提交 —— 指向 GitHub 真实发版提交会把
+   全历史一起推上去(超 1024MB 配额),这正是 2026-10-23 下线历史镜像的原因。
 3. 生成 latest.json(url 指向 Gitee 直链,国内下载快),上传到本 release 作附件存档。
    ⚠️ 2026-10-18 更正:旧句"更新 desktop-feed 分支 → 更新器第一端点
    https://gitee.com/<owner>/IHUI-AI/raw/desktop-feed/latest.json"是**跑不通的出路**(AGENTS §0.8):
@@ -14,20 +20,29 @@
    (2026-10-05 机主拍板)。Gitee 侧这份 latest.json 不是更新器端点。
 环境变量:GITEE_TOKEN / GITEE_OWNER / TAG / GH_TOKEN / GITHUB_REPOSITORY
 """
+import base64
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
-GH_TOKEN = os.environ["GH_TOKEN"]
-GITEE_TOKEN = os.environ["GITEE_TOKEN"]
-GITEE_OWNER = os.environ["GITEE_OWNER"]
-TAG = os.environ["TAG"]
-GH_REPO = os.environ["GITHUB_REPOSITORY"]
+# 2026-11-04:改为 .get + main() 内显式校验 —— `--self-test` 不联网,模块导入
+# 阶段不能因缺环境变量就 KeyError(否则离线证据跑不起来)。
+GH_TOKEN = os.environ.get("GH_TOKEN", "")
+GITEE_TOKEN = os.environ.get("GITEE_TOKEN", "")
+GITEE_OWNER = os.environ.get("GITEE_OWNER", "")
+TAG = os.environ.get("TAG", "")
+GH_REPO = os.environ.get("GITHUB_REPOSITORY", "")
 GITEE_REPO = "IHUI-AI"
+
+
+def gitee_git_url():
+    """Gitee 的 git-over-HTTPS 地址。运行时拼 —— self-test 无 env 也能导入本文件。"""
+    return f"https://gitee.com/{GITEE_OWNER}/{GITEE_REPO}.git"
 
 # Gitee Release 附件的单文件硬上限(2026-10-17 实测实证:超限直接 400
 #   {"message":"验证失败：文件大小已超出限制：100 MB"})。
@@ -155,22 +170,223 @@ def gitee_delete_named(release_id, name):
     return len(hits)
 
 
+def redact(text):
+    """日志/异常出口统一脱敏:token 绝不落日志(2026-11-04 加)。"""
+    if not text:
+        return ""
+    if GITEE_TOKEN:
+        text = str(text).replace(GITEE_TOKEN, "***")
+    return str(text)
+
+
+def gitee_request(path, method="GET", data=None):
+    """带状态码的 Gitee API 调用:(status, payload)。网络异常 ⇒ (0, None)。
+
+    2026-11-04 加:原 gitee_api 把所有 HTTPError 都压成 None,调用方分不清
+    「404 = 不存在」与「400 = 存在但建 tag 腿失败」—— 正是 0.1.77 那次无法
+    按幂等继续的原因。POST /releases 的 400 要靠状态码做后置复查。
+    """
+    url = f"https://gitee.com/api/v5{path}"
+    if GITEE_TOKEN:
+        url += ("&" if "?" in url else "?") + f"access_token={GITEE_TOKEN}"
+    req = urllib.request.Request(url, method=method)
+    body = None
+    if data is not None:
+        body = json.dumps(data).encode()
+        req.add_header("Content-Type", "application/json")
+    req.data = body
+    try:
+        resp = urllib.request.urlopen(req, timeout=120)
+        raw = resp.read()
+        if resp.status in (204, 205) or not raw.strip():
+            return resp.status, {}
+        return resp.status, json.loads(raw)
+    except urllib.error.HTTPError as e:
+        detail = e.read()[:200].decode("utf-8", errors="replace")
+        print(f"[gitee] {method} {path} -> {e.code}: {redact(detail)}")
+        return e.code, None
+    except Exception as e:
+        print(f"[gitee] {method} {path} 未判定: {redact(e)}")
+        return 0, None
+
+
+def gitee_api(path, method="GET", data=None):
+    _status, payload = gitee_request(path, method, data)
+    return payload
+
+
+def gitee_tag_lookup(tag):
+    """返回 (True, sha) / (False, None) / (None, None)。
+
+    Gitee v5 没有 git refs 读端点(2026-11-04 匿名实测:GET /git/refs/tags/<tag>
+    与 GET /git/refs 都是 404),存在性只能翻 /tags 列表按 name 匹配。
+    返回 None 是「未判定」,不代表不存在 —— 调用方必须继续尝试 push。
+    """
+    page = 1
+    while page <= 5:
+        status, body = gitee_request(
+            f"/repos/{GITEE_OWNER}/{GITEE_REPO}/tags?per_page=100&page={page}")
+        if status == 200 and isinstance(body, list):
+            for item in body:
+                if item.get("name") == tag:
+                    return True, ((item.get("commit") or {}).get("sha") or None)
+            if len(body) < 100:
+                return False, None
+            page += 1
+            continue
+        return None, None
+    return False, None
+
+
+def _git_env():
+    """git 鉴权只走环境变量配置,不进 argv —— token 不出现在进程命令行与日志。
+
+    Gitee 私有令牌按 https 用户名:令牌 的 Basic 认证;GITEE_OWNER 即该命名空间
+    账户名。GIT_CONFIG_COUNT/KEY/VALUE 由 git 自己读取,等价于 -c 但不出现在 argv。
+    """
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    if GITEE_TOKEN:
+        raw = f"{GITEE_OWNER}:{GITEE_TOKEN}".encode()
+        env["GIT_CONFIG_COUNT"] = "1"
+        env["GIT_CONFIG_KEY_0"] = "http.extraHeader"
+        env["GIT_CONFIG_VALUE_0"] = (
+            "Authorization: Basic " + base64.b64encode(raw).decode())
+    return env
+
+
+def gitee_main_sha():
+    """Gitee 侧 main 的真实 tip(匿名可读)。"""
+    proc = subprocess.run(
+        ["git", "ls-remote", gitee_git_url(), "refs/heads/main"],
+        capture_output=True, text=True, timeout=120, env=_git_env())
+    if proc.returncode != 0:
+        raise RuntimeError(redact(proc.stderr)[-500:])
+    fields = (proc.stdout or "").split()
+    if not fields:
+        raise RuntimeError("Gitee main 读不到(空输出)")
+    return fields[0]
+
+
+def gitee_snapshot_commit():
+    """把 Gitee main 的 tip 浅取到本地,返回该提交 SHA。
+
+    为什么不直接推 GitHub 的发版 tag:那个 tag 指向真实发版提交,git 会连带
+    上传整条历史(2026-09-28 实测 Gitee 配额 1024MB 硬顶,历史镜像因此下线)。
+    Gitee 的 tag 只用于 Release 定位/附件直链,内容指向快照 main 是既定语义。
+    """
+    env = _git_env()
+    proc = subprocess.run(
+        ["git", "fetch", "--no-tags", "--depth=1", gitee_git_url(),
+         "refs/heads/main"],
+        capture_output=True, text=True, timeout=300, env=env)
+    if proc.returncode != 0:
+        raise RuntimeError(redact(proc.stderr)[-500:])
+    head = subprocess.run(
+        ["git", "rev-parse", "FETCH_HEAD"], capture_output=True, text=True,
+        timeout=60, env=env)
+    if head.returncode != 0 or not head.stdout.strip():
+        raise RuntimeError("FETCH_HEAD 取不到 Gitee main 提交")
+    return head.stdout.strip()
+
+
+def _push_argv(tag, sha):
+    """push 的 argv 单独成函数,便于 self-test 断言 token 不在 argv 里。"""
+    return ["git", "push", "--porcelain", gitee_git_url(),
+            f"{sha}:refs/tags/{tag}"]
+
+
+def push_gitee_tag(tag, sha):
+    """用 git push 建 tag ref(幂等:已存在由调用方处理)。"""
+    if not GITEE_TOKEN:
+        raise RuntimeError("GITEE_TOKEN 缺失:无法 git push tag ref")
+    proc = subprocess.run(
+        _push_argv(tag, sha), capture_output=True, text=True, timeout=300,
+        env=_git_env())
+    if proc.returncode != 0:
+        raise RuntimeError(redact((proc.stdout or "") + (proc.stderr or ""))[-800:])
+
+
+_ALREADY_EXISTS_MARKERS = ("already exists", "already-exists", "已存在")
+
+
+def ensure_gitee_tag(tag, *, lookup=None, resolve=None, push=None):
+    """保证 Gitee 存在 refs/tags/<tag>,返回 {tag, action, sha}。
+
+    幂等判据:
+      · 列表里已有该 name ⇒ present(不 push);
+      · push 被判「已存在」且复查确实存在 ⇒ recovered(按成功继续);
+      · 其余失败一律上抛 —— 不吞、不降级、不 continue-on-error。
+    """
+    lookup = lookup or gitee_tag_lookup
+    resolve = resolve or gitee_snapshot_commit
+    push = push or push_gitee_tag
+
+    exists, sha = lookup(tag)
+    if exists:
+        return {"tag": tag, "action": "present", "sha": sha or resolve()}
+    target = sha or resolve()
+    try:
+        push(tag, target)
+        return {"tag": tag, "action": "pushed", "sha": target}
+    except RuntimeError as e:
+        message = str(e)
+        if any(m in message.lower() for m in _ALREADY_EXISTS_MARKERS):
+            again, again_sha = lookup(tag)
+            if again:
+                print(f"[gitee] tag {tag} push 被判已存在,复查已在远端 ⇒ 按幂等继续")
+                return {"tag": tag, "action": "recovered",
+                        "sha": again_sha or target}
+        raise
+
+
+def prepare_release(tag, name, body):
+    """先建/确认 tag ref,再找/建 release;顺序与幂等都在这里单点定义。"""
+    info = ensure_gitee_tag(tag)
+    rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{tag}")
+    if rel and rel.get("id"):
+        return rel, info
+    print(f"[gitee] 创建 release {tag}(target={info.get('sha')})...")
+    status, created = gitee_request(
+        f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
+            "tag_name": tag, "name": name, "body": body,
+            "target_commitish": info.get("sha"), "prerelease": False})
+    if status in (200, 201) and created and created.get("id"):
+        return created, info
+    # 400/409 等:可能是 Gitee 侧建 tag 腿的老毛病,也可能已被并发创建 ——
+    # 复查一次,存在即按幂等继续;仍不存在才判失败(不静默)。
+    again = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{tag}")
+    if again and again.get("id"):
+        print(f"[gitee] release 创建返回 {status},复查已存在 ⇒ 按幂等继续")
+        return again, info
+    raise RuntimeError(f"Gitee release 创建失败(status={status}, tag={tag})")
+
+
+def _require_env():
+    missing = [k for k in ("GH_TOKEN", "GITEE_TOKEN", "GITEE_OWNER", "TAG",
+                           "GITHUB_REPOSITORY") if not os.environ.get(k)]
+    if missing:
+        sys.exit(f"缺少环境变量: {', '.join(missing)}")
+
+
 def main():
+    _require_env()
     # 1. GitHub release 资产清单
     rel = gh_api(f"/repos/{GH_REPO}/releases/tags/{TAG}")
     assets = {a["name"]: a for a in rel.get("assets", [])}
     print(f"[gh] {TAG} 资产 {len(assets)} 个")
 
-    # 2. 找/建 Gitee release
-    grel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{TAG}")
-    if grel is None:
-        print("[gitee] 创建 release...")
-        grel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
-            "tag_name": TAG, "name": f"IHUI AI Desktop {TAG}",
-            "body": rel.get("body") or "Desktop bundles (Tauri 2)",
-            "target_commitish": "main", "prerelease": False})
-        if grel is None:
-            sys.exit("Gitee release 创建失败")
+    # 2. 先确保 tag ref 存在,再找/建 Gitee release
+    #    顺序不可颠倒:POST /releases 在 tag 缺失时会走 Gitee 内部建 tag 腿,
+    #    而该腿依赖不存在的 /git/tags 端点 ⇒ 必 400「创建标签失败」(0.1.77 实锤)。
+    try:
+        grel, tag_info = prepare_release(
+            TAG, f"IHUI AI Desktop {TAG}",
+            rel.get("body") or "Desktop bundles (Tauri 2)")
+    except RuntimeError as e:
+        sys.exit(f"[gitee] {e}")
+    print(f"[gitee] release id={grel.get('id')} tag={TAG} "
+          f"tag动作={tag_info.get('action')} target={tag_info.get('sha')}")
     rid = grel["id"]
     gitee_assets = {a["name"] for a in (grel.get("assets") or [])}
 
@@ -418,12 +634,15 @@ def main():
         content_b64 = __import__("base64").b64encode(
             json.dumps(latest, indent=2, ensure_ascii=False).encode()).decode()
         FEED_TAG = "desktop-updater-feed"
-        rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases/tags/{FEED_TAG}")
-        if not (rel and rel.get("id")):
-            rel = gitee_api(f"/repos/{GITEE_OWNER}/{GITEE_REPO}/releases", "POST", {
-                "tag_name": FEED_TAG, "name": "Desktop updater feed(更新 feed 固定端点)",
-                "body": "自动化维护:latest.json 随每次桌面端发版更新。请勿手动删除。",
-                "target_commitish": "main", "prerelease": False})
+        try:
+            # 2026-11-04:feed release 也走同一条「先 tag 后 release」腿 ——
+            # 否则首次创建时同样会撞 400「创建标签失败」。
+            rel, _feed_info = prepare_release(
+                FEED_TAG, "Desktop updater feed(更新 feed 固定端点)",
+                "自动化维护:latest.json 随每次桌面端发版更新。请勿手动删除。")
+        except RuntimeError as e:
+            print(f"[gitee] feed release 创建失败(feed 附件跳过): {e}")
+            rel = None
         if not (rel and rel.get("id")):
             print("[gitee] feed release 创建失败(feed 附件跳过)")
             raise SystemExit(0)
@@ -485,6 +704,179 @@ def main():
         print(f"[gitee] feed 更新异常(不阻塞): {e}")
 
 
+def self_test():
+    """离线自证(不联网):调用序列 + tag 冲突幂等 + token 不落 argv。
+
+    运行:python3 .github/scripts/sync-gitee.py --self-test
+    """
+    done = []
+
+    def case(name, fn):
+        fn()
+        done.append(name)
+        print(f"[self-test] OK {name}")
+
+    def t1():
+        calls = []
+
+        def lookup(tag):
+            calls.append("lookup")
+            return True, "abc123"
+
+        def resolve():
+            calls.append("resolve")
+            return "deadbeef"
+
+        def push(tag, sha):
+            calls.append("push")
+
+        info = ensure_gitee_tag("desktop-v9", lookup=lookup, resolve=resolve,
+                                push=push)
+        assert info == {"tag": "desktop-v9", "action": "present",
+                        "sha": "abc123"}, info
+        assert calls == ["lookup"], calls
+
+    case("T1 tag 已存在 ⇒ 不 resolve 不 push", t1)
+
+    def t2():
+        pushed = []
+        info = ensure_gitee_tag(
+            "desktop-v10", lookup=lambda tag: (False, None),
+            resolve=lambda: "feedface",
+            push=lambda tag, sha: pushed.append((tag, sha)))
+        assert info["action"] == "pushed", info
+        assert pushed == [("desktop-v10", "feedface")], pushed
+
+    case("T2 tag 缺失 ⇒ 解析快照提交并 push", t2)
+
+    def t3():
+        probe = {"n": 0}
+
+        def lookup(tag):
+            probe["n"] += 1
+            return (False, None) if probe["n"] == 1 else (True, "cafe")
+
+        def push(tag, sha):
+            raise RuntimeError("! [remote rejected] (already exists)")
+
+        info = ensure_gitee_tag("desktop-v11", lookup=lookup,
+                                resolve=lambda: "beef", push=push)
+        assert info["action"] == "recovered", info
+        assert info["sha"] == "cafe", info
+
+    case("T3 push 判已存在 + 复查在远端 ⇒ 幂等成功", t3)
+
+    def t4():
+        def push(tag, sha):
+            raise RuntimeError("HTTP 403")
+
+        try:
+            ensure_gitee_tag("desktop-v12", lookup=lambda tag: (False, None),
+                             resolve=lambda: "beef", push=push)
+        except RuntimeError:
+            return
+        raise AssertionError("403 必须上抛,不许被吞成成功")
+
+    case("T4 非「已存在」的 push 失败 ⇒ 上抛", t4)
+
+    def t5():
+        # 400 后复查已存在 ⇒ 幂等继续;序列必须是 ensure → get → post → get
+        seq = []
+        saved = {k: globals()[k]
+                 for k in ("ensure_gitee_tag", "gitee_api", "gitee_request")}
+        n = {"get": 0}
+        try:
+            globals()["ensure_gitee_tag"] = lambda tag: (
+                seq.append(("ensure", tag))
+                or {"tag": tag, "action": "pushed", "sha": "s1"})
+
+            def fake_get(path, method="GET", data=None):
+                seq.append(("get", path))
+                n["get"] += 1
+                return {"id": 7, "assets": []} if n["get"] >= 2 else None
+
+            def fake_post(path, method="GET", data=None):
+                seq.append(("post", path))
+                return 400, None
+
+            globals()["gitee_api"] = fake_get
+            globals()["gitee_request"] = fake_post
+            rel, info = prepare_release("desktop-v13", "n", "b")
+            assert rel["id"] == 7, rel
+            assert info["action"] == "pushed", info
+            assert [s[0] for s in seq] == ["ensure", "get", "post", "get"], seq
+        finally:
+            globals().update(saved)
+
+    case("T5 400 建标签失败 ⇒ 复查按幂等继续,且 tag 在 release 之前", t5)
+
+    def t6():
+        seq = []
+        saved = {k: globals()[k]
+                 for k in ("ensure_gitee_tag", "gitee_api", "gitee_request")}
+        try:
+            globals()["ensure_gitee_tag"] = lambda tag: (
+                seq.append(("ensure", tag))
+                or {"tag": tag, "action": "pushed", "sha": "s1"})
+            globals()["gitee_api"] = lambda path, method="GET", data=None: (
+                seq.append(("get", path)) or None)
+            globals()["gitee_request"] = lambda path, method="GET", data=None: (
+                seq.append(("post", path)) or (201, {"id": 9, "assets": []}))
+            rel, info = prepare_release("desktop-v14", "n", "b")
+            assert rel["id"] == 9, rel
+            assert [s[0] for s in seq] == ["ensure", "get", "post"], seq
+            assert info["sha"] == "s1", info
+        finally:
+            globals().update(saved)
+
+    case("T6 正常创建 ⇒ 201 直接返回,target=tag 目标", t6)
+
+    def t7():
+        saved = {k: globals()[k] for k in ("GITEE_TOKEN", "GITEE_OWNER")}
+        try:
+            globals()["GITEE_TOKEN"] = "S3CRET-TOKEN"
+            globals()["GITEE_OWNER"] = "owner-x"
+            argv = _push_argv("desktop-v15", "abc")
+            env = _git_env()
+            joined = " ".join(argv)
+            assert "S3CRET-TOKEN" not in joined, joined
+            assert "S3CRET-TOKEN" not in env.get("GIT_CONFIG_KEY_0", "")
+            want = base64.b64encode(b"owner-x:S3CRET-TOKEN").decode()
+            assert want in env["GIT_CONFIG_VALUE_0"], env["GIT_CONFIG_VALUE_0"]
+            assert argv[-1] == "abc:refs/tags/desktop-v15", argv
+        finally:
+            globals().update(saved)
+
+    case("T7 token 只在 env、不在 argv;refspec 形态正确", t7)
+
+    def t8():
+        saved = globals()["gitee_request"]
+        try:
+            seen = []
+
+            def fake(path, method="GET", data=None):
+                seen.append(path)
+                return 200, [{"name": "v1", "commit": {"sha": "c1"}}]
+
+            globals()["gitee_request"] = fake
+            assert gitee_tag_lookup("v1") == (True, "c1")
+            assert gitee_tag_lookup("v2") == (False, None)
+            assert "/tags?" in seen[0] and "per_page=100" in seen[0], seen
+
+            globals()["gitee_request"] = (
+                lambda path, method="GET", data=None: (500, None))
+            assert gitee_tag_lookup("v1") == (None, None)
+        finally:
+            globals()["gitee_request"] = saved
+
+    case("T8 tag 存在性只走 /tags 列表;500 记未判定", t8)
+
+    print(f"[self-test] 全部通过: {len(done)} 项(离线,未联网、未推送)")
+
+
 if __name__ == "__main__":
-    main()
+    if "--self-test" in sys.argv:
+        self_test()
+    else:
+        main()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

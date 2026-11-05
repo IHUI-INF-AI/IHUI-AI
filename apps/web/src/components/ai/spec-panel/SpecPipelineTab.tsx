@@ -34,7 +34,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           )}
           <span>{p.pipelineLoading ? '执行中' : '启动全流程'}</span>
         </button>
-        <label className="flex items-center gap-1 text-xs text-muted-foreground">
+        <label className="flex items-center gap-1 text-label text-muted-foreground">
           <input
             type="checkbox"
             checked={p.autoCommit}
@@ -48,12 +48,12 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
           value={p.pipelineIdInput}
           onChange={(e) => p.setPipelineIdInput(e.target.value)}
           placeholder="pipeline ID(查询用)"
-          className="h-7 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+          className="h-7 rounded-sm border border-border bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
         />
         <button
           type="button"
           onClick={p.handleRefreshPipelineStatus}
-          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label text-foreground hover:bg-muted/60"
         >
           <History className="h-3 w-3" />
           <span>刷新状态</span>
@@ -63,7 +63,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
             type="button"
             onClick={p.handleRollback}
             disabled={p.pipelineLoading}
-            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+            className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label text-red-600 hover:bg-red-500/10 disabled:opacity-60"
           >
             <RotateCcw className="h-3 w-3" />
             <span>回滚</span>
@@ -72,7 +72,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
       </div>
       {/* 5 阶段进度条 */}
       {stages.length === 0 ? (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           点击「启动全流程」执行 apply_spec → apply_patch → typecheck → test → commit,
           失败时自动备份可回滚
         </p>
@@ -106,7 +106,7 @@ export function SpecPipelineTab({ p }: { p: SpecPanelApi }) {
             </div>
           ))}
           <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-muted-foreground">整体:</span>
+            <span className="text-label text-muted-foreground">整体:</span>
             <span
               className={cn(
                 'rounded px-1.5 py-0.5 text-[10px] font-bold',

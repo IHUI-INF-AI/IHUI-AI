@@ -65,6 +65,7 @@ import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { LoginPopUp } from '../components/LoginPopUp'
@@ -160,15 +161,18 @@ const REALNAME_BADGE_STATUS: Record<string, RealnameBadgeStatus | undefined> = {
  * 真机:滚到底时末几项仍被胶囊压住,实测差额不在呼吸量):
  *  · 胶囊几何占高 = TAB_BAR_HEIGHT 62 + TAB_BAR_GAP_TOP 6 + max(8, inset/2+4);
  *    tabBarScrollReserve 本身就等于「占高 + 16 呼吸」,与 TAB_BAR_FLOAT_RESERVE 同值 ⇒ 呼吸量没缺。
- *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 160、底边贴胶囊顶沿、顶部 22% 完全透明、
- *    55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..124.8 依次压上 1.0..0 的页面底色。末项底边若只高出
- *    胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里 —— 观感正是「被压住」。
+ *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:渐变段高 90(2026-11-04 机主两次点名「太高」,
+ *    160 → 120 → 90)、渐变段底边贴胶囊顶沿(本体自 2026-11-04 起继续铺到屏幕底,把胶囊下方的
+ *    悬浮间距一并盖住)、顶部 22% 完全透明、55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..70.2 依次压上
+ *    1.0..0 的页面底色。末项底边若只高出胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里
+ *    —— 观感正是「被压住」。
  *    该遮罩 2026-10-29 落地(同日加强),而预留定档于 10-16/18,从未把它计入。
- *  · 取值:末项底边须越过遮罩全透明起点 160×(1−22%) = 124.8,现有预留只给到 22 ⇒ 补 104
- *    (≥103,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测也停在胶囊顶沿上方约 120 处,同一档。
+ *  · 取值:末项底边须越过遮罩全透明起点 90×(1−22%) = 70.2,现有预留只给到 22 ⇒ 补 48
+ *    (≥48.2,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测停在胶囊顶沿上方约 120 处,已越过
+ *    这一档,且首页输入框另有 inputLayer 压在遮罩之上,不随本值联动。
  *  · 若 BottomFadeMask 的高度/透明带比例再变,本值须同步(它只有这一个消费点)。
  */
-const TAB_BAR_FADE_CLEARANCE_PX = 104
+const TAB_BAR_FADE_CLEARANCE_PX = 48
 
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
 const MEMBERSHIP_BENEFITS: readonly {
@@ -241,6 +245,8 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // M4 api-B:补 onToast 端口(失败路径不得再静默吞掉;宿主实现由 useHostPorts 提供)
+  const { onToast } = useHostPorts()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
   // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
@@ -349,18 +355,25 @@ export function ProfileScreen() {
    * Drawer 的 groupByModelAndDate 已在组件内实现,这里只需把 API 结果映射为 DrawerConversationItem[]。
    */
   const loadDrawerConversations = useCallback(async () => {
-    const res = await listConversations({ page: 1, pageSize: 50 })
-    if (res.success) {
-      const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
-        mapConversationToDrawer(c, t('plaza.index.untitledConv')),
-      )
-      setDrawerConversations(items)
-    } else {
-      // 静默失败:不弹错误(对齐 Uniapp loadHistoryChat catch 后 setGroupedData([]))
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+        )
+        setDrawerConversations(items)
+      } else {
+        // 列表失败不再静默:清空 + 轻提示真实原因(保留可重入,不挡 Drawer 其他内容)。
+        setDrawerConversations([])
+        onToast(toUserFriendlyMessage(res.error || t('profile.netRetry')), { kind: 'error' })
+      }
+    } catch (e) {
       setDrawerConversations([])
+      onToast(toUserFriendlyMessage(e), { kind: 'error' })
+    } finally {
+      setDrawerConversationsLoaded(true)
     }
-    setDrawerConversationsLoaded(true)
-  }, [t])
+  }, [t, onToast])
 
   // Drawer 首次打开时懒加载历史对话(对齐 Uniapp onShow + loadHistoryChat)
   useEffect(() => {
@@ -661,6 +674,7 @@ export function ProfileScreen() {
                     onLogin={() => rootNav?.navigate('Login')}
                     onUnsubscribe={() => setUnsubscribeVisible(true)}
                     onLevelIntro={() => setLevelIntroVisible(true)}
+                    onOpenVip={() => rootNav?.navigate('VipTrader')}
                   />
                   {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
                       此处为完整 3 级体系介绍入口) */}
@@ -732,6 +746,7 @@ export function ProfileScreen() {
                 error={error}
                 colorScheme={resolvedTheme}
                 realnameStatus={realnameBadge}
+                onToast={onToast}
                 menuSections={menuSections}
                 onNavigate={(key) => {
                   const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
@@ -2499,7 +2514,7 @@ const styles = StyleSheet.create({
     gap: rpx(12),
   },
   editProfileLabel: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   editProfileInput: {
@@ -2659,7 +2674,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   unsubscribeTitle: {
-    fontSize: 17,
+    fontSize: rnType.title.size,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: rpx(16),

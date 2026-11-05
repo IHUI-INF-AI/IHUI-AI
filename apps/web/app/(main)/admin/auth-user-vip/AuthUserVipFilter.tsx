@@ -21,7 +21,7 @@ export function AuthUserVipFilter({ search, onSearchChange, onReset, onQuery }: 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelUserUuid')}</Label>
+        <Label className="text-label">{t('labelUserUuid')}</Label>
         <Input
           className="h-9 w-40"
           value={search.userUuid}
@@ -30,7 +30,7 @@ export function AuthUserVipFilter({ search, onSearchChange, onReset, onQuery }: 
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelVipId')}</Label>
+        <Label className="text-label">{t('labelVipId')}</Label>
         <Input
           className="h-9 w-40"
           value={search.vipId}
@@ -39,7 +39,7 @@ export function AuthUserVipFilter({ search, onSearchChange, onReset, onQuery }: 
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelProgress')}</Label>
+        <Label className="text-label">{t('labelProgress')}</Label>
         <Input
           className="h-9 w-40"
           value={search.progress}
@@ -48,7 +48,7 @@ export function AuthUserVipFilter({ search, onSearchChange, onReset, onQuery }: 
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelIsValid')}</Label>
+        <Label className="text-label">{t('labelIsValid')}</Label>
         <Input
           className="h-9 w-40"
           value={search.isValid}

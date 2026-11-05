@@ -123,9 +123,9 @@
  * 把族变成第一等参数:
  *  - 缺省 `O`:`FAMILY` 的取值、建议号、占用面、租约、远端基准、结论行**逐字同改前**(镜像 T4/T8c/T10b
  *    断言的 `^O\d+$` 契约因此不变);
- *  - 族名必须**单字母**(大小写归一):多字母会让 usedIdsOfPrefix / scanFamilyIds / headingNum
- *    三处的族前缀算术各自解成不同东西;
- *  - 给了旗标却没值 / 值不是单字母 ⇒ exit 2(G-322 纪律:给了旗标就要有值,绝不静默退回默认族);
+ *  - 族名必须在号域族注册表 `scripts/lib/plan-id-families.mjs` 里显式登记(RP-1,2026-11-03):
+ *    单字母 A–Z 全在册(行为逐字同改前),多字母只认显式登记的那几枚(现读 RP);
+ *  - 给了旗标却没值 / 值未登记 ⇒ exit 2(G-322 纪律:给了旗标就要有值,绝不静默退回默认族);
  *  - 标题判据 `HEADING` 的**字面量形状仍只有一份**(镜像 T5/T6 从源码原样抽它),族只换捕获组里的
  *    那个字母;换不动就抛错,绝不静默退回 O 族(那会把新族的 max 读成 0);
  *  - 发出去的号用**该族自己的书写形状**(`usedIdsOfPrefix` 的 template,与第一发号出口同一个来源):
@@ -138,6 +138,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
+import { describeRegisteredFamilies, lookupPlanIdFamily } from './lib/plan-id-families.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { collectIdFace, scanFamilyIds, ID_FACE_TRANSPORT } from './lib/plan-id-face.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
@@ -203,6 +204,10 @@ function headingReFor(family) {
   const src = HEADING.source
   if (!FAMILY_SLOT_RE.test(src))
     throw new Error(`HEADING 形状里找不到「(族名\\d+」锚点 ⇒ 无族可换(不得静默退回 ${DEFAULT_FAMILY} 族)`)
+  // 单字母族:逐字沿用改前的 `(Z\d+` 形状;多字母族(RP)按族注册表的书写分隔符允许 `[-_ ]?`。
+  const entry = lookupPlanIdFamily(family)
+  if (!entry) throw new Error(`族 ${family} 未登记在号域族注册表 ⇒ 拒绝换族形状`)
+  if (entry.multiLetter) return new RegExp(src.replace(FAMILY_SLOT_RE, `(${entry.name}[-_ ]?\\d+`), HEADING.flags)
   return new RegExp(src.replace(FAMILY_SLOT_RE, `(${family}\\d+`), HEADING.flags)
 }
 
@@ -258,30 +263,38 @@ if (keywordFlag.error) {
 // 第七条(2026-10-30,票 Z-1):族是第一等参数 —— 号池按族独立,族满 / 无连续租约窗的**合法出路**
 // 就是换字母族(2026-10-24 拍板"一个字母就是一个系列,族满开新字母族、永不升位数"),而改前
 // FAMILY 硬编码成 'O',新族号只能手填。
-// 取值三态:不给 ⇒ 缺省 O(逐字同改前);给了没值 ⇒ exit 2(G-322:给了旗标就要有值);值不是单字母
-// ⇒ exit 2(多字母会让 usedIdsOfPrefix / scanFamilyIds / headingNum 的族前缀算术各自解成不同东西)。
-const familyFlag = requireFlagValue(argv, '--family', { noun: '单字母族名(如 Z)' })
+// 取值三态:不给 ⇒ 缺省 O(逐字同改前);给了没值 ⇒ exit 2(G-322:给了旗标就要有值);
+// 值未登记在 `lib/plan-id-families.mjs` 的族注册表 ⇒ exit 2(RP-1:显式允许表,未知族仍拒)。
+const familyFlag = requireFlagValue(argv, '--family', { noun: '在册族名(单字母 A–Z 或多字母 RP)' })
 if (familyFlag.error) {
   console.error(`❌ ${familyFlag.error}`)
   process.exit(2)
 }
-if (familyFlag.value !== null && !/^[A-Za-z]$/.test(familyFlag.value)) {
+/** 本轮发号的族目(缺省 O ⇒ 与改前逐字同形);未登记族在这里被拒 */
+const FAMILY_ENTRY = familyFlag.value === null ? lookupPlanIdFamily(DEFAULT_FAMILY) : lookupPlanIdFamily(familyFlag.value)
+if (!FAMILY_ENTRY) {
   console.error(
-    `❌ --family 需要一个单字母族名(大小写归一),实得 ${JSON.stringify(familyFlag.value)}` +
-      '(多字母会让族前缀算术各自解成不同东西)⇒ 拒绝发号',
+    `❌ --family 需要一个**在册**族名(大小写归一;在册 = ${describeRegisteredFamilies()}),` +
+      `实得 ${JSON.stringify(familyFlag.value)} ⇒ 拒绝发号(未登记族对取号/撞号判据隐身)`,
   )
   process.exit(2)
 }
-/** 本轮发号的族(大写单字母;缺省 O ⇒ 与改前逐字同形) */
-const FAMILY = (familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()
+const FAMILY = FAMILY_ENTRY.name
 /** 标题判据的族实例(形状只有一份,换族见 headingReFor) */
 const HEADING_RE = headingReFor(FAMILY)
 /**
- * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:族名是单字母,
- * 把 key 的首字母换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`)。
+ * 数字段提取(族感知):算术**只有一份** —— 复用上面 `headingNum` 那颗 `^O(\d+)`:把族名前缀
+ * 换回 `O` 交同一份算术(`Z12附⑥ → O12附⑥ → 12`;多字母族 `RP-47 → O47 → 47`)。
  * 不另写一条"族名 + 数字"的族内正则(§22c:两处算同一件事必漂移,而镜像 T6 只锁得住其中一份)。
  */
-const headingNumOf = (key) => headingNum(`${DEFAULT_FAMILY}${String(key).slice(FAMILY.length)}`)
+const headingNumOf = (key) =>
+  headingNum(
+    `${DEFAULT_FAMILY}${
+      FAMILY_ENTRY.multiLetter
+        ? String(key).slice(FAMILY.length).replace(/^[-_ ]/, '')
+        : String(key).slice(FAMILY.length)
+    }`,
+  )
 
 if (flags.has('--help') || flags.has('-h')) {
   console.log(
@@ -291,7 +304,7 @@ if (flags.has('--help') || flags.has('-h')) {
       '  占用面 = 台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*.md(归档器搬走的那一侧也算已占用)。',
       '  发号路径另含远端那一维(与 live-doc-edit 同一把尺):远端 tip 对象经一次有界自补救 fetch',
       '  仍读不到 ⇒ 拒绝发号;离线 ⇒ 警告着按本地宽面发号;--source 显式指面 / --check 不发号 ⇒ 不问远端。',
-      '  --family <字母>:按指定字母族发号(单字母,缺省 O)。族满 / 无连续租约窗时用它换族 ——',
+      '  --family <族名>:按指定族发号(在册 = A–Z 单字母 + RP 多字母,缺省 O)。族满 / 无连续租约窗时用它换族 ——',
       '  这是 2026-10-24 拍板"族满开新字母族、永不升位数"的取号侧出口;新族须先登记进编号族表。',
       '  --title / --keyword:发号前对目标文件现读正文(工作树副本 ⊕ HEAD 宽面)按同题指纹查重,',
       '  命中 ⇒ 当场拒绝发号并点名既有行与既有号(改用既有号或换标题后再取)。',

@@ -52,11 +52,11 @@ export function WorkflowInstanceDetailScreen() {
         setInstance(instRes.data.instance)
         setTasks(instRes.data.tasks ?? [])
       } else {
-        setError(instRes.error || t('workflowsPage.instanceNotFound'))
+        setError(instRes.error || t('workflows.instanceDetail.notFound'))
       }
       if (logsRes.success) setLogs(logsRes.data.list ?? [])
     } catch {
-      setError(t('workflowsPage.instanceNotFound'))
+      setError(t('workflows.instanceDetail.notFound'))
     } finally {
       setLoading(false)
     }

@@ -59,8 +59,9 @@ export function LiveLecturerListScreen({
   onRefresh,
   onSelect,
   onBack,
-  colorScheme = 'light',
-}: LiveLecturerListScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LiveLecturerListScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -101,7 +102,7 @@ export function LiveLecturerListScreen({
       ) : showError ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -273,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     avatarFallbackText: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
@@ -305,3 +306,4 @@ function createStyles(tk: AppThemeTokens) {
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

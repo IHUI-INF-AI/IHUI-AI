@@ -84,7 +84,7 @@ export default function DatabaseOptimizationPage() {
           <Database className="h-6 w-6 text-primary" />
           {t('dbOpt.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('dbOpt.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('dbOpt.subtitle')}</p>
       </div>
 
       {/* 表空间使用 */}
@@ -104,8 +104,8 @@ export default function DatabaseOptimizationPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">{t('dbOpt.colTable')}</th>
                   <th className="px-4 py-2.5 font-medium">{t('dbOpt.colRows')}</th>
@@ -143,10 +143,10 @@ export default function DatabaseOptimizationPage() {
             {slowQueriesList.map((q) => (
               <div key={q.id} className="rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <code className="flex-1 break-all rounded bg-muted/50 px-2 py-1 font-mono text-xs text-muted-foreground">
+                  <code className="flex-1 break-all rounded bg-muted/50 px-2 py-1 font-mono text-label text-muted-foreground">
                     {q.query}
                   </code>
-                  <div className="flex shrink-0 items-center gap-3 text-xs">
+                  <div className="flex shrink-0 items-center gap-3 text-label">
                     <span
                       className={cn(
                         'font-medium',
@@ -184,7 +184,7 @@ export default function DatabaseOptimizationPage() {
                 <Card key={s.id}>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">{s.title}</CardTitle>
+                      <CardTitle className="text-body">{s.title}</CardTitle>
                       <span
                         className={cn(
                           'inline-flex rounded-md px-2 py-0.5 text-label font-medium',
@@ -197,7 +197,7 @@ export default function DatabaseOptimizationPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-xs text-muted-foreground">{s.description}</p>
+                    <p className="text-label text-muted-foreground">{s.description}</p>
                   </CardContent>
                 </Card>
               )

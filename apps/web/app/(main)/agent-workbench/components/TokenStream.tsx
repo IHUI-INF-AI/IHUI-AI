@@ -41,7 +41,7 @@ export function TokenStream({ tokens, connected, running }: Props) {
 
   return (
     <div className="flex h-full flex-col rounded-lg border bg-card">
-      <div className="flex items-center gap-2 px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 px-3 py-2 text-body">
         {connected ? (
           <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-500">
             <Radio className="h-3.5 w-3.5 animate-pulse" aria-hidden /> {t('realtimeStream')}
@@ -55,13 +55,15 @@ export function TokenStream({ tokens, connected, running }: Props) {
             <span className="h-1.5 w-1.5 rounded-sm bg-muted-foreground/50" /> {t('notRunning')}
           </span>
         )}
-        <span className="text-xs text-muted-foreground tabular-nums">{debouncedLength} tokens</span>
+        <span className="text-label text-muted-foreground tabular-nums">
+          {debouncedLength} tokens
+        </span>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-auto px-3 py-2">
         {visible.length === 0 ? (
-          <div className="py-8 text-center text-xs text-muted-foreground">{t('empty')}</div>
+          <div className="py-8 text-center text-label text-muted-foreground">{t('empty')}</div>
         ) : (
-          <div className="flex flex-wrap gap-x-1 gap-y-0.5 text-xs leading-relaxed">
+          <div className="flex flex-wrap gap-x-1 gap-y-0.5 text-label leading-relaxed">
             {visible.map((token) => (
               <span
                 key={token.id}

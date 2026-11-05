@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
+import { VoiceCompanion } from './voice-companion'
 import { VoiceNote } from './voice-note'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -45,7 +46,10 @@ import {
 } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
-import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
+import {
+  AgentProgressTrigger,
+  AgentProgressShortcutHost,
+} from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
@@ -107,6 +111,15 @@ import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 // D38 队列语义完整交互(G-42):交互条只做展示与回调上抛,许可判定一律走 D69 的
 // queueInteractionPerms(与本文件下方 queueCtx 同一对象),动作落 store 的四个新 action。
 import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
+// D75 侧任务生命周期最小真实腿(2026-11-01 装车):卡片不取数,task/onAction 由本宿主注入;
+// 过期与清理判据一律走 @ihui/shared/chat/side-task-lifecycle(端内不重算 TTL)。
+import { SideTaskLifecycleCard } from '@/components/ai/side-task-lifecycle-card'
+import { sideTaskFromQueueItem } from '@/lib/side-task-projection'
+import {
+  needsCloseConfirm,
+  type CleanedSideTaskEntry,
+  type SideTaskAction,
+} from '@ihui/shared/chat/side-task-lifecycle'
 // V3 #69 额度条 / D155 下行告警条 / D131 连接状态位(2026-09-30 起)由 InputStatusSlot 统一挂载
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 // Runtime 插话能力声明的**唯一回落判点**(未声明 ⇒ false,与写死 false 同形)
@@ -192,7 +205,7 @@ export function PromptPolishEntry({
         onClick={onPolish}
         aria-label={t('ariaLabel')}
         className={cn(
-          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+          'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
           'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
           'disabled:cursor-not-allowed disabled:opacity-50',
         )}
@@ -216,7 +229,7 @@ export function PromptPolishEntry({
       onClick={onPolish}
       aria-label={t('ariaLabel')}
       title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
-      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm px-2 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
       <span>{t('entryLabel')}</span>
@@ -264,6 +277,9 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // 语音栈实例 id(2026-11-04):常驻 Companion 与 + 菜单里的入口行按同一实例分桶,
+  // 侧栏浮窗 / 主聊天 / 工作台多输入区并存时录音与快捷键不串台。
+  const voiceCompanionId = React.useId()
   // 差距③配套(2026-10-30 立):「打断并发送」按钮文案复用既有 ai.pane.queueOps 词包
   // (与 QueueInteractionBar 的 interruptAndRun 动词同源,不新增 key)
   const tq = useTranslations(QUEUE_OPS_NAMESPACE)
@@ -534,14 +550,27 @@ export function MessageInput({
   // - prompt:PromptTemplates 弹层
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill' | 'voice'>(
-    'menu',
-  )
+  const [addMenuMode, setAddMenuMode] = React.useState<
+    'menu' | 'prompt' | 'skill' | 'voice' | 'tools'
+  >('menu')
   // D28 /side 快速侧问(2026-09-20 立):当前会话侧问队列(store 持久化,切会话不丢)
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
-  const shiftSideQuestion = chatStore((s) => s.shiftSideQuestion)
+  // D75 侧任务生命周期最小真实腿(2026-11-01):补答入口不再 shift 摘条,
+  // 改由 chatStore.getState().peekPendingSideQuestion 取待答首条(见下方 answerCurrentSideQuestion)。
+  // D75 装腿后队列分两格:交互条仍列**整桶**(重排下标与桶一一对应,零改动),
+  // 生命周期卡只交代最近一枚任务的状态 —— 两者读同一份桶,不各存一套真相。
+  // 卡面承载体:桶里最后一条(= 最近一枚侧问任务,状态由共享判据说话)
+  const sideTask = React.useMemo(() => {
+    const bucket = sideQueue ?? []
+    const last = bucket[bucket.length - 1]
+    return last ? sideTaskFromQueueItem(last) : null
+  }, [sideQueue])
+  // D75 动作面:关闭确认弹层由宿主决定何时展开(判据仍是共享 needsCloseConfirm,端内不另判);
+  // 被清理清单留在本面会话级状态 —— 内容已不可取,只留「来自已清理的 {标题}」这一行交代。
+  const [sideTaskConfirmOpen, setSideTaskConfirmOpen] = React.useState(false)
+  const [cleanedSideTasks, setCleanedSideTasks] = React.useState<CleanedSideTaskEntry[]>([])
   // D38 队列模式偏好(steer=插话优先 / queue=排队优先),持久化在 chat store
   const followUpQueueMode = chatStore((s) => s.followUpQueueMode)
   // Runtime 插话能力声明(null = 生产者还没说话,经 resolveInterjectionSupport 回落 false)。
@@ -560,7 +589,10 @@ export function MessageInput({
   // 经 chat store recordQueueSendOutcome 落 D162 终态台账;非队列即答(无 itemId)不落账。
   const answerWithToast = React.useCallback(
     (text: string, queuedItemId?: string) => {
-      void answerSideQuestion(text, t)
+      void answerSideQuestion(text, t, chatStore, {
+        conversationId: conversationId ?? undefined,
+        itemId: queuedItemId,
+      })
         .then(() => {
           if (queuedItemId && conversationId) {
             chatStore.getState().recordQueueSendOutcome(conversationId, queuedItemId, 'sent')
@@ -579,12 +611,44 @@ export function MessageInput({
     },
     [t, conversationId, chatStore],
   )
-  // 从当前会话队列出队一条并补答(流结束自动补答 / 「立即补答」共用)
+  // 从当前会话队列取**第一条待答**侧问并补答(流结束自动补答 / 「立即补答」共用)。
+  // D75 装腿后不再 shift 摘除:条目留在桶里,由 answerSideQuestion 的流末瞬间写成 completed,
+  // 之后由生命周期卡的 close / cleanup 收走 —— .peekPendingSideQuestion 只回 running,
+  // 所以同一条目不会被下一轮流末重复补答。
   const answerCurrentSideQuestion = React.useCallback(() => {
     if (!conversationId) return
-    const item = shiftSideQuestion(conversationId)
+    const item = chatStore.getState().peekPendingSideQuestion(conversationId)
     if (item) answerWithToast(item.text, item.id)
-  }, [conversationId, shiftSideQuestion, answerWithToast])
+  }, [conversationId, chatStore, answerWithToast])
+  // D75 生命周期卡四档动作(close / confirmClose / cancelClose / cleanup)—— 每一档都落真写操作:
+  //   close:是否需要确认由共享 `needsCloseConfirm` 判(端内不另判),纯 completed 不打扰;
+  //   confirmClose:摘除该枚条目(临时任务的产物随之一并消失,已由 ephemeralNotice 事先交代);
+  //   cancelClose:只收弹层,不动桶;
+  //   cleanup:过期条目由共享 `collectExpiredSideTasks` 判出并被 store 真收走,清单回灌卡片。
+  const handleSideTaskAction = React.useCallback(
+    (action: SideTaskAction) => {
+      if (!conversationId || !sideTask) return
+      const store = chatStore.getState()
+      if (action === 'close') {
+        if (needsCloseConfirm(sideTask)) setSideTaskConfirmOpen(true)
+        else store.removeSideQuestion(conversationId, sideTask.id)
+        return
+      }
+      if (action === 'confirmClose') {
+        setSideTaskConfirmOpen(false)
+        store.removeSideQuestion(conversationId, sideTask.id)
+        return
+      }
+      if (action === 'cancelClose') {
+        setSideTaskConfirmOpen(false)
+        return
+      }
+      const cleaned = store.cleanupExpiredSideTasks(conversationId, Date.now())
+      if (cleaned.length > 0) setCleanedSideTasks((prev) => [...prev, ...cleaned])
+      setSideTaskConfirmOpen(false)
+    },
+    [conversationId, chatStore, sideTask],
+  )
   // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
   // D28(2026-09-20):流结束后预备消息优先(W27);无预备消息时补答当前会话队首侧问
   // (每轮流结束最多补答一条,与 W27 队列同节奏)
@@ -985,6 +1049,10 @@ export function MessageInput({
     }
   }, [isStreaming, value, handleScreenshot])
 
+  // Ctrl+Shift+J 任务进度面板(2026-11-04 第四轮):监听已抽成 AgentProgressShortcutHost
+  // 组件(下方 JSX 里常驻挂载),本文件不再自持 keydown 监听 —— 单测可直接渲染该宿主,
+  // 不必为一个 5 行快捷键把整条 message-input 依赖链搬进测试环境。
+
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
   // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
@@ -1185,6 +1253,18 @@ export function MessageInput({
           onModeChange={(mode: FollowUpMode) => chatStore.getState().setFollowUpQueueMode(mode)}
           onInterruptAndRun={handleInterruptAndRun}
         />
+        {/* D75 侧任务生命周期卡(G-102,2026-11-01 装最小真实腿):挂在本会话侧问队列
+            真正渲染的位置(与 QueueInteractionBar 同一个输入区插槽)。卡片不取数,
+            task 由桶里最近一枚条目投影、cleaned 由 cleanup 动作回灌、四档动作如上。 */}
+        {sideTask || cleanedSideTasks.length > 0 ? (
+          <SideTaskLifecycleCard
+            task={sideTask}
+            cleaned={cleanedSideTasks}
+            confirmOpen={sideTaskConfirmOpen}
+            onAction={handleSideTaskAction}
+            data-testid="side-task-lifecycle"
+          />
+        ) : null}
         <PendingCommandHint conversationId={conversationId ?? null} revision={isStreaming} />
         {/* D01(2026-10-25 立)对话内 Agent 选择器:输入卡上方的「已切换 XX 专家」交代条。
             形态复用 steer-notice-bar 同族的 FoldableSection;未选专家时自渲染为 null。 */}
@@ -1295,6 +1375,13 @@ export function MessageInput({
               onRemoveLastAttachment={handleRemoveLastAttachment}
               onPaste={handlePasteWithReferencePreview}
             />
+            {/* 语音常驻宿主(2026-11-04):引擎 / Ctrl+Alt+V·B·H 监听 / 播报字幕条不能住在
+                「+ → 更多工具」抽屉里 —— 菜单条件挂载,关了菜单录音即断、字幕即失、快捷键即哑。 */}
+            <VoiceCompanion
+              voiceId={voiceCompanionId}
+              onTranscript={handleVoiceTranscript}
+              disabled={isStreaming}
+            />
             {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
                 单行两簇 —— 左簇"任务进度 + 添加",右簇"权限 + 模式 + 上下文 + 模型 + 语音 + 发送"。
                 相比旧版(顶部栏 5 控件 + 权限标题行 + 底栏 9 控件,三处堆叠):
@@ -1303,128 +1390,184 @@ export function MessageInput({
                 - 多源建议 / 一键润色 → "添加"菜单收纳(extraMenuItems);
                 - 推理强度轴(D130)+ 采样参数 → 模型弹层 footer(footer prop)。
                 容器降级阶梯见 globals.css .ai-input-toolbar(原生 CSS container query)。 */}
-            <div className="ai-input-toolbar flex min-w-0 items-center gap-1 overflow-hidden px-2 pb-2 pt-1">
-              {/* ── 左簇:任务进度 + 添加 ───────────────────────────────────── */}
-              {/* leftIcon 固定为任务清单语义(2026-09-30 用户指出双锤子:
-                  默认跟随当前模式取图标 → build 档与 ModeSwitcher 的 Hammer 同屏撞脸;
-                  本入口语义是"任务进度面板",对标 Trae/Qoder 任务列表用 ListTodo) */}
-              <AgentProgressTrigger iconOnly leftIcon={ListTodo} />
-              {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
+            <div
+              className="ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1"
+              data-testid="ai-input-toolbar"
+            >
+              {/* ── 左簇:「实时状态」芯片(仅活跃时) + 「添加 +」───────────
+                  2026-11-04 信息架构重构:权限、模式、Agent、上下文环、语音、语音笔记
+                  移入「+ → 更多工具」抽屉;底栏锚点 = 状态芯片(条件渲染) / + / 模型 /
+                  发送·停止 —— 空闲态仍是极简三锚点(对标 Claude/ChatGPT composer)。
+                  第四轮(用户规则):任务进度的实时状态不该降级到 2 击 —— 流式期间芯片
+                  常驻显示当前任务与步数,点它开合右侧 Pane;与抽屉里的同一控件是同一
+                  store 的两个入口(testid 不同名:status / trigger)。 */}
+              <div className="ai-input-toolbar-left flex min-w-0 items-center gap-1">
+                <AgentProgressTrigger variant="status" />
+                {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
-              <AddMenuPopover
-                open={addMenuOpen}
-                onOpenChange={setAddMenuOpen}
-                mode={addMenuMode}
-                onModeChange={setAddMenuMode}
-                isStreaming={isStreaming}
-                inputValue={value}
-                promptTemplates={promptTemplates}
-                onTemplateSelect={(content) => {
-                  handleTemplateSelect(content)
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                }}
-                onSkillSelect={(template) => {
-                  fillInput(template)
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                }}
-                onSkillClose={() => {
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                }}
-                onSkillSendToChat={(content) => {
-                  chatStore.setState({ draftInput: content })
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                }}
-                onAddFile={() => {
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                  fileInputRef.current?.click()
-                }}
-                onVoiceRecordComplete={(blob) => {
-                  // 语音录制完成(2026-09-14 接线 VoiceRecord):Blob 转 File 走统一附件引用链路,
-                  // 上传/入列/移除全部复用既有附件 chip 体系,误录可在引用区删除
-                  // G-863(2026-10-13):拒绝接同一汇总出口 —— 原实现忽略 addFileReference
-                  // 返回值,容量满时静默失败还 toast"已添加";现被拒走三档聚合提示,成功才报。
-                  // 为何 webm 恒过扩展名白名单:webm 是 UPLOADABLE_EXTENSIONS 的正式成员
-                  // (服务端 EXT_MIME_MAP 亦放行),语音是自家 MediaRecorder 产出、非用户挑文件,
-                  // 故 accept 档对它恒放行是设计如此;数量/容量档仍在 addFileReference 内同一判据生效,
-                  // 满额时由其返回 max_files,走下方汇总出口。
-                  const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
-                  const rejections = addFileReference(file)
-                  if (rejections.length > 0) {
-                    reportAttachmentRejections(rejections)
-                    return
-                  }
-                  toast(t('voiceRecord.added'))
-                }}
-                onAddTextReference={() => {
-                  const text = value.trim()
-                  if (!text) return
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                  addTextReference(text)
-                  setValue('')
-                  requestAnimationFrame(() => inputCoreRef.current?.resize())
-                }}
-                onOpenPluginMarket={() => {
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                  // 插件/MCP 入口:跳转到 /plugins 页面
-                  // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
-                  router.push('/plugins')
-                }}
-                onOpenDeepResearch={() => {
-                  setAddMenuOpen(false)
-                  setAddMenuMode('menu')
-                  // 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面
-                  router.push('/deep-research')
-                }}
-                onCompactContext={handleCompact}
-                compacting={compacting}
-                compactDisabled={!conversationId}
-                extraMenuItems={
-                  <>
-                    {/* D68 统一多源建议面板入口(2026-09-30 底栏单行化收纳):单一聚合建议面。
+                <AddMenuPopover
+                  open={addMenuOpen}
+                  onOpenChange={setAddMenuOpen}
+                  mode={addMenuMode}
+                  onModeChange={setAddMenuMode}
+                  isStreaming={isStreaming}
+                  inputValue={value}
+                  promptTemplates={promptTemplates}
+                  onTemplateSelect={(content) => {
+                    handleTemplateSelect(content)
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                  }}
+                  onSkillSelect={(template) => {
+                    fillInput(template)
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                  }}
+                  onSkillClose={() => {
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                  }}
+                  onSkillSendToChat={(content) => {
+                    chatStore.setState({ draftInput: content })
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                  }}
+                  onAddFile={() => {
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                    fileInputRef.current?.click()
+                  }}
+                  onVoiceRecordComplete={(blob) => {
+                    // 语音录制完成(2026-09-14 接线 VoiceRecord):Blob 转 File 走统一附件引用链路,
+                    // 上传/入列/移除全部复用既有附件 chip 体系,误录可在引用区删除
+                    // G-863(2026-10-13):拒绝接同一汇总出口 —— 原实现忽略 addFileReference
+                    // 返回值,容量满时静默失败还 toast"已添加";现被拒走三档聚合提示,成功才报。
+                    // 为何 webm 恒过扩展名白名单:webm 是 UPLOADABLE_EXTENSIONS 的正式成员
+                    // (服务端 EXT_MIME_MAP 亦放行),语音是自家 MediaRecorder 产出、非用户挑文件,
+                    // 故 accept 档对它恒放行是设计如此;数量/容量档仍在 addFileReference 内同一判据生效,
+                    // 满额时由其返回 max_files,走下方汇总出口。
+                    const file = new File([blob], `voice-${Date.now()}.webm`, {
+                      type: 'audio/webm',
+                    })
+                    const rejections = addFileReference(file)
+                    if (rejections.length > 0) {
+                      reportAttachmentRejections(rejections)
+                      return
+                    }
+                    toast(t('voiceRecord.added'))
+                  }}
+                  onAddTextReference={() => {
+                    const text = value.trim()
+                    if (!text) return
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                    addTextReference(text)
+                    setValue('')
+                    requestAnimationFrame(() => inputCoreRef.current?.resize())
+                  }}
+                  onOpenPluginMarket={() => {
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                    // 插件/MCP 入口:跳转到 /plugins 页面
+                    // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
+                    router.push('/plugins')
+                  }}
+                  onOpenDeepResearch={() => {
+                    setAddMenuOpen(false)
+                    setAddMenuMode('menu')
+                    // 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面
+                    router.push('/deep-research')
+                  }}
+                  onCompactContext={handleCompact}
+                  compacting={compacting}
+                  compactDisabled={!conversationId}
+                  extraMenuItems={
+                    <>
+                      {/* D68 统一多源建议面板入口(2026-09-30 底栏单行化收纳):单一聚合建议面。
                         不新增全局快捷键,复用面板内 ↑↓/Enter/ESC 键位。 */}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      aria-label={tSuggest('title')}
-                      aria-haspopup="dialog"
-                      data-testid="unified-suggestion-entry"
-                      disabled={isStreaming}
-                      onClick={() => {
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                        setUnifiedOpen(true)
-                      }}
-                      className={cn(
-                        'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
-                        'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
-                        'disabled:cursor-not-allowed disabled:opacity-50',
-                      )}
-                    >
-                      <ListFilter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate">{tSuggest('title')}</span>
-                    </button>
-                    {/* D82 一键润色入口(2026-09-30 底栏单行化收纳):对当前草稿**就地改写**
+                      <button
+                        type="button"
+                        role="menuitem"
+                        aria-label={tSuggest('title')}
+                        aria-haspopup="dialog"
+                        data-testid="unified-suggestion-entry"
+                        disabled={isStreaming}
+                        onClick={() => {
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                          setUnifiedOpen(true)
+                        }}
+                        className={cn(
+                          'flex items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label transition-colors',
+                          'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                          'disabled:cursor-not-allowed disabled:opacity-50',
+                        )}
+                      >
+                        <ListFilter className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{tSuggest('title')}</span>
+                      </button>
+                      {/* D82 一键润色入口(2026-09-30 底栏单行化收纳):对当前草稿**就地改写**
                         (空草稿禁用),失败保稿见输入卡上方提示条 */}
-                    <PromptPolishEntry
-                      state={polish}
-                      disabled={isStreaming}
-                      variant="menu-item"
-                      onPolish={() => {
-                        handlePolish()
-                        setAddMenuOpen(false)
-                        setAddMenuMode('menu')
-                      }}
-                    />
-                  </>
-                }
-              />
+                      <PromptPolishEntry
+                        state={polish}
+                        disabled={isStreaming}
+                        variant="menu-item"
+                        onPolish={() => {
+                          handlePolish()
+                          setAddMenuOpen(false)
+                          setAddMenuMode('menu')
+                        }}
+                      />
+                    </>
+                  }
+                  /* 2026-11-04 第二轮收敛:权限 / 模式 / Agent 提到 + 菜单第一层
+                     (composer-quick-settings),点 + 后再点一次即打开各自面板(2 击)。
+                     第四轮修订:流式「中途引导 / 打断并发送」已回到底栏 send cluster
+                     (与 Stop 并列三枚,1 击可达),菜单第一层只留三枚设置行;
+                     低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)仍在
+                     「更多工具」抽屉(3 击)。 */
+                  primaryMenuItems={
+                    <div className="flex w-full min-w-0 flex-col gap-1">
+                      {/* 第四轮(2026-11-04):流式动作已回到底栏 send cluster ——
+                          原「+ 菜单第一层 2 击」的副本整体移除。同一 testid 若在菜单与
+                          底栏各挂一处,Playwright strict mode 会因多元素解析直接报错;
+                          产品上也不允许同一动作出现两个入口却分属两种击数。 */}
+                      {/* 第三轮(2026-11-04):三枚控件统一为纵向设置行,不再并排成
+                          「迷你工具栏」(图标块 / 灰胶囊 / 描边胶囊三种形态混排) */}
+                      <div className="flex flex-col gap-0.5" data-testid="composer-quick-controls">
+                        <PermissionModePopover
+                          disabled={isStreaming}
+                          onExplainMode={(mode) => setInfoMode(mode)}
+                          variant="row"
+                        />
+                        <ModeSwitcher disabled={isStreaming} variant="row" />
+                        <AgentPicker variant="row" />
+                      </div>
+                    </div>
+                  }
+                  toolsMenuItems={
+                    <div
+                      className="flex flex-col gap-0.5 px-1 pb-1"
+                      data-testid="composer-tools-drawer"
+                    >
+                      {/* 第三轮(2026-11-04):去掉「2×2 网格」——那是把 103px 按钮、
+                          裸圆环、32px 图标、96px 文字按钮硬塞进格子,导致半格悬空与
+                          尺寸参差。改为四行统一设置行,逐项带标签与当前值。 */}
+                      <AgentProgressTrigger leftIcon={ListTodo} variant="row" />
+                      <ContextUsageRing model={model} isStreaming={isStreaming} variant="row" />
+                      <VoiceToolbar
+                        voiceId={voiceCompanionId}
+                        disabled={isStreaming}
+                        variant="row"
+                      />
+                      <VoiceNote conversationId={conversationId} variant="row" />
+                      {/* 2026-11-04 第四轮:Steer / 打断并发送 已回到底栏 send cluster
+                          (与 Stop 并列三枚 32px 方按钮,1 击可达)。抽屉只留低频项
+                          (任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}
+                    </div>
+                  }
+                />
+              </div>
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
                   改用全局快捷键呼出(见 use-global-shortcuts.ts DEFAULT_SHORTCUTS):
                     · Ctrl+Shift+/  → global-shortcut:open-slash  → 打开 SlashCommandPalette
@@ -1466,138 +1609,123 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              {/* ── 右簇:权限 + 模式 + 上下文 + 模型 + 语音 + 发送 ─────────────── */}
-              {/* ai-input-toolbar-right:窄档(C≤335)由 globals.css @container 换行避让(缺口C),
-                  右簇内容不再左溢越出窗格边界拦截相邻窗格控件的鼠标点击 */}
-              <div className="ai-input-toolbar-right ml-auto flex min-w-0 items-center justify-end gap-1">
-                {/* 权限模式(2026-09-30 icon-only 化):盾/手/罗盘/警盾图标 + 档位色语义,
-                    档名走 Tooltip;弹层内含模式卡片 + 高危说明 ⓘ + 历史内嵌段 */}
-                <PermissionModePopover
-                  disabled={isStreaming}
-                  onExplainMode={(mode) => setInfoMode(mode)}
-                />
-                {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
-                    与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
-                <ModeSwitcher disabled={isStreaming} />
-                {/* D01(2026-10-25 立)对话内 Agent 选择器:紧挨模型选择器左侧,
-                    胶囊形态同规格(h-8 / rounded-sm);选中态写 chat store selectedAgentId,
-                    发送链路随请求透传 personaId → ai-service 并入 system 与工具白名单。
-                    流式中**不禁用**(与 ModelSelector 同一可达性口径):切换只影响下一轮载荷,
-                    禁掉会重演"机制齐但入口够不到"。 */}
-                <AgentPicker />
-                {/* 高级参数入口(P1-7)与推理强度轴收纳进模型弹层 footer,见 ModelSelector */}
-                <ContextUsageRing model={model} isStreaming={isStreaming} />
-                {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
+              {/* ── 右簇:模型 + 流式三动作/发送 ───────────────────────────── */}
+              {/* 2026-11-04 信息架构重构:右簇由 6 枚控件收敛为「模型选择 + 发送·停止」。
+                  权限 / 模式 / Agent / 上下文环 / 语音 / 语音笔记移入 + 菜单的
+                  「更多工具」抽屉(toolsMenuItems)。
+                  第四轮:流式期间的中途引导 / 打断并发送 回到底栏 send cluster,
+                  与 Stop 并列(时间敏感动作必须 1 击可达);空闲仍只有发送一枚。 */}
+              <div className="ai-input-toolbar-right flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+                <div className="ai-input-toolbar-actions flex min-w-0 flex-wrap items-center justify-end gap-1">
+                  {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
                     D130 守门判据要求 <ReasoningEffortInputAxis model={model} 挂载行留在本文件,
                     footer 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
-                <ModelSelector
-                  value={model}
-                  onChange={onModelChange}
-                  label={modelLabel}
-                  footer={
-                    <>
-                      <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
-                      {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
+                  <ModelSelector
+                    value={model}
+                    onChange={onModelChange}
+                    label={modelLabel}
+                    footer={
+                      <>
+                        <ReasoningEffortInputAxis model={model} disabled={isStreaming} />
+                        {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                           自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
-                      <SamplingParamsButton disabled={isStreaming} />
-                    </>
-                  }
-                />
-                {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
-                <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                {/* D43 会话内快捷笔记(G-51)装车(2026-10-18):组件与 12 相状态机、归档/插入
-                    早在 HEAD,但生产零渲染 ⇒ 票面"笔记可一键插入对话"在界面上拿不到。
-                    conversationId 传当前会话,归档记录按会话标注;无会话时为 null(仍可用)。 */}
-                <VoiceNote conversationId={conversationId} />
-                {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
+                        <SamplingParamsButton disabled={isStreaming} />
+                      </>
+                    }
+                  />
+                  {/* 语音转文字 / 语音笔记 / 任务进度 / 权限 / 模式 / Agent / 上下文环
+                      已于 2026-11-04 移入「+ → 更多工具」抽屉(toolsMenuItems)。
+                      底栏常驻锚点 = 状态芯片(仅活跃时) / + / 模型 / 发送·停止三动作。 */}
+                </div>
+                {/* 主操作独立成组且 shrink-0:发送/停止在任何宽度下都不参与收缩,永远可见可点 */}
+                <div className="ai-input-toolbar-send flex shrink-0 items-center gap-1">
+                  {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
-                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形。
-                    2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
+                    流式中切三枚同规格方形:Steer(琥珀,中途引导)/ 打断并发送(紫罗兰)/
+                    Stop(天蓝)。2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
                     ICON_BUTTON_ACTION_BASE_CLASS(= ICON_BUTTON_SIZE,32×32 唯一尺寸,
                     与全项目图标按钮对齐),禁用态同源 ICON_BUTTON_ACTION_DISABLED_CLASS) */}
-                {isStreaming ? (
-                  <>
-                    {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
-                        将输入框文本经 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效。
-                        Enter 仍走 W27 FIFO 排队(两者互不影响);空输入禁用。 */}
-                    <Tooltip content={t('steer')}>
-                      <span className="inline-flex">
+                  {isStreaming ? (
+                    <>
+                      {/* 2026-11-04 第四轮:流式三动作全部常驻 send cluster ——
+                          Steer(琥珀,中途引导)/ 打断并发送(紫罗兰,先入队再停流)/
+                          Stop(天蓝)。空输入时前两枚走同源禁用态(灰),Stop 恒可点。 */}
+                      <Tooltip content={t('steer')}>
+                        <span className="inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => void steer()}
+                            disabled={!value.trim()}
+                            className={cn(
+                              ICON_BUTTON_ACTION_BASE_CLASS,
+                              value.trim()
+                                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            )}
+                            aria-label={t('steer')}
+                            data-testid="steer-button"
+                          >
+                            <Zap className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip content={tq('interruptAndRun')}>
+                        <span className="inline-flex">
+                          <button
+                            type="button"
+                            onClick={() => void interruptAndSend()}
+                            disabled={!value.trim()}
+                            className={cn(
+                              ICON_BUTTON_ACTION_BASE_CLASS,
+                              value.trim()
+                                ? 'bg-violet-500 text-white hover:bg-violet-600'
+                                : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            )}
+                            aria-label={tq('interruptAndRun')}
+                            data-testid="interrupt-and-send-button"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </Tooltip>
+                      <Tooltip content={stopLabel ?? t('stop')}>
                         <button
                           type="button"
-                          onClick={() => void steer()}
-                          disabled={!value.trim()}
+                          onClick={onStop}
                           className={cn(
                             ICON_BUTTON_ACTION_BASE_CLASS,
-                            value.trim()
-                              ? 'bg-amber-500 text-white hover:bg-amber-600'
-                              : ICON_BUTTON_ACTION_DISABLED_CLASS,
+                            'bg-sky-500 text-white hover:bg-sky-600',
                           )}
-                          aria-label={t('steer')}
-                          data-testid="steer-button"
+                          aria-label={stopLabel ?? t('stop')}
+                          data-testid="stop-button"
                         >
-                          <Zap className="h-4 w-4" />
+                          <Square className="h-4 w-4" fill="currentColor" />
                         </button>
-                      </span>
-                    </Tooltip>
-                    {/* 差距③配套(2026-10-30 立):「打断并发送」= 组合语义(零新状态机)——
-                        先按 submit 同款 W27 路径入队当前输入,再走既有 onStop 停流;
-                        本组件"流结束自动出队"effect 随即发送队首。空输入禁用(双保险)。 */}
-                    <Tooltip content={tq('interruptAndRun')}>
+                      </Tooltip>
+                    </>
+                  ) : (
+                    <Tooltip content={sendLabel ?? t('send')}>
                       <span className="inline-flex">
                         <button
                           type="button"
-                          onClick={() => void interruptAndSend()}
-                          disabled={!value.trim()}
+                          // 包一层避免把 MouseEvent 传成 submit 的 overrideValue(TS2322)
+                          onClick={() => void submitAndDismissLinkPreview()}
+                          disabled={!canSend}
                           className={cn(
                             ICON_BUTTON_ACTION_BASE_CLASS,
-                            value.trim()
-                              ? 'bg-violet-500 text-white hover:bg-violet-600'
+                            canSend
+                              ? 'bg-cta text-cta-foreground hover:bg-cta/90'
                               : ICON_BUTTON_ACTION_DISABLED_CLASS,
                           )}
-                          aria-label={tq('interruptAndRun')}
-                          data-testid="interrupt-and-send-button"
+                          aria-label={sendLabel ?? t('send')}
+                          data-testid="send-button"
                         >
                           <ArrowUp className="h-4 w-4" />
                         </button>
                       </span>
                     </Tooltip>
-                    <Tooltip content={stopLabel ?? t('stop')}>
-                      <button
-                        type="button"
-                        onClick={onStop}
-                        className={cn(
-                          ICON_BUTTON_ACTION_BASE_CLASS,
-                          'bg-sky-500 text-white hover:bg-sky-600',
-                        )}
-                        aria-label={stopLabel ?? t('stop')}
-                        data-testid="stop-button"
-                      >
-                        <Square className="h-4 w-4" fill="currentColor" />
-                      </button>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <Tooltip content={sendLabel ?? t('send')}>
-                    <span className="inline-flex">
-                      <button
-                        type="button"
-                        // 包一层避免把 MouseEvent 传成 submit 的 overrideValue(TS2322)
-                        onClick={() => void submitAndDismissLinkPreview()}
-                        disabled={!canSend}
-                        className={cn(
-                          ICON_BUTTON_ACTION_BASE_CLASS,
-                          canSend
-                            ? 'bg-cta text-cta-foreground hover:bg-cta/90'
-                            : ICON_BUTTON_ACTION_DISABLED_CLASS,
-                        )}
-                        aria-label={sendLabel ?? t('send')}
-                        data-testid="send-button"
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </button>
-                    </span>
-                  </Tooltip>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1615,6 +1743,9 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
+      {/* Ctrl+Shift+J 任务进度面板的全局监听宿主(2026-11-04 第四轮):
+          必须常驻且全应用只挂这一处;两处同时挂载会把一次按键 toggle 成两次。 */}
+      <AgentProgressShortcutHost />
       {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
       <SessionDiffDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):

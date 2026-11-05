@@ -288,7 +288,7 @@ function isNearExpiry(row: AiRelayAccountPool, now: number): boolean {
  * host=https://api.trae.cn、userRegion={CN,CN}、scope=marscode、loginScope=trae、
  * iss/storeCountryCode/storeCountrySrc/work_country 为空串、migrateToSG=false。
  */
-export function buildMinimalTraeTemplate(
+function buildMinimalTraeTemplate(
   row: Pick<AiRelayAccountPool, 'uid' | 'name'>,
 ): Record<string, unknown> {
   const now = new Date()

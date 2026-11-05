@@ -14,7 +14,7 @@
  *  3. 每条放行都有成对反证:同一份文本,把顶层块删掉/缩进进 jobs 必须翻红。
  */
 
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -61,6 +61,25 @@ test('真实仓面:permissions 维零违规(绝对零容忍档,不是只报数)'
   assert.deepEqual(permsViolations, [])
 })
 
+// 规则 C(安装命令逐字钉版)的镜像档 —— 判据从门体 import,本文件不复算(§22c)
+test('规则 C:区间与裸包名判红,逐字钉版/现读值/锁文件放行', () => {
+  assert.equal(gate.judgeInstallPins('        run: pip install uv\n').length, 1)
+  assert.equal(gate.judgeInstallPins('        run: npm install -g npm@^11.15.0\n').length, 1)
+  assert.equal(gate.judgeInstallPins('        run: pip install uv==0.12.1\n').length, 0)
+  assert.equal(gate.judgeInstallPins('        run: npm i -g "@tauri-apps/cli@$V"\n').length, 0)
+  assert.equal(gate.judgeInstallPins('        run: pnpm install --frozen-lockfile\n').length, 0)
+})
+
+test('真实仓面:安装钉版维零违规,且覆盖面不是靠"没扫到文件"', () => {
+  const pinViolations = gate.scan().filter((v) => v.includes('[install-pin]'))
+  assert.deepEqual(pinViolations, [])
+  // 变异自证:把已钉的那枚摘回未钉,同一把尺子必须量出来(否则这条维是哑的)
+  const ci = readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')
+  const unpin = ci.replace(/^(\s*)run: pip install uv==0\.12\.1$/m, '$1run: pip install uv')
+  assert.notEqual(unpin, ci, '摘样本没摘到东西 ⇒ 这一格不成对照')
+  assert.ok(gate.judgeInstallPins(unpin).length >= 1, '摘掉版本钉后仍放行 ⇒ 规则 C 是哑的')
+})
+
 test('覆盖面自证:"0 违规"不得来自"0 文件被扫"', () => {
   const dir = join(ROOT, '.github', 'workflows')
   const files = readdirSync(dir).filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
@@ -68,5 +87,54 @@ test('覆盖面自证:"0 违规"不得来自"0 文件被扫"', () => {
   assert.ok(files.length >= 40, `workflow 枚数异常少(${files.length})⇒ 这一轮的"绿"没有意义`)
   const scanned = gate.scan()
   assert.ok(Array.isArray(scanned), 'scan 必须返回数组')
+})
+
+test('规则 D 夹具:corepack/npm -g 的版本位必须具体,且等于 packageManager', () => {
+  const PM = '11.18.0'
+  const cases = [
+    ['corepack 钉具体版本 ⇒ 放行', 'RUN corepack prepare pnpm@11.18.0 --activate\n', 0],
+    [
+      'corepack @latest ⇒ 判红(2026-11-01 实测三处即此型)',
+      'RUN corepack prepare pnpm@latest --activate\n',
+      1,
+    ],
+    ['corepack 不带版本 ⇒ 判红', 'RUN corepack prepare pnpm --activate\n', 1],
+    ['npm -g 钉成别的版本 ⇒ 判红(D2)', 'RUN npm i -g pnpm@9.15.0\n', 1],
+    ['行注释里的历史版本不参与判定', '# 原为 pnpm@9.15.0\nRUN apk add --no-cache tini\n', 0],
+    [
+      'snapcraft 缩进形态同在射程',
+      '    steps:\n      corepack prepare pnpm@latest --activate\n',
+      1,
+    ],
+  ]
+  for (const [name, text, want] of cases) {
+    assert.equal(gate.judgeBuildToolPins(text, PM).length, want, `${name}(期望 ${want})`)
+  }
+})
+
+test('规则 D 真实面:deploy 构建文件零违规,且枚举到的不是空集', () => {
+  const files = gate.listBuildFiles()
+  assert.ok(
+    Array.isArray(files) && files.length >= 20,
+    `deploy 构建文件枚数异常(${files?.length})⇒ "绿"无意义`,
+  )
+  const pm = gate.readPackageManagerPnpm()
+  assert.equal(pm, '11.18.0', 'packageManager 读数变形 ⇒ 先核根 package.json 再核判据')
+  for (const abs of files) {
+    const v = gate.judgeBuildToolPins(readFileSync(abs, 'utf8'), pm)
+    assert.equal(v.length, 0, `${abs} 规则 D 违规:${v.join(' ; ')}`)
+  }
+})
+
+test('规则 D 变异自证:把 Dockerfile.cli 的 pnpm 钉摘回 @latest 必须翻红', () => {
+  const abs = join(ROOT, 'deploy', 'docker', 'Dockerfile.cli')
+  const text = readFileSync(abs, 'utf8')
+  assert.equal(gate.judgeBuildToolPins(text, gate.readPackageManagerPnpm()).length, 0)
+  const floated = text.replace('corepack prepare pnpm@11.18.0', 'corepack prepare pnpm@latest')
+  assert.notEqual(floated, text, '摘样本没摘到东西 ⇒ 这一格不成对照')
+  assert.ok(
+    gate.judgeBuildToolPins(floated, '11.18.0').length >= 1,
+    '摘掉版本钉后仍放行 ⇒ 规则 D 是哑的',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

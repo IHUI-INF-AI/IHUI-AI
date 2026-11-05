@@ -83,18 +83,54 @@
  *    `desktop-feed.generated.ts` 快照(由 scripts/resolve-desktop-download.mjs 从
  *    GitHub Releases API 动态解析最新 desktop-v* release 资产生成,发版后 CI 自动刷新
  *    并提交回仓库)。
- *  - 快照缺失或资产为空时回退 `DESKTOP_FALLBACK`(最近一次已知值,仅作离线兜底)。
+ *  - 快照资产为空 ⇒ 如实"没有可报的包"(assets 空,端读作未配置),不再供陈迹直链(见 DESKTOP_RELEASES_URL 注记)。
  *  - 每次发版(desktop-vX.Y.Z)后,下载页自动展示新版本号、日期与安装包,无需改代码。
  */
 
 import cliPkg from '../../../cli/package.json'
 import extensionPkg from '../../../extension/package.json'
 import mobileRnPkg from '../../../mobile-rn/package.json'
+import { withBasePath } from './base-path'
 import { DESKTOP_FEED } from './desktop-feed.generated'
 
-/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
-export type DownloadPlatform =
-  'web' | 'desktop' | 'ios' | 'android-apk' | 'mobile' | 'wechat-miniapp' | 'extension' | 'cli'
+/**
+ * 下载中心「已上线」平台的唯一运行时清单(2026-11-03 收口)。
+ *
+ * 此前这里是一份**类型**、`DownloadDetailContent.tsx` 里另抄了一份同义的
+ * `validPlatforms` **数组** —— 两份真相各自演化,而那份数组把未知平台静默折成 desktop,
+ * 于是 `/download/harmony`(harmony 已在 `apps/api/src/routes/app-version.ts` 的 platform
+ * 枚举里,只是下载中心还没上)渲染成桌面版详情页,用户以为那就是鸿蒙版。
+ * 现在 `DownloadPlatform` 类型由本数组派生:新增一端只改这一处,
+ * `PLATFORM_META: Record<DownloadPlatform, PlatformMeta>` 与 `generateStaticParams`
+ * 会跟着编译器一起要求补齐 —— 漏改是编译错误,不是静默错配。
+ *
+ * 注意:本清单只登记**下载中心已上线**的端,与 API 侧 `app-version` 的 platform 枚举
+ * (ios/android/web/harmony/cli,那是「版本检查」的另一根轴)不必等值;
+ * 未登记的端在详情页走显式「尚未上线」态,不再回落任何平台。
+ */
+export const DOWNLOAD_PLATFORMS = [
+  'web',
+  'desktop',
+  'ios',
+  'android-apk',
+  'mobile',
+  'wechat-miniapp',
+  'extension',
+  'cli',
+] as const
+
+/** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应;取值即上面的清单 */
+export type DownloadPlatform = (typeof DOWNLOAD_PLATFORMS)[number]
+
+/** URL 平台段 / 外部入参是否为下载中心已登记的端(类型收窄,供详情页与静态参数共用) */
+export function isDownloadPlatform(value: string | undefined | null): value is DownloadPlatform {
+  return typeof value === 'string' && (DOWNLOAD_PLATFORMS as readonly string[]).includes(value)
+}
+
+/** 无效/缺失的 platform 参数一律归到 desktop(与详情页既有回落行为一致,且只在这里判一次) */
+export function normalizeDownloadPlatform(raw: string | undefined | null): DownloadPlatform {
+  return typeof raw === 'string' && isDownloadPlatform(raw) ? raw : 'desktop'
+}
 
 /** 单个下载资源文件元数据(一个端可能有多种格式/架构,如 desktop 同时提供 .exe 和 .msi) */
 export interface DownloadAsset {
@@ -218,8 +254,9 @@ export function getWechatEntryUrl(): string | null {
 
 /**
  * 解析 APK 直链:
- *  1. NEXT_PUBLIC_DOWNLOAD_APK_URL 直接返回;
- *  2. NEXT_PUBLIC_DOWNLOAD_CDN_BASE 非空 → `${CDN_BASE}/${apkFileName}`(去除尾部 /);
+ *  1. NEXT_PUBLIC_DOWNLOAD_APK_URL 直接返回(生产唯一取值;由 deploy 脚本从单源
+ *     `scripts/data/mobile-download-leg.json` 写入,禁止各页面各写一份 URL);
+ *  2. NEXT_PUBLIC_DOWNLOAD_CDN_BASE 非空 → `${CDN_BASE}/${apkFileName}`(遗留兼容,部署不设置);
  *  3. 均未配置 → 返回空字符串(未上架)。
  */
 export function getApkPath(): string {
@@ -309,38 +346,22 @@ export function resolveWechatHref(): string {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Desktop 兜底元数据(仅当快照 `desktop-feed.generated.ts` 的 assets 为空时使用)。
- * 说明:快照为静态 import,构建期由 webpack 解析,文件缺失会直接构建失败(不存在
- * 优雅降级路径)——因此快照**必须**存在,由 git 跟踪入库 + CI 发版自动刷新双重保障,
- * 如误删请先运行 `pnpm resolve:desktop-download` 重新生成。
- * 正常流程:快照由 scripts/resolve-desktop-download.mjs 从 GitHub Releases API 动态
- * 生成并入库,发版后 CI 自动刷新提交;本常量只是资产解析为空时的最后防线,
- * 值 = 最近一次线上解析结果(0.1.14),**不要手动更新它**,刷新请跑解析脚本。
+ * Desktop 快照不可用时**只剩这一个常量**:GitHub Releases 页址(不是某个具体包)。
+ *
+ * 此前这里还写着 0.1.14 的 version/releaseDate 与两条 exe/msi 直链,自称"最近一次线上解析结果"。
+ * 实测(2026-11-04):那两条 URL 指向的产物在全仓与生产签出都不存在,产物命名早已换成
+ * `AI_0.1.77_*`;而快照 `desktop-feed.generated.ts` 是静态 import、缺失即构建失败 ⇒ 这条"兜底"
+ * 结构上只在**快照被人为清空**时才生效,而那正是"我们不知道有任何包"的状态 ——
+ * 拿一个编出来的旧号顶上,等于给用户一条 404 下载链(§0.3 取不到不猜)。
+ * 现在:快照不可用 ⇒ assets 为空,详情页/下载栏按"未配置"如实显示,刷新出口仍是
+ * `pnpm resolve:desktop-download`。
  */
-const DESKTOP_FALLBACK = {
-  version: '0.1.14',
-  releaseDate: '2026-08-29',
-  githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-  assets: [
-    {
-      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64-setup.exe',
-      sizeBytes: 237770846,
-      format: 'Windows NSIS exe',
-      arch: 'x64',
-    },
-    {
-      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64_en-US.msi',
-      sizeBytes: 246292480,
-      format: 'Windows MSI',
-      arch: 'x64',
-    },
-  ],
-} satisfies Pick<PlatformMeta, 'version' | 'releaseDate' | 'githubReleasesUrl' | 'assets'>
+const DESKTOP_RELEASES_URL = 'https://github.com/IHUI-INF-AI/IHUI-AI/releases'
 
 /**
  * 解析 Desktop 端元数据:
  *  - 快照(desktop-feed.generated.ts)存在且资产非空 → 用快照(version/releaseDate/githubReleasesUrl/assets 全动态);
- *  - 否则 → 回退 DESKTOP_FALLBACK(最近一次已知值)。
+ *  - 否则 → 如实"没有可报的包"(assets 空 ⇒ 端读作未配置),不供陈迹直链。
  */
 function resolveDesktopMeta(): Pick<
   PlatformMeta,
@@ -351,11 +372,16 @@ function resolveDesktopMeta(): Pick<
     return {
       version: feed.version,
       releaseDate: feed.releaseDate ?? '',
-      githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_FALLBACK.githubReleasesUrl,
+      githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_RELEASES_URL,
       assets: feed.assets,
     }
   }
-  return DESKTOP_FALLBACK
+  return {
+    version: undefined,
+    releaseDate: undefined,
+    githubReleasesUrl: DESKTOP_RELEASES_URL,
+    assets: [],
+  }
 }
 
 /**
@@ -452,11 +478,18 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       systemRequirementsKey: 'downloadExtensionSysReq',
       installGuideKey: 'downloadExtensionInstallGuide',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)
+      // 真实扩展包(从 apps/extension/.output/chrome-mv3/ 打包)。
+      // 体积这里**一律填 0** = "未量":此前写死的 6498757 与实物差 3 倍多,而实物在
+      // 工作树与生产签出里也是两个不同字节数(2026-11-02 实测 1852871 / 1897977)。
+      // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
-          href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 6498757,
+          // 站内绝对路径必须过 basePath:Pages 项目站点挂在 /<repo>/ 下,
+          // 裸 `/downloads/...` 会解析到根域而 404(2026-11-05 公网实测)。
+          href: withBasePath(
+            `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip`,
+          ),
+          sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },
       ],
@@ -493,6 +526,25 @@ export const PLATFORM_META: Record<DownloadPlatform, PlatformMeta> = getPlatform
 /** 获取指定端的元数据(PLATFORM_META 类型安全访问) */
 export function getPlatformMeta(platform: DownloadPlatform): PlatformMeta {
   return PLATFORM_META[platform]
+}
+
+/**
+ * 一端的元数据是否构成「已上线」——详情页头部的「已发布」徽章与「尚未上线」态的
+ * 可选平台清单**共用这一个判据**(2026-11-03 收口,此前判据长在页面里,别处想问只能重抄)。
+ *  - assets 非空 → 有可直接下载的资源;
+ *  - 或 version + installGuideKey 齐全 → 走 npm / 源码构建这类「没有独立安装包但能装」的端
+ *    (CLI / Mobile 属这一型,只看 assets 会把它们误判成未上线,详情页却已给出安装入口)。
+ */
+export function isPlatformLaunched(meta: PlatformMeta): boolean {
+  return meta.assets.length > 0 || Boolean(meta.version && meta.installGuideKey)
+}
+
+/**
+ * 下载中心当前已上线的端(顺序沿用 `DOWNLOAD_PLATFORMS`)。
+ * 供「尚未上线」态列出可点走的平台入口 —— 清单本身仍只有一个来源。
+ */
+export function getLaunchedPlatforms(): DownloadPlatform[] {
+  return DOWNLOAD_PLATFORMS.filter((platform) => isPlatformLaunched(PLATFORM_META[platform]))
 }
 
 /** 单端配置状态(运营接入自检用,2026-08-06 新增)。 */

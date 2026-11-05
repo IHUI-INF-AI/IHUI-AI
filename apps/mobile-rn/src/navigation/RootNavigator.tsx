@@ -76,6 +76,8 @@ import DeveloperSettingsScreen from '../screens/DeveloperSettingsScreen'
 import DeveloperConversationsScreen from '../screens/DeveloperConversationsScreen'
 import ModelsPromptsScreen from '../screens/ModelsPromptsScreen'
 import EduAttendanceScreen from '../screens/EduAttendanceScreen'
+import EduMyAttendanceScreen from '../screens/EduMyAttendanceScreen'
+import EduAttendanceQrScreen, { EduAttendanceScanScreen } from '../screens/EduAttendanceQrScreen'
 import EduGradesScreen from '../screens/EduGradesScreen'
 import EduParentScreen from '../screens/EduParentScreen'
 import EduParentBindScreen from '../screens/EduParentBindScreen'
@@ -194,6 +196,7 @@ import { PromoteScreen } from '../screens/PromoteScreen'
 import { DistributionScreen } from '../screens/DistributionScreen'
 import { TeamScreen } from '../screens/TeamScreen'
 import { AgentReviewListScreen } from '../screens/AgentReviewListScreen'
+import { AgentReviewDetailScreen } from '../screens/AgentReviewDetailScreen'
 import { AgentStatScreen } from '../screens/AgentStatScreen'
 import { AgentSettingScreen } from '../screens/AgentSettingScreen'
 import { ApiSettingsScreen } from '../screens/ApiSettingsScreen'
@@ -286,7 +289,7 @@ import AiGroupScreen from '../screens/AiGroupScreen'
 import AiAssistantScreen from '../screens/AiAssistantScreen'
 import AigcListScreen from '../screens/AigcListScreen'
 import ModelPlazaScreen from '../screens/ModelPlazaScreen'
-import type { RankingItem } from '@ihui/types'
+import type { AgentReviewListItem, RankingItem } from '@ihui/types'
 import DeveloperScreen from '../screens/DeveloperScreen'
 import BusinessCardScreen from '../screens/BusinessCardScreen'
 import RecruitmentScreen from '../screens/RecruitmentScreen'
@@ -504,6 +507,9 @@ export type RootStackParamList = {
   DeveloperConversations: undefined
   ModelsPrompts: undefined
   EduAttendance: undefined
+  EduMyAttendance: undefined
+  EduAttendanceQr: undefined
+  EduAttendanceScan: undefined
   EduGrades: undefined
   EduParent: undefined
   EduParentBind: undefined
@@ -591,11 +597,12 @@ export type RootStackParamList = {
   QrCode: undefined
   NotificationSettings: undefined
   AgentReviewList: undefined
+  AgentReviewDetail: { item: AgentReviewListItem }
   AgentStat: undefined
   AgentSetting: undefined
   Carte: undefined
   ApiSettings: undefined
-  ModelEdit: undefined
+  ModelEdit: { agentId?: string } | undefined
   CourseAnnex: undefined
   CourseResource: undefined
   CourseQAList: undefined
@@ -609,6 +616,8 @@ export type RootStackParamList = {
   PointRule: undefined
   PointHistory: undefined
   VipLevel: { id: string }
+  // nav-B:跨端逻辑名 pages/vip/upgrade 在 RN 的落点,复用 VipLevel 壳(同一屏,参数契约一致)
+  VipUpgrade: { id: string }
   VipBenefit: undefined
   VipCompare: undefined
   CertList: undefined
@@ -656,6 +665,8 @@ export type RootStackParamList = {
   StudyPlan: undefined
   StudyProgress: undefined
   ExamResult: { id: string }
+  // nav-B:考试记录详情(ExamHistory 列表条目落点),复用 ExamResult 壳,参数为记录 id
+  ExamDetail: { id: string }
   ExamHistory: undefined
   ExamQuestion: { examId: string }
   CertDetail: { id: string }
@@ -1046,6 +1057,9 @@ function RootNavigatorInner() {
             />
             <RootStack.Screen name="ModelsPrompts" component={ModelsPromptsScreen} />
             <RootStack.Screen name="EduAttendance" component={EduAttendanceScreen} />
+            <RootStack.Screen name="EduMyAttendance" component={EduMyAttendanceScreen} />
+            <RootStack.Screen name="EduAttendanceQr" component={EduAttendanceQrScreen} />
+            <RootStack.Screen name="EduAttendanceScan" component={EduAttendanceScanScreen} />
             <RootStack.Screen name="EduGrades" component={EduGradesScreen} />
             <RootStack.Screen name="EduParent" component={EduParentScreen} />
             <RootStack.Screen name="EduParentBind" component={EduParentBindScreen} />
@@ -1150,6 +1164,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="QrCode" component={QrCodeScreen} />
             <RootStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
             <RootStack.Screen name="AgentReviewList" component={AgentReviewListScreen} />
+            <RootStack.Screen name="AgentReviewDetail" component={AgentReviewDetailScreen} />
             <RootStack.Screen name="AgentStat" component={AgentStatScreen} />
             <RootStack.Screen name="AgentSetting" component={AgentSettingScreen} />
             <RootStack.Screen name="Carte" component={CarteScreen} />
@@ -1168,6 +1183,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="PointRule" component={PointRuleScreen} />
             <RootStack.Screen name="PointHistory" component={PointHistoryScreen} />
             <RootStack.Screen name="VipLevel" component={VipLevelScreen} />
+            <RootStack.Screen name="VipUpgrade" component={VipLevelScreen} />
             <RootStack.Screen name="VipBenefit" component={VipBenefitScreen} />
             <RootStack.Screen name="VipCompare" component={VipCompareScreen} />
             <RootStack.Screen name="CertList" component={CertListScreen} />
@@ -1222,6 +1238,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="StudyPlan" component={StudyPlanScreen} />
             <RootStack.Screen name="StudyProgress" component={StudyProgressScreen} />
             <RootStack.Screen name="ExamResult" component={ExamResultScreen} />
+            <RootStack.Screen name="ExamDetail" component={ExamResultScreen} />
             <RootStack.Screen name="ExamHistory" component={ExamHistoryScreen} />
             <RootStack.Screen name="ExamQuestion" component={ExamQuestionScreen} />
             <RootStack.Screen name="CertDetail" component={CertDetailScreen} />

@@ -23,6 +23,13 @@ import {
 } from '@ihui/api-client'
 import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
 import { sortPinnedFirst } from '@ihui/shared/chat/conversation-org'
+// 2026-11-05 日历制对齐:日期分桶不再端内自写「滚动 7 天」,与 web 侧栏消费同一份
+// 共享实现(@ihui/shared/chat/conversation-date-group:自然日/自然周(周一起)/自然月(1 号起))。
+import {
+  groupConversationByDate,
+  resolveConversationTimestamp,
+  type ConversationDateGroupKey,
+} from '@ihui/shared/chat/conversation-date-group'
 import type { ApiResult } from '@ihui/types'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -30,6 +37,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import ConversationHistoryItem from '@/components/ConversationHistoryItem'
 import LineIcon from '@/components/LineIcon'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -44,7 +52,8 @@ const ICONS = REMOTE_ICONS as {
 }
 
 type FilterType = 'all' | 'chat' | 'image' | 'voice' | 'agent'
-type GroupKey = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
+/** 与 web 侧栏同源的日历桶键(today / thisWeek(周一起) / thisMonth(1 号起) / earlier) */
+type GroupKey = ConversationDateGroupKey
 /** 列表当前的数据来源:server=服务端会话(可置顶);local=本机快照(兜底,不可置顶) */
 export type HistorySource = 'server' | 'local'
 
@@ -132,16 +141,21 @@ export function resolveActiveFilter(filter: FilterType, available: Set<FilterTyp
   return available.has(filter) ? filter : 'all'
 }
 
-const GROUP_LABELS = (tt: TtFn): Array<{ key: GroupKey; labelKey: string; fallback: string }> => [
-  { key: 'today', labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
-  {
-    key: 'yesterday',
-    labelKey: 'index.mock.yesterday',
-    fallback: tt('index.mock.yesterday', '昨天'),
+/**
+ * 分组标题(顺序即渲染顺序,与共享层的 CONVERSATION_DATE_GROUP_ORDER 一致)。
+ * 「本月」复用 live.calendar.monthStat(取值已是「本月 / This month / 今月 / 이번 달」),
+ * 与同页 today 借用 live.calendar.today 是同一套借用口径 —— 小程序词包无 aiHistory 本月键,
+ * 不为一个标题新增五语言词条。
+ */
+const GROUP_LABELS = (tt: TtFn): Record<GroupKey, { labelKey: string; fallback: string }> => ({
+  today: { labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
+  thisWeek: { labelKey: 'aiHistory.d3', fallback: tt('aiHistory.d3', '本周') },
+  thisMonth: {
+    labelKey: 'live.calendar.monthStat',
+    fallback: tt('live.calendar.monthStat', '本月'),
   },
-  { key: 'thisWeek', labelKey: 'aiHistory.d3', fallback: tt('aiHistory.d3', '本周') },
-  { key: 'earlier', labelKey: 'aiHistory.d4', fallback: tt('aiHistory.d4', '更早') },
-]
+  earlier: { labelKey: 'aiHistory.d4', fallback: tt('aiHistory.d4', '更早') },
+})
 
 /** 读本机快照(兜底副本)。读失败=没有兜底数据,返回空数组而不是抛错。 */
 export function readLocalHistory(): HistoryItem[] {
@@ -346,20 +360,22 @@ export async function loadHistoryRows(deps: {
   return { items: deps.readLocal(), source: 'local', serverHasMore: false }
 }
 
-function getGroupKey(ts: number): GroupKey {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const day = 86400000
-  if (ts >= today) return 'today'
-  if (ts >= today - day) return 'yesterday'
-  if (ts >= today - day * 7) return 'thisWeek'
-  return 'earlier'
-}
-
 function itemTimestamp(h: HistoryItem): number {
   if (h.timestamp) return h.timestamp
   const parsed = new Date(h.time).getTime()
   return isNaN(parsed) ? Date.now() : parsed
+}
+
+/**
+ * 分桶用的时间锚点(2026-11-05 对齐 web):timestamp → time 依次回退,两者都不可用 ⇒ null,
+ * 由共享层归入「更早」。
+ *
+ * 旧实现用 `Date.now()` 兜底 ⇒ 没有时间戳的行冒领「今天」,与 web 的「不拿默认值占位」
+ * 口径相反。**展示/排序仍走 itemTimestamp**(那里的兜底只影响这一行显示成什么时刻,
+ * 不参与分桶,改它会顺带改动既有列表顺序 —— 不在本次语义对齐面内)。
+ */
+export function itemGroupTime(h: HistoryItem): number | null {
+  return resolveConversationTimestamp([h.timestamp, h.time])
 }
 
 /**
@@ -481,18 +497,9 @@ export default function HistoryPage() {
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
 
-  const groups = useMemo(() => {
-    const m: Record<GroupKey, HistoryItem[]> = {
-      today: [],
-      yesterday: [],
-      thisWeek: [],
-      earlier: [],
-    }
-    visible.forEach((item) => {
-      m[getGroupKey(itemTimestamp(item))].push(item)
-    })
-    return m
-  }, [visible])
+  // 日历制分桶(2026-11-05 对齐 web):切界与回退链都在共享层,本页只交「行 → 时间锚点」。
+  // 空桶由共享层直接丢弃,渲染不必再判 length。
+  const groups = useMemo(() => groupConversationByDate(visible, itemGroupTime), [visible])
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
@@ -501,10 +508,7 @@ export default function HistoryPage() {
       // 兜底态不报「刷新成功」—— 那是对失败的假交代(§5e「失败必须响」同一条禁令),
       // 此时上方的兜底提示条就是可见反馈;服务端拿到才照 HEAD 的原有行为提示成功。
       if (result?.source === 'server') {
-        Taro.showToast({
-          title: tt('ai.historyPage.refreshSuccess', '刷新成功'),
-          icon: 'none',
-        })
+        onToast(tt('ai.historyPage.refreshSuccess', '刷新成功'), { kind: 'info' })
       }
     })
   }, [load, tt])
@@ -533,10 +537,7 @@ export default function HistoryPage() {
     if (!items) {
       setLoadingMore(false)
       setHasMore(false)
-      Taro.showToast({
-        title: tt('ai.historyPage.loadMoreFailed', '加载更多失败,请下拉刷新重试'),
-        icon: 'none',
-      })
+      onToast(tt('ai.historyPage.loadMoreFailed', '加载更多失败,请下拉刷新重试'), { kind: 'error' })
       return
     }
     const merged = mergeHistoryRows(list, items)
@@ -584,12 +585,12 @@ export default function HistoryPage() {
       if (outcome.ok) {
         setList(outcome.items)
       } else {
-        Taro.showToast({
-          title: next
+        onToast(
+          next
             ? tt('ai.historyPage.pinFailed', '置顶失败,请重试')
             : tt('ai.historyPage.unpinFailed', '取消置顶失败,请重试'),
-          icon: 'none',
-        })
+          { kind: 'error' },
+        )
       }
     },
     [list, source, tt],
@@ -612,7 +613,7 @@ export default function HistoryPage() {
             Taro.setStorageSync(HISTORY_KEY, next)
             return next
           })
-          Taro.showToast({ title: t('success.deleted'), icon: 'none' })
+          onToast(t('success.deleted'), { kind: 'info' })
         },
       })
     },
@@ -641,14 +642,11 @@ export default function HistoryPage() {
           void deleteServerConversation({ remove: () => deleteConversation(h.id) }).then(
             (outcome) => {
               if (outcome.ok) {
-                Taro.showToast({ title: t('success.deleted'), icon: 'none' })
+                onToast(t('success.deleted'), { kind: 'info' })
                 return
               }
               setList(snapshot)
-              Taro.showToast({
-                title: tt('ai.historyPage.deleteFailed', '删除失败,请重试'),
-                icon: 'none',
-              })
+              onToast(tt('ai.historyPage.deleteFailed', '删除失败,请重试'), { kind: 'error' })
             },
           )
         },
@@ -668,7 +666,7 @@ export default function HistoryPage() {
         if (!res.confirm) return
         Taro.setStorageSync(HISTORY_KEY, [])
         setList([])
-        Taro.showToast({ title: tt('ai.historyPage.cleared', '已清空'), icon: 'none' })
+        onToast(tt('ai.historyPage.cleared', '已清空'), { kind: 'info' })
       },
     })
   }, [list.length, t, tt])
@@ -718,18 +716,20 @@ export default function HistoryPage() {
       setPage(1)
       setServerPage(1)
       setServerHasMore(false)
-      Taro.showToast({ title: t('ai.historyPage.clearServerDone', { n: total }), icon: 'none' })
+      onToast(t('ai.historyPage.clearServerDone', { n: total }), { kind: 'info' })
       return
     }
     // 有失败:失败行原样保留(长按可单条重试),toast 点名 X/Y,不谎报清空。
     // 函数式更新基于当前列表摘掉成功行,中途被刷新改写过的列表也不会被旧快照整表盖回。
     setList((prev) => applyServerClearResult(prev, result).items)
-    Taro.showToast({
-      title: t('ai.historyPage.clearServerPartial', {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('ai.historyPage.clearServerPartial', {
         ok: result.okIds.length,
         fail: result.failedIds.length,
       }),
-      icon: 'none',
+      showCancel: false,
+      confirmText: t('common.confirm'),
     })
   }, [source, clearingAll, list, t, tt])
 
@@ -754,7 +754,7 @@ export default function HistoryPage() {
         />
         {list.length > 0 ? (
           <Text
-            className="text-[length:26rpx] text-destructive flex-shrink-0"
+            className="text-body-sm leading-[normal] text-destructive flex-shrink-0"
             onClick={source === 'server' ? () => void onClearServerAll() : onClearAll}
           >
             {tt('ai.historyPage.clearAll', '清空全部')}
@@ -857,15 +857,14 @@ export default function HistoryPage() {
           </View>
         ) : (
           <View className="py-[24rpx] px-[32rpx]">
-            {GROUP_LABELS(tt).map((g) => {
-              const items = groups[g.key]
-              if (!items || items.length === 0) return null
+            {groups.map((g) => {
+              const label = GROUP_LABELS(tt)[g.key]
               return (
                 <View key={g.key} className="mb-[32rpx]">
                   <Text className="block text-label text-muted-foreground mb-[16rpx] pl-[8rpx]">
-                    {tt(g.labelKey, g.fallback)}
+                    {tt(label.labelKey, label.fallback)}
                   </Text>
-                  {items.map((h) => {
+                  {g.items.map((h) => {
                     const ts = itemTimestamp(h)
                     const count = h.messageCount || h.messages?.length || 0
                     const preview = h.messages?.[h.messages.length - 1]?.content

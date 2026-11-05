@@ -11,7 +11,7 @@
  * 不再内嵌外部看板程序,改为
  *   页面(本文件,项目自己的 EChart 组件) → /api/admin/monitor-panels/query
  *   → Prometheus(8815) / Loki(3100) 直查出图。
- * 面板定义(`monitoring/grafana/dashboards/*.json`)降级为离线配置源:表达式由
+ * 面板定义(`monitoring/panel-defs/panels/*.json`)降级为离线配置源:表达式由
  * scripts/generate-monitor-panels.mjs 从上述 JSON 转译进 dashboard-config.generated.ts,
  * 运行时用户完全不接触外部看板程序。零假数据:所有曲线/数字都来自真实指标。
  */
@@ -392,7 +392,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                             type="button"
                             onClick={() => switchDashboard(d.uid)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
+                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label transition-colors',
                               active
                                 ? 'bg-info/15 font-medium text-info-text'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -501,11 +501,11 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         {/* 面板网格:pn-panels 是网格列的容器查询宿主,列数跟面板区实际宽度走(不跟视口) */}
         <div className="pn-panels flex-1 overflow-y-auto p-3">
           {!dashboard ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-label text-muted-foreground">
               配置加载中…
             </div>
           ) : panels.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full items-center justify-center text-label text-muted-foreground">
               无匹配「{filter}」的面板
             </div>
           ) : (

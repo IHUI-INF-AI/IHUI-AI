@@ -92,6 +92,7 @@ export function WorkflowsScreen() {
       error={error}
       onOpen={handleOpen}
       onRefresh={load}
+      onRetry={load}
     />
   )
 }

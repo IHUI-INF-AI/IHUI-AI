@@ -81,6 +81,12 @@
     "toolWorkflowInstanceStatus": "ワークフロー状態照会",
     "toolNotebookEdit": "ノートブックセル編集",
     "toolSendToSession": "セッションメッセージ送信",
+    "toolRenderRepoTree": "ディレクトリ構造を描画",
+    "toolRunWorkflow": "ワークフローを実行",
+    "toolWorkbookOpen": "ワークブックを開く",
+    "toolWorkbookReadRange": "ワークブック範囲を読み取り",
+    "toolWorkbookWriteCells": "ワークブックに書き込み",
+    "toolWorkbookClose": "ワークブックを閉じる",
     "toolGenerateTest": "テストコードを生成",
     "toolRunCommand": "コマンドを実行",
     "toolGitOperations": "Git 操作を実行",
@@ -783,6 +789,8 @@
     "contentRequired": "フィードバック内容を入力してください",
     "contact": "連絡先",
     "contactPlaceholder": "任意、ご連絡のため",
+    "namePlaceholder": "名前を入力してください",
+    "tip": "いただいたご意見は製品・サービスの改善に活用します。送信後は処理をお待ちください。",
     "empty": "フィードバック記録がありません",
     "failed": "送信に失敗しました、後でもう一度お試しください",
     "fieldContact": "連絡先",
@@ -1386,6 +1394,8 @@
     "enterprise": "エンタープライズ"
   },
   "share": {
+    "appTitle": "IHUI AI — 学習をより効率的に",
+    "timelineTitle": "IHUI AI、スマート学習アシスタント",
     "title": "共有",
     "remark": "備考",
     "remarkPlaceholder": "備考を入力してください(任意)",
@@ -1516,7 +1526,36 @@
     "total": "全体",
     "rank": "順位",
     "points": "ポイント",
-    "isMe": "自分"
+    "isMe": "自分",
+    "unitCreation": "点",
+    "listTitle": "AIランキング",
+    "searchPlaceholder": "AIツールを検索",
+    "generalHelper": "汎用アシスタント",
+    "free": "無料",
+    "fenlei": "カテゴリー",
+    "menu": "メニュー",
+    "detailTitle": "詳細ページ",
+    "statusUnknown": "不明",
+    "detail": {
+      "attention": "フォロー数",
+      "category": "カテゴリ",
+      "price": "価格",
+      "status": "ステータス",
+      "subCategory": "サブカテゴリ",
+      "productForm": "商品形式",
+      "org": "所属機関",
+      "url": "公式URL",
+      "copyHint": "タップしてコピー",
+      "contentTitle": "詳細紹介",
+      "loadFailed": "詳細の取得失敗"
+    },
+    "noData": "ランキングデータなし",
+    "subtitle": "学習ランキング。自分の順位をチェック!!",
+    "retry": "再試行",
+    "me": "自分",
+    "studyHours": "{count} 時間学習",
+    "histFallback": "履歴会話",
+    "visitorName": "ランキングのゲスト"
   },
   "vip": {
     "title": "VIP会員",
@@ -1942,7 +1981,8 @@
     "inputPlaceholder": "メッセージを入力...",
     "send": "送信",
     "clear": "クリア",
-    "error": "送信に失敗しました。再試行してください"
+    "error": "送信に失敗しました。再試行してください",
+    "modeDisabledHint": "画像/音声モードは未対応です。現在はテキスト会話のみ利用できます"
   },
   "assistant": {
     "title": "マイアシスタント",
@@ -2609,6 +2649,446 @@
           }
         }
       }
+    },
+    "messageVersion": {
+      "history": "履歴",
+      "regenerateFailed": "再生成に失敗しました"
+    },
+    "contextUsage": {
+      "title": "コンテキスト使用状況",
+      "segSystem": "システムプロンプト",
+      "segToolSchema": "ツール定義",
+      "segSkill": "スキル本文",
+      "segRoleUser": "ユーザーメッセージ",
+      "segRoleAssistant": "アシスタントの応答",
+      "segRoleToolCall": "ツール呼び出し引数",
+      "segRoleToolResult": "ツール結果",
+      "segSystemPrompt": "システムプロンプト（全文）",
+      "unnamedItem": "名前未設定の項目",
+      "resultSuffix": "結果",
+      "unobservedServerOnly": "この部分はサーバー側で組み立てられるため、クライアント側では正確な使用量を取得できません",
+      "unobservedNotSupplied": "このターンでは該当するシステム区間が配信されませんでした",
+      "detailsTruncated": "ほか {count} 件は折りたたまれています",
+      "residualLabel": "未分類のオーバーヘッド"
+    },
+    "title": "AIアシスタント",
+    "inputPlaceholder": "質問を入力…",
+    "suggestions": [
+      "詩を書いてください",
+      "量子力学を説明して",
+      "コードを書いて",
+      "この文章を翻訳して"
+    ],
+    "stop": "停止",
+    "clear": "クリア",
+    "clearConfirm": "現在の会話をクリアしますか?",
+    "serviceUnavailable": "AIサービス利用不可",
+    "modelLoadFailed": "モデルの読み込み失敗",
+    "materialLoadFailed": "素材の読み込み失敗",
+    "agentLoadFailed": "エージェントの読み込み失敗",
+    "agent": {
+      "count": "{n} 個",
+      "empty": "エージェントなし",
+      "inputPlaceholder": "質問を入力…",
+      "searchPlaceholder": "エージェントを検索"
+    },
+    "agentDetail": {
+      "runtimeTitle": "ランタイム",
+      "runtimeClear": "クリア",
+      "runtimePlan": "実行計画",
+      "runtimePermission": "権限",
+      "runtimePermissionTool": "ツール",
+      "runtimePermissionLevel": "危険度",
+      "runtimePermissionMode": "モード",
+      "runtimeOutput": "出力",
+      "runtimeError": "エラー",
+      "runtimeEmpty": "実行記録なし",
+      "runtimeInputPlaceholder": "メッセージを入力…",
+      "runtimeStop": "停止",
+      "runtimeSend": "送信",
+      "exampleDialog": "サンプル対話",
+      "favoriteAgent": "お気に入り",
+      "favorited": "お気に入り済み",
+      "permissionAllowed": "許可",
+      "permissionDenied": "拒否",
+      "permissionLoading": "権限読み込み中…",
+      "prologue": "プロローグ",
+      "promptLabel": "プロンプト",
+      "relatedAgents": "関連エージェント",
+      "startChat": "チャット開始",
+      "tabRuntime": "ランタイム",
+      "unfavorite": "お気に入り解除",
+      "vipExclusive": "VIP限定",
+      "vipPermissionDenied": "このエージェントにはVIPが必要"
+    },
+    "agentList": {
+      "categories": {
+        "coding": "コーディング",
+        "education": "教育",
+        "life": "生活",
+        "office": "オフィス",
+        "other": "その他",
+        "recommend": "おすすめ",
+        "writing": "ライティング"
+      },
+      "createAgent": "エージェント作成",
+      "emptyFavorites": "お気に入りエージェントなし",
+      "emptyRecent": "最近使用エージェントなし",
+      "hot": "人気",
+      "hotRecommend": "人気おすすめ",
+      "noResult": "エージェントが見つかりません",
+      "sortBy": "並び替え",
+      "sortHot": "人気",
+      "sortNewest": "新着",
+      "sortUses": "使用数",
+      "tabAll": "すべて",
+      "tabFavorites": "お気に入り",
+      "tabRecent": "最近使用",
+      "useCount": "{n}人が使用"
+    },
+    "aiAssistant": {
+      "copyFailed": "コピーに失敗しました",
+      "pleaseLogin": "先にログインしてください"
+    },
+    "chat": {
+      "replayFailed": "この会話の読み込みに失敗しました。もう一度お試しください",
+      "loadEarlier": "前のメッセージを読み込む",
+      "earlierLoading": "読み込み中…",
+      "earlierLoadFailed": "前のメッセージの読み込みに失敗しました。もう一度お試しください",
+      "agentTipConfirm": "了解しました",
+      "agentTipHistory": "履歴",
+      "agentTipHistoryDesc": "対話履歴を表示",
+      "agentTipImage": "画像生成選択",
+      "agentTipImageDesc": "画像モードに切り替えて画像を生成",
+      "agentTipInput": "質問入力",
+      "agentTipInputDesc": "下部の入力欄に質問を入力して送信",
+      "agentTipSkill": "スキル選択",
+      "agentTipSkillDesc": "左上のスキルボタンをタップして該当エージェントを選択",
+      "agentTipTalk": "対話選択",
+      "agentTipTalkDesc": "対話モードに切り替えてAIと直接交流",
+      "agentTipTitle": "エージェント使用ガイド"
+    },
+    "chatDrawers": {
+      "promptLabel": "プロンプト",
+      "selectModel": "モデルを選択",
+      "skillDetail": "スキル詳細"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI生成",
+      "collapse": "折りたたむ",
+      "copy": "コピー",
+      "digitalHuman": "デジタルヒューマン生成 →",
+      "downloadFailed": "ダウンロード失敗",
+      "downloading": "ダウンロード中",
+      "edit": "編集",
+      "errorCardTitle": "リクエストエラー",
+      "favorited": "お気に入り済み",
+      "me": "私",
+      "needAlbumAuth": "画像を保存するにはアルバム権限が必要です。設定で有効にしてください",
+      "noContent": "コピーする内容がありません",
+      "regenerate": "再生成",
+      "retry": "再試行",
+      "reuse": "再利用",
+      "share": "共有",
+      "speak": "読み上げ",
+      "stopSpeak": "停止",
+      "thinkingProcess": "思考プロセス",
+      "tokenCost": "トークン: {n}",
+      "viewDigitalHuman": "デジタルヒューマンを見る",
+      "voiceMessage": "音声メッセージ"
+    },
+    "common": {
+      "loading": "読み込み中…"
+    },
+    "fileSelected": "{count}個のファイルを選択しました",
+    "screenshotHint": "スクリーンショットを検出しました。+ からアルバム画像を選んで AI に送れます",
+    "generating": "急速生成中",
+    "history": {
+      "clearConfirm": "すべての対話履歴を削除しますか?",
+      "cleared": "履歴を削除しました",
+      "empty": "履歴なし",
+      "title": "対話履歴"
+    },
+    "historyPage": {
+      "loadMoreFailed": "読み込みに失敗しました。下に引っ張って更新してください",
+      "deleteFailed": "削除に失敗しました。もう一度お試しください",
+      "clearAll": "すべて削除",
+      "clearConfirm": "すべての対話履歴を削除しますか?",
+      "cleared": "削除済み",
+      "clearServerConfirm": "サーバーから読み込み済みの {n} 件の会話を完全に削除します。この操作は元に戻せません。続行しますか?",
+      "clearServerProgress": "削除中 {done}/{n}…",
+      "clearServerDone": "{n} 件の会話を削除しました",
+      "clearServerPartial": "成功 {ok} 件 / 失敗 {fail} 件。失敗した会話は残しています",
+      "deleteOne": "この対話を削除",
+      "empty": "対話履歴なし",
+      "fallbackNotice": "サーバーから会話を読み込めなかったため、端末内の履歴を表示しています。",
+      "msgCount": "{n}件のメッセージ",
+      "noMore": "これ以上ありません",
+      "noResult": "該当するチャットが見つかりません",
+      "pin": "固定",
+      "pinFailed": "固定に失敗しました。もう一度お試しください",
+      "pinned": "固定済み",
+      "refreshSuccess": "更新成功",
+      "searchPlaceholder": "チャット履歴を検索",
+      "startNew": "新しい会話を開始",
+      "unpinFailed": "固定の解除に失敗しました。もう一度お試しください"
+    },
+    "image": {
+      "download": "ダウンロード",
+      "downloadFailed": "ダウンロード失敗、再試行してください",
+      "downloadSuccess": "アルバムに保存しました",
+      "empty": "生成記録なし",
+      "emptyHint": "画像生成の説明を入力",
+      "favorite": "お気に入り",
+      "favoriteAdded": "お気に入りに追加しました",
+      "favoriteRemoved": "お気に入りを解除しました",
+      "favorited": "お気に入り済み",
+      "generate": "画像を生成",
+      "generateFailed": "生成失敗、再試行してください",
+      "generating": "生成中…",
+      "history": "履歴",
+      "placeholder": "生成したい画像を説明",
+      "share": "共有",
+      "title": "画像生成",
+      "tryThese": "これらを試す",
+      "vertical": "縦 1024×1792",
+      "examples": [
+        "可愛い猫",
+        "夕日の山風景",
+        "未来都市",
+        "抽象芸術"
+      ],
+      "styles": [
+        "リアル",
+        "アニメ",
+        "油絵",
+        "水彩",
+        "3D",
+        "ピクセル"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "長押しで話す",
+      "releaseToSend": "離して送信"
+    },
+    "intelligentAssistant": {
+      "greeting": "こんにちは、IHUI AIアシスタントです",
+      "loginRequired": "先にログインしてお使いください",
+      "recharge": "チャージする",
+      "subtitle": "いつでもAIサービスを提供します",
+      "tokenBalance": "Token 残高:{n}"
+    },
+    "materialPopup": {
+      "empty": "素材なし",
+      "loadMore": "もっと読み込む",
+      "noMore": "これ以上なし",
+      "title": "素材を選択",
+      "upload": "アップロード"
+    },
+    "messageAction": {
+      "copy": "コピー",
+      "delete": "削除",
+      "reuse": "再利用",
+      "pin": "固定",
+      "unpin": "固定を解除",
+      "bookmark": "ブックマーク",
+      "unbookmark": "ブックマークを解除",
+      "flagFailed": "標識の保存に失敗"
+    },
+    "share": {
+      "title": "共有"
+    },
+    "skillsPopup": {
+      "empty": "利用可能なスキルなし",
+      "notFound": "スキルが見つかりません",
+      "searchPlaceholder": "スキルを検索",
+      "title": "スキルを選択",
+      "uses": "{n} 回使用"
+    },
+    "special": {
+      "bannerDesc": "AIチャット・作画・動画・音声・エージェント・モデル広場をワンストップで集約。厳選したおすすめ機能をすぐに利用できます",
+      "bannerTitle": "AI 特集",
+      "cat": {
+        "agent": "エージェント",
+        "all": "すべて",
+        "chat": "AI チャット",
+        "image": "AI画像生成",
+        "plaza": "モデルプラザ",
+        "video": "AI動画",
+        "voice": "AI音声"
+      },
+      "empty": "まだコンテンツがありません",
+      "error": "読み込みに失敗しました",
+      "featured": "おすすめ",
+      "history": "私の利用履歴",
+      "historySoon": "履歴は近日公開予定です",
+      "pageError": "操作失敗",
+      "useBtn": "今すぐ使用",
+      "useCount": "{n} 回使用"
+    },
+    "specialModel": {
+      "confirm": "切り替えを確認",
+      "hint": "お知らせ"
+    },
+    "stream": {
+      "compact": "コンテキストを圧縮しました {before} → {after}",
+      "fallback": "予備モデルに切り替え: {model}",
+      "planUpdate": "実行計画を更新しました",
+      "reconnect": "接続が切断、{seconds}秒後に{attempt}回目の再接続",
+      "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
+      "subagent": "サブタスク: {phase}",
+      "title": "実行プロセス",
+      "toolSummary": "ツール集計: {calls} 回",
+      "terminal": "ターミナルタスク: {status}",
+      "usage": "使用量: {n} tokens"
+    },
+    "switchAgent": {
+      "confirm": "切り替えを確認"
+    },
+    "thinkingTip": "Tips:まず右上の3点をクリックしてミニプログラムを浮窓し、しばらくしてから戻ってください~",
+    "tishi": {
+      "close": "閉じる",
+      "needInput": "より正確なサポートのため、以下の情報を入力してください",
+      "title": "エージェントガイド",
+      "view": "表示"
+    },
+    "uploadMaterialTab": "{tab}素材をアップロード",
+    "video": {
+      "download": "ダウンロード",
+      "downloadFailed": "ダウンロード失敗、再試行してください",
+      "downloadSuccess": "アルバムに保存しました",
+      "emptyHistory": "履歴なし",
+      "failed": "生成失敗",
+      "generate": "動画を生成",
+      "generateFailed": "生成失敗、再試行してください",
+      "generating": "生成中…",
+      "history": "履歴",
+      "modelUnavailable": "このモデル API は未対応",
+      "notAvailable": "未対応",
+      "pending": "待機中…",
+      "promptPlaceholder": "生成したい動画内容を説明...",
+      "share": "共有",
+      "succeeded": "生成完了",
+      "taskSubmitted": "タスクが送信されました、履歴で確認してください",
+      "title": "動画生成",
+      "duration": "所要時間",
+      "resolution": "解像度",
+      "fps": "フレームレート",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Sora2 で動画を生成",
+        "kling": "Kling",
+        "klingDesc": "高品質な AI 動画を生成",
+        "doubao": "豆包",
+        "doubaoDesc": "Doubao モデルで動画を生成",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Alibaba Cloud DashScope で動画を生成"
+      }
+    },
+    "voice": {
+      "chatFailed": "会話失敗、再試行してください",
+      "clearChat": "会話をクリア",
+      "clearConfirm": "現在のチャットをクリアしますか?",
+      "cleared": "チャットをクリアしました",
+      "holdToSpeak": "長押しで話す",
+      "recordFailed": "録音失敗、再試行してください",
+      "releaseToSend": "離して送信",
+      "speed": "話速",
+      "timbre": "音色",
+      "title": "AI 音声チャット",
+      "voiceMessage": "[音声メッセージ]",
+      "welcome": "こんにちは、下のボタンを長押しして音声会話を開始"
+    },
+    "welcomeDesc": "何かお手伝いしましょうか?",
+    "welcomeTitle": "こんにちは、IHUI AIアシスタントです",
+    "businessForms": {
+      "ariaLabel": "業務フォームカード",
+      "aria": {
+        "email": "メール作成カード",
+        "calendarEvent": "カレンダーフォームカード"
+      },
+      "fields": {
+        "to": "宛先",
+        "cc": "CC",
+        "bcc": "BCC",
+        "subject": "件名",
+        "replyTo": "返信先",
+        "body": "本文",
+        "start": "開始",
+        "end": "終了",
+        "attendees": "出席者"
+      },
+      "action": {
+        "approve": "承認",
+        "reject": "却下",
+        "create": "作成",
+        "save": "保存"
+      },
+      "error": {
+        "required": "この項目は必須です",
+        "invalidEmail": "メールアドレスの形式が正しくありません",
+        "endBeforeStart": "終了時刻は開始時刻より後にしてください",
+        "noAttendees": "出席者を少なくとも1名追加してください"
+      },
+      "reason": "拒否理由(任意)",
+      "fold": {
+        "expand": "全 {count} 名の出席者を表示",
+        "collapse": "出席者を折りたたむ"
+      },
+      "status": {
+        "submitting": "送信中…",
+        "approved": "承認済み",
+        "rejected": "却下済み",
+        "failed": "送信に失敗しました。再試行してください"
+      }
+    },
+    "cards": {
+      "steer": {
+        "title": "{count} 回誘導済み",
+        "more": "他 {count} 件"
+      },
+      "plan": {
+        "title": "実行計画"
+      },
+      "tool": {
+        "title": "ツール呼び出し"
+      },
+      "terminal": {
+        "title": "ターミナル",
+        "isolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
+        "copy": "コピー",
+        "copied": "コピー済み",
+        "exitCode": "終了コード: {code}",
+        "truncated": "…(省略済み、全 {total} 文字)"
+      },
+      "citation": {
+        "title": "参考元"
+      },
+      "injection": {
+        "title": "今回の回答で参照したコンテキスト",
+        "kind": {
+          "developer": "カスタム指示",
+          "workspace": "ワークスペースメモリ",
+          "repoWiki": "リポジトリ Wiki",
+          "autoContext": "自動取得したコンテキスト"
+        },
+        "expand": "展開",
+        "collapse": "折りたたむ"
+      },
+      "status": {
+        "running": "実行中",
+        "done": "完了",
+        "failed": "失敗"
+      },
+      "source": {
+        "builtin": "組み込み",
+        "plugin": "プラグイン",
+        "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "サブタスク"
+      }
     }
   },
   "streamErrors": {
@@ -2747,5 +3227,235 @@
     "rateTitle": "コミッション比率",
     "openVip": "VIP 会員を開通してコミッションプランに参加",
     "rateEmpty": "コミッション率はまだありません"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "VIP会員になると分潤プランに参加できます。",
+      "rule2": "友達が会員になると、会員費の20%をコミッションとして獲得できます。",
+      "rule3": "コミッションは友達の支払い成功後24時間以内にアカウントへ自動決済されます。",
+      "rule4": "アカウント残高が100元以上になるとWeChatまたはAlipayへ出金申請できます。"
+    }
+  },
+  "orderRefund": {
+    "d1": "不要になった",
+    "d2": "誤注文・重複注文",
+    "d3": "品質問題",
+    "d4": "説明と異なる",
+    "d5": "その他の理由"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "よくある質問"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "特典はまだありません",
+      "myBenefits": "マイ専用特典",
+      "loadFailed": "読み込みに失敗しました",
+      "tierCatalog": "等級別特典",
+      "tier": {
+        "normal": "一般会員",
+        "silver": "シルバー会員",
+        "gold": "ゴールド会員",
+        "diamond": "ダイヤモンド会員"
+      },
+      "b": {
+        "discount": "ショッピング割引",
+        "points": "ポイント加速",
+        "gift": "新規会員特典",
+        "sign": "毎日チェックイン",
+        "news": "お得情報",
+        "pointsMul": "ポイント倍率",
+        "birthday": "誕生日ギフト",
+        "shipping": "送料無料特典",
+        "coupon": "専用クーポン",
+        "service": "専属サポート",
+        "preview": "優先体験",
+        "event": "特別イベント",
+        "discountD1": "全商品 5%オフ",
+        "pointsD1": "1円で1ポイント",
+        "giftD": "登録限定ギフト",
+        "signD": "毎日チェックインでポイント獲得",
+        "newsD": "キャンペーン通知",
+        "discountD2": "全商品 10%オフ",
+        "pointsMulD2": "1.2倍ポイント加速",
+        "birthdayD": "誕生日限定ギフト",
+        "shippingD2": "毎月3回送料無料",
+        "couponD2": "毎月2枚のクーポン",
+        "signD2": "チェックインで2倍ポイント",
+        "discountD3": "全商品 15%オフ",
+        "pointsMulD3": "1.5倍ポイント加速",
+        "birthdayD3": "誕生日ダブルギフト",
+        "shippingD3": "送料無料無制限",
+        "serviceD": "1対1専属サービス",
+        "couponD3": "毎月5枚のクーポン",
+        "previewD": "新機能の優先体験",
+        "discountD4": "全商品 20%オフ",
+        "pointsMulD4": "2倍ポイント加速",
+        "birthdayD4": "誕生日プレミアムギフト",
+        "shippingD4": "送料無料無制限",
+        "serviceD4": "24時間専属コンシェルジュ",
+        "couponD4": "毎月10枚のクーポン",
+        "previewD4": "新機能の先行体験",
+        "eventD": "オフライン限定イベント"
+      }
+    }
+  },
+  "career": {
+    "fillField": "入力してください：{name}",
+    "submitFail": "送信に失敗しました。後で再試行",
+    "doneTitle": "送信完了",
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます.",
+    "exportingReport": "エクスポート中...",
+    "exportEmptyHint": "レポート生成後にエクスポートできます",
+    "exportLoginRequired": "エクスポートするにはログインしてください"
+  },
+  "message": {
+    "tabs": {
+      "all": "すべて",
+      "system": "システム",
+      "interaction": "やり取り",
+      "private": "ダイレクト"
+    },
+    "notifLabels": {
+      "system": "システム通知",
+      "interaction": "やり取りメッセージ",
+      "private": "ダイレクトメッセージ",
+      "marketing": "マーケティング"
+    },
+    "notifDescs": {
+      "system": "アカウント、注文、セキュリティ通知",
+      "interaction": "いいね、コメント、フォロー",
+      "private": "他ユーザーからのDM",
+      "marketing": "プロモ・新商品"
+    },
+    "hello": "こんにちは、{name}です",
+    "justNow": "たった今",
+    "unnamedRoom": "名無し会話",
+    "empty": "メッセージなし",
+    "deleted": "削除済み",
+    "notFound": "会話が見つかりません",
+    "settings": "設定",
+    "notificationSettings": "通知設定",
+    "close": "閉じる",
+    "startConversation": "会話を始めましょう",
+    "inputPlaceholder": "メッセージを入力...",
+    "sendBtn": "送信",
+    "noPrivate": "DMなし",
+    "noSystem": "通知なし",
+    "pin": "会話を固定",
+    "unpin": "固定を解除"
+  },
+  "developer": {
+    "withdrawal": {
+      "title": "出金記録",
+      "processing": "処理中",
+      "empty": "出金記録なし"
+    },
+    "subscribe": {
+      "recommended": "おすすめ",
+      "devName": "開発者",
+      "unfollowed": "フォローを解除しました",
+      "noContact": "連絡先はありません",
+      "bioDefault": "紹介文はありません",
+      "subscribedBtn": "フォロー中",
+      "subscribeBtn": "+ フォロー",
+      "statSubscribers": "登録者数",
+      "statModels": "モデル数",
+      "statUses": "総利用回数",
+      "modelsTitle": "開発者のモデル",
+      "noModels": "モデルはありません",
+      "notifyTitle": "通知設定",
+      "notifyNew": "新モデル公開通知",
+      "notifyUpdate": "モデル更新通知",
+      "postsTitle": "開発者の投稿",
+      "noPosts": "投稿はありません",
+      "contact": "開発者に連絡",
+      "copied": "連絡先をコピーしました",
+      "noDesc": "説明なし",
+      "subscribed": "フォロー済み",
+      "use": "使用",
+      "uses": "使用"
+    },
+    "income": {
+      "withdrawn": "出金済み",
+      "withdrawPopup": "出金",
+      "withdrawAvailable": "出金可能金額 ¥",
+      "withdrawPlaceholder": "出金金額を入力",
+      "withdrawAll": "全額出金",
+      "noAvailable": "出金可能金額なし",
+      "invalidAmount": "有効な金額を入力",
+      "exceedAvailable": "出金金額が上限超過",
+      "withdrawSubmitted": "出金申請を送信しました",
+      "withdrawFailed": "出金失敗、後で再試行してください",
+      "withdrawnYuan": "出金済み(元)",
+      "selectMethod": "出金方法を選択",
+      "settled": "精算済み",
+      "pending": "精算待ち",
+      "titleIncome": "エージェント収入",
+      "processing": "処理中",
+      "titleDetail": "出金明細",
+      "tabAll": "すべて",
+      "tabPending": "精算待ち",
+      "tabSettled": "精算済み",
+      "cashDetail": "出金明細",
+      "todayIncome": "本日収入",
+      "pendingSettlement": "精算待ち金額",
+      "feeTip": "プラットフォームは期間限定でサービス手数料無料",
+      "noMore": "これ以上ありません",
+      "cashEmpty": "出金記録なし"
+    },
+    "index": {
+      "subscribeTitle": "サブスク",
+      "subscribeDesc": "アップグレードで更多機能",
+      "unnamedAgent": "無題エージェント",
+      "published": "公開済み",
+      "empty": "エージェントなし",
+      "tip": "ヒント",
+      "deleteConfirm": "エージェント削除確認",
+      "deleteBtn": "削除",
+      "deleteOk": "削除成功",
+      "deleteFail": "削除失敗",
+      "noType": "—",
+      "myAgents": "マイエージェント",
+      "searchPlaceholder": "エージェント名を検索",
+      "typeLabel": "タイプ",
+      "editBtn2": "編集",
+      "editBtn": "設定",
+      "noMore": "これ以上ありません"
+    },
+    "becomeDeveloper": "開発者になる"
+  },
+  "news": {
+    "search": "ニュース検索",
+    "empty": "ニュースなし",
+    "cat": {
+      "announce": "お知らせ",
+      "activity": "イベント",
+      "info": "ニュース",
+      "tutorial": "チュートリアル",
+      "all": "すべて"
+    },
+    "pinned": "固定",
+    "title": "AI ニュース",
+    "anonAuthor": "匿名",
+    "netFail": "ネットワークエラー",
+    "detailTitle": "ニュース詳細",
+    "notFound": "ニュースが見つかりません",
+    "emptyContent": "本文がありません",
+    "tags": "タグ",
+    "loadFailed": "読み込みに失敗しました",
+    "publishedAt": "{date} 公開",
+    "viewCount": "{count} 回閲覧",
+    "categoryBackToList": "ニュースに戻る",
+    "categoryNotFound": "カテゴリが見つかりません",
+    "categoryEmpty": "ニュースはありません",
+    "categoryPinned": "ピン留め",
+    "categorySubtitle": "最新情報とお知らせ",
+    "categoryLoadFailed": "読み込みに失敗しました",
+    "categoryTotal": "全 {total} 件",
+    "categoryPublishedAt": "{date} 公開",
+    "categoryViewCount": "{count} 回閲覧"
   }
 }

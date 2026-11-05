@@ -181,7 +181,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
             height={192}
             className="h-48 w-48 rounded-lg border object-contain"
           />
-          <p className="text-center text-xs text-muted-foreground">{t('scanTip')}</p>
+          <p className="text-center text-label text-muted-foreground">{t('scanTip')}</p>
         </div>
       </div>
     </div>

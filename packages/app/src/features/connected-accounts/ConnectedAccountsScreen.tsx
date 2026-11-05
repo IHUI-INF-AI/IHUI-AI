@@ -144,7 +144,7 @@ export function ConnectedAccountsScreen({
                       <Text style={styles.platformName}>{accountPlatformLabel(t, platform)}</Text>
                       <Text style={styles.meta}>
                         {binding
-                          ? `${t('connectedAccounts.boundAt')}: ${binding.createdAtText}`
+                          ? `${t('settings.connectedAccountsBoundAt')}: ${binding.createdAtText}`
                           : t('connectedAccounts.unbound')}
                       </Text>
                     </View>
@@ -155,10 +155,12 @@ export function ConnectedAccountsScreen({
                         disabled={unbindingId === binding.id}
                         activeOpacity={0.7}
                         accessibilityRole="button"
-                        accessibilityLabel={t('connectedAccounts.unbind')}
+                        accessibilityLabel={t('settings.connectedAccountsUnbind')}
                       >
                         <Link2Off size={13} color={tk.danger.DEFAULT} />
-                        <Text style={styles.dangerLink}>{t('connectedAccounts.unbind')}</Text>
+                        <Text style={styles.dangerLink}>
+                          {t('settings.connectedAccountsUnbind')}
+                        </Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
@@ -182,7 +184,7 @@ export function ConnectedAccountsScreen({
                       {accountPlatformLabel(t, binding.platform)}
                     </Text>
                     <Text style={styles.meta}>
-                      {t('connectedAccounts.boundAt')}: {binding.createdAtText}
+                      {t('settings.connectedAccountsBoundAt')}: {binding.createdAtText}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -191,10 +193,10 @@ export function ConnectedAccountsScreen({
                     disabled={unbindingId === binding.id}
                     activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={t('connectedAccounts.unbind')}
+                    accessibilityLabel={t('settings.connectedAccountsUnbind')}
                   >
                     <Link2Off size={13} color={tk.danger.DEFAULT} />
-                    <Text style={styles.dangerLink}>{t('connectedAccounts.unbind')}</Text>
+                    <Text style={styles.dangerLink}>{t('settings.connectedAccountsUnbind')}</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -229,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     refresh: { paddingVertical: rnSpacing['2xs'], paddingHorizontal: rnSpacing.xs },
-    link: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.label.size,
@@ -237,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: 17,
       marginTop: rnSpacing['2xs'],
     },
-    error: { fontSize: 13, color: tk.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     row: {

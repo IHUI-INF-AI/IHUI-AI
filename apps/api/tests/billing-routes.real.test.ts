@@ -29,6 +29,7 @@ async function createPlan(data: {
       features: data.features ?? [],
     })
     .returning()
+  if (!row) throw new Error('billing-routes.real.test.ts: 插入未返回行(row)')
   return row
 }
 

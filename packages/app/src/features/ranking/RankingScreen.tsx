@@ -46,8 +46,9 @@ export function RankingScreen({
   error,
   onRefresh,
   onBack,
-  colorScheme = 'light',
-}: RankingScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: RankingScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const rangeItems = useMemo(() => RANGES.map((r) => ({ id: r, label: t(RANGE_KEYS[r]!) })), [t])
@@ -88,7 +89,7 @@ export function RankingScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('ranking.retry')}
           colorScheme={colorScheme}
         />
@@ -167,7 +168,7 @@ function createStyles(tk: AppThemeTokens) {
     podiumItem: {
       flex: 1,
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
@@ -202,12 +203,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
     },
     rankBadgeText: { fontSize: rnType.caption.size, color: tk.surface.light },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

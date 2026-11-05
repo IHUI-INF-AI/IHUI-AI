@@ -14,6 +14,7 @@
 import type { ReactNode } from 'react'
 import type { ListPaginationProps, TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
 export interface NoteListItem {
@@ -64,6 +65,8 @@ export interface ArticleListScreenProps extends ListPaginationProps {
   onPressItem: (item: ArticleListItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
@@ -93,15 +96,18 @@ export interface AnnouncementScreenProps {
 
 // ============ 详情屏(批次 7,2026-07-29) ============
 
-/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note) */
+/** 笔记详情(平台注入,字段对齐 mobile-rn NoteDetailScreen Note)
+ *  tags/views/likes 可选:GET /api/notes/:id(other/notes-routes.ts)只回
+ *  id/title/content/isPublic/author/createdAt/updatedAt,这三列不在该端点投影里,
+ *  端上按「缺了就不渲染」消费,不造 0/[] 冒充真值。 */
 export interface NoteDetailItem {
   id: string
   title: string
   content: string
   createdAt: string
-  tags: string[]
-  views: number
-  likes: number
+  tags?: string[]
+  views?: number
+  likes?: number
   author: string
 }
 
@@ -168,6 +174,10 @@ export interface PostDetailScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 公告详情(平台注入,字段对齐 mobile-rn AnnouncementDetailScreen Detail) */
@@ -285,6 +295,8 @@ export interface AskCreateScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** NoteCreateScreen props(表单屏,状态由 wrapper 管理) */
@@ -568,6 +580,8 @@ export interface VideoPlayerScreenProps {
   onBack: () => void
   playerContent?: ReactNode
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 export interface PlazaCoverScreenProps {

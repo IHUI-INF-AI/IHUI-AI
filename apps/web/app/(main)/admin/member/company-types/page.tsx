@@ -119,7 +119,7 @@ export default function AdminMemberCompanyTypesPage() {
         onDelete={handleDelete}
       />
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -130,7 +130,7 @@ export default function AdminMemberCompanyTypesPage() {
             <ChevronLeft className="h-4 w-4" />
             上一页
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             第 {page} / {totalPages} 页
           </span>
           <Button

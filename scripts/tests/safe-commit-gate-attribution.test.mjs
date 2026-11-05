@@ -472,14 +472,23 @@ test('A12 跳门重试前必须重新暂存(否则"含新文件 + 归因允许�
   // `commitArgs(true)` 早已被重构进 `commitArgv(true)`(safe-commit.mjs 的 `commitArgv` = extraCfg
   // + 署名参数 + commitArgs),而本断言的 indexOf 还盯着旧字面量 ⇒ 找不到 ⇒ 红。属**测试侧锚点腐烂**,
   // 不是功能缺失(重暂存与重校验两行都还在原位)。两种写法都认,防止下一次改名再把这条锁打死。
-  const retryAt = safeCommitSource.search(/commitArgv?\(true\)/)
-  assert.ok(retryAt > 0, '源码里找不到跳门重试调用(改过结构就得同步改本断言)')
-  const window = safeCommitSource.slice(Math.max(0, retryAt - 1800), retryAt)
-  // 本断言在 HEAD 上就是红的(实测:未改任何文件时跑本文件,该例 fail 于 `/git add \(retry\)/`
-  // 不匹配该窗口)。红因是 `221078310`(跳门兜底按"在场/删除"三态分流)把重暂存的日志标签改成了
-  // `git add (retry: 在场文件)` / `(retry: 删除态)` —— **行为还在、断言先红**,属测试侧陈旧而非功能缺陷。
-  // 现放宽到前缀:本断言要钉的是"重试前重跑了 Step 2 的 add",不是那条日志的措辞。
+  // 〔锚点更新@2026-11-02〕重暂存从"跳门重试前"那段**原样抽成函数** `restageDeclaredForRetry`,
+  // 因为 not-ours 的带钩子退避重试也要复用它。断言锚改到函数体,并另钉两处调用点;
+  // 意图不变:两条重试路径在发令前都必须重跑 Step 2 的 add。
+  const helperAt = safeCommitSource.indexOf('const restageDeclaredForRetry = (phase) =>')
+  assert.ok(helperAt > 0, '重暂存函数不见了(改过结构就得同步改本断言)')
+  const helperEnd = safeCommitSource.indexOf("return { ok: true, status: 0, stderr: '' }", helperAt)
+  assert.ok(helperEnd > helperAt, '重暂存函数缺正常出口(结构被改过就得同步改本断言)')
+  const window = safeCommitSource.slice(helperAt, helperEnd)
   assert.match(window, /git add \(retry/, '重试前必须重跑 Step 2 的 add —— 缺了就等于没有应急路径')
+  assert.ok(
+    safeCommitSource.indexOf("restageDeclaredForRetry('跳门重试前')") > 0,
+    '既有跳门重试前必须调用重暂存',
+  )
+  assert.ok(
+    safeCommitSource.indexOf('restageDeclaredForRetry(`钩子退避重试') > 0,
+    'not-ours 的带钩子退避重试前必须调用重暂存',
+  )
   // D171(2026-09-30):Step 3 重校验的取路径字面量迁到 lib/git-paths 的 -z 出口,
   // 锁跟到新形状(意图不变:重试前必须重跑精确性校验)。
   assert.match(

@@ -20,7 +20,7 @@ import {
   registerStream,
   releaseStream,
 } from '../src/utils/sse-replay-buffer.js';
-import { agentLoop, backgroundAgentManager } from '../src/services/workspace-ai-service.js';
+import { agentLoop, backgroundAgentManager, type AgentTask } from '../src/services/workspace-ai-service.js';
 
 describe('G-998166:sse-replay-buffer 的 disposed-stale 复核与迟到清理身份复核', () => {
   beforeEach(() => {
@@ -73,7 +73,7 @@ describe('G-998166:BackgroundAgentManager await 后身份复核', () => {
       .mockImplementation(
         () =>
           new Promise((resolve) => {
-            resolveRun = resolve;
+            resolveRun = (v) => resolve(v as AgentTask);
           }),
       );
     try {
@@ -105,7 +105,7 @@ describe('G-998166:BackgroundAgentManager await 后身份复核', () => {
       .mockImplementation(
         () =>
           new Promise((resolve) => {
-            resolveRun = resolve;
+            resolveRun = (v) => resolve(v as AgentTask);
           }),
       );
     try {

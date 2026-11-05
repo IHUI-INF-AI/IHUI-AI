@@ -31,9 +31,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import UserExamPage from '../page'
 
-const { fetchApiMock } = vi.hoisted(() => ({ fetchApiMock: vi.fn() }))
+const { getMyRecordsMock } = vi.hoisted(() => ({ getMyRecordsMock: vi.fn() }))
 
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({ getMyRecords: getMyRecordsMock }))
 
 // next-intl:键名直出,便于断言落到具体词条
 vi.mock('next-intl', () => ({
@@ -62,6 +62,18 @@ vi.mock('@/stores/auth', () => {
   return { useAuthStore }
 })
 
+/**
+ * 引导替身(2026-10-15 C 类冷启动补门后,页面挂载链多了 useAuthGate → useAuthBootstrap)。
+ *
+ * 真 bootstrap 会读 store 的 setToken/setUser/logout 等动作并发 /auth/me + /auth/refresh,
+ * 时序由网络决定;本组只锁「请求路径 + 字段映射」,不测引导时序。只压掉网络时序这一层,
+ * 登录态门 useAuthGate 本身仍是真实现。token 在场的真实现同样落成
+ * isAuthenticated=true + ready=true ⇒ allow=true,断言口径不变。
+ */
+vi.mock('@/hooks/use-auth-bootstrap', () => ({
+  useAuthBootstrap: () => ({ ready: true, isAuthenticated: true, error: null }),
+}))
+
 /** 一条 `exam_records` 行(字段名与 packages/database/src/schema/exam.ts:101 一致)。 */
 function record(over: Record<string, unknown> = {}) {
   return {
@@ -76,7 +88,7 @@ function record(over: Record<string, unknown> = {}) {
 }
 
 function respondWith(list: unknown[]) {
-  fetchApiMock.mockResolvedValue({
+  getMyRecordsMock.mockResolvedValue({
     success: true,
     status: 200,
     data: { list, total: list.length, page: 1, pageSize: 20 },
@@ -100,20 +112,18 @@ describe('我的考试页 · 请求路径', () => {
   afterEach(() => cleanup())
 
   // T1
-  it('T1 请求打到存在的 /api/exam/records(不是不存在的 /api/exams)', async () => {
+  it('T1 走共享 getMyRecords(端点固定为 /api/exam/records,不是不存在的 /api/exams)', async () => {
     renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).toBe('/api/exam/records')
+    await waitFor(() => expect(getMyRecordsMock).toHaveBeenCalledTimes(1))
   })
 
   // T2
   it('T2 不把鉴权当查询参数传(后端走 request.userId!,查询串带 userId 是越权隐患)', async () => {
     renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).not.toContain('userId')
-    expect(url).not.toContain('?')
+    await waitFor(() => expect(getMyRecordsMock).toHaveBeenCalledTimes(1))
+    expect(getMyRecordsMock).toHaveBeenCalledWith()
+    const query = getMyRecordsMock.mock.calls[0]?.[0]
+    expect(JSON.stringify(query ?? {})).not.toContain('userId')
   })
 })
 

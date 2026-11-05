@@ -1,0 +1,44 @@
+{
+  "version": 5,
+  "note": "scripts/check-web-rn-copy-parity.mjs(守门 291)的措辞差异账本。entries 每条必须有 file(web 路由)/ rule(B1-hardcoded-cjk 红 / B2-key-diff 警告 / B3-synonym-drift 红)/ count(该屏该规则现读数)/ owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的 RN 文件:行号 + 两侧键值)。到期即红;count 少于现读 = 新增未挂账红(B1/B3)或 advisory(B2);多于现读 = 清单腐烂 advisory。脚本只读不写。  v2:新增 decisions(已裁决白名单/命名约定/同字不同义);B2 按唯一键去重计数;B1 清零后移除。  v3:entries 清零;learn [B1-web-no-key] 经 git grep 复核为假条目(web 侧不存在该键)已摘除;空账必须带 emptyReason,且任何非 B1/B2/B3 的 rule 入账即红(真缺口不许挂账)。  v4(2026-11-05):解析器改为按运行时词包组合(web=shared⊕web、RN=shared⊕mobile-rn),未解析键 2562→12(仅剩 array-json-value 7 / bundle-gap 5);扩解析后新翻出 B3 2 条(wallet.flowsRetry / common.loadFailPullRetry),按既有 rule 入账并标 status=unresolved,未调阈值、未加白名单。",
+  "decisions": [
+    {
+      "group": "E",
+      "rule": "role-mismatch",
+      "count": 8,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "reason": "同字不同义/同键不同形态:两端 UI 角色不同(弹窗标题/列头/字段标签/自由文本 vs Select/插值数值 vs 无插值标签),按语义裁决豁免,已拆独立键或保留",
+      "evidence": "代表键: settings.accountDeletionConfirmLabel / settings.accountDeletionConfirmTitle / exam.retry / activityDetail.title / common.retry / common.error / vip.duration / agentCreate.categoryPlaceholder"
+    },
+    {
+      "group": "E",
+      "rule": "web-route-dual-key",
+      "count": 8,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "reason": "结构性同名双键:同一 RN 文件被两条 web 路由映射(或 web 同屏并存两个同值键),web 两页各用一个同值键,RN 改用主键后另一键仍同值命中,无单键可同时满足两侧;非 RN 文案漂移,按 E 组裁决豁免",
+      "evidence": "代表键: exam.startExam↔eduExamListPage.start / payment.checkout.paymentMethod↔learnPaymentConfirmPage.fields.payMethod / subscriptions.cancel↔memberSubscriptionPage.cancelSubscription / purchase.payMethod↔wallet.rechargeMethod / points.level↔points.levelLabel / points.mallLink↔points.mallTitle / points.taskCenterLink↔points.tasks.title / learn.signUp↔learn.signedUp"
+    },
+    {
+      "group": "A",
+      "rule": "common-key-reuse",
+      "count": 36,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "reason": "RN 允许直接复用 common.*(loading/cancel/back/retry/error/save/delete 等白名单);与 web 屏级键并存不算命名漂移,判据按通用键白名单豁免",
+      "evidence": "代表键: common.cancel / common.save / common.loading / common.back / common.retry / common.delete"
+    },
+    {
+      "group": "B",
+      "rule": "prefix-convention",
+      "count": 34,
+      "owner": "web-rn-copy",
+      "expires": "2027-06-30",
+      "reason": "同尾段命名约定差:命名空间前缀不同、尾段同名(如 x.list ↔ y.list),属可接受约定,不算漂移",
+      "evidence": "代表键: coupon.title / coupon.empty / coupon.minSpend / follow.unfollow / exam.title / examResult.failed / courseQAList.empty / noteList.empty …等 34 键"
+    }
+  ],
+  "entries": [],
+  "emptyReason": "v5(2026-11-05):两条 B3 已裁决为合法差异并移入 scripts/check-web-rn-copy-parity.mjs 的 ROLE_EXEMPTIONS(owner=i18n-copy,expires=2026-12-31,逐条带 web/RN 调用点 file:line 与理由):wallet.flowsRetry 是流水加载重试按钮、web wallet.retryRecharge 是充值失败页「重新充值」;common.loadFailPullRetry 是下拉刷新提示语、web knowledgePlanet.retry 是错误详情旁的「重试」按钮。B3 现读 0,故 entries 清零;真缺口仍由 validateLedgerShape 判红,不得挂账。"
+}

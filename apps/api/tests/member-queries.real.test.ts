@@ -122,7 +122,7 @@ describe('member-queries — 真实 DB 集成测试', () => {
       expect(r1.list).toHaveLength(2)
       const r2 = await findMembers({ page: 1, pageSize: 10, status: 0 })
       expect(r2.total).toBe(1)
-      expect(r2.list[0].username).toBe('search_user2')
+      expect(r2.list[0]!.username).toBe('search_user2')
       const r3 = await findMembers({ page: 1, pageSize: 10, mobile: '1390000' })
       expect(r3.total).toBe(1)
       // 分页
@@ -136,7 +136,7 @@ describe('member-queries — 真实 DB 集成测试', () => {
       await createMember({ username: 'active1', password: 'pw', status: 1 })
       const r = await findUnauditedMembers({ page: 1, pageSize: 10 })
       expect(r.total).toBe(1)
-      expect(r.list[0].username).toBe('pending1')
+      expect(r.list[0]!.username).toBe('pending1')
     })
 
     it('findAuthMembers — 仅 status=1 + keyword 模糊搜索(username/mobile/nickname)', async () => {
@@ -210,15 +210,15 @@ describe('member-queries — 真实 DB 集成测试', () => {
   describe('会员等级', () => {
     it('createMemberLevel + findMemberLevelById + findMemberLevels(按 sort 排序)', async () => {
       const lv1 = await createMemberLevel({ name: '青铜', growthValue: 0, sort: 1 })
-      const _lv2 = await createMemberLevel({ name: '黄金', growthValue: 1000, sort: 2 })
+      await createMemberLevel({ name: '黄金', growthValue: 1000, sort: 2 })
       expect(lv1.name).toBe('青铜')
       expect(lv1.discount).toBe('1.00') // 默认值
       const found = await findMemberLevelById(lv1.id)
       expect(found?.name).toBe('青铜')
       const all = await findMemberLevels()
       expect(all).toHaveLength(2)
-      expect(all[0].sort).toBe(1) // 按 sort 升序
-      expect(all[1].sort).toBe(2)
+      expect(all[0]!.sort).toBe(1) // 按 sort 升序
+      expect(all[1]!.sort).toBe(2)
     })
 
     it('updateMemberLevel + deleteMemberLevel', async () => {

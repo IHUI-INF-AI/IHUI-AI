@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 
-import { fetchApi } from '@ihui/api-client'
+import { getSecurityAudit } from '@ihui/api-client'
 import {
   SecurityAuditScreen as SharedSecurityAuditScreen,
   type SecurityAuditItem,
@@ -34,7 +34,7 @@ export function SecurityAuditScreen() {
 
   const load = useCallback(async () => {
     setError('')
-    const res = await fetchApi<{ list?: SecurityAuditItem[] }>('/api/security/audit')
+    const res = await getSecurityAudit()
     if (res.success) setItems(res.data?.list ?? [])
     else setError(apiFailureToText(res, t('securityAudit.loadFailed')))
     setLoading(false)
@@ -57,6 +57,7 @@ export function SecurityAuditScreen() {
         void load()
       }}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

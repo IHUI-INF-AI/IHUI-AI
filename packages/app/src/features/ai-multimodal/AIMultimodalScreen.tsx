@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -37,6 +37,7 @@ export function AIMultimodalScreen({
   t,
   userName,
   mode,
+  disabledModes,
   models,
   model,
   messages,
@@ -54,6 +55,8 @@ export function AIMultimodalScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const canSend = input.trim().length > 0 && !loading
+  const disabledSet = useMemo(() => new Set(disabledModes ?? []), [disabledModes])
+  const hasDisabled = disabledSet.size > 0
 
   return (
     <View style={styles.container}>
@@ -65,18 +68,35 @@ export function AIMultimodalScreen({
       </View>
 
       <View style={styles.modeRow}>
-        {MODE_KEYS.map((m) => (
-          <TouchableOpacity
-            key={m}
-            style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-            onPress={() => onModeChange(m)}
-          >
-            <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
-              {t(modeLabelKey(m))}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {MODE_KEYS.map((m) => {
+          const disabled = disabledSet.has(m)
+          return (
+            <TouchableOpacity
+              key={m}
+              style={[
+                styles.modeBtn,
+                mode === m && styles.modeBtnActive,
+                disabled && styles.modeBtnDisabled,
+              ]}
+              onPress={disabled ? undefined : () => onModeChange(m)}
+              disabled={disabled}
+            >
+              <Text
+                style={[
+                  styles.modeBtnText,
+                  mode === m && styles.modeBtnTextActive,
+                  disabled && styles.modeBtnTextDisabled,
+                ]}
+              >
+                {t(modeLabelKey(m))}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
+      {hasDisabled ? (
+        <Text style={styles.modeDisabledHint}>{t('aiMultimodal.modeDisabledHint')}</Text>
+      ) : null}
 
       <View style={styles.modelRow}>
         <Text style={styles.modelLabel}>{t('aiMultimodal.switchModel')}</Text>
@@ -151,9 +171,14 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { marginTop: rnSpacing.sm, fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
-    userText: { marginTop: rnSpacing.sm, fontSize: 11, color: tk.text.tertiary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    userText: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     modeRow: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -167,11 +192,27 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     modeBtnActive: { backgroundColor: tk.brand.cta },
-    modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
+    modeBtnDisabled: { opacity: 0.45 },
+    modeBtnText: { textAlign: 'center', fontSize: rnType.body.size, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
+    modeBtnTextDisabled: { color: tk.text.tertiary },
+    modeDisabledHint: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.sm,
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+    },
     modelRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    modelLabel: { fontSize: 14, color: tk.text.secondary, marginBottom: rnSpacing.sm },
-    modelEmpty: { fontSize: 14, color: tk.text.tertiary, paddingVertical: rnSpacing['xs-loose'] },
+    modelLabel: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
+    modelEmpty: {
+      fontSize: rnType.body.size,
+      color: tk.text.tertiary,
+      paddingVertical: rnSpacing['xs-loose'],
+    },
     modelChip: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['xs-loose'],
@@ -180,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.sm,
     },
     modelChipActive: { backgroundColor: tk.brand.cta },
-    modelChipText: { fontSize: 14, color: tk.text.medium },
+    modelChipText: { fontSize: rnType.body.size, color: tk.text.medium },
     modelChipTextActive: { color: tk.surface.light },
     list: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'] },
     msgBubble: {
@@ -191,12 +232,16 @@ function createStyles(tk: AppThemeTokens) {
     },
     msgUser: { backgroundColor: tk.success.lighter, alignSelf: 'flex-end' },
     msgAssistant: { backgroundColor: tk.surface.card, alignSelf: 'flex-start' },
-    msgRole: { fontSize: 11, color: tk.text.secondary, marginBottom: rnSpacing.sm },
-    msgContent: { fontSize: 16, color: tk.text.primary },
+    msgRole: {
+      fontSize: rnType.caption.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
+    msgContent: { fontSize: rnType.title.size, color: tk.text.primary },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
     inputRow: {
@@ -215,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       textAlignVertical: 'top',
       backgroundColor: tk.surface.muted,
@@ -229,14 +274,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     sendBtnDisabled: { backgroundColor: tk.text.tertiary },
-    sendText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    sendText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     clearBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.card,
     },
-    clearText: { color: tk.text.medium, fontSize: 14 },
+    clearText: { color: tk.text.medium, fontSize: rnType.body.size },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

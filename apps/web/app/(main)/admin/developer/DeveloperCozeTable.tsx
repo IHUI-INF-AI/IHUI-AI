@@ -186,7 +186,7 @@ export function DeveloperCozeTable({
         </Table>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -197,7 +197,7 @@ export function DeveloperCozeTable({
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('pageInfo', { page, totalPages })}
           </span>
           <Button

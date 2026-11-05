@@ -12,6 +12,7 @@
  */
 
 import type { TFunction } from './app-shared.js'
+import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 批次 9:Agent/问答/证书/提现/VIP 对比/分享(2026-07-29) */
 
@@ -45,6 +46,10 @@ export interface AgentDetailScreenProps {
    */
   onEdit?: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /**
@@ -96,9 +101,11 @@ export interface AgentMarketItem {
   id: string
   name: string
   description: string
-  category: string
+  /** 公开面只有 categoryId(uuid,无名称),无分类名来源 ⇒ 可选 */
+  category?: string
   uses: number
-  rating: number
+  /** 公开面 PUBLIC_AGENT_KEYS 不含评分 ⇒ 可选,渲染处判空 */
+  rating?: number
   isFree: boolean
 }
 
@@ -279,6 +286,8 @@ export interface ModelEditScreenProps {
   onSave: () => void
   onCancel: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** AIGC 作品文件类型(对齐 mobile-rn AigcListScreen FileType:0=图片/1=视频/3=音频/4=文案) */
@@ -324,6 +333,18 @@ export interface AigcListScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 上拉触底加载下一页(注入式,由平台层提供 loadMore 实现) */
   onLoadMore?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
+  /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
+  audio?: AudioPort
+  /**
+   * 顶部作品轮播端口;缺省 = 不渲染。
+   * 共享屏缺少轮播能力时由宿主以数据+回调注入,渲染仍住共享屏,端内不再复制一份。
+   */
+  carousel?: {
+    items: readonly AigcListItem[]
+    onPress: (item: AigcListItem) => void
+  }
 }
 
 /** 批次 20(2026-07-29):AI/聊天屏(助手管理/AI 群组/AIGC 封面/AIGC 发布,4 屏迁移自 mobile-rn) */
@@ -468,6 +489,11 @@ export interface AigcPublishScreenProps {
   urlInput: string
   saving: boolean
   uploading: boolean
+  /**
+   * 上传进度端口:0-100,由宿主上传实现的 onUploadProgress 真实字节回调写入。
+   * 缺省 = 未知进度(只渲染 spinner,不渲染百分比/进度条),禁止用定时器伪造。
+   */
+  uploadProgress?: number
   error: string
   onWorkTypeChange: (type: AigcPublishWorkType) => void
   onTextContentChange: (text: string) => void
@@ -481,6 +507,8 @@ export interface AigcPublishScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
@@ -514,6 +542,8 @@ export interface AgentScreenProps {
    * console.error;此模式下拉刷新由外层 ScrollView 的 RefreshControl 负责。
    */
   nestedInScrollView?: boolean
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** AI 助手分类 */
@@ -599,6 +629,9 @@ export interface AiCareerQuestion {
   section: AiCareerSection
 }
 
+/** AI 生涯报告导出格式(对齐 exportCareerReport 的 CareerReportFormat) */
+export type AiCareerReportFormat = 'pdf' | 'word' | 'ppt'
+
 /** AiCareerScreen(孩子学业问卷)props */
 export interface AiCareerScreenProps {
   t: TFunction
@@ -611,6 +644,14 @@ export interface AiCareerScreenProps {
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 生成的 AI 学业建议正文;不传(undefined)则不渲染报告区,保持旧行为 */
+  result?: string
+  /** 导出格式,默认 'pdf' */
+  format?: AiCareerReportFormat
+  onFormatChange?: (format: AiCareerReportFormat) => void
+  /** 导出回调;不传则不渲染导出控件 */
+  onExport?: () => void
+  exporting?: boolean
 }
 
 /** AI 多模态模式 */
@@ -628,6 +669,8 @@ export interface AIMultimodalScreenProps {
   t: TFunction
   userName: string
   mode: AiMultimodalMode
+  /** 不可用的模式(后端契约未覆盖时由壳传入,共享屏置灰展示) */
+  disabledModes?: AiMultimodalMode[]
   models: string[]
   model: string
   messages: AiMultimodalMessage[]
@@ -665,12 +708,22 @@ export interface AgentReviewDetailScreenProps {
 
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 
-/** Agent 统计数据 */
+/** Agent 统计数据
+ * 字段契约(2026-11-01 对齐 GET /agents/stats 实际返回):后端只给
+ * totalAgents/totalUsers/totalCalls/publishedCount/pendingCount/avgRating
+ * (apps/api/src/routes/agents.ts handleAgentStats);conversations/messages/tokens
+ * 是历史视图模型,当前后端无对应来源,故全部可选,渲染处判空。
+ */
 export interface AgentStatData {
-  conversations: number
-  messages: number
-  tokens: number
-  avgRating: number
+  totalAgents?: number
+  totalUsers?: number
+  totalCalls?: number
+  publishedCount?: number
+  pendingCount?: number
+  avgRating?: number
+  conversations?: number
+  messages?: number
+  tokens?: number
 }
 
 /** AgentStatScreen props */
@@ -745,6 +798,17 @@ export interface AgentChatScreenProps {
   onSend: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 可选:流式回复的增量文本(B4)。`undefined` = 本宿主未接入流式 ⇒ 不渲染流式气泡
+   * (显式关闭,不是 noop 兜底);空串 = 已发流、首个 delta 尚未到达 ⇒ 气泡显示加载态。
+   */
+  pendingAssistantText?: string
+  /** 可选:流式回复是否在飞;缺省视为未接入(仅 `true` 才启用停止按钮语义) */
+  streaming?: boolean
+  /** 可选:停止流式回调;仅提供时才渲染停止按钮(未提供 = 该能力对宿主显式关闭) */
+  onStopStreaming?: () => void
+  /** 可选:已有历史消息时仍需显式展示的发送/流式失败文案(与 error 分居,error 只负责空态整屏) */
+  sendError?: string
 }
 
 /** 批次 17(2026-07-29):混合类屏(API 设置/创客名片/课程附件/课程问答/课程资源/客服/讲师详情/笔记/订阅/任务中心,10 屏迁移自 mobile-rn) */

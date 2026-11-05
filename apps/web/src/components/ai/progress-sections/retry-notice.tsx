@@ -22,7 +22,7 @@ export function RetryNotice({ notice }: { notice: RetryNoticeData }) {
   return (
     <div
       data-testid="retry-notice"
-      className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-muted-foreground"
+      className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1 text-label text-muted-foreground"
     >
       <span>
         {notice.retryInMs > 0

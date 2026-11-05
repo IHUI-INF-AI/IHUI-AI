@@ -62,10 +62,20 @@ def test_default_debug():
 
 
 def test_default_node_env(monkeypatch):
-    """node_env 默认为 'development'(隔离 .env 与 NODE_ENV 环境变量:
-    生产部署 .env 写 NODE_ENV=production 属正常配置,不应污染默认值断言)。"""
+    """node_env 默认为 'production'(2026-11-01 安全强化)。
+
+    原先默认 'development' ⇒ 漏配 NODE_ENV 的部署自动落进"开放 /docs、跳过鉴权"的
+    分支。缺省必须是更严的那一档;本地开发要显式写 AI_DEV_NO_AUTH=1。
+    隔离 .env 与 NODE_ENV 环境变量后断言(config 的既有写法)。
+    """
     monkeypatch.delenv("NODE_ENV", raising=False)
-    assert Settings(_env_file=None).node_env == "development"
+    assert Settings(_env_file=None).node_env == "production"
+
+
+def test_default_dev_no_auth_is_off(monkeypatch):
+    """显式开发放行开关默认关闭(缺 secret 时 fail-closed 的唯一前提)。"""
+    monkeypatch.delenv("AI_DEV_NO_AUTH", raising=False)
+    assert Settings(_env_file=None).ai_dev_no_auth is False
 
 
 def test_default_cors_origin(monkeypatch):

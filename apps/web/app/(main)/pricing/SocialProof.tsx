@@ -33,7 +33,7 @@ export function SocialProof(): React.JSX.Element {
       <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
         {t('socialProof.title')}
       </h2>
-      <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+      <p className="mx-auto mt-2 max-w-2xl text-body text-muted-foreground min-[768px]:text-base">
         {t('socialProof.subtitle')}
       </p>
       <div className="mt-8 grid grid-cols-2 gap-4 min-[1024px]:grid-cols-4">
@@ -44,7 +44,9 @@ export function SocialProof(): React.JSX.Element {
               <div className="text-display font-bold tracking-tight text-foreground min-[768px]:text-3xl">
                 <AnimatedNumber value={value} decimals={decimals ?? 0} suffix={suffix ?? ''} />
               </div>
-              <div className="text-xs text-muted-foreground min-[768px]:text-sm">{t(labelKey)}</div>
+              <div className="text-label text-muted-foreground min-[768px]:text-body">
+                {t(labelKey)}
+              </div>
             </CardContent>
           </Card>
         ))}

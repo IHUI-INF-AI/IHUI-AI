@@ -89,12 +89,15 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
 
   if (!enabled) {
     return (
-      <div className="flex justify-center py-1" data-testid="ambient-suggestions-restore-wrap">
+      <div
+        className="flex shrink-0 justify-center py-1"
+        data-testid="ambient-suggestions-restore-wrap"
+      >
         <button
           type="button"
           data-testid="ambient-suggestions-restore"
           onClick={() => setEnabled(true)}
-          className="rounded-sm px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="rounded-sm px-2 py-0.5 text-label text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('restore')}
         </button>
@@ -121,9 +124,9 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
   return (
     <div
       data-testid="ambient-suggestions"
-      className="mx-auto flex flex-wrap items-center gap-1.5 py-2"
+      className="mx-auto flex shrink-0 flex-wrap items-center gap-1.5 py-2"
     >
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1 text-label text-muted-foreground">
         <Sparkles className="h-3 w-3" aria-hidden="true" />
         {t('title')}
       </span>
@@ -131,7 +134,7 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
         <span
           key={s.id}
           data-testid={`ambient-suggestion-${s.id}`}
-          className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-0.5 text-xs"
+          className="inline-flex items-center gap-1 rounded-md border bg-background px-2 py-0.5 text-label"
         >
           <button
             type="button"
@@ -166,3 +169,4 @@ export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
 }
 
 export default AmbientSuggestions
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

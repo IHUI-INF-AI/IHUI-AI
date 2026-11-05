@@ -17,7 +17,11 @@
 import * as React from 'react'
 
 import { useTranslations } from 'next-intl'
-import { createNotificationClient } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   createReplayWatermark,
@@ -34,7 +38,6 @@ import type {
   UiControlActionType,
   WSNotification,
 } from '@ihui/types'
-import { fetchApi } from '@/lib/api'
 import {
   configureUiControlBridge,
   executeUiAction,
@@ -51,7 +54,6 @@ import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
  */
 const API_BASE = resolveWsApiBaseUrl()
 const CAPABILITY_INTERVAL_MS = 60_000
-const VERSION = '1.0.0'
 const PROCESSED_IDS_MAX = 100
 const INSTANCE_STORAGE_KEY = 'ihui-web-ui-instance-id'
 
@@ -117,17 +119,14 @@ function buildCapability(): AgentControlCapability {
     endpoint: 'web',
     instanceId: getInstanceId(),
     uiActions: UI_ACTIONS,
-    version: VERSION,
+    // 不报版本:web 端无可追溯版本源头(见 use-agent-control.ts 同处注记)⇒ 宁缺不编。
     reportedAt: new Date().toISOString(),
   }
 }
 
 async function reportCapability(): Promise<void> {
   try {
-    const res = await fetchApi<{ registered: boolean; instanceId: string }>(
-      '/api/agent-control/capability',
-      { method: 'POST', body: JSON.stringify(buildCapability()) },
-    )
+    const res = await reportAgentControlCapability(buildCapability())
     if (!res.success) console.warn('[web-ui] agent-control capability report failed')
   } catch (err) {
     console.warn('[web-ui] agent-control capability report error:', err)
@@ -137,10 +136,7 @@ async function reportCapability(): Promise<void> {
 async function reportResult(response: AgentActionResponse): Promise<void> {
   const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
-    const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    const res = await reportAgentControlResult(payload)
     if (!res.success) console.warn('[web-ui] agent-control result report failed')
   } catch (err) {
     console.warn('[web-ui] agent-control result report error:', err)

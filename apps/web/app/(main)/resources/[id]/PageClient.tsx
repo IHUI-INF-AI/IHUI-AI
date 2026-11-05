@@ -108,12 +108,12 @@ export default function ResourceDetailPage() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <Link
           href="/resources"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -129,16 +129,18 @@ export default function ResourceDetailPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-4xl space-y-4">
       <Link
         href="/resources"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
       </Link>
 
       <header className="space-y-3">
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{resource.title}</h1>
-        {resource.intro && <p className="text-xs text-muted-foreground">{resource.intro}</p>}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {resource.title}
+        </h1>
+        {resource.intro && <p className="text-label text-muted-foreground">{resource.intro}</p>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-muted-foreground">
           {resource.categoryName && (
             <span className="inline-flex items-center gap-1">
               <BookOpen className="h-4 w-4" />
@@ -190,7 +192,7 @@ export default function ResourceDetailPage() {
               className="prose prose-sm max-w-none dark:prose-invert"
             />
           ) : (
-            <p className="text-sm text-muted-foreground">{t('noContent')}</p>
+            <p className="text-body text-muted-foreground">{t('noContent')}</p>
           )}
         </CardContent>
       </Card>
@@ -205,7 +207,7 @@ export default function ResourceDetailPage() {
                   <div className="flex h-24 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
                     <FileText className="h-8 w-8 text-primary/40" />
                   </div>
-                  <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 text-xs text-muted-foreground">
+                  <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 text-label text-muted-foreground">
                     <p className="font-medium text-foreground">{item.title}</p>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1">

@@ -338,7 +338,7 @@ function makeStyles() {
       color: tokens.brand.ctaForeground,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -350,7 +350,7 @@ function makeStyles() {
     typeRow: { flexDirection: 'row', gap: rnSpacing.sm },
     typeChip: {
       height: 32,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
@@ -393,11 +393,16 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    amount: { fontSize: 17, fontWeight: '700', color: tokens.text.primary, flexShrink: 0 },
+    amount: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tokens.text.primary,
+      flexShrink: 0,
+    },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],

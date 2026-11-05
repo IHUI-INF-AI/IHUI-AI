@@ -82,7 +82,7 @@ export default function ModelsPage() {
               type="button"
               onClick={() => setProvider(p)}
               className={
-                'rounded-sm border px-3 py-1 text-sm transition-colors ' +
+                'rounded-sm border px-3 py-1 text-body transition-colors ' +
                 (provider === p
                   ? 'border-brand-accent-deep bg-cta text-cta-foreground'
                   : 'border-border hover:bg-muted')
@@ -101,7 +101,7 @@ export default function ModelsPage() {
         </div>
       ) : list.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             {t('noMatch')}
           </CardContent>
         </Card>
@@ -114,7 +114,7 @@ export default function ModelsPage() {
               badge={item.provider}
               footer={
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between text-label text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Cpu className="h-3.5 w-3.5" />
                       {t('contextLabel')} {formatNumber(item.contextLength)}
@@ -128,7 +128,7 @@ export default function ModelsPage() {
                     {item.capabilities.map((cap) => (
                       <span
                         key={cap}
-                        className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                        className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                       >
                         {cap}
                       </span>

@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
+import { getMiniappVersion } from '@/utils/app-version'
 import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -21,8 +22,8 @@ import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 
-const VERSION = '1.0.0'
 const NOTIFICATION_KEY = 'messageNotificationEnabled'
 
 export default function Settings() {
@@ -35,6 +36,8 @@ export default function Settings() {
   const switchAccentDeep = getRnTokens(resolved).brandAccent.deep
   const [user, setUser] = useState<Partial<UserInfo>>({})
   const [notifEnabled, setNotifEnabled] = useState(true)
+  /* 版本号走全端唯一出口 utils/app-version;此前写死 '1.0.0' —— 屏上那个数字与任何构建都无关 */
+  const appVersion = getMiniappVersion()
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -98,7 +101,7 @@ export default function Settings() {
       } catch {
         // 本地缓存写不进不影响真值
       }
-      Taro.showToast({ title: tt('common.failed', '保存失败,请重试'), icon: 'none' })
+      onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
       return
     }
     if (value) {
@@ -117,13 +120,13 @@ export default function Settings() {
             },
           })
         } else {
-          Taro.showToast({ title: tt('setting.notifOn', '已开启消息通知'), icon: 'none' })
+          onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
         }
       } catch {
-        Taro.showToast({ title: tt('setting.notifOn', '已开启消息通知'), icon: 'none' })
+        onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
       }
     } else {
-      Taro.showToast({ title: tt('setting.notifOff', '已关闭消息通知'), icon: 'none' })
+      onToast(tt('setting.notifOff', '已关闭消息通知'), { kind: 'info' })
     }
   }
 
@@ -142,7 +145,7 @@ export default function Settings() {
           // 原来那句"整片擦 storage"会连用户偏好一起抹掉,且内存里的 token 仍在
           // (下一页/下一个请求还带着它)—— 两处都不该由一次登出造成。
           clearAuth()
-          Taro.showToast({ title: tt('user.loggedOut', '已退出登录'), icon: 'success' })
+          onToast(tt('user.loggedOut', '已退出登录'), { kind: 'success' })
           setTimeout(goToLogin, 800)
         }
       },
@@ -374,14 +377,16 @@ export default function Settings() {
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
-            <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.version', '当前版本号')}
-              </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-label text-[var(--color-text-tertiary)]">
-                {VERSION}
-              </Text>
-            </View>
+            {appVersion ? (
+              <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
+                <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
+                  {tt('setting.version', '当前版本号')}
+                </Text>
+                <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-label text-[var(--color-text-tertiary)]">
+                  {appVersion}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </View>
 

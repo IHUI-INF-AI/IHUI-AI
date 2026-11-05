@@ -13,6 +13,7 @@
 
 import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 /** 账号信息(平台注入,字段对齐 mobile-rn SettingsAccountScreen Account) */
 export interface SettingsAccountItem {
@@ -292,6 +293,8 @@ export interface RegisterScreenProps {
   onOpenTerms?: () => void
   /** 隐私政策点击回调 */
   onOpenPrivacy?: () => void
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 性别(0=保密,1=男,2=女) */
@@ -388,7 +391,31 @@ export interface SecuritySettingsScreenProps {
   settings: SecuritySettingsItem | null
   loading: boolean
   error: string
-  onToggle: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /**
+   * 切换回调。`GET /user/security`(apps/api/src/routes/user-security-routes.ts)是这条路径上
+   * 唯一的端点 ⇒ 四项都**没有行内写端点**,只读形态(readOnly)下不会调用;不传即等价只读。
+   * 缺省 undefined,既有调用方零影响。
+   * 「本条路径无写端点」只约束行内开关,**不等于后端不支持修改**(逐项见 readOnly 的注记)。
+   */
+  onToggle?: (key: keyof SecuritySettingsItem, value: boolean) => void
+  /**
+   * 只读展示:true 时四项渲染为状态文字而非 Switch(行内无写端点时不得留假开关)。
+   * 逐项可写性(一概而论的「后端无写端点」是谎,按项区分;真相源是端点本身,不在类型里建清单):
+   *  - `twoFactorEnabled`:**可写**,走另一条已打通的契约 `POST /api/auth/2fa/setup|verify|disable`
+   *    (packages/api-client/src/endpoints/system.ts 的 setupTwoFactor / verifyTwoFactor /
+   *    disableTwoFactor),RN「安全中心」屏整条流程在用;本屏不写它,由 onOpenTwoFactor 交出入口。
+   *  - `passwordEnabled`:只读**派生**值(`users.password_hash` 非空),写面在改密流程,不在本屏。
+   *  - `biometricEnabled` / `loginAlert`:存 `user_preferences(group='security')` 的
+   *    `biometric` / `loginAlert` 两键,该路由头注自陈「没有写入方」,api 层现读亦无 ⇒ 当前是真实只读。
+   */
+  readOnly?: boolean
+  /**
+   * 「两步验证」行的跳转入口(可选注入)。注入 ⇒ 该行渲染为真实可点的按钮(矢量箭头);
+   * 不注入 ⇒ 渲染与不传时逐字一致(缺省即旧行为,向后兼容)。
+   * 承载方**只在目标屏于当前宿主已登记时注入**:小程序端没有「安全中心」屏 ⇒ 不注入,
+   * 不得留一个点了没反应的入口(门 290 A1/A2 的判据形态)。
+   */
+  onOpenTwoFactor?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -449,6 +476,29 @@ export interface ChangePwdScreenProps {
   onToggleConfirm: () => void
   onSubmit: () => void
   colorScheme?: 'light' | 'dark'
+  /** 可选:提交按钮文案(缺省为 common.confirm);小程序端沿用「修改密码」 */
+  submitLabel?: string
+  /** 可选:渲染「忘记原密码」入口(点击由宿主注入;缺省不渲染) */
+  onForgotOld?: () => void
+  forgotLabel?: string
+  /** 可选:字段内联校验提示(缺省不渲染;校验规则仍由宿主决定) */
+  newPwdError?: string
+  confirmPwdError?: string
+  /**
+   * 可选:输入框最大长度。缺省 undefined ⇒ 不设上限,web/RN 既有行为零变化。
+   * 小程序原页三个框都是 `maxlength={20}`(硬截断),由壳侧传 20。
+   */
+  inputMaxLength?: number
+  /**
+   * 可选:内联校验提示的出现时机。
+   * - `'on-change'`(缺省):错误值非空即显 —— web/RN 与小程序原页的现有语义;
+   * - `'on-submit'`:仅点击提交后显(宿主只想在提交时暴露错误时用)。
+   */
+  errorVisibility?: 'on-submit' | 'on-change'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 账号注销 Screen Props */

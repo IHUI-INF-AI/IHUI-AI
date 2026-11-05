@@ -129,8 +129,8 @@ function SortableUserRow({
         </button>
       </td>
       <td className="px-4 py-2.5 text-muted-foreground">
-        <div className="text-xs">{user.phone || '-'}</div>
-        <div className="text-xs text-muted-foreground/80">{user.email || '-'}</div>
+        <div className="text-label">{user.phone || '-'}</div>
+        <div className="text-label text-muted-foreground/80">{user.email || '-'}</div>
       </td>
       <td className="px-4 py-2.5">
         <span
@@ -163,7 +163,7 @@ function SortableUserRow({
           {isBanned ? t('statusCancelled') : isActive ? t('statusActive') : t('statusDisabled')}
         </span>
       </td>
-      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-muted-foreground">
+      <td className="whitespace-nowrap px-4 py-2.5 text-label text-muted-foreground">
         {user.createdAt ? dateFmt.format(new Date(user.createdAt)) : '-'}
       </td>
       <td className="px-4 py-2.5 text-right">

@@ -108,7 +108,7 @@ export default function SsoAuthPage() {
         <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-sm">
           <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-destructive" />
           <h1 className="mb-1 text-base font-semibold">{t('authFailed')}</h1>
-          <p className="text-xs text-muted-foreground">{error}</p>
+          <p className="text-label text-muted-foreground">{error}</p>
         </div>
       </div>
     )
@@ -119,7 +119,7 @@ export default function SsoAuthPage() {
       <div className="w-full max-w-sm rounded-lg border bg-card p-3 text-center shadow-sm">
         <ShieldCheck className="mx-auto mb-3 h-10 w-10 text-primary" />
         <h1 className="mb-1 text-base font-semibold">{t('title')}</h1>
-        <p className="mb-3 text-xs text-muted-foreground">
+        <p className="mb-3 text-label text-muted-foreground">
           {t('redirectingDesc', { platform: platform ?? '' })}
         </p>
         {/* 2026-10-27:发起期同意是服务端回调闸的唯一凭据,必须先勾选再点按钮 */}
@@ -134,7 +134,7 @@ export default function SsoAuthPage() {
             error={showAgreeErr && !agreed}
           />
           {showAgreeErr && !agreed && (
-            <p className="mt-1 text-xs text-destructive">{t('mustAgree')}</p>
+            <p className="mt-1 text-label text-destructive">{t('mustAgree')}</p>
           )}
         </div>
         <Button

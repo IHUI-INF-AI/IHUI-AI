@@ -301,7 +301,12 @@ export interface ProvidersHealthResponse {
   checked_at: string
 }
 
-const PROVIDERS_HEALTH_SUMMARY_TTL = 30_000 // 30s SWR 缓存
+/**
+ * Provider 健康状态的"最多陈旧 30 秒"策略(唯一真源)。
+ * 导出理由:页头的 react-query `staleTime` 与网关页的 `refetchInterval` 原各自写死 30_000,
+ * 与本模块的 SWR 缓存窗是同一个用户可见承诺;分三处写就改一处会静默让另外两处对不上。
+ */
+export const PROVIDERS_HEALTH_SUMMARY_TTL = 30_000
 let providersHealthSummaryCache: { data: ProvidersHealthResponse; ts: number } | null = null
 
 /** 10s 超时包装(共享层 fetchProvidersHealth 不接受 AbortSignal,用 Promise.race 兜底) */

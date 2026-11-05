@@ -24,15 +24,30 @@ export interface SchedItem {
 
 const WD = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
-/** '9:00'→'09:00';不合规(缺分钟、时分越界、非数字)返回 null,不猜 */
+/**
+ * '9:00'→'09:00'、'18:30:00'→'18:30'(PG `time` 列回读形态);不合规(缺分钟、
+ * 时分秒越界、非数字)返回 null,不猜。
+ *
+ * 为什么必须吃下 `HH:MM:SS`:`edu_attendance_rule` 的 `late_after` / `early_before` /
+ * `absent_after` 是 PostgreSQL `time` 列,驱动回读给 JS 的值**恒为 `HH:MM:SS`**。
+ * 旧的 `^(\d{1,2}):(\d{2})$` 只认 `HH:MM`,于是把库里真值全判成非法 ⇒ 下游
+ * `isPastHm` 恒 false、`judgeStatus` 恒 `unjudged:` —— 生产上表现为"任务在跑、
+ * 日志没错、就是没有缺勤/迟到记录"的静默失效。
+ *
+ * 秒的处理 = **截断到分钟**(不是四舍五入):本仓所有比较语义都是"当日分钟数"
+ * (`isPastHm` 拿 Intl 的 hour+minute,`hmOfLocalDate` 同样只到分钟),
+ * 对侧根本没有秒,进位只会凭空造出一个对不上的档位。截断的最大误差 <60s,
+ * 且绝不让阈值比库里存的值"更晚生效"。秒段仍要求两数字且 ≤59,非法照旧判 null。
+ */
 export function normalizeHm(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
-  const m = /^(\d{1,2}):(\d{2})$/.exec(raw.trim())
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw.trim())
   if (!m) return null
   const h = Number(m[1])
   const min = Number(m[2])
-  if (!Number.isFinite(h) || !Number.isFinite(min)) return null
-  if (h > 23 || min > 59) return null
+  const sec = m[3] === undefined ? 0 : Number(m[3])
+  if (!Number.isFinite(h) || !Number.isFinite(min) || !Number.isFinite(sec)) return null
+  if (h > 23 || min > 59 || sec > 59) return null
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 

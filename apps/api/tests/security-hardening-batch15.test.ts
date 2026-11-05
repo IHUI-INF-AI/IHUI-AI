@@ -156,13 +156,13 @@ describe('safeFetch 接 dispatcher 接线(第 15 批 M3)', () => {
   it('默认档把默认档 dispatcher 传给建连层(TOCTOU 收口的关键接线)', async () => {
     await safeFetch('https://example.com/x')
     expect(undiciMock.fetchSpy).toHaveBeenCalledTimes(1)
-    const init = undiciMock.fetchSpy.mock.calls[0][1] as { dispatcher?: unknown }
+    const init = undiciMock.fetchSpy.mock.calls[0]![1] as { dispatcher?: unknown }
     expect(init.dispatcher).toBe(ssrfGuardedDispatcher())
   })
 
   it('allowPrivate 档把 allowPrivate 档 dispatcher 传给建连层', async () => {
     await safeFetch('https://example.com/x', {}, { allowPrivate: true })
-    const init = undiciMock.fetchSpy.mock.calls[0][1] as { dispatcher?: unknown }
+    const init = undiciMock.fetchSpy.mock.calls[0]![1] as { dispatcher?: unknown }
     expect(init.dispatcher).toBe(ssrfGuardedDispatcher({ allowPrivate: true }))
   })
 

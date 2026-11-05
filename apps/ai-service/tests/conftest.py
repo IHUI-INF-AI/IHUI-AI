@@ -204,6 +204,15 @@ os.environ.setdefault("IHUI_SQLITE_SYNCHRONOUS", "OFF")
 # 环境变量优先级高于 pydantic 的 .env,故开发者显式配置不会被覆盖。
 os.environ.setdefault("CORS_ORIGIN", "http://localhost:8801")
 
+# 2026-11-04:同一条时序约束也适用于 NODE_ENV —— 2026-11-01 起 Settings.node_env 缺省
+# 改成 "production",而 app.main 在**模块导入期**就执行 create_app() → settings.validate_secrets(),
+# 生产档缺 JWT_SECRET 会当场 ValueError。测试文件(如 tests/test_health.py)在模块级
+# `from app.main import app`,即早于 autouse fixture `_isolate_jwt_auth` 的 monkeypatch;
+# CI 又没有 .env 补密钥 ⇒ 收集期整片 ERROR。这里在 conftest 加载期(早于任何测试模块导入)
+# 把进程标成 development,与 _isolate_jwt_auth 的既有语义一致(该 fixture 仍逐用例再钉一次);
+# 生产档必须拒绝空密钥的行为由 tests/test_auth_failclosed_defaults.py 用 fresh Settings() 独立覆盖。
+os.environ.setdefault("NODE_ENV", "development")
+
 # 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
 # 不再模块级 import,改为首次使用时惰性加载:
 #   - 纯单元测试文件所在的 xdist worker 完全免付 6.2s;
@@ -543,11 +552,14 @@ def _isolate_checkin_pool_bridge(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _isolate_jwt_auth(monkeypatch, request):
-    """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径(node_env=development)。
+    """隔离 JWT 中间件:**显式**打开开发放行开关(AI_DEV_NO_AUTH),并清空 jwt_secret。
 
     .env 中配置了真实 jwt_secret 时,JWTAuthMiddleware 会验证 token,
     不带 token 的 HTTP 测试全部 401(test_routers/test_a2a 等)。
-    清空 jwt_secret + node_env=development 后,middleware 直接放行。
+    2026-11-01 安全强化后,"不做鉴权"不再由 `jwt_secret 为空 + node_env=development`
+    推导(那条推导让漏配 secret 的部署自动敞开),只能由 `AI_DEV_NO_AUTH=1` 显式打开。
+    所以测试的起点改成 `ai_dev_no_auth=True + jwt_secret=""`:语义等价于旧行为,
+    但方向是"显式放行",而不是"缺配置就放行"。
 
     此前 test_dag_api/test_debug_api/test_message_bus/test_personas_router
     各自本地做过同样隔离(2026-08 修复),现提升为全局,消除逐文件遗漏。
@@ -563,7 +575,13 @@ def _isolate_jwt_auth(monkeypatch, request):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "jwt_secret", "")
+    # 2026-11-01:node_env 默认已改为 production;放行改由显式开关承担。
+    # 这里同时把环境标成 development:启动校验(validate_secrets/validate_cors_origin)
+    # 在生产档要求 JWT_SECRET / CORS_ORIGIN 非空,而测试进程刻意不配密钥。
+    # 注意这**不是**放行条件 —— 放行只由 ai_dev_no_auth 决定(下面一行);
+    # "生产档缺 secret ⇒ 500 / 文档关闭" 由 tests/test_auth_failclosed_defaults.py 钉住。
     monkeypatch.setattr(settings, "node_env", "development")
+    monkeypatch.setattr(settings, "ai_dev_no_auth", True)
     # 第二道(2026-10-31):把"每个用例的起点都是无凭据"变成不变量,而不是依赖
     # worker 分片顺序 —— 进程环境里的真实凭据会让某些"无凭据"用例在长序列下变红。
     # monkeypatch 会在 teardown 还原;用例内自己 setenv 的仍然优先。

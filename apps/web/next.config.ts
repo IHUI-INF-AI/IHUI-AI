@@ -8,10 +8,12 @@ import { vueToNextRedirects } from './src/config/redirects.config'
 import { buildAiServiceEdgeRewrites } from './src/config/ai-service-edge'
 import { buildCsp } from './src/config/csp'
 import { PUBLIC_HTML_CACHE_RULES } from './src/config/public-html-cache'
+import { resolveBasePath } from './src/config/base-path'
 
-// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
+// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)。取值口径住 src/config/base-path.ts,
+// 本文件不再写第二份仓库名;同一值经 `env` 注入给客户端(见 nextConfig.env)。
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
-const repoName = 'IHUI-AI'
+const basePath = resolveBasePath()
 
 // 2026-07-28 修复:Next.js 16 dev server 启动校验更严,`output: 'export'` + middleware.ts
 // 共存直接报错 "Middleware cannot be used with output: export" 并死锁 8801 端口
@@ -68,9 +70,14 @@ const nextConfig: NextConfig = {
   // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
   ...(isStaticExport ? { output: 'export' as const } : {}),
   distDir: buildDistDir,
-  basePath: isGitHubPages ? `/${repoName}` : '',
-  assetPrefix: isGitHubPages ? `/${repoName}/` : '',
+  basePath,
+  assetPrefix: basePath === '' ? '' : `${basePath}/`,
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
+  // basePath 是构建期配置,客户端 bundle 读不到;把同一个值以公开变量注入,
+  // 供 config/data 层的站内绝对路径(src/config/base-path.ts 的 withBasePath)使用。
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   // 2026-09-04 性能优化(用户授权"本地开发版最快速度"):关闭 StrictMode。
   // 实测:React 19 StrictMode 在 dev 模式双重渲染,使按钮点击延迟 +35%
   // (侧边栏「收起」按钮 dev 325ms→关闭后 220ms)。生产模式不受 StrictMode 影响
@@ -107,6 +114,10 @@ const nextConfig: NextConfig = {
     '@ihui/api-client',
     '@ihui/i18n',
     '@ihui/rn-app',
+    // ui-native 与 rn-app 对称:它经 @ihui/app 进入 web 的组件树,源码是 .ts/.tsx。
+    // 2026-11-01 补:此前只靠 webpack symlinks:true 走 realpath 判 node_modules 才被转译,
+    // 一旦 hoisted 布局变化就会落到"未转译"一侧(与 nativewind/types 的 module-not-found 同型)。
+    '@ihui/ui-native',
     'react-native-web',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',
@@ -837,6 +848,18 @@ const nextConfig: NextConfig = {
           { key: 'Cache-Control', value: 'no-cache, must-revalidate' },
           { key: 'Service-Worker-Allowed', value: '/' },
         ],
+      },
+      {
+        // 2026-11-03 PDF worker 长缓存(实测基线:8801 对该 URL 返回 `public, max-age=0`,
+        // 文件 1,078,613 B,每开一次 PDF 全量重下)。唯一生产引用点:
+        // src/components/media/PDFViewer.tsx L41 `workerSrc = '/pdfjs/pdf.worker.min.mjs'`。
+        // 为什么不用 immutable:文件名不带内容哈希,升级 pdfjs-dist 会**原地替换**该文件,
+        // 而 worker 内部硬编码版本(实测 pdfjsVersion=5.4.624,与主 bundle apiVersion=6.2.108
+        // 配对,错配直接抛错)。1 年 immutable 会把升级后的错配窗口钉死在客户端缓存里;
+        // 7 天上限把"每次重下"压成"每周至多一次",同时保留升级后的收敛速度。
+        // 与下方 2026-10-17 图片规则零冲突:那条正则扩展名不含 mjs,本前缀规则也只覆盖 /pdfjs/*。
+        source: '/pdfjs/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800' }],
       },
       {
         // 2026-10-17 公网入口提速(仓内 ~5% 那部分):public/ 无指纹静态资产加浏览器/

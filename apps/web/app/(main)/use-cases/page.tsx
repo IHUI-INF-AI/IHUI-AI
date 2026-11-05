@@ -104,7 +104,7 @@ export default function UseCasesIndexPage() {
               <Link
                 key={uc.slug}
                 href={`/use-cases/${uc.slug}`}
-                className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                className="group rounded-lg border bg-card p-3 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -115,7 +115,7 @@ export default function UseCasesIndexPage() {
                   </div>
                   <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">{uc.desc}</p>
+                <p className="mt-3 text-body text-muted-foreground">{uc.desc}</p>
                 <div className="mt-4 text-label font-medium text-primary">{uc.metrics}</div>
               </Link>
             )

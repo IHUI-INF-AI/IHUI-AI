@@ -186,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: {
       alignItems: 'center',
-      paddingVertical: 60, // rpx(120)
+      paddingVertical: rnSpacing['6xl'], // rpx(120)
     },
     statusIcon: {
       width: 80, // rpx(160)
@@ -211,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['sm-loose'], // rpx(20)
     },
     actions: {
-      paddingHorizontal: 30, // rpx(60)
+      paddingHorizontal: rnSpacing['3xl'], // rpx(60)
       gap: rnSpacing.lg, // rpx(32)
     },
     primaryBtn: {

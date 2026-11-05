@@ -96,7 +96,7 @@
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 // 旁路落地通道(commit-tree + CAS)**结构上不跑钩子** ⇒ 必须留痕,写口只有一份:
 // `lib/bypass-git.mjs` 的 `attestBypassCommit`(2026-10-11 立)。此前本器的 `--heal --commit`
@@ -809,6 +809,14 @@ export function resolveRegistrationLoss(
   const multiset = opts.multiset === true
   const declaredSet = declared instanceof Set ? declared : (declared?.set ?? new Set())
   const dropTitleFps = declared instanceof Set ? new Set() : (declared?.dropTitleFps ?? new Set())
+  // 第三维(复合主键):回捞侧 `healContent` 早就吃 `declared.keyIndex`(L2432-2450),而检测侧只吃
+  // 逐字 set + 题面指纹 ⇒ 同一本摘除台账两面读,现象是"喊 HEAD 缺 N 条、回捞侧一条都不插"
+  // (2026-11-03 实测 RP-79:逐字面 set=false、指纹=false、keyIndex=true),落地器每轮都被判
+  // "跑而未成"。检测与处置必须问同一把尺(§0.6),这一维补上后两面同形。
+  const declaredKeyIndex =
+    declared && typeof declared === 'object' && declared.keyIndex instanceof Map
+      ? declared.keyIndex
+      : null
   const retiredSet = retired instanceof Set ? retired : new Set()
   const groups = new Map()
   const textOnly = []
@@ -859,9 +867,17 @@ export function resolveRegistrationLoss(
   // 拦成本轮零回捞 + 未判定退出码。旧口径把"看不见声明"当成"没人声明过"继续插行,是 fail-open
   // (实测:被 f12-purge 正当摘掉的禁令形态行,逐字节插回台账 ⇒ "摘了又回来")。
   // 与 pointerExempt 并存:两条通道互不替代。
+  // 〔2026-11-03 补第三维〕`keyIndex`(复合主键 = 编号 + 标题前缀,取值口径 import
+  // `lib/plan-task-index.compositeKeyOf`,与回捞侧 L2444 同一把尺):行尾被追加过注记的行
+  // 逐字不等、题面指纹也不命中,但主键在台账里 ⇒ 它就是那次正当摘除的本体。
+  // 从严方向不变:三个集合都为空(台账取不到)时一条都不免。
   const declaredExempt = (e) =>
     typeof e.line === 'string' &&
-    (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
+    (declaredSet.has(e.line) ||
+      (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))) ||
+      (declaredKeyIndex !== null &&
+        Boolean(compositeKeyOf(e.line)) &&
+        declaredKeyIndex.has(compositeKeyOf(e.line))))
   // 已结清短留痕(2026-10-25):窗口外看不见那次翻勾时,按落盘的 retired 拒绝复插。
   // 只对"已观察到的翻勾"生效;没观察到的 ≠ 没结清(空集,行为与改前一致)。
   const retiredExempt = (e) => typeof e.marker === 'string' && retiredSet.has(e.marker)
@@ -1393,8 +1409,8 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
      * 独立计数 + `--strict` 才判红。`--staged` 走不到这里 —— 那一档的基线就是 HEAD,
      * 少一行必然是**本次提交**造成的,照旧判红(镜像用例端到端钉着)。
      */
-    const auto = all.filter((e) => !e.multiSlot)
-    const manual = all.filter((e) => e.multiSlot)
+    // 与 --heal 档的三档点名共用同一份分流(§0.6/§22c),不再在这里与渲染层各写一遍 filter。
+    const { real: auto, variant: manual } = splitByMultiSlot(all)
     lost = strict ? all : auto
     reportOnly = manual
     // 人工档与工作树同问"磁盘 vs HEAD";HEAD 档另把同一差值作为**旁证**报数(不参与判定):
@@ -1922,6 +1938,26 @@ export function healLegs(seen, { disk, head, index }) {
 }
 
 /**
+ * multiSlot 分流的**唯一判据出口**(§0.6/§22c,2026-11-04 立)。
+ *
+ * `multiSlot` 是判活层 `resolveRegistrationLoss` 打在条目上的标记(同编号在目标面仍占行首名额
+ * ⇒ 少的那一行既可能是被吞、也可能是正当改号/归并,机器不可区分)。本函数只**分流**、不重算:
+ * runCheck 的 auto/manual(原 1412–1415 内联两行 filter)、healLegRoster 三档点名、镜像测试
+ * 都从这里取,渲染层不得再写第二份 `e.multiSlot` 判据(两处实现必漂移)。
+ * `list == null`(索引面取不到)⇒ `real` 原样透传为 null,由调用方报"未判定"而不是"缺 0 条"(§0.3)。
+ *
+ * @param {Array|null} list 判丢条目集
+ * @returns {{real:Array|null, variant:Array}} real=真缺行(非 multiSlot),variant=同号变体(只报数不判缺)
+ */
+export function splitByMultiSlot(list) {
+  if (list == null) return { real: null, variant: [] }
+  const real = []
+  const variant = []
+  for (const e of list) (e && e.multiSlot ? variant : real).push(e)
+  return { real, variant }
+}
+
+/**
  * 三档读数 ⇒ 逐档点名(纯渲染,不再判一次;`healLegs` 是唯一判据出口)。
  *
  * 为什么点名必须上 **stdout**:G-816708 之后自愈被落地器就地补跑,而派生层
@@ -1947,25 +1983,54 @@ export function healLegRoster(seenSize, legs, loop = null) {
     const doable = list.filter((m) => !trippedSet.has(m.marker)).length
     return doable === list.length ? '' : `(可回捞 ${doable} / 熔断 ${list.length - doable})`
   }
+  /**
+   * 三档一律按同一份 multiSlot 分流(§0.6/§22c):真缺行进「缺 N 条」计数,同号变体单列一行
+   * 「只报数不判缺」。失效方向恒为**多要一次定向说明**(§0.10):变体不是被静音,而是被点名 +
+   * 写明为何不判缺 —— B31 那种同号就地改写的旧形变体若照旧打进「缺 1 条」,会诱使下一席
+   * 去补同号双行(当场触守门 203/130)。真缺行(非 multiSlot)的计数与退出码一字不改。
+   * 单列行**含「登记行」三字**:派生层 `post-merge-ledger-sync` 按 `includes('登记行')` 回读
+   * stdout,名字不上那一行,落地那一刻的账面就少了证据(= "只报数不报名"换个通道重演);
+   * 前缀用 `[同号变体/]` 与真缺的 `[点名/]` 分开,免得被读成"真缺行"。
+   * `real` 为空时不打「缺 0 条」点名行(§0.3:枚举到 0 不写成"没问题")。
+   */
+  const parts = {
+    disk: splitByMultiSlot(legs.disk),
+    head: splitByMultiSlot(legs.head),
+    index: splitByMultiSlot(legs.index),
+  }
   const lines = [
-    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(legs.disk)}${tag(legs.disk)} / HEAD 提交树缺 ${count(legs.head)}${tag(legs.head)} / 索引副本缺 ${count(legs.index)}` +
+    `   [分档] 历史登记行 ${seenSize} 条 ⇒ 工作树副本缺 ${count(parts.disk.real)}${tag(parts.disk.real)} / HEAD 提交树缺 ${count(parts.head.real)}${tag(parts.head.real)} / 索引副本缺 ${count(parts.index.real)}` +
       `(三档含义不同:前者多为滞后的在飞副本,HEAD 才是已入库行被合掉,索引是下一次提交真要带走的那份)`,
   ]
-  for (const [label, list] of [
-    ['工作树', legs.disk],
-    ['HEAD', legs.head],
-    ['索引', legs.index],
+  for (const [label, key] of [
+    ['工作树', 'disk'],
+    ['HEAD', 'head'],
+    ['索引', 'index'],
   ]) {
-    if (!list || list.length === 0) continue
-    const shown = list
-      .slice(0, 10)
-      .map((m) => m.marker)
-      .join(' / ')
-    lines.push(
-      `   [点名/${label}] 缺 ${list.length} 条登记行:${shown}${
-        list.length > 10 ? ` …另有 ${list.length - 10} 条(逐条见本门 stderr 详情)` : ''
-      }`,
-    )
+    const { real, variant } = parts[key]
+    if (!real) continue // 索引面未判定 ⇒ 由下方 indexUndetermined 那一行单列"未判定",不进点名循环
+    if (real.length) {
+      const shown = real
+        .slice(0, 10)
+        .map((m) => m.marker)
+        .join(' / ')
+      lines.push(
+        `   [点名/${label}] 缺 ${real.length} 条登记行:${shown}${
+          real.length > 10 ? ` …另有 ${real.length - 10} 条(逐条见本门 stderr 详情)` : ''
+        }`,
+      )
+    }
+    if (variant.length) {
+      const vshown = variant
+        .slice(0, 10)
+        .map((m) => m.marker)
+        .join(' / ')
+      lines.push(
+        `   [同号变体/${label}] （同号变体 ${variant.length} 条登记行,只报数不判缺）:${vshown}${
+          variant.length > 10 ? ` …另有 ${variant.length - 10} 条` : ''
+        }`,
+      )
+    }
   }
   if (legs.indexUndetermined)
     lines.push('   [点名/索引] 索引面取不到 ⇒ 该档**未判定**(未判定不是"缺 0 条",更不是"无缺失")')
@@ -2336,7 +2401,75 @@ export function idExistsOnFace(targetSrc, id) {
 }
 
 
-export function healContent(targetSrc, missing, declared = null) {
+/**
+ * 回捞变体的插入锚点(1 基行号,给拒绝同号多候选时的人读点名用):
+ * 邻居还在 ⇒ 邻居行号 + 1;邻居不在(会追加到末尾)⇒ 当前末尾行号 + 1(即将插入的位置)。
+ */
+function healAnchorLine(lines, entry) {
+  const prev = entry?.prev ? String(entry.prev).replace(/\r$/, '') : ''
+  if (prev) {
+    const at = lines.findIndex((l) => l.replace(/\r$/, '') === prev)
+    if (at >= 0) return at + 2
+  }
+  return lines.length + 1
+}
+
+/** 两个同号变体的差异摘要(共同前/后缀 + 分岔段;用于让 `--pick` 的人看懂选的是哪一枚)。 */
+export function variantDiffSummary(a, b, max = 36) {
+  const x = String(a ?? '')
+  const y = String(b ?? '')
+  if (x === y) return '逐字相同'
+  const min = Math.min(x.length, y.length)
+  let p = 0
+  while (p < min && x[p] === y[p]) p += 1
+  let s = 0
+  while (s < min - p && x[x.length - 1 - s] === y[y.length - 1 - s]) s += 1
+  const clip = (v) => {
+    const t = String(v ?? '').replace(/\s+/g, ' ').trim()
+    return t.length > max ? `${t.slice(0, max)}…` : t
+  }
+  return `共同前缀 ${p} 字/后缀 ${s} 字;分岔 A=«${clip(x.slice(p, x.length - s))}» B=«${clip(y.slice(p, y.length - s))}»`
+}
+
+/**
+ * 解析回捞的 `--pick <id>=<variantIndex>`(0 基,与拒绝报告里的 `[index]` 对齐)。
+ * 同一编号给多次 ⇒ 用法错(不猜"最后一个赢",那会把选错静默成选对)。
+ */
+export function parseHealPicks(argv = []) {
+  const picks = new Map()
+  const errors = []
+  const one = (raw) => {
+    const s = String(raw ?? '').trim()
+    const cut = s.lastIndexOf('=')
+    if (cut <= 0 || cut === s.length - 1) {
+      errors.push(`--pick 形态错:«${s}»(必须是 <id>=<variantIndex>,如 G-1=0)`)
+      return
+    }
+    const id = s.slice(0, cut).trim()
+    const index = Number(s.slice(cut + 1).trim())
+    if (!id || !Number.isInteger(index) || index < 0) {
+      errors.push(`--pick 形态错:«${s}»(variantIndex 必须是非负整数,0 基)`)
+      return
+    }
+    if (picks.has(id)) errors.push(`--pick 重复给出同一编号 ${id}(请只留一枚)`)
+    else picks.set(id, index)
+  }
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = String(argv[i] ?? '')
+    if (a === '--pick') {
+      const val = argv[i + 1]
+      if (val === undefined || String(val).startsWith('--')) {
+        errors.push('--pick 缺少取值(必须是 <id>=<variantIndex>)')
+        continue
+      }
+      i += 1
+      one(val)
+    } else if (a.startsWith('--pick=')) one(a.slice('--pick='.length))
+  }
+  return { picks, errors }
+}
+
+export function healContent(targetSrc, missing, declared = null, opts = {}) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
   /**
@@ -2413,9 +2546,64 @@ export function healContent(targetSrc, missing, declared = null) {
     return !e.multiSlot
   })
   const withheld = candidates.length - pending.length - skippedExistingId
+  /**
+   * 同号多候选刹车(2026-11-03 立,`05af7e8c5d` / `9ae4f3bd0a` 两枚坏写实测):旧实现只问
+   * "目标面上还有没有同号"(`idExistsOnFace`),**不问本批待回捞集合内部是否同号** —— 一次能把
+   * 两行 `Z-1` 同时插回,于是"回捞"自己把台账写成重复登记(§1「一个编号只能有一行当前状态」)。
+   * 判据 = 待插集合按登记编号分组;`size > 1` 的组一律**拒绝自动回捞**,逐个变体打出行号与
+   * 差异摘要,要求显式 `--pick <id>=<variantIndex>` 选一枚。未给 `--pick` 时该组计入
+   * `refusedGroups`(上层据此非零退出),绝不静默跳过、也绝不"两枚都插"。
+   */
+  const pickOf = (id) => {
+    const p = opts?.pick
+    if (p instanceof Map) return p.get(id)
+    if (p && typeof p === 'object' && !Array.isArray(p)) return p[id]
+    return undefined
+  }
+  const byId = new Map()
+  const selected = new Set()
+  for (const e of pending) {
+    if (!e.id) {
+      selected.add(e)
+      continue
+    }
+    const id = String(e.id)
+    const list = byId.get(id)
+    if (list) list.push(e)
+    else byId.set(id, [e])
+  }
+  const refusedGroups = []
+  const picked = []
+  for (const [id, group] of byId) {
+    if (group.length === 1) {
+      selected.add(group[0])
+      continue
+    }
+    const variants = group.map((e, index) => ({
+      index,
+      marker: e.marker,
+      line: e.line,
+      sha: e.sha ?? null,
+      anchorLine: healAnchorLine(lines, e),
+      diffSummary: index === 0 ? '基准变体(其余变体与它逐字比较)' : variantDiffSummary(group[0].line, e.line),
+    }))
+    const want = pickOf(id)
+    if (want === undefined) {
+      refusedGroups.push({ id, reason: '未给 --pick', variants })
+      continue
+    }
+    if (!Number.isInteger(want) || want < 0 || want >= group.length) {
+      refusedGroups.push({ id, reason: `--pick ${id}=${want} 越界(合法范围 0..${group.length - 1})`, variants })
+      continue
+    }
+    selected.add(group[want])
+    picked.push({ id, index: want, marker: group[want].marker, anchorLine: variants[want].anchorLine })
+  }
+  const finalPending = pending.filter((e) => selected.has(e))
+  const refusedRows = refusedGroups.reduce((n, g) => n + g.variants.length, 0)
   let appended = 0
   let inserted = 0
-  for (const entry of pending) {
+  for (const entry of finalPending) {
     const { line, prev } = entry
     const clean = line.replace(/\r$/, '')
     const at = prev ? lines.findIndex((l) => l.replace(/\r$/, '') === prev.replace(/\r$/, '')) : -1
@@ -2427,7 +2615,18 @@ export function healContent(targetSrc, missing, declared = null) {
       appended += 1
     }
   }
-  return { out: lines.join(eol), inserted, appended, withheld, skippedExistingId, skippedCollected, skippedDeclared }
+  return {
+    out: lines.join(eol),
+    inserted,
+    appended,
+    withheld,
+    skippedExistingId,
+    skippedCollected,
+    skippedDeclared,
+    refusedGroups,
+    refusedRows,
+    picked,
+  }
 }
 
 /**
@@ -3783,6 +3982,45 @@ function selfTest() {
     return seen.length === 1 && blind.length === 1 && ledgered.length === 0
   })
 
+  t('台账第三维(复合主键):检测侧与回捞侧吃同一把尺 ⇒ keyIndex 命中即不判缺(成对反向)', () => {
+    const row =
+      '- [ ] G-909998 主键维靶行:行尾被追加过注记,逐字与题面指纹都命不中,但复合主键在摘除台账里。'
+    const note = row + '(摘除留痕#seq7 见 plan-row-drop.jsonl)'
+    const face =
+      '- [ ] G-900002 另一条在册登记行,同样写得足够长以免被最短长度判据挡在射程之外。\n'
+    const seen = registeredLines(note)
+    const ck = compositeKeyOf(note)
+    const keyOnly = resolveRegistrationLoss(seen, face, {
+      set: new Set(),
+      dropTitleFps: new Set(),
+      keyIndex: new Map([[ck, note]]),
+    })
+    const noKey = resolveRegistrationLoss(seen, face, {
+      set: new Set(),
+      dropTitleFps: new Set(),
+      keyIndex: new Map(),
+    })
+    // 两侧都必须是判出来的:给主键维 ⇒ 不判缺(这就是那次"喊缺却插不回"的形态);
+    // 摘掉主键维(空 Map)⇒ 照旧判缺一条,证明本维不是把判据放宽成恒免。
+    return (
+      Boolean(ck) && seen.length === 1 && keyOnly.length === 0 && noKey.length === 1
+    )
+  })
+
+  t('形状锁:检测侧 declaredExempt 必须三维同尺(逐字 ∨ 题面指纹 ∨ 复合主键)', () => {
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const i = src.indexOf('const declaredExempt =')
+    const body = src.slice(i, i + 700)
+    return (
+      i > 0 &&
+      body.includes('declaredKeyIndex') &&
+      body.includes('compositeKeyOf(e.line)') &&
+      src.slice(src.indexOf('const declaredKeyIndex'), src.indexOf('const declaredKeyIndex') + 260).includes(
+        'declared.keyIndex instanceof Map',
+      )
+    )
+  })
+
   t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
     const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
     const body = src.slice(src.indexOf('function heal(commit)'))
@@ -3821,7 +4059,31 @@ function src7(entry) {
   return entry.sha ? String(entry.sha).slice(0, 9) : '未知来源'
 }
 
-function heal(commit) {
+/** 拒绝同号多候选的逐变体点名(行号 + 出处 + 差异摘要),出路固定为显式 `--pick`。 */
+function reportHealRefusals(label, groups, pickPath) {
+  if (!groups?.length) return
+  const rows = groups.reduce((n, g) => n + g.variants.length, 0)
+  console.error(
+    `🛑 [plan-line-loss] ${label}有 ${groups.length} 组同号多候选(共 ${rows} 行)⇒ **拒绝自动回捞**` +
+      '(一次插回两行同号 = 把台账写成重复登记,§1):',
+  )
+  for (const g of groups) {
+    console.error(`   · ${g.id}  ${g.variants.length} 个变体,处置=${g.reason}:`)
+    for (const v of g.variants) {
+      const line = String(v.line ?? '').replace(/\s+/g, ' ').trim()
+      console.error(
+        `      [${v.index}] 目标面锚点 L${v.anchorLine} 出处 ${v.sha ? String(v.sha).slice(0, 9) : '未知来源'}` +
+          ` 差异:${v.diffSummary} 原文:${line.length > 110 ? `${line.slice(0, 110)}…` : line}`,
+      )
+    }
+  }
+  console.error(
+    `   出路(不给 --pick 就不写、且本次以非零退出):${pickPath} --pick "<id>=<variantIndex>"` +
+      '(variantIndex 从 0 起,逐个变体见上;同号其它变体一律保持缺席,交人工复核)',
+  )
+}
+
+function heal(commit, picks = new Map()) {
   // 自愈层只**告警**不拒跑:摘线时它恰恰是唯一还能把行捞回来的东西,拒绝执行等于见死不救
   guardWiring(false)
   const head = git(['show', `HEAD:${PLAN}`])
@@ -3848,9 +4110,18 @@ function heal(commit) {
    * 提交真要带走**的内容,而它此前从不被比 —— 账面读起来像"每一轮都比过了、什么都没缺"。
    */
   const legs = healLegs(seen, { disk, head, index })
-  const diskMissing = legs.disk
-  const headMissing = legs.head
-  const indexMissing = legs.index
+  /**
+   * 回捞侧与点名器共用同一份 multiSlot 分流(§0.6/§22c,2026-11-04/w8 补刀):三档一律经
+   * splitByMultiSlot 取 real(真缺行)喂判缺计数/回捞/规模闸/早退/退出码/写盘;同号变体
+   * (variant)不进「缺 N 条」也不进任何自动动作,只由 healLegRoster(下方仍传原始 legs)在 stdout
+   * 单列点名「只报数不判缺」(§0.10 多要一次定向说明)。改前这里直接拿 legs.X ⇒ HEAD/索引两处
+   * ⚠️「缺 1 条登记行」把 B31 那类同号变体当真缺行报出,且把变体算进 diskDoable/headDoable/
+   * 规模闸/早退/--commit 的同源输入。真缺行(非 multiSlot)的计数、回捞行为、退出码一字不改。
+   * 渲染层(下方三处 warn)不得再写第二份 e.multiSlot 判据;index 面取不到时 real 透传 null。
+   */
+  const diskMissing = splitByMultiSlot(legs.disk).real
+  const headMissing = splitByMultiSlot(legs.head).real
+  const indexMissing = splitByMultiSlot(legs.index).real
   /**
    * ── 循环熔断(G-307 票一③)──
    * 同一 marker 在近若干枚提交里被**两个自动层**反复触碰 ⇒ 这不是"行丢了",而是两层互咬:
@@ -3971,14 +4242,23 @@ function heal(commit) {
   }
   let inserted = 0
   let appended = 0
+  let refusedRows = 0
+  const pickedNote = new Set()
   if (diskDoable.length) {
-    const healed = healContent(disk, diskDoable, declaredRowSet())
+    const healed = healContent(disk, diskDoable, declaredRowSet(), { pick: picks })
     inserted = healed.inserted
     appended = healed.appended
+    refusedRows += healed.refusedRows
+    for (const p of healed.picked) pickedNote.add(`${p.id}=#${p.index}`)
     console.warn(
       `⚠️  [plan-line-loss] 工作区缺 ${diskDoable.length} 条登记行(另有 ${diskMissing.length - diskDoable.length} 条已熔断不回捞)→ 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
     )
     for (const m of diskDoable) console.warn(`     · ${m.marker}(回捞自 ${src7(m)})`)
+    reportHealRefusals(
+      '工作区',
+      healed.refusedGroups,
+      'node scripts/check-plan-line-loss.mjs --heal',
+    )
     if (healed.out !== disk) writeFileSync(path.join(ROOT, PLAN), healed.out, 'utf8')
   }
   if (headDoable.length) {
@@ -4037,6 +4317,13 @@ function heal(commit) {
   }
   if (!commit) {
     console.log('   (未加 --commit:只写工作区,不建提交)')
+    if (refusedRows > 0) {
+      console.error(
+        `❌ [plan-line-loss] 本次有 ${refusedRows} 行因同号多候选被拒绝回捞(未给 --pick)⇒ 退出码 1:` +
+          '不静默跳过,也不把"少插几行"报成"回捞完成"。',
+      )
+      return 1
+    }
     return 0
   }
   if (headDoable.length === 0) {
@@ -4048,17 +4335,21 @@ function heal(commit) {
             ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
             : ''),
     )
-    return 0
+    return refusedRows > 0 ? 1 : 0
   }
   const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
   // post-commit 里这条链是 `... || true`,目录不存在会让恢复提交**静默失败** → 先确保目录在
   mkdirSync(path.dirname(msgFile), { recursive: true })
   // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
   // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
-  const healedHead = healContent(head, headDoable, declaredRowSet()).out
+  const healedHeadRes = healContent(head, headDoable, declaredRowSet(), { pick: picks })
+  const healedHead = healedHeadRes.out
+  refusedRows += healedHeadRes.refusedRows
+  for (const p of healedHeadRes.picked) pickedNote.add(`${p.id}=#${p.index}`)
+  reportHealRefusals('HEAD', healedHeadRes.refusedGroups, 'node scripts/check-plan-line-loss.mjs --heal --commit')
   if (healedHead === head) {
     console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
-    return 0
+    return refusedRows > 0 ? 1 : 0
   }
   writeFileSync(
     msgFile,
@@ -4071,7 +4362,13 @@ function heal(commit) {
       (headMissing.length - headDoable.length
         ? `(另有 ${headMissing.length - headDoable.length} 条因循环熔断本轮**未回捞**,清单见提交时的 🛑 输出。)\n`
         : '') +
-      (diskDoable.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : ''),
+      (diskDoable.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : '') +
+      (refusedRows > 0
+        ? `(同号多候选拒绝回捞 ${refusedRows} 行:未给 --pick 的组一行都不插,清单见 🛑 输出。)\n`
+        : '') +
+      (pickedNote.size
+        ? `(本轮显式 --pick 选定的变体:${[...pickedNote].join(', ')} —— 同号只回插这一枚。)\n`
+        : ''),
     'utf8',
   )
   const tmp = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.md`)
@@ -4146,11 +4443,11 @@ function heal(commit) {
     rmSync(tmp, { force: true })
     rmSync(msgFile, { force: true })
   }
-  return 0
+  return refusedRows > 0 ? 1 : 0
 }
 
-const isDirectRun =
-  process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
+// §22d:入口守卫只认 pathToFileURL(AGENTS.md 22d 红线),禁手拼 `file://` + 盘符反斜杠。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   const args = process.argv.slice(2)
@@ -4159,7 +4456,13 @@ if (isDirectRun) {
     // 从最近历史回捞被"旧基线整文件提交 / 索引层合并"抹掉的登记行,写回工作区文件。
     // 默认只改工作区(由调用方决定何时提交);--commit 额外走一次"临时 index + commit-tree"
     // 的前向恢复提交,并交给 git-push-guard 推送(绕过钩子的并发提交模式,与 AGENTS §12 一致)。
-    process.exit(heal(args.includes('--commit')))
+    // --pick <id>=<variantIndex>:同号多候选组必须显式指定插哪一枚,不给就拒绝该组并非零退出。
+    const { picks, errors } = parseHealPicks(args)
+    if (errors.length) {
+      for (const e of errors) console.error(`❌ [plan-line-loss] ${e}`)
+      process.exit(2)
+    }
+    process.exit(heal(args.includes('--commit'), picks))
   }
   if (process.env.HUSKY_SKIP_PLAN_LINE_LOSS === '1') {
     console.warn('⚠️  HUSKY_SKIP_PLAN_LINE_LOSS=1,已跳过计划登记行防丢守门')
@@ -4446,6 +4749,11 @@ export const __test__ = {
   healLegs,
   healLegRoster,
   healContent,
+  // multiSlot 分流唯一出口(§22c):镜像测试 import 它,不得在测试里抄第二份 filter
+  splitByMultiSlot,
+  // 同号多候选刹车(2026-11-03 立):变体差异摘要与 --pick 解析,镜像测试直接用生产实现
+  variantDiffSummary,
+  parseHealPicks,
   // 摘除台账闸门(2026-10-27 立):三态读取 + 回捞决议,镜像测试直接喂夹具,不得在测试里抄第二份(§22c)
   declaredLedgerGate,
   rescueDecisionFromGate,

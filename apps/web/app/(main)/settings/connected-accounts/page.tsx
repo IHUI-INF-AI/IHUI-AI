@@ -104,11 +104,11 @@ export default function ConnectedAccountsPage() {
           <div className="space-y-0.5">
             <p className="text-body font-medium">{platform.label}</p>
             {isBound ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('connectedAccountsBoundAt')}: {dateFmt.format(new Date(binding!.createdAt))}
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">{t('connectedAccountsUnbound')}</p>
+              <p className="text-label text-muted-foreground">{t('connectedAccountsUnbound')}</p>
             )}
           </div>
         </div>
@@ -146,12 +146,12 @@ export default function ConnectedAccountsPage() {
           {!allow ? (
             <AuthGatePrompt message="请先登录后查看账号绑定" />
           ) : isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
+            <div className="py-10 text-center text-body text-muted-foreground">
               <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
               {t('connectedAccountsLoading')}
             </div>
           ) : error ? (
-            <div className="py-10 text-center text-sm text-destructive">
+            <div className="py-10 text-center text-body text-destructive">
               {(error as Error).message}
             </div>
           ) : (

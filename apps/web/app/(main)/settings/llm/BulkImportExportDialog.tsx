@@ -299,9 +299,9 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
           </TabsList>
 
           <TabsContent value="export" className="space-y-3 pt-3">
-            <p className="text-xs text-muted-foreground">{t('exportDesc')}</p>
+            <p className="text-label text-muted-foreground">{t('exportDesc')}</p>
             <div className="space-y-1.5">
-              <Label className="text-sm">{t('formatLabel')}</Label>
+              <Label className="text-body">{t('formatLabel')}</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -332,14 +332,14 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
           <TabsContent value="import" className="space-y-3 pt-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="importText" className="text-sm">
+                <Label htmlFor="importText" className="text-body">
                   JSON
                 </Label>
                 <Button
                   type="button"
                   variant="outline"
                   size="xs"
-                  className="text-xs"
+                  className="text-label"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="mr-1 h-3 w-3" />
@@ -362,11 +362,11 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
                 onChange={(e) => setImportText(e.target.value)}
                 rows={10}
                 placeholder={t('importPlaceholder')}
-                className="flex w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-background px-3 py-2 font-mono text-label shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             {parsed ? (
-              <div className="rounded-md border border-dashed bg-muted/30 p-2 text-xs">
+              <div className="rounded-md border border-dashed bg-muted/30 p-2 text-label">
                 <p className="text-muted-foreground">
                   {t('importConfirmDesc', {
                     providers: parsed.providers.length,

@@ -121,7 +121,7 @@ export function StudyPlanDetail({
       <Card className="lg:col-span-2">
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <AlertCircle className="mb-2 h-8 w-8" />
-          <p className="text-sm">{t('selectPlanHint')}</p>
+          <p className="text-body">{t('selectPlanHint')}</p>
         </div>
       </Card>
     )
@@ -138,16 +138,16 @@ export function StudyPlanDetail({
                 {t(PLAN_STATUS_KEYS[selectedPlan.status])}
               </Badge>
               <Badge variant="outline">{t(PLAN_TYPE_KEYS[selectedPlan.planType])}</Badge>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {formatDateDisplay(selectedPlan.startDate)} ~{' '}
                 {formatDateDisplay(selectedPlan.endDate)}
               </span>
             </div>
             {selectedPlan.description && (
-              <p className="mt-2 text-sm text-muted-foreground">{selectedPlan.description}</p>
+              <p className="mt-2 text-body text-muted-foreground">{selectedPlan.description}</p>
             )}
             {totalCount > 0 && (
-              <div className="mt-2 flex items-center gap-2 text-xs">
+              <div className="mt-2 flex items-center gap-2 text-label">
                 <CheckCircle2 className="h-3 w-3 text-green-600" />
                 <span className="text-muted-foreground">
                   {t('completionProgress', {
@@ -165,7 +165,7 @@ export function StudyPlanDetail({
               <Button
                 variant={!isStudentMode ? 'default' : 'ghost'}
                 size="xs"
-                className="text-xs"
+                className="text-label"
                 onClick={() => onSetStudentMode(false)}
               >
                 <Shield className="mr-1 h-3 w-3" />
@@ -174,7 +174,7 @@ export function StudyPlanDetail({
               <Button
                 variant={isStudentMode ? 'default' : 'ghost'}
                 size="xs"
-                className="text-xs"
+                className="text-label"
                 onClick={() => onSetStudentMode(true)}
               >
                 <User className="mr-1 h-3 w-3" />
@@ -189,7 +189,7 @@ export function StudyPlanDetail({
                   <Button
                     size="xs"
                     variant="outline"
-                    className="text-xs"
+                    className="text-label"
                     onClick={() => onAutoSplit(selectedPlan.id)}
                   >
                     <FileText className="mr-1 h-3 w-3" />
@@ -200,21 +200,21 @@ export function StudyPlanDetail({
                 <Button
                   size="xs"
                   variant="outline"
-                  className="text-xs"
+                  className="text-label"
                   onClick={() => onEditPlan(selectedPlan)}
                 >
                   {t('edit')}
                 </Button>
               )}
               {/* Completion stats & Progress timeline */}
-              <Button size="xs" variant="outline" className="text-xs" onClick={onOpenStats}>
+              <Button size="xs" variant="outline" className="text-label" onClick={onOpenStats}>
                 <BarChart3 className="mr-1 h-3 w-3" />
                 {t('completionStats')}
               </Button>
               <Button
                 size="xs"
                 variant="outline"
-                className="text-xs"
+                className="text-label"
                 onClick={onOpenTimeline}
                 disabled={!selectedPlan}
               >
@@ -235,7 +235,7 @@ export function StudyPlanDetail({
                         key={status}
                         size="xs"
                         variant={isCurrent ? 'default' : 'outline'}
-                        className="text-xs"
+                        className="text-label"
                         disabled={isCurrent}
                         onClick={() => {
                           if (!isCurrent) {
@@ -260,7 +260,7 @@ export function StudyPlanDetail({
           <h3 className="text-body font-medium">
             {isStudentMode ? t('studentTasks') : t('planItems')}
             {totalCount > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">({totalCount})</span>
+              <span className="ml-2 text-label text-muted-foreground">({totalCount})</span>
             )}
           </h3>
           {!isStudentMode && (
@@ -337,7 +337,7 @@ export function StudyPlanDetail({
                             role="button"
                             tabIndex={0}
                             className={cn(
-                              'group flex cursor-pointer items-start gap-1 rounded-sm px-2 py-1 text-xs transition-colors hover:bg-accent',
+                              'group flex cursor-pointer items-start gap-1 rounded-sm px-2 py-1 text-label transition-colors hover:bg-accent',
                               item.completed && 'opacity-50',
                             )}
                             onClick={() => onEditItem(item)}
@@ -376,7 +376,7 @@ export function StudyPlanDetail({
           </div>
         ) : parentItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <p className="text-sm">{t('noPlanItems')}</p>
+            <p className="text-body">{t('noPlanItems')}</p>
             {!isStudentMode && (
               <Button size="sm" variant="outline" className="mt-3" onClick={onAddItem}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
@@ -413,19 +413,19 @@ export function StudyPlanDetail({
                           {item.content}
                         </p>
                         {item.dueDate && (
-                          <Badge variant="outline" className="shrink-0 text-xs">
+                          <Badge variant="outline" className="shrink-0 text-label">
                             <Clock className="mr-1 h-3 w-3" />
                             {formatDateDisplay(item.dueDate)}
                           </Badge>
                         )}
                       </div>
                       {item.objective && (
-                        <p className="mt-1 text-sm text-muted-foreground">
+                        <p className="mt-1 text-body text-muted-foreground">
                           {t('objectivePrefix', { value: item.objective })}
                         </p>
                       )}
                       {item.notes && isStudentMode && (
-                        <p className="mt-1 text-xs italic text-muted-foreground">
+                        <p className="mt-1 text-label italic text-muted-foreground">
                           {t('notesPrefix', { value: item.notes })}
                         </p>
                       )}
@@ -436,7 +436,7 @@ export function StudyPlanDetail({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 text-xs"
+                              className="h-6 text-label"
                               onClick={() => onEditItem(item)}
                             >
                               {t('edit')}
@@ -444,7 +444,7 @@ export function StudyPlanDetail({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 text-xs text-destructive hover:text-destructive"
+                              className="h-6 text-label text-destructive hover:text-destructive"
                               onClick={() => onDeleteParentItem(item)}
                             >
                               <Trash2 className="mr-1 h-3 w-3" />
@@ -457,7 +457,7 @@ export function StudyPlanDetail({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 text-xs"
+                              className="h-6 text-label"
                               onClick={() => onEditItem(item)}
                             >
                               {t('addNotes')}
@@ -465,7 +465,7 @@ export function StudyPlanDetail({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 text-xs"
+                              className="h-6 text-label"
                               onClick={() => onAddSubItem(item.id)}
                             >
                               <Plus className="mr-1 h-3 w-3" />
@@ -496,7 +496,7 @@ export function StudyPlanDetail({
                           <div className="flex-1 min-w-0">
                             <p
                               className={cn(
-                                'text-xs',
+                                'text-label',
                                 child.completed && 'line-through text-muted-foreground',
                               )}
                             >

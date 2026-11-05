@@ -45,7 +45,7 @@ export function AiDiagnoseOverlay({
           </button>
         </Tooltip>
       </div>
-      <div className="max-h-72 overflow-y-auto px-2.5 py-2 text-xs">
+      <div className="max-h-72 overflow-y-auto px-2.5 py-2 text-label">
         {error ? (
           <div className="text-center text-destructive">
             {error}

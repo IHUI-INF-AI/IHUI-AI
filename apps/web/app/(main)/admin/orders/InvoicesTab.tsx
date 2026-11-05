@@ -133,8 +133,8 @@ export function InvoicesTab({
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('invoiceType')}</th>
               <th className="px-4 py-2.5 font-medium">{t('amount')}</th>
@@ -216,14 +216,14 @@ export function InvoicesTab({
               <DialogDescription>{t('changeStatusDesc')}</DialogDescription>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}
             {target && (
-              <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
+              <div className="rounded-md bg-muted/40 px-3 py-2 text-body">
                 <div className="font-medium">{currencyFmt.format(Number(target.amount))}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
+                <div className="mt-0.5 text-label text-muted-foreground">
                   {t(INVOICE_TYPE_KEY[target.invoiceType] ?? 'invoiceType_unknown')} ·{' '}
                   {t(INVOICE_STATUS_KEY[target.status] ?? 'invoiceStatus_unknown')}
                 </div>

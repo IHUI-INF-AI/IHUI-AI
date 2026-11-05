@@ -91,8 +91,10 @@ export function AboutContent(): React.JSX.Element {
           <BookOpen className="h-3.5 w-3.5" />
           {t('storyBadge')}
         </div>
-        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('storyTitle')}</h2>
-        <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+        <h2 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {t('storyTitle')}
+        </h2>
+        <div className="mt-4 space-y-4 text-body leading-relaxed text-muted-foreground min-[768px]:text-base">
           <p>{t('storyP1')}</p>
           <p>{t('storyP2')}</p>
         </div>
@@ -103,17 +105,14 @@ export function AboutContent(): React.JSX.Element {
         {values.map(({ icon, titleKey, descKey }) => {
           const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Sparkles
           return (
-            <div
-              key={titleKey}
-              className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
-            >
+            <div key={titleKey} className="rounded-lg border bg-card p-3 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">{t(titleKey)}</h3>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t(descKey)}</p>
+              <p className="mt-3 text-body leading-relaxed text-muted-foreground">{t(descKey)}</p>
             </div>
           )
         })}
@@ -128,15 +127,12 @@ export function AboutContent(): React.JSX.Element {
           {platforms.map(({ icon, titleKey, descKey }) => {
             const Icon = ICON_MAP[icon as keyof typeof ICON_MAP] ?? Blocks
             return (
-              <div
-                key={titleKey}
-                className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
-              >
+              <div key={titleKey} className="rounded-lg border bg-card p-3 shadow-sm">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Icon className="h-5 w-5 text-primary" />
                 </div>
                 <h3 className="mt-4 text-lg font-semibold">{t(titleKey)}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t(descKey)}</p>
+                <p className="mt-2 text-body leading-relaxed text-muted-foreground">{t(descKey)}</p>
               </div>
             )
           })}
@@ -154,7 +150,7 @@ export function AboutContent(): React.JSX.Element {
               <div className="text-display min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight text-primary">
                 {t(valueKey)}
               </div>
-              <div className="mt-2 text-sm text-muted-foreground min-[768px]:text-base">
+              <div className="mt-2 text-body text-muted-foreground min-[768px]:text-base">
                 {t(descKey)}
               </div>
             </div>
@@ -168,7 +164,7 @@ export function AboutContent(): React.JSX.Element {
         <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('ctaTitle')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

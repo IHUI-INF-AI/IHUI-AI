@@ -174,19 +174,17 @@ export function AtomicRollbackPanel() {
           </Button>
         </div>
         {availability.entry?.state === 'unavailable' && (
-          <p className="text-xs text-destructive">
-            {t('availabilityUnavailable')}
-          </p>
+          <p className="text-label text-destructive">{t('availabilityUnavailable')}</p>
         )}
         {availability.entry?.state === 'available' && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {t('availabilityAvailable', { id: availability.entry.checkpointId ?? '' })}
           </p>
         )}
       </div>
 
       {snapshots.length === 0 ? (
-        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-xs text-muted-foreground">
+        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-label text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -197,10 +195,10 @@ export function AtomicRollbackPanel() {
                 <Badge variant="outline" className="font-mono text-[10px]">
                   {s.id}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {new Date(s.createdAt).toLocaleString()}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('fileCount', { count: s.fileCount })}
                 </span>
                 <Button
@@ -218,7 +216,7 @@ export function AtomicRollbackPanel() {
                   {t('plan')}
                 </Button>
               </div>
-              <p className="mt-1 truncate text-xs text-muted-foreground">{s.description}</p>
+              <p className="mt-1 truncate text-label text-muted-foreground">{s.description}</p>
             </div>
           ))}
         </div>
@@ -227,7 +225,7 @@ export function AtomicRollbackPanel() {
       {plan && (
         <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
           <div className="text-body font-medium">{t('planTitle')}</div>
-          <div className="flex flex-wrap gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-label">
             <Badge className="border-transparent bg-primary/10 text-primary hover:bg-primary/10">
               {t('restoreCount', { count: plan.restore.length })}
             </Badge>
@@ -239,12 +237,12 @@ export function AtomicRollbackPanel() {
             </Badge>
           </div>
           {plan.newMigrationFiles.length > 0 && (
-            <p className="text-xs text-amber-600">
+            <p className="text-label text-amber-600">
               {t('migrationWarn', { files: plan.newMigrationFiles.slice(0, 3).join(', ') })}
             </p>
           )}
           {plan.uncovered.length > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('uncoveredWarn', { count: plan.uncovered.length })}
             </p>
           )}
@@ -257,7 +255,7 @@ export function AtomicRollbackPanel() {
               onChange={(e) => setConfirmed(e.target.checked)}
               className="h-3.5 w-3.5"
             />
-            <label htmlFor="atomic-confirm" className="text-xs text-muted-foreground">
+            <label htmlFor="atomic-confirm" className="text-label text-muted-foreground">
               {t('confirmLabel')}
             </label>
             <Button
@@ -289,12 +287,12 @@ export function AtomicRollbackPanel() {
             >
               {result.ok ? t('runOk') : t('runFail')}
             </Badge>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {t('stepCount', { count: result.steps.length })}
             </span>
           </div>
           {result.suggestedFollowUps.map((f, i) => (
-            <p key={i} className="text-xs text-amber-600">
+            <p key={i} className="text-label text-amber-600">
               {f}
             </p>
           ))}

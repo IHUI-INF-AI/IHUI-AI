@@ -377,7 +377,7 @@ export function OrdersTab({
                 refundTime: '',
               })
             }
-            className="text-xs"
+            className="text-label"
           >
             重置
           </Button>
@@ -385,8 +385,8 @@ export function OrdersTab({
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+        <table className="w-full text-body">
+          <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
             <tr>
               <th className="px-4 py-2.5 font-medium">{t('orderNo')}</th>
               <th className="px-4 py-2.5 font-medium">{t('orderType')}</th>
@@ -424,7 +424,7 @@ export function OrdersTab({
                 const sc = ORDER_STATUS_CFG[o.status]
                 return (
                   <tr key={o.id} className="transition-colors hover:bg-muted/30">
-                    <td className="px-4 py-2.5 font-mono text-xs">{o.orderNo}</td>
+                    <td className="px-4 py-2.5 font-mono text-label">{o.orderNo}</td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-label font-medium">
                         {t(
@@ -495,7 +495,7 @@ export function OrdersTab({
               <DialogTitle>{editing ? '编辑订单' : '新增订单'}</DialogTitle>
             </DialogHeader>
             {err && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {err}
               </div>
             )}

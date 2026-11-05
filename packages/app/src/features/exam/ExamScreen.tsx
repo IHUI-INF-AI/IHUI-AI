@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamItem, ExamScreenProps, ExamStatus } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -33,8 +33,9 @@ export function ExamScreen({
   onRefresh,
   onStart,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: ExamScreenProps) {
+}: ExamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -67,7 +68,7 @@ export function ExamScreen({
       <View style={styles.container}>
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('exam.retry')}
           colorScheme={colorScheme}
         />
@@ -129,7 +130,7 @@ export function ExamScreen({
               </View>
               <View style={styles.metaWrap}>
                 <Text style={styles.metaText}>
-                  {t('exam.questions')}:{item.questionCount}
+                  {t('exam.questionCountLabel')}:{item.questionCount}
                 </Text>
                 <Text style={styles.metaText}>
                   {t('exam.attempts')}:{item.attemptCount}/{item.maxAttempts || '∞'}
@@ -137,7 +138,7 @@ export function ExamScreen({
               </View>
               {item.startTime ? (
                 <Text style={styles.metaText}>
-                  {t('exam.start')}:{item.startTime}
+                  {t('exam.startExam')}:{item.startTime}
                 </Text>
               ) : null}
               {item.endTime ? (
@@ -152,7 +153,7 @@ export function ExamScreen({
                   disabled={!canStart}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.startBtnText}>{t('exam.startExam')}</Text>
+                  <Text style={styles.startBtnText}>{t('eduExamListPage.start')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -167,24 +168,29 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     toastText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.DEFAULT,
     },
     errorText: {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.xs,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
     },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 10 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -196,22 +202,27 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-start',
       gap: rnSpacing.sm,
     },
-    cardTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    cardTitle: {
+      flex: 1,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
     statusBadge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       overflow: 'hidden',
     },
-    statusText: { fontSize: 11 },
-    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
+    statusText: { fontSize: rnType.caption.size },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     metaWrap: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: rnSpacing.md,
       marginTop: rnSpacing.sm,
     },
-    metaText: { fontSize: 14, color: tk.text.secondary },
+    metaText: { fontSize: rnType.body.size, color: tk.text.secondary },
     actionRow: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -224,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     startBtnDisabled: { backgroundColor: tk.border.light },
-    startBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    startBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

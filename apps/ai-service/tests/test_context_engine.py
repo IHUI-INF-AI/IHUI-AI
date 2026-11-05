@@ -1632,7 +1632,7 @@ class TestEndpoints:
                 "taskType": "default",
             }),
         ):
-            result = await enrich_endpoint(req)
+            result = await enrich_endpoint(req, "u-enrich")
         assert result["code"] == 0
         assert result["data"]["enrichedContext"] == "test"
 
@@ -1645,13 +1645,13 @@ class TestEndpoints:
             "enrich_context",
             new=AsyncMock(side_effect=Exception("boom")),
         ):
-            result = await enrich_endpoint(req)
+            result = await enrich_endpoint(req, "u-enrich")
         assert result["code"] == 500
 
     @pytest.mark.asyncio
     async def test_sources_endpoint(self):
         from app.services.context_engine import sources_endpoint
-        result = await sources_endpoint()
+        result = await sources_endpoint("u-sources")
         assert result["code"] == 0
         assert len(result["data"]["sources"]) == 5
         assert result["data"]["defaultBudget"] == DEFAULT_CONTEXT_BUDGET
@@ -1670,7 +1670,7 @@ class TestEndpoints:
             "record_visualization",
             new=AsyncMock(),
         ):
-            result = await track_visualization_endpoint(req)
+            result = await track_visualization_endpoint(req, "u-track")
         assert result["code"] == 0
         assert result["data"]["recorded"] is True
 
@@ -1716,7 +1716,7 @@ class TestEndpoints:
             "_clear_session_memory",
             new=AsyncMock(return_value=True),
         ):
-            result = await clear_memory_endpoint("c1")
+            result = await clear_memory_endpoint("c1", "u-clear")
         assert result["code"] == 0
         assert result["data"]["cleared"] is True
 

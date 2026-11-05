@@ -36,16 +36,13 @@ export function TeamList({ data, isLoading, error }: Props) {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {error.message}
         </div>
       ) : data && data.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {data.map((team) => (
-            <Card
-              key={team.id}
-              className="flex h-full flex-col transition-colors hover:bg-accent hover:shadow-md"
-            >
+            <Card key={team.id} className="flex h-full flex-col transition-colors hover:bg-accent">
               <CardHeader>
                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Users className="h-5 w-5" />
@@ -56,13 +53,13 @@ export function TeamList({ data, isLoading, error }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1">
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-body text-muted-foreground">
                   <UserPlus className="h-4 w-4" />
                   <span>{t('memberCount', { count: team.memberCount })}</span>
                 </div>
               </CardContent>
               <CardFooter className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {formatDate(team.createdAt) || '-'}
                 </span>
                 <Button asChild size="sm">
@@ -78,7 +75,7 @@ export function TeamList({ data, isLoading, error }: Props) {
       ) : (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Users className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       )}
     </>

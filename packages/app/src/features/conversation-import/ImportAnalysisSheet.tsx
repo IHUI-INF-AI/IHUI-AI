@@ -17,7 +17,7 @@ import { TextField } from '../../components/TextField'
 import { AlertTriangle, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { buildAnalysisPrompt, type ImportSource } from '@ihui/shared/import-analysis'
 import type {
   ImportAnalysisCategory,
@@ -384,7 +384,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    close: { fontSize: 13, color: tk.text.secondary },
+    close: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     desc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
     stateRow: {
       flexDirection: 'row',
@@ -394,7 +394,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scroll: { maxHeight: 460 },
     scrollBody: { gap: rnSpacing.sm, paddingBottom: rnSpacing.sm },
-    sectionTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    sectionTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     hint: { fontSize: rnType.caption.size, lineHeight: 16, color: tk.text.tertiary },
     errorBox: {
       flexDirection: 'row',
@@ -414,7 +414,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     scenarioRowActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
-    scenarioTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    scenarioTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     browseToggle: { paddingVertical: rnSpacing['xs-loose'] },
     browseBox: {
@@ -444,7 +444,7 @@ function createStyles(tk: AppThemeTokens) {
       // 盒子尺寸与字形位置逐像素不变(10+1 / 5+1),不是靠豁免消账。
       backgroundColor: tk.brand.cta,
       borderWidth: 0,
-      paddingHorizontal: 11,
+      paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing['xs-loose'],
     },
     // 配对前景必须落进**与底同名前缀**的样式键(而不是行内 style),门 83 R3 才认得到兄弟配对:
@@ -476,13 +476,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: rnSpacing['xs-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 36,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     submitDisabled: { backgroundColor: tk.border.medium },
-    submitText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

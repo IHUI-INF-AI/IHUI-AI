@@ -126,6 +126,64 @@ export function titleOnlyLifecycle(text) {
 }
 
 /**
+ * 「只设一个静态导航标题」的 useEffect 块(2026-11-01 立)。
+ *
+ * 为什么单独开一条、不扩 `lifecycleBlocks`:把 useEffect 混进 titleOnlyLifecycle 的 every() 里,
+ * 会让"另一个 useEffect 在取数"的页整体翻成 false —— 那是**收紧**既有行为,回归面不可控。
+ * 本条只销 `Taro.setNavigationBarTitle` 这一枚 token,useDidShow 那一族照旧走原路(零回归)。
+ *
+ * 为什么 useEffect 形态此前没被认:实测 3 页(news/list / dev-space / teacher/detail)都写在
+ * `useEffect` 里(随语言切换或每次渲染重设),而旧判据只扫 useDid(Show|Hide) ⇒ 同一件事的另一种
+ * 写法被当成"页面私有能力"拒转。
+ *
+ * 失效方向保守(拿不准就是拒,不是放行):
+ *  - 标题表达式必须**纯 i18n**(`t('a.b')` / `tt('a.b','兜底')`)。依赖数据的标题
+ *    (`teacher?.name || tt(…)` 这一型,实测 teacher/detail)一律不认 —— 那种标题要随数据变,
+ *    壳的导航栏通道带不走,销账就是真丢行为。
+ *  - 块体只许这一句(带 `.catch()` 吞错的链式写法也不认,那要逐例看语义)。
+ *  - 页面里若还有别的 setNavigationBarTitle 调用落在块外 ⇒ 整页不认(防漏判动态标题)。
+ *
+ * @returns {{title:string, deps:string|null}|null} deps = 原依赖数组字面(生成器按它保留重设节律)
+ */
+export function staticTitleEffect(text) {
+  const t = maskComments(String(text ?? ''))
+  if (!t.includes('setNavigationBarTitle')) return null
+
+  const blocks = []
+  for (const m of t.matchAll(/useEffect\s*\(\s*\(\s*\)\s*=>\s*\{/g)) {
+    let i = m.index + m[0].length
+    let depth = 1
+    const start = i
+    while (i < t.length && depth > 0) {
+      if (t[i] === '{') depth++
+      else if (t[i] === '}') depth--
+      i++
+    }
+    // 块尾之后紧跟的依赖数组:`}, [tt])` / `})` 两种都取回原文,交给生成器保留节律
+    const depsMatch = /^\s*,\s*(\[[^\]]*\])/.exec(t.slice(i))
+    blocks.push({ body: t.slice(start, i - 1).trim(), span: [m.index, i], deps: depsMatch ? depsMatch[1] : null })
+  }
+
+  const TITLE_ONLY = /^Taro\.setNavigationBarTitle\s*\(\s*\{\s*title:\s*([^}]+?)\s*\}\s*\);?$/
+  // 纯 i18n 标题:t('命名空间.键') 或 tt('键','兜底文案') —— 不接受任何变量、?.、|| 或模板插值
+  const PURE_I18N = /^(?:t|tt)\(\s*'[\w.]+'(?:\s*,\s*'[^']*')?\s*\)$/
+
+  const hits = blocks
+    .map((b) => ({ ...b, m: TITLE_ONLY.exec(b.body) }))
+    .filter((b) => b.m && PURE_I18N.test(b.m[1].trim()))
+
+  if (hits.length === 0) return null
+  const titles = new Set(hits.map((h) => h.m[1].trim()))
+  if (titles.size !== 1) return null // 多个块给不同标题 ⇒ 不认
+
+  // 对账:页面里的 setNavigationBarTitle 调用数必须 == 已认块数,块外还有一处就不认(防漏判动态标题)
+  const callCount = (t.match(/setNavigationBarTitle\s*\(/g) || []).length
+  if (callCount !== hits.length) return null
+
+  return { title: [...titles][0], deps: hits[0].deps }
+}
+
+/**
  * 页面里的硬编码中文量(**只数字符串字面量**,注释不算)。判"转壳会丢正文"请用
  * `hardcodedCjkNotInMessages` —— 总量本身不是缺口(兜底文案在词包里都有)。
  */
@@ -355,14 +413,60 @@ export function clientSidePaging(pageText) {
 }
 
 /**
+ * 页侧「选项列表 / 确认弹窗」取用的文案键(纯取数,不判覆盖)。
+ * 解析不出任何键 ⇒ 空集(调用方按"判不出"处理,不放过)。
+ */
+export function modalOptionKeys(pageText) {
+  const p = maskComments(String(pageText ?? ''))
+  const out = new Set()
+  for (const m of p.matchAll(/showActionSheet\s*\(\s*\{[\s\S]{0,600}?itemList:\s*\[([\s\S]{0,400}?)\]/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) out.add(k[1])
+  for (const m of p.matchAll(/showModal\s*\(\s*\{([\s\S]{0,600}?)\}\s*\)/g))
+    for (const k of m[1].matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g)) out.add(k[1])
+  return out
+}
+
+/**
  * 确认弹窗:壳用 RN 的 Alert.alert(现读 10 个屏),与小程序的 Taro.showModal 是同一件事。
  * 另认 `appAlert(title, msg, [{ onPress }])` 形态 —— 带选项的 appAlert 就是确认弹窗
  * (现读 AiSkillScreen 注释即「RN 端 Alert(name/description + 取消/查看详情)」,实现为 appAlert + onPress)。
+ *
+ * 第二档(可选):给 `pageKeys`(页侧选项文案键集)时,除形态在室外还要求**逐键对上** ——
+ * showActionSheet 的选项是"一组可点的东西",壳里有个 appAlert 不等于把这一组选项做了
+ * (实测 pages/distribution/plan/index 的开通确认步壳侧真没有对应键)。
+ * 键集从 appAlert/Alert.alert 的**实参段**取,用括号配平而不是 `\)` 正则:实参里有
+ * `[{ text: t('…') }]` 嵌套括号,惰性正则会截在第一个右括号上、把按钮整段读丢(实测踩过)。
+ * 两档共用这一个谓词,不再另立第二份实现(§0.6)。
  */
-export function modalCovered(shellText) {
+export function modalCovered(shellText, pageKeys = null) {
   const s = String(shellText ?? '')
-  if (/\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(s)) return true
-  return /appAlert\s*\([\s\S]{0,300}?onPress/.test(s)
+  const shaped =
+    /\bAlert\.(alert|prompt)\b|showConfirm|ConfirmDialog/.test(s) ||
+    /appAlert\s*\([\s\S]{0,300}?onPress/.test(s)
+  if (!shaped) return false
+  // 只有"根本没传第二档"才回到旧口径;传了但是空集 = 页侧解析不出键 ⇒ 判不出 ⇒ 不放过
+  if (!pageKeys) return true
+  if (pageKeys.size === 0) return false
+  const shellKeys = new Set()
+  for (const m of s.matchAll(/\b(?:appAlert|Alert\.alert)\s*(?=\()/g)) {
+    const open = s.indexOf('(', m.index)
+    if (open < 0) continue
+    let depth = 0
+    for (let i = open; i < s.length; i++) {
+      const c = s[i]
+      if (c === '(') depth += 1
+      else if (c === ')') {
+        depth -= 1
+        if (depth === 0) {
+          for (const k of s.slice(open + 1, i).matchAll(/\btt?\(\s*['"]([^'"]+)['"]/g))
+            shellKeys.add(k[1])
+          break
+        }
+      }
+    }
+  }
+  if (shellKeys.size === 0) return false
+  return [...pageKeys].every((k) => shellKeys.has(k))
 }
 
 /** 剪贴板:壳用 Clipboard.setString(现读 13 个屏),与小程序的 Taro.setClipboardData 是同一件事。 */
@@ -476,14 +580,63 @@ export const SHELL_CAPABILITY_RULES = [
       /appAlert\s*\(|Alert\.alert\s*\(|setError\s*\(|errorText/.test(s) ||
       (/error=\{error\}/.test(s) && /ErrorState|\{error\}|message=\{error\}/.test(shared)),
   },
+  {
+    what: '时间格式化',
+    tokens: ['@/utils/time'],
+    // 立因(2026-11-01 现读):apps/miniapp-taro/src/utils/time.ts:29 的 `formatDate` 就是
+    // `@ihui/shared/utils/date-utils` 那枚 `formatDateByTemplate` 的逐字薄封装(函数体只有一句
+    // `return formatDateByTemplate(date, format)`,relativeTime 同样转发 formatRelativeTime)。
+    // ⇒ 屏侧只要直接从共享层取同一枚函数,转壳后时间格式一字节都不会变;而旧判据按字面找
+    // '@/utils/time' 是否出现在屏/壳里 —— 屏是 RN/共享源,永远不 import 小程序别名 ⇒ 这一族
+    // 结构性无法销(实测 pkg-learn/live/detail 就卡在这一枚)。判据问的是"能力有没有",不是"名字有没有"。
+    shellEvidence: (_s, shared) =>
+      /@ihui\/shared\/utils\/date-utils/.test(shared) &&
+      /formatDateByTemplate|formatRelativeTime/.test(shared),
+  },
+  {
+    what: '列表分页',
+    tokens: ['@/hooks/use-social-list', 'useSocialList'],
+    // 立因(2026-11-01 现读):端内 `@/hooks/use-social-list` 解出 {items, loading, hasMore, load,
+    // removeItem},而承载壳 apps/mobile-rn/src/screens/FavoriteScreen.tsx:101 用同族
+    // `usePaginatedList` 解出 {items, loading, refreshing, loadingMore, error, total, refresh,
+    // loadMore, removeItem},hasMore 由 items.length < total 算出(:145)—— 同一件事的另一个名字。
+    // 但光有壳侧 hook 不足以销:分页要**闭环**才算能力在,所以第二臂要求屏真把 onLoadMore 接到
+    // FlatList 的 onEndReached(屏 :117)。屏没接 ⇒ 转壳后滚到底不取下一页 ⇒ 照旧拦。
+    shellEvidence: (s, shared) =>
+      /usePaginatedList\s*[<(]/.test(s) && /onEndReached=\{onLoadMore\}/.test(shared),
+  },
+  {
+    what: '输入框聚焦态',
+    tokens: ['@/hooks/use-field-focus', 'useFieldFocus'],
+    // 立因(2026-11-01 现读):端内 useFieldFocus 做的是"聚焦换墨档、零布局跳动";承载壳
+    // apps/mobile-rn/src/screens/WithdrawScreen.tsx:12 从 @ihui/rn-app 取共享 <TextField>
+    // (:175 用,:243 注记"描边宽度与常态占位归共享 TextField(聚焦换墨档、零布局跳动)")
+    // ⇒ 这一格由共享件承担。只认"壳从共享包取用 TextField"这一形:壳若自绘输入框,
+    // 焦点态谁也没做,照旧拦。字段注册表(ui-field-registry / useUiField)是另一枚 token,
+    // 本规则碰不到它 —— 聚焦样式盖不住"批量注册与校验"那层能力。
+    shellEvidence: (s) =>
+      /import\s*\{[^}]*\bTextField\b[^}]*\}\s*from\s*['"]@ihui\/rn-app['"]/.test(s) &&
+      /<TextField\b/.test(s),
+  },
 ]
 
-/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。 */
-export function shellCapabilityCovered(pageTokens, shellText, sharedText = '') {
+/** 按上表把"壳侧确有该能力"的 token 从 pageTokens 里销掉;返回实际销掉的族名(诊断用)。
+ *
+ * `gaps` 是**精确核对已经判负**的族名(2026-11-01 立):
+ * 导航族由 `coveredNavigation` 逐目标反查、取数族由 `apiEndpointsCovered` 逐端点对账 ——
+ * 这两个谓词一旦判负,就说明"壳里虽然有 navigate(/fetchApi(,但目标/端点不是页面那几个",
+ * 此时本表的整族销账必须让位,否则假绿(`pkg-learn/live/list` 缺开播/日历/我的订阅三入口、
+ * `pkg-shop/vip-trader/index` 缺 50+ 键承载的分区,曾被整族销账判成可转而真转壳丢功能)。
+ * 精确判负的族**不再**参与整族销账;精确谓词判不了(取不到 routeMap / 端点解析不出)时不传 gap,
+ * 维持旧口径 —— 这一层的方向必须是"多要一次定向说明",不是"多放一页过去"。
+ */
+export function shellCapabilityCovered(pageTokens, shellText, sharedText = '', gaps = []) {
   const s = maskComments(String(shellText ?? ''))
   const shared = maskComments(String(sharedText ?? ''))
+  const skip = new Set(Array.isArray(gaps) ? gaps : [])
   const cleared = []
   for (const rule of SHELL_CAPABILITY_RULES) {
+    if (skip.has(rule.what)) continue
     if (!rule.tokens.some((t) => pageTokens.has(t))) continue
     if (!rule.shellEvidence(s, shared)) continue
     for (const t of rule.tokens) pageTokens.delete(t)
@@ -712,6 +865,104 @@ export function capabilityTokens(text) {
 }
 
 /**
+ * 这一页的 `@/components` 是否**只装了一枚导航条、且只用返回键(+可选标题)**(2026-11-01 立)。
+ *
+ * 为什么必须这么窄:`@/components` 是一个 barrel token,页里可能只 import { NavBar }(实测
+ * pkg-content/news/detail、pkg-content/topic/detail),也可能一次装 11 枚业务组件(实测
+ * pkg-learn/course/detail 的 CourseHeader/TeacherCard/…)。按 token 名整枚销会把后者一起放过 ——
+ * 那就是假销账(比误拒危险:误拒只是不动手,假销账把丢功能判成零差别)。
+ * NavBarProps 上 title/showBack 之外的属性一律不认:rightText/onRightClick/notification/
+ * variant='ai-home'/onMenuClick/onJoinClick/bgColor/textColor 在屏侧都没有等价物
+ * (共享屏那一层只有 <BackChevron> 加一个标题行)。默认导入、多枚具名、别名带别的东西同样不认。
+ */
+export function navBarOnlyChrome(pageText) {
+  const t = maskComments(String(pageText ?? ''))
+  const specs = [
+    ...t.matchAll(
+      /import\s+([A-Za-z0-9_]+)\s*,\s*\{[^}]*\}\s*from\s*['"]@\/components['"]|import\s*\{([^}]*)\}\s*from\s*['"]@\/components['"]/g,
+    ),
+  ]
+  if (specs.length !== 1) return { ok: false, hasTitle: false }
+  if (specs[0][1]) return { ok: false, hasTitle: false } // 带默认导入 ⇒ 这枚 barrel 的取用面不止导航条
+  const named = String(specs[0][2] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (named.length !== 1) return { ok: false, hasTitle: false }
+  const alias = /^NavBar\s+as\s+([A-Za-z0-9_]+)$/.exec(named[0])
+  if (!alias && named[0] !== 'NavBar') return { ok: false, hasTitle: false }
+  const tag = alias ? alias[1] : 'NavBar'
+  const uses = [...t.matchAll(new RegExp(`<${tag}([^>]*?)\\/>`, 'g'))]
+  if (uses.length === 0) return { ok: false, hasTitle: false }
+  let hasTitle = false
+  for (const u of uses) {
+    for (const a of u[1].matchAll(/([A-Za-z][A-Za-z0-9_]*)\s*(?:=|(?=[\s/]))/g)) {
+      if (a[1] === 'showBack') continue
+      if (a[1] === 'title') {
+        hasTitle = true
+        continue
+      }
+      return { ok: false, hasTitle: false }
+    }
+  }
+  return { ok: true, hasTitle }
+}
+
+/**
+ * 屏/壳能不能承接这枚导航条:返回件必须真渲染,页上带标题时还得有一个真标题来源
+ * (屏自己的标题行,或壳设原生导航标题)。判面遮注释 —— 注释里写 BackChevron 不算实现。
+ */
+export function navBarCoveredOnScreen(sharedText, shellText, hasTitle) {
+  const shared = maskComments(String(sharedText ?? ''))
+  if (!/<BackChevron\b/.test(shared)) return false
+  if (!hasTitle) return true
+  // 标题这一格不能写死形态名:实测 pkg-content/topic/detail 的屏叫 styles.navTitle,
+  // 而 pages/ask/create(:53 屏取同一个键 t('askCreate.title'))与 pages/exam/result
+  // (:51 屏把标题改成数据里的考试名,比页上的静态「考试结果」更准)叫 styles.title。
+  // 三者都是"返回件同层有一枚标题文本";壳自己 setNavigationBarTitle 设原生标题同样算。
+  return (
+    /navTitle|styles\.title\b|headerTitle/.test(shared) ||
+    /setNavigationBarTitle/.test(maskComments(String(shellText ?? '')))
+  )
+}
+
+/**
+ * `@/components` 这类 barrel 的具名导入清单(2026-11-01 立)。只要具名,默认导入与 `import * as`
+ * 一律不展开(取用面不明 ⇒ 保守不销)。type-only 导入不算能力。
+ */
+export function barrelNamedImports(pageText, from = '@/components') {
+  const t = maskComments(String(pageText ?? ''))
+  const out = new Set()
+  for (const m of t.matchAll(
+    new RegExp(`import\\s*\\{([^}]*)\\}\\s*from\\s*['"]${from.replace(/\//g, '\\/')}['"]`, 'g'),
+  )) {
+    for (const raw of m[1].split(',')) {
+      const n = raw
+        .trim()
+        .split(/\s+as\s+/)[0]
+        .replace(/^type\s+/, '')
+        .trim()
+      if (n && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(n)) out.add(n)
+    }
+  }
+  return [...out].sort()
+}
+
+/**
+ * barrel 里**每一枚**具名符号都能在「屏 ⊕ 壳」里找到实现,才算这枚 barrel 不带来私有能力。
+ * 判面遮注释(比 pageOnlyCapabilities 的字面口径更严):屏里注释提一句组件名不算把它实现了。
+ * 一枚没命中 ⇒ 整枚不销(保守)—— 实测 pkg-learn/course/detail 装 13 枚、13 枚全未命中,
+ * 而 pages/ask/create 与 pages/exam/result 各只装 1 枚且真命中,两种都得给出正确答案。
+ */
+export function barrelFullyCovered(pageText, sharedText, shellText, from = '@/components') {
+  const names = barrelNamedImports(pageText, from)
+  if (names.length === 0) return false
+  const src = `${maskComments(String(sharedText ?? ''))}\n${maskComments(String(shellText ?? ''))}`
+  return names.every((n) => new RegExp(`${n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\b`).test(src))
+}
+
+
+/**
  * 这一页相对「共享屏本体 ∪ RN 壳」多出来的能力符号。空集 ⇒ 页面没带私有行为,可转。
  * pageTokens/sharedTokens/shellTokens 均为 Set|string(字符串现算)。
  */
@@ -760,10 +1011,17 @@ export function judgeConversion({
       why: `壳 ${name} 未消费共享屏(不带 @ihui/rn-app 取用该符号)`,
     }
   const pageTokens = capabilityTokens(pageText)
-  // 硬编码正文闸:转壳后正文来自共享屏消费的键 ⇒ **那些键的值里没有的**中文片段会消失
-  // (不是"未还原",是丢内容)。没有共享屏可比时(取不到 sharedText/键集为空/词包坏了)
-  // 退回整包文本口径 —— 退回面是"判不出作用域",不是把作用域判据遮掉。
-  const consumedKeys = sharedText ? screenConsumedKeys(sharedText) : new Set()
+  // 硬编码正文闸:转壳后正文来自**宿主取词面**的键 ⇒ **那些键的值里没有的**中文片段会消失
+  // (不是"未还原",是丢内容)。作用域 = 共享屏 ⊕ 承载壳(2026-11-01 立):实测
+  // apps/mobile-rn/src/screens/ChangePwdScreen.tsx:35 的校验提示走 `appAlert(t('pwd.oldRequired'), …)`,
+  // 而端内同一句走 `tt('user.password.enterOld', …)` —— 提示这件事住在壳里,只问屏就把"能力已在"判成缺失。
+  // 两处不放宽:① 词包面只有端包 ⊕ shared 包 ⇒ 壳取 mobile-rn 独有键时值取不到,照旧拦(那是裸键回显,真降级);
+  // ② 阈值不改。没有可比对象时(键集为空/词包坏了)退回整包文本口径 —— 退回面是"判不出作用域",
+  // 不是把作用域判据遮掉。
+  const consumedKeys = new Set([
+    ...screenConsumedKeys(sharedText),
+    ...screenConsumedKeys(shellText),
+  ])
   const screenHay = consumedKeys.size > 0 ? messagesValuesByKeys(messagesText, consumedKeys) : null
   const missingCjk =
     screenHay === null
@@ -781,8 +1039,12 @@ export function judgeConversion({
       why: `这一页带着共享屏/壳没有的能力:硬编码正文 ${missingCjk} 字不在该屏消费的键下(转壳会丢内容)`,
     }
   // "只设导航标题"的生命周期钩子可以由壳承载页原样保留(见 titleOnlyLifecycle),不计私有能力
+  const titleEffect = staticTitleEffect(pageText)
   if (titleOnlyLifecycle(pageText))
     for (const tok of ['useDidShow', 'useDidHide', 'Taro.setNavigationBarTitle']) pageTokens.delete(tok)
+  // useEffect 里只设一个静态 i18n 标题 = 同一件事的另一种写法(2026-11-01)。
+  // 只销标题这一枚 token:钩子里一旦还有别的语句、或标题依赖数据,一律不销(拿不准就是拒)。
+  else if (titleEffect) pageTokens.delete('Taro.setNavigationBarTitle')
   // 跳转全部被壳覆盖 ⇒ 页面那几处 navigateTo 是重复实现(route-map 反查 + 壳正文出现该路由名)
   if (routeMap) {
     const nav = coveredNavigation(pageText, shellText, routeMap)
@@ -816,21 +1078,100 @@ export function judgeConversion({
     for (const tok of ['useAuthReadyGate', '@/hooks/use-auth-ready-gate']) pageTokens.delete(tok)
   // 带鉴权钩子的页,其 useDidShow 若只做 waitUntilReady(...) ⇒ 由 AuthReadyGate 承担"就绪后再渲染"
   if (authGateCoversDidShow(pageText)) for (const tok of ['useDidShow', 'useDidHide']) pageTokens.delete(tok)
-  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账
-  if (toastFullyCovered(pageText, shellText, sharedText)) pageTokens.delete('Taro.showToast')
-  else if (
-    !toastCovered(pageText, shellText, sharedText) &&
-    toastOnlyInCatch(pageText) &&
-    SHELL_FEEDBACK_RE.test(String(shellText ?? ''))
-  )
-    pageTokens.delete('Taro.showToast')
+  // 提示:逐条判(同词条在壳/共享屏文面里 或 在 catch 内且壳有错误出口) ⇒ 全部通过才销账。
+  // 两条精确路径都判负时记 gap:否则下方"用户提示"整族销账会因壳里出现过任意 appAlert( 而放行,
+  // 与 2026-11-01 修掉的导航/取数假绿同型(成功提示在壳侧没有对应出口 ⇒ 转壳后静默消失)。
+  const toastPreciseCovered =
+    toastFullyCovered(pageText, shellText, sharedText) ||
+    (!toastCovered(pageText, shellText, sharedText) &&
+      toastOnlyInCatch(pageText) &&
+      SHELL_FEEDBACK_RE.test(String(shellText ?? '')))
+  if (toastPreciseCovered) pageTokens.delete('Taro.showToast')
   // switchTab 只做 navigateBack 的失败回落 ⇒ RN 端没有这一态,壳的 goBack 已覆盖
   if (backFallbackOnly(pageText)) pageTokens.delete('Taro.switchTab')
   // 页面直接打的端点全部被壳覆盖 ⇒ 数据由壳承担(端点不重合的一律不销账)
   if (apiEndpointsCovered(pageText, shellText, apiModuleText))
     for (const tok of ['@/api', '@/api/index', '@/api/social']) pageTokens.delete(tok)
-  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)
-  shellCapabilityCovered(pageTokens, shellText, sharedText)
+  // 页面级分享(2026-11-01 立):小程序的转发/朋友圈卡在**页面级**注册,而卡上标题/封面只有屏
+  // 取到数据才算得出。转壳后端内不再自己写这两句 ⇒ 除非①屏用共享层 `usePublishShareIntent`
+  // 把当下正文交给宿主,且②生成器**真在宿主页里产出**对应注册句,否则就是静默把「分享这条内容」
+  // 降成「分享首页默认文案」。两条都从生成器现读(判据出口单源 = gen-miniapp-mirror,§0.6),
+  // 不写符号白名单 —— 生成器哪天不再产出这一句,销账当场失效,而不是继续放页面过去。
+  const shareTokens = ['useShareAppMessage', 'useShareTimeline', 'Taro.showShareMenu'].filter((t) =>
+    pageTokens.has(t),
+  )
+  if (shareTokens.length > 0 && gen.screenPublishesShare(sharedText, shellText)) {
+    const probe = gen.buildShellPage({
+      spec,
+      base: name.replace(/Screen$/, ''),
+      shellText,
+      shellName,
+      sharedText,
+      navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+      navTitleHook: titleEffect && !titleOnlyLifecycle(pageText) ? 'useEffect' : 'useDidShow',
+      navTitleDeps: titleEffect && !titleOnlyLifecycle(pageText) ? (titleEffect.deps ?? null) : null,
+      authGate,
+    })
+    const emitted = typeof probe === 'string' ? probe : String(probe?.content ?? '')
+    const SHARE_EMITTED = {
+      useShareAppMessage: /\buseShareAppMessage\s*\(/,
+      useShareTimeline: /\buseShareTimeline\s*\(/,
+      // 端内 showShareMenu() 是 Taro.showShareMenu 的单一出口薄封装(带 no-permission 静默兜底)
+      'Taro.showShareMenu': /\bshowShareMenu\s*\(/,
+    }
+    if (shareTokens.every((t) => SHARE_EMITTED[t].test(emitted)))
+      for (const t of shareTokens) pageTokens.delete(t)
+  }
+  // 页面导航条(2026-11-01 立):页里那枚 '@/components' 若只装 NavBar 且只用返回键(+可选标题),
+  // 而屏真渲染 <BackChevron>(带标题时另有标题来源)⇒ 端内这一处是重复接线,转壳无可见差别。
+  if (pageTokens.has('@/components')) {
+    const nav = navBarOnlyChrome(pageText)
+    if (nav.ok && navBarCoveredOnScreen(sharedText, shellText, nav.hasTitle))
+      pageTokens.delete('@/components')
+    // barrel 符号级覆盖(2026-11-01 立):上面那条只管"只装一枚导航条";这里管更一般的一型 ——
+    // 具名导入的每一枚符号都能在屏/壳找到实现(实测 pages/ask/create 与 pages/exam/result 各只装
+    // 1 枚且真命中),旧口径却因为"@/components 这个名字不会出现在共享源里"整枚判成私有能力。
+    else if (barrelFullyCovered(pageText, sharedText, shellText))
+      pageTokens.delete('@/components')
+  }
+  // 跨端通用能力:壳侧有该类实现 ⇒ 页面那份是重复接线(转壳后由 RN 壳本体承接)。
+  // 但"整族销账"只在精确核对没有判负时才成立(2026-11-01 立):
+  //   ① 导航族:上面 coveredNavigation 已逐目标反查过 route-map,一旦有目标在壳里查不到,
+  //      壳里只要出现任意 navigation.navigate( 就把整族销账 ⇒ 三处入口消失也判可转(实测 live/list);
+  //   ② 取数族:apiEndpointsCovered 已逐端点对账,端点不重合时壳里只要有 fetchApi( 就整族销账
+  //      ⇒ 页面取 /live/channels、壳取 /live/list 也被判成同一件事。
+  // 两个精确谓词判不了(无 routeMap / 符号端点解析不出)时**不传 gap**,维持旧口径。
+  const blanketGaps = []
+  if (
+    routeMap &&
+    ['Taro.navigateTo', 'Taro.redirectTo', 'Taro.switchTab', 'Taro.reLaunch'].some((t) =>
+      pageTokens.has(t),
+    ) &&
+    !coveredNavigation(pageText, shellText, routeMap).covered
+  )
+    blanketGaps.push('导航')
+  if (
+    ['@/api', '@/api/index', '@/api/social'].some((t) => pageTokens.has(t)) &&
+    !apiEndpointsCovered(pageText, shellText, apiModuleText)
+  )
+    blanketGaps.push('取数')
+  // ③ 用户提示族:上面两条精确判据(toastFullyCovered / catch 兜底)都判负时,壳里出现任意
+  //    appAlert( 不得再整族销账 —— 否则页面独有的成功提示(如"已关注")静默消失。
+  if (pageTokens.has('Taro.showToast') && !toastPreciseCovered) blanketGaps.push('用户提示')
+  shellCapabilityCovered(pageTokens, shellText, sharedText, blanketGaps)
+  // 选项列表(2026-11-01 立):沿用 **同一个** modalCovered 谓词的第二档(键集合对账),不另立实现
+  // (§0.6 单一真相源:Taro.showModal 在上方已由 modalCovered(shellText) 销,这里只补 showActionSheet
+  // 那一格 —— 它的选项是"一组可点的东西",光有 appAlert 形态不够,要逐键对上)。
+  // 实测 pkg-learn/teacher/detail 端内 `showActionSheet({itemList:[tt('teacher.detail.contactMessage'),
+  // tt('teacher.detail.contactPhone')…]})` 与承载壳 TeacherDetailScreen.tsx 的
+  // `appAlert(t('teacher.detail.contact'), undefined, [{ text: t('teacher.detail.contact…') }…])`
+  // 同名同值 ⇒ 同一件事;而 pages/distribution/plan/index 与 pkg-shop/vip-trader 的确认步
+  // 壳侧没有对应键 ⇒ 留在拦下(不是靠 appAlert 出现过就放过)。
+  if (
+    pageTokens.has('Taro.showActionSheet') &&
+    modalCovered(shellText, modalOptionKeys(pageText))
+  )
+    pageTokens.delete('Taro.showActionSheet')
   const extras = pageOnlyCapabilities({
     pageTokens,
     sharedText,
@@ -850,7 +1191,11 @@ export function judgeConversion({
     base: name.replace(/Screen$/, ''),
     shellText,
     shellName,
-    navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : null,
+    navTitle: titleOnlyLifecycle(pageText) ? navTitleExpr(pageText) : (titleEffect?.title ?? null),
+    // 原页用哪条钩子承载标题就按哪条生成:useEffect 带依赖数组是"随语言切换重设"的节律,
+    // 改写成 useDidShow 会把标题冻在进屏那一刻的语言上(实测 news/list 的 `[tt]`、dev-space 的无数组形)。
+    navTitleHook: titleEffect && !titleOnlyLifecycle(pageText) ? 'useEffect' : 'useDidShow',
+    navTitleDeps: titleEffect && !titleOnlyLifecycle(pageText) ? (titleEffect.deps ?? null) : null,
     authGate,
   })
   if (body?.error) return { spec, kind: 'undetermined', why: `壳承载出口形态不合:${body.error}` }
@@ -1063,6 +1408,40 @@ function main(argv) {
       titleOnlyLifecycle(`useDidShow(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); refresh() })`),
       false,
     )
+    // S7c–S7f:useEffect 那一族此前没人认(实测 news/list / dev-space / teacher/detail 三页被误拒)
+    P(
+      'S7c useEffect 只设一个带兜底的静态 i18n 标题 ⇒ 认,并带回原依赖数组(实测 news/list 的 [tt])',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: tt('articleList.title', '文章') }) }, [tt])`,
+      ),
+      { title: `tt('articleList.title', '文章')`, deps: '[tt]' },
+    )
+    P(
+      'S7d 无依赖数组的 useEffect 也认(deps=null ⇒ 生成器不写数组)',
+      staticTitleEffect(`useEffect(() => { Taro.setNavigationBarTitle({ title: t('devSpace.title') }) })`),
+      { title: `t('devSpace.title')`, deps: null },
+    )
+    P(
+      'S7e 标题依赖数据(讲师名回落)⇒ 不认:那种标题要随数据变,壳的导航栏通道带不走(实测 teacher/detail)',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: teacher?.name || tt('teacher.list.title', '讲师') }) }, [teacher?.name, tt])`,
+      ),
+      null,
+    )
+    P(
+      'S7f 块里还有别的语句 ⇒ 不认(与 S7b 同一条保守方向)',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: t('a.b') }); load() }, [t])`,
+      ),
+      null,
+    )
+    P(
+      'S7g 块外还有一处 setNavigationBarTitle(动态标题)⇒ 整页不认,防漏判',
+      staticTitleEffect(
+        `useEffect(() => { Taro.setNavigationBarTitle({ title: t('a.b') }) }, [t])\nconst rename = (n) => Taro.setNavigationBarTitle({ title: n })`,
+      ),
+      null,
+    )
     const rm = routeMapFrom(`export const RN_ROUTE_MAP = { Detail: '/pkg-a/detail/index' }`)
     P(
       'S8 页面跳转经 route-map 反查且壳里出现该路由名 ⇒ 不算私有能力',
@@ -1266,6 +1645,146 @@ function main(argv) {
         '<BackChevron onPress={onBack} />',
       ),
     ], [['返回键'], [], []])
+    // S28(2026-11-01 立,现读 pkg-learn/live/detail 卡在 @/utils/time 这一枚):端内
+    // utils/time.ts:29 的 formatDate 逐字转发共享层 formatDateByTemplate ⇒ 屏从共享层取同一枚
+    // 函数即"能力已在",而旧判据按字面找 '@/utils/time' 在屏里出现 —— 屏是共享/RN 源,永不 import
+    // 小程序别名,那一族因此结构性无法销。两臂都得钉:屏没消费共享函数照旧不销。
+    P('S28 时间格式化:屏取共享 date-utils 同一枚函数才销;屏没取则照旧拦', [
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        '<Shared createdAt={item.createdAt} />',
+        "import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'\n{formatDateByTemplate(createdAt, 'YYYY-MM-DD HH:mm')}",
+      ),
+      shellCapabilityCovered(
+        new Set(['@/utils/time']),
+        "import { formatDate } from '@/utils/time'",
+        'return <Text>{createdAt}</Text>',
+      ),
+    ], [['时间格式化'], []])
+    // S29(2026-11-01 立,现读 pkg-user/user/password 与 pkg-shop/vip/index 两页即此型):
+    // 正文的作用域必须把**承载壳**算进来。壳 apps/mobile-rn/src/screens/ChangePwdScreen.tsx:35
+    // 用 `appAlert(t('pwd.oldRequired'), …)` 承担校验提示,而端内同一句走
+    // `tt('user.password.enterOld', '请输入原密码')` —— 提示这件事真住在壳里,只问屏就把"能力已在"
+    // 判成"转壳会丢内容"。反臂钉住刻意不放宽的那一格:壳取的键若在端包⊕shared 词包里取不到值
+    // (mobile-rn 独有键),小程序侧就是裸键回显 ⇒ 照旧拦,绝不因"壳提到了这个键"就放行。
+    const S29_PAGE = `const tip = '${'隐'.repeat(150)}'\nexport default function Page(){ return null }`
+    const S29_PACK = `{"demo":{"body":"${'隐'.repeat(150)}"},"rnonly":{"tip":"${'独'.repeat(150)}"}}`
+    const s29Hits = (shellTail, sharedTail) =>
+      judgeConversion({
+        spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+        pageText: S29_PAGE,
+        shellText: `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){ ${shellTail}; return null }`,
+        sharedText: `export function DemoScreen(){ ${sharedTail} return null }`,
+        messagesText: S29_PACK,
+      }).extras?.includes(HARDCODED_TEXT_TOKEN)
+    P('S29 正文作用域含承载壳:壳取到值的键算覆盖;壳取端包无值的键不算;屏取键的旧语义不丢', [
+      s29Hits(`appAlert(t('demo.body'))`, ''),
+      s29Hits(`appAlert(t('absent.key'))`, ''),
+      s29Hits(``, `return t('demo.body')`),
+    ], [false, true, false])
+    // S30(2026-11-01 立):`@/components` 是 barrel —— 页里可能只装一枚 NavBar(实测
+    // pkg-content/news/detail 的 `<NavBar showBack />` 与 pkg-content/topic/detail 的
+    // `<NavBar title={tt('topic.detail.pageTitle')} showBack />`,屏侧对应
+    // <BackChevron> + navRow/navTitle 同键同实现),也可能一次装 11 枚业务组件(实测
+    // pkg-learn/course/detail)⇒ 整 token 一律销会把后者判成零差别(假销账)。窄到
+    // 「具名集恰为 NavBar + 只用 title/showBack + 屏真渲染返回件(+标题来源)」才动。
+    const s30 = (page, shared, shell = '') => {
+      const nav = navBarOnlyChrome(page)
+      return nav.ok && navBarCoveredOnScreen(shared, shell, nav.hasTitle)
+    }
+    const S30_NAV = `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar showBack /> }`
+    P('S30 导航条销账的三道窄:barrel 只装 NavBar、只用 title/showBack、屏真渲染返回件与标题来源', [
+      s30(S30_NAV, '<BackChevron onPress={onBack} label={t("common.back")} />'),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar title={x} showBack /> }`,
+        '<View style={styles.navRow}><BackChevron /><Text style={styles.navTitle}>{t("topic.detail.pageTitle")}</Text></View>',
+      ),
+      s30(S30_NAV, 'export function S(){ return <View /> }'),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar rightText="分享" onRightClick={f} showBack /> }`,
+        '<BackChevron />',
+      ),
+      s30(
+        `import { NavBar, CourseHeader } from '@/components'\nexport default function P(){ return <NavBar showBack /> }`,
+        '<BackChevron />',
+      ),
+      s30(
+        `import { NavBar } from '@/components'\nexport default function P(){ return <NavBar title={x} showBack /> }`,
+        '<BackChevron />',
+      ),
+    ], [true, true, false, false, false, false])
+    // S31(2026-11-01 立):分页与聚焦两族按 SHELL_CAPABILITY_RULES 销,反臂钉住"有名无闭环"。
+    P('S31 分页要屏接 onEndReached 才销;聚焦要壳从共享包取 TextField 才销(自绘输入框不算)', [
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-social-list', 'useSocialList']),
+        "import { usePaginatedList } from '../hooks'\nconst x = usePaginatedList<F>(f, 20)",
+        '<FlatList onEndReached={onLoadMore} />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-social-list', 'useSocialList']),
+        "import { usePaginatedList } from '../hooks'\nconst x = usePaginatedList<F>(f, 20)",
+        '<FlatList data={items} />',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-field-focus', 'useFieldFocus']),
+        "import { TextField } from '@ihui/rn-app'\n<TextField value={v} />",
+        '',
+      ),
+      shellCapabilityCovered(
+        new Set(['@/hooks/use-field-focus', 'useFieldFocus']),
+        "import { TextInput } from 'react-native'\n<TextInput onFocus={f} />",
+        '',
+      ),
+    ], [['列表分页'], [], ['输入框聚焦态'], []])
+    // S32(2026-11-01 立):barrel 的销账口径必须到符号级。四臂各钉一种"不该放过"的形态。
+    P('S32 barrel 逐符号:全命中才销;少一枚、只在注释里出现、带默认导入 三种都不销', [
+      barrelFullyCovered(
+        `import { EmptyState } from '@/components'\nexport default function P(){ return <EmptyState /> }`,
+        'export function S(){ return <EmptyState title={x} /> }',
+        '',
+      ),
+      barrelFullyCovered(
+        `import { EmptyState, CourseHeader } from '@/components'\nexport default function P(){ return <EmptyState /> }`,
+        '<EmptyState />',
+        '',
+      ),
+      barrelFullyCovered(
+        `import { CourseHeader } from '@/components'\nexport default function P(){ return <CourseHeader /> }`,
+        '<View />',
+        '// 将来用 CourseHeader 替换这里的占位',
+      ),
+      barrelFullyCovered(
+        `import SomeBar from '@/components'\nexport default function P(){ return <SomeBar /> }`,
+        '<SomeBar />',
+        '',
+      ),
+    ], [true, false, false, false])
+    // S33(2026-11-01 立):showActionSheet 走 **modalCovered 的第二档**(键集合对账)。
+    // 四臂:键对上⇒销、壳按钮取别的键⇒不销、页侧解析不出键⇒不销、
+    // 以及"不传 pageKeys 时旧行为一字不变"(modalCovered 同时被 Taro.showModal 那格用着,
+    // 这一臂钉住我加第二档没有把既有销账口径改动 —— 既有账漂移比少销一页严重)。
+    P('S33 选项弹窗第二档:键对上才销;别的键/解析不出都不销;不给键集时旧口径不变', [
+      modalCovered(
+        `const onContact = () => appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage'), onPress: sendMsg }, { text: t('a.contactPhone'), onPress: call }])`,
+        modalOptionKeys(
+          `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        ),
+      ),
+      modalCovered(
+        `appAlert(t('a.contact'), undefined, [{ text: t('common.confirm'), onPress: ok }])`,
+        modalOptionKeys(
+          `Taro.showActionSheet({ itemList: [tt('a.contactMessage','发消息'), tt('a.contactPhone','打电话')] })`,
+        ),
+      ),
+      modalCovered(
+        `appAlert(t('a.contact'), undefined, [{ text: t('a.contactMessage'), onPress: sendMsg }])`,
+        modalOptionKeys(`Taro.showActionSheet({ itemList: options })`),
+      ),
+      // 旧口径臂:无 onPress 的 Alert.alert 形态,单档仍判覆盖(与第二档之前逐字同行为)
+      modalCovered(`Alert.alert(t('x'), '', [{ text: 'ok' }])`),
+      // 反臂:形态都不在 ⇒ 两档都判不覆盖
+      modalCovered(`navigate('next')`, new Set(['a.b'])),
+    ], [true, false, false, true, false])
     // S25/S26:拦路账的**清单面**形状锁。立因是现读撞出来的:硬编码正文那条出路只写 why、
     // 不写 extras ⇒ 231 对里 12 页在任何按 extras 算账的消费者眼里等于"卡 0 项⇒立即可转";
     // 而按 why 切 ', ' 聚合又会被每页字数稀释成唯一 tok,整族恒计 1。两边都得钉住。
@@ -1387,6 +1906,11 @@ if (isDirectRun) {
 
 export const __test__ = {
   capabilityTokens,
+  barrelNamedImports,
+  barrelFullyCovered,
+  modalOptionKeys,
+  navBarOnlyChrome,
+  navBarCoveredOnScreen,
   pageOnlyCapabilities,
   judgeConversion,
   plan,
@@ -1396,6 +1920,7 @@ export const __test__ = {
   lifecycleBlocks,
   navTitleExpr,
   titleOnlyLifecycle,
+  staticTitleEffect,
   hardcodedCjkCount,
   hardcodedCjkNotInMessages,
   screenConsumedKeys,

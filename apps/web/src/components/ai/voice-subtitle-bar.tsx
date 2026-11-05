@@ -86,7 +86,7 @@ export function VoiceSubtitleBar({
         data-voice-conflict="true"
         data-platform-exempt={PLATFORM_EXCLUSIVE}
         role="alert"
-        className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-600 dark:text-amber-400"
+        className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-label text-amber-600 dark:text-amber-400"
       >
         <MicOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span data-conflict-message>{t(conflictMessageKey())}</span>
@@ -106,7 +106,7 @@ export function VoiceSubtitleBar({
         data-platform-exempt={PLATFORM_EXCLUSIVE}
         role="alert"
         aria-label={t(micErrorAriaKey(error.kind))}
-        className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive"
+        className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-label text-destructive"
       >
         <MicOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span data-mic-error-message>{t(error.titleKey)}</span>
@@ -130,7 +130,7 @@ export function VoiceSubtitleBar({
       data-subtitle-state={sub.state}
       data-platform-exempt={PLATFORM_EXCLUSIVE}
       aria-label={t(sub.ariaKey)}
-      className="flex flex-col gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-xs"
+      className="flex flex-col gap-1.5 rounded-md border bg-muted/40 px-2.5 py-1.5 text-label"
     >
       {showSummary && (
         <div

@@ -99,7 +99,7 @@ export function CombosTab() {
           )}
 
           {!isLoading && combos.length === 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">{t('empty')}</p>
+            <p className="py-8 text-center text-label text-muted-foreground">{t('empty')}</p>
           )}
 
           <div className="space-y-2">
@@ -131,7 +131,7 @@ export function CombosTab() {
                     <Button
                       size="xs"
                       variant="ghost"
-                      className="shrink-0 px-2 text-xs text-muted-foreground hover:text-red-600"
+                      className="shrink-0 px-2 text-label text-muted-foreground hover:text-red-600"
                       onClick={() => setDeleteTarget(c)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -239,7 +239,7 @@ function CreateComboDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">{t('name')}</Label>
+            <Label className="text-label">{t('name')}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -248,7 +248,7 @@ function CreateComboDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">{t('strategy')}</Label>
+            <Label className="text-label">{t('strategy')}</Label>
             <Select value={strategy} onValueChange={(v) => setStrategy(v as ComboStrategy)}>
               <SelectTrigger>
                 <SelectValue />
@@ -263,19 +263,19 @@ function CreateComboDialog({
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">{t('chain')}</Label>
+            <Label className="text-label">{t('chain')}</Label>
             <textarea
               value={chainText}
               onChange={(e) => setChainText(e.target.value)}
               placeholder={'kimi-k2\nglm-4-flash\ndeepseek-chat'}
               rows={4}
               required
-              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
           {strategy === 'fusion' && (
             <div className="space-y-1">
-              <Label className="text-xs">{t('judge')}</Label>
+              <Label className="text-label">{t('judge')}</Label>
               <Input
                 value={judge}
                 onChange={(e) => setJudge(e.target.value)}
@@ -284,7 +284,7 @@ function CreateComboDialog({
             </div>
           )}
           <div className="space-y-1">
-            <Label className="text-xs">{t('description')}</Label>
+            <Label className="text-label">{t('description')}</Label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <DialogFooter>

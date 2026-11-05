@@ -54,7 +54,7 @@ async def sched(monkeypatch):
     """
     from app.core.config import settings
 
-    monkeypatch.setattr(settings, "redis_url", "redis://localhost:8811")
+    monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:6399")
     s = TaskScheduler()
     s._redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     s._scheduler = MagicMock()
@@ -416,7 +416,7 @@ class TestRedisUnavailableFallback:
         """Redis ping 抛 ConnectionError → 降级内存,add_task/get/list 正常。"""
         from app.core.config import settings
 
-        monkeypatch.setattr(settings, "redis_url", "redis://localhost:8811")
+        monkeypatch.setattr(settings, "redis_url", "redis://127.0.0.1:6399")
         s = TaskScheduler()
         fake_client = MagicMock()
         fake_client.ping = AsyncMock(side_effect=ConnectionError("no redis"))

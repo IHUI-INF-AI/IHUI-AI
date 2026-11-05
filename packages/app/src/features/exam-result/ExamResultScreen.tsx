@@ -8,8 +8,10 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
@@ -20,10 +22,19 @@ export function ExamResultScreen({
   loading,
   error,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: ExamResultScreenProps) {
+  onNavigate,
+}: ExamResultScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主。path 是**列表页**而非本页 ⇒ 必须显式发布,交宿主兜底会把落点改成成绩页自己。
+  usePublishShareIntent({
+    title: item ? t('exam.result.shareTitle', { n: item.score }) : t('share.appTitle'),
+    path: '/pages/exam/list',
+  })
 
   if (loading) {
     return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
@@ -32,7 +43,7 @@ export function ExamResultScreen({
     return (
       <ErrorState
         message={error || t('examResult.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -95,12 +106,12 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     scoreCard: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       alignItems: 'center',
@@ -108,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCardPassed: { borderColor: tk.brandAccent.deep, backgroundColor: tk.success.light },
     scoreCardFailed: { borderColor: tk.border.light },
-    scoreText: { fontSize: 36, fontWeight: '700', color: tk.text.primary },
+    scoreText: { fontSize: rnType.displayLg.size, fontWeight: '700', color: tk.text.primary },
     passedText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
@@ -141,7 +152,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.sm,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

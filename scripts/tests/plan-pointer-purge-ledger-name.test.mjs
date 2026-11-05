@@ -29,6 +29,7 @@ import {
   chooseLedgerRel,
   ledgerMachineTag,
   ledgerSeqRel,
+  listLedgerNamesOnDisk,
   listLedgerNamesOnSource,
   remoteLedgerFace,
   taggedLedgerRel,
@@ -257,28 +258,36 @@ test('⑤ 口径同源:机器标识 import 自 lib/plan-id-lease.mjs,本脚本�
   assert.doesNotMatch(purgeSrc, /createHash/, '本脚本自己算指纹 = 第二份机器标识口径')
 })
 
-test('⑥ 装车证明:真仓 HEAD 面只读取名一次,选出的名字必须真不在该面上', () => {
-  const local = listLedgerNamesOnSource('HEAD', { root: REPO })
+test('⑥ 装车证明:真仓台账面只读取名一次,选出的名字必须真不在该面上', () => {
+  // 2026-10-23 起台账**不再入提交**(见 plan-pointer-purge 头注「台账」段),取名的第一腿改为
+  // 磁盘目录;HEAD 面只剩"历史遗留的已入库名"这条第二腿。旧断言钉的正是 HEAD 面,而
+  // `git ls-tree HEAD -- .ihui-agent/tmp` 现在恒为 0 份(gitignore)⇒ 红在台账存放位置迁移,
+  // 不是取名判据失效。
+  const disk = listLedgerNamesOnDisk({ root: REPO })
   assert.ok(
-    Array.isArray(local.files),
-    `本地 HEAD 面未判定(${local.reason})⇒ 真仓连自己的归档目录都列不出来`,
+    Array.isArray(disk.files),
+    `磁盘台账目录未判定(${disk.reason})⇒ 真仓连自己的台账目录都列不出来`,
   )
-  assert.ok(local.files.length > 0, '归档目录枚举到 0 份 ⇒ 判死不记绿')
+  assert.ok(disk.files.length > 0, '台账目录枚举到 0 份 ⇒ 判死不记绿')
+  const headLegacy = listLedgerNamesOnSource('HEAD', { root: REPO })
+  assert.ok(Array.isArray(headLegacy.files), `HEAD 面未判定(${headLegacy.reason})`)
   const remote = remoteLedgerFace({ root: REPO })
   const { note } = gatherNote()
   const got = chooseLedgerRel({
     tag: ledgerMachineTag('mirror-test-machine'),
-    localFiles: local.files,
-    localReason: local.reason,
+    localFiles: disk.files,
+    localReason: disk.reason,
     remoteFiles: remote.files,
     remoteReason: remote.reason,
     note,
   })
   assert.ok(got, '取名被拒 ⇒ 先看上面的点名原因')
   assert.ok(
-    !local.files.map(bn).includes(bn(got)),
-    `选出的 ${got} 已在真仓 HEAD 上 ⇒ 会整文件重写别人的台账`,
+    !disk.files.map(bn).includes(bn(got)),
+    `选出的 ${got} 已在真仓台账目录里 ⇒ 会整文件重写别人的台账`,
   )
+  if (headLegacy.files.length > 0)
+    assert.ok(!headLegacy.files.map(bn).includes(bn(got)), `选出的 ${got} 已是 HEAD 上的历史遗留名`)
   if (remote.files)
     assert.ok(!remote.files.map(bn).includes(bn(got)), `选出的 ${got} 已在远端那一份上`)
 })

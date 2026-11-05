@@ -131,6 +131,18 @@ export const PixelRatio = {
  * 里根本不存在,写它编译不过)。同上一条规矩:ESM 下 import 一个替身没有的出口不是拿到 undefined,
  * 而是 **整个模块加载失败** ⇒ 凡真身用到的 API 一律在这里补齐,不在各套件里各自 vi.mock。
  */
+/**
+ * 应用内更新的浏览器降级出口(2026-11-04):src/lib/apk-update.ts 在"这台设备装不了 APK
+ * (没有原生意图模块)"时调 `Linking.openURL(下载直链)`,由系统浏览器接管下载与安装。
+ * 同上两条规矩:替身缺这个出口不是拿到 undefined,而是真身模块加载即失败 ⇒ 在这里补齐,
+ * 由各套件自行替换 `openURL` 来断言"到底开没开浏览器、开的是哪个地址"。
+ */
+export const Linking = {
+  openURL: async (_url: string): Promise<void> => {},
+  canOpenURL: async (_url: string): Promise<boolean> => true,
+  getInitialURL: async (): Promise<string | null> => null,
+  addEventListener: () => ({ remove: () => {} }),
+}
 export const I18nManager = {
   localeIdentifier: 'en-US',
   isRTL: false,
@@ -193,12 +205,24 @@ export function FlatList(props: {
   renderItem?: (info: { item: unknown; index: number }) => ReactNode
   keyExtractor?: (item: unknown, index: number) => string
   ListEmptyComponent?: unknown
+  ListHeaderComponent?: unknown
+  ListFooterComponent?: unknown
   style?: unknown
   onPress?: unknown
   [k: string]: unknown
 }) {
-  const { data, renderItem, keyExtractor, ListEmptyComponent, style, onPress, children, ...rest } =
-    props
+  const {
+    data,
+    renderItem,
+    keyExtractor,
+    ListEmptyComponent,
+    ListHeaderComponent,
+    ListFooterComponent,
+    style,
+    onPress,
+    children,
+    ...rest
+  } = props
   const rows = (data ?? []).map((item, index) =>
     createElement(
       'div',
@@ -210,10 +234,20 @@ export function FlatList(props: {
     typeof ListEmptyComponent === 'function'
       ? createElement(ListEmptyComponent as () => ReactNode)
       : (ListEmptyComponent as ReactNode | undefined)
+  const header =
+    typeof ListHeaderComponent === 'function'
+      ? createElement(ListHeaderComponent as () => ReactNode)
+      : (ListHeaderComponent as ReactNode | undefined)
+  const footer =
+    typeof ListFooterComponent === 'function'
+      ? createElement(ListFooterComponent as () => ReactNode)
+      : (ListFooterComponent as ReactNode | undefined)
   return createElement(
     'div',
     { ...rest, 'data-role': 'flatlist', onClick: onPress, style: flattenStyle(style) },
+    header,
     rows.length ? rows : (empty ?? (children as ReactNode | undefined) ?? null),
+    footer,
   )
 }
 export const TextInput = mk('input')
@@ -402,6 +436,7 @@ const ReactNative = {
   AppState,
   PanResponder,
   Easing,
+  Linking,
 }
 
 export default ReactNative

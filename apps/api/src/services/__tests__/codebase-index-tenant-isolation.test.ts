@@ -157,7 +157,19 @@ describe('检索面归属隔离', () => {
     }
     svc._getEmbedding = async () => new Array(1536).fill(0.1)
 
-    executeResult = [{ id: 'x', file_path: 'a.py', line_start: 1, line_end: 2, content: 'secret', language: 'python', symbol_name: null, symbol_type: null, score: 0.9 }]
+    executeResult = [
+      {
+        id: 'x',
+        file_path: 'a.py',
+        line_start: 1,
+        line_end: 2,
+        content: 'secret',
+        language: 'python',
+        symbol_name: null,
+        symbol_type: null,
+        score: 0.9,
+      },
+    ]
 
     const out = await codebaseIndexService.search({ query: 'anything' })
 
@@ -213,9 +225,7 @@ describe('写入面归属强制', () => {
   }
 
   it('indexChunks 缺 ownerUuid 必须抛错,且不得触碰 DB', async () => {
-    await expect(codebaseIndexService.indexChunks('repo-1', [chunk])).rejects.toThrow(
-      /ownerUuid/,
-    )
+    await expect(codebaseIndexService.indexChunks('repo-1', [chunk])).rejects.toThrow(/ownerUuid/)
     expect(captured.length).toBe(0)
   })
 
@@ -228,8 +238,6 @@ describe('写入面归属强制', () => {
 
   it('indexChunks 空 chunks 时直接返回,不要求归属(无操作即无风险)', async () => {
     const out = await codebaseIndexService.indexChunks('repo-1', [])
-    // 现读返回体含 localEmbedded(G7 本地 embedding 回落档 2026-10-31 起):
-    // 本档锁的是"空 chunks 不要求归属",返回形状仍逐字登记,不降级成 toMatchObject。
     expect(out).toEqual({ indexed: 0, vectorized: 0, localEmbedded: 0 })
   })
 })

@@ -18,21 +18,31 @@
  *    autocrlf 检出差异下被判成两个版本。
  *
  * 用法:
- *   node scripts/root-guard.mjs --check            # 部署环前置闸:0 通过 / 1 判红 / 2 未判定
+ *   node scripts/root-guard.mjs --check            # 部署环闸:0 通过 / 1 判红 / 2 未判定
+ *                                                 # 默认闸面 = **HEAD**(刚被 ff 到、即将被构建与切流的
+ *                                                 # 那一面,闸已后移到 ff 之后);取不到 ⇒ 未判定(§0.3)
  *   node scripts/root-guard.mjs --check --json
+ *   node scripts/root-guard.mjs --check --against-rev <40位sha>   # 显式指定被审面(取证/人工复核)
+ *   node scripts/root-guard.mjs --check --against-remote origin   # 同上,但由本器现读远端 main 的 sha
  *   node scripts/root-guard.mjs --status
  *   node scripts/root-guard.mjs --seal --reason "人工复核后重新封存"
  *   node scripts/root-guard.mjs --unlock --target agents-ironlaw --reason "..." [--ttl-min 120]
+ *       # 注:默认闸面是 HEAD 而**不是** origin/main —— 生产机上那个嵌套 remote-tracking ref 会被宿主
+ *       # 清理层吞掉、永不更新(见 main() 默认面那段的实证),读它就是读"好几次同步前"的那一面。
+ *       # --against-rev / --against-remote 仅作取证 / 人工复核的显式覆盖。取不到被审面 ⇒ 未判定
+ *       # (exit 2),绝不把"没判成"读成放行(§0.3)。
  *   node scripts/root-guard.mjs --self-test
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { gitRaw } from './lib/face-reader.mjs'
-import { join, dirname, resolve } from 'node:path'
+import { join, dirname, resolve, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const MANIFEST_PATH = join(ROOT, 'scripts', 'data', 'root-guard-manifest.json')
+/** 清单在 git 路径里的写法(正斜杠,跨面取材用;与 MANIFEST_PATH 同一条路径,不另立一份)。 */
+export const MANIFEST_REL = 'scripts/data/root-guard-manifest.json'
 export const UNLOCK_PATH = join(ROOT, '.ihui-agent', 'state', 'root-guard-unlocks.json')
 
 export const EXIT_OK = 0
@@ -40,7 +50,7 @@ export const EXIT_DRIFT = 1
 export const EXIT_UNKNOWN = 2
 
 /** 目标清单形状(唯一真源在 manifest 内;此处只写"必须有哪几条",不写哈希)。 */
-export const REQUIRED_TARGET_IDS = ['guardian-runner', 'judgement-libs', 'agents-ironlaw']
+export const REQUIRED_TARGET_IDS = ['guardian-runner', 'judgement-libs', 'agents-ironlaw', 'git-guardian']
 /**
  * advisory 档(2026-10-30 立):不一致只告警、**不 fail-closed**。
  *
@@ -238,13 +248,116 @@ export function faceDiagnosis({ expected, actual, head }) {
   return 'HEAD / 工作树 / 清单 三面互不相同 ⇒ 需人工逐面复核(本器不猜哪面是权威)'
 }
 
-/** 读 HEAD 面上该目标的哈希(section 模式沿用同一条 extractSection 尺)。取不到 ⇒ null,不冒充。 */
-function headHashOf(target) {
+/**
+ * 读被审 rev 面上该目标的哈希(section 模式沿用同一条 extractSection 尺)。取不到 ⇒ null,不冒充。
+ * rev 传 'HEAD' 即得"HEAD 面哈希"——原本单写的 headHashOf 只是本函数的一个特例(rev=HEAD),
+ * 已被本函数取代(§22c:同尺只留一份,不留两份同构实现)。
+ */
+function faceHashOf(target, rev) {
   try {
-    const raw = gitRaw(['show', `HEAD:${target.path}`], ROOT, {})
+    const raw = gitRaw(['show', `${rev}:${target.path}`], ROOT, {})
     return sha256Of(target.mode === 'section' ? extractSection(raw) : raw)
   } catch {
     return null
+  }
+}
+
+/** 读被审 rev 面上该目标的 blob。取不到 ⇒ null(交给 hashTarget 落"未判定",不冒充内容)。 */
+function faceReader(rev) {
+  return (abs) => {
+    const rel = relative(ROOT, abs).replace(/\\/g, '/')
+    try {
+      return gitRaw(['show', `${rev}:${rel}`], ROOT, {})
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
+ * 候选面判定(2026-11-01 立,专治部署环自锁)。
+ *
+ * 为什么要这一格:`ihui-deploy-loop.ps1` 的老前置闸跑在 `git merge --ff-only` **之前**,
+ * 于是生产签出那枚旧 HEAD 上"清单绑的是旧 guardian-runner 哈希"会一直判红,而把清单修对的
+ * 提交恰恰只存在于远端那一面 ⇒ 门越守越锁(2026-11-01 实测连续 44 轮 `FAIL 根护栏未通过`)。
+ * 判据本该问"本轮真正要检出并构建的那份代码自不自洽",而不是问"上一版自不自洽"。
+ * (2026-11-01 定稿:该闸已从 loop 移除,后移到 `ihui-deploy.ps1` 的 ff 成功之后,默认闸面 = HEAD。)
+ *
+ * 三条不许漂的纪律:
+ *  ① 清单与全部目标都从**同一枚 rev** 取(§0.4 同面同轮)⇒ 候选面自洽才放,候选面自己红照样红;
+ *  ② 不掺**别的面的**解锁记录(2026-11-03 更正:解锁与封存现在一律绑被审面哈希,旧写法"人工解锁
+ *     绑的是工作树哈希"正是那次 47 轮冻结的另一半 —— 面只有一处定义,见 seal/unlock);
+ *  ③ rev 形态不对 / 候选面取不到 ⇒ `verdict='unknown'` ⇒ 调用方维持原判,
+ *     **绝不把"没判成"读成"放行"**(§0.3),也不因此新增红(§12e)。
+ */
+export function checkAgainstRev({
+  rev,
+  unlocks = [],
+  readText = (r) => {
+    try {
+      return gitRaw(['show', `${r}:${MANIFEST_REL}`], ROOT, {})
+    } catch {
+      return null
+    }
+  },
+} = {}) {
+  const revText = String(rev ?? '').trim()
+  if (!/^[0-9a-f]{40}$/.test(revText)) {
+    return {
+      verdict: 'unknown',
+      targets: [],
+      why: `候选 rev 不是 40 位全量 sha:${revText.slice(0, 20) || '(空)'}`,
+    }
+  }
+  const text = readText(revText)
+  if (text === null || text === undefined) {
+    return {
+      verdict: 'unknown',
+      targets: [],
+      why: `候选面取不到清单(${revText.slice(0, 11)} 上没有 ${MANIFEST_REL})`,
+    }
+  }
+  let candManifest
+  try {
+    candManifest = loadManifest(text)
+  } catch (e) {
+    return { verdict: 'unknown', targets: [], why: `候选面清单形态坏:${e?.message ?? e}` }
+  }
+  const res = checkAll({
+    manifest: candManifest,
+    readFile: faceReader(revText),
+    root: ROOT,
+    // 人工解锁必须穿到被审面这一层(2026-11-01):闸面切到 HEAD 之后,本函数是闸的**唯一**判定
+    // 路径,若此处硬写 `unlocks: []`,`--unlock --ttl-min` 就会静默失效 —— 锁文件照写、闸却
+    // 认不出来,现象是"放了锁但仍然红"(而且没人报错)。旧注释那句"跨面不掺解锁"原本是防
+    // "拿 A 面的锁去放 B 的面";但解锁记录是**按 target.id + sha256 绑定内容**的(见 checkAll
+    // 的 `u.id === t.id && u.sha256 === h.sha256`),拿它放不了另一份内容的行 ⇒ 跨面传入不会
+    // 放行任何未解锁的内容,该顾虑不成立。
+    unlocks,
+  })
+  return { ...res, rev: revText }
+}
+
+/**
+ * 放行裁决(把"什么时候可以因候选面而放行"收成一个可测的纯函数,判据只住这一份)。
+ * 四档:当前面绿 ⇒ 照常放;当前面红 ∧ 候选面绿 ⇒ 大声放;候选面红/未判定 ⇒ 维持 fail-closed;
+ * 当前面本身未判定 ⇒ 绝不借候选面翻绿(§0.3,取不到输入不是"通过"的替代品)。
+ */
+export function decideRelease({ currentVerdict, candidate } = {}) {
+  if (currentVerdict === 'pass') return { release: true, loud: false, reason: '当前面自洽' }
+  if (currentVerdict === 'unknown')
+    return { release: false, loud: false, reason: '当前面未判定 ⇒ 不借任何他面翻绿' }
+  if (!candidate) return { release: false, loud: false, reason: '未给候选面(未要求跨面复核)' }
+  if (candidate.verdict === 'pass')
+    return {
+      release: true,
+      loud: true,
+      reason: `候选面 ${String(candidate.rev).slice(0, 11)} 清单与全部目标自洽 ⇒ 放行 ff`,
+    }
+  return {
+    release: false,
+    loud: false,
+    reason: candidate.why ?? `候选面 verdict=${candidate.verdict} ⇒ 不放行`,
   }
 }
 
@@ -258,10 +371,21 @@ function readOrDie(path, label) {
   }
 }
 
-/** --seal:按现盘重算清单。必须给理由(人工复核的机读留痕)。 */
+/**
+ * --seal:按**被审面(缺省 HEAD blob)**重算清单 —— 与 `--check` 同面同尺(§0.4)。
+ *
+ * 为什么不是"按现盘":旧实现封的是工作树字节,而本仓共享工作树常年滞后 HEAD。2026-11-03 实测:
+ * 部署环连冻 47 轮,`--seal` 交出 bf5502484c51(工作树 302,612 B),而闸那一侧 `--check` 量的是
+ * HEAD blob a09208df9396(315,034 B)⇒ **"重封"这件事本身结构上不可能让闸变绿**,现象正是
+ * 本器自己那句差面判读写的"清单 ↔ 工作树 ↔ HEAD 三面里某一面对不上(在另一枚签出/另一时刻 --seal 过)"。
+ * 现在:封被审面;工作树那份若不同,只在返回的 `faceNotes` 里点名(不静默,也不为它封)。
+ * 取不到被审面 ⇒ 抛错不写盘(未判定不等于通过,§0.3)。
+ */
 export function seal({
   reason,
   manifestPath = MANIFEST_PATH,
+  rev = 'HEAD',
+  faceHash = faceHashOf,
   readFile = (p) => readFileSync(p, 'utf8'),
   root = ROOT,
   now = new Date(),
@@ -269,10 +393,19 @@ export function seal({
   if (!reason || !reason.trim())
     throw new Error('--seal 必须给 --reason(封存是人工动作,空理由拒写)')
   const old = loadManifest(readOrDie(manifestPath, '清单'))
+  const faceNotes = []
   const targets = old.targets.map((t) => {
-    const h = hashTarget(t, readFile, root)
-    if (!h.ok) throw new Error(`封存失败:${h.why}`)
-    return { ...t, sha256: h.sha256 }
+    const h = faceHash(t, rev)
+    if (typeof h !== 'string' || !h)
+      throw new Error(
+        `封存失败:${rev} 面上取不到 ${t.path}(未判定不封存;先确认该路径在被审面上真在位)`,
+      )
+    const wt = hashTarget(t, readFile, root)
+    if (wt.ok && wt.sha256 !== h)
+      faceNotes.push(
+        `${t.id}:工作树副本 ${wt.sha256.slice(0, 12)} ≠ ${rev} 面 ${h.slice(0, 12)} ⇒ 封的是 ${rev} 面;盘上那份是未提交的在飞改动,要让它进清单必须先提交再重封`,
+      )
+    return { ...t, sha256: h }
   })
   const doc = {
     $comment:
@@ -287,18 +420,23 @@ export function seal({
   const tmp = `${manifestPath}.tmp-${process.pid}`
   writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
   renameSync(tmp, manifestPath)
-  return doc
+  // faceNotes 只随返回值走(打进 CLI),**不进清单文件** —— 清单是闸的输入,掺进诊断文本会改掉它的哈希口径。
+  return { ...doc, faceNotes }
 }
 
-/** --unlock:把「人已复核」绑定到当前内容哈希,并写过期时刻。 */
+/**
+ * --unlock:把「人已复核」绑定到**被审面(缺省 HEAD blob)**的内容哈希,并写过期时刻。
+ * 与 seal 同一条理由(§0.4 同面同尺):闸判的是 HEAD 面,解锁记录按 `target.id + sha256` 逐字比对,
+ * 若这里绑工作树哈希,滞后的共享工作树会造出"锁放了但仍然红"——同一次事故的另一半。
+ */
 export function unlock({
   targetId,
   reason,
   ttlMin = 120,
+  rev = 'HEAD',
+  faceHash = faceHashOf,
   manifest,
   unlockPath = UNLOCK_PATH,
-  readFile = (p) => readFileSync(p, 'utf8'),
-  root = ROOT,
   now = Date.now(),
 } = {}) {
   if (!reason || !reason.trim()) throw new Error('--unlock 必须给 --reason(空理由拒写)')
@@ -308,8 +446,9 @@ export function unlock({
     throw new Error(
       `清单里没有目标 ${targetId}(现有:${manifest.targets.map((x) => x.id).join('/')})`,
     )
-  const h = hashTarget(t, readFile, root)
-  if (!h.ok) throw new Error(`解锁失败:${h.why}`)
+  const h = faceHash(t, rev)
+  if (typeof h !== 'string' || !h)
+    throw new Error(`解锁失败:${rev} 面上取不到 ${t.path}(未判定不解锁,§0.3)`)
   let doc = { records: [] }
   if (existsSync(unlockPath)) {
     try {
@@ -324,14 +463,14 @@ export function unlock({
   doc.records = doc.records.filter((r) => r?.id !== targetId || Date.parse(r?.expiresAt) > now)
   doc.records.push({
     id: targetId,
-    sha256: h.sha256,
+    sha256: h,
     reason: reason.trim(),
     at: at.toISOString(),
     expiresAt: expiresAt.toISOString(),
   })
   mkdirSync(dirname(unlockPath), { recursive: true })
   writeFileSync(unlockPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8')
-  return { id: targetId, sha256: h.sha256, expiresAt: expiresAt.toISOString() }
+  return { id: targetId, sha256: h, expiresAt: expiresAt.toISOString() }
 }
 
 function fmt(res) {
@@ -411,7 +550,68 @@ function selfTest() {
   console.log(`self-test: 全绿(9 组断言;必备目标 ${REQUIRED_TARGET_IDS.join('/')})`)
 }
 
+/**
+ * CLI 参数白名单(2026-11-03 立)。为什么必须有这一格——本器当天实测踩中:
+ * `node scripts/root-guard.mjs --check --rev <40位sha>` 里的 `--rev` **不是**本器的旗标(真名是
+ * `--against-rev`),而旧实现只按 `has('--check')` 之类分支挑动作,未知旗标被静默忽略 ⇒ 它判的是
+ * **自己那枚 HEAD** 却让人以为判的是指定面,当场给出一个假绿(我据此差点判"清单没问题、红在别处",
+ * 而同一时刻生产签出对同一枚 sha 判红)。这正是台账票 RP-79/RP-91 那一族("未知旗标⇒用法错 exit 2")
+ * 在闸面上的形态:失效方向必须是"当场失败并给真名",绝不能是"照默认跑一遍还报绿"。
+ */
+const CLI_SWITCHES = new Set([
+  '--check',
+  '--json',
+  '--seal',
+  '--unlock',
+  '--self-test',
+  '--help',
+  '-h',
+])
+const CLI_VALUE_FLAGS = new Set([
+  '--reason',
+  '--target',
+  '--ttl-min',
+  '--against-rev',
+  '--against-remote',
+])
+/** 纯函数(自检与镜像都问它):返回 `{ ok, unknown, values }`,`values` 是已知值旗标取到的值。 */
+export function parseCliArgs(argv) {
+  const unknown = []
+  const values = {}
+  const list = Array.from(argv ?? [])
+  for (let i = 0; i < list.length; i++) {
+    const t = String(list[i])
+    if (CLI_SWITCHES.has(t)) continue
+    if (CLI_VALUE_FLAGS.has(t)) {
+      const v = list[i + 1]
+      if (v === undefined || String(v).startsWith('-')) {
+        unknown.push(`${t}(缺值)`)
+        continue
+      }
+      values[t] = v
+      i++
+      continue
+    }
+    if (t.startsWith('-')) unknown.push(t)
+    else unknown.push(`游离参数:${t}`)
+  }
+  return { ok: unknown.length === 0, unknown, values }
+}
+
 function main(argv) {
+  const usage = new Set(['--help', '-h'])
+  const cli = parseCliArgs(argv)
+  if (!cli.ok && !argv.some((a) => usage.has(a))) {
+    console.error(
+      `❌ 未知参数:${cli.unknown.join(' ')}\n` +
+        '   本器只认 --check / --json / --seal / --unlock / --self-test / --help,值旗标只有\n' +
+        '   --reason / --target / --ttl-min / --against-rev / --against-remote。\n' +
+        '   想指定被审面请写 `--check --against-rev <40位全量sha>`(`--rev` 不存在);\n' +
+        '   拼错若被忽略,这一轮判的就不是你点名的那一面,而账面看不出来(§0.4 同面同轮)。',
+    )
+    process.exitCode = EXIT_UNKNOWN
+    return
+  }
   const has = (f) => argv.includes(f)
   const val = (f, d = null) => {
     const i = argv.indexOf(f)
@@ -421,8 +621,10 @@ function main(argv) {
   if (has('--seal')) {
     const doc = seal({ reason: val('--reason', '') })
     console.log(
-      `✅ 已封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
+      `✅ 已按 HEAD 面封存 ${doc.targets.length} 条:${doc.targets.map((t) => `${t.id}=${t.sha256.slice(0, 12)}`).join(' / ')}`,
     )
+    for (const n of doc.faceNotes ?? [])
+      console.log(`⚠️ 面差点名:${n}`)
     return
   }
   let manifest
@@ -459,25 +661,93 @@ function main(argv) {
       unlocks = []
     }
   }
-  const res = checkAll({ manifest, unlocks })
+  // ── 判据与"本轮真正要跑的那份代码"同面(O6501 本格,2026-11-01 定稿)──
+  // 票面症状:闸跑在 ff **之前** ⇒ 读的是换流前那一面旧 HEAD,而"把清单修对的那枚提交"只在远端
+  // 那一面 ⇒ 门越守越锁(2026-11-01 实测连续 44 轮 FAIL)。修法有两条,本格走的是「闸后移到 ff
+  // 之后」(见 deploy/win/ihui-deploy.ps1 的 ff 成功收尾处),因此这里的默认闸面必须是 **HEAD**:
+  // 此刻 HEAD 就是刚被 ff 到、马上被构建与被切流的那一面,判据与真跑代码同面。
+  //
+  // 为什么**不**用 origin/main(上一席走过这条死路,主席已实证证伪,别再走回去):
+  //   生产机上 `origin/main` 这个嵌套 remote-tracking ref 会被宿主清理层吞掉、永不更新 ——
+  //   `deploy/win/ihui-deploy.ps1` 头注与 fetch 段记载的两条实证:2026-09-13「fetch 打印
+  //   6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值」;2026-09-28 又实测 15 秒竞态
+  //   导致"安静地部署旧版本"。ff 用的根本不是它,而是 fetch 当场定格成显式 sha 的 $remoteTip
+  //   (`git merge --ff-only $remoteTip`,随后用 merge-base --is-ancestor 复核 HEAD 真的包含它)。
+  //   ⇒ 把默认面设成 origin/main:①自锁没解(读到的仍是旧面);②旧面若恰好自洽就**冒绿**,而 ff
+  //   随后带进一枚不自洽的面照样被构建 —— 比自锁更坏。⇒ 默认面只能是 HEAD。
+  //
+  // --against-rev / --against-remote 仍作取证 / 人工复核的显式覆盖;取不到被审面 ⇒ 未判定(exit 2),
+  // 绝不让"没判成"读成放行(§0.3;两条闸任一"取不到就放行"一律不许)。判据只住 checkAgainstRev
+  // 一份(§22c 单一真源,不在此另写一份面比较)。
+  const revArg = val('--against-rev', '')
+  const remoteArg = val('--against-remote', '')
+  let faceRev = revArg
+  let faceSource = revArg ? `--against-rev ${revArg.slice(0, 11)}` : ''
+  if (!faceRev && remoteArg) {
+    try {
+      faceRev =
+        String(gitRaw(['ls-remote', remoteArg, 'refs/heads/main'], ROOT, {}))
+          .split('\t')[0]
+          ?.trim() ?? ''
+    } catch {
+      faceRev = ''
+    }
+    faceSource = `--against-remote ${remoteArg}`
+  }
+  if (!faceRev) {
+    // 默认闸面 = HEAD(闸的位置在 ff 之后,见上方那段立因)。origin/main 在生产上不可信,不用。
+    try {
+      faceRev = gitRaw(['rev-parse', 'HEAD'], ROOT, {}).trim()
+    } catch {
+      faceRev = ''
+    }
+    faceSource = 'HEAD'
+  }
+  if (!/^[0-9a-f]{40}$/.test(faceRev)) {
+    console.error(
+      `❌ 根护栏未判定:取不到将被构建的那一面(${faceSource} 解不出 40 位 sha)⇒ 按 fail-closed 处置(不冒充通过,§0.3)`,
+    )
+    process.exitCode = EXIT_UNKNOWN
+    return
+  }
+  const res = checkAgainstRev({ rev: faceRev, unlocks })
   if (has('--json')) {
-    console.log(JSON.stringify({ verdict: res.verdict, targets: res.targets }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          verdict: res.verdict,
+          targets: res.targets,
+          against: { source: faceSource, rev: faceRev.slice(0, 11) },
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     console.log(fmt(res))
   }
   if (res.verdict === 'fail') {
     console.error(
-      '❌ 根护栏判红:规则文件被改动且无有效人工解锁 ⇒ 部署环 fail-closed 拒绝推进。人工复核后:node scripts/root-guard.mjs --seal --reason "..."',
+      `❌ 根护栏判红(闸面=${faceSource},rev=${faceRev.slice(0, 11)}):清单与"将被构建的那一面"上的规则文件不一致且未重封 ⇒ 部署环 fail-closed 拒绝推进。复核后重封:node scripts/root-guard.mjs --seal --reason "..."`,
     )
+    // 差面判读:以被审面(默认 HEAD / 显式 rev)的哈希为基准,点名"到底是哪一面对不上"。
+    let faceManifest = null
+    try {
+      faceManifest = loadManifest(gitRaw(['show', `${faceRev}:${MANIFEST_REL}`], ROOT, {}))
+    } catch {
+      faceManifest = null
+    }
     for (const t of res.targets) {
       if (t.state !== 'fail') continue
-      const target = manifest.targets.find((x) => x.id === t.id)
+      const target = faceManifest ? faceManifest.targets.find((x) => x.id === t.id) : null
       console.error(
-        `   差面判读[${t.id}]:${faceDiagnosis({ expected: t.expected, actual: t.actual, head: target ? headHashOf(target) : null })}`,
+        `   差面判读[${t.id}]:${faceDiagnosis({ expected: t.expected, actual: t.actual, head: target ? faceHashOf(target, faceRev) : null })}`,
       )
     }
   } else if (res.verdict === 'unknown') {
-    console.error('❌ 根护栏未判定:清单/目标取不到 ⇒ 按 fail-closed 处置(不冒充通过)')
+    console.error(
+      `❌ 根护栏未判定(闸面=${faceSource}):${res.why ?? '取不到判定输入'} ⇒ 按 fail-closed 处置(不冒充通过)`,
+    )
   }
   process.exitCode = exitCodeOf(res.verdict)
 }
@@ -489,9 +759,12 @@ export const __test__ = {
   hashTarget,
   loadManifest,
   activeUnlocks,
+  checkAgainstRev,
+  decideRelease,
   checkAll,
   exitCodeOf,
   faceDiagnosis,
+  parseCliArgs,
   seal,
   unlock,
 }
@@ -499,3 +772,4 @@ export const __test__ = {
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2))
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

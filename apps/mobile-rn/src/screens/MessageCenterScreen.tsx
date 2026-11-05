@@ -20,6 +20,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useRefreshOnFocus } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -270,6 +271,8 @@ export function MessageCenterScreen() {
 
   const hasMore = total > 0 && items.length < total
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedMessageCenterScreen
       t={uniappT}
@@ -303,6 +306,7 @@ export function MessageCenterScreen() {
       loadingMore={loadingMore}
       onLoadMore={() => void handleLoadMore()}
       emptyText={keyword ? t('messageCenter.notFound') : undefined}
+      onToast={onToast}
     />
   )
 }

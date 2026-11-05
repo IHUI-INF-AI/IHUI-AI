@@ -84,13 +84,13 @@ export function RealNameAuthScreen({
               placeholder={t('realNameAuth.namePlaceholder')}
               placeholderTextColor={tk.text.tertiary}
             />
-            <Text style={styles.label}>{t('realNameAuth.idNumber')}</Text>
+            <Text style={styles.label}>{t('user.realname.form.idCard')}</Text>
             <TextField
               colorScheme={colorScheme}
               style={styles.input}
               value={idNumber}
               onChangeText={onIdNumberChange}
-              placeholder={t('realNameAuth.idNumberPlaceholder')}
+              placeholder={t('user.realname.form.idCardPlaceholder')}
               placeholderTextColor={tk.text.tertiary}
             />
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -121,9 +121,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,

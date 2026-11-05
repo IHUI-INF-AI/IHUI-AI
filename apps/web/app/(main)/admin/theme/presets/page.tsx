@@ -173,7 +173,7 @@ export default function PresetsPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">预设主题</h1>
-        <p className="mt-1 text-sm text-muted-foreground">一键应用内置主题</p>
+        <p className="mt-1 text-body text-muted-foreground">一键应用内置主题</p>
       </div>
 
       {error && <Alert variant="danger" description={error} />}
@@ -192,7 +192,7 @@ export default function PresetsPage() {
               <div className="text-center">
                 <p className="text-base font-semibold">{p.name}</p>
                 <span
-                  className="mt-2 inline-block rounded-md px-3 py-1 text-xs"
+                  className="mt-2 inline-block rounded-md px-3 py-1 text-label"
                   style={{ backgroundColor: p.accentColor, color: '#fff' }}
                 >
                   Button

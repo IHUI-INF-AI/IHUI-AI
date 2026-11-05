@@ -33,7 +33,7 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
   const fileCount = Number(project.fileCount ?? 0)
 
   return (
-    <Card className="flex h-full flex-col transition-colors hover:bg-accent hover:shadow-md">
+    <Card className="flex h-full flex-col transition-colors hover:bg-accent">
       <CardHeader>
         <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <FolderOpen className="h-5 w-5" />
@@ -44,13 +44,13 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-1.5 text-body text-muted-foreground">
           <FileText className="h-4 w-4" />
           <span>{t('fileCount', { count: fileCount })}</span>
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
+        <span className="font-[weight:inherit] text-label text-muted-foreground">
           {formatDate(project.updatedAt) || '-'}
         </span>
         <Button asChild size="sm">

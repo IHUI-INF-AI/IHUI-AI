@@ -13,7 +13,7 @@
 .avatar-page {
   min-height: 100vh;
   background: var(--color-muted);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   position: relative;
   box-sizing: border-box;
 }
@@ -146,7 +146,7 @@
   background: var(--color-black-60);
 }
 .avatar-loading-text {
-  padding: var(--spacing-md) 48rpx;
+  padding: var(--spacing-md) var(--spacing-2xl);
   background: var(--color-card);
   border-radius: var(--radius-xl);
   font-size: var(--text-body);

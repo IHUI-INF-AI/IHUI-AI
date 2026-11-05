@@ -53,13 +53,13 @@
   align-items: center;
   gap: var(--spacing-xs);
   margin-top: var(--spacing-md);
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
   border-radius: var(--radius-sm);
 }
 .special-banner-history-icon {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 .special-banner-history-text {
   font-size: var(--text-label);
@@ -68,7 +68,7 @@
 
 /* ===== 精选推荐 ===== */
 .special-featured {
-  margin: 0 24rpx 24rpx;
+  margin: 0 var(--spacing-md) var(--spacing-md);
 }
 .special-section-title {
   display: block;
@@ -87,7 +87,7 @@
   align-items: center;
   width: 200rpx;
   margin-right: var(--spacing-sm);
-  padding: var(--spacing-md) 16rpx;
+  padding: var(--spacing-md) var(--spacing-sm);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -106,7 +106,7 @@
 .special-featured-name {
   display: block;
   margin-top: var(--spacing-xs-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
   max-width: 100%;
@@ -124,7 +124,7 @@
 /* ===== 分类 Tab ===== */
 .special-tabs {
   white-space: nowrap;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
 .special-tab {
@@ -132,7 +132,7 @@
   align-items: center;
   gap: 6rpx;
   height: var(--spacing-3xl);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   margin-right: var(--spacing-xs-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -144,10 +144,10 @@
   border-color: var(--color-brand-accent-deep);
 }
 .special-tab-icon {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 .special-tab-label {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .special-tab-active .special-tab-label {
@@ -157,7 +157,7 @@
 
 /* ===== 应用列表 ===== */
 .special-list {
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -218,7 +218,7 @@
 .special-card-btn {
   align-self: flex-start;
   margin-top: var(--spacing-sm);
-  padding: 10rpx 28rpx;
+  padding: 10rpx var(--spacing-md-loose);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
   border-radius: var(--radius-sm);
@@ -237,7 +237,7 @@
   flex-direction: column;
   align-items: center;
   padding: var(--spacing-4xl) 0;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .special-empty-icon {
@@ -245,12 +245,12 @@
   margin-bottom: var(--spacing-sm);
 }
 .special-empty-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 .special-retry {
   margin-top: var(--spacing-xs-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-primary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

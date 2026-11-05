@@ -11,6 +11,7 @@ import type { AgentDetailScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 详情共享屏 — props 注入式跨端组件 */
 export type { AgentDetailScreenProps }
@@ -23,8 +24,14 @@ export function AgentDetailScreen({
   onBack,
   onStartChat,
   onEdit,
+  onRetry,
   colorScheme = 'light',
-}: AgentDetailScreenProps) {
+  onNavigate,
+  onToast,
+}: AgentDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -35,7 +42,7 @@ export function AgentDetailScreen({
     return (
       <ErrorState
         message={error || t('agentDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -53,7 +60,7 @@ export function AgentDetailScreen({
         {/* 编辑入口 — 对齐 web 详情页头右侧的编辑键(PageClient.tsx:193-198)，宿主未接线时不渲染 */}
         {onEdit ? (
           <TouchableOpacity style={styles.editBtn} onPress={onEdit} accessibilityRole="button">
-            <Text style={styles.editBtnText}>{t('agentEdit.entry')}</Text>
+            <Text style={styles.editBtnText}>{t('common.edit')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -69,7 +76,7 @@ export function AgentDetailScreen({
           <Star size={14} color={tk.warning.DEFAULT} fill={tk.warning.DEFAULT} />
           <Text style={styles.value}>{item.rating.toFixed(1)}</Text>
         </View>
-        <Text style={styles.label}>{t('agentDetail.price')}</Text>
+        <Text style={styles.label}>{t('agent.fieldPrice')}</Text>
         <Text style={styles.price}>
           {item.isFree ? t('agentDetail.free') : `¥${item.price.toFixed(2)}`}
         </Text>
@@ -117,7 +124,7 @@ function createStyles(tk: AppThemeTokens) {
     name: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     category: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

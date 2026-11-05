@@ -70,8 +70,10 @@ export default function WorkspacePermissionsPage() {
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -83,7 +85,7 @@ export default function WorkspacePermissionsPage() {
       ) : !permissions || permissions.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Shield className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
           <Link href="/workspace">
             <Button variant="outline" size="sm" className="mt-2">
               {t('goToWorkspace')}
@@ -117,11 +119,11 @@ export default function WorkspacePermissionsPage() {
                       {permissionTierText(perm.mode, tTier).title}
                     </span>
                   </div>
-                  <p className="font-mono text-xs text-muted-foreground truncate">
+                  <p className="font-mono text-label text-muted-foreground truncate">
                     {perm.workspacePath}
                   </p>
                   {perm.techStack && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {perm.techStack.split(',').join(' / ')}
                     </p>
                   )}

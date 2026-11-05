@@ -30,10 +30,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from .tool_context_boundary import scan_and_frame_tool_result
 from ..core.llm_gateway import llm_gateway
 from .mcp_server import mcp_server
 from .memory import memory_store
+from .stage_telemetry import StageRecord, StageRecorder
+from .tool_context_boundary import scan_and_frame_tool_result
 
 logger = logging.getLogger(__name__)
 
@@ -649,6 +650,29 @@ class ConversationService:
         # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
         sid = session_id or f"conv-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
         trace: list[dict[str, Any]] = []
+        # Z28 格 2:段账的**登记处**改吃 stage_telemetry 单源(段清单/结论词表/结论行/
+        # metrics 全在那一处落册);trace 的出参形状与数值口径一字未改。
+        # 循环段(llm_call / tool_execute)按器物在册的「一格一读数」只登记首轮并落一条
+        # [stage_result] 行,后续轮复用同一份投影取整 ⇒ 逐轮明细留在 trace,不补发第二行。
+        stages = StageRecorder("conversation_run")
+        seen_stages: set[str] = set()
+
+        def _stage_ms(
+            node: str, result: str, elapsed: float | None, count: int | None, detail: str | None = None,
+        ) -> float | None:
+            """段落册唯一出口:耗时读数一律取器物投影(本文件不复算 round)。"""
+            if node not in seen_stages:
+                seen_stages.add(node)
+                settled = stages.record(
+                    node, result, duration_ms=elapsed, count=count, detail=detail,
+                )
+            else:
+                settled = StageRecord(
+                    stage=node, result=result, duration_ms=elapsed, count=count, detail=detail,
+                )
+            projected: float | None = settled.as_dict()["duration_ms"]
+            return projected
+
         iterations = 0
         tool_calls: list[ToolCallRecord] = []
         stub = False
@@ -677,17 +701,20 @@ class ConversationService:
                 logger.warning("memory_store.add user 消息失败: %s", e)
 
             # 2. 意图分类
-            t0 = time.monotonic()
+            intent_clock = stages.clock()
             intent = await self._classify_intent(user_input, model=model)
             trace.append({
                 "node": "intent_classify",
-                "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                "duration_ms": _stage_ms(
+                    "intent_classify", "ok", intent_clock.elapsed_ms(), 1,
+                    f"intent={intent.intent} needs_tool={intent.needs_tool}",
+                ),
                 "intent": intent.intent,
                 "needs_tool": intent.needs_tool,
             })
 
             # 3. 工具选择
-            t0 = time.monotonic()
+            tool_select_clock = stages.clock()
             tools: list[dict[str, Any]] = []
             media_tools: list[str] = []
             web_tools: list[str] = []
@@ -730,7 +757,10 @@ class ConversationService:
                     tools.extend(self._filter_tools(extra))
             trace.append({
                 "node": "tool_select",
-                "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                "duration_ms": _stage_ms(
+                    "tool_select", "ok" if tools else "empty", tool_select_clock.elapsed_ms(),
+                    len(tools),
+                ),
                 "tool_count": len(tools),
                 "tool_names": [t.get("function", {}).get("name") for t in tools],
                 **({"media_routed": media_tools} if media_tools else {}),
@@ -825,7 +855,7 @@ class ConversationService:
             # 5. Tool loop
             for it in range(max_iterations):
                 iterations = it + 1
-                t0 = time.monotonic()
+                llm_clock = stages.clock()
                 call_kwargs: dict[str, Any] = {}
                 if tools:
                     call_kwargs["tools"] = tools
@@ -846,7 +876,10 @@ class ConversationService:
                     trace.append({
                         "node": "llm_call",
                         "iteration": iterations,
-                        "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                        "duration_ms": _stage_ms(
+                            "llm_call", "failed", llm_clock.elapsed_ms(), 0,
+                            f"iter={iterations}: {err_msg}",
+                        ),
                         "model": used_model,
                         "stub": stub,
                         "error": True,
@@ -868,7 +901,10 @@ class ConversationService:
                 trace.append({
                     "node": "llm_call",
                     "iteration": iterations,
-                    "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                    "duration_ms": _stage_ms(
+                        "llm_call", "ok", llm_clock.elapsed_ms(), len(tool_calls_raw),
+                        f"iter={iterations} stub={stub}",
+                    ),
                     "model": used_model,
                     "stub": stub,
                     "tool_call_count": len(tool_calls_raw),
@@ -942,6 +978,11 @@ class ConversationService:
                         duration_ms=duration_ms,
                     )
                     tool_calls.append(record)
+                    # 段账登记(tool_execute 是循环段:首轮落一条结论行,后续轮复用投影)
+                    _stage_ms(
+                        "tool_execute", "ok" if ok else "failed", record.duration_ms, 1,
+                        f"tool={tool_name}",
+                    )
                     # P0-7: 工具失败时在 trace 显式记录 _tool_error
                     tool_trace: dict[str, Any] = {
                         "node": "tool_execute",
@@ -1016,6 +1057,10 @@ class ConversationService:
                         "- TIMEOUT:操作超时,请稍后重试\n"
                         "- SELECTOR_NOT_FOUND:页面元素未找到,请检查选择器是否正确\n"
                     )
+                    _stage_ms(
+                        "all_tools_failed", "failed", None, len(round_calls),
+                        "本段旧实现不测耗时 ⇒ 段账按 unjudged 记,不拿 0 冒充",
+                    )
                     trace.append({
                         "node": "all_tools_failed",
                         "failed_count": len(round_calls),
@@ -1034,6 +1079,9 @@ class ConversationService:
                             "LLM summarize 失败: %s, model=%s",
                             err_msg, used_model,
                         )
+                        _stage_ms(
+                            "llm_summarize", "failed", None, 0, f"摘要腿失败: {err_msg}",
+                        )
                         trace.append({
                             "node": "llm_summarize",
                             "duration_ms": 0.0,
@@ -1047,6 +1095,7 @@ class ConversationService:
                     else:
                         final_response = str(summary.get("content", "") or "")
                         stub = stub or summary.get("stub", False)
+                        _stage_ms("llm_summarize", "ok", None, 0, "摘要腿给出回复(旧实现耗时写死 0.0 ⇒ 段账按未判定记)")
                         trace.append({
                             "node": "llm_summarize",
                             "duration_ms": 0.0,

@@ -141,7 +141,7 @@ def _sync_session_messages(
 
 
 def _rollback_files(
-    session_id: str, file_versions: list[dict[str, Any]]
+    session_id: str, file_versions: list[dict[str, Any]], *, user_id: str | None = None
 ) -> dict[str, Any]:
     """按 checkpoint 记录的文件版本引用批量回滚。
 
@@ -170,7 +170,10 @@ def _rollback_files(
         from ..services.mcp_server import _validate_path_in_workspace, get_session_extra_roots
 
         _ws_ok, _ws_info = _validate_path_in_workspace(
-            str(path), extra_roots=get_session_extra_roots(str(fv.get("session_id") or session_id))
+            str(path),
+            extra_roots=get_session_extra_roots(
+                str(fv.get("session_id") or session_id), user_id=user_id
+            ),
         )
         if not _ws_ok:
             missed_paths.append({"path": path, "reason": "path_outside_workspace"})
@@ -302,7 +305,9 @@ async def restore_checkpoint(
     file_changes = 0
     missed_paths: list[dict[str, str]] = []
     if scope in ("code", "both") and file_versions:
-        outcome = _rollback_files(session_id, file_versions)
+        outcome = _rollback_files(
+            session_id, file_versions, user_id=get_current_user_id_sync(request)
+        )
         file_changes = outcome["affected"]
         missed_paths = outcome["missed_paths"]
 
@@ -417,7 +422,10 @@ async def checkpoint_impact(
         from ..services.mcp_server import _validate_path_in_workspace, get_session_extra_roots
 
         _ws_ok, _ws_info = _validate_path_in_workspace(
-            str(path), extra_roots=get_session_extra_roots(str(owner_session))
+            str(path),
+            extra_roots=get_session_extra_roots(
+                str(owner_session), user_id=get_current_user_id_sync(request)
+            ),
         )
         disk = ""
         disk_error = False

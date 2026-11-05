@@ -68,26 +68,26 @@ describe('legacy 段组装契约(buildLegacySegment,G-816106 ⑤)', () => {
     const out = buildLegacySegment(pays, logs, 2)
     expect(out.source).toBe('legacy')
     expect(out.total).toBe(2)
-    expect(out.list[0].logs.map((l) => l.action)).toEqual(['create', 'pay'])
-    expect(out.list[1].logs.map((l) => l.action)).toEqual(['refund'])
-    expect(out.list[0].logs[0].payId).toBeUndefined()
+    expect(out.list[0]!.logs.map((l) => l.action)).toEqual(['create', 'pay'])
+    expect(out.list[1]!.logs.map((l) => l.action)).toEqual(['refund'])
+    expect(out.list[0]!.logs[0]).not.toHaveProperty('payId')
   })
 
   it('② 没日志的行给空数组而不是 undefined —— web 端 p.logs.map 不许炸', () => {
     const out = buildLegacySegment([row(7)], [], 1)
-    expect(out.list[0].logs).toEqual([])
+    expect(out.list[0]!.logs).toEqual([])
   })
 
   it('③ 日志不串行:payId 对不上的日志不落到别的行,也不产生幽灵行', () => {
     const out = buildLegacySegment([row(1)], [log(999, 'ghost')], 1)
-    expect(out.list[0].logs).toEqual([])
+    expect(out.list[0]!.logs).toEqual([])
     expect(out.list).toHaveLength(1)
   })
 
   it('④ 输出行保留输入行的全部字段,不丢一列(缺省可空列也要原样透传)', () => {
     const src = row(3, { orderNo: null, status: 2, createTime: null })
     const out = buildLegacySegment([src], [], 1)
-    const { logs: _logs, ...rest } = out.list[0]
+    const { logs: _logs, ...rest } = out.list[0]!
     expect(rest).toEqual({ ...src, source: 'legacy' })
   })
 

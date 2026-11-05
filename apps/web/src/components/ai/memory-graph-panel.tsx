@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // WATERMARK_PLACEHOLDER
 
 'use client'
@@ -8,7 +9,7 @@
 import * as React from 'react'
 import { Loader2, Network, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
+import { getMemoryGraph } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 /**
@@ -151,9 +152,7 @@ export function MemoryGraphPanel() {
     setLoading(true)
     setSelected(null)
     try {
-      const r = await fetchApi<{ nodes: GraphNode[]; edges: GraphEdge[] }>(
-        `/api/memory/graph?query=${encodeURIComponent(q)}`,
-      )
+      const r = await getMemoryGraph<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ query: q })
       if (r.success && r.data) {
         setNodes(r.data.nodes)
         setEdges(r.data.edges)
@@ -199,14 +198,14 @@ export function MemoryGraphPanel() {
             if (e.key === 'Enter') void handleSearch()
           }}
           placeholder={t('searchPlaceholder')}
-          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-xs outline-none focus:border-primary/60"
+          className="h-7 min-w-0 flex-1 rounded-sm border border-border bg-card px-2 text-label outline-none focus:border-primary/60"
           data-testid="memory-graph-input"
         />
         <button
           type="button"
           onClick={() => void handleSearch()}
           disabled={loading || !query.trim()}
-          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-card px-2 text-xs text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
+          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border bg-card px-2 text-label text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
           data-testid="memory-graph-search"
         >
           {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
@@ -224,7 +223,7 @@ export function MemoryGraphPanel() {
               aria-pressed={layoutMode === mode}
               onClick={() => setLayoutMode(mode)}
               className={cn(
-                'rounded-sm border px-2 py-0.5 text-xs font-medium transition-colors',
+                'rounded-sm border px-2 py-0.5 text-label font-medium transition-colors',
                 layoutMode === mode
                   ? 'border-primary/60 bg-primary/10 text-primary'
                   : 'border-border bg-card text-muted-foreground hover:bg-accent/40',
@@ -238,10 +237,10 @@ export function MemoryGraphPanel() {
 
       {/* 空态 */}
       {nodes === null && (
-        <p className="py-6 text-center text-xs text-muted-foreground">{t('empty')}</p>
+        <p className="py-6 text-center text-label text-muted-foreground">{t('empty')}</p>
       )}
       {nodes !== null && nodes.length === 0 && (
-        <p className="py-6 text-center text-xs text-muted-foreground">{t('noHits')}</p>
+        <p className="py-6 text-center text-label text-muted-foreground">{t('noHits')}</p>
       )}
 
       {/* 环形图(SVG) */}
@@ -313,7 +312,7 @@ export function MemoryGraphPanel() {
       {/* 选中节点详情 */}
       {selected && (
         <div
-          className="rounded-lg border border-border bg-card p-2 text-xs leading-relaxed text-foreground"
+          className="rounded-lg border border-border bg-card p-2 text-label leading-relaxed text-foreground"
           data-testid="memory-node-detail"
         >
           {selected.content}
@@ -336,3 +335,4 @@ function cnNode(hit: boolean, selected: boolean): string {
 }
 
 export default MemoryGraphPanel
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

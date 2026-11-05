@@ -2,10 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, type CSSProperties } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { cn, rnRadius, TARO_RPX_PER_PX, taroSpacing } from '@ihui/design-tokens'
 import {
   MODEL_LIST_AGENT_GLYPH_PX,
   MODEL_LIST_BADGE_FONT_PX,
@@ -53,6 +53,18 @@ import {
 
 export type ModelItem = LlmModel
 
+/** 与 RN 端 ModelListGroup 同形分组结构(RN 端预分组传入;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
+ *  对齐门 285 存量收敛占位:先补可选 prop,后手再决定是否接分组渲染路径(需改为必填 + 补调用点 —— RN 端为必填)。 */
+export interface ModelListGroup {
+  /** 旧字段:vendor 分组名(无 type/title 时作为分组标题回退) */
+  vendor?: string
+  /** 类型分组标题(0-5,优先于 vendor 显示) */
+  type?: number
+  /** 自定义分组标题(最高优先级) */
+  title?: string
+  models: ModelItem[]
+}
+
 /**
  * 会显形的字号与留白不在本文件取数 —— 单一源是
  * `packages/shared/src/ui/model-list-spec`(模式同 IntelligentAssistant / BackChevron);
@@ -74,10 +86,14 @@ const toUnit = (px: number) => rpx(px * TARO_RPX_PER_PX)
  *   - 模型行:80rpx 高 + 15rpx 圆角 + 4rpx 边框 + 左侧 logo + 中间名称 + 右侧选中圆点
  */
 export interface ModelListProps {
-  models: ModelItem[]
+  /** 分组模型数据(与 RN 端同名同义;本端历史用扁平 models + 内部 splitModelCatalog 分组)。
+   *  需后手改必填 + 补调用点(RN 端为必填,本块看不到全部调用点故先置可选占位)。 */
+  groups?: ModelListGroup[]
+  models?: ModelItem[]
   selectedId?: string | number
   onSelect?: (model: ModelItem) => void
   loading?: boolean
+  // 2026-11-04 审计返工:onEndReached 两端 0 调用方,删声明(死腿不当平台档)
   /** 列表模式:'list' 普通 / 'popup' 弹出分类(首页专用)*/
   variant?: 'list' | 'popup'
   /** popup 模式:当前模型类型(用于决定渲染哪一类模型)*/
@@ -86,6 +102,18 @@ export interface ModelListProps {
   agentActive?: boolean
   /** popup 模式:Agent 模式点击回调 */
   onAgentSelect?: () => void
+  /** 是否展示 Agent 模式行(与 RN 端同名同义;缺省按是否给 onAgentSelect 判定) */
+  showAgentMode?: boolean
+  /** 选择模式(与 RN 端同名同义):'single' 单选 / 'multiple' 多选,默认单选 */
+  selectionMode?: 'single' | 'multiple'
+  /** 多选选中集合(与 RN 端同名同义);提供时优先于本端的单值 selectedId */
+  selectedIds?: string[]
+  /** 选择变更回调(与 RN 端同名同义):回传当前选中 id 集合 */
+  onSelectChange?: (ids: string[]) => void
+  /** 逐项入场动画(与 RN 端同名同义,默认开启;复用端内 ai-slide-up) */
+  animateEntrance?: boolean
+  /** 外层容器样式(与 RN 端同名同义) */
+  style?: CSSProperties
 }
 
 const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
@@ -98,7 +126,7 @@ const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
 })
 
 export default function ModelList({
-  models,
+  models = [],
   selectedId,
   onSelect,
   loading = false,
@@ -106,10 +134,40 @@ export default function ModelList({
   currentType = '',
   agentActive = false,
   onAgentSelect,
+  showAgentMode,
+  selectionMode = 'single',
+  selectedIds,
+  onSelectChange,
+  animateEntrance = true,
+  style,
 }: ModelListProps) {
   const tt = useTt()
   const { locale } = useI18n()
   const [historyExpanded, setHistoryExpanded] = useState(false)
+
+  /** 选择态:selectedIds(与 RN 同名)优先;退化到本端历史的单值 selectedId */
+  const selectedSet = useMemo(() => {
+    if (selectedIds) return new Set(selectedIds)
+    return new Set(selectedId === undefined ? [] : [String(selectedId)])
+  }, [selectedIds, selectedId])
+
+  /** 选中动作:本端历史的 onSelect(回传条目)与 RN 同名的 onSelectChange(回传 id 集)都触发 */
+  const handleSelect = (model: ModelItem): void => {
+    onSelect?.(model)
+    if (!onSelectChange) return
+    if (selectionMode === 'multiple') {
+      const next = new Set(selectedSet)
+      const key = String(model.id)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      onSelectChange(Array.from(next))
+      return
+    }
+    onSelectChange([String(model.id)])
+  }
+
+  /** Agent 行显隐:显式开关优先,缺省沿用「给了回调就展示」的既有行为 */
+  const agentVisible = showAgentMode ?? onAgentSelect !== undefined
 
   // 默认列表只保留"最新 + 对话类",其余全部收进历史模型折叠区(判定在后端,
   // 分组在 packages/shared,此处只做装配 — 见 utils/model-catalog.ts)
@@ -127,7 +185,7 @@ export default function ModelList({
     // ===== popup 模式:对齐原项目 ModelList.vue(分类弹出列表 + slideUp 动画)=====
     if (loading) {
       return (
-        <View style={{ padding: '10rpx 0 0' }}>
+        <View style={{ padding: '10rpx 0 0', ...(style ?? {}) }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <View
               key={i}
@@ -170,6 +228,7 @@ export default function ModelList({
           style={{
             paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
             paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+            ...(style ?? {}),
           }}
         >
           {/* 空态字号与纵向留白取共享源(与 RN emptyText / empty 容器同档) */}
@@ -194,6 +253,7 @@ export default function ModelList({
           // 规则 3「一端有档另一端无 ⇒ 取较大者并让缺失端补同档」→ 本端补 24。
           paddingTop: '10rpx',
           paddingBottom: toUnit(MODEL_LIST_CONTENT_BOTTOM_PADDING_PX),
+          ...(style ?? {}),
         }}
       >
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
@@ -206,9 +266,13 @@ export default function ModelList({
         ) : null}
 
         {/* Agent 模式选项(对齐原项目 chu-row pitch === -1)*/}
-        {onAgentSelect ? (
+        {agentVisible ? (
           <View
-            className={cn('ai-chu-row ai-slide-up', agentActive && 'ai-chu-row-active')}
+            className={cn(
+              'ai-chu-row',
+              animateEntrance && 'ai-slide-up',
+              agentActive && 'ai-chu-row-active',
+            )}
             onClick={onAgentSelect}
             hoverClass="opacity-60"
           >
@@ -287,13 +351,17 @@ export default function ModelList({
 
         {/* 默认模型列表项:只展示"最新 + 对话类" */}
         {split.primary.map((model, index) => {
-          const selected = model.id === selectedId
+          const selected = selectedSet.has(String(model.id))
           return (
             <View
               key={model.id}
-              className={cn('ai-chu-row ai-slide-up', selected && 'ai-chu-row-active')}
+              className={cn(
+                'ai-chu-row',
+                animateEntrance && 'ai-slide-up',
+                selected && 'ai-chu-row-active',
+              )}
               style={{ animationDelay: `${index * 0.08}s` }}
-              onClick={() => onSelect?.(model)}
+              onClick={() => handleSelect(model)}
               hoverClass="opacity-60"
             >
               <View className="flex items-center">
@@ -477,7 +545,11 @@ export default function ModelList({
           ? split.archived.map((group) => (
               <View key={`archived-${group.category}`}>
                 {/* 分组标题:用途分类 + 数量(用间距分隔,不用 border 分割线)*/}
-                <View style={{ padding: '16rpx 24rpx 4rpx' }}>
+                <View
+                  style={{
+                    padding: `${rpx(taroSpacing.sm)} ${rpx(taroSpacing.md)} ${rpx(taroSpacing['2xs'])}`,
+                  }}
+                >
                   <Text
                     style={{
                       fontSize: toUnit(MODEL_LIST_SECTION_HEADER_FONT_PX),
@@ -488,12 +560,16 @@ export default function ModelList({
                   </Text>
                 </View>
                 {group.items.map((model) => {
-                  const selected = model.id === selectedId
+                  const selected = selectedSet.has(String(model.id))
                   return (
                     <View
                       key={model.id}
-                      className={cn('ai-chu-row', selected && 'ai-chu-row-active')}
-                      onClick={() => onSelect?.(model)}
+                      className={cn(
+                        'ai-chu-row',
+                        animateEntrance && 'ai-slide-up',
+                        selected && 'ai-chu-row-active',
+                      )}
+                      onClick={() => handleSelect(model)}
                       hoverClass="opacity-60"
                     >
                       <View className="flex items-center">
@@ -565,11 +641,11 @@ export default function ModelList({
   // ===== 默认 'list' 模式:兼容 ChatDrawers 等旧调用 =====
   if (loading) {
     return (
-      <View className="px-3 py-2">
+      <View className="px-md py-sm" style={style}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <View key={i} className="flex items-center py-3 animate-pulse">
-            <View className="w-10 h-10 mr-3 rounded-lg bg-muted" />
-            <View className="flex-1 space-y-2">
+          <View key={i} className="flex items-center py-md animate-pulse">
+            <View className="w-10 h-10 mr-md rounded-lg bg-muted" />
+            <View className="flex-1 space-y-sm">
               <View className="h-3 w-1/3 rounded bg-muted" />
               <View className="h-[20rpx] w-2/3 rounded bg-muted" />
             </View>
@@ -591,6 +667,7 @@ export default function ModelList({
         style={{
           paddingTop: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
           paddingBottom: toUnit(MODEL_LIST_EMPTY_PADDING_Y_PX),
+          ...(style ?? {}),
         }}
       >
         {/* 空态字号与 popup 变体、RN 端同档 —— 同一组件的两枚空态不该有两种字号 */}
@@ -605,27 +682,27 @@ export default function ModelList({
   }
 
   return (
-    <View className="px-3 py-1">
+    <View className="px-md py-xs" style={style}>
       {/* 默认列表:只展示"最新 + 对话类" */}
       {split.primary.map((model) => {
-        const selected = model.id === selectedId
+        const selected = selectedSet.has(String(model.id))
         return (
           <View
             key={model.id}
-            className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
+            className={`flex items-center py-[20rpx] px-md mb-sm rounded-lg transition-colors ${
               selected ? 'bg-muted' : 'bg-card'
             }`}
-            onClick={() => onSelect?.(model)}
+            onClick={() => handleSelect(model)}
             hoverClass="opacity-60"
           >
-            <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
-              <Text className="text-sm font-medium text-muted-foreground">
+            <View className="flex items-center justify-center w-10 h-10 mr-md rounded-lg bg-muted">
+              <Text className="text-body font-medium text-muted-foreground">
                 {model.name.charAt(0)}
               </Text>
             </View>
             <View className="flex-1 min-w-0">
               <View className="flex items-center">
-                <Text className="text-sm font-medium text-foreground truncate">{model.name}</Text>
+                <Text className="text-body font-medium text-foreground truncate">{model.name}</Text>
                 {/* 选中态:U+2713 勾字符改矢量;size 走本族勾字号单一源
                     MODEL_LIST_CHECK_GLYPH_PX(=12px,与原 text-xs 同档)× TARO_RPX_PER_PX,
                     端内不另立数字;color = 原类名的 text-primary */}
@@ -634,13 +711,13 @@ export default function ModelList({
                     name="check"
                     size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
                     color="var(--color-primary)"
-                    className="ml-2"
+                    className="ml-sm"
                   />
                 )}
               </View>
-              <Text className="text-xs text-muted-foreground truncate">{model.provider}</Text>
+              <Text className="text-label text-muted-foreground truncate">{model.provider}</Text>
             </View>
-            <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+            <Text className="ml-sm text-label text-muted-foreground shrink-0">
               {categoryLabel(categoryOf(model))}
             </Text>
           </View>
@@ -650,16 +727,16 @@ export default function ModelList({
       {/* ===== 历史模型折叠区(默认收起) ===== */}
       {split.archivedCount > 0 ? (
         <View
-          className="flex items-center justify-between px-3 py-[20rpx] mb-2 rounded-lg bg-muted"
+          className="flex items-center justify-between px-md py-[20rpx] mb-sm rounded-lg bg-muted"
           onClick={() => setHistoryExpanded((v) => !v)}
           hoverClass="opacity-60"
         >
-          <Text className="text-sm text-foreground">
+          <Text className="text-body text-foreground">
             {`${historyLabel(locale)} (${split.archivedCount})`}
           </Text>
           {/* 开合指示用文字而非图标字形:项目守门(11h)禁止在 UI 图标位使用
               emoji / 符号字符做图标,小程序端也没有 lucide 可用,故用中文状态词 */}
-          <Text className="text-sm text-muted-foreground">
+          <Text className="text-body text-muted-foreground">
             {showArchived ? collapseLabel(locale) : expandLabel(locale)}
           </Text>
         </View>
@@ -667,35 +744,35 @@ export default function ModelList({
 
       {showArchived
         ? split.archived.map((group) => (
-            <View key={`archived-${group.category}`} className="mb-2">
+            <View key={`archived-${group.category}`} className="mb-sm">
               {/* O81 逐档复核(2026-09-27):分组头行底衬 4→8 —— 与 RN 同一元素 sectionHeader 的
                   paddingVertical 8、及本行自己的 pt-2 同档(同元素两端不同档 ⇒ 收敛,间距取较大)。
                   守门 128 读数「仅小程序档 4」的另一半是 list 变体外层容器 py-1,该层内衬已由
                   model-list-spec 头注登记为「另计一票」布局裁决项,本票不动,故 4 仍会在读数出现。 */}
-              <View className="px-3 pt-2 pb-2">
-                <Text className="text-xs text-muted-foreground">
+              <View className="px-md pt-sm pb-sm">
+                <Text className="text-label text-muted-foreground">
                   {`${categoryLabel(group.category)} · ${group.items.length}`}
                 </Text>
               </View>
               {group.items.map((model) => {
-                const selected = model.id === selectedId
+                const selected = selectedSet.has(String(model.id))
                 return (
                   <View
                     key={model.id}
-                    className={`flex items-center py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
+                    className={`flex items-center py-[20rpx] px-md mb-sm rounded-lg transition-colors ${
                       selected ? 'bg-muted' : 'bg-card'
                     }`}
-                    onClick={() => onSelect?.(model)}
+                    onClick={() => handleSelect(model)}
                     hoverClass="opacity-60"
                   >
-                    <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
-                      <Text className="text-sm font-medium text-muted-foreground">
+                    <View className="flex items-center justify-center w-10 h-10 mr-md rounded-lg bg-muted">
+                      <Text className="text-body font-medium text-muted-foreground">
                         {model.name.charAt(0)}
                       </Text>
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
-                        <Text className="text-sm font-medium text-foreground truncate">
+                        <Text className="text-body font-medium text-foreground truncate">
                           {model.name}
                         </Text>
                         {/* 选中态:U+2713 勾字符改矢量;取值同上默认列表那一处 */}
@@ -704,15 +781,15 @@ export default function ModelList({
                             name="check"
                             size={MODEL_LIST_CHECK_GLYPH_PX * TARO_RPX_PER_PX}
                             color="var(--color-primary)"
-                            className="ml-2"
+                            className="ml-sm"
                           />
                         )}
                       </View>
-                      <Text className="text-xs text-muted-foreground truncate">
+                      <Text className="text-label text-muted-foreground truncate">
                         {model.provider}
                       </Text>
                     </View>
-                    <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+                    <Text className="ml-sm text-label text-muted-foreground shrink-0">
                       {categoryLabel(group.category)}
                     </Text>
                   </View>

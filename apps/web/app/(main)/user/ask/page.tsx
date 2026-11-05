@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, MessageCircle } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { getAsks } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
@@ -42,13 +42,12 @@ export default function AskPage() {
     queryKey: ['user', 'ask', user?.id],
     enabled: allow && !!user?.id,
     queryFn: async (): Promise<AskItem[]> => {
-      const r = await fetchApi<{ list?: AskItem[] } | AskItem[]>(`/api/asks?authorId=${user!.id}`)
+      const r = await getAsks({ authorId: user!.id })
       if (!r.success) {
         if (r.status === 404) return []
         throw new Error(r.error)
       }
-      const d = r.data
-      return Array.isArray(d) ? d : (d.list ?? [])
+      return r.data.list ?? []
     },
   })
 
@@ -78,7 +77,7 @@ export default function AskPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <HelpCircle className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty', { default: '目前还没有数据' })}</p>
+          <p className="text-body">{t('empty', { default: '目前还没有数据' })}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -101,11 +100,11 @@ export default function AskPage() {
                   ) : null}
                 </div>
                 {item.content ? (
-                  <p className="line-clamp-2 break-words text-xs text-muted-foreground">
+                  <p className="line-clamp-2 break-words text-label text-muted-foreground">
                     {item.content}
                   </p>
                 ) : null}
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-label text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
                     <MessageCircle className="h-3 w-3" />
                     {item.answersCount ?? 0}

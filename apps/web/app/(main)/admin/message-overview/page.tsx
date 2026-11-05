@@ -91,7 +91,7 @@ export default function MessageOverviewPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">消息概览</h1>
-        <p className="text-xs text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>
+        <p className="text-label text-muted-foreground">通知 / 公告 / 私信总数与近 7 天通知趋势</p>
       </header>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">

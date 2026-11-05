@@ -28,7 +28,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduMealApplyTemplate,
+  eduMealCreate,
+  eduMealDelete,
+  eduMealGenerateShoppingList,
+  eduMealList,
+  eduMealNutritionSummary,
+  eduMealTemplateCreate,
+  eduMealTemplateDelete,
+  eduMealTemplateList,
+  eduMealTemplateNames,
+  eduMealUpdate,
+} from '@ihui/api-client'
 import { BackButton, toast } from '@/components/common'
 import {
   Card,
@@ -506,7 +518,7 @@ function TemplateDialog({
             </div>
 
             {templateNames.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('template.empty')}
               </p>
             ) : (
@@ -590,7 +602,7 @@ function TemplateDialog({
                           className="min-h-[60px] border-b border-r p-1"
                         >
                           <Input
-                            className="h-7 text-xs"
+                            className="h-7 text-label"
                             placeholder={t('template.dishPlaceholder')}
                             value={entry?.dishName ?? ''}
                             onChange={(e) =>
@@ -776,24 +788,36 @@ export default function MealPage() {
     error: mealsError,
   } = useQuery({
     queryKey: ['edu-ai-management', 'meal', dateRange.startDate, dateRange.endDate],
-    queryFn: () =>
-      apiOrThrow<{ list: MealRecipe[] }>(
-        `/api/edu-ai-management/meal?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
-      ),
+    queryFn: async () => {
+      const r = await eduMealList<{ list: MealRecipe[] }>({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const meals = (mealsData?.list ?? []).filter((m) => !m.deletedAt)
 
   const { data: templatesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template'],
-    queryFn: () => apiOrThrow<{ list: MealTemplate[] }>('/api/edu-ai-management/meal/template'),
+    queryFn: async () => {
+      const r = await eduMealTemplateList<{ list: MealTemplate[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const templates = templatesData?.list ?? []
 
   const { data: templateNamesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template-names'],
-    queryFn: () => apiOrThrow<{ list: string[] }>('/api/edu-ai-management/meal/template-names'),
+    queryFn: async () => {
+      const r = await eduMealTemplateNames<{ list: string[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const templateNames = templateNamesData?.list ?? []
@@ -804,42 +828,45 @@ export default function MealPage() {
   }, [queryClient])
 
   const createMeal = useMutation({
-    mutationFn: (data: MealFormData) =>
-      apiOrThrow('/api/edu-ai-management/meal', {
-        method: 'POST',
-        body: JSON.stringify({
-          date: data.date,
-          mealType: data.mealType,
-          dishName: data.dishName,
-          ingredients: data.ingredients || null,
-          nutrition: data.nutrition || null,
-          imageUrl: data.imageUrl || null,
-          notes: data.notes || null,
-        }),
-      }),
+    mutationFn: async (data: MealFormData) => {
+      const r = await eduMealCreate({
+        date: data.date,
+        mealType: data.mealType,
+        dishName: data.dishName,
+        ingredients: data.ingredients || null,
+        nutrition: data.nutrition || null,
+        imageUrl: data.imageUrl || null,
+        notes: data.notes || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateMeal = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MealFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/meal/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          date: data.date,
-          mealType: data.mealType,
-          dishName: data.dishName,
-          ingredients: data.ingredients || null,
-          nutrition: data.nutrition || null,
-          imageUrl: data.imageUrl || null,
-          notes: data.notes || null,
-        }),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: MealFormData }) => {
+      const r = await eduMealUpdate(id, {
+        date: data.date,
+        mealType: data.mealType,
+        dishName: data.dishName,
+        ingredients: data.ingredients || null,
+        nutrition: data.nutrition || null,
+        imageUrl: data.imageUrl || null,
+        notes: data.notes || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteMeal = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduMealDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -847,23 +874,24 @@ export default function MealPage() {
     mutationFn: ({ name, entries }: { name: string; entries: TemplateEntryForm[] }) => {
       // Delete existing entries with same name, then create new ones
       const existingIds = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
-      const deletePromises = existingIds.map((id) =>
-        apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
-      )
+      const deletePromises = existingIds.map(async (id) => {
+        const r = await eduMealTemplateDelete(id)
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      })
       const filledEntries = entries.filter((e) => e.dishName.trim())
-      const createPromises = filledEntries.map((e) =>
-        apiOrThrow('/api/edu-ai-management/meal/template', {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            weekday: e.weekday,
-            mealType: e.mealType,
-            dishName: e.dishName,
-            ingredients: e.ingredients || null,
-            nutrition: e.nutrition || null,
-          }),
-        }),
-      )
+      const createPromises = filledEntries.map(async (e) => {
+        const r = await eduMealTemplateCreate({
+          name,
+          weekday: e.weekday,
+          mealType: e.mealType,
+          dishName: e.dishName,
+          ingredients: e.ingredients || null,
+          nutrition: e.nutrition || null,
+        })
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      })
       return Promise.all([...deletePromises, ...createPromises])
     },
     onSuccess: () => {
@@ -876,9 +904,11 @@ export default function MealPage() {
     mutationFn: (name: string) => {
       const ids = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
       return Promise.all(
-        ids.map((id) =>
-          apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
-        ),
+        ids.map(async (id) => {
+          const r = await eduMealTemplateDelete(id)
+          if (!r.success) throw new Error(r.error)
+          return r.data
+        }),
       )
     },
     onSuccess: () => {
@@ -888,11 +918,11 @@ export default function MealPage() {
   })
 
   const applyTemplateMutation = useMutation({
-    mutationFn: ({ name, startDate }: { name: string; startDate: string }) =>
-      apiOrThrow('/api/edu-ai-management/meal/apply-template', {
-        method: 'POST',
-        body: JSON.stringify({ name, startDate }),
-      }),
+    mutationFn: async ({ name, startDate }: { name: string; startDate: string }) => {
+      const r = await eduMealApplyTemplate({ name, startDate })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -913,8 +943,8 @@ export default function MealPage() {
       dateRange.startDate,
       dateRange.endDate,
     ],
-    queryFn: () =>
-      apiOrThrow<{
+    queryFn: async () => {
+      const r = await eduMealNutritionSummary<{
         totalMeals: number
         summary: { totalCalories: number; totalProtein: number; totalCarbs: number }
         byType: Array<{
@@ -925,22 +955,25 @@ export default function MealPage() {
           carbs: number
           avgCalories: number
         }>
-      }>(
-        `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, // method: GET
-      ),
+      }>({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: false,
   })
 
   const handleGenerateShoppingList = async () => {
     setGeneratingShopping(true)
     try {
-      const data = await apiOrThrow<{
+      const r = await eduMealGenerateShoppingList<{
         shoppingList: Array<{ ingredient: string; count: number; dishes: string[] }>
         totalIngredients: number
-      }>('/api/edu-ai-management/meal/generate-shopping-list', {
-        method: 'POST',
-        body: JSON.stringify({ startDate: dateRange.startDate, endDate: dateRange.endDate }),
-      })
+      }>({ startDate: dateRange.startDate, endDate: dateRange.endDate })
+      if (!r.success) throw new Error(r.error)
+      const data = r.data
       setShoppingListData(data)
       setShoppingListOpen(true)
     } catch (e: unknown) {
@@ -1000,7 +1033,7 @@ export default function MealPage() {
         key={meal.id}
         type="button"
         className={cn(
-          'w-full ui-control rounded-sm px-2 py-1 text-left text-xs text-white transition-opacity hover:opacity-90',
+          'w-full ui-control rounded-sm px-2 py-1 text-left text-label text-white transition-opacity hover:opacity-90',
           color,
         )}
         onClick={() => handleEditMeal(meal)}
@@ -1082,7 +1115,7 @@ export default function MealPage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('page.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('page.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('page.subtitle')}</p>
       </header>
 
       {/* Toolbar */}
@@ -1150,7 +1183,7 @@ export default function MealPage() {
 
           {/* Loading indicator */}
           {mealsLoading && (
-            <div className="ml-auto flex items-center text-xs text-muted-foreground">
+            <div className="ml-auto flex items-center text-label text-muted-foreground">
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               {t('page.loading')}
             </div>
@@ -1234,7 +1267,7 @@ export default function MealPage() {
                 <div className="min-w-[600px]">
                   {/* Header row */}
                   <div className="grid grid-cols-[60px_repeat(7,1fr)]">
-                    <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
+                    <div className="sticky left-0 bg-background p-2 text-label text-muted-foreground" />
                     {WEEKDAY_KEYS.map((key, i) => {
                       const d = weekDays[i]
                       const isToday = d && formatDate(d) === formatDate(today)
@@ -1429,7 +1462,7 @@ export default function MealPage() {
                       <span className="text-display font-bold text-orange-500">
                         {nutritionQuery.data.summary.totalCalories}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {t('nutrition.totalCalories')}
                       </span>
                     </CardContent>
@@ -1439,7 +1472,7 @@ export default function MealPage() {
                       <span className="text-display font-bold text-blue-500">
                         {nutritionQuery.data.summary.totalProtein}g
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {t('nutrition.totalProtein')}
                       </span>
                     </CardContent>
@@ -1449,14 +1482,14 @@ export default function MealPage() {
                       <span className="text-display font-bold text-green-500">
                         {nutritionQuery.data.summary.totalCarbs}g
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-label text-muted-foreground">
                         {t('nutrition.totalCarbs')}
                       </span>
                     </CardContent>
                   </Card>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {t('nutrition.summary', {
                     meals: nutritionQuery.data.totalMeals,
                     start: dateRange.startDate,
@@ -1475,11 +1508,11 @@ export default function MealPage() {
                           <span className="text-body font-medium">
                             {typeLabelKey ? t(typeLabelKey) : type.mealType}
                           </span>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-label text-muted-foreground">
                             {t('nutrition.mealCount', { count: type.count })}
                           </span>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="grid grid-cols-3 gap-2 text-center text-label">
                           <div>
                             <span className="block font-medium text-orange-500">
                               {type.calories}
@@ -1501,7 +1534,7 @@ export default function MealPage() {
                 </div>
               </>
             ) : (
-              <p className="py-4 text-center text-sm text-muted-foreground">
+              <p className="py-4 text-center text-body text-muted-foreground">
                 {t('nutrition.empty')}
               </p>
             )}
@@ -1517,7 +1550,7 @@ export default function MealPage() {
           </DialogHeader>
           {shoppingListData ? (
             <div className="space-y-3 py-2">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {t('shopping.summary', {
                   start: dateRange.startDate,
                   end: dateRange.endDate,
@@ -1525,7 +1558,7 @@ export default function MealPage() {
                 })}
               </p>
               {shoppingListData.shoppingList.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
+                <p className="py-4 text-center text-body text-muted-foreground">
                   {t('shopping.empty')}
                 </p>
               ) : (
@@ -1540,7 +1573,7 @@ export default function MealPage() {
                         <span className="text-body font-medium">{item.ingredient}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-label">
                           {t('shopping.appearsIn', { count: item.count })}
                         </Badge>
                       </div>
@@ -1557,7 +1590,7 @@ export default function MealPage() {
                     {Array.from(
                       new Set(shoppingListData.shoppingList.flatMap((s) => s.dishes)),
                     ).map((dish) => (
-                      <Badge key={dish} variant="secondary" className="text-xs">
+                      <Badge key={dish} variant="secondary" className="text-label">
                         {dish}
                       </Badge>
                     ))}

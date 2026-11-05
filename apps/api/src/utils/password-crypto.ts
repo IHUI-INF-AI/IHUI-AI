@@ -110,6 +110,11 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
+ * 登录口令的"等代价 + 等形状"出口已拆到 `utils/login-verify.ts`(2026-11-01):
+ * 本仓有 6 份测试整片替换本模块,新增导出会把它们全部打成 `undefined` 调用(实测
+ * tests/success-paths.test.ts 三条登录用例因此从 200/401 翻成 500)。编排层搬出去之后,
+ * 本模块继续只管哈希算法本身。
+/**
  * 判断密码哈希是否需要升级到 argon2id。
  * - bcrypt 哈希 → 需要升级
  * - argon2id 哈希 → 不需要升级

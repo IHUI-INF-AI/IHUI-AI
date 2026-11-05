@@ -80,7 +80,7 @@ export default function HistoryPage() {
             <History className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         {items.length > 0 && (
           <Button
@@ -107,7 +107,7 @@ export default function HistoryPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Search className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-2 rounded-lg border p-2">
@@ -122,7 +122,7 @@ export default function HistoryPage() {
                 className="min-w-0 flex-1 text-left"
               >
                 <p className="break-words text-body font-medium">{item.query}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-label text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))} ·{' '}
                   {t('resultCount', { count: item.resultsCount })}
                 </p>

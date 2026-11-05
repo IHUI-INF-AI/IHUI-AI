@@ -39,7 +39,7 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
 
   if (wfs.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
         {t('noData')}
       </div>
     )
@@ -72,11 +72,11 @@ export function WorkflowCardList({ wfs, isLoading, onItemClick }: Props) {
                 </span>
               </div>
               <CardTitle className="text-base">{w.name}</CardTitle>
-              <CardDescription className="line-clamp-2 break-words text-xs">
+              <CardDescription className="line-clamp-2 break-words text-label">
                 {w.description || '-'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3 pt-0 text-xs text-muted-foreground">
+            <CardContent className="min-[640px]:p-3 flex items-center justify-between p-3 pt-0 text-label text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Play className="h-3 w-3" />
                 {t('stepsCount', { count: stepCount })}

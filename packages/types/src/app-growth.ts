@@ -14,6 +14,7 @@
 import type { ReactNode } from 'react'
 import type { AppIcon, ListPaginationProps, TFunction } from './app-shared.js'
 import type { PromotionCoupon } from './app-commerce.js'
+import type { OnNavigate, OnToast } from './app-host-ports.js'
 
 // ============================================================
 // 第三批共享屏类型(2026-07-29):PointHistory/NoteList/ArticleList/
@@ -100,6 +101,8 @@ export interface VipCompareScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
 }
 
 /** 分享生成结果(平台注入,字段对齐 mobile-rn ShareScreen ShareResp) */
@@ -262,6 +265,10 @@ export interface VipScreenProps {
    * 无则保持原有等级列表结构不变 —— 全部可选是为 RN 现有调用点零回归。
    */
   benefitItems?: VipBenefitCardItem[]
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
@@ -288,10 +295,13 @@ export interface PointsRecordScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo) */
+/** 邀请信息(对齐 mobile-rn InviteScreen InviteInfo)
+ *  inviteUrl 可选:现无任何端点下发邀请链接(/distribution/invite-info 也回 null),
+ *  端上用 inviteCode 按既有模式(mobile-rn DistributionScreen)拼 /register?inviteCode=;
+ *  无 inviteCode 时字段缺省,不造空串。 */
 export interface InviteInfo {
   inviteCode: string
-  inviteUrl: string
+  inviteUrl?: string
   totalInvited: number
   totalReward: number
 }
@@ -299,8 +309,10 @@ export interface InviteRecordItem {
   id: string
   nickname: string
   invitedAt: string
-  reward: number
-  status: 'pending' | 'completed'
+  /** 每条邀请的奖励:后端 /distribution/invited-users 不下发该字段 ⇒ 可选,缺失不渲染 */
+  reward?: number
+  /** 邀请状态:同上,不下发 ⇒ 可选,缺失不渲染徽章 */
+  status?: 'pending' | 'completed'
 }
 export interface InviteScreenProps {
   t: TFunction
@@ -339,6 +351,10 @@ export interface FollowScreenProps {
   onUnfollow: (item: FollowUserItem) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
+  onNavigate: OnNavigate
+  /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
+  onToast: OnToast
 }
 
 // ============ 批次 26-28(2026-07-29):分销/考试/财务/首页/实名/推广/招募/推荐/团队/视频/权益(12 屏迁移自 mobile-rn) ============
@@ -602,6 +618,20 @@ export interface TeamMember {
   relation: TeamRelation
 }
 
+/**
+ * 分销层级树节点(平台注入,字段对齐 api-client DistributionTreeNode;
+ * 后端递归最多 3 层,顶层 level=1)
+ */
+export interface TeamTreeNode {
+  id: string
+  username: string
+  nickname: string | null
+  avatar: string | null
+  createdAt: string
+  level: number
+  children?: TeamTreeNode[]
+}
+
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
   t: TFunction
@@ -620,6 +650,21 @@ export interface TeamScreenProps {
   keyword?: string
   /** 搜索关键词变更回调(由 wrapper 注入 state) */
   onKeywordChange?: (keyword: string) => void
+  /**
+   * 分销层级树(可选;未登录/无数据源时不传 ⇒ 不渲染树区块;
+   * 传空数组表示已登录但无下级,渲染空态)
+   */
+  tree?: TeamTreeNode[]
+  /** 层级树加载中(可选) */
+  treeLoading?: boolean
+  /** 层级树拉取失败(可选;失败只影响树区块,不动统计区与成员列表) */
+  treeFailed?: boolean
+  /** 后端下发的最深层级(可选,仅用于标题右侧层级提示) */
+  treeTotalLevels?: number
+  /** 层级树失败重试回调(可选,不传则不渲染重试按钮) */
+  onRetryTree?: () => void
+  /** 层级树节点点击回调(可选,不传则节点不可点击) */
+  onPressTreeMember?: (memberId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -628,7 +673,12 @@ export interface VipBenefitItem {
   id: string
   name: string
   desc: string
-  level: string
+  /** 等级徽标文案;缺省(小程序端 GET /member/benefits 无 level 字段)则不渲染徽标 */
+  level?: string
+  /** 文字类图标(emoji/短字符);与 iconUri 互斥,均缺省时不渲染图标 */
+  icon?: string
+  /** 图片类图标地址(小程序端后端会返回图片路径);与 icon 互斥 */
+  iconUri?: string
 }
 
 /** VipBenefitScreen props(平台无关,wrapper 注入数据+回调) */

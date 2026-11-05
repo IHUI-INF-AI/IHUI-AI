@@ -112,7 +112,7 @@ export default function MemberFeedbackPage() {
           <MessageSquare className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1">
@@ -145,7 +145,7 @@ export default function MemberFeedbackPage() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
             <MessageSquare className="h-8 w-8 text-muted-foreground opacity-40" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -154,7 +154,7 @@ export default function MemberFeedbackPage() {
                 <CardContent className="min-[640px]:p-3 space-y-1 p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                         {typeLabel[item.type] ?? item.type}
                       </span>
                       <span className="text-body font-medium">{item.title}</span>
@@ -168,13 +168,13 @@ export default function MemberFeedbackPage() {
                       {statusLabel[item.status]}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{item.content}</p>
+                  <p className="text-body text-muted-foreground">{item.content}</p>
                   {item.reply && (
-                    <p className="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+                    <p className="rounded bg-muted/40 px-2 py-1 text-label text-muted-foreground">
                       {t('replyLabel', { reply: item.reply })}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {dateFmt.format(new Date(item.createdAt))}
                   </p>
                 </CardContent>
@@ -187,11 +187,11 @@ export default function MemberFeedbackPage() {
           <CardContent className="min-[640px]:p-3 p-3">
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-xs">{t('fieldType')}</Label>
+                <Label className="text-label">{t('fieldType')}</Label>
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value as FeedbackType)}
-                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-sm"
+                  className="h-9 w-full rounded-sm border border-input bg-transparent px-3 text-body"
                 >
                   {Object.entries(typeLabel).map(([v, l]) => (
                     <option key={v} value={v}>
@@ -201,7 +201,7 @@ export default function MemberFeedbackPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('fieldTitle')}</Label>
+                <Label className="text-label">{t('fieldTitle')}</Label>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -210,18 +210,18 @@ export default function MemberFeedbackPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('fieldContent')}</Label>
+                <Label className="text-label">{t('fieldContent')}</Label>
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder={t('contentPlaceholder')}
                   required
                   rows={4}
-                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm"
+                  className="w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">{t('fieldContact')}</Label>
+                <Label className="text-label">{t('fieldContact')}</Label>
                 <Input
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}

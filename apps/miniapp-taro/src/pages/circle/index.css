@@ -23,7 +23,7 @@
   display: flex;
   gap: var(--spacing-sm);
   background: var(--color-card);
-  padding: var(--spacing-sm) 24rpx;
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 /* 对齐 RN tab:flex 1 / h 64 / 圆角 20 / bg surface.muted;active bg brand.DEFAULT */
@@ -43,7 +43,7 @@
 
 /* 对齐 RN tabText:13dp→26rpx / text.secondary;active 600 + surface.card */
 .ci-tab-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
@@ -61,7 +61,7 @@
 .ci-hottopic-list {
   display: inline-flex;
   align-items: center;
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   gap: var(--spacing-sm);
 }
 
@@ -71,7 +71,7 @@
   align-items: center;
   gap: 6rpx;
   height: var(--spacing-3xl);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-md);
   flex-shrink: 0;
@@ -86,7 +86,7 @@
 
 /* 对齐 RN topicName:13dp→26rpx / text.primary→foreground / maxWidth 240rpx */
 .ci-hottopic-name {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   max-width: 240rpx;
   overflow: hidden;
@@ -109,7 +109,7 @@
 .ci-users-list {
   display: inline-flex;
   align-items: stretch;
-  padding: 0 24rpx 20rpx;
+  padding: 0 var(--spacing-md) var(--spacing-sm-loose);
   gap: var(--spacing-sm);
 }
 
@@ -136,7 +136,7 @@
 
 /* 对齐 RN userName:13dp→26rpx / 600 / text.primary→foreground / maxWidth 180rpx */
 .ci-user-name {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 600;
   max-width: 180rpx;
@@ -163,7 +163,7 @@
   align-items: center;
   justify-content: center;
   margin-top: var(--spacing-xs);
-  padding: var(--spacing-xs) 28rpx;
+  padding: var(--spacing-xs) var(--spacing-md-loose);
   background: var(--color-brand);
   border-radius: var(--radius-xl);
 }
@@ -186,7 +186,7 @@
 
 /* ===== 帖子列表(对齐 RN listContent:padding 24 / pb 160(页面级) / gap 16) ===== */
 .ci-list {
-  padding: 0 24rpx 24rpx;
+  padding: 0 var(--spacing-md) var(--spacing-md);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
@@ -225,7 +225,7 @@
 /* 对齐 RN author:flex 1 / 13dp→26rpx / 500 / text.primary→foreground */
 .ci-author {
   flex: 1;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
   font-weight: 500;
   overflow: hidden;
@@ -251,7 +251,7 @@
 /* 对齐 RN content:13dp→26rpx / lineHeight 19dp→38rpx / text.secondary→muted-foreground / 3 行截断 */
 .ci-content {
   display: -webkit-box;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 38rpx;
   overflow: hidden;
@@ -321,7 +321,7 @@
 }
 
 .ci-empty-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
 }
 
@@ -330,14 +330,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) 40rpx;
+  padding: var(--spacing-sm) var(--spacing-xl);
   background: var(--color-brand);
   border-radius: var(--radius-sm);
 }
 
 /* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */
 .ci-empty-btn-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-card);
   font-weight: 600;
 }
@@ -353,13 +353,13 @@
 
 /* 对齐 RN errorText:13dp→26rpx / danger.DEFAULT→--color-danger */
 .ci-error-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-danger);
 }
 
 /* 对齐 RN retryText:13dp→26rpx / text.primary→foreground */
 .ci-error-retry {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-foreground);
 }
 
@@ -367,7 +367,7 @@
 .ci-status {
   display: block;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
   padding: var(--spacing-md) 0;
 }

@@ -69,7 +69,7 @@ import { FloatBox, ModelTypeButtonGroup } from '@/components'
 import SkillsPopup, { type AgentItem } from '@/components/SkillsPopup'
 import VoiceInput from '@/components/VoiceInput'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 const closeInputPng = aizhsUrl('remote-images/close_input.png')
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
@@ -79,6 +79,7 @@ import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 // 兜底模型的上下文容量按模型 id 取真实值(写死一个数会让广场/首页对非 128K 模型显示错误容量)
 import {
+  compactConversation,
   getModelContextCapacity,
   getMyCreation as fetchMyCreation,
   getAgents as fetchAgents,
@@ -90,6 +91,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { buildTaroWaitingText, deriveTaroWaitingTurn } from '@/pkg-ai/ai/waiting-text'
 
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 const DEFAULT_AVATAR = TABBAR_HOME_ICON_URL
 
@@ -261,11 +263,7 @@ function PushNotification() {
   useDidShow(() => {
     Taro.eventCenter.on('showPushNotification', (options: { title?: string; content?: string }) => {
       if (options?.title) {
-        Taro.showToast({
-          title: options.title,
-          icon: 'none',
-          duration: 3000,
-        })
+        onToast(options.title, { kind: 'info', duration: 3000 })
       }
     })
   })
@@ -575,6 +573,8 @@ export default function Index() {
   const [modelsLoading, setModelsLoading] = useState(false)
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
   const [inputText, setInputText] = useState('')
+  // 手动压缩上下文进行中(BottomActionBar 压缩入口的禁用/文案态)
+  const [compactingContext, setCompactingContext] = useState(false)
 
   const systemInfo = getSystemInfoCompat()
   const statusBarHeight = systemInfo.statusBarHeight || 20
@@ -984,9 +984,40 @@ export default function Index() {
     }))
   }
 
+  /** 手动压缩上下文(对标 CLI /compact):直接调 POST /api/chat/compact */
+  const handleCompactContext = async () => {
+    if (!state.isLogin) {
+      onToast(tt('index.toast.loginRequired', '请先登录'), { kind: 'error' })
+      return
+    }
+    if (compactingContext) return
+    if (!state.sessionId) {
+      onToast(tt('index.toast.compactNoSession', '请先发送一条消息'), { kind: 'info' })
+      return
+    }
+    setCompactingContext(true)
+    try {
+      const res = await compactConversation(state.sessionId)
+      if (!res.success) {
+        onToast(tt('index.toast.compactFailed', '压缩失败'), { kind: 'error' })
+        return
+      }
+      if (res.data?.compressed) {
+        onToast(tt('index.toast.compactDone', '上下文已压缩'), { kind: 'success' })
+      } else {
+        onToast(tt('index.toast.compactSkipped', '暂无可压缩的上下文'), { kind: 'info' })
+      }
+    } catch (err) {
+      console.error('[index] compact context failed', err)
+      onToast(tt('index.toast.compactFailed', '压缩失败'), { kind: 'error' })
+    } finally {
+      setCompactingContext(false)
+    }
+  }
+
   const handleSend = async (text: string) => {
     if (!state.isLogin) {
-      Taro.showToast({ title: tt('index.toast.loginRequired', '请先登录'), icon: 'none' })
+      onToast(tt('index.toast.loginRequired', '请先登录'), { kind: 'error' })
       return
     }
     if (!text.trim() || state.isStreaming) return
@@ -1063,7 +1094,7 @@ export default function Index() {
           streamingContent: '',
         }
       })
-      Taro.showToast({ title: tt('index.chatError', '发送失败,请重试'), icon: 'none' })
+      onToast(tt('index.chatError', '发送失败,请重试'), { kind: 'error' })
     }
   }
 
@@ -1163,7 +1194,7 @@ export default function Index() {
 
   const handleVoiceError = useCallback(
     (msg: string) => {
-      Taro.showToast({ title: msg || '录音失败', icon: 'none' })
+      onToast(msg || '录音失败', { kind: 'error' })
       exitVoiceMode()
     },
     [exitVoiceMode],
@@ -1535,9 +1566,8 @@ export default function Index() {
                         Taro.navigateTo({
                           url: `/pkg-ai/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
                           fail: () => {
-                            Taro.showToast({
-                              title: tt('pagesindexindex.text2', '智能体助手页未配置'),
-                              icon: 'none',
+                            onToast(tt('pagesindexindex.text2', '智能体助手页未配置'), {
+                              kind: 'error',
                             })
                           },
                         })
@@ -1682,7 +1712,11 @@ export default function Index() {
                 按住说话 → 走 streaming-recognizer 真流式识别 →
                 松手 onComplete 把文案回填输入框(handleVoiceComplete)。 */}
             {state.isVoiceInput && (
-              <View style={{ padding: '12rpx 20rpx 4rpx' }}>
+              <View
+                style={{
+                  padding: `${rpx(taroSpacing['xs-loose'])} ${rpx(taroSpacing['sm-loose'])} ${rpx(taroSpacing['2xs'])}`,
+                }}
+              >
                 <VoiceInput
                   placeholder={tt('ai.voice.holdToSpeak', '按住说话')}
                   onChange={handleVoiceChange}
@@ -1704,7 +1738,7 @@ export default function Index() {
               <BottomActionBar
                 variant="ai-home"
                 modelName={state.modelName}
-                showIconButtons
+                isShowIcon
                 isVoiceInput={state.isVoiceInput}
                 onVoiceInputToggle={toggleVoiceInput}
                 toggleButtons={state.toggleButtons}
@@ -1720,6 +1754,8 @@ export default function Index() {
                   onKeyboardHeightChange: handleKeyboardShow,
                 }}
                 onToggle={handleToggleButtonClick}
+                onCompactContext={() => void handleCompactContext()}
+                compactContextLoading={compactingContext}
               />
             </View>
           </View>
@@ -1802,10 +1838,7 @@ export default function Index() {
                   Taro.showActionSheet({
                     itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
                     success: () => {
-                      Taro.showToast({
-                        title: tt('pagesindexindex.save3', '图片已保存'),
-                        icon: 'success',
-                      })
+                      onToast(tt('pagesindexindex.save3', '图片已保存'), { kind: 'success' })
                     },
                     fail: () => {
                       // 用户取消操作

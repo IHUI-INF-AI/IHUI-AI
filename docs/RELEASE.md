@@ -63,14 +63,14 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | token 备份 | ✅ 已落盘 | `Get-ChildItem D:\DevEnv\secrets` | `npm-token-ihui-cli-2026-10-19.txt`(仓库外,不入 git;`~/.npmrc` 备份为 `~/.npmrc.bak`) |
 | token 写权限实测 | ✅ 通过(无 OTP 提示、无 403) | `npm dist-tag add ihui-cli@1.0.0 latest --registry=https://registry.npmjs.org/` | `npm warn dist-tag add latest is already set to version 1.0.0` |
 | token 包级写操作实测(deprecate) | ✅ 通过(无 OTP、无 403) | `npm deprecate ihui-cli@0.0.0-stage "staging placeholder, use 1.0.0" --registry=https://registry.npmjs.org/` | `npm notice deprecating ihui-cli@0.0.0-stage with message "staging placeholder, use 1.0.0"`;回读 `npm view ihui-cli@0.0.0-stage deprecated` → `staging placeholder, use 1.0.0` |
-| CI 发布 secrets | ⚠️ 部分未配置;npm 侧只需 `NPM_PUBLISH_TOKEN` | `gh secret list --repo IHUI-INF-AI/IHUI-AI`(先 `$env:GH_TOKEN=$null` 走 keyring) | 21 项:`ALERT_EMAIL_TO` / `DEPLOY_SSH_PRIVATE_KEY` / `DESKTOP_API_URL` / `DESKTOP_TAURI_KEY_PASSWORD` / `DESKTOP_TAURI_PRIVATE_KEY` / `GITCODE_OWNER` / `GITCODE_TOKEN` / `GITEE_OWNER` / `GITEE_TOKEN` / `NPM_BOOT_EMAIL` / `NPM_BOOT_PASSWORD` / `NPM_BOOT_PUBKEY` / `NPM_BOOT_USERNAME` / **`NPM_PUBLISH_TOKEN`(2026-10-19T03:04:21Z 已配)** / `NPM_WEB_PASSWORD` / `NPM_WEB_USERNAME` / `SIGNPATH_EMAIL` / `SMTP_HOST` / `SMTP_PASS` / `SMTP_PORT` / `SMTP_USER`;**无** `NPM_TOKEN` / `PYPI_TOKEN` / `MAVEN_*` / `NUGET_*`。注:`NPM_WEB_USERNAME` / `NPM_WEB_PASSWORD` 已于 2026-10-19 从 `npm-bootstrap.yml` 移除引用(`trusted_publisher` 分支删除),这两个 secret 成为无引用残留,可由 owner 可选删除。**2026-10-23 追加**:`GITCODE_OWNER` / `GITCODE_TOKEN` 也已成为无引用残留(GitCode 渠道整体弃用,`mirror-to-cn.yml` 已删除),可由 owner 删除;`GITEE_OWNER` / `GITEE_TOKEN` **仍在用**(桌面端安装包作为 Gitee release 附件分发,非代码镜像),不得删 |
+| CI 发布 secrets | ⚠️ 部分未配置;npm 侧只需 `NPM_PUBLISH_TOKEN` | `gh secret list --repo IHUI-INF-AI/IHUI-AI`(先 `$env:GH_TOKEN=$null` 走 keyring) | 21 项:`ALERT_EMAIL_TO` / `DEPLOY_SSH_PRIVATE_KEY` / `DESKTOP_API_URL` / `DESKTOP_TAURI_KEY_PASSWORD` / `DESKTOP_TAURI_PRIVATE_KEY` / `GITCODE_OWNER` / `GITCODE_TOKEN` / `GITEE_OWNER` / `GITEE_TOKEN` / `NPM_BOOT_EMAIL` / `NPM_BOOT_PASSWORD` / `NPM_BOOT_PUBKEY` / `NPM_BOOT_USERNAME` / **`NPM_PUBLISH_TOKEN`(2026-10-19T03:04:21Z 已配)** / `NPM_WEB_PASSWORD` / `NPM_WEB_USERNAME` / `SIGNPATH_EMAIL` / `SMTP_HOST` / `SMTP_PASS` / `SMTP_PORT` / `SMTP_USER`;**无** `NPM_TOKEN` / `PYPI_TOKEN` / `MAVEN_*` / `NUGET_*`。注:`NPM_WEB_USERNAME` / `NPM_WEB_PASSWORD` 已于 2026-10-19 从 `npm-bootstrap.yml` 移除引用(`trusted_publisher` 分支删除),这两个 secret 成为无引用残留,可由 owner 可选删除。**2026-10-23 追加**:`GITCODE_OWNER` / `GITCODE_TOKEN` 也已成为无引用残留(GitCode 渠道整体弃用,`mirror-to-cn.yml` 已删除),可由 owner 删除;`GITEE_OWNER` / `GITEE_TOKEN` 则于 2026-11-03 **复活为国内主通道**的发布凭据(`sync-gitee` / `backfill` 默认启用),不再是无引用残留 |
 | OIDC trusted publishing | ⛔ **不采用(用户定案:不要 2FA,不绑认证器)** | 历史实测:`npm trust github ihui-cli ...` | 曾返回 `403 Forbidden ... Two-factor authentication is required for this operation`。npm 已下线 TOTP 注册(`404 Adding a new TOTP 2FA is no longer supported.`),只剩 WebAuthn 安全密钥一条路。**用户明确拒绝,故永久放弃该通道,改用 token 发布** |
 | Trusted Publisher 网页登记实测 | ⛔ 已终止(用户不要 2FA,不再尝试) | `https://www.npmjs.com/package/ihui-cli/access` → Add Trusted Publisher | 2026-10-19 实测:表单可填可提交,但跳 `Confirm Password to Continue` 后直接落到 `/settings/ihui-ai/tfa` 要求加安全密钥,无邮箱 OTP 分支。**该路径按用户指示永久关闭** |
 | desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
 | 桌面端 updater 闭环 | ✅ 已验证(任务 2,2026-10-19) | 本机自装 0.1.76 全流程 | `checkForUpdate()` 拉 `aizhs.top/desktop-feed.json` → 比对版本 → 验签安装 → 重启,闭环绿 |
-| Android versionCode + 可上架 AAB | ✅ 已产出(任务 4,2026-10-19) | `apps/mobile-rn/android/app/.../gradle` `assembleRelease` | AAB 已落 `android/app/build/outputs/bundle/release/`,`versionCode` 由 `app.config.js` 号段派生 |
+| Android versionCode + 可上架 AAB | ⚠️ 号段在位、AAB **本机当前无产物**(2026-11-02 现读 `android/app/build/outputs/` 只有 `apk/{debug,release}`,无 `bundle/release`) | `apps/mobile-rn/android` 里 `./gradlew bundleRelease` | 10-19 那枚 AAB 是在 **EAS 云端**产出的(用 EAS 自动 keystore,与官网包不同源),不是本机产物 |
 | 小程序 weapp 产物 | ✅ 已构建(任务 3,2026-10-19) | `pnpm --filter @ihui/miniapp-taro build:weapp` | `apps/miniapp-taro/dist/` 全链 exit 0;上传密钥缺失待用户补 |
-| iOS 端 | ⏳ 工程侧全就绪,待用户侧 Apple Developer + EAS 登录 + AASA Team ID 占位替换(任务 6,2026-10-19) | `npx eas build -p ios` | 见下节「iOS 端可行性评估」 |
+| iOS 端 | ❓ **未判定**(2026-11-02 现读):EAS 身份已实测通(`eas whoami`=`ihui-ai`)、AASA 真 Team ID 已落地,但 ASC API 凭据未取到 ⇒ 提交无法验证 | `node scripts/release-mobile-rn.mjs --leg app-store --execute` | 见下节「iOS 端可行性评估」;旧行写的"待 Apple Developer + EAS 登录 + AASA 占位替换"三件里有两件已不成立 |
 
 **结论:`ihui-cli@1.0.0` 已真实发布并通过安装验证;npm 发布通道已定案为 granular token(`bypass_2fa`)。**
 **⛔ 用户明确指示:永久不启用 2FA、不绑定任何 WebAuthn 认证器,因此不登记 Trusted Publisher —— 此结论已定案,后续不得再提议或询问。**
@@ -397,14 +397,94 @@ sha256sum ihui-windows-x64.zip
 | 发布 | Chrome Web Store Developer Dashboard 手动上传 zip |
 | 审核 | Google 审核(1-7 天),首次审核较严 |
 
-### mobile-rn(EAS + App Store + Play Store)
+### mobile-rn(EAS 四条腿;唯一出口 = `scripts/release-mobile-rn.mjs`)
 
-| 平台 | 工具 | 命令 | 审核 |
-| --- | --- | --- | --- |
-| iOS + Android 构建 | EAS Build | `eas build --platform all` | — |
-| iOS 提交 | EAS Submit | `eas submit -p ios` | Apple 审核(1-3 天) |
-| Android 提交 | EAS Submit | `eas submit -p android` | Google 审核(1-4 小时) |
-| 配置 | `apps/mobile-rn/eas.json` | build / submit profile | — |
+**2026-11-02 实测现状**(读数全部来自当次 `eas channel:list` / `eas build:list` / androidpublisher v3 / `expo config --type public`,不是文档推断):
+
+| 腿 | 前置 | 现读状态 |
+| --- | --- | --- |
+| `site-apk` Android 官网包 | 正式 keystore + 站点落点 + `app_versions` 登记 | 签名件在位、线上 `android latest=0.0.9/26102816` 且 302 直链活着;**站点落点不在位**(生产签出副本 `ihui-prod` 在本机任何候选根都不存在)⇒ 下次出包会失败,先恢复落点 |
+| `play-aab` Google Play | 正式 keystore + SA + `eas.json` submit 段 | **应用与授权都成立**:`edits:begin` 回 200,`internal` 挂 `26101712 (0.0.5)[completed]`、`alpha` 挂 `0.0.6 (26101921)[completed]`,`production/beta` 空;listing 已有 zh-CN(标题"智汇AI",短 34B/全 411B) |
+| `app-store` iOS | Expo 身份 + Apple 凭据 | Expo 身份通、bundleId `ai.ihui.mobile` 在位;**Apple 凭据取不到**(密钥目录深 2 层无 `.p8`/`.mobileprovision`,本机无 Xcode)⇒ 只能走 EAS 云端构建,而 ASC 提交无凭据 |
+| `ota-*` EAS Update | Expo 身份 + 渠道 + runtimeVersion | **两条渠道都通**(`preview` 已发 1 条,`production` 于本轮创建并回读在位);runtimeVersion 已解耦(见下) |
+
+```bash
+node scripts/release-mobile-rn.mjs                      # 体检五腿(只读;现读凭据在不在位,取不到落 unjudged 不冒绿)
+node scripts/release-mobile-rn.mjs --ensure-channels    # 建缺失的 EAS 渠道
+node scripts/release-mobile-rn.mjs --stage-credentials  # SA key 落进 gitignored 槽位(先实测被忽略才落)
+node scripts/release-mobile-rn.mjs --diagnose-play      # 经本地代理读 Play 轨道/listing/授权(只读,edit 用完必删)
+node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明>"
+```
+
+**全平台发布矩阵(2026-11-02 现读;每格由 `release-mobile-rn.mjs` 与 `probe-store-channel.mjs` 当次量出,不是规划表)**
+
+| 平台 | 通道形态 | 提交物 | 签名件 | 凭据 | 通道证据 | 判定 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 自有站点 APK | 本机落 `deploy/server-root/…` + `app_versions` 登记 | ✅ `apk=87239461B` | ✅ | — | 线上 `android latest=0.0.9/26102816` 实测在位 | 阻塞:本机不承载生产 |
+| Google Play | 本机 `bundleRelease` + `eas submit` | 缺 AAB | ✅ | ✅ SA 已授权 | `edits:begin` 200;alpha 挂 `0.0.6/26101921` | 待量签名一致性 |
+| App Store / TestFlight | EAS 云端 build + submit | 需 iOS 产物 | — | ❌ ASC API 凭据未取到 | `eas build:list -p ios` 空 | 阻塞:凭据 |
+| EAS Update(两渠道) | `eas update --channel X --environment X` | ✅ JS bundle | — | ✅ token | **已端到端实证**:一次性分支发出 `✔ Published!`、runtime 读回 `0.0.5`,发后即删 | 通 |
+| 华为 AppGallery | AGC Publishing API | ✅ 同上 APK | ✅ | ⚠ 有一枚但**类型不对** | 端点**已证可达**:`ret.code=205524993 client token auth failed`;旁证 HMS OAuth 能签 token(len=104) | 差一枚 Connect API 客户端凭据 |
+| 小米应用商店 | `POST api.developer.xiaomi.com/devupload/dev/query`(只读探针)/ `dev/push`(传包) | ✅ 同上 APK | ✅ | ❌ 缺"接口私钥" | **端点已证可达**:`code=-20002 数字签名异常` ⇒ 对方在校验我们的签名 | 差一枚小米开发者站接口私钥(RSA SIG,非登录密码) |
+| 腾讯应用宝 | `POST p.open.qq.com/open_file/developer_api/query_app_detail` / `update_app` | ✅ | ✅ | ❌ 缺 access_secret | **端点已证可达**:`msg="请求参数user_id为空"` | 差 access_secret;**官方明写不支持新应用发布**(首包须后台手工上线) |
+| 荣耀应用市场 | OAuth2 `POST iam.developer.honor.com/auth/token` → `appmarket-openapi-drcn.cloud.honor.com/openapi/v1/publish/*` | ✅ | ✅ | ❌ 缺 Client ID/API 密钥 | **端点已证可达**:`http=401 Invalid client` | 差荣耀管理中心「开放能力→凭证」的 API 密钥;官方限流查询类 <3min/次 |
+| vivo 应用商店 | `POST developer-api.vivo.com.cn/router/rest`(method=`app.query.details`/`app.upload.file`) | ✅ | ✅ | ❌ 缺 access_key/secret | 对方应答但**未认本次 method**:`code=10010 此功能不存在` ⇒ 通道活着,调用形态未获背书 | 未判定(method 形态待用官方正文核) |
+| OPPO 开放平台 | token `GET oop-openapi-cn.heytapmobi.com/developer/v1/token`(出处在册) | ✅ | ✅ | ❌ 缺 client_id/secret | 传包端点**正文需登录**(文档返回 300005)⇒ 不猜端点,探测器零调用 | 未判定 |
+| ApkPure | **无官方开发者平台/API 可核实** | 不适用 | 不适用 | ❌ | 流传的"开发者入口/审核 1~5 工作日/VirusTotal"全部出自博客,按本仓纪律不当官方出处 | **不接入自动链路**(登记为 unverified);要接需先拿到官方正文 |
+| 魅族 / 中兴·努比亚 / 应用汇 | 仅网页后台(`open.flyme.cn`、`developer.nubia.com`、`dev.appchina.com`) | ✅ 同上 APK | ✅ | ❌ 各家开发者账号未在册 | 无公开 API;魅族《更换签名如何更新版本》要求**邮件申请**换签名 | 人工渠道:材料由 `prepare-store-bundle.mjs` 产出后后台提交 |
+| 百度手机助手 / 91 助手 | — | — | — | — | 91 助手 2025-09-27 停服、安卓市场早已下线 | **不列**(S4 锁住不得回流) |
+| 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
+
+**上架的法律级前置(2026-11-03 查得,优先级高于一切通道工作)**:工信部信管〔2023〕105 号第九条 ——
+**分发平台不得为未备案 App 提供分发**,省级通管局约 20 个工作日发备案号,且第八条要求 App 内标注备案号。
+本仓现读**取不到任何 App 备案号**(仓内无该字符串、站点 HTML 未带,而 `apps/api/src/routes/algorithm-record.ts`
+自述"不再展示本平台的虚假备案号")⇒ `prepare-store-bundle.mjs` 判 **unjudged**,并让所有 `needsIcpFiling`
+的国内店**不得报 ready**。备案号一旦拿到,登记到 `scripts/data/app-icp-filing.json`
+(需 `appFilingNumber`/`icpNumber` + `authority` + `verifiedAt` 三项齐,缺项仍判未判定)。
+
+**隐私政策与包内容双向不一致也已量出**:政策大篇幅写"个推公共库SDK(Gtc) 收集 IMEI/IMSI/MAC/应用列表"
+与"DCloud开发通用工具库",而 manifest / app 级 build.gradle / package.json 三面查无 ⇒ **过度声明**
+(疑似 uniapp 时代残留,该改政策);反向的"漏声明"更严重,判据两向都出。
+另 `SYSTEM_ALERT_WINDOW` 在包内 manifest 而全仓零引用 ⇒ 已由 `plugins/withPermissionPruning.cjs` 摘除
+(**上架前需跑一次 clean prebuild 复验**,本枚只验到纯函数行为与已挂载)。
+
+华为那条要说清一件事——**有凭据 ≠ 能上架**:`密钥/华为appid 密钥.txt`(字段=应用ID/密钥)是 **HMS 客户端凭据**——能过 `oauth-login.cloud.huawei.com` 换到 token,但 Publishing API 不认(`203890688 client id or secret error`)。自动化上架要的是**另一枚**:AGC「用户与权限 → Connect API → 创建 API 客户端」的 `client_id/client_secret`。探测纪律(锁在 `scripts/tests/release-mobile-rn.test.mjs` M14–M16):没凭据时也**只用占位签名打只读查询端点**
+(动作段含 upload/submit/audit/update 一律判违规),据此把"通道可达"与"有没有凭据"分成两格——
+否则就会把"我路径写错"读成"这家没开 API"(本票真踩过一次:404 HTML 是我把端点拼错,不是华为的答复)。
+各家端点与鉴权形态的**官方出处**逐条登记在 `scripts/probe-store-channel.mjs` 的 `CHANNELS[*].doc` 字段;
+核不到出处的(vivo 的 method、OPPO 的传包正文)一律判未判定,不发猜的 URL。
+
+> **两个结构性缺口(不在发布器射程,已在台账登记)**
+> ① `app_versions.platform` 枚举 = `ios/android/web/harmony/cli`,**没有 store 维度** ⇒ "华为一条 latest、小米一条 latest"在数据面上表达不出来;下载中心与端内更新卡因此只能给一个安卓地址。出路:一次加列迁移(`store`/`channel`),按迁移纪律走 `db:migrate` + 门 49 的 B1–B9 验证。
+> ② 下载中心 8 个入口(web/desktop/ios/android-apk/mobile/wechat-miniapp/extension/cli)**不含任何国内商店**,且访问 `/download/harmony` 会被**静默 fallback 成 desktop**(`apps/web/app/(main)/download/[platform]/DownloadDetailContent.tsx:107`)——静默错配比 404 更坏:用户会以为鸿蒙版就是那个包。
+> **runtimeVersion 曾是 OTA 腿的隐性断点(2026-11-02 修)**:旧形态 `app.json` 里 `runtimeVersion.policy = "appVersion"`,读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被 CI 每次构建注入成 `<base>.<UTC YYYYMMDD>` ⇒ 桶随构建漂移。实测后果:10-27 那条 OTA 落在 runtime `0.0.8`,而线上最新包是 `0.0.9` ⇒ **发出去的更新对任何已装用户永久不可达**,而账面 `eas update` 是成功的。现在桶锚在 `package.json` 基座版本(只在真正重打原生包时抬),判据与反例锁在 `scripts/tests/release-mobile-rn.test.mjs` M6。
+>
+> **Play 腿签名身份必须三分，不能互校（2026-11-03 取证）**：官网/自建包由 `ihui-release.keystore` 签发，证书 SHA-256 `62:B0:FF:0E…`，这是**官网安装身份**；Play 在启用 App Signing 时另有两层——EAS 10-19 那枚 AAB 携带的是**上传密钥证书** `62:0C:C9:58…`（EAS 只登记 8 位前缀，不是完整指纹），最终交付 APK 由 **Play 应用签名证书**签发，当前仓内无记录、公开 API 也读不到。`62:B0…` 与 `62:0C…` 分属安装身份层与上传层，**不可互校**：上传 key 本来就可以不同，只有应用签名证书决定 `zh.ai.sq` 能否跨渠道覆盖升级。`applications/{pkg}/appSigningInfo` 不是 Android Publisher v3 的方法（官方 `appsigning` 资源只有 `enrollApp` / `rotateAppSigningKey`），404 是路径错而非权限或应用状态；量取入口 = Play Console → 发布 → 设置 → 应用签名（读上传密钥证书与应用签名证书 SHA-256），或下载 Play 签名通用 APK 后 `apksigner verify --print-certs`。单源 `playUploadKeyCertSha256` / `playAppSigningCertSha256` 未实测前 `play-aab` 不得判 ready。
+>
+> **`eas.json` 的 `submit.production.android` 不得写 `packageName`**:eas-cli schema 回 `"submit.production.android.packageName" is not allowed`,而它一拒就顶掉**所有** eas 命令(连 `channel:list` 都退 1)。包名只从 `app.json` 的 `android.package` 读。回归锁 M4。
+
+#### Android 对外下载腿(站点 CDN;唯一真源 2026-11-03 立)
+
+| 项 | 口径 |
+| --- | --- |
+| 唯一真源 | `scripts/data/mobile-download-leg.json` 的 `downloadUrl`(站点 CDN 腿;本表不复制字面量,避免第二份地址) |
+| 页面取值 | `NEXT_PUBLIC_DOWNLOAD_APK_URL`,由 `deploy/scripts/prod-bundle/deploy.sh` 从单源写入;禁止各页面各写一份 URL |
+| 覆盖 | 部署机/联调可设 `IHUI_MOBILE_DOWNLOAD_URL`;不得写回仓库 |
+| 官网安装证书 | 只有持 `~/.android/ihui-release.keystore` 的机器能出;基准 `siteApkCertSha256` = `62:B0:FF:0E…`(hex `62b0ff0e950125230683aacfb5d0b110d93d30a229ca5df1950a572255b82514`);只校验官网 APK,不参与 Play 对账 |
+| CI | 私钥不进 GitHub Secrets ⇒ CI 永久只产 `ihui-ai-dev-<run>.apk/.aab`,不发布 Release 正式包 |
+| Play 上传证书 | `playUploadKeyCertSha256` 当前 `null`(未实测;EAS 10-19 AAB 只记录 `62:0C:C9:58…` 8 位前缀,不得冒充完整 hex);与官网 `62:B0…` 属上传层 vs 安装层,**不可互校** |
+| Play 应用签名证书 | `playAppSigningCertSha256` 当前 `null`(`playCertSource=unmeasured`);待 Play Console 量取,未登记前 `play-aab` 不得判 ready |
+| EAS | EAS AAB 携带的是上传 key 身份、不是官网安装身份;对齐前**禁止**其 AAB 对外分发 |
+| 发布 | `pwsh -File scripts/build-mobile-rn-release.ps1 ...`;第 5 步调 `publish-mobile-apk.mjs`,随后 `check-mobile-download-leg.mjs --apk` 复核 |
+| 门 | `node scripts/check-mobile-download-leg.mjs [--apk <APK>] [--download] [--json]`;退出码 0=ok / 1=fail / 2=skipped 或未判定(**skip 不是绿**) |
+| CI 门 | `.github/workflows/mobile-download-leg.yml`(`workflow_dispatch` + 每日定时;不跑 PR) |
+
+**手工上传(仅这一步需要人;不需 GitHub/keystore 凭据,只需生产签出副本的写权限)**:
+
+1. 把正式签名 APK 放到生产签出副本 `deploy/server-root/remote-images/download/ihui-ai-<version>-<versionCode>.apk`。
+2. 更新同目录 `ihui-ai-latest.apk.redirect.json` 的 `url`/`version`/`versionCode`/`size`/`sha256`/`publishedAt`(字段以 `publish-mobile-apk.mjs` 写出的为准)。
+3. 从公网回读 `…/ihui-ai-latest.apk` 必须是 302 → 新副本,且目标 `Content-Length` 等于 APK 实际字节数。
+4. 在持钥机器上跑 `node scripts/check-mobile-download-leg.mjs --apk <本地APK>`,必须 exit 0。
 
 > **Android 提交轨道 = 门槛命脉（2026-10-20 实测）**：`eas submit -p android` 落到哪条轨道完全由 `eas.json` 的 `submit.production.android.track` 决定，命令本身不说明。个人号"12 名测试员连续 14 天"的正式版门槛**只认封闭测试**，而封闭测试在 androidpublisher v3 里的轨道名是 **`alpha`**（公开测试 = `beta`；**不存在 `closed`/`open` 这两个 API 名**，问 `/tracks/closed` 必返 404，那不是"闭测没轨道"）。`track: "internal"` 的提交永远进不了门槛。
 >
@@ -421,35 +501,36 @@ sha256sum ihui-windows-x64.zip
 | `ios.associatedDomains`(applinks) | ✅ | `app.json` `applinks:aizhs.top` + `applinks:file.aizhs.top` |
 | `app.config.js` `buildNumber` 号段 | ✅ | UTC `YYMMDDHH` 8 位号段 `[26010100, 2100000000]`,`IHUI_VERSION_CODE` 覆盖口越界抛错 |
 | `eas.json` `build.production` | ✅ | `autoIncrement:true` + `android.buildType:apk`(iOS 不锁 apk) |
-| `eas.json` `submit.production` | ✅ | 空配置(全量平台) |
+| `eas.json` `submit.production` | ✅ | android 段已填(`track=alpha` + `serviceAccountKeyPath`,不得写 `packageName`);ios 段刻意留空——Apple 凭据未取到,不写跑不通的配置 |
 | 4 个 Expo config plugin | ✅ | `withWechat.cjs`(CFBundleURLTypes + AppDelegate WXApi 钩子)+ `withCarrier.cjs` + `withExpoImportFix.cjs` + `withSplash.cjs` |
 | `expo-notifications ~57.0.0` 已装 | ✅ | 推送能力就绪;`use-push.ts` 已注册到后端 `/push/devices/register` |
 | `assets/icon.png` / `splash-icon.png` / `adaptive-icon.png` | ✅ | `apps/mobile-rn/assets/` 就绪 |
-| Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association`(含 `TEAMID.ai.ihui.mobile` 占位) |
+| Apple AASA 源文件 | ✅ | `apps/mobile-rn/public/.well-known/apple-app-site-association` 已是**真 Team ID** `TKF3V7GG6T.ai.ihui.mobile`(2026-11-02 现读);线上 `https://file.aizhs.top/.well-known/…` 实测 200 + `application/json`(合规)。注意根域 `https://aizhs.top/.well-known/…` 回 308 ⇒ 苹果要求不允许 3xx,UL 只能走 `file.aizhs.top` 那条腿 |
 | 本地 `ios/` 原生目录 | ⚠️ 无 | 走 EAS 云端构建路径,**无需**本地 Xcode 工程;本地 debug 走 `eas build -p ios --profile development`(simulator) |
 
 **用户侧前置条件(全部在 agent 之外,需用户完成)**:
 
 | 项 | 说明 |
 | --- | --- |
-| ① Apple Developer 账号 | $99/年;[developer.apple.com](https://developer.apple.com/) 注册 |
-| ② EAS 登录 | `cd apps/mobile-rn && npx eas login`(Expo 账号 + Apple 开发者团队绑定) |
-| ③ Apple Team ID | Apple Developer 会员页 → Membership Details;用于替换 AASA 中的 `TEAMID` 占位 |
-| ④ AASA 文件部署 | ① 把 `apps/mobile-rn/public/.well-known/apple-app-site-association` 中的 `TEAMID.ai.ihui.mobile` 替换为 `<TeamID>.ai.ihui.mobile`;② 部署到 `https://file.aizhs.top/.well-known/apple-app-site-association`(HTTPS、Content-Type: application/json、<128KB、不允许 3xx) |
+| ① Apple Developer 账号 | 会员关系**已由证据侧证**:AASA 里落地的是真 Team ID `TKF3V7GG6T`(占位符不可能长这样),故不再是"待注册" |
+| ② EAS 登录 | **已通**(2026-11-02 实测):token 在 §5d 密钥目录,`eas whoami` = `ihui-ai`;CI 侧用 repository secret `EXPO_TOKEN`,不需交互 login |
+| ③ Apple Team ID | **已取到** = `TKF3V7GG6T`(已烘进 AASA 与线上部署,无需再动) |
+| ④ AASA 文件部署 | **已在位**:`https://file.aizhs.top/.well-known/apple-app-site-association` 实测 200 + `application/json`。仅剩一条已知不合规:根域 `aizhs.top` 那条腿回 308(苹果不允许 3xx)⇒ 微信 UL 与苹果 UL 都只认 `file.aizhs.top` |
 | ⑤ App Store 元数据 | App Store Connect 创建 App record(本地化、截图 6.7"/6.5"、描述、隐私政策 URL、关键词、类目、年龄分级);图标 1024×1024 |
 | ⑥ 推送证书(APNs) | 若启用 `expo-notifications`:App Store Connect → App → App Services → Push Notifications → 注册 APNs 证书;或 EAS 走 `eas build -p ios` 时上传 cert 到 EAS |
 | ⑦ 微信 Universal Link 域名 | `aizhs.top` / `file.aizhs.top` 域名 ICP 备案 + HTTPS 证书有效;微信开放平台移动应用注册时填 `https://aizhs.top`(与 `WX_UNIVERSAL_LINK` 一致) |
 
-**上架命令(用户侧动作)**:
+**iOS 提交出口**:`node scripts/release-mobile-rn.mjs --leg app-store --execute`(体检判 ready 才真跑)。
+旧文档在这里写的是 `npx eas login` + 裸 `eas build/submit` 三步"用户侧动作"——login 那步已被密钥目录里的
+token 取代(实测 `eas whoami` 通),而裸命令缺 `--non-interactive`/凭据接线,属跑不通的出路,已删。
+**可行性结论(2026-11-02 更正)**:工程侧就绪这一条成立,但**"可立即启动上架"当时是过度声明**——它把三件没量过的事写成了已备好:① EAS 登录(现已实测通:`eas whoami` = `ihui-ai`,token 走 §5d 密钥目录,无需交互 `eas login`);② Apple 凭据(**仍未取到** —— 密钥目录深 2 层无 `.p8`/`.mobileprovision`,Team ID `TKF3V7GG6T` 只能证明会员关系存在过,不能替代 ASC API key);③ Play 提交(现已实测通,且发现 alpha/internal 轨上早有 release)。所以 iOS 的真前置只剩 Apple 侧凭据一项,取到即可跑下面两条命令;取不到就停在"未判定",不得据此宣称就绪。
 
 ```bash
 cd apps/mobile-rn
-npx eas login                              # 首次
-npx eas build --platform ios --profile production
-npx eas submit -p ios                     # 走 App Store Connect
+EXPO_TOKEN=<密钥目录里的 expo key.txt 个人key> eas build -p ios --profile production --non-interactive
+EXPO_TOKEN=… eas submit -p ios -e production --auto-testflight-setup --non-interactive
+# 或者一律走唯一出口:node scripts/release-mobile-rn.mjs --leg app-store --execute
 ```
-
-**可行性结论**:工程侧全就绪,EAS 云端构建路径无阻塞;上架路径仅卡在用户侧 Apple Developer 账号 + EAS 登录 + AASA 占位替换 + 元数据补齐。**iOS 端无工程侧阻塞,可立即启动上架。**
 
 ### miniapp-taro(微信小程序审核)
 
@@ -504,7 +585,8 @@ matrix:
 
 Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免费开源代码签名:CLI 的 `ihui.exe`(在 `ihui-windows-*.zip` 内)与桌面端的 NSIS 安装包(`*-setup.exe`)。证书由 Sectigo CA 签发,私钥保存在 SignPath HSM,不落到 CI。下载页与 README 已包含 SignPath Foundation 声明。
 
-> **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: build)在替换之后聚合,顺序正确;`sync-gitee` / `sync-downloads` 同理取替换后的资产。
+D
+> **桌面端一条独有约束(改这条链前必读)**:Tauri 自动更新用 minisign `.sig` 校验安装包**字节**,而 Authenticode 签名会改字节 ⇒ `release-desktop.yml` 的签名步在覆盖安装包后**必须**就地 `tauri signer sign` 重算同名 `.sig`,重算失败即硬失败。让 `.sig` 停在旧字节上的后果是全部已装客户端自动更新失败,比不签名严重。`latest.json` 由 `publish-updater-json`(needs: `[build, signature-gate]`,即签名门禁通过后才允许更新)在替换之后聚合,顺序正确;`sync-downloads` 同理取替换后的资产；`sync-gitee` 已于 2026-11-03 下线(Gitee 仓为空仓、桌面直链已切 GitHub),不再参与发版链。
 
 **当前状态(2026-10-20)**
 
@@ -515,7 +597,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 | 确认邮件 | ✅ 2026-10-20 12:40 收到 `SignPath Foundation Team <oss-support@signpath.org>` 的主题「Open Source Project Submitted」,正文确认已收到申请并将在 next few business days 内联系 |
 | 费用 / 证书 | 免费;Sectigo CA 签发 |
 | 私钥 | 由 SignPath HSM 保管,CI 只持短期凭据 |
-| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`,凭据未齐时整体跳过、不影响现有发布);⏳ 等申请通过并配齐四项 secret 后跑一次真发版,核对签名链与 `latest.json` 配对 |
+| CI 集成 | ✅ 代码面已接入(`release-cli.yml` + `release-desktop.yml`)。⚠️ **凭据未齐时不再"不影响发布"**:签名步会整体跳过,但桌面端 `signature-gate` 会判红、`latest.json` 不更新(已装客户端不会收到未签名包,GitHub Release 里仍可能留有未签名资产)。申请与配置逐步见 [docs/DESKTOP_CODE_SIGNING.md](./DESKTOP_CODE_SIGNING.md);⏳ 等申请通过并配齐凭据后跑一次真发版,核对签名链与 `latest.json` 配对 |
 
 > **2026-10-20 状态更正与提交留痕**:此前本文写的「2026-10-18 已提交」与「2026-10-19 已邮件回复声誉问询」没有提交凭据或邮件凭据(QQ 邮箱收件箱、垃圾箱、已删除与已发送均无 SignPath/HubSpot 来信);2026-10-20 12:40 已实际提交成功并收到上述确认邮件。
 
@@ -531,7 +613,7 @@ Windows 上用户会下载到的两份二进制都走 SignPath Foundation 的免
 | MarkdownSkill 技能库收录 | https://www.markdownskill.com/skills/ihui-inf-ai-ihui-ai |
 | Bilibili 开源公告 | https://m.bilibili.com/opus/1227375741989027847 |
 
-**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets;**名字以 workflow 实读为准** —— 两条链读同一组四个,缺任一项则签名步整体跳过、发布仍为未签名产物且不报错):
+**审批通过后需要的凭据**(配置在 GitHub 仓库 secrets;**名字以 workflow 实读为准** —— 两条链读同一组四个,缺任一项则签名步整体跳过;**桌面端缺凭据会被 `signature-gate` 判红且 `latest.json` 不更新**,CLI 链则不红。Windows 与 macOS 逐项申报步骤见 [docs/DESKTOP_CODE_SIGNING.md](./DESKTOP_CODE_SIGNING.md)):
 
 | Secret | 内容 |
 | --- | --- |
@@ -770,8 +852,20 @@ git branch -d hotfix/v1.2.4
      否则 Release 已经上线、而 `desktop-feed.json` 仍吐旧版本。
      下载页快照由 `resolve-desktop-download.mjs` 在 `release-desktop.yml` 与每日 `sync-downloads.yml` 两处
      **重生成**(2026-10-17 起 CI 只上传产物、不再自动提交回 main,入库需人工提交);
-     Windows 包直链走 **Gitee 国内发行**,但自 2026-10-18 起必须先按 Content-Length 与 GitHub 资产 size
-     **逐字节对账**才准改用 —— 同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
+     桌面资产的两条腿**分两层**落地(2026-11-04 起,此前这段写的是意图、实现只做到一半):
+     1. **数据层(feed / `/downloads.json`)**:仅当 Gitee 资产存在且 Content-Length 与 GitHub 原件 size
+        **逐字节对账一致**时才把 `href` 换成 Gitee 直链,否则保持 GitHub release 原始 URL 并写告警 ——
+        同名不等于同物(0.1.75 实锤:同名差 4,173 字节 ⇒ 客户端下载成功而验签必失败)。
+        这一层的产物**必须仍是绝对直链**:更新器 host 白名单只认 `{github.com, gitee.com}`
+        (`scripts/lib/tauri-updater-platforms.mjs`),站点同源路径会把它判成不可用。
+     2. **地域层(人在下载页上点的那一下)**:桌面按钮指向同源解析器 `GET /dl/desktop?file=<资产文件名>`
+        (`apps/web/app/dl/desktop/route.ts` + 判据 `apps/web/src/lib/desktop-download-leg.ts`),
+        由它按访客地域 302:**确认在海外 ⇒ GitHub 权威腿;国内或地域信号取不到 ⇒ Gitee(且仍要过字节对账)**。
+        三条硬约束:① 请求里只有一个过字符集白名单的**文件名**,两条腿的 URL 全部由服务端从
+        live release 的 tag 构造 ⇒ 结构上没有开放重定向输入面,落点仍显式交 `allowedOrigins`(门 278);
+        ② 响应 `private, no-store` ⇒ 地域决策不进 CDN 缓存,不会把"国内腿"缓存到海外边缘;
+        ③ 地域信号取不到时**保持现状**(站点入口换过三层,只认 `cf-ipcountry` 会在换入口当天
+        把全部国内访客静默推去 GitHub 直连)。
      (原第 2 条 GitHub `desktop-updater-feed/latest.json` 回退端点已删除——它只由 CI 维护、
      本机发版通道无 GH_TOKEN,属"看似有兜底、实际随发布路径分叉"的假能力。)
 
@@ -790,7 +884,7 @@ git branch -d hotfix/v1.2.4
   > ✅ **主端点缺 mac/linux 键已修(2026-09-24)**:站点 feed 的 `platforms` 不再由 route 自己
   > `find(a => /Windows/i.test(a.format))` 拼单键,而是输出快照的 `updaterPlatforms` 四键映射。
   > 平台推断/择优(`exe>msi`、`AppImage>deb>rpm`、universal 一次填 `darwin-x86_64`+`darwin-aarch64`)、
-  > 空签名不出键、URL host 白名单(`{github.com, gitee.com}`;2026-10-12 backfill 补齐后**四平台全部放行** Gitee,口径见 `scripts/lib/tauri-updater-platforms.mjs` 的 `GITEE_ALLOWED_PLATFORMS`。旧句"mac/linux 只认 GitHub,因其 Gitee 直链实测 404"已随补齐失效,别再按它推理)
+  > 空签名不出键、URL host 白名单(`{github.com, gitee.com}`;2026-10-12 backfill 补齐后**四平台全部放行** Gitee,口径见 `scripts/lib/tauri-updater-platforms.mjs` 的 `GITEE_ALLOWED_PLATFORMS`。旧句"mac/linux 只认 GitHub,因其 Gitee 直链实测 404"已随补齐失效,别再按它推理;2026-11-03 复活:Gitee 为国内主通道,`gitee.com` 白名单恢复命中(仍只在字节对账通过时改写))
   > 全部收在唯一真相源 `scripts/lib/tauri-updater-platforms.mjs`,CI 的 `generate-latest-json.mjs`
   > 与快照生成器 `resolve-desktop-download.mjs` 共用它 —— 两条 feed 从此同源同形。
   > **macOS 绝不能用 `.dmg` 填 darwin 键**:dmg 不是可更新产物、没有配套 `.sig`(快照里 dmg 的 signature 恒为空串),
@@ -840,10 +934,18 @@ git push origin desktop-v0.1.15
 3. `release-desktop.yml` 自动执行:3 个构建 job(windows-x64 / macos-universal / linux-x64;macOS universal 一份产物同时覆盖 Apple Silicon 与 Intel)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(仅上传到发版 Release;原"固定 feed tag `desktop-updater-feed`"上传已随 2026-10-05 兜底端点删除移除)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并作为 artifact 留档(2026-10-17 起 CI 不再自动提交回 main)
    - **注意**:exe/msi 不入库是 `.gitignore` 的决定(`apps/web/public/downloads/desktop/`),**不是**体积限制 —— 2026-10-18 现读 Windows 安装包约 10 MB(旧句"~230MB 超过 GitHub 单文件 100MB 限制"属 `offlineInstaller` 时代,枚 ac695ce9d7a 改回 embedBootstrapper 后已不成立)。
 4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 快照并作为 artifact 留档。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后仍需有人跑 `pnpm resolve:desktop-download` 并提交,下载页才会换到新版**(2026-10-17 起 CI 不再自动提交回 main,"自动更新、无需手动"那句已不成立)。
-5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 `sync-gitee` 把本次 exe 传到 Gitee 之后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),1:1 写入 `apps/web/src/config/desktop-latest.generated.ts`;唯一允许的改动是把 `platforms.windows-x86_64.url` 换成 Gitee 镜像直链,且改前必须按 Content-Length 与 GitHub 资产 size 对账(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收三条:① `version` 等于本次 tag 去掉 `desktop-v`;② Windows 直链的 Content-Length 等于 Release 里同名 `.exe` 的 size;③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同。改完提交并等 Web 部署生效。
+5. **烘焙更新器第一数据源(必做,漏做则 `/desktop-feed.json` 继续吐旧版)**:等 CI 的 build(含 SignPath 签名与 `.sig` 重算)产出后(**公开更新源只烘焙 CI 产出的包,SignPath 凭据齐备时会自动带 Authenticode**;本机 `release-desktop-local.mjs --allow-unsigned-upload` 的包只作审批前应急下载,不得烘焙进本文件),从**本次 Release** 取 `latest.json`(`gh release download desktop-vX.Y.Z -p latest.json -O .ihui-agent/tmp/latest.json`),再跑全平台烘焙:
+
+```bash
+export GITEE_OWNER=JLSLSSZWHYXGS_0   # 或 --gitee-owner;未设时从旧烘焙文件的 Gitee 直链派生
+node scripts/bake-desktop-latest.mjs --latest-json .ihui-agent/tmp/latest.json --tag desktop-vX.Y.Z --all-platforms --check  # 只读比对
+node scripts/bake-desktop-latest.mjs --latest-json .ihui-agent/tmp/latest.json --tag desktop-vX.Y.Z --all-platforms          # 写盘 + 水印
+```
+
+判据:逐平台按资产名取 GitHub Releases API 的 size,再 HEAD Gitee 直链;**只有 Gitee 附件存在且 Content-Length 与 GitHub 原件逐字节相等**才改写为 Gitee 直链,缺附件/字节不等/量不到 ⇒ 保留 GitHub 并告警 —— 禁止未对账就改写(同名不同字节 ⇒ 下载成功但验签必失败,0.1.75 已实锤)。验收四条:① `version` 等于本次 tag 去掉 `desktop-v`;② 被改写的平台 host=`gitee.com` 且字节等于 GitHub 原件,未改写的保持 `github.com`;③ 四平台 `signature` 与 Release 的 `latest.json` 逐字相同;④ `--check` exit 0。改完提交并等 Web 部署生效。
 6. 用户端:应用启动时 `checkForUpdate()` 拉唯一端点(`https://aizhs.top/desktop-feed.json`)的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
-> 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,默认拒绝上传 Gitee;确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
+> 本机 `scripts/release-desktop-local.mjs` 是 Windows 应急通道:它只做 Tauri 更新签名,不做 Authenticode,**默认上传 Gitee(国内主通道)**;本地验证必须显式 `--no-upload`,产物仅留本机。确需在 SignPath 审批前发未签名包,显式加 `--allow-unsigned-upload`,且该包不得烘焙进公开更新源。
 
 > 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
 

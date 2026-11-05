@@ -24,7 +24,15 @@ import {
   ToggleRight,
   Info,
 } from 'lucide-react'
-import { apiOrThrow } from '@/lib/api'
+import {
+  cancelWorkflowInstance,
+  deleteWorkflow,
+  getWorkflow,
+  listWorkflowInstances,
+  retryWorkflowInstance,
+  triggerWorkflow,
+  updateWorkflow,
+} from '@ihui/api-client'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -92,17 +100,25 @@ export default function WorkflowDetailPage() {
 
   const wfQ = useQuery({
     queryKey: ['workflows', id],
-    queryFn: () =>
-      apiOrThrow<{ workflow: Workflow }>(`/api/workflows/${id}`).then((d) => d.workflow),
+    queryFn: async () => {
+      const r = await getWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data.workflow
+    },
     enabled: allow,
   })
 
   const instQ = useQuery({
     queryKey: ['workflows', id, 'instances', instPage],
-    queryFn: () =>
-      apiOrThrow<{ list: Instance[]; total: number }>(
-        `/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`,
-      ).then((d) => d),
+    queryFn: async (): Promise<{ list: Instance[]; total: number }> => {
+      const r = await listWorkflowInstances({
+        workflowId: id,
+        page: instPage,
+        pageSize: INST_PAGE_SIZE,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { list: Instance[]; total: number }
+    },
     enabled: allow,
   })
 
@@ -111,26 +127,36 @@ export default function WorkflowDetailPage() {
   const instTotalPages = Math.ceil(instTotal / INST_PAGE_SIZE)
 
   const triggerMut = useMutation({
-    mutationFn: () => apiOrThrow(`/api/workflows/${id}/trigger`, { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await triggerWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const cancelMut = useMutation({
-    mutationFn: (iId: string) =>
-      apiOrThrow(`/api/workflows/instances/${iId}/cancel`, { method: 'POST' }),
+    mutationFn: async (iId: string) => {
+      const r = await cancelWorkflowInstance(iId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const retryMut = useMutation({
-    mutationFn: (iId: string) =>
-      apiOrThrow(`/api/workflows/instances/${iId}/retry`, { method: 'POST' }),
+    mutationFn: async (iId: string) => {
+      const r = await retryWorkflowInstance(iId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
 
   const saveStepsMut = useMutation({
-    mutationFn: (steps: WorkflowStep[]) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ steps }),
-      }),
+    mutationFn: async (steps: WorkflowStep[]) => {
+      const r = await updateWorkflow(id, { steps })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
       setEditStepsMode(false)
@@ -138,18 +164,22 @@ export default function WorkflowDetailPage() {
   })
 
   const toggleActiveMut = useMutation({
-    mutationFn: (isActive: boolean) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive }),
-      }),
+    mutationFn: async (isActive: boolean) => {
+      const r = await updateWorkflow(id, { isActive })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
     },
   })
 
   const deleteMut = useMutation({
-    mutationFn: () => apiOrThrow(`/api/workflows/${id}`, { method: 'DELETE' }),
+    mutationFn: async () => {
+      const r = await deleteWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       router.push('/workflows')
@@ -157,11 +187,11 @@ export default function WorkflowDetailPage() {
   })
 
   const saveInfoMut = useMutation({
-    mutationFn: (data: { name: string; description: string; triggerType: TriggerType }) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: { name: string; description: string; triggerType: TriggerType }) => {
+      const r = await updateWorkflow(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
       setEditInfoMode(false)
@@ -224,7 +254,7 @@ export default function WorkflowDetailPage() {
     )
   if (wfQ.error || !wfQ.data)
     return (
-      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="ui-card rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {(wfQ.error as Error)?.message ?? t('notFound')}
       </div>
     )
@@ -290,13 +320,13 @@ export default function WorkflowDetailPage() {
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 rows={2}
-                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex w-full rounded-sm border border-input bg-transparent px-3 py-2 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             <div className="space-y-2">
               <Label>{t('detail.triggerType')}</Label>
               <Select value={editTrigger} onValueChange={(v) => setEditTrigger(v as TriggerType)}>
-                <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                <SelectTrigger className="h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -342,7 +372,7 @@ export default function WorkflowDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/workflows')}
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -356,8 +386,8 @@ export default function WorkflowDetailPage() {
           </div>
           <div>
             <h1 className="text-heading font-bold tracking-tight">{wf.name}</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{wf.description || '-'}</p>
-            <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+            <p className="mt-0.5 text-body text-muted-foreground">{wf.description || '-'}</p>
+            <div className="mt-1.5 flex items-center gap-2 text-label text-muted-foreground">
               <Zap className="h-3.5 w-3.5" />
               {t(TRIGGER_KEYS[wf.triggerType] ?? 'triggers.unknown')}
               <span
@@ -410,17 +440,17 @@ export default function WorkflowDetailPage() {
           </Button>
         </div>
         {triggerMut.isError && (
-          <div className="w-full text-xs text-destructive">
+          <div className="w-full text-label text-destructive">
             {(triggerMut.error as Error).message}
           </div>
         )}
         {toggleActiveMut.isError && (
-          <div className="w-full text-xs text-destructive">
+          <div className="w-full text-label text-destructive">
             {(toggleActiveMut.error as Error).message}
           </div>
         )}
         {saveInfoMut.isError && (
-          <div className="w-full text-xs text-destructive">
+          <div className="w-full text-label text-destructive">
             {(saveInfoMut.error as Error).message}
           </div>
         )}
@@ -459,7 +489,7 @@ export default function WorkflowDetailPage() {
               {t('loading')}
             </div>
           ) : insts.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
               {t('detail.noInstances')}
             </div>
           ) : (
@@ -477,7 +507,7 @@ export default function WorkflowDetailPage() {
                   >
                     {t(INSTANCE_STATUS_KEYS[i.status] ?? 'instanceStatus.unknown')}
                   </span>
-                  <div className="min-w-0 flex-1 text-xs text-muted-foreground">
+                  <div className="min-w-0 flex-1 text-label text-muted-foreground">
                     <div>
                       {t('detail.startedAt')}: {fmt(i.startedAt)}
                     </div>
@@ -535,7 +565,7 @@ export default function WorkflowDetailPage() {
                   >
                     {t('prev') ?? '上一页'}
                   </Button>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {instPage} / {instTotalPages}
                   </span>
                   <Button
@@ -581,7 +611,7 @@ export default function WorkflowDetailPage() {
               </div>
             </div>
             {saveStepsMut.isError && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {(saveStepsMut.error as Error).message}
               </div>
             )}

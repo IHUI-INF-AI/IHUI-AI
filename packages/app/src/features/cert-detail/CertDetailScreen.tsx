@@ -26,8 +26,9 @@ export function CertDetailScreen({
   error,
   onBack,
   onVerify,
-  colorScheme = 'light',
-}: CertDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: CertDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -45,7 +46,7 @@ export function CertDetailScreen({
         {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
         <ErrorState
           message={error || t('certDetail.loadFailed')}
-          onRetry={onBack}
+          onRetry={onRetry}
           retryLabel={t('common.back')}
           colorScheme={colorScheme}
         />

@@ -132,7 +132,7 @@ export default function RelayBenefitsPage() {
           <Gift className="h-6 w-6 text-primary" aria-hidden="true" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* 区块 1: 阶梯计价进度 */}
@@ -148,36 +148,36 @@ export default function RelayBenefitsPage() {
               onChange={(e) => setModel(e.target.value)}
               placeholder={t('tierModel')}
               aria-label={t('tierModel')}
-              className="h-8 w-36 text-xs"
+              className="h-8 w-36 text-label"
             />
           </div>
           {tierQ.isLoading && (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 py-4 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {t('loading')}
             </div>
           )}
           {tierQ.error && <Alert variant="danger" description={(tierQ.error as Error).message} />}
           {tier && tier.tiers.length === 0 && (
-            <p className="py-2 text-sm text-muted-foreground">{t('tierEmpty')}</p>
+            <p className="py-2 text-body text-muted-foreground">{t('tierEmpty')}</p>
           )}
           {tier && tier.tiers.length > 0 && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-3">
                 <div className="rounded-md bg-muted/50 p-2">
-                  <p className="text-xs text-muted-foreground">{t('tierCurrent')}</p>
+                  <p className="text-label text-muted-foreground">{t('tierCurrent')}</p>
                   <p className="mt-0.5 text-lg font-semibold tabular-nums">
                     {tier.currentTierMultiplier.toFixed(2)}x
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-2">
-                  <p className="text-xs text-muted-foreground">{t('tierUsed')}</p>
+                  <p className="text-label text-muted-foreground">{t('tierUsed')}</p>
                   <p className="mt-0.5 text-lg font-semibold tabular-nums">
                     {num.format(tier.currentTokens)}
                   </p>
                 </div>
                 <div className="rounded-md bg-muted/50 p-2">
-                  <p className="text-xs text-muted-foreground">{t('tierNext')}</p>
+                  <p className="text-label text-muted-foreground">{t('tierNext')}</p>
                   {tier.nextTier ? (
                     <p className="mt-0.5 text-body font-semibold tabular-nums">
                       {num.format(tier.nextTier.threshold)} → {tier.nextTier.multiplier.toFixed(2)}x
@@ -192,7 +192,7 @@ export default function RelayBenefitsPage() {
                   <div className="h-2 w-full overflow-hidden rounded-xs bg-muted">
                     <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-label text-muted-foreground">
                     {t('tierNextHint', { tokens: num.format(tier.nextTier.tokensToNext) })}
                   </p>
                 </div>
@@ -237,12 +237,12 @@ export default function RelayBenefitsPage() {
           )}
           <p className="text-label font-medium text-muted-foreground">{t('couponList')}</p>
           {couponsQ.isLoading ? (
-            <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 py-3 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {t('loading')}
             </div>
           ) : (couponsQ.data?.list ?? []).length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">{t('couponEmpty')}</p>
+            <p className="py-3 text-body text-muted-foreground">{t('couponEmpty')}</p>
           ) : (
             <ul className="space-y-2">
               {(couponsQ.data?.list ?? []).map((c) => {
@@ -268,7 +268,7 @@ export default function RelayBenefitsPage() {
                   >
                     <div className="min-w-0">
                       <p className="truncate text-body font-medium">{ct.name}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
+                      <p className="mt-0.5 text-label text-muted-foreground">{desc}</p>
                     </div>
                     <span
                       className={

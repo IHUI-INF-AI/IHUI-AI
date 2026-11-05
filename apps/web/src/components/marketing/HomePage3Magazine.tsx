@@ -75,7 +75,7 @@ function HeroCard({ item, tag }: { item: NewsItem; tag: string }) {
         <h3 className="line-clamp-2 text-lg font-bold leading-tight text-white min-[1024px]:text-heading">
           {item.title}
         </h3>
-        <div className="flex items-center gap-2 text-xs text-white/85">
+        <div className="flex items-center gap-2 text-label text-white/85">
           <span className="truncate">{item.authorName || item.title}</span>
           {item.createdAt && (
             <>
@@ -126,9 +126,11 @@ function SideCard({ item, tag }: { item: NewsItem; tag: string }) {
         </span>
         <h3 className="line-clamp-2 text-label font-semibold leading-snug">{item.title}</h3>
         <div className="mt-auto flex items-center justify-between gap-1.5">
-          <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
+          <p className="truncate text-label text-muted-foreground">
+            {item.authorName || item.title}
+          </p>
           {item.createdAt && (
-            <time className="flex-shrink-0 text-xs text-muted-foreground/70">
+            <time className="flex-shrink-0 text-label text-muted-foreground/70">
               {formatDate(item.createdAt)}
             </time>
           )}
@@ -163,9 +165,11 @@ function MiniCard({ item }: { item: NewsItem }) {
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-2">
         <h4 className="line-clamp-2 text-label font-semibold leading-snug">{item.title}</h4>
         <div className="mt-auto flex items-center justify-between gap-1">
-          <p className="truncate text-xs text-muted-foreground">{item.authorName || item.title}</p>
+          <p className="truncate text-label text-muted-foreground">
+            {item.authorName || item.title}
+          </p>
           {item.createdAt && (
-            <time className="flex-shrink-0 text-xs text-muted-foreground/70">
+            <time className="flex-shrink-0 text-label text-muted-foreground/70">
               {formatDate(item.createdAt)}
             </time>
           )}
@@ -314,16 +318,18 @@ export function HomePage3Magazine() {
     <div className="flex flex-1 flex-col space-y-4">
       <header className="flex flex-col items-center gap-3 text-center">
         <div className="flex flex-col items-center gap-1">
-          <h2 className="text-display font-bold tracking-tight min-[768px]:text-3xl">{t('title')}</h2>
+          <h2 className="text-display font-bold tracking-tight min-[768px]:text-3xl">
+            {t('title')}
+          </h2>
           <h3 className="text-label font-medium uppercase tracking-[0.3em] text-muted-foreground/70">
             {t('titleEn')}
           </h3>
-          <p className="text-sm text-muted-foreground/80">{t('subtitle')}</p>
+          <p className="text-body text-muted-foreground/80">{t('subtitle')}</p>
           {/* 2026-08-12 新增:展示"今日精选 X 条 / 最后更新 Y 分钟前"
               headerMeta 来自 /api/admin/news status 端点(LLM 自动生成统计)。
               没数据(status 加载失败/无生成)时整段不渲染,保持视觉简洁。 */}
           {headerMeta && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+            <p className="flex items-center gap-1.5 text-label text-muted-foreground/70">
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
               <span>今日精选 {headerMeta.todayTotal} 条</span>
               <span className="text-muted-foreground/40">·</span>
@@ -352,7 +358,7 @@ export function HomePage3Magazine() {
       {isLoading ? (
         <Skeleton />
       ) : isError && items.length === 0 ? (
-        <Card className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+        <Card className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-body text-muted-foreground">
           <p>{t('error')}</p>
           <button
             type="button"
@@ -370,7 +376,7 @@ export function HomePage3Magazine() {
           </button>
         </Card>
       ) : items.length === 0 ? (
-        <Card className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+        <Card className="flex min-h-0 flex-1 items-center justify-center text-body text-muted-foreground">
           {t('empty')}
         </Card>
       ) : items.length < 3 ? (

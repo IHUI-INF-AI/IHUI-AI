@@ -21,7 +21,6 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -43,6 +42,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useClipboard } from '../hooks/use-clipboard'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Tappable } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -298,8 +298,8 @@ export default function ChatTemplatesScreen() {
         animationType="fade"
         onRequestClose={closePreview}
       >
-        <Pressable style={styles.overlay} onPress={closePreview}>
-          <Pressable style={styles.sheet} onPress={() => undefined}>
+        <Tappable style={styles.overlay} onPress={closePreview}>
+          <Tappable style={styles.sheet} onPress={() => undefined}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={2}>
                 {preview?.title ?? t('chatTemplates.previewTitle')}
@@ -333,8 +333,8 @@ export default function ChatTemplatesScreen() {
             >
               <Text style={styles.secondaryButtonText}>{t('chatTemplates.goChat')}</Text>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </Tappable>
+        </Tappable>
       </Modal>
     </View>
   )
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   header: { gap: rnSpacing['sm-loose'] },
-  subtitle: { fontSize: 13, color: tokens.text.secondary },
+  subtitle: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   input: {
     height: 42,
     paddingHorizontal: rnSpacing.md,
@@ -375,18 +375,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rnSpacing.sm,
   },
-  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 13, color: tokens.text.primary },
+  retryText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
   emptyBox: { alignItems: 'center', paddingVertical: rnSpacing['4xl'], gap: rnSpacing.sm },
-  emptyText: { fontSize: 13, color: tokens.text.secondary },
+  emptyText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   card: {
     padding: rnSpacing.lg,
     borderRadius: rnRadius.lg,

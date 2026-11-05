@@ -6,14 +6,16 @@
 // 立因:root-guard --check 只在运行时比工作树,「清单落后于已入库内容」能顺利进 HEAD,
 // 而三处签出(本机/生产/远端)的部署环会同时 fail-closed(2026-10-29/30 一夜复发两次的同一型)。
 // 本锁钉住:①一致判绿 ②改一字节即点名到 id ③取不到判未判定(不折绿也不折红)
-// ④必备目标缩水判红 ⑤未判定优先于红 ⑥零自写尺子 ⑦注册成套 ⑧两面旗同给退 2
-// ⑨自检器真跑通 ⑩门体带可解码水印。
+// ④必备目标缩水判红 ⑤未判定优先于红 ⑥零自写尺子 ⑦注册成套(含 git-guardian 射程) ⑧两面旗同给退 2
+// ⑨自检器真跑通 ⑩门体带可解码水印 ⑪巡检本体射程接线:暂存含 git-guardian 才触发 267,且 267 属元门档。
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 
 import { __test__ as GATE } from '../check-root-guard-consistency.mjs'
+import { isMetaGate } from '../lib/gate-scope.mjs'
+import { triggersTouch } from '../lib/guardian-triggers.mjs'
 
 /** 用门体自己的夹具造被审面内容与封条,readFile 走内存 ⇒ 不依赖真仓瞬时状态(不脆)。 */
 const ROOT_FAKE = '/fixture'
@@ -27,7 +29,11 @@ const readerFor = (contents) => (abs) => {
 
 const harness = ({ entryOverrides = {}, targets, missing = [], blind = false } = {}) => {
   const contents = GATE.fixtureFiles(entryOverrides)
-  const manifest = JSON.parse(GATE.manifestDoc(targets ?? GATE.baseManifestEntries()))
+  // 必备集 2026-11-04 扩容到 4 枚(git-guardian);夹具基线仍是门 267 射程核对用的原三枚,
+  // 故此处与门体自检同法显式追加,不把 ⑦ 的基线口径改掉。
+  const manifest = JSON.parse(
+    GATE.manifestDoc(targets ?? [...GATE.baseManifestEntries(), GATE.gitGuardianFixtureEntry()]),
+  )
   const read = readerFor(contents)
   // blind ⇒ 面上什么都取不到;missing=[后缀] ⇒ 只让命中的那份取不到(造"未判定与红并存")
   const readFile = blind
@@ -121,7 +127,7 @@ describe('守门 267:根护栏清单 ↔ 被审面内容对账', () => {
     assert.ok(trig, '缺 stagedTriggers ⇒ 提交通道与落地通道两义(守门 253)')
     const listed = [...trig[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
     assert.ok(listed.includes(GATE.MANIFEST_REL), `射程必须含清单本体,现有:${listed}`)
-    for (const t of GATE.baseManifestEntries()) {
+    for (const t of [...GATE.baseManifestEntries(), GATE.gitGuardianFixtureEntry()]) {
       assert.ok(
         listed.some((x) => t.path === x || t.path.startsWith(x) || x.startsWith(t.path)),
         `射程漏了被登记目标 ${t.id}:${t.path} —— 漏一个就是给那一路开后门`,
@@ -148,6 +154,34 @@ describe('守门 267:根护栏清单 ↔ 被审面内容对账', () => {
       { encoding: 'utf8' },
     )
     assert.equal(r.status, 0, r.stdout + r.stderr)
+  })
+
+  it('⑪ 巡检本体射程接线:暂存含 git-guardian 才触发 267,且 267 在本地元门档内', () => {
+    const runner = readFileSync('scripts/guardian-runner.mjs', 'utf8')
+    const at = runner.search(/script:\s*(['"])check-root-guard-consistency\.mjs\1/)
+    const block = runner.slice(Math.max(0, at - 900), at + 1500)
+    const trig = block.match(/stagedTriggers:\s*\[([\s\S]*?)\]/)
+    assert.ok(trig, '缺 stagedTriggers')
+    const listed = [...trig[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
+    assert.ok(listed.includes('scripts/git-guardian.mjs'), `射程必须含巡检本体,现有:${listed}`)
+    // 正面:暂存了巡检本体 ⇒ 本门必须被触发(否则"改它不重封"照旧只能在部署侧红)。
+    assert.equal(
+      triggersTouch(['scripts/git-guardian.mjs'], listed),
+      true,
+      '暂存含 git-guardian 却没触发 267',
+    )
+    // 反面:与根护栏无关的提交 ⇒ 不触发(不拖慢/不误伤)。
+    assert.equal(
+      triggersTouch(['scripts/check-ops-patrol.mjs'], listed),
+      false,
+      '无关路径误触发 267',
+    )
+    // 前置条件:本地 pre-commit 只跑元门档;267 不在档内 ⇒ stagedTriggers 补了也永远不会跑。
+    assert.equal(
+      isMetaGate({ script: 'check-root-guard-consistency.mjs' }),
+      true,
+      '267 未进元门档 ⇒ 本地提交口结构性不执行本门',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

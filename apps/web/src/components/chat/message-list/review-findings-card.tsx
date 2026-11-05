@@ -151,7 +151,7 @@ export function ReviewFindingsCard({
             data-severity={severity}
             className="ui-card min-w-0 rounded-lg px-3 py-2"
           >
-            <header className="flex items-center gap-1.5 text-xs">
+            <header className="flex items-center gap-1.5 text-label">
               <span
                 className={cn(
                   'shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none',
@@ -166,7 +166,7 @@ export function ReviewFindingsCard({
               {items.map((finding) => {
                 const location = reviewFindingLocation(finding)
                 return (
-                  <li key={finding.findingId} className="min-w-0 text-xs">
+                  <li key={finding.findingId} className="min-w-0 text-label">
                     <button
                       type="button"
                       onClick={() => openFinding(finding)}
@@ -219,3 +219,4 @@ export function ReviewFindingsCard({
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

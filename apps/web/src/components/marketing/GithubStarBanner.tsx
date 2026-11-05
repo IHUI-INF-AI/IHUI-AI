@@ -31,7 +31,7 @@ export function GithubStarBanner(): React.JSX.Element {
           href="https://github.com/IHUI-INF-AI/IHUI-AI/discussions"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
         >
           <MessageCircle className="h-3.5 w-3.5" />
           <span>社区讨论</span>
@@ -40,7 +40,7 @@ export function GithubStarBanner(): React.JSX.Element {
           href="https://github.com/e2b-dev/awesome-ai-agents/pull/1313"
           target="_blank"
           rel="noopener noreferrer"
-          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+          className="group inline-flex items-center gap-1.5 ui-control rounded-sm border bg-card px-2.5 py-1 text-label text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
         >
           <Star className="h-3.5 w-3.5" />
           <span>支持 awesome PR</span>
@@ -50,7 +50,7 @@ export function GithubStarBanner(): React.JSX.Element {
         href="https://aizhs.top"
         target="_blank"
         rel="noopener noreferrer"
-        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-accent-deep bg-card px-5 py-2.5 text-body font-semibold shadow-sm transition-all hover:scale-[1.02] hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
+        className="group inline-flex items-center justify-center gap-2 rounded-lg border-2 border-brand-accent-deep bg-card px-5 py-2.5 text-body font-semibold shadow-sm transition-all animate-[pulse_2s_ease-in-out_infinite] dark:shadow-primary/20"
       >
         <Image
           src="/images/logo.png?v=20261021"

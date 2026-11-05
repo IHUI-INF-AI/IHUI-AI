@@ -19,6 +19,8 @@
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+// 落库段窗口与失败身份判据单源(§0.6):三条同型腿不各写一份 120_000
+import { DB_WRITE_TIMEOUT_MS, stageFailureText } from './lib/sync-stage-timeouts.mjs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -76,7 +78,9 @@ export function buildPayload(extracted, heartbeatAt = null) {
     token: a.token,
     ...(a.refreshToken ? { refreshToken: a.refreshToken } : {}),
     ...(a.expiresAt ? { expiresAt: a.expiresAt } : {}),
-    ...(a.refreshExpiresAt ? { refreshExpiresAt: a.refreshExpiresAt } : {}),
+    ...(a.refreshTokenExpiresAt || a.refreshExpiresAt
+      ? { refreshExpiresAt: a.refreshTokenExpiresAt || a.refreshExpiresAt }
+      : {}),
     // 设备材料(2026-10-25):新版 ExchangeToken 用设备私钥签名换票;缺它池子只能走
     // 旧通道,桌面渠道签发的票会被 10101 拒。随会话一起回灌,池侧自愈。
     ...(a.deviceId ? { deviceId: a.deviceId } : {}),
@@ -118,7 +122,11 @@ function runSyncTs(payloadText, dryRun) {
     })
     let stdout = ''
     let stderr = ''
-    const timer = setTimeout(() => child.kill(), 120_000)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, DB_WRITE_TIMEOUT_MS)
     child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d))
     child.on('error', (e) => {
@@ -141,9 +149,17 @@ function runSyncTs(payloadText, dryRun) {
       resolve({
         code: signal ? 2 : (code ?? 2),
         json,
+        // 超时是一等读数:旧形态 `stderr || 退出码/信号` 会被 ts 脚本常态打的 db 噪音顶掉,
+        // 于是「本方等死它」与「它自己崩了」在账面上是同一句话(§0.3 两桶必须分开)。
         error: json
           ? null
-          : (stderr || `退出码 ${code ?? '?'}${signal ? ` 信号 ${signal}` : ''}`).slice(0, 300),
+          : stageFailureText({
+              timedOut,
+              signal,
+              code,
+              stderr,
+              limitMs: DB_WRITE_TIMEOUT_MS,
+            }).slice(0, 300),
       })
     })
     child.stdin.write(payloadText)

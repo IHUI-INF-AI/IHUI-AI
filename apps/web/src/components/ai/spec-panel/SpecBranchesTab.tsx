@@ -22,13 +22,13 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
           value={p.newBranchName}
           onChange={(e) => p.setNewBranchName(e.target.value)}
           placeholder={t('branchNamePlaceholder')}
-          className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+          className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
         />
         <Tooltip content={t('baselineVersion')}>
           <select
             value={p.branchBaseVersion}
             onChange={(e) => p.setBranchBaseVersion(e.target.value)}
-            className="h-7 rounded-sm border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+            className="h-7 rounded-sm border border-border bg-background px-1 text-label text-foreground focus:outline-none"
           >
             <option value="latest">最新</option>
             {p.history.map((h) => (
@@ -58,7 +58,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
         <button
           type="button"
           onClick={p.refreshBranches}
-          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+          className="flex shrink-0 whitespace-nowrap h-7 items-center gap-1 rounded-sm border border-border bg-background px-2 text-label text-foreground hover:bg-muted/60"
         >
           <History className="h-3 w-3" />
           <span>刷新</span>
@@ -186,7 +186,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground p-2">
+        <p className="text-label text-muted-foreground p-2">
           点击「创建分支」从当前 spec 派生新分支,支持 3-way merge + LLM 冲突解决
         </p>
       )}

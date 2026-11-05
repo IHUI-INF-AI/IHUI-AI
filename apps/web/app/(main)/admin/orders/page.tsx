@@ -35,7 +35,7 @@ export default function AdminOrdersPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">

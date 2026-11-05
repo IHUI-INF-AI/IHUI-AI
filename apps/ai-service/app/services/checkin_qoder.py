@@ -35,6 +35,9 @@ from typing import Any, Final
 
 import httpx
 
+# 时区唯一出口(本文件不自建第二份时区常量):日界判据必须与调度器/积分快照
+# 用的是同一个东八区,否则「今天」在两条路径上会悄悄漂开。
+from app.core.cn_time import CN_TZ as _CN_TZ
 from app.core.logging import get_logger
 from app.services.checkin_engine import DEFAULT_TIMEOUT, get_http_client
 from app.services.checkin_outbound import (
@@ -374,14 +377,45 @@ def qoder_classify_error(
 # ---------------------------------------------------------------------------
 
 
-def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[str, Any]], bool]:
-    """从 campaigns 列表提取 (可领列表, 是否存在本窗口已领记录)。
+def _cn_date(ts: float) -> datetime.date:
+    """epoch 秒 → Asia/Shanghai 自然日(日界判据的唯一换算点)。"""
+    return datetime.datetime.fromtimestamp(ts, tz=_CN_TZ).date()
 
-    可领 = actionType=="CLAIM_BENEFIT" 且 claimStatus=="CLAIMABLE";
-    已领 = claimStatus=="CLAIMED" 且 startAt<=now<endAt(本领取窗口内)。
+
+def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[str, Any]], bool]:
+    """从 campaigns 列表提取 (可领列表, 今日是否已领)。
+
+    可领 = actionType=="CLAIM_BENEFIT" 且 claimStatus=="CLAIMABLE"(判据不变);
+    今日已领 = claimStatus=="CLAIMED" **且** startAt<=now<endAt(落在本窗口内)
+    **且 startAt 所属 Asia/Shanghai 自然日 == now 所属自然日**。
+
+    第三条是本函数唯一的坑。Qoder 的领取窗口固定为「当天 10:00 → 次日 09:59」
+    (实测 campaigns 返回 startAt=1793498400 = 2026-11-01 10:00:00 +08、
+    endAt=1793584740 = 2026-11-02 09:59:00),即**一个窗口横跨两个自然日**。
+    于是只看「CLAIMED 且落在窗口内」时,任何在 00:00–09:59 之间跑的检查看到的
+    窗口内 CLAIMED 必然是**昨天 10:00 开的那一轮**,会被误判成「今天已领」。
+
+    实证(已落库,账号 13):2026-10-31 06:03 的 06:00 只读探针记
+    `skip_already / 今日已领取`,同日 10:06 的主签到却 `claim_ok / 领取成功 +100
+    Credits` —— 同一天既「已领」又「领到」,即前一条是误报。2026-11-01 06:00 同理:
+    那一刻 11-01 那一轮(startAt=1793498400)还没开窗,探针看到的是 10-31 10:00
+    开的那一轮(startAt=1793412000,窗口跨到 11-01 09:59)。误报的代价是探针把真实
+    状态写成已签,用户当天漏签不会被提醒。
+
+    为什么必须按**窗口起点**所属自然日判,而不是按 endAt 或「now 是否在 10:00 前」:
+    - campaignId 每天 10:00 换新,窗口起点就是这一轮的出生日,天然是「哪一天的量」
+      的唯一标识;endAt 次日 09:59 反而落在下一个自然日,拿它判会把昨天的量记到今天;
+    - 「now 早于 10:00 就一律不算已领」是拿本地时钟猜窗口形态,一旦上游把开窗时刻
+      改成 06:00 之类就全错;而比较两个 epoch 的东八区日期不依赖窗口的具体钟点。
+
+    反例保护(主签到 qoder_checkin_account):10:00 之后跑时 startAt 就是今天 10:00,
+    两侧自然日相同 ⇒ 仍判已领,行为与改前一致(不会变成重复领取)。
+
+    纯函数:不读 env、不打日志、不碰时钟(now 由调用方传入),两条路径共用同一判据。
     """
     claimable: list[dict[str, Any]] = []
     already = False
+    today = _cn_date(now)
     for c in campaigns:
         if not isinstance(c, dict) or c.get("actionType") != "CLAIM_BENEFIT":
             continue
@@ -391,7 +425,7 @@ def _claimable_campaigns(campaigns: list[Any], now: float) -> tuple[list[dict[st
             start = c.get("startAt")
             end = c.get("endAt")
             if isinstance(start, (int, float)) and isinstance(end, (int, float)):
-                if start <= now < end:
+                if start <= now < end and _cn_date(start) == today:
                     already = True
     return claimable, already
 
@@ -407,11 +441,14 @@ async def qoder_probe_status(
     """只读探针:GET campaigns(不 POST claim)按 claimStatus 判今日是否已领。
 
     返回 (ok, checked_in|None, credits|None, message)。已领判据与签到主路
-    同一函数 _claimable_campaigns(CLAIMED 且落在当前领取窗口内),
+    同一函数 _claimable_campaigns —— **CLAIMED 且落在当前领取窗口内,且窗口起点
+    与 now 同属 Asia/Shanghai 自然日**(只「落在窗口内」是不够的:窗口 10:00 →
+    次日 09:59 跨自然日,06:00 探到的窗口内 CLAIMED 必是昨天那一轮,详见
+    _claimable_campaigns 注释里的 2026-10-31 / 2026-11-01 误报实证)。
     **不发起任何领取请求,零副作用** —— 供 06:00 状态探针同步状态。
 
-    注:Qoder 领取窗口 10:00(UTC+8)才开放,06:00 探时活动常未下发 ⇒
-    claimable 空且未标已领,如实报「未签」(不误报已签,避免用户漏签)。
+    注:Qoder 领取窗口 10:00(UTC+8)才开放,06:00 探时今天那一轮尚未开窗 ⇒
+    claimable 空且今天无 CLAIMED,如实报「未签」(不误报已签,避免用户漏签)。
     """
     if not jwt:
         return False, None, None, "未配置 token"
@@ -443,6 +480,12 @@ async def qoder_checkin_account(
 
     流程:过期预检告警 → (即将过期且有 refreshToken 时自刷新) → GET campaigns →
     逐个 POST claim → 汇总 credits。新 token 写回 device_map(调用方持久化)。
+
+    「今日已领」的判据与只读探针同一函数 _claimable_campaigns:CLAIMED 且落在当前
+    窗口内,**且窗口起点与 now 同属 Asia/Shanghai 自然日**。本路径通常在 10:05 跑,
+    此时窗口起点就是今天 10:00 ⇒ 判据与旧口径等价(不会把昨天 10:00 那轮当今天已领
+    而跳过领取);若在 00:00–09:59 的补偿跑里看到昨天窗口的 CLAIMED,则视为未领,
+    照常进入 claim 流程(由服务端幂等兜底)。
     """
     result: dict[str, Any] = {
         "name": name,

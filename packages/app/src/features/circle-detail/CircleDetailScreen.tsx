@@ -31,8 +31,9 @@ export function CircleDetailScreen({
   onPressPost,
   onPressMembers,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: CircleDetailScreenProps) {
+}: CircleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -43,7 +44,7 @@ export function CircleDetailScreen({
     return (
       <ErrorState
         message={error || t('circleDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -104,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,

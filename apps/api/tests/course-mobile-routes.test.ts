@@ -262,7 +262,7 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
     for (const name of clientFiles) {
       const src = readFileSync(join(apiRoot, '../mobile-rn/src/screens', `${name}.tsx`), 'utf8')
       const stale = [...src.matchAll(/[`'"](\/api\/courses\/[^`'"\n]*)[`'"]/gu)]
-        .map((m) => m[1].replace(/\$\{[^}]*\}/gu, ':id'))
+        .map((m) => m[1]!.replace(/\$\{[^}]*\}/gu, ':id'))
         .filter((p) => /\/(catalog|chapters|comments)$/u.test(p))
       expect(
         stale,

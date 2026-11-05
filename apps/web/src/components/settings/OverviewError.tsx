@@ -21,11 +21,13 @@ export function OverviewError({ onRetry, message }: OverviewErrorProps) {
   return (
     <div className="flex flex-col items-center gap-2 py-4 text-center">
       <AlertTriangle className="h-5 w-5 text-destructive" />
-      <p className="text-sm text-muted-foreground">{message ?? '数据加载失败'}</p>
+      <p className="font-[weight:inherit] text-body text-muted-foreground">
+        {message ?? '数据加载失败'}
+      </p>
       <button
         type="button"
         onClick={onRetry}
-        className="flex items-center gap-1 rounded-md text-body font-medium text-primary transition-colors hover:text-primary/80"
+        className="flex items-center gap-1 rounded-sm text-body font-medium text-primary transition-colors hover:text-primary/80"
       >
         <RefreshCw className="h-3.5 w-3.5" />
         重试

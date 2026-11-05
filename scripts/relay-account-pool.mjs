@@ -39,6 +39,7 @@ const HELP = `反代账号池导入
     [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
+    [--owner <users.id>]                     导入为该用户的个人池(缺省 = 运营池;重导入个人池的号必须带,否则掉回运营池)
     [--json]                                 机器可读摘要(提取信息走 stderr)
 
 标准 JSON:{"accounts":[{"name":"...","token":"...","refreshToken":"...","enabled":true}]}
@@ -76,6 +77,20 @@ const FROM_PROVIDERS = Object.freeze({
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
+/**
+ * 帮助面(2026-11-05 收口):HELP 常量里手写的四条是**带前置说明**的那四条(需 pwsh / 需桌面在跑 /
+ * 用哪个 shell),其余平台的 `--from` 一律由 FROM_PROVIDERS 动态列出 —— 帮助文案自己抄一份清单,
+ * 就会在它落新平台时过期:实读本轮就有派单被这段旧文案误导,把「opencode 有提取通路」当成不存在。
+ * 同一份名单不留第二处(§0.6),新平台在此登记即自动出现在帮助面上。
+ */
+const HELP_WITH_NOTE = ['trae', 'workbuddy', 'qoder', 'codearts']
+function helpText() {
+  const rest = FROM_POOL_KEYS.filter((k) => !HELP_WITH_NOTE.includes(k))
+  if (rest.length === 0) return HELP
+  return `${HELP}
+  node scripts/relay-account-pool.mjs --from <${rest.join('|')}>   # 同名提取器已就位,前置条件见 FROM_PROVIDERS 头注`
+}
+
 function parseArgs(argv) {
   const options = {
     from: null,
@@ -85,6 +100,7 @@ function parseArgs(argv) {
     health: true,
     json: false,
     help: false,
+    owner: '',
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -95,7 +111,10 @@ function parseArgs(argv) {
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
     else if (arg === '--json') options.json = true
-    else return { options: null, error: `未知参数: ${arg}` }
+    else if (arg === '--owner') {
+      options.owner = (argv[++i] ?? '').trim()
+      if (!options.owner) return { options: null, error: '--owner 需要 users.id(不给 = 运营池)' }
+    } else return { options: null, error: `未知参数: ${arg}` }
   }
   if (options.help) return { options, error: null }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
@@ -134,6 +153,8 @@ function runImporter(payloadText, providerCode, options) {
   if (options.dryRun) args.push('--dry-run')
   if (!options.health) args.push('--no-health')
   if (options.json) args.push('--json')
+  // 归属出口:个人池的号重导入必须带 owner,否则服务层缺省 null 会把它打回运营池
+  if (options.owner) args.push('--owner', options.owner)
   return new Promise((resolve) => {
     const child = spawn(process.execPath, args, {
       cwd: API_DIR,
@@ -153,12 +174,12 @@ function runImporter(payloadText, providerCode, options) {
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.error) {
-    process.stderr.write(`❌ ${parsed.error}\n\n${HELP}\n`)
+    process.stderr.write(`❌ ${parsed.error}\n\n${helpText()}\n`)
     return 2
   }
   const options = parsed.options
   if (options.help) {
-    process.stdout.write(`${HELP}\n`)
+    process.stdout.write(`${helpText()}\n`)
     return 0
   }
 
@@ -281,14 +302,10 @@ async function main(argv) {
     // 2026-10-27 扩容八平台通用分支:提取器已在注册表登记 ⇒ 按 module/fn 动态分发。
     // 各平台 meta.sessions 形状不同 ⇒ 逐条 compact JSON 打印(提取器侧已保证零 token 回显)。
     const entry = FROM_PROVIDERS[options.from]
-    const mod = await import(
-      pathToFileURL(path.join(ROOT, 'scripts', 'lib', entry.module)).href
-    )
+    const mod = await import(pathToFileURL(path.join(ROOT, 'scripts', 'lib', entry.module)).href)
     const extractFn = mod[entry.fn]
     if (typeof extractFn !== 'function') {
-      process.stderr.write(
-        `❌ 提取器接线错误(未判定):${entry.module} 未导出 ${entry.fn}\n`,
-      )
+      process.stderr.write(`❌ 提取器接线错误(未判定):${entry.module} 未导出 ${entry.fn}\n`)
       return 2
     }
     let extracted

@@ -207,14 +207,18 @@ describe('词汇复用(零新造,逐值对单源)', () => {
     expect(TOOL_INVOCATION_LEDGER_OUTCOMES).toHaveLength(4)
     expect([...TOOL_INVOCATION_LEDGER_OUTCOMES].sort()).toEqual(
       [
-        ...new Set(cases.map((c) => toolInvokeAuditResult({ state: c.state, ok: c.ok } as never))),
+        ...new Set(
+          cases.map((c) =>
+            toolInvokeAuditResult({ state: c.state, ok: 'ok' in c ? c.ok : undefined } as never),
+          ),
+        ),
       ].sort(),
     )
     for (const c of cases) {
       const params: RecordAuditLogParams[] = []
       await recordToolInvocationLedger(
         { userId: USER_ID },
-        entry({ state: c.state, ok: c.ok }),
+        entry({ state: c.state, ok: 'ok' in c ? c.ok : undefined }),
         {},
         {
           writeChain: async (p) => {

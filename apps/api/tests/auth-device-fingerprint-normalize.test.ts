@@ -256,7 +256,7 @@ describe('G-642 接线:POST /api/auth/login 落库前归一', () => {
     expect(res.statusCode).toBe(200)
     expect(res.json().code).toBe(0)
     expect(state.inserted).toHaveLength(1)
-    expect(state.inserted[0].fingerprintHash).toBe(FP32)
+    expect(state.inserted[0]!.fingerprintHash).toBe(FP32)
   })
 
   it('纯空白 header ⇒ 完全不触发 insert(不得把 " " 当有效身份),登录不受影响', async () => {
@@ -277,7 +277,7 @@ describe('G-642 接线:POST /api/auth/login 落库前归一', () => {
     const res = await loginWithFingerprint(FP32)
     expect(res.statusCode).toBe(200)
     expect(state.inserted).toHaveLength(1)
-    expect(state.inserted[0].fingerprintHash).toBe(FP32)
+    expect(state.inserted[0]!.fingerprintHash).toBe(FP32)
   })
 
   it('回归对照:无 header ⇒ 不落库(既有行为不变)', async () => {

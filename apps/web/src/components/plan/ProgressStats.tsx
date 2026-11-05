@@ -32,7 +32,7 @@ export function ProgressStats({ stats, className, compact = false }: ProgressSta
         </span>
       </div>
       {!compact && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label">
           <StatDot color="bg-emerald-500" label="已完成" value={completed} />
           <StatDot color="bg-blue-500" label="进行中" value={inProgress} />
           <StatDot color="bg-rose-500" label="阻塞" value={blocked} />

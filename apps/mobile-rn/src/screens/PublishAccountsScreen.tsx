@@ -404,7 +404,7 @@ export default function PublishAccountsScreen() {
                   onPress={closePanel}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.outlineBtnText}>{t('publishAccounts.scanCancel')}</Text>
+                  <Text style={styles.outlineBtnText}>{t('publish.accounts.cancelScan')}</Text>
                 </TouchableOpacity>
               </View>
             ) : panel ? (
@@ -461,7 +461,7 @@ function makeStyles() {
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
@@ -489,7 +489,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
     },
     pillOn: { backgroundColor: tokens.success.light },
-    pillText: { fontSize: 10, color: tokens.text.secondary },
+    pillText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     pillTextOn: { color: tokens.success.deepText, fontWeight: '600' },
     stateBox: {
       alignItems: 'center',
@@ -500,7 +500,7 @@ function makeStyles() {
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',
@@ -530,7 +530,7 @@ function makeStyles() {
     qr: { width: 200, height: 200, borderRadius: rnRadius.md },
     outlineBtn: {
       height: 40,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
@@ -539,7 +539,7 @@ function makeStyles() {
       justifyContent: 'center',
       gap: rnSpacing['xs-loose'],
     },
-    outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    outlineBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -561,7 +561,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     disabled: { opacity: 0.5 },
   })
 }

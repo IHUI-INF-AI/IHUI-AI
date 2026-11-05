@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -36,13 +36,20 @@ const REPO = join(HERE, '..', '..')
 const SCRIPT_REL = 'scripts/check-plan-line-loss.mjs'
 const GIT = 'git'
 const git = (dir, ...args) =>
-  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
-    cwd: dir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    timeout: 60000,
-  })
+  // 身份两个键显式 -c:夹具仓是 `git init` 出来的新库,不继承本仓 local config;本机又没有
+  // global user.* ⇒ commit 会以 "Author identity unknown" 失败(2026-11-03 实测),红在环境
+  // 而不是被测判据上。夹具自己钉身份,与真仓/开发机配置解耦。
+  execFileSync(
+    GIT,
+    ['-c', 'safe.directory=*', '-c', 'user.name=plan-loss-fixture', '-c', 'user.email=fixture@e2e.local', ...args],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 60000,
+    },
+  )
 
 /**
  * 端到端夹具的装车面:复制**整条相对 import 闭包**,不是只复制入口那一个文件。
@@ -620,7 +627,6 @@ test('接线自检:脚本被复制进临时夹具仓(五处落点全不存在)�
     rmScratch(dir)
   }
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 取材面源码锁(2026-09-26):全量档曾把"待提交内容"取成工作树磁盘副本,于是它与任何提交
 // 都无关地报红,而它给的出路是"从 HEAD 取回再提交" —— 照做会覆盖别人未提交的在飞内容。
@@ -931,6 +937,141 @@ test('端到端(回捞侧两种处置):编号整体消失才回插;同编号仍�
   } finally {
     rmScratch(dirA)
     rmScratch(dirB)
+  }
+})
+
+// ── 点名器「缺 N 条」↔ multiSlot reportOnly 分流对齐(2026-11-04/w3 本票)───────────
+// 成对夹具,判据一律 import 源文件导出(§22c),不在此复制第二份 filter。
+// 现场:B31 是同号就地改写的旧形变体(multiSlot=true),不是丢行;照旧打进「缺 1 条」会诱使
+// 下一席补同号双行(触守门 203/130)。正向牙 = 真缺 1 条仍报「缺 1 条」且退出码不变。
+test('§22c 单源判据:splitByMultiSlot 真缺行 / 同号变体 / 未判定三态(摘掉过滤那行必翻红)', () => {
+  const rows = [
+    { marker: 'G-780 收口' },
+    { marker: 'B31 [auto-triage]', multiSlot: true },
+    { marker: 'D12 另一条真缺行' },
+  ]
+  const { real, variant } = G.splitByMultiSlot(rows)
+  assert.deepEqual(real.map((r) => r.marker), ['G-780 收口', 'D12 另一条真缺行'], '真缺行一条不减、不串档')
+  assert.deepEqual(variant.map((r) => r.marker), ['B31 [auto-triage]'], '同号变体必须进 variant')
+  assert.deepEqual(G.splitByMultiSlot([]), { real: [], variant: [] }, '枚举到 0 不写成"没问题"(§0.3)')
+  const und = G.splitByMultiSlot(null)
+  assert.equal(und.real, null, '取不到输入 ⇒ real 透传 null(未判定),绝不折成空数组')
+  assert.deepEqual(und.variant, [])
+})
+
+test('点名器成对(§0.10):真缺 1 条仍报「缺 1 条」;同号变体不进「缺 N」但必须单列点名', () => {
+  const mk = (marker, multiSlot) => ({ marker, multiSlot })
+  const legsOf = (head) => ({ disk: [], head, index: [], indexUndetermined: false })
+  // 正向:真缺 1 条(非 multiSlot)⇒ 分档总读数与点名行一字不改
+  const realRoster = G.healLegRoster(546, legsOf([mk('G-780 收口')]))
+  assert.match(realRoster[0], /HEAD 提交树缺 1 条/, '真缺行计数不得被消噪削减')
+  assert.ok(
+    realRoster.some((l) => l.includes('[点名/HEAD] 缺 1 条登记行') && l.includes('G-780 收口')),
+    '真缺行必须照旧逐条点名',
+  )
+  assert.ok(!realRoster.some((l) => l.includes('[同号变体/HEAD]')), '没有变体不得凭空打单列行')
+  // 反向:同号变体(B31 旧形)⇒ 不进「缺 N」,但必须单列一行点名到 marker
+  const varRoster = G.healLegRoster(546, legsOf([mk('B31 [auto-triage]', true)]))
+  assert.match(varRoster[0], /HEAD 提交树缺 0 条/, '同号变体必须从「缺 N 条」计数里剔除')
+  assert.ok(!varRoster.some((l) => l.includes('[点名/HEAD] 缺')), '变体不得再打进「缺 N 条」点名行')
+  const solo = varRoster.find((l) => l.includes('[同号变体/HEAD]'))
+  assert.ok(solo, '变体必须单列一行,不得静默省略(§0.10 "多要一次定向说明")')
+  assert.match(solo, /同号变体 1 条/)
+  assert.match(solo, /只报数不判缺/)
+  assert.match(solo, /B31 \[auto-triage\]/, '单列行必须逐条点名 marker')
+  assert.ok(!varRoster.some((l) => l.includes('无缺失')), '枚举到 0 不写成「没问题」(§0.3)')
+})
+
+test('端到端成对(点名器↔--heal 同形):真缺 1 条仍报「缺 1 条」且退出码 0 不变;同号变体只进单列行', () => {
+  const dirA = tempPlanRepo(V_MULTI)
+  const dirB = tempPlanRepo(V1)
+  try {
+    // 反向:工作树吞掉同编号第二处登记(O43_A 仍在 ⇒ multiSlot=true)
+    writeFileSync(join(dirA, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    const ra = runGate(dirA, ['--heal'])
+    assert.equal(ra.status, 0, `消噪不得改退出码,实得 ${ra.status}\n${ra.stdout}\n${ra.stderr}`)
+    assert.match(ra.stdout, /工作树副本缺 0 条/, '同号变体不得进「缺 N 条」')
+    assert.doesNotMatch(ra.stdout, /\[点名\/工作树\] 缺 \d+ 条/, '点名行不得再报变体缺行')
+    const solo = ra.stdout.split(/\r?\n/).find((l) => l.includes('[同号变体/工作树]'))
+    assert.ok(solo, '变体必须单列一行(不静默)')
+    assert.match(solo, /只报数不判缺/)
+    assert.match(solo, /O43/, '单列行必须点名 marker')
+    // 正向:整行真丢(标题被旧基线写回抹掉)⇒ 「缺 1 条」照旧,且回插成功
+    writeFileSync(join(dirB, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const rb = runGate(dirB, ['--heal'])
+    assert.equal(rb.status, 0, `真缺行退出码不得变,实得 ${rb.status}\n${rb.stdout}\n${rb.stderr}`)
+    assert.match(rb.stdout, /\[点名\/工作树\] 缺 1 条登记行/, '真缺 1 条仍必须报「缺 1 条」')
+    assert.match(rb.stdout, /工作树副本缺 1 条/, '分档总读数的真缺计数一字不改')
+    assert.ok(
+      readFileSync(join(dirB, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '真缺行照旧被回插(牙不放宽)',
+    )
+  } finally {
+    rmScratch(dirA)
+    rmScratch(dirB)
+  }
+})
+
+// ── 回捞侧两处 ⚠️「缺 N 条登记行」↔ splitByMultiSlot 分流对齐(2026-11-04/w8 补刀)────────
+// w3 本票只修了点名器(stdout [分档]/[点名/*]);heal() 回捞侧 stderr 三处 warn(工作区/HEAD/索引)
+// 仍拿原始 legs 直接计数,把 B31 那类同号变体打进「缺 1 条」。而 diskDoable/headDoable/indexMissing
+// 同时是回捞写盘/规模闸/早退/--commit/退出码的同源输入 ⇒ 不是纯渲染噪声,必须在源头按单源出口
+// splitByMultiSlot 分流(§0.6/§22c),不许在渲染层重写第二份 e.multiSlot 判据。
+// 摘掉分流(把 heal() 三档还原成 legs.X)下面两条 doesNotMatch 断言必翻红。
+test('回捞侧成对(§0.6/§22c/§0.10):真缺1条 stderr仍报「缺1条」且rc不变;同号变体不进「缺N」但可见', () => {
+  const dirVar = tempPlanRepo(V_MULTI) // disk 档吞掉同号第二处登记(O43_A 仍在 ⇒ multiSlot=true)
+  const dirReal = tempPlanRepo(V1) // 整行真丢(非 multiSlot)
+  try {
+    writeFileSync(join(dirVar, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    const rv = runGate(dirVar, ['--heal'])
+    assert.equal(rv.status, 0, `消噪不得改退出码,实得 ${rv.status}\n${rv.stdout}\n${rv.stderr}`)
+    assert.doesNotMatch(
+      rv.stderr,
+      /缺 \d+ 条登记行/,
+      '回捞侧 warn 不得再把同号变体打进「缺 N 条登记行」',
+    )
+    const solo = rv.stdout.split(/\r?\n/).find((l) => l.includes('[同号变体/工作树]'))
+    assert.ok(solo, '同号变体必须单列可见(§0.10 多要一次定向说明,不是静音)')
+    assert.match(solo, /O43/, '单列行必须逐条点名 marker')
+
+    writeFileSync(join(dirReal, 'PROJECT_PLAN.md'), STALE, 'utf8')
+    const rr = runGate(dirReal, ['--heal'])
+    assert.equal(rr.status, 0, `真缺行退出码不得变,实得 ${rr.status}\n${rr.stdout}\n${rr.stderr}`)
+    assert.match(rr.stderr, /工作区缺 1 条登记行/, '真缺 1 条回捞侧仍必须报「缺 1 条」')
+    assert.ok(
+      readFileSync(join(dirReal, 'PROJECT_PLAN.md'), 'utf8').includes(HEADING),
+      '真缺行照旧被回插(牙不放宽)',
+    )
+  } finally {
+    rmScratch(dirVar)
+    rmScratch(dirReal)
+  }
+})
+
+test('回捞侧 HEAD/索引两处(真仓 B31 同形):变体不进「缺 N」且 rc 0 不变,两档 stdout 单列可见', () => {
+  // 精确复现真仓现场:HEAD 与共享索引都只缺同号变体、工作区在位 ⇒ 改前 4257/4270 两处 warn
+  // 曾把 B31 打进「缺 1 条」。提交 V_MULTI(同号两处在)后,把 HEAD/索引一起推进到 STALE_MULTI
+  // (缺 O43_B),再把工作区写回 V_MULTI(只动工作区,不动 HEAD/索引)。
+  const dir = tempPlanRepo(V_MULTI)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), STALE_MULTI, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'drop O43_B (w8 夹具:HEAD/索引缺同号变体)')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), V_MULTI, 'utf8')
+    const r = runGate(dir, ['--heal'])
+    assert.equal(r.status, 0, `消噪不得改退出码,实得 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.doesNotMatch(
+      r.stderr,
+      /缺 \d+ 条登记行/,
+      'HEAD/索引两处 warn 不得再把同号变体打进「缺 N 条登记行」',
+    )
+    for (const label of ['HEAD', '索引']) {
+      const solo = r.stdout.split(/\r?\n/).find((l) => l.includes(`[同号变体/${label}]`))
+      assert.ok(solo, `${label} 档同号变体必须单列可见(§0.10)`)
+      assert.match(solo, /O43/, `${label} 档单列行必须逐条点名 marker`)
+    }
+  } finally {
+    rmScratch(dir)
   }
 })
 
@@ -2424,3 +2565,154 @@ test('单源形状锁:闸门只 import 复洁器那一份解析,门内不得长�
   assert.doesNotMatch(body, /JSON\.parse/, '闸门内不得另长一份 jsonl 解析器(§22c)')
   assert.doesNotMatch(body, /等条件|等环境|待拍板/, '闸门内不得长出桶正则(定罪尺只有一把)')
 })
+
+/**
+ * 同号多候选刹车(2026-11-03 立):旧 `healContent` 只问"目标面上还有没有同号",不问本批待回捞
+ * 集合内部同号 ⇒ 一次能把两行 `Z-1` 同时插回(`05af7e8c5d` / `9ae4f3bd0a` 实测)。这里钉四件:
+ *  ① 两条同号待回捞 ⇒ 拒绝自动回捞、逐变体点名、返回 refusedGroups;
+ *  ② 不给 --pick ⇒ 文件一个字节不动、CLI 非零退出;
+ *  ③ 越界 / 形态错的 --pick ⇒ 同样拒绝且非零,不静默回落;
+ *  ④ 给 --pick ⇒ 只插选定那一行,另一枚保持缺席。
+ */
+test('同号多候选:拒绝一次插两行;--pick 只插选定变体(--heal 端到端)', () => {
+  const VAR_A =
+    '- [ ] Z-1 变体甲:同一条登记的第一种写法,正文足够长以免被最短长度判据挡在射程之外。'
+  const VAR_B =
+    '- [ ] Z-1 变体乙:同一条登记的第二种写法,与甲只差题面后半句,正文同样足够长。'
+  // 规模安全闸取"缺失/扫描"比值 ⇒ 补足无关登记行,让 2 条缺失不占四成。
+  const FILLER = Array.from(
+    { length: 10 },
+    (_, i) =>
+      `- [ ] G-90${String(i).padStart(2, '0')} 无关登记行 ${i}:用来把缺失占比压到规模闸阈值以下,内容足够长。`,
+  )
+  const plan = ['# 计划', '', VAR_A, VAR_B, '', ...FILLER, ''].join('\n')
+  const stripped = plan
+    .split('\n')
+    .filter((l) => l !== VAR_A && l !== VAR_B)
+    .join('\n')
+  const dir = tempPlanRepo(plan)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), stripped, 'utf8')
+
+    // ①② 不给 --pick:拒绝该组、点名两个变体、文件不动、非零退出
+    const refused = runGate(dir, ['--heal'])
+    assert.equal(refused.status, 1, `同号多候选必须非零退出,实际 ${refused.status}\n${refused.stderr}`)
+    const out1 = `${refused.stdout}\n${refused.stderr}`
+    assert.match(out1, /同号多候选/, '必须点名"拒绝自动回捞"这一结论,不得静默跳过')
+    assert.match(out1, /Z-1/, '必须点名冲突编号')
+    assert.match(out1, /\[0\]/, '必须逐个变体给 variantIndex(0 基)')
+    assert.match(out1, /\[1\]/, '必须逐个变体给 variantIndex(0 基)')
+    assert.match(out1, /差异:/, '必须给差异摘要,否则人无从选')
+    assert.equal(readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'), stripped, '拒绝组一行都不许插')
+
+    // ④ 越界与形态错:拒绝 + 非零(2 是用法/未判定档),不得回落成"两枚都插"
+    const outOfRange = runGate(dir, ['--heal', '--pick', 'Z-1=9'])
+    assert.equal(outOfRange.status, 1)
+    assert.match(`${outOfRange.stdout}\n${outOfRange.stderr}`, /越界/)
+    const malformed = runGate(dir, ['--heal', '--pick', 'Z-1'])
+    assert.equal(malformed.status, 2)
+    assert.match(`${malformed.stdout}\n${malformed.stderr}`, /--pick 形态错/)
+    assert.ok(!readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8').includes(VAR_A), '同名两条都不得插回')
+
+    // ③ 显式 --pick 选第二枚:只插乙,甲保持缺席
+    const picked = runGate(dir, ['--heal', '--pick', 'Z-1=1'])
+    assert.equal(picked.status, 0, `--pick 选定后应 exit 0,实际 ${picked.status}\n${picked.stderr}`)
+    const healed = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.ok(healed.includes(VAR_B), '选定的变体必须插回')
+    assert.ok(!healed.includes(VAR_A), '未选定的同号变体必须保持缺席')
+    assert.equal(healed.split('\n').filter((l) => l.startsWith('- [ ] Z-1 ')).length, 1, '同号只许一行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('同号多候选(纯函数):refusedGroups 带行号与差异摘要;--pick Map 选一枚', () => {
+  const target = ['# 计划', '', '- [ ] Z-9 邻居行:锚点用途,正文足够长。', ''].join('\n')
+  const a = {
+    id: 'Z-1',
+    marker: 'Z-1 变体甲',
+    line: '- [ ] Z-1 变体甲:正文足够长以免被最短长度判据挡在射程之外。',
+    prev: '- [ ] Z-9 邻居行:锚点用途,正文足够长。',
+  }
+  const b = {
+    id: 'Z-1',
+    marker: 'Z-1 变体乙',
+    line: '- [ ] Z-1 变体乙:正文足够长,与甲只差题面后半句。',
+    prev: '- [ ] Z-9 邻居行:锚点用途,正文足够长。',
+  }
+  const refused = G.healContent(target, [a, b])
+  assert.equal(refused.inserted + refused.appended, 0)
+  assert.equal(refused.refusedGroups.length, 1)
+  assert.equal(refused.refusedRows, 2)
+  assert.equal(refused.refusedGroups[0].id, 'Z-1')
+  assert.deepEqual(
+    refused.refusedGroups[0].variants.map((v) => v.index),
+    [0, 1],
+  )
+  assert.equal(refused.refusedGroups[0].variants[0].anchorLine, 4, '锚点行号必须是目标面里的真实行号')
+  assert.match(refused.refusedGroups[0].variants[1].diffSummary, /分岔 A=/)
+  const picked = G.healContent(target, [a, b], null, { pick: new Map([['Z-1', 1]]) })
+  assert.equal(picked.inserted, 1)
+  assert.ok(picked.out.includes(a.line) === false && picked.out.includes(b.line))
+  assert.deepEqual(picked.picked.map((p) => `${p.id}=${p.index}`), ['Z-1=1'])
+  const bad = G.healContent(target, [a, b], null, { pick: new Map([['Z-1', 7]]) })
+  assert.equal(bad.inserted + bad.appended, 0)
+  assert.match(bad.refusedGroups[0].reason, /越界/)
+  // --pick 解析:支持空格与等号两种写法;重复/畸形一律报错,不猜"最后一个赢"。
+  const good = G.parseHealPicks(['--pick', 'Z-1=0', '--pick=G-2=1'])
+  assert.equal(good.errors.length, 0)
+  assert.equal(good.picks.get('Z-1'), 0)
+  assert.equal(good.picks.get('G-2'), 1)
+  const badArgs = G.parseHealPicks(['--pick', 'Z-1=0', '--pick', 'Z-1=1', '--pick', 'X-1'])
+  assert.ok(badArgs.errors.length >= 2)
+  assert.equal(badArgs.picks.get('Z-1'), 0, '重复给出同一编号必须报错且不覆盖首值')
+  assert.match(G.variantDiffSummary('abcX', 'abcY'), /共同前缀 3 字/)
+})
+
+/**
+ * 2026-11-03 实测的第三维:摘除台账里那些"行尾被追加过注记"的行,逐字不等、题面指纹也不命中,
+ * 只有**复合主键**(编号 + 标题前缀)能认出它。回捞侧(`healContent`)早就吃 `keyIndex`,
+ * 而检测侧 `declaredExempt` 只吃 set + 指纹 ⇒ 同一本台账两面读,现象是守护每轮喊
+ * "HEAD 缺 3 条登记行(回捞自 …)"而落地器一次都插不回去 ⇒ "跑而未成"的假红。
+ * 本例把两面钉成同一把尺,并且成对给反向牙(空 keyIndex 必须照旧判缺,证明不是放宽判据)。
+ */
+test('台账第三维:检测侧认 keyIndex(命中即不判缺)且空集照旧判缺', () => {
+  const noted =
+    '- [ ] **G-909997. 主键维靶行正文足够长abcdefg**(摘除留痕#seq3:见 plan-row-drop.jsonl)'
+  const entries = G.registeredLines(noted)
+  const empty = G.resolveRegistrationLoss(
+    entries,
+    '- [ ] G-900003 另一条在册登记行,正文也写得足够长abcdefg',
+    { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map() },
+    null,
+  )
+  assert.equal(empty.length, 1, '空 keyIndex ⇒ 必须照旧判缺(反向牙:本维不是恒免)')
+  const ck = compositeKeyOf(noted)
+  assert.ok(ck, '夹具必须能解出复合主键,否则本例没测到东西')
+  const keyed = G.resolveRegistrationLoss(
+    entries,
+    '- [ ] G-900003 另一条在册登记行,正文也写得足够长abcdefg',
+    { set: new Set(), dropTitleFps: new Set(), keyIndex: new Map([[ck, noted]]) },
+    null,
+  )
+  assert.equal(keyed.length, 0, 'keyIndex 命中 ⇒ 检测侧不得再喊这一条缺')
+})
+
+test('形状锁:检测侧与回捞侧必须都从 declared.keyIndex 取同一份键表(§0.6 单源)', () => {
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'check-plan-line-loss.mjs'),
+    'utf8',
+  )
+  const di = src.indexOf('const declaredExempt =')
+  assert.ok(di > 0, '找不到检测侧 declaredExempt')
+  const dbody = src.slice(di, di + 600)
+  assert.ok(dbody.includes('declaredKeyIndex'), '检测侧丢了 keyIndex 维(两面又分叉)')
+  assert.ok(dbody.includes('compositeKeyOf(e.line)'), '检测侧的主键必须用同一把 compositeKeyOf')
+  assert.ok(
+    src.slice(src.indexOf('const declaredKeyIndex'), src.indexOf('const declaredKeyIndex') + 260).includes(
+      'declared.keyIndex instanceof Map',
+    ),
+    '键表必须取自 declared.keyIndex(不得在本文件另建第二份键口径)',
+  )
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

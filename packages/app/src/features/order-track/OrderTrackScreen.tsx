@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
@@ -79,8 +79,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    error: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    error: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
     listBody: { padding: rnSpacing['sm-loose'], gap: rnSpacing.sm }, // §4 禁分割线:卡片整圈描边 + 间距分隔
     card: {
       padding: rnSpacing.md,
@@ -94,10 +98,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
-    cardMeta: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.secondary },
-    cardDesc: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.tertiary },
+    cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.success.DEFAULT },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    cardDesc: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

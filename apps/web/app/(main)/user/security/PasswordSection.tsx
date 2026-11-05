@@ -42,7 +42,7 @@ export function PasswordSection({ pwMsg, pwLoading, onSubmit }: Props) {
             pattern={'^[^<>"\'|\\\\]+$'}
             autoComplete="new-password"
           />
-          <p className="text-xs text-muted-foreground">{t('passwordHint')}</p>
+          <p className="text-label text-muted-foreground">{t('passwordHint')}</p>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="confirm">{t('confirmPassword')}</Label>
@@ -59,7 +59,7 @@ export function PasswordSection({ pwMsg, pwLoading, onSubmit }: Props) {
         {pwMsg && (
           <p
             className={cn(
-              'text-xs',
+              'text-label',
               pwMsg.type === 'ok' ? 'text-emerald-600 dark:text-emerald-500' : 'text-destructive',
             )}
           >

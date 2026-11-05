@@ -15,7 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronLeft, ChevronRight, Eye, FileText } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { listMyArticles } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -76,9 +76,10 @@ export default function UserArticlesScreen() {
     setLoading(true)
     setFailed(false)
     try {
-      const res = await fetchApi<{ list: ArticleRow[]; total: number }>(
-        `/api/article/my?page=${targetPage}&pageSize=${PAGE_SIZE}`,
-      )
+      const res = await listMyArticles<{ list: ArticleRow[]; total: number }>({
+        page: targetPage,
+        pageSize: PAGE_SIZE,
+      })
       if (!res.success) throw new Error(res.error)
       setRows(res.data?.list ?? [])
       setTotal(res.data?.total ?? 0)
@@ -185,7 +186,7 @@ export default function UserArticlesScreen() {
                   activeOpacity={0.7}
                 >
                   <ChevronLeft size={14} color={tokens.text.primary} />
-                  <Text style={styles.pageBtnText}>{t('userArticles.prev')}</Text>
+                  <Text style={styles.pageBtnText}>{t('user.articles.prevPage')}</Text>
                 </TouchableOpacity>
                 <Text style={styles.pageInfo}>
                   {t('userArticles.pageInfo', { page, totalPages })}
@@ -196,7 +197,7 @@ export default function UserArticlesScreen() {
                   disabled={page >= totalPages}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.pageBtnText}>{t('userArticles.next')}</Text>
+                  <Text style={styles.pageBtnText}>{t('user.articles.nextPage')}</Text>
                   <ChevronRight size={14} color={tokens.text.primary} />
                 </TouchableOpacity>
               </View>
@@ -218,8 +219,8 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: rnType.label.size, color: tokens.text.secondary },
     total: {
       fontSize: rnType.label.size,

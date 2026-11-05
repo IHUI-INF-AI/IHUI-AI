@@ -15,7 +15,7 @@ export function StatisticsFilter() {
         <BarChart3 className="h-7 w-7 text-primary" />
         {t('title')}
       </h1>
-      <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+      <p className="text-label text-muted-foreground">{t('subtitle')}</p>
     </header>
   )
 }

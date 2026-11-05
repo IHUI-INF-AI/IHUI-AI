@@ -121,7 +121,7 @@ export default function DataManagementPage() {
             <Database className="h-5 w-5" aria-hidden />
             数据保留与清理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-body text-muted-foreground">
             日志与事件流保留期管理:按表统计行数与最老记录,按保留天数批量清理,防磁盘膨胀。
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function DataManagementPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-3 text-label text-muted-foreground">
         <span>
           可清理表 {tables.length} 张,合计行数{' '}
           <span className="font-medium tabular-nums text-foreground">{totalRows}</span>
@@ -153,7 +153,7 @@ export default function DataManagementPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-xs" style={{ tableLayout: 'fixed' }}>
+        <table className="w-full text-label" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">表</th>
@@ -224,7 +224,7 @@ export default function DataManagementPage() {
       </div>
 
       {lastResult && (
-        <div className="rounded-lg border p-3 text-xs">
+        <div className="rounded-lg border p-3 text-label">
           <div className="font-medium">
             最近一次操作:{lastResult.table}(保留 {lastResult.keepDays} 天,
             {lastResult.dryRun ? '仅预览' : '已执行'})
@@ -239,7 +239,7 @@ export default function DataManagementPage() {
         </div>
       )}
 
-      <div className="space-y-1 text-xs text-muted-foreground">
+      <div className="space-y-1 text-label text-muted-foreground">
         <Label className="text-label font-normal">注意事项</Label>
         <p>单批删除上限 50000 行,超量请重复执行;清理按 created_at 判定,不可撤销。</p>
         <p>llm_call_logs 是计费与对账依据,请确认保留期符合对账周期后再清理。</p>

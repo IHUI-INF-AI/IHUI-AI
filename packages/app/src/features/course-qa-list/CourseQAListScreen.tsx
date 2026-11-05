@@ -43,7 +43,7 @@ export function CourseQAListScreen({
         <Text style={styles.title}>{t('courseQAList.title')}</Text>
         {onAsk ? (
           <TouchableOpacity onPress={onAsk} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.askText}>{t('courseQAList.ask')}</Text>
+            <Text style={styles.askText}>{t('edu.qa.askBtn')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

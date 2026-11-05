@@ -58,7 +58,7 @@ import type {
 function makeCtx(uid = 'acc-1'): AdapterAccountContext {
   return {
     row: { uid } as unknown as AdapterAccountContext['row'],
-    credentials: { token: 'jwt-1', refreshToken: 'rt-1', cookies: [] },
+    credentials: { token: 'jwt-1', refreshToken: 'rt-1', cookies: [], secrets: {} },
   }
 }
 
@@ -87,7 +87,7 @@ function makeRelayFetchStub(
   sseText: string,
   createBody: unknown = { data: { chat_session_id: 'cs-1', message_id: 'ms-1' } },
 ) {
-  return vi.fn(async (input: string | URL) => {
+  return vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
     const url = String(input)
     if (url.endsWith('/stop')) return jsonResponse({ ok: true })
     if (url.includes('/events')) return sseResponse(sseText)
@@ -101,7 +101,7 @@ function makeFetchStubWithModelList(
   sseText: string,
   createBody: unknown = { data: { chat_session_id: 'cs-1', message_id: 'ms-1' } },
 ) {
-  return vi.fn(async (input: string | URL) => {
+  return vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
     const url = String(input)
     if (url.includes('model_list')) return jsonResponse({ model_configs: modelConfigs })
     if (url.endsWith('/stop')) return jsonResponse({ ok: true })
@@ -459,7 +459,7 @@ describe('refreshToken 宽松解析', () => {
     expect(res).not.toBeNull()
     expect(res!.token).toBe('t1')
     expect(res!.refreshToken).toBe('r1')
-    expect(res!.expiresAt.getTime()).toBe(1800000000000)
+    expect(res!.expiresAt!.getTime()).toBe(1800000000000)
   })
 
   it('result 包裹 + AccessToken + 毫秒', async () => {
@@ -472,7 +472,7 @@ describe('refreshToken 宽松解析', () => {
     const res = await traeAdapter.refreshToken!(makeCtx())
     expect(res!.token).toBe('t2')
     expect(res!.refreshToken).toBeNull()
-    expect(res!.expiresAt.getTime()).toBe(1800000000000)
+    expect(res!.expiresAt!.getTime()).toBe(1800000000000)
   })
 
   it('顶层 + ISO 字符串', async () => {
@@ -482,7 +482,7 @@ describe('refreshToken 宽松解析', () => {
     )
     const res = await traeAdapter.refreshToken!(makeCtx())
     expect(res!.token).toBe('t3')
-    expect(res!.expiresAt.getTime()).toBe(Date.parse('2027-01-01T00:00:00Z'))
+    expect(res!.expiresAt!.getTime()).toBe(Date.parse('2027-01-01T00:00:00Z'))
   })
 
   it('无 refreshToken → null 且不发请求', async () => {
@@ -532,17 +532,19 @@ describe('refreshToken 宽松解析', () => {
 
 describe('ExchangeToken 请求形状', () => {
   it('URL/POST/无 Authorization/固定 ClientID 体', async () => {
-    const spy = vi.fn(async () => jsonResponse({ Result: { Token: 't' } }))
+    const spy = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+      jsonResponse({ Result: { Token: 't' } }),
+    )
     vi.stubGlobal('fetch', spy)
     await traeAdapter.refreshToken!(makeCtx())
 
-    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    const [url, init] = spy.mock.calls[0]!
     expect(String(url)).toBe('https://api.trae.cn/cloudide/api/v3/trae/oauth/ExchangeToken')
-    expect(init.method).toBe('POST')
-    const headers = init.headers as Record<string, string>
+    expect(init!.method).toBe('POST')
+    const headers = init!.headers as Record<string, string>
     expect(headers['Content-Type']).toBe('application/json')
     expect(headers.Authorization).toBeUndefined()
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(JSON.parse(String(init!.body))).toEqual({
       ClientID: 'ono9krqynydwx5',
       RefreshToken: 'rt-1',
       ClientSecret: '-',
@@ -676,9 +678,9 @@ function readDerInt(der: Buffer, idx: number): bigint {
   for (let k = 0; k <= idx; k++) {
     if (der[i] !== 0x02) throw new Error(`DER 第 ${k} 项不是 INTEGER`)
     const len = der[i + 1]
-    const v = der.subarray(i + 2, i + 2 + len)
+    const v = der.subarray(i + 2, i + 2 + len!)
     if (k === idx) return BigInt(`0x${v.toString('hex')}`)
-    i += 2 + len
+    i += 2 + len!
   }
   throw new Error('unreachable')
 }

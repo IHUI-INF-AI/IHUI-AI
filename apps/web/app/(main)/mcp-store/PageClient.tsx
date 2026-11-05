@@ -337,18 +337,18 @@ export default function McpStorePageClient() {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </header>
 
         {/* 目录列表(含安装状态) */}
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{t('loading')}</span>
           </div>
         )}
         {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {t('loadFailed')}
           </div>
         )}
@@ -385,7 +385,7 @@ export default function McpStorePageClient() {
             )}
           </div>
           {registeredServers.length === 0 ? (
-            <div className="rounded-lg border bg-card py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border bg-card py-6 text-center text-body text-muted-foreground">
               {t('registeredEmpty')}
             </div>
           ) : (
@@ -397,8 +397,10 @@ export default function McpStorePageClient() {
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <Plug className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate text-body font-medium text-foreground">{srv.name}</span>
-                    <span className="text-xs text-muted-foreground">{srv.transport}</span>
+                    <span className="truncate text-body font-medium text-foreground">
+                      {srv.name}
+                    </span>
+                    <span className="text-label text-muted-foreground">{srv.transport}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={srv.connected ? 'success' : 'default'}>
@@ -438,7 +440,7 @@ export default function McpStorePageClient() {
             <div className="space-y-3">
               {envEntry?.env_required.map((key) => (
                 <div key={key} className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
+                  <Label className="text-label text-muted-foreground">
                     {t('requiredEnv')}: {key}
                   </Label>
                   <Input
@@ -486,7 +488,7 @@ export default function McpStorePageClient() {
             </DialogHeader>
             <div className="space-y-3">
               {riskLoading && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-body text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {t('loading')}
                 </div>
@@ -497,7 +499,7 @@ export default function McpStorePageClient() {
                     ? riskDetail.risk_factors
                     : [t('riskGeneric')]
                   ).map((factor, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-foreground">
+                    <li key={i} className="flex items-start gap-1.5 text-label text-foreground">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
                       {factor}
                     </li>
@@ -505,7 +507,7 @@ export default function McpStorePageClient() {
                 </ul>
               )}
               {riskDetail?.recommendation && (
-                <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
+                <p className="rounded-md bg-muted px-2.5 py-2 text-label text-muted-foreground">
                   {t('riskRecommendation')}: {riskDetail.recommendation}
                 </p>
               )}
@@ -622,11 +624,11 @@ function DirectoryCard({
           </div>
         </div>
       </div>
-      <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-label leading-relaxed text-muted-foreground">
         {entry.description}
       </p>
       {entry.last_error && (
-        <p className="text-xs text-destructive">
+        <p className="text-label text-destructive">
           {t('lastErrorText', { error: entry.last_error })}
         </p>
       )}

@@ -271,10 +271,17 @@ export interface CheckinWbTasksStatus {
 export interface CheckinSchedulerStatusResponse {
   /** 调度总开关 */
   enabled: boolean
+  /**
+   * 开关真实值(CHECKIN_CRON_ENABLED 原值,与 enabled 同源但语义显式)。
+   * 服务端版本较旧不返回时按「未知」呈现,不得推断成 false。
+   */
+  cron_enabled?: boolean
   /** 调度循环是否已启动 */
   started: boolean
   /** 下次执行时间(主窗口,非 Qoder 账号),ISO 8601 或 null */
   next_run: string | null
+  /** 下次零点窗口执行时间(00:05,非 Qoder 账号),ISO 8601 或 null;旧服务端不返回 */
+  next_run_midnight?: string | null
   /** 下次执行时间(Qoder 窗口,每日 10:05),ISO 8601 或 null */
   next_run_qoder: string | null
   /** 下次探针执行时间,ISO 8601 或 null */

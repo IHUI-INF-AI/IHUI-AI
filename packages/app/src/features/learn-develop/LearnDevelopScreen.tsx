@@ -17,6 +17,7 @@ import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
 
@@ -32,7 +33,10 @@ export function LearnDevelopScreen({
   onContact,
   entries = [],
   colorScheme = 'light',
+  onNavigate,
 }: LearnDevelopScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -132,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing['xs-loose'],
       alignItems: 'center',
     } as ViewStyle,

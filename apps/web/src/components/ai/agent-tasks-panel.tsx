@@ -126,7 +126,7 @@ export function AgentTasksPanel() {
       </div>
 
       {tasks.length === 0 ? (
-        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-xs text-muted-foreground">
+        <div className="rounded-md bg-muted/40 px-3 py-6 text-center text-label text-muted-foreground">
           {t('empty')}
         </div>
       ) : (
@@ -134,17 +134,15 @@ export function AgentTasksPanel() {
           {tasks.map((task) => (
             <div key={task.taskId} className="rounded-lg border border-border bg-card p-2.5">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  className={cn('border-transparent', statusClass(task.status))}
-                >
+                <Badge className={cn('border-transparent', statusClass(task.status))}>
                   {task.status}
                 </Badge>
                 <span className="font-mono text-[10px] text-muted-foreground">{task.taskId}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {t('iterations', { count: task.iterations })}
                 </span>
               </div>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{task.goal}</p>
+              <p className="mt-1 line-clamp-2 text-label text-muted-foreground">{task.goal}</p>
               {task.status === 'running' && (
                 <div className="mt-2 flex items-center gap-1.5">
                   <Input
@@ -155,7 +153,7 @@ export function AgentTasksPanel() {
                     }}
                     placeholder={t('injectPlaceholder')}
                     maxLength={2000}
-                    className="h-7 flex-1 text-xs"
+                    className="h-7 flex-1 text-label"
                     data-testid={`agent-inject-input-${task.taskId}`}
                   />
                   <Button

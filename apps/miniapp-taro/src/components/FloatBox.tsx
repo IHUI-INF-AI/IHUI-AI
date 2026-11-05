@@ -13,6 +13,7 @@ import {
   FLOAT_BOX_TEXT_LINE_HEIGHT_PX,
 } from '@ihui/shared/ui/float-box-spec'
 import { rpx } from '@/utils/rpx'
+import { onToast } from '@/host/on-toast'
 
 /**
  * FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
@@ -47,7 +48,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     if (onShare) {
       onShare()
     } else {
-      Taro.showToast({ title: '分享功能', icon: 'none' })
+      onToast('分享功能', { kind: 'info' })
     }
   }
 
@@ -55,7 +56,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     if (onService) {
       onService()
     } else {
-      Taro.showToast({ title: '客服功能暂未开放', icon: 'none' })
+      onToast('客服功能暂未开放', { kind: 'error' })
     }
   }
 
@@ -65,7 +66,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
     } else {
       // 反馈页在 pkg-user 分包(user/feedback);/pages/feedback/index 从未存在过,点了必死
       Taro.navigateTo({ url: '/pkg-user/user/feedback' }).catch(() => {
-        Taro.showToast({ title: '反馈功能暂未开放', icon: 'none' })
+        onToast('反馈功能暂未开放', { kind: 'error' })
       })
     }
   }

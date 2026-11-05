@@ -24,6 +24,7 @@ export {
   setDeviceFingerprintProvider,
   getDeviceFingerprintProvider,
   setBaseUrl,
+  getBaseUrl,
   // 2026-10-12:ai-service 专用基址注入(根治桌面端 dev 签到页 404,见 client.ts 注释)
   setAiServiceBase,
   setUserAgent,
@@ -286,6 +287,7 @@ export * from './endpoints/admin-system.js'
 export * from './endpoints/admin-tenants.js'
 export * from './endpoints/agent.js'
 export * from './endpoints/agent-runtime.js'
+export * from './endpoints/agent-chat-stream.js'
 // Agent 会话 Token 用量(2026-09-07 工作线 A)
 export * from './endpoints/agent-usage.js'
 // AI 模型定价查询(W4 成本真网计价,2026-09-12)
@@ -299,7 +301,6 @@ export * from './endpoints/ai-media.js'
 export * from './endpoints/auth.js'
 export * from './endpoints/banner.js'
 export * from './endpoints/business.js'
-export * from './endpoints/category.js'
 export * from './endpoints/chat.js'
 // D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
 export * from './endpoints/issue-binding.js'
@@ -339,6 +340,10 @@ export {
   getTeamStats,
   getTeamMembers,
   getTeamMemberDetail,
+  // 分销层级树(web distribution/team/[id] 对齐)
+  type DistributionTreeNode,
+  type DistributionTreeData,
+  getDistributionTree,
 } from './endpoints/distribution.js'
 // 下载量统计 API(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
 export * from './endpoints/downloads.js'
@@ -362,6 +367,7 @@ export * from './endpoints/llm.js'
 export * from './endpoints/lsp.js'
 export * from './endpoints/knowledge-rag.js'
 export * from './endpoints/member.js'
+export * from './endpoints/memory.js'
 export * from './endpoints/misc.js'
 // MCP 商店端点(2026-09-01 立,directory/register/external-servers)
 export * from './endpoints/mcp.js'
@@ -381,9 +387,21 @@ export * from './endpoints/plugin.js'
 export * from './endpoints/resource.js'
 export * from './endpoints/share.js'
 export * from './endpoints/social.js'
+// 健康检查 + GDPR 数据权利端点(2026-11-05 立,门 300 存量 A 类:web/RN 同语义直拼收口)
+export * from './endpoints/health.js'
+export * from './endpoints/gdpr.js'
+// MFA / 安全治理 / Prompt 注册表 / Agent 控制桥端点(2026-11-05 立,门 300 存量 A 类)
+export * from './endpoints/mfa.js'
+export * from './endpoints/security.js'
+export * from './endpoints/prompts.js'
+export * from './endpoints/agent-control.js'
+// 收货地址 + 帮助中心端点(2026-11-05 立,门 300 存量 A 类:web/RN/小程序端内直拼收口)
+export * from './endpoints/address.js'
+export * from './endpoints/help.js'
 export * from './endpoints/srs.js'
 export * from './endpoints/study.js'
 export * from './endpoints/subscription.js'
+export * from './endpoints/subscriptions.js'
 export * from './endpoints/system.js'
 // 公开状态页端点(2026-10-21 立,守门 check-direct-backend-calls 新增违规收口)
 export * from './endpoints/status.js'
@@ -394,6 +412,8 @@ export * from './endpoints/teacher.js'
 export * from './endpoints/token.js'
 export * from './endpoints/user.js'
 export * from './endpoints/vip.js'
+// 签到历史端点(2026-11-02 立,web /points/sign-in 历史表跨端共享)
+export * from './endpoints/sign-in.js'
 export * from './endpoints/wallet.js'
 export * from './endpoints/workspace.js'
 // 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)
@@ -486,3 +506,10 @@ export type { FormRequestEvent } from './client.js'
 export * from './endpoints/support.js'
 export * from './endpoints/tags.js'
 export * from './endpoints/teams.js'
+// 接口单一化第 3 批(2026-11-05 立,门 300 台账 A 类):端内直拼前缀收口
+export * from './endpoints/image-gen.js'
+export * from './endpoints/knowledge-base.js'
+export * from './endpoints/cloud-runs.js'
+export * from './endpoints/article.js'
+export * from './endpoints/account-pool.js'
+export * from './endpoints/edu-ai-management.js'

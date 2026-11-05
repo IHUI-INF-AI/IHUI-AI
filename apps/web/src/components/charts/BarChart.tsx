@@ -38,11 +38,11 @@ export const BarChart = React.memo(function BarChart({
         {data.map((v, i) => (
           <div key={`bar-${i}`} className="flex items-center gap-2">
             {xAxis && (
-              <span className="w-16 shrink-0 text-xs text-muted-foreground">{xAxis[i]}</span>
+              <span className="w-16 shrink-0 text-label text-muted-foreground">{xAxis[i]}</span>
             )}
             <div className="h-6 flex-1 overflow-hidden rounded bg-muted">
               <div
-                className="flex h-full items-center justify-end rounded px-2 text-xs text-white transition-all"
+                className="flex h-full items-center justify-end rounded px-2 text-label text-white transition-all"
                 style={{ width: `${(v / max) * 100}%`, backgroundColor: color }}
               >
                 {v}
@@ -102,7 +102,7 @@ export const BarChart = React.memo(function BarChart({
                   x={x + barW / 2}
                   y={height - 6}
                   textAnchor="middle"
-                  className="fill-muted-foreground text-xs"
+                  className="fill-muted-foreground text-label"
                 >
                   {xAxis[i]}
                 </text>

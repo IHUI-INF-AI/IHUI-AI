@@ -90,7 +90,7 @@ export default function CircleDetailPage() {
           <ArrowLeft className="mr-1.5 h-4 w-4" />
           {tc('back')}
         </Button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(circleError as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -130,11 +130,11 @@ export default function CircleDetailPage() {
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Circle className="h-6 w-6" />
           </div>
-          <CardTitle className="text-xl">{circle.name}</CardTitle>
+          <CardTitle className="text-heading">{circle.name}</CardTitle>
           {circle.description && (
-            <CardDescription className="text-sm">{circle.description}</CardDescription>
+            <CardDescription className="text-body">{circle.description}</CardDescription>
           )}
-          <div className="flex items-center gap-4 pt-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 pt-2 text-label text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
               {t('memberCount', { count: circle.memberCount })}
@@ -155,7 +155,7 @@ export default function CircleDetailPage() {
             {t('loading')}
           </div>
         ) : posts.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
             {tc('noPosts')}
           </div>
         ) : (
@@ -167,9 +167,9 @@ export default function CircleDetailPage() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-body font-medium">{p.title}</p>
                       {p.content && (
-                        <p className="mt-1 text-xs text-muted-foreground">{p.content}</p>
+                        <p className="mt-1 text-label text-muted-foreground">{p.content}</p>
                       )}
-                      <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="mt-1.5 flex items-center gap-3 text-label text-muted-foreground">
                         {p.authorName && <span>{p.authorName}</span>}
                         <span>{dateFmt.format(new Date(p.createdAt))}</span>
                         <span className="flex items-center gap-0.5">

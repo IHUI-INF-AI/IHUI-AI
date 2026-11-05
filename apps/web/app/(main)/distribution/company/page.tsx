@@ -131,7 +131,7 @@ export default function DistributionCompanyPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-4">
       <Link
         href="/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -142,7 +142,7 @@ export default function DistributionCompanyPage() {
           <Building2 className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 2026-09-30 登录态门 */}
@@ -187,7 +187,7 @@ export default function DistributionCompanyPage() {
                 <Card key={s.label}>
                   <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">{s.label}</span>
+                      <span className="text-label text-muted-foreground">{s.label}</span>
                       <Icon className={cn('h-4 w-4', s.tone)} />
                     </div>
                     {loading ? (
@@ -215,14 +215,14 @@ export default function DistributionCompanyPage() {
                   <Users className="h-4 w-4 text-primary" />
                   {t('teamOverview')}
                 </h2>
-                <Link href="/distribution/team" className="text-sm text-primary hover:underline">
+                <Link href="/distribution/team" className="text-body text-primary hover:underline">
                   {t('viewDetail')}
                 </Link>
               </div>
               <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3">
                 {teamStats.map((s) => (
                   <div key={s.label} className="rounded-lg bg-muted/40 px-4 py-3 text-center">
-                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                    <div className="text-label text-muted-foreground">{s.label}</div>
                     {loading ? (
                       <Loader2 className="mx-auto mt-1 h-5 w-5 animate-spin text-muted-foreground" />
                     ) : (

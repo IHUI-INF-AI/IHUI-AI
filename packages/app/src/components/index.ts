@@ -41,16 +41,18 @@ export type { CategoryInlineBarProps } from './category/CategoryInlineBar'
 export { CategoryDropdown } from './category/CategoryDropdown'
 export type { CategoryDropdownProps } from './category/CategoryDropdown'
 export type { CategoryItem, ColorSchemeName } from './category/types'
-
-// 屏幕状态四件套(骨架屏 / 空态 / 错误态+重试 / 按压卡片)—— 「细化美化」的共享底座。
-// 共享层 210 个 Screen 此前骨架屏 1/210、空态 1/210、错误态无重试、卡片无按压反馈,
-// 这四件是两端观感最粗糙的共性缺口,故收口一份、两端同源(小程序侧镜像见
-// apps/miniapp-taro/src/components/ScreenStates.taro.tsx)。
-export { ScreenSkeleton, EmptyState, ErrorState, PressableCard } from './ScreenStates'
 export type {
   ScreenSkeletonProps,
   EmptyStateProps,
   ErrorStateProps,
   PressableCardProps,
 } from './ScreenStates'
+
+// 跨端共享同构组件:随 TabBar 液态玻璃接入(068af74ddf),尚未挂到静态可达入口。
+// 导出使 web/desktop/mobile-rn 等宿主可经 @ihui/app 直接 import(实际挂载由各端接线流程负责)。
+// navbar 族是零消费者 DOM 副本,不在此列(拓扑锁见 packages/shared/src/ui/__tests__/navbar-wiring.test.ts)。
+export { PayButton } from './PayButton'
+export type { PayButtonProps, PayButtonType } from './PayButton'
+export { TabBar } from './TabBar'
+export type { TabBarProps, TabBarKey, TabBarItemConfig } from './TabBar'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

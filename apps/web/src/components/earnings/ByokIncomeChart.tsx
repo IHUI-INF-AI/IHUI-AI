@@ -32,7 +32,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-body font-semibold">{t('byokTrend')}</p>
-            <p className="text-xs text-muted-foreground">{t('byokTrendDesc')}</p>
+            <p className="text-label text-muted-foreground">{t('byokTrendDesc')}</p>
           </div>
           <p className="text-body font-bold text-emerald-600 dark:text-emerald-400">
             ¥{total.toFixed(2)}
@@ -72,7 +72,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
                       style={{ height: `${h}%`, marginTop: 'auto' }}
                     />
                     {isHover && (
-                      <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs shadow-md">
+                      <div className="absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-label shadow-md">
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
                           ¥{p.amount.toFixed(2)}
                         </span>
@@ -85,7 +85,7 @@ export function ByokIncomeChart({ data, loading }: Props) {
             </div>
           )}
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">{t('last30Days')}</p>
+        <p className="mt-2 text-label text-muted-foreground">{t('last30Days')}</p>
       </CardContent>
     </Card>
   )

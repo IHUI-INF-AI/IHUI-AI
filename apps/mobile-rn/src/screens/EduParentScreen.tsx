@@ -16,8 +16,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { appAlert } from '../components/BottomPops'
-import { fetchApi } from '@ihui/api-client'
+import { eduParentChildren } from '@ihui/api-client'
 import { BackChevron, getTokens } from '@ihui/rn-app'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Tabs, Tappable } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -58,9 +59,7 @@ function EduParentScreen() {
   const load = useCallback(async () => {
     setError(null)
     try {
-      const res = await fetchApi<{ children: ChildInfo[] }>(
-        '/api/edu-ai-management/parent/children',
-      )
+      const res = await eduParentChildren<{ children: ChildInfo[] }>()
       if (!res.success) throw new Error(res.error || 'load failed')
       setChildren(res.data?.children ?? [])
     } catch (e) {
@@ -116,7 +115,7 @@ function EduParentScreen() {
         { text: t('eduChildGrades.title'), onPress: () => nav('EduChildGrades') },
         { text: t('eduChildMeals.title'), onPress: () => nav('EduChildMeals') },
         { text: t('eduChildBills.title'), onPress: () => nav('EduChildBills') },
-        { text: t('eduChildStudyPlans.title'), onPress: () => nav('EduChildStudyPlans') },
+        { text: t('parentPortal.child.studyPlans'), onPress: () => nav('EduChildStudyPlans') },
       ])
     },
     [navigation, t],
@@ -192,6 +191,23 @@ function EduParentScreen() {
           colorScheme={resolvedTheme}
         />
         <Text style={styles.title}>{t('eduParent.title')}</Text>
+        {/* 入口:学生本人考勤 + 自签(描边取中性档,不取墨档 —— 门 83 R8) */}
+        <Tappable
+          onPress={() => navigation.navigate('EduMyAttendance')}
+          accessibilityRole="button"
+          style={{
+            marginLeft: 'auto',
+            borderWidth: 1,
+            borderColor: tk.border.medium,
+            borderRadius: rnRadius.sm,
+            paddingHorizontal: rnSpacing.md,
+            paddingVertical: rnSpacing.xs,
+          }}
+        >
+          <Text style={{ color: tk.text.secondary, fontSize: rnType.label.size }}>
+            {t('eduMyAttendance.title')}
+          </Text>
+        </Tappable>
       </View>
       <View style={styles.tabBar}>
         <Tabs

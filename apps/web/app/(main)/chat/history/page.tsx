@@ -83,7 +83,7 @@ export default function ChatHistoryPage() {
               </span>
             )}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Tooltip content={t('viewFavorites')}>
@@ -118,7 +118,7 @@ export default function ChatHistoryPage() {
         // 终态(ready 且未登录/会话确认过期):登录引导,而非发注定 401 的请求再报「操作失败」
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center text-muted-foreground">
           <LogIn className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('loginRequired')}</p>
+          <p className="text-body">{t('loginRequired')}</p>
           <Button size="sm" onClick={() => openLoginDialogOnce('/chat/history')}>
             {t('loginRequired')}
           </Button>
@@ -133,7 +133,7 @@ export default function ChatHistoryPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Clock className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{keyword ? t('noResults') : t('empty')}</p>
+          <p className="text-body">{keyword ? t('noResults') : t('empty')}</p>
         </div>
       ) : (
         <ConversationList items={items} />

@@ -2,19 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import {
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   View,
-  type ListRenderItemInfo,
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   CategoryItemContent,
   categoryItemA11yLabel,
@@ -23,6 +22,11 @@ import {
 } from './category-bar-core'
 import { renderRnCategoryIcon, rnCategoryPrimitives } from './rn-primitives'
 import type { CategoryItem, ColorSchemeName } from './types'
+
+/** FlatList 在本仓库两端的最小共用类型面(小程序 rn-compat 侧 FlatList 是函数,不能当类型用) */
+type InlineBarListRef = {
+  scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void
+}
 
 export interface CategoryInlineBarProps {
   /** 选项(必填,空数组渲染 null,占位归调用方) */
@@ -89,7 +93,13 @@ export function CategoryInlineBar({
 }: CategoryInlineBarProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const listRef = useRef<FlatList<CategoryItem>>(null)
+  // 引用类型不写 `FlatList<CategoryItem>`:小程序端把 react-native 映射到 rn-compat,
+  // 那里的 FlatList 是泛型函数(值),当类型用会 TS2749;RN 端它又是类。取两端都成立的
+  // 结构子集,再用回调 ref 绑定(scrollToIndex 是唯一用到的成员)。
+  const listRef = useRef<InlineBarListRef | null>(null)
+  const assignListRef = useCallback((node: InlineBarListRef | null) => {
+    listRef.current = node
+  }, [])
 
   // 选中下标与滚入视野的时序统一走核心(只认下标、不认 items 身份):
   // 调用方多处直接内联 items={x.map(...)},数组 identity 每轮都在变。依赖数组若含 items,
@@ -101,7 +111,7 @@ export function CategoryInlineBar({
 
   if (items.length === 0) return null
 
-  const renderItem = ({ item }: ListRenderItemInfo<CategoryItem>) => {
+  const renderItem = ({ item }: { item: CategoryItem; index: number }) => {
     const active = item.id === selectedId
     return (
       <Pressable
@@ -159,7 +169,7 @@ export function CategoryInlineBar({
   return (
     <View style={style} testID={testID}>
       <FlatList
-        ref={listRef}
+        ref={assignListRef}
         data={items as CategoryItem[]}
         renderItem={renderItem}
         keyExtractor={(it) => it.id}
@@ -201,9 +211,9 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.7,
     },
     itemText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '400',
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     itemTextActive: {

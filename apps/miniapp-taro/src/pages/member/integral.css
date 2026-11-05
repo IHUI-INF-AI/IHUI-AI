@@ -11,7 +11,7 @@
 
 /* custom color: #2c2c2c/#1a1a1a 暗色渐变/#ffffff 白字/#d4af6a 金色 为积分品牌色,无对应 token,保留原值 */
 .balance {
-  padding: 60rpx 40rpx;
+  padding: 60rpx var(--spacing-xl);
   background: linear-gradient(135deg, var(--color-background), var(--color-card));
   text-align: center;
 }
@@ -24,7 +24,7 @@
 .balance-label {
   display: block;
   margin-top: var(--spacing-xs-loose);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-gold);
 }
 
@@ -38,7 +38,7 @@
   align-items: center;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 28rpx 24rpx;
+  padding: var(--spacing-md-loose) var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
 .item-left {
@@ -71,11 +71,11 @@
   align-items: center;
   padding: var(--spacing-4xl) 0;
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 .retry {
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-xs) 32rpx;
+  padding: var(--spacing-xs) var(--spacing-lg);
   font-size: var(--text-label);
   color: var(--color-primary);
 }
@@ -84,7 +84,7 @@
   text-align: center;
   padding: 120rpx 0;
   color: var(--color-muted-foreground);
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
 }
 
 .load-more {

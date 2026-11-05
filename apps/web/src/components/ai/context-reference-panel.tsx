@@ -72,7 +72,7 @@ export function ContextReferencePanel({
       </div>
       <ul className="space-y-1">
         {references.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-8 text-center text-body text-muted-foreground">
             {t('contextUsage.noReferences')}
           </p>
         ) : (
@@ -108,7 +108,7 @@ export function ContextReferencePanel({
                     type="button"
                     onClick={() => hasPreview && toggle(ref.id)}
                     className={cn(
-                      'min-w-0 flex-1 text-left text-sm',
+                      'min-w-0 flex-1 text-left text-body',
                       hasPreview && 'cursor-pointer hover:text-primary',
                     )}
                   >
@@ -222,7 +222,7 @@ export function ContextReferencePanel({
                   </div>
                 )}
                 {!hasThumbnail && ref.preview && isOpen && (
-                  <p className="mt-1.5 whitespace-pre-wrap rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
+                  <p className="mt-1.5 whitespace-pre-wrap rounded-md bg-muted/40 px-2.5 py-1.5 text-label text-muted-foreground">
                     {ref.preview}
                   </p>
                 )}

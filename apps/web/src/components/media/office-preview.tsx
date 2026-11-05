@@ -212,7 +212,7 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
   }, [])
 
   if (failed) {
-    return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
+    return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
   }
 
   return (
@@ -230,7 +230,7 @@ function DocxBody({ data }: { data: ArrayBuffer }) {
       <div
         ref={ref}
         data-testid="docx-body"
-        className="max-h-[420px] overflow-auto bg-white p-3 text-sm"
+        className="max-h-[420px] overflow-auto bg-white p-3 text-body"
       />
     </>
   )
@@ -314,11 +314,11 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
   }, [book, active, maxRows])
 
   if (failed) {
-    return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
+    return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
   }
   if (!state.book) {
     return (
-      <p className="flex items-center gap-1.5 p-3 text-xs text-muted-foreground">
+      <p className="flex items-center gap-1.5 p-3 text-label text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         {t('officeLoading')}
       </p>
@@ -369,7 +369,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
           )}
         </span>
       </div>
-      <table className="w-full border-collapse text-xs" data-testid="xlsx-table">
+      <table className="w-full border-collapse text-label" data-testid="xlsx-table">
         <thead>
           <tr>
             {header.map((h, i) => (
@@ -480,23 +480,23 @@ function PptxOutline({ data }: { data: ArrayBuffer }) {
   }, [data])
 
   if (failed) {
-    return <p className="p-3 text-xs text-muted-foreground">{t('officeFailed')}</p>
+    return <p className="p-3 text-label text-muted-foreground">{t('officeFailed')}</p>
   }
   if (!slides) {
     return (
-      <p className="flex items-center gap-1.5 p-3 text-xs text-muted-foreground">
+      <p className="flex items-center gap-1.5 p-3 text-label text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
         {t('officeLoading')}
       </p>
     )
   }
   return (
-    <ol className="max-h-[420px] overflow-auto p-3 text-sm" data-testid="pptx-outline">
+    <ol className="max-h-[420px] overflow-auto p-3 text-body" data-testid="pptx-outline">
       {slides.map((s, i) => (
         <li key={i} data-testid="pptx-slide" className="mb-2">
           <p className="font-medium">{`#${i + 1} ${s.text || '—'}`}</p>
           {s.notes && (
-            <p className="mt-0.5 text-xs text-muted-foreground" data-testid="pptx-notes">
+            <p className="mt-0.5 text-label text-muted-foreground" data-testid="pptx-notes">
               {t('pptxNotes')}: {s.notes}
             </p>
           )}
@@ -666,17 +666,17 @@ export function OfficePreview({
       ) : (
         <>
           {status === 'unsupported' && (
-            <p className="p-3 text-xs text-muted-foreground" data-testid="office-unsupported">
+            <p className="p-3 text-label text-muted-foreground" data-testid="office-unsupported">
               {t('officeUnsupported')}
             </p>
           )}
           {status === 'too-large' && (
-            <p className="p-3 text-xs text-muted-foreground" data-testid="office-too-large">
+            <p className="p-3 text-label text-muted-foreground" data-testid="office-too-large">
               {t('officeTooLarge')}
             </p>
           )}
           {status === 'expired' && (
-            <p className="p-3 text-xs text-muted-foreground" data-testid="office-expired">
+            <p className="p-3 text-label text-muted-foreground" data-testid="office-expired">
               {t('officeExpired')}
             </p>
           )}
@@ -686,14 +686,14 @@ export function OfficePreview({
                 type="button"
                 data-testid="office-lazy-btn"
                 onClick={() => void load()}
-                className="rounded-sm border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-sm border border-border px-2.5 py-1 text-label text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <span>{t('officeLazyLoad')}</span>
               </button>
             </div>
           )}
           {status === 'loading' && (
-            <p className="flex items-center gap-1.5 p-3 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5 p-3 text-label text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>{t('officeLoading')}</span>
             </p>

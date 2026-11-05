@@ -58,7 +58,7 @@ export function ArchitectureSection() {
                     </div>
                     <div>
                       <h4 className="text-body font-medium">{item.title}</h4>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      <p className="text-label text-muted-foreground">{item.desc}</p>
                     </div>
                   </div>
                 )
@@ -82,7 +82,7 @@ export function ArchitectureSection() {
                 </span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {infoBasic.map((item) => (
-                    <span key={item} className="rounded-md bg-muted px-2 py-1 text-xs">
+                    <span key={item} className="rounded-md bg-muted px-2 py-1 text-label">
                       {item}
                     </span>
                   ))}
@@ -99,7 +99,7 @@ export function ArchitectureSection() {
                   {infoAdvanced.map((item) => (
                     <span
                       key={item}
-                      className="rounded-md bg-primary/10 px-2 py-1 text-xs text-primary"
+                      className="rounded-md bg-primary/10 px-2 py-1 text-label text-primary"
                     >
                       {item}
                     </span>
@@ -138,7 +138,7 @@ export function ArchitectureSection() {
             </div>
             <div className="flex flex-wrap gap-1.5 pt-1">
               {effectMetrics.map((m) => (
-                <span key={m} className="rounded-md bg-muted px-2 py-0.5 text-xs">
+                <span key={m} className="rounded-md bg-muted px-2 py-0.5 text-label">
                   {m}
                 </span>
               ))}

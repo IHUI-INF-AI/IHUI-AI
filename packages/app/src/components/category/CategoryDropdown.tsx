@@ -364,7 +364,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing.md,
       paddingTop: rnSpacing['xs-loose'],
       paddingBottom: rnSpacing.xs,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },

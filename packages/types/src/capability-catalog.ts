@@ -18,6 +18,16 @@
  * 与运行期断言双重拦截(默认拒绝,而非默认放行)。
  */
 import { API_KEY_PERMISSIONS, type ApiKeyPermission } from './api-key.js'
+import {
+  EXTENSION_CONTRIBUTION_KINDS,
+  validateExtensionManifest,
+  type ExtensionActivationEvent,
+  type ExtensionContributionKind,
+  type ExtensionContributions,
+  type ExtensionManifest,
+  type ExtensionManifestIssue,
+  type ExtensionModelTiers,
+} from './capability-extensions.js'
 
 /** 数据访问类别:决定「功能开放」是否连带「数据开放」。 */
 export const CAPABILITY_DATA_CLASSES = [
@@ -1229,6 +1239,238 @@ export function declaredRoutePatterns(): string[] {
   return [...INDEX.values()].flatMap((e) => e.routes.map((r) => `${e.scope}\t${r}`))
 }
 
+/**
+ * ============================================================================
+ * 声明式扩展注册表(manifest → capability-catalog)
+ * ============================================================================
+ *
+ * 复用本文件**同一个**目录与同一张 `INDEX`,不另造第二套注册表:
+ * - 扩展贡献的工具/命令/视图以 manifest 的 `capability` 为 scope 并入 `toolScopeMap()`,
+ *   因此 `scopeOfTool` / 导出清单等既有消费方无需改调用方式即可读到扩展项;
+ * - 扩展条目本身随 `buildManifest()` 的 `extensions` 字段导出(catalog 查询面)。
+ *
+ * 纪律:
+ * - 注册前必须过 `validateExtensionManifest`(未知字段 / 可执行字段 / 权限枚举 / 事件枚举
+ *   全部逐字段拒绝);
+ * - **同一 id 重复注册返回冲突,绝不覆盖**(卸载后重新注册是另一回事);
+ * - 卸载必须回收全部贡献名与注册项,不留残留(测试钉住 `toolScopeMap` 回归基线)。
+ */
+export interface ExtensionCatalogIssue {
+  path: string
+  code: ExtensionManifestIssue['code'] | 'extension_id_conflict' | 'contribution_conflict'
+  message: string
+}
+
+export interface ExtensionRegistrationOk {
+  ok: true
+  manifest: ExtensionManifest
+  /** 本次并入目录的工具数(便于调用方记账/日志) */
+  registeredTools: number
+}
+
+export interface ExtensionRegistrationFailure {
+  ok: false
+  errors: ExtensionCatalogIssue[]
+}
+
+export type ExtensionRegistrationResult = ExtensionRegistrationOk | ExtensionRegistrationFailure
+
+export interface ExtensionUnregisterResult {
+  ok: boolean
+  removedTools: number
+  reason?: 'extension_not_found'
+}
+
+interface RegisteredExtension {
+  manifest: ExtensionManifest
+  registeredAt: string
+}
+
+const EXTENSION_REGISTRY = new Map<string, RegisteredExtension>()
+/** 贡献名 → 扩展 id(工具/命令/视图共用同一名字空间,避免跨类型同名歧义) */
+const EXTENSION_CONTRIBUTION_OWNER = new Map<string, string>()
+
+function deepFreeze<T>(value: T): T {
+  if (Array.isArray(value)) {
+    value.forEach((item) => deepFreeze(item))
+    return Object.freeze(value) as T
+  }
+  if (typeof value === 'object' && value !== null) {
+    Object.values(value).forEach((item) => deepFreeze(item))
+    return Object.freeze(value) as T
+  }
+  return value
+}
+
+/**
+ * 遍历一份 manifest 的全部贡献。
+ *
+ * **档名一律取自 EXTENSION_CONTRIBUTION_KINDS,不得在此硬编码三元组**:词表扩档后这里若仍写死
+ * `['tools','commands','views']`,新档的贡献名就绕过了 `EXTENSION_CONTRIBUTION_OWNER` 冲突登记 ——
+ * "注册表说没占用、其实被占着"比不注册更糟(§0.3「没判」不得写成「判过」)。
+ */
+function eachContribution(
+  manifest: ExtensionManifest,
+  visit: (kind: ExtensionContributionKind, name: string) => void,
+): void {
+  for (const kind of EXTENSION_CONTRIBUTION_KINDS) {
+    for (const item of manifest.contributes[kind] ?? []) visit(kind, item.name)
+  }
+}
+
+/**
+ * 注册一个声明式扩展 manifest。校验失败 → 逐字段错误;id 或贡献名冲突 → 冲突错误。
+ * 成功后 manifest 被深冻结,注册期间不可被外部改形状。
+ */
+export function registerExtensionManifest(raw: unknown): ExtensionRegistrationResult {
+  const validation = validateExtensionManifest(raw, {
+    isRegisteredScope: (scope) => INDEX.has(scope as ApiKeyPermission),
+  })
+  if (!validation.ok) return { ok: false, errors: validation.errors }
+
+  const manifest = validation.manifest
+  const errors: ExtensionCatalogIssue[] = []
+
+  if (EXTENSION_REGISTRY.has(manifest.id)) {
+    errors.push({
+      path: 'id',
+      code: 'extension_id_conflict',
+      message: `扩展 id "${manifest.id}" 已注册,拒绝覆盖(如需更新请先卸载)`,
+    })
+  }
+
+  eachContribution(manifest, (kind, name) => {
+    if (errors.length > 0) return
+    const owner = EXTENSION_CONTRIBUTION_OWNER.get(name)
+    const catalogScope = kind === 'tools' ? toolScopeMap()[name] : undefined
+    if (catalogScope || owner) {
+      errors.push({
+        path: `contributes.${kind}`,
+        code: 'contribution_conflict',
+        message:
+          `贡献名 "${name}" 已被占用` +
+          (owner ? `(扩展 "${owner}")` : `(capability-catalog 既有 ${kind})`),
+      })
+    }
+  })
+
+  if (errors.length > 0) return { ok: false, errors }
+
+  EXTENSION_REGISTRY.set(manifest.id, {
+    manifest: deepFreeze(manifest),
+    registeredAt: new Date().toISOString(),
+  })
+  eachContribution(manifest, (_kind, name) => {
+    EXTENSION_CONTRIBUTION_OWNER.set(name, manifest.id)
+  })
+
+  return {
+    ok: true,
+    manifest: manifest,
+    registeredTools: manifest.contributes.tools?.length ?? 0,
+  }
+}
+
+/**
+ * 卸载扩展:删除注册项并回收全部贡献名。未注册的 id 返回 `extension_not_found`,
+ * 不抛错(便于幂等清理)。
+ */
+export function unregisterExtension(id: string): ExtensionUnregisterResult {
+  const entry = EXTENSION_REGISTRY.get(id)
+  if (!entry) return { ok: false, removedTools: 0, reason: 'extension_not_found' }
+
+  eachContribution(entry.manifest, (_kind, name) => {
+    if (EXTENSION_CONTRIBUTION_OWNER.get(name) === id) EXTENSION_CONTRIBUTION_OWNER.delete(name)
+  })
+  EXTENSION_REGISTRY.delete(id)
+  return { ok: true, removedTools: entry.manifest.contributes.tools?.length ?? 0 }
+}
+
+/** catalog 查询面:当前已注册的扩展声明(按 id 排序,保证输出确定性)。 */
+export function listExtensionManifests(): ExtensionManifest[] {
+  return [...EXTENSION_REGISTRY.values()]
+    .map((entry) => entry.manifest)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
+/** 按激活事件查询扩展(catalog 查询面;未注册任何扩展时返回空数组)。 */
+export function extensionsByActivationEvent(event: ExtensionActivationEvent): ExtensionManifest[] {
+  return listExtensionManifests().filter((manifest) => manifest.activationEvents.includes(event))
+}
+
+/** 逐 scope 的数据类判定依据(可 diff、可入库审计的正面凭据)。 */
+export interface ExtensionDataClassBasis {
+  scope: string
+  dataClass: CapabilityDataClass
+}
+
+/**
+ * 权限声明 → 数据类切分(**默认拒绝**)。
+ *
+ * 为什么要这一格(超越轴,取证 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/`
+ * `Q1-qoder-cn-main-bundle.md` §3 #8 与 §4「插件贡献/权限词表 + 激活事件(#8)」行):
+ * 对侧 `catalog.v1.json` 只有 33 条 `permissions[]` **声明**,没有任何运行期数据类切分 ——
+ * 声明与"实际能碰到什么数据"之间没有机器可证的绑定。我方把每条**已声明**权限经本目录的
+ * `dataClass` 求并集,得到该扩展/插件**可达**的数据类集合。三条边界,缺一不算实现:
+ *  1. 未声明任何权限 ⇒ 集合为空 ⇒ 一切数据类均拒(默认拒,不是默认放行);
+ *  2. 声明了但目录里没登记的 scope ⇒ 不贡献任何数据类,并逐条点名进 `unregistered` ——
+ *     "没登记"绝不写成"没限制"(§0.3);
+ *  3. 结果按 scope 声明顺序去重,保证同一输入同一输出(入库对账的前提)。
+ *
+ * 生产消费方 = `apps/cli/src/plugins/loader.ts`(装载器据此决定"声明了贡献却没权限"的插件
+ * 到底能不能拿到数据面);刻意不写进 `buildManifest()` 产物,以免动 `export-capabilities --check`
+ * 的逐字节基线。
+ */
+export interface ExtensionDataClassGrant {
+  /** 可达的数据类集合;空数组 = 默认拒全部 */
+  allowed: readonly CapabilityDataClass[]
+  /** 逐 scope 的判定依据(正面凭据:为什么这几个数据类是它应得的) */
+  byScope: readonly ExtensionDataClassBasis[]
+  /** 声明了但未在目录登记的 scope(逐条点名;一律不贡献数据类) */
+  unregistered: readonly string[]
+}
+
+export function extensionDataClassGrant(input: {
+  readonly permissions: readonly string[]
+}): ExtensionDataClassGrant {
+  const byScope: ExtensionDataClassBasis[] = []
+  const unregistered: string[] = []
+  const allowed = new Set<CapabilityDataClass>()
+  for (const scope of input.permissions) {
+    const entry = INDEX.get(scope as ApiKeyPermission)
+    if (!entry) {
+      unregistered.push(scope)
+      continue
+    }
+    const dataClass = effectiveDataClass(entry)
+    byScope.push({ scope, dataClass })
+    allowed.add(dataClass)
+  }
+  return { allowed: [...allowed], byScope, unregistered }
+}
+
+/**
+ * 这组权限能否触达某数据类。**空 permissions ⇒ 恒 false**(默认拒的谓词形态)。
+ * 判定全部走 `extensionDataClassGrant`,不在此复算(§0.6 单一真相源)。
+ */
+export function extensionMayTouchDataClass(
+  input: { readonly permissions: readonly string[] },
+  dataClass: CapabilityDataClass,
+): boolean {
+  return extensionDataClassGrant(input).allowed.includes(dataClass)
+}
+
+/** 扩展贡献的工具名 → scope(与静态目录同形的反向索引)。 */
+export function extensionToolScopeMap(): Record<string, ApiKeyPermission> {
+  const map: Record<string, ApiKeyPermission> = {}
+  for (const manifest of listExtensionManifests()) {
+    for (const tool of manifest.contributes.tools ?? []) {
+      map[tool.name] = tool.capability as ApiKeyPermission
+    }
+  }
+  return map
+}
+
 /** 导出的清单形态(capabilities.json / ai-service 启动期消费)。 */
 export interface CapabilityManifest {
   version: string
@@ -1254,9 +1496,26 @@ export interface CapabilityManifest {
   }>
   /** MCP 工具名 → 所需 scope(未列出的工具默认拒绝外部调用)。 */
   toolScopeMap: Record<string, ApiKeyPermission>
+  /**
+   * 已注册的声明式扩展(来自 manifest 注册表)。缺省表示"进程内没有注册任何扩展",
+   * 生成器不写出该键 —— 保证 `export-capabilities.ts --check` 逐字节幂等。
+   */
+  extensions?: Array<{
+    id: string
+    name: string
+    version: string
+    activationEvents: readonly string[]
+    permissions: readonly string[]
+    contributes: ExtensionContributions
+    modelTiers?: ExtensionModelTiers
+  }>
 }
 
-/** 工具名 → scope 的反向索引(同一工具不得映射到两个 scope)。 */
+/**
+ * 工具名 → scope 的反向索引(同一工具不得映射到两个 scope)。
+ * 静态目录在前、声明式扩展在后:扩展贡献的工具与既有工具走**同一张表**,
+ * 因此 `scopeOfTool()` 及其消费方无需感知扩展来源。
+ */
 export function toolScopeMap(): Record<string, ApiKeyPermission> {
   const map: Record<string, ApiKeyPermission> = {}
   for (const entry of INDEX.values()) {
@@ -1267,6 +1526,17 @@ export function toolScopeMap(): Record<string, ApiKeyPermission> {
         )
       }
       map[tool] = entry.scope
+    }
+  }
+  for (const manifest of listExtensionManifests()) {
+    for (const tool of manifest.contributes.tools ?? []) {
+      const scope = tool.capability as ApiKeyPermission
+      if (map[tool.name] && map[tool.name] !== scope) {
+        throw new Error(
+          `[capability-catalog] 工具 ${tool.name} 被映射到两个 scope: ${map[tool.name]} / ${scope}`,
+        )
+      }
+      map[tool.name] = scope
     }
   }
   return map
@@ -1296,6 +1566,15 @@ export function buildManifest(
     tools: e.tools ?? [],
     rate: RATE_PROFILES[e.risk],
   }))
+  const extensions = listExtensionManifests().map((manifest) => ({
+    id: manifest.id,
+    name: manifest.name,
+    version: manifest.version,
+    activationEvents: manifest.activationEvents,
+    permissions: manifest.permissions,
+    contributes: manifest.contributes,
+    ...(manifest.modelTiers === undefined ? {} : { modelTiers: manifest.modelTiers }),
+  }))
   return {
     version,
     generatedAt,
@@ -1304,6 +1583,8 @@ export function buildManifest(
     rateProfiles: RATE_PROFILES,
     computeAllowedTables: COMPUTE_ALLOWED_TABLES,
     capabilities,
+    // 空注册表不写该键:导出产物与既有基线逐字节一致。
+    ...(extensions.length === 0 ? {} : { extensions }),
     toolScopeMap: toolScopeMap(),
   }
 }

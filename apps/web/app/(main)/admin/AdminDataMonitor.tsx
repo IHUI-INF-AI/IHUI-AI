@@ -142,7 +142,7 @@ export function AdminDataMonitor() {
             <CardTitle className="text-body font-medium">热门页面 Top 5</CardTitle>
             <Link
               href="/admin/visit-trend"
-              className="flex items-center gap-1 text-xs text-primary hover:underline"
+              className="flex items-center gap-1 text-label text-primary hover:underline"
             >
               查看趋势 <ArrowRight className="h-3 w-3" />
             </Link>
@@ -154,14 +154,14 @@ export function AdminDataMonitor() {
               </div>
             )}
             {!loading && hotPages.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted-foreground">
+              <p className="py-6 text-center text-body text-muted-foreground">
                 暂无访问数据(埋点自 08-10 起采集)
               </p>
             )}
             {hotPages.map((p, i) => (
               <div
                 key={p.url}
-                className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-body"
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <span className="text-label font-semibold text-muted-foreground">{i + 1}</span>
@@ -189,7 +189,7 @@ export function AdminDataMonitor() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-body font-medium">{link.label}</div>
-                  <div className="truncate text-xs text-muted-foreground">{link.desc}</div>
+                  <div className="truncate text-label text-muted-foreground">{link.desc}</div>
                 </div>
               </Link>
             ))}

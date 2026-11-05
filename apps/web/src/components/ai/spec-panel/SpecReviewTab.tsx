@@ -13,7 +13,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground">当前状态:</span>
+        <span className="text-label text-muted-foreground">当前状态:</span>
         <span
           className={cn(
             'rounded-md px-2 py-0.5 text-label font-medium',
@@ -68,12 +68,12 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
               value={p.reviewComment}
               onChange={(e) => p.setReviewComment(e.target.value)}
               placeholder={t('rejectReasonPlaceholder')}
-              className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+              className="h-7 flex-1 rounded-sm border border-border bg-background px-2 text-label text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
             />
           </>
         )}
         {(p.currentStatus === 'approved' || p.currentStatus === 'rejected') && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             评审已结束,如需重新评审请先修改 spec 并重新生成
           </p>
         )}

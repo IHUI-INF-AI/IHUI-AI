@@ -79,7 +79,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -100,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
     success: { marginTop: rnSpacing.md, fontSize: rnType.body.size, color: tk.success.DEFAULT },
     submitBtn: {
       marginTop: rnSpacing.lg,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

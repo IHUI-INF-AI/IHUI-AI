@@ -20,9 +20,13 @@ export * from './fallback-models'
 export * from './share'
 export * from './model-catalog'
 export * from './model-names'
+// 2026-11-03 跨端对齐:模型编辑只读字段清单上收共享(web 置灰 / RN 编辑 / 驱动层 payload 同源)
+export * from './model-edit'
 export * from './web-portal'
 export * from './about-sections'
 export * from './carte-sections'
+// ModelEdit 只读字段清单:RN 共享屏与小程序同名页读同一份,禁止端内各抄一份(「能改但不生效」的根因)
+export * from './model-edit'
 // D120/D124:注入来源 kind 闭集 + 词表键(web 聚合条 / ui-react 单条交代共用同一份)
 export * from './injection-kinds'
 // G-100:Apple AASA 单一真相源(web 8801 与 api 8802 同源消费,禁止各端再抄 JSON)

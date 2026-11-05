@@ -16,6 +16,11 @@
  * `>>>>>>> theirs` 三行 ⇒ 守门 79 在 `--rev HEAD` 上判红 ⇒ 有人手工把三行删掉并前向提交;
  * 而下一枚并集合并把"对侧那一版仍带着这三行"的内容按行 union 补回来(删除不随合并传播是本工具的
  * 既定设计),红就原地复活。**手工清偿在这条链路上是徒劳的** —— 必须在并集出口把三行滤掉。
+ * 〔2026-11-01 补装(MARKERS 票)〕这一格 2026-09-28 当天装过一次,又在同日的 `7a075820d4`
+ * (搬运感知 max 那次整函数改写)里被洗掉,此后 8 天无人复查 ⇒ 回潮实测到 AGENTS.md 四面各一份。
+ * 现在接在**决定"对侧在场就补回"的那一行**(`union-converge.liveDocExpectedCounts` 的期望重数表,
+ * 产出面与自证面共用)上,并按下面 `classifyMarkerTriples` 把「空冲突区」与「两侧有正文」分开判:
+ * 前者永不补回、后者一条都不扣(照旧补回 ⇒ 门 79 判红 ⇒ 逼人给一次定向说明,而不是顺手放行)。
  *
  * 判序与边界(照此理解,别放宽也别收紧):
  *  - **只剥成套的三行**:`^<<<<<<< ` 开头行 + 其后第一个逐字等于 `=======` 的行 + 再其后第一个
@@ -146,6 +151,51 @@ export function stripMarkerTriples(text) {
   }
 }
 
+/**
+ * 「成对标记三行」按**区域内到底有没有正文**分成两型(2026-11-01 立,MARKERS 票)。
+ *
+ * 为什么必须分成两型(实测,不是理论洁癖):AGENTS.md 里反复回潮的那三条
+ * (`<<<<<<< <sha>` / `=======` / `>>>>>>> <sha>`)是**两侧皆空的空冲突区** —— 合并双方都没有
+ * 任何一行正文,摘掉三行不丢任何东西;而守门 79 头注警告的「禁止手删标记当作已解决」指的是
+ * **两侧真内容**被顺手丢掉。同一把尺子一律放行 = 把后者也放走,一律禁止 = 前者永远靠人工摘。
+ *
+ * 判序(与 `findMarkerPairs` 同一份配对结果,本函数不复扫行):
+ *  - `empty`:`startLine + 1 === sepLine` 且 `sepLine + 1 === endLine`(三条标记行**逐行相邻**、
+ *    中间一行正文都没有)⇒ 这一族的三行进这个桶。
+ *  - `contentBearing`:其余成套三行(区域内有任何正文,或成对但缺 `=======` 分隔行 ⇒ 形态不可辩护,
+ *    保守归这一桶)。这一桶里的行**谁也不许自动扣**。
+ *  - `manual`:未配对的开头/结尾行数(半截标记)。本函数不据此扣任何东西,交调用方逐条点名。
+ *  - `exempt`:SEARCH/REPLACE 合法补丁格式对数,一律不动。
+ *
+ * 键是**行文本原文**(不是 trim 后的),与 `unionLines` / `stripMarkerTriples` 的行切分同形
+ * (`split('\n')`),否则 CRLF 文档里 `=======\r` 会漂成两个键。
+ */
+export function classifyMarkerTriples(text) {
+  const src = String(text ?? '')
+  const { pairs, unpairedStarts, unpairedEnds, exempt } = findMarkerPairs(src)
+  const lines = src.split('\n')
+  const empty = new Map()
+  const contentBearing = new Map()
+  const bump = (m, l) => m.set(l, (m.get(l) || 0) + 1)
+  for (const p of pairs) {
+    const isEmpty =
+      p.sepLine !== null && p.sepLine !== undefined && p.startLine + 1 === p.sepLine && p.sepLine + 1 === p.endLine
+    const bucket = isEmpty ? empty : contentBearing
+    for (const n of [p.startLine, p.sepLine, p.endLine]) {
+      if (n === null || n === undefined) continue
+      const l = lines[n - 1]
+      if (l === undefined) continue
+      bump(bucket, l)
+    }
+  }
+  return {
+    empty,
+    contentBearing,
+    manual: [...unpairedStarts, ...unpairedEnds],
+    exempt: exempt.length,
+  }
+}
+
 /** 供 §22c 镜像测试与调用方使用的导出锚点。 */
 export const __test__ = {
   OPEN_RE,
@@ -156,5 +206,6 @@ export const __test__ = {
   isPatchFormatPair,
   findMarkerPairs,
   stripMarkerTriples,
+  classifyMarkerTriples,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

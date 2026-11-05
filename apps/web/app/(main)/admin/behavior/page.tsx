@@ -112,7 +112,7 @@ export default function BehaviorPage() {
           <Eye className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 统计卡片 */}
@@ -148,7 +148,7 @@ export default function BehaviorPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('heatmapCardTitle')}</CardTitle>
-            <p className="text-xs text-muted-foreground">{t('heatmapHint')}</p>
+            <p className="text-label text-muted-foreground">{t('heatmapHint')}</p>
           </CardHeader>
           <CardContent>
             <Heatmap
@@ -172,11 +172,11 @@ export default function BehaviorPage() {
         ) : (watchData?.list ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <Eye className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noRecords')}</p>
+            <p className="text-body text-muted-foreground">{t('noRecords')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="w-full text-body">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">{t('topicType')}</th>
@@ -189,7 +189,7 @@ export default function BehaviorPage() {
                 {(watchData?.list ?? []).map((w) => (
                   <tr key={w.id}>
                     <td className="px-4 py-2">
-                      <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                      <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                         {w.topicType}
                       </span>
                     </td>
@@ -207,17 +207,17 @@ export default function BehaviorPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-end gap-2">
             <button
-              className="rounded-sm border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-sm border px-3 py-1 text-body disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
             >
               {t('prev')}
             </button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <button
-              className="rounded-sm border px-3 py-1 text-sm disabled:opacity-50"
+              className="rounded-sm border px-3 py-1 text-body disabled:opacity-50"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
             >

@@ -10,6 +10,11 @@ export interface AgentRuntimeSessionMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
+  /**
+   * 会话内单调序号(2026-11-02 B1 起写路径落库)。
+   * 可选:旧行里没有这个键 —— 读路径按数组下标惰性回填,不因此改表结构。
+   */
+  seq?: number
 }
 
 // agent-runtime 运行时会话持久化表。
@@ -33,6 +38,14 @@ export const agentRuntimeSessions = pgTable(
     botIdx: index('agent_runtime_sessions_bot_idx').on(t.botId),
     userIdx: index('agent_runtime_sessions_user_idx').on(t.userId),
     statusIdx: index('agent_runtime_sessions_status_idx').on(t.status),
+    // B1(2026-11-02):读路径「按 bot+user+status 取最近会话」的复合索引,
+    // 排序键与 findLatestSession 的 ORDER BY updated_at DESC, id DESC 前两列对齐。
+    lookupIdx: index('ix_agent_runtime_sessions_lookup').on(
+      t.botId,
+      t.userId,
+      t.status,
+      t.updatedAt.desc(),
+    ),
   }),
 )
 

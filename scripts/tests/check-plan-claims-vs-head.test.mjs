@@ -19,6 +19,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 
 import { __test__ as G } from '../check-plan-claims-vs-head.mjs'
 
@@ -139,7 +140,15 @@ describe('check-plan-claims-vs-head', () => {
     assert.equal(deaf.reason, 'probe-silent')
   })
 
-  it('真面承载:本轮点名的两枚误报在真 git 探针下必须落进判不准两档(不是 mock 自证)', () => {
+  // 归因(2026-11-01 S-CLAIMRED,判据未变、样本腐化):
+  //   deploy/cf-preferred-ip.mjs 于 f80b0bb34e(2026-10-26 01:31「整链退役」)删除,
+  //   又于 bf805b6551(同日 17:27)原样捞回(与被删版 217 行逐字相同,提交信息却称"此前仅存生产机未入库"),
+  //   而 PROJECT_PLAN 四处 + DEPLOYMENT_RUNBOOK:528 至今写"整链退役…勿再排期",全仓零消费方。
+  //   ⇒ 旧期望值的**样本**已腐化:retired 判据没错,错在拿一枚被捞回的文件当"已退役"样本。
+  // 处置:① retired 分支改用**动态选样**(最近 30 枚删除提交里挑当前仍不在 HEAD 的路径)⇒ 同类腐化不再复发;
+  //      ② 该文件"库里有、文档说退役"的脱节被钉成显式待裁决事实,不静默放过;
+  //      ③ 它一旦从 HEAD 消失(合法退役或误删),:verdict==='ok' 立刻变红,不会被 skip 从监管里摘掉。
+  it('真面承载:判据在真 git 探针下必须落对档(样本动态选取,不以单枚文件的存在性自证)', () => {
     const realIgnored = (p) => {
       try {
         execFileSync('git', ['check-ignore', '-q', '--', p], { stdio: ['ignore', 'ignore', 'ignore'] })
@@ -163,9 +172,53 @@ describe('check-plan-claims-vs-head', () => {
     const probes = { catFile: cat, grepHead: grepOk, migrationDirs: [], isIgnored: realIgnored, removedSha: realRemoved }
     const envRow = G.judgeEntry({ kind: 'path', target: 'apps/ai-service/.env', rows: ['G-957'] }, probes)
     assert.equal(envRow.reason, 'gitignored', `apps/ai-service/.env 现读应为 gitignored,实得 ${envRow.reason}`)
+
+    // 问②的真面证明:挑一枚"HEAD 史里被删、现在仍不在 HEAD、未被 ignore、父目录在 HEAD"的路径。
+    // 动态选样是防水位式腐化:某枚样本若被复活(如 cf-preferred-ip 那样),自动改用下一枚,判据强度不降。
+    const pickStillRemoved = () => {
+      const raw = execFileSync('git', ['log', '--diff-filter=D', '--name-only', '--format=%h', '-n', '30', 'HEAD'], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+      for (const line of raw.split('\n').map((s) => s.trim()).filter(Boolean)) {
+        if (/^[0-9a-f]{7,40}$/.test(line)) continue
+        if (cat(line)) continue
+        if (realIgnored(line) !== false) continue
+        const dir = line.includes('/') ? line.slice(0, line.lastIndexOf('/')) : ''
+        if (!dir || !cat(dir)) continue
+        const sha = realRemoved(line)
+        if (sha) return { target: line, sha }
+      }
+      return null
+    }
+    const sample = pickStillRemoved()
+    assert.ok(
+      sample,
+      '最近 30 枚删除提交里找不到"已删且仍在 HEAD 外"的样本 ⇒ 探针或历史读取有问题,不得静默跳过',
+    )
+    const retiredRow = G.judgeEntry({ kind: 'path', target: sample.target, rows: ['G-957'] }, probes)
+    assert.equal(retiredRow.reason, 'retired', `曾被枚 ${sample.sha} 删除的 ${sample.target} 现读应为 retired,实得 ${retiredRow.reason}`)
+    assert.match(retiredRow.evidence, /枚 \w{7,}/, '真面也必须带删除枚 sha')
+
+    // 退役已落地(2026-11-01):bf805b6551 把已整链退役的 cf-preferred-ip 原样捞回属误捞,
+    // 现按计划与运行手册一致口径(整链退役)真删除。本段从"钉脱节"改为"钉已退役且文档一致":
+    // 文件不在 HEAD + 删除证据进证据行 + PROJECT_PLAN 仍记整链退役 ⇒ 仓库与文档一致,脱节消除。
+    // 反向哨兵仍在:若有人再把文件捞回 HEAD(如 bf805b6551 那样),reason 不再是 retired、此段必红。
     const cfRow = G.judgeEntry({ kind: 'path', target: 'deploy/cf-preferred-ip.mjs', rows: ['G-957'] }, probes)
-    assert.equal(cfRow.reason, 'retired', `cf-preferred-ip 现读应为 retired,实得 ${cfRow.reason}`)
-    assert.match(cfRow.evidence, /枚 \w{7,}/, '真面也必须带删除枚 sha')
+    assert.equal(
+      cfRow.reason,
+      'retired',
+      `deploy/cf-preferred-ip.mjs 已删除 ⇒ 必须判 retired(实得 ${cfRow.verdict}/${cfRow.reason});` +
+        '若它被捞回 HEAD,此段立刻红,不许用 skip 摘掉',
+    )
+    assert.match(cfRow.evidence, /枚 \w{7,}/, '退役证据必须带删除枚 sha,否则下一手无从判这是真删还是叙述')
+    const planText = readFileSync(new URL('../../PROJECT_PLAN.md', import.meta.url), 'utf8')
+    assert.match(
+      planText,
+      /`deploy\/cf-preferred-ip\.mjs`\s*整链退役/,
+      'PROJECT_PLAN 必须仍记它的整链退役;两条同真 = 仓库状态与计划文档一致',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

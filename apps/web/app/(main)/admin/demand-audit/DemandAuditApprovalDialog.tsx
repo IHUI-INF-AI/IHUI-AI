@@ -102,7 +102,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
         </DialogHeader>
         <div className="grid grid-cols-2 gap-4 overflow-y-auto" style={{ maxHeight: '60vh' }}>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-label text-muted-foreground">
               <span
                 className={cn(
                   'h-2 w-2 rounded-sm',
@@ -116,11 +116,13 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
               style={{ minHeight: '200px', maxHeight: '300px' }}
             >
               {chatMsgs.length === 0 ? (
-                <p className="py-8 text-center text-xs text-muted-foreground">{t('chatEmpty')}</p>
+                <p className="py-8 text-center text-label text-muted-foreground">
+                  {t('chatEmpty')}
+                </p>
               ) : (
                 chatMsgs.map((m, i) => (
                   <div key={i} className="space-y-1">
-                    <div className="rounded-md bg-primary/10 px-2 py-1 text-xs">{m.ques}</div>
+                    <div className="rounded-md bg-primary/10 px-2 py-1 text-label">{m.ques}</div>
                     {m.content && (
                       <div className="rounded-md bg-muted px-2 py-1 text-label font-medium">
                         {m.content}
@@ -132,7 +134,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
             </div>
             <div className="flex gap-1">
               <Input
-                className="h-8 text-sm"
+                className="h-8 text-body"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -151,14 +153,14 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
           <div className="flex flex-col gap-3">
             <div className="space-y-1.5 rounded-md bg-muted/30 p-3">
               {AGENT_INFO.map((f) => (
-                <div key={f.key} className="flex justify-between text-xs">
+                <div key={f.key} className="flex justify-between text-label">
                   <span className="text-muted-foreground">{f.label}</span>
                   <span className="font-medium">{agentInfo[f.key] || '-'}</span>
                 </div>
               ))}
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">{t('opinionLabel')}</Label>
+              <Label className="text-label">{t('opinionLabel')}</Label>
               <textarea
                 className={textareaClass}
                 rows={2}

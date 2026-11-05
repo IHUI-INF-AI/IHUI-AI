@@ -21,7 +21,7 @@ export function AuthVeriCodeFilter({ search, onSearchChange, onQuery, onReset }:
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelUserId')}</Label>
+        <Label className="text-label">{t('labelUserId')}</Label>
         <Input
           className="h-9 w-40"
           value={search.userId}
@@ -30,7 +30,7 @@ export function AuthVeriCodeFilter({ search, onSearchChange, onQuery, onReset }:
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelPhone')}</Label>
+        <Label className="text-label">{t('labelPhone')}</Label>
         <Input
           className="h-9 w-40"
           value={search.phone}
@@ -39,7 +39,7 @@ export function AuthVeriCodeFilter({ search, onSearchChange, onQuery, onReset }:
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">{t('labelPlatform')}</Label>
+        <Label className="text-label">{t('labelPlatform')}</Label>
         <Input
           className="h-9 w-40"
           value={search.platform}

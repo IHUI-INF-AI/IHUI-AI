@@ -59,7 +59,7 @@ export function PaperSelectCard({
           </Select>
         </div>
         {paper && (
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 rounded-md bg-muted/40 px-4 py-3 text-sm">
+          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 rounded-md bg-muted/40 px-4 py-3 text-body">
             <div>
               <span className="text-muted-foreground">{t('totalScoreLabel')}</span>
               <b>{Number(paper.totalScore)}</b>

@@ -12,6 +12,7 @@ const { state, fns } = vi.hoisted(() => ({
     showToast: vi.fn(),
     showModal: vi.fn(),
     requestPayment: vi.fn(),
+    onToast: vi.fn(),
   },
 }))
 
@@ -27,6 +28,9 @@ vi.mock('@tarojs/taro', () => {
   }
   return { ...mockTaro, default: mockTaro }
 })
+
+// 支付错误提示已收口到宿主端口;断言打端口层信号,不再打 Taro.showToast。
+vi.mock('@/host/on-toast', () => ({ onToast: fns.onToast }))
 
 import { requestWxPayment, requestAliPayment, unifiedPay } from '../src/utils/pay'
 
@@ -62,7 +66,10 @@ describe('miniapp-taro 微信支付调起', () => {
       mockPaymentSuccess({ errMsg: 'requestPayment:ok' })
       const result = await requestWxPayment(validWxParams)
       expect(result).toEqual({ platform: 'weapp' })
-      expect(fns.showLoading).toHaveBeenCalledWith({ title: '支付中...', mask: true })
+      expect(fns.showLoading).toHaveBeenCalledWith({
+        title: '支付中...',
+        mask: true,
+      })
       expect(fns.hideLoading).toHaveBeenCalled()
     })
 
@@ -79,32 +86,45 @@ describe('miniapp-taro 微信支付调起', () => {
     })
 
     it('缺少必填参数直接透传(由微信端校验)', async () => {
-      const result = await requestWxPayment({ timeStamp: '123', nonceStr: 'n' })
+      const result = await requestWxPayment({
+        timeStamp: '123',
+        nonceStr: 'n',
+      })
       expect(result).toEqual({ platform: 'weapp' })
       expect(fns.hideLoading).toHaveBeenCalled()
     })
 
     it('缺少 paySign 直接透传(由微信端校验)', async () => {
-      const result = await requestWxPayment({ timeStamp: '123', nonceStr: 'n', package: 'pkg' })
+      const result = await requestWxPayment({
+        timeStamp: '123',
+        nonceStr: 'n',
+        package: 'pkg',
+      })
       expect(result).toEqual({ platform: 'weapp' })
     })
 
     it('用户取消支付', async () => {
       mockPaymentFail({ errMsg: 'requestPayment:fail cancel' })
       await expect(requestWxPayment(validWxParams)).rejects.toBe('cancel')
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '您已取消支付', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('您已取消支付', {
+        kind: 'info',
+      })
     })
 
     it('微信未安装 (code -100)', async () => {
       mockPaymentFail({ code: -100 })
       await expect(requestWxPayment(validWxParams)).rejects.toThrow('微信支付失败')
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '支付失败,请重试', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('支付失败,请重试', {
+        kind: 'error',
+      })
     })
 
     it('微信未安装 (errMsg 62000)', async () => {
       mockPaymentFail({ errMsg: 'requestPayment:fail 62000' })
       await expect(requestWxPayment(validWxParams)).rejects.toThrow('requestPayment:fail 62000')
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '支付失败,请重试', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('支付失败,请重试', {
+        kind: 'error',
+      })
     })
 
     it('参数错误', async () => {
@@ -112,18 +132,16 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestWxPayment(validWxParams)).rejects.toThrow(
         'requestPayment:fail parameter error',
       )
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试',
-        icon: 'none',
+      expect(fns.onToast).toHaveBeenCalledWith('支付失败,请重试', {
+        kind: 'error',
       })
     })
 
     it('通用支付失败', async () => {
       mockPaymentFail({ errMsg: 'requestPayment:fail unknown' })
       await expect(requestWxPayment(validWxParams)).rejects.toThrow('requestPayment:fail unknown')
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试',
-        icon: 'none',
+      expect(fns.onToast).toHaveBeenCalledWith('支付失败,请重试', {
+        kind: 'error',
       })
     })
   })
@@ -137,7 +155,10 @@ describe('miniapp-taro 微信支付调起', () => {
       mockPaymentSuccess()
       await requestWxPayment({ orderInfo: 'raw-order-info' })
       expect(fns.requestPayment).toHaveBeenCalledWith(
-        expect.objectContaining({ provider: 'wxpay', orderInfo: 'raw-order-info' }),
+        expect.objectContaining({
+          provider: 'wxpay',
+          orderInfo: 'raw-order-info',
+        }),
       )
     })
 
@@ -184,7 +205,9 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestWxPayment({ orderInfo: 'test' })).rejects.toMatchObject({
         errMsg: 'cancel',
       })
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '您已取消支付', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('您已取消支付', {
+        kind: 'info',
+      })
     })
   })
 
@@ -192,7 +215,9 @@ describe('miniapp-taro 微信支付调起', () => {
     it('web 平台不支持', async () => {
       state.env = 'web'
       await expect(requestWxPayment({})).rejects.toThrow('unsupported platform')
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '当前环境不支持微信支付', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('当前环境不支持微信支付', {
+        kind: 'error',
+      })
     })
 
     it('unknown 平台不支持', async () => {
@@ -207,7 +232,10 @@ describe('miniapp-taro 微信支付调起', () => {
       mockPaymentSuccess({})
       await requestAliPayment({ orderInfo: 'alipay-order-info' })
       expect(fns.requestPayment).toHaveBeenCalledWith(
-        expect.objectContaining({ provider: 'alipay', orderInfo: 'alipay-order-info' }),
+        expect.objectContaining({
+          provider: 'alipay',
+          orderInfo: 'alipay-order-info',
+        }),
       )
     })
 
@@ -216,16 +244,17 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestAliPayment({ orderInfo: 'test' })).rejects.toThrow(
         'weapp unsupported alipay',
       )
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: '微信小程序暂不支持支付宝支付',
-        icon: 'none',
+      expect(fns.onToast).toHaveBeenCalledWith('微信小程序暂不支持支付宝支付', {
+        kind: 'error',
       })
     })
 
     it('缺少 orderInfo 和 orderStr 拒绝', async () => {
       state.env = 'rn'
       await expect(requestAliPayment({})).rejects.toThrow('missing alipay orderInfo')
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '支付宝订单信息缺失', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('支付宝订单信息缺失', {
+        kind: 'error',
+      })
     })
 
     it('使用 orderStr 替代 orderInfo', async () => {
@@ -243,7 +272,9 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestAliPayment({ orderInfo: 'test' })).rejects.toMatchObject({
         errMsg: 'cancel',
       })
-      expect(fns.showToast).toHaveBeenCalledWith({ title: '您已取消支付', icon: 'none' })
+      expect(fns.onToast).toHaveBeenCalledWith('您已取消支付', {
+        kind: 'info',
+      })
     })
 
     it('支付宝未安装 (code -100)', async () => {
@@ -253,7 +284,9 @@ describe('miniapp-taro 微信支付调起', () => {
         code: -100,
       })
       expect(fns.showModal).toHaveBeenCalledWith(
-        expect.objectContaining({ content: '未检测到支付宝应用,请先安装支付宝' }),
+        expect.objectContaining({
+          content: '未检测到支付宝应用,请先安装支付宝',
+        }),
       )
     })
 
@@ -272,9 +305,8 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestAliPayment({ orderInfo: 'test' })).rejects.toMatchObject({
         errMsg: 'short msg',
       })
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: 'short msg',
-        icon: 'none',
+      expect(fns.onToast).toHaveBeenCalledWith('short msg', {
+        kind: 'error',
         duration: 2000,
       })
     })
@@ -286,9 +318,8 @@ describe('miniapp-taro 微信支付调起', () => {
       await expect(requestAliPayment({ orderInfo: 'test' })).rejects.toMatchObject({
         errMsg: longMsg,
       })
-      expect(fns.showToast).toHaveBeenCalledWith({
-        title: '支付失败,请重试',
-        icon: 'none',
+      expect(fns.onToast).toHaveBeenCalledWith('支付失败,请重试', {
+        kind: 'error',
         duration: 2000,
       })
     })

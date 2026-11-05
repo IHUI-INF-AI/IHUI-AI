@@ -5,7 +5,20 @@
 // 临时脚本: 给 ihui 用户授予 SUPERUSER
 import postgres from 'postgres'
 
-const url = process.env.DATABASE_URL ?? 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui'
+/**
+ * 必填环境变量:缺失即 exit 2(2026-11-01)。
+ * 原先 `process.env.DATABASE_URL ?? '<内置开发库连接串>'` 把开发库口令写进了仓库。
+ */
+function requireEnv(name) {
+  const value = (process.env[name] ?? '').trim()
+  if (!value) {
+    console.error(`❌ 缺少环境变量 ${name}:请显式配置后再运行(拒绝使用内置默认连接串)。`)
+    process.exit(2)
+  }
+  return value
+}
+
+const url = requireEnv('DATABASE_URL')
 const sql = postgres(url, { max: 1, onnotice: () => {} })
 try {
   // 尝试改 ihui 为 superuser (已可能成功,需要幂等)

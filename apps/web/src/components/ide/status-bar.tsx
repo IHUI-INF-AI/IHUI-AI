@@ -52,12 +52,11 @@ export function StatusBar() {
   const syncTip = t(syncMeta.tipKey)
 
   return (
-    <div className="flex h-6 shrink-0 items-center gap-3 bg-foreground px-3 text-xs text-background">
+    <div className="flex h-6 shrink-0 items-center gap-3 bg-foreground px-3 text-label text-background">
       <button className="flex items-center gap-1 hover:opacity-80">
         <GitBranch className="h-3 w-3" />
         <span>{gitCurrentBranch}</span>
         <Tooltip content={syncTip}>
-          
           <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} />
         </Tooltip>
       </button>

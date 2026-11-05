@@ -19,6 +19,10 @@
  * - 同票 ⇒ 不写;池内到期时刻更新 ⇒ 不写;客户端更新/轮换 ⇒ 写。
  * - 池内无此 uid(运营池)⇒ **自动入池**(2026-10-30 根治),复用 `relay-import-qoder.ts`
  *   的构造与 `importAccounts` 落库出口;此前该支只报缺失无人接,新登录账号静默脱离保活/签到。
+ * - 目标行选择(2026-11-01 根治):候选按 `(provider, uid)` 一次拉齐(不带 owner 过滤),交给
+ *   `chooseSyncTargetRow` 判定 —— 运营池行优先;运营池无行而个人池恰好一行则写该行(本机号
+ *   已归属某用户时不再另建运营池行);多行 = 归属未判定,拒写并点名;零行才走自动入池。
+ *   写库一律按主键 id 收窄(按 uid 通配会写穿同 uid 的他人副本)。
  *
  * 编排上游 = `scripts/sync-qoder-client-session.mjs`(提取本机 auth.v1.dat → stdin)。
  * 退出码:0 全部处理完(含 skip/自动入池)/ 1 有行写入失败 / 2 参数·输入·环境未判定。
@@ -34,14 +38,21 @@ const API_DIR = resolvePath(SCRIPT_DIR, '..')
 import { config } from 'dotenv'
 config({ path: resolvePath(API_DIR, '.env') })
 
-const { and, eq, sql, isNull } = await import('drizzle-orm')
+const { and, eq, sql } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { encryptField, decryptField } = await import('../src/utils/crypto.js')
 const { db } = await import('../src/db/index.js')
+// 目标行选择判据单源(与 trae/workbuddy 腿共用):运营池优先,运营池无行时认个人池唯一行
+const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
 // 判据单源:回灌决策沿用 Trae 那条(与平台无关),经 __test__ 出口取用
 const traeSync = await import('./relay-trae-session-sync.js')
 const decideSync = traeSync.__test__.decideSync
+// 客户端心跳写入判据单源(§0.6):与 Trae 腿共用同一实现(含「不推进 updatedAt」
+// 「时刻解不开就不写」两条边界),本层不复制第二份
+const touchClientHeartbeat = traeSync.touchClientHeartbeat
 const parseIso = traeSync.__test__.parseIso
+// rt 终点键名单源与 Trae 腿共用(§0.6):两种拼写都认,消费端不得各写一份字面量
+const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
 
 export interface QoderSyncCandidate {
   uid: string
@@ -65,6 +76,11 @@ export interface QoderSyncPayload {
   providerCode: string
   accounts: QoderSyncCandidate[]
   meta?: Record<string, unknown>
+  /**
+   * 本机 Qoder 客户端心跳时刻(三态折算在 scripts/sync-qoder-client-session.mjs)。
+   * 缺省/空 = 本轮不写心跳 ⇒ 池内既有心跳自然过期。
+   */
+  clientActiveAt?: string | null
 }
 
 /** Cosy 档合并补丁(纯函数):只在有值且与旧档不同时产出整档,否则 null(不写)。 */
@@ -114,6 +130,8 @@ export interface QoderSyncSummary {
   failed: number
   /** 本机新登录账号自动入池数(池内无行 → 走 importAccounts 建行;dry-run 只报不写) */
   imported: number
+  /** 本轮写入的客户端心跳行数(永久保活档的让位依据;dry-run 按候选计数不落库) */
+  heartbeat?: number
   rows: RowOutcome[]
 }
 
@@ -150,6 +168,11 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
     rows: [],
   }
 
+  // 客户端心跳候选:只要本轮解析到既有行就记账,与票是否变化无关 —— same-token 是常态,
+  // 心跳若挂在票写分支上就永远不达标,池会把「客户端正在续期」误读成「客户端已静默」,
+  // 进而接管续期、当场把正在用的 Qoder 顶下线(与 Trae 腿 2026-10-24 实测事故同型)。
+  const heartbeatRowIds: string[] = []
+
   for (const acc of payload.accounts) {
     const uid = typeof acc?.uid === 'string' ? acc.uid : ''
     try {
@@ -158,18 +181,25 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         summary.rows.push({ uid, decision: 'apply', applied: false, error: '缺 uid/token' })
         continue
       }
-      const [row] = await db
+      // 候选一次拉齐(不带 owner 过滤):目标行由 chooseSyncTargetRow 判,见文件头注
+      const candidates = await db
         .select()
         .from(aiRelayAccountPool)
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'qoder'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
-        .limit(1)
-      if (!row) {
+        .where(and(eq(aiRelayAccountPool.providerCode, 'qoder'), eq(aiRelayAccountPool.uid, uid)))
+      const target = chooseSyncTargetRow(candidates)
+      if (target.kind === 'ambiguous') {
+        // 同 uid 多行且无运营池行:挑一行写就是写穿他人副本,拒写并点名(不猜)
+        summary.failed++
+        summary.rows.push({
+          uid,
+          decision: 'apply',
+          applied: false,
+          error: `同 uid ${target.count} 行且无运营池行 —— 归属未判定,拒写`,
+        })
+        continue
+      }
+      if (target.kind === 'row') heartbeatRowIds.push(target.row.id)
+      if (target.kind === 'none') {
         // 缺行 ⇒ 自动入池(2026-10-30 根治):此前新登录的 Qoder 号只报「池内无此 uid」
         // 且无人接 —— 保活/自动签到永远不覆盖它,静默漏到人工发现。现把本机会话交给
         // 手动导入同一套构造(buildQoderImportAccount 判据单源,§0.6)与同一落库出口
@@ -185,7 +215,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
           accessToken: acc.token,
           refreshToken: acc.refreshToken ?? undefined,
           expiresAt: acc.expiresAt ?? undefined,
-          refreshTokenExpiresAt: acc.refreshTokenExpiresAt ?? undefined,
+          refreshTokenExpiresAt: clientRefreshExpiryRaw(acc) ?? undefined,
           deviceId: acc.deviceId ?? undefined,
           machineId: acc.machineId ?? undefined,
           machineToken: acc.machineToken ?? undefined,
@@ -226,6 +256,8 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         }
         continue
       }
+      // 命中唯一目标行:后续所有写都必须按主键 id 收窄(按 uid 通配会写穿同 uid 的他人副本)
+      const row = target.row
       // 池内明文解不出(密钥轮换/坏密文)时当作"票不同"走 apply,让客户端票覆盖坏密文
       let poolPlain: string | null = null
       try {
@@ -240,7 +272,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         clientToken: acc.token,
         clientRefreshToken: typeof acc.refreshToken === 'string' ? acc.refreshToken : null,
         clientExpiresAt: parseIso(acc.expiresAt),
-        clientRefreshExpiresAt: parseIso(acc.refreshTokenExpiresAt),
+        clientRefreshExpiresAt: parseIso(clientRefreshExpiryRaw(acc)),
       })
       const cosyPatch = buildCosyPatch(row.extraMetadata as Record<string, unknown> | null, acc)
       const extraUpdate = cosyPatch
@@ -272,13 +304,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
               ...deviceIdUpdate,
               updatedAt: new Date(),
             })
-            .where(
-              and(
-                eq(aiRelayAccountPool.providerCode, 'qoder'),
-                eq(aiRelayAccountPool.uid, uid),
-                isNull(aiRelayAccountPool.ownerUserId),
-              ),
-            )
+            .where(eq(aiRelayAccountPool.id, row.id))
         }
         summary.skipped++
         summary.rows.push({ uid, decision: final.reason, applied: false })
@@ -305,13 +331,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
           credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(aiRelayAccountPool.providerCode, 'qoder'),
-            eq(aiRelayAccountPool.uid, uid),
-            isNull(aiRelayAccountPool.ownerUserId),
-          ),
-        )
+        .where(eq(aiRelayAccountPool.id, row.id))
       summary.applied++
       summary.rows.push({ uid, decision: final.reason, applied: true })
     } catch (e) {
@@ -324,6 +344,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
       })
     }
   }
+  // 心跳独立于票写:上面每解析到一枚既有行就进候选,这里一次性落库(dry-run 只计数)。
+  // 不进 failed —— 心跳是观测面,写不成不该把整轮回灌判失败(与 Trae 腿同一口径)。
+  summary.heartbeat = await touchClientHeartbeat(heartbeatRowIds, payload.clientActiveAt, dryRun)
   if (summary.failed > 0) summary.ok = false
   return summary
 }
@@ -377,7 +400,7 @@ export async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(summary)}\n`)
   } else {
     process.stderr.write(
-      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} imported=${summary.imported} 心跳=${summary.heartbeat ?? 0} failed=${summary.failed}${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of summary.rows) {
       process.stderr.write(

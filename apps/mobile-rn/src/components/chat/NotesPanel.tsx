@@ -1,7 +1,8 @@
-import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../../i18n'
 
 // 新建:会话内「语音笔记」插入面板(D43③)。列表只读(不归档/不删除),零副作用、不落盘。
 
@@ -105,21 +106,21 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     paddingVertical: rpx(48),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   // 空态沿用全仓 emptyText 口径(AgentList/BottomPopup 同值)
   emptyText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
   errorText: {
     textAlign: 'center',
     paddingTop: rpx(48),
     paddingBottom: rpx(16),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.error.text,
   },
   retryBtn: {

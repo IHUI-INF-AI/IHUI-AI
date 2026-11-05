@@ -53,7 +53,7 @@ export default function SkillVersionsPage() {
             <History className="h-5 w-5 text-primary" />
             技能版本管理
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
+          <p className="mt-1 text-label text-muted-foreground [&>span]:translate-y-[var(--text-vcenter-offset)]">
             <span>查看技能版本历史、对比差异、一键回滚</span>
           </p>
         </div>

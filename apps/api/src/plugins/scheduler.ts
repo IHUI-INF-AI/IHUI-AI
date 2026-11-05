@@ -6,7 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { Queue, type ConnectionOptions } from 'bullmq'
 import { config } from '../config/index.js'
-import { processOutbox } from '../utils/outbox.js'
+import { processOutbox, cleanupProcessedOutbox } from '../utils/outbox.js'
 import { queueNameWithDbIdentity } from '../services/relay-queue-name.js'
 
 /**
@@ -65,6 +65,11 @@ export type ScheduledJobName =
   | 'traffic-stats-hourly'
   // 中转号池健康 Gauge 刷新(2026-10-23 立;聚合面见 services/relay-pool-stats-service.ts)
   | 'relay-pool-gauge'
+  // 考勤缺勤补录(2026-11-02 立,B67):当日过了班级 absent_after 仍未签到的学生补 absent 行。
+  // 立票现读的事实:`eduAttendanceRecord` 全仓只有考勤路由在读写,没有任何补录面 ⇒ 没来的人
+  // 不进统计行,出勤率的分母只算"已签到的人",缺勤恒 0。判据与补录面见 services/edu-attendance-rule.ts
+  // 与 services/edu-attendance-absent-job.ts(补录器不自判阈值,阈值一律走规则表现读)。
+  | 'edu-attendance-absent-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -256,6 +261,15 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     pattern: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
     description: '中转号池健康 Gauge 刷新（每5分,查 ai_relay_key_pool/ai_relay_account_pool）',
   },
+  // 考勤缺勤补录(B67):BullMQ pattern 按 UTC 解析,北京时间 18:30 = UTC 10:30(与
+  // edu-arrear-remind-daily 同一时区口径,不是本地钟)。挂既有 repeatable 轮询,不新增计时器;
+  // 应急可关档位 EDU_ATTENDANCE_ABSENT_DISABLED=1(在 services/scheduled-tasks-service.ts 消费)。
+  {
+    name: 'edu-attendance-absent-daily',
+    pattern: '30 10 * * *',
+    description:
+      '考勤缺勤补录（每日 UTC10:30=北京18:30,按班级 absent_after 为未签到学生落 absent 行）',
+  },
 ]
 
 interface SchedulerJobData {
@@ -297,14 +311,54 @@ export function createOutboxLogDispatcher(log: OutboxDrainLog): {
   }
 }
 
+// ============================================================================
+// Outbox processed 行的保留清理(2026-11-01 接线:cleanupProcessedOutbox 此前无人执行)
+// ============================================================================
+// 挂 **既有** `outbox-drain-every-30s` 轮询(与排空同一轮),不新开计时器;自带时间戳节流
+// —— 距上次 prune 不足 PRUNE_INTERVAL_MS 直接跳过,否则 30 秒轮会放大成每天 2880 次 DELETE。
+// prune 失败只记日志、不上抛:一轮排空的 processed/failed 归因必须只反映事件投递本身。
+
+/** processed 事件的保留天数:超出即由本轮 prune 回收。 */
+const PROCESSED_RETENTION_DAYS = 7
+
+/** 两次 prune 的最小间隔(6 小时)。 */
+const PRUNE_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+/** 上次 prune 的时刻(ms)。0 = 本进程尚未 prune 过 ⇒ 首轮排空即执行一次。 */
+let lastPruneAtMs = 0
+
+/**
+ * 到点才真删,返回删除条数(0 = 本轮未到节律或无行可删)。
+ * 到点即前移节流时刻(失败轮同样前移):一次持续失败的 DELETE 不该变成每 30 秒重试。
+ */
+async function pruneProcessedOutboxDue(nowMs: number, log: OutboxDrainLog): Promise<number> {
+  if (nowMs - lastPruneAtMs < PRUNE_INTERVAL_MS) return 0
+  lastPruneAtMs = nowMs
+  try {
+    return await cleanupProcessedOutbox(
+      new Date(nowMs - PROCESSED_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+    )
+  } catch (err) {
+    log.error({ err }, 'outbox processed prune failed (non-fatal)')
+    return 0
+  }
+}
+
 /**
  * 排空一轮 pending 事件。周期任务(scheduler-worker case)与启动扫描共用;
  * 抛错原样上抛,由调用方决定上报方式(worker 记 failed / onReady 只记 error)。
+ *
+ * 顺带捎上 processed 行的保留清理(见 pruneProcessedOutboxDue 头注):同一轮里做,
+ * 不新开计时器,返回值带 `pruned` 让"清了多少"可观察。
  */
 export async function runOutboxDrain(server: { log: OutboxDrainLog }) {
   const result = await processOutbox(createOutboxLogDispatcher(server.log))
-  server.log.info({ processed: result.processed, failed: result.failed }, 'outbox drain done')
-  return result
+  const pruned = await pruneProcessedOutboxDue(Date.now(), server.log)
+  server.log.info(
+    { processed: result.processed, failed: result.failed, pruned },
+    'outbox drain done',
+  )
+  return { ...result, pruned }
 }
 
 /**

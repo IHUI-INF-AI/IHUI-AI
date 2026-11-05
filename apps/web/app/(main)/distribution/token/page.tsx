@@ -107,7 +107,7 @@ export default function TokenWalletPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-5xl space-y-4">
       <Link
         href="/distribution"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -125,11 +125,13 @@ export default function TokenWalletPage() {
         <>
           <Card>
             <CardContent className="min-[640px]:p-3 space-y-1 p-3">
-              <div className="text-sm text-muted-foreground">{t('tokenBalance')}</div>
+              <div className="text-body text-muted-foreground">{t('tokenBalance')}</div>
               {balanceQ.isLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               ) : balanceQ.error ? (
-                <div className="text-sm text-destructive">{(balanceQ.error as Error).message}</div>
+                <div className="text-body text-destructive">
+                  {(balanceQ.error as Error).message}
+                </div>
               ) : (
                 <div className="text-heading font-bold tracking-tight min-[768px]:text-display">
                   {balanceQ.data?.balance ?? 0}
@@ -231,7 +233,7 @@ export default function TokenWalletPage() {
 
             {total > PAGE_SIZE && (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('totalOf', { total })}</span>
+                <span className="text-body text-muted-foreground">{t('totalOf', { total })}</span>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -241,7 +243,7 @@ export default function TokenWalletPage() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-body text-muted-foreground">
                     {page} / {totalPages}
                   </span>
                   <Button

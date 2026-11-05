@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointsRecordItem, PointsRecordScreenProps, PointsRecordType } from '@ihui/types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -135,18 +135,18 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     balanceCard: {
       marginHorizontal: rnSpacing['sm-loose'],
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
       alignItems: 'center',
     },
-    balanceLabel: { fontSize: 14, color: tk.success.deepText },
+    balanceLabel: { fontSize: rnType.body.size, color: tk.success.deepText },
     balanceValue: {
       marginTop: rnSpacing.sm,
-      fontSize: 30,
+      fontSize: rnType.displayLg.size,
       fontWeight: '700',
       color: tk.success.deepText,
     },
@@ -157,19 +157,23 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     tab: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.cta },
-    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabText: { fontSize: rnType.body.size, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: rnSpacing['sm-loose'], fontSize: 14, color: tk.danger.DEFAULT },
-    listBody: { padding: 14, paddingBottom: rnSpacing['3xl'] },
+    errorText: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      fontSize: rnType.body.size,
+      color: tk.danger.DEFAULT,
+    },
+    listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -182,12 +186,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardSource: {
       flex: 1,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginRight: rnSpacing.sm,
     },
-    cardAmount: { fontSize: 16, fontWeight: '600' },
+    cardAmount: { fontSize: rnType.title.size, fontWeight: '600' },
     amountEarn: { color: tk.success.DEFAULT },
     amountSpend: { color: tk.danger.DEFAULT },
     metaRow: {
@@ -196,8 +200,8 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginTop: rnSpacing.sm,
     },
-    cardMeta: { fontSize: 11, color: tk.text.secondary },
-    cardTime: { fontSize: 11, color: tk.text.tertiary },
+    cardMeta: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    cardTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

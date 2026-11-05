@@ -23,8 +23,14 @@ import * as fs from 'node:fs';
 // ASCII 机器码前缀(spawn_error / output_limit / unattributed / fs_probe_unavailable /
 // fs_exhausted.*)留在模板里、不进词表 —— 取词失败时行仍读得出"没配上",不是"没发生"。
 import { t } from '../i18n/index.js';
+// glob 匹配原语(单一真相源):checkFolderTrust 与 file-access-policy 共用同一把尺,
+// 不得在任一消费点内联再抄一份 glob→正则(两处必漂移是本仓记过最多次的失败型)。
+import { globMatches, globWildcardCount, normalizeWorkspacePath } from './glob-pattern.js';
 // b75-4#9:kill(-pgid,0) 探组存活性(ESRCH=已消亡 / EPERM=存活但无权),升级 SIGKILL 前先探
 import { isPosixProcessGroupAlive } from '../util/spawn-isolated.js';
+// B6 子进程网络出口(goal-b49 复现对侧双引擎的 DNS/域名裁决那一半):判据单源在 ./egress/*,
+// 本文件只做派生点的装配,不在此复写任何域名/网段判据(§0.6)。
+import { applyEgressEnvExit, buildEgressEnvExit, reportEgressWarnings } from './egress/env-inject.js';
 
 export interface SandboxOptions {
   cwd: string;
@@ -158,7 +164,7 @@ export type FolderTrustMap = Record<string, FolderTrustLevel>;
 export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | undefined): FolderTrustLevel {
   if (!trustMap) return 'trusted';
 
-  const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  const normalized = normalizeWorkspacePath(filePath);
 
   if (trustMap[normalized]) return trustMap[normalized]!;
 
@@ -167,13 +173,8 @@ export function checkFolderTrust(filePath: string, trustMap: FolderTrustMap | un
     if (pattern === normalized) {
       return level;
     }
-    const regexStr = pattern
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*\*/g, '<<<GLOBSTAR>>>')
-      .replace(/\*/g, '[^/]*')
-      .replace(/<<<GLOBSTAR>>>/g, '.*');
-    if (new RegExp(`^${regexStr}$`).test(normalized)) {
-      const specificity = (pattern.match(/[*/]/g) ?? []).length;
+    if (globMatches(pattern, normalized)) {
+      const specificity = globWildcardCount(pattern);
       if (!bestMatch || specificity < bestMatch.specificity) {
         bestMatch = { level, specificity };
       }
@@ -927,9 +928,39 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     }
   }
 
+  // B6 网络出口裁决(派生点唯一执行处):命令里点名了目的地就问出口,命中 enforce 档的 deny
+  // 就**不拉起子进程**(与命令白名单/路径白名单同一 blocked 形态,不另造一套终态)。
+  // 台账与出声都在 egress 层内部,这里只负责"拦下并结算",零复算。
+  const egressExit = buildEgressEnvExit({ commandLine, cwd: opts.cwd });
+  reportEgressWarnings(egressExit);
+  if (egressExit.blocked) {
+    appendSandboxAuditLog({
+      timestamp: new Date().toISOString(),
+      command: commandLine,
+      cwd: opts.cwd,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: egressExit.blockReason ?? 'egress_denied',
+      durationMs: Date.now() - startedAt,
+    });
+    const reason = egressExit.blockReason ?? 'egress_denied';
+    return {
+      stdout: '',
+      stderr: `⛔ egress_denied: ${reason}(出口规则表未放行该目的地;改用被放行的目的地,或按 AGENTS.md 在 IHUI_EGRESS_ALLOW_DOMAINS 里显式登记,或设 IHUI_EGRESS_ENFORCE=0 降为出声档)`,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: reason,
+    };
+  }
+
   // G-465 剥离侧报名:先算出真正交给子进程的 env,再对"被剥掉的键"做凭据形态归因
   // (只报名,不恢复;剥离仍由 buildFilteredEnv + blockedEnvVars 一家独管,两表同源不混抄)。
-  const filteredEnv = buildFilteredEnv(blockedEnvVars);
+  // 顺序固定:先剥凭据、后并出口标记 —— 反过来的话 IHUI_EGRESS_* 会被自己的 deny 表剥掉。
+  const filteredEnv = applyEgressEnvExit(buildFilteredEnv(blockedEnvVars), egressExit);
   const suspiciousEnvVars = detectStrippedSuspiciousEnvVars(process.env, filteredEnv);
   reportSuspiciousEnvVars(suspiciousEnvVars);
 
@@ -1050,9 +1081,37 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
     };
   }
 
+  // B6 网络出口裁决:异步路径与同步路径同一出口、同一判据(不在这里复算)。
+  const egressExit = buildEgressEnvExit({ commandLine, cwd: opts.cwd });
+  reportEgressWarnings(egressExit);
+  if (egressExit.blocked) {
+    const reason = egressExit.blockReason ?? 'egress_denied';
+    const blockedResult: SandboxResult = {
+      stdout: '',
+      stderr: `⛔ egress_denied: ${reason}(出口规则表未放行该目的地;改用被放行的目的地,或在 IHUI_EGRESS_ALLOW_DOMAINS 里显式登记)`,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: reason,
+    };
+    appendSandboxAuditLog({
+      timestamp: new Date().toISOString(),
+      command: commandLine,
+      cwd: opts.cwd,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: reason,
+      durationMs: 0,
+    });
+    return { process: null as unknown as ChildProcess, result: Promise.resolve(blockedResult) };
+  }
+
   // G-465 剥离侧报名:与同步路径同一出口(对"被剥掉的键"做凭据形态归因;precheck 拒绝分支
-  // 没拉起子进程,没有 env 交接,不报名)。
-  const filteredEnv = buildFilteredEnv(blockedEnvVars);
+  // 没拉起子进程,没有 env 交接,不报名)。顺序同同步路径:先剥凭据、后并出口标记。
+  const filteredEnv = applyEgressEnvExit(buildFilteredEnv(blockedEnvVars), egressExit);
   const suspiciousEnvVars = detectStrippedSuspiciousEnvVars(process.env, filteredEnv);
   reportSuspiciousEnvVars(suspiciousEnvVars);
 

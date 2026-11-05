@@ -138,7 +138,7 @@ export function ApplicationsPanel() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder={t('applications.configNamePlaceholder')}
-            className="mb-1 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
+            className="mb-1 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-label focus:outline-none"
           />
           <div className="mb-1 flex gap-1">
             {(Object.keys(TYPE_META) as ConfigType[]).map((typeKey) => {
@@ -148,7 +148,7 @@ export function ApplicationsPanel() {
                   key={typeKey}
                   onClick={() => setForm({ ...form, type: typeKey })}
                   className={cn(
-                    'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs transition-colors',
+                    'flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-label transition-colors',
                     form.type === typeKey
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:bg-muted/50',
@@ -165,13 +165,13 @@ export function ApplicationsPanel() {
             onChange={(e) => setForm({ ...form, command: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && submitForm()}
             placeholder={t('applications.commandPlaceholder')}
-            className="mb-1.5 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
+            className="mb-1.5 w-full rounded-sm border border-border bg-background px-1.5 py-1 text-label focus:outline-none"
           />
           <div className="flex justify-end gap-1">
             <CloseButton aria-label={t('applications.cancel')} onClick={() => setShowForm(false)} />
             <button
               onClick={submitForm}
-              className="flex items-center gap-1 rounded-sm bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90"
+              className="flex items-center gap-1 rounded-sm bg-foreground px-2 py-1 text-label text-background hover:bg-foreground/90"
             >
               <Check className="h-3 w-3" />
               <span>{t('applications.add')}</span>
@@ -195,7 +195,7 @@ export function ApplicationsPanel() {
               <Icon className={cn('h-3.5 w-3.5 shrink-0', meta.color)} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-label font-medium">{config.name}</div>
-                <div className="truncate text-xs text-muted-foreground">{config.command}</div>
+                <div className="truncate text-label text-muted-foreground">{config.command}</div>
               </div>
               <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <button
@@ -226,7 +226,7 @@ export function ApplicationsPanel() {
             {history.map((h, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30"
+                className="flex items-center gap-2 rounded px-2 py-1 text-label hover:bg-muted/30"
               >
                 <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <span className="truncate">{h.name}</span>

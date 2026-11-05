@@ -57,12 +57,12 @@ export default function SearchBar({
   )
   return (
     <View
-      className={`${searchBarWellClassName} border-border ${className ?? 'mx-3 my-2'}`}
+      className={`${searchBarWellClassName} border-border ${className ?? 'mx-md my-sm'}`}
       style={ff.focusStyle}
     >
       <LineIcon name="search" size={24} color="var(--color-muted-foreground)" />
       <Input
-        className="flex-1 text-sm"
+        className="flex-1 text-body"
         {...ff.spread}
         placeholder={placeholder}
         value={value}
@@ -71,7 +71,7 @@ export default function SearchBar({
         onConfirm={() => onSearch?.()}
       />
       {value && (
-        <Text className="text-sm text-muted-foreground" onClick={onClear}>
+        <Text className="text-body text-muted-foreground" onClick={onClear}>
           ×
         </Text>
       )}

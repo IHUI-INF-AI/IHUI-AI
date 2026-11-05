@@ -79,7 +79,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
             <Card key={uid}>
               <CardContent className="flex items-end gap-2 pt-3">
                 <div className="flex-1 min-w-0 space-y-1">
-                  <Label htmlFor={`f-name-${uid}`} className="text-xs">
+                  <Label htmlFor={`f-name-${uid}`} className="text-label">
                     名称
                   </Label>
                   <Input
@@ -91,7 +91,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                   />
                 </div>
                 <div className="w-32 space-y-1">
-                  <Label htmlFor={`f-label-${uid}`} className="text-xs">
+                  <Label htmlFor={`f-label-${uid}`} className="text-label">
                     显示名
                   </Label>
                   <Input
@@ -103,7 +103,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                   />
                 </div>
                 <div className="w-32 space-y-1">
-                  <Label htmlFor={`f-type-${uid}`} className="text-xs">
+                  <Label htmlFor={`f-type-${uid}`} className="text-label">
                     类型
                   </Label>
                   <Select
@@ -124,7 +124,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
                   </Select>
                 </div>
                 <div className="flex items-center gap-2 pb-2">
-                  <label className="flex items-center gap-1 text-xs">
+                  <label className="flex items-center gap-1 text-label">
                     <input
                       type="checkbox"
                       checked={Boolean(f.required)}
@@ -149,7 +149,7 @@ export function FieldEditor({ fields, onChange, fieldTypes, disabled }: FieldEdi
           )
         })}
         {fields.length === 0 && (
-          <p className="text-xs text-muted-foreground">点击「新增字段」添加第一个字段</p>
+          <p className="text-label text-muted-foreground">点击「新增字段」添加第一个字段</p>
         )}
       </div>
     </div>

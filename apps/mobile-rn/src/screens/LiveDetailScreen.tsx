@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
@@ -38,6 +38,8 @@ function mapLive(live: Live): LiveDetailItem {
     viewCount: live.viewCount,
     playUrl: live.playUrl,
     intro: live.intro,
+    startTime: live.startTime,
+    coverUrl: live.coverImage ?? undefined,
   }
 }
 
@@ -60,6 +62,8 @@ export function LiveDetailScreen() {
   const [live, setLive] = useState<Live | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
   const [subscribed, setSubscribed] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -86,7 +90,7 @@ export function LiveDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
 
   // 建立聊天 WebSocket 连接
   useEffect(() => {
@@ -180,6 +184,7 @@ export function LiveDetailScreen() {
       </View>
       <SharedLiveDetailScreen
         t={t}
+        onRetry={reload}
         colorScheme={resolvedTheme}
         live={sharedLive}
         loading={loading}
@@ -225,7 +230,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   entryBtnText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.brandAccent.foreground,
   },

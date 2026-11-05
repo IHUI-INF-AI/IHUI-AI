@@ -12,6 +12,7 @@ import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -51,26 +52,17 @@ export default function WithdrawalPage() {
   const onSubmit = async () => {
     const amt = Number(amount)
     if (!amt || amt <= 0) {
-      Taro.showToast({
-        title: tt('distribution.withdraw.invalidAmount', '请输入有效金额'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
     }
     if (amt > availableRef.current) {
-      Taro.showToast({
-        title: tt('distribution.withdraw.insufficient', '可提现余额不足'),
-        icon: 'none',
-      })
+      onToast(tt('distribution.withdraw.insufficient', '可提现余额不足'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await withdraw({ amount: amt, type: method })
-      Taro.showToast({
-        title: tt('distribution.withdraw.submitted', '提现申请已提交'),
-        icon: 'success',
-      })
+      onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // ignore
@@ -92,47 +84,44 @@ export default function WithdrawalPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-4">
+      <View className="min-h-screen bg-background p-lg">
         {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
-        <View className="px-4 py-3 rounded-lg bg-card mb-4">
-          <Text className="block text-sm text-muted-foreground">
+        <View className="px-lg py-md rounded-lg bg-card mb-lg">
+          <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
           </Text>
-          <Text className="block text-2xl font-bold text-foreground mt-2">
+          <Text className="block text-display font-bold text-foreground mt-sm">
             {priceFmt.format(available)}
           </Text>
         </View>
 
         {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
-        <View className="rounded-lg border border-border bg-card p-4">
+        <View className="rounded-lg border border-border bg-card p-lg">
           <Text className="block text-body text-muted-foreground">
             {tt('wallet.withdrawal.amountLabel', '提现金额')}
           </Text>
           <View
-            className="flex items-center mt-2 h-[50px] px-3 rounded-xl border border-border bg-[var(--color-muted)]"
+            className="flex items-center mt-sm h-[50px] px-md rounded-xl border border-border bg-[var(--color-muted)]"
             style={ffAmount.focusStyle}
           >
-            <Text className="text-base font-semibold text-foreground">¥</Text>
+            <Text className="text-title font-semibold text-foreground">¥</Text>
             <Input
-              className="flex-1 text-base text-foreground ml-[12rpx]"
+              className="flex-1 text-title font-normal text-foreground ml-[12rpx]"
               {...ffAmount.spread}
               type="digit"
               value={amount}
               onInput={(e) => setAmount(e.detail.value)}
               placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
             />
-            <Text
-              className="text-caption text-[var(--color-text-tertiary)]"
-              onClick={fillAll}
-            >
+            <Text className="text-caption text-[var(--color-text-tertiary)]" onClick={fillAll}>
               {tt('distribution.withdraw.all', '全部提现')}
             </Text>
           </View>
 
-          <Text className="block text-sm text-muted-foreground mt-4 mb-2">
+          <Text className="block text-body text-muted-foreground mt-lg mb-sm">
             {tt('distribution.withdraw.method', '提现方式')}
           </Text>
-          <View className="flex gap-3">
+          <View className="flex gap-md">
             {methods.map((m) => (
               <View
                 key={m.value}
@@ -141,11 +130,11 @@ export default function WithdrawalPage() {
                 hoverClass="opacity-60"
               >
                 <View
-                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-[length:26rpx] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
+                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-body-sm leading-[normal] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
                 >
                   {m.icon}
                 </View>
-                <Text className="flex-1 text-base text-foreground">{m.label}</Text>
+                <Text className="flex-1 text-title font-normal text-foreground">{m.label}</Text>
                 <View
                   className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
                 >
@@ -159,7 +148,7 @@ export default function WithdrawalPage() {
         </View>
 
         <Button
-          className="mt-5 bg-cta text-cta-foreground rounded-sm text-base font-semibold"
+          className="mt-xl bg-cta text-cta-foreground rounded-sm text-title font-semibold"
           loading={submitting}
           disabled={submitting}
           onClick={onSubmit}
@@ -168,7 +157,7 @@ export default function WithdrawalPage() {
         </Button>
 
         <View
-          className="mt-3 text-center text-caption text-[var(--color-text-tertiary)]"
+          className="mt-md text-center text-caption text-[var(--color-text-tertiary)]"
           onClick={goRecords}
           hoverClass="opacity-60"
         >

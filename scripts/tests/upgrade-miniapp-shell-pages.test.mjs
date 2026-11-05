@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 
 import { pickCarrierShell } from '../lib/rn-shell-refs.mjs'
 import { __test__ as conv } from '../plan-hand-mirror-conversion.mjs'
+import { buildShellPage } from '../gen-miniapp-mirror.mjs'
 import { landMessage } from '../upgrade-miniapp-shell-pages.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -110,4 +111,73 @@ test('U9 落 HEAD 失败必须把本批工作树退回 HEAD(否则自己制造�
     block.indexOf("git(['checkout', 'HEAD', '--'") < block.indexOf('if (landed.ok)'),
     '回退必须排在成功分支之前(失败即退,不能等下一轮)',
   )
+})
+
+// ── 标题通道 U10–U13(2026-11-01 立)──
+// 为什么这一族此前必须补:navTitle 在全部测试里**零覆盖**,而落地器是**自己再算一次**标题的
+// (不是取规划器行里的结论)。判据认了新形态、落地器没接 ⇒ 转出来的页会静默丢掉导航栏标题,
+// 预览看不出来(标题是原生导航栏),属"链路断了但门照绿"那一型。
+const DEMO_SHELL = `import { DemoScreen } from '@ihui/rn-app'\nexport default function DemoScreen(){return null}`
+// 实测 pkg-ai/dev-space/index.tsx 的形态:标题住在 useEffect 里,无依赖数组
+const EFFECT_TITLE_PAGE = `export default function P() {
+  const { t } = useI18n()
+  useEffect(() => {
+    Taro.setNavigationBarTitle({ title: t('devSpace.title') })
+  })
+  return null
+}`
+
+const pageOf = (opts) => {
+  const b = buildShellPage({
+    spec: 'packages/app/src/features/demo/DemoScreen.tsx',
+    base: 'Demo',
+    shellText: DEMO_SHELL,
+    shellName: 'DemoScreen',
+    ...opts,
+  })
+  return typeof b === 'string' ? b : (b?.content ?? '')
+}
+
+test('U10 接线锁:落地器必须把标题的 hook 形态与依赖数组交给生成器', () => {
+  const src = readFileSync(UPGRADER, 'utf8')
+  assert.match(src, /staticTitleEffect/, '落地器必须 import 规划器那把标题判据(§0.6 判据单源,不在这里复算)')
+  assert.match(src, /navTitleHook:/, '必须把 hook 形态传给生成器')
+  assert.match(src, /navTitleDeps:/, '必须把原依赖数组传给生成器')
+  assert.match(
+    src,
+    /titleEffect\?\.title/,
+    'navTitle 不得只按 titleOnlyLifecycle 算 —— 那会把 useEffect 那一形判成"无标题"',
+  )
+})
+
+test('U11 生成器保住原节律:useEffect 页产出 useEffect + 原依赖数组,不写 useDidShow', () => {
+  const text = pageOf({
+    navTitle: `tt('articleList.title', '文章')`,
+    navTitleHook: 'useEffect',
+    navTitleDeps: '[tt]',
+  })
+  assert.match(text, /import \{ useEffect \} from 'react'/, 'useEffect 必须从 react 取')
+  assert.match(text, /useEffect\(\(\) => \{/)
+  assert.match(text, /\}, \[tt]\)/, '依赖数组必须原样带走(随语言切换重设)')
+  assert.equal(/useDidShow/.test(text), false, 'useEffect 页不得改写成 useDidShow:那会把标题冻在进屏那一刻的语言上')
+})
+
+test('U12 零回归:useDidShow 形态仍产 useDidShow,且不冒依赖数组', () => {
+  const text = pageOf({ navTitle: `t('a.b')`, navTitleHook: 'useDidShow', navTitleDeps: null })
+  assert.match(text, /import Taro, \{ useDidShow \} from '@tarojs\/taro'/)
+  assert.match(text, /useDidShow\(\(\) => \{/)
+  assert.equal(/useEffect/.test(text), false, '旧形态不得被顺手改成 useEffect(既有壳承载页要逐字不变)')
+})
+
+test('U13 缺陷形态复现(反向对照):只按旧判据算标题 ⇒ 这一页转出来根本没有标题通道', () => {
+  // 旧判据看不到 useEffect 那一形 ⇒ 判不成"只设标题"
+  assert.equal(conv.titleOnlyLifecycle(EFFECT_TITLE_PAGE), false)
+  // 新判据认,且带出标题表达式与 deps=null(原页无依赖数组)
+  assert.deepEqual(conv.staticTitleEffect(EFFECT_TITLE_PAGE), { title: `t('devSpace.title')`, deps: null })
+  // 反向:若落地器仍只按旧判据取标题(navTitle=null),生成的页就一条标题语句都没有
+  const broken = pageOf({ navTitle: null })
+  assert.equal(/setNavigationBarTitle/.test(broken), false)
+  // 正向:接上新判据后标题留在 useEffect 里 ⇒ 证明 U10 那条接线不是空转
+  const fixed = pageOf({ navTitle: conv.staticTitleEffect(EFFECT_TITLE_PAGE).title, navTitleHook: 'useEffect' })
+  assert.match(fixed, /Taro\.setNavigationBarTitle\(\{ title: t\('devSpace\.title'\) \}\)/)
 })

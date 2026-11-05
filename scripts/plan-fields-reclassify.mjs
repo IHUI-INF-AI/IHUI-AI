@@ -23,18 +23,25 @@
  * 桶维读数:没有 before/after 桶,"改完了"与"桶没动"从输出上无法区分,下一个人只能再翻一遍台账散文。
  *
  * ## 本器只做一件事
- * 读 `--decl <json>`:`[{key, owner?, waiting?, blocking?, why}]`,逐条
+ * 读 `--decl <json>`:`[{key, owner?, waiting?, blocking?, before?, after?, why}]`,逐条
  *  ① **校验**(判据**全部 import,本器不写第二把尺子**):
  *    · 值域 / `why` ≥10 字 / key 在侧车面 / 与现状同形跳过 —— extract 的 `applyReclassify`;
  *    · owner 形态 —— extract 的 `cleanOwner`(截断符 `…` / 占位 / 虚词 / 连续空白 / 括号 / 超 48 字
  *      同一把尺子);
- *    · 本器只补**谁都没判**的两项:同一份声明档里同键重复(同一键两份互为矛盾的交代没有胜者)、
- *      该键在**写面(工作树)台账**找不到对应登记行(侧车归属必须挂在一行上,"挂空"的改判无从复算桶);
+ *    · 本器只补**谁都没判**的三项:同一份声明档里同键重复(同一键两份互为矛盾的交代没有胜者)、
+ *      该键在**写面(工作树)台账**找不到对应登记行(侧车归属必须挂在一行上,"挂空"的改判无从复算桶)、
+ *      **`before`/`after` 桶断言与复算不符**(见下);
  *  ② **复算桶**:用 `dispositionOfV2` 在写面上算这一行改判前后的桶,逐条打印
  *    `写面桶 before(来源=fields|prose,冲突=…) → after(…)` + 该行 state,并打出判定面 HEAD 的
  *    对照读数(该键写面副本与 HEAD 不同时 —— 上一轮改判未提交);
- *  ③ **落盘**:走 `writeDedupedRecords`(临时件 + rename,与 extract 同一出口、同一种文件形态),
- *    写完**回读逐键断言**语义字段,不符 ⇒ exit 2 并点名(已写盘也要说清楚)。
+ *    **桶断言(`before`/`after`,可选但给了就要对)**是"多要一次定向说明"落成机器可读形态:
+ *    声明者写出他以为的现状桶与目标桶,复算逐字段(bucket/source/conflict)比对,任一处不符
+ *    ⇒ 整批不落。它防的正是本票的病:有人拿着**过期读数**("我以为它还是 actionable")来改判,
+ *    改完以为改对了。桶是**判定结果不是写入口径** —— 只给 before/after 不给
+ *    owner/waiting/blocking 依旧整批拒(否则等于替侧车猜该写什么值)。
+ *  ③ **落盘**:写前把侧车整份备份到 `.ihui-agent/backups/plan-fields/`(gitignored,留最近 20 份),
+ *    再走 `writeDedupedRecords`(临时件 + rename,与 extract 同一出口、同一种文件形态);
+ *    写完**回读逐键断言**语义字段,不符 ⇒ exit 2 并点名(已写盘也要说清楚,同时报写前备份路径)。
  * 任一条校验不过 ⇒ **整批不落**(exit 2),绝不部分应用 —— 声明是"多要一次定向说明"的那份说明,
  * 说明里有一句不成话,这一批就不可信(挑着信 = 挑着改判定)。
  *
@@ -64,17 +71,22 @@
  *  `node scripts/plan-fields-reclassify.mjs --decl <声明档.json>`           只读复核(dry-run,零写盘)
  *  `node scripts/plan-fields-reclassify.mjs --decl <声明档.json> --apply`   落盘
  *  `node scripts/plan-fields-reclassify.mjs --self-test`
- * 声明档示例(每项必须有 why,≥10 字;`owner`/`waiting`/`blocking` 至少给一项,否则是空声明):
- *  `[{"key":"O02#跨端UI单一源","owner":"机主真机验证面","waiting":"none","why":"行内标头已改归机主真机面,剩余仅真机观感读数"}]`
+ *  `node scripts/plan-fields-reclassify.mjs --help`
+ * 声明档示例(每项必须有 why,≥10 字;`owner`/`waiting`/`blocking` 至少给一项,否则是空声明;
+ * `before`/`after` 可选,给了就逐字段复算比对,值域单源 = `plan-task-index` 的 `DISPOSITIONS`):
+ *  `[{"key":"O02#跨端UI单一源","owner":"机主真机验证面","waiting":"none",
+ *     "before":{"bucket":"actionable","source":"fields","conflict":true},
+ *     "after":{"bucket":"owned-elsewhere","conflict":false},
+ *     "why":"行内标头已改归机主真机面,剩余仅真机观感读数"}]`
  * 结论行:`RECLASSIFY-RESULT state=clean|ready|landed|refused|undetermined declared=N changed=N unchanged=N`
  * 退出码:0 = 无需改 / 已落地;1 = dry-run 存在待改;2 = 未判定或被拒。
  */
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { loadFields } from './lib/plan-fields.mjs'
-import { compositeKeyOf, dispositionOfV2, parseTaskRows } from './lib/plan-task-index.mjs'
+import { FIELDS_REL, loadFields } from './lib/plan-fields.mjs'
+import { DISPOSITIONS, compositeKeyOf, dispositionOfV2, parseTaskRows } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
 import { applyReclassify, cleanOwner, writeDedupedRecords } from './plan-fields-extract.mjs'
 // 违禁桶族的唯一读数出口(与 extract 归并档 import 的是同一份,§0.6)。
@@ -83,8 +95,40 @@ import { rotReasonsOf } from './check-plan-fields.mjs'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 声明里可改的语义字段(与 `applyReclassify` 同三枚;`why` 是交代,不是值)。 */
 const DECLARED_KEYS = ['owner', 'waiting', 'blocking']
+/** `dispositionOfV2` 结论里可被断言的三个字段(桶 + 来源 + 是否两侧矛盾)。 */
+const BUCKET_FIELDS = ['bucket', 'source', 'conflict']
+/** 桶来源值域单源 = `dispositionOfV2` 自己的两个分支,不另抄一份。 */
+const BUCKET_SOURCES = new Set(['fields', 'prose'])
 /** 逐字比较用的规范形:字段插入顺序不是语义,`loadFields` 会按 `OPTIONAL_KEYS` 重排。 */
 const canon = (o) => JSON.stringify(Object.keys(o ?? {}).sort().map((k) => [k, o[k]]))
+
+/**
+ * 纯函数:`before`/`after` 桶声明逐字段比对(**唯一**实现,自检与主流程都问它)。
+ * `bucket` 必填由调用方(形态校验)回答;这里只比**声明过的**字段 —— 没声明 = 不主张。
+ * @returns {{field:string, declared:unknown, actual:unknown}[]} 空数组 = 声明与复算同形
+ */
+export function bucketAssertionDrift(declared, actual) {
+  const out = []
+  if (!declared || typeof declared !== 'object') return out
+  for (const k of BUCKET_FIELDS) {
+    if (declared[k] === undefined) continue
+    if (declared[k] !== actual?.[k]) out.push({ field: k, declared: declared[k], actual: actual?.[k] })
+  }
+  return out
+}
+
+/** 桶声明的**形态**校验(值域单源 = `DISPOSITIONS` / `BUCKET_SOURCES`)。 */
+function bucketDeclError(b, which, n) {
+  if (!b || typeof b !== 'object' || Array.isArray(b))
+    return `第 ${n} 项 ${which} 桶声明必须是对象 {bucket, source?, conflict?},实际 ${JSON.stringify(b)}`
+  if (typeof b.bucket !== 'string' || !DISPOSITIONS.includes(b.bucket))
+    return `第 ${n} 项 ${which}.bucket 不在桶值域(${DISPOSITIONS.join('/')})内:${JSON.stringify(b.bucket)}`
+  if (b.source !== undefined && !BUCKET_SOURCES.has(b.source))
+    return `第 ${n} 项 ${which}.source 只能是 fields/prose,实际 ${JSON.stringify(b.source)}`
+  if (b.conflict !== undefined && typeof b.conflict !== 'boolean')
+    return `第 ${n} 项 ${which}.conflict 只能是布尔,实际 ${JSON.stringify(b.conflict)}`
+  return null
+}
 
 /**
  * 纯函数:声明 + 写面(工作树)台账/侧车 ⇒ 改判计划,**或整批拒**。
@@ -131,7 +175,15 @@ export function buildReclassifyPlan({
       return fail(`第 ${n} 项 key 重复声明(${it.key})—— 同一键只能有一份交代,两份互相矛盾的声明没有胜者`)
     seen.add(it.key)
     if (DECLARED_KEYS.every((k) => it[k] === undefined))
-      return fail(`第 ${n} 项没有声明任何语义字段(owner/waiting/blocking 至少一项)—— 空声明不制造"改过"的假账`)
+      return fail(
+        `第 ${n} 项没有声明任何语义字段(owner/waiting/blocking 至少一项)—— ` +
+          `空声明不制造"改过"的假账;桶(before/after)是判定结果不是写入口径,单给桶也照样拒`,
+      )
+    for (const which of ['before', 'after']) {
+      if (it[which] === undefined) continue
+      const e = bucketDeclError(it[which], which, n)
+      if (e) return fail(e)
+    }
     if (!rowByKey.has(it.key))
       return fail(
         `第 ${n} 项 key 在写面(工作树)台账里找不到对应登记行:${it.key}` +
@@ -163,14 +215,26 @@ export function buildReclassifyPlan({
 
   const out = []
   const banned = []
+  const drift = []
   const headMap = headFields?.undetermined ? null : (headFields?.map ?? null)
-  for (const it of items) {
+  for (const [i, it] of items.entries()) {
+    const n = i + 1
     const row = rowByKey.get(it.key)
     const change = changeByKey.get(it.key) ?? null
     const before = dispositionOfV2({ line: row.raw, fields: beforeFields })
     const after = change
       ? dispositionOfV2({ line: row.raw, fields: afterFields })
       : dispositionOfV2({ line: row.raw, fields: beforeFields })
+    // 桶断言:声明者以为的现状/目标必须与复算逐字段同形(防拿过期读数改判)。
+    for (const [which, declared, actual] of [
+      ['before', it.before, before],
+      ['after', it.after, after],
+    ]) {
+      for (const d of bucketAssertionDrift(declared, actual))
+        drift.push(
+          `第 ${n} 项(${it.key}) ${which}.${d.field} 声明 ${JSON.stringify(d.declared)} ≠ 现算 ${JSON.stringify(d.actual)}`,
+        )
+    }
     // 禁桶守卫只在**本次新引入**时拒:before 已在禁桶的那族,本器正是它的出路。
     const beforeRec = beforeMap.get(it.key) ?? null
     const afterRec = change?.rec ?? beforeRec
@@ -193,6 +257,11 @@ export function buildReclassifyPlan({
   if (banned.length > 0)
     return fail(
       `改判目标是已禁形态(待拍板 F11 / 等条件 F12 的机主禁令射程)⇒ 整批不落:${banned.join(' / ')}`,
+    )
+  if (drift.length > 0)
+    return fail(
+      `桶声明与复算不一致(声明是你以为的现状/结果,复算才是派单面真正读到的)⇒ 整批不落:` +
+        `${drift.join(' / ')}(先拿现读读数重写声明档,别拿过期读数改判)`,
     )
 
   const nextRecords = (records ?? []).map((r) => changeByKey.get(r.key)?.rec ?? r)
@@ -223,6 +292,37 @@ export function verifyLanded(root, records) {
 }
 
 const fmtBucket = (d) => `${d.bucket}(来源=${d.source}${d.conflict ? ',冲突=true' : ''})`
+
+/**
+ * 写前备份:侧车整份复制到 `.ihui-agent/backups/plan-fields/`(整目录 gitignored),
+ * 按文件名(= ISO 时刻)只留最近 `keep` 份。备份是**兜底**不是前置:源读不到 ⇒ 返回 null,
+ * 调用方明写"未备份",但不拦落地(否则结构上无法改判,§0.10 失效方向)。
+ * 与 `writeDedupedRecords` 的临时件 + rename 互补:那一步保证"要么旧版要么新版",这一步保证
+ * "新版不对劲时旧版还在"。
+ * @returns {string|null} 备份相对路径;源不存在 ⇒ null
+ */
+export function backupFields(root, stamp, keep = 20) {
+  const src = path.join(root, FIELDS_REL)
+  let text
+  try {
+    text = readFileSync(src, 'utf8')
+  } catch {
+    return null
+  }
+  const dir = path.join(root, '.ihui-agent', 'backups', 'plan-fields')
+  mkdirSync(dir, { recursive: true })
+  const dst = path.join(dir, `plan-fields.${stamp.replace(/[:.]/g, '-')}.jsonl`)
+  writeFileSync(dst, text, 'utf8')
+  try {
+    const olds = readdirSync(dir)
+      .filter((f) => /^plan-fields\..+\.jsonl$/.test(f))
+      .sort()
+    for (const f of olds.slice(0, Math.max(0, olds.length - keep))) unlinkSync(path.join(dir, f))
+  } catch {
+    // 轮转失败不反推"没备份" —— 备份件本身已写成;多留几份比误删干净。
+  }
+  return path.relative(root, dst)
+}
 
 function printPlan(p) {
   for (const it of p.items) {
@@ -318,6 +418,68 @@ function selfTest() {
   })
   ok('S9 与现状同形 ⇒ changes=0(不制造"改过"的假账)', !same.error && same.changes.length === 0 && same.items[0].unchanged === true)
 
+  const assertItem = {
+    key,
+    owner: '机主真机验证面',
+    waiting: 'none',
+    before: { bucket: 'actionable', source: 'fields', conflict: true },
+    after: { bucket: 'owned-elsewhere', conflict: false },
+    why: '行内标头已改归机主真机面,剩余仅真机观感读数',
+  }
+  const asserted = buildReclassifyPlan({
+    rows: [row],
+    beforeFields: before,
+    records,
+    items: [assertItem],
+    nowIso: '2026-10-29T00:00:00.000Z',
+  })
+  ok(
+    'S10 桶断言与复算同形 ⇒ 放行(changes=1)',
+    !asserted.error && asserted.changes.length === 1 && asserted.items[0].after.bucket === 'owned-elsewhere',
+  )
+  const wrongBefore = buildReclassifyPlan({
+    rows: [row],
+    beforeFields: before,
+    records,
+    items: [{ ...assertItem, before: { bucket: 'owned-elsewhere' } }],
+  })
+  ok(
+    'S11 before 桶声明与现算不符 ⇒ 整批拒(防拿过期读数改判)',
+    /桶声明与复算不一致/.test(wrongBefore.error ?? '') && /before\.bucket/.test(wrongBefore.error ?? ''),
+  )
+  const wrongAfter = buildReclassifyPlan({
+    rows: [row],
+    beforeFields: before,
+    records,
+    items: [{ ...assertItem, after: { bucket: 'actionable' } }],
+  })
+  ok(
+    'S12 after 桶声明与复算不符 ⇒ 整批拒(改判没落到你以为的那一档)',
+    /桶声明与复算不一致/.test(wrongAfter.error ?? '') && /after\.bucket/.test(wrongAfter.error ?? ''),
+  )
+  const badBucket = buildReclassifyPlan({
+    rows: [row],
+    beforeFields: before,
+    records,
+    items: [{ ...assertItem, after: { bucket: 'todo' } }],
+  })
+  ok('S13 桶值域外(todo)⇒ 整批拒(值域单源 DISPOSITIONS)', /桶值域/.test(badBucket.error ?? ''))
+  const onlyBuckets = buildReclassifyPlan({
+    rows: [row],
+    beforeFields: before,
+    records,
+    items: [{ key, before: { bucket: 'actionable' }, after: { bucket: 'owned-elsewhere' }, why: '只声明桶不给写入口径,等于替侧车猜值' }],
+  })
+  ok(
+    'S14 只给 before/after 不给语义字段 ⇒ 整批拒(桶是判定结果不是写入口径)',
+    /没有声明任何语义字段/.test(onlyBuckets.error ?? ''),
+  )
+  ok(
+    'S15 bucketAssertionDrift:未声明字段不主张(只比声明过的)',
+    bucketAssertionDrift({ bucket: 'actionable' }, { bucket: 'actionable', source: 'prose', conflict: true }).length === 0 &&
+      bucketAssertionDrift({ source: 'fields' }, { bucket: 'actionable', source: 'prose' }).length === 1,
+  )
+
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -331,7 +493,25 @@ function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
   if (has('--self-test')) return selfTest()
+  if (has('--help') || has('-h')) {
+    console.log(`用法:
+  node scripts/plan-fields-reclassify.mjs --decl <声明档.json>          只读复核(dry-run,零写盘)
+  node scripts/plan-fields-reclassify.mjs --decl <声明档.json> --apply  落盘(先备份,写后回读)
+  node scripts/plan-fields-reclassify.mjs --self-test                   判据自检
+  node scripts/plan-fields-reclassify.mjs --help                        本帮助
 
+声明档(JSON 数组,逐条一项;禁批量一锅端,一条一项交代):
+  [{ key:"O02#跨端UI单一源",                 // 复合主键(编号#标题前缀),必须在台账有一行
+     owner?:"机主真机验证面", waiting?:"none|env|human", blocking?:"…",   // 至少一项,禁桶不落
+     before?:{ bucket:"actionable", source?:"fields|prose", conflict?:true },
+     after?:{ bucket:"owned-elsewhere", conflict?:false },
+     why:"<≥10 字定向说明>" }]
+桶值域(= plan-task-index 的 DISPOSITIONS):${DISPOSITIONS.join(' / ')}
+before/after 是**断言**:逐字段复算(dispositionOfV2)比对,不一致整批拒;桶是判定结果,
+单给桶不给 owner/waiting/blocking 也整批拒。
+结论行:RECLASSIFY-RESULT state=clean|ready|landed|refused|undetermined declared=N changed=N unchanged=N`)
+    return 0
+  }
   // 未认识的旗标一律用法错(§0.3):静默忽略 `--aply` 这类笔误会把 dry-run 当成"已经改过了"。
   const known = new Set(['--decl', '--apply'])
   const unknown = []
@@ -343,7 +523,7 @@ function main() {
     if (!known.has(argv[i])) unknown.push(argv[i])
   }
   if (unknown.length > 0) {
-    console.log(`❌ 用法错 —— 未认识的旗标:${unknown.join(' ')}(只认 --decl <声明档> / --apply / --self-test)`)
+    console.log(`❌ 用法错 —— 未认识的旗标:${unknown.join(' ')}(只认 --decl <声明档> / --apply / --self-test / --help)`)
     console.log('RECLASSIFY-RESULT state=refused declared=0 changed=0 unchanged=0')
     return 2
   }
@@ -422,16 +602,19 @@ function main() {
     console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
     return 1
   }
+  const bk = backupFields(ROOT, new Date().toISOString())
   const w = writeDedupedRecords(ROOT, p.nextRecords)
   const back = verifyLanded(ROOT, p.nextRecords)
   if (!back.ok) {
     console.log(`⚠️ 回读自证不过(已写盘,须人工复查):${back.why}`)
+    console.log(`   写前备份:${bk ?? '未取到(源文件读不到,无法留旧版)'}`)
     console.log(resultLine('refused'))
     return 2
   }
   console.log(
     `✅ 已改判 ${changed} 条(侧车 ${w.before} → ${w.after} 条,回读 ${back.keys} 键逐字同位)→ ${path.relative(ROOT, w.path)}`,
   )
+  console.log(`   写前备份:${bk ?? '未取到(源文件读不到,无法留旧版)'}`)
   console.log(resultLine('landed'))
   return 0
 }
@@ -448,6 +631,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   buildReclassifyPlan,
+  bucketAssertionDrift,
+  backupFields,
   verifyLanded,
   fmtBucket,
 }

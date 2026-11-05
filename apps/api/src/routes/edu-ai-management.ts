@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { randomBytes } from 'node:crypto'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import {
@@ -21,10 +22,9 @@ import {
   ilike,
   type SQL,
 } from 'drizzle-orm'
-import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
+
 import { db } from '../db/index.js'
 import {
-  EDU_REMINDER_CHANNELS,
   arrearsSqlExpr,
   buildSchedulePlan,
   hasArrearsCond,
@@ -45,7 +45,27 @@ import {
   sendWxToRecipient,
   type DeliveryEntry,
 } from '../services/edu-arrear-remind-service.js'
-import { findScheduleConflicts } from '../services/edu-schedule-conflict.js'
+// normalizeHm = 时刻归一化单源(与排课冲突检测同一把尺,§0.6):考勤规则三个 HH:MM 阈值入参都过它
+import { findScheduleConflicts, normalizeHm } from '../services/edu-schedule-conflict.js'
+// =============================================================================
+// 2026-11-08 考勤四缺口补齐(ATT-API 票)新增依赖 —— 三处都是"复用仓内单源,不再造第二份":
+//   · judgeStatus  = 考勤状态判定(present/late/early/absent)的唯一实现,归 ATT-JOB 席;
+//                    本文件禁止内联第二份判据(AGENTS §0.6 单一真相源)。
+//   · secretsEqual = 全仓唯一定长时间比较出口(plugins/internal-service-token.ts:130,
+//                    定长 SHA-256 后 timingSafeEqual);扫码签到 HMAC 校验只走它,不自拼比较。
+//   · bizDayKey    = 上海墙钟日期键单源(utils/biz-day.ts),与缺勤补录 job 同一口径,
+//                    不引入第三种日历算法(现读 check-in 里那句 toISOString() 是 UTC 口径,
+//                    新端点一律按 bizDayKey,不与跨日边界再打架)。
+// 契约依赖现读(本票收尾时复测):`eduAttendanceRule`(ATT-DB 席)与
+// `apps/api/src/services/edu-attendance-rule.ts`(ATT-JOB 席)**已在盘上落定**
+// (packages/database/src/schema/edu-ai-management.ts 的 eduAttendanceRule / 服务文件均实测存在),
+// 故本文件的 import 不需要替身、也不得内联第二份判据;两席改动未落盘的窗口期里,
+// 本文件按登记名先行 import,红项只在缺失符号那一处(§0.3:没判的绝不写成判过)。
+// =============================================================================
+import { judgeStatus } from '../services/edu-attendance-rule.js'
+
+import { bizDayKey } from '../utils/biz-day.js'
+
 import {
   eduTerm,
   eduClass,
@@ -55,6 +75,7 @@ import {
   eduStudyPlan,
   eduPlanItem,
   eduAttendanceRecord,
+  eduAttendanceRule,
   eduExamScore,
   eduRankingSnapshot,
   eduLeaveRequest,
@@ -90,6 +111,127 @@ import {
   buildFeeReminderData,
   sendSubscribeMessage,
 } from '../services/wechat-subscribe-message.js'
+import {
+  uuidParamSchema,
+  childIdParamSchema,
+  createTermSchema,
+  updateTermSchema,
+  classListQuerySchema,
+  createClassSchema,
+  updateClassSchema,
+  scheduleListQuerySchema,
+  createScheduleSchema,
+  updateScheduleSchema,
+  mealListQuerySchema,
+  createMealSchema,
+  updateMealSchema,
+  templateListQuerySchema,
+  createTemplateSchema,
+  updateTemplateSchema,
+  applyTemplateSchema,
+  copyLastWeekSchema,
+  checkTeacherConflictSchema,
+  scheduleExportQuerySchema,
+  nutritionSummaryQuerySchema,
+  generateShoppingListSchema,
+  uploadImageSchema,
+  completionStatsQuerySchema,
+  progressTimelineQuerySchema,
+  reviewItemSchema,
+  planListQuerySchema,
+  createPlanSchema,
+  updatePlanSchema,
+  createPlanItemSchema,
+  updatePlanItemSchema,
+  checkInSchema,
+  checkOutSchema,
+  attendanceStatsQuerySchema,
+  attendanceExportQuerySchema,
+  attendanceQrCodeQuerySchema,
+  qrcodeCheckInSchema,
+  attendanceRuleQuerySchema,
+  attendanceRuleUpsertSchema,
+  rotateQrSecretSchema,
+  leaveListQuerySchema,
+  createLeaveSchema,
+  updateLeaveSchema,
+  approveLeaveSchema,
+  createBindingSchema,
+  updateBindingSchema,
+  bindingListQuerySchema,
+} from './edu-ai-management-schemas-core.js'
+import {
+  examScoreListQuerySchema,
+  createExamScoreSchema,
+  examScoreStatsQuerySchema,
+  examScoreRankingQuerySchema,
+  createSnapshotSchema,
+  teacherScheduleListQuerySchema,
+  createTeacherScheduleSchema,
+  updateTeacherScheduleSchema,
+  schedulingRuleListQuerySchema,
+  createSchedulingRuleSchema,
+  updateSchedulingRuleSchema,
+  autoGenerateSchema,
+  checkConflictSchema,
+  scheduleChangeListQuerySchema,
+  createScheduleChangeSchema,
+  approveChangeSchema,
+  termConflictScanSchema,
+  homeworkSubmissionListQuerySchema,
+  createHomeworkSubmissionSchema,
+  gradeHomeworkSubmissionSchema,
+  homeworkSubmissionStatsQuerySchema,
+  leadListQuerySchema,
+  createLeadSchema,
+  updateLeadSchema,
+  updateLeadStatusSchema,
+  trialBookingListQuerySchema,
+  createTrialBookingSchema,
+  updateTrialBookingSchema,
+  updateTrialBookingStatusSchema,
+  enrollmentListQuerySchema,
+  createEnrollmentSchema,
+  updateEnrollmentSchema,
+  tuitionFeeListQuerySchema,
+  createTuitionFeeSchema,
+  updateTuitionFeeSchema,
+  paymentRecordListQuerySchema,
+  createPaymentRecordSchema,
+  paymentRecordSummaryQuerySchema,
+  studentRosterQuerySchema,
+  feeReminderListQuerySchema,
+  generateFeeScheduleSchema,
+  createFeeReminderSchema,
+  batchFeeReminderSchema,
+  feeReminderStatsSchema,
+  refundRecordListQuerySchema,
+  createRefundRecordSchema,
+  approveRefundSchema,
+  batchDeleteSchema,
+  batchToggleSchema,
+  batchStatusSchema,
+  paginationSchema,
+  paginate,
+} from './edu-ai-management-schemas-extended.js'
+import {
+  ATT_QR_TOKEN_TTL_MS,
+  enumerateAttendanceDates,
+  loadEnabledAttendanceRule,
+  resolveTeacherCheckIn,
+  statusPreservedOnCheckOut,
+  toAttendanceRuleDto,
+  resolveSelfCheckInClassId,
+  decodeAttendanceQrToken,
+  buildAttendanceQrToken,
+  verifyAttendanceQrToken,
+  toCsvCell,
+  type AttendanceExportRow,
+  toIsoCell,
+  ATT_QR_FAILURE_MESSAGES,
+  checkInByStudent,
+  studentCheckInFailureReply,
+} from './edu-ai-management-attendance-helpers.js'
 
 // 2026-08-30 教师角色 RBAC 接入:教务管理统一权限点(preHandler 工厂,模块级复用)
 // 注:包装为无 this 参数签名,便于在 handler 内直接 await 调用(实现为箭头函数,不依赖 this)
@@ -102,240 +244,61 @@ const requireEduManage: (request: FastifyRequest, reply: FastifyReply) => Promis
 const requireEduView: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> =
   requireAnyPermission(['edu:view', 'edu:manage'])
 
-// =============================================================================
-// 通用 Zod schemas
-// =============================================================================
+// 以下四枚 schema 刻意留在门面文件本体（不随其余 schema 搬去 schemas-core）：
+// 契约测试 `tests/edu-attendance-write-and-parent-list-contract.test.ts` 的源码形状锁读的是本文件文本
+// （「status 取值表全文件只声明一次」「updateAttendanceSchema 体内不得出现 status」）——搬走等于让那把锁失明。
+// 只是位置不动，判据与文案逐字照旧。
 
-const uuidParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
-/** `:childId` 形态的同一把形状闸(与 uuidParamSchema 同判据,只换键名)。 */
-const childIdParamSchema = z.object({ childId: z.string().uuid('无效的 childId') })
-
-// =============================================================================
-// 1. 学期管理 (edu_term)
-// =============================================================================
-
-const createTermSchema = z.object({
-  name: z.string().min(1).max(100),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  isCurrent: z.boolean().optional(),
-})
-
-const updateTermSchema = createTermSchema.partial()
-
-// =============================================================================
-// 2. 班级管理 (edu_class)
-// =============================================================================
-
-const classListQuerySchema = z.object({
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createClassSchema = z.object({
-  termId: z.string().uuid(),
-  name: z.string().min(1).max(100),
-  grade: z.string().max(50).optional(),
-})
-
-const updateClassSchema = createClassSchema.partial()
-
-// =============================================================================
-// 3. 课程条目 (edu_course_schedule)
-// =============================================================================
-
-const scheduleListQuerySchema = z.object({
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  weekday: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(1).max(7).optional()),
-})
-
-const createScheduleSchema = z.object({
-  termId: z.string().uuid(),
-  classId: z.string().uuid(),
-  courseName: z.string().min(1).max(200),
-  teacher: z.string().max(100).optional(),
-  weekday: z.number().int().min(1).max(7),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  classroom: z.string().max(100).optional(),
-  color: z.string().max(20).optional(),
-})
-
-const updateScheduleSchema = createScheduleSchema.partial()
-
-// =============================================================================
-// 4. 每日菜谱 (edu_meal_recipe)
-// =============================================================================
-
-const mealListQuerySchema = z.object({
-  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  mealType: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
-const createMealSchema = z.object({
-  date: z.string().min(1),
-  mealType: z.string().min(1).max(20),
-  dishName: z.string().min(1).max(200),
-  ingredients: z.string().optional(),
-  nutrition: z.string().max(500).optional(),
-  imageUrl: z.string().max(500).optional(),
-  notes: z.string().optional(),
-})
-
-const updateMealSchema = createMealSchema.partial()
-
-// =============================================================================
-// 5. 周菜谱模板 (edu_meal_week_template)
-// =============================================================================
-
-const templateListQuerySchema = z.object({
-  name: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-})
-
-const createTemplateSchema = z.object({
-  name: z.string().min(1).max(100),
-  weekday: z.number().int().min(1).max(7),
-  mealType: z.string().min(1).max(20),
-  dishName: z.string().min(1).max(200),
-  ingredients: z.string().optional(),
-  nutrition: z.string().max(500).optional(),
-})
-
-const updateTemplateSchema = createTemplateSchema.partial()
-
-const applyTemplateSchema = z.object({
-  templateName: z.string().min(1).max(100),
-  startDate: z.string().min(1),
-})
-
-// =============================================================================
-// 3b. 课程表新增功能
-// =============================================================================
-
-const copyLastWeekSchema = z.object({
-  classId: z.string().uuid(),
-  targetWeekStart: z.string().min(1), // 目标周周一日期 YYYY-MM-DD
-})
-
-const checkTeacherConflictSchema = z.object({
-  teacher: z.string().min(1).max(100),
-  weekday: z.number().int().min(1).max(7),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  excludeScheduleId: z.string().uuid().optional(),
-})
-
-const scheduleExportQuerySchema = z.object({
-  classId: z.string().uuid(),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-})
-
-// =============================================================================
-// 4b. 菜谱新增功能
-// =============================================================================
-
-const nutritionSummaryQuerySchema = z.object({
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-})
-
-const generateShoppingListSchema = z.object({
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-})
-
-const uploadImageSchema = z.object({
-  id: z.string().uuid(),
-  imageUrl: z.string().min(1).max(500),
-})
-
-// =============================================================================
-// 6b. 学习计划新增功能
-// =============================================================================
-
-const completionStatsQuerySchema = z.object({
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-})
-
-const progressTimelineQuerySchema = z.object({
-  planId: z.string().uuid(),
-})
-
-const reviewItemSchema = z.object({
-  notes: z.string().optional(),
-  reviewed: z.boolean().optional(),
-})
-
-// =============================================================================
-// 6. 学习计划 (edu_study_plan) + 计划条目 (edu_plan_item)
-// =============================================================================
-
-const planListQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  planType: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
-const createPlanSchema = z.object({
-  title: z.string().min(1).max(200),
-  planType: z.enum(['monthly', 'weekly']),
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  description: z.string().optional(),
-  status: z.string().max(20).optional(),
-})
-
-const updatePlanSchema = createPlanSchema.partial()
-
-const createPlanItemSchema = z.object({
-  content: z.string().min(1),
-  objective: z.string().max(500).optional(),
-  dueDate: z.string().optional(),
-  studentId: z.string().uuid().optional(),
-  parentItemId: z.string().uuid().optional(),
-  notes: z.string().optional(),
-  sortOrder: z.number().int().optional(),
-})
-
-const updatePlanItemSchema = createPlanItemSchema.partial().extend({
-  completed: z.boolean().optional(),
-})
-
-// =============================================================================
-// 8. 签到记录 (edu_attendance_record)
-// =============================================================================
+/**
+ * 考勤 status 筛选闸的合法值(2026-11-04 收口,本文件唯一一份取值表,§0.6)。
+ *
+ * 立因:`GET /attendance` 的 status 此前是 `z.string().max(20)` ⇒ 任意字符串都被当成一个
+ * 合法筛选值,后端按 `eq(status, 'all')` **精确匹配**,于是 web「全部状态」档直传
+ * `status=all` 时恒查空列表、且不报错(用户看到的是"今天没人考勤")。前端已于 41d5da91ec8
+ * 归一成"不传";本票补后端那一半 —— 非法枚举值必须是可整改的 400,不能静默放行。
+ *
+ * 值集来源(现读,不另立共享档位常量文件):`edu_attendance_record.status` 的词表
+ * = present/late/early/absent/leave,见 packages/database/src/schema/edu-ai-management.ts
+ * 的列注释;其中前四档由 services/edu-attendance-rule.ts 的 `judgeStatus` 现算,
+ * leave 由请假审批流写入(本文件 `eq(eduAttendanceRecord.status, 'leave')`)。
+ *
+ * 写法照同文件 `attendanceStatsQuerySchema.period` 的既有形态(就地写 z.enum);
+ * 一枚实例被三处考勤读端点共用(GET /attendance、GET /parent/child/:id/attendance、
+ * GET /parent/children/:childId/attendance),免得同一取值表在同文件抄两份必然漂移。
+ * 错误文案点名合法值,让"该改成什么"当场可知(§0.10:失效方向恒为多要一次定向说明)。
+ */
+const attendanceStatusFilter = z.enum(
+  ['present', 'late', 'early', 'absent', 'leave'],
+  'status 仅支持 present/late/early/absent/leave',
+)
 
 const attendanceListQuerySchema = z.object({
   studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   date: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /** 空串经 emptyToUndefined 归一为"不筛选";非五档值 ⇒ 400(不再静默当合法筛选值)。 */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
 })
 
-const checkInSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  date: z.string().optional(),
-  checkInMethod: z.string().max(20).optional(),
-  status: z.string().max(20).optional(),
-  remark: z.string().optional(),
-})
-
-const checkOutSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  date: z.string().min(1),
-  checkOutMethod: z.string().max(20).optional(),
-})
-
+/**
+ * 考勤记录修订入参(2026-11-04 收口:**status 字段已删,与教师代签/批量点名同一条口径**)。
+ *
+ * 取证(现读调用方,不是推断):全仓 `apps/web` / `apps/miniapp-taro/src` / `apps/mobile-rn/src` /
+ * `packages/app|shared|api-client` 对 `PUT /attendance/:id` 的调用数 = **0**
+ * (web 只有 `DELETE /attendance/${id}`,见 edu-management/attendance/PageClient.tsx;
+ * RN 的 `attendance/${kind}` 是 check-in / check-out 两条具名路由;小程序只有 check-in /
+ * check-out / batch-check-in;e2e 桩也没登记这条 PUT)。⇒ 这一枚 `status` 是无主死面。
+ *
+ * 为什么删而不是收成枚举:死字段收成枚举等于给一条没人走的路由再养一份契约;而按 2026-11
+ * 已定的口径,`edu_attendance_record.status` 只能由服务端现算
+ * (services/edu-attendance-rule.ts 的 `judgeStatus` + 请假审批写 'leave'),
+ * 端上自报状态本身就是越权面 —— 留着它,任何拿到 edu:manage 的人都能把 absent 改成 present,
+ * 且脏值会长期留在库里、让前端五档取词/色档落到默认档。
+ *
+ * zod 默认 strip 未知键 ⇒ 老客户端继续传 `status` 只会被静默丢弃(与 checkInSchema 同形),
+ * 不会 400 打断既有集成;真正的持久化路径(签退/请假)各自带自己的重判逻辑。
+ */
 const updateAttendanceSchema = z.object({
-  status: z.string().max(20).optional(),
   checkInTime: z.string().optional(),
   checkOutTime: z.string().optional(),
   checkInMethod: z.string().max(20).optional(),
@@ -343,505 +306,69 @@ const updateAttendanceSchema = z.object({
   remark: z.string().optional(),
 })
 
-const attendanceStatsQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  period: z.transform(emptyToUndefined).pipe(z.enum(['daily', 'weekly', 'monthly']).optional()),
-})
-
-// =============================================================================
-// 9. 请假申请 (edu_leave_request)
-// =============================================================================
-
-const leaveListQuerySchema = z.object({
-  studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-  startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-  endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
-})
-
-const createLeaveSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  leaveType: z.enum(['sick', 'personal', 'emergency', 'other']),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
-  totalDays: z.number().int().min(1),
-  reason: z.string().min(1),
-  attachment: z.string().max(500).optional(),
-})
-
-const updateLeaveSchema = createLeaveSchema.partial()
-
-const approveLeaveSchema = z.object({
-  status: z.enum(['approved', 'rejected']),
-  approveRemark: z.string().optional(),
-})
-
-// =============================================================================
-// 10. 家长-学生绑定管理 (edu_parent_student_binding)
-// =============================================================================
-
-const createBindingSchema = z.object({
-  studentId: z.string().uuid(),
-  relationship: z.enum(['father', 'mother', 'guardian', 'other']),
-})
-
-const updateBindingSchema = z.object({
-  relationship: z.enum(['father', 'mother', 'guardian', 'other']).optional(),
-  status: z.enum(['confirmed', 'rejected']).optional(),
-})
-
-const bindingListQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
 // =============================================================================
 // 11. 孩子数据查看（家长端）
 // =============================================================================
 
 const childAttendanceQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  /**
+   * 家长侧「按状态筛选孩子的考勤」与 `GET /attendance` 同一张脸(2026-11-04 同批收口):
+   * 此前同样是 `z.string().max(20)`,非法值被静默当合法筛选条件 ⇒ 恒空且不报错。
+   * 共用同一枚 `attendanceStatusFilter` 实例,不在这里抄第二份取值表(§0.6)。
+   * 2026-11-04 补:这枚 schema 现由**两条**家长读端点共用
+   * (`/parent/child/:id/attendance` 与 `/parent/children/:childId/attendance`)
+   * —— 后者此前没有任何 query 闸,传 status 被静默忽略;同一条查询形状两条端点判得不一样
+   * 就是缺陷,所以不复抄新表、直接复用这一枚。
+   */
+  status: z.transform(emptyToUndefined).pipe(attendanceStatusFilter.optional()),
   startDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
   endDate: z.transform(emptyToUndefined).pipe(z.string().optional()),
 })
 
-// =============================================================================
-// 12. 考试成绩管理 (edu_exam_score)
-// =============================================================================
+/** 考勤日期列口径(与 edu_attendance_record.date 的 YYYY-MM-DD 一致,不接受其他形态)。 */
+const attendanceDateSchema = z.transform(emptyToUndefined).pipe(
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式必须为 YYYY-MM-DD')
+    .optional(),
+)
 
-const examScoreListQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  subject: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  examName: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
-})
-
-const createExamScoreSchema = z.object({
-  studentId: z.string().uuid(),
+/**
+ * 批量点名入参。
+ * 刻意**不含 studentIds**:名单唯一来源是「该班在册学生」(见 batchCheckIn 端点)。
+ * 让客户端自报"给谁记账"等于把归属判定交给调用方,与 AGENTS §5「不得信客户端自报」同一条纪律。
+ * 2026-11 收口(与教师代签同口径):status 字段已删,状态服务端现算;
+ * checkInTime 同 checkInSchema —— 当日可不传,回填历史日必须显式提供且落在该日内。
+ */
+const batchCheckInSchema = z.object({
   classId: z.string().uuid(),
-  subject: z.string().min(1).max(100),
-  examName: z.string().min(1).max(200),
-  score: z.number().int().min(0),
-  totalScore: z.number().int().min(1).default(100),
-  examDate: z.string().min(1),
-  remark: z.string().optional(),
-})
-
-const examScoreStatsQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const examScoreRankingQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  examName: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
-})
-
-const createSnapshotSchema = z.object({
-  classId: z.string().uuid(),
-  examName: z.string().min(1).max(200),
-})
-
-// =============================================================================
-// 13. 教师时间表 (edu_teacher_schedule)
-// =============================================================================
-
-const teacherScheduleListQuerySchema = z.object({
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createTeacherScheduleSchema = z.object({
-  teacherId: z.string().uuid(),
-  termId: z.string().uuid(),
-  dayOfWeek: z.number().int().min(1).max(7),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  timeSlot: z.string().max(20).optional(),
-  isAvailable: z.boolean().optional(),
-})
-
-const updateTeacherScheduleSchema = createTeacherScheduleSchema.partial()
-
-// =============================================================================
-// 14. 排课规则 (edu_scheduling_rule)
-// =============================================================================
-
-const schedulingRuleListQuerySchema = z.object({
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createSchedulingRuleSchema = z.object({
-  termId: z.string().uuid(),
-  classId: z.string().uuid(),
-  subject: z.string().min(1).max(100),
-  teacherId: z.string().uuid(),
-  weekday: z.number().int().min(1).max(7),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  classroom: z.string().max(100).optional(),
-  weeksPerTerm: z.number().int().optional(),
-  priority: z.number().int().optional(),
-})
-
-const updateSchedulingRuleSchema = createSchedulingRuleSchema.partial()
-
-// =============================================================================
-// 15. 自动排课 + 冲突检测
-// =============================================================================
-
-const autoGenerateSchema = z.object({
-  termId: z.string().uuid(),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const checkConflictSchema = z.object({
-  termId: z.string().uuid(),
-  weekday: z.number().int().min(1).max(7),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, '时间格式 HH:mm'),
-  classroom: z.string().max(100).optional(),
-  teacherId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  excludeScheduleId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-// =============================================================================
-// 16. 调课申请 (edu_schedule_change)
-// =============================================================================
-
-const scheduleChangeListQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
-const createScheduleChangeSchema = z.object({
-  scheduleId: z.string().uuid(),
-  classId: z.string().uuid(),
-  subject: z.string().min(1).max(100),
-  originalTeacher: z.string().max(100).optional(),
-  newTeacher: z.string().max(100).optional(),
-  originalWeekday: z.number().int().optional(),
-  originalStartTime: z.string().optional(),
-  originalEndTime: z.string().optional(),
-  newWeekday: z.number().int().optional(),
-  newStartTime: z.string().optional(),
-  newEndTime: z.string().optional(),
-  reason: z.string().min(1),
-})
-
-const approveChangeSchema = z.object({
-  approveRemark: z.string().optional(),
-})
-
-// 全学期冲突扫描 body(2026-09-17,4-4-13)
-const termConflictScanSchema = z.object({
-  termId: z.string().uuid(),
-})
-
-// =============================================================================
-// 17. 作业提交 (edu_homework_submission)
-// =============================================================================
-
-const homeworkSubmissionListQuerySchema = z.object({
-  homeworkId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createHomeworkSubmissionSchema = z.object({
-  homeworkId: z.string().uuid(),
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  content: z.string().optional(),
-  attachment: z.string().max(500).optional(),
-})
-
-const gradeHomeworkSubmissionSchema = z.object({
-  score: z.number().int().min(0),
-  comment: z.string().optional(),
-})
-
-const homeworkSubmissionStatsQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-// =============================================================================
-// 18. 线索管理 (edu_lead)
-// =============================================================================
-
-const leadListQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-  source: z.transform(emptyToUndefined).pipe(z.string().max(30).optional()),
-  followerId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createLeadSchema = z.object({
-  name: z.string().min(1).max(100),
-  phone: z.string().max(20).optional(),
-  studentName: z.string().max(100).optional(),
-  studentAge: z.number().int().min(0).optional(),
-  source: z.string().min(1).max(30),
-  followerId: z.string().uuid().optional(),
-  nextFollowDate: z.string().optional(),
-  remark: z.string().optional(),
-})
-
-const updateLeadSchema = createLeadSchema.partial()
-
-const updateLeadStatusSchema = z.object({
-  status: z.string().min(1).max(20),
-})
-
-// =============================================================================
-// 19. 试听预约 (edu_trial_booking)
-// =============================================================================
-
-const trialBookingListQuerySchema = z.object({
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-  date: z.transform(emptyToUndefined).pipe(z.string().optional()),
-})
-
-const createTrialBookingSchema = z.object({
-  leadId: z.string().uuid(),
-  studentName: z.string().min(1).max(100),
-  studentAge: z.number().int().min(0).optional(),
-  parentName: z.string().max(100).optional(),
-  parentPhone: z.string().max(20).optional(),
-  trialDate: z.string().min(1),
-  trialTime: z.string().max(50).optional(),
-  subject: z.string().max(100).optional(),
-  teacherId: z.string().uuid().optional(),
-  classroom: z.string().max(100).optional(),
-})
-
-const updateTrialBookingSchema = createTrialBookingSchema.partial()
-
-const updateTrialBookingStatusSchema = z.object({
-  status: z.string().min(1).max(20),
-})
-
-// =============================================================================
-// 20. 报名记录 (edu_enrollment)
-// =============================================================================
-
-const enrollmentListQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
-const createEnrollmentSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-  enrollDate: z.string().min(1),
-  totalFee: z.number().int().min(0),
-  operatorId: z.string().uuid().optional(),
+  date: attendanceDateSchema,
+  checkInTime: z.transform(emptyToUndefined).pipe(z.string().optional()),
+  remark: z.string().max(500).optional(),
 })
 
 /**
- * 报名的两列派生态 paidAmount / nextDueDate **不在入参里**,这是刻意的:
- * 它们由 edu-ledger 从缴费流水 − 退费算出。若允许这里裸写,就会出现
- * "有已缴额但没有这笔钱从哪来"的死账 —— 下一次重算还会把它冲成流水口径的值,
- * 机构看到的数字随第几次写而变。缴费一律走 POST /payment-record。
+ * 学生自签入参:**没有 studentId、也没有 classId** —— 身份只从登录态 request.userId 取,
+ * 班级归属由服务端按在册关系现取(AGENTS §5:归属主体由承载层显式传入,不得信客户端自报;
+ * 此前要求客户端传 classId 已实测造成小程序 400 / RN 死结 / Web 手输 UUID 三处伤害)。
+ * 客户端硬塞的 classId 会被 zod 默认 strip 静默忽略(生效班级以服务端现取结果为准并回显)。
+ * 若日后要支持家长代签,另开端点显式校验 edu_parent_student_binding,不得在这里加可选字段。
  */
-const updateEnrollmentSchema = createEnrollmentSchema.partial()
-
-// =============================================================================
-// 21. 学费标准 (edu_tuition_fee)
-// =============================================================================
-
-const tuitionFeeListQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-const createTuitionFeeSchema = z.object({
-  classId: z.string().uuid(),
-  termId: z.string().uuid(),
-  feeName: z.string().min(1).max(100),
-  amount: z.number().int().min(0),
-  billingCycle: z.string().max(30).optional(),
-  effectiveDate: z.string().min(1),
-})
-
-const updateTuitionFeeSchema = createTuitionFeeSchema.partial()
-
-// =============================================================================
-// 22. 缴费记录 (edu_payment_record)
-// =============================================================================
-
-const paymentRecordListQuerySchema = z.object({
-  studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+const selfCheckInSchema = z.object({
+  date: attendanceDateSchema,
+  remark: z.string().max(500).optional(),
 })
 
 /**
- * 缴费登记入参。
- * **enrollmentId 必填**:一笔缴费必须挂到一条确定的报名上,否则它进不了
- * "该报名已缴多少" —— 旧契约反过来要求 studentId+classId 必填、没有归属锚点,
- * 于是同一班级续读多个学期的学生根本无从表达"这笔钱抵哪一期"。
- * studentId / classId 改为可选且只用于**一致性校验**:服务端一律以报名行里的值为准,
- * 请求自报的不一致直接拒(与本仓"归属/身份不得从请求体自报"同一条纪律)。
+ * 学生本人考勤查询入参:三个日期档一律走同一把 attendanceDateSchema 形状闸,
+ * 不在这里另写第二份正则(§0.6 单一真相源)。刻意**不含 studentId**:
+ * 归属主体只从登录态 request.userId 取,客户端自报一律被 zod strip 静默忽略(AGENTS §5)。
  */
-const createPaymentRecordSchema = z.object({
-  enrollmentId: z.string().uuid(),
-  studentId: z.string().uuid().optional(),
-  classId: z.string().uuid().optional(),
-  feeId: z.string().uuid().optional(),
-  amount: z.number().int().min(0),
-  paymentDate: z.string().min(1),
-  paymentMethod: z.string().min(1).max(30),
-  status: z.string().max(20).optional(),
-  receiptNo: z.string().max(100).optional(),
-  remark: z.string().optional(),
-  operatorId: z.string().uuid().optional(),
+const myAttendanceQuerySchema = z.object({
+  date: attendanceDateSchema,
+  startDate: attendanceDateSchema,
+  endDate: attendanceDateSchema,
 })
-
-const paymentRecordSummaryQuerySchema = z.object({
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-})
-
-// =============================================================================
-// 24. 学生名册 + 催费 (业务线/欠费聚合,2026-09-19)
-// =============================================================================
-
-/** 业务线枚举:与 edu_class.business_line 对齐 */
-const BUSINESS_LINES = [
-  'after_school_care',
-  'kindergarten',
-  'academic',
-  'ai_course',
-  'other',
-] as const
-const businessLineSchema = z.enum(BUSINESS_LINES)
-
-const studentRosterQuerySchema = z.object({
-  businessLine: z.transform(emptyToUndefined).pipe(businessLineSchema.optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  keyword: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  arrearsOnly: z.transform(emptyToUndefined).pipe(z.enum(['1', 'true']).optional()),
-})
-
-const feeReminderListQuerySchema = z.object({
-  studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  channel: z.transform(emptyToUndefined).pipe(z.string().max(30).optional()),
-})
-
-/** 单发催费:锚定报名记录(欠费口径见 edu-ledger::deriveEnrollmentLedger),快照欠费金额 */
-
-/**
- * 账期展开入参。**分期规则由调用方给**,系统只做机械摊派(见 edu-ledger::buildSchedulePlan)。
- * 放在模块顶层而不是路由体内 —— 顶层才能被测试出口 import 到(放在体内时,
- * 判据在文件末尾的 __test__ 里根本看不见它,TS 直接报 Cannot find name)。
- */
-const generateFeeScheduleSchema = z.object({
-  enrollmentId: z.string().uuid(),
-  periodCount: z.number().int().min(1).max(36),
-  firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式须为 YYYY-MM-DD'),
-  cycle: z.enum(['once', 'monthly', 'termly']),
-  monthsPerPeriod: z.number().int().min(1).max(24).optional(),
-  graceDays: z.number().int().min(0).max(90).default(0),
-  /** false 时若已有账期直接 409,不静默覆盖 —— 覆盖会连带抹掉已挂上账期的缴费归属 */
-  replace: z.boolean().default(false),
-})
-
-const createFeeReminderSchema = z.object({
-  enrollmentId: z.string().uuid(),
-  channel: z.enum(EDU_REMINDER_CHANNELS).default('in_app'),
-  message: z.string().max(500).optional(),
-})
-
-/** 批量催费:勾选欠费名单(报名记录)一次发送,上限 100 */
-const batchFeeReminderSchema = z.object({
-  enrollmentIds: z.array(z.string().uuid()).min(1).max(100),
-  channel: z.enum(EDU_REMINDER_CHANNELS).default('in_app'),
-  message: z.string().max(500).optional(),
-})
-
-/** 统计窗口:1–365 天。上限是防"全表扫描式"报表请求拖垮库,不是业务规则。 */
-const feeReminderStatsSchema = z.object({
-  days: z.coerce.number().int().min(1).max(365).default(30),
-})
-
-// =============================================================================
-// 23. 退费记录 (edu_refund_record)
-// =============================================================================
-
-const refundRecordListQuerySchema = z.object({
-  studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
-  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
-})
-
-const createRefundRecordSchema = z.object({
-  studentId: z.string().uuid(),
-  classId: z.string().uuid(),
-  paymentId: z.string().uuid().optional(),
-  amount: z.number().int().min(0),
-  refundDate: z.string().min(1),
-  refundMethod: z.string().max(30).optional(),
-  reason: z.string().min(1),
-  operatorId: z.string().uuid().optional(),
-})
-
-const approveRefundSchema = z.object({
-  approveRemark: z.string().optional(),
-})
-
-// =============================================================================
-// 批量操作 Schema
-// =============================================================================
-
-const batchDeleteSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
-})
-
-const batchToggleSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
-  isActive: z.boolean(),
-})
-
-const batchStatusSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
-  status: z.string().min(1).max(20),
-})
-
-// =============================================================================
-// 分页 Schema & 辅助函数
-// =============================================================================
-
-const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-})
-
-async function paginate(
-  queryBuilder: AnyPgTable,
-  where: SQL | undefined,
-  orderBy: SQL | AnyPgColumn | Array<SQL | AnyPgColumn>,
-  page: number,
-  pageSize: number,
-) {
-  const [totalResult] = await db
-    .select({ count: count() })
-    .from(queryBuilder)
-    .where(where ?? sql`true`)
-  const total = Number(totalResult?.count ?? 0)
-  const totalPages = Math.ceil(total / pageSize)
-  const orderByArr = Array.isArray(orderBy) ? orderBy : [orderBy]
-  const list = await db
-    .select()
-    .from(queryBuilder)
-    .where(where ?? sql`true`)
-    .orderBy(...orderByArr)
-    .limit(pageSize)
-    .offset((page - 1) * pageSize)
-  return { list, total, page, pageSize, totalPages }
-}
 
 // =============================================================================
 // 路由
@@ -2136,8 +1663,19 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
     const now = new Date()
-    const today = now.toISOString().split('T')[0]!
-    const date = parsed.data.date || today
+    // 缺省日期改走 bizDayKey(与批量点名/自签同一上海业务日口径;此前用 UTC 日键,
+    // 上海 00:00–08:00 之间会把"今天"错认成昨天,守门 246 单源要求)
+    const date = parsed.data.date || bizDayKey(now)
+
+    // status 服务端现算(本票①):judgeStatus + 该班规则,不接受客户端自报;
+    // checkInTime 与 date 强制同日,回填历史日必须显式带该日内时刻。
+    const resolved = await resolveTeacherCheckIn({
+      classId: parsed.data.classId,
+      date,
+      checkInTimeRaw: parsed.data.checkInTime,
+      now,
+    })
+    if (!resolved.ok) return reply.status(400).send(error(400, resolved.message))
 
     try {
       const [row] = await db.transaction(async (tx) => {
@@ -2162,8 +1700,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
             studentId: parsed.data.studentId,
             classId: parsed.data.classId,
             date,
-            checkInTime: now,
-            status: parsed.data.status || 'present',
+            checkInTime: resolved.checkInTime,
+            // 人脸档(checkInMethod='face')本票裁决**明确不做**,也不建空壳端点:
+            // 本仓当前既没有人脸特征库/1:N 比对服务,也没有活体检测与摄像头推流链路 ——
+            // 先摆一个 `/attendance/face-check-in` 只会产出"接口在、判定是假的"的虚假安全感,
+            // 而考勤是要落到免责链条上的记录。等真有比对服务时,应作为 checkInMethod 的新档位
+            // 接进本端点(载体的列已存在),而不是另立一条无人守的入口。
+            status: resolved.status,
             checkInMethod: parsed.data.checkInMethod || 'manual',
             operatedBy: request.userId,
             remark: parsed.data.remark,
@@ -2203,11 +1746,27 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         if (!existing) throw new Error('NOT_FOUND')
         if (existing.checkOutTime) throw new Error('ALREADY_CHECKED_OUT')
 
+        // 本票②:签退后以 judgeStatus + 该班规则重判 status,early 自此有了唯一写入路径。
+        // 优先级保护:leave/absent 是审批联动与补录写入的高优先态,重判不得洗成 present/early。
+        // 判据零内联(§0.6):阈值比较只在 judgeStatus 里,这里只决定"要不要问它"。
+        const checkOutTime = new Date()
+        let nextStatus = existing.status
+        if (!statusPreservedOnCheckOut(existing.status)) {
+          const rule = await loadEnabledAttendanceRule(parsed.data.classId)
+          nextStatus = judgeStatus({
+            lateAfter: rule?.lateAfter ?? null,
+            earlyBefore: rule?.earlyBefore ?? null,
+            checkInTime: existing.checkInTime,
+            checkOutTime,
+          })
+        }
+
         return tx
           .update(eduAttendanceRecord)
           .set({
-            checkOutTime: new Date(),
+            checkOutTime,
             checkOutMethod: parsed.data.checkOutMethod || 'manual',
+            status: nextStatus,
             updatedAt: new Date(),
           })
           .where(eq(eduAttendanceRecord.id, existing.id))
@@ -2221,6 +1780,460 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该学生今日已签退'))
       return reply.status(500).send(error(500, '签退失败'))
     }
+  })
+
+  // -------------------------------------------------------------------------
+  // 8b. 批量点名(2026-11-08,ATT-API 票)
+  //     名单唯一来源 = 该班在册学生;不接受客户端自报 studentIds。
+  //     计数诚实性(blocking 门 134):created/skipped/missedIds 三个数全部来自
+  //     `.returning()` 回库确认集与库确认的"已有记录集",没有一个来自请求侧 length。
+  // -------------------------------------------------------------------------
+  server.post('/attendance/batch-check-in', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = batchCheckInSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const classId = parsed.data.classId
+    const now = new Date()
+    const date = parsed.data.date ?? bizDayKey(now)
+    // 本票③:与教师代签同口径 —— status 服务端现算(judgeStatus + 该班规则),
+    // 入参 schema 已删 status;zod strip 后客户端自报值结构上进不了库。
+    const resolved = await resolveTeacherCheckIn({
+      classId,
+      date,
+      checkInTimeRaw: parsed.data.checkInTime,
+      now,
+    })
+    if (!resolved.ok) return reply.status(400).send(error(400, resolved.message))
+    const status = resolved.status
+
+    const outcome = await db.transaction(async (tx) => {
+      // 在册口径**复用**缺勤补录 job 已登记的那一条(eduEnrollment.status='enrolled' ∧ 未软删),
+      // 本文件不另定义"什么算在册"(§0.6;出处 services/edu-attendance-absent-job.ts 头注「在册口径」段)。
+      const enrolled = await tx
+        .select({ studentId: eduEnrollment.studentId })
+        .from(eduEnrollment)
+        .where(
+          and(
+            eq(eduEnrollment.classId, classId),
+            eq(eduEnrollment.status, 'enrolled'),
+            isNull(eduEnrollment.deletedAt),
+          ),
+        )
+      const studentIds = Array.from(new Set(enrolled.map((r) => r.studentId)))
+      if (studentIds.length === 0)
+        return { roster: 0, created: 0, skipped: 0, missedIds: [] as string[] }
+
+      // 当日已有未软删记录的学生:跳过集取自库确认查询,不是"请求数减插入数"倒推出来的
+      const existing = await tx
+        .select({ studentId: eduAttendanceRecord.studentId })
+        .from(eduAttendanceRecord)
+        .where(
+          and(
+            eq(eduAttendanceRecord.classId, classId),
+            eq(eduAttendanceRecord.date, date),
+            inArray(eduAttendanceRecord.studentId, studentIds),
+            isNull(eduAttendanceRecord.deletedAt),
+          ),
+        )
+      const existingSet = new Set(existing.map((r) => r.studentId))
+      const pending = studentIds.filter((id) => !existingSet.has(id))
+      if (pending.length === 0)
+        return {
+          roster: studentIds.length,
+          created: 0,
+          skipped: existingSet.size,
+          missedIds: [] as string[],
+        }
+
+      // onConflictDoNothing 的兜底前提是 ATT-DB 席新增的 (student_id,class_id,date)
+      // WHERE deleted_at IS NULL 部分唯一索引;预筛只挡串行读,并发同键撞索引时靠它消解。
+      const inserted = await tx
+        .insert(eduAttendanceRecord)
+        .values(
+          pending.map((studentId) => ({
+            studentId,
+            classId,
+            date,
+            checkInTime: resolved.checkInTime,
+            status,
+            checkInMethod: 'manual',
+            operatedBy: request.userId,
+            remark: parsed.data.remark,
+          })),
+        )
+        .onConflictDoNothing()
+        .returning({ id: eduAttendanceRecord.id, studentId: eduAttendanceRecord.studentId })
+
+      const landed = new Set(inserted.map((r) => r.studentId))
+      // missedIds = 应写而未落库的学生(并发下同键已被他人写入是正常来源);点名到学生,不报总数了事。
+      const missedIds = pending.filter((id) => !landed.has(id))
+      return {
+        roster: studentIds.length,
+        created: inserted.length,
+        skipped: existingSet.size + missedIds.length,
+        missedIds,
+      }
+    })
+
+    if (outcome.roster === 0)
+      return reply.status(400).send(error(400, '该班暂无在册学生,批量点名无对象'))
+    return reply.send(
+      success({
+        classId,
+        date,
+        status,
+        roster: outcome.roster,
+        created: outcome.created,
+        skipped: outcome.skipped,
+        missedIds: outcome.missedIds,
+      }),
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // 8c. 考勤导出 CSV(2026-11-08,ATT-API 票)
+  //     形态对齐本文件既有 /schedule/export(同一 query 三件套 + 只读守卫),
+  //     但响应是 text/csv:导出要的是"拿去就能开",不是再包一层 { code, data }。
+  // -------------------------------------------------------------------------
+  server.get('/attendance/export', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = attendanceExportQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { classId, startDate, endDate } = parsed.data
+
+    const where = and(
+      isNull(eduAttendanceRecord.deletedAt),
+      eq(eduAttendanceRecord.classId, classId),
+      between(eduAttendanceRecord.date, startDate, endDate),
+    )
+
+    // **分页取全量必须循环到 totalPages**:现读 paginate(本文件 paginate())是 offset/limit 实现,
+    // 一次只回一页 ⇒ 只调一次 = "导出成功"而文件里只有第一页。排序键带 id 末位保证翻页不重不漏。
+    const EXPORT_PAGE_SIZE = 100
+    const EXPORT_MAX_ROWS = 100_000
+    // 行形态取 paginate 的返回元素类型:该共享出口内部是 `db.select().from(AnyPgTable)`,
+    // 行类型只能到 `{[x:string]: unknown}`。本票不为此改 paginate 签名(它被约 30 个端点共用,
+    // 收窄签名属另一张票),故导出侧一律经 toCsvCell/fmtIso 两个 unknown 入口出单元格。
+    const rows: AttendanceExportRow[] = []
+    let page = 1
+    let total = 0
+    for (;;) {
+      const result = await paginate(
+        eduAttendanceRecord,
+        where,
+        [
+          asc(eduAttendanceRecord.date),
+          asc(eduAttendanceRecord.studentId),
+          asc(eduAttendanceRecord.id),
+        ],
+        page,
+        EXPORT_PAGE_SIZE,
+      )
+      rows.push(...result.list)
+      total = result.total
+      if (page >= result.totalPages) break
+      page += 1
+      if (rows.length > EXPORT_MAX_ROWS)
+        return reply
+          .status(400)
+          .send(error(400, `导出行数超过 ${EXPORT_MAX_ROWS},请缩小日期范围或按班分批`))
+    }
+
+    const header = ['学生ID', '日期', '状态', '签到时间', '签退时间', '签到方式', '备注']
+    const lines = [header.map(toCsvCell).join(',')]
+    for (const r of rows) {
+      // 时间列写 ISO 8601(UTC):导出是数据交换格式而非 UI 展示档,
+      // 用 Intl 反而把"读的人的时区"钉进文件里,跨机对账会二次错位。
+      lines.push(
+        [
+          r.studentId,
+          r.date,
+          r.status,
+          toIsoCell(r.checkInTime),
+          toIsoCell(r.checkOutTime),
+          r.checkInMethod,
+          r.remark ?? '',
+        ]
+          .map(toCsvCell)
+          .join(','),
+      )
+    }
+
+    // UTF-8 BOM:无 BOM 时 Excel 按本地 ANSI 码页解 UTF-8 字节,中文列头与备注必乱码
+    // (与本仓 admin/export-csv.ts、audit.ts、edu-canteen.ts 的采购单导出同一形态)。
+    const csv = '﻿' + lines.join('\r\n')
+    reply.header('Content-Type', 'text/csv; charset=utf-8')
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="attendance-${classId}-${startDate}_${endDate}.csv"`,
+    )
+    server.log.debug({ classId, startDate, endDate, total, exported: rows.length }, '考勤导出')
+    return reply.send(csv)
+  })
+
+  // -------------------------------------------------------------------------
+  // 8d. 学生自签(2026-11-08,ATT-API 票;同日晚些时候本票②收口班级归属)
+  //     登录即可,**不要 edu:manage** —— 这是学生给自己的归属型记录写一行。
+  //     身份纪律(AGENTS §5 硬条款):承载层显式取 request.userId,入参不含 studentId/classId,
+  //     于是"studentId 只能等于登录态""班级只能由在册关系决定"两条都是结构上成立。
+  //     班级判定顺序见 resolveSelfCheckInClassId(当日考勤行 → 最近在册 → 409,无第三步兜底)。
+  //     状态判定一律交 judgeStatus + edu_attendance_rule,本端点不内联第二份判据。
+  // -------------------------------------------------------------------------
+  server.post('/attendance/self-check-in', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于一切判据。本插件未挂 preHandler,request.userId 只由
+    // checkAuth/authenticate 写;此前端点内手写 `if (!userId) 401` ⇒ 每条真实请求恒 401。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    const parsed = selfCheckInSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const date = parsed.data.date ?? bizDayKey(new Date())
+    // 客户端硬塞的 classId 已被 schema strip;生效班级只认服务端现取结果(本票②)。
+    const classId = await resolveSelfCheckInClassId(userId, date)
+    if (!classId)
+      return reply
+        .status(409)
+        .send(error(409, '未找到在读班级:当日无考勤记录,也没有在册(enrolled)报名'))
+
+    const result = await checkInByStudent({
+      studentId: userId,
+      classId,
+      date,
+      checkInMethod: 'self',
+      operatedBy: userId,
+      remark: parsed.data.remark,
+    })
+    if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    return reply.status(201).send(
+      success({
+        // 回显最终生效的班级与判定结果,学生端"签到到了哪个班"直接可显示(本票②契约)
+        classId: result.record.classId,
+        status: result.record.status,
+        checkInTime: result.record.checkInTime,
+        record: result.record,
+        // 判定来源如实点名:status 不是客户端传的,是规则 + judgeStatus 算出来的
+        judgedBy: 'edu_attendance_rule.judgeStatus',
+      }),
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // 8d-b. 学生本人考勤查询(2026-11-03)
+  //       三端「我的考勤」此前借道 /parent/children/:childId/attendance 取数,
+  //       而那条走的是 edu_parent_student_binding 家长口径 ⇒ 学生查自己不成立。
+  //       本端点主体只从承载层取(studentId = request.userId),入参不含 studentId;
+  //       返回形态与 /parent/children/:childId/attendance 严格一致({ list }),前端三端已按此取数。
+  // -------------------------------------------------------------------------
+  server.get('/attendance/me', async (request, reply) => {
+    // 承载层出口(§5):身份只由 checkAuthOrInternalService 注入,拿不到即回 401 并终止。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const studentId = request.userId!
+    const parsed = myAttendanceQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const conds: SQL[] = [
+      eq(eduAttendanceRecord.studentId, studentId),
+      isNull(eduAttendanceRecord.deletedAt),
+    ]
+    if (parsed.data.date) conds.push(eq(eduAttendanceRecord.date, parsed.data.date))
+    if (parsed.data.startDate && parsed.data.endDate) {
+      conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
+    } else if (parsed.data.startDate) {
+      conds.push(gte(eduAttendanceRecord.date, parsed.data.startDate))
+    } else if (parsed.data.endDate) {
+      conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
+    }
+    const list = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(and(...conds))
+      .orderBy(desc(eduAttendanceRecord.date))
+    return reply.send(success({ list }))
+  })
+
+  // -------------------------------------------------------------------------
+  // 8e. 扫码签到两档(2026-11-08,ATT-API 票)
+  //     GET /attendance/qrcode      教师出码(requireEduManage):载荷 = classId + 短期 HMAC token + 有效期,
+  //                                **绝不含 qrSecret 原文**(它只做 HMAC 的 key)。
+  //     POST /attendance/qrcode-check-in  学生扫码签到:校验签名与有效期后按规则落库。
+  // -------------------------------------------------------------------------
+  server.get('/attendance/qrcode', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = attendanceQrCodeQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const rule = await loadEnabledAttendanceRule(parsed.data.classId)
+    if (!rule?.qrSecret)
+      return reply
+        .status(400)
+        .send(error(400, '该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)'))
+
+    const { token, expiresAtMs } = buildAttendanceQrToken(
+      parsed.data.classId,
+      rule.qrSecret,
+      Date.now(),
+      ATT_QR_TOKEN_TTL_MS,
+    )
+    const payload = JSON.stringify({
+      type: 'edu-attendance-checkin',
+      version: 1,
+      classId: parsed.data.classId,
+      token,
+      expiresAt: new Date(expiresAtMs).toISOString(),
+    })
+    return reply.send(
+      success({
+        payload,
+        classId: parsed.data.classId,
+        expiresAt: new Date(expiresAtMs).toISOString(),
+        ttlMs: ATT_QR_TOKEN_TTL_MS,
+      }),
+    )
+  })
+
+  server.post('/attendance/qrcode-check-in', async (request, reply) => {
+    // 承载层出口(§5):同 self-check-in,鉴权先于判据;身份只认承载层注入的 request.userId。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    const parsed = qrcodeCheckInSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    // 本票②:classId 不再由客户端自报 —— 它包含在教师端出码的 HMAC 载荷里,
+    // 从 token 解出后用该班规则密钥核验签名与 TTL(签名覆盖 classId|exp,伪造换班即签名失败)。
+    const decoded = decodeAttendanceQrToken(parsed.data.token)
+    if (!decoded) return reply.status(403).send(error(403, ATT_QR_FAILURE_MESSAGES.TOKEN_MALFORMED))
+
+    const rule = await loadEnabledAttendanceRule(decoded.classId)
+    if (!rule?.qrSecret)
+      return reply.status(400).send(error(400, '该班未配置扫码签到密钥(qrSecret)'))
+
+    const failure = verifyAttendanceQrToken(
+      parsed.data.token,
+      decoded.classId,
+      rule.qrSecret,
+      Date.now(),
+    )
+    if (failure) return reply.status(403).send(error(403, ATT_QR_FAILURE_MESSAGES[failure]))
+
+    const date = bizDayKey(new Date())
+    const result = await checkInByStudent({
+      studentId: userId,
+      classId: decoded.classId,
+      date,
+      checkInMethod: 'qrcode',
+      operatedBy: userId,
+    })
+    if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    return reply.status(201).send(
+      success({
+        // 与自签同形:回显最终生效班级,端上能显示签到到了哪个班(本票②契约)
+        classId: result.record.classId,
+        status: result.record.status,
+        checkInTime: result.record.checkInTime,
+        record: result.record,
+        judgedBy: 'edu_attendance_rule.judgeStatus',
+      }),
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // 8f. 考勤规则配置入口(2026-11-08,本票①)
+  //     此前全仓没有任何端点能写 edu_attendance_rule ⇒ qrSecret 恒空,
+  //     扫码签到结构上不可用、迟到阈值也无据可判;这三条端点就是那格缺口。
+  //     出参一律走 toAttendanceRuleDto 投影:qrSecret 原文绝不出仓,responsibility 见该函数头注。
+  //     阈值归一化只用 edu-schedule-conflict.normalizeHm 单源,非法值 400 点名原值、不回落。
+  // -------------------------------------------------------------------------
+  server.get('/attendance/rule', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = attendanceRuleQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const [row] = await db
+      .select()
+      .from(eduAttendanceRule)
+      .where(
+        and(
+          eq(eduAttendanceRule.classId, parsed.data.classId),
+          isNull(eduAttendanceRule.deletedAt),
+        ),
+      )
+      .limit(1)
+    return reply.send(success({ rule: toAttendanceRuleDto(row ?? null) }))
+  })
+
+  server.put('/attendance/rule', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = attendanceRuleUpsertSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const { classId, enabled } = parsed.data
+    const thresholds: { lateAfter?: string; earlyBefore?: string; absentAfter?: string } = {}
+    for (const field of ['lateAfter', 'earlyBefore', 'absentAfter'] as const) {
+      const raw = parsed.data[field]
+      if (raw === undefined) continue
+      const hm = normalizeHm(raw)
+      if (hm === null)
+        return reply
+          .status(400)
+          .send(error(400, `时间格式非法:${field}="${raw}"(必须可归一化为 HH:MM)`))
+      thresholds[field] = hm
+    }
+
+    // upsert 按 classId(unique)幂等(本仓幂等铁律 onConflictDoUpdate);冲突更新面只写本次给出的字段。
+    const [row] = await db
+      .insert(eduAttendanceRule)
+      .values({ classId, ...thresholds, ...(enabled === undefined ? {} : { enabled }) })
+      .onConflictDoUpdate({
+        target: eduAttendanceRule.classId,
+        set: {
+          ...thresholds,
+          ...(enabled === undefined ? {} : { enabled }),
+          updatedAt: new Date(),
+        },
+      })
+      .returning()
+    return reply.send(success({ rule: toAttendanceRuleDto(row ?? null) }))
+  })
+
+  server.post('/attendance/rule/rotate-qr-secret', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = rotateQrSecretSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const secret = randomBytes(32).toString('hex')
+    const [updated] = await db
+      .update(eduAttendanceRule)
+      .set({ qrSecret: secret, updatedAt: new Date() })
+      .where(
+        and(
+          eq(eduAttendanceRule.classId, parsed.data.classId),
+          isNull(eduAttendanceRule.deletedAt),
+        ),
+      )
+      .returning()
+    if (!updated)
+      return reply.status(404).send(error(404, '该班尚无考勤规则,请先 PUT /attendance/rule 建档'))
+    // 响应绝不回显密钥原文,只给可核对不可用的指纹(前 6 位)
+    return reply.send(success({ rotated: true, fingerprint: secret.slice(0, 6) }))
   })
 
   server.put('/attendance/:id', async (request, reply) => {
@@ -2353,26 +2366,111 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = approveLeaveSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const [existing] = await db
-      .select()
-      .from(eduLeaveRequest)
-      .where(and(eq(eduLeaveRequest.id, idParsed.data.id), isNull(eduLeaveRequest.deletedAt)))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, '请假申请不存在'))
-    if (existing.status !== 'pending')
-      return reply.status(400).send(error(400, '仅待审批的申请可审批'))
-    const [row] = await db
-      .update(eduLeaveRequest)
-      .set({
-        status: parsed.data.status,
-        approverId: request.userId,
-        approveRemark: parsed.data.approveRemark,
-        approveAt: new Date(),
-        updatedAt: new Date(),
+
+    // 审批通过 ⇒ 同一事务内把 [startDate, endDate] 逐日幂等写进考勤(status='leave')。
+    // 立因:此前"审批只改请假单",考勤表对该生该日要么空着、要么仍是缺勤 ——
+    // 于是 GET /attendance/stats 把"批过假的人"计入缺勤,出勤率恒低(2026-11-08 ATT-API 票)。
+    // 事务的理由:单已 approved 而考勤没落 = 半状态,重放审批会被"仅待审批可审批"挡死,
+    // 那半状态再也修不回来,只能人工改库 ⇒ 两处写必须同批成或同批不成。
+    // 不覆盖非 leave 状态:教师已手改过"迟到/已签到"的一天,审批一张假单不该把它抹掉。
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [existing] = await tx
+          .select()
+          .from(eduLeaveRequest)
+          .where(and(eq(eduLeaveRequest.id, idParsed.data.id), isNull(eduLeaveRequest.deletedAt)))
+          .limit(1)
+        if (!existing) return { kind: 'not_found' as const }
+        if (existing.status !== 'pending') return { kind: 'not_pending' as const }
+
+        const [row] = await tx
+          .update(eduLeaveRequest)
+          .set({
+            status: parsed.data.status,
+            approverId: request.userId,
+            approveRemark: parsed.data.approveRemark,
+            approveAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(eduLeaveRequest.id, idParsed.data.id))
+          .returning()
+        // 库确认:更新链必须回读,拿不到行 ⇒ 记录已不在(并发软删),不能回 200
+        if (!row) return { kind: 'not_found' as const }
+
+        const attendanceSynced = { created: 0, updated: 0, skipped: 0 }
+        if (parsed.data.status === 'approved') {
+          const days = enumerateAttendanceDates(existing.startDate, existing.endDate)
+          for (const day of days) {
+            const [cur] = await tx
+              .select()
+              .from(eduAttendanceRecord)
+              .where(
+                and(
+                  eq(eduAttendanceRecord.studentId, existing.studentId),
+                  eq(eduAttendanceRecord.classId, existing.classId),
+                  eq(eduAttendanceRecord.date, day),
+                  isNull(eduAttendanceRecord.deletedAt),
+                ),
+              )
+              .limit(1)
+            if (cur && cur.status !== 'leave') {
+              attendanceSynced.skipped += 1
+              continue
+            }
+            const syncedRemark = `请假审批联动 · 请假单 ${existing.id}`
+            if (cur) {
+              // 原本就是 leave 行 ⇒ 幂等刷新 operatedBy/remark(上一轮审批人不同时留下最新一次)
+              const updated = await tx
+                .update(eduAttendanceRecord)
+                .set({
+                  status: 'leave',
+                  operatedBy: request.userId,
+                  remark: syncedRemark,
+                  updatedAt: new Date(),
+                })
+                .where(
+                  and(
+                    eq(eduAttendanceRecord.id, cur.id),
+                    // 状态前置写进同一把 where:① B4 终态回退要求同列前置(差值棘轮只拦新增);
+                    // ② 更要紧的是 select 与 update 之间那一瞬,别席可能已把这行改成"迟到"——
+                    //    没有这个前置就会覆盖掉它,而本票的承诺是"非 leave 不覆盖"。
+                    eq(eduAttendanceRecord.status, 'leave'),
+                  ),
+                )
+                .returning({ id: eduAttendanceRecord.id })
+              if (updated.length === 1) attendanceSynced.updated += 1
+              else attendanceSynced.skipped += 1
+            } else {
+              const created = await tx
+                .insert(eduAttendanceRecord)
+                .values({
+                  studentId: existing.studentId,
+                  classId: existing.classId,
+                  date: day,
+                  status: 'leave',
+                  checkInMethod: 'manual',
+                  operatedBy: request.userId,
+                  remark: syncedRemark,
+                })
+                .onConflictDoNothing()
+                .returning({ id: eduAttendanceRecord.id })
+              if (created.length === 1) attendanceSynced.created += 1
+              else attendanceSynced.skipped += 1
+            }
+          }
+        }
+        return { kind: 'ok' as const, leave: row, attendanceSynced }
       })
-      .where(eq(eduLeaveRequest.id, idParsed.data.id))
-      .returning()
-    return reply.send(success({ leave: row }))
+
+      if (result.kind === 'not_found') return reply.status(404).send(error(404, '请假申请不存在'))
+      if (result.kind === 'not_pending')
+        return reply.status(400).send(error(400, '仅待审批的申请可审批'))
+      return reply.send(success({ leave: result.leave, attendanceSynced: result.attendanceSynced }))
+    } catch (err: unknown) {
+      if ((err as { message?: string }).message === 'LEAVE_RANGE_TOO_WIDE')
+        return reply.status(400).send(error(400, '请假日期跨度过大,请拆分后重新申请'))
+      return reply.status(500).send(error(500, '审批失败'))
+    }
   })
 
   server.delete('/leave/:id', async (request, reply) => {
@@ -2401,11 +2499,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 获取当前用户的绑定列表（家长视角：查看绑定的孩子；学生视角：查看绑定的家长）
   server.get('/parent/binding', async (request, reply) => {
+    // 承载层出口(§5):本插件未挂 preHandler ⇒ 此前手写 `if (!userId) 401` 恒命中。
+    // 绑定行含双方 UUID 与关系字段,属私有数据,不在任何游客/公开白名单内。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const parsed = bindingListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const conds: SQL[] = [
       or(
@@ -2426,11 +2527,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 创建绑定（家长发起）
   server.post('/parent/binding', async (request, reply) => {
+    // 承载层出口(§5):parentId 只从登录态取,不接受客户端自报(AGENTS §5 不得信客户端)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const parsed = createBindingSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 检查是否已存在绑定
     const [existing] = await db
@@ -2459,14 +2562,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 确认/拒绝绑定（学生端确认）
   server.put('/parent/binding/:id', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方「仅学生本人可确认绑定」的归属校验保留。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = updateBindingSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -2499,11 +2604,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 解除绑定（家长或学生均可发起）
   server.delete('/parent/binding/:id', async (request, reply) => {
+    // 承载层出口(§5);下方「仅绑定双方可解除」的归属校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -2530,8 +2637,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 获取家长绑定的所有孩子列表（含孩子基本信息）
   server.get('/parent/children', async (request, reply) => {
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // 承载层出口(§5):孩子名单是本人绑定集,私有数据;身份只从 request.userId 取。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
 
     const bindings = await db
       .select()
@@ -2578,14 +2687,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子考勤记录（按学生ID）
   server.get('/parent/child/:id/attendance', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证该学生确实是当前用户的孩子
     const [binding] = await db
@@ -2625,11 +2736,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子成绩列表（按学生ID）
   server.get('/parent/child/:id/grades', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证绑定
     const [binding] = await db
@@ -2656,11 +2769,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子课程表（按班级ID，从签到记录中查找最近的班级）
   server.get('/parent/child/:id/schedule', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证绑定
     const [binding] = await db
@@ -2710,11 +2825,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子学习计划（按班级ID，从签到记录中查找最近的班级）
   server.get('/parent/child/:id/study-plans', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证绑定
     const [binding] = await db
@@ -2761,11 +2878,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子菜谱（学校通用，无需班级信息）
   server.get('/parent/child/:id/meals', async (request, reply) => {
+    // 承载层出口(§5):菜谱本身是学校通用数据,但本端点仍先验绑定,不做匿名可见。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证绑定
     const [binding] = await db
@@ -2806,10 +2925,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子课程表
   server.get('/parent/children/:childId/courses', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     // 验证绑定
     const [binding] = await db
@@ -2853,10 +2974,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子今日菜谱
   server.get('/parent/children/:childId/meals', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [binding] = await db
       .select()
@@ -2883,10 +3006,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子学习计划
   server.get('/parent/children/:childId/study-plans', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [binding] = await db
       .select()
@@ -2925,10 +3050,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 孩子考勤记录
   server.get('/parent/children/:childId/attendance', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // 查询形状闸(2026-11-04 补):此前这条端点**根本没有 query 闸**,传任何 status 都被
+    // 静默忽略 ⇒ 客户端以为筛了、服务端按全量回,与同族 GET /parent/child/:id/attendance
+    // 的「非法值 400 点名 + 合法值真筛」两张脸对不上。取证(现读 web 家长子页 PageClient 与
+    // 小程序/RN 的家长侧取数)⇒ 目前**没有任何调用方发 status**,所以缺的是筛选能力而不是
+    // 已发生的静默失效缺陷;能力是否接线归前端票,本票只做"不再静默忽略"这一半。
+    // 复用同枚 `childAttendanceQuerySchema` 实例(§0.6:取值表全文件只有一份)。
+    const parsed = childAttendanceQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId!
 
     const [binding] = await db
       .select()
@@ -2944,10 +3080,22 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
 
+    const conds: SQL[] = [
+      eq(eduAttendanceRecord.studentId, childId),
+      isNull(eduAttendanceRecord.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduAttendanceRecord.status, parsed.data.status))
+    if (parsed.data.startDate && parsed.data.endDate) {
+      conds.push(between(eduAttendanceRecord.date, parsed.data.startDate, parsed.data.endDate))
+    } else if (parsed.data.startDate) {
+      conds.push(gte(eduAttendanceRecord.date, parsed.data.startDate))
+    } else if (parsed.data.endDate) {
+      conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
+    }
     const list = await db
       .select()
       .from(eduAttendanceRecord)
-      .where(and(eq(eduAttendanceRecord.studentId, childId), isNull(eduAttendanceRecord.deletedAt)))
+      .where(and(...conds))
       .orderBy(desc(eduAttendanceRecord.date))
     return reply.send(success({ list }))
   })
@@ -3018,10 +3166,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/parent/children/:childId/grades', async (request, reply) => {
+    // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const childId = (request.params as { childId: string }).childId
     if (!childId) return reply.status(400).send(error(400, '无效的孩子ID'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [binding] = await db
       .select()
@@ -4796,11 +4946,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // --- 家长绑定:前端 /parent-binding ↔ 后端 /parent/binding ---
   // G-962 #69: 前端 parent/bind/page.tsx 用 GET /parent-binding 拉本人绑定列表。
   server.get('/parent-binding', async (request, reply) => {
+    // 承载层出口(§5):与 /parent/binding 同族同形 —— 本人绑定列表是私有数据,不接受匿名。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const parsed = bindingListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const conds: SQL[] = [
       or(
@@ -4820,11 +4972,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/parent-binding', async (request, reply) => {
+    // 承载层出口(§5):parentId 只从登录态取,不接受客户端自报。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const parsed = createBindingSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -4851,11 +5005,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/parent-binding/:id', async (request, reply) => {
+    // 承载层出口(§5);下方「仅绑定双方可解除」的归属校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -4881,11 +5037,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 学生确认绑定(前端 PUT /parent-binding/:id/confirm)
   server.put('/parent-binding/:id/confirm', async (request, reply) => {
+    // 承载层出口(§5);下方「仅学生本人可确认绑定」的归属校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -4911,11 +5069,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 学生拒绝绑定(前端 PUT /parent-binding/:id/reject)
   server.put('/parent-binding/:id/reject', async (request, reply) => {
+    // 承载层出口(§5);下方「仅学生本人可拒绝绑定」的归属校验保留(鉴权≠授权)。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId
-    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    const userId = request.userId!
 
     const [existing] = await db
       .select()
@@ -5476,10 +5636,20 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         })
         notified += 1
       } catch (_err) {
-        await db
-          .update(eduFeeReminder)
-          .set({ status: 'failed', updatedAt: new Date() })
+        // 先取现值、按键比较:只有状态真的不是 failed 才写(守门 161 出口形态)。
+        // 无条件盖 updatedAt 会把「没变」伪装成「变过」,污染 tasks.ts 的 since 补拉窗口。
+        const [current] = await db
+          .select({ status: eduFeeReminder.status })
+          .from(eduFeeReminder)
           .where(eq(eduFeeReminder.id, row.id))
+          .limit(1)
+        const changed = current && current.status !== 'failed' ? { status: 'failed' as const } : {}
+        if (Object.keys(changed).length > 0) {
+          await db
+            .update(eduFeeReminder)
+            .set({ ...changed, updatedAt: new Date() })
+            .where(eq(eduFeeReminder.id, row.id))
+        }
       }
     }
     return reply.status(201).send(
@@ -5696,6 +5866,12 @@ export const __test__ = {
   generateFeeScheduleSchema,
   feeReminderStatsSchema,
   buildLegacySegment,
+  // 2026-11-04 考勤 status 枚举闸(§22c:镜像测试直接 import 源件实例,不在测试里抄取值表)
+  attendanceStatusFilter,
+  attendanceListQuerySchema,
+  childAttendanceQuerySchema,
+  // 2026-11-04 写面收口:status 已从入参删除 ⇒ 必须能被测试直接 import 钉住(不靠跑 HTTP 看形状)
+  updateAttendanceSchema,
 }
 
 export default eduAiManagementRoutes

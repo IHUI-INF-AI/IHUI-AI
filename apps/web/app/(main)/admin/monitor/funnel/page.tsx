@@ -107,7 +107,7 @@ export default function AdminMonitorFunnelPage() {
             <Filter className="h-6 w-6 text-primary" />
             业务漏斗仪表盘
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">关键业务转化漏斗分析</p>
+          <p className="mt-1 text-body text-muted-foreground">关键业务转化漏斗分析</p>
         </div>
         {/* 档位选择器已摘除(2026-11-01):后端只有一套真漏斗 GET /api/earnings/funnel
             (register→active→byok→vip),原先的 signup/purchase/activation/retention 四档
@@ -121,12 +121,16 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-label font-medium text-muted-foreground">总用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-display font-bold text-primary">{formatNumber(view.totalUsers)}</div>
+              <div className="text-display font-bold text-primary">
+                {formatNumber(view.totalUsers)}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-label font-medium text-muted-foreground">转化用户</CardTitle>
+              <CardTitle className="text-label font-medium text-muted-foreground">
+                转化用户
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-display font-bold text-success-text">
@@ -156,7 +160,7 @@ export default function AdminMonitorFunnelPage() {
         </CardHeader>
         <CardContent>
           {isError ? (
-            <div className="py-10 text-center text-sm text-danger-text">
+            <div className="py-10 text-center text-body text-danger-text">
               数据源不可达(GET /api/earnings/funnel 请求失败)
             </div>
           ) : isLoading ? (
@@ -164,7 +168,7 @@ export default function AdminMonitorFunnelPage() {
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             </div>
           ) : stages.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">暂无漏斗数据</p>
+            <p className="py-10 text-center text-body text-muted-foreground">暂无漏斗数据</p>
           ) : (
             <div className="space-y-3">
               {stages.map((s, i) => {
@@ -174,11 +178,11 @@ export default function AdminMonitorFunnelPage() {
                   prev && prev.count > 0 ? ((prev.count - s.count) / prev.count) * 100 : 0
                 return (
                   <div key={s.key} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-body">
                       <span className="font-medium">{s.label}</span>
                       <span className="text-muted-foreground">
                         {formatNumber(s.count)}{' '}
-                        <span className="text-xs">({readRate(s.rate, undetermined, 1)})</span>
+                        <span className="text-label">({readRate(s.rate, undetermined, 1)})</span>
                       </span>
                     </div>
                     <div className="relative h-8 overflow-hidden rounded-md bg-muted">
@@ -197,7 +201,9 @@ export default function AdminMonitorFunnelPage() {
                       </div>
                     </div>
                     {i > 0 && dropRate > 0 && (
-                      <div className="text-xs text-danger-text">↓ 流失 {dropRate.toFixed(1)}%</div>
+                      <div className="text-label text-danger-text">
+                        ↓ 流失 {dropRate.toFixed(1)}%
+                      </div>
                     )}
                   </div>
                 )

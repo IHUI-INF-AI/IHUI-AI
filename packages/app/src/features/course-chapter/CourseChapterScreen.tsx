@@ -26,8 +26,9 @@ export function CourseChapterScreen({
   error,
   onPressItem,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: CourseChapterScreenProps) {
+}: CourseChapterScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -39,7 +40,7 @@ export function CourseChapterScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -85,7 +86,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -93,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

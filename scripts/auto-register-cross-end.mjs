@@ -32,6 +32,12 @@
 //     过结构校验闸后才落地;declare 之外档(missing/not-applicable)不写代码,只在 --record-verdicts 时进判定台账。
 //   node scripts/auto-register-cross-end.mjs --proposals=<目录> --apply --record-verdicts
 //     ⇒ 一并把"这一格已验过"的结论写进 scripts/data/miniapp-mirror-verdicts.jsonl(缺口账本生成器消费它)。
+//   node scripts/auto-register-cross-end.mjs --register-landing --paths=a,b [--root=<夹具仓>]
+//   node scripts/auto-register-cross-end.mjs --landing-skips  --paths=a,b [--root=<夹具仓>]
+//     ⇒ 写盘申报账本层的机器读出口(2026-11-03 立;本文件是顶层流程型 CLI,import 即跑全链,
+//     镜像测试经这两个子进程档直调生产登记/跳过判据,不跑主流程)。--apply 成功写盘的路径
+//     批末自动进 scripts/lib/cross-end-landing-ledger.mjs 账本(leg 逐字取守护自称名 CROSS_END_LEG);
+//     只读预演零登记;账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged。
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,7 +46,7 @@ import { execFileSync } from 'node:child_process'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 // 判定台账的路径与读写口径归单源 lib(§0.6):本文件只调它,不自己写一遍路径/解析/归并。
-import { indexVerdicts, readVerdicts, writeVerdictRows } from './lib/cross-end-verdicts.mjs'
+import { indexVerdicts, readVerdicts, writeVerdictRows, VERDICTS_PATH } from './lib/cross-end-verdicts.mjs'
 // 镜像标记的形态与插入点归单源 lib(§0.6):本文件不自己拼这行字。
 import { hasMirrorMarker, insertMirrorMarker } from './lib/cross-end-mirror-write.mjs'
 // 剥注释的遮罩实现全仓只许一份(§0.6):形状锁要"数代码里的用量"就问它,不自己写正则剥注释。
@@ -48,6 +54,11 @@ import { maskComments } from './lib/code-mask.mjs'
 // 门户维收敛的候选集编排归单源 lib(§0.6):两族(逐条族/段级族)的判定与幂等闸都在那一份里,
 // 本文件只负责取材(读哪一面)与落盘(写哪一面),不自己复算一遍判据。
 import { __test__ as portalPlanLib } from './lib/cross-end-portal-plan.mjs'
+// 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6)。
+import { appendLanding, isRowComplete, readLanding } from './lib/cross-end-landing-ledger.mjs'
+// 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',p], root),
+// 这里必须问同一把尺(两侧算法不一致的后果是"永远 contested")。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const R = (...p) => join(ROOT, ...p)
@@ -56,6 +67,91 @@ const REGISTRY_PATH = 'scripts/data/cross-end-screen-registry.json'
 const INDEX_PATH = 'packages/app/src/index.ts'
 // 判定台账(缺口账本的可持久侧车):键 = 共享屏 spec,一行一屏。
 // 路径与读写口径的单源在 scripts/lib/cross-end-verdicts.mjs(§0.6),此处不再复制。
+
+/**
+ * 本腿在 git-guardian 的自称名,逐字取用,不自立新名:守护 convergeCrossEndPortalVerdicts
+ * 以 crossEndUndetFile('portal-converge') / settleCrossEndLeg('portal-converge') 点名,
+ * 且 'portal-converge' 在册于 CROSS_END_LEGS。
+ * 对照证据由 scripts/tests/cross-end-landing-legs.test.mjs 钉(名字必须逐字出现在守护源里)。
+ */
+export const CROSS_END_LEG = 'portal-converge'
+
+// ─── 写盘申报账本层(2026-11-03 立,四枚跨端写盘腿同形)───────────────────────
+// 本器 --apply 只写工作树(守护派发档),注释承诺的「落库交给收编器」此前无人收业务件 ⇒
+// 写成功的路径批末进 cross-end-landing-ledger 申报;收编侧只认
+// 「账本在册 ∧ 工作树 blob 逐字节等于登记 oid ∧ 超静默期 ∧ 非 ignored」。
+// 失效方向:账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged(多要一次,不少做一次,§0.3)。
+/** 与 collectiblePaths(worktree 面)同一把尺取当前 blob oid;取不到 ⇒ null(点名不猜)。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
+export function landedOidMap({ root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = readLanding({ root })
+  if (!rd.ok) return { ok: false, reason: rd.reason, map: new Map() }
+  const map = new Map()
+  for (const row of rd.lines) {
+    if (String(row?.leg ?? '') !== leg || !isRowComplete(row)) continue
+    map.set(String(row.path), String(row.blobOid).trim().toLowerCase())
+  }
+  return { ok: true, reason: null, map }
+}
+
+/** 「本 leg 已登记 ∧ 工作树 blob 仍等于登记 oid」的路径 ⇒ 本轮视为已完成。 */
+export function landedSkips(paths, { root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = landedOidMap({ root, leg })
+  if (!rd.ok) return { skip: [], ledger: 'unjudged', reason: rd.reason }
+  const skip = []
+  for (const p of paths || []) {
+    const oid = rd.map.get(p)
+    if (oid && worktreeBlobOid(p, root) === oid) skip.push(p)
+  }
+  return { skip, ledger: null, reason: null }
+}
+
+/** 批末申报:写了盘的文件逐枚实测 oid 进账本。写了盘没登记上 ⇒ landingError 点名,不冒成功。 */
+export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at = new Date().toISOString() } = {}) {
+  const list = [...new Set(paths || [])]
+  if (list.length === 0) return { landing: 0, appended: 0, deduped: 0, rejected: [] }
+  const entries = []
+  const unhashable = []
+  for (const p of list) {
+    const oid = worktreeBlobOid(p, root)
+    if (!oid) {
+      unhashable.push(p)
+      continue
+    }
+    entries.push({ at, leg, path: p, blobOid: oid })
+  }
+  try {
+    const ap = appendLanding(entries, { root })
+    const out = {
+      landing: ap.appended + ap.deduped,
+      appended: ap.appended,
+      deduped: ap.deduped,
+      rejected: ap.rejected,
+    }
+    const errs = []
+    if (ap.rejected.length)
+      errs.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (unhashable.length) errs.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    if (errs.length) out.landingError = errs.join(' | ')
+    return out
+  } catch (e) {
+    return {
+      landing: 0,
+      appended: 0,
+      deduped: 0,
+      rejected: [],
+      landingError: `账本写盘失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+}
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -74,6 +170,17 @@ const convergeRender = argv.includes('--converge-render')
 const only = onlyArg ? onlyArg.slice('--only='.length) : null
 const FACE = worktreeMode ? 'worktree' : 'head'
 const TODAY = new Date().toISOString().slice(0, 10)
+
+// 轮首读账本(2026-11-03 立):本腿已登记、工作树 blob 至今未动的路径 = 本轮已完成,
+// 不重写、也不冒充「他席声明/在飞」拒落。账本读不到 ⇒ 照常全量尝试,只补 ledger=unjudged。
+const landedRead = landedOidMap()
+const stillLanded = (rel) => {
+  const oid = landedRead.map.get(rel)
+  return Boolean(oid) && worktreeBlobOid(rel) === oid
+}
+const writtenPaths = new Set()
+const skipLandedRows = []
+let landingInfo = { landing: 0 }
 
 const EP_RE = /['"`](\/api\/[A-Za-z0-9_./${}-]*)/g
 const KEY_RE = /\b(?:t|tt)\(\s*'([A-Za-z0-9_.-]+)'/g
@@ -190,6 +297,23 @@ function selfTestRender() {
   process.exit(bad === 0 ? 0 : 1)
 }
 if (argv.includes('--self-test')) selfTestRender()
+
+// 账本层的机器读出口(2026-11-03 立,排在一切重活之前):本文件是顶层流程型 CLI,
+// import 它 = 跑整条登记链,所以镜像测试用这两个子进程档直调生产登记/跳过判据。
+// 不执行主流程、不改任何仓内文件;--root 仅为夹具(临时 git 仓)开放,生产调用不带它。
+if (argv.includes('--register-landing') || argv.includes('--landing-skips')) {
+  const rootArg = argv.find((a) => a.startsWith('--root='))
+  const root = rootArg ? rootArg.slice('--root='.length) : ROOT
+  const paths = (argv.find((a) => a.startsWith('--paths=')) ?? '')
+    .slice('--paths='.length)
+    .split(',')
+    .filter(Boolean)
+  const out = argv.includes('--register-landing')
+    ? registerLandings(paths, { root })
+    : landedSkips(paths, { root })
+  console.log(JSON.stringify(out))
+  process.exit(out.landingError ? 1 : 0)
+}
 
 const IMP_RE = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g
 function namedImports(text, moduleName) {
@@ -473,6 +597,54 @@ function safeRead(rel) {
 // 不合格逐条点名拒收原因(§0.3 取不到/不成立不冒充通过);confidence≠high 的 declare 一律拒。
 const proposalsArg = argv.find((a) => a.startsWith('--proposals='))
 const proposals = { miniapp: [], web: [], refused: [], filesRead: [], verdicts: [] }
+
+/**
+ * 证据型改判的字段透传(2026-11-05 立)。
+ * 旧形态三处 push 只写 {web,rn,status,note,at},把裁决件里的 `state / data / residualGap / verifiedAt`
+ * **整片丢掉** ⇒ 尺子的 structuredProblem 判 "aligned 结构化字段不合格"(它要求 state==='verified' ∧
+ * data.kind 合法 ∧ data.evidence ≥8 字),而"主功能已验、子能力缺"这一档唯一的表达通道 residualGap
+ * 也随之一并消失(现读 484 行台账里只有 1 行带它 —— 那是人手写的,不是登记器产的)。
+ * 结果:诚实的改判(带残余缺口的 aligned)写不进去,队列只能一直烂在 pending。
+ * 本函数只透传并核验形状,不新造判据:核验规则与尺子同形(缺字段 ⇒ 不写该字段而不是编一个)。
+ */
+function structuredExtras(it, refuse) {
+  const out = {}
+  const state = typeof it.state === 'string' ? it.state.trim() : ''
+  if (state && state !== 'verified' && state !== 'pending') {
+    refuse(`state=${state} 不合法(只认 verified/pending)`)
+    return null
+  }
+  if (it.data !== undefined) {
+    const d = it.data
+    if (!d || typeof d !== 'object' || Array.isArray(d)) {
+      refuse('data 不是对象')
+      return null
+    }
+    if (typeof d.kind !== 'string' || !d.kind.trim()) {
+      refuse('data.kind 缺失')
+      return null
+    }
+    if (typeof d.evidence !== 'string' || d.evidence.trim().length < 8) {
+      refuse('data.evidence 缺失或不足以定位(需 ≥8 字,形如 文件:行)')
+      return null
+    }
+    out.data = { kind: d.kind.trim(), via: typeof d.via === 'string' ? d.via : undefined, evidence: d.evidence.trim() }
+    if (typeof d.webEvidence === 'string' && d.webEvidence.trim().length >= 8)
+      out.data.webEvidence = d.webEvidence.trim()
+  }
+  if (state) out.state = state
+  if (state === 'verified' && !out.data) {
+    refuse('state=verified 但缺 data(证据字段)⇒ 不许写成 verified')
+    return null
+  }
+  const rg = typeof it.residualGap === 'string' ? it.residualGap.trim() : ''
+  if (rg) out.residualGap = rg
+  const va = typeof it.verifiedAt === 'string' ? it.verifiedAt.trim() : ''
+  if (va) out.verifiedAt = va
+  const ss = typeof it.supersedeStatus === 'string' ? it.supersedeStatus.trim() : ''
+  if (ss) out.supersedeStatus = ss
+  return out
+}
 if (proposalsArg) {
   const target = resolve(ROOT, proposalsArg.slice('--proposals='.length))
   const files = existsSync(target) && statSync(target).isDirectory()
@@ -578,8 +750,7 @@ if (proposalsArg) {
         if (ev.trim().length < 10) {
           refuse('note/reason 少于 10 字,拒')
           continue
-        }
-        if (it.verdict === 'gap') {
+        }        if (it.verdict === 'gap') {
           if (!webRouteSet.has(it.web)) {
             refuse(`web 键不在路由集:${String(it.web)}`)
             continue
@@ -588,7 +759,15 @@ if (proposalsArg) {
             refuse('该路由已有判定登记(aligned/excluded/gap)')
             continue
           }
-          proposals.web.push({ web: it.web, status: 'gap', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exGap = structuredExtras(it, refuse)
+          if (!exGap) continue
+          proposals.web.push({
+            web: it.web,
+            status: 'gap',
+            note: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exGap,
+          })
           continue
         }
         if (it.verdict === 'aligned') {
@@ -605,7 +784,16 @@ if (proposalsArg) {
             refuse(`aligned 指向的屏不存在:${String(it.rn)}`)
             continue
           }
-          proposals.web.push({ web: it.web, rn: it.rn, status: 'aligned', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exAligned = structuredExtras(it, refuse)
+          if (!exAligned) continue
+          proposals.web.push({
+            web: it.web,
+            rn: it.rn,
+            status: 'aligned',
+            note: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exAligned,
+          })
         } else if (it.verdict === 'excluded') {
           const seg = String(it.web).endsWith('/**')
           if (!seg && !webRouteSet.has(it.web)) {
@@ -616,7 +804,15 @@ if (proposalsArg) {
             refuse('该路由/段已有判定登记(aligned/excluded/gap)')
             continue
           }
-          proposals.web.push({ web: it.web, status: 'excluded', reason: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exExcluded = structuredExtras(it, refuse)
+          if (!exExcluded) continue
+          proposals.web.push({
+            web: it.web,
+            status: 'excluded',
+            reason: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exExcluded,
+          })
         }
       } else {
         refuse('条目既无 shared 也无 web 键')
@@ -649,6 +845,7 @@ function insertMarker(rel, spec) {
   const r = insertMirrorMarker(head, spec)
   if (!r.done) return { done: false, why: r.why }
   writeFileSync(R(rel), r.text)
+  writtenPaths.add(rel)
   return { done: true }
 }
 
@@ -722,6 +919,7 @@ function appendMapRows(rows, opt = {}) {
     merged.push(JSON.stringify(r))
   }
   writeFileSync(R(MAP_PATH), merged.join('\n') + '\n')
+  writtenPaths.add(MAP_PATH)
   return merged.length - headRows.length
 }
 
@@ -757,6 +955,7 @@ function appendRegistry(entries) {
   }
   const out = { ...head, entries: merged }
   writeFileSync(R(REGISTRY_PATH), JSON.stringify(out, null, 2) + '\n')
+  writtenPaths.add(REGISTRY_PATH)
   return added
 }
 
@@ -767,7 +966,9 @@ function appendRegistry(entries) {
  */
 function writeVerdicts(items) {
   if (items.length === 0) return { total: 0, added: 0, unreadable: 0 }
-  return writeVerdictRows(ROOT, items)
+  const wr = writeVerdictRows(ROOT, items)
+  writtenPaths.add(VERDICTS_PATH)
+  return wr
 }
 
 const summary = {
@@ -912,6 +1113,49 @@ summary.renderConverge = {
 }
 let appliedPortalCount = 0
 
+/**
+ * web 档改判的具名让位通道(2026-11-05 立)。
+ * 缺口:此前 proposals.web 只有"追加"一条路,而 pending 行的改判**没有出口** ——
+ * 旧 pending 行不动 ⇒ 同一 web 落两行(尺子的 duplicateWebKeys 维当场红),
+ * 于是"判过了"的结论写不进去,队列只能一直烂着(现读 pending=8,自 10-24/25 起无人能改判)。
+ * 纪律:让位必须**显式点名要让的旧状态**,且该旧行必须真在册;
+ * 没点名 / 点名了但册上没有 ⇒ 拒这一条并大声点名(不静默追加成双行,也不替别席洗在册判定)。
+ */
+const webSupersede = []
+const webRefused = []
+for (const r of proposals.web) {
+  const declared = typeof r.supersedeStatus === 'string' ? r.supersedeStatus.trim() : ''
+  const prior = mapRows.filter((m) => m.web === r.web && m.status !== r.status)
+  const statuses = new Set(prior.map((m) => m.status))
+  if (prior.length === 0) {
+    if (declared)
+      webRefused.push({ web: r.web, why: `点名让位 ${declared} 但册上没有别的旧判定行(假声明)` })
+    continue
+  }
+  if (!declared) {
+    webRefused.push({
+      web: r.web,
+      why: `在册旧行 status=${[...statuses].join('/')} 未被点名让位 ⇒ 拒(否则同 web 双行灌两个分母)`,
+    })
+    continue
+  }
+  if (!statuses.has(declared)) {
+    webRefused.push({
+      web: r.web,
+      why: `点名的 supersedeStatus=${declared} 与在册 ${[...statuses].join('/')} 不符(假声明)⇒ 拒`,
+    })
+    continue
+  }
+  webSupersede.push({ web: r.web, dropStatus: declared })
+}
+if (webRefused.length)
+  console.log(
+    `⛔ web 改判拒收 ${webRefused.length} 枚(改判必须显式点名要让位的旧状态,且不替别席洗在册判定):`,
+  )
+for (const r of webRefused) console.log(`   · ${r.web} —— ${r.why}`)
+const webRowsToLand = proposals.web.filter((r) => !webRefused.some((x) => x.web === r.web))
+for (const r of webRowsToLand) delete r.supersedeStatus
+
 if (applyMode) {
   const mapRowsToAdd = summary.webRn.map((c) => ({
     web: c.web,
@@ -920,7 +1164,7 @@ if (applyMode) {
     note: `自动登记@${TODAY}: 端点交集 ${c.commonEps} 条(${(c.sample || []).join(', ')}) + 名称 token ${c.nameHit.join('+')}`,
     at: TODAY,
   }))
-  for (const r of proposals.web) mapRowsToAdd.push(r)
+  for (const r of webRowsToLand) mapRowsToAdd.push(r)
   for (const r of portalRowsToLand) mapRowsToAdd.push(r)
   for (const r of renderRowsToLand) mapRowsToAdd.push(r)
   appliedPortalCount = portalRowsToLand.length
@@ -932,7 +1176,10 @@ if (applyMode) {
     if (!r.done) {
       // 标记没写成功就绝不能进 registry —— 门 128 R1 判的就是"登记了却没有标记",
       // 只登记不写标 = 当场造红。
-      skipped.push({ shared, miniapp, why: r.why })
+      if (stillLanded(file)) {
+        // 工作树副本正是本腿上一轮登记在账、至今未动的产出 ⇒ 本轮已完成,不冒充「他席声明」
+        skipLandedRows.push({ shared, miniapp, why: `${file} 已登记待收编(工作树 blob 未动)⇒ 本轮跳过` })
+      } else skipped.push({ shared, miniapp, why: r.why })
       return
     }
     marked.push(file)
@@ -949,19 +1196,30 @@ if (applyMode) {
   for (const p of proposals.miniapp)
     land(p.file, p.shared, p.rn, p.miniapp, `子代理判定:${p.evidence}`)
   const addedMap = appendMapRows(mapRowsToAdd, {
-    supersede: renderRowsToLand.map((r) => ({ web: r.web, dropStatus: 'gap' })),
+    supersede: [
+      ...renderRowsToLand.map((r) => ({ web: r.web, dropStatus: 'gap' })),
+      ...webSupersede,
+    ],
     // 幂等跳过的那枚路由仍须清掉 HEAD 侧旧判定行(D1);取代不等于本批产出。
     supersedeWebs: portalSupersede,
   })
   const addedReg = appendRegistry(regEntries.map(({ shared, rn, miniapp }) => ({ shared, rn, miniapp })))
+  const verdictsWritten = recordVerdicts ? writeVerdicts(proposals.verdicts) : null
+  // 批末申报:本批写了盘的全部路径逐枚实测 oid 进账本(落库交给「账本在册 ∧ blob 相符 ∧
+  // 超静默期」的收编侧)。写了盘没登记上 ⇒ landingError 点名,结论行不冒成功。
+  if (writtenPaths.size > 0) landingInfo = registerLandings([...writtenPaths])
   summary.applied = {
     mapRows: addedMap,
     markers: marked.length,
     registry: addedReg,
     skipped,
-    verdicts: recordVerdicts ? writeVerdicts(proposals.verdicts) : null,
+    verdicts: verdictsWritten,
     fromProposals: { miniapp: proposals.miniapp.length, web: proposals.web.length, refused: proposals.refused.length },
+    landing: landingInfo.landing,
+    skipLanded: skipLandedRows.length,
   }
+  if (landingInfo.landingError) summary.applied.landingError = landingInfo.landingError
+  if (!landedRead.ok) summary.applied.ledger = 'unjudged'
 }
 
 // 结论行 = 派发腿唯一解析面(形状由镜像测试钉住,不手抄)。三态必须互斥:
@@ -980,7 +1238,7 @@ console.log(
             : 'clean'
           : 'planned'
       : 'off'
-  } candidates=${portalRowsToLand.length} applied=${appliedPortalCount}`,
+  } candidates=${portalRowsToLand.length} applied=${appliedPortalCount} landing=${landingInfo.landing} skipLanded=${skipLandedRows.length}${landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : ''}${landedRead.ok ? '' : ' ledger=unjudged'}`,
 )
 // 候选逐条点名(便于追责):这一腿现在会**自动**往台账里加 portal 行,
 // 谁被加、凭哪一族加的、让位给谁 —— 全部落在结论行后面那几行里(形状不碰上面那行契约)。
@@ -1040,14 +1298,15 @@ if (jsonMode) {
   }
   if (applyMode) {
     console.log(
-      `\n✅ 已写盘:map +${summary.applied.mapRows} / 标记 +${summary.applied.markers} / registry +${summary.applied.registry}`,
+      `\n✅ 已写盘:map +${summary.applied.mapRows} / 标记 +${summary.applied.markers} / registry +${summary.applied.registry} / landing=${summary.applied.landing} / skipLanded=${summary.applied.skipLanded}${summary.applied.landingError ? ` / landingError=${summary.applied.landingError}` : ''}`,
     )
     for (const s of summary.applied.skipped || [])
       console.log(`  [未落] ${s.shared} → ${s.miniapp}  原因:${s.why}`)
     if ((summary.applied.skipped || []).length > 0)
       console.log(`  ↑ 这 ${summary.applied.skipped.length} 条只报数不进 registry(登记而无标记=门 128 R1 当场造红)`)
+    for (const s of skipLandedRows) console.log(`  [挂账] ${s.shared} → ${s.miniapp}  ${s.why}`)
   } else {
-    console.log('\n(预演模式,未写盘;加 --apply 落地)')
+    console.log('\n(预演模式,未写盘,账本零登记;加 --apply 落地)')
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

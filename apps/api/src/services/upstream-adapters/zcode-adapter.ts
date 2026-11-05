@@ -98,7 +98,7 @@ function uuidFromSeed(seed: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`
 }
 
-export function zcodeDeviceMid(row: DeviceMidRow): string {
+function zcodeDeviceMid(row: DeviceMidRow): string {
   const stored = typeof row.deviceId === 'string' ? row.deviceId.trim() : ''
   if (stored) return stored
   const seed =

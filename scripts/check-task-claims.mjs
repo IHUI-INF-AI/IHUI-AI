@@ -22,7 +22,8 @@
  *   node scripts/check-task-claims.mjs --in-progress # 只列进行中(含持有者/年龄列)
  *   node scripts/check-task-claims.mjs --claim-age   # 认领牌年龄**现读读数**(枚数 + 逐条内容锚点;只读数不判红)
  *   node scripts/check-task-claims.mjs --twins     # 列已闭环孪生旧行与"正文骨架相同"的未勾行组(不等同整行逐字节,见 DUP_GROUP_HEADING);
- *                                                  # 对照面(已勾 [x] 行)为空 ⇒ exit 2「未判定」,0 条不得读成已清零(§0.3)
+ *                                                  # 对照面(已勾 [x] 行)为空 ⇒ 按 scripts/data/plan-twin-similarity-adjudications.json
+ *                                                  # 判「挂账 + 到期」(O01 第三型;账本坏/到期/缺字段仍 exit 2 未判定),0 条不得读成已清零(§0.3)
  *   node scripts/check-task-claims.mjs --check-gate [--json]  # 租约判据 CL1/CL2/CL3,违规 exit 1
  *   node scripts/check-task-claims.mjs --self-test # 纯函数夹具自检,不碰真 PROJECT_PLAN
  *   node scripts/check-task-claims.mjs --plan <file>   # 只读注入:改判指定文件(取证/多租约场景用,**磁盘直读**)
@@ -73,7 +74,7 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 相似度尺子**复用** lib 里的唯一实现(纯函数、零副作用)。
 // 不 import `merge-live-doc.mjs`:它顶层就是 CLI 主流程且没有 §22d 的 isDirectRun 守卫,
@@ -105,6 +106,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const ROOT = resolve(__dirname, '..')
 const PLAN_PATH = resolve(ROOT, 'PROJECT_PLAN.md')
+// O01 第三型(相似度孪生)的判定账本:唯一一份,判据与条目同目录(scripts/data/)。
+const TWINS_ADJUDICATION_PATH = join(__dirname, 'data', 'plan-twin-similarity-adjudications.json')
 
 // ---------- 租约常量(2026-09-25, MECHANISM-SPEC-3 §2 / A9) ----------
 const DEFAULT_TTL_HOURS = 72
@@ -326,6 +329,77 @@ export function buildTwinsFaceReadout(content) {
       `两把尺子量出的已勾行不同(lib parseTaskRows ${doneRows} / 本门 scanTasks ${localDone})⇒ 判据面自身分叉,读数不作数`,
     )
   return { doneRows, entryRows, localDone, undetermined }
+}
+
+/** 账本日期的唯一形状(`expires` 必须是 YYYY-MM-DD;其他写法判账本坏,不猜)。 */
+const ADJUDICATION_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/** 东八区自然日(与台账 `@日期/到期` 那一族的口径同侧;账本到期按 Asia/Shanghai 过日)。 */
+function isoDateInShanghai(nowMs) {
+  return new Date(nowMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+}
+
+/**
+ * O01 第三型的**判定规则**(2026-11-03 立):空对照面不再停在「未判定」,而是按账本
+ * `scripts/data/plan-twin-similarity-adjudications.json` 判成 **挂账(deferred) + 到期**。
+ *
+ * 为什么这一型可以挂账而其他型不行:只有「条目行 > 0 且已勾行 = 0 且两把尺子一致」这一格
+ * 是**已知的结构性空**——台账 2026-10-28 起「完成即整行删除」,对照集不可能再长出来;
+ * 换历史对照面/宣布退役这两个出路都归台账持有人,本器代裁不了。其余未判定(0 条目行 /
+ * 两把尺子分叉 / 账本坏 / 挂账到期)照旧 exit 2,绝不因为这条规则放宽。
+ *
+ * 失效方向恒为「多要一次定向说明」:账本缺字段、日期形状坏、到期、读不到,任一条 ⇒ 未判定。
+ * @returns {{status:'deferred'|'undetermined', reason?:string, owner?:string, expires?:string, evidence?:string, daysLeft?:number}}
+ */
+export function judgeTwinsAdjudication(readout, { entries = [], ledgerError = null, nowMs = Date.now() } = {}) {
+  // 本面读数可用(没有任何未判定项)⇒ 这条规则用不上,如实报 not-needed(不是"判过了")。
+  if (readout.undetermined.length === 0) return { status: 'not-needed' }
+  const onlyEmptyControlFace =
+    readout.entryRows > 0 &&
+    readout.doneRows === 0 &&
+    readout.localDone === 0 &&
+    readout.undetermined.length === 1
+  if (!onlyEmptyControlFace)
+    return { status: 'undetermined', reason: '空对照面不是本面唯一的未判定项 ⇒ 照旧不判' }
+  const entry = (Array.isArray(entries) ? entries : []).find(
+    (e) => e && e.type === 'similarity-twins',
+  )
+  if (!entry)
+    return {
+      status: 'undetermined',
+      reason: ledgerError
+        ? `挂账账本读不到/坏(${ledgerError})`
+        : '挂账账本没有 type=similarity-twins 的条目',
+    }
+  const expires = String(entry.expires ?? '')
+  if (!ADJUDICATION_DATE_RE.test(expires))
+    return { status: 'undetermined', reason: `挂账条目 expires 形状非法(${JSON.stringify(entry.expires)})` }
+  if (!entry.owner || !entry.evidence)
+    return { status: 'undetermined', reason: '挂账条目缺 owner/evidence(残缺条目不得代替判定)' }
+  const today = isoDateInShanghai(nowMs)
+  if (expires < today)
+    return { status: 'undetermined', reason: `挂账已到期(expires ${expires} < 今日 ${today})⇒ 回未判定` }
+  const daysLeft = Math.round(
+    (Date.parse(`${expires}T00:00:00+08:00`) - Date.parse(`${today}T00:00:00+08:00`)) / 86400000,
+  )
+  return {
+    status: 'deferred',
+    owner: String(entry.owner),
+    expires,
+    evidence: String(entry.evidence),
+    daysLeft,
+  }
+}
+
+/** 读挂账账本(唯一入口;坏 JSON / 形状不对 ⇒ 带 error 返回,调用方必须按「账本坏」落未判定)。 */
+export function readTwinsAdjudicationLedger(path = TWINS_ADJUDICATION_PATH) {
+  try {
+    const data = JSON.parse(readFileSync(path, 'utf8'))
+    if (!Array.isArray(data.items)) return { entries: [], error: 'items 不是数组' }
+    return { entries: data.items, error: null }
+  } catch (e) {
+    return { entries: [], error: String((e && e.message) || e).split('\n')[0].slice(0, 160) }
+  }
 }
 
 // `codeSpanRangesOf` / `insideCodeSpan` 的实现已上收到 `lib/plan-task-index.mjs`(§0.6 单源),
@@ -1658,6 +1732,40 @@ function selfTest(realNow = Date.now()) {
       '两把尺子读出两个数却给干净读数 ⇒ 又变成两份真相(§0.6)',
     )
   })
+  /**
+   * S26(票 O01 收口):空对照面按账本判「挂账 + 到期」——判定,不是未判定;账本坏/到期/缺字段
+   * 一律回未判定(失效方向恒为多要一次定向说明);本面可量到(无未判定项)时不许喊挂账。
+   */
+  check('S26 挂账判定:齐备账本 ⇒ deferred;到期/缺字段/坏账本 ⇒ undetermined;可量到 ⇒ not-needed', () => {
+    const empty = buildTwinsFaceReadout('- [ ] G-1 未勾的一条活\n')
+    const entry = {
+      type: 'similarity-twins',
+      owner: 'PROJECT_PLAN 台账持有人',
+      expires: '2026-12-31',
+      evidence: '空对照面结构性出现(完成即整行删除)',
+    }
+    const at = (iso) => Date.parse(`${iso}T00:00:00+08:00`)
+    const ok = judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2026-11-03') })
+    eq(ok.status, 'deferred', '齐备账本必须判挂账(不是未判定)')
+    eq(ok.expires, '2026-12-31')
+    eq(ok.daysLeft, 58)
+    const dueToday = judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2026-12-31') })
+    eq(dueToday.status, 'deferred', '到期当天仍算有效(次日起才失效)')
+    const expired = judgeTwinsAdjudication(empty, { entries: [entry], nowMs: at('2027-01-01') })
+    eq(expired.status, 'undetermined', '到期未续必须回未判定(挂账不是无限期豁免)')
+    eq(expired.reason.includes('到期'), true, '到期必须点名到期日,不能只说"不可用"')
+    const missing = judgeTwinsAdjudication(empty, {
+      entries: [{ type: 'similarity-twins', expires: '2026-12-31' }],
+    })
+    eq(missing.status, 'undetermined', '缺 owner/evidence 的残缺条目不得代替判定')
+    const badLedger = judgeTwinsAdjudication(empty, { entries: [], ledgerError: 'ENOENT' })
+    eq(badLedger.status, 'undetermined', '账本读不到必须回未判定,不得默认挂账')
+    eq(badLedger.reason.includes('账本'), true)
+    const withDone = buildTwinsFaceReadout(
+      '- [ ] G-1 未勾\n- [x] ✅(2026-09-25) G-9 已闭环\n',
+    )
+    eq(judgeTwinsAdjudication(withDone, { entries: [entry] }).status, 'not-needed', '本面可量到 ⇒ 规则用不上')
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -1776,6 +1884,13 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const twins = findClosedTwins([...unclaimed, ...inProgress], completed)
   // 对照集(已勾行)读数:三档共用同一份判断,不各算一遍(§0.6)。
   const twinsFace = buildTwinsFaceReadout(content)
+  // O01:空对照面先问挂账账本 ⇒ 「无法判定即挂账 + 到期」是判定,不再停在未判定。
+  const twinsLedger = readTwinsAdjudicationLedger()
+  const twinsVerdict = judgeTwinsAdjudication(twinsFace, {
+    entries: twinsLedger.entries,
+    ledgerError: twinsLedger.error,
+    nowMs,
+  })
   const { proven: provenTwins, suspect: suspectTwins } = splitTwinsByProof(twins)
   const claimable = subtractProvenTwins(unclaimed, provenTwins)
   const dupGroups = findDuplicateGroups([...unclaimed, ...inProgress])
@@ -1808,14 +1923,23 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
     for (const g of dupGroups) console.log(`  ${g.map((l) => `L${l}`).join(' = ')}`)
     // 未判定放在清单之后、判定面之前(与 --claim-age 同序):清单照给(骨架相同组不依赖对照集),
     // 但"孪生 N 条"这一结论在空对照面上**不成立** ⇒ exit 2 显式未判定,绝不 exit 0 冒充已判。
-    for (const u of twinsFace.undetermined)
-      console.log(`  ❌ **未判定**:${u}(不记绿也不冒红,§0.3)`)
-    if (twinsFace.doneRows === 0)
+    for (const u of twinsFace.undetermined) {
+      if (twinsVerdict.status === 'deferred' && u.startsWith('对照面(已勾'))
+        console.log(
+          `  ⌛ **挂账**(判定 = 无法判定即挂账,不是已清零):${u} ⇒ owner=${twinsVerdict.owner} · 到期=${twinsVerdict.expires}(剩 ${twinsVerdict.daysLeft} 天) · 证据=${twinsVerdict.evidence}`,
+        )
+      else console.log(`  ❌ **未判定**:${u}(不记绿也不冒红,§0.3)`)
+    }
+    if (twinsVerdict.status === 'deferred')
       console.log(
-        '     本器不代裁:对照集在**同一面**里为空,要不要给这一族换对照面(带 [x] 行的历史面)或按「完成即整行删除」口径声明退役,归属台账持有人(票 O01);相似度只配报数、不配判红(§1)同一条纪律 —— 拿不准的不判,也不把 0 洗成绿。',
+        `     账本:scripts/data/plan-twin-similarity-adjudications.json(owner/expires/evidence 齐);到期未续 ⇒ 本条自动回未判定(exit 2),不判红、也不把 0 洗成绿。`,
+      )
+    else if (twinsFace.doneRows === 0)
+      console.log(
+        `     本器不代裁:对照集在**同一面**里为空,要不要给这一族换对照面(带 [x] 行的历史面)或按「完成即整行删除」口径声明退役,归属台账持有人(票 O01);相似度只配报数、不配判红(§1)同一条纪律 —— 拿不准的不判,也不把 0 洗成绿。${twinsVerdict.reason ? `(挂账判不出:${twinsVerdict.reason})` : ''}`,
       )
     console.log(`判定面:${faceLabel}`)
-    process.exitCode = twinsFace.undetermined.length > 0 ? 2 : 0
+    process.exitCode = twinsVerdict.status === 'deferred' ? 0 : twinsFace.undetermined.length > 0 ? 2 : 0
     return
   }
 
@@ -1838,6 +1962,13 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
             entryRows: twinsFace.entryRows,
             localDone: twinsFace.localDone,
             undetermined: twinsFace.undetermined,
+            // 只加键、不改既有键名与形态(同 leases.stale 的兼容口径):挂账状态是判定,不是未判定。
+            adjudication: {
+              status: twinsVerdict.status,
+              owner: twinsVerdict.owner ?? null,
+              expires: twinsVerdict.expires ?? null,
+              reason: twinsVerdict.reason ?? null,
+            },
           },
           totals: {
             unclaimed: unclaimed.length,
@@ -1897,9 +2028,11 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
   const twinsCaveat =
     twinsFace.undetermined.length === 0
       ? ''
-      : twinsFace.doneRows === 0
-        ? `;⚠ 对照面空(已勾 [x] 行 0 条)⇒ 上面那个"可证"枚数**未判定**,不得读成"零副本"(见 --twins)`
-        : `;⚠ 孪生对照面读数不可用(${twinsFace.undetermined[0]})(见 --twins)`
+      : twinsVerdict.status === 'deferred'
+        ? `;⌛ 对照面空(已勾 [x] 行 0 条)⇒ 上面那个"可证"枚数**不是判断结果**,该型已按挂账判定(owner=${twinsVerdict.owner} · 到期=${twinsVerdict.expires}),不得读成"零副本"(见 --twins)`
+        : twinsFace.doneRows === 0
+          ? `;⚠ 对照面空(已勾 [x] 行 0 条)⇒ 上面那个"可证"枚数**未判定**,不得读成"零副本"(见 --twins)`
+          : `;⚠ 孪生对照面读数不可用(${twinsFace.undetermined[0]})(见 --twins)`
   console.log(
     `  无人认领:  ${unclaimed.length}(其中 ${unclaimed.length - claimable.length} 条**可证**为已闭环 [x] 行的旧副本(骨架被逐字包住 / 除编号外逐字节相同)⇒ **可认领 ${claimable.length}**;弱相似而两档可证通道都没接上的 ${suspectTwins.length} 条**不扣名额**、仍在清单内(见 --twins);正文骨架相同组 ${dupGroups.length},不等同整行逐字节 —— 见 --twins)${twinsCaveat}`,
   )

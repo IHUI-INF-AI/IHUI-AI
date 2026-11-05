@@ -11,7 +11,13 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
+import { eduApi } from '@/lib/edu'
+import {
+  getExamById,
+  getExams,
+  startExam,
+  submitExamRecord,
+} from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 
 import type { Paper, Question } from './types'
@@ -31,25 +37,34 @@ function ProgrammingContent() {
 
   const { data: papersData } = useQuery({
     queryKey: ['edu', 'answer', 'prog', 'papers'],
-    queryFn: () =>
-      eduApi<{ list: Paper[] }>(`/api/exam/papers${buildQs({ page: 1, pageSize: 100 })}`),
+    queryFn: async () => {
+      const r = await getExams({ page: 1, pageSize: 100 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { list: Paper[] }
+    },
   })
   const papers = (papersData?.list ?? []).filter((p) => p.isPublished)
 
   const { data: questionsData, isLoading } = useQuery({
     queryKey: ['edu', 'answer', 'prog', 'questions', paperId],
-    queryFn: () =>
-      eduApi<{ list: Question[] }>(`/api/exam/papers/${paperId}/questions`).then((d) =>
-        (d.list ?? []).filter((q) => q.type === 'programming'),
-      ),
+    queryFn: async () => {
+      const r = await getExamById(paperId)
+      if (!r.success) throw new Error(r.error)
+      return ((r.data.questions ?? []) as unknown as Question[]).filter(
+        (q) => q.type === 'programming',
+      )
+    },
     enabled: !!paperId,
   })
   const questions = questionsData ?? []
   const current = questions[qIdx]
 
   const startMut = useMutation({
-    mutationFn: () =>
-      eduApi<{ record: { id: string } }>(`/api/exam/papers/${paperId}/start`, { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await startExam<{ record: { id: string } }>(paperId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (d) => {
       setRecordId(d.record.id)
       toast.success(t('started'))
@@ -74,12 +89,13 @@ function ProgrammingContent() {
   })
 
   const submitMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const answer = { language: lang, code }
-      return eduApi(`/api/exam/records/${recordId}/submit`, {
-        method: 'POST',
-        body: JSON.stringify({ answers: [{ questionId: current?.id, answer }] }),
+      const r = await submitExamRecord(recordId ?? '', {
+        answers: [{ questionId: current?.id ?? '', answer }],
       })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: () => {
       toast.success(t('submitted'))
@@ -98,7 +114,7 @@ function ProgrammingContent() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu">

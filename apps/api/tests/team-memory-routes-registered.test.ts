@@ -50,7 +50,7 @@ describe('D29 团队记忆路由注册面', () => {
     expect(prefix).toBe('/api/team-memory')
     // 客户端所有指向本面的字面量路径都必须落在这个 prefix 之下(插值段折成 :x 再比)
     const clientPaths = [...clientSrc.matchAll(/[`'"](\/api\/[^`'"\n]*)[`'"]/gu)]
-      .map((m) => m[1].replace(/\$\{[^}]*\}/gu, ':x'))
+      .map((m) => m[1]!.replace(/\$\{[^}]*\}/gu, ':x'))
       .filter((p) => p.includes('team-memory'))
     expect(clientPaths.length).toBeGreaterThan(0)
     for (const p of clientPaths) {

@@ -94,7 +94,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,

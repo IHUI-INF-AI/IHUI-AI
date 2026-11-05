@@ -75,13 +75,13 @@ export default function MaterialPopup({
 
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="75vh">
-      <View className="flex items-center justify-between px-4 py-3 mb-2">
-        <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
+      <View className="flex items-center justify-between px-lg py-md mb-sm">
+        <Text className="text-title font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.materialPopup.title')}
         </Text>
         {/* weapp 端不支持 CSS :active,active:bg-primary 为死样式,改用 hoverClass 提供按压反馈 */}
         <View
-          className="px-3 py-1 text-xs rounded-md bg-cta text-cta-foreground"
+          className="px-md py-xs text-label rounded-md bg-cta text-cta-foreground"
           hoverClass="opacity-60"
           onClick={handleUploadClick}
         >
@@ -90,7 +90,7 @@ export default function MaterialPopup({
       </View>
 
       <CategoryBar
-        className="px-3 py-2 mb-2"
+        className="px-md py-sm mb-sm"
         value={String(tab)}
         onChange={(id) => onTabChange?.(Number(id) as MaterialTab)}
         items={TABS.map((tabItem) => ({
@@ -108,13 +108,13 @@ export default function MaterialPopup({
         lowerThreshold={80}
       >
         {loading && !items.length ? (
-          <View className="py-12 text-center text-sm text-muted-foreground">
+          <View className="py-5xl text-center text-body text-muted-foreground">
             <Text>{t('ai.common.loading')}</Text>
           </View>
         ) : items.length ? (
-          <View className="px-3 py-2">
+          <View className="px-md py-sm">
             {isImageTab ? (
-              <View className="grid grid-cols-3 gap-2">
+              <View className="grid grid-cols-3 gap-sm">
                 {items.map((item) => (
                   <View
                     key={item.id}
@@ -130,8 +130,8 @@ export default function MaterialPopup({
                         <Image className="w-8 h-8" src={icon('addPicter')} mode="aspectFit" />
                       </View>
                     )}
-                    <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-[var(--color-black-40)]">
-                      <Text className="block text-xs text-[var(--color-white-98)] truncate">
+                    <View className="absolute bottom-0 left-0 right-0 px-xs py-xs bg-[var(--color-black-40)]">
+                      <Text className="block text-label text-[var(--color-white-98)] truncate">
                         {item.title}
                       </Text>
                     </View>
@@ -143,11 +143,11 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-brand-accent-deep' : 'bg-muted'}`}
+                    className={`flex p-md mb-sm rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-brand-accent-deep' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
                     hoverClass="opacity-60"
                   >
-                    <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <View className="w-12 h-12 mr-md rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       {item.thumbnail ? null : (
                         <Image
                           className="w-5 h-5"
@@ -164,7 +164,7 @@ export default function MaterialPopup({
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
-                        <Text className="text-sm font-medium text-foreground dark:text-muted-foreground truncate">
+                        <Text className="text-body font-medium text-foreground dark:text-muted-foreground truncate">
                           {item.title}
                         </Text>
                         {selectedId === item.id ? (
@@ -172,17 +172,17 @@ export default function MaterialPopup({
                             name="check-success"
                             size="14px"
                             color="var(--color-success)"
-                            className="ml-2"
+                            className="ml-sm"
                           />
                         ) : null}
                       </View>
                       {isTextTab && item.content ? (
-                        <Text className="block text-xs text-muted-foreground dark:text-muted-foreground mt-1 line-clamp-2">
+                        <Text className="block text-label text-muted-foreground dark:text-muted-foreground mt-xs line-clamp-2">
                           {item.content}
                         </Text>
                       ) : null}
                       {item.createdAt ? (
-                        <Text className="block text-xs text-muted-foreground mt-1">
+                        <Text className="block text-label text-muted-foreground mt-xs">
                           {formatTime(item.createdAt)}
                         </Text>
                       ) : null}
@@ -193,12 +193,12 @@ export default function MaterialPopup({
             )}
 
             {loading && items.length ? (
-              <View className="py-3 text-center text-xs text-muted-foreground">
+              <View className="py-md text-center text-label text-muted-foreground">
                 <Text>{t('ai.materialPopup.loadMore')}</Text>
               </View>
             ) : null}
             {!loading && !hasMore && items.length ? (
-              <View className="py-3 text-center text-xs text-muted-foreground">
+              <View className="py-md text-center text-label text-muted-foreground">
                 <Text>{t('ai.materialPopup.noMore')}</Text>
               </View>
             ) : null}

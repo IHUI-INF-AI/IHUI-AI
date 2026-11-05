@@ -151,7 +151,7 @@ export default function TeamMemoryPage() {
     <div className="px-4 py-4 mx-auto flex w-full max-w-5xl flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold">{t('title')}</h1>
-        <p className="text-muted-foreground mt-0.5 text-sm">{t('description')}</p>
+        <p className="text-muted-foreground mt-0.5 text-body">{t('description')}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -186,7 +186,7 @@ export default function TeamMemoryPage() {
                 setKindFilter(k)
                 if (scopeId.trim()) void load(scopeId, k, keyword)
               }}
-              className={`rounded-sm px-2 py-1 text-xs ${
+              className={`rounded-sm px-2 py-1 text-label ${
                 kindFilter === k ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'
               }`}
             >
@@ -217,12 +217,12 @@ export default function TeamMemoryPage() {
       )}
 
       {loading && !rows.length ? (
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 text-body">
           <Loader2 className="size-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
       ) : rows.length === 0 && scopeId.trim() ? (
-        <div className="text-muted-foreground text-sm">{t('empty')}</div>
+        <div className="text-muted-foreground text-body">{t('empty')}</div>
       ) : (
         <div className="grid gap-3">
           {rows.map((row) => (
@@ -232,7 +232,7 @@ export default function TeamMemoryPage() {
       )}
 
       {!scopeId.trim() && (
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 text-body">
           <RefreshCw className="size-4" />
           <span>{t('needScope')}</span>
         </div>

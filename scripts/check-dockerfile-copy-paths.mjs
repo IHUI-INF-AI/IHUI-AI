@@ -15,7 +15,12 @@
  * 两条判据(都只用仓库内信息,不需要知道 CI 传的 context):
  *   A. 「根上下文识别」:凡 COPY 行里出现 `pnpm-workspace.yaml`(根 monorepo 独有标记)的 Dockerfile,
  *      其依赖安装会触发**根** package.json 的 preinstall/postinstall/prepare 钩子 ⇒
- *      这些钩子用 `node <file>` 引用的每个脚本,**必须**也出现在该文件的某条 COPY 源里。
+ *      这些钩子用 `node <file>` 引用的每个脚本,**必须**出现在该文件**第一条 `RUN pnpm install` 之前**
+ *      的某条 COPY 源里(install 之后才 COPY 的文件,对那次 install 无效,镜像里照样 MODULE_NOT_FOUND)。
+ *      钩子引用集的判定面:全量档取 HEAD(CI/Docker 实际构建的提交内容),`--staged` 档取索引
+ *      (本次将要提交的内容)。2026-11-03 实测教训:只取 HEAD 时,pre-commit 看不见"本次提交新增
+ *      postinstall 脚本"这一变化 ⇒ 同类提交仍会漏过本地门,只在推后 CI 才红;因此 Dockerfile
+ *      没进暂存区、但根 package.json / .dockerignore 进了暂存区时,`--staged` 档必须回退全量扫。
  *   B. 「COPY 源存在性」:每条**不带 `--from=`**、不含通配符/变量的 COPY 源路径,
  *      必须能从构建上下文取到(按 Dockerfile 自身目录或仓库根两种基准各试一次,命中其一即通过 ——
  *      上下文究竟是哪个目录只有 workflow 知道,故判据刻意取并集,宁可漏不误报)。
@@ -24,6 +29,10 @@
  *      就会 Module not found。2026-09-23 实测即此类:Dockerfile.web 用 `run build:static` 而 7 个
  *      可构建依赖全都没有该脚本 ⇒ 依赖一个都没构建 ⇒ CI build-web 恒红(同仓 Dockerfile.api 用
  *      `run build`,故一直绿 —— 差别只在脚本名,本地不跑 docker 时零信号)。
+ *   D. 「.dockerignore 可达性」:A 判据命中的钩子脚本除了要被 COPY,还必须**没有被根 `.dockerignore`
+ *      排除**。COPY 只能搬运构建上下文里存在的文件:路径被 ignore 时即使写了 COPY 行,构建也会报
+ *      "failed to compute cache key / not found"。2026-11-03 排查本轮双红时已核,本仓现有规则
+ *      未命中这两个 postinstall 脚本(排除集里没有任何指向 scripts/ 下 .mjs 的规则)。
  *
  * 用法:node scripts/check-dockerfile-copy-paths.mjs [--staged|--self-test|--help]
  * 退出码:0 通过 / 1 检出违规 / 2 脚本自身异常。
@@ -92,22 +101,28 @@ export function readAtFace(root, face, rel) {
 }
 
 /**
- * A 判据基准的取源:HEAD 优先,取不到才降级到工作树(原实现的兜底顺序,未改),
+ * A 判据基准的取源:按档取面(全量=head、--staged=索引),取不到才降级到工作树,
  * 两面都给不出 ⇒ 抛 `Undetermined` ⇒ 对外 exit 2「无法判定」，
  * 不得把"没读到根清单"混成 `return 2` 的一句模糊话,更不得当成通过。
  */
-export function lifecyclePackageSource(root, read = (face, rel) => readAtFace(root, face, rel)) {
-  const head = read('head', 'package.json')
-  if (typeof head === 'string') return { src: head, used: 'HEAD blob' }
-  let why = 'HEAD 面取不到'
+export function lifecyclePackageSource(
+  root,
+  read = (face, rel) => readAtFace(root, face, rel),
+  face = 'head',
+) {
+  const primary = read(face, 'package.json')
+  if (typeof primary === 'string') {
+    return { src: primary, used: face === 'staged' ? '索引(index)' : 'HEAD blob' }
+  }
+  let why = `${face} 面取不到`
   try {
     const disk = read('worktree', 'package.json')
-    if (typeof disk === 'string') return { src: disk, used: '工作树(HEAD 取不到时降级)' }
+    if (typeof disk === 'string') return { src: disk, used: `工作树(${face} 取不到时降级)` }
     why = '工作树也没有该文件'
   } catch (e) {
     why = `工作树读取失败:${e?.message ?? e}`
   }
-  throw new Undetermined(`读不到根 package.json(HEAD 与工作树均失败):${why}`)
+  throw new Undetermined(`读不到根 package.json(${face} 与工作树均失败):${why}`)
 }
 
 /** 从 package.json 的生命周期钩子里抽出被 `node <file>` 引用的脚本路径(只收仓库内相对路径)。 */
@@ -164,16 +179,24 @@ export function parseCopies(content) {
   return out
 }
 
-/** A 判据:根上下文 Dockerfile 是否覆盖了钩子引用的每个脚本。 */
-export function checkLifecycleCopies({ content, refs, rel }) {
+/** A 判据:根上下文 Dockerfile 是否覆盖了钩子引用的每个脚本(并核 D 判据的 .dockerignore 可达性)。 */
+export function checkLifecycleCopies({ content, refs, rel, ignorePatterns = [] }) {
   const violations = []
   const isRootCtx = content
     .split(/\r?\n/)
     .some((l) => /^\s*COPY\b/i.test(l) && ROOT_CTX_MARKER.test(l))
   if (!isRootCtx) return violations
+  // 只认第一条 `RUN pnpm install` **之前**的 COPY:postinstall 是那一刻执行的,
+  // install 之后再 COPY 进镜像的文件救不了这一次 install(2026-11-03 build-api/web 双红即此形态:
+  // postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs,镜像只补了同目录的另一个脚本)。
+  // 找不到 install 行时退回"全文 COPY"(该文件根本不跑 install,钩子不会被触发)。
+  const installLine = logicalLines(content).find(
+    ({ text }) => /^\s*RUN\b/i.test(text) && /\bpnpm\s+install\b/.test(text),
+  )?.line
   const copied = new Set()
   for (const c of parseCopies(content)) {
     if (c.hasFrom) continue
+    if (installLine !== undefined && c.line >= installLine) continue
     for (const s of c.srcs) {
       copied.add(s.replace(/^\.\//, ''))
       // `COPY scripts/foo.mjs scripts/` 与 `COPY scripts scripts/` 两种写法都算覆盖 scripts/foo.mjs
@@ -185,15 +208,117 @@ export function checkLifecycleCopies({ content, refs, rel }) {
     const byDir = [...copied].some(
       (c) => c !== ref && ref.startsWith(c.endsWith('/') ? c : `${c}/`) && !/\*/.test(c),
     )
-    if (direct || byDir) continue
-    violations.push({
-      file: rel,
-      kind: 'lifecycle-script-not-copied',
-      detail: `钩子引用的 ${ref} 未被任何 COPY 源覆盖`,
-      hint: `在 ${rel} 的 \`RUN pnpm install\` 之前加一行:COPY ${ref} ${dirname(ref)}/`,
-    })
+    if (!direct && !byDir) {
+      violations.push({
+        file: rel,
+        kind: 'lifecycle-script-not-copied',
+        detail: `钩子引用的 ${ref} 未被 \`RUN pnpm install\` 之前的任何 COPY 源覆盖`,
+        hint:
+          `在 ${rel} 的 \`RUN pnpm install\` 之前加一行:COPY ${ref} ${dirname(ref)}/` +
+          `(若 .dockerignore 排除了该路径,还需一并收窄,否则 COPY 也搬不进去)`,
+      })
+      continue
+    }
+    // D 判据:COPY 行写得再对,源路径被 .dockerignore 排除也进不了构建上下文
+    if (dockerignored(ref, ignorePatterns)) {
+      violations.push({
+        file: rel,
+        kind: 'lifecycle-script-dockerignored',
+        detail: `钩子引用的 ${ref} 被根 .dockerignore 排除,COPY 无法把它带进构建上下文`,
+        hint: `在 .dockerignore 末尾加一行取反:!${ref}(或收窄对应的排除规则)`,
+      })
+    }
   }
   return violations
+}
+
+/**
+ * 解析根 `.dockerignore`(只保留有效规则行)。语义按 BuildKit/patternmatcher 的口径裁剪:
+ * `#` 注释、`!` 取反、**最后一条命中规则**决定去留;`*`/`?` 不跨 `/`,`**` 可跨任意层目录;
+ * 规则命中文件本身**或其任一父目录**即生效(父目录被 ignore 时其中的文件都进不了上下文);
+ * 无斜杠模式按上下文根相对路径匹配(故 `*.cjs` 只排除根层 .cjs,不排除 `scripts/x.cjs`)。
+ * D 判据只为回答"钩子脚本还在不在构建上下文里",超出这个面的 ignore 语义不实现。
+ */
+export function parseDockerignore(text) {
+  return String(text ?? '')
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s && !s.startsWith('#'))
+}
+
+function ignoreGlobToRegExp(glob) {
+  const escape = (ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  let out = ''
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i]
+    if (ch === '\\' && i + 1 < glob.length) {
+      out += escape(glob[++i])
+      continue
+    }
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        i += 1
+        if (glob[i + 1] === '/') {
+          i += 1
+          out += '(?:.*/)?'
+        } else {
+          out += '.*'
+        }
+      } else {
+        out += '[^/]*'
+      }
+      continue
+    }
+    if (ch === '?') {
+      out += '[^/]'
+      continue
+    }
+    if (ch === '[') {
+      const end = glob.indexOf(']', i + 1)
+      if (end > i) {
+        out += glob.slice(i, end + 1)
+        i = end
+        continue
+      }
+    }
+    out += escape(ch)
+  }
+  return new RegExp(`^${out}$`)
+}
+
+/** 给定仓库相对路径与 `.dockerignore` 规则,判断该路径是否会被排除(最后一条命中规则生效)。 */
+export function dockerignored(relPath, patterns = []) {
+  const file = String(relPath).replace(/\\/g, '/').replace(/^\.\//, '')
+  let ignored = false
+  for (let raw of patterns) {
+    let negate = false
+    if (raw.startsWith('!')) {
+      negate = true
+      raw = raw.slice(1).trim()
+    }
+    const p = raw.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')
+    if (!p) continue
+    let re
+    try {
+      re = ignoreGlobToRegExp(p)
+    } catch {
+      continue // 认不出的模式宁漏不误报
+    }
+    const segs = file.split('/')
+    const parents = segs.slice(0, -1).map((_, i) => segs.slice(0, i + 1).join('/'))
+    if (re.test(file) || parents.some((d) => re.test(d))) ignored = !negate
+  }
+  return ignored
+}
+
+/** 取根 `.dockerignore` 的规则(与 A 判据同面:全量=head、--staged=索引)。 */
+export function dockerignorePatterns(root = ROOT, face = 'head') {
+  try {
+    const text = readAtFace(root, face, '.dockerignore')
+    return typeof text === 'string' ? parseDockerignore(text) : []
+  } catch {
+    return [] // 未提交/读不到按"无规则"处理:与 Docker 在缺文件时的行为一致
+  }
 }
 
 /**
@@ -415,9 +540,17 @@ export function workspaceGraph(root = ROOT) {
   return graph.size ? graph : null
 }
 
-export function scanDockerfile({ rel, content, rootRefs, context, committed, graph }) {
+export function scanDockerfile({
+  rel,
+  content,
+  rootRefs,
+  context,
+  committed,
+  graph,
+  dockerignore = [],
+}) {
   return [
-    ...checkLifecycleCopies({ content, refs: rootRefs, rel }),
+    ...checkLifecycleCopies({ content, refs: rootRefs, rel, ignorePatterns: dockerignore }),
     ...(context ? checkCopySourcesExist({ content, rel, context, committed }) : []),
     ...(graph ? checkPnpmFilterScripts({ content, rel, graph }) : []),
   ]
@@ -449,6 +582,44 @@ export const SELFTEST_CASES = [
     dockerfile:
       'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts scripts/\nRUN pnpm install\n',
     refs: ['scripts/x.mjs'],
+    want: 'pass',
+  },
+  {
+    name: '本轮真故障形态:postinstall 引用两个脚本,只 COPY 第一个 → 仍违规',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts/fix-expo-metro-junction.mjs scripts/\nRUN pnpm install --frozen-lockfile\n',
+    refs: ['scripts/fix-expo-metro-junction.mjs', 'scripts/lib/patch-lint-staged-stdio.mjs'],
+    want: 'violation',
+  },
+  {
+    name: '反例:COPY 落在 RUN pnpm install 之后 → 不算覆盖(那次 install 仍找不到模块)',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nRUN pnpm install --frozen-lockfile\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\n',
+    refs: ['scripts/lib/patch-lint-staged-stdio.mjs'],
+    want: 'violation',
+  },
+  {
+    name: 'D 判据:.dockerignore 排除了钩子脚本 → 违规(COPY 写了也搬不进上下文)',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\nRUN pnpm install\n',
+    refs: ['scripts/lib/patch-lint-staged-stdio.mjs'],
+    ignore: ['scripts/**'],
+    want: 'violation',
+  },
+  {
+    name: 'D 判据反例:后续 ! 取反重新纳入 → 放过(最后一条命中规则生效)',
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\nRUN pnpm install\n',
+    refs: ['scripts/lib/patch-lint-staged-stdio.mjs'],
+    ignore: ['scripts/**', '!scripts/lib/patch-lint-staged-stdio.mjs'],
+    want: 'pass',
+  },
+  {
+    name: 'D 判据反例:无斜杠的 `*.cjs` 只排除根层,不误伤 scripts/ 下同名后缀',
+    refs: ['scripts/lib/patch-lint-staged-stdio.mjs'],
+    ignore: ['*.cjs'],
+    dockerfile:
+      'COPY package.json pnpm-workspace.yaml ./\nCOPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/\nRUN pnpm install\n',
     want: 'pass',
   },
   {
@@ -531,6 +702,7 @@ function selfTest() {
       content: c.dockerfile,
       refs: c.refs,
       rel: 'deploy/docker/Dockerfile.t',
+      ignorePatterns: c.ignore ?? [],
     })
     const got = v.length ? 'violation' : 'pass'
     const ok = got === c.want
@@ -551,38 +723,56 @@ function selfTest() {
   const repo = mkScratch('ihui-dockerfile-face-')
   try {
     const pkgClean = JSON.stringify({ name: 't', scripts: {} })
-    const pkgHook = JSON.stringify({ name: 't', scripts: { postinstall: 'node scripts/new-hook.mjs' } })
+    const pkgHook = JSON.stringify({
+      name: 't',
+      scripts: { postinstall: 'node scripts/new-hook.mjs' },
+    })
     mkdirSync(join(repo, 'packages', 'a'), { recursive: true })
     writeFileSync(join(repo, 'package.json'), pkgClean, 'utf8')
     gitRaw(['init', '-q'], repo, { timeout: GIT_TIMEOUT })
     gitRaw(['add', '-A'], repo, { timeout: GIT_TIMEOUT })
-    gitRaw(['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '-m', 'base'], repo, { timeout: GIT_TIMEOUT })
+    gitRaw(
+      ['-c', 'user.name=gate', '-c', 'user.email=gate@local', 'commit', '-q', '-m', 'base'],
+      repo,
+      { timeout: GIT_TIMEOUT },
+    )
     writeFileSync(join(repo, 'package.json'), pkgHook, 'utf8')
     gitRaw(['add', '--', 'package.json'], repo, { timeout: GIT_TIMEOUT })
 
     xt('索引内容与 HEAD 不同 ⇒ staged 面必须取索引那一份(A 判据基准的钩子数 = 1)', () => {
       const refs = lifecycleScriptRefs(JSON.parse(readAtFace(repo, 'staged', 'package.json')))
-      if (refs.length !== 1 || refs[0] !== 'scripts/new-hook.mjs') throw new Error(`实得 ${JSON.stringify(refs)}`)
+      if (refs.length !== 1 || refs[0] !== 'scripts/new-hook.mjs')
+        throw new Error(`实得 ${JSON.stringify(refs)}`)
     })
     xt('同一输入在 HEAD 面给出 HEAD 的结论(反向对照:上一条不是恒真式)', () => {
       const refs = lifecycleScriptRefs(JSON.parse(readAtFace(repo, 'head', 'package.json')))
       if (refs.length !== 0) throw new Error(`HEAD 那一版没有钩子,实得 ${JSON.stringify(refs)}`)
     })
-    xt('A 判据的基准按既有口径恒取 HEAD —— 索引里改了也不算跟随索引', () => {
+    xt('A 判据全量档取 HEAD —— 索引里改了不影响全量判定', () => {
       const got = lifecyclePackageSource(repo)
       if (got.used !== 'HEAD blob') throw new Error(`used=${got.used}`)
-      if (lifecycleScriptRefs(JSON.parse(got.src)).length !== 0) throw new Error('A 判据基准不该跟随索引那一份')
+      if (lifecycleScriptRefs(JSON.parse(got.src)).length !== 0)
+        throw new Error('全量档不该跟随索引那一份')
+    })
+    xt('A 判据 --staged 档取索引 —— 本次提交新增的钩子必须被看见(否则同类提交漏拦)', () => {
+      const got = lifecyclePackageSource(repo, undefined, 'staged')
+      if (got.used !== '索引(index)') throw new Error(`used=${got.used}`)
+      if (lifecycleScriptRefs(JSON.parse(got.src)).length !== 1) {
+        throw new Error('staged 档看不见索引里新增的钩子 ⇒ pre-commit 会放过同类提交')
+      }
     })
     xt('HEAD 取不到才降级工作树;两面都取不到 ⇒ 抛 Undetermined(不得把"没读到"记成通过)', () => {
       const diskOnly = lifecyclePackageSource(repo, (face) => (face === 'head' ? null : pkgHook))
-      if (lifecycleScriptRefs(JSON.parse(diskOnly.src)).length !== 1) throw new Error('降级后必须看见工作树那一份的钩子')
+      if (lifecycleScriptRefs(JSON.parse(diskOnly.src)).length !== 1)
+        throw new Error('降级后必须看见工作树那一份的钩子')
       let threw = null
       try {
         lifecyclePackageSource(repo, () => null)
       } catch (e) {
         threw = e
       }
-      if (!(threw instanceof Undetermined)) throw new Error(`两面都取不到必须抛 Undetermined,实得 ${String(threw)}`)
+      if (!(threw instanceof Undetermined))
+        throw new Error(`两面都取不到必须抛 Undetermined,实得 ${String(threw)}`)
     })
 
     for (const c of extra) {
@@ -618,6 +808,7 @@ export async function main(argv = process.argv.slice(2)) {
         'A: 走根 workspace 上下文装依赖的 Dockerfile,必须 COPY 根 package.json 生命周期钩子引用的脚本',
         'B: 每条 COPY 源路径必须能从构建上下文取到(仓库根 / Dockerfile 同目录各试一次)',
         'C: `pnpm --filter <spec>... run <script>` 不得静默跳过"带 build 却没有该脚本"的依赖包',
+        'D: A 判据命中的钩子脚本不得被根 .dockerignore 排除(被排除的路径 COPY 也搬不进上下文)',
         '',
         '退出码: 0 通过 / 1 检出违规 / 2 脚本自身异常',
       ].join('\n'),
@@ -635,14 +826,17 @@ export async function main(argv = process.argv.slice(2)) {
     console.error(`${C.red}✗${C.reset} 本门无 --worktree 档(判定面口径见文件头,统一属另一票)`)
     return 2
   }
-  // A 判据的钩子引用集取自 **HEAD 的根 package.json**:CI/Docker 构建的是提交内容而非工作树,
-  // 而工作树里这份文件可能正被并行会话改(实测:它已被本地删掉钩子但未暂存)。
-  // 取法走取材层(`readAtFace`),降级顺序与兜底语句与原实现一致;两面都给不出 ⇒ exit 2。
+  // A 判据的钩子引用集:全量档取 **HEAD 的根 package.json**(CI/Docker 构建的是提交内容而非工作树,
+  // 工作树里这份文件可能正被并行会话改);`--staged` 档取**索引**,否则本次提交新增的 postinstall
+  // 脚本在 pre-commit 时看不见(2026-11-03 同类漏拦的直接成因)。取法走取材层(`readAtFace`),
+  // 两面都给不出 ⇒ exit 2。
   let pkgSrc
   try {
-    pkgSrc = lifecyclePackageSource(ROOT).src
+    pkgSrc = lifecyclePackageSource(ROOT, undefined, staged ? 'staged' : 'head').src
   } catch (e) {
-    console.error(`${C.red}✗${C.reset} ${e instanceof Undetermined ? e.message : `读不到根 package.json:${e?.message ?? e}`}`)
+    console.error(
+      `${C.red}✗${C.reset} ${e instanceof Undetermined ? e.message : `读不到根 package.json:${e?.message ?? e}`}`,
+    )
     return 2
   }
   let pkg
@@ -654,6 +848,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const rootRefs = lifecycleScriptRefs(pkg)
   const contexts = workflowContexts(ROOT)
+  const dockerignore = dockerignorePatterns(ROOT, staged ? 'staged' : 'head')
   const committed = committedPaths(ROOT)
   if (!committed.size) {
     console.error(`${C.red}✗${C.reset} git ls-tree HEAD 返回空(未真正读到提交内容,不得静默判绿)`)
@@ -666,7 +861,20 @@ export async function main(argv = process.argv.slice(2)) {
     )
     return 2
   }
-  const files = listDockerfiles(staged)
+  let files = listDockerfiles(staged)
+  if (staged && !files.length) {
+    // 「判定对象(Dockerfile)没进暂存区、判据输入(根 package.json / .dockerignore)却变了」不能早退:
+    // 这两份输入正是 A/D 判据的基准,少了全量对账,本次提交新增/改动的钩子仍会被"无 Dockerfile 改动"放过。
+    const triggers = gitLines(['diff', '--cached', '--name-only', '--diff-filter=ACM']).filter(
+      (f) => f === 'package.json' || f === '.dockerignore',
+    )
+    if (triggers.length) {
+      console.log(
+        `${C.dim}--staged:暂存区改了根 ${[...new Set(triggers)].join(' / ')},回退全量扫 Dockerfile${C.reset}`,
+      )
+      files = listDockerfiles(false)
+    }
+  }
   if (!files.length) {
     // 空输入不得恒绿:全量模式下列不出任何 Dockerfile 说明 git ls-files 没真跑起来
     if (staged) {
@@ -688,7 +896,9 @@ export async function main(argv = process.argv.slice(2)) {
     if (typeof content !== 'string') continue
     const context = contexts.get(rel) ?? contexts.get(rel.replace(/^\.\/+/, ''))
     if (context) judgedB += 1
-    violations.push(...scanDockerfile({ rel, content, rootRefs, context, committed, graph }))
+    violations.push(
+      ...scanDockerfile({ rel, content, rootRefs, context, committed, graph, dockerignore }),
+    )
   }
   if (violations.length) {
     console.log(
@@ -706,7 +916,8 @@ export async function main(argv = process.argv.slice(2)) {
     `${C.green}✓${C.reset} [check-dockerfile-copy-paths ${staged ? '--staged' : '全量'}] ` +
       `${files.length} 个 Dockerfile 的 COPY 源、钩子依赖与 pnpm --filter 脚本覆盖齐备` +
       `(A 判据钩子引用:${JSON.stringify(rootRefs)};B 判据按 workflow 声明的上下文核了 ${judgedB}/${files.length} 个;` +
-      `C 判据按 workspace 包图 ${graph.size} 个包核过依赖构建脚本)`,
+      `C 判据按 workspace 包图 ${graph.size} 个包核过依赖构建脚本;` +
+      `D 判据按 .dockerignore ${dockerignore.length} 条规则核过钩子脚本可达性)`,
   )
   return 0
 }
@@ -733,6 +944,9 @@ export const __test__ = {
   lifecycleScriptRefs,
   workflowContexts,
   committedPaths,
+  parseDockerignore,
+  dockerignored,
+  dockerignorePatterns,
   SELFTEST_CASES,
   LIFECYCLE_KEYS,
 }

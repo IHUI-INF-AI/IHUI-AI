@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -27,10 +28,13 @@ export function ArticleDetailScreen({
   loading,
   error,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: ArticleDetailScreenProps) {
+}: ArticleDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)
+  usePublishShareIntent({ title: item?.title, imageUrl: item?.cover })
 
   if (loading) return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
 
@@ -38,7 +42,7 @@ export function ArticleDetailScreen({
     return (
       <ErrorState
         message={error || t('articleDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -82,7 +86,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     metaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

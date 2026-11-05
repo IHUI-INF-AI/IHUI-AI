@@ -11,17 +11,10 @@
  * "我几个孩子各欠多少"。两个端点喂的都是同一份账目出口 `loadEnrollmentLedger`。
  */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
-import { fetchApi } from '@ihui/api-client'
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { eduParentChildBills } from '@ihui/api-client'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '@ihui/rn-app'
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import {
   aggregateParentBills,
@@ -39,9 +32,6 @@ interface Props {
   childRefs: ParentBillChildRef[]
   onOpenChild: (studentId: string) => void
 }
-
-const BILLS_PATH = (studentId: string) =>
-  `/api/edu-ai-management/parent/children/${studentId}/bills`
 
 /**
  * 先按孩子分组取数,再一孩子一卡展示;失败的孩子保留卡片并点名原因
@@ -77,7 +67,7 @@ export function EduParentBillsView({ colorScheme, childRefs, onOpenChild }: Prop
       const results = await Promise.all(
         childRefs.map(async (child): Promise<ParentBillFetch> => {
           try {
-            const res = await fetchApi<{ bills: ParentBillItem[] }>(BILLS_PATH(child.studentId))
+            const res = await eduParentChildBills<{ bills: ParentBillItem[] }>(child.studentId)
             if (!res.success) {
               return { studentId: child.studentId, failed: res.error || 'request failed' }
             }
@@ -181,7 +171,7 @@ function createOwnStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     summaryValue: {
       flexShrink: 0,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.text.primary,
       fontVariant: ['tabular-nums'],

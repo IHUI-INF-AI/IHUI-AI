@@ -119,7 +119,7 @@ export function StreamInspector() {
         <select
           value={kindFilter}
           onChange={(e) => setKindFilter(e.target.value)}
-          className="h-7 rounded-sm border border-input bg-card px-1.5 text-xs"
+          className="h-7 rounded-sm border border-input bg-card px-1.5 text-label"
           aria-label={t('filter')}
         >
           <option value="">{t('filterAll')}</option>
@@ -132,7 +132,7 @@ export function StreamInspector() {
         <button
           type="button"
           onClick={exportJsonl}
-          className="inline-flex h-7 items-center gap-1 rounded-sm bg-muted px-2 text-xs hover:bg-accent"
+          className="inline-flex h-7 items-center gap-1 rounded-sm bg-muted px-2 text-label hover:bg-accent"
         >
           <Download className="h-3.5 w-3.5" aria-hidden />
           <span>{t('export')}</span>
@@ -144,7 +144,7 @@ export function StreamInspector() {
             setFrames([])
             setTotal(0)
           }}
-          className="inline-flex h-7 items-center gap-1 rounded-sm bg-muted px-2 text-xs hover:bg-accent"
+          className="inline-flex h-7 items-center gap-1 rounded-sm bg-muted px-2 text-label hover:bg-accent"
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
           <span>{t('clear')}</span>
@@ -155,7 +155,7 @@ export function StreamInspector() {
       </div>
 
       {visible.length === 0 ? (
-        <p className="py-4 text-center text-xs text-muted-foreground">
+        <p className="py-4 text-center text-label text-muted-foreground">
           {on ? t('waiting') : t('hint')}
         </p>
       ) : (

@@ -60,7 +60,7 @@ export default function EduTeacherDetailPage() {
             {t('backToTeacherList')}
           </Link>
         </Button>
-        <p className="text-sm text-muted-foreground">{t('enterFromList')}</p>
+        <p className="text-body text-muted-foreground">{t('enterFromList')}</p>
       </div>
     )
   if (isLoading)
@@ -79,7 +79,7 @@ export default function EduTeacherDetailPage() {
             {t('backToTeacherList')}
           </Link>
         </Button>
-        <p className="text-sm text-destructive">{(error as Error)?.message ?? t('loadFailed')}</p>
+        <p className="text-body text-destructive">{(error as Error)?.message ?? t('loadFailed')}</p>
       </div>
     )
 
@@ -97,10 +97,10 @@ export default function EduTeacherDetailPage() {
           <Avatar name={data.nickname} size="xl" />
           <div>
             <h1 className="text-display font-bold">{data.nickname}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-body text-muted-foreground">
               {data.title} · {data.phone ?? t('noContact')}
             </p>
-            {data.intro && <p className="mt-1 text-sm text-muted-foreground">{data.intro}</p>}
+            {data.intro && <p className="mt-1 text-body text-muted-foreground">{data.intro}</p>}
           </div>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function EduTeacherDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <BookOpen className="h-8 w-8 text-sky-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('courseCount')}</div>
+              <div className="text-label text-muted-foreground">{t('courseCount')}</div>
               <div className="text-heading font-semibold">{data.courseCount}</div>
             </div>
           </CardContent>
@@ -118,7 +118,7 @@ export default function EduTeacherDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Users className="h-8 w-8 text-emerald-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('studentCount')}</div>
+              <div className="text-label text-muted-foreground">{t('studentCount')}</div>
               <div className="text-heading font-semibold">{data.studentCount}</div>
             </div>
           </CardContent>
@@ -127,7 +127,7 @@ export default function EduTeacherDetailPage() {
           <CardContent className="min-[640px]:p-3 flex items-center gap-3 p-3">
             <Star className="h-8 w-8 text-amber-500" />
             <div>
-              <div className="text-xs text-muted-foreground">{t('rating')}</div>
+              <div className="text-label text-muted-foreground">{t('rating')}</div>
               <div className="text-heading font-semibold">{data.rating.toFixed(1)}</div>
             </div>
           </CardContent>

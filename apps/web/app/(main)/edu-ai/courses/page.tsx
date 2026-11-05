@@ -173,7 +173,7 @@ export default function EduAICoursesPage() {
     return (
       <div className="ui-card rounded-lg border bg-muted/40 p-3">
         <p className="text-label font-medium text-muted-foreground">{label}</p>
-        <p className="mt-1 text-sm whitespace-pre-wrap">{display}</p>
+        <p className="mt-1 text-body whitespace-pre-wrap">{display}</p>
       </div>
     )
   }
@@ -192,16 +192,16 @@ export default function EduAICoursesPage() {
               </span>
               <h3 className="flex-1 text-body font-medium">{k.courseName}</h3>
               {k.courseType && (
-                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-label text-primary">
                   {k.courseType}
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               {t('gradeRange')}: {k.gradeRange ?? '-'}
             </p>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-label text-muted-foreground">
                 {t('hoursPerYear')}: {k.hoursPerYear ?? '-'}
               </span>
               <Button size="sm" variant="outline" onClick={() => setDetailId(k.id)}>
@@ -229,12 +229,12 @@ export default function EduAICoursesPage() {
               {required ? t('required') : t('elective')}
             </span>
           </div>
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-label text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
             {u.university ?? '-'}
           </p>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 text-label text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Award className="h-3.5 w-3.5" />
                 {u.credits ?? '-'} {t('credits')}
@@ -297,7 +297,7 @@ export default function EduAICoursesPage() {
           <BookOpen className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Tabs value={tab} onValueChange={handleTabChange} className="space-y-4">
@@ -332,13 +332,13 @@ export default function EduAICoursesPage() {
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <BookOpen className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {items.map(renderListItem)}
             {total > PAGE_SIZE && (
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-body">
                 <span className="text-muted-foreground">
                   {t('page', { page, total: totalPages })}
                 </span>

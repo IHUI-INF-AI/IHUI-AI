@@ -9,8 +9,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
-import { api } from '../../helpers'
+import { getAskById, updateAsk } from '@ihui/api-client'
 import { AskEditForm } from '../AskEditForm'
 
 interface AskDetail {
@@ -32,11 +31,12 @@ export default function AskEditByIdPage() {
   const { isLoading } = useQuery({
     queryKey: ['ask', 'edit', params.id],
     queryFn: async () => {
-      const r = await fetchApi<{ ask: AskDetail }>(`/api/asks/${params.id}`)
+      const r = await getAskById(params.id)
       if (!r.success) return null
-      setTitle(r.data.ask.title ?? '')
-      setContent(r.data.ask.content ?? '')
-      setTagsText((r.data.ask.tags ?? []).join(', '))
+      const ask = r.data.ask as unknown as AskDetail
+      setTitle(ask.title ?? '')
+      setContent(ask.content ?? '')
+      setTagsText((ask.tags ?? []).join(', '))
       return r.data
     },
     enabled: !!params.id,
@@ -53,10 +53,13 @@ export default function AskEditByIdPage() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean)
-      return api(`/api/asks/${params.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), tags }),
+      const r = await updateAsk(params.id, {
+        title: title.trim(),
+        content: content.trim(),
+        tags,
       })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asks'] })
@@ -79,7 +82,7 @@ export default function AskEditByIdPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-4">
       <Link
         href={`/asks/${params.id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         返回问题详情

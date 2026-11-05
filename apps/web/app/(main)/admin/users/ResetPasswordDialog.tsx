@@ -83,7 +83,7 @@ export function ResetPasswordDialog({ user, pending, onConfirm, onCancel }: Prop
             placeholder="请再次输入"
           />
         </div>
-        {err && <p className="text-xs text-destructive">{err}</p>}
+        {err && <p className="text-label text-destructive">{err}</p>}
       </form>
     </Modal>
   )

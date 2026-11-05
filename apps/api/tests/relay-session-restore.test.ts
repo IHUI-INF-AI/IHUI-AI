@@ -204,7 +204,7 @@ describe('dry-run 差异比对(零写入)', () => {
     const diff = computeRestoreDiff(plan)
     expect(diff.match.map((e) => e.entry.rel)).toEqual(['workspace/sess-1/state.json'])
     expect(diff.mismatch.map((e) => e.entry.rel)).toEqual(['workspace/sess-1/transcript.jsonl'])
-    expect(diff.mismatch[0].destSha).toBe(shaOf('DRIFTED\n'))
+    expect(diff.mismatch[0]!.destSha).toBe(shaOf('DRIFTED\n'))
   })
 })
 

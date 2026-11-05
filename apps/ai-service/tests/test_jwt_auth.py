@@ -98,11 +98,18 @@ def enable_jwt(monkeypatch):
 class TestJWTAuthMiddlewareDispatch:
     async def test_no_secret_skips_auth(self, jwt_client, monkeypatch):
         monkeypatch.setattr(settings, "jwt_secret", "")
-        # 隔离 .env 的 NODE_ENV=production:该用例验证的是 development 语义下
-        # 无密钥跳过鉴权;production 的 fail-closed 行为由专门用例覆盖
-        monkeypatch.setattr(settings, "node_env", "development")
+        # 2026-11-01 安全强化:跳过鉴权不再由 "缺 secret + development" 推导,
+        # 只由显式开关 AI_DEV_NO_AUTH 打开(下面一条用例锁住"开关关着就 500")。
+        monkeypatch.setattr(settings, "ai_dev_no_auth", True)
         resp = await jwt_client.get("/api/protected")
         assert resp.status_code == 200
+
+    async def test_no_secret_without_switch_is_fail_closed(self, jwt_client, monkeypatch):
+        """缺 secret 且未显式放行 ⇒ 拒绝服务(旧行为是悄悄放行,那是本次修掉的缺口)。"""
+        monkeypatch.setattr(settings, "jwt_secret", "")
+        monkeypatch.setattr(settings, "ai_dev_no_auth", False)
+        resp = await jwt_client.get("/api/protected")
+        assert resp.status_code == 500
 
     async def test_public_path_skips_auth(self, jwt_client, enable_jwt):
         resp = await jwt_client.get("/api/health")

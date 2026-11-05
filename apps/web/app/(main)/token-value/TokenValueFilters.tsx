@@ -49,7 +49,7 @@ export function TokenValueFilters({
             onChange={(e) => onCustomFrom(e.target.value)}
             className="h-8 w-[140px]"
           />
-          <span className="text-xs text-muted-foreground">~</span>
+          <span className="text-label text-muted-foreground">~</span>
           <Input
             type="date"
             value={customTo}

@@ -29,7 +29,7 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
  */
 export const NAVBAR_ROW_HEIGHT_PX = 44
 
-/** 带副标题时的行高 56:RN 腿档;副标题是双行文本,单行档装不下(小程序腿没有副标题那一行,见文件末单腿档清单)。 */
+/** 带副标题时的行高 56:**两端共用档**。副标题是双行文本,单行档装不下;小程序腿 2026-11-04 补 subtitle 一支(fe50a4123d)后已真引用本档(与 RN 同表同值)。 */
 export const NAVBAR_ROW_HEIGHT_SUBTITLE_PX = 56
 
 /** 左右内边距 10:两端现值已同(小程序 ai-home `20rpx` = 10px,RN `paddingHorizontal: 10`),收进一处防分叉。 */
@@ -65,14 +65,14 @@ export const NAVBAR_ACTION_LABEL_FONT_PX = 14
 export const NAVBAR_TITLE_FONT_PX = 16
 
 /**
- * 副标题字号 12:**RN 腿档**。原先注的"两端现值已同(RN 12 / 共享层 12)"是假话——那个"共享层"是
- * `packages/app/src/components/NavBar.tsx` 的 DOM 副本(div/span 形态,不在 RN 屏上渲染、也不是守门 128
- * 的配对腿)。小程序腿 `NavBarProps` 没有 subtitle 字段(现读只有 title/onBack/rightText),全仓零处传
- * subtitle;RN 腿有 PatrolScreen 等屏真在传。给小程序腿补这枚档 = 造一个渲染不到的数字。
+ * 副标题字号 12:**两端共用档**(2026-11-04 小程序 NavBar 补 subtitle 一支后与 RN 真同值,fe50a4123d)。
+ * 曾注"RN 腿档":当时小程序 `NavBarProps` 无 subtitle 字段、全仓零处传参,而"共享层 12"指的是
+ * `packages/app/src/components/NavBar.tsx` 那份 DOM 副本(不在守门 128 的配对腿上)。现在两条腿都
+ * 经本文件同一档取值,旧注作废。
  */
 export const NAVBAR_SUBTITLE_FONT_PX = 12
 
-/** 副标题与主标题间距 2:**RN 腿档**(小程序腿没有"主标题下方再一行"这层结构,无从给间距)。 */
+/** 副标题与主标题间距 2:**两端共用档**(小程序 2026-11-04 起有"主标题下方再一行"的结构,与 RN 同表同值)。 */
 export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
 
 /**
@@ -93,18 +93,17 @@ export const NAVBAR_SUBTITLE_MARGIN_TOP_PX = 2
  */
 
 /**
- * 2026-09-27 逐条核过的**单腿档清单**(守门 128 对本族报 SL 的正是这五枚,处置动作各不同,
+ * 2026-11-04 逐条核过的**单腿档清单**(守门 128 对本族报 SL 的正是这 2 枚,处置动作各不同,
  * 不得用"给另一条腿补一个数字"消账):
- *  - NAVBAR_ROW_HEIGHT_PX(44)/ NAVBAR_ROW_HEIGHT_SUBTITLE_PX(56):小程序端行高是胶囊实测值,
- *    平台量,两腿不可能同名同数 → 属机制差异,已登记
- *    `scripts/cross-end-ui-parity-baseline.json` 的 `waivers.NavBar`(带 reason 与 until;2026-10-27 现读复量)。
- *  - NAVBAR_SUBTITLE_FONT_PX(12)/ NAVBAR_SUBTITLE_MARGIN_TOP_PX(2):小程序端 NavBar **根本没有
- *    subtitle 这个元素**(props 里没有该字段),头注写的"两端现值已同"里的"共享层"是
- *    `packages/app` 那份 DOM 死副本,不在守门 128 的配对腿上。补齐要么给小程序端加 subtitle
- *    能力(§24 属新功能,须用户确认),要么把这两枚档改标"RN 腿独有"。
+ *  - NAVBAR_ROW_HEIGHT_PX(44):RN 端行高是固定档;小程序端行高是微信胶囊实测值(平台量),
+ *    两腿不可能同名同数 → 属机制差异,已登记
+ *    `scripts/cross-end-ui-parity-baseline.json` 的 `waivers.NavBar`(带 reason 与 until;2026-11-04 现读复量)。
  *  - NAVBAR_SIDE_PLACEHOLDER_PX(32):RN 用"空侧占位"把标题夹在中间居中;小程序端默认模式是
  *    `absolute` 悬浮按钮 + 整条 `justify-center`,居中机制不同 → 该 32 在小程序端没有对应元素。
  *    小程序端侧按钮的 32 高改经 `navbarActionBoxStyle` 取得后,这一档不再是"巧合对齐"。
+ *  - 原 5 枚中的 NAVBAR_ROW_HEIGHT_SUBTITLE_PX(56)/ NAVBAR_SUBTITLE_FONT_PX(12)/
+ *    NAVBAR_SUBTITLE_MARGIN_TOP_PX(2) 已于 2026-11-04 收敛:小程序 NavBar 补 subtitle 一支
+ *    (fe50a4123d,门 285 B3),两腿同表同值 ⇒ 移出单腿账、登记进共用清单。
  */
 
 /**

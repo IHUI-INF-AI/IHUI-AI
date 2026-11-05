@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
 import type { SandboxResult } from '../sandbox/index.js';
+// 按操作分维的文件访问裁决(goal-b49 复现对侧能力):读正文之前先问这一层。
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
 import {
@@ -29,6 +31,10 @@ import {
 } from './background-registry.js';
 import { projectTaskRoster, formatTaskRoster } from './task-roster-projection.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
+// 危险确认的「有没有渠道 / 人答没答真」判定只住 `resolveDangerousConfirmation` 一处
+// (契约声明见 tools/index.ts 的 DangerousConfirmationCallback);本文件的 handler 只传上下文,
+// 不得再各自读 ctx.confirmDangerous 判放行 —— 由 tests/danger-gate-wiring.test.ts 的 W7 钉住。
+import { resolveDangerousConfirmation } from './index.js';
 import { mapTerminalState, ABORTED_BEFORE_COMPLETION_NOTE } from './failure-classification.js';
 import { todo_read, todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
@@ -54,6 +60,7 @@ import {
   createTokenCapPartialView,
   estimateReadTokens,
 } from './read-text-budget.js';
+import { MAX_LINE_SCAN_BYTES, readLineWindow } from './line-window-reader.js';
 import {
   terminal_open,
   terminal_send,
@@ -355,6 +362,143 @@ function normalizeReadRangeParam(value: unknown): number | undefined {
     : undefined;
 }
 
+/** 正文 + 行号前缀(与 read_file 其余路径同一形态:行号右对齐 4 位 + 两空格) */
+function numberLines(text: string, startLine: number, filePath: string): string {
+  return highlightCode(text, filePath)
+    .split('\n')
+    .map((l, i) => `${String(startLine + i).padStart(4)}  ${l}`)
+    .join('\n');
+}
+
+/**
+ * 超字节闸文件的**按行窗口**读取(本票的修复面)。
+ *
+ * 为什么必须单独一条路径:此前 `byteTruncated === true` 时代码把
+ * `readHeadOfFile` 读到的「首 512KB」当成整份文件,于是
+ *  (a) 总行数被算成"首 512KB 内的行数",超过它的 offset 一律返回假 EOF;
+ *  (b) 即便不越界,range 读读到的也是**文件开头**那几行,不是点名的行。
+ * 512KB 以内的文件继续走原快路径(`text.split('\n')`),行为逐字不变。
+ *
+ * 返回 `record` 而不自己写缓存:越界/判不了这两条分支**不得**登记已读状态
+ * (与快路径一致 —— 模型没见过那个窗口,登记了会让读后写校验以为它读过)。
+ */
+function readWindowedFile(
+  abs: string,
+  filePath: string,
+  offset: number | undefined,
+  limit: number | undefined,
+): { record: false; result: ToolResult } | { record: true; isPartialView: boolean; result: ToolResult } {
+  const startLine = offset ?? 1;
+  const win = readLineWindow(abs, {
+    offset: startLine,
+    limit,
+    maxBytes: MAX_READ_BYTES,
+    // 扫描硬上限显式写在这里(而不是只靠模块默认值):"数不完就报至少 N 行"是本路径的对外承诺
+    byteCap: MAX_LINE_SCAN_BYTES,
+  });
+
+  // ① 确实越界:给的行数是**真实总行数**(扫描已到文件末尾,这个数是结论而不是下界)。
+  if (win.offsetResolution === 'beyond-eof') {
+    return {
+      record: false,
+      result: { success: true, output: buildOffsetBeyondEofReminder(startLine, win.totalLines) },
+    };
+  }
+
+  // ② 判不了:扫描撞上硬上限,offset 是否越界**无从确认**。
+  //    这里绝不回 EOF 提示,也不报一个"看起来像结论"的小行数 —— 判不了就说判不了。
+  if (win.offsetResolution === 'indeterminate') {
+    return {
+      record: false,
+      result: {
+        success: true,
+        output:
+          `<system-reminder>Warning: the file has at least ${win.totalLines} lines ` +
+          `(line counting stopped at the ${win.bytesScanned}-byte scan cap of this ${win.totalBytes}-byte file). ` +
+          `The provided offset (${startLine}) lies past what this scan could confirm, ` +
+          `so whether it is beyond the end of the file is UNKNOWN.</system-reminder>`,
+      },
+    };
+  }
+
+  const viewText = win.lines.join('\n');
+  const tokenCount = estimateReadTokens(viewText);
+
+  // ③ token 预算。两条分叉的判据不是"是不是 range 读",而是**窗口本身读全了没有**:
+  //    - 窗口完整读到(win.byteLimited=false)却超 token 预算 ⇒ 硬错:模型点名的范围
+  //      本身就太大,替它砍等于静默改答,必须让它自己改参数(既有契约不变);
+  //    - 窗口已被字节闸截过(win.byteLimited=true)⇒ 改答**已经发生**且无法回避
+  //      (512KB 正文必然超 25000 token),此时再喊"改小窗口"只会让模型原地打转;
+  //      改用带续读 offset 的部分视图:如实点名看了哪几行,下一步照 offset 走即可。
+  //      这一条是本票新增路径的必要让步 —— 否则"大文件尾部"又一次结构上不可达。
+  if (tokenCount > READ_MAX_OUTPUT_TOKENS) {
+    if (limit !== undefined && !win.byteLimited) {
+      return {
+        record: false,
+        result: {
+          success: false,
+          output: '',
+          error: buildReadOutputTooManyTokensMessage(tokenCount, filePath),
+          errorType: 'read_output_too_many_tokens',
+        },
+      };
+    }
+    const partial = createTokenCapPartialView({
+      content: viewText,
+      startLine,
+      totalLines: win.totalLines,
+      tokenCount,
+    });
+    if (partial) {
+      return {
+        record: true,
+        isPartialView: true,
+        result: {
+          success: true,
+          output:
+            `<system-reminder>${partial.partialViewNotice}</system-reminder>\n\n` +
+            numberLines(partial.content, partial.startLine, filePath),
+        },
+      };
+    }
+    return {
+      record: false,
+      result: {
+        success: false,
+        output: '',
+        error: buildReadOutputTooManyTokensMessage(tokenCount, filePath),
+        errorType: 'read_output_too_many_tokens',
+      },
+    };
+  }
+
+  const output = numberLines(viewText, startLine, filePath);
+  const notes: string[] = [];
+  // 位置注记:这是给模型的事实(ASCII),行数是**真实总行数**;撞了扫描上限就带"至少"。
+  const totalLabel = win.totalLinesExact
+    ? String(win.totalLines)
+    : `at least ${win.totalLines} (line counting stopped at the ${win.bytesScanned}-byte scan cap)`;
+  notes.push(`\n...(lines ${win.startLine}-${win.endLine} of ${totalLabel})`);
+  if (win.byteLimited) {
+    // 字节闸是"单次正文上限",不是"文件只有这么长":报清已回字节与截断位置。
+    notes.push(
+      `\n...(truncated: the window was capped at ${MAX_READ_BYTES} bytes — ${win.bytesRead} bytes returned ` +
+        `from this ${win.totalBytes}-byte file; content after line ${win.endLine} was NOT inspected)`,
+    );
+  }
+
+  const result: ToolResult = { success: true, output: output + notes.join('') };
+  if (win.byteLimited) {
+    // G-720:同样的两个量落成事实字段(结论由执行器边界从两条字节数推导)。
+    result.truncationFacts = {
+      originalBytes: win.totalBytes,
+      returnedBytes: win.bytesRead,
+      budgetStrategy: 'truncate',
+    };
+  }
+  return { record: true, isPartialView: win.byteLimited, result };
+}
+
 export const read_file: Tool = {
   name: 'read_file',
   description:
@@ -372,6 +516,22 @@ export const read_file: Tool = {
     const offset = normalizeReadRangeParam(args.offset);
     const limit = normalizeReadRangeParam(args.limit);
     const abs = resolvePath(ctx, filePath);
+    // 读侧访问裁决(此前全仓只有写侧一处 folder_trust 消费点,凭据文件可被 read_file 整份读出)。
+    // 判据在**任何 fs 调用之前**:命中 deny 就一个字节都不读,也不外泄存在性之外的信息。
+    const aclRead = evaluateFileAccess(
+      'read',
+      toAclPath(ctx.workspacePath, filePath),
+      ctx.workspacePath,
+    );
+    // 守护面清单不可判 ⇒ 出声一次(不改结论、不放宽档):S7 把 unjudged 透到消费点
+    announceGuardUnjudged(ctx.workspacePath, aclRead.guard, 'read_file');
+    if (aclRead.blocked) {
+      return {
+        success: false,
+        output: '',
+        error: aclRead.note ?? `按文件访问裁决禁止读取 ${filePath}`,
+      };
+    }
     if (!fs.existsSync(abs)) {
       return {
         success: false,
@@ -420,8 +580,17 @@ export const read_file: Tool = {
       return { success: true, output: EMPTY_FILE_REMINDER };
     }
 
-    const allLines = text.split('\n');
+    // 字节闸只限制"单次回给模型的正文",不限制"只许认识文件前 512KB"。
+    // 因此**超限且点名了行窗口**时改走按行定位读取器:行数取真实总行数、
+    // 窗口按行切、再按字节上限截取。整读(无 offset/limit)保持原样。
     const isRangeRead = offset !== undefined || limit !== undefined;
+    if (byteTruncated && isRangeRead) {
+      const windowed = readWindowedFile(abs, filePath, offset, limit);
+      if (windowed.record) recordReadState(windowed.isPartialView);
+      return windowed.result;
+    }
+
+    const allLines = text.split('\n');
     // G-937972:offset 越过文件末尾给 system-reminder 警示(真实行数是续读坐标,不是错误)。
     if (offset !== undefined && offset > allLines.length) {
       return { success: true, output: buildOffsetBeyondEofReminder(offset, allLines.length) };
@@ -977,11 +1146,10 @@ export const run_command: Tool = {
     // 只读命令自动批准(判据在 command-safety 的 gateCommandExecution,与 profile 无关;
     // 默认档是严档 'limited',见 config/sandbox-profile.ts 的 DEFAULT_SANDBOX_PROFILE)
     if (!gate.autoApprovable) {
-      // 默认拒绝策略:未提供 confirmDangerous 回调时,dangerous 工具直接拒绝(安全优先)
-      if (run_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
-        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
-      }
-      if (ctx.confirmDangerous && !(await ctx.confirmDangerous(run_command, args))) {
+      // 默认拒绝策略经唯一判定出口:无渠道(no-channel)与人答假(declined)都是拒绝,
+      // 绝不允许「没人可问 = 放行」;拒因文案仍由本 handler 原样发出(可观测行为不变)。
+      const confirmation = await resolveDangerousConfirmation(ctx, run_command, args);
+      if (confirmation.kind !== 'approved') {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
       }
     }
@@ -1219,10 +1387,9 @@ export const kill_command: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const taskId = args.task_id as string;
     if (!taskId) return { success: false, output: '', error: '缺少 task_id 参数' };
-    if (kill_command.dangerLevel === 'dangerous' && !ctx.confirmDangerous) {
-      return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
-    }
-    if (ctx.confirmDangerous && !(await ctx.confirmDangerous(kill_command, args))) {
+    // 与 run_command 同一条判定路径:只经唯一出口问人,不在 handler 里各判一遍。
+    const confirmation = await resolveDangerousConfirmation(ctx, kill_command, args);
+    if (confirmation.kind !== 'approved') {
       return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${kill_command.name}` };
     }
     const result = await killTask(taskId, 'model');

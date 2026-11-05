@@ -20,6 +20,7 @@ import type { PostDetailScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 动态详情共享屏 — props 注入式跨端组件
@@ -34,8 +35,14 @@ export function PostDetailScreen({
   loading,
   error,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: PostDetailScreenProps) {
+  onNavigate,
+  onToast,
+}: PostDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const imageUrls =
@@ -58,7 +65,7 @@ export function PostDetailScreen({
     return (
       <ErrorState
         message={error || t('postDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -138,7 +145,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing['3xl'],
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',

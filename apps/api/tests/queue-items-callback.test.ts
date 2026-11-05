@@ -38,6 +38,7 @@ import aiCallbackRoutes from '../src/routes/ai-callback'
 import { startAiCallbackWorker } from '../src/workers/ai-callback-worker'
 import { createWorker } from '../src/plugins/queue.js'
 import type { AICallbackJobData } from '../src/plugins/queue.js'
+import type { ChatMessage } from '@ihui/database'
 import { findMessageById, updateMessage } from '../src/db/chat-queries.js'
 
 const mockedFindMessageById = vi.mocked(findMessageById)
@@ -58,6 +59,29 @@ const item = (index: number, text = `排队消息 ${index}`): QueueItem => ({
 })
 
 /**
+ * findMessageById / updateMessage 返回的行 = ChatMessage。本用例只关心 metadata 与 id,
+ * 其余必填列在此给中性默认值(不得只造 id 的半行,否则类型上就不再是"读回的一条消息")。
+ */
+function messageRow(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: 'msg-1',
+    conversationId: 'conv-1',
+    role: 'assistant',
+    content: 'AI 回复',
+    createdAt: new Date(0),
+    metadata: {},
+    tokens: null,
+    reasoning: null,
+    turnOrdinal: null,
+    parentMessageId: null,
+    siblingIndex: null,
+    pinnedAt: null,
+    bookmarkedAt: null,
+    ...overrides,
+  }
+}
+
+/**
  * 走一次真实回调,回传状态码与**入队 payload 里的 metadata**(即落库前的最后一份形态)。
  * 队列不可用时(校验 400 / 缺关联键)metadata 为 undefined。
  */
@@ -66,7 +90,7 @@ async function postCallback(
 ): Promise<{ status: number; metadata: Record<string, unknown> | undefined }> {
   const server = Fastify({ logger: false })
   const add = vi.fn().mockResolvedValue({ id: 'job-1' })
-  server.decorate('aiCallbackQueue', { add })
+  server.decorate('aiCallbackQueue', { add } as unknown as FastifyInstance['aiCallbackQueue'])
   await server.register(aiCallbackRoutes)
   await server.ready()
 
@@ -163,16 +187,16 @@ describe('ai-callback queueItems 白名单(D33① 下半段)', () => {
 
     expect(status).toBe(202)
     const persisted = metadata?.queueItems as QueueItem[]
-    expect(persisted[0].text).toBe(`${'啊'.repeat(2000)}...[truncated 500 chars]`)
-    expect(persisted[0].id).toBe('q_1')
-    expect(persisted[0].createdAt).toBe(1_790_000_000_001)
+    expect(persisted[0]!.text).toBe(`${'啊'.repeat(2000)}...[truncated 500 chars]`)
+    expect(persisted[0]!.id).toBe('q_1')
+    expect(persisted[0]!.createdAt).toBe(1_790_000_000_001)
   })
 
   it('text 恰在 2000 字符内原样保留(不误伤正常长度)', async () => {
     const exact = 'x'.repeat(2000)
     const { metadata } = await postCallback({ queueItems: [item(1, exact)] })
     const persisted = metadata?.queueItems as QueueItem[]
-    expect(persisted[0].text).toBe(exact)
+    expect(persisted[0]!.text).toBe(exact)
   })
 })
 
@@ -190,7 +214,7 @@ describe('queueItems 穿过 worker 浅合并落库(D33① 读回链)', () => {
     mockedCreateWorker.mockClear()
     startAiCallbackWorker(makeServer())
     expect(mockedCreateWorker.mock.calls.length).toBeGreaterThan(0)
-    return mockedCreateWorker.mock.calls[0][2] as (job: {
+    return mockedCreateWorker.mock.calls[0]![2] as (job: {
       id?: string
       data: AICallbackJobData
     }) => Promise<unknown>
@@ -198,17 +222,19 @@ describe('queueItems 穿过 worker 浅合并落库(D33① 读回链)', () => {
 
   function mergedMetadata(): Record<string, unknown> {
     const call = mockedUpdateMessage.mock.calls[0]
-    return (call[2] as { metadata: Record<string, unknown> }).metadata
+    return (call![2] as { metadata: Record<string, unknown> }).metadata
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockedUpdateMessage.mockResolvedValue({ id: 'msg-1' })
+    mockedUpdateMessage.mockResolvedValue(messageRow())
     mockedFindMessageById.mockResolvedValue(undefined)
   })
 
   it('入队 metadata.queueItems 原样并入 updateMessage 的 jsonb(无枚举式丢字段)', async () => {
-    mockedFindMessageById.mockResolvedValue({ metadata: { pendingQuestion: { question: 'q' } } })
+    mockedFindMessageById.mockResolvedValue(
+      messageRow({ metadata: { pendingQuestion: { question: 'q' } } }),
+    )
     const queueItems = [item(1), item(2)]
 
     await processor()({
@@ -230,9 +256,9 @@ describe('queueItems 穿过 worker 浅合并落库(D33① 读回链)', () => {
   })
 
   it('本轮空数组覆盖上一轮的非空残留(空数组语义真的落库)', async () => {
-    mockedFindMessageById.mockResolvedValue({
-      metadata: { queueItems: [item(9, '上一轮还在排队的消息')] },
-    })
+    mockedFindMessageById.mockResolvedValue(
+      messageRow({ metadata: { queueItems: [item(9, '上一轮还在排队的消息')] } }),
+    )
 
     await processor()({
       id: 'job-2',
@@ -251,7 +277,7 @@ describe('queueItems 穿过 worker 浅合并落库(D33① 读回链)', () => {
 
   it('本轮缺键时不动上一轮的值(读回侧据此区分"后端没送")', async () => {
     const prev = [item(9, '上一轮还在排队的消息')]
-    mockedFindMessageById.mockResolvedValue({ metadata: { queueItems: prev } })
+    mockedFindMessageById.mockResolvedValue(messageRow({ metadata: { queueItems: prev } }))
 
     await processor()({
       id: 'job-3',

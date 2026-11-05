@@ -240,7 +240,7 @@ export default function EduAiLearnMapPage() {
           <MapIcon className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 学习地图区 */}
@@ -260,7 +260,7 @@ export default function EduAiLearnMapPage() {
         ) : maps.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <MapIcon className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -289,19 +289,19 @@ export default function EduAiLearnMapPage() {
                     <div className="min-w-0">
                       <p className="line-clamp-1 font-medium">{map.title}</p>
                       {map.description && (
-                        <p className="line-clamp-2 mt-1 text-sm text-muted-foreground">
+                        <p className="line-clamp-2 mt-1 text-body text-muted-foreground">
                           {map.description}
                         </p>
                       )}
                     </div>
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1">
                       {nodeCount > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1 text-label text-muted-foreground">
                           <BookOpen className="h-3.5 w-3.5" />
                           {nodeCount}
                         </span>
                       )}
-                      <span className="ml-auto flex items-center gap-1 text-xs text-primary">
+                      <span className="ml-auto flex items-center gap-1 text-label text-primary">
                         {t('viewDetail')}
                         <ChevronRight className="h-3.5 w-3.5" />
                       </span>
@@ -342,7 +342,7 @@ export default function EduAiLearnMapPage() {
         ) : topics.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
             <Layers className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+            <p className="text-body text-muted-foreground">{t('empty')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -372,7 +372,7 @@ export default function EduAiLearnMapPage() {
                 <CardHeader className="p-3 pb-2">
                   <CardTitle className="text-base">{topic.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-xs text-muted-foreground">
+                <CardContent className="min-[640px]:p-3 space-y-1.5 p-3 pt-0 text-label text-muted-foreground">
                   {topic.description && (
                     <p className="line-clamp-2 break-words">{topic.description}</p>
                   )}
@@ -388,7 +388,7 @@ export default function EduAiLearnMapPage() {
 
         {topicTotal > PAGE_SIZE && (
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {t('page', { page, total: totalPages })}
             </span>
             <div className="flex items-center gap-2">
@@ -401,7 +401,7 @@ export default function EduAiLearnMapPage() {
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <Button
@@ -446,7 +446,7 @@ export default function EduAiLearnMapPage() {
           ) : mapDetailQuery.isError ? (
             <Alert variant="danger" description={(mapDetailQuery.error as Error).message} />
           ) : mapDetail ? (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-body">
               {coverSrc(mapDetail.cover) && (
                 <div className="relative h-44 overflow-hidden rounded-lg">
                   <Image
@@ -479,7 +479,7 @@ export default function EduAiLearnMapPage() {
                         <div className="min-w-0">
                           {node.title && <p className="font-medium">{node.title}</p>}
                           {node.description && (
-                            <p className="text-xs text-muted-foreground">{node.description}</p>
+                            <p className="text-label text-muted-foreground">{node.description}</p>
                           )}
                         </div>
                       </li>
@@ -519,9 +519,9 @@ export default function EduAiLearnMapPage() {
           ) : topicDetailQuery.isError ? (
             <Alert variant="danger" description={(topicDetailQuery.error as Error).message} />
           ) : topicDetail ? (
-            <div className="space-y-4 text-sm">
+            <div className="space-y-4 text-body">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 text-label text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
                   {t('topics')}
                 </span>
@@ -558,7 +558,7 @@ export default function EduAiLearnMapPage() {
                 ) : topicLessons.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-6">
                     <Info className="h-6 w-6 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">{t('noCourses')}</p>
+                    <p className="text-label text-muted-foreground">{t('noCourses')}</p>
                   </div>
                 ) : (
                   <ul className="space-y-2">
@@ -581,7 +581,7 @@ export default function EduAiLearnMapPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-1 text-body font-medium">{lesson.title}</p>
-                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="mt-0.5 flex items-center gap-2 text-label text-muted-foreground">
                             {lesson.lecturerName && (
                               <span className="line-clamp-1">{lesson.lecturerName}</span>
                             )}

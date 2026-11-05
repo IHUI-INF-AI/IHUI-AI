@@ -86,7 +86,7 @@ export function AgreementDialog({
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             {t('loading')}
           </div>
@@ -96,7 +96,7 @@ export function AgreementDialog({
               <CardTitle className="text-base">{title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-label text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Tag className="h-3.5 w-3.5" />
                   {t('version')}: v1.0.0
@@ -106,7 +106,7 @@ export function AgreementDialog({
                   {t('effectiveDate')}: {fmtDate(new Date().toISOString())}
                 </span>
               </div>
-              <div className="space-y-2 text-sm leading-relaxed text-muted-foreground">
+              <div className="space-y-2 text-body leading-relaxed text-muted-foreground">
                 <p>{t('staticContent1')}</p>
                 <p>{t('staticContent2')}</p>
                 <p>{t('staticContent3')}</p>
@@ -119,7 +119,7 @@ export function AgreementDialog({
               <CardTitle className="text-base">{data.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-label text-muted-foreground">
                 {data.version && (
                   <span className="inline-flex items-center gap-1">
                     <Tag className="h-3.5 w-3.5" />

@@ -1645,8 +1645,8 @@ export function verdictLine(v) {
   // 自跑那一轮的 not-ours:证据是真的,但**来源**必须点名 —— 钩子里那一轮从未跑到批量检查。
   // 不写清来源,下一行日志读起来就和"守门在提交链上跑过、没点名本次文件"完全同形。
   if (v.kind === 'not-ours' && v.batchSelfRun)
-    return `✅ ${v.reason} —— 取证来自 **safe-commit 自跑**的那一轮守门批(钩子内那一轮从未跑到批量检查);据此走应急跳门。不得把这行读成"守门没跑",也不得读成"钩子里跑过了"`
-  if (v.kind === 'not-ours') return `✅ ${v.reason}(据此走应急跳门,守门结论以下方逐道复跑记录为准)`
+    return `✅ ${v.reason} —— 取证来自 **safe-commit 自跑**的那一轮守门批(钩子内那一轮从未跑到批量检查);据此退避重试带钩子提交(2026-11-02 起不再自动跳门)。不得把这行读成"守门没跑",也不得读成"钩子里跑过了"`
+  if (v.kind === 'not-ours') return `✅ ${v.reason}(据此退避重试带钩子的普通提交;不再自动追加 --no-verify,守门结论以下方逐道复跑记录为准)`
   return `⚠️ ${v.reason} —— 按应急路径落地,已留痕;请勿把它读成"通过了守门"或"因他人代码"${
     v.batchSelfRun ? '(safe-commit 自跑取证也未取得门级结论)' : ''
   }`
@@ -1919,6 +1919,16 @@ export function decideWithSelfRunBatch({
 /** commit-msg 阶段"未判定"档的名字(可机读,与 gate-self-undetermined 不得并桶) */
 export const COMMIT_MSG_UNDETERMINED_NAME = 'commit-msg-未判定'
 
+/**
+ * commit-msg 阶段复跑的**索引面**三态名(2026-11-05 立,判据见 decideCommitMsgStageIndexFace)。
+ * 三态不得并桶:`shared-default` 是"钩子本来就读这一面",`undetermined` 是"没能确定是哪一面"。
+ */
+export const COMMIT_MSG_FACE = {
+  DEFAULT: 'shared-default',
+  PRIVATE: 'private-index',
+  UNDETERMINED: 'undetermined',
+}
+
 /** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经 hook-run-hidden.vbs 包装那一层)。 */
 const COMMIT_MSG_CHECK_RE = /scripts\/[A-Za-z0-9._-]+\.mjs/g
 
@@ -1957,6 +1967,77 @@ function excerptOf(output, max = 12) {
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.trim())
   return { picked: lines.slice(0, max), total: lines.length, truncated: lines.length > max }
+}
+
+/**
+ * commit-msg 阶段复跑**读哪一面索引**的三态判据(2026-11-05 立)。
+ *
+ * 要修的那一型(§12e 恒红门,2026-11-05 19:09:59 实测):safe-commit 的 Step 3h 在有外来暂存时
+ * 把本枚提交交给 `GIT_INDEX_FILE=<私有索引>`(= 生效索引 ∖ 外来件),`.husky/commit-msg` 里那几条
+ * **读索引**的检查因此只在"本枚那一面"上看到声明集(日志原文「4 文件 … 通过」);而归因层的复跑
+ * 用父进程的 `process.env`(那里没有这枚指针)⇒ 落到**共享索引**面(当时挂着 129 条外来件,含
+ * `packages/i18n/messages/` 族)⇒ `check-commit-scope-consistency.mjs` 的 R2 以"红"复现 ⇒
+ * 定责本枚 ⇒ 拒绝提交并回滚,两枚已建好的 commit 变孤儿。复跑的面与钩子当时的面不是同一份,
+ * 结论自然不是钩子的结论 —— 而它的红与本次提交内容无关,唯一结局就是逼人跳门。
+ *
+ * 三条判序:
+ *  ① 钩子当时**没有**私有索引(共享索引里没有外来件)⇒ git 用的就是默认索引,复跑原样继承
+ *     `process.env` 即同一面。这一档记 `shared-default`,它是"同一面",不是"回落"。
+ *  ② 有私有索引 ⇒ 必须它自己还在位、暂存面还取得到、且逐条等于声明集(既不缺声明件、
+ *     也不混外来件),否则这一面已经不是钩子当时那一面。
+ *  ③ ② 里任何一环取不到 ⇒ `undetermined`(调用方须据此落 `ran:false`,由
+ *     `decideWithCommitMsgStage` 折算成「commit-msg-未判定」)。**绝不**回落到共享索引重跑 ——
+ *     那正是本型的成因;失效方向恒为"多要一次定向说明"(§0.3/§0.10),不是"多放一次跳门"。
+ *
+ * 为什么这里不做"读钩子日志里那行结论":`.ihui-agent/state/hook-logs/*.log` 与
+ * `.git/COMMIT_EDITMSG` 同属**共享可变态**(多会话随时改写),把归因建在别人会写的行上,
+ * 红了不知道是谁的、绿了也不知道 —— 本模块 ① 那条注记已经为同一型错误拒绝过一次。
+ *
+ * @param hookIndexFile 本枚提交交给钩子的索引指针(GIT_INDEX_FILE);null/空 ⇒ git 用默认索引
+ * @param indexExists   该指针指向的文件当前是否存在;取不到一律传 null(不得猜 false 了事)
+ * @param stagedFiles   该面此刻的暂存清单(正/反斜杠皆可);取不到传 null
+ * @param declaredFiles 本枚声明集;取不到传 null
+ * @returns {{use:'shared-default'|'private-index'|'undetermined', indexFile:string|null, why:string|null}}
+ */
+export function decideCommitMsgStageIndexFace({
+  hookIndexFile = null,
+  indexExists = null,
+  stagedFiles = null,
+  declaredFiles = null,
+} = {}) {
+  const raw = typeof hookIndexFile === 'string' ? hookIndexFile.trim() : null
+  // ① 本枚没有把私有索引交给钩子 ⇒ 钩子看的就是默认索引,继承 env 即同一面。
+  if (!raw) return { use: COMMIT_MSG_FACE.DEFAULT, indexFile: null, why: null }
+  const undetermined = (why) => ({ use: COMMIT_MSG_FACE.UNDETERMINED, indexFile: raw, why })
+  // ② 三面输入逐条现读;任一取不到只说明"这一面没法自证",既不说明"它绿"也不说明"它不是我的"。
+  if (indexExists !== true)
+    return undetermined(`私有索引不在位或存在性取不到(实得 ${JSON.stringify(indexExists)}):${raw}`)
+  if (!Array.isArray(stagedFiles))
+    return undetermined(`私有索引的暂存面取不到(git diff --cached 无输出):${raw}`)
+  if (!Array.isArray(declaredFiles))
+    return undetermined(`本枚声明集取不到,无法与私有索引面对账:${raw}`)
+  // Windows 实测:git 输出正斜杠、声明集可能带反斜杠 —— 归一化只对齐形状,不比内容。
+  const norm = (p) =>
+    String(p ?? '')
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+  const face = stagedFiles.map(norm)
+  const declared = declaredFiles.map(norm)
+  const faceSet = new Set(face)
+  const declaredSet = new Set(declared)
+  const missing = declared.filter((p) => !faceSet.has(p))
+  if (missing.length)
+    return undetermined(
+      `私有索引里已没有本枚声明集的 ${missing.length} 条(如 ${missing.slice(0, 3).join(', ')})` +
+        ` ⇒ 这一面不再是钩子当时看到的那一面:${raw}`,
+    )
+  const extra = face.filter((p) => !declaredSet.has(p))
+  if (extra.length)
+    return undetermined(
+      `私有索引里多出 ${extra.length} 条非声明件(如 ${extra.slice(0, 3).join(', ')})` +
+        ` ⇒ 在它上面复跑会把别人的件算进本枚:${raw}`,
+    )
+  return { use: COMMIT_MSG_FACE.PRIVATE, indexFile: raw, why: null }
 }
 
 /** 逐条派生复跑;出口抛异常/返回怪形状一律折成"跑不动",绝不折成绿。 */
@@ -3136,6 +3217,8 @@ export const __test__ = {
   needsBatchSelfRun,
   decideWithSelfRunBatch,
   parseCommitMsgStageChecks,
+  decideCommitMsgStageIndexFace,
+  COMMIT_MSG_FACE,
   decideWithCommitMsgStage,
   COMMIT_MSG_UNDETERMINED_NAME,
   SUMMARY,

@@ -30,7 +30,7 @@ export function VipBenefitScreen() {
       if (!r.success) throw new Error()
       setItems(toVipBenefitItems(r.data?.list ?? [], t))
     } catch {
-      setError(t('vipBenefit.loadFailed'))
+      setError(t('member.benefits.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -47,6 +47,7 @@ export function VipBenefitScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

@@ -9,7 +9,7 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleChatMessage, CircleChatScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginBottom: rnSpacing.sm,
     },
-    title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     list: { flex: 1 },
     msg: {
       maxWidth: '85%',
@@ -143,15 +143,15 @@ function createStyles(tk: AppThemeTokens) {
     msgUser: { alignSelf: 'flex-end', backgroundColor: tk.brand.cta },
     msgOther: { alignSelf: 'flex-start', backgroundColor: tk.surface.card },
     msgAuthor: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '600',
       color: tk.brand.DEFAULT,
       marginBottom: rnSpacing.sm,
     },
-    msgText: { fontSize: 16 },
+    msgText: { fontSize: rnType.title.size },
     msgTextUser: { color: tk.surface.light },
     msgTextOther: { color: tk.text.primary },
-    msgTime: { marginTop: rnSpacing.sm, fontSize: 10 },
+    msgTime: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size },
     msgTimeUser: { color: tk.surface.light },
     msgTimeOther: { color: tk.text.tertiary },
     inputRow: {
@@ -166,19 +166,19 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
-      fontSize: 16,
+      paddingVertical: rnSpacing['md-loose'],
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
     sendBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     sendBtnDisabled: { opacity: 0.5 },
-    sendBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    sendBtnText: { color: tk.surface.light, fontSize: rnType.title.size, fontWeight: '600' },
     center: {
       flex: 1,
       alignItems: 'center',
@@ -187,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     error: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.danger.DEFAULT,
       textAlign: 'center',
       marginBottom: rnSpacing.sm,

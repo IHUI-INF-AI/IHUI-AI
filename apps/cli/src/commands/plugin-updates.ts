@@ -19,7 +19,6 @@
  *   1 = 有 refused(本地脏 / 验不过 / 跳代)或存在 available 且计划未落
  *   2 = 有 unjudged(输入取不到)—— 这一档**永不**被读成"已是最新"
  */
-import type { Command } from 'commander';
 import { isDirectRunMain } from '../util/main-module.js';
 import { checkUpdates, planUpdate, type CheckUpdatesReport, type UpdatePlanReport } from '../plugins/update-plan.js';
 import { explicitMarketplaces, loadRegisteredMarketplaces, type RegisteredMarketplacesOutcome } from '../plugins/marketplace.js';
@@ -31,7 +30,7 @@ export interface PluginUpdatesCliResult {
 }
 
 /** `--marketplace` 可重复;一个都没给时回落到只读的登记台账(不存在 ⇒ 全部候选 unjudged) */
-export function resolveMarketplaces(roots: readonly string[]): RegisteredMarketplacesOutcome {
+function resolveMarketplaces(roots: readonly string[]): RegisteredMarketplacesOutcome {
   return roots.length > 0 ? explicitMarketplaces(roots) : loadRegisteredMarketplaces();
 }
 
@@ -146,33 +145,6 @@ export async function runPluginUpdatesCli(argv: readonly string[]): Promise<Plug
   }
 
   return { exitCode: exitCodeOf(plan, checks), ...(checks ? { checks } : {}), ...(plan ? { plan } : {}) };
-}
-
-/**
- * 供根 program 注册(主席接线用,一行:`registerPluginUpdatesCommand(program)`)。
- * 刻意与"直执行形态"共用同一个 `runPluginUpdatesCli`,不各写一遍 argv 解析(§0.6)。
- */
-export function registerPluginUpdatesCommand(program: Command): void {
-  program
-    .command('plugin-updates')
-    .description('插件更新判定与计划(对标对照程序的 autoUpdate;只读,验不过就不落,本地脏就停)')
-    .option('--check-updates', '判已登记市场里每个插件有没有新版本(up-to-date/available/unjudged)')
-    .option('--plan-update', '出安全更新计划(不落地):直接后继 + 逐文件完整性 + 本地脏让路')
-    .option('--marketplace <root>', '显式指定一枚已登记市场的本地检出根(可重复)')
-    .option('--name <plugin>', '只判这一枚插件(可重复)')
-    .option('--plugins-root <dir>', '覆盖装机根(默认 ~/.ihui/installed-plugins)')
-    .option('--json', '机器可读结论')
-    .action(async (opts: Record<string, unknown>) => {
-      const argv: string[] = [];
-      if (opts['checkUpdates']) argv.push('--check-updates');
-      if (opts['planUpdate']) argv.push('--plan-update');
-      if (opts['json']) argv.push('--json');
-      for (const v of [opts['marketplace']].flat()) if (typeof v === 'string') argv.push('--marketplace', v);
-      for (const v of [opts['name']].flat()) if (typeof v === 'string') argv.push('--name', v);
-      if (typeof opts['pluginsRoot'] === 'string') argv.push('--plugins-root', opts['pluginsRoot']);
-      const r = await runPluginUpdatesCli(argv);
-      process.exitCode = r.exitCode;
-    });
 }
 
 if (isDirectRunMain(import.meta.url)) {

@@ -14,7 +14,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, HelpCircle } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { createAsk, getAskById, updateAsk } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
@@ -89,9 +89,9 @@ export default function AskEditScreen() {
     setLoading(true)
     setLoadError('')
     try {
-      const res = await fetchApi<{ ask: AskDetail }>(`/api/asks/${encodeURIComponent(editingId)}`)
+      const res = await getAskById(editingId)
       if (!res.success) throw new Error(apiFailureToText(res, t('askEdit.loadFailed')))
-      const ask = res.data?.ask
+      const ask = res.data?.ask as unknown as AskDetail
       if (!ask) throw new Error(t('askEdit.loadFailed'))
       setForm({
         title: ask.title ?? '',
@@ -146,13 +146,10 @@ export default function AskEditScreen() {
     setSaving(true)
     setError('')
     try {
-      const body = JSON.stringify({ title, content, tags })
+      const payload = { title, content, tags }
       const res = editingId
-        ? await fetchApi<{ ask: AskDetail }>(`/api/asks/${encodeURIComponent(editingId)}`, {
-            method: 'PATCH',
-            body,
-          })
-        : await fetchApi<{ ask: AskDetail }>('/api/asks', { method: 'POST', body })
+        ? await updateAsk(editingId, payload)
+        : await createAsk(payload)
       if (!res.success) throw new Error(apiFailureToText(res, t('askEdit.saveFailed')))
       if (editingId) navigation.navigate('AskDetail', { id: editingId })
       else navigation.navigate('AskList')
@@ -272,7 +269,7 @@ const styles = StyleSheet.create({
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,
@@ -284,7 +281,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
@@ -293,7 +290,7 @@ const styles = StyleSheet.create({
   retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

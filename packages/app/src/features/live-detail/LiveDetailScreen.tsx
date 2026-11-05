@@ -24,6 +24,8 @@ import type {
 } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
+import { formatDateByTemplate } from '@ihui/shared/utils/date-utils'
 
 /**
  * 直播详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -81,11 +83,17 @@ export function LiveDetailScreen({
   onInputChange,
   onSend,
   onSubscribe,
-  onBack,
-  colorScheme = 'light',
-}: LiveDetailScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: LiveDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)
+  usePublishShareIntent({
+    title: live ? t('share.liveTitle', { title: live.title }) : t('share.appTitle'),
+    timelineTitle: live ? t('share.liveTitle', { title: live.title }) : t('share.timelineTitle'),
+    imageUrl: live?.coverUrl,
+  })
   const listRef = useRef<FlatList<LiveDetailChatMessage> | null>(null)
 
   // 新消息到达后自动滚到底部(避免键盘弹起抢焦点)
@@ -101,7 +109,7 @@ export function LiveDetailScreen({
     return (
       <ErrorState
         message={error || t('liveDetail.empty')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -124,6 +132,11 @@ export function LiveDetailScreen({
               {live.isLive ? t('liveDetail.ongoing') : t('liveDetail.upcoming')}
             </Text>
           </View>
+          {live.startTime ? (
+            <View style={styles.badgeMuted}>
+              <Text style={styles.badgeMutedText}>{formatDateByTemplate(live.startTime)}</Text>
+            </View>
+          ) : null}
           {live.lecturerName ? (
             <View style={styles.badgeMuted}>
               <Text style={styles.badgeMutedText}>
@@ -284,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
     videoHint: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.tertiary },
     videoUrl: {
       marginTop: rnSpacing.sm,
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.secondary,
       paddingHorizontal: rnSpacing['sm-loose'],
     },
@@ -340,9 +353,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       marginRight: rnSpacing.sm,
     },
-    chatTime: { fontSize: 10, color: tk.text.tertiary },
+    chatTime: { fontSize: rnType.badge.size, color: tk.text.tertiary },
     chatContent: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.primary },
-    chatErrorText: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.danger.DEFAULT },
+    chatErrorText: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.badge.size,
+      color: tk.danger.DEFAULT,
+    },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -356,12 +373,12 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       fontSize: rnType.title.size,
       color: tk.text.primary,
       backgroundColor: tk.surface.muted,
     },
-    sendBtn: { paddingHorizontal: 14, paddingVertical: rnSpacing.sm },
+    sendBtn: { paddingHorizontal: rnSpacing['md-loose'], paddingVertical: rnSpacing.sm },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

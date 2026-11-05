@@ -9,7 +9,8 @@ import { appAlert } from '../components/BottomPops'
 import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createAigcTask, uploadFileMultipart, resolveFileUrl } from '@ihui/api-client'
+import { createAigcTask, resolveFileUrl } from '@ihui/api-client'
+import { uploadFileWithProgress } from './AigcPublishUpload'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   AigcPublishScreen as SharedAigcPublishScreen,
@@ -18,6 +19,7 @@ import {
 } from '@ihui/rn-app'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -33,6 +35,8 @@ export default function AigcPublishScreen() {
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  /** 真实上传进度端口:0-100,来自 expo UploadTask 的 bytesSent/totalBytes;undefined = 未知 */
+  const [uploadProgress, setUploadProgress] = useState<number | undefined>(undefined)
   const [error, setError] = useState('')
   const [urlInput, setUrlInput] = useState('')
 
@@ -73,13 +77,17 @@ export default function AigcPublishScreen() {
       const asset = result.assets?.[0]
       if (!asset?.uri) return
       setUploading(true)
+      setUploadProgress(0)
       setError('')
       const isVideo = asset.type === 'video'
-      const res = await uploadFileMultipart({
-        uri: asset.uri,
-        type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
-        name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-      })
+      const res = await uploadFileWithProgress(
+        {
+          uri: asset.uri,
+          type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+          name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+        },
+        { onUploadProgress: (percent) => setUploadProgress(percent) },
+      )
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
         setFiles((prev) => [...prev, { id: res.data!.id, url }])
@@ -90,6 +98,7 @@ export default function AigcPublishScreen() {
       setError(t('aigcPublish.errorPickFailed'))
     } finally {
       setUploading(false)
+      setUploadProgress(undefined)
     }
   }
 
@@ -149,6 +158,8 @@ export default function AigcPublishScreen() {
     }
   }
 
+  const { onToast } = useHostPorts()
+
   return (
     <SharedAigcPublishScreen
       t={t}
@@ -161,6 +172,7 @@ export default function AigcPublishScreen() {
       urlInput={urlInput}
       saving={saving}
       uploading={uploading}
+      uploadProgress={uploadProgress}
       error={error}
       onWorkTypeChange={(wt) => {
         setWorkType(wt)
@@ -177,6 +189,7 @@ export default function AigcPublishScreen() {
       onSubmit={onSubmit}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onToast={onToast}
     />
   )
 }

@@ -115,7 +115,7 @@ export default function AdminDistributionPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">分销中心</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-body text-muted-foreground">
           管理分销订单、佣金结算、规则配置与提现审核
         </p>
       </div>
@@ -129,7 +129,7 @@ export default function AdminDistributionPage() {
             <Card key={s.label}>
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <span className="text-body text-muted-foreground">{s.label}</span>
                   <Icon className={`h-4 w-4 ${s.tone}`} />
                 </div>
                 <div className="mt-2 text-display font-bold tracking-tight">
@@ -160,7 +160,7 @@ export default function AdminDistributionPage() {
                       </div>
                       <div>
                         <div className="font-medium">{e.label}</div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">{e.desc}</div>
+                        <div className="mt-0.5 text-label text-muted-foreground">{e.desc}</div>
                       </div>
                     </div>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />

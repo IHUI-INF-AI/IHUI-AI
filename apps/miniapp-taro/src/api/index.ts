@@ -5,8 +5,8 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
-import Taro from '@tarojs/taro'
 import { BASE_URL } from '../utils/api-config'
+import { getMiniappVersion } from '../utils/app-version'
 import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
@@ -61,6 +61,8 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
+// 模型列表统一接口:共享端点 fetchModels 与后端 /api/llm/models 同口径,端内不再直拼裸路径。
+import { fetchModels as fetchModelsShared } from '@ihui/api-client'
 // D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
 // D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
@@ -107,6 +109,8 @@ import {
   rateChatMessage as _rateChatMessage,
   sendToolApprovalResponse as _sendToolApprovalResponse,
 } from '@ihui/api-client'
+// 门 300 存量 A 类收口(2026-11-05):等级总览 / 帮助文章走共享端点,端内不再直拼路径。
+import { getCurrentLevel, listHelpArticles } from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -289,7 +293,10 @@ export const getOrderList = (params?: { page?: number; pageSize?: number; status
  * (向前翻页按 id 去重的唯一锚点,见 pkg-ai/ai/server-chat-replay.ts 的 mapServerMessage)。
  * 注:api-client chat.ts 有 ConversationMessage(DB 持久化层),与此处 UI 层 ChatMessage 语义不同。
  */
-export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 'role'> {
+export interface ChatMessage extends Omit<
+  BaseChatMessage,
+  'id' | 'createdAt' | 'role' | 'parentMessageId'
+> {
   /** Miniapp 端只使用 user / assistant 两种角色(不发送 system) */
   role: 'user' | 'assistant'
   /** 服务端消息 id;端内流式行在拿到落库 id 前为空,故不得当必填读 */
@@ -312,6 +319,14 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'id' | 'createdAt' | 
   /** #12 小程序 AI 增强:工具卡片渲染数据(计划 / 工具 / 终端),
    *  由 SSE 事件累积写入助手消息,随历史持久化;对齐 web 端 message.planSteps/toolCalls/terminalTasks */
   aiCards?: AICardsData
+  /**
+   * 版本族坐标(服务端盖章;端内 live 行没有这两个字段)。
+   * 族根 = `parentMessageId ?? id`,成员按 `siblingIndex` 升序 —— 判族/枚举的唯一入口是
+   * `@ihui/shared/chat/message-version-family` 的 `hasVersionFamilyCoords` / `versionFamilyMembers`,
+   * 端内**不得**另写一套判据(§22c)。
+   */
+  parentMessageId?: string | null
+  siblingIndex?: number | null
 }
 
 // ChatOptions / ChatResult 已下沉到 @ihui/api-client(endpoints/chat.ts),上方 re-export
@@ -348,6 +363,12 @@ export interface MiniappStreamOptions extends ChatOptions {
    *  值域唯一源 = @ihui/types 的封闭联合,端内不得抄第二份档位字面量。
    *  小程序侧首票只做**通道**(控件另票,见 D130 第 5 栏"通道在位、控件另票")。 */
   reasoningEffort?: ReasoningEffort
+  /** 票59 小程序腿(2026-11-01):regenerate sibling 新回复的版本族坐标。
+   *  经请求体 metadata 透传(网关 chatStreamSchema.metadata 已显式声明这两键,
+   *  载荷键与 web streamChat 的 metadata.parentMessageId/siblingIndex 逐字同形);
+   *  不声明/不发 ⇒ 回复落库不带族,版本切换整链空转。 */
+  parentMessageId?: string
+  siblingIndex?: number
 }
 
 /**
@@ -691,6 +712,12 @@ export const chatStream = async (
     reasoningEffort: options.reasoningEffort,
     tools: options.tools,
     tool_choice: options.tool_choice,
+    // 票59 小程序腿:版本族坐标走 metadata(与 apps/api ai-chat-stream.ts 的
+    // chatStreamSchema.metadata 声明面对齐;两键缺一即不发 ⇒ 普通回复请求体零变化)。
+    metadata:
+      options.parentMessageId !== undefined && options.siblingIndex !== undefined
+        ? { parentMessageId: options.parentMessageId, siblingIndex: options.siblingIndex }
+        : undefined,
   })
 
   // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
@@ -784,11 +811,7 @@ export const getVipOrderPayInfo = (orderNo: string) =>
 // 与 web points/page.tsx 的 levelQ 同源;coupons 后端无用户侧查询端点(现读零命中)⇒ 恒 0,
 // 与调用方 catch 空对象的既有显示一致。
 export const getMemberInfo = (): Promise<MemberInfo> =>
-  get<{
-    current?: { name: string }
-    experience?: number
-    points?: { points: number }
-  }>('/api/levels/current').then((r) => ({
+  unwrapApi(getCurrentLevel()).then((r) => ({
     level: r.current?.name ?? '',
     integral: r.points?.points ?? 0,
     growth: r.experience ?? 0,
@@ -1158,14 +1181,23 @@ export const getExamList = (params?: {
   categoryId?: string
   paperType?: 'normal' | 'random' | 'mock' | 'exam'
 }) => get<{ list: Exam[]; total: number }>('/exam/papers', params)
-export type QuestionType =
-  'single_choice' | 'multi_choice' | 'judgment' | 'fill_blank' | 'subjective'
-// ExamPaper 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export
-// ExamQuestion 已 re-export 自 @ihui/api-client(见文件顶部)
-// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder }
-// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null }
-// 后端 /exam/papers/:id/questions 实际返回与 api-client 一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)
-// QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
+// 题型词表与作答判据的单一来源:@ihui/api-client(endpoints/exam.ts) 的
+// ShellQuestionType / toShellQuestionType / toShellOptionTexts / toShellOptionKeys /
+// serializeExamAnswers,三端同一份。端内不再自留 'multi_choice'/'fill_blank' 那套旧词表 ——
+// 它与后端实际返回值不符,曾让 answer.tsx 的 typeLabel 五种题型全部落进 default(一律显示"单选题"),
+// 并让作答按下标提交(题库 answer 存的是选项 key "A"/["A","B"],下标恒判错)。
+export {
+  serializeExamAnswers,
+  toShellOptionTexts,
+  toShellQuestionType,
+  type ExamAnswerValue,
+  type ShellQuestionType,
+} from '@ihui/api-client'
+// ExamPaper / ExamQuestion 已下沉到 @ihui/api-client(endpoints/exam.ts),上方 re-export。
+// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder };
+// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null },
+// 与后端 /exam/papers/:id/questions 的实际返回一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)。
+// ⇒ 本端一律吃 api-client 的原始形状,渲染时才用 toShellQuestionType/toShellOptionTexts 投影。
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
   get<{ exam: ExamPaper; questions: ExamQuestion[] }>(`/exam/papers/${id}/questions`).then((r) => ({
@@ -1342,7 +1374,7 @@ export const getTeacherDetail = (id: string | number) => get<Teacher>(`/teacher/
 
 /**
  * 关于页 —— 打在册的 GET /api/about(docs 表 admin 已发布的 about-us 文档)。
- * 分工不造假：正文取服务端真实文档，App 版本号取端内 `Taro.getAccountInfoSync()`
+ * 分工不造假：正文取服务端真实文档，App 版本号取端内唯一出口 `utils/app-version`
  * (服务端版本号不是用户看到的 App 版本)，logo 缺省由页面用本地图 `/pkg-about/assets/images/logo.png`。
  * 未发布时后端如实 404 ⇒ 这里抛出，页面保留既有"加载失败"提示而不是显示编出来的文案。
  */
@@ -1359,12 +1391,14 @@ export const getAbout = async (): Promise<{
     .find((s) => s.length > 0)
   return {
     name: r?.doc?.title ?? '',
-    version: Taro.getAccountInfoSync?.()?.miniProgram?.version ?? '',
+    version: getMiniappVersion(),
     intro: (firstBlock ?? '').replace(/^#{1,6}\s*/, ''),
   }
 }
 export const getHelp = () =>
-  get<{ list: Array<{ id: string; title: string; content: string }> }>('/api/help/articles')
+  unwrapApi(listHelpArticles()).then((r) => ({
+    list: r.list.map((h) => ({ id: h.id, title: h.title, content: h.content ?? '' })),
+  }))
 export const getPrivacy = () => get<{ content: string }>('/privacy')
 export const getContact = () =>
   get<{ phone: string; email: string; address: string; qq?: string }>('/contact')
@@ -1449,6 +1483,29 @@ export const getPrivateMessages = (params?: { page?: number; pageSize?: number }
 export const getRoomHistory = (roomId: string, page = 1) =>
   get(`/messages/rooms/${roomId}/history`, { page })
 export const markRoomRead = (roomId: string) => post(`/messages/rooms/${roomId}/read`)
+/** 站内消息分页(GET /messages;参数名 msgType 与后端 schema 现读对齐,RN 屏旧写法 `type=` 不在 schema 内) */
+export const getMessages = (params: { page?: number; pageSize?: number; msgType?: string }) =>
+  get<{
+    list: Array<{
+      id: string
+      title: string | null
+      content: string | null
+      msgType: string
+      isRead: boolean
+      createdAt: string
+    }>
+    page: number
+    pageSize: number
+    total: number
+  }>('/messages', params)
+/** 标记单条站内消息已读(PUT /messages/:id/read,后端按属主校验) */
+export const markMessageRead = (id: string) => put(`/messages/${id}/read`)
+/** 删除单条站内消息(DELETE /messages/:id) */
+export const deleteMessage = (id: string) => del(`/messages/${id}`)
+/** 标记私信已读(POST /messages/private/:pid/read) */
+export const markPrivateRead = (pid: string) => post(`/messages/private/${pid}/read`)
+/** 删除私信(DELETE /messages/private/:pid) */
+export const deletePrivateMessage = (pid: string) => del(`/messages/private/${pid}`)
 
 /* ============ 通知偏好 ============ */
 export interface NotificationPreferences {
@@ -1765,7 +1822,7 @@ export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', param
 /** 获取 AI 团队智能体类型 */
 export const getAgentType = () => get('/agents/types')
 /** 获取模型列表（统一接口） */
-export const getCozeApiList = (params?: ApiParams) => get('/api/llm/models', params)
+export const getCozeApiList = () => fetchModelsShared()
 
 /* ============ 音频 / Sora ============ */
 /** Sora 请求结束 */

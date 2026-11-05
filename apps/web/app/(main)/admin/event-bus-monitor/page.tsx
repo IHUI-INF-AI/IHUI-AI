@@ -81,7 +81,7 @@ export default function EventBusMonitorPage() {
           <Webhook className="h-6 w-6 text-primary" />
           {t('eventBus.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('eventBus.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('eventBus.subtitle')}</p>
       </div>
 
       {/* 统计卡片 */}
@@ -123,8 +123,8 @@ export default function EventBusMonitorPage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">{t('eventBus.colName')}</th>
                   <th className="px-4 py-2.5 font-medium">{t('eventBus.colSource')}</th>

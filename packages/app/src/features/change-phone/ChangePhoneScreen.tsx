@@ -13,10 +13,11 @@ import { TextField } from '../../components/TextField'
 import { Tappable } from '@ihui/ui-native'
 
 /** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
- *  原屏硬编码中文(无 i18n),共享层保持原样不接入 t()。 */
+ *  用户可见文案一律走注入的 t(),键与 web 同源(门 291)。 */
 export type { ChangePhoneScreenProps }
 
 export function ChangePhoneScreen({
+  t,
   phoneNumber,
   codeValue,
   phoneHead,
@@ -90,14 +91,18 @@ export function ChangePhoneScreen({
             style={styles.input}
             value={codeValue}
             onChangeText={onCodeChange}
-            placeholder="验证码"
+            placeholder={t('user.security.code')}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="number-pad"
             maxLength={6}
           />
           {sendCodeShow ? (
-            <Tappable style={styles.sendBtn} onPress={onSendCode} accessibilityLabel="发送验证码">
-              <Text style={styles.sendText}>发送验证码</Text>
+            <Tappable
+              style={styles.sendBtn}
+              onPress={onSendCode}
+              accessibilityLabel={t('user.security.sendCode')}
+            >
+              <Text style={styles.sendText}>{t('user.security.sendCode')}</Text>
             </Tappable>
           ) : codeMin > 0 ? (
             <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
@@ -132,7 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: rnSpacing['2xl'] },
     title: {
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       textAlign: 'center',
@@ -156,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing.md,
     },
     areaText: { fontSize: rnType.title.size, color: tk.text.medium },
-    areaArrow: { fontSize: 10, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
+    areaArrow: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
     input: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary, padding: 0 },
     sendBtn: { paddingLeft: rnSpacing.md },
     sendText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.brand.DEFAULT },
@@ -177,7 +182,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       gap: rnSpacing.md,
     },

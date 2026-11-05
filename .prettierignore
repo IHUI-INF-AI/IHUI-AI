@@ -81,3 +81,24 @@ AGENTS.md
 # 于是 lint-staged 每次 commit 一跑 --write,`--check` 就永远红 —— 与上面 openapi.json /
 # capabilities.json 的 O8 判据同一形态。格式化对这份机器产物没有价值,对可比性有破坏。
 apps/ai-service/app/data/tool_name_sets.json
+
+# fork 元素级归类台账(scripts/measure-cross-end-fork-elements.mjs --write 的产物):
+# 生成器按 JSON.stringify 展开短数组,prettier 会把 ["补表","落最近档"] 折回一行 ⇒ 每次重生成都制造
+# 纯格式 diff,并把"台账变了"和"排版变了"混在同一次读数里。生成物同 drizzle meta / desktop-feed 策略:
+# 不进格式门禁,形状以生成器为准(新鲜度由 measure 自己的判据核对,不靠 prettier)。
+scripts/data/cross-end-fork-decisions.json
+
+# Z30 具名豁免(2026-11-06 代裁,AGENTS §24;决策全文与复审口径见 .ihui-agent/tmp/rea-goal-b49/Z30-impl.md):
+# apps/cli/src/tools/command-policy/syntax-*.ts 这一族「命令语法登记表」退出 prettier 受管面。
+# owner: goal-b49/Z30 席(拆档卫生票);expires: 2027-01-31(到期必须复评,不是永久免)。
+# evidence: ① 现读 `node scripts/check-format-changed.mjs --worktree` 的点名面(本档之后不再点这一族);
+#   ② Z14 一手实测:一跑 `prettier --write` 就把 62 条 commandSpec 登记按 printWidth 100 逐条折行,
+#     行数从 738 冲到千余 ⇒ 直接顶穿 AGENTS §3 的「每页 <250 行」档,与 Z14 刚做完的拆档动作反向
+#     (原话见 .ihui-agent/tmp/rea-goal-b49/Z14-impl.md §格 3)。
+# why(可整改性 §5e-1):这些行的可读性判据是「一条登记一行」—— 逐行才看得出哪条在册、改过哪条;
+#   prettier 的折行把两条以上登记挤进同一物理行,对账与 diff 双双失效。格式化对本族没有价值、
+#   对问责面有破坏,与上方 openapi.json / i18n 语言包 / drizzle meta 同一策略。
+# 到期复评出口(二选一,不得原样续期):① 把登记表改写成结构化数据 + 造页器,让行长短不再承载语义,
+#   随即摘掉本行让格式门重新接管;② 按族拆分到每档 <250 行后逐档摘除。
+# 刻意**不**改判据本体(scripts/check-format-changed.mjs 与 lint-staged 一律未动,§12e/§0.2)。
+apps/cli/src/tools/command-policy/syntax-*.ts

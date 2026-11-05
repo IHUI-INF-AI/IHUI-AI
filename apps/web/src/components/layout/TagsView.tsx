@@ -542,7 +542,7 @@ export function TagsView() {
           // 翻译 fallback 链:tTagsView('empty') → '暂无打开的页面'
           <span
             data-testid="tagsview-empty"
-            className="select-none whitespace-nowrap px-1 text-xs text-muted-foreground/70"
+            className="select-none whitespace-nowrap px-1 text-label text-muted-foreground/70"
           >
             {tTagsView('empty')}
           </span>
@@ -582,7 +582,7 @@ export function TagsView() {
                   //   的 h-full 会把标签跟着拉成 44px(比窗口按钮/搜索/Plus 的 36px 高 8px),
                   //   故用 h-9 显式锁回 36px(twMerge 后写覆盖前写)。
                   TOPBAR_BTN_BASE,
-                  'group relative h-9 min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-xs',
+                  'group relative h-9 min-w-0 max-w-[200px] cursor-pointer gap-1 pl-8 pr-1 text-label',
                   active
                     ? // active(当前显示页面):外描边突出当前页,不占元素内部空间。
                       //   2026-08-13 用户反馈:pure black/white 太突兀,定稿 outline-2 outline-border(主题灰)。
@@ -666,7 +666,7 @@ export function TagsView() {
               handleClose(new MouseEvent('click') as unknown as React.MouseEvent, ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             <X className="h-4 w-4" />
             {tCommon('close')}
@@ -679,7 +679,7 @@ export function TagsView() {
               togglePin(ctxMenu.path)
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
           >
             {pinnedPaths.has(ctxMenu.path) ? (
               <PinOff className="h-4 w-4" />
@@ -696,7 +696,7 @@ export function TagsView() {
               closeAll()
               setCtxMenu(null)
             }}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive hover:bg-destructive/20 focus:bg-destructive/20 focus:outline-none"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-body text-destructive hover:bg-destructive/20 focus:bg-destructive/20 focus:outline-none"
           >
             <XCircle className="h-4 w-4" />
             {tCommon('closeAll')}
@@ -727,9 +727,11 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   // spec 为 null 时也必须无条件调用 useTranslations(React hook 规则)
   const t = useTranslations(spec?.ns ?? 'common')
   if (dynamicLabel)
-    return <span className="min-w-0 flex-1 truncate text-sm leading-none">{dynamicLabel}</span>
+    return <span className="min-w-0 flex-1 truncate text-body leading-none">{dynamicLabel}</span>
   if (!spec)
-    return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
+    return (
+      <span className="min-w-0 flex-1 truncate text-body leading-none">{deriveTitle(path)}</span>
+    )
   // 2026-07-29 根治"标签栏显示 i18n 键名"问题:
   // next-intl 的 t() 在 key 缺失时不会抛错,而是调用 onError 后返回 key 路径字符串
   // (如 "aiChat.title"),导致标签栏直接显示键名。原 try/catch 永远进不去 catch 分支。
@@ -739,9 +741,11 @@ const TagLabel = React.memo(function TagLabel({ path }: { path: string }) {
   // (见 use-intl 内部 resolvePath 只判 next == null),而 t() 对非字符串抛 FORMATTING_ERROR
   // 后回退成裸键名 —— 那是比英文兜底更糟的形态,必须在这里挡住。
   if (!t.has(spec.key) || typeof t.raw(spec.key) !== 'string') {
-    return <span className="min-w-0 flex-1 truncate text-sm leading-none">{deriveTitle(path)}</span>
+    return (
+      <span className="min-w-0 flex-1 truncate text-body leading-none">{deriveTitle(path)}</span>
+    )
   }
-  return <span className="min-w-0 flex-1 truncate text-sm leading-none">{t(spec.key)}</span>
+  return <span className="min-w-0 flex-1 truncate text-body leading-none">{t(spec.key)}</span>
 })
 
 /**

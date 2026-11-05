@@ -46,7 +46,7 @@ export default function LevelBadge({
   const colorClass = LEVEL_COLORS[level] || LEVEL_COLORS[0]
   const sizeClass =
     size === 'sm'
-      ? 'px-2 py-[4rpx] text-[length:20rpx]'
+      ? 'px-2 py-[4rpx] text-badge leading-[normal]'
       : size === 'lg'
         ? 'px-3 py-1 text-sm'
         : 'px-[20rpx] py-[4rpx] text-xs'
@@ -57,7 +57,7 @@ export default function LevelBadge({
         <Text>{displayTitle}</Text>
       </View>
       {nextLevelTitle && progress > 0 && progress < 100 && (
-        <Text className="ml-2 text-badge text-muted-foreground">
+        <Text className="ml-sm text-badge text-muted-foreground">
           {tt('level.distance', '距')} {nextLevelTitle} {Math.floor(progress)}%
         </Text>
       )}

@@ -41,13 +41,14 @@ if TYPE_CHECKING:
 # 默认只在返回体点名(fresh/stale/never_read/undetermined 四档不并桶),显式严格档才拒写。
 # 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
 # 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
+from app.core.bounded_ttl_store import BoundedTtlDict
+from app.core.command_policy_merge import PolicyOutcome, adjudicate_command
 from app.core.file_read_state import (
     judge_read_state,
     read_state_field,
     record_read,
     record_self_write,
 )
-from app.core.bounded_ttl_store import BoundedTtlDict
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
 
@@ -93,6 +94,21 @@ from .session_security import (
 from .session_security import (
     get_vault_store as _get_vault_store,
 )
+
+# 阶段化遥测(缺口表 T9 §10 #3,2026-11-05 Z19):段清单/结论词表/结构化结论行的唯一
+# 出处在这里,消费方(本模块的 _tool_search_codebase)不自立段名,也不自带第二份词表。
+from .stage_telemetry import UNJUDGED, StageRecorder
+
+# 工具面能力门(缺口表 #7,2026-11-01):列表面与执行面共用同一把尺(单源在 tool_surface,
+# 它只依赖 capability_matrix ⇒ 与本模块无回环)。
+from .tool_surface import capability_denial as _tool_capability_denial
+from .tool_surface import filter_visible_tools as _filter_visible_tools
+
+# 工具面惰性装载(缺口表 ⑤,2026-11-05):按具名预算表决定"本轮哪些 schema 进列表"。
+# 判据与能力门/模式收窄全部 import 复用(单源见 tool_surface_budget 头注),本模块只负责
+# 在列表面这一处把它接上;**执行面一律不受影响**(_TOOLS/_TOOL_HANDLERS 一条不动)。
+from .tool_surface_budget import RoundContext as _SurfaceRoundContext
+from .tool_surface_budget import apply_tool_surface_budget as _apply_tool_surface_budget
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -510,8 +526,10 @@ def _get_workspace_roots() -> list[str]:
 # 移除即失效)。
 #
 # 进程级白名单 MCP_WORKSPACE_ROOTS 是启动期一次性设定;本节补**会话级覆盖层**:
-# 键 = 会话 ID(llm.py 主对话链 = conversationId,engine 链 = EngineThread.session_id),
-# 值 = 该会话追加的绝对目录元组。
+# 键 = (已验证主体, 会话 ID)(llm.py 主对话链 主体 = JWT 主体、会话 = conversationId;
+# engine 链 = thread.user_id / EngineThread.session_id),值 = 该会话追加的绝对目录元组。
+# 2026-11-01 安全强化(严重):键此前只有会话 ID,而 conversationId 是客户端自报的
+# metadata 字段 ⇒ 一次未鉴权的登记就能把任意目录挂到**别人**的同名会话上。
 #
 # 注入方式:call_tool 在派发 handler 前把当前会话的附加目录写进 ContextVar,
 # _validate_path_in_workspace 在进程级白名单之外兜底查它(handler 与其 await 链
@@ -534,8 +552,90 @@ _ACTIVE_SESSION_EXTRA_ROOTS: contextvars.ContextVar[tuple[str, ...]] = (
 )
 
 
-def _validate_extra_directory(path: str) -> tuple[bool, str]:
-    """附加目录准入校验:非空、绝对路径、真实存在且是目录、resolve 归一。"""
+# 2026-11-01 安全强化(严重):附加目录**必须是服务端已登记的根之内**。
+#
+# 原准入只判"绝对路径 + 存在 + 是目录"(见下方历史注释),于是 `POST /llm/conversations/
+# {id}/directories` 传 `{"paths":["/"]}` 就把该会话的工具根扩到整盘;`read_file` 用
+# `relative_to(root)` 判包含性 ⇒ `/proc/self/environ`、其他租户目录全部放行。
+# 而 conversation_id 在对话链里就是客户端自报的 metadata 字段 —— 可整写。
+#
+# 现在的判据是两层:
+#   ① 该目录必须落在**本服务的允许根**内(MCP_WORKSPACE_ROOTS ∪ IHUI_WORKSPACE_ROOTS
+#      ∪ 该用户自己的 workspace 目录,见 `_extra_directory_allowed_roots`);
+#   ② 系统根/伪文件系统(/、C:\、/proc、/etc、/sys …)即使被配成白名单也一律拒 ——
+#      "整盘"不是工作区,把根配进来只会把 ① 变成恒真。
+# 符号链接先 `resolve(strict=False)` 再判:判定对象是链接的目标,不是链接自身。
+_SYSTEM_ROOT_SEGMENTS: Final[frozenset[str]] = frozenset(
+    {"proc", "sys", "dev", "etc", "boot", "bin", "sbin", "lib", "lib32", "lib64", "usr"}
+)
+_WINDOWS_SYSTEM_ROOTS: Final[tuple[str, ...]] = (
+    "c:\\windows",
+    "c:\\program files",
+    "c:\\program files (x86)",
+    "c:\\programdata",
+)
+
+
+def _is_system_root(resolved: Path) -> bool:
+    """路径本身是文件系统根 / 系统目录 / 伪文件系统(逐段判,故 /proc/self 也算)。"""
+    if resolved.parent == resolved:  # 文件系统根("/"、C:\ 与 UNC 根)
+        return True
+    text = str(resolved).replace("/", "\\").casefold()
+    if any(text == root or text.startswith(root + "\\") for root in _WINDOWS_SYSTEM_ROOTS):
+        return True
+    parts = [p.casefold() for p in resolved.parts[1:]]
+    return bool(parts) and parts[0] in _SYSTEM_ROOT_SEGMENTS
+
+
+def _extra_directory_allowed_roots(user_id: str | None) -> list[str]:
+    """附加目录的允许根集合(服务端登记值,客户端不可整写)。
+
+    三源合并:
+      · ``MCP_WORKSPACE_ROOTS`` —— 工具侧既有的白名单根(空值按既有契约回落 cwd,
+        与 ``_get_workspace_roots`` 同源,不另造一份解析);
+      · ``IHUI_WORKSPACE_ROOTS`` —— 工作区登记根(``services/workspace_roots.py`` 的
+        唯一出口,LSP/knowledge 面同吃这一份);
+      · 该用户自己的 workspace 目录 —— 仅在部署显式配置
+        ``IHUI_USER_WORKSPACE_ROOT`` 时参与(未配置即不参与,不凭空造一个目录出来)。
+    去重保序;判定用 resolve(strict=False) 归一后的字符串。
+    """
+    roots: list[str] = []
+
+    def _add(candidate: str) -> None:
+        if not candidate:
+            return
+        normalized = str(Path(candidate).resolve(strict=False))
+        if normalized not in roots:
+            roots.append(normalized)
+
+    for root in _get_workspace_roots():
+        _add(root)
+    try:
+        from .workspace_roots import registered_workspace_roots
+
+        for root in registered_workspace_roots():
+            _add(root)
+    except Exception:  # noqa: BLE001 - 登记根读不出来时按"只剩 MCP 根"降级(更严,不是更松)
+        logger.warning("[mcp] 读取 IHUI_WORKSPACE_ROOTS 失败,附加目录仅按 MCP 根判定")
+    if user_id:
+        base = (os.environ.get("IHUI_USER_WORKSPACE_ROOT", "") or "").strip()
+        safe_user = "".join(c for c in str(user_id) if c.isalnum() or c in "-_")[:64]
+        if base and safe_user:
+            _add(str(Path(base).resolve(strict=False) / safe_user))
+    return roots
+
+
+def _validate_extra_directory(
+    path: str,
+    *,
+    allowed_roots: list[str] | tuple[str, ...] | None = None,
+    user_id: str | None = None,
+) -> tuple[bool, str]:
+    """附加目录准入校验:非空、绝对路径、真实存在且是目录、**落在允许根内**、resolve 归一。
+
+    ``allowed_roots`` 缺省 ⇒ 由 ``user_id`` 推导(``_extra_directory_allowed_roots``)。
+    显式传值时按传入集合判(内部调用点/测试自备)。
+    """
     if not path or not path.strip():
         return False, "附加目录路径为空"
     p = Path(path)
@@ -546,24 +646,60 @@ def _validate_extra_directory(path: str) -> tuple[bool, str]:
         return False, f"附加目录不存在: {path}"
     if not resolved.is_dir():
         return False, f"附加目录不是目录: {path}"
-    return True, str(resolved)
+    if _is_system_root(resolved):
+        return False, f"附加目录是系统根/伪文件系统,禁止登记: {path}"
+    roots = (
+        [str(Path(r).resolve(strict=False)) for r in allowed_roots]
+        if allowed_roots is not None
+        else _extra_directory_allowed_roots(user_id)
+    )
+    for root in roots:
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        return True, str(resolved)
+    return False, (
+        f"附加目录不在允许根内: {path}"
+        "(仅允许 MCP_WORKSPACE_ROOTS / IHUI_WORKSPACE_ROOTS / 本人 workspace 目录之内)"
+    )
 
 
-def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]:
-    """**整表替换**某会话的附加目录集(空列表 = 清空)。返回生效集(resolve 归一后)。
+def _session_extra_root_key(user_id: str | None, session_id: str) -> str:
+    """登记表键 = ``(主体, 会话)`` 的复合串(``\\x00`` 分隔,两段都不可含它)。
+
+    2026-11-01 安全强化(严重):键此前只有 session_id,而 session_id
+    (= conversationId)是客户端可整写的 metadata 字段 ⇒ A 用户给会话 X 登记的目录,
+    B 用户跑会话 X 时同样生效("谁先说谁定根")。主体取承载层已验签的 user_id
+    (HTTP 链 = JWT 主体,engine 链 = thread.user_id);空主体归到独立的 unowned
+    命名空间 —— 只由内部链路使用,HTTP 侧永远带主体。
+    """
+    owner = (user_id or "").strip().replace("\x00", "")
+    session = (session_id or "").strip().replace("\x00", "")
+    return f"{owner}\x00{session}"
+
+
+def set_session_extra_roots(
+    session_id: str,
+    dirs: list[str],
+    *,
+    user_id: str | None = None,
+    allowed_roots: list[str] | tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    """**整表替换**某 (主体, 会话) 的附加目录集(空列表 = 清空)。返回生效集。
 
     逐个过准入校验,任一非法整表拒绝(ValueError)—— 不做"合法的留下、非法的丢弃"
     的部分生效(那会把"少追加了"伪装成成功)。移除语义 = 用不含该目录的新表替换。
     """
     resolved: list[str] = []
     for d in dirs:
-        ok, info = _validate_extra_directory(d)
+        ok, info = _validate_extra_directory(d, allowed_roots=allowed_roots, user_id=user_id)
         if not ok:
             raise ValueError(f"附加目录准入被拒: {info}")
         if info not in resolved:
             resolved.append(info)
-    key = (session_id or "").strip()
-    if not key:
+    key = _session_extra_root_key(user_id, session_id)
+    if not (session_id or "").strip():
         raise ValueError("session_id 为空,无法登记附加目录")
     if resolved:
         _SESSION_EXTRA_ROOTS.set(key, tuple(resolved))
@@ -572,14 +708,23 @@ def set_session_extra_roots(session_id: str, dirs: list[str]) -> tuple[str, ...]
     return tuple(resolved)
 
 
-def clear_session_extra_roots(session_id: str) -> None:
-    """移除会话的全部附加目录(移除即失效,不留残根)。"""
-    _SESSION_EXTRA_ROOTS.pop((session_id or "").strip(), None)
+def clear_session_extra_roots(session_id: str, *, user_id: str | None = None) -> None:
+    """移除某 (主体, 会话) 的全部附加目录(移除即失效,不留残根)。"""
+    _SESSION_EXTRA_ROOTS.pop(_session_extra_root_key(user_id, session_id), None)
 
 
-def get_session_extra_roots(session_id: str | None) -> tuple[str, ...]:
-    """读某会话的附加目录集(未登记或已过期返回空元组 ⇒ 扩权不会跨会话永生)。"""
-    return _SESSION_EXTRA_ROOTS.get((session_id or "").strip(), ()) or ()
+def get_session_extra_roots(
+    session_id: str | None, *, user_id: str | None = None
+) -> tuple[str, ...]:
+    """读某 (主体, 会话) 的附加目录集(未登记/已过期/主体不符 ⇒ 空元组)。
+
+    deny-by-default:主体没给或与登记时的主体不一致,一律读不到 —— 扩权不跨用户、
+    不跨会话、不永生。
+    """
+    sid = session_id or ''
+    if not sid.strip():
+        return ()
+    return _SESSION_EXTRA_ROOTS.get(_session_extra_root_key(user_id, sid), ()) or ()
 
 
 def _active_extra_roots() -> tuple[str, ...]:
@@ -779,7 +924,21 @@ def _validate_write_path_in_workspace(
 
 
 # 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
-# 匹配文件名(basename)或路径片段,命中即拒绝读取。
+# 2026-11-01 安全强化(严重):黑名单从"按扩展名/文件名"升级为"**目录级** + 形态补全"。
+#
+# 漏的是什么:此前只按 basename 判,而真实落盘的密钥/库根本不带那些后缀 ——
+# `data/credentials_key`、`data/checkin_fernet_key`(无扩展名)、`data/sessions.db`
+# (`.db` 不在表里)、`.uploads/publish/<他人>/*`(只有图片后缀)全部不命中。
+# `read_file` 又不在 `_ADMIN_ONLY_TOOLS` 里 ⇒ 任意登录用户
+# `POST /api/mcp/tools/call {"name":"read_file","arguments":{"path":"data/sessions.db"}}`
+# 即可整库拉走(会话令牌、凭据密文)。
+#
+# 判据分两层,顺序固定:
+#   ① 目录级:相对**命中根**的第一段命中 `_SENSITIVE_DIR_SEGMENTS` 即拒。
+#      先 resolve(strict=False) 再判 ⇒ `a/../data/x`、symlink 指进 data/ 同样命中;
+#      按"相对根的第一段"而不是"路径里任一段",是因为工作区里另有一层同名目录
+#      (如 `src/data/fixture.json`)不该被整目录封死。
+#   ② 文件级:basename 形态(`_SENSITIVE_FILE_PATTERNS` / `_SENSITIVE_FILE_EXTENSIONS`)。
 _SENSITIVE_FILE_PATTERNS = (
     ".env",                # .env / .env.production / .env.local
     ".npmrc",              # npm token
@@ -793,22 +952,47 @@ _SENSITIVE_FILE_EXTENSIONS = (
     ".key", ".pem", ".crt", ".pfx", ".p12",  # 私钥/证书
     ".keystore", ".jks",  # Java 密钥库
     ".kdbx",  # KeePass 数据库
+    ".db", ".sqlite", ".sqlite3",  # 会话库/凭据库(2026-11-01 补:data/sessions.db 曾全放行)
+)
+# 目录级 denylist:相对根的第一段命中即整目录拒(不猜文件名,新文件天然覆盖)
+_SENSITIVE_DIR_SEGMENTS: Final[frozenset[str]] = frozenset(
+    {"data", ".uploads", "logs", ".ihui-agent", ".git"}
 )
 
 
-def _is_sensitive_file(path: str) -> bool:
-    """检查路径是否为敏感文件(可能含 API key/私钥/凭证)。
+def _is_sensitive_file(path: str, *, roots: list[str] | tuple[str, ...] | None = None) -> bool:
+    """检查路径是否为敏感文件/敏感目录内文件(可能含 API key/私钥/凭证/会话库)。
 
-    匹配规则:
-      1. 文件名 basename 命中 _SENSITIVE_FILE_PATTERNS(含前缀匹配,如 .env.production)
-      2. 扩展名命中 _SENSITIVE_FILE_EXTENSIONS
+    判定对象是**已 resolve 的路径**(调用方 `_validate_path_in_workspace` 已归一);
+    ``roots`` 缺省 = 进程白名单根 ⊕ 当前会话附加根(与实际可读面同源)。
+
+    Returns:
+        True = 拒绝读取。
     """
-    import os
-    basename = os.path.basename(path).lower()
-    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production)
+    resolved = Path(path)
+    candidate_roots = list(
+        roots if roots is not None else (_get_workspace_roots() + list(_active_extra_roots()))
+    )
+    for root in candidate_roots:
+        try:
+            relative = resolved.relative_to(Path(root).resolve(strict=False))
+        except (ValueError, OSError):
+            continue
+        if relative.parts and relative.parts[0].casefold() in _SENSITIVE_DIR_SEGMENTS:
+            return True
+
+    basename = resolved.name.casefold()
+    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production / .envrc)
     for pat in _SENSITIVE_FILE_PATTERNS:
         if basename == pat or basename.startswith(pat + ".") or basename.startswith(pat + "_"):
             return True
+        if pat == ".env" and basename.startswith(".env"):
+            return True  # `.env*` 全族(.envrc / .env.bak / .env_prod)
+        if pat.startswith("id_") and basename.startswith(pat):
+            return True  # id_rsa.pub / id_rsa_backup / id_rsa2 同族
+    # 无扩展名密钥:`credentials_key` / `checkin_fernet_key` / `signing_key`
+    if basename.endswith("_key"):
+        return True
     # 扩展名匹配
     return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
 
@@ -1317,6 +1501,19 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "snapshot_detail": result.snapshot_detail,
             "lock_state": result.lock_state,
             "lock_detail": result.lock_detail,
+            # P84:ignore 剪枝回执(剪了多少 / 谁判的 / 哪些"跟踪但被忽略"被保留)
+            "files_ignored": result.files_ignored,
+            "ignored_by": result.ignored_by,
+            "files_tracked_ignored_kept": result.files_tracked_ignored_kept,
+            "tracked_ignored_kept": result.tracked_ignored_kept,
+            "ignore_notes": result.ignore_notes,
+            # P85:改名判定(精确改名不重嵌入;近同候选只改"删+增"的读法)
+            "files_renamed": result.files_renamed,
+            "rename_candidates": result.rename_candidates,
+            "rename_note": result.rename_note,
+            # T12 缺口表 #1:目录级递归前像差分(整枝搬家只报最浅一枝;歧义族不报)
+            "dir_rhash_note": result.dir_rhash_note,
+            "dirs_moved": result.dirs_moved,
             "errors": result.errors[:10],
             "message": (
                 f"索引完成: 扫描 {result.files_scanned} 文件, "
@@ -1369,6 +1566,9 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     - pattern: 文件名 glob 限定(默认 *.py/*.ts/*.tsx/*.js/*.jsx/*.go/*.rs/*.java)
     - max_results: 最大返回数(默认 50)
     - symbol_type: 符号类型过滤(def/class/func/function/interface/type,默认空=全部)
+    - symbol_name: 符号名**精确**过滤(逐字相等、大小写敏感;Z28 格 1)。默认空 ⇒ 过滤链
+      根本不发起,返回体与旧实现逐字节相同;非空时命中集只保留"被定义符号名逐字等于该值"
+      的片(不做前缀/包含匹配 —— 那是 query 那一维已有的语义)
     - 忽略常见依赖/构建/缓存目录
     - 忽略二进制文件
     - 返回: 文件路径 + 行号 + 符号类型 + 代码行 + 上下文预览
@@ -1390,6 +1590,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
+    # Z28 格 1:符号名精确过滤位(可选入参)。空 = 不发起,行为与旧实现逐字节相同。
+    symbol_name = str(arguments.get("symbol_name", "") or "").strip()
     # 2026-11-01 票 #10:语义腿开关(默认 True)。False 是调用方的显式选择,
     # 不当作"腿坏了"—— 它以 status=skipped 如实进 reasons,mode 落在 single-source:keyword。
     use_semantic = arguments.get("use_semantic", True)
@@ -1404,6 +1606,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     _caller_user_id = arguments.get("__user_id") or None
     # 遥测出参(与 rag._retrieve 的 stats 同族):降级原因回到返回体,不许只留在日志里。
     stats: dict[str, Any] = {}
+    # 2026-11-05 Z19(缺口表 T9 §10 #3):逐段结论 + 耗时 + 计数。段清单与结论词表只在
+    # `app/services/stage_telemetry.py` 一处声明(§0.6),这里只是消费方;每段落一条
+    # `[stage_result]` 结构化结论行,没走到的段由 finalize() 补 `unjudged`(不许缺项)。
+    stages = StageRecorder("search_codebase")
+    # validate 段的手表取在入参检查之前:早退路径也要能报"这一段花了多久"
+    validate_clock = stages.clock()
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -1432,6 +1640,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
     if not query:
+        stages.record(
+            "validate", "failed",
+            duration_ms=validate_clock.elapsed_ms(),
+            count=0,
+            detail="搜索关键词为空,两腿均未发起",
+        )
         return {
             "tool": "search_codebase",
             "query": query,
@@ -1443,9 +1657,18 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 {"leg": "query", "status": "missing", "detail": "搜索关键词为空,两腿均未发起"},
             ],
             "stats": stats,
+            # 早退路径同样出满六段:后五段是"没走到",由 finalize() 显式记 unjudged(不许缺项)
+            "stages": stages.finalize(),
             "message": "搜索关键词为空",
             "ok": False,
         }
+    stages.record(
+        "validate",
+        "ok",
+        count=1,
+        duration_ms=validate_clock.elapsed_ms(),
+        **({"detail": f"symbol_name 精确过滤已启用:{symbol_name}"} if symbol_name else {}),
+    )
 
     def _fusion_key(match: dict[str, Any]) -> str:
         """融合去重键:位置 + 归一后的符号类型(行级命中,同文件不同行不得折成一枚)。
@@ -1463,6 +1686,25 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         sym = str(match.get("symbol_type", ""))
         sym = {"def": "function", "func": "function"}.get(sym, sym)
         return f"loc:{match.get('path', '')}:{match.get('line', 0)}:{sym}"
+
+    def _symbol_exact_hit(item: dict[str, Any]) -> bool:
+        """symbol_name 精确过滤的单点判据(逐字相等,大小写敏感)。
+
+        - 语义腿的命中自带 `symbol_name`(索引列直取)⇒ 直接与入参逐字比。
+        - 关键词腿的命中只有 `symbol_type` + 代码行 ⇒ 复用本函数**在册**的
+          `_SYMBOL_PATTERNS` 从代码行抽出"被定义的那个符号名"再逐字比;
+          抽不出(纯引用行 sym_type=reference)⇒ 不命中,不猜。
+        - 不引入第二份符号正则,也不把"包含"当"相等"。
+        """
+        raw = item.get("symbol_name")
+        if isinstance(raw, str) and raw:
+            return raw == symbol_name
+        code_line = str(item.get("code") or "")
+        for sym_re in _SYMBOL_PATTERNS.values():
+            found = sym_re.search(code_line)
+            if found and found.group(1) == symbol_name:
+                return True
+        return False
 
     async def _semantic_leg() -> dict[str, Any]:
         """语义腿(pgvector ANN;空结果时走懒索引补救)。
@@ -1489,6 +1731,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
+                lazy_clock = stages.clock()
                 lazy = await _lazy_index_and_research(
                     codebase_indexer,
                     query,
@@ -1498,6 +1741,13 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
+                stages.record(
+                    "lazy_index",
+                    "ok" if semantic_results else "empty",
+                    duration_ms=lazy_clock.elapsed_ms(),
+                    count=len(semantic_results),
+                    detail=f"status={lazy.status}: {lazy.reason}",
+                )
             leg_matches: list[dict[str, Any]] = []
             for r in list(semantic_results)[:max_results]:
                 content_preview = r.get("content", "")
@@ -1696,10 +1946,30 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
     # 双腿并发启动(照 rag._retrieve 的先例:两条腿各自 create_task 再 await,
     # 不是串行 await 两次把延迟叠成两倍)
-    vec_task = asyncio.create_task(_semantic_leg())
-    kw_task = asyncio.create_task(_keyword_leg())
+    #
+    # 2026-11-05 Z19:每段的手表取在**协程自己被调度的那一刻**,不是取在 await 返回那一刻 ——
+    # 两腿并发 ⇒ 两条时间区间天然重叠,`stages` 是"各段各自花了多久"的读数,
+    # **不是**把总时长切成互斥的六份(那种口径本仓只有一份,见 core/turn_timing.py)。
+    # 腿内一行未改:状态/命中数从腿的既有返回契约里读,不另起第二份判据。
+    async def _instrumented(stage: str, leg: "Awaitable[dict[str, Any]]") -> dict[str, Any]:
+        clock = stages.clock()
+        out: dict[str, Any] = await leg
+        stages.record(
+            stage,
+            str(out.get("status") or UNJUDGED),
+            duration_ms=clock.elapsed_ms(),
+            count=len(out.get("matches") or []),
+            detail=out.get("reason"),
+        )
+        return out
+
+    vec_task = asyncio.create_task(_instrumented("semantic_leg", _semantic_leg()))
+    kw_task = asyncio.create_task(_instrumented("keyword_leg", _keyword_leg()))
     vec = await vec_task
     kw = await kw_task
+    # 语义腿被调用方显式关闭时,懒索引是"跟着一起没发起"——按票面要显式出声,不许缺项
+    if vec.get("status") == "skipped":
+        stages.record("lazy_index", "skipped", count=0, detail="语义腿被调用方关闭,懒索引随之不发起")
 
     reasons: list[dict[str, Any]] = [
         {"leg": "vector", "status": vec["status"], "detail": vec["reason"]},
@@ -1737,6 +2007,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         # 入参层面的路径错误 / 关键词腿自身炸了,且语义腿也没给出结果:
         # 沿用既有对外契约(ok=False + "搜索失败: …"),但 mode/reasons 一并回去。
         detail = str(kw["reason"] or "关键词腿不可用")
+        stages.record("fuse", "skipped", count=0, detail=f"两腿都没给出结果,融合无从发起:{detail}")
+        stages.record("assemble", "skipped", count=0, detail="融合未发起,装配段随之跳过")
         return {
             "tool": "search_codebase",
             "query": query,
@@ -1747,6 +2019,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "degraded": degraded,
             "reasons": reasons,
             "stats": stats,
+            "stages": stages.finalize(),
             "use_semantic": bool(use_semantic),
             "semantic_index": semantic_index_field,
             "message": f"搜索失败: {detail}",
@@ -1759,14 +2032,36 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
     rankings: list[list[dict[str, Any]]] = [leg_matches for _label, leg_matches in hit_legs]
     labels: list[str] = [label for label, _leg_matches in hit_legs]
+    fuse_clock = stages.clock()
     fused = rrf_fuse(rankings, k=resolve_rrf_k(), labels=labels, key_fn=_fusion_key)
+    stages.record(
+        "fuse", "ok" if fused else "empty",
+        duration_ms=fuse_clock.elapsed_ms(), count=len(fused),
+    )
 
+    asm_clock = stages.clock()
+    # 精确过滤位在截断**之前**生效:先截再滤会把"名次在 topK 之后但符号名逐字命中"的片
+    # 直接筛掉(那是召回损失,不是过滤)。未启用过滤时截断口径与旧实现逐字节相同。
+    candidates = fused if symbol_name else fused[:max_results]
     matches: list[dict[str, Any]] = []
-    for f in fused[:max_results]:
+    for f in candidates:
         item = dict(f.item)
+        if symbol_name and not _symbol_exact_hit(item):
+            continue
         item["fused_from"] = "+".join(f.fused_from)
         item["rrf_score"] = round(f.score, 6)
         matches.append(item)
+        if symbol_name and len(matches) >= max_results:
+            break
+    stages.record(
+        "assemble", "ok" if matches else "empty",
+        duration_ms=asm_clock.elapsed_ms(), count=len(matches),
+        **(
+            {"detail": f"symbol_name={symbol_name} 逐字精确过滤后剩 {len(matches)} 片"}
+            if symbol_name
+            else {}
+        ),
+    )
 
     truncated = bool(kw.get("truncated")) or len(fused) > max_results
     return {
@@ -1775,6 +2070,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         "path": path,
         "pattern": pattern,
         "symbol_type": symbol_type,
+        **({"symbol_name": symbol_name} if symbol_name else {}),
         "use_semantic": bool(use_semantic),
         "matches": matches,
         "total": len(matches),
@@ -1783,6 +2079,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         "degraded": degraded,
         "reasons": reasons,
         "stats": stats,
+        # 逐段结论/耗时/计数(Z19):段序固定,跳过段显式 skipped,没走到的段显式 unjudged
+        "stages": stages.finalize(),
         # V3 #75 后半 + 票 #10:语义通道那一步的结论必须一起回去(异常分支也在册),
         # 没有这一格,模型读到的就是"找到 N 个匹配"而看不见"语义腿压根没答上来"。
         "semantic_index": semantic_index_field,
@@ -3277,7 +3575,10 @@ async def _tool_run_command(
     ).exec_policy_mode
     # 一次性放行 或 长期前缀放行规则命中 → 跳过 PROMPT 分支
     # (第十六批:前缀规则不消费,长期有效;仅服务端可登记,LLM 无法伪造)
-    _exec_approved = _consume_exec_approval(command) or _matches_exec_prefix(command)
+    # 2026-11-05(goal-b49):两种放行**分开记** —— 多档策略的 ask 档只认一次性放行
+    # (本层自己走审批通道后回灌的那一张),长期前缀规则不得静默放行企业档的 ask(§0.10)。
+    _exec_approved_once = _consume_exec_approval(command)
+    _exec_approved = _exec_approved_once or _matches_exec_prefix(command)
     if _exec_mode != "off" and not _exec_approved:
         _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
         if _exec_decision.action == RuleDecision.DENY:
@@ -3355,6 +3656,59 @@ async def _tool_run_command(
                     except Exception as e:  # noqa: BLE001
                         logger.debug("permission_profiles 解析失败(降级跳过): %s", e)
                 return _approval_result
+
+    # ── 多档命令策略合并裁决(仓库档 ⊕ 企业档)─────────────────────────────
+    # 2026-11-05(goal-b49):单一判据源 app/core/command_policy_merge.py(本仓唯一实现,
+    # 测试 import 真源)。本层**只增不减**:既有 dangerous_patterns / allowed_prefixes
+    # 两道防线一字未动,这里额外判的是红/黑名单 + 不可变路径 + ask/allow 的多档规则
+    # (企业档优先,逐条点名来源)。
+    _policy_verdict = adjudicate_command(command, _load_command_policy())
+    if _policy_verdict.outcome is PolicyOutcome.UNDETERMINED:
+        # 「未判定」不折成 deny/allow:独立出口,闭锁并点名原因(AGENTS §0.3)。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "command_policy_undetermined",
+            "errorCode": "COMMAND_POLICY_UNDETERMINED",
+            "command": command,
+            "policy_verdict": _policy_verdict.to_dict(),
+            "message": f"命令策略未判定,已闭锁:{_policy_verdict.reason}",
+        }
+    if _policy_verdict.outcome is PolicyOutcome.DENY:
+        # deny 档不可绕门:一次性放行与前缀放行都不跳过本层(与破坏性命令硬门同级)。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "command_policy_denied",
+            "errorCode": "COMMAND_POLICY_DENIED",
+            "command": command,
+            "matched_rules": [
+                {"pattern": hit.pattern, "decision": hit.decision.value,
+                 "source": hit.tier.value, "kind": hit.kind.value}
+                for hit in _policy_verdict.hits
+            ],
+            "policy_verdict": _policy_verdict.to_dict(),
+            "message": f"命令被策略拒绝:{_policy_verdict.to_explanation()}",
+        }
+    if _policy_verdict.outcome is PolicyOutcome.ASK and not _exec_approved_once:
+        # ask 档走**既有**审批通道(EXEC_POLICY_NEEDS_APPROVAL 是 agent_loop_v2 的通道
+        # 契约,不新造第二条通道);已走过本层审批(一次性放行)的命令不重复要审批,
+        # 但本地长期前缀放行**不能**静默放行企业档的 ask。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "exec_policy_needs_approval",
+            "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
+            "command": command,
+            "matched_rules": [
+                {"pattern": hit.pattern, "decision": hit.decision.value,
+                 "source": hit.tier.value, "kind": hit.kind.value}
+                for hit in _policy_verdict.hits
+            ],
+            "policy_verdict": _policy_verdict.to_dict(),
+            "approval_request": {
+                "command": command,
+                "reason": _policy_verdict.to_explanation(),
+            },
+            "message": "命令命中策略 ask 档,需要用户审批后方可执行",
+        }
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
@@ -4622,7 +4976,22 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
         import os
         import subprocess
 
-        repo_path = os.path.abspath(repo)
+        # 2026-11-01 安全强化:`repo` 是工具入参(模型可控),旧实现直接 abspath 就当 cwd,
+        # 于是 role=0 的"只读 git 面"能对服务器任意目录跑 status/ls-files/log/diff ⇒ 跨目录
+        # 信息泄露。同文件 :685 那把尺子(_validate_path_in_workspace)本来就是本模块的路径
+        # 归属单源,13 个调用点都在问它 —— 这一格漏挂不是"没有判据",是"判据没被问"。
+        ok_repo, repo_resolved = _validate_path_in_workspace(repo)
+        if not ok_repo:
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"仓库路径不在工作区白名单内:{repo_resolved}",
+                "ok": False,
+                "error": "PATH_NOT_IN_WORKSPACE",
+            }
+        repo_path = repo_resolved
         if not os.path.isdir(repo_path):
             return {
                 "tool": "git_operations",
@@ -10468,6 +10837,7 @@ _TOOLS: list[MCPTool] = [
                 "path": {"type": "string", "description": "搜索路径(默认当前目录)"},
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
+                "symbol_name": {"type": "string", "description": "符号名精确过滤(逐字相等、大小写敏感;默认空=不过滤)。这是**装配层的精确过滤位**,不是第 2 个查询词:命中集只保留被定义符号名逐字等于本值的片。要按索引列在库侧精确取回某符号的**全部**切片,还得靠 api 侧 searchSchema 的 symbolName 过滤位(现读该处只有 indexSchema 有 symbolName,searchSchema 无,见 apps/api/src/routes/v1-codebase-search.ts)。"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
                 "use_semantic": {"type": "boolean", "description": "是否启用语义腿(pgvector ANN,默认 True;False=显式只要关键词腿)。语义腿不可用不再静默回落:响应体 mode/reasons 会点名是哪条腿没答上来", "default": True},
             },
@@ -13068,6 +13438,12 @@ async def _tool_get_tool_schema(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": f"未找到工具: {name}",
             "available": list_deferred_tool_names(),
         }
+    # 缺口表 #7:反查面与列表面同尺。被能力门摘掉的工具若在这里照旧交回完整 schema,
+    # 模型会拿到一份"看起来能调、一调就被拒"的定义 —— 那正是 D145 那一型双广告面漂移。
+    # 这里给具名回执(不是"未找到":工具在注册表里,只是本次调用方形态无权使用)。
+    _denial = _tool_capability_denial(name)
+    if _denial is not None:
+        return {"ok": False, "tool": name, "schema": None, **_denial}
     return {"ok": True, "tool": name, "schema": schema}
 
 
@@ -13686,11 +14062,19 @@ def _render_prompt(name: str, arguments: dict[str, Any]) -> str:
 class MCPServer:
     """MCP 服务端,统一管理工具/资源/提示词的查询与调用。"""
 
-    def list_tools(self) -> list[MCPTool]:
-        """列出全部工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
+    def list_tools(
+        self, *, surface_context: _SurfaceRoundContext | None = None
+    ) -> list[MCPTool]:
+        """列出本轮可见工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
 
         off 时直接返回 list(_TOOLS)(逐字节等价);on 时仅追加由 world_state_tools
         归一化出的延迟工具条目,不改动既有 _TOOLS。
+
+        缺口表 ⑤(2026-11-05,工具面惰性装载):`surface_context` 是**本轮上下文**
+        (会话模式 / 已声明意图 / 上轮用过与被拒的工具名)。它缺席时本轴整体不生效 ⇒
+        既有调用点(把它们当**查找表**用:先按 agent_tools 收窄再 `tool_map.get(name)`)
+        一条都不会少拿。真正的收口只发生在有人显式交入上下文、或部署侧设了
+        `MCP_TOOL_SURFACE_BUDGET` 那一格 —— 且判不了时仍按全量交回(失效方向=多给)。
         """
         tools: list[MCPTool] = list(_TOOLS)
         # D145① + 评审修复轮 1①:广告名单在**每次现读注册表**时拼接,而不是 import 期烘死。
@@ -13726,7 +14110,17 @@ class MCPServer:
                     )
             except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
                 logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
-        return tools
+        # 缺口表 #7(2026-11-01,对标对侧 products.<form> 能力表):列表面收口。
+        # 零扰动:未设任何 env 时声明族的能力键都取台账默认(开),本步与入参逐字同序同集
+        # (tests/test_tool_surface_gate.py ① 是反向对照,不是口头保证)。
+        # `deferred:<ns>` 一族不命中任何族前缀 ⇒ 不受影响。
+        gated = _filter_visible_tools(tools)
+        # 缺口表 ⑤(2026-11-05,工具面惰性装载):能力门**在前**,预算**在后** ⇒ 被能力
+        # 门摘掉的工具绝不因预算重新出现(次序在消费点显式可读,不靠被调方自觉;
+        # tool_surface_budget 同时把它作为 ineligible 下传,双保险)。
+        # 只在"有人交入本轮上下文"或"部署侧设了 MCP_TOOL_SURFACE_BUDGET"时才动集合,
+        # 其余一律逐字交回 —— 上面的 `tool_map.get(name)` 型消费点因此一条都不会少拿。
+        return _apply_tool_surface_budget(gated, context=surface_context)
 
     async def call_tool(
         self,
@@ -13795,6 +14189,14 @@ class MCPServer:
                 "error": f"工具 '{name}' 需要 admin 权限(role >= 1),当前 role={user_role}",
                 "errorCode": "PERMISSION_DENIED",
             }
+        # 缺口表 #7:能力门具名拒绝。位置刻意选在这里 ——
+        # ① 在角色矩阵**之后** ⇒ 普通用户调 admin 工具仍先拿 PERMISSION_DENIED(既有行为零扰动,
+        #    也不因能力门提前泄露"这枚工具存在且有能力要求");
+        # ② 在 handler 查找**之后** ⇒ 不把"未知工具"改写成"能力不足"(两件事不许同形);
+        # ③ 在 `try:` **之前** ⇒ 被摘掉的工具绝不进入执行链(测试③ 断言零副作用)。
+        _capability_denial = _tool_capability_denial(name)
+        if _capability_denial is not None:
+            return dict(_capability_denial)
         try:
             # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
@@ -13807,8 +14209,10 @@ class MCPServer:
             # D201:会话级附加目录注入 —— handler 与其 await 链同处一个 asyncio task,
             # ContextVar 对整个 handler 执行期生效;finally 复位防异常路径泄漏到复用
             # 该 task 的后续协程(漏复位 = A 会话的附加根污染 B 会话的校验)。
+            # 2026-11-01:键含已验证主体 —— 只取本次调用主体的登记,不取"会话 id 相同
+            # 的任意用户登记"(conversationId 是客户端自报字段)。
             _extra_roots_token = _ACTIVE_SESSION_EXTRA_ROOTS.set(
-                get_session_extra_roots(session_id)
+                get_session_extra_roots(session_id, user_id=user_id)
             )
             # 2026-10-21(五开关按用户生效):把**承载层已验证的主体**发布进安全档位
             # 作用域,handler 及其 await 链同处一个 asyncio task ⇒ `_tool_run_command`

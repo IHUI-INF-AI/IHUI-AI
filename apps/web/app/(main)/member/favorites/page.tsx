@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Heart, Loader2, Trash2, Folder, FileText } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listFavorites, deleteFavorite } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -52,17 +52,23 @@ export default function MemberFavoritesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'favorites', tab],
     queryFn: () =>
-      apiOrThrow<{ list: Favorite[] }>(
-        `/api/favorites?pageSize=100${tab !== 'all' ? `&resourceType=${tab}` : ''}`,
-      )
-        .then((d) => d.list ?? [])
+      listFavorites<Favorite>({
+        pageSize: 100,
+        resourceType: tab !== 'all' ? tab : undefined,
+      })
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.list ?? []
+        })
         .catch(() => [] as Favorite[]),
     enabled: allow,
   })
 
   const removeMut = useMutation({
-    mutationFn: (f: Favorite) =>
-      apiOrThrow(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
+    mutationFn: async (f: Favorite) => {
+      const r = await deleteFavorite(f.resourceType, f.resourceId)
+      if (!r.success) throw new Error(r.error)
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'favorites'] }),
   })
 
@@ -82,7 +88,7 @@ export default function MemberFavoritesPage() {
           <Heart className="h-5 w-5 text-primary" />
           收藏夹
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">管理你收藏的项目、文件和文档</p>
+        <p className="mt-0.5 text-body text-muted-foreground">管理你收藏的项目、文件和文档</p>
       </div>
 
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -114,7 +120,7 @@ export default function MemberFavoritesPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Heart className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">还没有收藏任何内容</p>
+          <p className="text-body text-muted-foreground">还没有收藏任何内容</p>
         </div>
       ) : (
         <ul className="space-y-2 rounded-lg border p-2">
@@ -126,13 +132,13 @@ export default function MemberFavoritesPage() {
                 className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30"
               >
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                   {item.resourceType}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-body font-medium">
                   {item.title ?? item.resourceId}
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-label text-muted-foreground">
                   {dateFmt.format(new Date(item.createdAt))}
                 </span>
                 <Button

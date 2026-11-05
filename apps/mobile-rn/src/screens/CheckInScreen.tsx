@@ -72,6 +72,7 @@ export function CheckInScreen() {
       onSign={handleSign}
       onRefresh={() => load(true)}
       onBack={() => navigation.goBack()}
+      onRetry={() => { void load(); }}
       colorScheme={resolvedTheme}
     />
   )

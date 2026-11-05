@@ -80,9 +80,9 @@ describe('codex buildChatRequest(Responses API 形状)', () => {
     expect(body['max_output_tokens']).toBe(200)
     const input = body['input'] as Array<Record<string, unknown>>
     expect(input).toHaveLength(1)
-    expect(input[0]['type']).toBe('message')
-    expect(input[0]['role']).toBe('user')
-    expect(input[0]['content']).toEqual([{ type: 'input_text', text: '你好' }])
+    expect(input[0]!['type']).toBe('message')
+    expect(input[0]!['role']).toBe('user')
+    expect(input[0]!['content']).toEqual([{ type: 'input_text', text: '你好' }])
   })
 })
 
@@ -98,7 +98,7 @@ describe('codex translateStreamChunk / translateNonStream', () => {
     )
     expect(out).not.toBeNull()
     const chunk = out?.openaiChunk as { choices: Array<{ delta: { content: string } }> }
-    expect(chunk.choices[0].delta.content).toBe('hi')
+    expect(chunk.choices[0]!.delta.content).toBe('hi')
   })
 
   it('response.completed → usage 终帧 done', () => {
@@ -140,7 +140,7 @@ describe('codex translateStreamChunk / translateNonStream', () => {
     }
     const out = codexAdapter.translateNonStream(ctx, body)
     const choices = out['choices'] as Array<{ message: { content: string } }>
-    expect(choices[0].message.content).toBe('答案')
+    expect(choices[0]!.message.content).toBe('答案')
     expect(() => codexAdapter.translateNonStream(ctx, { error: { message: 'boom' } })).toThrow(
       /boom/,
     )

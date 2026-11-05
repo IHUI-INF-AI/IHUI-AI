@@ -73,8 +73,10 @@ const APP_BARREL_FILE = 'packages/app/src/index.ts'
 const GEOMETRY_FILE = 'packages/design-tokens/src/geometry.js'
 
 /**
- * 跨端共用档清单 —— 本测试的**真相源**(7 枚;2026-10-28 现读,与 navbar-spec 头注 O02 段、
- * 守门 128 的 SL 维同一读数)。
+ * 跨端共用档清单 —— 本测试的**真相源**(10 枚;2026-11-04 现读,与 navbar-spec 头注 O02 段、
+ * 守门 128 的 SL 维同一读数)。2026-11-04 小程序 NavBar 补 subtitle 一支(fe50a4123d,门 285
+ * B3 属性对齐 RN),原先"只 RN 有副标题"的 3 枚档(双行行高 / 字号 / 上距)两端都真引用 ⇒ 按
+ * 本文件纪律登记进共用清单,单端归属表同步撤下这 3 条(守门 128 的 SL NavBar 由 5 收敛到 2)。
  *
  * 为什么手写而不"从源码反推两端交集":反推出来的集合会**跟着现状缩** —— 某一端把引用删了
  * (退化回"各写一份裸数字"),交集随之少一枚,那条档就此退出被测范围 ⇒ 静默放行。
@@ -89,11 +91,14 @@ const CROSS_END_TIERS = [
   'NAVBAR_TITLE_FONT_PX',
   'NAVBAR_TITLE_MAX_WIDTH_PX',
   'NAVBAR_CENTER_MIN_WIDTH_PX',
+  'NAVBAR_ROW_HEIGHT_SUBTITLE_PX',
+  'NAVBAR_SUBTITLE_FONT_PX',
+  'NAVBAR_SUBTITLE_MARGIN_TOP_PX',
 ] as const
 
 /**
- * 单端档归属表 —— 本族"两端不一样"的 5 枚具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
- * 枚数 2026-10-28 现读 = 守门 128 的 `SL NavBar(5)`)。
+ * 单端档归属表 —— 本族"两端不一样"的具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
+ * 枚数 2026-11-04 现读 = 守门 128 的 `SL NavBar(2)`)。
  *
  * 为什么要一张**机器钉住的账**,而不是一段散文:
  *  - 守门 128 的 diffCount 只报"这一档只在一端出现",说不出那是"另一端没有这个元素"还是
@@ -102,7 +107,10 @@ const CROSS_END_TIERS = [
  *    那正是本票明令禁止的「给单端补数字凑平」。
  *  - 反过来,若 owner 端把真实取数点删了(元素被误删/退化回裸数字),那一侧断言也会红。
  *
- * 5 枚全部属 A 类(一端根本没有该元素/该结构),逐条依据见 navbar-spec 头注 O02 段:
+ * 2026-11-04 由 5 枚收敛到 2 枚:小程序 NavBar 补 subtitle 一支(fe50a4123d)后,
+ * NAVBAR_ROW_HEIGHT_SUBTITLE_PX / NAVBAR_SUBTITLE_FONT_PX / NAVBAR_SUBTITLE_MARGIN_TOP_PX
+ * 已两端都真引用 ⇒ 按上面的纪律撤出本表、登记进 CROSS_END_TIERS(不是"补引用凑平")。
+ * 剩余 2 枚全部属 A 类(一端根本没有该元素/该结构),逐条依据见 navbar-spec 头注 O02 段:
  * 本族 **0 枚 B**(已裁决的变体契约)、0 枚 C 类具名档(C 类只剩 z-index,转由本文件 ⑨ 判)。
  */
 const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: string }> = [
@@ -112,24 +120,9 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
     why: 'A 小程序行高 = 微信胶囊实测 height + 8(平台量),RN 走本档 44',
   },
   {
-    tier: 'NAVBAR_ROW_HEIGHT_SUBTITLE_PX',
-    owner: 'mobile-rn',
-    why: 'A 同上:小程序无 subtitle,双行档没有消费面',
-  },
-  {
     tier: 'NAVBAR_SIDE_PLACEHOLDER_PX',
     owner: 'mobile-rn',
     why: 'A 小程序居中走 absolute 悬浮钮 + justify-center,结构上无占位元素',
-  },
-  {
-    tier: 'NAVBAR_SUBTITLE_FONT_PX',
-    owner: 'mobile-rn',
-    why: 'A 小程序 NavBarProps 无 subtitle 字段(全仓给小程序传 subtitle 的调用点 0 处)',
-  },
-  {
-    tier: 'NAVBAR_SUBTITLE_MARGIN_TOP_PX',
-    owner: 'mobile-rn',
-    why: 'A 同上:小程序没有"主标题下方再一行"这层结构,无从给间距',
   },
 ]
 
@@ -925,7 +918,10 @@ describe('NavBar 跨端档位一致性(O02 票④)', () => {
   })
 
   it('⑦ 单端档归属表:每枚只在登记的那一端有取数点(另一端补引用 = 凑平,必须红)', () => {
-    expect(SINGLE_END_TIERS.length, '归属表空了 ⇒ 这条尺子没在测任何东西').toBeGreaterThan(3)
+    expect(
+      SINGLE_END_TIERS.length,
+      '归属表枚数与现读不一致 ⇒ 收敛/新增后必须同步本表(空表不许冒充"本族无单侧档")',
+    ).toBe(2)
     expect(
       singleEndProblems(LEG_SRC),
       '单端档归属被破坏(要么真实取数点丢了,要么有人往另一端补引用凑平)',

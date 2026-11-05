@@ -77,6 +77,22 @@ import { rendersSharedIn } from './gen-miniapp-mirror.mjs'
 
 const MAP_PATH = 'scripts/data/web-rn-screen-map.jsonl'
 const WEB_APP_DIR = 'apps/web/app'
+/**
+ * 账本结构化字段(2026-11-02 立,跨端对齐 Phase 1「账本可信」地基):
+ * aligned/pending 行必须带 `state`(verified|pending)与 `data`{kind,evidence},机器统计读这两项,
+ * 不许再靠 note 自然语言推断 —— "未接/未复验/中置信"这类措辞在账本里既不进任何分母,也无法让
+ * 下一个人复核时知道"到底验过没有"。`data.kind`:direct=屏自身直取、indirect=经 hooks/props/
+ * import 链间接取数、static=确认无取数需求的静态页、missing=确认缺失(有缺口的行不得继续记 aligned)。
+ */
+const DATA_KINDS = new Set(['direct', 'indirect', 'static', 'missing'])
+function structuredProblem(row, expect) {
+  if (row.state !== expect) return `state=${String(row.state)} 与 status=${expect} 不符`
+  if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) return 'data 缺失'
+  if (!DATA_KINDS.has(row.data.kind)) return `data.kind 非法:${String(row.data.kind)}`
+  if (typeof row.data.evidence !== 'string' || row.data.evidence.trim().length < 8)
+    return 'data.evidence 缺失或不足以定位'
+  return null
+}
 // WebView 门户登记表:移动端按设计用 WebView 承载的 web 路由,唯一源在共享常量里(RN 侧
 // apps/mobile-rn/src/lib/webview-portal-config.ts 与小程序侧都从它派生,不是端内自造清单)。
 const WEB_PORTAL_REL = 'packages/shared/src/constants/web-portal.ts'
@@ -535,6 +551,7 @@ function evaluateMap(
 
   const rot = []
   const aligned = []
+  const pendingRows = []
   const excluded = []
   const judgedGap = []
   const contradicted = []
@@ -624,7 +641,25 @@ function evaluateMap(
           continue
         }
       }
+      const sp = structuredProblem(row, 'verified')
+      if (sp) {
+        rot.push({ line: row.line, why: `aligned 结构化字段不合格:${sp}` })
+        continue
+      }
       aligned.push(row)
+      continue
+    }
+    // pending = 判过但未验证(2026-11-02 立):结构化账本里"未验证"不能再记 aligned ——
+    // 它要进 pending 分母(gapStats.pending),同时仍算"这一条有人判过"(不回落 unmapped)。
+    // 判据与 aligned 同形:note 必填、data 必填、state 必须写 pending;缺任何一项按登记腐烂点名。
+    if (row.status === 'pending') {
+      if (!row.note)
+        rot.push({ line: row.line, why: 'pending 缺 note(未验证必有未验证理由与证据)' })
+      else {
+        const sp = structuredProblem(row, 'pending')
+        if (sp) rot.push({ line: row.line, why: `pending 结构化字段不合格:${sp}` })
+        else pendingRows.push(row)
+      }
       continue
     }
     // portal = 门户承载行(2026-10-27 立,由 auto-register 的 --converge-portal 档自动改写而来)。
@@ -652,7 +687,9 @@ function evaluateMap(
   }
 
   const mappedRoutes = new Set(
-    [...aligned, ...excluded, ...judgedGap, ...portalRows, ...portalUnverified].map((r) => r.web),
+    [...aligned, ...pendingRows, ...excluded, ...judgedGap, ...portalRows, ...portalUnverified].map(
+      (r) => r.web,
+    ),
   )
   const prefixHits = new Map()
   const prefixExcludedRoutes = new Set()
@@ -702,6 +739,7 @@ function evaluateMap(
   return {
     aligned,
     alignedUnique,
+    pendingRows,
     excluded,
     judgedGap,
     contradicted,
@@ -852,6 +890,7 @@ function run() {
   const {
     aligned,
     alignedUnique,
+    pendingRows,
     excluded,
     judgedGap,
     contradicted,
@@ -871,6 +910,17 @@ function run() {
     duplicateWebKeys,
   } = ev
   const prefixExcluded = prefixHits.size
+  // ── 账本可信度统计(2026-11-02 立;只读,不改任何既有键) ──
+  // verified = 结构化账本里验过的 aligned 行;pending = 判过但未验证(gapStats 的一档,不得冒充 aligned);
+  // gap = 判过确缺。三档互斥,合计 = 台账承载面行数。hoistedGap = 行内已记为 aligned/pending、
+  // 但仍带残余缺口(residualGap)的枚数 —— 残余缺口是"主功能已验、子能力缺",单列报数不进 pending。
+  const structuredRows = [...aligned, ...pendingRows]
+  const dataKinds = { direct: 0, indirect: 0, static: 0, missing: 0 }
+  for (const r of structuredRows) dataKinds[r.data.kind] = (dataKinds[r.data.kind] ?? 0) + 1
+  const residualGapRows = structuredRows.filter((r) => typeof r.residualGap === 'string' && r.residualGap.trim())
+  // 自然语言措辞守卫:账本里仍写"未接/未复验"的行 = 结构化状态没落干净,逐行点名(验收要 0)。
+  const noteStale = structuredRows.filter((r) => /未接|未复验/.test(String(r.note ?? '')))
+  const ledgerUnstructured = structuredRows.filter((r) => structuredProblem(r, r.state) !== null).length
   const usedRn = new Set(aligned.map((r) => r.rn))
   const rnOnly = rnScreens.filter((s) => !usedRn.has(s.rel))
 
@@ -902,6 +952,26 @@ function run() {
     excluded: excluded.length,
     judgedGap: judgedGap.length,
     contradicted: contradicted.length,
+    // ── 账本可信度(2026-11-02 立;键全为新增,既有键名与类型一个未动) ──
+    // verified = 结构化账本里验过的 aligned 行;pending = 判过但未验证(gapStats 的一档,不得冒充
+    // aligned);gap = 判过确缺。三档互斥,合计 = 台账承载面行数。residual 单列:行内已记 aligned/
+    // pending 但仍带残余缺口(residualGap)的枚数 —— "主功能已验、子能力缺",不进 pending 分母。
+    verified: aligned.length,
+    pending: pendingRows.length,
+    gapStats: {
+      verified: aligned.length,
+      pending: pendingRows.length,
+      gap: judgedGap.length,
+      residual: residualGapRows.length,
+      total: aligned.length + pendingRows.length + judgedGap.length,
+    },
+    // RN 屏取数形态(direct/indirect/static/missing),机器读这一项,不许再从 note 自然语言推断。
+    dataKinds,
+    // 账本自然语言措辞守卫:仍写"未接/未复验"的行 ⇒ 结构化状态没落干净(验收口径要 0,逐行点名)。
+    noteStale: noteStale.map((r) => ({ web: r.web, line: r.line, note: String(r.note ?? '') })),
+    noteStaleCount: noteStale.length,
+    ledgerUnstructured,
+    residualGaps: residualGapRows.map((r) => ({ web: r.web, residualGap: r.residualGap })),
     portalRows: portalRows.length,
     portalUnverified: portalUnverified.length,
     nav: navEval,
@@ -994,6 +1064,23 @@ function run() {
     `已豁免(excluded)  : ${json.excluded}(逐条) + ${json.prefixExcluded}(段级 ${prefixRows.length} 个前缀)`,
   )
   log(`已判缺口(gap)     : ${json.judgedGap}  ← 判过「RN 零承载」,不再重复判定`)
+  log(
+    `账本状态           : verified ${json.verified} · pending ${json.pending} · gap ${json.judgedGap}` +
+      ` · residual ${json.gapStats.residual}` +
+      `  ← pending = 判过但未验证,不冒充 aligned;residual = 行内仍有残余缺口`,
+  )
+  log(
+    `RN 屏取数形态      : direct ${dataKinds.direct} · indirect ${dataKinds.indirect}` +
+      ` · static ${dataKinds.static} · missing ${dataKinds.missing}` +
+      `  ← 读结构化 data.kind,不从 note 自然语言推断`,
+  )
+  if (noteStale.length > 0) {
+    log(
+      `⚠ 账本措辞未落干净: ${noteStale.length} 行仍写「未接/未复验」(结构化状态没写全,逐行点名):`,
+    )
+    for (const r of noteStale.slice(0, fullMode ? noteStale.length : 20)) log(`     · ${r.web}(L${r.line})`)
+  }
+  if (ledgerUnstructured > 0) log(`⚠ 账本结构化字段不合格: ${ledgerUnstructured} 行`)
   log(
     `门户承载(web-portal): ${portalCarried === null ? '未判定(取不到 ' + WEB_PORTAL_REL + ')' : json.portalCarried}` +
       `  ← 移动端按设计用 WebView 打开的 web 路由,唯一源 ${WEB_PORTAL_REL}`,

@@ -24,6 +24,7 @@
     },
     "isolatedModules": true
   },
+  "files": ["next-env.d.ts", "nativewind-env.d.ts"],
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": [
     "node_modules",

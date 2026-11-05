@@ -120,7 +120,7 @@ export default function LearnPage() {
             </h1>
             <p
               className={
-                locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'
+                locale === 'zh-CN' ? 'text-body opacity-90' : 'text-body text-muted-foreground'
               }
             >
               {t('subtitle')}
@@ -130,7 +130,7 @@ export default function LearnPage() {
       </Card>
 
       <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
-        <p className="text-sm text-muted-foreground">{tEdu('subtitle')}</p>
+        <p className="text-body text-muted-foreground">{tEdu('subtitle')}</p>
         <Button asChild variant="outline" size="sm" className="shrink-0">
           <a href="/edu/courses">{tEdu('title')}</a>
         </Button>
@@ -174,13 +174,13 @@ export default function LearnPage() {
           {t('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : lessons.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -199,7 +199,7 @@ export default function LearnPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+          <span className="text-body text-muted-foreground">{t('total', { total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -209,7 +209,7 @@ export default function LearnPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-body text-muted-foreground">
               {page} / {totalPages}
             </span>
             <Button

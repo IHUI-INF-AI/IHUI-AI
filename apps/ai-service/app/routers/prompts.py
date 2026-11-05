@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from ..core.jwt_auth import resolve_request_role_id
 from ..services.prompt_registry import prompt_registry
 
+
 # 安全强化(2026-11-01):整族端点收归管理员。
 # prompt_registry 是**进程级全局单例**,被所有用户的 agent 执行链消费
 # (agent_orchestrator 取 system prompt)。原先 7 枚端点没有任何角色闸 —— 任何登录

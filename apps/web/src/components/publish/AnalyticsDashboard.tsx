@@ -88,7 +88,7 @@ export function AnalyticsDashboard({
             type="button"
             variant={period === p ? 'default' : 'outline'}
             size="xs"
-            className="px-3 text-xs"
+            className="px-3 text-label"
             onClick={() => onPeriodChange(p)}
           >
             {t(
@@ -160,12 +160,12 @@ export function AnalyticsDashboard({
             {t('analytics.accountHealth')}
           </h3>
           {accounts.length === 0 ? (
-            <p className="py-4 text-center text-xs text-muted-foreground">
+            <p className="py-4 text-center text-label text-muted-foreground">
               {t('analytics.noData')}
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-label">
                 <thead>
                   <tr className="text-left text-muted-foreground">
                     <th className="pb-2 pr-3 font-medium">{t('preview.title')}</th>
@@ -248,7 +248,9 @@ function TrendChart({ data }: { data: ReadonlyArray<{ date: string; count: numbe
   const t = useTranslations('publish')
   if (data.length === 0)
     return (
-      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+      <div className="py-8 text-center text-label text-muted-foreground">
+        {t('analytics.noData')}
+      </div>
     )
   const max = Math.max(...data.map((d) => d.count), 1)
   const width = 600
@@ -300,7 +302,9 @@ function PieChart({
   const t = useTranslations('publish')
   if (data.length === 0)
     return (
-      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+      <div className="py-8 text-center text-label text-muted-foreground">
+        {t('analytics.noData')}
+      </div>
     )
   const total = data.reduce((s, d) => s + d.count, 0)
   let cumulative = 0
@@ -345,7 +349,9 @@ function BarChart({ data }: { data: ReadonlyArray<{ reason: string; count: numbe
   const t = useTranslations('publish')
   if (data.length === 0)
     return (
-      <div className="py-8 text-center text-xs text-muted-foreground">{t('analytics.noData')}</div>
+      <div className="py-8 text-center text-label text-muted-foreground">
+        {t('analytics.noData')}
+      </div>
     )
   const max = Math.max(...data.map((d) => d.count), 1)
   return (

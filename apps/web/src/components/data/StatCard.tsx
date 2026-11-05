@@ -32,7 +32,7 @@ export function StatCard({
       <div className="flex items-center justify-between gap-2">
         <TruncatedText
           value={title}
-          className="min-w-0 flex-1 whitespace-nowrap text-sm text-muted-foreground"
+          className="min-w-0 flex-1 whitespace-nowrap text-body text-muted-foreground"
         />
         {Icon && (
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -48,7 +48,7 @@ export function StatCard({
         )}
       </div>
       {trend !== undefined && !loading && (
-        <div className="mt-1 flex flex-nowrap items-center gap-1 text-xs">
+        <div className="mt-1 flex flex-nowrap items-center gap-1 text-label">
           <span
             className={cn(
               'inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium',

@@ -62,7 +62,7 @@ export default function RevenueStatPage() {
           <Wallet className="h-6 w-6 text-primary" />
           营收统计
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">订单、营收、退款、净额分析</p>
+        <p className="mt-1 text-body text-muted-foreground">订单、营收、退款、净额分析</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -134,7 +134,7 @@ export default function RevenueStatPage() {
             ))}
           </div>
         ) : stats.trend.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-10 text-center text-body text-muted-foreground">
             暂无数据
           </div>
         ) : (
@@ -149,10 +149,12 @@ export default function RevenueStatPage() {
                     />
                   </Tooltip>
                 </div>
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="text-label text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
-                <span className="text-label font-semibold tabular-nums">{curFmt.format(p.gross)}</span>
+                <span className="text-label font-semibold tabular-nums">
+                  {curFmt.format(p.gross)}
+                </span>
               </div>
             ))}
           </div>
@@ -162,14 +164,14 @@ export default function RevenueStatPage() {
       <section className="space-y-3 rounded-lg border p-3">
         <h2 className="text-base font-semibold">渠道营收占比</h2>
         {stats.byChannel.length === 0 ? (
-          <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
             暂无数据
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
             {stats.byChannel.map((c) => (
               <div key={c.channel} className="space-y-1.5 rounded-md border p-3">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-body">
                   <span className="font-medium">{c.channel}</span>
                   <span className="tabular-nums text-muted-foreground">
                     {numFmt.format(c.orders)} 单
@@ -181,7 +183,9 @@ export default function RevenueStatPage() {
                     style={{ width: `${(c.amount / totalChannel) * 100}%` }}
                   />
                 </div>
-                <div className="text-body font-semibold tabular-nums">{curFmt.format(c.amount)}</div>
+                <div className="text-body font-semibold tabular-nums">
+                  {curFmt.format(c.amount)}
+                </div>
               </div>
             ))}
           </div>

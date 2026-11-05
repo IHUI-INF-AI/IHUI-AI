@@ -19,7 +19,7 @@
  * 因此本测试同时验证 wrapper 注入与共享 UI 的联动。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 const { rnMocks } = vi.hoisted(() => ({
   rnMocks: {
@@ -28,6 +28,7 @@ const { rnMocks } = vi.hoisted(() => ({
     commitConversationImport: vi.fn(),
     getConversationImportHistory: vi.fn(),
     goBack: vi.fn(),
+    onToast: vi.fn(),
   },
 }))
 
@@ -51,6 +52,14 @@ vi.mock('../src/i18n', () => ({
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
+}))
+
+vi.mock('../src/host/use-host-ports', () => ({
+  useHostPorts: () => ({
+    onToast: rnMocks.onToast,
+    onNavigate: vi.fn(),
+    onShowActionSheet: vi.fn(),
+  }),
 }))
 
 vi.mock('../src/components/NavBar', async () => {
@@ -153,14 +162,23 @@ function commitPayloadAt(index: number): CommitPayload {
 
 beforeEach(() => {
   rnMocks.getConversationImportHistory.mockResolvedValue(HISTORY_RESULT)
+  rnMocks.onToast.mockClear()
 })
 
 describe('ConversationImportScreen(RN)', () => {
   it('初始只拉导入历史并渲染 5 个来源', async () => {
     render(<ConversationImportScreen />)
 
+    // 2026-11-04(CI run 41727343304):原来的「等 getConversationImportHistory 被调过」
+    // 只证明请求已发出,响应还没回填状态 ⇒ 紧随其后的 getByText('export.jsonl') 会撞上
+    // 尚未提交的渲染(并行负载下实测红)。真实完成信号是 onLoadHistory 的 promise 落地 +
+    // React 状态提交:在 act 内 await 该 promise,不设时长上限、不轮询。
     await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await rnMocks.getConversationImportHistory.mock.results[0]?.value
+    })
 
+    expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(1)
     expect(screen.getByText('conversationImport.sourceClaudeCode')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCodex')).toBeTruthy()
     expect(screen.getByText('conversationImport.sourceCursor')).toBeTruthy()
@@ -373,7 +391,7 @@ describe('ConversationImportScreen(RN)', () => {
     await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalledTimes(2))
   })
 
-  it('取消文件选择不触发解析', async () => {
+  it('取消文件选择不触发解析,并给出明确 toast(不静默)', async () => {
     rnMocks.getDocumentAsync.mockResolvedValue({ canceled: true, assets: [] })
 
     render(<ConversationImportScreen />)
@@ -385,6 +403,23 @@ describe('ConversationImportScreen(RN)', () => {
     await waitFor(() => expect(rnMocks.getDocumentAsync).toHaveBeenCalledTimes(1))
     expect(rnMocks.fetchApi).not.toHaveBeenCalled()
     expect(screen.queryByText('conversationImport.previewTitle')).toBeNull()
+    await waitFor(() => expect(rnMocks.onToast).toHaveBeenCalledWith('common.cancel'))
+  })
+
+  it('选择器抛错时给出失败 toast 并保持未选中(不静默吞错)', async () => {
+    rnMocks.getDocumentAsync.mockRejectedValue(new Error('permission denied'))
+
+    render(<ConversationImportScreen />)
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('conversationImport.sourceCursor'))
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+
+    await waitFor(() => expect(rnMocks.getDocumentAsync).toHaveBeenCalledTimes(1))
+    expect(rnMocks.fetchApi).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(rnMocks.onToast).toHaveBeenCalledWith('common.failed(permission denied)'),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

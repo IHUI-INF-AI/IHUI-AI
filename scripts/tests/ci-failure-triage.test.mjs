@@ -32,7 +32,9 @@ const TMP = join(ROOT, '.ihui-agent', 'tmp', 'ci-triage-shared')
 // 真跑用例环境性红(CI windows-latest 上 bash 在 PATH ⇒ 本地红/CI 绿两处形态不一致,2026-10-16
 // 全量套件实证)。与 gitdir.mjs resolveGitBin 同族:显式候选在前,PATH 兜底。
 const BASH =
-  ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files (x86)/Git/bin/bash.exe'].find((p) => existsSync(p)) ?? 'bash'
+  ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files (x86)/Git/bin/bash.exe'].find((p) =>
+    existsSync(p),
+  ) ?? 'bash'
 
 function runTriage(env, cwd) {
   return spawnSync(BASH, [SCRIPT], {
@@ -73,10 +75,25 @@ function setupCase(name, wfText) {
   const dir = join(TMP, name)
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(dir, { recursive: true })
+  mkdirSync(join(dir, 'sub'), { recursive: true })
   const wfPath = join(dir, 'fixture.yml')
   writeFileSync(wfPath, wfText, 'utf8')
   return { dir, wfPath }
 }
+
+// 带 working-directory 的夹具:命令只在 sub/ 下落标记,退回仓库根就会写错位置。
+const WORKDIR_WF = [
+  'name: triage-workdir-fixture',
+  'jobs:',
+  '  fixture-job:',
+  '    runs-on: ubuntu-latest',
+  '    steps:',
+  '      - name: Scoped step',
+  '        id: alpha',
+  '        working-directory: sub',
+  '        run: echo MARKER-wd > MARKER-wd.txt',
+  '',
+].join('\n')
 
 const IDS_ENV = {
   TRIAGE_WORKFLOW_FILE: '', // per-case
@@ -111,8 +128,16 @@ test('a: first failing step is named and its single-line run is actually re-exec
   assert.match(r.stdout, /First step/, 'display name must come from the workflow file itself')
   assert.match(r.stdout, /re-running ONLY this command: echo MARKER-alpha > MARKER-alpha\.txt/)
   // 重跑被真的执行过:夹具命令写的标记文件必须在,且只有失败那条被重跑。
-  assert.equal(existsSync(join(dir, 'MARKER-alpha.txt')), true, 'MARKER-alpha must exist (command really ran)')
-  assert.equal(existsSync(join(dir, 'MARKER-beta.txt')), false, 'succeeding step must NOT be re-run')
+  assert.equal(
+    existsSync(join(dir, 'MARKER-alpha.txt')),
+    true,
+    'MARKER-alpha must exist (command really ran)',
+  )
+  assert.equal(
+    existsSync(join(dir, 'MARKER-beta.txt')),
+    false,
+    'succeeding step must NOT be re-run',
+  )
   assert.doesNotMatch(r.stdout, /rerun mapping missing/)
 })
 
@@ -153,7 +178,11 @@ test('c: multi-line run block => mapping-missing branch naming the step, never g
   assert.match(r.stdout, /Gamma block step/, 'degraded branch must still name the failing step')
   assert.match(r.stdout, /rerun mapping missing \(rerun mapping missing\)|重跑映射缺失/)
   assert.match(r.stdout, /no single-line run: found after id: gamma/)
-  assert.doesNotMatch(r.stdout, /re-running ONLY this command/, 'block scalar must NOT be guessed and re-run')
+  assert.doesNotMatch(
+    r.stdout,
+    /re-running ONLY this command/,
+    'block scalar must NOT be guessed and re-run',
+  )
   assert.equal(existsSync(join(dir, 'MARKER-alpha.txt')), false)
 })
 
@@ -167,11 +196,7 @@ test('a2: action step (uses:) => honest "no run command to re-execute" branch', 
       '        uses: actions/checkout@v4',
       '',
     ],
-    'uses-before-id': [
-      '      - uses: actions/checkout@v4',
-      '        id: alpha',
-      '',
-    ],
+    'uses-before-id': ['      - uses: actions/checkout@v4', '        id: alpha', ''],
   }
   for (const [shape, stepLines] of Object.entries(shapes)) {
     const wf = [
@@ -189,8 +214,91 @@ test('a2: action step (uses:) => honest "no run command to re-execute" branch', 
     )
     assert.equal(r.status, 0, `shape=${shape}`)
     assert.match(r.stdout, /first failing step is \[alpha\]/, `shape=${shape}`)
-    assert.match(r.stdout, /is an action step - there is no run command to re-execute/, `shape=${shape}`)
+    assert.match(
+      r.stdout,
+      /is an action step - there is no run command to re-execute/,
+      `shape=${shape}`,
+    )
   }
+})
+
+// ── (a3) working-directory 必须被尊重:重跑落在步骤自己的目录,绝不退回仓库根 ───────────
+test('a3: working-directory is honored - rerun lands in the step scope, never repo root', () => {
+  const { dir, wfPath } = setupCase('a3-workdir', WORKDIR_WF)
+  const r = runTriage(
+    { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, O_ALPHA: 'failure', O_BETA: '', O_GAMMA: '' },
+    dir,
+  )
+  assert.equal(r.status, 0, `triage must exit 0; stderr=${r.stderr}`)
+  assert.match(r.stdout, /honoring the step's working-directory: sub/)
+  assert.equal(
+    existsSync(join(dir, 'sub', 'MARKER-wd.txt')),
+    true,
+    'marker must land in sub/ (step scope)',
+  )
+  assert.equal(existsSync(join(dir, 'MARKER-wd.txt')), false, 'marker must NOT land at repo root')
+})
+
+// ── (a4) working-directory 缺失 ⇒ 拒绝重跑并点名,不得退回根目录制造第二份真相 ──────────
+test('a4: missing working-directory => refuse to rerun, never fall back to repo root', () => {
+  const wf = WORKDIR_WF.replace('working-directory: sub', 'working-directory: not-there')
+  const { dir, wfPath } = setupCase('a4-missing-workdir', wf)
+  const r = runTriage(
+    { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, O_ALPHA: 'failure', O_BETA: '', O_GAMMA: '' },
+    dir,
+  )
+  assert.equal(r.status, 0)
+  assert.match(r.stdout, /working-directory 'not-there' does not exist/)
+  assert.match(r.stdout, /refusing to rerun in the wrong scope/)
+  assert.doesNotMatch(
+    r.stdout,
+    /re-running ONLY this command/,
+    'must not rerun after scope resolution fails',
+  )
+  assert.equal(existsSync(join(dir, 'MARKER-wd.txt')), false)
+})
+
+// ── (a5) 小写 + 连字符的 id ⇒ env 键 O_<大写>_<下划线>;该行必须 bash 3.2 可解析 ────────
+// macOS runner 自带 /bin/bash 3.2.57,不支持 bash 4.0+ 的 case 修饰 ${ID^^};旧写法在那边报
+// "bad substitution" 让分诊在第 47 行中断(2026-11-04)。本机是 bash 5.x,运行时跑不出 3.2 的
+// 报错,所以本用例双管:运行时锁映射结果(映射错 ⇒ 读不到 O_MY_STEP ⇒ 落进 dump 分支),
+// 源码锁锁写法(退回 ${ID^^} ⇒ 即便本机全绿也翻红)。
+test('a5: lowercase hyphenated id maps to O_<UPPER>_<UNDERSCORE>, line stays bash-3.2 safe', () => {
+  const wf = [
+    'name: triage-fixture',
+    'jobs:',
+    '  fixture-job:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - name: Hyphen step',
+    '        id: my-step',
+    '        run: echo MARKER-hyphen > MARKER-hyphen.txt',
+    '',
+  ].join('\n')
+  const { dir, wfPath } = setupCase('a5-hyphen-id', wf)
+  const r = runTriage(
+    { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, TRIAGE_IDS: 'my-step', O_MY_STEP: 'failure' },
+    dir,
+  )
+  assert.equal(r.status, 0, `triage must exit 0; stderr=${r.stderr}`)
+  assert.match(r.stdout, /first failing step is \[my-step\]/)
+  assert.doesNotMatch(r.stdout, /no known step reported outcome=failure/)
+  assert.equal(
+    existsSync(join(dir, 'MARKER-hyphen.txt')),
+    true,
+    'rerun must really execute under the mapped env key',
+  )
+
+  // 源码锁:bash 4.0+ 的 case 修饰在 bash 3.2(macOS /bin/bash)上是 bad substitution。
+  // 只判**代码行**(注释里为了记录事故原文会提到旧写法,不能把注释当实现)。
+  const src = readFileSync(SCRIPT, 'utf8')
+  const codeLines = src
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+  assert.equal(/\$\{[A-Za-z_][A-Za-z0-9_]*\^\^/.test(codeLines), false, 'must not use ${VAR^^}')
+  assert.equal(/\$\{[A-Za-z_][A-Za-z0-9_]*,,?\}/.test(codeLines), false, 'must not use ${VAR,,}')
+  assert.match(codeLines, /tr '\[:lower:\]' '\[:upper:\]'/, 'uppercase must come from tr')
 })
 
 // ── (d) 变异自证:把脚本判据改坏一份副本,对应断言必须翻红;原件逐字未动 ─────────────────
@@ -213,8 +321,20 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
   {
     const { wfPath } = setupCase('d1-orig', multiRun)
     const { wfPath: wfPathM } = setupCase('d1-mutant', multiRun)
-    const env = { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, O_ALPHA: 'failure', O_BETA: '', O_GAMMA: '' }
-    const envM = { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPathM, O_ALPHA: 'failure', O_BETA: '', O_GAMMA: '' }
+    const env = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPath,
+      O_ALPHA: 'failure',
+      O_BETA: '',
+      O_GAMMA: '',
+    }
+    const envM = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPathM,
+      O_ALPHA: 'failure',
+      O_BETA: '',
+      O_GAMMA: '',
+    }
     const good = runTriage(env, TMP)
     assert.equal(good.status, 0)
     const countAnnotated = (out) => (out.match(/\[alpha\] line-\d/g) || []).length
@@ -232,17 +352,37 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.equal(bad.status, 0)
-    assert.equal(countAnnotated(bad.stdout), 2, 'mutant must lose lines => the 5-line assertion flips red against it')
+    assert.equal(
+      countAnnotated(bad.stdout),
+      2,
+      'mutant must lose lines => the 5-line assertion flips red against it',
+    )
   }
 
   // d2) "第一个 failure"判序被改坏(去掉 -z 守卫 ⇒ 最后一个 failure 胜出):点名从 alpha 漂成 beta。
   {
     const { wfPath } = setupCase('d2-orig', FIXTURE_WF)
     const { wfPath: wfPathM } = setupCase('d2-mutant', FIXTURE_WF)
-    const env = { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPath, O_ALPHA: 'failure', O_BETA: 'failure', O_GAMMA: 'success' }
-    const envM = { ...IDS_ENV, TRIAGE_WORKFLOW_FILE: wfPathM, O_ALPHA: 'failure', O_BETA: 'failure', O_GAMMA: 'success' }
+    const env = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPath,
+      O_ALPHA: 'failure',
+      O_BETA: 'failure',
+      O_GAMMA: 'success',
+    }
+    const envM = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPathM,
+      O_ALPHA: 'failure',
+      O_BETA: 'failure',
+      O_GAMMA: 'success',
+    }
     const good = runTriage(env, TMP)
-    assert.match(good.stdout, /first failing step is \[alpha\]/, 'first failure must win in job order')
+    assert.match(
+      good.stdout,
+      /first failing step is \[alpha\]/,
+      'first failure must win in job order',
+    )
 
     const mutantPath = join(TMP, 'mutant-order.sh')
     const mutant = original.replace(
@@ -259,19 +399,88 @@ test('d: mutations prove the assertions have teeth; original untouched', () => {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.doesNotMatch(bad.stdout, /first failing step is \[alpha\]/)
-    assert.match(bad.stdout, /first failing step is \[beta\]/, 'broken ordering must flip the alpha assertion red')
+    assert.match(
+      bad.stdout,
+      /first failing step is \[beta\]/,
+      'broken ordering must flip the alpha assertion red',
+    )
+  }
+
+  // d3) working-directory 作用域被改坏(去掉 cd 前缀 ⇒ 退回仓库根):a3 的"标记落 sub/"必须翻红。
+  {
+    const { dir, wfPath } = setupCase('d3-orig', WORKDIR_WF)
+    const { dir: dirM, wfPath: wfPathM } = setupCase('d3-mutant', WORKDIR_WF)
+    const env = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPath,
+      O_ALPHA: 'failure',
+      O_BETA: '',
+      O_GAMMA: '',
+    }
+    const envM = {
+      ...IDS_ENV,
+      TRIAGE_WORKFLOW_FILE: wfPathM,
+      O_ALPHA: 'failure',
+      O_BETA: '',
+      O_GAMMA: '',
+    }
+    const good = runTriage(env, dir)
+    assert.equal(good.status, 0, 'original script must exit 0')
+    assert.equal(
+      existsSync(join(dir, 'sub', 'MARKER-wd.txt')),
+      true,
+      'original must run inside sub/',
+    )
+
+    const mutantPath = join(TMP, 'mutant-workdir.sh')
+    const mutant = original.replace(
+      '( cd -- "$WORKDIR" && bash -c "$RUN_CMD" )',
+      'bash -c "$RUN_CMD"',
+    )
+    assert.notEqual(mutant, original, 'mutation must actually apply')
+    writeFileSync(mutantPath, mutant, 'utf8')
+    const bad = spawnSync(BASH, [mutantPath], {
+      env: { ...process.env, ...envM },
+      cwd: dirM,
+      encoding: 'utf8',
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.equal(bad.status, 0)
+    assert.equal(
+      existsSync(join(dirM, 'sub', 'MARKER-wd.txt')),
+      false,
+      'mutant must lose the step scope',
+    )
+    assert.equal(
+      existsSync(join(dirM, 'MARKER-wd.txt')),
+      true,
+      'mutant must fall back to repo root => a3 flips red',
+    )
   }
 
   // 还原证明:原件从未被写,哈希逐字不变(变异只发生在 TMP 里的副本)。
-  assert.equal(sha256(readFileSync(SCRIPT, 'utf8')), originalSha, 'original script must stay byte-identical')
+  assert.equal(
+    sha256(readFileSync(SCRIPT, 'utf8')),
+    originalSha,
+    'original script must stay byte-identical',
+  )
 })
 
 // ── 源码锁:ci.yml 里不得再存在内联 triage 实现体(防两份实现并存)──────────────────────
 test('source lock: ci.yml must call the shared script, never inline a second implementation', () => {
   const ci = readFileSync(CI_YML, 'utf8')
   // 两个特征串都只存在于旧内联实现体(2026-09-28 抽取前的版本),任何一份重现即锁翻红。
-  assert.equal(ci.includes('probe checkout "$O_CHECKOUT"'), false, 'inline probe() table must not come back')
-  assert.equal(ci.includes('DUMP="$DUMP $1=$2"'), false, 'inline probe accumulator must not come back')
+  assert.equal(
+    ci.includes('probe checkout "$O_CHECKOUT"'),
+    false,
+    'inline probe() table must not come back',
+  )
+  assert.equal(
+    ci.includes('DUMP="$DUMP $1=$2"'),
+    false,
+    'inline probe accumulator must not come back',
+  )
   // 正向锁:调用点必须真在(防"抽走了却没人调")。
   assert.match(ci, /run: bash scripts\/ci-failure-triage\.sh/)
   assert.match(ci, /唯一实现:scripts\/ci-failure-triage\.sh/)
@@ -281,7 +490,11 @@ test('source lock: ci.yml must call the shared script, never inline a second imp
 test('wiring lock: every target workflow invokes the shared script under if: failure()', () => {
   for (const rel of TARGET_WORKFLOWS) {
     const text = readFileSync(join(ROOT, rel), 'utf8')
-    assert.match(text, /run: bash scripts\/ci-failure-triage\.sh/, `${rel} must call the shared script`)
+    assert.match(
+      text,
+      /run: bash scripts\/ci-failure-triage\.sh/,
+      `${rel} must call the shared script`,
+    )
     assert.match(text, /if: failure\(\)/, `${rel} triage step must be failure()-gated`)
     assert.match(text, /TRIAGE_WORKFLOW_FILE: /, `${rel} must pass its own file`)
     assert.match(text, /TRIAGE_IDS: /, `${rel} must pass the step-id list`)
@@ -292,7 +505,11 @@ test('wiring lock: every target workflow invokes the shared script under if: fai
     const steps = (text.match(/name: Failure triage \(public annotations\)/g) || []).length
     const ids = (text.match(/TRIAGE_IDS: /g) || []).length
     assert.ok(calls >= 1, `${rel} must invoke the shared script at least once`)
-    assert.equal(calls, steps, `${rel} 每次调用必须配对一个 "Failure triage (public annotations)" 步骤`)
+    assert.equal(
+      calls,
+      steps,
+      `${rel} 每次调用必须配对一个 "Failure triage (public annotations)" 步骤`,
+    )
     assert.equal(calls, ids, `${rel} 每次调用必须配对一份 TRIAGE_IDS`)
     // 接 triage 不得顺手加 continue-on-error(判 triage 步骤块自身 —— ci.yml 在
     // python-ai-service 作业里本就有一处历史 continue-on-error: true,不属本次接线)。
@@ -300,7 +517,11 @@ test('wiring lock: every target workflow invokes the shared script under if: fai
     assert.notEqual(start, -1, `${rel} must contain the triage step`)
     const end = text.indexOf('bash scripts/ci-failure-triage.sh', start)
     const triageBlock = text.slice(start, end)
-    assert.equal(/continue-on-error/.test(triageBlock), false, `${rel} triage step must not gain continue-on-error`)
+    assert.equal(
+      /continue-on-error/.test(triageBlock),
+      false,
+      `${rel} triage step must not gain continue-on-error`,
+    )
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

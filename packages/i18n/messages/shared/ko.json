@@ -81,6 +81,12 @@
     "toolWorkflowInstanceStatus": "워크플로 인스턴스 상태",
     "toolNotebookEdit": "노트북 셀 편집",
     "toolSendToSession": "세션 메시지 보내기",
+    "toolRenderRepoTree": "디렉터리 구조 렌더링",
+    "toolRunWorkflow": "워크플로 실행",
+    "toolWorkbookOpen": "워크북 열기",
+    "toolWorkbookReadRange": "워크북 범위 읽기",
+    "toolWorkbookWriteCells": "워크북 셀 쓰기",
+    "toolWorkbookClose": "워크북 닫기",
     "toolGenerateTest": "테스트 코드 생성",
     "toolRunCommand": "명령 실행",
     "toolGitOperations": "Git 작업 실행",
@@ -783,6 +789,8 @@
     "contentRequired": "피드백 내용을 입력해 주세요",
     "contact": "연락처",
     "contactPlaceholder": "선택 사항, 연락용",
+    "namePlaceholder": "이름을 입력하세요",
+    "tip": "보내주신 피드백은 제품과 서비스 개선에 사용됩니다. 제출 후 처리를 기다려 주세요.",
     "empty": "피드백 기록이 없습니다",
     "failed": "제출 실패, 잠시 후 다시 시도해 주세요",
     "fieldContact": "연락처",
@@ -1386,6 +1394,8 @@
     "enterprise": "엔터프라이즈"
   },
   "share": {
+    "appTitle": "IHUI AI — 더 스마트한 학습",
+    "timelineTitle": "IHUI AI, 스마트 학습 어시스턴트",
     "title": "공유",
     "remark": "메모",
     "remarkPlaceholder": "메모 입력(선택)",
@@ -1516,7 +1526,36 @@
     "total": "전체",
     "rank": "순위",
     "points": "포인트",
-    "isMe": "나"
+    "isMe": "나",
+    "unitCreation": "점",
+    "listTitle": "AI 랭킹",
+    "searchPlaceholder": "AI 도구 검색",
+    "generalHelper": "일반 도우미",
+    "free": "무료",
+    "fenlei": "카테고리",
+    "menu": "메뉴",
+    "detailTitle": "상세 페이지",
+    "statusUnknown": "알 수 없음",
+    "detail": {
+      "attention": "관심도",
+      "category": "카테고리",
+      "price": "가격",
+      "status": "상태",
+      "subCategory": "세부 카테고리",
+      "productForm": "제품 형태",
+      "org": "소속 기관",
+      "url": "공식 웹사이트",
+      "copyHint": "탭하여 복사",
+      "contentTitle": "상세 소개",
+      "loadFailed": "상세 가져오기"
+    },
+    "noData": "랭킹 데이터 없음",
+    "subtitle": "학습 랭킹, 자신의 순위를 확인하세요",
+    "retry": "재시도",
+    "me": "나",
+    "studyHours": "{count}시간 학습",
+    "histFallback": "기록 대화",
+    "visitorName": "랭킹 게스트"
   },
   "vip": {
     "title": "VIP 회원",
@@ -1942,7 +1981,8 @@
     "inputPlaceholder": "메시지 입력...",
     "send": "전송",
     "clear": "삭제",
-    "error": "전송 실패, 다시 시도해 주세요"
+    "error": "전송 실패, 다시 시도해 주세요",
+    "modeDisabledHint": "이미지/음성 모드는 아직 지원되지 않습니다. 현재는 텍스트 대화만 가능합니다"
   },
   "assistant": {
     "title": "내 어시스턴트",
@@ -2609,6 +2649,446 @@
           }
         }
       }
+    },
+    "messageVersion": {
+      "history": "이전 버전",
+      "regenerateFailed": "다시 생성 실패"
+    },
+    "contextUsage": {
+      "title": "컨텍스트 사용 현황",
+      "segSystem": "시스템 프롬프트",
+      "segToolSchema": "도구 정의",
+      "segSkill": "스킬 본문",
+      "segRoleUser": "사용자 메시지",
+      "segRoleAssistant": "어시스턴트 응답",
+      "segRoleToolCall": "도구 호출 인자",
+      "segRoleToolResult": "도구 결과",
+      "segSystemPrompt": "시스템 프롬프트 (전체)",
+      "unnamedItem": "이름 없는 항목",
+      "resultSuffix": "결과",
+      "unobservedServerOnly": "이 부분은 서버에서 조립되어 이 클라이언트에서 정확한 사용량을 알 수 없습니다",
+      "unobservedNotSupplied": "이번 라운드에 해당 시스템 구간이 전송되지 않았습니다",
+      "detailsTruncated": "외 {count}개 항목은 접혀 있습니다",
+      "residualLabel": "미분류 오버헤드"
+    },
+    "title": "AI 어시스턴트",
+    "inputPlaceholder": "질문 입력…",
+    "suggestions": [
+      "시를 써주세요",
+      "양자역학을 설명해주세요",
+      "코드를 작성해주세요",
+      "이 문장을 번역해주세요"
+    ],
+    "stop": "중지",
+    "clear": "삭제",
+    "clearConfirm": "현재 대화를 삭제하시겠습니까?",
+    "serviceUnavailable": "AI 서비스 사용 불가",
+    "modelLoadFailed": "모델 로딩 실패",
+    "materialLoadFailed": "자료 로딩 실패",
+    "agentLoadFailed": "에이전트 로딩 실패",
+    "agent": {
+      "count": "{n}개",
+      "empty": "에이전트 없음",
+      "inputPlaceholder": "질문 입력…",
+      "searchPlaceholder": "에이전트 검색"
+    },
+    "agentDetail": {
+      "runtimeTitle": "런타임",
+      "runtimeClear": "삭제",
+      "runtimePlan": "실행 계획",
+      "runtimePermission": "권한",
+      "runtimePermissionTool": "도구",
+      "runtimePermissionLevel": "위험도",
+      "runtimePermissionMode": "모드",
+      "runtimeOutput": "출력",
+      "runtimeError": "오류",
+      "runtimeEmpty": "실행 기록 없음",
+      "runtimeInputPlaceholder": "메시지 입력…",
+      "runtimeStop": "중지",
+      "runtimeSend": "전송",
+      "exampleDialog": "예시 대화",
+      "favoriteAgent": "즐겨찾기",
+      "favorited": "즐겨찾기됨",
+      "permissionAllowed": "허용됨",
+      "permissionDenied": "거부됨",
+      "permissionLoading": "권한 로딩 중…",
+      "prologue": "프롤로그",
+      "promptLabel": "프롬프트",
+      "relatedAgents": "관련 에이전트",
+      "startChat": "채팅 시작",
+      "tabRuntime": "런타임",
+      "unfavorite": "즐겨찾기 해제",
+      "vipExclusive": "VIP 전용",
+      "vipPermissionDenied": "이 에이전트는 VIP 필요"
+    },
+    "agentList": {
+      "categories": {
+        "coding": "코딩",
+        "education": "교육",
+        "life": "생활",
+        "office": "오피스",
+        "other": "기타",
+        "recommend": "추천",
+        "writing": "작문"
+      },
+      "createAgent": "에이전트 생성",
+      "emptyFavorites": "즐겨찾기 에이전트 없음",
+      "emptyRecent": "최근 사용 에이전트 없음",
+      "hot": "인기",
+      "hotRecommend": "인기 추천",
+      "noResult": "에이전트를 찾을 수 없음",
+      "sortBy": "정렬",
+      "sortHot": "인기",
+      "sortNewest": "최신",
+      "sortUses": "사용수",
+      "tabAll": "전체",
+      "tabFavorites": "내 즐겨찾기",
+      "tabRecent": "최근 사용",
+      "useCount": "{n}명 사용"
+    },
+    "aiAssistant": {
+      "copyFailed": "복사에 실패했습니다",
+      "pleaseLogin": "먼저 로그인해 주세요"
+    },
+    "chat": {
+      "replayFailed": "이 대화의 메시지를 불러오지 못했습니다. 다시 시도해 주세요",
+      "loadEarlier": "이전 메시지 불러오기",
+      "earlierLoading": "불러오는 중…",
+      "earlierLoadFailed": "이전 메시지를 불러오지 못했습니다. 다시 시도해 주세요",
+      "agentTipConfirm": "알겠습니다",
+      "agentTipHistory": "기록",
+      "agentTipHistoryDesc": "대화 기록을 조회할 수 있습니다",
+      "agentTipImage": "이미지 생성 선택",
+      "agentTipImageDesc": "이미지 모드로 전환하여 이미지를 생성하세요",
+      "agentTipInput": "질문 입력",
+      "agentTipInputDesc": "하단 입력란에 질문을 입력하고 전송을 누르세요",
+      "agentTipSkill": "스킬 선택",
+      "agentTipSkillDesc": "좌측 상단 스킬 버튼을 눌러 해당 에이전트를 선택하세요",
+      "agentTipTalk": "대화 선택",
+      "agentTipTalkDesc": "대화 모드로 전환하여 AI와 직접 소통하세요",
+      "agentTipTitle": "에이전트 사용 안내"
+    },
+    "chatDrawers": {
+      "promptLabel": "프롬프트",
+      "selectModel": "모델 선택",
+      "skillDetail": "스킬 상세"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI 생성",
+      "collapse": "접기",
+      "copy": "복사",
+      "digitalHuman": "디지털 휴먼 생성 →",
+      "downloadFailed": "다운로드 실패",
+      "downloading": "다운로드 중",
+      "edit": "편집",
+      "errorCardTitle": "요청 오류",
+      "favorited": "즐겨찾기됨",
+      "me": "나",
+      "needAlbumAuth": "이미지를 저장하려면 앨범 권한이 필요합니다. 설정에서 활성화하세요",
+      "noContent": "복사할 내용 없음",
+      "regenerate": "재생성",
+      "retry": "재시도",
+      "reuse": "재사용",
+      "share": "공유",
+      "speak": "재생",
+      "stopSpeak": "중지",
+      "thinkingProcess": "사고 과정",
+      "tokenCost": "토큰: {n}",
+      "viewDigitalHuman": "디지털 휴먼 보기",
+      "voiceMessage": "음성 메시지"
+    },
+    "common": {
+      "loading": "로딩 중…"
+    },
+    "fileSelected": "{count}개 파일 선택됨",
+    "screenshotHint": "스크린샷 감지 — + 를 눌러 앨범에서 이미지를 골라 AI에게 보내세요",
+    "generating": "빠른 생성 중",
+    "history": {
+      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
+      "cleared": "기록이 삭제되었습니다",
+      "empty": "기록 없음",
+      "title": "대화 기록"
+    },
+    "historyPage": {
+      "loadMoreFailed": "더 불러오기에 실패했습니다. 아래로 당겨 새로고침해 주세요",
+      "deleteFailed": "삭제에 실패했습니다. 다시 시도해 주세요",
+      "clearAll": "전체 삭제",
+      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
+      "cleared": "삭제됨",
+      "clearServerConfirm": "서버에서 불러온 {n}개의 대화를 영구 삭제합니다. 되돌릴 수 없습니다. 계속할까요?",
+      "clearServerProgress": "삭제 중 {done}/{n}…",
+      "clearServerDone": "{n}개의 대화를 삭제했습니다",
+      "clearServerPartial": "성공 {ok}건 / 실패 {fail}건. 실패한 대화는 남겨둡니다",
+      "deleteOne": "이 대화 삭제",
+      "empty": "대화 기록 없음",
+      "fallbackNotice": "서버에서 대화를 불러오지 못해 이 기기의 기록을 표시합니다.",
+      "msgCount": "메시지 {n}개",
+      "noMore": "더 이상 없습니다",
+      "noResult": "관련 대화를 찾을 수 없습니다",
+      "pin": "고정",
+      "pinFailed": "고정에 실패했습니다. 다시 시도해 주세요",
+      "pinned": "고정됨",
+      "refreshSuccess": "새로고침 성공",
+      "searchPlaceholder": "대화 기록 검색",
+      "startNew": "새 대화 시작",
+      "unpinFailed": "고정 해제에 실패했습니다. 다시 시도해 주세요"
+    },
+    "image": {
+      "download": "다운로드",
+      "downloadFailed": "다운로드 실패, 재시도",
+      "downloadSuccess": "앨범에 저장됨",
+      "empty": "생성 기록 없음",
+      "emptyHint": "이미지 생성 설명 입력",
+      "favorite": "즐겨찾기",
+      "favoriteAdded": "즐겨찾기에 추가됨",
+      "favoriteRemoved": "즐겨찾기 해제됨",
+      "favorited": "즐겨찾기됨",
+      "generate": "이미지 생성",
+      "generateFailed": "생성 실패, 재시도",
+      "generating": "생성 중…",
+      "history": "기록",
+      "placeholder": "생성할 이미지 설명",
+      "share": "공유",
+      "title": "이미지 생성",
+      "tryThese": "이것들 시도",
+      "vertical": "세로 1024×1792",
+      "examples": [
+        "귀여운 고양이",
+        "일몰 산 풍경",
+        "미래 도시",
+        "추상 예술"
+      ],
+      "styles": [
+        "실사",
+        "애니메이션",
+        "유화",
+        "수채화",
+        "3D",
+        "픽셀"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "누르고 말하기",
+      "releaseToSend": "놓으면 전송"
+    },
+    "intelligentAssistant": {
+      "greeting": "안녕하세요, IHUI AI 어시스턴트입니다",
+      "loginRequired": "먼저 로그인 후 이용해 주세요",
+      "recharge": "충전하기",
+      "subtitle": "언제든지 AI 서비스를 제공합니다",
+      "tokenBalance": "Token 잔액:{n}"
+    },
+    "materialPopup": {
+      "empty": "자료 없음",
+      "loadMore": "더 보기",
+      "noMore": "더 이상 없음",
+      "title": "자료 선택",
+      "upload": "업로드"
+    },
+    "messageAction": {
+      "copy": "복사",
+      "delete": "삭제",
+      "reuse": "재사용",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "bookmark": "북마크",
+      "unbookmark": "북마크 해제",
+      "flagFailed": "표시 저장 실패"
+    },
+    "share": {
+      "title": "공유"
+    },
+    "skillsPopup": {
+      "empty": "사용 가능한 스킬 없음",
+      "notFound": "스킬을 찾을 수 없음",
+      "searchPlaceholder": "스킬 검색",
+      "title": "스킬 선택",
+      "uses": "{n}회 사용"
+    },
+    "special": {
+      "bannerDesc": "AI 대화/그리기/영상/음성/에이전트/모델 광장을 한곳에 모아, 엄선된 추천 기능을 바로 사용할 수 있습니다",
+      "bannerTitle": "AI 특집 모음",
+      "cat": {
+        "agent": "에이전트",
+        "all": "전체",
+        "chat": "AI 대화",
+        "image": "AI 이미지 생성",
+        "plaza": "모델 광장",
+        "video": "AI 동영상",
+        "voice": "AI 음성"
+      },
+      "empty": "아직 콘텐츠가 없습니다",
+      "error": "불러오기에 실패했습니다",
+      "featured": "추천",
+      "history": "내 사용 기록",
+      "historySoon": "히스토리가 곧 출시됩니다",
+      "pageError": "작업 실패",
+      "useBtn": "바로 사용",
+      "useCount": "{n}회 사용"
+    },
+    "specialModel": {
+      "confirm": "전환 확인",
+      "hint": "안내"
+    },
+    "stream": {
+      "compact": "컨텍스트 압축됨 {before} → {after}",
+      "fallback": "백업 모델로 전환: {model}",
+      "planUpdate": "실행 계획이 업데이트됨",
+      "reconnect": "연결 끊김, {seconds}초 후 {attempt}번째 재연결",
+      "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다",
+      "subagent": "하위 작업: {phase}",
+      "title": "실행 과정",
+      "toolSummary": "도구 집계: {calls}회",
+      "terminal": "터미널 작업: {status}",
+      "usage": "사용량: {n} tokens"
+    },
+    "switchAgent": {
+      "confirm": "전환 확인"
+    },
+    "thinkingTip": "Tips:먼저 오른쪽 상단의 점 3개를 눌러 미니프로그램을 띄워놓고 잠시 후 돌아오세요~",
+    "tishi": {
+      "close": "닫기",
+      "needInput": "더 정확한 도움을 위해 다음 정보를 입력해 주세요",
+      "title": "에이전트 가이드",
+      "view": "보기"
+    },
+    "uploadMaterialTab": "{tab} 자료 업로드",
+    "video": {
+      "download": "다운로드",
+      "downloadFailed": "다운로드 실패, 재시도",
+      "downloadSuccess": "앨범에 저장됨",
+      "emptyHistory": "기록 없음",
+      "failed": "생성 실패",
+      "generate": "동영상 생성",
+      "generateFailed": "생성 실패, 재시도",
+      "generating": "생성 중…",
+      "history": "기록",
+      "modelUnavailable": "이 모델 API는 아직 미지원",
+      "notAvailable": "미지원",
+      "pending": "대기 중…",
+      "promptPlaceholder": "생성할 동영상 내용을 설명...",
+      "share": "공유",
+      "succeeded": "생성 완료",
+      "taskSubmitted": "작업이 제출되었습니다, 기록에서 확인하세요",
+      "title": "동영상 생성",
+      "duration": "소요 시간",
+      "resolution": "해상도",
+      "fps": "프레임 레이트",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Sora2로 비디오 생성",
+        "kling": "Kling",
+        "klingDesc": "고품질 AI 비디오 생성",
+        "doubao": "Doubao",
+        "doubaoDesc": "Doubao 모델로 비디오 생성",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Alibaba Cloud DashScope로 비디오 생성"
+      }
+    },
+    "voice": {
+      "chatFailed": "대화 실패, 재시도",
+      "clearChat": "대화 비우기",
+      "clearConfirm": "현재 대화를 지우시겠습니까?",
+      "cleared": "대화가 지워졌습니다",
+      "holdToSpeak": "누르고 말하기",
+      "recordFailed": "녹음 실패, 재시도",
+      "releaseToSend": "놓으면 전송",
+      "speed": "말 속도",
+      "timbre": "음색",
+      "title": "AI 음성 대화",
+      "voiceMessage": "[음성 메시지]",
+      "welcome": "안녕하세요, 아래 버튼을 길게 눌러 음성 대화 시작"
+    },
+    "welcomeDesc": "무엇을 도와드릴까요?",
+    "welcomeTitle": "안녕하세요, IHUI AI 어시스턴트입니다",
+    "businessForms": {
+      "ariaLabel": "업무 폼 카드",
+      "aria": {
+        "email": "메일 작성 카드",
+        "calendarEvent": "캘린더 폼 카드"
+      },
+      "fields": {
+        "to": "받는 사람",
+        "cc": "참조",
+        "bcc": "숨은 참조",
+        "subject": "제목",
+        "replyTo": "회신 주소",
+        "body": "본문",
+        "start": "시작",
+        "end": "종료",
+        "attendees": "참석자"
+      },
+      "action": {
+        "approve": "승인",
+        "reject": "거부",
+        "create": "만들기",
+        "save": "저장"
+      },
+      "error": {
+        "required": "필수 항목을 입력해 주세요",
+        "invalidEmail": "이메일 형식이 올바르지 않습니다",
+        "endBeforeStart": "종료 시간은 시작 시간 이후여야 합니다",
+        "noAttendees": "참석자를 1명 이상 추가해 주세요"
+      },
+      "reason": "거절 사유(선택)",
+      "fold": {
+        "expand": "전체 {count}명 참석자 펼치기",
+        "collapse": "참석자 접기"
+      },
+      "status": {
+        "submitting": "제출 중…",
+        "approved": "승인됨",
+        "rejected": "거부됨",
+        "failed": "제출에 실패했습니다. 다시 시도해 주세요"
+      }
+    },
+    "cards": {
+      "steer": {
+        "title": "{count}회 유도됨",
+        "more": "외 {count}건"
+      },
+      "plan": {
+        "title": "실행 계획"
+      },
+      "tool": {
+        "title": "도구 호출"
+      },
+      "terminal": {
+        "title": "터미널",
+        "isolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
+        "copy": "복사",
+        "copied": "복사됨",
+        "exitCode": "종료 코드: {code}",
+        "truncated": "…(잘림, 전체 {total}자)"
+      },
+      "citation": {
+        "title": "참조 출처"
+      },
+      "injection": {
+        "title": "이번 응답에서 참조한 컨텍스트",
+        "kind": {
+          "developer": "사용자 지정 지침",
+          "workspace": "워크스페이스 기억",
+          "repoWiki": "저장소 Wiki",
+          "autoContext": "자동 검색 컨텍스트"
+        },
+        "expand": "펼치기",
+        "collapse": "접기"
+      },
+      "status": {
+        "running": "실행 중",
+        "done": "완료",
+        "failed": "실패"
+      },
+      "source": {
+        "builtin": "내장",
+        "plugin": "플러그인",
+        "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "하위 작업"
+      }
     }
   },
   "streamErrors": {
@@ -2747,5 +3227,235 @@
     "rateTitle": "커미션 비율",
     "openVip": "VIP 멤버십을 개통해 커미션 플랜에 참여하세요",
     "rateEmpty": "수수료 비율이 없습니다"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "VIP 회원이 되면 수익 분배 플랜에 참여할 수 있습니다.",
+      "rule2": "친구가 회원이 되면 회원비의 20%를 커미션으로 받습니다.",
+      "rule3": "커미션은 친구 결제 성공 후 24시간 이내에 계정에 자동 정산됩니다.",
+      "rule4": "계정 잔액이 100위안 이상이면 위챗 또는 알리페이로 출금 신청할 수 있습니다."
+    }
+  },
+  "orderRefund": {
+    "d1": "필요 없음",
+    "d2": "잘못 주문/중복 주문",
+    "d3": "품질 문제",
+    "d4": "설명과 다름",
+    "d5": "기타 이유"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "자주 묻는 질문"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "아직 혜택이 없습니다",
+      "myBenefits": "나의 전용 혜택",
+      "loadFailed": "불러오기 실패",
+      "tierCatalog": "등급별 혜택",
+      "tier": {
+        "normal": "일반 회원",
+        "silver": "실버 회원",
+        "gold": "골드 회원",
+        "diamond": "다이아몬드 회원"
+      },
+      "b": {
+        "discount": "쇼핑 할인",
+        "points": "포인트 가속",
+        "gift": "신규 회원 선물",
+        "sign": "매일 출석",
+        "news": "혜택 알림",
+        "pointsMul": "포인트 배수",
+        "birthday": "생일 선물",
+        "shipping": "무료 배송",
+        "coupon": "전용 쿠폰",
+        "service": "전담 고객 지원",
+        "preview": "우선 체험",
+        "event": "프리미엄 이벤트",
+        "discountD1": "전 상품 5% 할인",
+        "pointsD1": "1위안당 1포인트",
+        "giftD": "가입 전용 선물",
+        "signD": "매일 출석 포인트",
+        "newsD": "할인 이벤트 알림",
+        "discountD2": "전 상품 10% 할인",
+        "pointsMulD2": "1.2배 포인트 가속",
+        "birthdayD": "생일 전용 선물",
+        "shippingD2": "월 3회 무료 배송",
+        "couponD2": "월 2장 쿠폰",
+        "signD2": "출석 2배 포인트",
+        "discountD3": "전 상품 15% 할인",
+        "pointsMulD3": "1.5배 포인트 가속",
+        "birthdayD3": "생일 더블 선물",
+        "shippingD3": "무제한 무료 배송",
+        "serviceD": "1:1 전담 서비스",
+        "couponD3": "월 5장 쿠폰",
+        "previewD": "신기능 우선 체험",
+        "discountD4": "전 상품 20% 할인",
+        "pointsMulD4": "2배 포인트 가속",
+        "birthdayD4": "생일 프리미엄 선물",
+        "shippingD4": "무제한 무료 배송",
+        "serviceD4": "7×24 전담 컨시어지",
+        "couponD4": "월 10장 쿠폰",
+        "previewD4": "신기능 우선 체험",
+        "eventD": "오프라인 프리미엄 이벤트"
+      }
+    }
+  },
+  "career": {
+    "fillField": "입력: {name}",
+    "submitFail": "제출 실패, 잠시 후 재시도",
+    "doneTitle": "제출 완료",
+    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능",
+    "exportingReport": "내보내는 중...",
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다",
+    "exportLoginRequired": "내보내려면 로그인하세요"
+  },
+  "message": {
+    "tabs": {
+      "all": "전체",
+      "system": "시스템",
+      "interaction": "상호작용",
+      "private": "다이렉트"
+    },
+    "notifLabels": {
+      "system": "시스템 알림",
+      "interaction": "상호작용 메시지",
+      "private": "다이렉트 메시지",
+      "marketing": "마케팅"
+    },
+    "notifDescs": {
+      "system": "계정, 주문, 보안 알림",
+      "interaction": "좋아요, 댓글, 팔로우",
+      "private": "다른 사용자의 DM",
+      "marketing": "프로모션, 신상품"
+    },
+    "hello": "안녕하세요, {name}입니다",
+    "justNow": "방금",
+    "unnamedRoom": "이름 없는 대화",
+    "empty": "메시지 없음",
+    "deleted": "삭제됨",
+    "notFound": "대화를 찾을 수 없음",
+    "settings": "설정",
+    "notificationSettings": "알림 설정",
+    "close": "닫기",
+    "startConversation": "대화를 시작하세요",
+    "inputPlaceholder": "메시지를 입력하세요...",
+    "sendBtn": "전송",
+    "noPrivate": "쪽지 없음",
+    "noSystem": "시스템 알림 없음",
+    "pin": "대화 고정",
+    "unpin": "고정 해제"
+  },
+  "developer": {
+    "withdrawal": {
+      "title": "출금 기록",
+      "processing": "처리 중",
+      "empty": "출금 기록 없음"
+    },
+    "subscribe": {
+      "recommended": "추천",
+      "devName": "개발자",
+      "unfollowed": "팔로우가 취소되었습니다",
+      "noContact": "연락처가 없습니다",
+      "bioDefault": "소개가 없습니다",
+      "subscribedBtn": "팔로잉",
+      "subscribeBtn": "+ 팔로우",
+      "statSubscribers": "구독자 수",
+      "statModels": "모델 수",
+      "statUses": "총 사용 횟수",
+      "modelsTitle": "개발자 모델",
+      "noModels": "모델이 없습니다",
+      "notifyTitle": "알림 설정",
+      "notifyNew": "신규 모델 출시 알림",
+      "notifyUpdate": "모델 업데이트 알림",
+      "postsTitle": "개발자 게시물",
+      "noPosts": "게시물이 없습니다",
+      "contact": "개발자에게 연락",
+      "copied": "연락처가 복사되었습니다",
+      "noDesc": "설명 없음",
+      "subscribed": "팔로우됨",
+      "use": "사용",
+      "uses": "사용"
+    },
+    "income": {
+      "withdrawn": "출금됨",
+      "withdrawPopup": "출금",
+      "withdrawAvailable": "출금 가능 금액 ¥",
+      "withdrawPlaceholder": "출금 금액 입력",
+      "withdrawAll": "전액 출금",
+      "noAvailable": "출금 가능 금액 없음",
+      "invalidAmount": "유효한 금액 입력",
+      "exceedAvailable": "출금 금액이 한도 초과",
+      "withdrawSubmitted": "출금 신청 완료",
+      "withdrawFailed": "출금 실패, 잠시 후 재시도",
+      "withdrawnYuan": "출금 완료(위안)",
+      "selectMethod": "출금 방식 선택",
+      "settled": "정산 완료",
+      "pending": "정산 대기",
+      "titleIncome": "에이전트 수입",
+      "processing": "처리 중",
+      "titleDetail": "출금 내역",
+      "tabAll": "전체",
+      "tabPending": "정산 대기",
+      "tabSettled": "정산 완료",
+      "cashDetail": "출금 내역",
+      "todayIncome": "오늘 수입",
+      "pendingSettlement": "정산 대기 금액",
+      "feeTip": "플랫폼 한시적으로 서비스 수수료 면제",
+      "noMore": "더 이상 없음",
+      "cashEmpty": "출금 내역 없음"
+    },
+    "index": {
+      "subscribeTitle": "구독",
+      "subscribeDesc": "업그레이드로 더 많은 기능",
+      "unnamedAgent": "제목 없는 에이전트",
+      "published": "게시됨",
+      "empty": "에이전트 없음",
+      "tip": "알림",
+      "deleteConfirm": "에이전트 삭제 확인",
+      "deleteBtn": "삭제",
+      "deleteOk": "삭제 완료",
+      "deleteFail": "삭제 실패",
+      "noType": "—",
+      "myAgents": "내 에이전트",
+      "searchPlaceholder": "에이전트 이름 검색",
+      "typeLabel": "유형",
+      "editBtn2": "수정",
+      "editBtn": "설정",
+      "noMore": "더 이상 없음"
+    },
+    "becomeDeveloper": "개발자 되기"
+  },
+  "news": {
+    "search": "뉴스 검색",
+    "empty": "뉴스 없음",
+    "cat": {
+      "announce": "공지",
+      "activity": "이벤트",
+      "info": "정보",
+      "tutorial": "튜토리얼",
+      "all": "전체"
+    },
+    "pinned": "고정",
+    "title": "AI 소식",
+    "anonAuthor": "익명",
+    "netFail": "네트워크 오류",
+    "detailTitle": "뉴스 상세",
+    "notFound": "뉴스를 찾을 수 없습니다",
+    "emptyContent": "본문이 없습니다",
+    "tags": "태그",
+    "loadFailed": "불러오기 실패",
+    "publishedAt": "{date} 게시",
+    "viewCount": "{count}회 조회",
+    "categoryBackToList": "뉴스로 돌아가기",
+    "categoryNotFound": "카테고리를 찾을 수 없습니다",
+    "categoryEmpty": "뉴스가 없습니다",
+    "categoryPinned": "고정",
+    "categorySubtitle": "최신 소식 및 공지",
+    "categoryLoadFailed": "불러오기 실패",
+    "categoryTotal": "총 {total}건",
+    "categoryPublishedAt": "{date} 게시",
+    "categoryViewCount": "{count}회 조회"
   }
 }

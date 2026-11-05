@@ -75,7 +75,9 @@ export function CollapsibleOutput({
         <StatusIcon className={cn('h-4 w-4 shrink-0', statusClassName)} />
         <span className="flex-1 truncate text-body font-medium">{title}</span>
         {duration !== undefined && (
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{duration}ms</span>
+          <span className="shrink-0 text-label tabular-nums text-muted-foreground">
+            {duration}ms
+          </span>
         )}
         {hasBody && (
           <ChevronDown
@@ -89,7 +91,7 @@ export function CollapsibleOutput({
       <CollapsibleContent>
         <div className="space-y-2 px-3 pb-3">
           {error && (
-            <pre className="overflow-x-auto rounded-md bg-red-500/10 p-2 font-mono text-xs text-red-500">
+            <pre className="overflow-x-auto rounded-md bg-red-500/10 p-2 font-mono text-label text-red-500">
               {error}
             </pre>
           )}

@@ -346,6 +346,7 @@ export function DistributionScreen() {
           onRefresh={() => void load(true)}
           onWithdraw={handleWithdraw}
           onBack={() => navigation.goBack()}
+          onRetry={() => { void load(); }}
           colorScheme={resolvedTheme}
         />
       </ScrollView>

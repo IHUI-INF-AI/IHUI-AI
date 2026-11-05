@@ -24,7 +24,7 @@ export function MonitorAlerts({ alerts, t }: Props) {
           <AlertTriangle className="h-4 w-4" />
           {t('monitor.alerts')}
           {criticalCount > 0 && (
-            <span className="inline-flex rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600">
+            <span className="inline-flex rounded-md bg-red-500/10 px-2 py-0.5 text-label text-red-600">
               {criticalCount} critical
             </span>
           )}
@@ -32,7 +32,9 @@ export function MonitorAlerts({ alerts, t }: Props) {
       </CardHeader>
       <CardContent>
         {alerts.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('monitor.noAlerts')}</p>
+          <p className="py-6 text-center text-body text-muted-foreground">
+            {t('monitor.noAlerts')}
+          </p>
         ) : (
           <div className="space-y-2">
             {alerts.map((a) => {
@@ -41,7 +43,7 @@ export function MonitorAlerts({ alerts, t }: Props) {
                 <div
                   key={a.id}
                   className={cn(
-                    'flex items-start gap-2 rounded-md px-3 py-2 text-sm',
+                    'flex items-start gap-2 rounded-md px-3 py-2 text-body',
                     st.bg,
                     st.text,
                   )}
@@ -52,7 +54,7 @@ export function MonitorAlerts({ alerts, t }: Props) {
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                   )}
                   <span className="flex-1">{a.message}</span>
-                  <span className="shrink-0 text-xs opacity-70">{a.time}</span>
+                  <span className="shrink-0 text-label opacity-70">{a.time}</span>
                 </div>
               )
             })}

@@ -3,11 +3,20 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import {
   EmptyState,
@@ -15,6 +24,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
@@ -45,10 +55,22 @@ export function LiveListScreen({
   onRefresh,
   onPressItem,
   onBack,
+  onEndReached,
+  loadingMore = false,
+  onRetry,
   colorScheme = 'light',
-}: LiveListScreenProps) {
+  onNavigate,
+}: LiveListScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 列表页分享的是"这一屏":原页两张卡用应用级两枚文案(转发卡 appTitle / 朋友圈卡 timelineTitle),
+  // 封面走端默认 /static/share.png ⇒ 与宿主兜底同值,不重复发布
+  usePublishShareIntent({
+    title: t('share.appTitle'),
+    timelineTitle: t('share.timelineTitle'),
+  })
   const showError: boolean = error !== '' && items.length === 0
 
   const statusColor = (status: LiveStatus) => {
@@ -90,7 +112,7 @@ export function LiveListScreen({
       {showError ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('liveList.retry')}
           colorScheme={colorScheme}
         />
@@ -105,6 +127,16 @@ export function LiveListScreen({
           contentContainerStyle={styles.listBody}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footer}>
+                <ActivityIndicator color={tk.brand.DEFAULT} />
+                <Text style={styles.footerText}>{t('common.loading')}</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             showError ? null : <EmptyState title={t('liveList.empty')} colorScheme={colorScheme} />
           }
@@ -146,7 +178,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     tabs: {
       flexDirection: 'row',
@@ -189,6 +221,14 @@ function createStyles(tk: AppThemeTokens) {
     cardMeta: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: rnSpacing.sm },
     cardMetaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.md,
+    },
+    footerText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

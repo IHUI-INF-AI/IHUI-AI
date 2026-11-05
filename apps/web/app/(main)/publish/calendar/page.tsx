@@ -110,7 +110,7 @@ export default function CalendarPage() {
       <BackButton />
       <div>
         <h2 className="text-base font-semibold">{t('calendar.title')}</h2>
-        <p className="text-xs text-muted-foreground">{t('calendar.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('calendar.subtitle')}</p>
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-12">

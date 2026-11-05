@@ -55,6 +55,34 @@ export interface PoolSideRow {
   credVersion: number
 }
 
+/** 最近一条签到记录的脱敏投影(与 ai-service pool_status.lastRecord 同构) */
+export interface CheckinLastRecord {
+  ok: boolean | null
+  action: string | null
+  message: string | null
+  code: string | null
+  httpStatus: number | null
+  /** 错误分类名(Unknown/SessionDead/BusinessError...),只给类型不给原文 */
+  classifiedErrorType: string | null
+  createdAt: string | null
+}
+
+/** 把 ai-service 的 lastRecord 收敛成可判形态;形状读不出回 null,不冒判。 */
+export function parseCheckinLastRecord(raw: unknown): CheckinLastRecord | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  return {
+    ok: typeof r.ok === 'boolean' ? r.ok : null,
+    action: typeof r.action === 'string' ? r.action : null,
+    message: typeof r.message === 'string' ? r.message.slice(0, 200) : null,
+    code:
+      typeof r.code === 'string' || typeof r.code === 'number' ? String(r.code).slice(0, 32) : null,
+    httpStatus: typeof r.httpStatus === 'number' ? r.httpStatus : null,
+    classifiedErrorType: typeof r.classifiedErrorType === 'string' ? r.classifiedErrorType : null,
+    createdAt: typeof r.createdAt === 'string' ? r.createdAt : null,
+  }
+}
+
 /** 签到侧单账号对账投影(ai-service list_pool_accounts 的同构回显) */
 export interface CheckinSideRow {
   accountId: number
@@ -67,6 +95,8 @@ export interface CheckinSideRow {
   poolCredVersion: number | null
   /** device_map.pool_pending_cred 摘要(上次回写号池失败留的待重试标记) */
   poolPendingCred: { attempts: number; at: string | null } | null
+  /** 最近一次签到结论(claim 失败归因用);无记录/旧版 ai-service 回 null */
+  lastRecord: CheckinLastRecord | null
 }
 
 type ReconcileAction =
@@ -90,6 +120,8 @@ export interface ReconcilePlan {
   orphanNoPoolId: number
   /** 映射域外(codearts 等)被忽略的号池行数 */
   outOfScope: number
+  /** 映射域外按 provider 归因(2026-11-03 立):总数看不出是 doubao 还是 codearts 被跳过 */
+  outOfScopeByProvider: Record<string, number>
   /** 被单轮配额挤掉的动作数(>0 表示本轮未处理完,下轮继续) */
   truncated: number
   /**
@@ -126,6 +158,9 @@ export function planReconciliation(
 
   const actions: ReconcileAction[] = []
   let outOfScope = 0
+  // 映射域外账号按 provider 归因(2026-11-03 立):此前只有总数 outOfScope,
+  // 「15 个号静默跳过」看不出是 doubao 还是 codearts,和"失败"混在一张脸上。
+  const outOfScopeByProvider = new Map<string, number>()
   let truncated = 0
   let skippedDisabledMissing = 0
   const taken = { push: 0, disable: 0, state: 0, flush: 0 }
@@ -136,6 +171,7 @@ export function planReconciliation(
   for (const p of poolSide) {
     if (!checkinPlatformFor(p.providerCode)) {
       outOfScope++
+      outOfScopeByProvider.set(p.providerCode, (outOfScopeByProvider.get(p.providerCode) ?? 0) + 1)
       continue
     }
     const c = checkinByPoolAccountId.get(p.id)
@@ -193,7 +229,21 @@ export function planReconciliation(
     taken.disable++
   }
 
-  return { actions, orphanNoPoolId, outOfScope, truncated, skippedDisabledMissing }
+  if (outOfScopeByProvider.size > 0) {
+    logger.info('[relay-account-pool] 映射域外账号跳过(无签到引擎)', {
+      total: outOfScope,
+      providers: Array.from(outOfScopeByProvider, ([k, v]) => `${k}:${v}`).join(','),
+    })
+  }
+
+  return {
+    actions,
+    orphanNoPoolId,
+    outOfScope,
+    outOfScopeByProvider: Object.fromEntries(outOfScopeByProvider),
+    truncated,
+    skippedDisabledMissing,
+  }
 }
 
 // =============================================================================
@@ -252,6 +302,7 @@ export async function fetchPoolAccounts(
                 at: typeof pending.at === 'string' ? pending.at : null,
               }
             : null,
+        lastRecord: parseCheckinLastRecord(r.lastRecord),
       })
     }
     return { ok: true, accounts, error: null }
@@ -279,6 +330,8 @@ export interface ReconcileResult {
   flushFailed: number
   orphanNoPoolId: number
   outOfScope: number
+  /** 映射域外按 provider 归因(与 ReconcilePlan 同源,供状态接口/断言直接消费) */
+  outOfScopeByProvider: Record<string, number>
   /** 截断余量(>0 表示本轮未处理完,下轮继续) */
   truncated: number
 }
@@ -296,6 +349,7 @@ const EMPTY_RESULT: ReconcileResult = {
   flushFailed: 0,
   orphanNoPoolId: 0,
   outOfScope: 0,
+  outOfScopeByProvider: {},
   truncated: 0,
 }
 
@@ -312,15 +366,25 @@ async function loadPoolSide(): Promise<PoolSideRow[]> {
       credVersion: aiRelayAccountPool.credVersion,
     })
     .from(aiRelayAccountPool)
-  return rows.map((r) => ({
-    id: r.id,
-    ownerUserId: r.ownerUserId,
-    providerCode: r.providerCode,
-    uid: r.uid ?? '',
-    name: r.name ?? '',
-    isEnabled: r.isEnabled,
-    credVersion: r.credVersion,
-  }))
+  return rows.map(
+    (r: {
+      id: string
+      ownerUserId: string | null
+      providerCode: string
+      uid: string | null
+      name: string | null
+      isEnabled: boolean
+      credVersion: number
+    }) => ({
+      id: r.id,
+      ownerUserId: r.ownerUserId,
+      providerCode: r.providerCode,
+      uid: r.uid ?? '',
+      name: r.name ?? '',
+      isEnabled: r.isEnabled,
+      credVersion: r.credVersion,
+    }),
+  )
 }
 
 /** 按 id 回查完整号池行(仅 push 执行路径调用;plan 与日志都不碰明文) */
@@ -391,6 +455,7 @@ export async function reconcileCheckinSync(opts?: {
     ...EMPTY_RESULT,
     orphanNoPoolId: plan.orphanNoPoolId,
     outOfScope: plan.outOfScope,
+    outOfScopeByProvider: plan.outOfScopeByProvider,
     truncated: plan.truncated,
   }
   if (plan.orphanNoPoolId > 0) {
@@ -542,6 +607,7 @@ export async function reconcileCheckinSync(opts?: {
     flushFailed: out.flushFailed,
     orphanNoPoolId: out.orphanNoPoolId,
     outOfScope: out.outOfScope,
+    outOfScopeByProvider: out.outOfScopeByProvider,
     truncated: out.truncated,
   })
   return out

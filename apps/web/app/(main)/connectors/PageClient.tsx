@@ -366,7 +366,7 @@ export default function ConnectorsPageClient() {
               </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -379,7 +379,7 @@ export default function ConnectorsPageClient() {
         <AuthGatePrompt message={tGate('loginRequired')} />
       ) : (
         isLoading && (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{t('loading')}</span>
           </div>
@@ -388,7 +388,7 @@ export default function ConnectorsPageClient() {
 
       {/* 错误态 */}
       {allow && error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('loadFailed')}
         </div>
       )}
@@ -397,7 +397,7 @@ export default function ConnectorsPageClient() {
       {allow && !isLoading && !error && connectors.length === 0 && (
         <div className="flex flex-col items-center gap-3 rounded-lg border bg-card py-12 text-center">
           <BookOpen className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('empty')}</p>
+          <p className="text-body text-muted-foreground">{t('empty')}</p>
           <Button variant="outline" onClick={openCreate}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {t('add')}
@@ -434,13 +434,13 @@ export default function ConnectorsPageClient() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">{t('typeLabel')}</Label>
+              <Label className="text-label text-muted-foreground">{t('typeLabel')}</Label>
               <Select
                 value={form.type}
                 disabled={!!editing}
                 onValueChange={(v) => setForm((prev) => ({ ...prev, type: v as ConnectorType }))}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 text-label">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -453,7 +453,7 @@ export default function ConnectorsPageClient() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">{t('nameLabel')}</Label>
+              <Label className="text-label text-muted-foreground">{t('nameLabel')}</Label>
               <Input
                 type="text"
                 value={form.name}
@@ -466,7 +466,7 @@ export default function ConnectorsPageClient() {
             {form.type === 'yuque' ? (
               <>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">{t('yuqueUserLabel')}</Label>
+                  <Label className="text-label text-muted-foreground">{t('yuqueUserLabel')}</Label>
                   <Input
                     type="text"
                     value={form.yuque_user}
@@ -476,7 +476,7 @@ export default function ConnectorsPageClient() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">{t('yuqueRepoLabel')}</Label>
+                  <Label className="text-label text-muted-foreground">{t('yuqueRepoLabel')}</Label>
                   <Input
                     type="text"
                     value={form.yuque_repo}
@@ -493,7 +493,7 @@ export default function ConnectorsPageClient() {
             ) : (
               <>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">{t('appIdLabel')}</Label>
+                  <Label className="text-label text-muted-foreground">{t('appIdLabel')}</Label>
                   <Input
                     type="text"
                     value={form.app_id}
@@ -503,7 +503,7 @@ export default function ConnectorsPageClient() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">{t('appSecretLabel')}</Label>
+                  <Label className="text-label text-muted-foreground">{t('appSecretLabel')}</Label>
                   <Input
                     type="password"
                     value={form.app_secret}
@@ -550,7 +550,7 @@ export default function ConnectorsPageClient() {
               </DialogDescription>
             )}
           </DialogHeader>
-          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-xs leading-relaxed text-foreground">
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-label leading-relaxed text-foreground">
             {docDialog?.content}
           </pre>
           <DialogFooter>
@@ -646,7 +646,7 @@ function ConnectorCard({
       </div>
 
       {entry.last_error && (
-        <p className="text-xs text-destructive">{t('lastError', { error: entry.last_error })}</p>
+        <p className="text-label text-destructive">{t('lastError', { error: entry.last_error })}</p>
       )}
 
       <div className="mt-auto flex gap-2">
@@ -695,7 +695,7 @@ function ConnectorCard({
                 key={item.doc_id}
                 className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1.5"
               >
-                <span className="min-w-0 truncate text-xs text-foreground">{item.title}</span>
+                <span className="min-w-0 truncate text-label text-foreground">{item.title}</span>
                 <Button
                   variant="ghost"
                   size="sm"

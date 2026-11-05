@@ -74,12 +74,12 @@ export default function FeedbackDetailPage() {
       <div className="space-y-4 px-4 py-4">
         <Link
           href="/feedback"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>

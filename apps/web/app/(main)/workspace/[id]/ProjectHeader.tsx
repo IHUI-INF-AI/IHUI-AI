@@ -43,7 +43,7 @@ export function ProjectHeader({
             (project?.name ?? '')
           )}
         </h1>
-        <p className="mt-0.5 break-words text-sm text-muted-foreground">
+        <p className="mt-0.5 break-words text-body text-muted-foreground">
           {project?.description || t('description')}
         </p>
       </div>

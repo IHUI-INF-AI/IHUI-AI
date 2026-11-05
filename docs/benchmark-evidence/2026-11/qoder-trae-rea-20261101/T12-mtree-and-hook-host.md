@@ -44,7 +44,7 @@
 | **1.0.74.7a73af9** | **1119** | `8aa3d72d6763` | 同上 | 2 | **`${QODER_PLUGIN_ROOT}/bin/qoder-context-hook.exe <sub>`** | 全 false | `QODER_PRODUCT_ID` + **`QODER_SEARCH_PRODUCT_FORM`** | **转折点①** |
 | 1.0.78.26e781a | 1118 | `90b3f354e1bf` | 同上 | 2 | 同 1.0.74 | **UserPromptSubmit → async true** | 同上 | 仅异步化一枚 |
 | **1.0.84.f756706** | **1605** | `268bdc8b8cbc` | 同上 | **3** | 同 1.0.74 | true+false 混 | 同上 | UserPromptSubmit 挂两条（async 的 `user-prompt-submit` + 同步的 `qoder-context-prompt`）；`bin/` 里 **`qoder-context.cmd` 消失** |
-| **1.0.91.b22f2d0a** | **4388** | `bb2502651a15` | **SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop** | **8** | 同 1.0.74 | 8 条里 5 条 async | 同上 | **转折点②**：事件 2→5、条目 2→8、首次出现 `matcher` |
+| **1.0.91.b22f2d0a** | **4388** | `bb2502651a15` | **SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop** | **8** | 同 1.0.74 | 8 条里 **6 条 async / 2 条 sync**（更正@2026-11-06，依据 = 同目录 `T12-mtree-native-and-hook-host.md` §3 末「就地更正」表首行：`hooks.json` grp.async 逐条计数 `total:8, async:6, sync:2`；靶件 sha 逐字相同 ⇒ 靶件未漂，系本席读数口径） | 同上 | **转折点②**：事件 2→5、条目 2→8、首次出现 `matcher`（更正@2026-11-06：**matcher 挂在 grp 层**——包裹 `hooks:[...]` 数组那一级，`Object.keys(grp)` = `{async,matcher,hooks}`；不挂在叶子 `hook` 层，`Object.keys(h)` 恒为 `{type,command,args,name,timeout,env}`；8 条叶子共带 4 处非空 matcher。依据 = 同件 §3 末「就地更正」表次行） |
 
 - 1135→1119 那 16 字节的**全部**内容（[观察]）：`command` 由 `"cmd.exe"` + 4 个 args 变为 `"${QODER_PLUGIN_ROOT}/bin/qoder-context-hook.exe"` + 1 个 arg，并新增 env 键 `QODER_SEARCH_PRODUCT_FORM: "qoder"`。事件名、`timeout: 2`、`name` 字段一族未变。**不是**删事件、**不是**改超时。
 - `timeout` 八版**恒为 2**（[观察]），1.0.91 扩到 8 条也没动它。
@@ -178,6 +178,19 @@ Ghidra：函数 **1,759**、外部入口 2（`entry`、`tls_callback_0`）、导
 | 8 | **快照压缩与文件 IO 原生化**：`encode_zstd`/`decode_zstd`/`is_zstd_compressed`/`read_snapshot_from_file`/`write_snapshot_to_file`（zstd-0.13.3/zstd-safe-7.2.4 在册）（[观察]）；注：这 5 枚在插件自带 JS 里**未找到调用点**（§A4 未接线清单） | indexer 快照为明文 JSON（`:133 _MERKLE_SNAPSHOT_DIR`，每 repo 一枚）；`zstd` 在本仓只出现在 `apps/ai-service/app/core/rollout_archive.py`（另一用途） | **真缺口（小）+ 形态参考**：对方"能力齐但自带 JS 未接"正是本仓可超越处 | 快照落盘加一层 zstd/gzip + 魔数自识别（读旧明文兼容），并把压缩件复用给 rollout_archive，不写第二份 |
 
 > 排序依据：1–4 直接影响"增量索引的正确性与成本"（改名/整枝/ignore 语义都是当前索引链会答错的格），5 影响上下文装配质量，6–8 属工程化与小缺口。表内每条"本仓现读"列的 file:line 与计数均为 2026-11-01 本席现读，非引用旧册。
+
+## 5b. 缺口落地状态补记（2026-11-01，落地席回填；只标"代码已进 HEAD 并推送 origin/main"的格）
+
+| # | 状态 | 证据（代码枚 + 测试） |
+| --- | --- | --- |
+| 1 | **已落地**（且有一处对补法建议的刻意修正） | `apps/ai-service/app/services/dir_rhash.py`（模块 + `tests/test_dir_rhash.py` 18 例）+ `codebase_indexer.py` 接线：快照新增 `dirRhashes` 附加表（缺席/在场/形态坏三态同 P85 口径）、增量轮做目录差分并在响应透出 `dir_rhash_note` / `dirs_moved`（整枝搬家只报最浅一枝、歧义族不报），接线钉 `tests/test_dir_rhash_wiring.py` 6 例。**修正**：建议中"rhash 相同的目录整枝跳过"这一档在本仓单趟扫描设计下省不出第二遍 IO（逐文件判据已以同等读盘成本做到未变文件零重嵌入），该维的真实增量价值在**整枝搬家识别**的读数回执，接线注释里如实写明、不冒充"还省了一轮扫描" |
+| 2 | **已落地** | `apps/ai-service/app/services/ignore_rules.py`（P84）：`.gitignore`/`.aiignore` 等逐级合成排除谓词；"跟踪但被 .gitignore 覆盖 ⇒ 保留并逐条点名"写进剪枝回执；测试 `test_codebase_indexer_ignore.py` + `test_codebase_indexer_ignore_channels.py` |
+| 4 | **已落地** | P85 改名判定：`compute_simhash` 进索引链（同 content-hash 直判精确改名 + 汉明距离近同候选），快照附加表 `simhashes`/`aliases`；测试 `test_codebase_indexer.py` 改名段 |
+| 7 | **已落地** | `apps/ai-service/app/services/tool_surface.py`：工具→能力键声明表 + 产品形态覆盖 + 列表面过滤 + 执行面具名拒绝（`CAPABILITY_DISABLED` 点名缺哪枚键），`mcp_server.py` 三面同尺接线（list_tools 过滤 / call_tool 具名拒绝 / get_tool_schema 反查），`capability_matrix.py` 登记键，测试 `test_tool_surface_gate.py` 24 例（含三条接线锁） |
+| 3 | **缓议(有因)** | 需要常驻 watcher 宿主承载(watchdog 不在依赖、仓内无 daemon 载体);按 §0.9「造好没装车=没有」,盲写未接线的抽象不落地。待"谁常驻跑 watcher"有承载决策再立票 |
+| 5 | **大半已落地**(另一席交付) | `render_repo_tree` 按 token 预算装箱仓库目录骨架(代码枚 `0de483bff6` + ignore 剪枝续 `978b6f7854`),mcp_server 已接线,渲染钉 12 例+接线钉 5 例;缺的只剩 10 维权重配置(dirNameWeights/fileTypeWeights/timeDecay 等),按需分批 |
+| 6 | **身份核验半格已落地**(代码枚 `713eaf1513`) | `dispatchHookEntry` 唯一收口加 deny-by-default 宿主身份门:登记口 `registerHookHostIdentity`(未显式登记按当前进程自登记)+ PID 三态探活 + 产品身份匹配,不过 ⇒ 具名 `HOST_IDENTITY_UNVERIFIED`(skipped 档不改写阻断语义);核验通过把 `IHUI_HOST_PID`/`IHUI_HOST_PRODUCT` stamp 进钩子子进程 env(对侧 QODER_PRODUCT_ID 的对应物);应急出口 `IHUI_HOOK_SKIP_HOST_IDENTITY=1`(warnOnce 审计)。9 例新测试 + 既有 hook 回归 295 例零放宽,tsc/eslint 零错。**如实交代**:显式登记的宿主入口接线(repl/agent 侧)归第二笔,生产路径当前恒走自登记 |
+| 8 | **已落地**(代码枚 `3b3e9542a4`) | 快照 gzip 落盘 + 读侧魔数自识别双形态:旧明文档零迁移;解压失败/截断 ⇒ CORRUPT 出原委(绝不静默当"无快照");应急出口 `IHUI_SNAPSHOT_COMPRESS`(只影响写侧,读侧只认魔数)。对齐对侧 encode/decode/is_compressed/read/write 五件套;8 例新测试,合跑 45 例绿,ruff/mypy 绿 |
 
 ---
 

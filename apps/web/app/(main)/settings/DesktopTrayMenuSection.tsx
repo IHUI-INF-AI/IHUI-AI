@@ -6,7 +6,10 @@
 
 import { useTranslations } from 'next-intl'
 import { Switch } from '@ihui/ui-react'
-import { DESKTOP_TRAY_MENU_ITEM_KEYS, type DesktopTrayMenuItemKey } from '@/lib/desktop-prefs-bridge'
+import {
+  DESKTOP_TRAY_MENU_ITEM_KEYS,
+  type DesktopTrayMenuItemKey,
+} from '@/lib/desktop-prefs-bridge'
 
 /**
  * DesktopTrayMenuSection — 托盘右键菜单项开关组(2026-09-28 立)。
@@ -34,11 +37,7 @@ export interface DesktopTrayMenuSectionProps {
   onToggle: (key: DesktopTrayMenuItemKey, next: boolean) => void
 }
 
-export function DesktopTrayMenuSection({
-  items,
-  disabled,
-  onToggle,
-}: DesktopTrayMenuSectionProps) {
+export function DesktopTrayMenuSection({ items, disabled, onToggle }: DesktopTrayMenuSectionProps) {
   const t = useTranslations('settings')
 
   return (
@@ -54,7 +53,7 @@ export function DesktopTrayMenuSection({
               className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5"
             >
               <div className="min-w-0">
-                <p className="truncate text-xs">{t(MENU_LABEL_KEYS[key])}</p>
+                <p className="truncate text-label">{t(MENU_LABEL_KEYS[key])}</p>
                 {locked ? (
                   <p className="truncate text-[11px] text-muted-foreground">
                     {t('desktopMenuQuitLocked')}

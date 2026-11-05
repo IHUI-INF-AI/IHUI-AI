@@ -142,22 +142,22 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
                 </h1>
               </div>
               {certificateNo && (
-                <p className="text-right text-xs text-muted-foreground">
+                <p className="text-right text-label text-muted-foreground">
                   <span className="block uppercase tracking-wider">{t('certNo')}</span>
-                  <span className="font-mono text-sm text-foreground">{certificateNo}</span>
+                  <span className="font-mono text-body text-foreground">{certificateNo}</span>
                 </p>
               )}
             </div>
 
             {/* 课程标题 */}
             <div className="mt-6 space-y-1 text-center">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              <p className="text-label uppercase tracking-[0.3em] text-muted-foreground">
                 {t('courseLabel')}
               </p>
               <h2
                 className={cn(
                   'mx-auto max-w-2xl font-serif font-semibold text-foreground',
-                  isClassical ? 'text-2xl' : 'text-xl',
+                  isClassical ? 'text-display' : 'text-heading',
                 )}
               >
                 {title}
@@ -166,7 +166,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
 
             {/* 获得者 */}
             <div className="mt-5 text-center">
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              <p className="text-label uppercase tracking-[0.3em] text-muted-foreground">
                 {t('recipientLabel')}
               </p>
               <p
@@ -181,7 +181,7 @@ export const CertificateTemplate = React.forwardRef<HTMLDivElement, CertificateT
 
             {/* 颁发机构 + 颁发人 + 印章 */}
             <div className="mt-auto flex items-end justify-between gap-4">
-              <div className="flex-1 min-w-0 space-y-1.5 text-xs text-muted-foreground">
+              <div className="flex-1 min-w-0 space-y-1.5 text-label text-muted-foreground">
                 {awardingOrganization && (
                   <p className="font-medium text-foreground">{awardingOrganization}</p>
                 )}

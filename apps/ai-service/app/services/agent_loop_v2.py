@@ -83,6 +83,10 @@ from ..core.agent_failure_vocabulary import (
     stall_stage_for_error_family as _stall_stage_for_error_family,
 )
 
+# 守门 247(2026-11-01 收口):fire-and-forget 后台任务唯一出口 —— 事件循环只握弱引用,
+# 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
+from ..core.background_tasks import spawn
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -3131,6 +3135,12 @@ class AgentLoopV2:
         """
         if not self._retention_budget_enabled:
             return compressed, {"enabled": False}
+        # 历史查询窗口维(history_query_limit)的拒绝类型必须先于通用兜底被认出来:
+        # 让它落进下面的 `except Exception` = 把"请求条数超上限"洗成 reason="error",
+        # 上层与人都看不到是哪一维、超了多少 —— 那正是 §0.9 说的"接了线却被吞成降级"。
+        # 名称在 try 之前绑定:兜底分支取不到这个名字会把异常处理本身炸掉,那是新事故。
+        from app.services.tool_budget_governor import ToolBudgetExceededError
+
         try:
             from app.core.compaction_retention import truncate_retained_messages
             from app.core.context_compaction import SUMMARY_MARKER
@@ -3184,6 +3194,19 @@ class AgentLoopV2:
                     self._retention_budget_tokens,
                 )
             return [*prefix, *new_retained], meta
+        except ToolBudgetExceededError as e:
+            # 具名拒绝(不静默截断):保留区原产物照交(本函数自带的"宁可保留也不清空活上下文"
+            # 护栏不因配额维而变),但 meta 如实写明"这一维拒了什么、超了多少",上层与人都看得见。
+            logger.error("[agent-loop] 历史查询窗口被配额具名拒绝:%s", e.reason)
+            _res = e.result
+            return compressed, {
+                "enabled": True,
+                "applied": False,
+                "reason": "history_query_quota_denied",
+                "quotaDimension": e.dimension,
+                "quotaMeasured": (_res.used.get(_res.dimension) if _res else None),
+                "quotaLimit": (_res.limits.get(_res.dimension) if _res else None),
+            }
         except Exception as e:  # noqa: BLE001 - 精修失败绝不阻塞压缩主链路
             logger.warning("[agent-loop] 保留区预算精修失败(降级原产物): %s", e)
             return compressed, {"enabled": True, "applied": False, "reason": "error"}
@@ -3397,7 +3420,7 @@ class AgentLoopV2:
 
         ok, info = _validate_path_in_workspace(
             signal["target"],
-            extra_roots=get_session_extra_roots(self._session_id),
+            extra_roots=get_session_extra_roots(self._session_id, user_id=self._user_id),
         )
         if not ok:
             logger.warning("[self_heal] 目标不在工作区白名单,跳过 heal: %s", info)
@@ -6029,9 +6052,12 @@ class AgentLoopV2:
         while next_index < len(tool_calls) or inflight:
             while next_index < len(tool_calls) and can_start(tool_calls[next_index]):
                 tc = tool_calls[next_index]
-                inflight.append(
-                    (next_index, tc, asyncio.create_task(self._execute_single(tc)))
-                )
+                # 守门 247:原为裸 `asyncio.create_task(...)` 塞进元组后 append,
+                # 持有判据落在那枚局部 `inflight` 列表上(liveness 链级判不了,W2 只报数)。
+                # 改走唯一出口:`spawn` 内部即 asyncio.create_task,起任务的时刻、传参、
+                # 返回值全部不变,只是额外挂一层模块级强引用(完成回调自摘)。
+                # 这里不能 await:并行派发是本函数的前提,await 会把并发度打回串行。
+                inflight.append((next_index, tc, spawn(self._execute_single(tc))))
                 next_index += 1
             if not inflight:
                 break

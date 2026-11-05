@@ -20,8 +20,8 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminTools.notificationChannels')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 font-medium">{t('colId')}</th>
             <th className="px-4 py-2.5 font-medium">{t('colName')}</th>
@@ -49,16 +49,16 @@ export function ChannelsTable({ list, isLoading, onEdit, onDelete }: Props) {
           ) : (
             list.map((item) => (
               <tr key={item.id} className="hover:bg-muted/30">
-                <td className="max-w-[160px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                <td className="max-w-[160px] px-4 py-2.5 font-mono text-label text-muted-foreground">
                   <TruncatedText value={item.id.slice(0, 8)} />
                 </td>
                 <td className="px-4 py-2.5 font-medium">{item.name}</td>
                 <td className="px-4 py-2.5">
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-label">
                     {t(TYPE_KEY[item.type] ?? 'type_unknown')}
                   </span>
                 </td>
-                <td className="max-w-[200px] px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                <td className="max-w-[200px] px-4 py-2.5 font-mono text-label text-muted-foreground">
                   <TruncatedText value={briefConfig(item.config)} />
                 </td>
                 <td className="px-4 py-2.5">

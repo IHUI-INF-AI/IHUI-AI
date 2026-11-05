@@ -67,7 +67,7 @@ export default function ThemeListPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">主题列表</h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理站点主题与外观配置</p>
+          <p className="mt-1 text-body text-muted-foreground">管理站点主题与外观配置</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/admin/theme/create">
@@ -82,7 +82,7 @@ export default function ThemeListPage() {
 
       {!loading && !error && themes.length === 0 && (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-body text-muted-foreground">
             暂无主题,点击右上角&quot;创建主题&quot;开始
           </CardContent>
         </Card>
@@ -107,7 +107,7 @@ export default function ThemeListPage() {
                 <div className="min-w-0">
                   <p className="line-clamp-2 text-body font-semibold">{t.name}</p>
                   {t.description && (
-                    <p className="truncate text-xs text-muted-foreground">{t.description}</p>
+                    <p className="truncate text-label text-muted-foreground">{t.description}</p>
                   )}
                 </div>
                 <Switch checked={t.isActive} onCheckedChange={() => toggleActive(t)} />

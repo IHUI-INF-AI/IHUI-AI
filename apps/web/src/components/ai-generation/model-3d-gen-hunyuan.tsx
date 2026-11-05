@@ -88,7 +88,7 @@ export function Model3dGenHunyuan() {
     <Card>
       <CardHeader>
         <CardTitle>{t('hunyuan3dTitle')}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t('hunyuan3dSubtitle')}</p>
+        <p className="text-body text-muted-foreground">{t('hunyuan3dSubtitle')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -118,20 +118,20 @@ export function Model3dGenHunyuan() {
 
         {taskId && (
           <div className="space-y-3">
-            <div className="text-sm text-muted-foreground">
+            <div className="text-body text-muted-foreground">
               {t('taskId')}: {taskId} · {t('status')}: {statusLabel(task?.status)}
             </div>
             {task?.status === 'pending' || task?.status === 'running' ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('polling')}
               </div>
             ) : null}
             {task?.status === 'failed' && task.error ? (
-              <p className="text-sm text-destructive">{task.error}</p>
+              <p className="text-body text-destructive">{task.error}</p>
             ) : null}
             {task?.status === 'succeeded' && models.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('noResult')}</p>
+              <p className="text-body text-muted-foreground">{t('noResult')}</p>
             ) : null}
             <div className="space-y-2">
               {models.map((url) => (
@@ -141,7 +141,7 @@ export function Model3dGenHunyuan() {
                   download
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="inline-flex items-center gap-1 text-body text-primary hover:underline"
                 >
                   <Download className="h-4 w-4" />
                   {t('downloadModel')}

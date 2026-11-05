@@ -14,6 +14,7 @@ import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
 
 export default function Phone() {
   const { t } = useI18n()
@@ -97,22 +98,22 @@ export default function Phone() {
     if (oldCountdown > 0) return
     const p = (currentPhone || '').trim()
     if (!p || p.length !== 11) {
-      Taro.showToast({ title: tt('user.phone.noCurrent', '当前未绑定手机号'), icon: 'none' })
+      onToast(tt('user.phone.noCurrent', '当前未绑定手机号'), { kind: 'error' })
       return
     }
     try {
       await sendSmsCode(p)
-      Taro.showToast({ title: tt('user.phone.codeSent', '验证码已发送'), icon: 'success' })
+      onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
       startOldCountdown()
     } catch (e) {
       logger.error('user/phone', t('userPhone.q2'), e)
-      Taro.showToast({ title: tt('user.phone.codeSendFailed', '验证码发送失败'), icon: 'none' })
+      onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
   }
 
   function onVerifyOld() {
     if (oldCode.trim().length !== 6) {
-      Taro.showToast({ title: tt('user.phone.codeLength', '请输入 6 位验证码'), icon: 'none' })
+      onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
     // 当前项目未提供单独的"验证当前手机号"接口,直接进入第二步
@@ -124,22 +125,18 @@ export default function Phone() {
     if (newCountdown > 0) return
     const phone = (newPhone || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
-      Taro.showToast({ title: tt('user.phone.phoneInvalid', '手机号格式不正确'), icon: 'none' })
+      onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
       return
     }
     if (phone === currentPhone) {
-      Taro.showToast({
-        title: tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'),
-        icon: 'none',
-      })
+      onToast(tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'), { kind: 'error' })
       return
     }
     try {
       const exist = await pwdExist(phone)
       if (exist) {
-        Taro.showToast({
-          title: tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'),
-          icon: 'none',
+        onToast(tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), {
+          kind: 'error',
         })
         return
       }
@@ -149,11 +146,11 @@ export default function Phone() {
     }
     try {
       await sendSmsCode(phone)
-      Taro.showToast({ title: tt('user.phone.codeSent', '验证码已发送'), icon: 'success' })
+      onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
       startNewCountdown()
     } catch (e) {
       logger.error('user/phone', t('userPhone.q4'), e)
-      Taro.showToast({ title: tt('user.phone.codeSendFailed', '验证码发送失败'), icon: 'none' })
+      onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
   }
 
@@ -162,21 +159,21 @@ export default function Phone() {
     const phone = (newPhone || '').trim()
     const code = (newCode || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
-      Taro.showToast({ title: tt('user.phone.phoneInvalid', '手机号格式不正确'), icon: 'none' })
+      onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
       return
     }
     if (code.length !== 6) {
-      Taro.showToast({ title: tt('user.phone.codeLength', '请输入 6 位验证码'), icon: 'none' })
+      onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
       await bindPhone(phone, code)
-      Taro.showToast({ title: tt('user.phone.bindSuccess', '手机号绑定成功'), icon: 'success' })
+      onToast(tt('user.phone.bindSuccess', '手机号绑定成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/phone', t('user.phone.bindTitle'), e)
-      Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
+      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
@@ -206,7 +203,7 @@ export default function Phone() {
                   {...ffOldCode.spread}
                   type="number"
                   maxlength={6}
-                  placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
+                  placeholder={tt('user.security.code', '请输入验证码')}
                   value={oldCode}
                   onInput={(e) => setOldCode(e.detail.value)}
                 />
@@ -218,7 +215,9 @@ export default function Phone() {
                   }`}
                   onClick={onGetOldCode}
                 >
-                  {oldCountdown > 0 ? `${oldCountdown}s` : tt('user.phone.getCode', '获取验证码')}
+                  {oldCountdown > 0
+                    ? `${oldCountdown}s`
+                    : tt('user.security.sendCode', '获取验证码')}
                 </Text>
               </View>
             </View>
@@ -272,7 +271,7 @@ export default function Phone() {
                   {...ffNewCode.spread}
                   type="number"
                   maxlength={6}
-                  placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
+                  placeholder={tt('user.security.code', '请输入验证码')}
                   value={newCode}
                   onInput={(e) => setNewCode(e.detail.value)}
                 />
@@ -284,7 +283,9 @@ export default function Phone() {
                   }`}
                   onClick={onGetNewCode}
                 >
-                  {newCountdown > 0 ? `${newCountdown}s` : tt('user.phone.getCode', '获取验证码')}
+                  {newCountdown > 0
+                    ? `${newCountdown}s`
+                    : tt('user.security.sendCode', '获取验证码')}
                 </Text>
               </View>
             </View>

@@ -547,7 +547,9 @@ const checks = [
     id: '45',
     label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
     script: 'check-c-drive-paths.mjs',
-    args: [],
+    // 2026-11-04:此前无输入面直接返回空数组恒绿。现默认即真扫暂存区(--staged 为兼容别名);
+    // git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
+    args: ['--staged'],
     mode: 'warn',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -943,23 +945,26 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门) ---
+  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门;2026-11-05 升 blocking) ---
   // check-cli-i18n-parity.mjs 是独立脚本(校验 packages/i18n/messages/cli/*.json),
-  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(59 keys/5 locales),
-  // 风险低,warn-only 起步,后续按需升级 blocking。
+  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(511 keys/5 locales),
+  // 差值面现读为 0(head 与 staged 两面同绿),镜像测试 16 例含「一致→exit 0 / 漂移→exit 1」
+  // 成对夹具 ⇒ 按 §12e(存量归零即升档前置)升 blocking;取材面=磁盘,故配 skipEnv。
   {
     id: '2f-cli',
-    label: '🌐 cli i18n parity 守门(warn-only,2026-07-28 立)',
+    label: '🌐 cli i18n parity 守门(blocking,2026-11-05 由 warn 升档)',
     script: 'check-cli-i18n-parity.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CLI_I18N_PARITY',
     stagedTriggers: ["packages/i18n/messages/cli/"],
     onFailHint: [
       '',
       '  💡 cli 端 5 语言 i18n key 集合不一致。',
       '     修复:node scripts/check-cli-i18n-parity.mjs 查看详情,',
       '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
-      '     cli 端 i18n 体量小(63 行),warn-only 起步,后续按需升级 blocking。',
+      '     cli 端 i18n 体量小(511 keys),新增状态词必须同批补齐 5 语言(AGENTS §19)。',
+      '     应急放行:HUSKY_SKIP_CLI_I18N_PARITY=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },
@@ -1192,16 +1197,18 @@ const checks = [
   //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
   {
     id: '48',
-    label: '🧩 GitHub Actions workflow 守门(步骤顺序 + 顶层 permissions 声明)',
+    label: '🧩 GitHub Actions workflow + deploy 构建文件守门(步骤顺序 + permissions + 安装逐字钉版 + 工具链版本对账)',
     script: 'check-workflow-step-order.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: [".github/workflows/"],
+    stagedTriggers: ['.github/workflows/', 'deploy/'],
     onFailHint: [
       '',
       '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
       '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
       '  💡 [permissions] 缺顶层 permissions: 块或写了 write-all ⇒ GITHUB_TOKEN 正拿仓库/组织默认档位(可能含写权)。修复: 顶层(第 0 列)逐条点名 scope,禁 write-all。取证: node --test scripts/tests/workflow-permissions-declaration.test.mjs',
+      '  💡 [install-pin] 安装命令没逐字钉版(区间与裸包名都算)⇒ 同一枚提交在两个时间点能装出两个东西,而它常站在握凭据的那条链第一格。修复: ==x.y.z / @x.y.z,或现读值 @$VAR,或走锁文件。取证: node scripts/check-workflow-step-order.mjs --self-test',
+      '  💡 [build-pin] deploy/ 的构建文件里,装工具链那一行(corepack prepare / npm i -g / pnpm add -g / yarn global add)没逐字钉版,或钉成的版本 ≠ 根 package.json 的 packageManager ⇒ 镜像与 snap 产物用的包管理器由"当天 registry 最新"决定。修复: 钉到 packageManager 同值(pnpm 现读值见根 package.json)。取证: node scripts/check-workflow-step-order.mjs --self-test',
     ].join('\n'),
   },
 
@@ -4514,16 +4521,17 @@ const checks = [
   {
     id: '173',
     label:
-      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
+      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;DN5 清单不变式:本轮引入 A/D/R/C 时 trackedFiles 必须同步,与是否触及 README 无关;其余数字判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
     script: 'check-doc-numbers.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DOC_NUMBERS',
-    stagedTriggers: ['README.md', 'README.en.md'],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
       '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
+      '例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。',
       '红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。',
       '',
     ].join('\n'),
@@ -6135,6 +6143,153 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- R3 should-wire 批:最低风险 5 枚(2026-11-04 接线) ---
+  // 挑选口径:无外部前置 / 不联网 / 不依赖时间窗 / 不写生产盘;且判据自身已支持 --staged 索引面。
+  // 面板四道里的 check-panel-datasource-wiring 因 --self-test S5b 在 HEAD 存量上就红(legacy
+  // */grafana/dashboards 树)而让位给 check-db-row-narrow-cas —— 不为了让门变绿改判据或放宽断言。
+  {
+    id: '293',
+    label: '📏 计划台账单行长度(delta ratchet:只判本次新增的超长行)',
+    script: 'check-plan-row-length.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_ROW_LENGTH',
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/check-plan-row-length.mjs',
+      'scripts/lib/plan-task-index.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 PROJECT_PLAN.md 的表格/正文行必须保持单行原子性:一条任务一行。',
+      '     新增行超长 ⇒ 把长句拆成多行或缩短描述,不要改判据阈值。',
+      '     复验:node scripts/check-plan-row-length.mjs --staged',
+      '     自检:node scripts/check-plan-row-length.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '294',
+    label: '📊 大屏指标名对账(G1 差值棘轮:只拦本次把幽灵名加回来)',
+    script: 'check-panel-metric-exists.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/panels/',
+      'deploy/observability/panel-defs/panels/',
+      'deploy/saas/panel-defs/panels/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/data/panel-external-metrics.json',
+      'scripts/check-panel-metric-exists.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 大屏 expr 引用的指标名必须在代码发射点 / 核心指标 / 带到期的第三方台账里找得到。',
+      '     存量幽灵名只报数;本次新增幽灵名 ⇒ 补发射点或登记台账(带 expires),不要删查询了事。',
+      '     复验:node scripts/check-panel-metric-exists.mjs --staged',
+      '     自检:node scripts/check-panel-metric-exists.mjs --self-test',
+      '     跳过:HUSKY_SKIP_PANEL_METRIC_EXISTS=1',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '295',
+    label: '➖ 分隔线单侧形态(禁止双边 hairline 拼线)',
+    script: 'check-hairline-separator.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HAIRLINE_SEPARATOR',
+    stagedTriggers: ['apps/', 'packages/', 'scripts/check-hairline-separator.mjs'],
+    onFailHint: [
+      '',
+      '  💡 分隔线只允许单侧 hairline(border-t/border-b 择一),不得两边同时画。',
+      '     存量只报数、新增才拦;新代码按单侧写。',
+      '     复验:node scripts/check-hairline-separator.mjs --staged',
+      '     自检:node scripts/check-hairline-separator.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '296',
+    label: '🔁 重试回调别名(禁止 onBack/onRefresh/undefined 冒充 onRetry)',
+    script: 'check-retry-aliases.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_RETRY_ALIASES',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      // 2026-11-05 扩面:同一提取器/分类器覆盖 web 与小程序,新假重载按棘轮判红
+      'apps/web/',
+      'apps/miniapp-taro/src/',
+      'scripts/check-retry-aliases.mjs',
+      'scripts/lib/retry-reload.mjs',
+      'scripts/data/retry-reload-baseline.jsonl',
+      // 2026-11-05 接线:门 296 台账(当时 runner 被 299-301 接线占用,现补)
+      'scripts/data/retry-reload-resolutions.jsonl',
+      'scripts/check-cross-end-screen-coverage.mjs',
+      'scripts/check-rn-host-shell-coverage.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
+      '     会把失败路径静默吞掉。共享屏 / RN 壳 / web / 小程序要同笔接上同一回调。',
+      '     假重载(退出·翻页·清空)存量在 scripts/data/retry-reload-baseline.jsonl;新增即红。',
+      '     复验:node scripts/check-retry-aliases.mjs --staged',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '297',
+    label: '🔐 权限放宽租约化(带到期 + 唯一放行出口)',
+    script: 'check-permission-lease-bounded.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
+    stagedTriggers: [
+      'apps/cli/src/',
+      'packages/',
+      'scripts/check-permission-lease-bounded.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
+      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
+      '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
+      '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
+      '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+  // 编号 298:旧 blob 回写守门(本侧独有;上游 293-297 已被 R3 五枚判据占用,按现读最大 + 1 顺延)。
+  // 有意回滚须提交正文写 `intentional-revert: <依据>`(≥8 字符),留痕
+  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
+  {
+    id: '298',
+    label:
+      '🧊 旧 blob 回写守门(blocking:暂存内容等于该路径祖先 blob 有**四档**——逐字 / 去空白等值 / 标识符集合等值 / 工作树磁盘旧档——而 HEAD 已有更新档 ⇒ 拦提交;前三档射程=本票声明集,工作树臂提交时同射程、独立审计判全部;另按"疑退形态"报数不判红(§12e);有意回滚须写 intentional-revert: 依据)',
+    script: 'check-staged-downgrade.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
+    onFailHint: [
+      '  💡 红 = 有人把旧检出档搬回暂存区/工作树(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
+      '     工作树臂(2026-11-05 补):索引已对齐 HEAD、磁盘仍是旧档 ⇒ 索引面恒绿,但下一次 git add 会固化回退。',
+      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
+      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
+      '     独立审计判全部工作树 M 路径:node scripts/check-staged-downgrade.mjs(提交钩子内按声明集收窄)。',
+      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
+      '     .ihui-agent/state/intentional-revert.jsonl。',
+      '     取证:node scripts/check-staged-downgrade.mjs --self-test(17 例:四档判据、工作树正反例、诚实边界、空口声明)',
+      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
+      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
@@ -6336,17 +6491,18 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,观察票 warn 起步)(1 项)---
+  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,2026-11-05 升 blocking)---
   {
     id: '197',
-    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn)',
+    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,blocking;2026-11-05 由 warn 升档)',
     script: 'check-truncation-accounting.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TRUNCATION_ACCOUNTING',
     stagedTriggers: ['packages/', 'apps/api/src/', 'apps/ai-service/app/'],
     onFailHint: [
       '',
-      '  💡 有界列表截断诚实(票 G-998100/G-998101,观察档):',
+      '  💡 有界列表截断诚实(票 G-998100/G-998101,判红档 = --staged 棘轮:改到哪只咬哪):',
       '     ① truncated 声明块裸奔 = interface/type/z.object 块里数组成员 + truncated 却无计数/总量型',
       '        数值兄弟键 ⇒ 同块补 total/unlisted/omitted/… 计数键(正型:packages/types/src/api-contracts.ts',
       '        BoundedListProjection)。函数体/if 块里的同名局部不判。',
@@ -6355,7 +6511,9 @@ const checks = [
       '        终态逐字节一致测试)必须同期落地;字符串槽位/注释提及只报数不判红(绊线咬代码标识符)。',
       '     单独复验:node scripts/check-truncation-accounting.mjs --staged',
       '     自检:node scripts/check-truncation-accounting.mjs --self-test(23 例)',
+      '     镜像:node --test scripts/tests/check-truncation-accounting.test.mjs',
       '     全量档(HEAD 面)只报数恒 exit 0(棘轮:改到哪只咬哪);Python 面只报数不判。',
+      '     应急放行:HUSKY_SKIP_TRUNCATION_ACCOUNTING=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },
@@ -6615,10 +6773,14 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_ROOT_GUARD_CONSISTENCY',
     // 射程 = 清单本体 + 清单登记的每一个 target + 门体自身:漏一个就等于给那一路开后门。
+    // 2026-11-04 补 scripts/git-guardian.mjs:此前巡检本体不在射程里 ⇒ 改它(不重 seal)在本门
+    // 结构上永不触发,只能等部署侧 root-guard --check 红;它已是清单 target,补上即"改则必审封条",
+    // 不存在误伤面(正常改它本就该同笔重封,否则 --check 必红)。
     stagedTriggers: [
       'scripts/data/root-guard-manifest.json',
       'scripts/guardian-runner.mjs',
       'scripts/lib/judgement-libs.json',
+      'scripts/git-guardian.mjs',
       'AGENTS.md',
       'scripts/check-root-guard-consistency.mjs',
       'scripts/root-guard.mjs',
@@ -6684,6 +6846,361 @@ const checks = [
       '     本门只读:绝不自愈、绝不重装、绝不写盘 —— 处置权在人,不在尺子(§5e-1)。',
     ],
   },
+  // 编号 278:注册前现读全仓同 id 出现 0 次(现读最大 277;判重以门 89 R5/R13 反查为准)。
+  // 立因(2026-11-01 安全强化):
+  // `isSafeNavigationTarget` 的 allowedOrigins 缺席即"只判协议",任意绝对外站一律通过。
+  // 同日实测四处真命中,两枚在授权码签发路径(sso/login:171、sso/register:164 —— target 既被
+  // POST 当 redirectUri 又拼上 sso_code 导航),两枚在自动回跳(sso/login:249、:268)。同页 :133 与
+  // /sso/redirect、LoginDialog 早显式传了白名单 ⇒ 证明"同一把尺子四个落点各写一遍必然漏",且漏的那侧是安静的。
+  // 存量(除具名台账那 1 枚 mobile-auth 设计意图外)= 0 ⇒ 按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '278',
+    label:
+      '🔐 回跳落点必须钉 origin(调用点对账:blocking;resolveSafeRedirectTarget/isSafeNavigationTarget 的 options 须含 allowedOrigins 字面量,豁免=具名台账且带到期)',
+    script: 'check-redirect-target-origin-pinned.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_REDIRECT_ORIGIN_PIN',
+    onFailHint: [
+      '  💡 红的意思是:某枚回跳调用点没交出一份第一方落点集 ⇒ 刚建好的会话/刚签发的 sso_code 可被送到任意外站。',
+      '     ① 修法:options 里补 `allowedOrigins: firstPartyAllowedOrigins()`(深链走协议族另一支,不受影响);',
+      '     ② 真需要外站回跳(如 App→Web 契约):往 scripts/data/redirect-origin-pinned-exemptions.json 登记',
+      '        file/bareCalls/reason(≥10字)/until(到期日),豁免不再命中即判清单腐烂红;',
+      '     ③ "options 是变量"落未判定(exit 2)不是红,但也绝不放行 —— 机器证不出已钉就是没钉。',
+      '     取证:node scripts/check-redirect-target-origin-pinned.mjs --self-test(16 例,含四档变异自证)',
+    ].join('\n'),
+  },
+  // 编号 279:注册前现读全仓同 id 出现 0 次(上一枚是 278)。立因(2026-11-01 安全强化):
+  // LIKE/ILIKE 的"通配符转义"在本仓有**六份**各自实现(voice-note / ai-world ×2 / order /
+  // tbox-points / algorithm-record),最后一份是"删掉 %_"而非转义,搜 "100%" 会被吃掉百分号。
+  // 六份已于同日全部改指 apps/api/src/utils/like-escape.ts,现读单源外实现 = 0 ⇒ D1 可绝对零容忍。
+  // D2(未转义 %${x}% 内插)存量现读 276 处 / 102+ 文件,不判红,只做该文件 HEAD 自身的差值棘轮
+  // (§12e:存量没归零前上 blocking = 恒红门,唯一结局是逼人跳门、连带全部守门作废)。
+  {
+    id: '279',
+    label:
+      '🧨 LIKE 通配符转义单源 + 未转义内插差值棘轮(blocking;D1 绝对零容忍·D2 只拦新增·D3 具名台账带到期)',
+    script: 'check-like-wildcard-escape.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/api/src/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_LIKE_WILDCARD_ESCAPE',
+    onFailHint: [
+      '  💡 [D1 单源] 又长出一份本地 LIKE 转义实现。修复:改调 apps/api/src/utils/like-escape.ts 的',
+      '     escapeLikeChars(只转义,给前缀/后缀/JSON 片段)或 asContainsTerm / asPrefixTerm(转义+包裹)。',
+      '     需要第四种形态 = 先把它加进单源,不要在调用点抄。',
+      '  💡 [D2 新增] 本次把用户输入内插进了 `%${x}%` / \'%\' + x + \'%\'。修复:换成 asContainsTerm(x)。',
+      '     存量 276 处只报数不拦(分档清偿中);故意吃通配符的面不要转义 —— 去登记台账。',
+      '  💡 [D3 台账] 腐烂/到期的意思是:登记的"整值即模式"面已不再命中(要么被改了要么被删了),',
+      '     或豁免到期未销账。修法是就地复核并更新 scripts/data/like-wildcard-intentional.json,不是删判据。',
+      '     取证:node scripts/check-like-wildcard-escape.mjs --self-test(14 例,含变异自证)',
+    ].join('\n'),
+  },
+  // 编号 280:注册前现读全仓门号 280 出现 0 次(上一枚是 279;本仓无 plan-id-lease 之类的
+  // 门号租赁器物 —— `scripts/lib/plan-id-lease.mjs` 管的是 PROJECT_PLAN 的票号,不是门号 ⇒ 取号规则
+  // 就是"注册前现读最大 + 1",见上一行注释体例)。
+  // 立因(票 O69,2026-11-01):`scripts/rotate-local-dev-db-password.mjs` 已入库(自检 7/7、换前备份、
+  // 换后"旧口令被 PG 拒收 ∧ 新口令全消费面 PING_OK"、jsonl 留痕 90 天老化),但它的 `--apply` 要求
+  // 8801/8802/8803 全空才肯动 ⇒ 活服务在跑就永远轮不上,窗口只能靠人盯。本门把"窗口到没到"变成
+  // 巡检里的一行读数:超期(读器物留痕末条 ts,30 天)∧ 三口全空 ⇒ `due` 并打印
+  // `would run: node scripts/rotate-local-dev-db-password.mjs --apply`。
+  // 三档读数 skip / deferred / due / undetermined,**本门恒 exit 0**:
+  //   - 真派发不在提交链上(git-guardian 的 sweepLocalDevDbRotation 是唯一 spawner),本门默认**零 spawn**,
+  //     只在人给 `--trigger`/`IHUI_ROTATE_DEV_DB=1` 时才真跑 —— "巡检顺手换一次库口令"是比"没轮换"更坏的
+  //     失效方向;
+  //   - 端口探测走 node:net connect(300ms 上限,三口并行),不用 netstat 硬解析、不起 Windows 原生 exe;
+  //   - 取不到留痕/坏行/端口判不了 ⇒ undetermined 且仍 0:机器证不出窗口空就是没空,但不许因此把提交拖红
+  //     (§12e:机器状态判据不阻塞提交)。
+  {
+    id: '280',
+    label: '🔑 本机 dev 库口令轮换窗口(非阻塞读数;超期∧8801/8802/8803 全空 ⇒ would-run,默认不换)',
+    script: 'check-dev-db-rotation-window.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_DEV_DB_ROTATION_WINDOW',
+    onFailHint: [
+      '  💡 本门只读数、恒 exit 0;打印 state=due 不等于"该在这里换口令",而是提示"窗口刚空出来"。',
+      '     真跑(风险自担,会改本机 dev 库口令):node scripts/check-dev-db-rotation-window.mjs --trigger',
+      '     或 IHUI_ROTATE_DEV_DB=1 node scripts/check-dev-db-rotation-window.mjs。',
+      '  💡 state=undetermined = 取不到输入(留痕缺失/坏行、端口探测未判定)⇒ 未判定,不给绿灯也不拦提交;',
+      '     留痕缺失通常是"本机从未成功轮换过",先看 node scripts/rotate-local-dev-db-password.mjs --plan。',
+      '     取证:node --test scripts/tests/check-dev-db-rotation-window.test.mjs(9 例,含两条变异自证)',
+    ].join('\n'),
+  },
+  // 编号 281:注册前现读全仓门号 281 出现 0 次(上一枚 280;取号规则 = 注册前现读最大 + 1)。
+  // 立因(2026-11-02):多会话共享同一 gitdir 时,`git worktree add` 的附加工作树不出现在主树
+  // `git status` 里 —— 本会话多次把「未提交=0」建在主树单树上,漏掉 `.ihui-agent/tmp/wip-*`
+  // 里的 6 个待提交文件。本门是「是否还有未提交改动」的唯一口径(AGENTS §12 全工作树口径):
+  //   - 其他工作树脏 / 有 stash ⇒ 只告警不阻断(并行会话的在飞 WIP 不得让本树恒红);
+  //   - 主工作树**残量**(未暂存/未跟踪/冲突/stash)⇒ 阻断;主树 staged = 本次提交内容,不计脏。
+  // 收尾核验(要连 staged 一起判)走严格模式:node scripts/check-worktree-status.mjs。
+  // 编号 285(2026-11-03 让号):本条原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5 判红(同 id 两道门会串 skipEnv 与失败归属);
+  // 在册口径是「后来者必须改号」,后到的是本条(119c860fc8,11-03 08:32),故本条让号、那一支不动。
+  // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
+  {
+    id: '285',
+    label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
+    script: 'check-docs-public-health.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/app/'],
+    skipEnv: 'HUSKY_SKIP_DOCS_PUBLIC_HEALTH',
+    onFailHint: [
+      '  💡 [D1 hreflang 死链] 某 docs 页 metadata.alternates.languages 声明了不存在的路由(如 /zh-tw/docs)。',
+      '     ① 现读逐条点名:node scripts/check-docs-public-health.mjs --worktree',
+      '     ② 两条合法出路:把该语言页真建出来(路由文件须落在 apps/web/app/ 下),或删掉这条声明;',
+      '        只留 canonical + x-default + 真实存在的语言版。禁止用注释把声明藏起来(判据读源码结构)。',
+      '  💡 [D2 sitemap 死链] app/sitemap.ts 收录了没有路由文件的 /docs* 路径。收录死链比不收录更糟,',
+      '     正解 = 从 sitemap 摘掉该条,或补出页面。',
+      '  💡 [D3 emoji 图标] docs 页的 icon: 字段用了 emoji ⇒ 换 lucide-react 矢量组件(web 侧唯一图标源,AGENTS.md §4)。',
+      '     注意本判据不吃"正文装饰"豁免:emoji 门(108 族)对 docs 正文装饰放行,但 icon: 字段两档都判。',
+      '     文档正文里展示给读者看的示例代码(<pre><code>{`…`}</code></pre> 模板字符串内)不算配置,已按字面量跨度排除。',
+      '  💡 取证:node scripts/check-docs-public-health.mjs --self-test(10 例,含 D3 成对夹具与反向牙)',
+      '     镜像:node --test scripts/tests/check-docs-public-health.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1 git commit ...(不推荐;跳过会留痕)',
+    ],
+  },
+  // 编号 286(2026-11-03 让号):本条在本地面原登记为 282,与 43fe135510(11-03 01:37)先占的
+  // `check-web-rn-gap-ratchet.mjs` 撞号 ⇒ 门 89 R5(同 id 登记两门)判红。在册口径是「后来者必须
+  // 改号」,后到的是本条,故本条让号;取号按「注册前现读」:数值 id 现读最大 285,286..300 全空
+  // ⇒ 落 286。判据/档位/skipEnv/射程一字未动,只改编号与这段取号留痕。
+  // 立因(2026-11-03):把 alerts-ai.yml 的指标名改成 `..._totl`,promtool/reload/status/config
+  // 全绿、lastError 空,规则从此静默永不触发。本门把规则里的指标名与 Prometheus
+  // `/api/v1/label/__name__/values` + `/api/v1/series`(默认 24h)对账,打错/从未产生/样本过期
+  // 三态任一命中即 exit 1。直接跑:node scripts/check-metric-existence.mjs
+  // 为什么是 warn 而不是 blocking:判据依赖本机 Prometheus(8815→9090),机器没起时只能退到
+  // 静态清单;把机器态升成 blocking 会变成"Prometheus 没起就谁也提交不了"的恒红门(§12e)。
+  {
+    id: '286',
+    label: '📊 告警/记录规则指标存在性(打错/从未产生/样本过期 ⇒ 非零退出;warn)',
+    script: 'check-metric-existence.mjs',
+    // pre-commit 门审的是**暂存内容**:默认 HEAD 面会漏掉本次暂存进来的规则改动
+    args: ['--staged'],
+    mode: 'warn',
+    stagedTriggers: ['monitoring/', 'scripts/data/metric-existence-exemptions.json'],
+    skipEnv: 'HUSKY_SKIP_METRIC_EXISTENCE',
+    onFailHint: [
+      '  💡 先看输出里的三态:打错(最近已知名 + 编辑距离)/ 从未产生 / 样本过期。',
+      '     直接跑:node scripts/check-metric-existence.mjs(有 Prometheus 时按真实名字与 24h 序列判)',
+      '     没有 Prometheus 时退到静态清单(代码声明 + exporter 前缀台账 + recording 输出)。',
+      '     合法零样本(事件型计数器无 0 基线)只能登记在 scripts/data/metric-existence-exemptions.json:',
+      '     硬验发射点仍在 + up{job}==1,到期/空挂/发射点改名都会判红 —— 它不是"忽略"。',
+      '     自检:node --test scripts/tests/check-metric-existence.test.mjs(现读例数)',
+      '  💡 应急放行:HUSKY_SKIP_METRIC_EXISTENCE=1 git commit ...(须在提交信息写明理由)',
+    ].join('\n'),
+  },
+  {
+    id: '281',
+    label: '🌳 全工作树未提交状态(blocking;主树残量阻断,其他工作树脏只告警)',
+    script: 'check-worktree-status.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_WORKTREE_STATUS',
+    onFailHint: [
+      '  💡 主工作树还有本次提交之外的未提交内容(未暂存/未跟踪/冲突/stash)。',
+      '     ① 逐条查看:node scripts/check-worktree-status.mjs(--json 供程序消费)',
+      '     ② 按 §12 全部提交(禁止 stash、禁止 checkout -- 丢弃);确实不能提交的,先停下说明。',
+      '     ③ 其他工作树脏只告警不阻断:请在该树内自行提交后 git worktree remove。',
+      '     自检:node --test scripts/tests/check-worktree-status.test.mjs(5 例)',
+    ].join('\n'),
+  },
+  // 编号 289:原为 282,与文档中心公开面健康门(119c860fc8)撞号;285 被正号 docs 门占、286 被正号指标门占、
+  // 288 给同批 props 对账门 ⇒ 本门顺延 289,取号规则仍为「现读最大 + 1」。
+  {
+    id: '289',
+    label:
+      '📏 web↔RN 覆盖缺口棘轮(blocking;unmapped/judgedGap/prefixHits/prefixExpired/data.kind 任一退化拦提交)',
+    script: 'check-web-rn-gap-ratchet.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-web-rn-gap-ratchet.mjs',
+      'scripts/data/web-rn-gap-baseline.json',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'packages/shared/src/constants/web-portal.ts',
+      'packages/app/',
+      'apps/web/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_GAP_RATCHET',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-web-rn-gap-ratchet.mjs [--json|--gate];基线只降不升:node scripts/check-web-rn-gap-ratchet.mjs --baseline',
+  },
+  // --- 共享屏「至少被一枚 RN 壳直接 import」覆盖判据(P0-1,守门 283)---
+  {
+    id: '283',
+    label:
+      '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
+    script: 'check-rn-host-shell-coverage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-rn-host-shell-coverage.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+      'packages/app/',
+      'apps/mobile-rn/',
+    ],
+    skipEnv: 'HUSKY_SKIP_RN_HOST_SHELL_COVERAGE',
+    onFailHint:
+      '  💡 单独复验:node scripts/check-rn-host-shell-coverage.mjs [--gate|--json]。缺口两条正路:① 补 RN 壳(node scripts/gen-rn-host-shell.mjs --all --write);② 在 scripts/data/rn-host-shell-manual.json 逐条认领(owner + expires + reason)。挂账到期即判红,禁止为消红批量伪造认领。',
+  },
+  {
+    id: '288',
+    // 285 与正号 docs 公开面门撞号、286 与正号指标门撞号 ⇒ 本门(及下方 gap-ratchet)按现读最大 +1 顺延。
+    label:
+      '🦾 两端同名组件 props 行为对账(blocking,差值棘轮:同名配对组件的 props 键集/必选性只减不增 —— 缺腿是静默失效型,调用端传过去本端无声忽略)',
+    script: 'check-cross-end-component-props-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_PROPS_PARITY',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/components/',
+      'packages/app/src/components/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/components/',
+      'scripts/check-cross-end-component-props-parity.mjs',
+      'scripts/lib/component-props-parity.mjs',
+      'scripts/data/cross-end-props-parity-baseline.json',
+      'scripts/data/component-props-equivalence.json',
+      'scripts/lib/cross-end-screen-props.mjs',
+    ],
+    onFailHint:
+      '  💡 本门拦的是"两端腿差变大",不是"两端有腿差"(存量账在 scripts/data/cross-end-props-parity-baseline.json,与本次改动无关的旧差不拦你)。① 看差在哪:node scripts/check-cross-end-component-props-parity.mjs --json;② 修腿正路 = 两端消费同一份源(共享组件 + 平台 adapter),让差集只减;③ 确属平台机制的有意分形(无障碍通道/键盘通道这类),在 commit message 写明理由后 node scripts/check-cross-end-component-props-parity.mjs --update-baseline 落账 —— 拒写保护:未判定>50% 视为编译面瞬时故障不会落账。',
+  },
+  // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
+  {
+    id: '284',
+    label:
+      '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
+    script: 'check-declared-carriage.mjs',
+    args: ['--gate'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'scripts/check-declared-carriage.mjs',
+      'scripts/data/cross-end-screen-registry.json',
+      'apps/miniapp-taro/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DECLARED_CARRIAGE',
+    onFailHint:
+      '  💡 registry 新增了一条「某小程序页承载某共享屏」的声明,而那一页的 blob 里**没有**该壳的值 import(注释与 import type 都不算)。单独复验:node scripts/check-declared-carriage.mjs [--gate|--json]。两条正路:① 把那一页改成真的承载壳(页与 import 同批落);② 该端结构上不能承载就摘掉这条 registry 行(连同 app.config 路由一起核)。禁止为消红补注释——本尺就判注释不算。',
+  },
+  // 编号 287:注册时 `id: '285'` 已被同批入库的 props 对账门占用(两门同号 ⇒ doc-numbers 判 1 个
+  // 重复 id),本门按「现读最大 + 1」顺延为 287。立因(2026-11-03,机主"容器 hover 太重"二次定档):
+  // 全站浮起唯一数值源 = apps/web/app/globals.css 的 `--lift-*`(2026-10-22 定档、11-03 减淡),
+  // 其头注铁律"端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*"**此前只是
+  // 注释**(§0.9:判据不在真跑它的那一刻才成立 = 没有)。同日实测 24 个文件 30 处散写,营销定价卡
+  // 的 group-hover:-translate-y-2(8px,Tailwind translate 独立属性)与源 transform -2px **叠加**,
+  // 所以"调了数值源还是重"。散写已于本枚前一批整体清零,非容器豁免族(按钮档/1px chip/图标箭头/
+  // 工具 chrome)入具名台账 ⇒ D1 立门当次 HEAD 现读 = 0,按 §12e 可直接 blocking,非恒红门。
+  {
+    id: '287',
+    label:
+      '🎈 容器 hover 浮起单一数值源(blocking;hover 变体段后的 translate-y/shadow 散写绝对零,豁免=具名台账带到期且逐文件计数配平)',
+    script: 'check-hover-lift-single-source.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/ui-react/'],
+    skipEnv: 'HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE',
+    onFailHint: [
+      '  💡 红的意思是:某处又给**容器**手写了 hover 浮起(translate-y / shadow 族),而全站唯一数值源是',
+      '     apps/web/app/globals.css 的 `--lift-*`(2026-11-03 机主定档:稍微有点感觉)。',
+      '     Tailwind 的 translate 是独立属性、源用 transform,两支会**叠加**成双倍位移 —— 散写不是"多一个',
+      '     风格"而是"把全站调轻的数值源旁路掉"。',
+      '  💡 修法:① 普通容器卡 ⇒ 散写位移/浮起阴影删掉即可(Card 基座与 main 内 bg-card 容器由源自动接管,',
+      '        非 bg-card 的卡显式挂 `ui-lift`);bg/border 的 subtle 变色与静态 shadow 不在射程;',
+      '     ② 图片 hover 推开 / 图标微缩放 / 按钮档 / 1px chip 微动 ⇒ 属非容器身份,往',
+      '        scripts/data/hover-lift-single-source-allowlist.json 登记 file/liftCalls/reason(≥10字)/until,',
+      '        计数必须与被审面逐文件命中**配平**(多了判红,少了判清单腐烂);',
+      '     ③ 整页级大壳不该浮 ⇒ 挂 .ui-lift-off 退出,也不要回来散写。',
+      '     取证:node scripts/check-hover-lift-single-source.mjs --self-test(18 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-hover-lift-single-source.test.mjs',
+      '  💡 应急放行:HUSKY_SKIP_HOVER_LIFT_SINGLE_SOURCE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 290:小程序交互卫生门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // A1 假可点(空 handler / undefined / pointer-events-none 死点击)blocking;A2 空端口
+  // (onNavigate/onToast/onPickFile 等被赋空实现,端口名与端口等价门同一份,不造第二套)
+  // blocking;A3 无按压反馈 advisory 不进退出码(A3 现读 174 处,大量是命中区铺满的合法结构,
+  // 静态判不出观感,判红就是拿误报逼人写冗余代码 ⇒ §12e);A4 showModal 纯提示误用 advisory。
+  // 台账 scripts/data/miniapp-interaction-allowlist.json 到期即红、认领差额双向点名。
+  // 首跑(2026-11-03):719 文件 / 8464 标签(847 个可点),blocking 0(A1/A2 现读 0,按 §12e 可直接 blocking)。
+  {
+    id: '290',
+    label:
+      '🧪 小程序交互卫生门(blocking:A1 假可点/A2 空端口 绝对零容忍;A3 无反馈/A4 modal 误用 出 advisory 不进退出码)',
+    script: 'check-miniapp-interaction-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/', 'scripts/check-miniapp-interaction-hygiene.mjs', 'scripts/data/miniapp-interaction-allowlist.json'],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE',
+    onFailHint: [
+      '  💡 A1 假可点:onClick/onLongClick/onTap 绑了空实现(() => {} / undefined / noop)或 className 带',
+      '     pointer-events-none 却挂 onClick —— 死可点,删 handler 或删空壳。A2 空端口:onNavigate/onToast/',
+      '     onPickFile 等端口回调被赋空实现 —— 端口与等价门同源,别造第二套黑名单。',
+      '  💡 A3/A4 只是 advisory(不进退出码):A3 = View/Text 挂 onClick 无 hoverClass/active 变体且非导航项',
+      '     (首读 174 处,不 blocking,理由见注册注释);A4 = Taro.showModal 无取消语义(单按钮提示)。',
+      '     取证:node scripts/check-miniapp-interaction-hygiene.mjs --self-test(12 例,含变异自证)',
+      '     镜像:node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs',
+      '     应急放行:HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 291:web↔RN 用户可见措辞一致性门(P2 自动化缺口,2026-11-03 立)。判据见脚本头部:
+  // B1 blocking —— 同屏 web 已走 i18n 键、RN 却硬编码与之逐字相同的中文(JSX 文本节点或
+  // placeholder/title/accessibilityLabel 等用户可见属性);B2 advisory —— 两侧键不同但译文同值。
+  // 台账 scripts/data/web-rn-copy-diffs.json 到期即红、B1 认领差额红、B2 差额只 advisory。
+  // 首跑(2026-11-03):aligned 屏 287 / web 文件 1062,B1 11 全部挂账、B2 113 记档。
+  {
+    id: '291',
+    label:
+      '🗣️ web↔RN 措辞一致性门(blocking:同屏同文案 RN 硬编码而 web 走 i18n;B2 同值异键只出 advisory)',
+    script: 'check-web-rn-copy-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/mobile-rn/src/',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-web-rn-copy-parity.mjs',
+      'scripts/data/web-rn-copy-diffs.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_RN_COPY_PARITY',
+    onFailHint: [
+      '  💡 B1 红 = 同一句话被写了两遍:web 该屏已用 i18n 键,RN 还手写中文。改法是把 RN 那处换成',
+      '     同一个键(跨端共享屏由宿主注入 t,直接 t(\'全键\'))。代码字符串/日志/样式类名不在射程。',
+      '  💡 若确属存量未清(改键会动观感或跨包),往 scripts/data/web-rn-copy-diffs.json 逐屏登记',
+      '     file(web 路由)/rule/count/owner/expires/evidence;到期即红,认领数少于现读即红。',
+      '  💡 B2 同值异键只出 advisory(合并键空间动 i18n 结构,裁决权归人),记档即可,不阻提交。',
+      '     取证:node scripts/check-web-rn-copy-parity.mjs --self-test(12 例);--json 看逐屏读数',
+      '     镜像:node --test scripts/tests/check-web-rn-copy-parity.test.mjs',
+      '     应急放行:HUSKY_SKIP_WEB_RN_COPY_PARITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 编号 292:台账 deferred@ 到期判据(2026-11-03 立;判据见脚本头注)。并入 origin/main 时原号 289
+  // 与既有 gap-ratchet 撞号,按现读最大 +1 顺延为 292。deferred 日当天放行,
+  // 次日起红;--grace N 把红线顺延 N 天。台账/侧车取不到或 marker 日期非法 ⇒ exit 2,不记绿。
+  // 射程写 ['**/*'](= 任何提交都跑):到期与本次暂存了哪些文件无关;只在碰台账/文档时才跑
+  // 就退回"靠人记",而留空在两通道上语义相反(门 262 明令必须显式声明)。
+  {
+    id: '292',
+    label: '📆 台账 deferred@ 到期判据(blocking:到期未复评即红,逐条点名 行号|编号|日期|owner)',
+    script: 'check-plan-deferred-expiry.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_DEFERRED_EXPIRY',
+    stagedTriggers: ['**/*'],
+    onFailHint: [
+      '  💡 到期不是"再挂一天"的理由:复评后改 deferred@ 续期(写明为什么还要挂、何时再评),',
+      '     或结清并摘行;不许只删标记。宽限只在真要补复评时用 --grace N,别把它当续期。',
+      '     取证:node scripts/check-plan-deferred-expiry.mjs --as-of 2027-04-01 --json',
+      '     镜像:node --test scripts/tests/check-plan-deferred-expiry.test.mjs',
+      '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -6729,6 +7246,131 @@ const pushGateChecks = [
       '     镜像:node --test scripts/tests/check-git-stdio-discipline.test.mjs(16 例;T13 可能因 AD 态文件在环境性红)',
       '  紧急跳过(不推荐):HUSKY_SKIP_GIT_STDIO_DISCIPLINE=1 git commit ...',
       '',
+    ].join('\n'),
+  },
+  // 47 溯源水印覆盖的 **push 收窄档**(2026-11-03 补):pre-commit 档能拦暂存面,但私有索引
+  // (read-tree/hash-object/write-tree/commit-tree)与任何绕过 pre-commit 的落地都不经过它。
+  // 事故:0335facba1 把 packages/api-client/src/endpoints/agent-chat-stream.ts 的载荷写坏
+  // (blob 461 码元 vs 规范 485,丢 24 个零宽码元),坏 blob 直入 HEAD,靠 dde93677f6 重注入才恢复。
+  // push 门是**远程前的最后一道结构闸**,必须独立跑一次;只判 PUSH_SCOPE_FILES(本次 push 变更文件)
+  // ∩ HEAD 树,不跑全量 1.6 万+(判据本体、第三方排除面、自愈策略与 pre-commit 档共用同一份实现)。
+  {
+    // 号位:pre-commit 已有门 47(自愈档),push 是同一判据的**收窄档**,不能复用 id
+    // (check-gate-wiring R5:同 id 多道门会串 skipEnv 与失败归属;后来者改号)。
+    id: '47p',
+    label: '💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)',
+    script: 'check-watermark-coverage.mjs',
+    args: ['--push-scope'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
+      '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
+      '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
+      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '',
+    ].join('\n'),
+  },
+  // 2026-11-04（中单：签名豁免）：判据面护栏此前只挂巡检游标档（auditImmutableGuardNewCommits），
+  // push 时一步都不判 ⇒ 未声明 / 仅文字理由的改动可以原样上 main（HEAD 1553af77 即实例）。
+  // 这里挂到 push 门：判**本次要推的每一枚**（origin/main..HEAD），红则整批不推。
+  // 不碰 .husky/pre-push 的 tag 分支（另一席在改）；只在本注册表里加一条 blocking。
+  {
+    id: 'IG',
+    label: '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 判红三种形态:① 没有 immutable-exempt 理由;② 有理由但缺/验不过 immutable-exempt-sig;',
+      '     ③ 清单 reviewBy 到期。三种都不许"改判据让它变绿"。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<与 immutable-exempt 同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  密钥来源(必须由 CI/机主注入,不在提交者可控范围):IHUI_IMMUTABLE_GUARD_KEY /',
+      '     IHUI_IMMUTABLE_GUARD_KEY_FILE / git config ihui.immutableGuardKeyPath。缺钥 ⇒ 一律判未豁免。',
+      '  迁移窗口:scripts/data/immutable-guard.json 的 signatureRequiredFrom(到期自动收紧,无静默放行)。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+      '',
+    ].join('\n'),
+  },
+  // ─── 2026-11-05 新增三门(299/300/301):按规则从 299 起向上取未占用号,禁用 285 ───
+  // 299:小程序「薄壳 vs 复制」形态门。射程 = 在册页目录(app.config.ts 决定在册)、映射表、
+  // 台账与门体自身;判据/材质见脚本头注与 scripts/lib/miniapp-shell-form.mjs。
+  {
+    id: '299',
+    label: '📦 小程序「薄壳 vs 复制」实现形态门(新增复制页即红;存量 93 页棘轮)',
+    script: 'check-miniapp-shell-form.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/pages/',
+      'apps/miniapp-taro/src/pkg-',
+      'apps/miniapp-taro/src/app.config.ts',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/miniapp-shell-copy-ledger.jsonl',
+      'scripts/check-miniapp-shell-form.mjs',
+      'scripts/lib/miniapp-shell-form.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_SHELL_FORM',
+    onFailHint: [
+      '  💡 红 = 映射里声明为镜像/委托,页面却没 import 共享壳(自己复制了一份)。',
+      '     改法:页面改成薄壳(import @rn-shells/<Screen> 或映射登记的等价入口),或按批次收敛台账。',
+      '     取证:node scripts/check-miniapp-shell-form.mjs --explain ;台账 scripts/data/miniapp-shell-copy-ledger.jsonl',
+      '     应急放行:HUSKY_SKIP_MINIAPP_SHELL_FORM=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 300:API 端点「端内直拼」差异台账门。射程 = 三端 src 的调用面 + 共享端点清单 + 台账与门体。
+  {
+    id: '300',
+    label: '🔌 API 端点直拼差异台账门(新增端内独有前缀未登记即红)',
+    script: 'check-api-endpoint-delta.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/src/',
+      'apps/mobile-rn/src/',
+      'apps/miniapp-taro/src/',
+      'packages/api-client/src/endpoints/',
+      'scripts/data/api-endpoint-delta-ledger.jsonl',
+      'scripts/check-api-endpoint-delta.mjs',
+      'scripts/lib/api-endpoint-literals.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_API_ENDPOINT_DELTA',
+    onFailHint: [
+      '  💡 红 = 端内出现共享端点清单里没有的前缀,且台账没有新登记行。',
+      '     改法:改走 @ihui/api-client 的共享端点,或在 scripts/data/api-endpoint-delta-ledger.jsonl 登记',
+      '     baseline:false + verdict(非 pending)+ owner + reason(≥10 字)。',
+      '     取证:node scripts/check-api-endpoint-delta.mjs --explain',
+      '     应急放行:HUSKY_SKIP_API_ENDPOINT_DELTA=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 301:web ↔ 小程序「直接路由尺」(共享屏承载列)。射程 = web 树、小程序在册路由、共享屏目录与台账。
+  {
+    id: '301',
+    label: '🗺️ web↔小程序共享屏承载路由门(新增缺承载/路由不存在/冲突即红)',
+    script: 'check-web-mp-route-carriers.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/',
+      'apps/miniapp-taro/src/app.config.ts',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-mp-route-carrier-ledger.jsonl',
+      'scripts/data/web-mp-route-carrier-legal.jsonl',
+      'scripts/check-web-mp-route-carriers.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS',
+    onFailHint: [
+      '  💡 红 = 共享屏有 web 路由但小程序缺承载/路由不存在/别名冲突。',
+      '     改法:补齐承载列或按台账登记合法例外;取证 node scripts/check-web-mp-route-carriers.mjs --explain',
+      '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
 ]

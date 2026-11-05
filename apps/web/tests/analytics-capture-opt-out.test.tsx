@@ -26,7 +26,10 @@ vi.stubGlobal('fetch', fetchMock)
 vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/chat' }))
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: (sel: (s: { user?: { id: string } }) => unknown) => sel({ user: { id: 'u-1' } }),
+  // 2026-11-03:挂载拉偏好的副作用新增 isAuthenticated 门(未登录不发 /settings/privacy,
+  // 避免匿名 401 噪声)。本用例测的是"已登录时会不会拉",故把登录态也桩成 true。
+  useAuthStore: (sel: (s: { user?: { id: string }; isAuthenticated: boolean }) => unknown) =>
+    sel({ user: { id: 'u-1' }, isAuthenticated: true }),
 }))
 
 // AnalyticsCapture 复用 use-analytics 的判定链,这里只桩掉「拉偏好」这一个副作用,

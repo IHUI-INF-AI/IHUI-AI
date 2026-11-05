@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Check, X, Loader2, Clock, Award } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getMyRecords } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -55,7 +55,11 @@ export default function ExamResultPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'records', 'by-paper', id],
-    queryFn: () => apiOrThrow<RecordsData>(`/api/exam/records?examId=${id}&page=1&pageSize=1`),
+    queryFn: async (): Promise<RecordsData> => {
+      const r = await getMyRecords({ examId: id, page: 1, pageSize: 1 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as RecordsData
+    },
     enabled: !!id,
   })
 
@@ -79,7 +83,7 @@ export default function ExamResultPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <Link
           href={`/exam/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
@@ -96,12 +100,12 @@ export default function ExamResultPage() {
       <div className="mx-auto w-full max-w-3xl space-y-4">
         <Link
           href={`/exam/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('back')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('empty')}
         </div>
       </div>
@@ -111,7 +115,7 @@ export default function ExamResultPage() {
     <div className="px-4 py-4 mx-auto w-full max-w-3xl space-y-4">
       <Link
         href={`/exam/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('back')}
@@ -129,7 +133,7 @@ export default function ExamResultPage() {
           >
             {result.isPassed ? <Check className="h-7 w-7" /> : <X className="h-7 w-7" />}
           </div>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-display">
             {t('score', { score: result.score, total: result.totalScore })}
           </CardTitle>
           <p
@@ -143,19 +147,19 @@ export default function ExamResultPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">{t('result.correct')}</div>
+            <div className="text-label text-muted-foreground">{t('result.correct')}</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600">{result.correctCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">{t('result.wrong')}</div>
+            <div className="text-label text-muted-foreground">{t('result.wrong')}</div>
             <div className="mt-1 text-lg font-semibold text-destructive">{result.wrongCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">{t('result.unanswered')}</div>
+            <div className="text-label text-muted-foreground">{t('result.unanswered')}</div>
             <div className="mt-1 text-lg font-semibold">{result.unansweredCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">{t('result.duration')}</div>
+            <div className="text-label text-muted-foreground">{t('result.duration')}</div>
             <div className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold">
               <Clock className="h-3.5 w-3.5" />
               {t('result.minutes', { n: result.duration })}
@@ -163,7 +167,7 @@ export default function ExamResultPage() {
           </div>
         </CardContent>
         <CardContent className="pt-0">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-label text-muted-foreground">
             <Award className="h-3.5 w-3.5" />
             {t('result.submittedAt', { time: fmt(result.submittedAt) })}
           </div>
@@ -173,7 +177,7 @@ export default function ExamResultPage() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('result.detailsTitle')}</h2>
         {result.details.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
             {t('result.detailsEmpty')}
           </div>
         ) : (
@@ -192,7 +196,7 @@ export default function ExamResultPage() {
                         <p className="break-words text-body font-medium">
                           {i + 1}. {d.title}
                         </p>
-                        <div className="grid grid-cols-1 gap-1 text-xs">
+                        <div className="grid grid-cols-1 gap-1 text-label">
                           <div className="flex items-start gap-1">
                             <span className="shrink-0 text-muted-foreground">
                               {t('result.yourAnswer')}
@@ -229,7 +233,7 @@ export default function ExamResultPage() {
                         </div>
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
                       {t('result.points', { n: d.score })}
                     </span>
                   </div>

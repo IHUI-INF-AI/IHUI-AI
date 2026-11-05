@@ -24,7 +24,7 @@ import {
   Radar,
 } from 'recharts'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduExamScoreTrend, eduExamScoreWeakness } from '@ihui/api-client'
 import {
   CHART_GREEN,
   CHART_AMBER,
@@ -95,22 +95,23 @@ export default function TrendPage() {
   /* ── Queries ── */
   const { data: trendData, isLoading: trendLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'trend', studentId, selectedSubject],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedSubject) params.set('subject', selectedSubject)
-      return apiOrThrow<{ list: TrendEntry[] }>(
-        `/api/edu-ai-management/exam-score/trend/${studentId}?${params}`,
-      )
+    queryFn: async () => {
+      const r = await eduExamScoreTrend<{ list: TrendEntry[] }>(studentId, {
+        subject: selectedSubject || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!studentId,
   })
 
   const { data: weaknessData, isLoading: weaknessLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'weakness', studentId],
-    queryFn: () =>
-      apiOrThrow<{ weakness: WeaknessItem[] }>(
-        `/api/edu-ai-management/exam-score/weakness/${studentId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduExamScoreWeakness<{ weakness: WeaknessItem[] }>(studentId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!studentId,
   })
 
@@ -168,7 +169,7 @@ export default function TrendPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('trendTitle')}</h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('trendSubtitle', { studentId: studentId?.slice(0, 8) ?? '' })}
         </p>
       </header>
@@ -205,7 +206,7 @@ export default function TrendPage() {
           {trendList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="mb-2 h-8 w-8" />
-              <p className="text-sm">{t('emptyScores')}</p>
+              <p className="text-body">{t('emptyScores')}</p>
             </div>
           ) : (
             <div className="h-80">
@@ -221,8 +222,8 @@ export default function TrendPage() {
                   })}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="examName" className="text-xs" />
-                  <YAxis className="text-xs" />
+                  <XAxis dataKey="examName" className="text-label" />
+                  <YAxis className="text-label" />
                   <Tooltip />
                   {Array.from(trendBySubject.entries()).map(([subject], i) => (
                     <Line
@@ -253,15 +254,15 @@ export default function TrendPage() {
         <CardContent>
           {radarData.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <p className="text-sm">{t('emptySubjects')}</p>
+              <p className="text-body">{t('emptySubjects')}</p>
             </div>
           ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={radarData}>
                   <PolarGrid className="stroke-border" />
-                  <PolarAngleAxis dataKey="subject" className="text-xs" />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-xs" />
+                  <PolarAngleAxis dataKey="subject" className="text-label" />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-label" />
                   <Radar
                     name={t('radarSeriesName')}
                     dataKey="percentage"
@@ -287,7 +288,7 @@ export default function TrendPage() {
         <CardContent>
           {weakness.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <p className="text-sm">{t('emptyData')}</p>
+              <p className="text-body">{t('emptyData')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -304,7 +305,7 @@ export default function TrendPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-4 text-body text-muted-foreground">
                     <span>{t('avgScoreStat', { score: w.avgScore })}</span>
                     <span>{t('scoreRateStat', { percentage: w.percentage })}</span>
                     <span>{t('examCountStat', { count: w.examCount })}</span>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { getFimMetricsSummary } from '@ihui/api-client'
 import {
   Card,
   CardContent,
@@ -85,7 +86,7 @@ interface MetricItem {
 function MetricCell({ label, value, danger }: MetricItem) {
   return (
     <div className="rounded-md border border-border p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-label text-muted-foreground">{label}</p>
       <p className={cn('mt-1 text-heading font-semibold tabular-nums', danger && 'text-red-600')}>
         {value}
       </p>
@@ -113,9 +114,14 @@ export default function AiMetricsPage() {
         ),
         apiOrThrow<VipMetrics>('/api/admin/token-balance/metrics'),
         // FIM 补全接受率:ai-service 端点。单独 catch 兜底,避免其不可用拖垮整页看板
-        apiOrThrow<{ models: FimModelMetrics[] }>('/api/llm/fim/metrics/summary').catch(() => ({
-          models: [] as FimModelMetrics[],
-        })),
+        getFimMetricsSummary<{ models: FimModelMetrics[] }>()
+          .then((r) => {
+            if (!r.success) throw new Error(r.error)
+            return r.data
+          })
+          .catch(() => ({
+            models: [] as FimModelMetrics[],
+          })),
       ])
       setSse(sseData)
       setPc(
@@ -188,18 +194,18 @@ export default function AiMetricsPage() {
             <Activity className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Link
           href="/admin/ai-cost"
-          className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-sm shadow-sm hover:bg-muted/50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-input bg-transparent px-3 text-body shadow-sm hover:bg-muted/50"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>{t('backToCost')}</span>
         </Link>
       </div>
 
-      <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center justify-end gap-2 text-label text-muted-foreground">
         {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
         <span>
           {showError
@@ -214,7 +220,7 @@ export default function AiMetricsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <AlertCircle className="h-8 w-8 text-red-600" />
-            <p className="text-sm text-muted-foreground">{t('loadFailed')}</p>
+            <p className="text-body text-muted-foreground">{t('loadFailed')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -225,7 +231,7 @@ export default function AiMetricsPage() {
                 <Activity className="h-4 w-4" />
                 {t('sseMetrics')}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">{t('sseMetricsDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('sseMetricsDesc')}</p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
@@ -242,7 +248,7 @@ export default function AiMetricsPage() {
                 <Database className="h-4 w-4" />
                 {t('promptCache')}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">{t('promptCacheDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('promptCacheDesc')}</p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-5">
@@ -251,7 +257,7 @@ export default function AiMetricsPage() {
                 ))}
               </div>
               {pc && (
-                <p className="mt-3 text-xs text-muted-foreground">
+                <p className="mt-3 text-label text-muted-foreground">
                   L1: {hitRate(pc.hits, pc.misses)} / L2: {hitRate(pc.l2Hits, pc.l2Misses)}
                 </p>
               )}
@@ -264,7 +270,7 @@ export default function AiMetricsPage() {
                 <Crown className="h-4 w-4" />
                 {t('vipDiscount')}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">{t('vipDiscountDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('vipDiscountDesc')}</p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -290,16 +296,16 @@ export default function AiMetricsPage() {
                 <Code2 className="h-4 w-4" />
                 {t('fimAcceptance')}
               </CardTitle>
-              <p className="text-xs text-muted-foreground">{t('fimAcceptanceDesc')}</p>
+              <p className="text-label text-muted-foreground">{t('fimAcceptanceDesc')}</p>
             </CardHeader>
             <CardContent className="space-y-3">
               {fimAlerts.length > 0 && (
-                <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-600/5 p-3 text-sm text-red-600">
+                <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-600/5 p-3 text-body text-red-600">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <div className="space-y-1">
                     <p>{t('fimAlert')}</p>
                     {fimAlerts.map((m) => (
-                      <p key={fimRowKey(m.model, m.scene)} className="text-xs">
+                      <p key={fimRowKey(m.model, m.scene)} className="text-label">
                         {m.model} · {fimScene(m.scene)}: {m.alertReason}
                       </p>
                     ))}
@@ -307,7 +313,7 @@ export default function AiMetricsPage() {
                 </div>
               )}
               {fim.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">{t('fimNoData')}</p>
+                <p className="py-4 text-center text-body text-muted-foreground">{t('fimNoData')}</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -324,7 +330,7 @@ export default function AiMetricsPage() {
                     <TableBody>
                       {fim.map((m) => (
                         <TableRow key={fimRowKey(m.model, m.scene)}>
-                          <TableCell className="font-mono text-xs">
+                          <TableCell className="font-mono text-label">
                             {m.model}
                             <span className="ml-1.5 text-muted-foreground">
                               · {fimScene(m.scene)}

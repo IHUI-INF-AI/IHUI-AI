@@ -42,6 +42,22 @@ import { getApkUrl } from './downloads.config'
 
 const RELEASE_PREFIX = 'desktop-v'
 const DEFAULT_REPO = 'IHUI-INF-AI/IHUI-AI'
+/**
+ * 发布仓坐标的唯一取法(CI 里是 `GITHUB_REPOSITORY`,本机/自建跑时退回默认)。
+ * 此前它在两处各自 `process.env.GITHUB_REPOSITORY || DEFAULT_REPO`(L376 / L623),
+ * 而地域分流要的是**同一个** repo —— 再开第三处就等于允许两处的值和这一处不一样。
+ */
+export function desktopRepo(): string {
+  return process.env.GITHUB_REPOSITORY || DEFAULT_REPO
+}
+/** 桌面资产的 GitHub 权威直链(原生产物 + 签名配对那一份;地域分流的原点腿) */
+export function githubDownloadUrl(tag: string, assetName: string): string {
+  return `https://github.com/${desktopRepo()}/releases/download/${tag}/${encodeURIComponent(assetName)}`
+}
+/** 桌面 release 的 tag 形态(`desktop-v<语义版本>`),分流与快照反解都只认这一份规则 */
+export function desktopTagOf(version: string): string {
+  return `${RELEASE_PREFIX}${String(version ?? '').trim().replace(/^v/, '')}`
+}
 /** tauri-action 在每次发版时随产物一起上传的标准更新器清单 */
 const FEED_ASSET_NAME = 'latest.json'
 /**
@@ -83,11 +99,13 @@ export interface LiveDesktopSource {
   payload: DesktopFeedPayload | null
   /** 下载页要展示的安装包(size 由 Releases API 给出,免下载 200MB 包体) */
   assets: DesktopFeedAsset[]
+  /** 枚举预算自证:pages 顶到 maxPages 就说明下一枚 release 会被挤出射程 */
+  scan?: ReleaseScanSummary
 }
 
 export type LiveDesktopResolution =
   | { source: 'live'; data: LiveDesktopSource }
-  | { source: 'snapshot'; reason: string; fallback: DesktopFeed } /**
+  | { source: 'snapshot'; reason: string; fallback: DesktopFeed; scan?: ReleaseScanSummary } /**
  * SemVer 三段比较(a>b 返回正数)。与 scripts/resolve-desktop-download.mjs 的 cmpVer 同形状。
  *
  * 为什么两者都按"取版本最大者"而不是依赖 API 顺序:GitHub /releases 会把 draft 排在最前,
@@ -234,13 +252,22 @@ export function buildLiveSource(
   }
 }
 
-async function fetchJson<T>(url: string, headers: Record<string, string>): Promise<T | null> {
+/**
+ * 上游 JSON 取数(超时 + ISR 窗口)。
+ * `revalidateSeconds` 默认 600:与本页窗口一致;调用方要更短的窗口必须显式给,
+ * 不允许在调用点复制一份 fetch 形状(两处实现同一件事必漂移)。
+ */
+export async function fetchJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  revalidateSeconds = 600,
+): Promise<T | null> {
   try {
     const res = await fetch(url, {
       headers,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       // ISR:同一窗口内并重复发起出口请求;10 分钟窗口对"发版后自动生效"足够快
-      next: { revalidate: 600 },
+      next: { revalidate: revalidateSeconds },
     })
     if (!res.ok) return null
     return (await res.json()) as T
@@ -248,6 +275,110 @@ async function fetchJson<T>(url: string, headers: Record<string, string>): Promi
     // 超时 / 断网 / 限流一律按"取不到"处理 —— 由调用方降级到快照,不在渲染路径上抛
     return null
   }
+}
+
+/**
+ * release 枚举的分页预算 —— 与 `scripts/resolve-desktop-download.mjs` 的
+ * `fetchReleasesPaged` 同形(per_page=100 / maxPages=10 / 短页即停)。
+ * 为什么两处各写一份:一份住 CI 的 .mjs、一份住站点的 .ts,跨语言无法共用实现;
+ * 形状由 `desktop-feed-live.test.ts` 的分页用例钉住(预算与停机条件必须一致)。
+ */
+const RELEASE_PAGE_PER_PAGE = 100
+const RELEASE_PAGE_MAX_PAGES = 10
+/**
+ * 枚举面(最坏 10 次请求)比单资产更贵:未认证 GitHub 上限 60 次/小时/IP,这条腿按 1 小时
+ * 窗口缓存 ⇒ 最坏 10 次/小时。桌面版发布节律是天级,1 小时滞后不改变用户看到的东西。
+ */
+const RELEASE_LIST_REVALIDATE_S = 3600
+
+export interface ReleasesScan {
+  releases: UpstreamRelease[]
+  /** 实际扫了几页(枚举面自证) */
+  pages: number
+  /** 本轮用的分页上限(预算自证:pages 顶到 maxPages 就说明下一枚 release 可能被挤出射程) */
+  maxPages: number
+  /** 中途某页失败 ⇒ 只拿到部分;首页失败不产生这个形态(直接 null) */
+  partial: boolean
+  /** 扫到的 release 总条数 */
+  scanned: number
+}
+
+/** 可以随解析结果一起交出去的预算形状(不含 release 明细) */
+export type ReleaseScanSummary = Omit<ReleasesScan, 'releases'>
+
+function summarizeScan(scan: ReleasesScan): ReleaseScanSummary {
+  return {
+    pages: scan.pages,
+    maxPages: scan.maxPages,
+    partial: scan.partial,
+    scanned: scan.scanned,
+  }
+}
+
+/**
+ * 分页取全 release 列表。三条要求(逐字对齐 CI 侧那份的注释):
+ *  ① 翻到"短页"为止(有 maxPages 上限,防被无限分页拖死);
+ *  ② 把扫到多少条/几页带回去,静默少扫与扫全不是同一个颜色;
+ *  ③ 首页就失败返回 null 交给上层降级,中途失败则带着已拿到的部分继续
+ *     (比"整个源判死"更接近真相,且上层仍按 SemVer 取最高)。
+ *
+ * 为什么运行期也必须分页(2026-11-02 实测复发):`/releases` 按创建时间倒序返回,而
+ * Android 的 nightly 每次 CI 跑都新增一枚 release —— 现读第一页 100 条**全是 nightly**,
+ * 一个 `desktop-v*` 都没有 ⇒ 旧的单页写法挑不出候选,下载页与更新器一起退回
+ * `desktop-feed.generated.ts` 那枚 2026-10-18 的快照。这正是 CI 侧 2026-09 已写明
+ * "仓库里的 release 只会越来越多,这一格是必然恶化的"的那一条,当时只修了 CI 那份。
+ */
+export async function fetchReleasesPaged(
+  baseUrl: string,
+  headers: Record<string, string>,
+  opts: { perPage?: number; maxPages?: number } = {},
+): Promise<ReleasesScan | null> {
+  const perPage = opts.perPage ?? RELEASE_PAGE_PER_PAGE
+  const maxPages = opts.maxPages ?? RELEASE_PAGE_MAX_PAGES
+  const sep = baseUrl.includes('?') ? '&' : '?'
+  const releases: UpstreamRelease[] = []
+  let pages = 0
+  let partial = false
+  for (let page = 1; page <= maxPages; page++) {
+    pages = page
+    let batch: unknown
+    try {
+      const res = await fetch(`${baseUrl}${sep}per_page=${perPage}&page=${page}`, {
+        headers,
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+        next: { revalidate: RELEASE_LIST_REVALIDATE_S },
+      })
+      if (!res.ok) {
+        if (page === 1) return null
+        partial = true
+        break
+      }
+      batch = await res.json()
+    } catch {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    if (!Array.isArray(batch)) {
+      if (page === 1) return null
+      partial = true
+      break
+    }
+    releases.push(...(batch as UpstreamRelease[]))
+    if (batch.length < perPage) break
+  }
+  return { releases, pages, maxPages, partial, scanned: releases.length }
+}
+
+/** 资产名 → GitHub 权威字节数(供 Gitee 字节对账;取不到 size 的资产不入表) */
+function assetSizeMap(assets: readonly UpstreamReleaseAsset[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const a of assets) {
+    const name = String(a.name || '')
+    const size = Number(a.size || 0)
+    if (name && size > 0) map.set(name, size)
+  }
+  return map
 }
 
 /**
@@ -267,19 +398,24 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const releases = await fetchJson<UpstreamRelease[]>(
-    `https://api.github.com/repos/${repo}/releases?per_page=100`,
-    headers,
-  )
-  if (!releases || releases.length === 0) {
-    return { source: 'snapshot', reason: 'releases api unreachable', fallback: DESKTOP_FEED }
-  }
-  const pick = pickLatestDesktopRelease(releases)
-  if (!pick) {
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
     return {
       source: 'snapshot',
-      reason: `no published ${RELEASE_PREFIX}* release`,
+      reason: `releases api unreachable(pages=${scan?.pages ?? 0} scanned=${scan?.releases.length ?? 0})`,
       fallback: DESKTOP_FEED,
+      scan: scan === null ? undefined : summarizeScan(scan),
+    }
+  }
+  const pick = pickLatestDesktopRelease(scan.releases)
+  if (!pick) {
+    // 扫了几页/几条写进原因:分页预算被 release 数量顶穿时,这一格会自己喊出来,
+    // 而不是安静地退回旧快照(那正是"页面躺旧号四天的那格"的复发形态)
+    return {
+      source: 'snapshot',
+      reason: `no published ${RELEASE_PREFIX}* release(pages=${scan.pages} scanned=${scan.releases.length}${scan.partial ? ' partial' : ''})`,
+      fallback: DESKTOP_FEED,
+      scan: summarizeScan(scan),
     }
   }
   // latest.json 取不到时**不再整份降级**,而是带着 payload=null 返回 live。
@@ -297,15 +433,19 @@ export async function resolveLiveDesktopFeed(): Promise<LiveDesktopResolution> {
     : null
   const usable =
     payload && typeof payload.version === 'string' && payload.platforms ? payload : null
-  // Windows 主包优先走 Gitee(国内可达),但**按字节对账**才准改用:同名不同字节
-  // (0.1.75 实锤)会叫客户端下到一份签名验不过的包。权威字节数取 GitHub API 的资产元数据。
-  const winName = usable?.platforms?.['windows-x86_64']?.url?.split('/').pop() ?? null
-  const winSize = Number(pick.downloadAssets.find((a) => a.name === winName)?.size || 0) || null
-  const preferred = usable ? await preferGiteeWindows(usable, pick.tag, winSize) : null
+  // 2026-11-03:Gitee 为国内主通道 —— 所有平台(Windows/macOS/Linux)都按**字节对账**
+  // 决定是否改写;Gitee 资产不存在或字节不等 ⇒ 保持 GitHub 并告警,绝不"未对账就改写"。
+  // 权威字节数取 GitHub API 的资产元数据(资产名 → size),不探国内直连不通的资产域名。
+  const sizes = assetSizeMap(pick.downloadAssets)
+  const preferred = usable ? await preferGiteePlatforms(usable, pick.tag, sizes) : null
   const base = buildLiveSource(pick, preferred, repo)
   return {
     source: 'live',
-    data: { ...base, assets: await preferGiteeInAssets(base.assets, pick.tag) },
+    data: {
+      ...base,
+      assets: await preferGiteeInAssets(base.assets, pick.tag, sizes),
+      scan: summarizeScan(scan),
+    },
   }
 }
 
@@ -366,6 +506,9 @@ const GITEE_REPO = process.env.GITEE_REPO || 'IHUI-AI'
  * (与 scripts/lib/tauri-updater-platforms.mjs 的 host 白名单口径一致) —— 前提就是"同一份字节"。
  */
 type GiteeParity = 'same' | 'different' | 'undetermined'
+// 只导出**类型**,声明行保持原样:上一版给声明加 `export` 前缀,等于把"基线里删过的行
+// 以新写法搬回来",会被落地器的行级复活判据点名 —— 那种形状不该开闸(它保的就是真回写)。
+export type { GiteeParity }
 
 async function headContentLength(url: string): Promise<number | null> {
   try {
@@ -382,7 +525,7 @@ async function headContentLength(url: string): Promise<number | null> {
   }
 }
 
-function giteeDownloadUrl(tag: string, assetName: string): string {
+export function giteeDownloadUrl(tag: string, assetName: string): string {
   return `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${tag}/${assetName}`
 }
 
@@ -397,34 +540,53 @@ export async function giteeByteParity(
   return { verdict: giteeLen === expectedSize ? 'same' : 'different', giteeLen }
 }
 
-/** 把 windows-x86_64 的 URL 换成 Gitee 直链(仅当 Gitee 那份字节与 GitHub 原件等长) */
+/**
+ * 任一平台 URL → Gitee 直链,**仅当** Gitee 那份附件的 Content-Length 与 GitHub 原件相等。
+ *
+ * 2026-11-03 起 Gitee 是**国内主通道**(Windows / macOS x86_64 / macOS aarch64 / Linux
+ * 全部平台都适用);判据仍是"同一份字节"而不是"同名" —— 0.1.75 已实锤同名不同物会让
+ * 客户端下载后签名验不过。sizes 以资产名为键,来自 GitHub Releases API 的 size 元数据
+ * (权威,且不必探国内直连不通的 GitHub 资产域名)。
+ */
+export async function preferGiteePlatforms(
+  payload: DesktopFeedPayload | null,
+  tag: string,
+  sizes: ReadonlyMap<string, number>,
+): Promise<DesktopFeedPayload | null> {
+  if (!payload?.platforms) return payload
+  const platforms = { ...payload.platforms }
+  const hits = await Promise.all(
+    Object.keys(platforms).map(async (key) => {
+      const entry = platforms[key]
+      if (!entry || typeof entry.url !== 'string' || !entry.url) return null
+      const fileName = entry.url.split('/').pop()
+      if (!fileName) return null
+      const expected = sizes.get(fileName) ?? null
+      const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expected)
+      if (verdict !== 'same') {
+        console.warn(
+          `[desktop-feed] ${key} 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+            `(GH=${expected ?? '量不到'} / Gitee=${giteeLen ?? '量不到'})`,
+        )
+        return null
+      }
+      return [key, { ...entry, url: giteeDownloadUrl(tag, fileName) }] as const
+    }),
+  )
+  for (const hit of hits) if (hit) platforms[hit[0]] = hit[1]
+  return { ...payload, platforms }
+}
+
+/** 单平台兼容入口(既有测试与旧调用方使用;实现已归并到 preferGiteePlatforms) */
 export async function preferGiteeWindows(
   payload: DesktopFeedPayload | null,
   tag: string,
   expectedSize: number | null,
 ): Promise<DesktopFeedPayload | null> {
-  const win = payload?.platforms?.['windows-x86_64']
-  if (!payload || !win) return payload
-  const fileName = win.url.split('/').pop()
-  if (!fileName) return payload
-  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expectedSize)
-  if (verdict !== 'same') {
-    console.warn(
-      `[desktop-feed] windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
-        `(GH=${expectedSize} / Gitee=${giteeLen})`,
-    )
-    return payload
-  }
-  return {
-    ...payload,
-    platforms: {
-      ...payload.platforms,
-      'windows-x86_64': {
-        ...win,
-        url: giteeDownloadUrl(tag, fileName),
-      },
-    },
-  }
+  const fileName = payload?.platforms?.['windows-x86_64']?.url?.split('/').pop()
+  const sizes = new Map<string, number>()
+  if (fileName && expectedSize && expectedSize > 0) sizes.set(fileName, expectedSize)
+  return preferGiteePlatforms(payload, tag, sizes)
 }
 
 /** 从 nightly 之外的地方找语义版本:`v1.2.3` / `mobile-v1.2.3` / 资产名里的 `_1.2.3_` */
@@ -485,14 +647,11 @@ export async function resolveLiveAndroid(
   const token = process.env.GITHUB_TOKEN
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const releases = await fetchJson<UpstreamRelease[]>(
-    `https://api.github.com/repos/${repo}/releases?per_page=100`,
-    headers,
-  )
-  if (!releases || releases.length === 0) {
+  const scan = await fetchReleasesPaged(`https://api.github.com/repos/${repo}/releases`, headers)
+  if (scan === null || scan.releases.length === 0) {
     return { source: 'unavailable', reason: 'releases api unreachable' }
   }
-  const picked = pickLatestApkRelease(releases)
+  const picked = pickLatestApkRelease(scan.releases)
   if (!picked) {
     return { source: 'unavailable', reason: `找不到带 ${APK_ASSET_NAME} 的已发布 release` }
   }
@@ -511,26 +670,30 @@ export async function resolveLiveAndroid(
   }
 }
 
-/** 把下载页资产里的 Windows exe 换成 Gitee 直链(同样只在 Gitee 确有该资产时) */
+/** 把下载页资产换成 Gitee 直链(每个资产都按字节对账;不等的保持 GitHub 并告警) */
 async function preferGiteeInAssets(
   assets: DesktopFeedAsset[],
   tag: string,
+  sizes: ReadonlyMap<string, number>,
 ): Promise<DesktopFeedAsset[]> {
-  const exe = assets.find((a) => a.format === 'Windows NSIS exe')
-  if (!exe) return assets
-  const fileName = exe.href.split('/').pop()
-  if (!fileName) return assets
-  // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
-  // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
-  const { verdict, giteeLen } = await giteeByteParity(tag, fileName, exe.sizeBytes || null)
-  if (verdict !== 'same') {
-    console.warn(
-      `[desktop-feed] 下载页 Windows 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
-        `(GH=${exe.sizeBytes} / Gitee=${giteeLen})`,
-    )
-    return assets
-  }
-  return assets.map((a) => (a === exe ? { ...a, href: giteeDownloadUrl(tag, fileName) } : a))
+  return Promise.all(
+    assets.map(async (a) => {
+      const fileName = a.href.split('/').pop()
+      if (!fileName) return a
+      // 与更新器 feed 同一把尺子:名字命中不等于字节相同(见 giteeByteParity 头注的 0.1.75 实锤)。
+      // sizeBytes 来自 GitHub API 的资产元数据,就是 CI 签名覆盖那份的字节数。
+      const expected = sizes.get(fileName) ?? (a.sizeBytes || null)
+      const { verdict, giteeLen } = await giteeByteParity(tag, fileName, expected)
+      if (verdict !== 'same') {
+        console.warn(
+          `[desktop-feed] 下载页 ${a.format} 直链保持 GitHub 原生产物:Gitee 字节对账=${verdict}` +
+            `(GH=${expected ?? '量不到'} / Gitee=${giteeLen ?? '量不到'})`,
+        )
+        return a
+      }
+      return { ...a, href: giteeDownloadUrl(tag, fileName) }
+    }),
+  )
 }
 
 /**

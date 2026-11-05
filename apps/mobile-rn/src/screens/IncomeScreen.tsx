@@ -163,6 +163,7 @@ function IncomeScreen() {
         onWithdraw={() => navigation.navigate('Withdraw' as never)}
         onBack={() => navigation.goBack()}
         onCopyOrder={handleCopyOrder}
+        onRetry={() => { void load(); }}
         colorScheme={resolvedTheme}
       />
       <FloatBox visible={toastVisible} type="success" message={toastMessage} onHide={hideToast} />

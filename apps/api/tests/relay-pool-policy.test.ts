@@ -47,7 +47,10 @@ function seqRng(values: number[]): () => number {
 const NOW = Date.UTC(2026, 10, 29, 12, 0, 0)
 
 describe('旋钮单源(env 解析)', () => {
-  it('正向:六钮 env 全部被读出', () => {
+  // 钮数以源码现读为准(2026-11-01 更正):5f225a3e42 加了第 9 钮 preferLowCredit,
+  // 当时只补了 src/services/__tests__ 那份专项,忘了回头补 tests/ 下这两枚镜像卷宗
+  // ⇒ 标题写"六钮"、夹具只喂 8 键,深等于报"属性个数差"。标题与夹具同批改齐,不删断言。
+  it('正向:九钮 env 全部被读出', () => {
     const env = {
       [P.RELAY_POOL_ENV_KEYS.strategy]: 'weighted_random',
       [P.RELAY_POOL_ENV_KEYS.idleWeightPerHour]: '0.8',
@@ -57,6 +60,7 @@ describe('旋钮单源(env 解析)', () => {
       [P.RELAY_POOL_ENV_KEYS.creditFloor]: '50',
       [P.RELAY_POOL_ENV_KEYS.maxInFlightGlobal]: '4',
       [P.RELAY_POOL_ENV_KEYS.crossDomainFallback]: '1',
+      [P.RELAY_POOL_ENV_KEYS.preferLowCredit]: 'true',
     }
     expect(P.readRelayPoolPolicy(env)).toEqual({
       strategy: 'weighted_random',
@@ -67,6 +71,7 @@ describe('旋钮单源(env 解析)', () => {
       creditFloor: 50,
       maxInFlightGlobal: 4,
       crossDomainFallback: true,
+      preferLowCredit: true,
     })
   })
 
@@ -86,7 +91,7 @@ describe('旋钮单源(env 解析)', () => {
     )
   })
 
-  it('默认值逐钮现读(0.5 / 5 / false / 168h / 0 / 0 / false)', () => {
+  it('默认值逐钮现读(0.5 / 5 / false / 168h / 0 / 0 / false / false)', () => {
     expect(P.DEFAULT_RELAY_POOL_POLICY).toEqual({
       strategy: 'deterministic',
       idleWeightPerHour: 0.5,
@@ -96,6 +101,7 @@ describe('旋钮单源(env 解析)', () => {
       creditFloor: 0,
       maxInFlightGlobal: 0,
       crossDomainFallback: false,
+      preferLowCredit: false,
     })
   })
 })

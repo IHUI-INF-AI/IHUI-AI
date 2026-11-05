@@ -7,10 +7,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RegisterScreenProps } from '../../types'
 
-import { rnRadius, rnGeometry, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 注册共享屏 — props 注入式跨端组件(wrapper 负责 register API 调用 + 自动登录) */
 export type { RegisterScreenProps }
@@ -60,7 +61,10 @@ export function RegisterScreen({
   onSendCode,
   countdown: countdownProp,
   sendingCode: sendingCodeProp,
+  onToast,
 }: RegisterScreenProps & RegisterCodeOptions) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const onBrandText = tk.text.primary
@@ -234,8 +238,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
       marginBottom: rnSpacing.md,
     },
-    title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: rnRadius.lg },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    card: {
+      padding: rnSpacing['md-loose'],
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius.lg,
+    },
     label: {
       fontSize: rnType.body.size,
       fontWeight: '600',
@@ -257,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     codeInput: { flex: 1 },
     codeBtn: {
       height: 50,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       justifyContent: 'center',
       borderRadius: rnRadius.sm,
       borderWidth: 1,

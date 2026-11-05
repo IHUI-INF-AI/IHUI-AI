@@ -56,7 +56,7 @@ export function ReferrerScreen({
           {info?.referrerCode ? (
             <Text style={styles.value}>{info.referrerName || info.referrerCode}</Text>
           ) : (
-            <Text style={styles.muted}>{t('referrer.empty')}</Text>
+            <Text style={styles.muted}>{t('referrer.noReferrer')}</Text>
           )}
           <Text style={styles.desc}>{t('referrer.desc')}</Text>
         </View>
@@ -80,7 +80,7 @@ export function ReferrerScreen({
               disabled={submitting}
             >
               <Text style={styles.submitText}>
-                {submitting ? t('referrer.submitting') : t('referrer.submit')}
+                {submitting ? t('referrer.submitting') : t('referrer.bindBtn')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -101,9 +101,9 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 14 },
+    body: { padding: rnSpacing['md-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,

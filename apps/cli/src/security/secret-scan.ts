@@ -122,7 +122,7 @@ export const SECRET_SCAN_PATTERNS: readonly SecretScanPattern[] = [
 ];
 
 /** 占位符/变量引用形态:命中即整行放行(防误伤 .env.example、模板与文档)。 */
-export const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
+const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
   /<your[-_a-z0-9]*>/i, // <your-api-key>
   /\{\{[A-Za-z0-9_.]+\}\}/, // {{TOKEN}}
   /\$\{[^}]*\}/, // ${API_KEY} / ${API_KEY:-default}
@@ -132,10 +132,10 @@ export const PLACEHOLDER_PATTERNS: readonly RegExp[] = [
 ];
 
 // 上限常量:对齐对照程序 review.shared.diff 三条 + previous_findings_ttl_secs(见文件头注)。
-export const MAX_SCAN_BYTES_PER_FILE = 81_920; // 80 KiB
-export const MAX_SCAN_TOTAL_BYTES = 409_600; // 400 KiB
-export const MAX_SCAN_FILES_PER_REVIEW = 30;
-export const FINDINGS_DEDUP_TTL_MS = 3_600_000; // 1h
+const MAX_SCAN_BYTES_PER_FILE = 81_920; // 80 KiB
+const MAX_SCAN_TOTAL_BYTES = 409_600; // 400 KiB
+const MAX_SCAN_FILES_PER_REVIEW = 30;
+const FINDINGS_DEDUP_TTL_MS = 3_600_000; // 1h
 const FINDINGS_MEMORY_CAP = 500;
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -144,7 +144,7 @@ const GIT_TIMEOUT_MS = 10_000;
  * `Edit|Write|MultiEdit|NotebookEdit` 的本仓对应物;本仓工具面现读为
  * write_file / edit_file / batch_edit —— delete_file 不产新内容,不入射程)。
  */
-export const EDIT_TOOL_NAMES: readonly string[] = ['write_file', 'edit_file', 'batch_edit'];
+const EDIT_TOOL_NAMES: readonly string[] = ['write_file', 'edit_file', 'batch_edit'];
 
 export function isEditToolName(toolName: string): boolean {
   return EDIT_TOOL_NAMES.includes(toolName);
@@ -163,7 +163,7 @@ function isPlaceholderLine(line: string): boolean {
 }
 
 /** 命中样例的遮蔽形态(§5d 口径:前6***后2 (len=N);短命中只留长度,绝不回显原文)。 */
-export function maskExcerpt(matched: string): string {
+function maskExcerpt(matched: string): string {
   const cps = Array.from(matched);
   if (cps.length <= 8) return `*** (len=${cps.length})`;
   return `${cps.slice(0, 6).join('')}***${cps.slice(-2).join('')} (len=${cps.length})`;
@@ -219,7 +219,7 @@ export function scanText(text: unknown, origin: string): SecretScanOutcome {
 }
 
 /** 合并多个来源的判定:任一未判定 ⇒ 整体未判定(缺的输入必须可见);否则 findings>clean。 */
-export function mergeOutcomes(outcomes: SecretScanOutcome[]): SecretScanOutcome {
+function mergeOutcomes(outcomes: SecretScanOutcome[]): SecretScanOutcome {
   const missing: string[] = [];
   const findings: SecretScanFinding[] = [];
   const truncatedOrigins: string[] = [];
@@ -245,7 +245,7 @@ function findingKey(f: SecretScanFinding): string {
 }
 
 /** 只留"窗口内没报过"的命中,并把留下的登记进窗口(超界先清过期,再清最旧 ⇒ 不无界增长)。 */
-export function filterNewFindings(findings: SecretScanFinding[], now = Date.now()): SecretScanFinding[] {
+function filterNewFindings(findings: SecretScanFinding[], now = Date.now()): SecretScanFinding[] {
   for (const [key, at] of reportedFindings) {
     if (now - at > FINDINGS_DEDUP_TTL_MS) reportedFindings.delete(key);
   }
@@ -329,7 +329,7 @@ export interface CollectedDiffInput {
 }
 
 /** 派生 git 的纪律面(§12g):显式 stdio + windowsHide + 有界超时;失败 ⇒ null,不抛。 */
-export function runGitForReview(workspacePath: string, args: string[]): { ok: true; stdout: string } | { ok: false; error: string } {
+function runGitForReview(workspacePath: string, args: string[]): { ok: true; stdout: string } | { ok: false; error: string } {
   try {
     const stdout = execFileSync('git', ['-C', workspacePath, ...args], {
       encoding: 'utf8',
@@ -345,7 +345,7 @@ export function runGitForReview(workspacePath: string, args: string[]): { ok: tr
   }
 }
 
-export function collectStopReviewInputs(workspacePath: string, gitRun = runGitForReview): CollectedDiffInput {
+function collectStopReviewInputs(workspacePath: string, gitRun = runGitForReview): CollectedDiffInput {
   const errors: string[] = [];
   const diff = gitRun(workspacePath, ['diff', '--no-color', '--unified=0', 'HEAD']);
   if (!diff.ok) errors.push(`git-diff-HEAD-unavailable: ${diff.error}`);
@@ -359,7 +359,7 @@ export function collectStopReviewInputs(workspacePath: string, gitRun = runGitFo
 }
 
 /** 从 unified diff 中只取新增行('+',排除 '+++'),拼成待扫文本。 */
-export function addedLinesFromDiff(diffText: string): string {
+function addedLinesFromDiff(diffText: string): string {
   const out: string[] = [];
   for (const line of diffText.split(/\r?\n/)) {
     if (line.startsWith('+++')) continue;

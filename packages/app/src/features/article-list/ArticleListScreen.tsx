@@ -15,6 +15,7 @@ import {
   PressableCard,
   ScreenSkeleton,
 } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 文章列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ArticleListItem, ArticleListScreenProps }
@@ -46,8 +47,12 @@ export function ArticleListScreen({
   onBack,
   onEndReached,
   loadingMore = false,
-  colorScheme = 'light',
-}: ArticleListScreenProps) {
+  onRetry,
+  colorScheme = 'light',  
+  onToast,
+}: ArticleListScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -72,7 +77,7 @@ export function ArticleListScreen({
         /* P3 修复:错误态居中显示图标 + 错误文字 + 重试按钮 */
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -139,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: rnSpacing['sm-loose'] },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

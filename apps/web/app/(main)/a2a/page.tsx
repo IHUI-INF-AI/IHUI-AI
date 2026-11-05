@@ -20,10 +20,8 @@ import {
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { fetchAiServiceJson } from '@/lib/api'
+import { getA2ATaskStatus, listA2AAgents, registerA2AAgent, sendA2ATask } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
-
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
 type TabKey = 'agents' | 'register' | 'tasks'
 
@@ -123,15 +121,10 @@ function parseCapabilities(raw: string): string[] {
     .filter((s) => s.length > 0)
 }
 
-/**
- * AI 服务直连请求(2026-09-09 0-5 迁移:统一走 fetchAiServiceJson)。
- * AI_SERVICE_URL 为绝对 URL,normalizeUrl 直通不改写;鉴权 Bearer / X-Requested-With
- * CSRF / 设备指纹 / 30s 超时均由共享层注入,不再手拼 header。
- */
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetchAiServiceJson<T>(`${AI_SERVICE_URL}${path}`, init)
-  if (!res.success) throw new Error(res.error ?? 'A2A 请求失败')
-  return res.data as T
+/** 共享端点的统一错误提取(fetchAiServiceJson 语义:失败即抛) */
+function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
+  if (!r.success) throw new Error(r.error ?? 'A2A 请求失败')
+  return r.data as T
 }
 
 const STATUS_LABEL_KEYS: Record<TaskStatus, 'pending' | 'running' | 'completed' | 'failed'> = {
@@ -199,7 +192,7 @@ export default function A2APage() {
     setAgentsLoading(true)
     setAgentsError(null)
     try {
-      const data = await apiFetch<unknown>('/api/a2a/agents')
+      const data = unwrap<unknown>(await listA2AAgents())
       if (!isAgentList(data)) throw new Error('智能体列表返回格式异常')
       setAgents(data.agents)
     } catch (e) {
@@ -235,10 +228,7 @@ export default function A2APage() {
         capabilities: parseCapabilities(form.capabilities),
         endpoint: form.endpoint.trim() || undefined,
       }
-      await apiFetch<unknown>('/api/a2a/agents/register', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      unwrap(await registerA2AAgent(payload))
       setRegisterSuccess(true)
       setForm({ id: '', name: '', description: '', capabilities: '', endpoint: '' })
       await loadAgents()
@@ -253,7 +243,7 @@ export default function A2APage() {
   async function pollTask(taskId: string) {
     if (stoppedRef.current) return
     try {
-      const task = await apiFetch<unknown>(`/api/a2a/tasks/${encodeURIComponent(taskId)}/status`)
+      const task = unwrap<unknown>(await getA2ATaskStatus(taskId))
       if (stoppedRef.current) return
       if (!isTask(task)) throw new Error('任务状态返回格式异常')
       setCurrentTask(task)
@@ -282,15 +272,14 @@ export default function A2APage() {
     setTaskError(null)
     setCurrentTask(null)
     try {
-      const created = await apiFetch<unknown>('/api/a2a/tasks', {
-        method: 'POST',
-        body: JSON.stringify({
+      const created = unwrap<unknown>(
+        await sendA2ATask({
           name: taskName.trim(),
           description: taskDescription.trim() || undefined,
           input: parseTaskInput(taskInput),
           assigned_agent_id: assignedAgentId || undefined,
         }),
-      })
+      )
       if (!isTask(created)) throw new Error('任务创建返回格式异常')
       const taskId = created.task_id ?? created.id
       if (!taskId) throw new Error('任务缺少 ID')
@@ -326,7 +315,7 @@ export default function A2APage() {
           <Network className="h-7 w-7 text-primary" />
           {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-wrap gap-2">
@@ -348,7 +337,7 @@ export default function A2APage() {
       {tab === 'agents' ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               {t('tabAgents')} ({agents.length})
             </p>
             <Button
@@ -372,7 +361,7 @@ export default function A2APage() {
           ) : agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center">
               <Bot className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('noAgents')}</p>
+              <p className="text-body text-muted-foreground">{t('noAgents')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -381,12 +370,12 @@ export default function A2APage() {
                   <CardContent className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-body font-medium">{agent.name}</h3>
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs text-primary">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-label text-primary">
                         {agent.agent_id}
                       </span>
                     </div>
                     {agent.description && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                      <p className="line-clamp-2 text-label text-muted-foreground">
                         {agent.description}
                       </p>
                     )}
@@ -395,7 +384,7 @@ export default function A2APage() {
                         {agent.capabilities.map((cap, i) => (
                           <span
                             key={`${agent.agent_id}-${i}-${cap}`}
-                            className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            className="rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                           >
                             {cap}
                           </span>
@@ -403,7 +392,7 @@ export default function A2APage() {
                       </div>
                     )}
                     {agent.endpoint && (
-                      <p className="truncate font-mono text-xs text-muted-foreground">
+                      <p className="truncate font-mono text-label text-muted-foreground">
                         {agent.endpoint}
                       </p>
                     )}
@@ -533,7 +522,7 @@ export default function A2APage() {
                     ))}
                   </select>
                   {agents.length === 0 && (
-                    <p className="text-xs text-muted-foreground">{t('noAgents')}</p>
+                    <p className="text-label text-muted-foreground">{t('noAgents')}</p>
                   )}
                 </div>
               </div>
@@ -557,7 +546,7 @@ export default function A2APage() {
                   onChange={(e) => setTaskInput(e.target.value)}
                   rows={4}
                   placeholder='{"question": "..."}'
-                  className={cn(textareaClassName, 'font-mono text-xs')}
+                  className={cn(textareaClassName, 'font-mono text-label')}
                 />
               </div>
 
@@ -604,13 +593,13 @@ export default function A2APage() {
                 </div>
 
                 {currentTask.assigned_agent_id && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     {t('assignAgent')}: {currentTask.assigned_agent_id}
                   </p>
                 )}
 
                 {(currentTask.status === 'pending' || currentTask.status === 'running') && (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1.5 text-label text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     {t('pollHint')}
                   </p>
@@ -625,7 +614,7 @@ export default function A2APage() {
                   currentTask.result !== null && (
                     <div className="space-y-1">
                       <p className="text-label font-medium text-muted-foreground">{t('result')}</p>
-                      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-xs whitespace-pre-wrap">
+                      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-label whitespace-pre-wrap">
                         {JSON.stringify(currentTask.result, null, 2)}
                       </pre>
                     </div>

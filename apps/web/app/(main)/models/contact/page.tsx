@@ -43,7 +43,7 @@ export default async function ContactPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('contact.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('contact.subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('contact.subtitle')}</p>
       </header>
 
       {/* 联系方式 */}
@@ -56,7 +56,7 @@ export default async function ContactPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-4 w-4" />
                 </div>
-                <div className="mt-3 text-xs text-muted-foreground">{c.label}</div>
+                <div className="mt-3 text-label text-muted-foreground">{c.label}</div>
                 <div className="mt-0.5 text-body font-semibold">{c.value}</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">{c.desc}</div>
               </CardContent>
@@ -74,28 +74,28 @@ export default async function ContactPage() {
           <form className="space-y-3">
             <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">{t('contact.form.name')}</Label>
-                <Input placeholder={t('contact.form.namePlaceholder')} className="h-9 text-sm" />
+                <Label className="text-label">{t('contact.form.name')}</Label>
+                <Input placeholder={t('contact.form.namePlaceholder')} className="h-9 text-body" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">{t('contact.form.email')}</Label>
+                <Label className="text-label">{t('contact.form.email')}</Label>
                 <Input
                   type="email"
                   placeholder={t('contact.form.emailPlaceholder')}
-                  className="h-9 text-sm"
+                  className="h-9 text-body"
                 />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">{t('contact.form.subject')}</Label>
-              <Input placeholder={t('contact.form.subjectPlaceholder')} className="h-9 text-sm" />
+              <Label className="text-label">{t('contact.form.subject')}</Label>
+              <Input placeholder={t('contact.form.subjectPlaceholder')} className="h-9 text-body" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">{t('contact.form.message')}</Label>
+              <Label className="text-label">{t('contact.form.message')}</Label>
               <textarea
                 placeholder={t('contact.form.messagePlaceholder')}
                 rows={5}
-                className="w-full rounded-sm border border-input bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
+                className="w-full rounded-sm border border-input bg-background px-3 py-2 text-body text-foreground transition-colors placeholder:text-muted-foreground/70 focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/20 dark:bg-input/30"
               />
             </div>
             <Button type="submit" className="gap-1.5">
@@ -110,7 +110,7 @@ export default async function ContactPage() {
       <Card>
         <CardContent className="min-[640px]:p-3 p-3">
           <h3 className="text-body font-semibold">{t('contact.hours.title')}</h3>
-          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+          <div className="mt-2 space-y-1 text-label text-muted-foreground">
             <div className="flex justify-between">
               <span>{t('contact.hours.weekday')}</span>
               <span className="font-mono text-foreground">09:00 - 22:00</span>

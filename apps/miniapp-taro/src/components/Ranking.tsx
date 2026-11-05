@@ -38,11 +38,11 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
   const tt = useTt()
   if (loading) {
     return (
-      <View className="px-3 py-2">
+      <View className="px-md py-sm">
         {Array.from({ length: 5 }).map((_, i) => (
-          <View key={i} className="flex items-center py-3 animate-pulse">
-            <View className="w-6 h-4 mr-3 bg-muted rounded-xs" />
-            <View className="w-9 h-9 mr-3 rounded-lg bg-muted" />
+          <View key={i} className="flex items-center py-md animate-pulse">
+            <View className="w-6 h-4 mr-md bg-muted rounded-xs" />
+            <View className="w-9 h-9 mr-md rounded-lg bg-muted" />
             <View className="flex-1 h-3 bg-muted rounded" />
           </View>
         ))}
@@ -51,11 +51,11 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
   }
 
   return (
-    <View className="px-3 py-2">
-      {title && <Text className="block text-base font-medium text-foreground mb-2">{title}</Text>}
+    <View className="px-md py-sm">
+      {title && <Text className="block text-title font-medium text-foreground mb-sm">{title}</Text>}
       {list.length === 0 ? (
-        <View className="flex items-center justify-center py-12">
-          <Text className="text-sm text-muted-foreground">
+        <View className="flex items-center justify-center py-5xl">
+          <Text className="text-body text-muted-foreground">
             {tt('ranking.noData', '暂无排行数据')}
           </Text>
         </View>
@@ -63,33 +63,33 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
         list.map((item, idx) => (
           <View
             key={item.id}
-            className={`flex items-center py-[20rpx] px-3 mb-[12rpx] rounded-lg ${
+            className={`flex items-center py-[20rpx] px-md mb-[12rpx] rounded-lg ${
               idx < 3 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-card'
             }`}
           >
-            <View className="flex items-center justify-center w-6 mr-3">
+            <View className="flex items-center justify-center w-6 mr-md">
               {idx < 3 ? (
                 <LineIcon name={MEDALS[idx]!} size={36} color="var(--color-warning)" />
               ) : (
-                <Text className="text-sm font-medium text-muted-foreground">{idx + 1}</Text>
+                <Text className="text-body font-medium text-muted-foreground">{idx + 1}</Text>
               )}
             </View>
             {item.avatar ? (
               <Image
-                className="w-9 h-9 mr-3 rounded-lg bg-muted"
+                className="w-9 h-9 mr-md rounded-lg bg-muted"
                 src={item.avatar}
                 mode="aspectFill"
               />
             ) : (
-              <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-muted">
-                <Text className="text-xs font-medium text-muted-foreground">
+              <View className="flex items-center justify-center w-9 h-9 mr-md rounded-lg bg-muted">
+                <Text className="text-label font-medium text-muted-foreground">
                   {getName(item).charAt(0)}
                 </Text>
               </View>
             )}
-            <Text className="flex-1 text-sm text-foreground truncate">{getName(item)}</Text>
+            <Text className="flex-1 text-body text-foreground truncate">{getName(item)}</Text>
             <Text
-              className={`text-sm font-medium ${idx < 3 ? 'text-[var(--color-warning-amber)]' : 'text-foreground'}`}
+              className={`text-body font-medium ${idx < 3 ? 'text-[var(--color-warning-amber)]' : 'text-foreground'}`}
             >
               {getValue(item)}
               {unit}

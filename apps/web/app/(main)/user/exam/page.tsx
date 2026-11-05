@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FileQuestion } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { getMyRecords } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { BackButton } from '@/components/common'
@@ -60,9 +60,9 @@ const STATUS_STYLE: Record<string, string> = {
 async function fetchExams(): Promise<ExamRecord[]> {
   // 不传 userId:后端 `exam.ts:648` 用 `request.userId!` 从 JWT 取,查询参数里的 userId 会被忽略。
   // 继续传等于把"鉴权当查询参数传"的越权隐患留在代码里(哪天后端改成读 query 就成真漏洞)。
-  const r = await fetchApi<ExamListResponse>('/api/exam/records')
+  const r = await getMyRecords()
   if (!r.success) return []
-  return r.data?.list ?? []
+  return (r.data as unknown as ExamListResponse)?.list ?? []
 }
 
 export default function UserExamPage() {
@@ -104,7 +104,7 @@ export default function UserExamPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <FileQuestion className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -129,7 +129,7 @@ export default function UserExamPage() {
                       {e.status ? (
                         <span
                           className={cn(
-                            'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                            'shrink-0 rounded-md px-2 py-0.5 text-label',
                             STATUS_STYLE[display] ?? STATUS_STYLE.draft,
                           )}
                         >
@@ -137,7 +137,7 @@ export default function UserExamPage() {
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                       {hasScore ? (
                         <span>
                           {t('score')}: {score}

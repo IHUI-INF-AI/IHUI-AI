@@ -18,14 +18,27 @@ import {
   Loader2,
   Calendar,
   CalendarDays,
+  Users,
+  TrendingUp,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduAttendanceCheckIn,
+  eduAttendanceCheckOut,
+  eduAttendanceDelete,
+  eduAttendanceList,
+  eduAttendanceStats,
+  eduLeaveApprove,
+  eduLeaveCreate,
+  eduLeaveDelete,
+  eduLeaveList,
+} from '@ihui/api-client'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Button,
@@ -48,6 +61,24 @@ import {
   TabsContent,
 } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
+import { BatchCheckInDialog } from './BatchCheckInDialog'
+import { ExportButton } from './ExportButton'
+import { ClassSelect, useClasses } from './ClassSelect'
+import {
+  AttendanceTrendChart,
+  buildAttendanceTrendSeries,
+  type AttendancePeriodRow,
+  type AttendanceTrendSegmentKey,
+} from './AttendanceTrendChart'
+import { AttendanceRulePanel } from './AttendanceRulePanel'
+import { CheckInQrPanel } from './CheckInQrPanel'
+import {
+  backfillBlocked,
+  bizDay,
+  buildAttendanceListParams,
+  buildCheckInPayload,
+  type CheckInPayload,
+} from './check-in-contract'
 
 /* ─── Types ─── */
 
@@ -91,15 +122,22 @@ interface AttendanceStats {
   total: number
   attendanceRate: number
   statusBreakdown: Array<{ status: string; count: number }>
-  periodBreakdown: Array<{ period: string; status: string; count: number }>
+  /** 服务端只在带了 period 时才下发该键 ⇒ 类型上必须允许缺省,读取侧统一 ?? [] */
+  periodBreakdown?: Array<{ period: string; status: string; count: number }>
 }
 
 /* ─── API helper ─── */
 
 /* ─── Constants ─── */
 
-/** 考勤状态码 → eduAttendance 取词键;value 是与后端比对的协议码,不得取词 */
-const ATTENDANCE_STATUS = [
+/**
+ * 考勤状态码 → eduAttendance 取词键;value 是与后端比对的协议码,不得取词。
+ * `early` 这一档自此**真的会出现在列表里**:签退重判是它唯一的写入路径(后端 check-out 已接线
+ * judgeStatus),此前它只存在于报表枚举、写不进库 ⇒ 导出给契约测试逐档核对文案与色档。
+ * 取词面必须留在本文件:家族 i18n 契约(family-i18n-contract.test.ts 的 eduAttendance.sources)
+ * 按"已登记源文件"扫引用,把这张表搬出去会让这批键被判孤儿键。
+ */
+export const ATTENDANCE_STATUS = [
   { value: 'present', labelKey: 'statusPresent', color: 'bg-green-500' },
   { value: 'late', labelKey: 'statusLate', color: 'bg-yellow-500' },
   { value: 'early', labelKey: 'statusEarly', color: 'bg-orange-500' },
@@ -107,10 +145,12 @@ const ATTENDANCE_STATUS = [
   { value: 'leave', labelKey: 'statusLeave', color: 'bg-blue-500' },
 ] as const
 
-const ATTENDANCE_STATUS_KEY_MAP: Map<string, string> = new Map(
+/** 协议码 → 取词键 */
+export const ATTENDANCE_STATUS_KEY_MAP: Map<string, string> = new Map(
   ATTENDANCE_STATUS.map((s) => [s.value, s.labelKey]),
 )
-const ATTENDANCE_COLOR_MAP: Map<string, string> = new Map(
+/** 协议码 → 徽章底色(词表外的新状态走灰档兜底) */
+export const ATTENDANCE_COLOR_MAP: Map<string, string> = new Map(
   ATTENDANCE_STATUS.map((s) => [s.value, s.color]),
 )
 
@@ -139,8 +179,11 @@ const LEAVE_STATUS_COLOR_MAP: Map<string, string> = new Map(
   LEAVE_STATUS.map((s) => [s.value, s.color]),
 )
 
-/** 签到方式码 → eduAttendance 取词键;对象 key 是后端 checkInMethod 协议字面值 */
-const CHECK_IN_METHOD_KEYS: Record<string, string> = {
+/**
+ * 签到方式码 → eduAttendance 取词键;对象 key 是后端 checkInMethod 协议字面值。
+ * 同样必须留在已登记源文件内(见上:家族 i18n 契约按文件面扫引用)。
+ */
+export const CHECK_IN_METHOD_KEYS: Record<string, string> = {
   manual: 'methodManual',
   face: 'methodFace',
   qrcode: 'methodQrcode',
@@ -154,45 +197,46 @@ const STATS_PERIOD_KEYS: Record<'daily' | 'weekly' | 'monthly', string> = {
   monthly: 'periodMonthly',
 }
 
-function formatDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function todayStr(): string {
-  return formatDate(new Date())
-}
-
 /* ─── Check-in Dialog ─── */
 
-interface CheckInFormData {
+/**
+ * 代签表单态:没有 status(状态一律服务端按该班规则 + judgeStatus 现算,见 ./check-in-contract),
+ * hm 是「该日内时刻」输入 —— 当日可留空(服务器落 now),回填非当日必填。
+ */
+interface CheckInFormState {
   studentId: string
   classId: string
   date: string
+  /** 签到时刻 HH:mm;'' = 未填(仅当日合法,由服务器落 now) */
+  hm: string
   checkInMethod: string
-  status: string
   remark: string
 }
 
-function CheckInDialog({
+/** 导出只为给契约测试真渲染(取词面必须留在本文件,不得搬去新文件 ⇒ 见 ./check-in-contract 头注) */
+export function CheckInDialog({
   open,
   onOpenChange,
   classId,
   defaultDate,
+  today,
   onSave,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   classId: string
   defaultDate: string
-  onSave: (data: CheckInFormData) => Promise<void>
+  /** 上海业务日(与后端同日校验同口径),由页面单点算一次 */
+  today: string
+  onSave: (data: CheckInPayload) => Promise<void>
 }) {
   const t = useTranslations('eduAttendance')
-  const [form, setForm] = React.useState<CheckInFormData>({
+  const [form, setForm] = React.useState<CheckInFormState>({
     studentId: '',
     classId,
     date: defaultDate,
+    hm: '',
     checkInMethod: 'manual',
-    status: 'present',
     remark: '',
   })
   const [saving, setSaving] = React.useState(false)
@@ -203,19 +247,34 @@ function CheckInDialog({
         ...prev,
         classId,
         date: defaultDate,
+        // 每次开弹窗都回到「未填时刻 = 当日由服务器落 now」,不沿用上一次回填用的时刻
+        hm: '',
       }))
     }
   }, [open, classId, defaultDate])
 
-  const update = (key: keyof CheckInFormData, value: string) => {
+  const update = (key: keyof CheckInFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  /** 回填非当日却没给该日内时刻 ⇒ 当场拒发请求(不给后端吃 400),并把原因显示出来 */
+  const momentMissing = backfillBlocked(form.date, today, form.hm)
+  const payload = buildCheckInPayload({
+    studentId: form.studentId.trim(),
+    classId: form.classId,
+    date: form.date,
+    hm: form.hm,
+    today,
+    checkInMethod: form.checkInMethod,
+    remark: form.remark,
+  })
+  const canSubmit = payload !== null && form.studentId.trim().length > 0
+
   const handleSave = async () => {
-    if (!form.studentId.trim()) return
+    if (!payload || !canSubmit || saving) return
     setSaving(true)
     try {
-      await onSave(form)
+      await onSave(payload)
       onOpenChange(false)
     } finally {
       setSaving(false)
@@ -237,41 +296,34 @@ function CheckInDialog({
               placeholder={t('studentIdPlaceholder')}
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label>{t('date')}</Label>
-            <Input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('checkInMethod')}</Label>
-              <Select value={form.checkInMethod} onValueChange={(v) => update('checkInMethod', v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(CHECK_IN_METHOD_KEYS).map(([key, labelKey]) => (
-                    <SelectItem key={key} value={key}>
-                      {t(labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>{t('date')}</Label>
+              <Input
+                type="date"
+                value={form.date}
+                onChange={(e) => update('date', e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('status')}</Label>
-              <Select value={form.status} onValueChange={(v) => update('status', v)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ATTENDANCE_STATUS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {t(s.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>{t('checkInAt')}</Label>
+              <Input type="time" value={form.hm} onChange={(e) => update('hm', e.target.value)} />
             </div>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>{t('checkInMethod')}</Label>
+            <Select value={form.checkInMethod} onValueChange={(v) => update('checkInMethod', v)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CHECK_IN_METHOD_KEYS).map(([key, labelKey]) => (
+                  <SelectItem key={key} value={key}>
+                    {t(labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>{t('remark')}</Label>
@@ -281,11 +333,12 @@ function CheckInDialog({
               placeholder={t('remarkPlaceholder')}
             />
           </div>
+          {momentMissing ? <Alert variant="warning" description={t('backfillNeedsTime')} /> : null}
         </div>
         <DialogFooter>
-          <Button onClick={handleSave} disabled={saving || !form.studentId.trim()}>
+          <Button onClick={handleSave} disabled={saving || !canSubmit}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {t('confirmCheckIn')}
+            <span>{t('confirmCheckIn')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -501,7 +554,7 @@ function ApproveDialog({
         </DialogHeader>
         {leave && (
           <div className="space-y-3 py-2">
-            <div className="rounded-md border p-3 text-sm space-y-1">
+            <div className="rounded-md border p-3 text-body space-y-1">
               <p>
                 <span className="text-muted-foreground">{t('typeLabel')}</span>
                 {leaveTypeLabel(leave.leaveType)}
@@ -564,15 +617,19 @@ export default function AttendancePage() {
 
   /* ── State ── */
   const [activeTab, setActiveTab] = React.useState('check')
-  const [attendanceDate, setAttendanceDate] = React.useState(todayStr())
+  /** 「当日」只算一次(上海业务日,与后端同日校验同口径):日期初值与回填拦阻共用这一个真值 */
+  const [today] = React.useState(bizDay)
+  const [attendanceDate, setAttendanceDate] = React.useState(today)
   const [attendanceStatusFilter, setAttendanceStatusFilter] = React.useState('')
   const [statsPeriod, setStatsPeriod] = React.useState<'daily' | 'weekly' | 'monthly'>('daily')
-  const [statsStartDate, setStatsStartDate] = React.useState(todayStr())
-  const [statsEndDate, setStatsEndDate] = React.useState(todayStr())
+  const [statsStartDate, setStatsStartDate] = React.useState(today)
+  const [statsEndDate, setStatsEndDate] = React.useState(today)
   const [leaveStatusFilter, setLeaveStatusFilter] = React.useState('')
   const [leaveStartDate, setLeaveStartDate] = React.useState('')
   const [leaveEndDate, setLeaveEndDate] = React.useState('')
+  const [selectedClassId, setSelectedClassId] = React.useState('')
   const [checkInOpen, setCheckInOpen] = React.useState(false)
+  const [batchCheckInOpen, setBatchCheckInOpen] = React.useState(false)
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const [approveOpen, setApproveOpen] = React.useState(false)
   const [approvingLeave, setApprovingLeave] = React.useState<LeaveRequest | null>(null)
@@ -580,31 +637,50 @@ export default function AttendancePage() {
   /* ── Queries ── */
   const attendanceQuery = useQuery({
     queryKey: ['edu-ai-management', 'attendance', attendanceDate, attendanceStatusFilter],
-    queryFn: () =>
-      apiOrThrow<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance?date=${attendanceDate}${attendanceStatusFilter ? `&status=${attendanceStatusFilter}` : ''}`,
-      ),
+    queryFn: async () => {
+      const r = await eduAttendanceList<{ list: AttendanceRecord[] }>(
+        buildAttendanceListParams(attendanceDate, attendanceStatusFilter),
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
+  // 统计口径三要素:班级 + 起止日期 + 时段粒度。
+  // 趋势图的数据源就是这一次请求的 periodBreakdown(服务端已按 (时段, 状态) 聚合),
+  // 出勤率与堆叠构成在客户端二次聚合得出 —— 记录清单接口 GET /attendance 只收单日
+  // date(无区间参数、且分页 pageSize≤100),按天逐次请求即 N+1,故取数走 stats 接口。
   const statsQuery = useQuery({
-    queryKey: ['edu-ai-management', 'attendance-stats', statsPeriod, statsStartDate, statsEndDate],
-    queryFn: () =>
-      apiOrThrow<AttendanceStats>(
-        `/api/edu-ai-management/attendance/stats?period=${statsPeriod}&startDate=${statsStartDate}&endDate=${statsEndDate}`,
-      ),
+    queryKey: [
+      'edu-ai-management',
+      'attendance-stats',
+      statsPeriod,
+      statsStartDate,
+      statsEndDate,
+      selectedClassId,
+    ],
+    queryFn: async () => {
+      const r = await eduAttendanceStats<AttendanceStats>({
+        period: statsPeriod,
+        startDate: statsStartDate,
+        endDate: statsEndDate,
+        classId: selectedClassId || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const leaveQuery = useQuery({
     queryKey: ['edu-ai-management', 'leave', leaveStatusFilter, leaveStartDate, leaveEndDate],
-    queryFn: () => {
-      let url = '/api/edu-ai-management/leave'
-      const params = new URLSearchParams()
-      if (leaveStatusFilter) params.set('status', leaveStatusFilter)
-      if (leaveStartDate) params.set('startDate', leaveStartDate)
-      if (leaveEndDate) params.set('endDate', leaveEndDate)
-      const qs = params.toString()
-      if (qs) url += `?${qs}`
-      return apiOrThrow<{ list: LeaveRequest[] }>(url)
+    queryFn: async () => {
+      const r = await eduLeaveList<{ list: LeaveRequest[] }>({
+        status: leaveStatusFilter || undefined,
+        startDate: leaveStartDate || undefined,
+        endDate: leaveEndDate || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -622,16 +698,16 @@ export default function AttendancePage() {
   }, [queryClient])
 
   const checkInMutation = useMutation({
-    mutationFn: (data: CheckInFormData) =>
-      apiOrThrow('/api/edu-ai-management/attendance/check-in', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: CheckInPayload) => {
+      const r = await eduAttendanceCheckIn(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const checkOutMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       studentId,
       classId,
       date,
@@ -639,31 +715,34 @@ export default function AttendancePage() {
       studentId: string
       classId: string
       date: string
-    }) =>
-      apiOrThrow('/api/edu-ai-management/attendance/check-out', {
-        method: 'PUT',
-        body: JSON.stringify({ studentId, classId, date, checkOutMethod: 'manual' }),
-      }),
+    }) => {
+      const r = await eduAttendanceCheckOut({ studentId, classId, date, checkOutMethod: 'manual' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const deleteAttendanceMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/attendance/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduAttendanceDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const createLeaveMutation = useMutation({
-    mutationFn: (data: LeaveFormData) =>
-      apiOrThrow('/api/edu-ai-management/leave', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: LeaveFormData) => {
+      const r = await eduLeaveCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
   const approveLeaveMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       status,
       remark,
@@ -671,22 +750,25 @@ export default function AttendancePage() {
       id: string
       status: 'approved' | 'rejected'
       remark: string
-    }) =>
-      apiOrThrow(`/api/edu-ai-management/leave/${id}/approve`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, approveRemark: remark || null }),
-      }),
+    }) => {
+      const r = await eduLeaveApprove(id, { status, approveRemark: remark || null })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
   const deleteLeaveMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduLeaveDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
   /* ── Handlers ── */
-  const handleCheckIn = async (data: CheckInFormData) => {
+  const handleCheckIn = async (data: CheckInPayload) => {
     await checkInMutation.mutateAsync(data)
   }
 
@@ -715,6 +797,27 @@ export default function AttendancePage() {
   const stats = statsQuery.data
   const presentCount = stats?.statusBreakdown.find((s) => s.status === 'present')?.count ?? 0
 
+  /** 趋势图与周期表共用同一份 (时段, 状态, 计数) 桶集:两处读数同源,不得各聚一遍 */
+  const periodRows = React.useMemo<AttendancePeriodRow[]>(
+    () => stats?.periodBreakdown ?? [],
+    [stats],
+  )
+
+  /** 堆叠柱段名:5 枚协议码走 eduAttendance 取词,other 兜后端后续新增的状态码 */
+  const trendSegmentLabels: Record<AttendanceTrendSegmentKey, string> = {
+    present: t('statusPresent'),
+    late: t('statusLate'),
+    early: t('statusEarly'),
+    absent: t('statusAbsent'),
+    leave: t('statusLeave'),
+    other: t('statusOther'),
+  }
+
+  /** 统计范围点名:班级下拉自动选中首个,清单没到货或未选时如实标"全部班级" */
+  const { classes } = useClasses()
+  const statsScopeLabel =
+    classes.find((c) => c.id === selectedClassId)?.name ?? t('scopeAllClasses')
+
   /* ── 取词解析:未知码(后端新增值)原样回显,不吞协议数据 ── */
   const attendanceStatusLabel = (status: string): string => {
     const key = ATTENDANCE_STATUS_KEY_MAP.get(status)
@@ -739,7 +842,7 @@ export default function AttendancePage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -771,7 +874,18 @@ export default function AttendancePage() {
                   className="w-40"
                 />
               </div>
-              <Select value={attendanceStatusFilter} onValueChange={setAttendanceStatusFilter}>
+              <div className="flex items-center gap-2">
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
+                <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
+              </div>
+              {/* 「全部状态」只是 UI 哨兵值,不得进 query:后端按枚举精确匹配,把哨兵值当状态
+                  筛选传过去 = 列表恒空 ⇒ 与请假筛选同一写法,在 setState 处把它归一成空串 */}
+              <Select
+                value={attendanceStatusFilter}
+                onValueChange={(v) => setAttendanceStatusFilter(v === 'all' ? '' : v)}
+              >
                 <SelectTrigger className="w-32">
                   <SelectValue placeholder={t('allStatus')} />
                 </SelectTrigger>
@@ -788,14 +902,22 @@ export default function AttendancePage() {
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 {t('checkIn')}
               </Button>
+              <Button size="sm" variant="outline" onClick={() => setBatchCheckInOpen(true)}>
+                <Users className="mr-1 h-3.5 w-3.5" />
+                {t('batchCheckIn')}
+              </Button>
               {attendanceQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading')}
                 </div>
               )}
             </CardContent>
           </Card>
+
+          {/* 考勤规则配置 + 扫码签到(与上方工具栏共用班级口径,面板本体在新文件里) */}
+          <AttendanceRulePanel classId={selectedClassId} onClassChange={setSelectedClassId} />
+          <CheckInQrPanel classId={selectedClassId} onClassChange={setSelectedClassId} />
 
           {attendanceQuery.error ? (
             <Alert variant="danger" description={t('loadRecordsFailed')} />
@@ -808,7 +930,7 @@ export default function AttendancePage() {
             </Card>
           ) : records.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('emptyRecords')}
               </CardContent>
             </Card>
@@ -816,7 +938,7 @@ export default function AttendancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -845,12 +967,12 @@ export default function AttendancePage() {
                     <tbody>
                       {records.map((r) => (
                         <tr key={r.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">
+                          <td className="px-4 py-3 text-label font-mono">
                             {r.studentId.slice(0, 8)}...
                           </td>
                           <td className="px-4 py-3">
                             {r.checkInTime ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="inline-flex items-center gap-1 text-label">
                                 <Clock className="h-3 w-3 text-green-500" />
                                 {new Date(r.checkInTime).toLocaleTimeString('zh-CN', {
                                   hour: '2-digit',
@@ -858,12 +980,12 @@ export default function AttendancePage() {
                                 })}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             {r.checkOutTime ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
+                              <span className="inline-flex items-center gap-1 text-label">
                                 <Clock className="h-3 w-3 text-orange-500" />
                                 {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', {
                                   hour: '2-digit',
@@ -871,7 +993,7 @@ export default function AttendancePage() {
                                 })}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-label text-muted-foreground">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -885,19 +1007,29 @@ export default function AttendancePage() {
                               {attendanceStatusLabel(r.status)}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {checkInMethodLabel(r.checkInMethod)}
                           </td>
-                          <td className="max-w-[120px] truncate px-4 py-3 text-xs text-muted-foreground">
+                          <td className="max-w-[120px] truncate px-4 py-3 text-label text-muted-foreground">
                             {r.remark ?? '-'}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {r.checkInMethod === 'self' && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  {t('methodSelf')}
+                                </Badge>
+                              )}
+                              {/* 签退不看 checkInMethod:学生自签过的行仍须由教师签退,
+                                  若按签到方式挡掉,这些行就永远没人能签退(自签徽章只是信息标记) */}
                               {!r.checkOutTime && r.checkInTime && (
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => handleCheckOut(r)}
                                   disabled={checkOutMutation.isPending}
                                 >
@@ -905,11 +1037,11 @@ export default function AttendancePage() {
                                   {t('checkOut')}
                                 </Button>
                               )}
-                              {!r.checkInTime && (
+                              {!r.checkInTime && r.checkInMethod !== 'self' && (
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => {
                                     setCheckInOpen(true)
                                   }}
@@ -921,7 +1053,7 @@ export default function AttendancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs text-red-500"
+                                className="text-label text-red-500"
                                 onClick={() => deleteAttendanceMutation.mutate(r.id)}
                                 disabled={deleteAttendanceMutation.isPending}
                               >
@@ -956,6 +1088,12 @@ export default function AttendancePage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
+                <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
+              </div>
+              <div className="flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <Input
                   type="date"
@@ -963,7 +1101,7 @@ export default function AttendancePage() {
                   onChange={(e) => setStatsStartDate(e.target.value)}
                   className="w-36"
                 />
-                <span className="text-xs text-muted-foreground">~</span>
+                <span className="text-label text-muted-foreground">~</span>
                 <Input
                   type="date"
                   value={statsEndDate}
@@ -974,6 +1112,16 @@ export default function AttendancePage() {
               {statsQuery.isLoading && (
                 <Loader2 className="ml-auto h-4 w-4 animate-spin text-muted-foreground" />
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="min-[640px]:p-3 p-3">
+              <ExportButton
+                defaultStartDate={statsStartDate}
+                defaultEndDate={statsEndDate}
+                defaultClassId={selectedClassId}
+              />
             </CardContent>
           </Card>
 
@@ -1023,6 +1171,28 @@ export default function AttendancePage() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-body font-medium">
+                    <TrendingUp className="h-4 w-4" />
+                    <span>{t('trendChartTitle')}</span>
+                  </CardTitle>
+                  <CardDescription className="text-label">
+                    {t('trendChartScope', { scope: statsScopeLabel })} · {t('trendChartHint')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <AttendanceTrendChart
+                    breakdown={periodRows}
+                    labels={trendSegmentLabels}
+                    rateLabel={t('statsAttendanceRate')}
+                    countAxisLabel={t('trendCountAxisLabel')}
+                    ariaLabel={t('trendChartAria', { scope: statsScopeLabel })}
+                    emptyLabel={t('emptyTrend')}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-body font-medium">{t('statusDistribution')}</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1033,7 +1203,7 @@ export default function AttendancePage() {
                       const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0
                       return (
                         <div key={s.value} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center justify-between text-label">
                             <span className="flex items-center gap-1.5">
                               <span className={cn('inline-block h-2 w-2 rounded-sm', s.color)} />
                               {t(s.labelKey)}
@@ -1055,14 +1225,14 @@ export default function AttendancePage() {
                 </CardContent>
               </Card>
 
-              {stats.periodBreakdown.length > 0 && (
+              {periodRows.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-body font-medium">{t('trend')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-body">
                         <thead>
                           <tr className="bg-muted/40">
                             <th className="px-3 py-2 text-left font-medium text-muted-foreground">
@@ -1076,43 +1246,29 @@ export default function AttendancePage() {
                                 {t(s.labelKey)}
                               </th>
                             ))}
+                            <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                              {t('statsAttendanceRate')}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {stats.periodBreakdown
-                            .reduce<Array<{ period: string; breakdown: Record<string, number> }>>(
-                              (acc, item) => {
-                                let group = acc.find((g) => g.period === item.period)
-                                if (!group) {
-                                  group = { period: item.period, breakdown: {} }
-                                  acc.push(group)
-                                }
-                                group.breakdown[item.status] =
-                                  (group.breakdown[item.status] ?? 0) + item.count
-                                return acc
-                              },
-                              [],
-                            )
-                            .map((group) => (
-                              <tr key={group.period} className="hover:bg-muted/30">
-                                <td className="px-3 py-2 text-label font-medium">{group.period}</td>
-                                {ATTENDANCE_STATUS.map((s) => (
-                                  <td key={s.value} className="px-3 py-2 text-right text-xs">
-                                    {group.breakdown[s.value] ?? 0}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          {stats.periodBreakdown.length === 0 && (
-                            <tr>
-                              <td
-                                colSpan={6}
-                                className="py-4 text-center text-xs text-muted-foreground"
-                              >
-                                {t('emptyTrend')}
+                          {/* 与上方趋势图同一个聚合出口:表与图不可能各说一套 */}
+                          {buildAttendanceTrendSeries(periodRows).map((point) => (
+                            <tr key={point.period} className="hover:bg-muted/30">
+                              <td className="px-3 py-2 text-label font-medium">{point.period}</td>
+                              {ATTENDANCE_STATUS.map((s) => (
+                                <td
+                                  key={s.value}
+                                  className="px-3 py-2 text-right text-label tabular-nums whitespace-nowrap"
+                                >
+                                  {point[s.value]}
+                                </td>
+                              ))}
+                              <td className="px-3 py-2 text-right text-label tabular-nums whitespace-nowrap">
+                                {point.attendanceRate}%
                               </td>
                             </tr>
-                          )}
+                          ))}
                         </tbody>
                       </table>
                     </div>
@@ -1151,7 +1307,7 @@ export default function AttendancePage() {
                   onChange={(e) => setLeaveStartDate(e.target.value)}
                   className="w-36"
                 />
-                <span className="text-xs text-muted-foreground">~</span>
+                <span className="text-label text-muted-foreground">~</span>
                 <Input
                   type="date"
                   value={leaveEndDate}
@@ -1164,7 +1320,7 @@ export default function AttendancePage() {
                 {t('submitLeave')}
               </Button>
               {leaveQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   {t('loading')}
                 </div>
@@ -1183,7 +1339,7 @@ export default function AttendancePage() {
             </Card>
           ) : leaves.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 {t('emptyLeaves')}
               </CardContent>
             </Card>
@@ -1191,7 +1347,7 @@ export default function AttendancePage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1220,17 +1376,17 @@ export default function AttendancePage() {
                     <tbody>
                       {leaves.map((l) => (
                         <tr key={l.id} className="hover:bg-muted/30">
-                          <td className="px-4 py-3 text-xs font-mono">
+                          <td className="px-4 py-3 text-label font-mono">
                             {l.studentId.slice(0, 8)}...
                           </td>
-                          <td className="px-4 py-3 text-xs">{leaveTypeLabel(l.leaveType)}</td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">{leaveTypeLabel(l.leaveType)}</td>
+                          <td className="px-4 py-3 text-label">
                             {l.startDate} ~ {l.endDate}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {t('daysWithUnit', { count: l.totalDays })}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             <TruncatedText value={l.reason} className="max-w-[150px]" />
                           </td>
                           <td className="px-4 py-3">
@@ -1250,7 +1406,7 @@ export default function AttendancePage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs"
+                                  className="text-label"
                                   onClick={() => {
                                     setApprovingLeave(l)
                                     setApproveOpen(true)
@@ -1263,7 +1419,7 @@ export default function AttendancePage() {
                               <Button
                                 variant="ghost"
                                 size="xs"
-                                className="text-xs text-red-500"
+                                className="text-label text-red-500"
                                 onClick={() => handleDeleteLeave(l.id)}
                                 disabled={deleteLeaveMutation.isPending}
                               >
@@ -1286,15 +1442,16 @@ export default function AttendancePage() {
       <CheckInDialog
         open={checkInOpen}
         onOpenChange={setCheckInOpen}
-        classId=""
+        classId={selectedClassId}
         defaultDate={attendanceDate}
+        today={today}
         onSave={handleCheckIn}
       />
 
       <LeaveDialog
         open={leaveOpen}
         onOpenChange={setLeaveOpen}
-        classId=""
+        classId={selectedClassId}
         onSave={handleCreateLeave}
       />
 
@@ -1303,6 +1460,15 @@ export default function AttendancePage() {
         onOpenChange={setApproveOpen}
         leave={approvingLeave}
         onApprove={handleApprove}
+      />
+
+      <BatchCheckInDialog
+        open={batchCheckInOpen}
+        onOpenChange={setBatchCheckInOpen}
+        defaultDate={attendanceDate}
+        defaultClassId={selectedClassId}
+        today={today}
+        onDone={invalidateAttendance}
       />
     </div>
   )

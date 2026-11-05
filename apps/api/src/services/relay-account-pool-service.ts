@@ -22,6 +22,7 @@ import { and, eq, inArray, isNull, like, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
+import { logger } from '../utils/logger.js'
 import {
   credentialShapeIssue,
   detectPhoneMask,
@@ -568,6 +569,116 @@ function mapGrokbotImport(_acc: ImportAccountInput): null {
   return null
 }
 
+/**
+ * 平台导入映射的唯一分派(2026-11-06 抽出)。
+ *
+ * 内容 = 原 `importAccounts` 内联三元链的**逐字搬迁**(各映射函数语义一字未改),抽出只为
+ * 让"落库口径的 uid"有一个可复用的入口:预检面(relay-account-import CLI / Web 预检)此前
+ * 自己按 `extractUid(token)` 算 uid,而落库按本函数的 `mapped.uid` 算 ⇒ 同一份输入两个键,
+ * 预检报的 uid 永远指不到将要被覆盖的那一行。收口 = 调用侧复用本函数 + `uidFromImportPayload`
+ * (见 `resolveImportAccountUid`),**不动四个 `auto:` 生成点**、不改任何身份键的取值。
+ */
+function mapImportedAccount(providerCode: RelayProviderCode, acc: ImportAccountInput) {
+  return providerCode === 'codearts'
+    ? mapCodeartsImport(acc)
+    : providerCode === 'qoder'
+      ? mapQoderImport(acc)
+      : providerCode === 'codex'
+        ? mapCodexImport(acc)
+        : providerCode === 'opencode'
+          ? mapOpencodeImport(acc)
+          : providerCode === 'minimax'
+            ? mapMinimaxImport(acc)
+            : providerCode === 'zcode'
+              ? mapZcodeImport(acc)
+              : providerCode === 'loomy'
+                ? mapLoomyImport(acc)
+                : providerCode === 'doubao'
+                  ? mapDoubaoImport(acc)
+                  : providerCode === 'lingma'
+                    ? mapLingmaImport(acc)
+                    : providerCode === 'grokbot'
+                      ? mapGrokbotImport(acc)
+                      : null
+}
+
+/**
+ * 落库口径 uid 的唯一推导(与 `importAccounts` 循环内那一行同源,§0.6 不许有第二份)。
+ * 优先级:平台映射 uid > 载荷显式 uid(归一化后)> `extractUid(token)` 兜底。
+ */
+function uidFromImportPayload(
+  mapped: { uid: string } | null,
+  fallbackAccountUid: unknown,
+  token: string,
+): string {
+  return normalizeCredentialValue(mapped ? mapped.uid : fallbackAccountUid) ?? extractUid(token)
+}
+
+/**
+ * 「这条载荷真导入后会落在哪个 uid 上」的只读出口(2026-11-06 立,预检↔落库键源收口)。
+ *
+ * 与 `importAccounts` 的取值路径逐步对齐:同一次 `normalizeForeignAccountShape` → 同一个
+ * 形状闸门 → 同一个映射分派(`mapImportedAccount`)→ 同一句 uid 推导(`uidFromImportPayload`)。
+ * 因此本函数返回的 uid **就是**入库行的 `(provider_code, uid)` 去重键,预检报出的键可以直接
+ * 用于查/删/重导入命中同一行。
+ *
+ * 返回 null 的三种情形(与落库侧的"这条根本不会写行"一一对应,§0.3 不猜):
+ * - 形状闸门不通过(平台认不出 / 无明文凭据);
+ * - 归一化后 token 为空;
+ * - 入参不是对象形状。
+ * 本函数零 IO、零写库:只算键,不碰数据。
+ */
+export function resolveImportAccountUid(
+  providerCode: RelayProviderCode,
+  account: ImportAccountInput,
+): string | null {
+  if (account === null || typeof account !== 'object' || Array.isArray(account)) return null
+  const acc = normalizeForeignAccountShape(account) as ImportAccountInput
+  if (!recognizeImportShape(providerCode, acc).importable) return null
+  const mapped = mapImportedAccount(providerCode, acc)
+  const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
+  if (!token) return null
+  return uidFromImportPayload(mapped, acc.uid, token)
+}
+
+/** 预检逐行 uid 探针(零 IO;`duplicateOf` 口径与 importAccounts 的 seenInBatch 一致) */
+export interface ImportUidProbe {
+  index: number
+  /** 落库口径 uid;null = 这条根本不会写行(形状闸门不过 / 归一化后无明文 token) */
+  uid: string | null
+  /** 批内已有同 uid 首条时点名其下标(= 落库时会以「批次内重复 uid(以首条为准)」跳过) */
+  duplicateOf: number | null
+}
+
+/**
+ * 一批载荷的落库口径 uid 探针(2026-11-06 立;预检面的唯一出口)。
+ * 逐行只算键、不查库、不写库 ⇒ 预检可以零副作用地报出"真导入后落在哪一行"。
+ */
+export function resolveImportAccountUidProbe(
+  providerCode: RelayProviderCode,
+  accounts: readonly ImportAccountInput[],
+): ImportUidProbe[] {
+  const firstIndexByUid = new Map<string, number>()
+  const probes: ImportUidProbe[] = []
+  for (let index = 0; index < accounts.length; index++) {
+    const account = accounts[index]
+    const uid =
+      account !== null && typeof account === 'object' && !Array.isArray(account)
+        ? resolveImportAccountUid(providerCode, account)
+        : null
+    let duplicateOf: number | null = null
+    if (uid === null) {
+      // 取不到键 = 未判定,不冒充"不重复"
+    } else if (firstIndexByUid.has(uid)) {
+      duplicateOf = firstIndexByUid.get(uid) ?? null
+    } else {
+      firstIndexByUid.set(uid, index)
+    }
+    probes.push({ index, uid, duplicateOf })
+  }
+  return probes
+}
+
 // =============================================================================
 // 设备指纹碰撞报告(O72@2026-10-28;判据纯函数,测试经 __test__ 直用生产实现)
 // =============================================================================
@@ -688,28 +799,9 @@ export async function importAccounts(
       // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
-      const mapped =
-        providerCode === 'codearts'
-          ? mapCodeartsImport(acc)
-          : providerCode === 'qoder'
-            ? mapQoderImport(acc)
-            : providerCode === 'codex'
-              ? mapCodexImport(acc)
-              : providerCode === 'opencode'
-                ? mapOpencodeImport(acc)
-                : providerCode === 'minimax'
-                  ? mapMinimaxImport(acc)
-                  : providerCode === 'zcode'
-                    ? mapZcodeImport(acc)
-                    : providerCode === 'loomy'
-                      ? mapLoomyImport(acc)
-                      : providerCode === 'doubao'
-                        ? mapDoubaoImport(acc)
-                        : providerCode === 'lingma'
-                          ? mapLingmaImport(acc)
-                          : providerCode === 'grokbot'
-                            ? mapGrokbotImport(acc)
-                            : null
+      // 2026-11-06 分派链抽出到 mapImportedAccount(逐字搬迁,语义不变):预检面经
+      // resolveImportAccountUid 复用同一枚,杜绝"预检 uid ≠ 入库 uid"两套键源。
+      const mapped = mapImportedAccount(providerCode, acc)
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
@@ -741,7 +833,9 @@ export async function importAccounts(
         continue
       }
       const refreshToken = normalizeCredentialValue(mapped ? mapped.refreshToken : acc.refreshToken)
-      const uid = normalizeCredentialValue(mapped ? mapped.uid : acc.uid) ?? extractUid(token)
+      // uid 取值单源 uidFromImportPayload(2026-11-06 抽出;预检面 resolveImportAccountUid
+      // 走同一句 ⇒ "预检报的键"与"入库落地的键"从此是同一枚)
+      const uid = uidFromImportPayload(mapped, acc.uid, token)
       const shapeIssue = credentialShapeIssue(providerCode, { refreshToken })
       if (shapeIssue) {
         result.failed++
@@ -1021,11 +1115,40 @@ export async function importAccounts(
   }
   // O64:导入/覆盖即推送签到侧(号池 = 凭证权威 → 签到副本)。推送失败绝不阻塞导入:
   // 整批失败全落 pending;部分失败按 poolAccountId 精确落;由重推器/对账收敛器清偿。
+  /**
+   * 落「已同步」徽章 = `ai_relay_account_pool.extra_metadata->'checkinSync'`。
+   *
+   * 这是 admin 号池页「签到同步徽章」的唯一数据源(routes/admin/relay-account-pool.ts:416
+   * 的 `checkinSync: sql(...-> 'checkinSync')`)。此前**只有失败分支**写
+   * markCheckinSyncPending ⇒ 推送成功的行上根本没有 checkinSync 键;而对账收敛器
+   * (relay-account-pool-reconcile.ts)只在"签到侧缺行 / pool_cred_version 落后"时才补推
+   * 并 clearCheckinSyncPending,两侧一致时它不动 ⇒ 没有任何一处会写成功态 ⇒ 徽章恒空。
+   * 所以成功也必须落一次 {pending:false, lastSyncedAt, attempts:0}。
+   *
+   * 2026-11-01 实测实证:本机 qoder 号 uid `01a191f4-8dc3-75db-831b-4ef5c2dedd4a` 走自动
+   * 入池进本函数,签到侧 `checkin_accounts.id=15` 已存在且 pool_cred_version 与号池
+   * cred_version 一致,但号池行 extra_metadata 只有
+   * `{cosy,version,machineCode,machineType,machineToken,refreshTokenExpiresAt}` —— 没有
+   * checkinSync,admin 页显示不出同步态。
+   *
+   * fail-open:徽章只是可观测性,单次 UPDATE 失败只告警,绝不让导入结果变成失败。
+   */
+  const markCheckinSynced = async (ids: string[]): Promise<void> => {
+    if (ids.length === 0) return
+    try {
+      await clearCheckinSyncPending(ids)
+    } catch (e) {
+      logger.warn('[account-pool] 导入后写 checkinSync 同步态失败(徽章缺失,不影响导入)', {
+        count: ids.length,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
   const checkinPlatform = checkinPlatformFor(providerCode)
   if (checkinPush.length === 0) {
     result.checkinSync = { pushed: 0, skipped: 0, pending: 0, error: null }
   } else if (!checkinPlatform) {
-    // 平台无签到引擎(如 codearts):如实计 skipped,不推送、不落 pending
+    // 平台无签到引擎(如 codearts):如实计 skipped,不推送、不落 pending、也不写徽章
     result.checkinSync = { pushed: 0, skipped: checkinPush.length, pending: 0, error: null }
   } else {
     const push = await pushPoolSync(checkinPlatform, checkinPush)
@@ -1036,12 +1159,20 @@ export async function importAccounts(
         pending: 0,
         error: push.error,
       }
+      // 全批算已同步:skipped 的是上游按幂等跳过(pool_cred_version 未变),签到侧已有同版本。
+      await markCheckinSynced(checkinPush.map((a) => a.poolAccountId))
     } else {
       const failedIdSet = new Set(push.failedIds)
       const pendingIds =
         push.failedIds.length > 0
           ? checkinPush.filter((a) => failedIdSet.has(a.poolAccountId)).map((a) => a.poolAccountId)
           : checkinPush.map((a) => a.poolAccountId)
+      // 非本条目责任的失败仍算已同步:failedIds 为空(整批 HTTP 失败)时全批 pending,一条不 clear。
+      const syncedIds =
+        push.failedIds.length > 0
+          ? checkinPush.filter((a) => !failedIdSet.has(a.poolAccountId)).map((a) => a.poolAccountId)
+          : []
+      await markCheckinSynced(syncedIds)
       await markCheckinSyncPending(pendingIds, 'cred', null, push.error ?? '未知错误')
       result.checkinSync = {
         pushed: push.pushed,
@@ -1197,6 +1328,8 @@ async function applyPhoneCompletion(
       const push = await pushPoolSync(platform, [acc])
       if (push.ok && push.failed === 0) {
         checkinSync.pushed = push.pushed
+        // 与 importAccounts 同口径:成功也落 checkinSync 徽章(pending:false + lastSyncedAt),
+        // 否则 admin 号池页的签到同步态只会在走完一次 pending 流程后才可见。
         await clearCheckinSyncPending([row.id])
       } else {
         checkinSync.error = push.error

@@ -140,7 +140,7 @@ export default function KnowledgeRagManageScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('knowledgeRagManage.confirm'),
+          text: t('knowledgeCard.delete'),
           style: 'destructive',
           onPress: () => {
             setBusy(true)
@@ -170,7 +170,7 @@ export default function KnowledgeRagManageScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('knowledgeRagManage.confirm'),
+          text: t('knowledgeCard.delete'),
           style: 'destructive',
           onPress: () => {
             setBusy(true)
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.surface.bg },
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   header: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
-  subtitle: { fontSize: 13, color: tokens.text.secondary },
+  subtitle: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   input: {
     height: 42,
     paddingHorizontal: rnSpacing.md,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   selectAll: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-  selectAllText: { fontSize: 13, color: tokens.text.primary },
+  selectAllText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
   dangerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,18 +438,18 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     gap: rnSpacing.sm,
   },
-  errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
+  errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 13, color: tokens.text.primary },
+  retryText: { fontSize: rnType.bodySm.size, color: tokens.text.primary },
   emptyBox: { alignItems: 'center', paddingVertical: rnSpacing['4xl'], gap: rnSpacing.sm },
-  emptyText: { fontSize: 13, color: tokens.text.secondary },
+  emptyText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

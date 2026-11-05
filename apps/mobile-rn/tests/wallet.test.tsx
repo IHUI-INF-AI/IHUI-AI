@@ -19,6 +19,8 @@ import type * as BottomPopsModule from '../src/components/BottomPops'
 const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
   apiMocks: {
     getBalance: vi.fn(),
+    // 壳内流水取数(T8):未登录(user 缺省)不会调用,但 ESM mock 必须补导出,否则 import 报缺失
+    getMarginFlows: vi.fn(),
     fetchApi: vi.fn(),
   },
   alertCallbacks: [] as Array<() => void>,
@@ -26,11 +28,24 @@ const { apiMocks, alertCallbacks } = vi.hoisted(() => ({
 
 vi.mock('@ihui/api-client', () => ({
   getBalance: apiMocks.getBalance,
+  getMarginFlows: apiMocks.getMarginFlows,
   fetchApi: apiMocks.fetchApi,
 }))
 
+/**
+ * t 必须是**稳定引用**:真实 `useI18n` 里 t 走 `useCallback`、value 走 `useMemo`
+ * (src/i18n/index.tsx:115/131)。此前替身写成 `useI18n: () => ({ t: (key) => key })`,
+ * 每次 render 都新建一个 t ⇒ WalletScreen 的 `uniappT`(deps [t]) → `load`(deps [uniappT])
+ * → `useEffect(() => void load(), [load])` 每轮都变 ⇒ render→effect→setState→render 死循环,
+ * 堆每轮增长直到 4GB `Ineffective mark-compacts near heap limit`(worker 被 OOM 杀掉,
+ * 本套件 12 条一条都没跑)。用 vi.hoisted 提前建一个稳定函数,与真实实现同形。
+ */
+const { stableT } = vi.hoisted(() => ({
+  stableT: (key: string) => key,
+}))
+
 vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({ t: stableT }),
 }))
 
 vi.mock('@react-navigation/native', () => ({
@@ -100,11 +115,12 @@ vi.mock('@ihui/ui-native', () => ({
 import { WalletScreen } from '../src/screens/WalletScreen'
 import { WithdrawScreen } from '../src/screens/WithdrawScreen'
 
+// 余额单位是「分」(与壳内 WalletScreen /100 换算同源):100050 分 → ¥1000.50
 const mockBalance = {
-  balance: 1000.5,
-  frozenBalance: 50.0,
-  totalRecharge: 5000.0,
-  totalWithdraw: 2000.0,
+  balance: 100050,
+  frozenBalance: 5000,
+  totalRecharge: 500000,
+  totalWithdraw: 200000,
 }
 
 describe('WalletScreen 余额查询', () => {

@@ -33,6 +33,7 @@ export const UNION_BOOLEAN_FLAGS = Object.freeze([
   '--move-aware-detail',
   '--resurrect-block',
   '--show-all-bad',
+  '--legacy-lenient',
   '--help',
 ])
 
@@ -101,6 +102,57 @@ export function scanFlagConsumption(sourceText) {
     while ((m = re.exec(sourceText)) !== null) out.add(m[1])
   }
   return out
+}
+
+/**
+ * 白名单**完备性**自检（RP-79 剩余面的最后半边，2026-11-01 立）。
+ *
+ * 分工必须写死，否则装闸的失效方向会翻转（票面难点）：
+ *   - 运行期只信 `UNION_KNOWN_FLAGS` 白名单（`judgeFlags`）——**不跑扫描器**，
+ *     所以扫描器漏认一枚，只会让"白名单多一枚"这种无害形态存活，绝不会把
+ *     `git-sync-converge` 的合法转发当未知旗杀掉；
+ *   - 扫描器只在**自检期**当"漏项报警器"：扫到白名单外的旗 ⇒ 本函数判 gap ⇒ `--self-test` 红。
+ *     于是"清单扫不全"这件事仍然有牙（不会静默腐烂），但牙长在自检里，不长在运行路径上。
+ *
+ * 反向覆盖同样判：`SYNC_FORWARDED_FLAGS ⊆ 白名单` —— 同步链会转发的旗缺一枚，
+ * 等于每次自动收敛当场死在闸上（§0.10 失效方向恒为"多要一次定向说明"）。
+ *
+ * 三态：源码取不到 / 白名单为空 ⇒ `undetermined`（不冒绿也不冒红，§0.3）。
+ */
+export function checkFlagCoverage(sourceText, opts = {}) {
+  const known = opts.known ?? UNION_KNOWN_FLAGS
+  const forwarded = opts.forwarded ?? SYNC_FORWARDED_FLAGS
+  if (typeof sourceText !== 'string' || sourceText === '') {
+    return {
+      verdict: 'undetermined',
+      scanned: [],
+      missing: [],
+      forwardedOutside: [],
+      reason: '源码没取到（空串或非字符串）⇒ 覆盖度无从判',
+    }
+  }
+  if (!Array.isArray(known) || known.length === 0) {
+    return {
+      verdict: 'undetermined',
+      scanned: [],
+      missing: [],
+      forwardedOutside: [],
+      reason: '白名单为空或形状坏 ⇒ 覆盖度无从判（放行是瞎放行）',
+    }
+  }
+  const scanned = [...scanFlagConsumption(sourceText)].sort()
+  const missing = scanned.filter((f) => !known.includes(f))
+  const forwardedOutside = (Array.isArray(forwarded) ? forwarded : []).filter((f) => !known.includes(f)).sort()
+  return {
+    verdict: missing.length === 0 && forwardedOutside.length === 0 ? 'ok' : 'gap',
+    scanned,
+    missing,
+    forwardedOutside,
+    reason:
+      missing.length === 0 && forwardedOutside.length === 0
+        ? ''
+        : `白名单漏项:${missing.join(' ') || '(无)'}；转发族越界:${forwardedOutside.join(' ') || '(无)'}`,
+  }
 }
 
 /**
@@ -206,6 +258,7 @@ export const USAGE = [
   '      node scripts/union-converge.mjs --show-all-bad      # 全列落地闸障碍(缺省只印前 15 条并报名余下几条)',
   '      node scripts/union-converge.mjs --move-aware-detail # 逐行打印"因搬运感知而未取回"的行',
   '      node scripts/union-converge.mjs --resurrect-block   # 把行级复活的"新增强"折进落地闸(缺省只报数)',
+  '      node scripts/union-converge.mjs --legacy-lenient    # 逃生阀:退回旧口径(整份取对侧不再量三项差);stderr 必打醒目告警',
   '      node scripts/union-converge.mjs --self-test         # 真临时仓回归自检',
   '      node scripts/union-converge.mjs --help|-h           # 本用法(rc=0,不执行任何动作)',
   `未知/拿不准的旗标出路(闸不静默掉进默认档,也不把同步链押死): ${UNKNOWN_FLAG_ESCAPE_ENV.enable}=1 ` +
@@ -223,6 +276,7 @@ export const __test__ = {
   SYNC_FORWARDED_FLAGS,
   FLAG_CONSUMPTION_FORMS,
   scanFlagConsumption,
+  checkFlagCoverage,
   findUnknownFlagToken,
   judgeFlags,
   UNKNOWN_FLAG_ESCAPE_ENV,

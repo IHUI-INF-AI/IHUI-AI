@@ -88,14 +88,14 @@ from app.routers import (
 # D193 任务决策收件箱(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询
 from app.routers import decisions as decisions_router
 
-# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
-from app.routers import knowledge as knowledge_router
-
 # Harness 能力补齐:评估/评测框架(2026-08-11 立)
 from app.routers import eval as eval_router
 
 # D179 会话/新对话 Issue 绑定流(2026-09-30 用户拍板立项):MCP Issue 搜索端点
 from app.routers import issue_search as issue_search_router
+
+# G5 编译式知识引擎(2026-10-30 立项):知识卡片编译/查询端点
+from app.routers import knowledge as knowledge_router
 
 # Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
 from app.routers import prompts as prompts_router
@@ -108,6 +108,9 @@ from app.routers import usage as usage_router
 
 # Phase 2:可视化工作流编辑器(2026-08-09 立)
 from app.routers import workflow as workflow_router
+
+# AI 代码归属账路由(2026-11-05,goal-b49):按 (tool, file, hunk) 记 AI/人手归属 + 回溯
+from app.routers.ai_code_attribution import router as ai_code_attribution_router
 
 # AI 批改(AI 自动评分练习答案,2026-08-07 立)
 from app.routers.ai_marking import router as ai_marking_router
@@ -420,7 +423,7 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.news_scheduler import news_scheduler
     news_scheduler.start()
 
-    # 签到助手服务端化(2026-10-03 立):数据层幂等建表 + 每日 08:05 签到调度。
+    # 签到助手服务端化(2026-10-03 立):数据层幂等建表 + 每日 00:05/08:05 签到调度。
     # 建表 fail-open(失败只告警);调度器由 CHECKIN_CRON_ENABLED 控制开关(默认 false)。
     try:
         from app.services.checkin_store import ensure_tables as _ensure_checkin_tables
@@ -1049,20 +1052,24 @@ def create_app() -> FastAPI:
     # 交互式文档与 OpenAPI 描述在**生产**关闭:它们不参与任何业务,却把全部路由形状、
     # 参数约束、错误码一次性摊给任何扫描器。本服务只监听 127.0.0.1 并经 web 反代,
     # 但仍属最小暴露面的一部分(与 /api/health 只报存活同理)。
-    # 开发/测试环境保留,排障仍然要用。
-    _is_prod = getattr(settings, "node_env", "") == "production"
+    # 2026-11-01 安全强化(高危):开关从"非 production 就开放"改成**显式开发档**才开放。
+    # 原先 node_env 缺省是 development ⇒ 漏配一次就把全部路由形状暴露出去;
+    # 现在只有 `AI_DEV_NO_AUTH=1`(本地开发开关)才挂文档,其余一律关闭。
+    _docs_enabled = bool(getattr(settings, "ai_dev_no_auth", False))
     app = FastAPI(
         title="IHUI AI Service",
         description="AI 服务 - LLM 网关 + MCP + LangGraph",
         version=__version__,
         lifespan=lifespan,
-        docs_url=None if _is_prod else "/docs",
-        redoc_url=None if _is_prod else "/redoc",
-        openapi_url=None if _is_prod else "/openapi.json",
+        docs_url="/docs" if _docs_enabled else None,
+        redoc_url="/redoc" if _docs_enabled else None,
+        openapi_url="/openapi.json" if _docs_enabled else None,
     )
 
     # CORS — 启动时校验(生产环境必填,任何环境禁止 "*" 通配符)
     settings.validate_cors_origin()
+    # 签名密钥 — 生产档 JWT_SECRET 必填(2026-11-01:此前无人校验,漏配会静默落回公开常量)
+    settings.validate_secrets()
     # mTLS — 启动时 fail-fast 校验(MTLS_ENABLED=true 但证书缺失/不存在 → 抛异常阻止启动)
     settings.validate_mtls_config()
     # CORS 的 add_middleware 调用已移到本函数末尾(见 setup_rate_limit_middleware 之后),
@@ -1278,6 +1285,7 @@ def create_app() -> FastAPI:
     app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])
     app.include_router(cloud_runs_router, prefix="/api", tags=["cloud-runs"])
     app.include_router(step_recorder_router, prefix="/api", tags=["agent-recorder"])
+    app.include_router(ai_code_attribution_router, prefix="/api", tags=["ai-code-attribution"])
     app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
     app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
 

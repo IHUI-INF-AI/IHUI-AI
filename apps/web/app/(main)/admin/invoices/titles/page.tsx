@@ -139,7 +139,7 @@ export default function AdminInvoiceTitlesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display font-bold tracking-tight">发票抬头管理</h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理用户与企业发票抬头信息</p>
+          <p className="mt-1 text-body text-muted-foreground">管理用户与企业发票抬头信息</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="h-4 w-4" />
@@ -197,7 +197,7 @@ export default function AdminInvoiceTitlesPage() {
                       {t.titleType === 'company' ? '企业' : '个人'}
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 font-mono text-label text-muted-foreground">
                     {t.taxNo || '—'}
                   </TableCell>
                   <TableCell className="px-4 py-2.5">
@@ -206,10 +206,10 @@ export default function AdminInvoiceTitlesPage() {
                         默认
                       </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-label text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {dateFmt.format(new Date(t.createdAt))}
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">
@@ -242,7 +242,7 @@ export default function AdminInvoiceTitlesPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <span className="text-body text-muted-foreground">共 {total} 条</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -252,7 +252,7 @@ export default function AdminInvoiceTitlesPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

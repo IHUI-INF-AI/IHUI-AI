@@ -7,7 +7,7 @@
  * publish-mobile-apk.mjs — 把 mobile-rn release APK 发到固定的公网地址(2026-10-29 立)
  *
  * 固定地址(用户永远用这一条,不再跟着版本号换):
- *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点 CDN 腿,EdgeOne,国内实测 1–4 MB/s)
+ *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点腿;⚠️ 2026-11-04 现读:国内 EdgeOne 腿并不在生效链上,实际由 Cloudflare 洛杉矶边缘跨境回源 —— 取证响应头与选腿判据单源见 `apps/mobile-rn/src/lib/apk-download-legs.ts`,本行不复制速率数字以免两处漂移)
  *
  * 为什么只剩一条腿:COS/CF 备用腿(dl.aizhs.top → 腾讯云 COS 桶 ihui-download-1367022840)已于
  * 2026-10-30 整桶下线。它按外网下行流量计费(0.5 元/GB),建桶当天被下载 3.48GB 就扣了 1.54 元
@@ -20,15 +20,17 @@
  *
  * 链路形状(2026-10-29 实测):
  *   站点腿:本机 → `deploy/server-root/remote-images/download/`(线上 cdn-server 的 --root)
- *           → EdgeOne → 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
+ *           → 边缘(现读:走 Cloudflare LAX,EdgeOne 未在生效链上,见上)→ 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
  *           `ihui-ai-latest.apk.redirect.json` 转出的 no-cache 302;真正被边缘长缓存的是带
  *           版本号那份(字节恒定才谈得上缓存)。
  *
  * latest 指针必须 `no-cache`:否则任一层把旧包缓存住,用户拿到的还是上一版,
  * 而页面/文件名看不出差别(与"线上版本标记会骗"同型)。带版本号的副本反过来给长缓存。
  *
- * 站点腿落点不写死盘符:经 scripts/seal-c-root-stray.mjs 的 devEnvRoot() 解析生产签出,
- * 两处都不存在 ⇒ exit 2 点名已试路径(静默跳过 = 对外地址停在旧包而账面是绿的)。
+ * 站点腿落点不写死盘符:生产签出根一律问单源 `scripts/lib/prod-checkout-root.mjs` 的
+ * `prodCheckoutRoot`(2026-11-01 收口,RP-90 第三处);根取不到或落点不存在 ⇒ exit 2 点名已试路径
+ * —— 主仓影子目录不是线上 cdn-server 的 `--root`,所以**不再静默回落**(静默跳过 = 对外地址停在
+ * 旧包而账面是绿的;静默回落 = 把包发到没人服务的目录而账面同样是绿的)。
  *
  * 用法:
  *   node scripts/publish-mobile-apk.mjs --apk <path> --version 0.0.9 --version-code 26102816
@@ -53,7 +55,12 @@ import { copyFileSync, createReadStream, existsSync, statSync, writeFileSync } f
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+import { prodCheckoutRoot } from './lib/prod-checkout-root.mjs'
+import {
+  LATEST_KEY as SINGLE_SOURCE_LATEST_KEY,
+  SITE_LEG_PUBLIC_BASE,
+  SITE_LEG_URL_PREFIX,
+} from './lib/mobile-download-leg.mjs'
 import {
   applyViaApi,
   applyViaDb,
@@ -64,7 +71,8 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = join(HERE, '..')
 
-export const LATEST_KEY = 'ihui-ai-latest.apk'
+/** 固定文件名与站点腿地址均取自 `scripts/data/mobile-download-leg.json` 单源,不再保留字面量。 */
+export const LATEST_KEY = SINGLE_SOURCE_LATEST_KEY
 
 /**
  * 站点 CDN 腿(2026-10-29 立,2026-10-30 起为唯一出口)。
@@ -75,8 +83,8 @@ export const LATEST_KEY = 'ihui-ai-latest.apk'
  * 每次回源的成本与包大小无关。
  */
 export const SITE_LEG = {
-  PublicBase: 'https://www.aizhs.top',
-  UrlPrefix: '/remote-images/download',
+  PublicBase: SITE_LEG_PUBLIC_BASE,
+  UrlPrefix: SITE_LEG_URL_PREFIX,
   RelDir: join('deploy', 'server-root', 'remote-images', 'download'),
 }
 
@@ -86,22 +94,38 @@ export function siteLegUrl(key) {
 }
 
 /**
- * 落点选择:生产签出优先(线上 cdn-server 的 --root 就是它),其次本仓。
- * 两处都不存在 ⇒ chosen=null,调用方必须**失败**而不是"跳过站点腿还报成功"——
- * 静默跳过会让对外地址停留在旧包,而账面是绿的。
+ * 落点选择:只认生产签出(线上 cdn-server 的 `--root` 就是它)。
+ * 生产根取不到 / 落点不存在 ⇒ chosen=null,调用方必须**以 2 退出**并点名已试路径;
+ * 既不许"跳过站点腿还报成功",也不许改发主仓影子目录 —— 两者都让账面是绿的而用户拿到旧包。
+ *
+ * 生产根一律问单源 `lib/prod-checkout-root.mjs`(2026-11-01,RP-90 第三处)。此前这里自己拼
+ * `join(devEnvRoot(repoRoot),'ihui-prod')`:该写法在「仓内 `.DevEnv` 根在、`ihui-prod` 留盘根侧」
+ * 的机器上候选**恒缺** ⇒ chosen 静默落 `repo` 源(主仓影子目录)⇒ 站点腿发的不是生产 checkout
+ * 而账面全绿(不是报错,是选错了源 —— 与本文件头注"静默"同族)。
+ *
+ * `repo` 候选仍列在 candidates 里,但**只作诊断点名**(已试路径),永不参与选择:主仓
+ * `deploy/server-root/…` 是开发工作树里的影子目录,不是线上落点。
+ *
+ * 单源抛错时照旧不炸(prod 源缺席 ⇒ chosen=null),但**不静默**:打一行点名,免得"取不到"被读成"没有"。
  */
-export function siteLegPlan({ repoRoot = REPO, env = process.env, exists = existsSync, resolveDevEnvRoot = devEnvRoot } = {}) {
+export function siteLegPlan({ repoRoot = REPO, env = process.env, exists = existsSync } = {}) {
   const candidates = []
   let prodDir = null
   try {
-    prodDir = join(resolveDevEnvRoot(repoRoot), 'ihui-prod')
-  } catch {
+    // exists/env 一并下透单源(§22c 构造面可证):候选生成与命中裁决必须落在同一个面上,
+    // 否则会出现"候选用假值面生成、命中用真值面裁决"的撕裂(deploy-decisions-face 2026-10-30 踩过)。
+    prodDir = prodCheckoutRoot(repoRoot, exists, env)
+  } catch (e) {
     prodDir = null
+    console.warn(
+      `[publish] 站点腿: 生产 checkout 根取不到(单源 prodCheckoutRoot 抛错)⇒ 未判定,不回落主仓影子目录: ${String(e?.message ?? e).slice(0, 160)}`,
+    )
   }
   if (prodDir) candidates.push({ source: 'prod-checkout', dir: join(prodDir, SITE_LEG.RelDir) })
+  // 仅诊断:列出来是为了失败时能点名"试过但不选"的那一处(不再当兜底源)。
   candidates.push({ source: 'repo', dir: join(repoRoot, SITE_LEG.RelDir) })
-  const hit = candidates.find((c) => exists(c.dir))
-  return { candidates, chosen: hit ?? null, envOverride: (env.IHUI_SITE_CDN_DIR || '').trim() || null }
+  const prodHit = prodDir && exists(join(prodDir, SITE_LEG.RelDir)) ? candidates[0] : null
+  return { candidates, chosen: prodHit, envOverride: (env.IHUI_SITE_CDN_DIR || '').trim() || null }
 }
 
 /** 流式 sha256(81MB 不整块进内存) */
@@ -118,9 +142,21 @@ export function sha256File(file) {
 /**
  * 写站点腿:①先落版本名并回读大小 ②再翻指针。顺序不可颠倒——先翻指针等于把用户
  * 指向一个还没落地的文件(302 打到 404),而 404 在边缘会被当成"这个包不存在"缓存住。
+ *
+ * `latestKey`/`ext` 是为 iOS 的 `.ipa` 复用同一序列而开的口(默认值就是 Android 老形态,
+ * 老调用点逐字不变)。`apk` 这个属性名保留 = 源文件路径,不改名是为了不动既有镜像测试的调用面。
  */
-export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size }) {
-  const vKey = versionKey(version, versionCode)
+export function publishSiteLeg({
+  apk,
+  dir,
+  version,
+  versionCode,
+  sha256,
+  size,
+  latestKey = LATEST_KEY,
+  ext = 'apk',
+}) {
+  const vKey = versionKey(version, versionCode, { ext })
   const target = join(dir, vKey)
   copyFileSync(apk, target)
   const back = statSync(target).size
@@ -133,7 +169,7 @@ export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size })
     sha256,
     publishedAt: new Date().toISOString(),
   }
-  const pointerPath = join(dir, `${LATEST_KEY}.redirect.json`)
+  const pointerPath = join(dir, `${latestKey}.redirect.json`)
   writeFileSync(pointerPath, JSON.stringify(pointer, null, 2) + '\n')
   return { vKey, target, pointerPath, pointer }
 }
@@ -143,19 +179,29 @@ export function publishSiteLeg({ apk, dir, version, versionCode, sha256, size })
  * 只读响应头不看正文(取完立刻 cancel,避免把 81MB 拖回来自己测自己)。
  * 判不出 ⇒ 抛错(整条发布按失败处理),不返回"大概没问题"。
  */
-export async function verifySiteLegLive({ latestUrl = siteLegUrl(LATEST_KEY), expectSize, expectVersionCode, fetchImpl = fetch, timeoutMs = 30000 } = {}) {
+export async function verifySiteLegLive({
+  latestKey = LATEST_KEY,
+  latestUrl = siteLegUrl(latestKey),
+  expectSize,
+  expectVersionCode,
+  ext = '.apk',
+  contentTypeNeedle = 'vnd.android.package-archive',
+  expectLabel = 'apk',
+  fetchImpl = fetch,
+  timeoutMs = 30000,
+} = {}) {
   const signal = () => AbortSignal.timeout(timeoutMs)
   const r = await fetchImpl(latestUrl, { redirect: 'manual', signal: signal() })
   await r.body?.cancel().catch(() => {})
   if (r.status !== 302) throw new Error(`固定地址未按 302 应答: HTTP ${r.status} (${latestUrl})`)
   const loc = r.headers.get('location') || ''
   if (!loc.startsWith('https://')) throw new Error(`302 目标不是 https: ${loc || '(缺 Location)'}`)
-  if (expectVersionCode && !loc.includes(`-${expectVersionCode}.apk`)) throw new Error(`固定地址仍指向旧包: ${loc}`)
+  if (expectVersionCode && !loc.includes(`-${expectVersionCode}${ext}`)) throw new Error(`固定地址仍指向旧包: ${loc}`)
   const f = await fetchImpl(loc, { headers: { range: 'bytes=0-0' }, signal: signal() })
   await f.body?.cancel().catch(() => {})
   const ct = f.headers.get('content-type') || ''
   if (f.status !== 200 && f.status !== 206) throw new Error(`版本副本公网取不到: HTTP ${f.status} (${loc})`)
-  if (!ct.includes('vnd.android.package-archive')) throw new Error(`公网 Content-Type=${ct || '(空)'},不是 apk —— 多半落到占位图/缺文件`)
+  if (!ct.includes(contentTypeNeedle)) throw new Error(`公网 Content-Type=${ct || '(空)'},不是 ${expectLabel} —— 多半落到占位图/缺文件`)
   const cr = f.headers.get('content-range') || ''
   const remote = Number(cr.includes('/') ? cr.split('/')[1] : f.headers.get('content-length') || 0)
   if (expectSize && remote !== Number(expectSize)) throw new Error(`公网回读大小不符: 本地 ${expectSize} / 公网 ${remote}`)
@@ -163,12 +209,12 @@ export async function verifySiteLegLive({ latestUrl = siteLegUrl(LATEST_KEY), ex
 }
 
 
-/** 版本副本的 key:ihui-ai-<version>-<code>.apk(与历史手工命名保持一致) */
-export function versionKey(version, versionCode) {
+/** 版本副本的 key:ihui-ai-<version>-<code>.apk(与历史手工命名保持一致;ext 供 .ipa 复用) */
+export function versionKey(version, versionCode, { ext = 'apk' } = {}) {
   const v = String(version ?? '').trim()
   const c = String(versionCode ?? '').trim()
   if (!v || !c) throw new Error('versionKey: version 与 versionCode 都必须非空')
-  return `ihui-ai-${v}-${c}.apk`
+  return `ihui-ai-${v}-${c}.${ext}`
 }
 
 // =============================================================================
@@ -188,10 +234,11 @@ export function registerLegFromEnv(env = process.env) {
 }
 
 /** 唯一可复制整改命令:只含参数与 env 名,绝不含凭据值。 */
-export function registerRemediationCommand({ version, versionCode }) {
+export function registerRemediationCommand({ version, versionCode, latestKey = LATEST_KEY, platform }) {
+  const platArg = platform ? ` --platform ${platform}` : ''
   return (
     'node scripts/register-app-version-latest.mjs --apply --via db --db-url "$DATABASE_URL"' +
-    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(LATEST_KEY)}`
+    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(latestKey)}${platArg}`
   )
 }
 
@@ -245,15 +292,29 @@ export async function registerAppVersionAfterPublish({
 export async function publishRegisterStep({
   version,
   versionCode,
+  platform = 'android',
+  latestKey = LATEST_KEY,
   env = process.env,
   out = (m) => console.log(m),
   err = (m) => console.error(m),
   deps = {},
 } = {}) {
-  const cmd = registerRemediationCommand({ version, versionCode })
+  const cmd = registerRemediationCommand({
+    version,
+    versionCode,
+    latestKey,
+    ...(platform === 'android' ? {} : { platform }),
+  })
   let r
   try {
-    r = await registerAppVersionAfterPublish({ version, versionCode, env, deps })
+    r = await registerAppVersionAfterPublish({
+      version,
+      versionCode,
+      platform,
+      downloadUrl: siteLegUrl(latestKey),
+      env,
+      deps,
+    })
   } catch (e) {
     err(
       `[publish] ✗ app_versions 登记执行失败(站点腿已落地,禁止重发整包补登记): ${String(e?.message ?? e).slice(0, 300)}\n` +
@@ -320,6 +381,7 @@ async function main() {
   if (!plan.chosen) {
     console.error('未判定: 站点 CDN 落点不存在 ⇒ 固定地址不会更新,拒绝把发布报成成功')
     console.error('  已试: ' + plan.candidates.map((c) => `${c.source}=${c.dir}`).join(' | '))
+    console.error('  主仓影子目录不是线上 cdn-server 的 --root ⇒ 不选它(repo 仅作诊断点名)')
     return 2
   }
   const vKey = versionKey(args.version, args.versionCode)

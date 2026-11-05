@@ -29,8 +29,7 @@ import pathlib
 import uuid
 from typing import Any
 
-import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
 from app.core import sse_contract as sc
 from app.core.sse_frames import begin_stream_watermark, end_stream_watermark, with_frame_watermark

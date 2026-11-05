@@ -141,7 +141,7 @@ export default function LiveList() {
           + listBody(paddingHorizontal 10 → 20rpx, paddingVertical 16 → 32rpx) */}
       <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[32rpx] pb-[32rpx]">
         {/* 对齐 RN header 的副标题(标题由小程序原生导航栏承担) */}
-        <Text className="block mb-[24rpx] text-[length:26rpx] text-muted-foreground">
+        <Text className="block mb-[24rpx] text-body-sm leading-[normal] text-muted-foreground">
           {t('liveList.subtitle')}
         </Text>
         <View className="flex mb-[24rpx] gap-[16rpx]">
@@ -150,7 +150,7 @@ export default function LiveList() {
             onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/host/index' })}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-primary-foreground">
+            <Text className="text-body text-primary-foreground">
               {tt('live.startLiveBtn', '📺 我要开播')}
             </Text>
           </View>
@@ -159,14 +159,14 @@ export default function LiveList() {
             onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/calendar' })}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
+            <Text className="text-body text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
           </View>
           <View
             className="flex-1 bg-card ui-card rounded-lg py-[20rpx] flex items-center justify-center"
             onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/subscribe' })}
             hoverClass="opacity-60"
           >
-            <Text className="text-sm text-foreground">
+            <Text className="text-body text-foreground">
               {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
             </Text>
           </View>
@@ -175,7 +175,7 @@ export default function LiveList() {
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`flex-1 text-center py-[20rpx] text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              className={`flex-1 text-center py-[20rpx] text-body ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
               onClick={() => switchStatus(tab.key)}
               hoverClass="opacity-60"
             >

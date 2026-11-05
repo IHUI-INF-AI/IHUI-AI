@@ -3,7 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useRef } from 'react'
-import { createNotificationClient, fetchApi, type WSNotification } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+  type WSNotification,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   isAgentActionAssignedToInstance,
@@ -19,7 +24,7 @@ import type {
   AppUiActionType,
 } from '@ihui/types'
 
-import { WS_BASE_URL } from '../lib/config'
+import { APP_VERSION, WS_BASE_URL } from '../lib/config'
 import {
   configureRnUiBridge,
   executeRnUiAction,
@@ -51,7 +56,6 @@ import {
 /** api 侧 ENDPOINT_TTL_MS=5min,保活周期必须显著短于它 */
 const CAPABILITY_INTERVAL_MS = 60_000
 const PROCESSED_IDS_MAX = 100
-const VERSION = '1.0.0'
 const LOG_TAG = '[rn-ui]'
 
 const APP_UI_ACTIONS: readonly AppUiActionType[] = [
@@ -129,7 +133,8 @@ export function buildCapability(instanceId = INSTANCE_ID): AgentControlCapabilit
     endpoint: 'rn',
     instanceId,
     appUiActions: [...APP_UI_ACTIONS],
-    version: VERSION,
+    // 版本走 RN 既有单源(EXPO_PUBLIC_IHUI_MOBILE_VERSION ‖ package.json),与原生 versionName 同批计算
+    version: APP_VERSION,
     reportedAt: new Date().toISOString(),
   }
 }
@@ -151,31 +156,30 @@ export function toResponse(
   }
 }
 
-/**
- * 走 @ihui/api-client 的 fetchApi:Authorization: Bearer 由它内部从已绑定的 tokenStore
- * 注入(见 src/lib/token.ts 的 bindTokenStoreToApiClient),本文件不自己拼 header,
- * 也就永不接触明文 token。失败只 warn —— 保活请求绝不该打扰用户(AGENTS §3 要求 HTTP 走 api-client)。
- */
-async function postQuiet<TBody, TRes>(url: string, body: TBody, action: string): Promise<void> {
-  try {
-    const res = await fetchApi<TRes>(url, { method: 'POST', body: JSON.stringify(body) })
-    if (!res.success) console.warn(`${LOG_TAG} ${action}失败:${res.error ?? '接口返回失败'}`)
-  } catch (err) {
-    console.warn(`${LOG_TAG} ${action}异常:`, err)
-  }
-}
-
 function reportCapability(): void {
-  void postQuiet('/api/agent-control/capability', buildCapability(), '上报移动端能力')
+  void (async () => {
+    try {
+      const res = await reportAgentControlCapability(buildCapability())
+      if (!res.success) console.warn(`${LOG_TAG} 上报移动端能力失败:${res.error ?? '接口返回失败'}`)
+    } catch (err) {
+      console.warn(`${LOG_TAG} 上报移动端能力异常:`, err)
+    }
+  })()
 }
 
 function reportResult(response: AgentActionResponse): void {
   // 回执身份回显:只回显服务端派发过的 token + 自报本实例(无 token = 旧服务端形态,原样回传)
-  void postQuiet(
-    '/api/agent-control/result',
-    withRespondedIdentity(response, assignmentTokens, selfIdentity()),
-    '回传移动端执行结果',
-  )
+  const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
+  void (async () => {
+    try {
+      const res = await reportAgentControlResult(payload)
+      if (!res.success) {
+        console.warn(`${LOG_TAG} 回传移动端执行结果失败:${res.error ?? '接口返回失败'}`)
+      }
+    } catch (err) {
+      console.warn(`${LOG_TAG} 回传移动端执行结果异常:`, err)
+    }
+  })()
 }
 
 /* ────────────────────────── WS 消息处理 ────────────────────────── */

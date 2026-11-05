@@ -53,7 +53,7 @@ export function ProjectTable({
   }
   if (error) {
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -62,7 +62,7 @@ export function ProjectTable({
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
         <FolderCog className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('noData')}</p>
+        <p className="text-body text-muted-foreground">{t('noData')}</p>
       </div>
     )
   }
@@ -71,7 +71,7 @@ export function ProjectTable({
     <>
       <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
         {list.map((p) => (
-          <Card key={p.id} className="transition-colors hover:bg-accent hover:shadow-md">
+          <Card key={p.id} className="transition-colors hover:bg-accent">
             <CardHeader>
               <CardTitle className="flex items-center justify-between gap-2 text-base">
                 <span className="flex min-w-0 items-center gap-2">
@@ -88,7 +88,7 @@ export function ProjectTable({
                 </span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-2 text-body">
               {p.description && <p className="text-muted-foreground">{p.description}</p>}
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('owner')}</span>
@@ -98,7 +98,7 @@ export function ProjectTable({
               </div>
               <div className="mt-2 flex items-center justify-between pt-2">
                 <span className="text-muted-foreground">{t('createdAt')}</span>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-label text-muted-foreground">
                   {dateFmt.format(new Date(p.createdAt))}
                 </span>
               </div>
@@ -123,7 +123,7 @@ export function ProjectTable({
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -134,7 +134,7 @@ export function ProjectTable({
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

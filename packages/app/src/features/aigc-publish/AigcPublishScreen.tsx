@@ -18,6 +18,7 @@ import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** AIGC 发布作品共享屏 — 表单型 props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcPublishFile, AigcPublishScreenProps, AigcPublishWorkType }
@@ -26,6 +27,12 @@ interface WorkTypeOption {
   key: AigcPublishWorkType
   labelKey: string
   descKey: string
+}
+
+/** 进度端口取值域收敛到 0-100,防止宿主回调越界导致进度条画出容器 */
+function clampProgress(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
 }
 
 const TYPE_OPTIONS: WorkTypeOption[] = [
@@ -46,6 +53,7 @@ export function AigcPublishScreen({
   urlInput,
   saving,
   uploading,
+  uploadProgress,
   error,
   onWorkTypeChange,
   onTextContentChange,
@@ -59,7 +67,10 @@ export function AigcPublishScreen({
   onSubmit,
   onBack,
   colorScheme = 'light',
+  onToast,
 }: AigcPublishScreenProps) {
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showTextInput = workType === 'text'
@@ -132,12 +143,26 @@ export function AigcPublishScreen({
             {uploading ? (
               <View style={styles.pickerBtnInner}>
                 <ActivityIndicator color={tk.surface.light} size="small" />
-                <Text style={styles.pickerBtnTextUploading}>{t('aigcPublish.uploading')}</Text>
+                <Text style={styles.pickerBtnTextUploading}>
+                  {typeof uploadProgress === 'number'
+                    ? t('aigcPublish.uploading', {
+                        progress: Math.round(clampProgress(uploadProgress)),
+                      })
+                    : t('aigcPublish.uploading')}
+                </Text>
               </View>
             ) : (
               <Text style={styles.pickerBtnText}>{t('aigcPublish.pickFromAlbum')}</Text>
             )}
           </TouchableOpacity>
+          {uploading && typeof uploadProgress === 'number' ? (
+            <View style={styles.progressTrack} testID="aigc-upload-progress">
+              <View
+                style={[styles.progressFill, { width: `${clampProgress(uploadProgress)}%` }]}
+                testID="aigc-upload-progress-fill"
+              />
+            </View>
+          ) : null}
           <View style={styles.fileGrid}>
             {files.map((f) => (
               <View key={f.id} style={styles.fileItem}>
@@ -229,7 +254,12 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingBottom: rnSpacing.lg,
     },
-    title: { marginTop: rnSpacing.sm, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.heading.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
     subtitle: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
@@ -237,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
     },
     label: {
-      marginTop: 14,
+      marginTop: rnSpacing['md-loose'],
       fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginBottom: rnSpacing['xs-loose'],
@@ -254,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipActive: { backgroundColor: primary },
     typeChipText: { fontSize: rnType.body.size, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
-    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: 10, color: tk.text.tertiary },
+    typeChipDesc: { marginTop: rnSpacing.sm, fontSize: rnType.badge.size, color: tk.text.tertiary },
     typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: rnSpacing.md,
@@ -285,14 +315,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     urlAddBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
     },
     urlAddText: { color: tk.surface.light, fontSize: rnType.body.size, fontWeight: '600' },
     pickerBtn: {
-      paddingVertical: 11,
+      paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: primary,
@@ -312,6 +342,20 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.surface.light,
       fontSize: rnType.body.size,
       fontWeight: '600',
+    },
+    progressTrack: {
+      height: 4,
+      marginTop: rnSpacing['sm-loose'],
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: rnRadius.sm,
+      // 进度条按 HomeScreen/PlanList 既有写法走语义色:brand.DEFAULT 只保留墨色/文字色两义,
+      // 不作大色块底(§4),否则深色档案下是一整条纯白(实测 17.4:1 刺眼)。
+      backgroundColor: tk.success.DEFAULT,
     },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {
@@ -358,7 +402,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtn: {
       marginTop: rnSpacing['2xl'],
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: primary,
       alignItems: 'center',

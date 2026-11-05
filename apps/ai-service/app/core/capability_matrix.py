@@ -840,7 +840,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "category": "开关类",
         "owner_module": "app.services.checkin_scheduler",
         "doc_ref": "app/services/checkin_scheduler.py:80",
-        "reason_if_off": "每日 08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
+        "reason_if_off": "每日 00:05/08:05 签到定时任务默认关闭:属会真实写库的副作用,须显式开启",
     },
     # ── settings 族(2026-10-31 seat-e2 落 J4 后登记;第四种读取形态,见本文件头注)──
     # 这类条目由 app/core/config.py 的 class Settings 布尔字段承载:大写 env 键经
@@ -859,6 +859,19 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/api_client.py:_build_api_client",
         "reason_if_off": "mTLS 双向证书默认关(降级模式,httpx 无证书直连);开启须三张证书路径齐备且文件存在,否则 validate_mtls_config 启动即 fail-fast",
         "settings_field": "mtls_enabled",
+    },
+    {
+        # AI 服务免鉴权旁路(2026-11-01 补登记,来源=对侧提交把 Settings.ai_dev_no_auth 默认关字段
+        # 引入 config.py 而台账未跟上,门 J4 当场判红):派生 env AI_DEV_NO_AUTH;
+        # 值为真**且** JWT_SECRET 为空才放行(见 app/core/jwt_auth.py:dev_auth_bypass_enabled)。
+        "key": "ai_dev_no_auth",
+        "env": "AI_DEV_NO_AUTH",
+        "default": "false",
+        "category": "门控类",
+        "owner_module": "app.core.jwt_auth",
+        "doc_ref": "app/core/config.py:42",
+        "reason_if_off": "安全护栏默认关:免鉴权只在本地开发显式开启,且须 JWT_SECRET 为空才生效;生产关闭是正确的安全姿态",
+        "settings_field": "ai_dev_no_auth",
     },
     {
         "key": "edge_first_local",
@@ -902,6 +915,115 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/checkin_scheduler.py:CheckinScheduler._workbuddy_task_sweep",
         "reason_if_off": "写侧是否真跑:false=_workbuddy_task_sweep 以 dry_run=True 只算不发;true 才真实 POST 领任务/领奖/上报/兑换/抽奖(外部写,有副作用),须与 enabled 双双显式开启",
         "settings_field": "workbuddy_tasks_live_run",
+    },
+    {
+        # 2026-11-05 补登记:growth 族行为规划驱动器总开关(config.py 引入)漏登台账,
+        # J4 判「settings 族能力失明」。默认关 ⇒ reporter=None,行为任务只登记不动作。
+        "key": "workbuddy_tasks_behavior_driver_enabled",
+        "env": "WORKBUDDY_TASKS_BEHAVIOR_DRIVER_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.workbuddy_behaviors",
+        "doc_ref": "app/services/workbuddy_behaviors.py:build_default_activity_reporter",
+        "reason_if_off": "行为规划驱动器默认关:关闭即 reporter=None,行为任务只登记不动作;开启后 growth 族走默认行为计分回调——只有代发事件后重读列表确认 progress/status 确已前进才算自动完成(2026-11-05 真机:合成事件 200 code:0 但 progress 零变化),否则如实登记为待用户在客户端实操",
+        "settings_field": "workbuddy_tasks_behavior_driver_enabled",
+    },
+    # ============ 工具面能力门(缺口表 #7,2026-11-01 立)============
+    # 这两枚的**读取点就是本台账**(current_for_entry):声明面(env 字面量)住在
+    # app/services/tool_surface.py,取数只有这一条通道 ⇒ 列表面与执行面不可能一把尺读
+    # env、另一把尺读台账。门 J1 的"源码里真实存在"取证由 tool_surface 的常量行满足。
+    {
+        # 桌面 OS 自动化族(computer_*)的存续闸门:浏览器/小程序/无头宿主结构上没有这条
+        # 通道,列表面按 tool_surface 的族前缀摘掉,被直接调用走 CAPABILITY_DISABLED 具名拒。
+        "key": "computer_automation",
+        "env": "MCP_COMPUTER_TOOLS_ENABLED",
+        "default": "true",
+        "category": "门控类",
+        "owner_module": "app.services.tool_surface",
+        "doc_ref": "app/services/tool_surface.py:COMPUTER_AUTOMATION_ENV",
+        "reason_if_off": "",
+    },
+    {
+        # 产品形态轴(对标对侧 products.<form>{…} 一型,行为与形状复现、字节不复刻):
+        # 取值型旋钮而非开关 —— tool_surface.PRODUCT_FORM_CAPABILITY_OVERRIDES 按该值
+        # 决定哪些能力键在当前形态视为不具备;default `server` 在覆盖表里不摘任何能力,
+        # ⇒ 未设置时可见工具集与接线前逐字相同(零扰动由测试 ① 钉,不是口头保证)。
+        "key": "mcp_tool_surface_product_form",
+        "env": "MCP_TOOL_SURFACE_PRODUCT_FORM",
+        "default": "server",
+        "category": "开关类",
+        "owner_module": "app.services.tool_surface",
+        "doc_ref": "app/services/tool_surface.py:PRODUCT_FORM_ENV",
+        "reason_if_off": "取值型旋钮(非布尔开关):未设置即 server 形态,能力覆盖表为空 ⇒ 列表面零扰动;取值不在覆盖表键集时该轴整体不生效(判不出不隐藏)",
+    },
+    # ============ 工具预算分维配额(goal-b49 S4,2026-11-05 立)============
+    # 四格同族:各自**独立**的配额旋钮,唯一读取点
+    # app/services/tool_budget_governor.py 的 ToolBudgetConfig.from_env(大写键 → 常量
+    # TOOL_BUDGET_*_ENV),0 / 未设置 ⇒ 该维关闭(与 run 循环三维的 enabled 无耦合)。
+    # 登记理由:对标产品把同型配额写死成内置常量(观测 aiFeatures.mcpToolLimit/
+    # mcpTokenLimit/customPromptTokenLimit/historyQueryLimit),我方做成**入库可 diff** 的
+    # 台账格 —— 上限漂移即门 J1/J2 红,超限一律具名拒绝(维度名 + 实测值 + 上限值)。
+    # 这四维都是**层一(单桶)**尺子:每个 run / 每台 server 各有一份额度。
+    {
+        "key": "tool_budget_mcp_tool_limit",
+        "env": "TOOL_BUDGET_MCP_TOOL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOOL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:MCP 注册工具数上限未配置(取值型旋钮,非布尔开关);超限走 check_mcp_tool_count 具名拒绝,不静默截断",
+    },
+    {
+        "key": "tool_budget_mcp_token_limit",
+        "env": "TOOL_BUDGET_MCP_TOKEN_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOKEN_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:MCP 令牌桶上限未配置;按 run 由 consume_mcp_tokens 累加消耗,超额具名拒绝且被拒本次不计入",
+    },
+    {
+        "key": "tool_budget_custom_prompt_token_limit",
+        "env": "TOOL_BUDGET_CUSTOM_PROMPT_TOKEN_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_CUSTOM_PROMPT_TOKEN_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:自定义提示 token 上限未配置;token 量法 = tool_budget_governor.estimate_tokens(如实标注为估算,零第三方依赖)",
+    },
+    {
+        "key": "tool_budget_history_query_limit",
+        "env": "TOOL_BUDGET_HISTORY_QUERY_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_HISTORY_QUERY_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:历史查询窗口上限未配置;请求条数超窗口由 check_history_query 具名拒绝,不静默截断行数",
+    },
+    # ============ 工具预算第二层 · 聚合层配额(goal-b49 Z20,2026-11-06 立)============
+    # 上面四维全是**层一(单桶)**额度;对标靶「三层装箱预算 maxChunkChars / maxCharsPerResult /
+    # maxTotalChars + maxRerankTokens」缺的正是"每桶之外的聚合总量层"这一格。这两维由
+    # **既有生产消费点**驱动(guarded_tool_pipeline 的 acquire、mcp_client 的 consume_mcp_tokens),
+    # 调用方无需改一行即真在管;scope 分区入参留给宿主,未显式传入即 DEFAULT_AGGREGATE_SCOPE
+    # (= 单例治理器的进程/部署合计面,如实登记而非冒充会话级)。比较式全仓只有一枚
+    # tool_budget_governor.over_limit(层一三维 + 层一四维 + 层二两维共用)。
+    {
+        "key": "tool_budget_tool_call_total_limit",
+        "env": "TOOL_BUDGET_TOOL_CALL_TOTAL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_TOOL_CALL_TOTAL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:第二层(聚合层)工具执行总量上限未配置;由 acquire 按 scope 累计,超限具名拒绝且被拒本次连层一计数都不写(不静默丢一次执行);成本轴的聚合层刻意不登记——层一成本是「预扣 + record_usage 事后校准」双通道量,聚合层再抄一份就要维护第二本可回退账本,该宿主在计费面(§0.9 不登记空维)",
+    },
+    {
+        "key": "tool_budget_mcp_token_total_limit",
+        "env": "TOOL_BUDGET_MCP_TOKEN_TOTAL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOKEN_TOTAL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:第二层(聚合层)MCP token 总量上限未配置;由 consume_mcp_tokens 按 scope 跨桶累计(run / principal / server 兜底桶的合计都进同一聚合面),超限具名拒绝,不夹逼到上限也不静默少发一帧",
     },
 ]
 

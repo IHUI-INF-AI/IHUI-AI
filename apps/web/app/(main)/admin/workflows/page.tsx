@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui-react'
 import { WorkflowsTable } from './WorkflowsTable'
 import { WorkflowDialog } from './WorkflowDialog'
 import { WorkflowViewDialog, WorkflowDeleteDialog } from './WorkflowDialogs'
-import { api, fetchWorkflows, EMPTY_FORM, stepsToText, textToSteps } from './helpers'
+import { createWorkflow, deleteWorkflow, updateWorkflow } from '@ihui/api-client'
+import { fetchWorkflows, EMPTY_FORM, stepsToText, textToSteps } from './helpers'
 import type { WorkflowItem, WorkflowForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -36,17 +37,17 @@ export default function AdminWorkflowsPage() {
   const total = workflows.length
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const steps = textToSteps(form.stepsText)
-      const body: Record<string, unknown> = {
+      const body = {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         triggerType: form.triggerType,
         steps,
       }
-      return editing
-        ? api(`/api/workflows/${editing.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-        : api('/api/workflows', { method: 'POST', body: JSON.stringify(body) })
+      const r = editing ? await updateWorkflow(editing.id, body) : await createWorkflow(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'workflows'] })
@@ -55,7 +56,11 @@ export default function AdminWorkflowsPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/workflows/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await deleteWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'workflows'] })
       setDelId(null)
@@ -109,7 +114,7 @@ export default function AdminWorkflowsPage() {
             <Workflow className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button onClick={openCreate} size="sm">
           <Plus className="mr-1.5 h-4 w-4" />
@@ -126,7 +131,7 @@ export default function AdminWorkflowsPage() {
         onDelete={setDelId}
       />
 
-      <div className="text-sm text-muted-foreground">{t('total', { total })}</div>
+      <div className="text-body text-muted-foreground">{t('total', { total })}</div>
 
       <WorkflowDialog
         open={open}

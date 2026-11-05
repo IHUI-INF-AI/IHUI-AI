@@ -109,7 +109,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
   }, [result, candidates, selectedId])
 
   if (!result || candidates.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
+    return <p className="py-8 text-center text-body text-muted-foreground">{t('empty')}</p>
   }
 
   const handleAdopt = () => {
@@ -121,7 +121,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
   return (
     <div className="space-y-3" data-testid="best-of-compare">
       {/* 运行概览 */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
         <Trophy className="h-3.5 w-3.5 text-amber-500" />
         <span>
           {t('meta', {
@@ -158,12 +158,12 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
         </button>
       </div>
       {displayTask && (
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+        <p className="line-clamp-2 text-label text-muted-foreground">
           {t('task', { task: displayTask })}
         </p>
       )}
       {result.rationale && (
-        <p className="rounded-md bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground">
+        <p className="rounded-md bg-muted/40 px-2.5 py-1.5 text-label text-muted-foreground">
           📌 {t('rationale')}: {result.rationale}
         </p>
       )}
@@ -211,7 +211,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
                 </span>
               </div>
               {!c.ok ? (
-                <p className="mt-1.5 line-clamp-3 text-xs text-destructive">{c.error}</p>
+                <p className="mt-1.5 line-clamp-3 text-label text-destructive">{c.error}</p>
               ) : diffMode && selected && !isSelected ? (
                 <pre
                   className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed"
@@ -235,7 +235,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
                     ))}
                 </pre>
               ) : (
-                <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap break-words text-xs text-foreground/90">
+                <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap break-words text-label text-foreground/90">
                   {c.content}
                 </p>
               )}
@@ -263,7 +263,7 @@ export function BestOfCompare({ onAdopt, runId }: BestOfCompareProps) {
               t('adopt')
             )}
           </Button>
-          <span className="text-xs text-muted-foreground">{t('adoptHint')}</span>
+          <span className="text-label text-muted-foreground">{t('adoptHint')}</span>
         </div>
       )}
     </div>

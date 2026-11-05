@@ -25,6 +25,8 @@
 import * as http from 'node:http';
 import type { AgentCore, AgentEvent } from './agent-core.js';
 import { tryParseJson, isRecord } from '../util/json.js';
+// 本地服务发现的认领件(判据在 @ihui/shared/local-registry,本文件只用其端侧出口)
+import { startClaim } from './client-claims.js';
 import {
   authenticateInbound,
   classifyAuthError,
@@ -43,6 +45,13 @@ export interface AgentServerOptions {
   machineKeys?: MachineKeyEntry[];
   /** O12:机器凭据是否必须携带 X-Api-Secret,默认 true(对齐服务端 API_KEY_REQUIRE_SECRET) */
   requireApiSecret?: boolean;
+  /**
+   * 本地服务发现的认领件(goal-b49 Q1 复现:带心跳的认领件目录 = 不必固定端口的服务发现)。
+   * 缺省 = 不落盘(测试与嵌入式调用零噪声);`serve` 命令显式开启。
+   * 开启后 `/health` 多带一个 `generation`,发现侧拿它与实际口自述比对 ⇒
+   * 伪造的认领件(把扩展指向别的口)会因代次不符被拒。
+   */
+  claim?: { productVersion?: string; root?: string };
 }
 
 export interface AgentServerHandle {
@@ -83,6 +92,10 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
     requireApiSecret: opts.requireApiSecret,
   };
   const startTime = Date.now();
+  // 认领件开启后由 listen 回调填,`/health` 据此自述代次;未开启 ⇒ 恒 null ⇒ 该字段不发
+  // (缺字段 ≠ 空串:发现侧要能分辨"这台没开认领件"与"开了但自述为空")。
+  let claimGeneration: string | null = null;
+  let runningClaim: { stop: () => void; generation: string } | null = null;
   // 2026-10-31 安全强化第 10 批:默认只绑回环(此前 listen(port) 落到 0.0.0.0,
   // 局域网对端可达);CORS 头只在回环面发 —— 非回环暴露面的浏览器跨源请求本身就是
   // drive-by,不发 ACAO 让预检直接失败。
@@ -123,7 +136,12 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
 
     try {
       if (method === 'GET' && pathname === '/health') {
-        writeJson(res, 200, 'ok', { ok: true, uptime: Date.now() - startTime });
+        writeJson(res, 200, 'ok', {
+          ok: true,
+          uptime: Date.now() - startTime,
+          // 代次只在认领件开启时发:发现侧靠它拒掉"写了别人不认的口"的伪造认领件
+          ...(claimGeneration ? { generation: claimGeneration } : {}),
+        });
         return;
       }
 
@@ -195,11 +213,25 @@ export function startAgentServer(core: AgentCore, opts: AgentServerOptions): Pro
       // opts.port 可为 0(测试用临时端口),真实端口以 address() 为准
       const address = server.address();
       const boundPort = typeof address === 'object' && address ? address.port : opts.port;
+      // 认领件用**实际端口**发布:传 0 时若按 opts.port 记,发现侧会拿到一个不存在的口
+      if (opts.claim) {
+        runningClaim = startClaim({
+          port: boundPort,
+          productVersion: opts.claim.productVersion,
+          root: opts.claim.root,
+        });
+        claimGeneration = runningClaim.generation;
+      }
       resolve({
         server,
         port: boundPort,
-        close: () =>
-          new Promise<void>((r, j) => server.close((e) => (e ? j(e) : r()))),
+        close: async () => {
+          // 先摘认领件再关服务:反过来的话,关闭窗口的那一瞬会有读者把已死的口当活的
+          runningClaim?.stop();
+          runningClaim = null;
+          claimGeneration = null;
+          await new Promise<void>((r, j) => server.close((e) => (e ? j(e) : r())));
+        },
       });
     });
   });

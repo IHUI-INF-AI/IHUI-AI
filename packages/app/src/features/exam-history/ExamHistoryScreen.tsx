@@ -28,8 +28,9 @@ export function ExamHistoryScreen({
   onRefresh,
   onPressItem,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: ExamHistoryScreenProps) {
+}: ExamHistoryScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -47,7 +48,7 @@ export function ExamHistoryScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -82,7 +83,7 @@ export function ExamHistoryScreen({
             </View>
             <View style={styles.metaRow}>
               <Text style={styles.score}>
-                {item.score}/{item.totalScore}
+                {item.score}/{item.totalScore ?? '—'}
               </Text>
               <Text style={styles.metaTime}>{item.submittedAt}</Text>
             </View>
@@ -103,12 +104,12 @@ function createStyles(tk: AppThemeTokens) {
     title: {
       marginTop: rnSpacing.sm,
       marginBottom: rnSpacing.md,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

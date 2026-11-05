@@ -24,6 +24,12 @@ import { join } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
 import { registerRoutes } from './routes/index.js'
+import {
+  LOG_REDACT_CENSOR,
+  LOG_REDACT_PATHS,
+  redactCredentialText,
+  redactErrorForLog,
+} from './utils/redact-credential-text.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
 import { downloadsRoutes } from './routes/downloads.js'
 import { crashReportsRoutes } from './routes/crash-reports.js'
@@ -54,7 +60,7 @@ import csrfPlugin from './plugins/csrf.js'
 import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
-import { tracePlugin } from './plugins/trace.js'
+import { requestLogSerializer, tracePlugin } from './plugins/trace.js'
 import { redis, createRedisClient, FAST_FAIL_REDIS_OPTIONS } from './plugins/redis.js'
 import { sseRegistry } from './plugins/sse-registry.js'
 import { queue } from './plugins/queue.js'
@@ -139,6 +145,32 @@ const loggerConfig = {
   level: process.env.LOG_LEVEL ?? 'info',
   // 档位判定走 config 出口(安全分支禁裸读 process.env.NODE_ENV,守门语义见 config/index.ts 头注)
   transport: isDevelopmentRuntime ? { target: 'pino-pretty' } : undefined,
+  // 2026-11-01 安全强化:结构化字段的结构性脱敏。
+  //
+  // 为什么需要第二道闸:`utils/logger.ts` 已经在**唯一落盘口**对自由文本打码,但那是
+  // 全仓 169 个 `import { logger }` 走的通道;本文件这枚 pino 是**独立实例**(errorHandler
+  // 在 server 创建前就要用日志,拿不到 server.log),结构上不经 `plugins/log-sanitizer.ts`
+  // 的 Proxy,也不经 utils/logger 的包装。它同时被 Fastify 当作 server logger 使用
+  // (见 buildServer 的 `logger: loggerConfig`),所以凡调用方显式把 headers / 上游响应体
+  // 塞进 meta 的位置,都靠这条 redact 兜底。
+  //
+  // 分工要说清:redact 只认**字段名**(路径匹配),管不了 message 里内嵌的凭据串 ——
+  // 那一半由 errorHandler 里的 redactCredentialText 负责,两者缺一都是漏。
+  // 清单本体住在 utils/redact-credential-text.ts(叶子模块),测试拿同一份去构造真
+  // pino 实例验证 —— 不在这里复制第二份。
+  redact: {
+    paths: [...LOG_REDACT_PATHS],
+    censor: LOG_REDACT_CENSOR,
+  },
+  // 2026-11-01 凭据外泄收口:Fastify 默认的 `req` 序列化器把 `req.url` **原样**
+  // 写进 "incoming request" 日志,而 `/api/ws/ai?token=…`、`/v1/realtime?api_key=…`
+  // 的凭据就在 query 里。这条日志发生在 onRequest 钩子之前(Fastify log-controller),
+  // log-sanitizer 的 Proxy 够不着它 —— 必须在序列化这一层切掉 query。
+  // 覆盖默认实现只丢 host/remoteAddress;method + path + statusCode + 响应耗时
+  // 仍由 Fastify 的完成日志给出,排障信息不缩水。
+  serializers: {
+    req: requestLogSerializer,
+  },
 }
 
 // 独立 pino 实例(errorHandler 在 server 创建前定义,需要独立 logger)
@@ -160,6 +192,14 @@ function isMostlyEnglish(s: string | undefined): boolean {
   return /[a-zA-Z]/.test(s)
 }
 
+/**
+ * 落盘前的错误影子(实现住在 utils/redact-credential-text.ts,与自由文本打码同一出口)。
+ * 这里只做一次转发,不复制判据 —— 打码规则全仓只有一份。
+ */
+function errorForLog(error: FastifyError): FastifyError {
+  return redactErrorForLog(error)
+}
+
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
   // 2026-09-20 f5:响应已发出(在途或已结束)时,这里的 send 只会触发
   // FST_ERR_REP_ALREADY_SENT 级联 —— 生产日志 WARN#2 的发送者正是本函数(server.ts:167)。
@@ -175,9 +215,9 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
       : 500
 
   if (statusCode >= 500) {
-    logger.error({ err: error }, 'Unhandled error')
+    logger.error({ err: errorForLog(error) }, 'Unhandled error')
   } else {
-    logger.warn({ err: error.message, statusCode }, 'Request error')
+    logger.warn({ err: redactCredentialText(error.message ?? ''), statusCode }, 'Request error')
   }
 
   const errorCode = isAppError(error) ? error.errorCode : isZodErr ? 'VALIDATION_FAILED' : undefined

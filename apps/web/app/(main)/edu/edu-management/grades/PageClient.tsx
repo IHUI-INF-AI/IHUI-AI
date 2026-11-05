@@ -27,7 +27,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduExamScoreCreate,
+  eduExamScoreDelete,
+  eduExamScoreList,
+  eduExamScoreRanking,
+  eduExamScoreSnapshot,
+  eduExamScoreStats,
+  eduTermList,
+} from '@ihui/api-client'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -300,7 +309,7 @@ function BatchScoreEntry({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto rounded-md border">
-        <table className="w-full text-sm">
+        <table className="w-full text-body">
           <thead>
             <tr className="bg-muted/50">
               <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
@@ -365,7 +374,11 @@ export default function GradesPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -378,8 +391,11 @@ export default function GradesPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -392,12 +408,14 @@ export default function GradesPage() {
 
   const { data: scoresData, isLoading: scoresLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', selectedClassId, filterSubject, filterExamName],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      if (filterSubject) params.set('subject', filterSubject)
-      if (filterExamName) params.set('examName', filterExamName)
-      return apiOrThrow<{ list: EduExamScore[] }>(`/api/edu-ai-management/exam-score?${params}`)
+    queryFn: async () => {
+      const r = await eduExamScoreList<{ list: EduExamScore[] }>({
+        classId: selectedClassId || undefined,
+        subject: filterSubject || undefined,
+        examName: filterExamName || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId,
   })
@@ -405,23 +423,28 @@ export default function GradesPage() {
 
   const { data: statsData } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'stats', selectedClassId],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      return apiOrThrow<ScoreStats>(`/api/edu-ai-management/exam-score/stats?${params}`)
+    queryFn: async () => {
+      const r = await eduExamScoreStats<ScoreStats>({
+        classId: selectedClassId || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId,
   })
 
   const { data: rankingData } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'ranking', selectedClassId, selectedExamName],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      if (selectedExamName) params.set('examName', selectedExamName)
-      return apiOrThrow<{ ranking: RankingEntry[]; totalStudents: number }>(
-        `/api/edu-ai-management/exam-score/ranking?${params}`,
-      )
+    queryFn: async () => {
+      const r = await eduExamScoreRanking<{
+        ranking: RankingEntry[]
+        totalStudents: number
+      }>({
+        classId: selectedClassId || undefined,
+        examName: selectedExamName || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId && !!selectedExamName,
   })
@@ -452,44 +475,46 @@ export default function GradesPage() {
   }, [queryClient])
 
   const createScore = useMutation({
-    mutationFn: (data: ScoreFormData) =>
-      apiOrThrow('/api/edu-ai-management/exam-score', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: ScoreFormData) => {
+      const r = await eduExamScoreCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const batchCreateScores = useMutation({
     mutationFn: (entries: Array<{ studentId: string; subject: string; score: number }>) =>
       Promise.all(
-        entries.map((e) =>
-          apiOrThrow('/api/edu-ai-management/exam-score', {
-            method: 'POST',
-            body: JSON.stringify({
-              ...e,
-              classId: selectedClassId,
-              examName: selectedExamName,
-              examDate: new Date().toISOString().split('T')[0]!,
-            }),
-          }),
-        ),
+        entries.map(async (e) => {
+          const r = await eduExamScoreCreate({
+            ...e,
+            classId: selectedClassId,
+            examName: selectedExamName,
+            examDate: new Date().toISOString().split('T')[0]!,
+          })
+          if (!r.success) throw new Error(r.error)
+          return r.data
+        }),
       ),
     onSuccess: invalidate,
   })
 
   const deleteScore = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/exam-score/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduExamScoreDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createSnapshot = useMutation({
-    mutationFn: () =>
-      apiOrThrow('/api/edu-ai-management/exam-score/snapshot', {
-        method: 'POST',
-        body: JSON.stringify({ classId: selectedClassId, examName: selectedExamName }),
-      }),
+    mutationFn: async () => {
+      const r = await eduExamScoreSnapshot({ classId: selectedClassId, examName: selectedExamName })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -561,7 +586,7 @@ export default function GradesPage() {
       {/* Header */}
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       {/* Class/Subject Selector */}
@@ -662,7 +687,7 @@ export default function GradesPage() {
             {!selectedClassId ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('selectClassFirst')}</p>
+                <p className="text-body">{t('selectClassFirst')}</p>
               </div>
             ) : selectedExamName && selectedSubject ? (
               <BatchScoreEntry
@@ -678,7 +703,7 @@ export default function GradesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('enterExamAndSubjects')}</p>
+                <p className="text-body">{t('enterExamAndSubjects')}</p>
               </div>
             )}
           </CardContent>
@@ -737,11 +762,11 @@ export default function GradesPage() {
             ) : sortedScores.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('emptyScores')}</p>
+                <p className="text-body">{t('emptyScores')}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
@@ -838,7 +863,7 @@ export default function GradesPage() {
             {!selectedExamName ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('selectExamForRanking')}</p>
+                <p className="text-body">{t('selectExamForRanking')}</p>
               </div>
             ) : !rankingData ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -847,7 +872,7 @@ export default function GradesPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="px-3 py-2 text-left font-medium">{t('ranking')}</th>
@@ -915,7 +940,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('avgScore')}</span>
+                  <span className="text-label text-muted-foreground">{t('avgScore')}</span>
                 </div>
                 <p className="mt-1 text-display font-bold">{statsData?.avgScore ?? '-'}</p>
               </CardContent>
@@ -924,7 +949,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('maxScore')}</span>
+                  <span className="text-label text-muted-foreground">{t('maxScore')}</span>
                 </div>
                 <p className="mt-1 text-display font-bold text-green-600">
                   {statsData?.maxScore ?? '-'}
@@ -935,16 +960,18 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('minScore')}</span>
+                  <span className="text-label text-muted-foreground">{t('minScore')}</span>
                 </div>
-                <p className="mt-1 text-display font-bold text-red-600">{statsData?.minScore ?? '-'}</p>
+                <p className="mt-1 text-display font-bold text-red-600">
+                  {statsData?.minScore ?? '-'}
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('passRate')}</span>
+                  <span className="text-label text-muted-foreground">{t('passRate')}</span>
                 </div>
                 <p className="mt-1 text-display font-bold">{statsData?.passRate ?? '-'}%</p>
               </CardContent>
@@ -962,8 +989,8 @@ export default function GradesPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={statsData.distribution}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                      <XAxis dataKey="range" className="text-xs" />
-                      <YAxis className="text-xs" allowDecimals={false} />
+                      <XAxis dataKey="range" className="text-label" />
+                      <YAxis className="text-label" allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="count" fill="var(--primary)" radius={[4, 4, 0, 0]} />
                     </BarChart>
@@ -971,7 +998,7 @@ export default function GradesPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
-                  <p className="text-sm">{t('emptyStats')}</p>
+                  <p className="text-body">{t('emptyStats')}</p>
                 </div>
               )}
             </CardContent>
@@ -987,7 +1014,7 @@ export default function GradesPage() {
                 {rankWithChange.slice(0, 5).map((r) => (
                   <div
                     key={r.studentId}
-                    className="flex items-center justify-between px-4 py-2 text-sm"
+                    className="flex items-center justify-between px-4 py-2 text-body"
                   >
                     <span className="font-medium">
                       #{r.rank} {r.studentId.slice(0, 8)}
@@ -998,7 +1025,7 @@ export default function GradesPage() {
                   </div>
                 ))}
                 {rankWithChange.length === 0 && (
-                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">
+                  <p className="px-4 py-4 text-center text-body text-muted-foreground">
                     {t('emptyData')}
                   </p>
                 )}
@@ -1015,7 +1042,7 @@ export default function GradesPage() {
                   .map((r) => (
                     <div
                       key={r.studentId}
-                      className="flex items-center justify-between px-4 py-2 text-sm"
+                      className="flex items-center justify-between px-4 py-2 text-body"
                     >
                       <span className="font-medium">
                         #{r.rank} {r.studentId.slice(0, 8)}
@@ -1026,7 +1053,7 @@ export default function GradesPage() {
                     </div>
                   ))}
                 {rankWithChange.length === 0 && (
-                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">
+                  <p className="px-4 py-4 text-center text-body text-muted-foreground">
                     {t('emptyData')}
                   </p>
                 )}

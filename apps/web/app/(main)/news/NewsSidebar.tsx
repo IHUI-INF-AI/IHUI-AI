@@ -26,14 +26,14 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
     <aside className="w-full shrink-0 space-y-4 min-[1024px]:w-72">
       <Card>
         <CardHeader className="p-3 pb-2">
-          <CardTitle className="text-sm">{t('categories')}</CardTitle>
+          <CardTitle className="text-body">{t('categories')}</CardTitle>
         </CardHeader>
         <CardContent className="min-[640px]:p-3 space-y-1 p-3 pt-0">
           <button
             type="button"
             onClick={() => onCategoryChange('all')}
             className={cn(
-              'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
+              'block w-full rounded-sm px-3 py-1.5 text-left text-body transition-colors',
               categoryId === 'all'
                 ? 'bg-primary/10 font-medium text-primary'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -47,7 +47,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
               type="button"
               onClick={() => onCategoryChange(c.id)}
               className={cn(
-                'block w-full rounded-sm px-3 py-1.5 text-left text-sm transition-colors',
+                'block w-full rounded-sm px-3 py-1.5 text-left text-body transition-colors',
                 categoryId === c.id
                   ? 'bg-primary/10 font-medium text-primary'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -62,7 +62,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
       {pinned.length > 0 && (
         <Card>
           <CardHeader className="p-3 pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
+            <CardTitle className="flex items-center gap-1.5 text-body">
               <Pin className="h-4 w-4 text-primary" />
               {t('pinned')}
             </CardTitle>
@@ -75,7 +75,7 @@ export function NewsSidebar({ categories, categoryId, onCategoryChange, pinned }
                 className="block rounded-md p-1.5 transition-colors hover:bg-accent"
               >
                 <p className="text-body font-medium leading-snug">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-label text-muted-foreground">
                   {t('publishedAt', { date: fmtDate(item.publishedAt) })}
                 </p>
               </Link>

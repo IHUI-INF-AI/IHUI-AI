@@ -48,6 +48,7 @@ import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
 
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /** 盒尺寸(dp)。RN 的 onLayout / onLoad 给的都是这个量纲,与平移量同一坐标系。 */
 export interface ImagePreviewBox {
   readonly width: number
@@ -348,16 +349,16 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 24,
     alignItems: 'center',
-    gap: 6,
+    gap: rnSpacing['xs-loose'],
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 18,
+    gap: rnSpacing.lg,
   },
   hudText: {
     color: HUD_COLOR,
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

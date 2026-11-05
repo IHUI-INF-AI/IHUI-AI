@@ -13,16 +13,12 @@ import { BackChevron } from '../../components/BackChevron'
 /** 分佣计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { EarnCommissionScreenProps }
 
-interface RuleItem {
-  num: string
-  text: string
-}
-
-const RULES: readonly RuleItem[] = [
-  { num: '1', text: '成为VIP会员后可参与分佣计划' },
-  { num: '2', text: '邀请好友成为会员,您将获得会员费20%的佣金' },
-  { num: '3', text: '佣金将在好友支付成功后24小时内自动结算到您的账户' },
-  { num: '4', text: '账户余额满100元可申请提现到微信或支付宝' },
+/** 规则文案键:与端内 pages/distribution/plan/index 同一套键(rule1..rule4),值逐字一致 */
+const RULE_KEYS = [
+  'distribution.plan.rule1',
+  'distribution.plan.rule2',
+  'distribution.plan.rule3',
+  'distribution.plan.rule4',
 ] as const
 
 /**
@@ -78,12 +74,12 @@ export function EarnCommissionScreen({
         </View>
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>{t('earnCommission.rules') || '分佣规则'}</Text>
-          {RULES.map((r) => (
-            <View key={r.num} style={styles.ruleItem}>
+          {RULE_KEYS.map((key, index) => (
+            <View key={key} style={styles.ruleItem}>
               <View style={styles.ruleNum}>
-                <Text style={styles.ruleNumText}>{r.num}</Text>
+                <Text style={styles.ruleNumText}>{String(index + 1)}</Text>
               </View>
-              <Text style={styles.ruleText}>{r.text}</Text>
+              <Text style={styles.ruleText}>{t(key)}</Text>
             </View>
           ))}
         </View>
@@ -138,11 +134,15 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
-    scrollContent: { padding: 14, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
+    scrollContent: {
+      padding: rnSpacing['md-loose'],
+      gap: rnSpacing.md,
+      paddingBottom: rnSpacing['3xl'],
+    },
     introCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
       alignItems: 'center',
     },
@@ -165,12 +165,12 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
     },
     statsItem: { alignItems: 'center', gap: rnSpacing['xs-loose'] },
-    statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
+    statsValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
     sectionCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       gap: rnSpacing.md,
     },
     sectionTitle: {

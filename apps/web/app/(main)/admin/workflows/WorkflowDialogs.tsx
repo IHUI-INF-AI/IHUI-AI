@@ -50,7 +50,7 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
           <DialogTitle>{t('viewTitle')}</DialogTitle>
         </DialogHeader>
         {item ? (
-          <div className="space-y-3 text-sm">
+          <div className="space-y-3 text-body">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Workflow className="h-4 w-4" />
@@ -66,7 +66,7 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
               </span>
             </div>
             {item.description ? <p className="text-muted-foreground">{item.description}</p> : null}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-label text-muted-foreground">
               <Zap className="h-3 w-3" />
               {t(TRIGGER_KEY[item.triggerType] ?? 'trigger_unknown')}
               <span className="mx-1">·</span>
@@ -79,7 +79,7 @@ export function WorkflowViewDialog({ item, onClose }: WorkflowViewDialogProps) {
                 </div>
                 <ol className="ml-4 list-decimal space-y-1">
                   {item.steps.map((s, i) => (
-                    <li key={`step-${i}`} className="text-sm">
+                    <li key={`step-${i}`} className="text-body">
                       {stepName(s)}
                     </li>
                   ))}

@@ -125,7 +125,9 @@ export function BrowserAuthHelper({
                   <Icon className="h-3 w-3 text-orange-500" />
                   {step.title}
                 </div>
-                <div className="text-xs leading-relaxed text-muted-foreground">{step.body}</div>
+                <div className="font-[weight:inherit] text-label leading-relaxed text-muted-foreground">
+                  {step.body}
+                </div>
               </div>
             </li>
           )

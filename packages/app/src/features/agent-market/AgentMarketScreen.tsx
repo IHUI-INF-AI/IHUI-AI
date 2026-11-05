@@ -30,8 +30,9 @@ export function AgentMarketScreen({
   onSearch,
   onPressItem,
   onBack,
-  colorScheme = 'light',
-}: AgentMarketScreenProps) {
+  onRetry,
+  colorScheme = 'light'
+}: AgentMarketScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -46,7 +47,7 @@ export function AgentMarketScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -89,9 +90,11 @@ export function AgentMarketScreen({
               {item.description}
             </Text>
             <View style={styles.metaRow}>
-              <Text style={styles.category}>{item.category}</Text>
+              {/* category 可选:公开面只有 categoryId(uuid),无名称时不渲染 */}
+              {item.category ? <Text style={styles.category}>{item.category}</Text> : null}
               <Text style={styles.meta}>
-                ★ {item.rating.toFixed(1)} · {item.uses}
+                ★ {item.rating !== null && item.rating !== undefined ? item.rating.toFixed(1) : '—'}{' '}
+                · {item.uses}
                 {t('agentMarket.uses')}
               </Text>
               <Text style={styles.price}>
@@ -138,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     searchBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -146,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

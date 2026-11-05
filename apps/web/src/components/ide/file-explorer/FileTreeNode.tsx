@@ -1,7 +1,6 @@
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 // 2026-09-09 0-6 组件拆分:file-tree-node.tsx 移入 file-explorer/ 文件夹,
@@ -229,7 +228,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         }}
         onContextMenu={handleContextMenu}
         className={cn(
-          'flex cursor-pointer items-center gap-1 rounded-sm py-0.5 pr-2 text-xs transition-colors',
+          'flex cursor-pointer items-center gap-1 rounded-sm py-0.5 pr-2 text-label transition-colors',
           isSelected ? 'bg-muted text-foreground' : 'hover:bg-muted/50',
         )}
         style={{ paddingLeft: depth * 12 + 4 }}
@@ -263,7 +262,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 setRenaming(false)
               }
             }}
-            className="w-full rounded-sm border border-border bg-background px-1 text-xs focus:outline-none"
+            className="w-full rounded-sm border border-border bg-background px-1 text-label focus:outline-none"
           />
         ) : deleting ? (
           <div className="flex flex-1 items-center gap-1">
@@ -273,7 +272,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 e.stopPropagation()
                 void handleDelete()
               }}
-              className="rounded-sm bg-red-500 px-1.5 py-0.5 text-xs text-white hover:bg-red-600"
+              className="rounded-sm bg-red-500 px-1.5 py-0.5 text-label text-white hover:bg-red-600"
             >
               {t('fileTreeNode.confirm')}
             </button>
@@ -282,7 +281,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
                 e.stopPropagation()
                 setDeleting(false)
               }}
-              className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
+              className="rounded-sm px-1.5 py-0.5 text-label text-muted-foreground hover:bg-muted"
             >
               {t('fileTreeNode.cancel')}
             </button>
@@ -311,7 +310,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
       {menuPos && (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
         <div
-          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          className="fixed z-popover min-w-36 rounded-md border border-border bg-popover py-1 text-label shadow-md"
           style={{
             // 视口 clamp:最多 4 项约 130px 高,防止贴近屏幕边缘时溢出
             left: Math.min(menuPos.x, window.innerWidth - 160),

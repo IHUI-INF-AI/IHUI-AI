@@ -6,6 +6,7 @@
   "description": "Capacitor 壳:复用 apps/web 静态导出(out/)打包 Android/iOS App,官方插件提供离线推送/相机/分享/扫码等原生能力",
   "scripts": {
     "sync:web": "node scripts/sync-web.mjs",
+    "gen:assets": "node scripts/gen-assets.mjs",
     "cap:sync": "node scripts/sync-web.mjs && cap sync android",
     "cap:add:android": "cap add android",
     "build:apk": "cd android && ./gradlew assembleDebug",

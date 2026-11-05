@@ -19,7 +19,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduEnrollmentCreate,
+  eduEnrollmentList,
+  eduLeadCreate,
+  eduLeadList,
+  eduLeadUpdate,
+  eduStudentRoster,
+  eduTermList,
+  eduTrialReservationCreate,
+  eduTrialReservationList,
+  eduTrialReservationUpdate,
+} from '@ihui/api-client'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -734,31 +746,43 @@ export default function EnrollmentPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class'],
-    queryFn: () => apiOrThrow<{ list: EduClass[] }>('/api/edu-ai-management/class'),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const leadQuery = useQuery({
     queryKey: ['edu-ai-management', 'lead', leadStatusFilter, leadSourceFilter],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (leadStatusFilter) params.set('status', leadStatusFilter)
-      if (leadSourceFilter) params.set('source', leadSourceFilter)
-      const qs = params.toString()
-      return apiOrThrow<{ list: Lead[] }>(`/api/edu-ai-management/lead${qs ? `?${qs}` : ''}`)
+    queryFn: async () => {
+      const r = await eduLeadList<{ list: Lead[] }>({
+        status: leadStatusFilter || undefined,
+        source: leadSourceFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
   const trialQuery = useQuery({
     queryKey: ['edu-ai-management', 'trial-reservation'],
-    queryFn: () =>
-      apiOrThrow<{ list: TrialReservation[] }>('/api/edu-ai-management/trial-reservation'),
+    queryFn: async () => {
+      const r = await eduTrialReservationList<{ list: TrialReservation[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const enrollQuery = useQuery({
@@ -769,15 +793,14 @@ export default function EnrollmentPage() {
       enrollTermFilter,
       enrollStatusFilter,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (enrollClassFilter) params.set('classId', enrollClassFilter)
-      if (enrollTermFilter) params.set('termId', enrollTermFilter)
-      if (enrollStatusFilter) params.set('status', enrollStatusFilter)
-      const qs = params.toString()
-      return apiOrThrow<{ list: EnrollmentRecord[] }>(
-        `/api/edu-ai-management/enrollment${qs ? `?${qs}` : ''}`,
-      )
+    queryFn: async () => {
+      const r = await eduEnrollmentList<{ list: EnrollmentRecord[] }>({
+        classId: enrollClassFilter || undefined,
+        termId: enrollTermFilter || undefined,
+        status: enrollStatusFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -796,18 +819,23 @@ export default function EnrollmentPage() {
       rosterArrearsOnly,
       rosterPage,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (rosterBusinessLine) params.set('businessLine', rosterBusinessLine)
-      if (rosterClassFilter) params.set('classId', rosterClassFilter)
-      if (rosterTermFilter) params.set('termId', rosterTermFilter)
-      if (rosterKeyword) params.set('keyword', rosterKeyword)
-      if (rosterArrearsOnly) params.set('arrearsOnly', '1')
-      params.set('page', String(rosterPage))
-      params.set('pageSize', '20')
-      return apiOrThrow<{ list: RosterItem[]; total: number; page: number; totalPages: number }>(
-        `/api/edu-ai-management/student-roster?${params.toString()}`,
-      )
+    queryFn: async () => {
+      const r = await eduStudentRoster<{
+        list: RosterItem[]
+        total: number
+        page: number
+        totalPages: number
+      }>({
+        businessLine: rosterBusinessLine || undefined,
+        classId: rosterClassFilter || undefined,
+        termId: rosterTermFilter || undefined,
+        keyword: rosterKeyword || undefined,
+        arrearsOnly: rosterArrearsOnly ? '1' : undefined,
+        page: rosterPage,
+        pageSize: 20,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const roster = rosterQuery.data?.list ?? []
@@ -819,47 +847,47 @@ export default function EnrollmentPage() {
   }, [queryClient])
 
   const createLead = useMutation({
-    mutationFn: (data: LeadFormData) =>
-      apiOrThrow('/api/edu-ai-management/lead', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: LeadFormData) => {
+      const r = await eduLeadCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateLeadStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiOrThrow(`/api/edu-ai-management/lead/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      }),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const r = await eduLeadUpdate(id, { status })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createTrial = useMutation({
-    mutationFn: (data: TrialFormData) =>
-      apiOrThrow('/api/edu-ai-management/trial-reservation', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: TrialFormData) => {
+      const r = await eduTrialReservationCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateTrialStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiOrThrow(`/api/edu-ai-management/trial-reservation/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      }),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const r = await eduTrialReservationUpdate(id, { status })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createEnrollment = useMutation({
-    mutationFn: (data: EnrollmentFormData) =>
-      apiOrThrow('/api/edu-ai-management/enrollment', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: EnrollmentFormData) => {
+      const r = await eduEnrollmentCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -894,7 +922,7 @@ export default function EnrollmentPage() {
 
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">招生管理</h1>
-        <p className="text-xs text-muted-foreground">管理线索、试听预约和报名记录</p>
+        <p className="text-label text-muted-foreground">管理线索、试听预约和报名记录</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -958,7 +986,7 @@ export default function EnrollmentPage() {
                 添加线索
               </Button>
               {leadQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -977,7 +1005,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : leads.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无线索数据
               </CardContent>
             </Card>
@@ -985,7 +1013,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1021,12 +1049,14 @@ export default function EnrollmentPage() {
                       {leads.map((lead) => (
                         <tr key={lead.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{lead.name}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{lead.phone}</td>
-                          <td className="px-4 py-3 text-xs">{lead.studentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {lead.phone}
+                          </td>
+                          <td className="px-4 py-3 text-label">{lead.studentName}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.studentAge}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {LEAD_SOURCE_MAP.get(lead.source) ?? lead.source}
                           </td>
                           <td className="px-4 py-3">
@@ -1040,10 +1070,10 @@ export default function EnrollmentPage() {
                               {LEAD_STATUS_MAP.get(lead.status) ?? lead.status}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.follower}
                           </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {lead.nextFollowUp ?? '-'}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1051,7 +1081,7 @@ export default function EnrollmentPage() {
                               <Button
                                 variant="outline"
                                 size="xs"
-                                className="text-xs"
+                                className="text-label"
                                 onClick={() => handleNextStatus(lead)}
                                 disabled={updateLeadStatus.isPending}
                               >
@@ -1080,7 +1110,7 @@ export default function EnrollmentPage() {
                 添加预约
               </Button>
               {trialQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1099,7 +1129,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : trials.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无试听预约
               </CardContent>
             </Card>
@@ -1107,7 +1137,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1143,14 +1173,18 @@ export default function EnrollmentPage() {
                       {trials.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{t.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{t.parentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label">{t.parentName}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {t.parentPhone}
                           </td>
-                          <td className="px-4 py-3 text-xs">{t.trialDate}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.trialTime}</td>
-                          <td className="px-4 py-3 text-xs">{t.subject}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{t.teacher}</td>
+                          <td className="px-4 py-3 text-label">{t.trialDate}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {t.trialTime}
+                          </td>
+                          <td className="px-4 py-3 text-label">{t.subject}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {t.teacher}
+                          </td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -1168,7 +1202,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs text-green-600"
+                                  className="text-label text-green-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'confirmed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1180,7 +1214,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="outline"
                                   size="xs"
-                                  className="text-xs text-blue-600"
+                                  className="text-label text-blue-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'completed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1192,7 +1226,7 @@ export default function EnrollmentPage() {
                                 <Button
                                   variant="ghost"
                                   size="xs"
-                                  className="text-xs text-red-500"
+                                  className="text-label text-red-500"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'cancelled')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1269,7 +1303,7 @@ export default function EnrollmentPage() {
                 添加报名
               </Button>
               {enrollQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1288,7 +1322,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : enrollments.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无报名记录
               </CardContent>
             </Card>
@@ -1296,7 +1330,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1326,13 +1360,15 @@ export default function EnrollmentPage() {
                       {enrollments.map((e) => (
                         <tr key={e.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{e.studentName}</td>
-                          <td className="px-4 py-3 text-xs">{e.className}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{e.termName}</td>
-                          <td className="px-4 py-3 text-xs">{e.enrollDate}</td>
+                          <td className="px-4 py-3 text-label">{e.className}</td>
+                          <td className="px-4 py-3 text-label text-muted-foreground">
+                            {e.termName}
+                          </td>
+                          <td className="px-4 py-3 text-label">{e.enrollDate}</td>
                           <td className="px-4 py-3 text-label font-medium">
                             {e.totalFee.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-xs">{e.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{e.paidAmount.toLocaleString()}</td>
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -1435,7 +1471,7 @@ export default function EnrollmentPage() {
                 仅看欠费
               </Button>
               {rosterQuery.isLoading && (
-                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                <div className="ml-auto flex items-center text-label text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                   加载中...
                 </div>
@@ -1454,7 +1490,7 @@ export default function EnrollmentPage() {
             </Card>
           ) : roster.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-body text-muted-foreground">
                 暂无学生数据
               </CardContent>
             </Card>
@@ -1462,7 +1498,7 @@ export default function EnrollmentPage() {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-body">
                     <thead>
                       <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -1498,16 +1534,16 @@ export default function EnrollmentPage() {
                       {roster.map((r) => (
                         <tr key={r.enrollmentId} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-label font-medium">{r.studentName}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                          <td className="px-4 py-3 text-label text-muted-foreground">
                             {r.studentPhone ?? '-'}
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-label">
                             {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
                           </td>
-                          <td className="px-4 py-3 text-xs">{r.className}</td>
-                          <td className="px-4 py-3 text-xs">{r.enrollDate}</td>
-                          <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
-                          <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.className}</td>
+                          <td className="px-4 py-3 text-label">{r.enrollDate}</td>
+                          <td className="px-4 py-3 text-label">{r.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-label">{r.paidAmount.toLocaleString()}</td>
                           <td
                             className={cn(
                               'px-4 py-3 text-label font-medium',
@@ -1532,7 +1568,7 @@ export default function EnrollmentPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between px-4 py-3 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between px-4 py-3 text-label text-muted-foreground">
                   <span>共 {rosterQuery.data?.total ?? 0} 条</span>
                   <div className="flex items-center gap-2">
                     <Button

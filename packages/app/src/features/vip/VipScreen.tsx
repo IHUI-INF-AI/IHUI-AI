@@ -11,6 +11,7 @@ import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../typ
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
+import { assertRequiredPort } from '../../host/ports'
 
 /** VIP/Props 类型 re-export(单一来源 @ihui/types) */
 export type { VipLevelItem2, VipMembershipInfo, VipScreenProps }
@@ -40,8 +41,14 @@ export function VipScreen({
   onPurchase,
   onBack,
   benefitItems,
+  onRetry,
   colorScheme = 'light',
-}: VipScreenProps) {
+  onNavigate,
+  onToast,
+}: VipScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -53,7 +60,7 @@ export function VipScreen({
     return (
       <ErrorState
         message={error}
-        onRetry={onRefresh}
+        onRetry={onRetry}
         retryLabel={t('vip.retry')}
         colorScheme={colorScheme}
       />
@@ -132,7 +139,7 @@ export function VipScreen({
                     <Text style={styles.cardLevelName}>{level.levelName}</Text>
                     {isCurrent ? (
                       <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>{t('vip.currentBadge')}</Text>
+                        <Text style={styles.currentBadgeText}>{t('vip.currentLevel')}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -188,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     membershipCard: {
       marginHorizontal: rnSpacing.lg,
       marginTop: rnSpacing.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       // 对齐 uniapp vip/index.vue .vip-page 深色渐变(#0F1623→#1F2937),用纯色 #1F2937 近似
       backgroundColor: VIP_GOLD_TEXT,
@@ -217,13 +224,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: rnSpacing.sm,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       marginBottom: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    benefitIcon: { marginTop: 2 },
+    benefitIcon: { marginTop: rnSpacing['2xs'] },
     benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
     benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     benefitDesc: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
@@ -240,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardSpacing: { marginBottom: rnSpacing.md },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

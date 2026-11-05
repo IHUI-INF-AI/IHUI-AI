@@ -14,14 +14,12 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from app.services.knowledge_compiler import (
     compile_project,
-    compute_source_hash,
     load_active_cards,
     select_relevant_cards,
     slugify,

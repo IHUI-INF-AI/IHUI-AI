@@ -26,6 +26,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as G, planGeneration } from '../gen-miniapp-mirror.mjs'
+import { __test__ as cov } from '../check-cross-end-screen-coverage.mjs'
 
 const REPO = resolve(import.meta.dirname, '..', '..')
 const SRC = readFileSync(resolve(import.meta.dirname, '..', 'gen-miniapp-mirror.mjs'), 'utf8')
@@ -277,4 +278,263 @@ test('B9 路由占用:同 kebab 路径的页不镜像本屏 ⇒ 改道镜像分�
     '冲突时按固定顺序改道镜像分包(不发明新词、不动既有页)',
   )
   assert.match(SRC, /不产重名路由/, '镜像分包也占满时必须拒造并点名,不得产重名路由')
+})
+
+/**
+ * 分享正文通道接线锁(2026-11-01 立)。
+ *
+ * 立因:小程序的转发卡/朋友圈卡只能在**页面级**注册,而卡上的标题与封面只有**屏**取到数据
+ * 才算得出。手写页转成壳承载形制后端内不再自己写这两句 ⇒ 若无人把正文从屏递给宿主,
+ * 「分享这条内容」会静默降成「分享首页默认文案」——页面照常编译、按钮照常出现,
+ * 只有转出去的卡片是错的(实测 news/detail 的 news.title、course/detail 的 course.title 即此型)。
+ *
+ * 钉四件事,方向两两成对(§阳性对照:只测"产出了"判不出"无条件产出"这种更危险的形态):
+ *   B10 屏发布 ⇒ 宿主三条注册齐全、正文走 read() 现读、槽 Wrapper 真包住屏;
+ *   B11 屏未发布 ⇒ 一句都不产(反向对照:无条件注册 = 把默认文案冒充成这条内容的卡);
+ *   B12 注释里提一句 usePublishShareIntent 不算发布(遮注释,防假销账);
+ *   B13 判据侧单源:销账必须现读生成器的 screenPublishesShare + buildShellPage,
+ *       不得在判据里自立符号白名单(生成器哪天不产这一句,销账当场失效而不是继续放页)。
+ */
+const PLAN_SRC = readFileSync(
+  resolve(import.meta.dirname, '..', 'plan-hand-mirror-conversion.mjs'),
+  'utf8',
+)
+const SHARED_PUBLISHING =
+  'import { usePublishShareIntent } from "@ihui/shared/share"\nexport function ArticleDetailScreen(){ usePublishShareIntent({ title: item?.title }) }\n'
+
+test('B10 屏发布分享正文 ⇒ 宿主页产出页面级三条注册,并把正文槽包在屏外', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: SHARED_PUBLISHING,
+    authGate: true,
+  })
+  assert.equal(typeof out, 'string')
+  assert.match(out, /useShareAppMessage\(/, '缺转发注册 ⇒ 卡片不出现')
+  assert.match(out, /useShareTimeline\(/, '缺朋友圈注册')
+  assert.match(out, /useDidShow\(\(\) => showShareMenu\(\)\)/, '缺右上角菜单开启')
+  assert.match(
+    out,
+    /import \{ useShareIntentHost \} from '@ihui\/shared\/share'/,
+    '宿主必须从共享层拿槽,不得端内另造一份',
+  )
+  assert.match(out, /const intent = shareHost\.read\(\)/, '正文必须点击时现读(渲染期快照是旧数据)')
+  assert.match(out, /intent\?\.title/, '读到的标题要进卡')
+  // 包装顺序:ShareWrap 必须在屏外面、ThemeRoot 里面,否则屏的发布落不到这一页
+  const wrapIdx = out.indexOf('<ShareWrap>')
+  const screenIdx = out.indexOf('<NewsDetailScreenShell />')
+  assert.ok(wrapIdx > 0 && screenIdx > wrapIdx, 'ShareWrap 必须包住屏')
+  assert.ok(out.indexOf('</ShareWrap>') > screenIdx, '闭合标签要在屏之后(嵌套不能错位)')
+})
+
+test('B11 反向对照:屏没发布 ⇒ 宿主一句分享注册都不产(无条件注册=拿默认文案冒充这条内容)', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: 'export function ArticleDetailScreen(){ return null }\n',
+  })
+  assert.doesNotMatch(out, /useShareAppMessage/, '屏没发布就不能注册')
+  assert.doesNotMatch(out, /useShareTimeline/)
+  assert.doesNotMatch(out, /showShareMenu/)
+  assert.doesNotMatch(out, /useShareIntentHost/)
+  assert.doesNotMatch(out, /<ShareWrap>/)
+})
+
+test('B12 注释里提到 usePublishShareIntent 不算发布(假销账比误拒危险)', () => {
+  assert.equal(
+    G.screenPublishesShare('// usePublishShareIntent 以后再接\nexport function S(){}', ''),
+    false,
+  )
+  assert.equal(
+    G.screenPublishesShare('/* const x = usePublishShareIntent( */\nexport function S(){}', ''),
+    false,
+  )
+  assert.equal(G.screenPublishesShare('usePublishShareIntent({ title })', ''), true)
+  assert.equal(
+    G.screenPublishesShare('', 'usePublishShareIntent({ title })'),
+    true,
+    '壳正文发布同样算',
+  )
+  assert.equal(
+    G.screenPublishesShare('usePublishShareIntent', ''),
+    false,
+    '没跟括号 = 只提了个名字',
+  )
+})
+
+test('B13 navTitle 与分享同屏时 @tarojs/taro 只有一条 import、useDidShow 不重复登记', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText: SHARED_PUBLISHING,
+    navTitle: 'item?.title ?? t("news.detail")',
+    navTitleHook: 'useDidShow',
+  })
+  const taroImports = out.match(/from '@tarojs\/taro'/g) || []
+  assert.equal(taroImports.length, 1, '重复 import 同一模块 = 编译期当场崩')
+  const named = /import Taro, \{([^}]*)\} from '@tarojs\/taro'/.exec(out)
+  assert.ok(named, '有 navTitle 时必须保留 Taro 默认导入(setNavigationBarTitle 要用)')
+  const names = named[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  assert.equal(new Set(names).size, names.length, `具名清单不得有重复标识符: ${names.join(',')}`)
+  assert.ok(names.includes('useDidShow') && names.includes('useShareAppMessage'))
+})
+
+test('B14 判据侧单源:销账现读生成器出口,不自立符号白名单', () => {
+  assert.match(PLAN_SRC, /gen\.screenPublishesShare\(/, '屏是否发布必须问生成器,不在判据里另写一份')
+  assert.match(
+    PLAN_SRC,
+    /gen\.buildShellPage\(\{[\s\S]*?sharedText,[\s\S]*?\}\)/,
+    '「生成页真注册」必须用生成器实跑取证,不能靠文本猜',
+  )
+  assert.match(SRC, /export const __test__ = \{[\s\S]*?screenPublishesShare,/, '判据必须可 import')
+})
+
+test('B15 朋友圈卡标题独立于转发卡标题(原页两张卡取的是不同文案键)', () => {
+  const out = G.buildShellPage({
+    spec: 'packages/app/src/features/news/NewsDetailScreen.tsx',
+    base: 'NewsDetail',
+    shellText: 'export function NewsDetailScreen() {}\n',
+    sharedText:
+      'export function CourseTabScreen(){ usePublishShareIntent({ title: t("share.appTitle"), timelineTitle: t("share.timelineTitle") }) }\n',
+  })
+  assert.match(
+    out,
+    /getTimelineShareInfo\(intent\?\.timelineTitle \?\? intent\?\.title/,
+    '朋友圈卡必须优先取 timelineTitle,缺省才回落 title',
+  )
+  assert.match(
+    out,
+    /getShareInfo\(intent\?\.path \?\? currentPageSharePath\(router\), intent\?\.title/,
+    '转发卡仍取 title(两张卡不得共用一个字段而互相污染)',
+  )
+})
+
+/**
+ * 写盘侧镜像识别收成与读盘侧同一把宽尺(2026-11-05 立,§0.6 单一真相源)。
+ *
+ * 立因:读盘侧(report-rn-miniapp-gaps / 门 237 覆盖桶)用宽尺 mirrorDeclarations(形1∪2∪3∪4),
+ * 而写盘侧(gen-miniapp-mirror / repair-cross-end-mirror 的"已镜像桶")曾各自用旧硬路径尺
+ * mirroredSpecs(只认形1)。当日实测 HEAD 面两尺对称差 = 0(都读 256)⇒ 这是**潜伏缺陷**:
+ * 一旦出现只被宽尺认出的新形声明,写盘侧会把已镜像屏判成"未镜像" ⇒ 重复造页/不结清,
+ * 而报告器与门同时报绿。本组钉:① 写盘侧现在认出新形夹具;② 阳性对照:同夹具喂旧尺认不出
+ * (锁有牙,不是恒真断言);③ 两尺对照读数只报差不判;④ 形状锁(逐处点名旧尺调用位,防下一席改回)。
+ */
+const ACT = 'packages/app/src/features/activity/ActivityScreen.tsx'
+const RULER_INDEX = cov.buildSharedIndex([
+  { spec: ACT, domain: 'activity', name: 'ActivityScreen' },
+  { spec: 'packages/app/src/features/help/HelpScreen.tsx', domain: 'help', name: 'HelpScreen' },
+])
+/** 形4(对齐动词 + 裸屏名 + Shared 前缀)夹具:旧硬尺必认不出、宽尺必认出 —— 不许改成含形1硬路径 */
+const WIDE_ONLY_PAGE = {
+  route: 'pkg-user/checkin/index',
+  file: 'apps/miniapp-taro/src/pkg-user/checkin/index.tsx',
+  text: '/* 会员状态卡对齐 SharedActivityScreen */\nexport function CheckinPage(){return null}\n',
+  cssText: '',
+}
+const rulerCtx = (extra = {}) => ({
+  miniapp: { pages: [WIDE_ONLY_PAGE], cfgText: '' },
+  regText: '{"entries":[]}',
+  rnRels: [],
+  rnMap: new Map(),
+  indexText: '',
+  packObjs: {},
+  packError: null,
+  closureCache: new Map(),
+  taroCfgText: '',
+  verdicts: new Map(),
+  sharedIndex: RULER_INDEX,
+  ...extra,
+})
+
+test('R1 写盘=读盘同尺:只被宽尺认出的新形镜像声明 ⇒ 造页器判 skip 不重复造页', () => {
+  const r = planGeneration(REPO, { screenRel: ACT, form: 'shell' }, rulerCtx())
+  assert.equal(r.kind, 'skip', `宽尺该认出这一枚新形声明;实得 kind=${r.kind} why=${r.why}`)
+  assert.match(r.why, /已被小程序页镜像/)
+  assert.match(r.why, /mirrorDeclarations/, '跳过理由必须点名宽尺出处(判据来自哪把尺,人要归因得了)')
+})
+
+test('R2 阳性对照(锁有牙):同一夹具喂旧硬尺 mirroredSpecs ⇒ 认不出', () => {
+  // 若夹具里出现了形1硬路径字面,这条会翻红 —— 那时该换夹具而不是摘断言。
+  assert.equal(
+    cov.mirroredSpecs(WIDE_ONLY_PAGE).has(ACT),
+    false,
+    '夹具必须保持"只被宽尺认出"的新形,否则 R1 退化成恒真断言',
+  )
+  assert.equal(
+    cov
+      .mirrorDeclarations(`${WIDE_ONLY_PAGE.text}\n${WIDE_ONLY_PAGE.cssText}`, RULER_INDEX)
+      .specs.has(ACT),
+    true,
+    '夹具在宽尺下必须命中(反向对照:夹具写坏了也不许悄悄空转)',
+  )
+})
+
+test('R3 两尺对照读数:只报差不判红,wideOnly/legacyOnly 逐条点名', () => {
+  const rr = G.mirrorRulerReadings([WIDE_ONLY_PAGE], RULER_INDEX)
+  assert.equal(rr.wide, 1)
+  assert.equal(rr.legacy, 0, 'legacy 只作对照读数,不参与判定')
+  assert.deepEqual(rr.wideOnly, [ACT])
+  assert.deepEqual(rr.legacyOnly, [])
+})
+
+test('R4 缺共享屏索引 ⇒ 未判定(§0.3:不回落旧硬尺冒充"未镜像"放造页)', () => {
+  const ctx = rulerCtx()
+  delete ctx.sharedIndex
+  const r = planGeneration(REPO, { screenRel: ACT, form: 'shell' }, ctx)
+  assert.equal(
+    r.kind,
+    'undetermined',
+    `宽尺无分母时必须显式未判定;实得 kind=${r.kind} why=${r.why}`,
+  )
+  assert.match(r.why, /sharedIndex/)
+})
+
+test('R5 形状锁:旧硬尺调用位只剩点名格(写盘判定档一律宽尺装配)', () => {
+  const repairSrc = readFileSync(
+    resolve(import.meta.dirname, '..', 'repair-cross-end-mirror.mjs'),
+    'utf8',
+  )
+  // gen:旧尺只许 1 处 = mirrorRulerReadings 的 legacy= 对照读数
+  const genLegacy = SRC.split('\n').filter((l) => l.includes('cov.mirroredSpecs('))
+  assert.equal(
+    genLegacy.length,
+    1,
+    `gen-miniapp-mirror 的旧尺调用只许 legacy= 对照那一处;实得 ${genLegacy.length} 处:\n${genLegacy.join('\n')}`,
+  )
+  assert.match(genLegacy[0], /legacy/, '那一处必须停在 legacy= 对照读数位,不得回到判定位')
+  // repair:旧尺恰 2 处 = legacy= 对照读数 + R1 登记表凭据(与门 128 R1 同尺的具名锚点)
+  const rpLegacy = repairSrc.split('\n').filter((l) => l.includes('cov.mirroredSpecs('))
+  assert.equal(
+    rpLegacy.length,
+    2,
+    `repair-cross-end-mirror 的旧尺调用只许两处(legacy= 对照 + R1-CREDENTIAL-RULER);实得 ${rpLegacy.length} 处:\n${rpLegacy.join('\n')}`,
+  )
+  assert.ok(
+    rpLegacy.some((l) => /legacy/i.test(l)),
+    '其一必须是 legacy= 对照读数(legacyMirroredSpecs)',
+  )
+  assert.ok(
+    rpLegacy.some((l) => l.includes('mpEntry') && l.includes('has(sharedSpec)')),
+    '另一处必须是 R1 登记表凭据核验(门 128 R1 对登记项用的正是这把严格尺;换成宽尺后,新形声明的登记表条目 repair 说"已完整"而 R1 判红且无人补标记 = 恒红门 §12e)',
+  )
+  // 判定输入必须来自宽尺装配(hay=正文⊕伴生样式表 + buildSharedIndex),防下一席改回旧尺
+  assert.match(SRC, /cov\.mirrorDeclarations\(hay, c\.sharedIndex\)\.specs\.has\(shape\.spec\)/)
+  assert.match(
+    SRC,
+    /const hay = `\$\{p\.text \|\| ''\}\\n\$\{p\.cssText \|\| ''\}`/,
+    '装配必须含 cssText(漏掉伴生样式表会让"宽尺"退化成比旧尺还窄的第三把尺)',
+  )
+  assert.match(repairSrc, /cov\.buildSharedIndex\(shared\)/)
+  assert.match(repairSrc, /cov\.mirrorDeclarations\(hay, sharedIndex\)\.specs/)
+  assert.match(
+    repairSrc,
+    /const hay = `\$\{p\.text \|\| ''\}\\n\$\{p\.cssText \|\| ''\}`/,
+    'repair 的逐页 hay 同样必须含 cssText',
+  )
 })

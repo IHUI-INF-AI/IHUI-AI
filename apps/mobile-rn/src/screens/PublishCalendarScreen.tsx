@@ -386,7 +386,7 @@ function makeStyles() {
     body: { padding: rnSpacing.md, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     group: { gap: rnSpacing.sm },
-    groupTitle: { fontSize: 13, fontWeight: '700', color: tokens.text.primary },
+    groupTitle: { fontSize: rnType.bodySm.size, fontWeight: '700', color: tokens.text.primary },
     card: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
@@ -412,7 +412,7 @@ function makeStyles() {
     },
     pillSuccess: { backgroundColor: tokens.success.light },
     pillFailed: { backgroundColor: tokens.danger.light },
-    pillText: { fontSize: 10, color: tokens.text.secondary },
+    pillText: { fontSize: rnType.badge.size, color: tokens.text.secondary },
     pillTextSuccess: { color: tokens.success.deepText, fontWeight: '600' },
     pillTextFailed: { color: tokens.danger.DEFAULT, fontWeight: '600' },
     stateBox: {
@@ -424,7 +424,7 @@ function makeStyles() {
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',

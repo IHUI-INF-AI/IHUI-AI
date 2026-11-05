@@ -111,6 +111,49 @@ test('S3 取不到输入 ⇒ unjudged(刚注册无日志),超 3 周期无日志 
   )
 })
 
+test('S5 单轮瞬时失败不计(上一轮成功⇒unjudged),连续失败才 breach', () => {
+  const segFail = '❌ 同步失败(未判定): 信号 SIGTERM\n'
+  // 单轮瞬时失败:上一段成功,最后一段失败 ⇒ 自愈型,不喊人
+  const single = S.judgeDims({
+    taskQuery: { ok: true },
+    xml: XML_OK,
+    wrapperExists: true,
+    logStat: { exists: true, mtimeMs: NOW - 60_000 },
+    segment: segFail,
+    hasMarker: true,
+    prevSegment: SEGMENT_OK,
+    now: NOW,
+  })
+  assert.equal(single.log_verdict.verdict, 'unjudged')
+  assert.match(single.log_verdict.reason, /瞬时/)
+
+  // 连续失败:上一段也失败 ⇒ 真故障,breach
+  const consec = S.judgeDims({
+    taskQuery: { ok: true },
+    xml: XML_OK,
+    wrapperExists: true,
+    logStat: { exists: true, mtimeMs: NOW - 60_000 },
+    segment: segFail,
+    hasMarker: true,
+    prevSegment: segFail,
+    now: NOW,
+  })
+  assert.equal(consec.log_verdict.verdict, 'breach')
+  assert.match(consec.log_verdict.reason, /连续/)
+
+  // 无历史段(只有一段失败)⇒ 退化为旧行为 breach(不漏首跑失败)
+  const noPrev = S.judgeDims({
+    taskQuery: { ok: true },
+    xml: XML_OK,
+    wrapperExists: true,
+    logStat: { exists: true, mtimeMs: NOW - 60_000 },
+    segment: segFail,
+    hasMarker: true,
+    now: NOW,
+  })
+  assert.equal(noPrev.log_verdict.verdict, 'breach')
+})
+
 test('S4 总体三态优先级:breach > unjudged > ok', () => {
   assert.equal(S.judgeOverall({ a: { verdict: 'ok' }, b: { verdict: 'ok' } }), 'ok')
   assert.equal(S.judgeOverall({ a: { verdict: 'ok' }, b: { verdict: 'unjudged' } }), 'unjudged')

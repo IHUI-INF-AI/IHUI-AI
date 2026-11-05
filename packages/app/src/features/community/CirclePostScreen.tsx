@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginTop: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     cardTitle: {
       fontSize: rnType.title.size,
       fontWeight: '600',

@@ -15,8 +15,10 @@
  *      ⇒ 界面显示「tail.8」(`PageLoading.tsx:12` 那一族)。
  * 两者都靠"本机语言看不出来"活过了 9 天。
  *
- * 四条断言:
- *   T1 阳性对照 —— 事故同族的 12 个键逐条现读,必须**全部**判为"仍被消费";
+ * 断言:
+ *   T1 阳性对照 —— 事故同族里载体仍在取词面的 2 个键逐条现读,必须**全部**判为"仍被消费";
+ *   T1c 载体位置锁 —— 其余 9 枚的载体已随 `9936c8b41e` 从提交面删除(`verify.getCode` 只剩
+ *       承载闭包外的 mobile-rn 副本),必须逐条判死,且用 git 提交面取证载体位置,不是放宽判据;
  *   T2 反向证明 —— 真死的键必须放行(否则这把刀变成"什么都删不掉"的恒红面,下一个人会绕开它);
  *   T3 fail-closed —— 取材失败(consumers 为 null)按"还有消费者"处理,不许当"无消费者"放行;
  *   T4 取材面同源 —— 守卫扫的目录必须覆盖事故文件的所在目录(apps/miniapp-taro/src),
@@ -25,6 +27,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { collectConsumers, verifyAllDead, isStillConsumed } from '../clean-dead-i18n-keys.mjs'
@@ -39,30 +42,88 @@ const TARGETS_PATH = resolve(HERE, '../lib/i18n-scan-targets.mjs')
  * 已随 `a86e4cc821`(摘除零消费者跨端死载体)从提交面删除,键因此成真孤儿,五语言同批清掉。
  * 该事实另由 T1b 反向钉住(键不在词包 ⇒ 删键防线必须放行),不是把判据放宽。
  */
-const INCIDENT_KEYS = [
-  ['verify', 'getCode'],
+// 2026-11-04 现读更正:事故同族仍存 11 枚,按「载体还在不在取词面」拆两档(总数不变)。
+//  · 载体仍在:miniapp 的 components/VoiceInput.tsx:12 与 components/PageLoading.tsx:12;
+//  · 载体已删:`9936c8b41e` 把 24 件零运行时 import 的孤儿副本整批摘出提交面,VerifyCodeModal /
+//    Toast / Tooltip 等原件随之消失;`verify.getCode` 只剩 apps/mobile-rn 的同名组件,而该文件
+//    不在 miniapp 承载闭包里(闭包只取 @rn-shells 可达的 184 枚),对本端是真孤儿。
+// 摘出没有放宽判据:下面的 T1c 反而把「载体位置」也钉住(含 git 提交面取证)。
+const INCIDENT_KEYS_STILL_CONSUMED = [
+  ['VoiceInput', 'p1'],
+  ['tail', '8'],
+]
+const INCIDENT_KEYS_CARRIER_REMOVED = [
+  ['VerifyCodeModal', 'p2'],
+  ['VerifyCodeModal', 'p3'],
   ['verify', 'phoneEmpty'],
   ['verify', 'phoneInvalid'],
   ['verify', 'codeSent'],
   ['verify', 'codeIncomplete'],
   ['verify', 'verifySuccess'],
-  ['tail', '8'],
   ['tail', '12'],
-  ['VerifyCodeModal', 'p2'],
-  ['VerifyCodeModal', 'p3'],
-  ['VoiceInput', 'p1'],
 ]
+const INCIDENT_KEYS_CARRIER_OUT_OF_SURFACE = [['verify', 'getCode']]
 
-test('T1 阳性对照:事故同族仍存的 11 个键必须逐条判为「仍被消费」', () => {
+/** 提交面取证:HEAD 上该路径是否存在(不受盘上残留影响)。 */
+function fileAtHead(rel) {
+  try {
+    execFileSync('git', ['cat-file', '-e', `HEAD:${rel}`], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+test('T1 阳性对照:事故同族里载体仍在取词面的键必须逐条判为「仍被消费」', () => {
   const consumers = collectConsumers('miniapp-taro')
   assert.ok(consumers && consumers.scanned > 0, '取材失败:扫到 0 个文件 ⇒ 下面全是空断言')
-  const stillAlive = INCIDENT_KEYS.filter(([ns, key]) =>
+  const stillAlive = INCIDENT_KEYS_STILL_CONSUMED.filter(([ns, key]) =>
     isStillConsumed(`${ns}.${key}`, consumers),
   ).map(([ns, key]) => `${ns}.${key}`)
   assert.deepEqual(
     stillAlive.sort(),
-    INCIDENT_KEYS.map(([ns, key]) => `${ns}.${key}`).sort(),
+    INCIDENT_KEYS_STILL_CONSUMED.map(([ns, key]) => `${ns}.${key}`).sort(),
     '有键被判成"没人消费"⇒ 删键防线在这条上不咬,等于没装',
+  )
+})
+
+test('T1c 载体位置锁:载体已不在取词面的 9 枚必须逐条放行,且载体位置可证', () => {
+  const consumers = collectConsumers('miniapp-taro')
+  assert.ok(consumers && consumers.scanned > 0, '取材失败:扫到 0 个文件 ⇒ 下面全是空断言')
+  const orphans = [...INCIDENT_KEYS_CARRIER_REMOVED, ...INCIDENT_KEYS_CARRIER_OUT_OF_SURFACE]
+  const stillAlive = orphans
+    .filter(([ns, key]) => isStillConsumed(`${ns}.${key}`, consumers))
+    .map(([ns, key]) => `${ns}.${key}`)
+  assert.deepEqual(
+    stillAlive,
+    [],
+    '载体已不在取词面却被判"仍被消费"⇒ 取材面读到了承载闭包外的 RN 文件,删键防线会恒红',
+  )
+  // 载体位置取证 ①:原件已从提交面删除(9936c8b41e),故这 8 枚是真孤儿。
+  assert.equal(
+    fileAtHead('apps/miniapp-taro/src/components/VerifyCodeModal.tsx'),
+    false,
+    'VerifyCodeModal.tsx 必须已不在 HEAD,否则该组键应按"仍被消费"处理',
+  )
+  // 载体位置取证 ②:verify.getCode 的载体还在,但只在 mobile-rn 且不在 miniapp 承载闭包的扫描面里。
+  assert.equal(
+    fileAtHead('apps/mobile-rn/src/components/VerifyCodeModal.tsx'),
+    true,
+    'mobile-rn 的 VerifyCodeModal.tsx 必须仍在 HEAD,证明该键的引用点确实存在而非凭空判死',
+  )
+  assert.equal(
+    TARGETS['miniapp-taro'].scanTargets.includes('apps/mobile-rn/src/components/VerifyCodeModal.tsx'),
+    false,
+    '该文件不在 miniapp 承载闭包 ⇒ 对本端是真孤儿;若哪天进了闭包,本组要并回 T1',
+  )
+  assert.equal(
+    verifyAllDead(
+      { verify: ['phoneEmpty'], VerifyCodeModal: ['p2', 'p3'], tail: ['12'] },
+      consumers,
+      'miniapp-taro',
+    ),
+    true,
+    '载体已删的键必须放行,否则清死键的人只能绕过这道防线',
   )
 })
 
@@ -91,9 +152,14 @@ test('T2 反向证明:真死的键必须放行(不能变成什么都删不掉)',
     'news.views 现读判死,应放行',
   )
   assert.equal(
-    verifyAllDead({ tail: ['8', '12'] }, miniapp, 'miniapp-taro'),
+    verifyAllDead({ tail: ['8'] }, miniapp, 'miniapp-taro'),
     false,
-    'tail.8 / tail.12 仍被消费,必须拒删',
+    'tail.8 载体仍在取词面,必须拒删',
+  )
+  assert.equal(
+    verifyAllDead({ tail: ['12'] }, miniapp, 'miniapp-taro'),
+    true,
+    'tail.12 的载体已随 9936c8b41e 删除,必须放行',
   )
 })
 

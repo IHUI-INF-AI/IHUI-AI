@@ -69,7 +69,7 @@
 
 /* 金牌徽章(RN goldBadge: vip.gold 底 + text.primary 深字) */
 .tdetail-badge {
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   font-size: var(--text-caption);
   font-weight: 600;
   color: var(--color-foreground);
@@ -79,15 +79,15 @@
 }
 
 .tdetail-title {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
 }
 
 /* 关注按钮(RN followBtn: brand 底;激活态 muted 底;圆角按角色档 control→sm) */
 .tdetail-follow-btn {
   flex-shrink: 0;
-  padding: var(--spacing-xs-loose) 28rpx;
-  font-size: 26rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md-loose);
+  font-size: var(--text-body-sm);
   font-weight: 600;
   color: var(--color-cta-foreground);
   background: var(--color-cta);
@@ -152,7 +152,7 @@
 }
 
 .tdetail-intro-text {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 40rpx;
 }
@@ -167,7 +167,7 @@
 
 /* 展开/收起(RN expandText: brandAccent 灰蓝,前景用 deep 保白底对比) */
 .tdetail-intro-toggle {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-brand-accent-deep);
 }
 
@@ -281,7 +281,7 @@
 .tdetail-review-name {
   flex: 1;
   min-width: 0;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   font-weight: 600;
   color: var(--color-foreground);
   overflow: hidden;
@@ -299,7 +299,7 @@
 }
 
 .tdetail-review-content {
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-muted-foreground);
   line-height: 38rpx;
 }
@@ -319,7 +319,7 @@
   display: flex;
   flex-direction: row;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) 24rpx calc(16rpx + env(safe-area-inset-bottom, 0px));
+  padding: var(--spacing-sm) var(--spacing-md) calc(16rpx + env(safe-area-inset-bottom, 0px));
   background: var(--color-card);
 }
 
@@ -347,14 +347,14 @@
 /* ===== 状态文案(RN emptyText/stateText: tertiary) ===== */
 .tdetail-empty {
   display: block;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
 }
 
 .tdetail-skeleton {
   display: block;
   text-align: center;
-  font-size: 26rpx;
+  font-size: var(--text-body-sm);
   color: var(--color-text-tertiary);
   padding: 240rpx 0;
 }

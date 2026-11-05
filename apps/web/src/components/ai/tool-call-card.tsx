@@ -56,7 +56,7 @@ import { ToolDiffJumpButton } from './open-tool-diff'
 // barrel 会把 ImageViewer / VideoPlayer / LivePlayer / CodeViewer / MarkdownViewer 一并
 // 拖进本文件所在的那枚 chunk(本文件在营销页的静态链上:根 layout → GlobalShell →
 // AISidePanel → chat-pane-body → MessageList → MessageItem → 本文件),而工具卡只需要
-// FilePreview 一个符号(FilePreview.tsx 自己按需引 OfficeViewer / PDFViewer / ThreeDViewer)。
+// FilePreview 一个符号(FilePreview.tsx 自己按需引 OfficePreview / PDFViewer / ThreeDViewer)。
 import { FilePreview, type ImagePreviewItem } from '@/components/media/FilePreview'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
@@ -727,7 +727,7 @@ function ImageResultBlock({
   return (
     <div className="space-y-2">
       {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
-      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      {prompt && <p className="text-label italic text-muted-foreground">{prompt}</p>}
       {activeGallery ? (
         <FilePreview
           url={imageUrl}
@@ -744,7 +744,7 @@ function ImageResultBlock({
             </div>
           )}
           {errored && (
-            <div className="flex h-48 items-center justify-center text-xs text-red-500">
+            <div className="flex h-48 items-center justify-center text-label text-red-500">
               {t('imageLoadFailed')}
             </div>
           )}
@@ -811,7 +811,7 @@ function ImageResultBlock({
           href={imageUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 text-label text-primary hover:underline"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           <span>{t('openInNewWindow')}</span>
@@ -827,7 +827,7 @@ function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: str
   return (
     <div className="space-y-2">
       {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
-      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      {prompt && <p className="text-label italic text-muted-foreground">{prompt}</p>}
       <audio
         controls
         src={toMediaStreamUrl(audioUrl)}
@@ -842,7 +842,7 @@ function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: str
         href={audioUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+        className="inline-flex items-center gap-1.5 text-label text-primary hover:underline"
       >
         <ExternalLink className="h-3.5 w-3.5" />
         <span>{t('openInNewWindow')}</span>
@@ -941,7 +941,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
   return (
     <div className="space-y-2">
       {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
-      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      {prompt && <p className="text-label italic text-muted-foreground">{prompt}</p>}
       <video
         controls
         src={streamUrl}
@@ -1001,7 +1001,7 @@ function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: str
           href={videoUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          className="inline-flex items-center gap-1.5 text-label text-primary hover:underline"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           <span>{t('openInNewWindow')}</span>
@@ -1137,7 +1137,7 @@ function PendingTaskBlock({
   const checking = pollStatus === 'checking'
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs">
+      <div className="flex items-center gap-1.5 text-label">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
         <span className="font-medium text-muted-foreground">{t('pendingTaskTitle')}</span>
         {checkedAt && (
@@ -1146,7 +1146,7 @@ function PendingTaskBlock({
           </span>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label text-muted-foreground">
         {t('pendingTaskSubmitted', { tool: toolLabel })}
       </p>
       <div className="flex items-center gap-1.5">
@@ -1198,7 +1198,7 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       {data.plans && data.plans.length > 0 && (
         <div>
           <StreamLabel>{t('plan', { count: data.plans.length })}</StreamLabel>
-          <ul className="space-y-1 text-xs">
+          <ul className="space-y-1 text-label">
             {data.plans.map((p, i) => (
               <li key={p.id || i} className="flex items-center gap-2">
                 <StreamTag tone={PLAN_TONE[p.status] ?? 'neutral'}>
@@ -1213,7 +1213,7 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       {data.sources && data.sources.length > 0 && (
         <div>
           <StreamLabel>{t('reference', { count: data.sources.length })}</StreamLabel>
-          <ul className="space-y-0.5 text-xs">
+          <ul className="space-y-0.5 text-label">
             {data.sources.slice(0, 5).map((s, i) => (
               <li key={i} className="truncate font-mono text-muted-foreground">
                 <StreamTag>{s.type}</StreamTag> {s.ref}
@@ -1269,7 +1269,7 @@ function DeleteSummaryBlock({ paths, recursive }: { paths: string[]; recursive: 
           <li
             key={p}
             data-testid="tool-call-delete-path"
-            className="truncate rounded-sm bg-background/60 px-1.5 py-0.5 font-mono text-xs leading-relaxed text-foreground/80"
+            className="truncate rounded-sm bg-background/60 px-1.5 py-0.5 font-mono text-label leading-relaxed text-foreground/80"
           >
             {p}
           </li>
@@ -1673,5 +1673,4 @@ export const ToolCallCard = React.memo(function ToolCallCard({
     </div>
   )
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

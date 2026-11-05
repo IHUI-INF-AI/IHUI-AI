@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Brain } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { createMemoryEntry } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import type { MemoryCreateInput, MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
@@ -87,10 +87,7 @@ export default function MemoryNewScreen() {
       projectKey: projectKey.trim() || undefined,
     }
     try {
-      const res = await fetchApi<MemoryEntry>('/api/memory', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+      const res = await createMemoryEntry<MemoryEntry>(body)
       if (!res.success) throw new Error(res.error)
       navigation.goBack()
     } catch {
@@ -250,7 +247,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

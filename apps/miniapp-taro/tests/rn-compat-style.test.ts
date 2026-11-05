@@ -14,9 +14,18 @@
  *   - numberOfLines 折 line-clamp、阴影折 box-shadow、transform 数组折字符串;
  *   - 空样式不产出空对象(调用方按 undefined 判"无样式")。
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { flattenStyle, StyleSheet, toTaroStyle } from '@/rn-compat/style'
+
+// 平台依赖切断(2026-11-01):`@tarojs/taro` 的构建期 define(ENABLE_INNER_HTML 等)只在 Taro
+// 编译产物里存在,端外一 import 就在 @tarojs/runtime 顶层抛 `ReferenceError: ENABLE_INNER_HTML is not defined`
+// ——这不是被测层的问题,是测试环境没有那层 define。本册判的是纯转译语义,唯一用到的平台值是
+// `StyleSheet.hairlineWidth` 里的 pixelRatio(该 getter 自身带 try/catch 兜底 1),给它一个真值即可。
+vi.mock('@tarojs/taro', () => {
+  const Taro = { getSystemInfoSync: () => ({ pixelRatio: 2 }) }
+  return { default: Taro, ...Taro }
+})
 
 describe('toTaroStyle:单位口径', () => {
   it('数字按 1:1 落 px(不做 rpx 换算)', () => {

@@ -41,6 +41,18 @@ on:
       - 'scripts/check-cross-store-parity.mjs'
       - 'scripts/check-adapter-style-parity.mjs'
       - 'scripts/check-multi-end-sync.mjs'
+      # 2026-11-05:fork 元素级台账的新鲜度判据。触发面必须含**被量的数据面**,
+      # 否则"改了东西但不触发量它的门"(与 i18n 那组同型:只列门脚本自己)。
+      # 源目录(apps/mobile-rn、packages/app、apps/web)刻意不进 push 触发面 —— 本认证是周回归档,
+      # 跟随每次 UI 提交会逼每个改动方在同一枚提交里重生成台账;真要做每推必判,那要单起一道
+      # 轻量作业而不是让 15 分钟档的认证矩阵挡住每次提交。源目录漂移由周回归兜住。
+      - 'scripts/measure-cross-end-fork-elements.mjs'
+      - 'scripts/check-web-rn-style-tiers.mjs'
+      - 'scripts/data/cross-end-fork-decisions.json'
+      - 'scripts/data/cross-end-allowed-diffs.json'
+      - 'packages/design-tokens/src/spacing.ts'
+      - 'packages/design-tokens/src/typography.ts'
+      - 'packages/design-tokens/src/radius.js'
       #2026-10-04 fail-open 修复:本门唯一被扫的数据面是 i18n 文案本身
       # (check-i18n-broken-en.mjs 读 packages/i18n/messages/web/en.json,
       #  check-i18n-keys.mjs / scan-dead-i18n-keys.mjs 读 packages/i18n/messages/**)。
@@ -67,10 +79,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -79,7 +91,7 @@ jobs:
 
       - name: 上传认证报告
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: 8end-consistency-cert
           path: outputs/8end-consistency-cert-*.md

@@ -10,19 +10,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { HelpCircle, Loader2, Search, Mail } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listHelpArticles } from '@ihui/api-client'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-
-interface HelpArticle {
-  slug: string
-  title: string
-  summary?: string | null
-  content?: string | null
-  category?: string | null
-  updatedAt?: string | null
-}
 
 export default function MemberHelpPage() {
   const locale = useLocale()
@@ -31,9 +22,12 @@ export default function MemberHelpPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'help-articles'],
     queryFn: () =>
-      apiOrThrow<{ list: HelpArticle[] }>('/api/help/articles')
-        .then((d) => d.list ?? [])
-        .catch(() => [] as HelpArticle[]),
+      listHelpArticles()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.list ?? []
+        })
+        .catch(() => []),
   })
 
   const articles = data ?? []
@@ -63,7 +57,7 @@ export default function MemberHelpPage() {
           <HelpCircle className="h-5 w-5 shrink-0 text-primary" />
           <span className="whitespace-nowrap">帮助中心</span>
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查找常见问题与使用指南</p>
+        <p className="mt-0.5 text-body text-muted-foreground">查找常见问题与使用指南</p>
       </div>
 
       <div className="relative max-w-md">
@@ -86,7 +80,9 @@ export default function MemberHelpPage() {
       ) : filtered.length === 0 ? (
         <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <HelpCircle className="h-8 w-8 shrink-0 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{kw ? '未找到相关问题' : '暂无帮助文章'}</p>
+          <p className="text-body text-muted-foreground">
+            {kw ? '未找到相关问题' : '暂无帮助文章'}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -97,16 +93,16 @@ export default function MemberHelpPage() {
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="min-w-0 flex-1 truncate text-body font-semibold">{a.title}</h2>
                     {a.updatedAt && (
-                      <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                      <span className="shrink-0 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                         {fmt(a.updatedAt)}
                       </span>
                     )}
                   </div>
                   {a.summary && (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{a.summary}</p>
+                    <p className="mt-1 line-clamp-2 text-body text-muted-foreground">{a.summary}</p>
                   )}
                   {a.category && (
-                    <span className="mt-1.5 inline-block rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    <span className="mt-1.5 inline-block rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                       {a.category}
                     </span>
                   )}

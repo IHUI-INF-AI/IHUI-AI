@@ -43,8 +43,8 @@ export function OrdersTab({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={thCls}>{t('billingOrderNo')}</th>
             <th className={thCls}>{t('billingAmount')}</th>
@@ -75,7 +75,7 @@ export function OrdersTab({
           ) : (
             list.map((o) => (
               <tr key={o.id} className="transition-colors hover:bg-muted/30">
-                <td className={cn(tdCls, 'font-mono text-xs')}>{o.orderNo}</td>
+                <td className={cn(tdCls, 'font-mono text-label')}>{o.orderNo}</td>
                 <td className={cn(tdCls, 'font-medium')}>
                   {currencyFmt.format(Number(o.payAmount))}
                 </td>
@@ -91,7 +91,9 @@ export function OrdersTab({
         </tbody>
       </table>
       <div className="flex items-center justify-between px-1 pt-3">
-        <span className="text-sm text-muted-foreground">{t('billingTotal', { count: total })}</span>
+        <span className="text-body text-muted-foreground">
+          {t('billingTotal', { count: total })}
+        </span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -102,7 +104,7 @@ export function OrdersTab({
             <ChevronLeft className="h-4 w-4" />
             {t('billingPrev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('billingPageInfo', { page, totalPages })}
           </span>
           <Button

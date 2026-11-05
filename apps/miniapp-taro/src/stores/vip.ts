@@ -13,27 +13,20 @@
 // 2026-07-28 抽离:迁移逻辑改用 @ihui/shared migrateLegacyStorageKey 通用工具;
 //   VIP 状态判断改用 @ihui/shared isVipActive + getVipStatusFromSnapshot,消除端内重复。
 import { createStore } from 'zustand/vanilla'
-import { getStorageSync, setStorageSync, removeStorageSync } from '@tarojs/taro'
+import { getStorageSync, setStorageSync } from '@tarojs/taro'
 import { getVipInfo } from '../api'
 import type { VipInfo } from '../api'
 import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 import { VIP_STORAGE_KEY } from '@/constants/storage'
 import { migrateLegacyStorageKey, isVipActive, getVipStatusFromSnapshot } from '@ihui/shared'
-import { createSyncTransport } from '@ihui/shared/stores'
+import { createTaroStorageTransport } from './storage-adapter'
 
 // 历史遗留 key(下划线),仅用于一次性迁移到连字符 key
 const LEGACY_VIP_STORAGE_KEY = 'ihui_vip_info'
 
 // store 初始化前执行迁移(模块加载时一次性执行)
-migrateLegacyStorageKey(
-  createSyncTransport({
-    getItem: (key) => getStorageSync(key) || null,
-    setItem: (key, value) => setStorageSync(key, value),
-    removeItem: (key) => removeStorageSync(key),
-  }),
-  LEGACY_VIP_STORAGE_KEY,
-  VIP_STORAGE_KEY,
-)
+// transport 取端工厂单点(含"非 string 归一 null"契约),不在端内重抄一份 Taro 同步包装
+migrateLegacyStorageKey(createTaroStorageTransport(), LEGACY_VIP_STORAGE_KEY, VIP_STORAGE_KEY)
 
 interface VipState {
   isVip: boolean

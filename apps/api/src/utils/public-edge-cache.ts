@@ -57,7 +57,7 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
  *
  * host 取不到或 Origin 形态解析不出时一律算跨源:少缓存一次 ≪ 把别人的凭据域喂给本站。
  */
-export function isCrossOriginForEdgeCache(request?: CacheHeaderTarget['request']): boolean {
+function isCrossOriginForEdgeCache(request?: CacheHeaderTarget['request']): boolean {
   const origin = firstHeader(request?.headers?.origin)
   if (!origin) return false
   const host = firstHeader(request?.headers?.host)

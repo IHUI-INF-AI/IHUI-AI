@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { UtensilsCrossed, Loader2 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildMeals } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -54,8 +54,11 @@ export default function ChildMealsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
-    queryFn: () =>
-      apiOrThrow<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    queryFn: async () => {
+      const r = await eduParentChildMeals<{ list: MealItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -72,7 +75,7 @@ export default function ChildMealsPage() {
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('child.meals')}</h1>
-        <p className="text-xs text-muted-foreground">{t('child.mealsHint')}</p>
+        <p className="text-label text-muted-foreground">{t('child.mealsHint')}</p>
       </header>
 
       {!allow ? (
@@ -87,7 +90,7 @@ export default function ChildMealsPage() {
       ) : meals.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <UtensilsCrossed className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('child.empty')}</p>
+          <p className="text-body text-muted-foreground">{t('child.empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -106,10 +109,10 @@ export default function ChildMealsPage() {
                     <div key={m.id} className="rounded-lg border bg-card px-3 py-2">
                       <p className="text-body font-medium">{m.dishName}</p>
                       {m.ingredients && (
-                        <p className="mt-1 text-xs text-muted-foreground">{m.ingredients}</p>
+                        <p className="mt-1 text-label text-muted-foreground">{m.ingredients}</p>
                       )}
                       {m.nutrition && (
-                        <p className="mt-0.5 text-xs text-emerald-600">{m.nutrition}</p>
+                        <p className="mt-0.5 text-label text-emerald-600">{m.nutrition}</p>
                       )}
                     </div>
                   ))}

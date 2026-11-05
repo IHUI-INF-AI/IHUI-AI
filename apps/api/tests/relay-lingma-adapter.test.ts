@@ -102,7 +102,7 @@ describe('lingma 提取器(两态)', () => {
       const metaText = JSON.stringify(result.meta)
       expect(metaText).not.toContain('lingma-secret-token-value-abc')
       const meta = result.meta as { sessions: Array<{ tokenFingerprints: Record<string, string> }> }
-      expect(meta.sessions[0].tokenFingerprints['accessToken']).toMatch(/^[0-9a-f]{12}$/)
+      expect(meta.sessions[0]!.tokenFingerprints['accessToken']).toMatch(/^[0-9a-f]{12}$/)
     } finally {
       rmSync(home, { recursive: true, force: true })
     }

@@ -35,21 +35,24 @@ export function NoteCreateScreen() {
     }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/notes', {
+    // 对齐 web 口径:笔记存于 edu_notes 表(web 学习页/笔记页同走 /api/edu/notes),
+    // courseId 对应 edu 域的 lessonId(仅接受 uuid;tags 两域均不落库,丢弃无损)。
+    const lessonId =
+      courseId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId)
+        ? courseId
+        : undefined
+    const res = await fetchApi<{ note: { id: string } }>('/api/edu/notes', {
       method: 'POST',
       body: JSON.stringify({
         title: title.trim(),
         content: content.trim(),
-        courseId,
+        lessonId,
         isPublic,
-        tags: tags
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
       }),
     })
     setSaving(false)
-    if (res.success && res.data) navigation.replace('NoteDetail', { id: res.data.id })
+    // edu 域无单条详情 GET 端点(NoteDetail 仍读 notes 表),创建成功后回"我的笔记"列表
+    if (res.success && res.data) navigation.replace('Note')
     else if (!res.success) setError(apiFailureToText(res, t('noteCreate.saveFailed')))
   }
 

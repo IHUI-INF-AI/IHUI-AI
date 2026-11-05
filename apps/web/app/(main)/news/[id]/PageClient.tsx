@@ -67,12 +67,12 @@ export default function NewsDetailPage() {
       <div className="mx-auto w-full max-w-5xl space-y-4">
         <Link
           href="/news"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </Link>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -123,9 +123,9 @@ export default function NewsDetailPage() {
               <header className="space-y-3 pb-4">
                 <h1 className="text-display font-bold tracking-tight">{article.title}</h1>
                 {article.summary && (
-                  <p className="text-xs text-muted-foreground">{article.summary}</p>
+                  <p className="text-label text-muted-foreground">{article.summary}</p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-label text-muted-foreground">
                   {article.authorName && (
                     <span className="font-medium text-foreground">{article.authorName}</span>
                   )}
@@ -163,7 +163,7 @@ export default function NewsDetailPage() {
               )}
 
               {article.summary && (
-                <blockquote className="my-4 rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                <blockquote className="my-4 rounded-md bg-muted/50 p-3 text-body text-muted-foreground">
                   {article.summary}
                 </blockquote>
               )}
@@ -175,7 +175,7 @@ export default function NewsDetailPage() {
 
               {tags.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-4">
-                  <span className="text-xs text-muted-foreground">{t('tags')}</span>
+                  <span className="text-label text-muted-foreground">{t('tags')}</span>
                   {tags.map((tag: string) => (
                     <Badge key={tag} variant="primary">
                       #{tag}

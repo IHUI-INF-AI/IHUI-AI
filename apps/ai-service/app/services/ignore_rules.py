@@ -23,11 +23,20 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Set
 from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_IGNORE_FILENAMES: tuple[str, ...] = (".gitignore", ".aiignore")
+
+#: 索引口径:哪些规则文件的命中可以**被"已跟踪"这一事实推翻**。
+#:
+#: 这不是妥协,是 git 自己的语义:`.gitignore` 对**已跟踪**文件根本不生效
+#: (`git ls-files -i -c --exclude-standard` 专门用来找这种"跟踪却命中忽略"的别扭件,
+#: 守门 236 的射程)。索引面若照抄 `.gitignore`,就是把已入库的内容静默剔出索引。
+#: `.aiignore` 是索引专属规则(不对应任何 git 语义),写它的人表达的是"这枚别进索引",
+#: 所以它照剪,与跟踪状态无关。
+TRACKING_DEFERRED_RULE_FILES: frozenset[str] = frozenset({".gitignore"})
 MAX_RULE_FILES = 64
 MAX_RULES = 4000
 MAX_RULE_DEPTH = 8
@@ -259,18 +268,83 @@ def is_ignored(path: str, ignore: IgnoreSet, *, is_dir: bool = False) -> tuple[b
     return True, hit
 
 
+def normalize_rel_path(rel: str) -> str:
+    """相对路径归一(Windows 反斜杠 → posix,去首尾斜杠)。**单源**:别在家各写一遍。"""
+    return str(rel).replace("\\", "/").strip("/")
+
+
+def rule_file_name(source: str) -> str:
+    """规则出处 → 规则文件名(`sub/.gitignore` → `.gitignore`)。"""
+    return source.rsplit("/", 1)[-1]
+
+
+def is_tracking_deferred(rule: IgnoreRule) -> bool:
+    """这枚命中是否"只对**未跟踪**文件成立"(`.gitignore` 口径,见常量注释)。"""
+    return rule_file_name(rule.source) in TRACKING_DEFERRED_RULE_FILES
+
+
+def classify_path(rel: str, ignore: IgnoreSet) -> tuple[str, IgnoreRule | None]:
+    """归一后的相对路径 + **判它剪不剪的那枚规则**(不剪 ⇒ None)。
+
+    两把对外尺子(`filter_paths` 骨架口径 / `filter_paths_for_index` 索引口径)都只走
+    这一个判定,不各写一份 `is_ignored` 调用点(§0.6:同类判据全仓只许一份)。
+    """
+    norm = normalize_rel_path(rel)
+    drop, rule = is_ignored(norm, ignore)
+    if not drop or rule is None:
+        return norm, None
+    return norm, rule
+
+
 def filter_paths(paths: Iterable[str], ignore: IgnoreSet) -> tuple[list[str], list[tuple[str, str]]]:
     """一趟过滤:留下的 + 被剪的(带出处)。输入顺序原样保留(枚举出口已是稳定序)。"""
     kept: list[str] = []
     pruned: list[tuple[str, str]] = []
     for rel in paths:
-        norm = str(rel).replace("\\", "/").strip("/")
-        drop, rule = is_ignored(norm, ignore)
-        if drop and rule is not None:
+        norm, rule = classify_path(rel, ignore)
+        if rule is not None:
             pruned.append((norm, rule.where()))
             continue
         kept.append(str(rel))
     return kept, pruned
+
+
+def filter_paths_for_index(
+    paths: Iterable[str],
+    ignore: IgnoreSet,
+    *,
+    tracked: Set[str] | None,
+) -> tuple[list[str], list[tuple[str, str]], list[tuple[str, str]]]:
+    """**索引口径**的一趟过滤 → (留下, 被剪带出处, 跟踪但被忽略而保留带出处)。
+
+    取舍口径(2026-11-01 立,P84;与 `filter_paths` 共用同一个判定 `classify_path`):
+
+    - `.gitignore` 命中 ∧ 路径**已被 git 跟踪** ⇒ **不剪**:原样留下,并逐条带回是哪枚
+      规则文件的哪一行命中过它。理由见 `TRACKING_DEFERRED_RULE_FILES` 的注释 ——
+      git 自己也不拿 `.gitignore` 去忽略已跟踪文件,索引面照抄就是让"仓库有意保留的
+      内容"从检索面静默消失(丢内容且无痕迹)。
+    - `.aiignore` 等索引专属规则命中 ⇒ 照剪,与跟踪状态无关。
+    - `tracked is None`(= 跟踪面取不到)⇒ **一条都不剪**并原样返回:失效方向取
+      "多留一份"而不是"多丢一份"。"没判"由调用方点名,不在这里冒充已知。
+
+    输入顺序原样保留(枚举出口是稳定序,顺序漂了会让快照轮次之间无谓抖动)。
+    """
+    if tracked is None:
+        return [str(p) for p in paths], [], []
+    kept: list[str] = []
+    pruned: list[tuple[str, str]] = []
+    tracked_kept: list[tuple[str, str]] = []
+    for rel in paths:
+        norm, rule = classify_path(rel, ignore)
+        if rule is None:
+            kept.append(str(rel))
+            continue
+        if is_tracking_deferred(rule) and norm in tracked:
+            tracked_kept.append((norm, rule.where()))
+            kept.append(str(rel))
+            continue
+        pruned.append((norm, rule.where()))
+    return kept, pruned, tracked_kept
 
 
 __test__ = {
@@ -278,6 +352,9 @@ __test__ = {
     "load_ignore_set": load_ignore_set,
     "is_ignored": is_ignored,
     "filter_paths": filter_paths,
+    "filter_paths_for_index": filter_paths_for_index,
+    "classify_path": classify_path,
+    "is_tracking_deferred": is_tracking_deferred,
     "_glob_to_regex": _glob_to_regex,
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

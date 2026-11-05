@@ -12,7 +12,13 @@ import { CalendarCheck, Plus, Trash2 } from 'lucide-react'
 import { Button, Input } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { apiOrThrow as api } from '@/lib/api'
+import {
+  checkinAccountPool,
+  createAccountPool,
+  deleteAccountPool,
+  listAccountPool,
+  updateAccountPool,
+} from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 interface PoolRow {
@@ -42,22 +48,26 @@ export default function AccountPoolPage() {
   const listQ = useQuery({
     queryKey: ['account-pool'],
     enabled: allow,
-    queryFn: () => api<{ list: PoolRow[]; total: number }>('/api/account-pool'),
+    queryFn: async () => {
+      const r = await listAccountPool<{ list: PoolRow[]; total: number }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const rows = listQ.data?.list ?? []
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['account-pool'] })
   const addMut = useMutation({
-    mutationFn: () =>
-      api('/api/account-pool', {
-        method: 'POST',
-        body: JSON.stringify({
-          providerCode: form.providerCode,
-          name: form.name.trim(),
-          token: form.token.trim(),
-          refreshToken: form.refreshToken.trim() || undefined,
-        }),
-      }),
+    mutationFn: async () => {
+      const r = await createAccountPool({
+        providerCode: form.providerCode,
+        name: form.name.trim(),
+        token: form.token.trim(),
+        refreshToken: form.refreshToken.trim() || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('addSuccess'))
       setForm(EMPTY_FORM)
@@ -67,16 +77,20 @@ export default function AccountPoolPage() {
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const toggleMut = useMutation({
-    mutationFn: (row: PoolRow) =>
-      api(`/api/account-pool/${row.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isEnabled: !row.isEnabled }),
-      }),
+    mutationFn: async (row: PoolRow) => {
+      const r = await updateAccountPool(row.id, { isEnabled: !row.isEnabled })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const checkinMut = useMutation({
-    mutationFn: (row: PoolRow) => api(`/api/account-pool/${row.id}/checkin`, { method: 'POST' }),
+    mutationFn: async (row: PoolRow) => {
+      const r = await checkinAccountPool(row.id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('checkinSuccess'))
       invalidate()
@@ -84,7 +98,11 @@ export default function AccountPoolPage() {
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/account-pool/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await deleteAccountPool(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       setConfirmId(null)
       invalidate()
@@ -103,7 +121,7 @@ export default function AccountPoolPage() {
       </div>
       <div>
         <h1 className="text-display font-bold">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {!allow ? (
@@ -113,10 +131,10 @@ export default function AccountPoolPage() {
           {adding ? (
             <div className="space-y-3 rounded-lg border border-border bg-card p-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
+                <label className="space-y-1 text-body">
                   <span className="text-muted-foreground">{t('provider')}</span>
                   <select
-                    className="ui-control w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                    className="ui-control w-full rounded-sm border border-border bg-background px-3 py-2 text-body"
                     value={form.providerCode}
                     onChange={(e) => setForm((f) => ({ ...f, providerCode: e.target.value }))}
                   >
@@ -127,7 +145,7 @@ export default function AccountPoolPage() {
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1 text-sm">
+                <label className="space-y-1 text-body">
                   <span className="text-muted-foreground">{t('name')}</span>
                   <Input
                     value={form.name}
@@ -136,15 +154,15 @@ export default function AccountPoolPage() {
                   />
                 </label>
               </div>
-              <label className="block space-y-1 text-sm">
+              <label className="block space-y-1 text-body">
                 <span className="text-muted-foreground">{t('token')}</span>
                 <textarea
-                  className="ui-control min-h-20 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
+                  className="ui-control min-h-20 w-full rounded-sm border border-border bg-background px-3 py-2 text-body"
                   value={form.token}
                   onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
                 />
               </label>
-              <label className="block space-y-1 text-sm">
+              <label className="block space-y-1 text-body">
                 <span className="text-muted-foreground">{t('refreshToken')}</span>
                 <Input
                   value={form.refreshToken}
@@ -168,11 +186,11 @@ export default function AccountPoolPage() {
           ) : null}
 
           {listQ.isLoading ? (
-            <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            <p className="text-body text-muted-foreground">{t('loading')}</p>
           ) : rows.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-8 text-center">
               <p className="text-body font-medium">{t('empty')}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{t('emptyHint')}</p>
+              <p className="mt-1 text-body text-muted-foreground">{t('emptyHint')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -183,13 +201,13 @@ export default function AccountPoolPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-label text-muted-foreground">
                         {row.providerCode}
                       </span>
                       <span className="truncate text-body font-medium">{row.name}</span>
                       <span
                         className={cn(
-                          'rounded-sm px-1.5 py-0.5 text-xs',
+                          'rounded-sm px-1.5 py-0.5 text-label',
                           row.isEnabled
                             ? 'bg-emerald-500/10 text-emerald-600'
                             : 'bg-muted text-muted-foreground',
@@ -198,12 +216,12 @@ export default function AccountPoolPage() {
                         {row.isEnabled ? t('enabled') : t('disabled')}
                       </span>
                       {row.checkinPending ? (
-                        <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-600">
+                        <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-label text-amber-600">
                           {t('syncPending')}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                    <p className="mt-1 truncate text-label text-muted-foreground">
                       {t('uid')}: {row.uid}
                     </p>
                   </div>

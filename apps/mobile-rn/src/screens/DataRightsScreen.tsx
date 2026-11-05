@@ -14,7 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Download, Share2, Trash2 } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  exportGdprData,
+  getGdprPortabilityData,
+  eraseGdprAccount,
+  type GdprExportData as ExportData,
+  type GdprPortabilityData as PortabilityData,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -35,38 +41,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  * 后端不保存"申请单"记录，故本屏的「最近操作回执」只反映本机最近一次调用结果与时间，
  * 不谎称为服务端申请状态。
  */
-interface ExportUser {
-  id: string
-  phone: string | null
-  email: string | null
-  username: string | null
-  nickname: string | null
-  createdAt: string
-}
-interface ExportData {
-  user: ExportUser
-  searchHistory: unknown[]
-  auditLogs: unknown[]
-}
-interface PortabilityData {
-  schema: string
-  exportedAt: string
-  subject: { id: string; identifier: string | null }
-  data: {
-    profile?: { nickname?: string | null; email?: string | null }
-    searchHistory?: unknown[]
-    auditTrail?: unknown[]
-    addresses?: unknown[]
-    notes?: unknown[]
-    memories?: unknown[]
-    chat?: { conversations?: unknown[]; messageCount?: number }
-    orders?: unknown[]
-  }
-}
-interface EraseData {
-  erased: boolean
-  userId: string
-}
 type ReceiptKind = 'export' | 'portability' | 'erase'
 interface Receipt {
   kind: ReceiptKind
@@ -111,15 +85,15 @@ export default function DataRightsScreen() {
     setReceipts((prev) => [{ kind, ok, at: new Date().toISOString() }, ...prev].slice(0, 5))
   }
   const receiptLabel = (kind: ReceiptKind): string => {
-    if (kind === 'export') return t('dataRights.recentExport')
-    if (kind === 'portability') return t('dataRights.recentPortability')
-    return t('dataRights.recentErase')
+    if (kind === 'export') return t('eduAi.dataRights.exportCard')
+    if (kind === 'portability') return t('eduAi.dataRights.portabilityCard')
+    return t('eduAi.dataRights.eraseCard')
   }
   const onExport = async () => {
     setExporting(true)
     setExportError(null)
     try {
-      const res = await fetchApi<ExportData>('/api/gdpr/export', { method: 'POST' })
+      const res = await exportGdprData()
       if (!res.success) {
         setExportError(res.error || t('dataRights.exportFailed'))
         pushReceipt('export', false)
@@ -138,7 +112,7 @@ export default function DataRightsScreen() {
     setPortLoading(true)
     setPortError(null)
     try {
-      const res = await fetchApi<PortabilityData>('/api/gdpr/portability', { method: 'POST' })
+      const res = await getGdprPortabilityData()
       if (!res.success) {
         setPortError(res.error || t('dataRights.portabilityFailed'))
         pushReceipt('portability', false)
@@ -158,7 +132,7 @@ export default function DataRightsScreen() {
     setErasing(true)
     setEraseError(null)
     try {
-      const res = await fetchApi<EraseData>('/api/gdpr/erase', { method: 'POST' })
+      const res = await eraseGdprAccount()
       if (!res.success) {
         setEraseError(res.error || t('dataRights.eraseFailed'))
         pushReceipt('erase', false)
@@ -384,16 +358,16 @@ function makeStyles() {
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     dangerTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     subTitle: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tokens.text.primary,
       marginTop: rnSpacing.xs,
     },
-    label: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     value: { fontSize: rnType.body.size, color: tokens.text.primary },
-    error: { fontSize: 13, color: tokens.danger.DEFAULT },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     button: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -466,7 +440,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
     },
-    receiptName: { flex: 1, fontSize: 13, color: tokens.text.primary },
+    receiptName: { flex: 1, fontSize: rnType.bodySm.size, color: tokens.text.primary },
     receiptStatus: { fontSize: rnType.label.size, fontWeight: '600' },
   })
 }

@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,255,255,0.25)',
     },
-    badgeText: { fontSize: 10, color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
     cardNumber: {
       marginTop: rnSpacing['sm-loose'],
       fontSize: rnType.heading.size,

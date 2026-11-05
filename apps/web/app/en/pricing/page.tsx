@@ -189,7 +189,7 @@ function ComparisonCell({ value }: { value: string | boolean }) {
       <X className="mx-auto h-4 w-4 text-muted-foreground" />
     )
   }
-  return <span className="text-sm">{value}</span>
+  return <span className="text-body">{value}</span>
 }
 
 export default function PricingLandingPage() {
@@ -205,10 +205,10 @@ export default function PricingLandingPage() {
           <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-foreground md:text-5xl">
             Simple, Transparent Pricing
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">
+          <p className="mt-6 max-w-2xl text-lg text-muted-foreground md:text-heading md:font-normal">
             Start free. Upgrade as you grow. No hidden fees.
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-body text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Cpu className="h-4 w-4 text-primary" /> 176+ models
             </span>
@@ -219,7 +219,7 @@ export default function PricingLandingPage() {
               <Shield className="h-4 w-4 text-primary" /> Self-hosted ready
             </span>
           </div>
-          <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm">
+          <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-body">
             <span className="font-medium">Monthly</span>
             <span className="text-muted-foreground">|</span>
             <span className="font-medium">Annual</span>
@@ -251,16 +251,16 @@ export default function PricingLandingPage() {
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-bold">{plan.price}</span>
                       {plan.period && (
-                        <span className="text-sm text-muted-foreground">{plan.period}</span>
+                        <span className="text-body text-muted-foreground">{plan.period}</span>
                       )}
                     </div>
                     {plan.yearly && (
-                      <p className="mt-1 text-xs text-muted-foreground">or {plan.yearly}</p>
+                      <p className="mt-1 text-label text-muted-foreground">or {plan.yearly}</p>
                     )}
                   </div>
                   <ul className="space-y-2">
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-sm">
+                      <li key={f} className="flex items-center gap-2 text-body">
                         <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
                         <span>{f}</span>
                       </li>
@@ -296,7 +296,7 @@ export default function PricingLandingPage() {
               <div className="text-center text-body font-semibold">Enterprise</div>
               {comparison.map((row) => (
                 <div key={row.feature} className="contents">
-                  <div className="rounded bg-card px-3 py-2 text-sm text-muted-foreground">
+                  <div className="rounded bg-card px-3 py-2 text-body text-muted-foreground">
                     {row.feature}
                   </div>
                   <div className="flex items-center justify-center rounded bg-card px-3 py-2">
@@ -328,7 +328,7 @@ export default function PricingLandingPage() {
             {faqs.map((faq) => (
               <details key={faq.q} className="rounded-lg border border-border bg-card p-3">
                 <summary className="cursor-pointer font-medium">{faq.q}</summary>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
+                <p className="mt-3 text-body leading-relaxed text-muted-foreground">{faq.a}</p>
               </details>
             ))}
           </div>
@@ -342,7 +342,7 @@ export default function PricingLandingPage() {
               <h2 className="mt-4 text-heading font-bold tracking-tight text-foreground md:text-display">
                 Open Source. Self-Host. Free Forever.
               </h2>
-              <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">
+              <p className="mx-auto mt-2 max-w-2xl text-body text-muted-foreground md:text-base">
                 IHUI AI is licensed under Apache 2.0. Deploy on your own infrastructure with Docker
                 Compose one-click deployment. Your data, your rules.
               </p>
@@ -369,7 +369,7 @@ export default function PricingLandingPage() {
             <h2 className="text-heading font-bold tracking-tight text-foreground md:text-display">
               Ready to get started?
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
+            <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground md:text-base">
               Sign up free — no credit card required. 智汇 AI
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

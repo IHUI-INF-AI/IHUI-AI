@@ -14,7 +14,6 @@
  *  3. **空值/缺字段一律 false 且不抛**—— 这一维没有结论时不得让调用方拿到一次异常。
  */
 import { randomBytes } from 'node:crypto'
-import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { createDeviceFingerprintCollector } from '@ihui/types'
 import {

@@ -103,7 +103,7 @@ export const LineChart = React.memo(function LineChart({
             x={points[i]?.x}
             y={height - 6}
             textAnchor="middle"
-            className="fill-muted-foreground text-xs"
+            className="fill-muted-foreground text-label"
           >
             {label}
           </text>
@@ -114,7 +114,7 @@ export const LineChart = React.memo(function LineChart({
           {labels.map((label, i) => (
             <span
               key={`label-${i}`}
-              className="flex items-center gap-1 text-xs text-muted-foreground"
+              className="flex items-center gap-1 text-label text-muted-foreground"
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
               {label}

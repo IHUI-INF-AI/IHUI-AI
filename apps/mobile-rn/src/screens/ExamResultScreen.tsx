@@ -6,11 +6,12 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getResult } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamResultScreen as SharedExamResultScreen, type ExamResultItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamResult'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -24,22 +25,26 @@ export function ExamResultScreen() {
   const [result, setResult] = useState<ExamResultItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ExamResultItem>(`/api/exam/records/${encodeURIComponent(id)}`)
+      const res = await getResult(id)
       if (cancelled) return
-      if (res.success) setResult(res.data)
+      if (res.success) setResult(res.data as unknown as ExamResultItem)
       else setError(apiFailureToText(res, t('examResult.loadFailed')))
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  const { onNavigate } = useHostPorts()
 
   return (
     <SharedExamResultScreen
@@ -48,7 +53,9 @@ export function ExamResultScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
+      onRetry={reload}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

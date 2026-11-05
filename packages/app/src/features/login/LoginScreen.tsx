@@ -18,11 +18,11 @@ import { TextField } from '../../components/TextField'
 import {
   OAUTH_BRAND_COLORS,
   OAUTH_BUTTON_FOREGROUND,
-  withAlpha,
-  rnRadius,
   rnGeometry,
+  rnRadius,
   rnSpacing,
   rnType,
+  withAlpha,
 } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
@@ -1557,7 +1557,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     page: {
       flex: 1,
       backgroundColor: surface,
-      paddingHorizontal: 15,
+      paddingHorizontal: rnSpacing['md-loose'],
       // 垂直居中:内容不足一屏时上下留白均衡,避免底部大片空白(2026-09-04)
       justifyContent: 'center',
     },
@@ -1599,7 +1599,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       letterSpacing: 0.5,
     },
     welcomeText: {
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.text.primary,
       letterSpacing: 0.5,
@@ -1749,7 +1749,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     areaArrow: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.text.tertiary,
       marginLeft: rnSpacing['xs-loose'],
     },
@@ -1779,7 +1779,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.md,
       gap: rnSpacing.md,
     },
@@ -1920,7 +1920,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyItem: {
       paddingVertical: 0,
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -1941,11 +1941,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyClear: {
       paddingVertical: rnSpacing['sm-loose'],
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       alignItems: 'center',
     },
     historyClearText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
@@ -1995,7 +1995,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // marginTop 22 与上方图标网格拉开间距) =====
     ssoBtn: {
       height: 38,
-      marginTop: 22,
+      marginTop: rnSpacing['xl'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: inputBorder,
@@ -2005,9 +2005,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     ssoBtnText: {
       color: tk.text.secondary,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '400',
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       // 与 loginBtnText 同一光学居中校正(中文字体度量偏下)
       transform: [{ translateY: -1 }],
     },
@@ -2099,11 +2099,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.surface.muted,
     },
     qrPlaceholderText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     qrStatusText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
       textAlign: 'center',
     },
@@ -2116,7 +2116,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     qrRefreshText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -2199,7 +2199,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.brand.cta,
     },
     qrOpenWebText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: onBrandText,
     },

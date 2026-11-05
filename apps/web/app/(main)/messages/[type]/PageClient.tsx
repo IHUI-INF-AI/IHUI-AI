@@ -192,7 +192,7 @@ export default function MessageTypePage() {
       ) : items.length === 0 ? (
         <div className="mx-auto flex max-w-sm flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <Icon className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
+          <p className="text-body">{isPrivateLetter ? tp('noConversations') : t('empty')}</p>
         </div>
       ) : (
         <ul className="max-h-[calc(100vh-22rem)] space-y-2 overflow-auto">
@@ -216,10 +216,10 @@ export default function MessageTypePage() {
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                     )}
                   </div>
-                  <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted-foreground">
+                  <p className="mt-0.5 line-clamp-2 break-words text-label text-muted-foreground">
                     {item.content}
                   </p>
-                  <p className="mt-1 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                  <p className="mt-1 whitespace-nowrap text-label tabular-nums text-muted-foreground">
                     {dateFmt.format(new Date(item.createdAt))}
                   </p>
                 </div>

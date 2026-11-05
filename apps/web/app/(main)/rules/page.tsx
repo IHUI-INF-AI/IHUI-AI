@@ -23,7 +23,7 @@ export default async function RulesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold leading-tight">{t('pageTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('pageSubtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('pageSubtitle')}</p>
       </div>
       <RulesManager />
     </div>

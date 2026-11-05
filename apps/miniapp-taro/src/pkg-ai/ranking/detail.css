@@ -17,14 +17,14 @@
   flex-direction: row;
   align-items: center;
   height: 88rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-card);
   flex-shrink: 0;
 }
 
 .detail-nav-title {
   flex: 1;
-  margin: 0 16rpx;
+  margin: 0 var(--spacing-sm);
   font-size: var(--text-title);
   font-weight: 600;
   color: var(--color-foreground);
@@ -44,7 +44,7 @@
   align-items: center;
   justify-content: center;
   height: 56rpx;
-  padding: 0 20rpx;
+  padding: 0 var(--spacing-sm-loose);
   background: var(--color-background);
   border-radius: var(--radius-sm);
 }
@@ -58,7 +58,7 @@
 .detail-body {
   flex: 1;
   height: 0;
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
   box-sizing: border-box;
 }
 
@@ -77,7 +77,7 @@
   gap: var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  padding: 28rpx;
+  padding: var(--spacing-md-loose);
 }
 
 /* row-1:Logo + 标题简介 + 元信息(RN row1: row/center/gap12) */
@@ -138,7 +138,7 @@
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: var(--spacing-xs) 24rpx;
+  gap: var(--spacing-xs) var(--spacing-md);
 }
 
 .head-meta-item {
@@ -160,7 +160,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-sm-loose) 8rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-xs);
   background: var(--color-muted);
   border-radius: var(--radius-xl);
 }
@@ -265,7 +265,7 @@
 
 /* 侧边栏抽屉内容 */
 .drawer-content {
-  padding: var(--spacing-md) 32rpx 40rpx;
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-xl);
   max-height: 70vh;
   display: flex;
   flex-direction: column;

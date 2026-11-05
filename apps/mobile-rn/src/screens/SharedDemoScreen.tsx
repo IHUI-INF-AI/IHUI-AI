@@ -28,7 +28,8 @@ import { useTheme } from '../context/ThemeContext'
 import { rpx } from '../utils/rpx'
 import { APP_VERSION } from '../lib/config'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnType } from '@ihui/design-tokens'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Tab = 'about' | 'profile' | 'settings' | 'cards'
 
@@ -47,6 +48,7 @@ export function SharedDemoScreen() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [loading, setLoading] = useState(true)
+  const { onNavigate, onToast } = useHostPorts()
 
   useEffect(() => {
     if (!__DEV__) return
@@ -132,7 +134,13 @@ export function SharedDemoScreen() {
         <Text style={styles.statusText}>加载失败</Text>
       ) : null}
       {tab === 'about' && (
-        <AboutScreen t={t} onBack={() => setTab('profile')} colorScheme={resolvedTheme} />
+        <AboutScreen
+          t={t}
+          onBack={() => setTab('profile')}
+          colorScheme={resolvedTheme}
+          onNavigate={onNavigate}
+          onToast={onToast}
+        />
       )}
       {tab === 'profile' && (
         <ProfileScreen
@@ -265,17 +273,17 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   tabActive: { backgroundColor: tokens.brand.cta },
-  tabText: { fontSize: 13, fontWeight: '500', color: tokens.text.medium },
+  tabText: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tokens.text.medium },
   statusText: {
     padding: rpx(24),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
     textAlign: 'center',
   },
   cardsScroll: { flex: 1 },
   cardsContent: { padding: rpx(32), gap: rpx(16) },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
     marginTop: rpx(24),

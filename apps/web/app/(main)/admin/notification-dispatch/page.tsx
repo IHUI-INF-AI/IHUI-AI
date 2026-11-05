@@ -79,7 +79,7 @@ export default function NotificationDispatchPage() {
           <Bell className="h-6 w-6 text-primary" />
           {t('nd.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('nd.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('nd.subtitle')}</p>
       </div>
 
       <DispatchFormView

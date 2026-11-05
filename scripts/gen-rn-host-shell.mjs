@@ -37,6 +37,10 @@
  *   node scripts/gen-rn-host-shell.mjs --screen=... --write
  *   node scripts/gen-rn-host-shell.mjs --all --write --cap=5
  *   node scripts/gen-rn-host-shell.mjs --check
+ *
+ * 写盘申报(2026-11-03 立):--write/--adopt 成功写出的薄壳批末进
+ * scripts/lib/cross-end-landing-ledger.mjs 账本(leg 逐字取守护自称名 CROSS_END_LEG),
+ * 落库由收编侧按「账本在册 ∧ blob 相符 ∧ 超静默期」处理;只读档(--list/--check/预演)零登记。
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -44,12 +48,102 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { allPropsOf, requiredPropsOf } from './lib/cross-end-screen-props.mjs'
+// 写盘申报账本(2026-11-03 立):落点判据/幂等/形状校验全在库内,本文件只调它(§0.6)。
+import { appendLanding, isRowComplete, readLanding } from './lib/cross-end-landing-ledger.mjs'
+// 取 oid 与 collectiblePaths 同尺:库内 worktree 面用 gitRaw(['hash-object','--',p], root),
+// 这里必须问同一把尺(两侧算法不一致的后果是"永远 contested")。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const R = (...p) => join(ROOT, ...p)
 const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
 const RN_DIR = 'apps/mobile-rn/src/screens'
 const MARK = '@gen-rn-host-shell'
+
+/**
+ * 本腿在 git-guardian 的自称名,逐字取用,不自立新名:守护 sweepRnHostShells 的节流戳
+ * 与 env 旋钮都以这个名字自称(tickFile 'rn-host-shell-last.json'、
+ * IHUI_RN_HOST_SHELL_INTERVAL_MS / IHUI_RN_HOST_SHELL_TIMEOUT_MS)。
+ * 对照证据由 scripts/tests/cross-end-landing-legs.test.mjs 钉(名字必须逐字出现在守护源里)。
+ */
+export const CROSS_END_LEG = 'rn-host-shell'
+
+// ─── 写盘申报账本层(2026-11-03 立,四枚跨端写盘腿同形)───────────────────────
+// 本腿 --write 只写工作树;写成功的文件批末申报进 cross-end-landing-ledger,
+// 收编侧只认「账本在册 ∧ 工作树 blob 逐字节等于登记 oid ∧ 超静默期 ∧ 非 ignored」。
+// 与既有幂等判据共存:existsSync 跳过(防 --cap=2 在同一批打转)原样保留,账本登记只是追加凭据。
+// 失效方向:账本读不到 ⇒ 照旧全量尝试 + ledger=unjudged,不退场不判死(§0.3)。
+/** 与 collectiblePaths(worktree 面)同一把尺取当前 blob oid;取不到 ⇒ null(点名不猜)。 */
+export function worktreeBlobOid(rel, root = ROOT) {
+  try {
+    return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** 本 leg 在册且行完整的 path→oid 映射;账本取不到 ⇒ {ok:false, reason}(不冒充空集)。 */
+export function landedOidMap({ root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = readLanding({ root })
+  if (!rd.ok) return { ok: false, reason: rd.reason, map: new Map() }
+  const map = new Map()
+  for (const row of rd.lines) {
+    if (String(row?.leg ?? '') !== leg || !isRowComplete(row)) continue
+    map.set(String(row.path), String(row.blobOid).trim().toLowerCase())
+  }
+  return { ok: true, reason: null, map }
+}
+
+/** 「本 leg 已登记 ∧ 工作树 blob 仍等于登记 oid」的路径 ⇒ 本轮视为已完成。 */
+export function landedSkips(paths, { root = ROOT, leg = CROSS_END_LEG } = {}) {
+  const rd = landedOidMap({ root, leg })
+  if (!rd.ok) return { skip: [], ledger: 'unjudged', reason: rd.reason }
+  const skip = []
+  for (const p of paths || []) {
+    const oid = rd.map.get(p)
+    if (oid && worktreeBlobOid(p, root) === oid) skip.push(p)
+  }
+  return { skip, ledger: null, reason: null }
+}
+
+/** 批末申报:写了盘的文件逐枚实测 oid 进账本。写了盘没登记上 ⇒ landingError 点名,不冒成功。 */
+export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at = new Date().toISOString() } = {}) {
+  const list = [...new Set(paths || [])]
+  if (list.length === 0) return { landing: 0, appended: 0, deduped: 0, rejected: [] }
+  const entries = []
+  const unhashable = []
+  for (const p of list) {
+    const oid = worktreeBlobOid(p, root)
+    if (!oid) {
+      unhashable.push(p)
+      continue
+    }
+    entries.push({ at, leg, path: p, blobOid: oid })
+  }
+  try {
+    const ap = appendLanding(entries, { root })
+    const out = {
+      landing: ap.appended + ap.deduped,
+      appended: ap.appended,
+      deduped: ap.deduped,
+      rejected: ap.rejected,
+    }
+    const errs = []
+    if (ap.rejected.length)
+      errs.push(`账本拒收:${ap.rejected.map((r) => `${r.path}(${r.reason})`).join(' ')}`)
+    if (unhashable.length) errs.push(`落点 blob 取不到:${unhashable.join(' ')}`)
+    if (errs.length) out.landingError = errs.join(' | ')
+    return out
+  } catch (e) {
+    return {
+      landing: 0,
+      appended: 0,
+      deduped: 0,
+      rejected: [],
+      landingError: `账本写盘失败:${String(e?.message ?? e).split('\n')[0]}`,
+    }
+  }
+}
 
 /** 平台能当场注入的腿 → 生成时写进 JSX 的表达式。不在此表内的可注入腿一律算 needs-manual。 */
 const LEG_EXPR = {
@@ -251,25 +345,38 @@ function main() {
   }
 
   let targets = []
+  let seedGoals = []
   if (screen) {
     if (!existsSync(R(screen))) {
       console.error('未判定:共享屏不存在 ' + screen)
       process.exit(2)
     }
     targets = [screen]
+    seedGoals = [targetPathOf(screen, registry)]
   } else {
     const { rows } = listAll(registry)
     const cap = Number(val('cap', '5')) || 5
-    targets = rows
-      .filter((r) => r.kind === 'seedable')
+    const seedables = rows.filter((r) => r.kind === 'seedable')
+    seedGoals = seedables.map((r) => targetPathOf(r.spec, registry))
+    targets = seedables
       .map((r) => r.spec)
       .filter((s) => !existsSync(R(targetPathOf(s, registry))))
       .slice(0, cap)
   }
 
+  // 轮首读账本(只对本 leg 在册的小集合逐枚量 blob,不扫全仓):本腿上一轮写出、已登记
+  // 在账、工作树副本至今未动的薄壳 = 本轮已完成(它们本就落在 existsSync 跳过集里,
+  // --cap=2 不会因它们打转;这里只把"在等收编"这件事量成读数)。账本读不到 ⇒ 照常全量尝试。
+  const landedRead = landedOidMap()
+  const skipLanded = seedGoals.filter((g) => {
+    const oid = landedRead.map.get(g)
+    return Boolean(oid) && worktreeBlobOid(g) === oid
+  }).length
+
   const force = has('force')
   const adopt = has('adopt')
   const write = has('write') || adopt
+  const writtenPaths = []
   let wrote = 0
   let skipped = 0
   let manual = 0
@@ -307,13 +414,16 @@ function main() {
     }
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, buildShell(spec, c.legs))
+    writtenPaths.push(goal)
     wrote++
     console.log(`  written ${goal}`)
   }
+  // 批末申报:写了盘的薄壳逐枚实测 oid 进账本(落库交给「账本在册 ∧ blob 相符 ∧ 超静默期」的收编侧)。
+  const landingInfo = write && writtenPaths.length > 0 ? registerLandings(writtenPaths) : { landing: 0 }
   console.log(
-    `GEN-RN-HOST-SHELL state=${write ? 'applied' : 'preview'} 目标=${targets.length} 写出=${wrote} 跳过=${skipped} 需人工=${manual}`,
+    `GEN-RN-HOST-SHELL state=${write ? 'applied' : 'preview'} 目标=${targets.length} 写出=${wrote} 跳过=${skipped} 需人工=${manual} landing=${landingInfo.landing} skipLanded=${skipLanded}${landingInfo.landingError ? ` landingError=${landingInfo.landingError}` : ''}${landedRead.ok ? '' : ' ledger=unjudged'}`,
   )
-  process.exit(write || targets.length === 0 ? 0 : 1)
+  process.exit(write || targets.length === 0 ? (landingInfo.landingError ? 1 : 0) : 1)
 }
 
 if (
@@ -331,5 +441,10 @@ export const __test__ = {
   MARK,
   brokenLinks,
   drifted,
+  // 写盘申报账本层(§22c:测试 import 生产出口,不复制判据)
+  registerLandings,
+  landedSkips,
+  landedOidMap,
+  worktreeBlobOid,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

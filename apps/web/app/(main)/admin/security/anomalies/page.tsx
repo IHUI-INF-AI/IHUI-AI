@@ -80,7 +80,7 @@ export default function AnomaliesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -120,8 +120,8 @@ export default function AnomaliesPage() {
           </form>
 
           <div className="overflow-x-auto rounded-lg border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2 whitespace-nowrap">{t('colTime')}</th>
                   <th className="px-3 py-2">{t('colIp')}</th>
@@ -154,14 +154,14 @@ export default function AnomaliesPage() {
                     return (
                       <React.Fragment key={rowId}>
                         <tr className="hover:bg-muted/30">
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+                          <td className="px-3 py-2 whitespace-nowrap text-label text-muted-foreground">
                             {formatTime(ev.timestamp)}
                           </td>
-                          <td className="px-3 py-2 font-mono text-xs">{ev.ip}</td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 font-mono text-label">{ev.ip}</td>
+                          <td className="px-3 py-2 text-label">
                             {ev.userId ? ev.userId.slice(0, 8) : '-'}
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-label text-muted-foreground">
                             <Tooltip content={ev.url}>
                               <span className="block truncate">
                                 {ev.url.length > 50 ? ev.url.slice(0, 50) + '…' : ev.url}
@@ -200,7 +200,7 @@ export default function AnomaliesPage() {
                           <tr className="bg-muted/20">
                             <td colSpan={7} className="px-3 py-2">
                               {ev.dimensions.length === 0 ? (
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-label text-muted-foreground">
                                   {t('noDimensions')}
                                 </span>
                               ) : (
@@ -208,7 +208,7 @@ export default function AnomaliesPage() {
                                   {ev.dimensions.map((d) => (
                                     <span
                                       key={d.name}
-                                      className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                                      className="rounded-md border border-border bg-background px-2 py-1 text-label"
                                     >
                                       <span className="text-muted-foreground">{d.name}</span>
                                       <span className="ml-2 font-semibold tabular-nums">
@@ -233,7 +233,7 @@ export default function AnomaliesPage() {
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+            <span className="text-body text-muted-foreground">{t('total', { total })}</span>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
@@ -244,7 +244,7 @@ export default function AnomaliesPage() {
                 <ChevronLeft className="h-4 w-4" />
                 {t('prev')}
               </Button>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-body text-muted-foreground">
                 {page} / {totalPages}
               </span>
               <Button

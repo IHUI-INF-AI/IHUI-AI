@@ -121,7 +121,7 @@ export default function VoiceSttScreen() {
       )
       setResult(text)
     } catch (e) {
-      setError(t('voiceStt.transcribeFailed'))
+      setError(t('eduAi.stt.error'))
       console.warn(
         `[rn-voice] VoiceSttScreen transcribe failed: ` +
           `${e instanceof Error ? e.message : 'unknown error'}`,
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
     paddingVertical: rnSpacing['2xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   warningBox: {
     padding: rnSpacing['sm-loose'],
     borderRadius: rnRadius.sm,

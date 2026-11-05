@@ -200,7 +200,7 @@ function WorkspacePanelTab() {
         disabled={!selectedNode}
         onClick={handleApply}
         className={cn(
-          'inline-flex h-8 items-center justify-center rounded-sm px-3 text-xs font-medium transition-colors',
+          'inline-flex h-8 items-center justify-center rounded-sm px-3 text-label font-medium transition-colors',
           selectedNode
             ? 'bg-cta text-cta-foreground hover:bg-cta/90'
             : 'cursor-not-allowed bg-muted text-muted-foreground/50',
@@ -538,7 +538,7 @@ export function AiSidePanelTools() {
   }, [])
 
   // ---- tab 内容渲染 ----
-  const emptyHint = <p className="py-6 text-center text-sm text-muted-foreground">{t('empty')}</p>
+  const emptyHint = <p className="py-6 text-center text-body text-muted-foreground">{t('empty')}</p>
 
   const renderTab = (key: ToolTabKey) => {
     switch (key) {
@@ -603,7 +603,7 @@ export function AiSidePanelTools() {
               type="button"
               data-testid="ai-tools-dispatch-subagent"
               onClick={() => setDispatchOpen(true)}
-              className="w-full rounded-sm bg-cta px-3 py-2 text-sm font-medium text-cta-foreground transition-colors hover:bg-cta/90"
+              className="w-full rounded-sm bg-cta px-3 py-2 text-body font-medium text-cta-foreground transition-colors hover:bg-cta/90"
             >
               {t('dispatchSubagent')}
             </button>
@@ -810,7 +810,7 @@ export function AiSidePanelTools() {
                     data-testid={`ai-panel-tab-${key}`}
                     onClick={() => setActiveTab(key)}
                     className={cn(
-                      'shrink-0 rounded-sm px-2.5 py-1 text-xs transition-colors',
+                      'shrink-0 rounded-sm px-2.5 py-1 text-label transition-colors',
                       activeTab === key
                         ? 'bg-accent font-medium text-accent-foreground'
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -838,3 +838,4 @@ export function AiSidePanelTools() {
     </div>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -7,7 +7,8 @@
  * 圆角单一源头守门(全 8 端)。
  *
  * 堵的是两类静默漂移:
- *  A. 表漂移 —— radius.js(唯一真相源)/ tokens.css --radius-* / miniapp-taro app.css --radius-* /
+ *  A. 表漂移 —— radius.js(唯一真相源)/ tokens.css --radius-* / miniapp-taro app.css 的 @theme
+ *     注册区(2026-11-03 起**必须由 sync-miniapp-tokens 派生**,区外不得留手写副本)/
  *     tailwind-preset.js 四处档位值不一致(历史上 v3 preset 的 rounded-sm=2px 与 web v4 的 sm=4px
  *     同名不同值,正是"手机上圆角和全局设定不统一"的根因之一)。
  *  B. 取用漂移 —— 端内写死数字/偏档值,绕开档位表(RN StyleSheet 数字、CSS px/rpx 字面量、
@@ -86,6 +87,14 @@ import {
   classifyRadiusGeometry,
 } from './lib/box-geometry.mjs'
 import { RADIUS_EXEMPT_MARKER_RE } from './lib/radius-exempt-marker.mjs'
+import { maskComments } from './lib/design-token-blocks.mjs'
+// 2026-11-03:注册区标记 / 块头形态 / 顶层块配平 一律取自生成器那一份(§22c),
+// 本门不得再写一遍字面量 —— 生成器改标记的那一刻,门若另抄一份就会指向别的块。
+import {
+  THEME_REGION_MARK,
+  THEME_SELECTORS,
+  topLevelRanges,
+} from './sync-miniapp-tokens.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -588,11 +597,15 @@ export function scanText(rel, text, table) {
           const halfForm = /^\s*\/\s*2\b/.test(line.slice(m.index + m[0].length))
           const effective = halfForm ? px / 2 : px
           /**
-           * B9 先于"几何放行"判:`48×48 盒上的 24` 数值上就是半边,旧口径把它当几何真圆放走,
-           * 而项目定档是**任何圆角半径 ≤ 最大档 16px**(用户 2026-09-29 裁决:不允许圆角过大,
-           * 圆形头像/圆形图标底板不再豁免)。放行支路因此必须带上这一道闸,否则它就是漏口。
+           * 正圆豁免(2026-11-04 用户裁定):**几何关系可证**的正圆不属于"圆角过大"的定档约束。
+           * 证据只有一种口径 —— 同一作用域量到两条边同值(正方盒)且半径恰好是边长的一半:
+           *  - `<边长> / 2`:分子必须与该对象的边长逐字同形(`isHalfOfDeclaredSide`);
+           *  - 裸数值:数值必须等于量到的短边一半(`classifyRadiusGeometry === 'circle'`)。
+           * 解析不出等值关系(边长来自无单源的变量、只量到一条边、写成邻居的尺寸)⇒ 不豁免,
+           * 照旧落 B9。MAX_STEP 不动:非正圆的 >16 仍是红。
            */
-          if (effective > MAX_STEP) {
+          const provenCircle = halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)
+          if (effective > MAX_STEP && !provenCircle) {
             bad.push({ line: i + 1, rule: 'B9', raw: `${raw}(=${effective}px)`, hint: B9_HINT })
             return
           }
@@ -608,8 +621,8 @@ export function scanText(rel, text, table) {
            * 单位折算口径不同(`w-[96rpx]` 折半、`width: 96rpx` 取原值),跨形态比数值会造出假方形。
            * 判不出来就不是放行 —— 落回下面的红,出路是写成相对式(`50%`)或把盒尺寸写进同一作用域。
            */
-          // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸,所以半径必 ≤ 最大档 —— 几何放行不再叠上限闸。
-          if (halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)) return
+          // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸(或已被几何正圆豁免),故不再叠上限闸。
+          if (provenCircle) return
           bad.push({
             line: i + 1,
             rule: isRpx ? 'B1-rpx' : 'B1',
@@ -877,6 +890,41 @@ export function checkRoleUnion(roles, declText) {
  */
 export const PRESET_RADIUS_REF_RE = /borderRadius:\s*RADIUS_REM\s*,?/
 
+/**
+ * 小程序 `@theme` 注册区的正文与「区外全文」。
+ *
+ * 2026-11-03 立:radius 从「:root 手写副本 + 门 77 只对账可选子集」改成「只由
+ * `sync-miniapp-tokens.mjs` 派生进 @theme」。判据必须能分开这两块 ——
+ * 整个文件跑 `readCssRadius` 会把区外的手写副本也读进来,从而掩盖"注册区缺档"。
+ * 返回的 `outside` 已把注册区正文替换成等长空白(保留换行),再拿去点名区外副本。
+ * 找不到标记 / 找不到 @theme / 出现多个 @theme ⇒ 抛 Undetermined(调用方折成红线,不猜位置)。
+ */
+export function extractMiniappThemeRegion(css) {
+  const markAt = css.indexOf(THEME_REGION_MARK)
+  if (markAt < 0) throw new Undetermined(`找不到 v4 注册区标记(${THEME_REGION_MARK})`)
+  const rest = css.slice(markAt)
+  const ranges = THEME_SELECTORS.flatMap((sel) => topLevelRanges(rest, sel))
+  if (ranges.length === 0) throw new Undetermined('注册区标记之后找不到 @theme 区块')
+  if (ranges.length > 1)
+    throw new Undetermined(`注册区标记之后出现 ${ranges.length} 个 @theme 区块,无法确定注册区`)
+  const r = ranges[0]
+  const absStart = markAt + r.bodyStart
+  const absEnd = markAt + r.bodyEnd
+  const outside =
+    css.slice(0, absStart) + css.slice(absStart, absEnd).replace(/[^\n]/g, ' ') + css.slice(absEnd)
+  return { body: rest.slice(r.bodyStart, r.bodyEnd), outside }
+}
+
+/** 区外出现的 radius 声明名(注释先遮掉;`var(--radius-*)` 引用没有冒号,不算声明) */
+export function radiusDeclNames(css) {
+  const out = new Set()
+  for (const m of maskComments(css).matchAll(
+    /(--radius(?:-(?:xs|sm|md|lg|xl|2xl))?)\s*:/g,
+  ))
+    out.add(m[1])
+  return [...out]
+}
+
 /** A 判据:四处档位表值一致性。返回红线列表 */
 export async function checkTableConsistency() {
   const mod = await loadTable()
@@ -902,14 +950,36 @@ export async function checkTableConsistency() {
     if (Math.abs(cssMap[k] - v) > 0.001)
       errors.push(`tokens.css ${k}=${cssMap[k]}px 与 radius.js ${v}px 漂移`)
   }
-  // 2) miniapp-taro app.css(端内同步块)
+  // 2) miniapp-taro app.css —— 2026-11-03 起从「只对账可选子集」改判「必须全部派生在 @theme」
+  //    手写副本的存在本身就是漂移源:源改档时它不会跟。所以三条同时判:
+  //    ① 注册区必须定位得到;② 7 档必须在注册区内且值等于源;③ 区外不得有任何 radius 声明。
   const appCssPath = join(ROOT, 'apps/miniapp-taro/src/app.css')
   if (existsSync(appCssPath)) {
-    const appMap = readCssRadius(readFileSync(appCssPath, 'utf8'))
-    for (const [k, v] of Object.entries(expectCss)) {
-      if (appMap[k] === undefined) continue // 端内可只同步子集
-      if (Math.abs(appMap[k] - v) > 0.001)
-        errors.push(`miniapp-taro app.css ${k}=${appMap[k]}px 与 radius.js ${v}px 漂移`)
+    const appCss = readFileSync(appCssPath, 'utf8')
+    let region = null
+    try {
+      region = extractMiniappThemeRegion(appCss)
+    } catch (e) {
+      errors.push(`miniapp-taro app.css ${e?.message || e}(radius 必须由 sync-miniapp-tokens 派生)`)
+    }
+    if (region) {
+      const inTheme = readCssRadius(region.body)
+      for (const [k, v] of Object.entries(expectCss)) {
+        if (inTheme[k] === undefined) {
+          errors.push(
+            `miniapp-taro app.css @theme 区缺 ${k}(必须由 sync-miniapp-tokens 派生,应为 ${v}px)`,
+          )
+          continue
+        }
+        if (Math.abs(inTheme[k] - v) > 0.001)
+          errors.push(
+            `miniapp-taro app.css @theme 区 ${k}=${inTheme[k]}px 与 radius.js ${v}px 漂移`,
+          )
+      }
+      for (const k of radiusDeclNames(region.outside))
+        errors.push(
+          `miniapp-taro app.css 注册区外仍有手写 ${k} 声明(唯一落点是 @theme 派生区,区外不得有副本)`,
+        )
     }
   }
   // 3) tailwind preset 必须引用 RADIUS_REM,不得重新内联字面量表
@@ -989,14 +1059,14 @@ async function selfTest() {
       s: 'const st = { a: { borderRadius: 20 / 2 } }',
       red: true,
     },
-    // 用户 2026-09-29 定档「任何圆角半径不得超过最大档 2xl=16px,圆形头像不再豁免」之后,
-    // 这一格的原期望("48×48 上的 24 按形状放行")**已被裁决推翻** —— 半径 24 超上限,必红。
-    // 留原样就是让自检替一条已废的口径背书,所以改判红,并补一条仍在上限内的几何真圆当放行对照。
+    // 2026-11-04 用户裁定:「正方盒(宽=高)且半径 = 边长一半」= 几何正圆,不属"圆角过大"定档约束。
+    // 这一格由 2026-09-29 的"圆形底板不豁免"翻转为几何豁免,判据仍要求**量得出**正方关系;
+    // 非正方/量不出的 24 仍红(见下方 10 vs 40×40、量不到盒形两格),MAX_STEP 未抬。
     {
-      name: 'B1 数值真圆 48×48 上的 24 ⇒ 形状是正圆但**半径超上限**,按 2026-09-29 定档判红',
+      name: 'B1 数值真圆 48×48 上的 24 ⇒ 几何正圆豁免(2026-11-04 裁定)',
       f: 'packages/app/src/x.tsx',
       s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }',
-      red: true,
+      red: false,
     },
     {
       name: 'B1 数值真圆 32×32 上的 16 ⇒ 既是几何真圆又不超上限 ⇒ 放行(上一条的放行对照)',
@@ -1005,10 +1075,10 @@ async function selfTest() {
       red: false,
     },
     {
-      name: 'B1 `<边长> / 2` 折算后才比上限:48 的盒写 `48 / 2`=24 ⇒ 红',
+      name: 'B1 `<边长> / 2` 且分子=正方边长:48 的盒写 `48 / 2`=24 ⇒ 几何正圆豁免(2026-11-04 裁定)',
       f: 'packages/app/src/x.tsx',
       s: 'const st = { a: { width: 48, height: 48, borderRadius: 48 / 2 } }',
-      red: true,
+      red: false,
     },
     {
       name: 'B1 `<边长> / 2` 折算是真半径:18 的盒写 `18 / 2`=9 ⇒ 几何放行(不得按分子 18 去比上限而误判)',
@@ -1543,6 +1613,65 @@ async function selfTest() {
   )
   if (!driftOk) fail++
   /**
+   * A5(2026-11-03):注册区与区外副本必须分得开 —— 否则"必须派生"又退化成"只要你写了就算对"。
+   * 四条成对:好样本绿 / 区内漂移读得出 / 区外副本点得名 / 标记或区块缺失不猜位置。
+   */
+  const GOOD_THEME_CSS = [
+    ':root { --color-x: #fff; }',
+    '/* ===== v4 色档注册(自动同步自 tokens.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */',
+    '@theme static {',
+    '  --radius: 0.5rem;',
+    '  --radius-xs: 0.125rem;',
+    '  --radius-sm: 0.25rem;',
+    '  --radius-md: 0.375rem;',
+    '  --radius-lg: 0.5rem;',
+    '  --radius-xl: 0.75rem;',
+    '  --radius-2xl: 1rem;',
+    '}',
+  ].join('\n')
+  const goodRegion = extractMiniappThemeRegion(GOOD_THEME_CSS)
+  const goodMap = readCssRadius(goodRegion.body)
+  const goodOutside = radiusDeclNames(goodRegion.outside)
+  const driftRegion = extractMiniappThemeRegion(
+    GOOD_THEME_CSS.replace('--radius-sm: 0.25rem', '--radius-sm: 0.3rem'),
+  )
+  const driftMap = readCssRadius(driftRegion.body)
+  const copyOutside = radiusDeclNames(
+    extractMiniappThemeRegion(`${GOOD_THEME_CSS}\n:root { --radius-sm: 0.25rem; }`).outside,
+  )
+  for (const [nm, cond, det] of [
+    [
+      'A5 注册区内 7 档全在、区外零 radius 声明 ⇒ 绿',
+      Object.keys(goodMap).length === 7 && goodOutside.length === 0,
+      { map: goodMap, outside: goodOutside },
+    ],
+    [
+      'A5 区内值漂移(0.3rem=4.8px)必须被读到',
+      Math.abs(driftMap['--radius-sm'] - 4.8) < 0.01,
+      driftMap['--radius-sm'],
+    ],
+    [
+      'A5 区外手写副本必须点得名(不然删掉手写段这件事无人守)',
+      copyOutside.includes('--radius-sm'),
+      copyOutside,
+    ],
+    [
+      'A5 找不到注册区标记 ⇒ 抛错而非猜位置',
+      !(() => {
+        try {
+          extractMiniappThemeRegion(':root { --radius-sm: 0.25rem; }')
+          return true
+        } catch {
+          return false
+        }
+      })(),
+      'marker-missing',
+    ],
+  ]) {
+    console.log(cond ? '✅' : '❌', nm, cond ? '' : JSON.stringify(det))
+    if (!cond) fail++
+  }
+  /**
    * A4 角色名对账:三条成对 —— 只加"缺档必红"而不加"一致必须绿",判据失效也会表现为红消失;
    * 而"多档(清单腐烂)"必须与"缺档"同时判,否则有人删 radius.js 的一档而 d.ts 不删,门一路绿,
    * 消费方拿到 `rnRadiusFor.<已删角色>` = undefined(颜色/圆角 undefined 是本仓记过的运行时形态)。
@@ -1615,7 +1744,7 @@ async function selfTest() {
     covOk ? '' : JSON.stringify(covRes),
   )
   if (!covOk) fail++
-  const total = cases.length + 3 + ratchet.length + faceProofs.length
+  const total = cases.length + 7 + ratchet.length + faceProofs.length
   console.log(fail ? `\n${fail}/${total} 例失败` : `\n全部 ${total} 例通过`)
   process.exit(fail ? 1 : 0)
 }

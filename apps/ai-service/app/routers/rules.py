@@ -148,8 +148,16 @@ async def auto_generate_rules(
 
 
 @router.post("/rules/resolve-conflicts")
-async def resolve_conflicts(body: ResolveConflictsBody) -> dict[str, Any]:
-    """LLM 仲裁冲突规则,失败降级为按 created_at 时间戳保留较新规则。"""
+async def resolve_conflicts(
+    body: ResolveConflictsBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """LLM 仲裁冲突规则,失败降级为按 created_at 时间戳保留较新规则。
+
+    身份(2026-11-01 补):这一格会驱动模型调用,此前只靠 HTTP 中间件放行与否,
+    端点自身不认主体 —— 与同文件 :109/:128/:183/:199 那四格带票的形状不一致。
+    principal 在这里不参与业务分支,只做归属:让"谁触发的这次仲裁"有主可循。
+    """
     try:
         data = await rules_engine._auto_resolve_conflicts(body.conflicts)
         return {"code": 0, "message": "success", "data": data}
@@ -212,15 +220,25 @@ async def delete_rule(
 
 
 @router.post("/rules/{rule_id}/test")
-async def test_rule(rule_id: str, body: RuleTestBody) -> dict[str, Any]:
-    """测试规则是否匹配某消息。"""
+async def test_rule(
+    rule_id: str,
+    body: RuleTestBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """测试规则是否匹配某消息(principal 只做归属,不进分支;2026-11-01 补身份依赖)。"""
+    del principal
     result = rules_engine.test(rule_id, body.message)
     return {"code": 0, "message": "success", "data": result}
 
 
 @router.post("/rules/{rule_id}/predict-effect")
-async def predict_effect(rule_id: str, body: PredictEffectBody) -> dict[str, Any]:
-    """预测规则应用效果(LLM 预测,失败降级为历史统计)。"""
+async def predict_effect(
+    rule_id: str,
+    body: PredictEffectBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """预测规则应用效果(LLM 预测,失败降级为历史统计)。会消耗模型额度 ⇒ 必须有主。"""
+    del principal
     try:
         data = await rules_engine.predict_effect(rule_id, body.dry_run_message)
         return {"code": 0, "message": "success", "data": data}
@@ -229,8 +247,13 @@ async def predict_effect(rule_id: str, body: PredictEffectBody) -> dict[str, Any
 
 
 @router.post("/rules/{rule_id}/learn-feedback")
-async def learn_feedback(rule_id: str, body: LearnFeedbackBody) -> dict[str, Any]:
+async def learn_feedback(
+    rule_id: str,
+    body: LearnFeedbackBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """记录用户对自动生成规则的反馈(accepted=True 采纳 / False 拒绝)。"""
+    del principal
     try:
         ok = await rules_engine.record_learn_feedback(rule_id, body.feedback, body.accepted)
         return {"code": 0, "message": "success", "data": {"ok": ok}}
@@ -239,8 +262,17 @@ async def learn_feedback(rule_id: str, body: LearnFeedbackBody) -> dict[str, Any
 
 
 @router.post("/rules/match")
-async def match_rules(body: RuleMatchBody) -> dict[str, Any]:
-    """匹配消息,返回应用规则 + prompt 后缀(供 agent loop 调用)。"""
+async def match_rules(
+    body: RuleMatchBody,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """匹配消息,返回应用规则 + prompt 后缀(供 agent loop 调用)。
+
+    唯一调用方是 apps/api 的代理,它把调用者的 Authorization 原样转发
+    (apps/api/src/routes/rules.ts:59 的 rulesServiceFor(request.headers.authorization)),
+    所以这一格的"有主"与终端用户同源;匿名请求在中间件层就已 401。
+    """
+    del principal
     result = rules_engine.apply(body.message, body.scope)
     return {"code": 0, "message": "success", "data": result}
 

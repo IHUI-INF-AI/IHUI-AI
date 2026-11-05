@@ -37,7 +37,7 @@ export default function AdminRefundPage() {
     <div className="space-y-4 px-4 py-4">
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <RefundStatsCards currencyFmt={currencyFmt} />
@@ -161,7 +161,7 @@ function RefundList({
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -172,7 +172,7 @@ function RefundList({
             <ChevronLeft className="h-4 w-4" />
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {t('page', { page, total: totalPages })}
           </span>
           <Button

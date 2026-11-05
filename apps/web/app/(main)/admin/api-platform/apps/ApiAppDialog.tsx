@@ -50,7 +50,7 @@ export function ApiAppCreateDialog({
             <DialogDescription>{t('createDesc')}</DialogDescription>
           </DialogHeader>
           {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
               {err}
             </div>
           )}
@@ -105,13 +105,13 @@ export function ApiAppCreatedDialog({ created, onClose }: CreatedProps) {
           <div className="space-y-3">
             <div className="space-y-1">
               <Label>{t('labelAppId')}</Label>
-              <code className="block rounded-md bg-muted/50 px-3 py-2 text-xs">
+              <code className="block rounded-md bg-muted/50 px-3 py-2 text-label">
                 {created.appId}
               </code>
             </div>
             <div className="space-y-1">
               <Label>{t('labelAppSecret')}</Label>
-              <code className={cn('block rounded-md bg-amber-500/10 px-3 py-2 text-xs')}>
+              <code className={cn('block rounded-md bg-amber-500/10 px-3 py-2 text-label')}>
                 {created.appSecret}
               </code>
             </div>
@@ -151,11 +151,11 @@ export function ApiAppDeleteDialog({
           <DialogDescription>{t('deleteDesc')}</DialogDescription>
         </DialogHeader>
         {err && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
             {err}
           </div>
         )}
-        <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+        <div className="rounded-md bg-muted/50 px-3 py-2 text-body">
           <span className="font-medium">{delTarget?.name}</span>
         </div>
         <DialogFooter>

@@ -113,7 +113,7 @@ export default function ApiUsagePage() {
           <BarChart3 className="h-6 w-6 text-primary" />
           {t('apiUsage.title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('apiUsage.subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('apiUsage.subtitle')}</p>
       </div>
 
       {/* 统计卡 */}
@@ -155,13 +155,13 @@ export default function ApiUsagePage() {
         <Card>
           <CardContent className="pt-4">
             {dayUsageList.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-body text-muted-foreground">
                 {t('apiUsage.noData')}
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                <table className="w-full text-body">
+                  <thead className="text-left text-label uppercase text-muted-foreground">
                     <tr>
                       <th className="px-3 py-2 font-medium">{t('apiUsage.colDate')}</th>
                       <th className="px-3 py-2 font-medium">{t('apiUsage.colCalls')}</th>
@@ -200,8 +200,8 @@ export default function ApiUsagePage() {
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <table className="w-full text-body">
+              <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">#</th>
                   <th className="px-4 py-2.5 font-medium">{t('apiUsage.colEndpoint')}</th>
@@ -214,7 +214,7 @@ export default function ApiUsagePage() {
                 {topList.map((e, i) => (
                   <tr key={e.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{e.endpoint}</td>
+                    <td className="px-4 py-2.5 font-mono text-label">{e.endpoint}</td>
                     <td className="px-4 py-2.5">
                       <span
                         className={cn(

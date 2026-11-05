@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     error: { fontSize: rnType.body.size, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,
@@ -146,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
       marginTop: rnSpacing.lg,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

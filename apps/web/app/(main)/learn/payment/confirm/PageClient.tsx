@@ -112,12 +112,12 @@ function PaymentConfirmContent() {
   if (!orderNo)
     return (
       <div className="mx-auto w-full max-w-2xl space-y-4">
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {t('missingOrderNo')}
         </div>
         <Link
           href="/learn"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {tCommon('back')}
@@ -142,7 +142,7 @@ function PaymentConfirmContent() {
     <div className="px-4 py-4 mx-auto w-full max-w-2xl space-y-5">
       <Link
         href="/learn"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tCommon('back')}
@@ -168,7 +168,7 @@ function PaymentConfirmContent() {
               <XCircle className="h-7 w-7" />
             )}
           </div>
-          <CardTitle className="text-xl">
+          <CardTitle className="text-heading">
             {isPaid
               ? t('statusPaid')
               : isFailed
@@ -177,16 +177,16 @@ function PaymentConfirmContent() {
                   ? t('statusCancelled')
                   : t('statusPending')}
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {isPaid ? t('descPaid') : isPending ? t('descPending') : t('descFailed')}
           </p>
         </CardHeader>
 
         {order && (
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-body">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{t('fields.orderNo')}</span>
-              <span className="font-mono text-xs">{order.orderNo}</span>
+              <span className="font-mono text-label">{order.orderNo}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{t('fields.product')}</span>
@@ -200,12 +200,12 @@ function PaymentConfirmContent() {
               <span className="font-medium">{t('fields.payAmount')}</span>
               <span className="text-lg font-semibold text-primary">¥{order.payAmount}</span>
             </div>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-label">
               <span className="text-muted-foreground">{t('fields.createdAt')}</span>
               <span>{fmt(order.createdAt)}</span>
             </div>
             {order.paidAt && (
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center justify-between text-label">
                 <span className="text-muted-foreground">{t('fields.paidAt')}</span>
                 <span>{fmt(order.paidAt)}</span>
               </div>

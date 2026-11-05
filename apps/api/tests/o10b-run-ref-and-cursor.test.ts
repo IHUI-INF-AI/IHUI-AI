@@ -17,7 +17,7 @@
  * 全本地:Redis 用内存假实现,鉴权/计费/ai-service 三个口子全打桩,不碰生产 8810/8811。
  */
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest'
-import Fastify, { type FastifyInstance } from 'fastify'
+import Fastify, { type FastifyInstance, type FastifyError } from 'fastify'
 import type { Redis } from 'ioredis'
 import type { ApiKeyPermission, AuthenticatedApiKey } from '@ihui/types'
 import {
@@ -239,7 +239,7 @@ async function buildHarness(): Promise<Harness> {
   const redis = new FakeRedis()
   app.decorate('redis', redis as unknown as Redis)
   app.decorate('redisForQueue', undefined as unknown as Redis)
-  app.setErrorHandler((err, _request, reply) => {
+  app.setErrorHandler((err: FastifyError, _request, reply) => {
     const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500
     reply.status(statusCode).send({ code: statusCode, message: err.message })
   })

@@ -78,7 +78,7 @@ export default function UserSignUpPage() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
           <ClipboardList className="h-8 w-8 opacity-40" />
-          <p className="text-sm">{t('empty')}</p>
+          <p className="text-body">{t('empty')}</p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -94,7 +94,7 @@ export default function UserSignUpPage() {
                     {s.status ? (
                       <span
                         className={cn(
-                          'shrink-0 rounded-md px-2 py-0.5 text-xs',
+                          'shrink-0 rounded-md px-2 py-0.5 text-label',
                           STATUS_STYLE[s.status] ?? STATUS_STYLE.draft,
                         )}
                       >
@@ -102,7 +102,7 @@ export default function UserSignUpPage() {
                       </span>
                     ) : null}
                   </div>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-3 text-label text-muted-foreground">
                     {s.targetType ? (
                       <span className="rounded-md bg-muted px-2 py-0.5">{s.targetType}</span>
                     ) : null}

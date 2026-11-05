@@ -20,9 +20,9 @@ export default function LoadingSpinner({
   const textClass = size === 'sm' ? 'text-xs' : 'text-sm'
 
   return (
-    <View className={`flex items-center justify-center ${inline ? 'inline-flex' : 'py-8'}`}>
+    <View className={`flex items-center justify-center ${inline ? 'inline-flex' : 'py-3xl'}`}>
       <View
-        className={`${sizeClass} mr-2 rounded-full border-2 border-current border-t-transparent animate-spin text-primary`}
+        className={`${sizeClass} mr-sm rounded-full border-2 border-current border-t-transparent animate-spin text-primary`}
       />
       <Text className={`${textClass} text-muted-foreground`}>{text}</Text>
     </View>

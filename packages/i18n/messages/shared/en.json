@@ -81,6 +81,12 @@
     "toolWorkflowInstanceStatus": "Workflow Instance Status",
     "toolNotebookEdit": "Edit Notebook Cell",
     "toolSendToSession": "Send Session Message",
+    "toolRenderRepoTree": "Render Repository Tree",
+    "toolRunWorkflow": "Run Workflow",
+    "toolWorkbookOpen": "Open Workbook",
+    "toolWorkbookReadRange": "Read Workbook Range",
+    "toolWorkbookWriteCells": "Write Workbook Cells",
+    "toolWorkbookClose": "Close Workbook",
     "toolGenerateTest": "Generate test code",
     "toolRunCommand": "Run a command",
     "toolGitOperations": "Run Git operations",
@@ -783,6 +789,8 @@
     "contentRequired": "Please enter feedback content",
     "contact": "Contact",
     "contactPlaceholder": "Optional, so we can reach you",
+    "namePlaceholder": "Please enter your name",
+    "tip": "Your feedback helps us improve our products and services. Please wait for processing after submitting.",
     "empty": "No feedback records",
     "failed": "Submission failed, please try again later",
     "fieldContact": "Contact",
@@ -1386,6 +1394,8 @@
     "enterprise": "Enterprise"
   },
   "share": {
+    "appTitle": "IHUI AI — Learn smarter",
+    "timelineTitle": "IHUI AI, your smart learning assistant",
     "title": "Share",
     "remark": "Remark",
     "remarkPlaceholder": "Enter remark (optional)",
@@ -1516,7 +1526,36 @@
     "total": "All-time",
     "rank": "Rank",
     "points": "Points",
-    "isMe": "Me"
+    "isMe": "Me",
+    "unitCreation": "pts",
+    "listTitle": "AI Leaderboard",
+    "searchPlaceholder": "Search AI tools",
+    "generalHelper": "General assistant",
+    "free": "Free",
+    "fenlei": "Category",
+    "menu": "Menu",
+    "detailTitle": "Details",
+    "statusUnknown": "Unknown",
+    "detail": {
+      "attention": "Attention",
+      "category": "Category",
+      "price": "Price",
+      "status": "Status",
+      "subCategory": "Subcategory",
+      "productForm": "Product form",
+      "org": "Organization",
+      "url": "Website",
+      "copyHint": "Tap to copy",
+      "contentTitle": "Details",
+      "loadFailed": "Get detail"
+    },
+    "noData": "No Ranking Data",
+    "subtitle": "See where you rank this week",
+    "retry": "Retry",
+    "me": "Me",
+    "studyHours": "{count} hrs studied",
+    "histFallback": "History chat",
+    "visitorName": "Chart visitor"
   },
   "vip": {
     "title": "VIP Membership",
@@ -1942,7 +1981,8 @@
     "inputPlaceholder": "Type a message...",
     "send": "Send",
     "clear": "Clear",
-    "error": "Failed to send, please retry"
+    "error": "Failed to send, please retry",
+    "modeDisabledHint": "Image/Audio modes are not available yet; text chat only for now"
   },
   "assistant": {
     "title": "My Assistants",
@@ -2609,6 +2649,446 @@
           }
         }
       }
+    },
+    "messageVersion": {
+      "history": "History",
+      "regenerateFailed": "Failed to regenerate"
+    },
+    "contextUsage": {
+      "title": "Context Usage",
+      "segSystem": "System prompt",
+      "segToolSchema": "Tool definitions",
+      "segSkill": "Skill bodies",
+      "segRoleUser": "User messages",
+      "segRoleAssistant": "Assistant replies",
+      "segRoleToolCall": "Tool call arguments",
+      "segRoleToolResult": "Tool results",
+      "segSystemPrompt": "System prompt (whole)",
+      "unnamedItem": "Unnamed item",
+      "resultSuffix": "result",
+      "unobservedServerOnly": "Assembled on the server, so exact usage is not observable from this client",
+      "unobservedNotSupplied": "No system segment was supplied for this turn",
+      "detailsTruncated": "{count} more items not shown",
+      "residualLabel": "Unclassified overhead"
+    },
+    "title": "AI Assistant",
+    "inputPlaceholder": "Ask a question…",
+    "suggestions": [
+      "Write me a poem",
+      "Explain quantum mechanics",
+      "Write some code",
+      "Translate this text"
+    ],
+    "stop": "Stop",
+    "clear": "Clear",
+    "clearConfirm": "Clear the current conversation?",
+    "serviceUnavailable": "AI service unavailable",
+    "modelLoadFailed": "Model load failed",
+    "materialLoadFailed": "Material load failed",
+    "agentLoadFailed": "Agent load failed",
+    "agent": {
+      "count": "{n}",
+      "empty": "No agents",
+      "inputPlaceholder": "Ask a question…",
+      "searchPlaceholder": "Search agents"
+    },
+    "agentDetail": {
+      "runtimeTitle": "Runtime",
+      "runtimeClear": "Clear",
+      "runtimePlan": "Execution plan",
+      "runtimePermission": "Permissions",
+      "runtimePermissionTool": "Tool",
+      "runtimePermissionLevel": "Risk level",
+      "runtimePermissionMode": "Mode",
+      "runtimeOutput": "Output",
+      "runtimeError": "Error",
+      "runtimeEmpty": "No runtime records",
+      "runtimeInputPlaceholder": "Type a message…",
+      "runtimeStop": "Stop",
+      "runtimeSend": "Send",
+      "exampleDialog": "Example dialog",
+      "favoriteAgent": "Favorite",
+      "favorited": "Favorited",
+      "permissionAllowed": "Allowed",
+      "permissionDenied": "Not allowed",
+      "permissionLoading": "Loading permissions…",
+      "prologue": "Prologue",
+      "promptLabel": "Prompt",
+      "relatedAgents": "Related agents",
+      "startChat": "Start chat",
+      "tabRuntime": "Runtime",
+      "unfavorite": "Unfavorite",
+      "vipExclusive": "VIP only",
+      "vipPermissionDenied": "This agent requires VIP"
+    },
+    "agentList": {
+      "categories": {
+        "coding": "Coding",
+        "education": "Education",
+        "life": "Lifestyle",
+        "office": "Office",
+        "other": "Other",
+        "recommend": "Recommended",
+        "writing": "Writing"
+      },
+      "createAgent": "Create agent",
+      "emptyFavorites": "No favorite agents",
+      "emptyRecent": "No recently used agents",
+      "hot": "Hot",
+      "hotRecommend": "Hot recommendations",
+      "noResult": "No agents found",
+      "sortBy": "Sort by",
+      "sortHot": "Hot",
+      "sortNewest": "Newest",
+      "sortUses": "Most used",
+      "tabAll": "All",
+      "tabFavorites": "My favorites",
+      "tabRecent": "Recent",
+      "useCount": "{n} uses"
+    },
+    "aiAssistant": {
+      "copyFailed": "Copy failed",
+      "pleaseLogin": "Please log in first"
+    },
+    "chat": {
+      "replayFailed": "Failed to load this conversation, please try again",
+      "loadEarlier": "Load earlier messages",
+      "earlierLoading": "Loading…",
+      "earlierLoadFailed": "Failed to load earlier messages, please try again",
+      "agentTipConfirm": "Got it",
+      "agentTipHistory": "History",
+      "agentTipHistoryDesc": "View conversation history",
+      "agentTipImage": "Select Image",
+      "agentTipImageDesc": "Switch to image mode to generate images",
+      "agentTipInput": "Enter Question",
+      "agentTipInputDesc": "Type your question in the input box at the bottom and press send",
+      "agentTipSkill": "Select Skill",
+      "agentTipSkillDesc": "Tap the skill button at top-left to choose an agent",
+      "agentTipTalk": "Select Chat",
+      "agentTipTalkDesc": "Switch to chat mode to talk with AI directly",
+      "agentTipTitle": "Agent Guide"
+    },
+    "chatDrawers": {
+      "promptLabel": "Prompt",
+      "selectModel": "Select Model",
+      "skillDetail": "Skill Details"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI generated",
+      "collapse": "Collapse",
+      "copy": "Copy",
+      "digitalHuman": "Digital Human Generation →",
+      "downloadFailed": "Download failed",
+      "downloading": "Downloading",
+      "edit": "Edit",
+      "errorCardTitle": "Request failed",
+      "favorited": "Favorited",
+      "me": "Me",
+      "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
+      "noContent": "Nothing to copy",
+      "regenerate": "Regenerate",
+      "retry": "Retry",
+      "reuse": "Reuse",
+      "share": "Share",
+      "speak": "Speak",
+      "stopSpeak": "Stop",
+      "thinkingProcess": "Thinking process",
+      "tokenCost": "Tokens: {n}",
+      "viewDigitalHuman": "View Digital Human",
+      "voiceMessage": "Voice Message"
+    },
+    "common": {
+      "loading": "Loading…"
+    },
+    "fileSelected": "{count} file(s) selected",
+    "screenshotHint": "Screenshot detected — tap + to pick it from your album and ask the AI",
+    "generating": "Generating rapidly",
+    "history": {
+      "clearConfirm": "Clear all chat history?",
+      "cleared": "History cleared",
+      "empty": "No history",
+      "title": "Chat History"
+    },
+    "historyPage": {
+      "loadMoreFailed": "Failed to load more, pull down to refresh",
+      "deleteFailed": "Failed to delete, please try again",
+      "clearAll": "Clear all",
+      "clearConfirm": "Clear all chat history?",
+      "cleared": "Cleared",
+      "clearServerConfirm": "This permanently deletes the {n} conversations currently loaded from the server. This cannot be undone. Clear anyway?",
+      "clearServerProgress": "Deleting {done}/{n}…",
+      "clearServerDone": "Cleared {n} conversations",
+      "clearServerPartial": "{ok} succeeded, {fail} failed. Failed chats were kept.",
+      "deleteOne": "Delete this chat",
+      "empty": "No chat history",
+      "fallbackNotice": "Couldn't load conversations from the server. Showing this device's history instead.",
+      "msgCount": "{n} messages",
+      "noMore": "No more",
+      "noResult": "No matching chats",
+      "pin": "Pin",
+      "pinFailed": "Failed to pin, please try again",
+      "pinned": "Pinned",
+      "refreshSuccess": "Refreshed successfully",
+      "searchPlaceholder": "Search chat history",
+      "startNew": "Start new conversation",
+      "unpinFailed": "Failed to unpin, please try again"
+    },
+    "image": {
+      "download": "Download",
+      "downloadFailed": "Download failed, please retry",
+      "downloadSuccess": "Saved to album",
+      "empty": "No generations yet",
+      "emptyHint": "Describe an image to generate",
+      "favorite": "Favorite",
+      "favoriteAdded": "Added to favorites",
+      "favoriteRemoved": "Removed from favorites",
+      "favorited": "Favorited",
+      "generate": "Generate image",
+      "generateFailed": "Generation failed, please retry",
+      "generating": "Generating…",
+      "history": "History",
+      "placeholder": "Describe the image you want",
+      "share": "Share",
+      "title": "Image Generation",
+      "tryThese": "Try these",
+      "vertical": "Portrait 1024×1792",
+      "examples": [
+        "A cute cat",
+        "Sunset mountain landscape",
+        "Futuristic city",
+        "Abstract art"
+      ],
+      "styles": [
+        "Realistic",
+        "Anime",
+        "Oil Painting",
+        "Watercolor",
+        "3D",
+        "Pixel"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "Hold to speak",
+      "releaseToSend": "Release to send"
+    },
+    "intelligentAssistant": {
+      "greeting": "Hi, I'm your IHUI AI assistant",
+      "loginRequired": "Please log in first to use",
+      "recharge": "Recharge",
+      "subtitle": "Here to provide AI services anytime",
+      "tokenBalance": "Token Balance: {n}"
+    },
+    "materialPopup": {
+      "empty": "No materials",
+      "loadMore": "Load more",
+      "noMore": "No more",
+      "title": "Select material",
+      "upload": "Upload"
+    },
+    "messageAction": {
+      "copy": "Copy",
+      "delete": "Delete",
+      "reuse": "Reuse",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "bookmark": "Bookmark",
+      "unbookmark": "Remove bookmark",
+      "flagFailed": "Failed to save marker"
+    },
+    "share": {
+      "title": "Share"
+    },
+    "skillsPopup": {
+      "empty": "No skills available",
+      "notFound": "No skills found",
+      "searchPlaceholder": "Search skills",
+      "title": "Select skill",
+      "uses": "{n} uses"
+    },
+    "special": {
+      "bannerDesc": "One-stop aggregation of AI chat/drawing/video/voice/agents/model plaza, with curated recommended capabilities ready to use instantly",
+      "bannerTitle": "AI Special Collection",
+      "cat": {
+        "agent": "Agents",
+        "all": "All",
+        "chat": "AI Chat",
+        "image": "AI Drawing",
+        "plaza": "Model Plaza",
+        "video": "AI Video",
+        "voice": "AI Voice"
+      },
+      "empty": "No content yet",
+      "error": "Failed to load",
+      "featured": "Featured",
+      "history": "My Usage History",
+      "historySoon": "History coming soon",
+      "pageError": "Operation failed",
+      "useBtn": "Use now",
+      "useCount": "{n} uses"
+    },
+    "specialModel": {
+      "confirm": "Confirm Switch",
+      "hint": "Notice"
+    },
+    "stream": {
+      "compact": "Context compacted {before} → {after}",
+      "fallback": "Switched to backup model: {model}",
+      "planUpdate": "Execution plan updated",
+      "reconnect": "Connection lost, retrying #{attempt} in {seconds}s",
+      "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
+      "subagent": "Subtask: {phase}",
+      "title": "Execution",
+      "toolSummary": "Tool summary: {calls} calls",
+      "terminal": "Terminal task: {status}",
+      "usage": "Usage: {n} tokens"
+    },
+    "switchAgent": {
+      "confirm": "Confirm Switch"
+    },
+    "thinkingTip": "Tips: You can click the three dots in the top right to float the mini program, and come back later~",
+    "tishi": {
+      "close": "Close",
+      "needInput": "Please provide the following information for more precise assistance",
+      "title": "Agent guide",
+      "view": "View"
+    },
+    "uploadMaterialTab": "Upload {tab} material",
+    "video": {
+      "download": "Download",
+      "downloadFailed": "Download failed, please retry",
+      "downloadSuccess": "Saved to album",
+      "emptyHistory": "No history yet",
+      "failed": "Generation failed",
+      "generate": "Generate video",
+      "generateFailed": "Generation failed, please retry",
+      "generating": "Generating…",
+      "history": "History",
+      "modelUnavailable": "This model API is not yet available",
+      "notAvailable": "Unavailable",
+      "pending": "Queued…",
+      "promptPlaceholder": "Describe the video you want to generate...",
+      "share": "Share",
+      "succeeded": "Generation complete",
+      "taskSubmitted": "Task submitted, please check history later",
+      "title": "Video Generation",
+      "duration": "Duration",
+      "resolution": "Resolution",
+      "fps": "Frame Rate",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "Generate videos with Sora2",
+        "kling": "Kling",
+        "klingDesc": "Generate high-quality AI videos",
+        "doubao": "Doubao",
+        "doubaoDesc": "Generate videos with the Doubao model",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "Generate videos with Alibaba Cloud DashScope"
+      }
+    },
+    "voice": {
+      "chatFailed": "Chat failed, please retry",
+      "clearChat": "Clear conversation",
+      "clearConfirm": "Clear the current chat?",
+      "cleared": "Chat cleared",
+      "holdToSpeak": "Hold to speak",
+      "recordFailed": "Recording failed, please retry",
+      "releaseToSend": "Release to send",
+      "speed": "Speed",
+      "timbre": "Timbre",
+      "title": "AI Voice Chat",
+      "voiceMessage": "[Voice message]",
+      "welcome": "Hi, press and hold the button below to start a voice chat"
+    },
+    "welcomeDesc": "How can I help you?",
+    "welcomeTitle": "Hi, I'm your IHUI AI assistant",
+    "businessForms": {
+      "ariaLabel": "Business form card",
+      "aria": {
+        "email": "Email compose card",
+        "calendarEvent": "Calendar form card"
+      },
+      "fields": {
+        "to": "To",
+        "cc": "Cc",
+        "bcc": "Bcc",
+        "subject": "Subject",
+        "replyTo": "Reply to",
+        "body": "Body",
+        "start": "Start",
+        "end": "End",
+        "attendees": "Attendees"
+      },
+      "action": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "create": "Create",
+        "save": "Save"
+      },
+      "error": {
+        "required": "This field is required",
+        "invalidEmail": "Invalid email address",
+        "endBeforeStart": "End time must be after start time",
+        "noAttendees": "Add at least one attendee"
+      },
+      "reason": "Reject reason (optional)",
+      "fold": {
+        "expand": "Show all {count} attendees",
+        "collapse": "Collapse attendees"
+      },
+      "status": {
+        "submitting": "Submitting…",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "failed": "Submission failed, please retry"
+      }
+    },
+    "cards": {
+      "steer": {
+        "title": "Steered {count} times",
+        "more": "{count} more"
+      },
+      "plan": {
+        "title": "Plan"
+      },
+      "tool": {
+        "title": "Tool Calls"
+      },
+      "terminal": {
+        "title": "Terminal",
+        "isolation": "Commands run in an isolated sandbox; network access is off by default",
+        "copy": "Copy",
+        "copied": "Copied",
+        "exitCode": "Exit code: {code}",
+        "truncated": "…(truncated, {total} characters in total)"
+      },
+      "citation": {
+        "title": "Sources"
+      },
+      "injection": {
+        "title": "Context used in this turn",
+        "kind": {
+          "developer": "Custom instructions",
+          "workspace": "Workspace memory",
+          "repoWiki": "Repository wiki",
+          "autoContext": "Auto-retrieved context"
+        },
+        "expand": "Expand",
+        "collapse": "Collapse"
+      },
+      "status": {
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed"
+      },
+      "source": {
+        "builtin": "Builtin",
+        "plugin": "Plugin",
+        "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "Subtask"
+      }
     }
   },
   "streamErrors": {
@@ -2747,5 +3227,235 @@
     "rateTitle": "Commission Rates",
     "openVip": "Get VIP to Join the Program",
     "rateEmpty": "No commission rates yet"
+  },
+  "distribution": {
+    "plan": {
+      "rule1": "Become a VIP member to join the commission plan.",
+      "rule2": "Invite friends to become members and earn 20% of their membership fee as commission.",
+      "rule3": "Commission is credited to your account within 24 hours after your friend's successful payment.",
+      "rule4": "You can withdraw to WeChat or Alipay once your balance reaches ¥100."
+    }
+  },
+  "orderRefund": {
+    "d1": "No longer needed",
+    "d2": "Wrong item / duplicate order",
+    "d3": "Quality issue",
+    "d4": "Not as described",
+    "d5": "Other reason"
+  },
+  "webViewPortal": {
+    "docs": {
+      "faq": "FAQ"
+    }
+  },
+  "member": {
+    "benefits": {
+      "empty": "No benefits yet",
+      "myBenefits": "My exclusive benefits",
+      "loadFailed": "Failed to load",
+      "tierCatalog": "Tier benefits",
+      "tier": {
+        "normal": "Normal Member",
+        "silver": "Silver Card Member",
+        "gold": "Gold Card Member",
+        "diamond": "Diamond Member"
+      },
+      "b": {
+        "discount": "Shopping discount",
+        "points": "Point boost",
+        "gift": "Newcomer gift pack",
+        "sign": "Daily check-in",
+        "news": "Deal alerts",
+        "pointsMul": "Point multiplier",
+        "birthday": "Birthday gift pack",
+        "shipping": "Free shipping",
+        "coupon": "Exclusive coupons",
+        "service": "Dedicated support",
+        "preview": "Priority access",
+        "event": "Premium events",
+        "discountD1": "5% off all products",
+        "pointsD1": "Earn 1 point per ¥1 spent",
+        "giftD": "Exclusive welcome gift pack",
+        "signD": "Earn points with daily check-in",
+        "newsD": "Promo and event alerts",
+        "discountD2": "10% off all products",
+        "pointsMulD2": "1.2x point boost",
+        "birthdayD": "Exclusive birthday gift pack",
+        "shippingD2": "3 free shipments per month",
+        "couponD2": "2 coupons per month",
+        "signD2": "Double points on check-in",
+        "discountD3": "15% off all products",
+        "pointsMulD3": "1.5x point boost",
+        "birthdayD3": "Double birthday gift pack",
+        "shippingD3": "Unlimited free shipping",
+        "serviceD": "1-on-1 dedicated service",
+        "couponD3": "5 coupons per month",
+        "previewD": "Priority access to new features",
+        "discountD4": "20% off all products",
+        "pointsMulD4": "2x point boost",
+        "birthdayD4": "Deluxe birthday gift pack",
+        "shippingD4": "Unlimited free shipping",
+        "serviceD4": "24/7 dedicated concierge",
+        "couponD4": "10 coupons per month",
+        "previewD4": "First access to new features",
+        "eventD": "Premium offline events"
+      }
+    }
+  },
+  "career": {
+    "fillField": "Please fill: {name}",
+    "submitFail": "Submit failed. Retry later.",
+    "doneTitle": "Submitted",
+    "doneBody": "Survey submitted. Your AI study plan will appear here.",
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export",
+    "exportLoginRequired": "Sign in to export"
+  },
+  "message": {
+    "tabs": {
+      "all": "All",
+      "system": "System",
+      "interaction": "Interactions",
+      "private": "Direct"
+    },
+    "notifLabels": {
+      "system": "System notifications",
+      "interaction": "Interaction messages",
+      "private": "Direct messages",
+      "marketing": "Marketing"
+    },
+    "notifDescs": {
+      "system": "Account, order, and security notifications",
+      "interaction": "Likes, comments, and follows",
+      "private": "Direct messages from other users",
+      "marketing": "Promotions and new releases"
+    },
+    "hello": "Hi, I am {name}",
+    "justNow": "Just now",
+    "unnamedRoom": "Unnamed conversation",
+    "empty": "No messages",
+    "deleted": "Deleted",
+    "notFound": "No conversations found",
+    "settings": "Settings",
+    "notificationSettings": "Notification settings",
+    "close": "Close",
+    "startConversation": "Start your conversation",
+    "inputPlaceholder": "Type a message...",
+    "sendBtn": "Send",
+    "noPrivate": "No Private Messages",
+    "noSystem": "No System Notices",
+    "pin": "Pin Chat",
+    "unpin": "Unpin"
+  },
+  "developer": {
+    "withdrawal": {
+      "title": "Withdrawal records",
+      "processing": "Processing",
+      "empty": "No withdrawal records"
+    },
+    "subscribe": {
+      "recommended": "Recommended",
+      "devName": "Developer",
+      "unfollowed": "Unfollowed",
+      "noContact": "No contact information",
+      "bioDefault": "No bio",
+      "subscribedBtn": "Following",
+      "subscribeBtn": "+ Follow",
+      "statSubscribers": "Subscribers",
+      "statModels": "Models",
+      "statUses": "Total uses",
+      "modelsTitle": "Developer models",
+      "noModels": "No models",
+      "notifyTitle": "Notification settings",
+      "notifyNew": "New model release alerts",
+      "notifyUpdate": "Model update alerts",
+      "postsTitle": "Developer posts",
+      "noPosts": "No posts",
+      "contact": "Contact developer",
+      "copied": "Contact copied",
+      "noDesc": "No description",
+      "subscribed": "Followed",
+      "use": "Use",
+      "uses": "Uses"
+    },
+    "income": {
+      "withdrawn": "Withdrawn",
+      "withdrawPopup": "Withdraw",
+      "withdrawAvailable": "Available Amount ¥",
+      "withdrawPlaceholder": "Enter withdrawal amount",
+      "withdrawAll": "Withdraw All",
+      "noAvailable": "No available amount",
+      "invalidAmount": "Please enter a valid amount",
+      "exceedAvailable": "Amount exceeds available balance",
+      "withdrawSubmitted": "Withdrawal submitted",
+      "withdrawFailed": "Withdrawal failed, please retry later",
+      "withdrawnYuan": "Withdrawn (CNY)",
+      "selectMethod": "Please select withdrawal method",
+      "settled": "Settled",
+      "pending": "Pending",
+      "titleIncome": "Agent income",
+      "processing": "Processing",
+      "titleDetail": "Withdrawal details",
+      "tabAll": "All",
+      "tabPending": "Pending",
+      "tabSettled": "Settled",
+      "cashDetail": "Withdrawal details",
+      "todayIncome": "Today income",
+      "pendingSettlement": "Pending settlement",
+      "feeTip": "Platform temporarily charges no service fee",
+      "noMore": "No more",
+      "cashEmpty": "No withdrawal records"
+    },
+    "index": {
+      "subscribeTitle": "Subscription",
+      "subscribeDesc": "Upgrade to unlock more",
+      "unnamedAgent": "Untitled agent",
+      "published": "Published",
+      "empty": "No agents",
+      "tip": "Tip",
+      "deleteConfirm": "Confirm delete agent",
+      "deleteBtn": "Delete",
+      "deleteOk": "Deleted",
+      "deleteFail": "Delete failed",
+      "noType": "—",
+      "myAgents": "My agents",
+      "searchPlaceholder": "Search agent name",
+      "typeLabel": "Type",
+      "editBtn2": "Edit",
+      "editBtn": "Settings",
+      "noMore": "No more"
+    },
+    "becomeDeveloper": "Become a Developer"
+  },
+  "news": {
+    "search": "Search news",
+    "empty": "No news",
+    "cat": {
+      "announce": "Announcements",
+      "activity": "Activities",
+      "info": "News",
+      "tutorial": "Tutorials",
+      "all": "All"
+    },
+    "pinned": "Pinned",
+    "title": "AI News",
+    "anonAuthor": "Anonymous",
+    "netFail": "Network error",
+    "detailTitle": "News detail",
+    "notFound": "News not found",
+    "emptyContent": "No content",
+    "tags": "Tags",
+    "loadFailed": "Failed to load",
+    "publishedAt": "Published {date}",
+    "viewCount": "{count} views",
+    "categoryBackToList": "Back to news",
+    "categoryNotFound": "Category not found",
+    "categoryEmpty": "No news",
+    "categoryPinned": "Pinned",
+    "categorySubtitle": "Latest updates and announcements",
+    "categoryLoadFailed": "Failed to load",
+    "categoryTotal": "{total} articles",
+    "categoryPublishedAt": "Published {date}",
+    "categoryViewCount": "{count} views"
   }
 }

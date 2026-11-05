@@ -82,14 +82,12 @@ export default function AiCircle() {
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
       <View className="p-[24rpx]">
-        <Text className="text-subtitle font-semibold text-foreground">
-          {t('aiCircle.title')}
-        </Text>
+        <Text className="text-subtitle font-semibold text-foreground">{t('aiCircle.title')}</Text>
       </View>
       <View className="p-[24rpx]">
         {loading ? (
           <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
-            <Text className="text-center text-[length:26rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-body-sm leading-[normal] text-[var(--color-text-tertiary)]">
               {t('common.loading')}
             </Text>
           </View>
@@ -99,10 +97,12 @@ export default function AiCircle() {
             onClick={() => loadData(true)}
             hoverClass="opacity-60"
           >
-            <Text className="text-center text-[length:26rpx] text-[var(--color-danger)]">
+            <Text className="text-center text-body-sm leading-[normal] text-[var(--color-danger)]">
               {tt('aiCircle.loadFailed', '加载失败')}
             </Text>
-            <Text className="text-[length:26rpx] text-foreground">{t('common.retry')}</Text>
+            <Text className="text-body-sm leading-[normal] text-foreground">
+              {t('common.retry')}
+            </Text>
           </View>
         ) : list.length ? (
           <View className="flex flex-col gap-[16rpx]">
@@ -130,7 +130,7 @@ export default function AiCircle() {
                         src={avatar}
                         mode="aspectFill"
                       />
-                      <Text className="flex-1 min-w-0 text-[length:26rpx] font-medium text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
+                      <Text className="flex-1 min-w-0 text-body-sm leading-[normal] font-medium text-foreground overflow-hidden ihui-ellipsis whitespace-nowrap">
                         {author}
                       </Text>
                       {createTime ? (
@@ -145,7 +145,7 @@ export default function AiCircle() {
                       </Text>
                     ) : null}
                     {content ? (
-                      <Text className="block text-[length:26rpx] leading-[38rpx] text-muted-foreground line-clamp-3">
+                      <Text className="block text-body-sm leading-[38rpx] text-muted-foreground line-clamp-3">
                         {content}
                       </Text>
                     ) : null}
@@ -185,13 +185,13 @@ export default function AiCircle() {
             })}
             {loadingMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[length:26rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-body-sm leading-[normal] text-[var(--color-text-tertiary)]">
                   {t('common.loading')}
                 </Text>
               </View>
             ) : !hasMore ? (
               <View className="py-[24rpx] text-center">
-                <Text className="text-[length:26rpx] text-[var(--color-text-tertiary)]">
+                <Text className="text-body-sm leading-[normal] text-[var(--color-text-tertiary)]">
                   {tt('aiCircle.noMore', '没有更多了')}
                 </Text>
               </View>
@@ -199,7 +199,7 @@ export default function AiCircle() {
           </View>
         ) : (
           <View className="flex flex-col items-center justify-center py-[120rpx] gap-[16rpx]">
-            <Text className="text-center text-[length:26rpx] text-[var(--color-text-tertiary)]">
+            <Text className="text-center text-body-sm leading-[normal] text-[var(--color-text-tertiary)]">
               {t('aiCircle.empty')}
             </Text>
             <View
@@ -207,7 +207,7 @@ export default function AiCircle() {
               onClick={onPublish}
               hoverClass="opacity-60"
             >
-              <Text className="text-[length:26rpx] font-semibold text-[var(--color-card)]">
+              <Text className="text-body-sm leading-[normal] font-semibold text-[var(--color-card)]">
                 {t('aiCircle.post')}
               </Text>
             </View>
@@ -219,7 +219,7 @@ export default function AiCircle() {
         onClick={onPublish}
         hoverClass="opacity-60"
       >
-        <Text className="text-[length:26rpx] text-[var(--color-card)] leading-[26rpx]">
+        <Text className="text-body-sm text-[var(--color-card)] leading-[26rpx]">
           {t('aiCircle.post')}
         </Text>
       </View>

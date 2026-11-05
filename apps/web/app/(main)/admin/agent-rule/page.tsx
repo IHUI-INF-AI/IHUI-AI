@@ -162,7 +162,7 @@ export default function AgentRulePage() {
       />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('total', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -173,7 +173,7 @@ export default function AgentRulePage() {
             <ChevronLeft className="h-4 w-4" />
             {t('prevPage')}
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-body text-muted-foreground">
             {page} / {totalPages}
           </span>
           <Button

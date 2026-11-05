@@ -68,6 +68,22 @@ export interface PointsSignInToday {
   todayReward: number
 }
 
+/** 签到历史行(平台注入;signInDate 为 YYYY-MM-DD,rewardPoints 是整数,不得除以 100) */
+export interface PointsSignInHistoryItem {
+  signInDate: string
+  rewardPoints: number
+  consecutiveDays: number
+}
+
+/** 签到历史分区状态(undefined 整体不传 ⇒ 不渲染该分区) */
+export interface PointsSignInHistoryState {
+  items: PointsSignInHistoryItem[]
+  total: number
+  loading: boolean
+  /** 首屏或重试失败(分区内错误 + 重试) */
+  failed: boolean
+}
+
 /** 流水行(平台注入;时间与收支方向已算好) */
 export interface PointsTransactionItem {
   id: string
@@ -99,6 +115,11 @@ export interface PointsScreenProps {
   onRetryTxs: () => void
   onLoadMoreTxs: () => void
   onSignIn: () => void
+  /** 签到历史分区;undefined ⇒ 保持旧行为(不渲染) */
+  history?: PointsSignInHistoryState
+  onRetryHistory?: () => void
+  /** 传 undefined ⇒ 隐藏"加载更多" */
+  onLoadMoreHistory?: () => void
   onOpenMall: () => void
   onOpenTasks: () => void
   onOpenRules: () => void
@@ -129,6 +150,9 @@ export function PointsScreen({
   onRetryTxs,
   onLoadMoreTxs,
   onSignIn,
+  history,
+  onRetryHistory,
+  onLoadMoreHistory,
   onOpenMall,
   onOpenTasks,
   onOpenRules,
@@ -143,7 +167,11 @@ export function PointsScreen({
     { key: 'current', label: t('points.current'), value: account?.points },
     { key: 'earned', label: t('points.totalEarned'), value: account?.totalEarned },
     { key: 'spent', label: t('points.totalSpent'), value: account?.totalSpent },
-    { key: 'level', label: t('points.level'), value: account ? `Lv.${account.level}` : undefined },
+    {
+      key: 'level',
+      label: t('points.levelLabel'),
+      value: account ? `Lv.${account.level}` : undefined,
+    },
   ]
 
   return (
@@ -179,7 +207,9 @@ export function PointsScreen({
             <View style={styles.card}>
               <View style={styles.cardHead}>
                 <Award size={16} color={tk.text.secondary} />
-                <Text style={styles.cardTitle}>{level?.current?.name ?? t('points.level')}</Text>
+                <Text style={styles.cardTitle}>
+                  {level?.current?.name ?? t('points.levelLabel')}
+                </Text>
                 <Text style={styles.cardMuted}>
                   {level?.next
                     ? t('points.nextLevel', { name: level.next.name, points: remaining })
@@ -200,7 +230,7 @@ export function PointsScreen({
                 </Text>
               </View>
               <Text style={styles.cardMuted}>
-                {t('points.signIn.consecutive', { days: today?.consecutiveDays ?? 0 })} ·{' '}
+                {t('points.signIn.consecutiveDays', { days: today?.consecutiveDays ?? 0 })} ·{' '}
                 {t('points.signIn.todayReward')}: {today?.todayReward ?? 0}
               </Text>
               <TouchableOpacity
@@ -221,26 +251,80 @@ export function PointsScreen({
               </TouchableOpacity>
             </View>
 
+            {history ? (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>{t('points.signIn.history')}</Text>
+                {history.loading ? (
+                  <ActivityIndicator style={styles.txState} color={tk.text.tertiary} />
+                ) : history.failed ? (
+                  <View style={styles.txState}>
+                    <Text style={styles.errorText}>{t('points.signIn.historyLoadFailed')}</Text>
+                    <TouchableOpacity
+                      style={styles.textButton}
+                      onPress={onRetryHistory}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.retry')}
+                    >
+                      <Text style={styles.retry}>{t('common.retry')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : history.items.length === 0 ? (
+                  <Text style={styles.cardMuted}>{t('points.signIn.empty')}</Text>
+                ) : (
+                  history.items.map((row) => (
+                    <View key={row.signInDate} style={styles.txRow}>
+                      <View style={styles.txMain}>
+                        <Text style={styles.txSource}>{row.signInDate}</Text>
+                      </View>
+                      <View style={styles.txRight}>
+                        <Text style={[styles.txAmount, styles.txIn]}>+{row.rewardPoints}</Text>
+                        <Text style={styles.cardMuted}>
+                          {t('points.signIn.historyConsecutive', { days: row.consecutiveDays })}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+                {!history.loading &&
+                !history.failed &&
+                history.items.length < history.total &&
+                onLoadMoreHistory ? (
+                  <TouchableOpacity
+                    style={styles.moreBtn}
+                    onPress={onLoadMoreHistory}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('points.loadMore')}
+                  >
+                    <Text style={styles.moreText}>
+                      {t('points.loadMore')} ({history.items.length}/{history.total})
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
+
             <View style={styles.entryRow}>
               <TouchableOpacity
                 style={styles.entryBtn}
                 onPress={onOpenMall}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.mallLink')}
+                accessibilityLabel={t('points.mallTitle')}
               >
                 <ShoppingBag size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.mallLink')}</Text>
+                <Text style={styles.entryText}>{t('points.mallTitle')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}
                 onPress={onOpenTasks}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={t('points.taskCenterLink')}
+                accessibilityLabel={t('points.tasks.title')}
               >
                 <ListChecks size={16} color={tk.text.primary} />
-                <Text style={styles.entryText}>{t('points.taskCenterLink')}</Text>
+                <Text style={styles.entryText}>{t('points.tasks.title')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.entryBtn}
@@ -327,8 +411,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     body: { padding: rnSpacing.md, gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] },
     subtitle: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: rnSpacing.xs, paddingHorizontal: rnSpacing.sm },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     statCard: {
@@ -386,7 +470,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.sm,
     },
     txMain: { flex: 1, gap: rnSpacing['2xs'] },
-    txSource: { fontSize: 13, color: tk.text.primary },
+    txSource: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     txRight: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     txAmount: { fontSize: rnType.body.size, fontWeight: '700' },
     txIn: { color: tk.success.DEFAULT },
@@ -399,7 +483,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    moreText: { fontSize: 13, color: tk.text.primary },
+    moreText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

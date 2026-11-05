@@ -114,7 +114,7 @@ export function WorkflowDialog({
               rows={4}
             />
           </div>
-          {err ? <p className="text-sm text-destructive">{err}</p> : null}
+          {err ? <p className="text-body text-destructive">{err}</p> : null}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
               {tc('cancel')}

@@ -92,7 +92,7 @@ export function TerminalHistorySearch({
       </div>
       <div className="max-h-60 overflow-y-auto">
         {entries.length === 0 ? (
-          <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+          <div className="px-2.5 py-3 text-center text-label text-muted-foreground">
             {allEntries.length === 0
               ? t('terminalPanel.noHistoryHint')
               : t('terminalPanel.noMatchHistory')}
@@ -103,7 +103,7 @@ export function TerminalHistorySearch({
               key={`${i}-${entry.command}`}
               type="button"
               className={cn(
-                'flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors',
+                'flex w-full items-center gap-2 px-2.5 py-1 text-left text-label transition-colors',
                 i === index ? 'bg-accent text-accent-foreground' : 'hover:bg-accent',
               )}
               onMouseEnter={() => setIndex(i)}

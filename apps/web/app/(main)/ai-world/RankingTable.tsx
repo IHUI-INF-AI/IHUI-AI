@@ -146,9 +146,9 @@ export function RankingTable() {
               <Trophy className="h-4 w-4" />
               <span>{t('title')}</span>
             </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{t('subtitle')}</p>
+            <p className="mt-0.5 text-label text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <span className="hidden shrink-0 text-xs text-muted-foreground/70 min-[640px]:inline">
+          <span className="hidden shrink-0 text-label text-muted-foreground/70 min-[640px]:inline">
             {t('refresh')}
           </span>
         </div>
@@ -182,15 +182,15 @@ export function RankingTable() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center py-10 text-body text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
             {(error as Error).message}
           </div>
         ) : items.length === 0 ? (
-          <div className="flex items-center justify-center rounded-md border border-dashed py-10 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center rounded-md border border-dashed py-10 text-body text-muted-foreground">
             {t('empty')}
           </div>
         ) : (
@@ -242,7 +242,7 @@ export function RankingTable() {
                             {details.map((d) => (
                               <span
                                 key={d.key}
-                                className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                                className="inline-flex items-center rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
                               >
                                 <span className="opacity-70">{d.key}</span>
                                 <span className="ml-1 tabular-nums">{d.value}</span>
@@ -253,7 +253,7 @@ export function RankingTable() {
                           <span className="text-muted-foreground/50">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="hidden text-xs tabular-nums text-muted-foreground min-[768px]:table-cell">
+                      <TableCell className="hidden text-label tabular-nums text-muted-foreground min-[768px]:table-cell">
                         {fmtTime(item.fetchedAt) || '-'}
                       </TableCell>
                     </TableRow>
@@ -262,7 +262,7 @@ export function RankingTable() {
               </TableBody>
             </Table>
             {isFetching && (
-              <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
+              <div className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-0.5 text-label text-muted-foreground backdrop-blur-sm">
                 <Loader2 className="h-3 w-3 animate-spin" />
               </div>
             )}

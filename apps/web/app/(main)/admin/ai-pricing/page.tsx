@@ -223,7 +223,7 @@ export default function AdminAiPricingPage() {
       <div className="flex items-center gap-2">
         <Link
           href="/admin"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> 返回管理后台
         </Link>
@@ -232,7 +232,7 @@ export default function AdminAiPricingPage() {
       <div className="flex flex-wrap items-center gap-3">
         <Coins className="h-5 w-5 text-primary" />
         <h1 className="text-heading font-bold">模型定价管理</h1>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-label text-muted-foreground">
           token=分/千token · 按次/按张/按视频=分(入库单位),展示按 元/百万token · 元/次|张|秒
         </span>
         <div className="ml-auto flex items-center gap-2">
@@ -286,17 +286,17 @@ export default function AdminAiPricingPage() {
                 (data?.items ?? []).map((row) => (
                   <TableRow key={row.id}>
                     <TableCell
-                      className="max-w-[220px] truncate font-mono text-xs"
+                      className="max-w-[220px] truncate font-mono text-label"
                       title={row.modelId}
                     >
                       {row.modelId}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-block rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <span className="inline-block rounded bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                         {MODE_LABEL[row.billingMode ?? 'token']}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs tabular-nums">{priceSummary(row)}</TableCell>
+                    <TableCell className="text-label tabular-nums">{priceSummary(row)}</TableCell>
                     <TableCell className="text-muted-foreground">{row.currency}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => openEdit(row)}>
@@ -312,7 +312,7 @@ export default function AdminAiPricingPage() {
       </Card>
 
       {data && data.total > PAGE_SIZE && (
-        <div className="flex items-center justify-center gap-3 text-sm">
+        <div className="flex items-center justify-center gap-3 text-body">
           <Button
             variant="outline"
             size="sm"
@@ -351,7 +351,9 @@ export default function AdminAiPricingPage() {
                 placeholder="如 gpt-image-2"
               />
               {!isNew && (
-                <p className="text-xs text-muted-foreground">模型 ID 为定价主键,编辑时不可修改</p>
+                <p className="text-label text-muted-foreground">
+                  模型 ID 为定价主键,编辑时不可修改
+                </p>
               )}
             </div>
 
@@ -458,7 +460,7 @@ export default function AdminAiPricingPage() {
             </div>
 
             {(formError || saveMutation.isError) && (
-              <p className="text-sm text-destructive">
+              <p className="text-body text-destructive">
                 {formError || (saveMutation.error as Error)?.message}
               </p>
             )}

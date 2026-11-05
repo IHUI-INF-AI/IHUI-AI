@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
+import { eduApi } from '@/lib/edu'
+import { listPendingMarks } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 
 import { GradesTable } from './GradesTable'
@@ -28,10 +29,11 @@ export default function EduExamGradesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', 'pending-marks', page],
-    queryFn: () =>
-      eduApi<PageData<MarkRecord>>(
-        `/api/exam/records/pending-marks${buildQs({ page, pageSize: PAGE_SIZE })}`,
-      ),
+    queryFn: async (): Promise<PageData<MarkRecord>> => {
+      const r = await listPendingMarks<PageData<MarkRecord>>({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const { data: detail } = useQuery({
@@ -86,7 +88,7 @@ export default function EduExamGradesPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -106,7 +108,7 @@ export default function EduExamGradesPage() {
       <GradesTable records={records} isLoading={isLoading} error={error} onGrade={setGradeId} />
 
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{t('totalItems', { total })}</span>
+        <span className="text-body text-muted-foreground">{t('totalItems', { total })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -116,7 +118,9 @@ export default function EduExamGradesPage() {
           >
             {t('prev')}
           </Button>
-          <span className="text-sm text-muted-foreground">{t('pageOf', { page, totalPages })}</span>
+          <span className="text-body text-muted-foreground">
+            {t('pageOf', { page, totalPages })}
+          </span>
           <Button
             variant="outline"
             size="sm"

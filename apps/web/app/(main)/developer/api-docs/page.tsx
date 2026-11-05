@@ -185,13 +185,13 @@ export default function ApiDocsPage() {
           <Code className="h-5 w-5 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
       <Section icon={Rocket} title={t('sections.quickStart')}>
-        <ol className="space-y-1 text-xs text-muted-foreground">
+        <ol className="space-y-1 text-label text-muted-foreground">
           <li>
             <span className="font-medium text-foreground">{t('steps.step1Title')}</span>{' '}
             {t('steps.step1Desc')}
@@ -206,7 +206,7 @@ export default function ApiDocsPage() {
           </li>
         </ol>
         {/* 2026-08-17 P3:dark 模式代码块用 zinc-950,light 用 zinc-100(原实现 light 比 dark 更深,已修正) */}
-        <pre className="overflow-x-auto rounded-md bg-zinc-100 p-3 text-xs text-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+        <pre className="overflow-x-auto rounded-md bg-zinc-100 p-3 text-label text-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
           <code className="font-mono">{`curl https://api.ihui.ai/v1/chat/completions \\
   -H "Authorization: Bearer ihui_xxx" \\
   -H "Content-Type: application/json" \\
@@ -215,7 +215,7 @@ export default function ApiDocsPage() {
       </Section>
 
       <Section icon={KeyRound} title={t('sections.auth')}>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('auth.descPrefix')}
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">
             Authorization: Bearer ihui_xxx
@@ -224,7 +224,7 @@ export default function ApiDocsPage() {
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">x-api-key</code>
           {t('auth.descSuffix')}
         </p>
-        <ul className="space-y-1 text-xs">
+        <ul className="space-y-1 text-label">
           {QUICK_ENDPOINTS.map((e) => (
             <li key={e.path} className="flex items-center gap-2">
               <span
@@ -258,7 +258,7 @@ export default function ApiDocsPage() {
             {t('loading')}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('noDocs')}</p>
+          <p className="py-6 text-center text-body text-muted-foreground">{t('noDocs')}</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 min-[1024px]:grid-cols-[240px_1fr]">
             <aside className="space-y-2 min-[1024px]:max-h-[60vh] min-[1024px]:overflow-y-auto min-[1024px]:pr-1">
@@ -273,7 +273,7 @@ export default function ApiDocsPage() {
                         key={e.id}
                         onClick={() => setSelectedId(e.id)}
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
+                          'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-label transition-colors',
                           selected?.id === e.id
                             ? 'bg-primary/10 text-primary'
                             : 'hover:bg-accent hover:text-accent-foreground',
@@ -313,14 +313,14 @@ export default function ApiDocsPage() {
                     <Copy className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <p className="text-sm text-muted-foreground">{selected.summary}</p>
+                <p className="text-body text-muted-foreground">{selected.summary}</p>
                 {selected.params && selected.params.length > 0 && (
                   <div className="space-y-1.5">
                     <p className="text-body font-semibold">{t('requestParams')}</p>
                     {selected.params.map((p) => (
                       <div
                         key={p.name}
-                        className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs"
+                        className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label"
                       >
                         <code className="font-mono font-medium">{p.name}</code>
                         <span className="text-muted-foreground">{p.type}</span>
@@ -341,7 +341,7 @@ export default function ApiDocsPage() {
                 {selected.responseExample && (
                   <div>
                     <p className="mb-1.5 text-body font-semibold">{t('responseExample')}</p>
-                    <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">
+                    <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-label">
                       <code>{selected.responseExample}</code>
                     </pre>
                   </div>
@@ -357,7 +357,7 @@ export default function ApiDocsPage() {
       <CurlPlayground />
 
       <Section icon={Zap} title={t('sections.rateLimit')}>
-        <ul className="space-y-1 text-xs">
+        <ul className="space-y-1 text-label">
           <li>{t('rateLimit.tiers')}</li>
           <li className="text-muted-foreground">
             {t('rateLimit.overLimitPrefix')} <code className="font-mono">1004</code>
@@ -367,7 +367,7 @@ export default function ApiDocsPage() {
       </Section>
 
       <Section icon={Coins} title={t('sections.billing')}>
-        <ul className="space-y-1 text-xs text-muted-foreground">
+        <ul className="space-y-1 text-label text-muted-foreground">
           <li>
             · <span className="font-medium text-foreground">{t('billing.promptCacheTerm')}</span>
             {t('billing.promptCacheDesc')}

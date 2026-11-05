@@ -15,7 +15,7 @@ export interface ModelTypeConfig {
   icon: IconName
 }
 
-export const MODEL_TYPES: ModelTypeConfig[] = [
+const MODEL_TYPES: ModelTypeConfig[] = [
   { type: 'skills', label: t('ModelTypeButtonGroup.m1'), icon: 'brain' },
   { type: 'talk', label: t('aigc.list.catText'), icon: 'message-square' },
   { type: 'image', label: t('modelPlaza.tabImage'), icon: 'image' },
@@ -96,7 +96,7 @@ export default function ModelTypeButtonGroup({
   // ===== compact 模式:兼容旧调用 =====
   return (
     <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
-      <View className="inline-flex flex-row items-center px-3 py-2">
+      <View className="inline-flex flex-row items-center px-md py-sm">
         {types.map((cfg) => (
           <ModelTypeButton
             key={cfg.type}

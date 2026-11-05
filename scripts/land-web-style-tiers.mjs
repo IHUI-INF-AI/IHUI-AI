@@ -35,9 +35,22 @@
  *       现读 web 里这两档 1332 处类名串中 29 处**没有** `font-*` 伴随 ⇒ 权重会 400→700。
  *     · `text-xs → text-label` / `text-sm → text-body` 引入 400(= 文档默认),元素自身无
  *       `font-*` 且祖先也无权重类时渲染不变;祖先带权重时会被压回 400 —— 静态证明不了。
- *   只有**同一类名串里已有 `font-*` 权重工具类**时,`--tw-font-weight` 覆盖回落值 ⇒ 恒等。
+ *   只有**同一 className 属性里已有 `font-*` 权重工具类**时,`--tw-font-weight` 覆盖回落值 ⇒ 恒等。
  *   该口径的开关是 `--only-weight-locked`(`rewriteSource` 的 `requireWeightCompanion`)。
- *   全量落盘前必须先把这个反例裁掉(改档不加权重 / 浏览器 computed-style 对照 / 接受并说明)。
+ *
+ * ⚠ 第二条实测反例(2026-11-04,本仓 tailwindcss 4.3.3 + `@tailwindcss/postcss` 编译取证):
+ *   web 里 523 处可落档的类名串**没有一处**自带 `font-*` ⇒ 恒带 `--only-weight-locked` 的守护
+ *   每轮都报 `files=0 changes=0`,自愈腿等于永久空转。正解不是放宽判据(那会静默改全站字重),
+ *   而是把「继承字重」变成**可证**:给原本无权重的类名串补一枚 `font-[weight:inherit]`。
+ *   编译产物(实测,勿凭记忆改):
+ *     · `text-body`       → `font-weight: var(--tw-font-weight, var(--text-body--font-weight))`
+ *     · `font-[inherit]`  → `font-family: inherit`(⚠ 歧义被解析成 font-family,**绝不可用**)
+ *     · `font-[weight:inherit]` → `--tw-font-weight: inherit; font-weight: inherit` ✅
+ *   后者两重恒等:① `font-weight: inherit` ≡ 属性未设置时的 CSS 继承结果(任何祖先权重下都不变);
+ *   ② `--tw-font-weight: inherit` 有值 ⇒ 具名档的 400/700 回落**整体失效**,两处声明解析后同为
+ *   `inherit`,层叠谁胜都不改变计算值。因此补钉 + 改档仍是零视觉变化,可静态证明。
+ *   开关 `--pin-inherit-weight` 只在 `requireWeightCompanion` 下生效;权重判定按**整个 className
+ *   属性**合并(修既有缺陷:`cn('text-sm','font-bold')` 曾被误判成"无权重伴随"而漏改/误钉)。
  *
  * 归属避让(多会话共享工作区):`git status --porcelain` 对该文件非空 ⇒ 跳过并点名(held)。
  *
@@ -50,22 +63,40 @@
  *   node scripts/land-web-style-tiers.mjs --apply --limit 40 # 分批(共享工作区必须能小批落)
  *   node scripts/land-web-style-tiers.mjs --file <path>      # 单文件试点(可重复)
  *   node scripts/land-web-style-tiers.mjs --only-weight-locked  # 只改"权重已被 font-* 钉死"的类名串
+ *   node scripts/land-web-style-tiers.mjs --only-weight-locked --pin-inherit-weight
+ *       # 上者 + 给无权重串补 font-[weight:inherit] 后可证恒等地改档(守护自愈口径)
  *   node scripts/land-web-style-tiers.mjs --json
  *   node scripts/land-web-style-tiers.mjs --self-test
  *
  * 退出码:0 正常(含"改 0 处");1 有文件落盘后 verify 失败并已回滚;2 用法错 / 取不到输入。
+ *
+ * 写盘凭据(2026-11-03 接线):--apply 每轮把本批产出逐路径**实测 oid** 后追写申报账本
+ *   .ihui-agent/state/cross-end-landing.jsonl(库 = scripts/lib/cross-end-landing-ledger.mjs,
+ *   收编侧按 blob 逐字节核验后才收);下一轮开始先把"在册 ∧ blob 相符"的路径整轮跳过(可续跑)。
+ *   dry-run / 预演档零登记。结论行机读键:landing=<登记枚数> landingPath=<账本相对路径>
+ *   skipLanded=<跳过数>[ledger=unjudged][landingError=<原因>]。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { maskComments, scanSpans } from './lib/code-mask.mjs'
+import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+// 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):帧解析 + "取不到 ⇒ null" 都住在库里,
+// 三枚 lander 与两枚落档器(gen-ui-mirror / fix-rn-color-literals)一起 import 这一份。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WATERMARK = join(ROOT, 'scripts', 'watermark.mjs')
 const SRC_DIR = 'apps/web'
+
+/**
+ * 腿短名 = 本脚本文件名。guardian 的 sweepWebStyleTiers 派发的正是 `land-web-style-tiers.mjs`
+ * (git-guardian.mjs 现读:join(...,'land-web-style-tiers.mjs')),账本复合主键用,三端逐字同构,不得改。
+ */
+export const LEG_NAME = 'land-web-style-tiers'
 
 /** 改写表:默认档 → 具名档。**唯一一份**,测试从 `__test__` 取,不复制。 */
 export const MAP = Object.freeze({ xs: 'label', sm: 'body', xl: 'heading', '2xl': 'display' })
@@ -76,6 +107,22 @@ const TOKEN_RE = /(?<![\w-])text-(2xl|xl|sm|xs)(?![\w-])/g
 /** 权重工具类(含任意值档):它会把 `--tw-font-weight` 钉死 ⇒ 具名档的权重回落值不生效。 */
 const WEIGHT_RE = /(?<![\w-])font-(?:thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\[[^\]]+\])(?![\w-])/
 
+/**
+ * 继承字重钉(2026-11-04 编译取证,详见头注)。**唯一一份**,测试从 `__test__` 取,不复制字面量。
+ * 绝不能写成 `font-[inherit]`:Tailwind 4.3.3 会把它解析成 `font-family: inherit`。
+ * `weight:` 类型提示同时产出 `--tw-font-weight: inherit` 与 `font-weight: inherit` ⇒ 可证零变化。
+ * 该串本身也命中 `WEIGHT_RE`(`font-\[…\]` 分支)⇒ 改过一遍的文件重跑时按"已有权重"处理,幂等。
+ */
+export const INHERIT_WEIGHT_CLASS = 'font-[weight:inherit]'
+
+/** 继承钉自身的识别式(逐 region 判"这个实参钉过没有",与 group 级的其它权重分开)。 */
+const INHERIT_PIN_RE = /(?<![\w-])font-\[weight:inherit\](?![\w-])/
+
+/** 去掉继承钉后还剩别的权重类吗?用于 group 合并判定,避免把 `font-bold` 误判成"已由钉子锁定"。 */
+function hasOtherWeight(text) {
+  return WEIGHT_RE.test(text.replace(INHERIT_PIN_RE, ''))
+}
+
 /** 与 `TOKEN_RE` 同一份模式源、无 `g`(只做"这段里有没有可改 token"的判定,不移动 lastIndex)。 */
 const TOKEN_PLAIN_RE = new RegExp(TOKEN_RE.source)
 
@@ -84,6 +131,7 @@ const apply = argv.includes('--apply')
 const jsonMode = argv.includes('--json')
 const selfTest = argv.includes('--self-test')
 const onlyWeightLocked = argv.includes('--only-weight-locked')
+const pinInheritWeight = argv.includes('--pin-inherit-weight')
 const limitArg = argv.indexOf('--limit')
 const limit = limitArg >= 0 && /^\d+$/.test(argv[limitArg + 1] ?? '') ? Number(argv[limitArg + 1]) : 0
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
@@ -147,14 +195,16 @@ export function findClassRegions(src) {
   const strings = spans.filter((s) => s.kind === 'string').sort((a, b) => a.start - b.start)
   const regions = []
   const attrRe = /(?<![\w$.-])className\s*=\s*/g
-  let m
-  while ((m = attrRe.exec(face)) !== null) {
-    let j = attrRe.lastIndex
+  while (attrRe.exec(face) !== null) {
+    // owner = 该 className 属性的唯一身份。`cn('text-sm','font-bold')` 的两个字符串是**同一元素**
+    // 的类名串,权重伴随必须按属性合并判定,不能逐字符串判(否则会把有权重的元素误钉成 inherit)。
+    const owner = attrRe.lastIndex
+    let j = owner
     while (j < face.length && /\s/.test(face[j])) j++
     const q = face[j]
     const direct = strings.find((s) => s.start === j)
     if ((q === '"' || q === "'" || q === '`') && direct) {
-      regions.push({ start: direct.bodyStart, end: direct.bodyEnd })
+      regions.push({ start: direct.bodyStart, end: direct.bodyEnd, owner })
       continue
     }
     if (q === '{') {
@@ -162,7 +212,7 @@ export function findClassRegions(src) {
       if (close < 0) continue
       // 表达式里每个字符串/模板字面量的本体都是候选类名串(cn/clsx/cva 实参、三元分支、变体键)
       for (const s of strings) {
-        if (s.start > j && s.end <= close) regions.push({ start: s.bodyStart, end: s.bodyEnd })
+        if (s.start > j && s.end <= close) regions.push({ start: s.bodyStart, end: s.bodyEnd, owner })
       }
       continue
     }
@@ -199,21 +249,39 @@ export function rewriteClassText(text) {
  */
 export function rewriteSource(src, opts = {}) {
   const requireWeightCompanion = opts.requireWeightCompanion === true
+  const pinInheritWeight = opts.pinInheritWeight === true
   const face = codeFace(src)
   const regions = findClassRegions(src)
+  // 权重伴随按**整个 className 属性**合并(同一元素),不逐字符串字面量判。修既有缺陷:
+  // `cn('text-sm','font-bold')` 里 font-bold 在另一实参,旧口径会把它误判成"无权重伴随"。
+  const groupOtherWeight = new Map()
+  for (const r of regions) {
+    const key = r.owner
+    groupOtherWeight.set(
+      key,
+      (groupOtherWeight.get(key) ?? false) || hasOtherWeight(src.slice(r.start, r.end)),
+    )
+  }
   const byGroup = {}
   const samples = []
   let out = src
   let changes = 0
+  let pinned = 0
   let skippedOffFace = 0
   let skippedNoWeight = 0
   for (let i = regions.length - 1; i >= 0; i--) {
     const r = regions[i]
     const before = out.slice(r.start, r.end)
-    if (requireWeightCompanion && !WEIGHT_RE.test(before)) {
+    const hasWeight = groupOtherWeight.get(r.owner) === true
+    if (requireWeightCompanion && !hasWeight && !pinInheritWeight) {
       if (TOKEN_PLAIN_RE.test(before)) skippedNoWeight++
       continue
     }
+    // 逐实参补钉,**不做属性级去重**:`cn('text-xs', ok && 'text-sm')` 里若只给一个实参补钉,
+    // 那枚实参条件为假时钉子消失、另一个实参的具名档回落就重新生效 ⇒ 恒等被破。
+    // 让每个含可改档的实参自带钉子 ⇒ 钉子与档同生共死,任意分支组合下都可证零变化。
+    const needPin =
+      requireWeightCompanion && !hasWeight && pinInheritWeight && !INHERIT_PIN_RE.test(before)
     TOKEN_RE.lastIndex = 0
     let body = ''
     let last = 0
@@ -235,10 +303,23 @@ export function rewriteSource(src, opts = {}) {
     }
     if (hitCount === 0) continue
     body += before.slice(last)
+    if (needPin) {
+      body = `${INHERIT_WEIGHT_CLASS} ${body}`
+      pinned++
+    }
     changes += hitCount
     out = out.slice(0, r.start) + body + out.slice(r.end)
   }
-  return { out, changes, byGroup, samples, regions: regions.length, skippedOffFace, skippedNoWeight }
+  return {
+    out,
+    changes,
+    byGroup,
+    samples,
+    regions: regions.length,
+    pinned,
+    skippedOffFace,
+    skippedNoWeight,
+  }
 }
 
 function mergeGroups(into, from) {
@@ -262,31 +343,62 @@ function listSourceFiles() {
     .filter((p) => p && inScope(p))
 }
 
-/** 归属未知集合:一次读全 apps/web 的 porcelain,按路径判定(3700 路径塞不进命令行)。 */
-function dirtySet() {
-  const out = new Set()
-  try {
-    const text = String(gitRaw(['status', '--porcelain', '--', SRC_DIR], ROOT))
-    for (const line of text.split('\n')) {
-      if (!line.trim()) continue
-      let p = line.slice(3).trim()
-      const arrow = p.lastIndexOf(' -> ')
-      if (arrow >= 0) p = p.slice(arrow + 4)
-      p = p.replace(/^"|"$/g, '')
-      if (p) out.add(p)
-    }
-  } catch {
-    return null
-  }
-  return out
-}
-
 function watermark(mode, file) {
   execFileSync(process.execPath, [WATERMARK, mode, file], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })
+}
+
+// ─── 写盘凭据账本(cross-end-landing-ledger 接线,2026-11-03 立)──────────────────
+// 治两条根因:R1 无凭据(写盘没留"谁写的、写成什么 blob",收编器无从正当收编)、
+// R2 不可续跑(超时轮从头再来,永远跑不完永远 unjudged)。
+// 本层零复算判据:取 oid 与账本库 worktree 面同一把尺(gitRaw hash-object,face-reader 出口),
+// "已落集合"直接复用 collectiblePaths(quietMs=0),登记/读账本一律走库出口(§0.6)。
+
+/** 账本相对路径(正斜杠),结论行 landingPath= 键用;真相源 = 库的 ledgerPathFor。 */
+export const LEDGER_REL = relative(ROOT, ledgerPathFor(ROOT)).replace(/\\/g, '/')
+
+/** 路径在工作树面的当前 blob oid —— 与账本库 currentOidsForFace(worktree) 逐字同一把尺。 */
+export function blobOidOf(rel, { root = ROOT } = {}) {
+  return String(gitRaw(['hash-object', '--', rel], root)).trim().toLowerCase()
+}
+
+/**
+ * 本 leg 已登记 ∧ 工作树 blob 仍相符的路径集合(⇒ 本轮跳过,即幂等续跑)。
+ * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
+ * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
+ */
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+  const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
+  if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
+  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+}
+
+/**
+ * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
+ * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
+ */
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+  if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
+  try {
+    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const r = appendLanding(list, { root })
+    return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
+  } catch (e) {
+    return { ok: false, landing: 0, deduped: 0, rejected: [], error: String(e?.message ?? e).split('\n')[0] }
+  }
+}
+
+/** 结论行机读尾段(三枚 lander 逐字同形,同形锁见 scripts/tests/land-*.test.mjs)。 */
+export function landingKeys({ landing = 0, deduped = 0, rejected = 0, skipLanded = 0, ledgerUnjudged = false, landingErr = '' } = {}) {
+  const parts = [`landing=${landing}`, `landingPath=${LEDGER_REL}`, `skipLanded=${skipLanded}`]
+  if (deduped) parts.push(`landingDedup=${deduped}`)
+  if (rejected) parts.push(`landingRejected=${rejected}`)
+  if (ledgerUnjudged) parts.push('ledger=unjudged')
+  if (landingErr) parts.push(`landingError=${landingErr.replace(/\s+/g, '_').slice(0, 100)}`)
+  return ` ${parts.join(' ')}`
 }
 
 const SELF_TEST_CASES = [
@@ -301,6 +413,12 @@ const SELF_TEST_CASES = [
   { name: '幂等:改过再跑 0 处', src: '<a className="flex text-sm items-center sm:text-xs" />', want: '<a className="flex text-body items-center sm:text-label" />', n: 2 },
   { name: '权重锁档:有 font-* 伴随才改', src: '<a className="font-semibold text-xl" /><b className="text-xl" />', want: '<a className="font-semibold text-heading" /><b className="text-xl" />', n: 1, opts: { requireWeightCompanion: true } },
   { name: '权重锁档:变体前缀的权重也算', src: '<a className="text-sm md:font-bold" />', want: '<a className="text-body md:font-bold" />', n: 1, opts: { requireWeightCompanion: true } },
+  { name: '钉档:无权重串补继承钉后可证恒等地改档', src: '<a className="text-xl" />', want: '<a className="font-[weight:inherit] text-heading" />', n: 1, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:cn 另一实参的 font-bold 算权重伴随,绝不误钉', src: "<a className={cn('text-sm', 'font-bold')} />", want: "<a className={cn('text-body', 'font-bold')} />", n: 1, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:条件实参逐枚自带钉,任意分支组合下钉子与档同生共死', src: "<a className={cn('text-xs', ok && 'text-sm')} />", want: "<a className={cn('font-[weight:inherit] text-label', ok && 'font-[weight:inherit] text-body')} />", n: 2, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:表外档不产生钉子', src: '<a className="text-base" />', want: '<a className="text-base" />', n: 0, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '钉档:已有钉的实参不重复钉,同属性新写的档补钉', src: "<a className={cn('font-[weight:inherit] text-sm', 'text-xl')} />", want: "<a className={cn('font-[weight:inherit] text-body', 'font-[weight:inherit] text-heading')} />", n: 2, opts: { requireWeightCompanion: true, pinInheritWeight: true } },
+  { name: '权重锁档(不补钉):cn 多实参的权重也按属性合并判定', src: "<a className={cn('text-sm', 'font-bold')} />", want: "<a className={cn('text-body', 'font-bold')} />", n: 1, opts: { requireWeightCompanion: true } },
 ]
 
 function runSelfTest() {
@@ -327,10 +445,22 @@ function main() {
     console.error('❌ 未判定:候选源码枚举到 0 个')
     process.exit(2)
   }
-  const dirty = dirtySet()
+  const dirty = ownershipDirtyPaths({ root: ROOT, pathspec: [SRC_DIR] })
   if (dirty === null) {
     console.error('❌ 未判定:git status 取不到,归属未知不猜')
     process.exit(2)
+  }
+
+  // 续跑(R2):账本在册且工作树 blob 仍相符的路径 = 本 leg 早前已落,整轮跳过(不再读、不再改)。
+  // 只在 --apply 档生效:dry-run 是观察面,必须照旧全量预演;账本读不到 ⇒ 回落现行为 + ledger=unjudged。
+  let landedSet = new Set()
+  let ledgerUnjudged = false
+  let skipLanded = 0
+  const landedBatch = []
+  if (apply) {
+    const lp = landedPathsOf()
+    if (lp.ok) landedSet = lp.paths
+    else ledgerUnjudged = true
   }
 
   const results = []
@@ -339,6 +469,7 @@ function main() {
   const byGroup = {}
   const samples = []
   let totalChanges = 0
+  let totalPinned = 0
   let truncated = false
   let scanned = 0
 
@@ -346,6 +477,10 @@ function main() {
     if (limit && results.length >= limit) {
       truncated = true
       break
+    }
+    if (landedSet.has(f)) {
+      skipLanded++
+      continue
     }
     scanned++
     let src
@@ -359,7 +494,7 @@ function main() {
       held.push(`${f}(二进制/不可读)`)
       continue
     }
-    const r = rewriteSource(src, { requireWeightCompanion: onlyWeightLocked })
+    const r = rewriteSource(src, { requireWeightCompanion: onlyWeightLocked, pinInheritWeight })
     if (r.changes === 0) continue
     if (dirty.has(f)) {
       held.push(f)
@@ -368,6 +503,7 @@ function main() {
     if (!apply) {
       results.push({ file: f, changes: r.changes, byGroup: r.byGroup })
       totalChanges += r.changes
+      totalPinned += r.pinned
       mergeGroups(byGroup, r.byGroup)
       for (const s of r.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
       continue
@@ -384,7 +520,10 @@ function main() {
     try {
       watermark('clean', f)
       const cleaned = readWorktreeFile(ROOT, f)
-      const rr = cleaned === null ? null : rewriteSource(cleaned, { requireWeightCompanion: onlyWeightLocked })
+      const rr =
+        cleaned === null
+          ? null
+          : rewriteSource(cleaned, { requireWeightCompanion: onlyWeightLocked, pinInheritWeight })
       if (!rr) throw new Error('clean 后读不回')
       if (rr.changes === 0) {
         watermark('inject', f)
@@ -395,7 +534,9 @@ function main() {
       watermark('inject', f)
       watermark('verify', f)
       results.push({ file: f, changes: rr.changes, byGroup: rr.byGroup })
+      landedBatch.push(f)
       totalChanges += rr.changes
+      totalPinned += rr.pinned
       mergeGroups(byGroup, rr.byGroup)
       for (const s of rr.samples) if (samples.length < 10) samples.push(`${f}: ${s}`)
     } catch (e) {
@@ -409,6 +550,20 @@ function main() {
     }
   }
 
+  // 本批产出一次登记(R1):写完盘后实测 oid;登记失败绝不冒充成功(landingError 如实带上)。
+  let landing = 0
+  let landingDedup = 0
+  let landingRejected = 0
+  let landingErr = ''
+  if (apply && landedBatch.length) {
+    const reg = registerLanding(landedBatch)
+    landing = reg.landing
+    landingDedup = reg.deduped
+    landingRejected = reg.rejected.length
+    if (!reg.ok) landingErr = reg.error
+    else if (landingRejected) landingErr = `rejected=${landingRejected}:${reg.rejected[0].reason}`
+  }
+
   const summary = {
     scanned,
     changedFiles: results.length,
@@ -418,7 +573,16 @@ function main() {
     failed: failed.length,
     applied: apply,
     weightLocked: onlyWeightLocked,
+    pinInheritWeight,
+    pinned: totalPinned,
     truncated,
+    landing,
+    landingDedup,
+    landingRejected,
+    landingPath: LEDGER_REL,
+    skipLanded,
+    ledger: ledgerUnjudged ? 'unjudged' : 'ok',
+    ...(landingErr ? { landingError: landingErr } : {}),
     map: MAP,
   }
   if (jsonMode) {
@@ -436,7 +600,8 @@ function main() {
   if (held.length) console.log(`  🔒 held(工作树脏,归属未知不猜)${held.length} 个:${held.slice(0, 6).join(', ')}${held.length > 6 ? ' …' : ''}`)
   if (failed.length) console.log(`  ❌ failed ${failed.length} 个(已回滚):${failed.slice(0, 5).join(', ')}`)
   console.log(
-    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]`,
+    `结论:LAND-WEB-TIERS state=${apply ? 'applied' : 'dry-run'} files=${results.length} changes=${totalChanges} pinned=${totalPinned} held=${held.length} failed=${failed.length}${truncated ? ' truncated=1' : ''} groups[${groups}]` +
+      landingKeys({ landing, deduped: landingDedup, rejected: landingRejected, skipLanded, ledgerUnjudged, landingErr }),
   )
   if (failed.length) process.exit(1)
 }
@@ -451,5 +616,20 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { MAP, rewriteSource, rewriteClassText, findClassRegions, codeFace, inScope, SELF_TEST_CASES }
+export const __test__ = {
+  MAP,
+  INHERIT_WEIGHT_CLASS,
+  rewriteSource,
+  rewriteClassText,
+  findClassRegions,
+  codeFace,
+  inScope,
+  SELF_TEST_CASES,
+  LEG_NAME,
+  LEDGER_REL,
+  blobOidOf,
+  landedPathsOf,
+  registerLanding,
+  landingKeys,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

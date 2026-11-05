@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     backBtn: { marginBottom: rnSpacing.sm },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     filterSection: {
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: rnSpacing['3xl'] },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,

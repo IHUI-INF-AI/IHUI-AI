@@ -37,7 +37,7 @@ export function Guarantee(): React.JSX.Element {
             <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-3 p-3 text-center">
               <Icon className="h-7 w-7 text-primary" />
               <h3 className="text-body font-semibold text-foreground">{t(titleKey)}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{t(descKey)}</p>
+              <p className="text-label leading-relaxed text-muted-foreground">{t(descKey)}</p>
             </CardContent>
           </Card>
         ))}

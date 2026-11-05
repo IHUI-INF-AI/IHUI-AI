@@ -19,7 +19,7 @@ import path from 'node:path'
 // 夹具落点 = §15b/§26 唯一出口(不钉 os.tmpdir:活进程 TEMP 可能仍落 C 盘,也不落仓库树内)
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as strip, planSweep, sweepStaleClaimMarks } from '../strip-stale-claim-marks.mjs'
-import { claimMarkOf } from '../lib/plan-task-index.mjs'
+import { claimMarkOf, claimMarksOf } from '../lib/plan-task-index.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const NOW = Date.parse('2026-10-22T12:00:00Z')
@@ -270,3 +270,152 @@ test('护栏③ 形状锁:不得再出现"工作树脏 ⇒ 整批让路"那一�
     '收窄后的判据必须落在"别席就地改写过"这一型上',
   )
 })
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// 一行多枚牌(2026-11-01 S-STRIP)
+//
+// 现场:`node scripts/strip-stale-claim-marks.mjs --dry-run` 连轮
+// `❌ 守恒不过:C3 摘后挂牌集不等于本轮跳过集(多摘或少摘) ⇒ 整批不落`,4 枚超龄 109–157h
+// 的真活永久不可派。真凶 = 台账 L33553 一行两牌:结构位 `（进行中@…/gb18-e1）` + 行尾
+// `（进行中@…/wave3-chair）`。`claimMarkOf` 只返回首枚 ⇒ 清扫器只替换那一枚 ⇒ 第二枚留在原地
+// ⇒ afterClaims(2) ≠ held(1) ⇒ C3 恒 false。
+//
+// 下面每一条都带**反向例**:把修复回退掉(只摘首枚 / C3 恒真 / 整行一摘全摘),对应用例必须变红。
+// ═══════════════════════════════════════════════════════════════════════════════════════
+
+/** 一行两牌:首枚紧贴 `- [ ]`(structural),第二枚在行尾(非 structural);两枚都超龄。 */
+const TWO_MARKS =
+  '- [ ]（进行中@2026-10-01/gb18-e1）（认领已释放@2026-10-02/x#a-0） （进行中@2026-10-01/wave3-chair） 第三波待办 G-1'
+
+/**
+ * 旧器物的**等价复刻**(仅供反向例用,生产判据仍只有 `claimMarksOf` 一份):
+ * 逐行取 `claimMarkOf`(只首枚)⇒ 超龄就只替换那一枚 ⇒ 用与生产同形的 C3 公式重算。
+ * `constTrueC3` 模拟"有人把 C3 改成恒真"。
+ */
+function sweepFirstMarkOnly(text, { nowMs, ttlHours, constTrueC3 = false }) {
+  const lines = String(text).split('\n')
+  const out = [...lines]
+  const stripped = []
+  const held = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = claimMarkOf(lines[i])
+    if (!m) continue
+    if (m.form !== 'lease' || !m.date) {
+      held.push(i + 1)
+      continue
+    }
+    const ageH = Math.round((nowMs - Date.parse(`${m.date}T00:00:00Z`)) / 3600000)
+    if (ageH <= ttlHours) {
+      held.push(i + 1)
+      continue
+    }
+    stripped.push({ line: i + 1, at: m.at, len: m.mark.length })
+  }
+  for (const r of stripped) {
+    const idx = r.line - 1
+    out[idx] = out[idx].slice(0, r.at) + `（认领已释放@2026-10-22/t#s-${idx}）` + out[idx].slice(r.at + r.len)
+  }
+  const afterClaims = out.map((l) => claimMarkOf(l)).filter(Boolean)
+  const ok = constTrueC3 ? true : afterClaims.length === held.length
+  return { out, held: held.length, afterClaims: afterClaims.length, ok }
+}
+
+test('④一行两牌(两枚都超龄)⇒ 摘后该行零带牌,C3 成立', () => {
+  const p = planSweep(TWO_MARKS, base)
+  assert.equal(claimMarksOf(TWO_MARKS).length, 2, '夹具必须真是一行两牌(否则本用例测不到东西)')
+  assert.equal(p.leases.length, 2, `两枚超龄牌都要进摘除集,实到 ${p.leases.length}`)
+  assert.equal(p.held.length, 0, '该行没有必须保留的牌 ⇒ 不该进跳过集')
+  assert.equal(claimMarksOf(p.text.split('\n')[0]).length, 0, '摘后该行仍带牌 ⇒ 第二枚被漏摘(整批不落的真凶)')
+  assert.equal(p.ok, true, p.why)
+  // 同一行两枚注记的 #seq 必须不同,否则留痕指向同一件事(只数本轮新写的 `@日期/t#…`,夹具里那枚旧注记不算)
+  const seqs = [...p.text.matchAll(/（认领已释放@2026-10-22\/t#([^）]+)）/g)].map((m) => m[1])
+  assert.equal(seqs.length, 2, `本轮应写 2 枚注记,实得 ${seqs.length}`)
+  assert.equal(new Set(seqs).size, 2, `同行两枚的 seq 撞了:${seqs.join(',')}`)
+  // removed/added 是**行集**,一行只能登记一次(重复行会让 object-space-land 的行级复活守卫收两份)
+  assert.equal(p.removed.length, 1)
+  assert.equal(p.added.length, 1)
+})
+
+test('④一行两牌但其中一枚是 legacy(无日期、无授权)⇒ 可判龄那枚摘、legacy 保留且计入 held,C3 成立', () => {
+  // 结构位那枚是裸标记(判据认它),行尾那枚是完整租约。摘掉租约后行仍带牌 ⇒ 必须进跳过集,
+  // 否则 C3 会把它读成"多摘"(这正是把判据放宽的反方向:不是少摘,是把该留的留了却账不上)。
+  const row = '- [ ]（进行中）（进行中@2026-10-01/old-lease） 双牌:首枚无日期,次枚超龄'
+  const p = planSweep(row, { ...base, legacyByOwnerRuling: null })
+  assert.equal(claimMarksOf(row).length, 2, '夹具必须真被判据看成两枚')
+  assert.equal(p.leases.length, 1, '只有可判龄的那枚能摘')
+  assert.equal(p.held.length, 1, '该行摘后仍带牌 ⇒ 必须计入跳过集,否则 C3 会把它读成"多摘"')
+  assert.equal(p.held[0].line, 1)
+  assert.equal(p.ok, true, p.why)
+  const after = claimMarksOf(p.text.split('\n')[0])
+  assert.equal(after.length, 1, 'legacy 那枚必须原样留在线上')
+  assert.equal(after[0].form, 'legacy', '留下的必须是那枚无日期的裸标记')
+})
+
+test('④行尾的**裸**标记仍不算牌(判据未放宽:叙述不是认领)⇒ 摘完全净,C3 成立', () => {
+  const row = '- [ ]（进行中@2026-10-01/x）（进行中） 尾裸标记只是叙述'
+  assert.equal(claimMarksOf(row).length, 1, '非结构位的裸标记不许升成挂牌(否则 198 张真票被永久锁死)')
+  const p = planSweep(row, base)
+  assert.equal(p.leases.length, 1)
+  assert.equal(p.held.length, 0)
+  assert.equal(p.ok, true, p.why)
+  assert.equal(claimMarksOf(p.text.split('\n')[0]).length, 0)
+})
+
+
+test('④一行两牌、次枚未超龄 ⇒ 只摘超龄那枚,未超龄那枚必须留(逐枚判龄,不是整行一刀)', () => {
+  const row = '- [ ]（进行中@2026-10-01/stale）（进行中@2026-10-21/fresh） 双牌混龄'
+  const p = planSweep(row, base)
+  assert.equal(p.leases.length, 1, '只有超龄那枚该摘')
+  assert.equal(p.held.length, 1)
+  assert.equal(p.ok, true, p.why)
+  const after = claimMarksOf(p.text.split('\n')[0])
+  assert.equal(after.length, 1)
+  assert.equal(after[0].holder, 'fresh', '未超龄那枚被误摘 = 抢活席位(§1)')
+})
+
+test('③反向例:把清扫器改回「只摘首枚」⇒ 上面第一条必须变红', () => {
+  const mut = sweepFirstMarkOnly(TWO_MARKS, { nowMs: NOW, ttlHours: 72 })
+  assert.equal(
+    claimMarksOf(mut.out[0]).length,
+    1,
+    '复刻的旧行为必须真的留下第二枚(否则这条反向例是空转)',
+  )
+  assert.equal(mut.ok, false, '只摘首枚 ⇒ C3 必须判不过(整批不落)')
+  // 真实现同一台账必须过 —— 两者结论相反,证明"逐枚摘"才是 C3 成立的唯一路径
+  assert.equal(planSweep(TWO_MARKS, base).ok, true)
+})
+
+test('⑤反向例:C3 若改成恒真,上面那条反向例再也拦不住(证 C3 仍有牙)', () => {
+  const mut = sweepFirstMarkOnly(TWO_MARKS, { nowMs: NOW, ttlHours: 72 })
+  const constTrue = sweepFirstMarkOnly(TWO_MARKS, { nowMs: NOW, ttlHours: 72, constTrueC3: true })
+  // 同一份"只摘首枚"的产物:真 C3 判不过,恒真 C3 放行 —— 差异只在 C3 这一处
+  assert.equal(mut.afterClaims, mut.held + 1, '残留牌数必须与跳过集不等,否则本条证明不了任何事')
+  assert.equal(mut.ok, false)
+  assert.equal(constTrue.ok, true, 'C3 恒真会把"留了一枚牌"的整批静默放行')
+})
+
+test('②形状锁:清扫器逐枚取牌必须走 `claimMarksOf`,不得退回单枚判据', () => {
+  const src = readFileSync(path.join(HERE, '..', 'strip-stale-claim-marks.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('export function planSweep'), src.indexOf('export function localDay'))
+  assert.match(body, /claimMarksOf\(lines\[i\]\)/, 'planSweep 必须对每行取全部牌(否则一行两牌永远摘不干净)')
+  assert.doesNotMatch(
+    body,
+    /const m = claimMarkOf\(lines\[i\]\)/,
+    '退回单枚判据 = 2026-11-01 那个结构性卡点的原样复现',
+  )
+  // 判据本体那一侧:新增出口不得另写一份正则(§22c 单一真相源)
+  const lib = readFileSync(path.join(HERE, '..', 'lib', 'plan-task-index.mjs'), 'utf8')
+  const fn = lib.slice(lib.indexOf('export function claimMarksOf'), lib.indexOf('export const KEY_MAX_OFFSET'))
+  assert.match(fn, /CLAIM_SOURCE/, 'claimMarksOf 必须复用 CLAIM_SOURCE')
+  assert.match(fn, /parseLeaseForm/, 'claimMarksOf 必须复用 parseLeaseForm')
+  assert.match(fn, /codeSpanRangesOf|insideCodeSpan/, 'claimMarksOf 必须复用反引号码段判据')
+  assert.doesNotMatch(fn, /进行中\[/, 'claimMarksOf 里另写了"什么算牌"的正则')
+  // ⑤ 的落点(实测):C3 是**后置自检**,只在替换逻辑出错时兜底 —— 单把它改成恒真时其余用例
+  // 全绿(2026-11-01 本席实跑:23/23),所以必须有这条源码锁,否则"把判据放宽"可以静默发生。
+  assert.match(
+    body,
+    /const c3 = afterClaims\.length === held\.length && afterClaims\.every\(\(r\) => heldKeys\.has\(r\.raw\)\)/,
+    'C3 必须保持"条数相等 ∧ 逐行文本一一对应"两条(§12f:允许放宽 = 允许悄悄多摘/少摘)',
+  )
+})
+

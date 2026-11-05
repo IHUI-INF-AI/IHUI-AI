@@ -16,6 +16,7 @@ import {
   Code2,
   Brain,
   ChartNoAxesColumn,
+  Activity,
   Loader2,
 } from 'lucide-react'
 
@@ -23,6 +24,7 @@ import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react
 import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
+import { isRumConsentGranted, setRumConsent } from '@/lib/rum/consent'
 
 interface PrivacyPrefs {
   dataVisible: boolean
@@ -72,6 +74,14 @@ interface PrivacyPrefs {
    * 缺省(键不存在)= true = 保持整改前的现状行为(埋点照常上报),不静默改变行为。
    */
   analyticsEnabled: boolean
+  /**
+   * 客户端 RUM（性能与错误诊断）同意开关。
+   *
+   * 与 analyticsEnabled 的"默认开、opt-out"不同，RUM 是 **opt-in**：
+   * 默认关闭，只有用户在这里显式打开后才采集；关闭时不入队、不发请求（零网络）。
+   * 该状态只存本机 localStorage，**不写后端偏好** —— 服务端无权替用户打开性能采集。
+   */
+  rumEnabled: boolean
 }
 
 export default function PrivacyPage() {
@@ -90,6 +100,7 @@ export default function PrivacyPage() {
     // 缺省 true = 部署方没关(整改前行为);端点返回前界面不会渲染,不会闪出假状态。
     autoMemoryGloballyEnabled: true,
     analyticsEnabled: true,
+    rumEnabled: isRumConsentGranted(),
   })
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
@@ -144,6 +155,8 @@ export default function PrivacyPage() {
           // 变成关闭,与读取端的判定逻辑不一致,开关会显示成与实际相反的状态。
           analyticsEnabled: s.analyticsEnabled !== 'false',
           autoMemoryGloballyEnabled: globalEnabled,
+          // RUM 同意只读本机（不从后端 prefs 覆盖），刷新页面后沿用本地选择。
+          rumEnabled: isRumConsentGranted(),
         })
       } else {
         setError(t('privacyLoadFailed'))
@@ -168,6 +181,14 @@ export default function PrivacyPage() {
     // 这里直接忽略并把界面复位到"关"(全局闸下记忆确实是关的)。
     if (key === 'autoMemoryOptOut' && !prefs.autoMemoryGloballyEnabled) {
       setPrefs((prev) => ({ ...prev, autoMemoryOptOut: true }))
+      return
+    }
+    // RUM 同意仅本地留存（见 PrivacyPrefs.rumEnabled 注释），不走 PUT /settings/privacy：
+    // 服务端存"允许"会破坏"默认关闭 + 显式同意"的语义。
+    if (key === 'rumEnabled') {
+      setPrefs((prev) => ({ ...prev, rumEnabled: value }))
+      setRumConsent(value)
+      setToast({ type: 'success', msg: t('privacySaveSuccess') })
       return
     }
     setPrefs((prev) => ({ ...prev, [key]: value }))
@@ -238,6 +259,13 @@ export default function PrivacyPage() {
       desc: t('analyticsEnabledDesc'),
       key: 'analyticsEnabled' as const,
     },
+    {
+      // 同样是 opt-in 语义（true = 允许采集）。默认 false，关闭时零请求。
+      icon: Activity,
+      title: t('rumEnabled'),
+      desc: t('rumEnabledDesc'),
+      key: 'rumEnabled' as const,
+    },
   ]
 
   return (
@@ -245,26 +273,26 @@ export default function PrivacyPage() {
       <BackButton />
       <div className="shrink-0">
         <h1 className="text-display font-bold tracking-tight">{t('privacyTitle')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('privacyDesc')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('privacyDesc')}</p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
         {!ready ? (
           // 登录态确认中 ≠ 未登录:bootstrap 静默刷新还没跑完时就显「请先登录」,
           // 已登录用户会误判被踢出(与签到助手 HEAD 三态同型,2026-10-15 改判)。
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : !allow ? (
           <AuthGatePrompt message={tGate('loginRequired')} />
         ) : loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 py-8 text-body text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             {tc('loading')}
           </div>
         ) : error ? (
-          <p className="py-8 text-center text-sm text-destructive">{error}</p>
+          <p className="py-8 text-center text-body text-destructive">{error}</p>
         ) : (
           items.map((item) => {
             const Icon = item.icon
@@ -278,7 +306,7 @@ export default function PrivacyPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between gap-3">
-                    <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+                    <span className="min-w-0 flex-1 text-body text-muted-foreground">
                       {item.desc}
                     </span>
                     <Switch
@@ -296,7 +324,7 @@ export default function PrivacyPage() {
 
         {toast && (
           <div
-            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+            className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-body text-white shadow-lg ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
           >
             {toast.msg}
           </div>

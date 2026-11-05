@@ -5,7 +5,9 @@
 /**
  * mobile-rn hooks 统一入口。
  *
- * 平台独占 hook(use-biometrics / use-push / use-screenshot)保留本地实现。
+ * 平台独占 hook 一律不进本 barrel;2026-11-04 收口:原 use-biometrics / use-push 取证为
+ * 全仓零消费者(自创建起从未被任何文件 import,且 app.config.js 的 plugins 里也没有对应
+ * 原生插件)⇒ 已整文件删除,不再有"保留本地实现"的例外面。
  * use-clipboard / use-paginated-list / use-websocket 已 re-export shared。
  *
  * 本文件统一 re-export shared 工具 hook,各 Screen 可按需 import:
@@ -29,10 +31,6 @@ export { usePaginatedList } from '@ihui/shared/hooks'
 export type { Fetcher, PaginatedListResult } from '@ihui/shared/hooks'
 
 export { useNotificationWebSocket } from '@ihui/shared/notifications'
-
-// 跨端任务接收 + 审批卡(2026-10-26 立,对标 web use-task-receiver):
-// 设备注册/心跳、toDevice 定向、增量补拉、pendingApprovals / answerApproval。
-export { useTaskReceiver } from './useTaskReceiver'
 export type { UseTaskReceiverReturn } from './useTaskReceiver'
 
 // 微信 APP 支付共享 Hook(平台独占:依赖 RN react-native-wechat-lib,抽自 VipScreen pay 函数)

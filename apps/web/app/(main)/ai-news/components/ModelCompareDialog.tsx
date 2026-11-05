@@ -225,7 +225,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
 
         {/* side-by-side 对比表 */}
         <div className="overflow-x-auto px-5 py-4">
-          <table className="w-full text-xs">
+          <table className="w-full text-label">
             <thead>
               <tr>
                 <th className="w-28 px-2 py-2 text-left text-[10px] font-medium uppercase text-muted-foreground">
@@ -281,7 +281,7 @@ export function ModelCompareDialog({ entries, open, onClose }: Props) {
               <MultiRadar entries={entries} />
               <div className="flex flex-col gap-1">
                 {capsModels.map((e, i) => (
-                  <div key={e.id} className="flex items-center gap-1.5 text-xs">
+                  <div key={e.id} className="flex items-center gap-1.5 text-label">
                     <span
                       className="inline-block h-2.5 w-2.5 rounded-sm"
                       style={{ backgroundColor: RADAR_COLORS[i % RADAR_COLORS.length] }}

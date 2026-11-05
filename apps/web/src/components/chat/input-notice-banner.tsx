@@ -70,7 +70,8 @@ export function InputNoticeBanner({
 
   const blockReason =
     compactionReason ?? (compactionCtx ? resolveCompactionBlockReason(compactionCtx) : null)
-  const blockView = blockReason && compactionCtx ? compactionBlockView(blockReason, compactionCtx) : null
+  const blockView =
+    blockReason && compactionCtx ? compactionBlockView(blockReason, compactionCtx) : null
 
   const perms = queueCtx ? queueInteractionPerms(queueCtx) : null
   const reasonView = queueCtx ? queueReasonView(queueCtx) : null
@@ -86,14 +87,11 @@ export function InputNoticeBanner({
   return (
     <div
       role="status"
-      className={cn('flex flex-col gap-1 rounded-md bg-muted/30 px-3 py-2 text-xs', className)}
+      className={cn('flex flex-col gap-1 rounded-md bg-muted/30 px-3 py-2 text-label', className)}
       data-testid={testId}
     >
       {blockView ? (
-        <div
-          className="flex flex-col gap-0.5"
-          data-input-notice-compaction={blockView.reason}
-        >
+        <div className="flex flex-col gap-0.5" data-input-notice-compaction={blockView.reason}>
           <span className="font-medium text-amber-600 dark:text-amber-500" data-compaction-cause>
             {t(`compaction.block.${blockView.causeKey}`)}
           </span>

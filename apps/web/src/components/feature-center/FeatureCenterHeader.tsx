@@ -20,7 +20,7 @@ export function FeatureCenterHeader({ title, description, actions }: FeatureCent
         <h1 className="text-display font-bold tracking-tight min-[768px]:text-3xl">{title}</h1>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      {description && <p className="text-body text-muted-foreground">{description}</p>}
     </header>
   )
 }

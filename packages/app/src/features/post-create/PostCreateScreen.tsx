@@ -8,6 +8,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PostCreateScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { useUiField } from '@ihui/shared/ui-control/field-registry'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -30,6 +31,44 @@ export function PostCreateScreen({
 }: PostCreateScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  /**
+   * AI 操控通道(2026-11-06 端内能力下沉):三个输入框由**渲染它们的本屏**交出
+   * 「当下值 + 组件真正绑定的 setter」。
+   *
+   * 为什么住这里:控件注册表只要求「谁渲染输入框,谁交出写通道」——注册核
+   * (`@ihui/shared/ui-control/field-registry`)只依赖 React 与 Map,零平台 API,小程序与 RN
+   * 拿到的是同一个模块实例;而输入框住在本屏,把它交给端内页去登记,等于「界面在屏上、
+   * 通道在页里」两处真相(§0.6)。端内薄壳页此前自带这三枚登记(小程序 create/index.tsx),
+   * 屏没有承接 ⇒ 一旦转承载,AI 侧的症状是「这三个框填不了」这种无声能力缺失。
+   *
+   * 与端内登记面逐条同形:kind / label / placeholder / readValue / setValue 一致,
+   * group 缺省 'page' 一致;`saving` 早返回不摘通道(端内也是同序,行为零漂移)。
+   *
+   * 提交(发布到社区)是对外发声且不可逆的动作:按钮与表单都不交出通道,
+   * 注册表的 DESTRUCTIVE_TEXT_RE 另有「发布/post」一层兜底 —— 两层判据都不依赖对方。
+   */
+  useUiField({
+    kind: 'input',
+    label: t('postCreate.titleLabel'),
+    placeholder: t('postCreate.titlePlaceholder'),
+    readValue: () => title,
+    setValue: onTitleChange,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: t('postCreate.contentLabel'),
+    placeholder: t('postCreate.contentPlaceholder'),
+    readValue: () => content,
+    setValue: onContentChange,
+  })
+  useUiField({
+    kind: 'input',
+    label: t('postCreate.tagsLabel'),
+    placeholder: t('postCreate.tagsPlaceholder'),
+    readValue: () => tags,
+    setValue: onTagsChange,
+  })
 
   if (saving) {
     return (
@@ -102,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: rnType.body.size, color: tk.text.secondary },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.md,

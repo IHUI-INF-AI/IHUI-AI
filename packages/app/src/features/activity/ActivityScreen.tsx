@@ -43,8 +43,9 @@ export function ActivityScreen({
   onRefresh,
   onBack,
   onItemPress,
+  onRetry,
   colorScheme = 'light',
-}: ActivityScreenProps) {
+}: ActivityScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -58,7 +59,7 @@ export function ActivityScreen({
       {error ? (
         <ErrorState
           message={error}
-          onRetry={onRefresh}
+          onRetry={onRetry}
           retryLabel={t('common.retry')}
           colorScheme={colorScheme}
         />
@@ -106,7 +107,7 @@ export function ActivityScreen({
                 {t('activity.participants')}: {item.participants}
               </Text>
               <TouchableOpacity style={styles.joinBtn}>
-                <Text style={styles.joinText}>{t('activity.joinNow')}</Text>
+                <Text style={styles.joinText}>{t('activities.join')}</Text>
               </TouchableOpacity>
             </TouchableOpacity>
           )}
@@ -134,10 +135,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'] },
     muted: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
-    listBody: { padding: 14 },
+    listBody: { padding: rnSpacing['md-loose'] },
     separator: { height: 12 },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -155,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    badgeText: { fontSize: 10, color: tk.surface.light },
+    badgeText: { fontSize: rnType.badge.size, color: tk.surface.light },
     cardDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,

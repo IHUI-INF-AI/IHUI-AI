@@ -77,7 +77,7 @@ export default function EduExamRankingPage() {
       <BackButton />
       <div>
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" size="sm">
@@ -155,17 +155,17 @@ export default function EduExamRankingPage() {
                         {idx + 1}
                       </span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">{idx + 1}</span>
+                      <span className="text-body text-muted-foreground">{idx + 1}</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 font-mono text-xs">
+                  <TableCell className="px-4 py-2.5 font-mono text-label">
                     {r.userId.slice(0, 8)}…
                   </TableCell>
                   <TableCell className="px-4 py-2.5 font-semibold">{Number(r.score)}</TableCell>
                   <TableCell className="px-4 py-2.5">
                     {r.isPassed ? t('passed') : t('notPassed')}
                   </TableCell>
-                  <TableCell className="px-4 py-2.5 text-xs text-muted-foreground">
+                  <TableCell className="px-4 py-2.5 text-label text-muted-foreground">
                     {r.submittedAt ?? '-'}
                   </TableCell>
                 </TableRow>

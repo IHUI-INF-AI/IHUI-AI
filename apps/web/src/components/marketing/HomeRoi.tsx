@@ -163,10 +163,10 @@ export function HomeRoi() {
           04
         </div>
         <h2 className="text-display font-bold tracking-tight min-[640px]:text-3xl">{t('title')}</h2>
-        <h3 className="font-edix text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        <h3 className="font-edix text-label uppercase tracking-[0.2em] text-muted-foreground">
           {t('titleEn')}
         </h3>
-        <p className="mx-auto max-w-3xl text-sm text-muted-foreground min-[640px]:text-base">
+        <p className="mx-auto max-w-3xl text-body text-muted-foreground min-[640px]:text-base">
           {t('subtitle')}
         </p>
       </RevealOnView>
@@ -180,7 +180,7 @@ export function HomeRoi() {
             <RevealOnView
               key={title}
               delay={0.06 * (i + 1)}
-              className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:bg-primary/3 hover:shadow-xl hover:shadow-primary/5 min-[640px]:p-3"
+              className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/30 p-3 text-center transition-all duration-300 hover:border-primary/30 hover:bg-primary/3 min-[640px]:p-3 ui-lift"
             >
               {/* Ghost 编号 */}
               <span
@@ -216,7 +216,7 @@ export function HomeRoi() {
               </h3>
 
               {/* 描述 */}
-              <p className="text-[11px] leading-relaxed text-muted-foreground min-[640px]:text-xs">
+              <p className="text-[11px] leading-relaxed text-muted-foreground min-[640px]:text-label">
                 {description}
               </p>
 

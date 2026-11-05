@@ -35,7 +35,8 @@ export interface StatusIncident {
 
 export interface StatusOverview {
   platform: string
-  version: string
+  /** 服务端自身 package.json 的版本;取不到(工作区占位 0.0.0)时如实 null ⇒ 不渲染那一格 */
+  version: string | null
   uptime: number
   timestamp: string
   services: Record<string, StatusServiceStatus>
@@ -245,7 +246,8 @@ export function StatusScreen({
         <View style={styles.hero}>
           <Text style={styles.heroTitle}>{t('statusPage.title')}</Text>
           <Text style={styles.heroSubtitle}>
-            {overview.platform} · v{overview.version} · {t('statusPage.autoRefreshHint')}
+            {overview.platform}
+            {overview.version ? ` · v${overview.version}` : ''} · {t('statusPage.autoRefreshHint')}
           </Text>
         </View>
 

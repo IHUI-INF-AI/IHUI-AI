@@ -115,7 +115,7 @@ export default function TenantBackupsPage() {
               <Database className="h-6 w-6 text-primary" />
               <CenteredText>{t('title', { slug })}</CenteredText>
             </h1>
-            <p className="mt-1 text-xs text-muted-foreground">{t('subtitle')}</p>
+            <p className="mt-1 text-label text-muted-foreground">{t('subtitle')}</p>
           </div>
           <Button
             size="sm"
@@ -153,13 +153,13 @@ export default function TenantBackupsPage() {
           </CardHeader>
           <CardContent>
             {error ? (
-              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
                 {error.message}
               </div>
             ) : isLoading ? (
               <Skeleton variant="list" count={4} />
             ) : backups.length === 0 ? (
-              <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed py-8 text-center text-body text-muted-foreground">
                 {t('empty')}
               </div>
             ) : (
@@ -228,8 +228,8 @@ function BackupsTable({ backups, dateFmt, pending, onRestore, onDelete }: Backup
   const t = useTranslations('admin.saas.backups')
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/40 text-label uppercase text-muted-foreground">
           <tr>
             <th className="px-4 py-2.5 text-left font-medium">{t('table.timestamp')}</th>
             <th className="px-4 py-2.5 text-left font-medium">{t('table.size')}</th>
@@ -315,7 +315,7 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
       </CardHeader>
       <CardContent>
         <div className="text-heading font-semibold">{value}</div>
-        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+        {hint ? <p className="mt-1 text-label text-muted-foreground">{hint}</p> : null}
       </CardContent>
     </Card>
   )

@@ -26,15 +26,15 @@ const pkg = require('./package.json')
  *   · 小时粒度:同一小时多次构建同号;同号更新(install -r)合法,不构成降级;
  *   · 不取 git commit count:本仓主干会被并行会话整谱系重写,计数会缩,缩一次
  *     就等于给全量已装机用户发一个"永远装不上"的版本;
- *   · 不取 EAS 远端计数器:eas.json appVersionSource=remote,EAS 自管(见下)。
+ *   · 不取 EAS 远端计数器:eas.json appVersionSource=local,EAS 与本函数读同一份号段。
  *
  * 覆盖口 IHUI_VERSION_CODE(CI/手工受控构建):须为正整数且 ∈ [26010100, 2100000000]。
  *   非法值**抛错**而不是静默回落时间戳 —— 静默回落会把"拼错的环境变量"重新变成
  *   vc=1 事故,而那正是本函数存在的理由。
  *
- * 与 EAS 的边界:eas.json appVersionSource=remote ⇒ EAS 构建走 Expo 远端计数器,
- *   与本函数的 YYMMDDHH 号段永不交叠 ⇒ prebuild/CI 包可覆盖 EAS 包;反向(EAS 包
- *   覆盖 CI 包)被降级保护拒属预期,内部署手机以 CI nightly 为准。
+ * 与 EAS 的边界:eas.json appVersionSource=local ⇒ EAS 构建与 prebuild/CI **同读这一份号段**,
+ *   不存在"两套号互相降级"的问题(旧注释写的 remote/永不交叠与在册值相反,已按现读更正)。
+ *   同一小时内两条腿各出一枚包时号相同 ⇒ `install -r` 覆盖合法,不构成降级。
  */
 function resolveBuildNumber() {
   const override = process.env.IHUI_VERSION_CODE
@@ -59,6 +59,32 @@ function resolveBuildNumber() {
   return Number(`${yy}${mm}${dd}${hh}`)
 }
 
+/**
+ * OTA 运行时桶(runtimeVersion)—— 必须与"每次构建自动涨的显示版本"解耦(2026-11-02 立)。
+ *
+ * 病灶是实测出来的,不是预防性的:旧形态是 app.json 里 `runtimeVersion.policy = "appVersion"`,
+ * 它读的是 `expo.version`,而 2026-10-17 起 `expo.version` 被下面的 displayVersion 每次构建
+ * 注入成 `<base>.<UTC YYYYMMDD>` ⇒ **桶随构建漂移**。取证(2026-11-02 `eas channel:list`):
+ * preview 渠道里唯一一条 update 落在 runtime `0.0.8`,而线上登记的安卓最新包是 `0.0.9`
+ * ⇒ 那条 OTA 对任何当前装机用户永久不可达。"发了更新但没人收得到"正是本函数的存在理由。
+ *
+ * 口径:桶 = **原生基座版本**(package.json 的 version),只在真正重打原生包并抬基座时变;
+ * 显示版本继续每次涨(用户要能分辨包)。发 OTA 前若原生面已变而基座未抬,由
+ * `scripts/release-mobile-rn.mjs` 的 preflight 判 blocked 并点名,不静默发不兼容包。
+ * 覆盖口 IHUI_RUNTIME_VERSION 供"同一基座要分桶灰度"这类场景用。
+ */
+function resolveRuntimeVersion(pkgVersion = pkg.version) {
+  const override = process.env.IHUI_RUNTIME_VERSION
+  const value = override && override !== '' ? override : pkgVersion
+  if (!/^[0-9][0-9A-Za-z._+-]{0,62}$/.test(String(value))) {
+    throw new Error(
+      `[app.config] runtimeVersion 非法:'${value}'(须以数字开头、长度 ≤63、字符集 [0-9A-Za-z._+-];` +
+        '这是 Expo 对 runtimeVersion 的硬约束,构建期报错优于发出去收不到)',
+    )
+  }
+  return String(value)
+}
+
 module.exports = ({ config }) => {
   // 统一从 process.env 读取(单一数据源),fallback 到 app.json extra(向后兼容)
   // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
@@ -67,7 +93,13 @@ module.exports = ({ config }) => {
     process.env.EXPO_PUBLIC_WECHAT_APP_ID || process.env.WX_APP_APPID || config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
-  const androidPackage = config.android?.package
+  // 2026-11-04:android.package 增加 env 覆盖口(与上面两个值同构)。
+  // 立因:静态分析器(如 knip 的 expo 插件)会用一个 **dummy config context** 调用本函数
+  // (getDummyConfigContext: staticConfigPath=null、config={plugins:[]}),里面结构上不含
+  // android.package ⇒ 下面这道 fail-closed 守卫必然抛错、整个配置加载失败。给一个 env 口
+  // 让"只做静态分析"的调用方显式供值,判据方向不变:三个值仍缺一即抛错,只是多了一条
+  // 显式供值通路(EAS/真实构建继续读 app.json 的 zh.ai.sq,env 不设时行为与旧版逐字一致)。
+  const androidPackage = process.env.WX_ANDROID_PACKAGE || config.android?.package
 
   if (!appId || !universalLink || !androidPackage) {
     throw new Error(
@@ -93,6 +125,9 @@ module.exports = ({ config }) => {
   return {
     ...config,
     version: displayVersion,
+    // OTA 桶与显示版本解耦(见 resolveRuntimeVersion 头注)——policy:"appVersion" 会把
+    // 每次自动涨的 displayVersion 当成桶,导致 OTA 对已装用户永久不可达。
+    runtimeVersion: resolveRuntimeVersion(),
     android: { ...config.android, versionCode: buildNumber },
     ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
@@ -102,7 +137,15 @@ module.exports = ({ config }) => {
       // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
       [
         './plugins/withCarrier.cjs',
-        { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage },
+        {
+          appId: carrierAppId,
+          webSdkUrl: carrierWebSdkUrl,
+          androidPackage,
+          // 2026-11-01 安全强化:明文例外改成按域名开(旧形态是整 App usesCleartextTraffic=true)。
+          // 闪验网关域名住在未入库的 .aar 里,静态拿不到 ⇒ 不猜清单,由部署方供值;
+          // 没供值时基础档关死,一键登录失败会按既有设计降级到短信验证码,而不是退回整 App 明文。
+          cleartextHosts: process.env.EXPO_PUBLIC_CARRIER_CLEARTEXT_HOSTS || '',
+        },
       ],
       './plugins/withExpoImportFix.cjs',
       // Android 开屏图 + 样式:未装 expo-splash-screen 时 prebuild 的 legacy 分支
@@ -118,6 +161,15 @@ module.exports = ({ config }) => {
       // 签名统一:debug 变体也用正式 keystore(IHUI_RELEASE_* 存在时),让一个应用身份只有一把 key ——
       // 否则 dev client 与 release 各持一把 key,互装不上,每次换包必须先卸载(2026-10-30 实测)
       './plugins/withAndroidSigning.cjs',
+      // 危险权限摘除:SYSTEM_ALERT_WINDOW 在 manifest 里而全仓零引用(2026-11-03 实测),
+      // 国内商店与工信部通报都按"声明即需说明"处理 ⇒ 摘掉,并以 tools:node=remove 防依赖库再带回
+      './plugins/withPermissionPruning.cjs',
+      // 应用内整包更新:补 android.permission.REQUEST_INSTALL_PACKAGES(Android 8+ 请求安装
+      // 的调用方必须持有,缺了症状是"点了更新什么也不发生")。FileProvider 由 expo-file-system
+      // 自带,原生意图由 expo-intent-launcher 提供,只有这条权限需要我们自己声明。
+      // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
+      // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
+      './plugins/withApkInstaller.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

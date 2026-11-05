@@ -20,7 +20,7 @@ export function MarketPagination({ total, page, totalPages, onPrev, onNext }: Pr
   const t = useTranslations('agent')
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+      <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
         {t('total', { total })}
       </span>
       <div className="flex shrink-0 items-center gap-2">
@@ -34,7 +34,7 @@ export function MarketPagination({ total, page, totalPages, onPrev, onNext }: Pr
           <ChevronLeft className="h-4 w-4 shrink-0" />
           {t('prev')}
         </Button>
-        <span className="shrink-0 whitespace-nowrap tabular-nums text-sm text-muted-foreground">
+        <span className="shrink-0 whitespace-nowrap tabular-nums text-body text-muted-foreground">
           {t('page', { page, total: totalPages })}
         </span>
         <Button

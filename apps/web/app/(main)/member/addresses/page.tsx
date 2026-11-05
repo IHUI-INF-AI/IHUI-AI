@@ -8,7 +8,13 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MapPin, Loader2, Plus } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  createAddress,
+  deleteAddress,
+  listAddresses,
+  setDefaultAddress,
+  updateAddress,
+} from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AddressForm } from './AddressForm'
@@ -29,18 +35,20 @@ export default function MemberAddressesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'addresses'],
     queryFn: () =>
-      apiOrThrow<{ list: Address[] }>('/api/addresses')
-        .then((d) => d.list ?? [])
+      listAddresses()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return (r.data.list ?? []) as Address[]
+        })
         .catch(() => [] as Address[]),
     enabled: allow,
   })
 
   const saveMut = useMutation({
-    mutationFn: (input: AddressInput) => {
-      const body = JSON.stringify(input)
-      return editId
-        ? apiOrThrow(`/api/addresses/${editId}`, { method: 'PUT', body })
-        : apiOrThrow('/api/addresses', { method: 'POST', body })
+    mutationFn: async (input: AddressInput) => {
+      const res = editId ? await updateAddress(editId, input) : await createAddress(input)
+      if (!res.success) throw new Error(res.error)
+      return res.data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['member', 'addresses'] })
@@ -49,11 +57,19 @@ export default function MemberAddressesPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => apiOrThrow(`/api/addresses/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const res = await deleteAddress(id)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'addresses'] }),
   })
   const defaultMut = useMutation({
-    mutationFn: (id: string) => apiOrThrow(`/api/addresses/${id}/default`, { method: 'POST' }),
+    mutationFn: async (id: string) => {
+      const res = await setDefaultAddress(id)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'addresses'] }),
   })
 
@@ -91,7 +107,7 @@ export default function MemberAddressesPage() {
             <MapPin className="h-5 w-5 text-primary" />
             收货地址
           </h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">管理下单时使用的收货地址</p>
+          <p className="mt-0.5 text-body text-muted-foreground">管理下单时使用的收货地址</p>
         </div>
         {!editing && (
           <Button size="sm" onClick={startCreate}>

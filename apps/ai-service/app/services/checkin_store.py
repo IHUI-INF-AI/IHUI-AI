@@ -723,6 +723,18 @@ async def clear_open_cooldowns_conn(conn: asyncpg.Connection, account_id: int) -
     return status
 
 
+def pool_conflict_alias(name: str, identity_key: str) -> str | None:
+    """号池同步账号撞 (owner,name) 唯一约束时的确定性别名。
+
+    取 identity_key 尾 8 位:同一真实账号每次重推得到同一个名字 ⇒ 幂等;
+    取不到身份键时返回 None(调用方按旧语义抛「账号名已存在」)。
+    """
+    tail = identity_key.strip()[-8:]
+    if not tail:
+        return None
+    return f"{name} · {tail}"
+
+
 async def create_account(
     owner_user_id: str,
     name: str,
@@ -857,9 +869,43 @@ async def create_account(
             )
         except Exception as e:
             # asyncpg 唯一约束冲突 → 23505(名字约束;身份键冲突在上面已合并,走不到这)
-            if getattr(e, "sqlstate", None) == "23505" or "duplicate key" in str(e).lower():
+            if getattr(e, "sqlstate", None) != "23505" and "duplicate key" not in str(e).lower():
+                raise
+            # 号池同步账号与既有行(手工录入/旧同步遗留)同名时,用确定性后缀另起一行:
+            # 否则每轮 pool-sync 都被 (owner,name) 唯一约束拒收,该号永远进不了签到表,
+            # 而 api 侧只看到"同步失败"(2026-11-03 实测 attempts=494 的静默连败)。
+            # 后缀取 identity_key 尾 8 位 ⇒ 同一真实账号重推命中同一名字,保持幂等。
+            alias = pool_conflict_alias(name, identity_key) if account_group == "pool" else None
+            if alias is None:
                 raise ValueError(f"账号名已存在: {name}") from e
-            raise
+            try:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO checkin_accounts
+                        (owner_user_id, name, jwt_enc, device_map, enabled, account_group, platform, identity_key)
+                    VALUES ($1, $2, $3, $4::jsonb, true, $5, $6, $7)
+                    RETURNING id, owner_user_id, name, device_map, enabled, account_group, platform,
+                              created_at, updated_at
+                    """,
+                    owner_user_id,
+                    alias,
+                    jwt_enc,
+                    json.dumps(device_map, ensure_ascii=False),
+                    account_group,
+                    platform,
+                    identity_key,
+                )
+            except Exception as e2:
+                if getattr(e2, "sqlstate", None) == "23505" or "duplicate key" in str(e2).lower():
+                    raise ValueError(f"账号名已存在: {name}(含别名 {alias})") from e2
+                raise
+            logger.warning(
+                "[checkin_store] 号池同名冲突,改用确定性别名建行 id=%s name=%s alias=%s identity=%s",
+                row["id"],
+                name,
+                alias,
+                identity_key,
+            )
     return _account_row(row)
 
 
@@ -1193,10 +1239,66 @@ async def list_enabled_accounts() -> list[dict[str, Any]]:
     return _accounts_from_rows(rows)
 
 
+# 号池↔签到同步的**身份/版本锚点**键(2026-11-01 立)。
+# 这六个键由号池推送写入(D2/D4),是「这一行属于号池哪一行、凭证到第几版、启用态如何」
+# 的唯一凭据;丢了它,对账收敛器认不回该账号(判号池行缺失→另建一行,历史记录留在旧行),
+# CAS 防降级同时失效。故 save_device_map 的整体替换语义必须给它们开一条保护通道。
+_POOL_ANCHOR_KEYS: Final = (
+    "pool_account_id",
+    "pool_uid",
+    "pool_cred_version",
+    "pool_enabled",
+    "pool_name",
+    "pool_synced_at",
+)
+
+
+def anchor_preserving_patch(
+    existing: Any, incoming: dict[str, Any]
+) -> dict[str, Any]:
+    """整体替换前要并回的号池锚点键(纯函数,单测锁行为)。
+
+    仅在「库里这行已有 pool_account_id,而传入的 dm 没有」时生效 —— 其余情况一律
+    返回空 dict,让原有整行替换语义(含删键,如 PATCH /device_map 顶掉旧 web_cookie、
+    writeback 清 pool_pending_cred)一字不变。
+
+    立因(2026-11-01 实测事故):一条 pytest 用例漏打桩,拿假行 `id=7` 走真实
+    save_device_map,把 qoder 号池账号的 device_map 整体换成 WorkBuddy 测试数据,
+    pool_account_id / pool_uid / pool_cred_version 全丢且全程无日志。锚点是同步的
+    根,不允许被"某个不完整的 dm"顺手抹掉。
+    """
+    if isinstance(existing, str):
+        try:
+            existing = json.loads(existing or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    if not isinstance(existing, dict):
+        return {}
+    if "pool_account_id" not in existing:
+        return {}
+    if "pool_account_id" in incoming:
+        return {}
+    return {k: existing[k] for k in _POOL_ANCHOR_KEYS if k in existing}
+
+
 async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
-    """引擎对 device_map 原位补齐缺失设备标识后,由调用方写回。"""
+    """引擎对 device_map 原位补齐缺失设备标识后,由调用方写回。
+
+    **号池锚点保护(2026-11-01 立)**:本函数是整行替换语义(见 PATCH 契约),但
+    pool_* 是号池↔签到同步的唯一锚点。目标行已有锚点而传入 dm 没有时,把旧锚点键
+    并回(其余键仍按整行替换,删键语义不变),并打一条 warning 留痕 —— 事故当时
+    最大的问题是"抹了也没人知道"。
+
+    真要解绑请走既有语义:`apply_pool_state(..., 'pool_deleted')` 保留锚点只置
+    enabled=false;彻底解绑 = 删账号行。没有任何合法路径需要"留下行、抹掉锚点"。
+    """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
+        existing = await conn.fetchval(
+            "SELECT device_map FROM checkin_accounts WHERE id = $1", account_id
+        )
+        patch = anchor_preserving_patch(existing, device_map)
+        payload = {**device_map, **patch} if patch else device_map
         await conn.execute(
             """
             UPDATE checkin_accounts
@@ -1204,7 +1306,14 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
             WHERE id = $1
             """,
             account_id,
-            json.dumps(device_map, ensure_ascii=False),
+            json.dumps(payload, ensure_ascii=False),
+        )
+    if patch:
+        logger.warning(
+            "[checkin_store] device_map 写入试图抹掉号池锚点,已回填 id=%s 键=%s"
+            "(传入 dm 不含 pool_account_id;对账锚点不允许被顺手删掉)",
+            account_id,
+            ",".join(sorted(patch)),
         )
 
 
@@ -1213,11 +1322,53 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _classified_error_type(raw: Any) -> str | None:
+    """从 checkin_records.classified_error(text/jsonb 双形态)取 type。
+
+    只回类型名(Unknown / SessionDead / BusinessError ...),不回原文 —— 分类器
+    据此区分「网络可重试」与「凭证被拒必须人工」。取不到一律 None,不冒判。
+    """
+    data = raw
+    if isinstance(data, str):
+        try:
+            data = json.loads(data or "null")
+        except (json.JSONDecodeError, ValueError):
+            return None
+    if isinstance(data, dict):
+        value = data.get("type")
+        return value if isinstance(value, str) and value else None
+    return None
+
+
+def _last_record_from_row(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """最近一条签到记录的脱敏投影(无记录回 None)。
+
+    message 截 200 字;classifiedErrorType 只给类型名;code/httpStatus 供分类器
+    区分 9095(幂等已签)与 1001(认证拒绝)。凭据/header 一律不进这里。
+    """
+    created = row["last_created_at"]
+    if created is None:
+        return None
+    message = row["last_message"]
+    return {
+        "ok": row["last_ok"],
+        "action": row["last_action"],
+        "credits": row["last_credits"],
+        "creditsDelta": row["last_credits_delta"],
+        "message": message[:200] if isinstance(message, str) else None,
+        "code": row["last_code"],
+        "httpStatus": row["last_http_status"],
+        "classifiedErrorType": _classified_error_type(row["last_classified_error"]),
+        "createdAt": created.isoformat() if hasattr(created, "isoformat") else None,
+    }
+
+
 async def list_pool_accounts() -> list[dict[str, Any]]:
     """号池同步账号全量(跨 owner;对账收敛器用)。
 
     只回对账判据需要的字段:poolAccountId / poolCredVersion / platform /
-    identityKey / enabled / ownerUserId / name / poolPendingCred;jwt 明文不出库。
+    identityKey / enabled / ownerUserId / name / poolPendingCred / lastRecord;
+    jwt 明文不出库。
     范围 = 所有 device_map 带 pool_account_id 的账号:运营池账号(system:relay-pool)
     与用户个人池账号(owner_user_id = 平台用户 id)一并对账 —— 匹配一律走
     poolAccountId,不同 owner 持有同一上游 uid 也不会串号。
@@ -1226,10 +1377,24 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, name, platform, identity_key, enabled, owner_user_id, device_map
-            FROM checkin_accounts
-            WHERE device_map ? 'pool_account_id'
-            ORDER BY id
+            SELECT a.id, a.name, a.platform, a.identity_key, a.enabled,
+                   a.owner_user_id, a.device_map,
+                   r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
+            FROM checkin_accounts a
+            LEFT JOIN LATERAL (
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
+                FROM checkin_records
+                WHERE account_id = a.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) r ON true
+            WHERE a.device_map ? 'pool_account_id'
+            ORDER BY a.id
             """,
         )
     out: list[dict[str, Any]] = []
@@ -1263,6 +1428,9 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
                     if isinstance(pending, dict)
                     else None
                 ),
+                # 最近一次签到结论(含失败 message/分类),供 API 判 claim_failed;
+                # 无记录为 None,不拿空对象冒充「签到过」。
+                "lastRecord": _last_record_from_row(r),
             }
         )
     return out
@@ -1446,10 +1614,14 @@ async def pool_status(
             """
             SELECT a.id, a.name, a.enabled, a.device_map,
                    r.ok AS last_ok, r.action AS last_action, r.credits AS last_credits,
-                   r.credits_delta AS last_credits_delta, r.created_at AS last_created_at
+                   r.credits_delta AS last_credits_delta, r.message AS last_message,
+                   r.code AS last_code, r.http_status AS last_http_status,
+                   r.classified_error AS last_classified_error,
+                   r.created_at AS last_created_at
             FROM checkin_accounts a
             LEFT JOIN LATERAL (
-                SELECT ok, action, credits, credits_delta, created_at
+                SELECT ok, action, credits, credits_delta, message, code,
+                       http_status, classified_error, created_at
                 FROM checkin_records
                 WHERE account_id = a.id
                 ORDER BY created_at DESC
@@ -1489,19 +1661,7 @@ async def pool_status(
         "poolDeletedAt": dm.get("pool_deleted_at"),
         "pendingCred": "pool_pending_cred" in dm,
         "cooldownUntil": cooldown.isoformat() if cooldown is not None else None,
-        "lastRecord": (
-            {
-                "ok": row["last_ok"],
-                "action": row["last_action"],
-                "credits": row["last_credits"],
-                "creditsDelta": row["last_credits_delta"],
-                "createdAt": row["last_created_at"].isoformat()
-                if row["last_created_at"]
-                else None,
-            }
-            if row["last_created_at"] is not None
-            else None
-        ),
+        "lastRecord": _last_record_from_row(row),
     }
 
 
@@ -1653,6 +1813,39 @@ async def list_records(
                 limit,
             )
     return [_record_row(r) for r in rows]
+
+
+async def list_records_since(since: datetime) -> list[dict[str, Any]]:
+    """按时间下界取**跨属主**全量签到记录(只读;Qoder 补跑轮判「今日是否已有结果」用)。
+
+    与 list_records 的三点差异(刻意,不是重复实现):
+    - 跨 owner + 不分页:调度轮要一次判完全部 enabled 账号,不需要属主面;
+    - 只要判定所需四列(id / account_id / ok / created_at),不把 message 等
+      业务字段拖出来;
+    - created_at 回 **datetime 原值**(不是 isoformat 串)—— 日界换算
+      (Asia/Shanghai 自然日)留在调用方的纯函数里,可脱离 DB 单测;此处只做
+      时间下界过滤,不猜时区、不改写时刻。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, account_id, ok, created_at
+            FROM checkin_records
+            WHERE created_at >= $1
+            ORDER BY created_at DESC, id DESC
+            """,
+            since,
+        )
+    return [
+        {
+            "id": r["id"],
+            "account_id": r["account_id"],
+            "ok": r["ok"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
 
 
 async def credits_history(

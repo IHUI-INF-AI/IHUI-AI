@@ -43,7 +43,7 @@ export function TopupSuccessScreen({
       </View>
       <View style={styles.body}>
         <CheckCircle2 size={64} color={tk.success.deep} />
-        <Text style={styles.titleText}>充值成功</Text>
+        <Text style={styles.titleText}>{t('wallet.rechargeSuccess')}</Text>
         <View style={styles.card}>
           <Row label="充值金额" value={`¥${amount.toFixed(2)}`} tk={tk} styles={styles} />
           <Row label="订单编号" value={orderId} tk={tk} styles={styles} />
@@ -111,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     body: { flex: 1, alignItems: 'center', padding: rnSpacing['2xl'], gap: rnSpacing.md },
     icon: { fontSize: 64, marginTop: rnSpacing.md },
-    titleText: { fontSize: 22, fontWeight: '700', color: tk.success.deep },
+    titleText: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.success.deep },
     card: {
       width: '100%',
       backgroundColor: tk.surface.light,

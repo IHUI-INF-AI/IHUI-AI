@@ -14,6 +14,7 @@
  * 数值字面量比较,`roleId < ADMIN_ROLE_ID` 这种常量形态它看不见,故必须另钉一道)。
  */
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 const { mockAuthenticate, mockRequireActiveUser } = vi.hoisted(() => ({
@@ -38,7 +39,7 @@ type GateRequest = Parameters<typeof requireAdminRouteGuard>[0]
 
 function setAdmin(roleId: number): void {
   mockAuthenticate.mockImplementation(async (request: GateRequest & { jwtPayload?: object }) => {
-    request.jwtPayload = { userId: 'u-1', roleId }
+    request.jwtPayload = { userId: 'u-1', phone: '', familyId: '', roleId }
   })
 }
 function setUnauth(statusCode?: number): void {
@@ -121,7 +122,7 @@ describe('O13b-⑤ requireAdminRouteGuard 行为契约', () => {
     // 人已登录但是普通用户,internal 链路又注入了管理员 roleId ⇒ 仍必须 403
     mockAuthenticate.mockImplementation(
       async (request: GateRequest & { jwtPayload?: object; internalUserRoleId?: number }) => {
-        request.jwtPayload = { userId: 'u-1', roleId: 0 }
+        request.jwtPayload = { userId: 'u-1', phone: '', familyId: '', roleId: 0 }
         request.internalUserRoleId = 1
       },
     )
@@ -134,11 +135,11 @@ describe('O13b-⑤ requireAdminRouteGuard 行为契约', () => {
 
 describe('O13b-⑤ admin.ts 侧源码结构(裸比较不得回潮)', () => {
   it('admin.ts 注册集中守卫,且自身不再出现任何 roleId 数值比较', async () => {
-    const src = await import('../src/routes/admin.ts?raw')
-    expect(src.default).toMatch(/server\.addHook\(\s*'preHandler',\s*requireAdminRouteGuard\s*\)/)
-    expect(src.default).not.toMatch(/roleId\s*(?:[<>]=?|===|!==)\s*\d/)
-    expect(src.default).not.toMatch(/roleId\s*(?:[<>]=?|===|!==)\s*ADMIN_ROLE_ID/)
-    expect(src.default).not.toMatch(/^const ADMIN_ROLE_ID\b/m)
+    const src = readFileSync(new URL('../src/routes/admin.ts', import.meta.url), 'utf8')
+    expect(src).toMatch(/server\.addHook\(\s*'preHandler',\s*requireAdminRouteGuard\s*\)/)
+    expect(src).not.toMatch(/roleId\s*(?:[<>]=?|===|!==)\s*\d/)
+    expect(src).not.toMatch(/roleId\s*(?:[<>]=?|===|!==)\s*ADMIN_ROLE_ID/)
+    expect(src).not.toMatch(/^const ADMIN_ROLE_ID\b/m)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

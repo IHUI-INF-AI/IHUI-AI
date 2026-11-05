@@ -3,15 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { useTt, t } from '@/i18n'
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn, TARO_RPX_PER_PX } from '@ihui/design-tokens'
 import {
   USER_INFO_CARD_ACTION_PADDING_X_PX,
   USER_INFO_CARD_ACTION_PADDING_Y_PX,
   USER_INFO_CARD_AVATAR_PX,
-  USER_INFO_CARD_BADGE_PADDING_X_PX,
-  USER_INFO_CARD_BADGE_PADDING_Y_PX,
   USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX,
   USER_INFO_CARD_HEADER_GAP_PX,
   USER_INFO_CARD_LOGIN_FONT_PX,
@@ -25,14 +23,14 @@ import {
 } from '@ihui/shared/ui/user-info-card-spec'
 import { rpx } from '@/utils/rpx'
 import LineIcon from './LineIcon'
-import type { UserInfoCardMinimalProps } from '@ihui/types'
+import type { UserInfo, UserInfoCardMinimalProps } from '@ihui/types'
 
 /// 档位数字唯一源在 @ihui/shared/ui/user-info-card-spec(与 RN 端同表);本文件只做 rpx 换算 + 挂 Taro 原语。
 /// 书写形态:**本族全部档位经 `toUnit(具名档)` 内联**,端内不落第二个数字。
 /// (此前登录钮的上下档与进度条粗细写过等值 Tailwind 类名 `py-3.5` / `h-2` —— 渲染字节相同,但守门 128
 ///  的具名档判据只认档名,于是这两档在小程序侧读不出来、被记成"另一端没接线";现收回类名形态,
-///  与同文件其余 11 档同一姿势。徽章族的 `px-2`/`py-[4rpx]` 保留(后者与旧 `py-0.5` 等值:刻度小数档
-///  在小程序产物里是不落地的死规则,守门 C4 现读 15 档,已一律换成等值 rpx 任意值形态),因为同档已由 BADGE_PAD_STYLE 引过常量。)
+///  与同文件其余 11 档同一姿势。徽章族的 `px-2`/`py-[4rpx]` 保留(后者与旧的刻度小数档 0.5＝2px 等值:
+///  该族在小程序产物里是不落地的死规则,守门 C4 现读 15 档,已一律换成等值 rpx 任意值形态),因为同档已由 BADGE_PAD_STYLE 引过常量。)
 const toUnit = (logicalPx: number) => rpx(logicalPx * TARO_RPX_PER_PX)
 const PAD_STYLE = { padding: toUnit(USER_INFO_CARD_PADDING_PX) }
 const HEADER_GAP_STYLE = { gap: toUnit(USER_INFO_CARD_HEADER_GAP_PX) }
@@ -53,14 +51,6 @@ const LOGIN_BTN_STYLE = {
 }
 /// 成长值进度条粗细:与 RN 端 `growthBarBg.height` 同档(原写 `h-2` 类名,现收进常量)
 const GROWTH_BAR_STYLE = { height: toUnit(USER_INFO_CARD_GROWTH_BAR_HEIGHT_PX) }
-/// CSSProperties(Taro)不认 paddingXxxHorizontal/Vertical 简写,拆成四键喂同一档位
-/// (原写"参照 Loading.tsx 口径" —— 那份零消费者死副本已于 2026-09-26 摘除,不再是指向)
-const BADGE_PAD_STYLE = {
-  paddingLeft: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
-  paddingRight: toUnit(USER_INFO_CARD_BADGE_PADDING_X_PX),
-  paddingTop: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
-  paddingBottom: toUnit(USER_INFO_CARD_BADGE_PADDING_Y_PX),
-}
 const ACTION_PAD_STYLE = {
   paddingLeft: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
   paddingRight: toUnit(USER_INFO_CARD_ACTION_PADDING_X_PX),
@@ -83,12 +73,15 @@ const defaultAvatarImg = aizhsUrl('remote-images/daixaodiming.png') // icon-bitm
 const wirelessLogoImg = aizhsUrl('remote-images/wirelesslogo.jpg') // icon-bitmap-exempt: 品牌标识(源项目 wirelesslogo 官方位图),按 §品牌图标须官方真实图标不得自造矢量近似 until 2027-09-27
 
 // 共享类型 UserInfoCardMinimalProps 已下沉到 @ihui/types,
-// 本地 Props extends Minimal 并追加 level/levelTitle/className(miniapp-taro 专属字段)
+// 本地 Props extends Minimal 并追加 className(miniapp-taro 专属字段)
 // 及 9 项核心功能字段(对齐原项目 zhs_app-ZZ/UserInfoCard.vue)。
 export interface UserInfoCardProps extends UserInfoCardMinimalProps {
-  level?: number
-  levelTitle?: string
   className?: string
+  /**
+   * 容器结构(与 RN 端 `userInfo` 同槽)。
+   * 本端既有调用方用扁平字段;两者同时出现时扁平字段优先,容器字段只做兜底。
+   */
+  userInfo?: UserInfo
   // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
   /** 成长值(当前) */
   growthValue?: number
@@ -100,6 +93,8 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   identityType?: 0 | 1 | 2
   /** 充值回调(跳充值页) */
   onWallet?: () => void
+  /** 是否显示充值入口(默认 true,仅在 onWallet 存在时生效;对齐 RN 显式布尔位) */
+  showRechargeBtn?: boolean
   /** 退订回调(仅 isVip 显示) */
   onUnsubscribe?: () => void
   /** 开通会员回调(仅非 isVip 显示) */
@@ -108,6 +103,12 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
   onOpenLevel?: () => void
   /** 一键登录回调(仅未登录显示) */
   onLogin?: () => void
+  /**
+   * 邀请码复制回调(对齐 RN onCopyInviteCode)。
+   * [需后手补载体] 本端扁平 props 暂无 inviteCode 数据字段(RN 取自 userInfo.inviteCode),
+   * 故暂仅声明、未接调用点;后手补 inviteCode 扁平属性 + 邀请码行后,在此接 onCopyInviteCode(code)。
+   */
+  onCopyInviteCode?: (code: string) => void
 }
 
 /** 智汇值格式化(对齐原项目 formatTokenValue:>=10000 显示 x.xw,>=1000 显示 x.xk) */
@@ -118,32 +119,50 @@ function formatTokenValue(v: number): string {
 }
 
 export default function UserInfoCard({
-  avatar,
-  nickname = t('profileEdit.notLoggedIn'),
-  level = 0,
-  levelTitle,
-  isVip = false,
-  vipTitle,
-  desc,
+  userInfo,
+  avatar: avatarProp,
+  nickname: nicknameProp,
+  isVip: isVipProp,
+  vipTitle: vipTitleProp,
+  desc: descProp,
   onClick,
   className = '',
   // 新增 9 项功能 props
-  growthValue,
-  growthMax,
-  tokenValue,
-  identityType = 0,
+  growthValue: growthValueProp,
+  growthMax: growthMaxProp,
+  tokenValue: tokenValueProp,
+  identityType: identityTypeProp,
   onWallet,
+  showRechargeBtn = true,
   onUnsubscribe,
   onOpenVip,
   onOpenLevel,
   onLogin,
+  // [需后手补载体] onCopyInviteCode 暂未接调用点(本端无 inviteCode 扁平字段);声明保留以对齐 RN
+  onCopyInviteCode: _onCopyInviteCode,
 }: UserInfoCardProps) {
   const tt = useTt()
-  const displayLevel = levelTitle || (level > 0 ? `Lv.${level}` : '')
-  // 未登录判定(对齐原项目:无头像 + 昵称为"未登录")
-  const isLogged = !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
+  // 容器 / 扁平双形态同一数据源:扁平显式值优先,userInfo 容器只兜底
+  const avatar = avatarProp ?? userInfo?.avatarUrl
+  const nickname = nicknameProp ?? userInfo?.username ?? tt('profileEdit.notLoggedIn', '未登录')
+  const isVip = isVipProp ?? userInfo?.isVip === 1
+  const vipTitle = vipTitleProp ?? userInfo?.vipLevel
+  const desc = descProp
+  // 容器 tokenQuantity 可为 number|string,统一收成有限数字;非法值退化为 undefined
+  const rawToken = tokenValueProp ?? userInfo?.tokenQuantity
+  const parsedToken = typeof rawToken === 'string' ? Number(rawToken) : rawToken
+  const tokenValue =
+    typeof parsedToken === 'number' && Number.isFinite(parsedToken) ? parsedToken : undefined
+  const growthValue = growthValueProp ?? userInfo?.growthValue
+  const growthMax = growthMaxProp ?? userInfo?.growthMax
+  const identityType = identityTypeProp ?? userInfo?.identityType ?? 0
+  // 未登录判定(对齐原项目:无头像 + 昵称为"未登录";容器带 uuid 即视为已登录)
+  const isLogged =
+    Boolean(userInfo?.uuid) || !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
   // 智汇值格式化:tokenValue 优先,无则回退 desc
   const tokenDisplay = tokenValue !== undefined ? formatTokenValue(tokenValue) : desc
+  // 充值入口:显式开关 ∧ 回调在场(默认开 → 现有调用方行为不变)
+  const showRecharge = showRechargeBtn && Boolean(onWallet)
   // 成长值进度比例(对齐原项目 growth-bar)
   const showGrowthBar = typeof growthValue === 'number' && typeof growthMax === 'number'
   const growthPercent =
@@ -181,7 +200,7 @@ export default function UserInfoCard({
             />
             <View className="flex-1 min-w-0">
               {/* 用户名行:user 矢量图标 + 昵称 + VIP 文字徽章 + 操盘手标识 + pencil 矢量图标 */}
-              <View className="flex items-center gap-2">
+              <View className="flex items-center gap-sm">
                 <LineIcon name="user" size={40} className="flex-shrink-0" />
                 <Text className="font-medium text-foreground truncate" style={NAME_FONT_STYLE}>
                   {nickname}
@@ -194,7 +213,7 @@ export default function UserInfoCard({
                     与 RN 端 roleBadge 是同一角色,此前各写 4 / 2,现统一到 chip 档。 */}
                 {isVip ? (
                   <View
-                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
+                    className="px-sm py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -209,7 +228,7 @@ export default function UserInfoCard({
                     徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-[4rpx]` */}
                 {identityType === 2 ? (
                   <View
-                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
+                    className="px-sm py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -224,38 +243,19 @@ export default function UserInfoCard({
                   <LineIcon name="pencil" size={32} className="ml-auto flex-shrink-0" />
                 ) : null}
               </View>
-              {/* 等级 + 智汇值行 */}
-              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
-                {displayLevel ? (
-                  <View
-                    className="rounded-md bg-primary/10 flex-shrink-0"
-                    style={BADGE_PAD_STYLE}
-                    hoverClass="opacity-85"
-                    onClick={
-                      onOpenLevel
-                        ? (e) => {
-                            e.stopPropagation()
-                            onOpenLevel()
-                          }
-                        : undefined
-                    }
-                  >
-                    <Text className="text-primary font-medium" style={SMALL_FONT_STYLE}>
-                      {displayLevel}
-                    </Text>
-                  </View>
-                ) : null}
+              {/* 智汇值行 */}
+              <View className="flex items-center gap-sm" style={ROW_MARGIN_STYLE}>
                 {/* 智汇值行:品牌标识位图(保留,理由见声明处)+ tokenDisplay + 文字充值按钮
                     (对齐原项目 token 显示;充值钮此前是烘了汉字的位图按钮,已矢量化/文字化) */}
                 {tokenDisplay ? (
                   <View
-                    className="flex items-center gap-1 flex-1 min-w-0"
+                    className="flex items-center gap-xs flex-1 min-w-0"
                     hoverClass="opacity-85"
                     onClick={
-                      onWallet
+                      showRecharge
                         ? (e) => {
                             e.stopPropagation()
-                            onWallet()
+                            onWallet?.()
                           }
                         : undefined
                     }
@@ -268,7 +268,7 @@ export default function UserInfoCard({
                     <Text className="text-muted-foreground truncate" style={TOKEN_FONT_STYLE}>
                       {tokenDisplay}
                     </Text>
-                    {onWallet ? (
+                    {showRecharge ? (
                       /* 此前这里是一枚 24×20 的位图按钮(把「充值智汇值」四个汉字烘进金色渐变图):
                          既不随主题反色、也不走 i18n 与字号缩放。换成与本卡其余操作钮同一档位的
                          文字按钮(规格档 ACTION_PADDING_X/Y + SMALL_FONT),与 RN 端 rechargeBtn 同形。 */
@@ -290,8 +290,8 @@ export default function UserInfoCard({
 
               {/* ===== 成长值进度条(对齐原项目 growth-bar:外层灰底 + 内层渐变填充)===== */}
               {showGrowthBar ? (
-                <View style={ROW_MARGIN_STYLE}>
-                  <View className="flex items-center justify-between mb-1">
+                <View style={ROW_MARGIN_STYLE} onClick={onOpenLevel} hoverClass="opacity-85">
+                  <View className="flex items-center justify-between mb-xs">
                     <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {tt('member.index.growth', '成长值')}
                     </Text>
@@ -322,7 +322,7 @@ export default function UserInfoCard({
               ) : null}
 
               {/* ===== 操作按钮行(对齐原项目:开通会员 / 退订 / 充值)===== */}
-              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
+              <View className="flex items-center gap-sm" style={ROW_MARGIN_STYLE}>
                 {/* 开通会员按钮(仅非 isVip 显示,对齐原项目 openIntroduce) */}
                 {!isVip && onOpenVip ? (
                   <View
@@ -356,13 +356,13 @@ export default function UserInfoCard({
                   </View>
                 ) : null}
                 {/* 充值按钮(onWallet 且智汇值行未显示时兜底) */}
-                {onWallet && !tokenDisplay ? (
+                {showRecharge && !tokenDisplay ? (
                   <View
                     className="rounded-sm bg-primary"
                     style={ACTION_PAD_STYLE}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onWallet()
+                      onWallet?.()
                     }}
                     hoverClass="opacity-85"
                   >

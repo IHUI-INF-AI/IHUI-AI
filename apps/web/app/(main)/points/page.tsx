@@ -14,6 +14,7 @@ import { PointsSummary } from './PointsSummary'
 import { PointsTransactionList } from './PointsTransactionList'
 import { PointsLeaderboard } from './PointsLeaderboard'
 import { PointsRedeemList } from './PointsRedeemList'
+import { getCurrentLevel } from '@ihui/api-client'
 import { api } from './helpers'
 import type { Transaction, LeaderboardUser } from './types'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -64,18 +65,16 @@ export default function PointsPage() {
     queryKey: ['levels', 'current'],
     enabled: allow,
     queryFn: () =>
-      api<{
-        current: { level: number; name: string; minExperience: number }
-        next: { level: number; name: string; minExperience: number } | null
-        experience: number
-        progress: number
-      }>('/api/levels/current').then((d) => ({
-        level: d.current.level,
-        name: d.current.name,
-        currentPoints: d.experience,
-        nextLevelPoints: d.next?.minExperience,
-        nextLevelName: d.next?.name,
-      })),
+      getCurrentLevel().then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return {
+          level: r.data.current.level,
+          name: r.data.current.name,
+          currentPoints: r.data.experience,
+          nextLevelPoints: r.data.next?.minExperience,
+          nextLevelName: r.data.next?.name,
+        }
+      }),
   })
 
   const points = pointsQ.data
@@ -88,14 +87,14 @@ export default function PointsPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/points/mall"
-            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
           >
             <ShoppingBag className="h-4 w-4" />
             {t('mallLink')}
           </Link>
           <Link
             href="/points/tasks"
-            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+            className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
           >
             <ListChecks className="h-4 w-4" />
             {t('taskCenterLink')}

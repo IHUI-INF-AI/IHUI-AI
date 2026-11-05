@@ -43,7 +43,15 @@ import {
   TooltipProvider,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import {
+  createPrompt,
+  deletePrompt,
+  getPrompt,
+  getPromptContent,
+  listPrompts,
+  rollbackPrompt,
+  updatePrompt,
+} from '@ihui/api-client'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 
@@ -60,21 +68,6 @@ interface PromptVersion {
   content: string
   description: string | null
   created_at: string
-}
-
-interface PromptDetail {
-  name: string
-  description: string | null
-  latest_version: number
-  versions: PromptVersion[]
-  created_at: string
-  updated_at: string
-}
-
-interface PromptContent {
-  name: string
-  version: number
-  content: string
 }
 
 const textareaCls =
@@ -137,7 +130,7 @@ export default function PromptsPage() {
   async function loadPrompts() {
     setLoading(true)
     setError(null)
-    const res = await fetchApi<PromptSummary[]>('/api/prompts')
+    const res = await listPrompts()
     if (res.success) {
       setPrompts(res.data)
     } else {
@@ -147,7 +140,7 @@ export default function PromptsPage() {
   }
 
   async function loadDetail(name: string) {
-    const res = await fetchApi<PromptDetail>(`/api/prompts/${encodeURIComponent(name)}`)
+    const res = await getPrompt(name)
     if (res.success) {
       return res.data
     }
@@ -155,9 +148,7 @@ export default function PromptsPage() {
   }
 
   async function loadContent(name: string, version: number): Promise<string> {
-    const res = await fetchApi<PromptContent>(
-      `/api/prompts/${encodeURIComponent(name)}/content?version=${version}`,
-    )
+    const res = await getPromptContent(name, { version })
     if (res.success) {
       return res.data.content
     }
@@ -201,12 +192,9 @@ export default function PromptsPage() {
     setFormSaving(true)
     try {
       if (editingName) {
-        const res = await fetchApi(`/api/prompts/${encodeURIComponent(editingName)}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            content: formContent.trim(),
-            description: formDesc.trim() || undefined,
-          }),
+        const res = await updatePrompt(editingName, {
+          content: formContent.trim(),
+          description: formDesc.trim() || undefined,
         })
         if (res.success) {
           toast.success(t('prompts.messages.updateSuccess'))
@@ -216,13 +204,10 @@ export default function PromptsPage() {
           setFormErr(res.error)
         }
       } else {
-        const res = await fetchApi('/api/prompts', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: formName.trim(),
-            content: formContent.trim(),
-            description: formDesc.trim() || undefined,
-          }),
+        const res = await createPrompt({
+          name: formName.trim(),
+          content: formContent.trim(),
+          description: formDesc.trim() || undefined,
         })
         if (res.success) {
           toast.success(t('prompts.messages.createSuccess'))
@@ -290,10 +275,7 @@ export default function PromptsPage() {
     if (rollbackTarget === null) return
     setRollbackPending(true)
     try {
-      const res = await fetchApi(`/api/prompts/${encodeURIComponent(historyName)}/rollback`, {
-        method: 'POST',
-        body: JSON.stringify({ target_version: rollbackTarget }),
-      })
+      const res = await rollbackPrompt(historyName, { target_version: rollbackTarget })
       if (res.success) {
         toast.success(t('prompts.history.rollbackSuccess'))
         setHistoryOpen(false)
@@ -315,9 +297,7 @@ export default function PromptsPage() {
   async function confirmDelete() {
     if (!deleteTarget) return
     setDeletePending(true)
-    const res = await fetchApi(`/api/prompts/${encodeURIComponent(deleteTarget)}`, {
-      method: 'DELETE',
-    })
+    const res = await deletePrompt(deleteTarget)
     if (res.success) {
       toast.success(t('prompts.messages.deleteSuccess'))
       setDeleteTarget(null)
@@ -336,7 +316,7 @@ export default function PromptsPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-display font-bold tracking-tight">{t('prompts.title')}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('prompts.subtitle')}</p>
+            <p className="mt-1 text-body text-muted-foreground">{t('prompts.subtitle')}</p>
           </div>
           <Button className="gap-1.5" onClick={openCreate}>
             <Plus className="h-4 w-4" />
@@ -349,7 +329,7 @@ export default function PromptsPage() {
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t('prompts.searchPlaceholder')}
-              className="h-9 flex-1 text-xs"
+              className="h-9 flex-1 text-label"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -378,12 +358,12 @@ export default function PromptsPage() {
             ) : loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">{t('prompts.loading')}</span>
+                <span className="ml-2 text-body text-muted-foreground">{t('prompts.loading')}</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center gap-2 py-12">
-                <p className="text-sm text-destructive">{t('prompts.messages.loadFailed')}</p>
-                <p className="text-xs text-muted-foreground">{error}</p>
+                <p className="text-body text-destructive">{t('prompts.messages.loadFailed')}</p>
+                <p className="text-label text-muted-foreground">{error}</p>
                 <Button variant="outline" size="sm" onClick={loadPrompts}>
                   {t('retry')}
                 </Button>
@@ -391,13 +371,13 @@ export default function PromptsPage() {
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-12">
                 <FileText className="h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm text-muted-foreground">{t('prompts.empty')}</p>
+                <p className="text-body text-muted-foreground">{t('prompts.empty')}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-body">
                   <thead>
-                    <tr className="text-left text-xs text-muted-foreground">
+                    <tr className="text-left text-label text-muted-foreground">
                       <th className="px-4 py-2 font-medium">{t('prompts.table.name')}</th>
                       <th className="px-4 py-2 font-medium">{t('prompts.table.description')}</th>
                       <th className="px-4 py-2 font-medium">{t('prompts.table.latestVersion')}</th>
@@ -409,7 +389,7 @@ export default function PromptsPage() {
                   </thead>
                   <tbody>
                     {filtered.map((p) => (
-                      <tr key={p.name} className="text-xs hover:bg-muted/30">
+                      <tr key={p.name} className="text-label hover:bg-muted/30">
                         <td className="px-4 py-3 font-medium">{p.name}</td>
                         <td className="px-4 py-3 text-muted-foreground max-w-[200px] truncate">
                           {p.description ?? '-'}
@@ -492,7 +472,7 @@ export default function PromptsPage() {
               <DialogTitle>{editingName ? t('prompts.edit') : t('prompts.create')}</DialogTitle>
             </DialogHeader>
             {formErr && (
-              <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
                 {formErr}
               </div>
             )}
@@ -553,11 +533,11 @@ export default function PromptsPage() {
               <span className="text-body font-medium">{viewName}</span>
               {viewVersions.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-label text-muted-foreground">
                     {t('prompts.detail.version', { version: viewVersion })}
                   </span>
                   <select
-                    className="h-8 rounded-sm border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="h-8 rounded-sm border border-input bg-background px-2 text-label focus:outline-none focus:ring-1 focus:ring-ring"
                     value={viewVersion}
                     onChange={(e) => handleViewVersionChange(Number(e.target.value))}
                   >
@@ -577,7 +557,7 @@ export default function PromptsPage() {
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-muted p-3 text-xs leading-relaxed">
+                <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-muted p-3 text-label leading-relaxed">
                   <code>{viewContent}</code>
                 </pre>
               )}
@@ -607,7 +587,9 @@ export default function PromptsPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : historyVersions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">{t('prompts.empty')}</p>
+              <p className="py-8 text-center text-body text-muted-foreground">
+                {t('prompts.empty')}
+              </p>
             ) : (
               [...historyVersions].reverse().map((v) => {
                 const isCurrent = v.version === historyLatest
@@ -627,7 +609,7 @@ export default function PromptsPage() {
                             )}
                           </div>
                           {v.description && (
-                            <p className="mt-1 text-xs text-muted-foreground">{v.description}</p>
+                            <p className="mt-1 text-label text-muted-foreground">{v.description}</p>
                           )}
                           <p className="mt-1 font-mono text-[10px] text-muted-foreground">
                             {new Date(v.created_at).toLocaleString()}
@@ -639,7 +621,7 @@ export default function PromptsPage() {
                               <Button
                                 variant="outline"
                                 size="xs"
-                                className="shrink-0 gap-1 text-xs"
+                                className="shrink-0 gap-1 text-label"
                                 onClick={() => handleRollback(v.version)}
                               >
                                 <RotateCcw className="h-3 w-3" />
@@ -670,7 +652,7 @@ export default function PromptsPage() {
           <DialogHeader>
             <DialogTitle>{t('prompts.history.title')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {t('prompts.history.rollbackConfirm', { version: rollbackTarget ?? '' })}
           </p>
           <DialogFooter>
@@ -698,7 +680,7 @@ export default function PromptsPage() {
           <DialogHeader>
             <DialogTitle>{t('prompts.delete')}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             {t('prompts.messages.deleteConfirm', { name: deleteTarget ?? '' })}
           </p>
           <DialogFooter>

@@ -190,6 +190,8 @@ export default function MarkdownStreamE2EPage() {
         if (intervalRef.current) clearInterval(intervalRef.current)
         intervalRef.current = null
         const waitStart = performance.now()
+        // 起新之前先停旧:防同一帧重复停幅把 holdTimer 句柄覆盖成僵尸轮询(守门 244 D1)
+        if (holdTimerRef.current) clearInterval(holdTimerRef.current)
         holdTimerRef.current = setInterval(() => {
           const ready = !!document.querySelector('[data-testid="mermaid-zoom-toolbar"]')
           if (!ready && performance.now() - waitStart < MERMAID_READY_TIMEOUT_MS) return
@@ -238,6 +240,8 @@ export default function MarkdownStreamE2EPage() {
     if (!startedRef.current) {
       // 采样与驱动同步启动:auto-start effect 先于本 effect? 不赌顺序,自起自停
     }
+    // 起新之前先停旧:防 effect 重跑把采样句柄覆盖成双倍采样(守门 244 D1)
+    if (samplerRef.current) clearInterval(samplerRef.current)
     samplerRef.current = setInterval(() => {
       if (!startedRef.current) return
       const f = takeFrameSample()

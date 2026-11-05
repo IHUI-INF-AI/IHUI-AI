@@ -33,6 +33,7 @@ import { join } from 'node:path'
 const WEB_ROOT = join(__dirname, '..')
 const REPO_ROOT = join(WEB_ROOT, '..', '..')
 const PAGE = join(WEB_ROOT, 'app', '(main)', 'member', 'history', 'page.tsx')
+const WRITER = join(WEB_ROOT, 'app', '(main)', 'articles', '[id]', 'PageClient.tsx')
 const SHARED_TYPES = join(REPO_ROOT, 'packages', 'types', 'src', 'app-engagement.ts')
 const API_ROUTES = join(REPO_ROOT, 'apps', 'api', 'src', 'routes', 'other', 'history-routes.ts')
 
@@ -47,11 +48,13 @@ describe('浏览历史字段名口径:统一 targetType/targetId', () => {
     expect(src).toMatch(/targetId/)
   })
 
-  it('页面的类型与渲染处都走 target*(含 TYPE_ICON 取键与标签渲染)', () => {
+  it('页面的类型与渲染处都走 target*(共享契约 + TYPE_ICON 取键与标签渲染)', () => {
     const src = read(PAGE)
-    // 类型定义处
-    expect(src).toMatch(/targetType:\s*TargetType/)
-    expect(src).toMatch(/targetId:\s*string/)
+    // 2026-11-03:本页不再抄一份本地联合类型,类型来自共享契约 HistoryItem
+    // (枚举值域的唯一真相在 packages/types,页面只消费) —— 断言随实现改指共享契约,
+    // 但"渲染三处必须取 target*"这一条原样保留。
+    expect(src).toMatch(/import type \{ HistoryItem \} from '@ihui\/types'/)
+    expect(src).toMatch(/HistoryItem\[\]/)
     // 渲染处两处 + 回退标题一处
     expect(src).toMatch(/TYPE_ICON\[item\.targetType\]/)
     expect(src).toMatch(/\{item\.targetType\}/)
@@ -75,16 +78,18 @@ describe('浏览历史字段名口径:统一 targetType/targetId', () => {
   })
 
   it('写入侧的 targetType 落在后端白名单内(否则上报 400,历史永远是空的)', () => {
-    const page = read(PAGE)
+    // 2026-11-03:member/history 页改成只读(拉列表 + 清空),写入侧搬到了文章详情页。
+    // 判据不变 —— "真实上报的每个 targetType 都必须落在后端 z.enum 白名单里";
+    // 取样点随实现从本页联合类型改成写入侧的字面量。
+    const writer = read(WRITER)
     const routes = read(API_ROUTES)
-    // 前端页面的值域
-    const union = page.match(/type TargetType = ([^\n]+)/)?.[1] ?? ''
-    const pageValues = [...union.matchAll(/'([a-z]+)'/g)].map((m) => m[1]).sort()
-    expect(pageValues).toEqual(['doc', 'file', 'post', 'project'])
-    // 后端 z.enum 白名单必须逐个覆盖页面值域
+    const written = [...writer.matchAll(/targetType:\s*'([a-z]+)'/g)].map((m) => m[1]).sort()
+    expect(written).toEqual(['post'])
+    // 后端 z.enum 白名单仍锁死,且必须覆盖写入侧值域
     const zenum = routes.match(/targetType:\s*z\.enum\(\[([^\]]+)\]\)/)?.[1] ?? ''
     const routeValues = [...zenum.matchAll(/'([a-z]+)'/g)].map((m) => m[1]).sort()
-    expect(routeValues).toEqual(pageValues)
+    expect(routeValues).toEqual(['doc', 'file', 'post', 'project'])
+    for (const v of written) expect(routeValues).toContain(v)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

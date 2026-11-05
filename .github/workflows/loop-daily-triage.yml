@@ -10,6 +10,9 @@ name: loop-daily-triage
 # - 静态分析: eslint 告警
 # - 依赖健康: npm audit
 # - 写 .github/loop-runtime/STATE.md (commit 回分支, 不触发完整 CI)
+# - 三态口径(AGENTS §0.3,2026-11-05 治理债④): status = ok | degraded | unjudged。
+#   每个采集维度另落 `<dim>.state`; 采集器没跑起来/输出畸形/枚举到 0 候选 ⇒ unjudged + 原因,
+#   绝不并桶进 0, 也绝不折进 ok; 推送被拒冒 ::error::, 不与「本轮无变更」混写。
 
 on:
   schedule:
@@ -37,14 +40,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -61,44 +64,154 @@ jobs:
         run: |
           set +e
           mkdir -p .loop-tmp
+          : > .loop-tmp/env
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
 
+          # ---------- 三态采集口径(AGENTS §0.3「取不到 ⇒ 显式未判定，不记绿也不冒红」) ----------
+          # 每个维度落两行: <dim>=<读数> 与 <dim>.state=<ok|unjudged>。
+          # 采集失败 ⇒ state=unjudged 并把原因写进读数,绝不并桶进 0 —— 「没量到」≠「量到 0」。
+          mark() { printf '%s=%s\n%s.state=ok\n' "$1" "$3" "$1" >> .loop-tmp/env; }
+          unjudged() { printf '%s=未采集:%s\n%s.state=unjudged\n' "$1" "$2" "$1" >> .loop-tmp/env; }
+          is_int() { case "$1" in (''|*[!0-9]*) return 1;; (*) return 0;; esac; }
+
+          # eslint / audit 输出聚合器: stdin → 单个整数;形态不对一律 exit 3(⇒ unjudged)
+          cat > .loop-tmp/agg.mjs <<'MJS'
+          const mode = process.argv[2]
+          let d = ''
+          process.stdin.on('data', (c) => (d += c)).on('end', () => {
+            const fail = (why) => {
+              process.stderr.write(why + '\n')
+              process.exit(3)
+            }
+            if (d.length === 0) fail('empty-output')
+            if (mode === 'audit') {
+              let v
+              try {
+                v = JSON.parse(d).metadata.vulnerabilities
+              } catch {
+                return fail('parse-fail')
+              }
+              if (!v || typeof v !== 'object') return fail('no-metadata')
+              const n = (v.high || 0) + (v.critical || 0)
+              return void (Number.isInteger(n) ? console.log(n) : fail('non-integer'))
+            }
+            // eslint: `pnpm -r exec` 逐包各打一枚 JSON 数组 ⇒ 拼接流,按顶层括号逐块解析
+            let i = 0,
+              n = 0,
+              blocks = 0
+            while (i < d.length) {
+              const s = d.indexOf('[', i)
+              if (s < 0) break
+              let depth = 0,
+                j = s,
+                inStr = false,
+                esc = false
+              for (; j < d.length; j++) {
+                const c = d.charCodeAt(j)
+                if (inStr) {
+                  if (esc) esc = false
+                  else if (c === 92) esc = true
+                  else if (c === 34) inStr = false
+                } else if (c === 34) inStr = true
+                else if (c === 91) depth++
+                else if (c === 93 && --depth === 0) {
+                  j++
+                  break
+                }
+              }
+              if (depth !== 0) return fail('unbalanced-bracket')
+              let arr
+              try {
+                arr = JSON.parse(d.slice(s, j))
+              } catch {
+                return fail('parse-fail')
+              }
+              if (!Array.isArray(arr)) return fail('not-an-array')
+              for (const f of arr) n += Array.isArray(f && f.messages) ? f.messages.length : 0
+              blocks++
+              i = j
+            }
+            if (blocks === 0) return fail('no-json-block')
+            console.log(n)
+          })
+          MJS
+
           # 1. 代码卫生: TODO/FIXME/XXX 计数 (ts/tsx/js/py)
-          todo=$(grep -rE --include='*.ts' --include='*.tsx' --include='*.js' --include='*.py' -c '(TODO|FIXME|XXX)' apps/ packages/ 2>/dev/null | awk -F: '{s+=$NF} END{print s+0}')
-          echo "todo_fixme_count=$todo" | tee -a .loop-tmp/env
+          todo_raw=$(grep -rE --include='*.ts' --include='*.tsx' --include='*.js' --include='*.py' -c '(TODO|FIXME|XXX)' apps/ packages/ 2>/dev/null)
+          todo_rc=$?
+          todo=$(printf '%s\n' "$todo_raw" | awk -F: '{s+=$NF} END{print s+0}')
+          if [ "$todo_rc" -ge 2 ]; then
+            unjudged todo_fixme_count "grep 退码 $todo_rc(apps/ packages/ 不可读或 grep 缺失)"
+          elif [ -z "$todo_raw" ]; then
+            unjudged todo_fixme_count "枚举到 0 个候选文件(判死不记绿)"
+          elif ! is_int "$todo"; then
+            unjudged todo_fixme_count "读数非整数:$todo"
+          else
+            mark todo_fixme_count ok "$todo"
+          fi
 
-          # 2. 代码卫生: 禁用文件被追踪
-          forbidden_dirs="pw-output screenshots test-results storybook-static audit .ruff_cache"
-          forbidden_files="dev-server.log gen-out.log eslint-report.json"
-          forbidden_match=$(git ls-files | grep -E "^([^/]+/)?($(echo $forbidden_dirs | tr ' ' '|'))/" || true)
-          forbidden_match="$forbidden_match$(git ls-files | grep -E "(^|/)($(echo $forbidden_files | tr ' ' '|'))$" || true)"
-          forbidden_count=$(echo "$forbidden_match" | grep -c . || echo 0)
-          echo "forbidden_files_tracked=$forbidden_count" | tee -a .loop-tmp/env
+          # 2/3. 代码卫生: 禁用文件被追踪 + .env.backup/.env.bak 泄漏(共用同一份 git ls-files 面)
+          # 区分依据: grep -c 空输入返回 1 且打印 0 ⇒ 「没有匹配」是真 0;退码 ≥2 才是采集失败。
+          tracked=$(git ls-files 2>/dev/null)
+          tracked_rc=$?
+          if [ "$tracked_rc" -ne 0 ]; then
+            unjudged forbidden_files_tracked "git ls-files 退码 $tracked_rc"
+            unjudged env_backup_leak "git ls-files 退码 $tracked_rc"
+          elif [ -z "$tracked" ]; then
+            unjudged forbidden_files_tracked "枚举到 0 个跟踪文件(判死不记绿)"
+            unjudged env_backup_leak "枚举到 0 个跟踪文件(判死不记绿)"
+          else
+            count_tracked() {
+              c=$(printf '%s\n' "$tracked" | grep -cE "$2")
+              rc=$?
+              if [ "$rc" -ge 2 ]; then unjudged "$1" "grep 退码 $rc"
+              elif [ "$rc" -eq 1 ]; then mark "$1" ok 0
+              elif ! is_int "$c"; then unjudged "$1" "读数非整数:$c"
+              else mark "$1" ok "$c"
+              fi
+            }
+            count_tracked forbidden_files_tracked '^([^/]+/)?(pw-output|screenshots|test-results|storybook-static|audit|\.ruff_cache)/|(^|/)(dev-server\.log|gen-out\.log|eslint-report\.json)$'
+            count_tracked env_backup_leak '\.env\.backup$|\.env\.bak$'
+          fi
 
-          # 3. 代码卫生: .env.backup / .env.bak 泄漏
-          env_bak=$(git ls-files | grep -E '\.env\.backup$|\.env\.bak$' || true)
-          env_bak_count=$(echo "$env_bak" | grep -c . || echo 0)
-          echo "env_backup_leak=$env_bak_count" | tee -a .loop-tmp/env
-
-          # 4. 静态分析: eslint 告警条数 (apps/api + apps/web, 容错)
-          eslint_warn=$(pnpm -r exec eslint --format json src/ 2>/dev/null | node -e "
-            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
-              try{const arr=JSON.parse(d);let n=0;for(const f of arr)n+=(f.messages||[]).length;console.log(n)}catch{console.log(0)}
-            })
-          " 2>/dev/null || echo "未采集")
-          echo "eslint_warnings=$eslint_warn" | tee -a .loop-tmp/env
+          # 4. 静态分析: eslint 告警条数(逐包 JSON 拼接流;退码 1/2 属真告警,不退判定)
+            # 采集耗时一并落档 —— 8 端 monorepo 的 eslint/tsc 物理上不可能秒级完成(11-04 现读整步 3 秒)
+          eslint_t0=$SECONDS
+          eslint_out=$(pnpm -r exec eslint --format json src/ 2>.loop-tmp/eslint.err)
+          eslint_rc=$?
+          eslint_secs=$((SECONDS - eslint_t0))
+          eslint_readout=$(printf '%s' "$eslint_out" | node .loop-tmp/agg.mjs eslint)
+          agg_rc=$?
+          if [ "$eslint_rc" -ge 126 ]; then unjudged eslint_warnings "pnpm/eslint 未跑起来(rc=$eslint_rc)"
+          elif [ "$agg_rc" -ne 0 ] || ! is_int "$eslint_readout"; then unjudged eslint_warnings "输出不可解析(agg=$agg_rc,rc=$eslint_rc,secs=$eslint_secs)"
+          else mark eslint_warnings ok "$eslint_readout"; fi
+          printf 'eslint_warnings.secs=%s\n' "$eslint_secs" >> .loop-tmp/env
 
           # 5. 依赖健康: npm high/critical 告警数量
-          npm_audit=$(pnpm audit --prod --json 2>/dev/null | node -e "
-            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
-              try{const v=JSON.parse(d).metadata?.vulnerabilities||{};console.log((v.high||0)+(v.critical||0))}catch{console.log('未采集')}
-            })
-          " 2>/dev/null || echo "未采集")
-          echo "npm_high_critical=$npm_audit" | tee -a .loop-tmp/env
+          audit_t0=$SECONDS
+          audit_out=$(pnpm audit --prod --json 2>.loop-tmp/audit.err)
+          audit_rc=$?
+          audit_secs=$((SECONDS - audit_t0))
+          audit_readout=$(printf '%s' "$audit_out" | node .loop-tmp/agg.mjs audit)
+          agg2_rc=$?
+          if [ "$audit_rc" -ge 126 ]; then unjudged npm_high_critical "pnpm 未跑起来(rc=$audit_rc)"
+          elif [ "$agg2_rc" -ne 0 ] || ! is_int "$audit_readout"; then unjudged npm_high_critical "输出不可解析(agg=$agg2_rc,rc=$audit_rc,secs=$audit_secs)"
+          else mark npm_high_critical ok "$audit_readout"; fi
+          printf 'npm_high_critical.secs=%s\n' "$audit_secs" >> .loop-tmp/env
 
-          # 6. 类型检查: tsc 错误数 (容错)
-          tsc_err=$(pnpm -r exec tsc --noEmit 2>&1 | grep -c 'error TS' || echo 0)
-          echo "tsc_errors=$tsc_err" | tee -a .loop-tmp/env
+          # 6. 类型检查: tsc 错误数(原 `|| echo 0` 已删:命令崩掉不得读成 0 错)
+          tsc_t0=$SECONDS
+          tsc_out=$(pnpm -r exec tsc --noEmit 2>&1)
+          tsc_rc=$?
+          tsc_secs=$((SECONDS - tsc_t0))
+          tsc_err=$(printf '%s\n' "$tsc_out" | grep -c 'error TS')
+          tsc_grep_rc=$?
+          if [ "$tsc_rc" -ge 126 ]; then unjudged tsc_errors "pnpm/tsc 未跑起来(rc=$tsc_rc)"
+          elif [ "$tsc_grep_rc" -ge 2 ]; then unjudged tsc_errors "grep 退码 $tsc_grep_rc"
+          elif [ "$tsc_rc" -ne 0 ] && [ "$tsc_err" -eq 0 ]; then unjudged tsc_errors "tsc 退码 $tsc_rc 但输出无 error TS 行(异常退出,不是零错)"
+          elif ! is_int "$tsc_err"; then unjudged tsc_errors "读数非整数:$tsc_err"
+          else mark tsc_errors ok "$tsc_err"; fi
+          printf 'tsc_errors.secs=%s\n' "$tsc_secs" >> .loop-tmp/env
 
           # 打包信号 JSON
           node -e "
@@ -108,6 +221,8 @@ jobs:
             console.log(JSON.stringify(env))
           " > .loop-tmp/env.json
           cat .loop-tmp/env.json
+          tail -3 .loop-tmp/eslint.err 2>/dev/null
+          tail -3 .loop-tmp/audit.err 2>/dev/null
 
       # ============================================================
       # loop-verifier: 落盘 STATE.md
@@ -116,44 +231,71 @@ jobs:
         id: verifier
         run: |
           set -e
-          mkdir -p .github/loop-runtime
+          mkdir -p .github/loop-runtime .loop-tmp
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
           trigger="${{ github.event_name }}"
 
-          # 解析信号
-          signals=$(cat .loop-tmp/env.json 2>/dev/null || echo '{}')
-
-          # 初始化 STATE.md (若不存在)
-          if [ ! -f .github/loop-runtime/STATE.md ]; then
-            cat > .github/loop-runtime/STATE.md <<'EOF'
-          # STATE.md (loop-daily-triage 自动维护)
-          last_run: init
-          last_status: init
-          next_run: 下一个工作日 08:00 (Asia/Shanghai)
-          consecutive_degraded: 0
-          EOF
-          fi
-
-          # 更新 STATE.md 字段
-          node -e "
-            const fs=require('fs');
-            const ts='$ts';const signals=JSON.parse('$signals');
-            let t=fs.readFileSync('.github/loop-runtime/STATE.md','utf8');
-            t=t.replace(/last_run:\s*.*/, 'last_run: '+ts);
-            // 判定状态: eslint/tsc/npm 任一非零则 degraded
-            const bad=(+signals.eslint_warnings||0)+(+(signals.tsc_errors||0))+(+(signals.npm_high_critical||0));
-            const status=bad>0?'degraded':'ok';
-            t=t.replace(/last_status:\s*.*/, 'last_status: '+status);
-            t=t.replace(/next_run:\s*.*/, 'next_run: 下一个工作日 08:00 (Asia/Shanghai)');
-            if(status==='degraded'){
-              const m=/consecutive_degraded:\s*(\d+)/.exec(t);const n=m?+m[1]:0;
-              t=t.replace(/consecutive_degraded:\s*\d+/, 'consecutive_degraded: '+(n+1));
-            } else {
-              t=t.replace(/consecutive_degraded:\s*\d+/, 'consecutive_degraded: 0');
+          # 三态判定器(照抄 scripts/check-service-inventory.mjs 的 ok/degraded/unjudged 绝不并桶):
+          # 任一维度 unjudged ⇒ status=unjudged,作业绝不自称健康;读数取不到 ⇒ 点名是哪个采集器。
+          cat > .loop-tmp/verdict.mjs <<'VJS'
+          import fs from 'node:fs'
+          const DIMS = ['todo_fixme_count', 'forbidden_files_tracked', 'env_backup_leak', 'eslint_warnings', 'npm_high_critical', 'tsc_errors']
+          const DEGRADE_DIMS = ['eslint_warnings', 'tsc_errors', 'npm_high_critical'] // degraded 口径不变:仍只由这三条参与
+          const env = new Map()
+          let envReadable = true
+          try {
+            for (const line of fs.readFileSync('.loop-tmp/env', 'utf8').split('\n')) {
+              const i = line.indexOf('=')
+              if (i > 0) env.set(line.slice(0, i), line.slice(i + 1))
             }
-            fs.writeFileSync('.github/loop-runtime/STATE.md', t);
-            console.log('status='+status);
-          " | tee -a $GITHUB_OUTPUT
+          } catch {
+            envReadable = false // 采集步整段没产出 ⇒ 全维未判定,绝不写成 '{}'→ok
+          }
+          const unjudged = []
+          const rows = []
+          let bad = 0
+          for (const d of DIMS) {
+            const raw = env.get(d)
+            const num = Number(raw)
+            const ok = envReadable && env.get(d + '.state') === 'ok' && raw !== undefined && Number.isInteger(num)
+            if (!ok) unjudged.push(d + '(' + (raw ?? '采集步未产出该维') + ')')
+            else if (DEGRADE_DIMS.includes(d) && num > 0) bad += num
+            rows.push('| ' + d + ' | ' + (ok ? 'ok' : 'unjudged') + ' | ' + (raw ?? '—') + ' | ' + (env.get(d + '.secs') ?? '—') + ' |')
+          }
+          const status = bad > 0 ? 'degraded' : unjudged.length > 0 ? 'unjudged' : 'ok'
+          const list = unjudged.length ? unjudged.join(', ') : '-'
+
+          let t = ''
+          try {
+            t = fs.readFileSync('.github/loop-runtime/STATE.md', 'utf8')
+          } catch {
+            t = '# STATE.md (loop-daily-triage 自动维护)\nlast_run: init\nlast_status: init\nnext_run: 下一个工作日 08:00 (Asia/Shanghai)\nconsecutive_degraded: 0\n'
+          }
+          const set = (k, v) => {
+            t = new RegExp('^' + k + ':.*$', 'm').test(t) ? t.replace(new RegExp('^' + k + ':.*$', 'm'), k + ': ' + v) : t.trimEnd() + '\n' + k + ': ' + v + '\n'
+          }
+          set('last_run', process.env.LOOP_TS)
+          set('last_status', status)
+          set('last_unjudged_dims', list)
+          set('next_run', '下一个工作日 08:00 (Asia/Shanghai)')
+          const cd = /consecutive_degraded:\s*(\d+)/.exec(t)
+          const n = cd ? Number(cd[1]) : 0
+          // unjudged 既不涨也不清连击 —— 没量到不得冒充「本轮健康」
+          set('consecutive_degraded', status === 'degraded' ? String(n + 1) : status === 'ok' ? '0' : String(n))
+          fs.writeFileSync('.github/loop-runtime/STATE.md', t)
+
+          fs.writeFileSync('.loop-tmp/verdict.status', status)
+          fs.writeFileSync('.loop-tmp/verdict.unjudged', list)
+          const summary = process.env.GITHUB_STEP_SUMMARY
+          if (summary) {
+            fs.appendFileSync(summary, ['## loop L1 三态判定: ' + status, '', '| 维度 | 状态 | 读数 | 采集耗时(s) |', '| --- | --- | --- | --- |', ...rows, '', '未判定维度: ' + list, ''].join('\n'))
+          }
+          const out = process.env.GITHUB_OUTPUT
+          if (out) fs.appendFileSync(out, 'status=' + status + '\nunjudged=' + list + '\n')
+          if (status === 'unjudged') console.log('::warning::loop 巡检未判定(采集器没出数,不冒充健康): ' + list)
+          console.log('status=' + status)
+          VJS
+          LOOP_TS="$ts" node .loop-tmp/verdict.mjs | tee -a "$GITHUB_OUTPUT"
 
           # 追加到 loop-run-log.md
           if [ ! -f .github/loop-runtime/loop-run-log.md ]; then echo "# loop-run-log.md" > .github/loop-runtime/loop-run-log.md; fi
@@ -163,6 +305,8 @@ jobs:
             echo ""
             echo "- trigger: $trigger"
             echo "- level: L1"
+            echo "- status: $(cat .loop-tmp/verdict.status)"
+            echo "- unjudged_dims: $(cat .loop-tmp/verdict.unjudged)"
             cat .loop-tmp/env | sed 's/^/- /'
             echo ""
           } >> .github/loop-runtime/loop-run-log.md
@@ -173,17 +317,43 @@ jobs:
       - name: commit & push (仅 *.md)
         if: github.event.inputs.dry_run != 'true'
         run: |
-          set -e
+          set +e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/loop-runtime/STATE.md .github/loop-runtime/loop-run-log.md 2>/dev/null || true
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
-          git commit -m "loop: L1 daily-triage @ $ts (report-only)" || echo "nothing to commit"
-          git push || echo "push skipped (可能无变更)"
+          ahead=$(git rev-list --count "@{u}..HEAD" 2>/dev/null)
+          [ -n "$ahead" ] || ahead="未判定"
+          status=$(cat .loop-tmp/verdict.status 2>/dev/null)
+          [ -n "$status" ] || status="未判定"
+          # 「本轮无变更」与「提交生成了但推不上去」是两个不同结论,必须分开报(§0.3)。
+          git commit -m "loop: L1 daily-triage @ $ts (report-only, status=$status)" > .loop-tmp/commit.out 2>&1
+          case $? in
+            0)
+              echo "loop 回写:本轮生成提交 $(git rev-parse --short HEAD)(status=$status)" >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              if grep -qiE 'nothing to commit|no changes added to commit' .loop-tmp/commit.out; then
+                echo "loop 回写:本轮无内容变更(未生成提交,不推送)——结论「无变更」" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+              cat .loop-tmp/commit.out
+              echo "::error::loop 回写:git commit 非零且不是「无变更」(原文如上),拒绝冒充无事发生"
+              exit 1
+              ;;
+          esac
+          if git push > .loop-tmp/push.out 2>&1; then
+            echo "loop 回写:推送成功,origin 已收到本轮 STATE(status=$status)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat .loop-tmp/push.out
+            echo "::error::loop 回写被拒:提交已生成但 git push 非零(本地领先 ${ahead} 枚,status=$status)"
+            echo "::error::这不是「无变更」——HEAD 面 STATE.md 冻结在 2026-09-25 正是这条腿长期被拒造成的"
+            exit 1
+          fi
 
       - name: 上传 loop 产物 (debug)
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: loop-triage-run
           path: |

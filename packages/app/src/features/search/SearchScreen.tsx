@@ -42,7 +42,7 @@ export function SearchScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('search.title')}</Text>
+        <Text style={styles.title}>{t('common.search')}</Text>
       </View>
 
       <View style={styles.searchRow}>
@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
       marginBottom: rnSpacing.md,
     },
-    title: { flex: 1, fontSize: 22, fontWeight: '600', color: tk.text.primary },
+    title: { flex: 1, fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     searchRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -118,7 +118,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       flex: 1,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     searchBtn: {
-      paddingHorizontal: 14,
+      paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardHead: { flexDirection: 'row', marginBottom: rnSpacing.sm },
     typeBadge: {
-      fontSize: 10,
+      fontSize: rnType.badge.size,
       color: tk.success.DEFAULT,
       backgroundColor: tk.success.light,
       paddingHorizontal: rnSpacing['xs-loose'],

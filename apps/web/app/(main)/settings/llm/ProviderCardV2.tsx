@@ -236,21 +236,21 @@ export function ProviderCardV2({
               <h3 className="truncate text-body font-semibold">{provider.name}</h3>
               <Badge
                 variant={provider.enabled ? 'default' : 'secondary'}
-                className="shrink-0 whitespace-nowrap text-xs"
+                className="shrink-0 whitespace-nowrap text-label"
               >
                 {provider.enabled ? t('enabled') : t('disabled')}
               </Badge>
               {!provider.hasApiKey ? (
                 <Badge
                   variant="outline"
-                  className="shrink-0 whitespace-nowrap border-amber-500 text-xs text-amber-600"
+                  className="shrink-0 whitespace-nowrap border-amber-500 text-label text-amber-600"
                 >
                   {t('noKey')}
                 </Badge>
               ) : null}
               <Badge
                 variant="outline"
-                className={`shrink-0 whitespace-nowrap text-xs ${healthColor}`}
+                className={`shrink-0 whitespace-nowrap text-label ${healthColor}`}
               >
                 <Activity className="mr-1 inline h-3 w-3 shrink-0" />
                 {/* G-716:文案经 HEALTH_LABEL_KEYS 取词表(与同组件 noKey 徽章同一口径);
@@ -258,7 +258,7 @@ export function ProviderCardV2({
                 <span className="whitespace-nowrap">{healthLabel}</span>
               </Badge>
             </div>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-label text-muted-foreground">
               {tplName} · {provider.apiFormat}
             </p>
           </div>
@@ -275,7 +275,7 @@ export function ProviderCardV2({
         </div>
 
         {/* Info line: baseUrl · test status · usage stats */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label text-muted-foreground">
           <TruncatedText
             value={provider.baseUrl}
             mono
@@ -330,7 +330,7 @@ export function ProviderCardV2({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 shrink-0 whitespace-nowrap px-2 text-xs"
+              className="h-6 shrink-0 whitespace-nowrap px-2 text-label"
               onClick={() => onAddModel(provider)}
             >
               <Plus className="mr-1 h-3 w-3 shrink-0" />
@@ -339,18 +339,18 @@ export function ProviderCardV2({
           </div>
 
           {modelsLoading ? (
-            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center justify-center gap-1.5 py-2 text-label text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               {t('loading')}
             </div>
           ) : models.length === 0 ? (
-            <div className="rounded-md border border-dashed py-3 text-center text-xs text-muted-foreground">
+            <div className="rounded-md border border-dashed py-3 text-center text-label text-muted-foreground">
               {t('noModels')}
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                className="ml-1 h-auto p-0 text-xs"
+                className="ml-1 h-auto p-0 text-label"
                 onClick={() => onAddModel(provider)}
               >
                 {t('addFirstModel')}
@@ -361,7 +361,7 @@ export function ProviderCardV2({
               {models.map((m) => (
                 <li
                   key={m.id}
-                  className={`flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5 text-xs ${
+                  className={`flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-2 py-1.5 text-label ${
                     !m.enabled ? 'opacity-50' : ''
                   }`}
                 >
@@ -372,7 +372,7 @@ export function ProviderCardV2({
                       <span className="w-3" />
                     )}
                     <code className="truncate font-mono">{m.displayName || m.modelId}</code>
-                    <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                    <span className="shrink-0 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                       {(m.contextLength / 1000).toFixed(0)}K
                     </span>
                   </div>
@@ -453,28 +453,28 @@ export function ProviderCardV2({
         {showUpstream ? (
           <div className="rounded-md border bg-muted/30 p-2">
             {fetchMut.isPending ? (
-              <div className="flex items-center justify-center gap-1.5 py-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-center gap-1.5 py-3 text-label text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 {t('fetching')}
               </div>
             ) : upstreamModels.length === 0 ? (
-              <div className="py-2 text-center text-xs text-muted-foreground">
+              <div className="py-2 text-center text-label text-muted-foreground">
                 {t('noModelsReturned')}
               </div>
             ) : (
-              <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs">
+              <ul className="max-h-32 space-y-0.5 overflow-y-auto text-label">
                 {upstreamModels.slice(0, 30).map((m) => (
                   <li key={m.id} className="flex items-center justify-between gap-2">
                     <code className="truncate font-mono">{m.id}</code>
                     {m.context_length ? (
-                      <span className="shrink-0 whitespace-nowrap tabular-nums text-xs text-muted-foreground">
+                      <span className="shrink-0 whitespace-nowrap tabular-nums text-label text-muted-foreground">
                         {(m.context_length / 1000).toFixed(0)}K
                       </span>
                     ) : null}
                   </li>
                 ))}
                 {upstreamModels.length > 30 ? (
-                  <li className="pt-1 text-center text-xs text-muted-foreground">
+                  <li className="pt-1 text-center text-label text-muted-foreground">
                     {t('more', { total: upstreamModels.length })}
                   </li>
                 ) : null}
@@ -491,7 +491,7 @@ export function ProviderCardV2({
                 <Button
                   variant="outline"
                   size="xs"
-                  className="shrink-0 whitespace-nowrap px-2 text-xs"
+                  className="shrink-0 whitespace-nowrap px-2 text-label"
                   onClick={() => testProvMut.mutate()}
                   disabled={testProvMut.isPending || !provider.hasApiKey}
                 >
@@ -508,7 +508,7 @@ export function ProviderCardV2({
               <Button
                 variant="outline"
                 size="xs"
-                className="shrink-0 whitespace-nowrap px-2 text-xs"
+                className="shrink-0 whitespace-nowrap px-2 text-label"
                 onClick={() => {
                   setShowUpstream((s) => !s)
                   if (!showUpstream && upstreamModels.length === 0) fetchMut.mutate()
@@ -521,7 +521,7 @@ export function ProviderCardV2({
             <Button
               variant="outline"
               size="xs"
-              className="shrink-0 whitespace-nowrap px-2 text-xs"
+              className="shrink-0 whitespace-nowrap px-2 text-label"
               onClick={() => onEditProvider(provider)}
             >
               <Edit3 className="mr-1 h-3 w-3 shrink-0" />

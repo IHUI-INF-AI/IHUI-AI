@@ -43,8 +43,8 @@ export function WorkflowsTable({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+      <table className="w-full text-body">
+        <thead className="bg-muted/50 text-left text-label uppercase text-muted-foreground">
           <tr>
             <th className={th}>{t('name')}</th>
             <th className={th}>{t('triggerType')}</th>
@@ -89,7 +89,7 @@ export function WorkflowsTable({
                       <div className="min-w-0">
                         <div className="font-medium">{w.name}</div>
                         {w.description ? (
-                          <div className="text-xs text-muted-foreground">{w.description}</div>
+                          <div className="text-label text-muted-foreground">{w.description}</div>
                         ) : null}
                       </div>
                     </div>
@@ -105,7 +105,7 @@ export function WorkflowsTable({
                       {t(TRIGGER_KEY[w.triggerType] ?? 'trigger_unknown')}
                     </span>
                     {stepCount > 0 ? (
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-2 text-label text-muted-foreground">
                         {t('stepsCount', { count: stepCount })}
                       </span>
                     ) : null}

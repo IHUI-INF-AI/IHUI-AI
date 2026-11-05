@@ -10,9 +10,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, Search, BookOpen, Mail } from 'lucide-react'
 
+import { listHelpArticles, listHelpCategories } from '@ihui/api-client'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { api, excerptFromContent, type HelpCategory, type HelpArticleSummary } from '@/lib/content'
+import { excerptFromContent } from '@/lib/content'
 import { BackButton } from '@/components/common'
 import { TruncatedText } from '@/components/common'
 
@@ -24,7 +25,11 @@ export default function HelpPage() {
 
   const { data: cats = [] } = useQuery({
     queryKey: ['help-categories'],
-    queryFn: () => api<{ list: HelpCategory[] }>('/api/help/categories').then((d) => d.list ?? []),
+    queryFn: () =>
+      listHelpCategories().then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
   })
 
   const {
@@ -34,7 +39,10 @@ export default function HelpPage() {
   } = useQuery({
     queryKey: ['help-articles'],
     queryFn: () =>
-      api<{ list: HelpArticleSummary[] }>('/api/help/articles').then((d) => d.list ?? []),
+      listHelpArticles().then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -68,9 +76,11 @@ export default function HelpPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <HelpCircle className="h-6 w-6 text-primary" />
-          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{t('title')}</h1>
+          <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+            {t('title')}
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative max-w-md">
@@ -93,7 +103,7 @@ export default function HelpPage() {
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1 truncate text-left">{t('allArticles')}</span>
-            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+            <span className="ml-auto shrink-0 text-label text-muted-foreground">
               {articles.length}
             </span>
           </button>
@@ -107,7 +117,7 @@ export default function HelpPage() {
               <HelpCircle className="h-4 w-4 shrink-0" />
               <TruncatedText value={c.name} className="min-w-0 flex-1 text-left" />
               {typeof c.articleCount === 'number' && (
-                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                <span className="ml-auto shrink-0 text-label text-muted-foreground">
                   {c.articleCount}
                 </span>
               )}
@@ -122,7 +132,7 @@ export default function HelpPage() {
               {t('loading')}
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
               {(error as Error).message}
             </div>
           ) : filtered.length > 0 ? (
@@ -133,11 +143,11 @@ export default function HelpPage() {
                     <CardContent className="min-[640px]:p-3 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <h2 className="text-body font-semibold">{a.title}</h2>
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span className="shrink-0 text-label text-muted-foreground">
                           {fmt(a.updatedAt)}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-muted-foreground">
+                      <p className="mt-1 text-body text-muted-foreground">
                         {a.summary || excerptFromContent(a.content)}
                       </p>
                     </CardContent>
@@ -148,7 +158,7 @@ export default function HelpPage() {
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <HelpCircle className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">{t('empty')}</p>
+              <p className="text-body text-muted-foreground">{t('empty')}</p>
             </div>
           )}
         </div>

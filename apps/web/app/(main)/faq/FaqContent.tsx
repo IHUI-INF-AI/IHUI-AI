@@ -91,7 +91,7 @@ export function FaqContent(): React.JSX.Element {
                   return (
                     <details
                       key={item.id}
-                      className="group rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                      className="group rounded-lg border bg-card p-3 shadow-sm"
                     >
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                         <h3 className="text-body font-semibold min-[768px]:text-base">
@@ -99,7 +99,7 @@ export function FaqContent(): React.JSX.Element {
                         </h3>
                         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                       </summary>
-                      <div className="mt-3 pt-3 text-sm leading-relaxed text-muted-foreground min-[768px]:text-base">
+                      <div className="mt-3 pt-3 text-body leading-relaxed text-muted-foreground min-[768px]:text-base">
                         {t(answerKey)}
                       </div>
                     </details>
@@ -117,7 +117,7 @@ export function FaqContent(): React.JSX.Element {
         <h2 className="mt-4 text-heading font-bold tracking-tight min-[768px]:text-display">
           {t('ctaTitle')}
         </h2>
-        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground min-[768px]:text-base">
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground min-[768px]:text-base">
           {t('ctaDesc')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

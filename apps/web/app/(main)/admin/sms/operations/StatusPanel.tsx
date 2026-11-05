@@ -62,7 +62,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('status.cardCurrentChannel')}</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="text-body">
             <Row label="SMS_PROVIDER" value={status.provider} />
             <Row
               label={t('provider.tencent')}
@@ -76,7 +76,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
               label={t('provider.proxy')}
               value={<Badge variant={proxyBadge.tone}>{t(proxyBadge.key)}</Badge>}
             />
-            <p className="mt-2 text-xs text-muted-foreground">{t('status.autoModeHint')}</p>
+            <p className="mt-2 text-label text-muted-foreground">{t('status.autoModeHint')}</p>
           </CardContent>
         </Card>
 
@@ -84,7 +84,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('provider.tencent')}</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="text-body">
             <Row label={t('status.signName')} value={tencent.signName} />
             <Row
               label={t('status.signReview')}
@@ -92,7 +92,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
             />
             {tencent.signReview?.reply && (
               <p
-                className="break-all text-xs text-muted-foreground"
+                className="break-all text-label text-muted-foreground"
                 title={tencent.signReview.reply}
               >
                 {tencent.signReview.reply}
@@ -113,12 +113,12 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('provider.aliyun')}</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="text-body">
             <Row label={t('status.signName')} value={aliyun.signName} />
             <Row label={t('status.codeTemplateColumn')} value={aliyun.codeTemplate} />
             <Row label={t('status.notifyTemplate')} value={aliyun.notifyTemplate} />
             {!aliyun.notifyTemplate && (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-label text-muted-foreground">
                 {t('status.noNotifyTemplateHint')}
               </p>
             )}
@@ -129,7 +129,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">{t('status.cardCallbackCompliance')}</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm">
+          <CardContent className="text-body">
             <Flag ok={callback.tokenConfigured} label={t('status.callbackToken')} />
             <Flag ok={callback.ipAllowlistConfigured} label={t('status.callbackIpAllowlist')} />
             <Flag ok={compliance.unsubscribeFailClosed} label={t('status.unsubscribeFailClosed')} />
@@ -144,7 +144,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{t('status.cardRateLimit')}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-x-8 gap-y-1 text-sm md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-x-8 gap-y-1 text-body md:grid-cols-2 xl:grid-cols-4">
           <Row
             label={t('status.noticePerNumber')}
             value={t('status.perHourPerDay', {
@@ -174,7 +174,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">{t('status.cardTemplateMatrix')}</CardTitle>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             {status.review.available
               ? t('status.reviewSource', { time: fmtTime(status.review.checkedAt) })
               : status.review.errorCode
@@ -183,8 +183,8 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
           </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-muted-foreground">
+          <table className="w-full text-body">
+            <thead className="text-left text-label text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 font-medium">{t('field.category')}</th>
                 <th className="px-3 py-2 font-medium">{t('field.usage')}</th>
@@ -202,7 +202,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
                   <tr key={`${row.category}-${row.key}`} className="border-t">
                     <td className="px-3 py-2">{t(CATEGORY_LABEL_KEYS[row.category])}</td>
                     <td className="px-3 py-2">{codeLabel(TEMPLATE_LABEL_KEYS, row.key, t)}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                    <td className="px-3 py-2 font-mono text-label text-muted-foreground">
                       {row.envKey}
                     </td>
                     <td className="px-3 py-2 font-mono">{row.templateId ?? '-'}</td>
@@ -215,7 +215,7 @@ export function StatusPanel({ status }: { status: SmsStatus }) {
                       <Badge variant={review.tone}>{t(review.key)}</Badge>
                     </td>
                     <td
-                      className="max-w-72 truncate px-3 py-2 text-xs text-muted-foreground"
+                      className="max-w-72 truncate px-3 py-2 text-label text-muted-foreground"
                       title={row.reviewReply ?? ''}
                     >
                       {row.reviewReply ?? '-'}

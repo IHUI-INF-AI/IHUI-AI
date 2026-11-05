@@ -27,7 +27,7 @@ export function DispatchResultView({ result }: Props) {
       <div className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
         {stats.map((s) => (
           <div key={s.key} className={cn('rounded-md px-3 py-2', s.cls)}>
-            <div className="text-xs opacity-80">
+            <div className="text-label opacity-80">
               {t(
                 RESULT_KEY[s.key as 'sent' | 'failed' | 'skipped' | 'queued'] ??
                   'nd.result_unknown',

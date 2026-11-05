@@ -11,6 +11,7 @@ import { apiFailureToText } from '@ihui/shared/utils'
 import { AgentDetailScreen as SharedAgentDetailScreen, type AgentDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'AgentDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -24,6 +25,8 @@ export function AgentDetailScreen() {
   const [agent, setAgent] = useState<AgentDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const reload = () => setReloadKey((key) => key + 1)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +42,9 @@ export function AgentDetailScreen() {
     return () => {
       cancelled = true
     }
-  }, [id, t])
+  }, [id, t, reloadKey])
+
+  const { onNavigate, onToast } = useHostPorts()
 
   return (
     <SharedAgentDetailScreen
@@ -48,9 +53,12 @@ export function AgentDetailScreen() {
       loading={loading}
       error={error}
       onBack={() => navigation.goBack()}
-      onStartChat={(agentId, name) => navigation.navigate('AgentChat', { agentId, name })}
-      onEdit={() => navigation.navigate('AgentEdit', { id })}
+      onStartChat={(agentId, name) => onNavigate('AgentChat', { agentId, name })}
+      onEdit={() => onNavigate('AgentEdit', { id })}
+      onRetry={reload}
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
+      onToast={onToast}
     />
   )
 }

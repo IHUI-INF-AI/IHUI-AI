@@ -74,12 +74,12 @@ export default function AnnouncementDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/announcements')}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('backToList')}
         </button>
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function AnnouncementDetailPage() {
     <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-4">
       <Link
         href="/announcements"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backToList')}
@@ -115,11 +115,11 @@ export default function AnnouncementDetailPage() {
             {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
           </span>
           <Megaphone className="h-4 w-4 text-muted-foreground" />
-          {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}
+          {a.isPinned && <span className="text-label text-primary">{t('pinned')}</span>}
           <Button
             size="xs"
             variant="ghost"
-            className="ml-auto gap-1 px-2 text-xs"
+            className="ml-auto gap-1 px-2 text-label"
             disabled={isRead || readMut.isPending}
             onClick={() => readMut.mutate()}
           >
@@ -131,11 +131,13 @@ export default function AnnouncementDetailPage() {
             {isRead ? t('markedRead') : t('markRead')}
           </Button>
           {readMut.isError && (
-            <span className="text-xs text-destructive">{(readMut.error as Error)?.message}</span>
+            <span className="text-label text-destructive">{(readMut.error as Error)?.message}</span>
           )}
         </div>
-        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">{a.title}</h1>
-        <p className="text-xs text-muted-foreground">
+        <h1 className="text-heading font-bold tracking-tight min-[768px]:text-display">
+          {a.title}
+        </h1>
+        <p className="text-label text-muted-foreground">
           {t('publishedAt')} {fmt(a.publishedAt)}
         </p>
       </header>
@@ -157,7 +159,7 @@ export default function AnnouncementDetailPage() {
             >
               <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
               <span className="min-w-0">
-                <span className="block text-xs text-muted-foreground">{t('prev')}</span>
+                <span className="block text-label text-muted-foreground">{t('prev')}</span>
                 <span className="block break-words text-body font-medium group-hover:text-primary">
                   {prev.title}
                 </span>
@@ -172,7 +174,7 @@ export default function AnnouncementDetailPage() {
               className="group flex flex-1 items-center justify-end gap-2 rounded-md border px-3 py-2 text-right transition-colors hover:bg-accent/40"
             >
               <span className="min-w-0">
-                <span className="block text-xs text-muted-foreground">{t('next')}</span>
+                <span className="block text-label text-muted-foreground">{t('next')}</span>
                 <span className="block break-words text-body font-medium group-hover:text-primary">
                   {next.title}
                 </span>

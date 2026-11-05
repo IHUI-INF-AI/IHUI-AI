@@ -14,6 +14,8 @@ import {
 } from '../../components/ScreenStates'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { usePublishShareIntent } from '@ihui/shared/share'
+import { assertRequiredPort } from '../../host/ports'
 
 /**
  * 课程详情共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)。
@@ -35,11 +37,23 @@ export function CourseDetailScreen({
   enrolling,
   onEnroll,
   onPlayLesson,
-  onBack,
+  onRetry,
   colorScheme = 'light',
-}: CourseDetailScreenProps) {
+  onNavigate,
+  onToast,
+}: CourseDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 分享正文交给宿主(小程序端在页面级注册转发/朋友圈卡;RN 端无宿主 ⇒ no-op)。
+  // 两张卡原页各取一个文案键,加载前后也不同键回落 ⇒ 逐分支复刻,不靠宿主兜底。
+  usePublishShareIntent({
+    title: item ? t('share.courseTitle', { title: item.title }) : t('share.appTitle'),
+    timelineTitle: item ? t('share.courseTitle', { title: item.title }) : t('share.timelineTitle'),
+    imageUrl: item?.coverUrl,
+  })
 
   if (loading) {
     return (
@@ -53,7 +67,7 @@ export function CourseDetailScreen({
     return (
       <ErrorState
         message={error || t('courseDetail.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -93,7 +107,7 @@ export function CourseDetailScreen({
             </Text>
             {item.isEnrolled ? (
               <View style={styles.enrolledBadge}>
-                <Text style={styles.enrolledText}>{t('courseDetail.enrolled')}</Text>
+                <Text style={styles.enrolledText}>{t('learn.signedUp')}</Text>
               </View>
             ) : (
               <TouchableOpacity
@@ -103,7 +117,7 @@ export function CourseDetailScreen({
               >
                 <Text style={styles.btnText}>
                   {item.isFree
-                    ? t('courseDetail.enroll')
+                    ? t('learn.signUp')
                     : t('courseDetail.pay', { amount: item.price.toFixed(2) })}
                 </Text>
               </TouchableOpacity>
@@ -167,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     tagText: { fontSize: rnType.label.size, color: tk.text.medium },
     body: { paddingHorizontal: rnSpacing['sm-loose'] },
     card: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -203,7 +217,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     lessonItem: {
       marginBottom: rnSpacing.md,
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

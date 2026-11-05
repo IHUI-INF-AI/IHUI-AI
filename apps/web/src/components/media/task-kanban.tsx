@@ -124,7 +124,7 @@ export function TaskKanban({
   }
   if (error) {
     return (
-      <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
         {error.message}
       </div>
     )
@@ -139,7 +139,7 @@ export function TaskKanban({
           data-testid={`kanban-col-${col.key}`}
         >
           <div className="mb-2 flex items-center gap-1.5 px-1">
-            <h3 className={cn('text-xs font-medium', col.accentCls)}>{col.label}</h3>
+            <h3 className={cn('text-label font-medium', col.accentCls)}>{col.label}</h3>
             <span className="tabular-nums text-[11px] text-muted-foreground">
               {col.items.length}
             </span>
@@ -272,3 +272,4 @@ function TaskKanbanCard({
     </li>
   )
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

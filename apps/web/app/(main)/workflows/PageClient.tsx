@@ -13,8 +13,8 @@ import { BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { WorkflowCreateDialog } from './WorkflowCreateDialog'
 import { WorkflowCardList } from './WorkflowCardList'
-import { api, EMPTY_FORM } from './helpers'
-import type { WorkflowItem } from './types'
+import { createWorkflow, listWorkflows } from '@ihui/api-client'
+import { EMPTY_FORM } from './helpers'
 
 export default function WorkflowsPageClient() {
   const t = useTranslations('workflows')
@@ -26,7 +26,11 @@ export default function WorkflowsPageClient() {
 
   const wfsQ = useQuery({
     queryKey: ['workflows'],
-    queryFn: () => api<{ list: WorkflowItem[] }>('/api/workflows').then((d) => d.list ?? []),
+    queryFn: async () => {
+      const r = await listWorkflows()
+      if (!r.success) throw new Error(r.error)
+      return r.data.list ?? []
+    },
     enabled: allow,
   })
 
@@ -35,22 +39,21 @@ export default function WorkflowsPageClient() {
   const [formErr, setFormErr] = React.useState<string | null>(null)
 
   const createMut = useMutation({
-    mutationFn: (stepsToSubmit: string) => {
-      let steps: unknown
+    mutationFn: async (stepsToSubmit: string) => {
+      let steps: unknown[]
       try {
-        steps = JSON.parse(stepsToSubmit)
+        steps = JSON.parse(stepsToSubmit) as unknown[]
       } catch {
         throw new Error(t('create.invalidSteps'))
       }
-      return api('/api/workflows', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-          triggerType: form.triggerType,
-          steps,
-        }),
+      const r = await createWorkflow({
+        name: form.name,
+        description: form.description,
+        triggerType: form.triggerType,
+        steps,
       })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: (d) => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
@@ -92,7 +95,7 @@ export default function WorkflowsPageClient() {
             <Workflow className="h-6 w-6 text-primary" />
             {t('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
         </div>
         <WorkflowCreateDialog
           open={createOpen}

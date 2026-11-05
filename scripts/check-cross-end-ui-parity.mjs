@@ -37,7 +37,6 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, Undetermined } from './lib/face-reader.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { radiusEntriesOf, radiusLookup, radiusPxInLine, radiusSetOf } from './lib/radius-tokens.mjs'
 // 裸档形状单独一行导:把上面那条 import 折成多行会让"行级复活"判据把成员行读成搬回祖先形态(2026-10-11 实测)
 import { bareRoundedOccurrences } from './lib/radius-tokens.mjs'
@@ -48,6 +47,12 @@ import { geometryItemsInSrc, lengthConstsOf, cssVarItemsInSrc } from './lib/radi
 // CSS 变量解值的取源:tokens.css 的块解析**只此一份实现**(lib/design-token-blocks.mjs 是它的全仓唯一出口,
 // 生成器与守门 36/93 都从那里取);本门不得再抄第二份 `--x: y` 正则(§0.6)。
 import { collectVars } from './lib/design-token-blocks.mjs'
+// web 腿工具类 → 声明体/px 的**唯一取源**(票 O67):类名到声明的映射由 Tailwind 编译器算,
+// 主题值取自编译产物,本门不手敲第二份类名字典(否则两张表必然漂开成"这张认得、那张不认")。
+import {
+  WEB_UTILITY_CLOSURE_EXTRA,
+  webUtilityDeclarations,
+} from './lib/web-utility-classes.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -84,8 +89,10 @@ const OWN_END_PREFIX = { miniapp: 'apps/miniapp-taro/', rn: 'apps/mobile-rn/' }
  * 为什么刻意**不塞进 SIDES**:塞进去会让几何 / SL / IC 每一维都平白多两组对,而 web 侧的尺寸
  * 住在 Tailwind utility 与 CSS 变量里,与 RN 的 StyleSheet 键**不在同一量纲**上 —— 那产出的
  * 不是"更多覆盖",而是把不比较的东西摆成在比较。
- * 所以这一腿今天只回答一个问题,而且只回答到文件级:**同一个组件名在 web 与小程序取的圆角档
- * 一不一样**。几何维刻意不判,并在人读面与 `--json` 面**明写"未判"**(不是"已确认相同")。
+ * 所以这一腿(web↔小程序)只回答到文件级:**同一个组件名取的圆角档一不一样**;IC 与 RS 两维
+ * 仍未判,并在人读面与 `--json` 面明写(不是"已确认相同")。
+ * 几何维另有一条腿:**web↔RN 五维**(2026-11-02 立,配对锚点见 `WEB_RN_LEDGER_REL`),按屏比
+ * 宽高/内边距/间距/圆角/字号;默认 advisory(不折退出码),读数与未登记数见 `--json` 的 `webRn`。
  *
  * 已知覆盖边界(逐条报出,不当通过):
  *  - **端入口可达性剔除已装上**(2026-10-08 票 G-978049③):双侧各跑一遍图,种子面
@@ -113,6 +120,26 @@ export const WEB_LEDGER = {
   waivers: 'webWaivers',
 }
 const BASELINE_REL = 'scripts/cross-end-ui-parity-baseline.json'
+/**
+ * 允许差异登记表(2026-11-02 立,跨端对齐 Phase 1「允许差异」地基):component × key × platform ×
+ * owner × 到期日。本门只对**未登记 / 已到期 / 超量 / 条目坏**的差异报红;已登记、在期内且读数不超
+ * 额度的差异只记账。到期不是自动续期 —— 到期当日重新报红,逼 owner 复核,防止白名单腐化
+ * (§12e:不得为消红削判据)。key=geometry|radius|elementRadius 时 count 是该族实测差异处数
+ * (额度不是无限信用);key=platform:<capability> 时登记宿主能力差异(支付/分享/订阅消息/小程序原生/
+ * 字体/模糊/手势/安全区/平台常量),不带 count。台账与豁免表**分开两本账**:豁免是临时欠债,
+ * 允许差异是设计边界;两者都必须在期,且都不许把"没判"写成"判过"。
+ */
+export const ALLOWED_DIFFS_REL = 'scripts/data/cross-end-allowed-diffs.json'
+/**
+ * web↔RN 配对账本(2026-11-02 立,Phase 2「web 腿几何维」):逐行 `{web,rn,status,data:{evidence,webEvidence?}}`。
+ * 本门只取 `status=aligned` 且 `data.evidence` 以 `<rn 路径>:` 开头的行 —— evidence 已经钉到 RN
+ * 文件:行,是这条配对唯一可复核的锚点;锚不上的行进「配对待确认清单」,不猜。
+ * `data.webEvidence`(`<web 路径>:<行>`,可选)是 web 侧五维读数的取证件:路由的 page.tsx 只是
+ * 屏壳时,几何住在子组件里,没有这枚锚这一维就只能报 one-sided(读数的缺口,不是两端的差异)。
+ */
+export const WEB_RN_LEDGER_REL = 'scripts/data/web-rn-screen-map.jsonl'
+/** 五个可判定几何维;`radius` 走圆角档表,其余四维走 readGeometry 的分类集。 */
+export const WEB_RN_GEOMETRY_DIMS = ['widthHeight', 'padding', 'spacing', 'radius', 'fontSize']
 /** 落在这些键/标识符上下文里的数字才算"看得见的尺寸"。 */
 const GEO_KEY =
   /(size|width|height|box|icon|padding|margin|font|line|gap|radius|top|bottom|left|right|thickness|spacing|edge)/i
@@ -300,12 +327,36 @@ export function cssVarTiers(sources) {
  * `cssVars` = `cssVarTiers` 的解值表;传 null/空表 ⇒ CSS 变量形态一条不采(由调用方按失明判,
  * 不得读成"该侧没有变量取用")。
  */
+/**
+ * 键名 → 五类几何维之一;判不出返回 null(该值仍进 values,但不参与分类对账 ——
+ * "没分类"不得冒充"这一类没有档")。
+ * 顺序有意:font 先于 size(textSize 是字号不是盒宽)、padding 先于 spacing、
+ * margin/gap 归「间距」、top/right/bottom/left/inset 也归「间距」(它们是偏移量,不是宽高)。
+ */
+export function dimOfKey(raw) {
+  const s = String(raw ?? '')
+    .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    .toLowerCase()
+  if (!s) return null
+  if (/font|textsize|^text$/i.test(s)) return 'fontSize'
+  if (/padding|^pad|^p$|^(px|py|pt|pb|pl|pr)$/i.test(s)) return 'padding'
+  if (/margin|gap|spacing|space|inset|^m$|^mt$|^mb$|^ml$|^mr$|^mx$|^my$|^top$|^bottom$|^left$|^right$|offset/i.test(s))
+    return 'spacing'
+  if (/width|height|size|box|icon|glyph|thickness|dimension|diameter|^w$|^h$|^wh$/i.test(s))
+    return 'widthHeight'
+  return null
+}
+
 export function readGeometry(src, side, tiers = {}, cssVars = null) {
   const code = stripComments(src)
   const named = {}
   const values = new Set()
-  const push = (px) => {
-    if (px !== null && px !== undefined) values.add(px)
+  // 分类集与 values 同批生长:同一次提取,不在第二处再扫一遍(两处算同一件事必漂)。
+  const dims = { widthHeight: new Set(), padding: new Set(), spacing: new Set(), fontSize: new Set() }
+  const push = (px, dim) => {
+    if (px === null || px === undefined) return
+    values.add(px)
+    if (dim && dims[dim]) dims[dim].add(px)
   }
   const keyed = (name) =>
     GEO_KEY.test(name) && !NON_GEO_KEY.test(name) && !RADIUS_FORM_RE.test(name)
@@ -325,7 +376,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     if (!keyed(m[1])) continue
     const px = toPx(m[2], undefined, side)
     named[m[1]] = px
-    push(px)
+    push(px, dimOfKey(m[1]))
   }
   /**
    * 属性名必须**整体**取,不能靠 `\b` 从连字符串里捞后半截:CSS 的 `line-height: 1` 曾被读成键
@@ -338,10 +389,12 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
   for (const m of code.matchAll(
     /([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(\d+(?:\.\d+)?)(rpx|px)?(?![\w.%])/gi,
   )) {
-    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
-    push(toPx(m[2], m[3], side))
+    const key = m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    if (!keyed(key)) continue
+    push(toPx(m[2], m[3], side), dimOfKey(key))
   }
-  for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g)) push(toPx(m[1], 'rpx', side))
+  for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g))
+    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index)))
   /**
    * **内联引号串里的长度**(2026-09-27 三路并行取证各自独立指到同一格):
    * 小程序端把档写成 `style={{ padding: '0 20rpx 10rpx' }}` 或 `'20rpx'`,而下面的简写循环
@@ -356,10 +409,11 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
    * 而对面写的 120 是真 120,一次折半就把同档读成分叉(实测 AgentRuntimePanel)。
    */
   for (const m of code.matchAll(/([a-z][\w]*(?:-[a-z0-9]+)*)\s*[:=]\s*(['"`])([^'"`\n]*)\2/gi)) {
-    if (!keyed(m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+    const key = m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    if (!keyed(key)) continue
     for (const raw of m[3].trim().split(/\s+/)) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(raw)
-      if (one) push(toPx(one[1], one[2], side, 'runtime'))
+      if (one) push(toPx(one[1], one[2], side, 'runtime'), dimOfKey(key))
     }
   }
   /**
@@ -387,31 +441,32 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     for (const v of vals) {
       const one = /^(\d+(?:\.\d+)?)(rpx|px)$/.exec(v)
       if (!one) continue // `auto` / `0` / `100%` / `calc(…)` 一律不计
-      push(toPx(one[1], one[2], side))
+      push(toPx(one[1], one[2], side), dimOfKey(m[1]))
     }
   }
   for (const m of code.matchAll(
-    /(?:^|[\s"'`])(?:size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
+    /(?:^|[\s"'`])(size|gap|p|m|px|py|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g,
   ))
-    push(toPx(m[1], m[2], side))
+    push(toPx(m[2], m[3], side), dimOfKey(m[1]))
   for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)size-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
-    push(round(TW_SPACING_PX(Number(m[1]))))
+    push(round(TW_SPACING_PX(Number(m[1]))), 'widthHeight')
   // 内联盒/留白的**刻度档**(非任意值形态):`px-3`/`py-2`/`gap-4`/`mt-2` … 一律 ×4 折 px。
   // 不收这一档,同一族的两侧就不在同一口径上读数 —— RN 写 `paddingHorizontal: 12` 记进集合,
   // 小程序写 `px-3` 却不进集合,于是"仅 RN 档 12"是一条纯粹的比对噪声(实测 BottomActionBar 就这么错判过)。
   for (const m of code.matchAll(
-    /(?:^|[\s"'`:](?:[a-z-]+:)?)(?:p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-x|space-y)-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
+    /(?:^|[\s"'`:](?:[a-z-]+:)?)(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-x|space-y)-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g,
   ))
-    push(round(TW_SPACING_PX(Number(m[1]))))
+    push(round(TW_SPACING_PX(Number(m[2]))), dimOfKey(m[1]))
   // 尾视里**不含 `/`**:`w-1/3` 这类分数宽度不是 px 档(旧写法把 `w-1` 折成 4px 喂进集合,
   // 实测 ModelList 的骨架条 `w-1/3` 因此凭空多出一档"仅小程序 4")。
   for (const m of code.matchAll(/(?:^|[\s"'`:](?:[a-z-]+:)?)([hw])-(\d+(?:\.\d+)?)(?=$|[\s"'`])/g))
-    push(round(TW_SPACING_PX(Number(m[2]))))
+    push(round(TW_SPACING_PX(Number(m[2]))), 'widthHeight')
   for (const m of code.matchAll(/(?:^|[\s"'`])text-\[(\d+(?:\.\d+)?)(rpx|px)?\]/g))
-    push(toPx(m[1], m[2], side))
+    push(toPx(m[1], m[2], side), 'fontSize')
   for (const m of code.matchAll(/(?:^|[\s"'`])text-(xs|sm|base|lg|xl|2xl|3xl)(?=$|[\s"'`/:])/g))
-    push(TW_FONT_PX[m[1]] ?? null)
-  for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g)) push(toPx(m[1], undefined, side))
+    push(TW_FONT_PX[m[1]] ?? null, 'fontSize')
+  for (const m of code.matchAll(/\bsize=\{(\d+(?:\.\d+)?)\}/g))
+    push(toPx(m[1], undefined, side), 'widthHeight')
   /**
    * **换算器包档**(2026-10-24,toRpx / toUnit 支):`width: toRpx(44)` / `gap: toRpx(SP.md)`。
    * 小程序镜像件的主流写法是 `const toRpx = (px) => `${px * 2}rpx``,而上面所有提取式只认
@@ -429,7 +484,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       const key = keyBefore(it.at)
       if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
       if (it.px === null) unreadable.push({ raw: it.raw, text: it.text, px: null, why: it.why })
-      else if (it.px <= MAX_GEO_PX) push(it.px)
+      else if (it.px <= MAX_GEO_PX) push(it.px, dimOfKey(key))
     }
   }
   /**
@@ -456,13 +511,20 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     const TW_ANY_VAR_PREFIX =
       /(?:^|[\s"'`])(?:size|gap|p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[var\(\s*--[\w-]+/g
     const arbitraryAt = new Set()
-    for (const m of code.matchAll(TW_ANY_VAR_PREFIX))
-      arbitraryAt.add(m.index + m[0].lastIndexOf('var('))
+    const arbitraryDim = new Map()
+    for (const m of code.matchAll(TW_ANY_VAR_PREFIX)) {
+      const at = m.index + m[0].lastIndexOf('var(')
+      arbitraryAt.add(at)
+      const pre = /(?:^|[\s"'`])(size|gap|p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|w|h|top|bottom|left|right|inset)-\[var/.exec(m[0])
+      arbitraryDim.set(at, pre ? dimOfKey(pre[1]) : null)
+    }
     for (const it of cssVarItemsInSrc(code, cssVars)) {
       const isArbitrary = arbitraryAt.has(it.at)
+      let dim = arbitraryDim.get(it.at) ?? null
       if (!isArbitrary) {
         const key = keyBefore(it.at)
         if (!key || !keyed(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase()))) continue
+        dim = dimOfKey(key)
       }
       if (it.notLength) {
         cssVar.notLength++
@@ -475,7 +537,7 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
       }
       if (it.px === 0) continue // C4:0 值不入集
       if (it.px <= MAX_GEO_PX) {
-        push(it.px)
+        push(it.px, dim)
         cssVar.resolved++
       }
     }
@@ -493,56 +555,130 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
    */
   if (tiers && Object.keys(tiers).length) {
     /**
-     * **间距档消费腿**(2026-10-27,治 C3/C8 那批"仅小程序"假分叉):
-     * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
-     * 并按命名空间名进 named(与具名档同一张冲突对账表)。
-     * **换算器包住的不双计**:包裹区间用**括号配对**扫(开括号起 400 字符封顶,配不拢弃区间);
-     * 落在区间内的成员入账交 `geometryItemsInSrc` 采集支按"成员解不到"报名。
+     * **换算器包裹区间**(间距腿与字号腿共用一份):包裹区间用**括号配对**扫(开括号起 400 字符
+     * 封顶,配不拢弃区间);落在区间内的成员入账交 `geometryItemsInSrc` 采集支按"成员解不到"报名,
+     * 这里不重复计。
      * 前一版想用一条 `(?:X|\s)*` 嵌套量词的置换正则直接匹配"被换算器包住的成员",实测
      * 对抗样本(`rpx(` 后接近而失败的长串)触发灾难性回溯,单样本冻结 >2 分钟、
      * 全量门空转 28 分钟零输出(2026-10-27 取证)—— 位置判定对任意输入 O(n),回溯从根上禁用。
-     * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
      */
-    {
-      const wrapRanges = []
-      const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
-      for (let mm; (mm = CALL_RE.exec(code));) {
-        const open = mm.index + mm[0].length - 1
-        let depth = 0
-        const cap = Math.min(code.length, open + 400)
-        for (let i = open; i < cap; i++) {
-          const ch = code[i]
-          if (ch === '(') depth++
-          else if (ch === ')') {
-            depth--
-            if (depth === 0) {
-              wrapRanges.push([mm.index, i + 1])
-              CALL_RE.lastIndex = i + 1
-              break
-            }
+    const wrapRanges = []
+    const CALL_RE = /\b(?:toUnit|toRpx|px2rpx|rp|rpx)\s*\(/g
+    for (let mm; (mm = CALL_RE.exec(code));) {
+      const open = mm.index + mm[0].length - 1
+      let depth = 0
+      const cap = Math.min(code.length, open + 400)
+      for (let i = open; i < cap; i++) {
+        const ch = code[i]
+        if (ch === '(') depth++
+        else if (ch === ')') {
+          depth--
+          if (depth === 0) {
+            wrapRanges.push([mm.index, i + 1])
+            CALL_RE.lastIndex = i + 1
+            break
           }
         }
       }
-      const insideWrap = (at) => wrapRanges.some(([a, b]) => at > a && at < b)
-      for (const m of code.matchAll(
-        /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
-      )) {
-        if (insideWrap(m.index)) continue
-        const key = m[2] || m[3]
-        const memberName = `${m[1]}.${key}`
-        const px = tiers[memberName]
-        if (px === undefined) {
-          unreadable.push({
-            raw: memberName,
-            text: key,
-            px: null,
-            why: '间距档位表读不到该成员(源表没有此档或已改名)',
-          })
-          continue
-        }
-        push(px)
-        if (named[memberName] === undefined) named[memberName] = px
+    }
+    const insideWrap = (at) => wrapRanges.some(([a, b]) => at > a && at < b)
+    /**
+     * **间距档消费腿**(2026-10-27,治 C3/C8 那批"仅小程序"假分叉):
+     * 裸 `rnSpacing.md` / `rnSpacing['3xl']` / `rnSpacingFor.gap` 按档表 dp 计入 values,
+     * 并按命名空间名进 named(与具名档同一张冲突对账表)。
+     * 档表读不到的成员(改名/新增没进源)⇒ 报名未判定,不静默跳过(§0.3)。
+     * 归维按**紧邻键名**走(2026-11-02 修):旧版无条件 `push(px,'spacing')`,而间距档最常坐的键
+     * 恰是 `padding` / `paddingHorizontal` / `paddingVertical` —— 内边距整族被读成 0,
+     * web↔RN 的 padding 维看到的是"RN 侧没读数"(假 one-sided),不是"两端不一样"。
+     * 无几何键语境(取不到键 / 键不是几何键)时保持旧口径 `spacing`:不把"没语境"猜成某一维;
+     * 档值本身照旧进 values,所以集合口径(主腿 / 圆角维)不随这一刀移动。
+     */
+    for (const m of code.matchAll(
+      /\b(rnSpacing(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const key = m[2] || m[3]
+      const memberName = `${m[1]}.${key}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: key,
+          px: null,
+          why: '间距档位表读不到该成员(源表没有此档或已改名)',
+        })
+        continue
       }
+      const rawKey = keyBefore(m.index)
+      const k = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
+      // 有几何键语境 ⇒ 按该键归维;没有(或该键分不进五维)⇒ 保持旧口径 spacing(不静默丢读数)
+      push(px, (k && keyed(k) ? dimOfKey(k) : null) ?? 'spacing')
+      if (named[memberName] === undefined) named[memberName] = px
+    }
+    /**
+     * **字号档消费腿**(2026-11-02 Phase 3,治"落档后覆盖数反而下降"):
+     * 落档后 RN 屏只剩 `fontSize: rnType.bodySm.size` 与 `...rnType.bodySm` 两种写法,
+     * 旧词汇表只认字面量 ⇒ 该侧 fontSize 读成空集,已对齐的屏被报成 one-sided。
+     * 口径三条,与字面量支逐字同形:
+     *  ① `.size` 按档值计入 fontSize(有几何键语境时按键归档,与 `fontSize: 13` 的
+     *     `dimOfKey('fontSize')` 同一判据);
+     *  ② **整对象展开** `...rnType.bodySm` 等价于 `fontSize: <size>`:几何维只取字号这一格,
+     *     行高/字重不是几何档(NON_GEO_KEY 同一条排除);
+     *  ③ `.lineHeight` 是排版量,只在几何键语境下按键归档(键名会被 NON_GEO_KEY 挡住),
+     *     裸引用与展开一律不入集 —— 与字面量 `lineHeight: 20` 的口径一致。
+     * 档表读不到的成员 ⇒ 逐枚未判定(§0.3),绝不折成"该侧无字号档"。
+     */
+    for (const m of code.matchAll(
+      /\b(rnType|taroType)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])(?:\s*\.\s*(size|lineHeight|fontSize))?(?![\w.])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const ns = m[1]
+      const step = m[2] || m[3]
+      const sizeField = ns === 'taroType' ? 'fontSize' : 'size'
+      const field = m[4] ?? sizeField // 展开形态 `...rnType.body` 按整个对象里的字号计
+      const memberName = `${ns}.${step}.${field}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: step,
+          px: null,
+          why: '字号档位表读不到该成员(源表没有此档/此字段或已改名)',
+        })
+        continue
+      }
+      if (!(px > 0) || px > MAX_GEO_PX) continue
+      const rawKey = keyBefore(m.index)
+      const key = rawKey ? rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null
+      const dim = key && keyed(key) ? dimOfKey(key) : m[4] === undefined || field === sizeField ? 'fontSize' : null
+      if (dim) push(px, dim)
+      if (named[memberName] === undefined) named[memberName] = px
+    }
+    /**
+     * **圆角档在几何键语境下的取用**:`size: rnRadius.xl` 这类写法与其字面量同值计入几何维。
+     * `borderRadius:` 由 RADIUS_FORM_RE 挡在 `keyed()` 之外(圆角档是圆角维的地盘,不双计);
+     * 档值来自 `collect` 搬进 tiers 的 `radiusLookup` 那一份(§0.6 不另抄档表)。
+     */
+    for (const m of code.matchAll(
+      /\b(rnRadius(?:For)?)\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g,
+    )) {
+      if (insideWrap(m.index)) continue
+      const rawKey = keyBefore(m.index)
+      if (!rawKey) continue
+      const key = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      if (!keyed(key)) continue
+      const memberName = `${m[1]}.${m[2] || m[3]}`
+      const px = tiers[memberName]
+      if (px === undefined) {
+        unreadable.push({
+          raw: memberName,
+          text: m[2] || m[3],
+          px: null,
+          why: '圆角档位表读不到该成员(源表没有此档或已改名)',
+        })
+        continue
+      }
+      if (px > 0 && px <= MAX_GEO_PX) push(px, dimOfKey(key))
     }
     const alias = {}
     for (const m of code.matchAll(
@@ -583,15 +719,15 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
        */
       const eff = key && doubleWrapped.has(key) ? px * 2 : px
       if (eff > MAX_GEO_PX) continue
-      push(eff)
+      push(eff, dimOfKey(key ?? name))
       if (named[name] === undefined) named[name] = eff
     }
     for (const [name, px] of Object.entries(alias)) {
-      push(px)
+      push(px, dimOfKey(name))
       if (named[name] === undefined) named[name] = px
     }
   }
-  return { values, named, unreadable, cssVar }
+  return { values, named, unreadable, cssVar, dims }
 }
 
 /**
@@ -683,6 +819,46 @@ export function specTiers(sources) {
         const hit = spSteps.find(([k]) => k === m[2])
         if (hit && hit[1] > 0) tiers[`rnSpacingFor.${m[1]}`] = hit[1]
       }
+  }
+  /**
+   * **字号档位表**(`packages/design-tokens/src/typography.ts` 的 TYPE_STEPS,2026-11-02 Phase 3)。
+   * 键形态 = 消费方成员(`rnType.bodySm.size` / `rnType.bodySm.lineHeight`);`weight` 不入表
+   * (字重不是几何档,GEO_KEY/NON_GEO_KEY 两筛同样不认它)。口径与本文件间距那段逐字同形:
+   * 只收 `size/lineHeight` **两侧都是数字字面量**的成员 —— 取值一旦改成表达式/引用,
+   * 这里读不到,由 `readGeometry` 那一条逐枚报未判定(§0.3),绝不猜。
+   * `0` 档不入表(与间距段的 C4 纪律同一条:0 值进集会造"两侧同值"假账)。
+   */
+  for (const [rel, srcTy] of Object.entries(sources)) {
+    if (!/[\\/]typography\.[jt]s$/.test(rel)) continue
+    const codeTy = stripComments(srcTy)
+    const tyTable = codeTy.match(/TYPE_STEPS\s*=\s*\{([\s\S]*?)\}\s*as const/)
+    if (!tyTable) continue
+    /**
+     * **小程序投影面**(`taroType`,同表折成 `${size * 2}rpx`,2026-11-02 Phase 3 第二腿)。
+     * 不接的后果:`ScreenStates.taro.tsx` 的标题只写 `fontSize: taroType.strong.fontSize`,
+     * 几何维在小程序侧读不到 ⇒ 已对齐的 15 被读成"仅 RN 档"(假分叉,与 rnType 那条同型)。
+     * 口径三条:① 投影倍数**从源里读**,读不到就整族不入表(不做"×2 必然等于同值"的推断 ——
+     * 与间距段拒绝 `taroSpacing.*` 入表是同一条理由:单位口径没算清就把双倍数值混进比对集);
+     * ② 入表值是**逻辑 px**(rpx 折半),与 `rnType.*` 的 dp 面同量纲;
+     * ③ `lineHeight` 与 rnType 同罪:NON_GEO_KEY 挡住裸引用,只有几何键语境才归档。
+     */
+    const projSize = /taroType[\s\S]{0,400}?\$\{v\.size\s*\*\s*(\d+(?:\.\d+)?)\}rpx/.exec(codeTy)
+    const projLh = /taroType[\s\S]{0,400}?\$\{v\.lineHeight\s*\*\s*(\d+(?:\.\d+)?)\}rpx/.exec(
+      codeTy,
+    )
+    for (const m of tyTable[1].matchAll(
+      /(?:'([^']{1,16})'|([A-Za-z_$][\w$]*))\s*:\s*\{\s*size\s*:\s*(\d+(?:\.\d+)?)\s*,\s*lineHeight\s*:\s*(\d+(?:\.\d+)?)/g,
+    )) {
+      const step = m[1] || m[2]
+      const size = Number(m[3])
+      const lh = Number(m[4])
+      if (size > 0) tiers[`rnType.${step}.size`] = size
+      if (lh > 0) tiers[`rnType.${step}.lineHeight`] = lh
+      const sizePx = projSize ? round((size * Number(projSize[1])) / 2) : 0
+      const lhPx = projLh ? round((lh * Number(projLh[1])) / 2) : 0
+      if (sizePx > 0) tiers[`taroType.${step}.fontSize`] = sizePx
+      if (lhPx > 0) tiers[`taroType.${step}.lineHeight`] = lhPx
+    }
   }
   for (const [rel, src] of Object.entries(sources)) {
     if (/[\\/]geometry\.[jt]s$/.test(rel)) continue
@@ -1376,7 +1552,7 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
      * **方向铁律:投影只抵消对侧、绝不作为检出依据** —— 检出仍用原始 id,
      * 否则"某腿经 core 取到某档"本身会多出一条新读数(实测会多出 SL ColorfulLoader(1) 假账)。
      */
-    const expand = (raw) => {
+    const expand = (raw, selfFile) => {
       const ids = new Set(raw)
       for (const name of Object.keys(coreExports)) {
         if (!ids.has(name)) continue
@@ -1384,10 +1560,35 @@ export function specLegAudit(pairs, text, tiers, opts = {}) {
       }
       for (const fn of Object.keys(specFnTiers))
         if (ids.has(fn)) for (const t of specFnTiers[fn]) ids.add(t)
+      /**
+       * 同目录本地业务组件一跳(2026-11-01,SectionHeader):RN 把"更多+箭头"抽成同目录的
+       * MoreLink.tsx 并在那里消费 SECTION_HEADER_* 两枚,而 SL 的 id 集只取配对文件自身源文本,
+       * 看不见跨文件消费 ⇒ "两端同源"被读成"仅小程序引用"。这里对 ids 里出现的每个标识符,
+       * 若同目录存在同名本地组件文件,把它的标识符并入(与根槽位维 :3222 的追一跳同型)。
+       * **方向铁律不变:pa/pb 只进否定侧(!has / viaEquivalent),扩集只许抵消单侧,绝不新增读数。**
+       * 单跳、带 seen 防环,不递归展开新并入文件的再引用。
+       */
+      if (selfFile) {
+        const dir = selfFile.replace(/[^/]*$/, '')
+        const seen = new Set()
+        for (const id of [...ids]) {
+          if (seen.has(id)) continue
+          seen.add(id)
+          const f = Object.keys(text).find(
+            (k) =>
+              k !== selfFile &&
+              k.startsWith(dir) &&
+              !k.slice(dir.length + 1).includes('/') &&
+              k.slice(dir.length).startsWith(`${id}.`),
+          )
+          if (f && text[f] !== undefined)
+            for (const id2 of idsOf(stripComments(text[f]))) ids.add(id2)
+        }
+      }
       return ids
     }
-    const pa = expand(ia)
-    const pb = expand(ib)
+    const pa = expand(ia, p.miniapp)
+    const pb = expand(ib, p.rn)
     const onlyMiniapp = specNames.filter((n) => ia.has(n) && !pb.has(n) && !viaEquivalent(pb, n))
     const onlyRn = specNames.filter((n) => ib.has(n) && !pa.has(n) && !viaEquivalent(pa, n))
     // 同档异名配对:只划掉"其实是同一个几何档"的那两条假账,不新增任何单侧。
@@ -2351,10 +2552,47 @@ export function collect(
     webUnreachableLegs = pruned.webUnreachable ?? []
     webReachNote = pruned.webReachSuspended ?? null
   }
+  /**
+   * web↔RN 配对(2026-11-02 立):账本 `data.evidence` 是锚点,web 路由由 page.tsx 清单反解。
+   * 这一腿**advisory**:清单取不到只记 `webRnProblem`,不 throw —— 次腿失明不得把主腿一起判死
+   * (与 web 腿同一条边界);推导不出的行逐条进 `webRnPending`,不按名字硬配。
+   */
+  let webRnPairs = []
+  let webRnPending = []
+  let webRnProblem = null
+  {
+    const webPageList = listFace(repoRoot, face, 'apps/web/app')
+    const rnAll = [
+      ...(listFace(repoRoot, face, 'packages/app/src') ?? []),
+      ...(listFace(repoRoot, face, 'apps/mobile-rn/src') ?? []),
+    ]
+    // webEvidence 的取证件面:apps/web 全量 ⊕ packages/ui-react(web 设计系统的家)。
+    // 清单取不到时给空集 ⇒ 带锚的行逐条进 pending(核验不了就不进读数,不猜)。
+    const webEvidenceFiles = [
+      ...(listFace(repoRoot, face, 'apps/web') ?? []),
+      ...(listFace(repoRoot, face, 'packages/ui-react') ?? []),
+    ]
+    const spec = (face === 'staged' ? ':' : 'HEAD:') + WEB_RN_LEDGER_REL
+    const got = catBatch(repoRoot, [spec], { maxBuffer: 1 << 24 })
+    const ledgerText = got.get(spec)
+    if (webPageList === null) webRnProblem = `${FACE_TXT[face]}取不到 apps/web/app 清单`
+    else if (typeof ledgerText !== 'string') webRnProblem = `${FACE_TXT[face]}取不到 ${WEB_RN_LEDGER_REL}`
+    else {
+      const built = buildWebRnPairs(ledgerText, webPageList, rnAll, webEvidenceFiles)
+      webRnPairs = built.pairs
+      webRnPending = built.pending
+      if (built.problems.length)
+        webRnProblem = `${built.problems.length} 行配对账本不可解析(${built.problems
+          .slice(0, 3)
+          .map((x) => `${x.line}:${x.why}`)
+          .join(' / ')})`
+    }
+  }
   const need = [
     ...new Set([
       ...pairs.pairs.flatMap((p) => [p.miniapp, p.rn]),
       ...webPairs.flatMap((p) => [p.miniapp, p.rn]),
+      ...webRnPairs.flatMap((p) => [p.web, p.rn, ...(p.webEvidence ? [p.webEvidence] : [])]),
     ]),
   ]
   const text = {}
@@ -2364,6 +2602,50 @@ export function collect(
     const t = got.get(specs[i])
     if (t === null || t === undefined) throw new Undetermined(`${FACE_TXT[face]}取不到 ${need[i]}`)
     text[need[i]] = t
+  }
+  /**
+   * 同目录本地业务组件一跳取材(2026-11-01;判据消费在 specLegAudit.expand,SL 维 SectionHeader):
+   * RN 把"更多+箭头"抽成同目录 MoreLink.tsx 去消费 SECTION_HEADER_* 两枚,而配对腿取材面只有
+   * 腿自身源文本 ⇒ "两端同源"被读成"仅一侧引用"。这里把**配对腿显式 `./` import 的同目录
+   * .tsx/.jsx/.ts 兄弟件**并进 text(单跳:不追兄弟件自己的再 import;取不到就如实缺席 ——
+   * expand 找不到材料时维持原读数,方向是漏判不是误判)。其余各维全部按**配对腿**取键,
+   * text 多出的兄弟键不进任何维的读数面。
+   */
+  {
+    const allFiles = new Set([...lists.miniapp, ...lists.rn])
+    const sibSpecs = new Set()
+    for (const p of pairs.pairs) {
+      for (const leg of [p.miniapp, p.rn]) {
+        if (text[leg] === undefined) continue
+        const dir = leg.replace(/[^/]*$/, '')
+        for (const m of text[leg].matchAll(/from\s+['"](\.[\w./@-]*)['"]/g)) {
+          const rel = m[1]
+          if (/\.(css|scss|less|json|svg|png|jpg)$/i.test(rel)) continue
+          const segs = []
+          for (const s of `${dir}${rel.replace(/^\.\//, '')}`.split('/')) {
+            if (s === '..') segs.pop()
+            else if (s !== '.') segs.push(s)
+          }
+          const base = segs.join('/')
+          for (const c of /\.[jt]sx?$/.test(base)
+            ? [base]
+            : [`${base}.tsx`, `${base}.jsx`, `${base}.ts`])
+            if (c !== leg && allFiles.has(c) && text[c] === undefined) sibSpecs.add(c)
+        }
+      }
+    }
+    if (sibSpecs.size) {
+      const pre = face === 'staged' ? ':' : 'HEAD:'
+      const gotS = catBatch(
+        repoRoot,
+        [...sibSpecs].map((rel) => pre + rel),
+        { maxBuffer: 1 << 28 },
+      )
+      for (const rel of sibSpecs) {
+        const t = gotS.get(pre + rel)
+        if (t !== null && t !== undefined) text[rel] = t
+      }
+    }
   }
   /**
    * 组件**自己 import 的本地样式表**并入同一轮读数。不并的后果是实测到的:
@@ -2550,25 +2832,87 @@ export function collect(
       }
   }
   const addDef = (map, n, d) => {
-    const cur = map.get(n) ?? { count: 0, important: false, complex: 0, bodies: [] }
+    const cur = map.get(n) ?? {
+      count: 0,
+      base: 0,
+      parts: 0,
+      important: false,
+      complex: 0,
+      bodies: [],
+      baseBodies: [],
+    }
     cur.count += d.count
+    // `base` / `parts` 必须跟着合并:判定层要拿它们区分"元素自身那一档"与"伪元素部件"
+    // (票 O67 的 thin-scroll)。漏合并 = 跨文件合计时 base 恒 0 ⇒ 该型永远回落到"多处定义"。
+    cur.base += d.base ?? 0
+    cur.parts += d.parts ?? 0
     cur.important = cur.important || d.important
     cur.complex += d.complex
     cur.bodies.push(...(d.bodies ?? []))
+    cur.baseBodies.push(...(d.baseBodies ?? []))
     map.set(n, cur)
   }
   const mergeDefs = (list) => {
-    const acc = { count: 0, important: false, complex: 0, bodies: [] }
+    const acc = { count: 0, base: 0, parts: 0, important: false, complex: 0, bodies: [], baseBodies: [] }
     for (const d of list) {
       acc.count += d.count
+      acc.base += d.base ?? 0
+      acc.parts += d.parts ?? 0
       acc.important = acc.important || d.important
       acc.complex += d.complex
       acc.bodies.push(...(d.bodies ?? []))
+      acc.baseBodies.push(...(d.baseBodies ?? []))
     }
     return acc
   }
+  /**
+   * ── web 腿工具类模型(票 O67)──────────────────────────────────────────
+   * web 侧写在 `className` 里的 `min-h-0` / `resize-none` 这类**由构建期按主题生成**的名字,
+   * 在 `apps/web` 的 `.css` 里当然查不到定义 ⇒ 旧口径只能逐枚记"未判定"。本格把"这类名到底
+   * 生成什么声明"变成可解析输入:唯一取源 = `lib/web-utility-classes.mjs`(Tailwind 编译器 +
+   * 被审面的 `globals.css` 与其 `@import` 闭包),门体**不持第二份类名字典**。
+   *
+   * 取数口径与被审面一致:样式源一并从 `cssBySide.web`(同面同轮已读满的那批)取,
+   * 闭包里在 `apps/web` 之外的令牌表另按同一面取;取不到就 `available:false` ⇒ 逐枚未判定
+   * (不回落"该侧无档",也不猜一个 px)。
+   */
+  let webUtility = {
+    available: false,
+    why: '本轮没有 web 腿用到类名',
+    decls: new Map(),
+    missing: [],
+    candidates: [],
+  }
+  {
+    const webWantedSet = new Set()
+    for (const l of classRefs) if (l.side === 'web') for (const k of l.refs.keys()) webWantedSet.add(k)
+    if (webWantedSet.size) {
+      const utilFiles = Object.fromEntries(cssBySide.web)
+      const missingExtra = WEB_UTILITY_CLOSURE_EXTRA.filter((rel) => typeof utilFiles[rel] !== 'string')
+      if (missingExtra.length) {
+        const preU = face === 'staged' ? ':' : 'HEAD:'
+        const gotU = catBatch(repoRoot, missingExtra.map((rel) => preU + rel), { maxBuffer: 1 << 26 })
+        for (const rel of missingExtra) {
+          const t = gotU.get(preU + rel)
+          if (typeof t === 'string') utilFiles[rel] = t
+        }
+      }
+      const candidates = [...webWantedSet].sort()
+      webUtility = {
+        ...webUtilityDeclarations({ repoRoot, files: utilFiles, candidates }),
+        candidates,
+      }
+    }
+  }
   const classArmLegs = []
-  const classArmTotals = { legs: 0, legsWithClasses: 0, resolved: 0, undefined: 0, undetermined: 0 }
+  const classArmTotals = {
+    legs: 0,
+    legsWithClasses: 0,
+    resolved: 0,
+    modeled: 0,
+    undefined: 0,
+    undetermined: 0,
+  }
   /** 配对腿文件 → 解析成功的类臂声明体(只给几何维加读数,不改圆角维取面)。 */
   const classArmCss = {}
   for (const l of classRefs) {
@@ -2589,10 +2933,11 @@ export function collect(
         if (rest.length) addDef(glob, n, mergeDefs(rest))
       }
     }
-    const rows = classArmVerdicts(l.refs, own, glob, l.side)
+    const rows = classArmVerdicts(l.refs, own, glob, l.side, l.side === 'web' ? webUtility : null)
     const miss = rows.filter((r) => r.verdict === 'undefined').map((r) => r.class)
     const unk = rows.filter((r) => r.verdict === 'undetermined')
     const ok = rows.filter((r) => r.verdict === 'resolved')
+    const modeled = rows.filter((r) => r.verdict === 'modeled')
     /**
      * **类臂盒档入几何**(G-16 第(ii)格):解析成功的类名,它的定义体就是该元素的盒档出处。
      * 只收小程序/web 腿 —— RN 侧盒档走 StyleSheet,className 由构建期生成(见 classArmVerdicts)。
@@ -2603,11 +2948,23 @@ export function collect(
       const bodies = []
       for (const r of ok) {
         const d = own.get(r.class) ?? glob.get(r.class)
-        if (d?.bodies?.length) bodies.push(...d.bodies)
+        const body = r.body ?? (d?.bodies ?? [])
+        if (body.length) bodies.push(...body)
       }
       if (bodies.length) classArmCss[l.file] = bodies.join('\n')
     }
+    /**
+     * web 腿的**新增**入几何面只收工具类模型的声明体(`source:'tailwind'`)。既有口径 ——
+     * web 自己 `.css` 里解析成功的类臂体 —— 本轮不动(它一并在动就会移动 `webCounts`,
+     * 那是另一票的账)。工具类模型的 px 已由 lib 归一成 `Npx`,与本腿读档口径同形。
+     */
+    if (l.side === 'web') {
+      const bodies = ok.filter((r) => r.source === 'tailwind' && r.body).map((r) => r.body)
+      if (bodies.length)
+        classArmCss[l.file] = [classArmCss[l.file], ...bodies].filter(Boolean).join('\n')
+    }
     classArmTotals.resolved += ok.length
+    classArmTotals.modeled += modeled.length
     classArmTotals.undefined += miss.length
     classArmTotals.undetermined += unk.length
     classArmLegs.push({
@@ -2615,11 +2972,27 @@ export function collect(
       side: l.side,
       file: l.file,
       resolved: ok.length,
+      modeled: modeled.map((m) => ({ class: m.class, reason: m.reason })),
       undefined: miss,
       undetermined: unk.map((u) => ({ class: u.class, reason: u.reason })),
     })
   }
-  const classArm = { legs: classArmLegs, totals: classArmTotals, zeroReach: classWanted.size === 0 }
+  const classArm = {
+    legs: classArmLegs,
+    totals: classArmTotals,
+    zeroReach: classWanted.size === 0,
+    /**
+     * web 工具类模型的**覆盖面**(票 O67):可用性、候选枚数、编译器没产出的名字。
+     * 没有这三个数,"这一维对 web 腿判过了"与"模型没建起来、全被记成未判定"在账面上同形。
+     */
+    webUtility: {
+      available: Boolean(webUtility?.available),
+      why: webUtility?.why ?? null,
+      candidates: webUtility?.candidates?.length ?? 0,
+      resolved: webUtility?.decls?.size ?? 0,
+      missing: webUtility?.missing ?? [],
+    },
+  }
   /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
    * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
@@ -2654,12 +3027,20 @@ export function collect(
    */
   const spacingPath = 'packages/design-tokens/src/spacing.ts'
   const hasSpacing = geoList === null ? false : geoList.includes(spacingPath)
-  // 几何表、圆角表、间距表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
+  /**
+   * 字号档唯一源表(RN/共享屏 `rnType.X.size` 的档值出处,2026-11-02 Phase 3)。
+   * 不接的后果与间距那条同型:几何维只认字面量 ⇒ 落档后 RN 侧整族只剩引用,读数从 80 掉到 68,
+   * 于是"已经对齐"反被读成"该侧无字号档"(one-sided)。
+   */
+  const typographyPath = 'packages/design-tokens/src/typography.ts'
+  const hasTypography = geoList === null ? false : geoList.includes(typographyPath)
+  // 几何表、圆角表、间距表、字号表共用 tierPaths ⇒ 同面同轮一次读满,不另起一次 git 派生。
   const tierPaths = [
     ...specFiles,
     ...(hasGeo ? [geoPath, geoDtsPath] : []),
     ...(hasRadius ? [radiusPath] : []),
     ...(hasSpacing ? [spacingPath] : []),
+    ...(hasTypography ? [typographyPath] : []),
   ]
   const tierSpecs = tierPaths.map((rel) => (face === 'staged' ? ':' : 'HEAD:') + rel)
   const tierGot = catBatch(repoRoot, tierSpecs, { maxBuffer: 1 << 26 })
@@ -2683,6 +3064,15 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${spacingPath},而配对组件在引用间距档位 ⇒ 间距维判据失明`,
     )
   /**
+   * 字号表同一条失明判据(2026-11-02 Phase 3):表取不到而配对腿在引用 `rnType.X.size` ⇒
+   * 字号维看不见。不得把"读不到"记成"该侧无字号档" —— 那一型在落档后会把已对齐的屏报成
+   * one-sided(见 collect 里 typographyPath 的头注)。
+   */
+  if (!hasTypography && need.some((rel) => /\b(?:rn|taro)Type\s*[.[]/.test(text[rel])))
+    throw new Undetermined(
+      `${FACE_TXT[face]}取不到 ${typographyPath},而配对组件在引用字号档位 ⇒ 字号维判据失明`,
+    )
+  /**
    * 圆角档表同一条失明判据:表取不到而配对组件在用圆角形态 ⇒ 那一维看不见,不得把"看不见"
    * 记成"两端一致"。空表(解析失败)与缺文件同罪。
    */
@@ -2693,6 +3083,15 @@ export function collect(
       `${FACE_TXT[face]}取不到 ${radiusPath} 或档位表解析为空,而配对组件在用圆角 ⇒ 圆角维判据失明`,
     )
   const tiers = specTiers(specSources)
+  /**
+   * 圆角档也挂进同一张档表(键形态与消费方 `rnRadius.<step>` / `rnRadiusFor.<role>` 同构)。
+   * 取源仍是 `radiusLookup` 那一份(§0.6:不在读几何维的地方另抄一条 `RADIUS_STEPS` 正则),
+   * 这里只做键名搬家。取用面在 `readGeometry`:几何键语境(非 borderRadius)下出现圆角档时,
+   * 与其字面量同值计入;`borderRadius:` 仍由 RADIUS_FORM_RE 挡在外面,不与圆角维双计。
+   */
+  if (radiusTable)
+    for (const [k, v] of Object.entries(radiusTable))
+      tiers[k.startsWith('role:') ? `rnRadiusFor.${k.slice(5)}` : `rnRadius.${k}`] = v
   /**
    * **CSS 变量解值表**(2026-11-01 票 O67,与具名档**同面同轮**取,一次 catBatch 读满)。
    *
@@ -2825,6 +3224,10 @@ export function collect(
     webBlocked,
     webUnreachableLegs,
     webReachNote,
+    // web↔RN 五维腿(advisory):配对、待确认清单、失明原因同批返回,打印与 --json 不另算一遍。
+    webRnPairs,
+    webRnPending,
+    webRnProblem,
     text,
     specFnTiers,
     coreExports,
@@ -3023,8 +3426,14 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
    * (`export function Foo({…})` 在上方)。旧判据在这里直接报"间接"，于是整族的根槽位永远没看 ——
    * ColorfulLoader 就是这么从"锚不到"变成"读不出"的。这里把锚点**改到同文件里那个定义上**；
    * 跟不到(定义真在别处 / HOC 包裹)才如实报 indirect，绝不退化成"根上没有档"。
+   *
+   * 语句级裸标识符(2026-11-01):旧式要求 `export default` 之后的**全部剩余文本** trim 后恰好是
+   * 这一个标识符(`\s*$` 收尾),而本仓同样常见的是"export default 在文件中部、后面还有数百行
+   * 子组件定义"(ModelConfigDialog.tsx RN 侧 :478 实测)—— 那种写法旧式必落 indirect,整族再一次
+   * "没看"。收窄成**语句级**:`export default` 后紧跟的一个标识符、可选分号,到行尾为止即命中;
+   * HOC(`withMemo(Foo)`)、成员访问(`Foo.bar`)、跨行续写仍落 indirect(方向是漏判不是误判)。
    */
-  const bareId = /^([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(after.trim())
+  const bareId = /^([A-Za-z_$][\w$]*)\s*;?(?=\s*(?:\n|$))/.exec(after)
   if (
     bareId &&
     !/^(?:async\s+)?(?:function\b|class\b|\(\s*[^)]*\)\s*=>|[A-Za-z_$][\w$]*\s*=>)/.test(
@@ -3084,7 +3493,14 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
       depth === 1 &&
       c === 'r' &&
       body.startsWith('return', i) &&
-      !/[\w$]/.test(body[i - 1] ?? '')
+      !/[\w$]/.test(body[i - 1] ?? '') &&
+      // 语句起始(2026-11-01):同一行 `return` 之前的非空白字符只许是 `{`(函数体开括号与
+      // return 同行,或上一语句以 `;` 收尾)或没有 —— 无花括号分支
+      // `if (variant==='selecter') return <ModelSelecterDialog/>` 的**分支根**不是本组件的
+      // 默认根,旧判据把它读成根槽位,变体分发器(ModelConfigDialog RN :473)整族读错根。
+      // `if (x) return null` 这类卫语句原本就因 `null` 非 `<` 而跳过,现在连"分支里恰好
+      // 吐 JSX"的形态也一并排除;行前缀以 `)` 结尾的 ASI 形态宁落 indirect 不猜(漏判非误判)。
+      /(?:^|[{;])[ \t]*$/.test(body.slice(body.lastIndexOf('\n', i) + 1, i))
     )
       if (!/[\w$]/.test(body[i + 6] ?? '')) {
         const cand = exprStartOf(bodyOpen + i + 6)
@@ -3181,6 +3597,8 @@ export function rootSlotRadiiOf(src, table, name = null, hop = 0, ancestors = nu
     indirect: false,
     tiers: [...new Set(pxs.filter((p) => Number.isFinite(p) && p > 0))].sort((a, b) => a - b),
     rootTag: tagName,
+    // 根元素**开标签原文**:多成员分支要用它探测"圆角是否藏在类名/样式键后"(rootRefMayHideRadius)。
+    rootTagText: tagText,
     rootImportSrc: importSourceOf(src, tagName),
   }
 }
@@ -3254,6 +3672,67 @@ function importSourceOf(raw, tagName) {
   return null
 }
 
+/** 源文本里 `export function`(含 async)的导出名 —— 多成员镜像模块的成员名单。 */
+function exportedFnNames(src) {
+  return [
+    ...stripComments(String(src ?? ''), true).matchAll(
+      /\bexport\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g,
+    ),
+  ].map((m) => m[1])
+}
+
+/** 从 `open`(必须是 `{`)起配平取整块;读不到返回 null。 */
+function braceBlockAt(src, open) {
+  let depth = 0
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '{') depth++
+    else if (src[i] === '}') {
+      depth--
+      if (depth === 0) return src.slice(open, i + 1)
+    }
+  }
+  return null
+}
+
+/**
+ * 根开标签上的 className/style 引用,是否可能把圆角档藏在本维**读不到**的地方 ——
+ * RS 只读根元素**开标签**(:3213),类臂里的 `border-radius: var(--radius-lg)`、StyleSheet 键里的
+ * `borderRadius: rnRadius.lg` 都在标签文本之外;把"两侧都读到 []"直接当"两端根上都无档",
+ * 正是 :3200 警告的那型假绿。这里只回答**有没有得看**,不做取值:
+ *  - 解得到且确无 radius ⇒ false(`[]` 是真值);
+ *  - 解不到(样式键查无声明块 / 裸透传 `style={style}` / className 无字面量 token)⇒ 如实 true。
+ * 类名字面量里的 Tailwind `rounded-*` 已由 radiusPxInLine 在开标签上读过,这里只探自定义类臂与样式键。
+ */
+function rootRefMayHideRadius(res, fullSrc) {
+  const tag = res.rootTagText ?? ''
+  if (!/(?:className|style)\s*=/.test(tag)) return false
+  // ① className 字面量 token → 本侧样式表(含伴生 css,withLocalStyles 已并入)里的类臂
+  for (const cm of tag.matchAll(/className\s*=\s*(\{[^}]*\}|"[^"]*"|'[^']*')/g)) {
+    const toks = [...cm[1].matchAll(/['"]([A-Za-z][\w-]*)['"]/g)].map((m) => m[1])
+    if (!toks.length) return true // className={expr} 无字面量可解 ⇒ 没看
+    for (const t of toks) {
+      const rm = new RegExp(`\\.${t}(?![\\w-])[^{}]*?\\{`).exec(fullSrc)
+      if (!rm) continue // 不是本侧样式表里的类 ⇒ 无藏档处
+      if (/border-radius/.test(braceBlockAt(fullSrc, rm.index + rm[0].length - 1) ?? ''))
+        return true
+    }
+  }
+  // ② 非内联 style 引用:样式键 `X.key` 解本文声明块;裸标识符透传解不到 ⇒ 没看。
+  // 内联 `style={{…}}` 的档就写在开标签文本里,radiusPxInLine 已读过,不再探。
+  if (/style=\{[^{]/.test(tag)) {
+    const sm = /style=\{([^{}]*)\}/.exec(tag)
+    if (!sm) return true // 形态解不开(嵌套对象/数组套对象等) ⇒ 没看
+    const keyRefs = [...sm[1].matchAll(/([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g)]
+    if (!keyRefs.length) return true // 裸透传,来源不在本文 ⇒ 没看
+    for (const kr of keyRefs) {
+      const bm = new RegExp(`\\b${kr[2]}\\s*:\\s*\\{`).exec(fullSrc)
+      const block = bm ? braceBlockAt(fullSrc, bm.index + bm[0].length - 1) : null
+      if (!block || /(?:borderRadius|rounded[-\w]*)/.test(block)) return true
+    }
+  }
+  return false
+}
+
 /**
  * RS 逐对比对:两端**根槽位**上的圆角档是否逐字相同。
  *
@@ -3277,10 +3756,9 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
   const anchor = (src, file, familyName) => {
     const first = rootSlotRadiiOf(src, table, familyName)
     if (first.anchored) return first
-    const stem = String(file)
-      .split('/')
-      .pop()
-      .replace(/\.(tsx|ts|jsx|js)$/, '')
+    // stem 用 baseName():平台后缀必须随扩展名一起去("ScreenStates.taro.tsx" 的 stem 是
+    // "ScreenStates",不是手工剥 .tsx 得到的 "ScreenStates.taro" —— 那个名字永远锚不中)。
+    const stem = baseName(String(file))
     return stem === familyName ? first : rootSlotRadiiOf(src, table, stem)
   }
   for (const p of pairs?.pairs ?? []) {
@@ -3290,6 +3768,49 @@ export function rootSlotAudit(pairs, text, table, styles = {}) {
     const ra = anchor(a, p.miniapp, p.name)
     const rb = anchor(b, p.rn, p.name)
     if (!ra.anchored || !rb.anchored) {
+      /**
+       * 多成员镜像模块分支(2026-11-01,ScreenStates):文件里没有名为族名/stem 的组件,而是
+       * 两端各导出 ScreenSkeleton/EmptyState/ErrorState/PressableCard 一组镜像成员 —— 族级
+       * 锚定粒度(文件级)与结构(模块级多根)不匹配 ⇒ 整族"没看"。取两端 `export function`
+       * 名的**交集**逐成员跑 rootSlotRadiiOf,按 `族#成员` 记账(读数与未判定都逐成员点名);
+       * 交集为空才维持整族未判定。
+       */
+      const members = exportedFnNames(a).filter((n) => exportedFnNames(b).includes(n))
+      if (members.length) {
+        for (const m of members) {
+          const key = `${p.name}#${m}`
+          const ma = rootSlotRadiiOf(a, table, m)
+          const mb = rootSlotRadiiOf(b, table, m)
+          if (!ma.anchored || !mb.anchored) {
+            undetermined.push({
+              name: key,
+              why: `成员导出锚不到(${!ma.anchored ? 'miniapp' : 'rn'}侧)⇒ 成员根槽位这一维没看,不当"一致"记`,
+            })
+            continue
+          }
+          if (ma.tiers === null || mb.tiers === null) {
+            undetermined.push({
+              name: key,
+              why: '成员根槽位读不出(间接 return / HOC 包裹 / 根由子组件代渲染)⇒ 未判定,不得记成"两端根上都无档"',
+            })
+            continue
+          }
+          if (!ma.tiers.length && !mb.tiers.length) {
+            // 两侧都读到 [] ≠ "两端根上都无档":圆角可能藏在类名/样式键后(RS 只读根元素开标签)。
+            // 有这种引用时如实记"没看";确无引用才按 :3419 零判据跳过。
+            if (rootRefMayHideRadius(ma, a) || rootRefMayHideRadius(mb, b)) {
+              undetermined.push({
+                name: key,
+                why: '根档在类名/样式键后 ⇒ 这一格没看,不当"一致"记(:3200 警告的那型假绿)',
+              })
+            }
+            continue
+          }
+          if (String(ma.tiers) === String(mb.tiers)) continue
+          findings.push({ name: key, miniapp: ma.tiers, rn: mb.tiers })
+        }
+        continue
+      }
       undetermined.push({
         name: p.name,
         why: `导出锚不到(${!ra.anchored ? 'miniapp' : 'rn'}侧既无 export default，也没有与族名或本文件名同名的具名导出)⇒ 根槽位这一维没看,不当"一致"记`,
@@ -3432,6 +3953,176 @@ export function waiverProblem(w) {
   return null
 }
 
+/* ================= 允许差异登记表(2026-11-02 立;纯函数,镜像测试直接喂构造面) ================= */
+
+const ALLOWED_DIFF_KEYS = ['geometry', 'radius', 'elementRadius', 'webRnGeometry']
+const ALLOWED_DIFF_PLATFORMS = new Set(['miniapp', 'rn', 'web', 'both'])
+const ALLOWED_PLATFORM_KEY_RE = /^platform:[a-z0-9]+(?:-[a-z0-9]+)*$/
+/**
+ * 跨端 props 提案的登记键(`platform:props:<side>:<prop>`,2026-11-03 由 props 对账腿登记)。
+ * 本门不吃 props 维,但这些条目与平台能力差异同住在 `cross-end-allowed-diffs.json`,
+ * 只管记账(不带 count;核销在门 288)。2026-11-04 复核补:原正则只认 `platform:<capability>`,
+ * 141 条 `platform:props:*` 被当"key 非法"整表判红 ⇒ 同一本账两把尺子对不上。
+ */
+const ALLOWED_PROPS_PLATFORM_KEY_RE = /^platform:props:(?:mini|rn):[A-Za-z][A-Za-z0-9]*$/
+/**
+ * 非色档允许差异(`styleTier:<kind>:<prop>:<value>`,2026-11-02 Phase 4 立)。
+ * 本门只核**到期**(消费方是 `check-web-rn-style-tiers.mjs` 的分叉桶);样式档分叉不是本门
+ * 的 findings,所以不参与 component×key 计数核销,但**到期必须回红**(白名单不得腐化)。
+ */
+const STYLE_TIER_KEY_RE = /^styleTier:(?:spacing|fontSize|radius):[A-Za-z][A-Za-z0-9]*:\d+(?:\.\d+)?$/
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function allowedDiffTodayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** 日期必须是真实存在的 YYYY-MM-DD:2026-02-30 会被 Date 滚到 3 月,不能当有效到期日。 */
+function allowedDiffBadExpiry(v) {
+  if (typeof v !== 'string' || !ISO_DATE_RE.test(v)) return true
+  const d = new Date(`${v}T00:00:00Z`)
+  return Number.isNaN(d.valueOf()) || d.toISOString().slice(0, 10) !== v
+}
+
+/** 条目形状判据**只住这一处**:结构坏了就是台账坏了,不得当成"没登记"悄悄跳过。 */
+export function allowedDiffProblem(e) {
+  if (!e || typeof e !== 'object' || Array.isArray(e)) return '条目不是对象'
+  if (typeof e.component !== 'string' || !e.component.trim()) return 'component 缺失'
+  if (
+    typeof e.key !== 'string' ||
+    !(
+      ALLOWED_DIFF_KEYS.includes(e.key) ||
+      ALLOWED_PLATFORM_KEY_RE.test(e.key) ||
+      ALLOWED_PROPS_PLATFORM_KEY_RE.test(e.key) ||
+      STYLE_TIER_KEY_RE.test(e.key)
+    )
+  )
+    return `key 非法:${e.key ?? '(空)'}`
+  if (!ALLOWED_DIFF_PLATFORMS.has(e.platform)) return `platform 非法:${e.platform ?? '(空)'}`
+  if (typeof e.owner !== 'string' || !e.owner.trim()) return 'owner 缺失'
+  if (allowedDiffBadExpiry(e.expires)) return 'expires 缺失或不是合法 YYYY-MM-DD'
+  if (typeof e.reason !== 'string' || e.reason.trim().length < 20)
+    return 'reason 少于 20 字,不足以复核'
+  if (typeof e.evidence !== 'string' || e.evidence.trim().length < 8)
+    return 'evidence 缺失或不足以定位'
+  if (ALLOWED_DIFF_KEYS.includes(e.key) || STYLE_TIER_KEY_RE.test(e.key)) {
+    if (!Number.isInteger(e.count) || e.count < 1)
+      return 'count 必须是正整数(登记的是实测差异处数,不是无限额度)'
+  } else if (e.count !== undefined) {
+    return 'platform 条目不得带 count(平台差异不是逐档读数)'
+  }
+  return null
+}
+
+/**
+ * 允许差异判据。四条红:未登记(`unregistered`)、已到期(`expired`)、超量(`over`)、条目坏
+ * (`invalid`);收缩(`shrunk`)只报名不判红 —— 收紧是好事,额度可以随之下调。
+ * 判序刻意**不复用** `verdictOf`:后者的豁免短路的是"临时欠债",而本表登记的是"设计边界";
+ * 把两者折成一个短路,会让一条豁免到期时把允许差异也一起放行(或反过来)。
+ *
+ * @param {Array} findings audit 产出的差异族(含 diffCount/radiusCount/elementRadiusCount)
+ * @param {Array} entries  `cross-end-allowed-diffs.json` 的 entries
+ * @param {{today?: string}} opts 测试注入当日日期,生产默认 UTC 当日
+ */
+export function allowedDiffVerdict(findings, entries = [], { today = allowedDiffTodayISO() } = {}) {
+  const invalid = []
+  const unregistered = []
+  const expired = []
+  const over = []
+  const shrunk = []
+  const matched = []
+  const platform = []
+  const delegated = []
+  const map = new Map()
+  for (const e of Array.isArray(entries) ? entries : []) {
+    const why = allowedDiffProblem(e)
+    if (why) {
+      invalid.push({ component: e?.component ?? '(未知)', key: e?.key ?? '(未知)', why })
+      continue
+    }
+    const k = `${e.component}|${e.key}`
+    if (map.has(k)) {
+      invalid.push({ component: e.component, key: e.key, why: '同一 component×key 重复登记' })
+      continue
+    }
+    map.set(k, e)
+  }
+  for (const f of findings ?? []) {
+    const counts = {
+      geometry: diffCount(f),
+      radius: radiusCount(f),
+      elementRadius: elementRadiusCount(f),
+      // web↔RN 五维读数在独立腿上,主腿 findings 不带这一键 ⇒ 恒 0(登记表里同键条目由那一腿核销)。
+      webRnGeometry: 0,
+    }
+    for (const key of ALLOWED_DIFF_KEYS) {
+      const count = counts[key]
+      if (!count) continue
+      const e = map.get(`${f.name}|${key}`)
+      if (!e) {
+        unregistered.push({ component: f.name, key, count, why: `未登记差异 ${count} 处` })
+        continue
+      }
+      if (e.expires < today) {
+        expired.push({
+          component: f.name,
+          key,
+          count,
+          expires: e.expires,
+          why: `登记已到期(${e.expires}),差异仍在(${count} 处),必须重新复核或续期`,
+        })
+        continue
+      }
+      if (count > e.count) {
+        over.push({ component: f.name, key, count, allowed: e.count, why: `差异 ${count} > 登记额度 ${e.count}` })
+        continue
+      }
+      if (count < e.count) shrunk.push({ component: f.name, key, count, allowed: e.count })
+      else matched.push({ component: f.name, key, count })
+    }
+  }
+  for (const e of map.values()) {
+    /**
+     * 非本门 findings 的两族条目:平台能力(`platform:`)、非色档允许差异(`styleTier:`)。
+     * 两族都**只核到期**并把到期项折进 `red` —— 消费方各有其表,但"到期必须重新复核"
+     * 不能因为换了一本账就失效(§12e:不得为消红削判据)。
+     */
+    const external = e.key.startsWith('platform:') || STYLE_TIER_KEY_RE.test(e.key)
+    if (!external) continue
+    if (e.expires < today) {
+      expired.push({
+        component: e.component,
+        key: e.key,
+        expires: e.expires,
+        ...(e.key.startsWith('platform:') ? { platform: e.platform } : {}),
+        why:
+          e.key.startsWith('platform:')
+            ? `平台差异登记已到期(${e.expires}),必须重新复核`
+            : `非色档允许差异登记已到期(${e.expires}),必须重新复核或续期`,
+      })
+    } else if (e.key.startsWith('platform:')) {
+      platform.push({
+        component: e.component,
+        key: e.key,
+        platform: e.platform,
+        owner: e.owner,
+        expires: e.expires,
+      })
+    } else {
+      delegated.push({
+        component: e.component,
+        key: e.key,
+        platform: e.platform,
+        owner: e.owner,
+        expires: e.expires,
+        count: e.count,
+      })
+    }
+  }
+  const red = [...invalid, ...unregistered, ...expired, ...over]
+  return { red, invalid, unregistered, expired, over, shrunk, matched, platform, delegated }
+}
+
 /** 相对说明符 → 仓库相对路径(只处理 `./` 与 `../`,不碰别名 —— 样式文件不该走别名)。 */
 export function resolveRel(fromFile, spec) {
   const segs = fromFile.split('/').slice(0, -1)
@@ -3512,8 +4203,12 @@ export function usedClassNames(src) {
  * 上一版实现给 69 份表逐条建 `class -> 属性/值` 全索引,实测把本门从 28s 拖到 >300s
  * (G-16(ii) 只读探针记录),在 pre-commit blocking 下等于逼人 `--no-verify`。
  *
- * 记三件事,对应"唯一无覆盖定义 + 无条件使用"里三个会改变结论的事实:
+ * 记四件事,对应"唯一无覆盖定义 + 无条件使用"里会改变结论的事实:
  *  - `count`:该名字出现在几个选择器里(>1 = 多处定义,不选边);
+ *  - `base`:其中**选择器恰好是 `.name`**(元素自身那一档)的出现数 —— 与 `parts` 分开记,
+ *    是为了让"多处定义"里"元素自身的档"与"伪元素部件的档"不再糊成一个数(票 O67);
+ *  - `parts`:选择器是 `.name::…`(伪元素部件:滚动条滑块之类)**且只比 `.name` 多这一截**的出现数;
+ *    它们描述的不是这个元素自己的盒档,所以不能与 `base` 一起算"多处定义";
  *  - `important`:规则体里出现过 `!important`(状态覆盖,不选边);
  *  - `complex`:选择器不是**恰好** `.name` 的次数(`.a .b` / `.a:hover` / `.a.b` 都算条件覆盖)。
  */
@@ -3537,10 +4232,27 @@ export function classDefScan(cssText, wanted) {
       for (const c of p.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)/gi)) {
         const name = c[1]
         if (!wanted.has(name)) continue
-        const cur = out.get(name) ?? { count: 0, important: false, complex: 0, bodies: [] }
+        const cur = out.get(name) ?? {
+          count: 0,
+          base: 0,
+          parts: 0,
+          important: false,
+          complex: 0,
+          bodies: [],
+          baseBodies: [],
+        }
         cur.count++
+        // 元素自身那一档:选择器**逐字**是 `.name`(不多一个类、不带状态、不带后代)。
+        const isBase = p === `.${name}`
+        // 伪元素部件:`.name::xxx`(可再带 `:hover` 等)—— 比 `.name` 多出来的那截全部落在
+        // `::` 之后。只比"多了一截"是不够的(`.name:hover` 也是多一截),所以判据必须是 `::`。
+        const isPart = !isBase && p.startsWith(`.${name}::`)
+        if (isBase) {
+          cur.base++
+          cur.baseBodies.push(m[2])
+        } else if (isPart) cur.parts++
         if (important) cur.important = true
-        if (p !== `.${name}`) cur.complex++
+        if (!isBase) cur.complex++
         // 声明体留着给"类臂盒档入几何"用:解析成功(唯一无覆盖定义)时,这一段就是那个元素的盒档来源。
         cur.bodies.push(m[2])
         out.set(name, cur)
@@ -3557,14 +4269,16 @@ export function classDefScan(cssText, wanted) {
  * 多处定义 / 带 `!important` / 选择器不是单类 / 条件取用 一律**未判定**、不选边。
  * 查无定义 = `undefined`(这才是本维要报的新信号:className 写了个谁也没定义的名字,
  * 过去会被 `blindClasses` 一并归成"落在全局表"),绝不折成通过。
- * web / rn 侧查不到时**不得**记成 `undefined`:那两侧的字符串可能是构建期生成的工具类,
- * 本门没有可解析的 Tailwind 配置 ⇒ 一律 `undetermined`(判不出就报名)。
+ * web / rn 侧查不到时**不得**记成 `undefined`(那两侧的字符串可能是构建期生成的工具类),
+ * 只在**没有工具类模型**时才记 `undetermined`;有模型时由 `utilityRow` 按编译器真产出的
+ * 声明体判(见第五参 `webUtility`,票 O67)。
  */
 export function classArmVerdicts(
   refs,
   ownDefs = new Map(),
   globalDefs = new Map(),
   side = 'miniapp',
+  webUtility = null,
 ) {
   // 工具类 / 标记名的形态判据(只用于"查不到定义时"的归类,不做提取):
   // `max-w-sm` / `min-w-0` / `line-clamp-1` 与 `ui-card` / `ui-panel` 这类标记名在样式源里
@@ -3579,6 +4293,10 @@ export function classArmVerdicts(
     const important = Boolean(own?.important || glob?.important)
     const complex = (own?.complex ?? 0) + (glob?.complex ?? 0)
     if (count === 0) {
+      if (side === 'web') {
+        rows.push(webUtilityRow(name, webUtility, meta))
+        continue
+      }
       rows.push(
         side === 'miniapp'
           ? UTILITY_SHAPE.test(name)
@@ -3591,16 +4309,34 @@ export function classArmVerdicts(
           : {
               class: name,
               verdict: 'undetermined',
-              reason:
-                side === 'web'
-                  ? 'web 工具类未建模(无可解析的 Tailwind 配置)'
-                  : 'RN 侧 className 由构建期生成,静态查不到',
+              reason: 'RN 侧 className 由构建期生成,静态查不到',
             },
       )
       continue
     }
-    if (count > 1) rows.push({ class: name, verdict: 'undetermined', reason: '多处定义' })
-    else if (important)
+    if (count > 1) {
+      /**
+       * 「多处定义」里有一型不是真歧义(票 O67,`thin-scroll` 为实证):同一条类名有一条
+       * **元素自身**的规则(`.name`),其余全是**伪元素部件**(`.name::…`)—— 后者描述滚动条
+       * 滑块之类的部件盒,不是这个元素自己的档。旧口径把两者一起数成 count>1 ⇒ 判"多处定义"⇒
+       * 该元素的盒档永远读不到。收口条件(四条同时成立,缺一即仍判多处定义):
+       * ① 元素自身的规则**恰好一条**;② 其余出现数**全部**是伪元素部件(`count - base === parts`);
+       * ③ 无 `!important`;④ 取用是无条件的。声明体只取元素自身那条,部件体**不入几何**
+       * (否则 `.name::-webkit-scrollbar{width:6px}` 会给元素凭空加一档 6)。
+       */
+      const base = (own?.base ?? 0) + (glob?.base ?? 0)
+      const parts = (own?.parts ?? 0) + (glob?.parts ?? 0)
+      const baseBody = (own?.baseBodies?.[0] ?? glob?.baseBodies?.[0] ?? null)
+      if (base === 1 && count - base === parts && !important && !meta?.conditional)
+        rows.push({
+          class: name,
+          verdict: 'resolved',
+          reason: null,
+          source: 'cssPartSplit',
+          body: baseBody,
+        })
+      else rows.push({ class: name, verdict: 'undetermined', reason: '多处定义' })
+    } else if (important)
       rows.push({ class: name, verdict: 'undetermined', reason: '带 !important 的状态覆盖' })
     else if (complex > 0)
       rows.push({ class: name, verdict: 'undetermined', reason: '选择器不是单类(条件覆盖)' })
@@ -3609,6 +4345,49 @@ export function classArmVerdicts(
     else rows.push({ class: name, verdict: 'resolved', reason: null })
   }
   return rows.sort((a, b) => a.class.localeCompare(b.class))
+}
+
+/**
+ * web 腿一条"样式源里没有定义"的类名 → 判定行(票 O67 的落点)。
+ *
+ * 三种结局,一个都不许折成另一个:
+ *  - 模型不可用(入口样式表不在被审面 / 编译器没跑起来)⇒ `undetermined` + 点名原因;
+ *  - 编译器**没产出**这个类(主题没生成它 / 写错了 / 来自未装载的插件)⇒ `undetermined` + 点名;
+ *  - 产出了 ⇒ 声明体交几何维自己的 `readGeometry` 读档(属性归类单源,不在这里判):
+ *    · 读出正档 ⇒ `resolved`,声明体并入几何(`source: 'tailwind'`);
+ *    · 读出 0 档 ⇒ `modeled`(C4 纪律:0 值不进比对集,否则造"同值假账");
+ *    · 读不出任何长度 ⇒ `modeled`(该工具类不产生盒档,如 `resize-none` / `underline`)。
+ * `modeled` 是**判过**的一档,与 `undetermined`(没判)必须分开印 —— 混成一个数就是把
+ * "判过、不产生盒档"说成"没判"。
+ */
+export function webUtilityRow(name, webUtility, meta) {
+  const unavailable = (why) => ({ class: name, verdict: 'undetermined', reason: `web 工具类模型未生效(${why})` })
+  if (!webUtility?.available) return unavailable(webUtility?.why ?? '本轮未建模型')
+  const body = webUtility.decls?.get(name)
+  // 模型可用但编译器没产出这个类:它不是"该侧无档",也不是"写错了"(插件/任意值都可能),
+  // 一律未判定并点名 —— 与"模型没建起来"分开写,否则下一个人分不清该补哪一头。
+  if (typeof body !== 'string')
+    return { class: name, verdict: 'undetermined', reason: '该主题未生成此类名(编译器没有产出)' }
+  if (meta?.conditional)
+    return { class: name, verdict: 'undetermined', reason: '条件取用(工具类本身已建模)' }
+  const vals = [...readGeometry(body, 'rn').values]
+  if (!vals.length) {
+    /**
+     * 读不出档有两种成因,必须分开说:声明里**写了 0**(`min-height: 0px`)与**根本没有长度**
+     * (`resize: none`)。`readGeometry` 对 0 一律不收(整门 C4 纪律:0 值进集合会与对面的 0
+     * 凑成一条"同值"假账),所以这里靠声明文本自己分辨 —— 只影响措辞,不参与任何判定。
+     */
+    const zero = /:\s*-?0(?:px|rpx|rem)?\s*(?:;|$)/.test(String(body).trim())
+    return {
+      class: name,
+      verdict: 'modeled',
+      reason: zero
+        ? '工具类已建模:盒档为 0(按 C4 纪律不入比对集)'
+        : '工具类已建模:不产生盒档',
+      source: 'tailwind',
+    }
+  }
+  return { class: name, verdict: 'resolved', reason: null, source: 'tailwind', body }
 }
 
 /**
@@ -4209,6 +4988,285 @@ export function loadBaseline(repoRoot, face) {
   return chooseBaseline(got.get(spec))
 }
 
+/**
+ * 允许差异登记表与台账同面取材(§0.4):默认 HEAD blob,`--staged` 判索引。
+ * 缺席 ≠ 空表:`present:false` 由调用侧另计一条红(删表不能变成"全部允许");
+ * 解析失败 ≠ 没登记:返回 `problem`,同样由调用侧判红(坏台账不得当豁免用)。
+ */
+export function loadAllowedDiffs(repoRoot, face) {
+  const spec = (face === 'staged' ? ':' : 'HEAD:') + ALLOWED_DIFFS_REL
+  const got = catBatch(repoRoot, [spec], { maxBuffer: 1 << 24 })
+  const text = got.get(spec)
+  if (text === null || text === undefined) return { entries: [], present: false, problem: null }
+  try {
+    const doc = JSON.parse(text)
+    if (!doc || typeof doc !== 'object' || !Array.isArray(doc.entries))
+      return { entries: [], present: true, problem: 'entries 不是数组(允许差异登记表坏了)' }
+    return { entries: doc.entries, present: true, problem: null }
+  } catch (e) {
+    return { entries: [], present: true, problem: `不是合法 JSON:${e?.message ?? e}` }
+  }
+}
+
+/**
+ * web 路由 → `apps/web/app` 下 page.tsx 的清单索引。Next 的分组目录 `(main)/(auth)` 不是路由段,
+ * 解析时剥掉;同一路由若有多份 page(极少),只记首份并留 `duplicates` 由调用方报名 ——
+ * 静默选一份与主门 pickCandidate 纪律同型。
+ */
+export function webRouteIndex(webFiles = []) {
+  const map = new Map()
+  const duplicates = []
+  for (const f of webFiles) {
+    const m = /^apps\/web\/app\/(?:\([^/]+\)\/)?([^/]+(?:\/[^/]+)*)\/page\.(?:tsx|jsx)$/.exec(f)
+    if (!m) continue
+    if (map.has(m[1])) {
+      duplicates.push({ route: m[1], first: map.get(m[1]), duplicate: f })
+      continue
+    }
+    map.set(m[1], f)
+  }
+  return { map, duplicates }
+}
+
+/**
+ * 账本 → web↔RN 配对表(**纯函数**)。
+ * 只认 `status=aligned` 且 `data.evidence` 以 `<rn>:` 开头的行(evidence 是这一条配对的唯一锚点);
+ * 其余行(缺锚点 / web 路由解析不到 page / RN 文件不在被审面 / 重复路由)一律进 `pending`,
+ * 由人确认后再补账 —— 推导不出的不猜、不按名字硬配。
+ *
+ * `data.webEvidence`(2026-11-02 增,五维几何读数的 web 取证件):`<web 路径>:<行>`,可选。
+ * 为什么需要:不少 web 路由的 `page.tsx` 只是屏壳(渲染全在子组件里),页面自身五维零读数 ⇒
+ * web↔RN 那一维只能报 one-sided(数据缺口),永远判不了。锚点把"这一屏的几何在哪份文件里"写成
+ * 可复核的一行,读数面因此从"page.tsx 一份"扩到"page.tsx ∪ 取证件"。
+ * 校验两条(不合格进 pending,不猜):①必须是 `<路径>:<行>` 形态;②路径必须落在 web 取证件面
+ * (`apps/web/**` ∪ `packages/ui-react/**` —— web 的设计系统就住后一份)。
+ */
+export function buildWebRnPairs(ledgerText, webFiles = [], rnFiles = [], webEvidenceFiles = null) {
+  const pairs = []
+  const pending = []
+  const problems = []
+  if (typeof ledgerText !== 'string' || !ledgerText.trim())
+    return { pairs, pending, problems: [{ line: 0, why: '配对账本取不到或为空' }] }
+  const { map: routeMap, duplicates } = webRouteIndex(webFiles)
+  for (const d of duplicates) pending.push({ web: d.route, rn: '', why: `同一路由多份 page:${d.first} / ${d.duplicate}` })
+  const rnSet = new Set(rnFiles)
+  const evidenceSet =
+    webEvidenceFiles instanceof Set ? webEvidenceFiles : new Set(webEvidenceFiles ?? [])
+  const seen = new Set()
+  const lines = ledgerText.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+    let row
+    try {
+      row = JSON.parse(line)
+    } catch {
+      problems.push({ line: i + 1, why: '不是合法 JSON' })
+      continue
+    }
+    if (!row || row.status !== 'aligned') continue
+    const route = String(row.web ?? '')
+    const rn = String(row.rn ?? '')
+    const evidence = row.data?.evidence
+    if (!route || !rn) {
+      pending.push({ web: route, rn, why: '行缺 web/rn' })
+      continue
+    }
+    if (seen.has(route)) {
+      pending.push({ web: route, rn, why: '同一路由重复登记(保留首条,其余待确认)' })
+      continue
+    }
+    if (typeof evidence !== 'string' || !evidence.startsWith(`${rn}:`)) {
+      pending.push({ web: route, rn, why: 'data.evidence 未锚定 rn 文件(自动推导不了)' })
+      continue
+    }
+    const web = routeMap.get(route)
+    if (!web) {
+      pending.push({ web: route, rn, why: 'web 路由解析不到 page.tsx' })
+      continue
+    }
+    if (!rnSet.has(rn)) {
+      pending.push({ web: route, rn, why: 'RN 屏文件不在被审面' })
+      continue
+    }
+    const webEvidenceRaw = row.data?.webEvidence
+    let webEvidence = null
+    if (webEvidenceRaw !== undefined && webEvidenceRaw !== null) {
+      const anchored = /^(.+):(\d+)$/.exec(String(webEvidenceRaw))
+      if (!anchored) {
+        pending.push({ web: route, rn, why: `data.webEvidence 不是 <web 路径>:<行> 形态:${webEvidenceRaw}` })
+        continue
+      }
+      const webFile = anchored[1]
+      if (!evidenceSet.has(webFile)) {
+        pending.push({ web: route, rn, why: `data.webEvidence 文件不在 web 取证件面:${webFile}` })
+        continue
+      }
+      webEvidence = webFile
+    }
+    seen.add(route)
+    pairs.push({ name: route, web, rn, evidence, webEvidence })
+  }
+  return { pairs, pending, problems }
+}
+
+/** 对称差:webOnly = 只在 web 侧出现;rnOnly = 只在 RN 侧出现。 */
+function setDiff(webSet, rnSet) {
+  return {
+    webOnly: [...webSet].filter((v) => !rnSet.has(v)),
+    rnOnly: [...rnSet].filter((v) => !webSet.has(v)),
+  }
+}
+
+/**
+ * **web↔RN 五类几何维(advisory)**。与既有 web 腿(web↔小程序、文件级档集合)分开记账:
+ * 这一腿问的是"同一屏在 web 与 RN 上,宽高/内边距/间距/圆角/字号五类各自是否同档"。
+ * 口径:
+ *  - 两侧同一维**都有读数**才判;一侧空 ⇒ 进 `oneSided` 名单(数据缺口,不冒充分叉);
+ *  - 两侧都空 ⇒ 进 `noData` 名单(没量到 ≠ 同档);
+ *  - 默认 advisory,返回值里的 `findings` 不折进退出码;误报由 allowed-diff 的
+ *    `webRnGeometry` 键承接(见 webRnAllowedVerdict)。
+ */
+export function webRnGeometryAudit(pairRows, text, radiusTable, tiers = {}, cssVars = null) {
+  const findings = []
+  const undetermined = []
+  const oneSided = []
+  const judged = []
+  const dimCoverage = Object.fromEntries(WEB_RN_GEOMETRY_DIMS.map((d) => [d, 0]))
+  for (const p of pairRows ?? []) {
+    const a = text?.[p.web]
+    const b = text?.[p.rn]
+    /**
+     * web 取证件(`data.webEvidence` 锚)与 page.tsx **并集**:屏壳的 `px-4 space-y-*` 与屏内组件
+     * 的盒档/字号/圆角都是这一屏看得见的档,只取锚文件会把屏壳读数删掉(那是另一种失明),只取
+     * page 则回到"子组件里的档全看不见"。两条腿都缺 ⇒ 才判 undetermined。
+     */
+    const ev = p.webEvidence ? text?.[p.webEvidence] : null
+    if (
+      typeof a !== 'string' ||
+      typeof b !== 'string' ||
+      (p.webEvidence && typeof ev !== 'string')
+    ) {
+      undetermined.push({ name: p.name, why: 'web 或 RN 正文取不到 ⇒ 这一对没判' })
+      continue
+    }
+    const ga = readGeometry(a, 'rn', tiers, cssVars)
+    const gb = readGeometry(b, 'rn', tiers, cssVars)
+    const ge = p.webEvidence && p.webEvidence !== p.web ? readGeometry(ev, 'rn', tiers, cssVars) : null
+    const webDims = {
+      widthHeight: new Set(ga.dims.widthHeight),
+      padding: new Set(ga.dims.padding),
+      spacing: new Set(ga.dims.spacing),
+      fontSize: new Set(ga.dims.fontSize),
+    }
+    if (ge) for (const d of Object.keys(webDims)) for (const v of ge.dims[d]) webDims[d].add(v)
+    const ra = new Set(radiusTable ? radiusSetOf(a, radiusTable) : [])
+    if (radiusTable && p.webEvidence && p.webEvidence !== p.web)
+      for (const v of radiusSetOf(ev, radiusTable)) ra.add(v)
+    const rb = new Set(radiusTable ? radiusSetOf(b, radiusTable) : [])
+    const dimSets = {
+      widthHeight: setDiff(webDims.widthHeight, gb.dims.widthHeight),
+      padding: setDiff(webDims.padding, gb.dims.padding),
+      spacing: setDiff(webDims.spacing, gb.dims.spacing),
+      radius: setDiff(ra, rb),
+      fontSize: setDiff(webDims.fontSize, gb.dims.fontSize),
+    }
+    const counts = {}
+    let total = 0
+    let judgedDims = 0
+    for (const d of WEB_RN_GEOMETRY_DIMS) {
+      const webN = d === 'radius' ? ra.size : webDims[d].size
+      const rnN = d === 'radius' ? rb.size : gb.dims[d].size
+      if (!webN && !rnN) {
+        counts[d] = { webOnly: [], rnOnly: [], status: 'no-data' }
+        continue
+      }
+      if (!webN || !rnN) {
+        counts[d] = { ...dimSets[d], status: 'one-sided', webCount: webN, rnCount: rnN }
+        oneSided.push({ name: p.name, dim: d, webCount: webN, rnCount: rnN })
+        continue
+      }
+      judgedDims++
+      dimCoverage[d]++
+      const n = dimSets[d].webOnly.length + dimSets[d].rnOnly.length
+      counts[d] = { ...dimSets[d], status: n ? 'diff' : 'same', webCount: webN, rnCount: rnN }
+      total += n
+    }
+    if (judgedDims === 0) {
+      undetermined.push({ name: p.name, why: '五维两侧都没有可判定读数 ⇒ 零判据(不是"两端同值")' })
+      continue
+    }
+    judged.push(p.name)
+    if (total > 0)
+      findings.push({
+        name: p.name,
+        web: p.web,
+        rn: p.rn,
+        evidence: p.evidence,
+        // 取证件只在有锚的行出现(逐条可复核;`web` 仍是路由的 page.tsx)
+        webEvidence: p.webEvidence ?? null,
+        dims: counts,
+        diffCount: total,
+        judgedDims,
+      })
+  }
+  return {
+    pairCount: (pairRows ?? []).length,
+    judgedPairs: judged.length,
+    findings,
+    undetermined,
+    oneSided,
+    dimCoverage,
+  }
+}
+
+/**
+ * web↔RN 差异的登记核销(**advisory**):只认 `key=webRnGeometry` 的条目。
+ * 未登记只报数**不进退出码** —— 新判据先以 advisory 上线,误报由登记表承接后才可能转判红。
+ */
+export function webRnAllowedVerdict(findings, entries = [], { today = allowedDiffTodayISO() } = {}) {
+  const invalid = []
+  const expired = []
+  const over = []
+  const matched = []
+  const shrunk = []
+  const unregistered = []
+  const map = new Map()
+  for (const e of Array.isArray(entries) ? entries : []) {
+    if (!e || e.key !== 'webRnGeometry') continue
+    const why = allowedDiffProblem(e)
+    if (why) {
+      invalid.push({ component: e?.component ?? '(未知)', key: e.key, why })
+      continue
+    }
+    if (map.has(e.component)) {
+      invalid.push({ component: e.component, key: e.key, why: '同一 component 重复登记' })
+      continue
+    }
+    map.set(e.component, e)
+  }
+  for (const f of findings ?? []) {
+    const n = f.diffCount ?? 0
+    if (!n) continue
+    const e = map.get(f.name)
+    if (!e) {
+      unregistered.push({ component: f.name, count: n, why: `未登记 web↔RN 差异 ${n} 处` })
+      continue
+    }
+    if (e.expires < today) {
+      expired.push({ component: f.name, count: n, expires: e.expires })
+      continue
+    }
+    if (n > e.count) {
+      over.push({ component: f.name, count: n, allowed: e.count })
+      continue
+    }
+    if (n < e.count) shrunk.push({ component: f.name, count: n, allowed: e.count })
+    else matched.push({ component: f.name, count: n })
+  }
+  return { invalid, expired, over, matched, shrunk, unregistered, used: map.size }
+}
+
 export function faceFromArgv(argv) {
   const { face, error } = selectFace({
     staged: argv.includes('--staged'),
@@ -4224,13 +5282,15 @@ export function faceFromArgv(argv) {
 
 export function main(argv, repoRoot = ROOT) {
   const pairAll = argv.includes('--pair-all')
-  let face, collected, baseline
+  let face, collected, baseline, allowedDoc
   let rejProblems = []
   let rejNames = []
   let aliases = {}
   try {
     face = faceFromArgv(argv)
     baseline = loadBaseline(repoRoot, face)
+    // 允许差异表与台账同面取材:两面必须来自同一枚提交,否则"索引里登记了、HEAD 面没登记"会互相打脸。
+    allowedDoc = loadAllowedDiffs(repoRoot, face)
     /** 拆对声明先校验再喂给 collect:一条坏声明(无理由 / 过期 / 不是对象)必须判红,
      *  绝不能因为"解析不出"就退回默认档继续把这条族当配对算。 */
     const rej = baseline.pairingRejects ?? {}
@@ -4275,6 +5335,27 @@ export function main(argv, repoRoot = ROOT) {
     collected.cssVars ?? null,
   )
   const webVerdict = verdictOf(web.findings, baseline, WEB_LEDGER)
+  /**
+   * web↔RN 五维腿(2026-11-02 立,Phase 2):账本配对的屏级 web↔RN 勤务。
+   * **advisory**:findings 不折进退出码;`unregistered` 只是"这条差异还没进允许差异表"的读数,
+   * 误报由 `key=webRnGeometry` 的登记条目承接(见 webRnAllowedVerdict)。
+   */
+  const webRn = webRnGeometryAudit(
+    collected.webRnPairs,
+    collected.text,
+    collected.radius,
+    collected.tiers,
+    collected.cssVars ?? null,
+  )
+  const webRnVerdict = webRnAllowedVerdict(webRn.findings, allowedDoc.entries)
+  /**
+   * 允许差异登记判据(2026-11-02 立):与 `verdictOf` 分开两本账。判的是"这条差异有没有登记、
+   * 登记有没有到期、读数有没有超过登记额度",不是"存量锚点有没有上升"。三条都要进退出码:
+   * 没有 `unregistered` 支,删掉登记表就能让全部分叉安静下来;没有 `expired` 支,白名单会腐化。
+   * `present:false` 也计一条红:登记表缺席时"所有差异都未登记",不能读成"没有任何差异"。
+   */
+  const allowed = allowedDiffVerdict(res.findings, allowedDoc.entries)
+  const allowedRed = allowed.red.length + (allowedDoc.problem ? 1 : 0) + (allowedDoc.present ? 0 : 1)
   /**
    * 台账里"被 web 腿钉过"的族名单。**在 JSON 分支之前算**:`--json` 那一支也在同一块作用域里,
    * 放到函数末尾会让它读到 TDZ 中的 const(症状是崩溃,不是"少一个字段")。
@@ -4411,6 +5492,24 @@ export function main(argv, repoRoot = ROOT) {
         red: res.red,
         waived: res.waived.length,
         /**
+         * 允许差异登记表(2026-11-02 立)。机器面与退出码读同一次 `allowed`:
+         * `unregistered` 是"没登记的差异",`expired` 是"登记到期而差异仍在",二者都必须红。
+         */
+        allowedDiff: {
+          registry: allowedDoc.present ? 'present' : 'absent',
+          problem: allowedDoc.problem ?? null,
+          registered: allowedDoc.entries.length,
+          matched: allowed.matched.length,
+          unregistered: allowed.unregistered.length,
+          expired: allowed.expired.length,
+          over: allowed.over.length,
+          shrunk: allowed.shrunk.length,
+          invalid: allowed.invalid.length,
+          platform: allowed.platform,
+          delegated: allowed.delegated.length,
+          red: allowed.red,
+        },
+        /**
          * RS(根槽位维):**层**进入判据的读数。它与 RD 并列而非替换 ——
          * RD 的 `radiusSeen` 只说明两端文件里出现过的档集合,而集合相等**不证明同一元素同档**
          * (台账 G-629:小程序在组件根、RN 在外层 wrapper,`[4,6,8]` 对 `[4,6,8]` ⇒ 圆角维恒 0)。
@@ -4444,7 +5543,9 @@ export function main(argv, repoRoot = ROOT) {
           pairCount: web.findings.length,
           /** 只量圆角档是**这一腿的设计边界**,不是"几何已确认相同" —— 把它写进读数旁边,
            *  否则 `webRed: 0` 会被读成"web 与小程序已一致"。 */
-          dimension: 'G+RD+RE(文件级几何档 / 文件级档值集合 / 同名元素档);IC 与 RS 未判',
+          dimension:
+            'G+RD+RE(文件级几何档 / 文件级档值集合 / 同名元素档);IC 与 RS 未判;' +
+            'web↔RN 五维几何见 webRn(advisory)',
           findings: web.findings.map((f) => ({
             name: f.name,
             miniapp: f.miniapp,
@@ -4478,6 +5579,41 @@ export function main(argv, repoRoot = ROOT) {
           webUnreachable: wPrunedJson,
           webReachSuspended: collected.webReachNote ?? null,
           ghostRed: webPriorKeys.length && !web.findings.length ? webPriorKeys : [],
+        },
+        /**
+         * web↔RN 五维几何腿(2026-11-02 立,Phase 2)。三数(pairCount / findings / unregistered)
+         * 必须齐备:只给 `findings` 会让"没配上对"与"配上了没差"在机器面同形。
+         * **advisory**:findings 不折进退出码;误报由 allowed-diff 的 `key=webRnGeometry` 承接。
+         */
+        webRn: {
+          pairCount: webRn.pairCount,
+          judgedPairs: webRn.judgedPairs,
+          findings: webRn.findings.length,
+          unregistered: webRnVerdict.unregistered.length,
+          dimensions: WEB_RN_GEOMETRY_DIMS,
+          dimCoverage: webRn.dimCoverage,
+          oneSided: webRn.oneSided,
+          undetermined: webRn.undetermined,
+          detail: webRn.findings.map((f) => ({
+            name: f.name,
+            web: f.web,
+            rn: f.rn,
+            evidence: f.evidence,
+            webEvidence: f.webEvidence ?? null,
+            diffCount: f.diffCount,
+            judgedDims: f.judgedDims,
+            dims: f.dims,
+          })),
+          pending: collected.webRnPending ?? [],
+          blocked: collected.webRnProblem ?? null,
+          allowedDiff: {
+            matched: webRnVerdict.matched.length,
+            shrunk: webRnVerdict.shrunk.length,
+            expired: webRnVerdict.expired.length,
+            over: webRnVerdict.over.length,
+            invalid: webRnVerdict.invalid.length,
+            unregistered: webRnVerdict.unregistered.length,
+          },
         },
       }),
     )
@@ -4527,12 +5663,27 @@ export function main(argv, repoRoot = ROOT) {
       const tt = ca.totals
       console.log(
         `  ⓘ 类臂解析(只报数,不进退出码):${tt.legsWithClasses}/${tt.legs} 条腿用到类名;` +
-          `唯一无覆盖定义 ${tt.resolved} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined};` +
+          `唯一无覆盖定义 ${tt.resolved} / 已建模但无盒档 ${tt.modeled ?? 0} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined};` +
           `其中 ${Object.keys(collected.classArmCss ?? {}).length} 份声明体已并入几何维`,
       )
+      /**
+       * web 工具类模型的覆盖面(票 O67):三列缺一不可 —— 缺 `available` 时"全被记成未判定"
+       * 与"模型判过、只是没有这类名字"读起来一模一样;缺 `missing` 时"主题没生成它"与
+       * "模型没建起来"也分不开。
+       */
+      const wu = ca.webUtility ?? null
+      if (wu)
+        console.log(
+          `     ⓘ web 工具类模型:${wu.available ? '可用' : `不可用(${wu.why})`} —— 候选 ${wu.candidates} 枚 / ` +
+            `编译器产出 ${wu.resolved} 枚 / 主题未生成 ${wu.missing.length} 枚` +
+            (wu.missing.length ? `(${wu.missing.join(' ')})` : '') +
+            `;取源 = lib/web-utility-classes.mjs(Tailwind 编译器 × 被审面 globals.css),门体零第二份类名字典`,
+        )
       for (const l of ca.legs) {
         const parts = []
         if (l.undefined.length) parts.push(`查无定义:${l.undefined.join(' ')}`)
+        if (l.modeled?.length)
+          parts.push(`已建模无盒档:${l.modeled.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
         if (l.undetermined.length)
           parts.push(`未判定:${l.undetermined.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
         if (parts.length)
@@ -4540,7 +5691,8 @@ export function main(argv, repoRoot = ROOT) {
       }
       console.log(
         '     ⇒ 转判红的条件(尚未生效):① 小程序侧"查无定义"类名数超台账锚点;' +
-          '② web/rn 侧补上可解析的 Tailwind 配置 / 样式源,把"未判定"降到可判;两项都须先钉锚点再判红',
+          '② web 侧的"未判定"必须是**模型不可用 / 主题未生成 / 条件取用**三型之一(模型可用而仍判不出,' +
+          '说明取源缺了这一族 —— 先补取源,不许把未判定直接折成通过);两项都须先钉锚点再判红',
       )
     }
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
@@ -4729,6 +5881,45 @@ export function main(argv, repoRoot = ROOT) {
             `"一端写裸档、另一端写具名档"自 G-277② 起不再被读成"那一端没写档";逐条见 --json 的 bareRounded`,
         )
       }
+    }
+    /**
+     * **web↔RN 五维几何腿的人读面**(2026-11-02 立,Phase 2)。三数必须同屏:
+     * 只印"有差 0"会把"一对都没配上"读成"两端一致"(与 web 腿同一条边界)。
+     * advisory:不折退出码;误报走 allowed-diff 的 `key=webRnGeometry` 登记,未登记只报数。
+     */
+    {
+      const dimTxt = WEB_RN_GEOMETRY_DIMS.map((d) => `${d} ${webRn.dimCoverage[d]}`).join(' / ')
+      console.log(
+        `[ADVISORY] WR web↔RN 几何(五维):配对 ${webRn.pairCount} 屏 / 可判 ${webRn.judgedPairs} / ` +
+          `有差 ${webRn.findings.length} / 未登记 ${webRnVerdict.unregistered.length}` +
+          `;分维可判对数 ${dimTxt}` +
+          `;宽高/内边距/间距/圆角/字号 —— 一侧无读数进 one-sided ${webRn.oneSided.length} 处,不冒充分叉`,
+      )
+      if (webRn.undetermined.length)
+        console.log(
+          `  ? WR 零判据 ${webRn.undetermined.length} 对(五维两侧都无可判定读数,不是"两端同值")`,
+        )
+      if (collected.webRnProblem) console.log(`  ? WR 整腿未判定:${collected.webRnProblem}`)
+      if (webRnVerdict.unregistered.length)
+        console.log(
+          `  ⓘ WR 未登记名单:` +
+            webRnVerdict.unregistered
+              .slice(0, 8)
+              .map((u) => `${u.component}(${u.count})`)
+              .join(' / ') +
+            (webRnVerdict.unregistered.length > 8
+              ? ` …其余 ${webRnVerdict.unregistered.length - 8} 族`
+              : ''),
+        )
+      const pend = collected.webRnPending ?? []
+      if (pend.length)
+        console.log(
+          `  ⊘ WR 推导不出、进配对待确认清单 ${pend.length} 行(不猜不硬配):` +
+            pend
+              .slice(0, 5)
+              .map((p) => `${p.web || '(空路由)'}←${p.why}`)
+              .join(' / '),
+        )
     }
     /**
      * RE 的**射程边界逐条报名**,不只报数。这一格是这一维存在的全部理由:RD 那些
@@ -5083,6 +6274,17 @@ export function main(argv, repoRoot = ROOT) {
       '  ⓘ 逐族欠债账(只读尺子,不进提交链):node scripts/cross-end-ui-parity-debt.mjs' +
         ' —— 按欠债降序点名每一族;与在册快照对比可看涨跌。',
     )
+  if (!argv.includes('--json')) {
+    console.log(
+      `  允许差异登记 ${allowedDoc.entries.length} 条(命中 ${allowed.matched.length} · 未登记 ${allowed.unregistered.length} · 到期 ${allowed.expired.length} · 超量 ${allowed.over.length} · 收缩 ${allowed.shrunk.length} · 条目坏 ${allowed.invalid.length} · 平台 ${allowed.platform.length})` +
+        ';到期后重新报红,防止白名单腐化(§12e)',
+    )
+    for (const x of allowed.red) console.log(`  × AD ${x.component} ${x.key}:${x.why}`)
+    for (const x of allowed.shrunk)
+      console.log(
+        `  · AD ${x.component} ${x.key}:差异 ${x.count} < 登记额度 ${x.allowed}(收缩不判红,到期前可下调额度)`,
+      )
+  }
   const rotRed = res.rot.length ? 1 : 0
   /**
    * **web 腿的死亡机制**:台账里挂着 web 锚点、而本轮这一族一条记录都没产出 ⇒ 红。
@@ -5115,6 +6317,12 @@ export function main(argv, repoRoot = ROOT) {
     return 1
   }
   if (aliasRed) return 1
+  // AD(允许差异登记)独立先判支:与 CS/WD 同形,刻意不并入下面那条被自检锁钉住的求和行。
+  if (allowedRed > 0) {
+    if (!argv.includes('--json'))
+      console.log(`  × AD 折进退出码:未放行差异 ${allowedRed} 条(未登记/到期/超量/条目坏/登记表缺席)`)
+    return 1
+  }
   return rotRed +
     res.red.length +
     icRed.length +
@@ -5199,9 +6407,24 @@ export const __test__ = {
   usedClassRefs,
   classDefScan,
   classArmVerdicts,
+  // web 腿工具类判定(票 O67):行级判定单测要走同一份实现,不在测试里复制判据(§22c)。
+  webUtilityRow,
   elementRadiusDiff,
   elementRadiusCount,
   waiverProblem,
+  allowedDiffProblem,
+  allowedDiffVerdict,
+  loadAllowedDiffs,
+  ALLOWED_DIFFS_REL,
+  // web↔RN 五维几何腿(2026-11-02 立,Phase 2):纯函数全部从同一份实现导出,
+  // 测试不复制判据(§22c)。
+  dimOfKey,
+  webRouteIndex,
+  buildWebRnPairs,
+  webRnGeometryAudit,
+  webRnAllowedVerdict,
+  WEB_RN_LEDGER_REL,
+  WEB_RN_GEOMETRY_DIMS,
   faceFromArgv,
   chooseBaseline,
   parseBaseline,

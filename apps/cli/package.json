@@ -63,7 +63,7 @@
     "esbuild": "0.28.2",
     "postject": "1.0.0-alpha.6",
     "rimraf": "catalog:",
-    "tsx": "^4.23.5",
+    "tsx": "^4.23.15",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

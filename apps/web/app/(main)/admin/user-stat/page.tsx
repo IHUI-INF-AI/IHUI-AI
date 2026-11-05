@@ -55,7 +55,7 @@ export default function UserStatPage() {
           <Users className="h-6 w-6 text-primary" />
           用户统计
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">用户增长、活跃与留存指标</p>
+        <p className="mt-1 text-body text-muted-foreground">用户增长、活跃与留存指标</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-4">
@@ -127,7 +127,7 @@ export default function UserStatPage() {
             ))}
           </div>
         ) : stats.growth.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border border-dashed py-10 text-center text-body text-muted-foreground">
             暂无数据
           </div>
         ) : (
@@ -140,7 +140,7 @@ export default function UserStatPage() {
                     style={{ height: `${(p.newUsers / peak) * 100}%` }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground tabular-nums">
+                <span className="text-label text-muted-foreground tabular-nums">
                   {p.date.slice(5)}
                 </span>
                 <span className="text-label font-semibold tabular-nums">
@@ -159,7 +159,7 @@ export default function UserStatPage() {
             角色分布
           </h2>
           {stats.byRole.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
               暂无数据
             </div>
           ) : (
@@ -167,7 +167,7 @@ export default function UserStatPage() {
               {stats.byRole.map((r) => {
                 const total = stats.byRole.reduce((s, x) => s + x.count, 0) || 1
                 return (
-                  <div key={r.role} className="flex items-center gap-2 text-sm">
+                  <div key={r.role} className="flex items-center gap-2 text-body">
                     <span className="w-20 shrink-0 truncate text-muted-foreground">{r.role}</span>
                     <div className="relative h-4 flex-1 overflow-hidden rounded-xs bg-muted/40">
                       <div
@@ -191,13 +191,13 @@ export default function UserStatPage() {
             地域分布 Top
           </h2>
           {stats.byRegion.length === 0 ? (
-            <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed py-8 text-center text-body text-muted-foreground">
               暂无数据
             </div>
           ) : (
             <div className="space-y-2">
               {stats.byRegion.slice(0, 8).map((r) => (
-                <div key={r.region} className="flex items-center gap-2 text-sm">
+                <div key={r.region} className="flex items-center gap-2 text-body">
                   <span className="w-24 shrink-0 truncate text-muted-foreground">{r.region}</span>
                   <div className="relative h-4 flex-1 overflow-hidden rounded-xs bg-muted/40">
                     <div

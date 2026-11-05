@@ -22,6 +22,8 @@ import type { IdentityProportion } from '@ihui/database'
 
 const baseProp: IdentityProportion = {
   id: 'mock-id',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   beginTime: null,
   endTime: null,
   status: 1,

@@ -28,6 +28,7 @@ import type {
 import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { formatPrice } from '@ihui/shared/utils'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 讲师详情共享屏 — props 注入式跨端组件 */
 export type {
@@ -59,9 +60,13 @@ export function LecturerDetailScreen({
   onContact,
   onOpenCourse,
   onBack,
-  colorScheme = 'light',
+  onRetry,
+  colorScheme = 'light',  
   onViewCourses,
-}: LecturerDetailScreenProps) {
+  onNavigate,
+}: LecturerDetailScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -108,7 +113,7 @@ export function LecturerDetailScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <ErrorState message={error} colorScheme={colorScheme} />
+        <ErrorState message={error} onRetry={onRetry} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -457,11 +462,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     title: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
     },
     followBtn: {
-      paddingHorizontal: 14, // rpx(28)
+      paddingHorizontal: rnSpacing['md-loose'], // rpx(28)
       paddingVertical: rnSpacing['xs-loose'], // rpx(12)
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
@@ -470,12 +475,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     followBtnText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
     followBtnTextActive: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
@@ -515,7 +520,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     expandText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.brandAccent.deep,
     },
     /* 主讲课程 */
@@ -585,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     reviewNickname: {
       flex: 1,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.primary,
     },

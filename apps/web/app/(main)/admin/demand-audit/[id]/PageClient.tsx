@@ -131,7 +131,7 @@ export default function DemandAuditDetailPage() {
     <div className="space-y-4">
       <Link
         href="/admin/demand-audit"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         {tc('back')}
@@ -160,22 +160,22 @@ export default function DemandAuditDetailPage() {
             <CardContent className="space-y-4">
               <DescriptionList items={descItems} column={2} />
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t('colDesc')}</span>
-                <span className="whitespace-pre-wrap text-sm">{row.desc || '-'}</span>
+                <span className="text-label text-muted-foreground">{t('colDesc')}</span>
+                <span className="whitespace-pre-wrap text-body">{row.desc || '-'}</span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">{t('approvalTitle')}</CardTitle>
+              <CardTitle className="text-body">{t('approvalTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Timeline items={timelineItems} />
 
               {canAct ? (
                 <div className="space-y-2 mt-4 pt-4">
-                  <Label className="text-xs">{t('opinionLabel')}</Label>
+                  <Label className="text-label">{t('opinionLabel')}</Label>
                   <textarea
                     className={textareaClass}
                     rows={3}
@@ -207,8 +207,8 @@ export default function DemandAuditDetailPage() {
                 </div>
               ) : existOpinion ? (
                 <div className="flex flex-col gap-1 mt-3 pt-3">
-                  <span className="text-xs text-muted-foreground">{t('opinionLabel')}</span>
-                  <span className="whitespace-pre-wrap text-sm">{existOpinion}</span>
+                  <span className="text-label text-muted-foreground">{t('opinionLabel')}</span>
+                  <span className="whitespace-pre-wrap text-body">{existOpinion}</span>
                 </div>
               ) : null}
             </CardContent>

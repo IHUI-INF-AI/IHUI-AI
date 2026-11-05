@@ -67,6 +67,19 @@ import {
   type MarketplacePluginEntry,
   type MarketplaceSource,
 } from './marketplace.js';
+import {
+  decideInstallPolicy,
+  ENSURE_MINIMUM_PRESENCE,
+  type InstallPolicyDecision,
+} from './install-policy.js';
+import {
+  evaluateArchiveQuota,
+  quotaAllowsLanding,
+  INSTALL_COPY_QUOTA,
+  type ArchiveObservation,
+  type ArchiveQuotaDecision,
+  type ArchiveQuotaLimits,
+} from './archive-quota.js';
 
 // ==================== 类型定义 ====================
 
@@ -86,6 +99,15 @@ export interface InstallOutcome {
    * 调用方(与恢复侧的对账)据此能问出"这笔是不是权威认的那一笔",不必再猜。
    */
   transactionId?: string;
+  /**
+   * 本次"要不要装"的装机策略结论(goal-b49 取证 Q1 §3 #9 的 `install.presence="ensure-minimum"`,
+   * 判据单源 `./install-policy.ts`)。**只在 local 腿给出** —— git:url 腿的去重键是
+   * `url + pluginSubdir`,同一判据要接得先量一遍那两枚 mock-clone 用例的短路期望(未竟)。
+   *
+   * 读法(不得自行放宽):`already-satisfied` 是"允许跳过"的唯一档;`installed` = 本次真的落了一代;
+   * `unjudged` = **没判**(版本形状不可比等),它绝不等于"已满足",调用方不得据此报"无需安装"。
+   */
+  policy?: InstallPolicyDecision;
 }
 
 /** 卸载结果 */
@@ -568,6 +590,121 @@ export function collectInstallFileDigests(rootDir: string): InstallFileDigest[] 
   return digests;
 }
 
+// ==================== 解压/落位配额(goal-b49 取证 Q1 §3 #9) ====================
+
+/**
+ * 配额拒装异常。带结构化 `decision`(与 `PluginPathUnsafeError` 同一族规矩:
+ * 调用方**不得靠错误文案**做流程判断,要读的是 `decision.verdict` / `exceededDimensions`)。
+ */
+export class PluginArchiveQuotaError extends Error {
+  readonly code = 'plugin_archive_quota';
+  readonly decision: ArchiveQuotaDecision;
+  constructor(msg: string, decision: ArchiveQuotaDecision) {
+    super(msg);
+    this.name = 'PluginArchiveQuotaError';
+    this.decision = decision;
+  }
+}
+
+/**
+ * 量 `rootDir` 落位后要吃掉的条目数与字节数 —— 两维任一量不出就把该维交回 `null`(**绝不补 0**)。
+ *
+ * 三条采集纪律:
+ *  1. **树内符号链接不跟随**:链接自身计一条、目标内容不计量。AGENTS §26 记过 junction 递归穿透
+ *     清空真实目标;树内只做 `readdirSync(withFileTypes)` + 常规文件 `lstatSync`,不对树内任何
+ *     链接做解析。链接目标里可能藏更多字节 = 本尺的已知盲区,登记在此而不装作量到了。
+ *     (源**根**是唯一例外:它是不是合法链接由 `inspectLocalPathSafety` 判,见下面取根处注记。)
+ *  2. **非常规档形**(FIFO / 套接字)不贡献字节 —— 它们由 `copyDirRecursive` 与摘要采集那两侧另管。
+ *  3. 一次 `readdirSync` / `lstatSync` 失败 ⇒ 整棵树判"量不出",由配额层落 `unjudged`,
+ *     本函数不抛异常也不返回半份读数。
+ */
+function measureExpandedTree(rootDir: string): ArchiveObservation {
+  const unmeasurable = (): ArchiveObservation => ({ entries: null, expandedBytes: null });
+  let entries = 0;
+  let expandedBytes = 0;
+
+  const walk = (dir: string): boolean => {
+    let items: fs.Dirent[];
+    try {
+      items = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    for (const item of items) {
+      entries++;
+      const abs = path.join(dir, item.name);
+      if (item.isSymbolicLink()) continue;
+      if (item.isDirectory()) {
+        if (!walk(abs)) return false;
+        continue;
+      }
+      if (!item.isFile()) continue;
+      try {
+        expandedBytes += fs.lstatSync(abs).size;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  try {
+    // 源**根**用 `statSync`(跟随):根是一条基准目录内的链接时照样量得出 —— 那条链接的合法性
+    // 由 `inspectLocalPathSafety` 在上一步已判过(越界的当场就拒了),本尺不重复判、也不因此"量不出"。
+    // 树**内**的链接照旧一律不跟随(见上面纪律 1)。
+    if (!fs.statSync(rootDir).isDirectory()) return unmeasurable();
+  } catch {
+    return unmeasurable();
+  }
+  if (!walk(rootDir)) return unmeasurable();
+  return { entries, expandedBytes };
+}
+
+/**
+ * 配额覆盖档的环境变量(`"<maxEntries>:<maxExpandedBytes>"`)。
+ * 与本层既有注入点同族(`update-plan.ts` 的 `IHUI_PLUGIN_INTEGRITY_GATE` / `..._STAGING`、
+ * `cache.ts` 的 `IHUI_MOCK_GIT_CLONE_SRC`):**只用于收紧上限与夹具构造**,不是"关掉配额"。
+ * 形态读不出 ⇒ 回落默认档(而不是猜一个覆盖值),实际生效的上限由 `decision.limitEntries/limitBytes`
+ * 当场带出 —— 覆盖写错了不会被读成"已经收紧了"。
+ */
+export const COPY_QUOTA_ENV = 'IHUI_INSTALL_COPY_QUOTA';
+
+/** 解析配额覆盖档(纯函数,不读 env;缺省回落 `INSTALL_COPY_QUOTA`) */
+export function resolveCopyQuotaLimits(raw?: string | null): ArchiveQuotaLimits {
+  if (typeof raw !== 'string' || raw.trim() === '') return INSTALL_COPY_QUOTA;
+  const [entriesRaw, bytesRaw, extra] = raw.trim().split(':');
+  const maxEntries = Number(entriesRaw);
+  const maxExpandedBytes = Number(bytesRaw);
+  const wellFormed =
+    extra === undefined &&
+    /^\d+$/.test(entriesRaw ?? '') &&
+    /^\d+$/.test(bytesRaw ?? '') &&
+    Number.isFinite(maxEntries) &&
+    Number.isFinite(maxExpandedBytes);
+  return wellFormed ? { maxEntries, maxExpandedBytes } : INSTALL_COPY_QUOTA;
+}
+
+/**
+ * 落位之前的配额闸:**只读、只判、只拒,一步写盘都不做**(调用次序见 `installFromDirectory`)。
+ * 判据住在 `archive-quota.ts`(单源),本函数只把非 `within` 的两态掀成结构化异常 ——
+ * `unjudged` 同样拒(量不出不算放行证据,§0.3),异常文案里实测数与上限数同场并列。
+ */
+export function guardInstallCopyQuota(
+  sourceDir: string,
+  limits: ArchiveQuotaLimits = resolveCopyQuotaLimits(process.env[COPY_QUOTA_ENV]),
+): ArchiveQuotaDecision {
+  const decision = evaluateArchiveQuota(measureExpandedTree(sourceDir), limits);
+  if (!quotaAllowsLanding(decision)) {
+    // 文案不在这里拼:实测数/上限数/中文判语全部由 `archive-quota.ts` 单源给出(守门 70 同族:
+    // 装机面这层再加一句中文 = 同一判语两处书写,漂移只会在下一次改文案时暴露)。
+    throw new PluginArchiveQuotaError(
+      `${sourceDir} :: ${decision.report} (${decision.reasons.join(' / ')})`,
+      decision,
+    );
+  }
+  return decision;
+}
+
 /**
  * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 落位 → **权威落盘** → 处置旧副本"实现。
  *
@@ -597,6 +734,9 @@ function installFromDirectory(
   recordFields: Omit<InstallRecord, 'installedAt' | 'transactionId'>,
   signal?: AbortSignal,
 ): InstallRecord {
+  // 配额闸排在**一切**动作之前(含取消检查与 staging 目录):条目数 / 展开字节超限、
+  // 或根本量不出 ⇒ 当场拒。此刻 destDir 一步没动、registry 一个字没写 —— 拒得越早,残留越少。
+  guardInstallCopyQuota(sourceDir);
   // 提交点之前:取消 = 什么都不动,直接上抛
   if (signal?.aborted) throw new PluginSwapCancelledError(destDir);
   const staging = prepareStagingDirectory(destDir);
@@ -666,19 +806,33 @@ async function installLocal(
   // (旧写侧 `push` 留下的最旧那代),于是"当代那条其实是别处装的"(换过源 / 别代)也会被
   // 读成"这个源已经装过了" ⇒ 本次安装被跳过,而目录里躺着的是别一代 —— 用户看到的是
   // "我装了 A,插件还是 B"。取舍与读侧同源:`cache.js` 的 `pickAuthorityRecord`。
+  //
+  // goal-b49 #9 补的第三格(前两条都没管的那一格):**"记录在 + 目录可用"只是必要条件**,
+  // 能不能跳过还得问装机策略 —— 已装得更高 ⇒ 不降级;源目录就地升级 ⇒ 必须重装
+  // (旧实现两种都读成"已装过",于是"把 2.0.0 的源再装一次、盘上还是 1.0.0");
+  // 判不了 ⇒ 走真实落位,绝不凭没判出来的东西跳过工作(§0.3)。判据不在本文件复算。
   const reg = loadInstallRegistry();
   const authority = pickAuthorityRecord(reg.records, manifest.name) as InstallRecord | undefined;
   const existing =
     authority && authority.sourceType === 'local' && authority.sourcePath === resolvedSrc
       ? authority
       : undefined;
-  if (existing && isUsableDirectoryCopy(dest)) {
+  const policy = decideInstallPolicy({
+    resource: {
+      id: manifest.name,
+      presence: ENSURE_MINIMUM_PRESENCE,
+      version: manifest.version ?? null,
+    },
+    installed: existing ? { version: existing.version ?? null, files: existing.fileDigests ?? null } : null,
+  });
+  if (existing && isUsableDirectoryCopy(dest) && policy.verdict === 'already-satisfied') {
     return {
       name: manifest.name,
       version: manifest.version,
       installedPath: dest,
       source: 'local',
       wasInstalled: true,
+      policy,
     };
   }
 
@@ -704,6 +858,7 @@ async function installLocal(
     source: 'local',
     wasInstalled: false,
     transactionId: record.transactionId,
+    policy,
   };
 }
 

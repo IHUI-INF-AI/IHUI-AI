@@ -16,20 +16,33 @@
  * 待主 agent 在 routes/index.ts 注册:v1McpGatewayRoutes
  *
  * 鉴权:Bearer API Key(api-key-auth 插件 requireApiKeyAuth)
- * 转发:fetch 到 ai-service,附加 X-Internal-Auth 头(从 process.env.AI_SERVICE_INTERNAL_TOKEN 读,
- *       回退到 config.AI_CALLBACK_SECRET)
+ * 转发:fetch 到 ai-service,用 mintInternalJwt(apiKey.userId) 签一枚短期 JWT 放进
+ *       Authorization —— 与 v1-knowledge-tools / v1-multimodal 同一条内部调用通道。
  * 计费:tools/call 走 relay-billing-service(model=mcp-tool-{name})
  *
  * 错误码:
- * - 401:API Key 无效
+ * - 401:API Key 无效 / 取不到调用主体
  * - 1003:模型不在白名单(需用户添加 mcp-* 到 allowedModels)
  * - 5015:ai-service 不可用(网络错误 / 连接超时)
+ * - 5016:内部凭据签发失败(JWT_SECRET 缺失等),本进程直接短路,不发空凭据出去
  * - 502:ai-service 返回错误(非 2xx 响应)
  *
- * ai-service MCP 端点(参考 apps/ai-service/app/routers/mcp.py):
- * - GET  /mcp/tools              → {tools: [...], count: N}
- * - POST /mcp/tools/call         → body {name, arguments} → result
- * - GET  /mcp/resources/{uri}    → resource content(本网关用 POST + body {uri} 转发)
+ * ai-service MCP 端点(参考 apps/ai-service/app/routers/mcp.py,**全部挂在 /api 前缀下**,
+ * 见 app/main.py 的 `include_router(mcp.router, prefix="/api")`):
+ * - GET  /api/mcp/tools              → {tools: [...], count: N}
+ * - POST /api/mcp/tools/call         → body {name, arguments} → result
+ * - GET  /api/mcp/resources/{uri}    → resource content(本网关用 POST + body {uri} 转发)
+ *
+ * 2026-11-01 安全强化(本文件此前整条链在生产不可用,四处叠加):
+ * ① 转发路径漏了 `/api` 前缀 —— 全仓其他调用方(ai-frontend-routes / v1-knowledge-tools /
+ *    llm-models / publish-analytics)都写 `${AI_SERVICE_URL}/api/...`,只有本文件写
+ *    `/mcp/tools`,打过去是 404;
+ * ② 不带 Authorization —— ai-service 的 JWTAuthMiddleware 在路由之前就要求
+ *    `Bearer <JWT>` 或 auth_token cookie,无凭据一律 401;
+ * ③ 只带 `X-Internal-Auth` —— 该头在 ai-service **零消费**(全仓 grep 无引用),纯摆设;
+ * ④ 只带 `X-User-Id` —— 自报头,ai-service 侧已明令不得当身份用(见 core/inbound_identity.py)。
+ * 四条叠起来的净效果是"网关看着在,调用全挂";而④那种写法一旦哪天真被采信,就是
+ * 任意 API Key 持有人说自己是别人。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -41,19 +54,14 @@ import { recordCall } from '../services/relay-billing-service.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
 import { persistableLatency } from '../utils/latency-persistence.js'
 import { success, error } from '../utils/response.js'
+// 内部调用主体:与 v1-knowledge-tools / v1-multimodal 同一个出口(单一真相源,不另签一份)
+import { mintInternalJwt } from './v1-shared.js'
 
 // =============================================================================
 // MCP tool 按次计费基准(非 token 计费,每次调用固定 1000 token 基准)。
 // 后续可扩展为 per-tool 定价表,按 tool name 返回不同定价。
 // =============================================================================
 const MCP_TOOL_BASE_TOKENS = 1000
-
-// =============================================================================
-// 配置:ai-service 内部调用 token
-// =============================================================================
-
-/** 内部服务认证 token:优先 AI_SERVICE_INTERNAL_TOKEN,回退 AI_CALLBACK_SECRET */
-const INTERNAL_TOKEN: string = process.env.AI_SERVICE_INTERNAL_TOKEN || config.AI_CALLBACK_SECRET
 
 // =============================================================================
 // 类型定义
@@ -83,10 +91,10 @@ const resourceReadBodySchema = z.object({
 /**
  * 转发请求到 ai-service MCP 端点。
  *
- * @param path     ai-service 路径(如 /mcp/tools)
+ * @param path     ai-service 路径,**含 `/api` 前缀**(如 `/api/mcp/tools`)
  * @param method   HTTP 方法
  * @param body     请求体(POST 时传入,GET 时传 undefined)
- * @param userId   用户 ID(透传给 ai-service 做 user 上下文)
+ * @param userId   调用主体(来自 request.apiKey.userId);缺失直接 401,不发出无主请求
  * @returns ForwardResult:成功 {ok:true, data} / 失败 {ok:false, code, httpStatus, message}
  */
 async function forwardToAiService(
@@ -95,15 +103,33 @@ async function forwardToAiService(
   body?: unknown,
   userId?: string,
 ): Promise<ForwardResult> {
+  // 无主体不发请求:此前这里是"少带一个头照样发",对端要么 401 要么按匿名处理,
+  // 两种结果都不是我们想要的 —— 缺主体是本进程能判定的错,就在本进程说清楚。
+  if (!userId) {
+    return { ok: false, code: 401, httpStatus: 401, message: '缺少调用主体' }
+  }
+
+  // 用 API Key 的主体签一枚短期 JWT。ai-service 的 JWTAuthMiddleware 只认
+  // Authorization: Bearer / auth_token cookie,别的一概 401 —— 所以这一步不是"加强",
+  // 是这条链**能不能通**的前提。
+  let token: string
+  try {
+    token = await mintInternalJwt(userId)
+  } catch {
+    // 签发失败(JWT_SECRET 缺失/格式错)属于配置事故。绝不能退化成"不带凭据继续发":
+    // 那会把一次显式的配置错误伪装成一次普通的上游 401,排障时一路怀疑错对象。
+    return {
+      ok: false,
+      code: 5016,
+      httpStatus: 503,
+      message: '内部凭据签发失败(检查 JWT_SECRET 配置)',
+    }
+  }
+
   const url = `${config.AI_SERVICE_URL}${path}`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-  if (INTERNAL_TOKEN) {
-    headers['X-Internal-Auth'] = INTERNAL_TOKEN
-  }
-  if (userId) {
-    headers['X-User-Id'] = userId
+    Authorization: `Bearer ${token}`,
   }
 
   let resp: Response
@@ -185,7 +211,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
         .send(error(1003, '模型不在白名单,请添加 mcp-* 到 API Key 的 allowedModels'))
     }
 
-    const result = await forwardToAiService('/mcp/tools', 'GET', undefined, apiKey.userId)
+    const result = await forwardToAiService('/api/mcp/tools', 'GET', undefined, apiKey.userId)
     if (!result.ok) {
       return reply.status(result.httpStatus).send(error(result.code, result.message))
     }
@@ -217,7 +243,7 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
 
     // 转发到 ai-service
     const result = await forwardToAiService(
-      '/mcp/tools/call',
+      '/api/mcp/tools/call',
       'POST',
       { name, arguments: args },
       apiKey.userId,
@@ -291,11 +317,11 @@ const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
     }
     const { uri } = parsed.data
 
-    // ai-service 用 GET /mcp/resources/{uri:path} 读取资源
+    // ai-service 用 GET /api/mcp/resources/{uri:path} 读取资源
     // 本网关接受 POST + body {uri},转发时转为 GET + path 参数
     const encodedUri = encodeURIComponent(uri)
     const result = await forwardToAiService(
-      `/mcp/resources/${encodedUri}`,
+      `/api/mcp/resources/${encodedUri}`,
       'GET',
       undefined,
       apiKey.userId,

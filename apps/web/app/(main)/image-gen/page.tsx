@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { generateImage } from '@ihui/api-client'
 import type { ImageGenResult } from '@ihui/types'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -27,15 +27,10 @@ export default function ImageGenPage() {
   const [err, setErr] = React.useState<string | null>(null)
 
   const genMut = useMutation({
-    mutationFn: () => {
-      const body = {
-        prompt: prompt.trim(),
-        size,
-      }
-      return apiOrThrow<ImageGenResult>('/api/image-gen/generate', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+    mutationFn: async () => {
+      const res = await generateImage({ prompt: prompt.trim(), size })
+      if (!res.success) throw new Error(res.error || '生成失败')
+      return res.data
     },
     onSuccess: (data) => {
       setResult(data)
@@ -78,7 +73,7 @@ export default function ImageGenPage() {
           <ImageIcon className="h-6 w-6 text-primary" />
           {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        <p className="mt-1 text-body text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
@@ -102,7 +97,7 @@ export default function ImageGenPage() {
                 id="ig-size"
                 value={size}
                 onChange={(e) => setSize(e.target.value)}
-                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-body shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {SIZES.map((s) => (
                   <option key={s} value={s}>

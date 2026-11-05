@@ -54,7 +54,7 @@ export default function MetricsComparisonPage() {
             <Activity className="h-6 w-6 text-primary" />
             <CenteredText>{t('pageTitle')}</CenteredText>
           </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-label text-muted-foreground">
             <CenteredText>{t('pageSubtitle')}</CenteredText>
           </p>
         </div>
@@ -73,7 +73,7 @@ export default function MetricsComparisonPage() {
               <CenteredText>{t('compareTitle')}</CenteredText>
             </CardTitle>
             <Tooltip content={t('openNewWindow')}>
-              <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
+              <Button size="xs" variant="ghost" asChild className="px-2 text-label">
                 {/* Grafana 退役:外链改指项目原生监控面板(多租户业务监控盘) */}
                 <a href="/admin/monitor/panels" target="_blank" rel="noreferrer">
                   <ExternalLink className="h-3 w-3" />
@@ -107,7 +107,7 @@ export default function MetricsComparisonPage() {
           {isLoading ? (
             <Skeleton variant="list" count={5} />
           ) : error ? (
-            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-600 dark:text-rose-500">
+            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-body text-rose-600 dark:text-rose-500">
               {error.message}
             </div>
           ) : !data ? (
@@ -115,7 +115,7 @@ export default function MetricsComparisonPage() {
           ) : !data.available ? (
             <GrafanaUnavailableHint reason={t('degradedHint')} />
           ) : data.tenants.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
+            <div className="py-8 text-center text-body text-muted-foreground">
               <CenteredText>{t('empty')}</CenteredText>
             </div>
           ) : (
@@ -126,7 +126,7 @@ export default function MetricsComparisonPage() {
 
       {/* 底部 — 数据生成时间 */}
       {data?.generatedAt ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           {t('generatedAt', { time: formatDate(data.generatedAt) })}
         </p>
       ) : null}
@@ -149,7 +149,7 @@ function TenantsRankingTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex items-center justify-between text-label text-muted-foreground">
         <span>{t('totalTenants', { total })}</span>
       </div>
       <ul className="space-y-2">
@@ -168,7 +168,7 @@ function TenantsRankingTable({
                   </span>
                   <Link
                     href={`/admin/saas/${encodeURIComponent(tn.slug)}`}
-                    className="break-all font-mono text-sm hover:text-primary"
+                    className="break-all font-mono text-body hover:text-primary"
                   >
                     {tn.slug}
                   </Link>
@@ -215,7 +215,7 @@ function BarRow({
   const t = useTranslations('admin.saas.metrics')
   return (
     <div>
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-label">
         <span className="flex items-center gap-1.5 text-muted-foreground">
           {icon}
           <span>{label}</span>

@@ -2,36 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/vip-benefit/VipBenefitScreen.tsx
-import { useI18n } from '@/i18n'
-import { useDidShow } from '@tarojs/taro'
-import { View, Text, Image } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
+// 镜像 packages/app/src/features/vip-benefit/VipBenefitScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 本端保留(不可丢的业务):
+//   ① G-933 冷启动鉴权门控(GET /api/member/benefits 在 otherRoutes 的 authenticate 之下)
+//   ② useDidShow 回前台重拉(权益可能随下单/升级变化)
+//   ③ 后端 icon 双形态:图片路径走 Image、文字/emoji 走 Text;无 icon 时保留端内星标兜底
+//   ④ 错误面 = 重试重拉(共享屏 onRetry 已暴露,注入 load);返回出口 = 原生导航返回
+// 版面(标题/权益卡/等级阶梯)、阶梯目录(与端内 TIERS 同一张表,已上提共享屏)、取词键由共享屏输出。
+// 观感差异(已知并接受):① 共用返回面包屑与页面标题(端内原靠原生导航栏);
+// ② 空态多一枚"返回"动作;③ 错误态按钮文案取 common.back(共享屏既有实现),动作仍是重试;
+// ④ 等级阶梯图标由端内 PNG 换为共享屏线图标。
+
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useI18n } from '@/i18n'
 import { getMemberBenefits } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
-import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-// 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
-// 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
-const shoppingIcon = '/pages/member/assets/benefits/shopping.png'
-const sparkleIcon = '/pages/member/assets/benefits/sparkle.png'
-const giftIcon = '/pages/member/assets/benefits/gift.png'
-const calendarIcon = '/pages/member/assets/benefits/calendar.png'
-const mailIcon = '/pages/member/assets/benefits/mail.png'
-const silverIcon = '/pages/member/assets/benefits/silver.png'
-const birthdayIcon = '/pages/member/assets/benefits/birthday.png'
-const truckIcon = '/pages/member/assets/benefits/truck.png'
-const ticketIcon = '/pages/member/assets/benefits/ticket.png'
-const partyIcon = '/pages/member/assets/benefits/party.png'
-const trophyIcon = '/pages/member/assets/benefits/trophy.png'
-
-// 统一判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径或 import 路径)
-function isImagePath(s: string): boolean {
-  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
-}
+import { useTheme } from '@/rn-compat/theme'
+import { VipBenefitScreen as SharedVipBenefitScreen } from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
+// 共享屏的模块声明档(types/rn-shells.generated.d.ts)只声明组件、不透传类型 ⇒ 类型从真相源取
+import type { VipBenefitItem } from '@ihui/types'
 
 interface Benefit {
   id: string
@@ -40,244 +33,14 @@ interface Benefit {
   icon?: string
 }
 
-interface TierBenefit {
-  icon: string
-  tk: string
-  tf: string
-  dk: string
-  df: string
+// 统一判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径或 import 路径)
+function isImagePath(s: string): boolean {
+  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
 }
 
-interface Tier {
-  key: string
-  icon: string
-  nk: string
-  nf: string
-  benefits: TierBenefit[]
-}
-
-const TIERS: Tier[] = [
-  {
-    key: 'normal',
-    icon: REMOTE_ICONS.xing!,
-    nk: 'member.benefits.tier.normal',
-    nf: '普通会员',
-    benefits: [
-      {
-        icon: shoppingIcon,
-        tk: 'member.benefits.b.discount',
-        tf: '购物折扣',
-        dk: 'member.benefits.b.discountD1',
-        df: '全场商品 95 折',
-      },
-      {
-        icon: sparkleIcon,
-        tk: 'member.benefits.b.points',
-        tf: '积分加速',
-        dk: 'member.benefits.b.pointsD1',
-        df: '消费 1 元得 1 积分',
-      },
-      {
-        icon: giftIcon,
-        tk: 'member.benefits.b.gift',
-        tf: '新人礼包',
-        dk: 'member.benefits.b.giftD',
-        df: '注册专享礼包',
-      },
-      {
-        icon: calendarIcon,
-        tk: 'member.benefits.b.sign',
-        tf: '每日签到',
-        dk: 'member.benefits.b.signD',
-        df: '每日签到领积分',
-      },
-      {
-        icon: mailIcon,
-        tk: 'member.benefits.b.news',
-        tf: '优惠资讯',
-        dk: 'member.benefits.b.newsD',
-        df: '优惠活动通知',
-      },
-    ],
-  },
-  {
-    key: 'silver',
-    icon: silverIcon,
-    nk: 'member.benefits.tier.silver',
-    nf: '银卡会员',
-    benefits: [
-      {
-        icon: shoppingIcon,
-        tk: 'member.benefits.b.discount',
-        tf: '购物折扣',
-        dk: 'member.benefits.b.discountD2',
-        df: '全场商品 9 折',
-      },
-      {
-        icon: sparkleIcon,
-        tk: 'member.benefits.b.pointsMul',
-        tf: '积分倍数',
-        dk: 'member.benefits.b.pointsMulD2',
-        df: '1.2 倍积分加速',
-      },
-      {
-        icon: birthdayIcon,
-        tk: 'member.benefits.b.birthday',
-        tf: '生日礼包',
-        dk: 'member.benefits.b.birthdayD',
-        df: '生日专享礼包',
-      },
-      {
-        icon: truckIcon,
-        tk: 'member.benefits.b.shipping',
-        tf: '免邮特权',
-        dk: 'member.benefits.b.shippingD2',
-        df: '每月 3 次免邮',
-      },
-      {
-        icon: ticketIcon,
-        tk: 'member.benefits.b.coupon',
-        tf: '专属优惠券',
-        dk: 'member.benefits.b.couponD2',
-        df: '每月 2 张优惠券',
-      },
-      {
-        icon: calendarIcon,
-        tk: 'member.benefits.b.sign',
-        tf: '每日签到',
-        dk: 'member.benefits.b.signD2',
-        df: '签到领双倍积分',
-      },
-    ],
-  },
-  {
-    key: 'gold',
-    icon: REMOTE_ICONS.gold!,
-    nk: 'member.benefits.tier.gold',
-    nf: '金卡会员',
-    benefits: [
-      {
-        icon: shoppingIcon,
-        tk: 'member.benefits.b.discount',
-        tf: '购物折扣',
-        dk: 'member.benefits.b.discountD3',
-        df: '全场商品 85 折',
-      },
-      {
-        icon: sparkleIcon,
-        tk: 'member.benefits.b.pointsMul',
-        tf: '积分倍数',
-        dk: 'member.benefits.b.pointsMulD3',
-        df: '1.5 倍积分加速',
-      },
-      {
-        icon: birthdayIcon,
-        tk: 'member.benefits.b.birthday',
-        tf: '生日礼包',
-        dk: 'member.benefits.b.birthdayD3',
-        df: '生日双倍礼包',
-      },
-      {
-        icon: truckIcon,
-        tk: 'member.benefits.b.shipping',
-        tf: '免邮特权',
-        dk: 'member.benefits.b.shippingD3',
-        df: '无限次免邮',
-      },
-      {
-        icon: REMOTE_ICONS.privateadvisory!,
-        tk: 'member.benefits.b.service',
-        tf: '专属客服',
-        dk: 'member.benefits.b.serviceD',
-        df: '1 对 1 专属服务',
-      },
-      {
-        icon: ticketIcon,
-        tk: 'member.benefits.b.coupon',
-        tf: '专属优惠券',
-        dk: 'member.benefits.b.couponD3',
-        df: '每月 5 张优惠券',
-      },
-      {
-        icon: partyIcon,
-        tk: 'member.benefits.b.preview',
-        tf: '优先体验',
-        dk: 'member.benefits.b.previewD',
-        df: '新功能优先体验',
-      },
-    ],
-  },
-  {
-    key: 'diamond',
-    icon: REMOTE_ICONS.zuan!,
-    nk: 'member.benefits.tier.diamond',
-    nf: '钻石会员',
-    benefits: [
-      {
-        icon: shoppingIcon,
-        tk: 'member.benefits.b.discount',
-        tf: '购物折扣',
-        dk: 'member.benefits.b.discountD4',
-        df: '全场商品 8 折',
-      },
-      {
-        icon: sparkleIcon,
-        tk: 'member.benefits.b.pointsMul',
-        tf: '积分倍数',
-        dk: 'member.benefits.b.pointsMulD4',
-        df: '2 倍积分加速',
-      },
-      {
-        icon: birthdayIcon,
-        tk: 'member.benefits.b.birthday',
-        tf: '生日礼包',
-        dk: 'member.benefits.b.birthdayD4',
-        df: '生日豪华礼包',
-      },
-      {
-        icon: truckIcon,
-        tk: 'member.benefits.b.shipping',
-        tf: '免邮特权',
-        dk: 'member.benefits.b.shippingD4',
-        df: '无限次免邮',
-      },
-      {
-        icon: icon('privateadvisory'),
-        tk: 'member.benefits.b.service',
-        tf: '专属客服',
-        dk: 'member.benefits.b.serviceD4',
-        df: '7×24 专属管家',
-      },
-      {
-        icon: ticketIcon,
-        tk: 'member.benefits.b.coupon',
-        tf: '专属优惠券',
-        dk: 'member.benefits.b.couponD4',
-        df: '每月 10 张优惠券',
-      },
-      {
-        icon: partyIcon,
-        tk: 'member.benefits.b.preview',
-        tf: '优先体验',
-        dk: 'member.benefits.b.previewD4',
-        df: '新功能首发体验',
-      },
-      {
-        icon: trophyIcon,
-        tk: 'member.benefits.b.event',
-        tf: '尊享活动',
-        dk: 'member.benefits.b.eventD',
-        df: '线下高端活动',
-      },
-    ],
-  },
-]
-
-// 等级头部底色对齐 RN 共享屏视觉语言(无彩色渐变,统一 surface.muted 底 + 前景文字)
-const TIER_HEAD_CLASS = 'bg-muted text-foreground'
-
-export default function BenefitsPage() {
+export default function MemberBenefitsPage() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
   const [list, setList] = useState<Benefit[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,94 +76,32 @@ export default function BenefitsPage() {
     gate.waitUntilReady(load)
   })
 
+  // 后端 icon 双形态落成共享屏的两个可选槽位(其它端不传 ⇒ 不渲染,零观感影响)
+  const items: VipBenefitItem[] = list.map((b) => {
+    const iconIsImage = !!b.icon && isImagePath(b.icon)
+    return {
+      id: b.id,
+      name: b.title,
+      desc: b.desc,
+      ...(iconIsImage ? { iconUri: b.icon as string } : {}),
+      // 端内原兜底:无 icon 时星标占位(共享屏无图标槽位缺失即不渲染)
+      icon: iconIsImage ? undefined : (b.icon ?? '⭐'),
+    }
+  })
+
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-[28rpx] pb-[64rpx]">
-        <View className="text-title font-bold text-foreground mt-[8rpx] mb-[24rpx]">
-          {tt('member.benefits.myBenefits', '我的专属权益')}
-        </View>
-        {loading ? (
-          <ScreenSkeleton variant="list" count={4} />
-        ) : error ? (
-          <ErrorState
-            message={tt('member.benefits.loadFailed', '加载失败')}
-            onRetry={load}
-            retryLabel={t('common.retry')}
-          />
-        ) : list.length ? (
-          <View className="flex flex-col gap-[24rpx]">
-            {list.map((b) => (
-              <View
-                key={b.id}
-                className="bg-card border border-[var(--color-border)] rounded-lg p-[28rpx]"
-              >
-                {b.icon ? (
-                  <Text className="block text-display">{b.icon}</Text>
-                ) : (
-                  <LineIcon
-                    name="star-fill"
-                    size={48}
-                    color="var(--color-warning)"
-                    className="mx-auto"
-                  />
-                )}
-                {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}
-                {b.icon && isImagePath(b.icon) ? (
-                  <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
-                ) : null}
-                <Text className="block mt-[12rpx] text-title font-bold text-foreground">
-                  {b.title}
-                </Text>
-                <Text className="block mt-[16rpx] text-body text-muted-foreground leading-[36rpx]">
-                  {b.desc}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <EmptyState title={tt('member.benefits.empty', '暂无权益')} />
-        )}
-
-        <View className="text-title font-bold text-foreground mt-[32rpx] mb-[24rpx]">
-          {tt('member.benefits.tierCatalog', '等级权益')}
-        </View>
-        {TIERS.map((tier) => (
-          <View
-            key={tier.key}
-            className="bg-card border border-[var(--color-border)] rounded-lg overflow-hidden mb-[24rpx]"
-          >
-            <View className={`flex items-center px-[28rpx] py-[24rpx] ${TIER_HEAD_CLASS}`}>
-              {isImagePath(tier.icon) ? (
-                <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
-              ) : (
-                <Text className="text-heading mr-[16rpx]">{tier.icon}</Text>
-              )}
-              <Text className="text-title font-bold">{tt(tier.nk, tier.nf)}</Text>
-            </View>
-            <View className="py-[8rpx]">
-              {tier.benefits.map((b, i) => (
-                <View key={i} className="flex items-center px-[28rpx] py-[20rpx]">
-                  {isImagePath(b.icon) ? (
-                    <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
-                  ) : (
-                    <Text className="text-subtitle w-[48rpx] text-center flex-shrink-0">
-                      {b.icon}
-                    </Text>
-                  )}
-                  <View className="flex-1 ml-[16rpx]">
-                    <Text className="block text-body text-[var(--color-text-medium)] font-medium">
-                      {tt(b.tk, b.tf)}
-                    </Text>
-                    <Text className="block mt-[6rpx] text-caption text-muted-foreground">
-                      {tt(b.dk, b.df)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-      </View>
+      <SharedVipBenefitScreen
+        t={t}
+        items={items}
+        loading={loading}
+        error={error ? tt('member.benefits.loadFailed', '加载失败') : ''}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        onRetry={load}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }

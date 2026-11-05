@@ -14,7 +14,12 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { BookOpen, Check, Eye, EyeOff } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  createKnowledgeBase,
+  getKnowledgeBase,
+  getKnowledgeBaseCategories,
+  updateKnowledgeBase,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -92,7 +97,7 @@ export default function KnowledgeBaseEditScreen() {
     setCategoriesLoading(true)
     setCategoriesError('')
     try {
-      const res = await fetchApi<{ list: KbCategory[] }>('/api/knowledge-base/categories')
+      const res = await getKnowledgeBaseCategories<KbCategory>()
       if (!res.success) throw new Error(res.error)
       setCategories(res.data?.list ?? [])
     } catch {
@@ -107,9 +112,7 @@ export default function KnowledgeBaseEditScreen() {
     setDetailLoading(true)
     setDetailError('')
     try {
-      const res = await fetchApi<{ item: KbItem }>(
-        `/api/knowledge-base/${encodeURIComponent(editingId)}`,
-      )
+      const res = await getKnowledgeBase<{ item: KbItem }>(editingId)
       if (!res.success) throw new Error(res.error)
       const item = res.data?.item
       if (!item) throw new Error('missing item')
@@ -159,11 +162,8 @@ export default function KnowledgeBaseEditScreen() {
     }
     try {
       const res = editingId
-        ? await fetchApi(`/api/knowledge-base/${encodeURIComponent(editingId)}`, {
-            method: 'PUT',
-            body: JSON.stringify(body),
-          })
-        : await fetchApi('/api/knowledge-base', { method: 'POST', body: JSON.stringify(body) })
+        ? await updateKnowledgeBase<KbItem>(editingId, body)
+        : await createKnowledgeBase<KbItem>(body)
       if (!res.success) throw new Error(res.error)
       navigation.goBack()
     } catch {
@@ -333,7 +333,7 @@ export default function KnowledgeBaseEditScreen() {
                 {saving
                   ? t('knowledgeBaseEdit.submitting')
                   : editingId
-                    ? t('knowledgeBaseEdit.submitSave')
+                    ? t('kbEditPage.submitLabel')
                     : t('knowledgeBaseEdit.submitCreate')}
               </Text>
             </TouchableOpacity>
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
   retryBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
+    paddingHorizontal: rnSpacing['md-loose'],
     paddingVertical: rnSpacing['xs-loose'],
     borderRadius: rnRadius.sm,
     borderWidth: 1,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   retryText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
   card: {
     gap: rnSpacing.md,
-    padding: 14,
+    padding: rnSpacing['md-loose'],
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,

@@ -12,6 +12,7 @@ import { getAgentList } from '@/api'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
+import { onToast } from '@/host/on-toast'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -200,10 +201,10 @@ export default function SpecialModelsPage() {
       if (m.route) {
         Taro.navigateTo({ url: m.route }).catch((e) => {
           logger.error('ai/special', t('aiSpecial.y1', { p1: m.key }), e)
-          Taro.showToast({ title: tt('ai.special.pageError', '操作失败'), icon: 'none' })
+          onToast(tt('ai.special.pageError', '操作失败'), { kind: 'error' })
         })
       } else {
-        Taro.showToast({ title: tt('ai.special.pageError', '操作失败'), icon: 'none' })
+        onToast(tt('ai.special.pageError', '操作失败'), { kind: 'error' })
       }
     },
     [tt],
@@ -211,7 +212,7 @@ export default function SpecialModelsPage() {
 
   const goHistory = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-ai/ai/history' }).catch(() => {
-      Taro.showToast({ title: tt('ai.special.historySoon', '历史记录即将开放'), icon: 'none' })
+      onToast(tt('ai.special.historySoon', '历史记录即将开放'), { kind: 'info' })
     })
   }, [tt])
 
@@ -245,7 +246,7 @@ export default function SpecialModelsPage() {
             color="var(--color-foreground)"
             style={{ display: 'block' }}
           />
-          <Text className="text-[length:26rpx] text-foreground">
+          <Text className="text-body-sm leading-[normal] text-foreground">
             {tt('ai.special.history', '我的使用记录')}
           </Text>
         </View>
@@ -268,7 +269,7 @@ export default function SpecialModelsPage() {
                 <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-muted rounded-xl">
                   <Image src={m.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
-                <Text className="block mt-[12rpx] text-[length:26rpx] text-foreground font-medium max-w-full overflow-hidden ihui-ellipsis whitespace-nowrap">
+                <Text className="block mt-[12rpx] text-body-sm leading-[normal] text-foreground font-medium max-w-full overflow-hidden ihui-ellipsis whitespace-nowrap">
                   {m.name}
                 </Text>
                 <Text className="block mt-[4rpx] text-caption text-[var(--color-text-tertiary)]">
@@ -313,7 +314,7 @@ export default function SpecialModelsPage() {
                   onClick={() => onEnter(m)}
                   hoverClass="opacity-60"
                 >
-                  <Text className="text-[length:26rpx] text-[var(--color-surface-light)] font-semibold">
+                  <Text className="text-body-sm leading-[normal] text-[var(--color-surface-light)] font-semibold">
                     {tt('ai.special.useBtn', '立即使用')}
                   </Text>
                 </View>
@@ -325,9 +326,9 @@ export default function SpecialModelsPage() {
 
       {/* 状态 */}
       {!loading && filtered.length === 0 && !error ? (
-        <View className="flex flex-col items-center py-[80rpx] text-[length:26rpx] text-muted-foreground">
+        <View className="flex flex-col items-center py-[80rpx] text-body-sm leading-[normal] text-muted-foreground">
           <Image src={ICONS.empty} className="w-[80rpx] h-[80rpx] mb-[16rpx]" mode="aspectFit" />
-          <Text className="text-[length:26rpx] text-muted-foreground">
+          <Text className="text-body-sm leading-[normal] text-muted-foreground">
             {tt('ai.special.empty', '暂无内容')}
           </Text>
         </View>
@@ -335,7 +336,7 @@ export default function SpecialModelsPage() {
 
       {error && !loading ? (
         <View
-          className="flex flex-col items-center py-[80rpx] text-[length:26rpx] text-muted-foreground"
+          className="flex flex-col items-center py-[80rpx] text-body-sm leading-[normal] text-muted-foreground"
           onClick={() => void load(true)}
           hoverClass="opacity-60"
         >
@@ -344,23 +345,23 @@ export default function SpecialModelsPage() {
             className="w-[80rpx] h-[80rpx] mb-[16rpx]"
             mode="aspectFit"
           />
-          <Text className="text-[length:26rpx] text-muted-foreground">
+          <Text className="text-body-sm leading-[normal] text-muted-foreground">
             {tt('ai.special.error', '加载失败')}
           </Text>
-          <Text className="mt-[12rpx] text-[length:26rpx] text-primary">
+          <Text className="mt-[12rpx] text-body-sm leading-[normal] text-primary">
             {tt('common.retry', '重试')}
           </Text>
         </View>
       ) : null}
 
       {loading ? (
-        <View className="flex flex-col items-center py-[80rpx] text-[length:26rpx] text-muted-foreground">
+        <View className="flex flex-col items-center py-[80rpx] text-body-sm leading-[normal] text-muted-foreground">
           <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
 
       {!loading && !hasMore && filtered.length > 0 ? (
-        <View className="flex flex-col items-center py-[80rpx] text-[length:26rpx] text-muted-foreground">
+        <View className="flex flex-col items-center py-[80rpx] text-body-sm leading-[normal] text-muted-foreground">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

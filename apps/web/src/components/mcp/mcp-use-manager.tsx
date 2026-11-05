@@ -109,7 +109,7 @@ function StatCard({ title, value, icon: Icon }: StatCardProps) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-display font-bold tracking-tight">{value}</div>
-          <div className="break-words text-xs text-muted-foreground">{title}</div>
+          <div className="break-words text-label text-muted-foreground">{title}</div>
         </div>
       </CardContent>
     </Card>
@@ -183,7 +183,7 @@ export function McpUseManager() {
                   return (
                     <TableRow key={`${u.server}-${u.tool}`}>
                       <TableCell className="font-medium">{u.server}</TableCell>
-                      <TableCell className="font-mono text-xs">{u.tool}</TableCell>
+                      <TableCell className="font-mono text-label">{u.tool}</TableCell>
                       <TableCell className="text-right">{u.calls}</TableCell>
                       <TableCell className="text-right">
                         <span

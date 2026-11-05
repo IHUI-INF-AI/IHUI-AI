@@ -114,7 +114,7 @@ export function CheckpointRollbackConfirm({
 
         <div className="min-h-0 flex-1 overflow-auto">
           {loading && (
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 py-8 text-body text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               <span>{t('rollbackConfirmLoading')}</span>
             </div>
@@ -130,7 +130,7 @@ export function CheckpointRollbackConfirm({
               <p className="text-body font-medium text-destructive">
                 {t('rollbackUnavailableTitle')}
               </p>
-              <p className="text-xs text-destructive">{t('rollbackUnavailableDesc')}</p>
+              <p className="text-label text-destructive">{t('rollbackUnavailableDesc')}</p>
               <p className="text-[11px] text-muted-foreground">{error}</p>
               <Button
                 variant="outline"
@@ -146,13 +146,13 @@ export function CheckpointRollbackConfirm({
             <div className="space-y-2">
               {prepared && prepared.display.length > 0 ? (
                 <>
-                  <p className="text-xs text-muted-foreground">{t('rollbackConfirmDesc')}</p>
+                  <p className="text-label text-muted-foreground">{t('rollbackConfirmDesc')}</p>
                   {prepared.display.map((f) => {
                     const isOpen = expanded.has(f.path)
                     return (
                       <div key={f.path} className="rounded-md border bg-muted/30 p-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                          <span className="min-w-0 flex-1 truncate font-mono text-label">
                             {f.path}
                           </span>
                           <Badge className="border-transparent bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15">
@@ -164,7 +164,7 @@ export function CheckpointRollbackConfirm({
                           <Button
                             variant="ghost"
                             size="xs"
-                            className="px-2 text-xs text-muted-foreground hover:text-primary"
+                            className="px-2 text-label text-muted-foreground hover:text-primary"
                             onClick={() => toggle(f.path)}
                           >
                             <ChevronDown
@@ -206,13 +206,13 @@ export function CheckpointRollbackConfirm({
                     )
                   })}
                   {prepared.truncated && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-label text-muted-foreground">
                       {t('rollbackConfirmMoreFiles', { count: prepared.remaining })}
                     </p>
                   )}
                 </>
               ) : (
-                <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <p className="rounded-md border bg-muted/30 px-3 py-2 text-label text-muted-foreground">
                   {t('rollbackConfirmNoFiles', { count: impact.restored_message_count })}
                 </p>
               )}

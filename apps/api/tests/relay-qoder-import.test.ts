@@ -209,6 +209,21 @@ describe('Qoder 导入映射', () => {
 // buildQoderImportAccount / extractAccountsFromJson 是脚本导出的纯函数,
 // 不依赖 DB / 网络,这里只测形状与兜底逻辑。
 import { buildQoderImportAccount, extractAccountsFromJson } from '../scripts/relay-import-qoder.js'
+import type { QoderSession } from '../scripts/relay-import-qoder.js'
+
+/**
+ * 原生会话导出格式的输入形状:buildQoderImportAccount 运行时除 QoderSession 外
+ * 还接受 `token`(accessToken 别名)与内联 `user{id,name,phone,email}`,
+ * 这两个键类型面未声明(生产 scripts 不改),测试侧在此显式补上并要求调用它。
+ */
+type NativeQoderSession = QoderSession & {
+  token?: string
+  user?: Record<string, unknown>
+}
+
+function buildFromNative(s: NativeQoderSession) {
+  return buildQoderImportAccount(s)
+}
 
 describe('relay-import-qoder 纯函数', () => {
   describe('extractAccountsFromJson', () => {
@@ -272,7 +287,7 @@ describe('relay-import-qoder 纯函数', () => {
       expect(a.name).toBe('15330637579')
     })
     it('原生导出(token 别名 + 内联 user{id,name,phone})正确提取', () => {
-      const a = buildQoderImportAccount({
+      const a = buildFromNative({
         token: 'a2',
         refreshToken: 'r2',
         expiresAt: '2026-11-21T11:38:26Z',
@@ -288,19 +303,19 @@ describe('relay-import-qoder 纯函数', () => {
       expect(buildQoderImportAccount({} as never)).toBeNull()
     })
     it('name 统一取手机号(无平台前缀),取不到才走兜底链', () => {
-      expect(buildQoderImportAccount({ token: 't', phone: '138' })!.name).toBe('138')
-      expect(buildQoderImportAccount({ token: 't', phone: '138', nickname: 'nn' })!.name).toBe(
+      expect(buildFromNative({ token: 't', phone: '138' })!.name).toBe('138')
+      expect(buildFromNative({ token: 't', phone: '138', nickname: 'nn' })!.name).toBe(
         '138',
       )
-      expect(buildQoderImportAccount({ token: 't', nickname: 'nn' })!.name).toBe('nn')
-      expect(buildQoderImportAccount({ token: 't', name: 'nm' })!.name).toBe('nm')
-      expect(buildQoderImportAccount({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe(
+      expect(buildFromNative({ token: 't', nickname: 'nn' })!.name).toBe('nn')
+      expect(buildFromNative({ token: 't', name: 'nm' })!.name).toBe('nm')
+      expect(buildFromNative({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe(
         'abc',
       )
-      expect(buildQoderImportAccount({ token: 't', uid: '0123456789abcdef' })!.name).toBe(
+      expect(buildFromNative({ token: 't', uid: '0123456789abcdef' })!.name).toBe(
         '01234567',
       )
-      expect(buildQoderImportAccount({ token: 't' })!.name).toBe('未知号')
+      expect(buildFromNative({ token: 't' })!.name).toBe('未知号')
     })
   })
 

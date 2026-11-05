@@ -90,11 +90,11 @@ export function SpaceMembersPanel({ space }: { space: KnowledgeSpaceDTO }) {
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-2">
-        <CardTitle className="text-sm">{t('membersTitle')}</CardTitle>
+        <CardTitle className="text-body">{t('membersTitle')}</CardTitle>
         {loading && <Loader2 className="size-4 animate-spin" />}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+        {error && <span className="text-body text-red-600 dark:text-red-400">{error}</span>}
         {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <Input
@@ -117,13 +117,13 @@ export function SpaceMembersPanel({ space }: { space: KnowledgeSpaceDTO }) {
           </div>
         )}
         {members.length === 0 && !loading ? (
-          <div className="text-muted-foreground text-sm">{t('emptyMembers')}</div>
+          <div className="text-muted-foreground text-body">{t('emptyMembers')}</div>
         ) : (
           <div className="flex flex-col gap-1">
             {members.map((m) => (
               <div key={m.userId} className="bg-muted/40 flex items-center gap-2 rounded px-3 py-2">
-                <span className="flex-1 truncate text-xs font-mono">{m.userId}</span>
-                <span className="bg-background rounded px-2 py-0.5 text-xs">
+                <span className="flex-1 truncate text-label font-mono">{m.userId}</span>
+                <span className="bg-background rounded px-2 py-0.5 text-label">
                   {t(`role.${m.role}`)}
                 </span>
                 {canManage && (

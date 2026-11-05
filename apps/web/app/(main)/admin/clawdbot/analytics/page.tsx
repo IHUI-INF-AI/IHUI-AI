@@ -115,7 +115,7 @@ export default function ClawdbotAnalyticsPage() {
             <c.icon className={cn('h-4 w-4 shrink-0', c.cls)} />
             <div className="min-w-0">
               <p className="truncate text-base font-semibold">{c.value}</p>
-              <p className="truncate text-xs text-muted-foreground">{c.label}</p>
+              <p className="truncate text-label text-muted-foreground">{c.label}</p>
             </div>
           </div>
         ))}
@@ -125,12 +125,12 @@ export default function ClawdbotAnalyticsPage() {
         <div className="rounded-lg border bg-card p-3">
           <p className="mb-3 text-body font-medium">热门意图</p>
           {summary.topIntents.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无数据</p>
+            <p className="text-body text-muted-foreground">暂无数据</p>
           ) : (
             <div className="space-y-2">
               {summary.topIntents.map((item) => (
                 <div key={item.intent} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-label">
                     <span>{item.intent}</span>
                     <span className="text-muted-foreground">{item.count}</span>
                   </div>
@@ -149,12 +149,12 @@ export default function ClawdbotAnalyticsPage() {
         <div className="rounded-lg border bg-card p-3">
           <p className="mb-3 text-body font-medium">Bot 调用量</p>
           {summary.callsByBot.length === 0 ? (
-            <p className="text-sm text-muted-foreground">暂无数据</p>
+            <p className="text-body text-muted-foreground">暂无数据</p>
           ) : (
             <div className="space-y-2">
               {summary.callsByBot.map((item) => (
                 <div key={item.botId} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-label">
                     <span className="min-w-0 flex-1 truncate">{item.botId}</span>
                     <span className="text-muted-foreground">{item.count}</span>
                   </div>

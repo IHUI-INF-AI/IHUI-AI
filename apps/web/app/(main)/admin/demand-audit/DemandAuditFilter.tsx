@@ -17,9 +17,9 @@ export function DemandAuditFilter({ value, onChange }: DemandAuditFilterProps) {
     <div className="grid grid-cols-2 gap-2 rounded-lg border p-3 min-[640px]:grid-cols-4">
       {SEARCH_FIELDS.map((f) => (
         <div key={f.key}>
-          <Label className="text-xs">{f.label}</Label>
+          <Label className="text-label">{f.label}</Label>
           <Input
-            className="mt-1 h-8 text-sm"
+            className="mt-1 h-8 text-body"
             value={value[f.key] ?? ''}
             onChange={(e) => onChange({ ...value, [f.key]: e.target.value })}
             placeholder={f.label}

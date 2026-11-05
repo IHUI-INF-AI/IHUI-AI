@@ -24,6 +24,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from app.services import checkin_store
 
 
@@ -127,4 +129,103 @@ def test_callers_do_not_regress_to_isoformat_str():
         assert (
             ".date().isoformat()" not in src
         ), f"{rel} 回退成 .date().isoformat() 产 str ⇒ 2026-10-17 的 500 回归"
+
+
+# ---------------------------------------------------------------------------
+# 2026-11-03 号池同名冲突:确定性后缀建行(反向例:撤掉则 ValueError 复现)
+# ---------------------------------------------------------------------------
+
+
+def test_pool_conflict_alias_is_deterministic_and_tail_based():
+    alias = checkin_store.pool_conflict_alias("minimax:cn", "abcdef1234567890")
+    assert alias == "minimax:cn · 34567890"
+    assert checkin_store.pool_conflict_alias("minimax:cn", "abcdef1234567890") == alias
+    assert checkin_store.pool_conflict_alias("minimax:cn", "") is None
+
+
+class _DupKeyError(Exception):
+    sqlstate = "23505"
+
+
+class _CreateConn:
+    """身份查询 → None;INSERT → 23505;别名 INSERT → 成功。"""
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.inserted_names: list[str] = []
+
+    async def fetchrow(self, _sql: str, *args: object) -> dict[str, object] | None:
+        self.calls += 1
+        if self.calls == 1:
+            return None
+        if self.calls == 2:
+            raise _DupKeyError("duplicate key value violates unique constraint")
+        self.inserted_names.append(str(args[1]))
+        return {
+            "id": 7,
+            "owner_user_id": args[0],
+            "name": args[1],
+            "device_map": {},
+            "enabled": True,
+            "account_group": args[4],
+            "platform": args[5],
+            "created_at": None,
+            "updated_at": None,
+        }
+
+
+def _fake_pool_factory(conn: _CreateConn):
+    class _Pool:
+        def acquire(self):
+            class _Ctx:
+                async def __aenter__(self):
+                    return conn
+
+                async def __aexit__(self, *_a: object) -> bool:
+                    return False
+
+            return _Ctx()
+
+    async def _pool():
+        return _Pool()
+
+    return _pool
+
+
+async def test_create_account_pool_conflict_falls_back_to_alias(monkeypatch):
+    conn = _CreateConn()
+    monkeypatch.setattr(checkin_store, "get_shared_pool", _fake_pool_factory(conn))
+    monkeypatch.setattr(checkin_store, "_encrypt_jwt", lambda _jwt: "enc")
+    monkeypatch.setattr(checkin_store, "_account_row", lambda row: dict(row))
+
+    row = await checkin_store.create_account(
+        "system:relay-pool",
+        "minimax:cn",
+        "",
+        {"pool_uid": "abcdef1234567890"},
+        "pool",
+        "trae",
+    )
+    assert row["name"] == "minimax:cn · 34567890"
+    assert conn.inserted_names == ["minimax:cn · 34567890"]
+    assert conn.calls == 3
+
+
+async def test_create_account_user_group_conflict_still_raises(monkeypatch):
+    """用户手工录入语义不变:同名仍抛 ValueError(反向例)。"""
+    conn = _CreateConn()
+    monkeypatch.setattr(checkin_store, "get_shared_pool", _fake_pool_factory(conn))
+    monkeypatch.setattr(checkin_store, "_encrypt_jwt", lambda _jwt: "enc")
+
+    with pytest.raises(ValueError, match="账号名已存在"):
+        await checkin_store.create_account(
+            "user-1",
+            "手工号",
+            "",
+            {"pool_uid": "abcdef1234567890"},
+            "",
+            "trae",
+        )
+    assert conn.calls == 2
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

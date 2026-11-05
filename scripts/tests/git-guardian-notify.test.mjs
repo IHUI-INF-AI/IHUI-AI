@@ -43,7 +43,18 @@ function harness(dispatchImpl) {
     lines,
     stateFile: join(dir, 'state.json'),
     undelFile: join(dir, 'UNDELIVERED.json'),
-    opts: { dispatch, stateFile: join(dir, 'state.json'), undelFile: join(dir, 'UNDELIVERED.json'), logger: (l) => lines.push(l) },
+    opts: {
+      dispatch,
+      stateFile: join(dir, 'state.json'),
+      undelFile: join(dir, 'UNDELIVERED.json'),
+      logger: (l) => lines.push(l),
+      // 本文件钉的是**默认窗口**的去重契约(4h / 30min 退避 / 同类间隔)。生产降噪策略表
+      // (`scripts/data/alert-delivery-policy.json`)会把某些告警族拉到 8h/24h,若这里读生产表,
+      // 策略表一改就红在本文件 —— 红的不是产品而是夹具。注入不存在路径 ⇒ loadAlertDeliveryPolicy
+      // 读不到即 `{entries:[]}`,回到默认窗口。策略表自身行为由 alert-delivery-policy /
+      // alert-family-gate 两套测试覆盖,不在本文件重复。
+      policyFile: join(dir, 'no-such-policy.json'),
+    },
   }
 }
 
@@ -311,6 +322,29 @@ test('显式开关只关"要不要发"(GIT_GUARDIAN_NOTIFY_DISABLED),不存在�
   assert.equal(h.calls.length, 1, '开关解除后立即恢复投递(默认面零封顶,第 4 封照发)')
   const more = N.notifyGuardRed('恢复源刷新失败', 'exit 1', { ...h.opts, now: 25 * WINDOW })
   assert.equal(more.sent, true, '跨天继续按窗口重发 ⇒ 不存在"每日 N 封"计数闸')
+  rmScratch(h.dir)
+})
+
+test('同类最小间隔(GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS):同一类名在间隔内即便详情指纹变了也压住;跨过间隔再发', () => {
+  const keep = process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS
+  const h = harness()
+  try {
+    process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS = '600000' // 10 分钟
+    const r1 = N.notifyGuardRed('盘根外流', '清单: A', { ...h.opts, now: 0 })
+    assert.equal(r1.sent, true, '首报必须发')
+    // 详情指纹变了(清单换 B),仍在 10 分钟内 ⇒ 被同类间隔压住(止住"27 封同因告警"那型轰炸)
+    const r2 = N.notifyGuardRed('盘根外流', '清单: B', { ...h.opts, now: 60_000 })
+    assert.equal(r2.sent, false, '同类 10 分钟内即便详情变了也压住')
+    assert.equal(r2.suppressed, true)
+    assert.equal(h.calls.length, 1, '间隔内不重复派发')
+    // 跨过 10 分钟间隔 ⇒ 再发(用不同指纹模拟"新一轮"),不得静音
+    const r3 = N.notifyGuardRed('盘根外流', '清单: C', { ...h.opts, now: 600_001 })
+    assert.equal(r3.sent, true, '跨过同类间隔必须再发,否则真故障被压成静音')
+    assert.equal(h.calls.length, 2)
+  } finally {
+    if (keep === undefined) delete process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS
+    else process.env.GIT_GUARDIAN_NOTIFY_CLASS_MIN_MS = keep
+  }
   rmScratch(h.dir)
 })
 

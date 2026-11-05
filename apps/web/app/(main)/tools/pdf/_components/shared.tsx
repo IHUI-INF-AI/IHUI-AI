@@ -16,13 +16,13 @@ export function ToolHeader({ title, description }: { title: string; description:
     <header className="space-y-2">
       <Link
         href="/tools/pdf"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         PDF 工具
       </Link>
       <h1 className="text-display font-bold tracking-tight">{title}</h1>
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <p className="text-label text-muted-foreground">{description}</p>
     </header>
   )
 }
@@ -68,7 +68,7 @@ export function UploadArea({
         }
       }}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground transition-colors hover:bg-accent/50',
+        'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground transition-colors hover:bg-accent/50',
         dragging && 'border-brand-accent-deep bg-primary/5 text-primary',
       )}
     >

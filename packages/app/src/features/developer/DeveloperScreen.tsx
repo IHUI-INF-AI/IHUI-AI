@@ -62,7 +62,7 @@ function buildInfoRows(
   const rows: InfoRowSpec[] = []
   if (info.application) {
     const { name, description, status } = info.application
-    rows.push({ label: t('developerInfo.nameLabel'), value: name || EMPTY_PLACEHOLDER })
+    rows.push({ label: t('developer.settings.infoName'), value: name || EMPTY_PLACEHOLDER })
     if (description) {
       rows.push({ label: t('developerInfo.descLabel'), value: description, lines: 2 })
     }
@@ -72,7 +72,7 @@ function buildInfoRows(
   rows.push(
     { label: t('developerInfo.accountLabel'), value: info.account || EMPTY_PLACEHOLDER },
     {
-      label: t('developerInfo.apiKeyLabel'),
+      label: t('developerHomePage.statApiKeys'),
       value:
         info.apiKeyCount > 0
           ? t('developerInfo.apiKeyCount', { count: info.apiKeyCount })
@@ -136,7 +136,7 @@ export function DeveloperScreen({
       {/* ② 开发者信息卡(行表驱动) */}
       {rows ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>{t('developerInfo.title')}</Text>
+          <Text style={styles.infoTitle}>{t('developer.settings.infoTitle')}</Text>
           {rows.map((row) => (
             <InfoRow key={row.label} styles={styles} {...row} />
           ))}

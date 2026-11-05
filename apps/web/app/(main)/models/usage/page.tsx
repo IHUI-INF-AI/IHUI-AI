@@ -100,7 +100,7 @@ function TrendChart({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <BarChart3 className="mb-2 h-8 w-8 text-muted-foreground/40" />
-        <p className="text-xs text-muted-foreground">{t('usage.chart.noData')}</p>
+        <p className="text-label text-muted-foreground">{t('usage.chart.noData')}</p>
       </div>
     )
   }
@@ -251,7 +251,7 @@ function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) 
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-destructive" />
         <p className="mb-1 text-body font-medium">{error}</p>
-        <p className="mb-4 text-xs text-muted-foreground">数据加载失败，请稍后重试</p>
+        <p className="mb-4 text-label text-muted-foreground">数据加载失败，请稍后重试</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
           重试
@@ -269,7 +269,7 @@ function EmptyState({ t }: { t: ReturnType<typeof useTranslations> }) {
       <BackButton />
       <div className="flex flex-col items-center justify-center rounded-lg border border-border/60 bg-card py-16 text-center">
         <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t('usage.chart.noData')}</p>
+        <p className="text-body text-muted-foreground">{t('usage.chart.noData')}</p>
       </div>
     </div>
   )
@@ -409,8 +409,8 @@ export default function UsagePage() {
                 </div>
                 <div className="mt-3 text-display font-bold tracking-tight">{s.value}</div>
                 <div className="mt-0.5 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{s.label}</span>
-                  <span className="text-xs text-muted-foreground">{s.sub}</span>
+                  <span className="text-label text-muted-foreground">{s.label}</span>
+                  <span className="text-label text-muted-foreground">{s.sub}</span>
                 </div>
               </CardContent>
             </Card>
@@ -442,13 +442,13 @@ export default function UsagePage() {
           {models.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <BarChart3 className="mb-2 h-6 w-6 text-muted-foreground/40" />
-              <p className="text-xs text-muted-foreground">{t('usage.chart.noData')}</p>
+              <p className="text-label text-muted-foreground">{t('usage.chart.noData')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-body">
                 <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
+                  <tr className="text-left text-label text-muted-foreground">
                     <th className="px-4 py-2 font-medium">{t('usage.byModel.model')}</th>
                     <th className="px-4 py-2 font-medium">{t('usage.byModel.calls')}</th>
                     <th className="px-4 py-2 font-medium">{t('usage.byModel.tokens')}</th>
@@ -458,7 +458,7 @@ export default function UsagePage() {
                 </thead>
                 <tbody>
                   {models.map((m) => (
-                    <tr key={m.model} className="text-xs hover:bg-muted/30">
+                    <tr key={m.model} className="text-label hover:bg-muted/30">
                       <td className="px-4 py-2.5 font-medium">{m.model}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
                         {m.calls.toLocaleString()}

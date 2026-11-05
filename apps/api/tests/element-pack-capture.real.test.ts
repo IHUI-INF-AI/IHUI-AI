@@ -40,10 +40,12 @@ describe('element-pack 暂存表 — 真实 DB 集成测试(D64⑤)', () => {
         nickname: 'D64元素包测试用户',
       })
       .returning()
+    if (!u) throw new Error('element-pack-capture.real.test.ts: 插入未返回行(u)')
     const [c] = await db
       .insert(chatConversations)
       .values({ userId: u!.id, title: 'D64元素包测试会话' })
       .returning()
+    if (!c) throw new Error('element-pack-capture.real.test.ts: 插入未返回行(c)')
     conversationId = c!.id
   })
 

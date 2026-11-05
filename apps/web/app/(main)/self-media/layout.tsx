@@ -28,7 +28,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+        <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
       <nav className="flex items-center gap-1 pb-2">
         {TABS.map((tab) => {
@@ -39,7 +39,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
               key={tab.href}
               href={tab.href}
               className={cn(
-                'inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition-colors',
+                'inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-body transition-colors',
                 active
                   ? 'border-brand-accent-deep text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',

@@ -89,12 +89,12 @@ export function CommunityPublishDialog({
           <div className="space-y-2">
             <Label htmlFor="cp-circle">{t('communityPublishCircle')}</Label>
             {loadingCircles ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-body text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>{t('communityPublishLoading')}</span>
               </div>
             ) : circles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('communityPublishNoCircles')}</p>
+              <p className="text-body text-muted-foreground">{t('communityPublishNoCircles')}</p>
             ) : (
               <Select value={circleId} onValueChange={setCircleId}>
                 <SelectTrigger id="cp-circle">
@@ -120,7 +120,7 @@ export function CommunityPublishDialog({
             />
           </div>
           {images.length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-label text-muted-foreground">
               <ImageIcon className="h-3.5 w-3.5" />
               <span>{t('communityPublishImagesCount', { count: images.length })}</span>
             </div>

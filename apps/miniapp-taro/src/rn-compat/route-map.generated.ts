@@ -5,9 +5,11 @@
 /**
  * ⚠️ 生成物,请勿手改 —— 重新生成:`node scripts/gen-rn-compat.mjs --write`
  *
- * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对,
- * 两条现读事实 join(取名规则猜路径必然漂移)。不在表里的路由名 = 小程序端尚无对应页,
- * 由 rn-compat/navigation 运行时点名"这一跳未执行",绝不跳到一个像的名字上去。
+ * RN 路由名 → 小程序页面路径。判据 = RN 导航器的 Screen 登记 ∪ 跨端登记表的 rn↔miniapp 对
+ * ∪ RN 独有屏的补充声明(scripts/data/rn-route-supplement.json,逐条核「声明的壳文件是否真是
+ * 导航器挂的那个」与「小程序页是否真在盘上」),三处现读事实 join(取名规则猜路径必然漂移)。
+ * 不在表里的路由名 = 小程序端尚无对应页,由 rn-compat/navigation 运行时点名"这一跳未执行",
+ * 绝不跳到一个像的名字上去。
  */
 export const RN_ROUTE_MAP: Record<string, string> = {
   AIMultimodal: '/pkg-user/ai-multimodal/index',
@@ -27,8 +29,6 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   AgentStat: '/pkg-user/agent-stat/index',
   Agreement: '/pkg-about/about/agreement/index',
   AiAssistant: '/pkg-ai/ai-assistant/index',
-  AiAssistantN8n: '/pkg-mirror/ai-assistant-n8n/index',
-  AiCareer: '/pkg-ai/ai-career/index',
   AiGroup: '/pkg-mirror/ai-group/index',
   AiMain: '/pkg-ai/ai/agent',
   AiSkill: '/pkg-ai/ai-skill/index',
@@ -95,6 +95,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   CourseQAList: '/pkg-mirror/course-qa-list/index',
   CourseResource: '/pkg-mirror/course-resource/index',
   CustomerService: '/pkg-mirror/customer-service/index',
+  DevEnter: '/pkg-ai/developer/index',
   DevEnterCover: '/pkg-ai/dev-enter/cover/index',
   Developer: '/pkg-ai/dev-space/index',
   Distribution: '/pages/distribution/index',
@@ -107,6 +108,7 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   EduShop: '/pkg-shop/edu-shop/index',
   EduTeacherStudyPlan: '/pkg-user/edu-teacher-study-plan/index',
   Exam: '/pages/exam/list',
+  ExamDetail: '/pages/exam/result',
   ExamHistory: '/pkg-mirror/exam-history/index',
   ExamQuestion: '/pages/exam/answer',
   ExamResult: '/pages/exam/result',
@@ -163,7 +165,6 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   ModelIncome: '/pkg-ai/developer/income',
   ModelPlaza: '/pkg-ai/model-plaza/index',
   ModelRecord: '/pkg-about/about/model-record/index',
-  MoreCourse: '/pkg-mirror2/more-course/index',
   MyAgents: '/pkg-user/my-agents/index',
   MyComments: '/pkg-mirror2/my-comments/index',
   MyLessons: '/pkg-mirror2/my-lessons/index',
@@ -262,7 +263,9 @@ export const RN_ROUTE_MAP: Record<string, string> = {
   VipCompare: '/pkg-shop/vip/details',
   VipLevel: '/pkg-mirror3/vip-level/index',
   VipTrader: '/pkg-shop/vip-trader/index/index',
+  VipUpgrade: '/pkg-mirror3/vip-level/index',
   Wallet: '/pkg-shop/wallet/index',
+  WebView: '/pages/webview/index',
   Withdraw: '/pages/distribution/withdraw',
   WorkflowDetail: '/pkg-mirror3/workflow-detail/index',
   WorkflowInstanceDetail: '/pkg-mirror3/workflow-instance-detail/index',

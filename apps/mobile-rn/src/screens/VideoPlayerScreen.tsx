@@ -22,6 +22,7 @@ import {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { VideoPlayer } from '../components/VideoPlayer'
+import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'VideoPlayer'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'VideoPlayer'>
@@ -56,6 +57,12 @@ const WATCH_DELTA_CAP_SECONDS = 60
  *  - 完成:服务端**没有**完成端点,唯一判据是心跳里的自动完成
  *    (进度 ≥90% 且观看 ≥ 总时长 90%,learn-record-queries.ts checkAutoComplete)。
  *    所以「标记完成」= 心跳把 position 推到小节末尾 + 把观看时长补足 90% 门槛。
+ *
+ *  平台差异(nav-B 登记,不静默丢弃):全屏/横屏由 react-native-video 内置
+ *  presentFullscreenPlayer() 承担(iOS 原生全屏 / Android 全屏 Activity),
+ *  onFullscreenPlayerDidPresent/Dismiss 回写状态;共享屏与导航端口均不承载此能力。
+ *  owner: mobile-rn-video;expires: 2027-01-31;
+ *  evidence: components/VideoPlayer.tsx 全屏切换段 + tests/video-immersive-band.test.tsx。
  */
 export function VideoPlayerScreen() {
   const { resolvedTheme } = useTheme()
@@ -255,6 +262,8 @@ export function VideoPlayerScreen() {
     }
   }, [progress, sections, sectionStatus, lessonId, courseId])
 
+  const { onNavigate } = useHostPorts()
+
   return (
     <SharedVideoPlayerScreen
       t={t}
@@ -280,6 +289,7 @@ export function VideoPlayerScreen() {
         ) : undefined
       }
       colorScheme={resolvedTheme}
+      onNavigate={onNavigate}
     />
   )
 }

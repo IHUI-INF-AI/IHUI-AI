@@ -108,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
     content: { flexGrow: 1 },
     title: {
       marginTop: rnSpacing.sm,
-      fontSize: 22,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
@@ -122,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
-      paddingVertical: 14,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -132,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     createBtn: {
       marginTop: rnSpacing.lg,
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
@@ -157,7 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     cardValue: { marginTop: rnSpacing.sm, fontSize: rnType.title.size, color: tk.text.primary },
     shareBtnWrap: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.md },
     shareBtn: {
-      paddingVertical: 15,
+      paddingVertical: rnSpacing['md-loose'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',

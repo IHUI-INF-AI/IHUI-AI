@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePwdScreenProps, TFunction } from '../../types'
@@ -10,6 +10,7 @@ import type { ChangePwdScreenProps, TFunction } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { assertRequiredPort } from '../../host/ports'
 
 /** 修改密码/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ChangePwdScreenProps }
@@ -38,9 +39,26 @@ export function ChangePwdScreen({
   onToggleConfirm,
   onSubmit,
   colorScheme = 'light',
+  submitLabel,
+  onForgotOld,
+  forgotLabel,
+  newPwdError,
+  confirmPwdError,
+  inputMaxLength,
+  errorVisibility = 'on-change',
+  onNavigate,
+  onToast,
 }: ChangePwdScreenProps) {
+  assertRequiredPort('onNavigate', onNavigate)
+  assertRequiredPort('onToast', onToast)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  // 错误显示时机:缺省 'on-change'(web/RN 与小程序原页都是这个语义);
+  // 'on-submit' 只在首次点提交后放行,不靠宿主自己抹 props 猜时机。
+  const [submitAttempted, setSubmitAttempted] = useState(false)
+  const showErrors = errorVisibility === 'on-change' || submitAttempted
 
   return (
     <View style={styles.container}>
@@ -59,6 +77,7 @@ export function ChangePwdScreen({
           styles={styles}
           t={t}
           colorScheme={colorScheme}
+          maxLength={inputMaxLength}
         />
         <PwdInput
           label={t('settings.newPassword') || '新密码'}
@@ -70,6 +89,8 @@ export function ChangePwdScreen({
           styles={styles}
           t={t}
           colorScheme={colorScheme}
+          maxLength={inputMaxLength}
+          error={showErrors ? newPwdError : undefined}
         />
         <PwdInput
           label={t('settings.confirmPassword') || '确认新密码'}
@@ -81,16 +102,33 @@ export function ChangePwdScreen({
           styles={styles}
           t={t}
           colorScheme={colorScheme}
+          maxLength={inputMaxLength}
+          error={showErrors ? confirmPwdError : undefined}
         />
+        {onForgotOld ? (
+          <TouchableOpacity
+            style={styles.forgotRow}
+            activeOpacity={0.7}
+            onPress={onForgotOld}
+            accessibilityRole="button"
+          >
+            <Text style={styles.forgotText}>{forgotLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitDisabled]}
           activeOpacity={0.7}
           disabled={submitting}
-          onPress={onSubmit}
+          onPress={() => {
+            setSubmitAttempted(true)
+            onSubmit()
+          }}
           accessibilityRole="button"
         >
           <Text style={styles.submitText}>
-            {submitting ? t('common.submitting') || '提交中...' : t('common.confirm') || '确定'}
+            {submitting
+              ? t('common.submitting') || '提交中...'
+              : submitLabel || t('common.confirm') || '确定'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -108,6 +146,10 @@ interface PwdInputProps {
   styles: ReturnType<typeof createStyles>
   t: TFunction
   colorScheme: 'light' | 'dark'
+  /** 字段内联校验提示(缺省不渲染) */
+  error?: string
+  /** 输入框最大长度(缺省不限制,透传给原生 TextInput) */
+  maxLength?: number
 }
 
 function PwdInput({
@@ -120,6 +162,8 @@ function PwdInput({
   styles,
   t,
   colorScheme,
+  error,
+  maxLength,
 }: PwdInputProps) {
   return (
     <View style={styles.field}>
@@ -135,6 +179,7 @@ function PwdInput({
           placeholderTextColor={tokens.text.tertiary}
           autoCapitalize="none"
           autoCorrect={false}
+          maxLength={maxLength}
         />
         <TouchableOpacity style={styles.eyeBtn} onPress={onToggle} hitSlop={8}>
           <Text style={styles.eyeText}>
@@ -142,6 +187,7 @@ function PwdInput({
           </Text>
         </TouchableOpacity>
       </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   )
 }
@@ -157,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    body: { padding: 14, gap: rnSpacing.md },
+    body: { padding: rnSpacing['md-loose'], gap: rnSpacing.md },
     field: { gap: rnSpacing['xs-loose'] },
     label: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {
@@ -176,6 +222,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     eyeBtn: { paddingVertical: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     eyeText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    fieldError: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT },
+    forgotRow: { alignItems: 'flex-end', paddingVertical: rnSpacing.xs },
+    forgotText: { fontSize: rnType.body.size, color: tk.brandAccent.DEFAULT },
     submitBtn: {
       marginTop: rnSpacing.sm,
       backgroundColor: tk.brand.cta,

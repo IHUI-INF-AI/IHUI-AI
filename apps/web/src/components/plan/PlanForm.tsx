@@ -107,7 +107,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-body text-destructive">
           {error}
         </div>
       )}
@@ -228,15 +228,15 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                 onChange={(e) => updateStep(i, { description: e.target.value })}
                 placeholder="步骤描述(可选)"
                 rows={2}
-                className={cn(textareaClass, 'text-xs')}
+                className={cn(textareaClass, 'text-label')}
               />
-              <div className="flex flex-wrap items-center gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-3 text-label">
                 <label className="inline-flex items-center gap-1.5">
                   <span className="text-muted-foreground">状态</span>
                   <select
                     value={step.status}
                     onChange={(e) => updateStep(i, { status: e.target.value as PlanStepStatus })}
-                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-xs outline-none"
+                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-label outline-none"
                   >
                     {PLAN_STEP_STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -250,7 +250,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                   <select
                     value={step.priority}
                     onChange={(e) => updateStep(i, { priority: e.target.value as PlanPriority })}
-                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-xs outline-none"
+                    className="rounded-sm border border-input bg-background px-1.5 py-0.5 text-label outline-none"
                   >
                     {PLAN_PRIORITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -263,7 +263,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
             </div>
           ))}
           {steps.length === 0 && (
-            <div className="rounded-md border border-dashed py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-md border border-dashed py-6 text-center text-body text-muted-foreground">
               暂无步骤,点击"添加步骤"开始规划
             </div>
           )}

@@ -16,6 +16,7 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
+import { assertRequiredPort } from '../../host/ports'
 
 export type { ExamQuestionItem, ExamQuestionPaper, ExamQuestionScreenProps }
 
@@ -46,8 +47,12 @@ export function ExamQuestionScreen({
   onNext,
   onSubmit,
   onBack,
+  onRetry,
   colorScheme = 'light',
-}: ExamQuestionScreenProps) {
+  onNavigate,
+}: ExamQuestionScreenProps & { onRetry?: () => void }) {
+  assertRequiredPort('onNavigate', onNavigate)
+
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 必须排在条件 return 之前:输入框聚焦态是 Hook,放到下面会变成条件调用
@@ -65,7 +70,7 @@ export function ExamQuestionScreen({
     return (
       <ErrorState
         message={error || t('examQuestion.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -77,7 +82,7 @@ export function ExamQuestionScreen({
     return (
       <ErrorState
         message={t('examQuestion.loadFailed')}
-        onRetry={onBack}
+        onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}
       />
@@ -181,7 +186,7 @@ export function ExamQuestionScreen({
           onPress={onPrev}
           disabled={current === 0}
         >
-          <Text style={styles.navText}>{t('examQuestion.prev')}</Text>
+          <Text style={styles.navText}>{t('eduExamPage.prevQuestion')}</Text>
         </Tappable>
         {isLast ? (
           <Tappable
@@ -193,7 +198,7 @@ export function ExamQuestionScreen({
           </Tappable>
         ) : (
           <Tappable style={styles.navBtn} onPress={onNext}>
-            <Text style={styles.navText}>{t('examQuestion.next')}</Text>
+            <Text style={styles.navText}>{t('eduExamPage.nextQuestion')}</Text>
           </Tappable>
         )}
       </View>
@@ -261,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.lg,
     },
     option: {
-      padding: 14,
+      padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,

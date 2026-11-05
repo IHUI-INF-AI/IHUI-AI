@@ -31,6 +31,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
+/**
+ * 必填环境变量:缺失即 exit 2(2026-11-01)。
+ * 原先 `process.env.DATABASE_URL || '<内置开发库连接串>'` 让开发库口令随仓库分发。
+ */
+function requireEnv(name) {
+  const value = (process.env[name] ?? '').trim()
+  if (!value) {
+    console.error(`❌ 缺少环境变量 ${name}:请显式配置后再运行(拒绝使用内置默认连接串)。`)
+    process.exit(2)
+  }
+  return value
+}
+
 const API_BASE = process.env.API_BASE || 'http://127.0.0.1:8802'
 const ISSUER = 'ihui-ai'
 const AUDIENCE = 'ihui-ai-users'
@@ -81,10 +94,7 @@ async function main() {
     const { default: postgres } = await import(
       `file://${resolve(ROOT, 'apps/api/node_modules/postgres/src/index.js').replace(/\\/g, '/')}`
     )
-    const sql = postgres(
-      process.env.DATABASE_URL || 'postgresql://ihui:ihui_dev_d6412937d5e397bc@127.0.0.1:5432/ihui',
-      { max: 1 },
-    )
+    const sql = postgres(requireEnv('DATABASE_URL'), { max: 1 })
     try {
       const rows = await sql`SELECT id FROM users LIMIT 1`
       if (rows[0]?.id) userId = rows[0].id

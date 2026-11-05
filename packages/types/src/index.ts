@@ -52,6 +52,14 @@ export * from './traceparent.js'
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
 export * from './api-key.js'
 export * from './capability-catalog.js'
+// 声明式扩展 manifest 契约(2026-11-04 立):schema/逐字段校验类型 + 已注册扩展查询类型
+export * from './capability-extensions.js'
+// 技能按模型能力分档契约(2026-11-04 立):模型画像 + 档位声明 + 选档结果类型
+export * from './skill-tiers.js'
+// 产品形态 → 能力布尔 的声明式单源(goal-b49 Y3,2026-11-05 立):本仓四个端形态 × 三块执行面,
+// 判定是纯函数(缺键判 unjudged 并点名形态与能力);消费方 = CLI 工具注册处 / 钩子派发收口。
+// 只经主入口导出(不新增子路径,同 capability-extensions / skill-tiers 的口径)。
+export * from './product-form-capabilities.js'
 
 // /v1/* 对外开放 API 端点请求/响应类型契约(2026-07-22 立,27 权限点 + 97 端点全功能覆盖)
 export * from './v1-endpoints.js'
@@ -73,6 +81,9 @@ export * from './leaderboard.js'
 
 // 签到助手跨端契约(2026-10-03 立,镜像 apps/ai-service/app/routers/checkin.py)
 export * from './checkin.js'
+
+// 宿主能力端口跨端契约(M4 T1,2026-11-02 立):导航/提示/登录态/存储/媒体/确认/分页/支付结果
+export * from './app-host-ports.js'
 
 // P3 Wave 11:6 大核心能力跨端契约(2026-07-22 立)
 // 终端集成(对标 Codex/OpenCode 内置终端)

@@ -19,6 +19,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { bizDayStartUtc } from '../../utils/biz-day.js'
 import { success, error } from '../../utils/response.js'
 import {
   getActiveUsers,
@@ -33,16 +34,9 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Asia/Shanghai 日界(UTC 表示),与聚合查询模块口径一致
+// 日界算法唯一出口 = utils/biz-day.ts(守门 246);此处只留名字转发,不再复算。
 function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
+  return bizDayStartUtc(daysAgo)
 }
 
 const mobileStatsRoutes: FastifyPluginAsync = async (server) => {

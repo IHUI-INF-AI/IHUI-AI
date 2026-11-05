@@ -14,6 +14,7 @@ import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import './index.css'
+import { onToast } from '@/host/on-toast'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
 const TOKEN_RATE = 10
@@ -78,7 +79,7 @@ export default function RechargePage() {
         })
         const orderNo = res.outTradeNo || ''
         if (!res.tradeNo) {
-          Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
+          onToast(tt('pay.configNotReady', '支付宝支付配置未就绪'), { kind: 'error' })
           Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=failed` })
           return
         }
@@ -114,7 +115,7 @@ export default function RechargePage() {
 
   const onSubmit = useCallback(async () => {
     if (!finalAmount || finalAmount < 1) {
-      Taro.showToast({ title: tt('wallet.recharge.invalidAmount', '请输入有效金额'), icon: 'none' })
+      onToast(tt('wallet.recharge.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
     }
     setSubmitting(true)

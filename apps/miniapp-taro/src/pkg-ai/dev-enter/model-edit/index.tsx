@@ -8,10 +8,14 @@ import { View, Text, Picker, ScrollView, Image, Input } from '@tarojs/components
 // 描边画在外层价格输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
 import { useFieldFocus } from '@/hooks/use-field-focus'
 import LineIcon from '@/components/LineIcon'
-import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { onToast } from '@/host/on-toast'
+import { isModelEditFieldReadOnly } from '@ihui/shared/constants'
+import { submitModelEdit } from '@ihui/shared/utils'
+import { updateAgentBilling } from '@ihui/api-client'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -52,12 +56,12 @@ interface Opt {
 
 // RN chip:px14/h36/r12 → 28/72/24 rpx;文字 14dp→28rpx、text.medium;高度含边框故加 box-border
 const OPT_BASE =
-  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-body leading-[normal] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 // RN chipActive:border brand.DEFAULT + bg surface.muted;chipTextActive:text.primary + 600
 const OPT_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 // RN 端种类标签与选项 chip 完全同款(chip/chipText 无区分),统一为 OPT 样式
 const TAG_BASE =
-  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-[length:28rpx] text-[var(--color-text-medium)] flex items-center justify-center box-border'
+  'h-[72rpx] px-[28rpx] rounded-xl border border-border bg-background text-body leading-[normal] text-[var(--color-text-medium)] flex items-center justify-center box-border'
 const TAG_ACTIVE = 'border-brand-accent-deep bg-muted text-foreground font-semibold'
 
 export default function ModelEdit() {
@@ -74,6 +78,20 @@ export default function ModelEdit() {
   }>({})
   const [categories, setCategories] = useState<string[]>([])
   const [deptIndex, setDeptIndex] = useState(0)
+  // 与 RN 共享屏读同一份清单(packages/shared/src/constants/model-edit.ts):库里没有归宿的字段
+  // 一律置灰 + 提示,不给用户"能改"的假象 —— 此前端内一个字都没接,是"能改但不生效"的真缺陷。
+  const roCategory = isModelEditFieldReadOnly('categories')
+  const roDept = isModelEditFieldReadOnly('dept')
+  const roCycle = isModelEditFieldReadOnly('cycle')
+  const roFreeDur = isModelEditFieldReadOnly('freeDur')
+  const roAudience = isModelEditFieldReadOnly('audience')
+  const roDiscount = isModelEditFieldReadOnly('discount')
+  const readOnlyHint = (show: boolean) =>
+    show ? (
+      <Text className="block text-caption leading-[normal] text-muted-foreground mt-[-8rpx] mb-[16rpx]">
+        {t('modelEdit.readOnlyHint')}
+      </Text>
+    ) : null
   const [saleType, setSaleType] = useState<SaleType>('limited')
   const [chargePeriod, setChargePeriod] = useState<ChargePeriod>('monthly')
   const [limitedDuration, setLimitedDuration] = useState<LimitedDuration>('7day')
@@ -169,15 +187,15 @@ export default function ModelEdit() {
     { value: 'full', label: tt('devEnter.modelEdit.discountFull', '全部参与') },
   ]
 
-  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void) => (
+  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void, disabled = false) => (
     <ThemeRoot>
       <View className="flex flex-wrap gap-[20rpx]">
         {opts.map((o) => (
           <View
             key={o.value}
-            className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''}`}
-            onClick={() => onSelect(o.value)}
-            hoverClass="opacity-60"
+            className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''} ${disabled ? 'opacity-[0.55]' : ''}`}
+            onClick={disabled ? undefined : () => onSelect(o.value)}
+            hoverClass={disabled ? 'none' : 'opacity-60'}
           >
             <Text>{o.label}</Text>
           </View>
@@ -186,30 +204,27 @@ export default function ModelEdit() {
     </ThemeRoot>
   )
 
-  // 取证@2026-10-30(可达性复核 ②:撤死分支)。本席程 c6d8b7648b 把 ce93d01c09 那笔「如实报错」
-  // 修复洗回了旧形态,现按现读证据复位:
-  // ① 提交的 POST /developer/agents/:id/charge 在两后端注册面 0 命中
-  //    (apps/api/src 与 apps/ai-service/app 全量 grep '/developer/agents' 无结果)。
-  // ② 名字最接近的 POST /api/agents/charge(apps/api/src/routes/miniapp-compat-routes.ts:2210)
-  //    是**买家侧**购买流水:体形 {agentId: uuid, price: number 必填, duration: int,
-  //    discount: 0..1} 落 zhsAgentBuy,与本屏 saleType/chargePeriod/limitedDuration/
-  //    targetGroup/discount(枚举串)语义不通;这些字段名在两后端也从不出现
-  //    (全仓 saleType/chargePeriod/limitedDuration 0 命中;targetGroup 只在 edu/tour 无关用途)。
-  // ⇒ 请求必然 404:原 try 支的「提交成功」(devEnter.modelEdit.submitSuccess)是**永不达分支**,
-  //   而 catch 支又用 icon:'success' + navigateBack 把"一条都没落库"渲染成"提交成功"并带用户
-  //   离开表单(§30:没有终态不许渲染成完成)。现不发这条注定失败的请求,如实报错、留在本页。
-  //   in-flight 位随之不再置真 ⇒ modelEdit.submitting 那一句三元按设计不可达(共享屏结构键,
-  //   源码保留引用以免镜像对账反掉;接上真端点时它自然复活)。
-  const onSubmit = () => {
+  const onSubmit = async () => {
     if (submitting) return
-    setSubmitting(false)
-    Taro.showToast({
-      // 取五语言齐备且语义如实的既成键(pkg-ai/ai/chat.tsx:1915 同键先例,不新造文案键)。
-      // 注:词包里 devEnter.modelEdit.mockSuccess 现值是「接口暂未开放,已模拟提交」——本屏
-      // 既没开放也没有"模拟",那句话不符实况;词包面在本案程射程外,已写进交付报告。
-      title: tt('ai.businessForms.status.failed', '提交失败,请重试'),
-      icon: 'error',
-    })
+    setSubmitting(true)
+    try {
+      // 与 RN 端同形:仅 price/isFree 两列真落库(PUT /agents/:agentId),其余只读字段不进 body。
+      // 端点由宿主注入(同跨端纪律),成功只在真实请求回来后才出现,失败原样上屏。
+      const outcome = await submitModelEdit(
+        (id, payload) => updateAgentBilling(id, payload),
+        agentId,
+        { saleType, price },
+      )
+      if (outcome.ok) {
+        onToast(tt('devEnter.modelEdit.saveSuccess', '保存成功'), { kind: 'success' })
+      } else {
+        onToast(outcome.error.message, { kind: 'error' })
+      }
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : String(e), { kind: 'error' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -219,7 +234,7 @@ export default function ModelEdit() {
         <View className="flex items-center justify-between px-[20rpx] py-[24rpx]">
           {/* 返回键由微信原生导航栏承担,页内不再自渲染 */}
           {/* RN headerTitle:20dp→40rpx、600、text.primary */}
-          <Text className="text-heading font-semibold text-foreground">
+          <Text className="text-heading leading-[normal] font-semibold text-foreground">
             {tt('devEnter.modelEdit.title', '编辑模型')}
           </Text>
           {/* RN headerSpacer:w40→80rpx,标题视觉居中 */}
@@ -239,18 +254,18 @@ export default function ModelEdit() {
                 />
               ) : (
                 /* RN avatar:w48/h48/r24(圆形)+ surface.muted;AGENTS §4 头像豁免,保留圆形 rounded-full */
-                <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-heading font-semibold text-foreground">
+                <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 mr-[24rpx] text-heading leading-[normal] font-semibold text-foreground">
                   <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
                 </View>
               )}
               <View className="flex-1 overflow-hidden">
                 {/* RN baseName:16dp→32rpx、600、text.primary;numberOfLines(1)→truncate */}
-                <Text className="block text-title font-semibold text-foreground truncate">
+                <Text className="block text-title leading-[normal] font-semibold text-foreground truncate">
                   {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
                 </Text>
                 {agentInfo.prologue ? (
                   /* RN baseSub:mt8→16rpx、14dp→28rpx、text.secondary;numberOfLines(2) */
-                  <Text className="block text-body text-muted-foreground mt-[16rpx] overflow-hidden line-clamp-2">
+                  <Text className="block text-body leading-[normal] text-muted-foreground mt-[16rpx] overflow-hidden line-clamp-2">
                     {agentInfo.prologue}
                   </Text>
                 ) : null}
@@ -258,22 +273,23 @@ export default function ModelEdit() {
             </View>
 
             {loading ? (
-              <Text className="block text-label text-muted-foreground text-center py-[16rpx]">
+              <Text className="block text-label leading-[normal] text-muted-foreground text-center py-[16rpx]">
                 {t('common.loading')}
               </Text>
             ) : null}
 
             {/* 1. 分类多选 — RN label:14dp→28rpx、600、text.medium、mt16/mb8 */}
-            <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('modelEdit.labelCategory', '分类')}
             </Text>
+            {readOnlyHint(roCategory)}
             <View className="flex flex-wrap gap-[20rpx]">
               {CATEGORIES.map((c) => (
                 <View
                   key={c}
-                  className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
-                  onClick={() => toggleCategory(c)}
-                  hoverClass="opacity-60"
+                  className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''} ${roCategory ? 'opacity-[0.55]' : ''}`}
+                  onClick={roCategory ? undefined : () => toggleCategory(c)}
+                  hoverClass={roCategory ? 'none' : 'opacity-60'}
                 >
                   <Text>{c}</Text>
                 </View>
@@ -281,42 +297,42 @@ export default function ModelEdit() {
             </View>
 
             {/* 2. 部门 — RN 端为 chip 行;小程序保留 Picker 交互,触发器对齐选中态 chip(chipActive)视觉 */}
-            <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.departmentLabel', '部门')}
             </Text>
+            {readOnlyHint(roDept)}
             <Picker
               mode="selector"
               range={DEPARTMENTS}
               value={deptIndex}
+              disabled={roDept}
               onChange={(e) => setDeptIndex(Number(e.detail.value))}
             >
-              <View className="flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-body font-semibold text-foreground box-border">
+              <View
+                className={`flex items-center justify-between h-[72rpx] px-[28rpx] rounded-xl border border-brand-accent-deep bg-muted text-body leading-[normal] font-semibold text-foreground box-border ${roDept ? 'opacity-[0.55]' : ''}`}
+              >
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
                 <LineIcon name="chevron-down" size={24} color="var(--color-muted-foreground)" />
               </View>
             </Picker>
 
             {/* 3. 售卖类型 */}
-            <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('modelEdit.labelSaleType', '售卖类型')}
             </Text>
             {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
 
-            {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构)
-                标签↔字段对账@2026-10-30:modelEdit.labelCycle(「结算周期」)驱动的是 chargePeriod 这一维
-                (monthly/quarterly/yearly),值域就是周期,共享屏同键配的也是周期选择器
-                (packages/app/src/features/model-edit/ModelEditScreen.tsx:156 + PAY_CYCLE_OPTIONS:40-44)
-                ⇒ 新标签不与字段语义冲突;端内旧标签 devEnter.modelEdit.chargePeriodLabel(「收费周期」)
-                词面更贴,是否换回归产品定夺,本席不改渲染(换了 labelCycle 就掉出镜像对账的 12 键)。 */}
+            {/* 4. 收费周期 + 价格 (付费/限时免费时显示) — 对齐 RN paidCard:mt12/p12/r12 + surface.muted,无边框;时限/折扣同移卡内(RN 同构) */}
             {saleType !== 'free' ? (
               <View className="mt-[24rpx] p-[24rpx] rounded-xl bg-muted">
-                <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                   {tt('modelEdit.labelCycle', '结算周期')}
                 </Text>
-                {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod))}
+                {readOnlyHint(roCycle)}
+                {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod), roCycle)}
                 {saleType === 'paid' ? (
                   <>
-                    <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('devEnter.modelEdit.priceLabel', '价格')}
                     </Text>
                     {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
@@ -325,12 +341,12 @@ export default function ModelEdit() {
                       style={ffPrice.focusStyle}
                     >
                       {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
-                      <Text className="text-subtitle font-semibold text-primary mr-[16rpx]">
+                      <Text className="text-subtitle leading-[normal] font-semibold text-primary mr-[16rpx]">
                         ¥
                       </Text>
                       {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
                       <Input
-                        className="flex-1 h-[96rpx] text-title text-foreground"
+                        className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
                         {...ffPrice.spread}
                         type="digit"
                         value={price}
@@ -345,11 +361,15 @@ export default function ModelEdit() {
                 {/* 5. 免费时长 (限时免费时显示) */}
                 {saleType === 'limited' ? (
                   <>
-                    <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('modelEdit.labelFreeDur', '免费时长')}
                     </Text>
-                    {renderOpts(durationOpts, limitedDuration, (v) =>
-                      setLimitedDuration(v as LimitedDuration),
+                    {readOnlyHint(roFreeDur)}
+                    {renderOpts(
+                      durationOpts,
+                      limitedDuration,
+                      (v) => setLimitedDuration(v as LimitedDuration),
+                      roFreeDur,
                     )}
                   </>
                 ) : null}
@@ -357,25 +377,27 @@ export default function ModelEdit() {
                 {/* 7. 折扣参与 (外层块已保证 saleType !== 'free',此处无条件渲染) */}
                 {
                   <>
-                    <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                    <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
                       {tt('modelEdit.labelDiscount', '折扣')}
                     </Text>
-                    {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
+                    {readOnlyHint(roDiscount)}
+                    {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount), roDiscount)}
                   </>
                 }
               </View>
             ) : null}
 
             {/* 6. 可见范围 */}
-            <Text className="block text-body font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+            <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
               {tt('modelEdit.labelAudience', '可见范围')}
             </Text>
-            {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup))}
+            {readOnlyHint(roAudience)}
+            {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup), roAudience)}
 
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
             <View
-              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-title font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
+              className={`mt-[56rpx] h-[100rpx] rounded-xl bg-cta text-title leading-[normal] font-semibold text-cta-foreground flex items-center justify-center box-border ${submitting ? 'opacity-60' : ''}`}
               onClick={onSubmit}
               hoverClass="opacity-60"
             >

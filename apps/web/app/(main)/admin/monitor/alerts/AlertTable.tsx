@@ -41,12 +41,12 @@ export function AlertTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead className="text-xs uppercase">级别</TableHead>
-            <TableHead className="text-xs uppercase">标题</TableHead>
-            <TableHead className="text-xs uppercase">来源</TableHead>
-            <TableHead className="text-xs uppercase">状态</TableHead>
-            <TableHead className="text-xs uppercase">时间</TableHead>
-            <TableHead className="text-right text-xs uppercase">操作</TableHead>
+            <TableHead className="text-label uppercase">级别</TableHead>
+            <TableHead className="text-label uppercase">标题</TableHead>
+            <TableHead className="text-label uppercase">来源</TableHead>
+            <TableHead className="text-label uppercase">状态</TableHead>
+            <TableHead className="text-label uppercase">时间</TableHead>
+            <TableHead className="text-right text-label uppercase">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -76,7 +76,7 @@ export function AlertTable({
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-label',
                         sev.bg,
                         sev.text,
                       )}
@@ -87,15 +87,15 @@ export function AlertTable({
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">{a.name}</div>
-                    <div className="max-w-[300px] break-words text-xs text-muted-foreground">
+                    <div className="max-w-[300px] break-words text-label text-muted-foreground">
                       {a.message ?? ''}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{a.source}</TableCell>
+                  <TableCell className="text-label text-muted-foreground">{a.source}</TableCell>
                   <TableCell>
                     <span
                       className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs',
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-label',
                         st.bg,
                         st.text,
                       )}
@@ -104,7 +104,7 @@ export function AlertTable({
                       {st.label}
                     </span>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-label text-muted-foreground">
                     {formatDate(a.firedAt)}
                   </TableCell>
                   <TableCell className="text-right">

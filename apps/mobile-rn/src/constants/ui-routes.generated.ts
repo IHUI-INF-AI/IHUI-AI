@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: bc817cbc28817395cf61fa4fc780489848cf218f
-// inputsSha256: 8256e5ed05b7ec02dcca53798f05cc5d3e0796d16f3c43d035791dd3bc2c030a
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 7f4021ffc6ea8127adf74efdfb6c332c18ddcf3959d2407eb97b876640f649bb
+// sourceCommit: 0f85d17e7f27dac180874761dbb8bf533e4c5c43
+// inputsSha256: 6470c0225c5d19d5417aeea2c1955a6d3b11e4fa12d2ce45d6e4f1ba8fc3ce7d
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 298ee39ac1d0a58a0c6f544e1dd78764d5d34b0cd596d6025438d26729a4151c
 // input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-30T18:07:03.737Z
+// generatedAt: 2026-11-04T06:49:13.277Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 335 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 341 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -95,6 +95,9 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'DeveloperConversations', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ModelsPrompts', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduAttendance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduMyAttendance', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAttendanceQr', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'EduAttendanceScan', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduGrades', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParent', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'EduParentBind', tab: false, requiresParams: false, requiredParams: [] },
@@ -202,6 +205,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'QrCode', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'NotificationSettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentReviewList', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgentReviewDetail', tab: false, requiresParams: true, requiredParams: ['item'] },
   { name: 'AgentStat', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AgentSetting', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Carte', tab: false, requiresParams: false, requiredParams: [] },
@@ -220,6 +224,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'PointRule', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'PointHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VipLevel', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'VipUpgrade', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'VipBenefit', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'VipCompare', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CertList', tab: false, requiresParams: false, requiredParams: [] },
@@ -262,6 +267,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'StudyPlan', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'StudyProgress', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ExamResult', tab: false, requiresParams: true, requiredParams: ['id'] },
+  { name: 'ExamDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ExamHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ExamQuestion', tab: false, requiresParams: true, requiredParams: ['examId'] },
   { name: 'CertDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
