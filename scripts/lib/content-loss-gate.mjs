@@ -298,7 +298,7 @@ export function judgeContentLoss({
     }
     // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。
     const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m))
-    const missingTheirsAll = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
+    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
     /**
      * 「本侧处置权已行使」那一维(2026-11-06 补,镜像 union 侧 `liveDocExpectedCounts` 的
      * `addedByTheirs = n − max(base, ours)`):**基底里就有、本侧已删**的行,归并不从对侧补回
@@ -312,8 +312,8 @@ export function judgeContentLoss({
     const baseRaw = base ? lineMultiset(read(base, p) ?? '') : null
     const oursRaw = lineMultiset(o ?? '')
     const theirsRaw = lineMultiset(t ?? '')
-    const missingTheirs = []
-    for (const l of missingTheirsAll) {
+    const missingTheirsOwed = []
+    for (const l of missingTheirs) {
       const tn = theirsRaw.get(l) || 0
       const on = oursRaw.get(l) || 0
       const bn = baseRaw ? baseRaw.get(l) || 0 : tn
@@ -322,7 +322,7 @@ export function judgeContentLoss({
         dropped.push({ path: p, side: '对侧', line: l, copies: 0, via: '本侧处置权已行使(基底有、本侧已删)' })
         continue
       }
-      missingTheirs.push(l)
+      missingTheirsOwed.push(l)
     }
     /**
      * 活文档维:行级包含 + **折叠台账销账**(2026-11-06)。
@@ -388,7 +388,7 @@ export function judgeContentLoss({
       return out
     }
     const creditedOurs = sideMissing(missingOurs, o, '本侧')
-    const creditedTheirs = sideMissing(missingTheirs, t, '对侧')
+    const creditedTheirs = sideMissing(missingTheirsOwed, t, '对侧')
     /**
      * 摘除台账「改写形态」那一族(G-34/G-43,2026-11-06 补):union 侧按**族**(题面指纹/复合主键/
      * 题面 32 字指纹)判「本侧处置权已行使 ⇒ 不补回」;本层此前只认**逐字**那一族 ⇒ 两把尺子
