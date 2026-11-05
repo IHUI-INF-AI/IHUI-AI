@@ -485,6 +485,8 @@ node scripts/workbuddy-growth-daily.mjs --checkin   # 现读:两号「今日已�
 
 ### 11.4 零人工的最终口径(现读 2026-11-05)
 
+
+
 ```bash
 node scripts/workbuddy-growth-daily.mjs --checkin                                    # 每日签到
 node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务
@@ -564,6 +566,30 @@ node scripts/workbuddy-growth-oauth.mjs --watch                                 
 
 (全程只打印字段名与有无;任何 token / openid 值不出进程、不进聊天、不进本文件。
 微信侧只做了导航与打开主页,**没有向任何会话输入或发送任何内容**。)
+
+### 11.6 零人工的承载体:本机计划任务(2026-11-06 装车)
+
+清扫不靠任何人记得跑 —— 计划任务 **每 6 小时**自动跑一次 `--json` 档:
+
+| 件 | 位置 / 现读法 |
+| --- | --- |
+| 任务名 | `IHUI WorkBuddy Growth Sweep`(`schtasks /Query /TN "IHUI WorkBuddy Growth Sweep" /V /FO LIST`) |
+| 包装脚本 | `deploy/win/workbuddy-growth-sweep.cmd` |
+| 日志 | `.ihui-agent/state/workbuddy-sweep.log`(追加式,每轮一个 JSON 对象) |
+
+两个实测踩过的坑,都写进了脚本注释:
+
+1. **`.cmd` 里只能用 ASCII 注释** —— cmd.exe 按 OEM 码页(本机 936)解析脚本文件,
+   UTF-8 中文注释会被切成乱码 token 当命令执行(报"不是内部或外部命令")。
+2. **相对路径是上两级,不是三级** —— 该文件在 `deploy\win\` 下,
+   `%~dp0..\..\..` 会 `cd` 到盘符根并失败;`%~dp0..\..` 才是仓库根。
+
+实测(2026-11-06):手动触发一次 ⇒ 日志 852 字节、`summary` 完整、
+`accounts=2 already=2 claimFail=0 undetermined=0` ⇒ 席报遗留的「`--json` 档端到端未判定」结清。
+
+⇒ 绑定生效那天起,这一项会在这条自动腿里被 `selectClaimable` 自己收进可领集并领掉(见 ⑥),
+**不需要任何人再执行任何命令**。
+
 
 ⇒ **§9 那句"关注动作只能由机主本人用微信完成"就地改判**:先决条件是**给这个号绑定微信身份**
 (产品流程,机主侧);绑定之后关注才有归属对象,而关注本身仍是一个真实微信行为,程序不代做、不伪造。
