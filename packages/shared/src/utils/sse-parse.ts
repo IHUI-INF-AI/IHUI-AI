@@ -754,6 +754,11 @@ function parseLineEvent(line: string): SSEEvent | null {
         },
       }
     }
+    // 守门 63 按「分支守卫」判帧接没接,靠下方 content/delta/text 兜底折成 chunk 不算认领;
+    // api-client 侧 parseStreamLine 已显式读该型,本侧不同源即两端守卫面分家。
+    if (json?.type === 'chunk' && typeof json.content === 'string') {
+      return { type: 'chunk', content: json.content }
+    }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
     if (choice) {

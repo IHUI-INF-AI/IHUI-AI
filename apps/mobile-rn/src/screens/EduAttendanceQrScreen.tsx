@@ -249,7 +249,7 @@ export function EduAttendanceQrScreen() {
                 value={qr.payload}
                 size={QR_SIZE}
                 color={tk.gray.black}
-                backgroundColor="#FFFFFF"
+                backgroundColor={rnCssLight.surfaceLight}
                 ecl="M"
               />
             </View>
@@ -469,7 +469,8 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     qrBox: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
-      backgroundColor: '#FFFFFF',
+      // 二维码安静区必须恒白(暗主题翻面即扫不出),取明暗同值的浅色面板档
+      backgroundColor: rnCssLight.surfaceLight,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -569,8 +570,9 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
   })
 }
 
-/** 相机层文字恒白(画面是暗底,不能依赖主题色);与 ScanLoginScreen 同一处理。 */
-const CAMERA_TEXT = '#FFFFFF'
+/** 相机层文字恒白(画面是暗底,不能依赖主题色);取白色透明档族最高档 white98,
+ *  与小程序端压在图上的白字同一档(text-[var(--color-white-98)]),不写 hex。 */
+const CAMERA_TEXT = rnCssLight.white98
 const CAMERA_SHADOW = {
   textShadowColor: rnCssLight.black75,
   textShadowOffset: { width: 0, height: 1 },

@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 # 会话身份只取 call_tool 覆盖注入的 `__session_id`(承载层写入,模型自报会被覆盖);
 # 判据本体在 app/core/file_read_state.py,本模块只接线、不复算(§0.6)。
 from app.core.bounded_ttl_store import BoundedTtlDict
+from app.core.command_policy_merge import PolicyOutcome, adjudicate_command
 from app.core.file_read_state import (
     judge_read_state,
     read_state_field,
@@ -3469,7 +3470,10 @@ async def _tool_run_command(
     ).exec_policy_mode
     # 一次性放行 或 长期前缀放行规则命中 → 跳过 PROMPT 分支
     # (第十六批:前缀规则不消费,长期有效;仅服务端可登记,LLM 无法伪造)
-    _exec_approved = _consume_exec_approval(command) or _matches_exec_prefix(command)
+    # 2026-11-05(goal-b49):两种放行**分开记** —— 多档策略的 ask 档只认一次性放行
+    # (本层自己走审批通道后回灌的那一张),长期前缀规则不得静默放行企业档的 ask(§0.10)。
+    _exec_approved_once = _consume_exec_approval(command)
+    _exec_approved = _exec_approved_once or _matches_exec_prefix(command)
     if _exec_mode != "off" and not _exec_approved:
         _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
         if _exec_decision.action == RuleDecision.DENY:
@@ -3547,6 +3551,59 @@ async def _tool_run_command(
                     except Exception as e:  # noqa: BLE001
                         logger.debug("permission_profiles 解析失败(降级跳过): %s", e)
                 return _approval_result
+
+    # ── 多档命令策略合并裁决(仓库档 ⊕ 企业档)─────────────────────────────
+    # 2026-11-05(goal-b49):单一判据源 app/core/command_policy_merge.py(本仓唯一实现,
+    # 测试 import 真源)。本层**只增不减**:既有 dangerous_patterns / allowed_prefixes
+    # 两道防线一字未动,这里额外判的是红/黑名单 + 不可变路径 + ask/allow 的多档规则
+    # (企业档优先,逐条点名来源)。
+    _policy_verdict = adjudicate_command(command, _load_command_policy())
+    if _policy_verdict.outcome is PolicyOutcome.UNDETERMINED:
+        # 「未判定」不折成 deny/allow:独立出口,闭锁并点名原因(AGENTS §0.3)。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "command_policy_undetermined",
+            "errorCode": "COMMAND_POLICY_UNDETERMINED",
+            "command": command,
+            "policy_verdict": _policy_verdict.to_dict(),
+            "message": f"命令策略未判定,已闭锁:{_policy_verdict.reason}",
+        }
+    if _policy_verdict.outcome is PolicyOutcome.DENY:
+        # deny 档不可绕门:一次性放行与前缀放行都不跳过本层(与破坏性命令硬门同级)。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "command_policy_denied",
+            "errorCode": "COMMAND_POLICY_DENIED",
+            "command": command,
+            "matched_rules": [
+                {"pattern": hit.pattern, "decision": hit.decision.value,
+                 "source": hit.tier.value, "kind": hit.kind.value}
+                for hit in _policy_verdict.hits
+            ],
+            "policy_verdict": _policy_verdict.to_dict(),
+            "message": f"命令被策略拒绝:{_policy_verdict.to_explanation()}",
+        }
+    if _policy_verdict.outcome is PolicyOutcome.ASK and not _exec_approved_once:
+        # ask 档走**既有**审批通道(EXEC_POLICY_NEEDS_APPROVAL 是 agent_loop_v2 的通道
+        # 契约,不新造第二条通道);已走过本层审批(一次性放行)的命令不重复要审批,
+        # 但本地长期前缀放行**不能**静默放行企业档的 ask。
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "exec_policy_needs_approval",
+            "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
+            "command": command,
+            "matched_rules": [
+                {"pattern": hit.pattern, "decision": hit.decision.value,
+                 "source": hit.tier.value, "kind": hit.kind.value}
+                for hit in _policy_verdict.hits
+            ],
+            "policy_verdict": _policy_verdict.to_dict(),
+            "approval_request": {
+                "command": command,
+                "reason": _policy_verdict.to_explanation(),
+            },
+            "message": "命令命中策略 ask 档,需要用户审批后方可执行",
+        }
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
