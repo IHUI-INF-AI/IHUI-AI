@@ -25,14 +25,29 @@
  *   D2 从 `apps/web/app/sitemap.ts` 解析 PAGES 里全部 `/docs*` 收录路径,同法核对路由存在性。
  *   D3 docs 页面源码出现 `icon:` 字段且值为含 emoji 的字符串字面量(\\p{Extended_Pictographic})
  *      ⇒ 点名;组件标识符(icon: BookOpen)不算(成对夹具钉住这条,防判据过宽)。
+ *   D4 (2026-11-05) docs 公开面**每个 page.tsx 自身**必须导出 `generateMetadata` 或 `metadata`。
+ *      立因:13 条整文件回退把 8 个页面的 generateMetadata 删了,而门 291 / i18n 键门 / emoji 门
+ *      全绿 —— 没有任何判据在看"页面还有没有自己的 SEO 元数据"。
+ *      「多语页面」的可判定定义(不靠人工名单,纯代码特征):源码出现
+ *        (a) i18n 消费 `getTranslations|useTranslations|next-intl`,或
+ *        (b) `generateStaticParams`,或
+ *        (c) `alternates.languages` 声明
+ *      三者任一 ⇒ 多语页面(该标记逐页写进 --json,便于对账)。
+ *      **判据比定义更硬**:射程内所有 docs page 一律要求自证 metadata,不因"多语信号消失"豁免 ——
+ *      整文件回退往往把 i18n 调用和 generateMetadata 一起抹掉,若以信号为门槛,最坏情况恰好隐身。
+ *      **不认祖先 layout 的 metadata 继承**:`(main)/layout.tsx` 自带通用 metadata,若允许继承,
+ *      页面丢掉自己的 generateMetadata 仍会被父级兜住 —— 正是今天的失效形态,故只认页面自身。
+ *      面收窄理由:全 app 面按"用了 i18n 就要 metadata"判,现读 572/605 个 page/layout 缺 metadata
+ *      (大规模既有存量,不是本判据能要求立刻清的);docs 公开面是本次事故面且现读 18/18 齐备 ⇒
+ *      只在此面立硬判据,零存量、零误报。
  *   输入取不到 ⇒ 该维 unjudged 并点名原因:D1 = docs 目录无候选文件 / 全部候选都解析不到
- *   languages 块;D2 = sitemap.ts 读不到或解析不出任何 /docs* 条目;路由面列不出来 ⇒ 三维同判
- *   未判定(判据依赖的输入没了,不回落另一个面 §0.4)。
+ *   languages 块;D2 = sitemap.ts 读不到或解析不出任何 /docs* 条目;D4 = docs 面枚举到 0 个
+ *   page.tsx 或有候选正文读不到;路由面列不出来 ⇒ 各维同判未判定(判据依赖的输入没了,不回落另一个面 §0.4)。
  *
  * 取材面纪律(§0.4):全量档判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱;
  *   清单与内容**同面同轮**;两面旗同给 ⇒ exit 2。取不到不回落另一个面。
  * 棘轮(§0.5):锚点 = 该文件 HEAD 面自身的违规数,存量只报数;只有 `--staged` 档存在"本次改动"
- *   可言,head/worktree 档打印说明行而非静默跳过(§0.3)。
+ *   可言,head/worktree 档打印说明行而非静默跳过(§0.3)。D4 无棘轮:现读存量 0,违规即红(§12e)。
  *
  * 接线现实(2026-11-03 现读对账,头注与 guardian-runner.mjs 注册条目对齐):本门**已进提交链**
  *   —— runner id '285',mode=blocking,args=['--staged'],stagedTriggers=['apps/web/app/'],
@@ -41,8 +56,10 @@
  *   清单,**不需要任何外部态**(不碰真浏览器/公网/DB),本次提交内容结构上就能满足 ⇒ 三维全部
  *   合法进提交链;2026-11-03 实测三维存量均为 0(D1 另带差值棘轮兜底)。头注旧稿写于 2026-11-01
  *   存量未清时,当时判断成立,存量清零并完成接线后该段失真,已按现实改写(§0.9)。
- * 能力边界(防夸大):本门只判 hreflang 可达性 / sitemap 收录 / docs 页 icon 禁 emoji 三维,
- *   与「格式支持/依赖/渲染链路」**零相关**,不得当作文档渲染健康的证据引用。
+ *   D4 同理:纯仓内静态特征 ↔ 同面文件清单,2026-11-05 现读 18/18 页有 metadata,存量 0 ⇒ 直接 blocking。
+ * 能力边界(防夸大):本门只判 hreflang 可达性 / sitemap 收录 / docs 页 icon 禁 emoji / docs 页
+ *   自带 metadata 四项,与「格式支持/依赖/渲染链路」**零相关**,不得当作文档渲染健康的证据引用。
+ *   D4 只判"有无 metadata 导出",不判其内容是否正确、是否覆盖全部 locale —— 内容质量仍无人看守。
  *
  * 用法:
  *   node scripts/check-docs-public-health.mjs              # 全量档:判 HEAD blob
@@ -56,7 +73,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, gitRaw } from './lib/face-reader.mjs'
-import { scanLiterals } from './lib/code-mask.mjs'
+import { scanLiterals, maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { headAnchors, overBaseline, readSources, sourceCandidates } from './lib/face-scan.mjs'
 
 // ROOT 由脚本自身位置推导(§15:共享工作树的 cwd 不可靠)
@@ -323,8 +340,53 @@ export function judgeEmojiIcons(docsPages) {
   return hits
 }
 
-/** 三维汇成一份结论;每维独立三态,绝不并桶(§0.3)。 */
-export function assemble({ d1, d2, d3, newByFile = null }) {
+/**
+ * 「多语页面」的可判定定义(纯代码特征,不靠人工名单):
+ *   (a) 消费 i18n(getTranslations / useTranslations / next-intl)
+ *   (b) 用 generateStaticParams 生成多路由
+ *   (c) 声明 alternates.languages
+ * 任一命中即记为多语页面 —— 该标记只作证据输出(D4 的拦截面比它更宽,见头注)。
+ */
+export function isMultilingualPage(text) {
+  return (
+    /getTranslations|useTranslations|next-intl/.test(text) ||
+    /generateStaticParams/.test(text) ||
+    /(^|[\s{,])languages\s*:\s*\{/m.test(text)
+  )
+}
+
+/** 页面自身是否导出 metadata / generateMetadata(注释与字符串已 mask,展示代码不算)。 */
+export function hasPageMetadata(text) {
+  const masked = maskCommentsAndStrings(text)
+  return /\bexport\s+(?:const\s+metadata\b|(?:async\s+)?function\s+generateMetadata\b|const\s+generateMetadata\b)/.test(
+    masked,
+  )
+}
+
+/**
+ * D4:docs 公开面每个 page.tsx 必须**自身**导出 metadata / generateMetadata。
+ * 只认页面自身,不认祖先 layout 继承 —— 见头注(继承会把今天的失效形态兜绿)。
+ * unreadable = 本面读不到正文的候选(非空 ⇒ 该维未判定,不接受"判空串"的假红)。
+ */
+export function judgePageMetadata(entries, unreadable = []) {
+  const pages = []
+  for (const { rel, text } of entries) {
+    if (!PAGE_RE.test(path.posix.basename(rel))) continue
+    pages.push({ rel, hasMetadata: hasPageMetadata(text), multilingual: isMultilingualPage(text) })
+  }
+  const missing = pages.filter((p) => !p.hasMetadata)
+  return {
+    pages,
+    missing,
+    unreadable,
+    judged: pages.length,
+    multilingualCount: pages.filter((p) => p.multilingual).length,
+    withMetadata: pages.length - missing.length,
+  }
+}
+
+/** 四维汇成一份结论;每维独立三态,绝不并桶(§0.3)。 */
+export function assemble({ d1, d2, d3, d4 = null, newByFile = null }) {
   // 语言族分档:"全灭簇" = 该 locale 声明的每条路径都指向死路由;
   // "部分死簇" = 同一 locale 有死有活(如 en:/en/docs 活着、17 个 /en/docs/* 子页死了)。
   // 把两档混在一行就是话术失真(§10 交付一致性)。
@@ -366,7 +428,41 @@ export function assemble({ d1, d2, d3, newByFile = null }) {
     hits: d3,
     counted: true,
   }
-  const dims = { D1, D2, D3 }
+  // D4 无棘轮:输入取不到 ⇒ unjudged;有缺 metadata 的页 ⇒ violation;否则 ok。
+  // 省略 d4 仅用于不涉 D4 的既有夹具(显式打印而非静默返回"绿")。
+  const D4 =
+    d4 === null
+      ? {
+          state: 'ok',
+          reason: 'D4 未参与本次夹具(仅组装类用例省略;生产路径总会传 d4)',
+          pages: 0,
+          missing: [],
+          multilingual: 0,
+          counted: false,
+        }
+      : {
+          state:
+            d4.unreadable.length > 0 || d4.judged === 0
+              ? 'unjudged'
+              : d4.missing.length > 0
+                ? 'violation'
+                : 'ok',
+          reason:
+            d4.unreadable.length > 0
+              ? `${d4.unreadable.length} 个 docs page 正文读不到 ⇒ D4 未判定(不判空串)`
+              : d4.judged === 0
+                ? 'docs 公开面枚举到 0 个 page.tsx ⇒ D4 未判定(不记绿)'
+                : d4.missing.length > 0
+                  ? `${d4.missing.length}/${d4.judged} 个 docs page 缺 metadata/generateMetadata`
+                  : `${d4.judged} 个 docs page 全部自带 metadata(其中多语页 ${d4.multilingualCount} 个)`,
+          pages: d4.judged,
+          withMetadata: d4.withMetadata,
+          multilingual: d4.multilingualCount,
+          missing: d4.missing,
+          unreadable: d4.unreadable,
+          counted: true,
+        }
+  const dims = { D1, D2, D3, D4 }
   const anyUnjudged = Object.values(dims).some((d) => d.state === 'unjudged')
   const anyViolation = Object.values(dims).some((d) => d.state === 'violation')
   return {
@@ -462,12 +558,31 @@ function readSitemap(face, root) {
   return text
 }
 
+/**
+ * D4 取材:docs 公开面全部 page.tsx(与路由索引同一份 app 清单,同面同轮 §0.4)。
+ * 0 个候选 ⇒ Undetermined(不记绿);任一候选正文读不到 ⇒ 交 judgePageMetadata 记未判定。
+ */
+function readDocsPageUnits(appFiles, face, root) {
+  const files = appFiles.filter(
+    (f) => f.startsWith(`${DOCS_REL}/`) && PAGE_RE.test(path.posix.basename(f)),
+  )
+  if (files.length === 0) {
+    throw new Undetermined(`${face} 面在 ${DOCS_REL} 下枚举到 0 个 page.tsx ⇒ D4 未判定(不记绿)`)
+  }
+  const { texts, skippedMissing } = readSources(root, face, files)
+  const entries = files.map((rel) => ({ rel, text: texts.get(rel) ?? '' }))
+  return { entries, unreadable: skippedMissing.filter((rel) => files.includes(rel)), files }
+}
+
 export function runChecks(face, root = ROOT) {
-  const index = buildRouteIndex(listAppTree(face, root))
+  const appFiles = listAppTree(face, root)
+  const index = buildRouteIndex(appFiles)
   const { docsPages, files, skippedMissing } = readDocsPages(face, root)
   const d1 = judgeDocsLanguages(docsPages, index)
   const d2 = judgeSitemap(readSitemap(face, root), index)
   const d3 = judgeEmojiIcons(docsPages)
+  const pageUnits = readDocsPageUnits(appFiles, face, root)
+  const d4 = judgePageMetadata(pageUnits.entries, pageUnits.unreadable)
   let newByFile = null
   let ratchetNote = ''
   if (face === 'staged') {
@@ -490,10 +605,11 @@ export function runChecks(face, root = ROOT) {
   } else {
     ratchetNote = `D1 棘轮:${face} 档没有「本次改动」可言 ⇒ 只报总数(${d1.dead.length}),新增维度不适用(§0.3 打印说明不静默)`
   }
-  const result = assemble({ d1, d2, d3, newByFile })
+  const result = assemble({ d1, d2, d3, d4, newByFile })
   result.meta = {
     face,
     docsFiles: files.length,
+    docsPageUnits: pageUnits.files.length,
     skippedMissing,
     ratchetNote,
     appTreeSize: index.size,
@@ -504,9 +620,9 @@ export function runChecks(face, root = ROOT) {
 export function printReport(result) {
   const { meta } = result
   console.log(
-    `DOCS-PUBLIC-HEALTH face=${meta.face} 候选 docs 文件=${meta.docsFiles} 路由面条目=${meta.appTreeSize}`,
+    `DOCS-PUBLIC-HEALTH face=${meta.face} 候选 docs 文件=${meta.docsFiles} docs page=${meta.docsPageUnits} 路由面条目=${meta.appTreeSize}`,
   )
-  for (const key of ['D1', 'D2', 'D3']) {
+  for (const key of ['D1', 'D2', 'D3', 'D4']) {
     const d = result.dims[key]
     console.log(`${key} → ${d.state.toUpperCase()} — ${d.reason}`)
     if (key === 'D1') {
@@ -537,6 +653,11 @@ export function printReport(result) {
       for (const it of d.hits)
         console.log(`  - ${it.file}:${it.line} icon: '${it.value}' ⇒ emoji 当图标`)
     }
+    if (key === 'D4') {
+      for (const it of d.missing)
+        console.log(`  - ${it.rel} ⇒ 缺 generateMetadata/metadata(${it.multilingual ? '多语页' : '单语页'})`)
+      for (const rel of d.unreadable ?? []) console.log(`  ! ${rel} 正文读不到 ⇒ 未判定`)
+    }
   }
   console.log(meta.ratchetNote)
   console.log(`DOCS-HEALTH-RESULT state=${result.overall} exit=${result.exitCode}`)
@@ -553,6 +674,9 @@ export const __test__ = {
   judgeDocsLanguages,
   judgeSitemap,
   judgeEmojiIcons,
+  isMultilingualPage,
+  hasPageMetadata,
+  judgePageMetadata,
   localeFamilies,
   localeBuckets,
   assemble,
@@ -713,6 +837,103 @@ function selfTest() {
     if (hits.length !== 1)
       return `模板内示例应豁免、真实配置应命中 1,实得 ${hits.length} ⇒ D3 把文档展示的示例代码当成了页面配置`
     if (hits[0].line !== 8) return `命中的应是真实配置那行(8),实得 ${hits[0].line}`
+    return null
+  })
+
+  // D4(2026-11-05):docs 页自带 metadata —— 阳性对照复刻当天那 8 个页面整文件回退的场景
+  const d4Page = (meta = true, i18n = true) =>
+    [
+      i18n ? "import { getTranslations } from 'next-intl/server'" : '',
+      meta ? 'export async function generateMetadata() { return { title: "x" } }' : '',
+      'export default function Page() { return null }',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  const d4Eight = [
+    'apps/web/app/(main)/docs/page.tsx',
+    'apps/web/app/(main)/docs/agent/page.tsx',
+    'apps/web/app/(main)/docs/manual/page.tsx',
+    'apps/web/app/(main)/docs/mcp/page.tsx',
+    'apps/web/app/(main)/docs/quickstart/page.tsx',
+    'apps/web/app/(main)/docs/rag/page.tsx',
+    'apps/web/app/(main)/docs/self-host/page.tsx',
+    'apps/web/app/(main)/docs/workflow/page.tsx',
+  ].map((rel) => ({ rel, text: d4Page() }))
+
+  t('D4 夹具:8 个 docs 页齐备 metadata 时 0 缺(基线)', () => {
+    const r = judgePageMetadata(d4Eight)
+    if (r.judged !== 8) return `应判 8 页,实得 ${r.judged}`
+    if (r.missing.length !== 0) return `基线应 0 缺,实得 ${r.missing.length}`
+    if (r.multilingualCount !== 8) return `8 页均消费 i18n,多语标记应 8,实得 ${r.multilingualCount}`
+    return null
+  })
+
+  t('D4 阳性对照:任一页 generateMetadata 被删 ⇒ 必红(当天回退形态)', () => {
+    const broken = d4Eight.map((e, i) => (i === 3 ? { ...e, text: d4Page(false) } : e))
+    const r = judgePageMetadata(broken)
+    if (r.missing.length !== 1) return `应点名 1 页,实得 ${r.missing.length}`
+    if (r.missing[0].rel !== 'apps/web/app/(main)/docs/mcp/page.tsx') return `点名错页:${r.missing[0].rel}`
+    const a = assemble({
+      d1: { declaredTotal: 0, dead: [], alive: [], unparseable: [], filesWithDeclaration: [] },
+      d2: { entries: 1, dead: [], alive: [], unparseable: [] },
+      d3: [],
+      d4: r,
+    })
+    // D1 无声明 ⇒ unjudged 会顶到 exit 2,这里直接看 D4 维自身状态
+    if (a.dims.D4.state !== 'violation') return `D4 应 violation,实得 ${a.dims.D4.state}`
+    return null
+  })
+
+  t('D4 反向牙:恢复 generateMetadata 后同判据归零(判据不得恒真)', () => {
+    const r = judgePageMetadata(d4Eight)
+    if (r.missing.length !== 0) return `恢复后仍有 ${r.missing.length} 缺 ⇒ 判据过宽`
+    return null
+  })
+
+  t('D4 反向牙:注释/模板里的 generateMetadata 不算导出(防"写了字样就绿")', () => {
+    const fake = [
+      '// export async function generateMetadata() {}',
+      '/* export const metadata = {} */',
+      'const demo = `',
+      'export const metadata = { title: "x" }',
+      '`',
+      'export default function Page() { return null }',
+    ].join('\n')
+    const r = judgePageMetadata([{ rel: 'apps/web/app/(main)/docs/x/page.tsx', text: fake }])
+    if (!r.missing.some((m) => m.rel.endsWith('/docs/x/page.tsx')))
+      return '注释/模板里的伪导出被当成真导出 ⇒ D4 有假阴性'
+    return null
+  })
+
+  t('D4 不认祖先 layout 继承:父级有 metadata 也不能兜住页面自身缺失', () => {
+    const r = judgePageMetadata([
+      { rel: 'apps/web/app/(main)/docs/layout.tsx', text: 'export const metadata = { title: "docs" }' },
+      { rel: 'apps/web/app/(main)/docs/x/page.tsx', text: 'export default function Page() { return null }' },
+    ])
+    if (r.missing.length !== 1) return `页面缺 metadata 应点名 1 页,实得 ${r.missing.length}`
+    if (r.judged !== 1) return `layout 不应计入 page 判定数,实得 ${r.judged}`
+    return null
+  })
+
+  t('D4 输入取不到:0 个 docs page ⇒ unjudged 且 exit 2(不得记绿)', () => {
+    const r = judgePageMetadata([])
+    const a = assemble({
+      d1: judgeDocsLanguages([{ rel: 'x', text: deadSource }], buildRouteIndex(realTree)),
+      d2: { entries: 1, dead: [], alive: [], unparseable: [] },
+      d3: [],
+      d4: r,
+    })
+    if (a.dims.D4.state !== 'unjudged') return `D4 应 unjudged,实得 ${a.dims.D4.state}`
+    if (a.exitCode !== EXIT.unjudged) return `应 exit 2,实得 ${a.exitCode}`
+    return null
+  })
+
+  t('D4 主文案读不到 ⇒ unjudged(不判空串成假红)', () => {
+    const r = judgePageMetadata(
+      [{ rel: 'apps/web/app/(main)/docs/x/page.tsx', text: '' }],
+      ['apps/web/app/(main)/docs/x/page.tsx'],
+    )
+    if (r.missing.length !== 1) return '空正文应计入缺 metadata(但该维应因 unreadable 记未判定)'
     return null
   })
 
