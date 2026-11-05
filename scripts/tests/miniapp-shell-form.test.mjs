@@ -674,4 +674,103 @@ test('T15 account-cancel 薄壳页:入口被认 + 7 项后果/phoneReadOnly 两�
   })
 })
 
+// T16 message 页部分收敛(2026-11-06):共享屏承担页头/通知横幅/搜索/tabs/空态/滚动容器,
+// 页内保留五段缺段(聚合会话行/系统通知/私信列表/通知偏好面板/order·course 站内消息)。
+// 阴性对照三枚:①摘页内 renderTabBody 传参 ⇒ 尺子不命中;②删 RN onDeleteConversation ⇒ 不命中;
+// ③RN 改回桶导入 ⇒ 必红。
+const MESSAGE_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/message/index.tsx')
+const MESSAGE_RN_PAGE = join(ROOT, 'apps/mobile-rn/src/screens/MessageCenterScreen.tsx')
+const MESSAGE_SHARED = join(
+  ROOT,
+  'packages/app/src/features/message-center/MessageCenterScreen.tsx',
+)
+const MESSAGE_SPEC = ['packages/app/src/features/message-center/MessageCenterScreen.tsx']
+const MESSAGE_SUBPATH = '@ihui/rn-app/features/message-center/MessageCenterScreen'
+const MESSAGE_SLOTS = [
+  'tabs',
+  'renderTabBody',
+  'search',
+  'notification',
+  'onPressSettings',
+  'onToast',
+]
+const MESSAGE_RN_SLOTS = ['onDeleteConversation', 'onPressSettings', 'search', 'hasMore']
+
+test('T16 message 页:入口被认 + 五段注入 + 槽位两端显式', () => {
+  const page = readFileSync(MESSAGE_PAGE, 'utf8')
+  const rn = readFileSync(MESSAGE_RN_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, MESSAGE_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(
+        /^import[^\n]*@ihui\/rn-app\/features\/message-center\/MessageCenterScreen[^\n]*\n/m,
+        '',
+      ),
+      MESSAGE_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.match(page, /<MessageCenterScreen/m, '页面必须渲染共享屏')
+  // 共享屏已承担的段不得在页内重复渲染(零重复 UI 段)
+  assert.doesNotMatch(page, /\bSearchBar\b/m, '搜索条已上收共享屏,页内不得重复')
+  assert.doesNotMatch(page, /\bMessageTabs\b/m, 'tabs 已上收共享屏,页内不得重复')
+  assert.doesNotMatch(page, /\bScrollView\b/m, '滚动容器已上收共享屏,页内不得重复')
+  // 缺段表五段仍留页内(共享屏无对应整块)
+  for (const seg of [
+    'renderTabBody',
+    'SystemNotice',
+    'PrivateMessageList',
+    'NotificationSettings',
+    'InSiteMessagePane',
+  ]) {
+    assert.ok(page.includes(seg), `页内缺段 ${seg} 必须保留`)
+  }
+  for (const slot of MESSAGE_SLOTS) {
+    assert.ok(propPassed(page, slot), `小程序页必须真传 ${slot}`)
+  }
+
+  assert.ok(page.includes(MESSAGE_SUBPATH), '小程序页必须用具体子路径导入共享屏')
+  assert.doesNotMatch(page, /from '@ihui\/rn-app'/m, '小程序页不得走桶入口')
+  assert.ok(rn.includes(MESSAGE_SUBPATH), 'RN 必须用具体子路径导入共享屏')
+  assert.doesNotMatch(rn, /from '@ihui\/rn-app'/m, 'RN 不得走桶入口')
+  for (const slot of MESSAGE_RN_SLOTS) {
+    assert.ok(propPassed(rn, slot), `RN 必须真传 ${slot}`)
+  }
+
+  // 阴性对照①:摘页内 renderTabBody 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = page.replace(/\n\s*renderTabBody=\{renderTabBody\}/m, '')
+    assert.ok(propPassed(broken, 'renderTabBody'), 'negative:删 renderTabBody 后不得仍命中')
+  })
+  // 阴性对照②:删 RN onDeleteConversation 传参 ⇒ 不命中
+  assert.throws(() => {
+    const broken = rn.replace(/\n\s*onDeleteConversation=\{[^\n]*\}/m, '')
+    assert.ok(
+      propPassed(broken, 'onDeleteConversation'),
+      'negative:删 RN onDeleteConversation 后不得仍命中',
+    )
+  })
+  // 阴性对照③:改回桶导入 ⇒ 必红
+  assert.throws(() => {
+    const barrel = rn.replace(`from '${MESSAGE_SUBPATH}'`, "from '@ihui/rn-app'")
+    assert.doesNotMatch(barrel, /from '@ihui\/rn-app'/m, 'negative:改回桶导入后不得仍通过')
+  })
+})
+
+test('T16b message 共享屏 i18n:小程序五语言逐键解析,不落裸 key/空串', () => {
+  // sharedTKeys 的 t(' 正则会误吃 assertRequiredPort('onToast') ⇒ 只取词条命名空间内的键
+  const keys = sharedTKeys(MESSAGE_SHARED).filter((k) => /^(messageCenter|common)\./.test(k))
+  assert.ok(keys.length >= 12, `共享屏按键数不足:${keys.length}`)
+  const map = parseCopyMap(readFileSync(MESSAGE_PAGE, 'utf8'))
+  const mini = readLocales(MINI_LOCALES, keys, map, 'miniapp-taro')
+  assert.equal(mini['miniapp-taro/zh-CN.json:messageCenter.title'], '消息')
+  // 阴性对照:删新增键 messageCenter.markRead ⇒ 落地裸 key 必抛
+  assert.throws(() => {
+    const zh = JSON.parse(readFileSync(join(MINI_LOCALES, 'zh-CN.json'), 'utf8'))
+    delete zh.messageCenter.markRead
+    assertCopyResolvable(zh, keys, map, 'negative/zh-CN')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
