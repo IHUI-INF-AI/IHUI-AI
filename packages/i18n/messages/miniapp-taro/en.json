@@ -4691,7 +4691,8 @@
       "active": "Active",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
-    }
+    },
+    "myAttendanceHint": "View the student's own check-in records"
   },
   "eduChildAttendance": {
     "title": "Child's Attendance",
@@ -4717,7 +4718,27 @@
       "absent": "Absent",
       "leave": "Leave"
     },
-    "student": "Student"
+    "student": "Student",
+    "checkInAt": "Check-in time",
+    "momentNow": "Now",
+    "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day",
+    "checkedInToast": "Checked in",
+    "checkedOutToast": "Checked out",
+    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
+    "batchDoneToast": "Roll call done",
+    "checkInFor": "Check in",
+    "batchCheckIn": "Batch check-in",
+    "noClassReason": "No selectable class in the current list",
+    "multiClass": "Multiple classes present; this run only covers {classId}",
+    "statusOther": "Other",
+    "trendWindow": "Last {days} days",
+    "trendChartScope": "Scope: {scope}",
+    "statusDistribution": "Status distribution",
+    "statsTotalLabel": "Total check-ins",
+    "statsAttendanceRate": "Attendance rate",
+    "emptyTrend": "No trend data yet",
+    "trendChartTitle": "Attendance trend",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
@@ -7037,5 +7058,14 @@
   },
   "distributionTeamDetailPage": {
     "noSubordinates": "No subordinates"
+  },
+  "eduMyAttendance": {
+    "title": "My Attendance",
+    "selfCheckIn": "Check in",
+    "scanCheckIn": "Scan to check in",
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "selfDoneToast": "Checked in",
+    "scanDoneToast": "Checked in by scan",
+    "scanInvalidToast": "Not a valid check-in code"
   }
 }
