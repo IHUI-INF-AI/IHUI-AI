@@ -1274,7 +1274,7 @@ test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
   // 老缓存没有这一格 ⇒ 维持原行为(不因缺字段每轮白刷 84s)
   writeFileSync(cand, '{}', 'utf8')
   const f3 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
-  assert.equal(f3.state, 'ok', '缺 planDigest 的旧文件应沿用钟表档')
+  assert.equal(f3.state, 'undetermined', '缺指纹的旧档若判新鲜,本维上线后仍要等 6h 钟表才生效(不自愈)')
 })
 
 test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', () => {

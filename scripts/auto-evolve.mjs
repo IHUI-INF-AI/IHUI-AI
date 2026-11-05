@@ -302,7 +302,7 @@ export function refreshAutonomyCandidates({
     if (Number.isFinite(ageMs) && ageMs < AUTONOMY_CANDIDATES_REFRESH_MS) {
       // 钟表新鲜还不够:就地改写票面后,旧候选文件里没有那张改写后的票,
       // 于是环会在 6 小时里一直报"未评估(候选文件未收录本票)"(2026-11-05 实测挡了 227 分钟)。
-      // 票面指纹变了 ⇒ 视为过期,走下面的重跑;老缓存文件没有这一格 ⇒ 维持原行为(不因缺字段白刷 84s)。
+      // 票面指纹变了 ⇒ 视为过期,走下面的重跑;老缓存文件没有这一格 ⇒ 同样重跑一次把指纹写进去(自愈,此后改票立即失效不等钟表) 84s)。
       let cached = null
       try {
         cached = JSON.parse(readFileSync(candidatesFile, 'utf8'))?.source?.planDigest ?? null
@@ -312,14 +312,16 @@ export function refreshAutonomyCandidates({
       const nowDigest = planFaceDigest(
         String(readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8')).split(/\r?\n/),
       )
-      if (!cached || cached === nowDigest) {
+      if (cached && cached === nowDigest) {
         return {
           state: 'ok',
           why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑`,
         }
       }
       console.warn(
-        `↻ 票面已变(候选指纹 ${cached.slice(0, 8)}… → ${String(nowDigest).slice(0, 8)}…)⇒ 重算候选,不让改写后的票看不见`,
+        cached
+          ? `↻ 票面已变(候选指纹 ${cached.slice(0, 8)}… → ${String(nowDigest).slice(0, 8)}…)⇒ 重算候选,不让改写后的票看不见`
+          : '↻ 候选文件没有票面指纹(本维上线前的旧档)⇒ 重算一次把指纹写进去;此后改票即失效,不再等 6h 钟表',
       )
     }
   } catch {
@@ -3372,7 +3374,18 @@ function selfTest() {
     (() => {
       mkdirSync(s11Dir, { recursive: true })
       const cand = join(s11Dir, 'fresh.json')
-      writeFileSync(cand, '{}', 'utf8')
+      // 指纹档才算"新鲜":没有指纹的旧档必须被重刷一次(自愈),所以这里给出当下票面指纹。
+      writeFileSync(
+        cand,
+        JSON.stringify({
+          source: {
+            planDigest: planFaceDigest(
+              readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8').split(/\r?\n/),
+            ),
+          },
+        }),
+        'utf8',
+      )
       let called = 0
       const r = refreshAutonomyCandidates({
         now: Date.now(),
