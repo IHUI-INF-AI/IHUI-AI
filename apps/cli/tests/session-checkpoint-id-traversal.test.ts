@@ -27,6 +27,7 @@ import {
   type SessionState,
 } from '../src/sessions/index.js';
 import { CheckpointManager } from '../src/checkpoints/index.js';
+import { HunkCheckpointManager } from '../src/checkpoints/hunks.js';
 
 let tmpHome: string;
 let tmpWorkspace: string;
@@ -109,7 +110,7 @@ describe('检查点 id 路径穿越', () => {
 
   it('会话 id 为 `..` 时直接拒绝构造', () => {
     expect(() => new CheckpointManager({ sessionId: '..', workspacePath: tmpWorkspace })).toThrow(
-      /不在 .* 之内/,
+      /拒绝路径段/,
     );
   });
 
@@ -161,6 +162,82 @@ describe('检查点 id 路径穿越', () => {
       }
       rmScratch(outside);
     }
+  });
+});
+
+describe('hunk 检查点 id 路径穿越', () => {
+  function seedWorkspaceFile(): void {
+    fs.writeFileSync(path.join(tmpWorkspace, 'sample.txt'), '第一行\n第二行\n', 'utf-8');
+  }
+
+  it('`--session ../` 不会把 hunk 根目录抬出 checkpoints', () => {
+    seedWorkspaceFile();
+    const mgr = new HunkCheckpointManager({ sessionId: '../../victim', workspacePath: tmpWorkspace });
+    const meta = mgr.snapshotHunks('sample.txt', [{ start: 1, end: 1 }], 'traversal');
+    const checkpointsRoot = path.resolve(tmpHome, '.ihui', 'checkpoints');
+    const baseDir = (mgr as unknown as { baseDir: string }).baseDir;
+    expect(baseDir.startsWith(checkpointsRoot + path.sep)).toBe(true);
+    expect(fs.existsSync(path.join(tmpHome, '.ihui', 'victim'))).toBe(false);
+    expect(mgr.get(meta.id)?.id).toBe(meta.id);
+  });
+
+  it('会话 id 为 `..` 时直接拒绝构造', () => {
+    expect(
+      () => new HunkCheckpointManager({ sessionId: '..', workspacePath: tmpWorkspace }),
+    ).toThrow(/拒绝路径段/);
+  });
+
+  it('delete 的 `../` 与绝对路径 id 不会删到根外', () => {
+    const victimDir = path.join(tmpHome, 'victim');
+    fs.mkdirSync(victimDir, { recursive: true });
+    const keep = path.join(victimDir, 'keep.txt');
+    fs.writeFileSync(keep, 'keep', 'utf-8');
+
+    seedWorkspaceFile();
+    const mgr = new HunkCheckpointManager({ sessionId: 'sess-正常', workspacePath: tmpWorkspace });
+    mgr.snapshotHunks('sample.txt', [{ start: 1, end: 1 }], 'normal');
+
+    expect(mgr.delete('../../victim')).toBe(false);
+    expect(mgr.delete(victimDir)).toBe(false);
+    expect(fs.existsSync(keep)).toBe(true);
+  });
+
+  it('hunk 目录为指向根外的符号链接时拒绝递归删除', async (ctx) => {
+    const outside = mkScratch('id-tr-hunk-link-outside-');
+    const keep = path.join(outside, 'keep.txt');
+    fs.writeFileSync(keep, 'keep', 'utf-8');
+
+    const mgr = new HunkCheckpointManager({ sessionId: 'sess-正常', workspacePath: tmpWorkspace });
+    const baseDir = (mgr as unknown as { baseDir: string }).baseDir;
+    const linkId = 'hunk_link';
+    try {
+      fs.mkdirSync(baseDir, { recursive: true });
+      fs.symlinkSync(outside, path.join(baseDir, linkId), 'junction');
+    } catch {
+      rmScratch(outside);
+      ctx.skip();
+      return;
+    }
+    try {
+      expect(() => mgr.delete(linkId)).toThrow(/符号链接解析后落在.*之外/);
+      expect(fs.existsSync(keep)).toBe(true);
+    } finally {
+      try {
+        fs.unlinkSync(path.join(baseDir, linkId));
+      } catch {
+        /* 链接已不存在 */
+      }
+      rmScratch(outside);
+    }
+  });
+
+  it('合法 hunk 快照/删除照常工作', () => {
+    seedWorkspaceFile();
+    const mgr = new HunkCheckpointManager({ sessionId: 'sess-正常', workspacePath: tmpWorkspace });
+    const meta = mgr.snapshotHunks('sample.txt', [{ start: 1, end: 1 }], 'normal');
+    expect(mgr.get(meta.id)?.hunks).toHaveLength(1);
+    expect(mgr.delete(meta.id)).toBe(true);
+    expect(mgr.get(meta.id)).toBeNull();
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
