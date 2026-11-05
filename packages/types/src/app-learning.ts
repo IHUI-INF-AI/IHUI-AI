@@ -298,6 +298,53 @@ export interface ExamResultScreenProps {
   onNavigate: OnNavigate
 }
 
+/**
+ * 成绩四格统计项(共享段 ExamResultStats)。
+ * 两端各自把字段映射成同一行:label/value 由宿主翻译后注入,tone 只表达配色语义。
+ */
+export interface ExamResultStatItem {
+  key: string
+  label: string
+  value: string
+  tone?: 'correct' | 'wrong' | 'neutral' | 'muted'
+}
+
+/** ExamResultStats props */
+export interface ExamResultStatsProps {
+  items: ExamResultStatItem[]
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 题目回顾条目(小程序 GET /exam/:id/review 与 web getMyRecords details 的同一形状) */
+export interface ExamReviewItem {
+  id: string
+  title: string
+  isCorrect: boolean
+  score: number
+  myAnswer?: string
+  correctAnswer?: string
+  analysis?: string
+}
+
+/** ReviewList props:文案全部宿主注入(两端 i18n 键族不同,不在此强行合并) */
+export interface ExamReviewListProps {
+  items: ExamReviewItem[]
+  title: string
+  labels: {
+    correct: string
+    wrong: string
+    yourAnswer: string
+    correctAnswer: string
+    analysis: string
+    score: (n: number) => string
+    questionIndex: (n: number) => string
+  }
+  /** 错题计数行标题;缺省 = 不渲染该行(web 详情列表无此段) */
+  wrongTitle?: string
+  emptyText: string
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 课程报名列表项 */
 export interface CourseEnrollItem {
   id: string
