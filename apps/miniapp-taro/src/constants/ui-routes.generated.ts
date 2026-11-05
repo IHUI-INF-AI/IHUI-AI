@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 63b05d67daa73077d92e823c54e9b6321d0646c0
-// inputsSha256: a55fad8f963eb6ccbc24b09ab2f66e704f0770d7f5ffb9e0a82e10ff2764f52a
+// sourceCommit: c893c3f3fb423fe2db326646b5753ab3c49dbd96
+// inputsSha256: 54782f28a245bc43a1bfc4004856b8376abf4225615f8a33a509caa67bcf9c00
 // input: apps/miniapp-taro/src/api/index.ts 7a56389477cb9db19e97b2533d4776e57fa15b9c6b4047ba5dbfc242bbc82f97
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -540,7 +540,7 @@
 // input: apps/miniapp-taro/src/pkg-shop/wallet/top-up/index.tsx 83b9fbd425ad7e3b48b485cde8ee0486e34a12080d906c6a000aefc00bbdcd6d
 // input: apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.config.ts ea140c8808c407cedb59ec32cd65fc38c04823460d4b6f52a16d463ca17acd47
 // input: apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx 39cb83f994a1e097f1ee53d6c8dc38f9552a7c81eba90af15a0d183d83e5472a
-// input: apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx ff4e6c1722451b84d72ecc5a097e78d97d40ca28eebafe09f505707c21315e9c
+// input: apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx 1da20e9e06727dceb43530b30d8bd7e49e5d4ff08897d28e9aedfc5a862b9825
 // input: apps/miniapp-taro/src/pkg-user/account-pool/add-form.tsx 26fb9120bf8e96af1df8301df965ad31f1d50beea68fdd6ebed7d9d39b50a865
 // input: apps/miniapp-taro/src/pkg-user/account-pool/index.tsx ad31d547cb34d4244e28881789edef4b7fe037a3e1087f5646e2d4d481ae3de0
 // input: apps/miniapp-taro/src/pkg-user/account-pool/pool-row.tsx 7a9f6a0b307d6d404eecc3145a26bffd33159c9c832a6c923d5404837dfe8dc6
@@ -649,7 +649,7 @@
 // input: apps/miniapp-taro/src/pkg-user/user/password.config.ts e2a0ce03bc7a76b8ce919153c45058f5f36248e038e2c6c43c566936ab9f6e17
 // input: apps/miniapp-taro/src/pkg-user/user/password.tsx 230ea9a9dc144d910dbca91028b6a20fc4a08a9587d418fdb926831a2051f6d5
 // input: apps/miniapp-taro/src/pkg-user/user/phone.config.ts eb2105a4743e5c524dda8e0b87a3eaade795049eaf0670622faa340fdcc9a7cb
-// input: apps/miniapp-taro/src/pkg-user/user/phone.tsx 7be97460cacaf4f532c54dc4be1acbd07d87f12c96495add9c102c266744feba
+// input: apps/miniapp-taro/src/pkg-user/user/phone.tsx c4e1d5b6ad63c28259689d8ea0b28adae0caffe628927d89d78511ffae51abba
 // input: apps/miniapp-taro/src/pkg-user/user/profile-avatar.tsx df0c956d53274e36054b4aee14758340b1c37eb08d779c9179d84a4c9af1b27e
 // input: apps/miniapp-taro/src/pkg-user/user/profile-logout.tsx 08ce7e7d102d4ef42f1dbecf2f4b879de583da88f116edbddf9ede82b3da4674
 // input: apps/miniapp-taro/src/pkg-user/user/profile-stats.tsx 7a2fd5a3dc487c792aa9bd8c506987e01c104d2b1ad7b7d8c1354a117bc01c64
@@ -721,7 +721,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 585 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-05T14:41:15.526Z
+// generatedAt: 2026-11-05T15:32:39.511Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

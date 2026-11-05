@@ -39,10 +39,10 @@ export function AccountCancelScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>注销账号</Text>
+        <Text style={styles.title}>{t('settings.accountDeletionTitle')}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.desc}>注销账号后，您的所有数据将被永久删除且无法恢复。</Text>
+        <Text style={styles.desc}>{t('settings.accountDeletionWarning')}</Text>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>{t('settings.accountDeletionPhoneLabel')}</Text>
@@ -51,7 +51,7 @@ export function AccountCancelScreen({
             style={styles.input}
             value={phone}
             onChangeText={onPhoneChange}
-            placeholder="请输入手机号"
+            placeholder={t('settings.accountDeletionPhonePlaceholder')}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="phone-pad"
             maxLength={11}
@@ -59,14 +59,14 @@ export function AccountCancelScreen({
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>短信验证码</Text>
+          <Text style={styles.label}>{t('settings.accountDeletionCodeLabel')}</Text>
           <View style={styles.smsRow}>
             <TextField
               colorScheme={colorScheme}
               style={[styles.input, styles.smsInput]}
               value={smsCode}
               onChangeText={onSmsCodeChange}
-              placeholder="请输入验证码"
+              placeholder={t('settings.accountDeletionCodePlaceholder')}
               placeholderTextColor={tk.text.tertiary}
               keyboardType="number-pad"
               maxLength={6}
@@ -77,7 +77,7 @@ export function AccountCancelScreen({
               disabled={countdown > 0}
             >
               <Text style={[styles.smsBtnText, countdown > 0 && styles.smsBtnTextDisabled]}>
-                {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                {countdown > 0 ? `${countdown}s` : t('settings.accountDeletionSendCode')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -90,7 +90,7 @@ export function AccountCancelScreen({
             style={styles.input}
             value={confirmText}
             onChangeText={onConfirmTextChange}
-            placeholder="请输入「确认注销」"
+            placeholder={t('settings.accountDeletionConfirm')}
             placeholderTextColor={tk.text.tertiary}
           />
         </View>
@@ -100,7 +100,11 @@ export function AccountCancelScreen({
           onPress={onSubmit}
           disabled={submitting}
         >
-          <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交注销申请'}</Text>
+          <Text style={styles.submitBtnText}>
+            {submitting
+              ? t('settings.accountDeletionSubmitting')
+              : t('settings.accountDeletionSubmit')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -114,7 +118,7 @@ export function AccountCancelScreen({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('settings.accountDeletionConfirmTitle')}</Text>
-            <Text style={styles.modalBody}>注销后数据不可恢复，请再次确认是否继续？</Text>
+            <Text style={styles.modalBody}>{t('settings.accountDeletionWarning')}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={onCloseModal}>
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
@@ -125,7 +129,9 @@ export function AccountCancelScreen({
                 disabled={confirmCountdown > 0}
               >
                 <Text style={styles.modalConfirmText}>
-                  {confirmCountdown > 0 ? `${confirmCountdown}s` : '确认注销'}
+                  {confirmCountdown > 0
+                    ? `${confirmCountdown}s`
+                    : t('settings.accountDeletionSubmit')}
                 </Text>
               </TouchableOpacity>
             </View>

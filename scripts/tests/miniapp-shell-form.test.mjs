@@ -406,4 +406,134 @@ test('T11b orders i18n 适配层:五语言逐键解析为人话,不落裸 key/�
   // 阴性对照:删掉 order.tab.all 的映射(该键在 locale 无原生词条)⇒ fixture 必抛
   assert.throws(() => resolveOrderCopy(page.replace(/^\s*'order\.tab\.all':[^\n]*\n/m, '')))
 })
+
+// T12/T13 共享屏 i18n 裸 key 收口(2026-11-05,change-phone + account-cancel):
+// 共享屏文案必须逐键解析为五语言人话;RN 走端词包直读,小程序走 PHONE_TEXT/ACCOUNT_CANCEL_TEXT
+// 适配表映射到既有词条。阴性对照两枚:①删 RN 一个键必须抛;②删适配表一条映射必须回落裸 key 抛出。
+const SHARED_PHONE = join(ROOT, 'packages/app/src/features/change-phone/ChangePhoneScreen.tsx')
+const SHARED_CANCEL = join(ROOT, 'packages/app/src/features/account-cancel/AccountCancelScreen.tsx')
+const PHONE_TEXT_FILE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/user/phone.tsx')
+const CANCEL_TEXT_FILE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx')
+const RN_LOCALES = join(ROOT, 'packages/i18n/messages/mobile-rn')
+const MINI_LOCALES = join(ROOT, 'packages/i18n/messages/miniapp-taro')
+const COPY_MAP_LINE_RE = /^\s*'([^']+)':\s*'([^']+)',/gm
+
+function parseCopyMap(src) {
+  const map = new Map()
+  for (const m of src.matchAll(COPY_MAP_LINE_RE)) map.set(m[1], m[2])
+  return map
+}
+
+/** 共享屏会渲染的键:静态 t('x') + 带参数的 t('x', {...}) */
+function sharedTKeys(sharedPath) {
+  const src = readFileSync(sharedPath, 'utf8')
+  return [...new Set([...src.matchAll(/t\('([^']+)'/g)].map((m) => m[1]))]
+}
+
+function assertCopyResolvable(locale, keys, map, label, record = () => {}) {
+  for (const key of keys) {
+    const mapped = map ? (map.get(key) ?? key) : key
+    const value = localeValue(locale, mapped)
+    assert.equal(typeof value, 'string', `${label}: 键 ${key}(映射 ${mapped})未解析为字符串`)
+    assert.ok(value.trim().length > 0, `${label}: 键 ${key}(映射 ${mapped})解析为空串`)
+    assert.notEqual(value, mapped, `${label}: 键 ${key} 渲染成裸键 ${mapped}`)
+    assert.notEqual(value, key, `${label}: 键 ${key} 渲染成裸键 ${key}`)
+    record(key, value)
+  }
+}
+
+function readLocales(dir, keys, map, label) {
+  const out = {}
+  for (const file of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
+    const locale = JSON.parse(readFileSync(join(dir, file), 'utf8'))
+    assertCopyResolvable(locale, keys, map, `${label}/${file}`, (key, value) => {
+      out[`${label}/${file}:${key}`] = value
+    })
+  }
+  return out
+}
+
+test('T12 change-phone 共享屏 i18n:五语言逐键非空/非裸 key/非中文兜底', () => {
+  const keys = sharedTKeys(SHARED_PHONE)
+  assert.ok(keys.length >= 8, `共享屏按键数不足:${keys.length}`)
+  const map = parseCopyMap(readFileSync(PHONE_TEXT_FILE, 'utf8'))
+  const rn = readLocales(RN_LOCALES, keys, null, 'mobile-rn')
+  const mini = readLocales(MINI_LOCALES, keys, map, 'miniapp-taro')
+  assert.equal(rn['mobile-rn/zh-CN.json:user.profile.changePhoneTitle'], '修改手机号')
+  assert.equal(mini['miniapp-taro/zh-CN.json:user.profile.changePhoneTitle'], '绑定手机号')
+  // 非中文兜底:en/ja/ko 不得等于 zh-CN 译文;en 不得含汉字
+  for (const [lang, label] of [
+    ['en', 'mobile-rn'],
+    ['ja', 'mobile-rn'],
+    ['ko', 'mobile-rn'],
+  ]) {
+    for (const key of keys) {
+      assert.notEqual(
+        rn[`${label}/${lang}.json:${key}`],
+        rn[`${label}/zh-CN.json:${key}`],
+        `${label}/${lang}: 键 ${key} 回落中文`,
+      )
+    }
+  }
+  for (const key of keys) {
+    assert.doesNotMatch(
+      rn[`mobile-rn/en.json:${key}`],
+      /\p{Script=Han}/u,
+      `mobile-rn/en: 键 ${key} 含汉字`,
+    )
+  }
+  // 阴性对照①:删 RN en 的一个键 ⇒ 同尺子必抛
+  assert.throws(() => {
+    const en = JSON.parse(readFileSync(join(RN_LOCALES, 'en.json'), 'utf8'))
+    delete en.user.profile.confirmChange
+    assertCopyResolvable(en, keys, null, 'negative/en')
+  })
+  // 阴性对照②:删适配表 user.profile.resend ⇒ 回落裸 key 必抛
+  assert.throws(() => {
+    const zh = JSON.parse(readFileSync(join(MINI_LOCALES, 'zh-CN.json'), 'utf8'))
+    const broken = new Map(map)
+    broken.delete('user.profile.resend')
+    assertCopyResolvable(zh, keys, broken, 'negative/zh-CN')
+  })
+})
+
+test('T13 account-cancel 共享屏 i18n:五语言逐键非空/非裸 key/非中文兜底', () => {
+  const keys = sharedTKeys(SHARED_CANCEL)
+  assert.ok(keys.length >= 12, `共享屏按键数不足:${keys.length}`)
+  const map = parseCopyMap(readFileSync(CANCEL_TEXT_FILE, 'utf8'))
+  const rn = readLocales(RN_LOCALES, keys, null, 'mobile-rn')
+  const mini = readLocales(MINI_LOCALES, keys, map, 'miniapp-taro')
+  assert.equal(rn['mobile-rn/zh-CN.json:settings.accountDeletionTitle'], '账号注销')
+  assert.equal(mini['miniapp-taro/zh-CN.json:settings.accountDeletionTitle'], '注销账号')
+  for (const lang of ['en', 'ja', 'ko']) {
+    for (const key of keys) {
+      assert.notEqual(
+        rn[`mobile-rn/${lang}.json:${key}`],
+        rn[`mobile-rn/zh-CN.json:${key}`],
+        `mobile-rn/${lang}: 键 ${key} 回落中文`,
+      )
+    }
+  }
+  for (const key of keys) {
+    assert.doesNotMatch(
+      rn[`mobile-rn/en.json:${key}`],
+      /\p{Script=Han}/u,
+      `mobile-rn/en: 键 ${key} 含汉字`,
+    )
+  }
+  // 阴性对照①:删 RN ko 的一个键 ⇒ 同尺子必抛
+  assert.throws(() => {
+    const ko = JSON.parse(readFileSync(join(RN_LOCALES, 'ko.json'), 'utf8'))
+    delete ko.settings.accountDeletionCodeLabel
+    assertCopyResolvable(ko, keys, null, 'negative/ko')
+  })
+  // 阴性对照②:删 account-cancel.warning 映射 ⇒ 落地不存在的键必抛
+  assert.throws(() => {
+    const zh = JSON.parse(readFileSync(join(MINI_LOCALES, 'zh-CN.json'), 'utf8'))
+    const broken = new Map(map)
+    broken.delete('settings.accountDeletionWarning')
+    assertCopyResolvable(zh, keys, broken, 'negative/zh-CN')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
