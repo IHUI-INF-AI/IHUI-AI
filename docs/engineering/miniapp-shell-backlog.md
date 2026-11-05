@@ -491,4 +491,36 @@
 
 本轮只报结论，退休/纠正行由内容线统一做。
 
+## pkg-shop 域 10 页定性（main `73fe20b38f` 实测）
+
+取证面：`origin/main = 73fe20b38f`（batch5 `--ff-only` 对齐后 HEAD）；在册页取自门 299 `--explain`，LOC/节点按 TS AST 实测（`JsxElement + JsxSelfClosingElement + JsxFragment`，节点数即开标签数）。结论：**0 可薄壳 / 6 结构下限 / 4 口径异常**。
+
+| route | 实测 LOC · 节点 | 结论 | 判据证据（file:line） |
+|---|---|---|---|
+| `pkg-shop/vip/index` | 692 · 110（98+12） | 结构下限 | 页内套餐卡 `apps/miniapp-taro/src/pkg-shop/vip/index.tsx:481`、价格选择 `:483`、自动续费 `:488`、`VipBenefitsPopup` `:531`、`VipPayConfirm` `:541`；共享 `VipScreen` 仅权益卡 `packages/app/src/features/vip/VipScreen.tsx:109-127` + 等级列表 `:146-160`，无套餐/续费/支付确认段。 |
+| `pkg-shop/vip/privilege` | 389 · 79（72+7） | 结构下限 | 页内升级按钮 `apps/miniapp-taro/src/pkg-shop/vip/privilege.tsx:221-225`、三个弹层 `:228/:292/:338`；共享 `VipBenefitScreenProps` 仅 items/loading/error/onBack（`packages/types/src/app-growth.ts:860-867`）。 |
+| `pkg-shop/vip/upgrade` | 216 · 22 | 口径异常 | 声明 `VipLevelScreen` 仅 item/loading/error/onBack（`packages/types/src/app-growth.ts:79-86`）vs 实际套餐列表 `apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx:164` + 支付方式 `:181` + 提交 `:208`；取数 `getVipLevels`/`upgradeVip` `:10/:40`。 |
+| `pkg-shop/vip/details` | 220 · 33（30+3） | 结构下限 | 页内套餐卡 `apps/miniapp-taro/src/pkg-shop/vip/details.tsx:146-181`、`CompareTable` `:207`、按钮 `:210`；共享 `VipCompareScreenProps` 仅 rows/loading/error/onBack/onNavigate（`packages/types/src/app-growth.ts:97-106`）。 |
+| `pkg-shop/vip/success` | 209 · 38（34+4） | 结构下限 | 页内双按钮 `apps/miniapp-taro/src/pkg-shop/vip/success.tsx:177-184`、分享入口 `:186-203`；共享 `TopupSuccessScreenProps` 仅 amount/orderId/time/onViewOrder/onGoHome/faq/onBack（`packages/types/src/app-commerce.ts:509-520`），无分享端口。 |
+| `pkg-shop/pay/index` | 513 · 47（43+4） | 口径异常 | 声明 `PaymentScreen` 为订单列表（`packages/app/src/features/payment/PaymentScreen.tsx:109-111` FlatList、逐单 `onPay` `:160`）vs 实际收银台：订单信息 `apps/miniapp-taro/src/pkg-shop/pay/index.tsx:384-399`、支付方式含余额 `:401-475`、优惠券 `:477-496`、提交 `:498`。 |
+| `pkg-shop/order/refund` | 248 · 30（24+6） | 口径异常 | 声明 `OrderRefundScreen` 为多单选择式（`packages/app/src/features/order-refund/OrderRefundScreen.tsx:120` FlatList、`selectedId` `:134`、`onSelectOrder` `:208`）vs 实际单订单退款表单 `apps/miniapp-taro/src/pkg-shop/order/refund.tsx:155`（订单卡）/`:179`（金额）/`:183`（原因）/`:206/:219`（说明/联系方式）/`:231`（提交）。 |
+| `pkg-shop/vip-trader/index/index` | 427 · 73（66+7） | 口径异常 | 页内 `@demo-data` 业绩 `apps/miniapp-taro/src/pkg-shop/vip-trader/index/index.tsx:111-127`、服务包 `:129-140`（注释 `:112-113` 自述「RN 镜像共享屏无此区块」）；RN 仅传 stats/opened/loading/... `apps/mobile-rn/src/screens/VipTraderScreen.tsx:174-187`。 |
+| `pkg-shop/wallet/recharge/index` | 249 · 38（32+6） | 结构下限（本轮下调） | 共享屏已有金额卡 `packages/app/src/features/app-topup/AppTopupScreen.tsx:91` 与支付方式 `:129-131`，五名两端真消费：RN `apps/mobile-rn/src/screens/AppTopupScreen.tsx:118`(balance)/`:120`(introVisible)/`:122`(amountOptions)/`:123`(payMethods)/`:126`(onSelectPayMethod)；共享 `:88`/`:157`/`:106`/`:132`/`:136`。但 `:157` intro 进页自动弹（RN 初值 true `:48`），按停止条件不换壳；余额源 `apps/miniapp-taro/src/api/index.ts:963-964`（GET /wallet/balance，单位分）。 |
+| `pkg-shop/wallet/withdrawal/index` | 171 · 21（19+2） | 结构下限 | 页内提现方式选择 `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx:121-147`、全部提现 `:116`、提现记录入口 `:159-165`；共享 `WithdrawScreen` 为 bankCardId 文本输入 `packages/app/src/features/withdraw/WithdrawScreen.tsx:66-74`，无方式/记录段。 |
+
+### 四张口径异常：声明屏 vs 实际对象 + 待重挂映射
+
+| 页 | 声明屏 vs 实际对象 | 待重挂映射 |
+|---|---|---|
+| `pkg-shop/vip/upgrade` | 声明 `VipLevelScreen`（只读等级详情，props 仅 item/loading/error/onBack，`packages/types/src/app-growth.ts:79-86`）；实际是会员套餐收银台（套餐 `upgrade.tsx:164` / 支付方式 `:181` / 提交 `:208`，取数 `getVipLevels`/`upgradeVip` `:10/:40`）。 | 共享层无「会员套餐收银台」对象；需重挂到支付/收银台域（或新建共享收银台屏），`VipLevelScreen` 不应再作声明目标。 |
+| `pkg-shop/pay/index` | 声明 `PaymentScreen`（订单列表，`packages/app/src/features/payment/PaymentScreen.tsx:109-111`）；实际是收银台（订单信息 `pay/index.tsx:384-399`、支付方式含余额 `:401-475`、优惠券 `:477-496`、提交 `:498`）。 | 重挂共享「收银台」对象（当前共享层只有订单列表，无收银台屏）。 |
+| `pkg-shop/order/refund` | 声明 `OrderRefundScreen`（多单选择式，`packages/app/src/features/order-refund/OrderRefundScreen.tsx:120/134/208`）；实际是单订单退款表单（`order/refund.tsx:155-231`）。 | 重挂「单订单退款表单」对象（或归入 order-detail 域的退款表单）；多单选择式共享屏不承载单订单入口。 |
+| `pkg-shop/vip-trader/index/index` | 声明 `VipTraderScreen`（RN 只传 stats/opened/...，`apps/mobile-rn/src/screens/VipTraderScreen.tsx:174-187`）；实际页另有 `@demo-data` 业绩 `vip-trader/index/index.tsx:111-127` 与服务包 `:129-140`，页内注释 `:112-113` 自述共享屏无此区块。 | 业绩/服务包段暂无共享对象，且为 demo 数据（需产品/合规裁决）；台账声明映射待重挂，区块暂留页内。 |
+
+### `pkg-shop/wallet/recharge/index` 停手依据
+
+- 实测 249 行 / 38 节点（32 JSX + 6 自闭合），结论 `结构下限`（由第一阶段「有条件可薄壳」下调）。
+- 理由：共享屏 `AppTopupScreen` 已有金额卡（`:91`）与支付方式段（`:129-131`），且 `balance/introVisible/amountOptions/payMethods/onSelectPayMethod` 两端真消费（RN 传参 `apps/mobile-rn/src/screens/AppTopupScreen.tsx:118/120/122/123/126`；共享屏渲染 `packages/app/src/features/app-topup/AppTopupScreen.tsx:88/157/106/132/136`）；但共享屏 `:157` 的 intro 弹层进页自动弹（RN `introVisible` 初值 `true`，`apps/mobile-rn/src/screens/AppTopupScreen.tsx:48`），会改变小程序既有交互流程，按停止条件不换壳。
+- 前置核查：余额数据源并非缺失（`apps/miniapp-taro/src/api/index.ts:963-964` `getWalletBalance`，GET /wallet/balance，单位分；与共享屏 `balance/100` `:88` 同口径）。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
