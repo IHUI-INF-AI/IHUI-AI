@@ -523,6 +523,25 @@ export function applyRewriteToWorktree(rel, { root = ROOT, idxForRewrite, headCo
   }
 }
 
+/**
+ * 写盘档退出码的唯一裁决处(2026-11-05 立,与三枚 land-* 同契约)。
+ *
+ * 旧写法是 `changed > 0 ? 0 : 1` —— 那把"本轮没有可写的"报成了**失败**。后果不是措辞问题:
+ * 守护 `runCrossEndApplyLeg(['--apply'])` 每轮都记一次假失败,一键级联 `--apply` 也每次都
+ * 把这列判成 failed(2026-11-05 实测:落盘 0 枚 / held 2 ⇒ rc=1 ⇒ 级联报「器物失败」)——
+ * 一个恒非 0 的自动腿和一道恒红门是同一件事(§12e:与本次内容无关的红,唯一结局是逼人跳门)。
+ *
+ * 三兄弟 lander 的契约现读:`0 正常(含"改 0 处")/ 1 有文件落盘后 verify 失败并已回滚 / 2 用法错或取不到输入`。
+ * 本函数据此只回答"这次跑坏了吗":真败 = 有文件写失败(已回滚)或落账未成功;
+ * "没活/被归属闸让路/账本读不到(ledger=unjudged)"都不是失败 —— 那些读数在结论行里逐条点名,
+ * 不靠退出码冒充(§0.3 的"没判"另有 rc=2 一档,由各取不到输入的 return 承担)。
+ */
+export function applyExitCode({ changed = 0, failed = [], landingErr = '' } = {}) {
+  if (Array.isArray(failed) && failed.length > 0) return 1
+  if (typeof landingErr === 'string' && landingErr !== '') return 1
+  return 0
+}
+
 function main() {
   if (argv.includes('--self-test')) return selfTest()
   const isCheck = argv.includes('--check')
@@ -674,7 +693,7 @@ function main() {
       ` held=${held.length}` +
       (plan.ok ? '' : ' ownership=unjudged'),
   )
-  return changed > 0 ? 0 : 1
+  return applyExitCode({ changed, failed, landingErr })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -705,5 +724,7 @@ export const __test__ = {
   ownershipPlan,
   applyRewriteToWorktree,
   ownershipGate,
+  // 写盘档退出码裁决(2026-11-05:与三枚 land-* 同契约,"没活"不是失败)
+  applyExitCode,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

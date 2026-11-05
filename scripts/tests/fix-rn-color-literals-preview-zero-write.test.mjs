@@ -31,6 +31,8 @@ import test from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as C } from '../sync-cross-end-cascade.mjs'
+// 器物本体有 isDirectRun 守卫,import 不触发主流程;判据一律走它自己的 __test__ 出口(§22c)。
+import { __test__ as COLOR } from '../fix-rn-color-literals.mjs'
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const TOOL = join(ROOT, 'scripts', 'fix-rn-color-literals.mjs')
@@ -179,6 +181,21 @@ test('P2 行为锁:级联缺省档真跑 ⇒ 替身记到零条写动作,且记�
     [],
     `预演档有 ${writes.length} 条写动作 ⇒ 级联缺省档不再是只读,必须改登记为 noPreview 或修器物`,
   )
+})
+
+test('P4 写盘档退出码契约:没活 ≠ 失败,真败(写失败/落账未成)才非 0', () => {
+  // 立因(2026-11-05 实测):旧写法 `changed > 0 ? 0 : 1` 把"本轮 0 处可写"报成失败 ——
+  // 守护每轮都记一次假失败,级联 --apply 也把该列判成 failed(落盘 0 枚 / held 2 ⇒ rc=1)。
+  // 恒非 0 的自动腿与恒红门是同一件事(§12e)。三枚 land-* 的契约是 0 正常(含改 0 处)/
+  // 1 verify 失败已回滚 / 2 用法错或取不到输入。本器按 applyExitCode 对齐,判据本体在此钉住。
+  const f = COLOR.applyExitCode
+  assert.equal(f({ changed: 0, failed: [], landingErr: '' }), 0, '没活 ⇒ 0(旧写法在这里退 1,就是那枚假失败)')
+  assert.equal(f({ changed: 3, failed: [], landingErr: '' }), 0, '写了 3 枚且无失败 ⇒ 0')
+  assert.equal(f({ changed: 2, failed: ['a.tsx:verify 失败'], landingErr: '' }), 1, '有文件写失败 ⇒ 1')
+  assert.equal(f({ changed: 1, failed: [], landingErr: '账本不可写:EACCES' }), 1, '落账未成功 ⇒ 1,绝不冒成功')
+  // 反向对照:把"没活"重新判成失败的同一条尺必须翻得出红(证明断言不是空转)
+  assert.notEqual(f({ changed: 0, failed: [], landingErr: '' }), 1, '裁决被写坏了:没活仍被判失败')
+  assert.equal(typeof f, 'function', 'applyExitCode 必须从器物 __test__ 出口取到(§22c 禁测试复制判据)')
 })
 
 test('P3 归属锁(静态):器物唯一的 hash-object -w 腿必须住在 --emit-blobs 分支内,且全器只此一处', () => {
