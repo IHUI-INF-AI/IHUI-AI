@@ -22,6 +22,10 @@
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
+// 产品形态能力闸(goal-b49 Y3):判定本体在 @ihui/types 的 PRODUCT_FORM_CAPABILITIES(本层零判据),
+// 本文件只消费 —— 形态表里关掉/未登记的能力面,在该形态下不得被启用,且**出声**(不静默丢工具)。
+import { announceProductFormGate, resolveProductForm } from '../lib/product-form.js';
+import { gateToolForProductForm } from './product-form-gate.js';
 // 79 号票运行时的唯一装配点(判定本体在 @ihui/types,本文件只消费).
 import {
   authorizeWritePath,
@@ -795,7 +799,18 @@ export function getToolRegistrationConflicts(): string[] {
 }
 
 export function registerTools(tools: Tool[]): void {
+  // 产品形态闸(goal-b49 Y3,2026-11-05):形态表里关掉/未登记的能力面,在该形态下**不得被启用**。
+  // 判定本体在 @ihui/types 的 PRODUCT_FORM_CAPABILITIES(表 + 纯函数 evaluateProductFormCapability),
+  // 本层零判据:只做「工具名 → 能力面」的映射与降权(映射在 tools/product-form-gate.ts)。
+  // 失效方向(§0.10):关档与未登记一律**出声**(点名形态 · 能力 · 工具名)后不挂载,
+  // 绝不静默丢工具(§0.9 静默 = 没判),也绝不静默放行。
+  const form = resolveProductForm();
   for (const t of tools) {
+    const gate = gateToolForProductForm(t.name, form);
+    if (!gate.allowed) {
+      announceProductFormGate(gate.verdict, `tools:${t.name}`);
+      continue;
+    }
     registerTool(t);
     // 如果 hub 已启用,同步注册到 hub local registry(后续 MCP 工具接入时也走这条路径)
     if (hubEnabled) {
