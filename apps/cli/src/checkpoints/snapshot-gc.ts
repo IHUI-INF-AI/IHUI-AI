@@ -64,7 +64,13 @@ export interface SnapshotGcPlan {
   notes: string[];
 }
 
-/** 默认策略:保留最近 20 版 ∧ 30 天年龄窗 ∧ 单序列 256 MiB 总量上限 */
+/**
+ * 默认策略:保留最近 20 版 ∧ 30 天年龄窗 ∧ 单序列 256 MiB 总量上限。
+ * 档位复核(goal-b49 W3 本机现读,复量入口 = `node scripts/check-snapshot-backlog.mjs`):@2026-11-05 读数 =
+ * 会话 1 / 快照目录 40 枚(版本序列 20 + 历史 cp_ 20,全是测试夹具残留而非生产积压)/ 可量体积 40 枚合计 7,531 B /
+ * 最老 0.3 天 / 判不出 0 枚 ⇒ 三档一条未触顶 ⇒ 现读**不支持**收紧到更严一档(只削回滚深度、省不出量);
+ * 改档须先有积压读数 + 消费方 + 用例,三者缺一按现档。
+ */
 export const DEFAULT_SNAPSHOT_GC_POLICY: SnapshotGcPolicy = {
   keepVersions: 20,
   maxAgeMs: 30 * 86_400_000,
