@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipBenefitItem, VipBenefitScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -27,7 +27,7 @@ export function VipBenefitScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: VipBenefitScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -65,11 +65,22 @@ export function VipBenefitScreen({
         ) : (
           items.map((item) => (
             <View key={item.id} style={styles.card}>
+              {item.iconUri ? (
+                <Image
+                  source={{ uri: item.iconUri }}
+                  style={styles.cardIconImage}
+                  resizeMode="contain"
+                />
+              ) : item.icon ? (
+                <Text style={styles.cardIcon}>{item.icon}</Text>
+              ) : null}
               <View style={styles.titleRow}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelText}>{item.level}</Text>
-                </View>
+                {item.level ? (
+                  <View style={styles.levelBadge}>
+                    <Text style={styles.levelText}>{item.level}</Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={styles.cardDesc}>{item.desc}</Text>
             </View>
@@ -122,6 +133,13 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    cardIcon: {
+      fontSize: rnType.display.size,
+      textAlign: 'center',
+      marginBottom: rnSpacing.xs,
+      color: tk.text.primary,
+    },
+    cardIconImage: { width: 48, height: 48, alignSelf: 'center', marginBottom: rnSpacing.xs },
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
     levelBadge: {
       paddingHorizontal: rnSpacing.sm,
