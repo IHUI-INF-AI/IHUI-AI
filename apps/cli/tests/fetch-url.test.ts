@@ -23,7 +23,7 @@ import type * as FetchUrlEgressModule from '../src/tools/fetch-url-egress.js';
  * 过守卫后判不安全、目标端口命中数归零、逐跳 Location 复校验、错误串不含响应体。
  */
 vi.mock('@ihui/shared/utils/ssrf-guard', async (importOriginal) => {
-  const actual = await importOriginal<SsrfGuardModule>();
+  const actual = await importOriginal<typeof SsrfGuardModule>();
   return {
     ...actual,
     assertSafeFetchUrl: async (rawUrl: string) => ({ safe: true, host: new URL(rawUrl).hostname }),
