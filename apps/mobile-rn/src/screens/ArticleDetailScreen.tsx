@@ -28,7 +28,12 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
+import {
+  createComment,
+  getComments,
+  getPublicArticle,
+  type CommentItem,
+} from '@ihui/api-client'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
@@ -83,7 +88,7 @@ export function ArticleDetailScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ArticleDetailItem>(`/api/articles/${encodeURIComponent(id)}`)
+      const res = await getPublicArticle<ArticleDetailItem>(id)
       if (cancelled) return
       if (res.success) {
         setArticle(res.data)

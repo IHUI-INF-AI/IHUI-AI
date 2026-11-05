@@ -5,7 +5,7 @@
 import { useCallback } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { listPublicArticles } from '@ihui/api-client'
 import { ArticleListScreen as SharedArticleListScreen, type ArticleListItem } from '@ihui/rn-app'
 import { usePaginatedList } from '../hooks'
 import { useI18n } from '../i18n'
@@ -27,7 +27,7 @@ export function ArticleListScreen() {
   const fetcher = useCallback(
     async ({ page, pageSize }: { page: number; pageSize: number }) => {
       try {
-        return await fetchApi<ArticleListItem[]>(`/api/articles?page=${page}&pageSize=${pageSize}`)
+        return await listPublicArticles<ArticleListItem[]>({ page, pageSize })
       } catch {
         return { success: false as const, error: t('articleList.loadFailed') }
       }
