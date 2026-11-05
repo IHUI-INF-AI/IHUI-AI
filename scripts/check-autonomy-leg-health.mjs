@@ -835,6 +835,9 @@ export const ACTION_CLAIMS = {
   // 归 failure 不归 informational —— informational 的那两枚是环境常态,而这枚是它们连成串之后
   // 的结论;漏登记不会消音,只会让 A15 报"有动作没人认领"(那是对的,认领表就是防静默)。
   'runner-face-parked-round': { dim: 'A14', kind: 'failure' },
+  // 账面挂账搁置:出现即"这张票被有意按下",必须报数而不是无声 —— 漏登记的代价是这张票
+  // 在派单面上"凭空不派",下一个人只能从散文里猜是谁按的(§0.3 与认领表同一条纪律)。
+  'supply-hold-skip': { dim: 'A13', kind: 'informational' },
   'runner-preflight-ready': { dim: 'A1', kind: 'informational' },
   'runner-preflight-missing': { dim: 'A1', kind: 'failure' },
   'runner-preflight-template-empty': { dim: 'A1', kind: 'failure' },
