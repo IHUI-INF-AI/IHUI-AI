@@ -551,3 +551,194 @@ test('P3 数组元素:复用未被删的同值元素 ⇒ 不算复活;真被删�
   )
   assert.deepEqual(restore.line.commits, ['bbbbbbbbb'])
 })
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * ④ 窄档「改写 ≠ 摘除」(2026-11-05 立)。现场:给 `scripts/data/miniapp-mirror-verdicts.jsonl`
+ * 某行补一个必填键(`route`),退休档按**整元素规范形**比身份 ⇒ 补键 = 身份消失 = "摘除一条判定"
+ * ⇒ 拒落。本档只放"判定一字未动、只是补键"这一型;改 verdict / 改 evidence / 改或删已有键 /
+ * 整行删除一律仍拒(§0.10:失效方向恒为"多要一次说明",绝不是"多放一次跳门")。
+ * 夹具行形 = 真台账行形(键集落不进 lib 的 IDENTITY_GROUPS,身份退到 `canon:{…}`)—— 这正是
+ * 现场会翻车的那一格,换成带 route+file 的行就测不到它。
+ * ───────────────────────────────────────────────────────────────────────────── */
+const MV_PATH = 'scripts/data/mirror-verdicts-fixture.jsonl'
+const MV_ROWS = [
+  { shared: 'packages/app/src/features/x/XScreen.tsx', route: 'pkg-x/x/index', verdict: 'generated', evidence: '2026-11-01 实测: 壳取数端点与 web 同源', at: '2026-11-01', source: 'cross-end-audit-2026-11-01' },
+  // 第二行**没有 route** —— 就是真仓第 10 行那一型(绕过单源写出口手加,缺必填键)。
+  { shared: 'packages/app/src/features/y/YScreen.tsx', verdict: 'not-applicable', evidence: '2026-11-02 复核: 两侧业务键 0 交集、端点 0 交集', at: '2026-11-02', source: 'cross-end-stale-pair-audit-2026-11-02' },
+  { shared: 'packages/app/src/features/z/ZScreen.tsx', route: '-', verdict: 'aligned', evidence: '2026-11-03 复核: 三端一致', at: '2026-11-03', source: 'cross-end-audit-2026-11-03' },
+]
+const mvText = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n'
+const mvAudit = (baseRows, nextRows, ancestors = []) =>
+  __test__.jsonRetirementAudit({ baseText: mvText(baseRows), newText: mvText(nextRows), kind: 'jsonl', path: MV_PATH })
+
+function seedMv(t) {
+  const dir = makeRepo(t)
+  commitFile(dir, MV_PATH, mvText(MV_ROWS.slice(0, 2)), 'A: 台账祖先形态(第二行仍缺 route)')
+  commitFile(dir, MV_PATH, mvText(MV_ROWS), 'B: 别人合法追加第三行')
+  return dir
+}
+
+test('MV①正向·纯函数:给一行补必填键(其余字段逐字不变)⇒ 判改写,不计入被摘,rewritten=1', () => {
+  const next = MV_ROWS.map((r) => (r === MV_ROWS[1] ? { ...r, route: '-' } : r))
+  const a = mvAudit(MV_ROWS, next)
+  assert.equal(a.applicable, true)
+  assert.equal(a.rewritten, 1, `补一键必须读成改写:${JSON.stringify(a.problems)}`)
+  assert.equal(a.dropped, 0, '改写不得再计入"被摘"')
+  assert.equal(a.retired, 0, '本档不需要任何退休登记')
+  assert.equal(a.covered, 0)
+  assert.equal(a.sameSubjectDrift, 0)
+  assert.equal(a.ok, true, JSON.stringify(a.problems))
+  assert.ok(a.rewriteSample.some((s) => s.includes('route')), `要点名补的是哪个键:${JSON.stringify(a.rewriteSample)}`)
+  // 整档读数:改写那一行不进退休剥离,键路径那一维本来就 0/0(同键路径在别的行已活着)。
+  const full = __test__.jsonKeyPathAudit({
+    baseText: mvText(MV_ROWS),
+    newText: mvText(next),
+    kind: 'jsonl',
+    ancestors: [{ commit: 'aaaaaaaaa', text: mvText(MV_ROWS.slice(0, 2)) }],
+    path: MV_PATH,
+  })
+  assert.equal(full.applicable, true)
+  assert.equal(full.delta.vanished, 0)
+  assert.equal(full.line.count, 0, '补的键值在基线别的行已活着 ⇒ 不是复活')
+})
+
+test('MV②正向·端到端:补键落地放行,结论行必须写 rewritten=1(不得静默放过)', (t) => {
+  const dir = seedMv(t)
+  const next = MV_ROWS.map((r, i) => (i === 1 ? { ...r, route: '-' } : r))
+  writeFileSync(join(dir, MV_PATH), mvText(next))
+  const g = __test__.detectStaleLanding({ root: dir, paths: [MV_PATH] })
+  assert.equal(g.ok, true, `补键必须放行:${JSON.stringify(g.offenders)}`)
+  const note = g.notes.find((n) => n.kind === 'retirement-rewrite')
+  assert.ok(note, '改写档点火必须单独报名 —— covered=0 时不报就是把"放了一格"写成静默')
+  assert.match(note.why, /rewritten=1/)
+  const r = runLand(dir, { paths: MV_PATH, msg: 'chore: 给台账行补必填键' })
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 0, `必须能落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /rewritten=1/, '结论行要如实报改写条数')
+  assert.doesNotMatch(out, /LAND_ALLOW_STALE/, '放行靠的是判据,不是闸门开关')
+})
+
+test('MV③反向①:改 verdict ⇒ 仍拒,并点名"改判定须退休登记"', (t) => {
+  const next = MV_ROWS.map((r, i) => (i === 1 ? { ...r, route: '-', verdict: 'aligned' } : r))
+  const a = mvAudit(MV_ROWS, next)
+  assert.equal(a.ok, false, '改判定不是改写')
+  assert.equal(a.rewritten, 0)
+  assert.equal(a.dropped, 1)
+  assert.equal(a.sameSubjectDrift, 1)
+  assert.ok(a.problems.some((p) => /改判定/.test(p) && /retired/.test(p)), `要点名到出口:${JSON.stringify(a.problems)}`)
+  const dir = seedMv(t)
+  writeFileSync(join(dir, MV_PATH), mvText(next))
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = runLand(dir, { paths: MV_PATH, msg: 'chore: 试着改掉一行的 verdict' })
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /台账授权退休不成立/)
+  assert.match(out, /改判定.*必须逐条登记 retired/)
+  assert.match(out, /rewritten=0/, '拒的时候也要把改写读数报出来(0 就是 0,不藏)')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, '拒绝路径上 HEAD 一步没动')
+})
+
+test('MV④反向②:改 evidence 文本 ⇒ 仍拒', () => {
+  const next = MV_ROWS.map((r, i) => (i === 1 ? { ...r, route: '-', evidence: r.evidence + '(结论已改)' } : r))
+  const a = mvAudit(MV_ROWS, next)
+  assert.equal(a.ok, false)
+  assert.equal(a.rewritten, 0)
+  assert.equal(a.dropped, 1)
+  assert.equal(a.sameSubjectDrift, 1)
+  // 只改 evidence 的第一个字符也不放行(逐字相同 = 一个字都不许动)。
+  const tiny = MV_ROWS.map((r, i) => (i === 1 ? { ...r, evidence: r.evidence.replace('复核', '复 核') } : r))
+  assert.equal(mvAudit(MV_ROWS, tiny).ok, false, 'evidence 挪一个空格也算改依据 ⇒ 本档不放行')
+})
+
+test('MV⑤反向③:整行删除(同 shared 无新行)⇒ 仍拒,且不得被读成改写', (t) => {
+  const a = mvAudit(MV_ROWS, [MV_ROWS[0], MV_ROWS[2]])
+  assert.equal(a.ok, false)
+  assert.equal(a.rewritten, 0)
+  assert.equal(a.dropped, 1)
+  assert.equal(a.sameSubjectDrift, 0, '主体整个没了 ⇒ 这是"丢",不是"改判定"两型,措辞不得混')
+  assert.ok(a.problems.some((p) => /未登记 retired/.test(p)))
+  assert.ok(!a.problems.some((p) => /改判定/.test(p)))
+
+  const dir = seedMv(t)
+  writeFileSync(join(dir, MV_PATH), mvText([MV_ROWS[0], MV_ROWS[2]]))
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = runLand(dir, { paths: MV_PATH, msg: 'chore: 试着删掉一条判定' })
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /未登记 retired/)
+  assert.doesNotMatch(out, /改判定/, '整行删除不得套上"改判定"那条措辞')
+  assert.match(out, /被摘 1 条 .* rewritten=0|rewritten=0/)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, '拒绝路径上 HEAD 一步没动')
+})
+
+test('MV⑥形状锁:逐字段钉死"哪些变了仍放行 / 哪些变了必拒"(锚点表只认 shared+verdict+evidence)', () => {
+  // 锚点表是本档的全部射程;多一个键进锚点 = 下一席可以拿来洗红。这里钉的是**声明面**,不是复刻判据。
+  assert.deepEqual(__test__.REWRITE_ANCHOR_KEYS, ['shared', 'verdict', 'evidence'])
+  const withRoute = { ...MV_ROWS[1], route: '-' }
+  const variants = [
+    ['补一个新键(现场型)⇒ 放行', { ...MV_ROWS[1], someNewKey: 'v' }, true],
+    ['补必填 route ⇒ 放行', withRoute, true],
+    ['改 verdict ⇒ 拒', { ...MV_ROWS[1], verdict: 'aligned' }, false],
+    ['改 evidence ⇒ 拒', { ...MV_ROWS[1], evidence: '换成另一条依据_long_enough' }, false],
+    ['改 shared(换主体)⇒ 拒', { ...MV_ROWS[1], shared: 'packages/app/src/features/other/Other.tsx' }, false],
+    ['改已有 route 的取值 ⇒ 拒(已有键不许动)', { ...MV_ROWS[0], route: 'pkg-x/x2/index' }, false],
+    ['改 at ⇒ 拒(本档只放"补键";已有键一个不许动,失效方向=多要一次说明)', { ...MV_ROWS[1], at: '2026-12-01' }, false],
+    ['改 source ⇒ 拒(同上:出处换了就得重登记,不借改写档洗)', { ...MV_ROWS[1], source: 'someone-else-2026-11-06' }, false],
+    ['删已有键 at ⇒ 拒', { shared: MV_ROWS[1].shared, verdict: MV_ROWS[1].verdict, evidence: MV_ROWS[1].evidence, source: MV_ROWS[1].source }, false],
+    ['锚点缺失(整行没有 verdict)⇒ 拒', { shared: MV_ROWS[1].shared, evidence: MV_ROWS[1].evidence, route: '-' }, false],
+    ['锚点形态坏(verdict 非字符串)⇒ 拒,不折成放行(§0.3)', { ...MV_ROWS[1], verdict: null }, false],
+    ['两侧都无 shared ⇒ 根本不进本档(照旧拒)', null, false],
+  ]
+  for (const [name, nextRow, expectPass] of variants) {
+    if (nextRow === null) {
+      const noShared = [
+        { key: 'k1', verdict: 'v', evidence: 'e1', at: '2026-11-01' },
+        { key: 'k2', verdict: 'v', evidence: 'e2', at: '2026-11-01' },
+      ]
+      const a = mvAudit(noShared, noShared.map((r) => ({ ...r, extra: 'x' })))
+      assert.equal(a.rewritten, 0, `${name}:无 shared 就不配进改写档`)
+      assert.equal(a.ok, true, '内容一字未动(只带 extra 的等价改写)按身份仍在处理,不进本档')
+      const gone = mvAudit(noShared, [noShared[0]])
+      assert.equal(gone.ok, false, `${name}:无 shared 的行被摘 ⇒ 照旧拒`)
+      assert.equal(gone.rewritten, 0)
+      continue
+    }
+    const idx = MV_ROWS.findIndex((r) => r.shared === nextRow.shared)
+    const next = MV_ROWS.map((r, i) => (i === (idx < 0 ? 1 : idx) ? nextRow : r))
+    const a = mvAudit(MV_ROWS, next)
+    assert.equal(__test__.isLedgerRewrite(MV_ROWS[idx < 0 ? 1 : idx], nextRow), expectPass, `${name}:谓词读数`)
+    assert.equal(a.rewritten, expectPass ? 1 : 0, `${name}:rewritten 读数`)
+    assert.equal(a.ok, expectPass, `${name}:整档结论 ${JSON.stringify(a.problems)}`)
+  }
+})
+
+test('MV⑦一鱼两吃锁:同锚点的两行只补出一行 ⇒ 另一条照旧算被摘', () => {
+  const twin = { ...MV_ROWS[1], at: '2026-11-02', source: 'another-audit-2026-11-02' }
+  const base = [MV_ROWS[0], MV_ROWS[1], twin, MV_ROWS[2]]
+  const next = [MV_ROWS[0], { ...MV_ROWS[1], route: '-' }, MV_ROWS[2]]
+  const a = mvAudit(base, next)
+  assert.equal(a.rewritten, 1, '一条改写只能吃掉一个落地行')
+  assert.equal(a.dropped, 1)
+  assert.equal(a.ok, false, '另一条同主体行整个消失 ⇒ 必须仍拒(不能靠改写档蒙过去)')
+})
+
+test('MV⑧射程锁:非退休通道(台账族以外的 .jsonl)根本不进本档', () => {
+  const a = __test__.jsonRetirementAudit({
+    baseText: mvText(MV_ROWS),
+    newText: mvText(MV_ROWS.map((r, i) => (i === 1 ? { ...r, route: '-' } : r))),
+    kind: 'jsonl',
+    path: 'config/some-other.jsonl',
+  })
+  assert.equal(a.applicable, false)
+  assert.equal(a.rewritten, 0, '不在射程的路径不得报出改写读数')
+  // 取不到基线面(解析不了)⇒ 保持既有"拒"的语义,绝不折成放行。
+  const broken = __test__.jsonRetirementAudit({
+    baseText: '{"shared":"a","verdict":"v","evidence":"e"}\n{坏掉的行\n',
+    newText: mvText(MV_ROWS),
+    kind: 'jsonl',
+    path: MV_PATH,
+  })
+  assert.equal(broken.ok, false)
+  assert.equal(broken.rewritten, 0)
+  assert.match(broken.problems.join(' '), /解析失败/)
+})

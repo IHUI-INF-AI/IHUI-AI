@@ -719,7 +719,7 @@ export function detectStaleLanding({
         kind: 'retirement-rejected',
         why:
           `台账授权退休不成立(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条 / 退休登记 ` +
-          `${retirementAudit.retired} 条 / 有效覆盖 ${retirementAudit.covered} 条 ⇒ 拒绝落地。` +
+          `${retirementAudit.retired} 条 / 有效覆盖 ${retirementAudit.covered} 条 / rewritten=${retirementAudit.rewritten ?? 0} ⇒ 拒绝落地。` +
           retirementAudit.problems.slice(0, 3).join(' ; '),
       })
     } else if (retirementAudit?.applicable && retirementAudit.covered > 0) {
@@ -728,8 +728,21 @@ export function detectStaleLanding({
         kind: 'retirement-accepted',
         why:
           `台账授权退休逐条核验通过(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条、` +
-          `退休登记 ${retirementAudit.retired} 条、有效覆盖 ${retirementAudit.covered} 条(双向等值);` +
+          `退休登记 ${retirementAudit.retired} 条、有效覆盖 ${retirementAudit.covered} 条(双向等值)、` +
+          `rewritten=${retirementAudit.rewritten ?? 0};` +
           `退休行已从在册条目中剥离,键路径对账只剩在册内容(消失 ${delta.vanished} / 重现 ${delta.appeared})。`,
+      })
+    } else if (retirementAudit?.applicable && (retirementAudit.rewritten ?? 0) > 0) {
+      // ④ 改写档**必须单独报名**:covered=0 时上面两支都不点火,不补这一支就是把"放过了一格"
+      // 写成静默 —— 本仓最高频失效型(§0.3:没判/判过/放行了,报告里必须长得就不一样)。
+      notes.push({
+        path: p,
+        kind: 'retirement-rewrite',
+        why:
+          `台账改写档(窄放行,不是放宽):${retirementAudit.channel} 下 rewritten=${retirementAudit.rewritten} 条 —— ` +
+          `这些条目在落地内容里有同 ${REWRITE_ANCHOR_KEYS.join('+')} 且逐字未变的新行,只是补了键 ⇒ 判为规范化改写,` +
+          `不计入被摘、不需退休登记。改 verdict / 改 evidence / 改或删任何已有键 / 整行删除都不在本档射程,` +
+          `仍须逐条登记 retired 或走人工。明细:${(retirementAudit.rewriteSample ?? []).slice(0, 3).join(' ; ')}`,
       })
     }
     // ── 声明式还原通道:白名单逐行配平(2026-10-30)──────────────────────────────
@@ -1595,6 +1608,13 @@ function compareElementRestore({ evidence, overflow, declared }) {
  *  ③ retiredReason trim 后 ≥10 码点、retiredAt 是 ISO-8601、retiredBy 非空,缺/短 ⇒ 红。
  * 值编辑不算摘除(身份仍在,交给原本的键路径/行级内容闸);只有身份消失才进本通道。
  * 退休行被排除在"在册条数"之外,所以台账 `93 → 90` 与门 299 的「复制 90」账实相符。
+ *
+ * ④ 窄档「改写 ≠ 摘除」(2026-11-05 补格,现场 = 给 `scripts/data/miniapp-mirror-verdicts.jsonl`
+ *   某行**补一个必填键**被读成"摘除一条判定"):① 的身份口径按**整元素规范形**比 —— 该台账行的键集
+ *   落不进 `lib/ledger-retirement.mjs` 的 IDENTITY_GROUPS 任何一组(它要 `shared`+`domain`,而行里是
+ *   `shared`+`verdict`+`evidence`+`at`+`source`),于是退到 `canon:{整条 JSON}`;补一个键就把整条身份
+ *   改掉 ⇒ 旧元素读起来像被摘 ⇒ 拒落。**它分不开「规范化改写」与「真删一条判定」**,④ 只补这一格。
+ *   射程与牙见下方 `REWRITE_ANCHOR_KEYS` / `isLedgerRewrite` 的头注;本档**不削减**①②③ 任何一条。
  */
 function parseJsonlForRetire(text) {
   const out = []
@@ -1636,6 +1656,48 @@ function pruneJsonValue(v, shouldDrop) {
   return v
 }
 
+/**
+ * ④ 窄档「改写 ≠ 摘除」的锚点三字段(2026-11-05 立;判据只住本器这一处,§0.6 不抄第二份):
+ * `shared` = 判的是哪一对(主体)、`verdict` = 判定本身、`evidence` = 判定依据。
+ * 任一锚点缺失 / 非字符串 / 值变了 ⇒ 本档结构上不放行,照旧走 ①②③ 那三颗牙的拒
+ * (§0.10:失效方向恒为"多要一次说明",绝不是"多放一次跳门")。
+ */
+export const REWRITE_ANCHOR_KEYS = ['shared', 'verdict', 'evidence']
+
+/** 锚点分组键:三字段全为**非空字符串**才配得出锚点;元素形态坏 ⇒ null ⇒ 不进本档(取不到不猜)。 */
+function rewriteAnchorOf(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const parts = []
+  for (const k of REWRITE_ANCHOR_KEYS) {
+    const x = v[k]
+    if (typeof x !== 'string' || x === '') return null
+    parts.push(x)
+  }
+  // 用 \u0000 连接:字段值本身含任何标点,也不可能被折成"两对不同行同一锚点"。
+  return parts.join('\u0000')
+}
+
+/**
+ * E(基线里那一行)与 R(落地内容里那一行)构成「改写」而非「摘除」,三条**同时**成立才算:
+ *  ① 三个锚点 `shared`/`verdict`/`evidence` 两边都在且**逐字相同**;
+ *  ② E 里**已有的非锚点键**在 R 里必须都还在且取值不变(用本文件那一条 `canonOf` 尺:键序/缩进是
+ *     序列化形态,值变化不是)—— 改 `route`、改 `at`、改 `source`、改任何业务键的取值,或把已有键删掉,
+ *     都不在本档射程 ⇒ 仍拒;
+ *  ③ R 允许**新增键**(本档要放的正是"给某行补一个必填键"这一型)。
+ * 所以本档能放过的只有一型:判定本身一字未动,只是把那一行的形态补齐。
+ */
+export function isLedgerRewrite(baseValue, nextValue) {
+  const anchor = rewriteAnchorOf(baseValue)
+  if (anchor === null) return false
+  if (rewriteAnchorOf(nextValue) !== anchor) return false
+  for (const k of Object.keys(baseValue)) {
+    if (REWRITE_ANCHOR_KEYS.includes(k)) continue
+    if (!Object.prototype.hasOwnProperty.call(nextValue, k)) return false
+    if (canonOf(baseValue[k]) !== canonOf(nextValue[k])) return false
+  }
+  return true
+}
+
 export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   const channel = retirementChannelFor(path)
   if (!channel)
@@ -1648,6 +1710,8 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       dropped: 0,
       retired: 0,
       covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
     }
   let baseItems
   let nextItems
@@ -1668,6 +1732,8 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       dropped: 0,
       retired: 0,
       covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
     }
   }
   const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
@@ -1690,6 +1756,56 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
     else used.add(pick)
   }
   const problems = []
+  /**
+   * ④ 窄档「改写 ≠ 摘除」(2026-11-05 立):上面那轮按**整元素规范形**比身份,补一个键就把身份改掉,
+   * 于是"规范化改写"被读成"摘除一条判定"。这里只补那一格 —— 三锚点(`shared`+`verdict`+`evidence`)
+   * 逐字未变、且只是**补键**(非锚点的已有键一个不许变、一个不许删)才算改写,不计入被摘。
+   * 配不上的照旧留在 dropped 里走 ①②③;锚点变了但主体还在 ⇒ 额外点名"这是改判定,须退休登记"。
+   * 消费纪律:只有 ① 那轮**没配走**的落地行才能进本档的候选池,且一条改写配掉一行(不许一鱼两吃)。
+   */
+  let rewritten = 0
+  const rewriteSample = []
+  if (dropped.length > 0) {
+    const pool = new Map()
+    activeNext.forEach((it, i) => {
+      if (used.has(i)) return
+      const a = rewriteAnchorOf(it.value)
+      if (a === null) return
+      if (!pool.has(a)) pool.set(a, [])
+      pool.get(a).push(i)
+    })
+    const still = []
+    for (const d of dropped) {
+      const anchor = rewriteAnchorOf(d.value)
+      let pick
+      if (anchor !== null) {
+        for (const i of pool.get(anchor) ?? []) {
+          if (used.has(i)) continue
+          if (isLedgerRewrite(d.value, activeNext[i].value)) {
+            pick = i
+            break
+          }
+        }
+      }
+      if (pick === undefined) {
+        // 同主体(同 `shared`)在落地内容里仍有活行,却配不成改写 ⇒ verdict/evidence 变了,或已有键被动过。
+        const s = d.value && typeof d.value === 'object' && typeof d.value.shared === 'string' ? d.value.shared : null
+        d.__sameSubject =
+          s !== null &&
+          activeNext.some((it, i) => !used.has(i) && it.value && typeof it.value === 'object' && it.value.shared === s)
+        still.push(d)
+        continue
+      }
+      used.add(pick)
+      rewritten++
+      if (rewriteSample.length < SAMPLE_LINES) {
+        const added = Object.keys(activeNext[pick].value).filter((k) => !Object.prototype.hasOwnProperty.call(d.value, k))
+        rewriteSample.push(`${String(d.value.shared).slice(0, 70)} ⇒ 补键[${added.join(',') || '—'}]`)
+      }
+    }
+    dropped.length = 0
+    dropped.push(...still)
+  }
   const coveredCounters = new Map()
   let covered = 0
   const overDeclared = []
@@ -1733,6 +1849,12 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
     }
   }
   const uncovered = dropped.filter((d) => !d.__covered)
+  const sameSubjectDrift = uncovered.filter((d) => d.__sameSubject).length
+  if (sameSubjectDrift > 0)
+    problems.push(
+      `${sameSubjectDrift} 条条目在落地内容里有**同 shared 的新行但判定已变**(verdict 或 evidence 逐字不同,` +
+        `或已有键被改/被删)⇒ 这是改判定,不是改写:必须逐条登记 retired(retiredFrom/retiredFromSha 可核验)或走人工`,
+    )
   if (uncovered.length)
     problems.push(
       `${uncovered.length} 条条目被摘除但未登记 retired(身份:${uncovered
@@ -1781,6 +1903,10 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
     retired: retiredItems.length,
     covered,
     overDeclared: overDeclared.length,
+    // ④ 窄档读数:改写条数 + 逐条补了什么键 + 有多少条是"同主体但判定变了"(只点名,不放行)。
+    rewritten,
+    rewriteSample,
+    sameSubjectDrift,
     filteredBaseText,
     filteredNextText,
   }
@@ -4079,6 +4205,9 @@ export const __test__ = {
   jsonKeyPathAudit,
   jsonRetirementAudit,
   retirementChannelFor,
+  // ④ 窄档「改写 ≠ 摘除」:镜像测试按 §22c 直接 import 这两个出口,不在测试里另抄一份锚点表。
+  REWRITE_ANCHOR_KEYS,
+  isLedgerRewrite,
   staleReport,
   commitFacePresence,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
