@@ -70,7 +70,10 @@ describe('A2 共享屏 props 驱动的阴性对照(结构锁)', () => {
   })
 
   it('分组标题只在有行的组上渲染 —— 空 groups 不画标题', () => {
-    expect(read(SHARED)).toContain('{group.items.length > 0 ? (')
+    // 语义断言（不再比对三目后的换行/括号形态）：标题渲染必须被 `group.items.length > 0`
+    // 守卫包住，且全文件只有这一处 groupLabel 渲染 —— 空组不画标题。
+    expect(read(SHARED)).toMatch(/group\.items\.length > 0[^\n]*groupLabel/u)
+    expect(read(SHARED).match(/styles\.groupLabel\}/g) ?? []).toHaveLength(1)
   })
 
   it('排序出口只有共享屏一处,页面 0 处', () => {
