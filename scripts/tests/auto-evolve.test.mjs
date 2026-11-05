@@ -1149,7 +1149,12 @@ test('Ⓚb 形状锁:模板引用而闸门未配置 ⇒ GateShapeError;未引用
   const base = { ...GOOD_GATES }
   const mk = (tpl, extra) => JSON.stringify({ ...base, sessionCommandTemplate: tpl, ...extra })
   // 引用了但缺键 / 空串 / 非字符串 ⇒ 三形态都拒
-  for (const extra of [undefined, { sessionModel: '' }, { sessionModel: '   ' }, { sessionModel: 7 }]) {
+  for (const extra of [
+    undefined,
+    { sessionModel: '' },
+    { sessionModel: '   ' },
+    { sessionModel: 7 },
+  ]) {
     assert.throws(
       () => ae.loadGates(() => mk('run --model {sessionModel}', extra)),
       (e) => e.constructor.name === 'GateShapeError' && /sessionModel/.test(e.message),
@@ -1169,11 +1174,23 @@ test('Ⓚb 形状锁:模板引用而闸门未配置 ⇒ GateShapeError;未引用
 })
 
 test('Ⓚc 接线锁:真闸门真用了 {sessionModel},两处填充真传值(§0.9)', () => {
-  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'auto-evolve.mjs'), 'utf8')
-  const gatesRaw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'auto-evolve-gates.json'), 'utf8')
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'auto-evolve.mjs'),
+    'utf8',
+  )
+  const gatesRaw = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'auto-evolve-gates.json'),
+    'utf8',
+  )
   const g = JSON.parse(gatesRaw)
-  assert.ok(g.sessionCommandTemplate.includes('--model {sessionModel}'), '模板没把模型写进命令行 ⇒ 派发又靠继承 HOME 碰运气')
-  assert.ok(typeof g.sessionModel === 'string' && g.sessionModel.trim(), '闸门没给 sessionModel ⇒ 派发那一刻会 GateShapeError 冻腿')
+  assert.ok(
+    g.sessionCommandTemplate.includes('--model {sessionModel}'),
+    '模板没把模型写进命令行 ⇒ 派发又靠继承 HOME 碰运气',
+  )
+  assert.ok(
+    typeof g.sessionModel === 'string' && g.sessionModel.trim(),
+    '闸门没给 sessionModel ⇒ 派发那一刻会 GateShapeError 冻腿',
+  )
   // 真配置必须过真形状锁(不只看 JSON 能解析)
   assert.ok(ae.loadGates(() => gatesRaw).sessionModel, '现盘闸门过不了形状锁')
   // 两个真填充点(派发 / --probe)都得把值交出去
@@ -1202,13 +1219,23 @@ test('Ⓜa 取最后一条 error 事件:重试过的那次不算,散文/坏行�
   assert.ok(!lastProviderError('{"type":"error","message":"  "}'), '全空白正文不当成判别码')
 })
 
-test('Ⓜb 接线锁:判别码同时进台账行与两条到人通道', () => {  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
-  assert.ok(/providerError:\s*lastProviderError\(stdout\)/.test(src), 'dispatchSession 没把判别码交出去')
-  assert.ok(/providerError:\s*res\.providerError \?\? null/.test(src), '台账行没记这一格(只有 console 有 ⇒ 事后无法回放)')
+test('Ⓜb 接线锁:判别码同时进台账行与两条到人通道', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(
+    /providerError:\s*lastProviderError\(stdout\)/.test(src),
+    'dispatchSession 没把判别码交出去',
+  )
+  assert.ok(
+    /providerError:\s*res\.providerError \?\? null/.test(src),
+    '台账行没记这一格(只有 console 有 ⇒ 事后无法回放)',
+  )
   const human = (src.match(/provider-error=\$\{res\.providerError/g) ?? []).length
   assert.ok(human >= 2, `到人通道只 ${human} 条带判别码(发起腿 mail 与票面 mail 都得带)`)
   // 反向锁:模式必须认不出没接线的形态
-  assert.equal(/providerError:\s*res\.providerError/.test('failureKind: res.failureKind ?? null,'), false)
+  assert.equal(
+    /providerError:\s*res\.providerError/.test('failureKind: res.failureKind ?? null,'),
+    false,
+  )
 })
 
 // Ⓝ 让位失效(2026-11-05 立)。量出来的形状:今日 10 个班次全落到同一枚票 ——
@@ -1240,7 +1267,7 @@ test('Ⓝa 无处可让才收,让得出去的一律不收', () => {
   assert.deepEqual(
     splitRotateStandoff([{ key: 'z', np: { route: 'ok', attempts: 0 } }]),
     [],
-    '未达 rotateAt 的档永不进这一格(池子新鲜时照派)'
+    '未达 rotateAt 的档永不进这一格(池子新鲜时照派)',
   )
 })
 
@@ -1248,24 +1275,45 @@ test('Ⓝb 接线锁:判据真被派发路径消费,且不新增动作名(覆盖
   const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
   assert.ok(/splitRotateStandoff\(npLive\)/.test(src), '判据造好没装车(§0.9)')
   assert.ok(/route: 'standoff'/.test(src), 'standoff 这一档没进 npHeld ⇒ 仍会被当活候选派掉')
-  assert.ok(/rows = npLive\.filter\(\(x\) => !heldKeys\.has\(x\.key\)\)/.test(src), '扣住后没重算候选面(旧行 npLive.map 会把它放回去)')
+  assert.ok(
+    /rows = npLive\.filter\(\(x\) => !heldKeys\.has\(x\.key\)\)/.test(src),
+    '扣住后没重算候选面(旧行 npLive.map 会把它放回去)',
+  )
   // 动作面守恒:standoff 复用既有 `non-progress-hold`,不得造一枚没人分档的新动作
-  assert.equal(/'non-progress-standoff'/.test(src), false, '新动作名会绕过 autonomy-action-coverage 锁')
-  assert.ok(/action: np\.route === 'park' \? 'non-progress-parked' : 'non-progress-hold'/.test(src), 'hold 出口形态变了要同步改这一锁')
+  assert.equal(
+    /'non-progress-standoff'/.test(src),
+    false,
+    '新动作名会绕过 autonomy-action-coverage 锁',
+  )
+  assert.ok(
+    /action: np\.route === 'park' \? 'non-progress-parked' : 'non-progress-hold'/.test(src),
+    'hold 出口形态变了要同步改这一锁',
+  )
 })
 
 // Ⓞ 票面指纹挡在"新鲜"之前(2026-11-05 立)。真读数:就地改写 L2066 之后,
 // 环连续 227 分钟报 `不入本轮:未评估(候选文件未收录本票)` —— 只按钟表判新鲜,
 // 改写过的票在 6 小时窗口里对环不可见;配额每轮都白过一遍池子。
 test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
-  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '.ihui-agent', 'tmp', 'selftest-face')
+  const dir = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    '.ihui-agent',
+    'tmp',
+    'selftest-face',
+  )
   mkdirSync(dir, { recursive: true })
   const cand = join(dir, 'cand.json')
   const same = planFaceDigestFromHead(REPO)
   assert.ok(same && same.length === 16, '指纹出口坏了(长度/取值形态不对)')
   // 取材面纪律(§0.4)可证的那一半:同一把尺对**不同输入**必须给不同指纹,
   // 而"两面此刻是否恰好同文"是机器事实,不当断言(两会话同文时这条锁会假红)。
-  assert.notEqual(planFaceDigest(['- [ ] X 甲']), planFaceDigest(['- [ ] X 乙']), '尺子对不同面给同值 ⇒ 比对无意义')
+  assert.notEqual(
+    planFaceDigest(['- [ ] X 甲']),
+    planFaceDigest(['- [ ] X 乙']),
+    '尺子对不同面给同值 ⇒ 比对无意义',
+  )
   // 同指纹 + 刚写 ⇒ 判新鲜(保住 S11a 的原意:84s 的器物不能每轮调)
   writeFileSync(cand, JSON.stringify({ source: { planDigest: same } }), 'utf8')
   const f1 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
@@ -1278,16 +1326,23 @@ test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
   // 老缓存没有这一格 ⇒ 维持原行为(不因缺字段每轮白刷 84s)
   writeFileSync(cand, '{}', 'utf8')
   const f3 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
-  assert.equal(f3.state, 'undetermined', '缺指纹的旧档若判新鲜,本维上线后仍要等 6h 钟表才生效(不自愈)')
+  assert.equal(
+    f3.state,
+    'undetermined',
+    '缺指纹的旧档若判新鲜,本维上线后仍要等 6h 钟表才生效(不自愈)',
+  )
 })
 
 test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', async () => {
   const gen = readFileSync(join(REPO, 'scripts', 'autonomy-candidates.mjs'), 'utf8')
   const src = readFileSync(join(REPO, 'scripts', 'auto-evolve.mjs'), 'utf8')
-  assert.ok(/planDigest:\s*planFaceDigestFromHead\(ROOT\)/.test(gen), '生成器没写 HEAD 面指纹 ⇒ 消费侧比对的是另一个面')
+  assert.ok(
+    /planDigest:\s*planFaceDigestFromHead\(ROOT\)/.test(gen),
+    '生成器没写 HEAD 面指纹 ⇒ 消费侧比对的是另一个面',
+  )
   assert.ok(
     /import \{[^}]*planFaceDigestFromHead[^}]*\} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen),
-    "生成器只 `export … from` 再导出而不 import ⇒ 本模块作用域里没有这个绑定,main 一跑就 ReferenceError(2026-11-05 自伤实录:生成器 exit=2)",
+    '生成器只 `export … from` 再导出而不 import ⇒ 本模块作用域里没有这个绑定,main 一跑就 ReferenceError(2026-11-05 自伤实录:生成器 exit=2)',
   )
   assert.ok(
     /import \{[^}]*planFaceDigestFromHead[^}]*\} from '\.\/lib\/plan-face-digest\.mjs'/.test(src),
@@ -1310,6 +1365,54 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓠ 已落地票不得重派(2026-11-05 立):落账成功后票行仍是 `- [ ]`,而选择路径此前
+// 认不出"这枚已经做过了"⇒ 同一张票会被再派,重复产物是第二份近似测试文件而非"再做一遍"。
+test('ⓠ landedCommitOfTicket:命中即认已落地,取不到一律不拦(失效方向反过来=饿死派单面)', async () => {
+  const ae = await import('../auto-evolve.mjs')
+  const KEY = 'deadbeefcafe1234'
+  // ① 与代提交信息**同源**:取消息构建器自己的产物当被检索面,改名/改格式立刻在这里翻红
+  const msg = ae.buildArtifactCommitMessage({ ticketKey: KEY, ticketText: '- [ ] B99 示例票' })
+  assert.match(msg, /^票键:/m, '代提交信息不再以 `票键:` 起行 ⇒ 本环的自证锚点漂了')
+  const seen = []
+  const hit = ae.landedCommitOfTicket(KEY, {
+    gitLogFn: (needle) => {
+      seen.push(needle)
+      return msg.includes(needle) ? 'a'.repeat(40) + '\n' : ''
+    },
+  })
+  assert.equal(hit, 'a'.repeat(40), '票键行在提交信息里 ⇒ 必须认成已落地')
+  assert.deepEqual(seen, [`票键:${KEY}`], '检索串必须逐字等于 `票键:<key>`(与消息构建器同源)')
+  // ② 未命中 ⇒ null(不拦)
+  assert.equal(
+    ae.landedCommitOfTicket('ffffffffffffffff', { gitLogFn: () => '' }),
+    null,
+    '没有落地枚却返回 sha = 会把没做过的票永久扣住',
+  )
+  // ③ 取数失败/抛错 ⇒ null(§0.3:量不动不许读成"已落地")
+  assert.equal(ae.landedCommitOfTicket(KEY, { gitLogFn: () => null }), null, 'null 输入必须放行')
+  assert.equal(
+    ae.landedCommitOfTicket(KEY, {
+      gitLogFn: () => {
+        throw new Error('spawn ETIMEDOUT')
+      },
+    }),
+    null,
+    '派生抛错必须放行,不得冒充判定',
+  )
+  // ④ 脏返回(非 sha 形态 / 散文)⇒ null:证明不了是提交枚就不许拦
+  assert.equal(ae.landedCommitOfTicket(KEY, { gitLogFn: () => 'fatal: bad object' }), null)
+  assert.equal(
+    ae.landedCommitOfTicket('', { gitLogFn: () => 'b'.repeat(40) }),
+    null,
+    '空键不得命中',
+  )
+  // ⑤ 首行取用:多行输出只认第一条(最近的落地枚)
+  assert.equal(
+    ae.landedCommitOfTicket(KEY, { gitLogFn: () => `c1a2b3d4e5f60718\n0000000000000000` }),
+    'c1a2b3d4e5f60718',
+  )
+})
+
 // Ⓟ 上游间歇性拒绝不得记到票的连败上(2026-11-05 立,与 d13019e 同族)
 // 现读依据:同一份 body 的失败位置在第 3/10/14/19 轮都出现过,也有整班全程无错;
 // 而 CLI 出站审计那一刻 `sent=0 zwj=0 extra=0`,载荷里控制符/孤立代理/非 BMP 全为 0
@@ -1343,6 +1446,9 @@ test('Ⓛ 工序第 0 步:第 1 轮就要发出工具调用本身,且排在第 1
   assert.ok(iSec > 0, '工序段被摘掉了')
   assert.ok(i0 > iSec && i1 > i0, `三行次序错:iSec=${iSec} i0=${i0} i1=${i1}`)
   // 反向锁:这段必须落在派单正文里(数组拼接的模板串),不是写在某条注释里
-  assert.ok(/`,\n\s*`1\. 只读与本品直接相关的目标文件/.test(src), '第 1 步不再是模板串元素 ⇒ 派单正文可能已改写')
+  assert.ok(
+    /`,\n\s*`1\. 只读与本品直接相关的目标文件/.test(src),
+    '第 1 步不再是模板串元素 ⇒ 派单正文可能已改写',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
