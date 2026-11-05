@@ -32,10 +32,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import ipaddress
-import os
 import re
 import socket
-import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -44,6 +42,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.logging import get_logger
+from app.utils.atomic_io import write_bytes_atomic as _write_bytes_atomic
 
 logger = get_logger(__name__)
 
@@ -109,21 +108,6 @@ _UA = (
 # 图片临时下载目录(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _IMAGE_TMP_DIR = Path(".ihui-agent/tmp/publish-images").resolve()
 _IMAGE_TMP_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _write_bytes_atomic(path: Path, data: bytes) -> None:
-    """同目录临时件写完再 os.replace,读者不会看到截断中的文件。"""
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
 
 
 # 外链图片正则(匹配 <img src="http...">,排除本地路径 / data URI)

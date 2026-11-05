@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # 默认时区:东八区(用户主要时区)
 from app.core.cn_time import CN_TZ as _CN_TZ
+from app.utils.atomic_io import write_text_atomic
 
 # 历史记录上限(内存 LRU,超过自动 pop 最旧的一条)
 _HISTORY_LIMIT = 30
@@ -272,7 +273,7 @@ class SelfMediaScheduler:
         articles_dir = Path(__file__).resolve().parent.parent / "skills" / "content_engine" / "articles"
         articles_dir.mkdir(parents=True, exist_ok=True)
         md_path = articles_dir / f"{_safe_filename(title)}.md"
-        await asyncio.to_thread(md_path.write_text, md_content, encoding="utf-8")
+        await asyncio.to_thread(write_text_atomic, md_path, md_content)
         return {
             "title": title,
             "md_path": str(md_path),

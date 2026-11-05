@@ -31,8 +31,9 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
+
+from app.utils.atomic_io import write_text_atomic
 
 from .skill_md import parse_skill_md
 
@@ -964,9 +965,9 @@ class SkillEvolutionService:
                 related=parsed.get("relatedSkills", []),
             )
             await asyncio.to_thread(
-                Path(os.path.join(auto_dir, f"{skill_name}.md")).write_text,
+                write_text_atomic,
+                os.path.join(auto_dir, f"{skill_name}.md"),
                 md,
-                encoding="utf-8",
             )
             skill_registry.reload_auto()
             # P3-2:落盘后初始化反馈追踪(SkillFeedbackTracker 单例,空统计,
