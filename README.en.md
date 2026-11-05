@@ -61,7 +61,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **622 tables · 4699 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4098 test files ·
-332 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+336 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
