@@ -6989,5 +6989,34 @@
   "career": {
     "exportingReport": "导出中...",
     "exportEmptyHint": "生成报告后可导出"
+  },
+  "activities": {
+    "join": "立即参与"
+  },
+  "chatSettingsPage": {
+    "model": "模型"
+  },
+  "eduExamListPage": {
+    "start": "开始考试"
+  },
+  "eduExamPage": {
+    "prevQuestion": "上一题",
+    "nextQuestion": "下一题"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "本周学习时长"
+  },
+  "learn": {
+    "signedUp": "已报名"
+  },
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暂无学习路径"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "取消订阅"
+  },
+  "student": {
+    "myCertsTitle": "我的证书"
   }
 }
