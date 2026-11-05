@@ -24,6 +24,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -52,12 +53,15 @@ vi.mock('node:child_process', async (importOriginal) => {
   return {
     ...actual,
     fork: (): ChildProcess => {
-      const proc = new EventEmitter() as EventEmitter & Partial<ChildProcess>;
-      proc.pid = 424_300 + fakes.procs.length;
-      proc.send = vi.fn(() => true);
-      proc.kill = vi.fn(() => true);
-      proc.stdout = new EventEmitter();
-      proc.stderr = new EventEmitter();
+      // pid/stdio 在 ChildProcess 上是 readonly,逐项赋值会被 TS2540 拦;用 Object.assign 一次成型。
+      // stdout/stderr 必须是真实 Readable(PassThrough),EventEmitter 不满足 Readable 的形状(TS2740)。
+      const proc = Object.assign(new EventEmitter(), {
+        pid: 424_300 + fakes.procs.length,
+        send: vi.fn(() => true),
+        kill: vi.fn(() => true),
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      });
       const full = proc as unknown as ChildProcess;
       fakes.procs.push(full);
       return full;
