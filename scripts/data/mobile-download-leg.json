@@ -1,5 +1,5 @@
 {
-  "_comment": "Android 对外下载腿的唯一真源(2026-11-03 立)。改这里即改全仓;部署机/联调用 IHUI_MOBILE_DOWNLOAD_URL 覆盖,不得把覆盖值写回本文件。",
+  "_comment": "Android 对外下载腿的唯一真源(2026-11-03 立)。改这里即改全仓;部署机/联调用 IHUI_MOBILE_DOWNLOAD_URL 覆盖,不得把覆盖值写回本文件。⚠️ 当前 downloadUrl 经 Cloudflare 国际边缘(LAX)跨境回源,国内下载慢且未命中边缘缓存;国内优化目标 = EdgeOne 边缘(见 scripts/repair-eo-origin.mjs 与 scripts/data/eo-origin-expectation.json):把本 downloadUrl 或经 IHUI_MOBILE_DOWNLOAD_URL 指向 EO 边缘主机名(如 www.aizhs.top.eo.dnse1.com)即走国内链路,届时另需 Cloudflare DNS 把 www 的 CNAME 指向 EO 边缘(灰云/DNS-only)。",
   "downloadUrl": "https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk",
   "siteLegPublicBase": "https://www.aizhs.top",
   "siteLegUrlPrefix": "/remote-images/download",
