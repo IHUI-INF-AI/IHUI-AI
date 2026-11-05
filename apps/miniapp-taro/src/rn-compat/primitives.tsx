@@ -47,6 +47,7 @@ import type {
   ImageLoadEventData,
   ImageSourcePropType,
   LayoutChangeEvent,
+  ListRenderItemInfo,
   NativeSyntheticEvent,
   TextInputSubmitEditingEventData,
 } from './index'
@@ -501,7 +502,7 @@ export interface RNFlatListProps<T> {
    * 形参含 `separators`:共享屏把 `ListRenderItem<T>`(RN 的形参形状)直接传给本键,
    * 少一格时按逆变规则不兼容 ⇒ TS2322(DistributionOrderListScreen.tsx:143)。
    */
-  renderItem?: (info: { item: T; index: number; separators: unknown }) => ReactNode
+  renderItem?: (info: ListRenderItemInfo<T>) => ReactNode
   keyExtractor?: (item: T, index: number) => string
   numColumns?: number
   contentContainerStyle?: StyleProp<ViewStyle>
@@ -516,7 +517,19 @@ export interface RNFlatListProps<T> {
 export interface FlatListHandle {
   scrollToEnd: (params?: { animated?: boolean }) => void
   scrollToOffset: (params: { offset: number; animated?: boolean }) => void
-  scrollToIndex: (params: { index: number; animated?: boolean }) => void
+  scrollToIndex: (params: {
+    index: number
+    animated?: boolean
+    viewOffset?: number
+    viewPosition?: number
+  }) => void
+}
+
+/** RN 的 separators 句柄;compat 没有高亮分隔交互,给空实现满足形参类型 */
+const LIST_SEPARATORS = {
+  highlight: (): void => undefined,
+  unhighlight: (): void => undefined,
+  updateProps: (): void => undefined,
 }
 
 /**
@@ -587,7 +600,7 @@ function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef
       key={keyExtractor ? keyExtractor(item, index) : String(index)}
       style={numColumns > 1 ? { flexGrow: 1, flexBasis: `${100 / numColumns}%` } : undefined}
     >
-      {renderItem?.({ item, index, separators: null })}
+      {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
     </View>
   )
   return (
@@ -603,7 +616,7 @@ function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef
         : data.map((item, index) => (
             <View key={keyExtractor ? keyExtractor(item, index) : String(index)}>
               {index > 0 ? Separator?.() : null}
-              {renderItem?.({ item, index, separators: null })}
+              {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
             </View>
           ))}
       {Footer}
