@@ -394,11 +394,28 @@ export function evaluateFileAccess(
 }
 
 /**
+ * Windows 盘符(`G:/`、`G:\`)与 UNC(`\\server\share`)绝对形态。
+ * 判据与宿主平台无关:`node:path` 的 `isAbsolute` 在 POSIX 上不认盘符,
+ * 同一个输入会在本地(Windows)与 CI(Linux)给出两种结论 —— 裁决面不允许这种漂移。
+ */
+const WINDOWS_ABS_RE = /^(?:[A-Za-z]:[\\/]|\\\\)/;
+
+/** 按 Windows 语义(大小写不敏感)把盘符绝对路径折成工作区相对形态;越界则原样返回。 */
+function foldWindowsAbsUnderWorkspace(workspacePath: string, filePath: string): string {
+  const ws = normalizeWorkspacePath(workspacePath);
+  const fp = normalizeWorkspacePath(filePath);
+  const prefix = ws.endsWith('/') ? ws : `${ws}/`;
+  if (fp.toLowerCase().startsWith(prefix.toLowerCase())) return fp.slice(prefix.length);
+  return fp;
+}
+
+/**
  * 把消费点拿到的路径折成"用于匹配的工作区相对 POSIX 形态"。
  * 绝对路径(以及越出工作区的路径)也照样进尺:secrets 族与私钥扩展名族
  * 靠尾段匹配,逃不出去 —— 不给"传绝对路径就绕过裁决"这条缝留口子。
  */
 export function toAclPath(workspacePath: string, filePath: string): string {
+  if (WINDOWS_ABS_RE.test(filePath)) return foldWindowsAbsUnderWorkspace(workspacePath, filePath);
   if (!isAbsolute(filePath)) return normalizeWorkspacePath(filePath);
   const rel = relative(resolve(workspacePath), resolve(filePath));
   if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') return normalizeWorkspacePath(filePath);
