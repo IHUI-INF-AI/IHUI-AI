@@ -1,6 +1,7 @@
 {
   "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
-  "parseCoverageBaseline": 25,
+  "parseCoverageBaseline": 28,
+  "$ticket_s6": "2026-11-05 票 s6-sse:sse-parse 补 chunk 显式认领分支(行为与 content 兜底链等价,miniapp-taro dispatch 早有 case 'chunk' 消费),覆盖读数 27→28,基线按工单口径同批 25→28(原基线滞后 2 格系 tool-delta/partial_done 等帧接上后未调,现读 extractHandledEvents 实证 28)。",
   "webOnly": [
     {
       "event": "question",
