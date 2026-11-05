@@ -126,7 +126,7 @@
 
 `090b4fecc9`（`feat/share-creator-screen`）里「结构下限」的判词基于落后分支：该树不含 `ca63368c3b`，共享屏缺 `title/subtitle/emptyText/showRanges/showStudyHours/amountFormatter`。`main` 上这些 prop 已存在，可达 2 开标签且无需新增 prop，故**改判真做**，并在 `feat/study-rank-shell`（基于 `main`）落地。
 
-- 页 `apps/miniapp-taro/src/pages/study/rank.tsx`：153 行 / 29 开标签（E25+S4，T4）→ **94 行 / 2 开标签（E1+S1，F0，T0）**，实际结构 = `ThemeRoot` + `<RankingScreen/>`。
+- 页 `apps/miniapp-taro/src/pages/study/rank.tsx`：153 行 / 29 开标签（E25+S4，T4）→ **93 行 / 2 开标签（E1+S1，F0，T0）**，实际结构 = `ThemeRoot` + `<RankingScreen/>`。
 - 传值：`top3=[list[1],list[0],list[2]]` 复刻 2-1-3；`amountFormatter` 用 `study.rankPage.minutes`；`showRanges=false`；`showStudyHours=false`；`title/subtitle/emptyText` 用原键（空态 `study.rankPage.empty`）。
 - RN 零可见变化：`apps/mobile-rn/src/screens/RankingScreen.tsx:124-125` 显式传 `showRanges={true}`/`showStudyHours={true}`，与共享屏默认值（`packages/app/src/features/ranking/RankingScreen.tsx:54-55`）逐值相同。
 - 台账行 103 不删不改（原表仍记 153/②），状态待退休通道统一刷新。
@@ -137,7 +137,7 @@
 
 | 共享屏 | 冗余控件 | 涉及消费点 | 宿主已有返回的证据 |
 |---|---|---|---|
-| `packages/app/src/features/ranking/RankingScreen.tsx` | `BackChevron`（import `:12`，渲染 `:77`） | `study/rank`（`a3763cd0f1`）、`distribution/rank`（`ca63368c3b`） | 两页 `*.config.ts` 均只有 `navigationBarTitleText`、无 `navigationStyle`（`study/rank.config.ts:5-7`、`distribution/rank.config.ts:5-7`）；全局 `app.config.ts:431-437` 的 `window` 也无 `custom` ⇒ 原生导航栏自带返回；两页入口都走 `navigateTo`（`study/index.tsx:128-134`、`learn-develop/index.tsx:107`），栈深恒 >1 |
+| `packages/app/src/features/ranking/RankingScreen.tsx` | `BackChevron`（import `:12`，渲染 `:77`） | `study/rank`（`1a1378edeb`）、`distribution/rank`（分销线薄壳） | 两页 `*.config.ts` 均只有 `navigationBarTitleText`、无 `navigationStyle`（`study/rank.config.ts:5-7`、`distribution/rank.config.ts:5-7`）；全局 `app.config.ts:431-437` 的 `window` 也无 `custom` ⇒ 原生导航栏自带返回；两页入口都走 `navigateTo`（`study/index.tsx:128-134`、`learn-develop/index.tsx:107`），栈深恒 >1 |
 | `packages/app/src/features/model-edit/ModelEditScreen.tsx` | 「取消」按钮（`:94`，`common.cancel`） | 宿主原生返回/系统返回手势 | 同批已定，RN 与系统返回重复 |
 
 裁决：**当前状态 = 已知冗余，可接受，不算违规**；不回退、不加单端 `showBack`。
