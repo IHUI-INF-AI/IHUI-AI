@@ -3,24 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/share/ShareScreen.tsx
-//
-// ⚠️ 共享层缺口(2026-11-05 第三批复核结论):本页不是"分享结果页",而是**分享创作/信息流页**
-// (tab 最新/热门/关注 + 分类横向条 + 搜索 + 信息流卡片 + 排行榜抽屉 + 兴趣赛道弹窗 + 分享卡),
-// 与现有 `ShareScreen`(targetTitle/remark/result/onCreate/onShare,只渲染"分享一条链接的结果")
-// 不是同一概念 ⇒ 无法用注入点收敛,需要一枚新的共享屏 `ShareCreatorScreen`。
-// 该屏应有的 props 面(供新建时对齐,全部平台无关、导航/toast 走端口):
-//   t, colorScheme, onNavigate, onToast,
-//   tab: 'latest' | 'hot' | 'following', onSelectTab,
-//   categories: Array<{ key, label }>, activeCategory: string, onSelectCategory,
-//   keyword: string, onKeywordChange,
-//   items: Array<{ id, title, desc?, coverUrl?, author?, avatar?, track?, status?, attention? }>,
-//   loading, refreshing, error: string | null, hasMore: boolean,
-//   onRefresh, onLoadMore, onPressItem: (id) => void,
-//   ranking: { visible: boolean; items: Array<{ id, name, score, rank }>; onClose: () => void },
-//   interestTracks: Array<{ key, label, selected }>, onToggleInterestTrack, onCloseInterestTrack,
-//   renderShareCard?: () => ReactNode（分享卡是宿主资源形态,保留插槽）,
-//   onBack, onShare.
-// 本页保留的原生链路(下拉刷新/watchReachBottom/分享菜单/鉴权门/API 取数)届时按上述 props 注入。
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, {

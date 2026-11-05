@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-
 import {
   View,
   Text,
@@ -25,17 +24,8 @@ export type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab }
 
 const TABS: ModelIncomeTab[] = ['all', 'pending', 'settled']
 
-function isSettled(status?: string): boolean {
+function isSettled(status: string): boolean {
   return status === 'settled' || status === '2'
-}
-
-/** 字段是否「有值」:缺省/空串都不算,不能拿 0 或空串冒充已有值 */
-function hasText(v: unknown): v is string {
-  return typeof v === 'string' && v.length > 0
-}
-
-function hasNum(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v)
 }
 
 export function ModelIncomeScreen({
@@ -58,13 +48,7 @@ export function ModelIncomeScreen({
   onBack,
   onRetry,
   colorScheme = 'light',
-  headerTitle,
-  feeTip,
-  onOpenWithdrawDetail,
-  withdrawDetailLabel,
-  renderSubView,
-  renderWithdrawModal,
-}: ModelIncomeScreenProps) {
+}: ModelIncomeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -76,31 +60,15 @@ export function ModelIncomeScreen({
 
   const filteredItems = useMemo(
     () =>
-      items.filter((i) => {
-        // 状态缺省(壳未提供)⇒ 不做本地过滤:此时筛选是服务端的活,不能凭缺失字段把行吞掉
-        if (!hasText(i.status)) return true
-        if (activeTab === 'all') return true
-        return activeTab === 'pending' ? !isSettled(i.status) : isSettled(i.status)
-      }),
+      items.filter((i) =>
+        activeTab === 'all'
+          ? true
+          : activeTab === 'pending'
+            ? !isSettled(i.status)
+            : isSettled(i.status),
+      ),
     [items, activeTab],
   )
-
-  const headerNode = (
-    <View style={styles.header}>
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-      <Text style={styles.headerTitle}>{headerTitle ?? t('modelIncome.title')}</Text>
-    </View>
-  )
-
-  // 壳注入的独立子视图(如「提现明细」):只保留页头,汇总/筛选/收入列表交给壳的节点
-  if (renderSubView) {
-    return (
-      <View style={styles.container}>
-        {headerNode}
-        {renderSubView}
-      </View>
-    )
-  }
 
   if (loading) {
     return <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
@@ -125,7 +93,10 @@ export function ModelIncomeScreen({
 
   return (
     <View style={styles.container}>
-      {headerNode}
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.headerTitle}>{t('modelIncome.title')}</Text>
+      </View>
 
       <View style={styles.summaryCard}>
         <View style={styles.sumTop}>
@@ -146,18 +117,6 @@ export function ModelIncomeScreen({
             <Text style={styles.sumSubLabel}>{t('modelIncome.withdrawn')}</Text>
             <Text style={styles.sumSubAmount}>{withdrawn.toFixed(2)}</Text>
           </View>
-          {onOpenWithdrawDetail ? (
-            <TouchableOpacity
-              style={styles.sumCol}
-              onPress={onOpenWithdrawDetail}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.sumSubLabel}>
-                {withdrawDetailLabel ?? t('modelIncome.withdrawDetail')}
-              </Text>
-              <Text style={styles.sumDetailArrow}>›</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
         <View style={styles.sumFooter}>
           <View style={styles.sumFooterItem}>
@@ -172,7 +131,6 @@ export function ModelIncomeScreen({
       </View>
 
       <Text style={styles.tip}>{t('modelIncome.tip')}</Text>
-      {feeTip ? <Text style={styles.feeTip}>{feeTip}</Text> : null}
 
       <View style={styles.tabRow}>
         {TABS.map((tab) => {
@@ -208,113 +166,79 @@ export function ModelIncomeScreen({
         }
         renderItem={({ item }) => {
           const settled = isSettled(item.status)
-          const displayName = hasText(item.userNickname) ? item.userNickname : item.title
-          const amount = hasNum(item.commissionAmount) ? item.commissionAmount : item.amount
-          // meta 段逐项判定:缺哪段就不出现哪段,不拿 0 或空串补位
-          const metaParts: string[] = []
-          if (hasNum(item.orderAmount)) {
-            metaParts.push(`${t('modelIncome.orderLabel')} ¥${item.orderAmount.toFixed(2)}`)
-          }
-          if (hasNum(item.rate)) {
-            metaParts.push(`${t('modelIncome.rateLabel')} ${item.rate}%`)
-          }
           return (
             <View style={styles.card}>
-              {hasText(item.orderId) || hasText(item.status) ? (
-                <View style={styles.cardHead}>
-                  {hasText(item.orderId) ? (
-                    <Text style={styles.cardOrder} numberOfLines={1}>
-                      {t('modelIncome.orderLabel')} {item.orderId}
-                    </Text>
-                  ) : (
-                    <View style={styles.cardOrder} />
-                  )}
-                  {hasText(item.status) ? (
-                    <Text
-                      style={[
-                        styles.cardStatus,
-                        settled ? styles.statusSettled : styles.statusPending,
-                      ]}
-                    >
-                      {tabLabel(settled ? 'settled' : 'pending')}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-              {hasText(item.createdAt) ? (
-                <Text style={styles.cardTime}>{item.createdAt}</Text>
-              ) : null}
+              <View style={styles.cardHead}>
+                <Text style={styles.cardOrder} numberOfLines={1}>
+                  {t('modelIncome.orderLabel')} {item.orderId}
+                </Text>
+                <Text
+                  style={[styles.cardStatus, settled ? styles.statusSettled : styles.statusPending]}
+                >
+                  {tabLabel(settled ? 'settled' : 'pending')}
+                </Text>
+              </View>
+              <Text style={styles.cardTime}>{item.createdAt}</Text>
               <View style={styles.cardMain}>
-                {hasText(item.userNickname) ? (
-                  <View style={styles.cardAvatar}>
-                    <Text style={styles.cardAvatarText}>{item.userNickname.charAt(0)}</Text>
-                  </View>
-                ) : null}
-                {hasText(displayName) || metaParts.length > 0 ? (
-                  <View style={styles.cardInfo}>
-                    {hasText(displayName) ? (
-                      <Text style={styles.cardName} numberOfLines={1}>
-                        {displayName}
-                      </Text>
-                    ) : null}
-                    {metaParts.length > 0 ? (
-                      <Text style={styles.cardMeta}>{metaParts.join(' · ')}</Text>
-                    ) : null}
-                  </View>
-                ) : null}
-                {hasNum(amount) ? (
-                  <Text style={styles.cardAmount}>+¥{amount.toFixed(2)}</Text>
-                ) : null}
+                <View style={styles.cardAvatar}>
+                  <Text style={styles.cardAvatarText}>{item.userNickname.charAt(0)}</Text>
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.userNickname}
+                  </Text>
+                  <Text style={styles.cardMeta}>
+                    {t('modelIncome.orderLabel')} ¥{item.orderAmount.toFixed(2)} ·{' '}
+                    {t('modelIncome.rateLabel')} {item.rate}%
+                  </Text>
+                </View>
+                <Text style={styles.cardAmount}>+¥{item.commissionAmount.toFixed(2)}</Text>
               </View>
             </View>
           )
         }}
       />
 
-      {renderWithdrawModal ? (
-        renderWithdrawModal()
-      ) : (
-        <Modal
-          visible={showWithdrawModal}
-          transparent
-          animationType="slide"
-          onRequestClose={onCloseWithdraw}
-        >
-          <View style={styles.modalMask}>
-            <View style={styles.modalBody}>
-              <View style={styles.modalHead}>
-                <Text style={styles.modalTitle}>{t('modelIncome.withdrawModal.title')}</Text>
-                <TouchableOpacity
-                  onPress={onCloseWithdraw}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.modalClose}>{t('common.cancel')}</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.modalSub}>
-                {t('modelIncome.withdrawModal.subtitle')} ¥{withdrawable.toFixed(2)}
-              </Text>
-              <TouchableOpacity style={styles.payOption} activeOpacity={0.8}>
-                <View style={styles.payLeft}>
-                  <View style={styles.payIcon}>
-                    <Text style={styles.payIconText}>{t('modelIncome.withdrawModal.wechat')}</Text>
-                  </View>
-                  <Text style={styles.payName}>{t('modelIncome.withdrawModal.wechat')}</Text>
-                </View>
-                <View style={styles.payRadio} />
-              </TouchableOpacity>
-              <Text style={styles.modalNote}>{t('modelIncome.withdrawModal.moreMethods')}</Text>
+      <Modal
+        visible={showWithdrawModal}
+        transparent
+        animationType="slide"
+        onRequestClose={onCloseWithdraw}
+      >
+        <View style={styles.modalMask}>
+          <View style={styles.modalBody}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{t('modelIncome.withdrawModal.title')}</Text>
               <TouchableOpacity
-                style={styles.modalBtn}
-                onPress={onConfirmWithdraw}
-                activeOpacity={0.8}
+                onPress={onCloseWithdraw}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.modalBtnText}>{t('modelIncome.withdrawModal.confirm')}</Text>
+                <Text style={styles.modalClose}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.modalSub}>
+              {t('modelIncome.withdrawModal.subtitle')} ¥{withdrawable.toFixed(2)}
+            </Text>
+            <TouchableOpacity style={styles.payOption} activeOpacity={0.8}>
+              <View style={styles.payLeft}>
+                <View style={styles.payIcon}>
+                  <Text style={styles.payIconText}>{t('modelIncome.withdrawModal.wechat')}</Text>
+                </View>
+                <Text style={styles.payName}>{t('modelIncome.withdrawModal.wechat')}</Text>
+              </View>
+              <View style={styles.payRadio} />
+            </TouchableOpacity>
+            <Text style={styles.modalNote}>{t('modelIncome.withdrawModal.moreMethods')}</Text>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={onConfirmWithdraw}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>{t('modelIncome.withdrawModal.confirm')}</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
-      )}
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -355,12 +279,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
-    sumDetailArrow: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.subtitle.size,
-      fontWeight: '700',
-      color: tk.text.primary,
-    },
     sumFooter: {
       flexDirection: 'row',
       marginTop: rnSpacing['md-loose'],
@@ -379,12 +297,6 @@ function createStyles(tk: AppThemeTokens) {
     tip: {
       marginHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing['sm-loose'],
-      fontSize: rnType.caption.size,
-      color: tk.text.tertiary,
-    },
-    feeTip: {
-      marginHorizontal: rnSpacing['sm-loose'],
-      marginTop: rnSpacing.xs,
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
