@@ -32,7 +32,7 @@ export interface ArchiveObservation {
   expandedBytes: number | null;
 }
 
-export type ArchiveQuotaVerdict = 'within' | 'exceeded' | 'unjudged';
+type ArchiveQuotaVerdict = 'within' | 'exceeded' | 'unjudged';
 
 export interface ArchiveQuotaDecision {
   verdict: ArchiveQuotaVerdict;
