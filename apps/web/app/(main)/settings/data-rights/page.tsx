@@ -35,7 +35,7 @@ import {
 } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
-import { fetchApi } from '@/lib/api'
+import { exportGdprData, getGdprPortabilityData, eraseGdprAccount } from '@ihui/api-client'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAuthStore } from '@/stores/auth'
 
@@ -121,12 +121,6 @@ interface PortabilityData {
     searchHistory: PortabilitySearchItem[]
     auditTrail: PortabilityAuditItem[]
   }
-}
-
-/** POST /api/gdpr/erase 返回的 data 结构。 */
-interface EraseData {
-  erased: boolean
-  userId: string
 }
 
 /* ============ 常量与工具 ============ */
@@ -226,7 +220,8 @@ export default function DataRightsPage() {
   const handleExport = async () => {
     setExporting(true)
     setExportError(null)
-    const res = await fetchApi<ExportData>('/api/gdpr/export', { method: 'POST' })
+    // 2026-11-05:改走共享 exportGdprData(门 300 A 类:web/RN 同语义,401 弹窗由端侧 handler 注入)
+    const res = await exportGdprData()
     setExporting(false)
     if (res.success) {
       setExportData(res.data)
@@ -238,7 +233,7 @@ export default function DataRightsPage() {
   const handlePortability = async () => {
     setPortabilityLoading(true)
     setPortabilityError(null)
-    const res = await fetchApi<PortabilityData>('/api/gdpr/portability', { method: 'POST' })
+    const res = await getGdprPortabilityData()
     setPortabilityLoading(false)
     if (res.success) {
       setPortabilityData(res.data)
@@ -251,7 +246,7 @@ export default function DataRightsPage() {
     if (!canConfirmErase) return
     setErasing(true)
     setEraseError(null)
-    const res = await fetchApi<EraseData>('/api/gdpr/erase', { method: 'POST' })
+    const res = await eraseGdprAccount()
     setErasing(false)
     if (res.success) {
       setEraseOpen(false)

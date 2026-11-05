@@ -6,7 +6,13 @@
 
 import * as React from 'react'
 
-import { fetchApi } from '@/lib/api'
+import {
+  getInstalledPlugins,
+  installPlugin,
+  uninstallPlugin,
+  updatePluginPreferences,
+  recordPluginClick,
+} from '@ihui/api-client'
 import type { PluginInstallState } from '@ihui/types'
 
 /**
@@ -61,18 +67,10 @@ export function usePlugins(): UsePluginsReturn {
   const refresh = React.useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetchApi<{
-        states: Record<string, PluginInstallState>
-        authenticated: boolean
-      }>('/api/plugins/installed')
-      if (res.success) {
-        setStates(res.data.states)
-        setAuthenticated(res.data.authenticated)
-      } else {
-        // 未登录或网络异常:重置为未认证态
-        setStates({})
-        setAuthenticated(false)
-      }
+      // 2026-11-05:改走共享 getInstalledPlugins(门 300 B 类:语义已在共享 client,web 无需直拼)。
+      const data = await getInstalledPlugins()
+      setStates(data.states ?? {})
+      setAuthenticated(data.authenticated ?? false)
     } catch {
       setStates({})
       setAuthenticated(false)
@@ -96,11 +94,11 @@ export function usePlugins(): UsePluginsReturn {
     }
     setStates((s) => ({ ...s, [pluginId]: optimisticState }))
 
-    const res = await fetchApi<{ pluginId: string; state: PluginInstallState }>(
-      `/api/plugins/${encodeURIComponent(pluginId)}/install`,
-      { method: 'POST', body: JSON.stringify({ pinned }) },
-    )
-    if (!res.success) {
+    // 2026-11-05:改走共享 installPlugin(失败抛错 → 走同一套乐观回滚)。
+    let data: Awaited<ReturnType<typeof installPlugin>>
+    try {
+      data = await installPlugin(pluginId, { pinned })
+    } catch {
       // 函数式回滚: 只恢复对应 id, 保留中间其他更新
       setStates((s) => {
         if (prevPluginState) {
@@ -113,7 +111,7 @@ export function usePlugins(): UsePluginsReturn {
       return false
     }
     // 用服务端返回的真实 state 校正
-    setStates((s) => ({ ...s, [pluginId]: res.data.state }))
+    setStates((s) => ({ ...s, [pluginId]: data.state }))
     return true
   }, [])
 
@@ -127,11 +125,10 @@ export function usePlugins(): UsePluginsReturn {
       return next
     })
 
-    const res = await fetchApi<{ pluginId: string; removed: true }>(
-      `/api/plugins/${encodeURIComponent(pluginId)}/install`,
-      { method: 'DELETE' },
-    )
-    if (!res.success) {
+    try {
+      await uninstallPlugin(pluginId)
+      return true
+    } catch {
       // 函数式回滚: 只恢复对应 id, 保留中间其他更新
       setStates((s) => {
         if (prevPluginState) {
@@ -141,7 +138,6 @@ export function usePlugins(): UsePluginsReturn {
       })
       return false
     }
-    return true
   }, [])
 
   const togglePinned = React.useCallback(async (pluginId: string): Promise<boolean> => {
@@ -156,11 +152,10 @@ export function usePlugins(): UsePluginsReturn {
       [pluginId]: { ...currentState, pinned: nextPinned },
     }))
 
-    const res = await fetchApi<{ pluginId: string; state: PluginInstallState }>(
-      `/api/plugins/${encodeURIComponent(pluginId)}/preferences`,
-      { method: 'PATCH', body: JSON.stringify({ pinned: nextPinned }) },
-    )
-    if (!res.success) {
+    let data: Awaited<ReturnType<typeof updatePluginPreferences>>
+    try {
+      data = await updatePluginPreferences(pluginId, { pinned: nextPinned })
+    } catch {
       // 函数式回滚: 只恢复对应 id 的 pinned, 保留中间其他更新
       setStates((s) => ({
         ...s,
@@ -168,7 +163,7 @@ export function usePlugins(): UsePluginsReturn {
       }))
       return false
     }
-    setStates((s) => ({ ...s, [pluginId]: res.data.state }))
+    setStates((s) => ({ ...s, [pluginId]: data.state }))
     return true
   }, [])
 
@@ -196,9 +191,7 @@ export function usePlugins(): UsePluginsReturn {
 
   // 埋点:用户点击市场卡片外链。fire-and-forget,不阻塞跳转,失败静默。
   const recordClick = React.useCallback((pluginId: string) => {
-    void fetchApi<{ recorded: true }>(`/api/plugins/${encodeURIComponent(pluginId)}/click`, {
-      method: 'POST',
-    }).catch(() => {
+    void recordPluginClick(pluginId).catch(() => {
       // 静默失败:埋点不能阻塞用户跳转
     })
   }, [])
