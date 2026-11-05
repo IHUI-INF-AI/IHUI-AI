@@ -208,10 +208,11 @@ describe('runFullScreenSession —— 一次完整会话', () => {
   it('输入并回车后,转录出现在屏上;Esc 退出后终端还原', async () => {
     const io = makeFakeIo()
     const term = createFullScreenTerminal(io)
-    let emit: ((e: AgentEvent) => void) | null = null
+    // 用容器持有回调:变量在闭包里赋值,直接 `let fn | null` 会被 CFA 收窄成 null
+    const lateEmit: { fn: ((e: AgentEvent) => void) | null } = { fn: null }
     const host: ConversationHost & { resolve?: () => void } = {
       send: async (_text, onEvent) => {
-        emit = onEvent
+        lateEmit.fn = onEvent
         onEvent({ type: 'token', text: 'assistant says hi' })
         await new Promise<void>((r) => {
           host.resolve = r
@@ -248,7 +249,7 @@ describe('runFullScreenSession —— 一次完整会话', () => {
     // 退出之后迟到的事件**不得**再往 stdout 写任何东西:还原序列已经发出去了,
     // 再写一次就是把用户的 shell 画花(而且没有任何界面会显示它)。
     const afterQuit = io.written.length
-    emit?.({ type: 'token', text: 'late token after quit' })
+    lateEmit.fn?.({ type: 'token', text: 'late token after quit' })
     await new Promise((r) => setImmediate(r))
     expect(io.written.length).toBe(afterQuit)
     expect(io.written.join('')).not.toContain('late token after quit')
