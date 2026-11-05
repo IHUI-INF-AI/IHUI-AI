@@ -43,6 +43,10 @@
  *       旧机制只在"本轮碰了生成块"时整块重算,于是"改文件清单但不碰 README"的提交
  *       (279875ba85 定格 / 224b4b020f −2)全绿。清单未变的轮次只报数(防恒红,§12e)。
  *
+ * pre-push 档(`--push`,2026-11-05,判责时机补位):DN2 **全量(head 面)**判据挂到推送 —— 提交频次高、
+ *   推送频次低 ⇒ 不恒红;语义 = 不许把带过期正文的树推上去。本档 ≡ `--strict` + 简介面(DN3)
+ *   不记未判定(推送腿不联网);`planAccountability` 一行未改(只传 strict=true)。射程外:只判本地 HEAD。
+ *
  * 判责时机(DN4,本门的防恒红设计):块里多数数字(`trackedFiles`/`apiRoutes`/`testFiles`…)随
  *   **每一次**普通提交漂移,若任何提交都必须同步重算块,本门就在与提交内容无关处恒红 —— 唯一
  *   结局是各会话合法 `--no-verify`,连带废掉全部守门(§12e)。所以注册条目带
@@ -673,6 +677,11 @@ function readArg(argv, name) {
   return argv[i].includes('=') ? argv[i].slice(i === -1 ? 0 : argv[i].indexOf('=') + 1) : argv[i + 1] ?? null
 }
 
+/** push 档不联网取简介 ⇒ 未给 --description 时不记"简介未判定"(否则内容全对的推送也 exit 2)。 */
+export function shouldRecordDescUndetermined(argv) {
+  return !argv.includes('--push') && readArg(argv, '--description') === null
+}
+
 /** 自检:构造面(不依赖真仓),正反成对。 */
 export function selfTest() {
   const numbers = { dbTables: 583, apiRoutes: 4363, llmModels: 118, testFiles: 2103, i18nLanguages: 5, guardianGates: 187, appPackages: 9, aiServiceRoutes: 548, wsEndpoints: 25, publishPlatforms: 38, ciWorkflows: 46 }
@@ -954,6 +963,18 @@ export function selfTest() {
     'S27f readBlockTrackedFiles 只认生成块内的行,块外同形文本不冒充',
     readBlockTrackedFiles(`${s27doc(19095)}| 跟踪文件 | 1 | \`trackedFiles\` |\n`) === 19095,
   )
+  // S28 pre-push 档(2026-11-05):判责时机挪到推送,判据一字不改。
+  ok('S28a push 档未给简介 ⇒ 不记未判定(否则全对的推送也 exit 2)', shouldRecordDescUndetermined(['--strict', '--push']) === false)
+  ok('S28b 非 push 档未给简介 ⇒ 仍记未判定(提交链/总览档口径不变)', shouldRecordDescUndetermined(['--strict']) === true)
+  const s28n = { dbTables: numbers.dbTables, testFiles: numbers.testFiles }
+  const s28doc = `正文 ${numbers.testFiles - 3} 个测试文件;另有 ${numbers.dbTables} 张表\n${BLOCK_BEGIN}\n| 数据库表 | ${numbers.dbTables} | \`dbTables\` |\n| 测试文件 | ${numbers.testFiles} | \`testFiles\` |\n${BLOCK_END}\n`
+  const s28r = findStaleClaims(s28doc, s28n)
+  ok(
+    'S28c 生成块正确、正文抄旧数 ⇒ 红并点名第 1 行(DN2;DN5 不适用 ⇒ 非重复)',
+    checkGeneratedBlock(s28doc, s28n).ok &&
+      s28r.violations.length === 1 && s28r.violations[0].line === 1 && s28r.violations[0].key === 'testFiles' &&
+      judgeTrackedInventory({ docText: s28doc, numbers: s28n, inventory: { changed: [] } }).applicable === false,
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -967,7 +988,8 @@ function main(argv) {
     console.error(`❌ 无法判定:${error}`)
     return 2
   }
-  const strict = argv.includes('--strict')
+  const pushMode = argv.includes('--push')
+  const strict = argv.includes('--strict') || pushMode
   const root = resolve(readArg(argv, '--root') ?? ROOT)
   let derived
   const docsText = new Map()
@@ -1142,7 +1164,7 @@ function main(argv) {
     } catch (e) {
       undetermined.push({ key: 'description', reason: `读不到简介输入(${descArg}):${e.message}` })
     }
-  } else {
+  } else if (shouldRecordDescUndetermined(argv)) {
     undetermined.push({ key: 'description', reason: '未提供 --description ⇒ 简介面本轮不判(问责请跑 --strict --description -)' })
   }
 
