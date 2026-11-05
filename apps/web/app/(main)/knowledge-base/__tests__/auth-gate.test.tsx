@@ -23,9 +23,11 @@ vi.mock('@/hooks/use-auth-gate', () => ({
   useAuthGate: () => authGate.state,
 }))
 
-const apiOrThrow = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({
-  apiOrThrow: apiOrThrow,
+const getKnowledgeBaseCategories = vi.hoisted(() => vi.fn())
+const listKnowledgeBases = vi.hoisted(() => vi.fn())
+vi.mock('@ihui/api-client', () => ({
+  getKnowledgeBaseCategories,
+  listKnowledgeBases,
 }))
 
 vi.mock('next-intl', () => ({
@@ -76,13 +78,11 @@ describe('知识库列表页 · 登录态门三态', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authGate.state = { ready: true, allow: true }
-    apiOrThrow.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.includes('/categories')
-          ? { list: [{ id: 'c1', name: 'cat-1' }] }
-          : { list: [], total: 0 },
-      ),
-    )
+    getKnowledgeBaseCategories.mockResolvedValue({
+      success: true,
+      data: { list: [{ id: 'c1', name: 'cat-1' }] },
+    })
+    listKnowledgeBases.mockResolvedValue({ success: true, data: { list: [], total: 0 } })
   })
 
   afterEach(() => {
@@ -96,7 +96,8 @@ describe('知识库列表页 · 登录态门三态', () => {
 
     await waitFor(() => expect(screen.queryByText('loginRequired')).toBeNull())
     expect(screen.getByText('loading')).toBeTruthy()
-    expect(apiOrThrow).not.toHaveBeenCalled()
+    expect(getKnowledgeBaseCategories).not.toHaveBeenCalled()
+    expect(listKnowledgeBases).not.toHaveBeenCalled()
   })
 
   it('确未登录(ready=true ∧ allow=false)显登录引导且不发注定 401 的查询', async () => {
@@ -104,13 +105,15 @@ describe('知识库列表页 · 登录态门三态', () => {
     renderPage()
 
     await waitFor(() => expect(screen.getByText('loginRequired')).toBeTruthy())
-    expect(apiOrThrow).not.toHaveBeenCalled()
+    expect(getKnowledgeBaseCategories).not.toHaveBeenCalled()
+    expect(listKnowledgeBases).not.toHaveBeenCalled()
   })
 
   it('门开(allow 由假翻真)后自动补拉分类与列表', async () => {
     authGate.state = { ready: false, allow: false }
     const { rerender } = renderPage()
-    expect(apiOrThrow).not.toHaveBeenCalled()
+    expect(getKnowledgeBaseCategories).not.toHaveBeenCalled()
+    expect(listKnowledgeBases).not.toHaveBeenCalled()
 
     authGate.state = { ready: true, allow: true }
     rerender(
@@ -120,8 +123,8 @@ describe('知识库列表页 · 登录态门三态', () => {
         <KnowledgeBasePageClient />
       </QueryClientProvider>,
     )
-    await waitFor(() => expect(apiOrThrow).toHaveBeenCalled())
-    expect(apiOrThrow).toHaveBeenCalledWith('/api/knowledge-base/categories')
+    await waitFor(() => expect(getKnowledgeBaseCategories).toHaveBeenCalled())
+    expect(listKnowledgeBases).toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

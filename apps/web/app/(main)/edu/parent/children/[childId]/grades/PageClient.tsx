@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { Award, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildrenGrades } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -36,8 +36,11 @@ export default function ChildGradesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
-    queryFn: () =>
-      apiOrThrow<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/children/${childId}/grades`),
+    queryFn: async () => {
+      const r = await eduParentChildrenGrades<{ list: GradeItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 

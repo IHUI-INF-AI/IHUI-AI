@@ -4691,7 +4691,8 @@
       "active": "生效",
       "rejected": "已拒绝",
       "cancelled": "已解除"
-    }
+    },
+    "myAttendanceHint": "查看学生本人签到记录"
   },
   "eduChildAttendance": {
     "title": "孩子考勤",
@@ -4717,7 +4718,27 @@
       "absent": "缺勤",
       "leave": "请假"
     },
-    "student": "学生"
+    "student": "学生",
+    "checkInAt": "签到时刻",
+    "momentNow": "现在",
+    "backfillNeedsTime": "回填非当日考勤须给出该日内的签到时刻",
+    "checkedInToast": "已签到",
+    "checkedOutToast": "已签退",
+    "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
+    "batchDoneToast": "点名完成",
+    "checkInFor": "代签到",
+    "batchCheckIn": "批量点名",
+    "noClassReason": "当前列表没有可选班级",
+    "multiClass": "存在多个班级，本次仅对 {classId} 点名",
+    "statusOther": "其他",
+    "trendWindow": "近 {days} 天",
+    "trendChartScope": "统计范围：{scope}",
+    "statusDistribution": "状态分布",
+    "statsTotalLabel": "考勤总人次",
+    "statsAttendanceRate": "出勤率",
+    "emptyTrend": "暂无趋势数据",
+    "trendChartTitle": "出勤趋势",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -5564,7 +5585,10 @@
     "twoFactor": "两步验证",
     "loginAlert": "登录提醒",
     "desc": "管理账号安全相关的开关",
-    "loadFailed": "加载安全设置失败"
+    "loadFailed": "加载安全设置失败",
+    "readOnlyHint": "本页仅展示当前状态，不提供修改入口",
+    "stateOn": "已开启",
+    "stateOff": "未开启"
   },
   "selfMedia": {
     "title": "自媒体助手",
@@ -7034,5 +7058,14 @@
   },
   "distributionTeamDetailPage": {
     "noSubordinates": "暂无下级成员"
+  },
+  "eduMyAttendance": {
+    "title": "我的考勤",
+    "selfCheckIn": "我要签到",
+    "scanCheckIn": "扫码签到",
+    "classByBackendHint": "班级由后端按在册学籍自动确定",
+    "selfDoneToast": "签到成功",
+    "scanDoneToast": "扫码签到成功",
+    "scanInvalidToast": "无效的签到码"
   }
 }

@@ -21,13 +21,39 @@
 
 import { evaluateArgv } from '../../tools/command-policy/evaluate.js';
 import { tokenizeCommand } from '../../tools/command-policy/tokenizer.js';
+import { commandSpecOf } from '../../tools/command-policy/syntax-table.js';
+import { NESTED_DESTINATION_OPTIONS } from '../../tools/command-policy/syntax-network.js';
 import { normalizeEgressHost } from './policy.js';
 import { parseIpAddress } from '@ihui/shared/utils/ssrf-guard';
 
-/** 本地形态(结构上兼容 `ExtractedTarget`的 `origin: 'bare-host'` 档,不做跨文件类型循环)。 */
+/** 本地形态(结构上兼容 `ExtractedTarget` 的 `bare-host` / `dynamic` 两档,不做跨文件类型循环)。
+ *  `dynamic` 专供「值内第二跳」(goal-b49 Z29):选项族按登记会藏目的地、但那一刻值被变量化而取不到 ⇒
+ *  记一枚 `dynamic` 交裁决层落 `target-unexpandable`(unjudged)。它的 raw 与 `extractEgressTargets`
+ *  用的是同一串,故下游按 host 去重会自然并成一条,不重复喊。 */
+export type BareHostOrigin = 'bare-host' | 'dynamic';
+
 export interface BareHostTarget {
   readonly raw: string;
-  readonly origin: 'bare-host';
+  readonly origin: BareHostOrigin;
+}
+
+/** 与 `dns-adjudicator.ts` 的 dynamic 档同串(下游按 raw 去重 ⇒ 两通道并成一条 unjudged)。 */
+const DYNAMIC_TARGET = '<dynamic-arg>';
+
+/**
+ * 拆「可藏目的地的选项值」→ 候选片段:只认登记键的 `K=V` 形态(键对不上 ⇒ 不猜,返空),
+ * 再把 V 按空白切片段(实证形态的 V 本身就是一条命令行 `-W %h:%p bastion.internal`),
+ * 短选项形状的片段与空串丢掉 —— 形态校验仍归 `bareHostOf` 一把尺,这里零裁决。
+ */
+function nestedValueFragments(value: string, keys: readonly string[]): string[] {
+  const at = value.indexOf('=');
+  if (at <= 0) return [];
+  const key = value.slice(0, at).trim().toLowerCase();
+  if (!keys.includes(key)) return [];
+  return value
+    .slice(at + 1)
+    .split(/\s+/)
+    .filter((fragment) => fragment !== '' && !fragment.startsWith('-'));
 }
 
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -66,8 +92,14 @@ export function bareHostOf(raw: string): string | null {
 
 /**
  * 命令行 → 裸域名目标(带网络效应闸门)。
- * 已知覆盖面边界(设计而非缺陷):未登记命令(如 `nc`)拿不到 network 效应 ⇒ 不扩面 ——
+ * 已知覆盖面边界(设计而非缺陷):未登记命令(如 `telnet`)拿不到 network 效应 ⇒ 不扩面 ——
  * "不知道"不折算成"是出口",宁漏判于未知命令也不在取词层造第二把尺。
+ * (goal-b49 Z14:这里的示例原写 `nc`,而 `nc` 已在 `syntax-network.ts` 登记为 network 基线,
+ *  示例随之改指仍未登记的 `telnet` —— 边界本身一个字没动。)
+ * goal-b49 Z29 补的正是"值内第二跳"那一格:`ssh -o 'ProxyCommand=ssh -W %h:%p bastion.internal' target.internal`
+ * 今天两个目的地都取得到(选项族登记在 `syntax-network.ts#NESTED_DESTINATION_OPTIONS`);仍未覆盖的是
+ * 目的地住在**文件里**的形态(`ssh -F ssh_config`,配置内容不在 argv,取词层读不到 ⇒ 仍只取到外层),
+ * 以及登记族之外的选项值 —— 两者都由 `tests/command-policy-network-commands.test.ts` ④d/④e 钉成现状。
  */
 export function extractBareHostTargets(commandLine: string): BareHostTarget[] {
   const out: BareHostTarget[] = [];
@@ -93,6 +125,35 @@ export function extractBareHostTargets(commandLine: string): BareHostTarget[] {
       if (host === null || seen.has(host)) continue;
       seen.add(host);
       out.push({ raw: host, origin: 'bare-host' });
+    }
+    // 值内第二跳(goal-b49 Z29,接 Z9 ④-3):外层 token 取完后,再钻「语法表登记为可藏目的地」的选项值。
+    // 三件事同时成立才钻 —— ① (命令,选项) 在 `NESTED_DESTINATION_OPTIONS` 里(登记面,判据不抄第二份)
+    // ② 该选项在语法表的 arity 档写明 `required`(⇒ 下一个 token 才是它的值;"哪个选项带值"仍只住 arity 表)
+    // ③ 值本身不是变量。取不到 ≠ 没有出口:登记族 ∧ 值被变量化 ⇒ 记 `dynamic`(交裁决层落 unjudged)。
+    const basename = finding.basename ?? '';
+    const nestedSpec = commandSpecOf(basename);
+    for (const entry of NESTED_DESTINATION_OPTIONS) {
+      if (entry.command !== basename) continue;
+      const declared = nestedSpec?.options?.find((option) => option.name.toLowerCase() === entry.option);
+      if (declared?.arity !== 'required') continue;
+      for (let i = 1; i < argv.length - 1; i += 1) {
+        const option = argv[i]!.value.trim().toLowerCase();
+        if (option !== `-${entry.option}` && option !== `--${entry.option}`) continue;
+        const valueToken = argv[i + 1]!;
+        if (valueToken.expanded) {
+          if (!seen.has(DYNAMIC_TARGET)) {
+            seen.add(DYNAMIC_TARGET);
+            out.push({ raw: DYNAMIC_TARGET, origin: 'dynamic' });
+          }
+          continue;
+        }
+        for (const fragment of nestedValueFragments(valueToken.value, entry.keys)) {
+          const host = bareHostOf(fragment);
+          if (host === null || seen.has(host)) continue;
+          seen.add(host);
+          out.push({ raw: host, origin: 'bare-host' });
+        }
+      }
     }
   }
   return out;

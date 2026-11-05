@@ -5,7 +5,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import {
+  checkinAccountPool,
+  createAccountPool,
+  deleteAccountPool,
+  listAccountPool,
+  updateAccountPool,
+} from '@ihui/api-client'
 import {
   AccountPoolScreen as SharedAccountPoolScreen,
   type AccountPoolDraft,
@@ -47,7 +53,7 @@ export default function AccountPoolScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       try {
-        const res = await fetchApi<{ list: AccountPoolRow[] }>('/api/account-pool')
+        const res = await listAccountPool<{ list: AccountPoolRow[] }>()
         if (res.success) setRows(res.data?.list ?? [])
         else appAlert(t('accountPool.actionFailed'), res.error ?? '')
       } finally {
@@ -68,7 +74,7 @@ export default function AccountPoolScreen() {
   const checkin = async (row: AccountPoolRow) => {
     setBusyId(row.id)
     try {
-      const res = await fetchApi(`/api/account-pool/${row.id}/checkin`, { method: 'POST' })
+      const res = await checkinAccountPool(row.id)
       if (!res.success) fail(row, res.error)
       else void load(true)
     } finally {
@@ -79,10 +85,7 @@ export default function AccountPoolScreen() {
   const toggle = async (row: AccountPoolRow) => {
     setBusyId(row.id)
     try {
-      const res = await fetchApi(`/api/account-pool/${row.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isEnabled: !row.isEnabled }),
-      })
+      const res = await updateAccountPool(row.id, { isEnabled: !row.isEnabled })
       if (!res.success) fail(row, res.error)
       else void load(true)
     } finally {
@@ -100,7 +103,7 @@ export default function AccountPoolScreen() {
           void (async () => {
             setBusyId(row.id)
             try {
-              const res = await fetchApi(`/api/account-pool/${row.id}`, { method: 'DELETE' })
+              const res = await deleteAccountPool(row.id)
               if (!res.success) fail(row, res.error)
               else void load(true)
             } finally {
@@ -115,14 +118,11 @@ export default function AccountPoolScreen() {
   const save = async () => {
     setSubmitting(true)
     try {
-      const res = await fetchApi('/api/account-pool', {
-        method: 'POST',
-        body: JSON.stringify({
-          providerCode: draft.providerCode,
-          name: draft.name.trim(),
-          token: draft.token.trim(),
-          refreshToken: draft.refreshToken.trim() || undefined,
-        }),
+      const res = await createAccountPool({
+        providerCode: draft.providerCode,
+        name: draft.name.trim(),
+        token: draft.token.trim(),
+        refreshToken: draft.refreshToken.trim() || undefined,
       })
       if (!res.success) {
         appAlert(t('accountPool.actionFailed'), res.error ?? '')

@@ -9,7 +9,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Users } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduAttendanceBatchCheckIn } from '@ihui/api-client'
 import {
   Button,
   Dialog,
@@ -88,11 +88,11 @@ export function BatchCheckInDialog({
   const payload = buildBatchCheckInPayload({ classId, date, hm, today, remark })
 
   const mutation = useMutation<BatchCheckInResult, Error, BatchCheckInPayload>({
-    mutationFn: (body) =>
-      apiOrThrow<BatchCheckInResult>('/api/edu-ai-management/attendance/batch-check-in', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body) => {
+      const r = await eduAttendanceBatchCheckIn<BatchCheckInResult>(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (data) => {
       setResult(data)
       onDone()

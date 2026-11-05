@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getExamById, submitAnswer } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   ExamQuestionScreen as SharedExamQuestionScreen,
@@ -116,12 +116,10 @@ export function ExamQuestionScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ApiQuestionsPayload>(
-        `/api/exam/papers/${encodeURIComponent(examId)}/questions`,
-      )
+      const res = await getExamById(examId)
       if (cancelled) return
       if (res.success) {
-        const payload = res.data
+        const payload = res.data as unknown as ApiQuestionsPayload
         const questions = payload.questions ?? []
         questionsRef.current = questions
         setExam({
@@ -173,10 +171,10 @@ export function ExamQuestionScreen() {
     setSubmitting(true)
     setError('')
     const payload = serializeAnswers(questionsRef.current, answersRef.current)
-    const res = await fetchApi<{ examId: string }>(
-      `/api/exam/papers/${encodeURIComponent(examId)}/submit-answers`,
-      { method: 'POST', body: JSON.stringify({ answers: payload }) },
-    )
+    const res = await submitAnswer({
+      examId,
+      answers: payload as unknown as { questionId: string; answer: string | string[] }[],
+    })
     submittingRef.current = false
     setSubmitting(false)
     if (!res.success) {

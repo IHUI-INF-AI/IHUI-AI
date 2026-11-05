@@ -16,7 +16,7 @@ import {
   type NavigationProp,
   type RouteProp,
 } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduParentChildBills } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -66,9 +66,7 @@ function EduChildBillsScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ bills: BillItem[] }>(
-        `/api/edu-ai-management/parent/children/${childId}/bills`,
-      )
+      const res = await eduParentChildBills<{ bills: BillItem[] }>(childId)
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.bills ?? []).map((b) => ({

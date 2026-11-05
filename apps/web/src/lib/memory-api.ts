@@ -14,7 +14,12 @@
  * `@ihui/types`(agent-runtime-memory.ts)。这里不再有任何本地定义 —— 同一份契约在 web 与
  * 移动端各写一份时,一边加字段另一边不会红,而端上表现是"移动端拿不到 web 能拿的数据"。
  */
-import { fetchApi } from '@/lib/api'
+import {
+  createMemoryEntry,
+  deleteMemoryEntry,
+  listMemoryEntries,
+  type MemoryQuery,
+} from '@ihui/api-client'
 import type {
   MemoryEntry,
   MemoryScope,
@@ -86,22 +91,13 @@ export function getMemoryScopeOption(scope: MemoryScope) {
 // === API 调用 ===
 
 export async function fetchMemory(query: MemoryListQuery = {}): Promise<MemoryListResponse> {
-  const qs = new URLSearchParams()
-  if (query.scope) qs.set('scope', query.scope)
-  if (query.sessionId) qs.set('sessionId', query.sessionId)
-  if (query.projectKey) qs.set('projectKey', query.projectKey)
-  const r = await fetchApi<MemoryListResponse>(
-    `/api/memory${qs.toString() ? `?${qs.toString()}` : ''}`,
-  )
+  const r = await listMemoryEntries<MemoryListResponse>(query as MemoryQuery)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
 
 export async function createMemory(input: MemoryCreateInput): Promise<MemoryEntry> {
-  const r = await fetchApi<MemoryEntry>('/api/memory', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
+  const r = await createMemoryEntry<MemoryEntry>(input)
   if (!r.success) throw new Error(r.error)
   return r.data
 }
@@ -110,14 +106,7 @@ export async function deleteMemory(
   id: string,
   query: MemoryListQuery = {},
 ): Promise<MemoryDeleteResponse> {
-  const qs = new URLSearchParams()
-  if (query.scope) qs.set('scope', query.scope)
-  if (query.sessionId) qs.set('sessionId', query.sessionId)
-  if (query.projectKey) qs.set('projectKey', query.projectKey)
-  const r = await fetchApi<MemoryDeleteResponse>(
-    `/api/memory/${encodeURIComponent(id)}${qs.toString() ? `?${qs.toString()}` : ''}`,
-    { method: 'DELETE' },
-  )
+  const r = await deleteMemoryEntry<MemoryDeleteResponse>(id, query as MemoryQuery)
   if (!r.success) throw new Error(r.error)
   return r.data
 }

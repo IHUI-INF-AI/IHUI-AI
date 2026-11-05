@@ -19,10 +19,11 @@
  * (`types.ts` 头注),声明背后没有实现,接进去就是一张只被测试喂数据的空壳(AGENTS §0.9 反例)。
  */
 
-import type { PluginDiagnostic, PluginManifest, TurnContributorContext } from './types.js';
+import type { PluginDiagnostic, TurnContributorContext } from './types.js';
 import { diagnostic } from './manifest-scan.js';
 import { ACTIVATION_POLICY } from './activation-events.js';
-import type { PluginRegistry } from './registry.js';
+import type { PluginRegistry, ExtensionDeclarationKey } from './registry.js';
+import { matcherUnreachableOnHost, parseHookDeclaration } from './plugin-dispatch.js';
 import { framePluginTurnInput } from './turn-input-framing.js';
 
 /**
@@ -33,14 +34,19 @@ import { framePluginTurnInput } from './turn-input-framing.js';
 export const PLUGIN_HOOK_EVENTS = ['preToolCall', 'postToolCall'] as const;
 export type PluginHookEvent = (typeof PLUGIN_HOOK_EVENTS)[number];
 
-/** 五个扩展族(名字与 `PluginManifest` 的字段逐字一致,便于对着清单找)。 */
-export type DeclarationFamily = keyof Pick<PluginManifest, 'tools' | 'hooks' | 'commands' | 'turnInputContributors' | 'commandContributors'>;
+/**
+ * 五个扩展族(名字与 `PluginManifest` 的字段逐字一致,便于对着清单找)。
+ * 键集单源 = `registry.ts#ExtensionDeclarationKey`(本层取别名,不另抄一份,§0.6)。
+ */
+export type DeclarationFamily = ExtensionDeclarationKey;
 
 /** 一条声明为什么算数 / 不算数(两种失效方向分开编码,免得一种伪装成另一种)。 */
 export type DeclarationReasonCode =
   | 'host-table-hit'
   | 'no-host-implementation'
   | 'event-never-dispatched'
+  /** 事件会派发,但声明的 matcher 在本宿主永远叫不醒(空串 / 不在宿主工具表)—— Z29 接 Z13 未竟 3 */
+  | 'matcher-never-fires'
   | 'no-command-channel'
   | 'command-name-belongs-to-host'
   | 'callback-registered'
@@ -70,10 +76,9 @@ export interface HostNameSurface {
 
 /** 取"声明了某个名字的插件",按 name 排序保证诊断顺序稳定(不随 Map 插入序漂)。 */
 function ownersOf(registry: PluginRegistry, family: DeclarationFamily, name: string) {
-  const key = family as keyof PluginManifest;
   return registry
     .list()
-    .filter((plugin) => Array.isArray(plugin[key]) && (plugin[key] as string[]).includes(name))
+    .filter((plugin) => (plugin[family] ?? []).includes(name))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -130,11 +135,27 @@ export function auditDeclarationConsumers(registry: PluginRegistry, host: HostNa
 
   for (const ident of registry.getHookExtensions()) {
     const owners = ownersOf(registry, 'hooks', ident);
-    // registry.runHook 的匹配规则(hook === event 或 hook 以 event + ':' 开头)决定了事件段就是冒号前那截。
-    const event = ident.split(':')[0] ?? ident;
+    // 事件段 = hook 声明里第一个冒号前的那截;拆分判据单源 = plugin-dispatch.ts#parseHookDeclaration
+    // (与派发共用一把尺,§0.6:本层不得再抄一次 `split(':')`)。
+    const { event, matcher } = parseHookDeclaration(ident);
     const names = owners.map((p) => p.name);
     if ((PLUGIN_HOOK_EVENTS as readonly string[]).includes(event)) {
-      push('hooks', ident, names, sourceOf(owners), true, 'host-table-hit', [`event "${event}" is dispatched by commands/agent.ts#runPluginHooks`]);
+      // matcher 这一维也进对账(Z29 接 Z13 未竟 3):事件会派发,但声明的 matcher 在本宿主永远叫不醒 ⇒
+      // 这条声明其实没有消费者,按"吃不下"出声,不静默记成已消费。判据单源 =
+      // plugin-dispatch.ts#matcherUnreachableOnHost(与派发侧同一把尺,本层不抄第二份 matcher 语义)。
+      const unreachable = matcherUnreachableOnHost(matcher, host.toolNames);
+      if (unreachable !== null) {
+        push('hooks', ident, names, sourceOf(owners), false, 'matcher-never-fires', [
+          unreachable === 'empty-matcher'
+            ? `event "${event}" is dispatched, but an empty matcher never fires (see plugin-dispatch.ts#hookMatcherSatisfied)`
+            : `event "${event}" is dispatched, but matcher "${matcher}" names no tool in this host, so this hook is never invoked`,
+          'fix: name a tool in the host tool table, use "*" to be called on every dispatch, or drop the matcher',
+        ]);
+        continue;
+      }
+      push('hooks', ident, names, sourceOf(owners), true, 'host-table-hit', [
+        `event "${event}" is dispatched by commands/agent.ts#runPluginHooks`,
+      ]);
       continue;
     }
     push('hooks', ident, names, sourceOf(owners), false, 'event-never-dispatched', [

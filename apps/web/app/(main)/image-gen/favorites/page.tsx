@@ -10,7 +10,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Heart } from 'lucide-react'
 import Image from 'next/image'
 
-import { apiOrThrow } from '@/lib/api'
+import { getFavoriteImages } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -34,7 +34,11 @@ export default function ImageGenFavoritesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'favorites'],
-    queryFn: () => apiOrThrow<ListData>('/api/image-gen/favorites'),
+    queryFn: async (): Promise<ListData> => {
+      const res = await getFavoriteImages()
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
+    },
     enabled: allow,
   })
 

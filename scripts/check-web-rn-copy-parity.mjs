@@ -69,6 +69,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
 import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import {
+  RETIRED_AT_RE,
+  RETIRED_FROM_SHA_RE,
+  RETIRE_REASON_MIN_CHARS,
+  isRetiredRecord,
+} from './lib/ledger-retirement.mjs'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -884,7 +890,23 @@ export function readLedger(path = join(REPO, LEDGER_REL)) {
   if (!existsSync(path)) return null
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8'))
-    return Array.isArray(raw.entries) ? raw.entries : null
+    if (!Array.isArray(raw.entries)) return null
+    // 退休通道(2026-11-05):退休条目保留原行 + 五个标记(retiredAt/Reason/By/From/FromSha),
+    // 判据面必须在这里**统一剔除** —— 否则已退休的行会被当成"现读缺口"重复计账,
+    // 呈现为账本到期/认领差额红。过滤只此一处,消费点不再各写一遍。
+    return raw.entries.filter((e) => !isRetiredRecord(e))
+  } catch {
+    return null
+  }
+}
+
+/** 台账顶层的 retired[](退休行单独成表);缺失 = 空表,形状坏 = null(交形状判据点名)。 */
+export function readLedgerRetired(path = join(REPO, LEDGER_REL)) {
+  if (!existsSync(path)) return []
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'))
+    if (raw.retired === undefined) return []
+    return Array.isArray(raw.retired) ? raw.retired : null
   } catch {
     return null
   }
@@ -901,12 +923,16 @@ export const JUDGED_RULES = new Set(['B1-hardcoded-cjk', 'B2-key-diff', 'B3-syno
  * 账本形状判据(取代「entries 非空」这条宽松阈值):
  *  ① 每条 entry 的 rule 必须在 JUDGED_RULES 内;否则 = 把真缺口挂账 ⇒ 红。
  *  ② entries 为空数组合法,但顶层必须带非空 emptyReason(写明清零依据),否则 ⇒ 红。
+ *  ③ 退休行(entries 里带退休标记的条目、或顶层 `retired[]`)必须五个标记齐全、
+ *     retiredReason ≥ RETIRE_REASON_MIN_CHARS 字、retiredAt 为 ISO-8601、retiredFromSha 为
+ *     sha256;缺任一 ⇒ 红。retired[] 的存在本身**不许**判红(2026-11-05 消费面跟进)。
  * @returns {string[]} 红项(空数组 = 形状合法)
  */
-export function validateLedgerShape(entries, emptyReason) {
+export function validateLedgerShape(entries, emptyReason, retired = []) {
   const red = []
   const list = Array.isArray(entries) ? entries : []
   for (const e of list) {
+    if (isRetiredRecord(e)) continue // 退休行不参与"现读缺口"判据(由 readLedger 统一剔除)
     const rule = e?.rule
     if (typeof rule === 'string' && JUDGED_RULES.has(rule)) continue
     red.push(
@@ -915,6 +941,27 @@ export function validateLedgerShape(entries, emptyReason) {
   }
   if (list.length === 0 && (typeof emptyReason !== 'string' || !emptyReason.trim()))
     red.push('台账 entries 为空但缺 emptyReason:空账必须写明已清零的判定依据')
+  if (retired !== null && !Array.isArray(retired))
+    red.push('台账 retired 不是数组:退休行必须单独成表(或整个字段缺省)')
+  const retiredList = Array.isArray(retired) ? retired : []
+  for (const r of retiredList) {
+    const who = r?.file || r?.page || r?.key || r?.route || '?'
+    if (!isRetiredRecord(r)) {
+      red.push(
+        `退休行 ${who} 缺退休标记:必须带 retiredAt/retiredReason/retiredBy/retiredFrom/retiredFromSha 五个字段,否则无从核验"谁按什么依据退的"`,
+      )
+      continue
+    }
+    const reason = String(r.retiredReason ?? '').trim()
+    if ([...reason].length < RETIRE_REASON_MIN_CHARS)
+      red.push(
+        `退休行 ${who} 的 retiredReason 少于 ${RETIRE_REASON_MIN_CHARS} 字(现 ${[...reason].length} 字):定向理由不足 = 退役不可复核`,
+      )
+    if (!RETIRED_AT_RE.test(String(r.retiredAt ?? '')))
+      red.push(`退休行 ${who} 的 retiredAt 不是 ISO-8601 时刻:${r.retiredAt}`)
+    if (!RETIRED_FROM_SHA_RE.test(String(r.retiredFromSha ?? '')))
+      red.push(`退休行 ${who} 的 retiredFromSha 不是 sha256(64 位小写十六进制):${r.retiredFromSha}`)
+  }
   return red
 }
 
@@ -1322,6 +1369,7 @@ export async function run({ mode = 'full', json = false } = {}) {
     console.error(`❌ 台账读不到或形状坏:${LEDGER_REL} ⇒ 未判定`)
     process.exit(2)
   }
+  const ledgerRetired = readLedgerRetired()
   const b1 = judgeLedger(blocked, entries.filter((e) => e?.rule === 'B1-hardcoded-cjk'), {
     today: todayStr(),
     scopeFiles: touched ? auditedScreens : null,
@@ -1337,7 +1385,7 @@ export async function run({ mode = 'full', json = false } = {}) {
   // B1/B3 新增未挂账 ⇒ 红;B2 新增未记账仍只是 advisory(措辞建议不拦提交),但**过期/缺字段照样红**
   // —— 那是账本纪律,不是判据强度。
   // 账本形状先行:非可判据规则(= 把「web 缺键 + RN 有消费」的真缺口挂账)与「空账无 emptyReason」直接红。
-  const ledgerShape = validateLedgerShape(entries, readLedgerEmptyReason())
+  const ledgerShape = validateLedgerShape(entries, readLedgerEmptyReason(), ledgerRetired)
   const blockingRed = [
     ...ledgerShape,
     ...b1.red,
@@ -1383,6 +1431,7 @@ export async function run({ mode = 'full', json = false } = {}) {
           duplicates: { b2: b2Unique.dup, b3: b3Unique.dup, accepted: acceptedUnique.dup },
           ledger: {
             entries: entries.length,
+            retired: ledgerRetired === null ? null : ledgerRetired.length,
             emptyReason: readLedgerEmptyReason(),
             shapeRed: ledgerShape,
             decisions: readLedgerDecisions(),
@@ -1418,7 +1467,7 @@ export async function run({ mode = 'full', json = false } = {}) {
         console.log(`   ⓘ 不可比[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
     }
     console.log(
-      `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
+      `  台账:${entries.length} 条(退休 ${ledgerRetired === null ? '形状坏' : ledgerRetired.length} 条,已从判据面剔除);到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
     )
     for (const v of blocked.slice(0, 25))
       console.log(`   ✗ ${v.file} ↔ ${v.rn}:${v.line} 「${v.value}」→ web 键 ${v.webKeys.slice(0, 3).join('/')}`)
@@ -1463,6 +1512,7 @@ export const __test__ = {
   listScreenFiles,
   touchedFiles,
   readLedger,
+  readLedgerRetired,
   readLedgerEmptyReason,
   JUDGED_RULES,
   validateLedgerShape,

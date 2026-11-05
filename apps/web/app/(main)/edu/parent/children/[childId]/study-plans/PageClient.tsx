@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { ClipboardList, Loader2, CalendarDays, Clock } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildStudyPlans } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -62,10 +62,11 @@ export default function ChildStudyPlansPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
-    queryFn: () =>
-      apiOrThrow<{ list: StudyPlanItem[] }>(
-        `/api/edu-ai-management/parent/children/${childId}/study-plans`,
-      ),
+    queryFn: async () => {
+      const r = await eduParentChildStudyPlans<{ list: StudyPlanItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 

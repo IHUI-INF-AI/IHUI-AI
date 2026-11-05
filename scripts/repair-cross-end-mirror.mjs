@@ -284,9 +284,22 @@ const mpByRoute = new Map(mp.map((p) => [p.route, p]))
 const sharedSpecs = new Set(shared.map((s) => s.spec))
 const rnFiles = new Set(rn.map((r) => r.file))
 
-// 「已镜像」的集合(门 128 同一把尺子)—— 判定台账的 missing→generated 改档靠它。
+// 「已镜像」的集合(门 128 宽尺 cov.mirrorDeclarations,形1∪形2∪形3∪4)—— **与读盘侧同尺同装配**
+// (report-rn-miniapp-gaps / 门 237 覆盖桶:hay = 页面正文 ⊕ 伴生样式表,索引 = buildSharedIndex(同面共享屏))。
+// 判定台账的 missing→generated 改档靠它:这一档的语义是"该屏已被显式镜像",不是"硬路径标记在位"。
+// 旧硬尺(cov.mirroredSpecs)在此只作对照读数(legacyMirroredSpecs,只报差不判红);
+// 它在 333 行仍有一处**合法保留** = R1 登记表凭据核验(与门 128 R1 同尺,见该处注)。
+const sharedIndex = cov.buildSharedIndex(shared)
 const mirroredSpecs = new Set()
-for (const p of mp) for (const s of cov.mirroredSpecs(p)) mirroredSpecs.add(s)
+const legacyMirroredSpecs = new Set()
+for (const p of mp) {
+  if (!p.file) continue
+  const hay = `${p.text || ''}\n${p.cssText || ''}`
+  for (const s of cov.mirrorDeclarations(hay, sharedIndex).specs) mirroredSpecs.add(s)
+}
+for (const p of mp) for (const s of cov.mirroredSpecs(p)) legacyMirroredSpecs.add(s)
+const mirrorWideOnly = [...mirroredSpecs].filter((s) => !legacyMirroredSpecs.has(s)).sort()
+const mirrorLegacyOnly = [...legacyMirroredSpecs].filter((s) => !mirroredSpecs.has(s)).sort()
 
 const cfgText = cov.faceRead(FACE, MP_CONFIG)
 if (cfgText === null) {
@@ -330,7 +343,11 @@ for (const e of entries) {
     })
     continue
   }
-  if (mpEntry && cov.mirroredSpecs(mpEntry).has(sharedSpec)) continue // 已完整
+  // R1-CREDENTIAL-RULER(具名锚点,形状锁逐处点名):这一处**必须**留在旧硬尺 —— 它不是"已镜像桶"
+  // 的判定输入,而是登记表条目的凭据核验,与门 128 R1(check-cross-end-screen-coverage.mjs 对登记项
+  // 正是用 mirroredSpecs 判"标记是配对的唯一凭据")同尺。若把这里也换成宽尺:页上只剩新形声明时
+  // 本器物判"已完整"不再补标记,而 R1 按严格形判红 ⇒ 无人补回那行标记 = 恒红门(§12e)。
+  if (mpEntry && cov.mirroredSpecs(mpEntry).has(sharedSpec)) continue // 已完整(形1 硬路径,与门 128 R1 同尺)
 
   const pageHead = cov.faceRead(FACE, file)
   if (pageHead === null) {
@@ -371,7 +388,7 @@ for (const e of entries) {
 // 为什么归本器物管:它是**台账 → 代码**的对账器,而这一族正是"台账说该造页、代码里页已经在了"
 // (页被生成器造出、但台账没跟上)。不在这儿改,就没人改 —— 台账会一直说"缺页",
 // 缺口账本会把已造页继续列成待造(重复派单),而且**覆盖率会替功能缺口背书**。
-// 判据:该屏在当前面已被小程序页显式镜像(门 128 同一把尺子 cov.mirroredSpecs)。
+// 判据:该屏在当前面已被小程序页显式镜像(与读盘侧同一把宽尺 cov.mirrorDeclarations,见上方集合构造注)。
 const ledgerRows = readVerdicts(FACE, ROOT)
 const verdictPatches = []
 for (const row of ledgerRows.rows) {
@@ -380,7 +397,7 @@ for (const row of ledgerRows.rows) {
   verdictPatches.push({
     shared: row.shared,
     verdict: 'generated',
-    evidence: `已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补`,
+    evidence: `已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建。功能对齐状态**本改档未判定** —— 这一档只核「镜像在位」,不代表数据腿/交互跟上;复核后请在 evidence 写显式裁决前缀,未裁决前它按 hooksBucketOf 留在「真待补」桶,不得由本模板替它下「已闭环」或「欠着」的结论`,
     at: TODAY,
     source: 'repair-cross-end-mirror',
   })
@@ -487,6 +504,14 @@ const summary = {
   verdictPatches: verdictPatches.length,
   landing: landingInfo.landing,
   skipLanded: skipLanded.length,
+  // 两尺对照读数(2026-11-05):wide = 判定档(与读盘侧同尺),legacy = 旧硬尺**只报差不判**;
+  // 差非 0 是内容状态不判红,但逐条点名(镜像在 findings/applied 之外的这一格里)。
+  mirrorRuler: {
+    wide: mirroredSpecs.size,
+    legacy: legacyMirroredSpecs.size,
+    wideOnly: mirrorWideOnly,
+    legacyOnly: mirrorLegacyOnly,
+  },
 }
 if (landingInfo.landingError) summary.landingError = landingInfo.landingError
 if (!landedRead.ok) summary.ledger = 'unjudged'
@@ -498,6 +523,11 @@ if (jsonMode) {
 console.log(`\n台账→代码 对账(判定面 ${FACE === 'head' ? 'HEAD blob' : '工作树(人工)'})`)
 console.log(`登记表条目 ${summary.registryEntries} / 需处理 ${summary.findings} / 台账改档候选 ${summary.verdictPatches}`)
 for (const [k, v] of Object.entries(summary.byKind)) console.log(`  ${k}: ${v}`)
+console.log(
+  `两尺对照: wide=${summary.mirrorRuler.wide} legacy=${summary.mirrorRuler.legacy}(判定档=宽尺;legacy 只报差不判红)`,
+)
+for (const s of summary.mirrorRuler.wideOnly) console.log(`  [宽尺独有·旧尺认不出] ${s}`)
+for (const s of summary.mirrorRuler.legacyOnly) console.log(`  [旧尺独有·宽尺未认] ${s}`)
 if (findings.length === 0) console.log('\n✅ 台账与代码完全对齐,无需修复')
 else {
   for (const f of findings) console.log(`  [${f.kind}] ${f.shared} → ${f.route}  ${f.why || ''}`)
