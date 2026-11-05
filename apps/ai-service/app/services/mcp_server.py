@@ -18,7 +18,6 @@ import os
 import re
 import shlex
 import subprocess
-import tempfile
 import threading
 import time
 from collections.abc import Awaitable, Callable, Mapping
@@ -53,6 +52,8 @@ from app.core.file_read_state import (
 )
 from app.core.internal_ticket import internal_service_headers
 from app.core.vault import filter_vault_env as _filter_vault_env
+from app.utils.atomic_io import write_bytes_atomic as _write_bytes_atomic
+from app.utils.atomic_io import write_bytes_to_tempfile
 
 from .agent_security_prefs import (
     current_security_principal,
@@ -2227,25 +2228,6 @@ async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "RENDER_FAILED",
         }
     return {"tool": "render_repo_tree", "path": resolved, "ok": True, **out.to_dict()}
-
-
-def _write_bytes_atomic(path: str, data: bytes) -> None:
-    """同目录临时件写完再 os.replace:并发 read_file 不会读到截断中的正文。
-
-    read_file/file_edit 的读段已投线程池,与写段真正并行;write_bytes 是
-    截断+写,读线程可能读到半截内容并把它记成 base。原子替换把读者可见的
-    中间态消掉(读侧要么旧完整、要么新完整)。
-    """
-    target = Path(path)
-    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-        os.replace(tmp, path)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
 
 
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -8899,7 +8881,6 @@ async def _stt_once(
     try:
         import asyncio as _asyncio
         import os as _os
-        import tempfile as _tempfile
 
         from ..routers.voice_stt import _DEFAULT_STT_MODEL, _get_whisper_model, _transcribe_sync
 
@@ -8910,13 +8891,10 @@ async def _stt_once(
             if ext.isalnum() and len(ext) <= 6:
                 suffix = f".{ext}"
         model = await _asyncio.to_thread(_get_whisper_model)
-        tmp_fd, tmp_path = _tempfile.mkstemp(suffix=suffix)
+        # 2026-11-05:mkstemp + write + close 收进同一个工作线程,避免请求取消时
+        # close 与在飞 write 跨线程竞争(旧实现 fd 在事件循环线程 fdopen)。
+        tmp_path = await _asyncio.to_thread(write_bytes_to_tempfile, audio_bytes, suffix)
         try:
-            f = _os.fdopen(tmp_fd, "wb")
-            try:
-                await _asyncio.to_thread(f.write, audio_bytes)
-            finally:
-                await _asyncio.to_thread(f.close)
             text = await _asyncio.to_thread(_transcribe_sync, model, tmp_path, language or None)
         finally:
             with contextlib.suppress(OSError):

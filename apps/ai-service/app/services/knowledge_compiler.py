@@ -38,6 +38,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from app.utils.atomic_io import write_text_atomic
+
 # kind 枚举:procedure 为 schema 预留档,当前确定性映射只产 fact/convention。
 CARD_KINDS = frozenset({"convention", "fact", "procedure"})
 
@@ -323,12 +325,12 @@ async def compile_project(
     if not dry_run:
         cards_dir.mkdir(parents=True, exist_ok=True)
         cards_payload = json.dumps(cards, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-        await asyncio.to_thread(cards_path.write_text, cards_payload, encoding="utf-8")
+        await asyncio.to_thread(write_text_atomic, cards_path, cards_payload)
         wiki_dir.mkdir(parents=True, exist_ok=True)
         wiki_payload = _render_wiki(
             slug, project_id, cards, len(rejected), workspace_root=workspace_root, wiki_dir=wiki_dir
         )
-        await asyncio.to_thread(wiki_path.write_text, wiki_payload, encoding="utf-8")
+        await asyncio.to_thread(write_text_atomic, wiki_path, wiki_payload)
         wiki_files = 1
 
     return {
