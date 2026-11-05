@@ -64,6 +64,14 @@ import { stripClientCapabilityFields } from '@ihui/types'
 // 指向 src),判据 9 据此把本包钉成坏包。值出口搬到包内逐字移植(error-serialize.ts,类型仍从
 // @ihui/types 锚定,零重写),同 nullDeviceFingerprintCollector 的既有收口形态。
 import { serializeError } from './error-serialize.js'
+// 2026-11-05 立:OpenAI 兼容流式工具调用解析（逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复）。
+// 仅在 opts.openAiCompat === true 时启用,默认走既有 Vercel AI SDK 协议解析,零行为变化。
+import {
+  parseOpenAiStreamLine,
+  createOpenAiToolCallAccumulator,
+  parseToolCallArgsDeltaFrame,
+  type OpenAiToolCallDelta,
+} from './openai-tool-stream.js'
 
 /**
  * 默认空采集器(发布物自包含,2026-09-26 立)。
@@ -1954,6 +1962,18 @@ export interface StreamChatOptions {
    *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
    *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
   onToolSummary?: (summary: ToolSummaryEvent) => void
+  /** OpenAI 兼容流式模式(2026-11-05 立,逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复):
+   *  上游按 OpenAI chat completion 流式协议下发(`choices[].delta.tool_calls[].function.arguments`
+   *  为字符串分片)。开启后 streamChat 逐行经 parseOpenAiStreamLine 解析,tool_calls 增量喂给
+   *  OpenAiToolCallAccumulator(内部用 ToolCallArgsStreamer 渐进修复/累积 args),每个分片即回调
+   *  onOpenAiToolCall(带 partial/complete 态);文本增量回调 onOpenAiContent。
+   *  默认 false ⇒ 走既有 Vercel AI SDK 协议解析,零行为变化。开启后 Vercel 解析照常跑(对 OpenAI
+   *  行返回 null 不发重复 delta),两条解析互不干扰。 */
+  openAiCompat?: boolean
+  /** OpenAI 兼容模式下,每片 tool_calls 增量回调(含 partial/complete 态)。 */
+  onOpenAiToolCall?: (delta: OpenAiToolCallDelta) => void
+  /** OpenAI 兼容模式下,正文增量回调(`choices[].delta.content`)。 */
+  onOpenAiContent?: (text: string) => void
   /** Subagent 自动派发回调(2026-07-28 立, Work):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
    *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
@@ -5723,6 +5743,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    // 2026-11-05 立:OpenAI 兼容流式模式(默认关闭 ⇒ 零行为变化)。
+    // 开启后逐行经 parseOpenAiStreamLine 解析 tool_calls/文本增量,累积器按 call index 渐进出 partial/complete 态。
+    const hasOpenAiCompat = opts.openAiCompat === true
+    const openAiAccumulator = createOpenAiToolCallAccumulator()
+    // 2026-11-05 立:ai-service 自定义逐分片帧与 openAiCompat **互相独立**。
+    // 只有订阅了 onOpenAiToolCall 才解析(未订阅零开销);openAiCompat 仍只管
+    // OpenAI 原生行,默认关闭时 Vercel 协议解析路径逐字不变。
+    const hasOpenAiToolCall = typeof opts.onOpenAiToolCall === 'function'
+
     // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
     // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
     // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
@@ -5749,6 +5778,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
       await dispatchTryParse(line)
+      // 2026-11-05 立:ai-service 工具入参逐分片直推帧(独立门控,不依赖 openAiCompat)。
+      // 载荷不含 content/delta/text ⇒ 下方 parseStreamLine 不会把它当正文二次累加;
+      // 未订阅 onOpenAiToolCall 时这一行都不执行 ⇒ 旧客户端零行为变化。
+      if (hasOpenAiToolCall) {
+        const argsDelta = parseToolCallArgsDeltaFrame(line)
+        if (argsDelta) opts.onOpenAiToolCall?.(argsDelta)
+      }
       // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
       if (hasFallback) {
         const fbEvt = parseFallbackEvent(line)
@@ -5776,6 +5812,20 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           debugChunkTimer?.mark('reasoning', r, line)
         }
       }
+      // 2026-11-05 立:OpenAI 兼容流式模式(仅 openAiCompat 时启用)。Vercel parseStreamLine 对
+      // OpenAI 行返回 null,不会重复发 delta,故两条解析互不干扰。
+      if (hasOpenAiCompat) {
+        const frame = parseOpenAiStreamLine(line)
+        if (frame?.toolCalls?.length) {
+          const deltas = openAiAccumulator.pushToolCalls(frame.toolCalls)
+          for (const d of deltas) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame && frame.finishReason !== undefined) {
+          openAiAccumulator.finish()
+          for (const d of openAiAccumulator.snapshot()) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame?.content) opts.onOpenAiContent?.(frame.content)
+      }
     }
 
     await runResumableSSEStream({
@@ -5802,6 +5852,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         frameBarrierAckedThisAttempt = false
         _frameBarrierFlush = []
         frameBarrier.reset()
+        // 2026-11-05 立:重连后重建 OpenAI 工具调用累积器(避免上一轮的分片污染本轮)。
+        openAiAccumulator.reset()
         // G-816031:新 attempt = 新订阅代际 ⇒ 权威须重新授予(仅权威感知流;legacy 无操作)
         if (runnerAttempt > 0) streamAuthority.observeReconnect()
       },

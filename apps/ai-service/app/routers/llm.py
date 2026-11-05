@@ -6673,6 +6673,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
             _native_fc_stream = llm_gateway.astream(
                 messages, model=req.model, owner_uuid=owner_uuid,
+                # 2026-11-05 立:generic 原生 FC 通道逐分片直推前端。astream 默认
+                # False(其余通道零行为变化),本通道显式开,每片 arguments 到达即
+                # 多产一条 tool-call-args-delta,由下方 6793 的通用兜底原样上 wire。
+                tool_call_args_stream=True,
                 **_billing_kwargs,
                 **_native_fc_kwargs
             )
@@ -6716,17 +6720,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _native_fc_emitted_tools = True
                     for _tc in event.get("tool_calls") or []:
                         _fn = _tc.get("function") or {}
-                        _args_raw = _fn.get("arguments")
-                        _args: dict[str, Any] | str
-                        if _args_raw is None:
-                            _args = {}
-                        elif isinstance(_args_raw, str):
-                            try:
-                                _args = json.loads(_args_raw)
-                            except (json.JSONDecodeError, ValueError):
-                                _args = _args_raw
-                        else:
-                            _args = _args_raw
+                        # 2026-11-05 立:残缺/截断 arguments 走统一归一化(单一真相源
+                        # app/utils/tool_call_args.py),不再裸 json.loads 把整段可用参数
+                        # 吞成空对象,也不把原始字符串塞进前端卡片的 args 槽。
+                        from ..utils.tool_call_args import normalize_tool_call_args
+                        _args: dict[str, Any] = (
+                            normalize_tool_call_args(_fn.get("arguments")) or {}
+                        )
                         _tc_start = {
                             "type": "tool-call-start",
                             # 2026-09-03:strip 工具 id(个别 provider 返回的 id 尾部带换行,

@@ -26,6 +26,7 @@ import type {
   FormRequestEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+import { normalizeToolCallArgs } from './tool-call-args'
 import {
   applyFrame,
   createWatermarkState,
@@ -504,7 +505,7 @@ function parseLineEvent(line: string): SSEEvent | null {
             type: 'tool-call-start',
             toolCallId: String(parsed.toolCallId),
             toolName: String(parsed.toolName),
-            args: parsed.args as Record<string, unknown> | undefined,
+            args: normalizeToolCallArgs(parsed.args),
           },
         }
       }
@@ -837,7 +838,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-result',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: json.args as Record<string, unknown> | undefined,
+          args: normalizeToolCallArgs(json.args),
           result: json.result,
           isError: json.isError === true,
           ...pickServerMeta(json),
@@ -857,7 +858,7 @@ function parseLineEvent(line: string): SSEEvent | null {
           type: 'tool-call-start',
           toolCallId: String(json.toolCallId),
           toolName: typeof json.toolName === 'string' ? json.toolName : '',
-          args: json.args as Record<string, unknown> | undefined,
+          args: normalizeToolCallArgs(json.args),
           ...pickServerMeta(json),
         },
       }

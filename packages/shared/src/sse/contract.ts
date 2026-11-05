@@ -92,6 +92,10 @@ export const SSE_EVENTS = {
   // D113(2026-09-27,G-227):文件写类工具流中 diff 预览帧(llm.py 执行前纯参数推导,
   // 载荷 {toolCallId, seq, partialText, truncated?},tool-result 到达即清;不入库)。
   TOOL_DELTA: 'tool-delta',
+  // 2026-11-05 立:工具调用 arguments 逐分片直推帧(生产点 llm_gateway.astream,
+  // 经 llm.py generic 通道上 wire)。载荷 {index,id,name,args,argsComplete,argsPartial};
+  // 与 apps/ai-service/app/core/sse_contract.py 的 SSE_EVENTS 由 parity 门看护。
+  TOOL_CALL_ARGS_DELTA: 'tool-call-args-delta',
   // V3 #63(2026-09-27 落地生产者,解阻前置三条已在 ai-service 面收口):对话流业务
   // 表单**下行**帧。此前它单列在下方 FORM_FRAME_EVENTS 一段里,理由只有一条 ——
   // 「契约 ⊆ 生产」(llm.py 零生产点 ⇒ 并进 SSE_EVENTS 会让
@@ -349,6 +353,18 @@ export type SSEEventPayload =
       toolCallId: string
       name: string
       args?: unknown
+    }>
+  // 2026-11-05 立:工具入参逐分片直推(生产点 llm_gateway.astream)。args 允许 null
+  // (残缺到连部分对象都抽不出),argsComplete 为原始缓冲已可完整解析,argsPartial 为
+  // 流未闭合但已尽力修复出可用部分对象;消费侧按 index 关联同一工具调用。
+  | SSEEventWithMeta<{
+      type: 'tool-call-args-delta'
+      index: number
+      id: string
+      name: string
+      args: Record<string, unknown> | null
+      argsComplete: boolean
+      argsPartial: boolean
     }>
   // 工具执行结果
   | SSEEventWithMeta<{

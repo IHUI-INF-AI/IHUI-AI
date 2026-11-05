@@ -49,6 +49,7 @@ import { noteRuntimeCapabilities } from './runtime-capabilities'
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
   createUsageHandler,
@@ -443,6 +444,9 @@ export function createSendAnswer(
           reasoningBatcher.batch(delta)
         },
         onToolCall: createToolCallHandler(assistantId),
+        // 2026-11-05 立:续流同样订阅工具入参逐分片态(与 sendMessage 对称)。
+        // 该链路本就没有 onToolDelta 腿,不要顺带改动既有 Vercel 回调表。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,与 sendMessage 对称):
         // sendAnswer 续流同样可能触发 dispatch_subagent 工具,需写入 store。
         // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
