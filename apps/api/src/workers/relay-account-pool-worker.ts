@@ -81,8 +81,13 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
       cwd: REPO_ROOT,
       windowsHide: true,
       // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总。
-      // timeout 比编排器内层(120s)宽,防子进程挂死拖住 worker
-      timeout: 180_000,
+      // 外层窗口必须 ≥ 编排器两段内层之和(捕获 240s + 落库 240s)。原值 180s 比两段之和还小,
+      // 而它自己的注释写着「比编排器内层(120s)宽」—— 那个前提从写下那天起就不成立:外层先杀父,
+      // Windows 上又不连带杀孙,实测留下过孤儿子进程。抬到 540s(= 480 + 启动/心跳探测 60,
+      // 且刻意 <600s 的每 10 分钟节拍,不让一轮跨拍叠罗汉)即是这一格的结构性收口。
+      // 数值单源在 scripts/lib/sync-stage-timeouts.mjs;不做跨语言 import(ts 引仓库根 .mjs 会出
+      // include 根),同值由 scripts/tests/sync-stage-timeouts.test.mjs 逐字钉住 —— 靠测试不靠约定。
+      timeout: 540_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = ''

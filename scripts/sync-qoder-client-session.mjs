@@ -23,6 +23,11 @@
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+import {
+  CAPTURE_TIMEOUT_MS,
+  DB_WRITE_TIMEOUT_MS,
+  stageFailureText,
+} from './lib/sync-stage-timeouts.mjs'
 import { listProductPids } from './lib/trae-client-process.mjs'
 import { __test__ as traeSyncTest } from './sync-trae-client-session.mjs'
 import path from 'node:path'
@@ -136,17 +141,27 @@ function captureSessions() {
       // §12g:不吃 stdin ⇒ 首通道 ignore;要回读 JSON ⇒ stdout 管道
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-      timeout: 120_000,
+      timeout: CAPTURE_TIMEOUT_MS,
     },
   )
   if (r.error || r.status !== 0) {
-    const why = r.error?.message ?? `exit ${r.status}`
-    return {
-      sessions: null,
-      error: `本机捕获失败(${why}): ${String(r.stderr ?? '')
-        .trim()
-        .slice(0, 200)}`,
-    }
+    // 「超时」必须是一等读数,不能靠信号反推:spawnSync 的 ETIMEDOUT / killed 就是本方窗口到点。
+    // 原形态 `r.error.message` 只剩一句 `spawnSync pwsh ETIMEDOUT`,不带窗口值,读的人无法判断
+    // 是该调窗口还是该修 pwsh 环境(两件事的修法完全不同)。
+    const timedOut = r.error?.code === 'ETIMEDOUT' || r.error?.killed === true
+    const tail = String(r.stderr ?? '')
+      .trim()
+      .slice(0, 200)
+    const why = timedOut
+      ? stageFailureText({
+          timedOut,
+          signal: r.signal,
+          code: r.status,
+          stderr: tail,
+          limitMs: CAPTURE_TIMEOUT_MS,
+        })
+      : `${r.error?.message ?? `exit ${r.status}`}${tail ? `: ${tail}` : ''}`
+    return { sessions: null, error: `本机捕获失败(未判定): ${why}` }
   }
   try {
     const parsed = JSON.parse(String(r.stdout ?? '').trim())
@@ -181,7 +196,12 @@ function runSyncTs(payloadText, dryRun) {
     })
     let stdout = ''
     let stderr = ''
-    const timer = setTimeout(() => child.kill(), 120_000)
+    // kill 前先落笔 timedOut:否则退出时只剩一个 SIGTERM,分不清是本方等死它还是别人杀的
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, DB_WRITE_TIMEOUT_MS)
     child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d))
     child.on('error', (e) => {
@@ -204,9 +224,17 @@ function runSyncTs(payloadText, dryRun) {
       resolve({
         code: signal ? 2 : (code ?? 2),
         json,
+        // 旧形态是 `stderr || 退出码/信号`:ts 脚本常态会往 stderr 打 db/连接噪音,
+        // 于是"本方等死了它"被那句噪音顶掉,与"它自己崩了"混成同一个读数(§0.3 两桶必须分开)。
         error: json
           ? null
-          : (stderr || `退出码 ${code ?? '?'}${signal ? ` 信号 ${signal}` : ''}`).slice(0, 300),
+          : stageFailureText({
+              timedOut,
+              signal,
+              code,
+              stderr,
+              limitMs: DB_WRITE_TIMEOUT_MS,
+            }).slice(0, 300),
       })
     })
     child.stdin.write(payloadText)
