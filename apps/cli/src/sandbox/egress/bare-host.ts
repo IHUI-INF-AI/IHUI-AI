@@ -66,8 +66,10 @@ export function bareHostOf(raw: string): string | null {
 
 /**
  * 命令行 → 裸域名目标(带网络效应闸门)。
- * 已知覆盖面边界(设计而非缺陷):未登记命令(如 `nc`)拿不到 network 效应 ⇒ 不扩面 ——
+ * 已知覆盖面边界(设计而非缺陷):未登记命令(如 `telnet`)拿不到 network 效应 ⇒ 不扩面 ——
  * "不知道"不折算成"是出口",宁漏判于未知命令也不在取词层造第二把尺。
+ * (goal-b49 Z14:这里的示例原写 `nc`,而 `nc` 已在 `syntax-network.ts` 登记为 network 基线,
+ *  示例随之改指仍未登记的 `telnet` —— 边界本身一个字没动。)
  */
 export function extractBareHostTargets(commandLine: string): BareHostTarget[] {
   const out: BareHostTarget[] = [];
