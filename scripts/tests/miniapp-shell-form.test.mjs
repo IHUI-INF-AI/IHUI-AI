@@ -536,4 +536,72 @@ test('T13 account-cancel 共享屏 i18n:五语言逐键非空/非裸 key/非中�
   })
 })
 
+// T14 phone 薄壳页(2026-11-05):入口被认 + 页内无渲染段 + 旧码五个槽两端真传。
+// 阴性对照:①摘页内入口行 ⇒ 不判薄壳;②删小程序 oldCode 传参 ⇒ 同尺子不命中;
+// ③删 RN oldPhone 传参 ⇒ 同尺子不命中;④把 RN 子路径改回桶导入 ⇒ 子路径断言必红。
+const PHONE_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/user/phone.tsx')
+const PHONE_RN_PAGE = join(ROOT, 'apps/mobile-rn/src/screens/ChangePhoneScreen.tsx')
+const PHONE_SPEC = ['packages/app/src/features/change-phone/ChangePhoneScreen.tsx']
+const PHONE_SUBPATH = '@ihui/rn-app/features/change-phone/ChangePhoneScreen'
+const OLD_CODE_SLOTS = ['oldPhone', 'oldCode', 'oldCodeMin', 'onOldCodeChange', 'onSendOldCode']
+
+function propPassed(src, name) {
+  return new RegExp(`\\b${name}=\\{`).test(src)
+}
+
+test('T14 phone 薄壳页:入口被认 + 页内无渲染型 JSX + 旧码五槽两端真传', () => {
+  const page = readFileSync(PHONE_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, PHONE_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(
+        /^import[^\n]*@ihui\/rn-app\/features\/change-phone\/ChangePhoneScreen[^\n]*\n/m,
+        '',
+      ),
+      PHONE_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(page, /<ChangePhoneScreen/m, '页面必须渲染共享屏')
+
+  // 两端都必须直载具体子路径,禁桶入口(桶会把 422 个共享屏文件拉进小程序 tsc 程序)
+  assert.ok(page.includes(PHONE_SUBPATH), '小程序页必须用具体子路径导入共享屏')
+  assert.doesNotMatch(page, /from '@ihui\/rn-app'/m, '小程序页不得走桶入口')
+  const rn = readFileSync(PHONE_RN_PAGE, 'utf8')
+  assert.ok(rn.includes(PHONE_SUBPATH), 'RN 必须用具体子路径导入共享屏')
+  assert.doesNotMatch(rn, /from '@ihui\/rn-app'/m, 'RN 不得走桶入口')
+  // 阴性对照④:把 RN 子路径改回桶导入 ⇒ 桶断言必红
+  assert.throws(() => {
+    const barrel = rn.replace(`from '${PHONE_SUBPATH}'`, "from '@ihui/rn-app'")
+    assert.doesNotMatch(barrel, /from '@ihui\/rn-app'/m, 'negative:改回桶导入后不得仍通过')
+  })
+
+  // 五个旧码槽:两端逐项真传
+  for (const slot of OLD_CODE_SLOTS) {
+    assert.ok(propPassed(page, slot), `小程序页必须真传 ${slot}`)
+    assert.ok(propPassed(rn, slot), `RN 必须真传 ${slot}`)
+  }
+  // 可见差异:小程序传脱敏值,RN 传真值 ⇒ 界面上出现"当前手机号 + 旧验证码"行
+  assert.match(page, /oldPhone=\{currentPhone \? maskedPhone : undefined\}/m, '小程序传脱敏手机号')
+  assert.match(rn, /oldPhone=\{oldPhone\}/m, 'RN 传真手机号')
+  assert.notEqual(
+    page.match(/oldPhone=\{([^}]+)\}/)?.[1],
+    rn.match(/oldPhone=\{([^}]+)\}/)?.[1],
+    '两端 oldPhone 传值必须有可见差异',
+  )
+
+  // 阴性对照②:删小程序 oldCode 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = page.replace(/^\s*oldCode=\{oldCode\}\n/m, '')
+    assert.ok(propPassed(broken, 'oldCode'), 'negative:删小程序 oldCode 后不得仍命中')
+  })
+  // 阴性对照③:删 RN oldPhone 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = rn.replace(/^\s*oldPhone=\{oldPhone\}\n/m, '')
+    assert.ok(propPassed(broken, 'oldPhone'), 'negative:删 RN oldPhone 后不得仍命中')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
