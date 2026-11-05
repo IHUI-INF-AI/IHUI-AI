@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import { View, Text, Image, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Image, FlatList, Pressable, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
@@ -45,6 +45,7 @@ export function OrderScreen({
   onLoadMore,
   loadingMore = false,
   hasMore = true,
+  onPay,
 }: OrderScreenProps & {
   /** 上拉加载下一页回调(平台注入,内部自行守卫 hasMore/loading) */
   onLoadMore?: () => void
@@ -52,6 +53,11 @@ export function OrderScreen({
   loadingMore?: boolean
   /** 是否还有更多数据(控制 footer 提示) */
   hasMore?: boolean
+  /**
+   * 去支付回调(平台注入;共享屏内零 Taro、零 wx.requestPayment)。
+   * 待支付行在注入后渲染「去支付」操作区;未注入则不渲染,保持列表原貌。
+   */
+  onPay?: (item: OrderItem) => void
 }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -173,6 +179,18 @@ export function OrderScreen({
                 ) : (
                   info
                 )}
+                {item.status === 'pending' && onPay ? (
+                  <View style={styles.payRow}>
+                    <Pressable
+                      style={styles.payBtn}
+                      onPress={() => onPay(item)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('order.pay')}
+                    >
+                      <Text style={styles.payBtnText}>{t('order.pay')}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </PressableCard>
             )
           }}
@@ -280,6 +298,14 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: rnSpacing.sm,
     },
+    payRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.sm },
+    payBtn: {
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.brand.cta,
+    },
+    payBtnText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brand.ctaForeground },
     amountLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     amountValue: {
       fontSize: rnType.subtitle.size,
