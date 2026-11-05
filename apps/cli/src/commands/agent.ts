@@ -1429,7 +1429,7 @@ async function sampleWithRetry(
         // 整趟拒绝(实测:一份派发转录 970/2426 枚零宽,全部落在 read_file 的 tool_result 上;
         // 会话只要读了水印第枚源文件,下一趟必自毒 ⇒ 这是 artifact-committed 长期为 0 的成因之一)。
         // 判据单源 = ../util/invisible-transport.ts;本行只调用,不复算(§0.6)。
-        messages: sanitizeMessagesForTransport(opts.messages),
+        messages: sanitizeMessagesForTransport(opts.messages, 'streamChat', opts.extraBody),
         signal: opts.signal,
         onDelta: opts.onDelta,
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
