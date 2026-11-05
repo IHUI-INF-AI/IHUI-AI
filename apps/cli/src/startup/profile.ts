@@ -19,7 +19,7 @@
  */
 
 /** 全部受支持的里程碑名(内部 camelCase;渲染时转 kebab-case)。 */
-export const MILESTONE_NAMES = ['entry', 'commandParsed', 'firstAwait', 'exit'] as const;
+const MILESTONE_NAMES = ['entry', 'commandParsed', 'firstAwait', 'exit'] as const;
 
 export type MilestoneName = (typeof MILESTONE_NAMES)[number];
 
@@ -41,7 +41,7 @@ export const DEFAULT_REQUIRED_MILESTONES: readonly MilestoneName[] = ['entry', '
 /** 注入式单调时钟:返回毫秒数(消费方生产档传 `() => performance.now()`)。 */
 export type MonotonicClock = () => number;
 
-export interface StartupReadingMeasured {
+interface StartupReadingMeasured {
   status: 'measured';
   /** 各里程碑相对 entry 的偏移(毫秒,≥0);未标记的可选里程碑不出现在这里。 */
   deltasMs: Partial<Record<Exclude<MilestoneName, 'entry'>, number>>;
@@ -49,7 +49,7 @@ export interface StartupReadingMeasured {
   spanMs: number;
 }
 
-export interface StartupReadingUnjudged {
+interface StartupReadingUnjudged {
   status: 'unjudged';
   /** 缺量的必需里程碑(点名用);非单调时钟时为空数组,原因见 nonMonotonic。 */
   missing: MilestoneName[];

@@ -118,7 +118,7 @@ const INLINE_RULES: readonly InlineRule[] = [
 ];
 
 /** 行内渲染:命中规则的片段交规则处理,其余片段整体转义(故原文里的 `<script>` 只会变成文本) */
-export function renderInline(raw: string): string {
+function renderInline(raw: string): string {
   let out = '';
   let rest = raw;
   while (rest.length > 0) {
