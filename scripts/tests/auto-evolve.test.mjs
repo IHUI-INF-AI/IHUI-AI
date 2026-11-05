@@ -1365,6 +1365,57 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓡ 收件人取值(2026-11-06 立):旧正则没有 `m` 档 ⇒ `^…$` 钉的是整串首尾,
+// 只有键落在**文件最后一行**才命中;真值实测在 .env 第 260/392 行 ⇒ 本环每一封逃生邮件
+// 都走"未判定",一封也没发过,而打出来的话是"缺 ALERT_EMAIL_TO"(键明明在)。
+test('ⓡ resolveMailTo:键在文件中间必须命中(旧实现在这里恒空),并按 dotenv 形态剥引号', async () => {
+  const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
+  const ae = await import('../auto-evolve.mjs')
+  const dir = mkScratch('ae-mailto-')
+  const w = (name, text) => {
+    const p = join(dir, name)
+    writeFileSync(p, text, 'utf8')
+    return p
+  }
+  try {
+    // ① 中间行 —— 这一枚就是旧实现的红(摘掉本次修复即翻红)
+    const mid = w('mid.env', 'A=1\nALERT_EMAIL_TO=ops@example.invalid\nB=2\n')
+    assert.equal(ae.resolveMailTo(mid), 'ops@example.invalid', '键在第 2 行必须读得到')
+    // ② 末行 —— 旧式唯一能命中的形态,修完仍须命中(防把老形态弄坏)
+    const last = w('last.env', 'A=1\nALERT_EMAIL_TO=last@example.invalid\n')
+    assert.equal(ae.resolveMailTo(last), 'last@example.invalid')
+    // ③ 引号与空白形态
+    assert.equal(
+      ae.resolveMailTo(w('q.env', 'X=1\n  ALERT_EMAIL_TO = "quoted@example.invalid"  \nY=2\n')),
+      'quoted@example.invalid',
+      '双引号要剥掉,前后空白要 trim',
+    )
+    assert.equal(
+      ae.resolveMailTo(w('q2.env', "ALERT_EMAIL_TO='sq@example.invalid'\nZ=3\n")),
+      'sq@example.invalid',
+    )
+    // ④ 成对反向:键缺失 / 值为空 / 文件读不到 ⇒ 一律空串(不发信,但不指控"缺键")
+    assert.equal(ae.resolveMailTo(w('none.env', 'A=1\nB=2\n')), '', '缺键必须空串')
+    assert.equal(ae.resolveMailTo(w('blank.env', 'ALERT_EMAIL_TO=\nB=2\n')), '', '空值必须空串')
+    assert.equal(ae.resolveMailTo(join(dir, 'nope.env')), '', '文件取不到必须空串而非抛')
+    // ⑤ 环境变量优先(部署侧注入的场合不回落文件)
+    const saved = process.env.ALERT_EMAIL_TO
+    process.env.ALERT_EMAIL_TO = 'from-env@example.invalid'
+    try {
+      assert.equal(ae.resolveMailTo(mid), 'from-env@example.invalid')
+    } finally {
+      if (saved === undefined) delete process.env.ALERT_EMAIL_TO
+      else process.env.ALERT_EMAIL_TO = saved
+    }
+    // ⑥ 形状锁:真 .env 面上这一格现在必须量得到值(取不到 ⇒ 本枚等于白修;不打印地址本身)
+    const real = ae.resolveMailTo()
+    assert.ok(real.length > 3, '现读 apps/api/.env 取不到收件人 ⇒ §5e 到人通道仍是断的')
+    assert.ok(!/\n/.test(real), '收件人不得跨行(旧 \\s 写法会把下一行吃进来)')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
 // ⓠ 已落地票不得重派(2026-11-05 立):落账成功后票行仍是 `- [ ]`,而选择路径此前
 // 认不出"这枚已经做过了"⇒ 同一张票会被再派,重复产物是第二份近似测试文件而非"再做一遍"。
 test('ⓠ landedCommitOfTicket:命中即认已落地,取不到一律不拦(失效方向反过来=饿死派单面)', async () => {

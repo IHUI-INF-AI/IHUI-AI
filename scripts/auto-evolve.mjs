@@ -916,16 +916,30 @@ async function resolveMachineUserId() {
   return null
 }
 
-/** 收件人现值 = apps/api/.env 的 ALERT_EMAIL_TO(git-guardian 同源;缺键 ⇒ 告警链不判死,只不发) */
-function resolveMailTo(envFile = API_ENV) {
+/**
+ * 收件人现值 = apps/api/.env 的 ALERT_EMAIL_TO(git-guardian 同源;取不到 ⇒ 告警链不判死,只不发)。
+ *
+ * 2026-11-06 修一型静默死锁:旧正则**没有 `m` 档**,`^…$` 因此钉的是整个字符串的首尾 ⇒
+ * 只有当 `ALERT_EMAIL_TO` 恰好是**文件最后一行**时才命中。现读真值在第 260 行(全文 392 行)
+ * ⇒ 旧式命中 null ⇒ 本环每一封逃生邮件都走"未判定"分支,**一封也没发过**,而打出来的话是
+ * "缺 ALERT_EMAIL_TO"(键明明在)。这既断了 §5e 的唯一到人通道,又把"我读不到"写成"它没有"
+ * (§0.3 禁止的那一型)。配对实测:同一样输入,加 `m` 档即命中。
+ * 逐行档的空白类只用 `[ \t]`(不用 `\s`:`\s` 会跨行,把下一行当成值吃掉)。
+ */
+export function resolveMailTo(envFile = API_ENV) {
   const fromEnv = String(process.env.ALERT_EMAIL_TO || '').trim()
   if (fromEnv) return fromEnv
+  let src
   try {
-    const m = /^\s*ALERT_EMAIL_TO\s*=\s*(.+?)\s*$/.exec(readFileSync(envFile, 'utf8'))
-    return m ? m[1].trim() : ''
+    src = readFileSync(envFile, 'utf8')
   } catch {
     return ''
   }
+  const m = /^[ \t]*ALERT_EMAIL_TO[ \t]*=[ \t]*(.+?)[ \t]*$/m.exec(src)
+  if (!m) return ''
+  const raw = m[1].trim()
+  const quoted = /^"(.*)"$/s.exec(raw) || /^'(.*)'$/s.exec(raw)
+  return (quoted ? quoted[1] : raw).trim()
 }
 
 function escapeThrottled(now = Date.now()) {
@@ -949,7 +963,11 @@ function markEscape(now = Date.now()) {
 function sendEscapeMail(gates, alertId, title, bodyText) {
   const to = resolveMailTo()
   if (!to) {
-    console.error('⚠️ 逃生邮件未判定:apps/api/.env 缺 ALERT_EMAIL_TO(§5e 告警链排除),现场已落台账')
+    // 措辞必须与量到的那件事同形:旧文案断言"缺 ALERT_EMAIL_TO",而真值就在 .env 第 260 行,
+    // 读不到的是**我的正则**(无 m 档)。指控一个不存在的缺失,会把排查带去 .env 回填那一侧。
+    console.error(
+      `⚠️ 逃生邮件未判定:ALERT_EMAIL_TO 取不到(键缺失或值为空;判定面=${API_ENV} 现读,路径与键名逐字核对过才改这一行)`,
+    )
     return false
   }
   if (!existsSync(TSX_ENTRY) || !existsSync(MAIL_SCRIPT)) {
