@@ -4,23 +4,37 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { CategoryDetailScreen as SharedCategoryDetailScreen } from '@ihui/rn-app'
-import { getAgents, getCategories } from '@ihui/api-client'
+import { getAgents } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+function sortItems<T extends { useCount?: number }>(list: T[], tab: string): T[] {
+  if (tab === '热门') return [...list].sort((a, b) => (b.useCount ?? 0) - (a.useCount ?? 0))
+  if (tab === '最新') return [...list].reverse()
+  return list
+}
+
 export default function CategoryDetailScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const route = useRoute<RouteProp<RootStackParamList, 'CategoryDetail'>>()
 
   const [items, setItems] = useState<
-    { id: string; name: string; description?: string; cover?: string }[]
+    {
+      id: string
+      name: string
+      description?: string
+      cover?: string
+      avatar?: string | null
+      useCount?: number
+    }[]
   >([])
   const [activeTab, setActiveTab] = useState('推荐')
   const [page, setPage] = useState(1)
@@ -33,23 +47,20 @@ export default function CategoryDetailScreen() {
     setLoading(true)
     setError('')
     try {
-      const [agentsRes, categoriesRes] = await Promise.all([
-        getAgents({ page, pageSize: 20 }),
-        getCategories(),
-      ])
-      const list = agentsRes.success
+      const agentsRes = await getAgents({ page, pageSize: 20 })
+      const mapped = agentsRes.success
         ? (agentsRes.data?.list ?? []).map((a) => ({
             id: a.agentId,
             name: a.name,
             description: a.description,
             cover: a.cover ?? undefined,
+            avatar: a.avatar,
+            useCount: a.usageCount,
           }))
         : []
+      const list = sortItems(mapped, activeTab)
       setItems((prev) => (page === 1 ? list : [...prev, ...list]))
       setHasMore(list.length >= 20)
-      if (categoriesRes.success && categoriesRes.data) {
-        setActiveTab('推荐')
-      }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
       setError(detail.trim() ? toUserFriendlyMessage(e) : t('common.loadFailPullRetry'))
@@ -57,7 +68,7 @@ export default function CategoryDetailScreen() {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [page, t])
+  }, [activeTab, page, t])
 
   useEffect(() => {
     void load()
@@ -85,12 +96,21 @@ export default function CategoryDetailScreen() {
       loading={loading}
       hasMore={hasMore}
       error={error}
-      onTabChange={setActiveTab}
+      onTabChange={(tab) => {
+        setActiveTab(tab)
+        setItems((prev) => sortItems(prev, tab))
+      }}
       onLoadMore={onLoadMore}
       onAgentPress={onAgentPress}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void load(); }}
+      onRetry={() => {
+        void load()
+      }}
       colorScheme={resolvedTheme}
+      title="分类详情"
+      // 分类头与 web 共用同一段(CategoryHeader);RN 只有路由 title,不伪造状态/时间
+      header={{ name: route.params.title }}
+      tabLabels={['推荐', '热门', '最新']}
     />
   )
 }
