@@ -1365,6 +1365,68 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓟ 取票腿被击穿后的可证复用(2026-11-06 立):现读 `plan-tasks --open --dispatchable
+// --exclude-inflight` 成功返回 36 行但要 425.8s,而取票口阈值 300s ⇒ 环整天拿不到票池。
+// 同一枚"阈值被击穿"的形态在 11-05 的头注里就被点过名(旧值 120s 必然被击穿)。
+test('ⓟ poolFaceFromCache:三条安全条件缺一即不复用(不是"取不到就放行")', async () => {
+  const ae = await import('../auto-evolve.mjs')
+  const T1 = 'B67 考勤既无判定依据也无补录'
+  const T2 = 'B34 考勤 /user/check-in 零行为测试'
+  const key1 = ae.ticketKeyOf(T1)
+  const key2 = ae.ticketKeyOf(T2)
+  const cache = (digest, cands) =>
+    JSON.stringify({ source: { planDigest: digest }, candidates: cands })
+  const good = [
+    { id: key1, title: T1, line: 6402 },
+    { id: key2, title: T2, line: 6403 },
+  ]
+  // 契约是 `{ rows, why }`:复用必须给出行,拒绝必须给出**是哪一条安全条件不成立**
+  // (立因:第一次实时跑这枚复用按设计拒绝了,但代码把理由吞掉只上抛原错 —— §0.10 禁止的沉默)
+  const ok = ae.poolFaceFromCache({ cacheText: cache('abc123', good), digestNow: 'abc123' })
+  assert.ok(Array.isArray(ok.rows) && ok.rows.length === 2, `应还原 2 行,实得 ${JSON.stringify(ok)}`)
+  assert.deepEqual(ok.rows[0], { line: 6402, text: T1 })
+  assert.match(ok.why, /指纹逐字相等/)
+  // ② 指纹不等 ⇒ 拒绝,并点名两个指纹
+  const mismatch = ae.poolFaceFromCache({ cacheText: cache('abc123', good), digestNow: 'zzz999' })
+  assert.equal(mismatch.rows, null, '票面变了就不许拿旧面派活')
+  assert.match(mismatch.why, /缓存 abc123 ≠ 当次 zzz999/)
+  // ③ 键不同源 ⇒ 整面不可信(候选自述 id 算不出来就是口径漂了,不猜)
+  const badKey = ae.poolFaceFromCache({
+    cacheText: cache('abc123', [{ id: 'deadbeef00000000', title: T1, line: 6402 }]),
+    digestNow: 'abc123',
+  })
+  assert.equal(badKey.rows, null)
+  assert.match(badKey.why, /票键不同源/)
+  // ④ 其余拒绝分支:每一条都要有自己的理由文本,不许统一成"取不到"
+  const noLine = ae.poolFaceFromCache({
+    cacheText: cache('abc123', [{ id: key1, title: T1 }]),
+    digestNow: 'abc123',
+  })
+  assert.equal(noLine.rows, null, '没有 line 就不能当成派单行')
+  assert.match(noLine.why, /行号/)
+  assert.match(
+    ae.poolFaceFromCache({ cacheText: cache('abc123', []), digestNow: 'abc123' }).why,
+    /候选面为空/,
+  )
+  assert.match(
+    ae.poolFaceFromCache({ cacheText: '{坏 json', digestNow: 'abc123' }).why,
+    /合法 JSON/,
+  )
+  assert.match(ae.poolFaceFromCache({ cacheText: null, digestNow: 'abc123' }).why, /缓存/)
+  assert.match(
+    ae.poolFaceFromCache({ cacheText: cache('abc123', good), digestNow: null }).why,
+    /当次 HEAD 面.*取不到/,
+  )
+  assert.match(
+    ae.poolFaceFromCache({
+      cacheText: JSON.stringify({ source: {}, candidates: good }),
+      digestNow: 'abc123',
+    }).why,
+    /没有自述票面指纹/,
+    '缓存没有自述指纹 ⇒ 无法证明同一面 ⇒ 不复用',
+  )
+})
+
 // ⓝ 日上限的日界口径(2026-11-06 立):计数一直拿**本地**日键去 startsWith 一条 **UTC** 时间戳
 // ⇒ 本地 00:00–08:00 这段窗口永不相等 ⇒ `dispatched` 恒 0,日上限结构性不生效。
 test('ⓝ 本地零点到八点这段窗口,今天(本地)的派班必须计入日上限(旧口径读成 0)', async () => {
