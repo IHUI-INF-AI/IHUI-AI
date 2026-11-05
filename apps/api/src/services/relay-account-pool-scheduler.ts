@@ -556,7 +556,14 @@ export function expiringRefreshWhere(deadline: Date) {
   )
 }
 
-/** 步骤 3「down/degraded 恢复」的 where(不设到期界限:健康已判死,属按需重试) */
+/**
+ * 步骤 3「down/degraded 恢复」的 where(不设到期界限:健康已判死,属按需重试)
+ *
+ * 本档候选面**刻意不看 tempUnschedulable**(反向牙见 relay-account-pool-scheduler.test.ts);
+ * 被摘号不会因此天天撞上游 —— 循环里 `refreshFailureCount >= REFRESH_FAILURE_LIMIT` 先 continue
+ * 拦住。2026-11-05 复核:池内两枚被摘 trae 号(计数 404/353)的 updated_at 停在 10-29/10-30,
+ * 即止血自 10-29 那次接缝修复起一直有效,那两组计数是历史累积而非现在进行。
+ */
 export function downRecoveryWhere() {
   return and(
     eq(aiRelayAccountPool.isEnabled, true),

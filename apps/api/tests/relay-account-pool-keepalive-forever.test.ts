@@ -266,4 +266,91 @@ describe('发信面判据(薄壳侧)', () => {
 beforeEach(() => {
   updates.length = 0
 })
+
+describe('永久保活腿的心跳取数(2026-11-05 扩容 trae+qoder;取数键必须是主键)', () => {
+  const load = async () =>
+    (await import('../scripts/relay-account-keepalive.js')) as unknown as {
+      __test__: {
+        parseArgs: (argv: string[]) => {
+          clientActive?: { provider: string; at: string }[]
+          error: null | string
+        }
+        parseClientActive: (raw: string) => { provider: string; at: string } | null
+        heartbeatRowIdsOf: (rows: never[], provider: string) => string[]
+      }
+    }
+
+  it('⑱ 心跳旗标带平台前缀且可重复;缺等号/缺任一侧 ⇒ 未判定,绝不默认成某个平台', async () => {
+    const { __test__: K } = await load()
+    expect(K.parseClientActive('qoder=2026-11-05T10:00:00.000Z')).toEqual({
+      provider: 'qoder',
+      at: '2026-11-05T10:00:00.000Z',
+    })
+    expect(K.parseClientActive('2026-11-05T10:00:00.000Z')).toBeNull()
+    expect(K.parseClientActive('trae=')).toBeNull()
+    expect(K.parseClientActive('=x')).toBeNull()
+    const args = K.parseArgs([
+      '--once',
+      '--client-active',
+      'trae=2026-11-05T10:00:00.000Z',
+      '--client-active',
+      'qoder=2026-11-05T10:00:00.000Z',
+    ])
+    expect(args.error).toBeNull()
+    expect(args.clientActive).toEqual([
+      { provider: 'trae', at: '2026-11-05T10:00:00.000Z' },
+      { provider: 'qoder', at: '2026-11-05T10:00:00.000Z' },
+    ])
+    // 裸 ISO(旧形态)不再被接受:静默回落成某个平台 = 把另一族的号留成陈旧心跳
+    expect(K.parseArgs(['--once', '--client-active', '2026-11-05T10:00:00.000Z']).error).toContain(
+      '--client-active',
+    )
+  })
+
+  it('⑲ 心跳落库取主键 id,且只拨给「回灌腿已记下心跳且未超窗」的那几枚', async () => {
+    const { __test__: K } = await load()
+    const now = '2026-11-05T10:00:00.000Z'
+    const rows = [
+      {
+        id: 'uuid-1',
+        providerCode: 'trae',
+        uid: '23457307',
+        clientActiveAt: '2026-11-05T09:00:00.000Z',
+      },
+      {
+        id: 'uuid-2',
+        providerCode: 'qoder',
+        uid: '01a1aafa',
+        clientActiveAt: '2026-11-05T09:34:00.000Z',
+      },
+      { id: 'uuid-3', providerCode: 'qoder', uid: '019f4a1e', clientActiveAt: null },
+      {
+        id: 'uuid-4',
+        providerCode: 'qoder',
+        uid: '019f1c4d',
+        clientActiveAt: '2026-10-01T00:00:00.000Z',
+      },
+      {
+        id: 'uuid-5',
+        providerCode: 'qoder',
+        uid: '019f402d',
+        clientActiveAt: '2026-11-06T00:00:00.000Z',
+      },
+      { id: 'uuid-6', providerCode: 'qoder', uid: '019f47e7', clientActiveAt: '不是时刻' },
+    ] as never[]
+    // 取主键:原形态传 uid ⇒ uuid 列比对报类型错、被 `.catch(()=>[])` 吞成 0 命中(静默失效)
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toEqual(['uuid-2'])
+    expect(K.heartbeatRowIdsOf(rows, 'trae', now, 24)).toEqual(['uuid-1'])
+    // 从没有心跳的号不拨 ⇒ 留给池接管续期(永久保活的本职;整族拨出去会把它们饿死)
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-3')
+    // 比强保窗口还旧的心跳不算证据
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-4')
+    // 未来的 / 解不开的时刻同样不算证据(不拿脏值冒「客户端在跑」)
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-5')
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-6')
+    // 非法入参 ⇒ 零候选(不猜一个出来)
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 0)).toEqual([])
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', '不是时刻', 24)).toEqual([])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
