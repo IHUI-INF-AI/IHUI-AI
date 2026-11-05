@@ -15,6 +15,8 @@
 export const SKILL_PACKAGE_ERROR_CODES = [
   /** tar 结构不可解析(截断/头字段非法/长度不是 512 的倍数) */
   'SKILL_PKG_ARCHIVE_INVALID',
+  /** 归档条目数/展开字节超出行内配额(物化之前中止;读数由 `plugins/archive-quota.ts` 那把尺给) */
+  'SKILL_PKG_ARCHIVE_QUOTA_EXCEEDED',
   /** 包内缺 checksums.json */
   'SKILL_PKG_CHECKSUMS_MISSING',
   /** checksums.json 不是合法 JSON 或形状不对 */

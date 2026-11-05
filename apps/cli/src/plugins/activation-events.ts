@@ -81,7 +81,8 @@ export interface ActivationInput {
  * 词表逐档的宿主裁决。键型写成 `Record<ExtensionActivationEvent, …>` 而不是 `Record<string, …>`:
  * 词表加一档而这里没跟上 ⇒ 编译期即红(门 121 的"编译期那一半";运行期那一半由用例钉住)。
  * `source` 只认真实测到的调用点(2026-11-05 现读:`commands/agent.ts` 的 `runSetups()` 与
- * `runPluginHooks(...,'preToolCall'|'postToolCall')`;`getCommandExtensions()` 全仓零生产调用方)。
+ * `runPluginHooks(...,'preToolCall'|'postToolCall')`;`getCommandExtensions()` 的消费方是
+ * `declaration-consumers.ts` 的对账腿,**它出声但不派发**,所以 `onCommand` 仍是 `reject`/`none`)。
  * 表本身导出,供穷尽性判据读**消费方那一侧的键集**(判据不许另抄一份档名,§22c)。
  */
 export const ACTIVATION_POLICY: Record<
@@ -106,7 +107,7 @@ export const ACTIVATION_POLICY: Record<
   onCommand: {
     disposition: 'reject',
     source: 'none',
-    reason: 'plugin-declared commands are forwarded to the registry but never dispatched here: getCommandExtensions() has no production call site, so this event can never fire',
+    reason: 'this host has no plugin slash-command registration channel (the slash table is a static switch), so the event can never fire; each declared command name is named one by one by the runtime consumer audit in declaration-consumers.ts',
   },
   onViewMount: {
     disposition: 'reject',

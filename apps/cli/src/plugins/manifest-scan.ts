@@ -49,6 +49,8 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   // goal-b49/W6:激活事件两档同为 warning —— 插件照常装载,拒的是"什么时候醒"这一维(§12e 不升档)。
   'plugin-activation-rejected': 'warning',
   'plugin-activation-unknown-event': 'warning',
+  // goal-b49/Z1:声明被读到但没有运行期消费者 —— 装载仍是成功的,喊的是"这条声明现在不干活"(warning 同训)。
+  'plugin-declaration-unconsumed': 'warning',
 };
 
 /** 错误文本(unknown 收窄,零 any) */

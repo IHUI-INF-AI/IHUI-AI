@@ -32,6 +32,8 @@ import {
   type CommandLineTokenizer,
   type DomainResolver,
 } from './dns-adjudicator.js';
+import { getEgressDnsSnapshotResolver } from './dns-resolver-adapter.js';
+import { ensureManagedEgressRelay } from './proxy-relay-host.js';
 import {
   EGRESS_ENV,
   type EgressDecision,
@@ -126,11 +128,22 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
     for (const w of resolved.warnings) warnings.push(w);
   }
 
+  const snapshot =
+    input.resolver === undefined && policy.addressProof === true ? getEgressDnsSnapshotResolver(env) : null;
   const verdicts = adjudicateEgressTargets(input.commandLine, {
     policy,
-    resolver: input.resolver ?? null,
+    resolver: input.resolver ?? snapshot ?? null,
     tokenize: input.tokenize,
   });
+  if (snapshot !== null) {
+    const cold = verdicts
+      .filter((v) => v.layer === 'dns' && v.decision === 'unjudged')
+      .map((v) => v.target);
+    if (cold.length > 0) {
+      snapshot.prewarm(cold);
+      warnings.push(`egress: DNS snapshot cold for ${cold.length} host(s) -> unjudged by design, prewarmed async, next spawn within TTL is judged (${EGRESS_ENV.dnsTtl})`);
+    }
+  }
   const aggregate = aggregateOf(verdicts);
 
   const blocking = verdicts.filter((v) => v.decision === 'deny' && v.enforcement === 'enforce');
@@ -148,7 +161,16 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
     childEnv[IHUI_EGRESS_UNJUDGED_REASONS_KEY] = unjudgedReasons.join(',');
   }
 
-  const declaredProxy = proxyUrlOrNull(env[EGRESS_ENV.proxyUrl], warnings);
+  const rawProxy = env[EGRESS_ENV.proxyUrl]?.trim();
+  let declaredProxy: string | null;
+  if (rawProxy === 'auto') {
+    // 机主点名托管 relay 腿:随本进程懒派生、同生同死(proxy-relay-host);探针拿不到就绪即不点腿。
+    const managed = ensureManagedEgressRelay(env, input.cwd);
+    for (const w of managed.warnings) warnings.push(w);
+    declaredProxy = managed.url;
+  } else {
+    declaredProxy = proxyUrlOrNull(rawProxy, warnings);
+  }
   if (declaredProxy !== null) {
     childEnv.HTTP_PROXY = declaredProxy;
     childEnv.http_proxy = declaredProxy;

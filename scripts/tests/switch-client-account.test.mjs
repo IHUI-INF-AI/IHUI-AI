@@ -131,7 +131,7 @@ test('②b 参数映射:其它平台 → login-local-verified argv(--to 折成 -
   }
 })
 
-test('③ list/current 分流:Trae 系转 account 入口,其它平台如实未判定', () => {
+test('③ list/current 分流:Trae 系转 account 入口,其余平台 list 走只读列池、current 如实未判定', () => {
   const list = planCli(['--list'])
   assert.equal(list.ok, true)
   assert.equal(list.target, 'trae-account')
@@ -147,11 +147,22 @@ test('③ list/current 分流:Trae 系转 account 入口,其它平台如实未�
   assert.equal(soloList.ok, true)
   assert.deepEqual(soloList.args, ['--list'])
 
-  const other = planCli(['--list', '--provider', 'workbuddy'])
-  assert.equal(other.ok, false)
-  assert.equal(other.code, 2)
-  assert.match(other.error, /relay-account-pool/)
-  assert.match(other.error, /relay:inspect/)
+  // 非 Trae 平台的名单面已有只读列池出口(2026-11-05 补);写回腿本来就通
+  const otherList = planCli(['--list', '--provider', 'workbuddy'])
+  assert.equal(otherList.ok, true)
+  assert.equal(otherList.target, 'pool-list')
+  assert.deepEqual(otherList.args, ['--provider', 'workbuddy'])
+
+  const otherJson = planCli(['--list', '--provider', 'qoder', '--json'])
+  assert.equal(otherJson.target, 'pool-list')
+  assert.deepEqual(otherJson.args, ['--provider', 'qoder', '--json'])
+
+  // --current 要读本机客户端登录态,各家形态不同 ⇒ 仍不冒充
+  const otherCurrent = planCli(['--current', '--provider', 'qoder'])
+  assert.equal(otherCurrent.ok, false)
+  assert.equal(otherCurrent.code, 2)
+  assert.match(otherCurrent.error, /relay-account-pool/)
+  assert.match(otherCurrent.error, /relay:inspect/)
 
   assert.equal(planCli(['--list', '--current']).code, 2)
   assert.equal(planCli(['--list', '--to', 'u-1', '--provider', 'trae']).code, 2)

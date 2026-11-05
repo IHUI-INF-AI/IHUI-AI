@@ -26,6 +26,7 @@ import { isPrivateOrReservedIp, parseIpAddress } from '@ihui/shared/utils/ssrf-g
 import type { ArgToken, TokenizeResult } from '../../tools/command-policy/tokenizer.js';
 import { tokenizeCommand } from '../../tools/command-policy/tokenizer.js';
 
+import { extractBareHostTargets } from './bare-host.js';
 import {
   judgeEgressTarget,
   normalizeEgressHost,
@@ -39,7 +40,7 @@ export type DomainResolver = (host: string) => readonly string[] | null;
 /** 取词注入面:命令行 → 带"是否含变量展开"标记的参数序列。 */
 export type CommandLineTokenizer = (commandLine: string) => readonly ArgToken[];
 
-export type TargetOrigin = 'url' | 'ip-literal' | 'dynamic';
+export type TargetOrigin = 'url' | 'ip-literal' | 'dynamic' | 'bare-host';
 
 export interface ExtractedTarget {
   readonly raw: string;
@@ -210,7 +211,8 @@ export function adjudicateDomain(rawTarget: string, opts: DnsAdjudicationOptions
 }
 
 /**
- * 一批目标(派生点的实际用法):先取词,再逐条裁决,按 host 去重(留痕逐条,同一 host 不重复记账)。
+ * 一批目标(派生点的实际用法):先取词(URL/IP/动态 + Z3 裸域名,后者带 network 效应闸门),
+ * 再逐条裁决,按 host 去重(留痕逐条,同一 host 不重复记账)。
  * `dynamic` 那型不经规则表 —— 它的目的地根本没取到,规则表在不在都判不出。
  */
 export function adjudicateEgressTargets(
@@ -220,7 +222,8 @@ export function adjudicateEgressTargets(
   const enforcement = opts.policy?.enforcement === 'enforce' ? 'enforce' : 'advisory';
   const rows: EgressJudgement[] = [];
   const seen = new Set<string>();
-  for (const t of extractEgressTargets(commandLine, opts.tokenize)) {
+  const candidates = [...extractEgressTargets(commandLine, opts.tokenize), ...extractBareHostTargets(commandLine)];
+  for (const t of candidates) {
     if (seen.has(t.raw)) continue;
     seen.add(t.raw);
     if (t.origin === 'dynamic') {

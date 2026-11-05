@@ -31471,3 +31471,234 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 ### 改动清单(45 文件:43 miniapp-taro + 1 守门脚本 + 1 台账)
 - **[x] ✅ 组件残留清零(10 组件)**:BottomActionBar(紫青渐变→muted/白字)、DrawerComponent(伪分割线 borderTop 删)、StudyBar/InputArea/ChatMessageItem(灰阶 hex→muted-foreground)、FloatBox(#333/#222→foreground)、Selecter(rgba 蓝底→accent)、VipBenefitsPopup(红字→destructive + 紫玻璃渐变→白卡+黑遮罩)、UserInfoCard.taro(紫底→surface.light)、UserCard(蓝底→card)、user/avatar.css+index.css(深色 fallback 删)、ai/chat.css(强制黑字→foreground)
 - **[x] ✅ vip-trader + wallet 3 文件**:vip-trader 金蓝品牌主题 → 浅色白卡 + 琥珀点缀(标签/价格/星标保留 amber),主 CTA 黑底白字;wallet 已 token 化仅增量修正(黑按钮文字 primary-foreground);微信绿/支付宝蓝渠道品牌色豁免保留
+---
+## 2026-11-05 全仓缺陷普查(机器判定 + 8 组只读深审)
+> **基线**：真实远端在本次普查期间从 `7f562844f8a27a4db92b5e58e8571c0d8722b92d` 连续推进到 `e8194a4cbb18d43e0adac6091d5b128cae019e1d`（生产仓 HEAD 始终 ≡ 远端，工作树全空）。下列结论按"审查那一刻读到的内容"登记，**证据一律给文件路径 + 内容锚点（函数名 / 唯一可 grep 片段），不绑行号**（行号一次 append 就挪位）。
+> **覆盖面**：api / ai-service / web / packages+database / 安全专项 / 端侧(cli·desktop·extension·miniapp·RN) / 守门脚本自身 / CI·部署·监控，八组并行只读深审；叠加机器判定（`node scripts/all-checks-runner.mjs` 全量 28 步、`tsc --noEmit`、`compileall`）。
+> **不重复登记**：既有 RP / Y / D / B / O / G 号已覆盖的事项不另立号，只在相关行内引用。
+> **归并口径**：同一根因族一行，族内用 ①②③ 逐点列明——这不是"合并降级"，每个 ① 都是独立可修的缺陷点。
+### P0 致命（2 条）
+- [ ] BUG-1 **ai-service 外部导入可落任意 shell、并可绕过 admin 工具矩阵（任意登录用户 → 服务进程 RCE）**：`apply_bundle` 只校验 callback 含 `type` 就原样交给调度器，执行端 `_execute_callback` 有 `elif cb_type == "shell"` 直接 `create_subprocess_shell(command)`。出路=callback.type 白名单收在 `add_task` 入口，shell 只留管理员专用通道。(登记@2026-11-05;归属:机主)
+  - 入口与身份：`POST /api/v1/ai/external-import/bundle`（`apps/ai-service/app/api/v1/external_import.py` 的 `@router.post("/bundle")`），主体经 `resolve_inbound_actor` 取已验签身份 ⇒ 只需一枚合法 JWT，不必是管理员。
+  - 校验缺口：`apps/ai-service/app/services/external_runtime_import.py` 的 `_validate_item` 对 automations 只判 `isinstance(item.get("callback"), dict) and item["callback"].get("type")`，无 type 白名单。
+  - 第二条腿：`apps/ai-service/app/services/scheduler_service.py` 的 `mcp_tool` 分支直接 `_TOOL_HANDLERS.get(tool_name)` 调 handler，既不注入 `__user_role` 也不经 `_ADMIN_ONLY_TOOLS` / `_tool_capability_denial` / `security_principal_scope` / `MCP_GLOBAL_TIMEOUT` ⇒ 普通用户可调度 `run_command` / `write_file` / `db_query` 一类 admin 工具。
+  - 无归属：`add_task` 的 task 字典无 owner 字段 ⇒ `remove_task` / `list_tasks` 同样无归属校验，靠 `_ADMIN_ONLY_TOOLS` 单点防御。
+  - 收口要点：白名单 + 角色注入 + 审计一行都不能少；补反例「普通用户导入 shell 回调 ⇒ 拒绝且零子进程」。
+- [ ] BUG-2 **迁移 0058 无条件 `USING NULL::uuid` 会把 `live_subscribe.channel_id` 全表清空**：DO 块只判 `data_type='integer'` 不判表内是否有存量行，注释自称"在表为空时安全转换"而代码无该守卫。出路=加 `IF EXISTS (SELECT 1 …) THEN RAISE EXCEPTION` 或先落备份表再转。(登记@2026-11-05;归属:机主)
+  - 文件与判据：`packages/database/drizzle/0058_r68_live_subscribe_exam_papertype.sql` 的 `ALTER TABLE "live_subscribe" ALTER COLUMN "channel_id" TYPE uuid USING NULL::uuid`。
+  - 连带：随后 `ADD CONSTRAINT live_subscribe_user_channel_uniq UNIQUE (user_id, channel_id)` 建在 NULL 上不拦重复 ⇒ 即使数据不重要，约束也形同虚设。
+  - 收口要点：该文件同时纳入 `check-migration-from-zero` 的反例集。
+### P1 高（20 条）
+- [ ] BUG-3 **`content-extended.ts` 12 个全局内容管理接口只有 `authenticate`、零角色闸**：任意注册用户可伪造活动、改写首页轮播 `linkUrl` 成钓鱼站、替换官方电话/邮箱、删除全局文件记录。出路=补 `server.addHook('preHandler', requireAdmin)`，与 `misc-extended.ts` 同形，一行收口 12 个接口。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/api/src/routes/content-extended.ts` 全文 `requireAdmin` 出现 0 次，首条写路由 `server.post('/content/activities', …)` 第一句即 `await authenticate(request)`。
+  - 对照：同批注册的 `misc-extended.ts` 有 `server.addHook('preHandler', requireAdmin)`、`notification-extended.ts` 四条写路由均带 `requireAdminRouteGuard` ⇒ 本文件是唯一漏网。
+  - 收口要点：补镜像用例「普通用户写内容面 ⇒ 403」。
+- [ ] BUG-4 **兜底鉴权闸的公开名单与真实公开面三处不同源，且前缀匹配无段边界**：漏登记的直接后果是整条链 401（功能不可用），多登记则是未注册相邻路径被预留免鉴权。出路=三份清单收成单一真相源。(登记@2026-11-05;归属:机主)
+  - 三份清单：`apps/api/src/plugins/auth-default-deny.ts` 的 `PUBLIC_EXACT` / `PUBLIC_PREFIXES`、`plugins/tenant.ts`、`plugins/csrf.ts` 各维护一份。
+  - 已实测漏登记的 9 条（每条都有"公开"的代码意图注释）：`/api/embed-proxy/raw`（`routes/embed-proxy.ts` 注释"iframe 加载不带 token"）、`/api/content/home` 与 `/api/content/banner/list`（`routes/miniapp-public-fallback-routes.ts` 注释"公开(无需鉴权)"）、`/api/share/content/:code`、`/api/settings` 与 `/api/settings/:group`、`/api/ai-pricing`、`/api/developer/portal`、`/api/sms/callback/tencent*`、`/api/rewarded-video-ad/notify` 与 `/config`、`/api/relay/channels/public`。
+  - 边界缺陷：`PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))` 无段边界 ⇒ `/api/agents` 会放过 `/api/agentsXYZ`；文件自身注释已承认，且 `SELF_AUTHENTICATED_PREFIXES` 已有段边界判据可复用，唯独旧名单未收口。
+  - 收口要点：每个公开面加"匿名可达"正向用例，避免下次再靠人肉对齐。
+- [ ] BUG-5 **团队记忆横向越权（IDOR）**：`GET` / `PUT` / `DELETE /api/team-memory/:id` 只校验"已登录"，不校验调用者与该记忆 `scopeId` 的成员关系。出路=三个动词补 scope 成员校验，补"非成员读/改/删 ⇒ 404"反例。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/api/src/routes/team-memory.ts` 三条路由均 `{ preHandler: requireLogin }`，服务层 `services/team-memory-service.ts` 的 where 只按 `eq(teamMemories.id, id)`。
+  - 连带：列表 `GET /?scopeId=` 对任意 scopeId 开放，`sourceUserId` 只在创建时写入、读改删都不看它。
+- [ ] BUG-6 **`PATCH /api/users/:id` 改绑手机号/邮箱无当前密码二次确认、成功后不吊销 refresh token**：拿到任一有效会话即可长期接管账号（改绑后即便会话被吊销，新手机号/邮箱仍归攻击者）。出路=与 `auth.ts` 的 `PUT /api/auth/me` 对齐。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/api/src/routes/users.ts` 的 `updateSchema` 含 `email`/`phone`，`server.patch('/:id')` 只判 `id === currentUserId || roleId >= ADMIN_ROLE_ID` 后直接 `updateUser(id, parsed.data)`，全文件无 `currentPassword`、无 `revokeAllUserRefreshTokens`。
+  - 对照：同仓 `routes/auth.ts` 的 `PUT /api/auth/me` 对 email/phone 变更强制 `currentPassword` 且成功后 `revokeAllUserRefreshTokens(userId)` ⇒ 两处安全口径不一致。
+  - 收口要点：二次确认 + 吊销全部 refresh token + 通知原邮箱/手机。
+- [ ] BUG-7 **非流式 `/llm/complete` 只做额度 check 从不 consume ⇒ 免费试用额度可无限刷**：客户端改走非流式端点时日额度永远停在 0。出路=非流式分支拿到 usage 后补 consume，与流式同一把尺。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/ai-service/app/routers/llm.py` 的 `llm_complete()` 内 `trial = await user_trial_quota.check(owner_uuid)` 成功后直接返回；全仓 `user_trial_quota.consume` 只出现在 `complete_stream` 的两处 done-usage 分支。
+  - 自相矛盾：模块头注明写"complete_stream / llm_complete 入口 check + done 事件 usage 到达时 consume" ⇒ 实现漏了非流式这条腿。
+  - 收口要点：把 check/consume 配对做成断言，而不靠逐处补。
+- [ ] BUG-8 **在途发布任务被 cancel 后 DB 状态永不收口，`running` 行永久悬挂**：`cancel_task` 只 `task.cancel()`，而 `_run_task` 的 `except Exception` 捕不到 `CancelledError`（BaseException），路由只回响应不写库。出路=补 `except asyncio.CancelledError` + `_finish_task_db(…, "cancelled", …)`。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/ai-service/app/services/publish/scheduler.py` 的 `cancel_task()` 只 `task.cancel(); return True`；`app/routers/publish.py` 的 `if cancelled: return _wrap_ok({… "status": "cancelled"})` 未写库。
+  - 无法自愈：`_poll_once` 只捞 `status='scheduled'` ⇒ 该行既不会被恢复也不会被清理，进程重启也不管。
+- [ ] BUG-9 **ai-service 在事件循环线程里做同步阻塞，同进程全部 SSE / 健康检查 / 调度一起停摆**：`asyncio.wait_for` 无法抢占同步阻塞，现有超时参数全部形同虚设。出路=全部改 `await asyncio.to_thread(...)`（同文件已有正确写法可对齐）。(登记@2026-11-05;归属:机主)
+  - 最重的一处：`apps/ai-service/app/services/mcp_server.py` 的 `_tool_search_codebase()` 对 `os.walk` 的**每个目录**同步 `subprocess.run(["git","-C",root,"check-ignore","--stdin"], timeout=30)` ⇒ 大仓库一次搜索串行启动成百上千个子进程。
+  - 同文件另两处：`_tool_git_operations()` 的 `subprocess.run(["git"] + …)`、`_tool_generate_test()` 的 `_subprocess.run([node_path,"--check",js_path])` 均同步（同文件 python 分支已用 `await asyncio.to_thread`，说明是遗漏）。
+  - 第三处：`apps/ai-service/app/services/browser_hub.py` 的 `launch_external_chrome()` / `_read_profile_cookie_entries()` 同步 `_copy_browser_profile`（内含最多 3 次 `time.sleep(0.3)` 重试）与 `_cleanup_stale_scan_profiles()`，`finally` 里还有 `time.sleep(0.4)` × 最多 5 次。
+  - 收口要点：`_git_check_ignore` 改成一次 `--stdin` 批量传入全部路径，避免 N 次进程启动。
+- [ ] BUG-10 **web 高风险命令的「仍要发送」按钮是死循环，命令永远发不出去**：`action.onClick` 重新进入同一个 `submit()`、重判同一段文本、必然再次命中并再弹同一条 toast，而 `submit` 无任何"已确认"入参可绕过闸门。出路=加单次通行令牌或把闸门外提。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/web/src/hooks/use-message-send.ts` 的 `proceed` 里 `onClick: () => { void submit() }`；`submit` 全函数只有一个 `overrideValue` 入参。
+  - 两个分支同病：`analyzeCommandRisk` 的 needs-approval 与正则兜底 `detectDangerousCommands` 的 critical/high 都是同一形态（`blocked` 档不给按钮，是对的）。
+  - 收口要点：补用例「needs-approval 点仍要发送 ⇒ 恰好发一次」。
+- [ ] BUG-11 **「续期只试一次」的账只置位永不清零 ⇒ 同一 agentId 长会话第二次 token 过期后流永久死透**：首次续期成功后 `tried` 恒 true，15 分钟后第二次 401 直接落 `unauthorized-after-refresh` 并停止重建。出路=在 `onopen`（真正连上）时复位，三处同批。(登记@2026-11-05;归属:机主)
+  - 主处：`apps/web/src/hooks/use-agent-runtime.ts` 的 `es.onerror` 里 `authRetryRef.current = { agentId, tried: true }`，复位只在 `if (authRetryRef.current.agentId !== agentId)`；`es.onopen` 只置 `connected`/`streamError`，不复位；`setStreamNonce` 重建流同样不复位。
+  - 同型另两处：`apps/web/src/hooks/useAgentSSE.ts` 的 `authRetriedRef`、`apps/web/src/components/ai/tool-approval-dialog.tsx` 的 `approvalStreamRetryRef`（审批流第二次致命断流后同样永久不再重建，且界面零提示）。
+  - 收口要点：补"连续两次 401 ⇒ 第二次仍续期"的计时用例。
+- [ ] BUG-12 **`use-agent-stream` 的重连计数在拿到 200 响应头时就清零 ⇒ `MAX_RECONNECT_ATTEMPTS` 形同虚设**：`attempt` 永远是 1、退避永远 3s，"有界重连"被结构绕过。出路=计数清零点移到"收到首帧之后"。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/web/src/hooks/use-agent-stream.ts` 的 `start()` 内 `if (reconnectAttemptRef.current > 0) { reconnectAttemptRef.current = 0; setReconnectAttempt(0) }` 早于任何一帧解析，随后"零帧正常关闭"分支又 `tryReconnect()`。
+  - 叠加因素：`receivedAnyEventRef` 每次 `start()` 都重置为 false，两处叠加使阶梯无法递增。
+  - 收口要点：补"服务端连续返回 200+空体 ⇒ 最多试 5 次后停止"的用例。
+- [ ] BUG-13 **api-client 对 2xx 空体直接 `response.json()` ⇒ 抛错被归一成网络异常 ⇒ 非幂等写被重放**：`SyntaxError` 落入外层 catch，`normalizeErrorToResult` 对无 `status` 的错误返回 `{success:false,error}`，于是走网络重试分支 ⇒ POST/PUT 重复执行。出路=把 204/空体判据下沉到通用层。(登记@2026-11-05;归属:机主)
+  - 判据：`packages/api-client/src/client.ts` 的 `const rawJson: unknown = await response.json()` 无 `status === 204 || content-length === 0` 守卫。
+  - 反证：`packages/api-client/src/endpoints/devices.ts` 已为该坑打过私有补丁 `if (response.status === 204) return {success:true,data:null,status:204}` ⇒ 坑真实存在过，只是通用层未修。
+  - 收口要点：修完后删掉 devices 的私有补丁，补"空体 204 ⇒ 不重试且 success"用例。
+- [ ] BUG-14 **`@ihui-ai/sdk` 对所有 HTTP 方法统一重试、且 200 空体返 `undefined as T`**：5xx 与网络错误一律重放 POST/PATCH/DELETE（默认 `maxRetries = 2`）⇒ 重复下单/重复扣费。出路=引入幂等性判据。(登记@2026-11-05;归属:机主)
+  - 判据：`packages/sdk/src/base.ts` 的 `for (let attempt = 0; attempt <= this.maxRetries; attempt++)`，仅对 429 与 `status < 500` break，未见对 `method` 的判断。
+  - 同函数另一格：`if (!text) return undefined as T` 把 200 空体当成功返回泛型 T，调用方 `x.id` 直接 TypeError；同文件 `requestStream` 反而有 `if (!resp.body) throw` ⇒ 两处口径不一致。
+  - 收口要点：GET/HEAD 才自动重试，写操作仅在带幂等键时重试；空 body 显式返回 `null` 或抛 `SdkError`。
+- [ ] BUG-15 **迁移链三处会毁数据或不可重入**：① 硬删除无守卫 ② `ADD COLUMN NOT NULL` 无默认无回填 ③ journal 顺序双轨导致静默跳过。出路=逐条补守卫与默认值，或统一到单一执行器。(登记@2026-11-05;归属:机主)
+  - ①`packages/database/drizzle/20261026150000_ai_model_config_global_provider_base_uniq.sql` 的 `DELETE FROM "ai_model_config_models" WHERE "config_id" = 46;` 与 `DELETE FROM "ai_model_config" WHERE "id" = 46 AND "owner_uuid" IS NULL;` **不受任何守卫**，备份 `CREATE TABLE … AS SELECT` 包在 `IF EXISTS` 的 DO 块里 ⇒ 备份表不存在时数据直接不可恢复。
+  - ②`packages/database/drizzle/0126_ai-world-sync.sql` 三处 `ADD COLUMN … NOT NULL` 无 `DEFAULT`、无回填、无 `IF NOT EXISTS`（表内有行必失败、重跑必报 already exists）；同仓 `0364_app_versions_store_channel.sql` 用了 `IF NOT EXISTS`，此处未用。
+  - ③`packages/database/drizzle/0364_app_versions_store_channel.sql` 的 journal `when` 比后两条小 129 秒，drizzle `migrate()` 按 `Number(lastDbMigration.created_at) < migration.folderMillis` 判执行 ⇒ 已应用 366 的库会**静默跳过 0364**；而 `apply-all-migrations.mjs` 按文件名排序会把 `0364_` 插到第 153 位（前移 211 位）⇒ 两种执行器产出不同库态。
+- [ ] BUG-16 **`packages/database/scripts/apply-all-migrations.mjs` 两处判据缺陷：命名 dollar-quote 被切碎 + 失败退出码恒 0**：迁移只做了一半而 CI 账面绿。出路=分割器支持标签匹配 + 失败即置退出码。(登记@2026-11-05;归属:机主)
+  - 切碎：语句分割器只认匿名 `$$`（`if (next2 === '$$') { inDollarBlock = !inDollarBlock }`），不认 `$fn$` / `$con$` / `$outer$` / `$o13$` / `$ot_conv$` / `$col$` ⇒ 实测把 `20260906174000_audit_partition_ensure_fn.sql` 切成 23 条（应为 3 条），末条只剩 `END $fn$` 必然失败；受影响还有 `0123`/`0127`/`0129`/`0212`/`0217`。
+  - 退出码：catch 内只 `console.error(\`  ✗ ${file}: …\`)` 就继续下一个文件，末尾 `console.log('\n=== done ===')`，全文件无 `process.exitCode`/`process.exit`；`msg.includes('already exists')` 还会把语法错误一并吞掉。
+  - 收口要点：加"切出的语句条数 vs 文件内 `;` 计数"一致性自检。
+- [ ] BUG-17 **桌面端把键鼠注入/截屏/剪贴板/文件读写直接授权给线上网页**：`capabilities/default.json` 的 `"remote": { "urls": ["https://aizhs.top/*", "https://www.aizhs.top/*"] }` 与该族 `allow-*` 同数组，宿主侧唯一闸是环境变量 `IHUI_DESKTOP_COMPUTER_CONTROL=1`。出路=高危族移出 remote 面或加一次性票据 + 本地二次确认。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/desktop/src-tauri/capabilities/default.json` 的 remote.urls 与 `allow-screenshot-screen`、`allow-mouse-move`、`allow-mouse-click`、`allow-keyboard-type`、`allow-keyboard-hotkey`、`allow-clipboard-get`、`allow-clipboard-set`、`allow-active-window`、`allow-read-text-file`、`allow-write-text-file`、`allow-read-binary-file` 同数组。
+  - 命令层无闸：`src/lib.rs` 的 `computer_control_enabled()` 是唯一判据，`grep approval|ticket|adminGate` 于 lib.rs 零命中 ⇒ 服务端审批门只在 API 层，而 Tauri 命令是本地 IPC、绕开 API。
+  - 攻击链：`aizhs.top` 上任一 XSS ⇒ 截全屏 → 读剪贴板（密码/验证码）→ 模拟键鼠点"确认转账"。
+  - 连带：`read_text_file` 无大小上限，而同文件 `read_binary_file` 有 `MAX_BINARY_FILE_SIZE = 50MB`。
+- [ ] BUG-18 **CLI 交互式终端绕过命令闸门与沙箱授权根**：闸门只判 `terminal_open` 的首条命令，之后 `terminal_send` 的任意输入零校验；沙箱授权根取自工具入参 `args.cwd` 而非 `ctx.workspacePath`。出路=send 前复用同一闸门，授权根只认工作区。(登记@2026-11-05;归属:机主)
+  - 绕过：`apps/cli/src/tools/terminal.ts` 的 `terminal_send` 里 `session.proc.write(input + …)` 之前无任何 gate/sandbox 调用 ⇒ 先 open 一条可自动批准的命令，再 send `rm -rf ~` 即绕过。
+  - 授权根：同文件 `const cwd = (args.cwd as string) || ctx.workspacePath; const policy = buildSandboxPolicy(cwd)`，`allowRead`/`allowWrite` 缺省回落 `[workspaceRoot]` ⇒ 传 `cwd: "C:\\Users\\<me>"` 就把边界挪走（`validatePolicy` 只拒盘符根）。
+  - 白名单失效：`apps/cli/src/tools/sandbox/policy.ts` 的 `isCommandAllowed` 只比对首个 token（`trimmed.split(/\s+/)[0]` 的 basename），对 `&&`/`;`/`|` 复合命令完全失效；且与 `sandbox/index.ts` 的 `matchPattern`（支持 `*`）是两套语义。
+  - 符号链接：同文件 `portableWithin` 是纯词法前缀比较，而 `sandbox/index.ts` 的 `isPathAllowedWithRealpath` 用 `fs.realpathSync` ⇒ 工作区内指向 `~/.ssh` 的目录链接被判"在授权范围内"。
+- [ ] BUG-19 **守门共享执行层四处假绿：33+ 道 blocking 门在常规提交上根本没跑，且退出码仍 0**：快档跳重型门、补跑再跳过、缓存指纹不含脚本字节、跳过批次被缓存成 passed。出路=逐条补判据，让 skipped 与 passed 不同权。(登记@2026-11-05;归属:机主)
+  - ①快档：`scripts/lib/guardian-executor.mjs` 的 `if (fastMode && HEAVY_GATE_IDS.has(String(check.id)))` 在默认快档（`pre-commit-hook.js` 把 `IHUI_GATE_FAST` 置 `'1'`）下把 37 个重型 id 一律只 `skipped++` 并写入 `deferredGates`，`printSummary` 与退出码都不因此变红（实测 308 道 `mode: 'blocking'`）。
+  - ②补跑：`scripts/lib/post-commit-hook.js` 的补跑发生在提交**之后**、索引快照与 HEAD 树一致 ⇒ `git diff --cached --name-only` 为空，而执行器 `if (check.stagedTriggers && passStaged && !stagedPathsTouch(...))` 对空集恒 false ⇒ 被延后的门在补跑里**再次全跳**（288 道 blocking 中 286 道带 `stagedTriggers`，37 道重型门中 36 道带）。
+  - ③缓存指纹：`scripts/lib/guardian-gate-cache.mjs` 的 `inputKey()` 只含门脚本**路径字符串**、不含脚本字节，与头注不变量③"指纹覆盖…门脚本"自相矛盾 ⇒ 改弱某道门后 60 分钟内仍命中旧缓存按"通过"计数。
+  - ④跳过被缓存：`scripts/lib/guardian-pushgate-cache.mjs` 的 `writePushGateCache` 只看 `failed === 0`、不看 `skipped`（含 `skipEnv` 自跳），而 `pushGateCacheEarlyExit` 命中即 `process.exit(0)` ⇒ 用 `HUSKY_SKIP_*=1` 应急放行一次，就把"跳过的批次"缓存成 passed。
+- [ ] BUG-20 **两道取材面门与一处判据库清单已腐烂**：密钥门取不到清单即判通过、sanitizer 门名单读索引面而内容读工作树、判据库白名单漏了 8 个高引用 lib。出路=逐条补未判定通道与取材同面。(登记@2026-11-05;归属:机主)
+  - ①`scripts/check-api-key-leak.mjs` 的 `collectFiles()` 在 `gitRaw([...])` 抛错时 `catch { return [] }` ⇒ `files=[]` ⇒ `violations=[]` ⇒ 打印"通过,未检测到真实 key 泄露"并 `exit 0`，而同文件头注写的是"取不到输入 ⇒ exit 2 无法判定"（`index.lock` 占用/超时即静默放行，这是 `check:all` 第 2 步的安全门）。
+  - ②`scripts/check-sanitizer-bypass.mjs` 的 `getFilesToCheck()` 用 `git diff --cached` 划候选（索引面），随后 `readFileSync(filePath, 'utf-8')` 读**工作树**正文、全文件无 `catBatch` ⇒ 暂存违规版本 + 工作树改回干净即可洗白（违反"名单与内容同面同轮"）。
+  - ③`scripts/lib/judgement-libs.json` 白名单腐烂：按"被 ≥3 道门 import"的口径实测 `bypass-git`(16 门)、`git-paths`(13)、`cross-end-landing-ledger`(12)、`psql-client-locate`(12)、`key-dir`(11)、`commit-attestation`(10)、`face-scan`(10)、`plan-id-lease`(9) 均未入册 ⇒ 改这些共享判据只触发 meta 档、无门当场变红。
+- [ ] BUG-21 **唯一自动密钥扫描被 `continue-on-error` 吞掉**：`.github/workflows/weekly-security-audit.yml` 的 gitleaks 步带 `continue-on-error: true`，项目脚本步是 `node … || true`，且 gitleaks 结果既不进汇总也不进 Issue（汇总只 `cat api-key-leak.txt`）。出路=密钥扫描改 blocking 并把结果并入汇总与 Issue。(登记@2026-11-05;归属:机主)
+  - 连带：同文件 typecheck/lint/license 亦全为 `|| true`/warning ⇒ 本轮审计对"密钥入库"这一项结构上不可能红。
+  - 收口要点：若确有存量红，走差值棘轮而非整体豁免。
+- [ ] BUG-22 **监控面匿名可读 + 明文弱口令 + 一条 inhibit 永不匹配**：Grafana 匿名 Viewer 免登录可读全部经营数据面板，且 admin 口令写死入库；Alertmanager 的 `ApiDown → ApiHighErrorRate` 抑制因 `equal` 标签不存在而永不生效。出路=关匿名、口令走环境变量、inhibit 改标签集。(登记@2026-11-05;归属:机主)
+  - 判据：`monitoring/grafana/grafana.ini` 的 `[auth.anonymous]` 为 `enabled = true` / `org_role = Viewer`，`[security] admin_password` 写死 `ihui-admin`。
+  - 告警：`monitoring/alertmanager/alertmanager.yml.tmpl` 的 inhibit 规则 `equal: ['instance']`，而目标告警表达式是 `sum(rate(...)) / sum(rate(...))`、聚合后无 instance 标签 ⇒ `equal` 永不匹配，同一根因双告警必然各寄一封。
+  - 收口要点：inhibit 改 `equal: []` 或补 `job` 等确实存在的标签。
+### P2 中（25 条）
+- [ ] BUG-23 **API 读面越权族（三处，均为"只校验登录/不校验属主或公开性"）**：智能体详情把私有字段发给非属主、公开配置接口漏 `isPublic` 过滤、webhook 密钥预览对任意登录用户开放。出路=逐处补属主/公开性/角色判据。(登记@2026-11-05;归属:机主)
+  - ①`apps/api/src/routes/agents.ts` 的 `server.get('/agents/:agentId')` 对已登录但非属主、非管理员的调用者直接 `reply.send(success(detail.agent))`，把本文件自己登记在 `PRIVATE_AGENT_KEYS` 里的 `agentPrompt` / `agentVariables` / `remark` / `suggestedQuestions` / `botId` 一并返回，且不校验 `status`（草稿/待审/已驳回同样可读）——`sanitizePublicAgent` 只对游客生效。
+  - ②`apps/api/src/db/setting-queries.ts` 的 `findEduSettingsByGroup()` 只 `where(and(eq(group, group), eq(status, 1)))`、漏 `isPublic = true`，而同文件 `findPublicEduSettings()` 带该过滤 ⇒ 公开路由 `GET /settings/:group` 会返回被标记为不公开的 `value`（当前被 BUG-4 的整条 401 掩盖）。
+  - ③`apps/api/src/routes/agents.ts` 的 `GET /cozeZhsApi/agents/config/webhook-secret` 只受插件级 `checkAuth`，向任意登录用户返回 HMAC 密钥的 `secretPreview`（前 8 + 后 4 位）与是否配置，而同路径 POST 明确要求 `isSystemAdmin`。
+- [ ] BUG-24 **资金与积分写面的四格一致性缺陷**：退款可重复申请、积分领取幂等靠 200 条窗口、换券非单事务丢券、资金写面绕过 TOTP 闸。出路=补唯一约束 + 单事务 + 统一走 `requireAdmin`。(登记@2026-11-05;归属:机主)
+  - ①`apps/api/src/db/order-queries.ts` 的 `applyRefund` 在 `for('update')` 锁订单后**只校验 `status === 'paid'`** 即插入 `eduRefunds`，不查是否已有 pending/approved 退款；`packages/database/src/schema/order.ts` 的 `edu_refunds` 只有两个普通索引、无 `(order_id)` 或 `(order_id,status)` 唯一约束 ⇒ 两个入口（`POST /orders/:id/refund` 与 `POST /refunds/apply`）均可反复申请，审核侧可对同一订单"通过并完成"多次。
+  - ②`apps/api/src/routes/points-tasks.ts` 的 `loadClaimedKeys` 用 `findPointTransactions({… pageSize: 200, source: 'task' })` 判重、查重与 `earnPoints` 之间无锁无唯一约束 ⇒ 用户 `source='task'` 流水超 200 条后当日键落到窗口外可重复领取，并发双击则双倍发放。
+  - ③`apps/api/src/routes/miniapp-pay-routes.ts` 的 `POST /orders/:orderNo/apply-coupon` 先读 `already` 快照再 `redeemCoupon` 再改价再回退旧券，非单事务且无订单锁 ⇒ 两个并发请求各核销成功、第二次改价成功但不回退第一张券（用户白丢一张券）。
+  - ④`apps/api/src/routes/gamification.ts` 的 `const roleId = request.jwtPayload?.roleId ?? 0; if (roleId < ADMIN_ROLE_ID)` 与 `apps/api/src/routes/user/payment-routes.ts` 的 `/payment/refund/:refundNo/audit`、`/process` 用内联 roleId 判定替代 `requireAdmin` ⇒ 绕过 `checkAdminTotpGate` 与 `requireActiveUser`。
+- [ ] BUG-25 **外部调用健壮性族：OAuth 上游零超时 + 三处异常原文出仓**：上游挂起时请求线程占到 300s，DB 异常原文直接回给调用方（其中一处是匿名回调面）。出路=统一超时封装 + 通用文案。(登记@2026-11-05;归属:机主)
+  - 零超时：`apps/api/src/services/oauth-providers.ts` 内 14+ 处裸 `await fetch(url)`（`isProxiedUrl` 分支之外无 `AbortSignal.timeout`）；同仓 `services/geoip.ts` / `coze-oauth-apps.ts` / `d1jiema-service.ts` 均已显式带超时，属遗漏而非设计。
+  - 出仓三处：`routes/rewarded-video-ad.ts` 的 `reply.status(500).send(error(500, \`积分发放失败: ${(e as Error).message}\`))`（该 `/notify` 是匿名的第三方广告平台回调面，风险最高）、`routes/gamification.ts` 的 `const msg = (e as Error).message; … send(error(code, msg))`、`routes/wallet.ts` 的 `send(error(statusCode, (e as Error).message))` —— 三者均绕开 `server.ts` 的 `errorHandler` 与 `redactCredentialText`；`routes/ai-marking-proxy.ts` 的 catch 已是正确写法可参照。
+- [ ] BUG-26 **web 本地状态被异步结果覆盖/挂起族（五格）**：成本协商全局单槽使发送永久卡死、草稿回填覆盖用户输入、审批失败静默、轮询覆盖乐观消息、支付轮询叠加。出路=逐格补隔离与判定。(登记@2026-11-05;归属:机主)
+  - ①`apps/web/src/hooks/use-chat/send-message.ts` 的 `const okToSend = await new Promise<boolean>((resolve) => { useCostGuardStore.getState().setPendingConfirm(resolve) })` 用**全局单槽**存 resolver，而唯一消费点 `components/ai/cost-estimate-bar.tsx` 只被 `components/ai/ai-side-panel.tsx` 挂载 ⇒ 非根窗格永无 resolve、`sendInFlightRef` 永久 true、之后每次发送静默 `return false`；两窗格同时越阈值则后者覆盖前者 ⇒ 前一条永远发不出。
+  - ②`apps/web/src/hooks/use-prompt-drafts.ts` 的会话切换 effect 里 `void getChatDraftStorage().read(target).then((text) => { if (cancelled) return; setValue(text) })` **无条件覆盖**用户已输入内容（`cancelled` 只防"key 又变了"），且 `draftKey` 变更那一轮防抖写入会以**新 key + 旧 value** 入队。
+  - ③`apps/web/src/components/ai/tool-approval-dialog.tsx` 的 `handleDecision` 在 `catch (e) { console.error('[tool-approval] 审批响应失败', e) }` 后照常 `finally` 关窗推进 ⇒ 用户以为"已批准"而决策从未送达（`channel === 'chat-stream'` 且 `sessionId` 缺失时必然走这里，代码注释自认"回传必然失败"）。
+  - ④`apps/web/app/(main)/admin/customer-service/page.tsx` 的 `setInterval(loadData, 5000)` 整体 `setSessions(...)` 会抹掉 `handleSend` 的乐观追加。
+  - ⑤`apps/web/app/(main)/payment/checkout/PageClient.tsx` 的 `startPolling` 不先 `stopPoll()`，`qrCodeUrl` 二次赋值即叠出第二个 interval 且 `pollRef` 被覆盖 ⇒ 前一个永久存活。
+- [ ] BUG-27 **三处在 state 初始化函数里读客户端状态 ⇒ SSR/hydration 首帧不一致，整块子树被丢弃重建**：另有一处法律文本在 SSR 恒空。出路=首帧确定值 + `useEffect` 回填。(登记@2026-11-05;归属:机主)
+  - ①`apps/web/src/components/ai/injection-bar.tsx` 的 `useState(() => resolveAssemblyInitialOpen(readFoldPolicyMode()))`（`readFoldPolicyMode` 在 SSR 返回 `'auto'`、CSR 返回存取的模式）。
+  - ②`apps/web/src/components/chat/message-input.tsx` 的 `useState(() => { … peekInitialDraft(...) })`（`lib/chat-draft-storage.ts` 的浏览器路径 `peekSync` 直接返回真值）。
+  - ③`apps/web/src/components/layout/MobileLoginGate.tsx` 的 `useState(() => window.Capacitor?.isNativePlatform?.())`（服务端渲染 children、客户端首帧返回空片段）。
+  - ④`apps/web/src/components/common/SafeHtml.tsx` 的 `sanitize()` 在 `typeof window === 'undefined'` 时 `return ''` ⇒ 协议正文 SSR 恒空、JS 未执行即永久空白且爬虫抓不到（唯一使用点是 `components/marketing/AgreementDialog.tsx` 的法律文本）。
+- [ ] BUG-28 **数值与时间正确性族（六格）**：金额用浮点、4 个时间列缺时区、图片 token 常量是注释的 9.4 倍、千分位四舍五入失真、真实 0 渲染成空、深拷贝丢 Date。出路=统一类型与格式出口。(登记@2026-11-05;归属:机主)
+  - ①金额浮点：`packages/database/src/schema/zhs-full.ts` 的 `price: real('price')` / `amount: real('amount')`、`ai-capabilities.ts` 的 `avgCostUsd: real(...)`、`admin-console.ts` 的 `discount: doublePrecision(...)`，而同仓订单金额一律 `numeric(10,2)`（`agent-commerce.ts:61`）。
+  - ②时区：全仓 1380 处时间列中仅 4 处缺 `{ withTimezone: true }`（`packages/database/src/schema/play-testers.ts`、`service-inquiries.ts` 的 `timestamp('created_at')`/`timestamp('updated_at')`）。
+  - ③`packages/context-compaction/src/token-estimate.ts` 的 `export const IMAGE_TOKEN_PLACEHOLDER = 1200` 与自身注释"按 OpenAI low-detail ~85 / high-detail ~170 的中位值取整"矛盾（实际是注释依据的 9.4 倍）⇒ 每张图多计约 1000 token、压缩阈值提前触发。
+  - ④`packages/shared/src/utils/format.ts` 的 `` `${Number.isInteger(k) ? k : k.toFixed(0)}K` `` 使 `1500 → "2K"`、`999999 → "1000K"` 而非 `"1M"`，与同函数 M 分支 `toFixed(1)` 口径不一致。
+  - ⑤`packages/shared/src/utils/number-format.ts` 的 `if (n === null || n === undefined || n === 0) return ''` 把真实 0 渲染成空串（`packages/types/src/api-contracts.ts` 明确要求"0 与缺席不可互换"）。
+  - ⑥`packages/shared/src/utils/object.ts` 的 `deepClone` 在 `structuredClone` 不可用时走手写递归、丢 `Date`/`Map`/`Set`/`RegExp`；`packages/shared/src/jobs/submission-job.ts` 的 `freezeFormSnapshot` 同样在失败时回退浅拷贝，与注释"不静默吞字段"相悖。
+- [ ] BUG-29 **索引与约束缺失族（四格，合计 157 处）**：123 个外键列无索引、24 处 userId 无 FK、10 个 schema 声明索引无对应 DDL、同一张表两份 DDL 列类型不同。出路=生成一次补齐迁移 + 加 schema/迁移集合对账。(登记@2026-11-05;归属:机主)
+  - ①`packages/database/src/schema/**` 列级 `.references(...)` 共 391 个，其中 **123 个所在表无覆盖索引**（PG 不为 FK 自动建索引）⇒ 级联删除与按外键过滤全表扫，典型 `agent_tasks.ruleId/createdBy/updatedBy`、`orders.planId/createdBy/updatedBy`、`commission_flows.orderId`。
+  - ②**24 处** `userId: uuid('user_id').notNull()` 无 `.references()`（`user-automations.ts`、`agent-event-triggers`、`agent-rule`、`analytics-events`、`clawdbot`、`exam-extended`、`user-memory`、`webhook-subscriptions` 等）⇒ 删用户留永久孤儿行。
+  - ③schema 声明了索引但迁移链无对应 DDL 共 10 处（`chat.ts` 的 `ix_conversation_message_archives_created_at`、`ab-tests.ts` 的 `idx_ab_tests_status`、`agent-state.ts` 的 `agent_multimodal_memory_hash_uniq`、`memory.ts` 的 `uniqueEdge: uniqueIndex('ux_agent_memory_edges')` 等），`drizzle-kit generate` 认为已同步而库内没有。
+  - ④同一张表两份 DDL 且列类型不同：`service_inquiries` 同时存于 `0204_past_kinsey_walden.sql` 与 `20260808000000_create_service_inquiries.sql`，后者带 `IF NOT EXISTS` ⇒ 先到先得决定列类型。
+- [ ] BUG-30 **类型契约漂移族（四格）**：同名 DTO 四份定义、枚举值集合两处不一致、`apiOrThrow` 丢状态码、帧屏障两实现且测试把差异当"职责分层"。出路=收成单一真相源。(登记@2026-11-05;归属:机主)
+  - ①`export interface ChatMessage` 全仓**四份定义、字段集互不包含**：`packages/shared/src/hooks/use-chat.ts`（缺 `citations`/`injections`/`retryNotice`/`steerNotices`/`errorCode`/`parentMessageId`/`durationMs`/`toolCallCount`）、`packages/types/src/chat.ts`（同时有 `meta` 与 `metadata`）、`packages/context-compaction/src/types.ts`（snake_case 且无 `id`）、`packages/types/src/ai.ts` ⇒ 字段被类型层裁掉、渲染层静默丢失。
+  - ②`WithdrawalStatus` 两处值集合漂移：`packages/types/src/admin-types.ts` 5 值（无 `processing`）、`packages/api-client/src/endpoints/agent.ts` 6 值（含），库列注释是 6 值 ⇒ 后台按 5 值写 `switch` 穷尽匹配后遇到 `processing` 行落空。
+  - ③`packages/api-client/src/client.ts` 的 `if (!r.success) throw new Error(r.error)`（`apiOrThrow`）丢掉 `status`/`errorCode`/`retryAfter` ⇒ 237 个 RSC 页面无法区分 404（该 `notFound()`）与 500（该 error boundary）。
+  - ④`packages/api-client/src/frame-ownership-barrier.ts`（186 行、四态缺一）与 `packages/shared/src/sse/frame-ownership-barrier.ts`（255 行、含 `generation` 与 `'stale'`）是同一屏障两实现，且 `api-client/tests/frame-barrier-parity-g816030.test.ts` 把差异断言成"职责分层"而非红灯。
+- [ ] BUG-31 **SSE 取帧的"唯一出口"零生产调用，另有两个 gap 类型永不成立**：`createSseFrameAccumulator` 只在定义与测试里出现，真正取帧四处手写；`FrameGapKind` 的 `generation-change` / `epoch-change` 代码自认"从未被判定过"。出路=收敛到一处，删掉死分支。(登记@2026-11-05;归属:机主)
+  - 零调用：`packages/shared/src/utils/sse-frame-accumulator.ts` 的 `createSseFrameAccumulator` 自述"SSE 取帧的唯一出口"，实测只在定义文件与 `__tests__` 出现。
+  - 手写四处：`packages/api-client/src/client.ts`、`endpoints/coze.ts`、`endpoints/agent-runtime.ts`（两处）⇒ 分片跨包边界丢帧、多字节截断这类修复无法一处生效。
+  - 死分支：`packages/api-client/src/frame-watermark.ts` 与 `frame-watermark-producer.ts` 的 `FrameGapKind` 前两值永不被判定（注释明写"从未被判定过"），下游按这两个值写的恢复分支是死代码；`isFrameGap` 只比较 `subscriptionId`。
+- [ ] BUG-32 **读副本健康判据互相覆盖，慢副本会被重新选回**：`reportReplicaHealth` 在 `ok` 时无条件把 `lagSec` 置 0，抹掉之前因延迟过大判的不健康。出路=`lagSec` 改可选、`undefined` 时保留上次读数。(登记@2026-11-05;归属:机主)
+  - 判据：`packages/database/src/read-replica.ts` 的 `function reportReplicaHealth(replicaId, ok, lagSec = 0)` 第 211 行 `status.lagSec = 0` 无条件赋值，而 `if (lagSec > MAX_LAG_SEC) status.healthy = false` 在其后执行。
+  - 触发：监控插件按"成功/失败"上报而不传延迟 ⇒ `getReader()` 重新把慢副本选回来。
+- [ ] BUG-33 **`@ihui/ui-react` 组件库三格**：barrel 带 CSS 副作用却无 `sideEffects`/子路径导出、Upload 并发三处竞态、search-input 受控非受控混用致清空按钮永不渲染。出路=逐格修契约。(登记@2026-11-05;归属:机主)
+  - ①`packages/ui-react/src/index.ts` 顶层 `import './styles/auth-shell.css'` / `import './styles/login-form.css'`，但 `package.json` 既无 `sideEffects` 声明、`exports` 只有 `"."`（无 `./styles/*`）⇒ 消费方开 `sideEffects:false` 则样式丢失，从 RSC 上下文 import 该 barrel 会因 CSS 导入直接失败（`apps/extension/entrypoints/sidepanel/globals.css` 的注释明确依赖这条副作用链）。
+  - ②`packages/ui-react/src/components/Upload.tsx` 并发上传三处竞态：`onChange?.([...value, ...newUrls])` 用 `handleFiles` 闭包快照（后完成者覆盖前一批）、`xhrRef.current = xhr` 单槽（`handleCancelAll` 只能 abort 最后一个）、任一次 `handleFiles` 都把 `cancelledRef.current = false`（撤销另一批的取消意图）；`remaining = maxCount - value.length` 不计上传中的项 ⇒ 可超上限。
+  - ③`packages/ui-react/src/components/search-input.tsx` 非受控用法下 `value === undefined` ⇒ `hasValue` 恒 false ⇒ 清空按钮永不渲染，且 `value` 与 `defaultValue` 同挂触发 React 警告；清空按钮伪造的 `ChangeEvent` 只有 `target.value/name`，消费方读 `e.currentTarget.value` 会抛 `Cannot read properties of undefined`。
+- [ ] BUG-34 **发布调度族三格**：单平台异常抹掉已成功结果并允许重提、调度器启动失败仍返 ok、shell 超时只杀外壳。出路=逐条补收口与错误传播。(登记@2026-11-05;归属:机主)
+  - ①`apps/ai-service/app/services/publish/scheduler.py` 的 `_run_task()` 用 `asyncio.gather(*coros, return_exceptions=False)`，单平台抛异常即整体上抛，`except` 分支以 `_finish_task_db(task_id, "failed", [], …)` 把**已成功平台的结果整体覆盖为空**，同时 `finally` 里 `self._running.pop(task_id)` ⇒ 用户可立刻重提、与仍在跑的兄弟协程重复发布。
+  - ②`apps/ai-service/app/services/scheduler_service.py` 的 `start()` 里 `try: self._scheduler.start() except Exception as e: logger.warning(...)` 后仍置 `_started` 为真，此后 `add_task` 跳过 `add_job` 却照写 Redis 并返回 `{"ok": True, …, "next_run_at": ""}` ⇒ 任务"创建成功"但永不触发、日志无失败信号。
+  - ③同文件 `_execute_callback` 的 shell 超时只 `proc.kill()` 杀 `sh -c`/`cmd /c` 外壳、不杀进程树；Windows 下 `kill()` 后仍 `await proc.communicate()`，子孙进程持有管道时该 await 会挂到管道关闭。
+- [ ] BUG-35 **`_try_screenshot_html` 调用了一个不存在的函数，HTML 截图增强整体静默失效**：`apps/ai-service/app/routers/ai_skills.py` 的 `func = getattr(screenshot_service, "screenshot_html_to_base64", None)`，而 `screenshot_service.py` 只有 `take_screenshot` / `render_to_html` / `probe_can_embed` 等（无该名、无 `__getattr__`）⇒ 恒 None ⇒ 直接 `return None`，调用方无任何可观测错误。出路=改接真实函数组合。(登记@2026-11-05;归属:机主)
+  - 连带：若日后补齐该函数，`future.result(timeout=15)` 在运行中的事件循环线程里同步等待会把循环阻塞最长 15s。
+- [ ] BUG-36 **CLI 本地状态与文件安全族（五格）**：任务库读失败被吞成空再整体覆写、信任清单第二套未修实现、checkpoint 回放路径穿越、undo 非原子写、二次 SIGINT 无效。出路=原子写 + 读失败即报错 + 回放复用越界校验。(登记@2026-11-05;归属:机主)
+  - ①`apps/cli/src/commands/tasks.ts` 的 `loadStore()` 在 `catch { return { ...EMPTY_STORE } }` 把读盘失败吞成空存储，下一次写操作再整体覆写 ⇒ 用户全部任务静默清零；`saveStore()` 是裸 `fs.writeFileSync`（非原子，崩溃即半截 JSON 从而稳定触发上一条）。
+  - ②`apps/cli/src/commands/hooks-auto.ts` 的 `loadTrustedWorkspaces()` 同样 `catch { return new Set() }` + 整体覆写，与已修好的 `hooks/trust.ts`（`writeOrComplain` 落盘前复核字节）是同一语义的第二套未修实现 ⇒ 一次 EBUSY 把整张清单重写成只有一行。
+  - ③`apps/cli/src/checkpoints/snapshot-store-host.ts` 的 `isCheckpointMeta` / `restoreSnapshotFiles` 清单校验只查**值**不查**键**，回滚时 `path.join(workspacePath, rel)` 直接拼并 `fs.rmSync(absInWorkspace, { recursive: true, force: true })`，而同文件 `resolveWorkspaceRelPath` 明确拒绝 `..` 越界 ⇒ 录制侧防了、回放侧没防（篡改 manifest 键成 `../../.ssh/authorized_keys` 即穿）。
+  - ④`apps/cli/src/commands/undo-redo.ts` 的 `applyChange` 用裸 `fs.writeFileSync(fullPath, content, 'utf-8')` / `fs.unlinkSync`，不走 `util/atomic-write.ts` ⇒ 无原子替换、无 stale 冲突检测、无符号链接拒绝。
+  - ⑤`apps/cli/src/index.ts` 的 `const onSigint = () => { if (!abort.signal.aborted) { abort.abort(); … } }` 只处理第一次 SIGINT，注册 listener 后默认终止行为被抑制 ⇒ 第二次起 Ctrl-C 完全 no-op（REPL 路径有两次强退，headless 没有）。
+- [ ] BUG-37 **CLI 子进程层两格**：输出无字节上限可把 CLI 内存打爆、"二进制不存在"被归因成"等待退出失败"。出路=加 `maxBuffer` + 错误事件直接归因 `spawn`。(登记@2026-11-05;归属:机主)
+  - ①`apps/cli/src/util/spawn-isolated.ts` 的 `stdoutChunks.push(chunk)` → `Buffer.concat(stdoutChunks)` 无字节上限（对比 `execFile`/`spawnSync` 有 `maxBuffer`），`IsolatedSubprocessOptions` 也无该字段。
+  - ②同文件 `child.once('error', err => { waitErr = err; reject(err) })` 之后仍可能落到 `throw makeError('wait', …)` —— Node 的 `spawn()` 对 ENOENT/EACCES 是**异步** `'error'` 事件、不会同步 throw，故 `spawnWithRetry` 的 try/catch 抓不到。
+- [ ] BUG-38 **CLI 剪贴板在只装 Windows PowerShell 5.1 的机器上功能静默全灭**：`apps/cli/src/tools/clipboard.ts` 的 `isClipboardAvailable()` 放行"`pwsh` **或** `powershell`"，但读写只 `spawnSync('pwsh.exe', …)` ⇒ 无 PowerShell 7 时判定 true、执行 ENOENT、`return EMPTY_CLIP`、工具回 `success:true, "(剪贴板为空或读取失败)"`。出路=判定与执行同源。(登记@2026-11-05;归属:机主)
+  - 连带：裸命令名 `pwsh.exe` / `where` 与全仓"引擎绝对路径 + existsSync 预筛"纪律相反（PATH 可被顶替，`spawn-isolated.ts` 与 `sandbox/platform/windows.ts` 都有专门注释）。
+- [ ] BUG-39 **桌面端三格**：两条命令注册进 handler 但不在 build.rs 命令表与 capabilities 清单里、两个模块是孤儿、写入路径的 canonicalize 只对已存在目标生效。出路=接线或删干净，不留"看起来有"的假能力。(登记@2026-11-05;归属:机主)
+  - ①`apps/desktop/src-tauri/src/lib.rs` 的 `invoke_handler(tauri::generate_handler![ … git_channel_ipc::git_workspace_diff, git_channel_ipc::workspace_index_scan … ])` 注册了这两条，但 `src-tauri/build.rs` 的 `AppManifest::commands` 表与 `capabilities/default.json` 的 `allow-*` 清单都没有（build.rs 头注明写"两处缺一即远程页该命令失效"）⇒ 远程页（真实消费方 `apps/web/src/hooks/use-host-git-workspace.ts`）调用会被 ACL 拒。
+  - ②`mod embedded_browser_dock` / `mod checkin_trae_web_login` 从未在 lib.rs 声明 ⇒ `embedded_browser_dock.rs`（647 行）与 `checkin_trae_web_login.rs`（377 行）是孤儿模块、命令未注册，但 `apps/web/src/lib/tauri-bridge.ts` 仍在导出 `embeddedBrowserDock*` 与 `checkin_trae_web_login_probe`。
+  - ③`ensure_in_app_data` 的 canonicalize 只在目标**已存在**时执行，`write_text_file` 面向"待创建文件"走词法分支 ⇒ 父目录是符号链接/junction 时写入会跟到 app_data 之外（代码注释自己登记了这条残余）。
+- [ ] BUG-40 **扩展以 `<all_urls>` 注入 content script，安全边界全靠 34 条黑名单**：任何未列举的新站点默认全量接收，权限面含 `tabs` + `scripting`；另 `browser-tab.ts` 的消息监听完全不看 `_sender`。出路=改白名单 + 补来源校验。(登记@2026-11-05;归属:机主)
+  - 判据：`apps/extension/wxt.config.ts` 的 content script `matches: ['<all_urls>']` + 34 条 `excludeMatches`，注入内容是 UI（工具栏/选区弹层）+ 可执行 `agent.action.dom` ⇒ 内网 OA、企业邮箱、新银行域默认全收。
+  - 来源校验缺口：`apps/extension/lib/browser-tab.ts` 的 `chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => …)` 不看 `_sender`，`openInTab(url)` 无协议白名单；而 `entrypoints/background.ts` 的 `registerMessageListener` 已有 `if (sender.id !== chrome.runtime.id) … return false` 的正确写法。当前 `open-work-panel` 零发送方（死代码）故不构成活漏洞，但任一 content script 转发页面可控数据即可打开 `javascript:` / `file:` 标签页。
+- [ ] BUG-41 **小程序 / RN 端五格**：生产构建缺配置时静默回落 localhost、考试倒计时用递减致可无限延时、视频被当图片上传、支付轮询无上限、初始化链同步致白屏无上报。出路=逐格修，缺配置构建即失败。(登记@2026-11-05;归属:机主)
+  - ①`apps/miniapp-taro/src/utils/api-config.ts` 的 `const DEFAULT_BASE_URL = process.env.TARO_ENV === 'h5' ? '/api' : 'http://localhost:8802/api'` —— 仓库只有 `.env.example`、没有 `.env.production`（被 gitignore），任何未在本地补该文件的构建都静默回落 ⇒ 手机首屏全部接口失败、构建期零告警、运行时只表现白屏（`AI_SERVICE_BASE_URL` 同样回落 `http://localhost:8803`）。
+  - ②`apps/miniapp-taro/src/pages/exam/answer.tsx` 的 `timerRef.current = setInterval(() => { setRemain(prev => { … return prev - 1 }) }, 1000)` 用**递减**而非 deadline ⇒ 切后台被挂起/节流后回前台不补偿，考生可无限延长作答；同业务在 RN 侧（`ExamQuestionScreen.tsx` 的 `deadlineRef.current = Date.now() + budget*1000`）与小程序支付页（`pkg-shop/pay/index.tsx`）都用 deadline。
+  - ③`apps/mobile-rn/src/hooks/useChatInput.ts` 的 `const fallback: MessageInputFileType = Platform.OS === 'ios' ? 'image' : 'image'` 三元两侧同值，而上文用 `ImagePicker.MediaTypeOptions.All` 允许选视频 ⇒ `asset.type`/`mimeType` 缺失时视频被当图片上传。
+  - ④`apps/mobile-rn/src/screens/PurchaseScreen.tsx` 的支付轮询无最大次数（只在 `paid` 或卸载时停，而同端 `PayResultScreen.tsx` 有 `MAX_POLL_COUNT`）。
+  - ⑤`apps/miniapp-taro/src/app.tsx` 的模块级副作用链（`setBaseUrl` / `setTransport` / `initCrashReport()` / `startTokenAutoRefresh()`）同步执行，任一步抛错即整包白屏，而 `initCrashReport()` 正在链尾 ⇒ 崩溃上报永无机会。
+- [ ] BUG-42 **守门元门四格：判据自己失去判定力**：自检零用例算通过、豁免清单腐烂与过期都不判红、自检用例断言方向与被测性质相反、空台账被读成"从未失败"，另 139 个 check 脚本从不参与任何自动判定。出路=逐条补判据。(登记@2026-11-05;归属:机主)
+  - ①`scripts/lib/selftest-registrant.mjs` 的 `report()` 只由 `cases` 决定 pass/fail，`cases.length === 0` 时返回 `{pass:0, fail:0}` 而各调用方都写 `return fail ? 1 : 0` ⇒ 一条用例都没登记时 `--self-test` 仍 exit 0 并打印"全部通过（0 例）"（51 个门 import 该模块，零个有 `pass===0` 守卫）。
+  - ②`scripts/check-gate-wiring.mjs` 的 `gate-wiring-allowlist.json` 里 `entries`（10 条 R1/R2 豁免）只打印不判红（`staleExempt` 未 push 进 `reds`），且该结构无 `reviewBy` 字段；同文件 `summarizeR3Register` 的 `reviewBy` 过期只产出一行 warning（`⚠ 已过 reviewBy(仅 warning,不判红)`）⇒ §0.7"豁免会到期"在唯一有到期机制的清单上没牙。
+  - ③`scripts/all-checks-runner.mjs` 的自检 A8 `'A8 空清单判死而不是记绿(main 侧的判据面)'` 断言写的是 `a.passed === 0 && a.exitCode === 0 && a.failed.length === 0` —— 用例名叫"判死"、断言却要求 `exitCode === 0`（即空扫记绿），且只测 `aggregate` 不测 `main()` 的守卫 ⇒ 删掉 `if (CHECK_ALL_STEPS.length === 0) return 2` 这道闸自检仍全绿。
+  - ④`scripts/check-autonomy-leg-health.mjs` 的 `readLedgerEvents()` 对台账**文件缺失**判未判定（`ok:false`），但对台账**为空（0 字节）**返回 `{ ok: true, events: [], why: '台账空' }` ⇒ 日志轮转/清空后被读成"从未失败过"、各维判 ok。
+  - ⑤444 个 `check-*.mjs` 中 **139 个既不在 guardian-runner 注册表、也不在 all-checks-runner 的 28 步里**，而唯一量这项的元门刻意不判红（"未登记存量 218 枚 ≠ 0 ⇒ 装红即恒红"）⇒ 约三分之一"门"从不参与任何自动判定。
+- [ ] BUG-43 **守门执行器两格 + 三个门的判据软化**：串行门无 timeout、`info` 模式失败计成通过；knip 基线缺失时自动生成基线、两个门在目录缺失时直接返回合格。出路=逐条补未判定通道。(登记@2026-11-05;归属:机主)
+  - ①`scripts/lib/guardian-executor.mjs` 的串行分支 `spawnSync(process.execPath, [...], { cwd, windowsHide:true, stdio:['ignore','inherit','pipe'], maxBuffer: 20<<20, encoding:'utf8' })` 无 `timeout` 字段（并行分支有 `gateTimer` + `ETIMEDOUT` 兜底）⇒ 非并行池的写者门挂住时整条提交链无界等待。
+  - ②同文件 `} else { // info 模式:失败不计数,视为通过  passed++` 把 `mode:'info'` 的失败计成通过（现影响 id 23 `check-staged-files.mjs`）。
+  - ③`scripts/check-knip-ratchet.mjs` 的 `if (args.has('--update') || !existsSync(BASELINE_PATH)) { …writeFileSync(BASELINE_PATH, …currentCounts…) ; process.exit(0) }` 在基线缺失时用当前计数自动生成基线并 exit 0 ⇒ 删基线重跑一次就把门槛抬到当前值。
+  - ④`scripts/check-adapter-wiring.mjs` 在 `!existsSync(ADAPTERS_DIR)` 时 `return 0`、`scripts/check-cli-i18n-parity.mjs` 在目录不存在时 `process.exit(0)` 并打 `[OK]`。
+- [ ] BUG-44 **CI 的 ai-service job 结构上不可能红**：`.github/workflows/ci.yml` 的 `python-ai-service` job 里 `uv pip install … || echo "依赖安装失败…跳过"` 吞掉安装失败，随后的 `Probe dev extra` 步两条分支都 `exit 0`，且全 job 无任何 pytest 步骤。出路=安装失败即红 + 补 pytest 步。(登记@2026-11-05;归属:机主)
+  - 后果：依赖装不上时后续 Syntax check 在空环境跑或直接放行，CI 账面绿而 ai-service 从未被验证；文件自述"observe 档"，但 observe 档等于恒绿。
+- [ ] BUG-45 **`render.yaml` 两处使部署必然失败/语义错位**：web 服务在 `rootDir: apps/web` 下跑 workspace 级命令、redis 条目缺 `type: redis` 会被当作 PG 创建。出路=rootDir 上提 + 补 type。(登记@2026-11-05;归属:机主)
+  - ①service `ihui-web` 的 `rootDir: apps/web` 却执行 `pnpm install --frozen-lockfile && pnpm --filter @ihui/web... build` —— `apps/web` 下既无 `pnpm-lock.yaml` 也无 `pnpm-workspace.yaml`，`--frozen-lockfile` 当场失败、`--filter` 也解析不到工作区；`healthCheckPath: /api/health` 在 web 服务上无上游（rewrites 默认指 `127.0.0.1:8802`，Render 上不存在本地 API）。
+  - ②`databases` 段的 `ihui-redis` 条目缺 `type: redis`（也无 `databaseName`）⇒ 按 Render blueprint 语义会被当作 PostgreSQL 创建，应用 `REDIS_URL` 指向一个 PG 实例。
+- [ ] BUG-46 **部署与容器配置族五格**：健康自检的 wss 维恒真、发布前体检被 `continue-on-error` 且发布步不依赖它、Dockerfile.web 非 frozen、compose 明文口令、业务容器无 `user:` 与资源限制。出路=逐格补。(登记@2026-11-05;归属:机主)
+  - ①`deploy/win/test-health.ps1` 头注声明"四维健康自检(web / api / llm / wss)"，但 `$wssOk = $true` 硬编码为真且从未 `Check 'wss'` ⇒ WebSocket 全断时仍打印 `RESULT: ALL_PASS`、退出码 0。
+  - ②`.github/workflows/mobile-rn-release.yml` 的体检步 `continue-on-error: true`，而后续 `执行所选发布腿`（`--execute`）不带 `if: success()` ⇒ 前置链路检查报错时仍继续真实发布并上传渠道。
+  - ③`deploy/docker/Dockerfile.web` 的 `pnpm install --no-frozen-lockfile`（deps 与 builder 两处），而同目录 API/migrate 两个 Dockerfile 与全部 CI 都用 `--frozen-lockfile` ⇒ 同一 commit 两次构建可得不同依赖树。
+  - ④`docker-compose.yml` 的 `command: redis-server … --requirepass ${REDIS_PASSWORD:?}` 与 `test: redis-cli -a "$REDIS_PASSWORD" ping` —— Compose 在解析期就把 `$REDIS_PASSWORD` 替换成明文 ⇒ `docker inspect` / `docker ps --no-trunc` 即可读出。
+  - ⑤同文件全部业务服务未声明 `user:`（以镜像默认用户跑，node:22-alpine / python:3.12-slim 默认 root），仅 otel-collector、loki 有 `deploy.resources`，api/worker/web/db/redis 无任何 CPU/内存限制，`web` 无 healthcheck。
+- [ ] BUG-47 **一条告警规则因量纲错误等于不存在**：`monitoring/prometheus/alerts.yml` 的 `LlmTokenCostSurge` 表达式是 `sum(rate(ihui_llm_tokens_total[15m])) > 100000` —— `rate()` 量纲是 token/秒，而 description 写的是"15 分钟用量超过 100000"（≈111 token/s）⇒ 阈值放大 900 倍。出路=改 `sum(increase(...[15m]))` 并把单位写进 description。(登记@2026-11-05;归属:机主)
+### P3 低（11 条）
+- [ ] BUG-48 **`GET /docs/:id/chunks` 的 `limit` 传非数字会 500 而不是 400**：`apps/api/src/routes/knowledge-rag.ts` 的 `Math.min(100, Number(q.limit))` 对 `NaN` 不设防，透传给服务层 `.limit(NaN)` 触发驱动层错误。出路=改 `Number.isFinite` 兜底（`routes/ai-tutor-routes.ts` 已有正确写法可抄）。(登记@2026-11-05;归属:机主)
+- [ ] BUG-49 **提现对外单号用毫秒时间戳做唯一键**：`apps/api/src/db/commission-queries.ts` 的 `partnerTradeNo: \`WD${Date.now()}\`` —— 同毫秒并发会重复，而 `withdrawal_flows` 只有 user/status 普通索引、无唯一约束 ⇒ 对账侧无法区分两笔。出路=拼 `randomUUID` 后缀 + 加唯一索引。(登记@2026-11-05;归属:机主)
+- [ ] BUG-50 **会话分享链接无过期时间、无撤销入口**：`apps/api/src/db/chat-queries.ts` 的 `findConversationByShareToken` 只按 token 查，表上无 `share_token_expires_at`；`apps/api/src/routes/chat.ts` 只有生成与公开读取两条、无 revoke/delete ⇒ 链接外泄后永久可读。出路=补过期列 + 过滤 + 撤销端点（对照 `routes/files.ts` 的 `findShareByToken` 已有 `expiresAt < now`）。(登记@2026-11-05;归属:机主)
+- [ ] BUG-51 **`response_format` 原样进 `Content-Disposition`**：`apps/api/src/routes/ai-audio.ts` 的 `const fmt = (body.response_format ?? 'mp3').toLowerCase()`，schema 是 `response_format: z.string().optional()`（无 enum、无正则），随后拼进 `Content-Disposition` 的引号内 ⇒ 传 `mp3"; filename="x.html` 可闭合引号追加参数（CR/LF 被 Node 挡，故不拆新响应头，但稳定触发 500）。出路=schema 改 `z.enum`。(登记@2026-11-05;归属:机主)
+- [ ] BUG-52 **五处 `slice(0, max)` 按 UTF-16 code unit 截断会劈开代理对（渲染成 `�`）**：`packages/shared/src/chat/handoff-package.ts`、`packages/dom-actions/src/page-snapshot/serialize.ts` 与 `page-api.ts`、`packages/shared/src/permission/preview.ts`、`packages/ui-native/src/avatar.tsx` 的 `name[0]`。出路=统一走 `truncateByGrapheme`（`Intl.Segmenter` 或代理对检查）。(登记@2026-11-05;归属:机主)
+- [ ] BUG-53 **`checkNavigableUrl` 只判协议白名单、不做 URL 归一化**：`packages/shared/src/utils/navigable-url.ts` 让 `https://user:pass@host` 的 userinfo 原样通过、`\` 反斜杠未处理、scheme 大小写未归一；同目录 `sanitize-url.ts` 已有 `stripUrlCredentialSegments` 却未被调用。出路=调用既有 sanitizer 后再判协议。(登记@2026-11-05;归属:机主)
+- [ ] BUG-54 **`use-social-list` 的 `hasMore` 在 reset 前就生效，重置后首屏可能无法翻页**：`packages/shared/src/hooks/use-social-list.ts` 的 `if (!hasMore && !reset) return` 位于 reset 处理之前，而 `hasMore` 只在 `more()` 内自增后更新 ⇒ 重置后立即触底会被上一次的 `hasMore=false` 挡住。出路=reset 分支先行清 `hasMore`。(登记@2026-11-05;归属:机主)
+- [ ] BUG-55 **守门进度台账把 `exit 2 未判定` 记成 `fail`，污染归因一手证据**：`scripts/lib/guardian-executor.mjs` 的 `appendGateProgress` 三态判据未留未判定档，而同文件汇总处已单列 `undetermined`。另 `scripts/guardian-runner.mjs` 的 `execFileSync('git', …)` 用裸 `'git'`（全仓已收口 `resolveGitBin()`），失败被吞成 warn ⇒ PATH 不通时档位判定恒失败、退回全量档。出路=补档 + 改 `resolveGitBin()`。(登记@2026-11-05;归属:机主)
+- [ ] BUG-56 **CI 与发布脚本四格**：26 个 workflow 无 `timeout-minutes`、一个 output 引用不存在的 step、S3 漂移检查解析失败当无漂移、发布上传把 dispatch 输入内插进 shell。出路=逐格补。(登记@2026-11-05;归属:机主)
+  - ①**26/54 个 workflow 未声明 `timeout-minutes`**（含 `release-sdk.yml`、`mobile-apk-build.yml`、`desktop-build.yml`、`security-scan.yml`、`release-on-tag.yml`、`sync-downloads.yml`）⇒ 默认 6 小时上限，构建挂死时结论一直 pending、既不出红也不出绿。
+  - ②`.github/workflows/ci-monorepo.yml` 的 `outputs.cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}` 引用了不存在的 step id（全文件唯一出现处即该行，无 `id: pnpm-cache`）⇒ output 恒空。
+  - ③`.github/workflows/s3-lifecycle-drift.yml` 解析声明文件用 `subprocess.run(...).stdout` 不检查 returncode/stderr，解析失败时 `declared_rules = []`，若线上也为 0 条则判 `drift=false` 并打印"✅ 无漂移"（未定义 `yaml` 模块的 runner 上必现）。
+  - ④`.github/workflows/assistant-release-upload.yml` 把 `workflow_dispatch` 输入直接内插进 shell（`gh release upload "${{ github.event.inputs.release_tag }}" … --clobber`），双引号内 `$(...)` 仍会被 bash 求值，而该 job 持 `contents: write`。
+- [ ] BUG-57 **部署脚本八处硬编码盘符 + 三份脚本缺 `$ErrorActionPreference`**：`ihui-deploy.ps1` 的 `$BackupDir`/`$AdminPwdFile`/`$IhuiPnpmHome` 等、`install-deploy-loop-service.ps1` 的 `$logDir`、`deploy-window-common.ps1` 的状态路径均写死 `D:\DevEnv\...`；`alert-dedup.ps1` / `clean-build-purge.ps1` / `admin-credential.ps1` 无 `Stop`。出路=路径从 `$env:` 或仓库相对路径推导 + 补 `Stop`。(登记@2026-11-05;归属:机主)
+- [ ] BUG-58 **CDP 浏览器视图的 `runJs` 消息监听无超时摘除，多次执行互相污染**：`apps/web/src/components/work-panel/cdp-browser-view.tsx` 的 `runJs` 内 `ws.addEventListener('message', onResult)`，移除只在 `execute_result` / `error` 两条分支里 ⇒ 远端不回包时监听永久挂在 socket 上，下次执行多个 listener 同时命中同一条 `execute_result`、把旧结果写进本次；同文件 `executeJson` 已有 3s `fallback` 定时器摘除监听的正确写法。出路=`runJs` 复用同一形态。(登记@2026-11-05;归属:机主)
+- [ ] BUG-59 **蓝绿部署工作流无并发组、SSH 指纹走 TOFU、部署代码与本 run 的 SHA 无绑定**：`blue-green-deploy.yml` 无 `concurrency:`、`ssh-keyscan` 无指纹校验、部署的是部署机 `git pull` 的结果；回滚前置仅 `docker compose ps | grep -q "Up"`、`nginx -s reload` 前未 `nginx -t`。出路=补并发组 + 固定指纹 + 传 SHA + 回滚前功能探测。(登记@2026-11-05;归属:机主)
+### 机器判定面（4 条，全部为 `node scripts/all-checks-runner.mjs` 全量 28 步的实测红）
+- [ ] BUG-60 **`@ihui/types` 的 dist 声明落后源码 11 项（第 5 步 `pnpm check:stale-dist` rc=1）**：实测「✗ @ihui/types [档a] 声明落后 11 项 ⇒ 判红」，缺 `PRODUCT_CAPABILITIES`/`PRODUCT_FORMS`/`ProductCapability` 等；`@ihui/database` 落后 98 项、`@ihui/shared` 落后 2 项（档 b 只报数）。apps/* 有按 dist 消费的路径 ⇒ 运行时取到 `undefined`。出路=`pnpm --filter @ihui/types build` + 纳入发布前检查。(登记@2026-11-05;归属:机主)
+- [ ] BUG-61 **web 端新增 4 个死 i18n key（第 18 步 `scan-dead-i18n-keys --target all --exit 1` rc=1）**：判据输出「`--exit 1`:发现 4 个死 key(存量基线 0,新增 4)」，判定面为 HEAD blob，报告落在 `.ihui-agent/tmp/i18n-dead-keys-2026-11-05.md`（机器运行态、不入库）。另有 7 枚 web 键与 5 枚 miniapp 键按契约声明豁免（`eduCertificates.*`、`ai.stream.subagent`、`byok.stepN Title` 等，依据已逐条钉在测试里）。出路=读报告点名 4 个键，或补消费点、或按契约声明免除；不得直接抬基线。(登记@2026-11-05;归属:机主)
+- [ ] BUG-62 **3 对 `deploy/prod-bundle` 影子漂移（第 24 步 `check-prod-bundle-shadow` rc=1）**：实测「❌ deploy.sh（入库源独有 15 行、运行副本独有 5 行）」「❌ svc/run-ai.ps1（入库源独有 6 行、运行副本独有 0 行）」「❌ monitor.ps1（入库源独有 3 行、运行副本独有 0 行）」，其余 20 对逐字节相等。该目录被 gitignore 但**线上实跑的是它** ⇒ 二者不一致时"线上行为与仓内代码无关"。与既有记的门 104 三对漂移是同一批、属他席中间态。出路=确认权威侧后用 `scripts/sync-prod-bundle-shadow.mjs` 清偿；清偿前不得据仓内脚本推断线上行为。(登记@2026-11-05;归属:机主)
+- [ ] BUG-63 **基准交付账 `#16 流式平滑渲染` 仍存在且无有效豁免（第 28 步 `check:benchmark-delivery` rc=2）**：判据输出「三态:已交付 41 / 仍存在 2 / 判不出 0」「未豁免的仍存在 1 条:#16 —— `--strict` 下顶红」，另三条"如实登记（不参与定性）"项仍在（`#51 自证 stub 类型`、`#D151 extension 端未接线`、`#45 AGENT_SELF_HEALING_ENABLED 默认 off`）。该尺子刻意不在提交链上（判文档与代码一致性、与提交内容无关）。出路=#16 要么补实现要么按合法暂态挂 `exemptUntil` + `exemptReason`。(登记@2026-11-05;归属:机主)
+### 本批覆盖边界（未判的不写成判过）
+- **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
+- **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
+- **已用代码证据排除、不再重复排查的面**（避免下一轮重复劳动）：`as any`/`@ts-ignore` 全仓仅 4+9 处且集中在测试与 seed；包 exports 解析 wildcard 修正后 unresolved 0；`sql.raw` 拼接面全部走 drizzle `sql` 模板或 `sql.join()` 参数绑定；SSRF 的 `utils/ssrf-guard.ts`（`safeFetch` 逐跳）与 `ai-feed-service.ts` 的 `proxyImage`（5 道闸 + 拒 svg）覆盖到位；路径穿越在 `pdf-routes.ts` / `workspace.ts` / `transcode.ts` / 桌面端 `ensure_in_app_data` 均已校验；上传侧 `file-type-validator.ts` 单源（扩展名→MIME→魔数，白名单不收 svg/html）、落盘名 `randomUUID()`、`/uploads/*` 有 `UPLOAD_CSP`；JWT 全仓 HS256 固定 + `algorithms: [ALG]` + `iss`/`aud` 校验、`web/src/lib/auth-utils.ts` 显式拒 `alg !== 'HS256'`；`crypto.ts` 用 `aes-256-gcm` + `randomBytes(12)`、比较走 `secretsEqual`（SHA-256 定长后 `timingSafeEqual`）；CORS 仅 2 处 `*`（图片代理不带 credentials、CLI 回环面）、`cors-origin.ts` 对 `chrome-extension://` fail-closed；登录/短信/支付回调限流在位；logger 唯一落盘口已 `redactCredentialText`；`Math.random()` 唯一生产命中是埋点 session id；无 `createHash('md5'|'sha1')` 存密码；`JWT_SECRET`/`CREDENTIALS_ENCRYPTION_KEY` 强制 ≥32 字符并拒已知占位符；依赖版本（lodash 4.18.1 / axios 1.19.0 / next 16.4.3 / fastify 5.12.7 / jose 6.2.9 / ws 8.21.3 / tar 7.5.22）均不在已知高危区间、未使用 `jsonwebtoken`；CI 无 `echo ${{ secrets.* }}`、无 `permissions: write-all`、无 `pull_request_target`、外部 action 基本 SHA 化。

@@ -2052,6 +2052,12 @@ class AgentEngine:
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
         # 批58 接线:文件变更事件路由器(纯路由层,惰性创建;off 时恒为 None)
         self._file_watcher_router: Any = None
+        # Z11b 增量索引消费面:repo 根 → 去抖桥(生命周期归引擎实例,不自起 daemon)。
+        # clock/window 是可注入缝:生产用真实单调钟与 env 窗口,用例据此零 sleep 驱动。
+        self._incremental_bridges: dict[str, Any] = {}
+        self._incremental_index_identity: dict[str, str | None] = {}
+        self._incremental_index_clock: Any = time.monotonic
+        self._incremental_index_window_s: float | None = None
         # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
         # 注册已知特性(含本批各 env 开关);off 时引擎不咨询注册表,判定路径与
         # 现状逐字节一致;on 时经注册表解析生效集(见 _resolve_engine_features)。
@@ -3580,6 +3586,73 @@ class AgentEngine:
         except Exception as e:  # noqa: BLE001 - 分发失败降级 0
             logger.warning("file_watcher 分发失败(降级返回 0): %s", e)
             return 0
+
+    def _incremental_bridge_for(
+        self, repo_root: str, internal_user_id: str | None = None
+    ) -> Any | None:
+        """Z11b:按 repo 根惰性取去抖桥(单一消费入口,不另起调度层)。
+
+        判据零复算:去抖/档位/订阅全在 `codebase_incremental_bridge`,索引半区全在
+        `codebase_incremental_index`;本方法只负责把 router、repo 根与索引入口连起来。
+        router 取不到(门控 off / 构造失败)⇒ 返回 None,由调用方出声为未判定(§0.3)。
+        写通道主体按 §5「认证不等于授权」由承载层显式入参逐轮传入(不做记录侧反推)。
+        """
+        router = self._file_watcher_router_or_none()
+        if router is None:
+            return None
+        self._incremental_index_identity[repo_root] = internal_user_id
+        bridge = self._incremental_bridges.get(repo_root)
+        if bridge is None:
+            from .codebase_incremental_bridge import IncrementalIndexBridge
+            from .codebase_incremental_index import index_changed_paths
+            from .codebase_indexer import codebase_indexer
+
+            async def _index_run(paths: tuple[str, ...]) -> Any:
+                return await index_changed_paths(
+                    codebase_indexer,
+                    repo_root,
+                    paths,
+                    internal_user_id=self._incremental_index_identity.get(repo_root),
+                )
+
+            bridge = IncrementalIndexBridge(
+                router,
+                [repo_root],
+                _index_run,
+                window_s=self._incremental_index_window_s,
+                clock=self._incremental_index_clock,
+            )
+            self._incremental_bridges[repo_root] = bridge
+        return bridge
+
+    async def pump_incremental_index(
+        self, repo_root: str, *, internal_user_id: str | None = None
+    ) -> Any:
+        """真实消费点(§0.9:器物在、判据在,还得有人调):排空 watcher 事件 → 增量索引入口。
+
+        由 apply_patch 落盘分发变更后调用;返回 `DrainOutcome`(四档)。
+        桥不存在(router 取不到)⇒ 显式 `undetermined` 并点名,绝不记成「没有变更」。
+        任何索引侧异常都降级出声(补丁主链路绝不因增量而断)。
+        """
+        from .codebase_incremental_bridge import DRAIN_UNDETERMINED, DrainOutcome
+
+        bridge = self._incremental_bridge_for(str(Path(repo_root).resolve()), internal_user_id)
+        if bridge is None:
+            return DrainOutcome(
+                DRAIN_UNDETERMINED,
+                reason=(
+                    "file_watcher 路由器不可用(门控 off 或构造失败)⇒ 增量索引未判定,"
+                    "不得读成「没有变更」"
+                ),
+            )
+        try:
+            return await bridge.tick()
+        except Exception as e:  # noqa: BLE001 - 增量轮异常降级出声,补丁主链路绝不受影响
+            logger.warning("增量索引排空异常(降级,交 index_repository 兜底): %s", e)
+            return DrainOutcome(
+                DRAIN_UNDETERMINED,
+                reason=f"增量索引轮异常({type(e).__name__}): {e} ⇒ 未判定,交全量路径收敛",
+            )
 
     def reset_agents_md_state(self, thread: EngineThread) -> None:
         """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
@@ -6002,9 +6075,25 @@ class AgentEngine:
             changed_files = [r for r in results if r.get("changed")]
             # 批58:ENGINE_FILE_WATCHER_ENABLED on 时把本次变更路径分发给订阅方
             if _engine_file_watcher_enabled_from_env():
-                self.dispatch_file_change(
-                    [str((base / str(r.get("path", ""))).resolve()) for r in changed_files]
+                # 订阅必须先于分发(否则首批变更事件在桥建立前就分发掉了 ⇒ 永久丢)。
+                changed_abs_paths = [
+                    str((base / str(r.get("path", ""))).resolve()) for r in changed_files
+                ]
+                self._incremental_bridge_for(str(base), thread.user_id)
+                self.dispatch_file_change(changed_abs_paths)
+                # Z11b 装车:事件→去抖桥→增量索引入口(批过窗即只重算受影响路径)。
+                # 增量轮失败/不可判定都进 notes 出声,补丁主链路不受影响。
+                from .codebase_incremental_bridge import DRAIN_BATCH, DRAIN_UNDETERMINED
+
+                drain = await self.pump_incremental_index(
+                    str(base), internal_user_id=thread.user_id
                 )
+                if drain.kind in (DRAIN_BATCH, DRAIN_UNDETERMINED):
+                    notes.append(
+                        f"增量索引排空:{drain.kind}"
+                        f"{f'({len(drain.paths)} 条路径进入增量轮)' if drain.paths else ''}"
+                        f"{f':{drain.reason}' if drain.reason else ''}"
+                    )
             thread.touch()
             # 批 41 接线:补丁提交进回合净 diff 跟踪器(对标 Codex TurnDiffTracker;
             # tracker 初始化/记录失败降级跳过,不影响补丁主链路)。
