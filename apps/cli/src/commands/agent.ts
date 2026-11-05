@@ -31,6 +31,7 @@ import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
 import { redactSecrets } from '../redact.js';
+import { sanitizeMessagesForTransport } from '../util/invisible-transport.js';
 import {
   registerTools,
   registerBrowserTools,
@@ -1424,7 +1425,11 @@ async function sampleWithRetry(
     try {
       await streamChat({
         model: opts.modelId,
-        messages: opts.messages,
+        // 出口清洗:tool 档正文里夹着本仓水印的零宽载荷时,上游会以 400「请求包含不合法字符」
+        // 整趟拒绝(实测:一份派发转录 970/2426 枚零宽,全部落在 read_file 的 tool_result 上;
+        // 会话只要读了水印第枚源文件,下一趟必自毒 ⇒ 这是 artifact-committed 长期为 0 的成因之一)。
+        // 判据单源 = ../util/invisible-transport.ts;本行只调用,不复算(§0.6)。
+        messages: sanitizeMessagesForTransport(opts.messages),
         signal: opts.signal,
         onDelta: opts.onDelta,
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
@@ -1546,10 +1551,10 @@ export function createCompactionSampler(model: string): CompactionSampler {
       try {
         await streamChat({
           model,
-          messages: [
-            { role: 'system', content: COMPACTION_SUMMARY_PROMPT },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-          ],
+          messages: sanitizeMessagesForTransport([
+            { role: 'system' as const, content: COMPACTION_SUMMARY_PROMPT },
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ]),
           signal: controller.signal,
           // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
           stream: true,
@@ -2112,7 +2117,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
-          messages: toOpenAiMessages(requestMessages),
+          messages: sanitizeMessagesForTransport(toOpenAiMessages(requestMessages)),
           ...(withTools && nativeExtraBody
             ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
             : {}),
