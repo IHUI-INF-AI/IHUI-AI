@@ -280,7 +280,7 @@ export default function N8nModel() {
       onToast(tt('devEnter.n8nModel.createSuccess', '智能体创建成功'), { kind: 'success' })
     } catch (e) {
       logger.error('n8n-model', '创建N8N智能体', e)
-      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
+      onToast(tt('common.operationFailed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
       setTimeout(() => {
