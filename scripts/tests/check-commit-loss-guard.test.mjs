@@ -92,7 +92,11 @@ test('门体判据: On fix/<branch>: → 识别为 stash subject(非 main 分支
 test('门体判据: 分支名含空格(detached HEAD 的 "(no branch)")→ 必须识别得出且取得出原 hash', () => {
   const subject = 'index on (no branch): 5ef36e59d wip'
   assert.ok(isStash(subject), '识别侧失配 = 该提交在备份核对里被当成普通 commit')
-  assert.equal(originalHash(subject), '5ef36e59d', '只改识别侧不改取 hash 侧 = 认得出却追不回原提交')
+  assert.equal(
+    originalHash(subject),
+    '5ef36e59d',
+    '只改识别侧不改取 hash 侧 = 认得出却追不回原提交',
+  )
 })
 
 test('门体判据: 普通提交 subject → 不识别为 stash', () => {
@@ -214,13 +218,21 @@ test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git commit --allow-empty -m "temp-dropped"', { cwd: dir, stdio: 'ignore' })
-    const dropped = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const dropped = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync(`git tag lost-commit/test-dropped ${dropped}`, { cwd: dir, stdio: 'ignore' })
     const r = runScript(['--blocking'], { cwd: dir })
-    assert.equal(r.status, 0, `被丢的那枚已备份 ⇒ 应放行,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `被丢的那枚已备份 ⇒ 应放行,实际 ${r.status}\n${r.stdout}\n${r.stderr}`,
+    )
     assert.match(r.stdout, /未检测到 reset|无 commit 丢失风险/)
   } finally {
     rmScratch(dir)
@@ -230,7 +242,10 @@ test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行
 test('判据单元: dropBackedResets 看被丢的那枚,不看 reset 后的 HEAD', () => {
   const line = 'bbbbbbb HEAD@{0}: reset: moving to HEAD~1'
   // beforeHash(被丢的 aaaaaaa)已备份、行首 bbbbbbb 未备份 ⇒ 放行
-  assert.deepEqual(__test__.dropBackedResets([line], new Set(['aaaaaaa']), () => 'aaaaaaa'), [])
+  assert.deepEqual(
+    __test__.dropBackedResets([line], new Set(['aaaaaaa']), () => 'aaaaaaa'),
+    [],
+  )
   // 两枚都未备份 ⇒ 保留
   assert.equal(__test__.dropBackedResets([line], new Set(['ccccccc']), () => 'aaaaaaa').length, 1)
   // 取不到 beforeHash 时退回旧行为(行首已备份 ⇒ 放行)
@@ -238,8 +253,16 @@ test('判据单元: dropBackedResets 看被丢的那枚,不看 reset 后的 HEAD
 })
 
 test('判据单元: reflogRefOf 从 ref@{} 前缀取 ref 名', () => {
-  assert.equal(__test__.reflogRefOf('abc1234 refs/heads/main@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'refs/heads/main')
-  assert.equal(__test__.reflogRefOf('abc1234 HEAD@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'HEAD')
+  assert.equal(
+    __test__.reflogRefOf(
+      'abc1234 refs/heads/main@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1',
+    ),
+    'refs/heads/main',
+  )
+  assert.equal(
+    __test__.reflogRefOf('abc1234 HEAD@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'),
+    'HEAD',
+  )
   assert.equal(__test__.reflogRefOf(''), '')
 })
 
@@ -313,7 +336,11 @@ test('纯函数: splitReachableSameContent 三档(树+题 / 仅树 / 待处置)'
   // fail-safe:索引为空(取不到)⇒ 三枚全落待处置,绝不按等价放行
   const noIdx = __test__.splitReachableSameContent({
     candidates: ['c-same', 'c-tree-only', 'c-lost'],
-    treeByCommit: new Map([['c-same', 'T1'], ['c-tree-only', 'T2'], ['c-lost', 'T9']]),
+    treeByCommit: new Map([
+      ['c-same', 'T1'],
+      ['c-tree-only', 'T2'],
+      ['c-lost', 'T9'],
+    ]),
     subjectByHash: new Map(),
     reachableKeys: new Set(),
     reachableTrees: new Set(),
@@ -655,7 +682,12 @@ test('逐路径覆盖·端到端: 同秒并列两枚 D(删不同 old blob)⇒ �
     })
   }
   const head = () =>
-    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
   const T = new Date().toISOString()
   try {
     writeFileSync(join(dir, 'f.txt'), 'v1\n')
@@ -720,7 +752,13 @@ test('逐路径覆盖·端到端: 3b 未判定项不得被悬空档整体赋值�
       env: { ...process.env, GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d },
     })
   }
-  const head = () => execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+  const head = () =>
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
   const T = new Date().toISOString()
   try {
     writeFileSync(join(dir, 'f.txt'), 'v1\n')
@@ -990,7 +1028,11 @@ test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放�
     })
   }
   const rev = () =>
-    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
   try {
     git('git checkout -b side')
     writeFileSync(join(dir, 'q.txt'), 'q-content\n')
@@ -1106,7 +1148,11 @@ test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,�
     })
   }
   const rev = () =>
-    execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
   try {
     git('git checkout -b side')
     writeFileSync(join(dir, 'q.txt'), 'q-content\n')
@@ -1274,7 +1320,8 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
 
 // ─── 无 origin remote 场景(不 crash) ────────────────────
 
-test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {  const dir = createTempRepo()
+test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {
+  const dir = createTempRepo()
   try {
     // 临时仓库无 origin,git ls-remote origin 会失败
     // 脚本应 allowFail 处理,不 crash
@@ -1394,7 +1441,6 @@ test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回�
     const gitDir = G(local, ['rev-parse', '--absolute-git-dir']).trim()
     const packed = readFileSync(join(gitDir, 'packed-refs'), 'utf8')
     assert.match(packed, /refs\/tags\/lost-commit\/only-on-remote/, '自愈后必须固化进 packed-refs')
-
   } finally {
     rmScratch(base)
   }
@@ -1641,7 +1687,9 @@ test('清单出口·超窗: --list-out-of-window 逐枚交完整 oid,行形状�
   const dir = createTempRepo()
   try {
     const ancient = makeDangling(dir, 'e2e-list-outwise-XYZ', '2020-01-01T00:00:00 +08:00')
-    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listOutOfWindow], { cwd: dir })
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listOutOfWindow], {
+      cwd: dir,
+    })
     assert.equal(r.status, 0, `超窗不得拦,实际 ${r.status}:\n${String(r.stdout).slice(-700)}`)
     const listed = oidsAfterHeader(r.stdout, '--list-out-of-window:')
     assert.deepEqual(listed, [ancient], `超窗清单必须恰含那一枚 ${ancient},实际 ${listed}`)
@@ -1681,7 +1729,10 @@ test('清单出口·全量档契约: --window-days 0 时 --list-unbacked 必须�
     )
     assert.equal(full.status, 1, `窗维关闭必须照拦,实际 ${full.status}`)
     const listed = oidsAfterHeader(full.stdout, '--list-unbacked:')
-    assert.ok(listed.includes(ancient), `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`)
+    assert.ok(
+      listed.includes(ancient),
+      `全量档的未备份清单必须含超窗那枚 ${ancient},实际 ${listed}`,
+    )
   } finally {
     rmScratch(dir)
   }
@@ -1730,10 +1781,9 @@ test('--list-covered·反向①: 不给开关 ⇒ 不落盘、无新增输出(�
     assert.ok(!existsSync(target), '不给 --list-covered 时不得落盘')
     assert.doesNotMatch(off.stdout, /--list-covered:/, '默认输出不得出现开关横幅')
 
-    const on = runScript(
-      ['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target],
-      { cwd: dir },
-    )
+    const on = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target], {
+      cwd: dir,
+    })
     assert.equal(on.status, 0, `开关只加落盘,不得改判定,实际 ${on.status}:\n${on.stdout}`)
     const stripped = String(on.stdout)
       .split('\n')
@@ -1790,10 +1840,9 @@ test('--list-covered·反向②: 开关开 ⇒ 落盘条数 == pathCovered.size,
     git('git branch -D temp-gap')
 
     const target = join(dir, 'covered-list.jsonl')
-    const r = runScript(
-      ['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target],
-      { cwd: dir },
-    )
+    const r = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target], {
+      cwd: dir,
+    })
     assert.equal(r.status, 1, `有缺口必须判红,实际 ${r.status}:\n${r.stdout}`)
     assert.ok(existsSync(target), '开关开时必须落盘')
     const recs = readCoveredJsonl(target)
@@ -1833,9 +1882,15 @@ test('装车证明: 超窗清单旗标必须①在 FLAGS 唯一源头里②被 a
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   const flag = __test__.FLAGS.listOutOfWindow
   assert.ok(/listOutOfWindow:\s*'--list-out-of-window'/.test(src), 'FLAGS 必须声明该旗标(唯一源头)')
-  assert.ok(src.includes(`process.argv.includes(FLAGS.listOutOfWindow)`), 'main 必须从 FLAGS 读,不得写死字面量')
+  assert.ok(
+    src.includes(`process.argv.includes(FLAGS.listOutOfWindow)`),
+    'main 必须从 FLAGS 读,不得写死字面量',
+  )
   assert.ok(/if \(isListOutOfWindow\)/.test(src), '读取点之后必须有真判定点')
-  assert.ok(/for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src), '判定必须落到逐枚打印')
+  assert.ok(
+    /for \(const o of win\.outOfWeek\) console\.log\(o\.hash\)/.test(src),
+    '判定必须落到逐枚打印',
+  )
   // 顺序锁:清单打印必须排在 if/else 分桶链**之后**,否则窗内有债时超窗名单会被 else 吞掉
   const chain = src.lastIndexOf('} else if (unreachable.length > 0')
   const print = src.indexOf('if (isListOutOfWindow)')
@@ -1895,10 +1950,7 @@ test('远程 tag 完整性·显式发起但 ls-remote 取不到 ⇒ UNDETERMINED
   assert.equal(r.status, 2, `未判定必须 exit 2,实际 ${r.status}:\n${out.slice(-600)}`)
   // ③ 不得出现"通过"字样(尤其不得打印成功句)
   assert.ok(!out.includes('通过'), `未判定不得写成通过,实际输出:\n${out.slice(-600)}`)
-  assert.ok(
-    !out.includes(__test__.GREEN_MARKERS.noRisk),
-    '未判定不得打印"无 commit 丢失风险"',
-  )
+  assert.ok(!out.includes(__test__.GREEN_MARKERS.noRisk), '未判定不得打印"无 commit 丢失风险"')
 })
 
 // ─── 3b 维(2026-11-05):lost-commit/* tag 直接指向的提交也纳入逐路径覆盖 ───
@@ -1924,7 +1976,12 @@ test('3b·判据单元: tagPointedCommitSet 只认 lost-commit/* 名集(③ 防�
     { tag: 'backup/snapshot', hash: 'b1' },
   ]
   assert.deepEqual(
-    [...__test__.tagPointedCommitSet(reachability, new Set(['lost-commit/auto-1', 'lost-commit/auto-2']))].sort(),
+    [
+      ...__test__.tagPointedCommitSet(
+        reachability,
+        new Set(['lost-commit/auto-1', 'lost-commit/auto-2']),
+      ),
+    ].sort(),
     ['a1', 'a2'],
     '普通 tag / backup tag 不承担"悬空提交备份"语义,纳进来是误扩',
   )
@@ -1941,7 +1998,11 @@ test('3b·端到端①: tag 指向的提交全部路径已在交付面覆盖 ⇒
     git('git commit -m "covered-dangling"')
     git('git checkout main')
     git('git branch -D temp-covered')
-    const oid = execSync('git rev-parse HEAD@{1}', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const oid = execSync('git rev-parse HEAD@{1}', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     // 再在主线上落地同样内容(同路径同 blob)⇒ 该提交"已备份且已清偿"
     writeFileSync(join(dir, 'shared.txt'), 'T\n')
     git('git add shared.txt')
@@ -1967,7 +2028,11 @@ test('3b·端到端②: tag 指向的提交有路径无覆盖 ⇒ 必须点名�
     writeFileSync(join(dir, 'lost-unique-3b.txt'), 'never-landed\n')
     git('git add lost-unique-3b.txt')
     git('git commit -m "unpledged-dangling"')
-    const oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     git('git checkout main')
     git('git branch -D temp-unpledged')
     git(`git tag lost-commit/unpledged ${oid}`)
@@ -2000,7 +2065,11 @@ test('3b·端到端③: 非 lost-commit/* 的普通 tag ⇒ 不纳入新维度(�
     writeFileSync(join(dir, 'normal-only.txt'), 'never-landed\n')
     git('git add normal-only.txt')
     git('git commit -m "normal-tag-dangling"')
-    const oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
     git('git checkout main')
     git('git branch -D temp-normal-tag')
     git(`git tag release/3b-normal ${oid}`)

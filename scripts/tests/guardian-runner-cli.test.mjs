@@ -69,7 +69,13 @@ test('CLI:--staged 行为保留(空暂存面 ⇒ 全量档 332 门读数)', () =
   try {
     const idx = join(tmp, 'index')
     const env = { ...process.env, GIT_INDEX_FILE: idx }
-    const seed = spawnSync('git', ['read-tree', 'HEAD'], { cwd: ROOT, env, encoding: 'utf8' })
+    const seed = spawnSync('git', ['read-tree', 'HEAD'], {
+      cwd: ROOT,
+      env,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
     assert.equal(seed.status, 0, seed.stdout + seed.stderr)
     const r = run(['--staged'], { GIT_INDEX_FILE: idx })
     assert.equal(r.status, 0, r.stdout + r.stderr)
