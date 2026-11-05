@@ -6898,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "Conversations",
+    "deleteConv": "Delete conversation",
+    "loadMore": "Load more",
+    "markRead": "Mark as read",
+    "searchPh": "Search chats, contacts, services",
     "title": "Messages",
     "type": {
       "course": "Course",
