@@ -31,6 +31,7 @@ import {
   splitRotateStandoff,
   refreshAutonomyCandidates,
   decideParkedRound,
+  parseSupplyHolds,
 } from '../auto-evolve.mjs'
 import { planFaceDigest, planFaceDigestFromHead } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
@@ -1702,5 +1703,65 @@ test('ⓚ 轮级终局档(RP-66):满 N 轮落一枚不带票头的档、按串�
     assert.equal(r.emit, false, `门限 ${String(badV)} 不是正整数,不得凭缺省值发信`)
     assert.match(r.reason, /parkedRoundStreak/)
   }
+})
+
+test('ⓜ 账面挂账搁置台账:三态不并桶、到期自动回池、坏行一条都不搁', () => {
+  const NOW = Date.parse('2026-11-06T12:00:00Z')
+  const row = (o) => JSON.stringify(o)
+  const good = {
+    head: 'Y-13',
+    key: 'k1',
+    owner: 'b58c',
+    reason: '实现已入库,结清卡在侧车这一步',
+    expires: '2026-11-09',
+  }
+  // ① ok:命中的两型匹配(key 指纹 / head 片段)都要真能匹配上
+  const ok1 = parseSupplyHolds(row(good) + '\n', { now: NOW })
+  assert.equal(ok1.state, 'ok')
+  assert.equal(ok1.held.length, 1)
+  // ② 到期不是豁免的延续:进 expired、从 held 剔除 ⇒ 票回到派单面
+  const exp = parseSupplyHolds(row({ ...good, expires: '2026-11-01' }), { now: NOW })
+  assert.equal(exp.state, 'ok', '到期本身不是判据故障,不能落 undetermined')
+  assert.equal(exp.held.length, 0, '到期还搁着 = 一纸长期豁免,正是要防的那型')
+  assert.equal(exp.expired.length, 1)
+  assert.match(exp.why, /回到派单面/)
+  // ③ 台账不存在(ENOENT)⇒ 零搁置,但读数必须是"没这本账",不得写成"查过且无需搁"
+  const absent = parseSupplyHolds(null, { now: NOW, absentOk: true })
+  assert.equal(absent.state, 'absent')
+  assert.match(absent.why, /没这本账|ENOENT/)
+  // ④ 读了却取不到 ⇒ 未判定,一条都不搁(不把"量不动"读成任一方向)
+  const unj = parseSupplyHolds(null, { now: NOW, absentOk: false })
+  assert.equal(unj.state, 'undetermined')
+  assert.equal(unj.held.length, 0)
+  // ⑤ 坏行整本作废并逐条点名 —— 只剔坏行放行好行会让"少一个逗号"变成"少一道闸"
+  const bad = parseSupplyHolds(
+    [
+      row(good),
+      '{坏 JSON',
+      row({ ...good, head: 'X-1', owner: '' }),
+      row({ ...good, head: 'X-2', reason: '太短' }),
+      row({ ...good, head: 'X-3', expires: '2026-13-40' }),
+    ].join('\n'),
+    { now: NOW },
+  )
+  assert.equal(
+    bad.state,
+    'undetermined',
+    `有坏行却报 ok = 形状不成立的行被静默吞掉:${JSON.stringify(bad.problems)}`,
+  )
+  assert.equal(bad.held.length, 0, '未判定档下一条都不搁')
+  assert.equal(
+    bad.problems.length,
+    4,
+    `每条坏行都得点名:${JSON.stringify(bad.problems.map((p) => p.why))}`,
+  )
+  // ⑥ 两枚皆空的死条目(谁也匹配不上)同样点名,不默认放行
+  const dead = parseSupplyHolds(row({ ...good, head: '', key: '' }), { now: NOW })
+  assert.equal(dead.state, 'undetermined')
+  assert.match(dead.problems[0].why, /key\/head 至少一枚/)
+  // ⑦ 空白行与零搁置台账:ok 且 held 为空(第一期这本账可能就是空的,不能因此判故障)
+  const empty = parseSupplyHolds('\n   \n', { now: NOW })
+  assert.equal(empty.state, 'ok')
+  assert.equal(empty.held.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

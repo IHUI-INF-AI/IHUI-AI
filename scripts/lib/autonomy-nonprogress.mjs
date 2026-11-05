@@ -172,6 +172,13 @@ export const ACTION_EXEMPTIONS = Object.freeze({
     reason: '轮级:连续 N 轮终止在自我面闸 ⇒ 已喊 critical 一次的终局留痕,不属于任何一枚票的空转',
     site: 'auto-evolve.mjs 自我面闸(RP-66 轮级档)',
   },
+  // 账面挂账搁置(2026-11-06 立):它**带 ticketKey**(要说清是哪张票被搁),但那是"别席已入库、
+  // 账面没跟上"的等待,不是这张票第 N 次干不动。不豁免的后果很具体:每轮搁一次就计一次空转,
+  // 8 小时后它被推到 park ⇒ 把"等别人结清"伪装成"票坏"——与 runner-face-* 那一族同一个洞。
+  'supply-hold-skip': {
+    reason: '搁置台账命中:等待账面结清,不是本票的第 N 次尝试(到期自动回派单面)',
+    site: 'auto-evolve.mjs 派单面(supply-hold 台账)',
+  },
   // 占班次/轮级这一族:不属于任何一枚票(行内无 ticketKey,或它只是"将要派"的标记)。
   // 登记在此是为了让覆盖锁能证明"不计数"是有理由的决定,而不是又一次静默漏计。
   dispatched: {

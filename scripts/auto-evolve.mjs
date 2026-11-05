@@ -105,6 +105,12 @@ export const GATES_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-gates.json'
 /** 人工阀分类语料(判据实现住在 lib/human-valve.mjs,这里只取它的语料文件)。
  *  必须排在 ROOT 之后:const 声明有 TDZ,放在上面会让本器一被 import 就 ReferenceError。 */
 export const VALVE_LIST_JSON = join(ROOT, 'scripts', 'data', 'human-valve-list.json')
+/**
+ * 账面挂账搁置清单(2026-11-06 立,`supply-hold-skip` 的唯一数据面)。
+ * 每行一枚具名条目:{key | head, ticket, reason, owner, expires}。
+ * 与人工阀清单分开是有意的:阀答"这个动作需不需要人",这一本答"这张票已被别人做了、只是账面没跟上"。
+ */
+export const SUPPLY_HOLDS_JSON = join(ROOT, 'scripts', 'data', 'auto-evolve-supply-holds.jsonl')
 /** O6504 人工阀清单 / O6502 成本熔断(调度层读同一份真源,不另写第二份判据) */
 const HUMAN_GATES_JSON = join(ROOT, 'scripts', 'data', 'human-gates.json')
 const COST_CAPS_JSON = join(ROOT, 'scripts', 'data', 'cost-caps.json')
@@ -1917,6 +1923,95 @@ export function landedCommitOfTicket(key, { gitLogFn } = {}) {
 }
 
 /**
+ * 账面挂账搁置台账的解析(纯函数,零 IO)。三态绝不并桶(§0.3):
+ *  - ok          台账在场且逐行形状成立 ⇒ held 里每一枚都带归属/原因/到期;
+ *  - absent      台账**不存在**(ENOENT)⇒ 零搁置,但读数必须写成"没这本账",不得写成"查过且无需搁";
+ *  - undetermined 读了但取不到内容 / JSON 坏 / 行形状不成立 ⇒ **一条都不搁**并逐条点名坏行。
+ *    "拿不到尺子"不能读成"没有票要搁",也不能读成"所有票都搁"——两个方向都放行错的那一半。
+ *
+ * 到期(expires < now)不是豁免的延续:该枚进 `expired` 并从 held 剔除 ⇒ **自动回到派单面**。
+ * 这一格是有意的终态:本仓被"永久豁免制造死角"咬过(§豁免必须会到期)。
+ * 匹配键两型二选一:`key`(票键指纹,票面改写即失配 ⇒ 新射程照派,这是对的语义)或
+ * `head`(标题片段,用于别席已入库但正文没带票键的那两枚:`landedCommitOfTicket` 结构上认不出它们)。
+ */
+export function parseSupplyHolds(text, { now = Date.now(), absentOk = false } = {}) {
+  if (text === null || text === undefined) {
+    return absentOk
+      ? {
+          state: 'absent',
+          why: '搁置台账不存在(ENOENT)⇒ 本轮零搁置;这是"没这本账",不是"查过且无需搁"',
+          held: [],
+          expired: [],
+          problems: [],
+        }
+      : {
+          state: 'undetermined',
+          why: '搁置台账取不到 ⇒ 一条都不搁(不把"量不动"读成"要搁"或"无需搁")',
+          held: [],
+          expired: [],
+          problems: [],
+        }
+  }
+  const held = []
+  const expired = []
+  const problems = []
+  const lines = String(text).split(/\r?\n/)
+  lines.forEach((line, i) => {
+    const t = line.trim()
+    if (!t) return
+    let e
+    try {
+      e = JSON.parse(t)
+    } catch (err) {
+      problems.push({ line: i + 1, why: `JSON 坏:${String(err?.message ?? err).slice(0, 80)}` })
+      return
+    }
+    if (!e || typeof e !== 'object' || Array.isArray(e)) {
+      problems.push({ line: i + 1, why: '不是对象行' })
+      return
+    }
+    const key = typeof e.key === 'string' ? e.key.trim() : ''
+    const head = typeof e.head === 'string' ? e.head.trim() : ''
+    const owner = typeof e.owner === 'string' ? e.owner.trim() : ''
+    const reason = typeof e.reason === 'string' ? e.reason.trim() : ''
+    const expires = typeof e.expires === 'string' ? e.expires.trim() : ''
+    const miss = []
+    if (!key && !head) miss.push('key/head 至少一枚(两枚皆空 = 谁也匹配不上的死条目)')
+    if (!owner) miss.push('owner 必填(没有归属的搁置 = 无人负责的停派)')
+    if (reason.length < 10) miss.push('reason 需 ≥10 字(与人工阀/豁免同一道门槛)')
+    const expMs = /^\d{4}-\d{2}-\d{2}$/.test(expires) ? Date.parse(`${expires}T23:59:59Z`) : NaN
+    if (!Number.isFinite(expMs)) miss.push(`expires 需 YYYY-MM-DD(现值 ${JSON.stringify(expires)})`)
+    if (miss.length) {
+      problems.push({ line: i + 1, why: miss.join(' / ') })
+      return
+    }
+    const entry = { key, head, owner, reason, expires, ticket: String(e.ticket ?? '') }
+    if (expMs < now) {
+      expired.push(entry)
+      return
+    }
+    held.push(entry)
+  })
+  if (problems.length)
+    return {
+      state: 'undetermined',
+      why: `${problems.length} 行形状不成立 ⇒ 整本账不作数(逐条点名见 problems),一条都不搁`,
+      held: [],
+      expired,
+      problems,
+    }
+  if (expired.length)
+    return {
+      state: 'ok',
+      why: `其中 ${expired.length} 枚已到期 ⇒ 已回到派单面(搁置不是一纸长期豁免)`,
+      held,
+      expired,
+      problems: [],
+    }
+  return { state: 'ok', why: '', held, expired, problems: [] }
+}
+
+/**
  * 会话后落账腿(2026-11-01 立)。
  *
  * 立因:派发票要求会话自己提交,而会话侧 dangerous 档结构上不放宽 ⇒ 自治会话改得动文件却落不了账。
@@ -2624,6 +2719,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       return
     }
     let landedSkipped = 0
+    let supplyHoldSkipped = 0
     let placeholderSkipped = 0
     for (const ticket of rows) {
       const key = ticketKeyOf(ticket.text)
@@ -2652,6 +2748,44 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           `⏭ L${ticket.line} 产物已落地(${alreadyLanded.slice(0, 12)})而票行未结清 ⇒ 跳过重派`,
         )
         continue
+      }
+      // 账面挂账搁置(2026-11-06 立,席位分工回执里的实事那一半)。
+      // 立因:`landedCommitOfTicket` 只认得"提交信息带 `票键:` 那一行"的已落地票;实现由**别席**入库、
+      // 正文没带票键时(Y-13/Y-91 实测:代码在 38542c0d15,结清卡在侧车),本器结构上看不出这票做过,
+      // 于是每轮照派、每轮重跑"给既有实现再造一份测试" —— 重复派发的产物是第二份近似测试文件,
+      // 那种残骸只能人肉剔。正解不是口头约定"你先别派",而是一条**具名、带归属、带终态**的搁置台账:
+      // 到期即回到派单面(§豁免必须"验过才免"且会到期);台账取不到 ⇒ 一条不搁(未判定不猜)。
+      let holdsText = null
+      let holdsMissing = false
+      try {
+        holdsText = readFileSync(SUPPLY_HOLDS_JSON, 'utf8')
+      } catch (e) {
+        holdsMissing = String(e?.code ?? '') === 'ENOENT'
+      }
+      const supplyHolds = parseSupplyHolds(holdsText, { now: Date.now(), absentOk: holdsMissing })
+      if (supplyHolds.state === 'ok') {
+        const held = supplyHolds.held.find(
+          (h) => h.key === key || (h.head && ticket.text.includes(h.head)),
+        )
+        if (held) {
+          supplyHoldSkipped++
+          record({
+            mode: dryRun ? 'dryrun' : 'dispatch',
+            action: 'supply-hold-skip',
+            ticketKey: key,
+            ticketLine: ticket.text.slice(0, 200),
+            holdOwner: held.owner,
+            holdUntil: held.expires,
+            why: held.reason,
+          })
+          console.log(
+            `⏸ L${ticket.line} 账面挂账(归属 ${held.owner}｜到期 ${held.expires}｜原因 ${held.reason})⇒ 本轮不派;到期自动回派单面`,
+          )
+          continue
+        }
+      } else if (supplyHolds.state === 'undetermined') {
+        // 只有"读了但判不出"才每轮出声;台账本就不在场是常态(第一期没人挂账),不该天天刷噪声。
+        console.log(`⚠️ 账面挂账台账未判定:${supplyHolds.why} ⇒ 本枚不搁任何票,照正常面判`)
       }
       // 人工阀前置闸(2026-11-01 接线)。白名单回答的是"这类票允许自动派吗",
       // 阀清单回答的是"这张票要做的动作需不需要人"。此前第二问结构上不存在 ——
@@ -2955,7 +3089,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // "已落地不重派"那一档 ⇒ 全部因已落地而跳过的轮次会被记成 whitelist 问题,
     // 读台账的人下一步就是去扩白名单(§0.3 的反面:把量到的那件事写成另一件事)。
     console.log(
-      `ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派、未取号占位 ${placeholderSkipped} 枚 ⇒ 需先取号)`,
+      `ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派、账面挂账 ${supplyHoldSkipped} 枚 ⇒ 等归属方结清、未取号占位 ${placeholderSkipped} 枚 ⇒ 需先取号)`,
     )
     record({
       mode: dryRun ? 'dryrun' : 'dispatch',
