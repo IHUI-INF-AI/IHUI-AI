@@ -152,9 +152,7 @@ async function mint(scope: InternalTicketScope, jti: string): Promise<string> {
 
 const INDEX_BODY = {
   repoId: REPO_ID,
-  chunks: [
-    { filePath: 'src/a.ts', lineStart: 1, lineEnd: 2, content: 'export const a = 1' },
-  ],
+  chunks: [{ filePath: 'src/a.ts', lineStart: 1, lineEnd: 2, content: 'export const a = 1' }],
 }
 
 async function postIndex(headers: Record<string, string>) {
