@@ -47,8 +47,9 @@
  */
 import { gitRaw } from './face-reader.mjs'
 // 折叠销账与摘除销账的举证判据**只有一份**(§0.6):本层不另写"什么叫同一件事/什么叫注记被接住",
-// 也不另写"什么叫本机已声明摘除"(那三条判据住在 `declaredDropCaps`:逐字命中台账 ∧ 该面已无此行 ∧ 是登记行形)。
-import { attestFoldPair, declaredDropCaps } from './union-converge-judgments.mjs'
+// 也不另写"什么叫本机已声明摘除"(逐字那一族住在 `declaredDropCaps`:逐字命中台账 ∧ 该面已无此行
+// ∧ 是登记行形;改写形态那一族住在 `declaredFamilyCaps`:题面指纹/复合主键/题面 32 字指纹任一命中)。
+import { attestFoldPair, declaredDropCaps, declaredFamilyCaps } from './union-converge-judgments.mjs'
 
 /** `scripts/data` 下的数据件(含子目录)与五语言词包。 */
 export const KEY_SET_PATH_RE = /^(?:scripts\/data\/(?:.*\/)?[^/]+\.(?:json|jsonl)|packages\/i18n\/messages\/(?:.*\/)?[^/]+\.json)$/
@@ -260,6 +261,7 @@ export function judgeContentLoss({
   read = (rev, path) => readRev(root, rev, path),
   foldLedgers = null,
   declaredRemovals = null,
+  base = null,
 }) {
   const undetermined = []
   const folded = []
@@ -296,7 +298,32 @@ export function judgeContentLoss({
     }
     // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。
     const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m))
-    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
+    const missingTheirsAll = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
+    /**
+     * 「本侧处置权已行使」那一维(2026-11-06 补,镜像 union 侧 `liveDocExpectedCounts` 的
+     * `addedByTheirs = n − max(base, ours)`):**基底里就有、本侧已删**的行,归并不从对侧补回
+     * (完成即删 / 摘除 / 让号的处置权在本侧;补回就是"回捞已结清行",本仓为它打了一个月的仗)。
+     * 本层此前把这种行读成"对侧少带"⇒ 逼人把已删的行复活 ⇒ 恒红门那一型(§12e)。
+     *
+     * 判据只问**重数**:对侧这一行相对基底**新增**(对侧份数 > max(基底份数, 本侧份数))⇒ 归并
+     * 本就该带回它,少带才是丢;否则归并压根没欠它 ⇒ 不算丢。
+     * 底面取不到(`base` 没喂)⇒ 一条都不放行(照旧判红):取不到不是放行许可证(§0.3)。
+     */
+    const baseRaw = base ? lineMultiset(read(base, p) ?? '') : null
+    const oursRaw = lineMultiset(o ?? '')
+    const theirsRaw = lineMultiset(t ?? '')
+    const missingTheirs = []
+    for (const l of missingTheirsAll) {
+      const tn = theirsRaw.get(l) || 0
+      const on = oursRaw.get(l) || 0
+      const bn = baseRaw ? baseRaw.get(l) || 0 : tn
+      if (baseRaw && tn <= Math.max(bn, on)) {
+        // 本侧处置权已行使 ⇒ 归并不欠它 ⇒ 不算丢(但要报名,不许静默折进"0 丢失")。
+        dropped.push({ path: p, side: '对侧', line: l, copies: 0, via: '本侧处置权已行使(基底有、本侧已删)' })
+        continue
+      }
+      missingTheirs.push(l)
+    }
     /**
      * 活文档维:行级包含 + **折叠台账销账**(2026-11-06)。
      *
@@ -311,23 +338,33 @@ export function judgeContentLoss({
     const pairOf = foldPairsOf(foldLedgers?.get?.(p))
     // 摘除台账这一格:三条判据全在 `declaredDropCaps` 里(逐字命中 ∧ 产物面已无 ∧ 登记行形),
     // 本层不复算;台账没喂进来(null)⇒ 空集 ⇒ 与初版逐字一致(旧调用方一条都不放松)。
-    const dropCaps =
-      declaredRemovals instanceof Set ? declaredDropCaps(m, declaredRemovals) : new Set()
-    const sideMissing = (missingList, sideText, sideName) => {
-      // 份数口径与上面的缺行清单**同面同轮**:清单在剥过生成块的文本上出,份数也得在同一个
-      // 文本上出(否则清单说"少一行"、份数说"少五份",两个口径对不上 ⇒ 销账额度算错)。
-      const deficits = new Map(
+    // 台账有两种形状:裸 Set(逐字那一族够用)与台账构造出口的整份对象(多带「题面 32 字指纹」
+    // 与「整台账缺失」两档)⇒ 两种都认,免得族那一维在只喂 Set 的调用方身上整个不开。
+    const ledgerSet =
+      declaredRemovals instanceof Set
+        ? declaredRemovals
+        : declaredRemovals?.set instanceof Set
+          ? declaredRemovals.set
+          : null
+    const ledgerObj = declaredRemovals instanceof Set ? null : (declaredRemovals ?? null)
+    const dropCaps = ledgerSet ? declaredDropCaps(m, ledgerSet) : new Set()
+    // 份数口径与上面的缺行清单**同面同轮**:清单在剥过生成块的文本上出,份数也得在同一个
+    // 文本上出(否则清单说"少一行"、份数说"少五份",两个口径对不上 ⇒ 销账额度算错)。
+    const deficitsOf = (sideText) =>
+      new Map(
         missingLineCounts(stripGeneratedBlocks(sideText), stripGeneratedBlocks(m)).map((x) => [
           x.line,
           x.deficit,
         ]),
       )
+    const sideMissing = (missingList, sideText, sideName) => {
+      const deficits = deficitsOf(sideText)
       const out = []
       for (const line of missingList) {
         const deficit = deficits.get(line) ?? 1
         const dc = dropCreditOf(line, deficit, dropCaps)
         if (dc.status === 'declared') {
-          dropped.push({ path: p, side: sideName, line, copies: dc.credit })
+          dropped.push({ path: p, side: sideName, line, copies: dc.credit, via: '逐字' })
           continue
         }
         const credit = foldCreditOf(line, deficit, pairOf, mergedMap)
@@ -352,8 +389,55 @@ export function judgeContentLoss({
     }
     const creditedOurs = sideMissing(missingOurs, o, '本侧')
     const creditedTheirs = sideMissing(missingTheirs, t, '对侧')
-    if (creditedOurs.length || creditedTheirs.length)
-      violations.push({ path: p, kind: 'lines', missingOurs: creditedOurs, missingTheirs: creditedTheirs })
+    /**
+     * 摘除台账「改写形态」那一族(G-34/G-43,2026-11-06 补):union 侧按**族**(题面指纹/复合主键/
+     * 题面 32 字指纹)判「本侧处置权已行使 ⇒ 不补回」;本层此前只认**逐字**那一族 ⇒ 两把尺子
+     * 不同形 ⇒ union 扣掉的行本层读成"少带内容"⇒ 合并恒拒(实测形态:行级 union 判对侧缺失 4,
+     * 折叠与逐字两本账都答不上 ⇒ 恒红;那 4 行是同族不同字面的千段租约/让号行)。
+     * 治法与折叠那一格同形(§0.6 单一真相源):**复用同一把尺**(`declaredFamilyCaps`),
+     * 本层不复算"什么叫同一族"、也不另写一份族索引。
+     *
+     * 提问面与 union 侧同面:本侧文本 = ours(union 的「本侧」恒为 ours),候选 = 本层判剩下的缺行
+     * ⇒ 本侧还持有的行不在候选内(它是被别的机制带走的,不该由台账销账顶罪;否则一次销账遮两笔)。
+     * 让路桶(照旧补回却仍缺)= 真少带 ⇒ 照旧判红;未判定桶 ⇒ 记「未判定」不当成"没丢"(§0.3)。
+     */
+    let finalOurs = creditedOurs
+    let finalTheirs = creditedTheirs
+    const pending = new Map()
+    for (const l of creditedOurs) pending.set(l, deficitsOf(o).get(l) ?? 1)
+    for (const l of creditedTheirs) pending.set(l, deficitsOf(t).get(l) ?? 1)
+    if (pending.size && ledgerObj !== null) {
+      const fam = declaredFamilyCaps(o, pending, ledgerObj)
+      const applyFam = (list, sideName, deficits) => {
+        const rest = []
+        for (const l of list) {
+          if (fam.withheld.has(l)) {
+            const ev = fam.evidence.get(l)
+            dropped.push({
+              path: p,
+              side: sideName,
+              line: l,
+              copies: deficits.get(l) ?? 1,
+              via: `族:${fam.withheld.get(l)}`,
+              ledgerRows: (ev?.ledgerRows ?? []).map((x) => String(x).slice(0, 120)),
+            })
+            continue
+          }
+          if (fam.undetermined.has(l)) {
+            undetermined.push(
+              `${p} 活文档少带行的摘除去向未判定(不当成"没丢",不记通过):${fam.undetermined.get(l)}:${l.slice(0, 60)}`,
+            )
+            continue
+          }
+          rest.push(l)
+        }
+        return rest
+      }
+      finalOurs = applyFam(creditedOurs, '本侧', deficitsOf(o))
+      finalTheirs = applyFam(creditedTheirs, '对侧', deficitsOf(t))
+    }
+    if (finalOurs.length || finalTheirs.length)
+      violations.push({ path: p, kind: 'lines', missingOurs: finalOurs, missingTheirs: finalTheirs })
   }
   return {
     ok: violations.length === 0 && undetermined.length === 0,
@@ -402,10 +486,15 @@ export function formatLossReport(result, { max = __MAX_LISTED } = {}) {
   if (dropped.length) {
     const copies = dropped.reduce((s, e) => s + (e.copies || 0), 0)
     lines.push(
-      `  · 摘除销账(合法少带,凭据 = declaredDropCaps:逐字命中本机摘除台账 ∧ 产物面已无此行 ∧ 是登记行形):${dropped.length} 行 / ${copies} 份`,
+      `  · 摘除/处置权销账(合法少带,凭据 = 本机摘除台账:逐字族 declaredDropCaps(逐字命中 ∧ 产物面已无此行 ∧ 是登记行形)` +
+        ` + 改写形态族 declaredFamilyCaps(题面指纹/复合主键/题面 32 字指纹任一命中)` +
+        ` + 本侧处置权族(基底有、本侧已删 ⇒ 归并不补回)):${dropped.length} 行 / ${copies} 份`,
     )
-    for (const e of dropped.slice(0, max))
-      lines.push(`      · ${e.path} ${e.side}少带 ${e.copies} 份 ← ${String(e.line).slice(0, 60)}`)
+    for (const e of dropped.slice(0, max)) {
+      const via = e.via ? ` [${e.via}]` : ''
+      const row = Array.isArray(e.ledgerRows) && e.ledgerRows.length ? ` 凭据:${String(e.ledgerRows[0]).slice(0, 80)}` : ''
+      lines.push(`      · ${e.path} ${e.side}少带 ${e.copies} 份 ←${via} ${String(e.line).slice(0, 60)}${row}`)
+    }
     if (dropped.length > max) lines.push(`      · …另有 ${dropped.length - max} 行`)
   }
   return lines.join('\n')
