@@ -633,7 +633,18 @@ export interface RunToolLoopOptions {
    * G-109:第三个入参是**已有**的有界 display 投影(未触发裁剪时为 undefined)。
    * 它只供人读面与持久化 metadata 使用;`output` 仍是喂模型的那一份,一字未动。
    */
-  onToolResult?: (name: string, success: boolean, output: string, display?: ToolResultDisplaySource) => void | Promise<void>;
+  onToolResult?: (
+    name: string,
+    success: boolean,
+    output: string,
+    display?: ToolResultDisplaySource,
+    /**
+     * 失败原因(缺席 = 本次成功或提供方没给原因)。模型侧那一份由 `formatToolResult`
+     * 回灌(index.ts:933 的 `错误: …`),这一维是给**转录与事件面**的:自主班次死后只有
+     * 读回 `success:false` + 空 `output` 时,归因只能靠猜工具名(实测一夜两次栽在这)。
+     */
+    error?: string,
+  ) => void | Promise<void>;
   /**
    * WP-8③ —— 执行**前**声明的硬性指标。非空即进入 goal 模式:循环自宣完成
    * (`end_turn`)必须先过一次独立校验,未通过 / 未判定的档会被改写,
@@ -2713,7 +2724,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             );
           }
         }
-        await opts.onToolResult?.(call.name, result.success, result.output, result.display);
+        await opts.onToolResult?.(
+          call.name,
+          result.success,
+          result.output,
+          result.display,
+          result.error,
+        );
         // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
         // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
         goalCallRecords.push({
@@ -3228,7 +3245,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           });
         }
       },
-      onToolResult: (name, success, output, display) => {
+      onToolResult: (name, success, output, display, error) => {
         if (isStructured) {
           // 终态先清预览再落结果:消费方按 toolCallId 撤下流中预览之后才看到最终 diff,
           // 顺序反过来会出现"结果与预览同屏"(repl.ts 同一纪律,靠 settle 而不是再追加一条)。
@@ -3236,10 +3253,19 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           if (settled) {
             emit({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
-          emit({ type: 'tool_result', name, success, output, ...(display ? { display } : {}) });
+          emit({
+            type: 'tool_result',
+            name,
+            success,
+            output,
+            ...(display ? { display } : {}),
+            ...(error ? { error } : {}),
+          });
         } else {
           const icon = success ? '✓' : '✗';
-          console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+          // 失败时 `output` 常是空串(结果体只在成功侧填),原先这一格就打出一行 `✗ ` ——
+          // 人读面与转录同盲。原因优先出,没有原因才回落到 output。
+          console.info(chalk.dim(`  ${icon} ${(success ? output : error || output).slice(0, 200)}`));
         }
       },
       onIteration: (count, max) => {
