@@ -202,6 +202,20 @@ describe('号池名单只读出口', () => {
     expect(parsed.counts.reduce((s, r) => s + r.total, 0)).toBe(23)
   })
 
+  it('已过期的票在人读行当场标出来(写回腿不校验票效,名单就得把现值说到眼前)', () => {
+    const now = new Date('2026-11-05T12:00:00.000Z')
+    const dead = row({ tokenExpiresAt: new Date('2026-11-05T03:33:25.000Z') })
+    const alive = row({ tokenExpiresAt: new Date('2026-12-05T03:33:25.000Z') })
+    const none = row({ tokenExpiresAt: null })
+    expect(rowLine(dead, now)).toContain('token到期=2026-11-05T03:33:25.000Z(已过)')
+    expect(rowLine(alive, now)).not.toContain('(已过)')
+    // 无到期字段 ≠ 过期:如实留 '-',不替上游判死
+    expect(rowLine(none, now)).toContain('token到期=-')
+    expect(rowLine(none, now)).not.toContain('(已过)')
+    // 刻意只陈述现值:本投影不含"刷新材料在不在册"那一列,所以不许下"登不进"这种后果断言
+    expect(rowLine(dead, now)).not.toMatch(/登不进|救不回|不可能/)
+  })
+
   it('--mask:名称按单源掩码,uid 仍留全值,两面都不外泄全号', async () => {
     const outcome: ListOutcome = {
       providerCode: 'qoder',
