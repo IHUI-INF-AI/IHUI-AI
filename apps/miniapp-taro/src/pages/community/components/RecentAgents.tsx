@@ -3,13 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * RecentAgents — 最近使用的智能体横向滚动列表
- * 对齐原项目 zhs_app-ZZ Ai-WXMiniVue tools/components/RecentAgents.vue
+ * RecentAgents — 最近使用的智能体横向滚动列表(小程序端适配层)
+ *
+ * UI 已单源化到 features/agent-screen/AgentRecentUsed;
+ * 本文件只保留小程序端登录/付费/来源拦截与跳转。
  */
 import { useTt } from '@/i18n'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { useTheme } from '@/rn-compat/theme'
 import Taro from '@tarojs/taro'
 import { onToast } from '@/host/on-toast'
+import { AgentRecentUsed } from '@ihui/rn-app/features/agent-screen/AgentRecentUsed'
 
 export interface RecentAgent {
   id: string
@@ -28,7 +31,7 @@ export interface RecentAgentsProps {
 
 export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
   const tt = useTt()
-  if (!recentAgents || recentAgents.length === 0) return null
+  const { resolvedTheme } = useTheme()
 
   function navigateTo(agent: RecentAgent, idx: number) {
     const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
@@ -48,34 +51,13 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
   }
 
   return (
-    <View className="recent-agents-container">
-      <View className="recent-header">
-        <Text className="recent-title">{tt('communityRecentAgents.text1', '最近使用')}</Text>
-      </View>
-      <ScrollView scrollX className="recent-scroll" showScrollbar={false}>
-        <View className="recent-list">
-          {recentAgents.map((agent, index) => (
-            <View
-              key={agent.id || index}
-              className="recent-item"
-              onClick={() => navigateTo(agent, index)}
-              hoverClass="opacity-60"
-            >
-              {agent.agentAvatar ? (
-                <Image className="agent-avatar" src={agent.agentAvatar} mode="aspectFill" />
-              ) : (
-                <View className="agent-avatar agent-avatar-fallback">
-                  <Text className="agent-avatar-fallback-text">
-                    {(agent.agentName || '?').charAt(0)}
-                  </Text>
-                </View>
-              )}
-              <Text className="agent-name">{agent.agentName}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+    <AgentRecentUsed
+      items={recentAgents}
+      title={tt('communityRecentAgents.text1', '最近使用')}
+      onItemClick={(item, index) => navigateTo(item as RecentAgent, index)}
+      colorScheme={resolvedTheme}
+      defaultAvatar={null}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
