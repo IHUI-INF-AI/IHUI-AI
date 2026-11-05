@@ -78,6 +78,7 @@ import { registerMemoryCommand } from './commands/memory.js';
 import { registerWorkflowsCommand } from './commands/workflows.js';
 import { registerSpecCommand } from './commands/spec.js';
 import { registerPlanCommand } from './commands/plan.js';
+import { registerTrashCommand } from './commands/trash.js';
 import { registerAgentsCommand } from './commands/agents.js';
 import { registerAiSkillsCommand } from './commands/ai-skills.js';
 import { attachChatSubcommands } from './commands/chat-subcommands.js';
@@ -866,6 +867,9 @@ registerSpecCommand(program);
 
 // plan 子命令组 — 对齐 Web 端 /plan(init/list/show/delete 本地文档管理)
 registerPlanCommand(program);
+
+// trash 子命令组 — 本机回收站(list / restore),误删件的人用出口
+registerTrashCommand(program);
 
 // agents 子命令组 — 对齐 Web 端 /agents(list/my/show/create/stats 5 页)
 registerAgentsCommand(program);
