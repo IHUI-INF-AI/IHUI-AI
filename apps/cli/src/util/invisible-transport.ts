@@ -53,6 +53,7 @@ type TransportShapedMessage = { role: string; content: string | null | undefined
 export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   messages: readonly T[],
   label = 'provider',
+  extras?: unknown,
 ): T[] {
   const hit = (m: T): number =>
     typeof m.content === 'string' ? countInvisibleForTransport(m.content, m.role !== 'tool') : 0
@@ -68,8 +69,14 @@ export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   // 只有 `sent=0 而 400 仍在` 这一种读数才能把"是不是 messages 这一段带毒"定死。
   if (process.env.IHUI_TRANSPORT_AUDIT) {
     const sum = (arr: readonly T[]): number => arr.reduce((a, m) => a + hit(m), 0)
+    // `extra=` 量的是随请求一起走的其他体(extraBody / tools schema 等):
+    // 只有当 `sent=0` 而 400 仍在时,这一格才能把"带毒段在 messages 之外"钉死。
+    const extra =
+      extras === undefined || extras === null
+        ? 0
+        : countInvisibleForTransport(JSON.stringify(extras), true)
     process.stderr.write(
-      `[transport-audit] exit=${label} msgs=${messages.length} raw=${sum(messages)} sent=${sum(out)}\n`,
+      `[transport-audit] exit=${label} msgs=${messages.length} raw=${sum(messages)} sent=${sum(out)} extra=${extra}\n`,
     )
   }
   return out

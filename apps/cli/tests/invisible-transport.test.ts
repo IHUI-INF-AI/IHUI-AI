@@ -115,7 +115,9 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
       (src.match(/streamOpenAiCompatible\(\{/g) ?? []).length
     expect(exits, 'apps/cli 的出站调用点数量变了 ⇒ 本锁的射程要跟着逐处点名').toBe(3)
     expect((src.match(/messages:\s*sanitizeMessagesForTransport\(/g) ?? []).length).toBe(3)
-    expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*opts\.messages\s*\)/)
+    expect(src).toMatch(
+      /messages:\s*sanitizeMessagesForTransport\(\s*opts\.messages\s*,\s*'streamChat'/,
+    )
     expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*\[\s*\{ role: 'system'/)
     expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*toOpenAiMessages\(/)
     const mutant = 'await streamChat({ model, messages: opts.messages, signal })'
@@ -157,6 +159,12 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
       expect(writes[0]).toContain('exit=streamChat')
       // raw=2(user 一档 ZWSP + tool 一档 ZWJ),sent=0(两档都被清过)
       expect(writes[0]).toMatch(/raw=2 sent=0/)
+      // extras 那一格:随请求同走的 other body 也要被量到(sent=0 而 400 仍在时靠它定位)
+      writes.length = 0
+      sanitizeMessagesForTransport([{ role: 'user', content: 'clean' }], 'streamChat', {
+        tools: [{ desc: `带载荷${ZWSP}` }],
+      })
+      expect(writes[0]).toMatch(/sent=0 extra=1/)
     } finally {
       spy.mockRestore()
       delete process.env.IHUI_TRANSPORT_AUDIT
