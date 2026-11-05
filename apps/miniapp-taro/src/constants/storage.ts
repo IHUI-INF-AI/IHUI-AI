@@ -21,10 +21,19 @@ import {
   REFRESH_TOKEN_STORAGE_KEY,
   INVITE_CODE_STORAGE_KEY,
   VIP_STORAGE_KEY,
+  VIP_ORDERS_KEY,
+  VIP_PAID_STATUS_KEY,
 } from '@ihui/shared/constants'
 
 // 跨端共享(值一致,re-export 统一入口)
-export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, INVITE_CODE_STORAGE_KEY, VIP_STORAGE_KEY }
+export {
+  TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+  INVITE_CODE_STORAGE_KEY,
+  VIP_STORAGE_KEY,
+  VIP_ORDERS_KEY,
+  VIP_PAID_STATUS_KEY,
+}
 
 // 端独占 / 历史遗留 key(保留实际值,向后兼容)
 export const LOCALE_KEY = 'lang' as const
@@ -71,8 +80,6 @@ export const ACCOUNT_SCOPED_CONTENT_KEYS = [
 // 业务相关
 export const BUSINESS_CARD_DATA_KEY = 'ihui-business-card-data' as const
 export const TOKEN_BALANCE_DATA_KEY = 'ihui-token-balance-data' as const
-export const VIP_ORDERS_KEY = 'ihui-vip-orders' as const
-export const VIP_PAID_STATUS_KEY = 'ihui-paid-status' as const
 export const SSO_CODE_LEGACY_KEY = 'ihui_sso_code' as const
 export const WEBVIEW_FILE_CACHE_KEY = 'webviewFileCache' as const
 
