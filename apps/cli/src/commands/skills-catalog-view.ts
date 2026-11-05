@@ -20,6 +20,7 @@
  * 展示面文案一律走既有 `cliEntry.skills*` 语言键,不新增键、不新增环境变量、不新增硬编码中文。
  */
 import chalk from 'chalk';
+import type { Command } from 'commander';
 import type { CatalogCacheScope } from '@ihui/shared/skills/catalog-cache-schema';
 import { t } from '../i18n/index.js';
 import {
@@ -119,6 +120,29 @@ export function showSkillsCatalog(opts: SkillsCatalogViewOptions): SkillsCatalog
     emit(`${chalk.dim('/skill <name>')} ${chalk.dim(t('cliEntry.skillShowDesc'))}`);
   }
   return view(outcome.state, outcome.loadedFrom, outcome.entries);
+}
+
+export interface SkillsListCommandDeps {
+  /** 工作区根解析;缺省 `process.cwd()`(与 REPL 的 `state.opts.workspacePath` 同义,用例注入夹具目录)。 */
+  readonly resolveCwd?: () => string;
+}
+
+/**
+ * `ihui skills list` 的注册口(goal-b49 X3,2026-11-05):命令层只负责"把子命令挂上去",
+ * 展示与缓存判据全部留在 `showSkillsCatalog` 那一份 —— 与 REPL `/skills` 同一出口(§0.6)。
+ * 清单的格式化与缓存只有这一份,命令侧不得再手搓条目行或另读一次盘。
+ */
+export function registerSkillsListCommand(
+  parent: Command,
+  deps: SkillsListCommandDeps = {},
+): void {
+  const resolveCwd = deps.resolveCwd ?? ((): string => process.cwd());
+  parent
+    .command('list')
+    .description(t('cliEntry.skillsListDesc'))
+    .action(() => {
+      showSkillsCatalog({ cwd: resolveCwd() });
+    });
 }
 
 export const __test__ = { scopeReadout, SKILL_DIR_HINTS };
