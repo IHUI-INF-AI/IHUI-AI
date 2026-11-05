@@ -3239,6 +3239,10 @@ class LLMGateway:
     def _tool_call_args_delta_frames(
         store: dict[int, Any],
         normalized: list[tuple[int, dict[str, Any]]],
+        *,
+        provider: str = '',
+        model: str = '',
+        start_ts: float | None = None,
     ) -> list[dict[str, Any]]:
         """逐片直推腿:每片 arguments 到达即产一条 `tool-call-args-delta` 事件。
 
@@ -3246,6 +3250,9 @@ class LLMGateway:
         流式 JSON 修复),残缺/截断的 arguments 也能给出当前最好可用的部分对象,前端
         ToolCallCard 因此可在流未结束时渐进渲染入参。store 按本次 astream 调用独立持有,
         绝不跨会话共享。事件名与 payload 字段由 sse_contract.py 的契约看护。
+
+        2026-11-05 可观测性:每批帧产出后上报埋点(分片数 + 首片时延),让生产可见
+        "渐进渲染是否真在发生"。provider/model 由调用点透传,start_ts 取本轮 astream 开启时刻。
         """
         # 函数级 import:core 不模块级依赖 utils 之外的应用层,且与本仓既有
         # 「函数级 import 防环」写法同形。
@@ -3273,6 +3280,24 @@ class LLMGateway:
                 "argsComplete": bool(state.get("complete")),
                 "argsPartial": bool(state.get("partial")),
             })
+        # 2026-11-05 可观测性:分片数 + 首片时延(从流开启到本批首片;单批时首片≈末片)。
+        if frames:
+            try:
+                from app.middleware.llm_metrics import record_tool_call_args_delta
+
+                _first_byte = (
+                    time.perf_counter() - start_ts
+                    if start_ts is not None
+                    else 0.0
+                )
+                record_tool_call_args_delta(
+                    provider=provider,
+                    model=model,
+                    frame_count=len(frames),
+                    first_byte_seconds=_first_byte,
+                )
+            except Exception:  # 埋点失败绝不阻断主链路(与 llm_metrics 其他埋点同纪律)
+                logger.debug("tool-call-args-delta 指标上报失败(已忽略)")
         return frames
 
     @staticmethod
@@ -3495,7 +3520,11 @@ class LLMGateway:
                                         native_tool_acc, _native_frags
                                     )
                                     for _delta in self._tool_call_args_delta_frames(
-                                        native_tool_args_store, _normalized
+                                        native_tool_args_store,
+                                        _normalized,
+                                        provider=_metrics_provider(used_model),
+                                        model=used_model,
+                                        start_ts=_native_metrics_t0,
                                     ):
                                         yield _delta
                                     self._accumulate_tool_calls(
@@ -3732,7 +3761,11 @@ class LLMGateway:
                                     litellm_tool_acc, delta_tool_calls
                                 )
                                 for _delta in self._tool_call_args_delta_frames(
-                                    litellm_tool_args_store, _normalized
+                                    litellm_tool_args_store,
+                                    _normalized,
+                                    provider=_metrics_provider(used_model),
+                                    model=used_model,
+                                    start_ts=_metrics_t0,
                                 ):
                                     yield _delta
                                 self._accumulate_tool_calls(
