@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "note": "显式回补清单(2026-11-05 立):这些复合主键的登记行是按历史原文/§1 短形态**有意回补**回来的,不是普通 git merge 带回来的「HEAD 面回捞件」。strip-head-recall-rows.mjs 在判候选后按本清单让路(失效方向恒为「少摘」)。新增条目必须给出 restoredBy(回补提交)与 why,并跑 node scripts/strip-head-recall-rows.mjs --self-test。",
+  "version": 2,
+  "note": "显式回补清单(2026-11-05 立):这些登记行是按历史原文/§1 短形态**有意回补**回来的,不是普通 git merge 带回来的「HEAD 面回捞件」。strip-head-recall-rows.mjs 在判候选后按本清单让路(失效方向恒为「少摘」)。第二维 `raw`(2026-11-05 补):`compositeKeyOf === null` 的族(题面被 `[` 截成编号本身,如 `- [ ] B46 [auto-triage] …`)拿不到复合主键,只能按整行逐字认领;这些行的回补形态含 `〔全文@…〕` 指针,历史上不存在逐字相同的副本,故与 key 同属提交侧声明(非文本相似度)。新增条目必须给出 restoredBy(回补提交)与 why,并跑 node scripts/strip-head-recall-rows.mjs --self-test。",
   "restoredAt": "2026-11-05",
   "restoredBy": "b01d9d83c9",
   "case": "合并 965cbec7d3 丢掉 7 条登记行;逐条定性后 6 条真丢、1 条(同票重复行)合法摘除。台账 plan-row-drop.jsonl 里这 6 条的 form=dropped 声明仍在(多为 head-recall-sweep 以外的真席位),故需显式清单挡住下一轮兜底清扫。",
@@ -28,6 +28,36 @@
     {
       "key": "D05#多用户协作会话",
       "why": "合并面真丢:前像 - [ ] open,台账 g35-chair 声明 dropped"
+    },
+    {
+      "raw": "- [ ] B53 [deploy-feedback] [deploy_outcome/alert_firing] rollback /deploy/rollback 部署异常 ⇒ 排查链路并修复（登记@2026-10-31/deploy-feedback;来源:deploy_outcome;证据:count=1 窗口=1440min route=/deploy/rollback）〔同签名 rollback 告警已于 2026-11-02 由 B69 重新登记;本行为 2026-10-31 首次登记留档、不另立票〕〔全文@6323b1a33f〕",
+      "why": "合并面真丢:前像 open;只在 plan-row-drop.jsonl 被 head-recall-sweep 摘下 —— auto-triage 族题面指纹全部退化成同一串,B68 完成即删时按指纹维连带扫掉。已按 §1 短形态压缩(420→275 字)+〔全文@6323b1a33f〕",
+      "restoredBy": "702bc188f7"
+    },
+    {
+      "raw": "- [ ] P84 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/check-update 503)(登记@2026-11-02/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 44 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/app-version/check-update → 503 GET /api/app-version/check-update -> 503 / FastifyError: Service Unavailable)",
+      "why": "合并面真丢:前像 open(315 字);台账仅 head-recall-sweep 声明 dropped(同族指纹连带扫)。逐字回补",
+      "restoredBy": "702bc188f7"
+    },
+    {
+      "raw": "- [ ] P85 [auto-triage] API 5xx 错误签名聚类(POST /api/visit-tracking/visit-log 503)(登记@2026-11-02/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 10 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:POST /api/visit-tracking/visit-log → 503 POST /api/visit-tracking/visit-log -> 503 / FastifyError: Service Unavailable)",
+      "why": "合并面真丢:前像 open(318 字);台账仅 head-recall-sweep 声明 dropped(同族指纹连带扫)。逐字回补",
+      "restoredBy": "702bc188f7"
+    },
+    {
+      "raw": "- [ ] B46 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/latest 500)(登记@2026-11-03/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 55 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/app-version/latest → 500 GET /api/app-version/latest -> 500 / Error: Failed query: select \"id\", \"version\", \"platform\", \"store\", \"build_number\", \"download_url\", \"force_upda)",
+      "why": "合并面真丢:前像 open(373 字);台账仅 head-recall-sweep 声明 dropped(同族指纹连带扫)。逐字回补",
+      "restoredBy": "702bc188f7"
+    },
+    {
+      "raw": "- [ ] B47 [auto-triage] API 5xx 错误签名聚类(GET /api/app-version/check-update 500)(登记@2026-11-03/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 15 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/app-version/check-update → 500 GET /api/app-version/check-update -> 500 / Error: Failed query: select \"id\", \"version\", \"platform\", \"store\", \"build_number\", \"download_url\",)",
+      "why": "合并面真丢:前像 open(379 字);台账仅 head-recall-sweep 声明 dropped(同族指纹连带扫)。逐字回补",
+      "restoredBy": "702bc188f7"
+    },
+    {
+      "raw": "- [ ] B52 [auto-triage] API 5xx 错误签名聚类(GET /api/model-leaderboard 503)(登记@2026-11-04/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 20 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/model-leaderboard → 503 GET /api/model-leaderboard -> 503 / FastifyError: Service Unavailable)",
+      "why": "合并面真丢:前像 open(294 字);台账仅 head-recall-sweep 声明 dropped(同族指纹连带扫)。逐字回补",
+      "restoredBy": "702bc188f7"
     }
   ]
 }

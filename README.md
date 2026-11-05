@@ -4281,7 +4281,7 @@ A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extensi
 **Q: Does it support MCP? / 支持 MCP 协议吗?**
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4112 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 ## Keywords
 > SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
 **Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 16 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0 | Multi-Platform Auto Publishing | Anti-Risk Framework | AI Conversation Visualization | Tool Call Summary Card
@@ -41932,7 +41932,7 @@ J 扩展端版本单一源头 —— `apps/extension/wxt.config.ts` 不得写死
 - **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **53 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **4078 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4112 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 > **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
 > **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
 **2026-11-04**
@@ -42336,7 +42336,7 @@ A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 �
 - **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 - **53 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **4078 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4112 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 > **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
 > **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
 | 跟踪文件 | 19119 | `trackedFiles` |
