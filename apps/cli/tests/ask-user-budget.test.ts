@@ -47,7 +47,7 @@ const ARGS = {
   ],
 };
 
-async function callOnce(): Promise<{ success: boolean; output: string; error?: string }> {
+async function callOnce(): Promise<Awaited<ReturnType<typeof ask_user_question.execute>>> {
   return ask_user_question.execute(ARGS, { workspacePath: '.' });
 }
 

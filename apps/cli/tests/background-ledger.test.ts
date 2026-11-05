@@ -259,6 +259,7 @@ describe('后台任务台账 · ④ 规模闸:拒绝自动清理并点名', () =
 
     const refused = pruneLedger();
     expect(refused.ok).toBe(false);
+    if (refused.ok) throw new Error('默认档必须拒绝,不得静默剪枝');
     expect(refused.code).toBe('not-confirmed');
     expect(ledgerText()).toBe(before); // 默认档:磁盘一个字节都不动
 

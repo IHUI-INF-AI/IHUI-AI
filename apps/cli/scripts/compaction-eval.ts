@@ -117,15 +117,14 @@ export function computeTokensRatio(messagesBefore: ChatMessage[], messagesAfter:
 // ==================== 主流程 ====================
 
 function v1Baseline(messages: ChatMessage[]): { summary: string; compressed: CompressionResult } {
-  // 构造足够大的 contextLimit 让 ratio 触发，但压缩后能通过 reduction guard
+  // 构造足够大的 contextLimit 让 ratio 触发;RatioCompressionOptions 只认下列 5 个键,
+  // 历史遗留的 minCompactableTokens / maxReductionRatio 从未被共享包读取,已删除以免误导。
   const result = compressContextIfNeeded(messages, {
     contextLimit: 200,
     triggerRatio: 0.8,
     targetRatio: 0.6,
     keepRecent: 2,
     minMessages: 1,
-    minCompactableTokens: 1,
-    maxReductionRatio: 2,
   });
   // 从压缩结果中提取摘要消息
   const summaryMsg = result.messages.find(m => m.role === 'user' && typeof m.content === 'string' && m.content.includes('上下文摘要'));
@@ -142,9 +141,11 @@ function v2DryRun(messages: ChatMessage[]): { summary: string; degenerate: boole
 type EvalRow = Record<string, string | number>;
 
 function renderTable(rows: EvalRow[]) {
-  const keys = Object.keys(rows[0]);
+  const first = rows[0];
+  if (first === undefined) return;
+  const keys = Object.keys(first);
   const widths = keys.map(k => Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)));
-  const line = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i])).join(' | ');
+  const line = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join(' | ');
   console.warn(line(keys));
   console.warn(line(widths.map(w => '-'.repeat(w))));
   for (const r of rows) {
@@ -205,6 +206,7 @@ function main() {
 }
 
 // 仅直接执行时运行 main（被 vitest import 时不执行）
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\/]/).pop())) {
+const entryBase = process.argv[1]?.split(/[\\/]/).pop();
+if (entryBase !== undefined && import.meta.url.endsWith(entryBase)) {
   main();
 }

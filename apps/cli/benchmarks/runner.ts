@@ -101,7 +101,10 @@ export function extractCodeBlock(text: string): string {
   const re = /```[^\n]*\n([\s\S]*?)```/g;
   let m: RegExpExecArray | null;
   let last: string | null = null;
-  while ((m = re.exec(text)) !== null) last = m[1];
+  while ((m = re.exec(text)) !== null) {
+    const captured = m[1];
+    if (captured !== undefined) last = captured;
+  }
   if (last !== null) return last.replace(/\r\n/g, '\n');
   return text.replace(/\r\n/g, '\n');
 }
@@ -151,8 +154,9 @@ export function resolveShell(): string {
     });
     for (const line of (git.stdout ?? '').split(/\r?\n/)) {
       const m = /^(.*?)[\\/]cmd[\\/]git\.exe$/i.exec(line.trim());
-      if (m) {
-        const b = join(m[1], 'bin', 'bash.exe');
+      const gitDir = m?.[1];
+      if (gitDir !== undefined) {
+        const b = join(gitDir, 'bin', 'bash.exe');
         if (existsSync(b)) return b;
       }
     }
