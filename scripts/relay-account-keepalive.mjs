@@ -25,8 +25,11 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
-// 进程探测单源在回灌腿里(§0.6):这里复用同一把,不在本文件重抄 tasklist 判据
-import { probeClientActive } from './sync-trae-client-session.mjs'
+// 进程探测单源在两条回灌腿里(§0.6):这里复用同两把,不在本文件重抄 tasklist 判据
+import { probeClientActive as probeTraeClientActive } from './sync-trae-client-session.mjs'
+import { __test__ as qoderSessionSync } from './sync-qoder-client-session.mjs'
+
+const probeQoderClientActive = qoderSessionSync.probeQoderClientActive
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -184,10 +187,20 @@ async function main(argv) {
     // 探测在本机做,不交给池里那条旧心跳:api 一挂旧心跳必然陈旧 ⇒ 池判成静默 ⇒ 接管续期
     // ⇒ 把用户正在用的 Trae 顶下线。未知(null)与在跑(true)同向送心跳 —— 误判「在跑」只是
     // 本轮少刷一次,误判「静默」是不可逆的掉线,代价不对称。
-    const active = probeClientActive()
-    if (active !== false) childArgv.push('--client-active', new Date().toISOString())
+    const at = new Date().toISOString()
+    const probed = [
+      ['trae', probeTraeClientActive()],
+      ['qoder', probeQoderClientActive()],
+    ]
+    for (const [provider, active] of probed) {
+      if (active !== false) childArgv.push('--client-active', `${provider}=${at}`)
+    }
     process.stderr.write(
-      `客户端探测: ${active === null ? '未知(按在跑处理,不让池接管)' : active ? '在跑' : '未运行'}\n`,
+      `客户端探测: ${probed
+        .map(
+          ([p, a]) => `${p}=${a === null ? '未知(按在跑处理,不让池接管)' : a ? '在跑' : '未运行'}`,
+        )
+        .join(' ')}\n`,
     )
   }
   const run = runKeepaliveTs(childArgv)
