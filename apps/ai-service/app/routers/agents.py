@@ -31,6 +31,7 @@ from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
 from ..core.turn_stop_reason import TurnStopReason, ensure_turn_stop_reason
+from ..utils.tool_call_args import normalize_tool_call_args
 from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -154,12 +155,14 @@ def _convert_openai_tool_calls(
         if not isinstance(tc, dict):
             continue
         fn = tc.get("function") or {}
-        args_raw = fn.get("arguments") or "{}"
-        if isinstance(args_raw, str):
-            try:
-                args = json.loads(args_raw)
-            except (ValueError, TypeError):
-                args = {}
+        args_raw = fn.get("arguments")
+        # 单一真相源：字符串形态的 args（含残缺/截断/裸键名/单引号）走 normalize_tool_call_args
+        # 修复解析（对标 Qoder/Trae 的 jsonrepair 用法；并超越其只能吃完整串的限制），使 LLM
+        # 产出的残缺 arguments 不再静默丢成 {}。非字符串（已是对象等）保持原样透传，维持契约不变。
+        if args_raw is None:
+            args = {}
+        elif isinstance(args_raw, str):
+            args = normalize_tool_call_args(args_raw) or {}
         else:
             args = args_raw
         result.append(

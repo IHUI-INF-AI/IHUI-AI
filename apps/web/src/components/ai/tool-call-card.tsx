@@ -90,6 +90,12 @@ interface ToolCallCardProps {
   retryCount?: number
   /** D113:文件写类工具流中 diff 预览(tool-delta 帧;仅 running 态渲染) */
   partialDiff?: string
+  /** 2026-11-05:工具入参逐分片渐进渲染的当前最好可用部分对象(仅 running 态渲染)。
+   * 与 partialDiff 语义不同:后者是工具执行期 diff 正文,本字段是工具**入参**的构建过程;
+   * argsComplete 到达或 tool-result 到达即清 undefined,正式 args 渲染一行不动。 */
+  partialArgs?: Record<string, unknown>
+  /** 2026-11-05:入参仍在流式构建中(部分参数预览块的开关)。 */
+  argsStreaming?: boolean
   /** G-68 回退预判三态(D53 一并实施):本次工具调用回退时的文件影响面。
    *  不传时从 diffInfo 自动推导(新建文件→added,有 diff→modified);删除只能显式传入,
    *  diff 卡天然表达不了"文件将被删"。 */
@@ -1295,6 +1301,8 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   retryCount,
   /** D113:文件写类工具流中 diff 预览(tool-delta 帧;仅 running 态渲染) */
   partialDiff,
+  partialArgs,
+  argsStreaming,
   errorType,
   imageUrl,
   gallery,
@@ -1536,6 +1544,23 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 </span>
               </StreamLabel>
               <StreamCode text={partialDiff} testId="tool-call-partial-diff" />
+            </div>
+          )}
+          {/* 2026-11-05 立:工具入参逐分片渐进渲染。与 diff 预览并列的独立块 ——
+              partialDiff 是工具执行期的 diff 正文,partialArgs 是工具入参的构建过程。
+              仅 running + argsStreaming 时显示;complete/tool-result 到达即被清空,
+              正式 args 的 JSON.stringify 渲染(下方展开区)一行不动。 */}
+          {status === 'running' && argsStreaming && partialArgs && (
+            <div>
+              <StreamLabel>
+                <span className="animate-pulse text-teal-600 dark:text-teal-400">
+                  {t('streamingPreviewLabel')}
+                </span>
+              </StreamLabel>
+              <StreamCode
+                text={JSON.stringify(partialArgs, null, 2)}
+                testId="tool-call-partial-args"
+              />
             </div>
           )}
           {/* image_generation:渲染生成的图片(优先于 result) */}

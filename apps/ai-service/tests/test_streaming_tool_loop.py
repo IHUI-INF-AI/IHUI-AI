@@ -353,6 +353,8 @@ async def test_astream_litellm_accumulates_tool_call_fragments(monkeypatch):
     # 分片事件不透传,统一产出 1 个完整 tool_calls 事件
     tool_call_events = [e for e in events if e["type"] == "tool_calls"]
     assert len(tool_call_events) == 1, f"期望 1 个 tool_calls 事件,实际 {len(tool_call_events)}"
+    # 2026-11-05:默认档零行为变化 —— 逐分片直推帧一帧都不产。
+    assert not [e for e in events if e["type"] == "tool-call-args-delta"]
 
     merged = tool_call_events[0]["tool_calls"]
     assert merged == [
@@ -371,6 +373,23 @@ async def test_astream_litellm_accumulates_tool_call_fragments(monkeypatch):
 
     # done 为最后一个事件
     assert events[-1]["type"] == "done"
+
+    # 2026-11-05:同一批分片,显式开启逐分片直推 ⇒ 每片 arguments 多产一条 delta 帧,
+    # 残缺首片修复出 partial、闭合片转 complete;完整 tool_calls 终态仍恰好 1 个
+    # (累积腿没被逐片腿破坏)。这是 generic 通道真正启用该能力的回归钉子。
+    streamed = [e async for e in gw.astream(
+        [{"role": "user", "content": "hi"}],
+        model="agnes/gpt-4o",
+        tool_call_args_stream=True,
+    )]
+    delta_events = [e for e in streamed if e["type"] == "tool-call-args-delta"]
+    assert len(delta_events) == 2, f"两片 arguments 应产 2 条逐片帧,实际 {len(delta_events)}"
+    assert delta_events[0]["argsPartial"] is True
+    assert delta_events[0]["args"] == {"q": "te"}
+    assert delta_events[0]["index"] == 0
+    assert delta_events[1]["argsComplete"] is True
+    assert delta_events[1]["args"] == {"q": "test"}
+    assert len([e for e in streamed if e["type"] == "tool_calls"]) == 1
 
 
 # =============================================================================
