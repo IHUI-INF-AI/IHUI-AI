@@ -413,6 +413,44 @@ export interface DistributionInfo {
   products?: DistributionProduct[]
 }
 
+/** 分销总览卡(个人信息卡变体;两端传真值,缺省不渲染) */
+export interface DistributionOverviewCard {
+  avatar?: string | null
+  nickname: string
+  identity?: string
+  companyName?: string
+}
+
+/** 收益卡 Tab(日/月/总;键值由宿主定义,共享屏只按 key 回传) */
+export interface DistributionEarningsTab {
+  key: string
+  label: string
+}
+
+/** 收益卡数据列(tone 只映射既有语义色,不新增颜色档) */
+export interface DistributionEarningsItem {
+  label: string
+  value: string
+  tone?: 'default' | 'primary' | 'warning'
+}
+
+/** 收益卡(日/月/总统计;两端传真值,缺省不渲染) */
+export interface DistributionEarningsCard {
+  tabs: DistributionEarningsTab[]
+  activeTab: string
+  onSelectTab: (key: string) => void
+  items: DistributionEarningsItem[]
+  /** 底排统计(对齐 RN EarningsStatisticsCard 的推广订单/团队新增/提现金额) */
+  footerItems?: DistributionEarningsItem[]
+}
+
+/** 分佣浮标(注入回调;共享屏内不得出现平台导航/客服 API) */
+export interface DistributionServiceFloat {
+  amount: number
+  label: string
+  onPress: () => void
+}
+
 /** DistributionScreen props(注入式:wrapper 保留 API 调用 + Alert 弹窗) */
 export interface DistributionScreenProps {
   t: TFunction
@@ -430,6 +468,12 @@ export interface DistributionScreenProps {
    * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
    */
   rates?: { level: string; rate: string }[]
+  /** 分销总览(可选;缺省不渲染) */
+  overviewCard?: DistributionOverviewCard
+  /** 收益卡(可选;缺省不渲染) */
+  earningsCard?: DistributionEarningsCard
+  /** 分佣浮标(可选;缺省不渲染;点击回调由宿主注入) */
+  serviceFloat?: DistributionServiceFloat
 }
 
 /** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */

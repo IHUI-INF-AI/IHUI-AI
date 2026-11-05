@@ -16,7 +16,16 @@
 
 .dist-page {
   min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--color-background);
+}
+
+/* 宫格固定区(原 .dist-content 的横向留白;共享屏自己滚,不再整页滚) */
+.dist-menu-wrap {
+  padding: var(--spacing-md) var(--spacing-lg) 0;
+  flex-shrink: 0;
 }
 
 /* 对齐 RN shell:personalInfoWrap paddingT 24 + paddingH 32,scrollContent paddingBottom 32 (dp→rpx 1:2) */
