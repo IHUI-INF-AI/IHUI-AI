@@ -428,6 +428,15 @@ export function renderHuman(rep) {
       `  ⚠️ 文案族 ${rep.conclusion.copyShortCircuit} 页在规划器里是**短路**出路(extras 只有文案一枚,能力项未再枚举)⇒ K≥文案项位次的解锁数是**上界**,不是实测。`,
     )
   }
+  // 汇总面必须声明自己的盲区(本仓血训:曲线被当成实测值派过单)。本尺不验证"能不能填",
+  // 只算"填了以后 extras 是否清空"——这两件事在 blocker 含导航/取数族时并不等价。
+  L.push(
+    '  ⚠️ 上界第二型:本尺假设每枚 blocker 都存在**合法可填通道**,它不复算 `coveredNavigation` 的逐目标反查、' +
+      '也不复算 `apiEndpointsCovered` 的端点重合(那两把判据住规划器/门 237 内部,§0.6 禁止在此重抄)。' +
+      '⇒ blocker 含 `Taro.*` 导航或 `@/api*` 取数族的页,数字仍是**上界**:实测反例 = `pkg-shop/vip/details`,' +
+      '其唯一 blocker 是 `Taro.navigateTo`,但目标是小程序/H5 独占支付页(jsapi + my.getAuthCode),RN 侧无同物路由' +
+      '⇒ 合法通道要么不存在、要么属台账登记面且事实不支持登记,该页"可解锁"为零。看到 K 曲线请连带这一条读。',
+  )
   L.push('')
   L.push('=== C 段 结论 ===')
   if (rep.contradictions.length > 0) {
