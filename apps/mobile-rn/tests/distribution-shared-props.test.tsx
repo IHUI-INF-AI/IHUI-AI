@@ -140,13 +140,55 @@ describe('RN DistributionScreen 三段 props 真消费', () => {
     expect(RN_SOURCE).toContain('amount: info ? fenToYuan(info.availableCommission) : 0')
   })
 
-  it('⑤ 本地三组件不得回潮(源码锁)', () => {
+  it('⑤ 本地三组件 + 本地二维码弹层/宫格不得回潮(源码锁)', () => {
     expect(RN_SOURCE).not.toContain('PersonalInformationCard')
     expect(RN_SOURCE).not.toContain('EarningsStatisticsCard')
     expect(RN_SOURCE).not.toContain('CommissionFloatingIcon')
+    expect(RN_SOURCE).not.toContain('<BottomPops')
+    expect(RN_SOURCE).not.toContain('<FunctionBlockColumn')
+    expect(RN_SOURCE).not.toContain('qrContent')
   })
 
-  it('⑥ 共享屏承接分支存在', () => {
+  it('⑥ 功能宫格真传(5 项 + lucide 图标节点 + 点击)', async () => {
+    render(createElement(DistributionScreen))
+    await waitFor(() => expect(captured.dist).not.toBeNull())
+    const blocks = props().functionBlocks as Array<Record<string, unknown>>
+    expect(blocks.length).toBe(5)
+    expect(blocks.map((b) => b.key)).toEqual([
+      'company_team',
+      'ai_team',
+      'business_card',
+      'my_qrcode',
+      'distribution_orders',
+    ])
+    expect(blocks[0]!.label).toBe('dist.teamCompany')
+    expect(blocks[0]!.iconNode).toBeTruthy()
+    expect(typeof blocks[0]!.onPress).toBe('function')
+    expect(RN_SOURCE).toContain('functionBlocks={functionBlocks}')
+    expect(RN_SOURCE).toContain('iconNode: <Users size={22}')
+  })
+
+  it('⑦ 二维码弹层真传(QR 节点带 ref + 分享/保存/复制回调)', async () => {
+    render(createElement(DistributionScreen))
+    await waitFor(() => expect(captured.dist).not.toBeNull())
+    const qr = props().qrSheet as Record<string, unknown>
+    expect(qr.title).toBe('dist.shareQrA11y')
+    expect(qr.visible).toBe(false)
+    expect(qr.qrNode).toBeNull()
+    expect(qr.emptyText).toBe('暂无邀请码')
+    expect((qr.tips as unknown[]).length).toBe(2)
+    expect(qr.saveLabel).toBe('dist.saveQrA11y')
+    expect(qr.shareLabel).toBe('分享给好友')
+    expect(qr.copyLabel).toBe('复制邀请链接')
+    expect(typeof qr.onSave).toBe('function')
+    expect(typeof qr.onShare).toBe('function')
+    expect(typeof qr.onCopy).toBe('function')
+    expect(typeof qr.onClose).toBe('function')
+    expect(RN_SOURCE).toContain('qrSheet={qrSheet}')
+    expect(RN_SOURCE).toContain('ref={qrRef}')
+  })
+
+  it('⑧ 共享屏承接分支存在', () => {
     const shared = readFileSync(
       resolve('../../packages/app/src/features/distribution/DistributionScreen.tsx'),
       'utf8',
@@ -154,5 +196,7 @@ describe('RN DistributionScreen 三段 props 真消费', () => {
     expect(shared).toContain('{overviewCard ? (')
     expect(shared).toContain('{earningsCard ? (')
     expect(shared).toContain('{serviceFloat ? (')
+    expect(shared).toContain('{functionBlocks?.length ? (')
+    expect(shared).toContain('{qrSheet?.visible ? (')
   })
 })
