@@ -19,9 +19,9 @@ import {
 } from '@/config/downloads.config'
 import { DOWNLOAD_ENTRY_BY_PLATFORM } from './platformEntries'
 import { PlatformNotLaunched } from './PlatformNotLaunched'
-import { DownloadDetailHeader } from './DownloadDetailHeader'
-import { DownloadAssetCard } from './DownloadAssetCard'
-import { InstallGuideContent } from './InstallGuideContent'
+import { DownloadDetailHeader } from '@/components/download/DownloadDetailHeader'
+import { DownloadAssetCard } from '@/components/download/DownloadAssetCard'
+import { InstallGuideContent } from '@/components/download/InstallGuideContent'
 
 /**
  * 详情页主内容(client component,使用 useTranslations + useParams)
