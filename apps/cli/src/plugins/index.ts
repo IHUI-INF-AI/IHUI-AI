@@ -67,6 +67,40 @@ export type {
 } from './contribution-audit.js';
 export type { ScanResult } from './loader.js';
 
+/**
+ * 激活事件裁决公开面(goal-b49/W6)。实现单源 = `./activation-events.ts`,本文件只做 re-export。
+ * `ACTIVATION_POLICY` 是消费方那一侧的键集出口 —— 穷尽性判据读它,不得在测试里另抄档名(§22c)。
+ */
+export {
+  ACTIVATION_POLICY,
+  activationDiagnosticsOf,
+  activationInputOf,
+  classifyActivations,
+  summarizeActivations,
+} from './activation-events.js';
+export type {
+  ActivationDisposition,
+  ActivationFinding,
+  ActivationInput,
+  ActivationReasonCode,
+  PluginActivationAudit,
+} from './activation-events.js';
+
+/**
+ * 声明式权限名归属层(goal-b49/W6)。归属表 + 唯一取数出口 `permissionGrantOf`;
+ * 「能不能拿到数据类」仍只由 capability-catalog 那把尺判定,本层不产出裁决(§0.6)。
+ */
+export {
+  DECLARED_PERMISSION_NAMES,
+  DECLARED_PERMISSION_NAME_LIST,
+  UNMAPPED_PERMISSION_NAMES,
+  permissionGrantOf,
+  readPermissionList,
+  resolveDeclaredPermissionName,
+  resolveDeclaredPermissionNames,
+} from './permission-names.js';
+export type { DeclaredPermissionTarget } from './permission-names.js';
+
 export {
   PluginRegistry,
   type RegisterOptions,
