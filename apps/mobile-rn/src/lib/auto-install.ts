@@ -18,7 +18,6 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import * as IntentLauncher from 'expo-intent-launcher'
 import { Platform } from 'react-native'
 import { applyApkUpdate, apkSnapshot } from './apk-update'
 import { otaSnapshot } from './ota-update'
@@ -57,6 +56,11 @@ export async function tryAutoApplyApk(): Promise<boolean> {
 export async function openAutoInstallSettings(): Promise<void> {
   if (Platform.OS !== 'android') return
   try {
+    // 延迟解析:expo-intent-launcher 在模块求值期就会加载 expo-modules-core,
+    // 而后者读 `globalThis.expo.EventEmitter` —— vitest 里这个全局不存在,任何顶层
+    // import 都会让加载它的整套件收集期直接崩(2026-11-05 实测 app-root / video-immersive 两套)。
+    // 只有"用户真点了去开启"才需要这个原生能力,所以放到调用时再取。
+    const IntentLauncher = await import('expo-intent-launcher')
     await IntentLauncher.startActivityAsync('android.settings.ACCESSIBILITY_SETTINGS')
   } catch {
     /* 个别 ROM 没有该入口时静默失败,由设置页文案兜底(手动到「设置 → 无障碍」) */

@@ -128,6 +128,16 @@ module.exports = ({ config }) => {
     // OTA 桶与显示版本解耦(见 resolveRuntimeVersion 头注)——policy:"appVersion" 会把
     // 每次自动涨的 displayVersion 当成桶,导致 OTA 对已装用户永久不可达。
     runtimeVersion: resolveRuntimeVersion(),
+    // OTA 渠道钉死(2026-11-06):本地 gradlew 构建不经过 EAS CLI,不会把 channel 烤进包;
+    // expo-updates 只从请求头 expo-channel-name 取渠道 ⇒ 不带就是空渠道,EAS 侧永远判"无更新"
+    // (发了 OTA 没人收得到)。这里显式带上,与自动发版发布用的 --channel production 对齐。
+    updates: {
+      ...(config.updates ?? {}),
+      requestHeaders: {
+        ...((config.updates && config.updates.requestHeaders) ?? {}),
+        'expo-channel-name': process.env.IHUI_OTA_CHANNEL || 'production',
+      },
+    },
     android: { ...config.android, versionCode: buildNumber },
     ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
