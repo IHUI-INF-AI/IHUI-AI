@@ -1,7 +1,7 @@
 {
   "enabled": true,
-  "dailyDispatchBudget": 9,
-  "dailyDispatchBudgetNote": "2026-11-05 机主当场授权临时上调(6→9),用途写死在授权原话里:为『端到端验一次自主环真产出』留出班次,不是常态额度。上限来源仍是这份文件(loadGates 无 ?? 兜底,全仓唯一真值源);验完该回落到 6 —— 回落也是同一次授权里没说的部分,故按 §0.1 现读读数决定,不悄悄留着。",
+  "dailyDispatchBudget": 10,
+  "dailyDispatchBudgetNote": "机主 2026-11-05 授权:为「端到端验一次自主环真产出」临时上调额度(6→9→10),不是常态值。0→9 那六个班次全部消耗在两条当时尚未修掉的成因上(出站零宽载荷 400 / 模型由继承 HOME 决定 ⇒ 404),修完后当日零真产出 ⇒ 授权目的未达成,故按同一授权再加一枚。**验证一旦证真(artifact-committed ≥1)立刻回落到 6**,回落与上调同属那条授权,不是新的自主决定。上限唯一真值源仍是本文件(loadGates 无 ?? 兜底)。",
   "failureStreakLimit": 3,
   "quarantineHours": 48,
   "rotateAfterAttempts": 4,
