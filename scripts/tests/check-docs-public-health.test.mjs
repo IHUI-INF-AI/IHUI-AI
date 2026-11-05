@@ -361,6 +361,23 @@ describe('D4 docs 页必须自带 metadata / generateMetadata', () => {
     assert.equal(r.missing.length, 1)
   })
 
+  it('豁免表:表内页面不进 missing 但单列 exempted;理由不足 10 字/表外路径 ⇒ 表损坏', () => {
+    const base = [{ rel: rel('x'), text: PAGE(false) }]
+    const exempt = [{ path: rel('x'), reason: '该页无独立 SEO 需求,由父级聚合页承载索引语义' }]
+    const r = G.judgePageMetadata(base, [], exempt)
+    assert.equal(r.missing.length, 0, '表内页面仍进 missing ⇒ 豁免未接线')
+    assert.equal(r.exempted.length, 1, '豁免页必须单列,不得静默记绿')
+    assert.equal(G.judgeExemptionTable(exempt).problems.length, 0)
+    assert.equal(G.judgeExemptionTable([{ path: rel('x'), reason: '短' }]).problems.length, 1)
+    assert.equal(
+      G.judgeExemptionTable([{ path: 'apps/web/app/(main)/admin/page.tsx', reason: '这条理由足够十个字以上' }])
+        .problems.length,
+      1,
+      '表外路径(非 docs 子树)必须判表损坏',
+    )
+    assert.equal(G.judgeExemptionTable([...exempt, ...exempt]).problems.length, 1, '重复登记必须点名')
+  })
+
   it('「多语页面」定义:任一代码特征命中即标记(不靠人工名单)', () => {
     assert.equal(G.isMultilingualPage("import { getTranslations } from 'next-intl/server'"), true)
     assert.equal(G.isMultilingualPage('export async function generateStaticParams() { return [] }'), true)

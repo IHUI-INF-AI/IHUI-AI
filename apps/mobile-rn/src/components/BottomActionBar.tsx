@@ -598,7 +598,7 @@ function ChatInputBar(props: BottomActionBarProps) {
       {images !== undefined && images.length > 0 ? (
         <View style={styles.imageRow}>
           {images.map((uri, index) => (
-            <View key={index} style={styles.imagePreview}>
+            <View key={`img-${index}-${uri}`} style={styles.imagePreview}>
               <Image source={{ uri }} style={styles.imagePreviewImg} resizeMode="cover" />
               {onRemoveImage !== undefined ? (
                 <Tappable
