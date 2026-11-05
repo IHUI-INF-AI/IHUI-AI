@@ -307,7 +307,7 @@ def _msg_suffix(payload: Any) -> str:
 async def _post_once(
     url: str,
     headers: dict[str, str],
-    body: dict[str, Any],
+    body: dict[str, Any] | list[Any],
     *,
     timeout: float,
     http: httpx.AsyncClient,
@@ -346,7 +346,9 @@ async def _wb_request(
     path: str,
     jwt: str,
     device_map: dict[str, Any],
-    body: dict[str, Any],
+    # /v2/report 的官方报文是数组(见 _fire_growth_events 头注),故请求体允许 list;
+    # 纯注解修正,运行时行为不变。
+    body: dict[str, Any] | list[Any],
     *,
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
