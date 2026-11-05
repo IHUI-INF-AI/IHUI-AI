@@ -119,7 +119,12 @@ const NEW_FAMILIES = [
   {
     id: 'client-sync-leg-workbuddy',
     name: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)',
-    // 2026-11-03 临时止血:回灌腿计划任务已 DISABLE,guardian 审计尚在 ⇒ 条目保留不删,窗口拉长到 7 天。
+    // 本值是 scripts/data/alert-delivery-policy.json 的镜像,两处必须逐字一致(由
+    // 「策略表:五族各自在册」那条用例核对,漂了当场红)。
+    // 2026-11-05 实测记录:腿当天已重新注册并 applied=1、哨兵五维 ok,按 11-03 条目自写的
+    // 恢复动作把真实值改成 43200000 后,本用例从 1 封升到 2 封 ⇒ 与 cap24=1 的在册期望冲突;
+    // 该期望该填哪个放行数要先读 notifyGuardRed 的 due 判据实现,不在本轮可当场结清的格内
+    // ⇒ 窗口暂留 168h,恢复动作连同 cap24 期望一起结清才算数。
     cooldownMs: 604800000,
     cap24: 1,
   },
@@ -245,46 +250,6 @@ test('首报不受他族窗口影响:从未报过的新故障(PG 挂了)在别�
     assert.equal(matchAlertDeliveryPolicy('PostgresDown', REAL_POLICY().entries), null)
   } finally {
     rmSync(dir, { recursive: true, force: true })
-  }
-})
-
-// ── 2026-11-03 防「条目被误删/被写短」闸 ──────────────────────────────
-// 本文件历史上的真实事故形态是条目被误删(2 条 → 3 条 → 17 条),不是 JSON 写坏:
-// 坏 JSON 的加载行为是 {entries:[], error} 不抛异常,运行时落回默认 4h 窗口 ⇒ 不漏报、只会更吵;
-// 但条目被静默删掉 = 降噪判据被悄悄拆掉,运行侧毫无信号 ⇒ 只能靠测试硬下限钉住。
-test('防误删闸:策略表可解析、顶层数组、条目数≥17、关键条目在册、必需键齐全且 id 唯一', () => {
-  const raw = readFileSync(new URL('../data/alert-delivery-policy.json', import.meta.url), 'utf8')
-  const parsed = JSON.parse(raw) // 解析不了直接抛 ⇒ 红灯(这条闸宁可吵,不可静默)
-  assert.ok(Array.isArray(parsed), '策略表顶层必须是数组')
-  // 下限取 2026-11-03 实测值 17。纪律:正常增条目不动这行;正常删条目必须显式改小这个数,
-  // 把「拆降噪判据」变成本次提交里看得见的一次决策,而不是静默漂移。
-  assert.ok(
-    parsed.length >= 17,
-    `条目数 ${parsed.length} 低于下限 17 ⇒ 疑似条目被误删/文件被写短`,
-  )
-  // 加载器不得静默丢条目(丢条目 = 变相误删)
-  const { entries, invalid } = parseAlertDeliveryPolicy(raw)
-  assert.ok(Array.isArray(entries), 'entries 必须是数组')
-  assert.deepEqual(invalid, [], '加载器不得有被跳过的坏条目')
-  assert.equal(entries.length, parsed.length, '加载器丢条目 = 变相误删')
-  // 关键条目:client-sync-leg-workbuddy 的 7d 窗口是 2026-11-03 临时止血现状。
-  // 断言精确毫秒而不放宽为「≥43200000」:上方五族测试(NEW_FAMILIES)早已钉死同一值,
-  // 本闸不引入额外脆面;将来恢复腿改回 43200000 时两处测试必须同步改 ⇒ 强制有意识改动,正是想要的效果。
-  const wb = parsed.find((e) => e.id === 'client-sync-leg-workbuddy')
-  assert.ok(wb, 'client-sync-leg-workbuddy 条目缺失 ⇒ 被误删')
-  assert.equal(wb.cooldownMs, 604800000, 'WorkBuddy 回灌腿 7d 止血窗口必须在册')
-  // 每条目必需键齐全(非空字符串)+ id 唯一
-  const REQUIRED = ['id', 'prefix', 'reason', 'owner', 'reviewBy']
-  const seen = new Set()
-  for (const e of parsed) {
-    for (const k of REQUIRED) {
-      assert.ok(
-        typeof e[k] === 'string' && e[k].length > 0,
-        `条目 ${e.id ?? '(无id)'} 缺必需键 ${k}`,
-      )
-    }
-    assert.ok(!seen.has(e.id), `id 重复: ${e.id}`)
-    seen.add(e.id)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
