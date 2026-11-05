@@ -76,10 +76,39 @@ async function mockLoggedInUi(page: Page): Promise<void> {
  */
 async function installPartialArgsProbe(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    const w = window as unknown as { __partialArgsSnapshots?: string[] }
+    const w = window as unknown as {
+      __partialArgsSnapshots?: string[]
+      __rowStates?: string[]
+    }
     w.__partialArgsSnapshots = []
+    w.__rowStates = []
     setInterval(() => {
+      // 外层「执行过程」组默认折叠(stream-ui.tsx:399 的 {open && children}),
+      // 折叠时**所有工具卡都不在 DOM**。必须先展开组头,否则内层卡片/预览块
+      // 永远查不到 —— 这正是初版「零渲染」的真因,不是 api-client 或组件缺陷。
+      const collapsedGroup = document.querySelector(
+        '[data-testid^="message-steps-group-"] button[aria-expanded="false"]',
+      ) as HTMLElement | null
+      if (collapsedGroup) collapsedGroup.click()
+      const row = document.querySelector(
+        '[data-testid="tool-call-row-c1"]',
+      ) as HTMLElement | null
+      const expanded = row?.getAttribute('data-stream-expanded') ?? 'absent'
+      // 预览块住在 StreamRow 的 expanded 展开区(tool-call-card.tsx:1517)。dev 首次
+      // 编译 / hydration 期间,测试线程的一次 Playwright click 可能落在 React 绑定
+      // onClick 之前而丢失;卡片若因 store 更新重挂载,expanded 也会回到 false。
+      // 由页面自身保证「卡片一出现就保持展开」,与测试线程时序彻底解耦。
+      if (row && expanded === 'false') row.click()
       const el = document.querySelector('[data-testid="tool-call-partial-args"]')
+      const state =
+        `expanded=${expanded} status=${row?.getAttribute('data-stream-status') ?? 'absent'} ` +
+        `preview=${el ? 'yes' : 'no'}`
+      const states = w.__rowStates
+      // 绝对时间戳:与 __sseChunkTimes 同一时钟,可读出卡片相对首帧出现的时刻,
+      // 也能看出探针是否被页面重载重置(记录数突然从 0 重新增长)。
+      if (states && states[states.length - 1]?.slice(14) !== state) {
+        states.push(`${Date.now()} ${state}`)
+      }
       if (!el) return
       const text = el.textContent ?? ''
       const snaps = w.__partialArgsSnapshots
@@ -88,10 +117,20 @@ async function installPartialArgsProbe(page: Page): Promise<void> {
   })
 }
 
-async function readPartialArgsSnapshots(page: Page): Promise<string[]> {
-  return page.evaluate(
-    () => (window as unknown as { __partialArgsSnapshots?: string[] }).__partialArgsSnapshots ?? [],
-  )
+async function readPartialArgsSnapshots(page: Page): Promise<{
+  snapshots: string[]
+  rowStates: string[]
+}> {
+  return page.evaluate(() => {
+    const w = window as unknown as {
+      __partialArgsSnapshots?: string[]
+      __rowStates?: string[]
+    }
+    return {
+      snapshots: w.__partialArgsSnapshots ?? [],
+      rowStates: w.__rowStates ?? [],
+    }
+  })
 }
 
 /** 会话态 mock:覆盖 createConversation / getConversation / getMessages 三个真实端点 */
@@ -132,7 +171,7 @@ async function mockConversation(page: Page, convId: string): Promise<void> {
 async function mockToolCallArgsDeltaStream(
   page: Page,
   frames: ReadonlyArray<Record<string, unknown>>,
-  opts: { chunkDelayMs?: number } = {},
+  opts: { chunkDelayMs?: number; firstFrameDelayMs?: number } = {},
 ): Promise<void> {
   const sse = makeSSE([
     ...frames,
@@ -149,8 +188,17 @@ async function mockToolCallArgsDeltaStream(
     { type: 'done', content: 'ok' },
   ])
   const delay = opts.chunkDelayMs ?? 350
+  // 首片额外停留:dev 首次编译 / hydration 下,卡片挂载与自动展开需要一点时间;
+  // 若首片窗口太短,采样器看到的第一个文本会是后续片,「出现过首片 a」就会假红。
+  const firstFrameDelay = opts.firstFrameDelayMs ?? 0
   await page.addInitScript(
-    ({ sse, delay }: { sse: string; delay: number }) => {
+    (
+      { sse, delay, firstFrameDelay }: {
+        sse: string
+        delay: number
+        firstFrameDelay: number
+      },
+    ) => {
       const orig = window.fetch.bind(window)
       const probe = window as unknown as {
         __sseFetchHits?: number
@@ -172,7 +220,7 @@ async function mockToolCallArgsDeltaStream(
         const body = new ReadableStream<Uint8Array>({
           async start(controller) {
             try {
-              for (const p of parts) {
+              for (const [i, p] of parts.entries()) {
                 if (init?.signal?.aborted) break
                 // 逐行 enqueue:与真实 SSE runner 的按行读一致,避免「整块当一行」
                 // 让 parseToolCallArgsDeltaFrame 的 JSON.parse 吃到 id: 前缀。
@@ -181,7 +229,8 @@ async function mockToolCallArgsDeltaStream(
                   probe.__sseFrames?.push(row.slice(0, 100))
                   controller.enqueue(enc.encode(`${row}\n`))
                 }
-                if (delay > 0) await new Promise((r) => setTimeout(r, delay))
+                const wait = delay + (i === 0 ? firstFrameDelay : 0)
+                if (wait > 0) await new Promise((r) => setTimeout(r, wait))
               }
               controller.close()
             } catch {
@@ -199,7 +248,7 @@ async function mockToolCallArgsDeltaStream(
         })
       }
     },
-    { sse, delay },
+    { sse, delay, firstFrameDelay },
   )
 }
 
@@ -218,7 +267,25 @@ const DELTA_FRAMES: ReadonlyArray<Record<string, unknown>> = [
     index: 0,
     id: 'c1',
     name: 'web_search',
+    args: { query: 'ab' },
+    argsComplete: false,
+    argsPartial: true,
+  },
+  {
+    type: 'tool-call-args-delta',
+    index: 0,
+    id: 'c1',
+    name: 'web_search',
     args: { query: 'abc' },
+    argsComplete: false,
+    argsPartial: true,
+  },
+  {
+    type: 'tool-call-args-delta',
+    index: 0,
+    id: 'c1',
+    name: 'web_search',
+    args: { query: 'abc', limit: 5 },
     argsComplete: false,
     argsPartial: true,
   },
@@ -234,20 +301,29 @@ const DELTA_FRAMES: ReadonlyArray<Record<string, unknown>> = [
 ]
 
 test.describe('tool-call-args-delta 增量渲染端到端', () => {
-  // 逐帧流按 chunkDelayMs 推进(7 帧),默认 30s 测试超时会被流本身吃满 ⇒ 放宽到 90s。
+  // 逐帧流按 chunkDelayMs 推进(9 帧 + 首片额外停留),默认 30s 测试超时会被流
+  // 本身吃满 ⇒ 放宽到 90s。
   test.setTimeout(90000)
 
-  // ⚠️ 已知失败(2026-11-05 浏览器实跑复现,任务 #10 跟踪):
-  //   mock SSE 逐帧确实到达 fetch 层(fetchHits=1 / 12 行)、无 pageerror、卡片由
-  //   tool-call-start/result 正常收敛为终态,但 tool-call-partial-args 预览块全程
-  //   零渲染(页面内 50ms 采样器快照为空)。已排除:订阅点(send-message.ts:1136)、
-  //   handler(createOpenAiToolCallHandler)、解析器单测、api-client dist 含新接线、
-  //   组件传参(MessageItem:1476-1477)、SSE 帧格式(整块/逐行/id 行均试过)。
-  //   ⇒ 缺口在 api-client 运行时帧分发 → onOpenAiToolCall 这一段,需专项排查。
-  //   修复后**必须移除本 fixme 并确认本用例转绿**,否则视为该缺陷未闭环;
-  //   断言与页面内采样器全部保留,不改松判据、不删复现路径。
+  // ⚠️ 已知失败(2026-11-05 浏览器真跑,任务 #10 跟踪)。逐层二分后的**精确结论**:
+  //   ① api-client 完好:用真实 dist 直接跑 streamChat + mock 逐帧 fetch,
+  //      onOpenAiToolCall 3/3 命中(a → abc → complete);Proxy 模拟「所有回调都
+  //      订阅」仍 3/3 ⇒ 帧分发不是缺口(推翻初版误判)。
+  //   ② handler → store → ToolCallCard 完好:vitest 全绿;去掉 argsComplete 终帧后
+  //      页面内探针立刻采到 preview 与 {"query":"abc"} ⇒ 渐进渲染链路可用。
+  //   ③ 真实缺口在**消息生命周期/UI 投影层**:完整 9 帧流下,探针时间戳显示卡片
+  //      从页面加载到 16.8s(恰为流终点)之前始终不在 DOM;期间 stepSectionsCount=0
+  //      ⇒ MessageItem 的 StreamGroup(其 {open && children} 才挂工具卡)根本不挂载。
+  //      流一结束卡片一次性出现且已是 success —— 对应 send-message.ts 流末
+  //      getMessages 回读 setMessages 覆盖本地 store。故渐进渲染在当前路径上用户不可见。
+  //   待查面:send-message.ts 的 assistantId 与 MessageList 渲染消息 id 是否一致 /
+  //      chat-pane-context 的 store 实例 / projectActiveMessages 与详情档位投影 /
+  //      流式占位消息是否屏蔽 toolCalls。
+  //   探针已自动展开「执行过程」组与卡片、首片留足窗口、多片渐进帧;修复后**移除
+  //   本 fixme 并确认转绿**即闭环。断言不放宽(≥2 个不同文本、含首片 a 与后续
+  //   abc、长度递增、终态卸载),复现路径与诊断读数全部保留。
   test('逐帧推进 partial 预览,complete 后收敛为终态', async ({ page }) => {
-    test.fixme(true, 'tool-call-args-delta 渐进渲染浏览器实跑未复现，见任务 #10')
+    test.fixme(true, '流期间工具卡不进 DOM（消息投影层缺口），见任务 #10')
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
 
@@ -256,7 +332,10 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
     await mockConversation(page, 'e2e-conv-tool-args-delta')
     // 放慢逐帧节奏:预览块只在 running + argsStreaming 窗口内存在,且需先点开卡片,
     // 留足观察窗才能实证「同一预览块文本逐片增长」而非一次性到达。
-    await mockToolCallArgsDeltaStream(page, DELTA_FRAMES, { chunkDelayMs: 2500 })
+    await mockToolCallArgsDeltaStream(page, DELTA_FRAMES, {
+      chunkDelayMs: 1800,
+      firstFrameDelayMs: 2500,
+    })
 
     await page.goto('/chat')
     await page.waitForLoadState('domcontentloaded')
@@ -269,14 +348,26 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
     // 卡片随 delta 首片挂载(行级 testid 含 toolCallId c1)
     const row = page.getByTestId('tool-call-row-c1')
     await row.waitFor({ state: 'attached', timeout: 20000 })
-    // 预览块住在 StreamRow 的 expanded 展开区(tool-call-card.tsx 的 {expanded && ...}),
-    // 不点开卡片就永远找不到 tool-call-partial-args。
-    await row.click()
+    // 预览块住在 StreamRow 的 expanded 展开区(tool-call-card.tsx:1517)。
+    // 展开由 installPartialArgsProbe 的页面内探针负责(自动点击且遇重挂载会补点),
+    // 此处不再做测试线程 click —— 那会与探针互相抵消成折叠。
 
     const partial = page.getByTestId('tool-call-partial-args')
-    // 等流收尾:complete 帧 + tool-result 后预览块卸载、卡片收敛为终态仍挂载。
-    // 注意:仅凭「卸载」不能证明它出现过(从未渲染也会是 0),逐片证据由页面内快照兜底。
-    await expect(partial).toHaveCount(0, { timeout: 40000 })
+    // 先等 mock 流全部发出(9 帧 × id + data 两行 = 18 行)并被消费。若直接判
+    // toHaveCount(0),预览块「从未渲染」也会立即通过 ⇒ 采样器还没记录任何文本
+    // 就被读走,这是最容易漏掉的一型假绿。
+    await page.waitForFunction(
+      () => {
+        const w = window as unknown as { __sseFrames?: string[] }
+        return (w.__sseFrames?.length ?? 0) >= 18
+      },
+      undefined,
+      { timeout: 45000 },
+    )
+    await page.waitForTimeout(600)
+    // 收尾:complete 帧清预览、tool-result 收敛卡片、finally 兜底把残留 running
+    // 卡置 cancelled ⇒ 预览块必须卸载且卡片仍挂载。
+    await expect(partial).toHaveCount(0, { timeout: 10000 })
     await expect(row).toBeAttached()
 
     // 逐片证据:采样器见过至少 2 个不同文本,且确实出现过首片 a 与后续 abc,
@@ -288,12 +379,12 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
       }
       return { hits: w.__sseFetchHits ?? 0, frames: w.__sseFrames ?? [] }
     })
-    const snapshots = await readPartialArgsSnapshots(page)
+    const { snapshots, rowStates } = await readPartialArgsSnapshots(page)
     const distinct = [...new Set(snapshots)]
     const diagText =
-      `预览快照=${JSON.stringify(distinct)} fetchHits=${diag.hits} ` +
-      `frames=${diag.frames.length} first=${diag.frames[0] ?? ''} ` +
-      `pageErrors=${JSON.stringify(consoleErrors)}`
+      `预览快照=${JSON.stringify(distinct)} 状态历史=${JSON.stringify(rowStates)} ` +
+      `fetchHits=${diag.hits} frames=${diag.frames.length} ` +
+      `first=${diag.frames[0] ?? ''} pageErrors=${JSON.stringify(consoleErrors)}`
     expect(distinct.length, diagText).toBeGreaterThanOrEqual(2)
     expect(distinct.some((t) => t.includes('"query": "a"'))).toBe(true)
     expect(distinct.some((t) => t.includes('abc'))).toBe(true)
