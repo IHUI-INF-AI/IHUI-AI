@@ -137,6 +137,30 @@ export function normalizePath(raw) {
   return p
 }
 
+/**
+ * 共享端点文件内的路径字面量归一。
+ *
+ * `packages/api-client/src/client.ts` 的 resolveUrl 对所有相对路径补 `/api` 前缀
+ * (例如 `fetchApi('/srs/streams')` 实际请求 `/api/srs/streams`)。因此共享端点清单里
+ * 的相对字面量必须归一到 `/api/...`,否则端内写全路径(`/api/srs/streams`)会被误判成
+ * 「端内独有前缀」——这是门 300 的假阳性来源。
+ */
+export function normalizeSharedPath(raw) {
+  if (typeof raw !== 'string') return null
+  const p0 = raw
+    .replace(/\\\$/g, '$')
+    .split('?')[0]
+    .split('#')[0]
+    .trim()
+  if (!p0.startsWith('/')) return null
+  if (/^\/api(?:\/|$)/.test(p0)) return normalizePath(p0)
+  if (p0 === '/' || p0.startsWith('//')) return null
+  return normalizePath('/api' + p0)
+}
+
+/** 共享端点文件内允许「相对路径字面量」的调用标记(避免把普通字符串误收)。 */
+const SHARED_CALL_RE = /(?:fetchApi|fetchAiServiceJson|fetchWithAuthRefresh)\s*(?:<[^>]*>)?\s*\(/
+
 /** 前缀:默认 `/api/<seg1>`;depth=2 ⇒ `/api/<seg1>/<seg2>`。 */
 export function prefixOf(normalized, depth = PREFIX_DEPTH) {
   if (!normalized) return null
@@ -375,15 +399,35 @@ export function extractSharedEndpoints(root, { listFiles = null, readFile = null
       const line = lines[i]
       const trimmed = line.trim()
       if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue
+      // 相对路径必须落在 fetchApi/fetchAiServiceJson 调用参数位(含跨行实参),
+      // 否则普通字符串(如 UI 文案 `/xxx`)会被误收成共享端点。
+      const prev = (lines[i - 1] ?? '').trim()
+      const prev2 = (lines[i - 2] ?? '').trim()
+      const callHere =
+        SHARED_CALL_RE.test(line) ||
+        (SHARED_CALL_RE.test(prev) && prev.endsWith('(')) ||
+        (prev.endsWith('(') && SHARED_CALL_RE.test(prev2))
+      const found = new Map()
       for (const lit of scanLineLiterals(line)) {
-        if (!lit.normalized) continue
-        occurrences.push({
-          file: rel,
-          line: i + 1,
-          raw: lit.raw.slice(0, 160),
-          normalized: lit.normalized,
-          prefix: prefixOf(lit.normalized),
-        })
+        if (lit.normalized) found.set(lit.normalized, lit.raw)
+      }
+      // 共享端点里常见 `${base}/api/memory` 这类「baseURL 拼接」写法:字面量不以 `/` 开头,
+      // 但仍指向 /api 端点。只收字符串内出现的 `/api/...` 子串,避免把整串 URL 或注释算进来。
+      for (const m of line.matchAll(/\/api(?:\/[^'"`\s\\]*)?/g)) {
+        const normalized = normalizePath(m[0])
+        if (normalized && !found.has(normalized)) found.set(normalized, m[0])
+      }
+      // 相对路径必须落在 fetchApi/fetchAiServiceJson 调用参数位(含跨行实参),否则普通字符串误收。
+      if (callHere) {
+        for (const m of line.matchAll(/['"`](\/[^'"`\s]*)/g)) {
+          const raw = m[1]
+          if (/^\/api(?:\/|$)/.test(raw)) continue // 绝对路径已由 scanLineLiterals 收录
+          const normalized = normalizeSharedPath(raw)
+          if (normalized && !found.has(normalized)) found.set(normalized, raw)
+        }
+      }
+      for (const [normalized, raw] of found) {
+        occurrences.push({ file: rel, line: i + 1, raw: raw.slice(0, 160), normalized, prefix: prefixOf(normalized) })
       }
     }
   }
