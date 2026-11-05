@@ -123,4 +123,58 @@ export function resolveDeclaredPermissionNames(names: readonly string[]): string
 export function permissionGrantOf(permissions: readonly string[]): ExtensionDataClassGrant {
   return extensionDataClassGrant({ permissions: resolveDeclaredPermissionNames(permissions) });
 }
+
+/**
+ * 清单级权限归一化(goal-b49/X2):把扩展 manifest 的 `permissions` 按**同一张归属表**
+ * (`resolveDeclaredPermissionName`)换成正牌 scope,其余字段逐字原样。
+ *
+ * 纯函数:不改入参对象;非对象 / 无 `permissions` / 非数组 ⇒ **原对象原样返回** ——
+ * 形态错由 `validateExtensionManifest` 自己报(invalid_type),本层不抢它的判据(§0.6)。
+ * 数组里的非字符串项原样保留,不 filter:过滤会挪动下标,校验器点名的 `permissions[i]` 就错位了。
+ */
+export function normalizeExtensionManifestPermissions(manifest: unknown): unknown {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return manifest;
+  const record = manifest as Record<string, unknown>;
+  if (!Array.isArray(record.permissions)) return manifest;
+  const list = record.permissions as unknown[];
+  const permissions = list.map((p) => (typeof p === 'string' ? resolveDeclaredPermissionName(p) : p));
+  return { ...record, permissions };
+}
+
+/**
+ * 扩展安装校验器的结构契约 —— 与 `@ihui/types` 的 `validateExtensionManifest` 同形
+ * (`apps/cli/src/skills/packaging/manifest-gate.ts` 的 `ExtensionManifestValidatorLike` 是它的一处消费)。
+ * 本层不 import 该校验器(它住 packages/types,本票不动跨端面),只描述调用形状。
+ * `manifest` 只在 `ok: true` 时有值,类型放宽到 unknown —— 本层不透解校验器的规范化结果。
+ */
+export interface ExtensionManifestValidatorContract {
+  (
+    raw: unknown,
+    ctx: { isRegisteredScope(scope: string): boolean },
+  ):
+    | { ok: true; manifest?: unknown }
+    | { ok: false; errors: { path: string; code: string; message: string }[] };
+}
+
+/**
+ * 安装通道适配器:让它认点分声明名别名(goal-b49/X2 的「别名那一格」)。
+ *
+ * 事实(现读):`validateExtensionManifest` 只认 `API_KEY_PERMISSION_SET` 正牌 scope
+ * (`!PERMISSION_SET.has(scope) || !ctx.isRegisteredScope(scope)` ⇒ `permission_not_registered`),
+ * 而本仓的归属表 `DECLARED_PERMISSION_NAMES` 只被装载面(contribution/activation)消费 ——
+ * 同一份权限名在**装载通道认别名、安装通道不认**,两处口径不一致(§0.6)。
+ *
+ * 适配器在**进校验器之前**做同一次归属(复用 `resolveDeclaredPermissionName`,零第二把尺):
+ *   - 正牌 scope     ⇒ 原样(不走别名表,免得别名规则反噬);
+ *   - 在册别名       ⇒ 换成正牌 scope 后通过;
+ *   - 未知 / 归属 null ⇒ 原样透传 ⇒ 校验器照旧逐条报 `permission_not_registered`(fail-closed,不扩权)。
+ *
+ * 接线点是调用侧一行:`createExtensionManifestGate(createAliasAwareManifestValidator(validateExtensionManifest))`。
+ * 该调用点住 `commands/skill-package.ts`(不在本票射程),故本票只交出口与用例,接线随票面交主席。
+ */
+export function createAliasAwareManifestValidator(
+  validator: ExtensionManifestValidatorContract,
+): ExtensionManifestValidatorContract {
+  return (raw, ctx) => validator(normalizeExtensionManifestPermissions(raw), ctx);
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

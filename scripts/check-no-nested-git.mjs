@@ -371,11 +371,37 @@ export function splitByExemption(hits, entries, today = isoToday()) {
  * @returns {{hits: {path:string, rel:string, isDir:boolean}[], scanned:number,
  *            truncated:boolean, unreadable:string[], skippedReparse:number}}
  */
+/**
+ * `.DevEnv/.git` 是 `scripts/lib/scratch-dir.mjs` 的 G-158 **坏 gitfile 边界哨兵**
+ * (内容 `gitdir: <dir>/.no-git-boundary`,目标按设计不存在)。它的用途是阻止 git 从
+ * `.DevEnv` 向上逃逸到真仓,本身不是嵌套仓;而在 linked worktree 里跑测试时
+ * `mkScratch` 会把同一枚哨兵写进 `<worktree>/.DevEnv`(2026-11-05 实测 2 处),
+ * 旧判据把它当嵌套仓 ⇒ 工作树一变多就恒红(§12e)。
+ * 只认**两个条件同时成立**的窄形态:目标 basename 恰是 `.no-git-boundary` ∧ 目标不存在。
+ * 悬空的 worktree gitfile(指向 `.git/worktrees/<gone>`)与指向他仓的 gitfile 照旧命中;
+ * 读不到/解析不出 ⇒ 不豁免(§0.3:判不出来不放行)。
+ */
+export function isDevEnvBoundarySentinel(gitfilePath) {
+  let raw = ''
+  try {
+    raw = readFileSync(gitfilePath, 'utf8')
+  } catch {
+    return false
+  }
+  if (raw.length > 4096) return false
+  const m = /^\s*gitdir:\s*(.+?)\s*$/im.exec(raw)
+  if (!m) return false
+  const target = isAbsolute(m[1]) ? resolve(m[1]) : resolve(dirname(gitfilePath), m[1])
+  if (target.replace(/\\/g, '/').split('/').pop() !== '.no-git-boundary') return false
+  return !existsSync(target)
+}
+
 export function scanForNestedGit(root, opts = {}) {
   const maxDepth = opts.maxDepth ?? 10
   const entryBudget = opts.entryBudget ?? 1_000_000
   const hits = []
   const linkedWorktrees = []
+  const boundarySentinels = []
   const unreadable = []
   let scanned = 0
   let truncated = false
@@ -413,6 +439,8 @@ export function scanForNestedGit(root, opts = {}) {
         const lw = isDir ? null : sameRepoLinkedWorktree(abs, root)
         if (lw) {
           linkedWorktrees.push({ path: abs, rel: relative(root, abs), name: lw.name })
+        } else if (!isDir && isDevEnvBoundarySentinel(abs)) {
+          boundarySentinels.push({ path: abs, rel: relative(root, abs) })
         } else {
           hits.push({ path: abs, rel: relative(root, abs), isDir })
         }
@@ -441,7 +469,7 @@ export function scanForNestedGit(root, opts = {}) {
   }
 
   walk(root, 1)
-  return { hits, linkedWorktrees, scanned, truncated, unreadable, skippedReparse }
+  return { hits, linkedWorktrees, boundarySentinels, scanned, truncated, unreadable, skippedReparse }
 }
 
 /**
@@ -504,6 +532,7 @@ export function evaluateResult(scan, opts = {}) {
     stale: jsonPass.stale,
     staleSites: sitePass.stale,
     linked: scan.linkedWorktrees ?? [],
+    boundarySentinels: scan.boundarySentinels ?? [],
     carrierMisuse: misuse,
     carrierUndetermined: [...(opts.carrier?.undetermined ?? [])],
   }
@@ -631,6 +660,9 @@ export async function main(argv = process.argv.slice(2)) {
     for (const w of verdict.linked) {
       console.info(`   🔗 本仓 linked worktree:${w.rel} —— gitfile 与 admin 面双向核验通过,不计嵌套仓`)
     }
+    for (const s of verdict.boundarySentinels) {
+      console.info(`   🚧 .DevEnv 边界哨兵:${s.rel} —— gitdir 指向不存在的 .no-git-boundary(G-158 设计),不计嵌套仓`)
+    }
     if (ledger.error) {
       console.warn(`${GATE_LABEL} ⚠ 具名豁免台账不可用(${ledger.error});本轮无命中故不影响结论,但下次有命中时将零放行`)
     }
@@ -650,6 +682,13 @@ export async function main(argv = process.argv.slice(2)) {
   if (verdict.linked.length) {
     console.error(`  ℹ 另有 ${verdict.linked.length} 处是本仓 linked worktree(已按双向核验分流,不计为嵌套;仍逐条列出):`)
     for (const w of verdict.linked) console.error(`     - ${w.rel}`)
+  }
+  if (verdict.boundarySentinels.length) {
+    console.error(
+      `  ℹ 另有 ${verdict.boundarySentinels.length} 处是 .DevEnv 边界哨兵(gitdir 指向不存在的 .no-git-boundary,` +
+        `scratch-dir G-158 设计产物,不是嵌套仓;仍逐条列出):`
+    )
+    for (const s of verdict.boundarySentinels) console.error(`     - ${s.rel}`)
   }
   if (scan.unreadable.length) {
     console.error(`  (unreadable ${scan.unreadable.length} 处,未穿透复核: ${scan.unreadable.slice(0, 5).join(', ')}${scan.unreadable.length > 5 ? ' …' : ''})`)
@@ -672,6 +711,7 @@ export const __test__ = {
   evaluateResult,
   isRepoRootGit,
   sameRepoLinkedWorktree,
+  isDevEnvBoundarySentinel,
   loadNamedExemptions,
   loadNamedSites,
   splitByExemption,
