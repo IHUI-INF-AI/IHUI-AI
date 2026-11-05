@@ -101,7 +101,9 @@ services:
       - ./.credentials:/app/.credentials:ro
       - ./templates:/app/templates:ro
     networks:
+      # 双网:ihui-saas-mon 用于查 Prometheus,ihui-saas-net 保留既有客户生命周期链路
       - ihui-saas-net
+      - ihui-saas-mon
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8830/admin/api/health']
       interval: 30s
@@ -135,7 +137,8 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - ihui-saas-net
+      # BUG-0019:只进监控专用网 —— 8808 无鉴权,不得与租户容器共享 ihui-saas-net
+      - ihui-saas-mon
 
   # Prometheus — 指标存储 + PromQL
   prometheus:
@@ -148,12 +151,14 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      # 2026-11-06 BUG-0019:摘除 --web.enable-lifecycle —— 它打开的是无鉴权的
+      # POST /-/reload(配置变更改走容器重启);此前该端点还随服务挂在租户共享网上
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - saas_prometheus_data:/prometheus
     networks:
-      - ihui-saas-net
+      # BUG-0019:Prometheus 无鉴权,只允许监控专用网可达;不再加入租户共享网
+      - ihui-saas-mon
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:9090/-/healthy']
       interval: 30s
@@ -182,7 +187,8 @@ services:
       - ./panel-defs/panels:/var/lib/grafana/dashboards:ro
       - saas_grafana_data:/var/lib/grafana
     networks:
-      - ihui-saas-net
+      # 匿名 Viewer 开启时不得与租户共享网络;宿主仅 127.0.0.1:8816
+      - ihui-saas-mon
     ports:
       # 同源 iframe 嵌入(localhost 浏览器直访)
       - '127.0.0.1:8816:8816'
@@ -199,6 +205,12 @@ services:
 networks:
   ihui-saas-net:
     name: ihui-saas-net
+    driver: bridge
+  # 2026-11-06 BUG-0019:监控专用网。prometheus/cadvisor/grafana 只在此网可达,
+  # 租户容器只加入 ihui-saas-net(templates/customer/docker-compose.yml),
+  # 两网无交集 ⇒ 客户容器无法访问 :9090 的 /api/v1/targets(内部服务名)与查询接口。
+  ihui-saas-mon:
+    name: ihui-saas-mon
     driver: bridge
 
 volumes:

@@ -328,6 +328,11 @@ admin-api(:8830) ─┘
   └─ /admin/api/customers/:slug/quota      配额(已从占位切换为 Prometheus)
 ```
 
+> 网络隔离(2026-11-06,BUG-0019):`prometheus` / `cadvisor` / `grafana` 只加入监控专用网
+> `ihui-saas-mon`,不加入租户共享的 `ihui-saas-net`;Prometheus 不发布宿主端口,也不启用
+> `--web.enable-lifecycle`。租户容器无法访问 `prometheus:9090` 的查询/目标发现接口与
+> `cadvisor:8808`。`admin-api` 双网保留(查 Prometheus + 既有生命周期链路)。
+
 ### 端点
 
 | 端点                                     | 说明                                                      |
@@ -398,6 +403,7 @@ docker logs customer-demo-api | grep -i "database"
 - [ ] JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY 至少 32 字节随机
 - [ ] 数据库密码至少 24 字符随机
 - [ ] 80/443 端口仅暴露给 Traefik,业务容器不直接对外
+- [ ] 监控栈(prometheus/cadvisor/grafana)只在 `ihui-saas-mon`,不与租户共享 `ihui-saas-net`;Prometheus 无宿主端口、无 `--web.enable-lifecycle`
 - [ ] Traefik Dashboard 受 ADMIN_DOMAIN 限制
 - [ ] DNS provider 凭证用最小权限子账号
 
