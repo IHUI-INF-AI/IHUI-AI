@@ -176,9 +176,10 @@ describe('身份同源:摘要 key 的工作区身份只认构造时定死的那�
       dangerLevel: 'write',
       workspaceId: WS,
     })
-    expect(rec.recorded === true && rec.digest).toBe(slotDigest(WS, contentOf(APPROVED)))
+    if (rec.recorded !== true) throw new Error('同源摘要必须登记成功')
+    expect(rec.digest).toBe(slotDigest(WS, contentOf(APPROVED)))
     // 换成另一套键(本仓并不存在 workspaceIdentity,若把这里改成 pid / cwd 冒充)⇒ 本条必红
-    expect(rec.recorded === true && slotDigest('pid-1234', contentOf(APPROVED))).not.toBe(rec.digest)
+    expect(slotDigest('pid-1234', contentOf(APPROVED))).not.toBe(rec.digest)
   })
 
   it('身份不一致 ⇒ 拒绝登记、不重绑、槽位仍空(下一次照旧要批准)', () => {

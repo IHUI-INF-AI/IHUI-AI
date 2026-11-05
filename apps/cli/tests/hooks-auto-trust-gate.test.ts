@@ -47,7 +47,7 @@ describe('工作区 hook 信任门', () => {
   it('未信任工作区:发现即禁用(enabled=false,执行器结构性断开)', () => {
     const discovery = new HookAutoDiscovery(scratch)
     const hooks = discovery.discover()
-    const workspaceHooks = hooks.filter((h) => h.sourceLabel !== 'global')
+    const workspaceHooks = hooks.filter((h) => !h.id.startsWith('global:'))
     expect(workspaceHooks.length).toBeGreaterThan(0)
     for (const h of workspaceHooks) {
       expect(h.enabled).toBe(false)
@@ -60,7 +60,7 @@ describe('工作区 hook 信任门', () => {
     expect(loadTrustedWorkspaces().has(scratch)).toBe(true)
     const discovery = new HookAutoDiscovery(scratch)
     const hooks = discovery.discover()
-    const workspaceHooks = hooks.filter((h) => h.sourceLabel !== 'global')
+    const workspaceHooks = hooks.filter((h) => !h.id.startsWith('global:'))
     for (const h of workspaceHooks) {
       expect(h.enabled).toBe(true)
     }

@@ -126,7 +126,7 @@ describe('G-654② remove(id, identity):身份匹配才删', () => {
     const id = registerFailedTask('命令 C', '沙盒拒绝');
     expect(removeTask(id, getTask(id)!.identity)).toEqual({ removed: true, id });
     // 删过之后再删一次:同一 key 已无登记 ⇒ not-found,不是 identity-mismatch
-    expect(removeTask(id, 'gen_previous_run').reason).toBe('not-found');
+    expect(removeTask(id, 'gen_previous_run')).toEqual({ removed: false, reason: 'not-found', id });
   });
 
   it('删除必须回答该代等待者(gone 一档),留一个没人回答的等待就是 Promise 泄漏', async () => {

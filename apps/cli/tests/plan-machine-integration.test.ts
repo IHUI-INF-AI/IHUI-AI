@@ -28,7 +28,9 @@ describe('PlanMachine 集成:/plan 命令状态管理', () => {
     // 模拟 /plan off 的核心动作:state.planMachine = undefined
     let machine: PlanMachine | undefined = new PlanMachine('gathering');
     machine = undefined;
-    expect(machine?.isWriteBlocked() ?? false).toBe(false);
+    // 用读取函数取回,避免 TS 把 machine 的窄化结果固化成 undefined 后判死后续 isWriteBlocked 调用
+    const readMachine = (): PlanMachine | undefined => machine;
+    expect(readMachine()?.isWriteBlocked() ?? false).toBe(false);
   });
 
   it('/plan approve:gathering → executing,isWriteBlocked=false', () => {
@@ -119,11 +121,13 @@ describe('PlanMachine 集成:runToolLoop 行为契约', () => {
 
   it('未注入 planMachine(undefined)时 runToolLoop 走原 planFirst 路径(零回归)', () => {
     const machine: PlanMachine | undefined = undefined;
+    // 用读取函数取回,避免 TS 把字面 undefined 的窄化结果固化成 never
+    const readMachine = (): PlanMachine | undefined => machine;
     // `opts.planMachine?.isWriteBlocked()` 短路为 undefined → falsy → 不阻断
-    const blocked = machine?.isWriteBlocked() ?? false;
+    const blocked = readMachine()?.isWriteBlocked() ?? false;
     expect(blocked).toBe(false);
     // `opts.planMachine?.canTransition(...)` 短路为 undefined → falsy → 不转移
-    const canTransition = machine?.canTransition('gather_complete') ?? false;
+    const canTransition = readMachine()?.canTransition('gather_complete') ?? false;
     expect(canTransition).toBe(false);
   });
 });

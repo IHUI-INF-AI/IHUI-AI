@@ -450,7 +450,9 @@ describe('排队期间 abort', () => {
     await flush();
     expect(waiter.done).toBe(true);
     expect(isAdmissionAbortError(waiter.error)).toBe(true);
-    expect((waiter.error as Error).code).toBe(ADMISSION_ABORTED_CODE);
+    const err = waiter.error;
+    if (typeof err !== 'object' || err === null || !('code' in err)) throw new Error('abort 错误必须带 code');
+    expect(err.code).toBe(ADMISSION_ABORTED_CODE);
     expect(admission.snapshot(KEY)?.queuedWaiters).toBe(0);
 
     // 名额结算后闸门仍能用,没被幽灵等待者卡住

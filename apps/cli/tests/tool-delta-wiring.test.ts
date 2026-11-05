@@ -129,7 +129,9 @@ describe('D113 runToolLoop 预览帧接线(执行前派生、旁路不发空帧)
     const frames = await run();
 
     expect(frames).toHaveLength(1);
-    const [{ events, execOrderAtEmit }] = frames;
+    const [frame] = frames;
+    if (frame === undefined) throw new Error('写类工具必须发一帧');
+    const { events, execOrderAtEmit } = frame;
     expect(execOrderAtEmit).toBe(0); // 发帧时 execute 还没跑过
     expect(execOrder).toBe(1); // 确实跑了,且只有一次
     expect(events?.map((e) => e.seq)).toEqual([1]);

@@ -495,7 +495,7 @@ describe('ihui serve 入站鉴权:agent token 或机器凭据透传', () => {
     );
     expect(d.ok).toBe(true);
     if (d.ok) {
-      expect(d.subject).toBe('machine-key');
+      if (d.subject !== 'machine-key') throw new Error('必须识别为机器凭据');
       expect(d.scopes).toContain('chat:read');
     }
   });
