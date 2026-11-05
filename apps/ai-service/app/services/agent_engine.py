@@ -2052,6 +2052,10 @@ class AgentEngine:
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
         # 批58 接线:文件变更事件路由器(纯路由层,惰性创建;off 时恒为 None)
         self._file_watcher_router: Any = None
+        # Z18 外部手改喂源腿:repo 根 → 已装配的 Receiver(单次扫描驱动,不自起任务;
+        # 门控不驱动 ⇒ 本表恒空,一个字节都不动)。未判定档每 repo 根只出声一次。
+        self._file_watch_receivers: dict[str, Any] = {}
+        self._file_watch_gate_named: set[str] = set()
         # Z11b 增量索引消费面:repo 根 → 去抖桥(生命周期归引擎实例,不自起 daemon)。
         # clock/window 是可注入缝:生产用真实单调钟与 env 窗口,用例据此零 sleep 驱动。
         self._incremental_bridges: dict[str, Any] = {}
@@ -3586,6 +3590,125 @@ class AgentEngine:
         except Exception as e:  # noqa: BLE001 - 分发失败降级 0
             logger.warning("file_watcher 分发失败(降级返回 0): %s", e)
             return 0
+
+    # ------------------------------------------------------------------
+    # Z18(2026-11-06):让文件事件源真的在跑 —— 外部手改(不经 apply_patch)
+    # 经 Receiver 单次扫描进 router → 去抖桥 → 增量索引入口。
+    # 三条纪律:①默认档 off,缺值 = 未判定并点名(绝不静默开一轮没人看的轮询);
+    # ②不自起 daemon —— 本腿只做"一次扫描",节奏由调用方的既有常驻循环给;
+    # ③增量三件的判据零复算零改动(本层只连线路,不写第二把尺)。
+    # ------------------------------------------------------------------
+
+    def _name_watch_poll_gate_once(self, repo_root: str, reason: str | None) -> None:
+        """未判定档出声一次(§0.3):同一 repo 根反复轮询不刷屏,但绝不哑报。"""
+        if repo_root in self._file_watch_gate_named:
+            return
+        self._file_watch_gate_named.add(repo_root)
+        logger.warning(
+            "文件变更轮询源未判定(§0.3),外部手改进不了增量面: %s", reason or "未给原委"
+        )
+
+    def _file_watch_pair_for(self, repo_root: str) -> tuple[Any, Any] | None:
+        """按 repo 根惰性取 (Receiver, router);任一前提不成立 ⇒ None(零装配)。
+
+        订阅即基线(Receiver 语义):首轮只建快照不报变更,此后每轮扫到
+        mtime/size 变动才产出事件 —— 故调用方需持续驱动(既有循环给节奏)。
+        """
+        router = self._file_watcher_router_or_none()
+        if router is None:
+            return None
+        cached: tuple[Any, Any] | None = self._file_watch_receivers.get(repo_root)
+        if cached is not None:
+            return cached
+        try:
+            from app.core.file_watcher import Receiver
+
+            built: tuple[Any, Any] = (Receiver([repo_root]), router)
+        except Exception as e:  # noqa: BLE001 - 扫描器建不起来 ⇒ 降级未判定,绝不撞主链路
+            logger.warning("file_watcher Receiver 构造失败(本轮未判定): %s", e)
+            return None
+        self._file_watch_receivers[repo_root] = built
+        return built
+
+    def drive_file_watch_once(
+        self, repo_root: str, *, internal_user_id: str | None = None
+    ) -> dict[str, Any]:
+        """调度腿唯一原语:门控判定 + 一次外部变更扫描并路由(同步、零新建任务)。
+
+        返回结论字典(state/paths/delivered/reason)。`off` 与 `unjudged` 两档
+        **不建 Receiver、不分发、不写一个字节**;`on` 才扫一次并把事件投给订阅方。
+        """
+        from app.core.file_watcher import (
+            POLL_STATE_UNJUDGED,
+            resolve_watch_poll_gate,
+            route_receiver_scan,
+        )
+
+        gate = resolve_watch_poll_gate()
+        report: dict[str, Any] = {
+            "state": gate.state,
+            "reason": gate.reason,
+            "paths": 0,
+            "delivered": 0,
+        }
+        if not gate.drives():
+            if gate.state == POLL_STATE_UNJUDGED:
+                self._name_watch_poll_gate_once(repo_root, gate.reason)
+            return report
+        key = str(Path(repo_root).resolve())
+        pair = self._file_watch_pair_for(key)
+        if pair is None:
+            report["state"] = POLL_STATE_UNJUDGED
+            report["reason"] = (
+                "轮询源声明为 on 但事件路由器取不到(ENGINE_FILE_WATCHER_ENABLED off "
+                "或构造失败)⇒ 无处分发,本轮未判定"
+            )
+            self._name_watch_poll_gate_once(key, report["reason"])
+            return report
+        receiver, router = pair
+        # 订阅必须先于分发(与 apply_patch 腿同一条纪律):否则首批外部变更在桥建立前
+        # 就被分发掉 ⇒ 永久丢,且 delivered=0 会被读成"没人关心这个仓"。
+        self._incremental_bridge_for(key, internal_user_id)
+        try:
+            event, delivered = route_receiver_scan(receiver, router)
+        except Exception as e:  # noqa: BLE001 - 扫盘异常 ⇒ 未判定出声,不冒充"没有变更"
+            report["state"] = POLL_STATE_UNJUDGED
+            report["reason"] = f"外部变更扫描异常({type(e).__name__}): {e} ⇒ 未判定"
+            logger.warning(report["reason"])
+            return report
+        if event is not None:
+            report["paths"] = len(event.paths)
+            report["delivered"] = delivered
+        return report
+
+    async def drive_file_watch_and_drain(
+        self, repo_root: str, *, internal_user_id: str | None = None
+    ) -> dict[str, Any]:
+        """周期腿:一次扫描 + 一次排空(解 Z11 §④-1 尾批:到点自燃,不等下一次 apply_patch)。
+
+        挂点 = `_start_workspace_watcher` 里**已在跑**的常驻循环(不自起 daemon);
+        门控不驱动时本方法零动作(连 pump 都不调),故默认档行为与接线前逐字等价。
+        """
+        from app.core.file_watcher import POLL_STATE_ON
+
+        report = self.drive_file_watch_once(
+            repo_root, internal_user_id=internal_user_id
+        )
+        if report["state"] != POLL_STATE_ON:
+            return report
+        outcome = await self.pump_incremental_index(
+            repo_root, internal_user_id=internal_user_id
+        )
+        report["drain"] = outcome.kind
+        if outcome.reason:
+            report["drain_reason"] = outcome.reason
+        if outcome.paths:
+            logger.info(
+                "文件变更轮询腿:排空 %s(%d 条路径进入增量轮)",
+                outcome.kind,
+                len(outcome.paths),
+            )
+        return report
 
     def _incremental_bridge_for(
         self, repo_root: str, internal_user_id: str | None = None
@@ -5324,6 +5447,14 @@ class AgentEngine:
                     f for f in set(curr) & set(prev) if curr[f] != prev[f]
                 )[:100]
                 prev = curr
+                # Z18:外部手改喂源 + 尾批周期排空都挂在**这条已在跑的常驻循环**上
+                # (不自起 daemon、不新建任务)。排在 added/removed/changed 的空判
+                # 之前 —— 尾批到点时盘上常常并无新变更,只有到点这件事。
+                # 门控 off / 未判定时 drive_* 零动作零写入(默认档逐字节等价)。
+                with contextlib.suppress(Exception):
+                    await self.drive_file_watch_and_drain(
+                        str(base), internal_user_id=thread.user_id
+                    )
                 if not (added or removed or changed):
                     continue
                 with contextlib.suppress(Exception):
