@@ -171,12 +171,13 @@ describe('A 层:上报函数本体', () => {
   });
 
   it('隐私与身份:入参原文、userId/user_id 在任何一层都不得出现', async () => {
+    // 调用方多塞的东西也必须被丢掉:上报体的参数清单是封闭的,不是"透传整包"
+    const smuggledIn = { args: DANGEROUS_ARGS, userId: 'someone-else' };
     await reportToolApprovalDecisionToAudit({
       sessionId: 'sess-a',
       toolName: 'run_command',
       route: 'approved',
-      // 调用方多塞的东西也必须被丢掉:上报体的参数清单是封闭的,不是"透传整包"
-      ...({ args: DANGEROUS_ARGS, userId: 'someone-else' } as Record<string, never>),
+      ...smuggledIn,
     });
     const body = bodyOfCall();
     const keys = collectKeys(body);
