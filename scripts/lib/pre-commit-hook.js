@@ -192,6 +192,33 @@ try {
   process.exit(1)
 }
 
+// 0c. 孤儿删除闸(2026-11-05 立,判据单源 `scripts/check-orphan-deletion-refs.mjs#judgeCommitGate`)—
+// 判的是「HEAD 里有 ∧ 索引里已删 ∧ 磁盘上也没有 ∧ 没有整文件删除通知书 ∧ 仍被活着的源码引用」。
+// 这一型是 2026-11-05 实测事故的直接成因:共享索引挂着两枚未声明的暂存删除
+// (`packages/shared/src/attribution/index.ts` / `apps/web/src/lib/rum/index.ts`),根布局
+// `app/layout.tsx` 仍 import 它们 ⇒ 整站 500 约两小时、扩展构建中断、多套测试与 typecheck 断,
+// 靠人工从 HEAD 恢复才救回来。节流/巡检解决不了它:事故前巡检是 warn 级,安静得和"没问题"一样。
+//
+// 与 0b 复活闸的分工:0b 拦「已声明删除被当新增收编」,本段拦「未声明的暂存删除把引用方留成断头」;
+// 两段都失败即阻塞,但**都不设 HUSKY_SKIP_* 应急键** —— 登记有误时的正确出路是
+// `--declare-deletion`(§0.10 多要一次定向说明),不是给一个谁都能按的跳过键。
+//
+// 三态(与脚本同一份实现):blocked ⇒ exit 1;undetermined(台账坏档 / git 面取不到)⇒ 只喊不拦;
+// clean ⇒ 静默放行。性能:无孤儿时脚本在 `git status` 之后即返回(不跑 git grep),实测见 PR 读数。
+try {
+  execSync('node scripts/check-orphan-deletion-refs.mjs --commit-gate --quiet', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    windowsHide: true,
+  })
+} catch {
+  console.error(
+    '❌ Pre-commit 孤儿删除闸失败:本次提交里有「HEAD 有、索引已删、磁盘也没有」的路径仍被源码引用。' +
+      '按上文两条出路处理后重试(不是删除 ⇒ git checkout HEAD -- <路径>;确属删除 ⇒ --declare-deletion)。',
+  )
+  process.exit(1)
+}
+
 function run(label, cmd) {
   console.log(label)
   try {
