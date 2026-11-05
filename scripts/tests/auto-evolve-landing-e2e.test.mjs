@@ -95,7 +95,11 @@ test('E2E① 清单 + 真提交通道 ⇒ 产物字节进 HEAD、票键进提交
     )
     const after = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim()
     assert.notEqual(after, before, 'HEAD 必须真前进(不是只写盘)')
-    assert.equal(String(git(dir, ['show', after + ':a.txt']).stdout), 'v2\n', '产物字节必须真在树里')
+    assert.equal(
+      String(git(dir, ['show', after + ':a.txt']).stdout),
+      'v2\n',
+      '产物字节必须真在树里',
+    )
     const body = String(git(dir, ['log', '-1', '--format=%B', after]).stdout)
     assert.match(body, /T-9991|端到端落账腿/, '提交信息要能归因到票:' + body.slice(0, 200))
   } finally {
@@ -128,6 +132,63 @@ test('E2E② 成对反向:清单写了但盘上没有真改动 ⇒ 不落任何�
   }
 })
 
+test('E2E④ 新增(未跟踪)文件形态必须真能落地 —— 本轮派发票面的真实形状', async () => {
+  // 立因:E2E① 覆盖的是"已跟踪文件被改"(a.txt v1→v2),而 2026-11-05 登记的考勤票
+  // 出路一律是**新增一枚 tests 文件**。收集腿那侧 `git status --porcelain` 对未跟踪件出
+  // `?? path`(非空 ⇒ 判 dirty,已实读 selectDirtyPaths 的判据);落地腿那侧此前**无任何锁**
+  // 证明私有索引通道收得下从未进过树的路径。缺这一枚 ⇒ 会话就算真写了新文件,A13 仍会是 0,
+  // 而账面读起来像"会话不肯写"(今晚我已经在这格上误判过一次方向)。
+  const dir = mkScratch('ae-land-')
+  try {
+    makeRepo(dir)
+    const before = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim()
+    mkdirSync(join(dir, 'tests'), { recursive: true })
+    const NEW = 'tests/edu-attendance-export-zero-behavior.test.ts'
+    const BODY = 'export const fixture = 1\n'
+    writeFileSync(join(dir, ...NEW.split('/')), BODY)
+    const st = String(git(dir, ['status', '--porcelain', '--', NEW]).stdout)
+    assert.match(
+      st,
+      /^\?\?/,
+      `前置未成立:新文件在 git status 里不是 ?? 形态 ⇒ ${JSON.stringify(st)}`,
+    )
+    const ae = await loadScheduler(dir)
+    const r = ae.landTicketArtifacts({
+      ticketKey: KEY,
+      ticketText: TICKET,
+      manifestText: JSON.stringify({ ticketKey: KEY, files: [NEW] }),
+      statusFn: (f) => String(git(dir, ['status', '--porcelain', '--', f]).stdout),
+      commitFn: (args) => ae.runLandCommit(args),
+      dryRun: false,
+    })
+    assert.equal(
+      r.action,
+      'artifact-committed',
+      '新增件落不了地 ⇒ action=' +
+        r.action +
+        ' why=' +
+        r.why +
+        ' 细节=' +
+        String(r.detail ?? '').slice(0, 600),
+    )
+    const after = String(git(dir, ['rev-parse', 'HEAD']).stdout).trim()
+    assert.notEqual(after, before, 'HEAD 必须真前进')
+    assert.equal(
+      String(git(dir, ['show', `${after}:${NEW}`]).stdout),
+      BODY,
+      '新文件字节必须真在树里',
+    )
+    assert.ok(
+      String(git(dir, ['ls-tree', '-r', '--name-only', after]).stdout)
+        .split(/\r?\n/)
+        .includes('a.txt'),
+      '基线里已有的文件不得因为这笔提交被带丢',
+    )
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
 test('E2E③ 成对反向:清单混进逃逸路径/活文档 ⇒ 整批不提交(不做部分提交)', async () => {
   const dir = mkScratch('ae-land-')
   try {
@@ -145,7 +206,11 @@ test('E2E③ 成对反向:清单混进逃逸路径/活文档 ⇒ 整批不提交
       commitFn: (args) => ae.runLandCommit(args),
       dryRun: false,
     })
-    assert.equal(r.action, 'artifact-manifest-invalid', '路径不安全必须整批拒:' + r.action + '/' + r.why)
+    assert.equal(
+      r.action,
+      'artifact-manifest-invalid',
+      '路径不安全必须整批拒:' + r.action + '/' + r.why,
+    )
     const st = String(git(dir, ['status', '--porcelain']).stdout)
     assert.match(st, /a\.txt/, '被拒批次不得顺手把 a.txt 也提交掉')
   } finally {
