@@ -2,89 +2,169 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
+/**
+ * 我的订单 — 小程序薄壳
+ *
+ * UI 单源:packages/app/src/features/order/OrderScreen.tsx
+ *   RN 消费点:apps/mobile-rn/src/screens/OrderScreen.tsx:177 `<SharedOrderScreen … onPay={onPay}`
+ * 平台能力(下拉刷新/触底加载/支付跳转)仅在本端实现,共享屏内零 Taro、零 wx.requestPayment。
+ * i18n:共享屏按键为 order.*,本端缺该键 ⇒ 经 ORDER_TEXT 映射到既有 common.* / user.orders.* 词条,
+ *   不允许渲染裸 key(scripts/tests/miniapp-shell-form.test.mjs T11 断言)。
+ */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { getOrderList, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { useI18n } from '@/i18n'
+import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
+import { OrderScreen, type OrderItem, type OrderTab } from '@ihui/rn-app/features/order/OrderScreen'
 
-const STATUS_COLOR: Record<string, string> = {
-  pending: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
-  paid: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
-  refunding: 'bg-[var(--color-warning-amber-light)] text-[var(--color-warning-amber-text)]',
-  refunded: 'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]',
-  cancelled: 'bg-[var(--color-danger-light)] text-[var(--color-danger)]',
-  completed: 'bg-[var(--color-success-light)] text-[var(--color-success-deep-text)]',
-  failed: 'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]',
+const PAGE_SIZE = 10
+
+/** 共享屏词条 → 本端既有词条(全部解析为人话;缺任一条 T11 必红) */
+const ORDER_TEXT: Record<string, string> = {
+  'order.title': 'order.list.title',
+  'order.loadFailed': 'order.loadFailed',
+  'order.tab.all': 'user.orders.tabsAll',
+  'order.tab.pending': 'user.orders.tabsPending',
+  'order.tab.shipped': 'memberDashboard.status.shipped',
+  'order.tab.completed': 'memberDashboard.status.completed',
+  'order.tab.refunded': 'order.tab.refunded',
+  'order.searchPlaceholder': 'search.placeholder',
+  'order.empty': 'user.orders.empty',
+  'order.amount': 'order.refund.amountLabel',
+  'order.noMore': 'common.noMore',
+  'order.pay': 'user.orders.pay',
+  'order.status.pending': 'memberDashboard.status.pending',
+  'order.status.paid': 'memberDashboard.status.paid',
+  'order.status.shipped': 'memberDashboard.status.shipped',
+  'order.status.completed': 'memberDashboard.status.completed',
+  'order.status.cancelled': 'memberDashboard.status.cancelled',
+  'order.status.refunded': 'order.status.refunded',
+  'order.status.refunding': 'order.status.refunding',
+  'order.status.failed': 'order.status.failed',
 }
 
-const STATUS_KEY: Record<string, string> = {
-  pending: 'order.status.pending',
-  paid: 'order.status.paid',
-  cancelled: 'order.status.cancelled',
-  refunding: 'order.status.refunding',
-  refunded: 'order.status.refunded',
-  completed: 'order.status.completed',
-  failed: 'order.status.failed',
+/** 共享 tab → 后端 OrderStatus 查询参数(对齐 RN tabToStatus) */
+const TAB_STATUS: Record<string, string> = {
+  all: '',
+  pending: 'pending',
+  shipped: 'paid',
+  completed: 'completed',
+  refunded: 'refunded',
+}
+
+function toOrderItem(order: Order): OrderItem {
+  const parsed = Number(order.amount)
+  return {
+    id: String(order.id),
+    orderNo: order.orderNo,
+    title: order.title,
+    amount: Number.isFinite(parsed) ? parsed : null,
+    status: order.status as OrderItem['status'],
+    createdAt: order.createTime,
+  }
 }
 
 export default function Orders() {
   const { t } = useI18n()
   const gate = useAuthReadyGate()
-  const [list, setList] = useState<Order[]>([])
-  const [loading, setLoading] = useState(false)
-  const [status, setStatus] = useState('')
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const pageSize = 10
+  const { resolvedTheme } = useTheme()
 
-  const statusText = (s: string) => (STATUS_KEY[s] ? t(STATUS_KEY[s]) : s)
+  const [items, setItems] = useState<OrderItem[]>([])
+  const [activeTab, setActiveTab] = useState<OrderTab>('all')
+  const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [error, setError] = useState('')
+
+  const pageRef = useRef(1)
+  const tabRef = useRef<OrderTab>('all')
+  const itemsRef = useRef<OrderItem[]>([])
+  const hasMoreRef = useRef(true)
+  const loadingRef = useRef(false)
+  const rawAmountRef = useRef<Map<string, string>>(new Map())
 
   const load = useCallback(
-    async (reset = false, statusOverride?: string) => {
-      // 切 tab 时 React 还没重渲染,闭包里的 status 是**上一个** tab ⇒ 列表按旧筛选查询。
-      // 调用方显式把新状态传进来,不依赖渲染后的闭包。
-      const effStatus = statusOverride ?? status
-      if (loading) return
-      let curPage = page
-      let curList = list
-      if (reset) {
-        curPage = 1
-        curList = []
-        setList([])
-        setHasMore(true)
+    async (mode: 'refresh' | 'more' = 'refresh') => {
+      if (loadingRef.current) return
+      if (mode === 'more' && !hasMoreRef.current) return
+      loadingRef.current = true
+      const nextPage = mode === 'more' ? pageRef.current : 1
+      if (mode === 'refresh') {
+        setLoading(true)
+        setError('')
+      } else {
+        setLoadingMore(true)
       }
-      if (!hasMore && !reset) return
-      setLoading(true)
       try {
-        const res = await getOrderList({ page: curPage, pageSize, status: effStatus })
-        const newList = [...curList, ...(res.list || [])]
-        setList(newList)
-        setHasMore(newList.length < res.total)
-        setPage(curPage + 1)
+        const res = await getOrderList({
+          page: nextPage,
+          pageSize: PAGE_SIZE,
+          status: TAB_STATUS[tabRef.current] ?? '',
+        })
+        const raw = res.list || []
+        raw.forEach((o) => rawAmountRef.current.set(String(o.id), String(o.amount ?? '')))
+        const mapped = raw.map(toOrderItem)
+        const prev = mode === 'more' ? itemsRef.current : []
+        const next = [...prev, ...mapped]
+        itemsRef.current = next
+        pageRef.current = nextPage + 1
+        hasMoreRef.current = next.length < (res.total ?? next.length)
+        setItems(next)
+        setHasMore(hasMoreRef.current)
       } catch {
-        // 统一提示
+        setError(t('order.loadFailed'))
       } finally {
+        loadingRef.current = false
         setLoading(false)
+        setLoadingMore(false)
+        setRefreshing(false)
       }
     },
-    [loading, page, hasMore, status, list, pageSize],
+    [t],
   )
 
-  function switchStatus(s: string) {
-    setStatus(s)
-    void load(true, s)
-  }
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    void load('refresh')
+  }, [load])
 
-  function handlePay(item: Order) {
-    Taro.navigateTo({ url: `/pkg-shop/pay/index?orderNo=${item.orderNo}&amount=${item.amount}` })
-  }
+  const onLoadMore = useCallback(() => {
+    void load('more')
+  }, [load])
 
-  function goDetail(item: Order) {
+  const onSelectTab = useCallback(
+    (tab: OrderTab) => {
+      if (tab === tabRef.current) return
+      tabRef.current = tab
+      setActiveTab(tab)
+      pageRef.current = 1
+      void load('refresh')
+    },
+    [load],
+  )
+
+  const onPressItem = useCallback((item: OrderItem) => {
     Taro.navigateTo({ url: `/pkg-shop/order/detail?id=${item.id}` })
-  }
+  }, [])
+
+  // 支付回调留在端内:共享屏只渲染操作区,这里走小程序支付页(原 orders.tsx:82 行为)
+  const onPay = useCallback((item: OrderItem) => {
+    const amount =
+      rawAmountRef.current.get(item.id) ?? (item.amount !== null ? String(item.amount) : '')
+    Taro.navigateTo({ url: `/pkg-shop/pay/index?orderNo=${item.orderNo}&amount=${amount}` })
+  }, [])
+
+  const sharedT = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      const mapped = ORDER_TEXT[key]
+      return t(mapped ?? key, params)
+    },
+    [t],
+  )
 
   const mountedRef = useRef(false)
   useEffect(() => {
@@ -92,121 +172,38 @@ export default function Orders() {
     mountedRef.current = true
     // G-933 冷启动门控:GET /orders/me(orderRoutes 组级 checkAuth)需鉴权
     return gate.waitUntilReady(() => {
-      void load(true)
+      void load('refresh')
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load])
 
   usePullDownRefresh(() => {
-    load(true).finally(() => Taro.stopPullDownRefresh())
+    void load('refresh').then(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {
-    load()
+    void load('more')
   })
-
-  const tabs = [
-    { key: '', label: t('user.orders.tabsAll') },
-    { key: 'pending', label: t('user.orders.tabsPending') },
-    { key: 'paid', label: t('user.orders.tabsPaid') },
-    { key: 'cancelled', label: t('user.orders.tabsCancelled') },
-    { key: 'refunded', label: t('order.status.refunded') },
-  ]
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN 共享 OrderScreen:tab 药丸(白底/激活品牌底白字 28rpx 圆角 24rpx)+
-          订单卡(描边 border.light + 圆角 24rpx + 内边距 24rpx):标题 32rpx/600 + 状态徽章
-          (浅底深字 22rpx)+ 单号/时间 22rpx 三级字色 + 金额 36rpx/700 主字色 */}
-      <View className="min-h-screen bg-background pb-[20rpx]">
-        {/* 状态筛选 */}
-        <View className="flex flex-wrap gap-[16rpx] px-[20rpx] py-[16rpx]">
-          {tabs.map((tab) => (
-            <View
-              key={tab.key}
-              className={`px-[28rpx] py-[12rpx] rounded-xl text-body ${
-                status === tab.key
-                  ? 'bg-primary font-semibold text-[var(--color-surface-light)]'
-                  : 'bg-card text-muted-foreground'
-              }`}
-              hoverClass="opacity-60"
-              onClick={() => switchStatus(tab.key)}
-            >
-              <Text>{tab.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* 订单列表 */}
-        {list.length > 0 ? (
-          <View className="px-[20rpx]">
-            {list.map((item) => (
-              <View
-                key={item.id}
-                className="mb-[24rpx] rounded-lg border border-[var(--color-border)] bg-card p-[24rpx]"
-                hoverClass="opacity-60"
-                onClick={() => goDetail(item)}
-              >
-                <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 truncate text-title font-semibold text-foreground">
-                    {item.title}
-                  </Text>
-                  <View
-                    className={`shrink-0 rounded-sm px-[12rpx] py-[4rpx] ${
-                      STATUS_COLOR[item.status] ||
-                      'bg-[var(--color-muted)] text-[var(--color-text-tertiary)]'
-                    }`}
-                  >
-                    <Text className="text-caption">{statusText(item.status)}</Text>
-                  </View>
-                </View>
-                <View className="mt-[16rpx] flex items-center justify-between">
-                  <Text className="text-caption text-[var(--color-text-tertiary)]">
-                    {t('user.orders.orderNo')}
-                    {item.orderNo}
-                  </Text>
-                  <Text className="text-caption text-[var(--color-text-tertiary)]">
-                    {item.createTime}
-                  </Text>
-                </View>
-                <View className="mt-[16rpx] flex items-end justify-between">
-                  <Text className="text-caption text-[var(--color-text-tertiary)]">
-                    {item.type}
-                  </Text>
-                  <View className="flex items-center gap-[24rpx]">
-                    <Text className="text-subtitle font-bold text-foreground">
-                      ¥{item.amount}
-                    </Text>
-                    {item.status === 'pending' ? (
-                      <View
-                        className="rounded-xl bg-primary px-[24rpx] py-[12rpx] text-body text-[var(--color-surface-light)]"
-                        hoverClass="opacity-60"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handlePay(item)
-                        }}
-                      >
-                        <Text>{t('user.orders.pay')}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
-        {!loading && list.length === 0 ? (
-          <View className="py-[96rpx] text-center text-body text-muted-foreground">
-            <Text>{t('user.orders.empty')}</Text>
-          </View>
-        ) : null}
-        {loading ? (
-          <View className="py-[96rpx] text-center text-body text-muted-foreground">
-            <Text>{t('common.loading')}</Text>
-          </View>
-        ) : null}
-      </View>
+      <OrderScreen
+        t={sharedT}
+        items={items}
+        activeTab={activeTab}
+        onSelectTab={onSelectTab}
+        loading={loading}
+        refreshing={refreshing}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        error={error}
+        onRefresh={onRefresh}
+        onLoadMore={onLoadMore}
+        onPressItem={onPressItem}
+        onPay={onPay}
+        onBack={() => Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }
