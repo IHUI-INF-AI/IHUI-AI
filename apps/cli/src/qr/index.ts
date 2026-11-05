@@ -17,7 +17,6 @@ import { buildFinalCodewords, toUtf8Bytes } from './encode-data.js';
 import { buildBaseGrid, type QrGrid } from './patterns.js';
 import { maskedSymbol, scoreMaskCandidates, selectMaskPattern, type MaskCandidate } from './mask.js';
 import { pickMinimumVersion, QR_MAX_VERSION, versionSpec, type VersionSpec } from './tables.js';
-import { renderQrSvg, renderQrSvgDataUrl, type QrSvgOptions } from './render-svg.js';
 
 export type QrEncodeReason = 'empty-input' | 'too-long' | 'unsupported-version' | 'internal';
 
@@ -116,29 +115,7 @@ export function tryEncodeQr(text: string, options: EncodeQrOptions = {}): QrCode
   }
 }
 
-/** 文本 → 内联 SVG(分享页用);失败抛 QrEncodeError */
-export function buildQrSvg(text: string, options: QrSvgOptions & EncodeQrOptions = {}): string {
-  const { modulePixel, darkColor, lightColor, label, standalone } = options;
-  const result = encodeQr(text, { version: options.version });
-  return renderQrSvg(result.grid, { modulePixel, darkColor, lightColor, label, standalone });
-}
-
-/** 文本 → SVG data URL(ShareResult.qrCode 的既有口径) */
-export function buildQrSvgDataUrl(text: string, options: QrSvgOptions & EncodeQrOptions = {}): string {
-  const { modulePixel, darkColor, lightColor, label, standalone } = options;
-  const result = encodeQr(text, { version: options.version });
-  return renderQrSvgDataUrl(result.grid, { modulePixel, darkColor, lightColor, label, standalone });
-}
-
-export { QR_MAX_VERSION, pickMinimumVersion, versionSpec } from './tables.js';
-export {
-  MODULE_PIXEL,
-  QR_DARK_COLOR,
-  QR_LIGHT_COLOR,
-  QUIET_ZONE_MODULES,
-  renderQrSvg,
-  renderQrSvgDataUrl,
-} from './render-svg.js';
+export { QR_LIGHT_COLOR, renderQrSvg, renderQrSvgDataUrl } from './render-svg.js';
 export type { QrGrid } from './patterns.js';
 export type { MaskCandidate } from './mask.js';
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

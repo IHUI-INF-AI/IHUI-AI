@@ -22,7 +22,7 @@ export function toUtf8Bytes(text: string): Uint8Array {
 }
 
 /** 往比特流追加 value 的低 bitWidth 位(高位在前) */
-export function appendBits(bits: number[], value: number, bitWidth: number): void {
+function appendBits(bits: number[], value: number, bitWidth: number): void {
   if (bitWidth < 0 || bitWidth > 32) throw new RangeError(`appendBits: 位宽越界 ${bitWidth}`);
   for (let i = bitWidth - 1; i >= 0; i -= 1) bits.push((value >>> i) & 1);
 }
@@ -91,7 +91,7 @@ export function splitIntoBlocks(dataCodewords: Uint8Array, spec: VersionSpec): R
 }
 
 /** 交织:数据码字按块轮转,再纠错码字按块轮转(标准 §8.6.1) */
-export function interleaveBlocks(blocks: readonly RsBlock[]): Uint8Array {
+function interleaveBlocks(blocks: readonly RsBlock[]): Uint8Array {
   const out: number[] = [];
   const maxData = blocks.reduce((m, b) => Math.max(m, b.data.length), 0);
   for (let i = 0; i < maxData; i += 1) {

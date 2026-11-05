@@ -18,7 +18,7 @@
 
 /** 支持的最高版本号(超出即 QrEncodeError reason='too-long') */
 export const QR_MAX_VERSION = 10;
-export const QR_MIN_VERSION = 1;
+const QR_MIN_VERSION = 1;
 
 /** 纠错等级位:ISO/IEC 18004 Table 23 里 M 档的 2 bit 取值 */
 export const EC_LEVEL_M_FORMAT_BITS = 0;
@@ -108,10 +108,5 @@ export function versionSpec(version: number): VersionSpec | undefined {
 export function pickMinimumVersion(byteLength: number): VersionSpec | undefined {
   if (!Number.isInteger(byteLength) || byteLength < 0) return undefined;
   return VERSION_SPECS.find((spec) => spec.byteCapacity >= byteLength);
-}
-
-/** 校正图形中心坐标(供布局层复用) */
-export function alignmentCentersFor(version: number): readonly number[] {
-  return versionSpec(version)?.alignmentCenters ?? [];
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

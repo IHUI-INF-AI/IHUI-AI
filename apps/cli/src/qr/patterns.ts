@@ -18,7 +18,7 @@ export interface QrGrid {
   readonly reserved: Uint8Array;
 }
 
-export function createGrid(size: number): QrGrid {
+function createGrid(size: number): QrGrid {
   return { size, modules: new Uint8Array(size * size), reserved: new Uint8Array(size * size) };
 }
 
@@ -99,7 +99,7 @@ function drawAlignment(grid: QrGrid, centers: readonly number[]): void {
  * 格式信息第 i 位(0..14)的两处落位:第一副本绕左上定位图形,第二副本拆到右上/左下。
  * 顺序即 ISO/IEC 18004 §8.9 的绘制序,用例按同一坐标集反查,不许两处各写一套。
  */
-export function formatSlotPair(size: number, i: number): readonly [readonly [number, number], readonly [number, number]] {
+function formatSlotPair(size: number, i: number): readonly [readonly [number, number], readonly [number, number]] {
   const first: readonly [number, number] =
     i <= 5 ? [8, i] : i === 6 ? [8, 7] : i === 7 ? [8, 8] : i === 8 ? [7, 8] : [14 - i, 8];
   const second: readonly [number, number] = i < 8 ? [size - 1 - i, 8] : [8, size - 15 + i];
@@ -116,17 +116,6 @@ export function formatBitPositions(size: number): ReadonlyArray<readonly [number
   return out;
 }
 
-/** 版本信息 18 位 × 两副本的落位(version < 7 时无此块) */
-export function versionBitPositions(size: number): ReadonlyArray<readonly [number, number]> {
-  const out: Array<readonly [number, number]> = [];
-  for (let i = 0; i < 18; i += 1) {
-    const a = size - 11 + (i % 3);
-    const b = Math.floor(i / 3);
-    out.push([a, b], [b, a]);
-  }
-  return out;
-}
-
 /** BCH(15,5) 生成 + 0x5412 异或掩码:M 档的数据位就是 maskPattern */
 export function formatInformationBits(maskPattern: number): number {
   const data = (EC_LEVEL_M_FORMAT_BITS << 3) | (maskPattern & 0b111);
@@ -136,7 +125,7 @@ export function formatInformationBits(maskPattern: number): number {
 }
 
 /** BCH(18,6):版本信息 18 bit(version < 7 返回 0,调用侧据此跳过) */
-export function versionInformationBits(version: number): number {
+function versionInformationBits(version: number): number {
   if (version < 7) return 0;
   let rem = version;
   for (let i = 0; i < 12; i += 1) rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);

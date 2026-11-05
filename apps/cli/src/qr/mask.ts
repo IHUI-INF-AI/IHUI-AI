@@ -23,7 +23,7 @@ const MASK_PREDICATES: ReadonlyArray<(x: number, y: number) => boolean> = [
 ];
 
 /** 第 maskPattern 号掩码在 (x, y) 处是否需要翻转 */
-export function maskBit(x: number, y: number, maskPattern: number): boolean {
+function maskBit(x: number, y: number, maskPattern: number): boolean {
   const predicate = MASK_PREDICATES[maskPattern];
   if (!predicate) throw new RangeError(`maskBit: 非法掩码号 ${maskPattern}`);
   return predicate(x, y);
@@ -33,7 +33,7 @@ export function maskBit(x: number, y: number, maskPattern: number): boolean {
  * 码字落位:自右下角起、两列宽的蛇形扫描,跳过第 6 列(定时图形),
  * 交替向上/向下;数据用尽后剩余的「余数比特」按 0 参与掩码(标准要求,不是可选)。
  */
-export function placeCodewords(base: QrGrid, codewords: Uint8Array, maskPattern: number): QrGrid {
+function placeCodewords(base: QrGrid, codewords: Uint8Array, maskPattern: number): QrGrid {
   const grid = cloneGrid(base);
   const { size } = grid;
   const totalBits = codewords.length * 8;

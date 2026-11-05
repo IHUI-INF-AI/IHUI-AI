@@ -44,7 +44,7 @@ export function gfMultiply(a: number, b: number): number {
 }
 
 /** 多项式乘法(系数按「最高次项在前」) */
-export function gfPolynomialMultiply(left: Uint8Array, right: Uint8Array): Uint8Array {
+function gfPolynomialMultiply(left: Uint8Array, right: Uint8Array): Uint8Array {
   const out = new Uint8Array(left.length + right.length - 1);
   for (let i = 0; i < left.length; i += 1) {
     for (let j = 0; j < right.length; j += 1) {
