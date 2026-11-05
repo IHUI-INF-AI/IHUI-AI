@@ -29,6 +29,22 @@
  *     prettier 除空白外还增删分号/逗号/括号,把 80 枚祖先逐个比完前两档皆空(取证脚本原样跑过)。
  *     判据 = 本面标识符**集合**与某祖先相等(尺单源 IDENTIFIER_RE),且相对 HEAD 是**真子集**并至少
  *     少 MIN_HEAD_IDENTIFIER_GAP=3 个。要求"少 ≥3 个"是为了不误伤正当改字面量/删单个未用符号(T12)。
+ *   臂四 worktree(2026-11-05 立,补**索引面结构盲区**):本门此前只判索引 blob、文件头明写"不读工作区",
+ *     于是「索引已对齐 HEAD、磁盘仍是祖先旧档」这一格**没有任何门兜住**(当天实测 15 个脏文件里
+ *     10 条 ` M` 正落在这里)。判据 = 磁盘字节(经 `git -c core.autocrlf=false hash-object --` 取 oid)
+ *     逐字节等于该路径某个**祖先提交**的 blob,且 HEAD 现读 blob 与磁盘不同(HEAD 已有更新档) ⇒ 判红。
+ *     候选 = 索引面 M 路径 ∪ 工作树相对索引有改动的 M 路径;HEAD 无该路径(真新文件)不判。
+ *     射程:提交钩子(传 `IHUI_DECLARED_FILES`)只判声明集,避免共享工作树里别席的未提交残渣把每笔
+ *     提交都钉死;**独立审计**(不传声明集,如 `node scripts/check-staged-downgrade.mjs`)判全部,
+ *     这就是兜住"15 个脏文件里 10 条 ` M`"那一格的口径。要提交的旧档一定在声明集里,不放宽。
+ *     工作树 blob / HEAD 三态问不到 ⇒ 整轮 undetermined(exit 2),不许折成 0(浅克隆/坏仓同此)。
+ *
+ * 诚实边界(**不许读者以为无死角**):臂二只抹空白;臂三只在「标识符集合 ⊆ HEAD 且缺 ≥3」时成立。
+ * 旧档被 prettier 改了**引号/括号/逗号**而标识符集合不变(尤其 HEAD 没有新增标识符)⇒ 两臂都漏,
+ * 本门放行。可核查例子 = `--self-test` 的 T16:祖先 `const alpha = 'one'`,HEAD 只重排空白,
+ * 索引面写入 `const alpha = "one"`(只换引号)⇒ 三档皆不命中。该残渣目前只能靠人、门 84 的行级
+ * 报数或提交后复核发现。另:内容档的体积容差 ±25% 只服务"重排";prettier 改动超过该带宽时
+ * 连候选都进不了比较,同样漏。
  *
  * 判据与写手闸同源:`scripts/lib/ancestor-downgrade.mjs`(臂一 `ancestorBlobOf` /
  *   臂二三 `ancestorContentMatch`(命中形态在 `match.kind`:normalized / identifier-set) /
@@ -39,11 +55,12 @@
  * 则本门放行并逐条留痕到 `.ihui-agent/state/intentional-revert.jsonl`(留痕失败不影响放行,
  * 但会打印警告)。没有该声明一律判红 —— 失效方向是"多要一次定向说明",不是"多放一次"。
  *
- * 取材纪律(门 118):只判**索引 blob**(`git diff --cached` + `:path`),不读工作区;
- * 所有 git 子进程经 `scripts/lib/face-reader.mjs`(stdio / timeout / batch 统一在层内)。
+ * 取材纪律(门 118):索引面取 `git diff --cached` + `:path`;工作树臂取 `git diff` 的 M 路径 +
+ *   `git -c core.autocrlf=false hash-object -- <path>`(autocrlf 不关会把 CRLF 归一后 oid 改写 ⇒ 漏判)。
+ *   所有 git 子进程经 `scripts/lib/face-reader.mjs`(stdio / timeout / batch 统一在层内)。
  *
- * 退出码(§0.3):0 = 无回写/合法回滚/索引面暂无改动(不适用,**不是判绿**);1 = 有幻影回写;
- *   2 = 该跑没跑成(未判定)。空索引不折成 pass(上一轮"判 0 个暂存改动文件"报绿即此型假绿)。
+ * 退出码(§0.3):0 = 无回写/合法回滚/两面都暂无改动(不适用,**不是判绿**);1 = 有幻影回写(索引或磁盘);
+ *   2 = 该跑没跑成(未判定)。空索引且工作树无改动不折成 pass(上一轮"判 0 个暂存改动文件"报绿即此型假绿)。
  * 应急放行:`HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...`(不推荐;跳过会留痕)。
  *
  * 用法:
@@ -61,6 +78,7 @@ import {
   ANCESTOR_WINDOW_DEFAULT,
   ancestorBlobOf,
   ancestorContentMatch,
+  headBlobOf,
   intentionalRevertOf,
   describeMatch,
 } from './lib/ancestor-downgrade.mjs'
@@ -105,6 +123,32 @@ export function stagedModifiedPaths(root = ROOT) {
   return [...new Set(paths)]
 }
 
+/** 工作树面:相对索引有改动的 M 路径(-z 同上;删除/新增另有专档,本臂只看改动)。 */
+export function worktreeModifiedPaths(root = ROOT) {
+  const raw = String(
+    gitRaw(['-c', 'core.autocrlf=false', 'diff', '--name-only', '-z', '--diff-filter=M'], root),
+  )
+  return [...new Set(raw.split('\0').filter(Boolean))]
+}
+
+/**
+ * 工作树该路径的 blob oid(**逐字节**,关掉 autocrlf 归一)。
+ * 三态:磁盘无该路径 ⇒ 'ABSENT';git 问不到(失败/超时/坏仓)⇒ 'UNKNOWN';否则 40 hex。
+ * 为什么必须 `-c core.autocrlf=false`:共享工作树在不同机器上可能带 CRLF,不关归一就会把
+ * CRLF 文本 hash 成 LF 形态的祖先 oid ⇒ "磁盘旧档"被判成"等于 HEAD"而漏判(与写手闸同一把尺)。
+ */
+export function worktreeBlobOid(rel, root = ROOT) {
+  if (!existsSync(resolve(root, rel))) return 'ABSENT'
+  try {
+    const out = String(
+      gitRaw(['-c', 'core.autocrlf=false', 'hash-object', '--', rel], root),
+    ).trim()
+    return /^[0-9a-f]{40}$/i.test(out) ? out.toLowerCase() : 'UNKNOWN'
+  } catch {
+    return 'UNKNOWN'
+  }
+}
+
 /**
  * 判一轮。返回五态对象(调用方不得把 undetermined / not-applicable 折成 pass):
  *   { state:'pass', judged, paths }
@@ -112,7 +156,8 @@ export function stagedModifiedPaths(root = ROOT) {
  *   { state:'waived', judged, stale:[...], rationale }
  *   { state:'fail', judged, stale:[...] }
  *   { state:'undetermined', judged, why }
- * 两臂:verbatim(逐字 oid)/ normalized(去空白流等值,只对声明集生效)。
+ * 四臂:verbatim(逐字 oid)/ normalized(去空白流等值,只对声明集生效)/
+ *   identifier-set(标识符集合等值)/ worktree(磁盘逐字等于祖先旧档)。
  */
 export function judge({
   root = ROOT,
@@ -127,21 +172,31 @@ export function judge({
   } catch (e) {
     return { state: 'undetermined', judged: 0, why: `索引面取不到:${String(e?.message ?? e).split('\n')[0]}` }
   }
-  // 空索引 = 没有判据对象,不是"判过且通过"(§0.3:枚举到 0 个候选判死不记绿)。
-  if (paths.length === 0)
-    return { state: 'not-applicable', judged: 0, stale: [], paths: [], normalizedJudged: 0 }
-  let oids
+  let worktreePaths
   try {
-    const specs = []
-    for (const p of paths) specs.push(`HEAD:${p}`, `:${p}`)
-    oids = catBatchOids(root, specs)
+    worktreePaths = worktreeModifiedPaths(root)
   } catch (e) {
-    return { state: 'undetermined', judged: 0, why: `索引/HEAD blob 取不到:${String(e?.message ?? e).split('\n')[0]}` }
+    return { state: 'undetermined', judged: 0, why: `工作树面取不到:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  // 两面都空 = 没有判据对象,不是"判过且通过"(§0.3:枚举到 0 个候选判死不记绿)。
+  if (paths.length === 0 && worktreePaths.length === 0)
+    return { state: 'not-applicable', judged: 0, stale: [], paths: [], normalizedJudged: 0 }
+  let oids = new Map()
+  if (paths.length > 0) {
+    try {
+      const specs = []
+      for (const p of paths) specs.push(`HEAD:${p}`, `:${p}`)
+      oids = catBatchOids(root, specs)
+    } catch (e) {
+      return { state: 'undetermined', judged: 0, why: `索引/HEAD blob 取不到:${String(e?.message ?? e).split('\n')[0]}` }
+    }
   }
   const scope = declared === null ? declaredFilesOf(env) : declared.map((s) => String(s).trim())
   const stale = []
-  let judged = 0
+  const judgedSet = new Set()
   let normalizedJudged = 0
+  let stagedJudged = 0
+  let worktreeJudged = 0
   let formatNoise = 0
   const suspects = []
   // 归一化臂的正文一次批量取齐(逐路径各取一遍 = 逐条起 git,本仓量过这型跑不出结论)
@@ -157,19 +212,21 @@ export function judge({
     try {
       bodies = catBatch(root, needBodies.map((p) => `:${p}`))
     } catch (e) {
-      return { state: 'undetermined', judged, why: `索引面正文取不到:${String(e?.message ?? e).split('\n')[0]}` }
+      return { state: 'undetermined', judged: judgedSet.size, why: `索引面正文取不到:${String(e?.message ?? e).split('\n')[0]}` }
     }
   }
+  // 索引面三档(逐字 / 归一化 / 标识符集合)
   for (const p of paths) {
     const headOid = oids.get(`HEAD:${p}`)
     const indexOid = oids.get(`:${p}`)
     if (!headOid || !indexOid) {
-      return { state: 'undetermined', judged, why: `${p} 的 HEAD/索引 blob 取不到(不猜)` }
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p} 的 HEAD/索引 blob 取不到(不猜)` }
     }
     if (headOid.toLowerCase() === indexOid.toLowerCase()) continue
-    judged += 1
+    judgedSet.add(p)
+    stagedJudged += 1
     const anc = ancestorBlobOf(p, indexOid, { root, windowSize })
-    if (!anc.judged) return { state: 'undetermined', judged, why: `${p}: ${anc.why}` }
+    if (!anc.judged) return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
     if (anc.match) {
       stale.push({
         path: p,
@@ -184,10 +241,10 @@ export function judge({
     if (!scope.includes(p)) continue
     const face = bodies.get(`:${p}`)
     if (face === undefined)
-      return { state: 'undetermined', judged, why: `${p}: 索引面正文键缺失(不折成"没命中")` }
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: 索引面正文键缺失(不折成"没命中")` }
     if (face === null) continue // 该路径在索引面取不到正文 = 非 blob 形态,交由逐字档那一步判
     const nm = ancestorContentMatch(p, face, { root, windowSize })
-    if (!nm.judged) return { state: 'undetermined', judged, why: `${p}: ${nm.why}` }
+    if (!nm.judged) return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${nm.why}` }
     normalizedJudged += 1
     if (nm.normalizedEqualHead) {
       formatNoise += 1 // 与 HEAD 只差空白:是格式噪声,不比 HEAD 旧 ⇒ 不判红,只报数
@@ -206,7 +263,49 @@ export function judge({
       suspects.push({ path: p, missing: nm.deficit.missing, extra: nm.deficit.extra })
     }
   }
-  const counts = { judged, normalizedJudged, formatNoise, declaredScope: scope.length, suspects }
+  // 工作树臂:索引可能已经对齐 HEAD,但磁盘仍是被搬回来的祖先旧档(索引面结构上看不见这一格)。
+  // 射程:提交钩子路径(safe-commit 透传 IHUI_DECLARED_FILES)只判**本票声明集** —— 共享工作树
+  // 常年躺着别席未提交的改动,逐条判别席会把每一笔提交都钉死(2026-11-05 实测 13 枚);
+  // 独立审计(未传声明集)判**全部**工作树 M 路径,专门兜"索引对齐、磁盘旧档"这格。
+  // 这不是放宽:要提交的旧档必在声明集里,索引臂本身就已点名(make 时 index blob = 祖先)。
+  const worktreeScoped = scope.length > 0
+  for (const p of worktreePaths) {
+    if (stale.some((s) => s.path === p)) continue // 同一路径已被索引面点名,不重复报
+    if (worktreeScoped && !scope.includes(p)) continue // 提交路径:别席残渣不替他们判(射程同归一化臂)
+    const hb = headBlobOf(p, { root })
+    if (!hb.judged)
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${hb.why ?? 'HEAD blob 取不到'}` }
+    if (hb.missing) continue // HEAD 没有该路径(真新文件/已被删):不构成"HEAD 已有更新档"这一格
+    const wtOid = worktreeBlobOid(p, root)
+    if (wtOid === 'ABSENT') continue // 磁盘没有该路径:删除残局另有专档
+    if (wtOid === 'UNKNOWN')
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: 工作树 blob 取不到(不猜)` }
+    if (wtOid === hb.oid) continue
+    judgedSet.add(p)
+    worktreeJudged += 1
+    const anc = ancestorBlobOf(p, wtOid, { root, windowSize })
+    if (!anc.judged)
+      return { state: 'undetermined', judged: judgedSet.size, why: `${p}: ${anc.why}` }
+    if (anc.match) {
+      stale.push({
+        path: p,
+        arm: 'worktree',
+        headOid: hb.oid,
+        indexOid: wtOid,
+        ancestor: anc.match.commit,
+      })
+    }
+  }
+  const judged = judgedSet.size
+  const counts = {
+    judged,
+    stagedJudged,
+    normalizedJudged,
+    worktreeJudged,
+    formatNoise,
+    declaredScope: scope.length,
+    suspects,
+  }
   if (stale.length === 0) return { state: 'pass', judged, stale: [], paths, ...counts }
   const revert = intentionalRevertOf(message)
   if (revert.ok) return { state: 'waived', judged, stale, rationale: revert.rationale, ...counts }
@@ -259,30 +358,33 @@ export function commitMessageOf({ root = ROOT, messageFile = null, message = nul
 
 function failBlock(result) {
   const lines = []
-  const byArm = { verbatim: 0, normalized: 0, 'identifier-set': 0 }
+  const byArm = { verbatim: 0, normalized: 0, 'identifier-set': 0, worktree: 0 }
   for (const s of result.stale) byArm[s.arm] = (byArm[s.arm] || 0) + 1
   lines.push(
-    `❌ [${GATE_ID}] 检出 ${result.stale.length} 个路径把**旧 blob** 写回了暂存区(逐字 ${byArm.verbatim} / 去空白等值 ${byArm.normalized} / 标识符集合等值 ${byArm['identifier-set']}),HEAD 已有更新档:`,
+    `❌ [${GATE_ID}] 检出 ${result.stale.length} 个路径把**旧 blob** 搬回索引或磁盘(逐字 ${byArm.verbatim} / 去空白等值 ${byArm.normalized} / 标识符集合等值 ${byArm['identifier-set']} / 工作树旧档 ${byArm.worktree}),HEAD 已有更新档:`,
   )
   const armTxt = {
     verbatim: ' 臂=逐字',
     normalized: ' 臂=归一化(旧内容+改空白)',
     'identifier-set': ' 臂=标识符集合(旧内容+改标点)',
+    worktree: ' 臂=工作树(索引已对齐 HEAD、磁盘仍是旧档)',
   }
   for (const s of result.stale) {
+    const where = s.arm === 'worktree' ? '磁盘' : '暂存'
     lines.push(
-      `   - ${s.path}  暂存 ${s.indexOid.slice(0, 10)} = 祖先 ${s.ancestor.slice(0, 10)} 的原样;HEAD 现读 ${s.headOid.slice(0, 10)}${armTxt[s.arm] || ' 臂=逐字'}`,
+      `   - ${s.path}  ${where} ${s.indexOid.slice(0, 10)} = 祖先 ${s.ancestor.slice(0, 10)} 的原样;HEAD 现读 ${s.headOid.slice(0, 10)}${armTxt[s.arm] || ' 臂=逐字'}`,
     )
   }
-  lines.push('   ⇒ 这不是"改回旧写法",是把旧检出档搬进共享索引;提交后会把 HEAD 的新版本静默回退。')
+  lines.push('   ⇒ 这不是"改回旧写法",是把旧检出档搬进共享索引/工作树;提交后会把 HEAD 的新版本静默回退。')
   lines.push(
     '   ⇒ 后两臂专治"给旧检出档跑了一遍 prettier/编辑器重排":oid 变了、内容没变(2026-11-05 立,射程=本票声明集)。',
   )
+  lines.push('   ⇒ 工作树臂专治"索引已对齐、磁盘仍是旧内容":索引面对账恒绿,但下一次 git add 就会把旧档固化。')
   lines.push('   出口 ① 取 HEAD 形态重新施加你的改动:git restore --source=HEAD -- <文件>,再重做本次编辑;')
   lines.push('   出口 ② 只想落地单文件而不碰共享工作树:node scripts/object-space-land.mjs(自带同族守卫);')
   lines.push(`   出口 ③ 确属有意回滚:在提交正文写一行 \`intentional-revert: <依据>\`(本门放行并留痕 ${REVERT_LEDGER_REL});`)
   lines.push(`   应急放行:${SKIP_ENV}=1 git commit ...(不推荐;跳过会留痕)`)
-  lines.push('   取证:node scripts/check-staged-downgrade.mjs --self-test(13 例,含三档判据与疑退报数正反例)')
+  lines.push('   取证:node scripts/check-staged-downgrade.mjs --self-test(17 例,含四臂判据、疑退报数与诚实边界正反例)')
   return lines
 }
 
@@ -308,12 +410,12 @@ function main(argv = process.argv.slice(2)) {
       ? `;⚠ 疑退形态 ${result.suspects.length} 个(只报数不判红,请归属会话核 blob)`
       : ''
     console.log(
-      `✅ [${GATE_ID}] 旧 blob 回写守门通过(判 ${result.judged} 个暂存改动文件,无历史版本回写;${armTxt}${noise}${susp})`,
+      `✅ [${GATE_ID}] 旧 blob 回写守门通过(判 ${result.judged} 个改动文件:索引面 ${result.stagedJudged ?? 0} / 工作树 ${result.worktreeJudged ?? 0};无历史版本回写;${armTxt}${noise}${susp})`,
     )
     for (const s of result.suspects || [])
       console.log(`   ⚠ 疑退 ${s.path}:相对 HEAD 少 ${s.missing} 个标识符,又带 ${s.extra} 个 HEAD 已无的`)
   } else if (result.state === 'not-applicable') {
-    console.log(`⏭️ [${GATE_ID}] 不适用:索引面 0 个暂存改动文件(没有判据对象,未判绿也未判红)`)
+    console.log(`⏭️ [${GATE_ID}] 不适用:索引面与工作树面均 0 个改动文件(没有判据对象,未判绿也未判红)`)
   } else if (result.state === 'waived') {
     console.log(`⚠️ [${GATE_ID}] 有意回滚放行(${result.stale.length} 个路径),依据:${result.rationale}`)
     for (const s of result.stale)
@@ -490,6 +592,50 @@ function selfTest() {
         r.state === 'pass' && r.suspects.length === 1 && r.suspects[0].missing >= 10 && r.suspects[0].extra >= 1,
       )
     }
+    // T14 工作树臂真命中:索引已对齐 HEAD,磁盘仍是祖先旧档(不暂存)⇒ 红
+    {
+      const { dir, g } = makeRepo('v1')
+      cleanup.push(dir)
+      stageText(dir, g, 'v2\n')
+      g(['commit', '-q', '-m', 'v2'])
+      writeFileSync(join(dir, 'f.ts'), 'v1\n', 'utf8') // 只改磁盘,不 add
+      const r = judge({ root: dir })
+      ok(
+        'T14 工作树旧档命中判红(索引=HEAD、磁盘=祖先)',
+        r.state === 'fail' && r.stale.length === 1 && r.stale[0]?.arm === 'worktree' && r.worktreeJudged === 1,
+      )
+    }
+    // T15 工作树臂无命中:磁盘是新内容 ⇒ 绿(不误伤正常新改动)
+    {
+      const { dir, g } = makeRepo('v1')
+      cleanup.push(dir)
+      stageText(dir, g, 'v2\n')
+      g(['commit', '-q', '-m', 'v2'])
+      writeFileSync(join(dir, 'f.ts'), 'brand-new\n', 'utf8')
+      const r = judge({ root: dir })
+      ok('T15 工作树新内容不判(反向对照)', r.state === 'pass' && r.judged === 1 && r.worktreeJudged === 1)
+    }
+    // T16 诚实边界(臂二三都抓不到的那一格):旧档只把单引号换成双引号 ⇒ 三档皆漏,本门放行
+    //   这不是"判绿",是承认边界:标识符集合不变、HEAD 又没新增标识符 ⇒ 归一化档与集合档都不成立。
+    {
+      const { dir, g } = makeRepo("const alpha = 'one'")
+      cleanup.push(dir)
+      stageText(dir, g, "const alpha  =  'one'")
+      g(['commit', '-q', '-m', 'v2'])
+      stageText(dir, g, 'const alpha = "one"')
+      const r = judge({ root: dir, declared: ['f.ts'] })
+      ok(
+        'T16 已知边界:旧档只换引号 ⇒ 三档皆漏(如实放行,不冒充无死角)',
+        r.state === 'pass' && r.normalizedJudged === 1 && r.stale.length === 0,
+      )
+    }
+    // T17 取不到 ⇒ 未判定(非仓/坏仓),不得折成 0(exit 0)
+    {
+      const dir = mkdtempSync(join(tmpdir(), 'ihui-staged-downgrade-bad-'))
+      cleanup.push(dir)
+      const r = judge({ root: dir })
+      ok('T17 git 面取不到 ⇒ undetermined(不折成绿)', r.state === 'undetermined' && r.judged === 0)
+    }
   } finally {
     for (const d of cleanup) {
       try {
@@ -505,7 +651,16 @@ function selfTest() {
   return passed === out.length ? 0 : 1
 }
 
-export const __test__ = { stagedModifiedPaths, judge, commitMessageOf, appendRevertLedger, declaredFilesOf, selfTest }
+export const __test__ = {
+  stagedModifiedPaths,
+  worktreeModifiedPaths,
+  worktreeBlobOid,
+  judge,
+  commitMessageOf,
+  appendRevertLedger,
+  declaredFilesOf,
+  selfTest,
+}
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   process.exit(main())
