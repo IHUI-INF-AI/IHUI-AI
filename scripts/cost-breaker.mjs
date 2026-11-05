@@ -28,7 +28,7 @@
  * 留在 minutesWall、口径记在 outcome/chargeCapped;成功轮与未给 --outcome 的旧调用方保持旧口径。
  * perDay / perHour / minutesPerDay 这些**数值一个字没改** —— 连败照样撞次数闸,红了有得整改(§5e-1)。
  */
-import { readFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, appendFileSync, existsSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -590,7 +590,7 @@ function main(argv) {
         rule: p.rule,
       })
     }
-    const bak = ledgerPath + '.pre-reclass-' + Date.now().replace(/\D/g, '')
+    const bak = ledgerPath + '.pre-reclass-' + String(Date.now()).replace(/\D/g, '')
     writeFileSync(bak, raw, 'utf8')
     writeFileSync(ledgerPath, outLines.join('\n') + '\n', 'utf8')
     appendFileSync(
