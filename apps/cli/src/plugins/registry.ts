@@ -13,6 +13,8 @@
  *   - getToolExtensions/getHookExtensions/getCommandExtensions 汇总所有插件的扩展名
  *   - list 返回所有已注册插件的浅拷贝(防止外部修改)
  *   - 不维护工具/Hook 的实现,只维护扩展名声明(实现由集成方按名解析)
+ *
+ * 汇总口现状见 `./index.ts` 的「registry 汇总口现状」(goal-b49/X2,含零生产调用方的复跑口径)。
  */
 
 import type { PluginContext, PluginDefinition, PluginHookContext, TurnContributorContext } from './types.js';
