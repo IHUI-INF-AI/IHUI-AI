@@ -2221,6 +2221,28 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-05**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (3f789f9388)
+- 🚀 기능/개선:六格合车——插件贡献面接线 / 自写二维码 / 网络命令登记 / 回收站跨盘与冻结容错 / 增量索引装车 / 两道守门升 blocking(goal-b49 Z1+Z6+Z9+Z7+Z8+Z11b+Z10 席产物,主席复量落地) (c8bd00a636)
+- 🐞 수정:tool-delta-three-faces 的 api-client 假件补上 getModelContextCapacity(清 gate-test (3) 红) (c7e5c56c5b)
+- 🚀 기능/개선:按对照程序取证补上每日签到腿,并证实「人家不用扫」的前提不成立 (4b908c96b7)
+- 🔧 기타:回补被上一枚 LAND_ALLOW_STALE 吞掉的「防误删闸」用例,并改走逐条声明的窄出口 (b38632f64b)
+- 🐞 수정:两条守护腿的冷却判据与状态名漂移当场修齐,并补齐号池保活的三处账面 (483fbb0fe2)
+- 🚀 기능/개선:补上「已判完成 → 领奖」这条无人跑的腿,可领的六项奖励当场到账 (7f562844f8)
+- 🐞 수정:面名参数的空格形态不再静默回落 web——同一条命令本机读成"已扫且干净"而 CI 判 shared 红 (d36d8ed036)
+- 🚀 기능/개선:子进程网络出口补上三条腿——脱离式 relay / 真 DNS 适配器 / 裸域名取词(goal-b49 Z3 席产物,主席复量落地) (7bde582b0a)
+- 🚀 기능/개선:回收站补上「恢复」的人用出口——ihui trash list / restore(goal-b49 Z2 席产物,主席复量并接上入口) (0a6868f37d)
+- 🚀 기능/개선:技能包归档补上配额腿——条目数与展开字节在物化前过唯一那把尺(goal-b49 S1 席未竟 3) (c6a64290b5)
+- 🚀 기능/개선:全工作树未提交状态的红消息改为点名未跟踪路径——计数不指认现场,归因没有下落 (00db920998)
+- 🐞 수정:next-env.d.ts 还原规范形(.next/dev/types)——门 50 的 CI 面红与它的镜像测试 X1/X4 同源于这一枚污染 (9dc26d8a3c)
+- 🔧 기타:合并最新 main 后按生成器重算 README 数字块与活性声明 (5e38d57f61)
+- 📚 문서:随本轮文件面变动同步现算数字(表 621/测试文件 4108/守门 336) (2f779fcd75)
+- 🔧 기타:并入 origin/main 后按最新源面重生成 miniapp 路由钉与 README 数字块 (d3ce25f178)
+- 🔧 기타:落地已声明删除(8 条孤儿 D + model-edit-save 孤儿层),重生成 miniapp 路由钉 (461bfa0554)
+- 🐞 수정:workbuddy _wb_request/_post_once 请求体允许数组 (1ba85ce8e5)
+- 🔧 기타:补注入新增文件的溯源水印 (2aabeab522)
+- 🐞 수정:修 GitHub Pages 扩展包下载死链并让静态构建自带下载件 (0d78b70f05)
+
+**2026-11-05**
 - 🐞 수정:公众号关注项判据换成服务端直读,并更正取证面(现读 42 条端点零写侧) (d8d888dd9e)
 - 🐞 수정:强保腿三格同批修(心跳取错键/整族拨心跳/登记面锁死运营池),并把 10 枚 Qoder 号真正接管续期 (88288827eb)
 - 🐞 수정:持久错误文案里的整对象/整数组内插改走有界化出口——清门 181 点名的 3 处 PERSISTENT (68522452b1)
@@ -2658,10 +2680,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8548571866)
 - 🐞 수정:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门285 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
 - 🐞 수정:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门285 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (5574b04e56)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e6374f6e0c)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
