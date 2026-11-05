@@ -40,15 +40,34 @@ test('A2 判序不变量:派生最先、校验压轴、重建排在校验前', (
   assert.deepEqual(lands, ['land-web', 'land-rn', 'land-miniapp'])
 })
 
-test('A3 写盘闸门:缺省档不放行任何写段;--apply 才放行;--skip 点名必跳', () => {
+test('A3 写盘闸门:缺省档只放行零写预演段,无零写档的点名跳;--apply 全放行;--skip 必跳', () => {
   const dry = C.parseArgs([])
   const applied = C.parseArgs(['--apply'])
+  let previewed = 0
+  let skippedNoPreview = 0
   for (const s of C.STAGES) {
     const d = C.stageDisposition(s, dry)
-    if (s.write) assert.equal(d?.state, 'skipped', `${s.name} 缺省档被放行 = 越权写盘`)
-    else assert.equal(d, null, `${s.name} 只读段不得被缺省跳过`)
-    assert.equal(C.stageDisposition(s, applied), null)
+    if (!s.write) {
+      assert.equal(d, null, `${s.name} 只读段不得被缺省跳过`)
+    } else if (s.preview) {
+      previewed += 1
+      assert.equal(d, null, `${s.name} 有零写档却在缺省档被跳 ⇒ 预演面少一维,读数会假称"没活"`)
+      assert.deepEqual(C.stageArgv(s, dry), [...s.preview], `${s.name} 缺省档必须装配该段自己的零写 argv`)
+    } else {
+      skippedNoPreview += 1
+      assert.equal(d?.state, 'skipped', `${s.name} 无零写档却缺省放行 = 越权写盘`)
+      assert.match(d.detail, /无零写预演档/, '跳过必须点名原因')
+      assert.match(d.detail, /不等于"无待落"/, '点名跳过不得被读成"预演过且没活"(§0.3)')
+    }
+    assert.equal(C.stageDisposition(s, applied), null, `${s.name} --apply 档必须放行`)
   }
+  // 覆盖面自证:预演必须真有其段 —— 否则本例全绿而链条退回"整段跳过"的旧形态(2026-11-05 之前的病)
+  assert.ok(previewed >= 12, `缺省档真预演的写段只有 ${previewed} 枚 ⇒ 一键链又变回"只校验不预演"`)
+  assert.equal(
+    skippedNoPreview,
+    2,
+    `无零写档的段现读 ${skippedNoPreview} 枚(应为 derive-tokens / miniapp-pages 两枚)`,
+  )
   const sk = C.parseArgs(['--apply', '--skip=land-rn'])
   assert.equal(
     C.stageDisposition(
@@ -57,16 +76,29 @@ test('A3 写盘闸门:缺省档不放行任何写段;--apply 才放行;--skip �
     ).state,
     'skipped',
   )
+  // --apply 档的 argv 装配不变:base + 该段写旗(预演改造不得动落盘面)
+  const css = C.STAGES.find((x) => x.name === 'verify-css-tokens')
+  assert.deepEqual(C.stageArgv(css, applied), [...css.base, ...css.apply])
 })
 
-test('A4 三态分离并互斥:done/red/failed/unjudged/skipped 不并桶', () => {
+test('A4 态分离并互斥:done/red/failed/pending/unjudged/skipped 不并桶', () => {
   const V = { kind: 'verify', redOnFail: true }
   const W = { kind: 'land' }
+  const P = { kind: 'create', write: true, pendingRc: [1] }
   assert.equal(C.classifyStage(V, { ran: true, rc: 0, spawnable: true }), 'done')
   assert.equal(C.classifyStage(V, { ran: true, rc: 1, spawnable: true }), 'red')
   assert.equal(C.classifyStage(W, { ran: true, rc: 1, spawnable: true }), 'failed')
+  // pending 只在预演档、且只在该段自己登记的码上生效;写盘档同码仍是 failed(不得反向洗白真败)
+  assert.equal(C.classifyStage(P, { ran: true, rc: 1, spawnable: true, preview: true }), 'pending')
+  assert.equal(C.classifyStage(P, { ran: true, rc: 1, spawnable: true, preview: false }), 'failed')
+  assert.equal(C.classifyStage(P, { ran: true, rc: 2, spawnable: true, preview: true }), 'unjudged')
+  assert.equal(C.classifyStage(P, { ran: true, rc: 3, spawnable: true, preview: true }), 'failed')
   assert.equal(C.classifyStage(W, { ran: true, rc: null, spawnable: false }), 'unjudged')
   assert.equal(C.classifyStage(W, { ran: false, rc: null, spawnable: false }), 'skipped')
+  // pending 不顶退出码:预演看见活 ≠ 这条链坏了(顶红会把人逼去跳门,§12e)
+  assert.equal(C.chainExit(['done', 'pending']), 0)
+  assert.equal(C.chainExit(['pending', 'unjudged']), 2)
+  assert.equal(C.chainExit(['pending', 'failed']), 1)
 })
 
 test('A5 摘要如实:多行 JSON 不读成"}";判据行优先;空输出不冒充', () => {
