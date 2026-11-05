@@ -16,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { VoiceToolbar } from './voice-toolbar'
+import { VoiceCompanion } from './voice-companion'
 import { VoiceNote } from './voice-note'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
@@ -45,7 +46,10 @@ import {
 } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
 import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
-import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
+import {
+  AgentProgressTrigger,
+  AgentProgressShortcutHost,
+} from '@/components/ai/agent-progress-trigger'
 import { ModeSwitcher } from '@/components/chat/mode-switcher'
 import { SamplingParamsButton } from '@/components/chat/sampling-params-panel'
 // D130(2026-09-30 立):推理强度第三轴 —— 输入区的档位控件。摘掉下面 JSX 里那一行挂载,
@@ -273,6 +277,9 @@ export function MessageInput({
   onFloatDragStart,
 }: MessageInputProps) {
   const t = useTranslations('chat')
+  // 语音栈实例 id(2026-11-04):常驻 Companion 与 + 菜单里的入口行按同一实例分桶,
+  // 侧栏浮窗 / 主聊天 / 工作台多输入区并存时录音与快捷键不串台。
+  const voiceCompanionId = React.useId()
   // 差距③配套(2026-10-30 立):「打断并发送」按钮文案复用既有 ai.pane.queueOps 词包
   // (与 QueueInteractionBar 的 interruptAndRun 动词同源,不新增 key)
   const tq = useTranslations(QUEUE_OPS_NAMESPACE)
@@ -543,9 +550,9 @@ export function MessageInput({
   // - prompt:PromptTemplates 弹层
   // - skill:SkillLibrary 弹层
   const [addMenuOpen, setAddMenuOpen] = React.useState(false)
-  const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill' | 'voice'>(
-    'menu',
-  )
+  const [addMenuMode, setAddMenuMode] = React.useState<
+    'menu' | 'prompt' | 'skill' | 'voice' | 'tools'
+  >('menu')
   // D28 /side 快速侧问(2026-09-20 立):当前会话侧问队列(store 持久化,切会话不丢)
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
@@ -1042,6 +1049,10 @@ export function MessageInput({
     }
   }, [isStreaming, value, handleScreenshot])
 
+  // Ctrl+Shift+J 任务进度面板(2026-11-04 第四轮):监听已抽成 AgentProgressShortcutHost
+  // 组件(下方 JSX 里常驻挂载),本文件不再自持 keydown 监听 —— 单测可直接渲染该宿主,
+  // 不必为一个 5 行快捷键把整条 message-input 依赖链搬进测试环境。
+
   // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
   // D117(2026-09-27):实现抽到 use-chat/manual-compact.ts 的 runManualCompact 单一实现,
   // /compact 斜杠命令复用同一函数;此处只保留按钮 loading 态与流式守卫。
@@ -1364,6 +1375,13 @@ export function MessageInput({
               onRemoveLastAttachment={handleRemoveLastAttachment}
               onPaste={handlePasteWithReferencePreview}
             />
+            {/* 语音常驻宿主(2026-11-04):引擎 / Ctrl+Alt+V·B·H 监听 / 播报字幕条不能住在
+                「+ → 更多工具」抽屉里 —— 菜单条件挂载,关了菜单录音即断、字幕即失、快捷键即哑。 */}
+            <VoiceCompanion
+              voiceId={voiceCompanionId}
+              onTranscript={handleVoiceTranscript}
+              disabled={isStreaming}
+            />
             {/* 底部工具栏(2026-09-30 底栏单行化,深度对标 Trae/Qoder/Codex 输入卡):
                 单行两簇 —— 左簇"任务进度 + 添加",右簇"权限 + 模式 + 上下文 + 模型 + 语音 + 发送"。
                 相比旧版(顶部栏 5 控件 + 权限标题行 + 底栏 9 控件,三处堆叠):
@@ -1376,13 +1394,15 @@ export function MessageInput({
               className="ai-input-toolbar flex min-w-0 flex-wrap items-center gap-1 overflow-visible px-2 pb-2 pt-1"
               data-testid="ai-input-toolbar"
             >
-              {/* ── 左簇:任务进度 + 添加 ───────────────────────────────────── */}
-              {/* 左簇独立成组:flex-shrink:0 由 globals.css 统一给,窄档整簇换行而不是被压窄 */}
+              {/* ── 左簇:「实时状态」芯片(仅活跃时) + 「添加 +」───────────
+                  2026-11-04 信息架构重构:权限、模式、Agent、上下文环、语音、语音笔记
+                  移入「+ → 更多工具」抽屉;底栏锚点 = 状态芯片(条件渲染) / + / 模型 /
+                  发送·停止 —— 空闲态仍是极简三锚点(对标 Claude/ChatGPT composer)。
+                  第四轮(用户规则):任务进度的实时状态不该降级到 2 击 —— 流式期间芯片
+                  常驻显示当前任务与步数,点它开合右侧 Pane;与抽屉里的同一控件是同一
+                  store 的两个入口(testid 不同名:status / trigger)。 */}
               <div className="ai-input-toolbar-left flex min-w-0 items-center gap-1">
-                {/* leftIcon 固定为任务清单语义(2026-09-30 用户指出双锤子:
-                  默认跟随当前模式取图标 → build 档与 ModeSwitcher 的 Hammer 同屏撞脸;
-                  本入口语义是"任务进度面板",对标 Trae/Qoder 任务列表用 ListTodo) */}
-                <AgentProgressTrigger iconOnly leftIcon={ListTodo} />
+                <AgentProgressTrigger variant="status" />
                 {/* "添加"下拉菜单(2026-07-25 终极整合,2026-07-30 提取到 AddMenuPopover 子组件)
                   行为零变更:关闭时重置 menu 态 / disabled 状态 / 所有回调透传 */}
                 <AddMenuPopover
@@ -1500,6 +1520,52 @@ export function MessageInput({
                       />
                     </>
                   }
+                  /* 2026-11-04 第二轮收敛:权限 / 模式 / Agent 提到 + 菜单第一层
+                     (composer-quick-settings),点 + 后再点一次即打开各自面板(2 击)。
+                     第四轮修订:流式「中途引导 / 打断并发送」已回到底栏 send cluster
+                     (与 Stop 并列三枚,1 击可达),菜单第一层只留三枚设置行;
+                     低频项(任务进度 / 上下文环 / 语音转文字 / 语音笔记)仍在
+                     「更多工具」抽屉(3 击)。 */
+                  primaryMenuItems={
+                    <div className="flex w-full min-w-0 flex-col gap-1">
+                      {/* 第四轮(2026-11-04):流式动作已回到底栏 send cluster ——
+                          原「+ 菜单第一层 2 击」的副本整体移除。同一 testid 若在菜单与
+                          底栏各挂一处,Playwright strict mode 会因多元素解析直接报错;
+                          产品上也不允许同一动作出现两个入口却分属两种击数。 */}
+                      {/* 第三轮(2026-11-04):三枚控件统一为纵向设置行,不再并排成
+                          「迷你工具栏」(图标块 / 灰胶囊 / 描边胶囊三种形态混排) */}
+                      <div className="flex flex-col gap-0.5" data-testid="composer-quick-controls">
+                        <PermissionModePopover
+                          disabled={isStreaming}
+                          onExplainMode={(mode) => setInfoMode(mode)}
+                          variant="row"
+                        />
+                        <ModeSwitcher disabled={isStreaming} variant="row" />
+                        <AgentPicker variant="row" />
+                      </div>
+                    </div>
+                  }
+                  toolsMenuItems={
+                    <div
+                      className="flex flex-col gap-0.5 px-1 pb-1"
+                      data-testid="composer-tools-drawer"
+                    >
+                      {/* 第三轮(2026-11-04):去掉「2×2 网格」——那是把 103px 按钮、
+                          裸圆环、32px 图标、96px 文字按钮硬塞进格子,导致半格悬空与
+                          尺寸参差。改为四行统一设置行,逐项带标签与当前值。 */}
+                      <AgentProgressTrigger leftIcon={ListTodo} variant="row" />
+                      <ContextUsageRing model={model} isStreaming={isStreaming} variant="row" />
+                      <VoiceToolbar
+                        voiceId={voiceCompanionId}
+                        disabled={isStreaming}
+                        variant="row"
+                      />
+                      <VoiceNote conversationId={conversationId} variant="row" />
+                      {/* 2026-11-04 第四轮:Steer / 打断并发送 已回到底栏 send cluster
+                          (与 Stop 并列三枚 32px 方按钮,1 击可达)。抽屉只留低频项
+                          (任务进度 / 上下文环 / 语音转文字 / 语音笔记)。 */}
+                    </div>
+                  }
                 />
               </div>
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
@@ -1543,30 +1609,14 @@ export function MessageInput({
                 aria-hidden="true"
                 tabIndex={-1}
               />
-              {/* ── 右簇:权限 + 模式 + 上下文 + 模型 + 语音 + 发送 ─────────────── */}
-              {/* ai-input-toolbar-right:吃掉左簇之外的剩余宽度(flex-1),内容按优先级
-                  在 globals.css 的三档 @container 里收文字;仍装不下时组内换行,不压缩 */}
+              {/* ── 右簇:模型 + 流式三动作/发送 ───────────────────────────── */}
+              {/* 2026-11-04 信息架构重构:右簇由 6 枚控件收敛为「模型选择 + 发送·停止」。
+                  权限 / 模式 / Agent / 上下文环 / 语音 / 语音笔记移入 + 菜单的
+                  「更多工具」抽屉(toolsMenuItems)。
+                  第四轮:流式期间的中途引导 / 打断并发送 回到底栏 send cluster,
+                  与 Stop 并列(时间敏感动作必须 1 击可达);空闲仍只有发送一枚。 */}
               <div className="ai-input-toolbar-right flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
-                {/* 次要控件组:容器变窄时在组内换行(globals.css 给直接子项 flex-shrink:0),
-                    绝不再靠压缩子项宽度把按钮挤到互相覆盖 */}
                 <div className="ai-input-toolbar-actions flex min-w-0 flex-wrap items-center justify-end gap-1">
-                  {/* 权限模式(2026-09-30 icon-only 化):盾/手/罗盘/警盾图标 + 档位色语义,
-                    档名走 Tooltip;弹层内含模式卡片 + 高危说明 ⓘ + 历史内嵌段 */}
-                  <PermissionModePopover
-                    disabled={isStreaming}
-                    onExplainMode={(mode) => setInfoMode(mode)}
-                  />
-                  {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
-                    与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
-                  <ModeSwitcher disabled={isStreaming} />
-                  {/* D01(2026-10-25 立)对话内 Agent 选择器:紧挨模型选择器左侧,
-                    胶囊形态同规格(h-8 / rounded-sm);选中态写 chat store selectedAgentId,
-                    发送链路随请求透传 personaId → ai-service 并入 system 与工具白名单。
-                    流式中**不禁用**(与 ModelSelector 同一可达性口径):切换只影响下一轮载荷,
-                    禁掉会重演"机制齐但入口够不到"。 */}
-                  <AgentPicker />
-                  {/* 高级参数入口(P1-7)与推理强度轴收纳进模型弹层 footer,见 ModelSelector */}
-                  <ContextUsageRing model={model} isStreaming={isStreaming} />
                   {/* 模型选择器 + footer(推理强度轴 D130 + 采样参数 P1-7):
                     D130 守门判据要求 <ReasoningEffortInputAxis model={model} 挂载行留在本文件,
                     footer 节点即该挂载点 —— 摘掉它档位就永远进不了请求(测试①③) */}
@@ -1583,26 +1633,23 @@ export function MessageInput({
                       </>
                     }
                   />
-                  {/* 语音入口整合:单一 Mic 按钮直接触发语音转文字,挨着发送键 */}
-                  <VoiceToolbar onTranscript={handleVoiceTranscript} disabled={isStreaming} />
-                  {/* D43 会话内快捷笔记(G-51)装车(2026-10-18):组件与 12 相状态机、归档/插入
-                    早在 HEAD,但生产零渲染 ⇒ 票面"笔记可一键插入对话"在界面上拿不到。
-                    conversationId 传当前会话,归档记录按会话标注;无会话时为 null(仍可用)。 */}
-                  <VoiceNote conversationId={conversationId} />
+                  {/* 语音转文字 / 语音笔记 / 任务进度 / 权限 / 模式 / Agent / 上下文环
+                      已于 2026-11-04 移入「+ → 更多工具」抽屉(toolsMenuItems)。
+                      底栏常驻锚点 = 状态芯片(仅活跃时) / + / 模型 / 发送·停止三动作。 */}
                 </div>
                 {/* 主操作独立成组且 shrink-0:发送/停止在任何宽度下都不参与收缩,永远可见可点 */}
                 <div className="ai-input-toolbar-send flex shrink-0 items-center gap-1">
                   {/* 发送/停止(2026-09-30 修订,用户规则:项目禁止圆形发送按钮,改方形 rounded-sm;
                     空输入禁用(灰),有内容 bg-cta 主色 + ArrowUp;
-                    流式中切 Steer(琥珀,中途引导)+ Stop(天蓝),同规格方形。
-                    2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
+                    流式中切三枚同规格方形:Steer(琥珀,中途引导)/ 打断并发送(紫罗兰)/
+                    Stop(天蓝)。2026-10-08 用户指令:收编 token 体系 —— 尺寸同源
                     ICON_BUTTON_ACTION_BASE_CLASS(= ICON_BUTTON_SIZE,32×32 唯一尺寸,
                     与全项目图标按钮对齐),禁用态同源 ICON_BUTTON_ACTION_DISABLED_CLASS) */}
                   {isStreaming ? (
                     <>
-                      {/* Steer 中途引导(2026-09-19 立):流式期间闪电按钮,不打断当前工具执行,
-                        将输入框文本经 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效。
-                        Enter 仍走 W27 FIFO 排队(两者互不影响);空输入禁用。 */}
+                      {/* 2026-11-04 第四轮:流式三动作全部常驻 send cluster ——
+                          Steer(琥珀,中途引导)/ 打断并发送(紫罗兰,先入队再停流)/
+                          Stop(天蓝)。空输入时前两枚走同源禁用态(灰),Stop 恒可点。 */}
                       <Tooltip content={t('steer')}>
                         <span className="inline-flex">
                           <button
@@ -1622,9 +1669,6 @@ export function MessageInput({
                           </button>
                         </span>
                       </Tooltip>
-                      {/* 差距③配套(2026-10-30 立):「打断并发送」= 组合语义(零新状态机)——
-                        先按 submit 同款 W27 路径入队当前输入,再走既有 onStop 停流;
-                        本组件"流结束自动出队"effect 随即发送队首。空输入禁用(双保险)。 */}
                       <Tooltip content={tq('interruptAndRun')}>
                         <span className="inline-flex">
                           <button
@@ -1699,6 +1743,9 @@ export function MessageInput({
           - 用户勾选"我了解"后才能点"继续启用"(内部 markFullAccessSuppressed/Acknowledged)
           - 确认后调 cyclePermissionMode(再次切到 bypass,此时 isFullAccessConfirmSuppressed=true,直走切换) */}
       <FullAccessConfirmBridge />
+      {/* Ctrl+Shift+J 任务进度面板的全局监听宿主(2026-11-04 第四轮):
+          必须常驻且全应用只挂这一处;两处同时挂载会把一次按键 toggle 成两次。 */}
+      <AgentProgressShortcutHost />
       {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
       <SessionDiffDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):

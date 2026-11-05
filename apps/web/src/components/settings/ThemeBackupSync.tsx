@@ -124,7 +124,9 @@ export function ThemeBackupSync() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">{t('themeBackup.desc')}</p>
+        <p className="font-[weight:inherit] text-body text-muted-foreground">
+          {t('themeBackup.desc')}
+        </p>
 
         {/* 平滑快速切换 */}
         <div className="flex gap-2">

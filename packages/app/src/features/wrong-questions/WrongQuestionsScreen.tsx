@@ -142,7 +142,7 @@ export function WrongQuestionsScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('wrongQuestions.title')}</Text>
+        <Text style={styles.title}>{t('student.wrongBookTitle')}</Text>
       </View>
 
       <View style={styles.filterZone}>
@@ -208,7 +208,7 @@ export function WrongQuestionsScreen({
             <Text style={styles.meta}>
               {item.paperTitle ?? '—'} ·{' '}
               {t('wrongQuestions.wrongCount', { count: item.wrongCount })} ·{' '}
-              {t('wrongQuestions.time')}: {item.createdAtText}
+              {t('exam.wrongQuestions.colTime')}: {item.createdAtText}
             </Text>
             <View style={styles.actions}>
               <TouchableOpacity

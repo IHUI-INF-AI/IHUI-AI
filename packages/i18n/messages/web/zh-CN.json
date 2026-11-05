@@ -9959,6 +9959,10 @@
     "envInfoButton": "环境信息",
     "expandConversation": "展开对话",
     "headerActions": {
+      "overflowMenu": "面板菜单",
+      "groupPanel": "面板",
+      "groupTools": "工具",
+      "groupSession": "会话",
       "panelGroupButtons": "面板组按钮",
       "enterWorkspaceFullscreen": "全屏显示工作面",
       "exitWorkspaceFullscreen": "退出工作面全屏",
@@ -11687,6 +11691,11 @@
     "addContextReference": "添加为上下文引用",
     "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件/压缩)",
     "addMenuLabel": "添加",
+    "backToMenu": "返回菜单",
+    "quickSettings": "会话设置",
+    "composerSectionContent": "内容",
+    "composerSectionCapability": "能力",
+    "moreTools": "更多工具",
     "artifactCode": "代码",
     "artifactPreview": "预览",
     "assistant": "AI 助手",
@@ -11845,6 +11854,7 @@
       "branch": "从此处分支"
     },
     "contextUsage": {
+      "rowLabel": "上下文用量",
       "breakdownTitle": "Token 分类明细",
       "budgetRow": "今日额度",
       "categoryFiles": "文件/附件",
@@ -12030,6 +12040,7 @@
     "modeTaskAria": "{mode}任务",
     "taskProgressAria": "任务进度 {status}",
     "taskProgressOpen": "任务进度",
+    "taskProgressIdle": "空闲",
     "toolsPanelOpen": "展开工具面板",
     "toolsPanelClose": "收起工具面板",
     "model": "模型",
@@ -12542,6 +12553,7 @@
       "moreItems": "等 {count} 条"
     },
     "agentPicker": {
+      "label": "Agent",
       "triggerAria": "选择对话内 Agent / 专家",
       "default": "默认助手",
       "defaultDesc": "无专家",

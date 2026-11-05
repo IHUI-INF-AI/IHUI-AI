@@ -333,7 +333,7 @@ export default function KnowledgeBaseEditScreen() {
                 {saving
                   ? t('knowledgeBaseEdit.submitting')
                   : editingId
-                    ? t('knowledgeBaseEdit.submitSave')
+                    ? t('kbEditPage.submitLabel')
                     : t('knowledgeBaseEdit.submitCreate')}
               </Text>
             </TouchableOpacity>

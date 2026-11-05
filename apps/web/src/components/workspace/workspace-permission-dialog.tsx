@@ -152,7 +152,7 @@ export function WorkspacePermissionDialog({
         </DialogHeader>
 
         {/* 工作区信息 */}
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs">
+        <div className="font-[weight:inherit] rounded-md bg-muted/40 px-3 py-2 text-label">
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground">{t('path')}:</span>
             <span className="font-mono">{workspacePath}</span>
@@ -207,7 +207,9 @@ export function WorkspacePermissionDialog({
                       )}
                       {isSel && <Check className="h-3.5 w-3.5 text-primary" />}
                     </div>
-                    <p className="text-xs text-muted-foreground">{tierText.desc}</p>
+                    <p className="font-[weight:inherit] text-label text-muted-foreground">
+                      {tierText.desc}
+                    </p>
                   </div>
                 </button>
               )
@@ -219,10 +221,10 @@ export function WorkspacePermissionDialog({
         {selectedMode === 'accept-edits' && (
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm">
+              <div className="font-[weight:inherit] flex items-center gap-2 text-body">
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
                 <span className="font-medium">{t('whitelistRules')}</span>
-                <span className="rounded-sm bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                <span className="font-[weight:inherit] rounded-sm bg-muted px-1.5 py-0.5 text-label text-muted-foreground">
                   {rulesData?.rules.length ?? 0}
                 </span>
               </div>
@@ -247,14 +249,14 @@ export function WorkspacePermissionDialog({
 
         {/* 风险提示 */}
         {selectedMode === 'bypass-permissions' && (
-          <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+          <div className="font-[weight:inherit] flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-body text-amber-700 dark:text-amber-400">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{t('bypassWarning')}</span>
           </div>
         )}
 
         {saveMutation.isError && (
-          <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="font-[weight:inherit] flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{(saveMutation.error as Error)?.message}</span>
           </div>
@@ -358,7 +360,7 @@ function RulesEditor({
         <select
           value={newRuleType}
           onChange={(e) => setNewRuleType(e.target.value as PermissionRuleType)}
-          className="rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="path">{t('ruleType.path')}</option>
           <option value="command">{t('ruleType.command')}</option>
@@ -368,7 +370,7 @@ function RulesEditor({
           value={newPattern}
           onChange={(e) => setNewPattern(e.target.value)}
           placeholder={t('patternPlaceholder')}
-          className="h-8 flex-1 text-xs"
+          className="font-[weight:inherit] h-8 flex-1 text-label"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleAdd()
           }}
@@ -376,7 +378,7 @@ function RulesEditor({
         <select
           value={newDecision}
           onChange={(e) => setNewDecision(e.target.value as PermissionDecision)}
-          className="rounded-sm border border-input bg-transparent px-2 py-1.5 text-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="font-[weight:inherit] rounded-sm border border-input bg-transparent px-2 py-1.5 text-label transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <option value="allow">{t('decision.allow')}</option>
           <option value="deny">{t('decision.deny')}</option>
@@ -395,18 +397,20 @@ function RulesEditor({
 
       {/* 规则列表 */}
       {loading ? (
-        <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center justify-center py-4 text-label text-muted-foreground">
           <Loader2 className="mr-2 h-3 w-3 animate-spin" />
           {t('loadingRules')}
         </div>
       ) : rules.length === 0 ? (
-        <div className="py-4 text-center text-xs text-muted-foreground">{t('noRules')}</div>
+        <div className="font-[weight:inherit] py-4 text-center text-label text-muted-foreground">
+          {t('noRules')}
+        </div>
       ) : (
         <ul className="max-h-48 space-y-1 overflow-y-auto">
           {rules.map((rule) => (
             <li
               key={rule.id}
-              className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-xs"
+              className="font-[weight:inherit] flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-label"
             >
               <span
                 className={cn(

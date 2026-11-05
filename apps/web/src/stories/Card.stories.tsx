@@ -38,7 +38,9 @@ export const Default: Story = {
         <CardDescription>卡片描述文本，用于补充说明</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">这是卡片正文内容区域，可放置任意子元素。</p>
+        <p className="font-[weight:inherit] text-body text-muted-foreground">
+          这是卡片正文内容区域，可放置任意子元素。
+        </p>
       </CardContent>
       <CardFooter className="flex justify-end gap-2">
         <Button variant="outline" size="sm">
@@ -58,7 +60,7 @@ export const Simple: Story = {
         <CardTitle>简单卡片</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm">无描述、无底部操作的精简形态。</p>
+        <p className="font-[weight:inherit] text-body">无描述、无底部操作的精简形态。</p>
       </CardContent>
     </Card>
   ),
@@ -68,7 +70,7 @@ export const Simple: Story = {
 export const ContentOnly: Story = {
   render: () => (
     <Card className="w-80 p-3">
-      <p className="text-sm">无 Header/Footer 的纯内容卡片。</p>
+      <p className="font-[weight:inherit] text-body">无 Header/Footer 的纯内容卡片。</p>
     </Card>
   ),
 }

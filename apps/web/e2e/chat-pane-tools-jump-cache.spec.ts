@@ -525,10 +525,18 @@ async function dropConversationIntoPane(
   expect(dropped, `${paneId} 必须暴露 [data-pane-empty] 落点`).toBe('dispatched')
 }
 
+/**
+ * 到达「向右拆分」入口并落成两格(2026-11-04 信息架构重构后的取法):
+ * 入口已从面板头部可见 IconButton 收进「⋯」溢出菜单,菜单项是 Radix `DropdownMenu.Item`
+ * ⇒ 渲染成 `role="menuitem"`(不再是 button)。先点触发器 `ai-panel-overflow-trigger`
+ * 打开菜单,再点同名菜单项;「入口存在」的判据由 toBeVisible 承担
+ * (等价替换原来的 `toHaveCount(1, { timeout: 30_000 })`,超时数值同值)。
+ */
 async function splitFrom(page: Page): Promise<void> {
-  const entry = page.getByRole('button', { name: SPLIT_ENTRY_RE })
-  await expect(entry).toHaveCount(1, { timeout: 30_000 })
-  await entry.first().click()
+  await page.locator('[data-testid="ai-panel-overflow-trigger"]').click()
+  const item = page.getByRole('menuitem', { name: SPLIT_ENTRY_RE })
+  await expect(item).toBeVisible({ timeout: 30_000 })
+  await item.click()
   await expect(page.locator('[data-pane-split-root]')).toHaveAttribute(
     'data-pane-leaf-count',
     '2',
@@ -638,9 +646,13 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // 实机证据+截图),用例曾以键盘 Enter 绕行、重叠事实只落 annotations。
     // 修法=globals.css .ai-input-toolbar @container ≤335 档右簇换行避让,命中区留在本窗格内;
     // 本探针随之升级为硬断言(中心点必须命中自身),再走真实鼠标 click 腿。
-    const trigger = page
-      .locator(`[data-pane-leaf="${SECOND_PANE}"] [data-testid="mode-switcher"]`)
+    // 2026-11-04:mode-switcher 已随输入区收敛进本格 `+` 菜单(portal 到 body),
+    // 先点本格可见 `+` 打开门户菜单,再在菜单里做中心点命中探针与真实鼠标点击。
+    await page
+      .locator(`[data-pane-leaf="${SECOND_PANE}"] [data-testid="add-menu-trigger"]`)
       .first()
+      .click()
+    const trigger = page.locator('[data-testid="mode-switcher"]').first()
     const overlap = await trigger.evaluate((el) => {
       const r = el.getBoundingClientRect()
       const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
