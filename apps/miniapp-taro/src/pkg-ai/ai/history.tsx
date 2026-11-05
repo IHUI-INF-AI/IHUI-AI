@@ -32,6 +32,7 @@ import type { ApiResult } from '@ihui/types'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 // A2(2026-11-05)薄壳化:列表 UI 的渲染真相源迁到共享屏(RN / 小程序消费同一份);
+// 唯一标准 packages/app/src/features/chat/ConversationHistoryScreen.tsx;
 // 排序出口随 UI 一同迁走,端内不再写第二处 sort(见本文件 orderHistoryRows 的再导出)。
 import {
   ConversationHistoryScreen as SharedConversationHistoryScreen,
