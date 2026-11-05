@@ -33,19 +33,30 @@
  *
  * 退出码:0 = 无命中(或整体未判定,末行会写"未判定:<原因>");1 = 有"已删除而树内仍被引用"的路径;
  *        2 = 用法/环境错(仓库根问不到、git 不可达、参数自相矛盾)。
- * 用法:`node scripts/check-orphan-deletion-refs.mjs [--json|--self-test|--quiet]`
+ * 用法:`node scripts/check-orphan-deletion-refs.mjs [--json|--self-test|--quiet|--commit-gate]`
  *
- * 定级说明(为什么不是 blocking):它判的是**此刻索引与 HEAD 的错位**,属机器/并发状态 ——
- * 与某次提交的内容无关的 blocking 红,唯一结局是每台每次被逼 `--no-verify`,连带让链上其余全部
- * 守门对该提交作废(§12e/§12f 同型),所以它**刻意不进提交链**。
+ * 定级(2026-11-05 起分两档,判据同一份):
+ *  - **巡检档(默认)**:warn 级,不进提交链 —— 它判的是"此刻索引与 HEAD 的错位",属机器/并发状态,
+ *    与某次提交的内容无关。历史理由(保留为档位说明,不是现状):与提交内容无关的 blocking 红,
+ *    唯一结局是每台每次被逼 `--no-verify`,连带让链上其余全部守门对该提交作废(§12e/§12f 同型)。
+ *  - **`--commit-gate`(blocking)**:同一份判据的**收窄档**,只判「HEAD 有 ∧ 索引无 ∧ 磁盘无 ∧
+ *    未被 `scripts/data/intentional-file-deletions.jsonl` 声明 ∧ 仍被活的源码引用」这一格,收盘时
+ *    exit 1。它挡的正是 2026-11-05 实测事故:两枚未声明的暂存删除(`packages/shared/src/attribution/index.ts`
+ *    与 `apps/web/src/lib/rum/index.ts`)让根布局 `app/layout.tsx` 500 约两小时。收窄三条理由:
+ *    ① 已声明删除是**人的决定**(`--declare-deletion` 写下的整句理由),不是本档要挡的东西;
+ *    ② 索引删了但**盘上还有未跟踪副本**这一型不拦(今日实测 7 条,硬拦即误伤);
+ *    ③ 第二型(` D`,索引与 HEAD 都还在/只有盘上没了)不在本档射程:它不进提交面,由恢复层与巡检档处置。
+ *    接线点:`scripts/lib/pre-commit-hook.js` 的 0c 段(2026-11-05),失败即 `process.exit(1)`。
  *
- * 调度器现值(2026-09-29 接上):唯一的常驻班次是 `scripts/git-guardian.mjs` 的巡检 tick ——
+ * 调度器现值(2026-09-29 接上):常驻班次仍是 `scripts/git-guardian.mjs` 的巡检 tick ——
  * 派发点 `auditOrphanDeletionRefs()`,节流默认 30 分钟(`IHUI_ORPHAN_AUDIT_INTERVAL_MS`),
  * 命中经 `notifyGuardRed()` 走 §5e 唯一邮件通道,未判定只写日志不喊人;挂点写在"健康轮次早退之前
  * + 非 --check"那一分支(挂进 CHECK_ONLY 分支等于永不执行,本仓已记过两次)。在此之前它是
  * **只有人在跑、没有班次在跑**,而同一型缺陷(HEAD 有 / 索引与磁盘都无 / 源码仍 import)当晚两次炸构建。
  * 手动问责入口仍是上方「用法」那一行。
  * 头注不写"已接钩子 / 已进持续集成 / 第几项"那类措辞:五处权威点里没有它,那种声称会被守门 89 判红。
+ * (2026-11-05 更新:上面这一条只对**巡检档**成立。`--commit-gate` 已接进 pre-commit 真实逻辑
+ *  `scripts/lib/pre-commit-hook.js`,这是守门 89 五处权威点里的第 2 处,所以本头注现在可以如实写接线点。)
  *
  * 2026-10-05(G-998191)git 出口收口:本器**三处**git 派生(`git()` 包络、`grepCandidates` 的
  * `git grep`、`selfTest` 的夹具建仓链)全部由 `execFileSync('git', …)` 裸调用迁到取材层
@@ -82,6 +93,8 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 import { collectHits } from './check-staged-deletions.mjs'
 // 唯一一处"哪些路径处于 HEAD 有 / 索引无 / 磁盘无"的枚举口
 import { findOrphanedDeletions } from './heal-worktree-tracked.mjs'
+// 唯一一份"整文件有意删除"通知书判据(2026-11-05 起 `--commit-gate` 消费;台账形状/三态不在本器另判)
+import { isDeletionDeclared, readFileDeletionNotices } from './lib/intentional-file-deletion.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 /** `git grep` 预筛的 timeout:全仓逐 stem 扫描,冷缓存下层默认的 60s 不够(见 grepCandidates 头注)。 */
@@ -89,7 +102,17 @@ const GREP_TIMEOUT_MS = 90_000
 /** 夹具建仓链的 timeout:旧裸调用无上界,层默认这一档是净收益(见 selfTest 里 `g` 的头注)。 */
 const FIXTURE_GIT_TIMEOUT_MS = 60_000
 /** 只有源码与配置才可能"引用一个模块";文档/JSON 里的同名串不算证据。 */
-const SCAN_EXT = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|vue|svelte|json|jsonc|css|scss|html)(\.[^/]*)?$/
+const SCAN_EXT =
+  /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs|py|vue|svelte|json|jsonc|css|scss|html)(\.[^/]*)?$/
+
+/**
+ * 两型孤儿删除的分类标签**单源**。`kindOf` 用它写、`--commit-gate` 用它筛 —— 两处若各写一份字符串,
+ * 改标签就会让"收窄档"静默失明(本仓 §22c:同一个概念只许有一处字面量)。
+ */
+export const ORPHAN_KINDS = {
+  orphanIndex: 'index-落后HEAD(D )',
+  intentLost: '删除意图被索引清空摘掉( D)',
+}
 
 /**
  * 一次 git 派生的唯一出口。2026-10-05(G-998191)由 `execFileSync('git', …)` 迁到层 `gitRaw`,
@@ -160,15 +183,21 @@ function grepCandidates(root, stems) {
  * (部署环 `pnpm build` 读磁盘、api 服务 `tsx src/index.ts` 直读磁盘源码),所以"引用者还在磁盘上、
  * 被引用的文件已不在磁盘上"这一格只有工作树面能给答案。拿 HEAD 判会把仍在磁盘上的引用者读成
  * "已删除"(它 HEAD 里还有),拿索引判则读不到今晚那 22 条**未暂存**删除 —— 两个常规面都恰好看不见
- * 这一型。守门 118 会把本器归到 loose-fs 一类,那是**如实**分类而不是待修缺陷:它是机器状态看门,
- * 不在提交链上,不产生红,也就不会替某次提交挡路。
+ * 这一型。守门 118 会把本器归到 loose-fs 一类,那是**如实**分类而不是待修缺陷:它读的是机器此刻的状态。
+ * (2026-11-05: 默认巡检档不产生红;唯一的 blocking 档是 `--commit-gate`,它复用下面这同一份判据、
+ *  只收窄到「首列 D ∧ 未声明 ∧ HEAD 仍被引用」,见 judgeCommitGate。)
  *
- * @returns {{hits:Array<{path:string,via:string[]}>, undetermined:string[], deleted:number, candidates:number}}
+ * @returns {{hits:Array<{path:string,via:string[]}>, undetermined:string[], deleted:number, candidates:number,
+ *           orphanIndexPaths:string[], intentLostPaths:string[]}}
  */
 export function auditOrphanDeletionRefs(root = ROOT) {
   const g = (args, o) => git(root, args, o)
   const undetermined = []
   let deleted
+  // 两型的逐字清单:调用方(巡检报告与 --commit-gate)要"有多少条孤儿删除"这个数,不能靠 hits 推
+  // (hits 只含"仍被引用"的那部分,拿它算总数会把"无人引用的孤儿"读成不存在 —— 本仓 §0.3 同型)。
+  let orphanIndexPaths = []
+  let intentLostPaths = []
   /**
    * 两型都要问,证据面不同、出路也不同(2026-10-19 补第二型,立项凭据是当晚一次两小时的邮件静默失效):
    *  · `orphanIndex`(`D ` 首列):索引与磁盘都没有而 HEAD 有 ⇒ 旁路落地没回写共享索引,或他人已 `git rm`;
@@ -183,7 +212,12 @@ export function auditOrphanDeletionRefs(root = ROOT) {
     const fd = findOrphanedDeletions(root)
     const oi = fd.orphanIndex || []
     const il = fd.intentLost || []
-    kindOf = new Map([...oi.map((p) => [p, 'index-落后HEAD(D )']), ...il.map((p) => [p, '删除意图被索引清空摘掉( D)'])])
+    orphanIndexPaths = [...oi]
+    intentLostPaths = [...il]
+    kindOf = new Map([
+      ...oi.map((p) => [p, ORPHAN_KINDS.orphanIndex]),
+      ...il.map((p) => [p, ORPHAN_KINDS.intentLost]),
+    ])
     deleted = [...new Set([...oi, ...il])]
   } catch (e) {
     return {
@@ -191,9 +225,12 @@ export function auditOrphanDeletionRefs(root = ROOT) {
       undetermined: [`索引/状态问不到:${String(e?.message ?? e).split('\n')[0]}`],
       deleted: 0,
       candidates: 0,
+      orphanIndexPaths: [],
+      intentLostPaths: [],
     }
   }
-  if (!deleted || deleted.length === 0) return { hits: [], undetermined, deleted: 0, candidates: 0 }
+  if (!deleted || deleted.length === 0)
+    return { hits: [], undetermined, deleted: 0, candidates: 0, orphanIndexPaths, intentLostPaths }
 
   // 活集 = 跟踪清单里**磁盘上还在**的那些(被删掉的自然不在,判据据此区分"断了"与"只是改名搬走")
   let live
@@ -206,15 +243,35 @@ export function auditOrphanDeletionRefs(root = ROOT) {
       undetermined: [`跟踪清单取不到:${String(e?.message ?? e).split('\n')[0]}`],
       deleted: deleted.length,
       candidates: 0,
+      orphanIndexPaths,
+      intentLostPaths,
     }
   }
-  const stems = [...new Set(deleted.map((p) => p.split('/').pop().replace(/\.[^.]*$/, '')))].filter(Boolean)
+  const stems = [
+    ...new Set(
+      deleted.map((p) =>
+        p
+          .split('/')
+          .pop()
+          .replace(/\.[^.]*$/, ''),
+      ),
+    ),
+  ].filter(Boolean)
   const grep = grepCandidates(root, stems)
   if (grep.error) undetermined.push(`git grep 派生失败:${grep.error}`)
-  const files = (grep.files ?? []).filter((f) => SCAN_EXT.test(f) && !deleted.includes(f) && live.has(f))
+  const files = (grep.files ?? []).filter(
+    (f) => SCAN_EXT.test(f) && !deleted.includes(f) && live.has(f),
+  )
   if (files.length === 0) {
     // 预筛零命中是**有效结论**(没有任何活着的源码文件提到这些名字),不是未判定
-    return { hits: [], undetermined, deleted: deleted.length, candidates: 0 }
+    return {
+      hits: [],
+      undetermined,
+      deleted: deleted.length,
+      candidates: 0,
+      orphanIndexPaths,
+      intentLostPaths,
+    }
   }
   const readFile = (f) => {
     try {
@@ -229,15 +286,82 @@ export function auditOrphanDeletionRefs(root = ROOT) {
   for (const [p, list] of hits) {
     if (!list || !list.length) continue
     // 只把**引用方路径**交出去(hit 还带 line/form/spec,报告与自检都按文件名比,别拿对象去 includes)
-    out.push({ path: p, kind: kindOf.get(p) || '未归类', via: [...new Set(list.map((h) => h.file))], detail: list })
+    out.push({
+      path: p,
+      kind: kindOf.get(p) || '未归类',
+      via: [...new Set(list.map((h) => h.file))],
+      detail: list,
+    })
   }
-  return { hits: out, undetermined, deleted: deleted.length, candidates: files.length }
+  return {
+    hits: out,
+    undetermined,
+    deleted: deleted.length,
+    candidates: files.length,
+    orphanIndexPaths,
+    intentLostPaths,
+  }
+}
+
+/**
+ * **提交前阻断档**(2026-11-05 立,`--commit-gate`):把上面那份判据收窄到"这次提交真的会把构建打挂"的
+ * 那一格,并判红。收窄不是放宽 —— 判据本体(什么算引用、哪些路径处于孤儿态)一行都没有重写:
+ *  - 孤儿态的枚举仍只走 `findOrphanedDeletions`(`findOrphanedDeletions` 的两型里**只取首列 `D `**);
+ *  - "是否仍被引用"仍只走 `auditOrphanDeletionRefs`(它内部的 `collectHits` 是守门 99 那一份);
+ *  - "是否已声明"只走 `lib/intentional-file-deletion.mjs` 的 `isDeletionDeclared`。
+ *
+ * 唯一新写的东西是**三态出口**:blocked(红)/ clean(放行)/ undetermined(判不出,放行但喊一声)。
+ * 台账坏档 ⇒ undetermined 而不是 blocked:判不出不是定罪的许可证(§0.3,与 check-staged-resurrection 同口径)。
+ *
+ * @returns {{verdict:'blocked'|'clean'|'undetermined', blocked:Array, declared:Array, undetermined:string[],
+ *           orphanIndex:string[], deleted:number, candidates:number}}
+ */
+export function judgeCommitGate(root = ROOT) {
+  const audit = auditOrphanDeletionRefs(root)
+  const notices = readFileDeletionNotices(root)
+  const undetermined = [...audit.undetermined]
+  const blocked = []
+  const declared = []
+  for (const h of audit.hits) {
+    // 第二型(` D` 仅盘上缺失)不进提交面,不在本档射程;分类标签读 ORPHAN_KINDS,不在此另写字符串
+    if (h.kind !== ORPHAN_KINDS.orphanIndex) continue
+    const decl = isDeletionDeclared(notices, h.path)
+    if (decl.declared) {
+      declared.push({
+        path: h.path,
+        reason: decl.entry?.reason ?? null,
+        until: decl.entry?.until ?? null,
+      })
+      continue
+    }
+    if (decl.verdict === 'undetermined') {
+      // 台账坏档:这一条判不出"有没有被声明"。只报不拦,但**绝不计入 clean 的静默通过**。
+      undetermined.push(`通知书台账坏档,判不出 ${h.path} 是否已声明:${decl.why}`)
+      continue
+    }
+    blocked.push({
+      path: h.path,
+      via: h.via,
+      notice: decl.verdict,
+      ...(decl.verdict === 'expired' ? { expiredUntil: decl.entry?.until ?? null } : {}),
+    })
+  }
+  const verdict = blocked.length ? 'blocked' : undetermined.length ? 'undetermined' : 'clean'
+  return {
+    verdict,
+    blocked,
+    declared,
+    undetermined,
+    orphanIndex: audit.orphanIndexPaths ?? [],
+    deleted: audit.deleted,
+    candidates: audit.candidates,
+  }
 }
 
 function selfTest() {
   let pass = 0
   let fail = 0
-  const ok = (c, n) => (c ? ((pass++), true) : ((fail++), console.log(`  ❌ ${n}`), false))
+  const ok = (c, n) => (c ? (pass++, true) : (fail++, console.log(`  ❌ ${n}`), false))
   const tmp = mkScratch('orphan-deletion-selftest')
   const put = (rel, text) => {
     const abs = join(tmp, rel)
@@ -267,13 +391,19 @@ function selfTest() {
     put('packages/shared/src/chat/mod.ts', 'export const a = 1' + NL)
     put(
       'apps/web/src/page.ts',
-      "import { a } from '../../../packages/shared/src/chat/mod.js'" + NL + 'export const b = a' + NL,
+      "import { a } from '../../../packages/shared/src/chat/mod.js'" +
+        NL +
+        'export const b = a' +
+        NL,
     )
     // A2 的夹具:注释里**逐字**写着一条指向被删模块的路径。git grep 一定命中(预筛宽),
     // 而判据看代码面的字符串 ⇒ 不得算引用(否则本器会把自己立项时写下的解释读成违规)。
     put(
       'docs/note.ts',
-      '// 曾经的写法是 import("../../../packages/shared/src/chat/mod.js"),已废弃' + NL + 'export const z = 1' + NL,
+      '// 曾经的写法是 import("../../../packages/shared/src/chat/mod.js"),已废弃' +
+        NL +
+        'export const z = 1' +
+        NL,
     )
     put('packages/shared/src/chat/lonely.ts', 'export const l = 1' + NL)
     g(['add', '-A'])
@@ -330,7 +460,10 @@ function selfTest() {
     )
     const rLedger = auditOrphanDeletionRefs(tmp)
     const hitVw = rLedger.hits.find((h) => h.path === 'packages/shared/src/voice-world.ts')
-    ok(Boolean(hitVw), `有清空账且仍被 barrel 导入 ⇒ 必须点名,实测 ${JSON.stringify(rLedger.hits.map((h) => h.path))}`)
+    ok(
+      Boolean(hitVw),
+      `有清空账且仍被 barrel 导入 ⇒ 必须点名,实测 ${JSON.stringify(rLedger.hits.map((h) => h.path))}`,
+    )
     ok(
       Boolean(hitVw) && hitVw.kind === '删除意图被索引清空摘掉( D)',
       `必须带型(两型出路不同,不给型收件人无法决定补还是删完),实测 ${JSON.stringify(hitVw && hitVw.kind)}`,
@@ -371,7 +504,56 @@ function main(argv = process.argv.slice(2)) {
     console.error(`❌ ${rootFlag.error}`)
     return 2
   }
-  const r = auditOrphanDeletionRefs(rootFlag.present ? rootFlag.value : ROOT)
+  const root = rootFlag.present ? rootFlag.value : ROOT
+  if (argv.includes('--commit-gate')) {
+    const g = judgeCommitGate(root)
+    if (argv.includes('--json')) {
+      console.log(JSON.stringify(g))
+      return g.verdict === 'blocked' ? 1 : 0
+    }
+    if (g.verdict === 'blocked') {
+      console.error(
+        `❌ 孤儿删除闸:${g.blocked.length} 个路径 HEAD 里有、索引里已删、磁盘上也没有,且没有「整文件有意删除」通知书:`,
+      )
+      for (const h of g.blocked) {
+        const via = (h.via ?? []).slice(0, 4).join(', ')
+        console.error(
+          `     D ${h.path} —— 仍被这些活着的源码引用:${via}${(h.via?.length ?? 0) > 4 ? ` 等 ${h.via.length} 处` : ''}`,
+        )
+        if (h.notice === 'expired')
+          console.error(`       通知书已于 ${h.expiredUntil} 过期(过期即失效,不再保护这次删除)`)
+      }
+      console.error(
+        '   这一型提交入库后构建/根布局会直接编译不过(2026-11-05 实测:整站 500 约两小时)。',
+      )
+      console.error('   两种出路,必须显式选一种:')
+      console.error(
+        '     ① 不是删除,只是索引/磁盘被清掉 ⇒ git checkout HEAD -- <路径>(放回工作树后重试)',
+      )
+      console.error(
+        '     ② 确属有意删除 ⇒ node scripts/heal-worktree-tracked.mjs --declare-deletion <路径> --reason "<≥10 字理由>" [--until YYYY-MM-DD]',
+      )
+      console.error('       同时改掉还在引用它的位置(import/barrel),否则构建仍会断。')
+      console.error('   台账:scripts/data/intentional-file-deletions.jsonl(写入只走 CLI)')
+      return 1
+    }
+    if (g.verdict === 'undetermined') {
+      // 判不出 ⇒ 放行但必须响;把它读成"通过"是本仓最贵的错法(§0.3)
+      console.error('⚠️  孤儿删除闸:本轮未判定(判不出不等于没问题)')
+      for (const u of g.undetermined) console.error(`     - ${u}`)
+      return 0
+    }
+    if (!quiet)
+      console.log(
+        `✅ 孤儿删除闸:首列 D 孤儿 ${g.orphanIndex.length} 条 / 仍被活源码引用 ${g.blocked.length + g.declared.length} 条 → 阻断 0 条`,
+      )
+    // 已声明的放行读数**不受 --quiet 抑制**:提交链里唯一能证明"这道闸确实看过台账、没有把
+    // 人的决定当成事故"的一行就是它。静默放行会让复盘时只能看到"没红",看不到"为什么没红"。
+    if (g.declared.length)
+      console.log(`   ↳ 已由通知书声明、本次放行:${g.declared.map((d) => d.path).join(', ')}`)
+    return 0
+  }
+  const r = auditOrphanDeletionRefs(root)
   if (argv.includes('--json')) {
     console.log(JSON.stringify(r))
     return r.hits.length ? 1 : 0
@@ -384,7 +566,7 @@ function main(argv = process.argv.slice(2)) {
       console.log(
         `  ❌ ${h.path} [${h.kind || '未归类'}] —— 仍被这些位置引用:${h.via.slice(0, 4).join(', ')}${h.via.length > 4 ? ` 等 ${h.via.length} 处` : ''}`,
       )
-    if (r.hits.some((h) => h.kind === '删除意图被索引清空摘掉( D)'))
+    if (r.hits.some((h) => h.kind === ORPHAN_KINDS.intentLost))
       console.log(
         '  ↳ 第二型(` D`:索引与 HEAD 都还在、只有盘上没了,且删除意图已被 safe-commit 的索引清空摘掉):' +
           '恢复层按规矩**不代裁**,所以这一型过去没有任何一格会喊人 —— 当晚就是它把唯一发信出口弄崩了两小时。' +
@@ -408,5 +590,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
 }
 
-export const __test__ = { auditOrphanDeletionRefs, SCAN_EXT, grepCandidates }
+export const __test__ = {
+  auditOrphanDeletionRefs,
+  judgeCommitGate,
+  ORPHAN_KINDS,
+  SCAN_EXT,
+  grepCandidates,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
