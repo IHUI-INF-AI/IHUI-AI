@@ -972,7 +972,15 @@
     "accountDeletionSendCode": "发送验证码",
     "accountDeletionConfirm": "确认注销账号",
     "accountDeletionSubmit": "确认注销",
-    "accountDeletionSubmitting": "提交中..."
+    "accountDeletionSubmitting": "提交中...",
+    "accountDeletionConsequenceTitle": "注销后果",
+    "accountDeletionConsequence1": "账号资料、头像与昵称将被永久删除",
+    "accountDeletionConsequence2": "订单、积分、余额与会员权益将清零且无法恢复",
+    "accountDeletionConsequence3": "已发布的动态、评论、收藏与聊天记录将被清除",
+    "accountDeletionConsequence4": "已绑定的手机号与邮箱将被解绑，无法再用该账号登录",
+    "accountDeletionConsequence5": "正在生效的会员、课程等权益将立即终止且不退款",
+    "accountDeletionConsequence6": "注销后同一手机号可重新注册，但历史数据无法找回",
+    "accountDeletionConsequence7": "存在未结清交易或违规记录的账号，申请可能被拒"
   },
   "menu": {
     "artifacts": "产物中心",
