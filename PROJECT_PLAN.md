@@ -1451,10 +1451,10 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 > **触发**:用户驳回此前"样式收尾已完成"结论——app(web)端与小程序端视觉仍不一致,要求"逐文件逐值把消费层硬编码对齐 web 准绳,真实视觉一致(仅允许非必需平台差异)"。
 > **根因复盘**:token 变量层同步 + 守门脚本早已就位,但**消费层硬编码未实际清洗**;旧守门 RULE-4 窄口径仅抓 `(color|backgroundColor|...)=#hex`,漏网紫青渐变(rgba 形态)/半成品 var(`var(--color-brand-cyan, #93d2f3)`)/深海军蓝页底——这正是历史"门禁 PASS 但视觉不一致"的根因。
 > **治理方式**:3 后台 agent 并行(按文件组隔离,vip 套页 / vip-trader+wallet / user 页)+ lead 直改无主项(index 命名壳别名/DrawerComponent/order-list),4 路互不重叠。
-### 改动清单(45 文件:43 miniapp-taro + 1 守门脚本)
-- **[x] ✅ 组件残留清零(8 组件)**:BottomActionBar(紫青渐变→muted/白字)、DrawerComponent(伪分割线 borderTop 删)、StudyBar/InputArea/ChatMessageItem(灰阶 hex→muted-foreground)、FloatBox(#333/#222→foreground)、Selecter(rgba 蓝底→accent)、VipBenefitsPopup(红字→destructive + 紫玻璃渐变→白卡+黑遮罩)、UserInfoCard.taro(紫底→surface.light)、UserCard(蓝底→card)、user/avatar.css+index.css(深色 fallback 删)、ai/chat.css(强制黑字→foreground)
+### 改动清单(45 文件:43 miniapp-taro + 1 守门脚本 + 1 台账)
+- **[x] ✅ 组件残留清零(10 组件)**:BottomActionBar(紫青渐变→muted/白字)、DrawerComponent(伪分割线 borderTop 删)、StudyBar/InputArea/ChatMessageItem(灰阶 hex→muted-foreground)、FloatBox(#333/#222→foreground)、Selecter(rgba 蓝底→accent)、VipBenefitsPopup(红字→destructive + 紫玻璃渐变→白卡+黑遮罩)、UserInfoCard.taro(紫底→surface.light)、UserCard(蓝底→card)、user/avatar.css+index.css(深色 fallback 删)、ai/chat.css(强制黑字→foreground)
 - **[x] ✅ vip 套页 5 文件浅色化**(index/privilege/upgrade/success/details):深海军蓝页底 + 金渐变 → 浅色白卡 + amber-500 点缀语言(对齐 `apps/web/app/(main)/vip/page.tsx`),CTA 黑底白字(primary/primary-foreground),success 页深蓝庆祝底 → 浅色 + amber/emerald 状态
-- **[x] ✅ vip-trader + wallet 5 文件**:vip-trader 金蓝品牌主题 → 浅色白卡 + 琥珀点缀(标签/价格/星标保留 amber),主 CTA 黑底白字;wallet 已 token 化仅增量修正(黑按钮文字 primary-foreground);微信绿/支付宝蓝渠道品牌色豁免保留
+- **[x] ✅ vip-trader + wallet 3 文件**:vip-trader 金蓝品牌主题 → 浅色白卡 + 琥珀点缀(标签/价格/星标保留 amber),主 CTA 黑底白字;wallet 已 token 化仅增量修正(黑按钮文字 primary-foreground);微信绿/支付宝蓝渠道品牌色豁免保留
 - **[x] ✅ user 页 6 文件**:profile/realname/avatar/index/UserCard 深色残留与半成品 var 清理
 - **[x] ✅ 无主项 3 处**(RULE-4b 升级后新暴露,lead 直改):index.css/.tsx「命名壳别名」16 定义行删除 + 13 消费处内联真 token(`--color-brand-cyan`→`var(--color-link)` 等,视觉零变化)、DrawerComponent fallback var 内联、distribution/order-list 紫青→米黄渐变→`var(--color-card)`
 - **[x] ✅ 守门升级**:`scripts/check-miniapp-taro-style-parity.mjs` RULE-1b(非白名单 CSS hex)WARN→BLOCK;RULE-4 拆 4a(tsx 内联非白名单 hex BLOCK)+ 4b(紫青 rgba(205,208,255)/rgba(253,255,225)/rgba(223,138,248)/rgba(169,165,255)/#93d2f3 + 深海军蓝 rgba(15,22,35)/rgba(31,41,55)/rgba(3,10,28)/rgba(8,20,40)/rgba(26,26,46)/rgba(31,31,40)/rgba(15,23,42) + 半成品 var 六名 → BLOCK)
