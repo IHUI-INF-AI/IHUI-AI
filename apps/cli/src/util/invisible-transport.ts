@@ -41,24 +41,37 @@ type TransportShapedMessage = { role: string; content: string | null | undefined
 /**
  * 消息表级出站清洗:**每一档都过**,只有 `tool` 档连 ZWJ 一起剥,其余档留 U+200D
  * (emoji 家族/国旗序列的合法成分,动它会静默改坏可见内容)。
- * 为什么不是"只动 tool 档"(2026-11-05 当天被实测推翻):载荷不只住在工具结果里 ——
- * `agent.ts:1744` 把工具输出也按 `role:'user'` 入历史,`compaction-v2.ts:547` 的上下文摘要
- * 是一条非 tool 消息而它带的正是压缩前的原文。第 14 轮 34 次只读工具调用后照样
- * `请求包含不合法字符(400)` 就是这条路径漏出来的。
+ * 为什么不是"只动 tool 档":载荷不只住在工具结果里 —— `agent.ts:1744` 把工具输出也按
+ * `role:'user'` 入历史,`compaction-v2.ts:547` 的上下文摘要是一条非 tool 消息而它带压缩前原文。
+ * **但要说清这两条不是那条 400 的充分解释**(2026-11-05 实测):扩到全角色之后再跑一班,
+ * 30 次工具调用 / `iterations=10` 仍 `请求包含不合法字符(400)` ⇒ 带毒段仍在射程外,
+ * 所以下面那台 env 自查仪器才是回答这条病灶的东西,不是再猜一轮。
  * 全表零命中 ⇒ 返回入参本身(不复制、不重排)。
  * CLI 的三个 provider 出口(`streamChat` 主循环 / `streamChat` 压缩摘要 /
  * `streamOpenAiCompatible`)都在 `messages:` 那一行调它;判据只住本文件,出口不复算(§0.6)。
  */
 export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   messages: readonly T[],
+  label = 'provider',
 ): T[] {
   const hit = (m: T): number =>
     typeof m.content === 'string' ? countInvisibleForTransport(m.content, m.role !== 'tool') : 0
-  if (!messages.some((m) => hit(m) > 0)) return messages as T[]
-  return messages.map((m) =>
-    hit(m) > 0
-      ? { ...m, content: stripInvisibleForTransport(m.content ?? '', m.role !== 'tool') }
-      : m,
-  )
+  const out: T[] = messages.some((m) => hit(m) > 0)
+    ? messages.map((m) =>
+        hit(m) > 0
+          ? { ...m, content: stripInvisibleForTransport(m.content ?? '', m.role !== 'tool') }
+          : m,
+      )
+    : (messages as T[])
+  // 自查仪器(`IHUI_TRANSPORT_AUDIT=1` 才出声,缺省零行为变化):量"序列化前那一刻还剩几枚"。
+  // 立因:这条病灶已经被"找到真因"两次而 400 未消,先前所有结论都靠转录旁证;
+  // 只有 `sent=0 而 400 仍在` 这一种读数才能把"是不是 messages 这一段带毒"定死。
+  if (process.env.IHUI_TRANSPORT_AUDIT) {
+    const sum = (arr: readonly T[]): number => arr.reduce((a, m) => a + hit(m), 0)
+    process.stderr.write(
+      `[transport-audit] exit=${label} msgs=${messages.length} raw=${sum(messages)} sent=${sum(out)}\n`,
+    )
+  }
+  return out
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
