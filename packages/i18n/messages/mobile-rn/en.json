@@ -4906,6 +4906,7 @@
     "historyFailed": "Failed to load import history: {error}",
     "historyParsed": "Parsed",
     "historyImported": "Imported",
+    "failedCountLabel": "Failed",
     "statusSuccess": "Success",
     "statusPartial": "Partial",
     "statusFailed": "Failed",

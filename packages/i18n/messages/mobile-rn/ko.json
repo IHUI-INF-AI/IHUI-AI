@@ -4906,6 +4906,7 @@
     "historyFailed": "가져오기 기록을 불러오지 못했습니다: {error}",
     "historyParsed": "파싱",
     "historyImported": "가져옴",
+    "failedCountLabel": "실패",
     "statusSuccess": "성공",
     "statusPartial": "부분 성공",
     "statusFailed": "실패",

@@ -773,4 +773,126 @@ test('T16b message 共享屏 i18n:小程序五语言逐键解析,不落裸 key/�
   })
 })
 
+// T17 conversation-import 薄壳页(2026-11-06):共享屏承担错误条/来源/选文件+解析/预览/
+// 结果区/历史/分析面板,页内只留 ThemeRoot + NavBar + 共享屏(三个开标签,结构下限)。
+// 阴性对照五枚:①摘页内入口行 ⇒ 不判薄壳;②删页内 onOpenConversation 传参 ⇒ 尺子不命中;
+// ③RN 子路径改回桶导入 ⇒ 必红;④删共享屏 result.error 消费 ⇒ 不命中;⑤删五语言键 ⇒ 必抛。
+const IMPORT_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-ai/ai/conversation-import.tsx')
+const IMPORT_RN_PAGE = join(ROOT, 'apps/mobile-rn/src/screens/ConversationImportScreen.tsx')
+const IMPORT_SHARED = join(
+  ROOT,
+  'packages/app/src/features/conversation-import/ConversationImportScreen.tsx',
+)
+const IMPORT_SPEC = ['packages/app/src/features/conversation-import/ConversationImportScreen.tsx']
+const IMPORT_SUBPATH = '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
+const IMPORT_SLOTS = [
+  't',
+  'sources',
+  'onPickFile',
+  'onParse',
+  'onCommit',
+  'onLoadHistory',
+  'onOpenConversation',
+  'onAnalyze',
+]
+
+test('T17a conversation-import 薄壳页:入口被认 + 页内无渲染型 JSX + 三开标签', () => {
+  const page = readFileSync(IMPORT_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, IMPORT_SPEC), '页面必须直载共享屏等价入口')
+  // 阴性对照:换到未声明的相邻路径 ⇒ 不认等价入口(证明是 spec 对得上,不是「有 import」)
+  assert.equal(
+    equivalentEntry(
+      page.replaceAll(
+        'features/conversation-import/ConversationImportScreen',
+        'features/conversation-import/ConversationImportPanel',
+      ),
+      IMPORT_SPEC,
+    ),
+    null,
+    '阴性对照:未声明路径不得仍判为等价入口',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(page, /<ConversationImportScreen/m, '页面必须渲染共享屏')
+  // 结构下限 3:ThemeRoot(主题根)/ NavBar(共享屏无页头)/ 共享屏本体;无法压到 ≤2
+  assert.equal((page.match(/^\s*<[A-Z][A-Za-z0-9_]*/gm) ?? []).length, 3, '组件开标签数应恰为 3')
+})
+
+test('T17b conversation-import 双端子路径导入,禁桶入口', () => {
+  const page = readFileSync(IMPORT_PAGE, 'utf8')
+  const rn = readFileSync(IMPORT_RN_PAGE, 'utf8')
+  assert.ok(page.includes(IMPORT_SUBPATH), '小程序页必须用具体子路径导入共享屏')
+  assert.doesNotMatch(page, /from '@ihui\/rn-app'/m, '小程序页不得走桶入口')
+  assert.ok(rn.includes(IMPORT_SUBPATH), 'RN 必须用具体子路径导入共享屏')
+  assert.doesNotMatch(rn, /from '@ihui\/rn-app'/m, 'RN 不得走桶入口')
+  // 阴性对照:改回桶导入 ⇒ 必红
+  assert.throws(() => {
+    const barrel = rn.replace(`from '${IMPORT_SUBPATH}'`, "from '@ihui/rn-app'")
+    assert.doesNotMatch(barrel, /from '@ihui\/rn-app'/m, 'negative:改回桶导入后不得仍通过')
+  })
+})
+
+test('T17c conversation-import 8 个注入槽两端显式传', () => {
+  const page = readFileSync(IMPORT_PAGE, 'utf8')
+  const rn = readFileSync(IMPORT_RN_PAGE, 'utf8')
+  for (const slot of IMPORT_SLOTS) {
+    assert.ok(propPassed(page, slot), `小程序页必须真传 ${slot}`)
+    assert.ok(propPassed(rn, slot), `RN 必须真传 ${slot}`)
+  }
+  // 阴性对照:删页内 onOpenConversation 传参 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = page.replace(/\n\s*onOpenConversation=\{onOpenConversation\}/m, '')
+    assert.ok(propPassed(broken, 'onOpenConversation'), 'negative:删 onOpenConversation 后不得仍命中')
+  })
+})
+
+test('T17d conversation-import 新字段:error/failedCount/errorMessage 三处 + 两端映射', () => {
+  const shared = readFileSync(IMPORT_SHARED, 'utf8')
+  const page = readFileSync(IMPORT_PAGE, 'utf8')
+  const rn = readFileSync(IMPORT_RN_PAGE, 'utf8')
+  assert.match(shared, /readonly error\?: string/m, '共享屏必须声明 commit 失败原因字段')
+  assert.match(shared, /failedCount\?: number/m, '共享屏历史行必须声明失败条数')
+  assert.match(shared, /errorMessage\?: string/m, '共享屏历史行必须声明失败原文')
+  assert.match(shared, /if \(result\.error\) setError\(result\.error\)/m, '共享屏必须消费 result.error')
+  assert.match(shared, /failedCountLabel/m, '共享屏历史行必须渲染失败条数标签')
+  assert.match(shared, /h\.errorMessage/m, '共享屏历史行必须渲染失败原文')
+  // 阴性对照:删 result.error 消费 ⇒ 同尺子必不命中
+  assert.throws(() => {
+    const broken = shared.replace('if (result.error) setError(result.error)', '')
+    assert.match(broken, /if \(result\.error\) setError\(result\.error\)/m, 'negative:删消费点后不得仍命中')
+  })
+  // 两端都必须把后端失败信息搬到共享屏载荷上
+  assert.match(page, /failedCount: item\.failedCount/m, '小程序必须映射 failedCount')
+  assert.match(page, /errorMessage: item\.errorMessage/m, '小程序必须映射 errorMessage')
+  assert.match(rn, /failedCount: item\.failedCount/m, 'RN 必须映射 failedCount')
+  assert.match(rn, /errorMessage: item\.errorMessage/m, 'RN 必须映射 errorMessage')
+  assert.match(page, /error: t\('conversationImport\.commitFailed'/m, '小程序 commit 失败原因必须回带')
+  assert.match(rn, /error: t\('conversationImport\.commitFailed'/m, 'RN commit 失败原因必须回带')
+})
+
+test('T17e conversation-import failedCountLabel 十份词包逐键非空/非裸 key', () => {
+  const keys = ['conversationImport.failedCountLabel']
+  const rn = readLocales(RN_LOCALES, keys, null, 'mobile-rn')
+  const mini = readLocales(MINI_LOCALES, keys, null, 'miniapp-taro')
+  assert.equal(rn['mobile-rn/zh-CN.json:conversationImport.failedCountLabel'], '失败')
+  assert.equal(mini['miniapp-taro/zh-CN.json:conversationImport.failedCountLabel'], '失败')
+  for (const lang of ['zh-TW', 'en', 'ja', 'ko']) {
+    assert.notEqual(
+      rn[`mobile-rn/${lang}.json:conversationImport.failedCountLabel`],
+      rn['mobile-rn/zh-CN.json:conversationImport.failedCountLabel'],
+      `mobile-rn/${lang}: 键回落中文`,
+    )
+  }
+  assert.doesNotMatch(
+    rn['mobile-rn/en.json:conversationImport.failedCountLabel'],
+    /\p{Script=Han}/u,
+    'mobile-rn/en: 含汉字',
+  )
+  // 阴性对照:删小程序 zh-CN 该键 ⇒ 落地裸 key 必抛
+  assert.throws(() => {
+    const zh = JSON.parse(readFileSync(join(MINI_LOCALES, 'zh-CN.json'), 'utf8'))
+    delete zh.conversationImport.failedCountLabel
+    assertCopyResolvable(zh, keys, null, 'negative/zh-CN')
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
