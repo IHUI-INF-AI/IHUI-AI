@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Heart,
 } from 'lucide-react'
+import { ManualFigure } from '@/components/docs/manual-figure'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -100,6 +101,16 @@ export default function ManualAgentPage() {
             </li>
           </ol>
         </div>
+        <ManualFigure
+          src="/images/docs/manual/agent-market.png"
+          alt="智汇 AI 智能体市场页:标题「智能体市场」下为「Agent 市场 / 我的 Agent」两个页签、搜索框与「全部分类、AI 编程助手、AI 写作助手、AI 绘画助手、AI 教育助手、AI 营销助手」分类按钮,其下是三列 Agent 卡片,每张含头像、名称、简介与「免费」徽章"
+          caption="实拍 aizhs.top 智能体市场(/agents),卡片为线上已发布(可公开访问)的真实 Agent。分类按钮即本节第 2 步的筛选入口;卡片点进去就是下面 3.3 的详情页。"
+        />
+        <ManualFigure
+          src="/images/docs/manual/agent-detail.png"
+          alt="智汇 AI 智能体详情页:顶部为「返回」「编辑」「派发 Subagent」三个操作,主体显示 Agent 头像与名称「古诗词搜索」、已发布与免费徽章、功能简介,其下两列列出智能体 ID、分类、工作区、状态、价格、排序、创建时间与更新时间,再往下是进度、群体监控、检查点、计划、活动流、后台、权限、Agent 执行八个页签"
+          caption="实拍线上已发布 Agent 的详情页(/agents/〔智能体 ID〕)。第 3 步「查看详情页」看到的就是这一屏:简介、状态与价格在上,运行观测页签在下。"
+        />
       </section>
 
       {/* 选用 Agent */}
