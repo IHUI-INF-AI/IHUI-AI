@@ -18,6 +18,12 @@
  *  P5 深档取材失败:删掉第二老提交的 loose object(浅窗口取不到、全历史会读到)⇒ 该路径逐条
  *     「未判定」且 code 2(不折绿也不折红),不因一枚坏对象把整轮拖垮;P6 正常仓 code 0 且
  *     输出里没有任何未判定行(防"一派未判定"恒红)。
+ *  P7-P10(2026-11-05 第二轮)把同一套语义钉到**全量档**(工作树/HEAD 面,非 --staged):
+ *     P7 深档取材失败 ⇒ 进程 exit 2 + 逐条点名 + 无 ✅(全量档并不因 classifyWorktree 整轮失明);
+ *     P8 深档成功 + 窗口外回写 ⇒ 仍被点名(⚠️ [全量档·只报数不拦]),但退出码按 §12e 仍是 0
+ *        —— 盘上副本属机器状态,提交门禁由 --staged 面按索引 blob 拦;
+ *     P9 正常仓全量档 ⇒ 0 且无任何未判定行;P10 同轮混合(确定性红 + 深档未判定)⇒ 红优先 exit 1,
+ *        且未判定照常逐条打出、不得被红掩盖。退出码一律取**子进程真实退出码**(audit → process.exit)。
  *
  * 跑法:node --test scripts/tests/check-stale-revert-g806.test.mjs
  */
@@ -56,18 +62,54 @@ function repo() {
 }
 
 /** 造 depth 枚"动过 rel"的提交(每次整文件替换成单行 v<i>),与 window 镜像测试同源;
- *  返回全部提交 sha —— P2 要点名回到的 v1,P5 要精准删掉第二老那枚的 loose object。 */
-function buildDepth(dir, run, rel, depth) {
-  put(dir, rel, 'v1\n')
+ *  返回全部提交 sha —— P2 要点名回到的 v1,P5 要精准删掉第二老那枚的 loose object。
+ *  P10 传 lineOf 把行做长:复活行判据会滤掉过短的"噪声行",短行夹具会把"未判"误读成"判过"。 */
+function buildDepth(dir, run, rel, depth, lineOf = (i) => `v${i}\n`) {
+  put(dir, rel, lineOf(1))
   run('add', '-A')
   run('commit', '-qm', `${rel} v1`)
   const shas = [run('rev-parse', 'HEAD')]
   for (let i = 2; i <= depth; i++) {
-    put(dir, rel, `v${i}\n`)
+    put(dir, rel, lineOf(i))
     run('commit', '-qam', `${rel} v${i}`)
     shas.push(run('rev-parse', 'HEAD'))
   }
   return shas
+}
+
+/**
+ * 进程级退出码(不是只调导出函数):子进程 import 真实门体模块 → 调 audit(夹具仓, 档位)
+ * → `process.exit(r.code)`。main() 对 `--staged`/默认档的映射正是 `process.exit(code)` 同一处
+ * (源码形状见 window 测试 W5 的 `code: failed ? 1 : ...` 锁),故这里拿到的就是进程退出码;
+ * 夹具仓无须整棵 scripts 镜像(cwd 不参与 repoRoot 解析,repoRoot 由本调用显式传入)。
+ */
+function auditProcess(dir, staged) {
+  const mod = new URL('../check-stale-revert.mjs', import.meta.url).href
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const r = (await import(process.env.G84_MOD)).audit(process.env.G84_REPO, { staged: process.env.G84_STAGED === '1' }); process.stdout.write(r.lines.join('\\n')); process.exit(r.code)`,
+      ],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, G84_MOD: mod, G84_REPO: dir, G84_STAGED: staged ? '1' : '0' },
+      },
+    )
+    return { code: 0, out }
+  } catch (e) {
+    return {
+      code: typeof e.status === 'number' ? e.status : 'spawn-error',
+      out: String(e.stdout ?? ''),
+      err: String(e.stderr ?? ''),
+    }
+  }
 }
 
 /**
@@ -330,6 +372,121 @@ test('P6 正常仓(无坏对象)⇒ code 0 且不出现任何未判定行', () =
     assert.doesNotMatch(out, /❓ \[R1 未判定\]/, '正常仓不得出现 R1 未判定')
     assert.doesNotMatch(out, /❓ \[未判定\]/, '正常仓不得出现未判定汇总行')
     assert.match(out, /✅ 反回退守门通过/, '正常仓必须出合格证')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * P7(全量档,不是 --staged):工作树侧真有一条"取材失败"的路径。
+ * 票面原判"全量档 = classifyWorktree ⇒ 一枚坏对象整轮失明"——实测**不成立**:
+ * 全量档 R1 与 --staged 共用 `analyze(..., {source:'worktree'})`,同样逐路径落账;
+ * `classifyWorktree` 只在"已有判红/警告"时给出口建议,且其深档调用必然命中 analyze 已落的
+ * 窗口缓存(非截断走 limited / 截断走 full),所以它不会成为新的失败点。
+ * 这一格锁住:进程 exit 2、逐条点名、无 ✅、更不许折红。
+ */
+test('P7 全量档 + 深档取材失败 ⇒ exit 2 + 逐条点名 + 无 ✅(不是"整轮失明")', () => {
+  const { dir, run } = repo()
+  try {
+    const shas = buildDepth(dir, run, 'deep.ts', gate.ANCESTOR_WINDOW + 5)
+    rmSync(join(dir, '.git', 'objects', shas[1].slice(0, 2), shas[1].slice(2)))
+    put(dir, 'deep.ts', 'v1\n') // 工作树回写:取材失败时连红都不许折(没取证不定罪)
+    const r = auditProcess(dir, false)
+    assert.equal(r.code, 2, `全量档未判定必须 exit 2,实得 ${r.code}:${r.out.slice(0, 300)}`)
+    assert.match(r.out, /❓ \[R1 未判定\] 1 个路径本轮没有取得结论/)
+    assert.ok(
+      r.out.split('\n').some((l) => l.includes('deep.ts') && l.includes('深档全历史取材失败')),
+      '必须点名路径与失败档位',
+    )
+    assert.doesNotMatch(r.out, /✅ 反回退守门通过/, '未判定不得冒绿')
+    assert.doesNotMatch(r.out, /❌/, '取材失败不得折红凑数')
+    assert.equal(r.err, '', '不许把可读说明退回成堆栈')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * P8(全量档 + 深档成功 + 窗口外回写):必须**点名**,但不得退出 1。
+ * 依据是门体自身的面纪律(§12e,与 R1r 同一条):盘上工作树副本属机器状态、不是本次提交内容;
+ * 提交门禁由 --staged 面按索引 blob 拦。若把全量档的回写算成 exit 1,真仓那 40 条"工作树落后
+ * HEAD"会让本门对任何共享工作区恒红 —— 那才是把门逼成噪音。所以这里锁"点名 + code 0",
+ * 反向锁"不得出现 ❓"(它已判过,不是未判定)。
+ */
+test('P8 全量档 + 深档成功 + 窗口外回写 ⇒ 点名但不拦(code 0,§12e)', () => {
+  const { dir, run } = repo()
+  try {
+    const shas = buildDepth(dir, run, 'deep.ts', gate.ANCESTOR_WINDOW + 5)
+    const first9 = shas[0].slice(0, 9)
+    put(dir, 'deep.ts', 'v1\n') // 窗口外(全历史才取到):必须由深档判出
+    const r = auditProcess(dir, false)
+    assert.equal(
+      r.code,
+      0,
+      `全量档的回写属机器状态,按 §12e 只报数不拦;若这里变成 1,真仓共享工作区即恒红:${r.out.slice(0, 300)}`,
+    )
+    assert.match(r.out, /⚠️\s*\[全量档·只报数不拦\] 1 个路径/)
+    assert.ok(
+      r.out.split('\n').some((l) => l.includes('deep.ts') && l.includes(first9)),
+      `必须点名路径与回到的版本 ${first9}`,
+    )
+    assert.doesNotMatch(r.out, /❓/, '已判过 ⇒ 不得挂未判定')
+    assert.match(r.out, /✅ 反回退守门通过/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/** P9(防恒红):正常仓全量档 ⇒ 0,且输出里一条 ❓ 都没有。 */
+test('P9 正常仓全量档 ⇒ exit 0 且无任何未判定行', () => {
+  const { dir, run } = repo()
+  try {
+    put(dir, 'normal.txt', 'hello\n')
+    run('add', '--', 'normal.txt')
+    run('commit', '-qm', 'normal v1')
+    put(dir, 'normal.txt', 'hello\nworld\n')
+    const r = auditProcess(dir, false)
+    assert.equal(r.code, 0, `正常仓全量档必须绿:${r.out.slice(0, 300)}`)
+    assert.doesNotMatch(r.out, /❓/, '正常仓不得出现任何未判定行(含 R1 与汇总)')
+    assert.match(r.out, /✅ 反回退守门通过/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * P10(同轮混合):确定性红(R1r/R1s,窗口内可证)+ 深档取材失败(R1 未判定)。
+ *
+ * 先定语义再断言(不跟着实现抄):**红优先 exit 1**。理由:
+ *  - 有确定性证据时,"确实有问题"这一结论已经成立,不该被另一条路径的"没读到"降格成 2
+ *    (2 的语义是"没取得结论",会把已判红的严重性读轻);
+ *  - 未判定仍必须逐条打出(不得被红掩盖),否则等于用红把"没判"吞掉;
+ *  - 若只有未判定、无红 ⇒ 2(见 P5/P7)。
+ * 夹具用长行:"line-44-..."在 HEAD(v45)里已删、且在窗口内祖先 v44 写过 ⇒ R1r 复活行判据可判红;
+ * 同时删掉第二老提交的 loose object ⇒ R1 深档全历史取材失败。短行会被复活行判据当噪声滤掉,
+ * 那样这一格就变成"其实没判红",证明不了红优先。
+ */
+test('P10 同轮混合(确定性红 + 深档未判定)⇒ red 优先 exit 1,未判定不得被红掩盖', () => {
+  const { dir, run } = repo()
+  try {
+    const line = (i) => `line-${i}-abcdefghijklmnop\n`
+    const shas = buildDepth(dir, run, 'deep.ts', gate.ANCESTOR_WINDOW + 5, line)
+    rmSync(join(dir, '.git', 'objects', shas[1].slice(0, 2), shas[1].slice(2)))
+    put(dir, 'deep.ts', line(44)) // 窗口内祖先版本 ⇒ R1r/R1s 判红;R1 深档取材失败 ⇒ 未判定
+    run('add', '--', 'deep.ts')
+    const r = auditProcess(dir, true)
+    assert.equal(
+      r.code,
+      1,
+      `有确定性红时红优先 exit 1(未判定不得把红降格成 2),实得 ${r.code}:${r.out.slice(0, 320)}`,
+    )
+    assert.match(r.out, /❌ \[R1r\] 检出 1 个路径/, '确定性红必须在场')
+    assert.match(r.out, /❓ \[R1 未判定\] 1 个路径本轮没有取得结论/, '未判定不得被红掩盖')
+    assert.ok(
+      r.out.split('\n').some((l) => l.includes('deep.ts') && l.includes('深档全历史取材失败')),
+      '未判定必须逐条点名路径与原因',
+    )
+    assert.doesNotMatch(r.out, /✅/, '既未判绿也不出合格证')
   } finally {
     rmScratch(dir)
   }
