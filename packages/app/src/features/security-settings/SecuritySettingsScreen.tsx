@@ -78,8 +78,10 @@ export function SecuritySettingsScreen({
             <View key={row.key} style={styles.row}>
               <Text style={styles.label}>{row.label}</Text>
               {readOnly || !onToggle ? (
-                // 只读形态:后端 /user/security 只有 GET 无写端点,渲染真实状态文字,
-                // 不渲染可交互的假开关(关掉再进来会回原值的那种)。
+                // 只读形态:/user/security 自己只有 GET,本屏四项都没有**行内**写端点,故渲染真实
+                // 状态文字而不是假开关(关掉再进来会回原值的那种)。但"本屏不提供入口"不等于
+                // "后端不支持修改" —— 两步验证在端内「安全中心」屏有真流程(启用/校验/关闭),
+                // 所以 securitySettings.readOnlyHint 必须点名那个入口,不得写成一句概览式的否认。
                 <Text
                   style={[styles.stateText, { color: settings[row.key] ? tk.success.DEFAULT : tk.text.tertiary }]}
                 >
