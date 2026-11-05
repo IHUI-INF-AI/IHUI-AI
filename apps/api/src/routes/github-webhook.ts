@@ -23,6 +23,17 @@
  * handleUnattendedIntake —— 同一条 HMAC 鉴权链(不新造匿名端点),入队前再经
  * 服务层 4h 风暴闸 intakeStormGuard;GitHub 事件白名单 WATCHED_EVENTS 不含这两个 kind,
  * 故必须显式分流,否则投递会被判 unsupported_event 丢弃。
+ *
+ * Y-13 追加(2026-11-06):
+ * - 本端点对 sqli-guard 显式豁免(`config.sqliGuard.enabled=false`,与
+ *   routes/github-app.ts 那条腿一字同源的判据):守卫是 preHandler,跑在验签**之前**,
+ *   判据 = 字符门(`' " ;`)∧ SQL 结构签名;提供方正文(PR 标题、job 名、提交说明)天然带
+ *   引号/分号,不豁免就先把合法投递判成 400,签名与事件分流根本没机会跑。准入靠 HMAC,
+ *   正文只进 JSON.parse 与 Drizzle 参数化查询,不拼 SQL(同型先例:/api/ai/callback、
+ *   internal-tool-invocation-ledger)。对照用例见 tests/github-webhook-ci-events.test.ts。
+ * - check_suite / workflow_run / check_run 这三类 CI 事件在本腿没有处理分支,但改为
+ *   **显式 2xx 忽略 + info 日志**(名单复用 services/github-app/events.ts 的单源出口,
+ *   本文件不抄第二份);reason 仍写 unsupported_event —— 那条既有契约由测试钉着,不改词。
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { and, eq } from 'drizzle-orm'
@@ -43,6 +54,8 @@ import {
   type GitHubEventName,
   type UnattendedIntakeKind,
 } from '../services/agent-event-trigger.js'
+// CI 三件套的名单只有一份(§0.6):判定复用 GitHub App 腿的出口,本腿不另抄一遍事件名。
+import { isObservedCiEvent } from '../services/github-app/events.js'
 
 /** GitHub 支持的事件名(本服务订阅子集) */
 const WATCHED_EVENTS: GitHubEventName[] = ['pull_request', 'issues', 'push', 'code_scanning_alert']
@@ -142,7 +155,7 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
     done(null, body)
   })
 
-  server.post('/github', async (request, reply) => {
+  server.post('/github', { config: { sqliGuard: { enabled: false } } }, async (request, reply) => {
     // 1) secret 未配置 → 503 拒绝(安全底线,绝不降级放行)
     const secret = config.GITHUB_WEBHOOK_SECRET
     if (!secret) {
@@ -178,6 +191,24 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
     //     单独走"无人值守修复入队"(位置在 HMAC 之后 ⇒ 鉴权面与既有事件完全一致)。
     if (isUnattendedIntakeKind(eventName)) {
       return handleUnattendedIntake(eventName, payload, request, reply)
+    }
+
+    // 4c) Y-13(2026-11-06)CI 三件套:本腿**没有** CI 处理分支(订阅面由 WATCHED_EVENTS
+    //     单点决定,把这三枚塞进去会让 DB 规则匹配去追一个没有规则来源的事件族),但必须留
+    //     可读日志 —— 没有日志时"收到了并判它不订阅"与"投递根本没到这里"在提供方读数上是
+    //     同一条 200,现场无从分辨。reason 保持 `unsupported_event` 逐字不变:
+    //     github-webhook-unattended-intake.test.ts 钉着这条契约,不顺手改词。
+    if (isObservedCiEvent(eventName)) {
+      request.log.info(
+        {
+          event: eventName,
+          action: (payload.action as string | undefined) ?? '',
+          repo: (payload.repository as { full_name?: string } | undefined)?.full_name ?? '',
+          delivery: (request.headers['x-github-delivery'] as string | undefined) ?? '',
+        },
+        '[github-webhook] CI 事件到达本腿(无订阅分支)→ 显式忽略,不判 400/500',
+      )
+      return reply.send(success({ accepted: false, reason: 'unsupported_event', event: eventName }))
     }
 
     if (!WATCHED_EVENTS.includes(eventName as GitHubEventName)) {

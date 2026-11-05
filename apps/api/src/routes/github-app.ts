@@ -18,10 +18,22 @@
  * 处理链:secret 未配置 → 503;签名缺失/非法/不匹配 → 401;
  *        事件不在白名单 → 200 accepted:false;事件体不合 schema → 400(带缺少的字段路径);
  *        CI 三类事件(check_suite / workflow_run / check_run)→ 200 + reason=ci_event_not_subscribed
- *        (Y-13:认得出、有话回,不再判 unsupported_event 静默丢弃);
- *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级);
+ *        (Y-13:认得出、有话回,不再判 unsupported_event 静默丢弃;且**应答前不做任何外部 IO**
+ *        —— 不落幂等表、不等 DB,那一枚 dur=10s 的 500 就是应答被幂等表拖住的形状);
+ *        delivery guid 重复 → 200 duplicate(内存 LRU 一级 + deliveries 表二级;CI 忽略族只走一级);
  *        否则按事件种类派发,处理完成后投递落表 processed(D15②);
  *        派发抛错 → 结构化 500(带 requestId/delivery 供对账,不回显异常正文)。
+ *
+ * Y-91(2026-11-06 立)—— **先回 200,再异步处理**:pull_request / issue_comment 这两条
+ * 要等外部 IO 的派发路径(动态取文本模型 + runPrReview/handleIssueComment 打 GitHub API +
+ * 投递落表)整段进 `services/webhook-github-dispatch.ts` 的一次性内存队列,应答最多等
+ * `responseBudgetMs`(env `GITHUB_WEBHOOK_RESPONSE_BUDGET_MS`,缺省 500ms;0 = 纯异步档)。
+ * 预算内跑完 → 响应体带 `dispatch:'inline'` + 原有 `outcome`(响应形状因此不回退);
+ * 预算到点 → 立刻 200 + `dispatch:'async'`,任务不取消、跑完照样落表。
+ * 现场读数依据:应用侧 p95 2217ms / max 19720ms / ≥10s 10 枚,而公网腿 100/100 成功、
+ * p95 1120ms、源站 /api/health p50 2ms、隧道 concurrent=0 ⇒ 长尾住在本文件同步等外部 IO 的
+ * 这段里,**加源站并发买不到任何效果**。签名校验与事件体判定仍排在应答之前(401/400 面不动)。
+ * 该队列不是常驻服务:无定时器、无轮询、无独立进程,派发节拍由 `schedule` 注入。
  *
  * 回调注册地址的腿位不变量(2026-10-29 实测立):GitHub App 的 `url` 必须登记成
  * `https://api.aizhs.top/api/github-app/webhook`,**不得**用裸域或 `www.` 那两条 ——
@@ -72,6 +84,13 @@ import {
   handleIssueComment,
   type CommentTriggerOutcome,
 } from '../services/github-app/comment-trigger.js'
+import {
+  createWebhookDispatchQueue,
+  resolveResponseBudgetMs,
+  type DispatchJobDescriptor,
+  type DispatchOutcome,
+  type WebhookDispatchQueue,
+} from '../services/webhook-github-dispatch.js'
 
 /** 本路由**显式**注册的全部路径(相对挂载前缀)。新增路由必须同步登记,否则测试红。 */
 export const GITHUB_APP_EXPLICIT_ROUTES = [
@@ -124,6 +143,13 @@ export interface GithubAppRouteOptions {
   store?: GithubAppStore | null
   /** 覆盖 /installations 的 admin 闸门(测试注入);缺省懒加载 require-permission 的 requireAdmin */
   adminGuard?: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
+  /**
+   * Y-91(2026-11-06)应答预算(ms):重活最多让提供方等多久,到点先回 200、任务在队列内跑完。
+   * 缺省读 `GITHUB_WEBHOOK_RESPONSE_BUDGET_MS`(坏值回落 500);显式 0 = 一律先回 200 的纯异步档。
+   */
+  responseBudgetMs?: number
+  /** Y-91:注入派发队列(测试用假节拍);缺省本插件作用域自建一次性内存队列,非常驻服务 */
+  dispatchQueue?: WebhookDispatchQueue
 }
 
 /** 请求头统一取值(Fastify 会把重头折叠成数组) */
@@ -259,6 +285,53 @@ function ignoredReply(
 }
 
 /**
+ * Y-91 派发出口:把"要等外部 IO 的重活"交给队列,并只在**应答预算**内等它。
+ *
+ * 三条语义(与 tests/github-webhook-async-dispatch.test.ts 逐条对照):
+ * - 队列拒收(积压满/已关闭)⇒ 就地执行。宁可这一条慢,也绝不静默丢活(§0.10),并记 error 点名。
+ * - 预算内跑完 ⇒ 结果照旧随 200 返回 ⇒ 既有响应形状不回退(旧测试的 `outcome` 断言仍然成立)。
+ * - 预算到点 ⇒ `deferred`:调用方立刻回 200,任务不取消、不重投,后台跑完并落投递表。
+ *   现场那 10 枚 ≥10s 与 max 19720ms 就是这一档 —— GitHub 侧 10s 超时前拿到 200,
+ *   重投风暴与"它记失败/我方记重复"的对不上账因此从源头断掉。
+ */
+async function dispatchWithResponseBudget<T>(args: {
+  dispatcher: WebhookDispatchQueue
+  budgetMs: number
+  job: DispatchJobDescriptor
+  log: FastifyBaseLogger
+  task: () => Promise<T>
+}): Promise<DispatchOutcome<T>> {
+  const { dispatcher, budgetMs, job, log, task } = args
+  const handle = dispatcher.submit(job, task)
+
+  if (!handle.accepted) {
+    log.error(
+      {
+        delivery: job.deliveryId,
+        event: job.event,
+        reason: handle.rejectReason,
+        depth: handle.depthAfterSubmit,
+      },
+      '[github-app] 派发队列拒绝受理 → 就地执行(不丢活,但要留痕)',
+    )
+    try {
+      return { phase: 'completed', value: await task() }
+    } catch (error) {
+      return { phase: 'failed', error }
+    }
+  }
+
+  const outcome = await handle.awaitWithin(budgetMs)
+  if (outcome.phase === 'deferred') {
+    log.info(
+      { delivery: job.deliveryId, event: job.event, budgetMs, depth: dispatcher.depth() },
+      '[github-app] 超应答预算 → 先回 200,重活在队列内继续跑完',
+    )
+  }
+  return outcome
+}
+
+/**
  * 处理链错误边界(Y-13,2026-10-29 立)。
  *
  * 此前 handler 抛错由 Fastify 兜底成裸 500(`{"statusCode":500,"error":"Internal Server Error"}`):
@@ -299,6 +372,19 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
   options,
 ) => {
   const deduper = options.deduper ?? createDeliveryDeduper()
+  // Y-91:本插件作用域内的一条一次性内存队列(无定时器/无轮询/无独立进程 ⇒ 不是常驻服务)。
+  // 后台任务的失败必须在这里就落进日志 —— 队列内已捕获,日志是它唯一的出口。
+  const dispatcher =
+    options.dispatchQueue ??
+    createWebhookDispatchQueue({
+      onError: (error, job) => {
+        const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        server.log.error(
+          { delivery: job.deliveryId, event: job.event, err: message },
+          '[github-app] 异步派发任务失败(已捕获,不影响已发出的 2xx)',
+        )
+      },
+    })
 
   // 本作用域内保留原始 JSON 字符串:HMAC 基于原始字节,不能被 Fastify 先解析成对象
   // 根实例已有自定义 application/json(server.ts)⇒ 先 remove 再 add,否则抛 ALREADY_PRESENT。
@@ -314,6 +400,12 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
       appCredentialsConfigured: readGithubAppIdentity(env) !== null,
       handledEvents: [...HANDLED_GITHUB_EVENTS],
       explicitRoutes: GITHUB_APP_EXPLICIT_ROUTES.map((route) => route.url),
+      // Y-91:异步派发的现场读数(队列深度 + 应答预算)—— 长尾是否被预算吃掉要能量得到,不能靠感觉
+      dispatch: {
+        depth: dispatcher.depth(),
+        closed: dispatcher.closed,
+        responseBudgetMs: options.responseBudgetMs ?? resolveResponseBudgetMs(env),
+      },
     })
   })
 
@@ -355,6 +447,8 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
     },
     withDiagnosableFailure(async (request, reply) => {
       const env = options.env ?? process.env
+      // Y-91 应答预算:每条投递现读(env 可在运行期被运维改),显式注入优先
+      const responseBudgetMs = options.responseBudgetMs ?? resolveResponseBudgetMs(env)
       const secret =
         options.webhookSecret === undefined ? readWebhookSecret(env) : options.webhookSecret
 
@@ -412,6 +506,46 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
           ok({ accepted: false, reason: 'duplicate_delivery', event: envelope.event }),
         )
       }
+      // 4.5) CI 三类事件(Y-13,2026-10-29 立;2026-11-06 收尾:应答路径**零外部 IO**)。
+      //      check_suite / workflow_run / check_run 没有处理分支,位置因此刻意排在
+      //      resolveStore + hasDelivery **之前**:为一次"我们不处理"的投递去等幂等表,
+      //      等于把应答挂在提供方的超时预算上。现场那枚 `check_run / 500 / dur=10s` 就是这一型 ——
+      //      实测(把 store.hasDelivery 换成永不 settle 的 Promise)改前这条路径**根本不出响应**,
+      //      应答由幂等表决定;上游等不到就先记 500,我方连一条 error 日志都留不下。
+      //      二级幂等表只对有副作用的事件有意义(ping/installation/pull_request/issue_comment);
+      //      CI 这族重投的代价只是"再忽略一次",因此一级内存去重(deduper,零 IO)照常生效、
+      //      二级表不落。要区分"看到了但没订阅"与"没收到",看下面这条 info 日志的 delivery/repo/ci。
+      //      这三类要真正驱动动作(评论触发/工单闭环)需另开一票定义动作面,届时再回两级幂等。
+      if (parsed.data.kind === 'ci_event') {
+        const { event: ciEvent, summary } = parsed.data
+        request.log.info(
+          {
+            delivery: envelope.deliveryId,
+            event: ciEvent,
+            action: envelope.action,
+            repo: envelope.repoFullName,
+            ci: summary,
+          },
+          '[github-app] CI 事件已识别,当前无订阅处理分支 → 显式忽略(不落幂等表,应答零 IO)',
+        )
+        return reply.send(
+          ok({
+            accepted: false,
+            reason: 'ci_event_not_subscribed',
+            event: ciEvent,
+            action: envelope.action,
+            ci: {
+              id: summary.id,
+              status: summary.status,
+              conclusion: summary.conclusion,
+              headSha: summary.headSha,
+              headBranch: summary.headBranch,
+              unresolved: summary.unresolved,
+            },
+          }),
+        )
+      }
+
       const store = await resolveStore(options, request.log)
       if (envelope.deliveryId && store) {
         let seenInDb = false
@@ -439,7 +573,7 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
         return reply.send(ok({ accepted: true, reason: 'pong', event: 'ping' }))
       }
 
-      // 4.5) installation 事件:只驱动安装映射表(D15①),不碰 GitHub API
+      // 4.6) installation 事件:只驱动安装映射表(D15①),不碰 GitHub API
       if (parsed.data.kind === 'installation') {
         const outcome = await applyInstallationEvent(store, parsed.data.payload, request.log)
         await recordProcessedDelivery(store, envelope, request.log)
@@ -449,41 +583,6 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
             event: 'installation',
             action: envelope.action,
             outcome,
-          }),
-        )
-      }
-
-      // 4.6) CI 三类事件(Y-13,2026-10-29 立):check_suite / workflow_run / check_run
-      //      此前连事件名都没进白名单,直接被判 unsupported_event —— 对 CI 来说与"请求没到"
-      //      同形,自动化全程失聪。现在 schema 认、分支显式回话:200 + 忽略原因 + 落表,
-      //      读数上能区分"我们看到了但没订阅"与"我们没收到"。这三类要真正驱动动作
-      //      (评论触发/工单闭环)需要单独一张票定义动作面,本票只把它从静默里捞出来。
-      if (parsed.data.kind === 'ci_event') {
-        const { event: ciEvent, summary } = parsed.data
-        request.log.info(
-          {
-            delivery: envelope.deliveryId,
-            event: ciEvent,
-            action: envelope.action,
-            status: summary.status,
-            conclusion: summary.conclusion,
-            headSha: summary.headSha,
-            repo: envelope.repoFullName,
-          },
-          '[github-app] CI 事件已识别,当前无订阅处理分支 → 显式忽略(不再静默丢弃)',
-        )
-        await recordProcessedDelivery(store, envelope, request.log)
-        return reply.send(
-          ok({
-            accepted: false,
-            reason: 'ci_event_not_subscribed',
-            event: ciEvent,
-            action: envelope.action,
-            ci: {
-              status: summary.status,
-              conclusion: summary.conclusion,
-              headSha: summary.headSha,
-            },
           }),
         )
       }
@@ -521,31 +620,61 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
             }),
           )
         }
-        const textModel =
-          options.textModel !== undefined
-            ? options.textModel
-            : await resolveDefaultTextModel(env, request.log)
-        const reviewModel =
-          options.reviewModel === undefined
-            ? createReviewModelFromTextOrEmpty(textModel)
-            : options.reviewModel
-        const outcome: PrReviewOutcome = await runPrReview(
-          { transport, reviewModel },
-          {
-            title: event.pull_request.title,
-            description: event.pull_request.body ?? null,
-            baseRef: event.pull_request.base.ref,
-            headRef: event.pull_request.head.ref,
-            commitSha: event.pull_request.head.sha,
-            coordinates,
-            isDraft: event.pull_request.draft,
-            log: (level, message) => request.log[level](message),
+        // Y-91:评审整段(取模型 → runPrReview → 投递落表)交异步派发。
+        // `resolveDefaultTextModel` 在缺省链上会动态 import ai-service 并打一次模型目录,
+        // `runPrReview` 打 GitHub API —— 这两处就是现场 p95 2217ms / max 19720ms 的成因,
+        // 因此**连同落表一起**放进任务体,而不是只把 runPrReview 挪出去、把取模型留在应答路径上。
+        const dispatched = await dispatchWithResponseBudget<PrReviewOutcome>({
+          dispatcher,
+          budgetMs: responseBudgetMs,
+          job: { deliveryId: envelope.deliveryId, event: 'pull_request' },
+          log: request.log,
+          task: async () => {
+            const textModel =
+              options.textModel !== undefined
+                ? options.textModel
+                : await resolveDefaultTextModel(env, request.log)
+            const reviewModel =
+              options.reviewModel === undefined
+                ? createReviewModelFromTextOrEmpty(textModel)
+                : options.reviewModel
+            const review: PrReviewOutcome = await runPrReview(
+              { transport, reviewModel },
+              {
+                title: event.pull_request.title,
+                description: event.pull_request.body ?? null,
+                baseRef: event.pull_request.base.ref,
+                headRef: event.pull_request.head.ref,
+                commitSha: event.pull_request.head.sha,
+                coordinates,
+                isDraft: event.pull_request.draft,
+                log: (level, message) => request.log[level](message),
+              },
+            )
+            // 处理收敛后投递落表(二级幂等):异步档也必须落,否则重启后同 delivery 会被重放
+            await recordProcessedDelivery(store, envelope, request.log)
+            return review
           },
-        )
-        // 到这里处理已收敛(runPrReview 不抛,失败也是 outcome.status),投递落表
-        await recordProcessedDelivery(store, envelope, request.log)
+        })
+        if (dispatched.phase === 'completed') {
+          return reply.send(
+            ok({
+              accepted: true,
+              event: 'pull_request',
+              action: envelope.action,
+              dispatch: 'inline',
+              outcome: dispatched.value,
+            }),
+          )
+        }
+        if (dispatched.phase === 'failed') throw dispatched.error
         return reply.send(
-          ok({ accepted: true, event: 'pull_request', action: envelope.action, outcome }),
+          ok({
+            accepted: true,
+            event: 'pull_request',
+            action: envelope.action,
+            dispatch: 'async',
+          }),
         )
       }
 
@@ -576,23 +705,44 @@ export const githubAppRoutes: FastifyPluginAsync<GithubAppRouteOptions> = async 
           ok({ accepted: false, reason: 'app_credentials_not_configured', event: 'issue_comment' }),
         )
       }
-      const textModel =
-        options.textModel !== undefined
-          ? options.textModel
-          : await resolveDefaultTextModel(env, request.log)
-      const outcome: CommentTriggerOutcome = await handleIssueComment(
-        { transport, complete: textModel },
-        {
-          coordinates,
-          prTitle: event.issue.title ?? '',
-          instruction: decision.mention.instruction,
-          mention: decision.mention,
-          isDraft: false,
-          log: (level, message) => request.log[level](message),
+      // Y-91:同 pull_request —— 取模型 + 回写评论 + 落表整段进队列,应答只等预算。
+      const dispatchedComment = await dispatchWithResponseBudget<CommentTriggerOutcome>({
+        dispatcher,
+        budgetMs: responseBudgetMs,
+        job: { deliveryId: envelope.deliveryId, event: 'issue_comment' },
+        log: request.log,
+        task: async () => {
+          const textModel =
+            options.textModel !== undefined
+              ? options.textModel
+              : await resolveDefaultTextModel(env, request.log)
+          const outcome: CommentTriggerOutcome = await handleIssueComment(
+            { transport, complete: textModel },
+            {
+              coordinates,
+              prTitle: event.issue.title ?? '',
+              instruction: decision.mention.instruction,
+              mention: decision.mention,
+              isDraft: false,
+              log: (level, message) => request.log[level](message),
+            },
+          )
+          await recordProcessedDelivery(store, envelope, request.log)
+          return outcome
         },
-      )
-      await recordProcessedDelivery(store, envelope, request.log)
-      return reply.send(ok({ accepted: true, event: 'issue_comment', outcome }))
+      })
+      if (dispatchedComment.phase === 'completed') {
+        return reply.send(
+          ok({
+            accepted: true,
+            event: 'issue_comment',
+            dispatch: 'inline',
+            outcome: dispatchedComment.value,
+          }),
+        )
+      }
+      if (dispatchedComment.phase === 'failed') throw dispatchedComment.error
+      return reply.send(ok({ accepted: true, event: 'issue_comment', dispatch: 'async' }))
     }),
   )
 }
