@@ -25,6 +25,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { createHmac } from 'node:crypto'
 
 vi.hoisted(() => {
   // 与 tests/v1-memory-principal.test.ts 同口径:任何用例都不得触真库/真 Redis(§5 测试隔离铁律)
@@ -76,6 +77,24 @@ const UUID_PRINCIPAL = '6b8cd0f6-546f-44c8-853a-5f96edbe08be'
 /** 生产里真实出现过的那一枚伪身份(apps/api/src/utils/system-access-token.ts 的 SUBJECT)。 */
 const PSEUDO_PRINCIPALS = ['system-worker', '1', 'abc'] as const
 
+/**
+ * 老通道身份头(2026-11-05 起)必须与全局密钥**同时**通过签名校验:
+ * HMAC-SHA256(AI_CALLBACK_SECRET, "legacy-v1\n<userId>\n<timestamp>")。
+ * 夹具按新契约构造,用例断言仍是"脏主体 ⇒ 401 零查询 / 好主体 ⇒ 200"。
+ */
+function legacyHeaders(userId: string): Record<string, string> {
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const signature = createHmac('sha256', TEST_AI_CALLBACK_SECRET)
+    .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+    .digest('hex')
+  return {
+    'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
+    'x-user-id': userId,
+    'x-internal-service-timestamp': timestamp,
+    'x-internal-service-signature': signature,
+  }
+}
+
 /** 只认 set/get 的最小 Redis 替身:既能当票的一次性登记表,也当 memory 路由的读侧探针。 */
 function fakeRedis() {
   const getCalls: string[] = []
@@ -124,7 +143,13 @@ async function call(
 // 顶层复位:两个 describe 都按"本用例内是否发过 SQL"下断言,
 // 残留上一枚用例的调用会把零查询断言读成假红(§0.3 取不到输入不得冒红同型)。
 beforeEach(() => {
+  // 老通道只在**显式** dual 档下可用(默认档为 ticket)
+  process.env.INTERNAL_SERVICE_AUTH_MODE = 'dual'
   mockSelect.mockReset()
+})
+
+afterEach(() => {
+  delete process.env.INTERNAL_SERVICE_AUTH_MODE
 })
 
 describe('内部服务通道:非 uuid 主体一律归位 401 且零查询', () => {
@@ -141,10 +166,7 @@ describe('内部服务通道:非 uuid 主体一律归位 401 且零查询', () =
   for (const subject of PSEUDO_PRINCIPALS) {
     it(`老通道(常驻密钥)+ 主体 ${JSON.stringify(subject)} ⇒ 401,且一条 SQL 都没发`, async () => {
       mockSelect.mockResolvedValue([{ id: subject, status: 1, roleId: 0 }])
-      const r = await call(app, '/probe', {
-        'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
-        'x-user-id': subject,
-      })
+      const r = await call(app, '/probe', legacyHeaders(subject))
       expect(r.status).toBe(401)
       expect(r.body).toContain('UUID')
       // 副作用未发生:脏主体绝不能外溢成 uuid 列的查询
@@ -167,10 +189,7 @@ describe('内部服务通道:非 uuid 主体一律归位 401 且零查询', () =
 
   it('正向对照:uuid 主体 + 活跃用户 ⇒ 200,且恰好查一次库(闸不是一刀切)', async () => {
     mockSelect.mockResolvedValue([{ id: UUID_PRINCIPAL, status: 1, roleId: 0 }])
-    const r = await call(app, '/probe', {
-      'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
-      'x-user-id': UUID_PRINCIPAL,
-    })
+    const r = await call(app, '/probe', legacyHeaders(UUID_PRINCIPAL))
     expect(r.status).toBe(200)
     expect(mockSelect).toHaveBeenCalledTimes(1)
   })
@@ -199,10 +218,7 @@ describe('路由级回归:GET /api/memory 该形态不再 500', () => {
     const redis = fakeRedis()
     const app = await buildProbe({ route: true, redis })
     mockSelect.mockResolvedValue([{ id: UUID_PRINCIPAL, status: 1, roleId: 0 }])
-    const r = await call(app, '/api/memory?scope=user', {
-      'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
-      'x-user-id': UUID_PRINCIPAL,
-    })
+    const r = await call(app, '/api/memory?scope=user', legacyHeaders(UUID_PRINCIPAL))
     expect(r.status).toBe(200)
     expect(JSON.parse(r.body).data).toMatchObject({ entries: [], total: 0 })
     expect(redis.getCalls.length).toBeGreaterThan(0)

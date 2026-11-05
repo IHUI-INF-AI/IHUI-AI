@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createHmac } from 'node:crypto'
 import { SignJWT } from 'jose'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -144,6 +145,16 @@ async function run(input: {
   if (input.ticket) headers[INTERNAL_TICKET_HEADER] = input.ticket
   if (input.legacy) headers['x-internal-service-token'] = input.legacy
   if (input.userId !== null) headers['x-user-id'] = input.userId ?? USER_ID
+  if (input.legacy) {
+    // 老通道身份头从 2026-11-05 起必须与全局密钥同时通过签名校验;
+    // 夹具按新契约签名,好让"坏票不回落"这类断言测的仍是回落判据,而不是缺签名。
+    const userId = input.userId ?? USER_ID
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    headers['x-internal-service-timestamp'] = timestamp
+    headers['x-internal-service-signature'] = createHmac('sha256', input.legacy)
+      .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+      .digest('hex')
+  }
   const res = await instance.inject({ method: 'POST', url: '/probe', headers })
   const out = { ok: res.statusCode === 200, status: res.statusCode, body: res.body }
   await instance.close()
@@ -563,10 +574,18 @@ describe('兼容窗口', () => {
       if (ok) void reply.send({ ok: true })
       return reply
     })
+    const timestamp = String(Math.floor(Date.now() / 1000))
     const res = await app.inject({
       method: 'POST',
       url: '/probe',
-      headers: { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': USER_ID },
+      headers: {
+        'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
+        'x-user-id': USER_ID,
+        'x-internal-service-timestamp': timestamp,
+        'x-internal-service-signature': createHmac('sha256', TEST_AI_CALLBACK_SECRET)
+          .update(`legacy-v1\n${USER_ID}\n${timestamp}`, 'utf8')
+          .digest('hex'),
+      },
     })
     expect(res.statusCode).toBe(401)
     await app.close()
