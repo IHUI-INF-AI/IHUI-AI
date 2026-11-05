@@ -67,14 +67,36 @@ def jwt() -> str:
     return make_qoder_jwt()
 
 
-def _campaign(cid: str, status: str, amount: int = 100, start=-3600, end=3600) -> dict:
+def _campaign(
+    cid: str,
+    status: str,
+    amount: int = 100,
+    start: float | None = None,
+    end: float | None = None,
+) -> dict:
+    """构造「当前有效」的 campaign 夹具。
+
+    start/end 缺省时窗口锚定到**今天(Asia/Shanghai)00:00 → 次日 00:00**,
+    而不是旧的 now±1h:自 2026-11 起 _claimable_campaigns 要求 CLAIMED 的
+    「窗口起点与 now 同属东八区自然日」,旧默认 start=now-3600s 在北京时间
+    00:00–01:00 跑测试时必然落到前一天,使 CLAIMED 夹具被判成未领
+    —— 2026-11-06 00:24(cn) 的 CI test-python 即因此两条用例实红。
+    显式传 start/end 时仍按相对 now 的秒偏移,保留「窗口已结束」等对照语义
+    (见 test_claimed_outside_window_not_already)。
+    """
+    now = time.time()
+    if start is None:
+        window_start = _cn_ts(datetime.datetime.now(_CN).strftime("%Y-%m-%d"), 0, 0)
+    else:
+        window_start = now + start
+    window_end = window_start + 86400.0 if end is None else now + end
     return {
         "campaignId": cid,
         "campaignKey": "daily-100",
         "actionType": "CLAIM_BENEFIT",
         "claimStatus": status,
-        "startAt": time.time() + start,
-        "endAt": time.time() + end,
+        "startAt": window_start,
+        "endAt": window_end,
         "benefit": {"kind": "CREDITS", "amount": amount},
     }
 
