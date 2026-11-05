@@ -118,7 +118,9 @@ describe('relay 渠道组注册前缀只给 /api(旧 /api/admin 叠成 /api/admi
   )
   it('注册前缀 = /api', () => {
     expect(indexSrc).toContain("server.register(adminRelayChannelsRoutes, { prefix: '/api' })")
-    expect(indexSrc).not.toContain("server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })")
+    expect(indexSrc).not.toContain(
+      "server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })",
+    )
   })
   it('前端 11 处仍走 /api/admin/relay/channels/*,不出现双 admin', () => {
     expect(relayPage).toContain('/api/admin/relay/channels/groups')
@@ -170,7 +172,9 @@ describe('ai-audio 族 → /api/ai/audio/*(旧 /api/ai-audio/* 从未注册;text
 })
 describe('G-962 裁决批次(2026-10-22):真值面对齐后的防回潮源锁', () => {
   it('admin configs 保存统一 PATCH(旧 PUT 后端无此方法)', () => {
-    const homeSchema = stripComments(read('../../../apps/web/app/(main)/admin/home-schema/page.tsx'))
+    const homeSchema = stripComments(
+      read('../../../apps/web/app/(main)/admin/home-schema/page.tsx'),
+    )
     const configsPage = stripComments(read('../../../apps/web/app/(main)/admin/configs/page.tsx'))
     const systemSrc = stripComments(read('../../../apps/api/src/routes/system.ts'))
     expect(systemSrc).toContain("server.patch('/configs/:id'")
@@ -218,42 +222,59 @@ describe('G-962 裁决批次(2026-10-22):真值面对齐后的防回潮源锁', 
     expect(csPage).toContain("'/api/admin/customer-service/sessions'")
     expect(csPage).toContain("'/api/admin/customer-service/stats'")
     expect(adminBusiness).toContain('/api/admin/customer-service/tickets')
-    expect(stripComments(read('../../../apps/web/app/(main)/mcp-projects/PageClient.tsx'))).toContain(
-      "'/api/ai/mcp/resources'",
-    )
+    expect(
+      stripComments(read('../../../apps/web/app/(main)/mcp-projects/PageClient.tsx')),
+    ).toContain("'/api/ai/mcp/resources'")
     expect(
       stripComments(read('../../../apps/web/src/components/mcp/mcp-prompt-manager.tsx')),
     ).toContain("'/api/ai/mcp/prompts'")
     expect(
       stripComments(read('../../../apps/web/src/components/mcp/mcp-use-manager.tsx')),
     ).toContain('/api/ai/mcp/usage')
+    // 2026-11-05:批5(4d7ffb3fd5)把 enrollment/page.tsx 的直拼 URL 收口到共享端点
+    // packages/api-client/src/endpoints/edu-ai-management.ts(门 300 A 类清零),
+    // 页面改调 eduTrialReservationList() ⇒ 路径真值住共享端点,不再按页面字面量钉旧形态
     expect(
-      stripComments(
-        read('../../../apps/web/app/(main)/edu/edu-management/enrollment/page.tsx'),
-      ),
+      stripComments(read('../../../apps/web/app/(main)/edu/edu-management/enrollment/page.tsx')),
+    ).toContain('eduTrialReservationList')
+    expect(
+      stripComments(read('../../../packages/api-client/src/endpoints/edu-ai-management.ts')),
     ).toContain('/api/edu-ai-management/trial-reservation')
+    // 同一批(4d7ffb3fd5)把 parent/bind 的直拼 URL 收口到同一共享端点 ⇒ 页面按共享函数钉,URL 钉在端点模块
+    expect(stripComments(read('../../../apps/web/app/(main)/edu/parent/bind/page.tsx'))).toContain(
+      'eduParentBindingRecords',
+    )
     expect(
-      stripComments(read('../../../apps/web/app/(main)/edu/parent/bind/page.tsx')),
+      stripComments(read('../../../packages/api-client/src/endpoints/edu-ai-management.ts')),
     ).toContain('/api/edu-ai-management/parent-binding')
     expect(stripComments(read('../../../apps/web/app/(main)/groups/page.tsx'))).toContain(
       '/api/groups/',
     )
-    expect(stripComments(read('../../../apps/web/app/(main)/groups/page.tsx'))).toContain('/members')
+    expect(stripComments(read('../../../apps/web/app/(main)/groups/page.tsx'))).toContain(
+      '/members',
+    )
     expect(stripComments(read('../../../apps/web/app/(main)/user/follow/page.tsx'))).toContain(
       '/follows',
     )
     expect(
       stripComments(read('../../../apps/web/app/(main)/student/my-resources/page.tsx')),
     ).toContain('/api/resources/')
-    expect(stripComments(read('../../../apps/web/app/(main)/admin/orders/OrdersTab.tsx'))).toContain(
-      '/api/admin/orders',
-    )
     expect(
-      stripComments(read('../../../apps/web/app/(main)/agent-workbench/components/AgentCreator.tsx')),
+      stripComments(read('../../../apps/web/app/(main)/admin/orders/OrdersTab.tsx')),
+    ).toContain('/api/admin/orders')
+    expect(
+      stripComments(
+        read('../../../apps/web/app/(main)/agent-workbench/components/AgentCreator.tsx'),
+      ),
     ).toContain("'/api/agents'")
+    // 2026-11-05:B 批(0302399f1b)把 MemoryPanel 的直拼 URL 收口到共享端点
+    // packages/api-client/src/endpoints/memory.ts,面板改调 getMemoryStatus ⇒ 路径真值住共享端点
     expect(
       stripComments(read('../../../apps/web/app/(main)/agent-runtime/components/MemoryPanel.tsx')),
-    ).toContain('/api/memory/status')
+    ).toContain('getMemoryStatus')
+    expect(stripComments(read('../../../packages/api-client/src/endpoints/memory.ts'))).toContain(
+      '/api/memory/status',
+    )
   })
 
   it('第三方账号/调试/端侧桥 方法与后端同面', () => {
@@ -267,11 +288,17 @@ describe('G-962 裁决批次(2026-10-22):真值面对齐后的防回潮源锁', 
     const dbg = stripComments(read('../../../apps/web/src/lib/api/debug.ts'))
     expect(dbg).toContain("postJson<LaunchResult>('/api/debug/launch'")
     expect(dbg).toContain("postJson<AttachResult>('/api/debug/attach'")
-    const bridge = stripComments(
-      read('../../../apps/mobile-rn/src/hooks/use-ui-control-bridge.ts'),
+    const bridge = stripComments(read('../../../apps/mobile-rn/src/hooks/use-ui-control-bridge.ts'))
+    // 2026-11-05:批2(bf33a58cea)把桥的直拼 postQuiet 收口到共享端点
+    // packages/api-client/src/endpoints/agent-control.ts(门 300 A 类清零),
+    // 桥改调 reportAgentControlCapability/reportAgentControlResult ⇒ 路径真值住共享端点
+    expect(bridge).toContain('reportAgentControlCapability(')
+    expect(bridge).toContain('reportAgentControlResult(')
+    const agentControl = stripComments(
+      read('../../../packages/api-client/src/endpoints/agent-control.ts'),
     )
-    expect(bridge).toContain("postQuiet('/api/agent-control/capability'")
-    expect(bridge).toContain("'/api/agent-control/result'")
+    expect(agentControl).toContain('/api/agent-control/capability')
+    expect(agentControl).toContain('/api/agent-control/result')
   })
 
   it('小程序错题删除/分享取文 方法与后端一致', () => {
@@ -341,9 +368,7 @@ describe('G-962 批6 台账 AJ3 十条了结 + 客户端真路径不回潮', () 
     read('../../../packages/api-client/src/endpoints/admin-system.ts'),
   )
   const business = stripComments(read('../../../packages/api-client/src/endpoints/business.ts'))
-  const developer = stripComments(
-    read('../../../packages/api-client/src/endpoints/developer.ts'),
-  )
+  const developer = stripComments(read('../../../packages/api-client/src/endpoints/developer.ts'))
   const system = stripComments(read('../../../packages/api-client/src/endpoints/system.ts'))
 
   it('10 条 AJ3 旧键已从台账了结', () => {

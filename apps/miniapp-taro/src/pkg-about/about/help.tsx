@@ -17,7 +17,9 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
 import { useUiField } from '@/lib/ui-field-registry'
-import { HelpScreen, type HelpListItem } from '@ihui/rn-app/features/help/HelpScreen'
+import { HelpScreen } from '@ihui/rn-app/features/help/HelpScreen'
+// 共享屏的模块声明档(types/rn-shells.generated.d.ts)只声明组件、不透传类型 ⇒ 类型从真相源取
+import type { HelpListItem } from '@ihui/types'
 
 interface FeedbackForm {
   username: string
