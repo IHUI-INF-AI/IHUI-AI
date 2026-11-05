@@ -1191,7 +1191,14 @@
     "confirmLabel": "确认文字",
     "confirmPlaceholder": "请输入上方文字",
     "failed": "注销失败,请重试",
-    "warning": "注销账号后，您的所有数据将被永久删除且无法恢复。"
+    "warning": "注销账号后，您的所有数据将被永久删除且无法恢复。",
+    "consequence1": "账号资料、头像与昵称将被永久删除",
+    "consequence2": "订单、积分、余额与会员权益将清零且无法恢复",
+    "consequence3": "已发布的动态、评论、收藏与聊天记录将被清除",
+    "consequence4": "已绑定的手机号与邮箱将被解绑，无法再用该账号登录",
+    "consequence5": "正在生效的会员、课程等权益将立即终止且不退款",
+    "consequence6": "注销后同一手机号可重新注册，但历史数据无法找回",
+    "consequence7": "存在未结清交易或违规记录的账号，申请可能被拒"
   },
   "ask": {
     "create": {
@@ -6803,7 +6810,15 @@
     "newPassword": "新密码",
     "language": "语言",
     "theme": "主题",
-    "version": "版本"
+    "version": "版本",
+    "accountDeletionConsequenceTitle": "注销后果",
+    "accountDeletionConsequence1": "账号资料、头像与昵称将被永久删除",
+    "accountDeletionConsequence2": "订单、积分、余额与会员权益将清零且无法恢复",
+    "accountDeletionConsequence3": "已发布的动态、评论、收藏与聊天记录将被清除",
+    "accountDeletionConsequence4": "已绑定的手机号与邮箱将被解绑，无法再用该账号登录",
+    "accountDeletionConsequence5": "正在生效的会员、课程等权益将立即终止且不退款",
+    "accountDeletionConsequence6": "注销后同一手机号可重新注册，但历史数据无法找回",
+    "accountDeletionConsequence7": "存在未结清交易或违规记录的账号，申请可能被拒"
   },
   "liveList": {
     "subtitle": "精彩直播,不见不散",
