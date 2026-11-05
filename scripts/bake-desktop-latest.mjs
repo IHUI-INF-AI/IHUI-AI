@@ -20,7 +20,12 @@
  *     --all-platforms [--gitee-owner O] [--gitee-repo R] [--out path] [--check]
  *   node scripts/bake-desktop-latest.mjs --latest-json <path> [--tag desktop-vX.Y.Z]
  *     [--github-size N] [--gitee-size N] [--gitee-url URL] [--out path] [--check]
+ *   node scripts/bake-desktop-latest.mjs --assets-from-feed [--out feed 路径]
+ *     [--assets-out scripts/data/desktop-update-assets.json] [--tag desktop-vX.Y.Z] [--check]
  *
+ *   桌面安装包 size/sha256 权威元数据(2026-11-05 立):`--all-platforms` 烘焙 feed 时同批产出
+ *   scripts/data/desktop-update-assets.json;`--assets-from-feed` 可单独重算(只读 feed,不改它)。
+ *   sha256 一律取 GitHub Release 资产的 digest(权威且无需下载整包),Gitee 直链再按字节数对账。
  *   --all-platforms  国内主通道模式:一次 Releases API 取全部 GitHub 资产 size,逐平台构造
  *                    Gitee 直链并 HEAD 对账;只有字节相等的平台改写,其余保留 GitHub + 告警。
  *   --check  只读:把 latest.json 的期望对象与现有烘焙文件逐字段比对;一致 exit 0,漂移 exit 1,
@@ -40,6 +45,8 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_OUT = resolve(ROOT, 'apps/web/src/config/desktop-latest.generated.ts')
+/** 桌面安装包 size/sha256 权威元数据落点(随仓库提交,部署链生成清单时直接读,不联网)。 */
+const DEFAULT_ASSETS_OUT = resolve(ROOT, 'scripts/data/desktop-update-assets.json')
 const MARKER = 'export const DESKTOP_LATEST'
 const PLATFORM = 'windows-x86_64'
 
@@ -105,6 +112,136 @@ export function assetNameOf(url) {
   } catch {
     return ''
   }
+}
+
+const SHA256_DIGEST_RE = /^sha256:([0-9a-f]{64})$/
+
+/**
+ * 从更新源(feed)与 Release 资产表构造「桌面安装包权威条目」(2026-11-05 立)。
+ * 只认 GitHub Release 资产自带的 digest(sha256)与 size —— 这是唯一可核对、无需下载整包的权威来源;
+ * 若该平台 URL 已改成 Gitee 直链,还必须再用 Gitee HEAD 字节数与 GitHub size 对账一致。
+ * 任一资产缺 digest / size、或 Gitee 字节不等 ⇒ issues 非空,调用方必须中止(绝不落半份元数据)。
+ */
+export function buildDesktopAssets({ feed, githubAssets, giteeSizes, version, tag }) {
+  const readAsset = (name) => {
+    const a = githubAssets instanceof Map ? githubAssets.get(name) : githubAssets?.[name]
+    return { size: Number(a?.size || 0), digest: String(a?.digest || '') }
+  }
+  const readGitee = (name) => Number((giteeSizes instanceof Map ? giteeSizes.get(name) : giteeSizes?.[name]) || 0)
+  const platforms = Object.entries(feed?.platforms ?? {})
+  const assets = []
+  const issues = []
+  const seen = new Set()
+  for (const [key, entry] of platforms) {
+    const url = typeof entry?.url === 'string' ? entry.url : ''
+    const name = assetNameOf(url)
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    const gh = readAsset(name)
+    const m = SHA256_DIGEST_RE.exec(gh.digest)
+    if (!m) {
+      issues.push({
+        code: 'desktop_asset_digest_missing',
+        path: name,
+        message: `${key}:GitHub 资产 ${name} 缺 sha256 digest(实际 ${JSON.stringify(gh.digest)})⇒ 不得落元数据`,
+      })
+      continue
+    }
+    if (!Number.isInteger(gh.size) || gh.size <= 0) {
+      issues.push({
+        code: 'desktop_asset_size_missing',
+        path: name,
+        message: `${key}:GitHub 资产 ${name} 缺 size(实际 ${gh.size})⇒ 不得落元数据`,
+      })
+      continue
+    }
+    let giteeSizeVerified = null
+    try {
+      if (new URL(url).hostname === 'gitee.com') {
+        const ge = readGitee(name)
+        const verdict = giteeBytesVerdict(gh.size, ge)
+        if (verdict !== 'same') {
+          issues.push({
+            code: 'desktop_asset_gitee_size_mismatch',
+            path: name,
+            message: `${key}:Gitee 直链 ${name} 字节与 GitHub 原件不对账(GitHub ${gh.size} B / Gitee ${ge || '量不到'})⇒ 客户端按此 sha256 校验必失败`,
+          })
+          continue
+        }
+        giteeSizeVerified = true
+      }
+    } catch {
+      issues.push({
+        code: 'desktop_asset_url_invalid',
+        path: name,
+        message: `${key}:更新源 url 非法 ${JSON.stringify(url)}(资产 ${name})`,
+      })
+      continue
+    }
+    assets.push({
+      name,
+      size: gh.size,
+      sha256: m[1],
+      url,
+      source: 'github-release-digest',
+      giteeSizeVerified,
+    })
+  }
+  assets.sort((a, b) => a.name.localeCompare(b.name))
+  return { assets, issues, version: String(version || ''), tag: String(tag || '') }
+}
+
+/** 序列化权威元数据:键序/资产序固定 ⇒ 同输入两次输出逐字节一致(可 --check)。 */
+export function serializeDesktopAssets({ version, tag, assets }) {
+  const payload = {
+    schemaVersion: 1,
+    generatedBy: 'scripts/bake-desktop-latest.mjs --assets-from-feed',
+    source: 'github-release-digest',
+    version: String(version || ''),
+    tag: String(tag || ''),
+    assets: (assets ?? []).map((a) => ({
+      name: a.name,
+      size: a.size,
+      sha256: a.sha256,
+      url: a.url,
+      source: a.source,
+      giteeSizeVerified: a.giteeSizeVerified ?? null,
+    })),
+  }
+  return `${JSON.stringify(payload, null, 2)}\n`
+}
+
+/** --check 的资产元数据判定:只比数据,不比空白;解析不出/缺文件都算漂移。 */
+export function checkAssetsAgainstExisting({ existingText, expectedText }) {
+  let existing
+  try {
+    existing = JSON.parse(String(existingText ?? ''))
+  } catch {
+    return { ok: false, reason: '现有权威元数据文件不存在或不是 JSON' }
+  }
+  let expected
+  try {
+    expected = JSON.parse(String(expectedText ?? ''))
+  } catch {
+    return { ok: false, reason: '期望元数据不是合法 JSON' }
+  }
+  const c = (x) => {
+    if (Array.isArray(x)) return x.map(c)
+    if (x && typeof x === 'object') return Object.fromEntries(Object.keys(x).sort().map((k) => [k, c(x[k])]))
+    return x
+  }
+  if (JSON.stringify(c(existing)) === JSON.stringify(c(expected))) return { ok: true, reason: '一致' }
+  const diffs = []
+  if (existing.version !== expected.version) diffs.push(`version ${existing.version ?? '<缺>'} → ${expected.version ?? '<缺>'}`)
+  const ev = new Map((existing.assets ?? []).map((a) => [a?.name, a]))
+  const xv = new Map((expected.assets ?? []).map((a) => [a?.name, a]))
+  for (const [n, a] of xv) {
+    const e = ev.get(n)
+    if (!e) diffs.push(`缺资产 ${n}`)
+    else if (e.size !== a.size || e.sha256 !== a.sha256) diffs.push(`${n} size/sha256 不同`)
+  }
+  for (const n of ev.keys()) if (!xv.has(n)) diffs.push(`多出资产 ${n}`)
+  return { ok: false, reason: diffs.join('; ') || '元数据有差异' }
 }
 
 /** 从已烘焙文件的首条 Gitee 直链里取 owner/repo;没有则 null(用于迁移期兼容)。 */
@@ -246,25 +383,26 @@ async function fetchGithubAssetSize({ tag, assetName }) {
   }
 }
 
-/** 一次 Releases API 取回整张资产表(name → size),供 --all-platforms 逐平台对账。 */
-async function fetchGithubAssetSizes({ tag }) {
+/** 一次 Releases API 取回整张资产表(name → {size, digest}),供 --all-platforms / 权威元数据烘焙对账。 */
+async function fetchGithubAssetTable({ tag }) {
   const repo = process.env.GITHUB_REPOSITORY || 'IHUI-INF-AI/IHUI-AI'
   const token = process.env.GITHUB_TOKEN
   try {
     const res = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
       headers: { Accept: 'application/vnd.github+json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })
-    if (!res.ok) return { sizes: new Map(), reason: `GitHub API HTTP ${res.status}` }
+    if (!res.ok) return { assets: new Map(), reason: `GitHub API HTTP ${res.status}` }
     const rel = await res.json()
-    const sizes = new Map()
+    const assets = new Map()
     for (const a of rel.assets || []) {
       const name = String(a?.name || '')
       const size = Number(a?.size || 0)
-      if (name && size > 0) sizes.set(name, size)
+      const digest = String(a?.digest || '')
+      if (name && size > 0) assets.set(name, { size, digest })
     }
-    return { sizes, reason: '' }
+    return { assets, reason: '' }
   } catch (e) {
-    return { sizes: new Map(), reason: `GitHub API 不可达:${String(e?.message ?? e).slice(0, 120)}` }
+    return { assets: new Map(), reason: `GitHub API 不可达:${String(e?.message ?? e).slice(0, 120)}` }
   }
 }
 
@@ -336,8 +474,9 @@ async function bakeAllPlatforms({ args, latest, version, tag, out, existing }) {
   const repo = takeFlag(args, '--gitee-repo', 'repo') || process.env.GITEE_REPO || 'IHUI-AI'
   const notes = []
   if (!owner) notes.push('Gitee owner:未给出(--gitee-owner / GITEE_OWNER)且旧文件派不出 ⇒ 全部平台保留 GitHub')
-  const gh = await fetchGithubAssetSizes({ tag })
-  if (gh.reason) notes.push(`GitHub size 表:${gh.reason}`)
+  const ghTable = await fetchGithubAssetTable({ tag })
+  if (ghTable.reason) notes.push(`GitHub size 表:${ghTable.reason}`)
+  const gh = { sizes: new Map([...ghTable.assets].map(([name, a]) => [name, a.size])) }
   const platformUrls = Object.values(latest?.platforms ?? {})
     .map((p) => p?.url)
     .filter((u) => typeof u === 'string' && u)
@@ -354,13 +493,34 @@ async function bakeAllPlatforms({ args, latest, version, tag, out, existing }) {
     console.log(`[bake] ${k} asset=${d.assetName || '<缺>'} verdict=${d.verdict} ⇒ ${d.url || '<缺>'}`)
     console.log(`[bake]   ${d.reason}`)
   }
+  // 权威元数据必须与 feed 同一次烘焙产出,否则会出现「新版 feed + 旧 desktop 条目」的断链。
+  const assetsBuilt = buildDesktopAssets({
+    feed: baked.data,
+    githubAssets: ghTable.assets,
+    giteeSizes: ge.sizes,
+    version,
+    tag,
+  })
+  if (assetsBuilt.issues.length > 0) {
+    console.error(`❌ 桌面安装包权威元数据烘焙失败(${assetsBuilt.issues.length} 项):`)
+    for (const i of assetsBuilt.issues) console.error(`  - [${i.code}] ${i.message}`)
+    process.exit(1)
+  }
+  const assetsOut = resolve(takeFlag(args, '--assets-out', '文件路径') || DEFAULT_ASSETS_OUT)
+  const assetsText = serializeDesktopAssets({ version, tag, assets: assetsBuilt.assets })
+  console.log(`[bake] 桌面权威条目 ${assetsBuilt.assets.length} 项 ⇒ ${assetsOut}`)
   if (args.includes('--check')) {
     const verdict = checkAgainstExisting({ existing, expected: baked.data })
-    if (verdict.ok) {
+    const assetsVerdict = checkAssetsAgainstExisting({
+      existingText: existsSync(assetsOut) ? readFileSync(assetsOut, 'utf8') : '',
+      expectedText: assetsText,
+    })
+    if (verdict.ok && assetsVerdict.ok) {
       console.log(`✅ --check:现有烘焙文件与 latest.json 一致(${out})`)
+      console.log(`✅ --check:桌面权威元数据一致(${assetsOut})`)
       process.exit(0)
     }
-    console.error(`❌ --check:漂移 —— ${verdict.reason}`)
+    console.error(`❌ --check:漂移 —— ${verdict.ok ? assetsVerdict.reason : verdict.reason}`)
     process.exit(1)
   }
   if (baked.blocked) {
@@ -368,10 +528,94 @@ async function bakeAllPlatforms({ args, latest, version, tag, out, existing }) {
     process.exit(2)
   }
   writeBaked(out, baked.data)
+  writeFileSync(assetsOut, assetsText, 'utf8')
+  console.log(`✅ 已烘焙桌面权威元数据 ${assetsOut}`)
+}
+
+/**
+ * 从已提交的 generated.ts 取 update 源事实(版本 + 各平台 url)。
+ * 该文件会被 lint-staged/prettier 重排成 `version: 'x'` / 单引号 / 无引号键,无法 JSON.parse,
+ * 故这里用键值正则只取「更新校验真正需要的两个事实」,不依赖整体格式。
+ */
+export function parseFeedFacts(text) {
+  const src = String(text ?? '')
+  const version = (src.match(/["']?version["']?\s*:\s*['"]([^'"]+)['"]/) || [])[1] || ''
+  const urls = [...src.matchAll(/["']?url["']?\s*:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]).filter(Boolean)
+  return { version, urls }
+}
+
+/** --assets-from-feed:只刷新桌面安装包权威元数据(读已烘焙 feed,不改 feed 本身)。 */
+async function bakeAssetsFromFeed({ args }) {
+  const out = resolve(takeFlag(args, '--out', '文件路径') || DEFAULT_OUT)
+  if (!existsSync(out)) {
+    console.error(`❌ 找不到已烘焙 feed:${out}(先跑 --all-platforms 或指 --out)`)
+    process.exit(2)
+  }
+  const facts = parseFeedFacts(readFileSync(out, 'utf8'))
+  if (!facts.version) {
+    console.error(`❌ 从 ${out} 取出版本失败 ⇒ 拒绝`)
+    process.exit(2)
+  }
+  if (facts.urls.length === 0) {
+    console.error(`❌ 从 ${out} 取不出任何平台下载直链 ⇒ 拒绝`)
+    process.exit(2)
+  }
+  const version = facts.version
+  const feed = {
+    version,
+    platforms: Object.fromEntries(facts.urls.map((url, i) => [`platform-${i}`, { url }])),
+  }
+  const tag = takeFlag(args, '--tag', '版本号') || `desktop-v${version}`
+  const assetsOut = resolve(takeFlag(args, '--assets-out', '文件路径') || DEFAULT_ASSETS_OUT)
+  const table = await fetchGithubAssetTable({ tag })
+  if (table.reason) console.log(`⚠️ ${table.reason}`)
+  const giteeUrls = Object.values(feed.platforms)
+    .map((p) => p?.url)
+    .filter((u) => {
+      if (typeof u !== 'string' || !u) return false
+      try {
+        return new URL(u).hostname === 'gitee.com'
+      } catch {
+        return false
+      }
+    })
+  const ge = giteeUrls.length ? await fetchGiteeSizes(giteeUrls) : { sizes: new Map(), notes: [] }
+  for (const n of ge.notes) console.log(`⚠️ Gitee size:${n}`)
+  const built = buildDesktopAssets({
+    feed,
+    githubAssets: table.assets,
+    giteeSizes: ge.sizes,
+    version,
+    tag,
+  })
+  if (built.issues.length > 0) {
+    console.error(`❌ 桌面安装包权威元数据烘焙失败(${built.issues.length} 项):`)
+    for (const i of built.issues) console.error(`  - [${i.code}] ${i.message}`)
+    process.exit(1)
+  }
+  const text = serializeDesktopAssets({ version, tag, assets: built.assets })
+  if (args.includes('--check')) {
+    const verdict = checkAssetsAgainstExisting({
+      existingText: existsSync(assetsOut) ? readFileSync(assetsOut, 'utf8') : '',
+      expectedText: text,
+    })
+    if (verdict.ok) {
+      console.log(`✅ --check:桌面权威元数据与 ${out} 一致(${assetsOut})`)
+      process.exit(0)
+    }
+    console.error(`❌ --check:漂移 —— ${verdict.reason}`)
+    process.exit(1)
+  }
+  writeFileSync(assetsOut, text, 'utf8')
+  console.log(`✅ 已烘焙桌面权威元数据 ${assetsOut}(${built.assets.length} 项,来源 GitHub Release digest)`)
 }
 
 async function main() {
   const args = process.argv.slice(2)
+  if (args.includes('--assets-from-feed')) {
+    await bakeAssetsFromFeed({ args })
+    return
+  }
   const latestPath = takeFlag(args, '--latest-json', '文件路径')
   if (!latestPath) {
     console.error('❌ 缺 --latest-json <path> ⇒ 拒绝(不猜输入)')
@@ -461,5 +705,9 @@ export const __test__ = {
   bakeDesktopPlatforms,
   checkAgainstExisting,
   serializeGenerated,
+  buildDesktopAssets,
+  serializeDesktopAssets,
+  checkAssetsAgainstExisting,
+  parseFeedFacts,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
