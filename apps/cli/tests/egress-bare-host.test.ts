@@ -38,15 +38,17 @@ describe('bare-host 语法 — 正反成对(取不出是 null,不是 allow)', ()
 
 describe('bare-host 闸门 — network 效应才扩面(联动 syntax-table,不凭猜)', () => {
   it('② 网络类命令的裸主机取到;非网络段/未登记命令不取', () => {
-    // curl 基线效应 = network(syntax-table:551)
+    // curl 基线效应 = network(`command-policy/syntax-network.ts` 的 curl 档)
     expect(extractBareHostTargets('curl db.internal/health').map((t) => t.raw)).toEqual(['db.internal']);
     // git clone 有 network 效应;scp 形态取 host 段
     expect(extractBareHostTargets('git clone git@github.com:org/repo.git').map((t) => t.raw)).toEqual(['github.com']);
     // 无网络效应的段:文件名看着像域名也不取
     expect(extractBareHostTargets('node app.local')).toEqual([]);
     expect(extractBareHostTargets('git checkout v1.2')).toEqual([]);
-    // 未登记命令(nc)拿不到效应 ⇒ 不扩面(设计边界,写死在头注)
-    expect(extractBareHostTargets('nc monitor.internal 22')).toEqual([]);
+    // 未登记命令(telnet)拿不到效应 ⇒ 不扩面(设计边界,写死在头注;Z14 把示例从已登记的 nc 挪开)
+    expect(extractBareHostTargets('telnet monitor.internal 23')).toEqual([]);
+    // nc 自 Z14 起已登记 network 基线 ⇒ 同一形态现在取得出(端口 token 不含点,天然不取)
+    expect(extractBareHostTargets('nc monitor.internal 22').map((t) => t.raw)).toEqual(['monitor.internal']);
     // 变量化参数留给既有 dynamic 通道,不在这里造噪声
     expect(extractBareHostTargets('curl "$TARGET.example"')).toEqual([]);
   });
