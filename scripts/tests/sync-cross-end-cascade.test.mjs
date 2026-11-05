@@ -112,6 +112,14 @@ test('A4 态分离并互斥:done/red/failed/pending/unjudged/skipped 不并桶',
   assert.equal(C.classifyStage(P, { ran: true, rc: 1, spawnable: true, preview: false }), 'failed')
   assert.equal(C.classifyStage(P, { ran: true, rc: 2, spawnable: true, preview: true }), 'unjudged')
   assert.equal(C.classifyStage(P, { ran: true, rc: 3, spawnable: true, preview: true }), 'failed')
+  // 三态横向口径(§0.3):rc=2 = "取不到输入 ⇒ 未判定",与档位无关。旧实现只在预演档认 2,
+  // 写盘档与 verify 档的 2 被折成 failed/red ⇒ "器物判不了"被说成"链坏了/这维真分叉"
+  // (2026-11-05 实测:dist 腿面差让路以 rc=2 退出,--apply 档被报成 failed)。
+  assert.equal(C.classifyStage(W, { ran: true, rc: 2, spawnable: true, preview: false }), 'unjudged', '写盘档的 2 也是未判定,不是 failed')
+  assert.equal(C.classifyStage(V, { ran: true, rc: 2, spawnable: true }), 'unjudged', 'verify 档的 2 是未判定,不得折成 red')
+  // 反向对照:真分叉(rc=1)仍必须冒 red —— 把 2 认成未判定不等于把 1 也放过
+  assert.equal(C.classifyStage(V, { ran: true, rc: 1, spawnable: true }), 'red')
+  assert.equal(C.classifyStage(W, { ran: true, rc: 1, spawnable: true, preview: false }), 'failed')
   assert.equal(C.classifyStage(W, { ran: true, rc: null, spawnable: false }), 'unjudged')
   assert.equal(C.classifyStage(W, { ran: false, rc: null, spawnable: false }), 'skipped')
   // pending 不顶退出码:预演看见活 ≠ 这条链坏了(顶红会把人逼去跳门,§12e)
@@ -368,6 +376,21 @@ test('A20 盲区覆盖锁:守护 runCrossEndApplyLeg 派发的每一枚跨端写
   // 反向对照:把级联清单换成一枚已知不含守护腿的假清单,同一判据必须翻红(形状锁不能空转)
   const crippled = new Set(['sync-css-tokens.mjs'])
   assert.ok(legs.filter((l) => !crippled.has(l)).length > 0, '反向对照失效:假清单也被判成覆盖')
+})
+
+test('A22 未判定必须带原因:JSON 档的 why/reason 不得被 summarize 丢掉', () => {
+  // 实测型回归:dist 腿面差让路以 rc=2 退出,结论打在 stdout 的一行 JSON 里
+  // ({"state":"face-skew","why":"全部 N 个待重建包的源码面 ≠ 被审判的 HEAD 面…"})。
+  // 旧 summarize 只取 state ⇒ 级联打出「未能判定(rc=2):face-skew」,原因整段丢失;
+  // 后人看到"判不了"却不知道"为什么判不了",只能重跑一遍猜(§0.3 要求点名原因)。
+  const j = '{"state":"face-skew","targets":[{"pkg":"@ihui/types"}],"why":"全部 1 个包被面差挡住:@ihui/types(packages/types 脏 9 项)"}'
+  const s = C.summarize(j)
+  assert.match(s, /face-skew/, '状态读数不得丢')
+  assert.match(s, /面差挡住/, 'why 必须一起打出来')
+  const r = C.summarize('{"state":"undetermined","reason":"守门机读档取不到"}')
+  assert.match(r, /守门机读档取不到/, 'reason 形态同样要带出来')
+  // 成对反控:无 why 的结论不得凭空造一句" —…"
+  assert.doesNotMatch(C.summarize('{"state":"face-skew","targets":[]}'), /——/, '没有 why 就不许拼出一段空气原因')
 })
 
 test('A21 色轴段两形:summary.safe>0 ⇒ pending;safe=0 而 hits≠0(同值歧义)⇒ done 不冒活', () => {

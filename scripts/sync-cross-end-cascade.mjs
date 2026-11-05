@@ -664,8 +664,12 @@ export function classifyStage(stage, { ran, rc, spawnable, preview = false, body
     if (preview && stage.pendingProbe) return bodyState === 'pending' || bodyState === 'unjudged' ? bodyState : 'done'
     return 'done'
   }
+  // 本仓守门横向口径是**三态** 0/1/2(§0.3):2 = "取不到输入 ⇒ 未判定",与"判红(1)"是两件事。
+  // 旧实现只在预演档认 2,写盘档与 verify 档的 2 会被折成 failed/red —— 于是"器物判不了"被说成
+  // "这条链坏了/这维真分叉"(2026-11-05 实测:dist 腿面差让路以 rc=2 退出,写盘档被报成 failed)。
+  // 失效方向恒为"多问一次为什么没判",绝不把没判定成判过,也绝不把没判成红(§0.10)。
+  if (rc === 2) return 'unjudged'
   if (preview && Array.isArray(stage.pendingRc) && stage.pendingRc.includes(rc)) return 'pending'
-  if (preview && rc === 2) return 'unjudged'
   if (stage.redOnFail) return 'red'
   return 'failed'
 }
@@ -738,10 +742,13 @@ function runStage(stage, opts, logger) {
       state === 'red'
         ? `尺子判红:${redReason(out, errText)}`
         : state === 'failed'
-          ? `器物失败 rc=${rc}:${errText}`
+          ? `器物失败 rc=${rc}:${redReason(out, errText)}`
           : state === 'pending'
             ? `本轮待落(rc=${rc}):${redReason(out, errText)}`
-            : `未能判定:${errText.slice(0, 160)}`
+            : // 未判定必须点名原因。器物把结论打在 **stdout** 而以 rc=2 退出是常态(如 dist 腿的
+              // 面差让路:state=face-skew 打在 stdout),旧式只取 errText ⇒ 打出「未能判定:」后面
+              // 空空如也,等于把"为什么没判"丢了(§0.3 要求点名原因;§0.8 出路必须真跑得通)。
+              `未能判定(rc=${rc}):${redReason(out, errText)}`
     logger(
       `${state === 'red' ? '🔴' : state === 'failed' ? '❌' : state === 'pending' ? '⏳' : '❓'} ${stage.name} —— ${detail}`,
     )
@@ -771,7 +778,12 @@ export function summarize(stdoutText) {
     try {
       const obj = JSON.parse(joined)
       const pick = obj?.verdict ?? obj?.state ?? obj?.summary ?? obj
-      return clip(typeof pick === 'string' ? pick : JSON.stringify(pick))
+      const head = typeof pick === 'string' ? pick : JSON.stringify(pick)
+      // 器物把"为什么"写在 why/reason 里(dist 腿的面差让路、heal 族的取不到原因都是这一形)。
+      // 只报 state 等于把原因丢了:读数从"判不了,因为 X"退化成"判不了",后人只能重跑一遍猜(§0.3)。
+      const why = typeof obj?.why === 'string' ? obj.why : typeof obj?.reason === 'string' ? obj.reason : ''
+      const tail = why && !head.includes(why.slice(0, 24)) ? ` —— ${why}` : ''
+      return clip(`${head}${tail}`)
     } catch {
       return clip(joined.replace(/\s+/g, ' '))
     }
