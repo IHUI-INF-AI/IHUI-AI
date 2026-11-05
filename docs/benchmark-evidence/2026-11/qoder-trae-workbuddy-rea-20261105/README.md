@@ -151,7 +151,28 @@
 - **W2** 插件贡献审计装车 + 拆 `loader.ts`(现读 **533 行**):`loadPluginsWithContributionAudit` 在 `plugins/index.ts` **0** 处、`src/` 其余目录 **0** 处 ⇒ 出口既没从包口出去也没有生产调用方。
 - **W3** 快照 GC 点名上账 + 拆 `checkpoints/index.ts`(现读 **397 行**):`getLastGcNotes()` 定义于 `:309`,另一处命中只是 `:326` 注释 ⇒ 零消费方,"判不出⇒不删"的原因无人可见。
 
-## 9. 复验命令
+## 10. 第六回合(2026-11-05 14:30–16:10)五席产出收口 + 推送结清
+
+| 能力 | 提交(全 40 位起) | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| Trae 式四维工具配额**接到消费点**(MCP 注册数 / MCP 令牌 / 自定义提示 / 历史查询) | 405239526e8(W1) | `pnpm check:pytest -- tests/test_quota_wiring_b49.py` = passed 20 / failed 0 / `verdict=GREEN`;触及面既有测试合跑 = passed 58 / `verdict=GREEN`;`check-ruff-python --worktree` = All checks passed(ruff==0.16.6,.py 1686);`check-mypy --worktree` = **1 error**,位置 `app/services/workbuddy_tasks.py:948` 不在本枚 10 个路径内 ⇒ 别席在飞现场,按 §12e 不代修、不削判据,如实登记 |
+| 快照存储层按 fs 适配拆档 + GC「判不出⇒不删」的原因**上账** | d71a551036(W3) | `index.ts` 397→249 且体内零 `node:fs`,fs 落 `snapshot-store-host.ts` 247;快照族 6 files / **45 passed**;新只读尺 `--self-test` 9/9 + 镜像 18/18 + 直跑 `判定 clear RC=0`;tsc 0 错。阈值按本机真实读数(45 枚 / 8,516B / 最老 0.27 天)复核后**不收紧**,数值未动 |
+| Qoder 激活事件档位 + 对侧 33 条权限名入库并接 dataClass **默认拒** | 97d676acd8(W6) | 定向 4 files / **42 passed**;tsc 0 错;席报 `pnpm capabilities:check` 63/63 一致(未由本席复算,记为席报)。**取证结论**:对侧"15 种 activationEvent"实为 15 个字符串、去重仅 3 族;`onChatMention` 一族我方无宿主承载面 ⇒ 按观察如实不补(补了就是门 121 的无消费者声明),不是缺功能 |
+| 技能目录缓存接上 `/skills` 真消费点 | d51703a8b3(W4 写 + W8 复核) | `npx vitest run tests/skills-catalog-wiring.test.ts` = **6 passed**;tsc 0 错(上一批登记的 `ERR_MODULE_NOT_FOUND` 环境红本轮不复现,不据此宣称别席已修)。未竟:`commands/index.ts` 的 `skills list` 仍直调 `loadSkills` |
+| worktree 删除出口的**容器性断言**(与 ACL 分职)+ W-2 连账面副作用一起改对 | 78926473f1(W5 判据 + W9 接线) | 定向 4 files / **47 passed**;tsc 0 错。命拒 = 出声 + 一个字节不删 + `task.worktreePath` 保留(原 `background-registry:247` 无论成败都清账面 ⇒ 拒绝被洗成静默)。**过程教训**:W5 死于中断时把 JSDoc 写坏 —— 注释里嵌 glob 的「星号斜杠」形态会**提前闭合块注释**,当场把全仓 tsc 打成 TS1443/TS1003;主席修措辞后 W9 接完,注释内不得再出现该形态 |
+| 删除保护链的**到期清理**判据 + 清理器自身的死亡机制 | c96284038a(W7) | `packages/shared` 定向 2 files / **30 passed**;tsc 0 错;门 126 `check-shared-nonde-node-purity --worktree` 候选 346 / 含内建文件 1(**不可达 1**)绿。本机 `.ihui/delete-trash` 现读 0 枚 ⇒ 本轮不产生任何真实删除;`expiry.ts` 259 行略超 250(`check-file-size` 全量档只 warn),随 adapter 那票一并拆 |
+
+**§8c 那道卡死合并的分歧已结清**:内容级防丢闸的活文档维现认三本账(逐字族 `declaredDropCaps` / 改写形态族 / 本侧处置权族),判据单源在 `scripts/lib/union-converge-judgments.mjs`,防丢闸只举证不复算(§0.6)。逐字族的成对用例(8 例:正例销账并报名、台账没这行照旧红、产物面还留着不扣、非登记行形不扣、未喂台账与初版逐字一致、本侧对称、`dropCreditOf` 单元、形状锁「销账只改判不判红、不改少了哪些行」)由本席补在 `scripts/tests/content-loss-gate-declared-removal.test.mjs`;改写形态族与本侧处置权族已由并发三枚提交(d971ace310 / c78497e238 / edc453d125)接进 `content-loss-gate-fold-ledger.test.mjs`,两本账分文件不混写。
+**推送现读**:`git-sync-converge` 第 1 轮 `origin=PUSHED`,`git rev-parse HEAD` 与远端逐字同值 ⇒ §20 的字面判据成立(本回合落地前是 12/131 分叉)。
+
+**本回合剩下的格(逐条给归属与解锁条件,不写"已完成")**
+- 回收站到期清理的**调度腿**:端内 adapter `pruneExpiredTrash` 七步 + guardian `sweepTrashExpiry()` 24h 双挂点(刻意不挂 `guardian-runner`,判机器状态 ⇒ §12e);仅 retired 才寄信(§5e-1)。解锁:主席或下一席改 `scripts/git-guardian.mjs`(高扇出,需 `immutable-exempt`)。
+- 权限/命令 registry 汇总口(对侧 catalog 面)零生产调用方:席报 4 个,本席定向 grep **未能判定**(计数含定义行与注释,口径不同)⇒ 下一票先把尺子口径钉清再定性,不许照抄席报。
+- `commands/index.ts` 的 `skills list` 仍直调 `loadSkills`(W8 射程外)。
+- `expiry.ts` 259 行超档随 adapter 票一并拆。
+- §4 既存的其余格(TCP 代理腿需常驻载体、Trae 面增量、守护面 advisory 升 blocking 的存量归零前置)本回合未动,归属与解锁条件见 §4 原行。
+
+## 11. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
