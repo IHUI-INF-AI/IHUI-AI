@@ -21,6 +21,7 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
+import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 // 79 号票运行时的唯一装配点(判定本体在 @ihui/types,本文件只消费).
 import {
   authorizeWritePath,
@@ -1943,6 +1944,7 @@ export function isFatalErrorType(errorType: string | undefined): boolean {
 export function checkPathWritePermission(
   filePath: string,
   ctx: ToolContext,
+  op: 'write' | 'delete' = 'write',
 ): { allowed: boolean; reason?: string } {
   const axis = ctx.permissionAxis;
   if (axis) {
@@ -1952,13 +1954,34 @@ export function checkPathWritePermission(
       return { allowed: false, reason };
     }
   }
-  if (!ctx.folderTrust) return { allowed: true };
-  const level = checkFolderTrust(filePath, ctx.folderTrust);
-  if (level === 'forbidden') {
-    return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 forbidden,禁止修改` };
+  // 2. folderTrust(结构性信任面)。缺省没有 trustMap 时**不得**提前返回 ——
+  //    上一枚提交把第 3 层挂在 `if (!ctx.folderTrust) return` 之后,而 trustMap 缺省才是常态,
+  //    后果是文件访问裁决结构性无人问(即"装了但没接线",§0.9)。现改为各层独立生效。
+  if (ctx.folderTrust) {
+    const level = checkFolderTrust(filePath, ctx.folderTrust);
+    if (level === 'forbidden') {
+      return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 forbidden,禁止修改` };
+    }
+    if (level === 'read-only') {
+      return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 read-only,禁止修改` };
+    }
   }
-  if (level === 'read-only') {
-    return { allowed: false, reason: `路径 ${filePath} 被 folder_trust 标记为 read-only,禁止修改` };
+  // 3. 文件访问裁决(goal-b49 复现对侧 per-op ACL,见 sandbox/file-access-policy.ts):
+  //    守护件/凭据族走这一层。folder_trust 的结构性意图已经赢在前面,本层只会更严不会更松。
+  //    op 由调用方给出:删除由 delete 轴定论,改写由 write 轴定论 —— 两轴语义本来就不同
+  //    (.env 不可改也不可删,但"删一个守护件"要的是定向说明而不是禁止修改),
+  //    把删除一律折到写轴 = 只复现了"分维"这个名字,没复现它。
+  const acl = evaluateFileAccess(op, toAclPath(ctx.workspacePath, filePath), ctx.workspacePath);
+  if (acl.blocked) {
+    return { allowed: false, reason: acl.note ?? `路径 ${filePath} 被文件访问裁决标记为不可${op === 'delete' ? '删' : '写'}` };
+  }
+  // advisory 命中也要出声:静默放行等于"判了但不语"(§5e 那条禁令的反面)。
+  if (acl.note) {
+    try {
+      process.stderr.write(`${acl.note}\n`);
+    } catch {
+      // 报名通道不可用不改判据结论
+    }
   }
   return { allowed: true };
 }
