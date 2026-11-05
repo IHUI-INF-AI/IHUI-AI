@@ -14,6 +14,8 @@
  * "发了包但没清单"的合法发布形态;缺失即说明这份产物没经过自校验,按不可信处理。
  */
 
+import { describeBoundedJsonValue } from '@ihui/shared/chat/business-forms'
+
 export const UPDATE_MANIFEST_PATH = '/downloads/update-files.json'
 
 export type UpdateManifestErrorCode =
@@ -124,7 +126,7 @@ function parseManifest(raw: unknown): UpdateFileEntry[] {
   if (rec.schemaVersion !== 1) {
     throw new UpdateManifestError(
       'manifest_corrupt',
-      `更新清单损坏:schemaVersion 期望 1,实际 ${JSON.stringify(rec.schemaVersion)}`,
+      `更新清单损坏:schemaVersion 期望 1,实际 ${describeBoundedJsonValue(JSON.stringify(rec.schemaVersion))}`,
       { path: '' },
     )
   }
@@ -137,7 +139,7 @@ function parseManifest(raw: unknown): UpdateFileEntry[] {
     if (!e || typeof e !== 'object' || !isSafeManifestPath(e.path)) {
       throw new UpdateManifestError(
         'manifest_corrupt',
-        `更新清单损坏:非法路径 ${JSON.stringify(e?.path)}`,
+        `更新清单损坏:非法路径 ${describeBoundedJsonValue(JSON.stringify(e?.path))}`,
         { path: String(e?.path ?? '') },
       )
     }
