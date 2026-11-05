@@ -454,23 +454,36 @@ test('⑫b 派发票必须带取材纪律,且点名两份大文件(摘掉这段=
 
 test('⑫c 记账行把 stopReason 带进台账(只留 exit 码就永远分不出成因)', () => {
   const src = readFileSync(new URL('../auto-evolve.mjs', import.meta.url), 'utf8')
-  const at = src.indexOf("record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action")
+  // 断言按**语义形状**写,不按"某一行原文":格式化器(prettier / 钩子里的 --fix)会把超长调用折行,
+  // 逐行字面锁只会把自己咬红(H69 同型教训;今天就是被折行咬了一次,内容一字未错)。
+  // 这枚锁要判的是"派发结果那一处 record 有没有把终态理由带进台账",不是它折没折行。
+  const KEY = "mode: dryRun ? 'dryrun' : 'dispatch'"
+  const marks = []
+  let cur = -1
+  while ((cur = src.indexOf(KEY, cur + 1)) >= 0) marks.push(cur)
+  const sliceOf = (p) => src.slice(Math.max(0, src.lastIndexOf('record({', p)), p + 900)
+  // 文件里有多处带 mode 标记的 record ⇒ 必须挑"带 action: res.action 的那一处",
+  // 否则切片会落到别的 record 上,把仍在的判据读成不在了(本锁第一版就是这么误红的)。
+  const at = marks.find((p) => sliceOf(p).includes('action: res.action'))
   assert.ok(
-    at > 0,
-    '派发结果那一行 record 必须还在(搬家了就要同步本锁,不许让切片悄悄落到别处的 record 上)',
+    at !== undefined,
+    `派发结果那一处 record 必须还在(现读带 mode 标记的候选 ${marks.length} 处,无一含 action: res.action ⇒ 搬家了就要同步本锁)`,
   )
-  const rec = src.slice(at)
+  const rec = sliceOf(at)
   assert.ok(
-    rec.slice(0, 600).includes('stopReason: res.stopReason ?? null'),
-    '派发记账行必须显式带 stopReason',
-  )
-  const ret = src.slice(
-    src.indexOf('  return {\n    action,'),
-    src.indexOf('/**\n * 代提交消息前缀'),
+    rec.includes('action: res.action'),
+    '切片必须落在"派发结果"那一处 record,而不是别的 record',
   )
   assert.ok(
-    ret.includes('stopReason: meter.stopReason ?? null'),
-    'dispatchSession 的返回必须透出终态理由',
+    rec.includes('stopReason: res.stopReason ?? null'),
+    '派发记账行必须显式带 stopReason(否则只留 exit 码,永远分不出成因)',
+  )
+  const fnAt = src.indexOf('function dispatchSession(')
+  assert.ok(fnAt > 0, 'dispatchSession 本体必须在被审面上(取不到 ⇒ 本锁红,不放行)')
+  const body = src.slice(fnAt, fnAt + 24000)
+  assert.ok(
+    body.includes('stopReason: meter.stopReason ?? null'),
+    'dispatchSession 的返回必须透出终态理由(台账那一行才有得可带)',
   )
 })
 
@@ -684,7 +697,7 @@ test('⑮d 接线锁:真起子进程的两处都必须过归一,且读数进台�
  * 那种时刻照派 = 拿半成品当执行体。但判据只能看"回潮方向":盘上多出东西是常态(共树常年脏),
  * 若要求"盘必须等于 HEAD"就等于把自主环饿死 —— 所以超集必须放行。
  */
-const GUARD_TEXT = JSON.stringify({
+const INV_TEXT = JSON.stringify({
   entries: [
     {
       path: 'scripts/auto-evolve.mjs',
@@ -696,7 +709,7 @@ const GUARD_TEXT = JSON.stringify({
 
 test('⑯a 盘上缺 HEAD 已有的锚点 ⇒ stale-disk 并逐条点名', () => {
   const r = ae.judgeSelfFace({
-    guardListText: GUARD_TEXT,
+    invariantsText: INV_TEXT,
     headText: 'x alphaAnchor y betaAnchor z',
     diskText: 'x alphaAnchor y —— 当天那枚判据没跟上来 z',
     selfRel: 'scripts/auto-evolve.mjs',
@@ -709,36 +722,36 @@ test('⑯a 盘上缺 HEAD 已有的锚点 ⇒ stale-disk 并逐条点名', () =>
 test('⑯b 三向不并桶:超集放行、任一面取不到未判定、清单无本器条目未判定', () => {
   const F = ae.judgeSelfFace
   const superset = F({
-    guardListText: GUARD_TEXT,
+    invariantsText: INV_TEXT,
     headText: 'x alphaAnchor',
     diskText: 'x alphaAnchor y betaAnchor 别人今天新加的第三枚锚点',
     selfRel: 'scripts/auto-evolve.mjs',
   })
   assert.equal(superset.state, 'ok', '盘上是超集 ⇒ 照派(共树常年脏,要求"盘==HEAD"会饿死环)')
   assert.equal(
-    F({ guardListText: null, headText: 'x', diskText: 'x', selfRel: 'a' }).state,
+    F({ invariantsText: null, headText: 'x', diskText: 'x', selfRel: 'a' }).state,
     'undetermined',
     '清单取不到 ⇒ 不猜',
   )
   assert.equal(
-    F({ guardListText: GUARD_TEXT, headText: null, diskText: 'x', selfRel: 'a' }).state,
+    F({ invariantsText: INV_TEXT, headText: null, diskText: 'x', selfRel: 'a' }).state,
     'undetermined',
     'HEAD 面取不到 ⇒ 不猜',
   )
   assert.equal(
-    F({ guardListText: GUARD_TEXT, headText: 'x', diskText: null, selfRel: 'a' }).state,
+    F({ invariantsText: INV_TEXT, headText: 'x', diskText: null, selfRel: 'a' }).state,
     'undetermined',
     '盘上读不到 ⇒ 不猜',
   )
   assert.equal(
-    F({ guardListText: GUARD_TEXT, headText: 'x', diskText: 'x', selfRel: 'scripts/other.mjs' })
+    F({ invariantsText: INV_TEXT, headText: 'x', diskText: 'x', selfRel: 'scripts/other.mjs' })
       .state,
     'undetermined',
     '清单里没有本器这一条 ⇒ 无从判落后,必须响而不是"没问题"',
   )
   assert.equal(
     F({
-      guardListText: '{坏 JSON',
+      invariantsText: '{坏 JSON',
       headText: 'x',
       diskText: 'x',
       selfRel: 'scripts/auto-evolve.mjs',
