@@ -64,11 +64,11 @@
 | 子进程网络出口(DNS / 域名裁决那一半引擎) | **已落地** `923546ffec8e145a90c551f8c9c035eca9bc42f4`(B6) | TCP 代理腿需常驻载体(盲写未接线抽象按 §0.9 不落地)、真 DNS 解析适配器、裸域名取词、desktop 同源腿 = 未竟 |
 | 文件 ACL 的 delete 轴消费点 | **已落地** `14e02e57f52337bef3a932d2b23571a84d3c6e1f` | 同一枚还修了两处:①裁决层此前挂在 `folder_trust` 缺省的提前 return 之后 ⇒ 结构性无人问(装了等于没装);②规则表 16 族漏 delete 维(读不到却能删),并加"每条 read deny 必须同管 delete"的穷尽性判据 |
 | Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
-| 文件 ACL 的 delete 轴消费点 | 下一执行席 | 写侧已接,delete 散在 `fs.rmSync`/`unlinkSync` 多处,需逐点接线并带回归 | 本枚落地件的自然续集 |
+| delete 轴**残余**消费点(`git.ts` / `worktree.ts` 的 rm 点从未过裁决) | S5 席(第五回合在跑) | 上一轮这行与上面「已落地」那行**同名不同格**,现拆开。主席 2026-11-05 逐文件现读(读数 = 该文件内 rm/unlink 点数 / `evaluateFileAccess` 引用数):`git.ts` **2/0**、`worktree.ts` **5/0**、`file-batch-edit.ts` 5/2(已接,作对照样板)。残余=逐点定性(用户可控目标 vs 内部 scratch vs 结构性清理)后接线,不许一把梭全接 | `.ihui-agent/tmp/rea-goal-b49/S5-impl.md` |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
 | drizzle journal ↔ sql 双向对账尺 | **已落地** `e38aad1c2c`(含两面分判改造) | 尺 warn-only 挂守护巡检轮,不进提交链;真 drift 那枚提交再同批接到人通道才谈可整改性 | B2-impl.md |
 | Trae 面增量 | 未开 | 本批四席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
-| 两道**机器状态门**常年红(门 25 项目外路径违规 / 门 26 父目录污染) | 主席下一轮(不在本目标射程,但会堵 `safe-commit`) | 现读定位:门 25 命中的是别席留在 `.ihui-agent/tmp/gate-audit-1104/deps-web-nm/` 里**第三方压缩 JS 内部的一条字符串**(该目录 mtime 是刚刚 ⇒ 可能仍被使用,不删陌生活现场);门 26 命中的是仓库父目录里他人 scratch。两者与提交内容无关却 `stagedTriggers` 极宽,属 §12e 恒红门型。旁路落地通道不受它拦,故本轮不修不拖 | 出路二选一:①确认 `gate-audit-1104` 无主后按 §15 清理;②把该尺的射程收窄到"我方源码文件",对 vendored 压缩件不判(带反证用例) |
+| 两道**机器状态门**(门 25 项目外路径违规 / 门 26 父目录污染) | **第五回合现读:判定面已不复现红,更正读数** | 主席 2026-11-05 现读两把尺各跑一次:门 25 = 「⚠️ 3 处 warning(不阻塞),0 处 blocking」RC=0;门 26 RC=0(点名的仍是别席 scratch,但档位只告警)。**上一轮"常年红会堵 safe-commit"这一断言在当下不成立** ⇒ 按 §12e **不削判据、不改射程、不收窄覆盖面**,只更正读数;若日后复红,出路仍是原登记的二选一(确认 `gate-audit-1104` 无主后按 §15 清理 / 对 vendored 压缩件不判并带反证用例) | 本行即更正留痕 |
 | **推送未落地** | 主席(下一轮) | 本地与 `origin/main` 分叉,`git-sync-converge.mjs`(含 `--take-theirs-doc`)拒推进:自证把本侧继承的 README 派生数字行与已退役归档注释算成「被吞」;远端 5 分钟内推进三次 | 按 §16b 收敛一轮:fetch → converge → `gen-doc-numbers --markdown` 重生成派生件 → 再 push |
 
 ## 5. Trae 面复取(第三靶,同批 T1 席)与三条环境事实
@@ -89,7 +89,7 @@
 3. 门 25 / 26(项目外路径 / 父目录污染)与门 30c(陈旧副本)常年红,点名的都是**别席在飞或已遗留的现场**;
    旁路落地通道不受其拦,本批按 §12e 不代裁决、不为消红削判据。
 
-## 7. 第三回合落地(主席自审后收口,四枚)
+## 6. 第三回合落地(主席自审后收口,六枚)
 
 | 能力 | 提交(全 40 位) | 主席自审读数 |
 | --- | --- | --- |
@@ -102,7 +102,22 @@
 
 **两条被现读推翻的派单书事实**(C1 席纠正,记下来免得下批照抄):① 「80 枚工具常驻」是 def _tool_ 口径,按 _TOOLS 现读是 **111 枚**;② 本仓水印族**确实覆盖 .py**,派单书写了「不必注水印」是错的。
 
-## 6. 复验命令
+## 7. 第四回合落地(2026-11-05,六枚;上一轮的两张死票 D1/D2 重派后结清)
+
+| 能力 | 提交(全 40 位) | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| 插件贡献词表 3 → 10 档 + 权限接 dataClass **默认拒** | 15f1acea0ce2b24aff3debc90a7ea30eb46318f7 | `packages/types` 全量 38 files / 420 passed RC=0;cli 定向 4 files / 83 passed;`pnpm capabilities:check` = 产物与能力目录一致;门 121 判红文件 0 / 未判定 0 |
+| 随包资源装机策略(`ensure-minimum` 三态 + `expires` 到期维)+ 解压炸弹双上限 | b06842c4a9fa0f3ace2ad392d8a82fe2e5a7db67 | 本票 35 例入四票合跑 `Tests 73 passed`;既有相关用例 146 passed;守门 70 现读 `installer.ts` 硬编码中文 17 == HEAD 17(增量 0) |
+| 会话快照 `<uuid>@vN` 可寻址版本序列 + 三约束 GC(判不出不删) | e423b7123f364a0d4545bc84936ee7f6dfa7a181 | 19 例入合跑 73 passed;既有 checkpoint/hunk 回归 75 passed。**走出口② `LAND_ALLOW_STALE=1` 显式放行**:底稿实为 HEAD 版(与历史各版比差异最小者正是 `60c5d6d7b6`),"复活"那一行 `return null;` 是本票新写的"体积量不出⇒不删"出口(盘上 3 / HEAD 0),与祖先文本巧合;G-671 损坏隔离腿复核一根没少(`readManifestChecked` 4/3、`lastQuarantined` 5/5) |
+| delete 轴裁决接到 `WorktreeManager.remove`(`..` 段可把删除目标折出 `.worktrees/`) | 091a63b0e727093e8c872f8faf1fdc53ea48661b | 9 例入合跑 73 passed;同批回归 9 files / 139 passed;判**不接**的两点各由测试钉住(非只写在报告里) |
+| "随父而终"看门狗(MCP stdio 派生点 + 看门狗自带死亡机制) | e565814a9375cb62e6ea0a288423847c5d16e20f | 10 例入合跑 73 passed;MCP/spawn 回归 5 files / 47 passed(含"spawn 分档在位"仍绿 = `detached` 未被改);四档端到端冒烟得证(fail-closed 不杀裸 PID) |
+| Trae 的分维工具配额四维 + `capability_matrix` 台账 92 → 96 | 00ef484ebf8e4812df59070be72e1ff6fe1aeb64 | `pnpm check:pytest -- tests/test_tool_budget_dims_b49.py` = 21 passed / 0 失败,`verdict=GREEN`(仓根形态);与既有 run 维同批 200 passed;`check-mypy.mjs --worktree` = no issues in 689 files、0 errors;ruff All checks passed |
+
+**六条派单书事实被本回合现读推翻或纠正**(派单的人也要被证伪):①「落点 `apps/cli/src/lib/registry/`」不存在,真同层 = `apps/cli/src/plugins/`;②「该仓无 `from __future__ import annotations`」实测 1358/1605 个 .py 都有,目标两枚本身就有;③`check:pytest` 的可用形态是**仓根** + `-- tests/x.py`,且 `-p no:xdist` 在本仓不可用(addopts 含 `-n auto`);④「prettier 后 inject」对 .py 不成立(无 Python parser)⇒ 改 ruff;⑤`prettier --check` 对 `apps/cli/**` 是**空判**(`.prettierignore:8` = `cli/`)⇒ 本册不把"prettier 绿"当 cli 侧凭据,格式维真判据 = `check-format-changed` 差值棘轮;⑥上一轮登记的「门 25/26 常年红」今天现读两把尺各 RC=0(见 §4 该行更正)。
+
+**四道 blocking 复跑红的归因**:六枚每次落地后复跑都点名 门 26 / 29 / 30c / 41,它们量的是机器状态(仓库父目录 scratch、悬空 commit、别席 miniapp/rn 的滞后副本、超 48h 滞留分支),点名的路径**不在本回合任何一枚的 diff 里** ⇒ 与提交内容无关。按 §12e **不削判据、不为消红改覆盖面**;六枚一律走旁路落地通道(§12 明列它不跑钩子、落地后自动复跑受影响门并把结果打进 stdout)。
+
+## 8. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
