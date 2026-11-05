@@ -6989,5 +6989,34 @@
   "career": {
     "exportingReport": "Exporting...",
     "exportEmptyHint": "Generate a report to export"
+  },
+  "activities": {
+    "join": "Join Now"
+  },
+  "chatSettingsPage": {
+    "model": "Model"
+  },
+  "eduExamListPage": {
+    "start": "Start Exam"
+  },
+  "eduExamPage": {
+    "prevQuestion": "Previous",
+    "nextQuestion": "Next"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "Study hours this week"
+  },
+  "learn": {
+    "signedUp": "Enrolled"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "Cancel Subscription"
+  },
+  "student": {
+    "myCertsTitle": "My Certificates"
   }
 }

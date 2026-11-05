@@ -69,7 +69,8 @@
 | drizzle journal ↔ sql 双向对账尺 | **已落地** `e38aad1c2c`(含两面分判改造) | 尺 warn-only 挂守护巡检轮,不进提交链;真 drift 那枚提交再同批接到人通道才谈可整改性 | B2-impl.md |
 | Trae 面增量 | 未开 | 本批四席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
 | 两道**机器状态门**(门 25 项目外路径违规 / 门 26 父目录污染) | **第五回合现读:判定面已不复现红,更正读数** | 主席 2026-11-05 现读两把尺各跑一次:门 25 = 「⚠️ 3 处 warning(不阻塞),0 处 blocking」RC=0;门 26 RC=0(点名的仍是别席 scratch,但档位只告警)。**上一轮"常年红会堵 safe-commit"这一断言在当下不成立** ⇒ 按 §12e **不削判据、不改射程、不收窄覆盖面**,只更正读数;若日后复红,出路仍是原登记的二选一(确认 `gate-audit-1104` 无主后按 §15 清理 / 对 vendored 压缩件不判并带反证用例) | 本行即更正留痕 |
-| **推送未落地** | 主席(下一轮) | 本地与 `origin/main` 分叉,`git-sync-converge.mjs`(含 `--take-theirs-doc`)拒推进:自证把本侧继承的 README 派生数字行与已退役归档注释算成「被吞」;远端 5 分钟内推进三次 | 按 §16b 收敛一轮:fetch → converge → `gen-doc-numbers --markdown` 重生成派生件 → 再 push |
+| ~~**推送未落地**~~ | **第四回合结清**(合并枚 `9a9d4e733f4` + 二轮 `c3dc90805bb`,`git-push-converge` 现读 `origin=ALREADY(远端=本地)`) | 上一轮"converge 拒推进"的根因**不是判据坏了,是没走它自己给的具名出口**:本侧对 AGENTS.md / README.md 相对基底**零改动**(现读 `git diff --numstat <merge-base> HEAD -- <file>` 空),那 20 行是**继承行**而非本侧改动,远端 `1a55955234 docs(agents): 压缩 AGENTS.md 至 95,722 字节` 是有意清偿 ⇒ 正解 = `--take-theirs-doc AGENTS.md --take-theirs-doc README.md` 声明式透传(该出口的立因注释里就点过"对侧删 AGENTS.md 两行"同型)。**未削判据、未 ALLOW_STALE** | 残余两条见下 |
+| 收敛后的两个非阻断残项 | 下一轮主席 | 现读读数:① `[plan-line-loss]` 工作区有 **1 组同号多候选(共 2 行)** ⇒ 拒自动回插,具名出路 `node scripts/plan-tasks-merge.mjs --heal --match-prefix-holder "<持有行原文片段>" --commit`(自动档对 F4/F4b/F10 刻意只报数);② `heal-worktree-tracked.mjs --align-drift` 在收敛器预算内被截断(rc=143),不影响收敛结论 | 本行即留痕 |
 
 ## 5. Trae 面复取(第三靶,同批 T1 席)与三条环境事实
 
