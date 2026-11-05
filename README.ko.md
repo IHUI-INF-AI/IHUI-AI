@@ -2221,6 +2221,13 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-05**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (e0c80612cd)
+- 🚀 기능/개선:把二进制取证取词器升成仓内正式器物,文档那条取证出路从此可复跑 (17ca348a12)
+- 📚 문서:补齐 goal-b47 席 U T12-mtree-native-and-hook-host.md 的 §1-3/§4/§5 三格(Z21 席) (814ed6b944)
+- 📚 문서:第八回合 §12 补齐三枚入账(六格合车 / Z8+Z11b 增量索引 / Z10 升档两道) (df8a0fffaf)
+- 🐞 수정:五语言 qrFallback 文案对齐已入库的自写编码器 (9f37feef64)
+
+**2026-11-05**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (3f789f9388)
 - 🚀 기능/개선:六格合车——插件贡献面接线 / 自写二维码 / 网络命令登记 / 回收站跨盘与冻结容错 / 增量索引装车 / 两道守门升 blocking(goal-b49 Z1+Z6+Z9+Z7+Z8+Z11b+Z10 席产物,主席复量落地) (c8bd00a636)
 - 🐞 수정:tool-delta-three-faces 的 api-client 假件补上 getModelContextCapacity(清 gate-test (3) 红) (c7e5c56c5b)
@@ -2643,43 +2650,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🐞 수정:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (b135c1b1df)
 - 🐞 수정:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (12d92ce084)
 - 🐞 수정:收口 143 道受影响门揭出的三处真红(48 补 windowsHide / 156 圆角角色五处落档 / 161 盲写改按键比较出口形态) (15e9baf8ea)
-
-**2026-11-03**
-- 🔧 기타:285 judged 自检改临时夹具 —— 不再钉死真仓行号 (d472bb39bc)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (af3c51866d)
-- 📚 문서:285/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (3ca2913348)
-- 🚀 기능/개선:门285 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (aaac585bd5)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a810aefb23)
-- 🐞 수정:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (d255a623ba)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a076d3bb7a)
-- 🔧 기타:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (5c1de64915)
-- 🐞 수정:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (9b5b3233f5)
-- 🔧 기타:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (3d8e89c074)
-- 🐞 수정:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (3834b737e4)
-- 🐞 수정:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (67e082814f)
-- 🔧 기타:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (1df5542521)
-- 🐞 수정:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (6480532d13)
-- 🐞 수정:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (7772e22277)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (c1b9d5ac1f)
-- 🐞 수정:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (fcc34bccf8)
-- 🐞 수정:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (9816826db5)
-- 🐞 수정:ModelList 两端补齐选择/加载/动效/样式契约 (20e1c01630)
-- 🐞 수정:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (e87ea6fa69)
-- 🐞 수정:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (6e2dd73d77)
-- 🔧 기타:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门285 258 键不变 (d695719bb0)
-- 📚 문서:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (40e31c3b92)
-- 🔧 기타:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (8b2af27a78)
-- 🐞 수정:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (0f46e9a019)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (43a0ab0c05)
-- 🚀 기능/개선:词包搬运器补键级射程(整块之外的单键缺口此前无人判) (03d72eac3c)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4096426428)
-- 🔧 기타:收编守护落档产出(5 件,凭落点账本) (a3cd0e3375)
-- 🐞 수정:门285 将 ScreenStates 判为 not-applicable —— 文件级四组件族容器,非单组件对 (71a4f299c2)
-- 🚀 기능/개선:小程序词包整块缺口首次有器物并挂上自动链 (3c19ced5cd)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (57c6228ab4)
-- 🔧 기타:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8548571866)
-- 🐞 수정:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门285 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
-- 🐞 수정:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门285 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
