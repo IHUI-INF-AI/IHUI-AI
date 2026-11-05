@@ -15,6 +15,12 @@
       "minutesPerDay": 720,
       "tokensPerSession": 4000000,
       "tokensPerDay": 12000000
+    },
+    "session-blocked": {
+      "$comment": "2026-11-05 立:发起腿断裂/通路故障这类**不计票连败**的班次改记本桶,不再吃 session 的生产额度(实测近 24h 24 次里 21 次是这种失败,把生产额度吃光 ⇒ 环自我饿死)。本桶自己有闸:越限同样停转并喊人,不是自由票。上调本桶上限同属人工阀 budget-cap-change。",
+      "perHour": 6,
+      "perDay": 12,
+      "minutesPerDay": 90
     }
   }
 }
