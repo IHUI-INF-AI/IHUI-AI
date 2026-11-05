@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 306 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19198 | `trackedFiles` |
+| 跟踪文件 | 19199 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -866,7 +866,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **客服支持**:工单系统 / WebSocket 在线客服 / 反馈中心
 ### ⚙️ 工程基建(一个人驾驭百万行代码的底气)
 - **规模**:622 张表 · 4699 API 路由 · 4098 测试文件 · ~14839 测试用例
-- **质量**:333 道工程守门（244 blocking）· 53 CI workflows · 删水印即 CI 失败
+- **质量**:336 道工程守门（306 blocking）· 53 CI workflows · 删水印即 CI 失败
 - **可观测**:Prometheus + 大屏 + Loki + Jaeger + OpenTelemetry + Alertmanager
 - **部署**:Docker Compose 15 服务一键起全栈 · 蓝绿发布 · 自动备份 · 健康检查
 - **国际化**:5 语言 × 7 端 = 35 个语言包,parity 守门逐键对齐
