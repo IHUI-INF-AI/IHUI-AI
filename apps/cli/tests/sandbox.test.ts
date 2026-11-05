@@ -329,7 +329,7 @@ describe('execSandboxed 端到端(真实执行)', () => {
     expect(result.refused).toBe(false);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('sandbox_e2e_ok');
-  }, 60_000);
+  });
 
   it('策略拒绝的命令不执行(refused=true,exitCode=null)', async () => {
     const result = await execSandboxed(basePolicy(), 'rm -rf /');
@@ -338,7 +338,7 @@ describe('execSandboxed 端到端(真实执行)', () => {
     expect(result.stderr).toContain('dangerous_command');
   });
 
-  it('超时强杀:timedOut=true 且 exitCode=124', { timeout: 25_000 }, async () => {
+  it('超时强杀:timedOut=true 且 exitCode=124', { timeout: 30_000 }, async () => {
     if (process.platform !== 'win32') return;
     const result = await execSandboxed(
       basePolicy({ timeoutMs: 2000 }),
@@ -346,6 +346,6 @@ describe('execSandboxed 端到端(真实执行)', () => {
     );
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBe(124);
-  }, 30_000);
+  });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
