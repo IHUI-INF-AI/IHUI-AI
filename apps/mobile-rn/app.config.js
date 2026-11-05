@@ -170,6 +170,10 @@ module.exports = ({ config }) => {
       // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
       // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
       './plugins/withApkInstaller.cjs',
+      // 免点击安装(2026-11-05 立):系统安装器的确认键没有 API 可绕过(除 Device Owner/root/ADB),
+      // 唯一合法自动化手段是 AccessibilityService —— 由用户一次性在系统设置启用,之后代点确认。
+      // 服务只认安装器包名 + 界面出现本应用名,装别的 App 一律不碰(见插件头注的安全边界)。
+      './plugins/withAutoInstaller.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

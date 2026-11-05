@@ -30,6 +30,7 @@ import {
   useOtaUpdate,
 } from '../lib/ota-update'
 import { checkApkUpdate, shouldAutoRecheckApk, useApkUpdate } from '../lib/apk-update'
+import { tryAutoApplyApk } from '../lib/auto-install'
 import { ApkUpdatePromptView, isApkPromptVisible } from './ApkUpdatePrompt'
 import { Tappable } from '@ihui/ui-native'
 
@@ -47,8 +48,11 @@ export function UpdatePrompt(): React.JSX.Element | null {
   React.useEffect(() => {
     const timer = setTimeout(() => {
       void checkOtaUpdate()
-      // 整包在这里只**检查**,下载必须由用户在卡片上点(APK ~90MB,静默下载=偷跑流量)
-      void checkApkUpdate()
+      // 整包:查到就自动开始下载并拉起安装器(2026-11-05「完全自动」)。
+      // 下载体积较大,节流与"OTA 已就绪则不整包"的判断在 lib/auto-install.ts 统一收口。
+      void checkApkUpdate().then(() => {
+        void tryAutoApplyApk()
+      })
     }, CHECK_DELAY_MS)
     return () => clearTimeout(timer)
   }, [])
@@ -60,7 +64,11 @@ export function UpdatePrompt(): React.JSX.Element | null {
       if (next !== 'active') return
       // 两条通道各自判"该不该补查":OTA 看 ready/下载中,APK 看是否已有可点卡片
       if (shouldAutoRecheck(RECHECK_MIN_INTERVAL_MS)) void checkOtaUpdate()
-      if (shouldAutoRecheckApk(RECHECK_MIN_INTERVAL_MS)) void checkApkUpdate()
+      if (shouldAutoRecheckApk(RECHECK_MIN_INTERVAL_MS)) {
+        void checkApkUpdate().then(() => {
+          void tryAutoApplyApk()
+        })
+      }
     })
     return () => sub.remove()
   }, [])
