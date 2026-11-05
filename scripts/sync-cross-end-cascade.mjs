@@ -55,11 +55,11 @@ const ROOT = join(HERE, '..')
  * preview = **缺省档真跑的零写 argv**(2026-11-05 逐枚取证登记:写腿全部锁在该器物的 apply/write/land
  *   分支内,读路只有不带 -w 的 hash-object 与只读 git);pendingRc = 该器物"本轮有待落内容"时退的那
  *   几个码(与"器物坏了"分开桶,否则预演会被读成级联判红)。
- * noPreview = 结构上拿不出零写档的段(登记原因,缺省档**点名跳过**不冒充已判):
+ * noPreview = 结构上拿不出零写档的段(登记原因,缺省档**点名跳过**不冒充已判)。现读只剩一枚:
  *   derive-tokens —— heal-derived-in-checkout.mjs:1311 `apply = !argv.includes('--dry-run')`,
  *     连 --dry-run 也会 `git worktree add` 建检出并写 state json;
- *   miniapp-pages —— land-cross-end-shell-pages.mjs 的 buildWithDrops(:565)跑在档位闸(:577)之前,
- *     --json 缺省仍写 .ihui-agent/tmp 并以 `git hash-object -w` 落共享对象库。
+ *   (miniapp-pages 曾同此一格 —— 档位闸跑在物化腿之前,--json 也写 tmp 与共享对象库;
+ *    2026-11-05 该器物把走查抽成单源 walkSeams、预演改走纯常量槽位后已翻正为 preview。)
  */
 const STAGES = [
   {
@@ -233,10 +233,14 @@ const STAGES = [
     script: 'land-cross-end-shell-pages.mjs',
     base: ['--json'],
     apply: ['--apply'],
-    // 缺省档点名跳过(不冒充已预演):buildWithDrops(:565)跑在档位闸(:577)之前,--json 仍会
-    // mkdirSync/writeFileSync 写 .ihui-agent/tmp(:191/:193)并以 `git hash-object -w`(:84)
-    // 落共享对象库 ⇒ 结构上没有零写档。守护另有派发点(sweepCrossEndShellPages 30 分钟)。
-    noPreview: '缺省 --json 仍写 tmp 目录并把对象写进共享 .git/objects(hash-object -w)⇒ 无零写档',
+    // 2026-11-05 由 noPreview 翻正:档位闸已上移到物化腿之前,四条接缝走查抽成单源 walkSeams ——
+    // 预演走 previewSeams(纯常量槽位,既不取 oid 也不产正文),落地腿的 hash-object -w / 水印注入 /
+    // manifest / object-space-land 一字未动。零写是**行为证**的:preload 替身下预演 写记录=0 读git=271,
+    // 同臂阳性对照 --self-test 写记录=60(探针有牙)。blocked(=1)是"本轮不落地",归 pending 不归 failed。
+    preview: ['--json'],
+    pendingRc: [1],
+    // S11 要的行为证明所在(该器物落地腿仍需要 hash-object -w ⇒ 零写身份由证明文件给,不靠我读码):
+    previewProof: 'tests/land-cross-end-shell-pages-preview.test.mjs',
     write: true,
     timeoutMs: 20 * 60 * 1000,
   },
@@ -597,10 +601,20 @@ async function selfTestRun() {
   const { test: nodeTest } = await import('node:test')
   const assert = (await import('node:assert/strict')).default
   // 例数现读(§0.1):旧版把"10 例"写成字面量,加例后那行就成了假读数。
+  // 失败数也必须现读:node:test 的 reporter 在我这行**之后**才落地 process.exitCode,
+  // 只读 exitCode 会当场打出"全绿"而实际红一例(2026-11-05 本票自己就这么漏判过一次)。
   let cases = 0
+  let failedCases = 0
   const test = (name, fn) => {
     cases += 1
-    return nodeTest(name, fn)
+    return nodeTest(name, async (t) => {
+      try {
+        await fn(t)
+      } catch (e) {
+        failedCases += 1
+        throw e
+      }
+    })
   }
   const W = (over = {}) => ({ name: 'w', kind: 'land', write: true, ...over })
   const V = (over = {}) => ({ name: 'v', kind: 'verify', write: false, redOnFail: true, ...over })
@@ -749,15 +763,26 @@ async function selfTestRun() {
         )
         assert.ok(!s.pendingRc.includes(0), `${s.name}:0 是"判过且没活",不是"有待落"`)
       }
-      // 行为面锁(源码读得到才算证过):预演档绝不允许器物往**共享对象库**写字节。
-      // 本仓多会话共用同一个 gitdir,`git hash-object -w` 写进去的 loose 对象既不进 HEAD
-      // 也不进任何清单 —— 一轮预演漏一次,就是天天给所有人添垃圾对象(2026-11-05 实测抓到
-      // land-cross-end-shell-pages 正是这一形态,故它登记 noPreview 而不是 preview)。
+      // 行为面锁:器物源码里若存在"往共享对象库写字节"的腿(`git hash-object -w`),那这一段的
+      // 零写身份**不能只靠我读码保证**,必须指名一份行为级证明,且那份证明自带成对阳性对照
+      // —— 哑探针报"写记录=0"什么也证明不了(§0.7 豁免必须验过才免 / 阳性对照要钉出处)。
       const src = readFileSync(join(HERE, s.script), 'utf8')
-      assert.ok(
-        !/'hash-object'[^\]\n]{0,40}'-w'|'-w'[^\]\n]{0,24}'--stdin'/.test(src),
-        `${s.name}(${s.script}):器物含 hash-object -w 形态 ⇒ 缺省档会写共享对象库,不得登记 preview`,
-      )
+      if (/'hash-object'[^\]\n]{0,40}'-w'|'-w'[^\]\n]{0,24}'--stdin'/.test(src)) {
+        assert.ok(
+          typeof s.previewProof === 'string' && s.previewProof.length > 0,
+          `${s.name}:器物含 hash-object -w 形态 ⇒ 登记 preview 必须指名行为级零写证明(previewProof),不接受口头保证`,
+        )
+        const proofAbs = join(HERE, s.previewProof)
+        assert.ok(existsSync(proofAbs), `${s.name}:previewProof 不在位(${s.previewProof})`)
+        const proof = readFileSync(proofAbs, 'utf8')
+        assert.match(proof, /写记录=0/, `${s.previewProof} 必须真断言"零条写记录"`)
+        assert.match(proof, /阳性对照/, `${s.previewProof} 必须带成对阳性对照,否则"零写"可以是哑探针`)
+        assert.match(
+          proof,
+          /hash-object/,
+          `${s.previewProof} 的阳性对照必须专门盯 hash-object -w 这一形态`,
+        )
+      }
     }
   })
   await test('S12 预演面=写盘面:写档里的范围旗必须逐字同现于 preview(--apply/--limit 例外)', () => {
@@ -782,9 +807,13 @@ async function selfTestRun() {
         )
     }
   })
-  // 判红时仍须出结论(node:test 的失败只置 process.exitCode,打印行本身不会翻红 ⇒ 旧版无条件打"全绿")
-  const failed = process.exitCode && process.exitCode !== 0
-  console.log(`${failed ? '❌' : '✅'} self-test ${cases} 例${failed ? '有失败(见上方末行 exitCode)' : '全绿'}`)
+  // 判红时仍须出结论,且结论必须由自己数的失败给出(node:test 的汇总行在我这行之后才打)
+  const failed = failedCases > 0 || (process.exitCode && process.exitCode !== 0)
+  console.log(
+    `${failed ? '❌' : '✅'} self-test ${cases} 例,失败 ${failedCases} 例${
+      failed ? ' ⇒ 本档判红,不得读成"全绿"' : ''
+    }`,
+  )
 }
 
 async function main() {

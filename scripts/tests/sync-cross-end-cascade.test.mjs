@@ -62,11 +62,18 @@ test('A3 写盘闸门:缺省档只放行零写预演段,无零写档的点名跳
     assert.equal(C.stageDisposition(s, applied), null, `${s.name} --apply 档必须放行`)
   }
   // 覆盖面自证:预演必须真有其段 —— 否则本例全绿而链条退回"整段跳过"的旧形态(2026-11-05 之前的病)
-  assert.ok(previewed >= 12, `缺省档真预演的写段只有 ${previewed} 枚 ⇒ 一键链又变回"只校验不预演"`)
+  assert.ok(previewed >= 13, `缺省档真预演的写段只有 ${previewed} 枚 ⇒ 一键链又变回"只校验不预演"`)
+  // 无零写档的段必须**逐段具名**:新增一段"悄悄预演不了"要在这里登记,不许靠计数蒙过。
+  // (miniapp-pages 那枚 2026-11-05 已补出结构零写档并翻正为 preview —— 摘出本清单。)
+  assert.deepEqual(
+    C.STAGES.filter((s) => s.write && !s.preview).map((s) => s.name),
+    ['derive-tokens'],
+    '无零写档的段集合与登记不符 ⇒ 要么有人新加了一段没交代,要么某段已能做零写档却没翻正',
+  )
   assert.equal(
-    skippedNoPreview,
-    2,
-    `无零写档的段现读 ${skippedNoPreview} 枚(应为 derive-tokens / miniapp-pages 两枚)`,
+    previewed + skippedNoPreview,
+    C.STAGES.filter((s) => s.write).length,
+    '每一枚写盘段都要在"真预演 / 具名跳过"两桶里各归其一 ⇒ 有段两样都没登记就是静默漏维',
   )
   const sk = C.parseArgs(['--apply', '--skip=land-rn'])
   assert.equal(
