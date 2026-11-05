@@ -42671,3 +42671,4 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | 边界条件缺失     | 4123 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **4123 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 4123 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 跟踪文件 | 19243 | `trackedFiles` |
