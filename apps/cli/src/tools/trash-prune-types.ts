@@ -2,75 +2,50 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// © 2026 IHUI AI · 一次性校验脚本:用真实 ICU 编译器(intl-messageformat)编译
-// packages/i18n/messages/web 下全部语言包的每个字符串,报告任何无法编译的文案。
-// 用法: node scripts/validate-icu.mjs
-import { readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+/**
+ * 回收站到期清理 —— 结论对象与入参(goal-b49 W7 未竟 1)。
+ * 单列一档只为守住「每文件 < 250 行」;判据一律不在这里,见 `./trash-prune.js`。
+ */
 
-const here = dirname(fileURLToPath(import.meta.url))
-const root = join(here, '..')
-// intl-messageformat 在 pnpm store 中,用绝对路径 require
-const IMF = await import(
-  pathToFileURL(
-    join(
-      root,
-      'node_modules/.pnpm/intl-messageformat@11.2.13/node_modules/intl-messageformat/index.js',
-    ),
-  ).href
-).then((m) => m.default ?? m)
+import type { ExpiryRunGate, ExpiryRunLedger, TrashExpiryPlan } from '@ihui/shared/delete-guard';
+import type { TrashPruneRemoval, TrashPruneSkip } from './trash-prune-io.js';
 
-const MESSAGES_ROOT = join(root, 'packages/i18n/messages/web')
-const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
+/** 结论三态(gate = 闸门怎么说,state = 这一轮到底发生了什么;两者不是一回事) */
+export type TrashPruneState = 'clean' | 'pruned' | 'undetermined';
+/** 闸门态 + 空账档(空账连闸门都不进 ⇒ 零写零噪声) */
+export type TrashPruneGate = ExpiryRunGate | 'empty';
 
-let totalChecked = 0
-let totalErrors = 0
-const errorsByLocale = {}
-
-function walk(obj, prefix, locale) {
-  for (const [k, v] of Object.entries(obj)) {
-    const path = prefix ? `${prefix}.${k}` : k
-    if (v && typeof v === 'object') {
-      walk(v, path, locale)
-    } else if (typeof v === 'string') {
-      totalChecked++
-      try {
-        // 用真实 ICU 编译器验证;空串合法(babel 插件在构建期可能注入),跳过纯空白
-        new IMF(v, locale)
-      } catch (e) {
-        totalErrors++
-        if (!errorsByLocale[locale]) errorsByLocale[locale] = []
-        errorsByLocale[locale].push({ path, msg: v, err: String(e.message || e) })
-      }
-    }
-  }
+export interface TrashPruneResult {
+  readonly state: TrashPruneState;
+  readonly gate: TrashPruneGate;
+  readonly reason: string;
+  readonly scanned: { readonly manifests: number; readonly entries: number };
+  readonly removed: readonly TrashPruneRemoval[];
+  /** 删除腿真失败(ACL 拒 / fs 抛错 / 清单改不回去)——与"判不出"分开记 */
+  readonly failed: readonly TrashPruneSkip[];
+  /** 未删原因(判不出 / 超上限 / 清单坏);空账时恒为空数组 */
+  readonly skipped: readonly TrashPruneSkip[];
+  readonly reclaimedBytes: number;
+  /** 判据层"超上限只报数"的读数(不是本层算的) */
+  readonly overBudget: { readonly entries: number; readonly bytes: number };
+  /** 判据层原样透出(要逐桶读数读它,别读 summary) */
+  readonly plan: TrashExpiryPlan | null;
+  /** 写回的账目;未写(空账 / 闸门未放行)⇒ null */
+  readonly ledger: ExpiryRunLedger | null;
+  /** 判据层生成的结论行原文(不重算) */
+  readonly lines: readonly string[];
+  /** 守护日志用单行 ASCII(不含绝对路径原文) */
+  readonly summary: string;
 }
 
-for (const locale of LOCALES) {
-  const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
-  let parsed
-  try {
-    parsed = JSON.parse(raw)
-  } catch (e) {
-    console.error(`[FATAL] ${locale}.json JSON 解析失败: ${e}`)
-    process.exit(2)
-  }
-  walk(parsed, '', locale)
-}
-
-console.log(`校验完成:共检查 ${totalChecked} 条文案`)
-if (totalErrors === 0) {
-  console.log('✅ 全部语言包 ICU 编译通过,无 MALFORMED_ARGUMENT 风险')
-} else {
-  console.log(`❌ 发现 ${totalErrors} 条无法编译的文案:`)
-  for (const [locale, list] of Object.entries(errorsByLocale)) {
-    console.log(`\n— ${locale} (${list.length} 条) —`)
-    for (const item of list.slice(0, 40)) {
-      console.log(`  ${item.path} = ${JSON.stringify(item.msg)}`)
-      console.log(`    -> ${item.err.split('\n')[0]}`)
-    }
-  }
-  process.exit(1)
+export interface TrashPruneOptions {
+  /** 注入时钟(缺省取系统时刻);解析不出 ⇒ 闸门与判据均判未判定 */
+  readonly nowIso?: string;
+  readonly retentionMs?: number;
+  readonly maxEntries?: number;
+  readonly maxBytes?: number;
+  readonly minIntervalMs?: number;
+  readonly quarantineMs?: number;
+  readonly maxStrikes?: number;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
