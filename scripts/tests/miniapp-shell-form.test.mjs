@@ -133,4 +133,29 @@ test('T7 台账行形状锁:必含 route/file/loc/mapStatus/reasonClass', () => 
   const src = readFileSync(join(SCRIPTS, 'check-miniapp-shell-form.mjs'), 'utf8')
   assert.ok(src.includes('GATE_ID: 299'), '门号头注缺失')
 })
+
+// T8 本批薄壳页形态锁(2026-11-05,pkg-user/user/profile):入口被认 + 页内渲染段归零。
+// 阴性对照两枚,防止判据恒真:①摘掉入口行后同一把尺子必须不再认;②复制页材质必须被"渲染标签"判据命中。
+const PROFILE_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/user/profile.tsx')
+const PROFILE_SPEC = ['packages/app/src/features/profile/ProfileScreen.tsx']
+const RENDER_TAG_RE = /<(View|Text|Image|ScrollView)\b/
+
+test('T8 profile 薄壳页:共享入口被认 + 页内无渲染型 JSX(wrapper 除外)', () => {
+  const page = readFileSync(PROFILE_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, PROFILE_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(/^import[^\n]*@ihui\/rn-app\/features\/profile\/ProfileScreen[^\n]*\n/m, ''),
+      PROFILE_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(
+    "import { View } from '@tarojs/components'\nexport default () => <View className='pf-section' />",
+    RENDER_TAG_RE,
+    '阴性对照:复制页材质必须被同一判据命中',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
