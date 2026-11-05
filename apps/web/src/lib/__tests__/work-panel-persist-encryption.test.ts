@@ -43,10 +43,7 @@ const tauriFiles = vi.hoisted(() => new Map<string, Map<string, unknown>>())
 const storeMode = vi.hoisted(() => ({ broken: false }))
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: async (
-    command: string,
-    args: { file: string; key: string; value?: string | null },
-  ) => {
+  invoke: async (command: string, args: { file: string; key: string; value?: string | null }) => {
     if (storeMode.broken) throw new Error('IPC denied: origin not in capability list')
     let entries = tauriFiles.get(args.file)
     if (!entries) {
