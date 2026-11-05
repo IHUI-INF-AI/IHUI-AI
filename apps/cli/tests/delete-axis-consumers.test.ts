@@ -134,7 +134,9 @@ function installGuardManifest(body: string): void {
   fs.writeFileSync(path.join(repo, 'scripts', 'data', 'immutable-guard.json'), body, 'utf-8');
   clearGuardRulesCache(repo);
 }
-const GUARD_OK_BODY = JSON.stringify({ entries: [{ path: 'scripts/lib/', kind: 'lib', why: '夹具守护面' }] });
+// 守护面族落在**隔离区之内**(`.worktrees/guarded/**`)—— 见 ③a/③b 说明:容器性断言排在 ACL 之前,
+// 只有目标解析后仍在 `.worktrees/` 之下才走得到 ACL,故演示 advisory/strict 两档必须用容器内载体。
+const GUARD_OK_BODY = JSON.stringify({ entries: [{ path: '.worktrees/guarded/', kind: 'lib', why: '夹具守护面' }] });
 
 describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
   it('① 正例:合法隔离区照常回收,动作真发生,且不冒出 file-acl 声音', () => {
@@ -142,7 +144,10 @@ describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
     expect(new WorktreeManager(repo).remove('agent-ok', { force: true })).toBe(true);
     expect(fs.existsSync(wtPath)).toBe(false);
     expect(gitOk(['worktree', 'list'], repo)).not.toContain('agent-ok');
-    expect(stderrText()).not.toContain('[file-acl');
+    // S7 之后"完全没有 file-acl 声音"不再成立:夹具工作区没有守护面清单 ⇒ unjudged 必须出声
+    // (一次,§0.3);这里锁的是"不该判的没被判"—— 无 deny/ask/advisory 判定声。
+    expect(stderrText()).not.toMatch(/\[file-acl (advisory|ask|deny)\]/);
+    expect(stderrText()).toContain('[file-acl unjudged]');
   });
 
   it('② 反例:目录名命中凭据族 ⇒ 拒,且拒绝早于任何删除动作(桩计数 + 注册表双重取证)', () => {
@@ -170,14 +175,17 @@ describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
   });
 
   it('③a 默认档 = advisory(守护面族):出声放行,删除照做(正向对照,证明探针真接上了)', () => {
+    // 载体必须是**容器内**的(`guarded/deep` 解析后仍在 `.worktrees/` 之下):容器性断言排在 ACL 之前,
+    // 旧逃逸载体 `../scripts/lib/deep` 会被容器性先拒、根本走不到守护面族的 advisory 判定。
     installGuardManifest(GUARD_OK_BODY);
-    fs.mkdirSync(path.join(repo, 'scripts', 'lib', 'deep'), { recursive: true });
+    const target = path.join(repo, '.worktrees', 'guarded', 'deep');
+    fs.mkdirSync(target, { recursive: true });
     expect(loadGuardFaceRules(repo).state).toBe('ok');
 
-    expect(() => new WorktreeManager(repo).remove('../scripts/lib/deep', { force: true })).not.toThrow();
+    expect(() => new WorktreeManager(repo).remove('guarded/deep', { force: true })).not.toThrow();
     expect(stderrText()).toContain('[file-acl advisory]');
-    expect(stderrText()).toContain('delete scripts/lib/deep');
-    expect(fs.existsSync(path.join(repo, 'scripts', 'lib', 'deep'))).toBe(false);
+    expect(stderrText()).toContain('delete .worktrees/guarded/deep');
+    expect(fs.existsSync(target)).toBe(false);
     expect(probe.renameSyncCalls).toBeGreaterThan(0);
     expect(probe.rmSyncCalls).toBe(0);
   });
@@ -185,12 +193,13 @@ describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
   it('③b 严档(IHUI_FILE_ACL_STRICT=1):同一条守护面族升为拦,动作一点没发生', () => {
     installGuardManifest(GUARD_OK_BODY);
     process.env.IHUI_FILE_ACL_STRICT = '1';
-    fs.mkdirSync(path.join(repo, 'scripts', 'lib', 'deep'), { recursive: true });
+    const target = path.join(repo, '.worktrees', 'guarded', 'deep');
+    fs.mkdirSync(target, { recursive: true });
 
-    expect(() => new WorktreeManager(repo).remove('../scripts/lib/deep', { force: true })).toThrow(
-      /scripts\/lib\/\*\*/,
+    expect(() => new WorktreeManager(repo).remove('guarded/deep', { force: true })).toThrow(
+      /\.worktrees\/guarded\/\*\*/,
     );
-    expect(fs.existsSync(path.join(repo, 'scripts', 'lib', 'deep'))).toBe(true);
+    expect(fs.existsSync(target)).toBe(true);
     expect(probe.rmSyncCalls).toBe(0);
     expect(probe.renameSyncCalls).toBe(0);
   });

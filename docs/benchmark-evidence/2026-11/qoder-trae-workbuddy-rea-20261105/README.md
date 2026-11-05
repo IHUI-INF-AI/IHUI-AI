@@ -64,7 +64,7 @@
 | 子进程网络出口(DNS / 域名裁决那一半引擎) | **已落地** `923546ffec8e145a90c551f8c9c035eca9bc42f4`(B6) | TCP 代理腿需常驻载体(盲写未接线抽象按 §0.9 不落地)、真 DNS 解析适配器、裸域名取词、desktop 同源腿 = 未竟 |
 | 文件 ACL 的 delete 轴消费点 | **已落地** `14e02e57f52337bef3a932d2b23571a84d3c6e1f` | 同一枚还修了两处:①裁决层此前挂在 `folder_trust` 缺省的提前 return 之后 ⇒ 结构性无人问(装了等于没装);②规则表 16 族漏 delete 维(读不到却能删),并加"每条 read deny 必须同管 delete"的穷尽性判据 |
 | Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
-| delete 轴**残余**消费点(`git.ts` / `worktree.ts` 的 rm 点从未过裁决) | S5 席(第五回合在跑) | 上一轮这行与上面「已落地」那行**同名不同格**,现拆开。主席 2026-11-05 逐文件现读(读数 = 该文件内 rm/unlink 点数 / `evaluateFileAccess` 引用数):`git.ts` **2/0**、`worktree.ts` **5/0**、`file-batch-edit.ts` 5/2(已接,作对照样板)。残余=逐点定性(用户可控目标 vs 内部 scratch vs 结构性清理)后接线,不许一把梭全接 | `.ihui-agent/tmp/rea-goal-b49/S5-impl.md` |
+| delete 轴**残余**消费点(`git.ts` / `worktree.ts` 的 rm 点从未过裁决) | **已落地** `e99903d61ea`(S7 席产物,主席复量后落地) | 主席逐文件现读(读数 = 该文件内 rm/unlink 点数 / `evaluateFileAccess` 引用数):`git.ts` **2/0**、`worktree.ts` **5/0**、`file-batch-edit.ts` 5/2(对照样板)。S7 逐点定性后接 2 腿(`subagents/worktree.ts` 的 `removeWorktree` + `createWorktreeWithFallback`,目标名来自模型入参 `resumeFrom`,`..` 可折出隔离区)、判**不接** 2 腿各有测试钉住(撤 marker 那一腿加闸反而更不安全;对账腿目录名来自 `readdirSync`,`..` 结构上不可能出现)。未竟两格:① `tools/worktree.ts` 的 `cleanupWorktree`(W-2)前置 = 先改出"可传拒"返回形态并同步 `background-registry.ts:247`(现无论成败都把 `worktreePath` 置 undefined ⇒ 拒绝会被写成静默);② `toAclPath` 越界形态仍走绝对路径回落,正解 = 在两个 worktree 删除出口加"解析后必须仍在 `<worktree 根>` 之下"的容器性断言(与 ACL 不同职,属新增判据维) |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
 | drizzle journal ↔ sql 双向对账尺 | **已落地** `e38aad1c2c`(含两面分判改造) | 尺 warn-only 挂守护巡检轮,不进提交链;真 drift 那枚提交再同批接到人通道才谈可整改性 | B2-impl.md |
 | Trae 面增量 | 未开 | 本批四席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
@@ -118,7 +118,61 @@
 
 **四道 blocking 复跑红的归因**:六枚每次落地后复跑都点名 门 26 / 29 / 30c / 41,它们量的是机器状态(仓库父目录 scratch、悬空 commit、别席 miniapp/rn 的滞后副本、超 48h 滞留分支),点名的路径**不在本回合任何一枚的 diff 里** ⇒ 与提交内容无关。按 §12e **不削判据、不为消红改覆盖面**;六枚一律走旁路落地通道(§12 明列它不跑钩子、落地后自动复跑受影响门并把结果打进 stdout)。
 
-## 8. 复验命令
+## 8. 第五回合(2026-11-05 11:30–13:00)收口与**一道把合并卡死的新闸**
+
+### 8a. 本回合落地
+
+| 件 | 提交(全 40 位) | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| delete 轴接线 + `unjudged` 一路出声(S7 席产物;席 10:59 写完状态件即静默死亡,未 commit) | e99903d61ea | `npx vitest run tests/acl-followup-b49 tests/delete-axis-consumers tests/file-access-policy tests/sandbox` = 4 files / **79 passed**;`tsc -p apps/cli` 触及 5 枚 src 文件 0 错(余 7 条全在 `commands/skill-package.ts` = 别席暂存删除 `skills/packaging/index.ts` 的环境态);`watermark verify` 8/8 完好 |
+| 活文档对账落盘(HEAD 面 ∪ 工作树副本) | be91ef2c18 | `merge-live-doc --apply` 现读:段=7 插入行=13 无锚点=0;行数 33635→33648;归并后 **lost=0**;≥60 字符长行重复 工作树 4157 / HEAD 4157 / 归并后 4157(新增 0) |
+| 漂开同题族折叠 | 0172c44e04 | `plan-tasks-merge --fold-drifted-families --commit` 现读:折 3 族 / 4 行,保留 L33618/L33629/L33632,**被删行逐字留痕 4 条 → `.ihui-agent/state/plan-row-drop.jsonl`**;F1/F2/F3/F4 = 0/0/0/0 |
+
+### 8b. 机器状态门(按 §12e 只处置状态本身,不削判据)
+
+- **门 41 单分支**:远端旁支 `ci-knip-1103` 已删。删前三重取证:① 该分支唯一涉及路径 `scripts/tests/knip-taro-alias-parity.test.mjs` 与 main **逐字相同**(`git diff` 空);② 备份 tag `lost-commit/ci-knip-1103-91f5b9b` 已**本地+远端双留**(`git ls-remote --tags` 现读命中);③ tip `91f5b9bafe` 非 main 祖先 ⇒ 结论靠内容等值而非祖先关系。复跑现读:`✅ 单分支检查通过` RC=0(3 枚 gitee 退役跟踪引用/在飞分支/dependabot 分支均归"不判但报数")。
+- **门 30a 悬空 commit**:`backup-unreachable-commits.mjs` 现读 `to backup: 35 / tags created: 35`;复跑 `✅ 无 commit 丢失风险`(3 枚同内容副本放行)。
+- **门 26 父目录污染 / 门 30c 陈旧副本**:门 26 点名的是仓库父目录 `../tmp/patch{1,2,3}.mjs`(别席遗留);门 30c 点名 `scripts/publish-mobile-apk.mjs` 等**索引面**陈旧 blob(别席在飞)。**两者点名的路径都不在本回合任何一枚的 diff 里** ⇒ 与提交内容无关,按 §12e 不代裁决、不为消红改覆盖面。
+
+### 8c. 卡住合并的那道新闸(下一票的正题,今天才发现)
+
+推送这一格按 §20 还没结清:本地领先、远端领先(现读 `HEAD...origin/main` 分叉,数字每次现量)。走 `git-sync-converge` / `union-converge --apply` 时,两道**同日生效**的机制结论相反:
+
+1. `union-converge` 的活文档行级 union 有 `declaredDropCaps` 那一维(import `scrub-declared-removals.declaredRows`):对侧带回的行若**逐字命中本机摘除台账 ∧ 本侧 0 份 ∧ 是登记行 ⇒ 刻意不回捞**(AGENTS §1「摘了又回来」②,治门 71 回捞)。
+2. **今日新加的「内容级防丢闸」**(门体自述 2026-11-05 独立一笔,"治整份取对侧")要求活文档**两侧逐字行都必须在产物面** ⇒ 上面那 15 行被 ① 扣掉的,②当场判红。
+
+现读形态(三种组合都试过,逐条点名):整份取对侧 ⇒ `本侧缺失行 3`(RP-5 + Y-58/Y-70 旧形态);行级 union + `--fold-keep` + `--resolve`/`--declare-side-loss`(4 枚派生语言包保留本侧字节 + 具名少带声明已生效)⇒ 折叠销账 8 行/9 份通过,**只剩 `对侧缺失行 15`**。`--supersede` 结构上补不了这格:它要求"去向行真在产物面",而这 15 行是**已结清摘除**、无去向行。
+
+出路(下一票按序做,任一单点都不算修好):① 防丢闸的活文档维必须**认本机摘除台账的具名声明**(与 `declaredDropCaps` 同一把尺,§0.6),把"合法少带"从"少带内容"里分出来 —— 属判据面改动,提交带 `immutable-exempt`;② 同批改完要用这 15 行的真实形态做成镜像用例(正反对照:回捞件仍判红、台账已声明的摘除不判红);③ 远端被本机摘除台账判为回捞件的那批行,由 `head-recall` 兜底清扫在合并落地后就地摘除(枚 `e32753b929` 已装),不得靠人在合并里手选边。在此之前**不得**用 `--take-theirs-doc` 或手改台账把这道分歧抹平 —— 那是拿活文档内容换绿灯。
+
+### 8d. 本回合派出的三张残余票(执行席不落盘不提交,由主席复量落地)
+
+- **W1** ai-service 四维配额装车:现读 `check_mcp_tool_count|consume_mcp_tokens|check_custom_prompt|check_history_query` 在 `app/**` 的命中**只有 `capability_matrix.py` 三处台账 reason 字符串** ⇒ 除台账文案外零真实消费点。
+- **W2** 插件贡献审计装车 + 拆 `loader.ts`(现读 **533 行**):`loadPluginsWithContributionAudit` 在 `plugins/index.ts` **0** 处、`src/` 其余目录 **0** 处 ⇒ 出口既没从包口出去也没有生产调用方。
+- **W3** 快照 GC 点名上账 + 拆 `checkpoints/index.ts`(现读 **397 行**):`getLastGcNotes()` 定义于 `:309`,另一处命中只是 `:326` 注释 ⇒ 零消费方,"判不出⇒不删"的原因无人可见。
+
+## 10. 第六回合(2026-11-05 14:30–16:10)五席产出收口 + 推送结清
+
+| 能力 | 提交(全 40 位起) | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| Trae 式四维工具配额**接到消费点**(MCP 注册数 / MCP 令牌 / 自定义提示 / 历史查询) | 405239526e8(W1) | `pnpm check:pytest -- tests/test_quota_wiring_b49.py` = passed 20 / failed 0 / `verdict=GREEN`;触及面既有测试合跑 = passed 58 / `verdict=GREEN`;`check-ruff-python --worktree` = All checks passed(ruff==0.16.6,.py 1686);`check-mypy --worktree` = **1 error**,位置 `app/services/workbuddy_tasks.py:948` 不在本枚 10 个路径内 ⇒ 别席在飞现场,按 §12e 不代修、不削判据,如实登记 |
+| 快照存储层按 fs 适配拆档 + GC「判不出⇒不删」的原因**上账** | d71a551036(W3) | `index.ts` 397→249 且体内零 `node:fs`,fs 落 `snapshot-store-host.ts` 247;快照族 6 files / **45 passed**;新只读尺 `--self-test` 9/9 + 镜像 18/18 + 直跑 `判定 clear RC=0`;tsc 0 错。阈值按本机真实读数(45 枚 / 8,516B / 最老 0.27 天)复核后**不收紧**,数值未动 |
+| Qoder 激活事件档位 + 对侧 33 条权限名入库并接 dataClass **默认拒** | 97d676acd8(W6) | 定向 4 files / **42 passed**;tsc 0 错;席报 `pnpm capabilities:check` 63/63 一致(未由本席复算,记为席报)。**取证结论**:对侧"15 种 activationEvent"实为 15 个字符串、去重仅 3 族;`onChatMention` 一族我方无宿主承载面 ⇒ 按观察如实不补(补了就是门 121 的无消费者声明),不是缺功能 |
+| 技能目录缓存接上 `/skills` 真消费点 | d51703a8b3(W4 写 + W8 复核) | `npx vitest run tests/skills-catalog-wiring.test.ts` = **6 passed**;tsc 0 错(上一批登记的 `ERR_MODULE_NOT_FOUND` 环境红本轮不复现,不据此宣称别席已修)。未竟:`commands/index.ts` 的 `skills list` 仍直调 `loadSkills` |
+| worktree 删除出口的**容器性断言**(与 ACL 分职)+ W-2 连账面副作用一起改对 | 78926473f1(W5 判据 + W9 接线) | 定向 4 files / **47 passed**;tsc 0 错。命拒 = 出声 + 一个字节不删 + `task.worktreePath` 保留(原 `background-registry:247` 无论成败都清账面 ⇒ 拒绝被洗成静默)。**过程教训**:W5 死于中断时把 JSDoc 写坏 —— 注释里嵌 glob 的「星号斜杠」形态会**提前闭合块注释**,当场把全仓 tsc 打成 TS1443/TS1003;主席修措辞后 W9 接完,注释内不得再出现该形态 |
+| 删除保护链的**到期清理**判据 + 清理器自身的死亡机制 | c96284038a(W7) | `packages/shared` 定向 2 files / **30 passed**;tsc 0 错;门 126 `check-shared-nonde-node-purity --worktree` 候选 346 / 含内建文件 1(**不可达 1**)绿。本机 `.ihui/delete-trash` 现读 0 枚 ⇒ 本轮不产生任何真实删除;`expiry.ts` 259 行略超 250(`check-file-size` 全量档只 warn),随 adapter 那票一并拆 |
+
+**§8c 那道卡死合并的分歧已结清**:内容级防丢闸的活文档维现认三本账(逐字族 `declaredDropCaps` / 改写形态族 / 本侧处置权族),判据单源在 `scripts/lib/union-converge-judgments.mjs`,防丢闸只举证不复算(§0.6)。逐字族的成对用例(8 例:正例销账并报名、台账没这行照旧红、产物面还留着不扣、非登记行形不扣、未喂台账与初版逐字一致、本侧对称、`dropCreditOf` 单元、形状锁「销账只改判不判红、不改少了哪些行」)由本席补在 `scripts/tests/content-loss-gate-declared-removal.test.mjs`;改写形态族与本侧处置权族已由并发三枚提交(d971ace310 / c78497e238 / edc453d125)接进 `content-loss-gate-fold-ledger.test.mjs`,两本账分文件不混写。
+**推送现读**:`git-sync-converge` 第 1 轮 `origin=PUSHED`,`git rev-parse HEAD` 与远端逐字同值 ⇒ §20 的字面判据成立(本回合落地前是 12/131 分叉)。
+
+**本回合剩下的格(逐条给归属与解锁条件,不写"已完成")**
+- 回收站到期清理的**调度腿**:端内 adapter `pruneExpiredTrash` 七步 + guardian `sweepTrashExpiry()` 24h 双挂点(刻意不挂 `guardian-runner`,判机器状态 ⇒ §12e);仅 retired 才寄信(§5e-1)。解锁:主席或下一席改 `scripts/git-guardian.mjs`(高扇出,需 `immutable-exempt`)。
+- 权限/命令 registry 汇总口(对侧 catalog 面)零生产调用方:席报 4 个,本席定向 grep **未能判定**(计数含定义行与注释,口径不同)⇒ 下一票先把尺子口径钉清再定性,不许照抄席报。
+- `commands/index.ts` 的 `skills list` 仍直调 `loadSkills`(W8 射程外)。
+- `expiry.ts` 259 行超档随 adapter 票一并拆。
+- §4 既存的其余格(TCP 代理腿需常驻载体、Trae 面增量、守护面 advisory 升 blocking 的存量归零前置)本回合未动,归属与解锁条件见 §4 原行。
+
+## 11. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md

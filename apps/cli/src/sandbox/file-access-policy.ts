@@ -19,9 +19,22 @@
  *     而不是静默降级 —— 对方钩子坏了是 `catch {}`。
  *  4. 不制造恒红门(§12e):守护面默认 **advisory**(出声不阻断),
  *     只有凭据族的 deny 是 enforce;升 blocking 的前置是既有工作流改造完,不是今天。
+ *
+ * 规则表**不含** `.worktrees/**` 一族(goal-b49 S7 裁决,反证钉在
+ * `apps/cli/tests/acl-followup-b49.test.ts` R3 两例):
+ *  ① 威胁型打不中 —— 危险从来不是"删自己那格隔离区",而是 `agentId` 带 `..` 把删除目标
+ *     **折出** `.worktrees/`;折出去之后路径已不落在 `.worktrees/**` 之下,这条规则对它零作用;
+ *  ② 加了会挡死合法腿 —— `IHUI_FILE_ACL_STRICT=1` 那档会把每一次隔离区回收(§12d 建/删/prune、
+ *     worker-pool 收尾、守护对账)一起升成拦,正是 §12e 禁止的恒红门;
+ *  ③ 真正管这一型的层已有:命中即止的裁决排在 `existsSync`/`git`/`rm` 之前
+ *     (`tools/worktree.ts` 的 `WorktreeManager.remove` 与 `subagents/worktree.ts` 的
+ *     `removeWorktree`),外加未合并/未提交/unknown 三档安全判据。
+ *  ④ 上面 ① 的"折出"型由 `judgeWorktreeContainment`(goal-b49 W5)按几何事实兜住:ACL 的
+ *     绝对 / 越界回落对 `.env` / `id_rsa` 这类根层单列族打不中 `../..`,容器性断言只看
+ *     "解析后仍在隔离区根之下",补上 ACL 的结构盲区(与 ACL 分职,不替代也不放宽)。
  */
 import { readFileSync } from 'node:fs';
-import { join, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { globMatches, normalizeWorkspacePath } from './glob-pattern.js';
 
 export type FileAccessOp = 'read' | 'write' | 'delete';
@@ -237,10 +250,15 @@ export function loadGuardFaceRules(
   return outcome;
 }
 
-/** 清缓存(测试与"清单刚被改过"的场景用)。不传参 ⇒ 全清。 */
+/** 清缓存(测试与"清单刚被改过"的场景用)。不传参 ⇒ 全清。出声账同批复位,不留第二把尺。 */
 export function clearGuardRulesCache(workspacePath?: string): void {
-  if (workspacePath === undefined) guardRulesCache.clear();
-  else guardRulesCache.delete(resolve(workspacePath));
+  if (workspacePath === undefined) {
+    guardRulesCache.clear();
+    announcedGuardStates.clear();
+    return;
+  }
+  guardRulesCache.delete(resolve(workspacePath));
+  clearGuardUnjudgedAnnouncements(workspacePath);
 }
 
 function computeGuardFaceRules(
@@ -365,8 +383,73 @@ export function isStrictMode(env: Record<string, string | undefined> = process.e
 }
 
 /**
+ * 守护面不可判时的**出声**出口(goal-b49 S7,判据层单源 —— 消费点不许自己拼这句话)。
+ *
+ * 为什么需要它:`loadGuardFaceRules` 早就有三态,清单坏掉时报 `unjudged`;但那份判定
+ * 折在 `buildFileAccessRules` 里,消费点只拿到"规则表短了一族"这个既成事实 ⇒
+ * 于是"守护面族为空"这件事对人是不可见的(§0.9 静默 = 没判)。
+ * 本出口只做一件事:**同一(工作区 × 原因)只报一次**,并且既不改判据结论、也不放宽任何一档
+ * —— 失效方向恒为"多要一次定向说明",绝不是"多放一次跳门"(§0.10):
+ * 凭据族照旧 enforce 拦(不记绿),合法操作照旧放行(不记红,§12e 不做恒红门)。
+ */
+const announcedGuardStates = new Set<string>();
+
+/** 组一条 unjudged 提示;`guard.state==='ok'` 时返回 null(不该出声的不该出声)。 */
+export function buildGuardUnjudgedNotice(
+  workspacePath: string,
+  guard: GuardManifestOutcome,
+  site: string,
+): string | null {
+  if (guard.state !== 'unjudged') return null;
+  const manifest = join(resolve(workspacePath), GUARD_MANIFEST_REL_PATH);
+  return (
+    `[file-acl unjudged] ${site}:守护面清单不可判 ⇒ 本轮只有凭据族在判,守护面族为空。` +
+    `原因:${guard.reason}。这既不是"判过并通过"也不是"判红"(§0.3)。` +
+    `下一步:确认 ${manifest} 可读且 entries 形状合判据,再重跑本操作。`
+  );
+}
+
+/**
+ * 消费点用的出声动作:同一(工作区 × 原因)首次返回 true 并落 stderr,之后返回 false。
+ * stderr 不可用不影响判定结论(与既有 advisory 出声同形)。
+ */
+export function announceGuardUnjudged(
+  workspacePath: string,
+  guard: GuardManifestOutcome,
+  site: string,
+): boolean {
+  if (guard.state !== 'unjudged') return false;
+  const notice = buildGuardUnjudgedNotice(workspacePath, guard, site);
+  if (notice === null) return false;
+  const key = `${resolve(workspacePath)}|${guard.reason}`;
+  if (announcedGuardStates.has(key)) return false;
+  announcedGuardStates.add(key);
+  try {
+    process.stderr.write(`${notice}\n`);
+  } catch {
+    // 报名通道不可用不改判据结论
+  }
+  return true;
+}
+
+/** 清出声账(与 `clearGuardRulesCache` 同一复位出口;测试与"清单刚被修好"的场景用)。 */
+export function clearGuardUnjudgedAnnouncements(workspacePath?: string): void {
+  if (workspacePath === undefined) {
+    announcedGuardStates.clear();
+    return;
+  }
+  const prefix = `${resolve(workspacePath)}|`;
+  for (const key of [...announcedGuardStates]) {
+    if (key.startsWith(prefix)) announcedGuardStates.delete(key);
+  }
+}
+
+/**
  * 消费点用的总闸:把"裁决 + 严档开关"折成单一出口。
  * `blocked=false` 也可能带 note —— advisory 命中必须出声,静默等于没判(§0.9)。
+ *
+ * `guard` 把守护面清单的三态一并透出(goal-b49 S7):消费点因此能区分
+ * "这一族判过且放行" 与 "这一族根本没判成"(`announceGuardUnjudged` 是唯一出声出口)。
  */
 export function evaluateFileAccess(
   op: FileAccessOp,
@@ -374,22 +457,24 @@ export function evaluateFileAccess(
   workspacePath: string,
   env: Record<string, string | undefined> = process.env,
   read: ManifestReader = defaultManifestReader,
-): { blocked: boolean; verdict: FileAccessVerdict; note: string | null } {
-  const { rules } = buildFileAccessRules(workspacePath, read);
+): { blocked: boolean; verdict: FileAccessVerdict; note: string | null; guard: GuardManifestOutcome } {
+  const { rules, guard } = buildFileAccessRules(workspacePath, read);
   const verdict = decideFileAccess(op, filePath, rules);
-  if (verdict.decision === 'allow') return { blocked: false, verdict, note: null };
+  if (verdict.decision === 'allow') return { blocked: false, verdict, note: null, guard };
   const enforceThis = verdict.enforcement === 'enforce' || isStrictMode(env);
   if (!enforceThis) {
     return {
       blocked: false,
       verdict,
       note: `[file-acl advisory] ${op} ${verdict.path} 命中 ${verdict.rule?.pattern}(${verdict.rule?.source})⇒ 放行但出声:${verdict.nextStep}`,
+      guard,
     };
   }
   return {
     blocked: true,
     verdict,
     note: `[file-acl ${verdict.decision}] ${op} ${verdict.path} 命中 ${verdict.rule?.pattern}:${verdict.rule?.why} 下一步:${verdict.nextStep}`,
+    guard,
   };
 }
 
@@ -420,5 +505,64 @@ export function toAclPath(workspacePath: string, filePath: string): string {
   const rel = relative(resolve(workspacePath), resolve(filePath));
   if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') return normalizeWorkspacePath(filePath);
   return normalizeWorkspacePath(rel);
+}
+
+/**
+ * worktree 删除出口的**容器性断言**(goal-b49 W5,判据层单源 §0.6)。
+ *
+ * 与 ACL **分职**:ACL 判"这个路径准不准删"(凭据族 / 守护面族,靠 `toAclPath` 折成工作区相对
+ * 形态后走尾段 glob);本判据判"删除目标解析后有没有越出**自家隔离区根**"。二者互补,谁也不
+ * 替代谁、谁也不放宽谁。
+ *
+ * 为什么必须有它(立因):`toAclPath` 的绝对 / 越界形态走的是**绝对路径回落**(见上),
+ * 逃逸出工作区的目标只能靠**尾段 glob**(secrets 目录族、npmrc 族,形态见规则表而非本注)拦住,
+ * `.env` / `id_rsa` 这类**根层单列族**对 `../..` 折叠出来的形态天然打不中 —— ACL 在「越界」这一型上有结构盲区。
+ * 容器性断言不看内容族,只看"解析后仍在隔离区根之下"这一几何事实,正好补那一格。
+ *
+ * 失效方向(§0.10):命拒 = 越界 ⇒ 调用方须"出声 + 不删",绝不抛穿被上层 catch 洗成静默。
+ * 判定是纯函数,不碰 fs。
+ *
+ * 两臂取其一即判容器内(超越轴:既认"权威根下"(WorktreeManager 有确定的 `rootDir`),
+ * 又认"隔离区叶子直子"(subagents.removeWorktree 拿到的 `sourcePath` 可能被内部收尾腿传歪,
+ * 如 worker-pool 以 `parentId` 当 sourcePath ⇒ 严格比根会误杀合法回收)):
+ *  ① `strictlyUnder`:`resolve(target)` 落在 `resolve(worktreeRoot)` 之下(非 `..`、非绝对回落、非根本身);
+ *  ② `structuralChild`:`resolve(target)` 的父目录叶子名 == 隔离区根叶子名(如 `.worktrees`),
+ *     且目标自身是单段普通名(无分隔符、非 `.`/`..`)。`..` 向上折出隔离区时父目录叶子名即失配,
+ *     而内部收尾腿即便 sourcePath 传歪,真实目标 `<repo>/.worktrees/<id>` 的父叶子仍是 `.worktrees` ⇒ 不误杀。
+ */
+export type WorktreeContainmentVerdict =
+  | { readonly contained: true; readonly target: string }
+  | { readonly contained: false; readonly target: string; readonly reason: string; readonly nextStep: string };
+
+export function judgeWorktreeContainment(worktreeRoot: string, targetPath: string): WorktreeContainmentVerdict {
+  const target = resolve(targetPath);
+  const root = resolve(worktreeRoot);
+  const isWin = sep === '\\';
+  const leafEq = (a: string, b: string): boolean => (isWin ? a.toLowerCase() === b.toLowerCase() : a === b);
+
+  const rel = relative(root, target);
+  const strictlyUnder =
+    rel.length > 0 && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+
+  const targetLeaf = basename(target);
+  const parentLeaf = basename(dirname(target));
+  const isolationLeaf = basename(root);
+  const structuralChild =
+    targetLeaf.length > 0 &&
+    targetLeaf !== '.' &&
+    targetLeaf !== '..' &&
+    !targetLeaf.includes('/') &&
+    !targetLeaf.includes('\\') &&
+    leafEq(parentLeaf, isolationLeaf);
+
+  if (strictlyUnder || structuralChild) return { contained: true, target };
+  return {
+    contained: false,
+    target,
+    reason: `解析后越出隔离区根:目标 ${target} 不在 ${root} 之下`,
+    nextStep:
+      '本出口只回收隔离区根之下的直接子目录;若确需删除该路径,请给一次定向说明(为什么删它、恢复源在哪),' +
+      '并确认它不属任何 worktree 隔离区。',
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

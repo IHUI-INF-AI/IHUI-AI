@@ -2,86 +2,41 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import type { TrashExpiryUnit } from './types'
+
 /**
- * Fix agent-screen.test.tsx Animated mock and clean i18n dead keys
+ * 到期清理的取数与保留期解析(goal-b49 X3,2026-11-05:从 `expiry.ts` 原样搬行,判据一条未改)。
+ *
+ * 为什么单独成页:`expiry.ts` 已到 259 行(AGENTS §3「每页 <250 行」),而"条目档 > 清单档 > 策略档"
+ * 的三档解析与数值宽容取数是可独立成页的一类职责(取数 ≠ 判据)。搬行后语义逐字不变:
+ * 可清/该留/判不出/超上限的判据、结论聚合与 `unitsFromManifest` 仍住 `expiry.ts`。
+ *
+ * 公共面不变:本文件**不进** `delete-guard/index.ts` 的 `export *` 桶,两处导出只为同目录
+ * `expiry.ts` 复用 —— 导出集形状由 `tests/delete-guard-expiry-shape.test.ts` 钉住。
  */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// ---- Task 1: Fix agent-screen.test.tsx Animated mock ----
-const testFile = path.join(__dirname, '../apps/mobile-rn/tests/agent-screen.test.tsx');
-let testContent = fs.readFileSync(testFile, 'utf8');
-
-const animatedBlock = `    Platform: { OS: 'web' as const },
-    Animated: {
-      View: mk('div'),
-      Text: mk('span'),
-      createAnimatedComponent: (c) => c,
-      timing: () => ({ start: () => {} }),
-      spring: () => ({ start: () => {} }),
-      Value: class { constructor(_v) {} setValue(_v) {} interpolate() { return { __getValue: () => 0 }; } }
-    },
-  }`;
-
-testContent = testContent.replace(
-  /Platform: \{ OS: 'web' as const \},\n  \}/,
-  animatedBlock
-);
-
-fs.writeFileSync(testFile, testContent, 'utf8');
-console.log('[OK] agent-screen.test.tsx: added Animated mock');
-
-// ---- Task 2: Clean i18n dead keys ----
-const LANG_FILES = ['zh-CN.json', 'zh-TW.json', 'en.json', 'ja.json', 'ko.json'];
-const MOBILE_RN_DIR = path.join(__dirname, '../packages/i18n/messages/mobile-rn');
-const MINIAPP_DIR = path.join(__dirname, '../packages/i18n/messages/miniapp-taro');
-
-for (const lang of LANG_FILES) {
-  const filePath = path.join(MOBILE_RN_DIR, lang);
-  const content = fs.readFileSync(filePath, 'utf8');
-  const obj = JSON.parse(content);
-  let changed = false;
-
-  // Remove entire devEnter section (7 dead keys)
-  if ('devEnter' in obj) {
-    delete obj.devEnter;
-    changed = true;
-  }
-
-  // Remove carte.loadFailed
-  if (obj.carte && 'loadFailed' in obj.carte) {
-    delete obj.carte.loadFailed;
-    changed = true;
-  }
-
-  // Remove recruitment.loadFailed
-  if (obj.recruitment && 'loadFailed' in obj.recruitment) {
-    delete obj.recruitment.loadFailed;
-    changed = true;
-  }
-
-  if (changed) {
-    fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
-    console.log(`[OK] ${lang}: removed devEnter + carte.loadFailed + recruitment.loadFailed`);
-  } else {
-    console.log(`[SKIP] ${lang}: no changes needed`);
-  }
+/** 字节数/TTL 等数值字段的宽容取数:非有限数 ⇒ null(不猜 0,不猜"没这个档") */
+export function asFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-// Clean miniapp-taro zh-CN.json - remove news.views
-const miniappFile = path.join(MINIAPP_DIR, 'zh-CN.json');
-const miniappContent = fs.readFileSync(miniappFile, 'utf8');
-const miniappObj = JSON.parse(miniappContent);
-if (miniappObj.news && 'views' in miniappObj.news) {
-  delete miniappObj.news.views;
-  fs.writeFileSync(miniappFile, JSON.stringify(miniappObj, null, 2) + '\n', 'utf8');
-  console.log('[OK] miniapp-taro/zh-CN.json: removed news.views');
-} else {
-  console.log('[SKIP] miniapp-taro/zh-CN.json: no news.views to remove');
+/** 保留期解析:条目档 > 清单档 > 策略档;任一档"存在但形态非法"⇒ 未判定(不跳过去拿下一档猜) */
+export function resolveRetention(
+  unit: TrashExpiryUnit,
+  policyMs: number,
+): { ms: number } | { bad: string } {
+  const entryRaw = unit.entry.retentionMs
+  if (entryRaw !== undefined) {
+    const ms = asFiniteNumber(entryRaw)
+    if (ms === null || ms < 0) return { bad: `条目 retentionMs 形态非法(${String(entryRaw)})` }
+    return { ms }
+  }
+  const manifestRaw = unit.manifestRetentionMs
+  if (manifestRaw !== undefined && manifestRaw !== null) {
+    const ms = asFiniteNumber(manifestRaw)
+    if (ms === null || ms < 0) return { bad: `清单 retentionMs 形态非法(${String(manifestRaw)})` }
+    return { ms }
+  }
+  return { ms: policyMs }
 }
-
-console.log('\nDone.');
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

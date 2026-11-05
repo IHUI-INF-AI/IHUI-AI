@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { runSandboxed, runSandboxedAsync } from '../sandbox/index.js';
 import type { SandboxResult } from '../sandbox/index.js';
 // 按操作分维的文件访问裁决(goal-b49 复现对侧能力):读正文之前先问这一层。
-import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { highlightCode } from '../highlight.js';
 import {
@@ -523,6 +523,8 @@ export const read_file: Tool = {
       toAclPath(ctx.workspacePath, filePath),
       ctx.workspacePath,
     );
+    // 守护面清单不可判 ⇒ 出声一次(不改结论、不放宽档):S7 把 unjudged 透到消费点
+    announceGuardUnjudged(ctx.workspacePath, aclRead.guard, 'read_file');
     if (aclRead.blocked) {
       return {
         success: false,

@@ -30,6 +30,14 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from ..services.tool_budget_governor import (
+    DIM_HISTORY_QUERY_LIMIT,
+    ToolBudgetExceededError,
+    ToolBudgetGovernor,
+)
+from ..services.tool_budget_governor import (
+    tool_budget_governor as _default_budget_gov,
+)
 from .context_compaction import (
     _split_pair_groups,
     estimate_messages_tokens,
@@ -42,6 +50,7 @@ __all__ = [
     "estimate_group_tokens",
     "truncate_retained_messages",
     "select_retained_history",
+    "check_history_window_quota",
 ]
 
 # 对标 codex RETAINED_MESSAGE_TOKEN_BUDGET
@@ -130,19 +139,50 @@ def _truncate_text_to_tokens(text: str, budget_tokens: int) -> str:
     return text[:chars]
 
 
+def check_history_window_quota(
+    requested_rows: int,
+    *,
+    governor: ToolBudgetGovernor | None = None,
+    tool_name: str = "history:retained_window",
+) -> None:
+    """历史查询窗口维(`history_query_limit`)的**具名拒绝**出口(2026-11-05 立,goal-b49 W1)。
+
+    判据/上限/文案全在 `tool_budget_governor.check_history_query`,本层只负责"把请求条数
+    交出去 + 把拒绝如实上呈",不复算阈值(§0.6 单一真相源)。
+
+    - 该维未配置(上限 0 ⇒ 默认)⇒ 直接返回:零判定开销、零计数写入(正向对照钉这一格,
+      免得装车把功能锁死,§12e 不得造恒拦门);
+    - 请求条数超窗口 ⇒ 抛 :class:`ToolBudgetExceededError`,原因自带维度名 + 实测条数 +
+      上限条数。**绝不**折成"只保留前 N 条":静默少给历史 = 模型以为自己看到了全部对话,
+      那是比报错更坏的失效方向(§0.10)。
+    """
+    gov = governor if governor is not None else _default_budget_gov
+    if gov.config.dim_limit(DIM_HISTORY_QUERY_LIMIT) <= 0:
+        return
+    result = gov.check_history_query(requested_rows, tool_name=tool_name)
+    if not result.allowed:
+        raise ToolBudgetExceededError(result.reason, result)
+
+
 def truncate_retained_messages(
     messages: list[dict[str, Any]],
     max_tokens: int = RETAINED_MESSAGE_TOKEN_BUDGET,
     *,
     image_budget: bool = False,
     max_agent_message_tokens: int = MAX_RETAINED_AGENT_MESSAGE_TOKENS,
+    budget_governor: ToolBudgetGovernor | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """压缩保留区:从最新组向旧组逐组纳入预算,整组不 fit 即淘汰该组及更旧。
 
     返回 ``(保留区消息(原顺序), stats)``;stats 含组统计/估算 token/截断计数。
     image_budget=False(默认,对标 RetainedImageBudget::Disabled):图片不计入
     保留判定。畸形输入(非 dict/缺 role)跳过不崩。
+
+    2026-11-05 接历史查询窗口维(`check_history_query`):入参条数 = 本次**请求**的历史窗口,
+    超过该维上限即具名拒绝(见 `check_history_window_quota`)。该维未配置 ⇒ 与本函数接线前
+    逐字同行为(token 预算内的逐组淘汰是本模块自己的既有职责,与配额维是两条轴,互不替代)。
     """
+    check_history_window_quota(len(messages), governor=budget_governor)
     groups = group_messages(messages)
     stats: dict[str, int] = {
         "groups_total": len(groups),
@@ -204,12 +244,16 @@ def select_retained_history(
     *,
     summary: dict[str, Any] | str | None = None,
     image_budget: bool = False,
+    budget_governor: ToolBudgetGovernor | None = None,
 ) -> list[dict[str, Any]]:
     """便捷入口:摘要消息 + 保留区。
 
     summary 为 dict 时取其 "text"/"summary" 键;str 直接用;None 则纯保留区。
+    历史查询窗口维同 `truncate_retained_messages`(超限同样具名拒绝,不静默少给行)。
     """
-    retained, _stats = truncate_retained_messages(messages, image_budget=image_budget)
+    retained, _stats = truncate_retained_messages(
+        messages, image_budget=image_budget, budget_governor=budget_governor
+    )
     if summary is None:
         return retained
     if isinstance(summary, dict):
