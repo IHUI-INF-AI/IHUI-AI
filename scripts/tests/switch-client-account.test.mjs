@@ -168,6 +168,34 @@ test('③ list/current 分流:Trae 系转 account 入口,其余平台 list 走�
   assert.equal(planCli(['--list', '--to', 'u-1', '--provider', 'trae']).code, 2)
 })
 
+test('③b --counts 走全池概览:参数互斥有牙,用法行不吞掉别档', () => {
+  const c = planCli(['--list', '--counts'])
+  assert.equal(c.ok, true)
+  assert.equal(c.target, 'pool-list')
+  assert.deepEqual(c.args, ['--counts'])
+
+  const cj = planCli(['--list', '--counts', '--json'])
+  assert.deepEqual(cj.args, ['--counts', '--json'])
+
+  // 概览档不需要 provider,故缺省 trae 的归一化不得掺进来
+  assert.ok(!c.args.includes('--provider'))
+
+  // 单给 --counts:被"缺动作"那档先拦也算有牙,只断它拒(拒法有两条,不必钉死哪条先)
+  assert.equal(planCli(['--counts']).ok, false)
+  // --current 配 --counts:必落到本档自己的互斥牙上,这条要精确
+  const wrongAction = planCli(['--current', '--counts'])
+  assert.equal(wrongAction.ok, false)
+  assert.match(wrongAction.error, /只与 --list 同用/)
+  const clash = planCli(['--list', '--counts', '--provider', 'qoder'])
+  assert.equal(clash.ok, false)
+  assert.match(clash.error, /互斥/)
+
+  // 我改这一行时把 --current 整行覆盖掉了 —— 用法面必须每档都在,否则人找不到出路
+  assert.match(S.USAGE, /--counts/)
+  assert.match(S.USAGE, /--current/)
+  assert.match(S.USAGE, /--list/)
+})
+
 test('④ 未知 provider / 缺 --to / 未知参数 ⇒ exit 2 并列出支持集', () => {
   const unknown = planCli(['--to', 'x', '--provider', 'nope'])
   assert.equal(unknown.ok, false)

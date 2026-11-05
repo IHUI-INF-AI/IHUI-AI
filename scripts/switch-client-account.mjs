@@ -78,6 +78,7 @@ const USAGE =
   '用法: node scripts/switch-client-account.mjs --list|--current [--provider <平台>] [--json]\n' +
   '      node scripts/switch-client-account.mjs --to <uid|名称> --provider <平台> [--dry-run] [--force] [--no-launch] [--product <名>] [--json]\n' +
   '  --list       列出号池里该平台的账号(Trae 系转 switch-trae-client-account.mjs;其余平台走只读列池 relay-pool-account-list;--list/--current 缺省 --provider trae)\n' +
+  '  --counts     与 --list 同用:列全池逐平台枚数概览(取数时刻一并回显;不与 --provider 同给)\n' +
   '  --current    本机登录号在该平台池里的状态\n' +
   '  --to         把池里的号写回本机客户端(Trae 系支持名称匹配;其它平台须精确 uid)\n' +
   `  --provider   平台名:${SUPPORTED_PLATFORMS.join(' | ')}\n` +
@@ -129,6 +130,7 @@ export function parseArgs(argv) {
     force: false,
     noLaunch: false,
     json: false,
+    counts: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -136,6 +138,8 @@ export function parseArgs(argv) {
       const action = a.slice(2)
       if (opts.action !== null && opts.action !== action) return fail('--list 与 --current 互斥')
       opts.action = action
+    } else if (a === '--counts') {
+      opts.counts = true
     } else if (a === '--to') {
       const r = readValue(argv, i, '--to')
       if (r.error) return fail(r.error)
@@ -169,6 +173,12 @@ export function parseArgs(argv) {
   if (opts.to !== null && opts.providerRaw === null) {
     return fail('--to 必须配 --provider(要写哪个平台的客户端不猜)')
   }
+  if (opts.counts && opts.action !== 'list') {
+    return fail('--counts 只与 --list 同用(--list 要的是逐平台枚数概览)')
+  }
+  if (opts.counts && opts.providerRaw !== null) {
+    return fail('--counts 与 --provider 互斥(要全池计数还是要单平台名单,不猜)')
+  }
   return { ok: true, opts }
 }
 
@@ -179,6 +189,15 @@ function unknownProvider(n) {
 
 /** --list / --current 分流:Trae 系转 account 入口;其它平台如实未判定 */
 function buildReadPlan(opts) {
+  // 全池概览与"某平台名单"是两档,前者不需要 provider(缺省 trae 的归一化在这里是噪声)
+  if (opts.counts) {
+    return {
+      ok: true,
+      action: 'list',
+      target: 'pool-list',
+      args: opts.json ? ['--counts', '--json'] : ['--counts'],
+    }
+  }
   const n = normalizeProvider(opts.providerRaw ?? 'trae')
   if (!n.ok) return unknownProvider(n)
   if (n.provider !== 'trae') {
@@ -331,5 +350,6 @@ export const __test__ = {
   SUPPORTED_PLATFORMS,
   TRAE_SOLO_PRODUCT,
   TARGETS,
+  USAGE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
