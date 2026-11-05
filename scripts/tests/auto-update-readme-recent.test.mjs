@@ -109,6 +109,11 @@ function buildScratchRepo(kind) {
   const dir = mkScratch('readme-anchor-guard')
   mkdirSync(join(dir, 'scripts/lib'), { recursive: true })
   copyFileSync(SRC, join(dir, 'scripts/auto-update-readme-recent.mjs'))
+  // 派生块边界/剥离判据是单源 lib(§0.6),夹具里也直接拷真件 —— 造第二份就等于测的不是生产判据。
+  copyFileSync(
+    join(REPO, 'scripts/lib/readme-derived-blocks.mjs'),
+    join(dir, 'scripts/lib/readme-derived-blocks.mjs'),
+  )
   writeFileSync(
     join(dir, 'scripts/lib/face-reader.mjs'),
     [

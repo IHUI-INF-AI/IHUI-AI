@@ -24,6 +24,12 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
+import {
+  RECENT_BEGIN as BEGIN,
+  RECENT_END as END,
+  assessAnchors,
+  stripDerivedBlocks,
+} from './lib/readme-derived-blocks.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -34,53 +40,15 @@ const READMES = [
   { file: 'README.ko.md', lang: 'ko' },
   { file: 'README.ja.md', lang: 'ja' },
 ]
-const BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
-const END = '<!-- END RECENT UPDATES -->'
+// 边界字面量单源 = lib/readme-derived-blocks.mjs(数字腿的块外判据用的是同一份)
 const BASELINE = path.join(ROOT, '.doc-autoupdate', 'last-sha')
 const MAX_GROUPS = 15
 
 /**
- * 锚点存续判据(纯函数,零 IO ⇒ 可被测试直接构造正反面)。
- *
- * 立它的理由(2026-10-23 实测的失效型):旧实现在 `indexOf(BEGIN)`/`indexOf(END)` 任一发 -1
- * 时 `continue` —— 既不写盘也**不出声**,而 `touched` 仍为 0,函数末尾于是打印
- * `✅ 最近更新无新增提交,跳过`。于是"本器在这份文档上结构上已经干不了活"这件事,
- * 在钩子日志、post-commit 留痕和退出码三处**全都记成绿**(AGENTS §0.3「没判绝不写成判过」)。
- * 而本仓当下正在发生的形态更糟:活文档归并器(`union-converge` 的行级 union、
- * `merge-live-doc` 的"无锚点⇒追加到文件末尾")把 HEAD 侧内容整段甩到 `END` **之后**,
- * 块内块外同时存在同族条目 ⇒ 锚点一旦成双或错位,`indexOf` 取到的那一对会把中间内容
- * 当成"块内"整段覆盖掉(静默吞别人的行)。
- *
- * 所以判据分四态,且**非 ok 一律不落盘、逐条点名、整体记未判定**:
- *   ok        恰一枚 BEGIN、恰一枚 END、BEGIN 在前
- *   missing   任一标记缺失
- *   ambiguous 任一标记出现 ≥2 枚(`indexOf` 的静默覆盖面)
- *   inverted  END 在 BEGIN 之前(区间不成立)
- * 失效方向恒为「多要一次定向说明」(AGENTS §0.10):宁可这轮不刷新最近更新,
- * 也绝不把"追加到文件尾"当成出路 —— 那正是尾部腐坏的来源。
- *
- * @param {string} text 文档全文
- * @param {string} begin BEGIN 标记
- * @param {string} end   END 标记
- * @returns {{state:'ok'|'missing'|'ambiguous'|'inverted', beginCount:number, endCount:number, reason:string}}
+ * 锚点存续判据单源 = scripts/lib/readme-derived-blocks.mjs(四态:ok/missing/ambiguous/inverted,
+ * 非 ok 一律不落盘、逐条点名)。此处只 re-export,镜像测试与自检直接用它。
  */
-export function assessAnchors(text, begin, end) {
-  const beginCount = text.split(begin).length - 1
-  const endCount = text.split(end).length - 1
-  const base = { beginCount, endCount }
-  if (beginCount === 0 || endCount === 0)
-    return { ...base, state: 'missing', reason: `标记缺失(BEGIN ${beginCount} 枚 / END ${endCount} 枚)` }
-  if (beginCount > 1 || endCount > 1)
-    return {
-      ...base,
-      state: 'ambiguous',
-      reason: `锚点成双(BEGIN ${beginCount} 枚 / END ${endCount} 枚)⇒ indexOf 只会取第一对,` +
-        '其余会被当成块内整段覆盖,拒绝落盘',
-    }
-  if (text.indexOf(end) < text.indexOf(begin))
-    return { ...base, state: 'inverted', reason: 'END 在 BEGIN 之前,标记区间不成立' }
-  return { ...base, state: 'ok', reason: '' }
-}
+export { assessAnchors } from './lib/readme-derived-blocks.mjs'
 
 /**
  * 本器产出形态的「块外散落」探测器(纯函数,只数不判)。
@@ -98,17 +66,87 @@ export function assessAnchors(text, begin, end) {
  * @param {string[]} emojis 类型 emoji 集
  * @returns {number} 块外命中枚数;标记区间不成立时返回 -1(未判定,不冒充 0)
  */
+export function entryLinePattern(labels, emojis) {
+  const labelAlt = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const emojiAlt = emojis.map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  // 逐行判 ⇒ 只需要 `m`,**绝不带 `g`**:`g` 的 `lastIndex` 会在 `filter(re.test)` 之间跨行残留,
+  // 于是相邻两条只数到一条(自检 B2 实测抓到,即此型)。
+  return new RegExp(`^[-*]?\\s*(?:${emojiAlt})\\s*(?:${labelAlt}):.*\\([0-9a-f]{7,40}\\)\\s*$`, 'm')
+}
+
 export function countEntriesOutsideBlock(text, begin, end, labels, emojis) {
   const bi = text.indexOf(begin)
   const ei = text.indexOf(end)
   if (bi === -1 || ei === -1 || ei < bi) return -1
   const outside = text.slice(0, bi) + '\n' + text.slice(ei + end.length)
-  const labelAlt = labels.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-  const emojiAlt = emojis.map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
-  // 逐行判 ⇒ 只需要 `m`,**绝不带 `g`**:`g` 的 `lastIndex` 会在 `filter(re.test)` 之间跨行残留,
-  // 于是相邻两条只数到一条(自检 B2 实测抓到,即此型)。
-  const re = new RegExp(`^[-*]?\\s*(?:${emojiAlt})\\s*(?:${labelAlt}):.*\\([0-9a-f]{7,40}\\)\\s*$`, 'm')
-  return outside.split('\n').filter((l) => re.test(l)).length
+  return outside.split('\n').filter((l) => entryLinePattern(labels, emojis).test(l)).length
+}
+
+/** 最近的标题前缀(给"点名"用,不让读者自己猜散落条目属于哪一节)。 */
+function nearestHeading(lines, lineNo) {
+  for (let j = lineNo - 2; j >= 0 && j > lineNo - 300; j--) {
+    if (/^#{1,6}\s+/.test(lines[j])) return lines[j].trim().slice(0, 100)
+  }
+  return '(无标题前缀)'
+}
+
+/**
+ * 块外散落条目的**定性**(纯函数):区分「历史残留」与「本轮新落进块外」。
+ *
+ * 判据口径(2026-11-06):
+ *   · 逐字出现在索引基线里 ⇒ `stock`(历史残留,不是本腿产物):点名(样例+前缀),不阻断;
+ *   · 索引里找不到 ⇒ `introduced`(归并器/人工在块外新落进同族行):fail-closed,调用方拒暂存;
+ *   · 取不到基线 ⇒ `unjudged`:fail-closed,绝不冒充"0 条"。
+ * 只有 `stock` 允许暂存,是因为它们与索引逐字相同 —— git add 不会把它们当成新增内容带进本票;
+ * 一旦它们变了(新增/改写),就落进 `introduced`,立刻拒绝。
+ *
+ * @returns {{
+ *   state:'ok'|'unjudged', reason:string, total:number,
+ *   stock:Array<{lineNo:number,text:string}>,
+ *   introduced:Array<{lineNo:number,text:string}>,
+ *   prefixes:Array<{prefix:string,count:number}>,
+ *   samples:Array<{lineNo:number,text:string,prefix:string}>,
+ * }}
+ */
+export function classifyOutsideStrays(text, baselineText, { begin = BEGIN, end = END, labels = ALL_LABELS, emojis = ALL_EMOJIS } = {}) {
+  const body = String(text ?? '')
+  const bi = body.indexOf(begin)
+  const ei = body.indexOf(end)
+  if (bi === -1 || ei === -1 || ei < bi)
+    return { state: 'unjudged', reason: 'RECENT 锚点区间不成立', total: -1, stock: [], introduced: [], prefixes: [], samples: [] }
+  const lines = body.split('\n')
+  const beginLine = body.slice(0, bi).split('\n').length
+  const endLine = body.slice(0, ei + end.length).split('\n').length
+  const re = entryLinePattern(labels, emojis)
+  const matched = []
+  for (let i = 0; i < lines.length; i++) {
+    const lineNo = i + 1
+    if (lineNo >= beginLine && lineNo <= endLine) continue // 块内归本器
+    if (re.test(lines[i])) matched.push({ lineNo, text: lines[i] })
+  }
+  const baseline = typeof baselineText === 'string' ? new Set(baselineText.split('\n')) : null
+  const stock = baseline === null ? [] : matched.filter((x) => baseline.has(x.text))
+  const introduced = baseline === null ? matched.slice() : matched.filter((x) => !baseline.has(x.text))
+  const byPrefix = new Map()
+  for (const x of matched) {
+    const prefix = nearestHeading(lines, x.lineNo)
+    const item = byPrefix.get(prefix) ?? { prefix, count: 0 }
+    item.count++
+    byPrefix.set(prefix, item)
+  }
+  const prefixes = [...byPrefix.values()].sort((a, b) => b.count - a.count).slice(0, 3)
+  const samples = (introduced.length > 0 ? introduced : stock)
+    .slice(0, 3)
+    .map((x) => ({ ...x, prefix: nearestHeading(lines, x.lineNo) }))
+  return {
+    state: baseline === null ? 'unjudged' : 'ok',
+    reason: baseline === null ? '取不到索引基线,无法区分历史残留/本轮新增' : '',
+    total: matched.length,
+    stock,
+    introduced,
+    prefixes,
+    samples,
+  }
 }
 
 const TYPE_EMOJI = { feat: '🚀', fix: '🐞', refactor: '♻️', perf: '⚡', docs: '📚', other: '🔧' }
@@ -207,12 +245,23 @@ function buildInner(newGroups, existingInner) {
   return capped.join('\n\n')
 }
 
-/** 取块外内容(标记之前 + 标记之后);用于判断除自动区外是否另有改动。 */
-function outsideBlock(text) {
-  const bi = text.indexOf(BEGIN)
-  const ei = text.indexOf(END)
-  if (bi === -1 || ei === -1) return text
-  return text.slice(0, bi) + '\n' + text.slice(ei + END.length)
+/**
+ * 「块外」= 全文挖掉**两个**派生块(数字块 + RECENT 块),边界与剥离判据单源
+ * = scripts/lib/readme-derived-blocks.mjs;结构不成立返回 null ⇒ 调用方 fail-closed。
+ *
+ * 为什么必须连数字腿的块一起挖(2026-11-06 实测两轮死锁):旧实现只挖自己的 RECENT 块,
+ * 数字腿刚写盘、尚未进索引的数字块于是被算成"块外人写 prose" ⇒ 本腿每轮 `SKIP_PROSE:README.md`;
+ * 反过来数字腿又把本腿的 RECENT 块算成块外 ⇒ 同样 SKIP。两腿产出恰好落在对方判据的块外,
+ * 互为暂存前提。只挖派生块不算放宽:块内是脚本独占写入区,真正的 prose 仍在块外,
+ * 仍须与索引逐字一致才放行。
+ */
+function outsideBlocks(text) {
+  const r = stripDerivedBlocks(text)
+  return r.ok ? r.text : null
+}
+
+function describeProblems(problems) {
+  return problems.map((x) => `${x.id}/${x.state}`).join(',')
 }
 
 function main() {
@@ -225,8 +274,10 @@ function main() {
   const skipped = []
   /** 锚点不成立 ⇒ 该文档本轮拒写,逐条留名(不静默、不冒充"无新增提交") */
   const refused = []
-  /** 块外散落条目登记(只点名) */
+  /** 块外散落条目登记(历史残留:只点名) */
   const strayOutside = []
+  /** 块外散落条目未通过定性 ⇒ 该文档拒暂存(fail-closed) */
+  const strayBlocked = []
 
   for (const { file, lang } of READMES) {
     const p = path.join(ROOT, file)
@@ -241,18 +292,37 @@ function main() {
     }
     const bi = wt.indexOf(BEGIN)
     const ei = wt.indexOf(END)
-    // 块外散落探测:只点名、不删(删除权在归并决策方,不在刷新器)
-    const stray = countEntriesOutsideBlock(wt, BEGIN, END, ALL_LABELS, ALL_EMOJIS)
-    if (stray < 0) {
-      console.error(`❌ 未判定 ${file}:块外条目探测取不到区间(与锚点判据同一条规矩,不冒充 0)`)
-      console.log(`UNJUDGED_STRAY:${file}`)
-    } else if (stray > 0) {
-      strayOutside.push({ file, n: stray })
+    // 块外散落探测:只点名、不删(删除权在归并决策方,不在刷新器)。
+    // 定性:索引基线里逐字有的 = 历史残留(stock,点名但放行);索引里没有的 = 本轮新落进块外
+    // (introduced,fail-closed 拒暂存)。取不到基线 ⇒ unjudged,同样拒暂存(不冒充"0 条")。
+    let idxText = null
+    try {
+      idxText = git(['show', `:${file}`])
+    } catch {
+      idxText = null
+    }
+    const strayVerdict = classifyOutsideStrays(wt, idxText, {
+      begin: BEGIN, end: END, labels: ALL_LABELS, emojis: ALL_EMOJIS,
+    })
+    if (strayVerdict.state !== 'ok' || strayVerdict.introduced.length > 0) {
+      strayBlocked.push({ file, n: strayVerdict.introduced.length, verdict: strayVerdict })
       console.error(
-        `⚠️ ${file}:本器产出形态的条目有 ${stray} 枚落在 RECENT UPDATES 标记**之外**` +
-          '(归并器"无锚点⇒追加文件尾"的指纹;块外那些永不会被 MAX_GROUPS 裁,也不会被本器重算)',
+        `❌ 拒暂存 ${file}:块外散落条目未通过定性 —— ${strayVerdict.reason || `索引里找不到这 ${strayVerdict.introduced.length} 枚(本轮新落进块外)`}`,
       )
-      console.log(`STRAY_OUTSIDE:${file}:${stray}`)
+      console.log(
+        `STRAY_UNJUDGED:${file}:${strayVerdict.introduced.length}:` +
+          strayVerdict.samples.map((s) => `L${s.lineNo}@${s.prefix}`).join('|'),
+      )
+    } else if (strayVerdict.stock.length > 0) {
+      strayOutside.push({ file, n: strayVerdict.stock.length, verdict: strayVerdict })
+      console.error(
+        `⚠️ ${file}:块外有 ${strayVerdict.stock.length} 枚历史残留条目(与索引逐字相同,非本腿产物;` +
+          '块外那些永不会被 MAX_GROUPS 裁,也不会被本器重算)',
+      )
+      console.log(
+        `STRAY_STOCK:${file}:${strayVerdict.stock.length}:` +
+          strayVerdict.prefixes.map((x) => `${x.prefix}=${x.count}`).join('|'),
+      )
     }
     const existingInner = wt.slice(bi + BEGIN.length, ei).replace(/^\n+|\n+$/g, '')
     const newGroups = groups.map(([date, entries]) => renderGroup(date, entries, lang))
@@ -264,14 +334,19 @@ function main() {
     const newText = head + '\n' + inner + '\n' + tail
     fs.writeFileSync(p, newText)
     touched++
-    // 安全闸:仅当"块外内容"相对索引版本无差异时,才 git add,避免吞并他人在飞 prose 改动。
-    let idxText = null
-    try {
-      idxText = git(['show', `:${file}`])
-    } catch {
-      idxText = null
+    // 安全闸:仅当"块外内容"(=全文挖掉两个派生块)相对索引版本逐字无差异时,才 git add,
+    // 避免吞并他人在飞 prose 改动;块结构不成立 ⇒ 不暂存(fail-closed,不猜边界)。
+    const wtOutside = outsideBlocks(wt)
+    const idxOutside = idxText === null ? null : outsideBlocks(idxText)
+    if (wtOutside === null || idxOutside === null) {
+      skipped.push(file)
+      const problems = [stripDerivedBlocks(wt), idxText === null ? null : stripDerivedBlocks(idxText)]
+        .filter((x) => x && !x.ok)
+        .flatMap((x) => x.problems)
+      console.log(`SKIP_STRUCTURE:${file}:${describeProblems(problems)}`)
+      continue
     }
-    const safe = idxText !== null && outsideBlock(wt) === outsideBlock(idxText)
+    const safe = wtOutside === idxOutside && strayVerdict.state === 'ok' && strayVerdict.introduced.length === 0
     if (safe) {
       git(['add', file])
       staged.push(file)
@@ -299,7 +374,7 @@ function main() {
     }
   }
 
-  if (touched === 0 && refused.length === 0) console.log('  ✅ 最近更新无新增提交,跳过')
+  if (touched === 0 && refused.length === 0 && strayBlocked.length === 0) console.log('  ✅ 最近更新无新增提交,跳过')
   if (refused.length > 0) {
     console.error(
       `❌ 未判定:${refused.length}/${REFUSE_SCOPE} 份被审 README 的 RECENT UPDATES 锚点不成立` +
@@ -312,11 +387,36 @@ function main() {
     }
     return 2
   }
+  if (strayBlocked.length > 0) {
+    console.error(
+      `❌ 未判定:${strayBlocked.length} 份 README 的块外散落条目定性失败(本轮新落进块外或取不到索引基线)` +
+        ' ⇒ 拒暂存,不做"0 条"的假绿(AGENTS §0.3/§0.10)',
+    )
+    for (const b of strayBlocked) {
+      console.error(
+        `   · ${b.file}:${b.verdict.reason || `索引里没有的块外同族条目 ${b.n} 枚`}` +
+          (b.verdict.samples.length > 0
+            ? ' 样例:' + b.verdict.samples.map((s) => `L${s.lineNo} ${s.text.trim().slice(0, 80)}`).join(' / ')
+            : '') +
+          (b.verdict.prefixes.length > 0
+            ? ' 前缀:' + b.verdict.prefixes.map((x) => `${x.prefix}(${x.count})`).join(' / ')
+            : ''),
+      )
+    }
+    if (strayOutside.length > 0) {
+      console.error(
+        `   · 另有历史残留条目(与索引逐字相同,已点名不阻断):${strayOutside
+          .map((s) => `${s.file} ${s.n} 枚`)
+          .join('、')}`,
+      )
+    }
+    return 2
+  }
   if (strayOutside.length > 0)
     console.error(
-      `⚠️ 块外散落条目共 ${strayOutside.reduce((a, s) => a + s.n, 0)} 枚(${strayOutside
+      `⚠️ 块外历史残留条目共 ${strayOutside.reduce((a, s) => a + s.n, 0)} 枚(${strayOutside
         .map((s) => `${s.file} ${s.n}`)
-        .join('、')})—— 本器不删,但也不再对它们保持沉默`,
+        .join('、')})—— 与索引逐字相同、不是本腿产物;本器不删,但也不再对它们保持沉默`,
     )
   return 0
 }
@@ -352,12 +452,42 @@ function selfTest() {
   ) === 2)
   ok('B3 取不到区间 ⇒ -1 未判定,不冒充 0', countEntriesOutsideBlock('没有标记的文档', BEGIN, END, ALL_LABELS, ALL_EMOJIS) === -1)
   ok('B4 散文行(无 emoji/无括号 sha)不被数进来', countEntriesOutsideBlock(`${good}\n- 一条普通说明,不带提交号\n`, BEGIN, END, ALL_LABELS, ALL_EMOJIS) === 0)
+  const strayDoc = `## 历史区\n${good}- 🐞 修复:块外一枚 (abcdef12345)\n`
+  ok(
+    'B5 块外条目在索引基线里 ⇒ 历史残留(stock=1/introduced=0,点名不阻断)',
+    (() => {
+      const v = classifyOutsideStrays(strayDoc, strayDoc)
+      return v.state === 'ok' && v.stock.length === 1 && v.introduced.length === 0 && v.total === 1
+    })(),
+  )
+  ok(
+    'B6 块外条目索引里找不到 ⇒ introduced=1(fail-closed 拒暂存的依据)',
+    (() => {
+      const v = classifyOutsideStrays(strayDoc, good)
+      return v.state === 'ok' && v.stock.length === 0 && v.introduced.length === 1
+    })(),
+  )
+  ok(
+    'B7 取不到基线 ⇒ unjudged(绝不冒充"0 条"),且样例/前缀仍被点名',
+    (() => {
+      const v = classifyOutsideStrays(strayDoc, null)
+      return v.state === 'unjudged' && v.introduced.length === 1 && v.samples.length === 1 && v.prefixes.length === 1
+    })(),
+  )
+  ok(
+    'B8 反例:块外人工 prose 改动不被当成散落(只认同族条目形态)',
+    (() => {
+      const v = classifyOutsideStrays(`${good}\n一句人工说明\n`, good)
+      return v.state === 'ok' && v.total === 0
+    })(),
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
 
 export const __test__ = {
   assessAnchors,
+  classifyOutsideStrays,
   countEntriesOutsideBlock,
   BEGIN,
   END,

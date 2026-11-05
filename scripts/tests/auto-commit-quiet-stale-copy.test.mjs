@@ -16,6 +16,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ } from '../auto-commit-quiet.mjs'
+// 边界字面量与剥离判据单源(§0.6):测试直接用生产 lib 的常量造派生块,不在这里抄第二份。
+import { NUMBERS_BEGIN, NUMBERS_END } from '../lib/readme-derived-blocks.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const probesFor = (table) => ({
@@ -291,5 +293,57 @@ test('T18 形状锁:两臂都必须从生产包装器可达(不靠读测试自�
   assert.ok(part.length > 40, '必须取到 partitionStaleCopies 函数体本身')
   assert.match(part, /isPartialRevert\(/, '部分回退臂没走单源判据')
   assert.doesNotMatch(part, /removed\s*>=\s*\d+/, '阈值数字不得复写在调用点')
+})
+
+// ── 2026-11-06 补:派生块删除豁免的**反例** ──────────────────────────────────
+// 立因:收编器把自动生成块的正常收缩(MAX_GROUPS 裁旧 / 数字换代)误判成"部分回退 >50%"
+// ⇒ 不声明 ⇒ 而自动器已把该路径塞进索引 ⇒ safe-commit 判"非本票声明" ⇒ 结构性死锁。
+// 豁免必须**只**扣块内删除,块外删除仍照旧严格 —— 下面正反例同时钉住这个边界。
+const numbersBlock = (lines) => [NUMBERS_BEGIN, ...lines, NUMBERS_END].join('\n')
+const numbered = (prefix, n, from = 0) =>
+  Array.from({ length: n }, (_, i) => `${prefix}-${from + i}`)
+
+test('T19 反例(块内大删除 ⇒ 豁免生效):派生块裁掉 600 行不得判滞后', () => {
+  const outside = numbered('outer', 40)
+  const headText = [...outside, numbersBlock(numbered('row', 600))].join('\n')
+  const wtText = [...outside, numbersBlock(numbered('row', 5))].join('\n')
+  const delta = __test__.lineDeltaBetween(headText, wtText)
+  assert.ok(delta.removed >= 15, '夹具本身要够得上原阈值(否则这条反例是假绿)')
+  assert.equal(delta.generatedBlockRemoved, 595, '块内删除行数必须被计出来')
+  assert.equal(
+    __test__.isPartialRevert(delta),
+    false,
+    '块内删除是设计内收缩,不得判成滞后回退(改前这里会误拦)',
+  )
+})
+
+test('T20 反例(块外删除超阈值 ⇒ 仍拒绝):豁免不得把真回退一起放掉', () => {
+  const block = numbersBlock(numbered('row', 10))
+  const headText = [...numbered('outer', 600), block].join('\n')
+  const wtText = [...numbered('outer', 10), block].join('\n')
+  const delta = __test__.lineDeltaBetween(headText, wtText)
+  assert.equal(delta.generatedBlockRemoved, 0, '删除全在块外 ⇒ 豁免必须为 0')
+  assert.equal(
+    __test__.isPartialRevert(delta),
+    true,
+    '块外批量删除仍必须判滞后(这条挂了就是把整个启发式取消了)',
+  )
+})
+
+test('T21 fail-closed:块边界判不清 ⇒ 豁免为 0、回落原判据(畸形文件不许静默放行)', () => {
+  const outside = numbered('outer', 40)
+  // 只有 BEGIN 没有 END:结构坏 ⇒ stripDerivedBlocks.ok=false
+  const headText = [...outside, NUMBERS_BEGIN, ...numbered('row', 600)].join('\n')
+  const wtText = [...outside, NUMBERS_BEGIN, ...numbered('row', 5)].join('\n')
+  const delta = __test__.lineDeltaBetween(headText, wtText)
+  assert.equal(delta.generatedBlockRemoved, 0, '结构坏时不许把删除算成"设计内"')
+  assert.equal(__test__.isPartialRevert(delta), true, '结构坏 ⇒ 按原判据严格判')
+})
+
+test('T22 形状锁:行差量与剥离判据都走单源,不在收编器里抄第二份边界', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
+  assert.match(src, /from '\.\/lib\/readme-derived-blocks\.mjs'/, '派生块判据必须 import 单源 lib')
+  assert.match(src, /lineDeltaBetween\(headText, wtText\)/, '探针必须走单源行差函数')
+  assert.doesNotMatch(src, /BEGIN GENERATED NUMBERS/, '边界字面量不得在收编器里复写第二份')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

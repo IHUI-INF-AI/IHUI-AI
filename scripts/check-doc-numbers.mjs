@@ -68,6 +68,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { BLOCK_BEGIN, BLOCK_END, ORDER, collectNumbers, specOf } from './gen-doc-numbers.mjs'
+import { RECENT_BEGIN, RECENT_END } from './lib/readme-derived-blocks.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -78,8 +79,9 @@ const ROOT = resolve(HERE, '..')
  * 「旧值 → 新值」("176 llms → 101 llms"),那是**历史陈述**不是当前总量声明,
  * 不进 DN2 散文判据(与派生块同型,按块挖掉)。
  */
-export const UPDATES_BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
-export const UPDATES_END = '<!-- END RECENT UPDATES -->'
+// 字面量单源 = lib/readme-derived-blocks.mjs(与两条维护腿的"块外"判据同一份边界)
+export const UPDATES_BEGIN = RECENT_BEGIN
+export const UPDATES_END = RECENT_END
 
 export const SELF_SKIP = 'HUSKY_SKIP_DOC_NUMBERS'
 /** 带对外数字、必须被审的文档(新增一份就加一行,别在别处再抄清单) */

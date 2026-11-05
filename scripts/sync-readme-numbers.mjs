@@ -23,6 +23,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
+import {
+  NUMBERS_BEGIN as BEGIN,
+  NUMBERS_END as END,
+  stripDerivedBlocks,
+} from './lib/readme-derived-blocks.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -40,9 +45,6 @@ const ONLY_FILES = (() => {
   const set = new Set(arg.slice('--files='.length).split(',').map((s) => s.trim()).filter(Boolean))
   return set.size ? set : null
 })()
-const BEGIN = '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
-const END = '<!-- END GENERATED NUMBERS -->'
-
 /** 跑 git 命令,返回 stdout(utf8)。maxBuffer 放大到 64MB:README 等文件超 1MB 默认缓冲会 ENOBUFS。
  * 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio 由 gitRaw 同源提供。 */
 function git(args) {
@@ -68,12 +70,27 @@ function stripDateLine(s) {
     .trim()
 }
 
-/** 取块外内容(标记之前 + 标记之后);用于判断除生成块外是否另有改动。 */
-function outsideBlock(text) {
-  const bi = text.indexOf(BEGIN)
-  const ei = text.indexOf(END)
-  if (bi === -1 || ei === -1) return text
-  return text.slice(0, bi) + '\n' + text.slice(ei + END.length)
+/**
+ * 「块外」内容 = 全文挖掉**两个**派生块(数字块 + RECENT 块),边界与剥离判据单源
+ * = scripts/lib/readme-derived-blocks.mjs。
+ *
+ * 为什么必须连对方的块一起挖(2026-11-06 实测两轮死锁):旧实现只挖自己的数字块,于是
+ * RECENT 腿刚写盘、还没进索引的 RECENT 块被算成"块外人写 prose" ⇒ 数字腿每轮都
+ * `SKIP_PROSE:README.md`,自己写的数字永远进不了 index;RECENT 腿又把本腿新写盘的数字块
+ * 算成块外 ⇒ 同样 SKIP。两腿的输出恰好落在对方判据的块外,互为暂存前提。
+ * 只挖"派生块"不算放宽:块内本来就是脚本独占写入区(标记处明确写"do not hand-edit"),
+ * 真正的人工 prose 仍在块外,仍须与索引逐字一致才放行。
+ *
+ * 块结构不成立(缺 END / 第二个 BEGIN 落在首个 END 之前) ⇒ `stripDerivedBlocks` 置
+ * `ok:false`,本器 SKIP_STRUCTURE 且不写盘——fail-closed,绝不猜边界。
+ */
+function describeProblems(problems) {
+  return problems.map((x) => `${x.id}/${x.state}`).join(',')
+}
+
+/** 结构异常(如只多一枚 END)必须点名,不许被当成"块外正常内容"静默放行。 */
+function reportAnchorNotes(file, face, notes) {
+  for (const n of notes) console.log(`NOTE_DUP_ANCHOR:${file}:${face}:${n.id}:${n.endCount}`)
 }
 
 const freshFull = genBlockMarkdown()
@@ -93,20 +110,36 @@ for (const f of README_FILES) {
   if (bi === -1 || ei === -1 || ei < bi) continue // 无生成块 → 跳(ko/ja 由 AI 定期刷新)
   const embedded = wt.slice(bi, ei + END.length)
   if (stripDateLine(embedded) === freshCmp) continue // 数字未变 → 幂等跳过
+  // 块结构不成立 ⇒ 不写盘也不暂存,逐条点名(fail-closed;不许猜边界)。
+  const wtShape = stripDerivedBlocks(wt)
+  if (!wtShape.ok) {
+    skipped.push(f)
+    console.log(`SKIP_STRUCTURE:${f}:${describeProblems(wtShape.problems)}`)
+    continue
+  }
+  reportAnchorNotes(f, 'worktree', wtShape.notes)
   // 重建:保留块前/块后原文,用现算块替换块内。freshFull 末尾自带一个换行,
   // 而 wt.slice(ei+END.length) 起头已是 END 标记后的换行 —— 去掉 freshFull 尾部换行,
   // 避免 END 标记后重复空行(那会被"块外差异"安全闸误判为吞并他人 prose)。
   const newText = wt.slice(0, bi) + freshFull.replace(/\n+$/, '') + wt.slice(ei + END.length)
   fs.writeFileSync(p, newText)
   touched++
-  // 安全闸:仅当"块外内容"相对索引版本无差异时,才 git add,避免吞并他人在飞 prose 改动。
+  // 安全闸:仅当"块外内容"(=全文挖掉两个派生块)相对索引版本逐字无差异时,才 git add,
+  // 避免吞并他人在飞 prose 改动。
   let idxText = null
   try {
     idxText = git(['show', `:${f}`])
   } catch {
     idxText = null
   }
-  const safe = idxText !== null && outsideBlock(wt) === outsideBlock(idxText)
+  const idxShape = idxText === null ? null : stripDerivedBlocks(idxText)
+  if (idxShape !== null) reportAnchorNotes(f, 'index', idxShape.notes)
+  if (idxShape !== null && !idxShape.ok) {
+    skipped.push(f)
+    console.log(`SKIP_STRUCTURE:${f}:${describeProblems(idxShape.problems)}`)
+    continue
+  }
+  const safe = idxShape !== null && wtShape.text === idxShape.text
   if (safe) {
     git(['add', f])
     staged.push(f)

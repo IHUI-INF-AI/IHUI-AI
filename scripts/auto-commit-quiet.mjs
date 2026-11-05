@@ -47,6 +47,8 @@ import {
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw } from './lib/face-reader.mjs'
+// 生成块边界与剥离判据(§0.6 单一真相源):派生块内的行增删不算"滞后回退",块外仍照旧严格。
+import { stripDerivedBlocks } from './lib/readme-derived-blocks.mjs'
 // 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
 import { closedRowRegressions } from './lib/ledger-closed-rows.mjs'
 // 账本收编族(2026-11-03 新增)的唯一准入判据住在库里,本器不写第二份(§0.6):
@@ -211,12 +213,43 @@ export function minusCount(aText, bText) {
  */
 export function isPartialRevert(delta) {
   if (!delta || typeof delta.removed !== 'number') return false
-  const removed = delta.removed
+  // 生成块豁免(2026-11-06):派生块由脚本独占写入,块内"少行"是设计内收缩(MAX_GROUPS 裁旧 /
+  // 数字换代),不是滞后缓冲把别人写的东西吃掉。只把**块内**删除从 removed 里扣掉;
+  // 块外删除照旧原阈值严格判(≥15 行 ∧ ≥2% 全文 ∧ 增 ≤ 删/8),本启发式整体保留,不是取消。
+  // 扣减量由 lineDelta 现场算(generatedBlockRemoved);取不到/结构不成立时为 0 ⇒ 回落原判据。
+  const exempt = typeof delta.generatedBlockRemoved === 'number' && delta.generatedBlockRemoved > 0
+    ? delta.generatedBlockRemoved
+    : 0
+  const removed = delta.removed - exempt
   const added = delta.added
   const total = delta.headLines
   if (!(removed >= 15) || !(total > 0)) return false
   if (removed * 100 < total * 2) return false // 删占比 <2% 全文:是有意的定点删除,不是缓冲回退
   return added * 8 <= removed // 增不得盖过删:大量重写过的算新工作
+}
+
+/**
+ * 行差量(部分回退臂的输入;纯函数,镜像测试直接喂文本,§22c)。
+ *
+ * `removed`/`added` 按多重集算(重复行按份数);`generatedBlockRemoved` 是**派生块区间内**的删除行数,
+ * 供 isPartialRevert 豁免 —— 派生块由脚本独占写入,MAX_GROUPS 裁旧/数字换代都会让块内"少行",
+ * 那是设计内收缩,不是滞后缓冲吃掉别人写的东西。
+ *
+ * 失效方向:块边界任一侧判不清(stripDerivedBlocks 报 problems)⇒ 豁免 0、removed 退回全文口径,
+ * 即**回落原判据**。不猜"少掉的都算设计内",否则畸形文件等于拿到一张静默放行条(§0.3/§0.10)。
+ */
+export function lineDeltaBetween(headText, wtText) {
+  const removed = minusCount(headText, wtText)
+  const headShape = stripDerivedBlocks(headText)
+  const wtShape = stripDerivedBlocks(wtText)
+  const removedOutside =
+    headShape.ok && wtShape.ok ? minusCount(headShape.text, wtShape.text) : removed
+  return {
+    removed,
+    added: minusCount(wtText, headText),
+    headLines: headText.split('\n').length,
+    generatedBlockRemoved: Math.max(0, removed - removedOutside),
+  }
 }
 
 /**
@@ -272,7 +305,11 @@ export function partitionStaleCopies(paths, probes) {
       skipped.push(p)
       why.set(
         p,
-        `部分回退嫌疑(HEAD 有而盘上无 ${delta.removed} 行=${((delta.removed / delta.headLines) * 100).toFixed(1)}% 全文 / 盘上新增仅 ${delta.added} 行)`,
+        `部分回退嫌疑(HEAD 有而盘上无 ${delta.removed} 行=${((delta.removed / delta.headLines) * 100).toFixed(1)}% 全文 / 盘上新增仅 ${delta.added} 行` +
+          (delta.generatedBlockRemoved > 0
+            ? ` / 其中派生块内 ${delta.generatedBlockRemoved} 行已豁免,块外仍超阈值`
+            : '') +
+          ')',
       )
       continue
     }
@@ -326,11 +363,7 @@ function staleCopyProbes(p) {
         return null
       }
       if (headText === null || wtText === null) return null
-      return {
-        removed: minusCount(headText, wtText),
-        added: minusCount(wtText, headText),
-        headLines: headText.split('\n').length,
-      }
+      return lineDeltaBetween(headText, wtText)
     },
     ancestors: () => {
       let commits = []
@@ -1453,6 +1486,7 @@ export const __test__ = {
   dropStaleCopies,
   minusCount,
   isPartialRevert,
+  lineDeltaBetween,
   partitionI18nBatch,
   autoCommitMessages,
   // 账本收编族(2026-11-03):判据住在 lib/cross-end-landing-ledger.mjs,这里只暴露本器的段。

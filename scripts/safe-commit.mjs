@@ -114,6 +114,7 @@ import {
   snapshotStagedDeleteIntent,
 } from './lib/staged-delete-intent.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { outsideDerivedBlocks } from './lib/readme-derived-blocks.mjs'
 import { formatUndeclaredLine, partitionUndeclaredStaged } from './lib/staged-ownership.mjs'
 // 2026-10-26:提交身份的唯一出口(与旁路落地器同源)。本机实测:`user.name/user.email` 只配在
 // 交互账户的 .gitconfig 里,而本脚本常由计划任务/服务/另一身份的会话派生 ⇒ git 报
@@ -1133,22 +1134,7 @@ const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
 //   · `GENERATED NUMBERS` ← gen-doc-numbers.mjs --markdown(数字由现算值覆盖,正确性归门 173)。
 // 3e 只对**派生区之外**要求"工作树 ⊇ HEAD"。
 // (2026-10-22 实证:回写后的 README 每次裁旧/换代都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
-const DERIVED_BLOCKS = [
-  ['<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->', '<!-- END RECENT UPDATES -->'],
-  ['<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->', '<!-- END GENERATED NUMBERS -->'],
-]
-function outsideDerivedBlocks(text) {
-  let out = text
-  let stripped = false
-  for (const [begin, end] of DERIVED_BLOCKS) {
-    const bi = out.indexOf(begin)
-    const ei = out.indexOf(end)
-    if (bi === -1 || ei === -1 || ei < bi) continue
-    out = out.slice(0, bi) + '\n' + out.slice(ei + end.length)
-    stripped = true
-  }
-  return stripped ? out : null
-}
+// 边界与剥离判据单源 = lib/readme-derived-blocks.mjs(两条维护腿的"块外"定义也取那一份,§0.6/§22c)。
 const liveDocsStaged = expectedFiles
   .map((f) => f.replace(/\\/g, '/'))
   .filter((f) => LIVE_DOCS.includes(f))

@@ -38,6 +38,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { NUMBERS_BEGIN, NUMBERS_END } from './lib/readme-derived-blocks.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -71,10 +72,10 @@ export const SINGLE_FILES = {
   readme: 'README.md',
 }
 
-/** 生成块的两端标记:门据此知道"这一段是派生态,不许手改"。 */
-export const BLOCK_BEGIN =
-  '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
-export const BLOCK_END = '<!-- END GENERATED NUMBERS -->'
+/** 生成块的两端标记:门据此知道"这一段是派生态,不许手改"。
+ *  字面量单源 = lib/readme-derived-blocks.mjs(两条维护腿的块外判据也从那里取,§0.6/§22c)。 */
+export const BLOCK_BEGIN = NUMBERS_BEGIN
+export const BLOCK_END = NUMBERS_END
 
 /**
  * 剥掉行注释与块注释,但**保留字符串**(路由动词落在字符串里,连字符串一起抹会直接失明)。
