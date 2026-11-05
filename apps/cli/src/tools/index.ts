@@ -111,6 +111,12 @@ export interface ToolResult {
   /** P1-4 错误类型分级,供调用方/LLM 判断是否需要重试 */
   errorType?: string;
   /**
+   * 结构化载荷:部分工具(browser_page 等)除人读 output 外还会给出可直接消费的结构。
+   * 之前该字段只在实现处以局部类型声明,调用方读 `result.data` 被判 TS2339;
+   * 这里把它提到公共 ToolResult 上(可选),与实际返回保持一致。
+   */
+  data?: Record<string, unknown>;
+  /**
    * 「无活动空闲超时」的结构化 context(G-426,只由执行器边界在 budget 代结算时产出):
    * 上游 subagent/runner 的 reportActivity 语义 —— 墙钟改成"每次活动重排"后,错误必须
    * 自己说明白"为什么还是被杀了":距最后一次活动多久(idleMs)、总共跑了多久(totalMs)、
