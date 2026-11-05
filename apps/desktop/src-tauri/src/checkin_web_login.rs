@@ -134,6 +134,9 @@ pub fn parse_accounts_body(body: &str) -> Vec<WbWebAccount> {
 /// 该自检在 probe 的 ok 分支执行:200 ⇒ cookie_checkin_ok=true;401/403 ⇒ false
 /// (登录态本身有效但签到接口不认 Cookie,前端如实告知用户);网络/其它 ⇒ None(未知)。
 pub async fn probe_cookie_checkin(cookie_header: &str) -> Option<bool> {
+    // 出站前过出口门(Z17 与 CLI 同源腿):被拒 ⇒ 报「未知」而不是伪报「登录态无效」,
+    // 理由已具名出声(见 egress_gate::report_egress_warnings)。
+    crate::egress_gate::guard_egress_target(&format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status")).ok()?;
     let resp = shared_client()
         .post(format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status"))
         .header("accept", "application/json")
@@ -167,6 +170,10 @@ pub struct ProbeOutcome {
 /// ②`checkin_workbuddy_web_login_probe_cookie`(用户粘贴的 Cookie,主窗专用)。
 /// 判据与编排分离:本函数只做 HTTP + 解析,不碰任何 webview 状态。
 pub async fn probe_cookie_accounts(cookie_header: &str) -> Result<ProbeOutcome, String> {
+    let target = format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}");
+    if let Err(denied) = crate::egress_gate::guard_egress_target(&target) {
+        return Err(format!("出口门拒绝该目标: {denied}"));
+    }
     let resp = shared_client()
         .get(format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}"))
         .header("accept", "application/json")
