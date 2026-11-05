@@ -4906,6 +4906,7 @@
     "historyFailed": "載入導入歷史失敗:{error}",
     "historyParsed": "解析",
     "historyImported": "導入",
+    "failedCountLabel": "失敗",
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失敗",

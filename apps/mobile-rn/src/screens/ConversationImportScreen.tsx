@@ -17,7 +17,7 @@ import {
   type ConversationImportSource,
   type ParsedImportConversation,
 } from '@ihui/api-client'
-import { ConversationImportScreen as SharedConversationImportScreen } from '@ihui/rn-app'
+import { ConversationImportScreen as SharedConversationImportScreen } from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
 import { useHostPorts } from '../host/use-host-ports'
 import type {
   CommittedImportConversation,
@@ -28,7 +28,7 @@ import type {
   ImportParseResult,
   ImportPreviewRow,
   PickedImportFile,
-} from '@ihui/rn-app'
+} from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
 import { apiFailureToText } from '@ihui/shared/utils'
 import type { ImportSource } from '@ihui/shared/import-analysis'
 import { NavBar } from '../components/NavBar'
@@ -174,8 +174,7 @@ export function ConversationImportScreen() {
       return {
         // 无 name 时从 uri 末段取真实文件名(带后缀才能过后端白名单校验);
         // 硬编码 'conversation-export' 这种无后缀名会被服务端以"无后缀"400 拒掉。
-        name:
-          asset.name ?? asset.uri.split(/[/?#]/).filter(Boolean).pop() ?? 'conversation-export',
+        name: asset.name ?? asset.uri.split(/[/?#]/).filter(Boolean).pop() ?? 'conversation-export',
         uri: asset.uri,
         mimeType: asset.mimeType ?? 'application/octet-stream',
         size: asset.size,
@@ -262,6 +261,8 @@ export function ConversationImportScreen() {
       // source 取**本次提交实际用的那一份**(不是 UI 当前选中态):用户导完可能顺手
       // 切了来源卡,若下游按当前态取,微信导入的会话会拿到 codex 的推荐场景。
       const committed: CommittedImportConversation[] = []
+      // 部分失败原因原样带回(去重后截 3 条);只报一个 failed 数字无法判断是谁的问题
+      const failureReasons: string[] = []
       reportProgress({ done, total })
 
       for (const id of rowIds) {
@@ -272,6 +273,7 @@ export function ConversationImportScreen() {
         // api 侧校验 messages 非空:空会话直接计失败,不发请求
         if (messages.length === 0) {
           failed += 1
+          failureReasons.push(t('conversationImport.noValidContent'))
           reportProgress({ done: ++done, total })
           continue
         }
@@ -296,8 +298,20 @@ export function ConversationImportScreen() {
           })
         } else {
           failed += 1
+          failureReasons.push(apiFailureToText(res))
         }
         reportProgress({ done: ++done, total })
+      }
+      if (failed > 0) {
+        const reasons = [...new Set(failureReasons.filter((r) => r.length > 0))].slice(0, 3)
+        return {
+          imported,
+          failed,
+          committed,
+          errorMessage: t('conversationImport.commitFailed', {
+            error: `${t('conversationImport.commitDone', { imported, failed })} ${reasons.join('; ')}`,
+          }),
+        }
       }
       return { imported, failed, committed }
     },
@@ -329,6 +343,9 @@ export function ConversationImportScreen() {
         parsedCount: item.parsedCount,
         importedCount: item.importedCount,
         importedAt: toDateLabel(item.importedAt),
+        failedCount: item.failedCount,
+        // 后端原文为空串时按"无"处理,避免历史行多出一块空行
+        errorMessage: item.errorMessage ?? undefined,
       }
     })
   }, [t])
