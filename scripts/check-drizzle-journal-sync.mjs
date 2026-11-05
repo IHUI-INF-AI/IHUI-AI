@@ -46,6 +46,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { catBatch } from './lib/face-reader.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 export const GATE = 'check-drizzle-journal-sync.mjs'
@@ -175,13 +176,20 @@ export function readHeadMigrationState({ repoRoot = ROOT, ref = 'HEAD' } = {}) {
     .split('\n')
     .filter((l) => l.endsWith('.sql'))
     .map((l) => l.slice(0, -'.sql'.length))
-  const journal = git(['show', `${ref}:${MIGRATIONS_DIR_REL.split(/[\\/]/).join('/')}/${JOURNAL_SUBPATH.split(/[\\/]/).join('/')}`])
-  if (journal.status !== 0) {
-    throw new Unjudged(`HEAD 面 journal 取不到:${String(journal.stderr ?? '').slice(0, 120)}`)
+  // blob 正文一律经取材层(守门 118):同一份取面实现,不在这里另派生一条 git 管子。
+  const journalSpec = `${ref}:${MIGRATIONS_DIR_REL.split(/[\\/]/).join('/')}/${JOURNAL_SUBPATH.split(/[\\/]/).join('/')}`
+  let journalText
+  try {
+    journalText = catBatch(repoRoot, [journalSpec], { timeout: 60000 }).get(journalSpec)
+  } catch (e) {
+    throw new Unjudged(`HEAD 面 journal 取不到:${String(e?.message ?? e).slice(0, 120)}`)
+  }
+  if (typeof journalText !== 'string') {
+    throw new Unjudged(`HEAD 面 journal 取不到:${journalSpec}(取材层未返回 blob 正文)`)
   }
   let parsed
   try {
-    parsed = JSON.parse(journal.stdout)
+    parsed = JSON.parse(journalText)
   } catch (e) {
     throw new Unjudged(`HEAD 面 journal 不是合法 JSON:${String(e?.message ?? e).slice(0, 120)}`)
   }
@@ -208,7 +216,7 @@ export function composeFaceVerdict(head, disk) {
   const diskLag =
     disk && disk.state !== 'unjudged'
       ? [
-          ...disk.problems.filter((p) => head.state === 'ok'),
+          ...disk.problems.filter(() => head.state === 'ok'),
           ...(disk.counts.entries !== head.counts.entries || disk.counts.sqlFiles !== head.counts.sqlFiles
             ? [
                 `工作树副本与 HEAD 面不同量:entries ${disk.counts.entries} vs ${head.counts.entries},` +
@@ -283,7 +291,7 @@ export function selfTest() {
     journal(mk(['a', 'b']))
     touch('a.sql')
     touch('b.sql')
-    let got = readMigrationState({ repoRoot: dir, dirRel: 'drizzle' })
+    const got = readMigrationState({ repoRoot: dir, dirRel: 'drizzle' })
     t('I1 盘面全对齐目录 ⇒ 读回两路输入且判 ok', judgeJournalSync(got).state === 'ok')
     touch('orphan.sql')
     t('I2 盘面多一枚孤儿 sql ⇒ drift 点名', judgeJournalSync(readMigrationState({ repoRoot: dir, dirRel: 'drizzle' })).problems.some((p) => p.includes('orphan.sql')))

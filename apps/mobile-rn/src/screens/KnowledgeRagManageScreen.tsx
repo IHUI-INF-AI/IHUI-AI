@@ -140,7 +140,7 @@ export default function KnowledgeRagManageScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('knowledgeRagManage.confirm'),
+          text: t('knowledgeCard.delete'),
           style: 'destructive',
           onPress: () => {
             setBusy(true)
@@ -170,7 +170,7 @@ export default function KnowledgeRagManageScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
-          text: t('knowledgeRagManage.confirm'),
+          text: t('knowledgeCard.delete'),
           style: 'destructive',
           onPress: () => {
             setBusy(true)

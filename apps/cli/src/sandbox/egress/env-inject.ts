@@ -40,7 +40,7 @@ import {
 } from './policy.js';
 import { resolveEgressPolicy } from './policy-source.js';
 
-export type EgressAggregate = 'noop' | 'allow' | 'deny' | 'unjudged';
+type EgressAggregate = 'noop' | 'allow' | 'deny' | 'unjudged';
 
 /**
  * 出口标记键名。刻意避开本仓凭据形态 deny 表的任何后缀

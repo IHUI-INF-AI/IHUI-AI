@@ -50,7 +50,7 @@ export function FavoriteScreen({
   onBack,
   onGoDiscover,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: FavoriteScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -163,7 +163,7 @@ export function FavoriteScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.deleteBtnText}>{t('favorite.cancel')}</Text>
+              <Text style={styles.deleteBtnText}>{t('favorites.remove')}</Text>
             </TouchableOpacity>
           </View>
         )}

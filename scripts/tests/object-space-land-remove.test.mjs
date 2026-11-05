@@ -22,19 +22,22 @@
  *  T8  写删混同一次落地:既有写入又有摘除,两条自证各自问各自的方向
  *  T9  形状锁:源码里删除档的接线在位(import 了 commitTreeWithIndex、entries 里有 deleted 项)
  *  T10 器物自证入口:`--self-test` 真跑得通(交付现场没有 node --test 也能问"删除档还在不在")
+ *  T11 落地后三方对账:`git diff --cached --name-status` 必须 0 行,磁盘必须有新内容
+ *  T12 阴性对照:同一现场不调用对齐 ⇒ 出现假 `D `,调用后 ⇒ 0 行且磁盘补齐(2026-11-05 补)
  *
  * 一律走 mkScratch 临时仓(退出即回收),**不碰真仓**;不跑会写工作树的命令。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 import { __test__ as LANDER } from '../object-space-land.mjs'
+import { alignLandingPaths } from '../lib/landing-worktree-align.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'object-space-land.mjs')
@@ -70,6 +73,9 @@ function makeRepo(t) {
   const dir = mkScratch('osl-rm-')
   t.after(() => rmScratch(dir))
   runGit(dir, ['init', '-q'])
+  // 临时仓显式关掉 autocrlf:对齐腿的 checkout 必须把 blob **逐字节**落到盘上,
+  // 否则 Windows 全局 autocrlf=true 会把 LF 落成 CRLF,T12 的"内容等于 blob"就测不出来。
+  runGit(dir, ['config', 'core.autocrlf', 'false'])
   writeFileSync(join(dir, 'gone.txt'), 'to be untracked\n')
   writeFileSync(join(dir, 'keep.txt'), 'keep me\n')
   mkdirSync(join(dir, 'sub'), { recursive: true })
@@ -196,7 +202,11 @@ test('T9 形状锁:源码里删除档的接线在位(import 了底层、entries 
   assert.match(SRC, /declaredFiles: paths\.concat\(removePaths\)/, '留痕的声明面必须含删除档')
   assert.match(SRC, /!removePaths\.includes\(p\)/, '混提核查必须把删除路径算作已声明')
   // 主索引对齐必须收到删除路径(否则索引留 `D `,下一次普通提交会把死文件加回 HEAD)
-  assert.match(SRC, /alignSharedIndex\(\{ root, paths: paths\.concat\(removePaths\)/, '索引对齐必须覆盖删除路径')
+  assert.match(SRC, /alignLandingPaths\(\{\s*\n?\s*root,\s*\n?\s*paths: paths\.concat\(removePaths\),/, '索引+工作树对齐必须覆盖删除路径')
+  // 2026-11-05:CAS 之后必须走"索引 + 工作树"同一出口(只对齐索引会留下磁盘缺内容)
+  assert.match(SRC, /const landingAlign = alignLandingPaths\(/, '必须调用 landing-worktree-align 的唯一出口')
+  assert.match(SRC, /from '\.\/lib\/landing-worktree-align\.mjs'/, '必须复用同一份对齐 lib(不另写第二支尺)')
+  assert.doesNotMatch(SRC, /alignSharedIndex\(\{/, '不得绕过 lib 只对齐索引(那正是假 D 的根因)')
 })
 
 test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(不是空跑)', (_t) => {
@@ -225,5 +235,35 @@ test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(�
   // 反证与互斥两条"必须拒"的用例不能悄悄变成放行(那等于自证失效)
   for (const c of plan.filter((x) => x.expect === 'reject'))
     assert.ok(r.stdout.includes(`✅ ${c.id}`), `拒的例子 ${c.id} 必须真拒(✅),实得输出里找不到它`)
+})
+
+test('T11 落地后三方对账:git diff --cached --name-status 必须 0 行,磁盘必须有新内容', (t) => {
+  // 2026-11-05 根因:commit-tree+update-ref 不碰主索引/工作树 ⇒ 新路径在别人眼里是 `D `。
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'new.txt'), 'brand new\n')
+  const r = land(dir, { paths: 'new.txt' })
+  assert.equal(r.status, 0, `新增路径必须能落地:${r.stdout}\n${r.stderr}`)
+  const cached = runGit(dir, ['diff', '--cached', '--name-status']).trim()
+  assert.equal(cached, '', `落地后 git diff --cached 必须 0 行,实得:${JSON.stringify(cached)}`)
+  assert.ok(existsSync(join(dir, 'new.txt')), '工作树必须仍有该路径(不能被对齐腿误删)')
+  assert.equal(readFileSync(join(dir, 'new.txt'), 'utf8'), 'brand new\n', '磁盘内容必须等于落地 blob')
+})
+
+test('T12 阴性对照:同一现场不调用对齐 ⇒ 出现假 D ,调用后 ⇒ 0 行且磁盘补齐(删除不碰盘)', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'new.txt'), 'brand new\n')
+  runGit(dir, ['add', 'new.txt'])
+  runGit(dir, ['commit', '-q', '-m', 'add-new'])
+  // 现场 = "CAS 已推进 HEAD,但索引与磁盘都没跟上":索引摘掉、磁盘删掉
+  runGit(dir, ['update-index', '--force-remove', '--', 'new.txt'])
+  rmSync(join(dir, 'new.txt'))
+  const before = runGit(dir, ['diff', '--cached', '--name-status']).trim()
+  assert.match(before, /^D\tnew\.txt$/m, `阴性对照必须出现假 D ,实得:${JSON.stringify(before)}`)
+  const aligned = alignLandingPaths({ root: dir, paths: ['new.txt'], parentRef: 'HEAD~1' })
+  assert.deepEqual(aligned.failed, [], `对齐不得报失败:${JSON.stringify(aligned.failed)}`)
+  const after = runGit(dir, ['diff', '--cached', '--name-status']).trim()
+  assert.equal(after, '', `对齐后 git diff --cached 必须 0 行,实得:${JSON.stringify(after)}`)
+  assert.ok(existsSync(join(dir, 'new.txt')), '对齐后磁盘必须补齐(索引有、磁盘无同样编译失败)')
+  assert.equal(readFileSync(join(dir, 'new.txt'), 'utf8'), 'brand new\n', '补齐内容必须等于新 HEAD 的 blob')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

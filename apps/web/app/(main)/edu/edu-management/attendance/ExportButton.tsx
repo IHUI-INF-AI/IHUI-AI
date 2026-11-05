@@ -69,11 +69,15 @@ export function ExportButton({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('classLabel')}
+        </Label>
         <ClassSelect value={classId} onChange={setClassId} />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('startDate')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('startDate')}
+        </Label>
         <Input
           type="date"
           value={startDate}
@@ -82,7 +86,9 @@ export function ExportButton({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('endDate')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('endDate')}
+        </Label>
         <Input
           type="date"
           value={endDate}

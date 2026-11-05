@@ -156,7 +156,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
             {t('buildingGraph')}
           </div>
         ) : error ? (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="font-[weight:inherit] rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-label text-destructive">
             {error}
           </div>
         ) : graph ? (
@@ -182,7 +182,7 @@ function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogPr
               </span>
             </div>
             {graph.nodes.length === 0 ? (
-              <p className="py-8 text-center text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] py-8 text-center text-label text-muted-foreground">
                 {t('noRulesToBuildGraph')}
               </p>
             ) : (

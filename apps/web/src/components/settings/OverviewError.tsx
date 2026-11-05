@@ -21,7 +21,9 @@ export function OverviewError({ onRetry, message }: OverviewErrorProps) {
   return (
     <div className="flex flex-col items-center gap-2 py-4 text-center">
       <AlertTriangle className="h-5 w-5 text-destructive" />
-      <p className="text-sm text-muted-foreground">{message ?? '数据加载失败'}</p>
+      <p className="font-[weight:inherit] text-body text-muted-foreground">
+        {message ?? '数据加载失败'}
+      </p>
       <button
         type="button"
         onClick={onRetry}

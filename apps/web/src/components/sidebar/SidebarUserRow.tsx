@@ -271,7 +271,9 @@ export function SidebarUserRow({
           <div className="min-w-0">
             <div className="truncate text-body font-medium">{user?.nickname ?? 'User'}</div>
             {user?.phone && (
-              <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
+              <div className="font-[weight:inherit] truncate text-label text-muted-foreground">
+                {user.phone}
+              </div>
             )}
           </div>
         </div>

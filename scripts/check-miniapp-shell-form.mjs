@@ -1,0 +1,281 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+/**
+ * check-miniapp-shell-form.mjs — 小程序「薄壳 vs 复制」实现形态门
+ * GATE_ID: 299
+ *
+ * 为什么要有这道门:现有四把覆盖尺(check-cross-end-screen-coverage / gen-miniapp-mirror /
+ * auto-register-cross-end / report-rn-miniapp-gaps)只数「声明/标记」,不判「实现形态」。
+ * 结果是页面可以合法地写着「镜像 packages/app/.../XScreen.tsx」却整页自己复制一遍渲染 —
+ * 声明为真、对齐为假。本门判的是**页面到底 import 了壳,还是自己又写了一份**。
+ *
+ * 判据(机械可判,分类器唯一实现在 scripts/lib/miniapp-shell-form.mjs):
+ *   S1 棘轮:当前面上「已在映射里被声明为镜像/委托、却没有 import 委托入口」的页面,
+ *      若不在 scripts/data/miniapp-shell-copy-ledger.jsonl 存量台账里 ⇒ 红(新增复制页)。
+ *   S2 存量只报数:台账里已收敛/行数漂移的条目记 advisory,不红(§12e,存量按批次收)。
+ *   委托入口 = `@rn-shells/*` | `@ihui/rn-app/features/*` | `@ihui/rn-app` barrel 同名屏。
+ *   映射声明 = 登记表 cross-end-screen-registry.json ∪ 页面四形镜像声明(与既有一致)。
+ *
+ * 取材面:默认 HEAD(与门 237 同口径);`--staged` 索引;`--worktree` 人工逃生舱。
+ * 台账永远读工作树(它是判据输入,不是被判对象;CI 干净检出上与 HEAD 等价)。
+ *
+ * Usage:
+ *   node scripts/check-miniapp-shell-form.mjs                 # 判定 + 报数
+ *   node scripts/check-miniapp-shell-form.mjs --json          # 机器可读
+ *   node scripts/check-miniapp-shell-form.mjs --explain       # 逐页取证(复制页/未判定)
+ *   node scripts/check-miniapp-shell-form.mjs --self-test     # 正反例自测
+ *   node scripts/check-miniapp-shell-form.mjs --emit-baseline # 生成存量台账(jsonl)
+ */
+
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Undetermined } from './lib/face-reader.mjs'
+import { readFaceOne, resolveFace } from './lib/gate-face.mjs'
+import {
+  classifyMiniappPages,
+  classifyPage,
+  evaluateRatchet,
+  hasShellImport,
+  equivalentEntry,
+  ledgerKey,
+  loadLedgerRows,
+  loadRegistry,
+  LEDGER,
+} from './lib/miniapp-shell-form.mjs'
+
+const HERE = fileURLToPath(new URL('.', import.meta.url))
+const ROOT = join(HERE, '..')
+const argv = process.argv.slice(2)
+const jsonMode = argv.includes('--json')
+const selfTest = argv.includes('--self-test')
+const explainMode = argv.includes('--explain')
+const emitBaseline = argv.includes('--emit-baseline')
+
+const log = (...a) => {
+  if (!jsonMode) console.log(...a)
+}
+
+function validateLedger(ledger) {
+  const bad = []
+  for (const r of ledger) {
+    const missing = ['route', 'file', 'loc', 'mapStatus', 'reasonClass'].filter((k) => r?.[k] === undefined)
+    if (missing.length) bad.push({ row: r, why: `台账行缺字段 ${missing.join(',')}` })
+    if (!['copy', 'undetermined'].includes(r?.impl) && r?.impl !== undefined)
+      bad.push({ row: r, why: `台账行 impl 非法: ${r?.impl}` })
+  }
+  return bad
+}
+
+function emit(root, face) {
+  const { rows } = classifyMiniappPages(root, face)
+  const keep = rows
+    .filter((r) => r.impl === 'copy' || r.impl === 'undetermined')
+    .sort((a, b) => a.route.localeCompare(b.route))
+    .map((r) => ({
+      route: r.route,
+      file: r.file,
+      loc: r.loc,
+      mapStatus: r.mapStatus,
+      impl: r.impl,
+      reasonClass: r.reasonClass,
+      declaredSpecs: r.declaredSpecs,
+      note: r.note,
+      at: '2026-11-05',
+    }))
+  writeFileSync(join(root, LEDGER), keep.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8')
+  log(`✅ 已写存量台账 ${LEDGER}:${keep.length} 行(copy ${keep.filter((r) => r.impl === 'copy').length} / undetermined ${keep.filter((r) => r.impl === 'undetermined').length},面=${face})`)
+  return 0
+}
+
+function run(root, face) {
+  const { rows, shared, pageCount, registryCount } = classifyMiniappPages(root, face)
+  const ledger = loadLedgerRows(root)
+  const badLedger = validateLedger(ledger)
+  const { reds, advisories, stats } = evaluateRatchet(rows, ledger)
+  for (const b of badLedger) reds.push({ rule: 'S0', why: b.why, row: b.row })
+  const undeterminedRows = rows.filter((r) => r.impl === 'undetermined')
+  stats.face = face
+  stats.shared = shared.length
+  stats.registryEntries = registryCount
+  stats.inScopePages = pageCount
+
+  if (explainMode) {
+    console.log(
+      JSON.stringify(
+        {
+          face,
+          copy: rows
+            .filter((r) => r.impl === 'copy')
+            .map((r) => ({ route: r.route, file: r.file, loc: r.loc, mapStatus: r.mapStatus, reasonClass: r.reasonClass, declaredSpecs: r.declaredSpecs })),
+          undetermined: undeterminedRows.map((r) => ({ route: r.route, file: r.file, note: r.note })),
+        },
+        null,
+        2,
+      ),
+    )
+    return reds.length ? 1 : 0
+  }
+
+  if (jsonMode) {
+    console.log(JSON.stringify({ stats, reds, advisories, undetermined: undeterminedRows.map((r) => ({ route: r.route, note: r.note })) }, null, 2))
+  } else {
+    log(`判定面                  : ${face}`)
+    log(`共享屏(真相源)          : ${stats.shared}`)
+    log(`小程序在册页            : ${stats.pages}(映射登记 ${stats.registryEntries} 条)`)
+    log(`判为薄壳(已 import 入口) : ${stats.shell}`)
+    log(
+      `判为复制页              : ${stats.copy}(纯复制 ${stats.pureCopy} / 有本地改动 ${stats.localDelta};LOC ${stats.copyLoc}/${stats.totalLoc} = ${(stats.copyRatio * 100).toFixed(1)}%)`,
+    )
+    log(`无法判定                : ${stats.undetermined}${undeterminedRows.length ? ' —— ' + undeterminedRows.map((r) => r.route).slice(0, 6).join(', ') : ''}`)
+    log(`存量台账                : ${stats.ledgerRows} 行`)
+    if (advisories.length) {
+      log('')
+      for (const a of advisories.slice(0, 20)) log(`ℹ️ [${a.rule}] ${a.why}`)
+      if (advisories.length > 20) log(`ℹ️ 另有 ${advisories.length - 20} 条存量提示(全量见 --json)`)
+    }
+    if (reds.length) {
+      log('')
+      for (const r of reds) log(`❌ [${r.rule}] ${r.why}`)
+      log(`\n❌ 结论:实现形态判红 ${reds.length} 处`)
+    } else {
+      log('\n✅ 结论:无新增复制页;存量复制页逐条在册')
+    }
+  }
+  return reds.length === 0 ? 0 : 1
+}
+
+function selfTestFn(root) {
+  const cases = []
+  const add = (name, pass, got) => cases.push({ name, pass, got })
+
+  // 正反例:入口识别(只认 import,不认注释/字符串)
+  add('A1 正面:from 子句 import @rn-shells 识别为薄壳', hasShellImport("import { XScreen as X } from '@rn-shells/XScreen'"), true)
+  add('A2 反面:仅注释提到 @rn-shells 不算导入', hasShellImport('// 见 @rn-shells/XScreen 生成说明') === false, false)
+  add('A3 正面:@ihui/rn-app/features 等价入口可识别', equivalentEntry("import { S as X } from '@ihui/rn-app/features/demo/DemoScreen'", ['packages/app/src/features/demo/DemoScreen.tsx']) !== null, true)
+  add('A4 反面:指向未声明屏的等价入口不认', equivalentEntry("import { S as X } from '@ihui/rn-app/features/other/OtherScreen'", ['packages/app/src/features/demo/DemoScreen.tsx']) === null, false)
+
+  // 分类器正反例
+  const copy = classifyPage({
+    route: 'demo/copy',
+    file: 'demo/copy.tsx',
+    text: "// 镜像 packages/app/src/features/demo/DemoScreen.tsx\nimport Taro from '@tarojs/taro'\nexport default function P(){ fetch('/api/x').then(()=>{}) }",
+    declaredSpecs: ['packages/app/src/features/demo/DemoScreen.tsx'],
+    registry: { miniapp: 'demo/copy' },
+  })
+  add('B1 声明的复制页 ⇒ impl=copy/local-delta', copy.impl === 'copy' && copy.reasonClass === 'local-delta', `${copy.impl}/${copy.reasonClass}`)
+  const pure = classifyPage({
+    route: 'demo/pure',
+    file: 'demo/pure.tsx',
+    text: "// 对齐 RN DemoScreen\nimport { View } from '@tarojs/components'\nexport default function P(){ return null }",
+    declaredSpecs: ['packages/app/src/features/demo/DemoScreen.tsx'],
+    registry: null,
+  })
+  add('B2 纯布局复制 ⇒ impl=copy/pure-copy', pure.impl === 'copy' && pure.reasonClass === 'pure-copy', `${pure.impl}/${pure.reasonClass}`)
+  const shell = classifyPage({
+    route: 'demo/shell',
+    file: 'demo/shell.tsx',
+    text: "// 镜像 packages/app/src/features/demo/DemoScreen.tsx\nimport { DemoScreen as S } from '@rn-shells/DemoScreen'\nexport default S",
+    declaredSpecs: ['packages/app/src/features/demo/DemoScreen.tsx'],
+    registry: { miniapp: 'demo/shell' },
+  })
+  add('B3 已 import 壳 ⇒ impl=shell', shell.impl === 'shell', shell.impl)
+  add('B4 未声明页不在射程 ⇒ impl=plain', classifyPage({ route: 'demo/plain', file: 'demo/plain.tsx', text: 'export default 1' }).impl === 'plain', true)
+  add('B5 正文读不到 ⇒ undetermined(不折绿)', classifyPage({ route: 'demo/x', file: 'demo/x.tsx', text: null }).impl === 'undetermined', true)
+  add('B6 页面文件缺失 ⇒ undetermined', classifyPage({ route: 'demo/y', file: null, text: null }).impl === 'undetermined', true)
+
+  // 棘轮正反例
+  const ledgerEmpty = []
+  const r1 = evaluateRatchet([copy], ledgerEmpty)
+  add('C1 阳性对照:复制页不在台账 ⇒ 必红', r1.reds.length === 1, r1.reds.length)
+  const r2 = evaluateRatchet([shell], ledgerEmpty)
+  add('C2 阴性对照:薄壳页不在台账也不红', r2.reds.length === 0, r2.reds.length)
+  const ledgerRow = { route: copy.route, file: copy.file, loc: copy.loc, mapStatus: copy.mapStatus, reasonClass: copy.reasonClass, impl: 'copy' }
+  const r3 = evaluateRatchet([copy], [ledgerRow])
+  add('C3 存量在册 ⇒ 不红', r3.reds.length === 0, r3.reds.length)
+  const r4 = evaluateRatchet([], [ledgerRow])
+  add('C4 存量已收敛 ⇒ advisory(S2)', r4.advisories.some((a) => a.rule === 'S2'), r4.advisories.length)
+
+  // 真实仓正反例(证明射程真覆盖,不是只跑合成夹具)
+  let real = null
+  try {
+    real = classifyMiniappPages(root, 'worktree')
+  } catch (e) {
+    if (!(e instanceof Undetermined)) throw e
+    add('D0 真实仓取材失败 ⇒ 未判定(而不是绿)', true, e.message.slice(0, 60))
+  }
+  if (real) {
+    const realCopy = real.rows.find((r) => r.impl === 'copy')
+    const realShell = real.rows.find((r) => r.impl === 'shell' && r.mapStatus !== 'none')
+    add('D1 真实仓存在复制页(阳性对照材质)', Boolean(realCopy), realCopy ? `${realCopy.route} ${realCopy.loc}行` : null)
+    add('D2 真实复制页不登记 ⇒ evaluateRatchet 必红', Boolean(realCopy) && evaluateRatchet([realCopy], []).reds.length === 1, Boolean(realCopy))
+    add('D3 真实仓存在薄壳页(阴性对照材质)', Boolean(realShell), realShell ? realShell.route : null)
+    add('D4 真实薄壳页 ⇒ evaluateRatchet 不红', Boolean(realShell) && evaluateRatchet([realShell], []).reds.length === 0, Boolean(realShell))
+    if (realShell) {
+      // 变异对照:把真实薄壳页的壳 import 摘掉,分类必须翻成 copy(证明判定的是实现而非路径名)
+      const text = realShell.file ? loadText(root, realShell.file) : null
+      add('D5a 真实薄壳页正文可读', Boolean(text), text ? `${text.length}B` : `${realShell.file} @ ${root}`)
+      const mutated = text ? text.split('\n').filter((l) => !/from\s*['"]@rn-shells/.test(l) && !/@ihui\/rn-app\/features/.test(l)).join('\n') : null
+      const m = mutated === null ? null : classifyPage({ route: realShell.route, file: realShell.file, text: mutated, declaredSpecs: realShell.declaredSpecs, registry: { miniapp: realShell.route } })
+      add('D5 变异对照:摘掉真实薄壳页的 import ⇒ 翻红为 copy', Boolean(m) && m.impl === 'copy', m ? `${m.impl}/${m.reasonClass}` : null)
+      const putBack = mutated === null ? null : classifyPage({ route: realShell.route, file: realShell.file, text, declaredSpecs: realShell.declaredSpecs, registry: { miniapp: realShell.route } })
+      add('D6 还原对照:原正文 ⇒ 仍为 shell', Boolean(putBack) && putBack.impl === 'shell', putBack ? putBack.impl : null)
+    }
+    const und = real.rows.filter((r) => r.impl === 'undetermined')
+    add('D7 未判定桶单列且不折绿(只报数)', true, und.length)
+  }
+
+  // 取不到映射表/读不到文件 ⇒ exit 2 路径(不记绿)
+  let threw = false
+  try {
+    loadRegistry(root, 'worktree', 'scripts/data/__definitely_not_a_registry__.json')
+  } catch (e) {
+    threw = e instanceof Undetermined
+  }
+  add('E1 映射表读不到 ⇒ Undetermined(exit 2 语义)', threw, threw)
+  let faceThrew = false
+  try {
+    resolveFace(['--staged', '--worktree'])
+  } catch (e) {
+    faceThrew = e instanceof Undetermined
+  }
+  add('E2 取材面不明 ⇒ Undetermined', faceThrew, faceThrew)
+  add('E3 台账行键稳定(同 route+file ⇒ 同 key)', ledgerKey({ route: 'a', file: 'b' }) === ledgerKey({ route: 'a', file: 'b' }), true)
+
+  let bad = 0
+  for (const c of cases) {
+    if (!c.pass) bad++
+    console.log(`${c.pass ? '✓' : '✗'} ${c.name}${c.got !== undefined ? ` — ${JSON.stringify(c.got)}` : ''}`)
+  }
+  console.log(`\n自检 ${cases.length} 例,失败 ${bad}`)
+  return bad === 0 ? 0 : 1
+}
+
+function loadText(root, rel) {
+  return readFaceOne(root, 'worktree', rel)
+}
+
+/** §22d:直执行才跑主流程;被测试 import 时只导出。 */
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+export const __test__ = { validateLedger, emit, run, selfTestFn }
+
+if (isDirectRun) {
+  try {
+    const face = resolveFace(argv)
+    if (selfTest) process.exit(selfTestFn(ROOT))
+    if (emitBaseline) process.exit(emit(ROOT, face))
+    process.exit(run(ROOT, face))
+  } catch (e) {
+    if (e instanceof Undetermined) {
+      console.error(`❌ 未判定: ${e.message}(取不到输入不记绿也不冒红,§0.3)`)
+      process.exit(2)
+    }
+    throw e
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

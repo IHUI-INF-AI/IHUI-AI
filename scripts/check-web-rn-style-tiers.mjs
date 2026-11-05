@@ -23,7 +23,10 @@
  *
  * 三桶(本尺的核心输出,它把"要不要人"自动分流):
  *   inTier        取值 ∈ 档表 ⇒ 已走契约,web 调档即自动跟随
- *   missingTier   取值 ∉ 档表,**但对端同值有取用** ⇒ 档表缺位,出路是补表(零端内改动)
+ *   missingTier   取值 ∉ 档表,**但对端同值有取用** ⇒ 档表缺位。出路不是无条件的"补表":
+ *                 先过准入线(`decide-style-tier-forks.mjs` 的 `MISSING_TIER_ADMISSION_LINE`)——
+ *                 两端各自 ≥ 线才谈补表,未达线只能落档或在册决策(到期回红)。
+ *                 本尺只分桶,**不判这条线也不替它背书**,免得读数被当成"补表许可"。
  *   fork          取值 ∉ 档表 ∧ 对端零同值 ⇒ 真分叉,出路是把这一侧落回某档(需定档)
  *   offTier(对端自身)对端取值 ∉ 档表 ⇒ 对端散档,同样进补表/落档队列
  *
@@ -506,7 +509,7 @@ function report(r) {
     const x = r[side]
     console.log(`\n【${side === 'rn' ? 'RN 侧' : 'web 侧'}取值分桶】`)
     console.log(`  ✅ inTier(已走契约)       : ${pad(x.inTier, 4)} 种 / ${pad(x.inN, 6)} 处`)
-    console.log(`  🟡 missingTier(档表缺位)  : ${pad(x.missingTier, 4)} 种 / ${pad(x.missingN, 6)} 处  ← 出路=补表,零端内改动`)
+    console.log(`  🟡 missingTier(档表缺位)  : ${pad(x.missingTier, 4)} 种 / ${pad(x.missingN, 6)} 处  ← 出路由准入裁决定:达线补表 / 未达线落档或登记(decide-style-tier-forks.mjs --check)`)
     console.log(`  🔴 fork(对端零同值)       : ${pad(x.fork, 4)} 种 / ${pad(x.forkN, 6)} 处  ← 出路=落回某档`)
     if (x.missingTier) console.log(`     缺位 Top: ${rankRows(x.rows, 'missingTier').join(' ')}`)
     if (x.fork) console.log(`     分叉 Top: ${rankRows(x.rows, 'fork').join(' ')}`)
@@ -527,7 +530,7 @@ function report(r) {
   const rnMissingVals = rowValues(r.rn.rows, 'missingTier')
   console.log(`\n结论:TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   console.log(`     (只读尺:不进提交链也不进 CI,§12e。净增才经 §5e 到人;调度=parity-auto gate 组 + guardian 巡检轮)`)
-  if (rnMissingVals.length) console.log(`     补表候选(去重取值): ${rnMissingVals.join(' ')}`)
+  if (rnMissingVals.length) console.log(`     缺位值(RN 侧去重,须先过准入线才谈补表): ${rnMissingVals.join(' ')}`)
 }
 
 // 自检夹具:两端各一段**真实书写形态**的源码文本(不是简化过的中间结构),

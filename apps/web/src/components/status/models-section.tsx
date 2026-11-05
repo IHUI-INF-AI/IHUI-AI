@@ -162,7 +162,9 @@ export function ModelsSection({
           <p className="text-body font-semibold">模型可用性 ({total})</p>
         </div>
         {list.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">暂无公开模型</p>
+          <p className="font-[weight:inherit] py-4 text-center text-body text-muted-foreground">
+            暂无公开模型
+          </p>
         ) : (
           <>
             <div className="space-y-2">
@@ -173,14 +175,16 @@ export function ModelsSection({
                 >
                   <div className="min-w-0 flex-1">
                     <span className="text-body font-medium">{m.displayName ?? m.modelId}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
+                    <span className="font-[weight:inherit] ml-2 text-label text-muted-foreground">
                       {m.providerCode}/{m.modelId}
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <div className="font-[weight:inherit] flex flex-wrap items-center gap-3 text-label text-muted-foreground">
                     <span>P95 {formatLatency(m.p95LatencyMs)}</span>
                     <span>错误率 {formatPercent(m.errorRate)}</span>
-                    <span>最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}</span>
+                    <span>
+                      最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}
+                    </span>
                     <StatusBadge status={m.status} />
                   </div>
                 </div>
@@ -192,7 +196,7 @@ export function ModelsSection({
                   {loading ? '加载中…' : `展开全部（还有 ${hidden} 个）`}
                 </Button>
                 {failed ? (
-                  <span className="text-xs text-rose-600 dark:text-rose-400">
+                  <span className="font-[weight:inherit] text-label text-rose-600 dark:text-rose-400">
                     加载失败,可重试
                   </span>
                 ) : null}

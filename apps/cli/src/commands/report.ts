@@ -16,7 +16,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import {
@@ -44,7 +44,7 @@ interface ReportAgentTraceOptions {
 }
 
 /** 阈值覆盖:只把命令行显式给了的、且是有限数的档位带进 shared,坏值当场拒绝而不是静默回落 */
-export function parseThresholdOverrides(opts: ReportAgentTraceOptions): Partial<TraceFindingThresholds> {
+function parseThresholdOverrides(opts: ReportAgentTraceOptions): Partial<TraceFindingThresholds> {
   const overrides: Partial<TraceFindingThresholds> = {};
   const numeric: Array<[keyof TraceFindingThresholds, string | undefined]> = [
     ['slowestShareToFlag', opts.slowestShareToFlag],
@@ -65,7 +65,7 @@ export function parseThresholdOverrides(opts: ReportAgentTraceOptions): Partial<
  * 输入 JSON ⇒ AgentTrace。步读不出来的逐条计数并点名,不静默丢(丢了的报告仍会照常出,
  * 读数就会把"没读出来"说成"没发生")。
  */
-export function readAgentTrace(raw: unknown, fallbackTitle: string, fallbackExportedAt: string): { trace: AgentTrace; rejectedStepCount: number } {
+function readAgentTrace(raw: unknown, fallbackTitle: string, fallbackExportedAt: string): { trace: AgentTrace; rejectedStepCount: number } {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     throw new Error('输入必须是一个 JSON 对象 { title?, exportedAt?, toolCalls: [...] }');
   }
@@ -99,7 +99,7 @@ export function readAgentTrace(raw: unknown, fallbackTitle: string, fallbackExpo
   return { trace, rejectedStepCount };
 }
 
-export function buildReportFromFile(inputPath: string, opts: ReportAgentTraceOptions): AgentTraceReport & { rejectedStepCount: number } {
+function buildReportFromFile(inputPath: string, opts: ReportAgentTraceOptions): AgentTraceReport & { rejectedStepCount: number } {
   const text = fs.readFileSync(inputPath, 'utf8');
   const parsed: unknown = JSON.parse(text);
   const fallbackTitle = path.basename(inputPath, path.extname(inputPath));

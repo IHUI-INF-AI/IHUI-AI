@@ -2,7 +2,10 @@
   "workflows": {
     "title": "工作流",
     "empty": "暫無工作流",
-    "loadFailed": "工作流載入失敗"
+    "loadFailed": "工作流載入失敗",
+    "instanceDetail": {
+      "notFound": "實例不存在"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "暫無執行結果",
     "rrule": "排程規則",
     "timezone": "時區",
-    "schedule": "觸發方式"
+    "schedule": "觸發方式",
+    "lastRunAt": "上次執行"
   },
   "dashboard": {
     "title": "資料看板",
@@ -638,7 +642,8 @@
     "fieldName": "名稱",
     "fieldCategory": "分類",
     "fieldDescription": "描述",
-    "fieldPrice": "價格"
+    "fieldPrice": "價格",
+    "createTitle": "創建智能體"
   },
   "chat": {
     "assetCatText": "文本",
@@ -948,7 +953,16 @@
     "theme": "主題",
     "logoutConfirmBody": "確認退出當前帳號？",
     "accountDeletionConfirmLabel": "確認注銷",
-    "accountDeletionConfirmTitle": "確認注銷"
+    "accountDeletionConfirmTitle": "確認注銷",
+    "revokeAuth": "撤銷會話",
+    "noAuthorizations": "暫無活躍會話",
+    "authorizedAt": "登錄時間",
+    "sessionExpiresAt": "過期時間",
+    "devices": {
+      "revokeConfirmTitle": "撤銷設備",
+      "taskColCreated": "建立時間",
+      "taskColFinished": "結束時間"
+    }
   },
   "menu": {
     "artifacts": "產物中心",
@@ -1340,7 +1354,11 @@
     "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成為開發者"
+    "becomeDeveloper": "成為開發者",
+    "settings": {
+      "infoName": "名稱",
+      "infoTitle": "開發者信息"
+    }
   },
   "liveHost": {
     "error": {
@@ -1519,7 +1537,8 @@
     "okSent": "分享成功",
     "cancelled": "已取消分享",
     "fail": "分享失敗",
-    "needAlbum": "需要相簿權限才能選擇圖片"
+    "needAlbum": "需要相簿權限才能選擇圖片",
+    "courseTitle": "推薦課程:{title}"
   },
   "vipScreen": {
     "plans": {
@@ -1894,7 +1913,9 @@
     "treeRetry": "重試",
     "treeLevelLabel": "第 {level} 層",
     "treeCollapseHint": "點擊節點查看詳情",
-    "teamTitle": "我的團隊"
+    "teamTitle": "我的團隊",
+    "colJoinedAt": "加入時間",
+    "colLevel": "等級"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -1921,7 +1942,14 @@
     "start": "開始考試",
     "title": "考試",
     "totalScore": "總分",
-    "questionCountLabel": "題目數"
+    "questionCountLabel": "題目數",
+    "result": {
+      "shareTitle": "我的考試成績: {n} 分"
+    },
+    "startExam": "開始考試",
+    "wrongQuestions": {
+      "colTime": "添加時間"
+    }
   },
   "examQuestion": {
     "loadFailed": "載入試卷失敗",
@@ -2261,7 +2289,9 @@
     "bindFailed": "綁定失敗",
     "bindSuccess": "綁定成功",
     "codeRequired": "請輸入邀請碼",
-    "loadFailed": "載入邀請人失敗"
+    "loadFailed": "載入邀請人失敗",
+    "noReferrer": "暫未綁定推薦人",
+    "bindBtn": "綁定"
   },
   "register": {
     "phone": "手機號碼",
@@ -2650,7 +2680,10 @@
       "historyTitle": "簽到歷史",
       "historyEmpty": "尚無簽到紀錄",
       "historyLoadFailed": "簽到歷史載入失敗",
-      "historyConsecutive": "連續 {days} 天"
+      "historyConsecutive": "連續 {days} 天",
+      "consecutiveDays": "已連續簽到 {days} 天",
+      "history": "簽到歷史",
+      "empty": "暫無簽到記錄"
     },
     "ruleLink": "積分規則",
     "txTitle": "積分流水",
@@ -3133,7 +3166,8 @@
     "priceInvalid": "價格必須是大於 0 的數字",
     "priceOrder": "起價不能高於最高價",
     "submitting": "發佈中…",
-    "submit": "發佈需求"
+    "submit": "發佈需求",
+    "contactLabel": "聯絡方式"
   },
   "businessCard": {
     "title": "我的名片"
@@ -3539,7 +3573,10 @@
     "retryRecharge": "重新充值",
     "withdrawAmount": "提現金額",
     "methodBank": "銀行卡",
-    "rechargeMethod": "支付方式"
+    "rechargeMethod": "支付方式",
+    "flowBalance": "餘額",
+    "loading": "加載中...",
+    "rechargeOrderNo": "訂單號"
   },
   "activity": {
     "empty": "暫無活動",
@@ -3714,7 +3751,9 @@
       "noCertificates": "暫無證書"
     },
     "detail": {
-      "issueDate": "頒發日期"
+      "issueDate": "頒發日期",
+      "statusValid": "有效",
+      "statusRevoked": "已撤銷"
     }
   },
   "certDetail": {
@@ -3827,7 +3866,8 @@
   },
   "favorites": {
     "empty": "暫無收藏",
-    "title": "我的收藏"
+    "title": "我的收藏",
+    "remove": "取消收藏"
   },
   "feedback": {
     "contact": "聯絡方式",
@@ -4215,7 +4255,9 @@
     "ratingSubmitted": "評分已提交",
     "ratingFailed": "評分提交失敗",
     "commentPlaceholder": "寫下你的評價（選填）",
-    "ratingLoginHint": "登入後可評分"
+    "ratingLoginHint": "登入後可評分",
+    "importBtn": "導入",
+    "exportError": "導出失敗"
   },
   "memory": {
     "detail": "詳情",
@@ -4311,7 +4353,17 @@
     "platformXiaohongshu": "小紅書",
     "platformZhihu": "知乎",
     "platformJuejin": "掘金",
-    "platformShipinhao": "微信視頻號"
+    "platformShipinhao": "微信視頻號",
+    "history": {
+      "retry": "重試"
+    },
+    "accounts": {
+      "cancelScan": "取消掃碼"
+    },
+    "new": {
+      "submitNow": "立即發布",
+      "submitSchedule": "定時發布"
+    }
   },
   "spec": {
     "title": "規範模板庫",
@@ -4655,7 +4707,13 @@
     "searchEmpty": "未找到相關結果",
     "expand": "展開全文",
     "collapse": "收起",
-    "score": "相關度"
+    "score": "相關度",
+    "chunks": {
+      "showLess": "收起"
+    },
+    "manage": {
+      "singleDelete": "刪除"
+    }
   },
   "changePhone": {
     "phoneRequired": "請輸入手機號碼",
@@ -5141,7 +5199,8 @@
     "empty": "暫無連接器",
     "items": "文件數",
     "enable": "啟用",
-    "disable": "停用"
+    "disable": "停用",
+    "lastSyncAt": "最近同步"
   },
   "verify": {
     "getCode": "請輸入驗證碼",
@@ -5205,7 +5264,17 @@
     "formSubmit": "建立",
     "formFailed": "建立失敗",
     "nameRequired": "請填寫任務名稱",
-    "rruleRequired": "請填寫執行計畫"
+    "rruleRequired": "請填寫執行計畫",
+    "toast": {
+      "runDone": "巡檢完成",
+      "resumed": "已恢復",
+      "paused": "已暫停"
+    },
+    "action": {
+      "delete": "刪除",
+      "runNow": "立即巡檢",
+      "history": "歷史"
+    }
   },
   "selfHealing": {
     "title": "驗證自癒引擎",
@@ -5396,7 +5465,8 @@
     "tierUnknown": "未知來源",
     "generating": "生成中…",
     "restartConfirmTitle": "已有研究進行中",
-    "restartConfirmBody": "重新開始將丟棄當前進度，確定繼續？"
+    "restartConfirmBody": "重新開始將丟棄當前進度，確定繼續？",
+    "reportTitle": "研究報告"
   },
   "resources": {
     "title": "資源中心",
@@ -5450,7 +5520,8 @@
     "permDeleteFailed": "刪除權限失敗",
     "permSwitchConfirm": "切換權限確認",
     "permSwitchFailed": "權限切換失敗",
-    "permSwitchRisk": "切換權限可能影響現有存取"
+    "permSwitchRisk": "切換權限可能影響現有存取",
+    "convertMarkdownFailed": "轉換失敗"
   },
   "stepDecision": {
     "decision": {
@@ -5512,7 +5583,8 @@
     "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
     "summary": "共 {total} 個帳號 · 已啟用 {enabled}",
-    "addSuccess": "帳號已新增"
+    "addSuccess": "帳號已新增",
+    "add": "新增帳號"
   },
   "checkinAssistant": {
     "title": "簽到助手",
@@ -6067,7 +6139,10 @@
     "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
     "trendChartScope": "統計範圍：{scope}",
     "trendChartTitle": "出勤趨勢",
-    "trendWindow": "近 {days} 天"
+    "trendWindow": "近 {days} 天",
+    "studentPageTitle": "我的考勤",
+    "selectClass": "選擇班級",
+    "qrPanelTitle": "掃碼簽到"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -6075,7 +6150,8 @@
     "subject": "科目",
     "exam": "考試",
     "score": "分數",
-    "date": "日期"
+    "date": "日期",
+    "pageTitle": "成績管理"
   },
   "toolbar": {
     "svcTraffic": "流量運營陪跑",
@@ -6230,7 +6306,10 @@
     "teacher": "教師",
     "availability": "可用性",
     "available": "可用",
-    "busy": "已佔"
+    "busy": "已佔",
+    "form": {
+      "weekday": "星期"
+    }
   },
   "statusPage": {
     "title": "系統狀態",
@@ -7247,7 +7326,8 @@
   },
   "learnMapPage": {
     "completed": "已完成",
-    "empty": "暫無學習路徑"
+    "empty": "暫無學習路徑",
+    "defaultTitle": "學習地圖"
   },
   "user": {
     "security": {
@@ -7258,6 +7338,10 @@
         "idCard": "身分證號",
         "idCardPlaceholder": "請輸入身分證號"
       }
+    },
+    "articles": {
+      "prevPage": "上一頁",
+      "nextPage": "下一頁"
     }
   },
   "NavBar": {
@@ -7282,10 +7366,16 @@
     }
   },
   "eduProgressPage": {
-    "weeklyHours": "本週學習時長"
+    "weeklyHours": "本週學習時長",
+    "noData": "暫無數據"
   },
   "learn": {
-    "signedUp": "已報名"
+    "signedUp": "已報名",
+    "signUp": "立即報名",
+    "dailyReview": {
+      "questionLabel": "題目",
+      "statAvgDifficulty": "平均難度"
+    }
   },
   "learnPaymentConfirmPage": {
     "fields": {
@@ -7296,10 +7386,12 @@
     "cancelSubscription": "取消訂閱"
   },
   "student": {
-    "myCertsTitle": "我的證書"
+    "myCertsTitle": "我的證書",
+    "wrongBookTitle": "錯題本"
   },
   "activities": {
-    "join": "立即參與"
+    "join": "立即參與",
+    "notFound": "活動不存在或已下線"
   },
   "eduAttendanceQr": {
     "chooseClass": "選擇班級",
@@ -7326,5 +7418,84 @@
     "scanCheckIn": "掃碼簽到",
     "selfCheckIn": "我要簽到",
     "title": "我的考勤"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "設為默認地址"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "加載失敗"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "數據導出",
+      "portabilityCard": "數據可攜帶",
+      "eraseCard": "數據擦除"
+    },
+    "groups": {
+      "title": "我的群組"
+    },
+    "stt": {
+      "error": "轉寫失敗"
+    },
+    "video": {
+      "error": "編排失敗"
+    }
+  },
+  "articles": {
+    "hotTitle": "熱門文章",
+    "titleField": "標題",
+    "summaryField": "摘要",
+    "categoryField": "分類"
+  },
+  "agentsCategoriesPage": {
+    "total": "共 {count} 個"
+  },
+  "kbEditPage": {
+    "submitLabel": "保存"
+  },
+  "models": {
+    "keys": {
+      "copy": "復制",
+      "table": {
+        "name": "名稱"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "更新時間",
+        "description": "描述"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "暫無下級成員"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "學習計劃"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "查看詳情"
+  },
+  "businessCardEditPage": {
+    "editTitle": "編輯名片",
+    "bioLabel": "簡介"
+  },
+  "checkin": {
+    "colEnabled": "啟用",
+    "addAccount": "新增帳號"
+  },
+  "circles": {
+    "title": "圈子"
+  },
+  "knowledgeCard": {
+    "delete": "刪除"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 密鑰"
+  },
+  "agentTeams": {
+    "statsActive": "執行中"
   }
 }

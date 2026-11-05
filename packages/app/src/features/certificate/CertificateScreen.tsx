@@ -50,11 +50,11 @@ export function CertificateScreen({
   const statusLabel = (status: CertificateStatus): string => {
     switch (status) {
       case 'issued':
-        return t('certificate.status.issued')
+        return t('certificate.detail.statusValid')
       case 'expired':
         return t('certificate.status.expired')
       case 'revoked':
-        return t('certificate.status.revoked')
+        return t('certificate.detail.statusRevoked')
       default:
         return status
     }

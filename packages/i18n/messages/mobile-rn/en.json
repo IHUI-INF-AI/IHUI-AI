@@ -2,7 +2,10 @@
   "workflows": {
     "title": "Workflows",
     "empty": "No workflows yet",
-    "loadFailed": "Failed to load workflows"
+    "loadFailed": "Failed to load workflows",
+    "instanceDetail": {
+      "notFound": "Instance not found"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "No run result yet",
     "rrule": "Schedule (RRULE)",
     "timezone": "Timezone",
-    "schedule": "Schedule"
+    "schedule": "Schedule",
+    "lastRunAt": "Last run"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -638,7 +642,8 @@
     "fieldName": "Name",
     "fieldCategory": "Category",
     "fieldDescription": "Description",
-    "fieldPrice": "Price"
+    "fieldPrice": "Price",
+    "createTitle": "Create agent"
   },
   "chat": {
     "assetCatText": "Text",
@@ -948,7 +953,16 @@
     "theme": "Theme",
     "logoutConfirmBody": "Sign out of this account?",
     "accountDeletionConfirmLabel": "Confirm Deletion",
-    "accountDeletionConfirmTitle": "Confirm Deletion"
+    "accountDeletionConfirmTitle": "Confirm Deletion",
+    "revokeAuth": "Revoke Session",
+    "noAuthorizations": "No active sessions",
+    "authorizedAt": "Login Time",
+    "sessionExpiresAt": "Expires At",
+    "devices": {
+      "revokeConfirmTitle": "Revoke device",
+      "taskColCreated": "Created",
+      "taskColFinished": "Finished"
+    }
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -1340,7 +1354,11 @@
     "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
-    "becomeDeveloper": "Become a Developer"
+    "becomeDeveloper": "Become a Developer",
+    "settings": {
+      "infoName": "Name",
+      "infoTitle": "Developer Info"
+    }
   },
   "liveHost": {
     "error": {
@@ -1519,7 +1537,8 @@
     "okSent": "Shared",
     "cancelled": "Share cancelled",
     "fail": "Share failed",
-    "needAlbum": "Album permission required"
+    "needAlbum": "Album permission required",
+    "courseTitle": "Recommended course: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1894,7 +1913,9 @@
     "treeRetry": "Retry",
     "treeLevelLabel": "Level {level}",
     "treeCollapseHint": "Tap a node for details",
-    "teamTitle": "My team"
+    "teamTitle": "My team",
+    "colJoinedAt": "Joined at",
+    "colLevel": "Level"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -1921,7 +1942,14 @@
     "start": "Start exam",
     "title": "Exam",
     "totalScore": "Total score",
-    "questionCountLabel": "Questions"
+    "questionCountLabel": "Questions",
+    "result": {
+      "shareTitle": "My exam score: {n} points"
+    },
+    "startExam": "Start Exam",
+    "wrongQuestions": {
+      "colTime": "Added"
+    }
   },
   "examQuestion": {
     "loadFailed": "Failed to load the exam",
@@ -2261,7 +2289,9 @@
     "bindFailed": "Failed to bind",
     "bindSuccess": "Bound successfully",
     "codeRequired": "Please enter invite code",
-    "loadFailed": "Failed to load referrer"
+    "loadFailed": "Failed to load referrer",
+    "noReferrer": "No referrer bound",
+    "bindBtn": "Bind"
   },
   "register": {
     "phone": "Phone Number",
@@ -2650,7 +2680,10 @@
       "historyTitle": "Check-in history",
       "historyEmpty": "No check-in records",
       "historyLoadFailed": "Failed to load check-in history",
-      "historyConsecutive": "{days}-day streak"
+      "historyConsecutive": "{days}-day streak",
+      "consecutiveDays": "{days} day streak",
+      "history": "Sign-in History",
+      "empty": "No sign-in records"
     },
     "ruleLink": "Points rules",
     "txTitle": "Points history",
@@ -3133,7 +3166,8 @@
     "priceInvalid": "Price must be a number greater than 0",
     "priceOrder": "Starting price cannot exceed max price",
     "submitting": "Publishing…",
-    "submit": "Publish request"
+    "submit": "Publish request",
+    "contactLabel": "Contact"
   },
   "businessCard": {
     "title": "My Business Card"
@@ -3539,7 +3573,10 @@
     "retryRecharge": "Retry Recharge",
     "withdrawAmount": "Amount",
     "methodBank": "Bank Card",
-    "rechargeMethod": "Payment Method"
+    "rechargeMethod": "Payment Method",
+    "flowBalance": "Balance",
+    "loading": "Loading...",
+    "rechargeOrderNo": "Order No."
   },
   "activity": {
     "empty": "No activities",
@@ -3714,7 +3751,9 @@
       "noCertificates": "No certificates"
     },
     "detail": {
-      "issueDate": "Issue Date"
+      "issueDate": "Issue Date",
+      "statusValid": "Valid",
+      "statusRevoked": "Revoked"
     }
   },
   "certDetail": {
@@ -3827,7 +3866,8 @@
   },
   "favorites": {
     "empty": "No favorites",
-    "title": "My Favorites"
+    "title": "My Favorites",
+    "remove": "Remove"
   },
   "feedback": {
     "contact": "Contact",
@@ -4215,7 +4255,9 @@
     "ratingSubmitted": "Rating submitted",
     "ratingFailed": "Failed to submit rating",
     "commentPlaceholder": "Leave a comment (optional)",
-    "ratingLoginHint": "Sign in to rate"
+    "ratingLoginHint": "Sign in to rate",
+    "importBtn": "Import",
+    "exportError": "Export failed"
   },
   "memory": {
     "detail": "Details",
@@ -4311,7 +4353,17 @@
     "platformXiaohongshu": "Xiaohongshu (RED)",
     "platformZhihu": "Zhihu",
     "platformJuejin": "Juejin",
-    "platformShipinhao": "WeChat Channels"
+    "platformShipinhao": "WeChat Channels",
+    "history": {
+      "retry": "Retry"
+    },
+    "accounts": {
+      "cancelScan": "Cancel scan"
+    },
+    "new": {
+      "submitNow": "Publish Now",
+      "submitSchedule": "Schedule Publish"
+    }
   },
   "spec": {
     "title": "Spec Templates",
@@ -4655,7 +4707,13 @@
     "searchEmpty": "No results found",
     "expand": "Expand",
     "collapse": "Collapse",
-    "score": "Score"
+    "score": "Score",
+    "chunks": {
+      "showLess": "Collapse"
+    },
+    "manage": {
+      "singleDelete": "Delete"
+    }
   },
   "changePhone": {
     "phoneRequired": "Enter your phone number",
@@ -5141,7 +5199,8 @@
     "empty": "No connectors",
     "items": "Docs",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "lastSyncAt": "Last synced"
   },
   "verify": {
     "getCode": "Enter verification code",
@@ -5205,7 +5264,17 @@
     "formSubmit": "Create",
     "formFailed": "Failed to create",
     "nameRequired": "Please enter a task name",
-    "rruleRequired": "Please enter a schedule"
+    "rruleRequired": "Please enter a schedule",
+    "toast": {
+      "runDone": "Patrol finished",
+      "resumed": "Resumed",
+      "paused": "Paused"
+    },
+    "action": {
+      "delete": "Delete",
+      "runNow": "Run now",
+      "history": "History"
+    }
   },
   "selfHealing": {
     "title": "Self-healing engine",
@@ -5396,7 +5465,8 @@
     "tierUnknown": "Unknown source",
     "generating": "Generating…",
     "restartConfirmTitle": "Research already in progress",
-    "restartConfirmBody": "Restarting will discard current progress. Continue?"
+    "restartConfirmBody": "Restarting will discard current progress. Continue?",
+    "reportTitle": "Research Report"
   },
   "resources": {
     "title": "Resources",
@@ -5450,7 +5520,8 @@
     "permDeleteFailed": "Failed to delete permission",
     "permSwitchConfirm": "Confirm permission switch",
     "permSwitchFailed": "Failed to switch permission",
-    "permSwitchRisk": "Switching may affect existing access"
+    "permSwitchRisk": "Switching may affect existing access",
+    "convertMarkdownFailed": "Conversion failed"
   },
   "stepDecision": {
     "decision": {
@@ -5512,7 +5583,8 @@
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
     "summary": "{total} accounts · {enabled} enabled",
-    "addSuccess": "Account added"
+    "addSuccess": "Account added",
+    "add": "Add account"
   },
   "checkinAssistant": {
     "title": "Check-in Assistant",
@@ -6067,7 +6139,10 @@
     "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
     "trendChartScope": "Scope: {scope}",
     "trendChartTitle": "Attendance trend",
-    "trendWindow": "Last {days} days"
+    "trendWindow": "Last {days} days",
+    "studentPageTitle": "My Attendance",
+    "selectClass": "Select class",
+    "qrPanelTitle": "QR check-in"
   },
   "eduGrades": {
     "title": "Grades",
@@ -6075,7 +6150,8 @@
     "subject": "Subject",
     "exam": "Exam",
     "score": "Score",
-    "date": "Date"
+    "date": "Date",
+    "pageTitle": "Grade Management"
   },
   "toolbar": {
     "svcTraffic": "Traffic ops support",
@@ -6230,7 +6306,10 @@
     "teacher": "Teacher",
     "availability": "Availability",
     "available": "Available",
-    "busy": "Busy"
+    "busy": "Busy",
+    "form": {
+      "weekday": "Weekday"
+    }
   },
   "statusPage": {
     "title": "System Status",
@@ -7247,7 +7326,8 @@
   },
   "learnMapPage": {
     "completed": "Completed",
-    "empty": "No learning paths yet"
+    "empty": "No learning paths yet",
+    "defaultTitle": "Learning Map"
   },
   "user": {
     "security": {
@@ -7258,6 +7338,10 @@
         "idCard": "ID Card Number",
         "idCardPlaceholder": "Enter your ID number"
       }
+    },
+    "articles": {
+      "prevPage": "Previous",
+      "nextPage": "Next"
     }
   },
   "NavBar": {
@@ -7282,10 +7366,16 @@
     }
   },
   "eduProgressPage": {
-    "weeklyHours": "Study hours this week"
+    "weeklyHours": "Study hours this week",
+    "noData": "No data"
   },
   "learn": {
-    "signedUp": "Enrolled"
+    "signedUp": "Enrolled",
+    "signUp": "Enroll Now",
+    "dailyReview": {
+      "questionLabel": "Card",
+      "statAvgDifficulty": "Average difficulty"
+    }
   },
   "learnPaymentConfirmPage": {
     "fields": {
@@ -7296,10 +7386,12 @@
     "cancelSubscription": "Cancel Subscription"
   },
   "student": {
-    "myCertsTitle": "My Certificates"
+    "myCertsTitle": "My Certificates",
+    "wrongBookTitle": "Wrong Book"
   },
   "activities": {
-    "join": "Join Now"
+    "join": "Join Now",
+    "notFound": "Activity not found or offline"
   },
   "eduAttendanceQr": {
     "chooseClass": "Select class",
@@ -7326,5 +7418,84 @@
     "scanCheckIn": "Scan to check in",
     "selfCheckIn": "Check in",
     "title": "My Attendance"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "Set as default address"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "Load failed"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "Data Export",
+      "portabilityCard": "Portability",
+      "eraseCard": "Data Erasure"
+    },
+    "groups": {
+      "title": "My Groups"
+    },
+    "stt": {
+      "error": "Failed"
+    },
+    "video": {
+      "error": "Compose failed"
+    }
+  },
+  "articles": {
+    "hotTitle": "Hot Articles",
+    "titleField": "Title",
+    "summaryField": "Summary",
+    "categoryField": "Category"
+  },
+  "agentsCategoriesPage": {
+    "total": "{count} total"
+  },
+  "kbEditPage": {
+    "submitLabel": "Save"
+  },
+  "models": {
+    "keys": {
+      "copy": "Copy",
+      "table": {
+        "name": "Name"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "Updated At",
+        "description": "Description"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "No subordinates"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "Study Plans"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "View detail"
+  },
+  "businessCardEditPage": {
+    "editTitle": "Edit Business Card",
+    "bioLabel": "Bio"
+  },
+  "checkin": {
+    "colEnabled": "Enabled",
+    "addAccount": "Add Account"
+  },
+  "circles": {
+    "title": "Circles"
+  },
+  "knowledgeCard": {
+    "delete": "Delete"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API Keys"
+  },
+  "agentTeams": {
+    "statsActive": "Running"
   }
 }

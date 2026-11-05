@@ -275,6 +275,17 @@ test('T17 行差按多重集算:同一行重复出现按份数计(否则复制�
   assert.equal(__test__.minusCount(b, a), 0, '反向:b 的每一行 a 里都有 ⇒ 0')
 })
 
+test('T19 账本族内容级闸装车:两族必须共用同一把尺(旧档残渣不进账本批)', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
+  const fn = src.match(/\nexport function runLedgerFamily\([\s\S]*?\n\}\n/)?.[0] ?? ''
+  assert.ok(fn.length > 200, '必须取到 runLedgerFamily 函数体本身(防空串假绿)')
+  assert.match(fn, /dropStaleCopies\(paths, \[\]\)/, '账本族必须调用滞后副本守卫(缺这一臂就会静默回退)')
+  assert.match(fn, /账本族跳过滞后副本/, '跳过必须留痕点名,不许静默')
+  assert.match(fn, /stale-copy-held/, '整批被残渣挡住时 reason 必须与 livedoc-held 区分')
+  // 逐字节:两处 hash-object 探针都必须关 autocrlf(否则 oid 被改写 ⇒ 旧档 CRLF 漏判)
+  assert.match(src, /core\.autocrlf=false', 'hash-object'/, '探针必须逐字节取 oid')
+})
+
 test('T18 形状锁:两臂都必须从生产包装器可达(不靠读测试自己的假证)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   const fn = src.match(/\nfunction dropStaleCopies\([\s\S]*?\n\}\n/)?.[0] ?? ''

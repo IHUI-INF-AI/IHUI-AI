@@ -2,17 +2,23 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/exam-question/ExamQuestionScreen.tsx
+// 镜像 packages/app/src/features/exam-question/ExamQuestionScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 本端保留(不可丢的业务):
+//   ① 试卷加载链 GET /exam/papers/:id + /questions + /start(开考记录)
+//   ② 倒计时三态(时长未知 ⇒ 不限时;≤0 才自动交卷)与 onSubmitRef 自动提交
+//   ③ 作答模型 ExamAnswerValue + serializeExamAnswers(选项 key 序列化,判据单源在 api-client)
+//   ④ 提交后 redirectTo /pages/exam/result(分数/是否通过回填)
+//   ⑤ AI 操控通道(useUiField 登记):填空/主观题写入走 select,与作答回调同一通道
+// 版面/进度/题型标签/选项字母/上题下题/错误态由共享屏输出;onNavigate 端口按契约注入(本屏无受控跳转)。
 
-import { useI18n } from '@/i18n'
-import { logger } from '@/utils/logger'
-import { View, Text } from '@tarojs/components'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useI18n } from '@/i18n'
+import { logger } from '@/utils/logger'
 import { useUiField } from '@/lib/ui-field-registry'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ErrorState } from '@/components/ScreenStates.taro'
+import { useTheme } from '@/rn-compat/theme'
 import {
   getExamPaper,
   getExamQuestions,
@@ -22,19 +28,30 @@ import {
   toShellOptionTexts,
   toShellQuestionType,
   type ExamAnswerValue,
+  type ExamPaper,
   type ExamQuestion,
   type ShellQuestionType,
 } from '@/api'
 import { onToast } from '@/host/on-toast'
+import { ExamQuestionScreen as SharedExamQuestionScreen } from '@ihui/rn-app/features/exam-question/ExamQuestionScreen'
+import type { ExamQuestionPaper, OnNavigate } from '@ihui/types'
+
+/** 共享屏的宿主导航端口:本屏没有任何受控跳转点,按契约注入并在误用时可见地报错 */
+const onNavigate: OnNavigate = (target) => {
+  onToast(`导航未接入: ${target}`, { kind: 'error' })
+}
 
 export default function ExamAnswer() {
   const { t } = useI18n()
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   // 题目一律吃 api-client 的原始形状(ExamQuestion):type 是后端五档
   // single|multiple|judge|fill|essay,options 是 {key,value}[] | null。
   // 渲染要的「共享屏题型 / 选项文案」现投影(toShellQuestionType / toShellOptionTexts),
   // 提交要的「选项 key」由 serializeExamAnswers 内部消化 —— 端内不再翻译第二遍。
+  const [paper, setPaper] = useState<ExamPaper | null>(null)
   const [questions, setQuestions] = useState<ExamQuestion[]>([])
+  const [loading, setLoading] = useState(true)
   const [loadFailed, setLoadFailed] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [answers, setAnswers] = useState<Record<string, ExamAnswerValue>>({})
@@ -45,17 +62,12 @@ export default function ExamAnswer() {
   const submittedRef = useRef(false)
   const onSubmitRef = useRef<() => void>(() => {})
 
-  // 判断题两档文案取共享屏同一对词条(examQuestion.judgmentTrue/False),不再用端内
-  // exam.answer.judgmentOptions —— 两端同一句话必须同源,否则改一端另一端不跟。
-  const judgmentOptions = [t('examQuestion.judgmentTrue'), t('examQuestion.judgmentFalse')]
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
-  // 共享屏题型(单一投影点):typeLabel / 作答区分支 / 选项取值全部读它,
+  // 共享屏题型(单一投影点):作答区分支 / 选项取值全部读它,
   // 不再各自拿后端词表去比对 'fill_blank' 之类根本不存在的值。
-  // 无当前题时占位 'single' —— 所有消费点都被 `!current` 或 `current &&` 守卫住。
   const shellType: ShellQuestionType = current ? toShellQuestionType(current.type) : 'single'
-  // AI 操控通道(2026-09-21):填空题 / 主观题的作答框(renderAnswer 里按题型分支渲染,
-  // 同一屏只有一个作答框)。写入走与 onInput 同一个 select(current) 通道。
-  // 选择/判断题的选项是 View onClick、非输入框,不在本轮范围。
+  // AI 操控通道(2026-09-21):填空题 / 主观题的作答框(同一屏只有一个作答框)。
+  // 写入走与 onAnswer 同一个 select(current) 通道。
   const answerType = shellType === 'fill' || shellType === 'subjective' ? shellType : ''
   useUiField(
     answerType
@@ -69,34 +81,9 @@ export default function ExamAnswer() {
             const ans = current ? answers[current.id] : undefined
             return typeof ans === 'string' ? ans : ''
           },
-          setValue: (next) => select(next),
+          setValue: (next) => onAnswer('', next),
         }
       : null,
-  )
-
-  const formatTime = useCallback((s: number) => {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-  }, [])
-
-  // 题型标签分派与共享屏 typeLabel 同一套(逐 case 同名):判断题无独立词条,取两个选项词拼合。
-  const typeLabel = useCallback(
-    (type: ShellQuestionType) => {
-      switch (type) {
-        case 'multi':
-          return t('examQuestion.multi')
-        case 'fill':
-          return t('examQuestion.fill')
-        case 'subjective':
-          return t('examQuestion.subjective')
-        case 'judgment':
-          return `${t('examQuestion.judgmentTrue')}/${t('examQuestion.judgmentFalse')}`
-        default:
-          return t('examQuestion.single')
-      }
-    },
-    [t],
   )
 
   const onSubmit = useCallback(async () => {
@@ -116,8 +103,7 @@ export default function ExamAnswer() {
         url: `/pages/exam/result?id=${recordIdRef.current}&score=${res.result.score}&pass=${res.result.isPassed}`,
       })
     } catch {
-      // 对齐 RN onSubmit 的失败面:失败必须让用户看见并留在本屏(可重交),
-      // 不再像改前那样静默把 submittedRef 复位 —— 那会让"点了没反应"成为常态。
+      // 对齐 RN onSubmit 的失败面:失败必须让用户看见并留在本屏(可重交)。
       submittedRef.current = false
       onToast(t('examQuestion.submitFailed'), { kind: 'error' })
     }
@@ -127,10 +113,14 @@ export default function ExamAnswer() {
 
   useEffect(() => {
     const id = router.params.id
-    if (!id) return
+    if (!id) {
+      setLoading(false)
+      return
+    }
     Promise.all([getExamPaper(id), getExamQuestions(id), startExamRecord(id)])
       .then(([{ paper }, { list }, { record }]) => {
         recordIdRef.current = record.id
+        setPaper(paper)
         setQuestions(list || [])
         // 时长未知(缺省/0)的试卷不限时:既不起倒计时,更不能拿 0 当起始值
         // —— 0 会被计时条读成「时间到,已自动交卷」,并在第一秒真的自动交卷。
@@ -151,8 +141,11 @@ export default function ExamAnswer() {
       .catch((e) => {
         logger.error('unknown', '考试加载', e)
         // 对齐 RN SharedExamQuestionScreen:加载失败由 ErrorState 常驻呈现(message 取
-        // examQuestion.loadFailed),重试落点同 RN 的 onRetry = 返回上一屏
+        // examQuestion.loadFailed)。RN 同屏的重试是真重载(重新加载);小程序只给返回出口(合法差异)
         setLoadFailed(true)
+      })
+      .finally(() => {
+        setLoading(false)
       })
     return () => {
       if (timerRef.current) {
@@ -181,6 +174,28 @@ export default function ExamAnswer() {
     [current],
   )
 
+  // 共享屏 onAnswer 回调:判断题/填空题/主观题写入,与 AI 通道同一写函数
+  const onAnswer = useCallback(
+    (_id: string, value: ExamAnswerValue) => {
+      select(value)
+    },
+    [select],
+  )
+
+  // 多选题点击由共享屏带 multi 标记回调;规则与端内 select 原来同一套(选中再点即取消)
+  const onToggleOption = useCallback((id: string, idx: number, multi: boolean) => {
+    setAnswers((prev) => {
+      if (multi) {
+        const arr = Array.isArray(prev[id]) ? (prev[id] as number[]) : []
+        return {
+          ...prev,
+          [id]: arr.includes(idx) ? arr.filter((n) => n !== idx) : [...arr, idx],
+        }
+      }
+      return { ...prev, [id]: idx }
+    })
+  }, [])
+
   const prev = useCallback(() => {
     setCurrentIdx((idx) => (idx > 0 ? idx - 1 : idx))
   }, [])
@@ -189,173 +204,53 @@ export default function ExamAnswer() {
     setCurrentIdx((idx) => (idx < questions.length - 1 ? idx + 1 : idx))
   }, [questions.length])
 
-  const renderAnswer = () => {
-    if (!current) return null
-    const ans = answers[current.id]
-    if (shellType === 'fill') {
-      return (
-        <ThemeRoot>
-          <FocusInput
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground"
-            type="text"
-            placeholder={t('examQuestion.answerPlaceholder')}
-            value={typeof ans === 'string' ? ans : ''}
-            onInput={(e) => select(e.detail.value)}
-          />
-        </ThemeRoot>
-      )
+  // 共享屏投影:题型/选项文案现投影,分值随接口给(缺省不渲染)
+  const exam = useMemo<ExamQuestionPaper | null>(() => {
+    if (!paper) return null
+    return {
+      id: paper.id,
+      title: paper.title,
+      duration: Number(paper.duration) || 0,
+      questions: questions.map((q) => ({
+        id: q.id,
+        type: toShellQuestionType(q.type),
+        content: q.title,
+        options: toShellOptionTexts(q),
+        ...(typeof q.score === 'number' ? { score: q.score } : {}),
+      })),
     }
-    if (shellType === 'subjective') {
-      return (
-        <ThemeRoot>
-          <FocusTextarea
-            className="w-full py-[16rpx] px-[28rpx] border-[length:2rpx] border-[var(--color-border)] rounded-sm text-title text-foreground min-h-[320rpx]"
-            placeholder={t('examQuestion.subjectivePlaceholder')}
-            value={typeof ans === 'string' ? ans : ''}
-            onInput={(e) => select(e.detail.value)}
-            maxlength={1000}
-          />
-        </ThemeRoot>
-      )
-    }
-    const isJudgment = shellType === 'judgment'
-    const opts = isJudgment ? judgmentOptions : toShellOptionTexts(current)
-    const isMulti = shellType === 'multi'
-    return opts.map((opt, i) => {
-      const selected = isMulti
-        ? Array.isArray(ans) && (ans as number[]).includes(i)
-        : isJudgment
-          ? ans === (i === 0)
-          : ans === i
-      const val: ExamAnswerValue = isJudgment ? i === 0 : i
-      return (
-        <ThemeRoot key={i}>
-          {/* 对齐 RN SharedExamQuestionScreen option:p28rpx 圆角24rpx 2rpx描边 mb16rpx;
-              选中 border/文字 success + bg success.light */}
-          <View
-            key={i}
-            className={`flex items-center p-[28rpx] border-[length:2rpx] rounded-xl mb-[16rpx] ${
-              selected
-                ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
-                : 'border-[var(--color-border)]'
-            }`}
-            hoverClass="opacity-60"
-            onClick={() => select(val)}
-          >
-            <View
-              className={`w-[56rpx] h-[56rpx] leading-[56rpx] text-center border-[length:2rpx] rounded-md text-body ${
-                selected
-                  ? 'border-[var(--color-success)] text-[var(--color-success)]'
-                  : 'border-[var(--color-border)] text-[var(--color-text-medium)]'
-              }`}
-            >
-              {isJudgment ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
-            </View>
-            <Text
-              className={`flex-1 ml-[24rpx] text-title ${
-                selected
-                  ? 'text-[var(--color-success)] font-medium'
-                  : 'text-[var(--color-text-medium)]'
-              }`}
-            >
-              {opt}
-            </Text>
-          </View>
-        </ThemeRoot>
-      )
-    })
-  }
-
-  // 试卷取不到 ⇒ 整屏错误态(不渲染计时条/交卷键,避免"0/0 题 + 交卷"把失败读成空卷)
-  if (loadFailed && !questions.length) {
-    return (
-      <ThemeRoot>
-        <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx]">
-          <ErrorState
-            message={t('examQuestion.loadFailed')}
-            onRetry={() => {
-              Taro.navigateBack()
-            }}
-            retryLabel={t('common.back')}
-          />
-        </View>
-      </ThemeRoot>
-    )
-  }
+  }, [paper, questions])
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN SharedExamQuestionScreen:背景 surface.bg / 水平 padding 20rpx / 内容流内按钮行;
-          顶部计时条为小程序业务(自动交卷),进度对齐 RN progress(28rpx/600 success) */}
-      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[64rpx]">
-        <View className="flex justify-between items-center">
-          {/* 三态:null=时长未知/不限时(占位,不冒充「已交卷」);>0 倒计时;0 才是真的时间到。
-              改前起始值是 0,首屏就渲染「考试时间到,已自动交卷」并在 1 秒后自动交卷。 */}
-          <Text className="text-title text-[var(--color-danger)] font-bold">
-            {remain === null
-              ? '--:--'
-              : remain > 0
-                ? t('examQuestion.timeLeft', { time: formatTime(remain) })
-                : t('examQuestion.timeUp')}
-          </Text>
-          <Text className="text-body text-[var(--color-success)] font-semibold">
-            {currentIdx + 1}/{questions.length}
-          </Text>
-        </View>
-
-        {current && (
-          <View>
-            {/* 对齐 RN typeLabel:五种题型各有共享词条(判断题取两选项词拼合),
-                不再只在单/多选上渲染 —— 缺标签等于缺一句文案 */}
-            <View className="mt-[16rpx] flex">
-              <Text className="px-[16rpx] py-[4rpx] rounded-sm bg-[var(--color-success-light)] text-caption font-semibold text-[var(--color-success)]">
-                {typeLabel(shellType)}
-              </Text>
-            </View>
-            <Text className="mt-[16rpx] block text-subtitle text-foreground font-semibold leading-relaxed">
-              {currentIdx + 1}. {current.title}
-            </Text>
-            <View className="mt-[32rpx]">{renderAnswer()}</View>
-          </View>
-        )}
-
-        {/* 对齐 RN actionRow:mt32rpx / gap16rpx / navBtn h100rpx 圆角24rpx bg-card,
-            提交按钮 bg-primary 白字 32rpx/600;禁用 opacity 0.4 */}
-        <View className="mt-[32rpx] flex gap-[16rpx]">
-          {currentIdx > 0 && (
-            <View
-              className="h-[100rpx] flex-1 flex items-center justify-center ui-card rounded-lg bg-card"
-              hoverClass="opacity-60"
-              onClick={prev}
-            >
-              <Text className="text-title text-[var(--color-text-medium)]">
-                {t('examQuestion.prev')}
-              </Text>
-            </View>
-          )}
-          {currentIdx < questions.length - 1 ? (
-            <View
-              className="h-[100rpx] flex-1 flex items-center justify-center ui-card rounded-lg bg-card"
-              hoverClass="opacity-60"
-              onClick={next}
-            >
-              <Text className="text-title text-[var(--color-text-medium)]">
-                {t('examQuestion.next')}
-              </Text>
-            </View>
-          ) : (
-            <View
-              className="h-[100rpx] flex-1 flex items-center justify-center ui-control rounded-sm bg-primary"
-              hoverClass="opacity-60"
-              onClick={onSubmit}
-            >
-              <Text className="text-title font-semibold text-primary-foreground">
-                {t('examQuestion.submit')}
-              </Text>
-            </View>
-          )}
-        </View>
-      </View>
+      <SharedExamQuestionScreen
+        t={t}
+        exam={exam}
+        loading={loading}
+        error={loadFailed ? t('examQuestion.loadFailed') : ''}
+        current={currentIdx}
+        // 单选存下标(number)、多选存下标数组、判断存 boolean、填空存 string —— 与 RN host
+        // (`apps/mobile-rn/src/screens/ExamQuestionScreen.tsx`) 的运行时形状完全一致;
+        // 共享类型只列了 string|boolean|string[]|number[],未列单选 number,故此处按运行时契约断言。
+        answers={answers as unknown as Record<string, string | boolean | string[] | number[]>}
+        onToggleOption={onToggleOption}
+        onAnswer={onAnswer}
+        leftSec={remain === null ? undefined : remain}
+        submitting={false}
+        onPrev={prev}
+        onNext={next}
+        onSubmit={() => {
+          void onSubmit()
+        }}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        onRetry={() => {
+          void Taro.navigateBack()
+        }}
+        onNavigate={onNavigate}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }

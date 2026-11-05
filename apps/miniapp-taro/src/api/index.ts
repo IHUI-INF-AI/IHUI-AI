@@ -61,6 +61,8 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
+// 模型列表统一接口:共享端点 fetchModels 与后端 /api/llm/models 同口径,端内不再直拼裸路径。
+import { fetchModels as fetchModelsShared } from '@ihui/api-client'
 // D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
 // D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
@@ -1820,7 +1822,7 @@ export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', param
 /** 获取 AI 团队智能体类型 */
 export const getAgentType = () => get('/agents/types')
 /** 获取模型列表（统一接口） */
-export const getCozeApiList = (params?: ApiParams) => get('/api/llm/models', params)
+export const getCozeApiList = () => fetchModelsShared()
 
 /* ============ 音频 / Sora ============ */
 /** Sora 请求结束 */

@@ -103,7 +103,7 @@ export default function LearnMapScreen() {
   return (
     <View style={styles.container}>
       <NavChrome>
-        <NavBar title={t('learnMap.title')} onBack={() => navigation.goBack()} />
+        <NavBar title={t('learnMapPage.defaultTitle')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
       <ScrollView contentContainerStyle={styles.body}>
