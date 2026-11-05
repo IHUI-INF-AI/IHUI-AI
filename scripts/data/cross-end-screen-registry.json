@@ -872,11 +872,6 @@
       "miniapp": "pages/distribution/plan-list/index"
     },
     {
-      "shared": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PlazaCoverScreen.tsx",
-      "miniapp": "pkg-content/plaza/cover/index"
-    },
-    {
       "shared": "packages/app/src/features/plaza/PlazaScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PlazaScreen.tsx",
       "miniapp": "pages/plaza/index/index"
