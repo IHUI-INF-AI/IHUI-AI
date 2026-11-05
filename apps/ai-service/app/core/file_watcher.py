@@ -20,9 +20,11 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -265,3 +267,81 @@ class FileWatcherRouter:
                 sub.queue.put_nowait(event)
                 delivered += 1
         return delivered
+
+
+# ---------------------------------------------------------------------------
+# Z18(2026-11-06):外部手改喂源的"可声明 + 可到期"门控 与 一次性驱动原语
+# ---------------------------------------------------------------------------
+# 事实(现读):`Receiver` 的轮询循环在生产无人启动 ⇒ 事件源只覆盖 agent 自己
+# apply_patch 的路径,人手改文件进不了增量面。本段只提供两样东西:
+#   1) resolve_watch_poll_gate —— 三态门控(off / on / unjudged),默认档 off;
+#      缺值 = **未判定**(§0.3:不记绿也不静默开一轮没人看得见的轮询),
+#      且 `on` 必须同批带 ISO 到期日 ⇒ 开启可声明、可到期,过期自动回 off。
+#   2) route_receiver_scan —— 单次扫描 + 路由(无 sleep、无 create_task):
+#      调度节奏归调用方的既有常驻循环,本模块绝不自起 daemon。
+# 红线不变:Receiver/Router 的判据与去抖语义一字未动。
+
+POLL_ENABLED_ENV = "ENGINE_FILE_WATCH_POLL_ENABLED"
+POLL_UNTIL_ENV = "ENGINE_FILE_WATCH_POLL_UNTIL"
+POLL_STATE_ON = "on"
+POLL_STATE_OFF = "off"
+POLL_STATE_UNJUDGED = "unjudged"
+POLL_TRUTHY: tuple[str, ...] = ("on", "1", "true", "yes")
+
+
+@dataclass(frozen=True)
+class WatchPollGate:
+    """轮询源门控结论:只有 `on` 允许驱动;off 与 unjudged 都零动作。"""
+
+    state: str
+    reason: str | None = None
+
+    def drives(self) -> bool:
+        return self.state == POLL_STATE_ON
+
+
+def resolve_watch_poll_gate(
+    env: Mapping[str, str] | None = None, *, today: date | None = None
+) -> WatchPollGate:
+    """解析外部变更轮询源开关(默认 off;缺值 ⇒ 未判定并点名缺哪个键)。"""
+    source = os.environ if env is None else env
+    flag = (source.get(POLL_ENABLED_ENV) or "").strip().lower()
+    if not flag:
+        return WatchPollGate(
+            POLL_STATE_UNJUDGED,
+            f"未声明 {POLL_ENABLED_ENV} ⇒ 未判定(不起轮询,也不冒充「已关」);"
+            "开启需同批给到期日 " + POLL_UNTIL_ENV,
+        )
+    if flag not in POLL_TRUTHY:
+        return WatchPollGate(POLL_STATE_OFF, f"{POLL_ENABLED_ENV}={flag!r} ⇒ 显式关闭")
+    until_raw = (source.get(POLL_UNTIL_ENV) or "").strip()
+    if not until_raw:
+        return WatchPollGate(
+            POLL_STATE_UNJUDGED,
+            f"{POLL_ENABLED_ENV}=on 但未声明 {POLL_UNTIL_ENV}(可到期)⇒ 未判定,不起轮询",
+        )
+    try:
+        until = date.fromisoformat(until_raw)
+    except ValueError:
+        return WatchPollGate(
+            POLL_STATE_UNJUDGED,
+            f"{POLL_UNTIL_ENV}={until_raw!r} 不是 ISO 日期 ⇒ 未判定,不起轮询",
+        )
+    current = today or date.today()
+    if until < current:
+        return WatchPollGate(
+            POLL_STATE_OFF,
+            f"{POLL_UNTIL_ENV}={until_raw} 已到期(今 {current.isoformat()})⇒ 自动关闭,"
+            "须重新声明才再开",
+        )
+    return WatchPollGate(POLL_STATE_ON, f"{POLL_ENABLED_ENV}=on,到期 {until_raw}")
+
+
+def route_receiver_scan(
+    receiver: Receiver, router: FileWatcherRouter
+) -> tuple[FileWatcherEvent | None, int]:
+    """单次扫描并把变更事件路由给订阅方;无变更 ⇒ (None, 0),零副作用。"""
+    event = receiver.poll()
+    if event is None:
+        return None, 0
+    return event, router.dispatch(event)
