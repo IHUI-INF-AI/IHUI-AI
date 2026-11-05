@@ -268,7 +268,10 @@ export async function getTopics(
 }
 
 export async function getNews(query: NewsListQuery = {}): Promise<ApiResult<PageData<News>>> {
-  return fetchApi<PageData<News>>(`/news/articles${buildQs(query)}`)
+  // 键名归一:`apps/api/src/routes/news.ts:65` 的 articlesQuerySchema 只认 `search`,
+  // 直传 `keyword` 会被后端静默丢弃(与 getCourses 的 course.ts:235-236 同款处理)。
+  const { keyword, ...rest } = query
+  return fetchApi<PageData<News>>(`/news/articles${buildQs({ ...rest, search: keyword })}`)
 }
 
 /**

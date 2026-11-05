@@ -119,4 +119,20 @@ export async function subscribeLive(id: string): Promise<ApiResult<{ subscribed:
     method: 'POST',
   })
 }
+
+/**
+ * 我订阅的频道 — `GET /api/live/subscriptions`(需登录),响应 `{ list }`。
+ * 后端只回 `status=1`(启用)的频道(`apps/api/src/db/live-queries.ts:397-405`);
+ * `status` 是启用标志,不是直播态 —— 直播中看 `isLive`、是否发布看 `isPublished`。
+ */
+export async function getLiveSubscriptions(): Promise<ApiResult<{ list: Live[] }>> {
+  return fetchApi<{ list: Live[] }>(`/api/live/subscriptions`)
+}
+
+/** 取消订阅 — `DELETE /api/live/:id/subscribe`(与 `apps/api/src/routes/live.ts:489-499` 逐字一致) */
+export async function unsubscribeLive(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>(`/api/live/${encodeURIComponent(id)}/subscribe`, {
+    method: 'DELETE',
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
