@@ -105,7 +105,11 @@ test('A4 unlocated 与 A5 空区间:两者都不冒充①/②', () => {
 
 test('A6 反证:把 lib 从 safe-commit 里摘掉 ⇒ 接线锁必须红(判据不能只是躺在 lib 里没人调)', () => {
   const src = readFileSync(join(here, '..', 'safe-commit.mjs'), 'utf8')
-  assert.match(src, /from '\.\/lib\/commit-payload-attribution\.mjs'/, 'safe-commit 必须引这份唯一出口')
+  assert.match(
+    src,
+    /from '\.\/lib\/commit-payload-attribution\.mjs'/,
+    'safe-commit 必须引这份唯一出口',
+  )
   assert.match(src, /classifyConcurrentCommits\(/, '必须真调分类器')
   assert.match(src, /adviceFor\(/, '处置建议必须与形态同处产出,不得另抄一份措辞')
   // 形态分支齐备(缺一型就会把两种相反的错位读成同一句话)
@@ -150,11 +154,7 @@ test('B3 棘轮命门:取样时已在外来水位里的 ⇒ **不拦**(否则多
 })
 
 test('B4 棘轮只认增量:新进的才进 newEntries,既有的不重复点名', () => {
-  const r = foreign(
-    ['a.ts', 'their-wip.ts'],
-    ['a.ts', 'their-wip.ts', 'another-wip.ts'],
-    ['a.ts'],
-  )
+  const r = foreign(['a.ts', 'their-wip.ts'], ['a.ts', 'their-wip.ts', 'another-wip.ts'], ['a.ts'])
   assert.equal(r.blocking, true)
   assert.deepEqual(r.newEntries, ['another-wip.ts'])
 })
@@ -188,11 +188,7 @@ test('B7 变异验证:把"只拦新增"退化成"有外来件就拦" ⇒ B3 必�
       current: ['a.ts', 'their-wip.ts'],
       expected: ['a.ts'],
     })
-    assert.equal(
-      m.blocking,
-      true,
-      '退化成存量判定后 B3 必须转红 ⇒ 说明这条用例真的咬住了棘轮语义',
-    )
+    assert.equal(m.blocking, true, '退化成存量判定后 B3 必须转红 ⇒ 说明这条用例真的咬住了棘轮语义')
     // 对照组:未变异的那一份在同一组输入下必须绿(证明差异**只**来自这一行)
     const pristine = foreign(['a.ts', 'their-wip.ts'], ['a.ts', 'their-wip.ts'], ['a.ts'])
     assert.equal(pristine.blocking, false)
@@ -201,19 +197,119 @@ test('B7 变异验证:把"只拦新增"退化成"有外来件就拦" ⇒ B3 必�
   }
 })
 
+/**
+ * B8 接线锁的取材实现(2026-11-05 收口"锚点腐烂",逐条对照见下方 W1–W8)。
+ *
+ * 旧锁钉两个**字面串** `commitArgs(false)` / `commitArgs(true)`,再用
+ * `lastIndexOf('rejectIfForeignEnteredIndex(', 发令点)` 判"发令前有没有复量"。2026-11-02 把带钩子的
+ * 发令体**原样**抽成 `launchCommitWithHooks()`(主环与 not-ours 退避环共用一份发令体,防"一边转发钩子、
+ * 一边裸跑"漂移),发令点从此住在函数体内、由循环在护栏**之后**调用 ⇒ 旧字面串在 HEAD 面与工作树面都
+ * 0 命中,而"文本顺序"也不再表达运行时顺序(护栏 → `await launchCommitWithHooks()` → 体内 spawn)。
+ * 逐处读到执行点(非读注释)确认:运行时**每一枚**发令前都仍有复量 —— 现读 3 处调用点分别在主环
+ * (`attempt === 1 ? '首次尝试'`)、钩子退避环、`--no-verify` 发令之前 ⇒ 烂的是锚点,不是护栏。
+ * 首次发令那一格还另有一层 O43②(钩子运行期复量,`buildWrappedHooksDir` 布防于发令体内,
+ * `GUARD_MARK` 命中即 exit 1 且结构上拒绝落进 `--no-verify` 兜底)—— 它补的是"发令前复量够不到的
+ * 钩子窗口"(≈15 分钟)与"索引被别席清空成空树"两格,与 G-920 前置复量是**互补不是替代**。
+ *
+ * 本实现把锁改钉**运行时不变量**,并逐条不低于旧断言:
+ *   W1 取材走 lib 的带状态出口(旧断言 1,原样保留)
+ *   W2 前置护栏调用点 ≥ 2(旧断言 2,门槛不降)
+ *   W3 护栏本体拒发必须 `process.exit(1)`(旧标题写着"exit 1"却没在这里量过 ⇒ 补实)
+ *   W4 `'commit',` 全文件恰一处:发令参数只拼一份,两处发令共用
+ *   W5 两处发令形态都还在:带钩子 `commitArgv(false` 仍在 launch 体内 / 跳门 `commitArgv(true)`
+ *     (旧断言 3 的新锚点)
+ *   W6 **每一枚**发令点之前的复量必须"属于这一枚":该护栏调用排在**上一枚**发令点之后
+ *     (旧断言 4/5 的新形态,且把"文件里某处有护栏"收紧成逐枚配对)
+ *   W7 带钩子发令体必须布防 O43②,且 GUARD_MARK 命中处必须 exit 1
+ *   W8 T1 基线必须是 Step 3 的**全量**索引面(旧断言 6,原样保留)
+ * 判据本体(`diffForeignIndexEntries` 的棘轮语义)仍只在 lib 一份 —— 这里只判接线,不复制判据(§22c)。
+ */
+const allIndexes = (src, re) => {
+  const rx = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)
+  const out = []
+  let m
+  while ((m = rx.exec(src)) !== null) out.push({ i: m.index, text: m[0] })
+  return out
+}
+
+/** 取 `startNeedle` 起、到下一个顶格 `}` 为止的那一段(函数体/箭头函数体的文本边界)。 */
+const regionOf = (src, startNeedle) => {
+  const a = src.indexOf(startNeedle)
+  if (a < 0) return ''
+  const b = src.indexOf('\n}', a)
+  return b > a ? src.slice(a, b) : src.slice(a)
+}
+
+function wiringViolations(src) {
+  const v = []
+  if (!/gitStagedStatusEntries/.test(src)) v.push('W1 取材要走 lib 的带状态出口,不自己拆 -z 帧')
+  const guards = allIndexes(src, /rejectIfForeignEnteredIndex\(/g)
+  if (guards.length < 2) v.push(`W2 前置护栏调用点必须覆盖两处发令(现状 ${guards.length} 处)`)
+  if (!/process\.exit\(1\)/.test(regionOf(src, 'const rejectIfForeignEnteredIndex =')))
+    v.push('W3 护栏拒发必须走 process.exit(1),不许只打日志就继续发令')
+  const argvBuilds = allIndexes(src, /'commit',/g)
+  if (argvBuilds.length !== 1)
+    v.push(`W4 'commit' 只许在唯一 argv 出口出现一次(现状 ${argvBuilds.length} 处)`)
+  const launchBody = regionOf(src, 'async function launchCommitWithHooks')
+  if (!launchBody.includes('commitArgv(false'))
+    v.push('W5 带钩子发令点(commitArgv(false …)必须仍在 launchCommitWithHooks() 体内')
+  if (!src.includes('commitArgv(true')) v.push('W5 跳门发令点(commitArgv(true))不见了')
+  if (!launchBody.includes('buildWrappedHooksDir('))
+    v.push('W7 带钩子发令体未布防 O43②(钩子运行期外来件护栏)')
+  for (const s of allIndexes(src, /\.includes\(GUARD_MARK\)/g))
+    if (!/process\.exit\(1\)/.test(src.slice(s.i, s.i + 1500)))
+      v.push(`W7 GUARD_MARK 命中处 @${s.i} 之后没有 exit(1) —— 判红落进 --no-verify 兜底等于白装`)
+  const sites = [
+    ...allIndexes(src, /await launchCommitWithHooks\(\)/g).map((s) => ({
+      ...s,
+      name: '带钩子发令',
+    })),
+    ...allIndexes(src, /commitArgv\(true\)/g).map((s) => ({ ...s, name: '跳门发令' })),
+  ].sort((a, b) => a.i - b.i)
+  if (sites.length < 2)
+    v.push(`W6 发令点只枚举到 ${sites.length} 枚 —— 找不到锚点不等于通过(§0.3 不许枚举到 0 判绿)`)
+  let prevIssue = -1
+  for (const s of sites) {
+    const g = src.lastIndexOf('rejectIfForeignEnteredIndex(', s.i)
+    if (g <= prevIssue)
+      v.push(
+        `W6 ${s.name}@${s.i} 之前没有属于这一枚的发令前复量(最近护栏 @${g},上一枚发令 @${prevIssue})`,
+      )
+    prevIssue = s.i
+  }
+  if (!/const stagedBaselineAtStep3 = stagedFiles\.map\(normalize\)/.test(src))
+    v.push('W8 T1 基线必须是 Step 3 的全量索引面(声明集留到判据里减)')
+  return v
+}
+
 test('B8 接线锁:前置护栏必须在**两处**发令前都被调用,且拒发走 exit 1', () => {
   const src = readFileSync(join(here, '..', 'safe-commit.mjs'), 'utf8')
-  assert.match(src, /gitStagedStatusEntries/, '取材要走 lib 的带状态出口,不自己拆 -z 帧')
-  const calls = src.match(/rejectIfForeignEnteredIndex\(/g) ?? []
-  assert.ok(calls.length >= 2, `前置护栏调用点必须覆盖两处发令(现状 ${calls.length} 处)`)
-  const iFirst = src.indexOf('commitArgs(false)')
-  const iSecond = src.indexOf('commitArgs(true)')
-  assert.ok(iFirst > 0 && iSecond > 0, '两处发令点都必须还在')
-  const guarded = (idx) => src.lastIndexOf('rejectIfForeignEnteredIndex(', idx) > 0
-  assert.ok(guarded(iFirst), '首次发令前必须复量索引')
-  assert.ok(guarded(iSecond), '跳门重试也是一次整索引提交,同样必须复量')
-  // T1 端必须存在,且取的是**全量**索引面(声明集留到判据里减)
-  assert.match(src, /const stagedBaselineAtStep3 = stagedFiles\.map\(normalize\)/)
+  assert.deepEqual(
+    wiringViolations(src),
+    [],
+    '发令接线必须逐条自证(判据见本文件 wiringViolations 头注)',
+  )
+})
+
+test('B8m 变异验证:摘掉**任一**处发令前复量 ⇒ W6 必须点名那一枚(接线锁不是装饰)', () => {
+  const src = readFileSync(join(here, '..', 'safe-commit.mjs'), 'utf8')
+  const guards = allIndexes(src, /rejectIfForeignEnteredIndex\(/g)
+  assert.ok(guards.length >= 2, `变异面需要 ≥2 处护栏调用(现状 ${guards.length})`)
+  const dropLineAt = (text, idx) => {
+    const start = text.lastIndexOf('\n', idx) + 1
+    const end = text.indexOf('\n', idx)
+    return end > idx ? text.slice(0, start) + text.slice(end + 1) : text.slice(0, start)
+  }
+  for (let n = 0; n < guards.length; n++) {
+    const mutant = dropLineAt(src, guards[n].i)
+    const left = allIndexes(mutant, /rejectIfForeignEnteredIndex\(/g).length
+    assert.equal(left, guards.length - 1, `变异 #${n} 没有真的摘掉那一条护栏调用(现读 ${left} 处)`)
+    const hit = wiringViolations(mutant).filter((x) => x.startsWith('W6'))
+    assert.ok(
+      hit.length > 0,
+      `变异 #${n}:摘掉第 ${n + 1} 处发令前复量后接线锁必须点名 —— 不点名即钉空(装饰)`,
+    )
+  }
 })
 
 test('B9 反证:前置护栏**不得**给出行内豁免 env(票面硬约束)', () => {
@@ -221,7 +317,11 @@ test('B9 反证:前置护栏**不得**给出行内豁免 env(票面硬约束)', 
   assert.equal(adv.exit, 1)
   const text = adv.lines.join('\n')
   assert.doesNotMatch(text, /IHUI_SKIP_[A-Z_]+/, '不得新增"一键关掉这道闸"的行内豁免通道')
-  assert.match(text, /object-space-land\.mjs/, '出路必须是换工具(commit-tree 只交声明集),不是加开关')
+  assert.match(
+    text,
+    /object-space-land\.mjs/,
+    '出路必须是换工具(commit-tree 只交声明集),不是加开关',
+  )
 })
 
 // ─── C 系列:真仓夹具 ────────────────────────────────────────────────────────
@@ -233,7 +333,11 @@ test('B9 反证:前置护栏**不得**给出行内豁免 env(票面硬约束)', 
 // 这两条夹具测不出来:不跑真 git,两种错读都不会发生。
 
 const gitIn = (dir, args) =>
-  execFileSync('git', ['-C', dir, ...args], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
+  execFileSync('git', ['-C', dir, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+  })
 
 function makeRepo() {
   const dir = mkScratch('g920-')
