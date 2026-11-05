@@ -5831,7 +5831,33 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     await runResumableSSEStream({
       url,
       method: 'POST',
-      body: JSON.stringify(body),
+      body: (() => {
+        const wire = JSON.stringify(body)
+        // 决定性仪器(2026-11-06 立):`IHUI_BODY_AUDIT=1` 才出声,缺省**零行为变化**(逐字仍发 wire)。
+        // 为什么必须量在序列化之后:那条 400 今晚被四次"找到真因"推翻,最新一次是整族零宽在
+        // `content` 与 `tool_calls[].function.arguments` 两格都归零(`sent=0 zwj=0 extra=0`)而 400 不动
+        // ⇒ 病灶只可能在 CLI 射程之外。这里量的正是那一格之外唯一还没看过的东西:**发出去的字节本身**。
+        // 四类各自独立报数,不合并成一个"干净/不干净":
+        //  · loneHigh/loneLow —— 孤立代理项。`String.prototype.slice` 把 emoji/非 BMP 从中间切开才会产生;
+        //    `JSON.stringify` 把它写成 `\udXXX` 转义(所以逐 code unit 扫原串看不见,必须扫 wire 的转义形态),
+        //    前端中转的严格 JSON 解析器多按"非法字符"拒 —— 与"请求包含不合法字符"这条文案同形。
+        //  · repl —— U+FFFD(上游裁剪/解码失败的残迹);ctrl —— 逃过 JSON 转义的原生 C0/C1 控制符;
+        //  · bytes —— 体量,用来把"字符非法"与"体过大被截"两类分开。
+        if (typeof process !== 'undefined' && process.env?.IHUI_BODY_AUDIT) {
+          const loneHigh = (wire.match(/\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})/gi) ?? [])
+            .length
+          const loneLow = (wire.match(/(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}/gi) ?? [])
+            .length
+          const repl = (wire.match(/\\ufffd/gi) ?? []).length
+          const ctrl = (wire.match(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g) ?? []).length
+          const bytes = new TextEncoder().encode(wire).length
+          const msgs = (body as { messages?: unknown[] })?.messages?.length ?? -1
+          process.stderr.write(
+            `[body-audit] msgs=${msgs} bytes=${bytes} loneHigh=${loneHigh} loneLow=${loneLow} repl=${repl} ctrl=${ctrl}\n`,
+          )
+        }
+        return wire
+      })(),
       headers,
       signal: opts.signal,
       maxRetries,
