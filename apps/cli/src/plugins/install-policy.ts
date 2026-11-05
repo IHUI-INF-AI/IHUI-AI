@@ -24,16 +24,16 @@
 export const ENSURE_MINIMUM_PRESENCE = 'ensure-minimum';
 
 /** `installed` = 本次要装;`already-satisfied` = 满足最低要求(不许重复装/降级);`unjudged` = 没判 */
-export type InstallPolicyVerdict = 'installed' | 'already-satisfied' | 'unjudged';
+type InstallPolicyVerdict = 'installed' | 'already-satisfied' | 'unjudged';
 
 /** 清单声明的期望文件(`sha256` 缺席 = 清单没给这一枚的摘要,不计入对照) */
-export interface PolicyExpectedFile {
+interface PolicyExpectedFile {
   path: string;
   sha256?: string | null;
 }
 
 /** 装机面观测到的摘要(`sha256: null` = 读不动/算不出 —— 与"文件不在"是两格) */
-export interface PolicyObservedFile {
+interface PolicyObservedFile {
   path: string;
   sha256: string | null;
 }
@@ -52,7 +52,7 @@ export interface DesiredResource {
 }
 
 /** 现状侧:盘上/台账里已有的那一代 */
-export interface InstalledState {
+interface InstalledState {
   version?: string | null;
   revision?: number | null;
   /** `null`/`undefined` = 摘要面整块拿不到(老记录/采集失败),**不等于**"没有文件" */
@@ -92,7 +92,7 @@ function revisionReading(desired?: number | null, installed?: number | null): Di
  * 分隔符 `[.+-]`,逐段比:两数字段按数值、同串按相等;一数字一非数字、或两个不同的非数字段
  * (如 `1.0.0-a` vs `1.0.0-b`)⇒ 判不出(不猜 pre-release 序)。
  */
-export function compareVersionStrings(a: string, b: string): number | null {
+function compareVersionStrings(a: string, b: string): number | null {
   const left = a.trim().split(/[.+-]/).filter((s) => s.length > 0);
   const right = b.trim().split(/[.+-]/).filter((s) => s.length > 0);
   if (left.length === 0 || right.length === 0) return null;
