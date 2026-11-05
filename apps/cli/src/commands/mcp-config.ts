@@ -16,7 +16,13 @@ import { findRepoRoot } from '../skills/index.js';
 export type MCPTransport = 'stdio' | 'http' | 'sse';
 
 export interface MCPAuth {
-  type: 'none' | 'bearer' | 'oauth';
+  /**
+   * 认证方式。**旧配置可以不写**:mcp-runtime 的 resolveMcpAuthHeaders 第 3 段对
+   * "有 token 但未声明 type"的配置仍按 Bearer 处理(向后兼容),加载侧
+   * validateMcpConfig 也只对 type === 'oauth' 校验 oauth 元数据。
+   * 早先把这里写死成必填,与运行时的真实接受面不符。
+   */
+  type?: 'none' | 'bearer' | 'oauth';
   token?: string;
 }
 

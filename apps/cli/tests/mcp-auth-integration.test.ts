@@ -258,7 +258,7 @@ describe('resolveMcpAuthHeaders', () => {
         name: 'legacy-config',
         transport: 'http',
         url: 'https://mcp.example.com',
-        auth: { token: 'legacy-token' } as { token: string },
+        auth: { token: 'legacy-token' },
       };
       const headers = await resolveMcpAuthHeaders(server);
       expect(headers['Authorization']).toBe('Bearer legacy-token');
