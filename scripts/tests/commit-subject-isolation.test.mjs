@@ -70,7 +70,28 @@ function makeRepo(prefix) {
   git(dir, ['config', 'core.autocrlf', 'false'])
   git(dir, ['config', 'commit.gpgsign', 'false'])
   writeFileSync(join(dir, 'seed.txt'), 'seed\n')
-  git(dir, ['add', '--', 'seed.txt'])
+  // 同 isolated-git.test.mjs:受保护面申报预检要求被审仓 HEAD 面有合法清单。
+  // 写最小合法清单(不拷贝工作树文件,避免被别的会话的在飞改动带红)。
+  mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+  writeFileSync(
+    join(dir, 'scripts', 'data', 'immutable-guard.json'),
+    `${JSON.stringify(
+      {
+        signatureRequiredFrom: '2099-01-01',
+        entries: [
+          {
+            path: 'scripts/guardian-runner.mjs',
+            kind: 'gate-registry',
+            why: 'fixture placeholder',
+            reviewBy: '2099-01-01',
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  git(dir, ['add', '--', 'seed.txt', 'scripts/data/immutable-guard.json'])
   const base = git(dir, ['commit', '-m', 'base'])
   if (base.status !== 0) throw new Error(`基线提交失败: ${base.stderr || base.stdout}`)
   return dir
@@ -297,6 +318,11 @@ test('D. 私有提交上下文确实把 COMMIT_EDITMSG 挪进本席目录,共享
   const dir = makeRepo('subject-context-')
   try {
     const gitDir = git(dir, ['rev-parse', '--absolute-git-dir']).stdout.trim()
+    const commonDir = git(dir, [
+      'rev-parse',
+      '--path-format=absolute',
+      '--git-common-dir',
+    ]).stdout.trim()
     const indexFile = join(gitDir, 'ihui-isolated-index', 'self-test.idx')
     // 硬线:显式把共享 COMMIT_EDITMSG 当消息源必须被拒。
     writeFileSync(join(gitDir, 'COMMIT_EDITMSG'), 'FOREIGN\n')
@@ -305,6 +331,7 @@ test('D. 私有提交上下文确实把 COMMIT_EDITMSG 挪进本席目录,共享
         preparePrivateCommitContext({
           gitCwd: dir,
           gitDir,
+          commonDir,
           indexFile,
           commitOpts: ['-F', '.git/COMMIT_EDITMSG'],
         }),
@@ -313,6 +340,7 @@ test('D. 私有提交上下文确实把 COMMIT_EDITMSG 挪进本席目录,共享
     const ctx = preparePrivateCommitContext({
       gitCwd: dir,
       gitDir,
+      commonDir,
       indexFile,
       commitOpts: ['-m', 'MSG-X'],
     })
