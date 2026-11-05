@@ -131,6 +131,21 @@
 - RN 零可见变化：`apps/mobile-rn/src/screens/RankingScreen.tsx:124-125` 显式传 `showRanges={true}`/`showStudyHours={true}`，与共享屏默认值（`packages/app/src/features/ranking/RankingScreen.tsx:54-55`）逐值相同。
 - 台账行 103 不删不改（原表仍记 153/②），状态待退休通道统一刷新。
 
+## 跨页系统性：共享屏自带返回/关闭与原生导航重复（2026-11-06）
+
+这不是单页欠账，而是同一张共享屏/同一批宿主上的共性冗余；单独开票收口，本批不做。
+
+| 共享屏 | 冗余控件 | 涉及消费点 | 宿主已有返回的证据 |
+|---|---|---|---|
+| `packages/app/src/features/ranking/RankingScreen.tsx` | `BackChevron`（import `:12`，渲染 `:77`） | `study/rank`（`a3763cd0f1`）、`distribution/rank`（`ca63368c3b`） | 两页 `*.config.ts` 均只有 `navigationBarTitleText`、无 `navigationStyle`（`study/rank.config.ts:5-7`、`distribution/rank.config.ts:5-7`）；全局 `app.config.ts:431-437` 的 `window` 也无 `custom` ⇒ 原生导航栏自带返回；两页入口都走 `navigateTo`（`study/index.tsx:128-134`、`learn-develop/index.tsx:107`），栈深恒 >1 |
+| `packages/app/src/features/model-edit/ModelEditScreen.tsx` | 「取消」按钮（`:94`，`common.cancel`） | 宿主原生返回/系统返回手势 | 同批已定，RN 与系统返回重复 |
+
+裁决：**当前状态 = 已知冗余，可接受，不算违规**；不回退、不加单端 `showBack`。
+
+收口方案（单独开票，本批不做）：共享屏加 `showBack`/`showClose` 开关，**两端在有原生导航的宿主上都显式传 `false`**（两端显式同值不算单端 prop）；改共享屏必须由 RN owner 确认视觉变化。
+
+`study/rank` 其余四条按有意收敛记档，均为**小程序侧变化、RN 零变化**：加载骨架、下拉刷新、错误重试、人数不足 3 时显示已有领奖台。
+
 ## 判定方法与已知偏差
 
 - 页内「自绘块」行号由 TS AST 取最外层 JSX 直接子元素起始行（`D:\DevEnv\Temp\ihui-jsx\blocks.mjs`），共享屏缺块由 props 契约（`packages/types/src/app-*.ts`）与 RN 消费壳交叉核对。
