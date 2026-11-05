@@ -1045,6 +1045,7 @@ export async function run({ mode = 'full', json = false } = {}) {
   const undetermined = []
   const auditedScreens = new Set()
   const unresolvedItems = []
+  const nonTextItems = []
   let webFileCount = 0
   let untouched = 0
 
@@ -1076,22 +1077,20 @@ export async function run({ mode = 'full', json = false } = {}) {
       webFileCount += 1
       const r = extractWebKeys(text, messages)
       for (const k of r.keys) webKeys.add(k)
-      for (const item of r.unresolvedItems)
-        unresolvedItems.push({
-          side: 'web',
-          file: rel,
-          ...item,
-          bucket: classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: rnMessages }),
-        })
+      for (const item of r.unresolvedItems) {
+        const bucket = classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: rnMessages })
+        const rec = { side: 'web', file: rel, ...item, bucket }
+        if (bucket === 'array-json-value') nonTextItems.push(rec)
+        else unresolvedItems.push(rec)
+      }
     }
     const rn = extractRnKeys(rnText, rnMessages)
-    for (const item of rn.unresolvedItems)
-      unresolvedItems.push({
-        side: 'rn',
-        file: row.rn,
-        ...item,
-        bucket: classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: messages }),
-      })
+    for (const item of rn.unresolvedItems) {
+      const bucket = classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: messages })
+      const rec = { side: 'rn', file: row.rn, ...item, bucket }
+      if (bucket === 'array-json-value') nonTextItems.push(rec)
+      else unresolvedItems.push(rec)
+    }
     const hardcoded = extractHardcodedChinese(rnText)
     const judged = judgeScreen({ web: row.web, rn: row.rn, webKeys, rnKeys: rn.keys, hardcoded }, messages, rnMessages)
     for (const v of judged.blocking) blocked.push(v)
@@ -1122,9 +1121,11 @@ export async function run({ mode = 'full', json = false } = {}) {
   const advisoriesDeduped = b2Unique.out
   const b3Deduped = b3Unique.out
   // 未解析键:逐条带 file:line + 成因桶;不许折成 0,也不许算进已对齐。
+  // 数组值键(t.raw())是「已解析但不可比」:独立计数 + 独立清单,不算未解析、也不算已对齐。
   const unresolvedKeys = unresolvedItems.length
   const unresolvedBuckets = {}
   for (const it of unresolvedItems) unresolvedBuckets[it.bucket] = (unresolvedBuckets[it.bucket] || 0) + 1
+  const nonTextKeys = nonTextItems.length
 
   const entries = readLedger()
   if (entries === null) {
@@ -1179,6 +1180,8 @@ export async function run({ mode = 'full', json = false } = {}) {
           unresolvedKeys,
           unresolvedBuckets,
           unresolvedDetail: unresolvedItems,
+          nonTextKeys,
+          nonTextDetail: nonTextItems,
           blocking: blocked.length,
           blockingDetail: blocked,
           advisory: advisoriesDeduped.length,
@@ -1217,6 +1220,13 @@ export async function run({ mode = 'full', json = false } = {}) {
       )
     for (const it of unresolvedItems.slice(0, 20))
       console.log(`   ⚠ 未解析[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
+    if (nonTextKeys) {
+      console.log(
+        `  已解析但不可比(数组值 t.raw,${nonTextKeys} 条):${[...new Set(nonTextItems.map((x) => x.key))].join(' / ')}`,
+      )
+      for (const it of nonTextItems.slice(0, 20))
+        console.log(`   ⓘ 不可比[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
+    }
     console.log(
       `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
     )
