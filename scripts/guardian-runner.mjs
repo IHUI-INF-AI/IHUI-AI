@@ -6226,6 +6226,8 @@ const checks = [
       'scripts/check-retry-aliases.mjs',
       'scripts/lib/retry-reload.mjs',
       'scripts/data/retry-reload-baseline.jsonl',
+      // 2026-11-05 接线:门 296 台账(当时 runner 被 299-301 接线占用,现补)
+      'scripts/data/retry-reload-resolutions.jsonl',
       'scripts/check-cross-end-screen-coverage.mjs',
       'scripts/check-rn-host-shell-coverage.mjs',
     ],
