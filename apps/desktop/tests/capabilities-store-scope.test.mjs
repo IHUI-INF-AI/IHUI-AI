@@ -42,10 +42,9 @@ test('远程 capability 只放行两条白名单 store 应用命令', () => {
 
 test('Rust 白名单仍是最小必要文件集(不含 window-state.json)', () => {
   const source = readFileSync(STORE_PATH, 'utf8')
-  const allowlist = source.slice(
-    source.indexOf('REMOTE_STORE_ALLOWLIST'),
-    source.indexOf('];', source.indexOf('REMOTE_STORE_ALLOWLIST')),
-  )
+  const declaration = source.indexOf('pub const REMOTE_STORE_ALLOWLIST')
+  assert.notEqual(declaration, -1, 'REMOTE_STORE_ALLOWLIST 声明必须存在')
+  const allowlist = source.slice(declaration, source.indexOf('];', declaration))
   assert.match(allowlist, /("auth\.json",\s*&\["refresh_token"\])/, 'auth.json:refresh_token 必须保留')
   assert.match(
     allowlist,
