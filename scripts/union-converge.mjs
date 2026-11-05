@@ -4699,6 +4699,10 @@ async function main() {
     base: p.base,
     foldLedgers: p.foldLedgers,
     creditedDrops: creditedDropLines,
+    // 本机摘除台账那一维同属"判据在 lib、自检过、落地调用点没人端"的一格:不端它,被 `.ihui-agent/state/plan-row-drop.jsonl`
+    // 正当摘掉的登记行(如超龄认领牌代摘)会在归并侧被读成"少带"而死锁 —— 拦的是合法归并,失效方向却是要人跳门。
+    // 传 declaredRows() 整份对象(lib 同时收 Set 与 {set,keyIndex,…},形态见 content-loss-gate.mjs:306)。
+    declaredRemovals: declaredRows(ROOT),
   })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
