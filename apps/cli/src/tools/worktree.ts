@@ -323,6 +323,8 @@ export function cleanupWorktree(wtPath: string, sourcePath: string, force = true
     if (force) args.push('--force');
     const r = runGit(args, sourcePath);
     if (!r.ok) {
+      // fallback 递归删除前再断言一次(realpath 二次断言,防检查后被替换成根外链接)
+      assertPathInside(sourcePath, wtPath, 'worktree 清理目录');
       fs.rmSync(wtPath, { recursive: true, force: true });
     }
     runGit(['worktree', 'prune'], sourcePath);
