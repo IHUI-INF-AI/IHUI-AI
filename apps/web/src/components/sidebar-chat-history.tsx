@@ -170,7 +170,7 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
   return res.data
 }
 
-type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
+type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
 
 export function groupByDate(
   items: ConversationItem[],
@@ -178,16 +178,21 @@ export function groupByDate(
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const DAY = 24 * 60 * 60 * 1000
-  const startOfWeek = startOfToday - 7 * DAY
+  // 本周 = 周一 00:00 起(不是"过去 7 天"滚动窗);本月 = 当月 1 号 00:00 起。
+  const startOfWeek = startOfToday - ((now.getDay() + 6) % 7) * DAY
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
 
   const buckets: Record<GroupKey, ConversationItem[]> = {
     today: [],
     thisWeek: [],
     thisMonth: [],
+    earlier: [],
   }
   for (const item of items) {
-    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : 0
-    if (t >= startOfToday) buckets.today.push(item)
+    // 缺 lastMessageAt ⇒ 归「更早」;旧实现兜 t=0 会让它冒领「本月」。
+    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : Number.NaN
+    if (Number.isNaN(t) || t < startOfMonth) buckets.earlier.push(item)
+    else if (t >= startOfToday) buckets.today.push(item)
     else if (t >= startOfWeek) buckets.thisWeek.push(item)
     else buckets.thisMonth.push(item)
   }
