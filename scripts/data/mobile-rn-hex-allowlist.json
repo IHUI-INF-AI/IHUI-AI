@@ -47,15 +47,6 @@
       "evidence": "LoginScreen.tsx:147 svg fill"
     },
     {
-      "component": "MoreCourseScreen",
-      "value": "#93d2e2",
-      "file": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
-      "owner": "rn-ui",
-      "expires": "2027-03-27",
-      "reason": "Uniapp 三色渐变的中间色近似(项目未引入渐变库),design-tokens 无同值档;新增档需产品先定渐变语义",
-      "evidence": "MoreCourseScreen.tsx:285 root backgroundColor"
-    },
-    {
       "component": "ScanLoginScreen",
       "value": "#ffffff",
       "file": "apps/mobile-rn/src/screens/ScanLoginScreen.tsx",
