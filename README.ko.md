@@ -2221,6 +2221,13 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-05**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (d8666c6909)
+- 📚 문서:第五回合收口 + 登记今日两道活文档机制互斥(它卡死了 112 枚远端提交的合并) (4187fa2eb1)
+- 🐞 수정:折叠漂开副本族(N→1,认领合并到保留行 + 逐字留痕;--fold-drifted-families) (0172c44e04)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (98a1b9ae18)
+- 🔧 기타:活文档对账落盘——HEAD 面与本席工作树副本按 §12b 归并(插回 13 行,归并后 lost=0) (be91ef2c18)
+
+**2026-11-05**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (1f3d29c0bf)
 - 🐞 수정:growth 行为任务判据校正——受理≠计分/accept 三态/报文形态对齐官方客户端 (c70dc9951b)
 
@@ -2666,12 +2673,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-04**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (9ee2b0ae61)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (3bb1c36f58)
-- 🚀 기능/개선:Gitee 源码只读快照(方案 c)—— 无父单提交 + 周更/发版刷新,force 仅 Gitee main (20919f3d4c)
-- 📚 문서:Gitee main 为发版时点只读快照 —— 明示可能落后 origin/main,最新代码以 GitHub 为准 (8cb42bdffe)
-- 🐞 수정:Gitee tag 改用 git push 推 ref —— 先推 tag 再建 release,tag 已存在按幂等复查(0.1.77「创建标签失败」根因) (96fc64d382)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
