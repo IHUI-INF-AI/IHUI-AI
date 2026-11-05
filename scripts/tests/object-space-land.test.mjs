@@ -206,6 +206,19 @@ test('T1 §22c 导出面:判据函数必须在 __test__ 里', () => {
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
+/**
+ * 落地回写读数匹配串的**唯一口径**(与 `scripts/object-space-land.mjs` 的 ② 段现行措辞同源,
+ * 2026-11-05 起为「主索引 + 工作树已对齐 N/N 路径(索引 X / checkout Y)」,旧措辞「主索引已对齐」已废):
+ * 用 alignFullyPat(n) 钉"全对齐"读数。**每次使用必须配反证臂**(部分对齐 / 旧措辞样本必须落空),
+ * 防匹配串烂成恒真——本仓要求锁有牙。
+ * @param {number} n 全对齐路径数(同时钉 N/N 与"索引 n")
+ */
+const alignFullyPat = (n) =>
+  new RegExp(`主索引 \\+ 工作树已对齐 ${n}\\/${n} 路径\\(索引 ${n} / checkout \\d+\\)`)
+/** 反证臂喂样本用的两枚"必须落空"读数:① 部分对齐(1/n);② 已废的旧措辞(仅索引档)。 */
+const ALIGN_NEG_PARTIAL = '✅ 主索引 + 工作树已对齐 1/2 路径(索引 1 / checkout 0)'
+const ALIGN_NEG_LEGACY = '✅ 主索引已对齐 2/2 路径(移动 2 / 已就位 0)'
+
 test('T2 happy path:落地 ⇒ 提交面回读 + 主索引对齐(新文件不留幽灵 D)', (t) => {
   const dir = makeRepo(t)
   const before = git(['rev-parse', 'HEAD'], { root: dir })
@@ -214,7 +227,10 @@ test('T2 happy path:落地 ⇒ 提交面回读 + 主索引对齐(新文件不留
   const r = runLand(dir, { paths: 'a.txt;b.txt' })
   assert.equal(r.status, 0, `应成功,实得 ${r.status}:${r.stderr}`)
   assert.match(r.stdout, /提交面回读 2\/2 路径在树/)
-  assert.match(r.stdout, /主索引已对齐 2\/2 路径/)
+  assert.match(r.stdout, alignFullyPat(2), '落地回写读数必须报"2/2 全对齐"(现行措辞)')
+  // 反证臂:匹配串不得恒真 —— 部分对齐读数与已废旧措辞都必须落空。
+  assert.equal(alignFullyPat(2).test(ALIGN_NEG_PARTIAL), false, '反证臂:1/2 部分对齐读数被放行 = 恒真锁')
+  assert.equal(alignFullyPat(2).test(ALIGN_NEG_LEGACY), false, '反证臂:旧措辞(仅索引档)被放行 = 锁没跟上现行措辞还自认有牙')
   const head = git(['rev-parse', 'HEAD'], { root: dir })
   assert.notEqual(head, before, 'HEAD 必须前进')
   assert.equal(headBlobOf(head, 'a.txt', { root: dir }), writeBlob('v3\n', { root: dir }))
@@ -890,7 +906,10 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
   assert.match(r.stdout, /祖先对账 1\/1 路径/)
   // 横幅那一维现在是**分档**报数:基线本来无横幅的路径进"只点名"档,不进"保持"档。
   assert.match(r.stdout, /水印横幅保持 \d+\/1 路径/)
-  assert.match(r.stdout, /主索引已对齐 1\/1 路径/)
+  assert.match(r.stdout, alignFullyPat(1), '落地回写读数必须报"1/1 全对齐"(现行措辞)')
+  // 反证臂:匹配串不得恒真 —— 部分对齐读数与已废旧措辞都必须落空。
+  assert.equal(alignFullyPat(1).test(ALIGN_NEG_PARTIAL), false, '反证臂:1/2 部分对齐读数被放行 = 恒真锁')
+  assert.equal(alignFullyPat(1).test(ALIGN_NEG_LEGACY), false, '反证臂:旧措辞(仅索引档)被放行 = 锁没跟上现行措辞还自认有牙')
   const after = runGit(dir, ['rev-parse', 'HEAD']).trim()
   assert.notEqual(after, before, 'HEAD 必须前进')
   assert.equal(
@@ -1710,15 +1729,37 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
     1,
     'refuseByBlob 只允许被赋值一次(声明处);再赋值 = 把唯一拦真回写的支路拆掉',
   )
-  // 四处:声明 + ①结构档豁免 + ②声明式还原白名单(行级) + ③声明式还原白名单(element 型,
-  // 2026-10-30 补)。第二、第三处有没有牙不靠计数证明,靠下面逐支的结构断言:它们必须落在
+  // 五处:声明 + ①结构档豁免 + ②声明式还原白名单(行级) + ③声明式还原白名单(element 型,
+  // 2026-10-30 补) + ④台账授权退休核验不成立时的拒绝(G-814414 补格,2026-11-05,方向是 **=true 收紧**)。
+  // 第二、第三处有没有牙不靠计数证明,靠下面逐支的结构断言:它们必须落在
   // restoreBy 门内,必须要求配平结论 match === true,必须排除 undetermined / 整 blob 命中祖先;
   // 行级那一支另须排除键路径档(!jsonMode),element 那一支另须要求基线零丢(vanished === 0)。
-  // 再多出第五处照旧红(那才是私改口径)。
+  // 计数换成"方向分桶"才保住原锁的牙(§0.7 豁免要验过才免):
+  //  · 放行方向(= false)恰 3 处 —— 冒出第 4 处 = 私开后门,红;
+  //  · 拒绝方向(= true)恰 1 处,且必须住在 retirement-rejected 门内并留痕 —— 挪出门外/不留痕,红;
+  //  · 总赋值面恰 5 处 —— 第六处无论什么方向都要先审,红。
   assert.equal(
     (src.match(/\brefuseByLines\s*=(?!=)/g) ?? []).length,
-    4,
-    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单(行级) + 声明式还原白名单(element)"四处赋值;多出第五处就是在私改拒绝口径',
+    5,
+    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单(行级) + 声明式还原白名单(element) + 退休核验拒绝"五处赋值;多出第六处就是在私改拒绝口径',
+  )
+  assert.equal(
+    (src.match(/\brefuseByLines\s*=\s*false/g) ?? []).length,
+    3,
+    '放行方向(= false)的赋值必须恰为三处(结构档豁免/行级还原/element 还原);第四处 = 未经审查的放行闸门',
+  )
+  assert.equal(
+    (src.match(/\brefuseByLines\s*=\s*true/g) ?? []).length,
+    1,
+    '拒绝方向(= true)只允许退休核验那一条收紧支;第二条须先过审再入锁',
+  )
+  const iRetireTrue = src.search(/\brefuseByLines\s*=\s*true/)
+  const retireSeg = src.slice(Math.max(0, iRetireTrue - 200), iRetireTrue + 300)
+  assert.ok(
+    iRetireTrue > 0 &&
+      /retirementAudit\?\.applicable && !retirementAudit\.ok/.test(retireSeg) &&
+      /kind: 'retirement-rejected'/.test(retireSeg),
+    '=true 那一处必须落在「台账授权退休不成立」门内且留 retirement-rejected 痕(门外拒绝=无来由误伤;不留痕=静默闸,§0.3)',
   )
   const iRestore = src.indexOf('if (restoreBy?.has(p))')
   const iRestoreAssign = src.indexOf('refuseByLines = false', iRestore)
