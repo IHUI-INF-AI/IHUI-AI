@@ -14,6 +14,7 @@
  *  2. `numberOfLines` 在 RN 是排版能力,小程序只能靠 CSS line-clamp(style.ts 承接)。
  *  3. RN `Image` 默认 `resizeMode: cover`,Taro 默认 `scaleToFill` ⇒ 不显式映射会拉伸变形。
  */
+import { createElement, forwardRef, useImperativeHandle, useState, type ForwardedRef } from 'react'
 import type { ComponentProps, ReactElement, ReactNode, Ref } from 'react'
 import {
   Image as TaroImage,
@@ -351,6 +352,10 @@ export function ScrollView(props: RNBaseProps) {
       scrollX={horizontal}
       scrollY={!horizontal}
       enhanced
+      // 命令式滚动承载(2026-11-05):RN 端 `FlatList.scrollToEnd` 是 ref 方法,小程序侧没有
+      // 对应实例方法 ⇒ 由 FlatList 适配层改写成 scrollTop 递增 + scrollWithAnimation,经此透传。
+      scrollTop={typeof props.scrollTop === 'number' ? props.scrollTop : undefined}
+      scrollWithAnimation={props.scrollWithAnimation === true}
       showScrollbar={showScrollbar}
       refresherEnabled={rc?.enabled === true}
       refresherTriggered={rc?.refreshing === true}
@@ -396,20 +401,77 @@ export interface RNFlatListProps<T> {
   numColumns?: number
   contentContainerStyle?: StyleProp<ViewStyle>
   refreshControl?: ReactNode
-  ListHeaderComponent?: ReactNode
-  ListFooterComponent?: ReactNode
-  ListEmptyComponent?: ReactNode
+  // RN 允许「元素」或「渲染函数/组件类型」两形(共享屏 ChatScreen.tsx:216/219 用 `() => <>…</>` 形)。
+  ListHeaderComponent?: ReactNode | (() => ReactNode)
+  ListFooterComponent?: ReactNode | (() => ReactNode)
+  ListEmptyComponent?: ReactNode | (() => ReactNode)
   ItemSeparatorComponent?: () => ReactNode
   [key: string]: unknown
 }
-export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
+export interface FlatListHandle {
+  scrollToEnd: (params?: { animated?: boolean }) => void
+  scrollToOffset: (params: { offset: number; animated?: boolean }) => void
+  scrollToIndex: (params: { index: number; animated?: boolean }) => void
+}
+
+/**
+ * 类型位:共享屏写 `useRef<FlatList<T> | null>`(如 packages/app/src/features/chat/ChatScreen.tsx:196),
+ * 该写法在 RN 端取 react-native 的 `FlatList<T>` 类型。本文件把 react-native 整体替成了 compat,
+ * 因此同名值必须配一枚同名类型,否则小程序侧 tsc 把 `FlatList<T>` 当值实例化 ⇒ TS2749。
+ */
+export interface FlatList<T = unknown> extends FlatListHandle {
+  readonly __itemType?: T
+}
+
+/** 列表槽位两形折叠:元素直用;函数按 RN 语义视为渲染函数(含共享屏的 `() => <>…</>` 形) */
+function renderListSlot(slot: ReactNode | (() => ReactNode) | undefined): ReactNode {
+  if (typeof slot === 'function') {
+    const fn = slot as (() => ReactNode) & { prototype?: { isReactComponent?: boolean } }
+    return fn.prototype?.isReactComponent ? createElement(fn as never) : fn()
+  }
+  return slot
+}
+
+/**
+ * ref 透传(2026-11-05,薄壳化前置):
+ * 共享屏(`ChatScreen.tsx:199-203`)把 FlatList 的实例 ref 交给消费端,消费端用
+ * `ref.scrollToEnd({animated:true})` 做流式自动滚底(RN 端真实方法)。
+ * 本 compat 早先是普通函数组件 ⇒ React 不挂 ref,`onListRef?.(ref)` 永远拿到 null,
+ * 小程序壳页的自动滚底整条静默丢失。这里补 forwardRef,并把命令式方法翻译成
+ * 「scrollTop 递增 + scrollWithAnimation」交给 TaroScrollView(小程序无实例方法)。
+ * 阴性对照见 tests/rn-compat-flatlist-ref.test.tsx:同现场用未补 ref 的旧形制必须拿不到句柄。
+ */
+function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef<FlatListHandle>) {
+  const [scrollTop, setScrollTop] = useState<number | undefined>(
+    typeof props.scrollTop === 'number' ? props.scrollTop : undefined,
+  )
+  const [scrollWithAnimation, setScrollWithAnimation] = useState(false)
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToEnd: (params) => {
+        setScrollWithAnimation(params?.animated !== false)
+        // scroll-view 的 scrollTop 超界会被原生 clamp 到底;每次递增避免"同值不触发滚动"。
+        setScrollTop((prev) => (prev ?? 0) + 1_000_000)
+      },
+      scrollToOffset: ({ offset, animated }) => {
+        setScrollWithAnimation(animated !== false)
+        setScrollTop(offset)
+      },
+      scrollToIndex: (params) => {
+        setScrollWithAnimation(params.animated !== false)
+        setScrollTop((prev) => (prev ?? 0) + 1_000_000)
+      },
+    }),
+    [],
+  )
   const data = props.data ?? []
   const renderItem = props.renderItem
   const keyExtractor = props.keyExtractor
   const numColumns = props.numColumns ?? 1
-  const Header = props.ListHeaderComponent as ReactNode
-  const Footer = props.ListFooterComponent as ReactNode
-  const Empty = props.ListEmptyComponent as ReactNode
+  const Header = renderListSlot(props.ListHeaderComponent)
+  const Footer = renderListSlot(props.ListFooterComponent)
+  const Empty = renderListSlot(props.ListEmptyComponent)
   const Separator = props.ItemSeparatorComponent
   const rows: T[][] = []
   if (numColumns > 1) {
@@ -424,7 +486,7 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
     </View>
   )
   return (
-    <ScrollView {...props}>
+    <ScrollView {...props} scrollTop={scrollTop} scrollWithAnimation={scrollWithAnimation}>
       {Header}
       {data.length === 0 ? Empty : null}
       {numColumns > 1
@@ -443,6 +505,10 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
     </ScrollView>
   )
 }
+
+export const FlatList = forwardRef(FlatListInner) as unknown as (<T = unknown>(
+  props: RNFlatListProps<T> & { ref?: Ref<FlatListHandle> },
+) => ReactElement) & { displayName?: string }
 
 export function TextInput(props: RNBaseProps) {
   const multiline = props.multiline === true
