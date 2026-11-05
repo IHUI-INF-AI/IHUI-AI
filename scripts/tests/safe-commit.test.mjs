@@ -338,7 +338,14 @@ test('SC9 既有行为未被改写:5 步法、活文档对账措辞、归因链�
   // Step 1–5 的日志锚点一个都不许少(新增一步不许顺手改掉既有那五步)。
   for (const s of ['Step 0/5', 'Step 1/5', 'Step 2/5', 'Step 3/5', 'Step 4/5', 'Step 5/5'])
     assert.ok(src.includes(s), `既有档位 ${s} 的日志锚点被改掉了`)
-  assert.match(src, /git reset HEAD/, '5 步法第 1 步不许动')
+  // 2026-11-04:Step 1 已从 `git reset HEAD`(全局清空)收成 **scoped reset**(只回退声明集)。
+  // 锁的是"只重置声明面、绝不全局清空"这条行为,不再锁具体命令写法。
+  assert.match(
+    src,
+    /gitStep\(\['reset', '--', ...pathspecArgs\(expectedFiles\)\]/,
+    '5 步法第 1 步必须是 scoped reset(只回退本票声明集)',
+  )
+  assert.doesNotMatch(src, /gitStep\(\['reset', 'HEAD'\]/, '5 步法第 1 步不许退回全局 `git reset HEAD`')
   assert.match(src, /gitStagedPaths/, '第 3 步的校验口径不许动')
   assert.match(src, /classifyHookFailure/, '归因链那条铰链不许被顺手摘')
   assert.match(src, /decideWithSelfRunBatch/, '归因链的自跑分支不许被顺手摘')
