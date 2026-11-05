@@ -2,50 +2,80 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n } from '@/i18n'
-import { goToLogin } from '@/utils/auth'
-import { getMiniappVersion } from '@/utils/app-version'
-import { logger } from '@/utils/logger'
-import { View, Text, Switch } from '@tarojs/components'
+// 镜像 packages/app/src/features/settings/SettingsScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 端内保留的业务:GET /user/profile 取用户体(仅用于"更换手机号"行的掩码读数);
+// 通知三开关真值来自 GET /notifications/preferences(pushEnabled / inAppEnabled / emailEnabled),
+// 落库走 PUT /notifications/preferences,失败回滚并出声;语言/主题切换保留旧页的服务端同步
+// (POST /settings/language|theme),主题值在本端 'auto' 与共享屏 'system' 之间映射;
+// 密码修改走 PUT /auth/password(共享屏内置 Modal,本端不再跳独立页);登出复用 profile-logout
+// 的吊销腿(refreshToken → POST /auth/logout → clearAuth),确认弹窗由共享屏 onConfirm 发起。
+// 渲染(语言/主题/通知/账号四分区 + 退出登录 + 版本号)全部委托共享屏,本页无自有渲染段。
+
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import {
+  changePassword,
   getNotificationPreferences,
   getProfile,
-  logout,
+  setLanguage,
+  setTheme,
   updateNotificationPreferences,
+  type NotificationPreferences,
   type UserInfo,
 } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { clearAuth } from '@/utils/auth'
+import { useI18n, useTt, type Locale } from '@/i18n'
+import { logger } from '@/utils/logger'
+import { getMiniappVersion } from '@/utils/app-version'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import { getRnTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
+import { useTheme } from '@/rn-compat/theme'
+import { getThemePreference, setThemePreference, type ThemePreference } from '@/lib/theme'
 import { onToast } from '@/host/on-toast'
+import { SettingsScreen } from '@ihui/rn-app/features/settings/SettingsScreen'
+import { performLogout } from './profile-logout'
 
+/** 本机通知缓存键:仅在后端取不到时作兜底读数(全仓无第二个消费方,不得当服务端真值) */
 const NOTIFICATION_KEY = 'messageNotificationEnabled'
 
+/** 共享屏通知键 → 后端偏好字段 */
+const NOTIF_FIELD: Record<'push' | 'message' | 'email', keyof NotificationPreferences> = {
+  push: 'pushEnabled',
+  message: 'inAppEnabled',
+  email: 'emailEnabled',
+}
+
+/** 菜单 key → 本端分包路由(与旧页逐项对齐;语言/主题/密码改为共享屏内联) */
+const MENU_ROUTES: Record<string, string> = {
+  ChangePhone: '/pkg-user/user/phone',
+  RealNameAuth: '/pkg-user/user/realname',
+  EmailBinding: '/pkg-user/user/email',
+  AccountCancel: '/pkg-user/account-cancel/index',
+  ClearCache: '/pages/setting/cache',
+  Feedback: '/pkg-user/user/feedback',
+  AboutUs: '/pkg-about/about/index',
+  Announcement: '/pkg-content/announcement/index',
+  Activity: '/pkg-content/activity/index',
+  AiSkill: '/pkg-ai/ai-skill/index',
+  PrivacyPolicy: '/pkg-about/about/privacy',
+  UserAgreement: '/pkg-about/about/protocol',
+  AppPermission: '/pkg-about/about/app-permission/index',
+}
+
 export default function Settings() {
-  const { t } = useI18n()
+  const { t, locale, setLocale } = useI18n()
+  const tt = useTt()
   const gate = useAuthReadyGate()
-  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
-     此处原取 --color-brand-accent-deep(非墨档),按同源映射取 brandAccent.deep
-     (rn-tokens 由 sync-rn-tokens.mjs 派生自 tokens.css:亮 #4a7a96 / 暗 #a3c4d6),不改变色档。 */
-  const { resolved } = useAppTheme()
-  const switchAccentDeep = getRnTokens(resolved).brandAccent.deep
+  const { resolvedTheme } = useTheme()
   const [user, setUser] = useState<Partial<UserInfo>>({})
-  const [notifEnabled, setNotifEnabled] = useState(true)
+  const [notifications, setNotifications] = useState({ push: true, message: true, email: false })
+  // 共享屏主题值 'light' | 'dark' | 'system';本端持久化值是 'auto' | 'light' | 'dark'
+  const [themeMode, setThemeMode] = useState<string>(() => {
+    const pref = getThemePreference()
+    return pref === 'auto' ? 'system' : pref
+  })
   /* 版本号走全端唯一出口 utils/app-version;此前写死 '1.0.0' —— 屏上那个数字与任何构建都无关 */
   const appVersion = getMiniappVersion()
-
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
 
   const load = useCallback(async () => {
     try {
@@ -53,12 +83,14 @@ export default function Settings() {
     } catch (e) {
       logger.error('user/settings', '获取用户信息', e)
     }
-    // 通知开关的真值在后端(/notifications/preferences 的 pushEnabled)。
-    // 原先只读本机 storage(messageNotificationEnabled),而全仓没有第二个消费方 ⇒ 界面显示的
-    // 开关状态与服务端实际配置无关。后端取不到时才退回本机缓存,不把"取不到"读成"关闭"。
+    // 通知开关的真值在后端:本机 storage 只是后端取不到时的兜底,不把"取不到"读成"关闭"。
     try {
       const prefs = await getNotificationPreferences()
-      setNotifEnabled(prefs.pushEnabled)
+      setNotifications({
+        push: prefs.pushEnabled,
+        message: prefs.inAppEnabled,
+        email: prefs.emailEnabled,
+      })
       try {
         Taro.setStorageSync(NOTIFICATION_KEY, prefs.pushEnabled)
       } catch {
@@ -67,7 +99,7 @@ export default function Settings() {
     } catch {
       try {
         const saved = Taro.getStorageSync(NOTIFICATION_KEY)
-        setNotifEnabled(saved !== false)
+        if (saved === false) setNotifications((prev) => ({ ...prev, push: false }))
       } catch {
         // 默认开启
       }
@@ -77,80 +109,123 @@ export default function Settings() {
   // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
   useDidShow(() => gate.waitUntilReady(() => void load()))
 
-  function navigate(url: string) {
-    Taro.navigateTo({ url })
-  }
-
-  async function onNotifChange(e: { detail: { value: boolean } }) {
-    const value = e.detail.value
-    const previous = notifEnabled
-    setNotifEnabled(value)
-    try {
-      Taro.setStorageSync(NOTIFICATION_KEY, value)
-    } catch {
-      // ignore
-    }
-    // 落库失败要回滚并出声:原实现只写本机 storage(全仓无消费方)⇒ 用户以为关了推送,
-    // 服务端照推。真接口是 PUT /notifications/preferences(pushEnabled)。
-    try {
-      await updateNotificationPreferences({ pushEnabled: value })
-    } catch {
-      setNotifEnabled(previous)
+  const onSelectLocale = useCallback(
+    async (value: string) => {
+      if (value === locale) return
+      setLocale(value as Locale)
       try {
-        Taro.setStorageSync(NOTIFICATION_KEY, previous)
-      } catch {
-        // 本地缓存写不进不影响真值
+        await setLanguage(value)
+      } catch (e) {
+        logger.error('user/settings', '同步语言设置', e)
+        onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
       }
-      onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
-      return
-    }
-    if (value) {
+    },
+    [locale, setLocale, tt],
+  )
+
+  const onSelectTheme = useCallback(
+    async (value: string) => {
+      const pref: ThemePreference = value === 'system' ? 'auto' : (value as ThemePreference)
+      if (pref === getThemePreference()) return
+      setThemeMode(value)
+      setThemePreference(pref)
       try {
-        const setting = await Taro.getSetting()
-        if (
-          setting.authSetting &&
-          (setting.authSetting as Record<string, boolean | undefined>)['scope.notify'] === false
-        ) {
-          Taro.showModal({
-            title: tt('setting.hint', '提示'),
-            content: tt('setting.notifOpenHint', '要接收消息通知,请在系统设置中开启通知权限'),
-            confirmText: tt('setting.goSetting', '去设置'),
-            success: (res) => {
-              if (res.confirm) Taro.openSetting()
-            },
-          })
-        } else {
+        await setTheme(pref)
+      } catch (e) {
+        logger.error('user/settings', '同步主题设置', e)
+        onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
+      }
+    },
+    [tt],
+  )
+
+  const onToggleNotification = useCallback(
+    async (key: 'push' | 'message' | 'email', value: boolean) => {
+      const previous = !value
+      setNotifications((prev) => ({ ...prev, [key]: value }))
+      if (key === 'push') {
+        try {
+          Taro.setStorageSync(NOTIFICATION_KEY, value)
+        } catch {
+          // 本地缓存写不进不影响真值
+        }
+      }
+      try {
+        await updateNotificationPreferences({ [NOTIF_FIELD[key]]: value })
+      } catch (e) {
+        setNotifications((prev) => ({ ...prev, [key]: previous }))
+        if (key === 'push') {
+          try {
+            Taro.setStorageSync(NOTIFICATION_KEY, previous)
+          } catch {
+            // ignore
+          }
+        }
+        logger.error('user/settings', '保存通知偏好', e)
+        onToast(tt('common.failed', '保存失败,请重试'), { kind: 'error' })
+        return
+      }
+      if (key !== 'push') return
+      if (value) {
+        try {
+          const setting = await Taro.getSetting()
+          if (
+            setting.authSetting &&
+            (setting.authSetting as Record<string, boolean | undefined>)['scope.notify'] === false
+          ) {
+            Taro.showModal({
+              title: tt('setting.hint', '提示'),
+              content: tt('setting.notifOpenHint', '要接收消息通知,请在系统设置中开启通知权限'),
+              confirmText: tt('setting.goSetting', '去设置'),
+              success: (res) => {
+                if (res.confirm) Taro.openSetting()
+              },
+            })
+          } else {
+            onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
+          }
+        } catch {
           onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
         }
-      } catch {
-        onToast(tt('setting.notifOn', '已开启消息通知'), { kind: 'info' })
+      } else {
+        onToast(tt('setting.notifOff', '已关闭消息通知'), { kind: 'info' })
       }
-    } else {
-      onToast(tt('setting.notifOff', '已关闭消息通知'), { kind: 'info' })
-    }
-  }
+    },
+    [tt],
+  )
 
-  function handleLogout() {
+  const onChangePassword = useCallback(async (oldPwd: string, newPwd: string) => {
+    try {
+      await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
+      return true
+    } catch (e) {
+      logger.error('user/settings', '修改密码', e)
+      return false
+    }
+  }, [])
+
+  const onAlert = useCallback((title: string, message?: string) => {
+    Taro.showModal({ title, content: message, showCancel: false })
+  }, [])
+
+  const onConfirm = useCallback((title: string, message: string, onOk: () => void) => {
     Taro.showModal({
-      title: tt('setting.hint', '提示'),
-      content: tt('setting.logoutConfirm', '确定要退出登录吗?'),
-      success: async (res) => {
-        if (res.confirm) {
-          try {
-            await logout()
-          } catch (e) {
-            logger.error('user/settings', '退出登录', e)
-          }
-          // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作(顺序在它内部定死)。
-          // 原来那句"整片擦 storage"会连用户偏好一起抹掉,且内存里的 token 仍在
-          // (下一页/下一个请求还带着它)—— 两处都不该由一次登出造成。
-          clearAuth()
-          onToast(tt('user.loggedOut', '已退出登录'), { kind: 'success' })
-          setTimeout(goToLogin, 800)
-        }
+      title,
+      content: message,
+      success: (res) => {
+        if (res.confirm) onOk()
       },
     })
-  }
+  }, [])
+
+  const onLogout = useCallback(() => {
+    void performLogout(t)
+  }, [t])
+
+  const onMenuPress = useCallback((key: string) => {
+    const url = MENU_ROUTES[key]
+    if (url) Taro.navigateTo({ url })
+  }, [])
 
   const maskedPhone = (() => {
     const p = (user.phone || '').trim()
@@ -158,251 +233,62 @@ export default function Settings() {
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
 
+  const localeOptions = [
+    { value: 'zh-CN', label: tt('settings.lang_zhCN', '简体中文') },
+    { value: 'en', label: tt('settings.lang_en', 'English') },
+    { value: 'ja', label: tt('settings.lang_ja', '日本語') },
+    { value: 'ko', label: tt('settings.lang_ko', '한국어') },
+    { value: 'zh-TW', label: tt('settings.lang_zhTW', '繁體中文') },
+  ]
+
+  const themeOptions = [
+    { value: 'light', label: tt('settings.theme_light', '浅色模式') },
+    { value: 'dark', label: tt('settings.theme_dark', '深色模式') },
+    { value: 'system', label: tt('settings.theme_system', '跟随系统') },
+  ]
+
+  const menuItems = [
+    {
+      key: 'ChangePhone',
+      label: tt('setting.changePhone', '更换手机号'),
+      value: maskedPhone,
+    },
+    { key: 'RealNameAuth', label: tt('setting.realNameAuth', '实名认证') },
+    { key: 'EmailBinding', label: tt('setting.emailBinding', '邮箱绑定') },
+    { key: 'AccountCancel', label: tt('setting.accountCancel', '账号注销') },
+    { key: 'ClearCache', label: tt('setting.clearCache', '清除缓存') },
+    { key: 'Feedback', label: tt('setting.feedback', '意见反馈') },
+    { key: 'AboutUs', label: tt('setting.aboutUs', '关于我们') },
+    { key: 'Announcement', label: tt('announcement.title', '平台公告') },
+    { key: 'Activity', label: tt('activity.title', '平台活动') },
+    { key: 'AiSkill', label: tt('aiSkill.title', 'AI 技能') },
+    { key: 'PrivacyPolicy', label: tt('setting.privacyPolicy', '隐私政策') },
+    { key: 'UserAgreement', label: tt('setting.userAgreement', '用户协议') },
+    { key: 'AppPermission', label: tt('setting.appPermission', '应用权限') },
+  ]
+
   return (
     <ThemeRoot>
-      {/* 对齐 RN 共享 SettingsScreen:页面浅灰底 + 体边距 20rpx + 分组间距 32rpx;
-          分组标题 28rpx 次级字色;行卡圆角 16rpx(亮 card/暗 muted),行高 120rpx;
-          行文字 32rpx(亮 text.medium/暗 foreground),箭头 40rpx 三级字色;
-          通知开关品牌灰蓝 track(RN switchTrackColor true = brandAccent);退出登录 100rpx 危险红字 */}
-      <View className="min-h-screen bg-background px-[20rpx] pt-[24rpx] pb-[48rpx] box-border">
-        {/* 账号与安全 */}
-        <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
-            {tt('setting.accountSecurity', '账号与安全')}
-          </Text>
-          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/user/phone')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.changePhone', '更换手机号')}
-              </Text>
-              <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-body text-muted-foreground">
-                {maskedPhone}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/user/password')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.changePassword', '修改密码')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/user/realname')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.realNameAuth', '实名认证')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/user/email')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.emailBinding', '邮箱绑定')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/account-cancel/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.accountCancel', '账号注销')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
-
-        {/* 通用设置 */}
-        <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
-            {tt('setting.general', '通用设置')}
-          </Text>
-          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
-            <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.notificationEntry', '消息通知')}
-              </Text>
-
-              <Switch checked={notifEnabled} color={switchAccentDeep} onChange={onNotifChange} />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pages/setting/language')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.languageSetting', '语言设置')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pages/setting/theme')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.themeSetting', '主题设置')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pages/setting/cache')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.clearCache', '清除缓存')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
-
-        {/* 帮助与反馈 */}
-        <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
-            {tt('setting.helpFeedback', '帮助与反馈')}
-          </Text>
-          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-user/user/feedback')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.feedback', '意见反馈')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-about/about/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.aboutUs', '关于我们')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-content/announcement/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('announcement.title', '平台公告')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-content/activity/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('activity.title', '平台活动')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-ai/ai-skill/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('aiSkill.title', 'AI 技能')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
-
-        {/* 隐私与权限 */}
-        <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
-            {tt('setting.privacyPermission', '隐私与权限')}
-          </Text>
-          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-about/about/privacy')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.privacyPolicy', '隐私政策')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-about/about/protocol')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.userAgreement', '用户协议')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
-
-        {/* 其他 */}
-        <View className="mb-[32rpx]">
-          <Text className="block px-[8rpx] pb-[16rpx] text-body text-muted-foreground">
-            {tt('setting.other', '其他')}
-          </Text>
-          <View className="overflow-hidden rounded-lg bg-card dark:bg-muted">
-            <View
-              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
-              hoverClass="opacity-60"
-              onClick={() => navigate('/pkg-about/about/app-permission/index')}
-            >
-              <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                {tt('setting.appPermission', '应用权限')}
-              </Text>
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            {appVersion ? (
-              <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
-                <Text className="flex-1 text-title text-[var(--color-text-medium)] dark:text-foreground">
-                  {tt('setting.version', '当前版本号')}
-                </Text>
-                <Text className="mx-[16rpx] max-w-[320rpx] overflow-hidden ihui-ellipsis whitespace-nowrap text-label text-[var(--color-text-tertiary)]">
-                  {appVersion}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* 退出登录(RN logoutBtn:100rpx 高 + 圆角 16rpx + 危险红 32rpx/600) */}
-        <View className="mb-[48rpx] mt-[24rpx]">
-          <View
-            className="flex h-[100rpx] items-center justify-center rounded-lg bg-card dark:bg-muted"
-            hoverClass="opacity-60"
-            onClick={handleLogout}
-          >
-            <Text className="text-title font-semibold text-destructive">
-              {tt('user.logout', '退出登录')}
-            </Text>
-          </View>
-        </View>
-      </View>
+      <SettingsScreen
+        t={t}
+        locale={locale}
+        localeOptions={localeOptions}
+        onSelectLocale={onSelectLocale}
+        theme={themeMode}
+        themeOptions={themeOptions}
+        onSelectTheme={onSelectTheme}
+        notifications={notifications}
+        onToggleNotification={onToggleNotification}
+        onChangePassword={onChangePassword}
+        onAlert={onAlert}
+        onConfirm={onConfirm}
+        onLogout={onLogout}
+        menuItems={menuItems}
+        onMenuPress={onMenuPress}
+        appVersion={appVersion}
+        colorScheme={resolvedTheme}
+        onBack={() => Taro.navigateBack()}
+      />
     </ThemeRoot>
   )
 }
