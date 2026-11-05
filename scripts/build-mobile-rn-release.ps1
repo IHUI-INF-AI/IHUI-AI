@@ -23,7 +23,10 @@
        APK apksigner 验签 + 证书指纹必须等于正式 keystore;AAB jarsigner 验签 + 同指纹;
        debug 签名/换签名一律判失败;APK/AAB 体积对 scripts/data/mobile-release-size-baseline.json
        比较(超 +15% 告警、超 +30% 判红;首次/更新基线须显式 -UpdateSizeBaseline)
-    5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
+    5. 发布到固定下载地址(-NoPublish 可跳过):先 node scripts/publish-mobile-apk-gitee.py
+       (16 份分片腿 + 清单, 并行下载的源), 再发站点腿 + app_versions 登记 ——
+       本机有生产 checkout 就地跑 publish-mobile-apk.mjs, 没有则走 publish-mobile-apk-remote.ps1
+       (scp 进生产 checkout, 由同一支发布链执行); 两条路都以公网 latest 切到本次版本收尾
        落版本名副本 + 翻指针 ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
@@ -78,6 +81,11 @@
 .PARAMETER AllowLocalBackend
   显式允许产出连回环地址(localhost/127.0.0.1/10.0.2.2)的包,配 `adb reverse` 用。
   **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
+.PARAMETER VersionName
+  发布版本名(写进 JS bundle 的 EXPO_PUBLIC_IHUI_MOBILE_VERSION,并作为站点腿/DB 登记的版本)。
+  缺省 = apps/mobile-rn/package.json 的 version(手工构建的旧行为)。
+  自动发版传 `<base>.<UTC yyyyMMddHH>` 形态(4 段,compareVersions 认),每次构建都严格大于上一版,
+  否则 App 端 `latestVersion > currentVersion` 不成立 ⇒ 包发了但没人收到更新提示。
 .PARAMETER NoPublish
   只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
   默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 发到站点 CDN 腿
@@ -101,6 +109,7 @@ param(
   [string]$WebBaseUrl = '',
   [string]$WsBaseUrl = '',
   [switch]$AllowLocalBackend,
+  [string]$VersionName = '',
   [string]$SelfTestApk = ''
 )
 
@@ -377,6 +386,9 @@ Push-Location $RepoRoot
 try {
   node scripts/patch-rn-release-signing.mjs
   if ($LASTEXITCODE -ne 0) { throw 'patch-rn-release-signing.mjs 失败' }
+  # android/ 是 prebuild 生成物:OkHttp 强制 HTTP/1.1 的注入同样会被 prebuild 重置,故与签名配置一起幂等重打。
+  node scripts/patch-rn-okhttp-http1.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'patch-rn-okhttp-http1.mjs 失败' }
 } finally { Pop-Location }
 
 Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
@@ -460,6 +472,22 @@ if (-not $AllowLocalBackend -and (Test-WsArmCannotUpgrade $Backend.Ws)) {
     "禁止的出路:把这一维降级成 warning,或加旗放行 —— 那等于把「装上手机、看着能登录、收不到任何通知」留给下一个人。"
   )
 }
+
+# ---- 发布版本号:注入 bundle 与登记的唯一来源 -----------------------------------------
+# 自动发版传 -VersionName(形态 `<base>.<UTC yyyyMMddHH>`,4 段);缺省回落 package.json(手工路径不变)。
+# 为什么必须两端同源:App 端 `decideHasUpdate` 比较的是 bundle 里的 APP_VERSION
+# (= EXPO_PUBLIC_IHUI_MOBILE_VERSION)与服务端 latestVersion;两处差一个字符,结果就是
+# "包发了、DB 登记了、但没有任何用户收到更新提示" —— 这条已在 0.0.12 的手工发布中验证过。
+if ([string]::IsNullOrWhiteSpace($VersionName)) {
+  $VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+}
+if ($VersionName -notmatch '^\d+(\.\d+){0,3}$') {
+  throw ("版本名非法:'" + $VersionName + "'(须为 1~4 段纯数字,如 0.0.12.2026110519)")
+}
+# 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
+$env:IHUI_MOBILE_VERSION = $VersionName
+$env:EXPO_PUBLIC_IHUI_MOBILE_VERSION = $VersionName
+Write-Host "  发布版本号: $VersionName(注入 IHUI_MOBILE_VERSION + EXPO_PUBLIC_IHUI_MOBILE_VERSION)" -ForegroundColor Gray
 
 # 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
 $env:EXPO_PUBLIC_API_BASE_URL = $Backend.Api
@@ -560,7 +588,8 @@ try {
 } finally { Pop-Location }
 
 Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
-$VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+# $VersionName 已在 [2.5] 解析并注入 bundle(见该处注释);此处不再二次取值,避免出现
+# "包里是 A、登记的是 B" 的两处漂移。
 # 站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);这是唯一出口,
 # COS/CF 备用腿已于 2026-10-30 下线(按流量计费且比站点腿慢两个数量级)。
 # 地址不在本脚本复制:唯一真源 = scripts/data/mobile-download-leg.json(部署机可用 env 覆盖)。
@@ -571,8 +600,36 @@ if ($NoPublish) {
 } else {
   Push-Location $RepoRoot
   try {
-    node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
-    if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    # 5.0 先发 Gitee 分片腿,再发站点腿并登记 —— 顺序不可反:先推站点腿(登记后线上立刻提示升级)
+    # 而分片腿还没就绪,用户会落到慢速单文件腿。Gitee 腿是本机唯一能在"没生产 checkout"时
+    # 自动完成的发布动作,所以它不再允许人肉单独跑一条命令(2026-11-05 实测漏跑过一次)。
+    $GiteeScript = Join-Path $RepoRoot 'scripts/publish-mobile-apk-gitee.py'
+    if (Test-Path $GiteeScript) {
+      if (-not $env:GITEE_TOKEN) {
+        # 令牌不入库:优先环境变量,其次 Windows 凭据管理器里 gitee.com 的 git 凭据(GCM)。
+        $cred = ("protocol=https`nhost=gitee.com`n`n" | git credential fill 2>$null) -join "`n"
+        $tok = [regex]::Match($cred, '(?m)^password=(.+)').Groups[1].Value.Trim()
+        if ($tok) { $env:GITEE_TOKEN = $tok }
+      }
+      if (-not $env:GITEE_TOKEN) {
+        throw 'Gitee 分片腿未发: GITEE_TOKEN 缺失且凭据管理器里取不到 gitee.com —— 不许静默只发站点腿'
+      }
+      py $GiteeScript --apk $Apk --version $VersionName --parts 16 --version-code $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功" }
+    } else {
+      throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
+    }
+    # 站点腿 + latest 登记只认生产 checkout 的落点。出包机没有那份落点时(2026-11-05 实测),
+    # 走远程腿把包送进生产 checkout 由同一支发布链执行;两条路都以"公网 latest 切到本次版本"收尾。
+    $LocalProdDownload = Join-Path $RepoRoot 'deploy/server-root/remote-images/download'
+    if (Test-Path $LocalProdDownload) {
+      node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    } else {
+      Write-Host "[publish] 本机无生产 checkout,改走远程发布腿 (ssh aizhs.top)" -ForegroundColor Yellow
+      & (Join-Path $RepoRoot 'scripts/publish-mobile-apk-remote.ps1') -Apk $Apk -Version $VersionName -VersionCode $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "远程发布腿失败 (exit=$LASTEXITCODE) —— 站点腿或版本登记未完成" }
+    }
     node scripts/check-mobile-download-leg.mjs --apk $Apk
     if ($LASTEXITCODE -ne 0) {
       throw "下载腿门失败 (exit=$LASTEXITCODE) —— 公网地址/体积/证书基准未全绿(2=skipped/未判定也不是绿),不许当成发布成功"

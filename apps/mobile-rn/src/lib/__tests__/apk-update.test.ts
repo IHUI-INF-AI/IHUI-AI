@@ -54,14 +54,34 @@ vi.mock('expo-file-system/legacy', () => ({
   getContentUriAsync: h.getContentUriAsync,
 }))
 
+/**
+ * 多分片腿接管点:默认恒"清单不可用" ⇒ 普通用例落到原来的单文件腿,
+ * 与 2026-11-04 那组老断言(createDownloadResumable 被调用)保持同一口径。
+ */
+const parts = vi.hoisted(() => ({
+  impl: null as
+    null | ((options: unknown) => Promise<{ uri: string; bytes: number; connections: number }>),
+}))
+
 /** 选腿的 IO 面在 apk-download-legs.test.ts 单独钉;这里只接管出口,避免用例真发探针。 */
 vi.mock('../apk-download-legs', () => ({
+  APK_CN_LEG_URL:
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk',
+  APK_MIN_BYTES: 52_428_800,
+  APK_PARTS_MANIFEST_URL:
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-parts.json',
   resolveApkDownloadUrl: async (primary: string) => ({
     url: legChoice.url ?? primary,
     leg: legChoice.url ? 'cn' : 'site',
     reason: '测试夹具',
     probed: Boolean(legChoice.url),
   }),
+}))
+
+/** 多分片的调度细节在 multipart-download.test.ts 单独钉;这里只钉"失败必须回退单文件腿"。 */
+vi.mock('../multipart-download', () => ({
+  downloadApkParts: (options: unknown) =>
+    parts.impl ? parts.impl(options) : Promise.reject(new Error('测试:清单不可用,回退单文件腿')),
 }))
 
 /**
@@ -137,6 +157,7 @@ beforeEach(() => {
   h.startActivityAsync.mockReset()
   h.downloadAsync.mockReset()
   ranged.impl = null
+  parts.impl = null
   legChoice.url = null
   setNativeLauncher(false)
 })
@@ -325,6 +346,46 @@ describe('下载 + 安装', () => {
     })
     expect(mod.apkSnapshot().installMode).toBe('in-app')
     expect(mod.apkSnapshot().progress).toBe(100)
+  })
+
+  it('多分片腿可用 ⇒ 直接装,不探单文件腿、不下单流', async () => {
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+    h.startActivity.mockResolvedValue(undefined)
+    parts.impl = async () => ({
+      uri: 'file:///cache/ihui-ai-1.0.0.apk',
+      bytes: 83310445,
+      connections: 8,
+    })
+    setNativeLauncher(true)
+
+    const mod = await freshModule()
+    await mod.checkApkUpdate()
+    await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+
+    // 多分片在,就不该再回到"选腿探针 + 单流":两条老腿一次都不许发。
+    expect(h.createDownloadResumable).not.toHaveBeenCalled()
+    // 探针被绕开:resolveApkDownloadUrl 在 apk-download-legs.test 里单独钉,这里用"下载腿记 cn"旁证。
+    expect(mod.apkSnapshot().downloadLeg).toBe('cn')
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-1.0.0.apk')
+  })
+
+  it('多分片腿不可用 ⇒ 回退单文件腿(不许直接把用户堵死)', async () => {
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-1.0.0.apk' })
+    h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
+    h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+    h.startActivity.mockResolvedValue(undefined)
+    parts.impl = async () => {
+      throw new Error('清单 404')
+    }
+    setNativeLauncher(true)
+
+    const mod = await freshModule()
+    await mod.checkApkUpdate()
+    await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+    expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
+    expect(mod.apkSnapshot().installMode).toBe('in-app')
   })
 
   it('分片腿可用 ⇒ 走分片,不回到单流', async () => {
