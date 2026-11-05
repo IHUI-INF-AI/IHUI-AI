@@ -17,7 +17,9 @@ import * as path from 'node:path';
 
 const { spawnMock, gateHookMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),
-  gateHookMock: vi.fn(() => ({ allowed: true as boolean })),
+  // 声明入参形状:gateHook(spec, absCwd)。不写的话 vi.fn 推断成零参,
+  // 下面断言"按来源目录判"时 `mock.calls[0][1]` 会撞 TS2493(元组无该索引)。
+  gateHookMock: vi.fn((_spec: { name: string }, _absCwd: string) => ({ allowed: true as boolean })),
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {

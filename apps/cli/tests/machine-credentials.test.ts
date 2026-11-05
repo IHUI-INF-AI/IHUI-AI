@@ -252,7 +252,7 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
     const expired = makeJwt(Math.floor(Date.now() / 1000) - 60);
     writeSettings({ apiKey: expired, refreshToken: 'rt-old', defaultModel: 'm-keep' });
     const fresh = makeJwt(Math.floor(Date.now() / 1000) + 7200);
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_input: Parameters<typeof fetch>[0], _init?: Parameters<typeof fetch>[1]) =>
       new Response(
         JSON.stringify({
           code: 0,
