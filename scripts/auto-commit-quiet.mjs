@@ -24,7 +24,12 @@
  *      准入判据全在 `scripts/lib/cross-end-landing-ledger.mjs` 的 `collectiblePaths`
  *      (账本在册 ∧ 落点 blob 逐字节等于登记 blobOid ∧ 超静默期 ∧ 非 ignored),本器再逐条
  *      **双检**一次工作树 blob(防收编途中被改),然后吃同一批护栏(busy 闸 / 活文档归复洁链 /
- *      MAX_PATHS 分批 / i18n 切批),自成一枚 `chore(cross-end):` 批次。
+ *      **内容级残渣闸** / MAX_PATHS 分批 / i18n 切批),自成一枚 `chore(cross-end):` 批次。
+ *      **内容级残渣闸(2026-11-05 补,缺失臂)**:账本"验过"只证明盘 == 登记,不证明登记不是旧档;
+ *      若守护腿拿滞后缓冲重算后重新登记,盘会等于某个祖先而 HEAD 已是更新版 ⇒ 本族此前照收 =
+ *      静默回退。现在与白名单族共用 `dropStaleCopies` 同一把尺(盘逐字节 == 祖先 blob / 部分回退 /
+ *      删除档死件回潮),命中即不收编、逐条点名并计入 held;正常新改动照收(**不阻断别人**)。
+ *      探针 `hash-object` 一律带 `core.autocrlf=false`(逐字节,防止 CRLF 归一改写 oid)。
  *      取不到账本 ⇒ `ledger=unjudged` 且一条不收(§0.3,不用空集冒充"没有待收")。
  *
  * 落地一律走 safe-commit(全门冻结索引),失败只记日志不重试轰炸;调度器下一轮自然重来。
@@ -302,7 +307,9 @@ function staleCopyProbes(p) {
   return {
     worktree: () => {
       try {
-        return git(['hash-object', '--', p]).trim()
+        // 逐字节:不关 autocrlf 会把 CRLF 归一成 LF 形态的 oid,把"盘上旧档"误判成 HEAD/祖先
+        // 等值(反方向则漏判)。与门 298 的工作树臂同一把尺(2026-11-05)。
+        return git(['-c', 'core.autocrlf=false', 'hash-object', '--', p]).trim()
       } catch {
         return null
       }
@@ -677,7 +684,9 @@ function worktreeBlobOid(path, root = ROOT) {
   const p = normSlashes(path)
   try {
     if (!existsSync(join(root, p))) return null
-    return String(gitRaw(['hash-object', '--', p], root)).trim().toLowerCase()
+    // 逐字节(2026-11-05):账本准入口径必须与门 298 工作树臂、dropStaleCopies 探针同一把尺,
+    // autocrlf 不关会把 CRLF 归一后改写 oid ⇒ 两把尺漂开。
+    return String(gitRaw(['-c', 'core.autocrlf=false', 'hash-object', '--', p], root)).trim().toLowerCase()
   } catch {
     return null
   }
@@ -1193,8 +1202,9 @@ export function runLedgerFamily(opts = {}) {
   }
 
   // 活文档护栏(同批器物):命中 HUMAN_LEDGER_RE 的逐条过链,不达标即让路。
-  const paths = []
+  let paths = []
   let held = 0
+  let staleHeld = 0
   for (const it of entries.collectible) {
     const p = normSlashes(it.path)
     if (HUMAN_LEDGER_RE.test(p)) {
@@ -1207,12 +1217,36 @@ export function runLedgerFamily(opts = {}) {
     }
     paths.push(p)
   }
+  // 2026-11-05 内容级残渣闸(**补账本族的缺失臂**):账本族准入口径是"盘上 blob == 申报 blob",
+  // 但申报本身可能是旧档(守护腿拿滞后缓冲重算后又登记了一次)⇒ 账本说"验过"、HEAD 却是更新版,
+  // 本族此前会照收,等于静默回退。判据复用白名单族同一把尺(dropStaleCopies →
+  // partitionStaleCopies:盘逐字节 == 某祖先 blob / 部分回退 / 删除档死件回潮),不另写第二支。
+  // 失效方向仍是"少收编一次":只跳过**证实**的残渣并逐条点名,正常新改动照收(不阻断别人)。
+  if (paths.length > 0) {
+    const { kept, skipped, why } = dropStaleCopies(paths, [])
+    if (skipped.length) {
+      logLine(
+        `账本族跳过滞后副本(${skipped.length} 枚,留在工作树交删除意图账/归属席位显式处置):${skipped
+          .slice(0, 8)
+          .map((p) => `${p}${why?.get?.(p) ? ` [${why.get(p)}]` : ''}`)
+          .join(', ')}${skipped.length > 8 ? ' …' : ''}`,
+      )
+      held += skipped.length
+      staleHeld = skipped.length
+    }
+    paths = kept
+  }
   if (paths.length === 0)
     return withCounts({
       collected: whitelistCollected,
       ledgerCollected: 0,
       held,
-      reason: 'livedoc-held',
+      reason:
+        staleHeld > 0
+          ? held > staleHeld
+            ? 'livedoc+stale-copy-held'
+            : 'stale-copy-held'
+          : 'livedoc-held',
     })
 
   // 既有护栏之一:MAX_PATHS 分批(命令行长度,见模块级定义处注释)。
