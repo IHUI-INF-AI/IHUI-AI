@@ -26,6 +26,12 @@ export default defineConfig({
       // RegExp ^react$ 精确匹配包名 'react',不匹配 'react-dom' / 'react/jsx-runtime'。
       { find: /^react$/, replacement: path.resolve(__dirname, 'node_modules/react') },
       { find: /^react-dom$/, replacement: path.resolve(__dirname, 'node_modules/react-dom') },
+      // A2(2026-11-05):薄壳页会 import @ihui/rn-app 共享屏(RN 原语)。主树 pnpm
+      // 链接面缺 react-native/index.js,node 测试里把裸包指到 DOM 桩(只切平台依赖)。
+      {
+        find: /^react-native$/,
+        replacement: path.resolve(__dirname, 'tests/stubs/react-native.ts'),
+      },
       // D28 补齐层(2026-10-03):「用场景分析」的判据与场景目录已从 web 下沉到
       // @ihui/shared/import-analysis{,/scenarios}。指真实源码而非 mock:判据与目录
       // 都是纯数据/纯函数(无 DOM/Taro 依赖),给它写 mock 测的就是 mock。
