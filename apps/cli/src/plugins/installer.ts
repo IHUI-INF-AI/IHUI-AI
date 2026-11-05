@@ -659,7 +659,13 @@ async function installLocal(
 
   // 读清单
   const manifest = readPluginManifest(resolvedSrc);
-  const dest = getPluginInstallPath(manifest.name);
+  // 与卸载侧同解:manifest.name 是第三方输入,先过名称白名单与安装根目录断言。
+  const safePluginName = assertSafePluginName(manifest.name);
+  const dest = assertPathInsideRoot(
+    getInstalledPluginsDir(),
+    getPluginInstallPath(safePluginName),
+    '插件安装目录',
+  );
 
   // 已装短路:按 name + sourcePath 去重。"已装"必须过可用性判据 ——
   // 只问 existsSync 会把"空目录/半成品"报成装好了(与缓存降级同一型)。
@@ -862,7 +868,13 @@ async function installGit(
   const pluginSubdir = findPluginSubdir(cachePath);
   const pluginDir = pluginSubdir ? path.join(cachePath, pluginSubdir) : cachePath;
   const manifest = readPluginManifest(pluginDir);
-  const dest = getPluginInstallPath(manifest.name);
+  // 与卸载侧同解:远端 manifest.name 同样不可信,先白名单 + 安装根目录断言。
+  const safePluginName = assertSafePluginName(manifest.name);
+  const dest = assertPathInsideRoot(
+    getInstalledPluginsDir(),
+    getPluginInstallPath(safePluginName),
+    '插件安装目录',
+  );
 
   // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装;
   // 且同样只对当代那一条成立 —— 取舍见上面 local 腿的 G-832 注记,两腿共用一处实现)。
