@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..core.background_tasks import spawn
+from ..utils.atomic_io import write_text_atomic
 from .codebase_indexer import (
     _EXT_TO_LANG,
     _IGNORED_DIRS,
@@ -1864,7 +1865,7 @@ class SpecGenerator:
             root = Path(workspace_path).resolve()
             scope_hash = self._compute_scope_hash(scope)
             target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
-            await asyncio.to_thread(target.write_text, new_content, encoding="utf-8")
+            await asyncio.to_thread(write_text_atomic, target, new_content)
         except Exception as e:
             logger.warning("增强 spec 持久化失败: %s", e)
 
