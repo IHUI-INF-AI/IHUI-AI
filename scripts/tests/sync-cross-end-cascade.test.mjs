@@ -224,4 +224,110 @@ test('A14 land-web 写腿安全锁:--apply 档必须锁字重 + 补继承钉,绝
   assert.ok(!naked.includes('--only-weight-locked'), '形状锁没有牙:裸 --apply 也被判成通过')
   assert.ok(!naked.includes('--pin-inherit-weight'), '形状锁没有牙:裸 --apply 也被判成通过')
 })
+
+// ── A15–A19「有待落退 0」正文探针层(2026-11-05 立)───────────────────────────────
+// 立因:旧 classifyStage 对 rc=0 无条件记 done,而 land-rn / heal-stale-dist / plan-rn-token-pairing
+// 这些器物把"本轮有待落"写在自述结论正文里、退出码照退 0 —— 实测 RN 字号待落 2 处与
+// @ihui/types dist 落后都被级联读成"判过了"。一键入口看不见缺口 = 机主要的全自动同步不成立。
+const stageOf = (name) => {
+  const s = C.STAGES.find((x) => x.name === name)
+  assert.ok(s, `${name} 段读不到`)
+  return s
+}
+
+test('A15 通道覆盖锁:每个写盘段至少有一条"有待落"通道(pendingRc 或正文探针),verify 段不得挂探针', () => {
+  const writes = C.STAGES.filter((s) => s.write)
+  assert.ok(writes.length >= 10, '写盘段数异常(登记表被洗?)')
+  const noChannel = writes.filter((s) => !s.pendingProbe && !Array.isArray(s.pendingRc))
+  assert.deepEqual(
+    noChannel.map((s) => s.name),
+    [],
+    '这些写盘段既无 pendingRc 也无正文探针 ⇒ rc=0 会把待落读成 done(假绿)',
+  )
+  // 反向对照:摘掉一枚段的通道,同一判据必须翻红(形状锁不能空转)。
+  const first = writes[0].name
+  const crippled = writes.map((s) => ({ ...s, pendingProbe: undefined, pendingRc: s.name === first ? undefined : s.pendingRc }))
+  const hit = crippled.filter((s) => !s.pendingProbe && !Array.isArray(s.pendingRc))
+  assert.ok(hit.length >= 1, '反向对照失效:摘掉通道后判据仍判不出')
+  const verifyWithProbe = C.STAGES.filter((s) => !s.write && s.pendingProbe)
+  assert.deepEqual(verifyWithProbe.map((s) => s.name), [], 'verify 段的红由 rc 判,不该挂正文探针')
+})
+
+test('A16 rc=0 而正文有待落 ⇒ pending(land-rn 数组形 / heal-stale-dist state 形 / 计数形各一例)', () => {
+  // 形态取自 2026-11-05 实测 stdout,不自己发明字段。
+  const rn = C.pendingFromBody(stageOf('land-rn'), {
+    scanned: 893,
+    changedFiles: [{ file: 'apps/mobile-rn/src/components/Carousel.tsx', changes: 2 }],
+    totalChanges: 2,
+    held: [],
+  })
+  assert.equal(rn.state, 'pending', `land-rn 正文有 2 处待落必须报 pending,实读 ${JSON.stringify(rn)}`)
+  assert.match(rn.detail, /changedFiles=1/, 'pending 结论要能指出是哪一维有活')
+
+  const dist = C.pendingFromBody(stageOf('rebuild-dist'), {
+    state: 'pending',
+    targets: [{ pkg: '@ihui/types', fix: 'pnpm --filter @ihui/types build' }],
+    healed: [],
+    still: [],
+    refused: [],
+  })
+  assert.equal(dist.state, 'pending', 'dist 落后(state=pending)不得记 done')
+
+  const web = C.pendingFromBody(stageOf('land-web'), { scanned: 3643, changedFiles: 4, changes: 4, held: 0 })
+  assert.equal(web.state, 'pending', '计数形 changedFiles=4 也必须认出来')
+
+  // 判定层同批验:rc=0 + bodyState=pending ⇒ 段态 pending;--apply 档(非 preview)不受探针影响。
+  assert.equal(C.classifyStage(stageOf('land-rn'), { ran: true, rc: 0, spawnable: true, preview: true, bodyState: 'pending' }), 'pending')
+  assert.equal(C.classifyStage(stageOf('land-rn'), { ran: true, rc: 0, spawnable: true, preview: false, bodyState: 'pending' }), 'done')
+})
+
+test('A17 正向对照:正文自述为零 ⇒ done(探针不得把无活段顶成 pending)', () => {
+  for (const [name, clean] of [
+    ['land-rn', { scanned: 893, changedFiles: [], totalChanges: 0, held: [] }],
+    ['land-web', { scanned: 3643, changedFiles: 0, changes: 0, held: 0 }],
+    ['rebuild-dist', { state: 'clean', targets: [], healed: [], still: [], refused: [] }],
+    ['message-pack', { state: 'clean', planned: 0, pendingLanding: 0, namespaces: [], explicitKeys: [] }],
+    ['derive-tokens', { state: 'clean', pending: 0, pendingPaths: [], unjudged: 0 }],
+  ]) {
+    const r = C.pendingFromBody(stageOf(name), clean)
+    assert.equal(r.state, 'done', `${name} 零待落必须判绿,实读 ${JSON.stringify(r)}`)
+    assert.equal(C.classifyStage(stageOf(name), { ran: true, rc: 0, spawnable: true, preview: true, bodyState: r.state }), 'done')
+  }
+})
+
+test('A18 探针登记了却拿不到输入 ⇒ unjudged(§0.3 "没判"不得冒充"判过")', () => {
+  const s = stageOf('land-rn')
+  assert.equal(C.pendingFromBody(s, null).state, 'unjudged', '器物输出不是 JSON ⇒ 未判定')
+  const missing = C.pendingFromBody(s, { scanned: 893, held: [] })
+  assert.equal(missing.state, 'unjudged', '必填探针字段缺失(器物改了结论形状)⇒ 未判定,不是绿')
+  assert.match(missing.detail, /changedFiles/)
+  assert.equal(
+    C.classifyStage(s, { ran: true, rc: 0, spawnable: true, preview: true, bodyState: 'unjudged' }),
+    'unjudged',
+    '未判定必须进整体退出码 2,不能被 rc=0 洗成 0',
+  )
+  // optional 字段取不到不顶未判定(它是附加读数,不是必读数);必填字段读得出即照常判。
+  const opt = C.pendingFromBody(stageOf('land-web'), { changedFiles: 3 })
+  assert.equal(opt.state, 'pending', 'changes 缺席是可选读数,changedFiles=3 仍须判有待落')
+  assert.match(opt.detail, /changedFiles=3/)
+  // 可落集为空而只有归因维(歧义/源无等值)⇒ done:那些维结构上没有可自动落的形态,
+  // 算成 pending 会让链永远读不出绿;它们归对账门与台账管,不归级联。
+  const onlyAttribution = C.pendingFromBody(stageOf('rn-token-pairs'), {
+    pairs: [],
+    ambiguous: [{ rn: 'surface.inputBg' }],
+    noSource: [{ rn: 'brand.dark' }],
+  })
+  assert.equal(onlyAttribution.state, 'done', '歧义/源无等值不得算成级联待落')
+  assert.equal(C.pendingFromBody(stageOf('rn-token-pairs'), { pairs: [{ rn: 'x', css: '--y' }] }).state, 'pending')
+})
+
+test('A19 结论取面:整段 JSON / 前置人读日志行 / 空输出 三形都能取(且空输出解不出 ⇒ 走 A18)', () => {
+  assert.deepEqual(C.extractConclusion('{"state":"clean","targets":[]}'), { state: 'clean', targets: [] })
+  const mixed = C.extractConclusion(
+    'AUTO-REGISTER-PORTAL face=head state=off candidates=0 applied=0\nAUTO-REGISTER-RENDER face=head state=off 改判=0\n{\n  "face": "head",\n  "portalConverge": { "candidates": 0 }\n}\n',
+  )
+  assert.equal(mixed.portalConverge.candidates, 0, '前置日志行不得挡住 JSON 结论')
+  assert.equal(C.extractConclusion(''), null)
+  assert.equal(C.extractConclusion('PLAN-RN-PAIRING face=head 未登记色档 10'), null)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

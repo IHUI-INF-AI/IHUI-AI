@@ -31,7 +31,7 @@ import {
   carouselDotStyle,
 } from '@ihui/shared/ui/carousel-spec'
 
-import { rnSpacing } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 /**
  * 轮播图源:远端 URL(string)或打包进应用的本地资源(require 返回 number)。
  * bspapp 云存储 CDN 已整体不可达,外链图本地化后经 require 引入(2026-10-15);
@@ -123,12 +123,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
   },
   courseTitle: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     fontWeight: '600',
     color: tokens.text.primary,
   },
   coursePrice: {
-    fontSize: 12,
+    fontSize: rnType.label.size,
     color: tokens.brand.cta,
   },
 })
