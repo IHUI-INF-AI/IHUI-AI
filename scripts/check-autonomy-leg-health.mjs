@@ -795,6 +795,126 @@ export function judgeLegOutputsFace({ face = FACE_SEL.face, root = ROOT, now = D
   )
 }
 
+/**
+ * A15 台账动作覆盖面自证(2026-11-05 立)。
+ * 立因(当次实测):近窗台账里 `budget-exhausted` 8 枚 / `probe-fail` 4 枚 / `dryrun-ticket` 4 枚 /
+ * `task-registered` 1 枚 —— 这四档在尺子生产代码里**命中 0**,既不属任何维度词汇表,也不进空转/连败档。
+ * 也就是说:环确实记录了这些事,但没有任何一维在判它们,读数永远只会说"没输入可答"。
+ * 为什么不用"抓代码字面量"当输入:`auto-evolve.mjs` 里有 `action: 'valve-' + x` 这类拼接发射,
+ * 字面量抓取会产出 `valve-`/`anded` 这种碎片假集合 ⇒ 新维一装就恒红(§12e 恒红门唯一结局是逼人跳门)。
+ * 所以本维只认**真实发生过**的动作(台账原文,逐字精确),没发生过的一律不猜、也不据以报红。
+ * 边界(如实,不冒充更全):"发生了但没人认领"必被抓住;"从没发生过的动作"不在射程内
+ * —— 那要的是发射侧的声明表,不是这把尺子。
+ */
+export const ACTION_CLAIMS = {
+  'session-ok': { dim: 'A7', kind: 'result' },
+  'session-no-write': { dim: 'A7', kind: 'non-progress' },
+  'session-no-progress': { dim: 'A7', kind: 'non-progress' },
+  'session-timeout': { dim: 'A2', kind: 'failure' },
+  'session-failed': { dim: 'A2', kind: 'failure' },
+  dispatched: { dim: 'A11', kind: 'progress' },
+  'dispatch-settled': { dim: 'A7', kind: 'result' },
+  'artifact-committed': { dim: 'A13', kind: 'result' },
+  'artifact-commit-failed': { dim: 'A13', kind: 'failure' },
+  'artifact-manifest-missing': { dim: 'A13', kind: 'non-progress' },
+  'artifact-manifest-invalid': { dim: 'A13', kind: 'failure' },
+  'artifact-manifest-stale': { dim: 'A13', kind: 'non-progress' },
+  'artifact-manifest-ok': { dim: 'A13', kind: 'result' },
+  'artifact-preview': { dim: 'A13', kind: 'informational' },
+  'artifact-protected-face': { dim: 'A13', kind: 'failure' },
+  'valve-allow': { dim: 'A6', kind: 'progress' },
+  'valve-block': { dim: 'A6', kind: 'non-progress' },
+  'valve-observe-stop': { dim: 'A6', kind: 'non-progress' },
+  'valve-unjudged': { dim: 'A6', kind: 'non-progress' },
+  'valve-unjudged-block': { dim: 'A6', kind: 'non-progress' },
+  'runner-unavailable': { dim: 'A2', kind: 'failure' },
+  'runner-undetermined': { dim: 'A2', kind: 'non-progress' },
+  'runner-face-stale-disk': { dim: 'A14', kind: 'informational' },
+  'runner-face-undetermined': { dim: 'A14', kind: 'non-progress' },
+  'runner-preflight-ready': { dim: 'A1', kind: 'informational' },
+  'runner-preflight-missing': { dim: 'A1', kind: 'failure' },
+  'runner-preflight-template-empty': { dim: 'A1', kind: 'failure' },
+  'runner-preflight-undetermined': { dim: 'A1', kind: 'non-progress' },
+  'probe-ok': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '发起腿探测成功:无维度消费,只在此点名报数',
+  },
+  'probe-fail': {
+    dim: 'A15',
+    kind: 'failure',
+    why: '探测失败:过去 4 枚无人接住,现由本维报数并计入未判定证据',
+  },
+  'probe-undetermined': { dim: 'A15', kind: 'non-progress', why: '探测判不了 ⇒ 不冒充探测过' },
+  'budget-exhausted': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '当日派单预算耗尽:节律现象不是缺陷,但过去 8 枚只能从散文读 ⇒ 本维点名',
+  },
+  'dryrun-ticket': { dim: 'A15', kind: 'informational', why: '预演档:没动手,不得算产出' },
+  'task-registered': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '环自己登记了新票:产出的一种,过去零接住',
+  },
+  'no-ticket': { dim: 'A3', kind: 'non-progress' },
+  'no-whitelist-hit': { dim: 'A4', kind: 'non-progress' },
+  quarantined: { dim: 'A3', kind: 'failure' },
+  'decision-undetermined': { dim: 'A5', kind: 'non-progress' },
+  'nonprogress-unjudged': { dim: 'A7', kind: 'non-progress' },
+  'non-progress-parked': { dim: 'A7', kind: 'non-progress' },
+  'all-held-nonprogress': { dim: 'A7', kind: 'non-progress' },
+  'mint-failed': { dim: 'A15', kind: 'failure', why: '凭据铸造失败 ⇒ 派发必然没起来:过去零接住' },
+  'template-empty': { dim: 'A1', kind: 'failure' },
+}
+
+/** 已被"族认领"的前缀(A13 按 `artifact-` 前缀派生词汇表,A6/A2 同理),避免把同族新档误报成无人认领。 */
+export const ACTION_CLAIM_PREFIXES = [
+  ['artifact-', 'A13'],
+  ['valve-', 'A6'],
+  ['runner-preflight-', 'A1'],
+]
+
+export function judgeActionCoverage(events, { claims = ACTION_CLAIMS } = {}) {
+  const rows = Array.isArray(events) ? events : []
+  const observed = new Map()
+  for (const e of rows) {
+    const a = String(e?.action ?? '')
+    if (!a) continue
+    observed.set(a, (observed.get(a) ?? 0) + 1)
+  }
+  const base = { dim: 'A15-action-coverage', claimsCount: Object.keys(claims).length }
+  if (observed.size === 0)
+    return {
+      ...base,
+      state: 'unjudged',
+      readout: '近窗台账枚举到 0 枚动作 ⇒ 判不出覆盖面,不记绿(§0.3)',
+      next: '核台账路径与窗口取值',
+    }
+  const unclaimed = []
+  for (const [a, n] of observed) {
+    if (claims[a]) continue
+    if (ACTION_CLAIM_PREFIXES.some(([p]) => a.startsWith(p))) continue
+    unclaimed.push(`${a}×${n}`)
+  }
+  const informational = Object.entries(claims)
+    .filter(([, v]) => v.dim === 'A15')
+    .map(([a]) => `${a}×${observed.get(a) ?? 0}`)
+  if (unclaimed.length > 0)
+    return {
+      ...base,
+      state: 'drift',
+      readout: `${unclaimed.length} 枚台账动作没有任何维度认领:${unclaimed.join(' / ')} ⇒ 环记了账而尺子不判,这些轮次只能从散文读`,
+      next: `给每一枚在 scripts/check-autonomy-leg-health.mjs 的 ACTION_CLAIMS 里定归属(dim + kind);**不许**为消音把前缀族放宽到吞掉它,也不许删台账行`,
+    }
+  return {
+    ...base,
+    state: 'ok',
+    readout: `近窗动作 ${observed.size} 型全部有归属(认领表 ${base.claimsCount} 条)/ 其中由本维报数的 informational 档:${informational.join(' ')}`,
+    next: '',
+  }
+}
+
 export function evaluateAll({
   repoRoot = ROOT,
   gatesText,
@@ -804,6 +924,7 @@ export function evaluateAll({
   valve,
   closure,
   landing,
+  coverage,
   faceStall,
   liveness,
   parity,
@@ -836,6 +957,9 @@ export function evaluateAll({
   // A13 挨着 A7 放:A7 问"票动没动",A13 问"东西进没进仓"。两问必须并排看得见 ——
   // 分开摆正是这十天里"A7 绿而落地为零"没人撞上的原因。
   if (landing) dims.push(landing)
+  // A15 紧跟 A13:A13 问"产物进没进 HEAD",A15 问"台账里发生的每一型有没有人判" ——
+  // 两问同向(都是"环有没有说谎"),分开放正是过去 17 枚动作无人接住的原因。
+  if (coverage) dims.push(coverage)
   // A14 挨着 A13:A13 说"从未入库",A14 说"为什么这轮次根本没人跑过判据"。两问分开,谁都别替谁圆场。
   if (faceStall) dims.push(faceStall)
   if (liveness) dims.push(liveness)
@@ -2737,6 +2861,65 @@ async function selfTest() {
       )
     })(),
   )
+  // —— A15 台账动作覆盖面(2026-11-05 立):环记了账而尺子不判的那些轮次必须被点名 ——
+  const COV_EVENTS = [
+    { action: 'session-ok' },
+    { action: 'session-failed' },
+    { action: 'artifact-manifest-missing' },
+    { action: 'valve-observe-stop' },
+    { action: 'runner-unavailable' },
+    { action: 'no-whitelist-hit' },
+    { action: 'quarantined' },
+    { action: 'dispatched' },
+    { action: 'dispatch-settled' },
+    { action: 'no-ticket' },
+    { action: 'budget-exhausted' },
+    { action: 'probe-fail' },
+    { action: 'probe-ok' },
+    { action: 'dryrun-ticket' },
+    { action: 'task-registered' },
+    { action: 'decision-undetermined' },
+  ]
+  ok(
+    'H70a 今日真实动作集 ⇒ ok,且 informational 档(预算/探测/预演/自登记)逐型报数',
+    (() => {
+      const r = judgeActionCoverage(COV_EVENTS)
+      return (
+        r.state === 'ok' &&
+        r.readout.includes('budget-exhausted×1') &&
+        r.readout.includes('probe-fail×1') &&
+        r.readout.includes('dryrun-ticket×1') &&
+        r.readout.includes('task-registered×1')
+      )
+    })(),
+  )
+  ok(
+    'H70b 出现无人认领的新动作 ⇒ drift 并逐枚点名(本维的全部意义)',
+    (() => {
+      const r = judgeActionCoverage([
+        ...COV_EVENTS,
+        { action: 'brand-new-shape' },
+        { action: 'brand-new-shape' },
+      ])
+      return (
+        r.state === 'drift' &&
+        r.readout.includes('brand-new-shape×2') &&
+        r.next.includes('ACTION_CLAIMS')
+      )
+    })(),
+  )
+  ok(
+    'H70c 同族新档不误伤:`valve-` / `artifact-` 族由前缀认领,不该逼着每加一型就改表',
+    judgeActionCoverage([...COV_EVENTS, { action: 'valve-some-new-outcome' }]).state === 'ok',
+  )
+  ok(
+    'H70d 近窗枚举到 0 枚动作 ⇒ unjudged,不记绿(防"空集合恒真"那一型假绿)',
+    judgeActionCoverage([]).state === 'unjudged',
+  )
+  ok(
+    'H70e 变异反向锁:把认领表清空 ⇒ 同一批动作必须翻红(证明 ok 是表在起作用,不是判据恒真)',
+    judgeActionCoverage(COV_EVENTS, { claims: {} }).state === 'drift',
+  )
   // —— A14 执行体面停放维度(2026-11-05 立):停派不等于停完 —— 一直停必须一直响 ——
   const L14 = JSON.stringify({
     entries: [
@@ -2939,6 +3122,8 @@ async function main() {
   const landing = judgeArtifactLanding(events.ok ? events.events : [], {
     sessionResultActions: sessionResultActionsOf(valveSource),
   })
+  // A15 的输入用真实台账动作集(逐字精确),不用代码字面量抓取 —— 后者会被拼接发射咬成假集合。
+  const coverage = judgeActionCoverage(events.ok ? events.events : [])
   const faceStall = judgeExecutorFaceStallFace({ face: FACE_SEL.face, root: repoRoot })
   // output 必须留在末位:A11 的镜像接线锁是字面串锁(/claims, output })/),插队会把它判成"判据没装车"。
   const result = evaluateAll({
@@ -2950,6 +3135,7 @@ async function main() {
     valve,
     closure,
     landing,
+    coverage,
     faceStall,
     liveness,
     parity,
