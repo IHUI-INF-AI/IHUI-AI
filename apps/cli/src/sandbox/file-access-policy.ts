@@ -29,9 +29,12 @@
  *  ③ 真正管这一型的层已有:命中即止的裁决排在 `existsSync`/`git`/`rm` 之前
  *     (`tools/worktree.ts` 的 `WorktreeManager.remove` 与 `subagents/worktree.ts` 的
  *     `removeWorktree`),外加未合并/未提交/unknown 三档安全判据。
+ *  ④ 上面 ① 的"折出"型由 `judgeWorktreeContainment`(goal-b49 W5)按几何事实兜住:ACL 的
+ *     绝对 / 越界回落对 `.env` / `id_rsa` 这类根层单列族打不中 `../..`,容器性断言只看
+ *     "解析后仍在隔离区根之下",补上 ACL 的结构盲区(与 ACL 分职,不替代也不放宽)。
  */
 import { readFileSync } from 'node:fs';
-import { join, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { globMatches, normalizeWorkspacePath } from './glob-pattern.js';
 
 export type FileAccessOp = 'read' | 'write' | 'delete';
@@ -502,5 +505,64 @@ export function toAclPath(workspacePath: string, filePath: string): string {
   const rel = relative(resolve(workspacePath), resolve(filePath));
   if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') return normalizeWorkspacePath(filePath);
   return normalizeWorkspacePath(rel);
+}
+
+/**
+ * worktree 删除出口的**容器性断言**(goal-b49 W5,判据层单源 §0.6)。
+ *
+ * 与 ACL **分职**:ACL 判"这个路径准不准删"(凭据族 / 守护面族,靠 `toAclPath` 折成工作区相对
+ * 形态后走尾段 glob);本判据判"删除目标解析后有没有越出**自家隔离区根**"。二者互补,谁也不
+ * 替代谁、谁也不放宽谁。
+ *
+ * 为什么必须有它(立因):`toAclPath` 的绝对 / 越界形态走的是**绝对路径回落**(见上),
+ * 逃逸出工作区的目标只能靠**尾段 glob**(secrets 目录族、npmrc 族,形态见规则表而非本注)拦住,
+ * `.env` / `id_rsa` 这类**根层单列族**对 `../..` 折叠出来的形态天然打不中 —— ACL 在「越界」这一型上有结构盲区。
+ * 容器性断言不看内容族,只看"解析后仍在隔离区根之下"这一几何事实,正好补那一格。
+ *
+ * 失效方向(§0.10):命拒 = 越界 ⇒ 调用方须"出声 + 不删",绝不抛穿被上层 catch 洗成静默。
+ * 判定是纯函数,不碰 fs。
+ *
+ * 两臂取其一即判容器内(超越轴:既认"权威根下"(WorktreeManager 有确定的 `rootDir`),
+ * 又认"隔离区叶子直子"(subagents.removeWorktree 拿到的 `sourcePath` 可能被内部收尾腿传歪,
+ * 如 worker-pool 以 `parentId` 当 sourcePath ⇒ 严格比根会误杀合法回收)):
+ *  ① `strictlyUnder`:`resolve(target)` 落在 `resolve(worktreeRoot)` 之下(非 `..`、非绝对回落、非根本身);
+ *  ② `structuralChild`:`resolve(target)` 的父目录叶子名 == 隔离区根叶子名(如 `.worktrees`),
+ *     且目标自身是单段普通名(无分隔符、非 `.`/`..`)。`..` 向上折出隔离区时父目录叶子名即失配,
+ *     而内部收尾腿即便 sourcePath 传歪,真实目标 `<repo>/.worktrees/<id>` 的父叶子仍是 `.worktrees` ⇒ 不误杀。
+ */
+export type WorktreeContainmentVerdict =
+  | { readonly contained: true; readonly target: string }
+  | { readonly contained: false; readonly target: string; readonly reason: string; readonly nextStep: string };
+
+export function judgeWorktreeContainment(worktreeRoot: string, targetPath: string): WorktreeContainmentVerdict {
+  const target = resolve(targetPath);
+  const root = resolve(worktreeRoot);
+  const isWin = sep === '\\';
+  const leafEq = (a: string, b: string): boolean => (isWin ? a.toLowerCase() === b.toLowerCase() : a === b);
+
+  const rel = relative(root, target);
+  const strictlyUnder =
+    rel.length > 0 && rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+
+  const targetLeaf = basename(target);
+  const parentLeaf = basename(dirname(target));
+  const isolationLeaf = basename(root);
+  const structuralChild =
+    targetLeaf.length > 0 &&
+    targetLeaf !== '.' &&
+    targetLeaf !== '..' &&
+    !targetLeaf.includes('/') &&
+    !targetLeaf.includes('\\') &&
+    leafEq(parentLeaf, isolationLeaf);
+
+  if (strictlyUnder || structuralChild) return { contained: true, target };
+  return {
+    contained: false,
+    target,
+    reason: `解析后越出隔离区根:目标 ${target} 不在 ${root} 之下`,
+    nextStep:
+      '本出口只回收隔离区根之下的直接子目录;若确需删除该路径,请给一次定向说明(为什么删它、恢复源在哪),' +
+      '并确认它不属任何 worktree 隔离区。',
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
