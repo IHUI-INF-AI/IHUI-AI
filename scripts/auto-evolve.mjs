@@ -1061,7 +1061,12 @@ function pickTickets() {
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: ROOT,
     windowsHide: true,
-    timeout: 120_000,
+    // 超时按当次实测抬到 300s(2026-11-05 现读:`plan-tasks --open` 112s;+`--dispatchable` 97s;
+    // +`--exclude-inflight` 79s;机器忙时冲到 170s)。旧值 120s 在多席共树的忙时段**必然被击穿**,
+    // 表现就是 `pickTickets ETIMEDOUT` ⇒ 环整天拿不到票池(这是 `artifact-committed=0` 的第一因)。
+    // 这一档的失效方向仍是"取不到 ⇒ 未判定不派"(不会因抬额度而误派),所以抬是安全的;
+    // 治本在取票口自身提速(已登记台账单),不是把超时再叠一层。
+    timeout: 300_000,
     encoding: 'utf8',
   })
   if (r.error) throw new Error(`派单面取不到:${r.error.message}`)
