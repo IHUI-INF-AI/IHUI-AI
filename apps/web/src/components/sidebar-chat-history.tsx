@@ -146,6 +146,9 @@ export interface ConversationItem {
   model: string
   lastMessageAt: string
   messageCount: number
+  /** 会话创建/更新时间(后端列表接口已返回);lastMessageAt 缺失时作为分桶时间回退,见 resolveConversationTime */
+  createdAt?: string | null
+  updatedAt?: string | null
   archivedAt?: string | null
   /** 2026-08-30 立:会话置顶标记(后端已排序置顶优先;侧栏展示 + 菜单切换) */
   pinned?: boolean
@@ -170,26 +173,60 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
   return res.data
 }
 
-type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
+type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
 
+/**
+ * 分桶时间锚点(2026-11-05 修):优先 lastMessageAt;缺失或非法时依次回退
+ * updatedAt → createdAt(后端列表接口均已返回);三者都不可用才返回 null,
+ * 由调用方归入「更早」。旧实现用 t=0(1970)兜底,会让「没有最后消息时间」的
+ * 会话冒领「本月」—— 这一桶是给真实近期会话用的,不能拿默认值占位。
+ */
+function resolveConversationTime(item: ConversationItem): number | null {
+  for (const raw of [item.lastMessageAt, item.updatedAt, item.createdAt]) {
+    if (!raw) continue
+    const t = new Date(raw).getTime()
+    if (!Number.isNaN(t)) return t
+  }
+  return null
+}
+
+/**
+ * 侧栏会话日期分桶(2026-11-05 改批,与 sidebar-chat-date-group.test.ts 同源语义)。
+ * 全部按本地时区的自然日/自然周/自然月切界:
+ *  - today      : 今天 00:00 起
+ *  - thisWeek   : 本周一 00:00 起(周日为上一自然周的末尾,不是本周第一天)
+ *  - thisMonth  : 本月 1 号 00:00 起
+ *  - earlier    : 更早(含无可用时间戳的会话)
+ * 旧实现按「滚动 7 天」算本周、并把更早的一律塞进 thisMonth,导致用户在本月组里
+ * 看到上月会话。
+ */
 export function groupByDate(
   items: ConversationItem[],
 ): { key: GroupKey; items: ConversationItem[] }[] {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const DAY = 24 * 60 * 60 * 1000
-  const startOfWeek = startOfToday - 7 * DAY
+  // getDay():0=周日 ⇒ 距本周一的天数 = (getDay()+6)%7;setDate 负数会自动跨月/跨年
+  const daysSinceMonday = (now.getDay() + 6) % 7
+  const startOfWeek = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - daysSinceMonday,
+  ).getTime()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
 
   const buckets: Record<GroupKey, ConversationItem[]> = {
     today: [],
     thisWeek: [],
     thisMonth: [],
+    earlier: [],
   }
   for (const item of items) {
-    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : 0
-    if (t >= startOfToday) buckets.today.push(item)
+    const t = resolveConversationTime(item)
+    if (t === null) buckets.earlier.push(item)
+    else if (t >= startOfToday) buckets.today.push(item)
     else if (t >= startOfWeek) buckets.thisWeek.push(item)
-    else buckets.thisMonth.push(item)
+    else if (t >= startOfMonth) buckets.thisMonth.push(item)
+    else buckets.earlier.push(item)
   }
   return (Object.keys(buckets) as GroupKey[])
     .filter((k) => buckets[k].length > 0)
