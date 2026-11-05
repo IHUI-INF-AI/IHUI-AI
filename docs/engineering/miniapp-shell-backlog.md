@@ -122,6 +122,15 @@
 |---|---|---|---|---|---|---|
 | pkg-user/user/password | 131 | 已收敛·可摘除 | features/change-pwd/ChangePwdScreen.tsx | 真薄壳：页内仅 `ThemeRoot`+`ChangePwdScreen`；共享屏新增 `inputMaxLength`/`errorVisibility` 由本页与 RN 共同消费（门 299 S2 判可摘） | 摘行待退休通道 | `password.tsx:102`-`:104`;`ChangePwdScreen.tsx` 两个可选 prop |
 
+## 修订：pages/study/rank 判词更正（2026-11-06）
+
+`090b4fecc9`（`feat/share-creator-screen`）里「结构下限」的判词基于落后分支：该树不含 `ca63368c3b`，共享屏缺 `title/subtitle/emptyText/showRanges/showStudyHours/amountFormatter`。`main` 上这些 prop 已存在，可达 2 开标签且无需新增 prop，故**改判真做**，并在 `feat/study-rank-shell`（基于 `main`）落地。
+
+- 页 `apps/miniapp-taro/src/pages/study/rank.tsx`：153 行 / 29 开标签（E25+S4，T4）→ **94 行 / 2 开标签（E1+S1，F0，T0）**，实际结构 = `ThemeRoot` + `<RankingScreen/>`。
+- 传值：`top3=[list[1],list[0],list[2]]` 复刻 2-1-3；`amountFormatter` 用 `study.rankPage.minutes`；`showRanges=false`；`showStudyHours=false`；`title/subtitle/emptyText` 用原键（空态 `study.rankPage.empty`）。
+- RN 零可见变化：`apps/mobile-rn/src/screens/RankingScreen.tsx:124-125` 显式传 `showRanges={true}`/`showStudyHours={true}`，与共享屏默认值（`packages/app/src/features/ranking/RankingScreen.tsx:54-55`）逐值相同。
+- 台账行 103 不删不改（原表仍记 153/②），状态待退休通道统一刷新。
+
 ## 判定方法与已知偏差
 
 - 页内「自绘块」行号由 TS AST 取最外层 JSX 直接子元素起始行（`D:\DevEnv\Temp\ihui-jsx\blocks.mjs`），共享屏缺块由 props 契约（`packages/types/src/app-*.ts`）与 RN 消费壳交叉核对。
