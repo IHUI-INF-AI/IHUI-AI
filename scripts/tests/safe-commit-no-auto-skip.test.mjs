@@ -177,13 +177,17 @@ test('NS1 索引锁争用耗尽 ⇒ exit≠0、不落地、且绝不自动跳钩
   writeFileSync(join(dir, 'a.txt'), 'a\n')
   const lock = join(dir, '.git', 'index.lock')
   writeFileSync(lock, 'fixture lock (not held)\n')
+  // 预算按**满载机**定,不按空闲机:原 300ms/80ms 是空闲读数,三席并跑 + 多会话时
+  // node 冷启与前置 git 调用本身就能吃掉 300ms ⇒ 会走成"预算先到"的另一条分支,
+  // 断言的那句话就不出现了(2026-11-05 席报偶发红的真根因,不是行为变了)。
+  // 耗尽结局由"锁一直在"决定,与预算无关 ⇒ 抬预算只去掉计时耦合,不放松任何断言。
   const r = runSafe(dir, {
     files: ['a.txt'],
     message: 'docs: ns1',
     env: {
       IHUI_SAFE_COMMIT_LOCK_RETRIES: '1',
-      IHUI_SAFE_COMMIT_LOCK_BACKOFF_MS: '80',
-      IHUI_SAFE_COMMIT_LOCK_BUDGET_MS: '300',
+      IHUI_SAFE_COMMIT_LOCK_BACKOFF_MS: '400',
+      IHUI_SAFE_COMMIT_LOCK_BUDGET_MS: '30000',
     },
   })
   const out = outputOf(r)
@@ -193,6 +197,14 @@ test('NS1 索引锁争用耗尽 ⇒ exit≠0、不落地、且绝不自动跳钩
   assert.doesNotMatch(out, /已按\*\*人工显式授权\*\*用 --no-verify 落地/)
   assert.doesNotMatch(out, /人工授权跳钩/)
   assert.equal(countCommits(dir), 1, '锁冲突时不得产生任何提交')
+
+  // 正向对照(反向牙):把同一枚锁摘掉 ⇒ 同一个夹具必须**成功提交**。
+  // 没有这一条,"拒绝落地"可能只是因为夹具本身坏了 —— 那是假绿的一种。
+  unlinkSync(lock)
+  const clean = runSafe(dir, { files: ['a.txt'], message: 'docs: ns1-control' })
+  const cleanOut = outputOf(clean)
+  assert.equal(clean.status, 0, `摘锁后对照必须落地,否则夹具不可信:${cleanOut}`)
+  assert.equal(countCommits(dir), 2, '对照枚应产生第二枚提交')
 })
 
 test('NS2 锁在重试窗口内释放 ⇒ 指数退避重试成功并正常提交', async (t) => {
@@ -220,7 +232,9 @@ test('NS2 锁在重试窗口内释放 ⇒ 指数退避重试成功并正常提�
           AGENT_SCOPE_OVERRIDE: '',
           IHUI_SAFE_COMMIT_LOCK_RETRIES: '3',
           IHUI_SAFE_COMMIT_LOCK_BACKOFF_MS: '400',
-          IHUI_SAFE_COMMIT_LOCK_BUDGET_MS: '10000',
+          // 同 NS1:预算要盖得住满载下的冷启与前置 git 调用,否则"锁还没等到就预算耗尽"
+          // 会被读成行为失败。放锁由**看到重试告警那一刻**触发(事件驱动),与预算无关。
+          IHUI_SAFE_COMMIT_LOCK_BUDGET_MS: '60000',
         },
       },
     )
@@ -240,6 +254,13 @@ test('NS2 锁在重试窗口内释放 ⇒ 指数退避重试成功并正常提�
     child.on('error', reject)
     child.on('close', (status) => resolve({ status, out }))
   })
+  // 反向牙:先确认**重试路径真的走到了**。没走到就是夹具/负载问题(未判定),
+  // 不许让"根本没撞锁"被读成"重试成功"的假绿,也不许把它当成被测行为的失败。
+  assert.match(
+    plain(r.out),
+    /撞 git 索引锁/,
+    `未判定:重试告警一次都没出现 ⇒ 锁没被撞到,本用例没量到任何东西。输出:${plain(r.out)}`,
+  )
   assert.equal(r.status, 0, plain(r.out))
   assert.match(plain(r.out), /次重试/, plain(r.out))
   assert.equal(git(dir, 'log', '-1', '--format=%s'), 'docs: ns2')
