@@ -13,6 +13,14 @@ export function PlazaScreen(props: Record<string, unknown>) {
   return createElement('div', { 'data-testid': 'shared-plaza-screen', ...props }, null)
 }
 
+// 2026-11-06 补:主干新增安全设置共享屏,替身缺这个出口会让 F1 忠实度判据(以及任何
+// 走别名的套件)在取用时抛 "No SecuritySettingsScreen export is defined on the mock"。
+export const securitySettingsPropsCaptured: Array<Record<string, unknown>> = []
+export function SecuritySettingsScreen(props: Record<string, unknown>) {
+  securitySettingsPropsCaptured.push(props)
+  return createElement('div', { 'data-testid': 'shared-security-settings-screen', ...props }, null)
+}
+
 export const agentScreenPropsCaptured: Array<Record<string, unknown>> = []
 export function AgentScreen(props: Record<string, unknown>) {
   agentScreenPropsCaptured.push(props)
