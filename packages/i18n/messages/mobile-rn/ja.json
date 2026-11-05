@@ -4906,6 +4906,7 @@
     "historyFailed": "インポート履歴の読み込みに失敗しました: {error}",
     "historyParsed": "解析",
     "historyImported": "インポート",
+    "failedCountLabel": "失敗",
     "statusSuccess": "成功",
     "statusPartial": "一部成功",
     "statusFailed": "失敗",
