@@ -28,8 +28,11 @@ import { expect, test } from './fixtures'
  *
  * 实机取数前的三条前提订正(都读的是生产码,不是假设):
  * 1. `PaneSplitContainer` 只在 `collectPaneLeaves(tree).length > 1` 时才挂载
- *    (`ai-side-panel.tsx:1295,1775-1800`)⇒ 单格态下**没有** `[data-pane-leaf]` 可点,
- *    拆分入口是面板头部的 IconButton(aria-label 取 `ai.pane.multiPane.splitRight`)。
+ *    (`ai-side-panel.tsx:1295,1775-1800`)⇒ 单格态下**没有** `[data-pane-leaf]` 可点。
+ *    拆分入口在 2026-11-04 信息架构重构后从"面板头部 IconButton"收进「⋯」溢出菜单
+ *    (`ai-side-panel.tsx` 的 `data-testid="ai-panel-overflow-trigger"`),菜单项是 Radix
+ *    `DropdownMenu.Item`(role="menuitem",aria-label 仍取 `ai.pane.multiPane.splitRight`)
+ *    ⇒ 取法见 splitRight helper(重构前是 `getByRole('button')`)。
  * 2. 空窗格只渲染占位(`pane-split-container.tsx:366-371`),不渲染消息列表 ⇒
  *    "两个 inline-panel"必须先往第二格落一个会话才存在。
  * 3. 落点 `[data-pane-empty]` 是**内层**div 的钩子,React 的 `onDrop` 挂在这一层
@@ -299,6 +302,20 @@ async function dropConversationIntoPane(
   expect(dropped, 'pane-1 必须暴露 [data-pane-empty] 落点').toBe('dispatched')
 }
 
+/**
+ * 到达「向右拆分」入口(2026-11-04 信息架构重构后的取法):
+ * 入口已从面板头部可见 IconButton 收进「⋯」溢出菜单,菜单项是 Radix `DropdownMenu.Item`
+ * ⇒ 渲染成 `role="menuitem"`(不再是 button)。先点触发器 `ai-panel-overflow-trigger`
+ * 打开菜单,再点同名菜单项;「入口存在」的判据由 toBeVisible 承担
+ * (等价替换原来的 `toHaveCount(1, { timeout: 30_000 })`,超时数值同值)。
+ */
+async function splitRight(page: Page): Promise<void> {
+  await page.locator('[data-testid="ai-panel-overflow-trigger"]').click()
+  const item = page.getByRole('menuitem', { name: SPLIT_ENTRY_RE })
+  await expect(item).toBeVisible({ timeout: 30_000 })
+  await item.click()
+}
+
 async function openFromSidebar(page: Page, title: string): Promise<void> {
   await page.getByRole('button', { name: title }).first().click()
 }
@@ -421,10 +438,10 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await expect(firstList).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
 
     // 单格态下 PaneSplitContainer 未挂载 ⇒ 全页只该有一个拆分入口(它一出现两枚,
-    // 说明容器已经挂上,点它就是在窗格里再拆,不是本用例要证的第一步)
-    const entry = page.getByRole('button', { name: SPLIT_ENTRY_RE })
-    await expect(entry).toHaveCount(1, { timeout: 30_000 })
-    await entry.first().click()
+    // 说明容器已经挂上,点它就是在窗格里再拆,不是本用例要证的第一步)。
+    // 2026-11-04 信息架构重构:入口从头部 IconButton 收进「⋯」溢出菜单 ⇒ button 变 menuitem,
+    // 原 toHaveCount(1) 的"入口存在"语义由 helper 内的 toBeVisible 承担(判据不缩水)。
+    await splitRight(page)
 
     const root = page.locator('[data-pane-split-root]')
     await expect(root).toBeVisible({ timeout: 30_000 })
@@ -486,7 +503,8 @@ test.describe('G-934 + 票60 会话级滚动恢复 / 真并行多窗格', () => 
     await openFromSidebar(page, TITLE_A)
     await expect(rootList(page)).toHaveAttribute('data-window-total', '60', { timeout: 30_000 })
 
-    await page.getByRole('button', { name: SPLIT_ENTRY_RE }).first().click()
+    // 2026-11-04 信息架构重构:拆分入口在「⋯」溢出菜单内(menuitem),取法由 helper 统一
+    await splitRight(page)
     await expect(page.locator('[data-pane-split-root]')).toHaveAttribute(
       'data-pane-leaf-count',
       '2',

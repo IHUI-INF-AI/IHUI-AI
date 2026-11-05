@@ -26,11 +26,14 @@ import {
   Columns2,
   Loader2,
   GitPullRequest,
+  MoreHorizontal,
+  Check,
+  X,
 } from 'lucide-react'
-import { IconButton, CloseButton } from '@ihui/ui-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { IconButton } from '@ihui/ui-react'
 import { rnRadius } from '@ihui/design-tokens'
 import { toast, AuthGatePrompt } from '@/components/common'
-
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
 import { useConversationPaneCache } from '@/hooks/use-conversation-pane-cache'
@@ -204,6 +207,10 @@ function BrandIconDeferred({ size = 16, className, vendor, fallbackIcon }: Brand
     </React.Suspense>
   )
 }
+
+/** 头部「⋯」溢出菜单项的统一视觉规格(Radix Item 的高亮态与项目 DropdownMenu 惯例一致) */
+const HEADER_MENU_ITEM_CLASS =
+  'flex cursor-default select-none items-center gap-2 rounded-sm px-2.5 py-1.5 text-label outline-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
  * - 默认 display:none,由 useAiPanelStore.open 控制
@@ -1826,161 +1833,172 @@ export function AISidePanel() {
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
-              {/* D182(D182 票,对标竞品 chatSession.headerActions.panelGroupButtons"面板组按钮"):
-              头部操作按钮簇包 role=group + 组名,读屏用户可感知这一组按钮的语义边界 */}
+              {/* 2026-11-04 信息架构重构(对标 ChatGPT/Claude/Cursor 的 composer/panel 结构):
+                  头部只保留「标题 + ⋯」。此前 10 枚 32px 功能按钮(停靠/浮窗/最小化/
+                  环境信息/终端/工作展示区/工作面全屏/向右拆分/Draft PR/任务回顾/关闭)
+                  全部收进单一溢出菜单 —— 窄屏不再需要按宽度逐枚隐藏,标题也不再被按钮挤没。
+                  菜单项沿用原 data-testid,既有测试与自动化脚本可继续定位同一入口。
+                  D182 的 role=group + 组名保留在外层容器上,读屏用户仍可感知这是一个动作组。 */}
               <div
                 role="group"
                 aria-label={tc('headerActions.panelGroupButtons')}
-                className="flex items-center gap-2 max-[639px]:gap-1"
+                className="flex shrink-0 items-center"
                 data-testid="ai-panel-header-actions-group"
               >
-                {/* 浮窗模式切换按钮(2026-07-30):
-                - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
-                - float 模式:显示 PanelRightRounded(停靠) + Minus(最小化)两个按钮 */}
-                {floatMode ? (
-                  <>
-                    <Tooltip content={tc('dockPanel')}>
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip content={tc('headerActions.overflowMenu')}>
+                    <DropdownMenu.Trigger asChild>
                       <IconButton
-                        onClick={() => {
-                          setFloatMode(false)
-                          setFloatMinimized(false)
+                        aria-label={tc('headerActions.overflowMenu')}
+                        data-testid="ai-panel-overflow-trigger"
+                      >
+                        <MoreHorizontal />
+                      </IconButton>
+                    </DropdownMenu.Trigger>
+                  </Tooltip>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="end"
+                      sideOffset={6}
+                      collisionPadding={8}
+                      className="pointer-events-auto z-[2200] min-w-[13rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+                      data-testid="ai-panel-overflow-menu"
+                    >
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupPanel')}
+                      </DropdownMenu.Label>
+                      {/* 浮窗模式切换(原头部第一枚):docked → 浮窗折叠态;float → 停靠 */}
+                      <DropdownMenu.Item
+                        data-testid="ai-panel-float-toggle"
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => {
+                          if (floatMode) {
+                            setFloatMode(false)
+                            setFloatMinimized(false)
+                          } else {
+                            setFloatMode(true)
+                            setFloatMinimized(false)
+                            setFloatCollapsed(true)
+                            openPanel()
+                          }
                         }}
-                        aria-label={tc('dockPanel')}
                       >
-                        <PanelRightRounded left />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip content={tc('minimize')}>
-                      <IconButton
-                        onClick={() => setFloatMinimized(true)}
-                        aria-label={tc('minimize')}
+                        {floatMode ? <PanelRightRounded left /> : <PictureInPicture2 />}
+                        <span className="truncate">
+                          {floatMode ? tc('dockPanel') : tc('floatMode')}
+                        </span>
+                      </DropdownMenu.Item>
+                      {floatMode && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => setFloatMinimized(true)}
+                        >
+                          <Minus />
+                          <span className="truncate">{tc('minimize')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      {/* 工作展示区开关:手机全屏浮窗没有工作区可折叠,这一项在 <640 不渲染
+                          (原先靠 max-[639px]:hidden 隐藏整枚按钮,现收敛为条件渲染) */}
+                      {!isMobileSmall && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => toggleWorkPanel()}
+                        >
+                          <PanelRightRounded left={workAreaCollapsed} />
+                          <span className="min-w-0 flex-1 truncate">
+                            {workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
+                          </span>
+                          {!workAreaCollapsed && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </DropdownMenu.Item>
+                      )}
+                      {/* D182 工作面全屏(仅 docked;浮窗本身是独立小窗,再全屏无意义) */}
+                      {!floatMode && !workspaceUnavailable && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-workspace-fullscreen"
+                          className={HEADER_MENU_ITEM_CLASS}
+                          onSelect={() => setWorkAreaFullscreen(!workAreaFullscreen)}
+                        >
+                          {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
+                          <span className="min-w-0 flex-1 truncate">
+                            {workAreaFullscreen
+                              ? tc('headerActions.exitWorkspaceFullscreen')
+                              : tc('headerActions.enterWorkspaceFullscreen')}
+                          </span>
+                          {workAreaFullscreen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                        </DropdownMenu.Item>
+                      )}
+                      {/* 向右拆分(手机 <640 不渲染:无处可分) */}
+                      {!d73Expanded && !isMobileSmall && (
+                        <DropdownMenu.Item
+                          className={HEADER_MENU_ITEM_CLASS}
+                          aria-label={tp('splitRight')}
+                          onSelect={() => d73HandleSplit()}
+                        >
+                          <Columns2 />
+                          <span className="truncate">{tp('splitRight')}</span>
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupTools')}
+                      </DropdownMenu.Label>
+                      {/* 环境信息 / 终端(原 2026-08-17 三按钮组):勾选态与原高亮态等价 */}
+                      <DropdownMenu.Item
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => toggleEnvInfo()}
                       >
-                        <Minus />
-                      </IconButton>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <Tooltip content={tc('floatMode')}>
-                    <IconButton
-                      onClick={() => {
-                        setFloatMode(true)
-                        setFloatMinimized(false)
-                        setFloatCollapsed(true)
-                        openPanel()
-                      }}
-                      aria-label={tc('floatMode')}
-                    >
-                      <PictureInPicture2 />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {/* D176 任务回顾/「移交到新任务」入口(对标竞品 chatSession.highlights.recap.*):
-                  会话级回顾动作,挂头部按钮组;对话框内生成交接内容并创建新任务(组件自带 Dialog) */}
-                <TaskRecapEntry />
-                {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
-                ① 环境信息(齿轮+横线 → env info popover)
-                ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
-                ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
-                <Tooltip content={tc('envInfoButton')}>
-                  <IconButton
-                    onClick={toggleEnvInfo}
-                    aria-label={tc('envInfoButton')}
-                    className={cn(
-                      /* ≤319px(如 280 折叠屏/极窄窗):再收起「环境信息」「终端」两枚
-                         桌面工具,否则 6 枚 32px 按钮仍把「关闭」挤出视口(280 实测
-                         right=298, 出界 18px、hitPct=40)。320 及以上保持可见。 */
-                      'max-[319px]:hidden',
-                      envInfoOpen && 'bg-accent text-accent-foreground',
-                    )}
-                  >
-                    <EnvInfoRounded checked={envInfoOpen} />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={tc('openTerminal')}>
-                  <IconButton
-                    onClick={toggleTerminalDock}
-                    aria-label={tc('openTerminal')}
-                    className={cn(
-                      'max-[319px]:hidden',
-                      terminalDockOpen && 'bg-accent text-accent-foreground',
-                    )}
-                  >
-                    <SquareTerminal />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
-                  <IconButton
-                    onClick={toggleWorkPanel}
-                    aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
-                    className={cn(
-                      /* 手机全屏浮窗(<640)不渲染工作展示区,"工作展示区"开关在手机上
-                         点了也看不见任何变化;更关键的是 header 8 枚 32px 按钮在 320-390
-                         视口里会把最右的「关闭」挤出视口(320 实测关闭按钮整体在屏外,
-                         点击区 hitPct=0)。桌面/平板档保持原样。 */
-                      'max-[639px]:hidden',
-                      workAreaCollapsed && 'bg-accent text-accent-foreground',
-                    )}
-                  >
-                    <PanelRightRounded left={workAreaCollapsed} />
-                  </IconButton>
-                </Tooltip>
-                {/* D183 一键创建 Draft PR 写动作(仅 docked 显图标钮;与头部其余动作同簇):
-                  与环境信息 popover 的只读 PR 状态互补;创建中转 Loader2。
-                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位;
-                  创建中例外保留(转圈反馈不凭空消失,结果由 toast 兜底) */}
-                {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
-                  <Tooltip content={tc('headerActions.createDraftPullRequest')}>
-                    <IconButton
-                      onClick={() => void handleCreateDraftPR()}
-                      disabled={creatingDraftPR}
-                      aria-label={tc('headerActions.createDraftPullRequest')}
-                      aria-disabled={creatingDraftPR || undefined}
-                      data-testid="ai-panel-create-draft-pr"
-                    >
-                      {creatingDraftPR ? <Loader2 className="animate-spin" /> : <GitPullRequest />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {/* D182 工作面全屏切换(仅 docked;浮窗本身已是独立小窗,再全屏工作面无意义):
-                  无活动会话(任务未开始)时整钮不渲染 —— 能用才显示,不留置灰占位 */}
-                {!floatMode && !workspaceUnavailable && (
-                  <Tooltip
-                    content={
-                      workAreaFullscreen
-                        ? tc('headerActions.exitWorkspaceFullscreen')
-                        : tc('headerActions.enterWorkspaceFullscreen')
-                    }
-                  >
-                    <IconButton
-                      onClick={() => setWorkAreaFullscreen(!workAreaFullscreen)}
-                      aria-label={
-                        workAreaFullscreen
-                          ? tc('headerActions.exitWorkspaceFullscreen')
-                          : tc('headerActions.enterWorkspaceFullscreen')
-                      }
-                      data-testid="ai-panel-workspace-fullscreen"
-                      className={cn(workAreaFullscreen && 'bg-accent text-accent-foreground')}
-                    >
-                      {workAreaFullscreen ? <Minimize2 /> : <Maximize2 />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {!d73Expanded && (
-                  <Tooltip content={tp('splitRight')}>
-                    <IconButton
-                      onClick={d73HandleSplit}
-                      aria-label={tp('splitRight')}
-                      /* 手机全屏浮窗(<640):320 宽放不下分屏,按钮会把右侧「关闭」挤出
-                         视口;桌面/平板档保留。 */
-                      className="max-[639px]:hidden"
-                    >
-                      <Columns2 />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip content={tcommon('close')}>
-                  <CloseButton aria-label={tcommon('close')} onClick={closePanel} />
-                </Tooltip>
+                        <EnvInfoRounded checked={envInfoOpen} />
+                        <span className="min-w-0 flex-1 truncate">{tc('envInfoButton')}</span>
+                        {envInfoOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={() => toggleTerminalDock()}
+                      >
+                        <SquareTerminal />
+                        <span className="min-w-0 flex-1 truncate">{tc('openTerminal')}</span>
+                        {terminalDockOpen && <Check className="h-3.5 w-3.5 shrink-0" />}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Label className="px-2.5 pb-0.5 pt-1 text-[11px] font-medium text-muted-foreground">
+                        {tc('headerActions.groupSession')}
+                      </DropdownMenu.Label>
+                      {/* D176 任务回顾(菜单项形态,组件内部自带 Dialog;不再占头部槽位) */}
+                      <TaskRecapEntry variant="menu-item" />
+                      {/* D183 一键创建 Draft PR:仅 docked、且有可用工作区时出现 */}
+                      {!floatMode && (!workspaceUnavailable || creatingDraftPR) && (
+                        <DropdownMenu.Item
+                          data-testid="ai-panel-create-draft-pr"
+                          className={HEADER_MENU_ITEM_CLASS}
+                          disabled={creatingDraftPR}
+                          onSelect={(e) => {
+                            // 保持菜单关闭后再跑异步动作,避免 loading 态留在已卸载的菜单里
+                            e.preventDefault()
+                            void handleCreateDraftPR()
+                          }}
+                        >
+                          {creatingDraftPR ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            <GitPullRequest />
+                          )}
+                          <span className="truncate">
+                            {tc('headerActions.createDraftPullRequest')}
+                          </span>
+                        </DropdownMenu.Item>
+                      )}
+                      <DropdownMenu.Separator className="my-1 h-px bg-border" />
+                      <DropdownMenu.Item
+                        data-testid="ai-panel-close"
+                        className={HEADER_MENU_ITEM_CLASS}
+                        onSelect={closePanel}
+                      >
+                        <X />
+                        <span className="truncate">{tcommon('close')}</span>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
               </div>
             </header>
 

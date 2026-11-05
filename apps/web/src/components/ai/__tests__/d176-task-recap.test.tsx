@@ -17,17 +17,13 @@ import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/re
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
 
-const {
-  generateRecapHandoff,
-  createConversation,
-  setConversationId,
-  chatStoreSetState,
-} = vi.hoisted(() => ({
-  generateRecapHandoff: vi.fn(),
-  createConversation: vi.fn(),
-  setConversationId: vi.fn(),
-  chatStoreSetState: vi.fn(),
-}))
+const { generateRecapHandoff, createConversation, setConversationId, chatStoreSetState } =
+  vi.hoisted(() => ({
+    generateRecapHandoff: vi.fn(),
+    createConversation: vi.fn(),
+    setConversationId: vi.fn(),
+    chatStoreSetState: vi.fn(),
+  }))
 vi.mock('@ihui/api-client', () => ({ generateRecapHandoff, createConversation }))
 vi.mock('@/stores/chat', () => ({
   // zustand store 既是 hook 又带静态 setState(草稿待发通道经 useChatStore.setState 写入,
@@ -130,12 +126,11 @@ describe('D176 交接生成流(出口翻真后)', () => {
 
   it('装车层:入口确实挂在 AI 面板头部按钮组(dynamic import,不进主 chunk)', () => {
     // 与 D175 装车断言同一模式:读宿主源码验挂载,不重复渲染整个面板
-    const host = readFileSync(
-      join(__dirname, '..', 'ai-side-panel.tsx'),
-      'utf8',
+    const host = readFileSync(join(__dirname, '..', 'ai-side-panel.tsx'), 'utf8')
+    expect(host).toContain(
+      "import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry)",
     )
-    expect(host).toContain("import('@/components/ai/d176-task-recap').then((m) => m.TaskRecapEntry)")
-    expect(host).toContain('<TaskRecapEntry />')
+    expect(host).toContain('<TaskRecapEntry variant="menu-item" />')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
