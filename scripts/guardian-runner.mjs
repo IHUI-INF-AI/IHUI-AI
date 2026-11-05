@@ -6220,14 +6220,20 @@ const checks = [
     stagedTriggers: [
       'packages/app/src/features/',
       'apps/mobile-rn/src/screens/',
+      // 2026-11-05 扩面:同一提取器/分类器覆盖 web 与小程序,新假重载按棘轮判红
+      'apps/web/',
+      'apps/miniapp-taro/src/',
       'scripts/check-retry-aliases.mjs',
+      'scripts/lib/retry-reload.mjs',
+      'scripts/data/retry-reload-baseline.jsonl',
       'scripts/check-cross-end-screen-coverage.mjs',
       'scripts/check-rn-host-shell-coverage.mjs',
     ],
     onFailHint: [
       '',
       '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
-      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
+      '     会把失败路径静默吞掉。共享屏 / RN 壳 / web / 小程序要同笔接上同一回调。',
+      '     假重载(退出·翻页·清空)存量在 scripts/data/retry-reload-baseline.jsonl;新增即红。',
       '     复验:node scripts/check-retry-aliases.mjs --staged',
       '',
     ].join('\n'),
