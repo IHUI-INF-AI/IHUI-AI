@@ -24,16 +24,56 @@ const INVISIBLE_FOR_TRANSPORT = /[\u200B-\u200F\u2060-\u2064\uFEFF\u00AD]/g
 /** 非 tool 档用这一把:同样的族,但**留 U+200D(ZWJ)** —— 它是 emoji 家族/国旗序列的合法成分。 */
 const INVISIBLE_KEEPING_ZWJ = /[\u200B-\u200C\u200E-\u200F\u2060-\u2064\uFEFF\u00AD]/g
 
+const ZWJ = '‍'
+/** emoji 家族/国旗序列的连接符两侧长什么样:两侧都是图画字符 ⇒ 这个 ZWJ 是有语义的,不能动。 */
+const PICTOGRAPHIC = /\p{Extended_Pictographic}/u
+
+/** 孤零 ZWJ(两侧不是图画字符)的枚数 —— 本仓水印字母表里的 `‍` 正是这一型。 */
+export function countOrphanZwj(text: string): number {
+  const cps = Array.from(String(text ?? ''))
+  let n = 0
+  for (let i = 0; i < cps.length; i++) {
+    if (cps[i] !== ZWJ) continue
+    const prev = cps[i - 1] || ''
+    const next = cps[i + 1] || ''
+    if (!(PICTOGRAPHIC.test(prev) && PICTOGRAPHIC.test(next))) n += 1
+  }
+  return n
+}
+
+export function stripOrphanZwj(text: string): string {
+  if (typeof text !== 'string' || !text.includes(ZWJ)) return text
+  const cps = Array.from(text)
+  const kept: string[] = []
+  for (let i = 0; i < cps.length; i++) {
+    const cur = cps[i] ?? ''
+    if (cur === ZWJ) {
+      const prev = cps[i - 1] || ''
+      const next = cps[i + 1] || ''
+      if (!(PICTOGRAPHIC.test(prev) && PICTOGRAPHIC.test(next))) continue
+    }
+    kept.push(cur)
+  }
+  return kept.join('')
+}
+
 export function countInvisibleForTransport(text: string, keepZwj = false): number {
-  return (String(text ?? '').match(keepZwj ? INVISIBLE_KEEPING_ZWJ : INVISIBLE_FOR_TRANSPORT) ?? [])
-    .length
+  const fam = (
+    String(text ?? '').match(keepZwj ? INVISIBLE_KEEPING_ZWJ : INVISIBLE_FOR_TRANSPORT) ?? []
+  ).length
+  return fam + (keepZwj ? countOrphanZwj(text) : 0)
 }
 
 export function stripInvisibleForTransport(text: string, keepZwj = false): string {
   if (typeof text !== 'string' || !text) return text
   // 先数后剥:没命中就原样返回同一引用,避免给每条消息都造一份新字符串
   const re = keepZwj ? INVISIBLE_KEEPING_ZWJ : INVISIBLE_FOR_TRANSPORT
-  return countInvisibleForTransport(text, keepZwj) > 0 ? text.replace(re, '') : text
+  let out = countInvisibleForTransport(text, keepZwj) > 0 ? text.replace(re, '') : text
+  // keepZwj 档不是"整枚 ZWJ 免死",而是"只保 emoji 家族里那一枚":
+  // 实测水印字母表含 U+200D,而工具输出有一部分按 role:'user' 入历史 ⇒
+  // 免死金牌给宽了,转录里 88 枚 ZWJ 就会随请求出去,上游照样回 400。
+  if (keepZwj) out = stripOrphanZwj(out)
+  return out
 }
 
 type TransportShapedMessage = { role: string; content: string | null | undefined }
@@ -69,6 +109,15 @@ export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   // 只有 `sent=0 而 400 仍在` 这一种读数才能把"是不是 messages 这一段带毒"定死。
   if (process.env.IHUI_TRANSPORT_AUDIT) {
     const sum = (arr: readonly T[]): number => arr.reduce((a, m) => a + hit(m), 0)
+    // ZWJ 单独一格报数:上一版只报 `sent=0` 就以为"发出去的不含零宽",
+    // 而 keepZwj 档下 ZWJ 不计进 `sent` ⇒ 88 枚 ZWJ 堂而皇之出去,仪器全程报绿。
+    const zwj = (arr: readonly T[]): number =>
+      arr.reduce(
+        (a, m) =>
+          a +
+          (m.role === 'tool' ? 0 : typeof m.content === 'string' ? countOrphanZwj(m.content) : 0),
+        0,
+      )
     // `extra=` 量的是随请求一起走的其他体(extraBody / tools schema 等):
     // 只有当 `sent=0` 而 400 仍在时,这一格才能把"带毒段在 messages 之外"钉死。
     const extra =
@@ -76,7 +125,7 @@ export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
         ? 0
         : countInvisibleForTransport(JSON.stringify(extras), true)
     process.stderr.write(
-      `[transport-audit] exit=${label} msgs=${messages.length} raw=${sum(messages)} sent=${sum(out)} extra=${extra}\n`,
+      `[transport-audit] exit=${label} msgs=${messages.length} raw=${sum(messages)} sent=${sum(out)} zwj=${zwj(out)} extra=${extra}\n`,
     )
   }
   return out
