@@ -6,10 +6,10 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  type ListRenderItem,
   type ViewStyle,
 } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
@@ -32,6 +32,8 @@ export function CategoryDetailScreen({
   t,
   items,
   activeTab,
+  title,
+  tabLabels,
   loading,
   hasMore,
   error,
@@ -40,17 +42,24 @@ export function CategoryDetailScreen({
   onAgentPress,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CategoryDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const renderItem: ListRenderItem<(typeof items)[number]> = ({ item }) => (
+  const renderItem = ({ item }: { item: (typeof items)[number] }) => (
     <PressableCard
       style={styles.itemCard}
       onPress={() => onAgentPress(item.id)}
       colorScheme={colorScheme}
     >
+      {item.avatar ? (
+        <Image source={{ uri: item.avatar }} style={styles.itemAvatar} />
+      ) : (
+        <View style={styles.itemAvatarFallback}>
+          <Text style={styles.itemAvatarText}>{item.name.charAt(0)}</Text>
+        </View>
+      )}
       <View style={styles.itemBody}>
         <Text style={styles.itemName} numberOfLines={1}>
           {item.name}
@@ -61,6 +70,9 @@ export function CategoryDetailScreen({
           </Text>
         ) : null}
       </View>
+      {item.useCount !== undefined ? (
+        <Text style={styles.itemUseCount}>{item.useCount}</Text>
+      ) : null}
       <ChevronRight size={20} color={tk.text.tertiary} />
     </PressableCard>
   )
@@ -69,16 +81,18 @@ export function CategoryDetailScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>分类详情</Text>
+        <Text style={styles.title}>{title ?? '分类详情'}</Text>
       </View>
       <View style={styles.tabsRow}>
-        {TABS.map((tab) => (
+        {TABS.map((tab, index) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => onTabChange(tab)}
           >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tabLabels?.[index] ?? tab}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -159,6 +173,22 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
+    itemAvatar: {
+      width: 40,
+      height: 40,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.card,
+    },
+    itemAvatarFallback: {
+      width: 40,
+      height: 40,
+      borderRadius: rnRadius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.card,
+    },
+    itemAvatarText: { fontSize: rnType.title.size, fontWeight: '500', color: tk.text.tertiary },
+    itemUseCount: { fontSize: rnType.body.size, color: tk.text.secondary },
     itemBody: { flex: 1, minWidth: 0 },
     itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     itemDesc: { fontSize: rnType.body.size, color: tk.text.secondary, marginTop: rnSpacing.sm },
