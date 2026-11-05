@@ -22,8 +22,9 @@
  *      node scripts/check-format-changed.mjs --write-added-mjs [--base <ref>]
  *
  * 【.mjs/.cjs 明确不纳入 prettier(2026-11-05 量化后定案,不凭感觉)】
- *   实测(受管面 = git 已跟踪 ∩ .prettierignore 未排除,共 2384 个 .mjs/.cjs):
- *   1845 个不符合 `.prettierrc`;若全量 --write = +229285 / -73894 行(303179 行、14445 hunk)。
+ *   实测(受管面 = git 已跟踪 ∩ .prettierignore 未排除,共 2385 个 .mjs/.cjs;另有 32 个被 ignore):
+ *   1845 个不符合 `.prettierrc`;若全量 --write = +229285 / -73894 行(303179 行;
+ *   14445 hunk 为含 30 个 ignore 文件的全部受跟踪面)。
  *   纳入 globs 的后果:任何一次触碰到老 .mjs 的提交都会被整文件重排
  *   (单文件 scripts/git-guardian.mjs 即 306+/108-、59 hunk),在并行 WIP 仓里制造冲突。
  *   ⇒ 不改 package.json / lint-staged 的 prettier globs,也不跑全量 --write(§5c)。
