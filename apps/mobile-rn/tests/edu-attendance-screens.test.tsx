@@ -169,6 +169,9 @@ vi.mock('@ihui/rn-app', () => ({
   getTokens: () => ({
     surface: { bg: '#ffffff', card: '#fafafa' },
     brand: { cta: '#000000', ctaForeground: '#ffffff' },
+    // 出码屏选中态胶囊的描边走 brandAccent.deep(2026-09-26 规矩:本项目没有纯黑描边),
+    // token mock 必须带上,否则 createQrStyles 在 mount 期就 TypeError。
+    brandAccent: { deep: '#4a7a96' },
     text: { primary: '#111111', secondary: '#666666' },
     border: { light: '#eeeeee' },
     error: { text: '#cc0000' },

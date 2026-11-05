@@ -99,6 +99,12 @@ from .session_security import (
 from .tool_surface import capability_denial as _tool_capability_denial
 from .tool_surface import filter_visible_tools as _filter_visible_tools
 
+# 工具面惰性装载(缺口表 ⑤,2026-11-05):按具名预算表决定"本轮哪些 schema 进列表"。
+# 判据与能力门/模式收窄全部 import 复用(单源见 tool_surface_budget 头注),本模块只负责
+# 在列表面这一处把它接上;**执行面一律不受影响**(_TOOLS/_TOOL_HANDLERS 一条不动)。
+from .tool_surface_budget import RoundContext as _SurfaceRoundContext
+from .tool_surface_budget import apply_tool_surface_budget as _apply_tool_surface_budget
+
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
 
@@ -13893,11 +13899,19 @@ def _render_prompt(name: str, arguments: dict[str, Any]) -> str:
 class MCPServer:
     """MCP 服务端,统一管理工具/资源/提示词的查询与调用。"""
 
-    def list_tools(self) -> list[MCPTool]:
-        """列出全部工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
+    def list_tools(
+        self, *, surface_context: _SurfaceRoundContext | None = None
+    ) -> list[MCPTool]:
+        """列出本轮可见工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
 
         off 时直接返回 list(_TOOLS)(逐字节等价);on 时仅追加由 world_state_tools
         归一化出的延迟工具条目,不改动既有 _TOOLS。
+
+        缺口表 ⑤(2026-11-05,工具面惰性装载):`surface_context` 是**本轮上下文**
+        (会话模式 / 已声明意图 / 上轮用过与被拒的工具名)。它缺席时本轴整体不生效 ⇒
+        既有调用点(把它们当**查找表**用:先按 agent_tools 收窄再 `tool_map.get(name)`)
+        一条都不会少拿。真正的收口只发生在有人显式交入上下文、或部署侧设了
+        `MCP_TOOL_SURFACE_BUDGET` 那一格 —— 且判不了时仍按全量交回(失效方向=多给)。
         """
         tools: list[MCPTool] = list(_TOOLS)
         # D145① + 评审修复轮 1①:广告名单在**每次现读注册表**时拼接,而不是 import 期烘死。
@@ -13937,7 +13951,13 @@ class MCPServer:
         # 零扰动:未设任何 env 时声明族的能力键都取台账默认(开),本步与入参逐字同序同集
         # (tests/test_tool_surface_gate.py ① 是反向对照,不是口头保证)。
         # `deferred:<ns>` 一族不命中任何族前缀 ⇒ 不受影响。
-        return _filter_visible_tools(tools)
+        gated = _filter_visible_tools(tools)
+        # 缺口表 ⑤(2026-11-05,工具面惰性装载):能力门**在前**,预算**在后** ⇒ 被能力
+        # 门摘掉的工具绝不因预算重新出现(次序在消费点显式可读,不靠被调方自觉;
+        # tool_surface_budget 同时把它作为 ineligible 下传,双保险)。
+        # 只在"有人交入本轮上下文"或"部署侧设了 MCP_TOOL_SURFACE_BUDGET"时才动集合,
+        # 其余一律逐字交回 —— 上面的 `tool_map.get(name)` 型消费点因此一条都不会少拿。
+        return _apply_tool_surface_budget(gated, context=surface_context)
 
     async def call_tool(
         self,
