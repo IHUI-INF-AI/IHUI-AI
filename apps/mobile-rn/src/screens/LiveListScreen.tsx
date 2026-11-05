@@ -82,6 +82,7 @@ export function LiveListScreen() {
       items={items}
       activeTab={statusTab}
       onSelectTab={onSelectTab}
+      tabs={['all', 'upcoming', 'ongoing', 'ended']}
       loading={loading}
       refreshing={refreshing}
       error={error}
@@ -90,9 +91,22 @@ export function LiveListScreen() {
       loadingMore={loadingMore}
       onPressItem={(item: LiveListItem) => onNavigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void refresh(); }}
+      onRetry={() => {
+        void refresh()
+      }}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
+      quickActions={{
+        labels: {
+          host: t('live.startLive'),
+          calendar: '',
+          subscriptions: t('subscriptions.title'),
+        },
+        onPressHost: () => onNavigate('LiveHost'),
+        // RN 无直播日历屏(PublishCalendar 是发布日历,语义不同)⇒ 不传 onPressCalendar,不进桶②冒充
+        onPressSubscriptions: () => onNavigate('Subscriptions'),
+        colorScheme: resolvedTheme,
+      }}
     />
   )
 }

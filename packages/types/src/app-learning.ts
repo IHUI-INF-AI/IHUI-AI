@@ -826,8 +826,21 @@ export interface SubPackageIndexScreenProps {
 /** 分类详情 Screen Props */
 export interface CategoryDetailScreenProps {
   t: TFunction
-  items: { id: string; name: string; description?: string; cover?: string }[]
+  items: {
+    id: string
+    name: string
+    description?: string
+    cover?: string
+    /** 条目头像(web 已有同元素;RN 由 Agent.avatar 映射) */
+    avatar?: string | null
+    /** 条目使用次数(web 无此字段;RN 由 Agent.usageCount 映射) */
+    useCount?: number
+  }[]
   activeTab: string
+  /** 页头标题(默认“分类详情”;小程序传 categoryId/全部分类) */
+  title?: string
+  /** 三档文案(默认中文;端内有 i18n 时注入,避免回退) */
+  tabLabels?: readonly [string, string, string]
   loading: boolean
   hasMore: boolean
   error: string
