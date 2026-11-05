@@ -12,6 +12,8 @@
 import type { CSSProperties } from 'react'
 import { View } from '@tarojs/components'
 
+import { flattenStyle, type StyleProp } from './style'
+
 export interface CompatIconProps {
   /** 边长(RN 的 size 是 dp ⇒ 数字按 px 落,与 RN 同尺寸) */
   size?: number | string
@@ -19,7 +21,11 @@ export interface CompatIconProps {
   /** lucide 的 strokeWidth 在 mask 形态下改不了几何,只作占位接收 */
   strokeWidth?: number
   opacity?: number
-  style?: CSSProperties
+  /**
+   * 收 `StyleProp`(与 RN 同形):共享屏会传 `cond && {…}` 或 `styles.x`(TextStyle)—— 旧写法只收
+   * `CSSProperties`,falsy/null 与样式表对象都落在 TS2322(CourseScreen.tsx:108 / CourseTabScreen.tsx:313)。
+   */
+  style?: StyleProp<CSSProperties>
   fill?: string
   name?: string
 }
@@ -49,7 +55,7 @@ export function makeIcon(defaultName: string, svg: string) {
       maskPosition: 'center',
       flexShrink: 0,
       opacity: props.opacity,
-      ...props.style,
+      ...flattenStyle(props.style),
     }
     void defaultName
     return <View style={style} />
