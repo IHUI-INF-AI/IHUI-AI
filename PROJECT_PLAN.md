@@ -31828,6 +31828,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 对照：同仓 `use-agent-stream` 在吞错处至少 `console.warn`
   - 收口：`.catch((e)=>console.warn('[home-schema] load failed', e))`
 
-- [ ] P87 [auto-triage] API 5xx 错误签名聚类(POST /api/v:n/codebase/search 503)(登记@2026-11-05/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 24 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:POST /api/v1/codebase/search → 503 POST /api/v1/codebase/search -> 503 / FastifyError: Service Unavailable)
 
-- [ ] P88 [auto-triage] API 5xx 错误签名聚类(GET /api/agents/list 503)(登记@2026-11-05/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 14 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/agents/list → 503 GET /api/agents/list -> 503 / FastifyError: Service Unavailable)
