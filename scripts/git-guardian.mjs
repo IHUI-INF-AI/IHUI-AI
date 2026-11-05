@@ -12077,6 +12077,85 @@ export function sweepRnHostShells(opts = {}) {
   }
 }
 
+const RN_SHELL_TYPES_INTERVAL_MS = Number(
+  process.env.IHUI_RN_SHELL_TYPES_INTERVAL_MS || 30 * 60 * 1000,
+)
+
+/**
+ * 小程序端「壳承载页编译期契约」的自动重生成腿(2026-11-05 立)。
+ *
+ * 立因:`gen-rn-shell-types.mjs`(2026-10-26 立)为 `@rn-shells/<X>` 与 `@ihui/rn-app/<deep>`
+ * 两类只在 webpack 别名里成立的说明符派生一份 `.d.ts`,让小程序端 `tsc --noEmit` 也认得它们;
+ * 级联里它占 `shell-pages` 一段(`:161`,写盘档 `--all --write`)。2026-11-05 机械对账 15 个写盘段
+ * 在守护两条执行体里的真实调用点:14 段有,**只这一格零命中**(既无 sweep 腿,也没被别的派生器顺带跑;
+ * `upgrade-miniapp-shell-pages.mjs:377` 那一处只在它自己落地那批页时顺带跑一次,不是节律面)。
+ * 按 §0.9「造好没装车 = 没有」:新壳承载页落地后无人重算契约 ⇒ 那一屏在 tsc 眼里回到 TS2307(any),
+ * 而门 251 C9 判的是"手改派生件",对"根本没人重算"这一型是盲区 —— 失效形态又是安静的。
+ *
+ * 取材面 = `--head`(与被审面同面,§0.4):只按 HEAD 面上的页与壳出口派生,绝不把别席在飞的
+ * 半成品烘进契约件;写盘只落工作树,落库交 `sweepCrossEndLandingLeg`(该路径已进收编白名单)。
+ * 这条 argv 不是本腿新造的:`upgrade-miniapp-shell-pages.mjs:377` 落地后重算用的就是它,两处同口径。
+ *
+ * 失效方向:契约与源一致 ⇒ 一行读数;器物不在位/结论取不到 ⇒ 未判定,绝不折成"契约已同步"(§0.3);
+ * 未判定条数 >0 只点名不喊人(§5e-1:那是上游壳自身有问题,收信人要动的是壳不是本腿)。
+ * 判机器状态 ⇒ 不进提交链(§12e);不改守护退出码。
+ */
+export function sweepRnShellTypes(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = RN_SHELL_TYPES_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'rn-shell-types-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'gen-rn-shell-types.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ RN 壳契约:器物不在位(scripts/gen-rn-shell-types.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
+  const timeoutMs = Number(process.env.IHUI_RN_SHELL_TYPES_TIMEOUT_MS || 10 * 60 * 1000)
+  const r =
+    typeof runner === 'function'
+      ? runner()
+      : runLegChild(script, ['--head', '--write'], timeoutMs)
+  beatRoundLock()
+  stampCrossEndDispatch(tickFile, now, r, String(r.stdout ?? ''))
+  // 结论行是该器物的既有文本档形态(面=… 覆盖面说明符 N 个 / declare 块 M 段 / 未判定 K 条 / 派生件…),
+  // 本腿只解析不改它。
+  const m =
+    /面=(\w+) 覆盖面说明符 (\d+) 个 \/ declare 块 (\d+) 段 \/ 未判定 (\d+) 条 \/ 派生件(落后|与源一致)/.exec(
+      String(r.stdout ?? ''),
+    )
+  if (!m) {
+    logger(
+      `⚠️ RN 壳契约:结论取不到 ⇒ 本轮未判定(${
+        r.signal
+          ? `子进程被 ${r.signal} 掐死(上限 ${Math.round(timeoutMs / 60000)} 分钟)`
+          : `status=${r.status ?? '?'}`
+      })—— 这不等于"契约已同步"`,
+    )
+    return { ran: true, ok: false, state: 'undetermined', status: r.status, signal: r.signal }
+  }
+  const n = (v) => Number(v) || 0
+  const [, face, modules, blocks, undetermined, staleWord] = m
+  const wrote = /已写回\s+(\S+)/.exec(String(r.stdout ?? ''))?.[1] ? 1 : 0
+  logger(
+    `🧩 RN 壳契约:面=${face} 说明符 ${n(modules)} / declare 块 ${n(blocks)} / 未判定 ${n(undetermined)} / ` +
+      `${staleWord === '落后' ? `落后→本轮${wrote ? '已写回' : '未写回'}` : '与源一致'}`,
+  )
+  return {
+    ran: true,
+    ok: true,
+    face,
+    state: staleWord === '落后' ? 'stale' : 'in-sync',
+    modules: n(modules),
+    blocks: n(blocks),
+    undetermined: n(undetermined),
+    wrote,
+  }
+}
+
 /**
  * 跨端自愈腿的**落库**一节(2026-11-02 立)。
  *
@@ -13546,6 +13625,8 @@ async function main() {
     // 链条按依赖序派:先补 RN 薄壳,再落小程序页 —— 下游三腿判据要问的就是"RN 腿在不在"。
     if (!CHECK_ONLY) sweepRnHostShells()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
+    // 契约件按 HEAD 面重算 ⇒ 必须排在造页腿之后(本轮刚落地的页,下一轮就有契约)。
+    if (!CHECK_ONLY) sweepRnShellTypes()
     // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
     if (!CHECK_ONLY) sweepWebStyleTiers()
     // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
@@ -13866,6 +13947,7 @@ function startDaemon(bootGuard = null) {
         sweepRnColorLiteralLeg()
         sweepRnCompatLeg()
         sweepRnHostShells()
+        sweepRnShellTypes()
         sweepRnStyleTiers()
         sweepStaleClaimMarks()
         sweepStaleClosedRows()
