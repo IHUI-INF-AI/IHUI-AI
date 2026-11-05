@@ -15,6 +15,13 @@
 //   纯重载动词(load/refetch/reload/refresh/fetch/retry/run/...) ⇒ 真重载
 //   回调透传(标识符以 on+大写 开头,如 onRetry/onPolishRetry/onGenerate)与混合体 ⇒ 未判定
 //   —— 透传值的真实语义在宿主侧,本地无法判定,必须留在未判定桶,不得折成真重载。
+//
+// 定性台账(2026-11-05 补):本地判不了的两种情形靠**可机检证据**人工定性,落
+// scripts/data/retry-reload-resolutions.jsonl ——
+//   ① 假重载但语义本就不是"重试"(如按钮文案已改成「返回」) ⇒ 改判「合法差异」;
+//   ② 透传回调能沿同仓调用链读到宿主真语义 ⇒ 改判「真重载」。
+// 证据必须逐条 file:line + 原文命中;证据失配 ⇒ 该条定性失效并判红(§0.3:举证不能
+// 退回"没判",不许继续拿旧结论当已判)。棘轮只数「假重载」,改判后基线自然收紧,不会扩。
 
 /** 别名表达式(逐字判定,不做「含关键字」的宽匹配,避免误伤条件表达式) */
 export const ALIAS_EXPRS = new Set([
@@ -226,6 +233,131 @@ export function siteKey(end, file, expr, category) {
   return `${end}\u0000${String(file).replace(/\\/g, '/')}\u0000${compact}\u0000${category}`
 }
 
+/** 定性/豁免台账允许的档位(证据在案才生效;其余档位整行拒收) */
+export const RESOLUTION_VERDICTS = Object.freeze(['合法差异', '真重载'])
+
+/** 定性台账键:端 + 文件 + 表达式(不含行号:行号漂移由证据的 file:line 负责暴露) */
+export function resolutionKey(end, file, expr) {
+  const compact = String(expr ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return `${end}\u0000${String(file).replace(/\\/g, '/')}\u0000${compact}`
+}
+
+/**
+ * 解析定性台账。坏行不静默丢(§0.3):档位非法 / 缺 owner / reason 少于 10 字 /
+ * 无证据 / 合法差异缺两端调用点 ⇒ 整行拒收并点名。
+ */
+export function parseResolutions(text) {
+  const rows = []
+  const bad = []
+  for (const line of String(text || '').split('\n')) {
+    const s = line.trim()
+    if (!s) continue
+    let o
+    try {
+      o = JSON.parse(s)
+    } catch {
+      bad.push({ raw: s.slice(0, 120), why: '非 JSON' })
+      continue
+    }
+    const why = []
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      bad.push({ raw: s.slice(0, 120), why: '非对象' })
+      continue
+    }
+    if (typeof o.end !== 'string' || !o.end) why.push('缺 end')
+    if (typeof o.file !== 'string' || !o.file) why.push('缺 file')
+    if (typeof o.expr !== 'string' || !o.expr) why.push('缺 expr')
+    if (!RESOLUTION_VERDICTS.includes(o.verdict)) why.push(`verdict 非法:${String(o.verdict)}`)
+    if (typeof o.owner !== 'string' || !o.owner) why.push('缺 owner')
+    if (typeof o.reason !== 'string' || o.reason.trim().length < 10) why.push('reason 少于 10 字')
+    if (!Array.isArray(o.evidence) || o.evidence.length === 0) why.push('缺 evidence')
+    else {
+      for (const [i, ev] of o.evidence.entries()) {
+        if (
+          !ev ||
+          typeof ev.path !== 'string' ||
+          !ev.path ||
+          !Number.isInteger(ev.line) ||
+          ev.line < 1 ||
+          typeof ev.text !== 'string' ||
+          !ev.text
+        )
+          why.push(`evidence[${i}] 缺 path/line/text`)
+      }
+    }
+    if (o.verdict === '合法差异' && (!Array.isArray(o.callSites) || o.callSites.length < 2))
+      why.push('合法差异缺两端调用点(callSites < 2)')
+    if (why.length) {
+      bad.push({ raw: s.slice(0, 120), why: why.join(';') })
+      continue
+    }
+    rows.push(o)
+  }
+  return { rows, bad }
+}
+
+/**
+ * 把定性台账作用到站点上。只有**证据逐条命中**才改判;证据失配 ⇒ 保留原判并记 invalid,
+ * 由调用方判红(举证不能不得继续按旧结论记账)。未匹配任何站点的行记 unused(不判红:
+ * 站点可能已随修复消失)。
+ * @param {object[]} sites onRetry 站点(会被就地改判)
+ * @param {object[]} rows  parseResolutions 的 rows
+ * @param {(rel:string)=>string|null} opts.readText 按面读文件正文
+ * @returns {{applied:object[], invalid:object[], unused:object[]}}
+ */
+export function applyResolutions(sites, rows, { readText = () => null } = {}) {
+  const byKey = new Map()
+  for (const r of rows || []) {
+    if (r) byKey.set(resolutionKey(r.end, r.file, r.expr), r)
+  }
+  const applied = []
+  const invalid = []
+  const seen = new Set()
+  const norm = (x) => String(x ?? '').replace(/\s+/g, ' ').trim()
+
+  for (const s of sites || []) {
+    const k = resolutionKey(s.end, s.file, s.expr)
+    const r = byKey.get(k)
+    if (!r) continue
+    seen.add(k)
+    const problems = []
+    let drift = false
+    if (typeof r.fromCategory === 'string' && r.fromCategory !== s.category)
+      problems.push(`原判子类已变(${s.category} ≠ ${r.fromCategory})`)
+    for (const ev of r.evidence || []) {
+      const text = readText(ev.path)
+      if (typeof text !== 'string') {
+        problems.push(`证据文件取不到:${ev.path}`)
+        continue
+      }
+      const lines = text.split('\n')
+      const hit = lines[ev.line - 1]
+      if (hit && norm(hit).includes(norm(ev.text))) continue
+      // 行号会随无关改动漂移(本轮 worktree 与 HEAD 同时存在);文本仍在同文件即视为证据在案,
+      // 但记 drift 供报告点名 —— 文本彻底消失才判失配(举证不能不得按旧结论记账)。
+      if (lines.some((line) => norm(line).includes(norm(ev.text)))) {
+        drift = true
+        continue
+      }
+      problems.push(`证据文本不存在:${ev.path}:${ev.line} 应含「${ev.text}」`)
+    }
+    if (problems.length) {
+      invalid.push({ site: s, row: r, problems })
+      continue
+    }
+    applied.push({ site: s, from: { verdict: s.verdict, category: s.category }, drift })
+    s.verdict = r.verdict
+    s.category = r.category || 'resolved'
+    s.reason = `定性(${r.owner}): ${r.reason}`
+    s.resolution = { owner: r.owner, at: r.at || '', evidence: r.evidence, callSites: r.callSites || [] }
+  }
+  const unused = (rows || []).filter((r) => r && !seen.has(resolutionKey(r.end, r.file, r.expr)))
+  return { applied, invalid, unused }
+}
+
+
 /** 台账行序列化(键序固定,diff 只随内容变) */
 export function serializeBaseline(rows) {
   return rows
@@ -266,7 +398,16 @@ export function summarize(sites) {
   const byEnd = new Map()
   for (const s of sites) {
     if (!byEnd.has(s.end))
-      byEnd.set(s.end, { end: s.end, files: new Set(), total: 0, real: 0, fake: 0, undetermined: 0, fakeByCategory: {} })
+      byEnd.set(s.end, {
+        end: s.end,
+        files: new Set(),
+        total: 0,
+        real: 0,
+        fake: 0,
+        legal: 0,
+        undetermined: 0,
+        fakeByCategory: {},
+      })
     const b = byEnd.get(s.end)
     b.files.add(String(s.file).replace(/\\/g, '/'))
     b.total += 1
@@ -274,7 +415,8 @@ export function summarize(sites) {
     else if (s.verdict === '假重载') {
       b.fake += 1
       b.fakeByCategory[s.category] = (b.fakeByCategory[s.category] || 0) + 1
-    } else b.undetermined += 1
+    } else if (s.verdict === '合法差异') b.legal += 1
+    else b.undetermined += 1
   }
   return [...byEnd.values()].map((b) => ({ ...b, files: b.files.size }))
 }
@@ -334,6 +476,10 @@ export const __test__ = {
   classifyRetryExpr,
   judgeRetryText,
   siteKey,
+  RESOLUTION_VERDICTS,
+  resolutionKey,
+  parseResolutions,
+  applyResolutions,
   serializeBaseline,
   parseBaseline,
   summarize,
