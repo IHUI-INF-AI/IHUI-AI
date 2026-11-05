@@ -5564,7 +5564,10 @@
     "twoFactor": "二段階認証",
     "loginAlert": "ログイン通知",
     "desc": "アカウントログインに関するスイッチを管理",
-    "loadFailed": "セキュリティ設定の読み込みに失敗"
+    "loadFailed": "セキュリティ設定の読み込みに失敗",
+    "readOnlyHint": "この画面は現在の状態を表示するのみで、ここから変更できません",
+    "stateOn": "オン",
+    "stateOff": "オフ"
   },
   "selfMedia": {
     "title": "セルフメディアアシスタント",

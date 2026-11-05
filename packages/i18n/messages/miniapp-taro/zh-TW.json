@@ -5564,7 +5564,10 @@
     "twoFactor": "兩步驟驗證",
     "loginAlert": "登入提醒",
     "desc": "管理帳號安全相關的開關",
-    "loadFailed": "載入安全設定失敗"
+    "loadFailed": "載入安全設定失敗",
+    "readOnlyHint": "本頁僅顯示目前狀態，不提供修改入口",
+    "stateOn": "已開啟",
+    "stateOff": "未開啟"
   },
   "selfMedia": {
     "title": "自媒體助手",
