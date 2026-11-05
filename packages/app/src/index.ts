@@ -767,7 +767,9 @@ export type {
   RealNameAuthItem,
   RealNameAuthScreenProps,
   SecuritySettingsItem,
+  SecuritySettingsRow,
   SecuritySettingsScreenProps,
+  SecuritySettingsSection,
   /** 批次 23(2026-07-29):Agent 系深屏 + 课程系深屏 */
   AgentStatData,
   AgentStatScreenProps,
