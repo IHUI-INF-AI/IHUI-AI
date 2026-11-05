@@ -86,8 +86,13 @@ async function installPartialArgsProbe(page: Page): Promise<void> {
       // 外层「执行过程」组默认折叠(stream-ui.tsx:399 的 {open && children}),
       // 折叠时**所有工具卡都不在 DOM**。必须先展开组头,否则内层卡片/预览块
       // 永远查不到 —— 这正是初版「零渲染」的真因,不是 api-client 或组件缺陷。
+      // ⚠️ 选择器必须精确命中组头(data-stream-group-trigger,stream-ui.tsx:369):
+      // 工具卡自己的 StreamRow 也是 button 且 aria-expanded=false,宽泛的
+      // `[data-testid^="message-steps-group-"] button[aria-expanded="false"]`
+      // 会把它一起选中 ⇒ 同一轮先点组头、再点 row,两次 toggle 正好抵消,
+      // 实测 expanded 恒 false、预览块永不渲染(2026-11-05 假红定位)。
       const collapsedGroup = document.querySelector(
-        '[data-testid^="message-steps-group-"] button[aria-expanded="false"]',
+        '[data-stream-group-trigger="true"][aria-expanded="false"]',
       ) as HTMLElement | null
       if (collapsedGroup) collapsedGroup.click()
       const row = document.querySelector(
@@ -100,7 +105,14 @@ async function installPartialArgsProbe(page: Page): Promise<void> {
       // 由页面自身保证「卡片一出现就保持展开」,与测试线程时序彻底解耦。
       if (row && expanded === 'false') row.click()
       const el = document.querySelector('[data-testid="tool-call-partial-args"]')
+      // 分层读数:group=「执行过程」组是否挂载(stepSectionsCount>0 才有)、
+      // trigger=组头按钮、rows=工具行总数、preview=预览块。三者一起才能区分
+      // 「store 无 toolCalls ⇒ 组不挂载」与「组已挂载但折叠 ⇒ 卡片不在 DOM」。
+      const groups = document.querySelectorAll('[data-testid^="message-steps-group-"]')
+      const triggers = document.querySelectorAll('[data-stream-group-trigger]')
+      const rows = document.querySelectorAll('[data-testid^="tool-call-row-"]')
       const state =
+        `groups=${groups.length} triggers=${triggers.length} rows=${rows.length} ` +
         `expanded=${expanded} status=${row?.getAttribute('data-stream-status') ?? 'absent'} ` +
         `preview=${el ? 'yes' : 'no'}`
       const states = w.__rowStates
@@ -203,9 +215,11 @@ async function mockToolCallArgsDeltaStream(
       const probe = window as unknown as {
         __sseFetchHits?: number
         __sseFrames?: string[]
+        __sseEnqueueTimes?: number[]
       }
       probe.__sseFetchHits = 0
       probe.__sseFrames = []
+      probe.__sseEnqueueTimes = []
       window.fetch = async (input, init) => {
         const url =
           typeof input === 'string'
@@ -218,28 +232,37 @@ async function mockToolCallArgsDeltaStream(
         const enc = new TextEncoder()
         const parts = sse.split(/(?=id: )/).filter((p) => p.length > 0)
         const body = new ReadableStream<Uint8Array>({
-          async start(controller) {
-            try {
-              for (const [i, p] of parts.entries()) {
-                if (init?.signal?.aborted) break
-                // 逐行 enqueue:与真实 SSE runner 的按行读一致,避免「整块当一行」
-                // 让 parseToolCallArgsDeltaFrame 的 JSON.parse 吃到 id: 前缀。
-                for (const row of p.split('\n')) {
-                  if (!row) continue
-                  probe.__sseFrames?.push(row.slice(0, 100))
-                  controller.enqueue(enc.encode(`${row}\n`))
-                }
-                const wait = delay + (i === 0 ? firstFrameDelay : 0)
-                if (wait > 0) await new Promise((r) => setTimeout(r, wait))
-              }
-              controller.close()
-            } catch {
+          start(controller) {
+            // ⚠️ 不要写成 `async start(controller) { ... await setTimeout ... }`:
+            // start() 返回长期 pending 的 Promise 时,浏览器会推迟把 Response 交付给
+            // fetch 调用方,逐帧 enqueue 的数据全部攒到 close() 之后才被读到 ——
+            // 表现成「流期间零渲染、流末一次性出现终态卡」,是**夹具失真**而非产品
+            // 缺陷(2026-11-05 真跑实测:工具卡在 21.9s 才进 DOM 且已 success)。
+            // 正解:start() 同步立即返回,由独立异步泵逐帧推送。
+            void (async () => {
               try {
+                for (const [i, p] of parts.entries()) {
+                  if (init?.signal?.aborted) break
+                  // 逐行 enqueue:与真实 SSE runner 的按行读一致,避免「整块当一行」
+                  // 让 parseToolCallArgsDeltaFrame 的 JSON.parse 吃到 id: 前缀。
+                  for (const row of p.split('\n')) {
+                    if (!row) continue
+                    probe.__sseFrames?.push(row.slice(0, 100))
+                    controller.enqueue(enc.encode(`${row}\n`))
+                  }
+                  probe.__sseEnqueueTimes?.push(Date.now())
+                  const wait = delay + (i === 0 ? firstFrameDelay : 0)
+                  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
+                }
                 controller.close()
               } catch {
-                /* 已关闭 */
+                try {
+                  controller.close()
+                } catch {
+                  /* 已关闭 */
+                }
               }
-            }
+            })()
           },
         })
         return new Response(body, {
@@ -305,25 +328,19 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
   // 本身吃满 ⇒ 放宽到 90s。
   test.setTimeout(90000)
 
-  // ⚠️ 已知失败(2026-11-05 浏览器真跑,任务 #10 跟踪)。逐层二分后的**精确结论**:
-  //   ① api-client 完好:用真实 dist 直接跑 streamChat + mock 逐帧 fetch,
-  //      onOpenAiToolCall 3/3 命中(a → abc → complete);Proxy 模拟「所有回调都
-  //      订阅」仍 3/3 ⇒ 帧分发不是缺口(推翻初版误判)。
-  //   ② handler → store → ToolCallCard 完好:vitest 全绿;去掉 argsComplete 终帧后
-  //      页面内探针立刻采到 preview 与 {"query":"abc"} ⇒ 渐进渲染链路可用。
-  //   ③ 真实缺口在**消息生命周期/UI 投影层**:完整 9 帧流下,探针时间戳显示卡片
-  //      从页面加载到 16.8s(恰为流终点)之前始终不在 DOM;期间 stepSectionsCount=0
-  //      ⇒ MessageItem 的 StreamGroup(其 {open && children} 才挂工具卡)根本不挂载。
-  //      流一结束卡片一次性出现且已是 success —— 对应 send-message.ts 流末
-  //      getMessages 回读 setMessages 覆盖本地 store。故渐进渲染在当前路径上用户不可见。
-  //   待查面:send-message.ts 的 assistantId 与 MessageList 渲染消息 id 是否一致 /
-  //      chat-pane-context 的 store 实例 / projectActiveMessages 与详情档位投影 /
-  //      流式占位消息是否屏蔽 toolCalls。
-  //   探针已自动展开「执行过程」组与卡片、首片留足窗口、多片渐进帧;修复后**移除
-  //   本 fixme 并确认转绿**即闭环。断言不放宽(≥2 个不同文本、含首片 a 与后续
-  //   abc、长度递增、终态卸载),复现路径与诊断读数全部保留。
+  // 2026-11-05 逐层二分定论(修复已落地,本用例即回归锁):
+  //   ① api-client 帧分发完好(真实 dist 冒烟 3/3),handler 写 store 完好
+  //      (浏览器真跑 5/5 回调、msgFound=true、toolCalls=1 逐帧可见);
+  //   ② store → MessageList 投影完好(mode=steps,首帧后 76ms 即见 toolCalls=1);
+  //   ③ 真因在 MessageItem 的**渲染结构**:活动组 StreamGroup 挂在 showTyping
+  //      三元的 else 分支里 —— 助手正文为空且流式时只渲染 TypingIndicator,
+  //      工具卡整段不进 DOM,直到正文 chunk 到达才一次性以 success 终态出现。
+  //      修复 = stepSectionsCount 上移并作为退出 typing 占位的判据(showTyping
+  //      须同时满足「零活动区段」),把活动组挂载与正文是否为空解耦。
+  //   ④ 夹具侧另修一处:ReadableStream 的 async start() 里 await 会推迟 Response
+  //      交付,逐帧数据被攒到流末 —— 改为 start() 同步返回 + 独立异步泵逐帧推送。
+  //   断言不放宽(≥2 个不同文本、含首片 a 与后续 abc、长度递增、终态卸载)。
   test('逐帧推进 partial 预览,complete 后收敛为终态', async ({ page }) => {
-    test.fixme(true, '流期间工具卡不进 DOM（消息投影层缺口），见任务 #10')
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
 
@@ -345,12 +362,12 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
     await textarea.fill('搜一下 abc')
     await page.keyboard.press('Enter')
 
-    // 卡片随 delta 首片挂载(行级 testid 含 toolCallId c1)
+    // 卡片随 delta 首片挂载(行级 testid 含 toolCallId c1)。此处**不做**硬等待:
+    // 若卡片始终不挂载,先跑完流让页面内采样器留足分层证据,再由下方
+    // expect(row).toBeAttached() 严格判失败,避免 waitFor 超时把证据吞掉。
+    // 展开由页面内探针负责(自动点击且遇重挂载会补点),测试线程不再 click
+    // —— 会与探针互相抵消成折叠。
     const row = page.getByTestId('tool-call-row-c1')
-    await row.waitFor({ state: 'attached', timeout: 20000 })
-    // 预览块住在 StreamRow 的 expanded 展开区(tool-call-card.tsx:1517)。
-    // 展开由 installPartialArgsProbe 的页面内探针负责(自动点击且遇重挂载会补点),
-    // 此处不再做测试线程 click —— 那会与探针互相抵消成折叠。
 
     const partial = page.getByTestId('tool-call-partial-args')
     // 先等 mock 流全部发出(9 帧 × id + data 两行 = 18 行)并被消费。若直接判
