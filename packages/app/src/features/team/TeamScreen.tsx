@@ -93,6 +93,17 @@ export function TeamScreen({
   onPressTreeMember,
   onRetry,
   colorScheme = 'light',
+  statsLayout = 'full',
+  compactStatsLabels,
+  showHeader = true,
+  showTabs = true,
+  listTitle,
+  onEndReached,
+  loadingMore,
+  hasMore,
+  footerLoadingText,
+  footerNoMoreText,
+  emptyText,
 }: TeamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -129,52 +140,87 @@ export function TeamScreen({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron
-          onPress={onBack}
-          label={t('common.back')}
-          colorScheme={colorScheme}
-          style={styles.backBtn}
-        />
-        <Text style={styles.title}>{t('distribution.teamTitle')}</Text>
-        <Text style={styles.subtitle}>{t('team.subtitle')}</Text>
-      </View>
-
-      {stats ? (
-        <View style={styles.statsCard}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.totalMembers}</Text>
-              <Text style={styles.statLabel}>{t('team.totalMembers')}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.activeMembers}</Text>
-              <Text style={styles.statLabel}>{t('team.activeMembers')}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.directCount}</Text>
-              <Text style={styles.statLabel}>{t('team.directCount')}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{stats.indirectCount}</Text>
-              <Text style={styles.statLabel}>{t('team.indirectCount')}</Text>
-            </View>
-          </View>
-          <View style={styles.contributionBox}>
-            <Text style={styles.contributionLabel}>{t('team.totalContribution')}</Text>
-            <Text style={styles.contributionValue}>¥{stats.totalContribution}</Text>
-          </View>
+      {showHeader ? (
+        <View style={styles.header}>
+          <BackChevron
+            onPress={onBack}
+            label={t('common.back')}
+            colorScheme={colorScheme}
+            style={styles.backBtn}
+          />
+          <Text style={styles.title}>{t('distribution.teamTitle')}</Text>
+          <Text style={styles.subtitle}>{t('team.subtitle')}</Text>
         </View>
       ) : null}
 
-      <CategoryInlineBar
-        items={tabItems}
-        selectedId={activeTab}
-        onSelect={(id) => onSelectTab(id as TeamTab)}
-        colorScheme={colorScheme}
-        contentPaddingHorizontal={10}
-        itemGap={6}
-      />
+      {stats ? (
+        <View style={styles.statsCard}>
+          {statsLayout === 'compact' ? (
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.totalMembers}</Text>
+                <Text style={styles.statLabel}>
+                  {compactStatsLabels?.totalMembers ?? t('team.totalMembers')}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{stats.monthNew ?? 0}</Text>
+                <Text style={styles.statLabel}>
+                  {compactStatsLabels?.monthNew ?? t('team.monthNew')}
+                </Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>¥{stats.totalContribution}</Text>
+                <Text style={styles.statLabel}>
+                  {compactStatsLabels?.totalContribution ?? t('team.totalContribution')}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{stats.totalMembers}</Text>
+                  <Text style={styles.statLabel}>{t('team.totalMembers')}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{stats.activeMembers ?? 0}</Text>
+                  <Text style={styles.statLabel}>{t('team.activeMembers')}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{stats.directCount ?? 0}</Text>
+                  <Text style={styles.statLabel}>{t('team.directCount')}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{stats.indirectCount ?? 0}</Text>
+                  <Text style={styles.statLabel}>{t('team.indirectCount')}</Text>
+                </View>
+              </View>
+              <View style={styles.contributionBox}>
+                <Text style={styles.contributionLabel}>{t('team.totalContribution')}</Text>
+                <Text style={styles.contributionValue}>¥{stats.totalContribution}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      ) : null}
+
+      {showTabs ? (
+        <CategoryInlineBar
+          items={tabItems}
+          selectedId={activeTab}
+          onSelect={(id) => onSelectTab(id as TeamTab)}
+          colorScheme={colorScheme}
+          contentPaddingHorizontal={10}
+          itemGap={6}
+        />
+      ) : null}
+
+      {listTitle ? (
+        <View style={styles.listTitleRow}>
+          <Text style={styles.listTitleText}>{listTitle}</Text>
+        </View>
+      ) : null}
 
       {/* 搜索框(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;未注入回调则不渲染) */}
       {onKeywordChange ? (
@@ -218,7 +264,18 @@ export function TeamScreen({
             />
           ) : null
         }
-        ListEmptyComponent={<EmptyState title={t('team.empty')} colorScheme={colorScheme} />}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.3}
+        ListEmptyComponent={
+          <EmptyState title={emptyText ?? t('team.empty')} colorScheme={colorScheme} />
+        }
+        ListFooterComponent={
+          loadingMore && footerLoadingText ? (
+            <Text style={styles.footerText}>{footerLoadingText}</Text>
+          ) : hasMore === false && footerNoMoreText ? (
+            <Text style={styles.footerText}>{footerNoMoreText}</Text>
+          ) : null
+        }
         renderItem={({ item }) => (
           <PressableCard
             style={styles.card}
@@ -237,14 +294,16 @@ export function TeamScreen({
                 <Text style={styles.memberName} numberOfLines={1}>
                   {item.nickname}
                 </Text>
-                <View
-                  style={[
-                    styles.relationBadge,
-                    item.relation === 'direct' && styles.relationDirect,
-                  ]}
-                >
-                  <Text style={styles.relationText}>{t(TAB_LABELS[item.relation])}</Text>
-                </View>
+                {item.relation ? (
+                  <View
+                    style={[
+                      styles.relationBadge,
+                      item.relation === 'direct' && styles.relationDirect,
+                    ]}
+                  >
+                    <Text style={styles.relationText}>{t(TAB_LABELS[item.relation])}</Text>
+                  </View>
+                ) : null}
               </View>
               <Text style={styles.memberMeta}>
                 {t('distribution.colJoinedAt')}: {item.joinDate}
@@ -255,14 +314,16 @@ export function TeamScreen({
             </View>
             <View style={styles.memberRight}>
               <Text style={styles.contributionText}>+¥{item.contribution}</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  item.status === 'active' ? styles.statusActive : styles.statusInactive,
-                ]}
-              >
-                <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
-              </View>
+              {item.status ? (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    item.status === 'active' ? styles.statusActive : styles.statusInactive,
+                  ]}
+                >
+                  <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
+                </View>
+              ) : null}
             </View>
           </PressableCard>
         )}
@@ -503,6 +564,14 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorBar: { paddingHorizontal: rnSpacing['sm-loose'], paddingVertical: rnSpacing.sm },
+    listTitleRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
+    listTitleText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    footerText: {
+      paddingVertical: rnSpacing.lg,
+      textAlign: 'center',
+      fontSize: rnType.body.size,
+      color: tk.text.tertiary,
+    },
     listBody: { padding: rnSpacing['md-loose'], paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
