@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "run_command 工具命令安全策略单一权威源(2026-09-01 提取,统一安全 C4)。前后端共用:ai-service 直接读取本文件;前端用 scripts/generate-command-policy-ts.mjs 生成 TS 常量供 dangerous-command-detector 引用。修改本文件即两端同步生效。",
+  "description": "run_command 工具命令安全策略单一权威源(2026-09-01 提取,统一安全 C4)。前后端共用:ai-service 直接读取本文件;前端用 scripts/generate-command-policy-ts.mjs 生成 TS 常量供 dangerous-command-detector 引用。修改本文件即两端同步生效。2026-11-05(goal-b49)增补多档形状:下方 dangerous_patterns / allowed_prefixes / sensitive_file_markers 三段语义一字未动(前端生成链仍只吃这三段,生成物逐字不变);新增 red_list / black_list / immutable_paths / allow / ask 五段为**仓库档**,enterprise 子对象为**企业档**,两档并存由 app/core/command_policy_merge.py 合并(企业档优先,逐条点名来源),裁决映射 command_rule_{deny,ask,allow}。默认五段刻意留空 = 既有行为逐字不变;填法:仓库档改本文件,企业档下发快照(env IHUI_ENTERPRISE_COMMAND_POLICY 指向一份同形状 JSON,整档替换仓内企业基线)。",
   "dangerous_patterns": [
     ";\\s*\\S",
     "&&\\s*\\S",
@@ -64,5 +64,19 @@
     "type",
     "getopt"
   ],
-  "sensitive_file_markers": [".env", ".pem", ".key", "credentials", "secret", "token"]
+  "sensitive_file_markers": [".env", ".pem", ".key", "credentials", "secret", "token"],
+  "tier_schema_version": 1,
+  "red_list": [],
+  "black_list": [],
+  "immutable_paths": [],
+  "allow": [],
+  "ask": [],
+  "enterprise": {
+    "source": "repo-baseline",
+    "red_list": [],
+    "black_list": [],
+    "immutable_paths": [],
+    "allow": [],
+    "ask": []
+  }
 }
