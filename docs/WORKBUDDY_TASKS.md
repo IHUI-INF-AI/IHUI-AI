@@ -172,4 +172,190 @@ curl -s -H "Authorization: Bearer <令牌>" \
 | 真机 DOM 验证 | `apps/web/e2e/workbuddy-task-panel.spec.ts` |
 | 补签卡不自动消耗的机器锁 | 行为级 + AST 静态锁:`apps/ai-service/tests/test_workbuddy_tasks.py`,判据实现 `workbuddy_tasks.makeup_card_write_hit` / `find_makeup_card_write_hookups` |
 | 配置默认值 | `apps/ai-service/app/core/config.py` + `apps/ai-service/.env.example`(两枚闸门同批登记在能力矩阵 `app/core/capability_matrix.py`) |
+
+## 8. 「专家体验」类成长任务:真客户端驱动(2026-11-05 立)
+
+### 8.1 为什么必须驱动真客户端
+
+**合成遥测对成长计分零效果**(第 5 节已列报文级实证)。要完成「体验某专家」这类任务,
+唯一有效路径是让**真实客户端**发生"召唤专家 + 完成一次对话"的行为。仓内因此装车了一条
+可复用的驱动链:
+
+| 关注点 | 文件 |
+| --- | --- |
+| 驱动原语(attach/求值/专家页/召唤/发消息/断开) | `scripts/lib/workbuddy-client-drive.mjs` |
+| 市场ID ⇄ 本地专家名的映射桥 | `scripts/lib/workbuddy-expert-index.mjs` |
+| 命令行入口(列表 / 单项 / 一键全跑) | `scripts/workbuddy-growth-experts.mjs` |
+| 机器锁(纯函数,离线可跑) | `scripts/tests/workbuddy-growth-experts.test.mjs` |
+
+```bash
+# 只读:列出号池各账号的「专家体验」项与状态
+node scripts/workbuddy-growth-experts.mjs --list
+
+# 单项:按市场 expertId 驱动(召唤 + 发一条消息 + 回读确认计分)
+node scripts/workbuddy-growth-experts.mjs --do ex_GDl31WahyIH0 --message "你好"
+
+# 一键:跑完**当前登录号**所有未完成的专家体验项
+node scripts/workbuddy-growth-experts.mjs --do-all
+```
+
+### 8.2 三个反直觉的坑(踩过,别再踩)
+
+1. **卡片上的 `source` 不是市场 expertId,而是本地专家名。**
+   成长任务 `jump_url` 给的是市场ID(如 `ex_GDl31WahyIH0`),客户端卡片上的
+   `data-track-props.source` 却是本地专家名(如 `ChinaEcommerceOperationsExpert`)。
+   只按市场ID 找卡 ⇒ 永远找不到。桥在本机会话落盘库的 `marketExpertId` 字段,
+   `lib/workbuddy-expert-index.mjs` 负责把它读成一张索引表。
+2. **同一张卡上,标题与 aria-label 可以完全不是一回事。**
+   实测:标题「全平台电商运营操盘手」的卡,aria-label 是「召唤中国电商运营专家」;
+   另有卡的 aria-label 是「召唤卖得好」而标题正是「中国电商运营专家」。
+   ⇒ **按名字/aria 挑必然挑错**(已污染过无关会话)。唯一可靠判据是"**卡片内的 source**"。
+3. **消息要用逐字输入事件发,不能用 `execCommand`。**
+   `execCommand('insertText')` + Enter 实测**发不出去**(React 受控组件状态没跟上,草稿还在);
+   逐字派发 `beforeinput`/`input`/`keydown` + Enter 才真发得出去。
+   另:回显判据要落在"消息文本出现在页面正文**且不在输入框草稿里**"。
+
+### 8.3 计分判定口径(受理 ≠ 计分)
+
+驱动链只负责"让行为真的发生",**计分判定一律回读成长任务列表**:
+只有 `accept_status`/`progress` 真的前进了才算成(§0.3)。
+
+⚠ **计分是异步落地的**:实测消息发出后立刻回读仍是 `accepted`,数十秒后才翻成 `completed`
+⇒ 必须轮询等待,不能只读一次就下结论(CLI 的 `waitForScoreAdvance` 干这件事)。
+
+### 8.4 纪律
+
+- **用完必须断开 inspector**:不断 ⇒ 主进程被调试通道占住 ⇒ `taskkill` 不带 `/F` 会失败
+  ⇒ 客户端关不掉、切不了号(实测 2026-11-05 切号时连报三次失败)。
+  断开判据取"9229 端口是否真的不再应答",**不取"求值有没有回包"**
+  (`_debugEnd()` 一执行通道当场关闭 ⇒ 回包必然超时 ⇒ 朴素实现恒报"断开失败")。
+- **对象不对绝不发消息**:对话页必须出现目标专家名 + 有输入框 + 消息文本回显,三要素全中才发。
+- **凭据只在进程内流动**:输出只报身份/键名/长度,不回显 token。
+- **风控期(11140)也要能区分**:被限期间模型回复被拦,但**用户消息仍会上屏** ⇒
+  消息上屏判据不能等助手回复。
+
+### 8.5 实测战绩(2026-11-05)
+
+两个账号 8 个专家体验项**全部完成**(账号 33:4 项 `claimed`;账号 29:4 项 `completed`),
+全程用上面这条命令链驱动,无人工点击。
+公众号关注项(`wb_wechat_oa_subscribe_task`)不在本链覆盖范围内 —— 它要求微信扫码关注
+「腾讯 WorkBuddy」官方公众号并**满 24 小时**,是账号维度的关注行为,客户端与网页都无自动入口。
+那一项的收口见第 9 节。
+
+## 9. 公众号关注项:「关注」不可自动化,「领奖」可以(2026-11-05 立)
+
+### 9.1 为什么这一项自动不了(2026-11-05 二次取证,已更正)
+
+`wb_wechat_oa_subscribe_task`(奖励 100 积分 + 5 能量)的判据是**服务端的一个布尔**,
+服务端自己把它回给客户端:
+
+```bash
+GET https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status
+⇒ {"code":0,"data":{"subscribe_task":{
+     "task_code":"wb_wechat_oa_subscribe_task",
+     "subscribed":false,          ← 关注关系成不成立,就看这一个字段
+     "remaining_seconds":-1,      ← 满 24 小时窗的余量(未关注时没有倒计时)
+     "task_status":"accepted","advanced":false}}}
+```
+
+**客户端只能读它,写不了它**。把下载到的 8 份成长中心 bundle 原文里的 `/activity/growth/*`
+端点全枚举出来(**现读 2026-11-05:42 条,GET 27 + POST 15**),含 `subscri` 字样的**只有 1 条,
+就是上面那条 GET**;写侧(POST)碰关注关系的**0 条**。写端点只有这些:
+
+| 写端点 | 干什么 | 能不能碰关注关系 |
+| --- | --- | --- |
+| `post /activity/growth/tasks/accept` | 接受任务(`{task_codes:[...]}`,数组) | 否——该项本来就已 `accepted`,accept 对它是空转 |
+| `post /activity/growth/tasks/{code}/claim` | 领奖 | 否——`400 task not completed`,判完成权在服务端 |
+| `post /activity/growth/redeem`、`lottery/draw`、`makeup-cards/use`、`buddy/open|switch|agreement|first|visible`、`buddy/travel/depart|claim`、`heatmap/share`、`user-state/dismiss` | 兑换/抽奖/补签/伙伴/分享 | 与订阅任务无关 |
+
+官方取任务列表那个函数 `to()` 自己的实现就是「**先 `qa()`(读一次订阅状态)→ 再 GET 列表**」
+——也就是说,客户端对这一项唯一能做的动作,是**问一次、让服务端重算一遍**,没有任何"代做"通道。
+
+> ⚠ **更正**:本节初版写的取证依据是「客户端 asar 里搜 `follow-guide` / `events/follow` 0 命中」。
+> 那是**搜错了面**:成长计划页是端内 iframe 远程加载的网页(`?platform=workbuddy`),
+> 根本不打包进 asar,所以在 asar 里搜不到只能证明"不在包里",证明不了"做不到"。
+> 现在的结论换成上面服务端直读 + 官方端点全枚举,量级更强。
+
+任务条件原文:**「关注「腾讯 WorkBuddy」官方公众号满 24 小时,即可领取奖励」**,
+跳转 `https://www.workbuddy.cn/events/follow-guide/`(该页渲染三个二维码:公众号 / 视频号 / 服务号)。
+
+⇒ 关注关系挂在**微信账号**上、还有**满 24 小时**的时间窗 ⇒ **关注动作只能由机主本人用微信完成**,
+程序侧无捷径,**也不应伪造关注**。
+
+#### 9.1b 关于「人家程序不用扫就能完成」
+
+按上面的端点表,这句话只有三种落得下去的读法,前两种我们都做不了、也不需要:
+
+1. **那个号早就关注过了**——`subscribed` 已经是 `true`,所以"现在"不用再扫。这是最常见的读法,
+   和我们这两个号的区别只在"以前扫过一次"。
+2. **在微信里点链接关注,不走相机扫码**——关注还是发生了,只是入口是聊天/文章里的「关注」按钮
+   而不是二维码。省的是"扫"这个动作,不省"关注"这个事实。
+3. **它的程序根本没完成这一项**——只把其余 17 项做完,这一项跳过。我们的号现在就是这个形态
+   (18 项里 `completed=17`,唯一非终态就是这一项)。
+
+第四种读法(拿某条端点把 `subscribed` 伪造成 `true`)在这套 API 里**不存在**;即便存在,
+仓内也不做——伪造关注关系不是自动化,是骗服务端发奖。
+
+
+### 9.2 程序覆盖的是「关注之后 → 领奖」这一段
+
+服务端一旦把关注判成立,任务 `accept_status` 会翻成终态。仓内因此有一条收口命令:
+盯住状态、到账即领。**每轮先 GET 一次 `subscribe-task/status` 再读任务列表**——和官方 `to()`
+同一个时序,顺带触发服务端重算关注关系(只读列表会拿到旧判定,可能永远等不到翻面)。
+
+```bash
+# 只读:每个号一行,把「卡在哪一格」直接说给人看
+node scripts/workbuddy-growth-oauth.mjs --status
+# —— 2026-11-05 实测(两个号都还没关注)——
+# [0bc1074d] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 关注关系=服务端未检测到
+# [25913b4a] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 关注关系=服务端未检测到
+# —— 关注之后的两种形态(判据形状,不是当次读数)——
+# [0bc1074d] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 已关注,24h 窗还差 1h02m
+# [0bc1074d] completed 1/1 奖励=100c/5e 已到账=false 待领=true  | 已关注(倒计时读数已过窗或无)
+```
+
+| 行末那一格 | 意思 | 下一步 |
+| --- | --- | --- |
+| `关注关系=服务端未检测到` | 微信那边还没关注上 | 机主在微信里关注(扫码或点链接都行) |
+| `已关注,24h 窗还差 NhNNm` | 关注已判成立,正在等满 24 小时 | 什么都不用做,`--watch` 会盯着 |
+| `已关注(倒计时读数已过窗或无)` | 关系成立且没有余量读数 | 该项应当即将翻 `completed`,下一轮 `--watch` 直接领 |
+| `关注关系未判定(…)` | 这条状态**读不到**(网络/形状变/业务码非 0) | 是"没量到",**不是**"没关注"——绝不拿它当事实(§0.3) |
+
+| 关注点 | 文件 |
+| --- | --- |
+| 命令行入口(只读状态 / 轮询到账即领) | `scripts/workbuddy-growth-oauth.mjs` |
+| 机器锁(纯函数,离线可跑) | `scripts/tests/workbuddy-growth-oauth.test.mjs` |
+| 「直接跑 vs 被 import」守卫(单一真相源) | `scripts/lib/direct-run.mjs` |
+
+```bash
+# 只读:列出每个号这一项的状态
+node scripts/workbuddy-growth-oauth.mjs --status
+
+# 轮询:服务端判完成即调 claim 领奖(默认每 5 分钟一次,总预算 25 小时,覆盖满 24h 窗口)
+node scripts/workbuddy-growth-oauth.mjs --watch
+node scripts/workbuddy-growth-oauth.mjs --watch --interval 300 --timeout 90000
+```
+
+退出码:`0` 已到账 / `1` 未领到(条件未到,不是失败) / `2` 未判定(环境·输入·读不到任务)。
+
+### 9.3 状态词口径(别按字面猜)
+
+| `accept_status` | 含义 | 本命令怎么处理 |
+| --- | --- | --- |
+| `accepted` | 任务已接受、**等行为**(≠ 完成) | 继续等 |
+| `completed` | 行为完成、奖励**可领** | 调 claim 领奖 |
+| `claimed` | 奖励**已领取**(到账) | 跳过领奖,退出该号的轮询 |
+
+⚠ 把 `accepted` 当成「已完成」会让引擎跳过真待办;把 `claimed` 当成「可领」会让引擎**反复重领**
+(实测踩过,现按 `claimed` 直接收口)。
+
+### 9.4 纪律
+
+- **受理 ≠ 到账**:领奖端点 HTTP 200 **不**等于领到了,以响应体 `code` 为准(§0.3)。
+  服务端回「already claimed」也算已到账。
+- **不伪造关注**:程序不模拟任何关注行为,只读状态 + 领奖。
+- **凭据只在进程内流动**:输出只报 uid 前缀与状态,不回显 token。
+- **取不到输入 ⇒ 报未判定**:任务列表里没有这一项时,报「未判定」并退出该号的轮询,
+  不退化成「失败」、不编造进度。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

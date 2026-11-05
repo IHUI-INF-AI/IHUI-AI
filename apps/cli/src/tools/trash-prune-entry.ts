@@ -3,29 +3,48 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * doubao-voice-api — 纯 API 调用已下沉到 @ihui/api-client,本文件仅做 re-export。
+ * 回收站「到期清理」的**可执行入口**(goal-b49 X1 席 adapter 的调度腿唯一调用面)。
  *
- * 平台特定逻辑(如 voiceChatByFile 需读取本地音频文件为 base64)保留在本端:
- * 各端文件读取 API 不同(RN: expo-file-system / Taro: Taro.readFile),故不下沉。
+ * 为什么单独一档:adapter(`./trash-prune.js`)是**纯函数** —— 不读 env、不写 stdout、不起调度,
+ * 调度归 `scripts/git-guardian.mjs` 的巡检轮(判机器状态 ⇒ 不进提交链,§12e)。守护腿是 .mjs、
+ * 端内实现是 TS,两者跨进程 ⇒ 本文件就是那道边界:把结论打成**一行机器可读的结论行**
+ * (`TRASH-PRUNE state=… gate=…`),守护腿只读这一行,不复制任何判据(§0.6)。
  *
- * 注意:@ihui/api-client 的 sendVoiceMessage 等返回 Promise<ApiResult<T>>,
- * voiceChatByFile 通过 unwrapApi 解包为 Promise<T>,保持原签名向后兼容。
+ * 跑法(与本仓既有 tsx 入口同型,见 `scripts/auto-evolve.mjs` 的 `TSX_ENTRY`):
+ *   node <repo>/apps/cli/node_modules/tsx/dist/cli.mjs \
+ *        <repo>/apps/cli/src/tools/trash-prune-entry.ts --workspace <repo>
+ *
+ * 退出码:**打印了结论行 ⇒ 0**(结论好坏由 `state=` 字段承载,不让退出码二义化 —— 「判不出」
+ * 与「崩了」必须分得开:前者有结论行、后者没有);没打印出来 ⇒ 1(崩了 / 入参不合法),
+ * 守护腿据此判「未跑成」而不是「没有过期件」(§0.3)。
  */
-import { sendVoiceMessage } from '@ihui/api-client'
-import type { VoiceChatResult } from '@ihui/api-client'
-import { readFileToBase64 } from './file-utils'
-import { unwrapApi } from './api-bridge'
 
-// textToSpeech/TtsResult 已随门 8 死调用清账删除(2026-09-28):真 TTS 音频通道 = fetchTextToSpeechAudio
-export { sendVoiceMessage, speechToText, getVoiceModels } from '@ihui/api-client'
-export type { VoiceChatResult } from '@ihui/api-client'
+import { pruneExpiredTrash } from './trash-prune.js';
 
-export async function voiceToBase64(filePath: string): Promise<string> {
-  return readFileToBase64(filePath)
+/** 取旗标值;缺旗标 / 下一个 token 仍是旗标 ⇒ null(不猜)。 */
+function flagValue(argv: readonly string[], name: string): string | null {
+  const at = argv.indexOf(name);
+  if (at < 0) return null;
+  const value = argv[at + 1];
+  return value !== undefined && !value.startsWith('--') ? value : null;
 }
 
-export async function voiceChatByFile(filePath: string): Promise<VoiceChatResult> {
-  const base64 = await voiceToBase64(filePath)
-  return unwrapApi(sendVoiceMessage(base64))
+/** 单行化:机器读的行不许换行;空白压成下划线,免得解析端要处理多行值。 */
+function oneLine(text: string): string {
+  return String(text).replace(/\s+/g, '_');
+}
+
+const argv = process.argv.slice(2);
+const workspace = flagValue(argv, '--workspace') ?? process.cwd();
+
+const result = pruneExpiredTrash(workspace);
+
+// 结论行:adapter 自己那一份 summary(判据层原样透出),此处**一字不改**地转述。
+process.stdout.write(`${result.summary}\n`);
+for (const skip of result.skipped) {
+  process.stdout.write(`TRASH-PRUNE-SKIP reason=${oneLine(skip.reason)}\n`);
+}
+for (const fail of result.failed) {
+  process.stdout.write(`TRASH-PRUNE-FAIL reason=${oneLine(fail.reason)}\n`);
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
