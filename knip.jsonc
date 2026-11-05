@@ -122,7 +122,15 @@
       // 真入口 src/index.ts 一起写上,否则补一个就丢一个。
       // worker-entry.ts 由 SubagentWorkerPool 以 path.join(hereDir,'worker-entry.js') 解析后
       // fork() 装载(worker-pool.ts:1324/:776)—— 路径拼接,knip 静态图不可见。
-      "entry": ["src/index.ts", "src/subagents/worker-entry.ts"],
+      // 2026-11-05(棘轮 +1 归因,删本项即复原):trash-prune-entry.ts 是回收站到期清理的**进程入口**,
+      // 唯一调用方是守护腿 scripts/lib/git-guardian-trash-expiry.mjs:36 —— 它按
+      // path.join('apps','cli','src','tools','trash-prune-entry.ts') 拼路径后 spawn 一次 tsx 进程,
+      // 读该入口打印的结论行。它是被 spawn 的执行面,不是被 import 的模块;而 scripts/** 已在根
+      // ignore 里 ⇒ knip 的 import 图结构上到不了它,于是把它算成「未引用文件」。
+      // 归类选 entry 而非 ignore:它确实是运行时根(有真实调用方、有真实输出),ignore 会把真入口
+      // 标成死文件豁免。反向例(实测,79d32f2b16 树上):留着这一项 ⇒ files 9;删掉 ⇒ files 10,
+      // 该文件重新掉回 Unused files。锚点一直是「真实调用方在」,不是「让数字好看」。
+      "entry": ["src/index.ts", "src/subagents/worker-entry.ts", "src/tools/trash-prune-entry.ts"],
       "project": ["src/**/*.ts"],
       // 2026-10-20:esbuild/postject 是 SEA 单文件构建链(build-sea.mjs / build-npm.mjs)的
       // 真依赖,但这两个构建脚本位于 apps/cli/scripts/,在本 workspace 的 project 模式
