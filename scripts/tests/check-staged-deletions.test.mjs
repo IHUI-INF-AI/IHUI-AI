@@ -301,4 +301,39 @@ test('E3 端到端:改名 ⇒ exit 0;同一笔提交把被测模块也删掉 ⇒
   assert.equal(r.status, 0, `源模块自己也被删 ⇒ 题二不成立,实际 ${r.status}\n${r.stdout}`)
 })
 
+// 2026-11-05 补:实测于 packages/app 的 model-edit-save 退役。测试与源模块同批删除,但测试里还有
+// `import type { … } from '../../../types'` 这类**仅类型**说明符;E3 按"import 的文件仍存活"判,会把
+// 活的 types.ts 顶替已退役的被测模块 ⇒ 落 test-red(门 99 识别不出"仅类型 import + 被测符号全退役")。
+// 该形态只能走台账豁免,故成对钉住:①不加台账 ⇒ 还原误判为红;②台账命中 ⇒ 放行;③until 过期 ⇒ 失效。
+test('E3:同批删测试与源模块,但测试仍 import 存活类型文件 ⇒ test-red;台账豁免放行且逾期失效(本仓 model-edit-save 同型)', () => {
+  const T = 'packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts'
+  const M = 'packages/app/src/features/model-edit/model-edit-save.ts'
+  const TYPES = 'packages/app/src/types.ts'
+  const src =
+    "import { submitModelEdit } from '../model-edit-save'\n" +
+    "import type { ModelEditFormValues } from '../../../types'\n\n" +
+    "test('x', () => submitModelEdit({} as ModelEditFormValues))\n"
+  const files = { [T]: src }
+  const opts = {
+    livePaths: [TYPES],
+    readBlob: (p) => (p in files ? { text: files[p], from: 'fixture' } : null),
+    absent: new Set([M]),
+  }
+  const red = __test__.auditTestDeletions([T], opts)[0]
+  assert.equal(red.verdict, 'test-red', '仅类型 import 的存活文件会顶替已被同批删除的被测模块 ⇒ 门的已知误判形态')
+  assert.equal(red.modules[0]?.path, TYPES, '必须点名被误认成被测模块的那个类型文件')
+  const allow = __test__.parseAllowlist(
+    JSON.stringify({ paths: [{ path: T, reason: '被测能力已上收,等价测试在 @ihui/shared' }] }),
+    'fixture.json',
+  ).entries
+  const ok = __test__.auditTestDeletions([T], { ...opts, allow })[0]
+  assert.equal(ok.verdict, 'test-allowlisted', '台账豁免必须能把该误判形态放行')
+  assert.match(ok.note, /上收/)
+  const expired = __test__.parseAllowlist(
+    JSON.stringify({ paths: [{ path: T, reason: 'x', until: '2020-01-01' }] }),
+    'fixture.json',
+  ).entries
+  assert.equal(__test__.auditTestDeletions([T], { ...opts, allow: expired })[0].verdict, 'test-red', '过期豁免必须失效')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

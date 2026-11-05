@@ -244,26 +244,82 @@ node scripts/workbuddy-growth-experts.mjs --do-all
 
 ## 9. 公众号关注项:「关注」不可自动化,「领奖」可以(2026-11-05 立)
 
-### 9.1 为什么这一项自动不了(三面取证)
+### 9.1 为什么这一项自动不了(2026-11-05 二次取证,已更正)
 
-`wb_wechat_oa_subscribe_task`(奖励 100 积分 + 5 能量)的判定**完全在服务端**,三面都查过了:
+`wb_wechat_oa_subscribe_task`(奖励 100 积分 + 5 能量)的判据是**服务端的一个布尔**,
+服务端自己把它回给客户端:
 
-| 取证面 | 结果 |
-| --- | --- |
-| 客户端 asar 全文搜 `wb_wechat_oa_subscribe_task` / `follow-guide` / `events/follow` | **0 命中** ⇒ 客户端既不发起关注、也不参与判定 |
-| 客户端页面找「关注 / 二维码 / 公众号」 | 一个都没有(只有 `__launchWechat__`、`__copyQRCodeHandler` 这类通用能力) |
-| 直接调领奖端点 | `POST /v2/activity/growth/tasks/wb_wechat_oa_subscribe_task/claim` ⇒ `400 {"code":400,"msg":"task not completed"}` |
+```bash
+GET https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status
+⇒ {"code":0,"data":{"subscribe_task":{
+     "task_code":"wb_wechat_oa_subscribe_task",
+     "subscribed":false,          ← 关注关系成不成立,就看这一个字段
+     "remaining_seconds":-1,      ← 满 24 小时窗的余量(未关注时没有倒计时)
+     "task_status":"accepted","advanced":false}}}
+```
+
+**客户端只能读它,写不了它**。把下载到的 8 份成长中心 bundle 原文里的 `/activity/growth/*`
+端点全枚举出来(**现读 2026-11-05:42 条,GET 27 + POST 15**),含 `subscri` 字样的**只有 1 条,
+就是上面那条 GET**;写侧(POST)碰关注关系的**0 条**。写端点只有这些:
+
+| 写端点 | 干什么 | 能不能碰关注关系 |
+| --- | --- | --- |
+| `post /activity/growth/tasks/accept` | 接受任务(`{task_codes:[...]}`,数组) | 否——该项本来就已 `accepted`,accept 对它是空转 |
+| `post /activity/growth/tasks/{code}/claim` | 领奖 | 否——`400 task not completed`,判完成权在服务端 |
+| `post /activity/growth/redeem`、`lottery/draw`、`makeup-cards/use`、`buddy/open|switch|agreement|first|visible`、`buddy/travel/depart|claim`、`heatmap/share`、`user-state/dismiss` | 兑换/抽奖/补签/伙伴/分享 | 与订阅任务无关 |
+
+官方取任务列表那个函数 `to()` 自己的实现就是「**先 `qa()`(读一次订阅状态)→ 再 GET 列表**」
+——也就是说,客户端对这一项唯一能做的动作,是**问一次、让服务端重算一遍**,没有任何"代做"通道。
+
+> ⚠ **更正**:本节初版写的取证依据是「客户端 asar 里搜 `follow-guide` / `events/follow` 0 命中」。
+> 那是**搜错了面**:成长计划页是端内 iframe 远程加载的网页(`?platform=workbuddy`),
+> 根本不打包进 asar,所以在 asar 里搜不到只能证明"不在包里",证明不了"做不到"。
+> 现在的结论换成上面服务端直读 + 官方端点全枚举,量级更强。
 
 任务条件原文:**「关注「腾讯 WorkBuddy」官方公众号满 24 小时,即可领取奖励」**,
-跳转 `https://www.workbuddy.cn/events/follow-guide/`(该页是 SPA 空壳,微信环境内才渲染)。
+跳转 `https://www.workbuddy.cn/events/follow-guide/`(该页渲染三个二维码:公众号 / 视频号 / 服务号)。
 
 ⇒ 关注关系挂在**微信账号**上、还有**满 24 小时**的时间窗 ⇒ **关注动作只能由机主本人用微信完成**,
 程序侧无捷径,**也不应伪造关注**。
 
+#### 9.1b 关于「人家程序不用扫就能完成」
+
+按上面的端点表,这句话只有三种落得下去的读法,前两种我们都做不了、也不需要:
+
+1. **那个号早就关注过了**——`subscribed` 已经是 `true`,所以"现在"不用再扫。这是最常见的读法,
+   和我们这两个号的区别只在"以前扫过一次"。
+2. **在微信里点链接关注,不走相机扫码**——关注还是发生了,只是入口是聊天/文章里的「关注」按钮
+   而不是二维码。省的是"扫"这个动作,不省"关注"这个事实。
+3. **它的程序根本没完成这一项**——只把其余 17 项做完,这一项跳过。我们的号现在就是这个形态
+   (18 项里 `completed=17`,唯一非终态就是这一项)。
+
+第四种读法(拿某条端点把 `subscribed` 伪造成 `true`)在这套 API 里**不存在**;即便存在,
+仓内也不做——伪造关注关系不是自动化,是骗服务端发奖。
+
+
 ### 9.2 程序覆盖的是「关注之后 → 领奖」这一段
 
 服务端一旦把关注判成立,任务 `accept_status` 会翻成终态。仓内因此有一条收口命令:
-盯住状态、到账即领。
+盯住状态、到账即领。**每轮先 GET 一次 `subscribe-task/status` 再读任务列表**——和官方 `to()`
+同一个时序,顺带触发服务端重算关注关系(只读列表会拿到旧判定,可能永远等不到翻面)。
+
+```bash
+# 只读:每个号一行,把「卡在哪一格」直接说给人看
+node scripts/workbuddy-growth-oauth.mjs --status
+# —— 2026-11-05 实测(两个号都还没关注)——
+# [0bc1074d] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 关注关系=服务端未检测到
+# [25913b4a] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 关注关系=服务端未检测到
+# —— 关注之后的两种形态(判据形状,不是当次读数)——
+# [0bc1074d] accepted 0/1 奖励=100c/5e 已到账=false 待领=false | 已关注,24h 窗还差 1h02m
+# [0bc1074d] completed 1/1 奖励=100c/5e 已到账=false 待领=true  | 已关注(倒计时读数已过窗或无)
+```
+
+| 行末那一格 | 意思 | 下一步 |
+| --- | --- | --- |
+| `关注关系=服务端未检测到` | 微信那边还没关注上 | 机主在微信里关注(扫码或点链接都行) |
+| `已关注,24h 窗还差 NhNNm` | 关注已判成立,正在等满 24 小时 | 什么都不用做,`--watch` 会盯着 |
+| `已关注(倒计时读数已过窗或无)` | 关系成立且没有余量读数 | 该项应当即将翻 `completed`,下一轮 `--watch` 直接领 |
+| `关注关系未判定(…)` | 这条状态**读不到**(网络/形状变/业务码非 0) | 是"没量到",**不是**"没关注"——绝不拿它当事实(§0.3) |
 
 | 关注点 | 文件 |
 | --- | --- |
@@ -301,5 +357,52 @@ node scripts/workbuddy-growth-oauth.mjs --watch --interval 300 --timeout 90000
 - **凭据只在进程内流动**:输出只报 uid 前缀与状态,不回显 token。
 - **取不到输入 ⇒ 报未判定**:任务列表里没有这一项时,报「未判定」并退出该号的轮询,
   不退化成「失败」、不编造进度。
+
+## 10. 「已判完成 → 领奖」这一腿以前没人跑(2026-11-05 立)
+
+驱动客户端做完行为后,服务端把 `accept_status` 判成 `completed` —— **但奖励停在原地等按钮**。
+现读 2026-11-05:号池两个号 36 项里,`completed`(可领未领)攒了 **6 项**没人领。
+这一格是纯 API 动作,零人工:`POST /v2/activity/growth/tasks/{code}/claim`
+就是官方客户端「领取奖励」按钮自己那条端点。
+
+| 关注点 | 文件 |
+| --- | --- |
+| 命令行入口(dry-run / 全领 / 点名一枚) | `scripts/workbuddy-growth-claim.mjs` |
+| 机器锁(7 例,纯函数离线可跑) | `scripts/tests/workbuddy-growth-claim.test.mjs` |
+| 领奖实现与响应解析(**判据不复制**,§0.6) | `scripts/workbuddy-growth-oauth.mjs` 的 `claimTask` / `parseClaimResponse` |
+
+```bash
+node scripts/workbuddy-growth-claim.mjs --dry-run      # 只报有哪几项可领,不动服务端
+node scripts/workbuddy-growth-claim.mjs                # 可领的全领了
+node scripts/workbuddy-growth-claim.mjs --code chat_5  # 只领点名那一枚
+```
+
+**零人工的一键 SOP**(两条,顺序跑;第二条幂等,任何时候再跑都只会报「没有可领项」):
+
+```bash
+node scripts/workbuddy-growth-experts.mjs --do-all; node scripts/workbuddy-growth-claim.mjs
+```
+
+射程边界:
+
+- **只领 `completed`**。`accepted` = 行为还没做 ⇒ 不进射程(拿它去领奖是要一份没挣到的奖励);
+  `claimed` = 已到账 ⇒ 不重领。行内 `--code` 点了名但不在可领集 ⇒ **报未判定并回显该项实际状态**,
+  不静默当成「没有可领的」。
+- **本命令不代做任何行为**。行为要么已经真做过,要么归 §8 的驱动链,要么归 §9 的机主本人。
+
+### 10.1 实测战绩(2026-11-05)
+
+```
+[0bc1074d] 可领 1 项:Expert_lighthouse            ✅ +100积分/+5能量
+[25913b4a] 可领 5 项:WorkBuddy_Valorant / expert_use_maidehao / expert_use_douyinyin /
+                       expert_use_shangjia_xuanchuan / expert_use_bowangwang
+                                                    ✅ 全部到账(100/50/50/50/50 积分 + 各 5 能量)
+汇总:领到 6/6,失败 0,未判定 0
+```
+
+复跑同一条命令 ⇒ `没有可领项(共 18 项,均为终态或等行为)` × 2,幂等验证通过。
+号池现状(现读):**两号各 18 项 ⇒ 17 项 `claimed`,唯一非终态是 §9 那条公众号关注项**。
+
+变异验证:把可领集放宽到也认 `accepted`,镜像用例 ① 当场翻红(还原后 7/7 绿)。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
