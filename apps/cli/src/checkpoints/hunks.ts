@@ -22,7 +22,8 @@ import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
 // 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
-import { segmentPathInside } from '../util/path-guard.js';
+// manifest 里的 file 字段属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
+import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -118,11 +119,11 @@ export class HunkCheckpointManager {
 
   private resolveRel(filePath: string): string {
     const abs = path.isAbsolute(filePath) ? filePath : path.resolve(this.workspacePath, filePath);
-    const rel = path.relative(this.workspacePath, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    // 工具入参口径:允许工作区内的绝对路径(既有行为),只拒越界;判据走 path-guard。
+    if (!isPathInside(this.workspacePath, abs)) {
       throw new Error(`文件 ${filePath} 不在工作区 ${this.workspacePath} 内`);
     }
-    return rel.replace(/\\/g, '/');
+    return path.relative(this.workspacePath, abs).replace(/\\/g, '/');
   }
 
   /** 读取文件所有行(不含换行符),文件不存在时返回空数组。 */
@@ -208,6 +209,21 @@ export class HunkCheckpointManager {
     for (const e of entries) {
       if (!e.isDirectory() || !e.name.startsWith('hunk_')) continue;
       const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
+      // 只读也不能顺着根内符号链接目录读根外:读之前补一次根内断言。
+      try {
+        assertPathInside(this.baseDir, manifestPath, 'hunk 检查点清单');
+      } catch (err) {
+        const entry: CorruptManifestEntry = {
+          checkpointId: e.name,
+          manifestPath,
+          quarantinePath: null,
+          reason: 'io-error',
+          detail: `符号链接解析后落在 hunk 检查点根目录之外,拒绝读取:${err instanceof Error ? err.message : String(err)}`,
+        };
+        this.lastQuarantined.push(entry);
+        this.onCorrupt(entry);
+        continue;
+      }
       // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
       const result = readManifestChecked(manifestPath, e.name, isHunkCheckpointMeta, (entry) => {
         this.lastQuarantined.push(entry);
@@ -246,7 +262,8 @@ export class HunkCheckpointManager {
       return { restored: false, linesAffected: 0, reason: `hunkIdx ${hunkIdx} 越界(共 ${meta.hunks.length} 个 hunks)` };
     }
     const hunk = meta.hunks[hunkIdx]!;
-    const absInWorkspace = path.join(this.workspacePath, meta.file);
+    // meta.file 来自 manifest(持久化不可信输入):写回前先按工作区相对路径重判。
+    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 回滚目标');
     const currentLines = this.readLines(absInWorkspace);
 
     // 按记录的行范围替换,行号超出当前文件时截断
@@ -293,7 +310,8 @@ export class HunkCheckpointManager {
   diffHunks(checkpointId: string): Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> {
     const meta = this.get(checkpointId);
     if (!meta) return [];
-    const absInWorkspace = path.join(this.workspacePath, meta.file);
+    // 同源只读:与 restoreHunk 同一判据。
+    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 对比目标');
     const currentLines = this.readLines(absInWorkspace);
     const result: Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> = [];
     meta.hunks.forEach((hunk, idx) => {

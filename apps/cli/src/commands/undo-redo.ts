@@ -21,6 +21,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+// 会话 id 与 history 里的 filePath 都是持久化/外部来源:落点判据统一走 util/path-guard。
+import { resolvePathInsideRoot, segmentFilePathInside } from '../util/path-guard.js';
 // D163 回退臂(2026-10-18 立):撤回前后的工作区快照与比对。
 // 接进来的唯一理由:/undo 现在的失败路径是**异常冒泡**——applyChange 用
 // fs.writeFileSync/unlinkSync,中途任一文件写失败就整段抛出,返回面里
@@ -197,7 +199,8 @@ export class UndoRedoManager {
   }
 
   private getHistoryFile(sessionId: string): string {
-    return path.join(this.getHistoryDir(), `${sessionId}.json`);
+    // sessionId 可能来自 --session/历史数据:收敛成单段名并断言在历史目录内。
+    return segmentFilePathInside(this.getHistoryDir(), sessionId, '.json', '撤销历史文件');
   }
 
   /**
@@ -388,9 +391,9 @@ export class UndoRedoManager {
    * @param reverse true=反向(beforeContent → 文件,用于 undo);false=正向(afterContent → 文件,用于 redo)
    */
   private applyChange(change: FileChange, reverse: boolean): void {
-    const fullPath = path.isAbsolute(change.filePath)
-      ? change.filePath
-      : path.resolve(this.workspacePath, change.filePath);
+    // history 是持久化文件(可被篡改),filePath 视为不可信输入:
+    // 相对路径按工作区解析,绝对路径照旧接受,但解析后都必须落在工作区内,否则拒。
+    const fullPath = resolvePathInsideRoot(this.workspacePath, change.filePath, '撤销目标文件');
     const content = reverse ? change.beforeContent : change.afterContent;
     if (content === null) {
       // reverse=true 且 beforeContent=null → 文件原本不存在,删除当前文件
