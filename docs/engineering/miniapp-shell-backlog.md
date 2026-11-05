@@ -152,4 +152,104 @@
 - 页内「自绘块」行号由 TS AST 取最外层 JSX 直接子元素起始行（`D:\DevEnv\Temp\ihui-jsx\blocks.mjs`），共享屏缺块由 props 契约（`packages/types/src/app-*.ts`）与 RN 消费壳交叉核对。
 - 桶①的 2 页均按「0 新增 prop」入门槛；其余 87 页要么缺整屏/大块，要么所需新增 prop 只有小程序会消费（如 `hideBack`、`mode`、版本号），按用户口径降级桶②。
 - `pages/index/index`、`pkg-ai/ai/chat` 等 11 个 `local-delta` 页与纯复制页同口径判定（门 299 的 local-delta 只表示有数据层迹象，不改变缺口性质）。
+
+## 批次③（内容域）可达性复核（2026-11-05）
+
+范围：`--explain` 域内 17 页（`pkg-content/*` 2 页 + `pages/*` 内容类 15 页），全部 ②/③，**0 页可达①**。本批**不换壳、不新建/改共享屏、不改页面源码**；**不写「已薄壳」、不计入复制页下降**；台账 `scripts/data/miniapp-shell-copy-ledger.jsonl` 93 行只读。
+
+| 路由 | LOC | 声明共享屏 | 真假 | 缺段（估算行） | 补齐后只有单端消费的原因 |
+|---|---|---|---|---|---|
+| pkg-content/plaza/cover/index | 374 | features/plaza-cover/PlazaCoverScreen.tsx | 假（共享屏是 AI 需求广场引导封面；本页是开发者空间） | 头部状态+续费 36 / 未开发者引导卡 20 / 成为开发者 12 / 三入口 45 / 账号信息卡 50 / FAQ 30 | 另一端有但没接：RN `DeveloperScreen.tsx:162` 已消费开发者空间，web `(main)/developer/PageClient.tsx` 有同名空间；差入口数 3 vs 4 与信息卡行映射 |
+| pkg-content/plaza/set-need/index | 177 | features/set-need/SetNeedScreen.tsx | 假（偏好选择 vs 发布需求表单） | 偏好选择整屏 ~150 | 两端都没有：web `plaza/new` 与 RN `SetNeedScreen.tsx:125` 都是发布需求 |
+| pages/plaza/index/index | 476 | features/plaza/PlazaScreen.tsx | 真 | 分类抽屉 60 / 身份切换 50 / 详情居中弹层 70 | 另一端有主体但没接：RN `PlazaScreen.tsx:496`；web `(main)/plaza` 是社区广场，无需求广场 |
+| pages/share/index | 913 | features/share/ShareScreen.tsx + square/SquareScreen.tsx | 假（共享屏是单条分享，页是分享广场） | 信息流 600 / 分类 60 / 排行 80 / 分享卡 60 / 抽屉浮层 90 | 两端都没有：web `(main)/share` 仅 redirect；RN `ShareScreen.tsx:287` 是单条详情 |
+| pages/community/index | 1003 | features/agent-screen/AgentScreen.tsx | 假（智能体屏 vs 社区信息流） | 信息流 700 / 分类弹层 80 / Banner 60 / 聊天聚合 60 | 两端都没有：web `(main)/plaza` 是圈子/问答两 tab |
+| pages/circle/detail | 412 | features/post-detail/PostDetailScreen.tsx | 假（需求/帖子详情，无评论列表/输入/关注/收藏） | 关注 15 / 互动条 30 / 评论列表 80 / 评论输入 40 / 错误态 20 | 两端都没有动态详情：web `(main)/circles/[id]` 与 RN `CircleDetailScreen.tsx:96` 都是圈子主页 |
+| pages/circle/create | 407 | features/post-create/PostCreateScreen.tsx | 假（社区帖 title/content/tags） | 话题 45 / AIGC 40 / 可见范围 50 / 评论开关 15 / 草稿 40 | 另一端有同类能力但字段不匹配：RN `CirclePostScreen.tsx:10` + web `(main)/circles/post`（选圈/标题/正文/图≤9） |
+| pages/ask/create | 375 | features/ask-create/AskCreateScreen.tsx | 部分（title/content/tags 真，RN `AskCreateScreen.tsx:51`） | 分类 45 / 悬赏 30 / 配图 40 / 匿名 15 | 两端都没有这 4 段：web `asks/edit/AskEditForm.tsx` 与 RN `AskEditScreen` 只有三字段 |
+| pages/exam/detail | 275 | features/exam/ExamScreen.tsx + exam-history/ExamHistoryScreen.tsx | 假（列表/历史 vs 试卷详情） | 试卷信息卡 60 / 开始考试 20 / 历史战绩 60 | 另一端有但没接：web `(main)/exam/[id]/ExamIntro.tsx`、RN `ExamQuestionScreen.tsx:209`/ExamHistory；缺共享试卷介绍屏 |
+| pages/exam/result | 275 | features/exam-result/ExamResultScreen.tsx | 部分（stats/review 已抽且 web 真 import） | rank 8 / 底部三操作 18 / 无 id query 兜底 13 | 两端都没有：RN `ExamResultScreen.tsx:50` 与 web `PageClient.tsx` 均无 → 缺段表 |
+| pages/study/index | 201 | features/study-index/StudyIndexScreen.tsx + study-progress/StudyProgressScreen.tsx | 部分（课程网格真） | 5 入口宫格 80 / 进度总览 60 | 另一端有但没接：RN 两屏均已在，缺组合接线 |
+| pages/study/record | 189 | features/study-record/StudyRecordScreen.tsx | 真（RN `StudyRecordScreen.tsx:78`） | 三态 tab 50 / 触底分页 40 | 两端都没有 tab/分页：共享屏只有下拉刷新，新增 props 仅小程序消费 |
+| pages/study/plan | 199 | features/study-plan/StudyPlanScreen.tsx | 真（RN `StudyPlanScreen.tsx:89`） | 计划编辑 80 / 专注输入 40 | 另一端有表单但没接：RN `PlanNewScreen.tsx:59` + web `(main)/plan/new`；专注输入两端都没有 |
+| pages/study/rank | 153 | features/ranking/RankingScreen.tsx | 部分（积分榜 range+points） | minutes 列 20 / 无 range/返回 15 | 两端都没有：web 用 `score`、RN 用 `points`，`minutes` 语义不同 |
+| pages/study/my-study/index | 226 | features/study-record/StudyRecordScreen.tsx + ranking/RankingScreen.tsx | 假（两屏拼装，无「我的学习」聚合） | 聚合头 60 / 记录+排行入口 60 | 两端都没有聚合页：RN 两屏分别存在但无组合屏 |
+| pages/study/publish/index | 160 | features/study-publish/StudyPublishScreen.tsx | 真（RN `StudyPublishScreen.tsx:257`） | 可见范围/标签 40 | 另一端有发布表单但字段不匹配：页 title/content/category/visibility/tags vs 共享屏 cover/category/stage |
+| pages/study/video-detail/index | 420 | features/video-player/VideoPlayerScreen.tsx | 真（RN `VideoPlayerScreen.tsx:268`） | 详情 60 / 目录交互 60 / 分享 20 | 另一端有播放器但没接全：RN 有播放器+章节，web learn 视频页有播放；详情/目录/分享两端不完整 |
+
+### 补共享层的机会（下一轮真能做的）
+
+只列「web 或 RN 已有能力、只是没接」；「两端都没有」归不可达，不为单源给 web 造功能。
+
+1. `pkg-content/plaza/cover/index`（最高优先，误挂）：正确同构是 `features/developer/DeveloperScreen.tsx`；RN `DeveloperScreen.tsx:162` 已消费，web `(main)/developer/PageClient.tsx` 有开发者空间；需映射信息卡行与入口数。
+2. `pages/exam/detail`：web `ExamIntro.tsx` 有试卷信息+开始，RN 有 `ExamQuestionScreen.tsx:209`/ExamHistory；缺共享「试卷介绍」屏。
+3. `pages/circle/create`：RN `CirclePostScreen.tsx:10` + web `(main)/circles/post` 有选圈/标题/正文/图≤9；缺话题/AIGC/可见范围/评论开关。
+4. `pages/plaza/index/index`：RN `PlazaScreen.tsx:496` 有列表主体；缺分类抽屉/身份切换/详情弹层。
+5. `pages/study/plan`：RN `PlanNewScreen.tsx:59` + web `(main)/plan/new` 有表单；专注输入两端都无（该段判不可达）。
+6. `pages/study/publish/index`：RN `StudyPublishScreen.tsx:257` + web 发布表单；字段集需统一。
+7. `pages/study/video-detail/index`：RN `VideoPlayerScreen.tsx:268` 有播放器+章节；详情/目录/分享需补。
+8. `pages/study/index`：RN `StudyIndexScreen` + `StudyProgressScreen` 已在；缺组合接线。
+9. `pages/study/record`：RN `StudyRecordScreen.tsx:78` 有列表+统计；tab/分页两端都无（该两段判不可达）。
+
+### `pages/exam/result` 三段定性（只许抽段 + web 真 import）
+
+| 段 | 现状 | web | RN | 定性 |
+|---|---|---|---|---|
+| rank 行 | `result.tsx:219-226` | `PageClient.tsx:54`/`:59` 无 rank | `ExamResultScreen.tsx:50` 无 rank | 不可达/缺段 |
+| 底部三操作 | `result.tsx:252-269` | 无三操作/分享（仅 `:126`/`:143`/`:158` href） | 无 | 不可达/缺段 |
+| 无 id 用 query 兜底 | `result.tsx:68-80` | `enabled: !!id`（`:65`），无 query 兜底 | 无 | 不可达/缺段 |
+
+以上三段保持「缺段」，不硬扩、不计入复制页下降。
+
+## 口径收口票（2026-11-06；11 行，待合面后由单线一次性改台账）
+
+核对面：`D:\IHUI-AI-wt-content-merge` HEAD `8b2be8d9`（台账 93 行）。行 72 的本方退休尚未合面，见末行备注。票内 route 已逐行与台账原文对齐；此前票上 `pkg-user/...` 属笔误，实际为 `pages/circle/create` / `pages/circle/detail`。
+
+| 行 | route | 现状证据（一句） | 建议动作（一句） |
+|---|---|---|---|
+| 2 | `pages/circle/create` | 407 行；声明 `features/post-create/PostCreateScreen.tsx:17`；页 `:5` 自述“端内独立实现……不参与镜像对账” | 只留备注，不动台账 |
+| 3 | `pages/circle/detail` | 412 行；声明 `features/post-detail/PostDetailScreen.tsx:32`；页 `:5` 同自述 | 只留备注，不动台账 |
+| 18 | `pages/plaza/index/index` | 合面树已 retired（`81a06108`） | 已闭环，不动 |
+| 24 | `pages/setting/privacy` | 合面树已 retired（资讯线 `972b2d3b8d`） | 已闭环，归资讯线 |
+| 38 | `pkg-ai/ai-assistant-n8n/index` | 166 行；声明 `features/n8n-model/N8nModelScreen.tsx`；共享屏是编辑屏，页是「n8n 助手列表」整屏 | 只留备注，不动 |
+| 39 | `pkg-ai/ai-career/index` | 162 行；声明 `features/ai-career/AiCareerScreen.tsx`；registry 已记 2026-11-02 `not-app` 摘除 | 只留备注，不动 |
+| 41 | `pkg-ai/ai-group/index` | 台账 241 行；chat 线已做真壳（页面 240→86、2 枚开标签、直吃 `AgentScreen.tsx:748`） | 本条作废，不动 |
+| 55 | `pkg-ai/ranking/index` | 263 行；声明 `features/ranking/RankingScreen.tsx`；共享屏只有周/月/总切换，页有搜索+多维榜单 | 只留备注，不动 |
+| 60 | `pkg-content/plaza/cover/index` | 合面树已 retired（`81a06108`） | 已闭环，不动 |
+| 63 | `pkg-content/share/creation` | 早已 retired（`retiredFrom` loc=283；当前文件 134 行） | 已闭环，不动 |
+| 72 | `pkg-learn/teacher/detail` | 我方 `feat/agent-home-sections` `68206d93` 已按退休通道摘除；合面树 HEAD 仍 active | 合面后即闭环，不动 |
+
+补正说明：仅行 2/3 存在 route 错位；行 38/39/55 此前票上 route 留空，本次补齐；其余 route 与台账逐字一致，无第二处同类错位。
+
+## 轮播段结构下限（`pages/community/index`，2026-11-06）
+
+事实面（两端调用点：页 `apps/miniapp-taro/src/pages/community/index.tsx:746`；RN `apps/mobile-rn/src/screens/AgentScreen.tsx:689`）：
+
+- 现成共享件 `packages/app/src/features/_shared/BannerCarousel.tsx`，props 仅 `images: ImageSourcePropType[]` + `height?`；真消费端 `CoursePlanetScreen.tsx:123`、`MoreCourseScreen.tsx:176`（RN 壳 `:85`/`:107`，小程序 `pkg-mirror2/more-course/index.tsx:18-23`）。
+- 数据结构：页 `CarouselItem{img:string,title?,subtitle?}` ← `getHomePage().banner`（`coverUrl` 必填）；RN `CarouselSlide{img:string|number,title?,link?}` ← agents 前 5 头像；共享件 `ImageSourcePropType[]`，无 title/link。
+- 比例：页整屏等分 `100/total%`、高 160、`aspectFill`；RN `itemWidth ?? useAppFrameWidth()`、高 160、`cover`；共享件容器实测宽/窗口宽、高 160、`cover`。
+- 边距：页 wrapper `margin 18rpx 0 0 0` + 渐变描边；RN `carouselWrap` marginTop 18rpx / 水平 20rpx；共享件无（调用方自包）。
+- 圆角：页/RN 各 16（组件 + 外层 16）；共享件 `rnRadius.lg`=8。
+- 指示点：几何三出口同源（bottom12/gap6/高6/宽6·16）；配色页 `foreground/80`·`/30`、RN `bg-white`·`bg-white/50`、共享件 `white98`·`white50`；点圆角页/RN md6·sm4、共享件 `rnRadius.xs`=2；点跳转仅页有（`goTo`）。
+- 自动播放：页显式 3000、RN 默认 3000、共享件写死 3000。
+- 点击行为：页整卡 → `item.link` `navigateTo`/toast；RN `TouchableOpacity` 0.9 → agent 对话（登录校验）；共享件无点击。
+- 空态：页同高静默盒；RN 同高 +「暂无轮播图」文案（调用点 `length>0` 守卫，实际不触发）；共享件 `return null`。
+- 失败图：页/RN 整项摘除；共享件无摘除。无图文案兜底（渐变 + title/subtitle）仅页有，依赖 miniapp `app.css`。
+
+三选一结论：**只能写结构下限**（不动代码、不新造第三件）。
+
+- 直接复用否：换 `BannerCarousel` 会改 RN 可见表现（点色、点圆角、圆角、点击反馈）与 web slide 宽（`#root` 宽 → 容器实测宽，左右裁切量变）。
+- 加性 prop 否：补齐至少需 7-8 个 prop，其中 `onDotPress`（指示点跳转）、空态同高盒、无图文案兜底三项只有小程序会传 ⇒ 单端 prop = 搬码；其余项虽可两端显式传，但会把仅做图片展示的共享件扩成带交互/空态/主题点的新件，且该件另有 2 个真实消费方，回归面与收益不符。
+- 结构下限：本段两端各自 `Carousel` 保留；`BannerCarousel` 不承接；`pages/community/index` 的 Banner 缺段仍按本文件第 35 行记录（「Banner 60」），不计入任何单源化成果。
+
+## 批次④ 段级上收读数（2026-11-06）
+
+- 共享件：`packages/app/src/features/agent-screen/AgentRecentUsed.tsx`（136 行，J8+T0=8）、`AgentMyApps.tsx`（166 行，J10+T0=10）。
+- 两端消费：RN `components/RecentAgents.tsx:37`、`components/MyAgents.tsx:51`（屏幕使用点 `AgentScreen.tsx:711`/`:718`）；小程序 `pages/community/components/RecentAgents.tsx:54`、`MyAgents.tsx:58`（页面使用点 `index.tsx:814`/`:817`）。
+- 适配层 LOC：RN 132→46 / 178→64；小程序 82→63 / 91→71。
+- 重复 UI AST：41→22（RN `RecentAgents` 8→1、`MyAgents` 10→1；小程序 10→1、13→1；共享件 J8/J10）。
+- 页 AST：`pages/community/index.tsx` 51→51（J50+T1，LOC 1003→1003）。如实口径：两段在页内本就是页面级自闭合组件，上收共享件不降页内节点，降的是重复实现。
+- RN 零可见变化：共享件样式逐值复制 RN 原件；RN 旧件 J8/J10 与共享件 J8/J10 同构；`defaultAvatar ?? null` 与原 `undefined` 渲染等价；`emptyText` 两端显式传且值不同（RN 字符串、页 `null`）。
+- 门读数（树 `D:\IHUI-AI-wt-community`，HEAD `447a0c5d93`）：门 299 共享屏 274 / 在册页 329 / 薄壳 223 / 复制页 72（纯复制 63、本地改动 9；LOC 29162/45098=64.7%）/ 无法判定 0 / 台账 74 行；门 105 绿（自述钉 `8c729fcbef56…` matched `68206d93e1`）；门 173 绿（trackedFiles 19313 / testFiles 4138）。
+- 分支与 tip：`feat/agent-home-sections` / `447a0c5d937c3d07ef6a9c001dfbdab26d853c14`。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
