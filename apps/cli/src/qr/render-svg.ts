@@ -12,14 +12,14 @@
 import { type QrGrid, moduleAt } from './patterns.js';
 
 /** 静区(标准要求 ≥4 模块宽,扫码器靠它把码从页面底色里切出来) */
-export const QUIET_ZONE_MODULES = 4;
+const QUIET_ZONE_MODULES = 4;
 
 /** 深色模块:纯黑;浅色底:纯白 —— 对比度取满,不给屏幕反光留余地 */
-export const QR_DARK_COLOR = '#000';
+const QR_DARK_COLOR = '#000';
 export const QR_LIGHT_COLOR = '#fff';
 
 /** 每模块显示像素(1 模块 = 4px:29 模块的 v3 码约 148px 见方,手机贴近即可扫) */
-export const MODULE_PIXEL = 4;
+const MODULE_PIXEL = 4;
 
 export interface QrSvgOptions {
   /** 每模块像素,默认 4 */
@@ -61,7 +61,7 @@ export function darkModuleRuns(grid: QrGrid): ReadonlyArray<readonly [number, nu
 }
 
 /** 行程表 → 单一 `d` 字符串(静区偏移在这里一次性加进去;单位就是模块) */
-export function runsToPathD(
+function runsToPathD(
   runs: ReadonlyArray<readonly [number, number, number]>,
   quietZone = QUIET_ZONE_MODULES,
 ): string {
