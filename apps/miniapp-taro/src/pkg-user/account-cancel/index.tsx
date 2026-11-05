@@ -28,6 +28,27 @@ const CONSEQUENCE_KEYS = [
   'accountCancel.consequence7',
 ]
 
+/**
+ * 共享 AccountCancelScreen 的 i18n 键 → 本端既有词条。
+ * 未列出的键按原样走 i18n(不得回落到裸 key;门 299 T13 逐键断言)。
+ */
+export const ACCOUNT_CANCEL_TEXT: Record<string, string> = {
+  'settings.accountDeletionTitle': 'accountCancel.title',
+  'settings.accountDeletionWarning': 'accountCancel.warning',
+  'settings.accountDeletionPhoneLabel': 'accountCancel.phoneLabel',
+  'settings.accountDeletionPhonePlaceholder': 'accountCancel.phoneLabel',
+  'settings.accountDeletionCodeLabel': 'accountCancel.codeLabel',
+  'settings.accountDeletionCodePlaceholder': 'accountCancel.codePlaceholder',
+  'settings.accountDeletionSendCode': 'accountCancel.getCode',
+  'settings.accountDeletionConfirmLabel': 'accountCancel.confirmLabel',
+  'settings.accountDeletionConfirm': 'accountCancel.confirmPlaceholder',
+  'settings.accountDeletionSubmit': 'accountCancel.submit',
+  'settings.accountDeletionSubmitting': 'accountCancel.submitting',
+  'settings.accountDeletionConfirmTitle': 'accountCancel.submit',
+  'common.back': 'common.back',
+  'common.cancel': 'common.cancel',
+}
+
 // 样式对齐 RN 共享 AccountCancelScreen(packages/app/src/features/account-cancel):
 // 尺寸换算 raw dp ×2 = rpx;颜色 tk.* → tokens.css 语义变量
 const INPUT_STYLE: CSSProperties = {

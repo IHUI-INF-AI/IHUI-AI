@@ -962,7 +962,17 @@
       "revokeConfirmTitle": "撤銷設備",
       "taskColCreated": "建立時間",
       "taskColFinished": "結束時間"
-    }
+    },
+    "accountDeletionTitle": "賬號注銷",
+    "accountDeletionWarning": "此操作不可逆，所有數據將永久丟失。",
+    "accountDeletionPhoneLabel": "手機號",
+    "accountDeletionPhonePlaceholder": "輸入手機號",
+    "accountDeletionCodeLabel": "驗證碼",
+    "accountDeletionCodePlaceholder": "輸入驗證碼",
+    "accountDeletionSendCode": "發送驗證碼",
+    "accountDeletionConfirm": "確認註銷帳號",
+    "accountDeletionSubmit": "確認注銷",
+    "accountDeletionSubmitting": "提交中..."
   },
   "menu": {
     "artifacts": "產物中心",
@@ -4725,7 +4735,9 @@
     "bindFail": "綁定失敗",
     "bindOk": "綁定成功",
     "netBusy": "網路異常",
-    "netBusyRetry": "網路異常,請稍後重試"
+    "netBusyRetry": "網路異常,請稍後重試",
+    "selectNation": "選擇區號",
+    "submitting": "提交中..."
   },
   "subagents": {
     "tabOverview": "概覽",
@@ -7345,6 +7357,14 @@
     "articles": {
       "prevPage": "上一頁",
       "nextPage": "下一頁"
+    },
+    "profile": {
+      "changePhoneTitle": "修改手機號",
+      "newPhonePlaceholder": "請輸入新手機號",
+      "codePlaceholder": "請輸入 6 位驗證碼",
+      "sendNewCode": "獲取新驗證碼",
+      "resend": "{seconds}s 後重試",
+      "confirmChange": "確認修改"
     }
   },
   "NavBar": {

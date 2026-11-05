@@ -1190,7 +1190,8 @@
     "getCode": "取得驗證碼",
     "confirmLabel": "確認文字",
     "confirmPlaceholder": "請輸入上方文字",
-    "failed": "註銷失敗,請重試"
+    "failed": "註銷失敗,請重試",
+    "warning": "註銷帳號後，您的所有資料將被永久刪除且無法復原。"
   },
   "ask": {
     "create": {
@@ -2948,7 +2949,9 @@
       "verifiedTip": "當前手機號已通過驗證",
       "bindDesc": "綁定後可用於登入、找回密碼、接收通知",
       "bindTitle": "綁定手機號碼",
-      "codeLength": "請輸入 6 位驗證碼"
+      "codeLength": "請輸入 6 位驗證碼",
+      "selectNation": "選擇區號",
+      "resend": "{s}s 後重新取得"
     },
     "profile": {
       "avatar": "頭像",
