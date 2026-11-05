@@ -16,7 +16,8 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -142,9 +143,21 @@ test('⑤ 检查清单从 .husky/commit-msg 现读,blocking 按 `|| true` 分流
   assert.ok(scope, '解析不出 scope 一致性检查 ⇒ 复跑面比钩子窄,正例永远复现不了')
   assert.equal(scope.blocking, true, '末行 `exit $_scope_rc` 的那条必须判 blocking')
   assert.ok(style, '解析不出样式验证检查')
-  assert.equal(style.blocking, false, '带 `|| true` 的那条是 warn 档;判 blocking 等于替钩子改语义')
+  // 2026-11-04 钩子自己改了语义(头注原话「三态化:去掉 || true,失败/未判定均阻断(exit 1/2)」)
+  // ⇒ 现读为 blocking。本行钉的是**今天这份真钩子**的形态,不是把 warn 档判据改硬:判据仍在 lib,
+  // warn 分支的覆盖由下面那条合成钩子承担 —— 拿真钩子钉 warn 等于钉一件已经不存在的事。
+  assert.equal(style.blocking, true, '样式门现为 blocking(钩子已去掉 `|| true`);它红了必须能定责')
   // 阴性:注释里出现的路径不是"钩子调用",拿它去复跑就是造一个没人跑过的检查
   assert.deepEqual(ATTR.parseCommitMsgStageChecks('# node scripts/foo.mjs\n'), [])
+  // warn 档判据本体仍在(钩子哪天把 `|| true` 加回来就得认它)
+  const warnFixture = ATTR.parseCommitMsgStageChecks(
+    'node scripts/a-gate.mjs "$1" || true\nnode scripts/b-gate.mjs "$1"\nexit $?\n',
+  )
+  assert.deepEqual(
+    warnFixture.map((c) => `${c.script}=${c.blocking ? 'blocking' : 'warn'}`),
+    ['a-gate.mjs=warn', 'b-gate.mjs=blocking'],
+    '`|| true` 分流判据漂移:warn 档被读成 blocking 等于替钩子加戏,反之等于漏判',
+  )
 })
 
 test('⑥ 正例:commit-msg 阶段的红以同一退出码复现 ⇒ ours,不得 --no-verify', () => {
@@ -253,5 +266,259 @@ test('⑨ 变异自证:摘掉「commit-msg 阶段复跑」那几行 ⇒ ⑥ 的�
     rmScratch(dir)
   }
 })
+// ── ⑩–⑫ commit-msg 阶段复跑**读哪一面索引**(2026-11-05 立,§12e 恒红门)────────────
+// 事故形态(2026-11-05 19:09:59 实测,`.ihui-agent/state/hook-logs/commit-msg-scope.log` 末两行):
+//   `==== … :: scripts/check-commit-scope-consistency.mjs .git/COMMIT_EDITMSG ====`
+//   `⏭  commit scope 一致性检查(4 文件, 无 scope, 1 端, 通过)`
+// safe-commit 的 Step 3h 把本枚提交交给 `GIT_INDEX_FILE=<私有索引>`(= 生效索引 ∖ 外来件),
+// 钩子因此**只在私有索引那一面**看到 4 条声明路径。而归因层的复跑用 `env: process.env`
+// (父进程没有那枚指针)⇒ 落到**共享索引**那一面(当时挂着 129 条外来件,含 packages/i18n/messages/ 族)
+// ⇒ R2 复现"红" ⇒ 定责本枚 ⇒ 拒绝提交并回滚,两枚已建好的 commit 变孤儿。
+// 这正是 AGENTS §12e 定义的恒红门:一道与本次提交内容无关的红。
+//
+// 修法取**甲案**(复跑必须读钩子当时看到的那一面),不取乙案(解析 hook-logs 里那行结论):
+// 那本日志与 `.git/COMMIT_EDITMSG` 同属**共享可变态**(多会话随时改写),①里已经为同一型错误
+// 拒绝过一次;把归因建在别人会写的行上 = 造第二份输入面,红了不知道是谁的、绿了也不知道。
+//
+// 三节成对:⑩ 纯判据四态 / ⑪ 真 git + 真 scope 门的行为对照(私有面绿、共享面红) / ⑫ 装车形状锁。
+const FACE = ATTR.COMMIT_MSG_FACE
+const SCOPE_GATE = join(here, '..', 'check-commit-scope-consistency.mjs')
+/** 声明集:4 枚 web 文件;外来件:5 枚 packages/i18n/messages/ —— 与实测那枚的领域分布同型 */
+const DECLARED = ['apps/web/a.tsx', 'apps/web/b.tsx', 'apps/web/c.tsx', 'apps/web/d.tsx']
+const FOREIGN = [
+  'packages/i18n/messages/en.json',
+  'packages/i18n/messages/ja.json',
+  'packages/i18n/messages/ko.json',
+  'packages/i18n/messages/zh-cn.json',
+  'packages/i18n/messages/zh-tw.json',
+]
 
+function fixtureGit(dir, args, env = {}) {
+  const r = spawnSync('git', ['-c', 'safe.directory=*', '-C', dir, ...args], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...env },
+  })
+  assert.equal(r.status, 0, `git ${args.join(' ')} 失败:\n${r.stdout}\n${r.stderr}`)
+  return String(r.stdout ?? '')
+}
+
+test('⑩ 索引面判据四态:私有面在位且仍是那一面⇒用它;面变了/取不到⇒未判定;本无私有面⇒同共享面', () => {
+  const D = ['apps/web/a.tsx', 'apps/web/b.tsx', 'apps/web/c.tsx', 'apps/web/d.tsx']
+  const IDX = 'D:/DevEnv/Temp/fixture/index'
+  // 甲案正例:钩子拿到私有索引,且该面的暂存集逐条等于声明集 ⇒ 复跑必须落在这一面
+  const ok = ATTR.decideCommitMsgStageIndexFace({
+    hookIndexFile: IDX,
+    indexExists: true,
+    stagedFiles: D,
+    declaredFiles: D,
+  })
+  assert.equal(ok.use, FACE.PRIVATE, `私有面在位却没用 ⇒ ${JSON.stringify(ok)}`)
+  assert.equal(ok.indexFile, IDX, '必须把**那一面**的路径交回调用方,不能只说"用私有面"')
+  assert.equal(ok.why, null)
+  // 反例①:本枚没有私有索引(共享索引里没有外来件)⇒ 钩子读的就是默认索引,
+  // 复跑原样继承 process.env 即**同一面** —— 这一档不是"回落到共享索引"。
+  const noPrivate = ATTR.decideCommitMsgStageIndexFace({
+    hookIndexFile: null,
+    indexExists: null,
+    stagedFiles: null,
+    declaredFiles: D,
+  })
+  assert.equal(noPrivate.use, FACE.DEFAULT)
+  assert.equal(
+    ATTR.decideCommitMsgStageIndexFace({ hookIndexFile: '   ', declaredFiles: D }).use,
+    FACE.DEFAULT,
+    '空白指针不得被读成"有一面私有索引"⇒ 未判定空转',
+  )
+  // 未判定档:输入取不到 / 面已不是钩子当时那一面 —— 一律未判定,**绝不回落共享索引**
+  const cases = [
+    ['私有索引不在位', { indexExists: false }],
+    ['存在性取不到', { indexExists: null }],
+    ['暂存面取不到', { indexExists: true, stagedFiles: null }],
+    ['暂存面形状坏', { indexExists: true, stagedFiles: 'not-an-array' }],
+    ['声明集取不到', { indexExists: true, stagedFiles: D, declaredFiles: null }],
+    ['这一面已不含声明集', { indexExists: true, stagedFiles: D.slice(0, 3), declaredFiles: D }],
+    [
+      '这一面多出来自共享索引的外来件',
+      { indexExists: true, stagedFiles: [...D, FOREIGN[0]], declaredFiles: D },
+    ],
+  ]
+  for (const [name, args] of cases) {
+    const v = ATTR.decideCommitMsgStageIndexFace({
+      hookIndexFile: IDX,
+      indexExists: true,
+      stagedFiles: D,
+      declaredFiles: D,
+      ...args,
+    })
+    assert.equal(v.use, FACE.UNDETERMINED, `${name} 必须落未判定,实得 ${v.use}`)
+    assert.ok(String(v.why || '').length > 0, `${name} 未判定必须点名原因(§0.3)`)
+    assert.ok(v.why.includes(IDX), `${name} 原因必须点名是哪一面:${v.why}`)
+  }
+  // 反斜杠形态不得被当成"另一面"(Windows 实测:git 输出正斜杠、声明集可能带反斜杠)
+  assert.equal(
+    ATTR.decideCommitMsgStageIndexFace({
+      hookIndexFile: IDX,
+      indexExists: true,
+      stagedFiles: D.map((p) => p.replace(/\//g, '\\')),
+      declaredFiles: D,
+    }).use,
+    FACE.PRIVATE,
+    '同一面的两种路径写法被判成"面变了"⇒ 每次复跑都落未判定,恒堵门(§12e 反型)',
+  )
+  // 未判定必须一路传到归因结论:runCheck 给 ran:false ⇒ kind=undetermined-red,且不是 not-ours
+  const v = ATTR.decideWithCommitMsgStage({
+    verdict: INCIDENT_VERDICT,
+    hookText: commitMsgHook,
+    runCheck: () => ({
+      ran: false,
+      status: null,
+      output: '',
+      why: '复跑索引面未判定:私有索引不在位',
+    }),
+  })
+  assert.equal(v.kind, 'undetermined-red', '索引面取不到却被写成"与本次无关"= 把没判当判过(§0.3)')
+  assert.equal(v.undeterminedName, ATTR.COMMIT_MSG_UNDETERMINED_NAME)
+})
+
+test('⑪ 端到端(真 git + 真 scope 门):判据选到的那一面复跑必须绿;共享索引面确实红(假红来源)', () => {
+  const dir = mkScratch('commit-msg-face-')
+  try {
+    const repo = join(dir, 'repo')
+    mkdirSync(repo, { recursive: true })
+    fixtureGit(repo, ['init', '-q'])
+    fixtureGit(repo, ['config', 'user.name', 'fixture'])
+    fixtureGit(repo, ['config', 'user.email', 'fixture@example.invalid'])
+    for (const f of [...DECLARED, ...FOREIGN]) {
+      const abs = join(repo, ...f.split('/'))
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, `${f} base\n`, 'utf8')
+    }
+    fixtureGit(repo, ['add', '-A'])
+    fixtureGit(repo, ['commit', '-qm', 'chore: fixture base'])
+
+    // 共享索引:本枚声明集 + 别人挂着的外来件(实测那枚 = 129 条,这里取其领域签名)
+    for (const f of [...DECLARED, ...FOREIGN]) {
+      writeFileSync(join(repo, ...f.split('/')), `${f} staged\n`, 'utf8')
+    }
+    fixtureGit(repo, ['add', '--', ...DECLARED, ...FOREIGN])
+    assert.deepEqual(
+      fixtureGit(repo, ['diff', '--cached', '--name-only', '--no-renames']).trim().split(/\r?\n/),
+      [...DECLARED, ...FOREIGN].sort(),
+      '夹具前提不成立:共享索引面应当同时含声明集与外来件',
+    )
+
+    // 私有索引(Step 3h 同款三步:拷生效索引 → 在拷贝上把外来件退回 HEAD → 用指针发令)
+    const privateIdx = join(dir, 'private-index')
+    copyFileSync(join(repo, '.git', 'index'), privateIdx)
+    fixtureGit(repo, ['reset', '-q', '--', ...FOREIGN], { GIT_INDEX_FILE: privateIdx })
+    const privateFace = fixtureGit(repo, ['diff', '--cached', '--name-only', '--no-renames'], {
+      GIT_INDEX_FILE: privateIdx,
+    })
+      .trim()
+      .split(/\r?\n/)
+      .filter(Boolean)
+    assert.deepEqual(privateFace, DECLARED, '私有索引自证:暂存面必须恰等于声明集')
+
+    const msgFile = join(dir, 'msg.txt')
+    writeFileSync(msgFile, 'fix(web): fixture 措辞对账\n', 'utf8')
+    const runGate = (env) => {
+      const e = { ...process.env }
+      delete e.GIT_INDEX_FILE
+      if (env) e.GIT_INDEX_FILE = env
+      const r = spawnSync(process.execPath, [SCOPE_GATE, msgFile], {
+        cwd: repo,
+        env: e,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return { status: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
+    }
+
+    // 缺陷的**来源面**:共享索引(含 5 枚 i18n)上复跑同一道门 ⇒ R2 判红。
+    // 这一行同时是本节的敏感性证明:换成错面,下面的正例断言必然翻红。
+    const wrongFace = runGate(null)
+    assert.equal(wrongFace.status, 1, `错面(共享索引)本就该红,夹具失效了:\n${wrongFace.out}`)
+    assert.match(wrongFace.out, /R2/, wrongFace.out)
+
+    // 钩子当时看到的面 ⇒ 绿(实测日志原文「4 文件 … 通过」)
+    const hookFace = runGate(privateIdx)
+    assert.equal(hookFace.status, 0, `钩子那一轮的面必须复现绿:\n${hookFace.out}`)
+
+    // 归因层拿判据自己选面(判据 import 源模块,测试不复制实现 §22c),选出来的面复跑必须绿
+    const decided = ATTR.decideCommitMsgStageIndexFace({
+      hookIndexFile: privateIdx,
+      indexExists: existsSync(privateIdx),
+      stagedFiles: privateFace,
+      declaredFiles: DECLARED,
+    })
+    assert.equal(decided.use, FACE.PRIVATE, `判据没选到私有面 ⇒ ${JSON.stringify(decided)}`)
+    const attributed = runGate(decided.indexFile)
+    assert.equal(
+      attributed.status,
+      0,
+      `按判据选出的面复跑仍红 ⇒ 归因会把钩子里根本没发生的红定责给本枚(§12e 恒红门):\n${attributed.out}`,
+    )
+
+    // 正例接线面:把这一面喂给 commit-msg 阶段判据,整条归因必须落绿并保持 not-ours
+    const v = ATTR.decideWithCommitMsgStage({
+      verdict: INCIDENT_VERDICT,
+      hookText: commitMsgHook,
+      runCheck: () => ({
+        ran: true,
+        status: attributed.status,
+        output: attributed.out,
+        why: null,
+      }),
+    })
+    assert.equal(v.kind, 'not-ours', '钩子面复跑为绿却被判成 mine ⇒ 又是一次"多拦一次"')
+    assert.equal(v.commitMsgStage.state, 'green')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('⑫ 装车形状锁:复跑派生的 env 必须由索引面判据给出,未判定⇒ran:false,且不得改读钩子日志', () => {
+  const at = src.indexOf('const runCommitMsgCheck = (script) =>')
+  assert.ok(at > 0, 'runCommitMsgCheck 不见了 ⇒ commit-msg 阶段复跑没有落点(守门 89 R1/R2 同型)')
+  const body = src.slice(at, src.indexOf('\n  }\n', at) + 4)
+  assert.match(
+    body,
+    /ensureCommitMsgFace\(\)/,
+    '派生前没问索引面判据 ⇒ 又回到"默认拿共享索引"那一型(2026-11-05 事故)',
+  )
+  assert.match(body, /env:\s*faceEnv/, '复跑派生的 env 必须逐字来自索引面判据,不得另拼一份')
+  assert.match(
+    body,
+    /COMMIT_MSG_FACE\.UNDETERMINED[\s\S]{0,240}ran:\s*false/,
+    '索引面未判定必须落 ran:false(由 lib 折算成未判定),不得继续派生',
+  )
+  // 乙案的通道必须堵死:钩子日志是共享可变态,别人的提交随时改写它(见本节头注)
+  assert.doesNotMatch(body, /hook-logs/, '复跑改读钩子日志 ⇒ 用别人写的结论行给自己定责')
+  // 判据必须真被 import(抄一份进 safe-commit 就是第二份真相,§0.6/§22c)
+  assert.match(
+    src,
+    /import\s*\{[^}]*decideCommitMsgStageIndexFace[^}]*\}\s*from\s*'\.\/lib\/commit-gate-attribution\.mjs'/s,
+    '索引面判据没从 lib import ⇒ 判据住两份,改一处静默失联',
+  )
+  // 判据的输入必须来自**本枚**交给钩子的那枚私有索引(Step 3h 的 commitIndexFile)
+  const faceAt = src.indexOf('const ensureCommitMsgFace = () =>')
+  assert.ok(faceAt > 0, '索引面取值出口不见了')
+  const faceBody = src.slice(faceAt, src.indexOf('\n  }\n', faceAt) + 4)
+  assert.match(faceBody, /commitIndexFile/, '没把 Step 3h 的私有索引当输入 ⇒ 判据永远看到共享面')
+  assert.match(
+    faceBody,
+    /readStagedInIndexFile/,
+    '面变了没有输入可比 ⇒ 只能猜,猜就是"把没判写成判过"',
+  )
+  assert.doesNotMatch(
+    faceBody,
+    /delete\s+e\.GIT_INDEX_FILE/,
+    '这一档绝不许剥掉指针(剥掉即回落共享面)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
