@@ -104,7 +104,8 @@ export default function SubscriptionContractsPage() {
   })
 
   return (
-    // 对齐 RN SubscriptionsScreen 视觉语言:surface.bg 页面底 + 描边卡片(radius 12→24rpx)
+    // 注:RN 侧无同名对应屏(SubscriptionsScreen 是单条解约动作,本页是自动续费列表),
+    // 两者概念不同,本页为独立列表,不做镜像参考
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="px-[20rpx] pt-[24rpx] pb-[8rpx]">
