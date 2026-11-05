@@ -187,7 +187,12 @@ export default function ModelEdit() {
     { value: 'full', label: tt('devEnter.modelEdit.discountFull', '全部参与') },
   ]
 
-  const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void, disabled = false) => (
+  const renderOpts = (
+    opts: Opt[],
+    current: string,
+    onSelect: (v: string) => void,
+    disabled = false,
+  ) => (
     <ThemeRoot>
       <View className="flex flex-wrap gap-[20rpx]">
         {opts.map((o) => (
@@ -329,34 +334,36 @@ export default function ModelEdit() {
                   {tt('modelEdit.labelCycle', '结算周期')}
                 </Text>
                 {readOnlyHint(roCycle)}
-                {renderOpts(periodOpts, chargePeriod, (v) => setChargePeriod(v as ChargePeriod), roCycle)}
-                {saleType === 'paid' ? (
-                  <>
-                    <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
-                      {tt('devEnter.modelEdit.priceLabel', '价格')}
-                    </Text>
-                    {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
-                    <View
-                      className="flex items-center border border-border rounded-xl px-[24rpx] bg-background"
-                      style={ffPrice.focusStyle}
-                    >
-                      {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
-                      <Text className="text-subtitle leading-[normal] font-semibold text-primary mr-[16rpx]">
-                        ¥
-                      </Text>
-                      {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
-                      <Input
-                        className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
-                        {...ffPrice.spread}
-                        type="digit"
-                        value={price}
-                        placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
-                        placeholderStyle="color: var(--color-text-tertiary)"
-                        onInput={(e) => setPrice(e.detail.value)}
-                      />
-                    </View>
-                  </>
-                ) : null}
+                {renderOpts(
+                  periodOpts,
+                  chargePeriod,
+                  (v) => setChargePeriod(v as ChargePeriod),
+                  roCycle,
+                )}
+                {/* 价格:外层块已保证 saleType !== 'free',paid 与 limited 均渲染(判据同 shared/utils/model-edit-billing.ts isFree) */}
+                <Text className="block text-body leading-[normal] font-semibold text-[var(--color-text-medium)] mt-[32rpx] mb-[16rpx]">
+                  {tt('devEnter.modelEdit.priceLabel', '价格')}
+                </Text>
+                {/* RN priceRow:row/center + border.border.light + r12 + px12 + surface.bg(白底浮出 muted 卡) */}
+                <View
+                  className="flex items-center border border-border rounded-xl px-[24rpx] bg-background"
+                  style={ffPrice.focusStyle}
+                >
+                  {/* RN priceUnit:18dp→36rpx、600、brand.DEFAULT、mr8→16rpx */}
+                  <Text className="text-subtitle leading-[normal] font-semibold text-primary mr-[16rpx]">
+                    ¥
+                  </Text>
+                  {/* RN priceInput:flex1/py14/16dp;placeholder 用 text.tertiary */}
+                  <Input
+                    className="flex-1 h-[96rpx] text-[length:32rpx] text-foreground"
+                    {...ffPrice.spread}
+                    type="digit"
+                    value={price}
+                    placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
+                    placeholderStyle="color: var(--color-text-tertiary)"
+                    onInput={(e) => setPrice(e.detail.value)}
+                  />
+                </View>
 
                 {/* 5. 免费时长 (限时免费时显示) */}
                 {saleType === 'limited' ? (
@@ -381,7 +388,12 @@ export default function ModelEdit() {
                       {tt('modelEdit.labelDiscount', '折扣')}
                     </Text>
                     {readOnlyHint(roDiscount)}
-                    {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount), roDiscount)}
+                    {renderOpts(
+                      discountOpts,
+                      discount,
+                      (v) => setDiscount(v as Discount),
+                      roDiscount,
+                    )}
                   </>
                 }
               </View>
@@ -392,7 +404,12 @@ export default function ModelEdit() {
               {tt('modelEdit.labelAudience', '可见范围')}
             </Text>
             {readOnlyHint(roAudience)}
-            {renderOpts(groupOpts, targetGroup, (v) => setTargetGroup(v as TargetGroup), roAudience)}
+            {renderOpts(
+              groupOpts,
+              targetGroup,
+              (v) => setTargetGroup(v as TargetGroup),
+              roAudience,
+            )}
 
             {/* 提交审核 — RN btn:mt28→56rpx、h50→100rpx、r12→24rpx、brand.DEFAULT 底 */}
             {/* RN btnText 用 surface.light(#FFFFFF 恒白),暗色下白底白字不可读 → 修正为 text-primary-foreground(暗色自动反转) */}
