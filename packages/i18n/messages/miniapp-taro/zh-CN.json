@@ -7028,5 +7028,11 @@
     "fields": {
       "payMethod": "支付方式"
     }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 密钥"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "暂无下级成员"
   }
 }
