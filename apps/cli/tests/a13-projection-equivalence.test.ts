@@ -406,6 +406,7 @@ describe('A13 投影等价性(AGENTS.md:235 的可重跑载体)', () => {
         .filter((t) => Object.keys(t.parameters).length >= 2)
         .sort((a, b) => a.name.localeCompare(b.name))[0]
       expect(victim, '没有任何 ≥2 参数的工具 ⇒ 变异对照无法进行,判据失效').toBeDefined()
+      if (victim === undefined) throw new Error('夹具缺失:未取到 ≥2 参数的工具')
 
       const droppedKey = Object.keys(victim.parameters).sort()[0] as string
       const mutated = { ...projectSide(victim) } as SchemaNode

@@ -291,7 +291,7 @@ describe('evaluateGitRef / evaluateGitSha', () => {
 describe('getOrCloneGitCache → performClone — 判据先于任何派生', () => {
   it('① "--upload-pack=…" 被拒,且 execFileSync 零调用', async () => {
     const url = '--upload-pack=/bin/sh';
-    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await captureRejection(getOrCloneGitCache(url));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('url');
     expect(err.reasonCode).toBe('urlLeadingDash');
@@ -300,7 +300,7 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
 
   it('② "ext::sh -c \'touch pwned\'" 被拒,且 execFileSync 零调用', async () => {
     const url = "ext::sh -c 'touch pwned'";
-    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await captureRejection(getOrCloneGitCache(url));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('url');
     expect(execFileSyncMock).not.toHaveBeenCalled();
@@ -309,8 +309,8 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
   });
 
   it('⑥ 前导 - 的 ref 被拒,且 execFileSync 零调用', async () => {
-    const err = await getOrCloneGitCache('https://ok.test/a.git', { ref: '--upload-pack=/bin/sh' }).catch(
-      (e: unknown) => e as GitCloneInputRejectedError,
+    const err = await captureRejection(
+      getOrCloneGitCache('https://ok.test/a.git', { ref: '--upload-pack=/bin/sh' }),
     );
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('ref');
@@ -319,8 +319,8 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
   });
 
   it('拒绝的消息体不回显入参原文(manifest 里的 URL 可能内嵌凭据)', async () => {
-    const err = await getOrCloneGitCache('--upload-pack=/bin/sh').catch((e: unknown) => e as Error);
-    expect(String(err?.message ?? '')).not.toContain('/bin/sh');
+    const err = await captureRejection(getOrCloneGitCache('--upload-pack=/bin/sh'));
+    expect(String(err.message)).not.toContain('/bin/sh');
   });
 
   it('③ 正例:合法 https 派生一次,且位置参数前有 "--" 分隔', async () => {
@@ -384,7 +384,7 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
   });
 
   it('④b 非回环 http 在咽喉点上被拒且不派生', async () => {
-    const err = await getOrCloneGitCache('http://evil.test/x.git').catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await captureRejection(getOrCloneGitCache('http://evil.test/x.git'));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.reasonCode).toBe('urlSchemeUnsupported');
     expect(execFileSyncMock).not.toHaveBeenCalled();
@@ -505,5 +505,16 @@ function capture(fn: () => void): GitCloneInputRejectedError | null {
   } catch (e) {
     return e instanceof GitCloneInputRejectedError ? e : null;
   }
+}
+
+/** capture 的异步面:把"必须拒绝"这一档收成结构化错误;放行或别的错误一律记为失败。 */
+async function captureRejection(pending: Promise<unknown>): Promise<GitCloneInputRejectedError> {
+  try {
+    await pending;
+  } catch (e) {
+    if (e instanceof GitCloneInputRejectedError) return e;
+    throw e;
+  }
+  throw new Error('夹具缺失: 期望拒绝,实际放行');
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -129,12 +129,14 @@ describe('G-808 写侧 upsert —— 同一主键只许一行', () => {
     const rows = rowsFor('p-up');
     // 判据数的是"恰一份":旧写侧在这里产出 ['1.0.0','2.0.0'] 两行
     expect(rows).toHaveLength(1);
-    expect(rows[0].version).toBe('2.0.0');
+    const row = rows[0];
+    if (row === undefined) throw new Error('夹具缺失: p-up 应恰有一行');
+    expect(row.version).toBe('2.0.0');
     // "第二次的内容"包括**本次**交换的事务号,而不是上一代的
-    expect(rows[0].transactionId).toBe(second.transactionId);
-    expect(rows[0].transactionId).not.toBe(first.transactionId);
+    expect(row.transactionId).toBe(second.transactionId);
+    expect(row.transactionId).not.toBe(first.transactionId);
     // 来源列也随本次改写(它不是主键的一部分,否则同名多行就是合法形态)
-    expect(path.basename(rows[0].sourcePath ?? '')).toBe('v2');
+    expect(path.basename(row.sourcePath ?? '')).toBe('v2');
     // 盘上确实是新那一代
     expect(fs.readFileSync(path.join(getPluginInstallPath('p-up'), 'marker.txt'), 'utf-8')).toBe('2.0.0');
   });
@@ -147,7 +149,9 @@ describe('G-808 写侧 upsert —— 同一主键只许一行', () => {
     }
     const rows = rowsFor('p-three');
     expect(rows).toHaveLength(1);
-    expect(rows[0].version).toBe('3.0.0');
+    const row = rows[0];
+    if (row === undefined) throw new Error('夹具缺失: p-three 应恰有一行');
+    expect(row.version).toBe('3.0.0');
   });
 
   it('①c 内存层判据:upsert 覆盖上一代 transactionId,且整体取第二次的内容(不逐字段合并)', () => {
@@ -168,8 +172,10 @@ describe('G-808 写侧 upsert —— 同一主键只许一行', () => {
     expect(reg.records).toHaveLength(1);
     // 整体替换 ⇒ 上一代的 sourcePath/sourceType 与事务号都不残留(留着旧 transactionId
     // 就等于让 finalize 去问一笔已被取代的事务)
-    expect(reg.records[0]).toEqual(next);
-    expect(reg.records[0].sourcePath).toBeUndefined();
+    const row = reg.records[0];
+    if (row === undefined) throw new Error('夹具缺失: upsert 后 m-a 应恰有一行');
+    expect(row).toEqual(next);
+    expect(row.sourcePath).toBeUndefined();
   });
 });
 
@@ -213,11 +219,17 @@ describe('G-808 写侧 upsert —— 主键之外的行必须原样留着', () =
     upsertInstallRecord(reg, fresh);
 
     expect(reg.records).toHaveLength(3);
-    expect(reg.records[1]).toEqual(fresh);
+    const replaced = reg.records[1];
+    const first = reg.records[0];
+    const third = reg.records[2];
+    if (replaced === undefined || first === undefined || third === undefined) {
+      throw new Error('夹具缺失: upsert 后应有三行');
+    }
+    expect(replaced).toEqual(fresh);
     // 别的行逐字未动(顺序与内容都不变)
     expect(reg.records.map((r) => r.name)).toEqual(['other', 'm-b', 'third']);
-    expect(reg.records[0].transactionId).toBeUndefined();
-    expect(reg.records[2].version).toBe('0.2.0');
+    expect(first.transactionId).toBeUndefined();
+    expect(third.version).toBe('0.2.0');
   });
 
   it('②b 主键不同(sourceType 不同)也照样各占一行 —— 来源列不在主键里,但 name 才是唯一区分', () => {
@@ -268,8 +280,11 @@ describe('G-808 读侧 —— 历史同名多行不再把本轮遮蔽成 not-com
     // 它不再被任何读侧取到(首行已是本轮),但它也没被静默删掉 —— 清它属另行裁决。
     const rows = rowsFor(name);
     expect(rows).toHaveLength(2);
-    expect(rows[0].transactionId).toBe(outcome.transactionId);
-    expect(rows[1].transactionId).toBe('TXN-STALE-2');
+    const current = rows[0];
+    const stale = rows[1];
+    if (current === undefined || stale === undefined) throw new Error('夹具缺失: 历史同名应有两行');
+    expect(current.transactionId).toBe(outcome.transactionId);
+    expect(stale.transactionId).toBe('TXN-STALE-2');
   });
 
   it('③b 卸载删该 name 的**全部**同名行(安装目录只有一份,幸存行必谎报"还装着")', async () => {
@@ -487,7 +502,9 @@ describe('G-832 写侧 —— 已装短路只对"当代那条来自同一个源"
     // 权威表里当代那行已换成本次装的这一代(来源列 = A)
     const rows = rowsFor(name);
     expect(rows).toHaveLength(2); // 存量同名多行不迁移(清理属另行裁决)
-    expect(path.basename(rows[0].sourcePath ?? '')).toBe('a');
+    const current = rows[0];
+    if (current === undefined) throw new Error('夹具缺失: 同名应有两行');
+    expect(path.basename(current.sourcePath ?? '')).toBe('a');
   });
 
   it('⑤b 当代那条就是本源 ⇒ 短路仍然成立(阳性对照:判据没被写成"永不短路")', async () => {

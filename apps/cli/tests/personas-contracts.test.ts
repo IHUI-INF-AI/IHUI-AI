@@ -47,26 +47,34 @@ describe('PERSONAS_CONTRACTS — 基础完整性', () => {
 
   it('每个 persona 都有 input_schema 字段', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p]).toBeDefined()
-      expect(PERSONAS_CONTRACTS[p].input_schema).toBeDefined()
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(contract).toBeDefined()
+      expect(contract.input_schema).toBeDefined()
     }
   })
 
   it('每个 persona 都有 output_schema 字段', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].output_schema).toBeDefined()
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(contract.output_schema).toBeDefined()
     }
   })
 
   it('每个 persona 的 input_schema 是合法 JSONSchema', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(isJSONSchema(PERSONAS_CONTRACTS[p].input_schema)).toBe(true)
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(isJSONSchema(contract.input_schema)).toBe(true)
     }
   })
 
   it('每个 persona 的 output_schema 是合法 JSONSchema', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(isJSONSchema(PERSONAS_CONTRACTS[p].output_schema)).toBe(true)
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(isJSONSchema(contract.output_schema)).toBe(true)
     }
   })
 })
@@ -74,7 +82,9 @@ describe('PERSONAS_CONTRACTS — 基础完整性', () => {
 describe('PERSONAS_CONTRACTS — required 字段约束', () => {
   it('每个 persona 的 input_schema 含 required 字段(数组)', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].input_schema
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      const schema = contract.input_schema
       expect(Array.isArray(schema.required)).toBe(true)
       expect((schema.required as string[]).length).toBeGreaterThan(0)
     }
@@ -82,7 +92,9 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 output_schema 含 required 字段(数组)', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].output_schema
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      const schema = contract.output_schema
       expect(Array.isArray(schema.required)).toBe(true)
       expect((schema.required as string[]).length).toBeGreaterThan(0)
     }
@@ -90,7 +102,9 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 input_schema required 字段都存在于 properties 中', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].input_schema
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      const schema = contract.input_schema
       const props = Object.keys(schema.properties ?? {})
       for (const req of schema.required ?? []) {
         expect(props).toContain(req)
@@ -100,7 +114,9 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 output_schema required 字段都存在于 properties 中', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].output_schema
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      const schema = contract.output_schema
       const props = Object.keys(schema.properties ?? {})
       for (const req of schema.required ?? []) {
         expect(props).toContain(req)
@@ -169,8 +185,10 @@ describe('PersonaContract 类型 — TypeScript 类型推断', () => {
         output_schema: { type: 'object' },
       },
     }
-    expect(map.foo.input_schema).toBeDefined()
-    expect(map.foo.output_schema).toBeDefined()
+    const foo = map.foo
+    if (foo === undefined) throw new Error('夹具缺失: PersonaContracts 缺少 foo')
+    expect(foo.input_schema).toBeDefined()
+    expect(foo.output_schema).toBeDefined()
   })
 })
 
@@ -195,20 +213,26 @@ describe('subagent.ts PersonaConfig — 新字段集成', () => {
 
   it('PERSONAS.researcher 已绑定 input_schema/output_schema', () => {
     const r = PERSONAS.researcher
+    const contract = PERSONAS_CONTRACTS.researcher
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 researcher')
     expect(r.input_schema).toBeDefined()
     expect(r.output_schema).toBeDefined()
-    expect(r.input_schema).toBe(PERSONAS_CONTRACTS.researcher.input_schema)
-    expect(r.output_schema).toBe(PERSONAS_CONTRACTS.researcher.output_schema)
+    expect(r.input_schema).toBe(contract.input_schema)
+    expect(r.output_schema).toBe(contract.output_schema)
   })
 
   it('PERSONAS.coder 已绑定 input_schema/output_schema', () => {
-    expect(PERSONAS.coder.input_schema).toBe(PERSONAS_CONTRACTS.coder.input_schema)
-    expect(PERSONAS.coder.output_schema).toBe(PERSONAS_CONTRACTS.coder.output_schema)
+    const contract = PERSONAS_CONTRACTS.coder
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 coder')
+    expect(PERSONAS.coder.input_schema).toBe(contract.input_schema)
+    expect(PERSONAS.coder.output_schema).toBe(contract.output_schema)
   })
 
   it('PERSONAS.reviewer 已绑定 input_schema/output_schema', () => {
-    expect(PERSONAS.reviewer.input_schema).toBe(PERSONAS_CONTRACTS.reviewer.input_schema)
-    expect(PERSONAS.reviewer.output_schema).toBe(PERSONAS_CONTRACTS.reviewer.output_schema)
+    const contract = PERSONAS_CONTRACTS.reviewer
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 reviewer')
+    expect(PERSONAS.reviewer.input_schema).toBe(contract.input_schema)
+    expect(PERSONAS.reviewer.output_schema).toBe(contract.output_schema)
   })
 
   it('PERSONAS.planner/general 未绑定 contracts(契约仅 3 档映射)', () => {
@@ -233,7 +257,9 @@ describe('subagent.ts PersonaConfig — 新字段集成', () => {
 
 describe('5 个 persona — input/output 字段语义合理性', () => {
   it('researcher 输出 researchSummary + recommendedApproach(不是 code)', () => {
-    const out = PERSONAS_CONTRACTS.researcher.output_schema
+    const contract = PERSONAS_CONTRACTS.researcher
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 researcher')
+    const out = contract.output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('researchSummary')
     expect(props).toContain('recommendedApproach')
@@ -242,13 +268,17 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('researcher 输入含 task(调研任务描述)', () => {
-    const inp = PERSONAS_CONTRACTS.researcher.input_schema
+    const contract = PERSONAS_CONTRACTS.researcher
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 researcher')
+    const inp = contract.input_schema
     expect(inp.properties).toHaveProperty('task')
     expect(inp.required).toContain('task')
   })
 
   it('coder 输出 codeChanges + verification(不是 researchSummary)', () => {
-    const out = PERSONAS_CONTRACTS.coder.output_schema
+    const contract = PERSONAS_CONTRACTS.coder
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 coder')
+    const out = contract.output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('codeChanges')
     expect(props).toContain('verification')
@@ -257,7 +287,9 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('coder 输入含 task + affectedFiles(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.coder.input_schema
+    const contract = PERSONAS_CONTRACTS.coder
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 coder')
+    const inp = contract.input_schema
     expect(inp.properties).toHaveProperty('task')
     expect(inp.properties).toHaveProperty('affectedFiles')
     expect(inp.required).toContain('task')
@@ -265,21 +297,28 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('reviewer 输出含 decision(approve/request_changes)', () => {
-    const out = PERSONAS_CONTRACTS.reviewer.output_schema
+    const contract = PERSONAS_CONTRACTS.reviewer
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 reviewer')
+    const out = contract.output_schema
     expect(out.properties).toHaveProperty('decision')
     const decision = out.properties!.decision
+    if (decision === undefined) throw new Error('夹具缺失: reviewer.output_schema.properties 缺少 decision')
     expect(decision.enum).toContain('approve')
     expect(decision.enum).toContain('request_changes')
   })
 
   it('reviewer 输入含 codeDiff(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.reviewer.input_schema
+    const contract = PERSONAS_CONTRACTS.reviewer
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 reviewer')
+    const inp = contract.input_schema
     expect(inp.properties).toHaveProperty('codeDiff')
     expect(inp.required).toContain('codeDiff')
   })
 
   it('architect 输出 designDoc + fileStructure(不是 rootCause)', () => {
-    const out = PERSONAS_CONTRACTS.architect.output_schema
+    const contract = PERSONAS_CONTRACTS.architect
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 architect')
+    const out = contract.output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('designDoc')
     expect(props).toContain('fileStructure')
@@ -288,13 +327,17 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('architect 输入含 requirements(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.architect.input_schema
+    const contract = PERSONAS_CONTRACTS.architect
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 architect')
+    const inp = contract.input_schema
     expect(inp.properties).toHaveProperty('requirements')
     expect(inp.required).toContain('requirements')
   })
 
   it('debugger 输出 rootCause + fix(不是 designDoc)', () => {
-    const out = PERSONAS_CONTRACTS.debugger.output_schema
+    const contract = PERSONAS_CONTRACTS.debugger
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 debugger')
+    const out = contract.output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('rootCause')
     expect(props).toContain('fix')
@@ -303,7 +346,9 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('debugger 输入含 errorDescription(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.debugger.input_schema
+    const contract = PERSONAS_CONTRACTS.debugger
+    if (contract === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 debugger')
+    const inp = contract.input_schema
     expect(inp.properties).toHaveProperty('errorDescription')
     expect(inp.required).toContain('errorDescription')
   })
@@ -311,28 +356,40 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
 
 describe('5 个 persona — 跨 persona 字段不重叠(语义隔离)', () => {
   it('researcher 输出字段不与 coder 输出字段重叠', () => {
-    const r = Object.keys(PERSONAS_CONTRACTS.researcher.output_schema.properties ?? {})
-    const c = Object.keys(PERSONAS_CONTRACTS.coder.output_schema.properties ?? {})
+    const rc = PERSONAS_CONTRACTS.researcher
+    if (rc === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 researcher')
+    const cc = PERSONAS_CONTRACTS.coder
+    if (cc === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 coder')
+    const r = Object.keys(rc.output_schema.properties ?? {})
+    const c = Object.keys(cc.output_schema.properties ?? {})
     const overlap = r.filter((x) => c.includes(x))
     expect(overlap).toEqual([])
   })
 
   it('architect 输出字段不与 debugger 输出字段重叠', () => {
-    const a = Object.keys(PERSONAS_CONTRACTS.architect.output_schema.properties ?? {})
-    const d = Object.keys(PERSONAS_CONTRACTS.debugger.output_schema.properties ?? {})
+    const ac = PERSONAS_CONTRACTS.architect
+    if (ac === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 architect')
+    const dc = PERSONAS_CONTRACTS.debugger
+    if (dc === undefined) throw new Error('夹具缺失: PERSONAS_CONTRACTS 缺少 debugger')
+    const a = Object.keys(ac.output_schema.properties ?? {})
+    const d = Object.keys(dc.output_schema.properties ?? {})
     const overlap = a.filter((x) => d.includes(x))
     expect(overlap).toEqual([])
   })
 
   it('每个 persona 的 output_schema type 均为 object', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].output_schema.type).toBe('object')
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(contract.output_schema.type).toBe('object')
     }
   })
 
   it('每个 persona 的 input_schema type 均为 object', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].input_schema.type).toBe('object')
+      const contract = PERSONAS_CONTRACTS[p]
+      if (contract === undefined) throw new Error(`夹具缺失: PERSONAS_CONTRACTS 缺少 ${p}`)
+      expect(contract.input_schema.type).toBe('object')
     }
   })
 })

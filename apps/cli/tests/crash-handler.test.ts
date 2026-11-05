@@ -40,7 +40,7 @@ import { installCrashHandler, uninstallCrashHandler } from '../src/crash-handler
 
 describe('crash-handler', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let initialExitCode: number | undefined;
+  let initialExitCode: typeof process.exitCode;
   let initialUncaughtListeners: Array<(...args: unknown[]) => void>;
   let initialUnhandledListeners: Array<(...args: unknown[]) => void>;
 
@@ -110,6 +110,7 @@ describe('crash-handler', () => {
     process.emit('uncaughtException', new Error('test uncaught'));
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
     const call = vi.mocked(fs.writeFileSync).mock.calls[0];
+    if (call === undefined) throw new Error('夹具缺失:未写入 crash log');
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -119,6 +120,7 @@ describe('crash-handler', () => {
     process.emit('unhandledRejection', new Error('test rejection'));
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1);
     const call = vi.mocked(fs.writeFileSync).mock.calls[0];
+    if (call === undefined) throw new Error('夹具缺失:未写入 crash log');
     expect(String(call[0])).toContain('crash-logs');
     expect(String(call[0])).toMatch(/crash-\d+\.log$/);
   });
@@ -153,7 +155,9 @@ describe('crash-handler', () => {
     const err = new Error('my error message');
     err.stack = 'Error: my error message\n    at foo:1:1';
     process.emit('uncaughtException', err);
-    const content = String(vi.mocked(fs.writeFileSync).mock.calls[0][1]);
+    const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+    if (writeCall === undefined) throw new Error('夹具缺失:未写入 crash log');
+    const content = String(writeCall[1]);
     expect(content).toContain('my error message');
     expect(content).toContain('Error: my error message');
     expect(content).toContain('at foo:1:1');
@@ -165,6 +169,7 @@ describe('crash-handler', () => {
     process.emit('uncaughtException', new Error('mkdir test'));
     expect(fs.mkdirSync).toHaveBeenCalledTimes(1);
     const call = vi.mocked(fs.mkdirSync).mock.calls[0];
+    if (call === undefined) throw new Error('夹具缺失:未创建 crash-logs 目录');
     expect(String(call[0])).toContain('crash-logs');
     expect(call[1]).toEqual({ recursive: true });
   });

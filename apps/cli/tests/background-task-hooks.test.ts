@@ -77,14 +77,18 @@ describe('taskCreated —— 登记即出声', () => {
 
     const created = callsFor('taskCreated');
     expect(created).toHaveLength(1);
-    expect(created[0].ctx.taskId).toBe(id);
-    expect(created[0].ctx.taskCommand).toBe('echo hello');
-    expect(created[0].ctx.taskStatus).toBe('running');
+    const createdCall = created[0];
+    if (createdCall === undefined) throw new Error('夹具缺失:未派发 taskCreated');
+    expect(createdCall.ctx.taskId).toBe(id);
+    expect(createdCall.ctx.taskCommand).toBe('echo hello');
+    expect(createdCall.ctx.taskStatus).toBe('running');
   });
 
   it('② 登记档不得塞退出码:undefined(还没结束)与 null(被信号终止)是两件事', () => {
     registerTask(null, 'echo x');
-    const ctx = callsFor('taskCreated')[0].ctx;
+    const createdCall = callsFor('taskCreated')[0];
+    if (createdCall === undefined) throw new Error('夹具缺失:未派发 taskCreated');
+    const ctx = createdCall.ctx;
     expect('taskExitCode' in ctx).toBe(false);
   });
 
@@ -93,7 +97,9 @@ describe('taskCreated —— 登记即出声', () => {
       ownerAgentId: 'agent-9',
       worktreePath: 'G:/IHUI-AI/.worktrees/wt-demo',
     });
-    const ctx = callsFor('taskCreated')[0].ctx;
+    const createdCall = callsFor('taskCreated')[0];
+    if (createdCall === undefined) throw new Error('夹具缺失:未派发 taskCreated');
+    const ctx = createdCall.ctx;
     expect(ctx.taskOwnerAgentId).toBe('agent-9');
     expect(ctx.taskWorktreePath).toBe('G:/IHUI-AI/.worktrees/wt-demo');
     expect(getTask(id)?.ownerAgentId).toBe('agent-9');
@@ -122,7 +128,9 @@ describe('taskCompleted —— 派发位置是本册的牙', () => {
 
   it('⑤ 终态载荷读的是已落定的状态,不是登记时的 running', () => {
     settleWithoutWaiters('killed', null);
-    const ctx = callsFor('taskCompleted')[0].ctx;
+    const completedCall = callsFor('taskCompleted')[0];
+    if (completedCall === undefined) throw new Error('夹具缺失:未派发 taskCompleted');
+    const ctx = completedCall.ctx;
     expect(ctx.taskStatus).toBe('killed');
     expect(ctx.taskExitCode).toBeNull(); // 被信号终止:确实没有码
   });
@@ -143,10 +151,15 @@ describe('taskCompleted —— 派发位置是本册的牙', () => {
     const completed = callsFor('taskCompleted');
     expect(created).toHaveLength(1);
     expect(completed).toHaveLength(1);
-    expect(created[0].ctx.taskId).toBe(id);
-    expect(completed[0].ctx.taskId).toBe(id);
+    const createdCall = created[0];
+    const completedCall = completed[0];
+    if (createdCall === undefined || completedCall === undefined) {
+      throw new Error('夹具缺失:占位任务未成对派发 created / completed');
+    }
+    expect(createdCall.ctx.taskId).toBe(id);
+    expect(completedCall.ctx.taskId).toBe(id);
     // 成对而不是一枚:只发 created 会让下游把"沙盒拒绝"记成永久在跑
-    expect(completed[0].ctx.taskStatus).toBe(getTask(id)?.status);
+    expect(completedCall.ctx.taskStatus).toBe(getTask(id)?.status);
   });
 });
 

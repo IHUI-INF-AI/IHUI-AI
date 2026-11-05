@@ -24,7 +24,7 @@ const PROBE = 'IHUI-SECRET-PROBE';
  * `['ignore','pipe','pipe']` 绕开 stdin 管道(铁律,同 scripts/ 下收敛器族);实测 `windowsHide:true`
  * 单独不足以治(仍 EBUSY),stdin 管道才是病根。
  */
-const GIT_STDIO = ['ignore', 'pipe', 'pipe'] as const;
+const GIT_STDIO: Array<'ignore' | 'pipe'> = ['ignore', 'pipe', 'pipe'];
 
 function gitInit(repoDir: string): void {
   spawnSync('git', ['init'], { cwd: repoDir, encoding: 'utf-8', stdio: GIT_STDIO });

@@ -16,7 +16,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import type { GoalVerification } from '@ihui/api-client';
+import type { GoalHardCriterion, GoalVerification } from '@ihui/api-client';
 
 import {
   applyGoalVerificationToStopReason,
@@ -28,7 +28,7 @@ import {
   type GoalToolCallRecord,
 } from '../src/goal-verification.js';
 
-const criterion = (over: Record<string, unknown> = {}) => ({
+const criterion = (over: Partial<GoalHardCriterion> = {}): GoalHardCriterion => ({
   id: 'c1',
   statement: 'pnpm --filter @ihui/cli typecheck 必须 0 错误',
   evidence_kind: 'command',
@@ -55,8 +55,10 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
       calls: [call()],
     });
     expect(evidence).toHaveLength(1);
-    expect(evidence[0].criterion_id).toBe('c1');
-    expect(evidence[0].outcome).toBe('met');
+    const first = evidence[0];
+    if (first === undefined) throw new Error('夹具缺失: evidence 第 0 项不存在');
+    expect(first.criterion_id).toBe('c1');
+    expect(first.outcome).toBe('met');
     expect(unprobed).toEqual([]);
   });
 
@@ -65,7 +67,9 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
       criteria: [criterion()],
       calls: [call({ exitCode: 2, ok: false, output: 'TS2345 error' })],
     });
-    expect(evidence[0].outcome).toBe('unmet');
+    const first = evidence[0];
+    if (first === undefined) throw new Error('夹具缺失: evidence 第 0 项不存在');
+    expect(first.outcome).toBe('unmet');
   });
 
   it('没跑过该命令 ⇒ 不附证据,只点名"缺证据"(不得拿相近命令冒充)', () => {
@@ -75,7 +79,9 @@ describe('buildGoalEvidence —— 采集侧只如实搬运,不猜不补', () =>
     });
     expect(evidence).toEqual([]);
     expect(unprobed).toHaveLength(1);
-    expect(unprobed[0].reason).toContain('pnpm --filter @ihui/cli typecheck');
+    const firstUnprobed = unprobed[0];
+    if (firstUnprobed === undefined) throw new Error('夹具缺失: unprobed 第 0 项不存在');
+    expect(firstUnprobed.reason).toContain('pnpm --filter @ihui/cli typecheck');
   });
 
   it('命令族之外的工具调用不得当作 probe 证据(读文件读到同名字符串也不行)', () => {
@@ -120,6 +126,7 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
         independent_request_made: true,
       }),
     });
+    if (v === null) throw new Error('夹具缺失: runGoalVerification 返回 null');
     expect(v.treat_as_complete).toBe(false);
     expect(v.goal_status).toBe('not_achieved');
   });
@@ -131,6 +138,7 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
         throw new Error('ECONNREFUSED 127.0.0.1:8803');
       },
     });
+    if (v === null) throw new Error('夹具缺失: runGoalVerification 返回 null');
     expect(v.status).toBe('undetermined');
     expect(v.treat_as_complete).toBe(false);
     expect(v.unavailable_reason).toContain('ECONNREFUSED');
@@ -142,6 +150,7 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
       ...base,
       requestVerification: async () => ({ status: 'achieved' }) as never,
     });
+    if (v === null) throw new Error('夹具缺失: runGoalVerification 返回 null');
     expect(v.status).toBe('undetermined');
     expect(v.treat_as_complete).toBe(false);
   });
@@ -152,6 +161,7 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
       requestVerification: async () =>
         ({ status: 'achieved', treat_as_complete: false, criteria: [] }) as never,
     });
+    if (v === null) throw new Error('夹具缺失: runGoalVerification 返回 null');
     expect(v.treat_as_complete).toBe(false);
     expect(v.independence_warnings.join(' ')).toContain('treat_as_complete');
   });
@@ -167,6 +177,7 @@ describe('runGoalVerification —— 唯一不可让的取向:绝不 fail-open',
           independent_request_made: true,
         }) as never,
     });
+    if (v === null) throw new Error('夹具缺失: runGoalVerification 返回 null');
     expect(v.goal_status).toBe('achieved');
     expect(v.treat_as_complete).toBe(true);
   });

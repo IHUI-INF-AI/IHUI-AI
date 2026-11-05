@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { formatContextStats } from '../src/commands/repl.js'
+import type { ChatMessage } from '../src/commands/session.js'
 import { estimateMessagesTokens } from '../src/context.js'
 
 describe('formatContextStats', () => {
@@ -13,7 +14,7 @@ describe('formatContextStats', () => {
   })
 
   it('单条消息计算 token 并显示消息数', () => {
-    const history = [{ role: 'user', content: 'hello world' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello world' }]
     const out = formatContextStats(history)
     expect(out).toContain('消息数: 1')
     const expectedTokens = estimateMessagesTokens(
@@ -23,10 +24,10 @@ describe('formatContextStats', () => {
   })
 
   it('多条消息累计 token', () => {
-    const history = [
-      { role: 'system', content: 'you are a helpful assistant' },
-      { role: 'user', content: 'hello world' },
-      { role: 'assistant', content: 'hi there' },
+    const history: ChatMessage[] = [
+      { id: 's1', role: 'system', content: 'you are a helpful assistant' },
+      { id: 'u1', role: 'user', content: 'hello world' },
+      { id: 'a1', role: 'assistant', content: 'hi there' },
     ]
     const out = formatContextStats(history)
     expect(out).toContain('消息数: 3')
@@ -37,7 +38,7 @@ describe('formatContextStats', () => {
   })
 
   it('占用百分比 < 50% 时显示绿色 bar', () => {
-    const history = [{ role: 'user', content: 'hi' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hi' }]
     const maxTokens = 20
     const out = formatContextStats(history, { maxTokens })
     const tokens = estimateMessagesTokens(
@@ -53,9 +54,10 @@ describe('formatContextStats', () => {
 
   it('占用百分比 > 85% 时显示红色 bar(接近压缩阈值)', () => {
     const longContent = 'A'.repeat(1000)
-    const history = [
-      { role: 'system', content: 'sys' },
+    const history: ChatMessage[] = [
+      { id: 's1', role: 'system', content: 'sys' },
       ...Array.from({ length: 100 }, (_, i) => ({
+        id: `m-${i}`,
         role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
         content: longContent + `_${i}`,
       })),
@@ -72,26 +74,26 @@ describe('formatContextStats', () => {
   })
 
   it('包含 Plan Mode 状态(off)', () => {
-    const history = [{ role: 'user', content: 'hello' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello' }]
     const out = formatContextStats(history, { planFirst: false })
     expect(out).toContain('附加状态')
     expect(out).toContain('Plan Mode: off')
   })
 
   it('包含 Plan Mode 状态(on pending)', () => {
-    const history = [{ role: 'user', content: 'hello' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello' }]
     const out = formatContextStats(history, { planFirst: true, planApproved: false })
     expect(out).toContain('Plan Mode: on (pending)')
   })
 
   it('包含 Plan Mode 状态(on approved)', () => {
-    const history = [{ role: 'user', content: 'hello' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello' }]
     const out = formatContextStats(history, { planFirst: true, planApproved: true })
     expect(out).toContain('Plan Mode: on (approved)')
   })
 
   it('包含 skills 和 memory 数量', () => {
-    const history = [{ role: 'user', content: 'hello' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello' }]
     const out = formatContextStats(history, {
       planFirst: false,
       skills: 3,
@@ -102,14 +104,14 @@ describe('formatContextStats', () => {
   })
 
   it('未传 opts 时不显示附加状态', () => {
-    const history = [{ role: 'user', content: 'hello' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello' }]
     const out = formatContextStats(history)
     expect(out).not.toContain('附加状态')
     expect(out).not.toContain('Plan Mode')
   })
 
   it('自定义 maxTokens 影响百分比', () => {
-    const history = [{ role: 'user', content: 'hello world this is a test' }]
+    const history: ChatMessage[] = [{ id: 'u1', role: 'user', content: 'hello world this is a test' }]
     const out = formatContextStats(history, { maxTokens: 100 })
     expect(out).toContain('/ 100')
     expect(out).toContain('压缩阈值: 100')

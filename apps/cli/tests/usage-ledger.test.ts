@@ -57,13 +57,16 @@ describe('P2-5 UsageLedger 基础功能', () => {
     ledger.recordTurn(200, 80, 0.002);
     const history = ledger.history;
     expect(history).toHaveLength(2);
-    expect(history[0].turnNumber).toBe(1);
-    expect(history[0].promptTokens).toBe(100);
-    expect(history[0].completionTokens).toBe(50);
-    expect(history[0].totalTokens).toBe(150);
-    expect(history[0].estimatedCostUsd).toBe(0.001);
-    expect(history[1].turnNumber).toBe(2);
-    expect(history[1].promptTokens).toBe(200);
+    const first = history[0];
+    const second = history[1];
+    if (first === undefined || second === undefined) throw new Error('夹具缺失: history 前两条记录');
+    expect(first.turnNumber).toBe(1);
+    expect(first.promptTokens).toBe(100);
+    expect(first.completionTokens).toBe(50);
+    expect(first.totalTokens).toBe(150);
+    expect(first.estimatedCostUsd).toBe(0.001);
+    expect(second.turnNumber).toBe(2);
+    expect(second.promptTokens).toBe(200);
     // 浅拷贝:修改不影响内部状态
     history.push({ turnNumber: 99, promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0, timestamp: 0 });
     expect(ledger.turnCount).toBe(2);
@@ -74,6 +77,7 @@ describe('P2-5 UsageLedger 基础功能', () => {
     ledger.recordTurn(10, 5, 0.0001);
     const after = Date.now();
     const entry = ledger.history[0];
+    if (entry === undefined) throw new Error('夹具缺失: recordTurn 后应有 history 记录');
     expect(entry.timestamp).toBeGreaterThanOrEqual(before);
     expect(entry.timestamp).toBeLessThanOrEqual(after);
   });
@@ -86,6 +90,7 @@ describe('P2-5 UsageLedger 基础功能', () => {
   it('TurnUsage.totalTokens = promptTokens + completionTokens(单条记录)', () => {
     ledger.recordTurn(123, 456, 0.01);
     const entry = ledger.history[0];
+    if (entry === undefined) throw new Error('夹具缺失: recordTurn 后应有 history 记录');
     expect(entry.totalTokens).toBe(entry.promptTokens + entry.completionTokens);
   });
 });

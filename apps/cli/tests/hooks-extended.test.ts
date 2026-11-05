@@ -208,19 +208,6 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     return content;
   }
 
-  /** 异步执行面上钩子是后台跑的:等 marker 里出现 substr(=本用例自己的 post 已落盘)再断言 */
-  async function waitForMarkerContent(substr: string): Promise<string> {
-    let content = '';
-    await vi.waitFor(
-      () => {
-        content = fs.readFileSync(markerPath, 'utf-8');
-        expect(content).toContain(substr);
-      },
-      { timeout: 8000, interval: 50 },
-    );
-    return content;
-  }
-
   it('触发压缩时执行 preCompact 和 postCompact 钩子', async () => {
     const messages = buildLargeMessages(20);
     // 分层金字塔摘要后近层保留 200 chars → 压缩候选 ≈530 tokens,
@@ -402,8 +389,8 @@ describe('deepMergeHooks 新事件键合并', () => {
     const merged = deepMergeHooks(a, b);
 
     expect(merged.preCompact).toHaveLength(2);
-    expect(merged.preCompact?.[0].name).toBe('a-pre-compact');
-    expect(merged.preCompact?.[1].name).toBe('b-pre-compact');
+    expect(merged.preCompact![0]!.name).toBe('a-pre-compact');
+    expect(merged.preCompact![1]!.name).toBe('b-pre-compact');
     expect(merged.postCompact).toHaveLength(1);
     expect(merged.subagentStart).toHaveLength(1);
     expect(merged.subagentStop).toHaveLength(1);
@@ -419,7 +406,7 @@ describe('deepMergeHooks 新事件键合并', () => {
     const merged = deepMergeHooks(a, b);
 
     expect(merged.stop).toHaveLength(1);
-    expect(merged.stop?.[0].name).toBe('a-stop');
+    expect(merged.stop![0]!.name).toBe('a-stop');
     expect(merged.stopFailure).toHaveLength(1);
   });
 

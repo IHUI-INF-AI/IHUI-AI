@@ -42,6 +42,7 @@ describe('MockEmbeddingProvider', () => {
     const p = new MockEmbeddingProvider()
     const [a] = await p.embedBatch(['alpha'])
     const [b] = await p.embedBatch(['beta'])
+    if (a === undefined || b === undefined) throw new Error('夹具缺失: embedBatch 首元素为空')
     expect(a).not.toEqual(b)
     expect(a).toHaveLength(8)
     for (const v of a) {
@@ -89,7 +90,9 @@ describe('ApiEmbeddingProvider', () => {
     const p = new ApiEmbeddingProvider({ apiBase: 'https://api.example.com/v1/', apiKey: 'sk-x' })
     const out = await p.embedBatch(['hi'])
     expect(out).toEqual([[0.1, 0.2]])
-    const [url, init] = fetchMock.mock.calls[0]
+    const call = fetchMock.mock.calls[0]
+    if (call === undefined) throw new Error('夹具缺失: fetch 未被调用')
+    const [url, init] = call
     expect(url).toBe('https://api.example.com/v1/embeddings') // 尾斜杠已去除
     expect(init.method).toBe('POST')
     expect(init.headers.Authorization).toBe('Bearer sk-x')
@@ -112,8 +115,11 @@ describe('ApiEmbeddingProvider', () => {
     const out = await p.embedBatch(['a', 'b', 'c'])
     expect(out).toEqual([[1], [2], [3]])
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toEqual(['a', 'b'])
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).input).toEqual(['c'])
+    const firstCall = fetchMock.mock.calls[0]
+    const secondCall = fetchMock.mock.calls[1]
+    if (firstCall === undefined || secondCall === undefined) throw new Error('夹具缺失: 分批 fetch 未发生两次')
+    expect(JSON.parse(firstCall[1].body).input).toEqual(['a', 'b'])
+    expect(JSON.parse(secondCall[1].body).input).toEqual(['c'])
   })
 
   it('429 后重试成功(指数退避)', async () => {
@@ -178,7 +184,9 @@ describe('BackendEmbeddingProvider', () => {
     expect(p.modelName()).toBe('text-embedding-3-small')
     const out = await p.embedBatch(['doc'])
     expect(out).toEqual([[0.9]])
-    const [url, init] = fetchMock.mock.calls[0]
+    const call = fetchMock.mock.calls[0]
+    if (call === undefined) throw new Error('夹具缺失: fetch 未被调用')
+    const [url, init] = call
     expect(url).toBe('http://127.0.0.1:8803/v1/llm/embeddings')
     expect(init.headers.Authorization).toBe('Bearer gw-key')
   })
@@ -235,7 +243,9 @@ describe('detectEmbeddingProvider', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
     return p.embedBatch(['x']).then(() => {
-      expect(fetchMock.mock.calls[0][0]).toBe('https://proxy.example.com/v1/embeddings')
+      const call = fetchMock.mock.calls[0]
+      if (call === undefined) throw new Error('夹具缺失: fetch 未被调用')
+      expect(call[0]).toBe('https://proxy.example.com/v1/embeddings')
       vi.unstubAllGlobals()
     })
   })

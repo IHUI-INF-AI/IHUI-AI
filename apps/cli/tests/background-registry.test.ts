@@ -150,7 +150,7 @@ describe('后台任务注册表', () => {
       expect(meta.status).toBe('exited');
       expect(meta.startedAt).toBeDefined();
       // 元数据不应包含 stdoutBuf
-      expect((meta as Record<string, unknown>).stdoutBuf).toBeUndefined();
+      expect(meta).not.toHaveProperty('stdoutBuf');
     });
   });
 
@@ -755,9 +755,9 @@ describe('G-937958 notified claim 时序(读已完成任务不预支 claim)', ()
 describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账)', () => {
   function fakeChild(): ChildProcess {
     // 与注册表的捕获面同形:process.stdout?.on('data') / stderr 同 —— 流也得是 EventEmitter
-    const child = new EventEmitter() as unknown as ChildProcess & { stdout: EventEmitter; stderr: EventEmitter };
-    child.stdout = new EventEmitter();
-    child.stderr = new EventEmitter();
+    const child = new EventEmitter() as unknown as ChildProcess;
+    child.stdout = new EventEmitter() as unknown as ChildProcess['stdout'];
+    child.stderr = new EventEmitter() as unknown as ChildProcess['stderr'];
     return child;
   }
   const TAIL_CAP = 1024 * 1024;
@@ -766,7 +766,7 @@ describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账
   it('运行中读 ⇒ 含第 1 行;超头窗 ⇒ 带省略前缀且主体 ≤ 头窗上限', () => {
     const child = fakeChild();
     const id = registerTask(child, 'fake running head view');
-    child.stdout.emit('data', Buffer.from(`HEAD-MARK first line\n${'x'.repeat(50_000)}`, 'utf-8'));
+    child.stdout!.emit('data', Buffer.from(`HEAD-MARK first line\n${'x'.repeat(50_000)}`, 'utf-8'));
     const out = getTaskOutput(id)!;
     expect(out.status).toBe('running');
     expect(out.stdout).toContain('HEAD-MARK first line'); // 含第 1 行
@@ -781,8 +781,8 @@ describe('G-937959 输出投影(运行中读头、终态读尾、省略量入账
   it('结束后读 ⇒ 含末尾;超尾窗 ⇒ omitted 前缀且总长 ≤ 尾窗上限+前缀;头部确实被斩', () => {
     const child = fakeChild();
     const id = registerTask(child, 'fake terminal tail view');
-    child.stdout.emit('data', Buffer.from(`HEAD-MARK\n${'x'.repeat(50_000)}`, 'utf-8'));
-    child.stdout.emit('data', Buffer.from(`${'y'.repeat(TAIL_CAP)}\nTAIL-MARK the end\n`, 'utf-8'));
+    child.stdout!.emit('data', Buffer.from(`HEAD-MARK\n${'x'.repeat(50_000)}`, 'utf-8'));
+    child.stdout!.emit('data', Buffer.from(`${'y'.repeat(TAIL_CAP)}\nTAIL-MARK the end\n`, 'utf-8'));
     child.emit('close', 0, null);
     const task = getTask(id)!;
     const total = task.totalStdoutChars;

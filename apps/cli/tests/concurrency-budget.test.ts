@@ -105,9 +105,11 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     g.applyRunCapCommand('run-2', K, MAX_CONCURRENCY)
     const changes = g.release(K, { outcome: 'throttled' })
     expect(changes.map((c) => c.reason)).toContain('throttle-429')
-    expect(changes[0].to).toBe(mid) // 退回 lastGood
-    expect(changes[0].to).toBe(mid) // 13 ≠ 12(系数减结果)
-    expect(changes[0].to).not.toBe(Math.max(MIN_CONCURRENCY, Math.floor(MAX_CONCURRENCY * AIMD_DECREASE_FACTOR)))
+    const first = changes[0]
+    if (first === undefined) throw new Error('夹具缺失:429 未产生 change')
+    expect(first.to).toBe(mid) // 退回 lastGood
+    expect(first.to).toBe(mid) // 13 ≠ 12(系数减结果)
+    expect(first.to).not.toBe(Math.max(MIN_CONCURRENCY, Math.floor(MAX_CONCURRENCY * AIMD_DECREASE_FACTOR)))
   })
 
   it('c) cap ≤ lastGood 时按系数减并清空 lastGood', () => {
@@ -122,9 +124,11 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     expect(g.snapshot(K).cap).toBe(expected)
     expect(g.snapshot(K).lastGood).toBe(0)
     expect(changes).toHaveLength(1)
-    expect(changes[0].reason).toBe('throttle-429')
-    expect(changes[0].from).toBe(MAX_CONCURRENCY)
-    expect(changes[0].to).toBe(expected)
+    const first = changes[0]
+    if (first === undefined) throw new Error('夹具缺失:429 未产生 change')
+    expect(first.reason).toBe('throttle-429')
+    expect(first.from).toBe(MAX_CONCURRENCY)
+    expect(first.to).toBe(expected)
   })
 
   it('d) cap 已在地板:无 Retry-After ⇒ 0 条 change;带 ⇒ 仍发 1 条', () => {
@@ -138,8 +142,10 @@ describe('ProviderAimdGovernor — 纯 AIMD 状态机', () => {
     expect(g.snapshot(K).cap).toBe(MIN_CONCURRENCY)
     const withRa = g.release(K, { outcome: 'throttled', retryAfterMs: 5_000 })
     expect(withRa).toHaveLength(1)
-    expect(withRa[0].reason).toBe('retry-after')
-    expect(withRa[0].cooldownUntilMs).toBe(5_000)
+    const raChange = withRa[0]
+    if (raChange === undefined) throw new Error('夹具缺失:Retry-After 未产生 change')
+    expect(raChange.reason).toBe('retry-after')
+    expect(raChange.cooldownUntilMs).toBe(5_000)
     expect(g.snapshot(K).cap).toBe(MIN_CONCURRENCY) // cap 不再减
   })
 

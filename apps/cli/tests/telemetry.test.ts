@@ -38,17 +38,39 @@ function createMockFetch(ok: boolean = true, status: number = 200) {
 // === 辅助:构造可控制的 mock 定时器 ===
 function createMockTimers() {
   const intervals: Array<() => void> = [];
-  const setIntervalImpl = vi.fn((cb: () => void, _ms: number) => {
+  const setIntervalMock = vi.fn((cb: () => void, _ms: number) => {
     const id = intervals.length;
     intervals.push(cb);
-    return id as unknown as NodeJS.Timeout;
+    return id;
   });
-  const clearIntervalImpl = vi.fn((_id: NodeJS.Timeout) => {
+  const clearIntervalMock = vi.fn((_id: string | number | NodeJS.Timeout | undefined) => {
     // mock no-op
   });
+  // 注入点类型是 `typeof setInterval` / `typeof clearInterval`:lib.dom 与 @types/node
+  // 两份重载对返回值约定不同(number vs Timeout),vi.fn 的单签名 Mock 结构上满足不了,
+  // 故用重载适配函数转发到 Mock —— 调用计数与入参仍由 Mock 侧观测。
+  function setIntervalImpl(handler: TimerHandler, timeout?: number, ...args: unknown[]): number;
+  function setIntervalImpl<TArgs extends unknown[]>(
+    callback: (...args: TArgs) => void,
+    delay?: number,
+    ...args: TArgs
+  ): NodeJS.Timeout;
+  function setIntervalImpl(
+    handler: TimerHandler,
+    timeout?: number,
+    ..._args: unknown[]
+  ): number | NodeJS.Timeout {
+    setIntervalMock(handler as () => void, timeout ?? 0);
+    return intervals.length - 1;
+  }
+  function clearIntervalImpl(id?: string | number | NodeJS.Timeout): void {
+    clearIntervalMock(id);
+  }
   return {
     setIntervalImpl,
     clearIntervalImpl,
+    setIntervalMock,
+    clearIntervalMock,
     intervals,
     // 触发所有已注册的定时器
     tickAll: () => {
@@ -85,9 +107,9 @@ describe('TelemetryClient', () => {
     });
 
     it('disabled 时不注册定时器', () => {
-      const { setIntervalImpl } = createMockTimers();
+      const { setIntervalImpl, setIntervalMock } = createMockTimers();
       new TelemetryClient({ enabled: false, setIntervalImpl });
-      expect(setIntervalImpl).not.toHaveBeenCalled();
+      expect(setIntervalMock).not.toHaveBeenCalled();
     });
   });
 
@@ -300,7 +322,7 @@ describe('TelemetryClient', () => {
 
   describe('shutdown 行为', () => {
     it('shutdown 清理定时器', () => {
-      const { setIntervalImpl, clearIntervalImpl } = createMockTimers();
+      const { setIntervalImpl, clearIntervalImpl, setIntervalMock, clearIntervalMock } = createMockTimers();
       const client = new TelemetryClient({
         enabled: true,
         endpoint: 'https://example.com/v1/telemetry/ingest',
@@ -309,11 +331,11 @@ describe('TelemetryClient', () => {
         setIntervalImpl,
         clearIntervalImpl,
       });
-      expect(setIntervalImpl).toHaveBeenCalledTimes(1);
+      expect(setIntervalMock).toHaveBeenCalledTimes(1);
 
       // shutdown 是 async,但清理 timer 是同步部分
       void client.shutdown();
-      expect(clearIntervalImpl).toHaveBeenCalledTimes(1);
+      expect(clearIntervalMock).toHaveBeenCalledTimes(1);
     });
 
     it('shutdown 触发最后一次 flush', async () => {
@@ -351,7 +373,7 @@ describe('TelemetryClient', () => {
 
   describe('定时 flush', () => {
     it('启用时注册 setInterval 定时器', () => {
-      const { setIntervalImpl } = createMockTimers();
+      const { setIntervalImpl, setIntervalMock } = createMockTimers();
       new TelemetryClient({
         enabled: true,
         endpoint: 'https://example.com/v1/telemetry/ingest',
@@ -359,9 +381,9 @@ describe('TelemetryClient', () => {
         setIntervalImpl,
         batchSize: 100,
       });
-      expect(setIntervalImpl).toHaveBeenCalledTimes(1);
+      expect(setIntervalMock).toHaveBeenCalledTimes(1);
       // 默认 60s
-      expect(setIntervalImpl.mock.calls[0]![1]).toBe(60_000);
+      expect(setIntervalMock.mock.calls[0]![1]).toBe(60_000);
     });
 
     it('定时器触发时调用 flush', async () => {
@@ -467,7 +489,7 @@ describe('全局 API', () => {
       clearIntervalImpl: timers1.clearIntervalImpl,
       batchSize: 100,
     });
-    expect(timers1.setIntervalImpl).toHaveBeenCalledTimes(1);
+    expect(timers1.setIntervalMock).toHaveBeenCalledTimes(1);
 
     // 第二次 init(应触发旧 client shutdown)
     initTelemetry({
@@ -480,8 +502,8 @@ describe('全局 API', () => {
     });
     // 旧 client 的 clearInterval 被调用(注意:旧 shutdown 是 async,可能未立即完成)
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(timers1.clearIntervalImpl).toHaveBeenCalledTimes(1);
-    expect(timers2.setIntervalImpl).toHaveBeenCalledTimes(1);
+    expect(timers1.clearIntervalMock).toHaveBeenCalledTimes(1);
+    expect(timers2.setIntervalMock).toHaveBeenCalledTimes(1);
   });
 });
 

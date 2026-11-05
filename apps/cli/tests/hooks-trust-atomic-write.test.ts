@@ -197,7 +197,7 @@ describe('B 读后写冲突:拒绝覆盖并点名,不是后写赢', () => {
     expect(after).not.toContain('sha-mine');
     // 磁盘仍是"别人"最后写进去的那一份(注入器写的),我们的记录没有落上
     expect(after.startsWith('CONCURRENT#')).toBe(true);
-    const named = warnSpy.mock.calls.map((c) => String(c[0]));
+    const named: string[] = warnSpy.mock.calls.map((c: unknown[]) => String(c[0]));
     expect(named.some((c) => c.includes('拒绝写入信任清单') && c.includes(trustPath))).toBe(true);
     expect(fs.readdirSync(scratch).filter((n: string) => n.includes('.tmp-'))).toEqual([]);
   });
@@ -261,7 +261,7 @@ describe('C 清单损坏:改名留证 + 不放行任何钩子', () => {
 
     const evidences = evidenceFiles();
     expect(evidences.length).toBe(1);
-    const evidencePath = path.join(scratch, evidences[0]);
+    const evidencePath = path.join(scratch, evidences[0]!);
     expect(Buffer.compare(Buffer.from(readText(evidencePath), 'utf-8'), Buffer.from(original, 'utf-8'))).toBe(0);
   });
 
@@ -296,7 +296,7 @@ describe('C 清单损坏:改名留证 + 不放行任何钩子', () => {
     expect(g.detail).toContain('不参与');
     expect(readText(overridesPath)).toBe(overridesText);
     expect(evidenceFiles().length).toBe(1);
-    expect(readText(path.join(scratch, evidenceFiles()[0]))).toBe(original);
+    expect(readText(path.join(scratch, evidenceFiles()[0]!))).toBe(original);
   });
 
   it('C4 成对对照:同一份清单没有坏行时,同样的 gateHook 判定为放行且不动盘', () => {

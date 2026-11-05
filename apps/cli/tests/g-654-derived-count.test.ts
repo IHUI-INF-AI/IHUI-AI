@@ -178,7 +178,9 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     // 结算一格 ⇒ drainQueue 同步补位(旧: -- 之后 drain 再 ++;新: 出集合之后占位再入集合)
     const beforeStarts = h.procs.length;
     h.legacy.settle();
-    h.procs[0].emitExit(0);
+    const firstProc = h.procs[0];
+    if (firstProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    firstProc.emitExit(0);
     if (h.procs.length > beforeStarts) h.legacy.launch();
     await tick();
     checkRow('结算 1 ⇒ 队列补位(交接那一拍两集合之和不变)', h);
@@ -268,7 +270,9 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     const p = h.pool.spawn(REQ);
     h.legacy.launch();
     checkRow('error 之前(占着一格)', h);
-    h.procs[0].emit('error', new Error('spawn ENOENT'));
+    const firstProc = h.procs[0];
+    if (firstProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    firstProc.emit('error', new Error('spawn ENOENT'));
     h.legacy.settle();
     await expect(p).resolves.toMatchObject({ status: 'failed' });
     await tick();
@@ -296,7 +300,9 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     expect(h.pool.getResidualKills()).toHaveLength(1);
     expect(h.pool.activeWorkerCount()).toBe(0);
     // 残留之后再来一发迟到的 exit:OS 若真退了才由 exit 事件收口,计数不许再往下走
-    h.procs[0].emitExit(1, 'SIGKILL');
+    const firstProc = h.procs[0];
+    if (firstProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    firstProc.emitExit(1, 'SIGKILL');
     h.legacy.settle();
     await tick();
     checkRow('残留 + 迟到 exit ⇒ 旧值变负,派生值钉在 0', h, '残留条目收口后的迟到 exit ⇒ 旧计数器多减一格');
@@ -309,14 +315,18 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     h.legacy.launch();
     expect(h.events).toEqual([{ next: 1, prev: 0 }]); // 起一格:恰一发(交接那一拍没出声)
 
-    h.procs[0].emitExit(0);
+    const firstProc = h.procs[0];
+    if (firstProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    firstProc.emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('第一次结算(1→0,恰第二发)', h);
     expect(h.events).toHaveLength(2);
 
     // 同一批状态上再发一次 exit(旧写法靠"resolver 已被消费"挡住通知,却挡不住 --)
-    h.procs[0].emitExit(0);
+    const replayProc = h.procs[0];
+    if (replayProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    replayProc.emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('重复 exit(迟到的第二次结算)⇒ 旧计数器多减一格', h, '重复 exit(迟到的第二次结算)⇒ 旧计数器多减一格');
@@ -337,7 +347,9 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     h.legacy.shutdownReset();
     checkRow('shutdown 收口(旧值归零 / 派生值随集合归零)', h);
     // 迟到的再一发 exit(宿主补发 / 假 proc 重放):旧写法照减不误 ⇒ 负数
-    h.procs[0].emitExit(0);
+    const lateProc = h.procs[0];
+    if (lateProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    lateProc.emitExit(0);
     h.legacy.settle();
     await tick();
     checkRow('shutdown 之后迟到的 exit ⇒ 旧计数器被减成负数', h, 'shutdown 之后迟到的 exit ⇒ 旧计数器被减成负数');
@@ -356,11 +368,13 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
     expect(h.events).toHaveLength(1);
 
     // 重复的无害调用面:同值上再来一次清理,不许产生第二声
-    h.procs[0].emitExit(0);
+    const firstProc = h.procs[0];
+    if (firstProc === undefined) throw new Error('夹具缺失:第 1 格子进程未启动');
+    firstProc.emitExit(0);
     h.legacy.settle();
     await tick();
     expect(h.events.map((e) => [e.next, e.prev])).toEqual([[1, 0], [0, 1], [1, 0]]);
-    h.procs[0].emitExit(0);
+    firstProc.emitExit(0);
     h.legacy.settle();
     await tick();
     expect(h.events, '同一值上重复结算 ⇒ 不重复通知').toHaveLength(3);
@@ -384,6 +398,7 @@ describe('G-654① 派生计数与旧计数器逐状态对拍', () => {
       await vi.advanceTimersByTimeAsync(5_100); // 第一跳 5s 的轮询:无活动超阈 ⇒ 转后台
       const id = h.pool.activeSubagentIds()[0];
       expect(id).toBeDefined();
+      if (id === undefined) throw new Error('夹具缺失:转后台后未取到子代理 id');
       expect(h.pool.getLifecycleStatus(id)).toBe('detached_idle');
       await expect(p).resolves.toMatchObject({ status: 'running' });
       checkRow('转后台后进程仍活着 ⇒ 旧值新值都还占着这一格', h);
