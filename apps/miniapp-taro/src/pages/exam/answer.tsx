@@ -151,7 +151,7 @@ export default function ExamAnswer() {
       .catch((e) => {
         logger.error('unknown', '考试加载', e)
         // 对齐 RN SharedExamQuestionScreen:加载失败由 ErrorState 常驻呈现(message 取
-        // examQuestion.loadFailed)。RN onRetry={reload} 是真重载;小程序只给返回出口(合法差异)
+        // examQuestion.loadFailed)。RN 同屏的重试是真重载(重新加载);小程序只给返回出口(合法差异)
         setLoadFailed(true)
       })
     return () => {
