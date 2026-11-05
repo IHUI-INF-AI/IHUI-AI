@@ -95,14 +95,25 @@ const D2 = mkOpts(
   }),
 )
 ok('D2 ok ⇒ 零发信', D2.res.judged === true && D2.mails.length === 0 && D2.res.breaches === 0)
+// D3–D5 断言于 2026-11-05 就地改写(不是放宽,是换向):旧契约把"盲区只写日志"钉成了正确行为
+// (`不发信`),而审计席实测到"把环弄瞎比让环报红容易"—— 尺子不在位 / 结论解析不出 / unjudged / 派发抛异常
+// 四型当时零邮件、零维度、零台账 action ⇒ 底下 12 条腿有没有漂无人判。"不记绿"那一半逐字保留。
 const D3 = mkOpts(
   JSON.stringify({ verdict: 'unjudged', summary: 'OK=0 DRIFT=0 UNJUDGED=3', dims: [] }),
 )
-ok('D3 unjudged ⇒ 不发信也不记绿(judged:false)', D3.res.judged === false && D3.mails.length === 0)
+ok(
+  'D3 unjudged ⇒ 不记绿(judged:false)且盲区必须到人(blind=unjudged)',
+  D3.res.judged === false &&
+    D3.mails.length === 1 &&
+    D3.mails[0].opts.dedupKey === 'autonomy-leg-health;blind=unjudged',
+)
 const D4 = mkOpts('not json at all')
 ok(
-  'D4 结论不可解析 ⇒ judged:false,绝不冒充已探测(§0.3)',
-  D4.res.judged === false && D4.mails.length === 0,
+  'D4 结论不可解析 ⇒ judged:false 绝不冒充已探测(§0.3),且发信 blind=unparsed',
+  D4.res.judged === false &&
+    D4.mails.length === 1 &&
+    D4.mails[0].opts.dedupKey === 'autonomy-leg-health;blind=unparsed' &&
+    D4.mails[0].opts.severity === 'critical',
 )
 const D5 = mkOpts(driftJson, {
   runner: () => {
@@ -110,8 +121,11 @@ const D5 = mkOpts(driftJson, {
   },
 })
 ok(
-  'D5 变异:派生抛异常不得冒充健康(ran:false 且无 judged:true)',
-  D5.res.ran === false && D5.res.judged !== true && D5.mails.length === 0,
+  'D5 变异:派生抛异常不得冒充健康(ran:false 且无 judged:true),且发信 blind=dispatch-error',
+  D5.res.ran === false &&
+    D5.res.judged !== true &&
+    D5.mails.length === 1 &&
+    D5.mails[0].opts.dedupKey === 'autonomy-leg-health;blind=dispatch-error',
 )
 const ticked = join(TMP, `tick-shared-${RUN}.ts`)
 mkOpts(driftJson, { tickFile: ticked, now: Date.parse('2026-11-01T05:00:00.000Z') })
@@ -169,9 +183,35 @@ if (idx) {
     face = '工作树(索引与 HEAD 都取不到)'
   }
 }
+// D8–D11 曾在本席起草时重复覆盖 D2–D5 的同一批分支,已并入 D3/D4/D5 就地改写(不留重复档)。
+// 只留这条身份洁净锁:盲区三型的 dedupKey 必须是**固定串**。
+ok(
+  'D8 身份洁净锁:三类盲区 dedupKey 均为固定串,不掺计数/时刻/sha(守门 224 同族)',
+  (() => {
+    const keys = [D3, D4, D5].map((d) => d.mails[0]?.opts?.dedupKey ?? '')
+    return (
+      keys.every((k) => /^autonomy-leg-health;blind=[a-z-]+$/.test(k)) && new Set(keys).size === 3
+    )
+  })(),
+)
+
 ok(
   `W1 派发函数已在 git-guardian 内定义(${face} 面现读)`,
   headFace.includes('export function sweepAutonomyLegHealth'),
+)
+ok(
+  `W2 尺子不在位那一型也到人(读工作树面:${
+    (readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8').match(
+      /notifyLegBlind\('ruler-missing'/,
+    ) || ['', ''])[0]
+  } || '(未接线)';其余三型由 D3–D5 的注入行为锁覆盖)`,
+  (() => {
+    const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
+    return (
+      /notifyLegBlind\('ruler-missing'/.test(src) &&
+      src.includes('export const AUTONOMY_LEG_BLIND_IDENTITIES')
+    )
+  })(),
 )
 ok(
   'W2 调用点已挂进守护执行体且有 !CHECK_ONLY 档(有定义无调用=判据没装车)',
