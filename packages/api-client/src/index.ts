@@ -504,3 +504,7 @@ export type { FormRequestEvent } from './client.js'
 export * from './endpoints/support.js'
 export * from './endpoints/tags.js'
 export * from './endpoints/teams.js'
+// 接口单一化第 3 批(2026-11-05 立,门 300 台账 A 类):端内直拼前缀收口
+export * from './endpoints/image-gen.js'
+export * from './endpoints/knowledge-base.js'
+export * from './endpoints/cloud-runs.js'

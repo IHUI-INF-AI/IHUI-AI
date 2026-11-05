@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Calendar, CheckCircle2 } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { getDueReviews, getReviewStats, submitReview } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -126,13 +126,14 @@ export default function LearnReviewScreen() {
     setLoading(true)
     setError('')
     try {
-      const dueRes = await fetchApi<{ list: ReviewQuestion[]; total: number }>(
-        '/api/srs-review/due?page=1&pageSize=20',
-      )
+      const dueRes = await getDueReviews<{ list: ReviewQuestion[]; total: number }>({
+        page: 1,
+        pageSize: 20,
+      })
       if (!dueRes.success) throw new Error(dueRes.error)
       setReviews(dueRes.data?.list ?? [])
       // 统计是辅助信息:它失败不该把整屏打成错误。
-      const statsRes = await fetchApi<{ stats: ReviewStats }>('/api/srs-review/stats')
+      const statsRes = await getReviewStats<{ stats: ReviewStats }>()
       if (statsRes.success) setStats(statsRes.data?.stats ?? null)
     } catch {
       setError(t('learnReview.loadFailed'))
@@ -152,9 +153,9 @@ export default function LearnReviewScreen() {
     setSubmitting(true)
     setSubmitError('')
     try {
-      const res = await fetchApi<ReviewResult>('/api/srs-review/review', {
-        method: 'POST',
-        body: JSON.stringify({ questionId: current.questionId, quality }),
+      const res = await submitReview<ReviewResult>({
+        questionId: current.questionId,
+        quality,
       })
       if (!res.success) throw new Error(res.error)
       setResult(res.data)

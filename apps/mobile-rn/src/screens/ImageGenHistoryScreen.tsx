@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getFavoriteImages, getImageHistory } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ImageGenHistoryScreen as SharedImageGenHistoryScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -121,8 +121,9 @@ export function ImageGenHistoryScreen() {
     setError('')
     try {
       if (tab === 'history') {
-        const res = await fetchApi<HistoryData>('/api/image-gen/history', {
-          params: { page: 1, pageSize: PAGE_SIZE },
+        const res = await getImageHistory<HistoryData['list'][number]>({
+          page: 1,
+          pageSize: PAGE_SIZE,
         })
         if (res.success) {
           setHistoryItems(res.data.list.map((row) => toGridHistoryRow(row, timeFormatter)))
@@ -131,8 +132,9 @@ export function ImageGenHistoryScreen() {
           setError(apiFailureToText(res, t('imageGen.loadFailed')))
         }
       } else {
-        const res = await fetchApi<FavoritesData>('/api/image-gen/favorites', {
-          params: { page: 1, pageSize: PAGE_SIZE },
+        const res = await getFavoriteImages<FavoritesData['list'][number]>({
+          page: 1,
+          pageSize: PAGE_SIZE,
         })
         if (res.success) {
           setFavItems(res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter)))
@@ -156,8 +158,9 @@ export function ImageGenHistoryScreen() {
     try {
       const nextPage = page + 1
       if (tab === 'history') {
-        const res = await fetchApi<HistoryData>('/api/image-gen/history', {
-          params: { page: nextPage, pageSize: PAGE_SIZE },
+        const res = await getImageHistory<HistoryData['list'][number]>({
+          page: nextPage,
+          pageSize: PAGE_SIZE,
         })
         if (res.success) {
           const nextItems = res.data.list.map((row) => toGridHistoryRow(row, timeFormatter))
@@ -165,8 +168,9 @@ export function ImageGenHistoryScreen() {
           setHistoryItems((prev) => [...prev, ...nextItems])
         }
       } else {
-        const res = await fetchApi<FavoritesData>('/api/image-gen/favorites', {
-          params: { page: nextPage, pageSize: PAGE_SIZE },
+        const res = await getFavoriteImages<FavoritesData['list'][number]>({
+          page: nextPage,
+          pageSize: PAGE_SIZE,
         })
         if (res.success) {
           const nextItems = res.data.list.map((item) => toGridFavoriteItem(item, timeFormatter))

@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getKnowledgeBaseCategories, listKnowledgeBases } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   KnowledgeBaseListScreen as SharedKnowledgeBaseListScreen,
@@ -37,10 +37,6 @@ interface KbRawRow {
 interface KbListPayload {
   list?: KbRawRow[] | null
   total?: number
-}
-
-interface KbCategoriesPayload {
-  list?: { id?: string | number; name?: string | null; count?: number | null }[] | null
 }
 
 function toItem(raw: KbRawRow): KnowledgeBaseListItem {
@@ -97,15 +93,13 @@ export function KnowledgeBaseListScreen() {
       else setLoadingMore(true)
       setError('')
 
-      const qs = new URLSearchParams({
-        page: String(targetPage),
-        pageSize: String(PAGE_SIZE),
-      })
-      if (activeCategoryId !== 'all') qs.set('categoryId', activeCategoryId)
-      if (search) qs.set('search', search)
-
       try {
-        const res = await fetchApi<KbListPayload>(`/api/knowledge-base?${qs.toString()}`)
+        const res = await listKnowledgeBases<KbListPayload>({
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+          ...(activeCategoryId !== 'all' ? { categoryId: activeCategoryId } : {}),
+          ...(search ? { search } : {}),
+        })
         if (seq !== requestSeq.current) return
         if (!res.success) {
           // 首屏/刷新失败才顶掉整屏;翻页失败保留已读列表,只收敛加载态
@@ -143,7 +137,7 @@ export function KnowledgeBaseListScreen() {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<KbCategoriesPayload>('/api/knowledge-base/categories')
+        const res = await getKnowledgeBaseCategories()
         if (cancelled || !res.success) return
         setCategories(
           (res.data?.list ?? [])

@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getKnowledgeBase } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { extractToc } from '@/lib/content'
 import { MarkdownViewer } from '@/components/media'
@@ -43,7 +43,11 @@ export default function KBDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'detail', id],
-    queryFn: () => apiOrThrow<KBDetailData>(`/api/knowledge-base/${id}`),
+    queryFn: async (): Promise<KBDetailData> => {
+      const res = await getKnowledgeBase<KBDetailData>(id)
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
+    },
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
