@@ -40,7 +40,7 @@ import {
 // 按操作分维的文件访问裁决(delete 轴)。注意射程只到"用户请求的删除"(回收站搬运腿),
 // 不含原子回滚里的 unlinkSync —— 回滚是把当前版本删掉再落回备份,那是**撤销**动作,
 // 拦它反而会把半应用状态留在盘上(比删一个受保护文件更坏)。
-import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 
 // ==================== Checkpoint 机制 ====================
 
@@ -144,6 +144,8 @@ function stashFileToTrash(
   // 排在 copy 之前 —— 拒绝时既不复制也不 unlink,回收站里不留半件、原文件原样在位。
   // 与两阶段护栏**不同职**:护栏管"这一批要不要删"(量),本层管"这个路径准不准删"(身份)。
   const aclDelete = evaluateFileAccess('delete', toAclPath(workspacePath, rel), workspacePath);
+  // 守护面清单不可判 ⇒ 出声一次(S7:unjudged 透到消费点)
+  announceGuardUnjudged(workspacePath, aclDelete.guard, 'file_batch_edit:delete');
   if (aclDelete.blocked) {
     throw new Error(aclDelete.note ?? `按文件访问裁决禁止删除 ${rel}`);
   }
