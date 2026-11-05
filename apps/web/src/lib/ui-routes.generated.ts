@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 452cc65582957792325bbd18cc3fb19853263ed5
-// inputsSha256: 50c12ccfb1d2aa34ed11832a2bd4e8973fb9791992011039cf277a1ed00def36
+// sourceCommit: b08604139e1de6f4740306db70dd6ab73c47a4e0
+// inputsSha256: 5a44b054995d4bd0b2f883378bc7c1f13f04801af956eb440c493322b44015e9
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -575,14 +575,14 @@
 // input: apps/web/app/(main)/edu/courses/page.tsx 85a8f858c53077a481e8a11de4c70ed968b6e717af84f4558d122cd2bb86ec9c
 // input: apps/web/app/(main)/edu/dashboard/page.tsx dc7cb93954ea4892831344aedb2108142f541b3daf710e9ae099e31e27b1b475
 // input: apps/web/app/(main)/edu/edu-management/attendance/page.tsx ee249673237ea43b362e64ac999eea54c1e170455eb5433939a3fc06835a38ad
-// input: apps/web/app/(main)/edu/edu-management/enrollment/page.tsx 1b6b313d6d21e44702feae1220dac72e39d51c24b2b15d769fa6e3e8877625fb
-// input: apps/web/app/(main)/edu/edu-management/finance/page.tsx 86f482ba4ee20f15b8ca07b1e3d55e4012eb2465f62fe1f1d708d32d17399f84
+// input: apps/web/app/(main)/edu/edu-management/enrollment/page.tsx 6101506bb7649fea1a634f0199e7aa8734bb4ed6090f5172a96345eb89bb0654
+// input: apps/web/app/(main)/edu/edu-management/finance/page.tsx 94b3459d59e16c0c4e8910c06de1c58ad913a854708cb78c23c4131b1ca84fa8
 // input: apps/web/app/(main)/edu/edu-management/grades/page.tsx 995cbff800387b67319592f4b6ef107859ff49a08f1e944bf8092c45c8d557c7
 // input: apps/web/app/(main)/edu/edu-management/grades/trend/[studentId]/page.tsx bc6a04718ae14638d59ed11026b720cb0706d9b6b1009a08362b9486c21ff94a
 // input: apps/web/app/(main)/edu/edu-management/homework/page.tsx 8a544efa39c6f7c569f8ebba0a92c54a670ad7c29bb295ef6c88698a9a29dfba
-// input: apps/web/app/(main)/edu/edu-management/meal/page.tsx 98533e9d26ebf80bb2333c7383f74e9ddfb08482448c7a6cfc1e49ce621e0403
+// input: apps/web/app/(main)/edu/edu-management/meal/page.tsx 6c2f89e138bad15ab8f37f0cb40ca83530ca76eca8a9d1169f71b6e9f0be0f78
 // input: apps/web/app/(main)/edu/edu-management/procurement/page.tsx 36cabf775b6c1ba1df970571a577251869c477b3b9838701de2b7ffda3d6e058
-// input: apps/web/app/(main)/edu/edu-management/schedule/page.tsx 7b9ca2cdb8c5e2acb3f76e8eeec24b98961fa46f70d19c84a147ae32f0e1140c
+// input: apps/web/app/(main)/edu/edu-management/schedule/page.tsx 19bf2ac58846b288d2e3d95bbaf80485e4b155df149a1890ea91be1f480574c4
 // input: apps/web/app/(main)/edu/edu-management/scheduling/page.tsx 5ee1d0f6e76fb0e6bd806814d02a02d914c30a18f754e2def172d3c39a856864
 // input: apps/web/app/(main)/edu/edu-management/study-plan/page.tsx a694a3bcf917afe21dab9bf015fcc45374464695a31d9812080d144a00503899
 // input: apps/web/app/(main)/edu/exam/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
@@ -590,13 +590,13 @@
 // input: apps/web/app/(main)/edu/exam/page.tsx 3ff633a99bc64eeb5013570b024c2fb55b7252c64209ff8959e23d67ef2180da
 // input: apps/web/app/(main)/edu/notes/page.tsx bf1bc737bc956c52dabb000dba96c98c891ab777ac8c27551c7eb74b62816373
 // input: apps/web/app/(main)/edu/page.tsx 5676e95679d2502f6cd77fd60b3b482af8b4cd19de696436b62fb18f3c71c222
-// input: apps/web/app/(main)/edu/parent/bind/page.tsx c0269dbb2af60f155f021d3d4b436414eee33eaa6d873ed9c7917220ebc00214
+// input: apps/web/app/(main)/edu/parent/bind/page.tsx 31bf3f8727cda42d8135ce41041390f13b208450420ed1f55fca1d78cf776ed2
 // input: apps/web/app/(main)/edu/parent/children/[childId]/attendance/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/courses/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/grades/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/meals/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
 // input: apps/web/app/(main)/edu/parent/children/[childId]/study-plans/page.tsx 1dfff0a7ded915c98ab6af725586589c87f271ce319059cf48989e7179097589
-// input: apps/web/app/(main)/edu/parent/page.tsx 4476e1a203b6f207cffb8b1918ab8808496820fa628b828d9dd1eb269840bd7d
+// input: apps/web/app/(main)/edu/parent/page.tsx 2e9edaf6d470147e19fb2a4fbc9a739eeb273e83b1860412b66b808bb9b85e3f
 // input: apps/web/app/(main)/edu/progress/page.tsx 0841f7a55d2525edc145012e449f8116b8dba58079f9187c6056d62449071c61
 // input: apps/web/app/(main)/edu/qa/page.tsx f31adeeddecf8d7617d61f2c04e7ed3caab9c9856de97d0679a5da617ebb2dbb
 // input: apps/web/app/(main)/edu/schedule/page.tsx e9e437e30879b9b76ba946e4cfe775e69b8219794f022b5561b84e372b0aa1f6
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-05T08:07:54.642Z
+// generatedAt: 2026-11-05T09:58:44.043Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
