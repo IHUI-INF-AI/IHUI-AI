@@ -8,8 +8,10 @@ import { useCallback, useState } from 'react'
 import {
   AgreementScreen,
   AnnouncementDetailScreen,
+  ConversationHistoryScreen,
   IcpRecordScreen,
   type AnnouncementDetailItem,
+  type ConversationHistoryGroup,
 } from '@ihui/rn-app/pilot'
 import type { TFunction } from '@ihui/types'
 import zhCN from '@ihui/i18n/messages/mobile-rn/zh-CN.json'
@@ -28,6 +30,7 @@ const PILOT_TABS = [
   { key: 'icp', label: 'ICP record' },
   { key: 'announcement', label: 'Announcement detail' },
   { key: 'agreement', label: 'Agreement' },
+  { key: 'history', label: 'Conversation history' },
 ] as const
 
 type PilotKey = (typeof PILOT_TABS)[number]['key']
@@ -40,6 +43,31 @@ const ANNOUNCEMENT: AnnouncementDetailItem = {
   content:
     'This paragraph is rendered by packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx on the web, using react-native-web primitives.',
 }
+
+const HISTORY_FIXTURE: ConversationHistoryGroup[] = [
+  {
+    key: 'today',
+    label: '今天',
+    items: [
+      {
+        id: 'pilot-history-1',
+        title: 'One shared screen, three ends',
+        preview: '同一份 ConversationHistoryScreen 在 web / RN / 小程序渲染。',
+        timeLabel: '11-05 09:20',
+        messageCount: 6,
+        pinned: true,
+      },
+      {
+        id: 'pilot-history-2',
+        title: 'A2 history thin shell',
+        preview: '排序出口与列表 UI 迁到共享屏，端内零平台 API。',
+        timeLabel: '11-05 08:10',
+        messageCount: 3,
+        pinned: false,
+      },
+    ],
+  },
+]
 
 function readString(source: unknown, key: string): string | undefined {
   const value = key
@@ -56,6 +84,8 @@ const t: TFunction = (key, options) =>
   readString(zhCN, key) ?? (typeof options?.fallback === 'string' ? options.fallback : key)
 
 const noop = () => {}
+
+const tt = (key: string, fallback: string) => readString(zhCN, key) ?? fallback
 
 export default function SharedPilotPage() {
   const [active, setActive] = useState<PilotKey>('icp')
@@ -99,6 +129,36 @@ export default function SharedPilotPage() {
           />
         )}
         {active === 'agreement' && <AgreementScreen t={t} onBack={noop} colorScheme="light" />}
+        {active === 'history' && (
+          <ConversationHistoryScreen
+            t={t}
+            tt={tt}
+            groups={HISTORY_FIXTURE}
+            itemCount={2}
+            loading={false}
+            isFiltered={false}
+            keyword=""
+            onKeywordChange={noop}
+            filters={[]}
+            activeFilter="all"
+            onFilterChange={noop}
+            showClearAll
+            onClearAll={noop}
+            onImport={noop}
+            degraded={false}
+            onRetry={noop}
+            canPin
+            onOpen={noop}
+            onTogglePin={noop}
+            hasMore={false}
+            loadingMore={false}
+            onLoadMore={noop}
+            refreshing={false}
+            onRefresh={noop}
+            onStartNew={noop}
+            colorScheme="light"
+          />
+        )}
       </section>
     </main>
   )
