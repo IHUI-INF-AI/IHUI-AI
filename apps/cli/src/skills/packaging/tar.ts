@@ -19,6 +19,12 @@
  */
 
 import { SkillPackageError } from './errors.js'
+import {
+  INSTALL_COPY_QUOTA,
+  evaluateArchiveQuota,
+  quotaAllowsLanding,
+  type ArchiveQuotaLimits,
+} from '../../plugins/archive-quota.js'
 
 const BLOCK = 512
 const USTAR_MAGIC = 'ustar'
@@ -152,8 +158,17 @@ function readOctal(header: Buffer, offset: number, length: number): number {
  * 解析 tar。结构错误抛 `SKILL_PKG_ARCHIVE_INVALID`;业务安全判定留给 verify。
  *
  * 只接受 `ustar` magic:接受任意"看起来能解"的头会让安装链对归档格式的假设悄悄放宽。
+ *
+ * **配额腿**(goal-b49 S1 席未竟 3 的闭环):条目数与展开字节在**物化之前**逐条过
+ * `plugins/archive-quota.ts` 那一把尺(§0.6 单源,本函数内不复算比较式),超限即中止 ——
+ * 此前 `readTar` 对来路不明的归档照单全收,一条 10^6 条目的包能把解析面打成内存事故。
+ * 默认档取 `INSTALL_COPY_QUOTA`(与插件落位面同档,数值非拍的);`unjudged`(上限形态坏)
+ * 一律不算放行(§0.3),失效方向是"多要一次定向说明",不是"多放一次解析"。
  */
-export function readTar(buffer: Buffer): TarReadResult {
+export function readTar(
+  buffer: Buffer,
+  limits: ArchiveQuotaLimits = INSTALL_COPY_QUOTA,
+): TarReadResult {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new SkillPackageError('SKILL_PKG_ARCHIVE_INVALID', '包为空或不是 Buffer')
   }
@@ -169,6 +184,7 @@ export function readTar(buffer: Buffer): TarReadResult {
   const duplicates: string[] = []
   const rawOrder: TarReadEntry[] = []
   let offset = 0
+  let expandedBytes = 0
   let sawEnd = false
 
   while (offset + BLOCK <= buffer.length) {
@@ -197,6 +213,18 @@ export function readTar(buffer: Buffer): TarReadResult {
       })
     }
     const content = buffer.subarray(offset + BLOCK, offset + BLOCK + size)
+    const quota = evaluateArchiveQuota(
+      { entries: rawOrder.length + 1, expandedBytes: expandedBytes + size },
+      limits,
+    )
+    if (!quotaAllowsLanding(quota)) {
+      throw new SkillPackageError(
+        'SKILL_PKG_ARCHIVE_QUOTA_EXCEEDED',
+        `归档在物化条目之前被配额拦下(${quota.report});中止于第 ${rawOrder.length + 1} 条:${path}`,
+        { path, report: quota.report, reasons: quota.reasons, verdict: quota.verdict },
+      )
+    }
+    expandedBytes += size
     let type: TarReadEntry['type'] = 'unsupported'
     if (typeflag === '0' || typeflag === '\0') type = 'file'
     else if (typeflag === '5') type = 'directory'
