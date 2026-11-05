@@ -32,7 +32,18 @@ export type RecognitionEventType = 'partial' | 'final' | 'error'
 type ResultCallback = (text: string) => void
 type ErrorCallback = (message: string) => void
 
-class StreamingRecognizer {
+/**
+ * 一次录音会话。Taro 的 onStop 只带音频结果、不带会话标识,所以用会话对象 +
+ * `pendingStopIds` 队列把"这次 stop 属于哪次录音"钉死:cancel/卸载后再到达的
+ * onStop 匹配不到有效会话,既不发起上传,也不回填文字。
+ */
+interface RecognitionSession {
+  readonly id: number
+  cancelled: boolean
+  finalizing: boolean
+}
+
+export class StreamingRecognizer {
   private config: Required<RecognizerConfig> = {
     aiServiceUrl: AI_SERVICE_BASE_URL,
     sampleRate: 16000,
@@ -45,22 +56,64 @@ class StreamingRecognizer {
   private recognitionResult = ''
   private tempFilePath = ''
 
+  private session: RecognitionSession | null = null
+  private nextSessionId = 1
+  /** 已请求 stop、尚未收到 onStop 的会话 id(按调用顺序;onStop 无法自带会话标识) */
+  private pendingStopIds: number[] = []
+
   private onFinalResult: ResultCallback | null = null
   private onError: ErrorCallback | null = null
 
   init(config?: RecognizerConfig): void {
-    if (config) this.config = { ...this.config, ...config }
+    if (config) this.configure(config)
+    // 重复 init 只更新配置,不重复注册录音回调(否则一次 stop 会被多个 handler 消费)
+    if (this.recorderManager) return
     this.recorderManager = Taro.getRecorderManager()
-    this.recorderManager.onStop((res) => {
-      this.tempFilePath = res.tempFilePath
-      this.isRecording = false
-      void this.finalizeRecognition()
-    })
+    this.recorderManager.onStop((res) => this.handleStop(res.tempFilePath))
     this.recorderManager.onError((err) => {
       this.isRecording = false
+      this.session = null
       this.onError?.(err.errMsg || t('utilsStreamingrecognizer.q1'))
     })
     // 流式帧上传已废弃(2026-07-28 改用整段上传 + faster-whisper 本地推理)
+  }
+
+  /** 只更新识别器配置,不碰录音管理器 —— 供调用方在 prop 变化时透传 */
+  configure(config?: Partial<RecognizerConfig>): void {
+    if (!config) return
+    // undefined 键不覆盖内置默认值(VoiceInput 的 prop 缺省时传的就是 undefined)
+    this.config = {
+      aiServiceUrl: config.aiServiceUrl ?? this.config.aiServiceUrl,
+      sampleRate: config.sampleRate ?? this.config.sampleRate,
+      format: config.format ?? this.config.format,
+      language: config.language ?? this.config.language,
+    }
+  }
+
+  /**
+   * 录音停止:先确认这次 onStop 属于哪个会话。
+   * - 显式 stop/cancel:必须与 `pendingStopIds` 队首一致;
+   * - 无对应 stop 请求 = 录音时长上限触发的自动停止,只认当前仍在录的会话;
+   * - 取消/卸载后晚到的 onStop:会话已作废 ⇒ 直接丢弃。
+   */
+  private handleStop(tempFilePath: string): void {
+    const session = this.session
+    const stoppedSessionId = this.pendingStopIds.shift()
+
+    let target: RecognitionSession | null = null
+    if (stoppedSessionId === undefined) {
+      // 录音时长上限触发的自动停止:只认当前仍在录的会话
+      if (session && !session.cancelled && !session.finalizing) target = session
+    } else if (session && session.id === stoppedSessionId && !session.cancelled) {
+      target = session
+    }
+    // 晚到的 onStop(已取消/已卸载/已被新会话取代)⇒ 丢弃,且不得改动当前会话状态
+    if (!target) return
+
+    this.isRecording = false
+    target.finalizing = true
+    this.tempFilePath = tempFilePath
+    void this.finalizeRecognition(target)
   }
 
   startRecognizing(): Promise<void> {
@@ -70,7 +123,9 @@ class StreamingRecognizer {
         return
       }
       if (!this.recorderManager) this.init()
+      this.session = { id: this.nextSessionId++, cancelled: false, finalizing: false }
       this.recognitionResult = ''
+      this.tempFilePath = ''
       this.isRecording = true
       this.recorderManager?.start({
         duration: 600000,
@@ -86,11 +141,15 @@ class StreamingRecognizer {
 
   stopRecognizing(): Promise<string> {
     return new Promise((resolve) => {
-      if (!this.isRecording) {
+      const session = this.session
+      if (!this.isRecording || !session) {
         resolve(this.recognitionResult)
         return
       }
-      this.recorderManager?.stop()
+      if (!this.pendingStopIds.includes(session.id)) {
+        this.pendingStopIds.push(session.id)
+        this.recorderManager?.stop()
+      }
       setTimeout(() => resolve(this.recognitionResult), 500)
     })
   }
@@ -98,9 +157,15 @@ class StreamingRecognizer {
   /**
    * 录音停止后:整段上传到 ai-service /api/voice/stt 转写。
    * 用 packages/api-client 的 voiceSttFromTaro 跨端共用封装。
+   *
+   * 上传前与上传后都复核会话:取消/卸载(会话已作废)或已被新会话取代时,
+   * 既不再发请求,也不把晚到的文本回填给调用方。
    */
-  private async finalizeRecognition(): Promise<void> {
-    if (!this.tempFilePath) return
+  private async finalizeRecognition(session: RecognitionSession): Promise<void> {
+    if (!this.tempFilePath) {
+      if (this.session === session) this.session = null
+      return
+    }
     try {
       const text = await voiceSttFromTaro(this.tempFilePath, {
         language: this.config.language,
@@ -108,20 +173,31 @@ class StreamingRecognizer {
         // ai-service JWT 鉴权:必须携带 Bearer token(2026-08-31 修复)
         token: getToken() || undefined,
       })
+      if (session.cancelled || this.session !== session) return
       if (text) {
         this.recognitionResult = text
         this.onFinalResult?.(text)
       }
     } catch {
-      this.onError?.(t('utilsStreamingrecognizer.q1'))
+      if (!session.cancelled && this.session === session) {
+        this.onError?.(t('utilsStreamingrecognizer.q1'))
+      }
+    } finally {
+      if (this.session === session) this.session = null
     }
   }
 
   cancel(): void {
-    if (this.isRecording && this.recorderManager) {
-      this.recorderManager.stop()
-      this.isRecording = false
+    const session = this.session
+    if (session) {
+      session.cancelled = true
+      if (this.isRecording && !this.pendingStopIds.includes(session.id)) {
+        this.pendingStopIds.push(session.id)
+        this.recorderManager?.stop()
+      }
     }
+    this.session = null
+    this.isRecording = false
     this.recognitionResult = ''
     this.tempFilePath = ''
   }
