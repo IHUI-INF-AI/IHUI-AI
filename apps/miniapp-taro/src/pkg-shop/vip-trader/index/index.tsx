@@ -8,7 +8,8 @@ import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import * as api from '@/api'
+import { getVipLevels } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import { TraderHero, TraderEntries, BenefitsHead, isLifetimeDuration } from './trader-sections'
@@ -180,7 +181,7 @@ export default function VipTraderIndexPage() {
       // 的 `l.price / 100`(index.tsx:172 / upgrade.tsx:41)逐字一致。
       // 库里没有该档 / 值非正 / 请求失败 ⇒ 保留端内兜底常量 DEFAULT_AMOUNT 并如实记日志:
       // 兜底值不冒充服务端真值,失败也不静默吞掉。
-      const res = await api.getVipLevels()
+      const res = await unwrapApi(getVipLevels())
       // level_value=2 在库内唯一:只有 0037 那一支种子往 vip_levels 插过数据
       // (packages/database/drizzle/0037_vip_captcha.sql:55-60),且 level_name 已加唯一约束
       // (packages/database/drizzle/20260921200000_vip_levels_dedupe_unique.sql)⇒ 命中即操盘手档。
