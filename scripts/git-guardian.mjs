@@ -189,6 +189,10 @@ import {
 // worktree 自动回收调度层(2026-10-30):判据/执行在 scripts/agent-worktree.mjs --reap,
 // 本层只负责节流与结论落日志(归属纪律同 TEMP 清扫)。
 import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
+// 回收站「到期清理」调度层(2026-11-05 立,goal-b49 W7 未竟 1):判据与执行全在端内
+// (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
+// 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
+import { sweepTrashExpiry } from './lib/git-guardian-trash-expiry.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
 export {
@@ -13500,6 +13504,11 @@ async function main() {
     // 陈旧 linked worktree 自动回收(2026-10-30,机主"彻底根治/杜绝"):判据/安全闸在
     // scripts/agent-worktree.mjs --reap(六条全过才移除),本格只负责 24h 节流地派生它。
     if (!CHECK_ONLY) reapWorktrees()
+    // 回收站到期清理(2026-11-05 立,goal-b49 W7 未竟 1):端内 adapter 与到期判据早已齐了,
+    // 但没有调度器 ⇒ 「回收站到期自动回收」结构上永远不发生(§0.9 造好没装车 = 没有)。
+    // 本格 24h 节流地派生端内入口,只读它那一行结论行;仅「自动退休」那一档寄信(§5e-1),
+    // 其余各档只落日志(判机器状态的面不占人通道,§12e)。刻意不挂 guardian-runner。
+    if (!CHECK_ONLY) sweepTrashExpiry({ notify: notifyGuardRed })
     // G-24 事故归档回收器调度接线(2026-10-26,席位 goal-20261026-b14r3):以 dry-run 调
     // scripts/archive-gc.mjs 并把「保留/待删/未判定」读数写进本守护日志通道(留痕);
     // 开关面 scripts/data/archive-gc-arm.json 默认关,真 --apply 由机主核过读数后按下。同一挂点语义。
@@ -13804,6 +13813,9 @@ function startDaemon(bootGuard = null) {
         // 陈旧 worktree 自动回收:与 main() 单轮路径共用 .ihui-agent/state/worktree-reap-tick.iso
         // ⇒ 双执行体并存时只有先到那一个真派生,不会把同一批检出回收两遍。
         reapWorktrees()
+        // 回收站到期清理:与 main() 单轮路径共用 .ihui-agent/state/trash-expiry-sweep-tick.json
+        // 节流戳 ⇒ 双执行体并存时只有先到那一个真派生,不会把同一批到期件删两遍。
+        sweepTrashExpiry({ notify: notifyGuardRed })
         // G-24 归档回收 dry-run 接线臂:与 main() 单轮路径同一挂点语义,共用
         // .ihui-agent/state/archive-gc-arm-tick.iso 节流戳 ⇒ 双执行体并存只有一边真派生。
         archiveGcDryRun()
