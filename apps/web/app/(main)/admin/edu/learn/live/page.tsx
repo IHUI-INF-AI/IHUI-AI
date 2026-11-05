@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { Button } from '@ihui/ui-react'
 
-import { EMPTY, PAGE_SIZE, liveToForm } from './helpers'
+import { EMPTY, PAGE_SIZE, liveToForm, toChannelPayload } from './helpers'
 import type { Live, LForm } from './types'
 import { LiveFilter } from './LiveFilter'
 import { LiveTable } from './LiveTable'
@@ -36,7 +36,7 @@ export default function EduLearnLivePage() {
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const body = { ...form }
+      const body = toChannelPayload(form)
       if (editing)
         return eduApi(`/api/admin/live/channels/${editing.id}`, {
           method: 'PUT',
