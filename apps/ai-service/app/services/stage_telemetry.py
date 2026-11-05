@@ -44,7 +44,16 @@ STAGE_RESULTS: tuple[str, ...] = ("ok", "empty", "failed", "timeout", "unavailab
 SEARCH_CODEBASE_STAGES: tuple[str, ...] = (
     "validate", "keyword_leg", "semantic_leg", "lazy_index", "fuse", "assemble",
 )
-_TOOL_STAGES: dict[str, tuple[str, ...]] = {"search_codebase": SEARCH_CODEBASE_STAGES}
+#: 段清单的唯一登记处(§0.6):链路新增 = 这里加一行;消费方(rag / conversation /
+#: mcp_server)只按段名调 record(),不得自立第二份段清单或第二份结论词表。
+#: 后两条链路是 Z28 格 2 从「手写 {node, duration_ms, *_count} 段账」收编进来的。
+_TOOL_STAGES: dict[str, tuple[str, ...]] = {
+    "search_codebase": SEARCH_CODEBASE_STAGES,
+    "rag_query": ("retrieve", "rerank", "context", "generate"),
+    "conversation_run": (
+        "intent_classify", "tool_select", "llm_call", "tool_execute", "all_tools_failed", "llm_summarize",
+    ),
+}
 
 
 def stages_of(tool: str) -> tuple[str, ...]:
