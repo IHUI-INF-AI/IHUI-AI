@@ -145,7 +145,11 @@ async function signRaw(claims: {
   secret?: string
 }) {
   const secret = claims.secret ?? TEST_JWT_SECRET
-  return await new SignJWT({ type: 'internal-service-ticket', scope: claims.scope, jti: claims.jti })
+  return await new SignJWT({
+    type: 'internal-service-ticket',
+    scope: claims.scope,
+    jti: claims.jti,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(UUID_PRINCIPAL)
     .setAudience('ihui-internal-service')

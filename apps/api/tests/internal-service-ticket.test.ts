@@ -325,7 +325,9 @@ describe('非消耗式验签 (CSRF 前哨)', () => {
     expect(start).toBeGreaterThan(-1)
     // 截到函数体自己的收尾 `\n}\n`(内层花括号都有缩进,不会以列 0 的 `}` 结尾),
     // 不把后面那个消费函数的 @param store 文档(它当然会提 store)算进来。
-    const body = src.slice(start).match(/^export async function verifyInternalServiceTicketSignature[\s\S]*?\n}\n/)?.[0]
+    const body = src
+      .slice(start)
+      .match(/^export async function verifyInternalServiceTicketSignature[\s\S]*?\n}\n/)?.[0]
     expect(body).toBeDefined()
     expect(body).not.toMatch(/\bstore\b/)
     expect(body).not.toContain('.consume(')
