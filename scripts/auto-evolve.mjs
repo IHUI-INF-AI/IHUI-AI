@@ -563,6 +563,30 @@ export function parseSessionUsage(stdout) {
 export const WRITE_TOOL_NAMES = Object.freeze(['write_file', 'edit_file', 'batch_edit'])
 
 /**
+ * 从会话 stdout 的事件流里取**最后一条** `{"type":"error","message":…}`(2026-11-05 立)。
+ * 立因:今日 6 枚 `session-failed` 的台账 `why` 全被同一行 stderr 警告
+ * (`[skills] conservative load: archify …`)占住,真死因(出站零宽 400 / 模型腿 404 / 裸 node)
+ * 只在转录里 ⇒ 任何读台账的人都会被归因带错方向。到人通道的审计输出必须把当时用到的判别码
+ * 打进同一行,所以这一格单独成字段,而不是去改 `why` 的既有前缀形态。
+ * 取"最后一条"而不是第一条:CLI 内部会重试,首条常是被重试掉的那一次。
+ */
+export function lastProviderError(stdout) {
+  let found = null
+  for (const raw of String(stdout ?? '').split(/\r?\n/)) {
+    const t = raw.trim()
+    if (!t.startsWith('{')) continue
+    let e
+    try {
+      e = JSON.parse(t)
+    } catch {
+      continue
+    }
+    if (e && e.type === 'error' && typeof e.message === 'string' && e.message.trim()) found = e.message.trim()
+  }
+  return found
+}
+
+/**
  * 会话到底有没有动过盘(2026-11-04 立)。
  * 立因(回源实测):台账 220 轮里 9 次 `session-ok`,而 `artifact-committed` = 0、
  * `artifact-manifest-missing` = 9;逐份 transcript 数写类工具命中 = 0 —— 会话把整班预算花在
@@ -580,8 +604,7 @@ export const WRITE_TOOL_NAMES = Object.freeze(['write_file', 'edit_file', 'batch
  * `known=false` ⇒ 输出形状不认识(非 json 通路/被杀/事件格式变了),一律沿用原判定,
  * 绝不用"取不到"冒充"没写"(§0.3)。
  */
-export function classifySessionWrites(stdout) {
-  const lines = String(stdout ?? '').split(/\r?\n/)
+export function classifySessionWrites(stdout) {  const lines = String(stdout ?? '').split(/\r?\n/)
   let known = false
   let writeOk = 0
   let writeTried = 0
@@ -1530,8 +1553,7 @@ function dispatchSession(gates, ticket, dryRun) {
     action = kind.kind === 'no-progress' ? 'session-no-progress' : 'session-failed'
     failureKind = kind.kind
     exitCode = r.status
-    why = `exit=${r.status} ${errText}`
-  } else {
+    why = `exit=${r.status} ${errText}`  } else {
     action = 'session-ok'
     const w = classifySessionWrites(stdout)
     writes = w
@@ -1575,6 +1597,9 @@ function dispatchSession(gates, ticket, dryRun) {
     stopReason: meter.stopReason ?? null,
     // 写盘读数(仅 exit 0 那支持有值):台账里 `session-ok` 与 `session-no-write` 的分界就是它,
     // 也是"清单缺失该催会话还是该改指令"的取数口。未取到 ⇒ null,不用 0 冒充"没写"。
+    // 判别码单独成字段(2026-11-05 立):`why` 由 stderr 头部拼成,实测今日 6/6 枚失败行都被
+    // 一行与死因无关的 `[skills] conservative load…` 警告占住 ⇒ 读台账的人必然归因错。
+    providerError: lastProviderError(stdout),
     writeOk: writes ? writes.writeOk : null,
     writeTried: writes ? writes.writeTried : null,
     // 运行时是否被归一(裸 node ⇒ 当前进程可执行文件)。不记这一格,下次换机/换服务身份时
@@ -2388,6 +2413,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         writeTried: res.writeTried ?? null,
         runtimeNormalized: res.runtimeNormalized ?? null,
         failureKind: res.failureKind ?? null,
+        providerError: res.providerError ?? null,
         why: res.why ?? '',
       })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
@@ -2469,7 +2495,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           why: res.why,
         })
         console.error(
-          `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},不计票连败、不封票):${res.why}`,
+          `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},provider-error=${res.providerError ?? '无'},不计票连败、不封票):${res.why}`,
         )
         if (!escapeThrottled()) {
           markEscape()
@@ -2477,7 +2503,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
             gates,
             `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`,
             `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`,
-            `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`,
+            `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜provider-error=${res.providerError ?? '无'}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`,
           )
         }
         process.exitCode = 2
