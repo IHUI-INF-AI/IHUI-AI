@@ -41,7 +41,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
@@ -554,22 +558,24 @@ class CodebaseIndexer:
         1. api_token(用户 JWT,Bearer 认证)——Web/会话链路显式传入时使用
         2. 内部服务通道 —— MCP 工具/服务端触发索引时使用,与 api 侧
            internal-service-token 中间件契约一致;经 internal_ticket 唯一出口构造,
-           dual 兼容窗内旧 x-internal-service-token 照发、x-internal-service-ticket
-           短期票同带(主体 = internal_user_id,scope='codebase-index')。
+           默认 ticket 档发票,显式 dual/legacy 档才同时发旧 x-internal-service-token
+           (主体 = internal_user_id,scope='codebase-index')。
         两者皆无 → 空 headers(写入会被 401 拒绝,调用方按错误降级处理)。
+
+        票与常驻密钥互不替代:默认 ticket 档下只要有 JWT_SECRET 就能发票,
+        不再把 AI_CALLBACK_SECRET 当"能否走内部通道"的前提。
         """
         if api_token:
             return {"Authorization": f"Bearer {api_token}"}
+        if not internal_user_id or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id):
+            return {}
         secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-        if (
-            secret
-            and internal_user_id
-            and re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id)
-        ):
-            return internal_service_headers(
-                internal_user_id, "codebase-index", legacy_token=secret
-            )
-        return {}
+        headers = internal_service_headers(
+            internal_user_id, "codebase-index", legacy_token=secret
+        )
+        if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+            return {}
+        return headers
 
     def _check_tree_sitter(self) -> bool:
         """检查 tree-sitter 是否可用。"""

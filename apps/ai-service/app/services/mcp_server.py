@@ -50,7 +50,11 @@ from app.core.file_read_state import (
     record_read,
     record_self_write,
 )
-from app.core.internal_ticket import internal_service_headers
+from app.core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 from app.core.vault import filter_vault_env as _filter_vault_env
 from app.utils.atomic_io import write_bytes_atomic as _write_bytes_atomic
 from app.utils.atomic_io import write_bytes_to_tempfile
@@ -13305,15 +13309,19 @@ _EDU_API_BASE_URL = os.environ.get("API_SERVICE_URL", "http://localhost:8802").r
 
 def _edu_internal_headers(user_id: Any) -> dict[str, str]:
     """edu 工具调 api 的鉴权头:走 ``app/core/internal_ticket.py`` 的
-    ``internal_service_headers`` 唯一出口(默认 dual 档,旧 ``x-internal-service-token``
-    与新短期票 ``x-internal-service-ticket`` 同发);api 侧校验后把 X-User-Id 注入
+    ``internal_service_headers`` 唯一出口(默认 ticket 档只认短期票;显式 dual/legacy
+    档才同时发旧 ``x-internal-service-token``);api 侧校验后把主体注入
     request.userId 供 requireAnyPermission 的 RBAC 对真实用户兜底。
-    凭证或身份缺失返回 {},调用方不发请求。"""
+    凭证或身份缺失返回 {},调用方不发请求。票与常驻密钥互不替代:默认 ticket 档下
+    只要有 JWT_SECRET 就能发票,不再要求 AI_CALLBACK_SECRET 同配。"""
     uid = str(user_id or "").strip()
-    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+    if not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
-    return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
+    headers = internal_service_headers(uid, "mcp-edu", legacy_token=secret)
+    if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+        return {}
+    return headers
 
 
 def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:

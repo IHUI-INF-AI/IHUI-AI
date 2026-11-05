@@ -118,10 +118,13 @@ def test_edu_反向_签不出票时只留旧头不发票头空串(
 
 
 async def test_edu_零副作用_凭证或身份缺失返回空且不构造任何请求(
-    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+    monkeypatch: pytest.MonkeyPatch, without_jwt_secret: None
 ) -> None:
     import app.services.mcp_server as mcp
 
+    # 2026-11-05 语义升级:默认 ticket 档下"凭据"= 能签出的票,不再是常驻密钥。
+    # 因此"零凭据"必须**两把都没有**(此前只删 AI_CALLBACK_SECRET,把 JWT_SECRET 留着
+    # 还能签票的情形误当成"缺凭据"——那条断言钉的是旧前提,不是安全检查)。
     monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
     constructed = _make_fake_httpx(monkeypatch)
     result = await mcp._edu_api_request("GET", "/config", user_id=UID)
@@ -129,6 +132,24 @@ async def test_edu_零副作用_凭证或身份缺失返回空且不构造任何
     assert constructed == [], "凭证缺失必须不发请求(零副作用)"
     monkeypatch.setenv("AI_CALLBACK_SECRET", "legacy-secret")
     assert mcp._edu_internal_headers("bad uid!") == {}
+
+
+def test_edu_默认档_只配_jwt_secret_即可凭票出站(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    """默认 ticket 档的凭据是票:只配 JWT_SECRET、不配 AI_CALLBACK_SECRET 也必须出站。
+
+    这是"调用方就地补票获取路径"的正面判据 —— 否则 ticket 档会把只差常驻密钥的
+    正常部署判成"无凭据"。
+    """
+    import app.services.mcp_server as mcp
+
+    monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
+    headers = mcp._edu_internal_headers(UID)
+    assert INTERNAL_TICKET_HEADER in headers
+    assert INTERNAL_TOKEN_HEADER not in headers
+    assert headers[USER_ID_HEADER] == UID
+    assert decode_ticket(headers[INTERNAL_TICKET_HEADER])["scope"] == "mcp-edu"
 
 
 # ── 2. im_bridge ───────────────────────────────────────────────────────
