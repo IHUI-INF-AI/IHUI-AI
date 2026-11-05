@@ -85,9 +85,9 @@ describe('PluginRegistry.runHook 集成', () => {
     });
     // 触发 preToolCall:write_file(应匹配)
     await registry.runHook('preToolCall', { toolName: 'write_file' });
-    // 触发 preToolCall(应也匹配,因为 startsWith('preToolCall:'))
+    // 触发 preToolCall(read_file):matcher 现已真参与派发,不再靠 startsWith 前缀蒙混 ⇒ 不匹配
     await registry.runHook('preToolCall', { toolName: 'read_file' });
-    expect(calls).toEqual(['preToolCall', 'preToolCall']);
+    expect(calls).toEqual(['preToolCall']);
   });
 
   it('runHook 不匹配未声明的事件(注册 preToolCall,触发 postToolCall 不调用)', async () => {
