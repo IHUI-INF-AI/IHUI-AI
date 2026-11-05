@@ -9959,6 +9959,10 @@
     "envInfoButton": "Environment Info",
     "expandConversation": "Expand Conversation",
     "headerActions": {
+      "overflowMenu": "Panel menu",
+      "groupPanel": "Panel",
+      "groupTools": "Tools",
+      "groupSession": "Session",
       "panelGroupButtons": "Panel action buttons",
       "enterWorkspaceFullscreen": "Enter workspace fullscreen",
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
@@ -11690,6 +11694,11 @@
     "addContextReference": "Add as Context Reference",
     "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins / Compact)",
     "addMenuLabel": "Add",
+    "backToMenu": "Back to menu",
+    "quickSettings": "Session settings",
+    "composerSectionContent": "Content",
+    "composerSectionCapability": "Capabilities",
+    "moreTools": "More tools",
     "artifactCode": "Code",
     "artifactPreview": "Preview",
     "assistant": "AI Assistant",
@@ -11845,6 +11854,7 @@
       "branch": "Branch from here"
     },
     "contextUsage": {
+      "rowLabel": "Context usage",
       "breakdownTitle": "Token breakdown",
       "budgetRow": "Daily quota",
       "categoryFiles": "Files",
@@ -12030,6 +12040,7 @@
     "modeTaskAria": "{mode} task",
     "taskProgressAria": "Task progress {status}",
     "taskProgressOpen": "Task progress",
+    "taskProgressIdle": "Idle",
     "toolsPanelOpen": "Show tools panel",
     "toolsPanelClose": "Hide tools panel",
     "model": "Model",
@@ -12542,6 +12553,7 @@
       "moreItems": "{count} more"
     },
     "agentPicker": {
+      "label": "Agent",
       "triggerAria": "Select in-conversation agent / expert",
       "default": "Default assistant",
       "defaultDesc": "No expert",

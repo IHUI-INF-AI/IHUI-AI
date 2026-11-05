@@ -160,10 +160,10 @@ describe('M3 D73 词包对账:挂载用到的每个键在五语言 ai.pane.multi
     for (const key of keys) expect(key).not.toContain('.')
   })
 
-  it('拆分入口的 aria-label 与 Tooltip 内容同键(无障碍名与可见文案同源)', () => {
-    expect(host).toMatch(
-      /Tooltip content=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,160}aria-label=\{tp\('\1'\)\}/,
-    )
+  it('拆分入口的 aria-label 与可见文案同键(无障碍名与可见文案同源)', () => {
+    // 2026-11-04 信息架构重构:拆分入口从头部图标按钮 + Tooltip 收进「⋯」菜单,
+    // 可见文案改为菜单行内的 {tp('splitRight')};aria-label 仍必须同键,防读屏名漂移。
+    expect(host).toMatch(/aria-label=\{tp\('([A-Za-z]+)'\)\}[\s\S]{0,200}\{tp\('\1'\)\}/)
   })
 })
 
@@ -208,7 +208,7 @@ describe('M5 D73 零回归:未拆分时主体直挂,观感与挂载前一致', (
   })
 
   it('拆分入口在收起态才出现(已展开时不得再给重复的拆分钮)', () => {
-    expect(host).toMatch(/!d73Expanded && \(/)
+    expect(host).toMatch(/!d73Expanded && !isMobileSmall && \(/)
   })
 
   it('窗格承载上限留在宿主(布局层容量决策),且判定层词表仍由 multi-pane 提供', () => {
