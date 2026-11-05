@@ -112,7 +112,12 @@ function liveCallOffset(body, name) {
   let off = 0
   for (const raw of lines) {
     const t = raw.trim()
-    if (!t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*') && t.includes(`${name}(`)) {
+    if (
+      !t.startsWith('//') &&
+      !t.startsWith('*') &&
+      !t.startsWith('/*') &&
+      t.includes(`${name}(`)
+    ) {
       return off
     }
     off += raw.length + 1
@@ -140,13 +145,18 @@ test('T2 回填锁:main() 单轮链里原有 30 个派发仍在(不得因人工�
 
 test('T3 顺序锁:daemon 链内 publicProbe → tunnelLeg → sms → autonomyLeg 与 main() 同序', () => {
   const body = tickBodyOf(src)
-  const order = ['auditPublicPathProbe', ...TICK_REQUIRED.slice(0, 3)].map((name) => liveCallOffset(body, name))
+  const order = ['auditPublicPathProbe', ...TICK_REQUIRED.slice(0, 3)].map((name) =>
+    liveCallOffset(body, name),
+  )
   assert.ok(
     order.every((o) => o >= 0),
     `顺序判据的前置调用缺失: ${['auditPublicPathProbe', ...TICK_REQUIRED.slice(0, 3)].filter((n) => liveCallOffset(body, n) < 0).join(', ')}`,
   )
   for (let k = 1; k < order.length; k++) {
-    assert.ok(order[k] > order[k - 1], '三面插入位置必须紧跟 publicPathProbe 之后,与 main() 的相对顺序一致')
+    assert.ok(
+      order[k] > order[k - 1],
+      '三面插入位置必须紧跟 publicPathProbe 之后,与 main() 的相对顺序一致',
+    )
   }
 })
 
@@ -158,7 +168,10 @@ test('T4 靠后锁:auditTunnelMetrics 必须落在链尾段,不得插到最前',
   for (const anchor of ['auditOpsPatrol', 'devenvMigratePatrol']) {
     const at = liveCallOffset(body, anchor)
     assert.ok(at >= 0, `靠后判据的锚点缺失: ${anchor}() 不在 tick 链上`)
-    assert.ok(metrics > at, `auditTunnelMetrics() 早于 ${anchor}() ⇒ 被插到链前段,与 main() 的链尾位置不一致`)
+    assert.ok(
+      metrics > at,
+      `auditTunnelMetrics() 早于 ${anchor}() ⇒ 被插到链前段,与 main() 的链尾位置不一致`,
+    )
   }
 })
 
@@ -200,6 +213,36 @@ test('T7 区段自证:两段切片非空且互不串味,防止"切错段⇒恒�
   assert.ok(hasLiveCall(main, 'auditDeployStall'), 'main 切片丢了自身派发 ⇒ 切片边界不对')
   // daemon 专属留痕(只出现在 tick 体内;main 与 daemon 都会派发 dispatchAutoEvolve,不能用它区分)
   assert.ok(body.includes('daemon:提交窗口期'), 'tick 切片丢了提交窗口判据 ⇒ 切片边界不对')
-  assert.equal(main.includes('daemon:提交窗口期'), false, 'main 段读到了 daemon 段 ⇒ 两段串味,按区段断言已失效')
+  assert.equal(
+    main.includes('daemon:提交窗口期'),
+    false,
+    'main 段读到了 daemon 段 ⇒ 两段串味,按区段断言已失效',
+  )
+})
+
+// RP-65(2026-11-05):判据面护栏巡检报 breach 时必须**逐枚**带判别码。
+// 立因:旧行只印第一枚的 sha+标题且不带 code/signatureCode/密钥来源,于是"静默改动 2 枚"
+// 这种指控一旦事后复跑变绿(同批 `--range` 重跑三枚全 sig-verified),没有任何一面留下
+// "当时判的是哪一格"的证据 ⇒ 不可复现的指控无法定位,只能逼人再猜或跳门(§12e 同型)。
+test('T8 breach 行逐枚带判别码(且旧"只点第一枚"形态不得回潮)', () => {
+  const i = src.indexOf("if (parsed.state === 'breach')")
+  assert.ok(i > 0, 'breach 分支必须存在(巡检出口被人摘掉 ⇒ 本锁该红)')
+  const block = src.slice(i, i + 3000)
+  assert.ok(block.includes('describeBreach'), '必须有逐枚描述器,不得只印第一枚')
+  for (const key of ['b.code', 'b.signatureCode', 'b.keySource', 'b.expired', 'b.ackedBy'])
+    assert.ok(block.includes(key), `逐枚描述必须带 ${key}`)
+  assert.ok(block.includes('.map(describeBreach).join'), '❌ 行必须逐枚拼接')
+  assert.equal(
+    block.includes('枚 —— ${first.sha ??'),
+    false,
+    '旧形态"只点第一枚的 sha"不得回潮(它就是无法事后定位的那一型)',
+  )
+  const dedupExpr = (block.match(/dedupKey:\s*([^\n]*)/) || [])[1] || ''
+  assert.equal(
+    /breaches|breachCount|\.sha|signatureCode|describeBreach|perBreach/.test(dedupExpr),
+    false,
+    `去重身份里出现了会逐枚抖动的明细(现读:${dedupExpr.slice(0, 90) || '(本档无 dedupKey)'})` +
+      '⇒ 正文/日志可带 sha 与判别码,身份不可(守门 224 同族:身份抖动=同日多封的真根因)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
