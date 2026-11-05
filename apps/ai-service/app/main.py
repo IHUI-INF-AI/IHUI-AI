@@ -109,6 +109,9 @@ from app.routers import usage as usage_router
 # Phase 2:可视化工作流编辑器(2026-08-09 立)
 from app.routers import workflow as workflow_router
 
+# AI 代码归属账路由(2026-11-05,goal-b49):按 (tool, file, hunk) 记 AI/人手归属 + 回溯
+from app.routers.ai_code_attribution import router as ai_code_attribution_router
+
 # AI 批改(AI 自动评分练习答案,2026-08-07 立)
 from app.routers.ai_marking import router as ai_marking_router
 
@@ -1282,6 +1285,7 @@ def create_app() -> FastAPI:
     app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])
     app.include_router(cloud_runs_router, prefix="/api", tags=["cloud-runs"])
     app.include_router(step_recorder_router, prefix="/api", tags=["agent-recorder"])
+    app.include_router(ai_code_attribution_router, prefix="/api", tags=["ai-code-attribution"])
     app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
     app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
 
