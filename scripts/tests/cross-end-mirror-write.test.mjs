@@ -123,8 +123,49 @@ test('V3 归并:同屏以本批为准,新增计数只算新键', () => {
 })
 
 test('V4 序列化键序固定(同一份台账两次落盘长得一样)', () => {
-  const s = V.serializeVerdicts([{ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' }])
-  assert.equal(s, JSON.stringify({ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' }))
+  const input = [{ shared: SPEC, verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' }]
+  // 键序单源 = serializeVerdicts:shared,route,verdict,evidence,at,source(route 缺省补 '-')。
+  // 2026-11-05 订正:本断言还停在 route 字段进台账(2026-11-03)之前的形态,于是台账补了
+  // route 之后这把尺反过来判红 —— 一条陈旧期望就是一把坏尺,它报的红与正确性无关。
+  const canonical = JSON.stringify({ shared: SPEC, route: '-', verdict: 'missing', evidence: 'e', at: '2026-10-25', source: 'b.json' })
+  const once = V.serializeVerdicts(input)
+  assert.equal(once, canonical, '键序必须固定,缺 route 必须补 -')
+  assert.equal(V.serializeVerdicts(input), once, '同一份台账两次落盘必须逐字节相同')
+  // 往返锁:route 必须随行落盘 —— 台账第 10 行(AiCareerScreen)就是被绕过写出口的手改丢了
+  // route,完整性测试当场判红。这里把「序列化自己保证 route 在往返后仍在」钉住,而不是等人复查。
+  const rt = V.parseVerdictRows(once)
+  assert.equal(rt.bad.length, 0, '序列化产物必须读得回来')
+  assert.equal(rt.rows[0].route, '-', 'route 不得在往返中被丢')
+})
+
+/**
+ * V7 结清凭据不得被后续批次洗掉(2026-11-05 立)。
+ * 立因:generated 档 = 「该屏已被小程序页显式镜像」的**已核验结清凭据**。这一档历史上出过两型蒸发:
+ *   ① 生产方写出词表外的档 ⇒ 读面把整批合法行归进 bad ⇒ 下一次写只带 .rows ⇒ 证据被静默删
+ *      (V5/V6 钉的就是这两条拒写护栏);
+ *   ② 某轮批次只带 missing / not-applicable 两档,而归并口径若按「本批全量」而非「既有 ∪ 本批」,
+ *      97 条结清凭据整批蒸发,下一轮它们又会被重新列成 97 张票。
+ * 这一条钉 ②:归并必须以既有行为底、本批只覆盖同名键;并把 serialize→parse 往返也走一遍,
+ * 因为②的实际杀伤面就在「写下去再读回来」这一对里。
+ */
+test('V7 既有 generated 结清凭据不得被不带这一档的批次洗掉', () => {
+  const THIRD = 'packages/app/src/features/z/ZScreen.tsx'
+  const existing = [
+    { shared: SPEC, route: 'pkg-a/a/index', verdict: 'generated', evidence: 'e1', at: '2026-11-05', source: 'reconcile' },
+    { shared: OTHER, route: '-', verdict: 'generated', evidence: 'e2', at: '2026-11-05', source: 'reconcile' },
+    { shared: THIRD, route: '-', verdict: 'missing', evidence: 'e3', at: '2026-11-05', source: 'audit' },
+  ]
+  // 本批**一条 generated 都不带**,只改写那个 missing 键
+  const batch = [{ shared: THIRD, route: '-', verdict: 'not-applicable', evidence: 'e3b', at: '2026-11-05', source: 'new-batch' }]
+  const merged = V.mergeVerdictRows(existing, batch)
+  assert.equal(merged.rows.filter((r) => r.verdict === 'generated').length, 2, '本批不带 generated ⇒ 两条结清凭据必须原样在')
+  assert.equal(merged.total, 3, '同名键改写不得新增条目')
+  assert.equal(merged.added, 0, 'added 只算新键,改写不算新增')
+  const text = V.serializeVerdicts(merged.rows)
+  assert.equal(text.split('\n').length, 3)
+  const back = V.parseVerdictRows(text)
+  assert.equal(back.bad.length, 0, '写出去的行必须全部读得回来')
+  assert.equal(back.rows.filter((r) => r.verdict === 'generated').length, 2, 'serialize→parse 往返不得减结清凭据')
 })
 
 /**
