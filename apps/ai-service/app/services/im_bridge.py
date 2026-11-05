@@ -608,13 +608,12 @@ class ImBridgeService:
             "text": reply_text,
         }
         headers: dict[str, str] = {"Content-Type": "application/json"}
-        # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 dual 档:旧头
-        # x-internal-service-token = AI_CALLBACK_SECRET 照发 + 新短期票
-        # x-internal-service-ticket 同发;x-user-id = 消息归属用户,UUID 格式)
-        # 本调用点额外收一格(test_im_bridge 钉的契约):**一把凭据都没有时连身份头也不发**。
-        # 共享出口的默认档是"票/旧密钥都缺仍带 x-user-id"(api_tools_bridge 钉的是另一格,
-        # 那里对侧按票校验、user-id 只是提示),而 im-gateway 这一路在无凭据状态下
-        # 带上 x-user-id 等于把一个"自称身份"交给对侧猜 ⇒ 收权放在这一处,不动共享出口。
+        # 内部服务鉴权:走 internal_service_headers 唯一出口(默认 ticket 档只发短期票
+        # x-internal-service-ticket;显式 dual/legacy 档才同时发旧头
+        # x-internal-service-token = AI_CALLBACK_SECRET;x-user-id = 消息归属用户,UUID 格式)
+        # 共享出口(2026-11-05 起)已把"无凭据即不发身份头"收在内部:票与旧密钥都缺时
+        # 一个头都不发。这里保留显式的 has_credential 判断,是为了让"无凭据"这一档
+        # 在本调用点也能被读出来(测试钉的就是这条形态)。
         has_credential = bool(settings.ai_callback_secret or jwt_secret_for_ticket())
         headers.update(
             internal_service_headers(

@@ -21,8 +21,9 @@ mcp_server 工具注册表 —— LLM 可经既有 call_tool 路径直接调用�
 - refresh_api_tools_bridge(): 清 spec 缓存后重新拉取并注册
 
 安全:
-- 所有出站调用携带内部服务鉴权头(x-internal-service-token + x-user-id,与
-  mcp_server._edu_internal_headers / im_bridge 同源同约定)
+- 所有带主体的出站调用携带内部服务鉴权头(默认档为短期票 x-internal-service-ticket;
+  显式 dual/legacy 档才额外带旧密钥头),由 internal_ticket 唯一出口构造;
+  拿不到任何凭据时**抛错失败**,绝不发出只带 x-user-id 的未鉴权请求
 - 写操作(POST/PUT/PATCH/DELETE)要求 __user_role >= 1(管理员),API 侧 RBAC 二次兜底
 - header/cookie 型 OpenAPI 参数不暴露给 LLM,防止越权头注入
 """
@@ -39,7 +40,12 @@ from urllib.parse import quote
 
 import httpx
 
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    InternalServiceCredentialError,
+    internal_service_headers,
+)
 from .mcp_server import (
     _TOOL_HANDLERS,
     MCPTool,
@@ -91,11 +97,19 @@ def api_base_url() -> str:
 def internal_headers(user_id: str) -> dict[str, str]:
     """内部服务鉴权头(经 internal_ticket 唯一出口构造,小写与兄弟模块一致)。
 
-    dual 兼容窗:旧 x-internal-service-token 照发(legacy_token 由本模块原有密钥解析
-    `_secret()` 提供),x-internal-service-ticket 短期票同带(主体 = user_id;签不出
-    票时只发旧头,见 internal_ticket.mint_internal_service_ticket)。
+    票为默认档的凭据;旧 x-internal-service-token 只在显式 dual/legacy 档下有意义,
+    由本模块原有密钥解析 ``_secret()`` 提供。**带主体时必须至少拿到一种凭据**:
+    既无票又无旧密钥时直接抛 ``InternalServiceCredentialError``,绝不再退化成
+    "只带 x-user-id" 的未鉴权请求(那是对侧必 401、却把配置缺失伪装成权限问题)。
+    空主体只用于 ``/docs/json`` 这类公开端点,不声明身份,因此允许无凭据。
     """
-    return internal_service_headers(user_id, "api-tools", legacy_token=_secret())
+    headers = internal_service_headers(user_id, "api-tools", legacy_token=_secret())
+    if user_id and INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+        raise InternalServiceCredentialError(
+            "api-tools 内部调用缺少凭据:既签不出短期票(JWT_SECRET),也没有旧密钥"
+            "(AI_CALLBACK_SECRET/INTERNAL_SERVICE_TOKEN);拒绝发出裸 x-user-id 请求"
+        )
+    return headers
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +407,9 @@ def make_api_handler(
             except ValueError:
                 data = raw
             return {"ok": resp.status_code < 400, "status": resp.status_code, "data": data}
+        except InternalServiceCredentialError as e:
+            # 明确失败:缺票/缺密钥时不发请求,错误码可判定(不是笼统的网络错误)
+            return {"ok": False, "errorCode": "INTERNAL_AUTH_UNAVAILABLE", "message": str(e)}
         except Exception as e:  # noqa: BLE001 网络/参数层统一兜底,错误回传 LLM 而非抛出
             return {"ok": False, "errorCode": "API_BRIDGE_ERROR", "message": str(e)}
 
