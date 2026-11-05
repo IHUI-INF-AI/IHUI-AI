@@ -97,6 +97,14 @@
       "nominalIntervalMs": 3600000,
       "verifiedAt": "2026-11-04",
       "ruler": "本文件 reportBaselineFreshness"
+    },
+    {
+      "stamp": "rn-shell-types-dispatch-last.json",
+      "owner": "sweepRnShellTypes(main 健康轮次 + startDaemon tick 两处)",
+      "envVar": "IHUI_RN_SHELL_TYPES_INTERVAL_MS",
+      "nominalIntervalMs": 1800000,
+      "verifiedAt": "2026-11-05",
+      "ruler": "scripts/gen-rn-shell-types.mjs(小程序壳承载页编译期契约;本票 2026-11-05 补上调度点)"
     }
   ]
 }

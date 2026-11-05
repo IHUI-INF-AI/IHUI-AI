@@ -180,6 +180,39 @@ test('T5 装车锁:定义在 HEAD 面、两处执行体都挂、挨同族腿派�
   assert.match(src, /IHUI_RN_SHELL_TYPES_INTERVAL_MS/, '值守压节拍要能不改码做到')
 })
 
+test('T6 被量着锁:节流戳必须落在 A8 黑腿探测器的候选集里且登记表有条目可归属', () => {
+  // A8(check-autonomy-leg-health)的覆盖面自证 = 盘上所有 `*-dispatch-last.json`,
+  // 戳名不在这个形态里 ⇒ 这一腿"挂了没人量"永远不出现在 dark/unregistered 读数上。
+  // 本仓 74 枚跨端族旧戳就是这种形态(它们不在 A8 射程)—— 新腿不得再复刻这一格。
+  const src = headSrc('scripts/git-guardian.mjs')
+  const tick = /tickFile = join\(dirname\(LOG\), '([^']+)'\)/.exec(
+    src.slice(src.search(/export function sweepRnShellTypes\(/)),
+  )
+  assert.ok(tick, '本腿必须自带节流戳默认值(与同族腿同形态)')
+  assert.match(
+    tick[1],
+    /-dispatch-last\.json$/,
+    `节流戳名必须匹配 A8 候选集 glob,现读=${tick[1]} —— 改回 -last.json 即脱量`,
+  )
+  const reg = JSON.parse(headSrc('scripts/data/autonomy-leg-liveness.json'))
+  const leg = (reg.legs || []).find((l) => l.stamp === tick[1])
+  assert.ok(leg, `A8 登记表里没有这枚戳 ⇒ 会被判 unregistered(黑)—— 补条目不是删断言`)
+  assert.equal(
+    leg.nominalIntervalMs,
+    30 * 60 * 1000,
+    '名义节律必须与守护默认值逐字同值(两处不同形 = 容忍窗算错,黑腿判据本身失信)',
+  )
+  assert.equal(
+    leg.envVar,
+    'IHUI_RN_SHELL_TYPES_INTERVAL_MS',
+    '条目要点名覆盖它的 env,压节拍不用改码',
+  )
+  assert.ok(
+    Number.isFinite(Date.parse(String(leg.verifiedAt))),
+    'verifiedAt 缺失/不可解析 ⇒ 条目算未复确认',
+  )
+})
+
 test('C1 契约锁:调度器解析的结论行必须真能在该器现读输出里匹配到', () => {
   const out = execFileSync(process.execPath, [GENERATOR, '--check'], {
     cwd: REPO,

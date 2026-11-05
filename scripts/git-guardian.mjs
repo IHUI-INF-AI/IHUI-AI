@@ -12104,7 +12104,7 @@ export function sweepRnShellTypes(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = RN_SHELL_TYPES_INTERVAL_MS,
-    tickFile = join(dirname(LOG), 'rn-shell-types-last.json'),
+    tickFile = join(dirname(LOG), 'rn-shell-types-dispatch-last.json'),
     logger = log,
     runner = null,
   } = opts
