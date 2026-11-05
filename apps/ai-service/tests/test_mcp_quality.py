@@ -369,7 +369,8 @@ async def test_call_external_tool_records_metrics():
         def is_connected(self):
             return True
 
-        async def call_tool(self, name, args):
+        async def call_tool(self, name, args, *, quota_run_id: str = ""):
+            # 2026-11-05(goal-b49 W1):出站调用带配额归属桶(签名随 MCPClient.call_tool)
             return {"ok": True, "content": "x"}
 
     manager = MCPClientManager()

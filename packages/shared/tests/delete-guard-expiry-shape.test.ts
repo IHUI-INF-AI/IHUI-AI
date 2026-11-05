@@ -2,38 +2,41 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { describe, expect, it } from 'vitest'
+import * as expiry from '../src/delete-guard/expiry.js'
+import * as barrel from '../src/delete-guard/index.js'
 
-const file = 'packages/i18n/messages/web/en.json'
-const PATHS = [
-  'bestOfCompare.empty',
-  'goalCard.emptyHint',
-  'chat.goalNone',
-  'chat.btwUsage',
-  'chat.sideUsage',
-  'chat.slashCmd.bestof',
-  'chat.slashCmd.side',
-]
+/**
+ * 拆页后的**导出集形状锁**(goal-b49 X3,2026-11-05)。
+ *
+ * `expiry.ts` 259 行 → <250 是**搬行**(TTL 解析与数值宽容取数搬进 `expiry-retention.ts`),
+ * 不是改语义,也不是改公共面。四枚导出逐字不变 —— 多一枚、少一枚、改名、或把内部助手
+ * 顺手 `export *` 进桶,都算动了契约,本文件当场判红。
+ *
+ * 判据来源:期望集手写在此(它就是"拆页前现值"的钉子),实际集一律 `Object.keys` 现读,
+ * 不复制任何运行时算式。
+ */
+const EXPIRY_EXPORTS = [
+  'effectiveEntryCap',
+  'planTrashExpiry',
+  'summarizeTrashExpiryPlan',
+  'unitsFromManifest',
+] as const
 
-const raw = readFileSync(file, 'utf8')
-const obj = JSON.parse(raw)
+describe('expiry.ts 导出集形状锁(搬行前后逐字不变)', () => {
+  it('导出集恰好四枚,与拆页前一致', () => {
+    expect(Object.keys(expiry).sort()).toEqual([...EXPIRY_EXPORTS].sort())
+  })
 
-function getByPath(o, p) { return p.split('.').reduce((a, k) => (a == null ? a : a[k]), o) }
-function setByPath(o, p, v) {
-  const ks = p.split('.'); let cur = o
-  for (let i = 0; i < ks.length - 1; i++) cur = cur[ks[i]]
-  cur[ks[ks.length - 1]] = v
-}
+  it('搬出的内部助手没有漏进 delete-guard 公共桶(公共面不扩)', () => {
+    expect(barrel).not.toHaveProperty('asFiniteNumber')
+    expect(barrel).not.toHaveProperty('resolveRetention')
+  })
 
-let count = 0
-for (const p of PATHS) {
-  const cur = getByPath(obj, p)
-  if (typeof cur !== 'string') { console.log('SKIP(not str):', p); continue }
-  const fixed = cur.replace(/<([a-zA-Z]+)>/g, "'<$1>'")
-  if (fixed !== cur) { setByPath(obj, p, fixed); count++; console.log('FIXED:', p, '\n  ->', fixed) }
-  else console.log('NOCHANGE:', p)
-}
-writeFileSync(file, JSON.stringify(obj, null, 2))
-console.log('\\n共修正', count, '条 (en)')
+  it('四枚出口仍是函数(搬行不改形态)', () => {
+    for (const key of EXPIRY_EXPORTS) {
+      expect(typeof (expiry as Record<string, unknown>)[key]).toBe('function')
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
