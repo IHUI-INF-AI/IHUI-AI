@@ -32,6 +32,7 @@ from ..services.mcp_client import (
 from ..services.mcp_server import mcp_server, sampling_handler
 from ..services.skills import skill_registry
 from ..services.slash_commands import slash_command_registry
+from ..services.tool_budget_governor import ToolBudgetExceededError
 
 logger = logging.getLogger(__name__)
 
@@ -670,11 +671,29 @@ async def list_external_tools(
 
     可见集与 `GET /api/mcp/external/servers` 同源(共用 `MCPClientManager.is_visible`):
     工具名/描述/input_schema 本身就是那台 server 的配置内容,清单收窄而工具不收窄等于没收窄。
+
+    2026-11-05 注册工具面维(`TOOL_BUDGET_MCP_TOOL_LIMIT`)在 `_collect_tools` 落地:超限
+    抛具名拒绝 ⇒ 这里单独给一档 **422**(配额是"请求超出上限",不是服务端故障;混进 500
+    会让人去查进程而不是查 env)。文案原样带出维度名 + 实测条数 + 上限条数,零截断。
     """
     try:
         manager = get_mcp_client_manager()
         tools = await manager.list_available_tools_async(user_id)
         return {"tools": [asdict(t) for t in tools], "count": len(tools)}
+    except ToolBudgetExceededError as e:
+        result = e.result
+        logger.error("列出外部 MCP 工具被配额具名拒绝: %s", e.reason)
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": e.reason,
+                "code": e.error_type,
+                "quotaDimension": e.dimension,
+                "quotaMeasured": (result.used.get(result.dimension) if result else None),
+                "quotaLimit": (result.limits.get(result.dimension) if result else None),
+            },
+            headers={},
+        )  # type: ignore[return-value]
     except Exception as e:
         logger.error("列出外部 MCP 工具失败: %s", e)
         return JSONResponse(
