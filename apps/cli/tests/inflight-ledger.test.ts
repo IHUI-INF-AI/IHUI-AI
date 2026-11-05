@@ -88,7 +88,7 @@ describe('InflightLedger — 失败固化台账', () => {
     const ledger = new InflightLedger<string>({ now: clock.now, failureMemoMs: 60_000 });
     const ac = new AbortController();
     let calls = 0;
-    let releaseInner!: () => void;
+    let releaseInner!: (value: string | PromiseLike<string>) => void;
     const inner = new Promise<string>((resolve) => {
       releaseInner = resolve;
     });
@@ -109,7 +109,7 @@ describe('InflightLedger — 失败固化台账', () => {
 
     // 关键判据:任务此刻**仍然没有 settle**,所以第二个等待者拿到的 cancelled
     // 只可能来自台账,不可能来自"它自己也等到了什么"。
-    releaseInner();
+    releaseInner('');
     const late = await rejectionOf(ledger.run('k', async () => inner));
     expect((late as LedgerFailure).code).toBe('cancelled');
     expect(calls).toBe(1);

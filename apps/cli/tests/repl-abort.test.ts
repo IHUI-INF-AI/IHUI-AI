@@ -31,6 +31,8 @@ import {
   consumePendingInterjections,
 } from '../src/commands/repl.js';
 import type { ReplState } from '../src/commands/repl.js';
+import { createTaskStatusLine } from '../src/commands/task-status-line.js';
+import { PromptQueue } from '../src/prompt-queue.js';
 
 /** 构造最小可用 ReplState(测试 helper,避免每个用例重复完整字段) */
 function makeTestState(overrides: Partial<ReplState> = {}): ReplState {
@@ -54,6 +56,12 @@ function makeTestState(overrides: Partial<ReplState> = {}): ReplState {
     agentRunning: false,
     aborted: false,
     abortController: null,
+    statusLine: createTaskStatusLine(),
+    toolLog: [],
+    toolResultMetadata: {},
+    promptQueue: new PromptQueue(),
+    followUpMode: 'steer',
+    queueInterruptOnce: false,
     ...overrides,
   };
 }

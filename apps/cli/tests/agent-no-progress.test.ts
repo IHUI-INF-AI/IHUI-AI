@@ -22,6 +22,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
 import { clearTools } from '../src/tools/index.js';
 import type { Settings } from '../src/commands/settings.js';
+import type { ChatMessage } from '../src/commands/session.js';
 
 type StreamChatFn = (opts: unknown) => Promise<void>;
 
@@ -158,9 +159,9 @@ async function driveTurn(opts: DriveOptions): Promise<{
   });
   vi.stubGlobal('fetch', fetchMock);
 
-  const messages: Array<{ role: string; content: string }> = [
-    { role: 'system', content: 'sys' },
-    { role: 'user', content: '把这张票做完' },
+  const messages: ChatMessage[] = [
+    { id: 'sys-1', role: 'system', content: 'sys' },
+    { id: 'user-1', role: 'user', content: '把这张票做完' },
   ];
   const result = await runToolLoop({
     modelId: 'qwen2.5:7b',

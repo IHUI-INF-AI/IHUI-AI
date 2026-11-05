@@ -70,7 +70,7 @@ function firstWritten(): { filepath: string; content: string } {
 
 describe('crash-handler 进程级异常边界(G-610)', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
-  let initialExitCode: number | undefined;
+  let initialExitCode: string | number | null | undefined;
   let initialUncaught: Array<(...args: never[]) => void>;
   let initialUnhandled: Array<(...args: never[]) => void>;
   let initialMonitor: Array<(...args: never[]) => void>;

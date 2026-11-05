@@ -275,7 +275,11 @@ describe('⑥ 新键五语言齐备且占位符逐语言等值', () => {
   });
 
   it('占位符集合逐语言与 zh-CN 同形(同键同槽)', () => {
-    const slotsOf = (text: string): string[] => [...text.matchAll(/\{([a-zA-Z_][\w]*)\}/g)].map((m) => m[1]).sort();
+    const slotsOf = (text: string): string[] =>
+      [...text.matchAll(/\{([a-zA-Z_][\w]*)\}/g)]
+        .map((m) => m[1])
+        .filter((s): s is string => s !== undefined)
+        .sort();
     const read = (lang: string): Record<string, unknown> => {
       const p = fileURLToPath(new URL(`../../../packages/i18n/messages/cli/${lang}.json`, import.meta.url));
       const all = JSON.parse(readFileSync(p, 'utf8')) as { cliEntry?: Record<string, unknown> };

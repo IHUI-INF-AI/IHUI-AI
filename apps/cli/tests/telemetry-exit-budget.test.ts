@@ -18,7 +18,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { TelemetryClient } from '../src/telemetry/index.js';
 
-function stalledFetch(_input: string, init?: RequestInit): Promise<Response> {
+function stalledFetch(_input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]): Promise<Response> {
   // 永挂 + 不观测 init.signal:模拟"第三方实现把取消信号吃掉了"这一最坏形态
   return new Promise<Response>(() => {
     void init;
