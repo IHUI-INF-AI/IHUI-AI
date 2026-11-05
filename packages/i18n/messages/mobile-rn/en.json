@@ -4774,6 +4774,9 @@
   "devSpace": {
     "title": "Developer Details",
     "notLoggedIn": "Not signed in",
+    "opened": "Activated",
+    "notOpened": "Not activated",
+    "enterPlaza": "Enter Plaza",
     "renew": "Renew",
     "copy": "Copy",
     "copied": "Copied",

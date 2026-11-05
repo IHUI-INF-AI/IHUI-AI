@@ -4774,6 +4774,9 @@
   "devSpace": {
     "title": "개발자 상세",
     "notLoggedIn": "로그인되지 않음",
+    "opened": "활성화됨",
+    "notOpened": "미개통",
+    "enterPlaza": "광장으로",
     "renew": "갱신",
     "copy": "복사",
     "copied": "복사되었습니다",
