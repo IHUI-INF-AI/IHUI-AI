@@ -1472,6 +1472,9 @@ const MessageItem = React.memo(function MessageItem({
                         <ToolCallCard
                           toolName={tc.toolName}
                           args={tc.args}
+                          partialDiff={tc.partialDiff}
+                          partialArgs={tc.partialArgs}
+                          argsStreaming={tc.argsStreaming}
                           result={tc.result}
                           status={tc.status}
                           duration={tc.duration ?? tc.durationMs}

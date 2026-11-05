@@ -35,6 +35,8 @@ from __future__ import annotations
 
 import json
 import logging
+
+from ..utils.tool_call_args import normalize_tool_call_args
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -128,10 +130,7 @@ def openai_to_anthropic_request(openai_req: dict[str, Any]) -> dict[str, Any]:
                 blocks.append({"type": "text", "text": content})
             for tc in m["tool_calls"]:
                 fn = tc.get("function", {})
-                try:
-                    args = json.loads(fn.get("arguments", "{}"))
-                except (json.JSONDecodeError, TypeError):
-                    args = {}
+                args = normalize_tool_call_args(fn.get("arguments")) or {}
                 blocks.append({
                     "type": "tool_use",
                     "id": tc.get("id", ""),
@@ -254,10 +253,7 @@ def openai_to_anthropic_response(openai_resp: dict[str, Any]) -> dict[str, Any]:
         content_blocks.append({"type": "text", "text": msg["content"]})
     for tc in msg.get("tool_calls", []) or []:
         fn = tc.get("function", {})
-        try:
-            args = json.loads(fn.get("arguments", "{}"))
-        except (json.JSONDecodeError, TypeError):
-            args = {}
+        args = normalize_tool_call_args(fn.get("arguments")) or {}
         content_blocks.append({
             "type": "tool_use",
             "id": tc.get("id", ""),
@@ -354,10 +350,7 @@ def openai_to_gemini_request(openai_req: dict[str, Any]) -> dict[str, Any]:
                 parts.append({"text": content})
             for tc in m["tool_calls"]:
                 fn = tc.get("function", {})
-                try:
-                    args = json.loads(fn.get("arguments", "{}"))
-                except (json.JSONDecodeError, TypeError):
-                    args = {}
+                args = normalize_tool_call_args(fn.get("arguments")) or {}
                 parts.append({"functionCall": {"name": fn.get("name", ""), "args": args}})
             contents.append({"role": "model", "parts": parts})
         else:
@@ -465,10 +458,9 @@ def openai_to_gemini_response(openai_resp: dict[str, Any]) -> dict[str, Any]:
             parts.append({"text": msg["content"]})
         for tc in msg.get("tool_calls", []) or []:
             fn = tc.get("function", {})
-            try:
-                args = json.loads(fn.get("arguments", "{}"))
-            except (json.JSONDecodeError, TypeError):
-                args = {}
+            # 2026-11-05 立:第 6 处落地缝补齐。残缺/截断 arguments 与其余 3 处
+            # 格式转换同一判据(修复不了才退空对象),不再靠裸 json.loads 吞掉整段可用参数。
+            args = normalize_tool_call_args(fn.get("arguments", "{}")) or {}
             parts.append({"functionCall": {"name": fn.get("name", ""), "args": args}})
         finish_reason = _openai_finish_to_gemini(choices[0].get("finish_reason"))
 

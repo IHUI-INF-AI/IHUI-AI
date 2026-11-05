@@ -118,6 +118,12 @@ export interface ToolCall extends BaseToolCall {
   partialDiff?: string
   /** D113:已收敛消费的最大 tool-delta `seq`(缺省视为 0;收敛判据 `evt.seq>partialSeq`)。 */
   partialSeq?: number
+  /** 2026-11-05:工具入参逐分片渐进渲染的当前最好可用部分对象。
+   * 数据源 = api-client 的 onOpenAiToolCall(OpenAiToolCallDelta.args),仅 running 态渲染;
+   * argsComplete 到达或 Vercel tool-result 到达即清 undefined。绝不写进正式 args。 */
+  partialArgs?: Record<string, unknown>
+  /** 2026-11-05:入参仍在流式构建中(驱动 ToolCallCard 的部分参数预览块)。 */
+  argsStreaming?: boolean
   /** L5-8 工具瞬时失败自动重试次数(>0 时 ToolCallCard 渲染"重试N次"徽章)。
    * 数据源:后端 tool-call-start/result 事件携带则透传;暂未下发时恒 undefined,徽章不显示。 */
   retryCount?: number

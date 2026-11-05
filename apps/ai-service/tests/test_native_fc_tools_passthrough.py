@@ -168,8 +168,15 @@ async def test_generic_path_passes_tools_and_emits_tool_call_start(client: Async
 
     assert second["toolCallId"] == "call_def"
     assert second["toolName"] == "bad_tool"
-    # 非法 JSON 兜底:args 保留原始字符串
-    assert second["args"] == "{not-json"
+    # 2026-11-05:残缺/非法 arguments 统一走 app/utils/tool_call_args.py 归一化 ——
+    # 尽力修复,修不了退空对象;不再把原始字符串塞进前端卡片的 args 槽(旧断言
+    # 期望 "{not-json" 是这一旧行为的化石)。双面证据见下一条断言。
+    assert second["args"] == {}
+    from app.utils.tool_call_args import normalize_tool_call_args
+    # 正面:可修复的截断串确实被救回,证明这里不是"一律丢成 {}"。
+    assert normalize_tool_call_args('{"q": "北京天气"') == {"q": "北京天气"}
+    # 反面:完全无法修复才退 None(通道侧 `or {}` 收口)。
+    assert normalize_tool_call_args("{not-json") is None
 
     # 原生 tool_calls 事件不再以 event: tool_calls 外漏(已转换)
     assert not [e for e in events if e["event"] == "tool_calls"]
