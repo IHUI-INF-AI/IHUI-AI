@@ -192,12 +192,14 @@ async def _online_endpoints(user_id: str) -> list[dict[str, Any]]:
         import httpx
 
         # 鉴权头一律复用 api_tools_bridge.internal_headers —— 它才是与 apps/api
-        # `checkInternalServiceToken`(校验 AI_CALLBACK_SECRET)同源的那把钥匙。
+        # `checkInternalServiceToken` / 内部票验票侧同源的唯一出口。
         # 自己手拼 Bearer=AGENT_CONTROL_INTERNAL_SECRET 会被 401 拒掉(实测踩过)。
         from .api_tools_bridge import api_base_url, internal_headers
 
+        # 判据是"有没有拿到凭据",不是"有没有旧密钥":默认 ticket 档只有票,
+        # 若仍以 x-internal-service-token 为开关,纯票部署下这条在线端查询会被静默跳过。
         headers = internal_headers(user_id)
-        if headers.get("x-internal-service-token"):
+        if headers:
             async with httpx.AsyncClient(timeout=_STATUS_TIMEOUT_S) as client:
                 resp = await client.get(
                     f"{api_base_url().rstrip('/')}/api/agent-control/status",
