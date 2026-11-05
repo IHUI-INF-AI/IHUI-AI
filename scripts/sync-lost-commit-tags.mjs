@@ -698,6 +698,14 @@ function autoPushMode() {
     console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 已跳过 auto-push(不推荐)${C.reset}`)
     process.exit(0)
   }
+  // 2026-11-05 机主令:增长产线停用。本路径**没有命名空间白名单**,推的是"全部本地缺失 tag",
+  // 故默认关:只有显式 IHUI_TAG_AUTOPUSH_ENABLED=1 才真正推送。--dry-run 不写远端,照常放行。
+  if (!isDryRun && String(process.env.IHUI_TAG_AUTOPUSH_ENABLED || '') !== '1') {
+    console.log(
+      `${C.yellow}⚠ 增长产线停用:IHUI_TAG_AUTOPUSH_ENABLED!=1 ⇒ 不推送任何 tag(未改本地/远端 ref)${C.reset}`,
+    )
+    process.exit(0)
+  }
 
   // ── 限流:间隔内重复调用直接跳过(避免连续 commit 反复 ls-remote)──
   // 注意: linked worktree 下 .git 是文件,须经 git rev-parse --git-dir 解析真实目录
