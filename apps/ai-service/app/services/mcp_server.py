@@ -95,6 +95,10 @@ from .session_security import (
     get_vault_store as _get_vault_store,
 )
 
+# 阶段化遥测(缺口表 T9 §10 #3,2026-11-05 Z19):段清单/结论词表/结构化结论行的唯一
+# 出处在这里,消费方(本模块的 _tool_search_codebase)不自立段名,也不自带第二份词表。
+from .stage_telemetry import UNJUDGED, StageRecorder
+
 # 工具面能力门(缺口表 #7,2026-11-01):列表面与执行面共用同一把尺(单源在 tool_surface,
 # 它只依赖 capability_matrix ⇒ 与本模块无回环)。
 from .tool_surface import capability_denial as _tool_capability_denial
@@ -1597,6 +1601,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     _caller_user_id = arguments.get("__user_id") or None
     # 遥测出参(与 rag._retrieve 的 stats 同族):降级原因回到返回体,不许只留在日志里。
     stats: dict[str, Any] = {}
+    # 2026-11-05 Z19(缺口表 T9 §10 #3):逐段结论 + 耗时 + 计数。段清单与结论词表只在
+    # `app/services/stage_telemetry.py` 一处声明(§0.6),这里只是消费方;每段落一条
+    # `[stage_result]` 结构化结论行,没走到的段由 finalize() 补 `unjudged`(不许缺项)。
+    stages = StageRecorder("search_codebase")
+    # validate 段的手表取在入参检查之前:早退路径也要能报"这一段花了多久"
+    validate_clock = stages.clock()
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -1625,6 +1635,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
     if not query:
+        stages.record(
+            "validate", "failed",
+            duration_ms=validate_clock.elapsed_ms(),
+            count=0,
+            detail="搜索关键词为空,两腿均未发起",
+        )
         return {
             "tool": "search_codebase",
             "query": query,
@@ -1636,9 +1652,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 {"leg": "query", "status": "missing", "detail": "搜索关键词为空,两腿均未发起"},
             ],
             "stats": stats,
+            # 早退路径同样出满六段:后五段是"没走到",由 finalize() 显式记 unjudged(不许缺项)
+            "stages": stages.finalize(),
             "message": "搜索关键词为空",
             "ok": False,
         }
+    stages.record("validate", "ok", count=1, duration_ms=validate_clock.elapsed_ms())
 
     def _fusion_key(match: dict[str, Any]) -> str:
         """融合去重键:位置 + 归一后的符号类型(行级命中,同文件不同行不得折成一枚)。
@@ -1682,6 +1701,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
+                lazy_clock = stages.clock()
                 lazy = await _lazy_index_and_research(
                     codebase_indexer,
                     query,
@@ -1691,6 +1711,13 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
+                stages.record(
+                    "lazy_index",
+                    "ok" if semantic_results else "empty",
+                    duration_ms=lazy_clock.elapsed_ms(),
+                    count=len(semantic_results),
+                    detail=f"status={lazy.status}: {lazy.reason}",
+                )
             leg_matches: list[dict[str, Any]] = []
             for r in list(semantic_results)[:max_results]:
                 content_preview = r.get("content", "")
@@ -1889,10 +1916,30 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
     # 双腿并发启动(照 rag._retrieve 的先例:两条腿各自 create_task 再 await,
     # 不是串行 await 两次把延迟叠成两倍)
-    vec_task = asyncio.create_task(_semantic_leg())
-    kw_task = asyncio.create_task(_keyword_leg())
+    #
+    # 2026-11-05 Z19:每段的手表取在**协程自己被调度的那一刻**,不是取在 await 返回那一刻 ——
+    # 两腿并发 ⇒ 两条时间区间天然重叠,`stages` 是"各段各自花了多久"的读数,
+    # **不是**把总时长切成互斥的六份(那种口径本仓只有一份,见 core/turn_timing.py)。
+    # 腿内一行未改:状态/命中数从腿的既有返回契约里读,不另起第二份判据。
+    async def _instrumented(stage: str, leg: "Awaitable[dict[str, Any]]") -> dict[str, Any]:
+        clock = stages.clock()
+        out: dict[str, Any] = await leg
+        stages.record(
+            stage,
+            str(out.get("status") or UNJUDGED),
+            duration_ms=clock.elapsed_ms(),
+            count=len(out.get("matches") or []),
+            detail=out.get("reason"),
+        )
+        return out
+
+    vec_task = asyncio.create_task(_instrumented("semantic_leg", _semantic_leg()))
+    kw_task = asyncio.create_task(_instrumented("keyword_leg", _keyword_leg()))
     vec = await vec_task
     kw = await kw_task
+    # 语义腿被调用方显式关闭时,懒索引是"跟着一起没发起"——按票面要显式出声,不许缺项
+    if vec.get("status") == "skipped":
+        stages.record("lazy_index", "skipped", count=0, detail="语义腿被调用方关闭,懒索引随之不发起")
 
     reasons: list[dict[str, Any]] = [
         {"leg": "vector", "status": vec["status"], "detail": vec["reason"]},
@@ -1930,6 +1977,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         # 入参层面的路径错误 / 关键词腿自身炸了,且语义腿也没给出结果:
         # 沿用既有对外契约(ok=False + "搜索失败: …"),但 mode/reasons 一并回去。
         detail = str(kw["reason"] or "关键词腿不可用")
+        stages.record("fuse", "skipped", count=0, detail=f"两腿都没给出结果,融合无从发起:{detail}")
+        stages.record("assemble", "skipped", count=0, detail="融合未发起,装配段随之跳过")
         return {
             "tool": "search_codebase",
             "query": query,
@@ -1940,6 +1989,7 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "degraded": degraded,
             "reasons": reasons,
             "stats": stats,
+            "stages": stages.finalize(),
             "use_semantic": bool(use_semantic),
             "semantic_index": semantic_index_field,
             "message": f"搜索失败: {detail}",
@@ -1952,14 +2002,24 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
     rankings: list[list[dict[str, Any]]] = [leg_matches for _label, leg_matches in hit_legs]
     labels: list[str] = [label for label, _leg_matches in hit_legs]
+    fuse_clock = stages.clock()
     fused = rrf_fuse(rankings, k=resolve_rrf_k(), labels=labels, key_fn=_fusion_key)
+    stages.record(
+        "fuse", "ok" if fused else "empty",
+        duration_ms=fuse_clock.elapsed_ms(), count=len(fused),
+    )
 
+    asm_clock = stages.clock()
     matches: list[dict[str, Any]] = []
     for f in fused[:max_results]:
         item = dict(f.item)
         item["fused_from"] = "+".join(f.fused_from)
         item["rrf_score"] = round(f.score, 6)
         matches.append(item)
+    stages.record(
+        "assemble", "ok" if matches else "empty",
+        duration_ms=asm_clock.elapsed_ms(), count=len(matches),
+    )
 
     truncated = bool(kw.get("truncated")) or len(fused) > max_results
     return {
@@ -1976,6 +2036,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         "degraded": degraded,
         "reasons": reasons,
         "stats": stats,
+        # 逐段结论/耗时/计数(Z19):段序固定,跳过段显式 skipped,没走到的段显式 unjudged
+        "stages": stages.finalize(),
         # V3 #75 后半 + 票 #10:语义通道那一步的结论必须一起回去(异常分支也在册),
         # 没有这一格,模型读到的就是"找到 N 个匹配"而看不见"语义腿压根没答上来"。
         "semantic_index": semantic_index_field,

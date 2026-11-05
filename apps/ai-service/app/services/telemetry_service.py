@@ -469,6 +469,10 @@ class TelemetryService:
         r.histogram("context_compression_ratio", "上下文压缩比", [])
         r.histogram("context_compression_quality", "上下文压缩质量分", [])
         r.counter("context_rag_retrievals_total", "RAG 检索次数", ["source", "status"])
+        # 2026-11-05 Z19 立:检索**逐段**结论与耗时(声明唯一在此,写入方是
+        # app/services/stage_telemetry.py —— 它只按名取用,不自建第二份形状)。
+        r.counter("retrieval_stage_total", "检索阶段结论数", ["tool", "stage", "result"])
+        r.histogram("retrieval_stage_duration_ms", "检索阶段耗时(ms)", ["tool", "stage"])
         r.gauge("context_active_sessions", "活跃会话数", [])
         r.gauge("context_behavior_records", "行为记录数", [])
 
