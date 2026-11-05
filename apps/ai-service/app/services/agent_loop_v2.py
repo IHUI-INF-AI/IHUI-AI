@@ -3135,6 +3135,12 @@ class AgentLoopV2:
         """
         if not self._retention_budget_enabled:
             return compressed, {"enabled": False}
+        # 历史查询窗口维(history_query_limit)的拒绝类型必须先于通用兜底被认出来:
+        # 让它落进下面的 `except Exception` = 把"请求条数超上限"洗成 reason="error",
+        # 上层与人都看不到是哪一维、超了多少 —— 那正是 §0.9 说的"接了线却被吞成降级"。
+        # 名称在 try 之前绑定:兜底分支取不到这个名字会把异常处理本身炸掉,那是新事故。
+        from app.services.tool_budget_governor import ToolBudgetExceededError
+
         try:
             from app.core.compaction_retention import truncate_retained_messages
             from app.core.context_compaction import SUMMARY_MARKER
@@ -3188,6 +3194,19 @@ class AgentLoopV2:
                     self._retention_budget_tokens,
                 )
             return [*prefix, *new_retained], meta
+        except ToolBudgetExceededError as e:
+            # 具名拒绝(不静默截断):保留区原产物照交(本函数自带的"宁可保留也不清空活上下文"
+            # 护栏不因配额维而变),但 meta 如实写明"这一维拒了什么、超了多少",上层与人都看得见。
+            logger.error("[agent-loop] 历史查询窗口被配额具名拒绝:%s", e.reason)
+            _res = e.result
+            return compressed, {
+                "enabled": True,
+                "applied": False,
+                "reason": "history_query_quota_denied",
+                "quotaDimension": e.dimension,
+                "quotaMeasured": (_res.used.get(_res.dimension) if _res else None),
+                "quotaLimit": (_res.limits.get(_res.dimension) if _res else None),
+            }
         except Exception as e:  # noqa: BLE001 - 精修失败绝不阻塞压缩主链路
             logger.warning("[agent-loop] 保留区预算精修失败(降级原产物): %s", e)
             return compressed, {"enabled": True, "applied": False, "reason": "error"}

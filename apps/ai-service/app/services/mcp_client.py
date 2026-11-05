@@ -33,6 +33,7 @@ from typing import Any, cast
 import httpx
 
 from app.core.background_tasks import spawn
+from app.core.context_compaction import estimate_tokens
 from app.core.exec_env import resolve_stdio_command
 from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
 from app.services import mcp_quality, mcp_status
@@ -43,6 +44,16 @@ from app.services.command_streamer import (
     read_protocol_frame,
 )
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
+from app.services.tool_budget_governor import (
+    BUDGET_EXCEEDED,
+    DIM_MCP_TOKEN_LIMIT,
+    GateResult,
+    ToolBudgetExceededError,
+    ToolBudgetGovernor,
+)
+from app.services.tool_budget_governor import (
+    tool_budget_governor as _default_budget_gov,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +116,16 @@ def _canonical_auth_scheme(token_type: str | None) -> str:
 class MCPClient:
     """管理单个外部 MCP Server 连接。"""
 
-    def __init__(self, config: MCPClientConfig) -> None:
+    def __init__(
+        self, config: MCPClientConfig, *, budget_governor: ToolBudgetGovernor | None = None
+    ) -> None:
         self._config = config
+        # 四维配额之 MCP 令牌桶(mcp_token_limit)的判据来源:默认取进程级单例
+        # (上限按台账登记的 TOOL_BUDGET_MCP_TOKEN_LIMIT 装配,未配 ⇒ 该维不拦),
+        # 测试可注入自定义实例钉住正反对照 —— 与 guarded_tool_pipeline 同一注入形状。
+        self._budget_gov: ToolBudgetGovernor = (
+            budget_governor if budget_governor is not None else _default_budget_gov
+        )
         self._process: asyncio.subprocess.Process | None = None
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
@@ -326,10 +345,27 @@ class MCPClient:
         logger.error("list_tools 失败: %s", error.get("message", "未知错误"))
         return []
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
-        """调用工具。"""
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any], *, quota_run_id: str = ""
+    ) -> Any:
+        """调用工具(2026-11-05 起接 MCP 令牌桶 `mcp_token_limit` 维,超限具名拒绝)。
+
+        扣费排在 **发帧之前**:一次 tools/call 会用那台 server 配置里的 env/凭据起子进程
+        或出站请求,先执行再拒 = 副作用已经发生。被拒的本次一个字节都不发出,且不入库
+        (判据侧"被拒不污染已用量"的同一条纪律,见 tool_budget_governor.consume_mcp_tokens)。
+        响应正文在执行**之后**追加计费:此时副作用已不可撤销,结果如实交还,只在桶被
+        响应扣超时大声 warn 点名(§5e 失败必须响),绝不为了消红把已产出的结果吞掉。
+
+        该维未配置(默认 0)⇒ 直接落到原路径:不序列化载荷、不估算、不写任何计数。
+        """
+        denial = self._quota_precheck(name, arguments, quota_run_id)
+        if denial is not None:
+            return denial
+        charged_request = self._quota_charge_enabled()
         resp = await self._send_request("tools/call", {"name": name, "arguments": arguments})
         if "result" in resp:
+            if charged_request:
+                self._charge_response(name, quota_run_id, resp["result"])
             return resp["result"]
         error = resp.get("error", {})
         return {
@@ -337,6 +373,58 @@ class MCPClient:
             "error": error.get("message", "未知错误"),
             "code": error.get("code"),
         }
+
+    # ---- 四维配额消费点(mcp_token_limit;判据/文案全在 tool_budget_governor) ----
+
+    def _quota_charge_enabled(self) -> bool:
+        """该维是否开着 —— 只问判据的取值出口,本层不复算阈值(§0.6)。"""
+        return self._budget_gov.config.dim_limit(DIM_MCP_TOKEN_LIMIT) > 0
+
+    def _quota_precheck(
+        self, name: str, arguments: dict[str, Any], quota_run_id: str
+    ) -> dict[str, Any] | None:
+        """调用前的令牌桶预扣;放行返回 None,超限返回具名拒绝 dict(未发帧)。"""
+        if not self._quota_charge_enabled():
+            return None
+        bucket, bucket_source = mcp_quota_bucket(quota_run_id, server_name=self._config.name)
+        if not bucket:
+            # 三档解析全空(既无 run、又无主体、连 server 名都没有)⇒ 判不出归属桶。
+            # §0.3:判不出绝不回落成"放行",也绝不猜一个桶 —— 当场把"要什么"说清。
+            return {
+                "ok": False,
+                "error": (
+                    f"MCP 令牌桶({DIM_MCP_TOKEN_LIMIT})无法确定归属桶:既无显式 run_id、"
+                    "当前作用域也未绑定 MCP 主体 —— 请由承载层显式传入 run 标识"
+                    "(不接受客户端自报),而不是把这一维静默放过"
+                ),
+                "code": BUDGET_EXCEEDED,
+                "quotaDimension": DIM_MCP_TOKEN_LIMIT,
+                "quotaBucketSource": bucket_source,
+            }
+        measured = mcp_payload_tokens(name, arguments)
+        result = self._budget_gov.consume_mcp_tokens(
+            bucket, measured, tool_name=f"mcp:{self._config.name}/{name}"
+        )
+        if result.allowed:
+            return None
+        logger.warning("[mcp_quota] 调用被具名拒绝(mcp_token_limit):%s", result.reason)
+        return mcp_quota_denial(result, bucket, bucket_source)
+
+    def _charge_response(self, name: str, quota_run_id: str, payload: object) -> None:
+        """执行后按响应正文追加计费;桶被扣超时大声点名(结果已产出,不予丢弃)。"""
+        bucket, _source = mcp_quota_bucket(quota_run_id, server_name=self._config.name)
+        if not bucket:
+            return
+        result = self._budget_gov.consume_mcp_tokens(
+            bucket,
+            mcp_payload_tokens(payload),
+            tool_name=f"mcp:{self._config.name}/{name}:response",
+        )
+        if not result.allowed:
+            logger.warning(
+                "[mcp_quota] 响应正文使令牌桶越过上限(本次结果已产出、不丢弃,下一次调用起被拦):%s",
+                result.reason,
+            )
 
     # =========================================================================
     # 内部方法
@@ -1018,13 +1106,98 @@ def current_mcp_principal() -> str:
     return _mcp_principal_scope.get()
 
 
+# =========================================================================
+# 四维配额装车(goal-b49 W1,2026-11-05 立)—— MCP 两维的唯一消费点
+# =========================================================================
+#
+# 判据一律在 `app/services/tool_budget_governor.py`(维度名/上限/文案单源),本层只做
+# "把实测交给判据 + 把拒绝如实上呈"两件事,**不复写任何阈值比较**(§0.6 单一真相源)。
+#
+# 失效方向(§0.10):超限 ⇒ **具名拒绝**(reason 自带维度名 + 实测值 + 上限值),
+# 绝不做成"少返回几枚工具/少发一帧"的静默截断 —— 那正是本票要治的那一格。
+# 未配置(上限 0)⇒ 该维不拦,且**一次计数都不写、一次序列化都不做**(与接线前逐零差异,
+# 由 tests/test_quota_wiring_b49.py 的正向对照钉住,§12e 不得造恒拦门)。
+
+#: MCP 令牌桶兜底归属桶前缀(既无显式 run 也无主体时按 server 计,来源随文案点名)
+MCP_QUOTA_SERVER_BUCKET_PREFIX = "server:"
+
+#: 令牌桶的 token 计量单源 = core/context_compaction.estimate_tokens(BPE cl100k_base)。
+#: 仓内另有两把**占位粗估**(`mcp_server._estimate_tokens_len` = len//4、
+#: `additional_context_store.approx_token_count` = bytes//4),本层刻意不取:配额要与
+#: 上下文预算可比,就必须和压缩链同一把尺(§0.6,不得为此新增第三把尺)。
+_MCP_QUOTA_TOKEN_MEASURE = estimate_tokens
+
+
+def mcp_quota_bucket(run_id: str = "", *, server_name: str = "") -> tuple[str, str]:
+    """解析 MCP 令牌桶的归属桶与来源(唯一出口;调用方不得自立第二套顺序)。
+
+    顺序 = 显式 run_id > 当前作用域已绑定的 MCP 主体 > server 名兜底。
+    返回 ``(bucket, source)``,``source`` ∈ {"run_id","principal","server-fallback",
+    "unresolved"} —— "按什么在扣"必须随拒绝文案一起带出,否则"配额"两个字没人读得懂。
+
+    第三档(server 名兜底)是**有意的降级而不是放行**:归属桶取不到而把整维跳过,
+    等于"配了额但一个字节都没管",那是本票禁止的静默失效;按 server 计至少让
+    单台 server 的累计消耗有界,并在文案里如实写明它不是按 run 计的。
+
+    主体/`run_id` 一律由**承载层显式入参**传入(`require_request_user_id` 的事实),
+    本函数不从被调用记录反推、也不接受客户端自报(AGENTS §5「认证不等于授权」)。
+    """
+    if run_id:
+        return run_id, "run_id"
+    principal = current_mcp_principal()
+    if principal:
+        return principal, "principal"
+    if server_name:
+        return f"{MCP_QUOTA_SERVER_BUCKET_PREFIX}{server_name}", "server-fallback"
+    return "", "unresolved"
+
+
+def mcp_payload_tokens(*parts: object) -> int:
+    """MCP 载荷(工具名/入参/结果)的 token 实测值 —— 单源 `_MCP_QUOTA_TOKEN_MEASURE`。"""
+    chunks: list[str] = []
+    for part in parts:
+        if part is None or part == "":
+            continue
+        if isinstance(part, str):
+            chunks.append(part)
+        else:
+            chunks.append(json.dumps(part, ensure_ascii=False, sort_keys=True, default=str))
+    if not chunks:
+        return 0
+    return _MCP_QUOTA_TOKEN_MEASURE("".join(chunks))
+
+
+def mcp_quota_denial(result: GateResult, bucket: str, bucket_source: str) -> dict[str, Any]:
+    """把一次分维拒绝折成 MCP 调用面已有的错误 dict 形状(**不新造状态码语义**)。
+
+    `{"ok": False, "error", "code"}` 是 `call_tool` 既有的失败出口形状(调用方已按它
+    判失败),这里只补三个可诊断字段:哪一维、上限/已用、按什么桶在扣。
+    """
+    dimension = result.dimension
+    return {
+        "ok": False,
+        "error": result.reason,
+        "code": result.error_type or BUDGET_EXCEEDED,
+        "quotaDimension": dimension,
+        "quotaMeasured": result.used.get(dimension),
+        "quotaLimit": result.limits.get(dimension),
+        "quotaBucket": bucket,
+        "quotaBucketSource": bucket_source,
+    }
+
+
 class MCPClientManager:
     """管理多个 MCP Client 实例。"""
 
-    def __init__(self) -> None:
+    def __init__(self, *, budget_governor: ToolBudgetGovernor | None = None) -> None:
         self._clients: dict[str, MCPClient] = {}
         # 注册者身份(name -> user_id;"" = 部署级,由 main.py 启动时注入)
         self._owners: dict[str, str] = {}
+        # 四维配额判据(mcp_tool_limit 在本类工具面消费,mcp_token_limit 在每台 client 的
+        # call_tool 消费)。默认进程级单例 ⇒ 未配置即四维全关,与接线前逐零差异。
+        self._budget_gov: ToolBudgetGovernor = (
+            budget_governor if budget_governor is not None else _default_budget_gov
+        )
 
     def register(self, config: MCPClientConfig, *, owner_user_id: str = "") -> str:
         """注册一个外部 MCP Server 配置,并盖章注册者。
@@ -1040,7 +1213,7 @@ class MCPClientManager:
         if name in self._clients:
             logger.warning("MCP Client 已存在，覆盖: %s", name)
         self._owners[name] = owner_user_id
-        client = MCPClient(config)
+        client = MCPClient(config, budget_governor=self._budget_gov)
         # D154(2026-09-30 立)连接状态下行:钩子只能挂在这里 —— **收信人取自注册事实**
         # (`owner_user_id`,由端点侧 `require_request_user_id` 盖章),连接自己不知道也不该知道
         # "该通知谁";把主体交给发帧方 = §5「认证不等于授权」那条禁令。
@@ -1198,7 +1371,16 @@ class MCPClientManager:
         )
 
     async def _collect_tools(self, clients: list[MCPClient]) -> list[MCPClientTool]:
-        """枚举给定 client 集合的工具(遍历面由调用方决定 —— 只有一处传"可见集")。"""
+        """枚举给定 client 集合的工具(遍历面由调用方决定 —— 只有一处传"可见集")。
+
+        2026-11-05 接 `check_mcp_tool_count`(mcp_tool_limit 维):这是全仓**唯一**把各台
+        server 的工具聚合成"注册工具面"的出口,所以这一维只有装在这里才叫装车 ——
+        `register()` 时工具还没发现(要等 connect + tools/list),拿不到实测条数。
+        超限 ⇒ **具名拒绝**(ToolBudgetExceededError,原因带维度名 + 实测条数 + 上限),
+        绝不做成"只返回前 N 枚"的静默截断:少一枚工具对模型就是"这台 server 没这个能力",
+        而人看到的却是"一切正常"(§0.10 失效方向必须是多要一次定向说明)。
+        该维未配置(默认 0)⇒ 判据返回 dim_disabled 且零计数写入,返回集与接线前逐字相同。
+        """
         tools: list[MCPClientTool] = []
         for client in clients:
             if client.is_connected():
@@ -1207,23 +1389,42 @@ class MCPClientManager:
                     tools.extend(client_tools)
                 except Exception as e:
                     logger.warning("获取 %s 工具列表失败: %s", client.config.name, e)
+        result = self._budget_gov.check_mcp_tool_count(
+            len(tools), tool_name="mcp:tools/list(注册面)"
+        )
+        if not result.allowed:
+            logger.error("[mcp_quota] 注册工具面被具名拒绝(mcp_tool_limit):%s", result.reason)
+            raise ToolBudgetExceededError(result.reason, result)
         return tools
 
     async def call_external_tool(
-        self, server_name: str, tool_name: str, args: dict[str, Any], *, caller_user_id: str
+        self,
+        server_name: str,
+        tool_name: str,
+        args: dict[str, Any],
+        *,
+        caller_user_id: str,
+        run_id: str = "",
     ) -> dict[str, Any]:
         """按主体调用外部工具:看不见那台 server ⇒ 返回与"没这台 server"同模板的结果(名字回显来自请求,不构成泄露)。
 
         刻意不回 403:调用外部工具是**用别人的配置往出站发进程/请求**,而"这条 id 是真的"
         本身就是要保护的信息。错误文本走未知 server 那同一个字符串出口,
         端点侧也就无从把两者区分成不同状态码。
+
+        `run_id` 是令牌桶的归属桶入参(可选):由**承载层**显式传入(一次 run/一次请求的
+        标识),传不到时退到 `caller_user_id`(同样是承载层事实,来自
+        `require_request_user_id`,不是请求体自报),再退到当前作用域主体、最后 server 名兜底;
+        每一档都在拒绝文案里点名(`quotaBucketSource`),不做静默降级。
         """
         if not self.is_visible(server_name, caller_user_id):
             return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
-        return await self._call_tool(server_name, tool_name, args)
+        return await self._call_tool(
+            server_name, tool_name, args, quota_run_id=run_id or caller_user_id
+        )
 
     async def _call_tool(
-        self, server_name: str, tool_name: str, args: dict[str, Any]
+        self, server_name: str, tool_name: str, args: dict[str, Any], *, quota_run_id: str = ""
     ) -> dict[str, Any]:
         """调用指定 Server 的工具(2026-09-12 起附带质量指标采集,1-4)。"""
         client = self._clients.get(server_name)
@@ -1232,7 +1433,9 @@ class MCPClientManager:
         if not client.is_connected():
             return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
         start = time.perf_counter()
-        result = cast(dict[str, Any], await client.call_tool(tool_name, args))
+        result = cast(
+            dict[str, Any], await client.call_tool(tool_name, args, quota_run_id=quota_run_id)
+        )
         # 出站调用无 input_schema 缓存,schema_valid 默认 True(仅采集延迟/成败)
         mcp_quality.record_tool_call(
             server_name,
