@@ -48,6 +48,9 @@ describe('形状锁:__test__ 必须把判据原语交出来(§22c 禁测试侧�
       'judgeDocsLanguages',
       'judgeSitemap',
       'judgeEmojiIcons',
+      'isMultilingualPage',
+      'hasPageMetadata',
+      'judgePageMetadata',
       'localeFamilies',
       'localeBuckets',
       'assemble',
@@ -309,6 +312,84 @@ describe('D3 docs 专项 emoji icon', () => {
   })
 })
 
+describe('D4 docs 页必须自带 metadata / generateMetadata', () => {
+  const PAGE = (meta) =>
+    [
+      "import { getTranslations } from 'next-intl/server'",
+      meta ? 'export async function generateMetadata() { return { title: "x" } }' : '',
+      'export default function Page() { return null }',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  const rel = (p) => `apps/web/app/(main)/docs/${p}/page.tsx`
+
+  it('8 个页面齐备 ⇒ 0 缺;删掉 1 个 ⇒ 点名该页且 D4 violation', () => {
+    const base = ['page', 'agent', 'manual', 'mcp', 'quickstart', 'rag', 'self-host', 'workflow'].map(
+      (p) => ({ rel: rel(p), text: PAGE(true) }),
+    )
+    const ok = G.judgePageMetadata(base)
+    assert.equal(ok.judged, 8)
+    assert.equal(ok.missing.length, 0)
+
+    const broken = base.map((e, i) => (i === 3 ? { ...e, text: PAGE(false) } : e))
+    const bad = G.judgePageMetadata(broken)
+    assert.equal(bad.missing.length, 1)
+    assert.equal(bad.missing[0].rel, rel('mcp'))
+    const a = G.assemble({
+      d1: { dead: [], alive: [], declaredTotal: 6, filesWithDeclaration: [], unparseable: [] },
+      d2: okDims,
+      d3: [],
+      d4: bad,
+    })
+    assert.equal(a.dims.D4.state, 'violation')
+    assert.equal(a.exitCode, G.EXIT.violation)
+    assert.equal(a.dims.D1.state, 'ok', 'D4 红不得拖累他维')
+  })
+
+  it('注释/模板里的伪导出不算;祖先 layout 的 metadata 不能兜住页面自身缺失', () => {
+    const fake = [
+      '// export async function generateMetadata() {}',
+      'const demo = `export const metadata = { title: "x" }`',
+      'export default function Page() { return null }',
+    ].join('\n')
+    assert.equal(G.hasPageMetadata(fake), false)
+    const r = G.judgePageMetadata([
+      { rel: 'apps/web/app/(main)/docs/layout.tsx', text: 'export const metadata = { title: "docs" }' },
+      { rel: rel('x'), text: fake },
+    ])
+    assert.equal(r.judged, 1, 'layout 不进 page 判定数')
+    assert.equal(r.missing.length, 1)
+  })
+
+  it('「多语页面」定义:任一代码特征命中即标记(不靠人工名单)', () => {
+    assert.equal(G.isMultilingualPage("import { getTranslations } from 'next-intl/server'"), true)
+    assert.equal(G.isMultilingualPage('export async function generateStaticParams() { return [] }'), true)
+    assert.equal(G.isMultilingualPage('  languages: { en: "/en/docs" },'), true)
+    assert.equal(G.isMultilingualPage('export default function Page() { return null }'), false)
+  })
+
+  it('0 个 page 或正文读不到 ⇒ unjudged(exit 2),不记绿也不假红', () => {
+    const empty = G.judgePageMetadata([])
+    const a = G.assemble({
+      d1: { dead: [], alive: [], declaredTotal: 6, filesWithDeclaration: [], unparseable: [] },
+      d2: okDims,
+      d3: [],
+      d4: empty,
+    })
+    assert.equal(a.dims.D4.state, 'unjudged')
+    assert.equal(a.exitCode, G.EXIT.unjudged)
+    const unread = G.judgePageMetadata([{ rel: rel('x'), text: '' }], [rel('x')])
+    const b = G.assemble({
+      d1: { dead: [], alive: [], declaredTotal: 6, filesWithDeclaration: [], unparseable: [] },
+      d2: okDims,
+      d3: [],
+      d4: unread,
+    })
+    assert.equal(b.dims.D4.state, 'unjudged')
+    assert.equal(b.exitCode, G.EXIT.unjudged)
+  })
+})
+
 describe('三态与取材面(§0.3 / §0.4)', () => {
   it('解析不到任何 languages 声明 ⇒ D1 未判定,既不记绿也不冒红', () => {
     const a = G.assemble({
@@ -383,9 +464,18 @@ describe('真仓自证:读数与路由面必须自洽(数字现读,不写死)', 
       : Object.values(result.dims).some((d) => d.state === 'violation')
         ? G.EXIT.violation
         : G.EXIT.clean
-    assert.equal(result.exitCode, expectExit, 'exit 码必须由三维结论折出,不得另写一套')
+    assert.equal(result.exitCode, expectExit, 'exit 码必须由四维结论折出,不得另写一套')
     assert.ok(result.meta.docsFiles > 0, '候选清单为空 ⇒ 判死,不得出现在这里')
     assert.ok(result.dims.D2.entries > 0, 'sitemap /docs* 收录条目数必须量得到')
+    // D4:判定面非空 + 页面自证 metadata(现读全齐;缺一页即红,并点名)
+    assert.ok(result.dims.D4.pages > 0, 'D4 判定面为空 ⇒ 不得记绿(应 unjudged)')
+    assert.equal(result.dims.D4.state, 'ok', `真仓 docs 页必须自带 metadata:${JSON.stringify(result.dims.D4.missing)}`)
+    assert.equal(
+      result.dims.D4.withMetadata + result.dims.D4.missing.length,
+      result.dims.D4.pages,
+      'D4 齐备数 + 缺失数必须等于判定面(并桶/漏计即红)',
+    )
+    assert.ok(result.meta.docsPageUnits >= result.dims.D4.pages, 'page 判定面不得多于 docs 候选文件')
     // 分档读数必须由同一份死链清单折出(全灭簇 + 部分死簇都不许漏点名)
     const named = [...d1.deadLocaleFamilies, ...d1.partialLocaleFamilies].reduce(
       (a, f) => a + f.dead,
