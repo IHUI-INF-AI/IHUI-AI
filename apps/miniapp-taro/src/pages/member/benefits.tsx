@@ -22,10 +22,10 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
-import {
-  VipBenefitScreen as SharedVipBenefitScreen,
-  type VipBenefitItem,
-} from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
+import { VipBenefitScreen as SharedVipBenefitScreen } from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
+// 类型不从共享屏模块取:types/rn-shells.generated.d.ts 已为它生成「只含组件」的环境声明,
+// 环境声明会遮蔽源码的 type 再导出(TS2305);VipBenefitItem 的单源在 @ihui/types。
+import type { VipBenefitItem } from '@ihui/types'
 
 interface Benefit {
   id: string
