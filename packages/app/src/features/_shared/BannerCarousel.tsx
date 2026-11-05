@@ -114,9 +114,12 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     borderRadius: rnRadius.lg,
-    backgroundColor: '#00000000',
+    // 全透明不是色值,写 RN 合法字面量 'transparent'(原 #00000000 是 hex 形态的透明)
+    backgroundColor: 'transparent',
   },
   dot: { borderRadius: rnRadius.xs },
-  dotActive: { backgroundColor: '#FFFFFF' },
+  // 指示点是"压在图上的白色透明档族":非激活 = white50,激活取同族最高档 white98
+  // (token 表无恒纯白 white100 档;与小程序端图上白字 text-[var(--color-white-98)] 同源取档)
+  dotActive: { backgroundColor: rnCssLight.white98 },
   dotInactive: { backgroundColor: rnCssLight.white50 },
 })
