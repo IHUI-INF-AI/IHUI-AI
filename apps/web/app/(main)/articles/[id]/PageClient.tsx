@@ -12,7 +12,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 import * as React from 'react'
 
-import { fetchApi, apiOrThrow } from '@/lib/api'
+import { recordBrowseVisit } from '@ihui/api-client'
+import { apiOrThrow } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
@@ -57,13 +58,10 @@ export default function ArticleDetailPage() {
   //   · article?.id 而非路由 id —— 后端认的是 news_articles.id。
   React.useEffect(() => {
     if (!isAuthed || !data?.article?.id) return
-    void fetchApi('/api/browse-history/visit', {
-      method: 'POST',
-      body: JSON.stringify({
-        targetType: 'post',
-        targetId: data.article.id,
-        title: data.article.title,
-      }),
+    void recordBrowseVisit({
+      targetType: 'post',
+      targetId: data.article.id,
+      title: data.article.title,
     }).catch(() => {})
   }, [isAuthed, data?.article?.id, data?.article?.title])
 

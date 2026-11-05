@@ -389,6 +389,9 @@ export * from './endpoints/social.js'
 // 健康检查 + GDPR 数据权利端点(2026-11-05 立,门 300 存量 A 类:web/RN 同语义直拼收口)
 export * from './endpoints/health.js'
 export * from './endpoints/gdpr.js'
+// 收货地址 + 帮助中心端点(2026-11-05 立,门 300 存量 A 类:web/RN/小程序端内直拼收口)
+export * from './endpoints/address.js'
+export * from './endpoints/help.js'
 export * from './endpoints/srs.js'
 export * from './endpoints/study.js'
 export * from './endpoints/subscription.js'
