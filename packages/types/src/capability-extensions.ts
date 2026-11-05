@@ -32,8 +32,34 @@ export const EXTENSION_ACTIVATION_EVENTS = [
 ] as const
 export type ExtensionActivationEvent = (typeof EXTENSION_ACTIVATION_EVENTS)[number]
 
-/** 允许的贡献类型(只声明,不执行)。 */
-export const EXTENSION_CONTRIBUTION_KINDS = ['tools', 'commands', 'views'] as const
+/**
+ * 允许的贡献类型(只声明,不执行)。
+ *
+ * **前 8 档与对侧同名同序**:Qoder CN 0.5.3 `resources/extensions/catalog.v1.json` 的
+ * `contributes` 键集现读为 8 档(另有 33 条权限名 / 15 种激活事件 / 10 枚内建插件)。
+ * 取证锚点 `docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/`
+ * `Q1-qoder-cn-main-bundle.md` §3 #8 与 §4「插件贡献/权限词表 + 激活事件(#8)」行。
+ *
+ * **末 2 档 `tools`/`commands` 是本仓先行档**(对侧 catalog 无同名键:其命令以 md 文件形态交付、
+ * 工具走 MCP 面)。摘掉它们会废掉 `capability-catalog` 的 `toolScopeMap()` / `scopeOfTool()`
+ * 扩展工具链路 —— AGENTS §7 三问的第②问「有无等价实现」答"无",故只并集、不删不改名。
+ *
+ * 新增一档必须同批有真消费方(门 121「声明必须有消费者」;AGENTS §4 圆角同源同训):
+ * 消费方 = `apps/cli/src/plugins/loader.ts` 的 `CONTRIBUTION_SUPPORT` 表,该表是
+ * `Record<ExtensionContributionKind, …>` —— 词表加了档而表没跟上,编译期即红。
+ */
+export const EXTENSION_CONTRIBUTION_KINDS = [
+  'views',
+  'filePreviewers',
+  'qoderAgentSdk',
+  'configuration',
+  'nativeModules',
+  'sidebarNavItems',
+  'sessionResources',
+  'chatMentionProviders',
+  'tools',
+  'commands',
+] as const
 export type ExtensionContributionKind = (typeof EXTENSION_CONTRIBUTION_KINDS)[number]
 
 /**
@@ -64,16 +90,32 @@ export const EXTENSION_CONTRIBUTION_NAME_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
 export const EXTENSION_VERSION_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
 
 export interface ExtensionContribution {
-  /** 工具/命令/视图名 */
+  /** 贡献名(所有贡献档共用**同一个**名字空间,见 EXTENSION_CONTRIBUTION_KINDS) */
   name: string
   /** 该贡献由哪个能力(scope)提供,必须在 entryCapabilities 内 */
   capability: string
 }
 
+/**
+ * 贡献清单:每一档都是 `{name, capability}` 数组 —— **一档一形是刻意的**。
+ *
+ * 对侧 catalog 各档载荷形态互不相同(`views[].slot`、`filePreviewers[].filenameSuffixes`、
+ * `configuration.properties` …),因此它的权限声明与贡献声明之间没有任何可机读的绑定;
+ * 我方把全部档收敛成同一种"名字 → 已登记 scope"的二元形,于是每一档都能被
+ * `capability-catalog` 的 dataClass 默认拒闸覆盖(超越轴,取证同 §3 #8)。
+ * 键集与 EXTENSION_CONTRIBUTION_KINDS 一一对应 —— 少一项即校验器与词表漂移,由用例钉住。
+ */
 export interface ExtensionContributions {
+  views?: ExtensionContribution[]
+  filePreviewers?: ExtensionContribution[]
+  qoderAgentSdk?: ExtensionContribution[]
+  configuration?: ExtensionContribution[]
+  nativeModules?: ExtensionContribution[]
+  sidebarNavItems?: ExtensionContribution[]
+  sessionResources?: ExtensionContribution[]
+  chatMentionProviders?: ExtensionContribution[]
   tools?: ExtensionContribution[]
   commands?: ExtensionContribution[]
-  views?: ExtensionContribution[]
 }
 
 export interface ExtensionModelTiers {
@@ -326,7 +368,7 @@ function validateContributions(
           issue(
             `${itemPath}.name`,
             'contribution_duplicate',
-            `字段 "${itemPath}.name" 的贡献名 "${name}" 在 manifest 内重复出现(工具/命令/视图共用同一名字空间)`,
+            `字段 "${itemPath}.name" 的贡献名 "${name}" 在 manifest 内重复出现(各贡献档共用同一名字空间)`,
           ),
         )
         return

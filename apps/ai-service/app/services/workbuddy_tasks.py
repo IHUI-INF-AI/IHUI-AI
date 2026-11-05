@@ -821,6 +821,58 @@ async def _claim_one_web(
     return False, f"上游 code={code}{_msg_suffix(payload)}", False
 
 
+async def _fire_growth_events(
+    jwt: str,
+    device_map: dict[str, Any],
+    events: tuple[str, ...],
+    *,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> bool:
+    """代发一组行为遥测事件到 /v2/report(与官方客户端同构的报文)。
+
+    仅当账号具备浏览器会话(web_mode)时,这些事件才会被成长计分后端采信;否则一律 200
+    code:0 受理但不计分。返回 True ⇔ 全部事件 code:0(受理成功)。是否「真的计分」由上游
+    重判决定(见 run_growth 的 report→重判→claim 闭环),本函数只负责把事件可靠发出。
+
+    域名/头:沿用 run_activity 的 _activity_hosts_map 绑定;web 域事件带 x-client-platform: web。
+    """
+    hosts_map, herr = _activity_hosts_map()
+    if herr is not None or hosts_map is None:
+        return False
+    hosts = hosts_map
+    uid = workbuddy_extract_uid(jwt)
+    ok = True
+    for ev in events:
+        base = hosts.get(ev) or hosts.get("default") or WB_BASE
+        web_ctx = workbuddy_is_web_mode(device_map)
+        if web_ctx and base == WB_BASE:
+            base = WB_WEB_BASE
+        extra: dict[str, str] | None = (
+            {"x-client-platform": "web"} if base.endswith("workbuddy.cn") else None
+        )
+        body: dict[str, Any] = {
+            "eventCode": ev,
+            "timestamp": int(time.time() * 1000),
+        }
+        if uid:
+            body["userId"] = uid
+        status, payload, _mode = await _wb_request(
+            "/v2/report",
+            jwt,
+            device_map,
+            body,
+            client=client,
+            timeout=timeout,
+            absolute_url=base + "/v2/report",
+            extra_headers=extra,
+        )
+        code, _data = _envelope(payload)
+        if code != _CODE_OK:
+            ok = False
+    return ok
+
+
 async def run_growth(
     jwt: str,
     device_map: dict[str, Any],
@@ -843,7 +895,20 @@ async def run_growth(
     try:
         behavior_tracker: list[str] = []
         if activity_reporter is None and settings.workbuddy_tasks_behavior_driver_enabled:
-            activity_reporter = build_default_activity_reporter(behavior_tracker)
+            # fire 闭包:按 web_mode 决定能否代发该任务的映射事件(有浏览器会话才计分)。
+            async def _auto_growth(code: str) -> bool:
+                plan = classify_growth_task_automation(code)
+                if plan is None or not plan.events:
+                    return False  # 无对应遥测事件 ⇒ 只能待用户实操
+                if not workbuddy_is_web_mode(device_map):
+                    return False  # 无浏览器会话 ⇒ 事件被受理不计分,不空转
+                return await _fire_growth_events(
+                    jwt, device_map, plan.events, client=eff_client, timeout=timeout
+                )
+
+            activity_reporter = build_default_activity_reporter(
+                tracker=behavior_tracker, fire=_auto_growth
+            )
         return await _run_growth_inner(
             jwt,
             device_map,

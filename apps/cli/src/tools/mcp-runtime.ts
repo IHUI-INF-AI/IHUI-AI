@@ -41,6 +41,11 @@ import { createStdioFrameDecoder, encodeContentLength, encodeNdjson } from './mc
 // 且它的注释就点名了"调用端配合条件:detached 只在 Unix 侧有意义")。
 // 这里只做**装车**:不另抄一份 taskkill/kill(-pid) 逻辑 —— 两处算同一件事必漂移。
 import { killProcessTree } from '../util/spawn-isolated.js';
+// S6(parent-bound,2026-11-05):父死子随死的**崩溃兜底腿** —— 上面的 killProcessTree 只覆盖
+// 「优雅断连」;CLI 被硬杀/崩溃时断连腿不执行,MCP stdio 树成为无人认领孤儿(WorkBuddy 用
+// Win32 Job Object 挡的正是这一型,取证见 W1-workbuddy-main.md §3④,
+// docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/)。
+import { spawnParentWatchdog } from '../util/parent-bound.js';
 import { readCliPackage } from '../util/pkg-version.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
@@ -991,6 +996,13 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       // 失败从此有真因可报,而不是等满 10s 计时器报"请求超时")。
       ensureStdioDiagnostics(proc);
       conn.process = proc;
+      // S6:spawn 已成功(有 pid 才有看守目标);看门狗为脱离式独立进程,判据与杀树复用
+      // util/parent-bound.ts ⇒ spawn-isolated 同一份(身份复核 + PID 复用防误认,零复制)。
+      // 一切失败(含身份采集失败)折成显式降级,永不阻断连接主线;G-690 的 detached 分档
+      // 与 disconnectMcpServer 的断连回收腿(G-690 killProcessTree + G-692 补刀)均不因此改动。
+      if (proc.pid) {
+        void spawnParentWatchdog(proc, { label: `mcp-stdio:${server.name}` });
+      }
       stdioFraming.set(proc, server.framing === 'content-length' ? 'content-length' : 'ndjson');
 
       await sendStdioRpc(proc, 'initialize', {
