@@ -255,8 +255,11 @@ test('① 正常提交语义:hook 照跑、只交声明集、共享索引收敛�
       priv.includes('ihui-isolated-index') && priv.endsWith('.gitdir'),
       `私有 GIT_DIR: ${priv}`,
     )
-    const commonDir = git(wtDir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
-      .stdout.trim()
+    const commonDir = git(wtDir, [
+      'rev-parse',
+      '--path-format=absolute',
+      '--git-common-dir',
+    ]).stdout.trim()
     assert.equal(
       resolve(cc),
       resolve(commonDir),
@@ -819,6 +822,8 @@ test('⑬ 空派生集:大索引上不列举全索引,复原复核正常返回(E
       cwd: dir,
       env,
       encoding: 'buffer',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       maxBuffer: 64 * 1024 * 1024,
     })
     assert.ok(
