@@ -20,9 +20,9 @@ import { EGRESS_ENV } from '../src/sandbox/egress/policy.js';
 
 const hostsOf = (line: string): string[] => extractBareHostTargets(line).map((t) => t.raw);
 
-const REGISTERED: readonly string[] = ['ssh', 'scp', 'sftp'];
+const REGISTERED: readonly string[] = ['ssh', 'scp', 'sftp', 'nc'];
 
-describe('登记面 — 新登记的三条命令都带 network 基线效应', () => {
+describe('登记面 — 每条登记为 network 的命令都带 network 基线效应(Z9 三条 + Z14 的 nc)', () => {
   it('① 表里 effect=network,且由 evaluateArgv 结算出 network;只读资格不新增', () => {
     for (const cmd of REGISTERED) {
       expect(SYNTAX_TABLE[cmd]?.effect).toBe('network');
@@ -55,22 +55,44 @@ describe('取词断言 — 每条新登记命令的目的地 token', () => {
     expect(hostsOf('sftp -P 2222 deploy@backup.internal')).toEqual(['backup.internal']);
     expect(evaluateArgv(['sftp', '-P', '2222', 'backup.internal']).effects).toContain('network');
   });
+
+  it('②e nc(Z14 登记):目的地 = 第一个非选项操作数,端口 token 不含点 ⇒ 天然不取;未登记选项不改基线效应', () => {
+    expect(hostsOf('nc monitor.internal 22')).toEqual(['monitor.internal']);
+    expect(hostsOf('nc -z db.internal 5432')).toEqual(['db.internal']);
+    // 带未登记短选项:闸门仍按 network 基线开(取词不受影响);`-z` 判不出只读资格 ⇒ 永不被免确认放行
+    const finding = evaluateArgv(['nc', '-z', 'db.internal', '5432']);
+    expect(finding.effects).toContain('network');
+    expect(finding.verdict).toBe('mutating');
+    expect(finding.verdict).not.toBe('read-only');
+  });
 });
 
 describe('反向对照(§0.3) — 量不到效应 = 不适用,不折成"允许"', () => {
-  it('③ 未登记 basename:结论 unknown + 点名未登记,闸门不扩面(裸域名一个都不造)', () => {
-    const finding = evaluateArgv(['nc', 'monitor.internal', '22']);
-    expect(finding.effects).not.toContain('network');
-    expect(finding.verdict).toBe('unknown');
-    expect(finding.reason).toBe('unregistered-command');
-    expect(hostsOf('nc monitor.internal 22')).toEqual([]);
+  it('③ 仍未登记的 basename:结论 unknown + 点名未登记,闸门不扩面(裸域名一个都不造)', () => {
+    // Z9 用的是 `nc`,Z14 已登记 nc ⇒ 反面对照改指 `NETWORK_COMMAND_BASENAMES` 里仍未登记的 telnet / ftp / ncat
+    for (const cmd of ['telnet', 'ftp', 'ncat', 'netcat']) {
+      const finding = evaluateArgv([cmd, 'monitor.internal', '22']);
+      expect(finding.effects).not.toContain('network');
+      expect(finding.verdict).toBe('unknown');
+      expect(finding.reason).toBe('unregistered-command');
+    }
+    expect(hostsOf('nc monitor.internal 22')).toEqual(['monitor.internal']);
     expect(hostsOf('telnet db.internal 23')).toEqual([]);
+    expect(hostsOf('ftp files.internal')).toEqual([]);
   });
 
-  it('③b 已在册但基线不是 network(wget)⇒ 本闸门不覆盖它 —— 登记在册 ≠ 效应在册', () => {
-    expect(SYNTAX_TABLE.wget?.effect).toBe('write');
-    expect(evaluateArgv(['wget', 'db.internal']).effects).not.toContain('network');
-    expect(hostsOf('wget db.internal/x')).toEqual([]);
+  it('③b wget(Z14 补 network 基线):在册且效应在册 —— 拆前只有 write 闸门不覆盖,现读已翻转', () => {
+    expect(SYNTAX_TABLE.wget?.effect).toBe('network');
+    // 拆前的写副作用不丢:URL 操作数存在即下载 ⇒ 仍带 write(`operandsBreakReadonly`)
+    const finding = evaluateArgv(['wget', 'db.internal']);
+    expect(finding.effects).toContain('network');
+    expect(finding.effects).toContain('write');
+    expect(finding.verdict).not.toBe('read-only');
+    expect(hostsOf('wget db.internal/x')).toEqual(['db.internal']);
+    // 本仓四条生产样本形态(选项 + 位置参数 URL):短选项簇不吃掉目的地
+    expect(hostsOf('wget -qO- files.internal/pkg.tgz')).toEqual(['files.internal']);
+    // 带 scheme 的 URL 仍归原有取词通道,不在这里重复计(两通道以 host 会合)
+    expect(hostsOf('wget --spider -q http://127.0.0.1:8802/api/health')).toEqual([]);
   });
 });
 
@@ -111,6 +133,28 @@ describe('下游消费锁 — 这次登记被 egress 闸门真的吃到', () => 
     });
     expect(exit.blocked).toBe(false);
     expect(exit.verdicts).toHaveLength(0);
+  });
+
+  it('⑤c Z14 翻转 wget 基线后,同一闸门对 wget 的裸域名也生效', () => {
+    const exit = buildEgressEnvExit({
+      commandLine: 'wget blocked.internal/pkg.tgz',
+      cwd: process.cwd(),
+      env: denyEnv,
+      append: () => null,
+    });
+    expect(exit.blocked).toBe(true);
+    expect(exit.blockReason).toContain('blocked.internal');
+  });
+
+  it('⑤d Z14 登记 nc 后,nc 的裸域名同样过出口', () => {
+    const exit = buildEgressEnvExit({
+      commandLine: 'nc blocked.internal 22',
+      cwd: process.cwd(),
+      env: denyEnv,
+      append: () => null,
+    });
+    expect(exit.blocked).toBe(true);
+    expect(exit.blockReason).toContain('blocked.internal');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

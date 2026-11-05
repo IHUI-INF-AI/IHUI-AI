@@ -81,6 +81,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   classifyHookFailure,
+  COMMIT_MSG_FACE,
+  decideCommitMsgStageIndexFace,
   decideWithCommitMsgStage,
   decideWithSelfRunBatch,
   needsBatchSelfRun,
@@ -2348,11 +2350,51 @@ if (hookFailed && commitResult.status !== 0) {
    *  ② 读 `.husky/commit-msg` 而不是临时的 wrapped hooksPath:O43② 的包装器是**逐文件转发**,
    *     检查清单与 .husky 里的那张是同一份;读包装目录会在它被回收后静默变成 0 条。
    *  ③ 脚本不在位 / 派生失败 / 超时一律落 ran:false(由 lib 判"未判定"),绝不返回一个假绿。
-   *  一条如实登记的局限(与既有 runGate 复跑同一刻、同一索引态):复跑读的是"还原后的共享索引"。
-   *  commit-msg 阶段失败意味着 pre-commit 已经跑过,此刻索引就是本枚要提交的那一份 —— 正对本票;
-   *  而若红在 lint-staged(pre-commit 批前一步),lint-staged 已回滚过它动过的条目,这一跑看到的
-   *  暂存集可能少于声明集 ⇒ 只可能"少看见"、不会误伤别人。不得把它读成"等价于钩子里那一轮"。
+   *  ④ **复跑必须读钩子当时看到的那一面索引**(2026-11-05 立,§12e 恒红门)。原注记写的是
+   *     "commit-msg 阶段失败意味着 pre-commit 已经跑过,此刻索引就是本枚要提交的那一份" ——
+   *     这句在 Step 3h 装车之后**不成立**:私有索引只交给 `git commit` 子进程
+   *     (`GIT_INDEX_FILE: commitIndexFile`),本进程 `process.env` 里没有那枚指针,于是复跑落到
+   *     共享索引(实测当时挂着 129 条外来件,含 `packages/i18n/messages/` 族)⇒
+   *     `check-commit-scope-consistency.mjs` 的 R2 复现"红",而钩子那一轮的日志原文是
+   *     「4 文件 … 通过」(2026-11-05 19:09:59)⇒ 归因把一道钩子里根本没发生的红定责给本枚,
+   *     拒绝提交并回滚,两枚已建好的 commit 变孤儿。判据住在
+   *     `decideCommitMsgStageIndexFace`(三态:同一面 / 用私有面 / 未判定),本处只接它的结论:
+   *     未判定 ⇒ `ran:false`(由 lib 折算成「commit-msg-未判定」,exit 2 语义),
+   *     **绝不回落到共享索引重跑**,也不改读 `.ihui-agent/state/hook-logs/` 里那行结论 ——
+   *     那本日志与 `.git/COMMIT_EDITMSG` 同属共享可变态,① 已经为同一型错误拒绝过一次。
    */
+  let commitMsgFace = null
+  /** 惰性自证一次"钩子当时看到的那一面还在不在、还是不是那一面";整轮至多读一次。 */
+  const ensureCommitMsgFace = () => {
+    if (commitMsgFace) return commitMsgFace
+    // 钩子面 = Step 3h 的私有索引;没有私有索引时 = 本进程继承到的指针;两者皆空 ⇒ git 用默认索引。
+    const hookIndexFile = commitIndexFile || String(process.env.GIT_INDEX_FILE || '').trim() || null
+    let indexExists = null
+    let stagedFiles = null
+    if (hookIndexFile) {
+      try {
+        indexExists = existsSync(hookIndexFile)
+      } catch (e) {
+        indexExists = null
+        log('warn', `commit-msg 阶段复跑:私有索引存在性取不到(${hookIndexFile}):${e?.message ?? e}`)
+      }
+      // 暂存面取不到时 readStagedInIndexFile 返回 null —— 交判据折成未判定,不在这层猜。
+      if (indexExists === true) stagedFiles = readStagedInIndexFile(hookIndexFile)
+    }
+    commitMsgFace = decideCommitMsgStageIndexFace({
+      hookIndexFile,
+      indexExists,
+      stagedFiles,
+      declaredFiles: expectedFiles,
+    })
+    log(
+      commitMsgFace.use === COMMIT_MSG_FACE.UNDETERMINED ? 'warn' : 'info',
+      `commit-msg 阶段复跑的索引面 = ${commitMsgFace.use}` +
+        `${commitMsgFace.indexFile ? `(${commitMsgFace.indexFile})` : ''}` +
+        `${commitMsgFace.why ? ` —— ${commitMsgFace.why}` : ''}`,
+    )
+    return commitMsgFace
+  }
   let commitMsgScratch = null
   const disposeCommitMsgScratch = () => {
     if (!commitMsgScratch) return
@@ -2381,6 +2423,20 @@ if (hookFailed && commitResult.status !== 0) {
     const msgFile = ensureCommitMsgFile()
     if (!msgFile)
       return { ran: false, status: null, output: '', why: 'message 临时件不可用(scratch 落不下)' }
+    // 判据 ④:先确定"钩子当时读的是哪一面",确定不了就**不派生**(ran:false ⇒ 未判定)。
+    // 拿共享索引重跑等于把别人的暂存算成本枚的红(2026-11-05 实测那枚即此型)。
+    const face = ensureCommitMsgFace()
+    if (face.use === COMMIT_MSG_FACE.UNDETERMINED)
+      return {
+        ran: false,
+        status: null,
+        output: '',
+        why: `复跑索引面未判定:${face.why}`,
+      }
+    const faceEnv =
+      face.use === COMMIT_MSG_FACE.PRIVATE
+        ? { ...process.env, GIT_INDEX_FILE: face.indexFile }
+        : process.env
     const gatePath = join(repoRoot, 'scripts', script)
     if (!existsSync(gatePath))
       return { ran: false, status: null, output: '', why: `检查脚本不在位:${gatePath}` }
@@ -2389,7 +2445,7 @@ if (hookFailed && commitResult.status !== 0) {
     const g = spawnSync(process.execPath, [gatePath, msgFile], {
       encoding: 'utf8',
       cwd: repoRoot,
-      env: process.env,
+      env: faceEnv,
       windowsHide: true,
       timeout: Number(process.env.IHUI_SAFE_COMMIT_COMMIT_MSG_TIMEOUT_MS || 120000),
       maxBuffer: 8 * 1024 * 1024,
