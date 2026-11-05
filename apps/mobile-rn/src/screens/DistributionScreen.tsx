@@ -14,14 +14,17 @@ import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCommissionRates } from '@ihui/api-client'
-import { DistributionScreen as SharedDistributionScreen, type DistributionInfo } from '@ihui/rn-app'
-import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
-import PersonalInformationCard from '../components/PersonalInformationCard'
+import {
+  DistributionScreen as SharedDistributionScreen,
+  type DistributionInfo,
+  type DistributionOverviewCard,
+  type DistributionEarningsCard,
+  type DistributionServiceFloat,
+} from '@ihui/rn-app'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 // 图标对齐历史 FunctionBlockColumn/index.vue iconSrc:
 // 公司团队/AI团队=tuandui-icon、我的名片=geren-icon、我的二维码=erweima-icon、分销订单=fenxiao-icon
 import { Bot, IdCard, Package, QrCode, Users } from 'lucide-react-native'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
 import { appAlert, BottomPops } from '../components/BottomPops'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
@@ -31,6 +34,9 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 收益卡 Tab(注入共享屏 earningsCard;切换只回传 key) */
+type EarningsTabKey = 'today' | 'month' | 'total'
 
 /** 邀请链接域名(对齐 ProfileScreen WEBSITE_URL 'https://www.aizhs.top') */
 const INVITE_BASE_URL = 'https://www.aizhs.top'
@@ -57,6 +63,8 @@ export function DistributionScreen() {
   const [rates, setRates] = useState<{ level: string; rate: string }[]>([])
   // HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue)
   const [withdrawDetailVisible, setWithdrawDetailVisible] = useState(false)
+  // 收益卡 Tab(注入共享屏 earningsCard;点按只改本端 key)
+  const [earningsTab, setEarningsTab] = useState<EarningsTabKey>('total')
   // BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层)
   const [shareQrVisible, setShareQrVisible] = useState<boolean>(false)
   // 二维码 View 引用(react-native-view-shot captureRef 截图保存到相册)
@@ -236,7 +244,7 @@ export function DistributionScreen() {
       )
       return
     }
-    // 实名校验(对齐 Uniapp PersonalInformationCard/index.vue withdrawalClick):
+    // 实名校验(对齐 Uniapp 个人信息卡组件的 withdrawalClick):
     // 未实名(后端 authStatus !== 'approved')→ 弹「提现前请先实名认证!」并引导去实名,不放行。
     // 说明:AuthUser 用户模型无 realName 字段,实名状态以 /auth/realname/my 接口为准。
     try {
@@ -280,41 +288,70 @@ export function DistributionScreen() {
     }
   }
 
-  // 收益卡 6 字段结构化统计(EarningsStat):仅「累计」Tab 有真实后端数据,
+  // 收益卡三段(注入共享屏 earningsCard):仅「累计」Tab 有真实后端数据,
   // 后端 /distribution/overview 无日/月佣金拆分,今日/本月 Tab 保持 0(不伪造)。
-  const sumStat: EarningsStat | undefined = info
-    ? {
-        amount: fenToYuan(info.totalCommission),
-        incomplete: fenToYuan(info.pendingCommission),
-        finish: fenToYuan(info.withdrawnCommission),
-        order: info.orderCount ?? 0,
-        strength: info.invitedCount,
-        endAmount: fenToYuan(info.withdrawnCommission),
-      }
-    : undefined
+  const earningsTabs = [
+    { key: 'today', label: t('earn.tabToday') },
+    { key: 'month', label: t('earn.tabMonth') },
+    { key: 'total', label: t('earn.tabTotal') },
+  ]
+  const earningsStat =
+    earningsTab === 'total'
+      ? {
+          amount: info ? fenToYuan(info.totalCommission) : 0,
+          pending: info ? fenToYuan(info.pendingCommission) : 0,
+          settled: info ? fenToYuan(info.withdrawnCommission) : 0,
+          orders: info?.orderCount ?? 0,
+          teamNew: info?.invitedCount ?? 0,
+          withdrawn: info ? fenToYuan(info.withdrawnCommission) : 0,
+        }
+      : { amount: 0, pending: 0, settled: 0, orders: 0, teamNew: 0, withdrawn: 0 }
+  const earningsTabLabel = t(
+    earningsTab === 'today'
+      ? 'earn.tabDayShort'
+      : earningsTab === 'month'
+        ? 'earn.tabMonthShort'
+        : 'earn.tabTotalShort',
+  )
+  const earningsCard: DistributionEarningsCard = {
+    tabs: earningsTabs,
+    activeTab: earningsTab,
+    onSelectTab: (key) => setEarningsTab(key as EarningsTabKey),
+    items: [
+      { label: '收益', value: `¥${earningsStat.amount.toFixed(2)}`, tone: 'primary' },
+      { label: '待结算', value: `¥${earningsStat.pending.toFixed(2)}` },
+      { label: '已结算', value: `¥${earningsStat.settled.toFixed(2)}` },
+    ],
+    footerItems: [
+      {
+        label: t('earn.promoOrders', { tab: earningsTabLabel }),
+        value: String(earningsStat.orders),
+      },
+      { label: t('earn.teamNew', { tab: earningsTabLabel }), value: String(earningsStat.teamNew) },
+      {
+        label: t('earn.withdrawAmount', { tab: earningsTabLabel }),
+        value: `¥${earningsStat.withdrawn.toFixed(2)}`,
+      },
+    ],
+  }
+
+  // 分销总览(注入共享屏 overviewCard):用户资料 + 分销身份,真值优先
+  const overviewCard: DistributionOverviewCard = {
+    avatar: user?.avatar || null,
+    nickname: user?.nickname || user?.username || '',
+    identity: info ? t('dist.dealer') : undefined,
+  }
+
+  // 分佣浮标(注入共享屏 serviceFloat):金额取 availableCommission(分→元),点击开提现详情
+  const serviceFloat: DistributionServiceFloat = {
+    amount: info ? fenToYuan(info.availableCommission) : 0,
+    label: t('commission.myLabel'),
+    onPress: () => setWithdrawDetailVisible(true),
+  }
 
   return (
     <View style={shellStyles.root}>
       <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
-        {/* PersonalInformationCard 个人信息卡片(对齐 Uniapp 分销页个人信息) */}
-        <View style={shellStyles.personalInfoWrap}>
-          <PersonalInformationCard
-            avatar={user?.avatar}
-            nickname={user?.nickname || user?.username}
-            inviteCode={user?.inviteCode}
-            level={info ? t('dist.dealer') : undefined}
-          />
-        </View>
-        <View style={shellStyles.statsWrap}>
-          <EarningsStatisticsCard
-            label={t('dist.earningsLabel')}
-            title={info ? fenToYuan(info.totalCommission) : 0}
-            todayAmount={0}
-            monthAmount={0}
-            totalAmount={info ? fenToYuan(info.totalCommission) : 0}
-            sumStatistics={sumStat}
-          />
-        </View>
         {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue:双列网格) */}
         <View style={shellStyles.functionBlocksWrap}>
           <FunctionBlockColumn blocks={functionBlocks} columns={2} onBlockPress={onBlockPress} />
@@ -346,15 +383,15 @@ export function DistributionScreen() {
           onRefresh={() => void load(true)}
           onWithdraw={handleWithdraw}
           onBack={() => navigation.goBack()}
-          onRetry={() => { void load(); }}
+          onRetry={() => {
+            void load()
+          }}
           colorScheme={resolvedTheme}
+          overviewCard={overviewCard}
+          earningsCard={earningsCard}
+          serviceFloat={info ? serviceFloat : undefined}
         />
       </ScrollView>
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp 分销佣金悬浮按钮) */}
-      <CommissionFloatingIcon
-        amount={info ? fenToYuan(info.availableCommission) : undefined}
-        onPress={() => setWithdrawDetailVisible(true)}
-      />
       {/* HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue) */}
       <HandPlatePops
         visible={withdrawDetailVisible}
@@ -477,8 +514,6 @@ const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
-  personalInfoWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24) } as const,
-  statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
   functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
   withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
   withdrawDetailText: { fontSize: rnType.body.size, color: tokens.text.medium } as const,
