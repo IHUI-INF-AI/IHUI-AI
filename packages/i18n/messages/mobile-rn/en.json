@@ -3333,7 +3333,7 @@
     "loginAlert": "Login Alerts",
     "desc": "Manage your account security options",
     "loadFailed": "Failed to load",
-    "readOnlyHint": "Showing the current server state; changing it is not supported yet",
+    "readOnlyHint": "This page only shows the current state; nothing changes here. Turn Two-Factor Authentication on or off in Security Center.",
     "stateOn": "On",
     "stateOff": "Off"
   },

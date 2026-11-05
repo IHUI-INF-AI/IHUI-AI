@@ -134,6 +134,13 @@ const COLLECT_WHITELIST = [
   // 逐值兜底 —— 不是 f6e0ba44a9 防的那一型(业务代码/半成品测试)。守护的源头腿若写了它却无人收,
   // 「Web 改档表 → 三端自动跟」就停在最后一公里。
   /^packages\/design-tokens\/src\/styles\/tokens\.css$/,
+  // 小程序端壳承载页的**编译期契约**(gen-rn-shell-types.mjs 按 HEAD 面派生;文件头自述「勿手改」)。
+  // 立因(2026-11-05):守护补上这条腿的调度点后只写工作树,而本器两支收编口都接不到它 ——
+  // 账本支要求「leg 在册 ∧ blobOid 相符」(本腿不写落点账本),白名单支此前没有 `.d.ts` 这一形
+  // (`/\.generated\.ts$/` 逐字不吃 `.generated.d.ts`)⇒ 写盘件永久悬挂,自动化停在最后一公里。
+  // 与 tokens.css 同性质:派生态 + 手改由门 251 C9 在提交链判红,不是 f6e0ba44a9 防的业务代码/半成品。
+  // 覆盖面刻意钉到**一枚确切文件**,不是 types/ 目录(目录形会把人工写的 .d.ts 一起收进主干)。
+  /^apps\/miniapp-taro\/types\/rn-shells\.generated\.d\.ts$/,
 ]
 
 /**

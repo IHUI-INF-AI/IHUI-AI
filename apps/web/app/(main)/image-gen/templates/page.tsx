@@ -14,7 +14,7 @@ import { Loader2, ArrowLeft, LayoutTemplate, Sparkles } from 'lucide-react'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { apiOrThrow } from '@/lib/api'
+import { getImageTemplates } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -47,7 +47,11 @@ export default function ImageGenTemplatesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'templates'],
-    queryFn: () => apiOrThrow<TemplatesData>('/api/image-gen/templates'),
+    queryFn: async (): Promise<TemplatesData> => {
+      const res = await getImageTemplates<Template>()
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
+    },
     enabled: allow,
   })
 

@@ -22,6 +22,26 @@ export async function getSubscriptions(
   return fetchApi<PageData<SubscriptionItem>>(`/subscriptions${buildQs(query)}`)
 }
 
+/** 收藏资源类型(与后端 FAVORITE_RESOURCE_TYPE_ENUM 对齐)。 */
+export type FavoriteResourceType =
+  'project' | 'file' | 'doc' | 'post' | 'comment' | 'aiworld' | 'agent'
+
+/** 收藏列表行(后端 findFavorites 关联资源表返回 title)。 */
+export interface FavoriteRow {
+  id: string
+  resourceType: FavoriteResourceType
+  resourceId: string
+  createdAt: string
+  title?: string
+}
+
+/** 获取我的收藏列表 — GET /favorites(分页;可按 resourceType 筛选)。 */
+export async function listFavorites<T = FavoriteRow>(
+  query: PageQuery = {},
+): Promise<ApiResult<PageData<T>>> {
+  return fetchApi<PageData<T>>(`/favorites${buildQs(query)}`)
+}
+
 /** 收藏资源 — POST /favorites(幂等;resourceType 枚举与后端 favoriteBody 对齐) */
 export async function addFavorite(
   resourceType: 'project' | 'file' | 'doc' | 'post' | 'comment' | 'aiworld' | 'agent',

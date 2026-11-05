@@ -18,7 +18,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   applyPredictedEditActions,
   fetchPredictiveEdit,
-  PREDICTIVE_EDIT_ENDPOINT,
   type PredictiveEditAction,
 } from '../predictive-edit-api'
 
@@ -52,7 +51,7 @@ describe('fetchPredictiveEdit — 端点与请求体', () => {
     expect(outcome).toEqual({ status: 'no_action' })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(String(url)).toBe(PREDICTIVE_EDIT_ENDPOINT)
+    expect(String(url)).toBe('/api/llm/fim/edit-intent')
     expect(init.method).toBe('POST')
     expect(JSON.parse(String(init.body))).toEqual({
       content: 'hello world',

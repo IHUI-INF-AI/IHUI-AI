@@ -30,15 +30,19 @@
  *   node scripts/gen-doc-numbers.mjs --markdown      # README 生成块用的那一段
  *   node scripts/gen-doc-numbers.mjs --description    # 规范化的 GitHub 仓库简介一行
  *   node scripts/gen-doc-numbers.mjs --staged --json # 审索引面
+ * 面旗统一写法(2026-11-05 修):`--face=head|worktree|index` 与 `--head|--staged|--worktree`
+ * 等价(`index` ≡ 内部名 `staged`)。**面旗必须真的换取材面** —— 此前 `--face=head` 未被解析,
+ * 于是"以为在算 HEAD 面,实际算的是工作树",同一份 README 在不同轮次读出 19178/19198/19201/19158
+ * 四个值(门判 HEAD 面、数出自工作树面)。现在:未知面 ⇒ exit 2,绝不静默回落默认面。
  * 紧急跳过:无(本工具只读不判,不需要跳过通道;判据在 check-doc-numbers.mjs)
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -410,18 +414,73 @@ export function specOf(face, rel) {
   return face === 'head' ? `HEAD:${rel}` : `:${rel}`
 }
 
-/** 面的清单原语:`head` 走 `ls-tree -r HEAD`、`staged`/`worktree` 走 `ls-files`(索引跟踪集)。 */
 /**
- * 面的清单原语:`head` 走 `ls-tree -r HEAD`、`staged`/`worktree` 走 `ls-files`(索引跟踪集)。
- * **一次列全再按前缀筛** —— 每个前缀各派生一次 git 会把一次采集变成二十几次进程创建
- * (真仓实测 18.5s;收口后只剩 catBatch 那几秒)。返回的函数自带记忆化,同一次采集里复用。
+ * 面名归一(§0.4:"判定面"是唯一真源,别名只许一对一)。
+ * `index` 是 `staged` 的对外写法 —— 两者都是"索引面",不许各算一套。
  */
+export const FACE_ALIASES = { head: 'head', worktree: 'worktree', staged: 'staged', index: 'staged' }
+
+/**
+ * 解析面旗。**这是本轮修的那个真缺陷**:此前 `--face=head` 谁都没解析,工具按默认值落回
+ * worktree,于是"门在 HEAD 面判、数出自工作树面" —— 四个数字横跳的根。
+ * 三条命:① 未知面/缺取值 ⇒ `face=null`(调用方 exit 2),绝不静默回落默认面;
+ * ② 两个不同面同给 ⇒ 互斥报错(取任一面都会让另一面成为假绿);
+ * ③ 同一面的不同别名(如 `--face=index --staged`)不算冲突。
+ * @param {string[]} argv
+ * @param {{def?:'head'|'staged'|'worktree'}} [opts]
+ * @returns {{face:string|null, requested:string|null, error:string|null}}
+ */
+export function parseFaceArg(argv, { def = 'worktree' } = {}) {
+  const picked = []
+  const rawArgs = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    let name = null
+    if (a === '--face' || a.startsWith('--face=')) {
+      name = a === '--face' ? argv[i + 1] : a.slice('--face='.length)
+      if (a === '--face') i += 1
+      rawArgs.push(a === '--face' ? `--face=${name ?? ''}` : a)
+      if (!name || name.startsWith('-'))
+        return { face: null, requested: null, error: '--face 缺取值(只认 head / worktree / index)' }
+    } else if (a === '--head' || a === '--staged' || a === '--worktree') {
+      name = a.slice(2)
+      rawArgs.push(a)
+    }
+    if (name === null) continue
+    const canonical = FACE_ALIASES[name]
+    if (!canonical)
+      return { face: null, requested: name, error: `未知判定面 ${name}(只认 head / worktree / index)` }
+    picked.push({ canonical, requested: name })
+  }
+  const distinct = [...new Set(picked.map((p) => p.canonical))]
+  if (distinct.length > 1)
+    return { face: null, requested: null, error: `${rawArgs.join(' 与 ')} 不得同用(判定面互斥)` }
+  if (distinct.length === 1) return { face: distinct[0], requested: picked[0].requested, error: null }
+  return { face: def, requested: def, error: null }
+}
+
+/**
+ * 三面各自取清单的 git 原语 —— **一个面一条命令,不许混用**:
+ *   head     ⇒ `ls-tree -r --name-only HEAD`(提交树)
+ *   staged   ⇒ `ls-files --cached`(索引)
+ *   worktree ⇒ `ls-files --cached --others --exclude-standard`(索引跟踪 ∪ 未跟踪且未被忽略),
+ *              再由 `memoLister` 按盘上存在性过滤 = **工作树真实文件枚举**(暂存删除/盘上缺失不计)
+ */
+export function faceListArgs(face) {
+  if (face === 'head') return ['ls-tree', '-r', '--name-only', 'HEAD']
+  if (face === 'worktree') return ['ls-files', '--cached', '--others', '--exclude-standard']
+  if (face === 'staged') return ['ls-files', '--cached']
+  throw new Undetermined(`未知判定面 ${String(face)}(只认 ${Object.keys(FACE_ALIASES).join(' / ')})`)
+}
+
+/** 面的清单原语:按面选命令(`faceListArgs`),**一次列全再按前缀筛** —— 同一次采集里记忆化复用。 */
 export function memoLister(root, face) {
   let cache = null
   return (prefix) => {
     if (cache === null) {
-      const args = face === 'head' ? ['ls-tree', '-r', '--name-only', 'HEAD'] : ['ls-files']
-      cache = runGitList(args, root).map((p) => p.replace(/\\/g, '/'))
+      cache = runGitList(faceListArgs(face), root).map((p) => p.replace(/\\/g, '/'))
+      // worktree 面:清单只留**盘上真存在**的路径(暂存删除、索引里还挂着但盘上已删的不算)
+      if (face === 'worktree') cache = cache.filter((rel) => existsSync(resolve(root, rel)))
     }
     if (!prefix) return cache
     return cache.filter((x) => x === prefix || x.startsWith(prefix + '/'))
@@ -563,26 +622,32 @@ export function toDescription(result) {
   return `Eight-platform full-stack AI operating system - unifies ${n.llmModels} catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over ${n.dbTables} tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.`
 }
 
+/** `--name value` / `--name=value` 取值;缺值返回 null(不猜)。 */
+function readArg(argv, name) {
+  const eq = argv.find((a) => a.startsWith(`${name}=`))
+  if (eq) return eq.slice(name.length + 1)
+  const i = argv.indexOf(name)
+  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[i + 1] : null
+}
+
 function main(argv) {
-  const { error } = selectFace({
-    staged: argv.includes('--staged'),
-    worktree: argv.includes('--worktree'),
-    def: 'worktree',
-  })
+  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给面旗。
+  // 面旗解析统一走 parseFaceArg:未知面/缺取值 ⇒ exit 2,**绝不静默落回默认面**。
+  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'worktree' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2
   }
-  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给旗。
-  const wantFace = argv.includes('--staged') ? 'staged' : argv.includes('--head') ? 'head' : 'worktree'
+  const root = resolve(readArg(argv, '--root') ?? ROOT)
   let result
   try {
-    result = collectNumbers({ root: ROOT, face: wantFace })
+    result = collectNumbers({ root, face: wantFace })
   } catch (e) {
     console.error(`❌ 无法判定(取材失败):${e instanceof Undetermined ? e.message : e?.message ?? e}`)
     return 2
   }
   const strict = argv.includes('--strict')
+  const faceLabel = requested && requested !== wantFace ? `${wantFace}(--face=${requested})` : wantFace
   if (argv.includes('--json')) {
     process.stdout.write(JSON.stringify({ face: wantFace, ...result }, null, 2) + '\n')
   } else if (argv.includes('--markdown')) {
@@ -591,7 +656,7 @@ function main(argv) {
     process.stdout.write(toDescription(result) + '\n')
   } else {
     const { numbers, sources, undetermined } = result
-    console.log(`face=${wantFace}`)
+    console.log(`face=${faceLabel}`)
     for (const k of ORDER) {
       if (!Number.isFinite(numbers[k])) continue
       const [label] = LABELS[k] ?? [k]

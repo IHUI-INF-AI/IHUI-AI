@@ -3333,7 +3333,7 @@
     "loginAlert": "登录提醒",
     "desc": "管理账号安全相关的开关",
     "loadFailed": "加载安全设置失败",
-    "readOnlyHint": "以下为当前真实状态，后端暂不支持修改",
+    "readOnlyHint": "本页只展示当前状态，不提供修改入口。两步验证请在「安全中心」开启或关闭",
     "stateOn": "已开启",
     "stateOff": "未开启"
   },

@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { History, Loader2, LogIn, Trash2, FileText, Folder } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { clearBrowseHistory, listBrowseHistory } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
@@ -36,14 +36,21 @@ export default function MemberHistoryPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'history'],
     queryFn: () =>
-      apiOrThrow<{ list: HistoryItem[] }>('/api/browse-history')
-        .then((d) => d.list ?? [])
+      listBrowseHistory()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.list ?? []
+        })
         .catch(() => [] as HistoryItem[]),
     enabled: ready && isAuthenticated,
   })
 
   const clearMut = useMutation({
-    mutationFn: () => apiOrThrow('/api/browse-history', { method: 'DELETE' }),
+    mutationFn: async () => {
+      const res = await clearBrowseHistory()
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'history'] }),
   })
 

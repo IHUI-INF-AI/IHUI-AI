@@ -11,15 +11,10 @@ import { useTranslations, useLocale } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, ArrowLeft, BookOpen, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
 
+import { getHelpArticle, listHelpArticles } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import {
-  api,
-  markdownComponents,
-  extractToc,
-  type HelpArticleDetail,
-  type HelpArticleSummary,
-} from '@/lib/content'
+import { markdownComponents, extractToc } from '@/lib/content'
 
 export default function HelpArticlePage() {
   const { slug } = useParams<{ slug: string }>()
@@ -29,19 +24,24 @@ export default function HelpArticlePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['help-article', slug],
-    queryFn: () => api<HelpArticleDetail>(`/api/help/articles/${slug}`),
+    queryFn: async () => {
+      const res = await getHelpArticle(slug)
+      if (!res.success) throw new Error(res.error)
+      return res.data
+    },
   })
 
   const category = data?.article.category
   const { data: related = [] } = useQuery({
     queryKey: ['help-articles-related', category],
     queryFn: () =>
-      api<{ list: HelpArticleSummary[] }>(
-        `/api/help/articles${category ? `?category=${category}` : ''}`,
-      ).then((d) => d.list ?? []),
+      listHelpArticles(category).then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
     enabled: !!category,
   })
-  const relatedItems = related.filter((r: HelpArticleSummary) => r.slug !== slug).slice(0, 5)
+  const relatedItems = related.filter((r) => r.slug !== slug).slice(0, 5)
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -151,7 +151,7 @@ export default function HelpArticlePage() {
                       {t('related')}
                     </p>
                     <nav className="space-y-1">
-                      {relatedItems.map((r: HelpArticleSummary) => (
+                      {relatedItems.map((r) => (
                         <Link
                           key={r.slug}
                           href={`/help/${r.slug}`}

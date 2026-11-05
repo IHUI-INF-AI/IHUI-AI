@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
+import { eduApi } from '@/lib/edu'
+import { listPendingMarks } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 
 import { GradesTable } from './GradesTable'
@@ -28,10 +29,11 @@ export default function EduExamGradesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exam', 'pending-marks', page],
-    queryFn: () =>
-      eduApi<PageData<MarkRecord>>(
-        `/api/exam/records/pending-marks${buildQs({ page, pageSize: PAGE_SIZE })}`,
-      ),
+    queryFn: async (): Promise<PageData<MarkRecord>> => {
+      const r = await listPendingMarks<PageData<MarkRecord>>({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const { data: detail } = useQuery({

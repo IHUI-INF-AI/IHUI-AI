@@ -111,7 +111,13 @@ const rows = gaps.map((s) => {
   }
 })
 
-/** 已造页(verdict=generated)的全量工作单:不在缺口集里,单列成一张单 */
+/**
+ * 已造页(verdict=generated)的全量**结清凭据**单:不在缺口集里,单列成一张单。
+ * 2026-11-05 订正措辞:这一档的判据语义 = 「该屏已被小程序页显式镜像」且已核验结清
+ * (单源 `scripts/lib/cross-end-verdicts.mjs`),**不是待办**。此前把这张单叫「工作单」,
+ * 于是下一席读到就照单派活 —— 变量名 pendingHooks 沿用历史,不代表这一批是 pending;
+ * 谁要产生待办,只有下面 hooksBucketOf 按 evidence 显式裁决分桶之后才算(真待补现读 0)。
+ */
 const pendingHooks = verdictRows.rows.filter((r) => r.verdict === 'generated')
 
 /**
@@ -260,9 +266,12 @@ const stats = {
   verdictLedgerBad: verdictRows.bad.length,
   // 台账三档分布(全表,不止缺口集):
   //   missing = 判过、该造页、尚未造;not-applicable = 判过、不该由小程序承载;
-  //   generated = **已造页**(声明链+路由+五语词包已落),但数据钩子/交互待补。
-  // generated 这一档单列的原因:它的屏**已被计入覆盖率**,但功能还没跟上 ——
-  // 不单列就等于让覆盖率读数替功能缺口背书(§0.3「造好没装车 = 没有」)。
+  //   generated = **已造页且已核验结清的凭据**(该屏已被小程序页显式镜像;声明链+路由+五语词包已落)。
+  // 2026-11-05 订正:此前把 generated 一律写成「数据钩子/交互待补」,是把**一档结清凭据**说成
+  //   一批待办 —— 上一轮会话正是照那句话把 97 页列成后续工作。这一档自己的判据**不含**功能
+  //   对齐状态;功能状态只由 evidence 的显式裁决分桶(hooksClosed/hooksBlocked/hooksPending)。
+  // 单列这一档的原因不变:它的屏**已被计入覆盖率**,不逐条给 evidence 裁决就把 89 条已闭环
+  //   与 8 条真欠功能的混成一个数,等于让覆盖率读数替缺口背书(§0.3「造好没装车 = 没有」)。
   ledgerMissing: verdictRows.rows.filter((r) => r.verdict === 'missing').length,
   ledgerGenerated: verdictRows.rows.filter((r) => r.verdict === 'generated').length,
   ledgerNotApplicable: verdictRows.rows.filter((r) => r.verdict === 'not-applicable').length,
@@ -287,6 +296,12 @@ if (jsonMode) {
   process.exit(0)
 }
 
+// 「缺口合计」这个标签是下游两把尺的正则锚点(land-cross-end-shell-pages.mjs:325 造页器
+// 与 check-cross-end-parity-drift.mjs:95 漂移尺都按 `缺口合计: **N**` 取值),标签一字不得改。
+// 但把 16 条**已判定不承载**统称为「缺口」,读文档的人就会照着开 16 张票 —— 所以同行把
+// 「真需要动手的条数」显式算出来:应造页 = 缺页(missing) + 未判定,不承载不进这个数。
+const gapShouldBuild = rows.filter((r) => r.verdict === 'missing' || !r.verdict).length
+
 const lines = []
 lines.push('# RN → 小程序 镜像缺口账本(自动生成)')
 lines.push('')
@@ -297,7 +312,11 @@ lines.push('')
 lines.push(`- 判定面: **${face === 'head' ? 'HEAD blob' : '工作树(人工)'}**`)
 lines.push(`- 共享屏(真相源): **${stats.sharedTotal}**`)
 lines.push(`- 已被小程序显式镜像: **${stats.mirrored}**`)
-lines.push(`- 缺口合计: **${stats.gaps}**(其中已判定 ${stats.verdicted} / 未判定 ${stats.undetermined})`)
+lines.push(
+  `- 缺口合计: **${stats.gaps}**(其中已判定 ${stats.verdicted} / 未判定 ${stats.undetermined})` +
+    ` —— 本行**需要动手的只有 ${gapShouldBuild} 条**(= 判为缺页待造 + 未判定);` +
+    `其余 ${stats.gaps - gapShouldBuild} 条是已判定「不承载」的结清凭据,派单等于重判一遍`,
+)
 lines.push(
   `- 判定台账: **${stats.verdictLedgerRows}** 行` +
     (stats.verdictLedgerBad ? `(坏行 ${stats.verdictLedgerBad} 行,已单列不静默丢)` : '') +
@@ -329,21 +348,23 @@ rows.forEach((r, i) => {
   const rnTxt = r.rn.length ? r.rn.map((c) => `${c.exact ? '★' : ''}${c.name}`).join(' / ') : '—'
   const mpTxt = r.mp.length ? r.mp.map((c) => c.route).join(' / ') : '—'
   // 状态四态:未判定(没人验过)/ 缺页(验过,确实没有,待造页)/ 不承载(验过,不该由小程序承载)
-  //          / 已造页(已落声明链,功能钩子待补 —— 已计入覆盖率,故不在本表)
+  //          / 已造页(台账结清凭据 —— 该屏已被镜像,**永不进本表**:本表只收未被镜像的屏,
+  //           所以这一分支现读 0 命中,留着是为了「若哪天漏进本表就当场看得见」;其功能对齐
+  //           状态一律见文末 evidence 分桶单,不在这里替它下结论)
   const state =
     r.verdict === 'missing'
       ? '🧱 缺页(已判定)'
       : r.verdict === 'not-applicable'
         ? '🚫 不承载(已判定)'
         : r.verdict === 'generated'
-          ? '🏗 已造页(功能待补)'
+          ? '🏗 已造页(台账结清凭据;功能对齐与否见文末分桶单)'
           : '🔲 未判定'
   lines.push(`| ${i + 1} | \`${r.domain}/${r.name}\` | ${rnTxt} | ${mpTxt} | ${state} | ${r.evidence || '—'} |`)
 })
 lines.push('')
 lines.push(`> 合计 ${rows.length} 条;标 ★ 的是名字完全匹配(仍需核实功能对应)。`)
 lines.push(
-  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 页已按声明链造出,数据钩子待补。`,
+  `> 状态列口径:**🔲 未判定** = 没人验过,需派单取证;**🧱 缺页** = 已验过且小程序端确实没有对应页(应造页);**🚫 不承载** = 已验过且该屏本就不该由小程序承载(不造页);**🏗 已造页** = 该屏已被小程序页显式镜像、已核验**结清**(判据单源 scripts/lib/cross-end-verdicts.mjs),它**不进本表**(本表只收未被镜像的屏),其功能对齐与否一律看文末 evidence 分桶单,不得在本列读成待办。`,
 )
 if (pendingHooks.length > 0) {
   lines.push('')

@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Calendar, Loader2, UserCheck } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduAttendanceSelfCheckIn, eduMyAttendance } from '@ihui/api-client'
 import { useAuth } from '@/hooks/use-auth'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -44,22 +44,24 @@ export default function MyAttendancePageClient() {
   const recordsQuery = useQuery({
     queryKey: ['edu-attendance-self', date],
     enabled: isAuthenticated && studentId.length > 0,
-    queryFn: () =>
-      apiOrThrow<{ list: StudentAttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance/me?date=${date}`,
-      ),
+    queryFn: async () => {
+      const r = await eduMyAttendance<{ list: StudentAttendanceRecord[] }>({ date })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   // 自签载荷只带日期与备注:身份与班级由后端按登录态与在册学籍现取,客户端不传
   const selfCheckInMutation = useMutation({
-    mutationFn: () =>
-      apiOrThrow<{ classId: string; status: string; checkInTime: string }>(
-        '/api/edu-ai-management/attendance/self-check-in',
-        {
-          method: 'POST',
-          body: JSON.stringify({ date, remark: remark.trim() || undefined }),
-        },
-      ),
+    mutationFn: async () => {
+      const r = await eduAttendanceSelfCheckIn<{
+        classId: string
+        status: string
+        checkInTime: string
+      }>({ date, remark: remark.trim() || undefined })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       setSigned(true)
       queryClient.invalidateQueries({ queryKey: ['edu-attendance-self'] })

@@ -24,7 +24,15 @@ import {
   ToggleRight,
   Info,
 } from 'lucide-react'
-import { apiOrThrow } from '@/lib/api'
+import {
+  cancelWorkflowInstance,
+  deleteWorkflow,
+  getWorkflow,
+  listWorkflowInstances,
+  retryWorkflowInstance,
+  triggerWorkflow,
+  updateWorkflow,
+} from '@ihui/api-client'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -92,17 +100,25 @@ export default function WorkflowDetailPage() {
 
   const wfQ = useQuery({
     queryKey: ['workflows', id],
-    queryFn: () =>
-      apiOrThrow<{ workflow: Workflow }>(`/api/workflows/${id}`).then((d) => d.workflow),
+    queryFn: async () => {
+      const r = await getWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data.workflow
+    },
     enabled: allow,
   })
 
   const instQ = useQuery({
     queryKey: ['workflows', id, 'instances', instPage],
-    queryFn: () =>
-      apiOrThrow<{ list: Instance[]; total: number }>(
-        `/api/workflows/instances?workflowId=${id}&page=${instPage}&pageSize=${INST_PAGE_SIZE}`,
-      ).then((d) => d),
+    queryFn: async (): Promise<{ list: Instance[]; total: number }> => {
+      const r = await listWorkflowInstances({
+        workflowId: id,
+        page: instPage,
+        pageSize: INST_PAGE_SIZE,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { list: Instance[]; total: number }
+    },
     enabled: allow,
   })
 
@@ -111,26 +127,36 @@ export default function WorkflowDetailPage() {
   const instTotalPages = Math.ceil(instTotal / INST_PAGE_SIZE)
 
   const triggerMut = useMutation({
-    mutationFn: () => apiOrThrow(`/api/workflows/${id}/trigger`, { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await triggerWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const cancelMut = useMutation({
-    mutationFn: (iId: string) =>
-      apiOrThrow(`/api/workflows/instances/${iId}/cancel`, { method: 'POST' }),
+    mutationFn: async (iId: string) => {
+      const r = await cancelWorkflowInstance(iId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
   const retryMut = useMutation({
-    mutationFn: (iId: string) =>
-      apiOrThrow(`/api/workflows/instances/${iId}/retry`, { method: 'POST' }),
+    mutationFn: async (iId: string) => {
+      const r = await retryWorkflowInstance(iId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['workflows', id, 'instances'] }),
   })
 
   const saveStepsMut = useMutation({
-    mutationFn: (steps: WorkflowStep[]) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ steps }),
-      }),
+    mutationFn: async (steps: WorkflowStep[]) => {
+      const r = await updateWorkflow(id, { steps })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
       setEditStepsMode(false)
@@ -138,18 +164,22 @@ export default function WorkflowDetailPage() {
   })
 
   const toggleActiveMut = useMutation({
-    mutationFn: (isActive: boolean) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive }),
-      }),
+    mutationFn: async (isActive: boolean) => {
+      const r = await updateWorkflow(id, { isActive })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
     },
   })
 
   const deleteMut = useMutation({
-    mutationFn: () => apiOrThrow(`/api/workflows/${id}`, { method: 'DELETE' }),
+    mutationFn: async () => {
+      const r = await deleteWorkflow(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       router.push('/workflows')
@@ -157,11 +187,11 @@ export default function WorkflowDetailPage() {
   })
 
   const saveInfoMut = useMutation({
-    mutationFn: (data: { name: string; description: string; triggerType: TriggerType }) =>
-      apiOrThrow(`/api/workflows/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: { name: string; description: string; triggerType: TriggerType }) => {
+      const r = await updateWorkflow(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows', id] })
       setEditInfoMode(false)

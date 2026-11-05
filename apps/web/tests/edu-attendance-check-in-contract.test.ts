@@ -24,13 +24,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const apiOrThrowMock = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({ apiOrThrow: apiOrThrowMock }))
+const eduClassListMock = vi.hoisted(() => vi.fn())
+const eduAttendanceBatchCheckInMock = vi.hoisted(() => vi.fn())
+vi.mock('@ihui/api-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@ihui/api-client')>()),
+  eduClassList: eduClassListMock,
+  eduAttendanceBatchCheckIn: eduAttendanceBatchCheckInMock,
+}))
 
 import {
   backfillBlocked,
   bizDay,
-  buildAttendanceListUrl,
+  buildAttendanceListParams,
   buildBatchCheckInPayload,
   buildCheckInPayload,
   checkInMomentIso,
@@ -80,7 +85,6 @@ const STUDENT_ID = '22222222-2222-4222-8222-222222222222'
 const TODAY = '2026-11-04'
 const BACKFILL_DAY = '2026-11-01'
 const BAD_DATE = '2026/11/04'
-const BATCH_URL = '/api/edu-ai-management/attendance/batch-check-in'
 
 function renderDialog(node: React.ReactElement) {
   const qc = new QueryClient({
@@ -102,13 +106,13 @@ const inputOfType = (type: string): HTMLInputElement =>
 const firstInput = (): HTMLInputElement => dialogEl().querySelector('input') as HTMLInputElement
 const buttonNamed = (name: string): HTMLButtonElement =>
   screen.getByRole('button', { name }) as HTMLButtonElement
-/** 只数真正打到批量点名的请求:班级清单(useClasses)也经同一个 apiOrThrow 替身 */
-const batchCalls = (): unknown[][] =>
-  apiOrThrowMock.mock.calls.filter((c) => String(c[0]).includes('batch-check-in'))
+/** 只数真正打到批量点名的请求:班级清单(useClasses)走独立共享端点 */
+const batchCalls = (): unknown[][] => eduAttendanceBatchCheckInMock.mock.calls
 
 afterEach(() => {
   cleanup()
-  apiOrThrowMock.mockReset()
+  eduClassListMock.mockReset()
+  eduAttendanceBatchCheckInMock.mockReset()
 })
 
 describe('格① 写载荷:状态由服务端现算,端上不自报', () => {
@@ -217,7 +221,7 @@ describe('格① 写载荷:状态由服务端现算,端上不自报', () => {
     expect(read(batchFile)).toContain('buildBatchCheckInPayload')
     expect(read(pageFile)).toContain('buildCheckInPayload')
     // 代签的 mutation 只转发契约载荷(请假审批那处 JSON.stringify 里的 status 是另一族协议,不算)
-    expect(read(pageFile)).toMatch(/mutationFn:\s*\(data: CheckInPayload\)/)
+    expect(read(pageFile)).toMatch(/mutationFn:\s*(?:async\s+)?\(data: CheckInPayload\)/)
     expect(read(batchFile)).not.toMatch(/JSON\.stringify\(\{[^}]*\bstatus\b/)
   })
 })
@@ -280,13 +284,11 @@ describe('格① 回填口径:非当日必须给该日内时刻', () => {
   })
 
   it('批量点名真发请求:body 里没有 status,回填时带该日内 ISO 时刻', async () => {
-    apiOrThrowMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        String(url).includes('batch-check-in')
-          ? { created: 2, skipped: 1, missedIds: [] }
-          : { list: [], total: 0 },
-      ),
-    )
+    eduClassListMock.mockResolvedValue({ success: true, data: { list: [], total: 0 } })
+    eduAttendanceBatchCheckInMock.mockResolvedValue({
+      success: true,
+      data: { created: 2, skipped: 1, missedIds: [] },
+    })
     renderDialog(
       React.createElement(BatchCheckInDialog, {
         open: true,
@@ -313,10 +315,7 @@ describe('格① 回填口径:非当日必须给该日内时刻', () => {
     fireEvent.click(buttonNamed(w('batchConfirm')))
 
     await waitFor(() => expect(batchCalls()).toHaveLength(1))
-    const [url, init] = batchCalls()[0] as [string, RequestInit]
-    expect(url).toBe(BATCH_URL)
-    expect(init.method).toBe('POST')
-    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    const [body] = batchCalls()[0] as [Record<string, unknown>]
     expect(Object.keys(body)).not.toContain('status')
     expect(body).toEqual({
       classId: CLASS_ID,
@@ -403,13 +402,14 @@ describe('格② 早退档:五档逐档有词有色,不落默认档', () => {
 
 describe('格③ 「全部状态」筛选:URL 里不得出现 status=all', () => {
   it('空筛选 = 不带 status 参数;非空才带,且只认协议码', () => {
-    expect(buildAttendanceListUrl('2026-11-05', '')).toBe(
-      '/api/edu-ai-management/attendance?date=2026-11-05',
-    )
-    expect(buildAttendanceListUrl('2026-11-05', '')).not.toContain('status')
-    expect(buildAttendanceListUrl('2026-11-05', 'early')).toContain('status=early')
-    // 日期与筛选双空 ⇒ 连问号都不拼(不给后端留空 query 形态)
-    expect(buildAttendanceListUrl('', '')).toBe('/api/edu-ai-management/attendance')
+    expect(buildAttendanceListParams('2026-11-05', '')).toEqual({
+      date: '2026-11-05',
+      status: undefined,
+    })
+    expect(buildAttendanceListParams('2026-11-05', '').status).toBeUndefined()
+    expect(buildAttendanceListParams('2026-11-05', 'early').status).toBe('early')
+    // 日期与筛选双空 ⇒ query 为空对象(不给后端留空 query 形态)
+    expect(buildAttendanceListParams('', '')).toEqual({ date: undefined, status: undefined })
   })
 
   it('页面侧:考勤筛选与请假筛选同一条归一写法,哨兵值只留在 UI 不进 query', () => {
@@ -418,7 +418,7 @@ describe('格③ 「全部状态」筛选:URL 里不得出现 status=all', () =>
     // 两处筛选(考勤 + 请假)口径必须一致:归一表达式恰好用两次
     expect((page.match(/=== 'all' \? '' : v/g) ?? []).length).toBe(2)
     expect(page).not.toMatch(/status=all/)
-    expect(page).toContain('buildAttendanceListUrl(attendanceDate, attendanceStatusFilter)')
+    expect(page).toContain('buildAttendanceListParams(attendanceDate, attendanceStatusFilter)')
     // 旧的模板串拼接(会把归一前的值直接写进 URL)不许回潮
     expect(page).not.toMatch(/attendance\?date=\$\{attendanceDate\}\$\{/)
     // 「全部状态」那枚 option 仍是 UI 哨兵值,取词键不变

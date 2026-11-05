@@ -415,7 +415,12 @@ function listPaths(rev, cwd) {
 
 /** 两侧相对基底的"动过的路径"清单(含仅改 mode —— 它同样会进 diff --name-only)。 */
 function diffNames(a, b, cwd) {
-  return git(['diff', '--name-only', a, b], cwd).split('\n').filter(Boolean)
+  // 2026-11-05:必须关掉重命名检测。水印头让任意两文件都有 ~60% 相同字节,`git diff` 会把
+  // "对侧删掉的 A" 报成 "A → 某侧新文件 B 的 R061 重命名",`--name-only` 只吐新路径,
+  // 于是 A 根本不进删除循环 ⇒ 合并树里留着 A,而 A 依赖的另一份被删文件已消失(实测
+  // doubao-voice-api.ts → apps/web/src/config/base-path.ts 的假重命名,留下悬空 import)。本器
+  // 判的是逐路径处置权,重命名感知只会把"删"折成"改名",这里一律按路径面比较。
+  return git(['diff', '--no-renames', '--name-only', a, b], cwd).split('\n').filter(Boolean)
 }
 
 /** 内容面判据不得走 `git()`(encoding utf8 + trim 会毁掉二进制与行尾),单开 buffer 通道。 */
@@ -1083,6 +1088,11 @@ export function buildUnion(
     const takeDocsUndetermined = []
     // A6:声明理由放行的"本侧少内容"格,逐条交回报告面(不得静默折进"0 丢失")。
     const takeDocCredits = []
+    // 归档整区移出的扣行账,逐行交回落地闸的内容级防丢闸(2026-11-05):
+    // 行级 union 按 archiveDropSet 决定"不补回"(对侧滞后基线带回的旧行),落地闸若不知道同一本账,
+    // 就会把"本侧有意移入归档、归并正确排除"的少带读成丢失 —— 两道闸互顶,合并死锁
+    // (与 base/foldLedgers 那两维同族:判据在、台账在,落地调用点没人端)。
+    const archiveCredited = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -1139,6 +1149,9 @@ export function buildUnion(
       // archiveDropCaps 那一维),F5 落地闸必须问**同一本账**,否则把"本侧有意移入归档、对侧滞后基线
       // 带回又被归并正确排除"的 `<!-- 已归档 -->` 存根读成"未解释少带"(2026-10-29 全仓推送死结)。
       const archiveDropSet = archived && archived.ok ? archiveDropCaps(a, archived) : new Set()
+      // 同一本账同时端给落地闸:行级 union 没补回、报告已经逐行点名的这些行,
+      // 落地闸不该再按逐字包含复读成"丢失"(留痕由 union 的报告面负责,不静默)。
+      for (const l of archiveDropSet) archiveCredited.push(l)
       const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
       if (archived === null) {
         console.log(
@@ -1585,6 +1598,8 @@ export function buildUnion(
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
+      // 归档整区移出的扣行账(逐行):内容级防丢闸按同一本账免复读,留痕已由报告面逐行点名。
+      archiveCredited,
       // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
       foldAmbiguous,
       // 声明式保留行没命中的那些(逐文档):"配了清单"不等于"这轮真放过东西"(§0.3)。
@@ -2302,6 +2317,8 @@ export function plan(
     superseded: vu.superseded,
     foldUndetermined: vu.foldUndetermined,
     foldLedgers: built.foldLedgers,
+    // 归档整区移出的扣行账(逐行):落地闸的内容级防丢闸按同一本账免复读(与 base/foldLedgers 同族接线)。
+    archiveCredited: built.archiveCredited || [],
     foldAmbiguous: built.foldAmbiguous,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
     // 报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
@@ -4662,37 +4679,18 @@ async function main() {
   // 五语言词包按**键集**比(oursKeys−mergedKeys、theirsKeys−mergedKeys 必须为空),活文档与
   // AGENTS.md 按**行级包含**比;非空即判红并逐条点名。此前这套闸在别处咬出过 i18n 17 键与
   // 3 个测试用例的真丢失 —— 那两次路径都在位,只有内容没了。
-  //
-  // 折叠台账这一格(2026-11-06,在册票 G-32「归并侧那半格」的续办):本闸是第三把不认折叠的尺子 ——
-  // `verifyUnion` 认(`attestFoldPair` 四问)、F5 ⑤ 档认(2026-10-16 立),唯独本闸按字面多重集比
-  // ⇒ 把**合法折叠**(信息守恒,少的只是行份数)读成"少带行"⇒ 恒红。治法与前两把同形:把**同一轮**的
-  // 折叠台账喂进去,本闸只做举证(台账没这一行 / 只解释一部分 / 举证不过 ⇒ 照旧判红,牙一处不松)。
-  // 摘除台账这一格(2026-11-06,续办在册票 G-32「归并侧那半格」的另一半):本闸此前只认折叠台账,
-  // 不认「本机已声明摘除」那本账 ⇒ 与活文档 union 侧的 `declaredDropCaps`(刻意不回捞已声明摘除的行)
-  // **结论相反**:回捞防线扣掉的每一行,都被本闸读成"少带内容"⇒ 合并恒拒(实测形态:整份取对侧判
-  // 本侧缺失 3,行级 union 判对侧缺失 15 —— 两头都堵)。喂同一本账给两把尺,判据仍只有一份
-  // (`declaredDropCaps` 的三条:逐字命中台账 ∧ 产物面已无此行 ∧ 是登记行形),本器不复算。
-  // 台账读不到 / 一份都不在位 ⇒ 传 null ⇒ 一条不销(§0.3:取不到不是放行许可证,也不许当"没声明过")。
-  const declaredRemovalLedger = (() => {
-    try {
-      const dr = declaredRows(ROOT)
-      if (!dr || dr.filesSeen === 0 || !(dr.set instanceof Set) || dr.set.size === 0) {
-        console.log(
-          `  ⚠️ 本机摘除台账不在位或空表(filesSeen=${dr?.filesSeen ?? '未取到'})⇒ 防丢闸的摘除销账一档不开(一条不销)`,
-        )
-        return null
-      }
-      // 整份对象给下游:逐字那一族读 `.set`;改写形态那一族(题面指纹/复合主键/题面 32 字指纹)
-      // 还要读 `keyIndex`/`dropTitleRows`/`filesSeen` ⇒ 只喂 `.set` 会让族那一维整个不开
-      // (2026-11-06:行级 union 按族扣掉的行,防丢闸只认逐字 ⇒ 两把尺子不同形 ⇒ 合并恒拒)。
-      return dr
-    } catch (e) {
-      console.log(
-        `  ⚠️ 本机摘除台账读不到(${String(e?.message ?? e).slice(0, 60)})⇒ 摘除销账一档不开(一条不销)`,
-      )
-      return null
-    }
-  })()
+  // 折叠/摘除台账里**已逐字举证**的少带行端给本层:attestFoldPair 在产物面证过去向,
+  // 再按逐字包含复读会把"刚被证明合法的少带"判成丢失 —— 两道闸互顶(纠偏二,头注)。
+  const creditedDropLines = new Set([
+    ...(p.folded || []).flatMap((e) => e.dropped || []),
+    ...(p.dropLedgerCredited || []).flatMap((e) => e.dropped || []),
+    // 归档整区移出的扣行账(2026-11-05 接线):行级 union 未补回、报告面已逐行点名的对侧旧基线行,
+    // 与 base/foldLedgers 两维同族 —— 判据在、台账在,落地调用点此前没人端 ⇒ 合并被读成"少带"而死锁。
+    ...(p.archiveCredited || []),
+  ].map((l) => String(l ?? '').trim()).filter(Boolean))
+  // 2026-11-05: 内容级防丢闸的「折叠台账」与「本侧处置权」两维早已在 lib 里(`foldLedgers`/`base`),
+  // 落地调用点却只端了 `creditedDrops` ⇒ 那两维在收敛路径上生效次数为 0(判据在、自检过、没人调)。
+  // 这里按 lib 既有签名接线,不新增判据:基底/折叠台账本来就是 plan 已有的产物。
   const contentGate = judgeContentLoss({
     root: ROOT,
     ours: t.head,
@@ -4700,33 +4698,15 @@ async function main() {
     merged: p.tree,
     base: p.base,
     foldLedgers: p.foldLedgers,
-    declaredRemovals: declaredRemovalLedger,
+    creditedDrops: creditedDropLines,
   })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
     console.log(formatLossReport(contentGate))
     process.exit(contentGate.undetermined.length ? 2 : 1)
   }
-  // 报数必须报名(§0.10):少带的份数不许静默折进"0 丢失"。
-  const contentFolded = contentGate.folded ?? []
-  if (contentFolded.length)
-    console.log(
-      `  内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(已过 attestFoldPair 四问)`,
-    )
-  // 摘除销账同样逐条报名:凭本机台账正当少带的行,一行都不静默(§0.10)。
-  const contentDropped = contentGate.dropped ?? []
-  if (contentDropped.length)
-    console.log(
-      `  内容级防丢闸:摘除销账 ${contentDropped.length} 行 / ${contentDropped.reduce((s, e) => s + (e.copies || 0), 0)} 份(判据单源 declaredDropCaps)`,
-    )
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
-    (contentFolded.length
-      ? `;内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(attestFoldPair 四问全过,信息守恒)`
-      : '') +
-    (contentDropped.length
-      ? `;内容级防丢闸:摘除销账 ${contentDropped.length} 行 / ${contentDropped.reduce((s, e) => s + (e.copies || 0), 0)} 份(逐条点名在 --show-all-bad 报告面;凭据=本机摘除台账逐字声明 ∧ 产物面已无该行 ∧ 登记行形,与活文档 union 侧 declaredDropCaps 同一把尺)`
-      : '') +
     (p.humanResolved?.length
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
@@ -4838,7 +4818,7 @@ async function main() {
   // 仍然是同一把 alignSharedIndex 尺(别人真暂存过就跳过并点名),不另立判据。
   let treeDiffPaths = []
   try {
-    treeDiffPaths = git(['diff', '--name-only', t.head, p.tree])
+    treeDiffPaths = git(['diff', '--no-renames', '--name-only', t.head, p.tree])
       .split(/\r?\n/)
       .map((x) => x.trim())
       .filter(Boolean)

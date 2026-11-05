@@ -19,7 +19,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduEnrollmentCreate,
+  eduEnrollmentList,
+  eduLeadCreate,
+  eduLeadList,
+  eduLeadUpdate,
+  eduStudentRoster,
+  eduTermList,
+  eduTrialReservationCreate,
+  eduTrialReservationList,
+  eduTrialReservationUpdate,
+} from '@ihui/api-client'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -734,31 +746,43 @@ export default function EnrollmentPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class'],
-    queryFn: () => apiOrThrow<{ list: EduClass[] }>('/api/edu-ai-management/class'),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const leadQuery = useQuery({
     queryKey: ['edu-ai-management', 'lead', leadStatusFilter, leadSourceFilter],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (leadStatusFilter) params.set('status', leadStatusFilter)
-      if (leadSourceFilter) params.set('source', leadSourceFilter)
-      const qs = params.toString()
-      return apiOrThrow<{ list: Lead[] }>(`/api/edu-ai-management/lead${qs ? `?${qs}` : ''}`)
+    queryFn: async () => {
+      const r = await eduLeadList<{ list: Lead[] }>({
+        status: leadStatusFilter || undefined,
+        source: leadSourceFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
   const trialQuery = useQuery({
     queryKey: ['edu-ai-management', 'trial-reservation'],
-    queryFn: () =>
-      apiOrThrow<{ list: TrialReservation[] }>('/api/edu-ai-management/trial-reservation'),
+    queryFn: async () => {
+      const r = await eduTrialReservationList<{ list: TrialReservation[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const enrollQuery = useQuery({
@@ -769,15 +793,14 @@ export default function EnrollmentPage() {
       enrollTermFilter,
       enrollStatusFilter,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (enrollClassFilter) params.set('classId', enrollClassFilter)
-      if (enrollTermFilter) params.set('termId', enrollTermFilter)
-      if (enrollStatusFilter) params.set('status', enrollStatusFilter)
-      const qs = params.toString()
-      return apiOrThrow<{ list: EnrollmentRecord[] }>(
-        `/api/edu-ai-management/enrollment${qs ? `?${qs}` : ''}`,
-      )
+    queryFn: async () => {
+      const r = await eduEnrollmentList<{ list: EnrollmentRecord[] }>({
+        classId: enrollClassFilter || undefined,
+        termId: enrollTermFilter || undefined,
+        status: enrollStatusFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -796,18 +819,23 @@ export default function EnrollmentPage() {
       rosterArrearsOnly,
       rosterPage,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (rosterBusinessLine) params.set('businessLine', rosterBusinessLine)
-      if (rosterClassFilter) params.set('classId', rosterClassFilter)
-      if (rosterTermFilter) params.set('termId', rosterTermFilter)
-      if (rosterKeyword) params.set('keyword', rosterKeyword)
-      if (rosterArrearsOnly) params.set('arrearsOnly', '1')
-      params.set('page', String(rosterPage))
-      params.set('pageSize', '20')
-      return apiOrThrow<{ list: RosterItem[]; total: number; page: number; totalPages: number }>(
-        `/api/edu-ai-management/student-roster?${params.toString()}`,
-      )
+    queryFn: async () => {
+      const r = await eduStudentRoster<{
+        list: RosterItem[]
+        total: number
+        page: number
+        totalPages: number
+      }>({
+        businessLine: rosterBusinessLine || undefined,
+        classId: rosterClassFilter || undefined,
+        termId: rosterTermFilter || undefined,
+        keyword: rosterKeyword || undefined,
+        arrearsOnly: rosterArrearsOnly ? '1' : undefined,
+        page: rosterPage,
+        pageSize: 20,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const roster = rosterQuery.data?.list ?? []
@@ -819,47 +847,47 @@ export default function EnrollmentPage() {
   }, [queryClient])
 
   const createLead = useMutation({
-    mutationFn: (data: LeadFormData) =>
-      apiOrThrow('/api/edu-ai-management/lead', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: LeadFormData) => {
+      const r = await eduLeadCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateLeadStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiOrThrow(`/api/edu-ai-management/lead/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      }),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const r = await eduLeadUpdate(id, { status })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createTrial = useMutation({
-    mutationFn: (data: TrialFormData) =>
-      apiOrThrow('/api/edu-ai-management/trial-reservation', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: TrialFormData) => {
+      const r = await eduTrialReservationCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateTrialStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiOrThrow(`/api/edu-ai-management/trial-reservation/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-      }),
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const r = await eduTrialReservationUpdate(id, { status })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createEnrollment = useMutation({
-    mutationFn: (data: EnrollmentFormData) =>
-      apiOrThrow('/api/edu-ai-management/enrollment', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: EnrollmentFormData) => {
+      const r = await eduEnrollmentCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 

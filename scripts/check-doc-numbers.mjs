@@ -72,8 +72,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { BLOCK_BEGIN, BLOCK_END, ORDER, collectNumbers, specOf } from './gen-doc-numbers.mjs'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { BLOCK_BEGIN, BLOCK_END, ORDER, collectNumbers, parseFaceArg, specOf } from './gen-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -960,11 +960,9 @@ export function selfTest() {
 
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
-  const { face, error } = selectFace({
-    staged: argv.includes('--staged'),
-    worktree: argv.includes('--worktree'),
-    def: 'head',
-  })
+  // 面旗解析与生成侧同源(`--face=head|worktree|index` / `--head|--staged|--worktree`):
+  // 门默认判 HEAD(提交面),未知面 ⇒ exit 2,**绝不静默回落默认面**(那是四个数字横跳的根)。
+  const { face, error } = parseFaceArg(argv, { def: 'head' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2

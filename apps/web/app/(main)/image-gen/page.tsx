@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { generateImage } from '@ihui/api-client'
 import type { ImageGenResult } from '@ihui/types'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
@@ -27,15 +27,10 @@ export default function ImageGenPage() {
   const [err, setErr] = React.useState<string | null>(null)
 
   const genMut = useMutation({
-    mutationFn: () => {
-      const body = {
-        prompt: prompt.trim(),
-        size,
-      }
-      return apiOrThrow<ImageGenResult>('/api/image-gen/generate', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+    mutationFn: async () => {
+      const res = await generateImage({ prompt: prompt.trim(), size })
+      if (!res.success) throw new Error(res.error || '生成失败')
+      return res.data
     },
     onSuccess: (data) => {
       setResult(data)

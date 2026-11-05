@@ -9,7 +9,6 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CheckCircle2, ChevronLeft, Circle, ClipboardList, Loader2 } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
   Button,
@@ -21,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@ihui/ui-react'
-import { type PageData } from '@ihui/api-client'
+import { getMyRecords, type PageData } from '@ihui/api-client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BackButton } from '@/components/common'
 
@@ -60,8 +59,11 @@ function CardContent2() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'answer', 'card', 'records', page, search],
-    queryFn: () =>
-      eduApi<PageData<AnswerRecord>>(`/api/exam/records${buildQs({ page, pageSize: PAGE_SIZE })}`),
+    queryFn: async (): Promise<PageData<AnswerRecord>> => {
+      const r = await getMyRecords({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as PageData<AnswerRecord>
+    },
   })
 
   const total = data?.total ?? 0

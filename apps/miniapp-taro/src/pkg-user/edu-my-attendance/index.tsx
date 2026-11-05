@@ -178,7 +178,9 @@ export default function Page() {
           <Input
             className="rounded-sm border border-border bg-card px-md py-sm text-body text-foreground"
             value={remark}
-            placeholder={t('eduMyAttendance.remarkPlaceholder')}
+            // 备注占位符取通用单源键 share.remarkPlaceholder(本端五语言在册),
+            // 不在 eduMyAttendance 下再抄一份同义串(§0.6 单一真相源 / §19 禁第二份真相)。
+            placeholder={t('share.remarkPlaceholder')}
             onInput={(e) => setRemark(e.detail.value)}
           />
         </View>

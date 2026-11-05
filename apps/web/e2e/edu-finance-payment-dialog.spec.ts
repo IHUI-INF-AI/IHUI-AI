@@ -89,7 +89,8 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
    */
   test('催费 tab 装有催缴触达统计卡(调 stats 端点,caveat 与 unknown 随数字上屏)', () => {
     const s = src.finance()
-    expect(s).toContain('/api/edu-ai-management/fee-reminder/stats?days=30')
+    expect(s).toContain('eduFeeReminderStats')
+    expect(s).toContain('days: 30')
     expect(s).toContain('催缴触达统计')
     expect(s).toContain('reminderStats.caveat')
     expect(s).toContain('reminderStats.delivery.unknownReminders')
@@ -103,8 +104,8 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
    */
   test('无归属流水点名与撤销缴费装车(端点调用+警示条+撤销按钮+退费无归属toast)', () => {
     const s = src.finance()
-    expect(s).toContain('/api/edu-ai-management/payment-record/unattributed')
-    expect(s).toContain('`/api/edu-ai-management/payment-record/${id}`')
+    expect(s).toContain('eduPaymentRecordUnattributed')
+    expect(s).toContain('eduPaymentRecordDelete')
     expect(s).toContain('handleVoidPayment')
     expect(s).toContain('confirmDialog')
     expect(s).toContain('没有挂到期次')

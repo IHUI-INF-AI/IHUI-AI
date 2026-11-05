@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '../client.js'
-import type { ModelCapabilities, ModelUsageCategory, ModelTier } from '@ihui/types'
+import type { ApiResult, ModelCapabilities, ModelUsageCategory, ModelTier } from '@ihui/types'
 
 /** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
 export interface LlmModelCaps {
@@ -506,5 +506,268 @@ export async function cleanupSyncHistory(beforeDays: number = 30): Promise<Clean
     throw new Error(res.error || '清理同步日志失败')
   }
   return res.data
+}
+
+// ===== 用户 BYOK 供应商(/api/v2/user/llm-providers,apps/api `routes/user-llm-configs-v2.ts`)=====
+// 2026-11-05 立,门 300 台账 A 类:web `settings/llm/helpers-v2.ts` 与 RN `LlmSettingsScreen` 直拼收口。
+// 默认类型按现网 JSON 形状(provider 字段多为可选),web 端自带更严格的 ProviderListData,
+// 调用点用泛型保留各自契约(不在此重复命名 Web 专属类型)。
+
+export interface UserLlmProvider {
+  id: number
+  name: string
+  providerCode?: string
+  isBuiltin?: boolean
+  baseUrl?: string
+  apiFormat?: string
+  modelIdForTest?: string | null
+  enabled: boolean
+  description?: string | null
+  sortOrder?: number
+  providerGroup?: string
+  groupLabel?: string
+  defaultModelId?: string | null
+  sortOrderInGroup?: number
+  healthStatus?: string | null
+  lastHealthCheckAt?: string | null
+  usage30dTokens?: number
+  usage30dCostCents?: number
+  hasApiKey?: boolean
+  lastTestStatus?: string | null
+  lastTestedAt?: string | null
+  createdAt?: string
+  models?: unknown[]
+}
+
+export interface UserLlmProviderGroup {
+  group: string
+  groupLabel: string
+  providers: UserLlmProvider[]
+}
+
+export interface UserLlmProviderList {
+  groups: UserLlmProviderGroup[]
+  total: number
+}
+
+export interface CreateUserLlmProviderInput {
+  providerCode: string
+  name: string
+  apiKey: string
+  apiFormat: 'openai_chat' | 'anthropic_messages' | 'openai_responses'
+  baseUrlOverride?: string
+  providerGroup?: string
+  groupLabel?: string
+  description?: string
+  sortOrder?: number
+  defaultModelId?: string
+}
+
+export interface CreateUserLlmProviderResult {
+  id: number
+  created: boolean
+  name: string
+}
+
+/** 当前用户 BYOK 供应商分组列表 — GET /api/v2/user/llm-providers */
+export async function listUserLlmProviders<T = UserLlmProviderList>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-providers')
+}
+
+/** 新增 BYOK 供应商 — POST /api/v2/user/llm-providers */
+export async function createUserLlmProvider(
+  input: CreateUserLlmProviderInput,
+): Promise<ApiResult<CreateUserLlmProviderResult>> {
+  return fetchApi<CreateUserLlmProviderResult>('/api/v2/user/llm-providers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 平台模板 — GET /api/v2/user/llm-providers/templates */
+export async function fetchUserLlmTemplates<T = { templates: unknown[] }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-providers/templates')
+}
+
+/** 供应商详情 — GET /api/v2/user/llm-providers/:id */
+export async function getUserLlmProvider<T = UserLlmProvider>(
+  id: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`)
+}
+
+/** 更新供应商 — PUT /api/v2/user/llm-providers/:id */
+export async function updateUserLlmProvider<T = { id: number; updated: boolean }>(
+  id: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 删除供应商 — DELETE /api/v2/user/llm-providers/:id */
+export async function deleteUserLlmProvider<T = { id: number; deleted: boolean }>(
+  id: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}`, { method: 'DELETE' })
+}
+
+/** 启停供应商 — POST /api/v2/user/llm-providers/:id/toggle */
+export async function toggleUserLlmProvider<T = { id: number; enabled: boolean }>(
+  id: number,
+  enabled: boolean,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+/** 测试供应商连通性 — POST /api/v2/user/llm-providers/:id/test */
+export async function testUserLlmProvider<T = unknown>(id: number): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/test`, { method: 'POST' })
+}
+
+/** 拉取上游模型 — POST /api/v2/user/llm-providers/:id/fetch-models */
+export async function fetchUserLlmUpstreamModels<T = unknown>(id: number): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${id}/fetch-models`, { method: 'POST' })
+}
+
+/** 供应商模型列表 — GET /api/v2/user/llm-providers/:id/models */
+export async function listUserLlmModels<T = { list: unknown[]; total: number }>(
+  providerId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models`)
+}
+
+/** 新增供应商模型 — POST /api/v2/user/llm-providers/:id/models */
+export async function createUserLlmModel<T = { id: number; created: boolean; modelId: string }>(
+  providerId: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 更新供应商模型 — PUT /api/v2/user/llm-providers/:id/models/:modelId */
+export async function updateUserLlmModel<T = { id: number; updated: boolean }>(
+  providerId: number,
+  modelId: number,
+  body: Record<string, unknown>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 删除供应商模型 — DELETE /api/v2/user/llm-providers/:id/models/:modelId */
+export async function deleteUserLlmModel<T = { id: number; deleted: boolean }>(
+  providerId: number,
+  modelId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}`, {
+    method: 'DELETE',
+  })
+}
+
+/** 测试供应商模型 — POST /api/v2/user/llm-providers/:id/models/:modelId/test */
+export async function testUserLlmModel<T = unknown>(
+  providerId: number,
+  modelId: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-providers/${providerId}/models/${modelId}/test`, {
+    method: 'POST',
+  })
+}
+
+/** 分组列表 — GET /api/v2/user/llm-groups */
+export async function listUserLlmGroups<T = { groups?: unknown[]; list?: unknown[] }>(): Promise<
+  ApiResult<T>
+> {
+  return fetchApi<T>('/api/v2/user/llm-groups')
+}
+
+/** 新增分组 — POST /api/v2/user/llm-groups */
+export async function createUserLlmGroup<T = { id: number; created: boolean; label: string }>(
+  label: string,
+  sortOrder = 0,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/v2/user/llm-groups', {
+    method: 'POST',
+    body: JSON.stringify({ label, sortOrder }),
+  })
+}
+
+/** 更新分组 — PUT /api/v2/user/llm-groups/:id */
+export async function updateUserLlmGroup<T = { id: number; updated: boolean }>(
+  id: number,
+  label: string,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-groups/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ label }),
+  })
+}
+
+/** 模型目录 — GET /api/llm/models */
+export async function listLlmModels<T = { models: LlmModel[] }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/models')
+}
+
+/** 校验 BYOK 密钥 — POST /api/llm/verify-key */
+export async function verifyLlmKey<T = { valid: boolean; error?: string }>(
+  body: object,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/verify-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** FIM 指标汇总 — GET /api/llm/fim/metrics/summary */
+export async function getFimMetricsSummary<T = { models: unknown[] }>(
+  params?: Record<string, string | number | boolean | undefined | null>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics/summary', { params })
+}
+
+/** FIM 指标上报 — POST /api/llm/fim/metrics */
+export async function postFimMetrics<T = unknown>(
+  body: object,
+  options: { headers?: Record<string, string>; signal?: AbortSignal } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  })
+}
+
+/** FIM 编辑意图 — POST /api/llm/fim/edit-intent */
+export async function postFimEditIntent<T = unknown>(
+  body: object,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/edit-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+    timeoutMs: options.timeoutMs,
+  })
+}
+
+/** 删除分组 — DELETE /api/v2/user/llm-groups/:id */
+export async function deleteUserLlmGroup<T = { id: number; deleted: boolean }>(
+  id: number,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/v2/user/llm-groups/${id}`, { method: 'DELETE' })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

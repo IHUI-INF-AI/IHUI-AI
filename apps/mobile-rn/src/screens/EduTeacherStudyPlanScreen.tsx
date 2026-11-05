@@ -23,7 +23,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduClassList,
+  eduPlanItemUpdate,
+  eduStudyPlanAutoSplit,
+  eduStudyPlanCreate,
+  eduStudyPlanDelete,
+  eduStudyPlanItems,
+  eduStudyPlanList,
+  eduStudyPlanUpdate,
+  eduTermList,
+} from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import type {
   EduTeacherClass,
@@ -88,9 +98,7 @@ export function EduTeacherStudyPlanScreen() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<{ list?: EduTeacherTerm[] }>(
-        '/api/edu-ai-management/term?page=1&pageSize=100',
-      )
+      const res = await eduTermList<{ list?: EduTeacherTerm[] }>({ page: 1, pageSize: 100 })
       if (!res.success) {
         setTerms([])
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.loadTermsFailed')))
@@ -123,9 +131,7 @@ export function EduTeacherStudyPlanScreen() {
     void (async () => {
       setClassesLoading(true)
       try {
-        const res = await fetchApi<{ list?: EduTeacherClass[] }>(
-          `/api/edu-ai-management/class?termId=${encodeURIComponent(termId)}`,
-        )
+        const res = await eduClassList<{ list?: EduTeacherClass[] }>({ termId })
         if (cancelled) return
         if (!res.success) {
           setClasses([])
@@ -163,8 +169,12 @@ export function EduTeacherStudyPlanScreen() {
     setLoading(true)
     setError('')
     try {
-      const query = `termId=${encodeURIComponent(termId)}&classId=${encodeURIComponent(classId)}&page=1&pageSize=100`
-      const res = await fetchApi<{ list?: PlanRow[] }>(`/api/edu-ai-management/study-plan?${query}`)
+      const res = await eduStudyPlanList<{ list?: PlanRow[] }>({
+        termId,
+        classId,
+        page: 1,
+        pageSize: 100,
+      })
       if (!res.success) {
         setPlans([])
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.loadPlansFailed')))
@@ -198,10 +208,10 @@ export function EduTeacherStudyPlanScreen() {
       }
       setItemsLoading(true)
       try {
-        const res = await fetchApi<{
+        const res = await eduStudyPlanItems<{
           items?: EduTeacherPlanItem[]
           list?: EduTeacherPlanItem[]
-        }>(`/api/edu-ai-management/study-plan/${encodeURIComponent(planId)}/items`)
+        }>(planId)
         if (!res.success) {
           setItems([])
           setError(apiFailureToText(res, t('eduTeacherStudyPlan.loadItemsFailed')))
@@ -336,14 +346,8 @@ export function EduTeacherStudyPlanScreen() {
             description: form.description.trim() || undefined,
           }
       const res = editingId
-        ? await fetchApi<{ plan?: EduTeacherStudyPlan }>(
-            `/api/edu-ai-management/study-plan/${encodeURIComponent(editingId)}`,
-            { method: 'PUT', body: JSON.stringify(body) },
-          )
-        : await fetchApi<{ plan?: EduTeacherStudyPlan }>('/api/edu-ai-management/study-plan', {
-            method: 'POST',
-            body: JSON.stringify(body),
-          })
+        ? await eduStudyPlanUpdate<{ plan?: EduTeacherStudyPlan }>(editingId, body)
+        : await eduStudyPlanCreate<{ plan?: EduTeacherStudyPlan }>(body)
       if (!res.success) {
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.saveFailed')))
         return
@@ -364,10 +368,7 @@ export function EduTeacherStudyPlanScreen() {
     setError('')
     setNotice('')
     try {
-      const res = await fetchApi<{ deleted?: boolean }>(
-        `/api/edu-ai-management/study-plan/${encodeURIComponent(plan.id)}`,
-        { method: 'DELETE' },
-      )
+      const res = await eduStudyPlanDelete<{ deleted?: boolean }>(plan.id)
       if (!res.success) {
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.deleteFailed')))
         return
@@ -389,10 +390,7 @@ export function EduTeacherStudyPlanScreen() {
     setError('')
     setNotice('')
     try {
-      const res = await fetchApi<{ count?: number }>(
-        `/api/edu-ai-management/study-plan/${encodeURIComponent(plan.id)}/auto-split`,
-        { method: 'POST' },
-      )
+      const res = await eduStudyPlanAutoSplit<{ count?: number }>(plan.id)
       if (!res.success) {
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.splitFailed')))
         return
@@ -416,10 +414,7 @@ export function EduTeacherStudyPlanScreen() {
     setError('')
     setNotice('')
     try {
-      const res = await fetchApi<{ plan?: EduTeacherStudyPlan }>(
-        `/api/edu-ai-management/study-plan/${encodeURIComponent(plan.id)}`,
-        { method: 'PUT', body: JSON.stringify({ status }) },
-      )
+      const res = await eduStudyPlanUpdate<{ plan?: EduTeacherStudyPlan }>(plan.id, { status })
       if (!res.success) {
         setError(apiFailureToText(res, t('eduTeacherStudyPlan.saveFailed')))
         return
@@ -441,10 +436,9 @@ export function EduTeacherStudyPlanScreen() {
     // 乐观勾选:条目勾选是高频轻操作,失败再回滚
     setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, completed: next } : row)))
     try {
-      const res = await fetchApi<{ item?: EduTeacherPlanItem }>(
-        `/api/edu-ai-management/plan-item/${encodeURIComponent(item.id)}`,
-        { method: 'PUT', body: JSON.stringify({ completed: next }) },
-      )
+      const res = await eduPlanItemUpdate<{ item?: EduTeacherPlanItem }>(item.id, {
+        completed: next,
+      })
       if (!res.success) {
         setItems((prev) =>
           prev.map((row) => (row.id === item.id ? { ...row, completed: item.completed } : row)),

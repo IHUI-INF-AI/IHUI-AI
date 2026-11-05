@@ -27,7 +27,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduAttendanceBatchCheckIn,
+  eduAttendanceCheckIn,
+  eduAttendanceCheckOut,
+  eduAttendanceList,
+  eduAttendanceStats,
+} from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
@@ -40,7 +46,7 @@ import {
   attendanceStatusTone,
 } from '../components/attendance-status'
 import {
-  attendanceStatsUrl,
+  attendanceStatsParams,
   firstAttendanceClassId,
   type AttendanceStatsPayload,
 } from '../components/edu-attendance-stats'
@@ -107,16 +113,16 @@ function EduAttendanceScreen() {
       setStatsLoading(true)
       setStatsError('')
       // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显(§0.10)
-      const url = attendanceStatsUrl({
+      const params = attendanceStatsParams({
         date: attendanceBizDay(),
         classId: firstAttendanceClassId(list),
       })
-      if (!url) {
+      if (!params) {
         settle(null, t('eduAttendance.loadStatsFailed'))
         return
       }
       try {
-        const res = await fetchApi<AttendanceStatsPayload>(url)
+        const res = await eduAttendanceStats<AttendanceStatsPayload>(params)
         if (!res.success) {
           settle(null, `${t('eduAttendance.loadStatsFailed')}:${res.error ?? '-'}`)
           return
@@ -141,9 +147,9 @@ function EduAttendanceScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance?date=${attendanceBizDay()}`,
-      )
+      const res = await eduAttendanceList<{ list: AttendanceRecord[] }>({
+        date: attendanceBizDay(),
+      })
       if (!res.success) throw new Error(res.error || 'load failed')
       const list = res.data?.list ?? []
       setRecords(list)
@@ -209,28 +215,17 @@ function EduAttendanceScreen() {
       }
       setBusy(true)
       try {
-        const res = await fetchApi(
-          `/api/edu-ai-management/attendance/${kind}`,
+        const payload = {
+          studentId: record.studentId,
+          classId: record.classId,
+          // 签退的 date 是记录定位键(服务端写 checkOutTime=now 后按规则重判状态)
+          // ⇒ 原样回发行自己的业务日,不改写成"今天"
+          date: kind === 'check-in' ? bizDay : rowDay,
+        }
+        const res =
           kind === 'check-in'
-            ? {
-                method: 'POST',
-                body: JSON.stringify({
-                  studentId: record.studentId,
-                  classId: record.classId,
-                  date: bizDay,
-                }),
-              }
-            : {
-                method: 'PUT',
-                body: JSON.stringify({
-                  studentId: record.studentId,
-                  classId: record.classId,
-                  // 签退的 date 是记录定位键(服务端写 checkOutTime=now 后按规则重判状态)
-                  // ⇒ 原样回发行自己的业务日,不改写成"今天"
-                  date: rowDay,
-                }),
-              },
-        )
+            ? await eduAttendanceCheckIn(payload)
+            : await eduAttendanceCheckOut(payload)
         appAlert(
           t('eduAttendance.title'),
           res.success
@@ -273,10 +268,10 @@ function EduAttendanceScreen() {
       if (busy) return
       setBusy(true)
       try {
-        const res = await fetchApi<BatchCheckInResult>(
-          '/api/edu-ai-management/attendance/batch-check-in',
-          { method: 'POST', body: JSON.stringify({ classId, date: attendanceBizDay() }) },
-        )
+        const res = await eduAttendanceBatchCheckIn<BatchCheckInResult>({
+          classId,
+          date: attendanceBizDay(),
+        })
         if (res.success && res.data) {
           appAlert(
             t('eduAttendance.batchTitle'),

@@ -9,24 +9,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Copy, Loader2, Play, Square, Video } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { createSrsStream, getSrsStreams, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { toast } from '@/components/common/Toaster'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAuthStore } from '@/stores/auth'
 
-interface StreamItem {
-  id: string
-  streamKey: string
-  title: string
-  pushUrl: string | null
-  playUrl: string | null
-  hlsUrl: string | null
-  status: string
-  userId: string | null
-  createdAt: string
-}
+type StreamItem = SrsStream
 
 export default function LiveHostPage() {
   const t = useTranslations('liveHost')
@@ -40,17 +30,21 @@ export default function LiveHostPage() {
 
   const myStreamsQ = useQuery({
     queryKey: ['srs', 'streams'],
-    queryFn: () => apiOrThrow<{ list: StreamItem[] }>('/srs/streams?page=1&pageSize=50'),
+    queryFn: async () => {
+      const r = await getSrsStreams({ page: 1, pageSize: 50 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     select: (d) => d.list.filter((s) => (s.userId ? s.userId === currentUserId : false)),
     enabled: allow,
   })
 
   const createQ = useMutation({
-    mutationFn: () =>
-      apiOrThrow<StreamItem>('/srs/streams', {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim() }),
-      }),
+    mutationFn: async () => {
+      const r = await createSrsStream({ title: title.trim() })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (stream) => {
       setCreated(stream)
       setTitle('')
@@ -61,11 +55,11 @@ export default function LiveHostPage() {
   })
 
   const endQ = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow<StreamItem>(`/srs/streams/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: 'inactive' }),
-      }),
+    mutationFn: async (id: string) => {
+      const r = await updateSrsStream(id, { status: 'inactive' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('endSuccess'))
       void qc.invalidateQueries({ queryKey: ['srs', 'streams'] })

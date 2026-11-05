@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getKnowledgeBase } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   KnowledgeEntryReadingScreen as SharedKnowledgeEntryReadingScreen,
@@ -87,7 +87,7 @@ export function KnowledgeEntryReadingScreen() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<KbDetailPayload>(`/api/knowledge-base/${encodeURIComponent(id)}`)
+      const res = await getKnowledgeBase<KbDetailPayload>(id)
       if (!res.success) {
         setArticle(null)
         setPrev(null)

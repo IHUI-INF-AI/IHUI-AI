@@ -13,7 +13,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { ExamIntro } from './ExamIntro'
 import { ExamResult } from './ExamResult'
 import { ExamAnswering } from './ExamAnswering'
-import { api } from './helpers'
+import { getExamById, getExamPaper, startExam, submitExamRecord } from '@ihui/api-client'
 import type { PaperDetail, Question, SubmitResult } from './types'
 
 export default function ExamTakePage() {
@@ -25,10 +25,15 @@ export default function ExamTakePage() {
     queryKey: ['exam', 'paper', id],
     queryFn: async () => {
       const [paperRes, questionsRes] = await Promise.all([
-        api<{ paper: PaperDetail }>(`/api/exam/papers/${id}`),
-        api<{ list: Question[] }>(`/api/exam/papers/${id}/questions`),
+        getExamPaper<{ paper: PaperDetail }>(id),
+        getExamById(id),
       ])
-      return { ...paperRes.paper, questions: questionsRes.list }
+      if (!paperRes.success) throw new Error(paperRes.error)
+      if (!questionsRes.success) throw new Error(questionsRes.error)
+      return {
+        ...paperRes.data.paper,
+        questions: questionsRes.data.questions as unknown as Question[],
+      }
     },
   })
 
@@ -39,8 +44,11 @@ export default function ExamTakePage() {
   const [leftSec, setLeftSec] = React.useState(0)
 
   const startMut = useMutation({
-    mutationFn: () =>
-      api<{ record: { id: string } }>(`/api/exam/papers/${id}/start`, { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await startExam<{ record: { id: string } }>(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (d: { record: { id: string } }) => {
       setRecordId(d.record.id)
       setPhase('answering')
@@ -56,11 +64,16 @@ export default function ExamTakePage() {
   })
 
   const submitMut = useMutation({
-    mutationFn: (payload: { answers: Record<string, string | string[]> }) =>
-      api<{ result: SubmitResult }>(`/api/exam/records/${recordId}/submit`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }).then((d) => d.result),
+    mutationFn: async (payload: { answers: Record<string, string | string[]> }) => {
+      const r = await submitExamRecord<{ result: SubmitResult }>(recordId ?? '', {
+        answers: Object.entries(payload.answers).map(([questionId, answer]) => ({
+          questionId,
+          answer,
+        })),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data.result
+    },
     onSuccess: (r: SubmitResult) => {
       setResult(r)
       setPhase('result')

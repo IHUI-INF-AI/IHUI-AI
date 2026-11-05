@@ -12,7 +12,13 @@ import { CalendarCheck, Plus, Trash2 } from 'lucide-react'
 import { Button, Input } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
-import { apiOrThrow as api } from '@/lib/api'
+import {
+  checkinAccountPool,
+  createAccountPool,
+  deleteAccountPool,
+  listAccountPool,
+  updateAccountPool,
+} from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 interface PoolRow {
@@ -42,22 +48,26 @@ export default function AccountPoolPage() {
   const listQ = useQuery({
     queryKey: ['account-pool'],
     enabled: allow,
-    queryFn: () => api<{ list: PoolRow[]; total: number }>('/api/account-pool'),
+    queryFn: async () => {
+      const r = await listAccountPool<{ list: PoolRow[]; total: number }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const rows = listQ.data?.list ?? []
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['account-pool'] })
   const addMut = useMutation({
-    mutationFn: () =>
-      api('/api/account-pool', {
-        method: 'POST',
-        body: JSON.stringify({
-          providerCode: form.providerCode,
-          name: form.name.trim(),
-          token: form.token.trim(),
-          refreshToken: form.refreshToken.trim() || undefined,
-        }),
-      }),
+    mutationFn: async () => {
+      const r = await createAccountPool({
+        providerCode: form.providerCode,
+        name: form.name.trim(),
+        token: form.token.trim(),
+        refreshToken: form.refreshToken.trim() || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('addSuccess'))
       setForm(EMPTY_FORM)
@@ -67,16 +77,20 @@ export default function AccountPoolPage() {
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const toggleMut = useMutation({
-    mutationFn: (row: PoolRow) =>
-      api(`/api/account-pool/${row.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isEnabled: !row.isEnabled }),
-      }),
+    mutationFn: async (row: PoolRow) => {
+      const r = await updateAccountPool(row.id, { isEnabled: !row.isEnabled })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const checkinMut = useMutation({
-    mutationFn: (row: PoolRow) => api(`/api/account-pool/${row.id}/checkin`, { method: 'POST' }),
+    mutationFn: async (row: PoolRow) => {
+      const r = await checkinAccountPool(row.id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('checkinSuccess'))
       invalidate()
@@ -84,7 +98,11 @@ export default function AccountPoolPage() {
     onError: (e: Error) => toast.error(t('actionFailed'), { description: e.message }),
   })
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/account-pool/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await deleteAccountPool(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       setConfirmId(null)
       invalidate()

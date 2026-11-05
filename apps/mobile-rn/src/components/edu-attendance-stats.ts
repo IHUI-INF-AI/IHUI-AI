@@ -43,9 +43,6 @@ export const TREND_SEGMENT_ORDER: readonly AttendanceTrendSegmentKey[] = [
 /** 考勤日期列口径(与后端 attendanceDateSchema 的正则逐字一致,不接受其他形态)。 */
 export const ATTENDANCE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-/** 统计端点(fetchApi 取的是完整路径,列表那句同款带 /api 前缀)。 */
-export const ATTENDANCE_STATS_PATH = '/api/edu-ai-management/attendance/stats'
-
 /** 时段粒度:与 web statsPeriod 的默认档、小程序 STATS_PERIOD 同字面值(后端 z.enum 三档)。 */
 export const STATS_PERIOD = 'daily'
 
@@ -273,26 +270,29 @@ export function firstAttendanceClassId(
 }
 
 /**
- * 组装 stats 请求路径(带 query)。窗口 = 截至 `date` 往前共 `windowDays` 天(含当日)。
+ * 组装 stats 请求参数。窗口 = 截至 `date` 往前共 `windowDays` 天(含当日)。
  *
  * 起点算不出来 ⇒ **null**:调用方据此连请求都不发(AGENTS §0.10 失效方向 = 多要一次说明,
  * 不是打过去吃一个 400)。classId 空串 = 不带该键 = 全部班级(与 web 同口径)。
  * 参数顺序与 web 侧 URLSearchParams、小程序侧 attendanceStatsUrl 同档:period → startDate → endDate。
  */
-export function attendanceStatsUrl(input: {
+export function attendanceStatsParams(input: {
   date: string
   classId?: string
   windowDays?: number
-}): string | null {
+}): { period: string; startDate: string; endDate: string; classId?: string } | null {
   if (!ATTENDANCE_DATE_RE.test(input.date)) return null
   const days = input.windowDays ?? TREND_WINDOW_DAYS
   if (!Number.isInteger(days) || days < 1) return null
   const startDate = shiftAttendanceDayKey(input.date, -(days - 1))
   if (startDate === null) return null
-  const parts = [`period=${STATS_PERIOD}`, `startDate=${startDate}`, `endDate=${input.date}`]
   const classId = (input.classId ?? '').trim()
-  if (classId !== '') parts.push(`classId=${encodeURIComponent(classId)}`)
-  return `${ATTENDANCE_STATS_PATH}?${parts.join('&')}`
+  return {
+    period: STATS_PERIOD,
+    startDate,
+    endDate: input.date,
+    ...(classId !== '' ? { classId } : {}),
+  }
 }
 
 // AGENTS §22c:镜像测试直接 import 本出口,不得复制判据。本文件是纯 lib(无 CLI 入口),按 §22d 免守卫。
@@ -301,7 +301,6 @@ export const __test__ = {
   OTHER_SEGMENT,
   TREND_SEGMENT_ORDER,
   ATTENDANCE_DATE_RE,
-  ATTENDANCE_STATS_PATH,
   STATS_PERIOD,
   TREND_WINDOW_DAYS,
   toAttendanceCount,
@@ -313,6 +312,6 @@ export const __test__ = {
   readAttendanceStats,
   shiftAttendanceDayKey,
   firstAttendanceClassId,
-  attendanceStatsUrl,
+  attendanceStatsParams,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

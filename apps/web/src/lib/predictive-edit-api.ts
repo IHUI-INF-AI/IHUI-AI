@@ -24,16 +24,7 @@
 
 import * as React from 'react'
 
-import { fetchApi } from '@ihui/api-client'
-
-/** ai-service 端点(web 同源反代;后端路径为 /api/llm/fim/edit-intent)。 */
-export const PREDICTIVE_EDIT_ENDPOINT = '/api/llm/fim/edit-intent'
-
-/**
- * FIM 指标上报端点(与 CodeEditor 补全上报同一个后端入口,scene 分桶)。
- * 反代路径与 edit-intent 同前缀(`/api/llm/:path*` → ai-service)。
- */
-const FIM_METRICS_ENDPOINT = '/api/llm/fim/metrics'
+import { postFimEditIntent, postFimMetrics } from '@ihui/api-client'
 
 /**
  * 本场景在 model×scene 聚合里的场景字面量。**逐字**取自后端
@@ -194,9 +185,7 @@ export async function fetchPredictiveEdit(
     ...(request.budget_ms !== undefined ? { budget_ms: request.budget_ms } : {}),
   }
   try {
-    const result = await fetchApi<PredictiveEditResponseData>(PREDICTIVE_EDIT_ENDPOINT, {
-      method: 'POST',
-      body: JSON.stringify(body),
+    const result = await postFimEditIntent<PredictiveEditResponseData>(body, {
       signal: options.signal,
       timeoutMs: options.timeoutMs ?? PREDICTIVE_EDIT_TIMEOUT_MS,
     })
@@ -287,13 +276,7 @@ function reportPredictiveEditMetric(event: PredictiveEditMetricEvent): void {
       : {}),
   }
   try {
-    void Promise.resolve(
-      fetchApi<unknown>(FIM_METRICS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }),
-    )
+    void Promise.resolve(postFimMetrics(body))
       .then((result) => {
         if (result && result.success === false) debugSilently('metric 上报失败', result.error)
       })

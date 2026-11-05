@@ -14,7 +14,12 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { BookOpen, Check, Eye, EyeOff } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  createKnowledgeBase,
+  getKnowledgeBase,
+  getKnowledgeBaseCategories,
+  updateKnowledgeBase,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -92,7 +97,7 @@ export default function KnowledgeBaseEditScreen() {
     setCategoriesLoading(true)
     setCategoriesError('')
     try {
-      const res = await fetchApi<{ list: KbCategory[] }>('/api/knowledge-base/categories')
+      const res = await getKnowledgeBaseCategories<KbCategory>()
       if (!res.success) throw new Error(res.error)
       setCategories(res.data?.list ?? [])
     } catch {
@@ -107,9 +112,7 @@ export default function KnowledgeBaseEditScreen() {
     setDetailLoading(true)
     setDetailError('')
     try {
-      const res = await fetchApi<{ item: KbItem }>(
-        `/api/knowledge-base/${encodeURIComponent(editingId)}`,
-      )
+      const res = await getKnowledgeBase<{ item: KbItem }>(editingId)
       if (!res.success) throw new Error(res.error)
       const item = res.data?.item
       if (!item) throw new Error('missing item')
@@ -159,11 +162,8 @@ export default function KnowledgeBaseEditScreen() {
     }
     try {
       const res = editingId
-        ? await fetchApi(`/api/knowledge-base/${encodeURIComponent(editingId)}`, {
-            method: 'PUT',
-            body: JSON.stringify(body),
-          })
-        : await fetchApi('/api/knowledge-base', { method: 'POST', body: JSON.stringify(body) })
+        ? await updateKnowledgeBase<KbItem>(editingId, body)
+        : await createKnowledgeBase<KbItem>(body)
       if (!res.success) throw new Error(res.error)
       navigation.goBack()
     } catch {

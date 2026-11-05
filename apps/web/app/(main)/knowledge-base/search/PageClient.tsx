@@ -13,7 +13,7 @@ import { Search, Loader2, FileText, ArrowLeft } from 'lucide-react'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { apiOrThrow } from '@/lib/api'
+import { searchKnowledgeBase } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
@@ -64,10 +64,13 @@ function SearchContent() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'search', q, category],
-    queryFn: () => {
-      const qs = new URLSearchParams({ search: q, pageSize: '50' })
-      if (category !== 'all') qs.set('categoryId', category)
-      return apiOrThrow<KBSearchData>(`/api/knowledge-base?${qs.toString()}`)
+    queryFn: async (): Promise<KBSearchData> => {
+      const res = await searchKnowledgeBase<KBSearchData>(
+        q,
+        category !== 'all' ? { categoryId: category, pageSize: 50 } : { pageSize: 50 },
+      )
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
     },
     enabled: allow && q.trim().length > 0,
   })

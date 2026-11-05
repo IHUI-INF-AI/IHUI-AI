@@ -14,7 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Download, Share2, Trash2 } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  exportGdprData,
+  getGdprPortabilityData,
+  eraseGdprAccount,
+  type GdprExportData as ExportData,
+  type GdprPortabilityData as PortabilityData,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -35,38 +41,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  * 后端不保存"申请单"记录，故本屏的「最近操作回执」只反映本机最近一次调用结果与时间，
  * 不谎称为服务端申请状态。
  */
-interface ExportUser {
-  id: string
-  phone: string | null
-  email: string | null
-  username: string | null
-  nickname: string | null
-  createdAt: string
-}
-interface ExportData {
-  user: ExportUser
-  searchHistory: unknown[]
-  auditLogs: unknown[]
-}
-interface PortabilityData {
-  schema: string
-  exportedAt: string
-  subject: { id: string; identifier: string | null }
-  data: {
-    profile?: { nickname?: string | null; email?: string | null }
-    searchHistory?: unknown[]
-    auditTrail?: unknown[]
-    addresses?: unknown[]
-    notes?: unknown[]
-    memories?: unknown[]
-    chat?: { conversations?: unknown[]; messageCount?: number }
-    orders?: unknown[]
-  }
-}
-interface EraseData {
-  erased: boolean
-  userId: string
-}
 type ReceiptKind = 'export' | 'portability' | 'erase'
 interface Receipt {
   kind: ReceiptKind
@@ -119,7 +93,7 @@ export default function DataRightsScreen() {
     setExporting(true)
     setExportError(null)
     try {
-      const res = await fetchApi<ExportData>('/api/gdpr/export', { method: 'POST' })
+      const res = await exportGdprData()
       if (!res.success) {
         setExportError(res.error || t('dataRights.exportFailed'))
         pushReceipt('export', false)
@@ -138,7 +112,7 @@ export default function DataRightsScreen() {
     setPortLoading(true)
     setPortError(null)
     try {
-      const res = await fetchApi<PortabilityData>('/api/gdpr/portability', { method: 'POST' })
+      const res = await getGdprPortabilityData()
       if (!res.success) {
         setPortError(res.error || t('dataRights.portabilityFailed'))
         pushReceipt('portability', false)
@@ -158,7 +132,7 @@ export default function DataRightsScreen() {
     setErasing(true)
     setEraseError(null)
     try {
-      const res = await fetchApi<EraseData>('/api/gdpr/erase', { method: 'POST' })
+      const res = await eraseGdprAccount()
       if (!res.success) {
         setEraseError(res.error || t('dataRights.eraseFailed'))
         pushReceipt('erase', false)

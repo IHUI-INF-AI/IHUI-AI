@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
-import { api } from '../helpers'
+import { createAsk } from '@ihui/api-client'
 import { AskEditForm } from './AskEditForm'
 
 export default function AskCreatePage() {
@@ -31,10 +31,9 @@ export default function AskCreatePage() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean)
-      return api<{ ask: { id: string } }>(`/api/asks`, {
-        method: 'POST',
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), tags }),
-      })
+      const r = await createAsk({ title: title.trim(), content: content.trim(), tags })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { ask: { id: string } }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['asks'] })

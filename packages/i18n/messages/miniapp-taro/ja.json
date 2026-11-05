@@ -4691,7 +4691,8 @@
       "active": "有効",
       "rejected": "拒否済み",
       "cancelled": "解除済み"
-    }
+    },
+    "myAttendanceHint": "本人の登校記録を見る"
   },
   "eduChildAttendance": {
     "title": "子どもの出席",
@@ -4717,7 +4718,27 @@
       "absent": "欠席",
       "leave": "休み"
     },
-    "student": "生徒"
+    "student": "生徒",
+    "checkInAt": "登校時刻",
+    "momentNow": "現在",
+    "backfillNeedsTime": "過去の日を登録するには、その日内の登校時刻が必要です",
+    "checkedInToast": "登校しました",
+    "checkedOutToast": "下校しました",
+    "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
+    "batchDoneToast": "点呼完了",
+    "checkInFor": "登校登録",
+    "batchCheckIn": "一括点呼",
+    "noClassReason": "現在のリストに選択できるクラスがありません",
+    "multiClass": "複数のクラスがあるため、今回は {classId} のみ点呼します",
+    "statusOther": "その他",
+    "trendWindow": "直近 {days} 日間",
+    "trendChartScope": "集計範囲：{scope}",
+    "statusDistribution": "状態分布",
+    "statsTotalLabel": "登校延べ人数",
+    "statsAttendanceRate": "出席率",
+    "emptyTrend": "推移データがありません",
+    "trendChartTitle": "出席の推移",
+    "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）"
   },
   "eduMgmt": {
     "attendanceTitle": "出席管理",
@@ -5564,7 +5585,10 @@
     "twoFactor": "二段階認証",
     "loginAlert": "ログイン通知",
     "desc": "アカウントログインに関するスイッチを管理",
-    "loadFailed": "セキュリティ設定の読み込みに失敗"
+    "loadFailed": "セキュリティ設定の読み込みに失敗",
+    "readOnlyHint": "この画面は現在の状態を表示するのみで、ここから変更できません",
+    "stateOn": "オン",
+    "stateOff": "オフ"
   },
   "selfMedia": {
     "title": "セルフメディアアシスタント",
@@ -7034,5 +7058,14 @@
   },
   "distributionTeamDetailPage": {
     "noSubordinates": "下位メンバーはいません"
+  },
+  "eduMyAttendance": {
+    "title": "自分の出席",
+    "selfCheckIn": "自分で登校登録",
+    "scanCheckIn": "スキャンしてチェックイン",
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "selfDoneToast": "登校登録しました",
+    "scanDoneToast": "スキャンで登録しました",
+    "scanInvalidToast": "本システムのQRコードではありません"
   }
 }

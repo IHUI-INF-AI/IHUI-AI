@@ -150,6 +150,32 @@ test('白名单:tokens.css 条目只覆盖一枚确切文件,不是整目录(par
   assert.deepEqual(held, batch.filter((p) => p !== 'packages/design-tokens/src/styles/tokens.css'))
 })
 
+test('白名单:壳承载页类型契约(.d.ts)放行,同目录其他形态不收编(2026-11-05 新增条目)', () => {
+  // 阳性对照:通用 `/\.generated\.ts$/` 那条**结构上吃不到** `.generated.d.ts` ——
+  // 少了这条新条目,守护写下的契约件就无人收编(本腿不写落点账本,账本支也接不到)。
+  assert.equal(
+    auto.isCollectible('apps/miniapp-taro/types/rn-shells.generated.d.ts'),
+    true,
+    '确切派生件必须放行',
+  )
+  const batch = [
+    'apps/miniapp-taro/types/rn-shells.generated.d.ts', // 唯一正例
+    'apps/miniapp-taro/types/rn-shells.generated.ts', // 少一个 .d ⇒ 走的是另一条既有规则,不算本条目
+    'apps/miniapp-taro/types/hand-written.d.ts',
+    'apps/miniapp-taro/types/rn-shells.generated.d.ts.bak',
+    'apps/miniapp-taro/src/types/rn-shells.generated.d.ts',
+  ]
+  const { collected, held } = auto.partitionCollectible(batch)
+  assert.deepEqual(
+    collected.filter((p) => p.endsWith('rn-shells.generated.d.ts')),
+    ['apps/miniapp-taro/types/rn-shells.generated.d.ts'],
+    '条目覆盖面 = 一枚确切文件,不是 types/ 目录',
+  )
+  assert.equal(collected.includes('apps/miniapp-taro/types/hand-written.d.ts'), false)
+  assert.equal(collected.includes('apps/miniapp-taro/src/types/rn-shells.generated.d.ts'), false)
+  assert.equal(held.includes('apps/miniapp-taro/types/hand-written.d.ts'), true)
+})
+
 test('装车锁:main() 真的用 isCollectible 过滤候选(造好没装车=没有)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   assert.match(src, /rawChanges\.filter\(\(c\) => isCollectible\(c\.path\)\)/, '主流程必须按白名单过滤候选')

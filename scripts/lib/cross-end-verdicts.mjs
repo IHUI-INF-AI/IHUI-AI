@@ -10,12 +10,21 @@
 // 「未判定」与「已判定(缺页/不承载)」分开 —— 混在一起就等于把"没人验过"记成"验过没发现"。
 //
 // 形态:JSONL,一行一屏,键 = 共享屏 spec(与 scripts/data/cross-end-screen-registry.json 的
-// shared 同一键空间)。只有"验过但没落地代码"的两档才进台账:
+// shared 同一键空间)。进台账的是三档:验过但没落地代码的两档(missing / not-applicable)
+// + 已核验结清的凭据一档(generated);头注只列两档会让消费方按两档口径写,把 generated
+// 当成非法值或待办(2026-11-05 补齐第三档语义)。
 //   {"shared":"packages/app/src/features/x/XScreen.tsx","route":"pkg-x/x/index",
 //    "verdict":"missing","evidence":"<带文件:行号的证据>","at":"2026-10-25","source":"miniapp-batch-1.json"}
 //   route = 小程序承载路由(registry 的 miniapp);无路由写 '-'。
 //   verdict=missing        小程序端确实没有对应页(该造页)
 //   verdict=not-applicable 该屏本就不该由小程序承载(不造页)
+//   verdict=generated      该屏**已被小程序页显式镜像** —— 已核验并结清的凭据,**不是待办**。
+//                          这一档只声明「镜像在位」这一件事,自身不含功能对齐状态;功能对齐
+//                          与否由 evidence 里的显式裁决读出来分桶(见 report-rn-miniapp-gaps.mjs
+//                          的 hooksBucketOf)。此前把这一档整档念成「数据钩子待补」,于是 97 条
+//                          结清凭据被每一轮读它的人(含 agent)重新列成 97 张票 —— 词表语义必须
+//                          写在这一处,而不是散在消费方的注释里。
+//                          写入出口只有对账器:手填等于伪造凭据(apply-cross-end-verdicts 已拦)。
 // `declare` 档不进台账 —— 它直接落成标记行 + registry 条目,落点本身就是凭据。
 //
 // 幂等:同一 shared 以最后写入者为准(同屏以本批为准);写盘口径 = HEAD 面 ∪ 工作树面 ∪ 本批。
