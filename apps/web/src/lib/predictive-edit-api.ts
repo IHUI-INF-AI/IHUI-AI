@@ -320,13 +320,22 @@ export interface PredictiveEditSettlementPayload {
 
 function createPredictiveEditMetricSettler() {
   let pending: PredictiveEditSettlementPayload | null = null
+  // 已结算过的条目:一次展示只能终结一次(应用或忽略)。仅凭 pending 记账不够 ——
+  // 「应用」发生在展示 effect 落地之前时,pending 还是 null,随后迟到的 shown effect
+  // 会把同一条建议重新挂回 pending,紧接着的 dismiss effect 再报一条 dismissed,
+  // 一次应用于是变成 accepted + dismissed 两条(线上会虚增忽略率)。记住已结算条目,
+  // 让迟到的 shown / 重复的 accept 都无账可挂。
+  let settled: PredictiveEditSettlementPayload | null = null
   return {
-    /** 建议开始展示:登记为待结算(同一条目重复登记幂等)。 */
+    /** 建议开始展示:登记为待结算(已终结的条目不再挂账)。 */
     shown(payload: PredictiveEditSettlementPayload): void {
+      if (settled === payload) return
       pending = payload
     },
     /** 以「应用」终结核对条目;未在展示中的条目照样上报(调用方已自行核对可用)。 */
     settledAsAccepted(payload: PredictiveEditSettlementPayload): void {
+      if (settled === payload) return
+      settled = payload
       if (pending === payload) pending = null
       reportPredictiveEditMetric({
         accepted: true,
@@ -339,6 +348,7 @@ function createPredictiveEditMetricSettler() {
       if (!pending) return
       const ended = pending
       pending = null
+      settled = ended
       reportPredictiveEditMetric({
         accepted: false,
         model: ended.model,
