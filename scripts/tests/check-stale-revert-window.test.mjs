@@ -12,8 +12,10 @@
  * 两维处置各有成对用例,缺一边判据就无牙:
  *  ① 热档(三本活文档)走深窗口 ANCESTOR_WINDOW_HOT —— W1:回写点深度 > 旧窗口、≤ 深窗口
  *     ⇒ 必须**判红**(旧实现看不见这一格);
- *  ② 窗口确证用尽而未命中 ⇒ 显式点名「未判定/窗口不足」,不判红也不记绿 —— W2:同一深度
- *     的普通路径(浅窗口按设计)必须 code 0 **且**点名 + 结论行带尾注;W3:浅历史路径的
+ *  ② 窗口确证用尽而未命中:2026-10-25 起 R1 升级为深档(窗口用尽回落全历史)⇒ 窗外回写可
+ *     取证并照判红 —— W2:浅窗口外、全历史内的普通路径回写必须判红并点名,且不得再喊
+ *     「窗口不足」;同一深路径上的真新编辑必须 code 0,而 R1r(读祖先正文、仍保持窗口)的
+ *     「未覆盖/窗口用尽」报名与结论行尾注照旧在场(未覆盖 ≠ 通过);W3:浅历史路径的
  *     真新编辑必须**连点名都没有**(证明点名吃证据,不是恒喊);
  *  W4:窗口用尽判据的边界恰是 "> window" —— 恰好 window 枚历史时**不得**喊"不足",
  *     且窗口内可命中 ⇒ 判红(哨兵取 window+1 枚的 off-by-one 锁);
@@ -113,45 +115,55 @@ test('W1 ① 的阳性对照:热档回写到旧窗口之外、深窗口之内 �
   }
 })
 
-test('W2 ② 的阳性对照:同一深度回写落在普通浅窗口之外 ⇒ 不判红(无从取证),但必须点名「窗口不足」且不得读成通过', () => {
+test('W2 深档对照:浅窗口外的普通路径回写 ⇒ 深档取证后必须判红(旧期望「无从取证」已被 2026-10-25 深档升级推翻)', () => {
   const { dir, run } = repo()
   try {
     const d = DEPTH()
     const first9 = buildDepthHistory({ dir, run }, 'notes/data.txt', d)
+    // 夹具前提必须**量**出来:浅窗口确凿用尽(40 枚取满 + truncated)。否则下面证明的就不是深档
+    // 救回的那一格,而是"本来就在窗口里"(W4 那种边界)。旧 W2 的错在于只量了"深度 > 窗口",
+    // 没量 analyze 走的是深档 —— 2026-10-25 起 analyze 的祖先取材带 deep:true(窗口用尽回落全历史),
+    // 所以"窗外无从取证"这个前提已经不成立。
+    const shallow = G.ancestorWindow(dir, 'notes/data.txt')
+    assert.equal(G.windowFor('notes/data.txt'), G.ANCESTOR_WINDOW, '普通路径必须走浅窗口')
+    assert.equal(shallow.shas.length, G.ANCESTOR_WINDOW)
+    assert.equal(shallow.truncated, true, '夹具前提:该路径动过的提交必须深于浅窗口')
+    // 深档在窗口用尽时回落全历史 —— v1 因此可被取证(这不是放宽,是把"没判"变成"判过")。
+    const deep = G.ancestorWindow(dir, 'notes/data.txt', { deep: true })
+    assert.equal(deep.truncated, false, '全历史取得 ⇒ 已不是"窗口不足"')
+    assert.equal(deep.shas.length, d)
+    assert.equal(deep.shas[d - 1].slice(0, 9), first9, '全历史必须把最老那枚(v1)也取到')
+
     put(dir, 'notes/data.txt', 'v1\n')
     run('add', '--', 'notes/data.txt')
     const loss = []
     const v = G.analyze(dir, ['notes/data.txt'], { windowLoss: loss })
-    assert.deepEqual(v, [], '浅窗口外无从比中 ⇒ 不凭空定罪(判红要有字节证据)')
-    assert.equal(
-      loss.length,
-      1,
-      `窗口确证用尽而未命中,必须落成"窗口不足"点名,实得 ${JSON.stringify(loss)}`,
-    )
-    assert.equal(loss[0].path, 'notes/data.txt')
-    assert.equal(loss[0].window, G.ANCESTOR_WINDOW)
-    assert.equal(loss[0].seen, G.ANCESTOR_WINDOW, '点名必须写清"取满了几枚"')
+    assert.equal(v.length, 1, `深档已取证 ⇒ 必须判红,实得 ${JSON.stringify(v)}`)
+    assert.equal(v[0].path, 'notes/data.txt')
+    assert.equal(v[0].commit, first9, '必须点名回到的正是最老那枚(v1)')
+    assert.deepEqual(loss, [], '深档真把它判出来了 ⇒ 不得再喊"窗口不足"(② 不许替 ① 兜底冒充)')
     const r = G.audit(dir, { staged: true })
     const out = r.lines.join('\n')
-    assert.equal(r.code, 0, '② 不是判红通道(红要有证据);但绿必须带着点名')
-    assert.match(out, /\[R1 未判定\]/)
-    assert.ok(out.includes('notes/data.txt'), '必须点名到路径')
-    assert.ok(!out.includes(first9) || !/==/.test(out), '没命中就不许编一个"等于某提交"的结论')
-    assert.match(
-      out,
-      /✅.*窗口不足未判定\(R1\)/,
-      '结论行必须把这型未判带进尾注,不得给光秃秃的"通过"',
-    )
-    // 同一夹具的第二臂:该深路径上的**真新编辑**同样吃 ② 点名(窗口用尽是路径属性,与结论无关),
-    // 但仍不得判红 —— 点名跟着证据走,不跟着"像不像事故"走。
+    assert.equal(r.code, 1, `浅窗口外的陈旧回写在深档下必须拦,实得 exit ${r.code}:${out.slice(0, 300)}`)
+    assert.ok(r.lines.some((l) => l.includes('notes/data.txt') && l.includes(first9)))
+    assert.doesNotMatch(out, /\[R1 未判定\]/, '深档已判 ⇒ 不得再挂"窗口不足"的虚账')
+    // 第二臂:同一深路径上的**真新编辑** —— 命中与否只看字节,不看"路径深度像不像事故"。
+    // R1 深档也判不出命中 ⇒ 不红;但 R1r(读祖先正文、仍保持浅窗口)必须把"窗口用尽"如实报名,
+    // 结论行尾注同样带着它 —— 诚实面从 R1 的 windowLoss 转到了 R1r 这一侧(未覆盖 ≠ 通过)。
     put(dir, 'notes/data.txt', 'brand-new-content-line-never-committed\n')
     run('add', '--', 'notes/data.txt')
     const r2 = G.audit(dir, { staged: true })
+    const out2 = r2.lines.join('\n')
     assert.equal(r2.code, 0, '真新编辑即使在深路径上也不得判红')
-    assert.match(
-      r2.lines.join('\n'),
-      /\[R1 未判定\]/,
-      '深路径上"窗口用尽"这一事实不因内容而变,如实报',
+    assert.doesNotMatch(out2, /\[R1 未判定\]/, '深档可判 ⇒ R1 不再出"未判定"')
+    assert.match(out2, /\[R1r 未覆盖\]/, 'R1r 仍走浅窗口:窗口用尽必须逐条报名,不得静默')
+    assert.ok(
+      out2.includes(`祖先窗口(${G.ANCESTOR_WINDOW} 枚)已用尽`),
+      'R1r 的点名必须写清窗口枚数与该路径更早版本未取',
+    )
+    assert.ok(
+      r2.lines.some((l) => l.startsWith('✅') && l.includes('未覆盖')),
+      `通过结论必须带"未覆盖"尾注,不得给光秃秃的"通过":${out2.slice(-260)}`,
     )
   } finally {
     rmScratch(dir)
