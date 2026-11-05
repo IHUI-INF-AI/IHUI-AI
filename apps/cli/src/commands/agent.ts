@@ -79,7 +79,7 @@ import {
   resolveAuditIngestClient,
 } from '../utils/audit-ingest-client.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
-import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import { checkPermission, isAdvertisableDecision, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 // G-686:进程级、按 provider/model 分桶的 AIMD 准入闸门(默认关 —— 见该文件头注的翻转前置)。
@@ -1821,6 +1821,48 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 4. 未挂 plugins —— preToolCall 钩子可能改写参数,提前跑就绕过了它。
    * 已知取舍:第 4 条让带插件的会话拿不到提前执行收益,这是有意的保守。
    */
+  /**
+   * 广告面 = 可执行面(2026-11-05 立)。
+   *
+   * 立因(现读实测):发给模型的 tools 清单一直下发**整份注册表**
+   * (`toolsToProviderSchema(listTools())`),而拒绝判据 `checkPermission` 只在**调用时**生效
+   * (全仓 `.deny` 除本模块外没有第二个消费者)。自主派发环 68 份转录里 `run_command` 被调
+   * **40 次、几乎全部 success:false** —— 每一次都是一整轮迭代白烧(会话上限 40 轮)。
+   * 无头会话没有审批人(`approverAvailable: false` 由本入口结构性声明,见上文注释),
+   * 那些"要人批准"的工具对它而言**结构上不可能执行**;把它们摆在清单里,就是引诱模型去撞一堵墙。
+   * 口径与本文既有裁决一致:**执行体只做它有权限做的事**。
+   *
+   * 判据**复用那一份现成的** `checkPermission`(§0.6,不另造第二把尺):
+   *  · `deny` ⇒ 永不摘除项之外一律摘(白名单/黑名单/plan 档都是这句);
+   *  · `ask` 且本会话没人可问 ⇒ 摘;但 `--allow-dangerous` 在场时不摘 —— 那时它是真能执行的;
+   *  · 其余(含 `ask` 而人在场)⇒ 照原样广告,交互式会话的确认窗不受影响。
+   * 失效方向:**过滤后为空 ⇒ 不应用过滤**并点名(宁可继续多给一次撞墙机会,
+   * 也不让 native function calling 静默退化成 prompt 模式 —— 那是另一种更难诊断的失败)。
+   */
+  const advertisableTools = (all: ReturnType<typeof listTools>): ReturnType<typeof listTools> => {
+    const mode = opts.ctx.permissionMode ?? 'default';
+    const nobodyToAsk = opts.ctx.approverAvailable === false && opts.ctx.allowDangerous !== true;
+    const kept = all.filter((t) => {
+      const d = checkPermission(
+        t.name,
+        opts.ctx.permissions,
+        mode,
+        t.dangerLevel ?? 'read',
+        undefined,
+        t.nameAliases,
+      );
+      return isAdvertisableDecision(d, nobodyToAsk);
+    });
+    if (all.length > 0 && kept.length === 0) {
+      console.error(
+        `⚠️ 广告面过滤后为空(整份注册表 ${all.length} 枚全被权限档判死)⇒ 原样下发不过滤,` +
+          `以免 native function calling 静默降级成 prompt 模式`,
+      );
+      return all;
+    }
+    return kept;
+  };
+
   const mayDispatchEarly = (toolName: string): boolean => {
     if (opts.signal?.aborted) return false;
     if (opts.planFirst && !opts.planApproved) return false;
@@ -1980,9 +2022,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // 原生 function calling:携带 tools schema 下发 + 收集 SSE tool-call 事件
       // auto 模式下 nativeToolsEnabled 探测失败会被置 false,后续迭代永久降级 prompt 模式
+      // 2026-11-05:下发前按**同一个权限判据**过滤(广告面=可执行面),无头会话不再被引诱去撞
+      // 结构上执行不了的墙(实测 run_command 40 次调用几乎全拒,每次烧掉一整轮迭代)。
       let nativeToolEvents: ParsedToolCall[] = [];
-      const useNativeTools = nativeToolsEnabled && listTools().length > 0;
-      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(listTools()) } : undefined;
+      const advertisedTools = advertisableTools(listTools());
+      const useNativeTools = nativeToolsEnabled && advertisedTools.length > 0;
+      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(advertisedTools) } : undefined;
 
       // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
       // 走过 continue 早退路径的旧册则在此交账,已提前发起的执行不得没有记录)。
