@@ -851,6 +851,13 @@ export const ACTION_CLAIMS = {
     kind: 'informational',
     why: '当日派单预算耗尽:节律现象不是缺陷,但过去 8 枚只能从散文读 ⇒ 本维点名',
   },
+  // 2026-11-06 同批改:`f8213f5` 把成本熔断从 `budget-exhausted` 里分出来发独立字面量,
+  // 这张表若不同批认它,新档在尺子上就是"没人认领的动作"——正是 §0.9 那一型(接线而无名 = 不存在)。
+  'cost-breaker-stop': {
+    dim: 'A15',
+    kind: 'informational',
+    why: '调度层会话额度熔断停转(与日预算不同一桶):停的是节律不是缺陷,但出路不同 —— 放量属人工阀 budget-cap-change,改的是 scripts/data/cost-caps.json',
+  },
   'dryrun-ticket': { dim: 'A15', kind: 'informational', why: '预演档:没动手,不得算产出' },
   'task-registered': {
     dim: 'A15',
