@@ -185,6 +185,18 @@ import {
   LANDING_MARKER_SKIP_ENV,
 } from './lib/conflict-marker-landing-gate.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+// G-814414 补格(2026-11-05):台账「授权退休」的形态与身份口径只有一份实现,
+// 消费面(门 299 的台账读取)与本器共用它,不在两处各写一套标记名。
+import {
+  RETIRE_REASON_MIN_CHARS,
+  RETIRED_AT_RE,
+  RETIRED_FROM_SHA_RE,
+  isRetiredRecord,
+  retirementChannelFor,
+  retireIdentityOf,
+  stripRetireMarkers,
+} from './lib/ledger-retirement.mjs'
 
 import {
   casUpdateRef,
@@ -579,6 +591,7 @@ export function detectStaleLanding({
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
     let delta = lineDelta(baseText, newText)
+    let retirementAudit = null
     const wholeHit = hitBy.get(p) ?? null
     /**
      * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
@@ -633,11 +646,12 @@ export function detectStaleLanding({
         text: texts.get(`${c}:${p}`) ?? null,
       }))
       const kind = jsonGuardKindFor(p)
-      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors }) : null
+      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors, path: p }) : null
       if (audit && audit.applicable) {
         jsonMode = true
         delta = audit.delta
         line = audit.line
+        retirementAudit = audit.retirement ?? null
         notes.push({
           path: p,
           kind: 'json-keypath-mode',
@@ -695,6 +709,29 @@ export function detectStaleLanding({
         : jsonMode
           ? (line.count ?? 0) > 0 || (delta.vanished ?? 0) > 0
           : line.status === 'judged' && line.count > 0
+    // G-814414 补格(2026-11-05):台账「授权退休」——**不是放宽**,是一条有载体、逐条可核验的收缩。
+    // 退休不成立(只删行/假登记/理由太短/原文对不上)⇒ 照拒;成立 ⇒ 只把退休覆盖的那几条从
+    // 键路径对账里剥掉,其余任何消失仍由上面两颗牙照拦。正常值编辑不进本通道(身份仍在)。
+    if (retirementAudit?.applicable && !retirementAudit.ok) {
+      refuseByLines = true
+      notes.push({
+        path: p,
+        kind: 'retirement-rejected',
+        why:
+          `台账授权退休不成立(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条 / 退休登记 ` +
+          `${retirementAudit.retired} 条 / 有效覆盖 ${retirementAudit.covered} 条 ⇒ 拒绝落地。` +
+          retirementAudit.problems.slice(0, 3).join(' ; '),
+      })
+    } else if (retirementAudit?.applicable && retirementAudit.covered > 0) {
+      notes.push({
+        path: p,
+        kind: 'retirement-accepted',
+        why:
+          `台账授权退休逐条核验通过(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条、` +
+          `退休登记 ${retirementAudit.retired} 条、有效覆盖 ${retirementAudit.covered} 条(双向等值);` +
+          `退休行已从在册条目中剥离,键路径对账只剩在册内容(消失 ${delta.vanished} / 重现 ${delta.appeared})。`,
+      })
+    }
     // ── 声明式还原通道:白名单逐行配平(2026-10-30)──────────────────────────────
     // 放行条件**全部**成立才免:行级判据 judged(undetermined/out-of-scope 永不免,§0.3)∧
     // 非键路径档 ∧ 整 blob 未命中祖先(A 支另有 LAND_CLASH_SCOPE 出口)∧ lib 里算出的
@@ -1549,19 +1586,230 @@ function compareElementRestore({ evidence, overflow, declared }) {
 }
 
 /**
+ * G-814414 补格(2026-11-05):台账「授权退休」审计 —— **不是放宽判据**,而是给有意收缩
+ * 一个可核验的载体。判据三条:
+ *  ① 每一条被摘条目必须**有且只有一条**退休行(原条目保留 + retiredAt/Reason/By/From/FromSha);
+ *     只删行不写退休 ⇒ 红;文件被清空且无退休 ⇒ 红;多登记一条没被摘的 ⇒ 红(双向等值)。
+ *  ② `retiredFrom` 的规范形必须逐字等于上一版对应条目,`retiredFromSha` 必须是它的 sha256,
+ *     对不上 ⇒ 红(假登记/拿旧版别的行顶账都过不去)。
+ *  ③ retiredReason trim 后 ≥10 码点、retiredAt 是 ISO-8601、retiredBy 非空,缺/短 ⇒ 红。
+ * 值编辑不算摘除(身份仍在,交给原本的键路径/行级内容闸);只有身份消失才进本通道。
+ * 退休行被排除在"在册条数"之外,所以台账 `93 → 90` 与门 299 的「复制 90」账实相符。
+ */
+function parseJsonlForRetire(text) {
+  const out = []
+  for (const line of String(text).split('\n')) {
+    const raw = line.trim()
+    if (!raw) continue
+    const value = JSON.parse(raw)
+    out.push({ raw, value, canon: canonOf(value) })
+  }
+  return out
+}
+
+function collectArrayElements(value, path = '$', out = []) {
+  if (Array.isArray(value)) {
+    for (const el of value) {
+      out.push({ value: el, canon: canonOf(el), arrayPath: path })
+      collectArrayElements(el, `${path}[]`, out)
+    }
+    return out
+  }
+  if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) collectArrayElements(v, `${path}.${k}`, out)
+  }
+  return out
+}
+
+/** 深拷贝并摘掉 shouldDrop 命中的数组元素(对象键序保持,判据只看键路径)。 */
+function pruneJsonValue(v, shouldDrop) {
+  if (Array.isArray(v)) {
+    const out = []
+    for (const el of v) if (!shouldDrop(el)) out.push(pruneJsonValue(el, shouldDrop))
+    return out
+  }
+  if (v && typeof v === 'object') {
+    const o = {}
+    for (const [k, val] of Object.entries(v)) o[k] = pruneJsonValue(val, shouldDrop)
+    return o
+  }
+  return v
+}
+
+export function jsonRetirementAudit({ baseText, newText, kind, path }) {
+  const channel = retirementChannelFor(path)
+  if (!channel)
+    return {
+      applicable: false,
+      ok: true,
+      channel: null,
+      reason: '该路径未启用退休通道(只覆盖 scripts/data/*.jsonl 与 web-rn-copy-diffs.json)',
+      problems: [],
+      dropped: 0,
+      retired: 0,
+      covered: 0,
+    }
+  let baseItems
+  let nextItems
+  try {
+    if (kind === 'jsonl') {
+      baseItems = parseJsonlForRetire(baseText)
+      nextItems = parseJsonlForRetire(newText)
+    } else {
+      baseItems = collectArrayElements(JSON.parse(baseText))
+      nextItems = collectArrayElements(JSON.parse(newText))
+    }
+  } catch (e) {
+    return {
+      applicable: true,
+      ok: false,
+      channel,
+      problems: [`退休通道解析失败:${String(e?.message ?? e).slice(0, 120)}`],
+      dropped: 0,
+      retired: 0,
+      covered: 0,
+    }
+  }
+  const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
+  const activeNext = nextItems.filter((it) => !isRetiredRecord(it.value))
+  // ① 先按身份做多重集匹配(同身份优先配同原文),剩余才是"被摘条目"。
+  const used = new Set()
+  const nextById = new Map()
+  activeNext.forEach((it, i) => {
+    const id = retireIdentityOf(it.value)
+    if (!nextById.has(id)) nextById.set(id, [])
+    nextById.get(id).push(i)
+  })
+  const dropped = []
+  for (const it of baseItems) {
+    const id = retireIdentityOf(it.value)
+    const pool = nextById.get(id) ?? []
+    let pick = pool.find((i) => !used.has(i) && activeNext[i].canon === it.canon)
+    if (pick === undefined) pick = pool.find((i) => !used.has(i))
+    if (pick === undefined) dropped.push({ ...it, id, __covered: false })
+    else used.add(pick)
+  }
+  const problems = []
+  const coveredCounters = new Map()
+  let covered = 0
+  const overDeclared = []
+  for (const it of retiredItems) {
+    const v = it.value
+    const where = `退休行 ${(v.retiredFrom ?? '').slice(0, 80) || '(无 retiredFrom)'}`
+    if (typeof v.retiredAt !== 'string' || !RETIRED_AT_RE.test(v.retiredAt) || Number.isNaN(Date.parse(v.retiredAt)))
+      problems.push(`${where}:retiredAt 不是 ISO-8601 时刻(${String(v.retiredAt).slice(0, 40)})`)
+    if (typeof v.retiredReason !== 'string' || [...v.retiredReason.trim()].length < RETIRE_REASON_MIN_CHARS)
+      problems.push(`${where}:retiredReason 至少 ${RETIRE_REASON_MIN_CHARS} 字(实得 ${typeof v.retiredReason === 'string' ? [...v.retiredReason.trim()].length : '非字符串'})`)
+    if (typeof v.retiredBy !== 'string' || !v.retiredBy.trim()) problems.push(`${where}:retiredBy 为空`)
+    if (typeof v.retiredFrom !== 'string') problems.push(`${where}:retiredFrom 缺失(必须是上一版原文的规范 JSON)`)
+    let fromCanon = null
+    if (typeof v.retiredFrom === 'string') {
+      try {
+        fromCanon = canonOf(JSON.parse(v.retiredFrom))
+      } catch {
+        problems.push(`${where}:retiredFrom 不是可解析 JSON`)
+      }
+    }
+    const stripped = stripRetireMarkers(v)
+    const strippedCanon = canonOf(stripped)
+    if (fromCanon !== null && fromCanon !== strippedCanon)
+      problems.push(`${where}:retiredFrom 与退休行原文对不上(剥标记后规范化不等)`)
+    if (typeof v.retiredFromSha !== 'string' || !RETIRED_FROM_SHA_RE.test(v.retiredFromSha))
+      problems.push(`${where}:retiredFromSha 必须是 64 位小写十六进制`)
+    else {
+      const want = createHash('sha256').update(fromCanon ?? strippedCanon, 'utf8').digest('hex')
+      if (v.retiredFromSha !== want)
+        problems.push(`${where}:retiredFromSha 与上一版原文不一致(声明 ${v.retiredFromSha.slice(0, 12)}… 实算 ${want.slice(0, 12)}…)`)
+    }
+    const id = retireIdentityOf(stripped)
+    const hit = dropped.find((d) => !d.__covered && d.id === id && d.canon === strippedCanon)
+    if (!hit) {
+      overDeclared.push(id)
+      problems.push(`${where}:上一版找不到对应的被摘条目(身份 ${id.slice(0, 80)})⇒ 假登记/多登记`)
+    } else {
+      hit.__covered = true
+      covered++
+      coveredCounters.set(strippedCanon, (coveredCounters.get(strippedCanon) ?? 0) + 1)
+    }
+  }
+  const uncovered = dropped.filter((d) => !d.__covered)
+  if (uncovered.length)
+    problems.push(
+      `${uncovered.length} 条条目被摘除但未登记 retired(身份:${uncovered
+        .slice(0, 3)
+        .map((d) => d.id.slice(0, 80))
+        .join(' ; ')})⇒ 这是丢,不是退休`,
+    )
+  const ok = problems.length === 0
+  // ② 合法退休后,把被摘条目从基线、把退休行从落地内容里剥掉再做键路径对账 ——
+  //    "退休"与"丢失"从此在数据上分得开:只减退休覆盖的那几条,其余任何消失照旧红。
+  let filteredBaseText = baseText
+  let filteredNextText = newText
+  if (ok && covered > 0) {
+    if (kind === 'jsonl') {
+      const left = new Map(coveredCounters)
+      filteredBaseText =
+        baseItems
+          .filter((it) => {
+            const c = left.get(it.canon) ?? 0
+            if (c <= 0) return true
+            left.set(it.canon, c - 1)
+            return false
+          })
+          .map((it) => it.raw)
+          .join('\n') + '\n'
+      filteredNextText = activeNext.map((it) => it.raw).join('\n') + '\n'
+    } else {
+      const left = new Map(coveredCounters)
+      const prunedBase = pruneJsonValue(JSON.parse(baseText), (el) => {
+        const c = left.get(canonOf(el)) ?? 0
+        if (c <= 0) return false
+        left.set(canonOf(el), c - 1)
+        return true
+      })
+      const prunedNext = pruneJsonValue(JSON.parse(newText), (el) => isRetiredRecord(el))
+      filteredBaseText = JSON.stringify(prunedBase)
+      filteredNextText = JSON.stringify(prunedNext)
+    }
+  }
+  return {
+    applicable: true,
+    ok,
+    channel,
+    problems,
+    dropped: dropped.length,
+    retired: retiredItems.length,
+    covered,
+    overDeclared: overDeclared.length,
+    filteredBaseText,
+    filteredNextText,
+  }
+}
+
+/**
  * 档位总入口:`.json`/`.jsonl` 后缀路径的键路径对账。两侧任一解析不了 ⇒ applicable:false
  * (调用方退回原行级判据并逐条报名);适用 ⇒ 结构化 delta(丢/重现,票面第一格)+
  * 键路径复活判定(票面第二格)。祖先取正文失败(text 为 null)与解析失败同待遇:提供不了证据。
+ * `path` 只为「授权退休」通道而传:只有台账族路径启用,其余路径行为与改前逐字节一致。
  */
-export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
+export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [], path = null }) {
   if (kind !== 'json' && kind !== 'jsonl')
     return { applicable: false, reason: '档位不是 .json/.jsonl ⇒ 走原行级判据' }
   if (typeof baseText !== 'string' || typeof newText !== 'string')
     return { applicable: false, reason: '有一侧正文取不到 ⇒ 不启用键路径档' }
-  const base = jsonKeyPathFingerprint(baseText, kind)
-  if (!base.ok) return { applicable: false, reason: `基线${base.reason} ⇒ 走原行级判据` }
-  const next = jsonKeyPathFingerprint(newText, kind)
-  if (!next.ok) return { applicable: false, reason: `落地内容${next.reason} ⇒ 走原行级判据` }
+  const rawBase = jsonKeyPathFingerprint(baseText, kind)
+  if (!rawBase.ok) return { applicable: false, reason: `基线${rawBase.reason} ⇒ 走原行级判据` }
+  const rawNext = jsonKeyPathFingerprint(newText, kind)
+  if (!rawNext.ok) return { applicable: false, reason: `落地内容${rawNext.reason} ⇒ 走原行级判据` }
+  const retirement = jsonRetirementAudit({ baseText, newText, kind, path })
+  const base = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredBaseText, kind)
+    : rawBase
+  const next = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredNextText, kind)
+    : rawNext
+  if (!base.ok || !next.ok)
+    return { applicable: false, reason: '退休过滤后的内容不可解析 ⇒ 走原行级判据' }
   const delta = jsonKeyPathDelta(base, next)
   const line = jsonKeyPathResurrect({
     base,
@@ -1572,7 +1820,7 @@ export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
     })),
   })
   // 计数口径跟着档位走:报告层据此前置"键路径口径"而不是"证据行门槛"(unit 缺省 = 行)。
-  return { applicable: true, delta, line: { ...line, unit: 'key-path' } }
+  return { applicable: true, delta, line: { ...line, unit: 'key-path' }, retirement }
 }
 
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
@@ -3829,6 +4077,8 @@ export const __test__ = {
   jsonStructuralSuperset,
   jsonGuardKindFor,
   jsonKeyPathAudit,
+  jsonRetirementAudit,
+  retirementChannelFor,
   staleReport,
   commitFacePresence,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
