@@ -21,11 +21,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { __test__ } from '../object-space-land.mjs'
+import { canonicalOf } from '../lib/ledger-retirement.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
@@ -249,6 +251,39 @@ test('P3 纯函数面·丁(.jsonl):记录重排+追加不算丢;记录内键路�
   assert.ok(drop.delta.vanishedSample[0].includes('evidence'))
 })
 
+test('P4 纯函数面·退休(.json 数组台账):条目进 retired[] ⇒ 覆盖;只删不退休 ⇒ 红', () => {
+  const base = { entries: [{ file: 'a.tsx', rule: 'r1', n: 1 }, { file: 'b.tsx', rule: 'r2', n: 2 }] }
+  const retired = {
+    ...base.entries[1],
+    retiredAt: '2026-11-05T04:00:00Z',
+    retiredReason: '该条目已裁决收敛,按授权退休移出 entries 在册项',
+    retiredBy: 'gate-299-shell-batch',
+    retiredFrom: canonicalOf(base.entries[1]),
+    retiredFromSha: createHash('sha256').update(canonicalOf(base.entries[1]), 'utf8').digest('hex'),
+  }
+  const good = { entries: [base.entries[0]], retired: [retired] }
+  const g = __test__.jsonKeyPathAudit({
+    baseText: JSON.stringify(base),
+    newText: JSON.stringify(good),
+    kind: 'json',
+    ancestors: [],
+    path: 'scripts/data/web-rn-copy-diffs.json',
+  })
+  assert.equal(g.retirement.ok, true, JSON.stringify(g.retirement.problems))
+  assert.equal(g.retirement.covered, 1)
+  assert.equal(g.delta.vanished, 0, '合法退休覆盖掉的数组元素不再计丢')
+
+  const bad = __test__.jsonKeyPathAudit({
+    baseText: JSON.stringify(base),
+    newText: JSON.stringify({ entries: [base.entries[0]] }),
+    kind: 'json',
+    ancestors: [],
+    path: 'scripts/data/web-rn-copy-diffs.json',
+  })
+  assert.equal(bad.retirement.ok, false, '只删元素不写 retired ⇒ 必须判红')
+  assert.ok(bad.retirement.problems.some((p) => /未登记 retired/.test(p)))
+})
+
 test('甲(端到端成对·绿臂):同一内容重放 ⇒ 消失/复活 0、守卫放行、HEAD 前进', (t) => {
   const dir = makeRepo(t)
   const ancestor9 = commitFile(dir, 'config/zcode-absorption.json', A_JSON, 'A: 祖先形态')
@@ -324,6 +359,100 @@ test('丙:搬回基线已删的同值键(键路径复活真阳性)⇒ 判红并�
   assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
   assert.match(out, /复活 2 行\(键路径口径/)
   assert.ok(out.includes(ancestor9))
+})
+
+/* ── G-814414 补格(2026-11-05):台账「授权退休」通道 —— 5 组反例 + 1 组合法正例 ── */
+const LEDGER_PATH = 'scripts/data/miniapp-shell-copy-ledger.jsonl'
+const ledgerRows = [
+  { route: 'pages/a', file: 'apps/miniapp-taro/src/pages/a.tsx', loc: 100, mapStatus: 'registry', impl: 'copy', reasonClass: 'pure-copy', declaredSpecs: ['packages/app/src/features/a/AScreen.tsx'], note: '纯布局复制页', at: '2026-11-05' },
+  { route: 'pages/b', file: 'apps/miniapp-taro/src/pages/b.tsx', loc: 120, mapStatus: 'registry', declaredSpecs: ['packages/app/src/features/b/BScreen.tsx'], impl: 'copy', reasonClass: 'pure-copy', note: '纯布局复制页', at: '2026-11-05' },
+  { route: 'pages/c', file: 'apps/miniapp-taro/src/pages/c.tsx', loc: 140, mapStatus: 'declaration', declaredSpecs: ['packages/app/src/features/c/CScreen.tsx'], impl: 'copy', reasonClass: 'pure-copy', note: '纯布局复制页', at: '2026-11-05' },
+]
+const ledgerText = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n'
+
+/** 合法退休行:原条目保留 + 五个标记(retiredFrom 规范形、retiredFromSha = 其 sha256)。 */
+function retiredRow(row, overrides = {}) {
+  const from = canonicalOf(row)
+  return JSON.stringify({
+    ...row,
+    retiredAt: '2026-11-05T04:00:00Z',
+    retiredReason: '门 299 已薄壳化(import @rn-shells 入口),按授权退休摘除在册条目',
+    retiredBy: 'gate-299-shell-batch',
+    retiredFrom: from,
+    retiredFromSha: createHash('sha256').update(from, 'utf8').digest('hex'),
+    ...overrides,
+  })
+}
+
+function seedLedger(t) {
+  const dir = makeRepo(t)
+  commitFile(dir, LEDGER_PATH, ledgerText(ledgerRows.slice(0, 2)), 'A: 台账初版')
+  commitFile(dir, LEDGER_PATH, ledgerText(ledgerRows), 'B: 别人合法追加')
+  return dir
+}
+
+function landLedger(dir, text) {
+  writeFileSync(join(dir, LEDGER_PATH), text)
+  return runLand(dir, { paths: LEDGER_PATH, msg: 'chore: 台账授权退休测试' })
+}
+
+test('退休①:摘条目但没写 retired ⇒ 仍判红(只删行不合法)', (t) => {
+  const dir = seedLedger(t)
+  const r = landLedger(dir, ledgerText(ledgerRows.slice(0, 2)))
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /retirement-rejected|未登记 retired|不是退休/)
+  assert.doesNotMatch(out, /retirement-accepted/)
+})
+
+test('退休②:retiredFrom / retiredFromSha 与上一版原文对不上 ⇒ 判红', (t) => {
+  const dir = seedLedger(t)
+  const badSha = retiredRow(ledgerRows[2], { retiredFromSha: '0'.repeat(64) })
+  const r = landLedger(dir, ledgerText([ledgerRows[0], ledgerRows[1], JSON.parse(badSha)]))
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /retiredFromSha 与上一版原文不一致|retirement-rejected/)
+})
+
+test('退休③:整份文件清空且没有任何 retired ⇒ 判红', (t) => {
+  const dir = seedLedger(t)
+  const r = landLedger(dir, '')
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /retirement-rejected|未登记 retired/)
+})
+
+test('退休④:retiredReason 少于 10 字 ⇒ 判红', (t) => {
+  const dir = seedLedger(t)
+  const bad = retiredRow(ledgerRows[2], { retiredReason: '已收敛' })
+  const r = landLedger(dir, ledgerText([ledgerRows[0], ledgerRows[1], JSON.parse(bad)]))
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 1, `必须拒落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /retiredReason 至少 10 字|retirement-rejected/)
+})
+
+test('退休⑤:正常值编辑(loc 改变、身份仍在)不走退休通道,原内容闸照旧放行', (t) => {
+  const dir = seedLedger(t)
+  const edited = ledgerRows.map((r, i) => (i === 2 ? { ...r, loc: 141 } : r))
+  const r = landLedger(dir, ledgerText(edited))
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 0, `正常值编辑必须照旧能落,实得 ${r.status}:\n${out}`)
+  assert.doesNotMatch(out, /retirement-rejected/)
+})
+
+test('退休正例:每条被摘条目都有可核验退休行 ⇒ 放行且退休行不计入在册条数', (t) => {
+  const dir = seedLedger(t)
+  writeFileSync(
+    join(dir, LEDGER_PATH),
+    ledgerText([ledgerRows[0], ledgerRows[1], JSON.parse(retiredRow(ledgerRows[2]))]),
+  )
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = runLand(dir, { paths: LEDGER_PATH, msg: 'chore: 台账授权退休' })
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 0, `合法退休必须能落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /台账授权退休逐条核验通过/)
+  assert.match(out, /有效覆盖 1 条/)
+  assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), before)
 })
 
 test('丁(.jsonl):记录重排+追加 ⇒ 0/0 放行;记录内键路径整批删掉 ⇒ 判红', (t) => {
