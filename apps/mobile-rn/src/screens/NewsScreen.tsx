@@ -129,6 +129,7 @@ export default function NewsScreenWrapper() {
   /** 分类 chips:「全部」恒在,其余按 `news_categories` 表实回追加(取不到就只留「全部」,不冒充判过) */
   const [categories, setCategories] = useState<readonly { id: string; name: string }[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY.id)
+  const [keyword, setKeyword] = useState('')
 
   const [floatBox, setFloatBox] = useState<FloatBoxState>(FLOAT_BOX_DEFAULT)
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -319,7 +320,7 @@ export default function NewsScreenWrapper() {
   )
 
   const load = useCallback(
-    async (targetPage: number, append: boolean) => {
+    async (targetPage: number, append: boolean, kw?: string) => {
       // 追加分页时不触发全屏 loading(避免上拉时列表闪加载态)
       if (!append) {
         setLoading(true)
@@ -331,11 +332,13 @@ export default function NewsScreenWrapper() {
         // `/api/articles/:id`(同样是 news_articles)查 ⇒ 列表给 knowledge 的 id、详情按 news 的
         // id 查,两条腿跨了两个域,点击恒查不到。域统一到 news 后,详情才能真打开。
         const categoryId = selectedCategory === ALL_CATEGORY.id ? undefined : selectedCategory
-        const res = await getNews(
-          categoryId
-            ? { page: targetPage, pageSize: PAGE_SIZE, categoryId }
-            : { page: targetPage, pageSize: PAGE_SIZE },
-        )
+        const searchText = (kw ?? keyword).trim()
+        const res = await getNews({
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+          ...(categoryId ? { categoryId } : {}),
+          ...(searchText ? { keyword: searchText } : {}),
+        })
         if (res.success && res.data) {
           const list: ArticleItem[] = (res.data.list ?? []).map((n) => ({
             id: String(n.id),
@@ -368,7 +371,7 @@ export default function NewsScreenWrapper() {
         setLoadingMore(false)
       }
     },
-    [selectedCategory, t],
+    [keyword, selectedCategory, t],
   )
 
   useEffect(() => {
@@ -419,6 +422,19 @@ export default function NewsScreenWrapper() {
     [setSelectedCategory],
   )
 
+  const handleKeywordChange = useCallback(
+    (text: string) => {
+      setKeyword(text)
+      // 清空即回全量:显式把空关键词传给 load,避免 setState 未落地时闭包仍拿旧值
+      if (text.trim() === '') void load(1, false, '')
+    },
+    [load],
+  )
+
+  const handleSearch = useCallback(() => {
+    void load(1, false, keyword)
+  }, [keyword, load])
+
   const handleItemClick = useCallback(
     (id: string) => {
       // 列表与详情同域(news_articles)后才能真打开:web 资讯列表项跳 `/news/${id}`
@@ -468,6 +484,10 @@ export default function NewsScreenWrapper() {
           categories={categoriesForShared}
           activeCategory={selectedCategory}
           onSelectCategory={handleSelectCategory}
+          keyword={keyword}
+          onKeywordChange={handleKeywordChange}
+          onSearch={handleSearch}
+          searchPlaceholder={t('news.searchPlaceholder') || '搜索资讯'}
           onRefresh={handleRefresh}
           onLoadMore={handleEndReached}
           onPressItem={handleItemClick}

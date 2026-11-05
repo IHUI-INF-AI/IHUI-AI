@@ -7,6 +7,7 @@ import type { ArticleItem, CategoryItem } from '@ihui/types'
 import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { SearchInput } from '../../components/SearchInput'
 import { SquareScreen } from '../square/SquareScreen'
 import type { ShareCreatorItem, ShareCreatorScreenProps } from './types'
 
@@ -36,6 +37,10 @@ export function ShareCreatorScreen({
   categories = [],
   activeCategory = '',
   onSelectCategory,
+  keyword = '',
+  onKeywordChange,
+  onSearch,
+  searchPlaceholder,
   showBackTop = true,
   onBackToTop,
   onListRef,
@@ -70,6 +75,19 @@ export function ShareCreatorScreen({
           <Text style={styles.navTitle} numberOfLines={1}>
             {t('news.title') || '资讯'}
           </Text>
+        </View>
+      ) : null}
+      {/* B3 搜索(parity):只有壳传了 onKeywordChange 才渲染,旧调用方视觉零变化 */}
+      {onKeywordChange ? (
+        <View style={styles.searchWrap}>
+          <SearchInput
+            value={keyword}
+            onChangeText={onKeywordChange}
+            onSubmit={onSearch}
+            placeholder={searchPlaceholder}
+            colorScheme={colorScheme}
+            voiceEnabled={false}
+          />
         </View>
       ) : null}
       <SquareScreen
@@ -117,5 +135,9 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
+    searchWrap: {
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.sm,
+    } as ViewStyle,
   })
 }

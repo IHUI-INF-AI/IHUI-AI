@@ -47,6 +47,12 @@ export interface ShareCreatorScreenProps {
   activeCategory?: string | null
   onSelectCategory?: (id: string) => void
 
+  /** B3 搜索(parity):传 `onKeywordChange` 才渲染搜索栏;`onSearch` 走回车提交 */
+  keyword?: string
+  onKeywordChange?: (text: string) => void
+  onSearch?: () => void
+  searchPlaceholder?: string
+
   /** 返回顶部(内置列表滚动回调,壳注入滚动实现) */
   showBackTop?: boolean
   onBackToTop?: () => void

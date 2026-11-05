@@ -88,4 +88,27 @@ describe('ShareCreatorScreen 段级单测', () => {
     render(<ShareCreatorScreen {...baseProps} />)
     expect(screen.queryByLabelText('common.back')).toBeNull()
   })
+
+  // B3 搜索(parity):传 onKeywordChange 才渲染,输入回调到达
+  it('B3 传 onKeywordChange 渲染搜索栏并回调', () => {
+    const onKeywordChange = vi.fn()
+    render(
+      <ShareCreatorScreen
+        {...baseProps}
+        keyword=""
+        onKeywordChange={onKeywordChange}
+        onSearch={vi.fn()}
+        searchPlaceholder="搜索资讯"
+      />,
+    )
+    const input = screen.getByPlaceholderText('搜索资讯')
+    fireEvent.change(input, { target: { value: 'AI' } })
+    expect(onKeywordChange).toHaveBeenCalledWith('AI')
+  })
+
+  // 对照组:不传 onKeywordChange ⇒ 不渲染搜索栏(旧调用方视觉零变化)
+  it('B3 不传 onKeywordChange 时不渲染搜索栏', () => {
+    render(<ShareCreatorScreen {...baseProps} searchPlaceholder="搜索资讯" />)
+    expect(screen.queryByPlaceholderText('搜索资讯')).toBeNull()
+  })
 })

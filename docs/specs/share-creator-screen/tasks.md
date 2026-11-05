@@ -81,3 +81,22 @@ B1/B3/B5/B6/B7 在两端都无对应实现 ⇒ 按裁决点 5 判缺段，不为
 - 页内渲染 ≤180（B1/B5/B6 保留与否影响此值，见 spec §4.3 裁决）
 - 重复 UI 段 0
 - 双端消费点 `file:line` 具名
+
+## 裁决落地记录（2026-11-05，用户三点裁决）
+
+1. **web 不接入，本批判定「web 不可接入」**（最终措辞，不再尝试、后续批次不得重问）：
+   `apps/web/app/(main)/news/PageClient.tsx:64-82` 为桌面双栏，`NewsSidebar` 分类与 pinned 各有自有数据源（`:49-53`）、页码分页（`:69-72`）；共享屏根 `flex:1` + FlatList 需定高（`SquareScreen.tsx:191-214,232-235`）。为接一屏而删 pinned 侧栏与页码分页 = 给 web 用户降级，非单源化应付代价。**消费端只有 RN。**
+2. **共享卡片补封面/时间线：只做加法**。新字段一律可选（`coverUrl?`、`timeline?`），缺省分支必须与现视觉逐像素等价（RN 不改一行）；单测锁两侧（传 ⇒ 渲染；不传 ⇒ 旧分支）。补完**不立即换壳**（B1/B5/B6/B7 仍在页内，硬标①过不去）。
+3. **缺段维持**：B1 tab / B5 排行榜 / B6 兴趣赛道 / B7 分享卡（需注入点）不做；**B3 搜索改 parity 做**（共享屏加搜索栏 + RN 传 keyword/onSearch）。
+- 台账口径：`mapStatus` 改 `none`、行数仍 93；门报「存量台账 90 行」= 剔除 3 条退休后口径，报告两处都写。
+- `contracts/index` 纯复制、`learn-develop` 桶②（三段纯小程序业务，上端属产品新增待立项）—— 已认。
+
+## 第二批（2026-11-05）：B3 parity + A 方案前置
+
+- [x] `getNews` 的 `keyword → search` 归一（`packages/api-client/src/endpoints/community.ts:270-275`）；单测断言**实发键名为 `search`**（`news-keyword.test.ts`），阴性对照改回直传 ⇒ 必红（`expected '/news/articles?...keyword…' to contain 'search='`）
+- [x] `getNews` 调用点 grep：仅 RN `NewsScreen.tsx:336`、web `HomeModules.tsx`、extension `NewsPage.tsx`，**无一处传 `keyword`/`search`**，无冲突
+- [x] A 方案 api-client：`getLiveSubscriptions()` → `GET /api/live/subscriptions`、`unsubscribeLive()` → `DELETE /api/live/:id/subscribe`（路径逐字，`live-subscriptions.test.ts` 断言）；类型实名 `coverImage`/`lecturerName`/`status:number`，未造 `coverUrl`/`anchor`
+- [x] 共享屏 B3：`keyword`/`onKeywordChange`/`onSearch`/`searchPlaceholder`，传 `onKeywordChange` 才渲染（旧调用方零变化）；RN `NewsScreen.tsx` 接 keyword 态并拼参、清空即回全量；单测 7 条（含两侧对照），阴性对照摘 `onChangeText` 必红
+- [x] 四端 tsc 0（另加 api-client 0）；门 299 复制页仍 86；门 105 绿
+- **status=1 语义（披露）**：`findUserSubscriptions` 只回 `status=1`（`apps/api/src/db/live-queries.ts:397-405`）；`status` 是**启用/上线**标志（对照 `live.ts:26` 分类「1=启用 0=禁用」），**直播中是 `isLive`**（`live.ts:55`），发布与否是 `isPublished`。小程序 `subscribe.tsx:46` 的 `'upcoming'` 是客户端**按时间推导**的 `LiveStatus`（`packages/types/src/app-live.ts:45`），与 DB `status` 不同轴 ⇒ **行为变化：从「全部即将开播」变「我订阅的频道（含直播中/已结束）」，不是换壳**，须单独向用户披露。
+- [ ] 遗留：小程序 `@/api` 的 `getLiveList` 打 `/live/list`（`subscribe.tsx:10`），全仓无该路由 ⇒ 现状页数据源疑似失效，需单独立项核对，不在本批处理。
