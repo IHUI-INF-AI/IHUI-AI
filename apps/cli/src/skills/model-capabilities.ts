@@ -9,6 +9,7 @@
  * 不能把厂商模型名/上下文档写死在契约包里。环境变量是 JSON 数组,按 `modelId` 覆盖内置项;
  * 非法条目**逐条记录错误**而不是静默丢弃(否则会表现为"模型画像莫名不存在").
  */
+import { getModelContextCapacity } from '@ihui/api-client'
 import type { ModelCapabilityProfile } from '@ihui/types'
 
 /** 覆盖入口:JSON 数组,元素形状与 ModelCapabilityProfile 一致。 */
@@ -21,7 +22,9 @@ export const MODEL_PROFILES_ENV = 'IHUI_MODEL_CAPABILITY_PROFILES'
 export const BUILTIN_MODEL_PROFILES: readonly ModelCapabilityProfile[] = [
   {
     modelId: 'deepseek-v4.1-flash',
-    contextWindow: 128_000,
+    // 容量取唯一出口 getModelContextCapacity(门 112 L2/G-916940:分母位禁写容量字面量)。
+    // 该 id 已在 api-client 精确表登记 128K,故出口值与本格改前的字面量逐字相等(行为零漂移)。
+    contextWindow: getModelContextCapacity('deepseek-v4.1-flash'),
     toolCalling: true,
     vision: false,
     structuredOutput: true,
@@ -37,7 +40,7 @@ export const BUILTIN_MODEL_PROFILES: readonly ModelCapabilityProfile[] = [
   },
   {
     modelId: 'gpt-4o',
-    contextWindow: 128_000,
+    contextWindow: getModelContextCapacity('gpt-4o'),
     toolCalling: true,
     vision: true,
     structuredOutput: true,

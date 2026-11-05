@@ -43,6 +43,10 @@ const EXACT_CAPACITY: Record<string, number> = {
   'deepseek-chat': 64_000,
   'deepseek-reasoner': 64_000,
   'deepseek-v3': 64_000,
+  // apps/cli 的内置画像(BUILTIN_MODEL_PROFILES)一直按 128K 声明这一枚;登记进精确表是为了
+  // 让 getModelContextCapacity 给出与改前逐字相同的值 —— 否则 /deepseek/i 泛化会把它折成 64K,
+  // 等于用「清分母」的名义偷改运行容量(门 112 要的是分母走出口,不是让出口改容量)。
+  'deepseek-v4.1-flash': 128_000,
   // === Meta Llama ===
   'llama-3.3-70b-versatile': 128_000,
   'llama-3.1-405b-instruct': 128_000,
