@@ -42,11 +42,8 @@ import { FREE_RESOURCE_URL } from '../constants/links'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import {
-  SquareScreen as SharedSquareScreen,
-  type ArticleItem,
-  type CategoryItem,
-} from '@ihui/rn-app'
+import { ShareCreatorScreen } from '@ihui/rn-app/pilot'
+import type { ArticleItem, CategoryItem } from '@ihui/rn-app'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -458,26 +455,27 @@ export default function NewsScreenWrapper() {
             // 同 PlazaScreen:根 tab 传 onBack 会与抽屉菜单键并列成两条返回键
           />
         </NavChrome>
-        <SharedSquareScreen
+        <ShareCreatorScreen
           t={t}
-          onRetry={() => { void load(1, false); }}
+          onRetry={() => {
+            void load(1, false)
+          }}
           colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           items={items}
           loading={loading}
           refreshing={refreshing}
           error={error}
           categories={categoriesForShared}
-          selectedCategory={selectedCategory}
+          activeCategory={selectedCategory}
           onSelectCategory={handleSelectCategory}
           onRefresh={handleRefresh}
-          onEndReached={handleEndReached}
-          onItemClick={handleItemClick}
+          onLoadMore={handleEndReached}
+          onPressItem={handleItemClick}
           showBackTop={true}
           onBackToTop={handleBackToTop}
           onListRef={(ref) => {
             listRef.current = ref as FlatList<ArticleItem> | null
           }}
-          hideHeader
           contentBottomPadding={tabBarScrollReserve(insets.bottom)}
         />
         <FloatBox
