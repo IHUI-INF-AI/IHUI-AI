@@ -6,7 +6,7 @@
  * 修改/绑定手机号 — 小程序薄壳
  *
  * UI 单源:packages/app/src/features/change-phone/ChangePhoneScreen.tsx
- *   RN 消费点:apps/mobile-rn/src/screens/ChangePhoneScreen.tsx:153
+ *   RN 消费点:apps/mobile-rn/src/screens/ChangePhoneScreen.tsx:201
  * 平台能力(GET /user/profile、短信发送、pwdExist 查重、bindPhone)留在本端;
  * 共享屏内零 Taro、零平台 API。旧验证码步骤与 web ChangePhoneModal 一致。
  * i18n:共享屏按键经 PHONE_TEXT 映射到既有 user.phone.* / user.security.* 词条,
