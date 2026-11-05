@@ -4662,7 +4662,13 @@ async function main() {
   // 五语言词包按**键集**比(oursKeys−mergedKeys、theirsKeys−mergedKeys 必须为空),活文档与
   // AGENTS.md 按**行级包含**比;非空即判红并逐条点名。此前这套闸在别处咬出过 i18n 17 键与
   // 3 个测试用例的真丢失 —— 那两次路径都在位,只有内容没了。
-  const contentGate = judgeContentLoss({ root: ROOT, ours: t.head, theirs: t.theirs, merged: p.tree })
+  // 折叠/摘除台账里**已逐字举证**的少带行端给本层:attestFoldPair 在产物面证过去向,
+  // 再按逐字包含复读会把"刚被证明合法的少带"判成丢失 —— 两道闸互顶(纠偏二,头注)。
+  const creditedDropLines = new Set([
+    ...(p.folded || []).flatMap((e) => e.dropped || []),
+    ...(p.dropLedgerCredited || []).flatMap((e) => e.dropped || []),
+  ].map((l) => String(l ?? '').trim()).filter(Boolean))
+  const contentGate = judgeContentLoss({ root: ROOT, ours: t.head, theirs: t.theirs, merged: p.tree, creditedDrops: creditedDropLines })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
     console.log(formatLossReport(contentGate))
