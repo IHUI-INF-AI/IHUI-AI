@@ -130,6 +130,7 @@
 - 传值：`top3=[list[1],list[0],list[2]]` 复刻 2-1-3；`amountFormatter` 用 `study.rankPage.minutes`；`showRanges=false`；`showStudyHours=false`；`title/subtitle/emptyText` 用原键（空态 `study.rankPage.empty`）。
 - RN 零可见变化：`apps/mobile-rn/src/screens/RankingScreen.tsx:124-125` 显式传 `showRanges={true}`/`showStudyHours={true}`，与共享屏默认值（`packages/app/src/features/ranking/RankingScreen.tsx:54-55`）逐值相同。
 - 台账行 103 不删不改（原表仍记 153/②），状态待退休通道统一刷新。
+- GitHub 简介与现算不符（简介 340 表 / 176 模型，现算 621 / 100），属仓库外元数据陈旧，非本支引入；更新简介需 GitHub 写权限，另开票。
 
 ## 跨页系统性：共享屏自带返回/关闭与原生导航重复（2026-11-06）
 
