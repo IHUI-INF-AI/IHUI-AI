@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { fetchApi } from '@/lib/api'
+import { listLlmModels } from '@ihui/api-client'
 import { normalizeCategory, normalizeTier } from '@ihui/shared'
 import type { Model, Provider } from '../types'
 import type { ModelTier, ModelUsageCategory } from '@ihui/shared'
@@ -65,7 +66,7 @@ export async function fetchModels(): Promise<Model[]> {
     // fetchApi 自动解包 { code, message, data } 信封并返回 data 字段;
     // 原 `next: { revalidate: 300 }` 是 SSR 遗留(此函数已改为客户端 useQuery 调用),客户端忽略。
     const [r, relayR] = await Promise.all([
-      fetchApi<{
+      listLlmModels<{
         models: Array<{
           id: string
           name: string
@@ -77,7 +78,7 @@ export async function fetchModels(): Promise<Model[]> {
           category?: ModelUsageCategory
           model_tier?: ModelTier
         }>
-      }>('/api/llm/models'),
+      }>(),
       // P0-5g 并发拉取中转站已上架模型清单(失败时降级空清单,不阻塞主流程)
       fetchApi<{ items: RelayPublicItem[] }>('/api/relay/models/public').catch(() => null),
     ])

@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { createUserLlmProvider, fetchApi, listUserLlmProviders } from '@ihui/api-client'
+import { createUserLlmProvider, listUserLlmProviders, verifyLlmKey } from '@ihui/api-client'
 import {
   LlmSettingsScreen as SharedLlmSettingsScreen,
   type ByokProviderOption,
@@ -161,9 +161,9 @@ function LlmSettingsScreen() {
     setVerifyState('verifying')
     setVerifyMsg('')
     try {
-      const r = await fetchApi<{ valid: boolean; message?: string }>('/api/llm/verify-key', {
-        method: 'POST',
-        body: JSON.stringify({ providerCode: selected.code, apiKey }),
+      const r = await verifyLlmKey<{ valid: boolean; message?: string }>({
+        providerCode: selected.code,
+        apiKey,
       })
       if (r.success && r.data) {
         if (r.data.valid) setVerifyState('success')
