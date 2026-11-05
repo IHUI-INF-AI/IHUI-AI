@@ -149,7 +149,7 @@ export function ConnectorsScreen({
                     {item.configured ? t('connectors.configured') : t('connectors.notConfigured')}
                   </Text>
                   <Text style={styles.meta}>
-                    {t('connectors.lastSync')}: {item.lastSyncText || t('connectors.neverSync')}
+                    {t('connectors.lastSyncAt')}: {item.lastSyncText || t('connectors.neverSync')}
                   </Text>
                   {item.syncItemsCount > 0 ? (
                     <Text style={styles.meta}>

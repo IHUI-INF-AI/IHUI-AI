@@ -54,7 +54,7 @@ export function AgentCreateScreen({
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-      <Text style={styles.title}>{t('agentCreate.title')}</Text>
+      <Text style={styles.title}>{t('agent.createTitle')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('agent.fieldName')}</Text>
       <TextField

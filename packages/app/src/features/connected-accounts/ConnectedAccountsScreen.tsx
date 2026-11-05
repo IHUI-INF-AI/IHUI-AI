@@ -144,7 +144,7 @@ export function ConnectedAccountsScreen({
                       <Text style={styles.platformName}>{accountPlatformLabel(t, platform)}</Text>
                       <Text style={styles.meta}>
                         {binding
-                          ? `${t('connectedAccounts.boundAt')}: ${binding.createdAtText}`
+                          ? `${t('settings.connectedAccountsBoundAt')}: ${binding.createdAtText}`
                           : t('connectedAccounts.unbound')}
                       </Text>
                     </View>
@@ -155,10 +155,12 @@ export function ConnectedAccountsScreen({
                         disabled={unbindingId === binding.id}
                         activeOpacity={0.7}
                         accessibilityRole="button"
-                        accessibilityLabel={t('connectedAccounts.unbind')}
+                        accessibilityLabel={t('settings.connectedAccountsUnbind')}
                       >
                         <Link2Off size={13} color={tk.danger.DEFAULT} />
-                        <Text style={styles.dangerLink}>{t('connectedAccounts.unbind')}</Text>
+                        <Text style={styles.dangerLink}>
+                          {t('settings.connectedAccountsUnbind')}
+                        </Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
@@ -182,7 +184,7 @@ export function ConnectedAccountsScreen({
                       {accountPlatformLabel(t, binding.platform)}
                     </Text>
                     <Text style={styles.meta}>
-                      {t('connectedAccounts.boundAt')}: {binding.createdAtText}
+                      {t('settings.connectedAccountsBoundAt')}: {binding.createdAtText}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -191,10 +193,10 @@ export function ConnectedAccountsScreen({
                     disabled={unbindingId === binding.id}
                     activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={t('connectedAccounts.unbind')}
+                    accessibilityLabel={t('settings.connectedAccountsUnbind')}
                   >
                     <Link2Off size={13} color={tk.danger.DEFAULT} />
-                    <Text style={styles.dangerLink}>{t('connectedAccounts.unbind')}</Text>
+                    <Text style={styles.dangerLink}>{t('settings.connectedAccountsUnbind')}</Text>
                   </TouchableOpacity>
                 </View>
               ))}

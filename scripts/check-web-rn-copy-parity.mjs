@@ -300,6 +300,133 @@ export const ROLE_EXEMPTIONS = [
     reason:
       '角色不同:RN「营养」是餐次信息字段标签(EduMealScreen.tsx:86),web eduMeal.template.nutritionPlaceholder 是营养模板输入占位符(edu-management/meal/page.tsx:612);标签与占位符不可合并',
   },
+  // ─── B2 收编后余量(2026-11-05):同一 RN 屏对齐多条 web 路由 / web 同屏重复同值键 ───
+  {
+    rn: 'packages/app/src/features/exam/ExamScreen.tsx',
+    rnKey: 'exam.startExam',
+    webKeys: ['eduExamListPage.start'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN ExamScreen 同时对齐 edu/exam 与 exam 两条 web 路由;已采用 exam 路由键 exam.startExam(ExamIntro.tsx:63),edu/exam 路由同值键 eduExamListPage.start(edu/exam/page.tsx:124)无法同时满足(同屏多处考试入口)',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PatrolScreen.tsx',
+    rnKey: 'patrol.toast.paused',
+    webKeys: ['patrol.statusPaused'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:patrol/page.tsx:126 toast.paused 与 :221 statusPaused 同值;RN 已采用同屏 web 键 toast.paused(PatrolScreen.tsx:196),剩余 statusPaused 属 web 侧重复命名,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/developer/DeveloperScreen.tsx',
+    rnKey: 'developerHomePage.statApiKeys',
+    webKeys: ['developer.navApiKeys'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:developer/PageClient.tsx:158 统计卡 statApiKeys 与 developer/layout.tsx:25 侧栏 navApiKeys 同值;RN 开发者信息行(DeveloperScreen.tsx:75)取统计卡键,侧栏键位置/角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PublishNewScreen.tsx',
+    rnKey: 'publish.new.submitSchedule',
+    webKeys: ['publish.new.schedule'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:publish/new/ScheduleCard.tsx:41 分区标签 new.schedule 与 :67 提交按钮 new.submitSchedule 同值;RN 提交按钮(PublishNewScreen.tsx:378)取 submitSchedule',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/UserArticlesScreen.tsx',
+    rnKey: 'user.articles.prevPage',
+    webKeys: ['student.prev'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 user/articles 与 student/my-articles;已采用 user/articles 键 user.articles.prevPage(user/articles/page.tsx:173),student 路由同值键 student.prev(student/my-articles/page.tsx:201)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/UserArticlesScreen.tsx',
+    rnKey: 'user.articles.nextPage',
+    webKeys: ['student.next'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:同上,已采用 user.articles.nextPage(user/articles/page.tsx:199);student 路由同值键 student.next(student/my-articles/page.tsx:212)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/SubagentsScreen.tsx',
+    rnKey: 'agentTeams.statsActive',
+    webKeys: ['agentTeams.filter.running'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:agent-teams/page.tsx:87 统计卡 statsActive 与 :25 筛选器 running 同值;RN 统计卡(SubagentsScreen.tsx:210)取 statsActive,筛选器键角色不同',
+  },
+  {
+    rn: 'packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx',
+    rnKey: 'student.wrongBookTitle',
+    webKeys: ['exam.wrongQuestions.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 student/wrong-book 与 exam/wrong-questions;已采用 student 路由键 student.wrongBookTitle(student/wrong-book/page.tsx:66),exam 路由同值键 exam.wrongQuestions.title(exam/wrong-questions/page.tsx:141)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx',
+    rnKey: 'models.prompts.table.description',
+    webKeys: ['models.prompts.form.description'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:models/prompts/page.tsx:402 表头 table.description 与 :520 表单标签 form.description 同值;RN 表格列头(ModelsPromptsScreen.tsx:77)取表头键,表单键角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/LearnMapScreen.tsx',
+    rnKey: 'learnMapPage.defaultTitle',
+    webKeys: ['eduAi.map.title', 'eduAi.map.maps'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 learn/map 与 edu-ai/map;已采用 learn/map 键 learnMapPage.defaultTitle(learn/map/page.tsx:66),edu-ai/map 同屏 title/maps 两键同值(edu-ai/map/page.tsx:241/250)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/AiSkillScreen.tsx',
+    rnKey: 'aiSkillDetail.importBtn',
+    webKeys: ['aiSkillsPage.importConfirm'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:ai-skills/PageClient.tsx:210 导入按钮 importBtn 与 :357 二次确认按钮 importConfirm 同值;RN 导入按钮(AiSkillScreen.tsx:221)取 importBtn,确认按钮角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/CircleIndexScreen.tsx',
+    rnKey: 'circles.title',
+    webKeys: ['plaza.circlesTab'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 circles 与 plaza;已采用 circles 路由键 circles.title(circles/PageClient.tsx:53),plaza 路由同值键 plaza.circlesTab(plaza/PlazaHeader.tsx:43)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx',
+    rnKey: 'eduAttendance.statusTitle',
+    webKeys: ['eduAttendance.status'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '结构性冲突:web eduAttendance.status 是字符串列头(edu/attendance/SelfAttendanceTable.tsx:56);RN 同路径 eduAttendance.status 已是考勤状态枚举对象命名空间,不能作字符串键;RN 保留 statusTitle(EduMyAttendanceScreen.tsx:155),非文案漂移',
+  },
+  {
+    rn: 'packages/app/src/features/course-detail/CourseDetailScreen.tsx',
+    rnKey: 'learn.signUp',
+    webKeys: ['learn.signupCount', 'learn.signedUp'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web learn/[id] 同屏同键 learn.signUp(PageClient.tsx:288)与 RN 同值;B3 族内比较排除自身,余键 signupCount(:177)/signedUp(:278)取值不同 —— web 同族多值,非 RN 漂移',
+  },
 ]
 
 /**
