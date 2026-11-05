@@ -129,34 +129,73 @@ describe('② 到期条目真删且清单同步更新', () => {
   });
 });
 
-describe('③ 量不到体积 / 清单坏 ⇒ 不删并点名(§0.3)', () => {
-  it('件丢了(体积量不到)⇒ undetermined,到期条目也不上手', () => {
+describe('③ 量不到 / 清单坏 ⇒ 逐行隔离或整池不出清(Z7 收 X1 未竟 1)', () => {
+  it('件丢了 = 「件已删、清单没改回」那一型 ⇒ 只改索引 + 留痕,不再拖死整池', () => {
     seedTrash('t-lost', 40 * DAY, [{ flat: '0-expired.txt', retentionMs: DAY }]);
     loseEntry('t-lost', '0-expired.txt');
     const r = pruneExpiredTrash(ws, { nowIso: NOW });
-    expect(r.state).toBe('undetermined');
-    expect(r.gate).toBe('run');
-    expect(r.removed).toEqual([]);  expect(r.plan?.verdict).toBe('undetermined');
-    expect(r.skipped.some((s) => s.reason.includes('量不到体积'))).toBe(true);
+    expect(r.quarantined).toHaveLength(1);
+    expect(r.quarantined[0]).toMatchObject({ trashId: 't-lost', relativeTrashPath: '0-expired.txt' });
+    expect(r.frozen).toEqual([]);
+    expect(r.removed).toEqual([]); // 没有任何字节被"顺手删掉"
+    expect(r.lines.some((l) => l.startsWith('TRASH-PRUNE-QUARANTINE') && l.includes('t-lost'))).toBe(true);
+    // 目录里只剩清单本身 ⇒ 连壳摘掉(既有出口,非新增删除点)
+    expect(fs.existsSync(path.join(getDeleteTrashDir(ws), 't-lost'))).toBe(false);
+    // 隔离必须可追责:留痕一行,且只存 trashId + 相对路径
+    const trace = fs.readFileSync(path.join(ws, '.ihui', 'delete-guard', 'trash-quarantine.jsonl'), 'utf-8');
+    expect(trace.trim().split('\n')).toHaveLength(1);
+    expect(JSON.parse(trace.trim())).toMatchObject({ trashId: 't-lost', row: '0-expired.txt', atIso: NOW });
+    expect(trace).not.toContain(ws);
   });
 
-  it('一条量不到就冻结整池:另一份清单里可量的到期条目同样不删(fail-closed)', () => {
+  it('活行量不到 ⇒ 只冻那一格:该行盘上原样、清单原样、逐条点名,其余到期件照删', () => {
     seedTrash('t-ok', 40 * DAY, [{ flat: '0-expired.txt', retentionMs: DAY }]);
-    seedTrash('t-lost', 40 * DAY, [{ flat: '0-expired.txt', retentionMs: DAY }]);
-    loseEntry('t-lost', '0-expired.txt');
+    // 越界行(清单自称件在 trashId 目录之外)⇒ 既量不到也未证实丢失 ⇒ 冻结那一格
+    const dir = path.join(getDeleteTrashDir(ws), 't-evil');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify(
+        {
+          kind: 'ihui.delete-guard.trash-manifest',
+          trashId: 't-evil',
+          createdAtIso: new Date(nowMs - 40 * DAY).toISOString(),
+          workspacePath: ws,
+          entries: [{ originalPath: path.join(ws, 'gone'), relativeTrashPath: '../outside.bin', sizeBytes: null, kind: 'file' }],
+        },
+        null,
+        2,
+      ),
+      'utf-8',
+    );
     const r = pruneExpiredTrash(ws, { nowIso: NOW });
-    expect(r.state).toBe('undetermined');
-    expect(r.removed).toEqual([]);
-    expect(fs.existsSync(path.join(getDeleteTrashDir(ws), 't-ok', '0-expired.txt'))).toBe(true);
+    expect(r.frozen).toHaveLength(1);
+    expect(r.frozen[0]).toMatchObject({ trashId: 't-evil', relativeTrashPath: '../outside.bin' });
+    expect(r.quarantined).toEqual([]);
+    expect(r.skipped.some((s) => s.trashId === 't-evil')).toBe(true);
+    expect(r.lines.some((l) => l.startsWith('TRASH-PRUNE-FROZEN') && l.includes('t-evil'))).toBe(true);
+    // 只冻那一格:另一份清单里到期且可量的件照删(旧口径"一行冻全池"已被 Z7 替换)
+    expect(r.removed.map((x) => `${x.trashId}/${x.relativeTrashPath}`)).toEqual(['t-ok/0-expired.txt']);
+    expect(r.state).toBe('pruned');
+    // 该行自己:清单与盘面一字未改
+    expect(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf-8')).toContain('../outside.bin');
+    expect(fs.existsSync(path.join(dir, 'manifest.json'))).toBe(true);
   });
 
-  it('清单形态坏 ⇒ 逐条点名,不硬试也不当成空账', () => {
+  it('清单形态坏 ⇒ 那一份一份不动 + 整轮判不出(不放宽);坏清单不牵连其余已核实条目', () => {
+    seedTrash('t-ok', 40 * DAY, [{ flat: '0-expired.txt', retentionMs: DAY }]);
     fs.mkdirSync(path.join(getDeleteTrashDir(ws), 't-bad'), { recursive: true });
     fs.writeFileSync(path.join(getDeleteTrashDir(ws), 't-bad', 'manifest.json'), '{ not json', 'utf-8');
     const r = pruneExpiredTrash(ws, { nowIso: NOW });
-    expect(r.state).toBe('undetermined');  expect(r.skipped).toHaveLength(1);
+    expect(r.state).toBe('undetermined');
+    expect(r.reason).toContain('清单判不出');
+    expect(r.skipped).toHaveLength(1);
     expect(r.skipped[0]?.reason).toContain('清单形态不合法');
     expect(fs.existsSync(path.join(getDeleteTrashDir(ws), 't-bad', 'manifest.json'))).toBe(true);
+    // 判据层送进去的行仍可量、仍到期 ⇒ 照摘(HEAD 既有行为,Z7 不改成"一份坏清单拖死全池")
+    expect(r.removed.map((x) => `${x.trashId}/${x.relativeTrashPath}`)).toEqual(['t-ok/0-expired.txt']);
+    // 但整轮记为未判定 ⇒ 连败账本必须累加(不写账目的封票等于没有封票)
+    expect(r.ledger?.streak).toBe(1);
   });
 });
 
@@ -187,9 +226,10 @@ describe('④ 超上限只报数不硬删', () => {
 });
 
 describe('⑤ 连败封票后不再重试(死亡机制装车证明)', () => {
+  /** Z7 之后,"件丢了"已归逐行隔离(不再累加连败);连败只能由**真·未判定**攒出来:清单形态坏 = 视野本身坏了 */
   function seedUnjudgeable(): void {
-    seedTrash('t-lost', 40 * DAY, [{ flat: '0-expired.txt', retentionMs: DAY }]);
-    loseEntry('t-lost', '0-expired.txt');
+    fs.mkdirSync(path.join(getDeleteTrashDir(ws), 't-bad'), { recursive: true });
+    fs.writeFileSync(path.join(getDeleteTrashDir(ws), 't-bad', 'manifest.json'), '{ not json', 'utf-8');
   }
 
   it('连败 7 ⇒ 第 8 次落 retired;此后 gate=retired 零动作、账目一字不动(不自愈)', () => {

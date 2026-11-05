@@ -5,6 +5,13 @@
 /**
  * goal-b49 / X2 — registry 汇总口的「待接线」定性与两件可验证处置(2026-11-05)。
  *
+ * 口径更新(goal-b49/Z1,同日):下面那份计数器照出的「生产调用 = 0」在 X2 交票时是真的,
+ * 现在已不成立 —— 五枚 `get*Extensions` 与两个 runner 的消费方都接在
+ * `src/plugins/declaration-consumers.ts`(对账腿 ← `setupAgentTools`,派发腿 ← `runToolLoop`
+ * 的 turnStart / turnEnd),装车证明见 `tests/contribution-dispatch-wiring.test.ts` 与
+ * `tests/contribution-declaration-audit.test.ts`。**本文件的两件事不受影响**,继续原样钉:
+ * 它钉的是「声明能不能走到注册表」(装载面),不是「走到注册表之后谁来消费」(运行面)。
+ *
  * 本票口径(可复跑):`.ihui-agent/tmp/rea-goal-b49/count-prod-callers.mjs` —— 五枚
  * `get*Extensions` 与 `runTurnInputContributors`/`runCommandContributors` 生产调用数 = 0
  * (阳性对照 `readSkillCatalog` = 1,见脚本 CONTROL 行)。本用例**不复刻**那份口径(§0.6),

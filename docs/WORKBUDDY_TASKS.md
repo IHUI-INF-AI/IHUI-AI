@@ -405,4 +405,83 @@ node scripts/workbuddy-growth-experts.mjs --do-all; node scripts/workbuddy-growt
 
 变异验证:把可领集放宽到也认 `accepted`,镜像用例 ① 当场翻红(还原后 7/7 绿)。
 
+## 11. 对照程序取证:人家的自动面到底覆盖什么(2026-11-05 立)
+
+机主给的对照程序 `wb2api.exe`(workbuddy2api 面板,Go 原生二进制,无源码)取证法 =
+用仓内正式器物 `scripts/inspect-binary-api-paths.mjs` 扫产出物原文,
+只看**端点路径族与业务专码**,不含任何凭据形态内容。复跑那一条(数字现读 2026-11-05):
+
+```bash
+node scripts/inspect-binary-api-paths.mjs "<wb2api.exe 路径>" \
+  --needle subscribe-task,subscribe_task,subscribed,oa_subscribe,wb_wechat,follow-guide,公众号,关注,checkin,daily-checkin,makeup-cards,lottery/draw,travel/depart,accept_all,task_codes
+# ⇒ bytes=8710144 路径族=481
+# ⇒ 扫描面:latin1 原文 8710144 字节内逐字节 indexOf
+```
+
+器物自证:`node scripts/inspect-binary-api-paths.mjs --self-test` ⇒ 8/8;
+镜像测试 `scripts/tests/inspect-binary-api-paths.test.mjs` ⇒ 8 例。
+**「命中 0」在这件器物里一定连着扫描面一起报** —— 没找到不等于不存在(§0.3)。
+
+### 11.1 它的自动任务面**不含「公众号关注」**
+
+| 关键词(在 8.7 MB 二进制原文里) | 命中 |
+| --- | --- |
+| `subscribe-task` / `subscribe_task` / `subscribed` | **0 / 0 / 0** |
+| `oa_subscribe` / `wb_wechat` / `follow-guide` | **0 / 0 / 0** |
+| `公众号` / `关注` | **0 / 0** |
+| `checkin` | 45 |
+| `daily-checkin` / `makeup-cards` / `lottery/draw` / `travel/depart` | 2 / 1 / 1 / 1 |
+| `accept_all` / `task_codes` | 2 / 5 |
+
+它自己那套面板路由是 `tasks/accept`、`tasks/accept_all`、`tasks/claim`、`tasks/auto_all`、
+`accounts/{uid}/checkin`、`checkin_all`、`tasks/scan_all` —— **对成长任务只做
+「接受 → 领奖 → 签到 → 消费型动作」这四类,没有任何一条通向「替微信身份关注公众号」**。
+
+**旁证(最硬的一条):这两个号正是被这套程序常驻跑着的号,今天现读仍是 `17/18`。**
+也就是说:人家的程序在同样的号上,同样没把公众号关注项做成。
+所以「人家不用扫就能完成所有任务」这个前提**不成立** —— §9 的结论被对照程序独立证实,
+而不是被它推翻。
+
+### 11.2 它有一条咱们没有的腿:每日签到 —— 已复现
+
+`POST https://www.workbuddy.cn/v2/billing/meter/daily-checkin`(GET 会落到网页 404,
+`…/daily-checkin/status` 才落到网关 JSON 404 ⇒ 这路径是 **POST-only**,别按 GET 试)。
+实测回执 `{"code":10001,"msg":"今天已签到，请明天再来"}` —— **幂等信号是专码**,
+所以「今天已签」与「签到失败」必须分档,否则天天误报。
+
+| 关注点 | 文件 |
+| --- | --- |
+| 命令行入口(`--checkin` 签到 / `--profile` 读账面) | `scripts/workbuddy-growth-daily.mjs` |
+| 机器锁(8 例,纯函数离线可跑) | `scripts/tests/workbuddy-growth-daily.test.mjs` |
+
+```bash
+node scripts/workbuddy-growth-daily.mjs --profile   # 现读:两号各 17/18 完成,等级 17
+node scripts/workbuddy-growth-daily.mjs --checkin   # 现读:两号「今日已签到」⇒ 幂等,不算失败,RC=0
+```
+
+签到响应四档**不得并桶**:`checked`(真签上)/ `already`(专码或文案,幂等成功)/
+`failed`(其它业务码,带 code+msg)/ `undetermined`(读不懂 ⇒ 未判定,不冒充前三档,§0.3)。
+
+### 11.3 超越在哪、以及刻意不做什么
+
+- **超越点**:对照程序把「已签到」与失败混在一起的风险,这里用专码分档 + 影子用例钉住;
+  且本仓这条腿与 §10 的领奖、§8 的行为驱动共用同一套号池凭据读取出口,不另开第二份。
+- **刻意不接**:`makeup-cards/use`(花补签卡)、`lottery/draw`(花抽奖次数)、
+  `buddy/travel/depart`(花体力)都是**消耗型**动作 —— 「攒积分」不等于「替号主做消费决定」,
+  要接得单独点名。
+- **仍不做的**:`subscribed` 的伪造。对照程序里那 0 命中不是它没想到,是这条通道在协议上就不存在。
+
+### 11.4 零人工的最终口径(现读 2026-11-05)
+
+```bash
+node scripts/workbuddy-growth-daily.mjs --checkin                                    # 每日签到
+node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务
+node scripts/workbuddy-growth-claim.mjs                                             # 到账即领
+node scripts/workbuddy-growth-oauth.mjs --watch                                     # 关注那一下之后全自动
+```
+
+四条里没有一条需要人点。**唯一需要人的一次**,是 §9 那个真实微信关注动作 ——
+它不属于「自动化没做到」,属于该项奖励的定义本身。
+
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
