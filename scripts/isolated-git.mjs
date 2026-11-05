@@ -180,6 +180,15 @@ export function gitDirOf(gitCwd, env = childEnv('')) {
   return gitOut(['rev-parse', '--absolute-git-dir'], { gitCwd, env })
 }
 
+/**
+ * 最终公共目录(refs/objects/config 的真实落点)。linked worktree 下 `--git-dir` 是
+ * per-worktree 的 `worktrees/<name>`,**它自己还带一层 `commondir`**;git 不递归解析
+ * `commondir`,所以私有 gitdir 必须直接指向这里,不能再指向 `--git-dir`。
+ */
+export function gitCommonDirOf(gitCwd, env = childEnv('')) {
+  return gitOut(['rev-parse', '--path-format=absolute', '--git-common-dir'], { gitCwd, env })
+}
+
 /** 唯一命名源:`<pid>-<ms>-<8 hex>.idx`,sweep 只按同一正则识别。 */
 export function indexPathFor(
   gitDir,
@@ -538,11 +547,18 @@ export function subjectFromMessage(text) {
 
 /**
  * 为本轮提交建「私有 GIT_DIR 叠层 + 私有消息文件」。
- * 私有 gitdir 只承载 per-worktree 元数据(HEAD/COMMIT_EDITMSG),`commondir` 指回真实
- * gitdir ⇒ refs/objects/config 仍是同一仓。子 git 的 COMMIT_EDITMSG 因此只写本席目录,
- * 并发会话再也覆盖不到;`-F` 也只是本席临时文件,不再指向共享路径。
+ * 私有 gitdir 只承载 per-worktree 元数据(HEAD/COMMIT_EDITMSG),`commondir` 指回**最终
+ * 公共目录**(`git rev-parse --git-common-dir` 的绝对形式)⇒ refs/objects/config 仍是同一仓。
+ * 子 git 的 COMMIT_EDITMSG 因此只写本席目录,并发会话再也覆盖不到;`-F` 也只是本席临时
+ * 文件,不再指向共享路径。
+ *
+ * ⚠️ 2026-11-05 linked worktree 修正:`commondir` 不能指向「父进程的 gitdir」。父进程本身
+ * 在 linked worktree 里时,那个 gitdir 自己也是一个靠 `commondir` 成立 worktree gitdir;
+ * git **不递归解析 `commondir`** ⇒ 私有 gitdir 会被判成 "not a git repository"(实测
+ * `rev-parse`/`hash-object`/`commit` 全部 exit 128,`check-immutable-guard` 预检同样取不到
+ * 面)。必须一次性指向最终公共目录,叠层才不会把 `commondir` 叠成两层。
  */
-export function preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitOpts }) {
+export function preparePrivateCommitContext({ gitCwd, gitDir, commonDir, indexFile, commitOpts }) {
   const { rest, text } = extractCommitMessage(commitOpts, { baseCwd: gitCwd, gitDir })
   const baseName = basename(indexFile).replace(/\.idx$/, '')
   const privDir = join(dirname(indexFile), `${baseName}${PRIVATE_GITDIR_SUFFIX}`)
@@ -550,7 +566,7 @@ export function preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitO
   mkdirSync(privDir, { recursive: true })
   // HEAD 原样复制(可能是符号引用) ⇒ 提交仍落在同一条分支上。
   writeFileSync(join(privDir, 'HEAD'), readFileSync(join(gitDir, 'HEAD'), 'utf8'))
-  writeFileSync(join(privDir, 'commondir'), `${gitDir}\n`)
+  writeFileSync(join(privDir, 'commondir'), `${commonDir}\n`)
   const messageFile = join(privDir, 'message.txt')
   writeFileSync(messageFile, text.endsWith('\n') ? text : `${text}\n`)
   return {
@@ -573,7 +589,15 @@ export function preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitO
  * (2026-09-26 bf286534bd 同型事故;native `--only` 也有同一个理论窗口,这里事后还核验一次)。
  * 每轮同时建一份私有 GIT_DIR 叠层 + 私有消息文件,提交后回读 `%s` 与本席写入逐字比对。
  */
-export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = console }) {
+export function commitWithIndex({
+  gitCwd,
+  env,
+  gitDir,
+  commonDir,
+  commitOpts,
+  paths,
+  log = console,
+}) {
   const ctx = { gitCwd, env }
   const indexFile = env.GIT_INDEX_FILE
   const declared = new Set(paths.map((p) => normalizePath(gitCwd, p)))
@@ -622,7 +646,13 @@ export function commitWithIndex({ gitCwd, env, gitDir, commitOpts, paths, log = 
     }
     // 私有 GIT_DIR 叠层 + 私有消息文件:git 的 COMMIT_EDITMSG 只写本席目录,
     // 并发会话的提交消息再也覆盖不到这里。失败/成功都立即回收本席目录。
-    const privateCommit = preparePrivateCommitContext({ gitCwd, gitDir, indexFile, commitOpts })
+    const privateCommit = preparePrivateCommitContext({
+      gitCwd,
+      gitDir,
+      commonDir,
+      indexFile,
+      commitOpts,
+    })
     let res
     try {
       // 受保护面申报预检(2026-11-05 立):同一份判据(`check-immutable-guard --staged --message-file`),
@@ -1038,6 +1068,7 @@ export async function main(argv = process.argv.slice(2)) {
     return 2
   }
   const gitDir = gitDirOf(gitCwd)
+  const commonDir = gitCommonDirOf(gitCwd)
   const indexDir = join(gitDir, INDEX_DIR_NAME)
   mkdirSync(indexDir, { recursive: true })
   const swept = sweepStale(indexDir)
@@ -1097,6 +1128,7 @@ export async function main(argv = process.argv.slice(2)) {
       gitCwd,
       env: childEnv(indexFile),
       gitDir,
+      commonDir,
       commitOpts: parsed.commitOpts,
       paths: parsed.paths,
     })
@@ -1214,6 +1246,7 @@ export const __test__ = {
   sweepStale,
   indexPathFor,
   gitDirOf,
+  gitCommonDirOf,
   isLockBusy,
   parseLsFilesZ,
   lsEntries,

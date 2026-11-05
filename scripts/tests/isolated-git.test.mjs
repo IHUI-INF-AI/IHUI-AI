@@ -62,9 +62,40 @@ function makeRepo(prefix = 'iso-git-') {
   git(dir, ['config', 'commit.gpgsign', 'false'])
   writeFileSync(join(dir, 'a.txt'), 'a0\n')
   writeFileSync(join(dir, 'b.txt'), 'b0\n')
-  git(dir, ['add', '--', 'a.txt', 'b.txt'])
+  // 受保护面申报预检(check-immutable-guard --staged)要求**被审仓 HEAD 面**存在清单;
+  // 夹具仓不 seed 就会 rc=2(未判定),把所有提交挡在钩子之前。这里写一份**最小合法清单**,
+  // 不拷贝工作树里的真实文件 —— 后者可能正被别的会话改成含非法 kind 的版本,夹具会被带红。
+  seedGuardManifest(dir)
+  git(dir, ['add', '--', 'a.txt', 'b.txt', 'scripts/data/immutable-guard.json'])
   git(dir, ['commit', '-m', 'init', '--no-verify'])
   return dir
+}
+
+/**
+ * 夹具用最小合法受保护面清单(shape 与真实仓一致,内容与在飞改动解耦)。
+ * `signatureRequiredFrom` / `reviewBy` 都设在远期 ⇒ 本夹具不触发签名与到期判据;
+ * 受保护条目只占位,不与夹具提交的 a.txt/b.txt 相交 ⇒ 预检 rc=0。
+ */
+function seedGuardManifest(dir) {
+  mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+  writeFileSync(
+    join(dir, 'scripts', 'data', 'immutable-guard.json'),
+    `${JSON.stringify(
+      {
+        signatureRequiredFrom: '2099-01-01',
+        entries: [
+          {
+            path: 'scripts/guardian-runner.mjs',
+            kind: 'gate-registry',
+            why: 'fixture placeholder',
+            reviewBy: '2099-01-01',
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  )
 }
 
 function writeHook(dir, body) {
@@ -156,6 +187,101 @@ test('① 正常提交语义:hook 照跑、只交声明集、共享索引收敛�
     assert.deepEqual(isolatedFiles(dir), [], '正常结束后不得残留索引')
   } finally {
     rmScratch(dir)
+  }
+
+  // ── linked worktree 子场景(2026-11-05 立,仍并入本节点以保持 15 条用例口径)─────────
+  // 父进程本身在 linked worktree 里时,它的 gitdir(`worktrees/<name>`)自己还带一层
+  // `commondir`。git **不递归解析 commondir** ⇒ 私有 GIT_DIR 若仍指回该 worktree gitdir,
+  // 会被判成 "not a git repository"(实测 rev-parse/hash-object/commit 全 exit 128)。
+  // 本段走完整 isolated-git 提交路径,钉住:提交成功、落在 worktree 分支、对象进公共库、
+  // 私有 commondir 指向**最终公共目录**、无残留。
+  const wtDir = makeRepo('iso-git-wt-')
+  const wtLink = `${wtDir}-linked`
+  const wtGitDir = join(wtDir, '.git', 'worktrees', 'wt-linked')
+  const wtLog = join(wtDir, '.hook-wt.log')
+  try {
+    // linked worktree 里 `.git` 是文件,`core.hooksPath=.git/hooks` 解析不到钩子;
+    // 退回默认(公共目录 hooks),让本席能在 worktree 提交里观测私有 GIT_DIR。
+    git(wtDir, ['config', '--unset', 'core.hooksPath'])
+    git(wtDir, ['worktree', 'add', wtLink, '-b', 'wt-linked'])
+    writeHook(
+      wtDir,
+      '#!/bin/sh\n{ echo "PRIV=$GIT_DIR"; echo "CC=$(cat "$GIT_DIR/commondir")"; echo BLOCK; git diff --cached --name-only; echo END; } > "$IHUI_TEST_LOG"\n',
+    )
+    writeFileSync(join(wtLink, 'a.txt'), 'a-wt\n')
+
+    const r = spawnSync(
+      process.execPath,
+      [SCRIPT, '-C', wtLink, 'commit', '-m', 'wt-commit', '--', 'a.txt'],
+      {
+        cwd: wtLink,
+        env: cleanEnv({ IHUI_TEST_LOG: wtLog }),
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
+    )
+    assert.equal(r.status, 0, `linked worktree 里提交应成功: ${r.stderr}`)
+
+    const sha = git(wtLink, ['rev-parse', 'HEAD']).stdout.trim()
+    assert.equal(git(wtLink, ['log', '-1', '--format=%s', sha]).stdout.trim(), 'wt-commit')
+    assert.equal(
+      git(wtDir, ['rev-parse', 'refs/heads/wt-linked']).stdout.trim(),
+      sha,
+      '提交必须落到 worktree 自己的分支(不是在 worktree gitdir 里造平行 refs)',
+    )
+    assert.equal(
+      git(wtDir, ['cat-file', '-t', sha]).stdout.trim(),
+      'commit',
+      '对象必须进公共对象库',
+    )
+    assert.equal(
+      git(wtLink, ['status', '--porcelain', '--', 'a.txt']).stdout.trim(),
+      '',
+      '共享索引应被推进到新 HEAD',
+    )
+
+    const text = readFileSync(wtLog, 'utf8')
+    const priv = text
+      .split(/\r?\n/)
+      .find((l) => l.startsWith('PRIV='))
+      .slice('PRIV='.length)
+    const cc = text
+      .split(/\r?\n/)
+      .find((l) => l.startsWith('CC='))
+      .slice('CC='.length)
+      .trim()
+    assert.ok(
+      priv.includes('ihui-isolated-index') && priv.endsWith('.gitdir'),
+      `私有 GIT_DIR: ${priv}`,
+    )
+    const commonDir = git(wtDir, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
+      .stdout.trim()
+    assert.equal(
+      resolve(cc),
+      resolve(commonDir),
+      '私有 commondir 必须指向最终公共目录,不得指向 worktree gitdir',
+    )
+    assert.notEqual(resolve(cc), resolve(wtGitDir), 'commondir 不得叠层指向 worktree gitdir')
+    for (const b of stagedBlocks(text)) assert.deepEqual(b, ['a.txt'], '钩子只应看到声明集')
+    assert.deepEqual(
+      (() => {
+        try {
+          return readdirSync(join(wtGitDir, INDEX_DIR_NAME))
+        } catch {
+          return []
+        }
+      })(),
+      [],
+      'linked worktree 场景结束后不得残留私有索引',
+    )
+  } finally {
+    try {
+      git(wtDir, ['worktree', 'remove', '--force', wtLink])
+    } catch {
+      /* 夹具清理失败不改写断言结论 */
+    }
+    rmScratch(wtDir)
   }
 })
 
