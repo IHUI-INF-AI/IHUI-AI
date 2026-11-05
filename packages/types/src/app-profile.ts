@@ -13,6 +13,7 @@
 
 import type {
   SharedAppInfo,
+  SharedIdentityTag,
   SharedLocaleOption,
   SharedMenuItem,
   SharedMenuSection,
@@ -41,12 +42,17 @@ export interface ProfileScreenProps {
   t: TFunction
   user?: SharedUser | null
   stats?: SharedUserStatistics | null
-  orderCount?: number
+  /** 订单数;null = 未取到(渲染 '--'),缺省 0 */
+  orderCount?: number | null
   loading?: boolean
   error?: string
   menuSections?: SharedMenuSection[]
   onNavigate?: (key: string) => void
   onLogout?: () => void
+  /** 身份标签行(vip / admin / normal);缺省不渲染 */
+  identityTags?: SharedIdentityTag[]
+  /** 头像点击端口(选图/上传由宿主实现);缺省头像不可点 */
+  onAvatarPress?: () => void
   onBack: () => void
   /**
    * 宿主轻提示端口(可选)。缺省按 `resolveOptionalPort` 落 capability-off,
