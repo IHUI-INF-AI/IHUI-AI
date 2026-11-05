@@ -46,6 +46,9 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
   'plugin-dependency-cycle': 'error',
   'plugin-contribution-declined': 'warning',
   'plugin-contribution-unknown-kind': 'warning',
+  // goal-b49/W6:激活事件两档同为 warning —— 插件照常装载,拒的是"什么时候醒"这一维(§12e 不升档)。
+  'plugin-activation-rejected': 'warning',
+  'plugin-activation-unknown-event': 'warning',
 };
 
 /** 错误文本(unknown 收窄,零 any) */

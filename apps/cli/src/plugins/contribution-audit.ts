@@ -21,12 +21,12 @@
 
 import {
   EXTENSION_CONTRIBUTION_KINDS,
-  extensionDataClassGrant,
   type CapabilityDataClass,
   type ExtensionContributionKind,
 } from '@ihui/types';
 import type { PluginDiagnostic, PluginDiagnosticCode, PluginManifest } from './types.js';
 import { diagnostic } from './manifest-scan.js';
+import { permissionGrantOf, readPermissionList } from './permission-names.js';
 
 /** 本装载器对某一贡献档的支持结论。 */
 export type ContributionSupport = 'wired' | 'no-host';
@@ -98,23 +98,20 @@ export interface ContributionInput {
   contributes?: unknown;
 }
 
-/** 读 permissions 为字符串数组:非数组/非字符串一律按"未声明"处理,由默认拒兜住。 */
-function permissionList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-}
-
 /**
  * 逐档裁决一份清单的 `contributes`。纯函数:不读盘、不改状态、永不抛穿。
+ * 权限名的归属(点分声明名 → 正牌 scope)在 `permission-names.ts` 做完,数据类判定仍只有
+ * `permissionGrantOf` 一处 —— 本层不复算、不另开权限尺(§0.6)。
  *
  * 默认拒的两道闸(缺一不算默认拒):
  *  1. 档必须落在词表内,否则 unknown-kind 并点名当前词表全量;
- *  2. 落点了也得有数据面 —— 权限集合经 `extensionDataClassGrant` 求出的可达数据类为空
- *     (未声明权限 / 声明了但未登记)⇒ 一律 declined,即使该档本身是 `wired`。
+ *  2. 落点了也得有数据面 —— 权限集合经 `permissionGrantOf`(单源 = 能力目录的
+ *     `extensionDataClassGrant`)求出的可达数据类为空(未声明权限 / 声明了但未登记)⇒ 一律 declined,
+ *     即使该档本身是 `wired`。
  */
 export function classifyContributions(input: ContributionInput): PluginContributionAudit {
-  const permissions = permissionList(input.permissions);
-  const grant = extensionDataClassGrant({ permissions });
+  const permissions = readPermissionList(input.permissions);
+  const grant = permissionGrantOf(permissions);
   const findings: ContributionFinding[] = [];
 
   if (input.contributes !== undefined) {
