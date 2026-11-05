@@ -35,15 +35,23 @@ export const RefreshControl = () => null
 export function FlatList(props: {
   data?: unknown[]
   renderItem?: (arg: { item: unknown; index: number }) => ReactNode
-  ListFooterComponent?: ReactNode
-  ListHeaderComponent?: ReactNode
+  ListFooterComponent?: ReactNode | (() => ReactNode)
+  ListHeaderComponent?: ReactNode | (() => ReactNode)
+  ItemSeparatorComponent?: ReactNode | (() => ReactNode)
 }) {
+  const node = (value: ReactNode | (() => ReactNode) | undefined) =>
+    typeof value === 'function' ? (value as () => ReactNode)() : (value ?? null)
   return createElement(
     'div',
     null,
-    props.ListHeaderComponent ?? null,
-    ...(props.data ?? []).map((item, index) => props.renderItem?.({ item, index })),
-    props.ListFooterComponent ?? null,
+    node(props.ListHeaderComponent),
+    ...(props.data ?? []).flatMap((item, index) => {
+      const rendered = props.renderItem?.({ item, index })
+      const separator =
+        index < (props.data ?? []).length - 1 ? node(props.ItemSeparatorComponent) : null
+      return separator === null ? [rendered] : [rendered, separator]
+    }),
+    node(props.ListFooterComponent),
   )
 }
 

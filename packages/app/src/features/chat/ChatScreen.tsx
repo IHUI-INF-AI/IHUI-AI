@@ -14,6 +14,8 @@ import type {
 } from '../../types'
 import { MessageInput } from './MessageInput'
 import { ContextUsagePanel } from './ContextUsagePanel'
+import { ChatHeader } from './ChatHeader'
+import { ChatMessageList } from './ChatMessageList'
 
 import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
@@ -76,6 +78,8 @@ export function ChatScreen({
   containerStyle,
   flatListStyle,
   onListRef,
+  statusSlot,
+  queueSlot,
   onNavigate,
   onToast,
 }: ChatScreenProps) {
@@ -89,48 +93,15 @@ export function ChatScreen({
   const currentModelName = models.find((m) => m.id === model)?.name || model
   const currentModelContext = models.find((m) => m.id === model)?.context_length ?? 0
 
-  const renderItem = ({ item, index }: { item: ChatScreenMessage; index: number }) => {
-    const isUser = item.role === 'user'
-    const isLastAi = item.role === 'assistant' && isStreaming && index === messages.length - 1
-    const setRef = (el: View | null) => {
-      if (onMessageRef) onMessageRef(item.id, el)
-    }
-    if (renderMessage) {
-      return <>{renderMessage(item, index)}</>
-    }
-    return (
-      <View style={isUser ? styles.msgEnd : styles.msgStart}>
-        <Tappable
-          ref={setRef}
-          onLongPress={() => onLongPressMessage(item)}
-          delayLongPress={500}
-          style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAi]}
-        >
-          <Text style={styles.bubbleText}>
-            {item.content || (isLastAi ? t('chat.thinking') : '')}
-          </Text>
-        </Tappable>
-      </View>
-    )
-  }
-
   return (
     <View style={[styles.container, containerStyle]}>
       {showHeader ? (
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('chat.title')}</Text>
-          <View style={styles.navRow}>
-            {navItems.map((n) => (
-              <TouchableOpacity
-                key={n.key}
-                onPress={n.onPress}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.navText}>{n.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <ChatHeader
+          t={t}
+          colorScheme={colorScheme}
+          title={t('chat.title')}
+          navItems={navItems.map((n) => ({ key: n.key, label: n.label, onPress: n.onPress }))}
+        />
       ) : null}
 
       {showModelBar ? (
@@ -196,29 +167,27 @@ export function ChatScreen({
         </TouchableOpacity>
       </Modal>
 
-      <FlatList
-        ref={(ref) => {
+      <ChatMessageList
+        t={t}
+        colorScheme={colorScheme}
+        data={messages}
+        isStreaming={isStreaming}
+        renderItem={renderMessage}
+        headerNode={renderListHeader}
+        renderFooter={renderListFooter === undefined ? undefined : () => <>{renderListFooter}</>}
+        showThinkingPlaceholder={false}
+        onLongPressMessage={onLongPressMessage}
+        onMessageRef={onMessageRef}
+        onListRef={(ref) => {
           listRef.current = ref
           onListRef?.(ref)
         }}
-        style={[styles.list, flatListStyle]}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        ItemSeparatorComponent={
-          itemSeparatorComponent !== undefined && itemSeparatorComponent !== null
-            ? () => <>{itemSeparatorComponent}</>
-            : () => <View style={styles.listGap} />
-        }
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={
-          renderListHeader !== undefined ? () => <>{renderListHeader}</> : undefined
-        }
-        ListFooterComponent={
-          renderListFooter !== undefined ? () => <>{renderListFooter}</> : undefined
-        }
+        itemSeparator={itemSeparatorComponent}
+        style={flatListStyle}
       />
+
+      {statusSlot ?? null}
+      {queueSlot ?? null}
 
       {error ? (
         <View style={styles.errorWrap}>
