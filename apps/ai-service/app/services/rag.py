@@ -49,6 +49,7 @@ from ..core.llm_gateway import llm_gateway
 from . import reranker
 from .memory import memory_store
 from .parent_child_chunking import ChunkerConfig, ParentChildChunker
+from .stage_telemetry import StageRecorder
 from .vector_memory import vector_memory
 
 logger = logging.getLogger(__name__)
@@ -246,22 +247,32 @@ class RAGService:
         """
         start = time.monotonic()
         trace: list[dict[str, Any]] = []
+        # Z28 格 2:段账的**登记处**改吃 stage_telemetry 单源(段清单/结论词表/结论行/
+        # metrics 全在那一处落册);trace 的出参形状与数值口径(毫秒两位小数)一字未改,
+        # 耗时取整也复用器物自己的投影(StageRecord.as_dict),不在本文件复算。
+        stages = StageRecorder("rag_query")
 
         # 1. 检索(双路并行 + RRF 融合);recall 是"每一路到底发生了什么"的出口
-        t0 = time.monotonic()
+        retrieve_clock = stages.clock()
         recall_stats: dict[str, Any] = {}
         raw_sources = await self._retrieve(
             question, top_k=top_k, session_id=session_id, stats=recall_stats
         )
+        settled = stages.record(
+            "retrieve",
+            "ok" if raw_sources else "empty",
+            duration_ms=retrieve_clock.elapsed_ms(),
+            count=len(raw_sources),
+        )
         trace.append({
             "node": "retrieve",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+            "duration_ms": settled.as_dict()["duration_ms"],
             "raw_count": len(raw_sources),
             "recall_mode": recall_stats.get("mode", ""),
         })
 
         # 2. 重排/过滤(可选二段;降级时保持一阶段融合名次,不静默、不假重排)
-        t0 = time.monotonic()
+        rerank_clock = stages.clock()
         outcome = await self._rerank_with_llm(
             question,
             raw_sources,
@@ -269,9 +280,16 @@ class RAGService:
             recall_stats=recall_stats,
         )
         filtered = outcome.sources
+        settled = stages.record(
+            "rerank",
+            "ok" if outcome.executed else "skipped",
+            duration_ms=rerank_clock.elapsed_ms(),
+            count=len(filtered),
+            detail=f"depth={outcome.depth} reason={outcome.reason}",
+        )
         trace.append({
             "node": "rerank",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+            "duration_ms": settled.as_dict()["duration_ms"],
             "filtered_count": len(filtered),
             "score_threshold": score_threshold,
             # 旧键保留(llm_rerank == 二段真跑了),新增自证三件套
@@ -283,25 +301,38 @@ class RAGService:
         })
 
         # 3. 拼接 context
-        t0 = time.monotonic()
+        context_clock = stages.clock()
         context, context_tokens = self._build_context(
             filtered, max_chars=max_context_chars
         )
+        settled = stages.record(
+            "context",
+            "ok" if context else "empty",
+            duration_ms=context_clock.elapsed_ms(),
+            count=context_tokens,
+        )
         trace.append({
             "node": "context",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+            "duration_ms": settled.as_dict()["duration_ms"],
             "context_chars": len(context),
             "context_tokens": context_tokens,
         })
 
         # 4. 生成
-        t0 = time.monotonic()
+        generate_clock = stages.clock()
         answer, model_used, stub = await self._generate(
             question, context, model=model
         )
+        settled = stages.record(
+            "generate",
+            "ok" if answer else "unjudged",
+            duration_ms=generate_clock.elapsed_ms(),
+            count=len(answer),
+            detail=f"model={model_used} stub={stub}",
+        )
         trace.append({
             "node": "generate",
-            "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+            "duration_ms": settled.as_dict()["duration_ms"],
             "model": model_used,
             "stub": stub,
         })
