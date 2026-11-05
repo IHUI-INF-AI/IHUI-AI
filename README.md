@@ -82,8 +82,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 622 | `dbTables` |
-| schema 文件 | 241 | `dbSchemaFiles` |
+| 数据库表 | 621 | `dbTables` |
+| schema 文件 | 240 | `dbSchemaFiles` |
 | API 路由 | 4699 | `apiRoutes` |
 | 路由文件 | 663 | `apiRouteFiles` |
 | AI 服务路由 | 628 | `aiServiceRoutes` |
@@ -92,20 +92,22 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 70 | `cliCommandFiles` |
+| CLI 命令文件 | 72 | `cliCommandFiles` |
 | CLI 工具文件 | 73 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4078 | `testFiles` |
+| 测试文件 | 4099 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 333 | `guardianGates` |
-| — blocking | 303 | `guardianBlocking` |
+| 工程守门 | 336 | `guardianGates` |
+| — blocking | 306 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19095 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
+| 跟踪文件 | 19193 | `trackedFiles` |
+
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
