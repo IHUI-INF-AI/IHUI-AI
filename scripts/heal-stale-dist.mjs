@@ -37,9 +37,13 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { planPackageManagerSpawn } from './lib/npm-execpath.mjs'
+// 归属脏集的唯一实现(§0.6 / 门 191):三枚 lander 与 gen-ui-mirror 都 import 这一份,
+// 本器不写第二份 `git status` 解析。
+import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const GATE_REL = 'scripts/check-stale-dist.mjs'
@@ -130,10 +134,74 @@ export function readVerdicts(deps = {}) {
 }
 
 /**
+ * filterName(`@ihui/types`)→ 仓内目录的唯一映射。
+ * 工作区清单取自 `pnpm-workspace.yaml` 现读的两条 glob(`apps/*`、`packages/*`)——
+ * 只扫这两层的一级目录,不猜深路径;读不到 package.json 或名字对不上 ⇒ null(交回未判定)。
+ */
+export function workspaceDirOf(filterName, { root = ROOT } = {}) {
+  if (typeof filterName !== 'string' || filterName === '') return null
+  for (const level of ['packages', 'apps']) {
+    let entries
+    try {
+      entries = readdirSync(join(root, level), { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const e of entries) {
+      if (!e.isDirectory()) continue
+      const rel = `${level}/${e.name}`
+      let name
+      try {
+        name = JSON.parse(readFileSync(join(root, rel, 'package.json'), 'utf8')).name
+      } catch {
+        continue
+      }
+      if (name === filterName) return rel
+    }
+  }
+  return null
+}
+
+/**
+ * 面差让路判据(2026-11-05 立)。
+ *
+ * 治的是这一格:陈旧判据的门体 D 维判的是 **HEAD 面源码 vs dist 内容**(§0.4 取材纪律),
+ * 而 build 吃的是**工作树**。多会话共写机上他席常把某包的 src 改在飞(实测:`@ihui/types`
+ * 索引面 4 文件 staged 删 158 行),此时工作树源码 ⊂/≠ HEAD 源码 ⇒ 从工作树 build 出来的 dist
+ * 结构上永远装不齐 HEAD 面那批导出 —— 于是每轮真跑一次 build、每轮如实报 `partial`,
+ * 一键链永远读不出干净结论,守护也永远白烧一次构建。
+ *
+ * 正解不是"判据改成看工作树"(那是削判据,§12e/§0.4 禁止),而是**本轮不动手并点名**:
+ * 该包目录下有任何脏路径(他席在飞)⇒ 归 blocked;脏集取不到 ⇒ 归 unjudged(不猜干净);
+ * 全部目标都被面差挡住 ⇒ state='face-skew'(退出码走"未判定"档,不记绿也不冒红,§0.3)。
+ */
+export function faceSkewOf(targets, { root = ROOT, dirty = ownershipDirtyPaths, dirOf = workspaceDirOf } = {}) {
+  const blocked = []
+  const unjudged = []
+  const buildable = []
+  for (const t of targets) {
+    const dir = dirOf(t.filterName, { root })
+    if (!dir) {
+      unjudged.push({ pkg: t.pkg, why: '工作区目录取不到(filterName 对不上 apps/*、packages/* 的 package.json name)' })
+      continue
+    }
+    const d = dirty({ root, pathspec: [dir] })
+    if (d === null || d === undefined) {
+      unjudged.push({ pkg: t.pkg, why: `脏集取不到(${dir})⇒ 不能断定本轮能落` })
+      continue
+    }
+    if (d.size > 0) blocked.push({ pkg: t.pkg, dir, dirty: d.size })
+    else buildable.push(t)
+  }
+  return { blocked, unjudged, buildable }
+}
+
+/**
  * 一轮闭环。deps 全可注入 ⇒ 镜像测试不跑真 build(真 build 要几分钟且会改机器态)。
  * 返回 { state, targets, healed, still, refused, why }
  *   clean = 没有落后包;built = 全部消账;partial = 有包重建后仍落后;refused = 命令不合形态;
- *   undetermined = 门的结论取不到。
+ *   undetermined = 门的结论取不到;face-skew = 目标包的源码面 ≠ 被审判面(他席在飞),
+ *   本轮结构上消不了账 ⇒ 不跑 build(2026-11-05 立,见 faceSkewOf 头注)。
  */
 export function healStaleDist(opts = {}) {
   const {
@@ -151,6 +219,7 @@ export function healStaleDist(opts = {}) {
       healed: [],
       still: [],
       refused: [],
+      blocked: [],
       why: first.why,
     }
   const targets = targetsFromVerdicts(first.json, { includeReported })
@@ -161,20 +230,43 @@ export function healStaleDist(opts = {}) {
       healed: [],
       still: [],
       refused: [],
+      blocked: [],
       why: '守门机读档形状不对(缺 reds/onlyReported)',
     }
   if (targets.length === 0)
-    return { state: 'clean', targets: [], healed: [], still: [], refused: [], why: '' }
-  if (targets.length > MAX_BUILDS_PER_ROUND)
+    return { state: 'clean', targets: [], healed: [], still: [], refused: [], blocked: [], why: '' }
+  // ── 面差让路(2026-11-05 立)── 判据取 HEAD 面而 build 吃工作树:目标包源码在飞 ⇒ 本轮
+  // 结构上消不了账。全部被挡 ⇒ state='face-skew'(未判定档退出码,不烧 build、不冒绿);
+  // 部分被挡 ⇒ 只跑可落的那批,被挡的逐枚点名进 blocked/unjudged。
+  const skew = (opts.faceSkew ?? faceSkewOf)(targets, { root: opts.root ?? ROOT })
+  if (skew.buildable.length === 0)
     return {
-      state: 'refused',
+      state: 'face-skew',
       targets,
       healed: [],
       still: [],
-      refused: targets.map((t) => t.pkg),
-      why: `一轮要重建 ${targets.length} 个包 > 上限 ${MAX_BUILDS_PER_ROUND} ⇒ 异常量级,不自动背书`,
+      refused: [],
+      blocked: [...skew.blocked, ...skew.unjudged.map((u) => ({ ...u, dir: '' }))],
+      why:
+        `全部 ${targets.length} 个待重建包的源码面 ≠ 被审判的 HEAD 面(他席在飞/脏集取不到)⇒ 本轮不动手:` +
+        [...skew.blocked.map((b) => `${b.pkg}(${b.dir} 脏 ${b.dirty} 项)`), ...skew.unjudged.map((u) => `${u.pkg}(${u.why})`)].join('; '),
     }
-  const batch = targets.slice(0, MAX_BUILDS_PER_ROUND)
+  if (skew.blocked.length || skew.unjudged.length)
+    logger(
+      `   ⚠ 面差让路 ${skew.blocked.length + skew.unjudged.length} 个包本轮不重建:${[...skew.blocked, ...skew.unjudged].map((b) => b.pkg).join(', ')}`,
+    )
+  const buildTargets = skew.buildable
+  if (buildTargets.length > MAX_BUILDS_PER_ROUND)
+    return {
+      state: 'refused',
+      targets: buildTargets,
+      healed: [],
+      still: [],
+      refused: buildTargets.map((t) => t.pkg),
+      blocked: [...skew.blocked, ...skew.unjudged],
+      why: `一轮要重建 ${buildTargets.length} 个包 > 上限 ${MAX_BUILDS_PER_ROUND} ⇒ 异常量级,不自动背书`,
+    }
+  const batch = buildTargets.slice(0, MAX_BUILDS_PER_ROUND)
   if (!apply)
     return {
       state: 'pending',
@@ -182,6 +274,7 @@ export function healStaleDist(opts = {}) {
       healed: [],
       still: [],
       refused: [],
+      blocked: [...skew.blocked, ...skew.unjudged],
       why: '预演(未加 --apply,不跑 build)',
     }
 
@@ -201,6 +294,7 @@ export function healStaleDist(opts = {}) {
       healed: [],
       still: [],
       refused: [],
+      blocked: [...skew.blocked, ...skew.unjudged],
       why: `重建后复量取不到结论:${after.why}`,
     }
   const left = new Set(
@@ -216,11 +310,22 @@ export function healStaleDist(opts = {}) {
     healed,
     still,
     refused: [],
-    why: still.length ? `${still.length} 个包重建后仍落后 ⇒ 交人看(不谎报消账)` : '',
+    blocked: [...skew.blocked, ...skew.unjudged],
+    why:
+      (still.length ? `${still.length} 个包重建后仍落后 ⇒ 交人看(不谎报消账)` : '') +
+      (skew.blocked.length + skew.unjudged.length
+        ? `${still.length ? ' / ' : ''}另有 ${skew.blocked.length + skew.unjudged.length} 个包被面差挡住本轮不重建(判据取 HEAD 面而 build 吃工作树)`
+        : ''),
   }
 }
 
 function selfTest() {
+  // 自检夹具不碰真 git status:面差判据默认换成"全部可落"的替身(§22c 注入替身形态)。
+  // 需要断面差的用例(S13/S14)自己传 faceSkew 覆盖它 —— 不这么做的话,同一份用例
+  // 会随 packages/shared 在飞与否忽绿忽红,那种脆红就是 §12e 禁止的恒红门形态。
+  const NO_SKEW = (targets) => ({ blocked: [], unjudged: [], buildable: [...targets] })
+  const heal = (o) => healStaleDist({ faceSkew: NO_SKEW, ...o })
+
   const cases = []
   const P = (name, pass, got = '') =>
     cases.push({ name, pass: !!pass, got: String(got).slice(0, 140) })
@@ -268,7 +373,7 @@ function selfTest() {
     'S4 无落后 ⇒ clean 且一次 build 都不跑',
     (() => {
       let runs = 0
-      const r = healStaleDist({
+      const r = heal({
         apply: true,
         read: () => rd({}),
         run: () => {
@@ -284,7 +389,7 @@ function selfTest() {
     'S5 预演(无 --apply)绝不跑 build',
     (() => {
       let runs = 0
-      const r = healStaleDist({
+      const r = heal({
         read: () => rd(okShape),
         run: () => {
           runs++
@@ -298,7 +403,7 @@ function selfTest() {
   P(
     'S6 重建后仍落后 ⇒ partial 点名,不谎报 healed',
     (() => {
-      const r = healStaleDist({
+      const r = heal({
         apply: true,
         read: () => rd(okShape),
         run: () => ({ ok: true, stdout: '' }),
@@ -313,7 +418,7 @@ function selfTest() {
     'S7 消账 ⇒ built 且 healed 命中',
     (() => {
       let n = 0
-      const r = healStaleDist({
+      const r = heal({
         apply: true,
         read: () => (n++ === 0 ? rd(okShape) : rd({})),
         run: () => ({ ok: true, stdout: '' }),
@@ -324,12 +429,12 @@ function selfTest() {
   )
   P(
     'S8 门的结论取不到 ⇒ 未判定(不记绿也不冒红)',
-    healStaleDist({ read: () => ({ ok: false, why: 'x' }) }).state === 'undetermined',
+    heal({ read: () => ({ ok: false, why: 'x' }) }).state === 'undetermined',
     '',
   )
   P(
     'S9 超量 ⇒ 整轮拒跑(不当批量重修的授权)',
-    healStaleDist({
+    heal({
       apply: true,
       read: () =>
         rd({
@@ -346,7 +451,7 @@ function selfTest() {
   // 上一版这里解构多跳一段 ⇒ script 取到 undefined,build 一条都跑不起来而状态照样"built"。
   const argvs = []
   const shells = []
-  const r10 = healStaleDist({
+  const r10 = heal({
     apply: true,
     read: () => (argvs.length === 0 ? rd(okShape) : rd({})),
     run: (cmd, args, _cwd, _t, shell) => {
@@ -382,7 +487,7 @@ function selfTest() {
     `${JSON.stringify(pShim)}/${JSON.stringify(argvs)}/${JSON.stringify(shells)}`,
   )
   // S11:build 自己失败 ⇒ 该包进 still(不能因为"复量时门恰好不判它"就记成消账)
-  const r11 = healStaleDist({
+  const r11 = heal({
     apply: true,
     read: () => rd(okShape),
     run: () => ({ ok: false, stdout: '', why: 'exit 1' }),
@@ -391,6 +496,78 @@ function selfTest() {
     'S11 build 失败 ⇒ partial 且点名',
     r11.state === 'partial' && String(r11.still).includes('exit 1'),
     `${r11.state}/${String(r11.still)}`,
+  )
+  // ── 面差让路(2026-11-05 立)── 判据取 HEAD 面、build 吃工作树:他席把包源码改在飞时,
+  // 从工作树重建永远装不齐 HEAD 面那批导出 ⇒ 与其每轮白烧一次 build 再报 partial,不如本轮不动手。
+  const TWO = {
+    reds: [
+      { pkg: '@ihui/shared', fix: 'pnpm --filter @ihui/shared build' },
+      { pkg: '@ihui/types', fix: 'pnpm --filter @ihui/types build' },
+    ],
+  }
+  const ALL_SKEW = (targets) => ({ blocked: targets.map((t) => ({ pkg: t.pkg, dir: 'x', dirty: 1 })), unjudged: [], buildable: [] })
+  const PART_SKEW = (targets) => ({
+    blocked: targets.filter((t) => t.pkg === '@ihui/types').map((t) => ({ pkg: t.pkg, dir: 'packages/types', dirty: 4 })),
+    unjudged: [],
+    buildable: targets.filter((t) => t.pkg !== '@ihui/types'),
+  })
+  const NO_DIR = (targets) => ({ blocked: [], unjudged: targets.map((t) => ({ pkg: t.pkg, why: '脏集取不到' })), buildable: [] })
+  P(
+    'S13 全部目标被面差挡住 ⇒ face-skew 且一条 build 都不派(不白烧)',
+    (() => {
+      let runs = 0
+      const r = healStaleDist({ apply: true, faceSkew: ALL_SKEW, read: () => rd(TWO), run: () => (runs++, { ok: true, stdout: '' }) })
+      return r.state === 'face-skew' && runs === 0 && r.blocked.length === 2 && /@ihui\/shared/.test(r.why)
+    })(),
+    '',
+  )
+  P(
+    'S14 部分面差 ⇒ 只重建可落那批,被挡的逐枚点名(不把让路说成没活)',
+    (() => {
+      const argvs = []
+      const r = heal({
+        apply: true,
+        faceSkew: PART_SKEW,
+        read: () => (argvs.length === 0 ? rd(TWO) : rd({ reds: [{ pkg: '@ihui/types', fix: 'pnpm --filter @ihui/types build' }] })),
+        run: (cmd, args) => (argvs.push(args.join(' ')), { ok: true, stdout: '' }),
+      })
+      // 被挡的那枚不进 still(它根本没被重建),它必须出现在 blocked 里并被点名目录与脏数
+      const ok =
+        argvs.length === 1 &&
+        /@ihui\/shared/.test(argvs[0]) &&
+        !/@ihui\/types/.test(argvs[0]) &&
+        r.healed.includes('@ihui/shared') &&
+        r.blocked.length === 1 &&
+        r.blocked[0].pkg === '@ihui/types' &&
+        r.blocked[0].dir === 'packages/types' &&
+        /面差挡住/.test(r.why)
+      return ok
+    })(),
+    '',
+  )
+  P(
+    'S16 反向对照:面差替身判"全部可落"时同一批必须真跑(锁不是把什么都挡成让路)',
+    (() => {
+      let runs = 0
+      // 走 heal():不传 faceSkew ⇒ 用 NO_SKEW 替身。若这里漏用包装,量到的会是真 git status,
+      // 用例就随 packages/shared 在飞与否忽绿忽红 —— 那正是本器要防的脆红形态。
+      const r = heal({
+        apply: true,
+        read: () => rd(okShape),
+        run: () => (runs++, { ok: true, stdout: '' }),
+      })
+      return runs === 1 && r.state === 'partial' && String(r.still).includes('@ihui/shared') && r.blocked.length === 0
+    })(),
+    '',
+  )
+  P(
+    'S15 脏集取不到 ⇒ 绝不猜"干净可落",归 face-skew 并点名取不到(§0.3)',
+    (() => {
+      let runs = 0
+      const r = healStaleDist({ apply: true, faceSkew: NO_DIR, read: () => rd(okShape), run: () => (runs++, { ok: true, stdout: '' }) })
+      return r.state === 'face-skew' && runs === 0 && /脏集取不到/.test(r.why)
+    })(),
+    '',
   )
   return cases
 }
@@ -420,8 +597,12 @@ function main(argv) {
     )
     for (const t of r.targets) console.log(`   · ${t.pkg} ⇒ ${t.fix}`)
     for (const s of r.still) console.log(`   ✗ 仍落后:${s}`)
+    for (const b of r.blocked ?? [])
+      console.log(`   ⏸ 面差让路:${b.pkg}${b.dir ? `(${b.dir} 脏 ${b.dirty} 项)` : `(${b.why})`}`)
   }
   if (r.state === 'undetermined') return 2
+  // 面差让路 = "本轮判不了"(不是没活,也不是败):退出码走未判定档,既不记绿也不冒红(§0.3)。
+  if (r.state === 'face-skew') return 2
   if (r.state === 'partial' || r.state === 'refused') return 3
   return 0
 }
@@ -440,6 +621,8 @@ export const __test__ = {
   targetsFromVerdicts,
   readVerdicts,
   healStaleDist,
+  faceSkewOf,
+  workspaceDirOf,
   pnpmSpawnPlan,
   selfTest,
   MAX_BUILDS_PER_ROUND,
