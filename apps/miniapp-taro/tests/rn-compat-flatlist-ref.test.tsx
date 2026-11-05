@@ -21,10 +21,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, act, type Ref } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import type {
+  ScrollViewHandle,
+  TextInputHandle,
+  SectionListHandle,
+} from '../src/rn-compat/primitives'
 
-const captured = vi.hoisted(() => ({ scrollView: null as Record<string, unknown> | null }))
+const captured = vi.hoisted(() => ({
+  scrollView: null as Record<string, unknown> | null,
+  input: null as Record<string, unknown> | null,
+  textarea: null as Record<string, unknown> | null,
+}))
 
-// Taro 组件替换成记录 props 的最小实现;本判据只关心 ScrollView 收到的 scrollTop/scrollWithAnimation
+// Taro 组件替换成记录 props 的最小实现;本判据只关心命令式方法翻译后落到哪些 prop
 vi.mock('@tarojs/components', () => ({
   ScrollView: (props: Record<string, unknown>) => {
     captured.scrollView = props
@@ -33,8 +42,14 @@ vi.mock('@tarojs/components', () => ({
   View: () => null,
   Text: () => null,
   Image: () => null,
-  Input: () => null,
-  Textarea: () => null,
+  Input: (props: Record<string, unknown>) => {
+    captured.input = props
+    return null
+  },
+  Textarea: (props: Record<string, unknown>) => {
+    captured.textarea = props
+    return null
+  },
   Switch: () => null,
 }))
 
@@ -329,14 +344,22 @@ interface Handle {
   scrollToIndex: (p: { index: number; animated?: boolean }) => void
 }
 
-/** 同一现场:同一 harness,只替换被渲染组件 */
-async function runHarness(Comp: never): Promise<{ handle: Handle | null; root: Root }> {
-  let handle: Handle | null = null
-  const onRef: Ref<Handle> = (h) => {
+/** 同一现场:同一 harness,只替换被渲染组件(extraProps 供 ScrollView/TextInput/SectionList 用例) */
+async function runHarness<T = Handle>(
+  Comp: never,
+  extraProps: Record<string, unknown> = {},
+): Promise<{ handle: T | null; root: Root }> {
+  let handle: T | null = null
+  const onRef: Ref<T> = (h) => {
     handle = h
   }
   function Harness() {
-    return createElement(Comp, { data: [], renderItem: () => null, ref: onRef } as never)
+    return createElement(Comp, {
+      data: [],
+      renderItem: () => null,
+      ...extraProps,
+      ref: onRef,
+    } as never)
   }
   const root = createRoot(shimDoc.createElement('div') as unknown as HTMLElement)
   await act(async () => {
@@ -377,6 +400,115 @@ describe('rn-compat FlatList ref 透传', () => {
     expect((captured.scrollView as Record<string, unknown>).scrollWithAnimation).toBe(false)
     await act(async () => first.handle?.scrollToOffset({ offset: 120, animated: true }))
     expect((captured.scrollView as Record<string, unknown>).scrollTop).toBe(120)
+    await act(async () => first.root.unmount())
+  })
+})
+
+// === 同类真缺口(2026-11-05 一并补):ScrollView / TextInput / SectionList 的命令式方法 ===
+
+describe('rn-compat ScrollView ref 透传', () => {
+  beforeEach(() => {
+    captured.scrollView = null
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('阴性对照:旧形制(普通函数组件)拿不到句柄,scrollToEnd 不触发', async () => {
+    const { ScrollView: TaroScrollView } = await import('@tarojs/components')
+    const LegacyScrollView = (props: Record<string, unknown>) =>
+      createElement(TaroScrollView as never, props as never)
+    const { handle, root } = await runHarness(LegacyScrollView as never)
+    expect(handle).toBeNull()
+    expect(captured.scrollView).not.toBeNull()
+    expect(captured.scrollView?.scrollTop).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+
+  it('阳性对照:补 forwardRef 后 scrollTo/scrollToEnd 翻译成 scrollTop/scrollLeft', async () => {
+    const { ScrollView } = await import('../src/rn-compat/primitives')
+    const first = await runHarness<ScrollViewHandle>(ScrollView as never)
+    expect(first.handle).not.toBeNull()
+    await act(async () => first.handle?.scrollToEnd({ animated: true }))
+    expect(captured.scrollView?.scrollTop).toBe(1_000_000)
+    expect(captured.scrollView?.scrollWithAnimation).toBe(true)
+    await act(async () => first.handle?.scrollTo({ x: 30, y: 240, animated: false }))
+    expect(captured.scrollView?.scrollTop).toBe(240)
+    expect(captured.scrollView?.scrollLeft).toBe(30)
+    expect(captured.scrollView?.scrollWithAnimation).toBe(false)
+    expect(first.handle?.getScrollResponder()).toBe(first.handle)
+    await act(async () => first.root.unmount())
+  })
+})
+
+describe('rn-compat TextInput ref 透传', () => {
+  beforeEach(() => {
+    captured.input = null
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  it('阴性对照:旧形制拿不到句柄,focus 从未落到 Taro Input', async () => {
+    const { Input } = await import('@tarojs/components')
+    const LegacyTextInput = (props: Record<string, unknown>) =>
+      createElement(Input as never, props as never)
+    const { handle, root } = await runHarness(LegacyTextInput as never, {
+      value: '',
+      onChangeText: () => {},
+    })
+    expect(handle).toBeNull()
+    expect(captured.input).not.toBeNull()
+    expect(captured.input?.focus).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+
+  it('阳性对照:补 forwardRef 后 focus/blur/clear/isFocused 生效且句柄稳定', async () => {
+    const { TextInput } = await import('../src/rn-compat/primitives')
+    const onChangeText = vi.fn()
+    const first = await runHarness<TextInputHandle>(TextInput as never, {
+      value: '',
+      onChangeText,
+    })
+    expect(first.handle).not.toBeNull()
+    await act(async () => first.handle?.focus())
+    expect(captured.input?.focus).toBe(true)
+    expect(first.handle?.isFocused()).toBe(true)
+    await act(async () => first.handle?.blur())
+    expect(captured.input?.focus).toBe(false)
+    expect(first.handle?.isFocused()).toBe(false)
+    await act(async () => first.handle?.clear())
+    expect(onChangeText).toHaveBeenCalledWith('')
+    await act(async () => first.root.unmount())
+  })
+})
+
+describe('rn-compat SectionList ref 透传', () => {
+  beforeEach(() => {
+    captured.scrollView = null
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
+  const sections = [
+    { key: 'a', data: [1, 2] },
+    { key: 'b', data: [3] },
+  ]
+
+  it('阴性对照:旧形制拿不到句柄,scrollToLocation 不触发', async () => {
+    const { ScrollView: TaroScrollView } = await import('@tarojs/components')
+    const LegacySectionList = (props: Record<string, unknown>) =>
+      createElement(TaroScrollView as never, props as never)
+    const { handle, root } = await runHarness(LegacySectionList as never, { sections })
+    expect(handle).toBeNull()
+    expect(captured.scrollView).not.toBeNull()
+    expect(captured.scrollView?.scrollIntoView).toBeUndefined()
+    await act(async () => root.unmount())
+  })
+
+  it('阳性对照:补 forwardRef 后 scrollToLocation 翻译成 scrollIntoView', async () => {
+    const { SectionList } = await import('../src/rn-compat/primitives')
+    const first = await runHarness<SectionListHandle>(SectionList as never, { sections })
+    expect(first.handle).not.toBeNull()
+    await act(async () => first.handle?.scrollToLocation({ sectionIndex: 1, itemIndex: 0 }))
+    expect(captured.scrollView?.scrollIntoView).toBe('sl-1-0')
+    expect(captured.scrollView?.scrollWithAnimation).toBe(true)
+    expect(first.handle?.getScrollResponder()).not.toBeNull()
     await act(async () => first.root.unmount())
   })
 })
