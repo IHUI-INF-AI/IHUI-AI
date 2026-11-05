@@ -6898,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "会话",
+    "deleteConv": "删除会话",
+    "loadMore": "加载更多",
+    "markRead": "标记已读",
+    "searchPh": "搜索聊天记录/联系人/服务号",
     "title": "消息",
     "type": {
       "course": "课程",
