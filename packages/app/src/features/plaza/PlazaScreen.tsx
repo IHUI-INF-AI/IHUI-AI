@@ -27,6 +27,9 @@ import type { PlazaItem, StatusChip } from '@ihui/types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
+import { CategoryDropdown } from '../../components/category/CategoryDropdown'
+import { PlazaIdentitySheet, type PlazaIdentitySheetProps } from './PlazaIdentitySheet'
+import { PlazaDetailModal } from './PlazaDetailModal'
 
 export interface PlazaScreenProps {
   t: TFunction
@@ -53,6 +56,26 @@ export interface PlazaScreenProps {
    * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
    */
   contentBottomPadding?: number
+  /**
+   * 赛道分类弹层(2026-11-05 自小程序页内联抽屉上收;RN 同步消费同一实例)。
+   * 缺省不渲染 —— 两端都传,纯小程序手势留在页内不进共享屏。
+   */
+  trackFilter?: {
+    visible: boolean
+    items: readonly CategoryItem[]
+    selectedId: string
+    onSelect: (id: string) => void
+    onVisibleChange: (next: boolean) => void
+    panelTitle?: string
+  }
+  /** 身份切换弹层(两端同屏消费;用户区/底部入口由调用方按需给) */
+  identitySheet?: Omit<PlazaIdentitySheetProps, 't' | 'colorScheme'>
+  /** 卡片详情居中弹层(两端消费:RN 由整卡点击打开,弹层内「查看详情」再跳详情页) */
+  detail?: {
+    item: PlazaItem | null
+    onClose: () => void
+    onOpenDetail: (item: PlazaItem) => void
+  }
 }
 
 const STATUS_CHIPS: readonly StatusChip[] = [
@@ -121,7 +144,10 @@ export function PlazaScreen({
   onChatPress,
   onPublish,
   onRetry,
-  colorScheme = 'light',  
+  trackFilter,
+  identitySheet,
+  detail,
+  colorScheme = 'light',
   contentBottomPadding = 80,
 }: PlazaScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
@@ -376,6 +402,34 @@ export function PlazaScreen({
           )}
         </Pressable>
       </View>
+      {/* 三段共享弹层(2026-11-05 上收):赛道分类抽屉 / 身份切换 / 详情居中弹层。
+          RN 与小程序都传同一组 props(数据驱动),RN 真渲染 —— 不是小程序专属 prop。 */}
+      {trackFilter ? (
+        <CategoryDropdown
+          items={trackFilter.items}
+          selectedId={trackFilter.selectedId}
+          onSelect={trackFilter.onSelect}
+          colorScheme={colorScheme}
+          visible={trackFilter.visible}
+          onVisibleChange={trackFilter.onVisibleChange}
+          hideTrigger
+          panelTitle={trackFilter.panelTitle}
+          testID="plaza-track-dropdown"
+        />
+      ) : null}
+      {identitySheet ? (
+        <PlazaIdentitySheet t={t} colorScheme={colorScheme} {...identitySheet} />
+      ) : null}
+      {detail ? (
+        <PlazaDetailModal
+          t={t}
+          colorScheme={colorScheme}
+          visible={detail.item !== null}
+          item={detail.item}
+          onClose={detail.onClose}
+          onOpenDetail={detail.onOpenDetail}
+        />
+      ) : null}
     </View>
   )
 }
