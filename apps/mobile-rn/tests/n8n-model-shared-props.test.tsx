@@ -115,6 +115,7 @@ describe('RN N8nModelScreen 真消费共享屏 n8n-model/N8nModelScreen props(A 
     expect(item.paramsIn).toBe(2)
     expect(item.paramsOut).toBe(1)
     expect(item.status).toBe('running')
+    expect(props().showStatistics).toBe(true)
   })
 
   it('② onOpen 与 onEdit 同指 handleEdit,调用不抛错', async () => {
@@ -145,8 +146,10 @@ describe('RN N8nModelScreen 真消费共享屏 n8n-model/N8nModelScreen props(A 
     expect(RN_SOURCE).not.toContain('<FunctionBlockColumn')
   })
 
-  it('⑤ 共享屏承接分支锁:onOpen 整卡可点 + hasMeta 计数分支', () => {
+  it('⑤ 共享屏承接分支锁:onOpen 整卡可点 + showStatistics 计数闸(RN 显式 true)', () => {
     expect(SHARED_SOURCE).toContain('onOpen?.(item)')
-    expect(SHARED_SOURCE).toContain('hasMeta')
+    expect(SHARED_SOURCE).toContain('showStatistics = true')
+    expect(SHARED_SOURCE).not.toContain('hasMeta')
+    expect(RN_SOURCE).toContain('showStatistics={true}')
   })
 })

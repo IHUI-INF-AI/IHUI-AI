@@ -260,6 +260,7 @@ export default function N8nModelScreen() {
             onCreate={handleCreate}
             onBack={() => navigation.goBack()}
             colorScheme={resolvedTheme}
+            showStatistics={true}
           />
         ) : (
           <ModelList

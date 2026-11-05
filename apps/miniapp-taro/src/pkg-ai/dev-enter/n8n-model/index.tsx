@@ -96,7 +96,8 @@ export default function N8nModel() {
   )
 
   /** 原始行 → 共享屏列表项。后端 GET /workflows/n8n 只回 id/name/active/updatedAt,
-   *  calls/paramsIn/paramsOut 不在契约里,故不填(共享屏按缺字段整行不渲染)。 */
+   *  契约里没有 calls/paramsIn/paramsOut;端内补 0 保持字段必填的"真 0"语义,
+   *  计数两行由显式 showStatistics={false} 关闭。 */
   const loadList = useCallback(
     async (mode: 'initial' | 'refresh' = 'initial') => {
       if (mode === 'refresh') setRefreshing(true)
@@ -112,7 +113,10 @@ export default function N8nModel() {
             desc: String(raw.description ?? raw.desc ?? ''),
             url: '',
             status: raw.active === true ? 'running' : 'stopped',
+            calls: 0,
             updatedAt: String(raw.updatedAt ?? raw.createTime ?? ''),
+            paramsIn: 0,
+            paramsOut: 0,
           })),
         )
       } catch (e) {
@@ -342,6 +346,7 @@ export default function N8nModel() {
           onBack={() => Taro.navigateBack()}
           onOpen={(it) => onItemClick(it.id)}
           colorScheme={resolvedTheme}
+          showStatistics={false}
         />
       )}
     </ThemeRoot>
