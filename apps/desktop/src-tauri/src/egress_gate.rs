@@ -18,16 +18,22 @@
 //! - ✅ 接:裁决判序与稳定 ASCII 原因码(同 `policy.ts` `judgeEgressTarget`:target-missing /
 //!   policy-unavailable / rule-allow / rule-deny / default-allow / default-deny),以及
 //!   「出声去重」出口(同 `env-inject.ts` `reportEgressWarnings`)。
-//! - ❌ **刻意不接**:内置内网名段/域名族表(`packages/shared/src/utils/ssrf-guard.ts` 的
+//! - ✅ **已接线(goal-b49 Z26)**:内置内网名段/域名族表(`packages/shared/src/utils/ssrf-guard.ts` 的
 //!   `DENIED_HOST_NAMES` / `DENIED_HOST_SUFFIXES` 与 `ip-literal.ts` 的 `DENIED_CIDRS`)与
 //!   `glob-pattern.ts` 的通用匹配器。一手证据:`packages/shared/package.json` 的 `exports` 把
 //!   公开路径直接指向 `./src/*.ts`,而 `apps/cli` 无 `dist` 产物 ⇒ Rust 侧既不能 import、
 //!   运行时也没有可读的机器可消费形态(打包后的二进制不持有仓库路径)。**把 8 条字面量与
-//!   CIDR 表粘进 Rust 就是 §0.6 的第二把尺**,故本模块对这两层一律返回 `unjudged`
+//!   CIDR 表粘进 Rust 就是 §0.6 的第二把尺**,件不可用时这两层仍返回 `unjudged`
 //!   (`builtin-table-unwired` / `ip-literal-unwired`)并在装载时点名一次(§0.3:取不到输入
 //!   ⇒ 显式「未判定」,绝不冒 allow)。解锁前置见交付报告「未竟」:shared 侧产出 JSON 名单件
 //!   (需动 `packages/**` + `scripts/**`,不在本票白名单)后本模块 `include_str!` 该件;
 //!   或经 IPC 向 CLI/服务端取裁决。反向锁:parity 用例断言本文件**不得出现**那些字面量。
+//!   **〔Z26 补上的就是那一格〕** 名单本体经 `include_str!` 读派生态件
+//!   `packages/shared/src/utils/egress-builtin-list.json`(生成器
+//!   `scripts/generate-egress-builtin-list.mjs`;件⇄源⇄include 三格对账尺
+//!   `scripts/check-egress-builtin-list-sync.mjs`);件 schema 不认/解析不了/枚举为空 ⇒
+//!   `manifest()` 给 `None`,那两条腿**原地回到上面的 `unjudged` 形态**(§0.3 取不到输入
+//!   不冒 allow)。跨语言行为向量钉在 `e13`(向量本身也来自那张件)。
 //! - ❌ 不接:DNS 地址证据腿与 TCP relay 腿(`dns-resolver-adapter.ts` / `proxy-relay.ts` 是
 //!   Node 载体,桌面端无宿主),同样只点名不假执法。
 //!
@@ -197,6 +203,243 @@ fn pattern_supported(pattern: &str) -> bool {
     !base.contains('*')
 }
 
+/// 内置名单腿的**消费面**(goal-b49 Z26):名单本体是派生态件,由
+/// `scripts/generate-egress-builtin-list.mjs` 从 `packages/shared/src/utils/{ssrf-guard,ip-literal}.ts`
+/// 与 `apps/cli/src/sandbox/egress/builtin-rules.ts` 重算,逐字节对账尺 =
+/// `scripts/check-egress-builtin-list-sync.mjs`(件 ⇄ 源 ⇄ 本 include 三格)。
+/// 本模块**不写任何名单字面量**(§0.6 第二把尺;Z17 反向锁仍生效)。
+const EGRESS_BUILTIN_LIST_JSON: &str =
+    include_str!("../../../../packages/shared/src/utils/egress-builtin-list.json");
+
+const EGRESS_BUILTIN_LIST_SCHEMA: &str = "ihui-egress-builtin-list/v1";
+
+#[derive(serde::Deserialize)]
+pub struct ManifestRow {
+    pub id: String,
+    pub domain: String,
+    pub effect: String,
+    pub enforcement: String,
+    pub why: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct EmbeddedPrefix {
+    pub cidr: String,
+    #[serde(rename = "v4BitOffset")]
+    pub v4_bit_offset: u32,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManifestVector {
+    pub target: String,
+    pub decision: String,
+    pub layer: String,
+    pub reason: String,
+    pub rule_id: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Manifest {
+    pub schema: String,
+    pub host_names: Vec<String>,
+    pub host_suffixes: Vec<String>,
+    pub denied_cidrs: Vec<String>,
+    pub ipv6_embedded_v4_prefixes: Vec<EmbeddedPrefix>,
+    pub rows: Vec<ManifestRow>,
+    pub vectors: Vec<ManifestVector>,
+}
+
+/// 读件:schema 不认、解析不了、名单枚数为 0 ⇒ `None`(= 该腿不可用,judge 落更严一侧,
+/// 绝不折成 allow,也不静默当成"表里没有这条")。解析结果只算一次。
+pub fn manifest() -> Option<&'static Manifest> {
+    static CACHE: OnceLock<Option<Manifest>> = OnceLock::new();
+    CACHE
+        .get_or_init(|| match serde_json::from_str::<Manifest>(EGRESS_BUILTIN_LIST_JSON) {
+            Ok(m) if m.schema == EGRESS_BUILTIN_LIST_SCHEMA => {
+                if m.rows.is_empty() || m.denied_cidrs.is_empty() || m.vectors.is_empty() {
+                    eprintln!("⚠ egress: builtin list artifact enumerates empty tables -> builtin legs unavailable (never folded into allow)");
+                    None
+                } else {
+                    Some(m)
+                }
+            }
+            Ok(m) => {
+                eprintln!("⚠ egress: builtin list artifact schema \"{}\" is not the one this shell reads -> builtin legs unavailable", m.schema);
+                None
+            }
+            Err(e) => {
+                eprintln!("⚠ egress: builtin list artifact could not be parsed ({e}) -> builtin legs unavailable");
+                None
+            }
+        })
+        .as_ref()
+}
+
+/// 件里的规则行 ⇒ 本模块的 Rule。行形认不出(档位字符串不在档 / 通配表达不了)⇒
+/// 标 `supported=false` + Deny,由 `judge` 的"更严一侧"结算成 `unjudged`(绝不折 allow)。
+fn builtin_rules() -> Vec<Rule> {
+    let Some(m) = manifest() else { return Vec::new(); };
+    m.rows
+        .iter()
+        .map(|row| {
+            let known_effect = row.effect == "deny" || row.effect == "allow";
+            Rule {
+                id: row.id.clone(),
+                domain: row.domain.to_lowercase(),
+                effect: if row.effect == "allow" { Effect::Allow } else { Effect::Deny },
+                enforcement: if row.enforcement == "advisory" { Enforcement::Advisory } else { Enforcement::Enforce },
+                why: format!("{} (builtin list artifact)", row.why),
+                supported: known_effect && pattern_supported(&row.domain),
+            }
+        })
+        .collect()
+}
+
+/// IPv4 点分四段 ⇒ 32 位值(严格四段、每段 1-3 位十进制、≤255;不认前导零之外的花招)。
+fn parse_ipv4(text: &str) -> Option<u32> {
+    let parts: Vec<&str> = text.split('.').collect();
+    if parts.len() != 4 {
+        return None;
+    }
+    let mut value: u32 = 0;
+    for part in parts {
+        if part.is_empty() || part.len() > 3 || !part.chars().all(|c| c.is_ascii_digit()) {
+            return None;
+        }
+        let octet: u32 = part.parse().ok()?;
+        value = (value << 8) | octet;
+    }
+    Some(value)
+}
+
+fn ipv6_groups(chunk: &str) -> Option<Vec<u16>> {
+    if chunk.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut out: Vec<u16> = Vec::new();
+    for part in chunk.split(':') {
+        if part.is_empty() {
+            return None;
+        }
+        if part.contains('.') {
+            let v4 = parse_ipv4(part)?;
+            out.push((v4 >> 16) as u16);
+            out.push((v4 & 0xffff) as u16);
+            continue;
+        }
+        if part.len() > 4 || !part.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        out.push(u16::from_str_radix(part, 16).ok()?);
+    }
+    Some(out)
+}
+
+/// IPv6(含 `::` 压缩、尾段 IPv4 形态、IPv4-mapped/compatible 折回 v4)⇒ (值, 族)。
+fn parse_ipv6(text: &str) -> Option<(u128, u8)> {
+    let (first, rest) = match text.find("::") {
+        Some(idx) => (&text[..idx], Some(&text[idx + 2..])),
+        None => (text, None),
+    };
+    let left = ipv6_groups(first)?;
+    let right = match rest {
+        Some(r) => ipv6_groups(r)?,
+        None => Vec::new(),
+    };
+    let mut groups: Vec<u16> = Vec::with_capacity(8);
+    if rest.is_some() {
+        let fill = 8usize.checked_sub(left.len() + right.len())?;
+        if left.len() + right.len() >= 8 && !(left.is_empty() && right.is_empty() && fill == 8) {
+            return None;
+        }
+        groups.extend_from_slice(&left);
+        groups.resize(left.len() + fill, 0);
+        groups.extend_from_slice(&right);
+    } else {
+        groups = left;
+    }
+    if groups.len() != 8 {
+        return None;
+    }
+    let mut value: u128 = 0;
+    for g in &groups {
+        value = (value << 16) | u128::from(*g);
+    }
+    let top96 = value >> 32;
+    if top96 == 0 || top96 == 0xffff {
+        return Some(((value & 0xffff_ffff) as u128, 4));
+    }
+    Some((value, 6))
+}
+
+/// 主机名 ⇒ (值, 族)。解析不了由调用方落 `unjudged`(更严一侧),绝不折 allow。
+fn parse_ip_address(host: &str) -> Option<(u128, u8)> {
+    if host.contains(':') {
+        return parse_ipv6(host).map(|(v, f)| (v as u128, f));
+    }
+    parse_ipv4(host).map(|v| (v as u128, 4))
+}
+
+fn cidr_parts(text: &str) -> Option<((u128, u8), u32)> {
+    let (addr, prefix) = text.split_once('/')?;
+    let parsed = parse_ip_address(addr)?;
+    let bits = if parsed.1 == 4 { 32 } else { 128 };
+    let prefix: u32 = prefix.parse().ok()?;
+    if prefix > bits {
+        return None;
+    }
+    Some((parsed, prefix))
+}
+
+fn top_bits(value: u128, family: u8, prefix: u32) -> u128 {
+    let bits = u32::from(family == 6) * 96 + 32;
+    if prefix == 0 {
+        return 0;
+    }
+    value >> (bits - prefix)
+}
+
+fn hits_cidr(value: u128, family: u8, base: u128, cidr_family: u8, prefix: u32) -> bool {
+    family == cidr_family && top_bits(value, family, prefix) == top_bits(base, cidr_family, prefix)
+}
+
+/// 落进件里那张 CIDR 表?(含 6to4 / DNS64 嵌入 v4 的**折回复检** —— 语义同源 `ip-literal.ts`:
+/// 那一族按前缀一律拒会误杀真实公网目的,所以取嵌进来的 v4 再走一遍 v4 名单。)
+fn ip_hits_denied(parsed: (u128, u8)) -> bool {
+    let Some(m) = manifest() else { return true; };
+    let (value, family) = parsed;
+    for text in &m.denied_cidrs {
+        if let Some(((base, cidr_family), prefix)) = cidr_parts(text) {
+            if hits_cidr(value, family, base, cidr_family, prefix) {
+                return true;
+            }
+        }
+    }
+    if family != 6 {
+        return false;
+    }
+    for row in &m.ipv6_embedded_v4_prefixes {
+        let Some(((base, cidr_family), prefix)) = cidr_parts(&row.cidr) else { continue };
+        if cidr_family != 6 || !hits_cidr(value, 6, base, 6, prefix) {
+            continue;
+        }
+        if row.v4_bit_offset + 32 > 128 {
+            continue;
+        }
+        let inner = (value >> (128 - row.v4_bit_offset - 32)) & 0xffff_ffff;
+        if m.denied_cidrs.iter().any(|text| {
+            cidr_parts(text).map_or(false, |((base, fam), prefix)| {
+                fam == 4 && hits_cidr(inner, 4, base, 4, prefix)
+            })
+        }) {
+            return true;
+        }
+    }
+    false
+}
+
 /// env → 生效策略(装配语义同 `policy-source.ts`:内置行永远在场 —— 本模块以
 /// `builtin-table-unwired` 点名它不在场;显式声明行排在任何隐式档之前;认不出落更严)。
 pub fn load_policy(env: &dyn Fn(&str) -> Option<String>) -> (GatePolicy, Vec<String>) {
@@ -274,9 +517,9 @@ pub fn load_policy(env: &dyn Fn(&str) -> Option<String>) -> (GatePolicy, Vec<Str
         }
     }
 
-    if rules.is_empty() {
+    if manifest().is_none() {
         warnings.push(
-            "egress: no operator-declared rows on this surface (IHUI_EGRESS_DENY_DOMAINS/IHUI_EGRESS_ALLOW_DOMAINS); the builtin internal-name/CIDR table lives only in @ihui/shared/utils/ssrf-guard and is deliberately NOT reimplemented here (see egress_gate.rs header) -> those layers report unjudged, never allow"
+            "egress: the wired builtin list artifact (packages/shared/src/utils/egress-builtin-list.json, read via include_str!) is unreadable / schema-mismatched / enumerates empty -> the internal-name and CIDR legs are UNAVAILABLE on this surface and judge() falls to unjudged, never allow (reconcile with scripts/check-egress-builtin-list-sync.mjs)"
                 .to_string(),
         );
     }
@@ -293,7 +536,8 @@ pub fn load_policy(env: &dyn Fn(&str) -> Option<String>) -> (GatePolicy, Vec<Str
         );
     }
 
-    (GatePolicy { rules, default_deny, enforcement }, warnings)
+    let wired: Vec<Rule> = builtin_rules().into_iter().chain(rules.into_iter()).collect();
+    (GatePolicy { rules: wired, default_deny, enforcement }, warnings)
 }
 
 fn judgement(
@@ -382,14 +626,40 @@ pub fn judge(raw_target: &str, policy: &GatePolicy) -> Judgement {
     }
 
     if looks_like_ip_literal(&host) {
-        return judgement(
-            &host,
-            Decision::Unjudged,
-            "ip-literal",
-            "ip-literal-unwired",
-            Some("internal-range table (DENIED_CIDRS) is TS-only; name this literal in IHUI_EGRESS_DENY_DOMAINS to block it from the desktop shell".to_string()),
-            policy.enforcement,
-        );
+        if manifest().is_none() {
+            return judgement(
+                &host,
+                Decision::Unjudged,
+                "ip-literal",
+                "ip-literal-unwired",
+                Some("the wired internal-range table is unreadable -> refusing to guess: name this literal in IHUI_EGRESS_DENY_DOMAINS, or fix scripts/generate-egress-builtin-list.mjs --write".to_string()),
+                policy.enforcement,
+            );
+        }
+        let parsed = match parse_ip_address(&host) {
+            Some(p) => p,
+            None => {
+                return judgement(
+                    &host,
+                    Decision::Unjudged,
+                    "ip-literal",
+                    "ip-form-unparsable",
+                    Some("this shell cannot parse the address form -> unjudged, never folded into allow".to_string()),
+                    policy.enforcement,
+                )
+            }
+        };
+        if ip_hits_denied(parsed) {
+            return judgement(
+                &host,
+                Decision::Deny,
+                "ip-literal",
+                "internal-range",
+                Some("the literal lands in the wired internal-range table; allow it explicitly via IHUI_EGRESS_ALLOW_DOMAINS or keep the shell advisory with IHUI_EGRESS_ENFORCE=0".to_string()),
+                policy.enforcement,
+            );
+        }
+        return judgement(&host, Decision::Allow, "ip-literal", "public-literal", None, policy.enforcement);
     }
 
     let enf = policy.enforcement;
@@ -501,9 +771,13 @@ mod egress_gate_tests {
     }
 
     #[test]
-    fn e2_no_declared_rows_is_unjudged_and_names_the_gap() {
+    fn e2_wired_builtin_rows_are_always_present_and_an_empty_table_is_unjudged() {
         let policy = policy_from(None, None, None, None);
-        let v = judge("https://aizhs.top/", &policy);
+        assert!(!policy.rules.is_empty(), "内置行必须永远在场(名单件已接线)");
+        assert_eq!(judge("https://aizhs.top/", &policy).reason, "default-allow");
+        let mut bare = policy.clone();
+        bare.rules.clear();
+        let v = judge("https://aizhs.top/", &bare);
         assert_eq!(v.decision, Decision::Unjudged);
         assert_eq!(v.reason, "policy-unavailable");
     }
@@ -581,13 +855,70 @@ mod egress_gate_tests {
     }
 
     #[test]
-    fn e8_ip_literal_is_unjudged_not_copied() {
+    fn e8_ip_literal_is_judged_by_the_wired_cidr_table() {
         let policy = policy_from(Some("evil.example"), None, None, Some("1"));
         for host in ["127.0.0.1", "169.254.169.254", "::1", "10.0.0.5"] {
             let v = judge(host, &policy);
-            assert_eq!(v.decision, Decision::Unjudged, "{host} -> {v:?}");
-            assert_eq!(v.reason, "ip-literal-unwired", "{host}");
+            assert_eq!(v.decision, Decision::Deny, "{host} -> {v:?}");
+            assert_eq!(v.reason, "internal-range", "{host}");
+            assert_eq!(v.layer, "ip-literal", "{host}");
         }
+        let public = judge("8.8.8.8", &policy);
+        assert_eq!(public.decision, Decision::Allow);
+        assert_eq!(public.reason, "public-literal");
+    }
+
+    /// 跨语言行为向量对账(Z17 §四-2):期望值由 TS 生产判据本体算出并**存在件里**,
+    /// 本用例逐值比对 decision/layer/reason。档位面刻意不比对:Rust 侧 IHUI_EGRESS_ENFORCE
+    /// 结算 ip-literal/default 两层,TS 侧 builtin 行恒 advisory —— 已点名的分工差,不是漂移。
+    #[test]
+    fn e13_cross_language_vectors_match_the_ts_engine() {
+        let map = |_: &str| -> Option<String> { None };
+        let (policy, _) = load_policy(&map);
+        let m = manifest().expect("内置名单件必须可解析,否则本用例直接失败(不静默跳过)");
+        let mut checked = 0usize;
+        for v in m.vectors.iter() {
+            let j = judge(&v.target, &policy);
+            let expected = match v.decision.as_str() {
+                "deny" => Decision::Deny,
+                "allow" => Decision::Allow,
+                _ => Decision::Unjudged,
+            };
+            assert_eq!(j.decision, expected, "target={} ts={}", v.target, v.decision);
+            assert_eq!(j.layer, v.layer, "target={} ts-layer={}", v.target, v.layer);
+            assert_eq!(j.reason, v.reason, "target={} ts-reason={}", v.target, v.reason);
+            if v.layer == "rule" {
+                assert!(v.rule_id.is_some(), "rule 层向量必须带行身份: {}", v.target);
+            }
+            checked += 1;
+        }
+        assert!(checked >= 40, "向量现读 {} 枚,少于源表规模 ⇒ 语料被裁剪,判失败", checked);
+    }
+
+    /// 「认不出落更严」那一格:行档位不在档 / 通配表达不了 ⇒ 绝不折成 allow,结算 unjudged。
+    #[test]
+    fn e14_unmappable_builtin_row_shape_falls_to_the_stricter_side() {
+        let m = manifest().expect("内置名单件必须可解析");
+        for row in m.rows.iter() {
+            assert!(
+                matches!(row.effect.as_str(), "deny" | "allow"),
+                "件里的行档位不在档: {} {}",
+                row.id,
+                row.effect
+            );
+        }
+        let bad = Rule {
+            id: "probe".to_string(),
+            domain: "mid*dle.example".to_string(),
+            effect: Effect::Deny,
+            enforcement: Enforcement::Enforce,
+            why: "probe".to_string(),
+            supported: false,
+        };
+        let policy = GatePolicy { rules: vec![bad], default_deny: false, enforcement: Enforcement::Advisory };
+        let v = judge("anything.example", &policy);
+        assert_eq!(v.decision, Decision::Unjudged);
+        assert_eq!(v.reason, "deny-pattern-unsupported");
     }
 
     #[test]
