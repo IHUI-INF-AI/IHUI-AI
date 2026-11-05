@@ -134,4 +134,26 @@
 - 因此**合并后台账工具基线必须取 main 侧**（`scripts/lib/ledger-retirement.mjs` + `scripts/object-space-land.mjs` 的退休判据），否则行 52 被旧审判读成假登记。
 - 批 5 合并成果：`e4a24ab007`（双亲 `67f57330bf` ∪ `723c381ca8`），台账 93 行 / 3 退休（行 11/16/62）；三桶清单里的行号仍是 2026-11-05 的 90 行旧稿，退休行实测见台账 `retiredAt`。
 
+## 退休带条件（2026-11-06 · 裁决 A：落地基线 = batch5 `67f57330bf`）
+
+以下三条退休行的有效期**只成立在 batch5 的页面版本上**——这是退休成立的前提，不是可选备注：
+
+| 台账行 | 页面文件 | 页 blob sha（`67f57330bf` 与 `e4a24ab007` 逐字相同） | batch5 实测 |
+|---|---|---|---|
+| `pages/distribution/rank` | `apps/miniapp-taro/src/pages/distribution/rank.tsx` | `f4c1c77fb83ccbf02aaadccbb030ed855c7d411a` | 94 行 / 2 开标签 |
+| `pages/distribution/member-detail/index` | `apps/miniapp-taro/src/pages/distribution/member-detail/index.tsx` | `4225905ceac677d9b987236b7883004f49f18b15` | 166 行 / 2 开标签 |
+| `pages/distribution/index` | `apps/miniapp-taro/src/pages/distribution/index.tsx` | `e068b4473afc04fe855265c2e1790470b0549e60` | 370 行 / 2 开标签 |
+
+- 合面时这三页**必须取 batch5 侧版本**，不得被 main 的 `distribution/index`（468 行 / 66 开标签）、`member-detail`（34）、`rank`（17）版本覆盖。
+- 合并后必须在合并树上复测这三页开标签（AST：`JsxElement` + `JsxSelfClosingElement` ≤2），任一 >2 **立即回滚该行退休**（删五枚标记、恢复在册）。
+- 禁跨树判资格：shop5c `39b23363fc` 与 main `a7efb3edfe` 的读数不得用于判定这三行的退休资格。
+
+## 结构下限（不退休；这是结论，不是欠账）
+
+| 页（batch5 读数） | 剩余开标签逐段 | 端独有证据（file:line） |
+|---|---|---|
+| `pages/distribution/order-list/index`（27 行 / 3 枚） | `ThemeRoot` + `AuthReadyGate` + `DistributionOrderListScreenShell`（`order-list/index.tsx:20-24`） | 第 3 枚是端内冷启动鉴权闸：`apps/miniapp-taro/src/components/AuthReadyGate.tsx:21`；判据见 `apps/miniapp-taro/src/hooks/use-auth-ready-gate.ts:5-7`（依赖端内 store + Taro `isLoggedIn()`，头注明示不下沉共享层）。`apps/mobile-rn`、`apps/web` 对 `AuthReadyGate` 均 0 命中 ⇒ 端独有，2 枚之外不可再收。 |
+| `pages/distribution/commission`（27 行 / 3 枚） | 同上（`commission.tsx:20-24`） | 同上（同一 `AuthReadyGate`，同一端独有判据）。 |
+| `pages/distribution/team`（219 行 / 5 枚） | 多出 `View` + `Text` + `Text`（`team.tsx:165-170`「团队总人数」行） | 数据源是小程序独有分页接口 `getDistributionTeam`（`apps/miniapp-taro/src/api/index.ts:985`）的 `res.total`；共享屏统计卡走 `stats` 入参，RN 侧该接口历史 404（`apps/mobile-rn/src/screens/TeamScreen.tsx:51-53`），本页因此传 `stats={undefined}`（`team.tsx:173`）⇒ 上收只能新增小程序单端消费的 stats 装配，触红线「单端 prop 不算单源化」，故留宿主。 |
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
