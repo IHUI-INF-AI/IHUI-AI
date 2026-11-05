@@ -197,6 +197,17 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   if (typeof g.sessionCommandTemplate !== 'string') {
     throw new GateShapeError('闸门形状坏:sessionCommandTemplate 必须是字符串(空串 = dry-run 档)')
   }
+  // 模板引用了 {sessionModel}/{sessionApiUrl} 而闸门没给值 ⇒ 当场形状报错(既有终局档,
+  // 不新增动作)。方向是"多要一次定向说明"(§0.10):宁可本轮不派,也不把空串塞进
+  // `--model ""` 让会话以一个没人认得的模型名起跑。
+  for (const [ph, key] of [
+    ['{sessionModel}', 'sessionModel'],
+    ['{sessionApiUrl}', 'sessionApiUrl'],
+  ]) {
+    if (!g.sessionCommandTemplate.includes(ph)) continue
+    if (typeof g[key] !== 'string' || !g[key].trim())
+      throw new GateShapeError(`闸门形状坏:sessionCommandTemplate 用了 ${ph} 而 ${key} 未配置(非空字符串)`)
+  }
   // 人工阀档:缺字段 = observe(记账不拦)。缺省绝不等于放开 —— 但也绝不因为"没登记"就
   // 一刀切停派,那是把刚修活的发起腿再锁死。enforce 的前置条件由尺子 A6 维量(见 check-autonomy-leg-health)。
   if (g.humanValveMode !== undefined && !VALVE_MODES.includes(g.humanValveMode)) {
@@ -355,12 +366,22 @@ export function rankTicketRows(rows, { policyText, candidatesText, keyOf = ticke
   }
 }
 
-/** {promptFile}/{ticketLine}/{ticketKey} 占位填充;未知占位原样保留(不猜) */
-export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey }) {
+/**
+ * {promptFile}/{ticketLine}/{ticketKey}/{sessionModel}/{sessionApiUrl} 占位填充;
+ * 未知占位原样保留(不猜)。
+ * 后两枚是 2026-11-05 补的:派发子进程跑在 SYSTEM 账户 HOME 下,那里那份 `.ihui/settings.json`
+ * 只有 apiKey、没有 defaultModel/apiUrl ⇒ CLI 落回缺省 `'default'`,而 ai-service 的网关只把
+ * `"auto"`/空串归一,`default` 被当真实模型名走末位兜底 ⇒ 实际打到 api.openai.com ⇒ 404。
+ * 也就是"这一班用的是哪个模型"取决于进程继承到哪个 HOME —— 那是别人的文件,随时会被改写。
+ * 模型与入口一律由本仓闸门声明,不再靠继承运气。
+ */
+export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey, sessionModel, sessionApiUrl }) {
   return String(tpl)
     .replaceAll('{promptFile}', promptFile ?? '')
     .replaceAll('{ticketLine}', ticketLine ?? '')
     .replaceAll('{ticketKey}', ticketKey ?? '')
+    .replaceAll('{sessionModel}', sessionModel ?? '')
+    .replaceAll('{sessionApiUrl}', sessionApiUrl ?? '')
 }
 
 /**
@@ -1437,7 +1458,13 @@ function dispatchSession(gates, ticket, dryRun) {
     `  在回答里给出工作量评估后正常退出(这是合法退出,但账面仍记为本轮未动手 —— 不会冒充成功)。`,
   ].join('\n')
   writeFileSync(promptFile, promptText, 'utf8')
-  const filled = fillTemplate(resolved, { promptFile, ticketLine: ticket.text, ticketKey: key })
+  const filled = fillTemplate(resolved, {
+    promptFile,
+    ticketLine: ticket.text,
+    ticketKey: key,
+    sessionModel: gates.sessionModel,
+    sessionApiUrl: gates.sessionApiUrl,
+  })
   const rt = normalizeSessionRuntime(filled)
   const cmd = rt.cmd
   const t0 = Date.now()
@@ -2575,6 +2602,8 @@ async function probeSession({ gates, dryRun = false } = {}) {
       promptFile,
       ticketLine: 'probe 自检',
       ticketKey: 'probe',
+      sessionModel: gates.sessionModel,
+      sessionApiUrl: gates.sessionApiUrl,
     })
     const cmd = normalizeSessionRuntime(filledProbe).cmd
     const t0 = Date.now()

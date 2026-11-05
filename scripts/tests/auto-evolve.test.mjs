@@ -15,7 +15,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   __test__ as ae,
@@ -1122,5 +1122,58 @@ test('Ⓙ 点号成员引用与裸点文件都能被预检(补 P84 暴露的仪�
   })
   assert.equal(e.hits[0].via, 'exact')
   assert.ok(!/点号引用按末段核/.test(ae.renderTicketScope(e)), 'exact 命中不许冒"末段核"的说明')
+})
+
+// ── Ⓚ 派发模型必须由闸门声明(2026-11-05 立)──────────────────────────
+// 真事故:派发子进程继承 SYSTEM 账户 HOME,那份 .ihui/settings.json 没有 defaultModel ⇒
+// CLI 落回字面量 'default' ⇒ ai-service 网关不归一它 ⇒ 兜底 provider=openai、api_base=None ⇒
+// 打到 api.openai.com 回来 404(4 次重试响应体逐字节相同)。同一枚票早一班还能真到达上游,
+// 差别只是那个仓外文件刚被改写过。模型必须由本仓闸门写进命令行。
+test('Ⓚa fillTemplate 认 {sessionModel}/{sessionApiUrl},未知占位仍原样保留', () => {
+  const out = ae.fillTemplate('run --model {sessionModel} --api-url {sessionApiUrl} --x {nope}', {
+    sessionModel: 'agnes/agnes-2.5-flash',
+    sessionApiUrl: 'http://127.0.0.1:8802',
+  })
+  assert.equal(out, 'run --model agnes/agnes-2.5-flash --api-url http://127.0.0.1:8802 --x {nope}')
+  // 缺参 ⇒ 填空串(拒绝的活由 loadGates 形状锁做,这里不静默保留占位去撞 cmd.exe)
+  assert.equal(ae.fillTemplate('m={sessionModel}', {}), 'm=')
+})
+
+test('Ⓚb 形状锁:模板引用而闸门未配置 ⇒ GateShapeError;未引用则不拦', () => {
+  const base = { ...GOOD_GATES }
+  const mk = (tpl, extra) => JSON.stringify({ ...base, sessionCommandTemplate: tpl, ...extra })
+  // 引用了但缺键 / 空串 / 非字符串 ⇒ 三形态都拒
+  for (const extra of [undefined, { sessionModel: '' }, { sessionModel: '   ' }, { sessionModel: 7 }]) {
+    assert.throws(
+      () => ae.loadGates(() => mk('run --model {sessionModel}', extra)),
+      (e) => e.constructor.name === 'GateShapeError' && /sessionModel/.test(e.message),
+      JSON.stringify(extra),
+    )
+  }
+  // 给值即放行,且值原样带出
+  const g = ae.loadGates(() => mk('run --model {sessionModel}', { sessionModel: 'a/b' }))
+  assert.equal(g.sessionModel, 'a/b')
+  // 反向锁:模板没引用时,闸门没这个键也不许凭空拦(否则别机的模板会被这条新形状锁冻死)
+  assert.equal(ae.loadGates(() => mk('run --prompt {promptFile}')).sessionModel, undefined)
+  // sessionApiUrl 同形(两枚占位共用一段判据,漏一枚即这里翻红)
+  assert.throws(
+    () => ae.loadGates(() => mk('run --api-url {sessionApiUrl}', {})),
+    (e) => e.constructor.name === 'GateShapeError' && /sessionApiUrl/.test(e.message),
+  )
+})
+
+test('Ⓚc 接线锁:真闸门真用了 {sessionModel},两处填充真传值(§0.9)', () => {
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'auto-evolve.mjs'), 'utf8')
+  const gatesRaw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'auto-evolve-gates.json'), 'utf8')
+  const g = JSON.parse(gatesRaw)
+  assert.ok(g.sessionCommandTemplate.includes('--model {sessionModel}'), '模板没把模型写进命令行 ⇒ 派发又靠继承 HOME 碰运气')
+  assert.ok(typeof g.sessionModel === 'string' && g.sessionModel.trim(), '闸门没给 sessionModel ⇒ 派发那一刻会 GateShapeError 冻腿')
+  // 真配置必须过真形状锁(不只看 JSON 能解析)
+  assert.ok(ae.loadGates(() => gatesRaw).sessionModel, '现盘闸门过不了形状锁')
+  // 两个真填充点(派发 / --probe)都得把值交出去
+  const wired = (src.match(/sessionModel:\s*gates\.sessionModel/g) ?? []).length
+  assert.ok(wired >= 2, `填充点只 ${wired} 处:--probe 或真派发有一处没接`)
+  const mutant = 'fillTemplate(resolved, { promptFile, ticketLine, ticketKey })'
+  assert.equal(/sessionModel:\s*gates\.sessionModel/.test(mutant), false, '模式空断言')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
