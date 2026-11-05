@@ -207,7 +207,8 @@ describe('W9 容器性:装车证明 + 三拒型 + 正向 + structuralChild + W-2
     expect(acl).toBeLessThan(marker);
     expect(marker).toBeLessThan(rm); // ACL 仍在 existsSync/marker/rmSync 之前
     // W-2:cleanupWorktree 也须把容器性排在 fs 之前(命中即一个字节不删)
-    const tw = fs.readFileSync(new URL('../src/tools/worktree.ts', import.meta.url), 'utf8');
+    // Z30 拆档:收尾腿已搬进 worktree-cleanup.ts ⇒ 锁随搬运改指新档,判据原样(容器性 < existsSync)
+    const tw = fs.readFileSync(new URL('../src/tools/worktree-cleanup.ts', import.meta.url), 'utf8');
     const cu = tw.slice(tw.indexOf('export function cleanupWorktree'));
     expect(cu.indexOf('judgeWorktreeContainment(')).toBeLessThan(cu.indexOf('fs.existsSync(wtPath)'));
   });

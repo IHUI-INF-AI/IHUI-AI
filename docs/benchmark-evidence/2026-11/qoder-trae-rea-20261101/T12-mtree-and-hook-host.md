@@ -44,7 +44,7 @@
 | **1.0.74.7a73af9** | **1119** | `8aa3d72d6763` | 同上 | 2 | **`${QODER_PLUGIN_ROOT}/bin/qoder-context-hook.exe <sub>`** | 全 false | `QODER_PRODUCT_ID` + **`QODER_SEARCH_PRODUCT_FORM`** | **转折点①** |
 | 1.0.78.26e781a | 1118 | `90b3f354e1bf` | 同上 | 2 | 同 1.0.74 | **UserPromptSubmit → async true** | 同上 | 仅异步化一枚 |
 | **1.0.84.f756706** | **1605** | `268bdc8b8cbc` | 同上 | **3** | 同 1.0.74 | true+false 混 | 同上 | UserPromptSubmit 挂两条（async 的 `user-prompt-submit` + 同步的 `qoder-context-prompt`）；`bin/` 里 **`qoder-context.cmd` 消失** |
-| **1.0.91.b22f2d0a** | **4388** | `bb2502651a15` | **SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop** | **8** | 同 1.0.74 | 8 条里 5 条 async | 同上 | **转折点②**：事件 2→5、条目 2→8、首次出现 `matcher` |
+| **1.0.91.b22f2d0a** | **4388** | `bb2502651a15` | **SessionStart, SubagentStart, UserPromptSubmit, PostToolUse, Stop** | **8** | 同 1.0.74 | 8 条里 **6 条 async / 2 条 sync**（更正@2026-11-06，依据 = 同目录 `T12-mtree-native-and-hook-host.md` §3 末「就地更正」表首行：`hooks.json` grp.async 逐条计数 `total:8, async:6, sync:2`；靶件 sha 逐字相同 ⇒ 靶件未漂，系本席读数口径） | 同上 | **转折点②**：事件 2→5、条目 2→8、首次出现 `matcher`（更正@2026-11-06：**matcher 挂在 grp 层**——包裹 `hooks:[...]` 数组那一级，`Object.keys(grp)` = `{async,matcher,hooks}`；不挂在叶子 `hook` 层，`Object.keys(h)` 恒为 `{type,command,args,name,timeout,env}`；8 条叶子共带 4 处非空 matcher。依据 = 同件 §3 末「就地更正」表次行） |
 
 - 1135→1119 那 16 字节的**全部**内容（[观察]）：`command` 由 `"cmd.exe"` + 4 个 args 变为 `"${QODER_PLUGIN_ROOT}/bin/qoder-context-hook.exe"` + 1 个 arg，并新增 env 键 `QODER_SEARCH_PRODUCT_FORM: "qoder"`。事件名、`timeout: 2`、`name` 字段一族未变。**不是**删事件、**不是**改超时。
 - `timeout` 八版**恒为 2**（[观察]），1.0.91 扩到 8 条也没动它。

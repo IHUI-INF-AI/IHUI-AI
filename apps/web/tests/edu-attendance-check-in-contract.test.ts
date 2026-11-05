@@ -23,11 +23,13 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+// import() 类型注解被 @typescript-eslint/consistent-type-imports 禁止 ⇒ 顶层 import type 取模块类型
+import type * as ApiClientModule from '@ihui/api-client'
 
 const eduClassListMock = vi.hoisted(() => vi.fn())
 const eduAttendanceBatchCheckInMock = vi.hoisted(() => vi.fn())
 vi.mock('@ihui/api-client', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@ihui/api-client')>()),
+  ...(await importOriginal<typeof ApiClientModule>()),
   eduClassList: eduClassListMock,
   eduAttendanceBatchCheckIn: eduAttendanceBatchCheckInMock,
 }))
