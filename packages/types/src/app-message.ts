@@ -378,6 +378,10 @@ export interface ChatScreenProps {
   flatListStyle?: object
   /** 消息列表 ref(wrapper 可用于加载历史后滚动到底部等平台特定能力) */
   onListRef?: (ref: unknown) => void
+  /** 列表之后、输入区之上的状态槽(MCP 状态条等,端侧注入节点) */
+  statusSlot?: React.ReactNode
+  /** 状态槽之后的队列槽(侧队列交互条等,端侧注入节点) */
+  queueSlot?: React.ReactNode
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */

@@ -8,15 +8,10 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n, useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
-const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
 const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
-// record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到产物而非打包进 common.js(对齐原项目 aigc/index.vue)
-// 2026-09-26 主包余量治理:与 `pages/study/index.tsx` 同一张图,各自下沉进所在子包,
-// 主包不再承载(实测 36,542 B)。图片字节逐字未变(md5 97fef424f841ab997b161bc4ead93cbe)。
-const recordBackIcon = '/pkg-ai/assets/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect, useMemo, Fragment } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '@/utils/rpx'
 import {
@@ -79,7 +74,6 @@ import {
   InputArea,
   SkillsPopup,
   MaterialPopup,
-  IntelligentAssistant,
   type AgentItem,
   type MaterialTab,
   type InputFileItem,
@@ -88,6 +82,10 @@ import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
 import ChatMessageItem from './ChatMessageItem'
+// 块 2:消息列表宿主与气泡单源在共享层(packages/app/src/features/chat/ChatMessageList.tsx)。
+// 端内只注入「怎么渲染一条」与「条尾挂什么」,列表 key/序号、流式占位、长按阈值归共享层。
+import { ChatMessageList } from '@ihui/rn-app/features/chat/ChatMessageList'
+import type { ChatScreenMessage } from '@ihui/rn-app/features/chat/ChatScreen'
 import ContextUsageStrip from './context-usage-strip'
 import McpStatusStrip from './mcp-status-strip'
 import { resolvePermissionTierText } from './permission-tier-text'
@@ -108,9 +106,6 @@ import {
   type ApprovalRecord,
   type ApprovalRequestView,
 } from './tool-approval-text'
-// D77(2026-10-17 落地小程序腿):业务表单卡(可填表单 + 批准/拒绝 + 拒绝理由),
-// 判定层/状态机/字段表全走 @ihui/shared/chat/business-forms(端内零自判)。
-import BusinessFormCard from '@/components/BusinessFormCard'
 import TaskStatusBar from './task-status-bar'
 import {
   applyToolCallStart,
@@ -132,6 +127,10 @@ import { toolActivityText } from './cards/tool-line'
 // D152(2026-09-29 立):goal_updated 的取词/措辞层(端内唯一入口;六档词汇取自 @ihui/types)。
 import { describeGoalNotice, type GoalNotice } from './cards/goal-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
+// D77(2026-10-17 落地小程序腿):业务表单卡(可填表单 + 批准/拒绝 + 拒绝理由),
+// 判定层/状态机/字段表全走 @ihui/shared/chat/business-forms(端内零自判);视觉子件与
+// 「按 messageId 锚定行」的声明式装配在 ./chat-list-extras。
+import { ChatListHeader, ChatThinkingPlaceholder, buildBusinessFormTails } from './chat-list-extras'
 import {
   replayServerConversation,
   fetchEarlierPage,
@@ -1843,6 +1842,41 @@ export default function ChatPage() {
     }
   }, [messages, activeVersionByRoot])
 
+  // 块 2:共享列表以 `item.id` 为 key(RN 语义单源);端内流式行落库前无 id,
+  // 用 `local-<原始下标>` 兜底保证唯一。渲染仍取原 `msg` 对象,序号仍是原始下标。
+  const messageRows = useMemo<ChatScreenMessage[]>(
+    () =>
+      versionList.items.map(
+        ({ msg, idx }, i) =>
+          ({
+            ...msg,
+            id: msg.id ?? `local-${idx}`,
+            role: msg.role,
+            content: msg.content ?? '',
+            __i: i,
+          }) as unknown as ChatScreenMessage,
+      ),
+    [versionList],
+  )
+
+  // 块 2 声明式挂槽:业务表单按 messageId 锚到行 id;页面只交数据,不交渲染函数。
+  const businessFormTails = useMemo(
+    () =>
+      buildBusinessFormTails({
+        rows: versionList.items.map(({ msg, idx }) => ({
+          rowId: msg.id ?? `local-${idx}`,
+          anchorId: String(msg.id ?? msg.timestamp),
+        })),
+        knownAnchorIds: messages.map((m) => String(m.id ?? m.timestamp)),
+        forms: businessForms,
+        sendingRequestId: formSendingRequestId,
+        failedLabel: tt('ai.businessForms.status.failed', '提交失败,请重试'),
+        onAction: (form, payload) =>
+          void handleBusinessFormAction(form as BusinessFormView, payload),
+      }),
+    [versionList, messages, businessForms, formSendingRequestId, handleBusinessFormAction, tt],
+  )
+
   return (
     <ThemeRoot className="page">
       <View className="nav-bar safe-area-bottom" style={{ background: 'transparent' }}>
@@ -1922,277 +1956,115 @@ export default function ChatPage() {
         />
       ) : null}
 
-      <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
-        {/* D20 留尾2:加载更早消息入口(仅服务端回放且首页 hasMore=true 时出现;
-            失败不清已回放内容,入口保留可重试;前插后不强制滚底,不拽走阅读位置) */}
-        {earlierHasMore ? (
-          <View className="load-earlier" onClick={handleLoadEarlier} hoverClass="opacity-60">
-            <Text className="load-earlier-text">
-              {loadingEarlier ? t('ai.chat.earlierLoading') : t('ai.chat.loadEarlier')}
-            </Text>
-          </View>
-        ) : null}
-        {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
-        {agent ? (
-          <View
-            className="tishi-block"
-            onClick={() => setTishiShow((v) => !v)}
-            hoverClass="opacity-60"
-          >
-            {tishiShow ? (
-              <LineIcon
-                name="x"
-                size={28}
-                color="var(--color-muted-foreground)"
-                className="tishi-block-icon"
+      <ChatMessageList
+        t={t}
+        data={messageRows}
+        className="msg-list"
+        scrollTop={scrollTop}
+        scrollWithAnimation
+        isStreaming={thinking}
+        headerNode={
+          <ChatListHeader
+            t={t}
+            earlierHasMore={earlierHasMore}
+            loadingEarlier={loadingEarlier}
+            onLoadEarlier={handleLoadEarlier}
+            agent={agent}
+            tishiShow={tishiShow}
+            onToggleTishi={() => setTishiShow((v) => !v)}
+            suggestions={suggestions}
+            onSuggestion={handleSuggestion}
+            showWelcome={!messages.length}
+            tokenBalance={(user as Record<string, unknown>)?.tokenBalance as number | undefined}
+            isLoggedIn={!!user}
+            onRecharge={handleRecharge}
+          />
+        }
+        renderItem={(_row, index) => {
+          const entry = versionList.items[index]
+          if (!entry) return null
+          const { msg, idx } = entry
+          return (
+            <>
+              <ChatMessageItem
+                msg={msg}
+                onReuse={handleReuse}
+                // 票59:把"点的是哪一条"传下去 —— 不给 target 时 handleRegenerate 只会
+                // 落到最后一条助手消息上,给旧回答重生成就会挂错版本族。
+                onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg) : undefined}
+                onLongPress={() => handleLongPress(msg, idx)}
+                onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
+                isFavorited={
+                  msg.role === 'assistant' && !msg.error && msg.timestamp
+                    ? favoritedMsgs.has(String(msg.timestamp))
+                    : undefined
+                }
+                onToggleFavorite={
+                  msg.role === 'assistant' && !msg.error && msg.timestamp
+                    ? () => toggleFavorite(msg)
+                    : undefined
+                }
+                onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
+                onOpenReasoning={
+                  msg.role === 'assistant' && msg.reasoning
+                    ? () => {
+                        setReasoningPopupContent(msg.reasoning || '')
+                        setReasoningPopupVisible(true)
+                      }
+                    : undefined
+                }
               />
-            ) : (
-              <Image
-                src={tishiIcon}
-                className="tishi-block-icon w-[28rpx] h-[28rpx]"
-                mode="aspectFit"
-              />
-            )}
-            <Text className="tishi-block-text">
-              {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
-            </Text>
-          </View>
-        ) : null}
-        {agent && tishiShow && agent.prologue ? (
-          <View className="tishi-box">
-            <View className="tishi-title">
-              <Image
-                src={recordBackIcon}
-                className="tishi-title-icon w-[32rpx] h-[32rpx]"
-                mode="aspectFit"
-              />
-              <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
-            </View>
-            <View className="tishi-content">
-              {/* 对标原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
-              {agent.prologue
-                .replace(/\\n/g, '\n')
-                .replace(/<br\s*\/?>/g, '\n')
-                .split('\n')
-                .map((line, i) => (
-                  <Text key={i} className="tishi-content-line">
-                    {line}
-                    {'\n'}
-                  </Text>
-                ))}
-            </View>
-          </View>
-        ) : null}
-
-        {!messages.length ? (
-          <View className="welcome">
-            <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
-            <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
-            {!agent ? (
-              <IntelligentAssistant
-                tokenBalance={(user as Record<string, unknown>)?.tokenBalance as number | undefined}
-                isLoggedIn={!!user}
-                onRecharge={handleRecharge}
-              />
-            ) : null}
-            <View className="suggest-list">
-              {suggestions.map((s, i) => (
-                <View
-                  key={i}
-                  className="suggest-item"
-                  onClick={() => handleSuggestion(s)}
-                  hoverClass="opacity-60"
-                >
-                  <Text>{s}</Text>
-                </View>
-              ))}
-            </View>
-            <Text className="welcome-tip">{t('ai.thinkingTip')}</Text>
-          </View>
-        ) : null}
-
-        {versionList.items.map(({ msg, idx }) => (
-          <Fragment key={idx}>
-            <ChatMessageItem
-              msg={msg}
-              onReuse={handleReuse}
-              // 票59:把"点的是哪一条"传下去 —— 不给 target 时 handleRegenerate 只会
-              // 落到最后一条助手消息上,给旧回答重生成就会挂错版本族。
-              onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg) : undefined}
-              onLongPress={() => handleLongPress(msg, idx)}
-              onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
-              isFavorited={
-                msg.role === 'assistant' && !msg.error && msg.timestamp
-                  ? favoritedMsgs.has(String(msg.timestamp))
-                  : undefined
-              }
-              onToggleFavorite={
-                msg.role === 'assistant' && !msg.error && msg.timestamp
-                  ? () => toggleFavorite(msg)
-                  : undefined
-              }
-              onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
-              onOpenReasoning={
-                msg.role === 'assistant' && msg.reasoning
-                  ? () => {
-                      setReasoningPopupContent(msg.reasoning || '')
-                      setReasoningPopupVisible(true)
-                    }
-                  : undefined
-              }
-            />
-            {/* 票59 小程序腿:版本切换器锚在当前激活的那一条 assistant 消息之后(与 web
-                MessageItem 把 MessageVersionMenu 挂在气泡尾部同一位置语义)。
-                判族/位置读数唯一源 = @ihui/shared/chat/message-version-family,
-                端内零第二份实现;族内只有一条时组件自身返回 null(不渲染 1/1 骗点击)。 */}
-            {msg.role === 'assistant' && msg.id ? (
-              <MessageVersionMenu
-                messages={versionList.familyRows}
-                messageId={msg.id}
-                onSwitch={handleSwitchMessageVersion}
-              />
-            ) : null}
-            {/* D77:业务表单卡锚定在对应 assistant 消息之后(messageId =
-                msg.id ?? timestamp;仅 assistant 侧匹配,防同毫秒时间戳撞上 user 消息) */}
-            {msg.role === 'assistant'
-              ? businessForms
-                  .filter((f) => f.messageId === String(msg.id ?? msg.timestamp))
-                  .map((entry) => (
-                    <View
-                      key={entry.requestId}
-                      className="business-form-block"
-                      data-form-request={entry.requestId}
-                    >
-                      <BusinessFormCard
-                        kind={entry.kind}
-                        mode={entry.mode}
-                        requestId={entry.requestId}
-                        sending={formSendingRequestId === entry.requestId}
-                        onAction={(payload) => void handleBusinessFormAction(entry, payload)}
-                      />
-                      {entry.status === 'failed' ? (
-                        <Text
-                          className="business-form-send-failed"
-                          data-form-send-failed={entry.requestId}
-                        >
-                          {tt('ai.businessForms.status.failed', '提交失败,请重试')}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ))
-              : null}
-          </Fragment>
-        ))}
-        {/* D77:未锚定任何消息的表单(帧带了本端认不出的 messageId)兜底渲染在列表尾,
-            不丢弃 —— 与 web BusinessFormSection 的 per-message 宿主不同,本端按消息身份
-            锚定;锚不上的落尾比消失诚实。 */}
-        {(() => {
-          const messageIds = new Set(messages.map((m) => String(m.id ?? m.timestamp)))
-          const orphanForms = businessForms.filter((f) => !messageIds.has(f.messageId))
-          if (orphanForms.length === 0) return null
-          return orphanForms.map((entry) => (
-            <View
-              key={entry.requestId}
-              className="business-form-block"
-              data-form-request={entry.requestId}
-            >
-              <BusinessFormCard
-                kind={entry.kind}
-                mode={entry.mode}
-                requestId={entry.requestId}
-                sending={formSendingRequestId === entry.requestId}
-                onAction={(payload) => void handleBusinessFormAction(entry, payload)}
-              />
-              {entry.status === 'failed' ? (
-                <Text className="business-form-send-failed" data-form-send-failed={entry.requestId}>
-                  {tt('ai.businessForms.status.failed', '提交失败,请重试')}
-                </Text>
-              ) : null}
-            </View>
-          ))
-        })()}
-
-        {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
-        {streamActivities.length > 0 ? (
-          <View className="msg-item assistant">
-            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
-            <View className="bubble">
-              <Text
-                className="bubble-text"
-                style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
-                onClick={() => setStreamActivityExpanded((v) => !v)}
-              >
-                {t('ai.stream.title')} ({streamActivities.length}){' '}
-                {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
-              </Text>
-              {streamActivityExpanded ? (
-                <View style={{ marginTop: 'var(--spacing-xs)' }}>
-                  {streamActivities.map((a) => (
-                    <Text
-                      key={a.id}
-                      className="bubble-text"
-                      style={{ display: 'block', fontSize: '22rpx', lineHeight: '1.6' }}
-                    >
-                      · {a.text}
-                    </Text>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {/* 与共享屏同一条判据(item.content || (isLastAi ? t('chat.thinking') : '')):
-            「思考中」只在最后一条 AI 消息还没有正文时出现 —— 原来整轮 thinking 期间都挂这一句,
-            于是内容已经开始流式输出后,屏上同时有「正在生成的回答」和「AI 生成中…/思考中…」两坨。 */}
-        {thinking &&
-        messages[messages.length - 1]?.role === 'assistant' &&
-        !messages[messages.length - 1]?.content ? (
-          <View className="msg-item assistant">
-            <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
-            <View className="bubble">
-              <Text className="bubble-text">{t('ai.generating')}</Text>
-              {/* 流式占位文案:共享屏气泡在「最后一条 AI 消息还没内容」时显示的就是这一句,
-                  端内此前挂的是端自造的同义键,现改取共享屏同一个键 */}
-              <Text
-                className="bubble-text"
-                style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}
-              >
-                {t('chat.thinking')}
-              </Text>
-              {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
-              <View
-                className="thinking-progress-container"
-                style={{ position: 'relative', marginTop: 'var(--spacing-xs)', height: '36rpx' }}
-              >
-                <View
-                  className="thinking-progress-bar"
-                  style={{
-                    width: `${Math.floor(thinkingProgress)}%`,
-                    height: '100%',
-                    background: 'var(--color-primary)',
-                    borderRadius: rnRadius.xs,
-                    transition: 'width 120ms linear',
-                  }}
+              {/* 票59 小程序腿:版本切换器锚在当前激活的那一条 assistant 消息之后(与 web
+                  MessageItem 把 MessageVersionMenu 挂在气泡尾部同一位置语义)。
+                  判族/位置读数唯一源 = @ihui/shared/chat/message-version-family,
+                  端内零第二份实现;族内只有一条时组件自身返回 null(不渲染 1/1 骗点击)。 */}
+              {msg.role === 'assistant' && msg.id ? (
+                <MessageVersionMenu
+                  messages={versionList.familyRows}
+                  messageId={msg.id}
+                  onSwitch={handleSwitchMessageVersion}
                 />
-                <Text
-                  style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: '0',
-                    lineHeight: '36rpx',
-                    transform: 'translateX(-50%)',
-                    color: 'var(--color-foreground)',
-                    fontSize: '24rpx',
-                  }}
-                >
-                  {Math.floor(thinkingProgress)}%
-                </Text>
+              ) : null}
+            </>
+          )
+        }}
+        tailNodes={businessFormTails.tailNodes}
+        orphanTailNode={businessFormTails.orphanTailNode}
+        renderFooter={() => (
+          <>
+            {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
+            {streamActivities.length > 0 ? (
+              <View className="msg-item assistant">
+                <View className="avatar assistant">{t('ai.chatMessageItem.ai')}</View>
+                <View className="bubble">
+                  <Text
+                    className="bubble-text"
+                    style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}
+                    onClick={() => setStreamActivityExpanded((v) => !v)}
+                  >
+                    {t('ai.stream.title')} ({streamActivities.length}){' '}
+                    {streamActivityExpanded ? t('ai.chatMessageItem.collapse') : t('ai.tishi.view')}
+                  </Text>
+                  {streamActivityExpanded ? (
+                    <View style={{ marginTop: 'var(--spacing-xs)' }}>
+                      {streamActivities.map((a) => (
+                        <Text
+                          key={a.id}
+                          className="bubble-text"
+                          style={{ display: 'block', fontSize: '22rpx', lineHeight: '1.6' }}
+                        >
+                          · {a.text}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          </View>
-        ) : null}
-      </ScrollView>
+            ) : null}
+          </>
+        )}
+        thinkingNode={<ChatThinkingPlaceholder t={t} progress={thinkingProgress} />}
+      />
 
       {selectedMaterial ? (
         <View className="material-tag">
