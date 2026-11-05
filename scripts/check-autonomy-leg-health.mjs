@@ -1416,9 +1416,26 @@ export function judgeDispatchClosure(
   // 它的历史 no-progress 就不再代表当前闭环失效 —— 否则一张出册票的 7 条历史行会永远把尺子钉红,
   // 逼人学会忽略报警(§12e)。缺省 null = 旧行为(全量算),既有自测不受影响。
   // 注意:这不是按时间窗抹历史 —— 仍在册的票,哪怕 no-progress 是几个月前,照旧顶红。
-  const noProgress = settledRows.filter(
+  const noProgressAll = settledRows.filter(
     (e) => e.settled === 'no-progress' && (!activeTicketKeys || activeTicketKeys.has(e.ticketKey)),
   )
+  // 合格线改绑"票行推进 ∪ 绑票键的提交"(2026-11-05,本维出路文案自己点名的那一刀)。
+  // 立因:无头会话**结构上没有提交权**(acceptEdits 只放宽写类工具,`git_commit` 属 dangerous ⇒ denied,
+  // apps/cli/src/tools/danger-gate.ts),落账由调度侧代做(`artifact-committed` 那一档自带落地自证)。
+  // 于是"票行逐字未变"有两种完全不同的成因:① 这轮真的什么都没落地;② 东西已经进仓,
+  // 是**结清/推进腿**没跟上。把它们都说成"会话报成功而零推进",下一个人就会去改提示词,
+  // 而该修的是记账腿 —— 判据没错,归因错了同样修不动(§0.3 三态不并桶)。
+  const committedKeys = new Set(
+    events
+      .filter((e) => String(e.action ?? '') === 'artifact-committed' && e.ticketKey)
+      .map((e) => String(e.ticketKey)),
+  )
+  const noProgress = []
+  const landedButUnadvanced = []
+  for (const s of noProgressAll) {
+    if (committedKeys.has(String(s.ticketKey))) landedButUnadvanced.push(s)
+    else noProgress.push(s)
+  }
   const unjudgedS = settledRows.filter((e) => e.settled === 'unjudged')
   const advanced = settledRows.filter(
     (e) => e.settled === 'line-gone' || e.settled === 'line-changed',
@@ -1449,10 +1466,22 @@ export function judgeDispatchClosure(
     return {
       dim: 'A7-dispatch-closure',
       state: 'drift',
-      readout: `结算已跑,但 ${noProgress.length} 枚"会话报成功而票行零推进"(已推进 ${advanced.length} 枚)`,
+      readout: `结算已跑,但 ${noProgress.length} 枚"会话报成功而票行零推进,且该票没有任何绑票键的提交"(已推进 ${advanced.length} 枚${landedButUnadvanced.length ? `;另有 ${landedButUnadvanced.length} 枚已落账未推进,见下一档` : ''})`,
       next:
         noProgress.map((s) => `${s.ticketKey} :: ${String(s.ticketLine).slice(0, 60)}`).join('\n') +
-        '\n出路:核该会话末轮实际动作;若结构上交付不了(自动会话无提交权),合格线就得改绑"票行推进 + 绑票键的提交",不得只改判据措辞',
+        '\n出路:这一档里 `artifact-committed` 一枚都没有 ⇒ 工作没进仓。先核该会话末轮实际动作与派发票的权限档(不是改判据措辞);落账腿自己的读数见 A13。',
+    }
+  }
+  if (landedButUnadvanced.length > 0) {
+    return {
+      dim: 'A7-dispatch-closure',
+      state: 'drift',
+      readout: `${landedButUnadvanced.length} 枚会话结果档已有**绑票键的提交**(${[...new Set(landedButUnadvanced.map((s) => String(s.ticketKey)))].join(',')})但票行未推进 ⇒ 活干完了、账没结清,缺口在调度侧的结清/推进腿,不在会话`,
+      next:
+        landedButUnadvanced
+          .map((s) => `${s.ticketKey} :: ${String(s.ticketLine).slice(0, 60)}`)
+          .join('\n') +
+        '\n出路:核 `settlePriorDispatches` 之后那一腿有没有把已落账的票交还给台账写入口(live-doc-edit 的翻勾/摘行),以及有没有被活文档归并按"对侧还留着旧行"顶回;会话侧无需再动。',
     }
   }
   if (dangling.length > 0) {
@@ -1991,6 +2020,70 @@ async function selfTest() {
         now: Date.parse('2026-11-01T05:00:00.000Z'),
       })
       return r.state === 'drift' && r.readout.includes('1 枚') && r.next.includes('B9')
+    })(),
+  )
+  // H30b–H30d 合格线改绑"票行推进 ∪ 绑票键的提交"的成对锁(2026-11-05)。
+  // 三档各 directional:① 已落账未推进 ⇒ 归因必须换到结清/推进腿;② 什么都没落账 ⇒ 仍按"活没进仓"红;
+  // ③ 提交行不带票键 ⇒ 不得据此把任何票洗白(防"全场只有一条 artifact-committed 就全体免")。
+  const noProgressEv = (extra) => [
+    {
+      action: 'session-ok',
+      ticketKey: 'k1',
+      ts: '2026-10-31T05:00:00.000Z',
+      ticketLine: 'B9 **某票** 原文',
+    },
+    {
+      action: 'dispatch-settled',
+      ticketKey: 'k1',
+      sourceTs: '2026-10-31T05:00:00.000Z',
+      settled: 'no-progress',
+      ticketLine: 'B9 **某票** 原文',
+    },
+    ...(extra ?? []),
+  ]
+  const closureNow = { now: Date.parse('2026-11-01T05:00:00.000Z') }
+  ok(
+    'H30b 同一票已有 artifact-committed 而票行未动 ⇒ drift 且归因换成结清/推进腿(不许再说活没进仓)',
+    (() => {
+      const r = judgeDispatchClosure(
+        noProgressEv([
+          {
+            action: 'artifact-committed',
+            ticketKey: 'k1',
+            ts: '2026-10-31T05:30:00.000Z',
+            files: ['a.ts'],
+          },
+        ]),
+        { schedulerSource: closureSrc, ...closureNow },
+      )
+      return (
+        r.state === 'drift' &&
+        r.readout.includes('绑票键的提交') &&
+        r.readout.includes('k1') &&
+        !r.readout.includes('且该票没有任何绑票键的提交')
+      )
+    })(),
+  )
+  ok(
+    'H30c 反向:没有任何绑票键提交 ⇒ 仍按"活没进仓"翻红(合格线不因新档而放宽)',
+    (() => {
+      const r = judgeDispatchClosure(noProgressEv([]), {
+        schedulerSource: closureSrc,
+        ...closureNow,
+      })
+      return r.state === 'drift' && r.readout.includes('没有任何绑票键的提交')
+    })(),
+  )
+  ok(
+    'H30d 提交行不带票键 ⇒ 不构成"该票已落账",不得据此洗白任何票',
+    (() => {
+      const r = judgeDispatchClosure(
+        noProgressEv([
+          { action: 'artifact-committed', ts: '2026-10-31T05:30:00.000Z', files: ['a.ts'] },
+        ]),
+        { schedulerSource: closureSrc, ...closureNow },
+      )
+      return r.state === 'drift' && r.readout.includes('没有任何绑票键的提交')
     })(),
   )
   ok(
