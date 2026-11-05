@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/study-index/StudyIndexScreen.tsx
+// 镜像 packages/app/src/features/study-progress/StudyProgressScreen.tsx
 
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n } from '@/i18n'
@@ -137,9 +137,7 @@ export default function StudyIndex() {
               ) : (
                 <Text>{e.icon}</Text>
               )}
-              <Text className="flex-1 ml-[24rpx] text-body text-foreground">
-                {t(e.labelKey)}
-              </Text>
+              <Text className="flex-1 ml-[24rpx] text-body text-foreground">{t(e.labelKey)}</Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
             </View>
           ))}
@@ -179,9 +177,7 @@ export default function StudyIndex() {
           </View>
         ) : (
           <View className="text-center py-[48rpx]">
-            <Text className="text-body text-muted-foreground">
-              {t('study.emptyCourse')}
-            </Text>
+            <Text className="text-body text-muted-foreground">{t('study.emptyCourse')}</Text>
           </View>
         )}
 
