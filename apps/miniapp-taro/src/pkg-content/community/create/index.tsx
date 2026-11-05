@@ -5,7 +5,7 @@
 // 平台页面:镜像 packages/app/src/features/post-create/PostCreateScreen UI 与
 // apps/mobile-rn PostCreateScreen 状态机(端内重写渲染层,Taro 无法直接渲染 RN 原语)
 import { useCallback, useState } from 'react'
-import { useUiField } from '@/lib/ui-field-registry'
+import { useUiField } from '@ihui/shared/ui-control/field-registry'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
@@ -123,6 +123,11 @@ export default function CommunityCreate() {
   const [error, setError] = useState('')
   // AI 操控通道(2026-09-21):发帖表单的三个字段交出组件已绑定的 setter。
   // 提交(发布到社区)是对外发声且不可撤销的动作,按钮/表单不注册 submit,由用户自己点。
+  // 2026-11-06 取源改指共享核 `@ihui/shared/ui-control/field-registry`:端内 `@/lib/ui-field-registry`
+  // 是那枚核的零判据薄转发(`export * from`,同一模块实例、同一张注册表),桥接层照旧读得到。
+  // 同三枚登记已由承载本镜像的共享屏 `packages/app/src/features/post-create/PostCreateScreen.tsx`
+  // 交出(逐条同形,由 packages/app/tests/post-create-screen-ui-fields.test.tsx 钉住);
+  // 本页仍是自渲染 JSX 的手写页,这份登记留到转承载那一轮随渲染一并摘除(摘后能力在屏不在页)。
   useUiField({
     kind: 'input',
     label: tt('postCreate.titleLabel', '标题'),
