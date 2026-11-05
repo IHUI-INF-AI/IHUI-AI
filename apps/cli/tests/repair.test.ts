@@ -10,14 +10,23 @@ import {
   type Session,
 } from '../src/commands/session.js'
 
+/**
+ * 损坏历史夹具:repairSessionHistory 的输入来自磁盘 JSON,非法 role 是故意喂入的
+ * 被测数据。这里用局部构造器把任意 role 显式收窄回 ChatMessage,避免放宽
+ * ChatMessage.role 本身(放宽会让真实代码里非法 role 静默通过)。
+ */
+function corrupted(id: string, role: string, content: string): ChatMessage {
+  return { id, role: role as ChatMessage['role'], content }
+}
+
 describe('P1-1 repairSessionHistory 会话历史自愈', () => {
   describe('Rule 1: 过滤非法 role(只保留 system/user/assistant)', () => {
     it('移除 unknown role', () => {
       const history: ChatMessage[] = [
-        { role: 'system', content: 'sys' },
-        { role: 'unknown', content: 'should be removed' },
-        { role: 'user', content: 'hi' },
-        { role: 'assistant', content: 'hello' },
+        { id: 's-sys', role: 'system', content: 'sys' },
+        corrupted('bad-unknown', 'unknown', 'should be removed'),
+        { id: 'u-hi', role: 'user', content: 'hi' },
+        { id: 'a-hello', role: 'assistant', content: 'hello' },
       ]
       const { repaired, removed, reasons } = repairSessionHistory(history)
       expect(repaired).toHaveLength(3)
@@ -28,9 +37,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('移除 tool role(部分协议残留)', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'tool', content: 'tool result' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        corrupted('bad-tool', 'tool', 'tool result'),
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -39,9 +48,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('移除 function role', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'function', content: 'fn result' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        corrupted('bad-function', 'function', 'fn result'),
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -52,8 +61,8 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
   describe('Rule 2: 过滤空 content', () => {
     it('移除空字符串 content', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: '' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-empty', role: 'user', content: '' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       // user 被移除后,只剩 assistant → Rule 4 也会移除开头的 assistant
@@ -64,8 +73,8 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('移除纯空白 content(只有空格/制表符/换行)', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: '   \n\t  ' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-blank', role: 'user', content: '   \n\t  ' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(removed).toBeGreaterThanOrEqual(1)
@@ -74,8 +83,8 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('保留非空 content', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -86,9 +95,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
   describe('Rule 3: 去重连续相同 role(合并 content)', () => {
     it('合并连续 user 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q1' },
-        { role: 'user', content: 'q2' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q1', role: 'user', content: 'q1' },
+        { id: 'u-q2', role: 'user', content: 'q2' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, reasons } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -99,10 +108,10 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('合并连续 assistant 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a1' },
-        { role: 'assistant', content: 'a2' },
-        { role: 'assistant', content: 'a3' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a1', role: 'assistant', content: 'a1' },
+        { id: 'a-a2', role: 'assistant', content: 'a2' },
+        { id: 'a-a3', role: 'assistant', content: 'a3' },
       ]
       const { repaired } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -111,10 +120,10 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('不合并非连续相同 role', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q1' },
-        { role: 'assistant', content: 'a1' },
-        { role: 'user', content: 'q2' },
-        { role: 'assistant', content: 'a2' },
+        { id: 'u-q1', role: 'user', content: 'q1' },
+        { id: 'a-a1', role: 'assistant', content: 'a1' },
+        { id: 'u-q2', role: 'user', content: 'q2' },
+        { id: 'a-a2', role: 'assistant', content: 'a2' },
       ]
       const { repaired } = repairSessionHistory(history)
       expect(repaired).toHaveLength(4)
@@ -122,9 +131,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('合并后的 content 用 \\n\\n 连接', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'A' },
-        { role: 'user', content: 'B' },
-        { role: 'user', content: 'C' },
+        { id: 'u-A', role: 'user', content: 'A' },
+        { id: 'u-B', role: 'user', content: 'B' },
+        { id: 'u-C', role: 'user', content: 'C' },
       ]
       const { repaired } = repairSessionHistory(history)
       // Rule 5 会移除末尾无 assistant 响应的 user(interjection 残留),但这里前面没有 assistant,所以保留
@@ -137,9 +146,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
   describe('Rule 4: 确保首条是 system 或 user(丢弃开头的 assistant)', () => {
     it('移除开头的 assistant 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'assistant', content: 'stale response' },
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 'a-stale-response', role: 'assistant', content: 'stale response' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed, reasons } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -150,9 +159,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('移除多个开头的 assistant 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'assistant', content: 'a1' },
-        { role: 'assistant', content: 'a2' },
-        { role: 'user', content: 'q' },
+        { id: 'a-a1', role: 'assistant', content: 'a1' },
+        { id: 'a-a2', role: 'assistant', content: 'a2' },
+        { id: 'u-q', role: 'user', content: 'q' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       // a1+a2 先被 Rule 3 合并为一条,然后 Rule 4 移除开头的 assistant
@@ -163,9 +172,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('保留开头的 system 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 's-sys', role: 'system', content: 'sys' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(3)
@@ -175,8 +184,8 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('保留开头的 user 消息', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -187,9 +196,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
   describe('Rule 5: 移除末尾无响应的 user 消息(interjection 残留)', () => {
     it('移除末尾无 assistant 响应的 user(前面有 assistant)', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
-        { role: 'user', content: 'interjection 残留' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
+        { id: 'u-interjection', role: 'user', content: 'interjection 残留' },
       ]
       const { repaired, removed, reasons } = repairSessionHistory(history)
       expect(repaired).toHaveLength(2)
@@ -200,7 +209,7 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('不移除首轮 user(前面无 assistant)', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q' },
+        { id: 'u-q', role: 'user', content: 'q' },
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(repaired).toHaveLength(1)
@@ -209,10 +218,10 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('移除多个末尾 user(只保留到最后的 assistant)', () => {
       const history: ChatMessage[] = [
-        { role: 'user', content: 'q1' },
-        { role: 'assistant', content: 'a1' },
-        { role: 'user', content: 'q2' },
-        { role: 'user', content: 'q3' },
+        { id: 'u-q1', role: 'user', content: 'q1' },
+        { id: 'a-a1', role: 'assistant', content: 'a1' },
+        { id: 'u-q2', role: 'user', content: 'q2' },
+        { id: 'u-q3', role: 'user', content: 'q3' },
       ]
       const { repaired } = repairSessionHistory(history)
       // Rule 3 先合并 q2+q3,Rule 5 再移除末尾合并后的 user
@@ -230,15 +239,15 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('复杂混合损坏 history 完整修复', () => {
       const history: ChatMessage[] = [
-        { role: 'assistant', content: 'stale' },            // Rule 4: 移除开头 assistant
-        { role: 'unknown', content: 'bad role' },           // Rule 1: 移除非法 role
-        { role: 'user', content: '' },                       // Rule 2: 移除空 content
-        { role: 'user', content: 'q1' },                    // 保留
-        { role: 'user', content: 'q2' },                    // Rule 3: 合并到 q1
-        { role: 'tool', content: 'tool residue' },          // Rule 1: 移除
-        { role: 'assistant', content: 'a1' },               // 保留
-        { role: 'assistant', content: 'a2' },               // Rule 3: 合并到 a1
-        { role: 'user', content: 'interjection 残留' },     // Rule 5: 移除末尾 user
+        { id: 'a-stale', role: 'assistant', content: 'stale' },            // Rule 4: 移除开头 assistant
+        corrupted('bad-role-1', 'unknown', 'bad role'),                     // Rule 1: 移除非法 role
+        { id: 'u-empty', role: 'user', content: '' },                       // Rule 2: 移除空 content
+        { id: 'u-q1', role: 'user', content: 'q1' },                    // 保留
+        { id: 'u-q2', role: 'user', content: 'q2' },                    // Rule 3: 合并到 q1
+        corrupted('bad-tool-2', 'tool', 'tool residue'),                    // Rule 1: 移除
+        { id: 'a-a1', role: 'assistant', content: 'a1' },               // 保留
+        { id: 'a-a2', role: 'assistant', content: 'a2' },               // Rule 3: 合并到 a1
+        { id: 'u-interjection', role: 'user', content: 'interjection 残留' },     // Rule 5: 移除末尾 user
       ]
       const { repaired, removed } = repairSessionHistory(history)
       expect(removed).toBeGreaterThanOrEqual(4)
@@ -251,9 +260,9 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
 
     it('不修改原始 history 数组(返回新数组)', () => {
       const original: ChatMessage[] = [
-        { role: 'user', content: 'q' },
-        { role: 'user', content: 'q2' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'u-q2', role: 'user', content: 'q2' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ]
       const originalCopy = JSON.parse(JSON.stringify(original))
       repairSessionHistory(original)
@@ -261,8 +270,8 @@ describe('P1-1 repairSessionHistory 会话历史自愈', () => {
     })
 
     it('不修改原消息对象(返回深拷贝)', () => {
-      const msg1: ChatMessage = { role: 'user', content: 'q1' }
-      const msg2: ChatMessage = { role: 'user', content: 'q2' }
+      const msg1: ChatMessage = { id: 'u-q1', role: 'user', content: 'q1' }
+      const msg2: ChatMessage = { id: 'u-q2', role: 'user', content: 'q2' }
       const { repaired } = repairSessionHistory([msg1, msg2])
       // 合并后 repaired[0].content = 'q1\n\nq2',但原 msg1.content 应仍是 'q1'
       expect(msg1.content).toBe('q1')
@@ -281,8 +290,8 @@ describe('P1-1 tryRecoverSessionFromCorruptedJson 损坏 JSON 恢复', () => {
       workspacePath: '/tmp',
       modelId: 'test-model',
       history: [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ],
     }
     const raw = JSON.stringify(session, null, 2)
@@ -300,8 +309,8 @@ describe('P1-1 tryRecoverSessionFromCorruptedJson 损坏 JSON 恢复', () => {
       workspacePath: '/tmp',
       modelId: 'test-model',
       history: [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
       ],
     }
     const full = JSON.stringify(session, null, 2)
@@ -337,10 +346,10 @@ describe('P1-1 tryRecoverSessionFromCorruptedJson 损坏 JSON 恢复', () => {
       workspacePath: '/tmp',
       modelId: 'test-model',
       history: [
-        { role: 'user', content: 'q' },
-        { role: 'assistant', content: 'a' },
-        { role: 'unknown', content: 'bad role' },  // 应被 repair 移除
-        { role: 'user', content: 'interjection 残留' },  // 应被 Rule 5 移除
+        { id: 'u-q', role: 'user', content: 'q' },
+        { id: 'a-a', role: 'assistant', content: 'a' },
+        corrupted('bad-role-3', 'unknown', 'bad role'),  // 应被 repair 移除
+        { id: 'u-interjection', role: 'user', content: 'interjection 残留' },  // 应被 Rule 5 移除
       ],
     }
     const raw = JSON.stringify(session, null, 2)
@@ -354,9 +363,9 @@ describe('P1-1 tryRecoverSessionFromCorruptedJson 损坏 JSON 恢复', () => {
 describe('repairSessionHistory keepTrailingUser 可选参数透传', () => {
   it('默认 false:仍删除末尾无响应的 user(保持 /repair 清理语义不变)', () => {
     const history: ChatMessage[] = [
-      { role: 'user', content: 'q1' },
-      { role: 'assistant', content: 'a1' },
-      { role: 'user', content: '残留' },
+      { id: 'u-q1-keep', role: 'user', content: 'q1' },
+      { id: 'a-a1-keep', role: 'assistant', content: 'a1' },
+      { id: 'u-residue', role: 'user', content: '残留' },
     ]
     const { repaired, removed } = repairSessionHistory(history)
     expect(repaired).toHaveLength(2)
@@ -366,9 +375,9 @@ describe('repairSessionHistory keepTrailingUser 可选参数透传', () => {
 
   it('keepTrailingUser: true 时保留末尾 user(供 LLM 请求链路复用)', () => {
     const history: ChatMessage[] = [
-      { role: 'user', content: 'q1' },
-      { role: 'assistant', content: 'a1' },
-      { role: 'user', content: '当前发送的最新输入' },
+      { id: 'u-q1-keep2', role: 'user', content: 'q1' },
+      { id: 'a-a1-keep2', role: 'assistant', content: 'a1' },
+      { id: 'u-latest', role: 'user', content: '当前发送的最新输入' },
     ]
     const { repaired, removed } = repairSessionHistory(history, { keepTrailingUser: true })
     expect(repaired).toHaveLength(3)
@@ -378,10 +387,10 @@ describe('repairSessionHistory keepTrailingUser 可选参数透传', () => {
 
   it('keepTrailingUser: true 时前置连续 user 仍被 Rule 3 合并且末尾保留', () => {
     const history: ChatMessage[] = [
-      { role: 'user', content: 'q1' },
-      { role: 'assistant', content: 'a1' },
-      { role: 'user', content: '上轮残留' },
-      { role: 'user', content: '当前输入' },
+      { id: 'u-q1-keep3', role: 'user', content: 'q1' },
+      { id: 'a-a1-keep3', role: 'assistant', content: 'a1' },
+      { id: 'u-last-round', role: 'user', content: '上轮残留' },
+      { id: 'u-current', role: 'user', content: '当前输入' },
     ]
     const { repaired } = repairSessionHistory(history, { keepTrailingUser: true })
     expect(repaired).toHaveLength(3)
