@@ -59,6 +59,7 @@ import {
   estimateReadTokens,
 } from './read-text-budget.js';
 import { MAX_LINE_SCAN_BYTES, readLineWindow } from './line-window-reader.js';
+import { resolveRipgrepBin, RG_PATH_ENV } from './ripgrep-bin.js';
 import {
   terminal_open,
   terminal_send,
@@ -117,8 +118,8 @@ export const BINARY_SNIFF_BYTES = 1024;
 const ENGINE_RIPGREP = 'ripgrep';
 const ENGINE_JS_WALK = 'js-walk';
 
-/** rg 的退出码约定(与 Python 侧同一份注释):0=有匹配,1=无匹配(合法结论),>=2=真失败。 */
-const RG_EXIT_OK = 0;
+/** rg 的退出码约定(与 Python 侧同一份注释):0=有匹配,1=无匹配(合法结论),>=2=真失败。
+ *  `0` 那一档已不由本文件判 —— 可用性探测交给 `ripgrep-bin.ts` 的 `--version` 真跑。 */
 const RG_EXIT_NO_MATCH = 1;
 
 /**
@@ -162,25 +163,18 @@ let ripgrepProbe: RipgrepProbe | null = null;
  */
 function probeRipgrep(): RipgrepProbe {
   if (ripgrepProbe) return ripgrepProbe;
-  try {
-    const result = spawnSync('rg', ['--version'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-      timeout: 5000,
-    });
-    if (result.status === RG_EXIT_OK) {
-      ripgrepProbe = { available: true, reason: null };
-    } else {
-      const detail = result.error instanceof Error ? result.error.message : oneLine(String(result.stderr ?? ''));
-      ripgrepProbe = {
-        available: false,
-        reason: `rg --version did not succeed (exit code ${result.status ?? 'null'}${detail ? `: ${detail}` : ''})`,
-      };
-    }
-  } catch (err) {
-    ripgrepProbe = { available: false, reason: `rg probe threw: ${err instanceof Error ? err.message : String(err)}` };
+  // 2026-11-05:命令不再写死裸名 'rg'。本机 rg 不在 PATH 但 ripgrep 15.1.0 就在盘上,
+  // 写死裸名的后果是 grep 工具整年降级 js-walk ⇒ 检索假阴性(见 tools/ripgrep-bin.ts 头注)。
+  const rg = resolveRipgrepBin();
+  if (rg.verified) {
+    ripgrepProbe = { available: true, reason: null };
+  } else {
+    ripgrepProbe = {
+      available: false,
+      reason:
+        `ripgrep not resolvable (tried: ${rg.tried.slice(0, 6).join(' | ') || 'no candidates'}); ` +
+        `set ${RG_PATH_ENV} to an absolute rg path to pin it`,
+    };
   }
   return ripgrepProbe;
 }
@@ -217,7 +211,7 @@ function execRipgrep(pattern: string, opts: { cwd: string; searchPath: string; t
   // `--` 收掉另一条同类入口:以 `-` 开头的 pattern 会被 rg 当成命令行选项解析而退出码 2,
   // 在旧实现里那同样表现为"没有匹配"。Python 侧 search_file_contents 也带这个分隔符。
   args.push('--', pattern, opts.searchPath);
-  const result = spawnSync('rg', args, {
+  const result = spawnSync(resolveRipgrepBin().cmd, args, {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
     cwd: opts.cwd,
