@@ -116,13 +116,18 @@ function runSafe(dir, { files, extraArgs = [], message = 'docs: fixture', env = 
   )
 }
 
-/** 正常路径对照时剥掉每枚仓必不相同的临时路径 / 锁 unit / 提交 sha。 */
+/** 正常路径对照时剥掉每枚仓必不相同的临时路径 / 锁 unit / 提交 sha。
+ *  2026-11-04 起 Step 1 由 `git reset HEAD` 收成 scoped reset,并新增一行前置守卫;
+ *  这两处是本票**有意的行为变更**,归一成占位符后再做逐字对照。 */
 const scrub = (text, dir) =>
   plain(text)
     .replaceAll(dir, '<REPO>')
     .replaceAll(dir.replaceAll('\\', '/'), '<REPO>')
     .replace(/safe-commit-\d+-\d+/g, 'unit=<UNIT>')
     .replace(/\b[0-9a-f]{7,40}\b/g, '<SHA>')
+    .replace(/^.*前置守卫:共享索引里没有非本票声明的暂存条目\n/gm, '')
+    .replace(/Step 1\/5: git reset[^\n]*/g, 'Step 1/5: <SCOPED_RESET>')
+    .replace(/commit 干净,仅包含[^\n]*/g, 'commit 干净 <CLEAN>')
 
 test('NS1 索引锁争用耗尽 ⇒ exit≠0、不落地、且绝不自动跳钩', (t) => {
   const dir = makeRepo(t)
