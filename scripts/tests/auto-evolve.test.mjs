@@ -26,6 +26,7 @@ import {
   judgeLandingProof,
   WRITE_TOOL_NAMES,
   classifySessionFailure,
+  lastProviderError,
 } from '../auto-evolve.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
@@ -1175,6 +1176,35 @@ test('Ⓚc 接线锁:真闸门真用了 {sessionModel},两处填充真传值(§0
   assert.ok(wired >= 2, `填充点只 ${wired} 处:--probe 或真派发有一处没接`)
   const mutant = 'fillTemplate(resolved, { promptFile, ticketLine, ticketKey })'
   assert.equal(/sessionModel:\s*gates\.sessionModel/.test(mutant), false, '模式空断言')
+})
+
+// Ⓜ provider 判别码(2026-11-05 立)。量出来的失效形状:今日 6/6 枚 `session-failed` 的台账 `why`
+// 都以 `[skills] conservative load: archify …` 开头,而真死因(零宽 400 / 模型腿 404 / 裸 node)
+// 一个都不在行里 ⇒ 读台账的人(和自愈轮的复发归因)必然把账算错。
+test('Ⓜa 取最后一条 error 事件:重试过的那次不算,散文/坏行不算', () => {
+  const s = [
+    '{"type":"start","prompt":"x"}',
+    '{"type":"error","message":"第一次:超时"}',
+    'not-json {',
+    '{"type":"tool_result","name":"read_file","success":true,"output":"…"}',
+    '   {"type":"error","message":"最后一次:请求包含不合法字符（400）"}   ',
+    '{"type":"error","message":"   "}',
+    '{"type":"complete","stopReason":"error"}',
+  ].join('\n')
+  assert.equal(lastProviderError(s), '最后一次:请求包含不合法字符（400）')
+  assert.equal(lastProviderError(''), null)
+  assert.equal(lastProviderError('{"type":"error","message":"坏"}\n{"type":"error"}'), '坏')
+  assert.ok(!lastProviderError('{"type":"error","message":"  "}'), '全空白正文不当成判别码')
+})
+
+test('Ⓜb 接线锁:判别码同时进台账行与两条到人通道', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(/providerError:\s*lastProviderError\(stdout\)/.test(src), 'dispatchSession 没把判别码交出去')
+  assert.ok(/providerError:\s*res\.providerError \?\? null/.test(src), '台账行没记这一格(只有 console 有 ⇒ 事后无法回放)')
+  const human = (src.match(/provider-error=\$\{res\.providerError/g) ?? []).length
+  assert.ok(human >= 2, `到人通道只 ${human} 条带判别码(发起腿 mail 与票面 mail 都得带)`)
+  // 反向锁:模式必须认不出没接线的形态
+  assert.equal(/providerError:\s*res\.providerError/.test('failureKind: res.failureKind ?? null,'), false)
 })
 
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
