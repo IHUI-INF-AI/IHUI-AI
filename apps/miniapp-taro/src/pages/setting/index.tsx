@@ -1,216 +1,246 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/settings/SettingsScreen.tsx
-import { useI18n } from '@/i18n'
-import { goToLogin } from '@/utils/auth'
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/settings/SettingsScreen.tsx
+// (RN 端消费点 apps/mobile-rn/src/screens/SettingsScreen.tsx:333 同屏)。
+// 端内保留:① getProfile 取用户卡;② 语言/主题偏好的落库与广播(setLanguage/setTheme/setThemeMode);
+// ③ 通知三键 GET/PUT;④ 修改密码 API;⑤ 退出登录(登出接口 + clearAuth + goToLogin);⑥ 菜单行跳转。
+// 删除 ./parts(RowsSection/NotificationSection/PasswordModal):三段均为共享屏同段,页面不再自绘。
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useCallback, useState } from 'react'
+import { useI18n, type Locale } from '@/i18n'
+import { useTt } from '@/i18n'
+import {
+  changePassword,
+  getNotificationSettings,
+  getProfile,
+  logout,
+  setLanguage,
+  setTheme,
+  updateNotificationSettings,
+  type UserInfo,
+} from '@/api'
+import { clearAuth, goToLogin } from '@/utils/auth'
 import { getMiniappVersion } from '@/utils/app-version'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Button } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
-import { getProfile, logout, type UserInfo } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { clearAuth } from '@/utils/auth'
-import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import { RowsSection, NotificationSection, PasswordModal, type SettingRow } from './parts'
 import { onToast } from '@/host/on-toast'
+import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import { SettingsScreen as SharedSettingsScreen } from '@ihui/rn-app/features/settings/SettingsScreen'
+import type {
+  SharedLocaleOption,
+  SharedMenuItem,
+  SharedNotificationToggles,
+  SharedThemeOption,
+} from '@ihui/rn-app'
+
+type NotifKey = keyof SharedNotificationToggles
+
+/** 菜单行:仅保留共享屏没有的入口(语言/主题/通知开关/修改密码/退出已在共享屏内)。 */
+const MENU_ROUTES: Readonly<Record<string, string>> = {
+  accountCancel: '/pkg-user/account-cancel/index/index',
+  notification: '/pages/setting/notification',
+  cache: '/pages/setting/cache',
+  feedback: '/pkg-user/user/feedback',
+  privacy: '/pages/setting/privacy',
+  web: '/pkg-about/about/web-portal/index',
+  about: '/pkg-about/about/index',
+}
 
 export default function SettingIndexPage() {
-  const { t } = useI18n()
+  const { t, locale, setLocale } = useI18n()
+  const tt = useTt()
   const gate = useAuthReadyGate()
+  const { themeMode, resolvedTheme, setThemeMode } = useTheme()
   const [user, setUser] = useState<Partial<UserInfo>>({})
-  // 资料是否真的取到:未登录 / 取失败时不渲染用户卡(与 RN 侧 `user && onEditProfile` 同判)
-  const [profileLoaded, setProfileLoaded] = useState(false)
-  const [pwdVisible, setPwdVisible] = useState(false)
-  /* 版本号走全端唯一出口 utils/app-version(线上版非空、开发/体验版空串);
-     空串时整行不渲染,对齐 RN 侧 `appVersion ? … : null`。 */
+  const [notifications, setNotifications] = useState<SharedNotificationToggles>({
+    push: true,
+    message: true,
+    email: false,
+  })
   const appVersion = getMiniappVersion()
-
-  // 本地 fallback:t(key) 未命中时返回 fb,保证页面可用(主 agent 补 i18n key 后自动切换)
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
 
   const load = useCallback(async () => {
     try {
       setUser(await getProfile())
-      setProfileLoaded(true)
     } catch (e) {
       logger.error('setting/index', '获取用户信息', e)
       onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     }
   }, [tt])
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await getNotificationSettings()
+      setNotifications((prev) => {
+        const next = { ...prev }
+        for (const item of res.list || []) {
+          if (item.key === 'push' || item.key === 'message' || item.key === 'email') {
+            next[item.key] = item.enabled
+          }
+        }
+        return next
+      })
+    } catch (e) {
+      // 取不到保持默认值渲染:开关仍在、交互仍在,只记日志不打断页面
+      logger.error('setting/index', '获取通知设置', e)
+    }
+  }, [])
+
+  // G-933 冷启动抢跑门控:profile 与通知设置两支 GET 均需鉴权
+  useDidShow(() => {
+    gate.waitUntilReady(() => {
+      void load()
+      void loadNotifications()
+    })
+  })
+
   const navigate = useCallback((url: string) => {
     Taro.navigateTo({ url })
   }, [])
 
-  const onLogout = useCallback(() => {
+  const onMenuPress = useCallback(
+    (key: string) => {
+      const url = MENU_ROUTES[key]
+      if (url) navigate(url)
+    },
+    [navigate],
+  )
+
+  const onSelectLocale = useCallback(
+    (value: string) => {
+      if (value === locale) return
+      setLocale(value as Locale)
+      setLanguage(value).catch((e) => {
+        logger.error('setting/index', '设置语言', e)
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+      })
+    },
+    [locale, setLocale, tt],
+  )
+
+  const onSelectTheme = useCallback(
+    (value: string) => {
+      if (value === themeMode) return
+      setThemeMode(value as 'light' | 'dark' | 'system')
+      // 端内偏好存 'auto'|'light'|'dark',与 RN 的 'system' 是本端既有对照(setting/theme.tsx 同法)
+      setTheme(value === 'system' ? 'auto' : value).catch((e) => {
+        logger.error('setting/index', '设置主题', e)
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+      })
+    },
+    [themeMode, setThemeMode, tt],
+  )
+
+  const onToggleNotification = useCallback(
+    (key: NotifKey, value: boolean) => {
+      const previous = notifications
+      setNotifications((prev) => ({ ...prev, [key]: value }))
+      updateNotificationSettings({ [key]: value }).catch((e) => {
+        logger.error('setting/index', '更新通知设置', e)
+        setNotifications(previous)
+        onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
+      })
+    },
+    [notifications, tt],
+  )
+
+  const onChangePassword = useCallback(async (oldPwd: string, newPwd: string) => {
+    try {
+      await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
+      return true
+    } catch (e) {
+      logger.error('setting/index', '修改密码', e)
+      return false
+    }
+  }, [])
+
+  const onAlert = useCallback((title: string) => {
+    onToast(title)
+  }, [])
+
+  const onConfirm = useCallback((title: string, message: string, onOk: () => void) => {
     Taro.showModal({
-      title: t('profile.logout'),
-      content: t('settings.logoutConfirm'),
-      success: async (res) => {
-        if (res.confirm) {
-          try {
-            await logout()
-          } catch (e) {
-            logger.error('setting/index', '退出登录', e)
-            onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
-          }
-          // 本页 `logout` 是 `@/api` 的后端登出接口(只吊销服务端会话),不清本地凭据。
-          // 清凭据 + 落登出标记是 `clearAuth()` 一件成对动作:只落标记不清凭据 ⇒ 内存/存储里
-          // 的 token 还在,后续请求照样带着走;只清凭据不落标记 ⇒ 冷启动又被静默登回。
-          clearAuth()
-          goToLogin()
-        }
+      title,
+      content: message,
+      success: (res) => {
+        if (res.confirm) onOk()
       },
     })
-  }, [t, tt])
+  }, [])
 
-  // 分区行:文案与 RN 共享屏同一套(账号与安全区首行「修改密码」对齐 RN 的页内弹层形态)
-  const accountRows: SettingRow[] = [
-    {
-      key: 'password',
-      label: t('settings.changePassword'),
-      onPress: () => setPwdVisible(true),
-    },
-    {
-      key: 'profile',
-      label: tt('setting.profile', '个人资料'),
-      onPress: () => navigate('/pkg-user/user/profile'),
-    },
-    {
-      key: 'cancel',
-      label: tt('setting.accountCancel', '账号注销'),
-      onPress: () => navigate('/pkg-user/account-cancel/index/index'),
-    },
-    {
-      key: 'notification',
-      label: tt('setting.notificationSetting', '通知设置'),
-      onPress: () => navigate('/pages/setting/notification'),
-    },
+  const onLogout = useCallback(async () => {
+    try {
+      await logout()
+    } catch (e) {
+      logger.error('setting/index', '退出登录', e)
+    }
+    // 登出接口只吊销服务端会话;清凭据 + 落登出标记必须成对执行(原页注释同款约束)
+    clearAuth()
+    goToLogin()
+  }, [])
+
+  const localeOptions: SharedLocaleOption[] = [
+    { value: 'zh-CN', label: tt('legal.supportedRegions.languageZhCN', '简体中文') },
+    { value: 'zh-TW', label: tt('legal.supportedRegions.languageZhTW', '繁體中文') },
+    { value: 'en', label: tt('legal.supportedRegions.languageEN', 'English') },
+    { value: 'ko', label: tt('legal.supportedRegions.languageKO', '한국어') },
+    { value: 'ja', label: tt('legal.supportedRegions.languageJA', '日本語') },
   ]
 
-  const generalRows: SettingRow[] = [
-    {
-      key: 'cache',
-      label: tt('setting.clearCache', '清除缓存'),
-      onPress: () => navigate('/pages/setting/cache'),
-    },
-    // 语言 / 主题:本端各有一整页选择器,行内跳转承载与 RN 内联选项等同的信息结构
-    {
-      key: 'language',
-      label: t('settings.language'),
-      onPress: () => navigate('/pages/setting/language'),
-    },
-    {
-      key: 'theme',
-      label: t('settings.theme'),
-      onPress: () => navigate('/pages/setting/theme'),
-    },
+  const themeOptions: SharedThemeOption[] = [
+    { value: 'light', label: tt('themeToggle.lightMode', '浅色模式') },
+    { value: 'dark', label: tt('themeToggle.darkMode', '深色模式') },
+    { value: 'system', label: tt('settings.themeSystem', '跟随系统') },
   ]
 
-  const otherRows: SettingRow[] = [
-    {
-      key: 'feedback',
-      label: tt('setting.feedback', '意见反馈'),
-      onPress: () => navigate('/pkg-user/user/feedback'),
-    },
-    {
-      key: 'privacy',
-      label: tt('setting.privacyPermission', '隐私与权限'),
-      onPress: () => navigate('/pages/setting/privacy'),
-    },
-    {
-      key: 'web',
-      label: tt('setting.webPortal', '网页版功能'),
-      onPress: () => navigate('/pkg-about/about/web-portal/index'),
-    },
-    {
-      key: 'about',
-      label: tt('setting.aboutUs', '关于我们'),
-      onPress: () => navigate('/pkg-about/about/index'),
-    },
+  const menuItems: SharedMenuItem[] = [
+    { key: 'accountCancel', label: tt('setting.accountCancel', '账号注销') },
+    { key: 'notification', label: tt('setting.notificationSetting', '通知设置') },
+    { key: 'cache', label: tt('setting.clearCache', '清除缓存') },
+    { key: 'feedback', label: tt('setting.feedback', '意见反馈') },
+    { key: 'privacy', label: tt('setting.privacyPermission', '隐私与权限') },
+    { key: 'web', label: tt('setting.webPortal', '网页版功能') },
+    { key: 'about', label: tt('setting.aboutUs', '关于我们') },
   ]
-
-  // G-933 冷启动抢跑门控:load 唯一一支 GET /api/user/profile 需鉴权
-  // (apps/api/src/routes/miniapp-compat-routes.ts:2247 handler 内
-  // `if (!(await checkAuth(request, reply))) return`,注册前缀 /api 见 routes/index.ts:1045)
-  // ⇒ 挡到门后。未登录卡面由既有 `profileLoaded ? … : null` 分支自然不渲染,不新增文案。
-  useDidShow(() => {
-    gate.waitUntilReady(() => {
-      void load()
-    })
-  })
 
   return (
     <ThemeRoot>
-      {/* 根容器背景对齐 RN container(pageBg=surface.bg → --color-background);
-          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
-      <View className="min-h-screen bg-background pb-[48rpx] pt-[24rpx]">
-        {profileLoaded ? (
-          <View
-            className="mx-[20rpx] flex items-center gap-[24rpx] rounded-lg bg-muted p-[28rpx]"
-            onClick={() => navigate('/pkg-user/user/profile')}
-            hoverClass="opacity-60"
-          >
-            {/* 头像对齐 RN avatar: 48dp→96rpx + 圆角 8dp→16rpx */}
-            <Image
-              className="w-[96rpx] h-[96rpx] rounded-lg bg-background"
-              src={user.avatar || '/static/default-avatar.png'}
-              mode="aspectFill"
-            />
-            <View className="min-w-0 flex-1">
-              {/* 昵称对齐 RN nickname: 16dp→32rpx semibold + text.primary;无昵称落「未设置昵称」 */}
-              <Text className="block text-title text-foreground font-semibold">
-                {user.nickname || t('profile.nickname')}
-              </Text>
-              {/* 副行对齐 RN subText: 14dp→28rpx + text.secondary;间距对齐 userMeta gap 2dp→4rpx */}
-              <Text className="mt-[4rpx] block text-body text-muted-foreground">
-                {t('profile.editProfile')}
-              </Text>
-            </View>
-            <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-          </View>
-        ) : null}
-
-        {/* 三个分组卡片:对齐 RN Section(卡片几何/行高档位见 ./parts 的 RowsSection) */}
-        <RowsSection title={t('settings.account')} rows={accountRows} />
-        <RowsSection title={tt('setting.general', '通用')} rows={generalRows} />
-        {/* 消息通知:对齐 RN 三条 switchRow(推送 / 站内消息 / 邮件) */}
-        <NotificationSection />
-        <RowsSection title={tt('setting.other', '其他')} rows={otherRows} />
-
-        {/* logoutBtn 对齐 RN: 高 50dp→100rpx + 圆角 8dp→16rpx + 卡面底色;
-            文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
-            上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
-        <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-sm bg-card text-title font-semibold dark:bg-muted"
-          style={{ color: 'var(--color-danger)' }}
-          onClick={onLogout}
-        >
-          {t('profile.logout')}
-        </Button>
-
-        {/* versionText 对齐 RN: 独立居中行 + 12dp→24rpx + text.tertiary + marginTop 4dp→8rpx;
-            且同 RN 的 `appVersion ? … : null` —— 拿不到真实版本号时这一行不出现 */}
-        {appVersion ? (
-          <Text className="mt-[8rpx] block text-center text-label text-[color:var(--color-text-tertiary)]">
-            {t('settings.version')} {appVersion}
-          </Text>
-        ) : null}
-
-        {/* 修改密码弹层:对齐 RN 共享屏内置 Modal(三输入 + 校验 + 成败提示) */}
-        <PasswordModal visible={pwdVisible} onClose={() => setPwdVisible(false)} />
-      </View>
+      <SharedSettingsScreen
+        t={t}
+        user={
+          user.id
+            ? {
+                id: user.id,
+                nickname: user.nickname,
+                avatar: user.avatar ?? null,
+                email: user.email,
+                phone: user.phone,
+              }
+            : null
+        }
+        locale={locale}
+        localeOptions={localeOptions}
+        onSelectLocale={onSelectLocale}
+        theme={themeMode}
+        themeOptions={themeOptions}
+        onSelectTheme={onSelectTheme}
+        notifications={notifications}
+        onToggleNotification={onToggleNotification}
+        onEditProfile={() => navigate('/pkg-user/user/profile')}
+        onChangePassword={onChangePassword}
+        onAlert={onAlert}
+        onConfirm={onConfirm}
+        onLogout={onLogout}
+        menuItems={menuItems}
+        onMenuPress={onMenuPress}
+        appVersion={appVersion}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍​​​​​‌‍‍​‌​​‌‌‌​‍‍‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
