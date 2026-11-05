@@ -49,9 +49,11 @@ export function SecuritySettingsScreen() {
     }
   }, [t, reloadKey])
 
-  // 只读形态:后端 user-security-routes.ts 只有 GET /user/security,没有任何写端点,
+  // 只读形态:后端 user-security-routes.ts 只有 GET /user/security,这一条路径上没有任何写端点,
   // 四项开关此前只改本地 state(关掉再进来全回原值)—— 那是假成功。改为只读展示,
   // 由共享屏渲染真实状态 + 明确提示,不再注入 onToggle。
+  // 口径提醒:「这条路径无写端点」只约束本页的行内开关,不等于后端整体不支持修改 —— 两步验证
+  // 走的是另一条已打通的路(/api/auth/2fa/*,见同端 SecurityCenterScreen)。提示文案点名的是它。
   return (
     <SharedSecuritySettingsScreen
       t={t}
