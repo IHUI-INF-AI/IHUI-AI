@@ -989,4 +989,74 @@ test('T30 R13 形状锁:main() 必须接 findMergedEntries、吃 R8/R9 同一张
   assert.ok(!/opts\.strict/.test(block), 'red-r13 属结构性缺陷,默认档就必须判红 —— 挂 --strict 等于平时失明')
 })
 
+// ── R3 登记面扩面(2026-11-05,治理债②「接」的一半)──────────────────────────
+// §22c:面枚举、台账归属计数、腐烂判据全部 import 源脚本 `__test__`,测试里一份判据都不抄。
+
+const R3_LS = [
+  'scripts/check-gate-shape.mjs',
+  'scripts/tool-cli.mjs',
+  'scripts/lib/check-inner.mjs',
+  'scripts/data/notes.json',
+  'scripts/run.ps1',
+  'scripts/other/x.mjs',
+].join('\n')
+
+test('T31 R3 扩面面枚举:scripts/ 直属全部 .mjs,门形与非门形同面;lib/ 与子目录与非 .mjs 排除', () => {
+  const face = G.filterR3FacePaths(R3_LS)
+  assert.deepEqual(face, ['check-gate-shape.mjs', 'tool-cli.mjs'], '扩面必须含非门形直属 .mjs,且排除 lib/子目录/非 mjs')
+  const gate = G.filterGatePaths(R3_LS)
+  assert.deepEqual(gate, ['check-gate-shape.mjs'], '门形档口径不得因扩面被改动(R1/R2/R4 候选集仍只认门形)')
+})
+
+test('T32 R3 扩面·已登记条目命中未接集 ⇒ 计入 registered,不落 unregistered', () => {
+  const entries = [
+    { path: 'scripts/tool-cli.mjs', state: 'CLI-tool', reason: '人工 CLI 工具,判机器态', reviewBy: '2099-01-01' },
+    { path: 'scripts/check-gate-shape.mjs', state: 'should-wire', reason: '门形未接,待装 runner', wireTo: 'scripts/guardian-runner.mjs', reviewBy: '2099-01-01' },
+  ]
+  const s = G.summarizeR3Register(entries, ['check-gate-shape.mjs', 'tool-cli.mjs'], '2026-11-05')
+  assert.equal(s.registered, 2, '两枚都在未接集 ⇒ 都已登记')
+  assert.equal(s.unregisteredCount, 0, '登记命中后不得再报未登记')
+  assert.deepEqual(s.stale, [], '条目在未接集内不构成 stale')
+  assert.equal(s.expired.length, 0, 'reviewBy 未到期不报过期')
+})
+
+test('T33 R3 台账腐烂(§0.7 验过才免):条目指向的脚本不在被审面 ⇒ 命中;在面/子目录路径不算腐烂', () => {
+  const tracked = new Set(['scripts/tool-cli.mjs', 'scripts/lib/inner.mjs'])
+  const entries = [
+    { path: 'scripts/gone.mjs' },
+    { path: 'scripts/tool-cli.mjs' },
+    { path: 'scripts/lib/inner.mjs' },
+    { path: 'scripts/lib/deleted.mjs' },
+    { path: 42 },
+  ]
+  assert.deepEqual(G.findR3RegisterRot(entries, tracked), ['scripts/gone.mjs'], '只有「scripts/ 直属 .mjs 且面上不存在」才是腐烂')
+  assert.deepEqual(G.findR3RegisterRot([], tracked), [], '空台账不命中(不得凭空造红)')
+  assert.deepEqual(
+    G.findR3RegisterRot(entries, new Set()),
+    ['scripts/gone.mjs', 'scripts/tool-cli.mjs'],
+    '面取不到(空 Set)时逐条都算不在面 ⇒ 绝不整批放行;上游 gateNames 为空已先行 exit,不留静默绿',
+  )
+})
+
+test('T34 R3 档位形状锁:扩面唯一进 reds 的是 red-r3-rot,未登记只报数;候选集仍取门形 filterGatePaths', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const start = src.indexOf('R3 登记面扩面')
+  assert.ok(start > 0, '实现区的「R3 登记面扩面」锚点消失 ⇒ 本条断言无牙')
+  const seg = src.slice(start)
+  const faceBlock = seg.slice(0, seg.indexOf('const r3FaceRot'))
+  assert.ok(faceBlock.includes('filterR3FacePaths(lsTree)'), '扩面必须由 filterR3FacePaths 枚举,不得在 collect 里另写一份 ls-tree 过滤(§22c)')
+  assert.ok(faceBlock.includes('gitGrep(extraFaceNames'), '扩面命中判定必须复用五处权威点那支 gitGrep,不得复制第二份 grep 判据(§0.6)')
+  const upToR5 = seg.slice(0, seg.indexOf('// R5 重复 id'))
+  assert.equal(
+    (upToR5.match(/reds\.push\(/g) || []).length,
+    1,
+    'R3 扩面区块只允许一个 reds.push 点(rot);未登记/过期若被推进 reds 就是给 R3 升档(§12e 禁)',
+  )
+  assert.ok(/status: 'red-r3-rot'/.test(upToR5), 'rot 支必须以 red-r3-rot 进 reds(否则 §0.7 无人守)')
+  assert.ok(
+    src.includes('const gateNames = filterGatePaths(lsTree)'),
+    'R1/R2/R4 的被测全集必须仍是门形档 —— 扩面不得顺手把撒谎档也放大',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
