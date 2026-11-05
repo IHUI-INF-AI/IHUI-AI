@@ -42,12 +42,13 @@ export function ModelIncomeScreen({
   onOpenWithdraw,
   onCloseWithdraw,
   onConfirmWithdraw,
+  withdrawDisabled = false,
   loadingMore = false,
   hasMore = true,
   onLoadMore,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ModelIncomeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -64,8 +65,8 @@ export function ModelIncomeScreen({
         activeTab === 'all'
           ? true
           : activeTab === 'pending'
-            ? !isSettled(i.status)
-            : isSettled(i.status),
+            ? !isSettled(i.status ?? '')
+            : isSettled(i.status ?? ''),
       ),
     [items, activeTab],
   )
@@ -104,7 +105,12 @@ export function ModelIncomeScreen({
             {t('modelIncome.accumulated')}{' '}
             <Text style={styles.sumAmount}>{accumulated.toFixed(2)}</Text> {t('modelIncome.yuan')}
           </Text>
-          <TouchableOpacity style={styles.withdrawBtn} onPress={onOpenWithdraw} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={[styles.withdrawBtn, withdrawDisabled && styles.withdrawBtnDisabled]}
+            onPress={onOpenWithdraw}
+            disabled={withdrawDisabled}
+            activeOpacity={0.8}
+          >
             <Text style={styles.withdrawBtnText}>{t('modelIncome.withdrawBtn')}</Text>
           </TouchableOpacity>
         </View>
@@ -165,34 +171,60 @@ export function ModelIncomeScreen({
           ) : null
         }
         renderItem={({ item }) => {
-          const settled = isSettled(item.status)
+          const settled = isSettled(item.status ?? '')
           return (
             <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <Text style={styles.cardOrder} numberOfLines={1}>
-                  {t('modelIncome.orderLabel')} {item.orderId}
-                </Text>
-                <Text
-                  style={[styles.cardStatus, settled ? styles.statusSettled : styles.statusPending]}
-                >
-                  {tabLabel(settled ? 'settled' : 'pending')}
-                </Text>
-              </View>
-              <Text style={styles.cardTime}>{item.createdAt}</Text>
+              {item.orderId || item.status ? (
+                <View style={styles.cardHead}>
+                  {item.orderId ? (
+                    <Text style={styles.cardOrder} numberOfLines={1}>
+                      {t('modelIncome.orderLabel')} {item.orderId}
+                    </Text>
+                  ) : (
+                    <View style={{ flex: 1 }} />
+                  )}
+                  {item.status ? (
+                    <Text
+                      style={[
+                        styles.cardStatus,
+                        settled ? styles.statusSettled : styles.statusPending,
+                      ]}
+                    >
+                      {tabLabel(settled ? 'settled' : 'pending')}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+              {item.createdAt ? <Text style={styles.cardTime}>{item.createdAt}</Text> : null}
               <View style={styles.cardMain}>
-                <View style={styles.cardAvatar}>
-                  <Text style={styles.cardAvatarText}>{item.userNickname.charAt(0)}</Text>
-                </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.userNickname}
-                  </Text>
-                  <Text style={styles.cardMeta}>
-                    {t('modelIncome.orderLabel')} ¥{item.orderAmount.toFixed(2)} ·{' '}
-                    {t('modelIncome.rateLabel')} {item.rate}%
-                  </Text>
-                </View>
-                <Text style={styles.cardAmount}>+¥{item.commissionAmount.toFixed(2)}</Text>
+                {item.userNickname ? (
+                  <View style={styles.cardAvatar}>
+                    <Text style={styles.cardAvatarText}>{item.userNickname.charAt(0)}</Text>
+                  </View>
+                ) : null}
+                {item.userNickname || item.orderAmount !== undefined || item.rate !== undefined ? (
+                  <View style={styles.cardInfo}>
+                    {item.userNickname ? (
+                      <Text style={styles.cardName} numberOfLines={1}>
+                        {item.userNickname}
+                      </Text>
+                    ) : null}
+                    {item.orderAmount !== undefined || item.rate !== undefined ? (
+                      <Text style={styles.cardMeta}>
+                        {item.orderAmount !== undefined
+                          ? `${t('modelIncome.orderLabel')} ¥${item.orderAmount.toFixed(2)}`
+                          : null}
+                        {item.orderAmount !== undefined && item.rate !== undefined ? ' · ' : null}
+                        {item.rate !== undefined
+                          ? `${t('modelIncome.rateLabel')} ${item.rate}%`
+                          : null}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                {item.commissionAmount !== undefined ? (
+                  <Text style={styles.cardAmount}>+¥{item.commissionAmount.toFixed(2)}</Text>
+                ) : null}
               </View>
             </View>
           )
@@ -270,6 +302,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     withdrawBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    withdrawBtnDisabled: { opacity: 0.5 },
     sumRow: { flexDirection: 'row', marginTop: rnSpacing.lg },
     sumCol: { flex: 1 },
     sumSubLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
