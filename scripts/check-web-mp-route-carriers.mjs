@@ -7,8 +7,8 @@
 /**
  * check-web-mp-route-carriers.mjs — web ↔ 小程序「直接路由尺」(共享屏承载列)
  *
- * GATE_ID: TBD-web-mp-route-carriers
- * (新门头注占位:本轮不占正式门号,也不写进 docs/GATEKEEPERS.md 编号表,门号申请见交付报告)
+ * GATE_ID: 301
+ * (门号 301:2026-11-05 按规则分配;编号表登记见 docs/GATEKEEPERS.md 与 guardian-runner)
  *
  * 立因(2026-11-05):`check-cross-end-screen-coverage.mjs` 只从「共享屏」出发,于是
  * 「web 有而小程序无」没有直接度量 —— 只能经共享屏镜像标记链间接推断。本尺补齐一条直连:
@@ -39,7 +39,7 @@
  * 退出码:0 无新增缺口 · 1 有新增缺口/新未判定/新合法差异无账 · 2 取不到输入(未判定,§0.3)
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -159,7 +159,6 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
     })
 
     const validRoutes = pageEvidence.filter((e) => e.status === 'ok' && e.mirrored)
-    const existsRoutes = pageEvidence.filter((e) => e.status === 'ok')
     const conflictRoutes = regRoutes.filter((r) => (routeOwners.get(r) || []).length > 1)
 
     let verdict
