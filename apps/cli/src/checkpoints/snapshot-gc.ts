@@ -26,35 +26,33 @@ export interface SnapshotGcDeps<M extends SnapshotGcManifestMeta> {
   nowMs(): number;
 }
 
-export type SnapshotGcState = 'planned' | 'clean' | 'undetermined';
-export type SnapshotGcRetainReason = 'within-keep-versions' | 'within-age-window' | 'within-size-cap';
-export const SNAPSHOT_GC_UNDETERMINED_REASONS = [
-  'invalid-policy',
-  'no-candidates',
-  'malformed-dir-name',
-  'size-unmeasurable',
-  'duplicate-version',
-  'series-regression',
-  'manifest-missing',
-  'manifest-corrupt',
-  'manifest-unreadable',
-] as const;
-export type SnapshotGcUndeterminedReason = (typeof SNAPSHOT_GC_UNDETERMINED_REASONS)[number];
+type SnapshotGcState = 'planned' | 'clean' | 'undetermined';
+type SnapshotGcRetainReason = 'within-keep-versions' | 'within-age-window' | 'within-size-cap';
+type SnapshotGcUndeterminedReason =
+  | 'invalid-policy'
+  | 'no-candidates'
+  | 'malformed-dir-name'
+  | 'size-unmeasurable'
+  | 'duplicate-version'
+  | 'series-regression'
+  | 'manifest-missing'
+  | 'manifest-corrupt'
+  | 'manifest-unreadable';
 
-export interface SnapshotGcDeletion {
+interface SnapshotGcDeletion {
   dirName: string;
   uuid: string;
   version: number;
   bytes: number;
   detail: string;
 }
-export interface SnapshotGcRetained { dirName: string; reason: SnapshotGcRetainReason; detail: string }
-export interface SnapshotGcUndetermined {
+interface SnapshotGcRetained { dirName: string; reason: SnapshotGcRetainReason; detail: string }
+interface SnapshotGcUndetermined {
   dirName: string | null;
   reason: SnapshotGcUndeterminedReason;
   detail: string;
 }
-export interface SnapshotGcTotals { candidates: number; classifiable: number; series: number; bytes: number }
+interface SnapshotGcTotals { candidates: number; classifiable: number; series: number; bytes: number }
 export interface SnapshotGcPlan {
   state: SnapshotGcState;
   policy: SnapshotGcPolicy;
