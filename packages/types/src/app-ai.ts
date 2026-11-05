@@ -247,16 +247,24 @@ export interface N8nModelScreenProps {
 
 /** 模型编辑售卖方式(对齐 mobile-rn ModelEditScreen SaleType) */
 export type ModelEditSaleType = 'free' | 'limited' | 'paid'
-/** 模型编辑收费周期(对齐 mobile-rn ModelEditScreen PayCycle) */
-export type ModelEditPayCycle = 'month' | 'year' | 'permanent'
-/** 模型编辑面向群体(对齐 mobile-rn ModelEditScreen Audience) */
-export type ModelEditAudience = 'all' | 'member'
+/** 模型编辑收费周期(月/季/年/永久;季度档为小程序独有,由宿主显式注入选项) */
+export type ModelEditPayCycle = 'month' | 'quarter' | 'year' | 'permanent'
+/** 模型编辑面向群体(全部/会员为 RN 口径,个人/企业为小程序口径,由宿主显式注入选项) */
+export type ModelEditAudience = 'all' | 'member' | 'individual' | 'enterprise'
 
 /** 模型编辑选项(类别/部门/折扣等通用 chip 选项) */
 export interface ModelEditOption {
   id: string
   label: string
 }
+
+/** 模型编辑带值选项(周期/面向群体;值域由宿主按自身口径显式传入) */
+export interface ModelEditValueOption<T extends string> {
+  value: T
+  label: string
+}
+export type ModelEditCycleOption = ModelEditValueOption<ModelEditPayCycle>
+export type ModelEditAudienceOption = ModelEditValueOption<ModelEditAudience>
 
 /** 模型编辑基础信息(头像+名称+开场白) */
 export interface ModelEditBaseInfo {
@@ -285,6 +293,13 @@ export interface ModelEditScreenProps {
   deptOptions: ModelEditOption[]
   freeDurations: string[]
   discountOptions: ModelEditOption[]
+  /** 周期档与面向群体由宿主显式注入:RN 传月/年/永久、全部/会员;小程序传月/季/年、个人/企业 */
+  cycleOptions: ModelEditCycleOption[]
+  audienceOptions: ModelEditAudienceOption[]
+  /** 真实加载态(两端显式传,共享屏不自造) */
+  loading: boolean
+  /** 是否渲染头部取消键(小程序靠原生导航栏,显式 false) */
+  showCancel: boolean
   submitting: boolean
   onChange: <K extends keyof ModelEditFieldValues>(key: K, value: ModelEditFieldValues[K]) => void
   onToggleCategory: (id: string) => void
