@@ -4774,6 +4774,9 @@
   "devSpace": {
     "title": "開發者詳情",
     "notLoggedIn": "未登入",
+    "opened": "已開通",
+    "notOpened": "未開通",
+    "enterPlaza": "進入廣場",
     "renew": "續費",
     "copy": "複製",
     "copied": "已複製",
