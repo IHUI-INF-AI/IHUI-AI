@@ -381,6 +381,8 @@ export type {
   DistributionEarningsItem,
   DistributionEarningsCard,
   DistributionServiceFloat,
+  DistributionFunctionBlock,
+  DistributionQrSheet,
   ExamQuestionItem,
   ExamQuestionPaper,
   ExamQuestionScreenProps,
