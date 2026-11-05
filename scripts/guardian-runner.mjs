@@ -5076,7 +5076,7 @@ const checks = [
     ].join('\n'),
   },
 
-  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', stagedTriggers: ['AGENTS.md'] },
+  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE', stagedTriggers: ['AGENTS.md'] },
   // --- 工作区嵌套 git 仓零容忍(2026-10-14 幻影仓事故)(1 项,blocking)---
   {
     id: '208',
@@ -7286,6 +7286,83 @@ const pushGateChecks = [
       '  迁移窗口:scripts/data/immutable-guard.json 的 signatureRequiredFrom(到期自动收紧,无静默放行)。',
       '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
       '',
+    ].join('\n'),
+  },
+  // ─── 2026-11-05 新增三门(299/300/301):按规则从 299 起向上取未占用号,禁用 285 ───
+  // 299:小程序「薄壳 vs 复制」形态门。射程 = 在册页目录(app.config.ts 决定在册)、映射表、
+  // 台账与门体自身;判据/材质见脚本头注与 scripts/lib/miniapp-shell-form.mjs。
+  {
+    id: '299',
+    label: '📦 小程序「薄壳 vs 复制」实现形态门(新增复制页即红;存量 93 页棘轮)',
+    script: 'check-miniapp-shell-form.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/pages/',
+      'apps/miniapp-taro/src/pkg-',
+      'apps/miniapp-taro/src/app.config.ts',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/miniapp-shell-copy-ledger.jsonl',
+      'scripts/check-miniapp-shell-form.mjs',
+      'scripts/lib/miniapp-shell-form.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_SHELL_FORM',
+    onFailHint: [
+      '  💡 红 = 映射里声明为镜像/委托,页面却没 import 共享壳(自己复制了一份)。',
+      '     改法:页面改成薄壳(import @rn-shells/<Screen> 或映射登记的等价入口),或按批次收敛台账。',
+      '     取证:node scripts/check-miniapp-shell-form.mjs --explain ;台账 scripts/data/miniapp-shell-copy-ledger.jsonl',
+      '     应急放行:HUSKY_SKIP_MINIAPP_SHELL_FORM=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 300:API 端点「端内直拼」差异台账门。射程 = 三端 src 的调用面 + 共享端点清单 + 台账与门体。
+  {
+    id: '300',
+    label: '🔌 API 端点直拼差异台账门(新增端内独有前缀未登记即红)',
+    script: 'check-api-endpoint-delta.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/src/',
+      'apps/mobile-rn/src/',
+      'apps/miniapp-taro/src/',
+      'packages/api-client/src/endpoints/',
+      'scripts/data/api-endpoint-delta-ledger.jsonl',
+      'scripts/check-api-endpoint-delta.mjs',
+      'scripts/lib/api-endpoint-literals.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_API_ENDPOINT_DELTA',
+    onFailHint: [
+      '  💡 红 = 端内出现共享端点清单里没有的前缀,且台账没有新登记行。',
+      '     改法:改走 @ihui/api-client 的共享端点,或在 scripts/data/api-endpoint-delta-ledger.jsonl 登记',
+      '     baseline:false + verdict(非 pending)+ owner + reason(≥10 字)。',
+      '     取证:node scripts/check-api-endpoint-delta.mjs --explain',
+      '     应急放行:HUSKY_SKIP_API_ENDPOINT_DELTA=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 301:web ↔ 小程序「直接路由尺」(共享屏承载列)。射程 = web 树、小程序在册路由、共享屏目录与台账。
+  {
+    id: '301',
+    label: '🗺️ web↔小程序共享屏承载路由门(新增缺承载/路由不存在/冲突即红)',
+    script: 'check-web-mp-route-carriers.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/',
+      'apps/miniapp-taro/src/app.config.ts',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-mp-route-carrier-ledger.jsonl',
+      'scripts/data/web-mp-route-carrier-legal.jsonl',
+      'scripts/check-web-mp-route-carriers.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS',
+    onFailHint: [
+      '  💡 红 = 共享屏有 web 路由但小程序缺承载/路由不存在/别名冲突。',
+      '     改法:补齐承载列或按台账登记合法例外;取证 node scripts/check-web-mp-route-carriers.mjs --explain',
+      '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
 ]

@@ -6,7 +6,7 @@
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-miniapp-shell-form.mjs — 小程序「薄壳 vs 复制」实现形态门
- * GATE_ID: TBD-miniapp-shell
+ * GATE_ID: 299
  *
  * 为什么要有这道门:现有四把覆盖尺(check-cross-end-screen-coverage / gen-miniapp-mirror /
  * auto-register-cross-end / report-rn-miniapp-gaps)只数「声明/标记」,不判「实现形态」。
