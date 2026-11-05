@@ -11,8 +11,10 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ReactNode } from 'react'
 import type {
   SharedAppInfo,
+  SharedIdentityTag,
   SharedLocaleOption,
   SharedMenuItem,
   SharedMenuSection,
@@ -41,12 +43,17 @@ export interface ProfileScreenProps {
   t: TFunction
   user?: SharedUser | null
   stats?: SharedUserStatistics | null
-  orderCount?: number
+  /** 订单数;null = 未取到(渲染 '--'),缺省 0 */
+  orderCount?: number | null
   loading?: boolean
   error?: string
   menuSections?: SharedMenuSection[]
   onNavigate?: (key: string) => void
   onLogout?: () => void
+  /** 身份标签行(vip / admin / normal);缺省不渲染 */
+  identityTags?: SharedIdentityTag[]
+  /** 头像点击端口(选图/上传由宿主实现);缺省头像不可点 */
+  onAvatarPress?: () => void
   onBack: () => void
   /**
    * 宿主轻提示端口(可选)。缺省按 `resolveOptionalPort` 落 capability-off,
@@ -175,6 +182,26 @@ export interface HelpScreenProps {
   onToast: OnToast
 }
 
+/** AvatarEditor props(头像编辑共享组件:平台能力一律走注入回调,组件内零平台 API) */
+export interface AvatarEditorProps {
+  t: TFunction
+  currentUrl: string | null
+  /** 相册选图(未注入则不出该入口) */
+  onPickFromAlbum?: () => void
+  /** 拍照取图(未注入则不出该入口) */
+  onPickFromCamera?: () => void
+  /** URL 入口提交(URL 文本由编辑器内收集) */
+  onUpload: (url: string) => void
+  uploading: boolean
+  error?: string
+  /** 大图预览 */
+  onPreview: () => void
+  nickname?: string
+  /** 是否渲染 URL 入口(默认 false,RN 资料页开启) */
+  showUrlEntry?: boolean
+  colorScheme?: 'light' | 'dark'
+}
+
 /** ProfileEditScreen props(表单屏,状态由 wrapper 管理) */
 export interface ProfileEditScreenProps {
   t: TFunction
@@ -185,15 +212,11 @@ export interface ProfileEditScreenProps {
   loading: boolean
   saving: boolean
   error: string
-  avatarModalVisible: boolean
-  avatarInput: string
+  /** 头像编辑槽位:宿主注入共享 AvatarEditor(未注入时不出头像区) */
+  avatarEditor?: ReactNode
   onNicknameChange: (text: string) => void
   onBioChange: (text: string) => void
   onGenderChange: (gender: Gender) => void
-  onOpenAvatarModal: () => void
-  onCloseAvatarModal: () => void
-  onAvatarInputChange: (text: string) => void
-  onConfirmAvatar: () => void
   onSave: () => void
   onRetry: () => void
   onBack: () => void
