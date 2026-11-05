@@ -6,7 +6,7 @@
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-api-endpoint-delta.mjs — API 端点「端内直拼」差异台账门
- * GATE_ID: TBD-api-endpoints
+ * GATE_ID: 300
  *
  * 为什么要有这道门:传输层是真单源(三端都走 @ihui/api-client 的 fetchApi),但端内仍有人
  * 直接拼 `/api/...` 字面量。四把尺子(门 240/241/295 等)只数「是否 import api-client」,
