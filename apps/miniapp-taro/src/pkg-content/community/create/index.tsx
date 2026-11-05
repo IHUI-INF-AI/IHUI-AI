@@ -2,118 +2,25 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 平台页面:镜像 packages/app/src/features/post-create/PostCreateScreen UI 与
-// apps/mobile-rn PostCreateScreen 状态机(端内重写渲染层,Taro 无法直接渲染 RN 原语)
+// 镜像 packages/app/src/features/post-create/PostCreateScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 端内保留:① 路由参数 circleId;② AI 操控通道 useUiField 三字段注册;
+// ③ POST /api/community/posts 提交与成功后 redirectTo 详情页。
+// 渲染(标题/错误/三字段/发布按钮/提交中态)全部委托共享屏,与 RN/web 同一套样式与取词。
+
 import { useCallback, useState } from 'react'
-import { useUiField } from '@/lib/ui-field-registry'
-import type { CSSProperties } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
-import { useTt } from '@/i18n'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
-import { createCommunityPost } from '@ihui/api-client'
+import { useI18n, useTt } from '@/i18n'
+import { useUiField } from '@/lib/ui-field-registry'
+import { fetchApi } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
-
-/** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
-const toRpx = (px: number): string => `${px * 2}rpx`
-
-// ===== 样式函数(view/text 分组,避免 style 联合类型;对齐共享屏 createStyles) =====
-
-const viewStyles = {
-  container: (tk: RnThemeTokens): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: tk.surface.bg,
-  }),
-  bodyScroll: (): CSSProperties => ({
-    flex: 1,
-  }),
-  body: (): CSSProperties => ({
-    paddingLeft: toRpx(10),
-    paddingRight: toRpx(10),
-    paddingTop: toRpx(12),
-    paddingBottom: toRpx(32),
-  }),
-  center: (): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-  }),
-  input: (tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(8),
-    paddingLeft: toRpx(12),
-    paddingRight: toRpx(12),
-    paddingTop: toRpx(8),
-    paddingBottom: toRpx(8),
-    borderRadius: toRpx(12),
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: tk.border.light,
-    fontSize: toRpx(16),
-    color: tk.text.primary,
-    backgroundColor: tk.surface.muted,
-  }),
-  textarea: (tk: RnThemeTokens): CSSProperties => ({
-    ...viewStyles.input(tk),
-    width: '100%',
-    boxSizing: 'border-box',
-    minHeight: toRpx(120),
-    maxHeight: toRpx(240),
-  }),
-  submitBtn: (tk: RnThemeTokens): CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: toRpx(20),
-    paddingTop: toRpx(12),
-    paddingBottom: toRpx(12),
-    borderRadius: toRpx(12),
-    backgroundColor: tk.brand.cta,
-  }),
-}
-
-const textStyles = {
-  muted: (tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: tk.text.secondary,
-  }),
-  title: (tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(8),
-    marginBottom: toRpx(12),
-    fontSize: toRpx(22),
-    fontWeight: '600',
-    color: tk.text.primary,
-  }),
-  error: (tk: RnThemeTokens): CSSProperties => ({
-    marginBottom: toRpx(8),
-    fontSize: toRpx(14),
-    color: tk.danger.DEFAULT,
-  }),
-  label: (tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(12),
-    fontSize: toRpx(14),
-    color: tk.text.secondary,
-  }),
-  submitText: (tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
-    fontSize: toRpx(16),
-    fontWeight: '600',
-    /* 暗色可读性修正:RN submitText 用 tk.surface.light(恒白),而暗色 brand.DEFAULT 为纯白,
-       出现白底白字;此处暗色改用 tk.gray.black 保证对比(RN 源值缺陷,规则允许修正) */
-    color: isDark ? tk.gray.black : tk.surface.light,
-  }),
-}
+import { useTheme } from '@/rn-compat/theme'
+import { PostCreateScreen } from '@ihui/rn-app/features/post-create/PostCreateScreen'
 
 export default function CommunityCreate() {
+  const { t } = useI18n()
   const tt = useTt()
-  const { resolved: appTheme } = useAppTheme()
-  const tk = getRnTokens(appTheme)
+  const { resolvedTheme } = useTheme()
   // 路由参数:圈子 id(可选,对齐 RN route.params.circleId,默认空串)
   const circleId = Taro.getCurrentInstance().router?.params?.circleId ?? ''
   const [title, setTitle] = useState('')
@@ -153,14 +60,17 @@ export default function CommunityCreate() {
     }
     setSaving(true)
     setError('')
-    const res = await createCommunityPost({
-      title: title.trim(),
-      content: content.trim(),
-      circleId,
-      tags: tags
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
+    const res = await fetchApi<{ id: string }>('/api/community/posts', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: title.trim(),
+        content: content.trim(),
+        circleId,
+        tags: tags
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      }),
     })
     setSaving(false)
     if (res.success && res.data) {
@@ -171,63 +81,22 @@ export default function CommunityCreate() {
     }
   }, [title, content, tags, circleId, tt])
 
-  // 提交中整页 loading(对齐共享屏 if (saving) 分支)
-  if (saving) {
-    return (
-      <ThemeRoot>
-        <View style={viewStyles.center()}>
-          <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
-        </View>
-      </ThemeRoot>
-    )
-  }
-
   return (
     <ThemeRoot>
-      <View style={viewStyles.container(tk)}>
-        <ScrollView scrollY style={viewStyles.bodyScroll()}>
-          <View style={viewStyles.body()}>
-            <Text style={textStyles.title(tk)}>{tt('postCreate.title', '发布帖子')}</Text>
-            {error ? <Text style={textStyles.error(tk)}>{error}</Text> : null}
-            <Text style={textStyles.label(tk)}>{tt('postCreate.titleLabel', '标题')}</Text>
-            <FocusInput
-              style={viewStyles.input(tk)}
-              value={title}
-              placeholder={tt('postCreate.titlePlaceholder', '给帖子起个标题')}
-              placeholderStyle={`color: ${tk.text.tertiary}`}
-              maxlength={-1}
-              onInput={(e) => setTitle(e.detail.value)}
-            />
-            <Text style={textStyles.label(tk)}>{tt('postCreate.contentLabel', '内容')}</Text>
-            <FocusTextarea
-              style={viewStyles.textarea(tk)}
-              value={content}
-              placeholder={tt('postCreate.contentPlaceholder', '分享你的想法...')}
-              placeholderStyle={`color: ${tk.text.tertiary}`}
-              maxlength={-1}
-              onInput={(e) => setContent(e.detail.value)}
-            />
-            <Text style={textStyles.label(tk)}>{tt('postCreate.tagsLabel', '标签')}</Text>
-            <FocusInput
-              style={viewStyles.input(tk)}
-              value={tags}
-              placeholder={tt('postCreate.tagsPlaceholder', '多个标签用逗号分隔')}
-              placeholderStyle={`color: ${tk.text.tertiary}`}
-              maxlength={-1}
-              onInput={(e) => setTags(e.detail.value)}
-            />
-            <View
-              style={viewStyles.submitBtn(tk)}
-              onTap={() => void onSubmit()}
-              hoverClass="opacity-60"
-            >
-              <Text style={textStyles.submitText(tk, appTheme === 'dark')}>
-                {tt('postCreate.submit', '发布')}
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
+      <PostCreateScreen
+        t={t}
+        title={title}
+        content={content}
+        tags={tags}
+        saving={saving}
+        error={error}
+        onTitleChange={setTitle}
+        onContentChange={setContent}
+        onTagsChange={setTags}
+        onSubmit={() => void onSubmit()}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }

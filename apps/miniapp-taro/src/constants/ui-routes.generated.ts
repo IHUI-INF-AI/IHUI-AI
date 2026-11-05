@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 16914d7543901d1f0c61a2b333cce422075e66bc
-// inputsSha256: 06d4a703d1d031a0fa5755af97e3cbaa4ab120d5517fcec2b73d4eb8e0a5ec8b
+// sourceCommit: f0d235792e01a51ee0b7212412201b76ec554766
+// inputsSha256: 58b9c51e547cd0ce744baea5ed23cd54ca7a97bff74c5219c90cd36f52cf74aa
 // input: apps/miniapp-taro/src/api/index.ts 97f7e116584d3d7751c1453a9ab2aeb7b09ba0562ec9303d2b05ba11720dd981
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -368,7 +368,7 @@
 // input: apps/miniapp-taro/src/pkg-content/category-detail/index.tsx 58b9cbe1bb70bb02591ebcf5ef345defc984af4e83753b6f686c5df858239a0b
 // input: apps/miniapp-taro/src/pkg-content/circle-post/index.tsx 1ff420fc541f0023f39e7d26ee4091a40dcf72cf489ec9bd2cb4de01cb25ef0b
 // input: apps/miniapp-taro/src/pkg-content/community/create/index.config.ts 8e1cdf5afbe7d26bff5a65d4603d073316bde74906568481a86637ef1874ded2
-// input: apps/miniapp-taro/src/pkg-content/community/create/index.tsx bd8a40c1f9a63782edcdbbc3f642249ec21475cf1fb640e9b300572dfc05b1c0
+// input: apps/miniapp-taro/src/pkg-content/community/create/index.tsx ddf057cf8327f5371c3a667bc6805bff83c4aa35475daf33eb01735b85f56dd3
 // input: apps/miniapp-taro/src/pkg-content/invitations/index.tsx 1121aef43f944959d4e4e9dcb3689c2355fbbaa2918d28c0fa0a0a8bcb3d3275
 // input: apps/miniapp-taro/src/pkg-content/letter-chat/index.tsx e9bb9b134ab501458d8cd9e333ac2c62afcae065ead158836e386b5f336752a8
 // input: apps/miniapp-taro/src/pkg-content/letters/index.tsx 87ae5401a49532a341292cc211e540d8204f600ec238fcd3596a87ffd13c0e87
@@ -728,7 +728,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 592 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-05T12:15:47.776Z
+// generatedAt: 2026-11-05T13:29:54.560Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
