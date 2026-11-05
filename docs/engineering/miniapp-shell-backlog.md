@@ -359,4 +359,30 @@
 - `ChangePhoneScreen` 硬编码中文 i18n（`ChangePhoneScreen.tsx:47`「绑定手机号」、`:64`「手机号码」）**另开 i18n 票**，不在本批修。
 - 除 `community/create` 已在 main 退休外，本批不摘行、不退休；台账物理 93 行不变。
 
+## 用户/设置域 6 页定性（main `73fe20b38f` 实测）
+
+判据三条：①页内渲染型 JSX 能否 ≤2 开标签；②与共享屏是否零重复 UI 段；③新 prop/段是否至少被另一端真消费并给 `file:line`（单端消费=搬码，直接不可）。节点口径 = `JsxElement` + `JsxSelfClosingElement` + 非空 `JsxText`（拆分写作 E/S/F/T）。
+
+**结论：0 页可薄壳化，5 页结构下限，1 页口径异常（`phone`，兼结构下限）。**
+
+| route | 实测 LOC / 节点（E+S+F+T） | 定性 | 判据证据（file:line） |
+|---|---|---|---|
+| `pkg-user/user/nickname` | 171 / 23（E18+S1+F0+T4） | 结构下限 | ①≤2 不可达：渲染块 `apps/miniapp-taro/src/pkg-user/user/nickname.tsx:114-169`（当前昵称 `:116-122`、随机推荐 `:140-144`、规则说明 `:147-158`、保存 `:160-166`）；②重复段 1：昵称输入 `:131-139` vs `packages/app/src/features/profile-edit/ProfileEditScreen.tsx:286-292`（共享屏只有输入，无当前值/随机/规则）；③端独有 3 段在 RN 壳零命中（RN 只整屏消费 `apps/mobile-rn/src/screens/ProfileEditScreen.tsx`）⇒ 新增段只小程序消费，判据 3 否。 |
+| `pkg-user/user/phone` | 324 / 27（E23+S3+F0+T1） | 口径异常（兼结构下限） | ①≤2 不可达：两步渲染 `phone.tsx:182-320`（旧码 step1 `:188-235`、新号 step2 `:236-318`）；②重复段 1：step2 输入/提交近似 `features/change-phone/ChangePhoneScreen.tsx:47-129`；③旧码 step1 `phone.tsx:97-122` 在 RN/共享屏零命中（`oldCode`/`step` 两文件均 0 命中）；接口非同物见下表。 |
+| `pkg-user/user/email` | 200 / 18（E15+S2+F0+T1） | 结构下限（副记口径疑点） | ①≤2 不可达：渲染 `email.tsx:139-197`（标题/说明 `:142-156`、邮箱输入 `:157-169`、验证码+倒计时 `:170-187`、提交 `:187-196`）；②重复段 0：`ChangePhoneScreen.tsx` 对 `email/mail/邮箱` 零命中；③端独有：`/auth/email/code` `email.tsx:106`、`/user/email/bind` `apps/miniapp-taro/src/api/index.ts:1046`，RN 侧 `email/bind` 零命中 ⇒ 单端消费。 |
+| `pkg-user/following/index` | 271 / 35（E31+S4+F0+T0） | 结构下限 | ①≤2 不可达：渲染 `:125-268`（总数 `:128-134`、搜索 `:136-143`、双 tab `:145-161`、列表行 `:192-229`、空态 `:236-254`、分页 `:257-267`）；②重复段 1：列表行 `:192-229` vs `FollowScreen.tsx:124-158`；③端独有：搜索条 `:136-143`、空态 `switchTab` 跳首页 `:116`，共享屏零命中 ⇒ 判据 3 否。旧判在新树同读数下维持。 |
+| `pkg-user/message/index` | 568 / 41（E28+S13+F0+T0） | 结构下限 | ①≤2 不可达：主渲染 `:524-566`、会话列表 `:423-496`、私信详情 `:499-522`、通知设置 `:539-562`；②重复段：会话列表/搜索 vs `features/message-center/MessageCenterScreen.tsx:155/:209/:261/:289/:299/:313`；③端独有：六 tab 词表（含 `order/course/interaction/private`）`:89-94`、本地会话增删 `:303-315`、详情发送 `:346-372` ⇒ 单端槽。旧判 30 为旧树读数，本树实测 41（差异来自页面结构演进），不推翻结构下限。 |
+| `pkg-user/account-cancel/index` | 339 / 23（E18+S4+F0+T1） | 结构下限 | ①≤2 不可达：渲染 `:268-336`（后果列表 `:277-285`、手机号 `:287-292`、验证码+发码 `:294-310`、确认句 `:312-319`、注销按钮 `:321-329`）；②重复段：手机号/验证码/确认/提交 `:287-329` vs `features/account-cancel/AccountCancelScreen.tsx:47-104`；③端独有：`POST /settings/delete-account` `:246`、`getProfile` 装配 `:150`；RN 壳 `apps/mobile-rn/src/screens/AccountCancelScreen.tsx:269-292` 同端点不同布局 ⇒ 判据 3 否。 |
+
+### 用户/设置域两条口径疑点（等口径收口票，不自行改 declaredSpecs）
+
+| 页 | 异常 | 证据 |
+|---|---|---|
+| `pkg-user/user/phone` | 接口非同物 + 旧码 step1 无 RN 对应 + 共享屏硬编码中文 | 小程序 `bindPhone` → `/user/phone/bind`（`apps/miniapp-taro/src/api/index.ts:1043`）；RN → `/api/auth/change-phone/confirm`（`apps/mobile-rn/src/screens/ChangePhoneScreen.tsx:125`）；旧码 step1 `phone.tsx:114-122`（`onVerifyOld` 本地校验后直接进第二步），RN/共享屏 `oldCode|step` 零命中；共享屏中文硬编码 `packages/app/src/features/change-phone/ChangePhoneScreen.tsx:47/54/64/108/113/115/127/129`。**待重挂映射** |
+| `pkg-user/user/email` | 声明链指向非同物屏；`/user/email/bind` 仅小程序 | 台账 `scripts/data/miniapp-shell-copy-ledger.jsonl:87` 的 `declaredSpecs` = `packages/app/src/features/change-phone/ChangePhoneScreen.tsx`；该屏零 email 分支；小程序 `email.tsx:106`（`/auth/email/code`）+ `apps/miniapp-taro/src/api/index.ts:1046`（`/user/email/bind`）；RN 侧 `email/bind` 零命中。**待重挂映射** |
+
+- 两条均只登记，不删不修；台账一行未动，等口径收口票统一裁决。
+- 台账 `loc` 按末行计法比 AST 实测多 1：nickname 172/171、phone 325/324、email 201/200、following 272/271、message 569/568、account-cancel 340/339。
+- 复查：6 页节点数 23/27/18/35/41/23，全部 ≥18，无一 ≤2，与门 299 在 `73fe20b38f` 的总账读数一致。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
