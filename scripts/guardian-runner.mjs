@@ -5076,7 +5076,7 @@ const checks = [
     ].join('\n'),
   },
 
-  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE', stagedTriggers: ['AGENTS.md'] },
+  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', stagedTriggers: ['AGENTS.md'] },
   // --- 工作区嵌套 git 仓零容忍(2026-10-14 幻影仓事故)(1 项,blocking)---
   {
     id: '208',
