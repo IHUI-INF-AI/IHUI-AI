@@ -230,7 +230,24 @@
 | Y3 | `web/miniapp/rn` 三行无实际占用者 | 本仓今天只有 CLI 形态会被声明 ⇒ 三行是「声明契约的形状」,不是已生效的能力 | 第二个内核宿主接线那一票 |
 | Y3 | 形态声明按进程生效 | 要按连接/按会话声明需另立票 | 后续票 |
 
-## 12. 复验命令
+## 12. 第八回合(2026-11-05 19:00–)七席并行收尾
+
+| 能力/格 | 提交(全 40 位起) | 主席自审读数(自己复跑,不采信席报) |
+| --- | --- | --- |
+| 技能包归档的**解压配额腿**(S1 席未竟 3;主席自办,非席产物) | c6a64290b5 | `tests/skill-pack-archive-quota.test.ts` = 6 passed;同族合跑 3 files / **38 passed**;`apps/cli` tsc 触及面 0 错;eslint RC=0;水印 3/3。`readTar` 现逐条过 `plugins/archive-quota.ts` 那一把尺,超限在 `Buffer.from` 物化之前中止;默认档 `INSTALL_COPY_QUOTA`(数值非拍的);上限形态坏判 `unjudged` 且不放行 |
+| 回收站**「恢复」的人用出口** `ihui trash list / restore`(Z2;前席的 `restoreTrashEntry` 零生产调用方 ⇒ §0.9 不成立) | 0a6868f37d | `trash-restore` + `delete-guard` = 2 files / **25 passed**;**真命令冒烟** `ihui trash --help` 现读两条子命令;席复核出原出口两处硬伤(静默覆盖已存在目标 / 恢复全程不过 ACL)已在消费方前置补齐,复用删除那同一把 `evaluateFileAccess`;席另建的 `commands/index.ts` barrel 属"只有一枚消费者却多一层中转",主席摘掉改为直接从 `trash.js` 登记 |
+| 子进程网络出口**三条腿**(Z3:脱离式 relay / 真 DNS 适配器 / 裸域名取词) | 7bde582b0a | egress 三新件 + `sandbox-egress-dns` 合跑 = 4 files / **33 passed**;`tests/sandbox` 族 = 11 files / **160 passed**(零回归);水印 10/10;落地后受影响门复跑**无判红**(仅"超出复跑预算"的未跑档)。牙:relay 判拒 ⇒ 目的地 `hits()===0 && bytes()===0` |
+| **六格合车**(Z1 插件贡献面接线 / Z6 分享页自写二维码 / Z9 网络命令登记 / Z7 回收站跨盘与冻结容错 —— 四格同枚落;Z8+Z11b 与 Z10 见本节末两行) | c8bd00a636e69fbd0f67422b41e9b3f11597c692(2026-11-05 20:46 主席复量落地;与 origin/main 的文件面零丢失 union 枚 = eff9c8e0f28f34eea81cb39715e55423d8a404db) | cli 侧 10 files / **102 passed** + worktree 族 2 files / **63 passed** + `apps/cli` tsc 触及面 **0 错**;`mypy --worktree` **0 errors**、ruff **0 violations**;主席另核 Z6:自写 7 档纯函数编码器(byte/M 档/v1–10)**零依赖零外链**,与已装 `qrcode@1.5.4` **逐掩码 64/64 格全等**、位图回读 8/8;Z9 补 ssh/scp/sftp 三条 network 基线效应 ⇒ 裸域名闸门自动跟长,**未登记 ⇒ `unknown` 不折成允许**,`nc` 刻意不登记(被 Z3 冻结件当"未登记"示例断言,射程外);Z7 `EXDEV` 走 `mirrorDirIntoTrash`(复制⇒两侧自证⇒记账,失败连壳清掉不留残迹)+ `sameVolume` 核验,冻结改逐条隔离 + 具名点名 + 复位出口 `--reset-strikes --reason`(≥12 字)。**席报读数(contribution 24 files/319 passed、qr 44、command-policy 90)按席报登记、未逐项复算** |
+| **事件驱动增量索引装车**(Z8 增量入口/批预扫 + Z11b 去抖桥;对侧锚点 = 对照程序的 workspace 增量索引档) | c8bd00a636e69fbd0f67422b41e9b3f11597c692(同上枚,腿名 `增量索引装车`) | 三档拆分,**hash·切片·摘要·ignore 一律 import 全量判据 ⇒ 零第二把尺**(§0.6);`agent_engine` 落 `pump_incremental_index()` **真消费点**(§0.9:声明必须有消费者),实测接线次序 = **先订阅 → 再分发 → 后排空**——按字面写在分发之后会**永久丢首批**;全量路径保留**冷启动兜底**(增量断链不退化成空索引);读数 = `pnpm check:pytest` **190 条 0 失败 verdict=GREEN** + mypy/ruff 同上枚 |
+| **两道守门升 blocking**(Z10;升档前置 = §12e 现读存量归零) | c8bd00a636e69fbd0f67422b41e9b3f11597c692(同上枚,腿名 `两道守门升 blocking`) | 升的两道:`2f-cli check-cli-i18n-parity`(5 locales × 511 keys 双绿、镜像 **16/16**)与 `197 check-truncation-accounting`(`--staged` 站点 0 / 绊线 0 / 取不到 0、self-test **23/23**、新建镜像 **10/10** 含「新增裸奔⇒红 / 补计数⇒绿」三对照);**225/196/190 现读非零或无法判定 ⇒ 当场划掉不升**(升不许留给别人跳门);`immutable-exempt: scripts/guardian-runner.mjs 与 197 门体只改档位字段与头注那两行,判据一字未动` 写在正文;**Z15 席复读(2026-11-05,`scripts/guardian-runner.mjs` 现值)**两条 `mode` 字段均为 `blocking` 且 `skipEnv` 成套 ⇒ 已接线;`check-gate-wiring` RC=0、`guardian-runner --staged` 升档前后 **FAIL 集逐字相同**(零新增红)。本节上一段「升档执行 = Z10 席(在飞)」以本行为终点 |
+
+**两条当场代裁(§24,不留待拍板)**:① 裸 TCP / 不读代理 env 的客户端要机器级硬拦截属内核/驱动面(WinDivert/LSP 类),越出本仓 Node 栈且判的是机器状态 ⇒ **不落地**,出路就是这一行;② `desktop`(Tauri)Rust 侧同源腿 = 另立一票,射程 `apps/desktop/src-tauri/**`。另:Z3 头注的"登记后自动跟长"那条由 Z9 席在补 `syntax-table.ts` 的网络类命令(在飞)。
+
+**Trae 面增量(Z4 只读普查,产物 `.ihui-agent/tmp/rea-goal-b49/Z4-triage.md`)**:旧册目录**从来没有 README**(残余散在 T7–T12 诚实清单 + 16 张 seat-handoff)⇒ 逐条对 HEAD 复验结果 = 真缺口 **10** / 已结清 **14** / 非缺口 **3** / 未判定 **5 族**。穷尽性推进两格:三枚内核 DLL 与 11-05 记录**逐字同 sha**(无二次漂移);两张主决策块按偏移反推**逐字切分恰 16 枚、零余字节**(块内不存在第 17 枚),"扩散进 ai_agent"由**推断**升为**观察**;函数级映射仍**未判定**(Ghidra >1h 时间盒,REA 5.5 min 硬预算)—— 旧册 17/22 与本席 16 不相等这一格不冒绿。
+
+**守护面档位普查(Z5b 只读)/ 死席(Z5)**:非 blocking 共 **36** 条(runner 33 + hook 3);A 堆 21 道逐门真跑取现读存量 ⇒ **可升 10**(甲 3 现读 0 且无未判定尾巴 / 乙 7 各带一条点名前置)、**暂不可升 10**(各带现读存量数)、**永不进链 15**(判机器状态,其中 4 处现读"无人调度")、未判定 2。升档执行 = Z10 席(在飞,铁律是当场复量非零即划掉、还原不许留给别人跳门)。**死席如实登记**:Z5 在 13 分钟 / 36 次调用后 failed,崩前只写了 10 行状态件;`git status` 现读 `scripts/guardian-runner.mjs` **未被改动** ⇒ 没留半截注册面,复跑门 89 现读「R1/R2/R4 零红(已接线 389 / 文档未点名 0)」佐证全仓守门未被它打崩。
+
+## 13. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md

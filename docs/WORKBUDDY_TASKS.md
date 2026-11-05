@@ -279,8 +279,12 @@ GET https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status
 任务条件原文:**「关注「腾讯 WorkBuddy」官方公众号满 24 小时,即可领取奖励」**,
 跳转 `https://www.workbuddy.cn/events/follow-guide/`(该页渲染三个二维码:公众号 / 视频号 / 服务号)。
 
-⇒ 关注关系挂在**微信账号**上、还有**满 24 小时**的时间窗 ⇒ **关注动作只能由机主本人用微信完成**,
+⇒ 关注关系挂在**微信账号**上、还有**满 24 小时**的时间窗 ⇒ 关注动作是**真实世界里的一个微信身份行为**,
 程序侧无捷径,**也不应伪造关注**。
+
+> ⚠ **2026-11-05 二次改判(实测,见 §11.5)**:号池这两个号的**全部快照都没有微信身份字段**
+> (`account.wechatOpenId` 为空)⇒ 这一项对这两个号**不是"没人去扫",而是"扫了也没有归属对象"**。
+> 真正的先决条件是**先给这个号绑定微信身份**(产品流程,机主侧),绑定之后关注才有意义。
 
 #### 9.1b 关于「人家程序不用扫就能完成」
 
@@ -404,5 +408,130 @@ node scripts/workbuddy-growth-experts.mjs --do-all; node scripts/workbuddy-growt
 号池现状(现读):**两号各 18 项 ⇒ 17 项 `claimed`,唯一非终态是 §9 那条公众号关注项**。
 
 变异验证:把可领集放宽到也认 `accepted`,镜像用例 ① 当场翻红(还原后 7/7 绿)。
+
+## 11. 对照程序取证:人家的自动面到底覆盖什么(2026-11-05 立)
+
+机主给的对照程序 `wb2api.exe`(workbuddy2api 面板,Go 原生二进制,无源码)取证法 =
+用仓内正式器物 `scripts/inspect-binary-api-paths.mjs` 扫产出物原文,
+只看**端点路径族与业务专码**,不含任何凭据形态内容。复跑那一条(数字现读 2026-11-05):
+
+```bash
+node scripts/inspect-binary-api-paths.mjs "<wb2api.exe 路径>" \
+  --needle subscribe-task,subscribe_task,subscribed,oa_subscribe,wb_wechat,follow-guide,公众号,关注,checkin,daily-checkin,makeup-cards,lottery/draw,travel/depart,accept_all,task_codes
+# ⇒ bytes=8710144 路径族=481
+# ⇒ 扫描面:latin1 原文 8710144 字节内逐字节 indexOf
+```
+
+器物自证:`node scripts/inspect-binary-api-paths.mjs --self-test` ⇒ 8/8;
+镜像测试 `scripts/tests/inspect-binary-api-paths.test.mjs` ⇒ 8 例。
+**「命中 0」在这件器物里一定连着扫描面一起报** —— 没找到不等于不存在(§0.3)。
+
+### 11.1 它的自动任务面**不含「公众号关注」**
+
+| 关键词 | 命中 |
+| --- | --- |
+| `subscribe-task` / `subscribe_task` / `subscribed` | **0 / 0 / 0** |
+| `oa_subscribe` / `wb_wechat` / `follow-guide` | **0 / 0 / 0** |
+| `公众号` / `关注` / `订阅` | **0 / 0 / 0** |
+| `签到` / `任务` | **26 / 98** ← 同一件器物在同一文件里数得出中文 ⇒ 上面那几个 0 是**真零**,不是盲区 |
+| `checkin` | 45 |
+| `daily-checkin` / `makeup-cards` / `lottery/draw` / `travel/depart` | 2 / 1 / 1 / 1 |
+| `accept_all` / `task_codes` | 2 / 5 |
+
+> ⚠ **取证方法也改判过一次**:本节初版用 latin1 文本匹配中文关键词,那在这类二进制上
+> **恒 0**——不是"没命中",是**根本没判**(一个 UTF-8 汉字被 latin1 拆成 3 个高位字符)。
+> 现在 `countNeedles` 走 **UTF-8 字节面**,并在自证与镜像测试里各钉一条**阳性对照**
+> (把中文塞进字节面必须数得出来);变异回 latin1 后两条用例 + 自证同时翻红。
+> 结论没变(仍是 0),但证据从"没判"变成"量过"。
+
+它自己那套面板路由是 `tasks/accept`、`tasks/accept_all`、`tasks/claim`、`tasks/auto_all`、
+`accounts/{uid}/checkin`、`checkin_all`、`tasks/scan_all` —— **对成长任务只做
+「接受 → 领奖 → 签到 → 消费型动作」这四类,没有任何一条通向「替微信身份关注公众号」**。
+
+**旁证(最硬的一条):这两个号正是被这套程序常驻跑着的号,今天现读仍是 `17/18`。**
+也就是说:人家的程序在同样的号上,同样没把公众号关注项做成。
+所以「人家不用扫就能完成所有任务」这个前提**不成立** —— §9 的结论被对照程序独立证实,
+而不是被它推翻。
+
+### 11.2 它有一条咱们没有的腿:每日签到 —— 已复现
+
+`POST https://www.workbuddy.cn/v2/billing/meter/daily-checkin`(GET 会落到网页 404,
+`…/daily-checkin/status` 才落到网关 JSON 404 ⇒ 这路径是 **POST-only**,别按 GET 试)。
+实测回执 `{"code":10001,"msg":"今天已签到，请明天再来"}` —— **幂等信号是专码**,
+所以「今天已签」与「签到失败」必须分档,否则天天误报。
+
+| 关注点 | 文件 |
+| --- | --- |
+| 命令行入口(`--checkin` 签到 / `--profile` 读账面) | `scripts/workbuddy-growth-daily.mjs` |
+| 机器锁(8 例,纯函数离线可跑) | `scripts/tests/workbuddy-growth-daily.test.mjs` |
+
+```bash
+node scripts/workbuddy-growth-daily.mjs --profile   # 现读:两号各 17/18 完成,等级 17
+node scripts/workbuddy-growth-daily.mjs --checkin   # 现读:两号「今日已签到」⇒ 幂等,不算失败,RC=0
+```
+
+签到响应四档**不得并桶**:`checked`(真签上)/ `already`(专码或文案,幂等成功)/
+`failed`(其它业务码,带 code+msg)/ `undetermined`(读不懂 ⇒ 未判定,不冒充前三档,§0.3)。
+
+### 11.3 超越在哪、以及刻意不做什么
+
+- **超越点**:对照程序把「已签到」与失败混在一起的风险,这里用专码分档 + 影子用例钉住;
+  且本仓这条腿与 §10 的领奖、§8 的行为驱动共用同一套号池凭据读取出口,不另开第二份。
+- **刻意不接**:`makeup-cards/use`(花补签卡)、`lottery/draw`(花抽奖次数)、
+  `buddy/travel/depart`(花体力)都是**消耗型**动作 —— 「攒积分」不等于「替号主做消费决定」,
+  要接得单独点名。
+- **仍不做的**:`subscribed` 的伪造。对照程序里那 0 命中不是它没想到,是这条通道在协议上就不存在。
+
+### 11.4 零人工的最终口径(现读 2026-11-05)
+
+```bash
+node scripts/workbuddy-growth-daily.mjs --checkin                                    # 每日签到
+node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务
+node scripts/workbuddy-growth-claim.mjs                                             # 到账即领
+node scripts/workbuddy-growth-oauth.mjs --watch                                     # 关注那一下之后全自动
+```
+
+四条里没有一条需要人点。**一条命令跑完上面全部**:`node scripts/workbuddy-growth-sweep.mjs`
+(编排腿,判据全 import 上面那几件器物,零复算;`--dry-run` 零网络零写)。
+
+而 §9 那个公众号关注项**不在"需要人点一次"这一档** —— 见下一节实测:这两个号连
+"关注归到谁头上"的归属对象都没有,先决条件是绑定微信身份,不是扫码。
+
+### 11.5 关注归属到底按什么记(2026-11-05 实测,改判 §9)
+
+三件事分别落在观察 / 推断 / 未判定三档,不混写(AGENTS.md §0.12):
+
+**① 观察 —— 二维码是全站同一张静态码,不带任何账号参数。**
+用仓内 `zxing-wasm` 本地解码官方 `assets/qr-gzh-*.png`,唯一候选内容是一条微信短链
+(`http://weixin.qq.com/r/mp/…`,46 字符),**零查询参数、零 scene**;该图由官方 JS 以
+`__toCdnUrl("assets/qr-gzh-….png")` **常量**形式引用,CDN 重新拉取与本地副本逐字节同图。
+⇒ 不存在"每账号一张绑定码"可供程序替扫。
+
+**② 观察 —— 号池这两个号从来没有微信身份。**
+`~/.wb-switch` 下递归到 14 枚 `.info` 快照、3 个不同 uid:
+
+| uid 前缀 | 快照枚数 | 带 `account.wechatOpenId` |
+| --- | --- | --- |
+| `0bc1074d`(号池内) | 3 | **0** |
+| `25913b4a`(号池内) | 9 | **0** |
+| `14f939c3`(不在号池副本里) | 2 | **2** |
+
+同时两号服务端读数 `subscribed=false / remaining_seconds=-1 / status=accepted`,账面 `17/18`。
+(此量只打印字段名与有无,**任何 token/openid 值都不出进程、不进聊天、不进本文件**。)
+
+**③ 推断 —— 关注只能按扫码人的微信身份归属。**
+①说码不认账号,②说这两个号没有微信身份 ⇒ 服务端没有可记账的对象。
+**这一项对这两个号是结构性不可达,不是"没人去扫一次"。**
+对照程序里 `subscribe`/`关注` 全 0 命中,与这个结论同形:它也没做,而且做不了。
+
+**④ 未判定 —— 有微信身份的那个号能不能被这一项记账?**
+拿 `14f939c3` 最新快照的凭据去问服务端,两条都返回 HTML(accessToken 已失效)⇒ 问不到。
+**没有强行续期**:本仓正牌续期出口(`scripts/lib/workbuddy-auth-extract.mjs`)会轮换 refresh token,
+那会让该号已存的会话快照失效 —— 那是本次射程外的副作用,不为满足一个好奇心而动别人的登录态。
+解锁这一格 = 该号自己重新登录后拿新鲜凭据再问一次(或机主授权我按正牌流程续一次)。
+
+⇒ **§9 那句"关注动作只能由机主本人用微信完成"就地改判**:先决条件是**给这个号绑定微信身份**
+(产品流程,机主侧);绑定之后关注才有归属对象,而关注本身仍是一个真实微信行为,程序不代做、不伪造。
+
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

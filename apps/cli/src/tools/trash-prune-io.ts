@@ -11,33 +11,21 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { isSafeIdSegment, isTrashManifestShape, type TrashManifest, type TrashManifestEntry } from '@ihui/shared/delete-guard';
+import { initialExpiryLedger, isExpiryRunLedgerShape, isSafeIdSegment, isTrashManifestShape, type TrashManifestEntry } from '@ihui/shared/delete-guard';
 import { announceGuardUnjudged, evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 import { tryParseJson } from '../util/json.js';
+import type { ScannedTrash, TrashPruneResetOutcome, TrashPruneSkip } from './trash-prune-types.js';
+
+export type { RowBuckets, ScannedTrash, TrashPruneRemoval, TrashPruneSkip } from './trash-prune-types.js';
 
 /** 账目落点(与回收站分目录:清理器的生死不该和它要清的东西同生共死) */
 const EXPIRY_LEDGER_REL = path.join('.ihui', 'delete-guard', 'expiry-run.json');
 /** 单条目体积量的枚举预算:超预算 ⇒ 量不到(量不到不删),不把回收站变成一次全盘 walk */
 const MEASURE_ENTRY_BUDGET = 4000;
-
-export interface TrashPruneRemoval {
-  readonly trashId: string;
-  readonly relativeTrashPath: string;
-  readonly bytes: number;
-}
-
-/** 未删原因(逐条点名:判不出 / 超上限 / 清单坏 / 删除失败)—— 空账时不产生任何条目 */
-export interface TrashPruneSkip {
-  readonly trashId: string | null;
-  readonly relativeTrashPath: string | null;
-  readonly reason: string;
-}
-
-export interface ScannedTrash {
-  readonly trashId: string;
-  readonly dir: string;
-  readonly manifest: TrashManifest;
-}
+/** 坏账行留痕 / 复位留痕(Z7 未竟 1:隔离必须可追责、不写留痕的复位等于没复位) */
+const QUARANTINE_TRACE_NAME = 'trash-quarantine.jsonl';
+const RESET_TRACE_NAME = 'expiry-run-reset.jsonl'; // 复位需带定向说明(≥RESET_MIN_REASON_CHARS 字),失效方向恒为"多要一次说明"
+const RESET_MIN_REASON_CHARS = 12; // §0.10
 
 export function msgOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -167,31 +155,77 @@ export function deleteTrashEntry(
   }
 }
 
-/** 清单更新:被摘条目剔出清单;剔空则整目录(含 manifest)摘掉;失败逐条点名 */
-export function applyManifestUpdates(
-  manifests: readonly ScannedTrash[],
-  hits: ReadonlyMap<string, ReadonlySet<string>>,
-): string[] {
+/** 摘壳前的容器性核验:目录里除 `manifest.json` 外必须一个条目都没有;读不到 ⇒ false(保守不摘壳) */
+function onlyIndexLeft(dir: string): boolean {
+  try { return fs.readdirSync(dir).every((name) => name === 'manifest.json'); } catch { return false; }
+}
+
+/**
+ * 清单更新:被摘条目剔出清单;剔空且目录里只剩清单本身才连壳摘掉,否则只写索引并具名进 ghosts
+ * (既有删除点只被**收窄**,不新增删除面)。失败逐条点名。
+ */
+export function applyManifestUpdates(manifests: readonly ScannedTrash[], hits: ReadonlyMap<string, ReadonlySet<string>>): { failures: string[]; ghosts: string[] } {
   const failures: string[] = [];
+  const ghosts: string[] = [];
   for (const scanned of manifests) {
     const removed = hits.get(scanned.trashId);
     if (removed === undefined || removed.size === 0) continue;
     const remaining = scanned.manifest.entries.filter((e) => !removed.has(e.relativeTrashPath));
     try {
-      if (remaining.length === 0) {
+      if (remaining.length === 0 && onlyIndexLeft(scanned.dir)) {
         fs.rmSync(scanned.dir, { recursive: true, force: true });
-      } else {
-        fs.writeFileSync(
-          path.join(scanned.dir, 'manifest.json'),
-          JSON.stringify({ ...scanned.manifest, entries: remaining }, null, 2),
-          'utf-8',
-        );
+        continue;
       }
+      if (remaining.length === 0) ghosts.push(scanned.trashId);
+      fs.writeFileSync(path.join(scanned.dir, 'manifest.json'), JSON.stringify({ ...scanned.manifest, entries: remaining }, null, 2), 'utf-8');
     } catch (err) {
       failures.push(`${scanned.trashId}:清单更新失败(件已删、索引仍在):${msgOf(err)}`);
     }
   }
-  return failures;
+  return { failures, ghosts };
+}
+
+/**
+ * 单行现场事实:件是否**实证不在**。只在"容器性成立 ∧ stat 报 ENOENT"时答 `absent`;
+ * 越界 / 其它错(权限、占用)一律 `unjudged`(不猜,§0.3)。编排腿据此决定"只改索引"还是"整行不碰"。
+ */
+export function probeRowPresence(dir: string, relative: string): 'absent' | 'present' | 'unjudged' {
+  if (!isInsideDir(dir, relative)) return 'unjudged';
+  try { fs.statSync(path.join(dir, relative)); return 'present'; }
+  catch (err) { return (err as { code?: string }).code === 'ENOENT' ? 'absent' : 'unjudged'; }
+}
+
+/** 追写一条 JSONL 留痕(隔离与复位共用);写不进由调用方计入结论,绝不静默 */
+function appendTrace(file: string, body: Record<string, unknown>): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, `${JSON.stringify(body)}\n`, 'utf-8');
+}
+
+/** 逐条追写坏账行留痕(供人工反查"这一行被谁、在哪一轮隔离");只存 trashId + 相对路径 */
+export function traceQuarantinedRows(workspacePath: string, rows: readonly TrashPruneSkip[], nowIso: string): void {
+  const file = path.join(path.dirname(getExpiryLedgerPath(workspacePath)), QUARANTINE_TRACE_NAME);
+  for (const row of rows) appendTrace(file, { atIso: nowIso, trashId: row.trashId, row: row.relativeTrashPath, reason: row.reason });
+}
+
+/**
+ * 人工复位连败账目(X1 未竟 1 的"一条可解释的复位出口")。失效方向 = 多要一次定向说明:
+ * 说明不足 12 字 ⇒ 一个字不写;账目读不到 / 形态不合法 ⇒ 不猜着写(§0.3);写回成功必须留痕。
+ */
+export function resetExpiryRunLedger(ledgerFile: string, reason: string, nowIso: string): TrashPruneResetOutcome {
+  const why = reason.trim();
+  if (why.length < RESET_MIN_REASON_CHARS) return { ok: false, reason: `复位拒绝:定向说明不足 ${RESET_MIN_REASON_CHARS} 字(当前 ${why.length} 字)` };
+  let parsed: unknown;
+  try { parsed = tryParseJson(fs.readFileSync(ledgerFile, 'utf-8')); }
+  catch (err) { return { ok: false, reason: `复位拒绝:账目读不到(${msgOf(err)}),不猜着写` }; }
+  if (!isExpiryRunLedgerShape(parsed)) return { ok: false, reason: '复位拒绝:账目形态不合法,不猜着写' };
+  const after = initialExpiryLedger();
+  try {
+    writeExpiryLedger(ledgerFile, after);
+    appendTrace(path.join(path.dirname(ledgerFile), RESET_TRACE_NAME), { atIso: nowIso, reason: why, before: parsed, after });
+  } catch (err) {
+    return { ok: false, reason: `复位未落地:${msgOf(err)}` };
+  }
+  return { ok: true, before: parsed };
 }
 
 /** 读账目:从未存在 = 首次运行的合法起点;读不到 / JSON 坏 ⇒ raw=null(闸门据此判未判定) */
