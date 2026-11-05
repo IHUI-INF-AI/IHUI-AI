@@ -16,7 +16,7 @@ import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
 // 会话 id 来自 --resume/--continue 或磁盘内容:文件名收敛 + 落点断言统一走 util/path-guard。
-import { segmentFilePathInside } from '../util/path-guard.js';
+import { assertPathInside, segmentFilePathInside } from '../util/path-guard.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -80,11 +80,13 @@ export function listSessions(): Session[] {
   const sessions: Session[] = [];
   for (const f of files) {
     try {
-      const parsed = tryParseJson(fs.readFileSync(path.join(dir, f), 'utf-8'));
+      // readdir 只保证单段名,但根内符号链接文件仍可指向根外:读前断言,失败只跳过这一条。
+      const full = assertPathInside(dir, path.join(dir, f), '会话文件');
+      const parsed = tryParseJson(fs.readFileSync(full, 'utf-8'));
       // 跳过损坏 / 非对象文件
       if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
     } catch {
-      /* ignore corrupted files */
+      /* 损坏或越界(符号链接指向根外)的文件逐条跳过,不让整批失败 */
     }
   }
   return sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());

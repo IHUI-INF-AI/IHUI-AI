@@ -19,6 +19,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { spawnSync } from 'node:child_process'
+// destination / wtPath 来自调用方:落点判据与递归删除前断言统一走 util/path-guard。
+import { assertPathInside } from './util/path-guard.js'
 
 // ============ 类型定义 ============
 
@@ -48,6 +50,14 @@ export interface WorktreeOptions {
   source: string
   /** 目标 worktree 路径(必须不存在或为空) */
   destination: string
+  /**
+   * destination 的期望根(必填)。
+   *
+   * 低层原语**不内置**"必须落在 .worktrees 下"这类隐含约束 —— 那会误伤合法调用;
+   * 改为由调用方显式声明期望根,拿不到就 fail-closed。所有 mkdir/复制/失败清理
+   * 都先断言 destination 在该根之内。
+   */
+  withinRoot: string
   /** checkout 的 ref(branch / tag / commit),缺省用 HEAD */
   ref?: string
   /** 是否保留源 working tree 的未提交修改(PreserveWorkingTree) */
@@ -547,9 +557,16 @@ function parseLinkedGitFile(gitPath: string): string | undefined {
  */
 export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeResult> {
   const start = Date.now()
-  const { source, destination, ref, preserveWorkingTree = false, skip } = opts
+  const { source, destination, withinRoot, ref, preserveWorkingTree = false, skip } = opts
 
-  // 0. 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 必须在任何副作用
+  // 0. 落点前置断言(在任何副作用之前):withinRoot 必填,拿不到即 fail-closed;
+  //    传了根之后 destination 必须严格在根内(含 realpath 二次断言,防父级符号链接逃逸)。
+  if (typeof withinRoot !== 'string' || withinRoot.length === 0) {
+    throw new Error('createWorktree: 必须提供 withinRoot(destination 的期望根;拒绝无根落盘与失败递归删除)')
+  }
+  assertPathInside(withinRoot, destination, 'worktree 目标目录')
+
+  // 0b. 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 必须在任何副作用
   //    (mkdir/复制/marker)之前。拒前导 `-`(选项注入面:git checkout 会把
   //    `-b`/`--orphan` 之类当自己的选项)、空白与控制字符;放行 git 合法的
   //    ref 字符集(含 ~ ^ { } / 用于 `HEAD~1`、`origin/main`、`v1.0.0` 形态)。
@@ -665,6 +682,8 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
     // 直接证明);抢锁失败的他人目录在上面已以 WorktreeLandUnprovableError 抛出,永不走到这里。
     if (ownedFresh) {
       try {
+        // 递归删除前再断言一次:防落盘完成到失败清理之间被换成指向根外的符号链接。
+        assertPathInside(withinRoot, destination, 'worktree 清理目录')
         fs.rmSync(destination, { recursive: true, force: true })
       } catch {
         // 清理失败不覆盖原始错误,残留目录 marker 不齐 ⇒ 启动对账按"证明不了"保留
@@ -707,13 +726,31 @@ async function readModifiedFiles(repoDir: string): Promise<string[]> {
 }
 
 /**
+ * 删除 worktree 的调用参数。
+ *
+ * `withinRoot` **必填**:低层原语不知道调用方的根,不做猜测(猜 `.worktrees` 会误伤合法调用),
+ * 拿不到就 fail-closed —— 无根的递归删除正是本函数要防的形态。
+ */
+export interface RemoveWorktreeOptions {
+  /** wtPath 必须落在此根之下(含 realpath 二次断言) */
+  withinRoot: string
+}
+
+/**
  * 删除 worktree。
  * - linked worktree(.git 是文件)→ 调 git worktree remove --force,失败 fallback 到 rm -rf
  * - standalone worktree(.git 是目录)→ 直接 rm -rf
  * - 路径不存在 → 直接返回(不抛错)
  * - 删除失败记录到 stderr 但返回成功,避免阻塞清理流程
  */
-export async function removeWorktree(wtPath: string): Promise<void> {
+export async function removeWorktree(wtPath: string, opts: RemoveWorktreeOptions): Promise<void> {
+  const withinRoot = opts?.withinRoot
+  if (typeof withinRoot !== 'string' || withinRoot.length === 0) {
+    throw new Error('removeWorktree: 必须提供 withinRoot(wtPath 的期望根;拒绝无根递归删除)')
+  }
+  // 删除路径的前置断言:越界(绝对路径/`..`/符号链接指向根外)直接抛,不进入下面的吞错分支。
+  assertPathInside(withinRoot, wtPath, 'worktree 删除目录')
+
   if (!fs.existsSync(wtPath)) return
 
   const gitPath = path.join(wtPath, '.git')
@@ -744,7 +781,8 @@ export async function removeWorktree(wtPath: string): Promise<void> {
         windowsHide: true,
       })
       if (r.status !== 0) {
-        // fallback 到 rm -rf
+        // fallback 到 rm -rf;删之前再断言一次(realpath 二次断言,防检查后被替换成根外链接)
+        assertPathInside(withinRoot, wtPath, 'worktree 删除目录')
         fs.rmSync(wtPath, { recursive: true, force: true })
       }
       // prune 必须排在"目录真删掉之后"(2026-10-30 立):worktree remove 失败时注册表条目
@@ -758,7 +796,8 @@ export async function removeWorktree(wtPath: string): Promise<void> {
         windowsHide: true,
       })
     } else {
-      // standalone worktree、无 .git、或解析失败:直接 rm -rf
+      // standalone worktree、无 .git、或解析失败:直接 rm -rf(先断言仍在根内)
+      assertPathInside(withinRoot, wtPath, 'worktree 删除目录')
       fs.rmSync(wtPath, { recursive: true, force: true })
     }
   } catch (e) {
