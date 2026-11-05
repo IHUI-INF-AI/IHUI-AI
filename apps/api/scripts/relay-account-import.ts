@@ -53,6 +53,12 @@ interface CliOptions {
   dryRun: boolean
   health: boolean
   json: boolean
+  /**
+   * 归属个人池的 users.id;缺省 null = 运营池(存量语义零变化)。
+   * 2026-11-05 补:CLI 此前没有 owner 出口,把个人池的号重导入一次就会掉回运营池 ——
+   * 与机主 2026-10-31「我自己填入号池的账号只能跟着我的账号走」直接相违。
+   */
+  ownerUserId: string | null
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -80,6 +86,7 @@ function parseArgs(argv: string[]): {
     dryRun: false,
     health: true,
     json: false,
+    ownerUserId: null,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -99,6 +106,12 @@ function parseArgs(argv: string[]): {
         }
       }
       options.providerCode = v
+    } else if (arg === '--owner') {
+      const v = (argv[++i] ?? '').trim()
+      if (!v || v.startsWith('--')) {
+        return { help: false, options: null, error: '--owner 需要 users.id(不给 = 运营池,不猜)' }
+      }
+      options.ownerUserId = v
     } else {
       return { help: false, options: null, error: `未知参数: ${arg}` }
     }
@@ -134,7 +147,14 @@ export async function runHealth(providerCode: string, uid: string): Promise<Heal
     .limit(1)
   if (!row) return null
   const adapter = getRelayAdapter(providerCode)
-  if (!adapter) return { id: row.id, uid, ok: false, indeterminate: true, error: `平台 ${providerCode} 适配器未注册` }
+  if (!adapter)
+    return {
+      id: row.id,
+      uid,
+      ok: false,
+      indeterminate: true,
+      error: `平台 ${providerCode} 适配器未注册`,
+    }
   let outcome: { ok: boolean; error?: string; indeterminate?: boolean }
   try {
     outcome = await Promise.race([
@@ -273,7 +293,7 @@ async function main(argv: string[]): Promise<number> {
         ? ((raw as Record<string, unknown>).accounts as unknown[])
         : []
   ) as Array<Record<string, unknown>>
-  const result = await importAccounts(providerCode, importInput)
+  const result = await importAccounts(providerCode, importInput, opts.ownerUserId ?? null)
 
   const health: HealthOutcome[] = []
   if (opts.health) {
@@ -312,7 +332,9 @@ async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`)
   } else {
     process.stdout.write(
-      `导入完成:平台=${providerCode} 新增=${result.imported} 更新=${result.updated} 跳过=${result.skipped} 失败=${result.failed}\n`,
+      `导入完成:平台=${providerCode} 新增=${result.imported} 更新=${result.updated} 跳过=${result.skipped} 失败=${result.failed}` +
+        // 归属必须回显:此前 CLI 没有 owner 出口,个人池的号被静默打回运营池 = 别人也可能被调度到它
+        ` 归属=${opts.ownerUserId ? `${opts.ownerUserId.slice(0, 8)}*** 个人池` : '运营池(未给 --owner)'}\n`,
     )
     for (const item of summary.items) {
       process.stdout.write(
