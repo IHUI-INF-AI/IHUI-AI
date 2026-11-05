@@ -54,7 +54,7 @@ def _parse_sse_events(raw: str) -> list[dict[str, Any]]:
 async def _fake_gateway(monkeypatch):
     from app.routers import llm as llm_router
 
-    async def fake_astream(messages, model=None, owner_uuid=None):
+    async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
         yield {"type": "chunk", "content": "好的"}
         yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
 
