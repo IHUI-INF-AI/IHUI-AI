@@ -60,7 +60,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **618 tables · 4685 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4045 test files ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4057 test files ·
 332 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
@@ -100,6 +100,15 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-05**
+- 🚀 Feature/Improvement:出站自查再加一格 extra= —— 把"带毒段在 messages 之外"变成可读数而非猜测 (ce4cf44fde)
+- 🚀 Feature/Improvement:出站载荷自查仪器(IHUI_TRANSPORT_AUDIT)+ 更正上一枚的过度归因 (92e61ba98d)
+- 🐞 Fix:结清凭据按主键条数差算,不按逐字消失算 —— 治"合法改写被记成正当摘除,5 分钟后活票被真删" (1db0b5037d)
+- 🐞 Fix:出站清洗覆盖全部角色(非 tool 档留 ZWJ)—— 第 14 轮的 400 证明载荷不只住在工具结果里 (4ef8089d5a)
+- 🐞 Fix:让位无处可让即扣住该票 —— 治"同一枚空转票吞光整天的派发预算" (b481a027eb)
+- 📚 Docs:B71 票面就地改写为现读剩余射程 —— 归属成对用例已落地,9 条路由仍无行为用例 (7ad03584a9)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (2b5f58a4b8)
+
 **2026-11-05**
 - 🔧 Chore/Other:日预算 9→10 —— 机主那条授权要的是"验一次端到端真产出",而 9 枚全烧在未修成因上 (a85b530efd)
 
@@ -203,7 +212,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🔧 Chore/Other:bump tsx from 4.23.12 to 4.23.15 (d94078250f)
 - 🔧 Chore/Other:bump @tauri-apps/api from 2.12.1 to 2.12.4 (59f73f26e8)
 - 🔧 Chore/Other:告警投递判据表加防误删闸 + scripts/data/*.json 通用形态闸 (755a07df12)
-- 🔧 Chore/Other:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4683 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
+- 🔧 Chore/Other:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4685 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
 - 🐞 Fix:修掉 zh-TW 下载文案里两处简体「平台」残留(门 2b 落地后复跑点名) (10ad69e61c)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6ca3a30179)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (05be848608)
@@ -441,7 +450,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:摘除合并回灌造成的 DOWNLOAD_PLATFORMS/isDownloadPlatform 重复定义,修 T1 双声明 typecheck 红 (baab5bfadb)
 - 🐞 Fix:清掉 downloads.config 重复的 DOWNLOAD_PLATFORMS/isDownloadPlatform 声明（TS2451/TS2456，gate-analyse 与 gate-build 同根因） (dceb324bf1)
 - 🐞 Fix:两条长期红的修因 —— 假远端页改同源独立文档(生产 CSP 无 unsafe-eval 时 srcdoc 继承策略拦 eval);登录首屏协议弹窗按真实用户路径处理,并消除共享 LoginForm 与 web 扫码面板的双重协议窗 (ffdd903b73)
-- 🔧 Chore/Other:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4683 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
+- 🔧 Chore/Other:二次合并后按生成器重算四语 README 数字块与最近更新(619 表/4685 路由/4034 测试/322 守门/52 CI) (e857b3fa9e)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6ca3a30179)
 - 🔧 Chore/Other:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (05be848608)
 - 🔧 Chore/Other:合并 origin/main 后重算四语 README 数字与最近更新、重建三端生成件并重封根护栏 (c497ced6bf)
@@ -600,22 +609,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🚀 Feature/Improvement:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
 - 🔧 Chore/Other:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
 - ♻️ Refactor:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
-
-**2026-11-03**
-- 🔧 Chore/Other:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
-- 🐞 Fix:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
-- ♻️ Refactor:常量/条件字面量与手工收尾字号落档 (89831e5034)
-- 🚀 Feature/Improvement:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
-- ♻️ Refactor:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
-- 🚀 Feature/Improvement:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
-- ♻️ Refactor:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
-- 🚀 Feature/Improvement:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
-- 🚀 Feature/Improvement:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
-- 🔧 Chore/Other:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 285 防回潮 (13a919a708)
-- ♻️ Refactor:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
-- 🐞 Fix:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
-- 🐞 Fix:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
-- 🔧 Chore/Other:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
