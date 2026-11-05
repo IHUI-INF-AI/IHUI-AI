@@ -4662,14 +4662,34 @@ async function main() {
   // 五语言词包按**键集**比(oursKeys−mergedKeys、theirsKeys−mergedKeys 必须为空),活文档与
   // AGENTS.md 按**行级包含**比;非空即判红并逐条点名。此前这套闸在别处咬出过 i18n 17 键与
   // 3 个测试用例的真丢失 —— 那两次路径都在位,只有内容没了。
-  const contentGate = judgeContentLoss({ root: ROOT, ours: t.head, theirs: t.theirs, merged: p.tree })
+  //
+  // 折叠台账这一格(2026-11-06,在册票 G-32「归并侧那半格」的续办):本闸是第三把不认折叠的尺子 ——
+  // `verifyUnion` 认(`attestFoldPair` 四问)、F5 ⑤ 档认(2026-10-16 立),唯独本闸按字面多重集比
+  // ⇒ 把**合法折叠**(信息守恒,少的只是行份数)读成"少带行"⇒ 恒红。治法与前两把同形:把**同一轮**的
+  // 折叠台账喂进去,本闸只做举证(台账没这一行 / 只解释一部分 / 举证不过 ⇒ 照旧判红,牙一处不松)。
+  const contentGate = judgeContentLoss({
+    root: ROOT,
+    ours: t.head,
+    theirs: t.theirs,
+    merged: p.tree,
+    foldLedgers: p.foldLedgers,
+  })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
     console.log(formatLossReport(contentGate))
     process.exit(contentGate.undetermined.length ? 2 : 1)
   }
+  // 报数必须报名(§0.10):少带的份数不许静默折进"0 丢失"。
+  const contentFolded = contentGate.folded ?? []
+  if (contentFolded.length)
+    console.log(
+      `  内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(已过 attestFoldPair 四问)`,
+    )
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
+    (contentFolded.length
+      ? `;内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(attestFoldPair 四问全过,信息守恒)`
+      : '') +
     (p.humanResolved?.length
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`
       : '') +
