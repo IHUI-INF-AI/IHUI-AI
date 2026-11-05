@@ -1277,16 +1277,30 @@ test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
   assert.equal(f3.state, 'undetermined', '缺指纹的旧档若判新鲜,本维上线后仍要等 6h 钟表才生效(不自愈)')
 })
 
-test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', () => {
+test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', async () => {
   const gen = readFileSync(join(REPO, 'scripts', 'autonomy-candidates.mjs'), 'utf8')
   const src = readFileSync(join(REPO, 'scripts', 'auto-evolve.mjs'), 'utf8')
-  assert.ok(/planDigest:\s*planFaceDigest\(planLines\)/.test(gen), '生成器没写指纹 ⇒ 消费侧永远比对不到')
-  assert.ok(/export \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen), '生成器改用自己的第二把尺(§0.6 漂移)')
+  assert.ok(/planDigest:\s*planFaceDigest\(planLines\)/.test(gen), '生成器没写 planDigest ⇒ 消费侧永远比对不到')
+  assert.ok(
+    /import \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen),
+    "生成器只 `export … from` 再导出而不 import ⇒ 本模块作用域里没有这个绑定,main 一跑就 ReferenceError(2026-11-05 自伤实录:生成器 exit=2)",
+  )
   assert.ok(
     /import \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(src),
     '消费侧没 import 同一把尺 ⇒ 指纹永不一致',
   )
-  assert.equal(/createHash\('md5'\)/.test(gen), false, '别引入第二把哈希')
+  // 功能锁(比形状锁硬):真调生成器的出口,证明指纹确实进得了那份文档
+  const genMod = await import('../autonomy-candidates.mjs')
+  const d = planFaceDigest(['- [ ] X 甲', '- [ ] Y 乙'])
+  assert.ok(d && d.length === 16, `指纹出口形态不对:${String(d)}`)
+  const doc = genMod.buildDocument({
+    candidates: [],
+    generatedAt: '2026-11-05T00:00:00.000Z',
+    policy: { version: 1, scales: { levelMax: 3 }, verifyMinutesRef: 60, leaseHoursRef: 72 },
+    rowCount: 0,
+    planDigest: d,
+  })
+  assert.equal(doc.source.planDigest, d, 'buildDocument 没把指纹带到 source 里')
 })
 
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
