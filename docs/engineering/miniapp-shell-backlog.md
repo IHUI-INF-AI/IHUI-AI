@@ -6,27 +6,28 @@
 
 # 小程序复制页三桶清单（B 方案 · 第一步，纯只读判定）
 
-- 数据源：门 299 `scripts/check-miniapp-shell-form.mjs --worktree --explain`（2026-11-05 读数）＋ 台账 `scripts/data/miniapp-shell-copy-ledger.jsonl` 90 行。
-- 读数：在册 329 / 映射登记 255 / 薄壳 207 / 复制页 89（纯复制 78、本地改动 11）/ 无法判定 0 / 台账 90。
+- 数据源：门 299 `scripts/check-miniapp-shell-form.mjs --worktree --explain`（2026-11-05 读数）＋ 台账 `scripts/data/miniapp-shell-copy-ledger.jsonl` 93 行（其中 13 行已退休，有效 80 行）。
+- 读数：在册 329 / 映射登记 255 / 薄壳 218 / 复制页 78（纯复制 69、本地改动 9）/ 无法判定 0 / 台账 80。
 - 判定口径（桶①三条必须同时成立）：(a) 共享屏实体存在；(b) 缺口只是少量 props/回调（本表给新增 prop 数）；(c) 新增 prop 至少被 web 或 RN 真消费（给消费点）。0 新增 prop 视为 c 条由既有 props 满足（列既有消费点）。
 - 桶② = 共享屏存在但缺整屏/大块，或新增 prop 只有小程序会用；桶③ = 共享屏缺该概念，端内独有。
-- 统计：**桶① 2 / 桶② 85 / 桶③ 2 / 台账可摘除 1 = 90**。
+- 统计：**桶① 0 / 桶② 74 / 桶③ 5 / 台账可摘除 1 = 80**（本批授权退休 10 行，另 3 行已于前批退休；桶③ 含 2 条卡死页与 3 条不做页）。
 
-## 桶①「可立即薄壳」（2 页，新增 prop 均为 0）
+## 桶①「可立即薄壳」（0 页；本批 2 页已退休）
 
 | page | LOC | 桶 | 共享屏文件 | 缺口描述 | 预估工作量 | 判据依据(file:line) |
 |---|---|---|---|---|---|---|
-| pkg-content/carte/index | 131 | ① | packages/app/src/features/carte/CarteScreen.tsx | 新增 prop 0；页面按 `CARTE_SEGMENTS` 自绘 7 段，共享屏同表同序；5 个既有 prop（t/avatarSource/qrcodeSource/onBack/colorScheme）全供得起；仅保留 `showShareMenu` | 壳 ~40 行，删 120 行渲染 | 页 `index.tsx:33`（图片槽位）/`CarteScreen.tsx:25`（props）;RN 消费 `apps/mobile-rn/src/screens/CarteScreen.tsx:39`;契约 `packages/types/src/app-ai.ts:878` |
-| pkg-about/about/help | 248 | ① | packages/app/src/features/help/HelpScreen.tsx | 新增 prop 0；共享屏 23 个 prop 已覆盖搜索/FAQ 手风琴/反馈三字段/提交态/toast/back；页面仅保留 `getHelp`+`submitFeedback`+`useUiField` | 壳 ~75 行，删 118 行渲染 | 页 `help.tsx:129`（搜索）/`:179`（反馈）;`packages/types/src/app-profile.ts:149`（props）;RN 消费 `apps/mobile-rn/src/screens/HelpScreen.tsx:106` |
 
-## 桶③「平台独有、不做」（2 页）
+## 桶③「平台独有、不做」（5 页）
 
 | page | LOC | 桶 | 共享屏文件 | 缺口描述 | 预估工作量 | 判据依据(file:line) |
 |---|---|---|---|---|---|---|
 | pages/user/index | 1507 | ③ | features/profile/ProfileScreen.tsx | 共享层缺：小程序 tabBar「我的」页、扫一扫、客服会话、缓存清理、音频播放器、保存相册、微信原生分享菜单 | 不做 | 页 `index.tsx:455`(scanCode)/`:519`(createInnerAudioContext)/`:585`(downloadFile) |
 | pages/setting/cache | 206 | ③ | features/settings/SettingsScreen.tsx | 共享层缺：小程序本地存储容量与清理概念（storage 单位/清空语义），RN/Web 无同构能力 | 不做 | 页 `index.tsx:26`(getStorageInfoSync)/`:93`(removeStorageSync) |
+| pkg-content/plaza/set-need/index | 177 | ③ | features/set-need/SetNeedScreen.tsx | 概念不同：小程序是偏好选择（类别/等级/预算），共享屏是发布需求表单；两端口径不一致且 web 无该概念 ⇒ 不做 | 不做 | 页 `set-need/index.tsx:86`-`:165`;`SetNeedScreen.tsx:29`-`:47`;RN `SetNeedScreen.tsx:125` |
+| pages/setting/language | 137 | ③ | features/settings/SettingsScreen.tsx | 卡死：共享屏无「语言单选」概念；RN 只消费整屏设置（`SettingsScreen.tsx:333`），新增 `mode` 仅小程序会用 ⇒ 不做 | 不做 | 页 `language.tsx:85` |
+| pages/setting/theme | 184 | ③ | features/settings/SettingsScreen.tsx | 卡死：共享屏无「主题单选」概念；RN 只消费整屏设置，新增 `mode` 仅小程序会用 ⇒ 不做 | 不做 | 页 `theme.tsx:108` |
 
-## 桶②「需新建/扩共享屏」（85 页）
+## 桶②「需新建/扩共享屏」（74 页）
 
 | page | LOC | 桶 | 共享屏文件 | 缺口描述 | 预估工作量 | 判据依据(file:line) |
 |---|---|---|---|---|---|---|
@@ -65,9 +66,6 @@
 | pkg-shop/wallet/withdrawal/index | 171 | ② | features/withdraw/WithdrawScreen.tsx | 缺提现表单与费率说明；web `(main)/wallet/withdraw/page.tsx` | 共享屏 +110 / 壳 80 | 页 `index.tsx:87` |
 | pkg-learn/course/list | 195 | ② | features/course-tab/CourseTabScreen.tsx | 缺课程分类/卡片/进度（页面只是共享屏子集）；web 无 | 共享屏 +200 / 壳 100 | 页 `list.tsx:104` |
 | pkg-learn/course/detail | 455 | ② | features/course-detail/CourseDetailScreen.tsx | 缺课程详情/章节/分享；web 无 | 共享屏 +300 / 壳 150 | 页 `detail.tsx:237`/`:290` |
-| pkg-learn/live/list | 248 | ② | features/live-list/LiveListScreen.tsx | 缺直播列表/预约/日历按钮；web `(main)/live/page.tsx` | 共享屏 +170 / 壳 100 | 页 `list.tsx:142`/`:150`-`:166` |
-| pkg-learn/live/subscribe | 138 | ① | features/subscriptions/SubscriptionsScreen.tsx | 共享屏补直播段：封面/讲师/开播时间/状态徽标 + 「已订阅 N 场」计数行 + 提醒开关卡 + 直播行点击 + 空态「去发现」；壳只剩映射与回调；web 无；改前=getLiveList({status:'upcoming'}) 请求 /live/list 撞 listChannelsQuery 数字 schema 恒 400（旧「即将开播」过滤从未生效，是坏功能）；改后=我订阅且启用的频道（含直播中/已结束/未发布但启用，仅滤 status=1）；文案已同步：标题「我的订阅」、计数、空态「去发现直播」、三态徽标（直播中/即将开播/已结束），并补 subscriptions.title 兜底 | 共享屏 +174/-28（新增直播段与样式）；壳 138 行（原 197） | 页 `subscribe.tsx:116`(挂载)/`:101`(直播映射)；共享屏 `SubscriptionsScreen.tsx:139`-`:151`(计数/提醒)、`:57`-`:96`(直播行)、`:172`(空态 CTA)；RN `apps/mobile-rn/src/screens/SubscriptionsScreen.tsx:180`(挂载)；API `apps/api/src/routes/live.ts:444-450`(GET 订阅)/`:489-499`(DELETE 订阅) |
-| pkg-learn/live/host/index | 174 | ① | features/live-host/LiveHostScreen.tsx | 共享屏已含全部段(状态徽标/预览/推流地址密钥/开播结束/统计/商品)，本笔零新增；壳只保留 SRS 调用/计时/剪贴板/导航与文案兜底 | 共享屏 +0 / 壳 174（原 292） | 页 `index.tsx:147`(挂载)/`:162`(开播)/`:167`(复制)/`:168`(返回)；RN `apps/mobile-rn/src/screens/LiveHostScreen.tsx:162`(真消费) |
 | pkg-learn/teacher/detail | 348 | ② | features/lecturer-detail/LecturerDetailScreen.tsx | 缺讲师档案/课程/预约；web 无 | 共享屏 +220 / 壳 110 | 页 `detail.tsx:99`（无顶块=内联大段） |
 | pkg-learn/learn-develop/index | 254 | ② | features/learn-develop/LearnDevelopScreen.tsx | 缺学习发展路径/阶段卡；web 无 | 共享屏 +150 / 壳 90 | 页 `index.tsx:118` |
 | pkg-learn/course-planet/index | 286 | ② | features/course-planet/CoursePlanetScreen.tsx | 缺课程星球/任务卡；web 无 | 共享屏 +170 / 壳 100 | 页 `index.tsx:138`-`:178` |
@@ -82,12 +80,7 @@
 | pkg-user/following/index | 272 | ② | features/follow/FollowScreen.tsx | 缺关注/粉丝列表；web 无 | 共享屏 +170 / 壳 100 | 页 `index.tsx:127`/`:146` |
 | pkg-user/message/index | 569 | ② | features/message-center/MessageCenterScreen.tsx | 缺站内消息/系统通知/会话删除；web `(main)/messages/page.tsx` | 共享屏 +300 / 壳 150 | 页 `index.tsx:394`-`:526` |
 | pkg-user/account-cancel/index | 340 | ② | features/account-cancel/AccountCancelScreen.tsx | 缺注销冷静期与校验流；web 无 | 共享屏 +200 / 壳 110 | 页 `index.tsx:269` |
-| pkg-content/news/list | 283 | ② | features/article-list/ArticleListScreen.tsx | 缺资讯列表/搜索/分类；web `(main)/news/page.tsx` | 共享屏 +180 / 壳 100 | 页 `list.tsx:190`-`:199` |
-| pkg-content/category-detail/index | 156 | ② | features/category-detail/CategoryDetailScreen.tsx | 缺分类详情与筛选；web 无 | 共享屏 +110 / 壳 70 | 页 `index.tsx:75` |
-| pkg-content/share/creation | 283 | ② | 无（声明 ChatScreen/SquareScreen 均为误挂） | 缺 ShareLandingScreen（分享出来的回答落地页：无输入区、带分享菜单）；web 真消费点 = `apps/web/app/h5/share/[code]/PageClient.tsx`（`(main)/share/[code]` 为同构长页）；原记录 `share/page.tsx` 仅 `redirect('/')` 属过时映射 | 共享屏 +200 / 壳 100 | 页 `creation.tsx:102`-`:130`（NavBar×3 + ScrollView） |
 | pkg-content/plaza/cover/index | 374 | ② | features/plaza-cover/PlazaCoverScreen.tsx | web `(main)/plaza/*` 只有社区广场（PageClient/PlazaHeader/CirclesPanel/AsksPanel），无开发者空间状态行/续费/FAQ/信息卡/三入口；RN 只有 hero/features/2 actions/footer（`PlazaCoverScreen.tsx:42-47`/`:56-87`） | 共享屏 +220 / 壳 110 | 页 `index.tsx:176` |
-| pkg-content/plaza/set-need/index | 177 | ③ | features/set-need/SetNeedScreen.tsx | 概念不同：小程序是偏好选择（类别/等级/预算 `set-need/index.tsx:27-42`/`:62`），共享屏是发布需求表单（`SetNeedScreen.tsx:29-47`，RN `SetNeedScreen.tsx:125`）；web `(main)/plaza` 无偏好实现（grep 零命中） | 共享屏 +110 / 壳 70 | 页 `index.tsx:86`-`:165` |
-| pkg-content/community/create/index | 235 | ② | features/post-create/PostCreateScreen.tsx | 缺发帖编辑器与圈子选择；web 无 | 共享屏 +150 / 壳 90 | 页 `index.tsx:178`/`:187` |
 | pkg-about/about/index | 248 | ② | features/about/AboutScreen.tsx | 缺 3 处：版本号、版权页脚、标题取词键；新增 prop 仅小程序会用（违反桶①c）；web `(main)/about/page.tsx` | 共享屏 +60 / 壳 60 | 页 `index.tsx:45`-`:103`;`AboutScreen.tsx` 无 version |
 | pages/distribution/index | 469 | ② | features/distribution/DistributionScreen.tsx | 缺分销总览/收益卡/客服浮标；web `(main)/distribution/page.tsx` | 共享屏 +280 / 壳 140 | 页 `index.tsx:255`-`:380` |
 | pages/distribution/team | 339 | ② | features/team/TeamScreen.tsx | 缺团队列表/搜索/层级；web `(main)/distribution/team/page.tsx` | 共享屏 +200 / 壳 110 | 页 `team.tsx:158`-`:174` |
@@ -108,10 +101,7 @@
 | pages/circle/create | 407 | ② | features/post-create/PostCreateScreen.tsx | 缺圈子发帖与图片上传；web 无 | 共享屏 +280 / 壳 140 | 页 `create.tsx:226` |
 | pages/ask/create | 375 | ② | features/ask-create/AskCreateScreen.tsx | 缺提问编辑器与图片；web `(main)/ask/page.tsx` | 共享屏 +240 / 壳 120 | 页 `create.tsx:190` |
 | pages/member/index | 519 | ② | features/vip/VipScreen.tsx | 缺会员中心与权益宫格；web `(main)/vip/page.tsx` | 共享屏 +300 / 壳 160 | 页 `index.tsx:247` |
-| pages/setting/index | 217 | ② | features/settings/SettingsScreen.tsx | 缺设置索引与账号入口；web `(main)/settings/page.tsx` | 共享屏 +150 / 壳 90 | 页 `index.tsx:157` |
 | pages/setting/notification | 232 | ② | features/notification-settings/NotificationSettingsScreen.tsx | 缺通知开关分组与保存条；web 无 | 共享屏 +150 / 壳 90 | 页 `notification.tsx:125` |
-| pages/setting/language | 137 | ② | features/settings/SettingsScreen.tsx | 缺「语言单选」单屏（共享屏是整屏设置，需 mode 或新屏；mode 只有小程序会用） | 共享屏 +110 / 壳 70 | 页 `language.tsx:85` |
-| pages/setting/theme | 184 | ② | features/settings/SettingsScreen.tsx | 缺「主题单选」单屏（同上）；web 无 | 共享屏 +120 / 壳 70 | 页 `theme.tsx:108` |
 | pages/setting/privacy | 228 | ② | features/security-settings/SecuritySettingsScreen.tsx | 缺隐私开关与系统授权(`openSetting`)；web `(main)/settings/privacy/page.tsx` | 共享屏 +150 / 壳 90 | 页 `privacy.tsx:143`/`:94` |
 | pages/register/index | 248 | ② | features/register/RegisterScreen.tsx | 缺注册表单与协议勾选；web 无 | 共享屏 +160 / 壳 90 | 页 `index.tsx:134` |
 | pages/forgot-password/index | 267 | ② | features/change-pwd/ChangePwdScreen.tsx | 缺短信验证找回密码流程（共享屏只管已登录改密）；web `(auth)/forgot-password/page.tsx` | 共享屏 +180 / 壳 100 | 页 `index.tsx:126` |
@@ -127,4 +117,52 @@
 - 页内「自绘块」行号由 TS AST 取最外层 JSX 直接子元素起始行（`D:\DevEnv\Temp\ihui-jsx\blocks.mjs`），共享屏缺块由 props 契约（`packages/types/src/app-*.ts`）与 RN 消费壳交叉核对。
 - 桶①的 2 页均按「0 新增 prop」入门槛；其余 87 页要么缺整屏/大块，要么所需新增 prop 只有小程序会消费（如 `hideBack`、`mode`、版本号），按用户口径降级桶②。
 - `pages/index/index`、`pkg-ai/ai/chat` 等 11 个 `local-delta` 页与纯复制页同口径判定（门 299 的 local-delta 只表示有数据层迹象，不改变缺口性质）。
+
+## 批次③（内容域）可达性复核（2026-11-05）
+
+范围：`--explain` 域内 17 页（`pkg-content/*` 2 页 + `pages/*` 内容类 15 页），全部 ②/③，**0 页可达①**。本批**不换壳、不新建/改共享屏、不改页面源码**；**不写「已薄壳」、不计入复制页下降**；台账 `scripts/data/miniapp-shell-copy-ledger.jsonl` 93 行只读。
+
+| 路由 | LOC | 声明共享屏 | 真假 | 缺段（估算行） | 补齐后只有单端消费的原因 |
+|---|---|---|---|---|---|
+| pkg-content/plaza/cover/index | 374 | features/plaza-cover/PlazaCoverScreen.tsx | 假（共享屏是 AI 需求广场引导封面；本页是开发者空间） | 头部状态+续费 36 / 未开发者引导卡 20 / 成为开发者 12 / 三入口 45 / 账号信息卡 50 / FAQ 30 | 另一端有但没接：RN `DeveloperScreen.tsx:162` 已消费开发者空间，web `(main)/developer/PageClient.tsx` 有同名空间；差入口数 3 vs 4 与信息卡行映射 |
+| pkg-content/plaza/set-need/index | 177 | features/set-need/SetNeedScreen.tsx | 假（偏好选择 vs 发布需求表单） | 偏好选择整屏 ~150 | 两端都没有：web `plaza/new` 与 RN `SetNeedScreen.tsx:125` 都是发布需求 |
+| pages/plaza/index/index | 476 | features/plaza/PlazaScreen.tsx | 真 | 分类抽屉 60 / 身份切换 50 / 详情居中弹层 70 | 另一端有主体但没接：RN `PlazaScreen.tsx:496`；web `(main)/plaza` 是社区广场，无需求广场 |
+| pages/share/index | 913 | features/share/ShareScreen.tsx + square/SquareScreen.tsx | 假（共享屏是单条分享，页是分享广场） | 信息流 600 / 分类 60 / 排行 80 / 分享卡 60 / 抽屉浮层 90 | 两端都没有：web `(main)/share` 仅 redirect；RN `ShareScreen.tsx:287` 是单条详情 |
+| pages/community/index | 1003 | features/agent-screen/AgentScreen.tsx | 假（智能体屏 vs 社区信息流） | 信息流 700 / 分类弹层 80 / Banner 60 / 聊天聚合 60 | 两端都没有：web `(main)/plaza` 是圈子/问答两 tab |
+| pages/circle/detail | 412 | features/post-detail/PostDetailScreen.tsx | 假（需求/帖子详情，无评论列表/输入/关注/收藏） | 关注 15 / 互动条 30 / 评论列表 80 / 评论输入 40 / 错误态 20 | 两端都没有动态详情：web `(main)/circles/[id]` 与 RN `CircleDetailScreen.tsx:96` 都是圈子主页 |
+| pages/circle/create | 407 | features/post-create/PostCreateScreen.tsx | 假（社区帖 title/content/tags） | 话题 45 / AIGC 40 / 可见范围 50 / 评论开关 15 / 草稿 40 | 另一端有同类能力但字段不匹配：RN `CirclePostScreen.tsx:10` + web `(main)/circles/post`（选圈/标题/正文/图≤9） |
+| pages/ask/create | 375 | features/ask-create/AskCreateScreen.tsx | 部分（title/content/tags 真，RN `AskCreateScreen.tsx:51`） | 分类 45 / 悬赏 30 / 配图 40 / 匿名 15 | 两端都没有这 4 段：web `asks/edit/AskEditForm.tsx` 与 RN `AskEditScreen` 只有三字段 |
+| pages/exam/detail | 275 | features/exam/ExamScreen.tsx + exam-history/ExamHistoryScreen.tsx | 假（列表/历史 vs 试卷详情） | 试卷信息卡 60 / 开始考试 20 / 历史战绩 60 | 另一端有但没接：web `(main)/exam/[id]/ExamIntro.tsx`、RN `ExamQuestionScreen.tsx:209`/ExamHistory；缺共享试卷介绍屏 |
+| pages/exam/result | 275 | features/exam-result/ExamResultScreen.tsx | 部分（stats/review 已抽且 web 真 import） | rank 8 / 底部三操作 18 / 无 id query 兜底 13 | 两端都没有：RN `ExamResultScreen.tsx:50` 与 web `PageClient.tsx` 均无 → 缺段表 |
+| pages/study/index | 201 | features/study-index/StudyIndexScreen.tsx + study-progress/StudyProgressScreen.tsx | 部分（课程网格真） | 5 入口宫格 80 / 进度总览 60 | 另一端有但没接：RN 两屏均已在，缺组合接线 |
+| pages/study/record | 189 | features/study-record/StudyRecordScreen.tsx | 真（RN `StudyRecordScreen.tsx:78`） | 三态 tab 50 / 触底分页 40 | 两端都没有 tab/分页：共享屏只有下拉刷新，新增 props 仅小程序消费 |
+| pages/study/plan | 199 | features/study-plan/StudyPlanScreen.tsx | 真（RN `StudyPlanScreen.tsx:89`） | 计划编辑 80 / 专注输入 40 | 另一端有表单但没接：RN `PlanNewScreen.tsx:59` + web `(main)/plan/new`；专注输入两端都没有 |
+| pages/study/rank | 153 | features/ranking/RankingScreen.tsx | 部分（积分榜 range+points） | minutes 列 20 / 无 range/返回 15 | 两端都没有：web 用 `score`、RN 用 `points`，`minutes` 语义不同 |
+| pages/study/my-study/index | 226 | features/study-record/StudyRecordScreen.tsx + ranking/RankingScreen.tsx | 假（两屏拼装，无「我的学习」聚合） | 聚合头 60 / 记录+排行入口 60 | 两端都没有聚合页：RN 两屏分别存在但无组合屏 |
+| pages/study/publish/index | 160 | features/study-publish/StudyPublishScreen.tsx | 真（RN `StudyPublishScreen.tsx:257`） | 可见范围/标签 40 | 另一端有发布表单但字段不匹配：页 title/content/category/visibility/tags vs 共享屏 cover/category/stage |
+| pages/study/video-detail/index | 420 | features/video-player/VideoPlayerScreen.tsx | 真（RN `VideoPlayerScreen.tsx:268`） | 详情 60 / 目录交互 60 / 分享 20 | 另一端有播放器但没接全：RN 有播放器+章节，web learn 视频页有播放；详情/目录/分享两端不完整 |
+
+### 补共享层的机会（下一轮真能做的）
+
+只列「web 或 RN 已有能力、只是没接」；「两端都没有」归不可达，不为单源给 web 造功能。
+
+1. `pkg-content/plaza/cover/index`（最高优先，误挂）：正确同构是 `features/developer/DeveloperScreen.tsx`；RN `DeveloperScreen.tsx:162` 已消费，web `(main)/developer/PageClient.tsx` 有开发者空间；需映射信息卡行与入口数。
+2. `pages/exam/detail`：web `ExamIntro.tsx` 有试卷信息+开始，RN 有 `ExamQuestionScreen.tsx:209`/ExamHistory；缺共享「试卷介绍」屏。
+3. `pages/circle/create`：RN `CirclePostScreen.tsx:10` + web `(main)/circles/post` 有选圈/标题/正文/图≤9；缺话题/AIGC/可见范围/评论开关。
+4. `pages/plaza/index/index`：RN `PlazaScreen.tsx:496` 有列表主体；缺分类抽屉/身份切换/详情弹层。
+5. `pages/study/plan`：RN `PlanNewScreen.tsx:59` + web `(main)/plan/new` 有表单；专注输入两端都无（该段判不可达）。
+6. `pages/study/publish/index`：RN `StudyPublishScreen.tsx:257` + web 发布表单；字段集需统一。
+7. `pages/study/video-detail/index`：RN `VideoPlayerScreen.tsx:268` 有播放器+章节；详情/目录/分享需补。
+8. `pages/study/index`：RN `StudyIndexScreen` + `StudyProgressScreen` 已在；缺组合接线。
+9. `pages/study/record`：RN `StudyRecordScreen.tsx:78` 有列表+统计；tab/分页两端都无（该两段判不可达）。
+
+### `pages/exam/result` 三段定性（只许抽段 + web 真 import）
+
+| 段 | 现状 | web | RN | 定性 |
+|---|---|---|---|---|
+| rank 行 | `result.tsx:219-226` | `PageClient.tsx:54`/`:59` 无 rank | `ExamResultScreen.tsx:50` 无 rank | 不可达/缺段 |
+| 底部三操作 | `result.tsx:252-269` | 无三操作/分享（仅 `:126`/`:143`/`:158` href） | 无 | 不可达/缺段 |
+| 无 id 用 query 兜底 | `result.tsx:68-80` | `enabled: !!id`（`:65`），无 query 兜底 | 无 | 不可达/缺段 |
+
+以上三段保持「缺段」，不硬扩、不计入复制页下降。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
