@@ -84,7 +84,7 @@ export default function MyAttendancePageClient() {
   if (!isAuthenticated || !studentId) {
     return (
       <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+        <CardContent className="font-[weight:inherit] py-12 text-center text-body text-muted-foreground">
           {t('notLoggedIn')}
         </CardContent>
       </Card>
@@ -95,7 +95,9 @@ export default function MyAttendancePageClient() {
     <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-display font-bold tracking-tight">{t('studentPageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('studentPageSubtitle')}</p>
+        <p className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('studentPageSubtitle')}
+        </p>
       </header>
 
       <Card>
@@ -113,7 +115,9 @@ export default function MyAttendancePageClient() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">{t('remark')}</Label>
+            <Label className="font-[weight:inherit] text-label text-muted-foreground">
+              {t('remark')}
+            </Label>
             <Input
               value={remark}
               onChange={(e) => {
@@ -137,7 +141,7 @@ export default function MyAttendancePageClient() {
             {t('selfCheckIn')}
           </Button>
           {recordsQuery.isLoading && (
-            <div className="ml-auto flex items-center text-xs text-muted-foreground">
+            <div className="font-[weight:inherit] ml-auto flex items-center text-label text-muted-foreground">
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               {t('loading')}
             </div>
@@ -160,7 +164,7 @@ export default function MyAttendancePageClient() {
         />
       ) : records.length === 0 && !recordsQuery.isLoading ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="font-[weight:inherit] py-12 text-center text-body text-muted-foreground">
             {t('emptyRecords')}
           </CardContent>
         </Card>

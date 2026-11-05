@@ -794,8 +794,8 @@ export function WebWorkPanel() {
                   key={t.id}
                   className={
                     t.active
-                      ? 'flex min-w-0 max-w-[180px] items-center gap-1 rounded-md bg-background px-2 py-1 text-xs text-foreground shadow-sm'
-                      : 'flex min-w-0 max-w-[180px] items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-background/60'
+                      ? 'font-[weight:inherit] flex min-w-0 max-w-[180px] items-center gap-1 rounded-md bg-background px-2 py-1 text-label text-foreground shadow-sm'
+                      : 'font-[weight:inherit] flex min-w-0 max-w-[180px] items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground hover:bg-background/60'
                   }
                 >
                   <button

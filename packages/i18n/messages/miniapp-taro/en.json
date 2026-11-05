@@ -7018,5 +7018,15 @@
   },
   "student": {
     "myCertsTitle": "My Certificates"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "Ask"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "Payment Method"
+    }
   }
 }

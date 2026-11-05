@@ -79,7 +79,7 @@ export function DeviceManager() {
             href="/settings/authorizations"
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent"
           >
-            <span className="text-sm text-muted-foreground">
+            <span className="font-[weight:inherit] text-body text-muted-foreground">
               {lastLogin
                 ? `${t('device.lastLoginLabel')}: ${dateFormatter.format(new Date(lastLogin))}`
                 : t('device.empty')}

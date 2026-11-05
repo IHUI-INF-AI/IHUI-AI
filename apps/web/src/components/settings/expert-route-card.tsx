@@ -70,7 +70,7 @@ export function ExpertRouteCard() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-muted-foreground">{t('desc')}</p>
+        <p className="font-[weight:inherit] text-body text-muted-foreground">{t('desc')}</p>
         <div className="mt-3 grid grid-cols-1 gap-2 min-[640px]:grid-cols-3">
           {EXPERT_ROUTE_MODES.map((m) => {
             const isActive = active === m
@@ -83,7 +83,7 @@ export function ExpertRouteCard() {
                 aria-pressed={isActive}
                 data-testid={`expert-route-option-${m}`}
                 className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-sm border p-3 text-sm transition-colors',
+                  'font-[weight:inherit] flex flex-col items-center gap-1.5 rounded-sm border p-3 text-body transition-colors',
                   isActive
                     ? 'border-brand-accent-deep bg-primary/5 text-primary'
                     : 'hover:bg-accent hover:text-accent-foreground',
@@ -107,7 +107,10 @@ export function ExpertRouteCard() {
           })}
         </div>
         {envLocked && (
-          <p role="status" className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          <p
+            role="status"
+            className="font-[weight:inherit] mt-2 text-label leading-relaxed text-muted-foreground"
+          >
             {t('envLockedNotice')}
           </p>
         )}
@@ -115,5 +118,4 @@ export function ExpertRouteCard() {
     </Card>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
