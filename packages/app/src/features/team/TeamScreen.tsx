@@ -165,9 +165,7 @@ export function TeamScreen({
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{stats.monthNew ?? 0}</Text>
-                <Text style={styles.statLabel}>
-                  {compactStatsLabels?.monthNew ?? t('team.monthNew')}
-                </Text>
+                <Text style={styles.statLabel}>{compactStatsLabels?.monthNew ?? ''}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>¥{stats.totalContribution}</Text>
