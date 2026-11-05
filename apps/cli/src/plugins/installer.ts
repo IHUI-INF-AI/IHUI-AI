@@ -36,7 +36,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
+  getInstalledPluginsDir,
   getPluginInstallPath,
+  getPluginDataRoot,
   getPluginDataDir,
   getRegistryPath,
 } from './paths.js';
@@ -986,6 +988,50 @@ async function installFromMarketplaceEntry(
 // ==================== uninstallPlugin ====================
 
 /**
+ * 插件名单段白名单:插件名会被直接拼进 `installed-plugins/<name>` 与
+ * `plugin-data/<name>`,一旦含路径分隔符 / 盘符 / 前导点就是目录穿越。
+ * 只允许字母、数字与 `._-`,且首字符必须是字母或数字(排除 `.` / `..`)。
+ */
+const PLUGIN_NAME_SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+/** 名称白名单校验;不合法即拒(错误信息点名收到的值)。 */
+export function assertSafePluginName(name: string): string {
+  if (!PLUGIN_NAME_SEGMENT_RE.test(name)) {
+    throw new Error(
+      `拒绝操作插件 "${name}":名称含非法字符(白名单 = 字母/数字/._-,首字符须为字母或数字)`,
+    );
+  }
+  return name;
+}
+
+/** 目标路径必须严格位于某个根目录之内(含符号链接解析)。 */
+function assertPathInsideRoot(root: string, target: string, label: string): string {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  const inside = (base: string, candidate: string): boolean =>
+    candidate.startsWith(base + path.sep);
+  if (!inside(resolvedRoot, resolvedTarget)) {
+    throw new Error(`拒绝操作${label} "${resolvedTarget}":不在根目录 "${resolvedRoot}" 之内`);
+  }
+  // 符号链接解析:目标存在时按真实路径再判一次(链接指向根外 ⇒ 拒)。
+  // 复用 path-safety.ts 的唯一判定层(本仓纪律:realpath 判据只有一份实现)。
+  if (fs.existsSync(resolvedRoot) && fs.existsSync(resolvedTarget)) {
+    const verdict = checkSymlinkContainment({
+      linkPath: resolvedTarget,
+      targetPath: resolvedTarget,
+      rootPath: resolvedRoot,
+    });
+    if (verdict.status === 'escape') {
+      throw new Error(`拒绝操作${label} "${resolvedTarget}":符号链接解析后落在根目录 "${verdict.realRoot}" 之外`);
+    }
+    if (verdict.status === 'unsafe') {
+      throw new Error(`拒绝操作${label} "${resolvedTarget}":符号链接可达性判不了(${verdict.message})`);
+    }
+  }
+  return resolvedTarget;
+}
+
+/**
  * 卸载插件 — 删除安装目录,可选保留 plugin-data。
  *
  * @param name 插件名
@@ -996,12 +1042,19 @@ export async function uninstallPlugin(
   name: string,
   opts?: { confirm?: boolean; keepData?: boolean },
 ): Promise<UninstallOutcome> {
+  // BUG-0002:插件名来自 CLI/marketplace,不可信 —— 先过白名单与根目录断言,
+  // 任意一项不过都拒,绝不把未校验名称直接喂给递归删除。
+  const safeName = assertSafePluginName(name);
   const reg = loadInstallRegistry();
-  const idx = reg.records.findIndex((r) => r.name === name);
+  const idx = reg.records.findIndex((r) => r.name === safeName);
   const hadRecord = idx >= 0;
 
   // 删除安装目录
-  const installPath = getPluginInstallPath(name);
+  const installPath = assertPathInsideRoot(
+    getInstalledPluginsDir(),
+    getPluginInstallPath(safeName),
+    '插件安装目录',
+  );
   let removedPath = '';
   if (fs.existsSync(installPath)) {
     fs.rmSync(installPath, { recursive: true, force: true });
@@ -1009,7 +1062,11 @@ export async function uninstallPlugin(
   }
 
   // 处理 plugin-data
-  const dataDir = getPluginDataDir(name);
+  const dataDir = assertPathInsideRoot(
+    getPluginDataRoot(),
+    getPluginDataDir(safeName),
+    '插件数据目录',
+  );
   let hadData = false;
   if (fs.existsSync(dataDir)) {
     hadData = true;
