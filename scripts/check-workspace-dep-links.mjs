@@ -13,9 +13,16 @@
  * `Rollup failed to resolve import "@ihui/design-tokens"`,4 次重试全红 → web 不再更新
  * → 线上停在旧提交。而 typecheck/lint/单测全都不会知道(TS 走 tsconfig paths,不看链接)。
  *
- * 判据一(声明↔链接):逐个工作空间包,取 dependencies/devDependencies/peerDependencies 中所有
- * `workspace:` 声明,要求 `<包目录>/node_modules/<依赖>` 可解析(根 node_modules 命中也算,
+ * 判据一(声明↔链接):逐个工作空间包 **+ 仓库根包**,取 dependencies/devDependencies/peerDependencies
+ * 中所有 `workspace:` 声明,要求 `<包目录>/node_modules/<依赖>` 可解析(根 node_modules 命中也算,
  * 兼容 publicHoist)。existsSync 跟随符号链接,**悬空链接同样判红** —— 那正是本次故障形态。
+ *
+ * 根包补入判据(2026-11-05 实测):根 `package.json` 声明 `@ihui/eslint-config: workspace:^`,而
+ * `node_modules/@ihui` 被剪成**空目录**(真实目录、无条目,非悬挂链接)。旧判据只收 workspace
+ * 通配出的 25 个包、不收根包 ⇒ 门报「✅ 25 个包全部已链接」exit 0,而根配置文件
+ * `eslint.config.mjs` import `@ihui/eslint-config` 直接 ERR_MODULE_NOT_FOUND ⇒ lint-staged 必红。
+ * 同一时刻 `packages/eslint-config/node_modules` 也是空目录(该包无 workspace: 依赖,判据一不管;
+ * 外部依赖又被根 publicHoist 命中,判据六也不报)。故本门把根包纳入判据一取样面。
  *
  * 判据二(链接↔内容,2026-09-24 补):根 + 各包的 `node_modules/<dep>` **符号链接**目标必须是
  * 一个真包(有可 parse 的 package.json)。因为 existsSync 对"指向**空目录**的链接"仍返回 true,
@@ -153,6 +160,39 @@ export function findMissingLinks(rootDir, pkgDirs) {
         expect: toPosix(relative(rootDir, local)),
       })
     }
+  }
+  return missing
+}
+
+/**
+ * 根包判据(2026-11-05 空目录事故后补):根 `package.json` 的 `workspace:` 声明也必须有链接。
+ *
+ * 实测现场:根 `package.json` 声明 `@ihui/eslint-config: workspace:^`,而 `node_modules/@ihui`
+ * 是**真实空目录**(0 条目、非悬挂链接)。旧取样面只收 pnpm-workspace.yaml 通配出的
+ * 25 个包、不收根包 ⇒ 门报「✅ 25 个包全部已链接」exit 0;实际根配置 `eslint.config.mjs`
+ * import `@ihui/eslint-config` 直接 ERR_MODULE_NOT_FOUND ⇒ lint-staged 必红 ⇒ 全队被迫
+ * `--no-verify`。故根包单独成一判据:根 node_modules 里缺任一 workspace: 声明即判红。
+ *
+ * 只查 `workspace:` 协议(非 workspace 的外部依赖由第六维覆盖,避免重复判红)。
+ * 根目录没有 node_modules 时返回 null,与 findMissingLinks 同语义(未安装 ≠ 装歪)。
+ */
+export function findMissingRootLinks(rootDir) {
+  if (!existsSync(join(rootDir, 'node_modules'))) return null
+  let pkgJson
+  try {
+    pkgJson = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8'))
+  } catch {
+    return []
+  }
+  const missing = []
+  for (const dep of workspaceDepsOf(pkgJson)) {
+    const target = join(rootDir, 'node_modules', ...dep.split('/'))
+    if (existsSync(target)) continue
+    missing.push({
+      pkg: pkgJson.name || '.',
+      dep,
+      expect: toPosix(relative(rootDir, target)),
+    })
   }
   return missing
 }
@@ -573,6 +613,8 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
   const all = expandPatterns(root, parseWorkspacePatterns(readFileSync(yamlPath, 'utf8')))
   if (all.length === 0) fail('一个 workspace 包都没扫到(patterns 解析失效),不允许报绿灯')
 
+  // 判据一取样面保持 workspace 通配包;根包另有独立判据(见 findMissingRootLinks),
+  // 不混入 targets,避免外部依赖/深扫/钩子维度被根包重复取样。
   const targets = all
   let scope = '全量'
   if (staged) {
@@ -601,6 +643,9 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     console.log('⚠️  根目录没有 node_modules(依赖未安装)—— 本门无法判定,请先 pnpm install')
     return { missing: [], scanned: targets.length, skipped: true }
   }
+  // 根包 workspace: 声明同样必须有链接(2026-11-05 根 node_modules/@ihui 空目录取证)
+  const rootMissing = findMissingRootLinks(root)
+  if (rootMissing && rootMissing.length) missing.push(...rootMissing)
   // 第六维:外部依赖(非 workspace:)声明↔链接。取样面与落点纪律见 externalDepsOf 头注。
   const ext = findMissingExternalLinks(root, targets)
   if (ext === null) {
@@ -643,7 +688,7 @@ export function audit({ staged = false, root = REPO, strict = false } = {}) {
     else if (r.state === 'unresolved') shimUnresolved += 1
   }
   console.log(
-    `workspace 依赖链接对账:${scope} / 判定 ${targets.length} 个包` +
+    `workspace 依赖链接对账:${scope} / 判定 ${targets.length} 个包 + 根包` +
       (strict
         ? ` | 链接完整性:浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(合计 ${linksScanned + deepScanned} 条;.pnpm 安装中临时键跳过 ${tmpKeysSkipped} 个;平台不匹配的可选变体豁免 ${platformSkipped} 条),破损 ${gutted.length} 条,`
         : ` | 链接完整性:扫 ${linksScanned} 条,破损 ${gutted.length} 条,`) +
@@ -797,7 +842,7 @@ function run(argv) {
     shimBad.length === 0
   ) {
     console.log(
-      `✅ ${scanned} 个包声明的 workspace 依赖均已链接,` +
+      `✅ ${scanned} 个包 + 根包声明的 workspace 依赖均已链接,` +
         (strict
           ? `浅扫 ${linksScanned} 条 / 深扫 ${deepScanned} 条(.pnpm 临时键跳过 ${tmpKeysSkipped} 个)链接目标内容完好,`
           : `${linksScanned} 条链接目标内容完好,`) +
@@ -893,6 +938,11 @@ function selfTest() {
       join(root, 'apps', 'bb', 'package.json'),
       JSON.stringify({ name: '@ihui/bb', dependencies: { '@ihui/aa': 'workspace:*' } }),
     )
+    // 根包夹具:根 package.json 同样可声明 workspace: 依赖(2026-11-05 根包盲区回归用)
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({ name: 'root-fixture', devDependencies: { '@ihui/aa': 'workspace:*' } }),
+    )
 
     const pats = parseWorkspacePatterns(readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8'))
     t('patterns 解析出 2 条', () => assert(pats.length === 2, `got ${pats.length}`))
@@ -931,6 +981,27 @@ function selfTest() {
         JSON.stringify({ name: '@ihui/aa' }),
       )
       assert(findMissingLinks(root, dirs).length === 0, '夹具链接未生效')
+    })
+    // 2026-11-05:根包不进取样面 ⇒ 根链接被剪成空目录也报绿。以下三条钉住新判据。
+    t('根包声明 workspace 依赖、根 node_modules 无该链接 → 判红(旧取样面盲区)', () => {
+      const m = findMissingRootLinks(root)
+      assert(m.length === 1, `expected 1(root only), got ${m.length}: ${JSON.stringify(m)}`)
+      assert(
+        m[0].pkg === 'root-fixture' && m[0].dep === '@ihui/aa',
+        `got ${JSON.stringify(m[0])}`,
+      )
+    })
+    t('补上根链接 → 归零(现状修复后必绿)', () => {
+      mkdirSync(join(root, 'node_modules', '@ihui', 'aa'), { recursive: true })
+      writeFileSync(
+        join(root, 'node_modules', '@ihui', 'aa', 'package.json'),
+        JSON.stringify({ name: '@ihui/aa' }),
+      )
+      assert(findMissingRootLinks(root).length === 0, 'expected 0')
+    })
+    t('清空根链接目录(= 实测故障形态)→ 再判红', () => {
+      rmSync(join(root, 'node_modules', '@ihui', 'aa'), { recursive: true, force: true })
+      assert(findMissingRootLinks(root).length === 1, 'expected 1')
     })
     /**
      * 2026-09-24 新维度:**"链接在、目标被掏空"** 必须判红。
