@@ -127,10 +127,36 @@ describe('runVerifiedSwitch(全注入,零真库零真写)', () => {
     expect(r.ok).toBe(false)
   })
 
-  it('无对账面(豆包,对话是云端回包缓存)⇒ no-continuity-face、写回照常执行、不冒 continuity', async () => {
+  it('豆包现已有对账面 ⇒ 前后各拍一次、continuityFace=true、写回照常(2026-11-06 改判:原登记为「无对账面」)', async () => {
+    // 改判留痕:本例原断言 snapped=0 / no-continuity-face —— 那是 CONTINUITY_FACE 未登记 doubao
+    // 落点时的真实行为。doubao 的会话族落点是标准 SQLite3 网络库、值指纹跨读稳定(一手取证见
+    // scripts/lib/doubao-continuity-face.mjs 头注),对账面成立后这条断言必须翻,否则它守的是缺陷。
     let snapped = 0
     const r = await runVerifiedSwitch({
       provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () => ({ ok: true, notes: [], targetFile: 'X', backupFile: 'X' }) as never,
+      // doubao 走的是 snapshotDoubao 这条腿 —— 不注入它就会真去解本机 Cookies 库(实测 14.6s),
+      // 那既是测试隔离违规,也让本例不可重复。snapshot 对这档不生效,两条腿都要桩。
+      snapshotDoubao: () => {
+        snapped++
+        return snapOk(12)
+      },
+      compare: fakeCompare(0),
+    })
+    // before + after 各拍一次 ⇒ 2;0 次才是"没对账面",1 次说明写回后没复拍(闭环断了)
+    expect(snapped).toBe(2)
+    expect(r.continuityFace).toBe(true)
+    expect(r.verdict).toBe('continuity-ok')
+    expect(r.wroteBack).toBe(true)
+    expect(r.ok).toBe(true)
+  })
+
+  it('某 provider 真无对账面 ⇒ no-continuity-face、不采集、不冒 continuity', async () => {
+    // 样例选 trae:它是 9 家受支持平台里唯一不进 CONTINUITY_FACE 的(走 relay-trae-chat-switch 专属腿)。
+    let snapped = 0
+    const r = await runVerifiedSwitch({
+      provider: 'trae',
       loadRow: async () => FAKE_ROW,
       writeBack: async () => ({ ok: true, notes: [], targetFile: 'X', backupFile: 'X' }) as never,
       snapshot: () => {
@@ -346,6 +372,89 @@ describe('CLI 退出路径(失败必须显式 exit,只设 exitCode 会被 pg 句
     })
     await tick()
     expect(brokenExit).toHaveBeenCalledWith(1)
+  })
+})
+
+describe('豆包登录态对账面(2026-11-06 接线,判据在 scripts/lib/doubao-continuity-face.mjs)', () => {
+  const doubaoSnap = (state: 'ok' | 'undetermined') =>
+    ({
+      app: 'doubao',
+      label: '豆包(登录态 cookie 族面)',
+      state,
+      faceKind: 'login-cookies',
+      dbFile: 'X:\\Cookies',
+      walMerged: null,
+      takenAt: new Date().toISOString(),
+      sessions: state === 'ok' ? { count: 12, digest: 'a'.repeat(16) } : undefined,
+      messageRows: null,
+      sessionsWithMessages: null,
+      accountDigests: state === 'ok' ? ['f'.repeat(12)] : [],
+      sessionIds: state === 'ok' ? ['d0', 'd1'] : [],
+      ...(state === 'ok' ? {} : { why: '夹具:族 0 命中(未判定)' }),
+    }) as never
+
+  it('doubao dry-run:走登录态腿拍 before(qoder 快照腿零调用)、continuityFace=true、not-run', async () => {
+    let qoderSnapped = 0
+    let doubaoSnapped = 0
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      dryRun: true,
+      loadRow: async () => FAKE_ROW,
+      snapshot: () => {
+        qoderSnapped++
+        return snapOk(1)
+      },
+      snapshotDoubao: () => {
+        doubaoSnapped++
+        return doubaoSnap('ok')
+      },
+    })
+    expect(doubaoSnapped).toBe(1)
+    expect(qoderSnapped).toBe(0)
+    expect(r.continuityFace).toBe(true)
+    expect(r.before?.state).toBe('ok')
+    expect(r.verdict).toBe('not-run')
+    expect(r.dryRun).toBe(true)
+  })
+
+  it('doubao 真跑:族集合跨号齐(compare lost=0)⇒ continuity-ok,写回腿照常', async () => {
+    let called = 0
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () => {
+        called++
+        return {
+          ok: true,
+          notes: [],
+          targetFile: 'X:\\Cookies',
+          backupFile: 'X:\\Cookies.bak',
+        } as never
+      },
+      snapshotDoubao: () => doubaoSnap('ok'),
+      compare: fakeCompare(0),
+    })
+    expect(called).toBe(1)
+    expect(r.verdict).toBe('continuity-ok')
+    expect(r.ok).toBe(true)
+    expect(r.after?.state).toBe('ok')
+  })
+
+  it('doubao 快照未判定 ⇒ notes 点名「切号前快照未判定」、不冒 continuity-ok', async () => {
+    const r = await runVerifiedSwitch({
+      provider: 'doubao',
+      loadRow: async () => FAKE_ROW,
+      writeBack: async () => ({ ok: true, notes: [], targetFile: 'X', backupFile: 'X' }) as never,
+      snapshotDoubao: () => doubaoSnap('undetermined'),
+      compare: fakeCompare(0),
+    })
+    expect(r.notes.some((n) => n.includes('切号前快照未判定'))).toBe(true)
+    expect(r.verdict).toBe('no-continuity-face')
+    expect(r.ok).toBe(true)
+  })
+
+  it('CONTINUITY_FACE 不为豆包登记 APPS 键(登录态面走自家腿,正库映射表口径不变)', () => {
+    expect(CONTINUITY_FACE['doubao']).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -99,11 +99,22 @@ function fmt(d: Date | null | undefined): string {
   return d ? new Date(d).toISOString() : '-'
 }
 
-/** 行格式与 Trae 那条 --list 逐字同形(同一张脸,不按平台各写一套展示) */
-export function rowLine(r: PoolRow): string {
+/**
+ * 行格式与 relay-trae-client-switch.ts 的 --list 同形(同一张脸,不按平台各写一套展示)。
+ * 差异一格并如实留着:Trae 那条专属档还没有"已过期"标注 —— 机主双击走的统一名单是本函数,
+ * 不在本枚去改那条(它有既有用例与调用方,动它属另一票)。
+ */
+export function rowLine(r: PoolRow, now: Date = new Date()): string {
+  // 只比现值:token_expires_at 早于当下就在人读行标出来。这是如实投影,不是可用性裁决 ——
+  // 能不能真切仍由写回腿判(它不校验票效,故名单必须自己把"这票已过期"说到人眼前)。
+  const stale = r.tokenExpiresAt ? new Date(r.tokenExpiresAt).getTime() < now.getTime() : false
   return (
     `  uid=${r.uid} 名称=${r.name} 健康=${r.healthStatus} 启用=${r.isEnabled ? '是' : '否'}` +
     ` 摘除=${r.tempUnschedulable ? '是' : '否'} token到期=${fmt(r.tokenExpiresAt)}` +
+    // 只陈述"这张票的到期时刻已过"这一现值事实。不写"切过去登不进"那种后果断言 ——
+    // 能不能被保活救回取决于刷新材料在不在册(单源 recredentialableCondition),本投影不含那列,
+    // 在此推断后果就是超出证据下结论(§0.3)。
+    (stale ? '(已过)' : '') +
     ` rt到期=${fmt(r.refreshExpiresAt)} cred=v${r.credVersion}` +
     ` 设备=${r.deviceId ? '有' : '无'} 归属=${r.ownerUserId ?? '运营池'}`
   )
