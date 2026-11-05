@@ -5,36 +5,41 @@
 // 镜像 packages/app/src/features/conversation-import/ConversationImportScreen.tsx
 
 /**
- * 外部会话导入(D28)—— 小程序端页面。
+ * 外部会话导入(D28)—— 小程序端页面(共享屏薄壳)。
  *
- * 四步流:选来源 → 从微信会话里选导出文件 → 解析预览(会话数/消息数/warnings/truncated)
- * → 逐会话串行 commit → 刷新导入历史。
+ * UI 单源:packages/app/src/features/conversation-import/ConversationImportScreen.tsx
+ *   RN 消费点:apps/mobile-rn/src/screens/ConversationImportScreen.tsx:20
+ * 端内只留平台注入:微信会话选文件(chooseMessageFile)、/parse 的 uploadFile、
+ * commit / history 的 api-client 出口、聊天页导航。共享屏内零 Taro、零平台 API。
  *
- * 两个平台事实(决定了本文件的写法,别按桌面端的直觉改回去):
- *   ① 文件选择走 `Taro.chooseMessageFile` —— 微信原生「从会话中选择文件」,
- *      在微信生态里导微信聊天记录(.zip/.txt)这是最顺手的路径,端内 InputArea /
- *      ModelConfigDialog / ai-chat-detail 三处已在用同一口径。
- *   ② `/parse` 走 `Taro.uploadFile` 而**不是** api-client 的 parseConversationImport:
- *      后者签名是 Web `File` + `FormData`,而本端 transport(createTaroTransport)
- *      对 body 做 `JSON.parse`,FormData 会在传输层直接抛;小程序也没有 File 构造器。
- *      `/commit` 与 `/history` 是纯 JSON,仍走 api-client 唯一出口。
+ * 交互变化(向 RN/web 对齐,如实披露):选文件 + 解析由旧页的两步合成一步;
+ * 后缀/20MB 预校验移到 onParse,失败仍落在共享屏错误条(比旧 toast 更持久)。
  *
- * 错误与截断一律上屏:解析失败带服务端原文、truncated 与 warnings 逐条列出、
- * commit 失败原因去重后展示 —— 不做静默吞掉(§5e「失败必须响」)。
- *
- * 分层:判序在 conversation-import-core、平台传输在 conversation-import-transport、
- * 展示块在 conversation-import-parts;本文件只做「取词 + 编排 + 持有页面状态」。
+ * 分层:判序在 conversation-import-core、平台传输在 conversation-import-transport;
+ * 本文件只做「取词 + 平台注入 + 导航」。
  */
-import { useCallback, useState } from 'react'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { commitConversationImport, getConversationImportHistory } from '@ihui/api-client'
-import { useTt } from '@/i18n'
-import NavBar from '@/components/NavBar'
-import LineIcon from '@/components/LineIcon'
+import { useCallback, useMemo, useRef } from 'react'
+import Taro from '@tarojs/taro'
+import {
+  commitConversationImport,
+  getConversationImportHistory,
+  type ConversationImportCommitResult,
+  type ParsedImportConversation,
+} from '@ihui/api-client'
+import type { ApiResult } from '@ihui/types'
+import type { ImportSource } from '@ihui/shared/import-analysis'
+import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ImportHistoryList, ImportPreviewList, ImportResultList } from './conversation-import-parts'
-import { ImportAnalysisPanel } from './conversation-import-analysis'
+import NavBar from '@/components/NavBar'
+import {
+  ConversationImportScreen,
+  type ConversationImportHistoryRow,
+} from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
+import type {
+  ImportCommitResult,
+  ImportParseResult,
+  PickedImportFile as SharedPickedImportFile,
+} from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
 import {
   IMPORT_SOURCES,
   MAX_IMPORT_FILE_SIZE,
@@ -42,381 +47,201 @@ import {
   normalizeParseResult,
   runImportCommit,
   summarizeFailureReasons,
+  toDateLabel,
+  toHistoryStatus,
   toImportSource,
-  type CommittedImportConversation,
-  type ImportPreviewRow,
 } from './conversation-import-core'
-import {
-  pickImportFile,
-  uploadAndParse,
-  type PickedImportFile,
-} from './conversation-import-transport'
-import type {
-  ConversationImportCommitResult,
-  ConversationImportHistoryItem,
-  ConversationImportSource,
-  ParsedImportConversation,
-} from '@ihui/api-client'
-import type { ApiResult } from '@ihui/types'
+import { pickImportFile, uploadAndParse } from './conversation-import-transport'
 
 export default function ConversationImportPage() {
-  const tt = useTt()
-  const [source, setSource] = useState<ConversationImportSource | ''>('')
-  const [file, setFile] = useState<PickedImportFile | null>(null)
-  const [rows, setRows] = useState<ImportPreviewRow[]>([])
-  const [selected, setSelected] = useState<number[]>([])
-  const [truncated, setTruncated] = useState(false)
-  const [warnings, setWarnings] = useState<string[]>([])
-  const [parsing, setParsing] = useState(false)
-  const [committing, setCommitting] = useState(false)
-  const [progress, setProgress] = useState({ done: 0, total: 0 })
-  const [error, setError] = useState('')
-  const [history, setHistory] = useState<ConversationImportHistoryItem[]>([])
-  // 历史拉取失败态:与共享屏一致(historyError 落在历史卡里),而不是静默显示成"从没导过"
-  const [historyError, setHistoryError] = useState('')
-  // 解析结果正文只留在 state 里:预览行只是元信息,提交时按 id 取回
-  const [conversations, setConversations] = useState<ParsedImportConversation[]>([])
-  // D28 补齐层(2026-10-03):导入结果区 + 「用场景分析」面板目标。
-  // 此前 commit 完只有一句 toast,用户看不到"导进来几个、哪个成功了、接下来能干什么"。
-  const [committed, setCommitted] = useState<CommittedImportConversation[]>([])
-  const [analysisTarget, setAnalysisTarget] = useState<CommittedImportConversation | null>(null)
+  const { t } = useI18n()
+  // 解析结果正文只留端内内存:预览行只是元信息,提交时按 id 取回
+  const parsedRef = useRef<{
+    conversations: ParsedImportConversation[]
+    fileName?: string
+  }>({ conversations: [] })
 
-  const loadHistory = useCallback(async () => {
-    setHistoryError('')
-    try {
-      const res = await getConversationImportHistory()
-      setHistory(res.success && Array.isArray(res.data.list) ? res.data.list : [])
-    } catch (e) {
-      // 历史取不到不阻断导入主流程,但不能假装"从没导过" —— 失败在历史卡里显式点名
-      setHistory([])
-      setHistoryError(
-        tt('conversationImport.historyFailed', '获取导入历史失败:{error}', {
-          error: e instanceof Error ? e.message : String(e),
-        }),
-      )
-    }
-  }, [tt])
+  const sources = useMemo(
+    () =>
+      IMPORT_SOURCES.map((s) => ({
+        value: s.value,
+        label: t(s.labelKey),
+        hint: t(s.hintKey),
+      })),
+    [t],
+  )
 
-  useDidShow(() => {
-    void loadHistory()
-  })
+  /** 选文件:微信原生「从会话中选择文件」;取消给明确反馈,不静默吞掉 */
+  const onPickFile = useCallback(
+    async (sourceValue: string): Promise<SharedPickedImportFile | null> => {
+      const spec = IMPORT_SOURCES.find((s) => s.value === sourceValue)
+      const picked = await pickImportFile({
+        extensions: spec?.extensions ?? [],
+        choose: () =>
+          Taro.chooseMessageFile({
+            count: 1,
+            type: 'file',
+            extension: [...(spec?.extensions ?? [])],
+          }) as unknown as Promise<unknown>,
+      })
+      if (picked.error === 'no-file') {
+        Taro.showToast({ title: t('conversationImport.errorNoFile'), icon: 'none' })
+        return null
+      }
+      if (picked.error) {
+        Taro.showToast({ title: `${t('common.failed')}(${picked.error})`, icon: 'none' })
+        return null
+      }
+      const f = picked.file
+      if (!f) {
+        // 用户取消不是错误,但必须给一次明确反馈
+        Taro.showToast({ title: t('common.cancel'), icon: 'none' })
+        return null
+      }
+      return { name: f.name, uri: f.path, mimeType: 'text/plain', size: f.size }
+    },
+    [t],
+  )
 
-  /** 换文件/换来源即丢弃上一份预览,免得对着旧预览提交 */
-  const resetPreview = useCallback(() => {
-    setFile(null)
-    setRows([])
-    setConversations([])
-    setSelected([])
-    setTruncated(false)
-    setWarnings([])
-    setError('')
-  }, [])
-
-  const onPick = useCallback(async () => {
-    if (!source) {
-      setError(tt('conversationImport.errorNoSource', '请先选择会话来源'))
-      return
-    }
-    const spec = IMPORT_SOURCES.find((s) => s.value === source)
-    const picked = await pickImportFile({
-      extensions: spec?.extensions ?? [],
-      choose: () =>
-        Taro.chooseMessageFile({
-          count: 1,
-          type: 'file',
-          extension: [...(spec?.extensions ?? [])],
-        }) as unknown as Promise<unknown>,
-    })
-    if (picked.error === 'no-file') {
-      setError(tt('conversationImport.errorNoFile', '未选择到文件,请重新选择该来源的导出文件'))
-      return
-    }
-    if (picked.error) {
-      resetPreview()
-      setError(tt('conversationImport.parseFailed', '解析失败:{error}', { error: picked.error }))
-      return
-    }
-    const f = picked.file
-    if (!f) return // 用户取消:什么都不改
-    if (!hasAllowedExtension(f.name, source)) {
-      resetPreview()
-      setError(tt('conversationImport.errorFileType', '所选文件类型不支持,请选择该来源的导出文件'))
-      return
-    }
-    if (f.size > MAX_IMPORT_FILE_SIZE) {
-      resetPreview()
-      setError(tt('conversationImport.fileTooLarge', '文件超过 20MB 限制,请拆分后重试'))
-      return
-    }
-    setError('')
-    setFile(f)
-    setRows([])
-    setConversations([])
-    setSelected([])
-    setTruncated(false)
-    setWarnings([])
-  }, [source, tt, resetPreview])
-
-  const onParse = useCallback(async () => {
-    const src = toImportSource(source)
-    if (!src || !file) {
-      setError(tt('conversationImport.errorNoFile', '未选择文件'))
-      return
-    }
-    setParsing(true)
-    setError('')
-    try {
+  /** 上传并解析:后缀/体积预校验在此收口,失败由共享屏错误条常驻展示 */
+  const onParse = useCallback(
+    async (file: SharedPickedImportFile, sourceValue: string): Promise<ImportParseResult> => {
+      const source = toImportSource(sourceValue)
+      if (!source) return { ok: false, error: t('conversationImport.errorNoSource') }
+      if (!hasAllowedExtension(file.name, source)) {
+        return { ok: false, error: t('conversationImport.errorFileType') }
+      }
+      if (file.size !== undefined && file.size > MAX_IMPORT_FILE_SIZE) {
+        return { ok: false, error: t('conversationImport.fileTooLarge') }
+      }
       const raw = await uploadAndParse({
-        file,
-        source: src,
+        file: { path: file.uri, name: file.name, size: file.size ?? 0 },
+        source,
         // 沿用端内既有 common.failed 档(不另造 networkError 键)
-        networkErrorText: tt('common.failed', '加载失败'),
+        networkErrorText: t('common.failed'),
       })
       const parsed = normalizeParseResult(raw)
-      setRows(parsed.rows)
-      setConversations(parsed.conversations)
-      setSelected(parsed.rows.map((r) => r.id))
-      setTruncated(parsed.truncated)
-      setWarnings(parsed.warnings)
-      if (parsed.rows.length === 0) {
-        setError(tt('conversationImport.parseEmpty', '未在文件中解析出任何会话'))
+      parsedRef.current = { conversations: parsed.conversations, fileName: file.name }
+      return {
+        ok: true,
+        rows: parsed.rows,
+        truncated: parsed.truncated,
+        warnings: parsed.warnings,
       }
-    } catch (e) {
-      setRows([])
-      setConversations([])
-      setSelected([])
-      setTruncated(false)
-      setWarnings([])
-      setError(
-        tt('conversationImport.parseFailed', '解析失败:{error}', {
-          error: e instanceof Error ? e.message : String(e),
-        }),
-      )
-    } finally {
-      setParsing(false)
-    }
-  }, [source, file, tt])
+    },
+    [t],
+  )
 
-  const onCommit = useCallback(async () => {
-    const src = toImportSource(source)
-    if (!src || selected.length === 0) return
-    setCommitting(true)
-    setError('')
-    setProgress({ done: 0, total: selected.length })
-    const outcome = await runImportCommit({
-      source: src,
-      fileName: file?.name,
-      conversations,
-      rowIds: selected,
-      commit: (payload) =>
-        commitConversationImport(payload) as Promise<ApiResult<ConversationImportCommitResult>>,
-      emptyContentReason: tt('conversationImport.noValidContent', '会话内没有有效内容'),
-      onProgress: setProgress,
-    })
-    setCommitted(outcome.committed)
-    setCommitting(false)
-
-    if (outcome.failed > 0) {
-      // 失败必须响:点名成功/失败条数 + 去重后的原因,不让用户只看到一个数字
-      const reasons = summarizeFailureReasons(outcome.failureReasons)
-      setError(
-        tt('conversationImport.commitFailed', '导入失败:{error}', {
-          error: `${tt('conversationImport.commitDone', '导入完成:成功 {imported},失败 {failed}', {
-            imported: outcome.imported,
-            failed: outcome.failed,
-          })} ${reasons.join('; ')}`,
-        }),
-      )
-    } else {
-      Taro.showModal({
-        title: tt('common.hint', '提示'),
-        content: tt('conversationImport.commitDone', '导入完成:成功 {imported},失败 {failed}', {
-          imported: outcome.imported,
-          failed: outcome.failed,
-        }),
-        showCancel: false,
-        confirmText: tt('common.confirm', '确认'),
+  /** 逐会话串行提交:部分失败时结果区照常回带,同时把去重原因交给错误条 */
+  const onCommit = useCallback(
+    async (
+      sourceValue: string,
+      rowIds: readonly number[],
+      reportProgress: (progress: { done: number; total: number }) => void,
+    ): Promise<ImportCommitResult | string> => {
+      const source = toImportSource(sourceValue)
+      if (!source) return t('conversationImport.errorNoSource')
+      const outcome = await runImportCommit({
+        source,
+        fileName: parsedRef.current.fileName,
+        conversations: parsedRef.current.conversations,
+        rowIds,
+        commit: (payload) =>
+          commitConversationImport(payload) as Promise<ApiResult<ConversationImportCommitResult>>,
+        emptyContentReason: t('conversationImport.noValidContent'),
+        onProgress: reportProgress,
       })
-    }
-    resetPreview()
-    await loadHistory()
-  }, [source, selected, file, conversations, tt, loadHistory, resetPreview])
+      const result: ImportCommitResult = {
+        imported: outcome.imported,
+        failed: outcome.failed,
+        // 判序层用的是后端枚举全集,共享屏载荷只吃 ImportSource;与 RN 同口径显式收窄
+        committed: outcome.committed.map((c) => ({
+          conversationId: c.conversationId,
+          title: c.title,
+          messageCount: c.messageCount,
+          source: c.source as ImportSource,
+        })),
+      }
+      if (outcome.failed > 0) {
+        // 失败必须响:点名成功/失败条数 + 去重后的原因,不只报一个数字
+        const reasons = summarizeFailureReasons(outcome.failureReasons)
+        return {
+          ...result,
+          error: t('conversationImport.commitFailed', {
+            error: `${t('conversationImport.commitDone', {
+              imported: outcome.imported,
+              failed: outcome.failed,
+            })} ${reasons.join('; ')}`,
+          }),
+        }
+      }
+      return result
+    },
+    [t],
+  )
 
-  const toggle = useCallback((id: number) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }, [])
+  /** 导入历史:失败原文经 thrown Error 交给共享屏历史卡(不假装"从没导过") */
+  const onLoadHistory = useCallback(async (): Promise<ConversationImportHistoryRow[]> => {
+    const res = await getConversationImportHistory()
+    if (!res.success) throw new Error(res.error)
+    return res.data.list.map((item) => {
+      const status = toHistoryStatus(item.status)
+      const statusKey =
+        status === 'success'
+          ? 'conversationImport.statusSuccess'
+          : status === 'partial'
+            ? 'conversationImport.statusPartial'
+            : status === 'failed'
+              ? 'conversationImport.statusFailed'
+              : ''
+      return {
+        id: item.id,
+        fileName: item.fileName ?? '',
+        status,
+        statusLabel: statusKey ? t(statusKey) : item.status,
+        parsedCount: item.parsedCount,
+        importedCount: item.importedCount,
+        importedAt: toDateLabel(item.importedAt),
+        failedCount: item.failedCount,
+        errorMessage: item.errorMessage ?? undefined,
+      }
+    })
+  }, [t])
 
-  const toggleAll = useCallback(() => {
-    setSelected((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)))
-  }, [rows])
-
-  /**
-   * D28 补齐层:「打开会话」—— 跳聊天页并按 sessionId 恢复该导入会话。
-   * 既有唯一出口(historical 页点会话同款:url 传 sessionId,见 chat.tsx 的
-   * routeSessionId),不新造深链。
-   */
+  /** 「打开会话」:既有唯一出口(chat 页 routeSessionId),不新造深链 */
   const onOpenConversation = useCallback((conversationId: string) => {
     Taro.navigateTo({ url: `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(conversationId)}` })
   }, [])
 
-  /**
-   * D28 补齐层:「用场景分析」发起 —— 跳聊天页,带 prompt。
-   *
-   * 分析指令由聊天页在**回放该会话落定后**作为下一条用户消息自动发出
-   * (那边走既有 sendMessage → api/index 的 chatStream),历史里的导入记录即本轮上下文。
-   * prompt 走 url query:小程序页面间只有这一条既有数据通道,且 import-analysis 的
-   * 拼装结果通常 1~3KB,远在 navigateTo 的 query 长度上限内。
-   */
-  const onAnalyzeSubmit = useCallback(
-    (prompt: string) => {
-      const target = analysisTarget
-      setAnalysisTarget(null)
-      if (!target) return
-      Taro.navigateTo({
-        url:
-          `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(target.conversationId)}` +
-          `&prompt=${encodeURIComponent(prompt)}`,
-      })
-    },
-    [analysisTarget],
-  )
+  /** 「用场景分析」:prompt 走 url query,由聊天页在回放落定后作为下一条用户消息发出 */
+  const onAnalyze = useCallback((params: { conversationId: string; prompt: string }) => {
+    Taro.navigateTo({
+      url:
+        `/pkg-ai/ai/chat?sessionId=${encodeURIComponent(params.conversationId)}` +
+        `&prompt=${encodeURIComponent(params.prompt)}`,
+    })
+  }, [])
 
   return (
-    <View className="flex flex-col h-screen bg-background">
+    <ThemeRoot className="flex flex-col h-screen bg-background">
       <NavBar
-        title={tt('conversationImport.pageTitle', '外部会话导入')}
+        title={t('conversationImport.pageTitle')}
         showBack
         onBack={() => Taro.navigateBack()}
       />
-
-      <ScrollView className="flex-1 h-0" scrollY>
-        <View className="py-[24rpx] px-[32rpx] pb-[80rpx]">
-          <Text className="block text-label text-muted-foreground mb-[24rpx]">
-            {tt(
-              'conversationImport.desc',
-              '将 Claude Code / Codex / Cursor / Aider / 微信等外部工具的会话记录导入为平台会话',
-            )}
-          </Text>
-
-          {/* 错误条:解析失败 / 类型不支持 / 超限 / commit 失败,一律可见不静默 */}
-          {error ? (
-            <ThemeRoot className="flex items-start gap-[12rpx] p-[20rpx] mb-[24rpx] bg-card rounded-lg">
-              <View className="flex-shrink-0 mt-[4rpx]">
-                <LineIcon name="triangle-alert" size={28} color="var(--color-destructive)" />
-              </View>
-              <Text className="flex-1 text-label text-destructive">{error}</Text>
-            </ThemeRoot>
-          ) : null}
-
-          {/* Step 1 来源 */}
-          <Text className="block text-body text-foreground font-semibold mb-[16rpx]">
-            {tt('conversationImport.sourcesTitle', '选择会话来源')}
-          </Text>
-          <View className="flex flex-wrap gap-[12rpx] mb-[16rpx]">
-            {IMPORT_SOURCES.map((s) => {
-              const active = source === s.value
-              return (
-                <View
-                  key={s.value}
-                  className={`flex flex-col py-[12rpx] px-[20rpx] rounded-md flex-shrink-0 ${
-                    active ? 'bg-primary' : 'bg-card'
-                  }`}
-                  onClick={() => {
-                    setSource(s.value)
-                    resetPreview()
-                  }}
-                  hoverClass="opacity-60"
-                >
-                  <Text
-                    className={`text-body-sm leading-[normal] ${
-                      active ? 'text-foreground font-semibold' : 'text-foreground'
-                    }`}
-                  >
-                    {tt(s.labelKey, s.value)}
-                  </Text>
-                  <Text className="text-badge text-muted-foreground mt-[4rpx]">
-                    {tt(s.hintKey, '')}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
-
-          {/* Step 2 选文件(微信原生「从会话中选择文件」)+ 解析 */}
-          {source ? (
-            <View className="mb-[32rpx]">
-              <Button
-                className="h-[88rpx] leading-[88rpx] bg-card text-foreground rounded-sm text-body"
-                onClick={() => void onPick()}
-              >
-                {tt('conversationImport.pickFile', '从微信会话中选择导出文件')}
-              </Button>
-              <Text className="block text-caption text-muted-foreground mt-[12rpx]">
-                {tt(
-                  'conversationImport.uploadHint',
-                  '支持文本导出格式(zip 压缩包 / txt 纯文本),单文件不超过 20MB',
-                )}
-              </Text>
-              {file ? (
-                <Text className="block text-label text-foreground mt-[12rpx]">
-                  {tt('conversationImport.fileSelected', '已选择:{name}', { name: file.name })}
-                </Text>
-              ) : null}
-              <Button
-                className="mt-[20rpx] h-[88rpx] leading-[88rpx] bg-primary text-body rounded-sm"
-                disabled={!file || parsing}
-                onClick={() => void onParse()}
-              >
-                {parsing
-                  ? tt('conversationImport.parsing', '处理中...')
-                  : tt('conversationImport.parse', '解析')}
-              </Button>
-            </View>
-          ) : null}
-
-          {/* Step 3 预览 + 逐会话导入 */}
-          <ImportPreviewList
-            rows={rows}
-            selected={selected}
-            truncated={truncated}
-            warnings={warnings}
-            committing={committing}
-            progress={progress}
-            tt={tt}
-            onToggle={toggle}
-            onToggleAll={toggleAll}
-            onCommit={() => void onCommit()}
-          />
-
-          {/* D28 补齐层:导入结果区(取代"导完就没下文")。
-              每个成功落库的会话给两个出口:打开会话看原始记录 / 直接用场景分析。 */}
-          <ImportResultList
-            items={committed}
-            tt={tt}
-            onOpen={onOpenConversation}
-            onAnalyze={setAnalysisTarget}
-          />
-
-          {/* Step 4 导入历史 */}
-          {historyError ? (
-            <Text className="block text-label text-destructive mb-[12rpx]">{historyError}</Text>
-          ) : null}
-          <ImportHistoryList items={history} tt={tt} />
-        </View>
-      </ScrollView>
-
-      {/* 「用场景分析」面板:按需挂载。场景目录(492KB)由面板内部**异步 import** 拉取,
-          静态引入会超小程序主包 2MB 硬上限(实测余量仅 63,454 B)。
-          source 取该条目落库时那一份,不读页面当前来源选择状态。 */}
-      <ImportAnalysisPanel
-        visible={analysisTarget !== null}
-        onClose={() => setAnalysisTarget(null)}
-        source={analysisTarget?.source ?? null}
-        tt={tt}
-        onSubmit={onAnalyzeSubmit}
+      <ConversationImportScreen
+        t={t}
+        sources={sources}
+        onPickFile={onPickFile}
+        onParse={onParse}
+        onCommit={onCommit}
+        onLoadHistory={onLoadHistory}
+        onOpenConversation={onOpenConversation}
+        onAnalyze={onAnalyze}
       />
-    </View>
+    </ThemeRoot>
   )
 }
+
 // PLACEHOLDER-TAIL
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

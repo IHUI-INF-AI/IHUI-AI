@@ -267,7 +267,9 @@ export function ImportAnalysisSheet({
                           value={variables[name] ?? ''}
                           placeholder={t('conversationImport.analysisVarPlaceholder', { name })}
                           placeholderTextColor={tk.text.tertiary}
-                          onChangeText={(v) => setVariables((prev) => ({ ...prev, [name]: v }))}
+                          onChangeText={(v: string) =>
+                            setVariables((prev) => ({ ...prev, [name]: v }))
+                          }
                         />
                       </View>
                     ))
