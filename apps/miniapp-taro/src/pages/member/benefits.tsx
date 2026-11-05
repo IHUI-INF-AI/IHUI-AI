@@ -22,10 +22,9 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
-import {
-  VipBenefitScreen as SharedVipBenefitScreen,
-  type VipBenefitItem,
-} from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
+import { VipBenefitScreen as SharedVipBenefitScreen } from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
+// 共享屏的模块声明档(types/rn-shells.generated.d.ts)只声明组件、不透传类型 ⇒ 类型从真相源取
+import type { VipBenefitItem } from '@ihui/types'
 
 interface Benefit {
   id: string

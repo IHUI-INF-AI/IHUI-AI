@@ -458,6 +458,14 @@ export interface ChangePwdScreenProps {
   onToggleConfirm: () => void
   onSubmit: () => void
   colorScheme?: 'light' | 'dark'
+  /** 可选:提交按钮文案(缺省为 common.confirm);小程序端沿用「修改密码」 */
+  submitLabel?: string
+  /** 可选:渲染「忘记原密码」入口(点击由宿主注入;缺省不渲染) */
+  onForgotOld?: () => void
+  forgotLabel?: string
+  /** 可选:字段内联校验提示(缺省不渲染;校验规则仍由宿主决定) */
+  newPwdError?: string
+  confirmPwdError?: string
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
