@@ -590,6 +590,10 @@ describe('④ 源码级反向锁', () => {
     resolve(__dirname, '../src/pkg-ai/ai/chat-list-extras.tsx'),
     'utf8',
   )
+  const shellExtrasSrc = readFileSync(
+    resolve(__dirname, '../src/pkg-ai/ai/chat-shell-extras.tsx'),
+    'utf8',
+  )
   const historySrc = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/history.tsx'), 'utf8')
 
   it('三个文件都不得绕过 api-client 直连后端(守门 73 的本地预锁)', () => {
@@ -632,7 +636,8 @@ describe('④ 源码级反向锁', () => {
     expect(chatSrc).toContain('earlierHasMore')
     expect(chatSrc).toContain('getMessages(routeSessionId, { cursor, direction:')
     expect(chatSrc).toContain('prependEarlierMessages(')
-    expect(chatSrc).toContain('<ChatListHeader')
+    // 最终壳:列表头节点由端内壳装配文件传入共享屏槽位
+    expect(shellExtrasSrc).toContain('<ChatListHeader')
     expect(chatExtrasSrc).toContain("t('ai.chat.loadEarlier')")
   })
 
