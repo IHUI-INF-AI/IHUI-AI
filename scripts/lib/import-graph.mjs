@@ -670,15 +670,18 @@ export function widenOverDependents(changed, graph) {
  *
  * 三条不可破的不变量(镜像测试钉死):
  *  1. 闭包 ⊇ 改动集本身 —— 加宽只加不减;`null`(git 不可用)等不可用状态原样返回,不改写;
- *  2. 建图 / 闭包失败 ⇒ 退回**未加宽**的逐字 files + 可见 reason(不崩、不静默假装成功,
- *     也不把环境故障升级成硬拦):增强失效不等于基线失效,退回后 == 改前路径前缀行为;
+ *  2. 建图 / 闭包失败 ⇒ 退回**未加宽**的逐字 files + 可见 reason + `ok:false`(不崩、不静默
+ *     假装成功)。`ok:false` 是给**降级判据**的 fail-closed 信号:check-typecheck 收到后必须
+ *     拒绝把报错当"范围外噪音"放行(2026-11-02 P3:建图失败 ⇒ 宁可拦,不可假绿)。
+ *     `widened` 仍只表示"闭包新增了 importer";空闭包 / 非源码扩展名 / 空集都是 `ok:true`。
  *  3. 改动集没有任何源码扩展名(全 .md/.json/.ps1/图片…)⇒ 图里不可能有它们的 dependents,
  *     **跳过建图**(真仓建图 5~25s,纯文档/配置提交不该白付这笔)。
  *
  * @param {string[]|null} files 改动文件(repo 相对路径,正斜杠)
  * @param {{face?:string, root?:string, buildGraph?:Function}} [opts]
  *   buildGraph 是唯一测试缝(生产默认 buildFileGraph;测试注入构造图,不真建图)。
- * @returns {{files:string[]|null, added:string[], widened:boolean, seedCount:number, reason:string}}
+ * @returns {{files:string[]|null, added:string[], widened:boolean, ok:boolean, seedCount:number, reason:string}}
+ *   ok=false 只表示"加宽判据不可用"(建图/闭包失败);调用方据此关闭依赖降级的放行方向。
  */
 export function widenFilesOverDependents(
   files,
@@ -689,6 +692,7 @@ export function widenFilesOverDependents(
       files,
       added: [],
       widened: false,
+      ok: true,
       seedCount: 0,
       reason: '改动集为空或不可用(非数组/null),无需加宽,原样返回',
     }
@@ -698,6 +702,7 @@ export function widenFilesOverDependents(
       files,
       added: [],
       widened: false,
+      ok: true,
       seedCount: 0,
       reason: '改动集无源码扩展名(.ts/.tsx/.js/.mjs 等),import 图闭包必然为空,跳过建图',
     }
@@ -710,8 +715,9 @@ export function widenFilesOverDependents(
       files,
       added: [],
       widened: false,
+      ok: false,
       seedCount: 0,
-      reason: `建图失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为)`,
+      reason: `建图失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为),降级判据必须关闭`,
     }
   }
   try {
@@ -720,6 +726,7 @@ export function widenFilesOverDependents(
       files: w.closure,
       added: w.added,
       widened: w.added.length > 0,
+      ok: true,
       seedCount: w.seedCount,
       reason:
         w.added.length > 0
@@ -731,8 +738,9 @@ export function widenFilesOverDependents(
       files,
       added: [],
       widened: false,
+      ok: false,
       seedCount: 0,
-      reason: `闭包计算失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为)`,
+      reason: `闭包计算失败(${String((e && e.message) || e).slice(0, 120)})——退回未加宽(=改前行为),降级判据必须关闭`,
     }
   }
 }
