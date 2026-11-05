@@ -118,7 +118,21 @@ WORKBUDDY_TASKS_SWEEP_MINUTES=180
 
 ## 5. 已知边界(不是 bug,别当 bug 修)
 
-- **上报成功 ≠ 计分。** `activity` 返回 200 只代表平台受理了这次上报;是否计分取决于平台侧对「真实行为」的判定。`first_chat` 这类任务需要真的发起对话才会达标。伪造行为判据链属于风控对抗,本仓库不做。
+- **上报成功 ≠ 计分(2026-11-05 两轮真机实证,报文级)。** `activity` 返回 200 只代表平台受理了这次上报;是否计分取决于平台侧对「真实行为」的判定。实证:
+  - 账号 3559:5 个事件码 POST `/v2/report` ⇒ 全部 200 `code:0`,成长任务状态纹丝不动。
+  - 账号 3564:4 个事件码 × 令牌域/WEB 域共 16 次 ⇒ 全部 200 `code:0`;事件后复列 WEB 域 18 行,`template_5`/`chat_5`/`skill_1`/`expert_5` 的 `progress` 与 `status` **逐字段零变化**。
+  - 单对象与官方数组形态(`[{eventCode,timestamp,reportDelay,…}]`)两种报文都受理、都**不**推进进度。
+  ⇒ 合成遥测事件对成长计分**零效果**。引擎据此只认「重读任务列表确认 `progress`/`status` 确已前进」这一凭据,受理回执不算数;否则如实登记为待用户在客户端实操。`first_chat` 这类任务需要真的发起对话才会达标。伪造行为判据链属于风控对抗,本仓库不做。
+- **成长任务分两个域,别混。** CLI 域(`copilot.tencent.com`)5 项新手引导、WEB 域(`www.workbuddy.cn`)18 项成长任务,两域合并才覆盖账号全部任务。`accept` 端点(`/activity/growth/tasks/accept`,body `{"task_codes":[…]}`)只认 **WEB 域**的任务码:对 CLI 域那 5 个码逐条回 `status=error` / `message=task not found`。
+- **`accept` 的逐任务三态(2026-11-05 真机,同一轮实测)。** `data.results[]` 逐任务给 `{task_code,status,message}`:
+  | status | message | 含义 | 引擎记账 |
+  | --- | --- | --- | --- |
+  | `error` | `task not found` | 该码不在 accept 面向的战役里 | 失败(逐条点名) |
+  | `error` | `task already completed` | 已完成,不必再 accept | 失败(逐条点名) |
+  | `already_accepted` | 无 | **成功态**:此前已被接受、现在等真实行为 | 记为 accepted |
+  信封 `code:0` **不等于**全部成功,必须逐条记账,不得整包冒充 accepted。
+- **`accepted` ≠ 完成。** WEB 域行的 `accept_status`:`claimed` = 已完成已领;`accepted` = **已接受、等真实行为**(`progress` 仍 0/target 1)。真机活例:`Expert_lighthouse`、`wb_wechat_oa_subscribe_task` 就是 `accepted`/`progress 0`,是真正的待办项,不是「完成待领」。把它们当完成 ⇒ 引擎会漏报待办。
+- **上报端点族只有 `/v2/report` 一条。** 真机打 `/v2/report-assistant` 在令牌域与 WEB 域**均 404「404 Route Not Found」**;官方客户端 asar(`G:\workbuddy\resources\app.asar`)内 `v2/report` 命中 9 次、`report-assistant` **0 次**。客户端另有 `reportEndpoint` 选项 ⇒ 真正的「另一个上报端点」是**另一个主机**不是另一个路径(对应本仓 `WORKBUDDY_TASKS_ACTIVITY_HOSTS` 按事件码路由主机)。- **号池账号默认没有浏览器会话。** 现读 5 个 workbuddy 号池账号:`login_type` 全为 `null`、`web_cookie` 全缺。所以「有浏览器会话才计分」这条路在当前号池形态下**根本走不到**;真要有会话,走网页登录取得 `web_cookie` 再落 `device_map`(见 `scripts/sync-workbuddy-client-session.mjs` 会话回灌腿)。
 - **档位未解锁的 redeem / 抽奖次数为 0 的 lottery** 会正常返回业务错误(如「连续登录天数不足」),这不算失败,也不会标死账号。判断逻辑见 `_is_business_reject`。
 - **`travel` 当天已走过** 会返回 `daily_limit_reached=true`,按「跳过」处理并写明原因,不拖垮整轮 `ok`。
 - **冷却中的账号整轮跳过**,并计入 `last_sweep.skipped_cooldown`。
