@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { CategoryDetailScreen as SharedCategoryDetailScreen } from '@ihui/rn-app'
@@ -24,6 +24,7 @@ export default function CategoryDetailScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const route = useRoute<RouteProp<RootStackParamList, 'CategoryDetail'>>()
 
   const [items, setItems] = useState<
     {
@@ -107,6 +108,8 @@ export default function CategoryDetailScreen() {
       }}
       colorScheme={resolvedTheme}
       title="分类详情"
+      // 分类头与 web 共用同一段(CategoryHeader);RN 只有路由 title,不伪造状态/时间
+      header={{ name: route.params.title }}
       tabLabels={['推荐', '热门', '最新']}
     />
   )
