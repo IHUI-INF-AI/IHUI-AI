@@ -7028,5 +7028,11 @@
     "fields": {
       "payMethod": "支払い方法"
     }
+  },
+  "developerHomePage": {
+    "statApiKeys": "APIキー"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "下位メンバーはいません"
   }
 }
