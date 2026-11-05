@@ -60,6 +60,7 @@ import {
 
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
+  BOTTOM_ACTION_BAR_CHIP_FONT_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
   BOTTOM_ACTION_BAR_TEXT_FONT_PX,
@@ -229,6 +230,8 @@ const COLUMN_GAP = 8
 const ACTION_BUTTON_HEIGHT = 44
 /** 旧模式文字按钮字号:与输入框同一档,取共享源(原 15 不在 design-tokens 字号档上)。 */
 const ACTION_BUTTON_FONT_SIZE = BOTTOM_ACTION_BAR_TEXT_FONT_PX
+/** toggle chip 字号:两端同值档,必须直取共享源(2026-11-04 props-parity 批曾误退成 TEXT_FONT)。 */
+const TOGGLE_CHIP_FONT_SIZE = BOTTOM_ACTION_BAR_CHIP_FONT_PX
 const ICON_BUTTON_SIZE = 44
 const ICON_BUTTON_EMOJI_SIZE = 18
 const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2
@@ -825,7 +828,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.xs,
   } as ViewStyle,
   toggleChip: {
-    borderRadius: rnRadius.lg,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
     paddingHorizontal: rnSpacing.sm,
     paddingVertical: rnSpacing.xs,
@@ -834,7 +837,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   } as ViewStyle,
   toggleChipText: {
-    fontSize: BOTTOM_ACTION_BAR_TEXT_FONT_PX,
+    fontSize: TOGGLE_CHIP_FONT_SIZE,
     color: tokens.text.secondary,
   } as TextStyle,
   toggleChipTextActive: {

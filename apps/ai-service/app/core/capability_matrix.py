@@ -916,6 +916,18 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "reason_if_off": "写侧是否真跑:false=_workbuddy_task_sweep 以 dry_run=True 只算不发;true 才真实 POST 领任务/领奖/上报/兑换/抽奖(外部写,有副作用),须与 enabled 双双显式开启",
         "settings_field": "workbuddy_tasks_live_run",
     },
+    {
+        # 2026-11-05 补登记:growth 族行为规划驱动器总开关(config.py 引入)漏登台账,
+        # J4 判「settings 族能力失明」。默认关 ⇒ reporter=None,行为任务只登记不动作。
+        "key": "workbuddy_tasks_behavior_driver_enabled",
+        "env": "WORKBUDDY_TASKS_BEHAVIOR_DRIVER_ENABLED",
+        "default": "false",
+        "category": "开关类",
+        "owner_module": "app.services.workbuddy_behaviors",
+        "doc_ref": "app/services/workbuddy_behaviors.py:build_default_activity_reporter",
+        "reason_if_off": "行为规划驱动器默认关:关闭即 reporter=None,行为任务只登记不动作;开启后 growth 族走默认行为计分回调,可自动则自动、不可自动如实登记为待用户在客户端实操",
+        "settings_field": "workbuddy_tasks_behavior_driver_enabled",
+    },
     # ============ 工具面能力门(缺口表 #7,2026-11-01 立)============
     # 这两枚的**读取点就是本台账**(current_for_entry):声明面(env 字面量)住在
     # app/services/tool_surface.py,取数只有这一条通道 ⇒ 列表面与执行面不可能一把尺读

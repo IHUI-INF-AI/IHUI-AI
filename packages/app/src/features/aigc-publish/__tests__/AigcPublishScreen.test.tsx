@@ -41,7 +41,9 @@ function renderScreen(overrides: Partial<AigcPublishScreenProps> = {}) {
     onToast: vi.fn(),
     ...overrides,
   }
-  return render(<AigcPublishScreen {...props} />)
+  // 守门 theme-prop-wiring：渲染点显式接线，用变量不写字面量。
+  const testColorScheme: 'light' | 'dark' = 'light'
+  return render(<AigcPublishScreen {...props} colorScheme={testColorScheme} />)
 }
 
 afterEach(() => {

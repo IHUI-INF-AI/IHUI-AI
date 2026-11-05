@@ -6045,8 +6045,29 @@
       "present": "正常",
       "late": "遲到",
       "absent": "缺勤",
-      "leave": "請假"
-    }
+      "leave": "請假",
+      "early": "早退"
+    },
+    "actionDone": "操作成功",
+    "actionFailed": "操作失敗",
+    "batchResult": "點名完成：新增 {created}、跳過 {skipped}、遺漏 {missed}",
+    "batchTitle": "整班點名",
+    "chooseAction": "選擇操作",
+    "chooseClass": "選擇要點名的班級",
+    "emptyTrend": "暫無趨勢數據",
+    "loadStatsFailed": "載入考勤統計失敗，請稍後重試",
+    "needClassId": "缺少班級資訊，無法代簽到／簽退",
+    "noClass": "目前清單沒有可選班級",
+    "onlyTodayCheckIn": "僅可為當日考勤代簽到：跨日回填需給出該日內時刻，本屏未提供",
+    "qrEntry": "出示簽到碼",
+    "statsAttendanceRate": "出勤率",
+    "statsTotalLabel": "考勤總人次",
+    "statusDistribution": "狀態分佈",
+    "statusOther": "其他",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）",
+    "trendChartScope": "統計範圍：{scope}",
+    "trendChartTitle": "出勤趨勢",
+    "trendWindow": "近 {days} 天"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -7239,6 +7260,12 @@
       }
     }
   },
+  "NavBar": {
+    "text1": "每日資訊",
+    "z1": "加入社群群組",
+    "feedback": "意見回饋",
+    "fenlei": "分類"
+  },
   "chatSettingsPage": {
     "model": "模型"
   },
@@ -7273,5 +7300,31 @@
   },
   "activities": {
     "join": "立即參與"
+  },
+  "eduAttendanceQr": {
+    "chooseClass": "選擇班級",
+    "classLoadFailed": "班級清單載入失敗",
+    "expiresIn": "{s} 秒後過期",
+    "needLogin": "請先登入後再掃碼",
+    "nextStepHint": "請先到考勤規則為該班啟用規則並設定掃碼金鑰(qrSecret),再重新出碼",
+    "noClass": "暫無可選班級",
+    "pickClassFirst": "請先選擇班級",
+    "qrTip": "讓學生用「掃碼簽到」掃描此碼",
+    "refresh": "重新出碼",
+    "scanDone": "簽到成功",
+    "scanFailed": "簽到失敗",
+    "scanHint": "將老師的簽到二維碼放入框內",
+    "scanInvalidCode": "這不是本系統的簽到二維碼",
+    "scanSubmitting": "正在簽到…",
+    "scanTitle": "掃碼簽到",
+    "title": "簽到二維碼"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "班級由後端按在冊學籍自動確定",
+    "date": "日期",
+    "notLoggedIn": "尚未登入，無法操作",
+    "scanCheckIn": "掃碼簽到",
+    "selfCheckIn": "我要簽到",
+    "title": "我的考勤"
   }
 }

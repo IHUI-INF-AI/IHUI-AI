@@ -96,7 +96,7 @@ export default function ModelTypeButtonGroup({
   // ===== compact 模式:兼容旧调用 =====
   return (
     <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
-      <View className="inline-flex flex-row items-center px-3 py-2">
+      <View className="inline-flex flex-row items-center px-md py-sm">
         {types.map((cfg) => (
           <ModelTypeButton
             key={cfg.type}

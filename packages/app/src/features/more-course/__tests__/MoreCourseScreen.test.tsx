@@ -25,15 +25,24 @@ const baseProps: MoreCourseScreenProps = {
 
 afterEach(cleanup)
 
+// 守门 theme-prop-wiring：主题驱动组件的渲染点必须显式接线（字面量与漏传同红）。
+const testColorScheme: 'light' | 'dark' = 'light'
+
 describe('MoreCourseScreen 可选能力', () => {
   it('缺省不渲染轮播与知识星球区块', () => {
-    render(<MoreCourseScreen {...baseProps} />)
+    render(<MoreCourseScreen {...baseProps} colorScheme={testColorScheme} />)
     expect(screen.queryByLabelText('轮播图')).toBeNull()
     expect(screen.queryByText('知识星球')).toBeNull()
   })
 
   it('注入 bannerImages 后渲染轮播', () => {
-    render(<MoreCourseScreen {...baseProps} bannerImages={[{ uri: 'a.jpg' }, { uri: 'b.jpg' }]} />)
+    render(
+      <MoreCourseScreen
+        {...baseProps}
+        colorScheme={testColorScheme}
+        bannerImages={[{ uri: 'a.jpg' }, { uri: 'b.jpg' }]}
+      />,
+    )
     expect(screen.getAllByLabelText(/轮播图 \d/)).toHaveLength(2)
   })
 
@@ -43,6 +52,7 @@ describe('MoreCourseScreen 可选能力', () => {
     render(
       <MoreCourseScreen
         {...baseProps}
+        colorScheme={testColorScheme}
         planet={{
           items: [
             { id: 'n1', title: '星球资讯一', summary: '摘要', createdAt: 1 },

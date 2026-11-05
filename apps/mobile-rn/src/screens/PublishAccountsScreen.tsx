@@ -500,7 +500,7 @@ function makeStyles() {
     muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',
@@ -539,7 +539,7 @@ function makeStyles() {
       justifyContent: 'center',
       gap: rnSpacing['xs-loose'],
     },
-    outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    outlineBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -561,7 +561,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     disabled: { opacity: 0.5 },
   })
 }

@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **622 table
 | 工程守门 | 333 | `guardianGates` |
 | — blocking | 303 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19116 | `trackedFiles` |
+| 跟踪文件 | 19095 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

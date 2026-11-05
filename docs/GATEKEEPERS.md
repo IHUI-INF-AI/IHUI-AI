@@ -386,9 +386,9 @@ git commit
 
 ---
 
-## 3b. 跨端五门(288/289/290/291/292,2026-11-03 落地,均 blocking)
+## 3b. 跨端五门(288/290/291/292/298,2026-11-03 落地,均 blocking)
 
-> 编号 = `scripts/guardian-runner.mjs` 注册 id(`id: '288'`/`'289'`/`'290'`/`'291'`/`'292'`);本节只记语义与出口,存量/计数一律现读(`AGENTS.md §0.1`)。
+> 编号 = `scripts/guardian-runner.mjs` 注册 id(`id: '288'`/`'290'`/`'291'`/`'292'`/`'298'`);本节只记语义与出口,存量/计数一律现读(`AGENTS.md §0.1`)。
 
 ### 第 288 项 check-cross-end-component-props-parity.mjs(差值棘轮,不是绝对恒红)
 
@@ -399,7 +399,7 @@ git commit
 - **`not-applicable` 裁决档**(整对不构成对账对象):owner + expires + evidence(仓库内 `文件:行`,该行必须真是声明)+ why 四件齐全、未到期才生效。可裁 `undetermined`(把"没读到"显式裁决掉),也可裁"能量出但确非同物"的整对(后者至少 2 条证据覆盖双端);缺字段/过期/证据指空 ⇒ `invalid-not-applicable-ruling` 红,`--update-baseline` 冲不掉,只能显式撤销;不许拿它把单键缺口洗成"整对不适用"。
 - **出口**:`node scripts/check-cross-end-component-props-parity.mjs [--staged|--json|--quiet|--self-test]`;应急 `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1`。
 
-### 第 289 项 check-plan-deferred-expiry.mjs(台账 `deferred@` 到期)
+### 第 292 项 check-plan-deferred-expiry.mjs(台账 `deferred@` 到期)
 
 - **标记**:`deferred@YYYY-MM-DD(到期复评)` 里的日期是**允许继续挂着的最后一天**——当天不红,次日起红(`scripts/check-plan-deferred-expiry.mjs:10`);编号/owner 分别取 `scripts/lib/plan-task-index.mjs` 与 `scripts/data/plan-fields.jsonl`,本门不复制键名规则。
 - **宽限**:`--grace N`(默认 0)把红线整体顺延 N 天,是"允许补复评的时间",不是"再挂 N 天"(`scripts/check-plan-deferred-expiry.mjs:15`)。
@@ -423,7 +423,7 @@ git commit
 - **台账**:`scripts/data/web-rn-copy-diffs.json`。B1/B3 新增未挂账 ⇒ 红;B2 只 advisory;但三条 rule 的条目**过期/缺字段一律红**(账本纪律不因 advisory 档放松)。
 - **出口**:`node scripts/check-web-rn-copy-parity.mjs [--gate|--staged] [--json] [--self-test]`;应急 `HUSKY_SKIP_WEB_RN_COPY_PARITY=1`。
 
-### 第 292 项 check-staged-downgrade.mjs(旧 blob 回写)
+### 第 298 项 check-staged-downgrade.mjs(旧 blob 回写)
 
 - **判据**:暂存 blob **整 blob 逐字**等于该路径某枚祖先 blob、而 HEAD 已有更新版本 ⇒ 红,点名「路径 + 祖先 sha + HEAD oid」。祖先窗口默认回看 80 枚"改过该路径"的提交(`scripts/lib/ancestor-downgrade.mjs:30`);判据单源同文件,`gen-ui-mirror --apply` 写手侧前置复用(`downgrade=` 拒写)。
 - **合法回滚**:提交正文行首写 `intentional-revert: <依据>`(大小写不敏感,依据去空白 ≥8 字符,`scripts/lib/ancestor-downgrade.mjs:33`、`:36`);行首才认,模板注释 `#` 之后不算(`:52`)。命中 ⇒ 放行并逐条留痕 `.ihui-agent/state/intentional-revert.jsonl`(留痕失败不影响放行)。空口"有意回退"不算。
@@ -519,10 +519,10 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | 门 | 脚本 | 跳过变量 | 默认档 |
 |----|------|----------|--------|
 | 288 | `scripts/check-cross-end-component-props-parity.mjs` | `HUSKY_SKIP_CROSS_END_PROPS_PARITY=1` | blocking(差值棘轮) |
-| 289 | `scripts/check-plan-deferred-expiry.mjs` | `HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1` | blocking |
+| 292 | `scripts/check-plan-deferred-expiry.mjs` | `HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1` | blocking |
 | 290 | `scripts/check-miniapp-interaction-hygiene.mjs` | `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1` | blocking(A1/A2);A3/A4 advisory |
 | 291 | `scripts/check-web-rn-copy-parity.mjs` | `HUSKY_SKIP_WEB_RN_COPY_PARITY=1` | blocking(B1/B3);B2 advisory |
-| 292 | `scripts/check-staged-downgrade.mjs` | `HUSKY_SKIP_STALE_DOWNGRADE=1` | blocking |
+| 298 | `scripts/check-staged-downgrade.mjs` | `HUSKY_SKIP_STALE_DOWNGRADE=1` | blocking |
 
 > 五个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 

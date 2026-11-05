@@ -62,7 +62,7 @@ export default function ModelTypeButton({
   // ===== compact 模式:兼容旧调用(纵向布局 图标+文字)=====
   return (
     <View
-      className={`flex flex-col items-center justify-center mr-3 px-3 py-2 rounded-sm transition-colors ${
+      className={`flex flex-col items-center justify-center mr-md px-md py-sm rounded-sm transition-colors ${
         active ? 'bg-primary/10 border border-primary/30' : 'bg-muted border border-transparent'
       }`}
       onClick={() => onClick?.(type)}
@@ -72,11 +72,9 @@ export default function ModelTypeButton({
         name={icon}
         size={40}
         color={active ? 'var(--color-primary)' : 'var(--color-muted-foreground)'}
-        className="mb-1"
+        className="mb-xs"
       />
-      <Text className={`text-caption ${active ? 'text-primary' : 'text-foreground'}`}>
-        {label}
-      </Text>
+      <Text className={`text-caption ${active ? 'text-primary' : 'text-foreground'}`}>{label}</Text>
     </View>
   )
 }

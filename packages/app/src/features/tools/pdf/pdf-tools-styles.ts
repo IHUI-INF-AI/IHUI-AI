@@ -51,7 +51,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       paddingVertical: rnSpacing['3xl'],
     },
-    uploadText: { fontSize: 13, color: tk.text.tertiary },
+    uploadText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     fileRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -63,7 +63,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
     },
     fileMain: { flex: 1, gap: rnSpacing['2xs'] },
-    fileName: { fontSize: 13, color: tk.text.primary },
+    fileName: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     fileMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     iconBtn: { padding: rnSpacing['xs-loose'] },
     orderBtns: { flexDirection: 'row', gap: rnSpacing['2xs'] },
@@ -77,10 +77,10 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     chipActive: { backgroundColor: tk.brandAccent.light, borderColor: tk.brandAccent.DEFAULT },
-    chipText: { fontSize: 13, color: tk.text.secondary },
+    chipText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     chipTextActive: { color: tk.brandAccent.deep, fontWeight: '600' },
     field: { gap: rnSpacing['xs-loose'] },
-    fieldLabel: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    fieldLabel: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     input: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
@@ -88,7 +88,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: rnSpacing['sm-loose'],
       paddingVertical: rnSpacing.sm,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.primary,
     },
     hintBox: {
@@ -98,7 +98,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       padding: rnSpacing.md,
     },
-    hintText: { fontSize: 13, color: tk.text.tertiary },
+    hintText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     posGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     posCell: {
       width: '31%',
@@ -152,7 +152,7 @@ export function createPdfToolsStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
     },
     noticeMain: { flex: 1, gap: rnSpacing.xs },
-    noticeTitle: { fontSize: 13, fontWeight: '700', color: tk.warning.amberText },
+    noticeTitle: { fontSize: rnType.bodySm.size, fontWeight: '700', color: tk.warning.amberText },
     noticeText: { fontSize: rnType.label.size, color: tk.warning.amberText },
     resultBox: {
       backgroundColor: tk.surface.light,

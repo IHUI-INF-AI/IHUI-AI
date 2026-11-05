@@ -207,7 +207,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    ghostBtnText: { fontSize: 13, color: tk.text.secondary },
+    ghostBtnText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     // —— 分页 ——
     pagerRow: {
       flexDirection: 'row',
@@ -225,8 +225,8 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    pagerBtnText: { fontSize: 13, color: tk.text.primary },
-    pagerBtnTextDisabled: { fontSize: 13, color: tk.text.tertiary },
+    pagerBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
+    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
     // —— 空态 / 错误 / 骨架 ——
     emptyBox: {
@@ -238,7 +238,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       borderStyle: 'dashed',
     },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },
