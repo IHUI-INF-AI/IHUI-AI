@@ -26,23 +26,6 @@
   color: var(--vip-text);
 }
 
-/* 共享屏挂载容器(2026-11-05):共享屏 ScrollView 依赖 flex 高度,
-   ThemeRoot 自身的 min-height:100vh 不足以让内部 flex:1 生效 ⇒ 页面级定高 */
-.vip-shared-root {
-  /* 弹层(pp-*)沿用 .vip-page 的局部变量作用域;共享屏本体用内联 token 样式,
-     这里保留变量让 index.tsx 挂载的弹层样式与改造前一致 */
-  --vip-gold: var(--color-vip-gold-start);
-  --vip-text: var(--color-foreground);
-  --vip-text-muted: var(--color-muted-foreground);
-  --vip-border: var(--color-border);
-  --vip-card-bg: var(--color-card);
-  --vip-card-bg-hover: var(--color-muted);
-  --vip-buy-bg: var(--color-card);
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
 /* ===== 头部 400rpx(依赖 vip_back.png 深色背景图,图上方保留白字) ===== */
 .header {
   position: relative;
