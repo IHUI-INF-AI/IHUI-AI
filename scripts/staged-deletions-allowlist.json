@@ -82,6 +82,10 @@
     {
       "path": "deploy/cf-preferred-ip.mjs",
       "reason": "2026-11-02 有意删除(整链退役收尾):本件早由 7c02b0fb48 删除,但该枚不是 HEAD 祖先,自动收编只带回了配套测试口径而未带回删除,导致 check-plan-claims-vs-head 期待 retired 而文件仍在 HEAD。本门 E1 点名的唯一引用方 scripts/tests/check-plan-claims-vs-head.test.mjs:127 不是消费者,而是退役锁的判据目标字面量 —— 该用例断言本路径必须不在 HEAD 且删除证据带枚 sha;同口径记载在 PROJECT_PLAN.md(整链退役:脚本与 .env.example 删除、.gitignore 条目摘除)。本条豁免仅记录『否定断言引用』这一形态,不改门 99 判据。问责复跑:node --test scripts/tests/check-plan-claims-vs-head.test.mjs。"
+    },
+    {
+      "path": "packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts",
+      "reason": "2026-11-05 随被测件同批退役(与模型编辑保存层上收同笔):本测试被测的 buildModelEditBillingPayload / submitModelEdit 住在同笔一并删除的 packages/app/src/features/model-edit/model-edit-save.ts;该能力于 2026-11-03 上收,现役实现为 packages/shared/src/utils/model-edit-billing.ts(经 packages/shared/src/utils/index.ts 具名出口),现役消费者为 apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:17 与 apps/mobile-rn/src/screens/ModelEditScreen.tsx:19(两处均 `import { submitModelEdit } from '@ihui/shared/utils'`),等价测试已存在于 packages/shared/src/utils/__tests__/model-edit-billing.test.ts(与被删件逐例同断言,仅 import 来源不同),删本件不减少任何行为覆盖。本门 E3『它测的模块仍在 packages/app/src/types.ts』是误判形态:该测试对 ../../../types 只 import 了 type ModelEditFormValues 类型标注,并非被测主体;门按 import 文件存在即判『被测模块仍在』,识别不出『仅类型 import + 被测符号全数退役』——与本台账 apps/cli/tests/argument-repair.test.ts 条目同型。本条豁免记录该形态,不改门判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-orphan-deletion-refs.mjs;packages/shared 内 pnpm exec vitest run src/utils/__tests__/model-edit-billing.test.ts。"
     }
   ]
 }
