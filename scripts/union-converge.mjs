@@ -415,7 +415,12 @@ function listPaths(rev, cwd) {
 
 /** 两侧相对基底的"动过的路径"清单(含仅改 mode —— 它同样会进 diff --name-only)。 */
 function diffNames(a, b, cwd) {
-  return git(['diff', '--name-only', a, b], cwd).split('\n').filter(Boolean)
+  // 2026-11-05:必须关掉重命名检测。水印头让任意两文件都有 ~60% 相同字节,`git diff` 会把
+  // "对侧删掉的 A" 报成 "A → 某侧新文件 B 的 R061 重命名",`--name-only` 只吐新路径,
+  // 于是 A 根本不进删除循环 ⇒ 合并树里留着 A,而 A 依赖的另一份被删文件已消失(实测
+  // doubao-voice-api.ts → apps/web/src/config/base-path.ts 的假重命名,留下悬空 import)。本器
+  // 判的是逐路径处置权,重命名感知只会把"删"折成"改名",这里一律按路径面比较。
+  return git(['diff', '--no-renames', '--name-only', a, b], cwd).split('\n').filter(Boolean)
 }
 
 /** 内容面判据不得走 `git()`(encoding utf8 + trim 会毁掉二进制与行尾),单开 buffer 通道。 */
@@ -4813,7 +4818,7 @@ async function main() {
   // 仍然是同一把 alignSharedIndex 尺(别人真暂存过就跳过并点名),不另立判据。
   let treeDiffPaths = []
   try {
-    treeDiffPaths = git(['diff', '--name-only', t.head, p.tree])
+    treeDiffPaths = git(['diff', '--no-renames', '--name-only', t.head, p.tree])
       .split(/\r?\n/)
       .map((x) => x.trim())
       .filter(Boolean)
