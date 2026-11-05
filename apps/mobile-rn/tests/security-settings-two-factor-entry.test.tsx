@@ -109,15 +109,31 @@ function writeCalls(): unknown[][] {
 }
 
 /** 共享屏的「无注入」直调形态:薄壳不注入时,渲染面必须与它逐字节相同。 */
-function renderShared(extra: Partial<Record<keyof SharedProps, unknown>> = {}) {
+function renderShared() {
+  const stateRow = (key: keyof SecuritySettingsItem, label: string) => ({
+    key,
+    label,
+    stateText: zh(SETTINGS[key] ? 'securitySettings.stateOn' : 'securitySettings.stateOff'),
+    stateTone: SETTINGS[key] ? ('success' as const) : ('muted' as const),
+  })
   const props = {
     t: zh,
-    settings: SETTINGS,
+    sections: [
+      {
+        key: 'security',
+        desc: zh('securitySettings.desc'),
+        hint: zh('securitySettings.readOnlyHint'),
+        items: [
+          stateRow('passwordEnabled', zh('securitySettings.password')),
+          stateRow('biometricEnabled', zh('securitySettings.biometric')),
+          stateRow('twoFactorEnabled', zh('securitySettings.twoFactor')),
+          stateRow('loginAlert', zh('securitySettings.loginAlert')),
+        ],
+      },
+    ],
     loading: false,
     error: '',
-    readOnly: true,
     onBack: () => {},
-    ...extra,
   } as unknown as SharedProps
   return render(createElement(SharedScreen, props))
 }
