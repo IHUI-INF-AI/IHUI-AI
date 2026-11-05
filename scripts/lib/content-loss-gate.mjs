@@ -21,6 +21,17 @@
  * 非空即判红并**点名**缺失键/行;判定失败(rev 取不到 / JSON 解不开)同样判红 ——
  * §0.3:判不出不是放行的许可证。本层不参与"要不要删文件"的判断(那是旁路删除硬门的射程)。
  *
+ * ## 判据纠偏(2026-11-05,实测咬住第 9 轮收敛落地闸后定夺)
+ *
+ * `README.*` 的数字表与"守门点名索引"段是 `gen-doc-numbers.mjs --markdown` 的**生成块**
+ * (`<!-- BEGIN GENERATED … --> … <!-- END GENERATED … -->`)。生成块的行值随两侧各自提交
+ * 时点滚动(trackedFiles/testFiles 只会前进),两侧同一行**天然互斥** —— "合并结果必须包含
+ * 对侧生成行"结构上不可满足,等价于 §12e 定义的恒红门:唯一结局是把每个含 README 数字变化的
+ * 合并逼去跳门。故本层对活文档的行级包含**先剥生成块再判**,人工段落一行不放宽。
+ * 生成块自身的零丢失不在本层裸奔:它由生成器单源(重算即全量覆写,不存在"少带"这一说)
+ * + 收敛落地后的 docs 重算腿(47b / auto-commit「README 数字按 HEAD 面重算」系列)承接。
+ * AGENTS.md / PROJECT_PLAN.md 无生成块标记,行为与纠偏前逐字节等价。
+ *
  * ## 折叠台账这一格(2026-11-06,在册票 G-32「归并侧那半格」的续办)
  *
  * 本层初版是**第三把**不认折叠的尺子:归并器对 `PROJECT_PLAN.md` 开 `dedupeTasks` 把同题行
@@ -35,8 +46,9 @@
  * 台账没喂进来 ⇒ 行为与初版逐字一致(旧调用方一条都不放松)。
  */
 import { gitRaw } from './face-reader.mjs'
-// 折叠销账的举证判据**只有一份**(§0.6):本层不另写"什么叫同一件事/什么叫注记被接住"。
-import { attestFoldPair } from './union-converge-judgments.mjs'
+// 折叠销账与摘除销账的举证判据**只有一份**(§0.6):本层不另写"什么叫同一件事/什么叫注记被接住",
+// 也不另写"什么叫本机已声明摘除"(那三条判据住在 `declaredDropCaps`:逐字命中台账 ∧ 该面已无此行 ∧ 是登记行形)。
+import { attestFoldPair, declaredDropCaps } from './union-converge-judgments.mjs'
 
 /** `scripts/data` 下的数据件(含子目录)与五语言词包。 */
 export const KEY_SET_PATH_RE = /^(?:scripts\/data\/(?:.*\/)?[^/]+\.(?:json|jsonl)|packages\/i18n\/messages\/(?:.*\/)?[^/]+\.json)$/
@@ -94,6 +106,30 @@ export function textKeySet(text, path) {
   } catch (e) {
     return { error: `${path} 的 JSON 解不开:${String(e?.message ?? e).slice(0, 120)}` }
   }
+}
+
+/**
+ * 剥掉「生成块」(成对的 `<!-- BEGIN GENERATED … -->` / `<!-- END GENERATED … -->` 之间含标记行)。
+ * 生成块是派生态:行值随重算时点滚动,两侧互斥是常态(见头注「判据纠偏」)。
+ * 剥块只做**行级包含判据的输入整形**,不改文件本体、不影响键集面。
+ */
+export function stripGeneratedBlocks(text) {
+  if (text === null || text === undefined) return text
+  const out = []
+  let inGen = false
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^<!--\s*BEGIN GENERATED\b/i.test(line)) {
+      inGen = true
+      continue
+    }
+    if (/^<!--\s*END GENERATED\b/i.test(line)) {
+      inGen = false
+      continue
+    }
+    if (!inGen) out.push(raw)
+  }
+  return out.join('\n')
 }
 
 /** 非空行多重集(去首尾空白比较,行内空白不动)。 */
@@ -179,6 +215,26 @@ export function foldCreditOf(line, deficit, pairOf, mergedMap) {
   return { status: 'attested', credit: Math.min(deficit, cap), kept: att.kept, reason: '' }
 }
 
+/**
+ * 一条"少带的行"能不能用**本机摘除台账**销账(2026-11-06,续办 G-32 那半格的另一半)。
+ *
+ * 判据不在这层写:`caps` 由调用方用 `declaredDropCaps(产物面, 台账逐字集)` 算出来 —— 那本尺
+ * 已经要求「台账逐字命中 ∧ 该面已无此行 ∧ 是登记行形」三条同时成立才入册(取不到台账 ⇒ 空集,
+ * 一条不扣)。本层只做字面归一(去首尾空白,与 `foldPairsOf` 同一处理)与份数封顶:
+ *  - `declared` —— 在该面已入册 ⇒ 全额销账,但**必须报名**(§0.10 不许静默折进"0 丢失");
+ *  - `none`     —— 台账没这一行 ⇒ 真丢失的牙一处不松,照旧判红。
+ * 额度取该侧的 deficit:摘除台账声明的是"这一行整行被正当摘走",不存在"只摘一半份数"的形态。
+ *
+ * @param {string} line 少带的那一行(已去首尾空白)
+ * @param {number} deficit 这一侧少了几份
+ * @param {Set<string>|null} caps `declaredDropCaps` 的产物(未归一)
+ */
+export function dropCreditOf(line, deficit, caps) {
+  if (!(caps instanceof Set) || caps.size === 0) return { status: 'none', credit: 0 }
+  for (const l of caps) if (l.trim() === line) return { status: 'declared', credit: deficit }
+  return { status: 'none', credit: 0 }
+}
+
 /** `sideKeys − mergedKeys`,排序后返回。 */
 export function missingKeys(sideKeys, mergedKeys) {
   return [...sideKeys].filter((k) => !mergedKeys.has(k)).sort()
@@ -203,9 +259,11 @@ export function judgeContentLoss({
   liveDocs = DEFAULT_LIVE_DOCS,
   read = (rev, path) => readRev(root, rev, path),
   foldLedgers = null,
+  declaredRemovals = null,
 }) {
   const undetermined = []
   const folded = []
+  const dropped = []
   let candidates = paths ? [...new Set(paths)] : null
   if (!candidates) {
     const a = diffNames(root, ours, merged)
@@ -236,18 +294,42 @@ export function judgeContentLoss({
         violations.push({ path: p, kind: 'keys', missingOurs, missingTheirs })
       continue
     }
+    // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。
+    const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m))
+    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
     /**
      * 活文档维:行级包含 + **折叠台账销账**(2026-11-06)。
      *
      * 销账的判据只有一份(`attestFoldPair`),本层只做举证与报数:
      * 台账没喂进来 / 台账没这一行 / 举证不过 ⇒ 照旧判红;台账只解释一部分 ⇒ 剩下的仍判红。
      * 销掉的每一笔都要进 `folded` 并随报告报名(§0.10:少带的份数不许静默折进"0 丢失")。
+     *
+     * 销账在**缺行清单之上**做(不改清单怎么算出来的):清单由行级包含判据出,本层只把其中
+     * 「台账声明折了它 ∧ 四问全过」的那些份销掉 —— 清单本身仍是人工段落一行的底线。
      */
     const mergedMap = lineMultiset(m)
     const pairOf = foldPairsOf(foldLedgers?.get?.(p))
-    const sideMissing = (sideText, sideName) => {
+    // 摘除台账这一格:三条判据全在 `declaredDropCaps` 里(逐字命中 ∧ 产物面已无 ∧ 登记行形),
+    // 本层不复算;台账没喂进来(null)⇒ 空集 ⇒ 与初版逐字一致(旧调用方一条都不放松)。
+    const dropCaps =
+      declaredRemovals instanceof Set ? declaredDropCaps(m, declaredRemovals) : new Set()
+    const sideMissing = (missingList, sideText, sideName) => {
+      // 份数口径与上面的缺行清单**同面同轮**:清单在剥过生成块的文本上出,份数也得在同一个
+      // 文本上出(否则清单说"少一行"、份数说"少五份",两个口径对不上 ⇒ 销账额度算错)。
+      const deficits = new Map(
+        missingLineCounts(stripGeneratedBlocks(sideText), stripGeneratedBlocks(m)).map((x) => [
+          x.line,
+          x.deficit,
+        ]),
+      )
       const out = []
-      for (const { line, deficit } of missingLineCounts(sideText, m)) {
+      for (const line of missingList) {
+        const deficit = deficits.get(line) ?? 1
+        const dc = dropCreditOf(line, deficit, dropCaps)
+        if (dc.status === 'declared') {
+          dropped.push({ path: p, side: sideName, line, copies: dc.credit })
+          continue
+        }
         const credit = foldCreditOf(line, deficit, pairOf, mergedMap)
         if (credit.status === 'attested') {
           if (credit.credit >= deficit) {
@@ -268,12 +350,19 @@ export function judgeContentLoss({
       }
       return out
     }
-    const missingOurs = sideMissing(o, '本侧')
-    const missingTheirs = sideMissing(t, '对侧')
-    if (missingOurs.length || missingTheirs.length)
-      violations.push({ path: p, kind: 'lines', missingOurs, missingTheirs })
+    const creditedOurs = sideMissing(missingOurs, o, '本侧')
+    const creditedTheirs = sideMissing(missingTheirs, t, '对侧')
+    if (creditedOurs.length || creditedTheirs.length)
+      violations.push({ path: p, kind: 'lines', missingOurs: creditedOurs, missingTheirs: creditedTheirs })
   }
-  return { ok: violations.length === 0 && undetermined.length === 0, checked: scoped, violations, undetermined, folded }
+  return {
+    ok: violations.length === 0 && undetermined.length === 0,
+    checked: scoped,
+    violations,
+    undetermined,
+    folded,
+    dropped,
+  }
 }
 
 /** 人类档点名(CLI 与 union-converge --apply 共用同一份措辞)。 */
@@ -308,21 +397,24 @@ export function formatLossReport(result, { max = __MAX_LISTED } = {}) {
       )
     if (folded.length > max) lines.push(`      · …另有 ${folded.length - max} 行`)
   }
+  // 摘除销账同样必须报名(同一条留痕纪律):凭本机摘除台账正当少带的行,逐条点名,不静默。
+  const dropped = result.dropped ?? []
+  if (dropped.length) {
+    const copies = dropped.reduce((s, e) => s + (e.copies || 0), 0)
+    lines.push(
+      `  · 摘除销账(合法少带,凭据 = declaredDropCaps:逐字命中本机摘除台账 ∧ 产物面已无此行 ∧ 是登记行形):${dropped.length} 行 / ${copies} 份`,
+    )
+    for (const e of dropped.slice(0, max))
+      lines.push(`      · ${e.path} ${e.side}少带 ${e.copies} 份 ← ${String(e.line).slice(0, 60)}`)
+    if (dropped.length > max) lines.push(`      · …另有 ${dropped.length - max} 行`)
+  }
   return lines.join('\n')
 }
 
-export const __test__ = {
-  readRev,
-  diffNames,
-  jsonKeySet,
-  textKeySet,
-  lineMultiset,
-  missingLines,
-  missingLineCounts,
-  foldPairsOf,
-  foldCreditOf,
-  missingKeys,
-  judgeContentLoss,
-  formatLossReport,
-}
+export const __test__ = { readRev, diffNames, jsonKeySet, textKeySet, lineMultiset, stripGeneratedBlocks, missingLines, missingKeys, judgeContentLoss, formatLossReport }
+// 折叠台账这一格新增的三个出口**单列一行**:既有那行是判据面的公共面(多方各自往里追加过出口),
+// 并到同一行就得两处各写一份写法 ⇒ 漂移(§0.6)。这三个函数本身也是具名导出,测试直呼具名即可。
+export const __test__fold = { missingLineCounts, foldPairsOf, foldCreditOf }
+// 摘除台账这一格(2026-11-06)另起一行,同样是为了不与既有那行并排(§0.6)。
+export const __test__drop = { dropCreditOf }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
