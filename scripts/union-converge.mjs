@@ -4667,12 +4667,40 @@ async function main() {
   // `verifyUnion` 认(`attestFoldPair` 四问)、F5 ⑤ 档认(2026-10-16 立),唯独本闸按字面多重集比
   // ⇒ 把**合法折叠**(信息守恒,少的只是行份数)读成"少带行"⇒ 恒红。治法与前两把同形:把**同一轮**的
   // 折叠台账喂进去,本闸只做举证(台账没这一行 / 只解释一部分 / 举证不过 ⇒ 照旧判红,牙一处不松)。
+  // 摘除台账这一格(2026-11-06,续办在册票 G-32「归并侧那半格」的另一半):本闸此前只认折叠台账,
+  // 不认「本机已声明摘除」那本账 ⇒ 与活文档 union 侧的 `declaredDropCaps`(刻意不回捞已声明摘除的行)
+  // **结论相反**:回捞防线扣掉的每一行,都被本闸读成"少带内容"⇒ 合并恒拒(实测形态:整份取对侧判
+  // 本侧缺失 3,行级 union 判对侧缺失 15 —— 两头都堵)。喂同一本账给两把尺,判据仍只有一份
+  // (`declaredDropCaps` 的三条:逐字命中台账 ∧ 产物面已无此行 ∧ 是登记行形),本器不复算。
+  // 台账读不到 / 一份都不在位 ⇒ 传 null ⇒ 一条不销(§0.3:取不到不是放行许可证,也不许当"没声明过")。
+  const declaredRemovalLedger = (() => {
+    try {
+      const dr = declaredRows(ROOT)
+      if (!dr || dr.filesSeen === 0 || !(dr.set instanceof Set) || dr.set.size === 0) {
+        console.log(
+          `  ⚠️ 本机摘除台账不在位或空表(filesSeen=${dr?.filesSeen ?? '未取到'})⇒ 防丢闸的摘除销账一档不开(一条不销)`,
+        )
+        return null
+      }
+      // 整份对象给下游:逐字那一族读 `.set`;改写形态那一族(题面指纹/复合主键/题面 32 字指纹)
+      // 还要读 `keyIndex`/`dropTitleRows`/`filesSeen` ⇒ 只喂 `.set` 会让族那一维整个不开
+      // (2026-11-06:行级 union 按族扣掉的行,防丢闸只认逐字 ⇒ 两把尺子不同形 ⇒ 合并恒拒)。
+      return dr
+    } catch (e) {
+      console.log(
+        `  ⚠️ 本机摘除台账读不到(${String(e?.message ?? e).slice(0, 60)})⇒ 摘除销账一档不开(一条不销)`,
+      )
+      return null
+    }
+  })()
   const contentGate = judgeContentLoss({
     root: ROOT,
     ours: t.head,
     theirs: t.theirs,
     merged: p.tree,
+    base: p.base,
     foldLedgers: p.foldLedgers,
+    declaredRemovals: declaredRemovalLedger,
   })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
@@ -4685,10 +4713,19 @@ async function main() {
     console.log(
       `  内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(已过 attestFoldPair 四问)`,
     )
+  // 摘除销账同样逐条报名:凭本机台账正当少带的行,一行都不静默(§0.10)。
+  const contentDropped = contentGate.dropped ?? []
+  if (contentDropped.length)
+    console.log(
+      `  内容级防丢闸:摘除销账 ${contentDropped.length} 行 / ${contentDropped.reduce((s, e) => s + (e.copies || 0), 0)} 份(判据单源 declaredDropCaps)`,
+    )
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
     (contentFolded.length
       ? `;内容级防丢闸:折叠销账 ${contentFolded.length} 行 / ${contentFolded.reduce((s, e) => s + (e.copies || 0), 0)} 份(attestFoldPair 四问全过,信息守恒)`
+      : '') +
+    (contentDropped.length
+      ? `;内容级防丢闸:摘除销账 ${contentDropped.length} 行 / ${contentDropped.reduce((s, e) => s + (e.copies || 0), 0)} 份(逐条点名在 --show-all-bad 报告面;凭据=本机摘除台账逐字声明 ∧ 产物面已无该行 ∧ 登记行形,与活文档 union 侧 declaredDropCaps 同一把尺)`
       : '') +
     (p.humanResolved?.length
       ? `;人工归并回灌(已过两侧丢行断言): ${p.humanResolved.join(' ')}`

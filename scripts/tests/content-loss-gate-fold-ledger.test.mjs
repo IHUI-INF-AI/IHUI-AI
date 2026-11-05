@@ -203,3 +203,86 @@ describe('内容级防丢闸 · 键集维与份数口径', () => {
     assert.equal(foldCreditOf('a', 1, pairOf, m).credit, 0, '0 份额度必须销 0 份')
   })
 })
+
+/**
+ * 摘除台账两格 + 本侧处置权一格(2026-11-06 补)。
+ *
+ * 立因:union 侧的行级 union 有三个「不补回」的口子(逐字摘除 / 改写形态摘除 / 本侧已让号或已删),
+ * 本闸此前一个都不认 ⇒ union 扣掉的行本闸读成"少带内容"⇒ 合并恒拒(实测:行级 union 判对侧缺失 4,
+ * 折叠与逐字两本账都答不上)。治法与折叠那一格同形(§0.6):**复用 union 那几把尺**
+ * (`declaredFamilyCaps` / `liveDocExpectedCounts` 的 `addedByTheirs` 口径),本闸不复算。
+ *
+ * 成对纪律:每一档"放过"都必须配一档"不放过"——
+ *  · 处置权:基底有 ⇒ 放过;基底没有(对侧新增)⇒ 照旧判红;底面取不到 ⇒ 照旧判红(§0.3)。
+ *  · 摘除族:台账族命中 ⇒ 放过;台账族不命中 ⇒ 照旧判红。
+ */
+describe('内容级防丢闸 · 摘除族与本侧处置权', () => {
+  const HEAD = '# 计划'
+  const ROW = '- [ ] G-900 **两把尺子必须同形**:行级包含与台账销账的口径差一位就会恒红。'
+  const ROW_TWICE = '- [ ] G-900 **两把尺子必须同形**:行级包含与台账销账的口径差一位就会恒红(改写过一笔)。'
+
+  const call = ({ ours = HEAD, theirs = ROW, merged = HEAD, base = null, ledger = null }) => {
+    const faces = { OURS: ours, THEIRS: theirs, MERGED: merged }
+    if (base !== null) faces.BASE = base
+    return judgeContentLoss({
+      root: 'G:/IHUI-AI',
+      ours: 'OURS',
+      theirs: 'THEIRS',
+      merged: 'MERGED',
+      ...(base === null ? {} : { base: 'BASE' }),
+      paths: ['PROJECT_PLAN.md'],
+      read: (rev, path) => (path === 'PROJECT_PLAN.md' ? (faces[rev] ?? null) : null),
+      ...(ledger ? { declaredRemovals: ledger } : {}),
+    })
+  }
+
+  it('正例:基底有、本侧已删 ⇒ 本侧处置权已行使,不判红(且要报名)', () => {
+    const r = call({ ours: HEAD, theirs: ROW, merged: HEAD, base: ROW })
+    assert.equal(r.ok, true, `不该有违规:${JSON.stringify(r.violations)}`)
+    assert.ok(
+      r.dropped.some((e) => String(e.via).includes('处置权')),
+      '这一笔必须报名(不许静默折进"0 丢失")',
+    )
+  })
+
+  it('反例:基底没有(对侧新增)⇒ 归并本就该带回它,少带就是丢 ⇒ 判红', () => {
+    const r = call({ ours: HEAD, theirs: ROW, merged: HEAD, base: HEAD })
+    assert.equal(r.ok, false, '对侧新增的行少带必须判红')
+    assert.equal(r.violations[0].missingTheirs.length, 1)
+  })
+
+  it('反例:底面取不到 ⇒ 照旧判红(取不到不是放行许可证)', () => {
+    const r = call({ ours: HEAD, theirs: ROW, merged: HEAD })
+    assert.equal(r.ok, false, '没有底面就无从判"本侧处置权",不许放行')
+    assert.equal(r.violations[0].missingTheirs.length, 1)
+  })
+
+  it('正例:摘除台账的改写形态族命中 ⇒ 销账并报名(凭据要出示)', () => {
+    const ledger = {
+      set: new Set([ROW_TWICE]),
+      keyIndex: new Map(),
+      dropTitleFps: new Set(),
+      dropTitleRows: new Map(),
+      filesSeen: 1,
+    }
+    const r = call({ ours: HEAD, theirs: ROW, merged: HEAD, base: HEAD, ledger })
+    assert.equal(r.ok, true, `不该有违规:${JSON.stringify(r.violations)}`)
+    const hit = r.dropped.find((e) => e.line === ROW)
+    assert.ok(hit, '这一笔必须报名')
+    assert.match(String(hit.via), /族:/, `销账通道要说明白:${hit.via}`)
+  })
+
+  it('反例:台账族不命中 ⇒ 照旧判红(台账不是免死金牌)', () => {
+    const ledger = {
+      set: new Set(['- [ ] G-901 **别族的事**:与候选行不同题。']),
+      keyIndex: new Map(),
+      dropTitleFps: new Set(),
+      dropTitleRows: new Map(),
+      filesSeen: 1,
+    }
+    const r = call({ ours: HEAD, theirs: ROW, merged: HEAD, base: HEAD, ledger })
+    assert.equal(r.ok, false, '台账族不命中就不许销账')
+    assert.equal(r.violations[0].missingTheirs.length, 1)
+  })
+})
+
