@@ -71,16 +71,19 @@ describe('Z16 worktree.ts 拆分形状锁', () => {
   it('实现档各 <250 行(拆档目标本身)', () => {
     const here = path.dirname(fileURLToPath(import.meta.url));
     const toolsDir = path.join(here, '..', 'src', 'tools');
-    // 入口 worktree.ts 不在此列:WorktreeManager.remove 与 cleanupWorktree 两条删除腿被
-    // worktree-trash-crossdrive ④ / worktree-containment ⑥ / delete-axis-consumers ⑤ 的
-    // 装车对账锁**逐字钉在入口源码文本**上(remove 体 + cleanup 体 + 两处 rmSync 各自 ≥100 行),
-    // 入口 <250 与"用例原样全绿"结构上互斥 —— 按"用例原样全绿"优先,入口留驻双腿,余者拆净。
+    // Z16 曾把入口 worktree.ts 排除在外,理由是"两条删除腿被装车锁逐字钉在入口文本 ⇒ 入口 <250
+    // 与用例原样全绿结构上互斥"。Z30 复核推翻该前提:真正不可改的锁只管 remove() 那一枚腿
+    // (delete-axis-consumers ⑤ / delete-guard,均不在可改档内),cleanupWorktree 与账面/状态
+    // 都能搬走,④/⑥ 两把可改的锁随搬运改指新档且判据未放宽 ⇒ 入口现读 <250,进本档射程。
     const implFiles = [
+      'worktree.ts',
       'worktree-core.ts',
       'worktree-trash-mirror.ts',
       'worktree-isolated.ts',
       'worktree-tools.ts',
       'worktree-tools-exit.ts',
+      'worktree-state.ts',
+      'worktree-cleanup.ts',
     ];
     for (const f of implFiles) {
       const text = fs.readFileSync(path.join(toolsDir, f), 'utf-8');

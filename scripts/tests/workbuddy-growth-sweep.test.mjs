@@ -25,6 +25,7 @@ import {
   planSweepRound,
 } from '../workbuddy-growth-sweep.mjs'
 import { selectClaimable } from '../workbuddy-growth-claim.mjs'
+import { OA_TASK_CODE } from '../workbuddy-growth-oauth.mjs'
 
 const okRow = (plan, claims = []) => ({ tag: 'a'.slice(0, 8), state: 'ok', plan, claims })
 const taskRow = (code, status) => ({
@@ -69,6 +70,39 @@ test('② 可领集 = selectClaimable 同一实现,只含 completed', () => {
     ['a'],
   )
   assert.deepEqual(p.claimable, selectClaimable(tasks.tasks))
+})
+
+test('②b 关注项一旦被判 completed ⇒ 自动进可领集(绑定生效那天起零人工)', () => {
+  // 这一条锁的是"剩下的那一格不需要人再做任何动作":服务端把 OA 项判成 completed 后,
+  // sweep 的领奖集必须自动把它收进去 —— 因为可领集只认状态词,不认任务码。
+  const tasks = {
+    ok: true,
+    tasks: [
+      {
+        task_code: OA_TASK_CODE,
+        accept_status: 'completed',
+        title: '关注「腾讯 WorkBuddy」官方公众号',
+        reward_credit: 100,
+        reward_energy: 5,
+      },
+      { task_code: 'chat_5', accept_status: 'claimed', reward_credit: 100 },
+    ],
+  }
+  const p = planSweepRound({
+    checkin: { state: 'already' },
+    tasks,
+    subscribe: { ok: true, subscribed: true, remainingSeconds: -1, taskStatus: 'completed' },
+    profile: { ok: true, completed: 18, total: 18, level: 17 },
+  })
+  assert.deepEqual(
+    p.claimable.map((r) => r.task_code),
+    [OA_TASK_CODE],
+    'completed 的 OA 项必须在可领集里,claimed 的不在',
+  )
+  // 同一轮里关注关系应读作"已关注",而不是还挂着等待
+  assert.equal(p.subscribeVerdict, 'followed')
+  assert.equal(p.checkinState, 'already')
+  assert.deepEqual(p.profileRead, { completed: 18, total: 18, level: 17 })
 })
 
 test('③ 关注项 undetermined 与 not_followed 不并桶', () => {

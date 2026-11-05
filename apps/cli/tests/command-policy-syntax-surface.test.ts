@@ -26,13 +26,13 @@ import { FILE_SPECS } from '../src/tools/command-policy/syntax-files.js';
 import { GH_TABLE, NETWORK_SPECS } from '../src/tools/command-policy/syntax-network.js';
 import { SYNTAX_TABLE as BARREL_TABLE } from '../src/tools/command-policy/index.js';
 
-/** 拆前 HEAD(`eff9c8e`)的登记全集 + Z14 新增的 `nc`(枚数与成员都现读于 `git show` 的表体)。 */
+/** 拆前 HEAD(`eff9c8e`)的登记全集 + Z14 新增的 `nc` + Z29 新增的 PowerShell 两枚 cmdlet(枚数与成员都现读于 `git show` 的表体)。 */
 const PINNED_BASENAMES: readonly string[] = [
   'ag', 'awk', 'cat', 'cargo', 'chattr', 'chmod', 'chgrp', 'chown', 'cp', 'curl', 'cut', 'dd', 'date', 'docker', 'find',
   'gh', 'git', 'grep', 'halt', 'head', 'hostname', 'kill', 'killall', 'kubectl', 'ln', 'ls', 'mkdir', 'mkfs',
   'mv', 'nc', 'npm', 'patch', 'pkill', 'pnpm', 'poweroff', 'ps', 'pwd', 'reboot', 'rg', 'rm', 'rmdir', 'sed',
   'setfacl', 'shred', 'shutdown', 'sort', 'ssh', 'scp', 'sftp', 'tail', 'tar', 'tee', 'touch', 'truncate', 'tr',
-  'uniq', 'unzip', 'uptime', 'wc', 'wget', 'whoami', 'xargs', 'zip',
+  'uniq', 'unzip', 'uptime', 'wc', 'wget', 'whoami', 'xargs', 'zip', 'invoke-webrequest', 'invoke-restmethod',
 ];
 
 const ARITIES = new Set(['none', 'required', 'optional']);
@@ -43,7 +43,7 @@ const BASELINES = new Set([...EFFECTS, 'requires-subcommand']);
 describe('语法表导出集 — 拆档不丢登记(① + ②)', () => {
   it('① basename 全集 = 钉住的 63 枚,无 undefined 条目', () => {
     expect(Object.keys(SYNTAX_TABLE).sort()).toEqual([...PINNED_BASENAMES].sort());
-    expect(PINNED_BASENAMES).toHaveLength(63);
+    expect(PINNED_BASENAMES).toHaveLength(65);
     for (const name of PINNED_BASENAMES) expect(SYNTAX_TABLE[name]).toBeTypeOf('object');
   });
 
@@ -123,7 +123,9 @@ describe('行数档(⑥)— 拆档的目的本身', () => {
     for (const file of files) {
       const text = readFileSync(fileURLToPath(new URL(`../src/tools/command-policy/${file}`, import.meta.url)), 'utf8');
       const lines = text.split(/\r?\n/).length;
-      expect(`${file}=${lines}`, lines < 250).toBe(`${file}=${lines}`);
+      // goal-b49/Z33 修正:原写法把布尔量 `lines < 250` 放在 expect 的第二参(失败信息位),
+      // 断言体比的是同一个字符串 ⇒ 恒真、本预算锁从未生效。改为真断言(信息位归第二参)。
+      expect(lines, `${file}=${lines} 行,超 250 档(拆档回潮)`).toBeLessThan(250);
     }
   });
 });

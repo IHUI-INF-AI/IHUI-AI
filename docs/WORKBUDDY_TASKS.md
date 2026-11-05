@@ -485,6 +485,8 @@ node scripts/workbuddy-growth-daily.mjs --checkin   # 现读:两号「今日已�
 
 ### 11.4 零人工的最终口径(现读 2026-11-05)
 
+
+
 ```bash
 node scripts/workbuddy-growth-daily.mjs --checkin                                    # 每日签到
 node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务
@@ -535,14 +537,59 @@ node scripts/workbuddy-growth-oauth.mjs --watch                                 
 ⇒ 所以这一项的解锁条件**不是**"机主去扫一次",而是**先给 WorkBuddy 账号绑定微信身份**(产品流程,机主侧)。
 ⇒ 对照程序里 `subscribe`/`关注` 全 0 命中,与这个结论同形:它也没做,而且**在没绑定的号上做不了**。
 
-**⑤ 未判定 —— 有微信身份的那个号能不能被这一项记账?**
+**⑤ 观察(2026-11-06)—— 绑定走的是腾讯账号 OAuth 社交授权,不是本仓能代跑的通道。**
+把官方用户中心 bundle(`wb-usercenter-index.js`,4.69 MB)用 `scripts/inspect-binary-api-paths.mjs`
+枚举到 186 条路径族,绑定相关的端点与 UI 组件是:
+
+| 证据 | 读数 |
+| --- | --- |
+| `authz/v1/authn/social/`、`authz/v1/social/personal_account` | 社交授权登录族 |
+| `account-bind-callback`、`oauth/callback`、`v1/authorize`、`authorize` | 回调与授权入口 |
+| `oauth2.account.tencentid.com`、`api.account.tencentid.com` | 承载方是**腾讯账号(tencentid)**,不是 WorkBuddy 自有服务 |
+| `WechatModal` 36 处、`WechatConfirm` 14 处、`WECHAT_MODAL_CONFIRM/CANCEL` | 界面上是一个带**确认/取消**的微信授权弹窗 |
+
+⇒ 「给 WorkBuddy 账号绑定微信身份」= 在腾讯账号体系里**建立一条持久的第三方访问授权**,
+且终局动作是用户在微信侧点「确认」。这一档按 Computer Use 确认政策属**动作时确认、预先授权也不能免**,
+按本仓边界属**不代取客户端凭据 / 不代点身份动作** ⇒ **这一格不由程序代做,也不是"再试一次自动化"能收的。**
+
+**⑥ 观察 —— 绑定之后不需要任何人再做任何动作。**
+`sweep` 的可领集来自 `selectClaimable`,它**只认状态词、不认任务码**;
+镜像用例 ②b 已把这条钉住:任务列表里 OA 项一旦 `completed`,它自动进可领集,
+同时 `subscribeVerdict` 读作 `followed`。⇒ 绑定生效那天起,日常跑一次
+`node scripts/workbuddy-growth-sweep.mjs` 就会自己把它领掉,无需 `--watch`、无需人点。
+
+**⑦ 未判定(仍然在册,没被本轮消掉)—— 有微信身份的那个号能不能被这一项记账?**
 拿 `14f939c3` 最新快照的凭据去问服务端,两条都返回 HTML(accessToken 已失效)⇒ 问不到。
 **没有强行续期**:本仓正牌续期出口(`scripts/lib/workbuddy-auth-extract.mjs`)会轮换 refresh token,
 那会让该号已存的会话快照失效 —— 那是本次射程外的副作用,不为满足一个好奇心而动别人的登录态。
-解锁这一格 = 该号自己重新登录后拿新鲜凭据再问一次(或机主授权我按正牌流程续一次)。
+解锁这一格 = 该号自己重新登录后拿新鲜凭据再问一次。
 
 (全程只打印字段名与有无;任何 token / openid 值不出进程、不进聊天、不进本文件。
 微信侧只做了导航与打开主页,**没有向任何会话输入或发送任何内容**。)
+
+### 11.6 零人工的承载体:本机计划任务(2026-11-06 装车)
+
+清扫不靠任何人记得跑 —— 计划任务 **每 6 小时**自动跑一次 `--json` 档:
+
+| 件 | 位置 / 现读法 |
+| --- | --- |
+| 任务名 | `IHUI WorkBuddy Growth Sweep`(`schtasks /Query /TN "IHUI WorkBuddy Growth Sweep" /V /FO LIST`) |
+| 包装脚本 | `deploy/win/workbuddy-growth-sweep.cmd` |
+| 日志 | `.ihui-agent/state/workbuddy-sweep.log`(追加式,每轮一个 JSON 对象) |
+
+两个实测踩过的坑,都写进了脚本注释:
+
+1. **`.cmd` 里只能用 ASCII 注释** —— cmd.exe 按 OEM 码页(本机 936)解析脚本文件,
+   UTF-8 中文注释会被切成乱码 token 当命令执行(报"不是内部或外部命令")。
+2. **相对路径是上两级,不是三级** —— 该文件在 `deploy\win\` 下,
+   `%~dp0..\..\..` 会 `cd` 到盘符根并失败;`%~dp0..\..` 才是仓库根。
+
+实测(2026-11-06):手动触发一次 ⇒ 日志 852 字节、`summary` 完整、
+`accounts=2 already=2 claimFail=0 undetermined=0` ⇒ 席报遗留的「`--json` 档端到端未判定」结清。
+
+⇒ 绑定生效那天起,这一项会在这条自动腿里被 `selectClaimable` 自己收进可领集并领掉(见 ⑥),
+**不需要任何人再执行任何命令**。
+
 
 ⇒ **§9 那句"关注动作只能由机主本人用微信完成"就地改判**:先决条件是**给这个号绑定微信身份**
 (产品流程,机主侧);绑定之后关注才有归属对象,而关注本身仍是一个真实微信行为,程序不代做、不伪造。
