@@ -10,14 +10,9 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
-import {
-  getMemberInfo,
-  getMemberBenefits,
-  getProfile,
-  getVipLevels,
-  type MemberInfo,
-  type VipLevel,
-} from '@/api'
+import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo, type VipLevel } from '@/api'
+import { getVipLevels } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import { formatPrice } from '@ihui/shared/utils/format'
@@ -143,7 +138,7 @@ export default function MemberIndexPage() {
         getMemberBenefits().catch(() => ({
           list: [] as Array<{ id: string; title: string; desc: string; icon?: string }>,
         })),
-        getVipLevels().catch(() => null),
+        unwrapApi(getVipLevels()).catch(() => null),
       ])
       setInfo(memberInfo)
       if (levelsRes) {
