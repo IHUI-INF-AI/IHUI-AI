@@ -15,6 +15,7 @@
  *  - `snapshot`     拿不到输入(超时/非 200/形状不对)⇒ 不覆盖、也不说"该端没货"
  *  - `unavailable`  拿到了输入且判据不命中(该端确实没登记 / 无机器可读发布源)⇒ 不覆盖
  */
+import { withBasePath } from './base-path'
 import type { LiveDesktopSource, ReleaseScanSummary } from './desktop-feed-live'
 import type { DownloadAsset, DownloadPlatform, PlatformMeta } from './downloads.config'
 
@@ -236,9 +237,10 @@ export interface ExtensionManifestEntry {
 /** 与发布侧 update-file-manifest.mjs 同一条哈希字面量判据(只认 64 位小写 hex) */
 const SHA256_RE = /^[0-9a-f]{64}$/
 
-/** 扩展包站内可点地址(单一落形处,防第二处手拼漂移) */
+/** 扩展包站内可点地址(单一落形处,防第二处手拼漂移)。
+ *  同样必须过 basePath —— Pages 上裸 `/downloads/...` 解析到根域即 404。 */
 function extensionAssetHref(fileName: string): string {
-  return `/downloads/extension/${encodeURIComponent(fileName)}`
+  return withBasePath(`/downloads/extension/${encodeURIComponent(fileName)}`)
 }
 
 /** 从扩展包文件名里取版本号;取不到返回 null(不编) */
