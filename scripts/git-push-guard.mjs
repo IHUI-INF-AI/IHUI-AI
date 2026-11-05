@@ -127,10 +127,7 @@ let lastEgressNote = ''
 
 /** 从 git 命令串里取动词(`git ls-remote origin …` → `ls-remote`);取不到 ⇒ 空串 ⇒ 不兜。 */
 function networkVerbOf(cmd) {
-  const toks = String(cmd)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
+  const toks = String(cmd).trim().split(/\s+/).filter(Boolean)
   const i = toks.findIndex((t) => /(^|[\\/])git(\.exe)?$/i.test(t))
   if (i < 0) return ''
   for (const t of toks.slice(i + 1)) {
@@ -240,6 +237,29 @@ try {
   /* 清理失败不阻塞 push */
 }
 // --worker:后台推送 worker 模式(由主模式 detached spawn;真正执行推送+验证+写状态)
+/**
+ * 用法档(2026-11-05 立,同族第三枚)。
+ * 本器**默认档就是真推 main**(见文件头注),而 `check-push-sync.mjs` 的出路文案还教人裸跑它。
+ * 于是敲错一枚旗标(如 `--hlep`)会照常向 origin 发起一次共享状态改动 —— 与今天已修的
+ * `auto-evolve --help` 烧掉一整轮自主额度、`heal-worktree-tracked` 手滑即 `git restore` 他人现场
+ * 是同一型,只是这一枚的半径最大(动的是远端)。
+ * 只做"问用法 ⇒ 一个字都不做"这一档:默认档与 `--worker/--watchdog` 发射侧一概不变
+ * (按今天 `--once` 的教训:关闸前必须先数调用侧真传的 argv,否则会把自己要用的腿冻住)。
+ */
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(
+    [
+      'usage: node scripts/git-push-guard.mjs [档]',
+      '  (无旗标 / 默认)   现读远端 tip 后推 main(幂等,窗口最短)',
+      '  --worker          以工作子进程身份跑(或 GUARD_WORKER=1)',
+      '  --watchdog        看门狗档:检查推送是否卡住并按留痕处置',
+      '  --self-test       内建自检(如在册)',
+      '提示:这一档只打用法,不读远端也不推任何东西。',
+    ].join('\n'),
+  )
+  process.exit(0)
+}
+
 const isWorkerMode = process.argv.includes('--worker') || process.env.GUARD_WORKER === '1'
 
 log(
