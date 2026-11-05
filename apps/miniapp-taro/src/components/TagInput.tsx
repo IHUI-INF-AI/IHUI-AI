@@ -36,20 +36,20 @@ export default function TagInput({
   }
 
   return (
-    <View className="flex flex-wrap items-center px-3 py-2 bg-muted rounded-sm">
+    <View className="flex flex-wrap items-center px-md py-sm bg-muted rounded-sm">
       {value.map((tag, idx) => (
         <View
           key={idx}
-          className="flex items-center mr-2 mb-[12rpx] px-[20rpx] py-1 rounded-md bg-primary/10"
+          className="flex items-center mr-sm mb-[12rpx] px-[20rpx] py-xs rounded-md bg-primary/10"
         >
-          <Text className="text-xs text-primary mr-1">{tag}</Text>
-          <Text className="text-xs text-primary" onClick={() => removeTag(idx)}>
+          <Text className="text-label text-primary mr-xs">{tag}</Text>
+          <Text className="text-label text-primary" onClick={() => removeTag(idx)}>
             ×
           </Text>
         </View>
       ))}
       <FocusInput
-        className="flex-1 min-w-20 text-sm"
+        className="flex-1 min-w-20 text-body"
         placeholder={value.length >= max ? tt('TagInput.p2', '已达上限') : placeholder}
         value={input}
         onInput={(e) => setInput(e.detail.value)}

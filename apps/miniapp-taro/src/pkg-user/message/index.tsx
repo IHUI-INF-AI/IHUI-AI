@@ -546,12 +546,12 @@ export default function MessageIndex() {
               onClick={(e) => e.stopPropagation()}
               hoverClass="opacity-60"
             >
-              <View className="flex items-center justify-between px-4 py-3 mb-2">
-                <Text className="text-sm font-medium text-foreground">
+              <View className="flex items-center justify-between px-lg py-md mb-sm">
+                <Text className="text-body font-medium text-foreground">
                   {t('message.notificationSettings')}
                 </Text>
                 <Text
-                  className="text-sm text-muted-foreground"
+                  className="text-body text-muted-foreground"
                   onClick={() => setShowSettings(false)}
                 >
                   {t('message.close')}

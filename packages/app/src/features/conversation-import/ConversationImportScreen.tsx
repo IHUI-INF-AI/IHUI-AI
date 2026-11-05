@@ -585,7 +585,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    pickButtonText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     rowCard: {
       padding: rnSpacing['sm-loose'],
@@ -596,7 +596,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     rowCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
-    rowTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    rowTitle: { flex: 1, fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     rowMeta: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     commitButton: {
       flexDirection: 'row',
@@ -608,7 +608,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     commitButtonDisabled: { backgroundColor: tk.border.medium },
-    commitButtonText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    commitButtonText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
     warningBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',

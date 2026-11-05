@@ -4,7 +4,7 @@
 
  
 /**
- * component-props-parity.mjs —— 「两端同名组件 props/行为一致」判据单源(守门 285 的引擎)。
+ * component-props-parity.mjs —— 「两端同名组件 props/行为一致」判据单源(守门 288 的引擎)。
  *
  * 立因(2026-11-03 现读):跨端对账族里,观感维有门 128(几何/圆角/SL/IC/RS + web 两腿),
  * 契约接线有门 259(spec↔小程序集合相等),屏级必填有 lib/cross-end-screen-props;而
@@ -63,7 +63,7 @@ const programCache = new Map()
  * 工作区包 → 源码路径覆盖(2026-11-04 立,同面双读数实测):
  * `packages/types/package.json` 的 `types` 指 `./dist/index.d.ts`,本机没构建 dist 时,
  * `interface X extends 基类型` 里的基类型**静默解析不出** —— TS 不报 program 级错,只是
- * 把继承来的键丢掉:实测 UserInfoCard 一面读 12 键、一面读 18 键,门 285 于是同一枚内容
+ * 把继承来的键丢掉:实测 UserInfoCard 一面读 12 键、一面读 18 键,门 288 于是同一枚内容
  * 一面 rc=0(存差 266 键)、一面 rc=1(两条新增退化)。判据读数不得取决于"本机刚没刚构建过",
  * 凡 types 落点在 dist 的 @ihui/* 工作区包,一律把该包映到它自己的 src(源码是唯一真相面)。
  */
@@ -183,6 +183,19 @@ export function componentPropsOf(rootDir, fileRel, end, program) {
   }
   if (propsTypes.length === 0)
     return { state: 'zero-props', reason: '组件签名里没有 props 参数(零 props 组件)', props: [] }
+  // props 参数在、类型却退化成"无符号空类型" ⇒ 多半是 props 的导入模块在本编译面没解析
+  // (实测缺 per-package node_modules 时 `@ihui/ui-native` 解不开,AgentRuntimePanel 一面
+  // 读空、另一面有键,凭空造出 onlyMini 漂移)。空键集不得冒充"零 props"(§0.3),
+  // 这一对必须落 undetermined 点名,不记绿也不记红。
+  const unresolvedPropsTypes = propsTypes.filter((t) => !t.symbol && (t.getProperties?.().length ?? 0) === 0)
+  if (unresolvedPropsTypes.length > 0)
+    return {
+      state: 'undetermined',
+      reason: `props 类型不可解析(符号无声明,多为依赖模块在本编译面未解析):${unresolvedPropsTypes
+        .map((t) => checker.typeToString(t))
+        .join(',')} ⇒ 空键集不冒充"零 props"`,
+      props: [],
+    }
   // 基类型解析不出 ⇒ getProperties() 只会给出"本文件自己声明的那几枚",键集静默变小而
   // state 仍是 ok(§0.3 严禁把取不到冒充判过)。这里逐个 heritage 基名要求可解析,
   // 解不出就整对落 undetermined 并点名 —— 宁可这一对不判,也不给出一把偏小的尺。

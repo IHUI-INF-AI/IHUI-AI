@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console */
 /**
- * check-cross-end-component-props-parity.mjs —— 守门 285:两端同名组件 props 键集/必选性的
+ * check-cross-end-component-props-parity.mjs —— 守门 288:两端同名组件 props 键集/必选性的
  * **台账制差值棘轮**(判据引擎 = scripts/lib/component-props-parity.mjs,本文件零复算)。
  *
  * 立因:跨端对账族的最后一格零尺 —— 同名组件对的 props 行为对称性(键集缺失/必选性漂移)
@@ -38,11 +38,21 @@
  *   node scripts/check-cross-end-component-props-parity.mjs --self-test       # 纯函数正反例
  * 应急: HUSKY_SKIP_CROSS_END_PROPS_PARITY=1 git commit ...(跳门必须留痕,守门 89 同款纪律)
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { computeParity, EQUIVALENCE_REL } from './lib/component-props-parity.mjs'
+// 取材面(§0.4/§12e):本门此前用 readFileSync + join(root, rel) 直接按磁盘取内容,属散写;
+// 现统一经 face-reader 的磁盘面入口 readWorktreeFile(root, rel)。它的语义与 readFileSync 等价
+// (缺失返回 null、读失败抛 Undetermined),故判定结论逐字节不变,只换了取材管道。
+// 之所以固定走 worktree 面而不按 selectFace 分流:本门被判的组件正文已由
+// computeParity(ROOT, face) 按 face 取(HEAD/索引),其余被读的都是**台账与证据落点**
+// (基线/裁决/映射表/证据指到的源码行);其中的证据解析 resolveEvidence/validateJudged/
+// validateNotApplicable 是对任意 rootDir(含测试临时夹具)的通用函数,按 git 面取会把
+// 仓外夹具读成"文件不存在" ⇒ 语义改变。另 --update-baseline 是写盘操作,读取也必须与
+// 即将覆写的同一份磁盘账同面。写回仍用 writeFileSync(取材层只提供读,不提供写)。
+import { readWorktreeFile } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/data/cross-end-props-parity-baseline.json'
@@ -138,14 +148,14 @@ export function resolveEvidence(rootDir, raw, symbol) {
   const m = typeof raw === 'string' ? raw.trim().match(EVIDENCE_SPEC_RE) : null
   if (!m) return { ok: false, problem: '必须形如 文件:行 或 文件#符号名' }
   const rel = m[1]
-  const abs = join(rootDir, rel)
-  if (!existsSync(abs)) return { ok: false, problem: `文件不存在 ${rel}` }
-  let lines
+  let text
   try {
-    lines = readFileSync(abs, 'utf8').split(/\r?\n/)
+    text = readWorktreeFile(rootDir, rel)
   } catch {
     return { ok: false, problem: `文件读不到 ${rel}(不记绿)` }
   }
+  if (text === null) return { ok: false, problem: `文件不存在 ${rel}` }
+  const lines = text.split(/\r?\n/)
   const token = typeof symbol === 'string' ? symbol : ''
   const code = stripComments(lines)
   if (m[2]) {
@@ -238,18 +248,18 @@ export function validateJudged(ledger, { now = new Date(), rootDir = ROOT } = {}
         bad.push(`${at}: evidence 行号非法:${raw}`)
         continue
       }
-      const abs = join(rootDir, p.rel)
-      if (!existsSync(abs)) {
-        bad.push(`${at}: evidence 文件不存在:${p.rel}`)
-        continue
-      }
-      let lines
+      let text
       try {
-        lines = readFileSync(abs, 'utf8').split(/\r?\n/)
+        text = readWorktreeFile(rootDir, p.rel)
       } catch {
         bad.push(`${at}: evidence 读不到:${p.rel}`)
         continue
       }
+      if (text === null) {
+        bad.push(`${at}: evidence 文件不存在:${p.rel}`)
+        continue
+      }
+      const lines = text.split(/\r?\n/)
       if (p.end > lines.length) {
         bad.push(`${at}: evidence 行号越界:${raw}(共 ${lines.length} 行)`)
         continue
@@ -355,18 +365,18 @@ export function validateNotApplicable(entry, { now = new Date(), rootDir = ROOT,
       problems.push(`evidence 不是 文件:行 形态:${String(raw)}`)
       continue
     }
-    const abs = join(rootDir, m[1])
-    if (!existsSync(abs)) {
-      problems.push(`evidence 文件不存在:${m[1]}`)
-      continue
-    }
-    let lines
+    let text
     try {
-      lines = readFileSync(abs, 'utf8').split(/\r?\n/).length
+      text = readWorktreeFile(rootDir, m[1])
     } catch {
       problems.push(`evidence 读不到:${m[1]}`)
       continue
     }
+    if (text === null) {
+      problems.push(`evidence 文件不存在:${m[1]}`)
+      continue
+    }
+    const lines = text.split(/\r?\n/).length
     const start = Number(m[2])
     const end = m[3] ? Number(m[3]) : start
     if (start < 1 || start > end || end > lines) problems.push(`evidence 行号越界:${raw}(文件共 ${lines} 行)`)
@@ -525,7 +535,9 @@ async function main() {
 
   let equivTable
   try {
-    equivTable = JSON.parse(readFileSync(join(ROOT, EQUIVALENCE_REL), 'utf8'))
+    const text = readWorktreeFile(ROOT, EQUIVALENCE_REL)
+    if (text === null) throw new Error('文件不存在')
+    equivTable = JSON.parse(text)
   } catch (e) {
     die(`映射表 ${EQUIVALENCE_REL} 读不到或 JSON 坏:${String(e?.message).slice(0, 120)} —— 判据输入缺失不记绿`, 2)
   }
@@ -534,12 +546,11 @@ async function main() {
   const equivalenceEntryCount = par.equivalence?.entryCount ?? equivTable.entries.length
 
   let judgedLedger = { rule: '', entries: [] }
-  if (existsSync(join(ROOT, JUDGED_REL))) {
-    try {
-      judgedLedger = JSON.parse(readFileSync(join(ROOT, JUDGED_REL), 'utf8'))
-    } catch (e) {
-      die(`裁决台账 ${JUDGED_REL} 读不到或 JSON 坏:${String(e?.message).slice(0, 120)} —— 判据输入缺失不记绿`, 2)
-    }
+  try {
+    const text = readWorktreeFile(ROOT, JUDGED_REL)
+    if (text !== null) judgedLedger = JSON.parse(text)
+  } catch (e) {
+    die(`裁决台账 ${JUDGED_REL} 读不到或 JSON 坏:${String(e?.message).slice(0, 120)} —— 判据输入缺失不记绿`, 2)
   }
   const judgedValid = validateJudged(judgedLedger, { now: new Date(), rootDir: ROOT })
   if (!judgedValid.ok)
@@ -553,11 +564,12 @@ async function main() {
     )
   const liveDeltas = judgedApply.deltas
 
-  const baselineExists = existsSync(join(ROOT, BASELINE_REL))
+  const baselineText = readWorktreeFile(ROOT, BASELINE_REL)
+  const baselineExists = baselineText !== null
   let prior = { pairs: {} }
   if (baselineExists) {
     try {
-      prior = JSON.parse(readFileSync(join(ROOT, BASELINE_REL), 'utf8'))
+      prior = JSON.parse(baselineText)
     } catch {
       // 坏账不阻断重落;旧裁决无从保留,下面逐对按本轮形态记账
     }
@@ -624,7 +636,7 @@ async function main() {
     die(`台账 ${BASELINE_REL} 不存在 —— 首跑请用 --update-baseline 落账(拒绝用隐式空账冒充"全对齐")`, 2)
   let baseline
   try {
-    baseline = JSON.parse(readFileSync(join(ROOT, BASELINE_REL), 'utf8'))
+    baseline = JSON.parse(baselineText)
   } catch (e) {
     die(`台账 ${BASELINE_REL} 坏:${String(e?.message).slice(0, 120)} —— 判不出不记绿(§0.3)`, 2)
   }
@@ -649,7 +661,7 @@ async function main() {
   }
   if (jsonMode) console.log(JSON.stringify({ face, counts, bad, warn, shrunk, adjudicated, judged: judgedApply.applied }, null, 1))
   else {
-    log(`🧩 两端同名组件 props 对账(守门 285,差值棘轮;面=${face})`)
+    log(`🧩 两端同名组件 props 对账(守门 288,差值棘轮;面=${face})`)
     log(
       `  配对 ${counts.pairs} · 存差 ${counts.drifted} 对/${counts.driftKeysTotal} 键 · 已裁决 judged ${counts.judgedKeysTotal} 键 · 映射等价 ${counts.mappedKeysTotal} 键(表 ${counts.equivalenceEntries} 条) · 未判定 ${counts.undetermined}${counts.notApplicable ? ` · 已裁决不适用 ${counts.notApplicable}(另 ${counts.adjudicatedDriftKeys} 键整对外置)` : ''} · 本轮新增退化 ${bad.length}`,
     )

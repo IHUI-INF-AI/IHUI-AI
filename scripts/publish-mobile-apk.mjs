@@ -7,7 +7,7 @@
  * publish-mobile-apk.mjs — 把 mobile-rn release APK 发到固定的公网地址(2026-10-29 立)
  *
  * 固定地址(用户永远用这一条,不再跟着版本号换):
- *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点 CDN 腿,EdgeOne,国内实测 1–4 MB/s)
+ *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点腿;⚠️ 2026-11-04 现读:国内 EdgeOne 腿并不在生效链上,实际由 Cloudflare 洛杉矶边缘跨境回源 —— 取证响应头与选腿判据单源见 `apps/mobile-rn/src/lib/apk-download-legs.ts`,本行不复制速率数字以免两处漂移)
  *
  * 为什么只剩一条腿:COS/CF 备用腿(dl.aizhs.top → 腾讯云 COS 桶 ihui-download-1367022840)已于
  * 2026-10-30 整桶下线。它按外网下行流量计费(0.5 元/GB),建桶当天被下载 3.48GB 就扣了 1.54 元
@@ -20,7 +20,7 @@
  *
  * 链路形状(2026-10-29 实测):
  *   站点腿:本机 → `deploy/server-root/remote-images/download/`(线上 cdn-server 的 --root)
- *           → EdgeOne → 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
+ *           → 边缘(现读:走 Cloudflare LAX,EdgeOne 未在生效链上,见上)→ 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
  *           `ihui-ai-latest.apk.redirect.json` 转出的 no-cache 302;真正被边缘长缓存的是带
  *           版本号那份(字节恒定才谈得上缓存)。
  *

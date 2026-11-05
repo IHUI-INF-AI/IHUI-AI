@@ -30,7 +30,7 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing['xs-loose'],
     },
-    headerActionText: { fontSize: 13, color: tk.brand.DEFAULT },
+    headerActionText: { fontSize: rnType.bodySm.size, color: tk.brand.DEFAULT },
     subtitle: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
@@ -64,7 +64,7 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
     statusText: { fontSize: rnType.label.size, fontWeight: '600' },
 
     detailLabel: { width: 96, fontSize: rnType.label.size, color: tk.text.tertiary },
-    detailValue: { flex: 1, fontSize: 13, color: tk.text.primary },
+    detailValue: { flex: 1, fontSize: rnType.bodySm.size, color: tk.text.primary },
     detailRow: { flexDirection: 'row', gap: rnSpacing.md },
     mono: { fontSize: rnType.label.size, color: tk.text.secondary },
     outputBlock: {
@@ -92,13 +92,13 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.medium,
     },
-    pagerBtnText: { fontSize: 13, color: tk.text.primary },
-    pagerBtnTextDisabled: { fontSize: 13, color: tk.text.tertiary },
+    pagerBtnText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
+    pagerBtnTextDisabled: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     pageInfo: { fontSize: rnType.label.size, color: tk.text.secondary },
 
     // —— 空态 / 错误 / 加载 ——
     emptyBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['3xl'] },
-    emptyText: { fontSize: 13, color: tk.text.tertiary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.tertiary },
     errorBox: {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.light,
@@ -106,7 +106,7 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       padding: rnSpacing.md,
     },
-    errorText: { fontSize: 13, color: tk.text.primary },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
   })
 }
 

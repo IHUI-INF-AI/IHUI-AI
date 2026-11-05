@@ -1046,4 +1046,67 @@ test('T22 第四层通知书闸:四判据成立但通知书在册 ⇒ 进 heldDe
   }
 })
 
+/**
+ * T23 —— 第四层的**反向例外**(2026-11-05 结构缺陷票③)。
+ *
+ * 旧判据:候选在 HEAD 的**每个**父树里都在位 ⇒ 与有意 `git rm` 分不清 ⇒ 只报数不修。
+ * 但旁路合进来的新文件本来就会同时存在于两侧父树 —— 这正是"文件在账上、硬盘上没有"的成因。
+ * 补的判据只有一句:HEAD 里还有没有人引用它。有引用 ⇒ 恢复;零引用且无删除理由 ⇒ 才落只报数桶。
+ *
+ * 夹具用**真实 merge 提交**造终态(两条路径都在两侧父树里、都被 `git rm`),不做假对象;
+ * 同一现场里 `used.ts` 被 `uses.ts` 引用、`unused.ts` 零引用 —— 一次跑出正反两例。
+ */
+function makeReferencedMergeDrill() {
+  const dir = mkScratch('wt-heal-ref-')
+  const g = (args) => gitRaw(args, dir, { timeout: 60000 })
+  g(['init', '-q', '--initial-branch=main'])
+  g(['config', 'user.email', 't@t'])
+  g(['config', 'user.name', 't'])
+  g(['config', 'core.autocrlf', 'false'])
+  writeFileSync(join(dir, 'used.ts'), 'export const used = 1\n')
+  writeFileSync(join(dir, 'uses.ts'), "import { used } from './used'\n")
+  writeFileSync(join(dir, 'unused.ts'), 'export const unused = 2\n')
+  g(['add', '-A'])
+  g(['commit', '-qm', 'base'])
+  g(['checkout', '-q', '-b', 'left', 'main'])
+  writeFileSync(join(dir, 'left.ts'), 'left\n')
+  g(['add', 'left.ts'])
+  g(['commit', '-qm', 'left'])
+  g(['checkout', '-q', 'main'])
+  g(['checkout', '-q', '-b', 'right', 'main'])
+  writeFileSync(join(dir, 'right.ts'), 'right\n')
+  g(['add', 'right.ts'])
+  g(['commit', '-qm', 'right'])
+  g(['checkout', '-q', 'main'])
+  g(['merge', '-q', '--no-ff', 'left', '-m', 'merge left'])
+  // 终态:两条路径都在 merge 的两个父树里,索引与磁盘一起缺席 ⇒ `D `
+  g(['rm', '-q', 'used.ts', 'unused.ts'])
+  return { dir, g }
+}
+
+test('T23 判据④反向例外:HEAD 仍被引用的合入文件恢复,零引用同形文件只报数', () => {
+  const { dir } = makeReferencedMergeDrill()
+  try {
+    assert.match(
+      gitRaw(['status', '--porcelain'], dir).replace(/\r/g, ''),
+      /^D  /m,
+      '夹具前提:两条都是"索引+磁盘缺席"的 D ',
+    )
+
+    const dry = restoreBypassOrphans(dir, { dryRun: true })
+    assert.ok(dry.paths.includes('used.ts'), 'HEAD 里仍被引用的路径必须进可恢复集')
+    assert.ok(!dry.paths.includes('unused.ts'), '零引用同形路径不得被无条件恢复')
+    assert.ok((dry.unprovenPaths || []).includes('unused.ts'), '零引用且无理由 ⇒ 落疑似 git rm 桶并点名')
+    assert.ok(!(dry.unprovenPaths || []).includes('used.ts'), '被引用的路径不得再算"与 git rm 分不清"')
+
+    const res = restoreBypassOrphans(dir)
+    assert.ok(res.paths.includes('used.ts'), `真跑必须恢复 used.ts,实得 ${JSON.stringify(res.paths)}`)
+    assert.equal(existsSync(join(dir, 'used.ts')), true, '恢复动作必须把文件写回工作树')
+    assert.notEqual(gitRaw(['ls-files', '-s', '--', 'used.ts'], dir).trim(), '', '恢复动作必须把路径写回索引')
+    assert.equal(existsSync(join(dir, 'unused.ts')), false, '零引用又无删除理由 ⇒ 只报数,不得越权恢复')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

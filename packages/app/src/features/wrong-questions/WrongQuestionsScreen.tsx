@@ -372,7 +372,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginTop: rnSpacing.xs,
     },
-    moreText: { fontSize: 13, color: tk.text.primary },
+    moreText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',

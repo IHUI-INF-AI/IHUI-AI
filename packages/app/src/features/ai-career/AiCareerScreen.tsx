@@ -289,7 +289,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    submitBtnText: { fontSize: rnType.title.size, fontWeight: '700', color: tk.surface.light },
+    submitBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.brand.ctaForeground,
+    },
     reportCard: {
       padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
@@ -312,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     exportBtnDisabled: { opacity: 0.5 },
-    exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    exportBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
     exportBtnTextDisabled: { color: tk.text.tertiary },
     formatRow: {
       flexDirection: 'row',
@@ -323,7 +327,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       paddingVertical: rnSpacing.sm,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,

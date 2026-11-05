@@ -16,12 +16,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import ts from 'typescript'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 // Windows 下绝对路径必须走 file:// URL(d:\… 会被当成协议 'd:');§22d 同款坑
 const { __test__: lib } = await import(pathToFileURL(join(ROOT, 'scripts/lib/component-props-parity.mjs')).href)
 const { __test__: gate } = await import(pathToFileURL(join(ROOT, 'scripts/check-cross-end-component-props-parity.mjs')).href)
-const { pairDelta } = lib
+const { pairDelta, componentPropsOf, workspaceSrcPaths } = lib
 const { verifyAgainstBaseline, buildBaselineEntry, validateEquivalence, validateJudged, applyJudged, updateGuard, resolveEvidence } = gate
 
 const d = (name, extra = {}) => ({ name, state: 'ok', onlyRn: [], onlyMini: [], reqDrift: [], driftTotal: 0, ...extra })
@@ -52,6 +54,49 @@ describe('288 pairDelta(生产判据直用)', () => {
     const r = pairDelta('X', { state: 'zero-props', reason: '', props: [] }, { state: 'ok', props: [mk('a'), mk('b')] })
     assert.equal(r.driftTotal, 2)
     assert.deepEqual(r.onlyMini, ['a', 'b'])
+  })
+})
+
+describe('288 props 类型解析:导入未解析不得读成"零 props"(§0.3)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'gate288-props-unresolved-'))
+  const dir = join(root, 'apps/mobile-rn/src/components')
+  mkdirSync(dir, { recursive: true })
+  const relUnresolved = 'apps/mobile-rn/src/components/UnresolvedPanel.ts'
+  writeFileSync(
+    join(root, relUnresolved),
+    [
+      "import type { Props } from '@nope/unresolvable'",
+      'export function UnresolvedPanel(props: Props) { return props }',
+      'export default UnresolvedPanel',
+    ].join('\n'),
+  )
+  const relLocal = 'apps/mobile-rn/src/components/LocalPanel.ts'
+  writeFileSync(
+    join(root, relLocal),
+    [
+      'export interface LocalPanelProps {',
+      '  title?: string',
+      '}',
+      'export function LocalPanel(props: LocalPanelProps) { return props }',
+      'export default LocalPanel',
+    ].join('\n'),
+  )
+  // 只喂这一个文件做编译面:导入模块故意不存在(复刻"缺 per-package node_modules"现场)
+  const build = (rel) =>
+    ts.createProgram({ rootNames: [join(root, rel)], options: { noEmit: true, skipLibCheck: true } })
+  it('props 的导入模块解析不到 ⇒ undetermined 点名,不产出"空键集 ok"', () => {
+    const r = lib.componentPropsOf(root, relUnresolved, 'rn', build(relUnresolved))
+    assert.equal(r.state, 'undetermined')
+    assert.ok(/不可解析/.test(r.reason))
+    assert.equal(r.props.length, 0)
+  })
+  it('同形态但类型本地可解析 ⇒ ok 且键集完整(反例:不是一律转未判定)', () => {
+    const r = lib.componentPropsOf(root, relLocal, 'rn', build(relLocal))
+    assert.equal(r.state, 'ok')
+    assert.deepEqual(
+      r.props.map((p) => p.name),
+      ['title'],
+    )
   })
 })
 
@@ -480,4 +525,91 @@ describe('288 审计返工接线锁(A 组真实现/死腿删除)', () => {
     assert.ok(!read('apps/miniapp-taro/src/components/ModelList.tsx').includes('onEndReached?:'), '小程序仍声明 onEndReached')
   })
 })
+describe('288 workspaceSrcPaths:读数不得取决于"本机刚没刚构建过"(生产判据直用)', () => {
+  const write = (dir, rel, text) => {
+    const abs = join(dir, rel)
+    mkdirSync(dirname(abs), { recursive: true })
+    writeFileSync(abs, text, 'utf8')
+  }
+  it('types 落 dist 且有 src/index.ts 的 @ihui/* 包被映到源码;types 本就在 src 的包、无 src 的包、packages/ 外的目录都不映', () => {
+    const dir = mkScratch('props-src-paths')
+    try {
+      write(dir, 'packages/alpha/package.json', JSON.stringify({ name: '@ihui/alpha', types: './dist/index.d.ts' }))
+      write(dir, 'packages/alpha/src/index.ts', 'export type A = 1\n')
+      write(dir, 'packages/beta/package.json', JSON.stringify({ name: '@ihui/beta', types: './src/index.ts' }))
+      write(dir, 'packages/beta/src/index.ts', 'export type B = 1\n')
+      write(dir, 'packages/gamma/package.json', JSON.stringify({ name: '@ihui/gamma', types: './dist/index.d.ts' }))
+      write(dir, 'elsewhere/delta/package.json', JSON.stringify({ name: '@ihui/delta', types: './dist/index.d.ts' }))
+      write(dir, 'elsewhere/delta/src/index.ts', 'export type D = 1\n')
+      const p = workspaceSrcPaths(dir)
+      assert.deepEqual(p['@ihui/alpha'], ['packages/alpha/src/index.ts'], '阳性:@ihui/types 这一型必须被映到源码')
+      assert.deepEqual(p['@ihui/alpha/*'], ['packages/alpha/src/*'])
+      assert.equal(p['@ihui/beta'], undefined, '阴性一:types 已在 src 的包不重复映(免得造第二条取源)')
+      assert.equal(p['@ihui/gamma'], undefined, '阴性二:没有 src/index.ts 就不映(不写悬空路径)')
+      assert.equal(p['@ihui/delta'], undefined, '阴性三:射程只到 packages/,packages/ 外同名形态不扫')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
+describe('288 componentPropsOf:基类型解析不出 ⇒ undetermined(绝不给偏小的键集)', () => {
+  const mkProgram = (dir, files) => {
+    for (const [rel, text] of Object.entries(files)) {
+      const abs = join(dir, rel)
+      mkdirSync(dirname(abs), { recursive: true })
+      writeFileSync(abs, text, 'utf8')
+    }
+    return ts.createProgram({
+      rootNames: Object.keys(files).map((f) => join(dir, f)),
+      options: { jsx: ts.JsxEmit.React, strict: false, noEmit: true, skipLibCheck: true },
+    })
+  }
+  it('故障样本:props 接口 extends 一个解析不出的基类型 ⇒ state=undetermined 且点名那枚基名', () => {
+    const dir = mkScratch('props-heritage-broken')
+    try {
+      const program = mkProgram(dir, {
+        'Broken.tsx': [
+          "import type { MissingBase } from './no-such-module'",
+          'export interface BrokenProps extends MissingBase { title?: string }',
+          'export function Broken(props: BrokenProps) {',
+          '  return null',
+          '}',
+          '',
+        ].join('\n'),
+      })
+      const r = componentPropsOf(dir, 'Broken.tsx', 'rn', program)
+      assert.equal(r.state, 'undetermined', '解析不出必须点名未判定,不得读成"键集就是 title"')
+      assert.match(r.reason, /MissingBase/, '未判定理由要带那枚失踪的基类型名')
+      assert.deepEqual(r.props, [])
+    } finally {
+      rmScratch(dir)
+    }
+  })
+  it('阳性对照:同形但基类型可解析 ⇒ ok,且继承来的键确实在键集里(护栏没有把正常读数一起吞掉)', () => {
+    const dir = mkScratch('props-heritage-ok')
+    try {
+      const program = mkProgram(dir, {
+        'base.ts': 'export interface GoodBase {\n  avatar?: string\n}\n',
+        'Good.tsx': [
+          "import type { GoodBase } from './base'",
+          'export interface GoodProps extends GoodBase { title?: string }',
+          'export function Good(props: GoodProps) {',
+          '  return null',
+          '}',
+          '',
+        ].join('\n'),
+      })
+      const r = componentPropsOf(dir, 'Good.tsx', 'rn', program)
+      assert.equal(r.state, 'ok', `正常面不得被护栏误判:${r.reason ?? ''}`)
+      assert.deepEqual(
+        r.props.map((p) => p.name),
+        ['avatar', 'title'],
+      )
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

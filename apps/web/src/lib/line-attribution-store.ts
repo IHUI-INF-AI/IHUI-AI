@@ -64,13 +64,30 @@ function fileKey(file: string): string {
   return normalizePathSegments(file)
 }
 
+/**
+ * 按版本号取快照。`version` 是本模块唯一的失效信号:所有写入路径都先 persist 再 notify,
+ * 所以版本号不变 ⇒ localStorage 里的归因数据也不变。以版本号为缓存键,一是让调用方 useMemo
+ * 的依赖真正参与计算(而不是只当摆设塞进数组),二是同版本多次重渲染不再重复 JSON.parse。
+ */
+let cachedVersion = -1
+let cachedSnapshot: AttributionSnapshot = {}
+
+function snapshotAt(snapshotVersion: number): AttributionSnapshot {
+  if (cachedVersion !== snapshotVersion) {
+    cachedSnapshot = loadSnapshot()
+    cachedVersion = snapshotVersion
+  }
+  return cachedSnapshot
+}
+
 /** 逐行来源(索引 0 = 第 1 行);无记录即全 human。 */
 export function getLineAttributionSources(
   workspace: string,
   file: string,
   lineCount: number,
+  snapshotVersion: number = version,
 ): AttributionSource[] {
-  const records = loadSnapshot()[workspace]?.[fileKey(file)] ?? []
+  const records = snapshotAt(snapshotVersion)[workspace]?.[fileKey(file)] ?? []
   return resolveLineSources(records, lineCount)
 }
 

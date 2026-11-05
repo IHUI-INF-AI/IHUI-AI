@@ -200,7 +200,7 @@ export default function UserInfoCard({
             />
             <View className="flex-1 min-w-0">
               {/* 用户名行:user 矢量图标 + 昵称 + VIP 文字徽章 + 操盘手标识 + pencil 矢量图标 */}
-              <View className="flex items-center gap-2">
+              <View className="flex items-center gap-sm">
                 <LineIcon name="user" size={40} className="flex-shrink-0" />
                 <Text className="font-medium text-foreground truncate" style={NAME_FONT_STYLE}>
                   {nickname}
@@ -213,7 +213,7 @@ export default function UserInfoCard({
                     与 RN 端 roleBadge 是同一角色,此前各写 4 / 2,现统一到 chip 档。 */}
                 {isVip ? (
                   <View
-                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
+                    className="px-sm py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -228,7 +228,7 @@ export default function UserInfoCard({
                     徽章内边距与等级徽章同档:spec BADGE_PADDING_X 8 = `px-2` / Y 2 = `py-[4rpx]` */}
                 {identityType === 2 ? (
                   <View
-                    className="px-2 py-[4rpx] rounded-md flex-shrink-0"
+                    className="px-sm py-[4rpx] rounded-md flex-shrink-0"
                     style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
@@ -244,12 +244,12 @@ export default function UserInfoCard({
                 ) : null}
               </View>
               {/* 智汇值行 */}
-              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
+              <View className="flex items-center gap-sm" style={ROW_MARGIN_STYLE}>
                 {/* 智汇值行:品牌标识位图(保留,理由见声明处)+ tokenDisplay + 文字充值按钮
                     (对齐原项目 token 显示;充值钮此前是烘了汉字的位图按钮,已矢量化/文字化) */}
                 {tokenDisplay ? (
                   <View
-                    className="flex items-center gap-1 flex-1 min-w-0"
+                    className="flex items-center gap-xs flex-1 min-w-0"
                     hoverClass="opacity-85"
                     onClick={
                       showRecharge
@@ -291,7 +291,7 @@ export default function UserInfoCard({
               {/* ===== 成长值进度条(对齐原项目 growth-bar:外层灰底 + 内层渐变填充)===== */}
               {showGrowthBar ? (
                 <View style={ROW_MARGIN_STYLE} onClick={onOpenLevel} hoverClass="opacity-85">
-                  <View className="flex items-center justify-between mb-1">
+                  <View className="flex items-center justify-between mb-xs">
                     <Text className="text-muted-foreground" style={SMALL_FONT_STYLE}>
                       {tt('member.index.growth', '成长值')}
                     </Text>
@@ -322,7 +322,7 @@ export default function UserInfoCard({
               ) : null}
 
               {/* ===== 操作按钮行(对齐原项目:开通会员 / 退订 / 充值)===== */}
-              <View className="flex items-center gap-2" style={ROW_MARGIN_STYLE}>
+              <View className="flex items-center gap-sm" style={ROW_MARGIN_STYLE}>
                 {/* 开通会员按钮(仅非 isVip 显示,对齐原项目 openIntroduce) */}
                 {!isVip && onOpenVip ? (
                   <View

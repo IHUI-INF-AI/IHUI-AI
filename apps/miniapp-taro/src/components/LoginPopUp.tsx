@@ -415,7 +415,7 @@ export default function LoginPopUp({
                 onToast(tt('login.loginFailed', '登录失败,请重试'), { kind: 'error' })
               }
             }}
-            className="w-full px-4 rounded-sm !border-none text-center"
+            className="w-full px-lg rounded-sm !border-none text-center"
             style={{
               paddingTop: 0,
               paddingBottom: 0,
@@ -442,7 +442,7 @@ export default function LoginPopUp({
             hoverClass="opacity-60"
           >
             <Text
-              className="text-xs text-muted-foreground"
+              className="text-label text-muted-foreground"
               style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
             >
               {tt('login.webAuthLogin', '网页授权登录')}
@@ -474,7 +474,7 @@ export default function LoginPopUp({
                   <View className="login-label-row">
                     <Text className="login-label">{tt('login.password', '密码')}</Text>
                     <Text
-                      className="text-xs text-muted-foreground"
+                      className="text-label text-muted-foreground"
                       onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
                     >
                       {tt('login.forgotPassword', '忘记密码')}
@@ -491,7 +491,7 @@ export default function LoginPopUp({
                   />
                 </View>
                 <Button
-                  className="w-full px-4 rounded-sm !border-none text-center"
+                  className="w-full px-lg rounded-sm !border-none text-center"
                   style={{
                     paddingTop: 0,
                     paddingBottom: 0,
@@ -534,7 +534,7 @@ export default function LoginPopUp({
               </>
             ) : (
               <Text
-                className="text-xs text-muted-foreground"
+                className="text-label text-muted-foreground"
                 style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
                 onClick={() => setPwdOpen(true)}
               >
@@ -573,7 +573,7 @@ export default function LoginPopUp({
                 </Text>
               ) : null}
             </View>
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-label text-muted-foreground">
               {tt('login.agreement', '登录即代表同意《用户协议》和《隐私政策》')}
             </Text>
           </View>

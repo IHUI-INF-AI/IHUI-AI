@@ -17,7 +17,7 @@
  */
 
 .tac-card {
-  margin: var(--spacing-xs-loose) 20rpx 0;
+  margin: var(--spacing-xs-loose) var(--spacing-sm-loose) 0;
   padding: var(--spacing-sm-loose);
   border: 1rpx solid var(--color-border-medium);
   border-radius: var(--radius-lg);
@@ -58,7 +58,7 @@
   justify-content: space-between;
   gap: var(--spacing-xs-loose);
   margin-top: 14rpx;
-  padding: 10rpx 16rpx;
+  padding: 10rpx var(--spacing-sm);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-muted);
@@ -74,7 +74,7 @@
 
 .tac-danger {
   flex-shrink: 0;
-  padding: 2rpx 12rpx;
+  padding: 2rpx var(--spacing-xs-loose);
   border-radius: var(--radius-sm);
   background: var(--color-danger-tint);
   font-size: var(--text-badge);
@@ -115,7 +115,7 @@
 
 .tac-scope-btn {
   flex: 1;
-  padding: 10rpx 8rpx;
+  padding: 10rpx var(--spacing-xs);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-background);
@@ -169,8 +169,8 @@
 
 /* 已处理记录:住在卡外(页级 state 驱动),卡片不挂载时仍在 */
 .tac-records {
-  margin: var(--spacing-xs-loose) 20rpx 0;
-  padding: 14rpx 16rpx;
+  margin: var(--spacing-xs-loose) var(--spacing-sm-loose) 0;
+  padding: 14rpx var(--spacing-sm);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-muted);

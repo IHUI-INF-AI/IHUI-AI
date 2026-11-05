@@ -313,11 +313,11 @@ const styles = StyleSheet.create({
     color: tokens.danger.bright,
   } as TextStyle,
   actionCount: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   actionLabel: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   // ── 评论弹窗 ──
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['4xl'],
   } as ViewStyle,
   commentEmptyText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   } as TextStyle,
   commentItem: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     marginRight: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentAvatarText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     flex: 1,
   } as ViewStyle,
   commentNickname: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
