@@ -2,17 +2,22 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx
-import { useTt, t } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx
+// 端内只留平台事实:取数(GET /teacher/:id 与 /teacher/:id/courses)、关注 POST、联系弹层、导航出口。
+import { useI18n, useTt } from '@/i18n'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import './detail.css'
+import { LecturerDetailScreen } from '@ihui/rn-app/features/lecturer-detail/LecturerDetailScreen'
+import type {
+  LecturerDetailCourse,
+  LecturerDetailInfo,
+  LecturerDetailReview,
+  OnNavigate,
+} from '@ihui/types'
+import { useAppTheme } from '@/lib/theme'
 import { onToast } from '@/host/on-toast'
 
 interface TeacherCourse {
@@ -23,45 +28,29 @@ interface TeacherCourse {
   students?: number
 }
 
-interface TeacherReview {
-  id: string | number
-  nickname: string
-  avatar?: string
-  rating: number
-  content: string
-  time: string
-}
-
 interface TeacherExtra extends Teacher {
   fans?: number
   rating?: number
   isFollowed?: boolean
 }
 
-const formatStudents = (n: number): string => {
-  if (n >= 10000) return `${(n / 10000).toFixed(1)}w`
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return String(n)
+/** B1 契约冻结:共享屏本轮只 assert 端口、尚未调用导航(与 about-shared 同形制)。 */
+const onNavigate: OnNavigate = (target) => {
+  onToast(`导航未接入: ${target}`, { kind: 'error' })
 }
 
-const formatPrice = (price?: number): { text: string; free: boolean } => {
-  if (price === undefined || price === null || price === 0) {
-    return { text: t('common.free'), free: true }
-  }
-  return { text: `¥${(price / 100).toFixed(2)}`, free: false }
-}
+/** 评价无真数据源(全仓无课程/讲师评价表),保持空列表,不造数据。 */
+const REVIEWS: LecturerDetailReview[] = []
 
 export default function TeacherDetail() {
+  const { t } = useI18n()
   const tt = useTt()
-
+  const { resolved } = useAppTheme()
   const router = useRouter()
   const [teacher, setTeacher] = useState<TeacherExtra | null>(null)
   const [courses, setCourses] = useState<TeacherCourse[]>([])
-  // 评价没有真数据源(全仓无课程/讲师评价表),不再打不存在的 /teacher/:id/reviews
-  const [reviews] = useState<TeacherReview[]>([])
   const [loading, setLoading] = useState(true)
   const [followed, setFollowed] = useState(false)
-  const [introExpanded, setIntroExpanded] = useState(false)
 
   const load = useCallback(async () => {
     const id = router.params.id
@@ -87,14 +76,13 @@ export default function TeacherDetail() {
     } catch {
       setCourses([])
     }
-  }, [router.params.id, tt])
+  }, [router.params.id, tt, t])
 
   useDidShow(() => {
     load()
   })
 
-  // 原生导航栏标题对齐共享屏 Header:有讲师名用讲师名,没有则回落 teacher.list.title
-  // (本页无自绘标题栏,原生导航栏就是共享屏 Header 的承载位)
+  // 原生导航栏标题对齐共享屏 Header(本页无自绘标题栏,原生导航栏就是共享屏 Header 的承载位)
   useEffect(() => {
     Taro.setNavigationBarTitle({ title: teacher?.name || tt('teacher.list.title', '讲师') }).catch(
       () => {},
@@ -115,11 +103,7 @@ export default function TeacherDetail() {
       setFollowed(!next)
       logger.error('teacher/detail', t('teacherDetail.q2'), e)
     }
-  }, [teacher, followed, tt])
-
-  const onToggleIntro = useCallback(() => {
-    setIntroExpanded((v) => !v)
-  }, [])
+  }, [teacher, followed, tt, t])
 
   const onContact = useCallback(() => {
     if (!teacher) return
@@ -139,209 +123,63 @@ export default function TeacherDetail() {
     })
   }, [teacher, tt])
 
-  const onViewCourses = useCallback(() => {
-    if (!teacher) return
-    Taro.navigateTo({ url: `/pkg-learn/course/list?keyword=${encodeURIComponent(teacher.name)}` })
-  }, [teacher])
+  const onViewCourses = useCallback((teacherName: string) => {
+    Taro.navigateTo({ url: `/pkg-learn/course/list?keyword=${encodeURIComponent(teacherName)}` })
+  }, [])
 
-  const onOpenCourse = useCallback((courseId: string | number) => {
+  const onOpenCourse = useCallback((courseId: string) => {
     Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${courseId}` })
   }, [])
 
-  const isGoldTeacher = (teacher?.courses ?? 0) >= 10 || (teacher?.students ?? 0) >= 1000
+  // 取数面 → 共享屏 info(字段名两端同一份 @ihui/types,这里只做列名映射,不造数据)
+  const info = useMemo<LecturerDetailInfo | null>(() => {
+    if (!teacher) return null
+    const courseCount = teacher.courses ?? 0
+    const studentCount = teacher.students ?? 0
+    return {
+      id: String(teacher.id),
+      nickname: teacher.name,
+      avatar: teacher.avatar ?? null,
+      title: teacher.title,
+      intro: teacher.intro,
+      fans: teacher.fans ?? 0,
+      rating: teacher.rating ?? 0,
+      courseCount,
+      studentCount,
+      isFollowing: followed,
+      isGold: courseCount >= 10 || studentCount >= 1000,
+    }
+  }, [teacher, followed])
 
-  const stats: Array<{ num: number; label: string }> = [
-    { num: teacher?.fans ?? 0, label: tt('teacher.detail.fans', '粉丝') },
-    { num: teacher?.courses ?? 0, label: tt('teacher.detail.courses', '课程') },
-    { num: teacher?.students ?? 0, label: tt('teacher.detail.students', '学员') },
-    {
-      num: teacher?.rating ?? 0,
-      label: tt('teacher.detail.rating', '评分'),
-    },
-  ]
+  const mappedCourses = useMemo<LecturerDetailCourse[]>(
+    () =>
+      courses.map((c) => ({
+        id: String(c.id),
+        title: c.title,
+        coverUrl: c.coverUrl,
+        price: c.price,
+        students: c.students,
+      })),
+    [courses],
+  )
 
   return (
-    <View className="tdetail-page">
-      {loading && <ScreenSkeleton variant="card" count={4} />}
-
-      {!loading && teacher && (
-        <>
-          {/* 教师头部 */}
-          <View className="tdetail-header">
-            <View className="tdetail-header-top">
-              {teacher.avatar ? (
-                <Image className="tdetail-avatar" src={teacher.avatar} mode="aspectFill" />
-              ) : (
-                <View className="tdetail-avatar tdetail-avatar-fallback">
-                  <Text>{teacher.name.charAt(0) || '?'}</Text>
-                </View>
-              )}
-              <View className="tdetail-header-info">
-                <View className="tdetail-name-row">
-                  <Text className="tdetail-name">{teacher.name}</Text>
-                  {isGoldTeacher && (
-                    <Text className="tdetail-badge">
-                      {tt('teacher.detail.goldBadge', '金牌讲师')}
-                    </Text>
-                  )}
-                </View>
-                {teacher.title && <Text className="tdetail-title">{teacher.title}</Text>}
-              </View>
-              <Text
-                className={`tdetail-follow-btn ${followed ? 'tdetail-follow-btn-active' : ''}`}
-                onClick={onToggleFollow}
-              >
-                {followed
-                  ? tt('teacher.detail.following', '已关注')
-                  : tt('teacher.detail.follow', '+ 关注')}
-              </Text>
-            </View>
-          </View>
-
-          {/* 数据统计 */}
-          <View className="tdetail-stats">
-            {stats.map((s, idx) => (
-              <View key={idx} className="tdetail-stat-item">
-                <Text className="tdetail-stat-num">
-                  {idx === 3 ? s.num.toFixed(1) : formatStudents(s.num)}
-                </Text>
-                <Text className="tdetail-stat-label">{s.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* 教师简介 */}
-          {teacher.intro && (
-            <View className="tdetail-intro">
-              <Text className="tdetail-section-title">{tt('teacher.detail.intro', '简介')}</Text>
-              <Text
-                className={`tdetail-intro-text ${introExpanded ? '' : 'tdetail-intro-text-collapsed'}`}
-              >
-                {teacher.intro}
-              </Text>
-              {teacher.intro.length > 60 && (
-                <Text className="tdetail-intro-toggle" onClick={onToggleIntro}>
-                  {introExpanded
-                    ? tt('teacher.detail.collapse', '收起')
-                    : tt('teacher.detail.expand', '展开')}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* 主讲课程 */}
-          <View className="tdetail-section">
-            <Text className="tdetail-section-title">
-              {tt('teacher.detail.courseSection', '主讲课程')}
-            </Text>
-            {courses.length > 0 ? (
-              <View className="tdetail-course-list">
-                {courses.map((c) => {
-                  const price = formatPrice(c.price)
-                  return (
-                    <ThemeRoot key={c.id}>
-                      <View
-                        className="tdetail-course-card"
-                        hoverClass="opacity-85"
-                        onClick={() => onOpenCourse(c.id)}
-                      >
-                        {c.coverUrl ? (
-                          <Image
-                            className="tdetail-course-cover"
-                            src={c.coverUrl}
-                            mode="aspectFill"
-                          />
-                        ) : (
-                          <View className="tdetail-course-cover" />
-                        )}
-                        <View className="tdetail-course-body">
-                          <Text className="tdetail-course-title">{c.title}</Text>
-                          <View className="tdetail-course-meta">
-                            <Text
-                              className={`tdetail-course-price ${price.free ? 'tdetail-course-price-free' : ''}`}
-                            >
-                              {price.text}
-                            </Text>
-                            <Text className="tdetail-course-students">
-                              {formatStudents(c.students ?? 0)}
-                              {tt('teacher.detail.learnUnit', '人学习')}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    </ThemeRoot>
-                  )
-                })}
-              </View>
-            ) : (
-              <EmptyState title={tt('teacher.detail.noCourses', '暂无课程')} />
-            )}
-          </View>
-
-          {/* 学员评价 */}
-          <View className="tdetail-section">
-            <Text className="tdetail-section-title">
-              {tt('teacher.detail.reviewSection', '学员评价')}
-            </Text>
-            {reviews.length > 0 ? (
-              <View className="tdetail-review-list">
-                {reviews.map((rv) => {
-                  const stars = Math.round(rv.rating)
-                  return (
-                    <View key={rv.id} className="tdetail-review-card">
-                      <View className="tdetail-review-head">
-                        {rv.avatar ? (
-                          <Image
-                            className="tdetail-review-avatar"
-                            src={rv.avatar}
-                            mode="aspectFill"
-                          />
-                        ) : (
-                          <View className="tdetail-review-avatar tdetail-review-avatar-fallback">
-                            <Text>{rv.nickname.charAt(0) || '?'}</Text>
-                          </View>
-                        )}
-                        <Text className="tdetail-review-name">{rv.nickname}</Text>
-                        <View className="tdetail-review-stars">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <LineIcon
-                              key={i}
-                              name={i < stars ? 'star-fill' : 'star'}
-                              size={14}
-                              color={
-                                i < stars ? 'var(--color-vip-gold-start)' : 'var(--color-border)'
-                              }
-                            />
-                          ))}
-                        </View>
-                      </View>
-                      {rv.content ? (
-                        <Text className="tdetail-review-content">{rv.content}</Text>
-                      ) : null}
-                      {rv.time ? <Text className="tdetail-review-time">{rv.time}</Text> : null}
-                    </View>
-                  )
-                })}
-              </View>
-            ) : (
-              <EmptyState title={tt('teacher.detail.noReviews', '暂无评价')} />
-            )}
-          </View>
-
-          {/* 底部按钮 */}
-          <View className="tdetail-actions">
-            <Text className="tdetail-action-btn tdetail-action-secondary" onClick={onContact}>
-              {tt('teacher.detail.contact', '联系讲师')}
-            </Text>
-            <Text className="tdetail-action-btn tdetail-action-primary" onClick={onViewCourses}>
-              {tt('teacher.detail.viewCourses', '查看全部课程')}
-            </Text>
-          </View>
-        </>
-      )}
-
-      {!loading && !teacher && <EmptyState title={tt('teacher.detail.notFound', '讲师不存在')} />}
-    </View>
+    <ThemeRoot>
+      <LecturerDetailScreen
+        t={t}
+        info={info}
+        courses={mappedCourses}
+        reviews={REVIEWS}
+        loading={loading}
+        error=""
+        onToggleFollow={onToggleFollow}
+        onContact={onContact}
+        onOpenCourse={onOpenCourse}
+        onBack={() => Taro.navigateBack()}
+        colorScheme={resolved}
+        onViewCourses={onViewCourses}
+        onNavigate={onNavigate}
+      />
+    </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
