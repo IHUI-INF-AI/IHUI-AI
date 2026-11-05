@@ -25,8 +25,14 @@
  *     "方括号后不跟空格"的写法 ⇒ 308 条只量到 229,**漏掉的 79 条永远不会被年龄判据看见**,
  *     而账面读起来跟"这 229 条都不老"一模一样。已由 S8b 把两种写法钉成夹具。
  *
- * 成本:真仓全文件一次 blame ≈ 数秒;**只在问责档跑**(`--stale` / `--strict`),不进提交链
- * —— 提交链上的 F8a 判"本次新增行有没有交代",与年龄无关,不需要这里任何一次派生。
+ * 成本(2026-11-05 现读双臂,同一枚提交 2e949dc 上量):整档一次 blame = **144.8 秒**;
+ * 只取未勾选登记行的 `-L` 区间(34 行折 4 块)= **31.4 秒**,且逐行时刻**逐字等值**
+ * (缺 0 / 不等 0)⇒ 本模块改成区间档。为什么会吃满:PROJECT_PLAN.md 现读 31,479 行、
+ * 近 30 天 4,468 枚提交动过它,整档 blame 要为每一行回溯整部历史。
+ * 口径更正:头注旧写"只在问责档跑(`--stale`/`--strict`)",**与代码相反** ——
+ * `plan-tasks.mjs` 在 head 面无条件调本模块(到期名单 F8b 就是 `--open` 的输出之一),
+ * 取票口因此整天背着这一笔。旧口径还称"≈ 数秒",同样是陈旧读数。
+ * 不进提交链那半句仍然成立:`--staged`(索引面)结构上没有历史可问,连 blame 都不派生。
  *
  * 用法:
  *   node scripts/lib/plan-line-age.mjs                # 人读:最陈旧的未勾选登记行
@@ -83,15 +89,61 @@ const DAY_MS = 86400000
 /**
  * 跑一次 blame,拿"行号 → 该行最后改动时间(ms)"。只认 `--line-porcelain` 的两种头行形态
  * (带 / 不带重复计数尾巴);真 sha 恒为 40 位十六进制,正则照此收窄。
+ *
+ * `blocks`(2026-11-05 加):只追这些行区间(`[[起,止],…]`,1 基、含端点)。git 支持**一次
+ * 调用带多枚 `-L`**,所以"只问登记行"仍是**一次**派生,不是 N 次。传空数组 ⇒ 整档(旧形态),
+ * 调用方若压根没有登记行要问,应该**别调本函数**(见 `headAges` 的 0 行分支),而不是派一次整档。
+ * 双臂逐行等值已实测(同枚提交上 缺 0 / 不等 0),区间档不是近似,是同一份答案的取子集。
  */
-export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL) {
+export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL, blocks = []) {
+  const rangeArgs = (blocks || []).map(([a, b]) => `-L${a},${b}`)
   const out = execFileSync(
     gitBinary(),
-    ['-c', 'safe.directory=*', '-C', root, 'blame', '--line-porcelain', rev, '--', relPath],
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    { encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] },
+    [
+      '-c',
+      'safe.directory=*',
+      '-C',
+      root,
+      'blame',
+      '--line-porcelain',
+      ...rangeArgs,
+      rev,
+      '--',
+      relPath,
+    ],
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    {
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      windowsHide: true,
+      timeout: 180000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
   )
   return parseBlame(out)
+}
+
+/**
+ * 把散落的登记行行号折成 `-L` 区间:间隙 ≤ gap 的两行并一块(逐块各回溯一次历史,所以
+ * 块数就是成本)。纯函数,可确定性证成对形态(相邻、跨 gap、空输入、乱序)。
+ */
+export function mergeRowLinesToBlocks(lines, gap = 12) {
+  const sorted = [
+    ...new Set((lines || []).map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)),
+  ].sort((a, b) => a - b)
+  if (!sorted.length) return []
+  const blocks = []
+  let start = sorted[0]
+  let prev = sorted[0]
+  for (const ln of sorted.slice(1)) {
+    if (ln - prev > gap) {
+      blocks.push([start, prev])
+      start = ln
+    }
+    prev = ln
+  }
+  blocks.push([start, prev])
+  return blocks
 }
 
 /** 纯解析(不碰 git,可用构造面直接证明)。 */
@@ -199,7 +251,7 @@ function selfTest() {
           windowsHide: true,
           env: { ...process.env, ...env },
           timeout: 120000,
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'pipe', 'pipe'],
           // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         },
       )
@@ -228,7 +280,7 @@ function selfTest() {
       maxBuffer: 1 << 24,
       windowsHide: true,
       timeout: 60000,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
     const ages = openRowAges({ content, times, nowMs })
@@ -320,17 +372,42 @@ function selfTest() {
   return fail.length ? 1 : 0
 }
 
-/** 供 plan-tasks.mjs 的 `--stale` 调用:拿真仓 HEAD 面的年龄表。 */
+/** 供 plan-tasks.mjs 的 `--stale` 调用:拿真仓 HEAD 面的年龄表(区间档,见 `blameLineTimes` 头注)。 */
 export function headAges(root = ROOT) {
-  const content = execFileSync(gitBinary(), ['-C', root, 'show', `HEAD:${PLAN_REL}`], {
+  // 先钉死那一枚提交,再在它上面取正文与跑 blame:多席共树时 HEAD 每几分钟推进,
+  // 分两次现读 HEAD 会让"正文行号"与"blame 行号"落在**不同面**上 —— 那不是近似,是错配。
+  const rev = execFileSync(gitBinary(), ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 30000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+    .trim()
+    .split(/\r?\n/)[0]
+  const content = execFileSync(gitBinary(), ['-C', root, 'show', `${rev}:${PLAN_REL}`], {
     encoding: 'utf8',
     maxBuffer: 1 << 26,
     windowsHide: true,
     timeout: 120000,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
-  return { ages: openRowAges({ content, times: blameLineTimes(root), nowMs: Date.now() }), content }
+  const openLines = parseTaskRows(content)
+    .filter((r) => r.state === 'open')
+    .map((r) => r.line)
+  const blocks = mergeRowLinesToBlocks(openLines)
+  // 0 枚未勾选登记行 ⇒ 一次 blame 都不派(派了就是为一堆没人问的行买整档历史)
+  const times = blocks.length ? blameLineTimes(root, rev, PLAN_REL, blocks) : new Map()
+  return {
+    ages: openRowAges({ content, times, nowMs: Date.now() }),
+    content,
+    blameShape: {
+      rev,
+      openRows: openLines.length,
+      blocks: blocks.length,
+      blamed: blocks.length > 0,
+    },
+  }
 }
 
 function main() {
@@ -357,14 +434,12 @@ function main() {
           {
             total: ages.length,
             unmeasurable: unmeasurable.length,
-            top: measurable
-              .slice(0, limit)
-              .map((a) => ({
-                line: a.line,
-                ageDays: a.ageDays,
-                source: a.source,
-                text: a.raw.slice(0, 120),
-              })),
+            top: measurable.slice(0, limit).map((a) => ({
+              line: a.line,
+              ageDays: a.ageDays,
+              source: a.source,
+              text: a.raw.slice(0, 120),
+            })),
           },
           null,
           2,
