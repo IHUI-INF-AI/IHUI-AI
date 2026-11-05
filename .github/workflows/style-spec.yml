@@ -102,12 +102,41 @@ jobs:
           cache: 'pnpm'
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
-      - name: Stylelint 检查 (若配置存在)
+      - name: 探测 stylelint 配置 (本 job 判据唯一源)
+        id: stylelint-probe
+        # 治理债③(2026-11-05):原实现是一份 run 内的 if/else —— 缺配置时走 else 分支
+        # `echo "未配置 stylelint, 跳过"` 后 exit 0, 于是每一枚运行都把「没判」渲染成「检查通过」
+        # (违 AGENTS §0.3「没判绝不写成判过」)。现拆成「探测步写 output + 门控步只读 output」:
+        # 判据只在这一处计算, 下面 if: 不复写条件(两份写法必然漂移)。
+        # 刻意**不**改成「缺配置即 exit 1」:HEAD 面 stylelint 配置从未存在过(git log --all 零命中),
+        # 那会把每次触碰 apps/web 的 push/PR 都变红 = §12e 明令禁止的恒红门。
         run: |
-          if [ -f apps/web/.stylelintrc* ] || grep -q '"stylelint"' apps/web/package.json 2>/dev/null; then
-            cd apps/web && npx stylelint "**/*.{css,scss}" --max-warnings 0
+          # 判据形态: apps/web/.stylelintrc* / apps/web/stylelint.config.* 任一存在, 或
+          # apps/web/package.json 含 stylelintConfig 键。
+          # 用 nullglob + 数组计数, 而不是 [ -f glob ](命中多份时报 "too many arguments" 落到假跳过),
+          # 也不是 ls a* b*(只要有一族没命中 ls 就以 2 退出, 实测把「已配置」误判成未配置)。
+          shopt -s nullglob
+          stylelint_configs=( apps/web/.stylelintrc* apps/web/stylelint.config.* )
+          if [ "${#stylelint_configs[@]}" -gt 0 ] \
+            || grep -q '"stylelintConfig"' apps/web/package.json 2>/dev/null; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "探测到 stylelint 配置: ${stylelint_configs[*]:-package.json 的 stylelintConfig 键} ⇒ 下一步真跑 stylelint"
           else
-            echo "未配置 stylelint, 跳过"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo '::warning title=未判定-stylelint-未执行::apps/web 无 stylelint 配置 ⇒ 本轮对 CSS/SCSS 没有做过任何 stylelint 规则校验, 下一步「Stylelint 检查」显示为 Skipped(灰跳), 这不是通过。'
+            {
+              echo '## 未判定：stylelint 的 CSS/SCSS 规则检查未执行'
+              echo ''
+              echo '- 没判的那一格：`apps/web` 下 `**/*.{css,scss}` 的 stylelint 规则校验(本轮零结论)。'
+              echo '- 为什么没判：探测判据 = `apps/web/.stylelintrc*` 或 `apps/web/stylelint.config.*` 存在, 或 `apps/web/package.json` 含 `stylelintConfig` 键; 三者现读皆无 ⇒ `configured=false`。'
+              echo '- 这不是「通过」：作业结论 success 只代表真跑过的那几把尺都过了; stylelint 那一格在 UI 显示为 Skipped(灰)。'
+              echo '- 怎么让它真跑：在 `apps/web` 落一份 stylelint 配置(例 `apps/web/.stylelintrc.json`)并同批把 stylelint 列为 devDependency ⇒ 本步自动复活, 不再需要改本文件。'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Stylelint 检查 (仅当探测到配置时执行, 否则灰跳)
+        if: steps.stylelint-probe.outputs.configured == 'true'
+        run: |
+          cd apps/web && npx stylelint "**/*.{css,scss}" --max-warnings 0
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
