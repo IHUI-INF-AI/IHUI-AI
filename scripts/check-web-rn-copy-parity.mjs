@@ -219,6 +219,24 @@ export const ROLE_EXEMPTIONS = [
     reason:
       'web learn/[id] 同屏同义族并存 signUp(报名)与 signedUp(已报名);RN 采用 signedUp 后族内比较排除自身,余键取值不同 —— web 同族双值,非 RN 漂移',
   },
+  {
+    rn: 'packages/app/src/features/wallet/WalletScreen.tsx',
+    rnKey: 'wallet.flowsRetry',
+    webKeys: ['wallet.retryRecharge'],
+    owner: 'i18n-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 是流水列表加载失败的重试按钮(WalletScreen.tsx:174/176),web retryRecharge 是充值失败页的「重新充值」(apps/web/app/(main)/wallet/page.tsx:193);同屏 web 流水失败只显示原始错误、无重试键,故不是同角色文案',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx',
+    rnKey: 'common.loadFailPullRetry',
+    webKeys: ['knowledgePlanet.retry'],
+    owner: 'i18n-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 在无错误详情时用「加载失败，请下拉刷新重试」作提示文案、靠下拉手势重试(KnowledgePlanetScreen.tsx:76);web 是错误详情旁的「重试」按钮(apps/web/app/(main)/knowledge-planet/page.tsx:84),提示语与按钮文案不可统一',
+  },
 ]
 
 /**

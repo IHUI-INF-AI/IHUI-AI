@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "note": "scripts/check-web-rn-copy-parity.mjs(守门 291)的措辞差异账本。entries 每条必须有 file(web 路由)/ rule(B1-hardcoded-cjk 红 / B2-key-diff 警告 / B3-synonym-drift 红)/ count(该屏该规则现读数)/ owner / expires(YYYY-MM-DD,当天仍在期) / evidence(可复核的 RN 文件:行号 + 两侧键值)。到期即红;count 少于现读 = 新增未挂账红(B1/B3)或 advisory(B2);多于现读 = 清单腐烂 advisory。脚本只读不写。  v2:新增 decisions(已裁决白名单/命名约定/同字不同义);B2 按唯一键去重计数;B1 清零后移除。  v3:entries 清零;learn [B1-web-no-key] 经 git grep 复核为假条目(web 侧不存在该键)已摘除;空账必须带 emptyReason,且任何非 B1/B2/B3 的 rule 入账即红(真缺口不许挂账)。  v4(2026-11-05):解析器改为按运行时词包组合(web=shared⊕web、RN=shared⊕mobile-rn),未解析键 2562→12(仅剩 array-json-value 7 / bundle-gap 5);扩解析后新翻出 B3 2 条(wallet.flowsRetry / common.loadFailPullRetry),按既有 rule 入账并标 status=unresolved,未调阈值、未加白名单。",
   "decisions": [
     {
@@ -39,24 +39,6 @@
       "evidence": "代表键: coupon.title / coupon.empty / coupon.minSpend / follow.unfollow / exam.title / examResult.failed / courseQAList.empty / noteList.empty …等 34 键"
     }
   ],
-  "entries": [
-    {
-      "file": "wallet",
-      "rule": "B3-synonym-drift",
-      "count": 1,
-      "status": "unresolved",
-      "owner": "web-rn-copy",
-      "expires": "2026-12-31",
-      "evidence": "RN packages/app/src/features/wallet/WalletScreen.tsx:174/176 用 wallet.flowsRetry「重试」,web 同屏语义族键 wallet.retryRecharge「重新充值」;归一化后取值仍不同,本轮扩解析器后新翻出,未裁决(不调阈值、不塞白名单)"
-    },
-    {
-      "file": "knowledge-planet",
-      "rule": "B3-synonym-drift",
-      "count": 1,
-      "status": "unresolved",
-      "owner": "web-rn-copy",
-      "expires": "2026-12-31",
-      "evidence": "RN apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx:76 用 common.loadFailPullRetry「加载失败，请下拉刷新重试」,web 同屏语义族键 knowledgePlanet.retry;归一化后取值仍不同,本轮扩解析器后新翻出,未裁决"
-    }
-  ]
+  "entries": [],
+  "emptyReason": "v5(2026-11-05):两条 B3 已裁决为合法差异并移入 scripts/check-web-rn-copy-parity.mjs 的 ROLE_EXEMPTIONS(owner=i18n-copy,expires=2026-12-31,逐条带 web/RN 调用点 file:line 与理由):wallet.flowsRetry 是流水加载重试按钮、web wallet.retryRecharge 是充值失败页「重新充值」;common.loadFailPullRetry 是下拉刷新提示语、web knowledgePlanet.retry 是错误详情旁的「重试」按钮。B3 现读 0,故 entries 清零;真缺口仍由 validateLedgerShape 判红,不得挂账。"
 }
