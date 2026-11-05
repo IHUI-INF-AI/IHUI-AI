@@ -79,6 +79,11 @@ export type AskListQuery = {
   pageSize?: number
   keyword?: string
   isResolved?: string
+  /** 后端 asksQuerySchema 的真实键名(旧键 keyword/isResolved 保留兼容)。 */
+  search?: string
+  resolved?: string
+  /** 按作者过滤(web 用户主页"他的提问")。 */
+  authorId?: string
 }
 
 export type NewsListQuery = {

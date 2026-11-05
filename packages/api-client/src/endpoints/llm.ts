@@ -714,6 +714,56 @@ export async function updateUserLlmGroup<T = { id: number; updated: boolean }>(
   })
 }
 
+/** 模型目录 — GET /api/llm/models */
+export async function listLlmModels<T = { models: LlmModel[] }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/models')
+}
+
+/** 校验 BYOK 密钥 — POST /api/llm/verify-key */
+export async function verifyLlmKey<T = { valid: boolean; error?: string }>(
+  body: object,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/verify-key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** FIM 指标汇总 — GET /api/llm/fim/metrics/summary */
+export async function getFimMetricsSummary<T = { models: unknown[] }>(
+  params?: Record<string, string | number | boolean | undefined | null>,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics/summary', { params })
+}
+
+/** FIM 指标上报 — POST /api/llm/fim/metrics */
+export async function postFimMetrics<T = unknown>(
+  body: object,
+  options: { headers?: Record<string, string>; signal?: AbortSignal } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/metrics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  })
+}
+
+/** FIM 编辑意图 — POST /api/llm/fim/edit-intent */
+export async function postFimEditIntent<T = unknown>(
+  body: object,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/llm/fim/edit-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+    timeoutMs: options.timeoutMs,
+  })
+}
+
 /** 删除分组 — DELETE /api/v2/user/llm-groups/:id */
 export async function deleteUserLlmGroup<T = { id: number; deleted: boolean }>(
   id: number,

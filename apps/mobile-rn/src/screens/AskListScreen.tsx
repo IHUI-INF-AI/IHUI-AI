@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getAsks } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { AskListScreen as SharedAskListScreen, type AskListItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -73,13 +73,12 @@ export function AskListScreen() {
    * 而这一屏的 RN 侧只取第一页(后端信封带 total ⇒ 能算还有没有下一页)。
    */
   const fetchPage = async (next: number) => {
-    const res = await fetchApi<AsksPage>('/api/asks', {
-      params: { page: next, pageSize: ASKS_PAGE_SIZE },
-    })
+    const res = await getAsks({ page: next, pageSize: ASKS_PAGE_SIZE })
     if (res.success) {
-      const rows = (res.data?.list ?? []).map(toAskListItem)
+      const data = res.data as unknown as AsksPage
+      const rows = (data?.list ?? []).map(toAskListItem)
       setAsks((prev) => (next === 1 ? rows : [...prev, ...rows]))
-      setHasMore(next * ASKS_PAGE_SIZE < (res.data?.total ?? 0))
+      setHasMore(next * ASKS_PAGE_SIZE < (data?.total ?? 0))
       setPage(next)
     } else if (next === 1) {
       setError(apiFailureToText(res, t('askList.loadFailed')))

@@ -14,6 +14,7 @@ import { PlazaHeader } from './PlazaHeader'
 import { CirclesPanel } from './CirclesPanel'
 import { AsksPanel } from './AsksPanel'
 import { BackButton } from '@/components/common'
+import { getAsks } from '@ihui/api-client'
 import { PREVIEW_SIZE, api } from './helpers'
 import type { CirclesData, AsksData, Tab } from './types'
 
@@ -28,7 +29,11 @@ export default function PlazaPageClient() {
 
   const asksQuery = useQuery({
     queryKey: ['plaza-asks'],
-    queryFn: () => api<AsksData>(`/api/asks?page=1&pageSize=${PREVIEW_SIZE}`),
+    queryFn: async (): Promise<AsksData> => {
+      const r = await getAsks({ page: 1, pageSize: PREVIEW_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as AsksData
+    },
   })
 
   const circles = circlesQuery.data?.list ?? []

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getResult } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamResultScreen as SharedExamResultScreen, type ExamResultItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -33,9 +33,9 @@ export function ExamResultScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ExamResultItem>(`/api/exam/records/${encodeURIComponent(id)}`)
+      const res = await getResult(id)
       if (cancelled) return
-      if (res.success) setResult(res.data)
+      if (res.success) setResult(res.data as unknown as ExamResultItem)
       else setError(apiFailureToText(res, t('examResult.loadFailed')))
       setLoading(false)
     })()

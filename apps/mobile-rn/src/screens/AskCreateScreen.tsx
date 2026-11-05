@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { createAsk } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { AskCreateScreen as SharedAskCreateScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -32,16 +32,13 @@ export function AskCreateScreen() {
     }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/asks', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: title.trim(),
-        content: content.trim(),
-        tags: tags
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      }),
+    const res = await createAsk({
+      title: title.trim(),
+      content: content.trim(),
+      tags: tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('AskDetail', { id: res.data.id })
