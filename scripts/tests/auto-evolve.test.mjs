@@ -27,6 +27,7 @@ import {
   WRITE_TOOL_NAMES,
   classifySessionFailure,
   lastProviderError,
+  splitRotateStandoff,
 } from '../auto-evolve.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
@@ -1197,14 +1198,56 @@ test('Ⓜa 取最后一条 error 事件:重试过的那次不算,散文/坏行�
   assert.ok(!lastProviderError('{"type":"error","message":"  "}'), '全空白正文不当成判别码')
 })
 
-test('Ⓜb 接线锁:判别码同时进台账行与两条到人通道', () => {
-  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+test('Ⓜb 接线锁:判别码同时进台账行与两条到人通道', () => {  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
   assert.ok(/providerError:\s*lastProviderError\(stdout\)/.test(src), 'dispatchSession 没把判别码交出去')
   assert.ok(/providerError:\s*res\.providerError \?\? null/.test(src), '台账行没记这一格(只有 console 有 ⇒ 事后无法回放)')
   const human = (src.match(/provider-error=\$\{res\.providerError/g) ?? []).length
   assert.ok(human >= 2, `到人通道只 ${human} 条带判别码(发起腿 mail 与票面 mail 都得带)`)
   // 反向锁:模式必须认不出没接线的形态
   assert.equal(/providerError:\s*res\.providerError/.test('failureKind: res.failureKind ?? null,'), false)
+})
+
+// Ⓝ 让位失效(2026-11-05 立)。量出来的形状:今日 10 个班次全落到同一枚票 ——
+// 白名单这一档只剩它命中,而 `rotate` 只做重排序,无处可让时每轮照吞一份日预算,
+// 要一路吞到 parkAt=8 才冷却。判据取二值事实:这一枚的 attempts 已是活池最小值。
+test('Ⓝa 无处可让才收,让得出去的一律不收', () => {
+  const one = [{ key: 'a', ticket: { line: 1 }, np: { route: 'rotate', attempts: 4 } }]
+  assert.deepEqual(
+    splitRotateStandoff(one).map((x) => x.key),
+    ['a'],
+    '池里只有它自己 ⇒ 让位等于没让,必须收',
+  )
+  const two = [
+    { key: 'a', ticket: { line: 1 }, np: { route: 'rotate', attempts: 4 } },
+    { key: 'b', ticket: { line: 2 }, np: { route: 'ok', attempts: 2 } },
+  ]
+  assert.deepEqual(splitRotateStandoff(two), [], '有空转更少的候选 ⇒ 让得出去,不该扣')
+  const tie = [
+    { key: 'a', ticket: { line: 1 }, np: { route: 'rotate', attempts: 4 } },
+    { key: 'c', ticket: { line: 3 }, np: { route: 'rotate', attempts: 4 } },
+  ]
+  assert.deepEqual(
+    splitRotateStandoff(tie).map((x) => x.key),
+    ['a', 'c'],
+    '两枚并列最少 ⇒ 本轮一枚都不派(否则谁吞预算是不确定的)',
+  )
+  assert.deepEqual(splitRotateStandoff([]), [])
+  assert.deepEqual(splitRotateStandoff(undefined), [], '取不到活池不炸(§0.3 不猜)')
+  assert.deepEqual(
+    splitRotateStandoff([{ key: 'z', np: { route: 'ok', attempts: 0 } }]),
+    [],
+    '未达 rotateAt 的档永不进这一格(池子新鲜时照派)'
+  )
+})
+
+test('Ⓝb 接线锁:判据真被派发路径消费,且不新增动作名(覆盖面锁不许出现没分档的动作)', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(/splitRotateStandoff\(npLive\)/.test(src), '判据造好没装车(§0.9)')
+  assert.ok(/route: 'standoff'/.test(src), 'standoff 这一档没进 npHeld ⇒ 仍会被当活候选派掉')
+  assert.ok(/rows = npLive\.filter\(\(x\) => !heldKeys\.has\(x\.key\)\)/.test(src), '扣住后没重算候选面(旧行 npLive.map 会把它放回去)')
+  // 动作面守恒:standoff 复用既有 `non-progress-hold`,不得造一枚没人分档的新动作
+  assert.equal(/'non-progress-standoff'/.test(src), false, '新动作名会绕过 autonomy-action-coverage 锁')
+  assert.ok(/action: np\.route === 'park' \? 'non-progress-parked' : 'non-progress-hold'/.test(src), 'hold 出口形态变了要同步改这一锁')
 })
 
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——

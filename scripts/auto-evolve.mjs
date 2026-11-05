@@ -587,6 +587,20 @@ export function lastProviderError(stdout) {
 }
 
 /**
+ * 让位失效判据(2026-11-05 立,单源;派发侧只调它,不复算)。
+ * 立因:实测今日 10 个班次全部落到同一枚票 —— 白名单这一档只剩它一个命中,而 `rotate` 只做重排序,
+ * "让位给空转更少的候选"在无处可让时退化成"每轮照吞一份日预算",要一路吞到 `parkAt` 才冷却。
+ * 判据取二值事实:这一枚的 `attempts` 已经是活池里的最小值 ⇒ 池内没有空转更少的候选。
+ * 只收 `route==='rotate'` 的档;`ok` 档(未达 `rotateAt`)永不进这一格,所以池子新鲜时照派不误。
+ */
+export function splitRotateStandoff(live) {
+  if (!Array.isArray(live) || live.length === 0) return []
+  const attemptsOf = (x) => (Number.isInteger(x?.np?.attempts) ? x.np.attempts : 0)
+  const min = Math.min(...live.map(attemptsOf))
+  return live.filter((x) => x?.np?.route === 'rotate' && attemptsOf(x) <= min)
+}
+
+/**
  * 会话到底有没有动过盘(2026-11-04 立)。
  * 立因(回源实测):台账 220 轮里 9 次 `session-ok`,而 `artifact-committed` = 0、
  * `artifact-manifest-missing` = 9;逐份 transcript 数写类工具命中 = 0 —— 会话把整班预算花在
@@ -2215,9 +2229,17 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       if (np.route === 'cooldown' || np.route === 'park') npHeld.push({ ticket, key: npKey, np })
       else npLive.push({ ticket, key: npKey, np })
     }
-    // 让位 = 空转少的先派(稳定排序,同次数保持决策序);被扣住的整枚出本轮候选面。
+    // 让位失效形状(2026-11-05 立):`rotate` 只是重排序,而实测今日 10 个班次全部落到同一枚票
+    // (白名单这一档只剩它一个命中)⇒ "让位给空转更少的候选"永远让不出去,每轮照吞一份日预算,
+    // 要一路吞到 attempts=8 才轮到冷却。队首已经是池内空转最少的那一枚时,让位等于无处可让 ⇒
+    // 这一枚本轮不派,记 `non-progress-hold`(route 写 standoff,复用既有的 hold/邮件腿,不新增动作名)。
     npLive.sort((a, b) => a.np.attempts - b.np.attempts)
-    rows = npLive.map((x) => x.ticket)
+    const standoffs = splitRotateStandoff(npLive)
+    for (const s of standoffs) {
+      npHeld.push({ ...s, np: { ...s.np, route: 'standoff', why: `${s.np.why}(池内无空转更少的候选 ⇒ 无处可让)` } })
+    }
+    const heldKeys = new Set(npHeld.map((x) => x.key))
+    rows = npLive.filter((x) => !heldKeys.has(x.key)).map((x) => x.ticket)
     for (const { ticket, key, np } of npHeld) {
       const detail = breakdownNonProgress(ledger, key)
         .map((d) => `${d.action}×${d.count}`)
