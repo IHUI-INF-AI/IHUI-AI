@@ -528,6 +528,10 @@ export interface AccountCancelScreenProps {
   showConfirmModal: boolean
   confirmCountdown: number
   submitting: boolean
+  /** 注销后果清单;空数组 = 不渲染该段(两端都真传 7 项) */
+  consequences?: string[]
+  /** true = 手机号只读展示(小程序);false/缺省 = 可编辑(RN) */
+  phoneReadOnly?: boolean
   onPhoneChange: (text: string) => void
   onConfirmTextChange: (text: string) => void
   onSmsCodeChange: (text: string) => void

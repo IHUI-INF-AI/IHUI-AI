@@ -972,7 +972,15 @@
     "accountDeletionSendCode": "Send Code",
     "accountDeletionConfirm": "Confirm account deletion",
     "accountDeletionSubmit": "Confirm Deletion",
-    "accountDeletionSubmitting": "Submitting..."
+    "accountDeletionSubmitting": "Submitting...",
+    "accountDeletionConsequenceTitle": "What Happens After Deletion",
+    "accountDeletionConsequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "accountDeletionConsequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "accountDeletionConsequence3": "Published posts, comments, favorites and chat history will be erased",
+    "accountDeletionConsequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "accountDeletionConsequence5": "Active memberships and courses will end immediately with no refund",
+    "accountDeletionConsequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "accountDeletionConsequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "menu": {
     "artifacts": "Artifacts",
