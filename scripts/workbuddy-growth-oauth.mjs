@@ -8,21 +8,28 @@
  * ## 这一项为什么与其它项不同
  *
  * `wb_wechat_oa_subscribe_task`(关注「腾讯 WorkBuddy」官方公众号,奖励 100 积分 + 5 能量)
- * 的判定**完全在服务端**,实测 2026-11-05(三面取证):
- *   · 客户端 asar 里搜 `wb_wechat_oa_subscribe_task` / `follow-guide` / `events/follow` ⇒ **0 命中**
- *     ⇒ 客户端既不发起关注、也不参与判定;
- *   · 客户端页面不含"关注 / 二维码 / 公众号"任何一项(只有 `__launchWechat__` 这类通用能力);
- *   · `POST /v2/activity/growth/tasks/wb_wechat_oa_subscribe_task/claim` ⇒
- *     `400 {"code":400,"msg":"task not completed"}` ⇒ 领奖前必须服务端先把任务判成完成。
+ * 的判定**在服务端**,判据字段服务端直接回给客户端(实测 2026-11-05):
+ *
+ *   `GET /v2/activity/growth/subscribe-task/status` ⇒
+ *   `{"subscribe_task":{"task_code":"wb_wechat_oa_subscribe_task","subscribed":false,` +
+ *   `"remaining_seconds":-1,"task_status":"accepted","advanced":false}}`
+ *
+ * ⇒ `subscribed` 是服务端读微信关注关系算出来的布尔,`remaining_seconds` 是 24 小时窗的余量。
+ *   客户端**只能读它,不能写它**:把官方成长空间 bundle 里 `/activity/growth/*` 端点全枚举出来
+ *   (accept / claim / redeem / lottery/draw / makeup-cards/use / buddy/* / heatmap/share / visible),
+ *   **没有任何一条写 subscribe 状态**;官方取任务列表的函数 `to()` 本身就是「先 `qa()`(读这条状态)
+ *   再取列表」——即客户端对这一项唯一能做的动作就是"问一次让服务端重算"。
+ *   (旧版本文写的取证依据是「asar 里搜 0 命中」——那是**搜错了面**:成长计划页是端内 iframe
+ *    远程加载的网页,不打包进 asar。已按上面的服务端直读结论更正。)
  *
  * ⇒ **关注动作本身只能由机主用微信完成**(微信账号维度的关注关系 + 满 24 小时的时间窗),
  *   程序侧无捷径,也**不应伪造关注**。
- *   但**关注之后到领奖这一段可以自动化**:服务端一旦判完成,任务 `accept_status` 会翻成终态,
- *   本命令负责盯着它、到账即领。
+ *   但**关注之后到领奖这一段可以自动化**:服务端一旦判 `subscribed=true` 且窗口满,
+ *   任务 `accept_status` 会翻成终态,本命令负责盯着它、到账即领。
  *
  * ## 本命令做什么
  *
- *   ① `--status` :只读报公众号项当前状态(每个号一行:状态/进度/奖励/是否已到账);
+ *   ① `--status` :只读报公众号项当前状态(每个号一行:关注关系/倒计时/状态/进度/是否已到账);
  *   ② `--watch`  :轮询直到服务端把这一项判成完成(或超时),到账即调 claim 领奖。
  *
  * ## 状态词口径(实测,别按字面猜)
@@ -52,6 +59,131 @@ export const OA_TASK_CODE = 'wb_wechat_oa_subscribe_task'
 /** 领奖端点(任务码在 URL 路径里,body 无关) */
 export function oaClaimUrl(code = OA_TASK_CODE) {
   return `https://www.workbuddy.cn/v2/activity/growth/tasks/${code}/claim`
+}
+
+/**
+ * 订阅任务状态端点(官方 bundle 里的 `qa()`)。
+ *
+ * 这是官方客户端**取任务列表之前必调**的一次刷新:服务端借这一问重算关注关系。
+ * 本命令每轮先打它再读列表,就是为了和官方同一个时序,不拿旧判定当现状。
+ */
+export const OA_SUBSCRIBE_STATUS_URL =
+  'https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status'
+
+/** 组装鉴权头(本文件内两处 fetch 共用) */
+function authHeaders(cred) {
+  return {
+    Authorization: `Bearer ${cred.accessToken}`,
+    'Content-Type': 'application/json',
+    'X-User-Id': cred.uid,
+    'x-user-id': cred.uid,
+    'X-Domain': cred.domain,
+  }
+}
+
+/**
+ * 解析订阅任务状态响应(纯函数,离线可测)。
+ *
+ * 三态不许并桶(§0.3):
+ *   · `ok:true`  —— 服务端明确回了 `subscribed` 布尔;
+ *   · `ok:false` —— HTTP 非 2xx / 非 JSON / 体里没有 `subscribed` 字段 ⇒ **未判定**,
+ *     绝不回落成「没关注」(那会把"读不到"说成"事实")。
+ *
+ * @param {number} status HTTP 状态码
+ * @param {string} text 响应体原文
+ */
+export function parseSubscribeStatus(status, text) {
+  const httpOk = status >= 200 && status < 300
+  let j = {}
+  try {
+    j = JSON.parse(text)
+  } catch {
+    return {
+      ok: false,
+      subscribed: null,
+      remainingSeconds: null,
+      taskStatus: '',
+      reason: '响应非 JSON',
+    }
+  }
+  const st = j?.data?.subscribe_task
+  if (!st || typeof st.subscribed !== 'boolean') {
+    return {
+      ok: false,
+      subscribed: null,
+      remainingSeconds: null,
+      taskStatus: '',
+      reason: `响应里没有 subscribe_task.subscribed 布尔(http=${status} code=${j?.code ?? '-'})`,
+    }
+  }
+  const rs = Number(st.remaining_seconds)
+  return {
+    ok: httpOk && j?.code === 0,
+    subscribed: st.subscribed,
+    remainingSeconds: Number.isFinite(rs) ? rs : null,
+    taskStatus: String(st.task_status ?? ''),
+    reason:
+      httpOk && j?.code === 0
+        ? ''
+        : `http=${status} code=${j?.code ?? '-'} msg=${String(j?.msg ?? '').slice(0, 60)}`,
+  }
+}
+
+/**
+ * 关注关系落到哪一格(纯函数,离线可测;`--status` 与 `--watch` 共用同一个说法)。
+ *
+ * @param {object|null} sub parseSubscribeStatus 的返回
+ * @returns {'undetermined'|'not_followed'|'counting'|'followed'}
+ */
+export function subscribeVerdictOf(sub) {
+  if (!sub || sub.ok !== true || typeof sub.subscribed !== 'boolean') return 'undetermined'
+  if (sub.subscribed === false) return 'not_followed'
+  // 已关注但 24h 窗还没走完:remaining_seconds>0 才叫倒计时,-1 是"没有这个读数"
+  if (Number.isFinite(sub.remainingSeconds) && sub.remainingSeconds > 0) return 'counting'
+  return 'followed'
+}
+
+/** 一行的关注关系怎么对人讲(不编造:读不到就说读不到) */
+export function describeSubscribe(sub) {
+  const verdict = subscribeVerdictOf(sub)
+  if (verdict === 'undetermined') return `关注关系未判定(${sub?.reason || '取不到状态'})`
+  if (verdict === 'not_followed') return '关注关系=服务端未检测到'
+  if (verdict === 'counting') {
+    const h = Math.floor(sub.remainingSeconds / 3600)
+    const m = Math.floor((sub.remainingSeconds % 3600) / 60)
+    return `已关注,24h 窗还差 ${h}h${String(m).padStart(2, '0')}m`
+  }
+  return '已关注(倒计时读数已过窗或无)'
+}
+
+/**
+ * 问一次服务端「这条关注关系现在算不算成立」,顺带触发它重算。
+ *
+ * @param {{accessToken:string, uid:string, domain:string}} cred
+ */
+export async function fetchSubscribeTaskStatus(cred) {
+  if (!cred?.accessToken || !cred?.uid) {
+    return {
+      ok: false,
+      subscribed: null,
+      remainingSeconds: null,
+      taskStatus: '',
+      reason: '缺凭据(未判定)',
+    }
+  }
+  try {
+    const r = await fetch(OA_SUBSCRIBE_STATUS_URL, { headers: authHeaders(cred) })
+    const txt = await r.text()
+    return parseSubscribeStatus(r.status, txt)
+  } catch (e) {
+    return {
+      ok: false,
+      subscribed: null,
+      remainingSeconds: null,
+      taskStatus: '',
+      reason: `请求失败:${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
 }
 
 /**
@@ -169,13 +301,7 @@ export async function claimOaTask(cred) {
   try {
     const r = await fetch(oaClaimUrl(), {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${cred.accessToken}`,
-        'Content-Type': 'application/json',
-        'X-User-Id': cred.uid,
-        'x-user-id': cred.uid,
-        'X-Domain': cred.domain,
-      },
+      headers: authHeaders(cred),
       body: '{}',
     })
     const txt = await r.text()
@@ -219,33 +345,42 @@ export function parseArgs(argv) {
 
 const HELP = `用法:
   node scripts/workbuddy-growth-oauth.mjs --status
-      只读:列出每个号「公众号关注」项的状态(状态 / 进度 / 奖励 / 是否已到账)
+      只读:列出每个号「公众号关注」项的状态(关注关系 / 24h 倒计时 / 状态 / 进度 / 是否已到账)
 
   node scripts/workbuddy-growth-oauth.mjs --watch [--interval 300] [--timeout 90000]
       轮询到服务端把该项判成完成,到账即调 claim 领奖(关注动作需机主本人在微信完成)
       --interval 轮询间隔秒数(下限 30,默认 300)
       --timeout  总预算秒数(默认 90000 ≈ 25 小时,覆盖满 24 小时窗口)
 
-说明:关注动作本身无法自动化(判定在服务端读微信关注关系 + 满 24 小时);
+说明:这一项的判据是服务端一个布尔(GET /v2/activity/growth/subscribe-task/status 里的
+      subscribed),官方成长空间的全部端点里没有任何一条能写它 ⇒ 只能真关注,程序不伪造。
+      每轮先问一次这条状态(官方取列表前也是这个时序,顺带触发服务端重算),再读任务列表。
       本命令覆盖的是「关注之后 → 领奖」这一段。
 `
 
 async function readAll(accounts) {
-  /** @type {Array<{uid:string, task:object|null, reason:string}>} */
+  /** @type {Array<{uid:string, task:object|null, sub:object|null, reason:string}>} */
   const rows = []
   for (const acc of accounts) {
     const cred = readPoolCredential(acc.uid)
     if (!cred) {
-      rows.push({ uid: acc.uid, task: null, reason: '取不到凭据(未判定)' })
+      rows.push({ uid: acc.uid, task: null, sub: null, reason: '取不到凭据(未判定)' })
       continue
     }
+    // 官方时序:先问一次订阅状态(服务端借此重算关注关系),再读任务列表
+    const sub = await fetchSubscribeTaskStatus(cred)
     const res = await fetchGrowthTasks(cred)
     if (!res.ok) {
-      rows.push({ uid: acc.uid, task: null, reason: `读任务失败:${res.reason}` })
+      rows.push({ uid: acc.uid, task: null, sub, reason: `读任务失败:${res.reason}` })
       continue
     }
     const t = selectOaTask(res.tasks)
-    rows.push({ uid: acc.uid, task: t, reason: t ? '' : `列表里没有 ${OA_TASK_CODE}(未判定)` })
+    rows.push({
+      uid: acc.uid,
+      task: t,
+      sub,
+      reason: t ? '' : `列表里没有 ${OA_TASK_CODE}(未判定)`,
+    })
   }
   return rows
 }
@@ -277,7 +412,7 @@ async function main() {
       console.log(
         `${tag} ${t.accept_status || '(无状态)'} ${t.progress.current}/${t.progress.target} ` +
           `奖励=${t.reward_credit}c/${t.reward_energy}e 已到账=${t.rewardClaimed} ` +
-          `待领=${t.claimable}`,
+          `待领=${t.claimable} | ${describeSubscribe(r.sub)}`,
       )
     }
     if (desc) console.log(`\n条件:${desc}\n跳转:${rows.find((r) => r.task)?.task.jump_url ?? ''}`)
@@ -333,7 +468,7 @@ async function main() {
       const t = r?.task
       console.log(
         `[${uid.slice(0, 8)}] ${t?.accept_status ?? '?'} ${t?.progress.current ?? 0}/${t?.progress.target ?? 1} ` +
-          `—— 尚未达标(需微信关注满 24 小时)`,
+          `—— 尚未达标 | ${describeSubscribe(r?.sub)}`,
       )
     }
     if (finished.size >= accounts.length) break
@@ -344,7 +479,10 @@ async function main() {
     console.log('✅ 至少一个号的公众号项奖励已到账')
     return 0
   }
-  console.log('⚠ 未领到:关注未满 24 小时,或服务端尚未判定完成(不是失败,是条件未到)')
+  console.log(
+    '⚠ 未领到:服务端还没把关注关系判成立(上面每行已给出该号的关注关系与倒计时)。' +
+      '这不是失败,是条件未到——判据是服务端的 subscribed 布尔,官方端点里没有任何一条能写它。',
+  )
   return 1
 }
 
