@@ -13,7 +13,8 @@ import { SearchInput } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { ArticlesList } from './ArticlesList'
 import { ArticlesSidebar } from './ArticlesSidebar'
-import { PAGE_SIZE, api } from './helpers'
+import { listArticleCategories, listArticles } from '@ihui/api-client'
+import { PAGE_SIZE } from './helpers'
 import type { ArticleCategory, ArticlesData } from './types'
 
 export default function ArticlesPageClient() {
@@ -35,20 +36,24 @@ export default function ArticlesPageClient() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['articles', 'categories'],
-    queryFn: () =>
-      api<{ list: ArticleCategory[] }>(`/api/article/categories`).then((d) => d.list ?? []),
+    queryFn: async () => {
+      const r = await listArticleCategories<{ list: ArticleCategory[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data.list ?? []
+    },
   })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', debounced, categoryId, page],
-    queryFn: () => {
-      const qs = new URLSearchParams({
-        page: String(page),
-        pageSize: String(PAGE_SIZE),
+    queryFn: async () => {
+      const r = await listArticles<ArticlesData>({
+        page,
+        pageSize: PAGE_SIZE,
+        categoryId: categoryId !== 'all' ? categoryId : undefined,
+        search: debounced || undefined,
       })
-      if (categoryId !== 'all') qs.set('categoryId', categoryId)
-      if (debounced) qs.set('search', debounced)
-      return api<ArticlesData>(`/api/article/list?${qs.toString()}`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 

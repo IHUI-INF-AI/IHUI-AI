@@ -42,6 +42,13 @@ import {
   type LoginPreferences,
 } from '@/lib/login-preferences'
 import { startAutoRefresh, stopAutoRefresh } from '@/lib/tokenUtils'
+import {
+  disableMfa as disableMfaRequest,
+  enableMfa as enableMfaRequest,
+  getMfaRecoveryCodes,
+  getMfaStatus,
+  setupMfa,
+} from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
@@ -60,11 +67,6 @@ interface MfaSetupData {
   secret: string
   qrUri: string
   qrDataUrl: string
-}
-
-interface MfaEnableData {
-  enabled: boolean
-  recoveryCodes: string[]
 }
 
 /* ============ Passkey 类型 ============ */
@@ -241,7 +243,7 @@ export default function LoginSecurityPage() {
     if (!allow) return
     let active = true
     void (async () => {
-      const res = await fetchApi<MfaStatusData>('/api/mfa/status')
+      const res = await getMfaStatus()
       if (active && res.success) {
         setMfaStatus(res.data)
         if (!res.data.enabled) setMfaSetup(null)
@@ -289,7 +291,7 @@ export default function LoginSecurityPage() {
   }
 
   const loadMfaStatus = React.useCallback(async () => {
-    const res = await fetchApi<MfaStatusData>('/api/mfa/status')
+    const res = await getMfaStatus()
     if (res.success) setMfaStatus(res.data)
   }, [])
 
@@ -310,7 +312,7 @@ export default function LoginSecurityPage() {
     setMfaBusy(true)
     setMfaError(null)
     setMfaToken('')
-    const res = await fetchApi<MfaSetupData>('/api/mfa/setup', { method: 'POST' })
+    const res = await setupMfa()
     setMfaBusy(false)
     if (res.success) setMfaSetup(res.data)
     else setMfaError(res.error)
@@ -320,10 +322,7 @@ export default function LoginSecurityPage() {
     if (!mfaSetup || mfaToken.trim().length !== 6) return
     setMfaBusy(true)
     setMfaError(null)
-    const res = await fetchApi<MfaEnableData>('/api/mfa/enable', {
-      method: 'POST',
-      body: JSON.stringify({ secret: mfaSetup.secret, token: mfaToken.trim() }),
-    })
+    const res = await enableMfaRequest({ secret: mfaSetup.secret, token: mfaToken.trim() })
     setMfaBusy(false)
     if (res.success) {
       setRecoveryCodes(res.data.recoveryCodes)
@@ -340,9 +339,7 @@ export default function LoginSecurityPage() {
   const regenerateRecoveryCodes = async () => {
     setMfaBusy(true)
     setMfaError(null)
-    const res = await fetchApi<{ recoveryCodes: string[] }>('/api/mfa/recovery-codes', {
-      method: 'POST',
-    })
+    const res = await getMfaRecoveryCodes()
     setMfaBusy(false)
     if (res.success) {
       setRecoveryCodes(res.data.recoveryCodes)
@@ -357,10 +354,7 @@ export default function LoginSecurityPage() {
     if (!disablePassword) return
     setMfaBusy(true)
     setDisableError(null)
-    const res = await fetchApi<{ enabled: boolean }>('/api/mfa/disable', {
-      method: 'POST',
-      body: JSON.stringify({ password: disablePassword }),
-    })
+    const res = await disableMfaRequest({ password: disablePassword })
     setMfaBusy(false)
     if (res.success) {
       setDisableOpen(false)

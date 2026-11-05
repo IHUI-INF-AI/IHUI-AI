@@ -39,6 +39,12 @@ export const LOGIN_HISTORY_STORAGE_KEY = 'ihui-login-history' as const
 /** 账号历史上限(超出丢最旧)。 */
 export const LOGIN_HISTORY_MAX = 5 as const
 export const VIP_STORAGE_KEY = 'ihui-vip-info' as const
+/**
+ * 会员开通成功页的本地留痕(2026-11-05 自 apps/miniapp-taro/src/constants/storage.ts 提升):
+ * 值逐字沿用端内历史键名,改的只是"谁持有这个名字"—— 承载该页的 RN 壳与端内常量文件必须同源。
+ */
+export const VIP_ORDERS_KEY = 'ihui-vip-orders' as const
+export const VIP_PAID_STATUS_KEY = 'ihui-paid-status' as const
 export const INVITE_CODE_STORAGE_KEY = 'ihui-invite-code' as const
 export const SSO_CODE_STORAGE_KEY = 'ihui-sso-code' as const
 export const SSO_USER_STORAGE_KEY = 'ihui-sso-user' as const

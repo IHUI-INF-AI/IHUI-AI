@@ -109,6 +109,8 @@ import {
   rateChatMessage as _rateChatMessage,
   sendToolApprovalResponse as _sendToolApprovalResponse,
 } from '@ihui/api-client'
+// 门 300 存量 A 类收口(2026-11-05):等级总览 / 帮助文章走共享端点,端内不再直拼路径。
+import { getCurrentLevel, listHelpArticles } from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -809,11 +811,7 @@ export const getVipOrderPayInfo = (orderNo: string) =>
 // 与 web points/page.tsx 的 levelQ 同源;coupons 后端无用户侧查询端点(现读零命中)⇒ 恒 0,
 // 与调用方 catch 空对象的既有显示一致。
 export const getMemberInfo = (): Promise<MemberInfo> =>
-  get<{
-    current?: { name: string }
-    experience?: number
-    points?: { points: number }
-  }>('/api/levels/current').then((r) => ({
+  unwrapApi(getCurrentLevel()).then((r) => ({
     level: r.current?.name ?? '',
     integral: r.points?.points ?? 0,
     growth: r.experience ?? 0,
@@ -1398,7 +1396,9 @@ export const getAbout = async (): Promise<{
   }
 }
 export const getHelp = () =>
-  get<{ list: Array<{ id: string; title: string; content: string }> }>('/api/help/articles')
+  unwrapApi(listHelpArticles()).then((r) => ({
+    list: r.list.map((h) => ({ id: h.id, title: h.title, content: h.content ?? '' })),
+  }))
 export const getPrivacy = () => get<{ content: string }>('/privacy')
 export const getContact = () =>
   get<{ phone: string; email: string; address: string; qq?: string }>('/contact')

@@ -6,8 +6,29 @@
  * v2 API helpers(2026-07-22 立,1:N provider-model + group 数据模型)
  *
  * 端点前缀:/api/v2/user(后端 server.ts 注册的 prefix)
+ * 2026-11-05:全部端点改走 @ihui/api-client(共享 fetchApi 统一处理 401/续期/超时)。
  */
-import { apiOrThrow } from '@/lib/api'
+import {
+  createUserLlmGroup,
+  createUserLlmModel,
+  createUserLlmProvider,
+  deleteUserLlmGroup,
+  deleteUserLlmModel,
+  deleteUserLlmProvider,
+  fetchUserLlmTemplates,
+  fetchUserLlmUpstreamModels,
+  getUserLlmProvider,
+  listUserLlmGroups,
+  listUserLlmModels,
+  listUserLlmProviders,
+  testUserLlmModel,
+  testUserLlmProvider,
+  toggleUserLlmProvider,
+  updateUserLlmGroup,
+  updateUserLlmModel,
+  updateUserLlmProvider,
+} from '@ihui/api-client'
+import type { ApiResult } from '@ihui/types'
 import type { PlatformTemplate, TestResult, UpstreamModel } from './types'
 import type {
   UserLlmProvider,
@@ -31,9 +52,12 @@ export type {
 
 export { EMPTY_PROVIDER_FORM, EMPTY_MODEL_FORM } from './types-v2'
 
-const BASE = '/api/v2/user'
-
-/** 通用 API 包装 */
+/** 共享 client 返回 ApiResult;本模块保持既有"失败即抛"契约,不外泄 success 判别 */
+async function unwrap<T>(p: Promise<ApiResult<T>>): Promise<T> {
+  const res = await p
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
 
 interface TemplatesResponse {
   templates: PlatformTemplate[]
@@ -44,7 +68,7 @@ interface TemplatesResponse {
 // =============================================================================
 
 export function fetchTemplatesV2() {
-  return apiOrThrow<TemplatesResponse>(`${BASE}/llm-providers/templates`)
+  return unwrap(fetchUserLlmTemplates<TemplatesResponse>())
 }
 
 // =============================================================================
@@ -52,48 +76,38 @@ export function fetchTemplatesV2() {
 // =============================================================================
 
 export function fetchProvidersV2() {
-  return apiOrThrow<ProviderListData>(`${BASE}/llm-providers`)
+  return unwrap(listUserLlmProviders<ProviderListData>())
 }
 
 export function fetchProviderV2(id: number) {
-  return apiOrThrow<UserLlmProvider>(`${BASE}/llm-providers/${id}`)
+  return unwrap(getUserLlmProvider<UserLlmProvider>(id))
 }
 
 export function createProviderV2(f: ProviderFormState) {
-  return apiOrThrow<{ id: number; created: boolean; name: string }>(`${BASE}/llm-providers`, {
-    method: 'POST',
-    body: JSON.stringify(providerFormToBody(f)),
-  })
+  return unwrap(createUserLlmProvider(providerFormToBody(f)))
 }
 
 export function updateProviderV2(id: number, f: ProviderFormState) {
-  return apiOrThrow<{ id: number; updated: boolean }>(`${BASE}/llm-providers/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(providerFormToUpdateBody(f)),
-  })
+  return unwrap(
+    updateUserLlmProvider<{ id: number; updated: boolean }>(id, providerFormToUpdateBody(f)),
+  )
 }
 
 export function deleteProviderV2(id: number) {
-  return apiOrThrow<{ id: number; deleted: boolean }>(`${BASE}/llm-providers/${id}`, {
-    method: 'DELETE',
-  })
+  return unwrap(deleteUserLlmProvider(id))
 }
 
 export function toggleProviderV2(id: number, enabled: boolean) {
-  return apiOrThrow<{ id: number; enabled: boolean }>(`${BASE}/llm-providers/${id}/toggle`, {
-    method: 'POST',
-    body: JSON.stringify({ enabled }),
-  })
+  return unwrap(toggleUserLlmProvider(id, enabled))
 }
 
 export function testProviderV2(id: number) {
-  return apiOrThrow<TestResult>(`${BASE}/llm-providers/${id}/test`, { method: 'POST' })
+  return unwrap(testUserLlmProvider<TestResult>(id))
 }
 
 export function fetchUpstreamModelsV2(id: number) {
-  return apiOrThrow<{ total: number; models: UpstreamModel[]; message?: string }>(
-    `${BASE}/llm-providers/${id}/fetch-models`,
-    { method: 'POST' },
+  return unwrap(
+    fetchUserLlmUpstreamModels<{ total: number; models: UpstreamModel[]; message?: string }>(id),
   )
 }
 
@@ -102,36 +116,23 @@ export function fetchUpstreamModelsV2(id: number) {
 // =============================================================================
 
 export function fetchModelsV2(providerId: number) {
-  return apiOrThrow<{ list: UserLlmModel[]; total: number }>(
-    `${BASE}/llm-providers/${providerId}/models`,
-  )
+  return unwrap(listUserLlmModels<{ list: UserLlmModel[]; total: number }>(providerId))
 }
 
 export function createModelV2(providerId: number, f: ModelFormState) {
-  return apiOrThrow<{ id: number; created: boolean; modelId: string }>(
-    `${BASE}/llm-providers/${providerId}/models`,
-    { method: 'POST', body: JSON.stringify(modelFormToBody(f)) },
-  )
+  return unwrap(createUserLlmModel(providerId, modelFormToBody(f)))
 }
 
 export function updateModelV2(providerId: number, modelId: number, f: ModelFormState) {
-  return apiOrThrow<{ id: number; updated: boolean }>(
-    `${BASE}/llm-providers/${providerId}/models/${modelId}`,
-    { method: 'PUT', body: JSON.stringify(modelFormToUpdateBody(f)) },
-  )
+  return unwrap(updateUserLlmModel(providerId, modelId, modelFormToUpdateBody(f)))
 }
 
 export function deleteModelV2(providerId: number, modelId: number) {
-  return apiOrThrow<{ id: number; deleted: boolean }>(
-    `${BASE}/llm-providers/${providerId}/models/${modelId}`,
-    { method: 'DELETE' },
-  )
+  return unwrap(deleteUserLlmModel(providerId, modelId))
 }
 
 export function testModelV2(providerId: number, modelId: number) {
-  return apiOrThrow<TestResult>(`${BASE}/llm-providers/${providerId}/models/${modelId}/test`, {
-    method: 'POST',
-  })
+  return unwrap(testUserLlmModel<TestResult>(providerId, modelId))
 }
 
 // =============================================================================
@@ -139,27 +140,19 @@ export function testModelV2(providerId: number, modelId: number) {
 // =============================================================================
 
 export function fetchGroupsV2() {
-  return apiOrThrow<GroupListData>(`${BASE}/llm-groups`)
+  return unwrap(listUserLlmGroups<GroupListData>())
 }
 
 export function createGroupV2(label: string, sortOrder = 0) {
-  return apiOrThrow<{ id: number; created: boolean; label: string }>(`${BASE}/llm-groups`, {
-    method: 'POST',
-    body: JSON.stringify({ label, sortOrder }),
-  })
+  return unwrap(createUserLlmGroup(label, sortOrder))
 }
 
 export function updateGroupV2(id: number, label: string) {
-  return apiOrThrow<{ id: number; updated: boolean }>(`${BASE}/llm-groups/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify({ label }),
-  })
+  return unwrap(updateUserLlmGroup(id, label))
 }
 
 export function deleteGroupV2(id: number) {
-  return apiOrThrow<{ id: number; deleted: boolean }>(`${BASE}/llm-groups/${id}`, {
-    method: 'DELETE',
-  })
+  return unwrap(deleteUserLlmGroup(id))
 }
 
 // =============================================================================

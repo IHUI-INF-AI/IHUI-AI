@@ -45,7 +45,15 @@ export function judgeBypassDeletions({
   const blocked = []
   for (const p of guarded) {
     const reasons = []
-    const hits = ref.hits.get(p) || []
+    // 2026-11-05:门 99 的 collectHits 把 `"path":"x"` 这类**路径字面量**(form=path-literal)也算引用,
+    // 那是它 E1 的取证口径;本门问的是"删了会不会让构建在干净检出上直接失败"。`scripts/**` 里指向
+    // 被删路径的字面量(删除意图台账、回归夹具)不是 import/require,删掉后构建不受影响 —— 远端本批
+    // 删除 model-edit-save 孤儿层时把台账条目与夹具写进 scripts/**,于是下一次 union 合并恒红死锁。
+    // 故只把 scripts/** 下的 path-literal 移出本门的引用面;relative/alias 形态与 apps/**、packages/**
+    // 内的任何形态照旧判红(门的阈值与判据不变)。
+    const hits = (ref.hits.get(p) || []).filter(
+      (h) => !(h.form === 'path-literal' && /^scripts\//.test(h.file)),
+    )
     if (hits.length)
       reasons.push(
         `落地的树里仍有 ${hits.length} 处引用(${hits

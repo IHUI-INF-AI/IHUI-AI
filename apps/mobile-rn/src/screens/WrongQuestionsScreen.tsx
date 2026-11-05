@@ -5,7 +5,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import {
+  explainWrongQuestion,
+  getWrongQuestionStats,
+  listWrongQuestions,
+  resolveWrongQuestion,
+} from '@ihui/api-client'
 import {
   WrongQuestionsScreen as SharedWrongQuestionsScreen,
   type WrongQuestionExplanation,
@@ -92,17 +97,12 @@ export default function WrongQuestionsScreen() {
       setLoading(true)
       setFailed(false)
       try {
-        const qs = new URLSearchParams({
-          page: String(targetPage),
-          pageSize: String(PAGE_SIZE),
-        })
-        if (filter === 'unresolved') qs.set('isResolved', 'false')
-        if (filter === 'resolved') qs.set('isResolved', 'true')
+        const query: Record<string, string | number> = { page: targetPage, pageSize: PAGE_SIZE }
+        if (filter === 'unresolved') query.isResolved = 'false'
+        if (filter === 'resolved') query.isResolved = 'true'
         const [listRes, statsRes] = await Promise.all([
-          fetchApi<{ list: WrongQuestion[]; total: number }>(
-            `/api/exam/wrong-questions?${qs.toString()}`,
-          ),
-          fetchApi<{ stats: Stats }>('/api/exam/wrong-questions/stats'),
+          listWrongQuestions<{ list: WrongQuestion[]; total: number }>(query),
+          getWrongQuestionStats<{ stats: Stats }>(),
         ])
         if (!listRes.success) throw new Error(listRes.error)
         const rows = listRes.data?.list ?? []
@@ -140,9 +140,7 @@ export default function WrongQuestionsScreen() {
   const onResolve = async (wq: WrongQuestionItem) => {
     setResolving(wq.questionId)
     try {
-      const res = await fetchApi(`/api/exam/wrong-questions/${wq.questionId}/resolve`, {
-        method: 'PUT',
-      })
+      const res = await resolveWrongQuestion(wq.questionId)
       if (!res.success) throw new Error(res.error)
       appAlert(t('wrongQuestions.markSuccess'))
       setReloadKey((k) => k + 1)
@@ -156,9 +154,8 @@ export default function WrongQuestionsScreen() {
   const onExplain = async (wq: WrongQuestionItem) => {
     setExplaining(wq.questionId)
     try {
-      const res = await fetchApi<{ explanation: string; cached: boolean }>(
-        `/api/exam/wrong-questions/${wq.questionId}/explain`,
-        { method: 'POST' },
+      const res = await explainWrongQuestion<{ explanation: string; cached: boolean }>(
+        wq.questionId,
       )
       if (!res.success) throw new Error(res.error)
       setExplanation({

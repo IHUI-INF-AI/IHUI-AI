@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { Loader2, Brain, Clock, Database, Workflow } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
-import { fetchApi } from '@/lib/api'
+import { getMemoryStatus } from '@ihui/api-client'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 type MemoryLayerName = 'working' | 'episodic' | 'semantic' | 'procedural'
@@ -113,7 +113,7 @@ export function MemoryPanel({ agentId, timeRange, refreshKey }: MemoryPanelProps
     if (!agentId) return
     let cancelled = false
     setLoading(true)
-    fetchApi<MemoryStatusResp>(`/api/memory/status?user_id=${agentId}&range=${timeRange}`)
+    getMemoryStatus<MemoryStatusResp>({ user_id: agentId, range: timeRange })
       .then((r) => {
         if (cancelled) return
         if (r.success && r.data) setLayers(r.data.layers ?? [])

@@ -32,6 +32,14 @@
  * + 收敛落地后的 docs 重算腿(47b / auto-commit「README 数字按 HEAD 面重算」系列)承接。
  * AGENTS.md / PROJECT_PLAN.md 无生成块标记,行为与纠偏前逐字节等价。
  *
+ * ## 判据纠偏二(2026-11-05,第 11 轮收敛实测顶死后定夺)
+ *
+ * 行级 union 的「同题折叠」(attestFoldPair)与「摘除台账 credit」已在**产物面**逐条举证
+ * (去向行在场 ∧ 同主键/指纹 ∧ 注记与票号被接住)后少带原行;本层若再按逐字包含复读,
+ * 被折叠的原始行同时是"归并器证明合法少带"与"本层必须全包含" —— 两道闸互顶,合并死锁。
+ * 纠偏 = 调用方把已认账行(creditedDrops)逐字端进来,本层只免**这些**行;未被任何台账认领的
+ * 缺口一分不放。与纠偏一同口径:补衔接,不削目标。
+ *
  * ## 折叠台账这一格(2026-11-06,在册票 G-32「归并侧那半格」的续办)
  *
  * 本层初版是**第三把**不认折叠的尺子:归并器对 `PROJECT_PLAN.md` 开 `dedupeTasks` 把同题行
@@ -44,6 +52,38 @@
  * 少掉的那几份只有"台账确实声明折了它 ∧ 四问全过(去向行真在产物面 / 同一件事 /
  * 独有注记与票号被接住)"才销账;台账没这一行、台账只解释一部分、或举证不成立 ⇒ 照旧判红。
  * 台账没喂进来 ⇒ 行为与初版逐字一致(旧调用方一条都不放松)。
+ *
+ * ## 双向分叉合流登记(2026-11-06,本地 `c587dd5023` 的「纠偏二」与远端 2026-11-06 的
+ * ## 「折叠台账这一格」是同一次分叉的两侧,谁都不含谁 ⇒ 就地合流,不选边)
+ *
+ * 两侧治的是同一个死锁(归并器已举证的合法少带被本层逐字复读成丢失),但**举证来源不同**:
+ *  - 本地侧(`creditedDrops`):调用方(union-converge 的落地闸)把 `verifyUnion` 同一轮已经
+ *    按 `attestFoldPair` / `declaredDropCaps` / `declaredFamilyCaps` 在产物面举过证的
+ *    `p.folded[].dropped ∪ p.dropLedgerCredited[].dropped` **逐字端进来**,本层只免这些行。
+ *  - 远端侧(`foldLedgers` / `declaredRemovals` / `base`):调用方端**原始台账**,举证在本层跑
+ *    (仍是那三份单源判据,§0.6 没写第二份),外加「基底有、本侧已删 ⇒ 归并不补回」的重数维。
+ *
+ * 合流口径 = **三个独立举证来源**,一行只有在**至少一个来源自己的前置全数成立**时才免复读;
+ * 任一来源成立不了就不给它免,照旧判红。刻意没有做的事(§0.2:失效方向只能是"多要一次说明"):
+ *  · 三路**没有**并成"任一命中即整行放行"的统一放宽 —— 每一路自己的前置一个不少:
+ *    远端折叠路仍须过 `attestFoldPair` 四问 ∧ 台账申报份数足以覆盖 deficit;
+ *    远端摘除路仍须 `declaredDropCaps` 三条(逐字命中 ∧ 产物面已无此行 ∧ 是登记行形)与
+ *    `declaredFamilyCaps` 的族凭据;本地认账路仍须"该行逐字在调用方端进来的认账集里"。
+ *  · 本地认账集**只在"没有任何台账对本层开过口"时**才被采纳(`dropCreditOf` 与 `foldCreditOf`
+ *    双双给出 `none`,即两本账都没这一行)。它**不压过**远端侧的积极结论:
+ *    - `lost`(去向行不在产物面 / 与被折行不是同一件事 / 注记票号没接住)= 产物面上的**反证**;
+ *    - 折叠已 attested 但台账只解释部分份数 = 仍有 `deficit − cap` 份无任何凭据;
+ *      这两格本地认账集一律不许言下撤回 —— 认账集是**行级**的,没有份数维度,拿它去消一份
+ *      有数量缺口的账就是"并成或条件后统一放宽"。本地调用方只端认账集、不端台账,这两格在
+ *      它的输入面上根本不会出现,故不削它的机制。
+ *    - `undetermined`(判不出去向)按 §0.3 仍记「未判定」:未判定不是放行许可证,也不因为
+ *      认账集里有这一行就把注记洗掉(注记本来就不进缺行清单,少掉它只会让 ok 变绿)。
+ *  · 任一侧单独缺席 ⇒ 与那一侧的原实现**逐字同行为**:只端认账集(本地调用方形)⇒ 两本台账
+ *    取不到 ⇒ `none` ⇒ 认账集生效、其余维度不开;只端台账(远端调用方形)⇒ 认账集为空 ⇒ 本层
+ *    与本文件远端形态逐字同结论;两者都不端 ⇒ 与初版逐字一致(旧调用方一条都不放松)。
+ *  · 认账集免掉的每一行**同样报名**:与折叠/摘除销账共用 `dropped` 一条通道,`via` 写明
+ *    `调用方认账集(creditedDrops)`,绝不静默折进"0 丢失"(§0.10;本地侧原实现是 `.filter` 掉
+ *    就完事、无痕可查,合流后按远端侧的留痕纪律收紧 —— 只加判据不减)。
  */
 import { gitRaw } from './face-reader.mjs'
 // 折叠销账与摘除销账的举证判据**只有一份**(§0.6):本层不另写"什么叫同一件事/什么叫注记被接住",
@@ -99,7 +139,13 @@ export function textKeySet(text, path) {
   try {
     if (/\.jsonl$/i.test(path)) {
       const keys = new Set()
-      const lines = String(text).split(/\r?\n/).filter((l) => l.trim())
+      // 2026-11-05:JSONL 里 `//` 开头的注释行是仓库既有写法(`scripts/data/intentional-file-deletions.jsonl`
+      // 首行即 "// 有意整文件删除…"),它们不是数据行。原先逐行 JSON.parse 连注释也解,一份带注释的
+      // 台账只要被本侧改过就会让整份键面判"解不开"并阻断落地(实测旁路删除硬门的台账补录后触发)。
+      // 这里按 JSONL 注释惯例跳过 `//` 行;数据行的解析与键面判红口径不变。
+      const lines = String(text)
+        .split(/\r?\n/)
+        .filter((l) => l.trim() && !l.trimStart().startsWith('//'))
       for (const line of lines) jsonKeySet(JSON.parse(line), '', keys)
       return { keys }
     }
@@ -244,12 +290,27 @@ export function missingKeys(sideKeys, mergedKeys) {
 /**
  * 判定一次合并的内容面。
  *
+ * 三个**互相独立**的举证来源(头注「双向分叉合流登记」),各自的前置都不因对方而放宽:
+ *  - `creditedDrops`   —— 调用方在同一轮 `verifyUnion` 里已按单源判据举过证的少带行(行级、逐字);
+ *  - `foldLedgers`     —— 折叠原始台账(`foldLedgerOf` 产物),举证在本层跑 `attestFoldPair` 四问,
+ *                         额度封顶在台账申报的份数;
+ *  - `declaredRemovals`—— 本机摘除台账整份/Set,逐字族走 `declaredDropCaps`、改写形态族走
+ *                         `declaredFamilyCaps`(判据都在那两把尺里,本层不复算);
+ *  - `base`            —— 基底面,给「基底有、本侧已删 ⇒ 归并不补回」的重数维;
+ *                         **没喂 ⇒ 该维一条都不放行**(§0.3:取不到不是放行许可证)。
+ *
  * @param {{root:string, ours:string, theirs:string, merged:string, paths?:string[],
  *          liveDocs?:string[], read?: (rev:string,path:string)=>string|null,
- *          foldLedgers?: Map<string,{pairs:Array<{dropped:string,kept:string|null,droppedCopies:number}>}>|null}} a
+ *          creditedDrops?: Set<string>|string[]|null,
+ *          foldLedgers?: Map<string,{pairs:Array<{dropped:string,kept:string|null,droppedCopies:number}>}>|null,
+ *          declaredRemovals?: Set<string>|{set:Set<string>,keyIndex?:Map<string,string[]>,dropTitleRows?:Map<string,string[]>,dropTitleFps?:Set<string>,filesSeen?:number,malformedLines?:string[]}|null,
+ *          base?: string|null}} a
  * @returns {{ok:boolean, checked:string[], violations:Array<{path:string,kind:string,
  *           missingOurs:string[], missingTheirs:string[], error?:string}>, undetermined:string[],
- *           folded:Array<{path:string,side:string,dropped:string,copies:number,kept:string|null}>}}
+ *           folded:Array<{path:string,side:string,dropped:string,copies:number,kept:string|null}>,
+ *           dropped:Array<{path:string,side:string,line:string,copies:number,via:string,ledgerRows?:string[]}>}}
+ *           (`dropped[].via` 逐条写明销账来自哪一路:`逐字` / `族:…` / `本侧处置权已行使(基底有、本侧已删)`
+ *            / `调用方认账集(creditedDrops)` —— 每一处免复读都必须报名,§0.10)
  */
 export function judgeContentLoss({
   root,
@@ -258,11 +319,21 @@ export function judgeContentLoss({
   merged,
   paths,
   liveDocs = DEFAULT_LIVE_DOCS,
+  creditedDrops = null,
   read = (rev, path) => readRev(root, rev, path),
   foldLedgers = null,
   declaredRemovals = null,
   base = null,
 }) {
+  // 已由折叠/摘除台账认过账的行(调用方把 p.folded[].dropped ∪ p.dropLedgerCredited[].dropped 逐字端进来):
+  // attestFoldPair 已在**产物面**举过证(去向行在场 ∧ 同指纹/主键 ∧ 注记与票号被接住),
+  // 本层若再按逐字包含复读一遍,两道闸就互相顶死 —— 折叠线自己既在 missing 里被点名、
+  // 又永远不可能"在 merged 里出现原始形态"。纠偏口径:只免认过账的,未入账缺口一分不放。
+  // 合流后这一路是**三个独立举证来源之一**(头注「双向分叉合流登记」):它只在 `dropCreditOf` 与
+  // `foldCreditOf` 都答不上(两本台账对本层没开过口)时才采纳,且**不压过** `lost` / 只覆盖部分
+  // 份数这两种积极结论 —— 认账集是行级的、没有份数维度,用它去消数量缺口就是"统一放宽"。
+  // 取不到 / 没喂 ⇒ 空集 ⇒ 一条不免(与远端形态逐字同结论);免掉的每一行仍进 `dropped` 报名。
+  const credit = creditedDrops instanceof Set ? creditedDrops : new Set((creditedDrops ?? []).map((l) => String(l ?? '').trim()).filter(Boolean))
   const undetermined = []
   const folded = []
   const dropped = []
@@ -367,20 +438,49 @@ export function judgeContentLoss({
           dropped.push({ path: p, side: sideName, line, copies: dc.credit, via: '逐字' })
           continue
         }
-        const credit = foldCreditOf(line, deficit, pairOf, mergedMap)
-        if (credit.status === 'attested') {
-          if (credit.credit >= deficit) {
-            folded.push({ path: p, side: sideName, dropped: line, copies: deficit, kept: credit.kept })
+        /**
+         * 合流点(2026-11-06,两侧在**同一段代码**上的互斥实现,必须当场裁决):
+         * 远端形态在这里把折叠举证的结果命名为 `credit`,它把外层本地侧的**调用方认账集**
+         * (`creditedDrops` ⇒ `credit`)整个遮蔽掉了 —— 直接取远端形态,本地那一路在函数体内
+         * 结构上取不到输入,等于把 `c587dd5023` 的能力删掉;直接取本地形态(在清单上 `.filter`)
+         * 则把折叠/摘除/处置权三维删掉。裁决 = **保留判据更多的一版**(远端的三维全在),
+         * 只把这里的局部标识符改名 `foldCred`(纯标识符,判据一字未动),让两路同时可达。
+         */
+        const foldCred = foldCreditOf(line, deficit, pairOf, mergedMap)
+        if (foldCred.status === 'attested') {
+          if (foldCred.credit >= deficit) {
+            folded.push({ path: p, side: sideName, dropped: line, copies: deficit, kept: foldCred.kept })
             continue
           }
-          // 台账只解释了其中一部分 ⇒ 剩下的是真少带,照旧判红(额度封顶在台账申报的份数)
+          // 台账只解释了其中一部分 ⇒ 剩下的是真少带,照旧判红(额度封顶在台账申报的份数)。
+          // 调用方认账集**不压这一格**:它是行级的、不带份数维度,用它去消数量缺口就是
+          // "三路并成或条件后统一放宽"(头注「双向分叉合流登记」)。
           out.push(line)
           continue
         }
-        if (credit.status === 'undetermined') {
+        if (foldCred.status === 'undetermined') {
           undetermined.push(
-            `${p} 活文档少带行的折叠去向未判定(不当成"没丢",不记通过):${credit.reason}:${line.slice(0, 60)}`,
+            `${p} 活文档少带行的折叠去向未判定(不当成"没丢",不记通过):${foldCred.reason}:${line.slice(0, 60)}`,
           )
+          // 未判定不是放行许可证(§0.3):即使调用方认账集里有这一行,也不把注记洗掉
+          // (注记本来就不进缺行清单,少掉它只会让 ok 变绿 ⇒ 方向反了)。
+          continue
+        }
+        /**
+         * 剩下两档:`lost`(产物面上的**积极反证**——去向行不在场 / 与被折行不是同一件事 /
+         * 独有注记或票号没接住)与 `none`(两本台账对这一行根本没开过口)。
+         * 本地侧调用方认账集只在 `none` 这一格被采纳(它自己的前置:该行逐字在 `verifyUnion`
+         * 同一轮端出的 `p.folded[].dropped ∪ p.dropLedgerCredited[].dropped` 里)。
+         * `lost` 不许被认账集撤回 —— 反证比"调用方说它折过"更有资格定这条行。
+         */
+        if (foldCred.status === 'none' && credit.has(line)) {
+          dropped.push({
+            path: p,
+            side: sideName,
+            line,
+            copies: deficit,
+            via: '调用方认账集(creditedDrops)',
+          })
           continue
         }
         out.push(line)
@@ -488,7 +588,8 @@ export function formatLossReport(result, { max = __MAX_LISTED } = {}) {
     lines.push(
       `  · 摘除/处置权销账(合法少带,凭据 = 本机摘除台账:逐字族 declaredDropCaps(逐字命中 ∧ 产物面已无此行 ∧ 是登记行形)` +
         ` + 改写形态族 declaredFamilyCaps(题面指纹/复合主键/题面 32 字指纹任一命中)` +
-        ` + 本侧处置权族(基底有、本侧已删 ⇒ 归并不补回)):${dropped.length} 行 / ${copies} 份`,
+        ` + 本侧处置权族(基底有、本侧已删 ⇒ 归并不补回)` +
+        ` + 调用方认账集(creditedDrops:verifyUnion 同一轮已按同源判据在产物面举过证的少带行)):${dropped.length} 行 / ${copies} 份`,
     )
     for (const e of dropped.slice(0, max)) {
       const via = e.via ? ` [${e.via}]` : ''
