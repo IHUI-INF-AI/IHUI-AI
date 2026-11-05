@@ -19,6 +19,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type * as FsModule from 'node:fs';
+import type * as WorktreeModule from '../src/worktree.js';
+import type * as ChildProcessModule from 'node:child_process';
 import { spawnSync } from 'node:child_process';
 import { removeWorktree, createWorktree, createWorktreeWithFallback, reclaimWorktreeMarker, reconcileWorktreeArtifacts } from '../src/subagents/worktree.js';
 import { worktreeMarkerPath } from '../src/worktree.js';
@@ -32,7 +34,7 @@ const probe = vi.hoisted(() => ({ rmSync: 0, gitWorktree: 0, rmCmd: 0 }));
 // CoW 落盘出口(`src/worktree.js` 的 `createWorktree`)替换成"落盘后小失败":R-4 那一腿在 catch 臂内,
 // 真 CoW 只在 EEXIST+marker 齐备时判 reused ⇒ 拿不到唯一会走清理臂的形态。其余符号一律 actual(§0.6)。
 vi.mock('../src/worktree.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/worktree.js')>();
+  const actual = await importOriginal<typeof WorktreeModule>();
   return { ...actual, createWorktree: async (o: { destination?: string }) => { throw new Error(`夹具:落盘后小失败 ${o?.destination ?? ''}`); } };
 });
 vi.mock('node:fs', async (importOriginal) => {
@@ -40,7 +42,7 @@ vi.mock('node:fs', async (importOriginal) => {
   return { ...actual, rmSync: (...a: Parameters<typeof actual.rmSync>): void => { probe.rmSync += 1; actual.rmSync(...a); } };
 });
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>();
+  const actual = await importOriginal<typeof ChildProcessModule>();
   return {
     ...actual,
     spawnSync: (...a: Parameters<typeof actual.spawnSync>) => {
