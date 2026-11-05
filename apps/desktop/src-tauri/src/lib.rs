@@ -44,6 +44,9 @@ mod window_chrome;
 // 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
 // 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
 mod operator;
+// plugin-store 路径越权复现(先复现,修法与守卫见模块文档;修好后本行去掉 cfg(test))。
+#[cfg(test)]
+mod store_path;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
