@@ -52,6 +52,112 @@ export interface ShareResult {
 }
 
 /**
+ * 转义 markdown 原文里的原始 HTML 标签,代码块(``` / ~~~)与行内代码(`…`)原样保留。
+ *
+ * 存储型 XSS 的第一道闸:会话正文由用户/模型写入,任何 `<script>`、`<img onerror>`
+ * 都不得作为标签进入 marked 的解析结果 —— 一律先变成文本实体。
+ */
+export function escapeMarkdownRawHtml(markdown: string): string {
+  const lines = markdown.split('\n');
+  let fence: { ch: string; len: number } | null = null;
+  const out: string[] = [];
+  for (const line of lines) {
+    const m = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      out.push(line);
+      if (m && m[1]![0] === fence.ch && m[1]!.length >= fence.len) fence = null;
+      continue;
+    }
+    if (m) {
+      fence = { ch: m[1]![0]!, len: m[1]!.length };
+      out.push(line);
+      continue;
+    }
+    out.push(escapeLineOutsideInlineCode(line));
+  }
+  return out.join('\n');
+}
+
+/** 单行转义:只处理反引号代码段之外的 `<`(代码段内由 marked 自行转义)。 */
+function escapeLineOutsideInlineCode(line: string): string {
+  let out = '';
+  let i = 0;
+  let codeRun = 0;
+  let inCode = false;
+  while (i < line.length) {
+    if (line[i] === '`') {
+      let n = 1;
+      while (i + n < line.length && line[i + n] === '`') n++;
+      if (!inCode) {
+        inCode = true;
+        codeRun = n;
+      } else if (n === codeRun) {
+        inCode = false;
+        codeRun = 0;
+      }
+      out += line.slice(i, i + n);
+      i += n;
+      continue;
+    }
+    out += !inCode && line[i] === '<' ? '&lt;' : line[i];
+    i++;
+  }
+  return out;
+}
+
+/**
+ * 把 marked 产出的 HTML 收敛成安全子集(标签/属性/URL 协议三重白名单)。
+ *
+ * 存储型 XSS 的第二道闸:即使原文绕过第一道闸,渲染结果里也不得留下可执行标签
+ * (`<script>` 等)或可执行属性(`on*`、`javascript:` URL 等)。
+ * 本函数会被原样注入 /share 生成的 HTML 页面(与调用点同源,不维护第二份实现)。
+ */
+export function sanitizeRenderedHtml(html: string): string {
+  const allowedTags = new Set([
+    'a', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'code', 'pre',
+    'blockquote', 'strong', 'em', 'del', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'img', 'br', 'hr', 'div', 'span',
+  ]);
+  const allowedAttrs = new Set(['href', 'src', 'alt', 'title', 'class', 'colspan', 'rowspan', 'start', 'align']);
+
+  function isSafeUrl(raw: string): boolean {
+    const decoded = raw
+      .replace(/&#x([0-9a-f]+);/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_m, d: string) => String.fromCharCode(parseInt(d, 10)))
+      .replace(/&colon;/gi, ':')
+      .replace(/&tab;/gi, '\t')
+      .replace(/&newline;/gi, '\n');
+    const compact = decoded.replace(/[\u0000-\u0020\u007f]/g, '').toLowerCase();
+    if (compact.startsWith('javascript:') || compact.startsWith('vbscript:') || compact.startsWith('data:')) {
+      return false;
+    }
+    const scheme = /^([a-z][a-z0-9+.-]*):/.exec(compact);
+    return !scheme || ['http', 'https', 'mailto', 'tel'].includes(scheme[1]!);
+  }
+
+  return html.replace(/<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:\s+[^<>]*)?)\s*\/?>/g, (match, rawName, rawAttrs) => {
+    const name = String(rawName).toLowerCase();
+    if (!allowedTags.has(name)) return '';
+    if (match.startsWith('</')) return `</${name}>`;
+    const kept: string[] = [];
+    const attrText = String(rawAttrs ?? '').replace(/\/$/, '');
+    const attrRe = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+))?/g;
+    let am: RegExpExecArray | null;
+    while ((am = attrRe.exec(attrText)) !== null) {
+      const attrName = am[1]!.toLowerCase();
+      if (!allowedAttrs.has(attrName)) continue;
+      const rawValue = am[2];
+      if (rawValue === undefined) continue;
+      const value =
+        rawValue.startsWith('"') || rawValue.startsWith("'") ? rawValue.slice(1, -1) : rawValue;
+      if ((attrName === 'href' || attrName === 'src') && !isSafeUrl(value)) continue;
+      kept.push(`${attrName}="${value.replace(/"/g, '&quot;').replace(/</g, '&lt;')}"`);
+    }
+    return `<${name}${kept.length > 0 ? ` ${kept.join(' ')}` : ''}>`;
+  });
+}
+
+/**
  * ShareManager — 生成可分享的会话快照。
  *
  * 用法:
@@ -239,8 +345,12 @@ export class ShareManager {
   private renderHtml(markdown: string, hash: string, title: string): string {
     const safeTitle = this.escapeHtml(title);
     const hash8 = hash.slice(0, 8);
-    // 安全嵌入 markdown:JSON.stringify 生成 JS 字符串字面量,再把 < 转 \u003c 防 </script> 破壳
-    const safeMarkdownJson = JSON.stringify(markdown).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    // 安全嵌入 markdown:先中和原文里的原始 HTML 标签(代码块/行内代码原样保留),
+    // 再用 JSON.stringify 生成 JS 字符串字面量,并把 < > 转义防 </script> 破壳。
+    const safeMarkdown = escapeMarkdownRawHtml(markdown);
+    const safeMarkdownJson = JSON.stringify(safeMarkdown).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    // 净化函数与调用点同源:把 TypeScript 实现原样注入页面,避免第二份手写判据漂移。
+    const sanitizerSource = sanitizeRenderedHtml.toString().replace(/<\/script/gi, '<\\/script');
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -268,10 +378,11 @@ export class ShareManager {
 </div>
 <div id="content" data-hash="${hash8}"></div>
 <script>
+  ${sanitizerSource}
   var raw = ${safeMarkdownJson};
   var container = document.getElementById('content');
   if (window.marked) {
-    container.innerHTML = window.marked.parse(raw);
+    container.innerHTML = sanitizeRenderedHtml(window.marked.parse(raw));
   } else {
     container.textContent = raw;
   }
