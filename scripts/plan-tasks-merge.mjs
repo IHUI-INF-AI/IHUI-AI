@@ -4966,6 +4966,9 @@ export function parsePositiveInt(raw) {
 export const KNOWN_FLAGS = [
   '--self-test',
   '--help',
+  // '-h' 是 '--help' 的短形(RP-91 同族口径:git-sync-converge / union-converge 都放行 -h;
+  // 本器此前只认 --help,`-h` 会被 inspectArgs 拒成未知参数——方向安全但违反成套性)。
+  '-h',
   '--heal',
   '--commit',
   '--dedupe-blocks',
@@ -5062,7 +5065,7 @@ function printHelp() {
       '',
       '其他旗标:--commit 才落地 · --allow-mass 人工放行大批量(会原样写进提交信息) ·',
       '  --staged/--worktree 换判定面(落地一律只认 HEAD blob;--staged 只许出报告,§12 污染型)',
-      '  --all 全列报名 · --json 机器可读 · --self-test 判据自检 · --help 本文',
+      '  --all 全列报名 · --json 机器可读 · --self-test 判据自检 · --help/-h 本文',
       '',
       '退出码:0 = 通过/无事可做 · 1 = 断言不过或拒批量(现场保留) · 2 = 无法判定或参数不成立(不出具合格证)',
     ].join('\n'),
@@ -5084,7 +5087,7 @@ function main() {
     return 2
   }
   if (has('--self-test')) return selfTest()
-  if (has('--help')) return printHelp()
+  if (has('--help') || has('-h')) return printHelp()
   /**
    * 只读诊断:点名"全族都带副本指针 ⇒ 对派单口径隐形"的主键族。
    * 刻意**不改一行、不判红**(退出码恒 0):存量 19 族若当场 blocking,就是一台与任何提交都无关的
