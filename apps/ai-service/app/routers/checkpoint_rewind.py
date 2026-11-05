@@ -28,6 +28,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import difflib
 import logging
 import time
@@ -433,7 +434,9 @@ async def checkpoint_impact(
             disk_error = True
         else:
             try:
-                disk = Path(path).read_text(encoding="utf-8", errors="replace")
+                disk = await asyncio.to_thread(
+                    Path(path).read_text, encoding="utf-8", errors="replace"
+                )
             except Exception:  # noqa: BLE001 - 读失败必须显式标记,不得猜合法空文件
                 disk = ""
                 disk_error = True

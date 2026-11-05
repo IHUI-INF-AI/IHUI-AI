@@ -29,6 +29,7 @@ long_term_memory.recall_cross_session;注入时形态同
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -305,7 +306,9 @@ async def compile_project(
     compiled_at = ""
     if cards_path.exists():
         try:
-            prev = json.loads(cards_path.read_text(encoding="utf-8"))
+            prev = json.loads(
+                await asyncio.to_thread(cards_path.read_text, encoding="utf-8")
+            )
             if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
                 compiled_at = str(prev[0].get("compiled_at") or "")
         except (OSError, ValueError):
@@ -319,15 +322,13 @@ async def compile_project(
     wiki_files = 0
     if not dry_run:
         cards_dir.mkdir(parents=True, exist_ok=True)
-        cards_path.write_text(
-            json.dumps(cards, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        cards_payload = json.dumps(cards, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        await asyncio.to_thread(cards_path.write_text, cards_payload, encoding="utf-8")
         wiki_dir.mkdir(parents=True, exist_ok=True)
-        wiki_path.write_text(
-            _render_wiki(slug, project_id, cards, len(rejected), workspace_root=workspace_root, wiki_dir=wiki_dir),
-            encoding="utf-8",
+        wiki_payload = _render_wiki(
+            slug, project_id, cards, len(rejected), workspace_root=workspace_root, wiki_dir=wiki_dir
         )
+        await asyncio.to_thread(wiki_path.write_text, wiki_payload, encoding="utf-8")
         wiki_files = 1
 
     return {

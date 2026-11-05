@@ -30,6 +30,7 @@ DB 表(由 scheduler 自动建表):
 """
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import json
@@ -360,8 +361,7 @@ async def upload_file(
 
     # 写入磁盘
     try:
-        with save_path.open("wb") as f:
-            f.write(content_bytes)
+        await asyncio.to_thread(save_path.write_bytes, content_bytes)
     except OSError as e:
         raise HTTPException(
             status_code=500,

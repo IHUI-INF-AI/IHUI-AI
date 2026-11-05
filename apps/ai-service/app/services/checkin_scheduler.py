@@ -41,6 +41,7 @@ import os
 import random
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
@@ -1263,8 +1264,9 @@ class CheckinScheduler:
         if not os.path.exists(path):
             return
         try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            data = json.loads(
+                await asyncio.to_thread(Path(path).read_text, encoding="utf-8")
+            )
         except (OSError, ValueError):
             return
         records = data.get("records") or {}
@@ -1295,8 +1297,10 @@ class CheckinScheduler:
                     else exp
                 )
                 try:
-                    with open(path, "w", encoding="utf-8") as f:
-                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    payload = json.dumps(data, ensure_ascii=False, indent=2)
+                    await asyncio.to_thread(
+                        Path(path).write_text, payload, encoding="utf-8"
+                    )
                     logger.info(
                         "[checkin_scheduler] MiniMax 令牌已服务端续期并写回 auth.json(exp=%s)",
                         exp,

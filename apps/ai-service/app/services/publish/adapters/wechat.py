@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -94,16 +95,16 @@ class WechatAdapter(BasePlatformAdapter):
             return False, f"image not found: {image_path}"
 
         try:
-            with open(p, "rb") as f:
-                files = {"media": (p.name, f, "image/jpeg")}
-                if is_permanent:
-                    url = f"{_API_BASE}/material/add_material?access_token={token}&type=image"
-                    data = {"type": "image"}
-                else:
-                    url = f"{_API_BASE}/media/uploadimg?access_token={token}"
-                    data = {}
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    resp = await client.post(url, files=files, data=data)
+            image_bytes = await asyncio.to_thread(p.read_bytes)
+            files = {"media": (p.name, image_bytes, "image/jpeg")}
+            if is_permanent:
+                url = f"{_API_BASE}/material/add_material?access_token={token}&type=image"
+                data = {"type": "image"}
+            else:
+                url = f"{_API_BASE}/media/uploadimg?access_token={token}"
+                data = {}
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(url, files=files, data=data)
         except httpx.HTTPError as e:
             return False, f"upload image failed: {type(e).__name__}: {e}"
 

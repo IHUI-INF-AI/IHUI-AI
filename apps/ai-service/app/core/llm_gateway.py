@@ -1395,7 +1395,9 @@ async def _resolve_auto_model(
         all_models: list[dict[str, Any]] = []
         if default_file.exists():
             try:
-                raw = json.loads(default_file.read_text(encoding="utf-8"))
+                raw = json.loads(
+                    await asyncio.to_thread(default_file.read_text, encoding="utf-8")
+                )
                 for m in raw.get("models", []):
                     if isinstance(m, dict) and m.get("id"):
                         all_models.append(m)

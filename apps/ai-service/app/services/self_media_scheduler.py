@@ -272,7 +272,7 @@ class SelfMediaScheduler:
         articles_dir = Path(__file__).resolve().parent.parent / "skills" / "content_engine" / "articles"
         articles_dir.mkdir(parents=True, exist_ok=True)
         md_path = articles_dir / f"{_safe_filename(title)}.md"
-        md_path.write_text(md_content, encoding="utf-8")
+        await asyncio.to_thread(md_path.write_text, md_content, encoding="utf-8")
         return {
             "title": title,
             "md_path": str(md_path),

@@ -175,10 +175,10 @@ class CheckinBatchMarker:
                 await asyncio.sleep(self.heartbeat_seconds)
             except asyncio.CancelledError:
                 raise
-            self.beat()
+            await asyncio.to_thread(self.beat)
 
     async def start(self) -> bool:
-        ok = self.write()
+        ok = await asyncio.to_thread(self.write)
         self._stopped = False
         self._heartbeat_task = asyncio.create_task(
             self._heartbeat_loop(), name=f"checkin-batch-marker:{self.batch}"

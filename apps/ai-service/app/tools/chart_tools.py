@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
 import json
 import logging
@@ -339,7 +340,7 @@ async def generate_chart(arguments: dict[str, Any]) -> dict[str, Any]:
             seq += 1
 
         try:
-            path.write_text(html_content, encoding="utf-8")
+            await asyncio.to_thread(path.write_text, html_content, encoding="utf-8")
         except OSError as exc:
             logger.error("图表文件写入失败: %s", exc)
             return {
@@ -353,7 +354,8 @@ async def generate_chart(arguments: dict[str, Any]) -> dict[str, Any]:
         if user_id:
             try:
                 sidecar = Path(str(path) + ".owner")
-                sidecar.write_text(
+                await asyncio.to_thread(
+                    sidecar.write_text,
                     json.dumps({"user_id": user_id}, ensure_ascii=False),
                     encoding="utf-8",
                 )

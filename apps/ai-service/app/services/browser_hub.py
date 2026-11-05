@@ -1363,8 +1363,11 @@ class BrowserHub:
             port = s.getsockname()[1]
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
-        _cleanup_stale_scan_profiles()  # 清理上次异常退出遗留的登录态副本
-        profile_info = _copy_browser_profile(browser.user_data, Path(profile_dir))
+        # 清理上次异常退出遗留的登录态副本
+        await asyncio.to_thread(_cleanup_stale_scan_profiles)
+        profile_info = await asyncio.to_thread(
+            _copy_browser_profile, browser.user_data, Path(profile_dir)
+        )
         if not self._started or not self._playwright:
             await self.start()
         if self._playwright is None:
@@ -1487,11 +1490,11 @@ class BrowserHub:
             return []
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
-        _cleanup_stale_scan_profiles()
-        info = _copy_browser_profile(user_data, Path(profile_dir))
+        await asyncio.to_thread(_cleanup_stale_scan_profiles)
+        info = await asyncio.to_thread(_copy_browser_profile, user_data, Path(profile_dir))
         if not info["profile_used"]:
             logger.warning(f"[browser_hub] 读取登录态失败:profile 复制失败({info.get('error')})")
-            shutil.rmtree(profile_dir, ignore_errors=True)
+            await asyncio.to_thread(shutil.rmtree, profile_dir, True)
             return []
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1543,10 +1546,10 @@ class BrowserHub:
             logger.warning(f"[browser_hub] 读取登录态失败: {e}")
         finally:
             for _ in range(5):
-                shutil.rmtree(profile_dir, ignore_errors=True)
+                await asyncio.to_thread(shutil.rmtree, profile_dir, True)
                 if not os.path.exists(profile_dir):
                     break
-                time.sleep(0.4)
+                await asyncio.sleep(0.4)
         return entries
 
     def list_sessions(self, owner_user_id: str | None = None) -> list[str]:
