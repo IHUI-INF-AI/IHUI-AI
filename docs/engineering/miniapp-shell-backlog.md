@@ -66,8 +66,8 @@
 | pkg-learn/course/list | 195 | ② | features/course-tab/CourseTabScreen.tsx | 缺课程分类/卡片/进度（页面只是共享屏子集）；web 无 | 共享屏 +200 / 壳 100 | 页 `list.tsx:104` |
 | pkg-learn/course/detail | 455 | ② | features/course-detail/CourseDetailScreen.tsx | 缺课程详情/章节/分享；web 无 | 共享屏 +300 / 壳 150 | 页 `detail.tsx:237`/`:290` |
 | pkg-learn/live/list | 248 | ② | features/live-list/LiveListScreen.tsx | 缺直播列表/预约/日历按钮；web `(main)/live/page.tsx` | 共享屏 +170 / 壳 100 | 页 `list.tsx:142`/`:150`-`:166` |
-| pkg-learn/live/subscribe | 197 | ② | features/subscriptions/SubscriptionsScreen.tsx | 缺订阅列表与空态；web 无 | 共享屏 +120 / 壳 80 | 页 `subscribe.tsx:93` |
-| pkg-learn/live/host/index | 292 | ② | features/live-host/LiveHostScreen.tsx | 缺主播开播/控制台；web `(main)/live/host/page.tsx` | 共享屏 +180 / 壳 100 | 页 `index.tsx:148`/`:87` |
+| pkg-learn/live/subscribe | 138 | ① | features/subscriptions/SubscriptionsScreen.tsx | 共享屏补直播段：封面/讲师/开播时间/状态徽标 + 「已订阅 N 场」计数行 + 提醒开关卡 + 直播行点击 + 空态「去发现」；壳只剩映射与回调；web 无；改前=getLiveList({status:'upcoming'}) 请求 /live/list 撞 listChannelsQuery 数字 schema 恒 400（旧「即将开播」过滤从未生效，是坏功能）；改后=我订阅且启用的频道（含直播中/已结束/未发布但启用，仅滤 status=1）；文案已同步：标题「我的订阅」、计数、空态「去发现直播」、三态徽标（直播中/即将开播/已结束），并补 subscriptions.title 兜底 | 共享屏 +174/-28（新增直播段与样式）；壳 138 行（原 197） | 页 `subscribe.tsx:116`(挂载)/`:101`(直播映射)；共享屏 `SubscriptionsScreen.tsx:139`-`:151`(计数/提醒)、`:57`-`:96`(直播行)、`:172`(空态 CTA)；RN `apps/mobile-rn/src/screens/SubscriptionsScreen.tsx:180`(挂载)；API `apps/api/src/routes/live.ts:444-450`(GET 订阅)/`:489-499`(DELETE 订阅) |
+| pkg-learn/live/host/index | 174 | ① | features/live-host/LiveHostScreen.tsx | 共享屏已含全部段(状态徽标/预览/推流地址密钥/开播结束/统计/商品)，本笔零新增；壳只保留 SRS 调用/计时/剪贴板/导航与文案兜底 | 共享屏 +0 / 壳 174（原 292） | 页 `index.tsx:147`(挂载)/`:162`(开播)/`:167`(复制)/`:168`(返回)；RN `apps/mobile-rn/src/screens/LiveHostScreen.tsx:162`(真消费) |
 | pkg-learn/teacher/detail | 348 | ② | features/lecturer-detail/LecturerDetailScreen.tsx | 缺讲师档案/课程/预约；web 无 | 共享屏 +220 / 壳 110 | 页 `detail.tsx:99`（无顶块=内联大段） |
 | pkg-learn/learn-develop/index | 254 | ② | features/learn-develop/LearnDevelopScreen.tsx | 缺学习发展路径/阶段卡；web 无 | 共享屏 +150 / 壳 90 | 页 `index.tsx:118` |
 | pkg-learn/course-planet/index | 286 | ② | features/course-planet/CoursePlanetScreen.tsx | 缺课程星球/任务卡；web 无 | 共享屏 +170 / 壳 100 | 页 `index.tsx:138`-`:178` |
@@ -85,8 +85,8 @@
 | pkg-content/news/list | 283 | ② | features/article-list/ArticleListScreen.tsx | 缺资讯列表/搜索/分类；web `(main)/news/page.tsx` | 共享屏 +180 / 壳 100 | 页 `list.tsx:190`-`:199` |
 | pkg-content/category-detail/index | 156 | ② | features/category-detail/CategoryDetailScreen.tsx | 缺分类详情与筛选；web 无 | 共享屏 +110 / 壳 70 | 页 `index.tsx:75` |
 | pkg-content/share/creation | 283 | ② | 无（声明 ChatScreen/SquareScreen 均为误挂） | 缺 ShareLandingScreen（分享出来的回答落地页：无输入区、带分享菜单）；web `share/page.tsx` 仅 `redirect('/')` | 共享屏 +200 / 壳 100 | 页 `creation.tsx:102`-`:130`（NavBar×3 + ScrollView） |
-| pkg-content/plaza/cover/index | 374 | ② | features/plaza-cover/PlazaCoverScreen.tsx | 缺广场封面与入口；web `(main)/plaza/page.tsx` | 共享屏 +220 / 壳 110 | 页 `index.tsx:176` |
-| pkg-content/plaza/set-need/index | 177 | ② | features/set-need/SetNeedScreen.tsx | 缺需求设置表单；web 无 | 共享屏 +110 / 壳 70 | 页 `index.tsx:86`-`:165` |
+| pkg-content/plaza/cover/index | 374 | ② | features/plaza-cover/PlazaCoverScreen.tsx | web `(main)/plaza/*` 只有社区广场（PageClient/PlazaHeader/CirclesPanel/AsksPanel），无开发者空间状态行/续费/FAQ/信息卡/三入口；RN 只有 hero/features/2 actions/footer（`PlazaCoverScreen.tsx:42-47`/`:56-87`） | 共享屏 +220 / 壳 110 | 页 `index.tsx:176` |
+| pkg-content/plaza/set-need/index | 177 | ③ | features/set-need/SetNeedScreen.tsx | 概念不同：小程序是偏好选择（类别/等级/预算 `set-need/index.tsx:27-42`/`:62`），共享屏是发布需求表单（`SetNeedScreen.tsx:29-47`，RN `SetNeedScreen.tsx:125`）；web `(main)/plaza` 无偏好实现（grep 零命中） | 共享屏 +110 / 壳 70 | 页 `index.tsx:86`-`:165` |
 | pkg-content/community/create/index | 235 | ② | features/post-create/PostCreateScreen.tsx | 缺发帖编辑器与圈子选择；web 无 | 共享屏 +150 / 壳 90 | 页 `index.tsx:178`/`:187` |
 | pkg-about/about/index | 248 | ② | features/about/AboutScreen.tsx | 缺 3 处：版本号、版权页脚、标题取词键；新增 prop 仅小程序会用（违反桶①c）；web `(main)/about/page.tsx` | 共享屏 +60 / 壳 60 | 页 `index.tsx:45`-`:103`;`AboutScreen.tsx` 无 version |
 | pages/distribution/index | 469 | ② | features/distribution/DistributionScreen.tsx | 缺分销总览/收益卡/客服浮标；web `(main)/distribution/page.tsx` | 共享屏 +280 / 壳 140 | 页 `index.tsx:255`-`:380` |

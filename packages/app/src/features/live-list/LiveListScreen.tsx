@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
+import { LiveQuickActions } from './LiveQuickActions'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
@@ -27,7 +28,13 @@ import {
 import { assertRequiredPort } from '../../host/ports'
 
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
-export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
+export type {
+  LiveListItem,
+  LiveListScreenProps,
+  LiveListTab,
+  LiveStatus,
+  LiveQuickActionsProps,
+} from '@ihui/types'
 
 const TABS: LiveListTab[] = ['all', 'upcoming', 'ongoing', 'ended']
 
@@ -49,6 +56,7 @@ export function LiveListScreen({
   items,
   activeTab,
   onSelectTab,
+  tabs = TABS,
   loading,
   refreshing,
   error,
@@ -60,6 +68,7 @@ export function LiveListScreen({
   onRetry,
   colorScheme = 'light',
   onNavigate,
+  quickActions,
 }: LiveListScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
@@ -92,8 +101,10 @@ export function LiveListScreen({
         <Text style={styles.subtitle}>{t('liveList.subtitle')}</Text>
       </View>
 
+      {quickActions ? <LiveQuickActions {...quickActions} /> : null}
+
       <View style={styles.tabs}>
-        {TABS.map((s) => {
+        {tabs.map((s) => {
           const active = s === activeTab
           return (
             <TouchableOpacity
