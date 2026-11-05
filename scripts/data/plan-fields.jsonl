@@ -223,3 +223,9 @@
 {"key":"G-72#BUG-72isRefreshTokenExpi","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
 {"key":"G-73#BUG-73非web端i18n永远落zh-CN","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
 {"key":"G-74#BUG-74mobile-capversionC","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"T:0835d0435d45f5dc","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
+{"key":"T:361eed9201b9ca05","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
+{"key":"T:cd524cf4a4c2f8fb","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
+{"key":"T:916a918dd6007011","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
+{"key":"T:23475a0fbb40e8af","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
+{"key":"T:3eb8c498902664fb","owner":"auto-triage","waiting":"none","updatedAt":"2026-11-05T10:30:33.606Z","updatedBy":"plan-row-restore-1105"}
