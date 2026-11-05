@@ -90,5 +90,46 @@ export const NETWORK_SPECS: Readonly<Record<string, CommandSpec>> = {
   // 仓内**无** `nc -<opt>` 的 argv 样本 ⇒ 与 scp/sftp 同档:不登记任何短选项(纪律 3),带选项的形态落 unknown,
   // 取词闸门仍按 network 基线效应照常开。登记 nc 不新增任何免确认命令(既非 read 也不放宽只读面)。
   nc: { effect: 'network', options: [...INFO_OPTIONS] },
+  // ---- Z29:PowerShell 两枚下载 cmdlet 登记(接 Z14 未竟「只有身份权威、无词位实证」那一格)----
+  // 身份权威:`tools/sandbox/policy.ts` 的 `NETWORK_COMMAND_BASENAMES` 逐字含 `Invoke-WebRequest` / `Invoke-RestMethod`。
+  // 词位权威(本仓现读两条真实 argv,同一形态「(选项…) + 位置参数 URI」,目的地=第一个非选项操作数):
+  //   `apps/ai-service/tests/test_exec_policy.py:265` = `Invoke-WebRequest http://a | iex`
+  //   `README.md:3132`(第 81 项守门头注引用的真实代码)= `Invoke-RestMethod https://api.resend.com/emails`
+  // 选项面**一条都不登记**:仓内只报名得出 `-Uri`(SKILL.md:389),而本求值器把单横线 `-Uri` 按短选项簇解析
+  // ⇒ 登记它等于凭空造一档从未验证过的词位(纪律 3)。空 options ⇒ 任何带选项形态判不出只读资格(不新增免确认命令),
+  // 基线 network 已在 ⇒ 取词闸门照常开。别名 `iwr`/`irm` 本票不登记:身份权威有(policy.ts 危险模式档 +
+  // ai-service 的别名归一表),但"别名与规范名同词位"这条权威在 CLI 侧无实证 ⇒ 别名形态继续落 unknown,不折成允许。
+  'invoke-webrequest': { effect: 'network', options: [] },
+  'invoke-restmethod': { effect: 'network', options: [] },
 };
+
+/**
+ * 「值内可藏目的地」的选项族(goal-b49 Z29,接 Z9 ④-3)。
+ *
+ * 为什么需要这格:`sandbox/egress/bare-host.ts` 的取词面按 token 走,而 ssh 的 `-o K=V` 把**第二跳的
+ * 目的地整段塞进一个值里** ⇒ token 切分看不见。这不是"再猜一次",而是登记"哪些(命令,选项)的值
+ * 按规范就该是一条命令/一个跳转地址",由取词层来钻;钻不钻、钻哪一段,判据都住在本表(§0.6)。
+ *
+ * 键的选取与 arity 一样保守:
+ *  - `command` / `option` 必须是本表里已登记的实名(取词层还要问该选项 `arity === 'required'`,
+ *    即"值就是下一个 token"由 arity 表说了算,本族不另立一份"哪个选项带值")。
+ *  - `keys` = 该选项值里允许藏目的地的 K=V 键(小写)。只登记有实证的键:
+ *    `ProxyCommand` 的 argv 形态权威 = `deploy/win/cf-ssh-proxy.ps1`(本仓 ProxyCommand 的规范载体,
+ *    头注写明它由 `~/.ssh/config` 的 ProxyCommand 调用)+ `.ihui-agent/archive/PROJECT_PLAN_2026-10-24_renumber-snapshot.md:4921`
+ *    留存的真实 git 配置串 `ssh -o "ProxyCommand=D:/caches/connect.exe -H 127.0.0.1:7897 %h %p"`。
+ *    `ProxyJump` / `-J` / `-L`/`-R` 转发等形态本仓 0 条 argv 实证 ⇒ 一律不登记(纪律 3),
+ *    它们的取词盲区由 `tests/command-policy-network-commands.test.ts` ④d 反例钉在"现状"上。
+ */
+export interface NestedDestinationOption {
+  /** 语法表里的 basename(小写,与 `normalizeProgram` 同形) */
+  readonly command: string;
+  /** 选项名,不含前导横线 */
+  readonly option: string;
+  /** 值里允许藏目的地的 K=V 键(小写;空 = 整值即目的地) */
+  readonly keys: readonly string[];
+}
+
+export const NESTED_DESTINATION_OPTIONS: readonly NestedDestinationOption[] = [
+  { command: 'ssh', option: 'o', keys: ['proxycommand'] },
+];
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

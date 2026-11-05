@@ -2,24 +2,26 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""命令策略多档合并器(仓库档 ⊕ 企业档)单元测试 —— goal-b49。
+"""命令策略多档合并器(仓库档 ⊕ 企业档)单元测试 —— goal-b49(Y2 席)。
 
 判据只有一份实现:``app/core/command_policy_merge.py``(+ 形状层 ``app/core/command_policy_tiers.py``),
-本文件**import 真源**,不复制任何常量表(AGENTS §0.6)。
+本文件 **import 真源**,不复制任何常量表(AGENTS §0.6)。
 
 覆盖:
 - 正例:企业档命中 → 企业档裁决胜出且点名来源;
 - 反例:企业档不命中 → 回落仓库档;
 - 边界例:两侧都命中 → 两条都点名,优先级为什么这样排写进出声文本;
 - 「未判定」:形状非法 / 正则非法 / 企业快照读不到 ⇒ 不折成 deny/allow;
-- 真消费点:mcp_server._tool_run_command 的命令裁决**经过**合并器并读它的读数。
+- 不可变路径按**路径组件边界**命中(提交信息里提到同名片段不算引用)。
+
+真消费点(`mcp_server._tool_run_command`)的接线用例在
+``tests/test_command_policy_merge_wiring.py``。
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -29,7 +31,6 @@ from app.core.command_policy_merge import (
     adjudicate_command,
     command_rule_name,
 )
-from app.services import mcp_server
 from app.services.exec_policy import Decision
 
 
@@ -200,141 +201,5 @@ def test_immutable_path_ignores_mention_inside_message() -> None:
     verdict = adjudicate_command(
         'git commit -m "fix .git/config handling"', _doc(immutable_paths=[".git/config"])
     )
-    assert verdict.outcome is PolicyOutcome.NONE
-
-
-# =============================================================================
-# 真消费点:mcp_server._tool_run_command 的裁决经过合并器
-# =============================================================================
-
-
-def _allow_exec_policy(monkeypatch: pytest.MonkeyPatch) -> None:
-    """把 exec_policy 引擎 stub 成放行(本组用例只测多档层)。"""
-
-    def _eval(command, cwd=None, shell="auto"):  # noqa: ANN001, ANN202
-        return SimpleNamespace(
-            action=mcp_server.RuleDecision.ALLOW, matched_rules=(), risk_notes=()
-        )
-
-    monkeypatch.setattr(mcp_server, "exec_policy_evaluate", _eval)
-
-
-async def test_run_command_denied_by_enterprise_black_list(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """真消费点:企业档黑名单命中 ⇒ 拒绝,且消息点名来源(不静默收窄)。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(enterprise={"black_list": ["\\bnpm\\s+publish\\b"]}),
-    )
-    result = await mcp_server._tool_run_command({"command": "npm publish"})
-    assert result["ok"] is False
-    assert result["errorCode"] == "COMMAND_POLICY_DENIED"
-    assert result["policy_verdict"]["outcome"] == "deny"
-    assert result["policy_verdict"]["command_rule"] == "command_rule_deny"
-    assert result["policy_verdict"]["tiers"] == ["enterprise"]
-    assert "企业档" in result["message"]
-
-
-async def test_run_command_ask_tier_goes_to_existing_approval_channel(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """真消费点:ask 档 ⇒ 走既有审批通道(EXEC_POLICY_NEEDS_APPROVAL)。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(red_list=["\\bnpm\\s+publish\\b"]),
-    )
-    result = await mcp_server._tool_run_command({"command": "npm publish"})
-    assert result["ok"] is False
-    assert result["errorCode"] == "EXEC_POLICY_NEEDS_APPROVAL"
-    assert result["approval_request"]["command"] == "npm publish"
-    assert result["policy_verdict"]["outcome"] == "ask"
-
-
-async def test_run_command_ask_tier_not_bypassed_by_standing_prefix_rule(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """边界:本地**长期**前缀放行不得静默放行 ask 档(§0.10 失效方向恒为更严)。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(red_list=["\\bnpm\\s+publish\\b"]),
-    )
-    mcp_server.approve_exec_prefix("npm publish", tokens=1)
-    try:
-        result = await mcp_server._tool_run_command({"command": "npm publish"})
-        assert result["errorCode"] == "EXEC_POLICY_NEEDS_APPROVAL"
-    finally:
-        mcp_server.revoke_exec_prefix(["npm"])
-
-
-async def test_run_command_ask_tier_bypassed_by_one_time_approval(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """边界:走完本层审批通道的一次性放行 ⇒ 不重复要审批。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(red_list=["\\bnpm\\s+publish\\b"]),
-    )
-    mcp_server.approve_exec_command("npm publish")
-    result = await mcp_server._tool_run_command({"command": "npm publish"})
-    assert result.get("errorCode") != "EXEC_POLICY_NEEDS_APPROVAL"
-
-
-async def test_run_command_undetermined_closes_gate(monkeypatch: pytest.MonkeyPatch) -> None:
-    """真消费点:策略未判定 ⇒ 独立出口闭锁(不谎称已判 deny)。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(black_list="oops"),
-    )
-    result = await mcp_server._tool_run_command({"command": "echo hello"})
-    assert result["ok"] is False
-    assert result["errorCode"] == "COMMAND_POLICY_UNDETERMINED"
-    assert result["policy_verdict"]["outcome"] == "undetermined"
-
-
-async def test_run_command_default_policy_adds_no_new_gate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """既有消费方回归:默认权威源(五段留空)不改变既有判定 —— echo 仍走既有防线。"""
-    _allow_exec_policy(monkeypatch)
-    monkeypatch.setattr(
-        mcp_server,
-        "_load_command_policy",
-        lambda: _doc(),
-    )
-    result = await mcp_server._tool_run_command({"command": "npm publish"})
-    # echo 不在白名单 ⇒ 仍被既有前缀白名单拦下(多档层没插手)
-    assert result["ok"] is False
-    assert result.get("errorCode") != "COMMAND_POLICY_DENIED"
-    assert "不在白名单中" in result["message"]
-
-
-def test_default_policy_document_keeps_legacy_semantics() -> None:
-    """既有 `command_policy.json` 消费方回归:三段语义与多档默认档形状。"""
-    policy = mcp_server._load_command_policy()
-    assert len(policy["dangerous_patterns"]) == 28
-    assert len(policy["allowed_prefixes"]) == 31
-    assert len(policy["sensitive_file_markers"]) == 6
-    for key in ("red_list", "black_list", "immutable_paths", "allow", "ask"):
-        assert policy[key] == []
-    assert set(policy["enterprise"]) == {
-        "source",
-        "red_list",
-        "black_list",
-        "immutable_paths",
-        "allow",
-        "ask",
-    }
-    verdict = adjudicate_command("echo hello", policy)
     assert verdict.outcome is PolicyOutcome.NONE
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

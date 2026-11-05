@@ -68,6 +68,21 @@ export function hookDeclarationMatches(declaration: string, event: string, conte
   return parts.event === event && hookMatcherSatisfied(parts.matcher, context);
 }
 
+/** matcher 永远不可能命中时点名的两种形态(与派发侧同一把尺,对账层不得自己再猜一次)。 */
+export type MatcherUnreachableReason = 'empty-matcher' | 'matcher-not-a-host-tool';
+
+/**
+ * 静态一侧的同一件事:这条声明的 matcher 在**本宿主有没有可能被满足**?
+ * 与 `hookMatcherSatisfied` 成对(那里判"这一次派发叫不叫醒",这里判"名字面上有没有一次叫得醒"),
+ * 供贡献面对账腿使用 —— 对账不许另抄一份 matcher 语义(§0.6),否则「派发按 A、对账按 B」就是 Z13 未竟 3 的复发。
+ * 返回 null = 有可能命中(整档订阅 / 显式通配 / 名字真在宿主工具表里)。
+ */
+export function matcherUnreachableOnHost(matcher: string | null, hostToolNames: readonly string[]): MatcherUnreachableReason | null {
+  if (matcher === null || matcher === HOOK_MATCHER_WILDCARD) return null;
+  if (matcher === '') return 'empty-matcher';
+  return hostToolNames.includes(matcher) ? null : 'matcher-not-a-host-tool';
+}
+
 /** 插件是否有**至少一条**声明命中本次派发(与旧实现同粒度:一个插件一次事件只出一回)。 */
 export function pluginHookMatches(plugin: PluginDefinition, event: string, context: PluginHookContext): boolean {
   if (!plugin.hooks) return false;
@@ -159,5 +174,5 @@ export async function runCommandContributions(
   return invoked;
 }
 
-export const __test__ = { parseHookDeclaration, hookMatcherSatisfied, hookDeclarationMatches, pluginHookMatches };
+export const __test__ = { parseHookDeclaration, hookMatcherSatisfied, hookDeclarationMatches, pluginHookMatches, matcherUnreachableOnHost };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

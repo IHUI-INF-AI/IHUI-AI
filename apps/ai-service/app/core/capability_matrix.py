@@ -963,6 +963,7 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     # 登记理由:对标产品把同型配额写死成内置常量(观测 aiFeatures.mcpToolLimit/
     # mcpTokenLimit/customPromptTokenLimit/historyQueryLimit),我方做成**入库可 diff** 的
     # 台账格 —— 上限漂移即门 J1/J2 红,超限一律具名拒绝(维度名 + 实测值 + 上限值)。
+    # 这四维都是**层一(单桶)**尺子:每个 run / 每台 server 各有一份额度。
     {
         "key": "tool_budget_mcp_tool_limit",
         "env": "TOOL_BUDGET_MCP_TOOL_LIMIT",
@@ -998,6 +999,31 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "owner_module": "app.services.tool_budget_governor",
         "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_HISTORY_QUERY_LIMIT_ENV",
         "reason_if_off": "0=该维不拦:历史查询窗口上限未配置;请求条数超窗口由 check_history_query 具名拒绝,不静默截断行数",
+    },
+    # ============ 工具预算第二层 · 聚合层配额(goal-b49 Z20,2026-11-06 立)============
+    # 上面四维全是**层一(单桶)**额度;对标靶「三层装箱预算 maxChunkChars / maxCharsPerResult /
+    # maxTotalChars + maxRerankTokens」缺的正是"每桶之外的聚合总量层"这一格。这两维由
+    # **既有生产消费点**驱动(guarded_tool_pipeline 的 acquire、mcp_client 的 consume_mcp_tokens),
+    # 调用方无需改一行即真在管;scope 分区入参留给宿主,未显式传入即 DEFAULT_AGGREGATE_SCOPE
+    # (= 单例治理器的进程/部署合计面,如实登记而非冒充会话级)。比较式全仓只有一枚
+    # tool_budget_governor.over_limit(层一三维 + 层一四维 + 层二两维共用)。
+    {
+        "key": "tool_budget_tool_call_total_limit",
+        "env": "TOOL_BUDGET_TOOL_CALL_TOTAL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_TOOL_CALL_TOTAL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:第二层(聚合层)工具执行总量上限未配置;由 acquire 按 scope 累计,超限具名拒绝且被拒本次连层一计数都不写(不静默丢一次执行);成本轴的聚合层刻意不登记——层一成本是「预扣 + record_usage 事后校准」双通道量,聚合层再抄一份就要维护第二本可回退账本,该宿主在计费面(§0.9 不登记空维)",
+    },
+    {
+        "key": "tool_budget_mcp_token_total_limit",
+        "env": "TOOL_BUDGET_MCP_TOKEN_TOTAL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOKEN_TOTAL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:第二层(聚合层)MCP token 总量上限未配置;由 consume_mcp_tokens 按 scope 跨桶累计(run / principal / server 兜底桶的合计都进同一聚合面),超限具名拒绝,不夹逼到上限也不静默少发一帧",
     },
 ]
 

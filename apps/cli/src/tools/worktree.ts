@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * WorktreeManager — Git Worktree 并行隔离层。
+ * WorktreeManager — Git Worktree 并行隔离层(唯一公开出口 + 命令编排)。
  *
  * 对标 Cursor 3.x 的多并行 background agents + worktree 隔离:每个并行 subagent
  * 在独立的 git worktree 中工作,彻底消除多 subagent 共享工作目录时的文件写冲突。
@@ -14,220 +14,49 @@
  *   - 分支名固定 agent-wt-<uuid8>(8 位 uuid 随机段),并发创建天然不冲突
  *   - git 操作用 spawnSync 直调(非 shell,避免注入),Windows 完全兼容
  *   - 任务完成后可用 diff() 输出 worktree 相对基线的改动,供主 agent 审阅合并
+ *
+ * Z16 拆分(goal-b49,零行为变更):本文件保持**唯一公开出口**,导出集由
+ * tests/worktree-shape-lock.test.ts 形状锁钉住;实现分居 worktree-core / worktree-trash-mirror /
+ * worktree-isolated / worktree-tools / worktree-tools-exit。
+ *
+ * Z30 再拆一档(goal-b49,零行为变更,入口 396 → 现读 <250):
+ *   - **账面/状态**(create / list / findByAgent / prune / cleanupStale / diff)搬到
+ *     `./worktree-state.ts`,本档的类方法是逐字同签名的转接(§0.6 单一真相源,本层不留第二份实现);
+ *   - **回收站搬运/独立收尾腿**(cleanupWorktree 与 WorktreeCleanupOutcome)搬到 `./worktree-cleanup.ts`。
+ *   - **唯一留驻本档的实体动作 = `WorktreeManager.remove()`**:它被两把「不在本票射程」的既有用例
+ *     源码装车锁逐字钉在入口文本上 —— delete-axis-consumers ⑤(在 remove 位与下面 prune 方法的文档
+ *     注释行之间切片,断言 ACL 裁决排在 `'worktree', 'remove'` / `stashDirToTrash(` / `fs.rmSync(` /
+ *     `fs.existsSync(wtPath)` 之前)与 delete-guard(断言入口含 `fs.rmSync(wtPath, { recursive: true, force: true })`
+ *     与 `stashDirToTrash`)。把这条腿搬走 = 把删除裁决挪出问责面(§0.9 假绿),故留驻;
+ *     可搬的都已搬净。删除腿的次序/枚数锁(worktree-trash-crossdrive ④、worktree-containment ⑥)
+ *     已随搬运改指新档,判据一条未放宽:两腿各钉一次同序、全 worktree 族的 rmSync 仍是两枚、出声仍是两枚。
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-// 隔离 worktree 两档钩子(worktreeCreate / worktreeRemove)与后台任务两档同一条派发纪律
-import { runHook, type HookContext } from '../hooks/index.js';
-// 子代理既有创建/清理实现:会话级工具与子代理共用同一套,不另写第二套
-import {
-  createWorktree,
-  createWorktreeWithFallback,
-  removeWorktree,
-} from '../subagents/worktree.js';
-// 工具契约只取类型(运行时无环:tools/index.ts 反向 re-export 本模块)
-import type { Tool } from './index.js';
-// 删除保护链的目录回收腿(goal-b49 W1-①):判据在 @ihui/shared/delete-guard,IO adapter 在工具层
-// 跨盘(EXDEV)镜像腿(Z7/B1 未竟 5)复用同两件既有出口:清单形态尺 + 删除通道,不另造第二把尺(§0.6)
-import { getDeleteTrashDir, stashDirToTrash } from './file-batch-edit.js';
-import { deleteTrashEntry } from './trash-prune-io.js';
-import { isTrashManifestShape, TRASH_MANIFEST_KIND, type TrashManifest, type TrashManifestEntry } from '@ihui/shared/delete-guard';
+// 删除保护链的目录回收腿(goal-b49 W1-①):同盘 rename 腿与跨盘镜像腿复用同两件既有出口,不另造第二把尺(§0.6)
+import { stashDirToTrash } from './file-batch-edit.js';
 // 文件访问裁决的 delete 轴(goal-b49 S5 接线):规则表与档位判据**全在这一件**,本层不抄第二份(§0.6)
 // 容器性断言(goal-b49 W5):与 ACL 分职,判"删除目标解析后是否越出自家隔离区根",同取这一件单源
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged, judgeWorktreeContainment } from '../sandbox/file-access-policy.js';
-
-/** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
-export const AGENT_BRANCH_PREFIX = 'agent-wt-';
-
-/** 默认隔离目录名(相对 sourcePath) */
-export const DEFAULT_WORKTREE_DIR = '.worktrees';
-
-/** diff 输出最大长度(超过截断,避免撑爆主 agent context) */
-const MAX_DIFF_LENGTH = 4000;
-
-interface GitResult {
-  ok: boolean;
-  /** 退出码(killed/未跑起来为 -1)。`merge-base --is-ancestor` 靠 0/1/其它 三态分辨"并入/未并入/判不出" */
-  status: number;
-  stdout: string;
-  stderr: string;
-}
-
-/** 执行 git 命令(spawnSync 直调,非 shell,Windows 兼容) */
-function runGit(args: string[], cwd: string): GitResult {
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-  const r = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf-8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  return {
-    ok: r.status === 0,
-    status: typeof r.status === 'number' ? r.status : -1,
-    stdout: typeof r.stdout === 'string' ? r.stdout.trim() : '',
-    stderr: typeof r.stderr === 'string' ? r.stderr.trim() : '',
-  };
-}
-
-/** 生成 8 位 uuid 随机段(去掉连字符取前 8 位,并发冲突概率可忽略) */
-function uuid8(): string {
-  return randomUUID().replace(/-/g, '').slice(0, 8);
-}
-
-/** 生成唯一的 agent worktree 分支名:agent-wt-<uuid8> */
-export function agentBranchName(): string {
-  return AGENT_BRANCH_PREFIX + uuid8();
-}
-
-/** 默认 worktree 根目录:.worktrees(相对 sourcePath) */
-export function getDefaultWorktreeRoot(sourcePath: string): string {
-  return path.join(sourcePath, DEFAULT_WORKTREE_DIR);
-}
-
-/**
- * 删除出口的统一出声腿(goal-b49 W5):容器性拒 / advisory 命中都先落 stderr,
- * 保证"即便上层 catch 吞掉抛错,这一声仍然响"(§0.9/§0.10 —— 不得把判拒洗成静默)。
- * 报名通道不可用不改判据结论。
- */
-function emitWorktreeVoice(line: string): void {
-  try {
-    process.stderr.write(`${line}\n`);
-  } catch {
-    // 报名通道不可用不改判据结论
-  }
-}
-
-/**
- * 跨盘搬运的镜像腿结论(Z7/B1 未竟 5)。`ok:false` ⇒ 源一字节没动,调用方**必须**出声后再决定下一步。
- */
-export type WorktreeMirrorOutcome = { ok: true; trashPath: string } | { ok: false; reason: string };
-
-/** 目录型清单行(与 `stashDirToTrash` 同口径;`sizeBytes` 只在镜像腿**校验过后**才落实测和) */
-function dirEntryOf(originalPath: string, relativeTrashPath: string, sizeBytes: number | null = null): TrashManifestEntry {
-  return { originalPath, relativeTrashPath, sizeBytes, kind: 'directory' };
-}
-
-/**
- * 同卷核验(机器事实,现读不假设):`dev` 不同 ⇒ rename 必抛 EXDEV,不该假装试一把;读不到 ⇒ 一并走镜像腿。
- * B1 未竟 5 的解锁条件就是这一格 —— `.worktrees` 与仓**不保证**同盘(本仓工作区与活 gitdir 即两卷)。
- */
-export function sameVolume(a: string, b: string): boolean {
-  try {
-    return fs.statSync(a).dev === fs.statSync(b).dev;
-  } catch {
-    return false;
-  }
-}
-
-/** 走一遍目录:文件数 + 字节和(镜像腿的自证,只回答"复制完整吗";符号链接两侧同跳,不跟随) */
-function walkTree(root: string): { files: number; bytes: number } | null {
-  let files = 0;
-  let bytes = 0;
-  const stack: string[] = [root];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (current === undefined) break;
-    let items: fs.Dirent[];
-    try {
-      items = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-    for (const item of items) {
-      const child = path.join(current, item.name);
-      if (item.isDirectory()) stack.push(child);
-      else if (item.isFile()) {
-        try {
-          bytes += fs.statSync(child).size;
-          files += 1;
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
-  return { files, bytes };
-}
-
-/**
- * 整目录**镜像**进回收站 —— 跨盘(EXDEV)那一档可逆搬运(Z7/B1 未竟 5)。顺序钉死:
- * 复制 → 两侧走目录自证(文件数 ∧ 字节和必须相等)→ 写同形态清单(`TRASH_MANIFEST_KIND` +
- * `isTrashManifestShape` 自证);**全程不碰源**。任一步不成 ⇒ 自家半件走既有删除通道
- * `deleteTrashEntry`(ACL delete 轴)清掉并如实报 ⇒ 结构上不可能出现「源删了、回收站又没进」。
- * 源删除由调用方沿**原来那一条** rmSync 腿执行(兜底腿一字未摘,Windows 句柄占用的既有解法)。
- *
- * @param seams 只给用例注入"复制成功但记账失败"这一档(断言源仍在);生产调用方不传。
- */
-export function mirrorDirIntoTrash(
-  workspacePath: string,
-  absDir: string,
-  label: string,
-  seams: { writeIndex?: (file: string, text: string) => void } = {},
-): WorktreeMirrorOutcome {
-  const trashId = randomUUID();
-  // 与 stashDirToTrash 同形的目录名清洗(交主席:该 sanitize 应导出成唯一出口,别让搬运两腿各抄一份)
-  const safeLabel = (label.replace(/[^A-Za-z0-9._-]/g, '_') || 'dir').slice(0, 60);
-  const dir = path.join(getDeleteTrashDir(workspacePath), trashId);
-  const dest = path.join(dir, safeLabel);
-  const bail = (reason: string): WorktreeMirrorOutcome => {
-    // 半件必须连**它那枚 trashId 目录**一起清掉:只清子件会在回收站留下"有壳无清单"的残迹,
-    // 而那种残迹正是清理器扫到就整轮判不出的东西(Z7 未竟 1 同源:别让搬运失败反过来冻结回收站)。
-    if (!fs.existsSync(dir)) return { ok: false, reason };
-    const cleanup = deleteTrashEntry(workspacePath, getDeleteTrashDir(workspacePath), trashId);
-    return { ok: false, reason: cleanup.ok ? reason : `${reason}(半件也没清掉:${cleanup.reason})` };
-  };
-  try {
-    fs.cpSync(absDir, dest, { recursive: true, errorOnExist: true, force: false, preserveTimestamps: true });
-  } catch (err) {
-    return bail(`复制失败:${err instanceof Error ? err.message : String(err)}`);
-  }
-  const src = walkTree(absDir);
-  const copy = walkTree(dest);
-  if (src === null || copy === null) return bail('复制后自证走不动(目录读不到):不记账、不删源');
-  if (src.files !== copy.files || src.bytes !== copy.bytes) {
-    return bail(`镜像不完整(源 ${src.files} 文件/${src.bytes}B ≠ 副本 ${copy.files} 文件/${copy.bytes}B):不记账、不删源`);
-  }
-  const entry = dirEntryOf(absDir, safeLabel, src.bytes);
-  const manifest: TrashManifest = {
-    kind: TRASH_MANIFEST_KIND,
-    trashId,
-    createdAtIso: new Date().toISOString(),
-    workspacePath,
-    entries: [entry],
-  };
-  if (!isTrashManifestShape(manifest)) return bail('清单形态自证不过:不写坏清单、不删源');
-  try {
-    const write = seams.writeIndex ?? ((file: string, text: string) => fs.writeFileSync(file, text, 'utf-8'));
-    write(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-  } catch (err) {
-    return bail(`记账失败 ⇒ 源不删(${err instanceof Error ? err.message : String(err)})`);
-  }
-  return { ok: true, trashPath: dest };
-}
-
-/** 单个 agent worktree 条目(list 返回) */
-export interface WorktreeEntry {
-  /** agent 标识(即隔离目录名) */
-  agentId: string;
-  /** worktree 绝对路径 */
-  path: string;
-  /** 分支名(agent-wt-<uuid8>) */
-  branch: string;
-  /** 目录是否真实存在(false = 孤儿 worktree,目录已被外部删除) */
-  dirExists: boolean;
-}
-
-/** create 返回的创建结果 */
-export interface WorktreeCreateResult {
-  agentId: string;
-  path: string;
-  branch: string;
-  createdAt: string;
-}
+import {
+  AGENT_BRANCH_PREFIX,
+  DEFAULT_WORKTREE_DIR,
+  emitWorktreeVoice,
+  runGit,
+  type WorktreeCreateResult,
+  type WorktreeEntry,
+} from './worktree-core.js';
+import { mirrorDirIntoTrash, sameVolume } from './worktree-trash-mirror.js';
+// 账面/状态腿的实现单源(Z30 拆档):下面各方法是逐字同签名的转接,不是第二份实现(§0.6)
+import {
+  cleanupStaleWorktrees,
+  createAgentWorktree,
+  diffWorktreeAgainstBase,
+  findAgentWorktree,
+  listAgentWorktrees,
+  pruneWorktrees,
+} from './worktree-state.js';
 
 /** WorktreeManager — 管理某源仓库下所有 agent worktree 的生命周期 */
 export class WorktreeManager {
@@ -241,97 +70,22 @@ export class WorktreeManager {
     this.rootDir = rootDir ? path.resolve(rootDir) : path.join(this.sourcePath, DEFAULT_WORKTREE_DIR);
   }
 
-  /** 确保 .gitignore 忽略 .worktrees/,避免隔离目录污染主仓库状态 */
-  private ensureGitignore(): void {
-    const gitignorePath = path.join(this.sourcePath, '.gitignore');
-    let content = '';
-    if (fs.existsSync(gitignorePath)) {
-      content = fs.readFileSync(gitignorePath, 'utf-8');
-    }
-    if (content.split(/\r?\n/).includes(DEFAULT_WORKTREE_DIR + '/')) return;
-    const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
-    fs.writeFileSync(gitignorePath, content + newline + DEFAULT_WORKTREE_DIR + '/\n', 'utf-8');
-  }
-
   /**
    * 为 agent 创建隔离 worktree:目录 .worktrees/<agentId>,分支 agent-wt-<uuid8>。
-   *
-   * 并发安全:分支名含 uuid8 随机段,多个 agent 同时创建互不冲突;
-   * 同一 agentId 重复创建会因目录已存在而抛错(由调用方决定清理或换 id)。
-   *
-   * @param agentId agent 标识(同时作为隔离目录名)
-   * @param opts.startPoint 基线提交(默认当前 HEAD)
+   * **实现住在 `./worktree-state.ts#createAgentWorktree`**(Z30 拆档,§0.6 转接不复制判据)。
    */
   create(agentId: string, opts?: { startPoint?: string }): WorktreeCreateResult {
-    if (!agentId || agentId.trim().length === 0) {
-      throw new Error('agentId 不能为空');
-    }
-    if (!fs.existsSync(this.rootDir)) {
-      fs.mkdirSync(this.rootDir, { recursive: true });
-    }
-    this.ensureGitignore();
-
-    const wtPath = path.join(this.rootDir, agentId);
-    if (fs.existsSync(wtPath)) {
-      throw new Error(`worktree 路径已存在: ${wtPath}(同一 agentId 不能重复创建)`);
-    }
-
-    // 分支名含 uuid8 随机段,并发创建天然不冲突
-    const branch = agentBranchName();
-
-    let startPoint = opts?.startPoint;
-    if (!startPoint) {
-      const head = runGit(['rev-parse', 'HEAD'], this.sourcePath);
-      startPoint = head.ok ? head.stdout : 'HEAD';
-    }
-
-    const r = runGit(
-      ['worktree', 'add', '-b', branch, wtPath, startPoint],
-      this.sourcePath,
-    );
-    if (!r.ok) {
-      throw new Error(`git worktree add 失败: ${r.stderr || r.stdout}`);
-    }
-
-    return { agentId, path: wtPath, branch, createdAt: new Date().toISOString() };
+    return createAgentWorktree(this.sourcePath, this.rootDir, agentId, opts);
   }
 
-  /** 列出所有 agent 专属 worktree(git worktree list --porcelain,按分支前缀过滤) */
+  /** 列出所有 agent 专属 worktree。**实现住在 `./worktree-state.ts#listAgentWorktrees`** */
   list(): WorktreeEntry[] {
-    const r = runGit(['worktree', 'list', '--porcelain'], this.sourcePath);
-    if (!r.ok) return [];
-    const out: WorktreeEntry[] = [];
-    let curPath = '';
-    let curBranch = '';
-    const flush = () => {
-      if (curPath && curBranch.startsWith(AGENT_BRANCH_PREFIX)) {
-        out.push({
-          agentId: path.basename(curPath),
-          path: curPath,
-          branch: curBranch,
-          dirExists: fs.existsSync(curPath),
-        });
-      }
-      curPath = '';
-      curBranch = '';
-    };
-    for (const line of r.stdout.split(/\r?\n/)) {
-      if (line.startsWith('worktree ')) {
-        flush();
-        curPath = line.slice('worktree '.length).trim();
-      } else if (line.startsWith('branch ')) {
-        // porcelain 输出完整 ref(如 refs/heads/agent-wt-xxx),归一化为短分支名
-        const ref = line.slice('branch '.length).trim();
-        curBranch = ref.startsWith('refs/heads/') ? ref.slice('refs/heads/'.length) : ref;
-      }
-    }
-    flush();
-    return out;
+    return listAgentWorktrees(this.sourcePath);
   }
 
-  /** 按 agentId 查找 worktree 条目,不存在返回 null */
+  /** 按 agentId 查找 worktree 条目,不存在返回 null。**实现住在 `./worktree-state.ts#findAgentWorktree`** */
   findByAgent(agentId: string): WorktreeEntry | null {
-    return this.list().find((e) => e.agentId === agentId) ?? null;
+    return findAgentWorktree(this.sourcePath, agentId);
   }
 
   /**
@@ -414,572 +168,56 @@ export class WorktreeManager {
     return true;
   }
 
-  /** 执行 git worktree prune,返回清理掉的失效 worktree 数量 */
+  /** 执行 git worktree prune,返回清理掉的失效 worktree 数量。**实现住在 `./worktree-state.ts#pruneWorktrees`** */
   prune(): number {
-    const before = this.list();
-    const r = runGit(['worktree', 'prune'], this.sourcePath);
-    if (!r.ok) return 0;
-    const after = this.list();
-    return Math.max(0, before.length - after.length);
+    return pruneWorktrees(this.sourcePath);
   }
 
   /**
-   * 清理孤儿 worktree 与孤儿分支:
-   *   - 孤儿 worktree:git 元数据中登记但目录已被外部删除的条目 → prune
-   *   - 孤儿分支:agent-wt-* 分支已无任何 worktree 挂载 → 分支 -D
+   * 清理孤儿 worktree 与孤儿分支(目录已外部删除 ⇒ prune;agent-wt-* 无挂载 ⇒ 分支 -D)。
+   * **实现住在 `./worktree-state.ts#cleanupStaleWorktrees`**
    *
    * @returns { pruned: 清理的孤儿 worktree 数, branchesDeleted: 删除的孤儿分支数 }
    */
   cleanupStale(): { pruned: number; branchesDeleted: number } {
-    const entries = this.list();
-    const stale = entries.filter((e) => !e.dirExists);
-    let pruned = 0;
-    let branchesDeleted = 0;
-
-    if (stale.length > 0) {
-      const r = runGit(['worktree', 'prune'], this.sourcePath);
-      if (r.ok) pruned = stale.length;
-    }
-
-    // 孤儿分支检测:agent-wt-* 分支存在但已无对应 worktree
-    const branchList = runGit(
-      ['branch', '--list', `${AGENT_BRANCH_PREFIX}*`, '--format=%(refname:short)'],
-      this.sourcePath,
-    );
-    if (branchList.ok) {
-      const liveBranches = new Set(this.list().map((e) => e.branch));
-      for (const b of branchList.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
-        if (!liveBranches.has(b)) {
-          const d = runGit(['branch', '-D', b], this.sourcePath);
-          if (d.ok) branchesDeleted++;
-        }
-      }
-    }
-
-    return { pruned, branchesDeleted };
+    return cleanupStaleWorktrees(this.sourcePath);
   }
 
   /**
    * 输出 agent worktree 相对基线(HEAD)的全部改动 diff,供主 agent 审阅合并。
-   *
-   * 先对未跟踪文件做 intent-to-add(git add -N),让新文件也出现在 diff 中;
-   * 输出超过 MAX_DIFF_LENGTH 时截断,避免撑爆主 agent context。
+   * **实现住在 `./worktree-state.ts#diffWorktreeAgainstBase`**
    */
   diff(agentId: string): string {
-    const wtPath = path.join(this.rootDir, agentId);
-    if (!fs.existsSync(wtPath)) {
-      throw new Error(`worktree 不存在: ${wtPath}`);
-    }
-    // intent-to-add:让未跟踪的新文件进入 diff(不写入内容,仅登记索引意图)
-    runGit(['add', '-N', '.'], wtPath);
-    const r = runGit(['-C', wtPath, 'diff', 'HEAD'], wtPath);
-    let text = r.ok ? r.stdout : '';
-    if (text.length > MAX_DIFF_LENGTH) {
-      text = text.slice(0, MAX_DIFF_LENGTH) + `\n...(diff 超过 ${MAX_DIFF_LENGTH} 字符,已截断)`;
-    }
-    return text;
+    return diffWorktreeAgainstBase(this.rootDir, agentId);
   }
 }
 
-/**
- * `cleanupWorktree` 的**可传拒**结论(goal-b49 W-2 解锁,2026-11-05)。调用方据此决定是否清账面:
- *  ① `removed` — 目录经 `git worktree remove` / 回收站搬运 / `rmSync` 任一腿真没了;
- *  ② `absent`  — 目录本就不在(上一轮删过 / 外部删),账面可清;
- *  ③ `refused` — 容器性判越界 ⇒ 排在任何 fs 动作之前,**一个字节没动**;
- *  ④ `failed`  — fs / git 抛错(收尾不阻塞主流程,但仍如实报状态,绝不谎报 removed)。
- * ③④ 都不算"清干净":`background-registry.cleanupTaskWorktree` 只在 ①② 才清 `task.worktreePath`,
- * 否则"一次拒绝"会被下一次收尾静默洗成"已处理"(§0.9/§0.10),账面还指着那枚没删掉的目录。
- */
-export type WorktreeCleanupOutcome =
-  | { status: 'removed' }
-  | { status: 'absent' }
-  | { status: 'refused'; reason: string }
-  | { status: 'failed'; reason: string };
+// ==================== 隔离 worktree 生命周期(拆出实现,公开出口自本档再导出) ====================
 
-/**
- * 独立清理函数 — 供无 manager 实例的场景(如 background-registry 后台任务收尾)调用。
- * fs / git 失败吞掉不阻塞主流程(孤儿可由 `WorktreeManager.cleanupStale` 兜底),但**状态如实上报**
- * (见 `WorktreeCleanupOutcome`:收尾不阻塞 ≠ 把没删写成删了,§0.9)。
- *
- * 容器性断言(goal-b49 W-2,判据单源 `judgeWorktreeContainment`,与 ACL 分职):
- * 本出口此前"刻意不接裁决"(S5),两条解锁条件现由本票**同批**满足 ——
- *  ① 返回形态已从 `void` 改出上面可传拒的 `WorktreeCleanupOutcome`;
- *  ② `task.worktreePath` 会经重臂 / 跨进程台账快照(`rearmBackgroundTask` 的
- *     `previous.worktreePath ?? incoming.worktreePath`)重新进入本出口 ⇒ 存在"把账面里的
- *     绝对路径直接当 wtPath"的调用方,不再只是"本进程自建自删"。
- * 命拒 = 越出隔离区根 ⇒ 先出声再返 `refused`,排在 `existsSync`/`git worktree remove`/回收站
- * rename/`rmSync` 之前 ⇒ 一个字节不删。合法隔离区因"隔离区叶子直子"那一臂不误杀。
- */
-export function cleanupWorktree(wtPath: string, sourcePath: string, force = true): WorktreeCleanupOutcome {
-  const containment = judgeWorktreeContainment(getDefaultWorktreeRoot(sourcePath), wtPath);
-  if (!containment.contained) {
-    emitWorktreeVoice(`[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`);
-    return { status: 'refused', reason: containment.reason };
-  }
-  try {
-    if (!fs.existsSync(wtPath)) return { status: 'absent' };
-    const args = ['worktree', 'remove', wtPath];
-    if (force) args.push('--force');
-    const r = runGit(args, sourcePath);
-    if (!r.ok) {
-      // 与 WorktreeManager.remove 同一条纪律:先试回收站搬运,搬不动才 rmSync(兜底腿保留,Windows 句柄问题的既有解法)
-      // 跨盘同 Z7/B1:不"假装试一把 rename",直接走镜像腿;镜像不成才出声并退回直接删除
-      let stashed = false;
-      if (sameVolume(sourcePath, wtPath)) {
-        try {
-          stashDirToTrash(sourcePath, wtPath, path.basename(wtPath));
-          stashed = true;
-        } catch {
-          stashed = false;
-        }
-      } else {
-        emitWorktreeVoice(`[worktree-trash] 隔离区与仓不同卷,rename 必抛 EXDEV:直接走镜像腿 ${wtPath}`);
-      }
-      if (!stashed) {
-        const mirrored = mirrorDirIntoTrash(sourcePath, wtPath, path.basename(wtPath));
-        if (!mirrored.ok) {
-          emitWorktreeVoice(`[worktree-trash] ⚠️ 可逆档没走成(${mirrored.reason}),退回直接删除 ⇒ 此后现场不可恢复:${wtPath}`);
-        }
-        fs.rmSync(wtPath, { recursive: true, force: true });
-        if (mirrored.ok) emitWorktreeVoice(`[worktree-trash] 已整目录镜像进回收站(源已删,现场可恢复):${mirrored.trashPath}`);
-      }
-    }
-    runGit(['worktree', 'prune'], sourcePath);
-    return { status: 'removed' };
-  } catch (e) {
-    // 清理失败不阻塞调用方(孤儿可由 cleanupStale 兜底),但状态如实上报,绝不谎报 removed
-    return { status: 'failed', reason: e instanceof Error ? e.message : String(e) };
-  }
-}
-
-// ==================== 隔离 worktree 生命周期(子代理 / 会话级工具共用) ====================
-
-/** 一次隔离创建的归一结果:调用方不需要知道走了哪条既有路径。 */
-export interface IsolatedWorktree {
-  /** 隔离区绝对路径 */
-  path: string;
-  /** 分支名(manager 路径 agent-wt-<uuid8> / 子代理路径 subagent/<id>) */
-  branch: string;
-  /** true = 走 WorktreeManager(收尾须回同一实例,才能连带删 agent-wt-* 分支) */
-  viaManager: boolean;
-}
-
-export interface CreateIsolatedWorktreeRequest {
-  /** 源仓库路径(主工作区) */
-  sourcePath: string;
-  /** 隔离目录名(同时是 worktree id) */
-  agentId: string;
-  /** 子代理路径的父会话 id(仅非 manager 路径使用;省略退回 agentId) */
-  parentId?: string;
-  /** 基线提交(仅 manager 路径支持;省略 = 当前 HEAD) */
-  startPoint?: string;
-  /** 注入的 WorktreeManager(有则走 .worktrees/<id> + agent-wt-* 分支) */
-  manager?: WorktreeManager;
-  /** 非 manager 路径是否启用 CoW 快路径 */
-  fastPathEnabled?: boolean;
-}
-
-/**
- * 创建隔离 worktree 的唯一入口 —— 从 `subagent.ts` 原路径 A/B 抽出,子代理与会话级工具共用。
- *
- * 两条既有实现二选一:
- *   - 注入 WorktreeManager:`WorktreeManager.create`(`.worktrees/<id>` + `agent-wt-<uuid8>` 分支,并发不冲突);
- *   - 未注入:`subagents/worktree.ts` 的 `createWorktree` / `createWorktreeWithFallback`(`subagent/<id>` 分支)。
- * 失败一律抛错,由调用方决定"报错退出"还是"收尾继续"(与两条原路径的失败半径逐字同形)。
- */
-export async function createIsolatedWorktree(
-  req: CreateIsolatedWorktreeRequest,
-): Promise<IsolatedWorktree> {
-  if (req.manager) {
-    const wt = req.manager.create(
-      req.agentId,
-      req.startPoint ? { startPoint: req.startPoint } : undefined,
-    );
-    return { path: wt.path, branch: wt.branch, viaManager: true };
-  }
-  const parentId = req.parentId ?? req.agentId;
-  const wt =
-    req.fastPathEnabled === true
-      ? await createWorktreeWithFallback(parentId, req.agentId, req.sourcePath, true)
-      : createWorktree(parentId, req.agentId, req.sourcePath);
-  return { path: wt.path, branch: wt.branch, viaManager: false };
-}
-
-export interface RemoveIsolatedWorktreeRequest {
-  sourcePath: string;
-  agentId: string;
-  /** 隔离区绝对路径(用来确认目录是否真的消失) */
-  path: string;
-  viaManager: boolean;
-  manager?: WorktreeManager;
-  /** 默认 true:语义是"调用方已判定该隔离区可弃",与子代理收尾同档 */
-  force?: boolean;
-}
-
-/**
- * 回收隔离 worktree 的唯一出口 —— 从 `subagent.ts` 原收尾分支抽出,子代理与会话级工具共用。
- *
- * §12h 的收尾次序不在本层重抄,只调用既有器物:
- *   - `removeWorktree` 内部在目录删除成功后 prune(本仓唯一删除出口);
- *   - WorktreeManager 路径在 `remove` 之后补一次既有 `prune()`;
- *   - 目录没真消失 ⇒ **不** prune,removed=false 交调用方按"未判定"处理(不把没删掉写成删掉了)。
- *
- * `pruned` 只在 manager 路径上是本层实测数(其它路径的 prune 已随 `removeWorktree` 跑过,重复调
- * 只会再摘一次注册表,没意义)—— null 表示"未由本层单独计量",不是 0。
- */
-export function removeIsolatedWorktree(
-  req: RemoveIsolatedWorktreeRequest,
-): { removed: boolean; pruned: number | null } {
-  const force = req.force !== false;
-  if (req.viaManager && req.manager) {
-    const removed = req.manager.remove(req.agentId, { force, deleteBranch: true });
-    if (fs.existsSync(req.path)) return { removed: false, pruned: null };
-    // 目录已真消失,才摘注册表条目(管理目录已被外部删掉的早退分支同样走到这里)
-    return { removed, pruned: req.manager.prune() };
-  }
-  const removed = removeWorktree(req.path, { sourcePath: req.sourcePath, force });
-  return { removed, pruned: null };
-}
-
-/**
- * 分支是否已并入基线(默认源仓库 HEAD)。
- *
- * 三态而不是布尔:`git merge-base --is-ancestor` 的 1 是"确定未并入",128 一类是"判不出"。
- * 破坏性动作对 unknown 一律拒做(fail-closed),不把"没判"折成"可以删"。
- */
-export function judgeWorktreeBranchMerged(
-  sourcePath: string,
-  branch: string,
-  baseRef = 'HEAD',
-): 'merged' | 'unmerged' | 'unknown' {
-  const r = runGit(['merge-base', '--is-ancestor', branch, baseRef], sourcePath);
-  if (r.ok) return 'merged';
-  return r.status === 1 ? 'unmerged' : 'unknown';
-}
-
-/** 隔离区是否有未提交改动(含 intent-to-add)。unknown = 判不出,调用方按"未判定"处理。 */
-function judgeWorktreeStatus(wtPath: string): 'clean' | 'dirty' | 'unknown' {
-  const r = runGit(['-C', wtPath, 'status', '--porcelain'], wtPath);
-  if (!r.ok) return 'unknown';
-  return r.stdout === '' ? 'clean' : 'dirty';
-}
-
-/**
- * 本进程内"本会话进入了哪个隔离区"的台账。
- * git 注册表只回答"哪些 worktree 存在",回答不了"本会话进入的是哪一个" ——
- * `exit_worktree` 不传 name 时就靠这张表解析(传了 name 则仍以 git 注册表为准,支持跨进程收尾)。
- */
-const enteredWorktrees = new Map<string, Map<string, IsolatedWorktree>>();
-
-function sessionScope(sourcePath: string): Map<string, IsolatedWorktree> {
-  const abs = path.resolve(sourcePath);
-  const key = process.platform === 'win32' ? abs.toLowerCase() : abs;
-  let scope = enteredWorktrees.get(key);
-  if (!scope) {
-    scope = new Map<string, IsolatedWorktree>();
-    enteredWorktrees.set(key, scope);
-  }
-  return scope;
-}
-
-export type WorktreeHookEvent = 'worktreeCreate' | 'worktreeRemove';
-
-/**
- * worktree 两档钩子派发 —— 纪律逐条照 `background-registry.ts` 的 `fireTaskHook`:
- * ① fail-open 但不静默:钩子体抛错不得把创建/回收带崩,但必须落 `[worktree]` 通道;
- * ② 只走 stderr:json 档的 stdout 是机器可读流,钩子的状态语混进去会把整段输出弄坏;
- * ③ 状态一律读当下事实,不在调用方猜(创建成功后才派发,回收成功后才派发)。
- */
-function fireWorktreeHook(event: WorktreeHookEvent, ctx: HookContext): void {
-  try {
-    void runHook(event, ctx).catch((e: unknown) => {
-      process.stderr.write(`[worktree] ${event} hook threw: ${String(e)}\n`);
-    });
-  } catch (e) {
-    // runHook 的同步段(配置解析/来源盖章)抛错同样不许外溢到创建/回收面
-    process.stderr.write(`[worktree] ${event} hook dispatch failed: ${String(e)}\n`);
-  }
-}
-
-// ==================== 会话级工具:enter_worktree / exit_worktree ====================
-
-/**
- * 进入隔离 worktree(会话级)。
- *
- * 与子代理共用 `createIsolatedWorktree`:同一个 `.worktrees/<name>` + `agent-wt-<uuid8>` 分支形态,
- * 同一套失败半径。返回值里给出隔离区绝对路径 —— 后续读写使用该路径下的绝对路径
- * (本工具的装配点在命令层,会话 cwd 不在此处改写;不写"已切换工作目录"这种做不到的承诺)。
- */
-export const enterWorktreeTool: Tool = {
-  name: 'enter_worktree',
-  description:
-    '在当前仓库创建并进入一个隔离的 git worktree(目录 .worktrees/<name>,分支 agent-wt-<uuid8>)。参数:name(可选,隔离区名;省略自动生成),startPoint(可选,基线提交,默认当前 HEAD)。返回隔离区绝对路径:后续读写请使用该路径下的绝对路径;结束时用 exit_worktree 回收。',
-  dangerLevel: 'write',
-  parameters: {
-    name: {
-      type: 'string',
-      description: '隔离区名(同时作为 .worktrees/<name> 目录名);省略则自动生成',
-    },
-    startPoint: {
-      type: 'string',
-      description: '基线提交/分支(默认当前 HEAD)',
-    },
-  },
-  required: [],
-  // 新增工具必须带契约(守门 111 TC1:「新增即拦」;存量工具走各文件 HEAD 锚点)。
-  contract: {
-    shape: {
-      input: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: '隔离区名(省略自动生成)' },
-          startPoint: { type: 'string', description: '基线提交(默认 HEAD)' },
-        },
-        required: [],
-      },
-      visibleToProvider: true,
-    },
-    permission: {
-      permissionKey: 'enter_worktree',
-      reason: '在 .worktrees/<name> 下创建 git worktree 与 agent-wt-* 隔离分支;只新增不改既有工作树,同名冲突直接报错',
-      riskLevel: 'write',
-      effectScope: 'repository',
-      requiresApproval: false,
-      // 只新增隔离目录与分支,不删改任何既有内容 ⇒ 不需要确认(显式决定,不是"漏声明")
-      confirmation: { mode: 'none', reason: '只新增隔离目录与分支;同名冲突直接报错,不覆盖' },
-    },
-    resultBudget: {
-      inlineLimitBytes: 8_000,
-      providerVisibleLimitBytes: 8_000,
-      policy: 'truncate',
-      preview: { bytes: 2_000, lines: 40, from: 'head' },
-    },
-  },
-  async execute(args, ctx) {
-    const sourcePath = ctx.workspacePath;
-    if (!sourcePath) {
-      return { success: false, output: '', error: '缺少工作区路径,无法创建隔离 worktree' };
-    }
-    const rawName = typeof args.name === 'string' ? args.name.trim() : '';
-    const name = rawName !== '' ? rawName : `session-${uuid8()}`;
-    const startPoint = typeof args.startPoint === 'string' && args.startPoint.trim() !== ''
-      ? args.startPoint.trim()
-      : undefined;
-
-    const scope = sessionScope(sourcePath);
-    if (scope.has(name)) {
-      return {
-        success: false,
-        output: '',
-        error: `本会话已进入隔离区 ${name}:先 exit_worktree 回收,或换一个 name`,
-      };
-    }
-
-    try {
-      const wt = await createIsolatedWorktree({
-        sourcePath,
-        agentId: name,
-        startPoint,
-        manager: new WorktreeManager(sourcePath),
-      });
-      scope.set(name, wt);
-      fireWorktreeHook('worktreeCreate', {
-        workspacePath: sourcePath,
-        worktreeName: name,
-        worktreePath: wt.path,
-        worktreeBranch: wt.branch,
-      });
-      return {
-        success: true,
-        output: [
-          `已创建隔离 worktree:${name}`,
-          `路径: ${wt.path}`,
-          `分支: ${wt.branch}`,
-          '后续读写请使用上述路径下的绝对路径;结束时调用 exit_worktree 回收(默认拒绝删除未合并或有未提交改动的检出)',
-        ].join('\n'),
-      };
-    } catch (err) {
-      return {
-        success: false,
-        output: '',
-        error: `worktree 创建失败: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  },
-};
-
-/**
- * 回收会话级隔离 worktree。
- *
- * 安全判据(CLI 层自证,不依赖调用方自觉):
- *   - 分支未并入源仓库 HEAD / 并入状态判不出 ⇒ 默认拒删;
- *   - 隔离区有未提交改动 / 改动状态判不出 ⇒ 默认拒删;
- *   - 确认无价值时用 force=true 越过上述两档(输出里如实标注 forced);
- *   - 删除走 `removeIsolatedWorktree`(既有删除出口 + 既有 prune),不在这里复制 §12h 判据文本。
- */
-export const exitWorktreeTool: Tool = {
-  name: 'exit_worktree',
-  description:
-    '回收本会话的隔离 git worktree 并摘掉 git 注册表条目(prune)。默认拒绝删除「分支未并入当前 HEAD」或「隔离区有未提交改动」的检出;确认改动无价值后可用 force=true 强制。参数:name(可选,隔离区名,默认本会话进入的那一个),force(可选,默认 false)。',
-  dangerLevel: 'dangerous',
-  parameters: {
-    name: {
-      type: 'string',
-      description: '要回收的隔离区名;省略则回收本会话进入的那一个',
-    },
-    force: {
-      type: 'boolean',
-      description: '越过「未合并 / 有未提交改动」两条拒删判据(默认 false)',
-    },
-  },
-  required: [],
-  // 删除类工具:危险档 + 交互确认(与 delete_file 同档),默认仍先过未合并/未提交两条拒删判据。
-  contract: {
-    shape: {
-      input: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: '隔离区名(默认本会话进入的那一个)' },
-          force: { type: 'boolean', description: '越过未合并/未提交拒删判据' },
-        },
-        required: [],
-      },
-      visibleToProvider: true,
-    },
-    permission: {
-      permissionKey: 'exit_worktree',
-      reason: '回收隔离 worktree 目录与 agent-wt-* 分支(默认拒删未合并或有未提交改动的检出)',
-      riskLevel: 'dangerous',
-      effectScope: 'repository',
-      requiresApproval: true,
-      confirmation: { mode: 'interactive' },
-    },
-    resultBudget: {
-      inlineLimitBytes: 8_000,
-      providerVisibleLimitBytes: 8_000,
-      policy: 'truncate',
-      preview: { bytes: 2_000, lines: 40, from: 'head' },
-    },
-  },
-  async execute(args, ctx) {
-    const sourcePath = ctx.workspacePath;
-    if (!sourcePath) {
-      return { success: false, output: '', error: '缺少工作区路径,无法回收隔离 worktree' };
-    }
-    const force = args.force === true;
-    const manager = new WorktreeManager(sourcePath);
-    const scope = sessionScope(sourcePath);
-    const requested = typeof args.name === 'string' ? args.name.trim() : '';
-
-    let name = requested;
-    if (name === '') {
-      if (scope.size === 0) {
-        return {
-          success: false,
-          output: '',
-          error: '本会话没有登记过的隔离 worktree:请显式传 name(可先 git worktree list 查看)',
-        };
-      }
-      if (scope.size > 1) {
-        return {
-          success: false,
-          output: '',
-          error: `本会话有 ${scope.size} 个隔离 worktree(${[...scope.keys()].join(', ')}):请用 name 指定要回收的那一个`,
-        };
-      }
-      name = [...scope.keys()][0]!;
-    }
-
-    const registered = scope.get(name);
-    const listed = manager.findByAgent(name);
-    const wtPath = listed?.path ?? registered?.path;
-    const branch = listed?.branch ?? registered?.branch;
-    if (!wtPath || !branch) {
-      return {
-        success: false,
-        output: '',
-        error: `未找到隔离 worktree:${name}(可先 git worktree list 核对名字)`,
-      };
-    }
-
-    const merged = judgeWorktreeBranchMerged(sourcePath, branch);
-    const status = judgeWorktreeStatus(wtPath);
-    if (!force) {
-      if (merged === 'unmerged') {
-        return {
-          success: false,
-          output: '',
-          error: `分支 ${branch} 未并入当前 HEAD:先合并该分支;确认改动无价值后再传 force=true(会连带删除分支)`,
-        };
-      }
-      if (merged === 'unknown') {
-        return {
-          success: false,
-          output: '',
-          error: `未能判定分支 ${branch} 是否已并入 HEAD(merge-base 异常):不静默删;人工确认后传 force=true`,
-        };
-      }
-      if (status === 'dirty') {
-        return {
-          success: false,
-          output: '',
-          error: `隔离区有未提交改动(${wtPath}):先提交或导出;确认可弃后再传 force=true`,
-        };
-      }
-      if (status === 'unknown') {
-        return {
-          success: false,
-          output: '',
-          error: `未能判定隔离区改动状态(git status 异常,${wtPath}):不静默删;人工确认后传 force=true`,
-        };
-      }
-    }
-
-    try {
-      // 安全判据在本层;`git worktree remove --force` 只解决"目录非空/被占用"这一档
-      const result = removeIsolatedWorktree({
-        sourcePath,
-        agentId: name,
-        path: wtPath,
-        viaManager: true,
-        manager,
-        force: true,
-      });
-      if (!result.removed) {
-        return {
-          success: false,
-          output: '',
-          error: `worktree 目录未被移除(${wtPath}):注册表条目与目录状态不一致,请人工核对后重试`,
-        };
-      }
-      scope.delete(name);
-      fireWorktreeHook('worktreeRemove', {
-        workspacePath: sourcePath,
-        worktreeName: name,
-        worktreePath: wtPath,
-        worktreeBranch: branch,
-        worktreeForced: force,
-      });
-      return {
-        success: true,
-        output: [
-          `已回收隔离 worktree:${name}`,
-          `路径: ${wtPath}`,
-          `分支: ${branch}(已删除)`,
-          ...(force ? ['注意:本次走了 force 档(越过未合并/未提交改动判据)'] : []),
-        ].join('\n'),
-      };
-    } catch (err) {
-      return {
-        success: false,
-        output: '',
-        error: `worktree 回收失败: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  },
-};
-
-/** 会话级 worktree 工具族(注册进 setupAgentTools 的 registerTools 链)。 */
-export const WORKTREE_TOOLS: Tool[] = [enterWorktreeTool, exitWorktreeTool];
-
+export {
+  AGENT_BRANCH_PREFIX,
+  DEFAULT_WORKTREE_DIR,
+  agentBranchName,
+  getDefaultWorktreeRoot,
+  type WorktreeCreateResult,
+  type WorktreeEntry,
+} from './worktree-core.js';
+export {
+  mirrorDirIntoTrash,
+  sameVolume,
+  type WorktreeMirrorOutcome,
+} from './worktree-trash-mirror.js';
+export {
+  createIsolatedWorktree,
+  removeIsolatedWorktree,
+  judgeWorktreeBranchMerged,
+  type CreateIsolatedWorktreeRequest,
+  type IsolatedWorktree,
+  type RemoveIsolatedWorktreeRequest,
+  type WorktreeHookEvent,
+} from './worktree-isolated.js';
+export { enterWorktreeTool } from './worktree-tools.js';
+export { exitWorktreeTool, WORKTREE_TOOLS } from './worktree-tools-exit.js';
+// 独立收尾腿的实现单源在 `./worktree-cleanup.ts`(Z30 拆档);公开出口仍只认本档(形状锁钉键集)
+export { cleanupWorktree, type WorktreeCleanupOutcome } from './worktree-cleanup.js';
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

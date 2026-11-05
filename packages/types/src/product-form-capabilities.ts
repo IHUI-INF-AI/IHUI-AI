@@ -173,4 +173,84 @@ export function evaluateProductFormCapability(
         reason: `能力未开:${form} · ${capability}`,
       }
 }
+
+/**
+ * 「设置导入期按扩展 ID 过滤」的**在册单源**(goal-b49 Z27b,2026-11-06 立;承 Z4-triage
+ * 「T1 §4 #4」行与 Z20 §④ 的「缺宿主」裁决 —— 那一格缺的从来不是判据,是消费它的宿主)。
+ *
+ * 本表只登记「哪枚扩展 ID 依赖哪个能力面」这一件**事实**;**放行 / 跳过 / 未判定的判定一律仍由
+ * 上面那张 `PRODUCT_FORM_CAPABILITIES` 布尔表 + `evaluateProductFormCapability` 现算**。
+ * 本表**不写**「某形态放行/屏蔽哪些扩展」的第二份名单(§0.6:同类判据全仓只许一份)。
+ *
+ * 真消费方(不是只有测试会调的壳):`apps/cli/src/config/layer-policy.ts` 的
+ * `filterProjectLayerSettings` —— 项目层(= 仓库内容,别人写的 `<cwd>/.ihui/settings.json`)的
+ * `plugins.extensions` 在合入生效配置前,逐枚交本表评价;命中的具名跳过并出声。
+ *
+ * 取值边界:键是反向域名式扩展 ID(与 `capability-extensions.ts` 的 `EXTENSION_ID_RE` 同族**词汇**,
+ * 但本表不 import 那份 —— 声明式 manifest 校验器与能力布尔面语义互不顶账,见文件头注「边界」);
+ * 值是 `PRODUCT_CAPABILITIES` 里的能力键(编译期 `ProductCapability` 锁死,加错键即红)。
+ */
+export const IMPORT_GATED_EXTENSIONS: Readonly<Record<string, ProductCapability>> = {
+  // 本机工作区执行面(文件 / 命令 / git / 终端 / 代码图族,出处见 apps/cli tools 面)
+  'com.ihui.local-workspace': 'localWorkspace',
+  // 本机钩子派发面(dispatchHookEntry)
+  'com.ihui.local-hooks': 'localHooks',
+  // 浏览器自动化面(CDP browser_* 族)
+  'com.ihui.browser-runtime': 'browserRuntime',
+}
+
+/** 导入期单枚扩展 ID 的三态裁决:`kept` 放行合入 / `skipped` 判关 / `unjudged` 没判 ⇒ 不放行。 */
+export type ExtensionImportGateDecision = 'kept' | 'skipped' | 'unjudged'
+
+export interface ExtensionImportGateVerdict {
+  readonly id: string
+  readonly decision: ExtensionImportGateDecision
+  /** 该扩展归属的能力面;不在名内时为 `(不受能力门管辖)` */
+  readonly capability: string
+  /** 人可读依据:必须点名扩展 ID(及能力/形态),静默 = 没判(§0.9) */
+  readonly reason: string
+}
+
+/**
+ * 纯函数(不读 env / 不碰盘,故可单测、可解释):判「该形态下,设置导入时这枚扩展 ID 放不放行」。
+ *
+ * - 名内 ∧ 能力 `enabled` ⇒ `kept`(照常合入);
+ * - 名内 ∧ 能力 `disabled` ⇒ `skipped`(具名跳过);
+ * - 名内 ∧ 能力 `unjudged`(形态/该格未登记)⇒ `unjudged` ⇒ **不放行**(§0.3:取不到判定绝不记绿);
+ * - **名外 ⇒ `kept`(不受产品形态门管辖,零回归)** —— 本表只约束登记过的扩展,没登记的一律不拦。
+ *
+ * `gate` 形参供调用方注入「现读到的集合」:传 `null`(集合取不到)⇒ 所有名内候选一律 `unjudged`
+ * 不放行,绝不误判成「放行」(§0.3 / §0.10 失效方向恒为多拦一次,不是多放一次)。
+ */
+export function evaluateExtensionImportGate(
+  id: string,
+  form: string,
+  gate: Readonly<Record<string, ProductCapability>> | null = IMPORT_GATED_EXTENSIONS,
+): ExtensionImportGateVerdict {
+  if (gate === null) {
+    return {
+      id,
+      decision: 'unjudged',
+      capability: '(集合取不到)',
+      reason: `扩展 ${id}:能力门集合取不到 ⇒ 未判定,不放行(§0.3;修复:确认 @ihui/types 的 IMPORT_GATED_EXTENSIONS 可解析)`,
+    }
+  }
+  const capability = gate[id]
+  if (capability === undefined) {
+    return {
+      id,
+      decision: 'kept',
+      capability: '(不受能力门管辖)',
+      reason: `扩展 ${id} 不在能力门名单内 ⇒ 不受产品形态门管辖,设置导入照常放行`,
+    }
+  }
+  const verdict = evaluateProductFormCapability(form, capability)
+  const decision: ExtensionImportGateDecision =
+    verdict.state === 'enabled'
+      ? 'kept'
+      : verdict.state === 'disabled'
+        ? 'skipped'
+        : 'unjudged'
+  return { id, decision, capability, reason: `扩展 ${id} 依赖 ${capability};${verdict.reason}` }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
