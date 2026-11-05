@@ -31,6 +31,7 @@ import {
 } from '../lib/ota-update'
 import { checkApkUpdate, shouldAutoRecheckApk, useApkUpdate } from '../lib/apk-update'
 import { tryAutoApplyApk } from '../lib/auto-install'
+import { AutoInstallGuide } from './AutoInstallGuide'
 import { ApkUpdatePromptView, isApkPromptVisible } from './ApkUpdatePrompt'
 import { Tappable } from '@ihui/ui-native'
 
@@ -115,6 +116,9 @@ export function UpdatePrompt(): React.JSX.Element | null {
   // 整包更新优先于热更(2026-11-04):APK 能带新的原生面,热更只能改 JS。
   // 两者**互斥显示** —— 同一处浮层位置不能叠两张卡(见 components/ApkUpdatePrompt.tsx 头注)。
   if (isApkPromptVisible(apk)) return <ApkUpdatePromptView apk={apk} />
+
+  // 没有更新卡占浮层时,提醒一次"开启自动安装"(一次性动作,开了之后整条链才真正 0 点击)
+  if (state !== 'ready' && !downloading) return <AutoInstallGuide />
 
   if ((state !== 'ready' && !downloading) || dismissed) return null
 

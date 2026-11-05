@@ -62,3 +62,35 @@ export async function openAutoInstallSettings(): Promise<void> {
     /* 个别 ROM 没有该入口时静默失败,由设置页文案兜底(手动到「设置 → 无障碍」) */
   }
 }
+
+const GUIDE_KEY = 'ihui:a11y:guide-ack-at'
+/** 引导卡:点过「已开启/稍后」后 7 天内不再打扰(没开成也不会天天糊脸)。 */
+const GUIDE_RESURFACE_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * 该不该弹"开启自动安装"的引导。
+ *
+ * 为什么用"确认过"而不是"查到服务已启用":读取 enabled_accessibility_services 需要额外原生模块,
+ * 拿不到时**宁可多弹一次**也不要假装已开启 —— 假绿会让用户以为自动安装在生效,实际每次都停在安装器。
+ * 用户点「我已开启」即视为确认,7 天后才可能再提醒一次(便于换了手机/关掉后重新引导)。
+ */
+export async function shouldShowAutoInstallGuide(): Promise<boolean> {
+  if (Platform.OS !== 'android') return false
+  try {
+    const raw = await AsyncStorage.getItem(GUIDE_KEY)
+    const at = raw ? Number(raw) : 0
+    if (!Number.isFinite(at) || at <= 0) return true
+    return Date.now() - at >= GUIDE_RESURFACE_MS
+  } catch {
+    return false
+  }
+}
+
+/** 记下"用户已处理过引导"(点了去开启或我已开启都算),避免每次冷启动都弹。 */
+export async function ackAutoInstallGuide(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(GUIDE_KEY, String(Date.now()))
+  } catch {
+    /* 存储不可用时下次再弹一次,不阻断主流程 */
+  }
+}
