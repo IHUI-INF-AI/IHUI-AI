@@ -2,65 +2,34 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n, type TtFn } from '@/i18n'
+// 主题分区:UI 单源 packages/app/src/features/settings/SettingsScreen.tsx 的 SettingsThemeSection
+// (与语言分区同款抽段:宿主注入 theme/themeOptions/onSelectTheme/colorScheme,组件零平台假设)。
+//
+// 本页只留平台事实:偏好读写(@/lib/theme)、服务端同步(POST /settings/theme)、主题说明块。
+// 端内原先的图标 + 两行副描述属"小程序端补充信息",随分区收口为 RN 同款 label+✓;
+// 不另加"仅某端使用"的槽(如 renderIcon/renderDescription)来保住它们。
+
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
-import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
 import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
-
-const THEME_KEY = THEME_STORAGE_KEY
-
-interface ThemeOption {
-  value: string
-  icon: string
-  labelKey: string
-  label: string
-  descKey: string
-  desc: string
-}
-
-const AUTO_THEME = (tt: TtFn): ThemeOption => ({
-  value: 'auto',
-  icon: 'refresh-cw',
-  labelKey: 'settings.themeSystem',
-  label: tt('settings.themeSystem', '跟随系统'),
-  descKey: 'settingTheme.d1',
-  desc: tt('settingTheme.d1', '根据系统设置自动切换浅色或深色'),
-})
-
-const THEMES = (tt: TtFn): ThemeOption[] => [
-  AUTO_THEME(tt),
-  {
-    value: 'light',
-    icon: 'sun',
-    labelKey: 'themeToggle.lightMode',
-    label: tt('themeToggle.lightMode', '浅色模式'),
-    descKey: 'settingTheme.d2',
-    desc: tt('settingTheme.d2', '明亮的浅色界面,适合白天使用'),
-  },
-  {
-    value: 'dark',
-    icon: 'moon',
-    labelKey: 'themeToggle.darkMode',
-    label: tt('themeToggle.darkMode', '深色模式'),
-    descKey: 'settingTheme.d3',
-    desc: tt('settingTheme.d3', '深色界面,护眼且省电,适合夜间使用'),
-  },
-]
+import { SettingsThemeSection } from '@ihui/rn-app/features/settings/SettingsScreen'
 
 const VALID_VALUES: readonly string[] = ['auto', 'light', 'dark']
 
 export default function ThemePage() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [current, setCurrent] = useState<string>(() => {
     try {
-      const saved = Taro.getStorageSync(THEME_KEY)
+      const saved = Taro.getStorageSync(THEME_STORAGE_KEY)
       return VALID_VALUES.includes(saved) ? saved : 'auto'
     } catch {
       return 'auto'
@@ -70,7 +39,7 @@ export default function ThemePage() {
 
   useDidShow(() => {
     try {
-      const saved = Taro.getStorageSync(THEME_KEY)
+      const saved = Taro.getStorageSync(THEME_STORAGE_KEY)
       if (VALID_VALUES.includes(saved) && saved !== current) setCurrent(saved)
     } catch {
       // ignore
@@ -101,70 +70,33 @@ export default function ThemePage() {
     [current, tt],
   )
 
+  // 提交中不响应,与旧页同一门控;门控留在页内,不进共享分区
+  const onSelectTheme = useCallback(
+    (v: string) => {
+      if (!submitting) void onSelect(v)
+    },
+    [submitting, onSelect],
+  )
+
+  const themeOptions = [
+    { value: 'auto', label: tt('settings.themeSystem', '跟随系统') },
+    { value: 'light', label: tt('themeToggle.lightMode', '浅色模式') },
+    { value: 'dark', label: tt('themeToggle.darkMode', '深色模式') },
+  ]
+
   return (
     <ThemeRoot>
-      {/* 根容器背景对齐 RN SettingsScreen container(pageBg=surface.bg → --color-background);
-          上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
-        {/* 主题选择对齐 RN SettingsScreen 主题 Section(共享 packages/app SettingsScreen):
-            标题对齐 sectionTitle 14dp→28rpx(text.secondary→muted-foreground)+ 距卡片 gap 8dp→16rpx;
-            列表对齐 sectionCard:圆角 8dp→16rpx + divider(border.light)底 + 行间 hairline(2rpx);
-            行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
-            卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-body text-muted-foreground">
-            {tt('settings.theme', '主题')}
-          </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
-            {THEMES(tt).map((th) => (
-              <View
-                key={th.value}
-                className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-                onClick={() => {
-                  if (!submitting) void onSelect(th.value)
-                }}
-                hoverClass="opacity-60"
-              >
-                <View className="flex min-w-0 flex-1 flex-row items-center">
-                  {/* 主题图标为小程序端补充信息(RN SelectRow 仅 label+✓):40rpx,
-                      选中态随 RN brandAccent.DEFAULT→--color-brand-accent */}
-                  <LineIcon
-                    className="shrink-0"
-                    name={th.icon as IconName}
-                    size={40}
-                    color={
-                      current === th.value
-                        ? 'var(--color-brand-accent-deep)'
-                        : 'var(--color-muted-foreground)'
-                    }
-                  />
-                  <View className="ml-[16rpx] min-w-0 flex-1">
-                    {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-title text-muted-foreground">
-                      {tt(th.labelKey, th.label)}
-                    </Text>
-                    {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
-                    <Text className="mt-[4rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                      {tt(th.descKey, th.desc)}
-                    </Text>
-                  </View>
-                </View>
-                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
-                    选中项由 check 矢量图标呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
-                {current === th.value ? (
-                  <LineIcon
-                    className="ml-[16rpx] shrink-0"
-                    name="check"
-                    size={32}
-                    color="var(--color-brand-accent-deep)"
-                  />
-                ) : null}
-              </View>
-            ))}
-          </View>
+          <SettingsThemeSection
+            t={t}
+            theme={current}
+            themeOptions={themeOptions}
+            onSelectTheme={onSelectTheme}
+            colorScheme={resolvedTheme}
+          />
         </View>
-
-        {/* 主题说明对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}
+        {/* 主题说明为端内文案块:共享分区没有该区,不塞单端槽 */}
         <View className="mx-[20rpx] mt-[32rpx]">
           <Text className="block text-center text-label leading-[1.6] text-[color:var(--color-text-tertiary)]">
             {tt('setting.theme.hintTitle', '主题说明')}
@@ -180,4 +112,5 @@ export default function ThemePage() {
     </ThemeRoot>
   )
 }
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

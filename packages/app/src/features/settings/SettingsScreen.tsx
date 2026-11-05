@@ -129,17 +129,13 @@ export function SettingsScreen({
           ))}
         </Section>
 
-        <Section title={t('settings.theme')} styles={styles}>
-          {themeOptions.map((opt) => (
-            <SelectRow
-              key={opt.value}
-              label={opt.label}
-              selected={opt.value === theme}
-              onPress={() => onSelectTheme(opt.value)}
-              styles={styles}
-            />
-          ))}
-        </Section>
+        <SettingsThemeSection
+          t={t}
+          theme={theme}
+          themeOptions={themeOptions}
+          onSelectTheme={onSelectTheme}
+          colorScheme={colorScheme}
+        />
 
         <Section title={t('settings.notification')} styles={styles}>
           {notifRows.map((row) => (
@@ -272,6 +268,40 @@ function SelectRow({
       <Text style={styles.rowLabel}>{label}</Text>
       {selected ? <Check size={rnGeometry.glyphSm} color={styles.checkMark.color} /> : null}
     </TouchableOpacity>
+  )
+}
+
+export type SettingsThemeSectionProps = Pick<
+  SettingsScreenProps,
+  't' | 'theme' | 'themeOptions' | 'onSelectTheme' | 'colorScheme'
+>
+
+/**
+ * 主题分区 — 语言分区同款抽段:数据与回调全部由宿主注入,组件本身零平台假设。
+ * RN 设置页与小程序 pages/setting/theme 各自传本端真实的 theme/themeOptions/colorScheme,
+ * 两端的差异只落在数据上,不落在一个"仅某端使用"的槽上。
+ */
+export function SettingsThemeSection({
+  t,
+  theme,
+  themeOptions,
+  onSelectTheme,
+  colorScheme = 'light',
+}: SettingsThemeSectionProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
+  return (
+    <Section title={t('settings.theme')} styles={styles}>
+      {themeOptions.map((opt) => (
+        <SelectRow
+          key={opt.value}
+          label={opt.label}
+          selected={opt.value === theme}
+          onPress={() => onSelectTheme(opt.value)}
+          styles={styles}
+        />
+      ))}
+    </Section>
   )
 }
 
