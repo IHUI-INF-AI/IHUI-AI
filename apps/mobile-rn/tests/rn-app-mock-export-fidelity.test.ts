@@ -113,8 +113,17 @@ function inlineFactoryKeysOf(file: string): Set<string> | null {
     saw = true
     const body = m[0] ?? ''
     for (const k of body.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) if (k[1]) set.add(k[1])
-    for (const k of body.matchAll(/return\s*\{([^}]*)\}/g))
-      for (const n of namedClause(k[1] ?? '')) set.add(n)
+    for (const k of body.matchAll(/return\s*\{([^}]*)\}/g)) {
+      // 对象字面量里的 `Key: value` 要取**键名**;namedClause 只认 `A, B as C` 形式,
+      // 直接喂整段会把 `SecuritySettingsScreen: shared.X` 当成一个非法标识符丢掉
+      // ⇒ 明明给了出口却判缺(g958 之后再撞一次,2026-11-06)。
+      for (const raw of (k[1] ?? '').split(',')) {
+        const piece = raw.trim()
+        if (!piece) continue
+        const key = (piece.split(':')[0] ?? '').trim()
+        if (/^[A-Za-z_$][\w$]*$/.test(key)) set.add(key)
+      }
+    }
   }
   return saw ? set : null
 }
