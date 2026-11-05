@@ -66,7 +66,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 /** runner 主循环(独立进程):起 relay → 写 ready → 三条死亡判据轮询 → 关监听退场。 */
-export async function runRelayRunner(rawPayload: string): Promise<void> {
+async function runRelayRunner(rawPayload: string): Promise<void> {
   const p = parseRunnerPayload(rawPayload);
   if (p === null) return; // 载荷坏:不起服务也不写 ready(父侧探针超时即不点腿)
   const policy = resolveEgressPolicy(process.env).policy;
@@ -236,5 +236,5 @@ if (isDirectRun && process.argv[2] === RUNNER_FLAG) {
   )
 }
 
-export const __test__ = { parseRunnerPayload, runRelayProbe, ensureManagedEgressRelay, resetManagedEgressRelayForTests };
+// 2026-11-05: __test__ 聚集体已删(knip 报未用导出;测试直接 import runRelayProbe/ensureManagedEgressRelay)。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
