@@ -139,7 +139,13 @@ export function textKeySet(text, path) {
   try {
     if (/\.jsonl$/i.test(path)) {
       const keys = new Set()
-      const lines = String(text).split(/\r?\n/).filter((l) => l.trim())
+      // 2026-11-05:JSONL 里 `//` 开头的注释行是仓库既有写法(`scripts/data/intentional-file-deletions.jsonl`
+      // 首行即 "// 有意整文件删除…"),它们不是数据行。原先逐行 JSON.parse 连注释也解,一份带注释的
+      // 台账只要被本侧改过就会让整份键面判"解不开"并阻断落地(实测旁路删除硬门的台账补录后触发)。
+      // 这里按 JSONL 注释惯例跳过 `//` 行;数据行的解析与键面判红口径不变。
+      const lines = String(text)
+        .split(/\r?\n/)
+        .filter((l) => l.trim() && !l.trimStart().startsWith('//'))
       for (const line of lines) jsonKeySet(JSON.parse(line), '', keys)
       return { keys }
     }
