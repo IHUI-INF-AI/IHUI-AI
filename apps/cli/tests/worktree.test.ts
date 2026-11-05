@@ -323,7 +323,7 @@ describe('createWorktree', () => {
 
   it('基本流程成功', async () => {
     const dst = path.join(tmpDir, 'wt-1')
-    const result = await createWorktree({ source: sourceRepo, destination: dst })
+    const result = await createWorktree({ source: sourceRepo, destination: dst, withinRoot: tmpDir })
 
     expect(result.destination).toBe(dst)
     expect(fs.existsSync(path.join(dst, 'README.md'))).toBe(true)
@@ -341,7 +341,7 @@ describe('createWorktree', () => {
     fs.mkdirSync(dst, { recursive: true })
     fs.writeFileSync(path.join(dst, 'blocker.txt'), 'x', 'utf-8')
 
-    await expect(createWorktree({ source: sourceRepo, destination: dst })).rejects.toThrow(
+    await expect(createWorktree({ source: sourceRepo, destination: dst, withinRoot: tmpDir })).rejects.toThrow(
       /非空|exists|empty/i,
     )
   })
@@ -351,7 +351,7 @@ describe('createWorktree', () => {
     fs.mkdirSync(nonGit, { recursive: true })
     const dst = path.join(tmpDir, 'wt-3')
 
-    await expect(createWorktree({ source: nonGit, destination: dst })).rejects.toThrow(
+    await expect(createWorktree({ source: nonGit, destination: dst, withinRoot: tmpDir })).rejects.toThrow(
       /git|\.git/i,
     )
   })
@@ -366,7 +366,7 @@ describe('createWorktree', () => {
     spawnSync('git', ['checkout', 'main'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
 
     const dst = path.join(tmpDir, 'wt-4')
-    await createWorktree({ source: sourceRepo, destination: dst, ref: 'feature-x' })
+    await createWorktree({ source: sourceRepo, destination: dst, ref: 'feature-x', withinRoot: tmpDir })
 
     // 验证 destination 在 feature-x 分支
     const r = spawnSync('git', ['-C', dst, 'rev-parse', '--abbrev-ref', 'HEAD'], {
@@ -387,6 +387,7 @@ describe('createWorktree', () => {
     await createWorktree({
       source: sourceRepo,
       destination: dst,
+      withinRoot: tmpDir,
       preserveWorkingTree: true,
     })
 
@@ -400,7 +401,7 @@ describe('createWorktree', () => {
     for (const badRef of ['-b', '--orphan=x', 'main; rm -rf /', 'a b', 'x\ny']) {
       const dst = path.join(tmpDir, `wt-badref-${Buffer.from(badRef).toString('hex')}`)
       await expect(
-        createWorktree({ source: sourceRepo, destination: dst, ref: badRef }),
+        createWorktree({ source: sourceRepo, destination: dst, ref: badRef, withinRoot: tmpDir }),
       ).rejects.toThrow(/非法字符/)
       // 零副作用:目录都没建
       expect(fs.existsSync(dst)).toBe(false)
@@ -415,6 +416,7 @@ describe('createWorktree', () => {
     await createWorktree({
       source: sourceRepo,
       destination: dst,
+      withinRoot: tmpDir,
       preserveWorkingTree: false,
     })
 
@@ -443,7 +445,7 @@ describe('removeWorktree', () => {
     fs.mkdirSync(path.join(wt, '.git'), { recursive: true })
     fs.writeFileSync(path.join(wt, 'file.txt'), 'x', 'utf-8')
 
-    await removeWorktree(wt)
+    await removeWorktree(wt, { withinRoot: tmpDir })
     expect(fs.existsSync(wt)).toBe(false)
   })
 
@@ -469,13 +471,13 @@ describe('removeWorktree', () => {
     expect(fs.existsSync(linkedWt)).toBe(true)
     expect(fs.statSync(path.join(linkedWt, '.git')).isFile()).toBe(true)
 
-    await removeWorktree(linkedWt)
+    await removeWorktree(linkedWt, { withinRoot: tmpDir })
     expect(fs.existsSync(linkedWt)).toBe(false)
   })
 
   it('不存在路径不抛错', async () => {
     const missing = path.join(tmpDir, 'never-existed')
-    await expect(removeWorktree(missing)).resolves.toBeUndefined()
+    await expect(removeWorktree(missing, { withinRoot: tmpDir })).resolves.toBeUndefined()
   })
 })
 

@@ -30,10 +30,17 @@ import { HunkCheckpointManager } from '../src/checkpoints/hunks.js';
 import { UndoRedoManager } from '../src/commands/undo-redo.js';
 import {
   getSessionsDir,
+  listSessions,
   loadSession,
   saveSession,
   type Session,
 } from '../src/commands/session.js';
+import { loadCustomCommand, getCustomCommandsDir } from '../src/commands/custom-commands.js';
+// 低层原语(显式 withinRoot)与 subagents 层同名,别名区分。
+import {
+  createWorktree as createWorktreeLowLevel,
+  removeWorktree as removeWorktreeLowLevel,
+} from '../src/worktree.js';
 import { getCompactionTimelineLedgerPath } from '../src/compaction-timeline-resume.js';
 import {
   getSubagentStateDir,
@@ -555,6 +562,156 @@ describe('resolvePathInsideRoot(允许绝对,但必须落在根内)', () => {
     expect(() =>
       resolvePathInsideRoot(tmpWorkspace, path.join(path.dirname(tmpWorkspace), 'victim.txt'), '目标'),
     ).toThrow(/不在根目录/);
+  });
+});
+
+describe('低层 worktree 原语:显式 withinRoot(fail-closed)', () => {
+  it('createWorktree 缺 withinRoot ⇒ 抛错且零副作用', async () => {
+    const dst = path.join(tmpWorkspace, 'wt-x');
+    await expect(
+      createWorktreeLowLevel({ source: tmpWorkspace, destination: dst } as unknown as Parameters<typeof createWorktreeLowLevel>[0]),
+    ).rejects.toThrow(/withinRoot/);
+    expect(fs.existsSync(dst)).toBe(false);
+  });
+
+  it('createWorktree destination 含 .. ⇒ 拒绝,不产生目录', async () => {
+    const dst = path.join(tmpWorkspace, '..', 'escaped-wt');
+    await expect(
+      createWorktreeLowLevel({ source: tmpWorkspace, destination: dst, withinRoot: tmpWorkspace }),
+    ).rejects.toThrow(/不在根目录/);
+    expect(fs.existsSync(dst)).toBe(false);
+  });
+
+  it('createWorktree destination 为根外绝对路径 ⇒ 拒绝', async () => {
+    const outside = mkScratch('pg-wt-out-');
+    try {
+      const dst = path.join(outside, 'wt');
+      await expect(
+        createWorktreeLowLevel({ source: tmpWorkspace, destination: dst, withinRoot: tmpWorkspace }),
+      ).rejects.toThrow(/不在根目录/);
+      expect(fs.existsSync(dst)).toBe(false);
+    } finally {
+      rmScratch(outside);
+    }
+  });
+
+  it('createWorktree 父级符号链接指向根外 ⇒ 拒绝', async (ctx) => {
+    const outside = mkScratch('pg-wt-parent-');
+    try {
+      fs.symlinkSync(outside, path.join(tmpWorkspace, 'linkdir'), 'junction');
+    } catch {
+      rmScratch(outside);
+      ctx.skip();
+      return;
+    }
+    try {
+      await expect(
+        createWorktreeLowLevel({
+          source: tmpWorkspace,
+          destination: path.join(tmpWorkspace, 'linkdir', 'wt'),
+          withinRoot: tmpWorkspace,
+        }),
+      ).rejects.toThrow(/符号链接解析后落在根目录/);
+    } finally {
+      rmScratch(outside);
+    }
+  });
+
+  it('removeWorktree 缺 withinRoot ⇒ 抛错,目录保留', async () => {
+    const dir = path.join(tmpWorkspace, 'wt-keep');
+    fs.mkdirSync(dir, { recursive: true });
+    await expect(
+      removeWorktreeLowLevel(dir, {} as unknown as Parameters<typeof removeWorktreeLowLevel>[1]),
+    ).rejects.toThrow(/withinRoot/);
+    expect(fs.existsSync(dir)).toBe(true);
+  });
+
+  it('removeWorktree 目标含 .. / 根外绝对路径 ⇒ 拒绝且不删', async () => {
+    const victim = path.join(path.dirname(tmpWorkspace), 'victim-wt');
+    fs.mkdirSync(victim, { recursive: true });
+    const viaParent = path.join(tmpWorkspace, '..', 'victim-wt');
+    await expect(removeWorktreeLowLevel(viaParent, { withinRoot: tmpWorkspace })).rejects.toThrow(/不在根目录/);
+    await expect(removeWorktreeLowLevel(victim, { withinRoot: tmpWorkspace })).rejects.toThrow(/不在根目录/);
+    expect(fs.existsSync(victim)).toBe(true);
+  });
+
+  it('removeWorktree 根内符号链接指向根外 ⇒ 拒绝,外部目录保留', async (ctx) => {
+    const outside = mkScratch('pg-wt-rm-link-');
+    const keep = path.join(outside, 'keep.txt');
+    fs.writeFileSync(keep, 'keep', 'utf-8');
+    try {
+      fs.symlinkSync(outside, path.join(tmpWorkspace, 'linkdir'), 'junction');
+    } catch {
+      rmScratch(outside);
+      ctx.skip();
+      return;
+    }
+    try {
+      await expect(
+        removeWorktreeLowLevel(path.join(tmpWorkspace, 'linkdir'), { withinRoot: tmpWorkspace }),
+      ).rejects.toThrow(/符号链接解析后落在根目录/);
+      expect(fs.existsSync(keep)).toBe(true);
+    } finally {
+      rmScratch(outside);
+    }
+  });
+
+  it('正常路径:根内目录照常删除,根内新建 worktree 不误伤', async () => {
+    const dir = path.join(tmpWorkspace, 'wt-normal');
+    fs.mkdirSync(path.join(dir, '.git'), { recursive: true });
+    await removeWorktreeLowLevel(dir, { withinRoot: tmpWorkspace });
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+});
+
+describe('只读侧:listSessions / 自定义命令文件', () => {
+  it('listSessions 跳过根内符号链接指向根外的会话文件', async (ctx) => {
+    saveSession(makeSession('sess_ok'));
+    const dir = getSessionsDir();
+    const outside = mkScratch('pg-sess-link-');
+    const victim = path.join(outside, 'evil.json');
+    fs.writeFileSync(victim, JSON.stringify(makeSession('evil')), 'utf-8');
+    try {
+      fs.symlinkSync(victim, path.join(dir, 'evil.json'));
+    } catch {
+      rmScratch(outside);
+      ctx.skip();
+      return;
+    }
+    try {
+      const ids = listSessions().map((s) => s.id);
+      expect(ids).toContain('sess_ok');
+      expect(ids).not.toContain('evil');
+    } finally {
+      rmScratch(outside);
+    }
+  });
+
+  it('loadCustomCommand 读根内符号链接指向根外的文件 ⇒ 拒绝', async (ctx) => {
+    const dir = getCustomCommandsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const outside = mkScratch('pg-cmd-link-');
+    const victim = path.join(outside, 'leak.md');
+    fs.writeFileSync(victim, '# 越界内容\n', 'utf-8');
+    try {
+      fs.symlinkSync(victim, path.join(dir, 'leak.md'));
+    } catch {
+      rmScratch(outside);
+      ctx.skip();
+      return;
+    }
+    try {
+      expect(() => loadCustomCommand('leak')).toThrow(/符号链接解析后落在根目录/);
+    } finally {
+      rmScratch(outside);
+    }
+  });
+
+  it('loadCustomCommand 正常文件照常读取', () => {
+    const dir = getCustomCommandsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'ok-command.md'), '# 标题\n\n正文\n', 'utf-8');
+    expect(loadCustomCommand('ok-command').body).toContain('正文');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

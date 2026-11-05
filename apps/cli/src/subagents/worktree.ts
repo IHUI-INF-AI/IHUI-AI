@@ -448,6 +448,8 @@ export async function createWorktreeWithFallback(
       const result = await createWorktreeCoW({
         source: sourcePath,
         destination,
+        // 期望根 = subagent worktree 根(destination 就是 segmentPathInside(root) 算出来的)
+        withinRoot: root,
         preserveWorkingTree: false,
       });
 
