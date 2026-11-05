@@ -11,6 +11,7 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
 
 /**
@@ -349,18 +350,33 @@ export interface IncomeScreenProps {
 /** 模型收益 Tab key(全部/待结算/已结算) */
 export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
 
-/** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
+/**
+ * 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord)。
+ *
+ * 除 `id` 外的字段均可选:共享屏按「有值才渲染」,缺字段的那一列/那一块整块不出现,
+ * 不得用 0 / 空串冒充。这样同一枚屏既能承接 RN 端的全字段行,也能承接小程序
+ * GET /api/developer/income(响应固定为 `{ id, title, time, amount }`)这种字段稀疏的行。
+ */
 export interface ModelIncomeItem {
   id: string
-  orderId: string
-  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
-  status: string
-  createdAt: string
-  userNickname: string
-  orderAmount: number
-  /** 佣金费率(百分比) */
-  rate: number
-  commissionAmount: number
+  /** 关联订单号;缺省 ⇒ 卡片不渲染订单行 */
+  orderId?: string
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算);缺省 ⇒ 不渲染状态徽章、也不被 tab 过滤掉 */
+  status?: string
+  /** 已格式化的时间文本;缺省 ⇒ 不渲染时间行 */
+  createdAt?: string
+  /** 用户昵称;缺省 ⇒ 不渲染头像 + 昵称块 */
+  userNickname?: string
+  /** 订单金额(元);缺省 ⇒ meta 行不出现该段 */
+  orderAmount?: number
+  /** 佣金费率(百分比);缺省 ⇒ meta 行不出现费率段 */
+  rate?: number
+  /** 本行佣金(元);缺省 ⇒ 不渲染金额 */
+  commissionAmount?: number
+  /** 明细标题(小程序接口有 title 无 userNickname);昵称缺省时在昵称位渲染 */
+  title?: string
+  /** 本行金额(元)别名,`commissionAmount` 缺省时兜底 */
+  amount?: number
 }
 
 /** 模型收益概要(平台注入,字段对齐 @ihui/api-client CommissionOverview + DayMonthSummary) */
@@ -400,7 +416,36 @@ export interface ModelIncomeScreenProps {
   /** 触底回调:壳负责向后端取下一页并追加 */
   onLoadMore?: () => void
   onBack: () => void
+  /** 错误态重试回调(不传 ⇒ ErrorState 只显示文案) */
+  onRetry?: () => void
   colorScheme?: 'light' | 'dark'
+  /**
+   * 顶部标题覆盖(缺省 = t('modelIncome.title'))。
+   * 壳在自己的子视图(如「提现明细」)里可传本端标题,不影响 RN 现状。
+   */
+  headerTitle?: string
+  /**
+   * 汇总卡下方附加说明行(本端费率/服务费之类文案,由壳注入);
+   * 缺省 ⇒ 不渲染,RN 现状零变化(共享屏不写死任何端内文案)。
+   */
+  feeTip?: string
+  /**
+   * 汇总卡内「提现明细」入口。传入才渲染第三列,不传 ⇒ RN 现状零变化。
+   * 点击回调由壳接(切到自己的提现明细子视图)。
+   */
+  onOpenWithdrawDetail?: () => void
+  /** 「提现明细」入口文案(宿主应传;缺省 t('modelIncome.withdrawDetail')) */
+  withdrawDetailLabel?: string
+  /**
+   * 正文替换插槽:传入 ⇒ 本屏只渲染页头 + 该节点(不渲染汇总/筛选/收入列表),
+   * 用于壳注入本端独立子视图(如「提现明细」)。常规模式下收入列表仍由本屏渲染。
+   */
+  renderSubView?: ReactNode
+  /**
+   * 提现弹层替换插槽:传入 ⇒ 用该节点替换内置 Modal(壳自行管理显隐与两步流程);
+   * 不传 ⇒ 保持内置一步直确弹窗,RN 现状零变化。共享屏内不直接调任何平台 API。
+   */
+  renderWithdrawModal?: () => ReactNode
 }
 
 /** Token 记录 Tab key(全部/消耗/充值) */

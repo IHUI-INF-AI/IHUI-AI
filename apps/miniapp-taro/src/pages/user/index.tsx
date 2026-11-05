@@ -2,6 +2,25 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// ⚠️ 不能薄壳化(2026-11-05 第三批复核结论,台账口径):本页不是 `features/profile/ProfileScreen.tsx`
+// 能承载的"资料卡 + 统计 + 菜单"三块,而是**小程序独有的登录/内容工作台**。共享 ProfileScreen
+// 缺以下概念(逐条,均有本页真实链路,不能靠注入点等价收敛):
+//   1. 未登录态与登录入口:本页首屏在未登录时渲染登录卡,并弹 `LoginPopUp`(网页授权 / 一键手机号 /
+//      账号密码 三条链路,各自回调 `beginMiniappSso`、`oneTapLogin`、`loginByPassword`)——ProfileScreen
+//      只有"已登录资料展示",props 里没有未登录态与登录动作。
+//   2. 扫码登录:菜单项 `scanLogin.menuTitle` → `Taro.scanCode`(仅微信) + `parseQrLoginTicket` +
+//      `api.confirmQrLogin`;共享屏无扫码/票据概念。
+//   3. 内嵌 WebView 与登录态回传:网页授权走 `navigateToWebView(getSsoLoginUrl(...))`,webview
+//      的 onMessage 换 token 后 reLaunch 首页;共享屏无 webview 承载与消息回传端口。
+//   4. 分享面板 + 朋友圈:本页有独立分享弹层、`useShareAppMessage`/`useShareTimeline`、
+//      `getShareInfo`(inviteCode 注入);ProfileScreen 只有菜单点击,无分享渠道概念。
+//   5. 会员权益折叠卡与会员入口(goVipDetail / isVip)——ProfileScreen 没有 membership/benefits 区块。
+//   6. 聊天历史与媒体播放:按日期分组的历史会话、音频 InnerAudioContext 播放/进度/拖动、
+//      视频播放器、图片预览、文件下载——属小程序媒体栈,共享屏无对应概念。
+//   7. 快捷入口 / 公告 / 客服 / 反馈 / 抽屉菜单 / 契约签约列表——本页是入口聚合页,
+//      ProfileScreen 的 menuSections 只接受"标题+项"静态结构,无这些交互与数据面。
+// 结论:本轮保持本地实现;若将来要收敛,需新建一枚 `MiniappProfileWorkbenchScreen`(或把上述
+// 1/3/4 做成明确端口),而不是把本页塞进 ProfileScreen 的 props。
 import { aizhsUrl } from '@/constants/icon-urls'
 import { parseQrLoginTicket } from '@ihui/shared'
 import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
