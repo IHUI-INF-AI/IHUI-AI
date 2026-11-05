@@ -477,7 +477,7 @@
     "shareHash": "  防篡改 hash: {hash}",
     "shareSize": "  大小: {sizeBytes} bytes",
     "qrGenerated": "  二維碼:已生成(data URL)",
-    "qrFallback": "  二維碼:降級模式(需引入 qr 庫啟用)",
+    "qrFallback": "  二維碼:未產出(連結超出編碼容量或形態不支援)",
     "modeDesc": "查看或切換交互模式: plan(只讀調研) | build(執行修改) | review(審查 diff)",
     "modeCurrent": "當前模式: {mode}",
     "modeAvailable": "可用模式: plan(只讀) / build(執行) / review(審查)",

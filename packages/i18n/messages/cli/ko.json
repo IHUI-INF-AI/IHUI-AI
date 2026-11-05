@@ -477,7 +477,7 @@
     "shareHash": "  변조 방지 해시: {hash}",
     "shareSize": "  크기: {sizeBytes} 바이트",
     "qrGenerated": "  QR 코드: 생성됨(data URL)",
-    "qrFallback": "  QR 코드: 대체 모드(qr 라이브러리를 추가하면 활성화)",
+    "qrFallback": "  QR 코드: 생성되지 않음(링크가 용량 상한을 넘거나 형태 미지원)",
     "modeDesc": "인터랙션 모드 확인·전환: plan(읽기 전용 조사) | build(변경 실행) | review(diff 심사)",
     "modeCurrent": "현재 모드: {mode}",
     "modeAvailable": "사용 가능한 모드: plan(읽기 전용) / build(실행) / review(심사)",

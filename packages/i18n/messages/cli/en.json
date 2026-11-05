@@ -477,7 +477,7 @@
     "shareHash": "  Tamper-proof hash: {hash}",
     "shareSize": "  Size: {sizeBytes} bytes",
     "qrGenerated": "  QR code: generated (data URL)",
-    "qrFallback": "  QR code: fallback mode (add the qr library to enable)",
+    "qrFallback": "  QR code: not produced (link exceeds encoder capacity or shape unsupported)",
     "modeDesc": "Show or switch the interaction mode: plan (read-only research) | build (apply changes) | review (review diff)",
     "modeCurrent": "Current mode: {mode}",
     "modeAvailable": "Available modes: plan (read-only) / build (execute) / review (review)",
