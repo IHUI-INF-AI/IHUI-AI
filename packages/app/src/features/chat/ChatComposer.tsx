@@ -3,15 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import type { ReactNode } from 'react'
 import {
-  ChevronDown,
-  Settings,
-  Paperclip,
-  Play,
-  FileText,
-  Keyboard,
-  Mic,
-} from 'lucide-react-native'
-import {
   Image,
   Modal,
   Pressable,
@@ -239,13 +230,7 @@ export function ChatComposer({
                   <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.filePlaceholder}>
-                    <Text style={styles.fileGlyph}>
-                      {f.type === 'video' ? (
-                        <Play size={16} color={tk.text.tertiary} />
-                      ) : (
-                        <FileText size={16} color={tk.text.tertiary} />
-                      )}
-                    </Text>
+                    <Text style={styles.fileGlyph}>{f.type === 'video' ? '▶' : '▤'}</Text>
                     <Text style={styles.fileName} numberOfLines={1}>
                       {f.filename ||
                         t(f.type === 'video' ? 'messageInput.video' : 'messageInput.document')}
@@ -300,7 +285,7 @@ export function ChatComposer({
               <Text style={styles.modelName} numberOfLines={1}>
                 {currentModelName}
               </Text>
-              <ChevronDown size={12} color={tk.text.tertiary} />
+              <Text style={styles.modelChevron}>▾</Text>
             </TouchableOpacity>
           ) : (
             <Text style={styles.modelName} numberOfLines={1}>
@@ -314,7 +299,7 @@ export function ChatComposer({
               hitSlop={4}
               accessibilityLabel={t('bab.modelConfig')}
             >
-              <Settings size={16} color={tk.text.tertiary} />
+              <Text style={styles.iconGlyph}>⚙</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -333,13 +318,7 @@ export function ChatComposer({
             hitSlop={4}
             accessibilityLabel={t('messageInput.voiceHint')}
           >
-            <Text style={styles.iconGlyph}>
-              {voiceMode ? (
-                <Keyboard size={16} color={tk.text.tertiary} />
-              ) : (
-                <Mic size={16} color={tk.text.tertiary} />
-              )}
-            </Text>
+            <Text style={styles.iconGlyph}>{voiceMode ? '⌨' : '🎤'}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -402,7 +381,7 @@ export function ChatComposer({
               hitSlop={4}
               accessibilityLabel={t('messageInput.addFile')}
             >
-              <Paperclip size={16} color={tk.text.tertiary} />
+              <Text style={styles.iconGlyph}>📎</Text>
             </TouchableOpacity>
           ) : null}
           {onClear && value.length > 0 && !loading ? (

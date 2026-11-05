@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { ChevronDown, Settings, Scissors, Maximize, Sparkles } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
@@ -142,7 +141,7 @@ export function ChatActionBar({
             <Text style={styles.modelName} numberOfLines={1}>
               {modelLabel}
             </Text>
-            {onShowModelList ? <ChevronDown size={12} color={tk.text.tertiary} /> : null}
+            {onShowModelList ? <Text style={styles.modelChevron}>▾</Text> : null}
           </Pressable>
           {onShowModelConfig ? (
             <TouchableOpacity
@@ -151,7 +150,7 @@ export function ChatActionBar({
               hitSlop={4}
               accessibilityLabel={t('bab.modelConfig')}
             >
-              <Settings size={16} color={tk.text.tertiary} />
+              <Text style={styles.configGlyph}>⚙</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -224,7 +223,7 @@ export function ChatActionBar({
             onPress={onCompactContext}
             accessibilityLabel={t('messageInput.compactButton')}
           >
-            <Scissors size={16} color={tk.text.tertiary} />
+            <Text style={styles.actionGlyph}>✂</Text>
             <Text style={styles.actionText} numberOfLines={1}>
               {t('messageInput.compactButton')}
             </Text>
@@ -259,7 +258,7 @@ export function ChatActionBar({
               onPress={onFangda}
               accessibilityLabel={t('bab.enlarge')}
             >
-              <Maximize size={16} color={tk.text.tertiary} />
+              <Text style={styles.iconGlyph}>⛶</Text>
             </TouchableOpacity>
           ) : null}
           {onShowMyCreation ? (
@@ -268,7 +267,7 @@ export function ChatActionBar({
               onPress={onShowMyCreation}
               accessibilityLabel={t('common.myCreation')}
             >
-              <Sparkles size={16} color={tk.text.tertiary} />
+              <Text style={styles.iconGlyph}>✦</Text>
             </TouchableOpacity>
           ) : null}
         </View>
