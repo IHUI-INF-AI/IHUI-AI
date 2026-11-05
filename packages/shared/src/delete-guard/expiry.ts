@@ -9,6 +9,7 @@ import {
   DEFAULT_TRASH_RETENTION_MS,
   TRASH_CLEANUP_ENTRY_HARD_CEILING,
 } from './constants'
+import { asFiniteNumber, resolveRetention } from './expiry-retention'
 import type {
   TrashExpiryItem,
   TrashExpiryOptions,
@@ -32,30 +33,7 @@ import { aggregateGuardVerdict } from './verdict'
  * 3. 条目数硬顶 = 两阶段阈值 - 1:清理器自己就是一次批量删除,钉在阈值以下它才不可能绕过本链护栏。
  */
 
-/** 字节数/TTL 等数值字段的宽容取数:非有限数 ⇒ null(不猜 0,不猜"没这个档") */
-function asFiniteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-/** 保留期解析:条目档 > 清单档 > 策略档;任一档"存在但形态非法"⇒ 未判定(不跳过去拿下一档猜) */
-function resolveRetention(
-  unit: TrashExpiryUnit,
-  policyMs: number,
-): { ms: number } | { bad: string } {
-  const entryRaw = unit.entry.retentionMs
-  if (entryRaw !== undefined) {
-    const ms = asFiniteNumber(entryRaw)
-    if (ms === null || ms < 0) return { bad: `条目 retentionMs 形态非法(${String(entryRaw)})` }
-    return { ms }
-  }
-  const manifestRaw = unit.manifestRetentionMs
-  if (manifestRaw !== undefined && manifestRaw !== null) {
-    const ms = asFiniteNumber(manifestRaw)
-    if (ms === null || ms < 0) return { bad: `清单 retentionMs 形态非法(${String(manifestRaw)})` }
-    return { ms }
-  }
-  return { ms: policyMs }
-}
+/** 字节数/TTL 取数与保留期三档解析在 `./expiry-retention`(本票 X3 搬行,判据未改) */
 
 function itemOf(unit: TrashExpiryUnit, patch: Partial<TrashExpiryItem>): TrashExpiryItem {
   return {

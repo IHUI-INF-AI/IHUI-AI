@@ -89,18 +89,39 @@ export type {
 /**
  * 声明式权限名归属层(goal-b49/W6)。归属表 + 唯一取数出口 `permissionGrantOf`;
  * 「能不能拿到数据类」仍只由 capability-catalog 那把尺判定,本层不产出裁决(§0.6)。
+ * goal-b49/X2 补:安装通道适配器(`createAliasAwareManifestValidator`)与清单级归一化
+ * (`normalizeExtensionManifestPermissions`)同住这一层 —— 同一张归属表在"装载"与"安装"
+ * 两条通道都生效,不许出现第二份别名规则。接线点(调用侧一行)见函数头注。
  */
 export {
   DECLARED_PERMISSION_NAMES,
   DECLARED_PERMISSION_NAME_LIST,
   UNMAPPED_PERMISSION_NAMES,
+  createAliasAwareManifestValidator,
+  normalizeExtensionManifestPermissions,
   permissionGrantOf,
   readPermissionList,
   resolveDeclaredPermissionName,
   resolveDeclaredPermissionNames,
 } from './permission-names.js';
-export type { DeclaredPermissionTarget } from './permission-names.js';
+export type { DeclaredPermissionTarget, ExtensionManifestValidatorContract } from './permission-names.js';
 
+/**
+ * registry 汇总口现状(goal-b49/X2 现读 2026-11-05;复跑口径
+ * `.ihui-agent/tmp/rea-goal-b49/count-prod-callers.mjs`:生产调用 = 按名引用点排除
+ * 定义 / 注释 / import-export 行 / 测试文件,阳性对照 `readSkillCatalog` 必须数出 ≥1)。
+ *
+ *   五枚 `get*Extensions` 与 `runTurnInputContributors` / `runCommandContributors` 当前
+ *   **零生产调用方**(只有 `registry.ts` 定义与用例)。定性 = 待接线,不是死码 ——
+ *   承载的声明面仍被 `contribution-audit` / `activation-events` 裁决,缺的只是运行期消费者。
+ *   接线点:getToolExtensions → 主循环工具表合并(`agent.ts` setupAgentTools 的 `listTools()` 之后);
+ *   getHookExtensions → 插件面诊断/展示(`runHook` 自按 hooks 匹配,不依赖本枚举);
+ *   getCommandExtensions → slash-registry(`SLASH_COMMANDS` 是静态表,尚无插件命令注册口);
+ *   turn/command 两族 → `runTurnInputContributors` 未挂 turnStart(`agent.ts` 的 turnStart 派发点)。
+ *
+ *   AGENTS §0.9:接线前不得对外声称"插件工具/命令已生效";接通时把本段与
+ *   `contribution-audit.ts` 的 tools/commands 裁决**一起**翻档,别让两处口径漂开(§0.6)。
+ */
 export {
   PluginRegistry,
   type RegisterOptions,
