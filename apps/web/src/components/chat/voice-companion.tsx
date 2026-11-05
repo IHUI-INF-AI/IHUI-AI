@@ -89,7 +89,7 @@ function createStore(): VoiceStore {
 }
 
 /** 按输入区实例取 store(不存在则建;空 id 兜底给单测/旧宿主) */
-export function getVoiceStore(voiceId: string): VoiceStore {
+function getVoiceStore(voiceId: string): VoiceStore {
   let store = stores.get(voiceId)
   if (!store) {
     store = createStore()

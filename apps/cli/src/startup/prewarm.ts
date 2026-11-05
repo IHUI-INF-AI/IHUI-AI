@@ -26,7 +26,7 @@ import { formatMs } from './profile.js';
 export const PREWARM_SCHEMA_VERSION = 'ihui-cli-prewarm-status.v1';
 
 /** 状态件文件名(单一具名落点,禁止第二份拼路径)。 */
-export const PREWARM_STATUS_FILE_NAME = 'prewarm-status.json';
+const PREWARM_STATUS_FILE_NAME = 'prewarm-status.json';
 
 /** `~/.ihui/startup/prewarm-status.json` —— 根由 getIhuiRoot() 现算。 */
 export function getPrewarmStatusPath(): string {
