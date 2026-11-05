@@ -67,6 +67,7 @@ export function DistributionOrderListScreen({
   onTabChange,
   onEndReached,
   onBack,
+  onPressItem,
   colorScheme = 'light',
 }: DistributionOrderListScreenProps) {
   const tk = getTokens(colorScheme)
@@ -80,7 +81,7 @@ export function DistributionOrderListScreen({
       )
     : orders
 
-  const renderItem: ListRenderItem<(typeof orders)[number]> = ({ item }) => (
+  const renderCard = (item: (typeof orders)[number]) => (
     <View style={styles.orderCard}>
       <View style={styles.orderHeader}>
         <Text style={styles.orderLabel} numberOfLines={1}>
@@ -106,6 +107,15 @@ export function DistributionOrderListScreen({
       <Text style={styles.timeText}>{'下单时间:' + item.createdAt}</Text>
     </View>
   )
+
+  const renderItem: ListRenderItem<(typeof orders)[number]> = ({ item }) =>
+    onPressItem ? (
+      <TouchableOpacity activeOpacity={0.8} onPress={() => onPressItem(item.orderId)}>
+        {renderCard(item)}
+      </TouchableOpacity>
+    ) : (
+      renderCard(item)
+    )
 
   return (
     <View style={styles.container}>
