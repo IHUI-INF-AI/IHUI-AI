@@ -16,7 +16,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import {
