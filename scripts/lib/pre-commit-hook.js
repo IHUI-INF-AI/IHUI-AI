@@ -24,6 +24,7 @@ const { sanitizeGitEnv } = require('./hook-git-env.js')
 const indexContext = require('./index-context.js')
 const derivedArtifacts = require('./derived-artifacts.js')
 const indexPinGuard = require('./index-pin-guard.js')
+const { runCapturing } = require('./hook-capture.js')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -354,35 +355,8 @@ function stripAnsi(text) {
 }
 
 /**
- * 跑一条命令并捕获 stdout/stderr(不写 .log —— 那份日志有 tee 缓冲窗口)。
- * ok 只看退出码；output 原样透传给 parseGateSummary。
+ * 守门批输出捕获:实现与 maxBuffer 判据在 ./hook-capture.js(可被测试 import,本钩子不可 import)。
  */
-function runCapturing(
-  label,
-  cmd,
-  timeoutMs = Number(process.env.HUSKY_GATE_BATCH_TIMEOUT_MS) || 1_800_000,
-) {
-  console.log(label)
-  try {
-    const stdout = execSync(cmd, {
-      cwd: process.cwd(),
-      windowsHide: true,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: timeoutMs,
-    })
-    process.stdout.write(stdout)
-    return { ok: true, output: stdout || '' }
-  } catch (error) {
-    // execSync 失败时 stdout/stderr 挂在 error 上(stdio: 'pipe')；写出去再返回。
-    const stdout = typeof error?.stdout === 'string' ? error.stdout : ''
-    const stderr = typeof error?.stderr === 'string' ? error.stderr : ''
-    process.stdout.write(stdout)
-    process.stderr.write(stderr)
-    console.error(`\n❌ ${label}失败，提交已阻止`)
-    return { ok: false, output: stdout + '\n' + stderr }
-  }
-}
 
 /**
  * 从 guardian-runner 的 stdout 提取「总检查数 / 失败」汇总行。
@@ -1237,7 +1211,9 @@ try {
         .map((s) => String(s || '').trim())
         .filter(Boolean)
         .join('\n')
-      console.error(`❌ i18n 离线包派生同步失败(exit=${r.status}):${res?.why || detail || '无输出'}`)
+      console.error(
+        `❌ i18n 离线包派生同步失败(exit=${r.status}):${res?.why || detail || '无输出'}`,
+      )
       process.exit(1)
     }
     if (res.state === 'clean') {
