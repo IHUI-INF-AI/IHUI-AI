@@ -39,6 +39,11 @@ export function ChangePwdScreen({
   onToggleConfirm,
   onSubmit,
   colorScheme = 'light',
+  submitLabel,
+  onForgotOld,
+  forgotLabel,
+  newPwdError,
+  confirmPwdError,
   onNavigate,
   onToast,
 }: ChangePwdScreenProps) {
@@ -76,6 +81,7 @@ export function ChangePwdScreen({
           styles={styles}
           t={t}
           colorScheme={colorScheme}
+          error={newPwdError}
         />
         <PwdInput
           label={t('settings.confirmPassword') || '确认新密码'}
@@ -87,7 +93,18 @@ export function ChangePwdScreen({
           styles={styles}
           t={t}
           colorScheme={colorScheme}
+          error={confirmPwdError}
         />
+        {onForgotOld ? (
+          <TouchableOpacity
+            style={styles.forgotRow}
+            activeOpacity={0.7}
+            onPress={onForgotOld}
+            accessibilityRole="button"
+          >
+            <Text style={styles.forgotText}>{forgotLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitDisabled]}
           activeOpacity={0.7}
@@ -96,7 +113,9 @@ export function ChangePwdScreen({
           accessibilityRole="button"
         >
           <Text style={styles.submitText}>
-            {submitting ? t('common.submitting') || '提交中...' : t('common.confirm') || '确定'}
+            {submitting
+              ? t('common.submitting') || '提交中...'
+              : submitLabel || t('common.confirm') || '确定'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -114,6 +133,8 @@ interface PwdInputProps {
   styles: ReturnType<typeof createStyles>
   t: TFunction
   colorScheme: 'light' | 'dark'
+  /** 字段内联校验提示(缺省不渲染) */
+  error?: string
 }
 
 function PwdInput({
@@ -126,6 +147,7 @@ function PwdInput({
   styles,
   t,
   colorScheme,
+  error,
 }: PwdInputProps) {
   return (
     <View style={styles.field}>
@@ -148,6 +170,7 @@ function PwdInput({
           </Text>
         </TouchableOpacity>
       </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   )
 }
@@ -182,6 +205,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     eyeBtn: { paddingVertical: rnSpacing.sm, paddingHorizontal: rnSpacing.xs },
     eyeText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    fieldError: { fontSize: rnType.caption.size, color: tk.danger.DEFAULT },
+    forgotRow: { alignItems: 'flex-end', paddingVertical: rnSpacing.xs },
+    forgotText: { fontSize: rnType.body.size, color: tk.brandAccent.DEFAULT },
     submitBtn: {
       marginTop: rnSpacing.sm,
       backgroundColor: tk.brand.cta,
