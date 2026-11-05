@@ -4212,10 +4212,10 @@ pub fn run() {
     // operator_execute=真实截屏→决策→键鼠执行。判据纯函数见 operator.rs。
     operator::operator_decide,
     operator::operator_execute,
-            // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
-            // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
-            store_path::store_read_entry,
-            store_path::store_write_entry
+    // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
+    // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
+    store_path::store_read_entry,
+    store_path::store_write_entry
         ])
         .run(context)
         .unwrap_or_else(|e| {
