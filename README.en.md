@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 工程守门 | 334 | `guardianGates` |
 | — blocking | 304 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19028 | `trackedFiles` |
+| 跟踪文件 | 19029 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -100,6 +100,23 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-05**
+- 🐞 Fix:生成器只再导出不 import ⇒ planFaceDigest is not defined(自我修复这一维时把它砸了) (f4975f2dc7)
+
+**2026-11-05**
+- 🐞 Fix:缺票面指纹的旧候选档也必须重刷一次 —— 让这一维自愈,不等 6h 钟表 (1c6b257f1a)
+- 📚 Docs:B71 收成单会话可完成的一张票(只做 /attendance/export 的成对与越权用例)—— 真票面连班 20 次调用零写盘的量法修正 (8ab3a2ef82)
+- 🐞 Fix:候选新鲜度按票面指纹判,不再只按钟表 —— 改写过的票 227 分钟对环不可见 (bf1a16e903)
+- 🚀 Feature/Improvement:apiRoutes 按语法证据识别 Fastify 接收者 —— 4685 → 4813(+128) (6328514264)
+- ♻️ Refactor:回调页转义收敛到 shared escapeHtml(产出字节不变) (20ee1255de)
+
+**2026-11-05**
+- 🔧 Chore/Other:派发档换成实测会动笔的模型 —— 20 次调用零写盘 vs 一次成功 write_file (c73e9ccd06)
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (dc131ab382)
+- 🔧 Chore/Other:补收两处并行会话探针残留落点(miniapp probe-tmp 目录 / e2e tagsview 调试脚本) (8aa7240c52)
+- 📚 Docs:数字改动收窄到门明确报的行 —— 回退门盲区批量改写，未判定行登记保留原文 (4e9e144633)
+- 📚 Docs:四语 README 数字按现算收口 —— 618 表 / 4685 路由 / 4057 测试文件 / 53 CI workflows / 334 道守门 (2be4008892)
+
 **2026-11-05**
 - 🚀 Feature/Improvement:出站自查再加一格 extra= —— 把"带毒段在 messages 之外"变成可读数而非猜测 (ce4cf44fde)
 - 🚀 Feature/Improvement:出站载荷自查仪器(IHUI_TRANSPORT_AUDIT)+ 更正上一枚的过度归因 (92e61ba98d)
@@ -592,23 +609,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:去重窗口不再被重复推送续期——被抑制的推送只读不写,持续 firing 按窗口重报 (19f67b3b45)
 - 📚 Docs:修正 AiLlm 告警注释里 printf 措辞（与 humanizePercentage 模板对齐） (99f9e0ed34)
 - 🐞 Fix:修 AiLlm 告警正文把比率当百分比格式化（printf "%.0f%%" → humanizePercentage） (e7bab5a086)
-
-**2026-11-03**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (48540f650b)
-
-**2026-11-03**
-- 🐞 Fix:重生成离线语言包载荷，去除合并回灌引入的尾部换行 (f5968144d6)
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (d7d35fb2cc)
-- ♻️ Refactor:Drawer 复合间距保持字面量（跨端门 128 静态解值回退） (137d4dcec4)
-- 🔧 Chore/Other:活性散文数字对齐生成器实际读数(c9b69e6758 面) (dccd868650)
-- 🐞 Fix:从 COLORS_MAPPING 删除已废弃 tertiary 常量并重算 ui-routes 钉 (c9b69e6758)
-- 🔧 Chore/Other:数字块重算到 830eb717 + FAQ/头条断言对齐实际 (319213f532)
-
-**2026-11-03**
-- 🚀 Feature/Improvement:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
-- 🚀 Feature/Improvement:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
-- 🔧 Chore/Other:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
-- ♻️ Refactor:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

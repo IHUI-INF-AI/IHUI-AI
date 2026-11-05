@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 334 | `guardianGates` |
 | — blocking | 304 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19028 | `trackedFiles` |
+| 跟踪文件 | 19029 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5450,6 +5450,23 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-05**
+- 🐞 修复:生成器只再导出不 import ⇒ planFaceDigest is not defined(自我修复这一维时把它砸了) (f4975f2dc7)
+
+**2026-11-05**
+- 🐞 修复:缺票面指纹的旧候选档也必须重刷一次 —— 让这一维自愈,不等 6h 钟表 (1c6b257f1a)
+- 📚 文档:B71 收成单会话可完成的一张票(只做 /attendance/export 的成对与越权用例)—— 真票面连班 20 次调用零写盘的量法修正 (8ab3a2ef82)
+- 🐞 修复:候选新鲜度按票面指纹判,不再只按钟表 —— 改写过的票 227 分钟对环不可见 (bf1a16e903)
+- 🚀 新功能/改进:apiRoutes 按语法证据识别 Fastify 接收者 —— 4685 → 4813(+128) (6328514264)
+- ♻️ 重构:回调页转义收敛到 shared escapeHtml(产出字节不变) (20ee1255de)
+
+**2026-11-05**
+- 🔧 工程/其他:派发档换成实测会动笔的模型 —— 20 次调用零写盘 vs 一次成功 write_file (c73e9ccd06)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dc131ab382)
+- 🔧 工程/其他:补收两处并行会话探针残留落点(miniapp probe-tmp 目录 / e2e tagsview 调试脚本) (8aa7240c52)
+- 📚 文档:数字改动收窄到门明确报的行 —— 回退门盲区批量改写，未判定行登记保留原文 (4e9e144633)
+- 📚 文档:四语 README 数字按现算收口 —— 618 表 / 4685 路由 / 4057 测试文件 / 53 CI workflows / 334 道守门 (2be4008892)
+
 **2026-11-05**
 - 🚀 新功能/改进:出站自查再加一格 extra= —— 把"带毒段在 messages 之外"变成可读数而非猜测 (ce4cf44fde)
 - 🚀 新功能/改进:出站载荷自查仪器(IHUI_TRANSPORT_AUDIT)+ 更正上一枚的过度归因 (92e61ba98d)
