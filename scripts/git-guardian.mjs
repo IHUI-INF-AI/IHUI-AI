@@ -6534,12 +6534,19 @@ export function sweepDanglingCommitAutotag(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = DANGLING_AUTOTAG_INTERVAL_MS,
+    enabled,
     tickFile = join(dirname(LOG), 'dangling-autotag-last.json'),
     logger = log,
     runner = null,
     scriptFile = null,
     notify = notifyGuardRed,
   } = opts
+  // 2026-11-05 机主令:增长产线默认停用。开关与 scripts/lib/dangling-commit-autotag.mjs 的
+  // ENABLE_ENV 同名同义(默认关,只有显式 =1 才建);这里先挡,避免每轮白跑 30a 与联网补拉。
+  const on = enabled === undefined ? String(process.env.IHUI_DANGLING_AUTOTAG_ENABLED || '') === '1' : Boolean(enabled)
+  if (!on) {
+    return { ran: false, ok: true, state: 'disabled', why: '增长产线停用(IHUI_DANGLING_AUTOTAG_ENABLED!=1)' }
+  }
   const script =
     scriptFile ??
     join(dirname(fileURLToPath(import.meta.url)), 'lib', 'dangling-commit-autotag.mjs')

@@ -66,6 +66,20 @@ export const SEAT = 'dangling-commit-autotag'
 export const LEDGER_REL = join('.ihui-agent', 'state', 'dangling-commit-autotag.jsonl')
 /** tag 命名:additive-only 前缀,人工打的 `lost-commit/<name>` 与本器互不遮蔽。 */
 export const TAG_PREFIX = 'lost-commit/auto-'
+
+/**
+ * 增长产线总开关(2026-11-05 机主令:先停增长,存量 tag 一枚不动)。
+ *
+ * **默认关闭**:只有显式 `IHUI_DANGLING_AUTOTAG_ENABLED=1` 才允许新建 `lost-commit/*`。
+ * 放在 `autotagOnce` 的判据入口之前(而不是只挡 CLI),任何调用方(守护子进程 `--apply`、
+ * 手工 `node …`、测试)都绕不开这一个闸;关闭时不跑门 30a、不联网、不写留痕、不派推送。
+ */
+export const ENABLE_ENV = 'IHUI_DANGLING_AUTOTAG_ENABLED'
+
+/** 开关读数(纯函数,便于反向用例直接注入)。默认关 = 不新建。 */
+export function autotagEnabled(env = process.env) {
+  return String(env?.[ENABLE_ENV] || '') === '1'
+}
 /** tag 名里带 sha 前 7 位(与 §12h `lost-commit/worktree-<名>-<sha7>` 同族写法)。 */
 export const TAG_SHA_LEN = 7
 /** 单轮上限:见头注「单轮上限」。 */
@@ -85,6 +99,8 @@ export const STATES = Object.freeze([
   'conflict',
   'refused',
   'undetermined',
+  // 增长产线被显式开关停用:不是"判完为绿",也不是"未判定",零动作且不占人通道
+  'disabled',
 ])
 
 const OID_RE = /^[0-9a-f]{40}$/
@@ -348,6 +364,7 @@ export function defaultLedgerAppend({ root = ROOT } = {}) {
 export function autotagOnce(opts = {}) {
   const {
     apply = false,
+    enabled,
     root = ROOT,
     cap = MAX_PER_ROUND,
     runGuard = defaultRunGuard,
@@ -364,6 +381,7 @@ export function autotagOnce(opts = {}) {
     const kv = [
       `state=${r.state}`,
       `tagged=${r.tagged}`,
+      `pushed=${r.pushed}`,
       `unbacked=${r.unbacked}`,
       `out_of_window=${r.outOfWeek}`,
       `already=${r.already}`,
@@ -378,6 +396,7 @@ export function autotagOnce(opts = {}) {
   const base = {
     state: 'undetermined',
     tagged: 0,
+    pushed: 0,
     unbacked: 0,
     outOfWeek: 0,
     already: 0,
@@ -388,6 +407,13 @@ export function autotagOnce(opts = {}) {
     why: '',
     tags: [],
     colliding: [],
+  }
+
+  // ⓪ 增长闸:默认关。关闭时不跑门 30a(=不触发 30a 的补拉),不联网、不写留痕、不派推送。
+  //    这里是唯一 I/O 入口(CLI 与守护子进程都走 autotagOnce),不能只挡 CLI。
+  const on = enabled === undefined ? autotagEnabled() : Boolean(enabled)
+  if (!on) {
+    return finish({ ...base, state: 'disabled', why: `增长产线停用(${ENABLE_ENV}!=1):零建零推,未跑门 30a` })
   }
 
   // ① 判据面:门 30a 自己的机读清单(零复算)
@@ -522,6 +548,7 @@ function main() {
   }
   const apply = argv.includes('--apply')
   const res = autotagOnce({ apply, listOutOfWindow: true })
+  if (!argv.includes('--json') && res.state === 'disabled') console.log(`ℹ️ ${res.why}`)
   if (argv.includes('--json')) console.log(JSON.stringify(res))
   if (res.state === 'undetermined') process.exit(2)
   if (res.state === 'refused' || res.state === 'conflict') process.exit(1)
@@ -547,6 +574,8 @@ export const __test__ = {
   SEAT,
   LEDGER_REL,
   TAG_PREFIX,
+  ENABLE_ENV,
+  autotagEnabled,
   TAG_SHA_LEN,
   MAX_PER_ROUND,
   STATES,
