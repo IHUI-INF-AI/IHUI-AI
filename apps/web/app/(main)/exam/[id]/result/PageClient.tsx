@@ -9,10 +9,12 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ArrowLeft, Check, X, Loader2, Clock, Award } from 'lucide-react'
+import { ArrowLeft, Check, X, Loader2, Award } from 'lucide-react'
 
 import { getMyRecords } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { ExamResultStats, ReviewList } from '@ihui/rn-app/pilot'
+import type { ExamResultStatItem, ExamReviewItem } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
 
 interface ResultDetail {
@@ -64,6 +66,45 @@ export default function ExamResultPage() {
   })
 
   const result = data?.list?.[0] ?? null
+
+  // 成绩四格与答题详情改由共享段承载(packages/app/src/features/exam-result),
+  // web 只做字段映射与文案注入;两端 i18n 键族不同,不在此合并。若无记录则不构造。
+  const stats: ExamResultStatItem[] = result
+    ? [
+        {
+          key: 'correct',
+          label: t('result.correct'),
+          value: String(result.correctCount),
+          tone: 'correct',
+        },
+        { key: 'wrong', label: t('result.wrong'), value: String(result.wrongCount), tone: 'wrong' },
+        {
+          key: 'unanswered',
+          label: t('result.unanswered'),
+          value: String(result.unansweredCount),
+          tone: 'muted',
+        },
+        {
+          key: 'duration',
+          label: t('result.duration'),
+          value: t('result.minutes', { n: result.duration }),
+          tone: 'neutral',
+        },
+      ]
+    : []
+
+  const reviewItems: ExamReviewItem[] = result
+    ? result.details.map((d) => ({
+        id: d.questionId,
+        title: d.title,
+        isCorrect: d.isCorrect,
+        score: d.score,
+        myAnswer: normalizeAnswer(d.userAnswer),
+        // web 权益:答对不展示正确答案(原 inline 实现的 !d.isCorrect 分支)
+        correctAnswer: d.isCorrect ? undefined : normalizeAnswer(d.correctAnswer),
+        analysis: d.analysis ?? undefined,
+      }))
+    : []
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -145,26 +186,8 @@ export default function ExamResultPage() {
             {result.isPassed ? t('passed') : t('failed')}
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.correct')}</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-600">{result.correctCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.wrong')}</div>
-            <div className="mt-1 text-lg font-semibold text-destructive">{result.wrongCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.unanswered')}</div>
-            <div className="mt-1 text-lg font-semibold">{result.unansweredCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.duration')}</div>
-            <div className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold">
-              <Clock className="h-3.5 w-3.5" />
-              {t('result.minutes', { n: result.duration })}
-            </div>
-          </div>
+        <CardContent>
+          <ExamResultStats items={stats} colorScheme="light" />
         </CardContent>
         <CardContent className="pt-0">
           <div className="flex items-center gap-2 text-label text-muted-foreground">
@@ -174,75 +197,21 @@ export default function ExamResultPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('result.detailsTitle')}</h2>
-        {result.details.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
-            {t('result.detailsEmpty')}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {result.details.map((d: ResultDetail, i: number) => (
-              <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
-                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-start gap-2">
-                      {d.isCorrect ? (
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                      )}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="break-words text-body font-medium">
-                          {i + 1}. {d.title}
-                        </p>
-                        <div className="grid grid-cols-1 gap-1 text-label">
-                          <div className="flex items-start gap-1">
-                            <span className="shrink-0 text-muted-foreground">
-                              {t('result.yourAnswer')}
-                            </span>
-                            <span
-                              className={cn(
-                                'break-words',
-                                d.isCorrect ? 'text-emerald-600' : 'text-destructive',
-                              )}
-                            >
-                              {normalizeAnswer(d.userAnswer)}
-                            </span>
-                          </div>
-                          {!d.isCorrect && (
-                            <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">
-                                {t('result.correctAnswer')}
-                              </span>
-                              <span className="break-words text-emerald-600">
-                                {normalizeAnswer(d.correctAnswer)}
-                              </span>
-                            </div>
-                          )}
-                          {d.analysis && (
-                            <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">
-                                {t('result.analysis')}
-                              </span>
-                              <span className="break-words text-muted-foreground">
-                                {d.analysis}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
-                      {t('result.points', { n: d.score })}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      <ReviewList
+        items={reviewItems}
+        title={t('result.detailsTitle')}
+        labels={{
+          correct: t('result.correct'),
+          wrong: t('result.wrong'),
+          yourAnswer: t('result.yourAnswer'),
+          correctAnswer: t('result.correctAnswer'),
+          analysis: t('result.analysis'),
+          score: (n) => t('result.points', { n }),
+          questionIndex: (n) => `${n}.`,
+        }}
+        emptyText={t('result.detailsEmpty')}
+        colorScheme="light"
+      />
     </div>
   )
 }
