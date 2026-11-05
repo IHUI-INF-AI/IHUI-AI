@@ -8,8 +8,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   countInvisibleForTransport,
+  countOrphanZwj,
   sanitizeMessagesForTransport,
   stripInvisibleForTransport,
+  stripOrphanZwj,
 } from '../src/util/invisible-transport.js'
 
 // 夹具一律按码点构造,源码不落任何真实零宽字符 —— 否则测试文件自己就成了载荷源。
@@ -29,44 +31,41 @@ const SRC = (rel: string): string =>
 
 const WATERMARK_LIKE = 'xxx' + ZWSP + ZWNJ + ZWJ + WJ + BOM + SHY
 
-describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', () => {
+describe('invisible-transport(自治会话自毒病灶,2026-11-05 三次修正同一条)', () => {
   it('① 剥掉零宽族,可见字节一字不动', () => {
-    const src = `def compute_simhash(a):${ZWJ}${ZWSP} pass${BOM}`
-    expect(stripInvisibleForTransport(src)).toBe('def compute_simhash(a): pass')
+    const src = `def f(a):${ZWJ}${ZWSP} pass${BOM}`
+    expect(stripInvisibleForTransport(src)).toBe('def f(a): pass')
     expect(countInvisibleForTransport(src)).toBe(3)
   })
 
-  it('② 命中数为 0 ⇒ 返回同一引用(不给每条消息造新串)', () => {
-    const src = '普通文本,含中文与 emoji 一家'
+  it('② 命中数为 0 ⇒ 返回同一引用', () => {
+    const src = '普通文本,含中文与一家'
     expect(countInvisibleForTransport(src)).toBe(0)
     expect(stripInvisibleForTransport(src)).toBe(src)
   })
 
-  it('③ 有语义的空白不被误伤(射程只收零语义码点)', () => {
+  it('③ 有语义的空白不被误伤', () => {
     expect(stripInvisibleForTransport('a\tb\nc d')).toBe('a\tb\nc d')
     for (const ch of [cp(0x200a), cp(0x2028), cp(0x2065), cp(0x2066)])
       expect(countInvisibleForTransport(`a${ch}b`), U(ch)).toBe(0)
   })
 
-  it('④ 幂等:剥过的文本再剥仍是它自己,计数归零', () => {
+  it('④ 幂等', () => {
     const once = stripInvisibleForTransport(WATERMARK_LIKE)
     expect(once).toBe('xxx')
-    expect(countInvisibleForTransport(once)).toBe(0)
     expect(stripInvisibleForTransport(once)).toBe(once)
   })
 
-  it('⑤ 非字符串/空值不炸(工具结果可能没有正文)', () => {
+  it('⑤ 非字符串/空值不炸', () => {
     const loose = stripInvisibleForTransport as unknown as (v: unknown, k?: boolean) => unknown
     expect(loose(undefined)).toBe(undefined)
     expect(loose(null)).toBe(null)
     expect(stripInvisibleForTransport('')).toBe('')
-    expect(countInvisibleForTransport('')).toBe(0)
   })
 
-  it('⑥ 整族逐码点都被认出(漏一档 = 该档载荷照样 400)', () => {
+  it('⑥ 整族逐码点都被认出', () => {
     const inRange = [ZWSP, ZWNJ, ZWJ, LRM, RLM, WJ, ...INVISIBLE_OPS, BOM, SHY]
     expect(inRange.length).toBe(12)
-    // 夹具形状锁:cp() 若被 .map 直接接走(index/array 会当码点喂进 String.fromCharCode)
     for (const ch of inRange) expect(ch.length).toBe(1)
     for (const ch of inRange) {
       expect(countInvisibleForTransport(`a${ch}b`), U(ch)).toBe(1)
@@ -74,32 +73,34 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
     }
   })
 
-  it('⑦ keepZwj 档:ZWJ 是唯一被留下的码点(emoji 家族不得被拆散)', () => {
+  it('⑦ keepZwj 档只保 emoji 家族里那一枚,孤零 ZWJ 一样算命中', () => {
     const family = `👩${ZWJ}👩${ZWJ}👧`
     expect(countInvisibleForTransport(family, true)).toBe(0)
     expect(stripInvisibleForTransport(family, true)).toBe(family)
-    // 同一段里混进水印字母表的其他码点 ⇒ 照样认出并剥掉,ZWJ 一个不动
-    const mixed = family + ZWSP + BOM
-    expect(countInvisibleForTransport(mixed, true)).toBe(2)
+    const mixed = family + ZWSP + BOM + ZWJ
+    expect(countInvisibleForTransport(mixed, true)).toBe(3)
     expect(stripInvisibleForTransport(mixed, true)).toBe(family)
-    // 反向锁:tool 档(keepZwj=false)仍按全族判,两把尺不可互换
     expect(countInvisibleForTransport(family, false)).toBe(2)
   })
 
-  it('⑧ 表级:每一档都过,但非 tool 档留 ZWJ', () => {
+  it('⑧ 表级:每一档都过;干净那条连对象引用都不换', () => {
     const tool = { role: 'tool', content: `read_file 结果${ZWSP}${ZWJ}`, tool_call_id: 'c1' }
-    const user = { role: 'user', content: `用户原文${ZWSP}${ZWJ}` }
+    const user = { role: 'user', content: `工具输出改走这档${ZWSP}${ZWJ}` }
     const summary = { role: 'system', content: `上下文摘要${BOM}` }
-    const clean = { role: 'assistant', content: '干净正文' }
+    const clean = { role: 'assistant', content: family0() }
     const out = sanitizeMessagesForTransport([user, clean, tool, summary])
-    expect(out[2]!.content).toBe('read_file 结果') // tool:ZWJ 也剥
+    expect(out[2]!.content).toBe('read_file 结果')
     expect(out[2]!.tool_call_id).toBe('c1')
-    expect(out[0]!.content).toBe(`用户原文${ZWJ}`) // 非 tool:ZWJ 留,载荷剥
+    // 收窄后的契约:user 档也清到底(ZWJ 两侧非图画字符 ⇒ 剥)
+    expect(out[0]!.content).toBe('工具输出改走这档')
     expect(out[3]!.content).toBe('上下文摘要')
-    expect(out[1]).toBe(clean) // 零命中的那条连对象引用都不换
+    expect(out[1]).toBe(clean)
+    function family0(): string {
+      return `👩${ZWJ}👩${ZWJ}👧`
+    }
   })
 
-  it('⑨ 表级:全表零命中 ⇒ 返回入参数组本身(主循环每轮都过这里)', () => {
+  it('⑨ 全表零命中 ⇒ 返回入参数组本身', () => {
     const arr = [
       { role: 'user', content: 'a' },
       { role: 'tool', content: 'b' },
@@ -108,12 +109,12 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
     expect(sanitizeMessagesForTransport(arr)).toBe(arr)
   })
 
-  it('⑩ 接线锁:三个 provider 出口全部带清洗(摘掉任一即翻红)', () => {
+  it('⑩ 三个 provider 出口全部带清洗(摘掉任一即翻红)', () => {
     const src = SRC('src/commands/agent.ts')
     const exits =
       (src.match(/streamChat\(\{/g) ?? []).length +
       (src.match(/streamOpenAiCompatible\(\{/g) ?? []).length
-    expect(exits, 'apps/cli 的出站调用点数量变了 ⇒ 本锁的射程要跟着逐处点名').toBe(3)
+    expect(exits).toBe(3)
     expect((src.match(/messages:\s*sanitizeMessagesForTransport\(/g) ?? []).length).toBe(3)
     expect(src).toMatch(
       /messages:\s*sanitizeMessagesForTransport\(\s*opts\.messages\s*,\s*'streamChat'/,
@@ -124,47 +125,76 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
     expect((mutant.match(/messages:\s*sanitizeMessagesForTransport\(/g) ?? []).length).toBe(0)
   })
 
-  it('⑪ 判据单源:agent.ts 只许 import 复用,不得出现第二份零宽实现', () => {
+  it('⑪ 判据单源:agent.ts 不得出现第二份零宽实现', () => {
     const src = SRC('src/commands/agent.ts')
     expect(src).toMatch(/from '\.\.\/util\/invisible-transport\.js'/)
-    expect(/\\u200[B-F]/.test(src), 'agent.ts 内出现零宽码点字面量 ⇒ 判据必须回到本模块').toBe(
-      false,
-    )
+    expect(/\\u200[B-F]/.test(src)).toBe(false)
   })
 
-  it('⑫ 载荷确实会从非 tool 档漏出去(这两条通路是判据要覆盖全部角色的依据)', () => {
-    // 实测:工具输出被按 role:'user' 入历史;压缩摘要是一条非 tool 消息而它带压缩前原文。
+  it('⑫ 载荷确实会从非 tool 档漏出去', () => {
     expect(SRC('src/commands/agent.ts')).toMatch(
       /opts\.messages\.push\(\{ role: 'user', content \}\)/,
     )
     expect(SRC('src/compaction-v2.ts')).toMatch(/content: `\[上下文摘要/)
   })
 
-  it('⑬ 自查仪器:缺省完全静默,env 开时打 raw/sent 两笔读数', () => {
-    const msgs = [
-      { role: 'user', content: `带载荷${ZWSP}` },
-      { role: 'tool', content: `工具结果${ZWJ}` },
-    ]
+  it('⑬ 自查仪器:缺省静默,开档报 raw/sent/zwj/extra 四格', () => {
     const writes: string[] = []
     const spy = vi.spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
       writes.push(String(c))
       return true
     })
     try {
+      const msgs = [
+        { role: 'user', content: `带载荷${ZWSP}` },
+        { role: 'tool', content: `工具结果${ZWJ}` },
+      ]
       sanitizeMessagesForTransport(msgs, 'unit')
-      expect(writes.length, '没开 env 就不许多出一行(会污染 --json 通路)').toBe(0)
+      expect(writes.length).toBe(0)
       process.env.IHUI_TRANSPORT_AUDIT = '1'
       sanitizeMessagesForTransport(msgs, 'streamChat')
-      expect(writes.length).toBe(1)
       expect(writes[0]).toContain('exit=streamChat')
-      // raw=2(user 一档 ZWSP + tool 一档 ZWJ),sent=0(两档都被清过)
-      expect(writes[0]).toMatch(/raw=2 sent=0/)
-      // extras 那一格:随请求同走的 other body 也要被量到(sent=0 而 400 仍在时靠它定位)
+      expect(writes[0]).toMatch(/raw=2 sent=0 zwj=0/)
       writes.length = 0
       sanitizeMessagesForTransport([{ role: 'user', content: 'clean' }], 'streamChat', {
         tools: [{ desc: `带载荷${ZWSP}` }],
       })
-      expect(writes[0]).toMatch(/sent=0 extra=1/)
+      expect(writes[0]).toMatch(/sent=0 zwj=0 extra=1/)
+    } finally {
+      spy.mockRestore()
+      delete process.env.IHUI_TRANSPORT_AUDIT
+    }
+  })
+
+  it('⑭ 孤零 ZWJ 也要剥(第三次修正:88 枚 ZWJ 曾随 role:user 出去)', () => {
+    const family = `👩${ZWJ}👩${ZWJ}👧`
+    expect(countOrphanZwj(family)).toBe(0)
+    expect(stripOrphanZwj(family)).toBe(family)
+    const wm = `x${ZWJ}y${ZWJ}${ZWSP}`
+    expect(countOrphanZwj(wm)).toBe(2)
+    expect(stripOrphanZwj(wm)).toBe(`xy${ZWSP}`)
+    expect(countInvisibleForTransport(wm, true)).toBe(3)
+    expect(stripInvisibleForTransport(wm, true)).toBe('xy')
+    const out = sanitizeMessagesForTransport([
+      { role: 'user', content: `工具输出${ZWSP}${ZWJ}尾巴` },
+      { role: 'assistant', content: family },
+    ])
+    expect(out[0]!.content).toBe('工具输出尾巴')
+    expect(out[1]!.content).toBe(family)
+  })
+
+  it('⑮ zwj 那一格报的是" survivors ":出去的不含孤零 ZWJ', () => {
+    const writes: string[] = []
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
+      writes.push(String(c))
+      return true
+    })
+    try {
+      process.env.IHUI_TRANSPORT_AUDIT = '1'
+      const before = [{ role: 'user', content: `a${ZWJ}b` }]
+      const out = sanitizeMessagesForTransport(before, 'streamChat')
+      expect(out[0]!.content).toBe('ab')
+      expect(writes[0]).toMatch(/raw=1 sent=0 zwj=0/)
     } finally {
       spy.mockRestore()
       delete process.env.IHUI_TRANSPORT_AUDIT
