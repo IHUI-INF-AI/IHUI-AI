@@ -188,5 +188,17 @@ api-client；若让 api-client 反向依赖 shared 会形成真实循环依赖�
 超时伪红、parity 门 1 条 `miniapp-taro permission` 端能力棘轮 —— 按存量归因只报告，不擅动判据。
 
 **红线**：未粘贴任何对照程序专有源码、未引入第三方 `jsonrepair`、未提取/硬编码任何凭据；provenance 水印齐备。
+
+#### 3.5.2 激活收口：agent 工具循环逐分片直推实际打通（2026-11-05 续）
+
+续 3.5.1 的「可选增强」清单，本次把上次刻意留作 opt-in 的两步激活开关真正接上，使生产默认通路即可实时渐进渲染：
+
+- **根因修复**：3.5.1 仅给 `llm.py` 的 generic 原生 FC 通道开了 `tool_call_args_stream=True`，而真正的 agent 工具循环（首轮 `_tool_iter==0` / 后续轮）两处 `astream` 调用既未传该开关，其 SSE 事件 `elif` 链也**缺 `tool-call-args-delta` 分支**——即使开启，逐片帧也会被静默丢弃。本轮补：① 两处 `astream` 显式 `tool_call_args_stream=True`；② 两处 `elif` 链补 `tool-call-args-delta` 透传分支。
+- **实测抓出的 bug**：首版透传分支误用 `SSE_TOOL_CALL_ARGS_DELTA` 常量（该常量仅定义在 `app/services/agent_events.py`，`llm.py` 未导入）→ 运行时 `NameError` 中断流。修复为直接用事件类型串 `_evt_type` 作 SSE 名（与 generic 通道通用兜底 `yield _sse(event_type, event)` 同律）。该 bug 由新增端到端测试 `test_agent_loop_delta_frame.py` 捕获（`agent 循环必须透传 tool-call-args-delta 帧` 断言失败 → 定位到未定义常量）。
+- **测试锁定**：`tests/test_agent_loop_delta_frame.py` 捕获 `astream` 调用参数断言 `tool_call_args_stream is True`，并断言 `tool-call-args-delta` 帧端到端到达 wire + 两轮 `astream` 闭环（首轮决策工具 + 续轮产出最终回复）。
+- **守门实证**：ai-service 相关套件 99 例全绿（新测试 + streaming_tool_loop + tool_loop_e2e + tool_delta_frame + json_repair + sse_contract + protocol_adapter + native_fc）；私有索引 CAS 提交 `89af54537b`，守门批 333 项全执行、本席零阻断红；`removed:[]/skipped:[]` 未误带他席在途文件。
+- **parity 门**：`tool-call-args-delta` 与 30+ 主线事件同列「未判定」档（覆盖面边界），唯一「阻断 commit」仍是 `miniapp-taro permission` 存量，与本轮无关。
+- **链路全通结论**：`ai-service 发射（tool-call-args-delta）→ apps/api 透明透传（ai-chat-stream 仅配对 usage|steer|fallback）→ api-client 归一 OpenAiToolCallDelta → web ToolCallCard 渐进渲染`，整条链路 opt-in 已激活，无额外部署开关。
+
 **本册已无必须交付项，可闭环。**
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
