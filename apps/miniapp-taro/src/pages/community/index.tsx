@@ -2,10 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { aizhsUrl } from '@/constants/icon-urls'
-import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
-import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
-import { useTt, t } from '@/i18n'
+import { useState, useCallback, useRef } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, {
   useDidShow,
@@ -15,35 +12,48 @@ import Taro, {
   useShareAppMessage,
   useShareTimeline,
 } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
+import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import NavBar from '@/components/NavBar'
 import Carousel from '@/components/Carousel'
 import DrawerComponent from '@/components/DrawerComponent'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
-import AgentListPanel from '@/components/AgentListPanel'
 import ThemeRoot from '@/components/ThemeRoot'
-import { FloatBox, EmptyState, PayPopup } from '@/components'
+import { FloatBox, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
+import LineIcon from '@/components/LineIcon'
+import { useTt, t, useI18n } from '@/i18n'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
 import { getTopBarMetrics } from '@/utils/system-info'
-import LineIcon from '@/components/LineIcon'
+import { rpx, px } from '@/utils/rpx'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { rnRadius } from '@ihui/design-tokens'
+import { AgentScreen as SharedAgentScreen } from '@ihui/rn-app/features/agent-screen/AgentScreen'
+import { useTheme } from '@/rn-compat/theme'
+import type { AgentScreenItem, CarouselItem, OnNavigate, TitleSwitchScrollTitleItem } from '@ihui/types'
+import type { AgentInfo } from '@/components/AgentListPanel'
+import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import './index.css'
+import { onToast } from '@/host/on-toast'
+
 // 服务弹窗名片+二维码(对齐原项目 Ai-list_b.vue L213-227 mingpian.png + erweima.png)
 const mingpianImg = aizhsUrl('remote-images/mingpian.png')
 const erweimaImg = aizhsUrl('remote-images/erweima.png')
-import { rpx, px } from '@/utils/rpx'
-import type { CarouselItem } from '@ihui/types'
-import type { TitleSwitchScrollTitleItem } from '@ihui/types'
-import { rnRadius } from '@ihui/design-tokens'
-import type { AgentInfo } from '@/components/AgentListPanel'
-import type { DrawerModelGroup, DrawerUserInfo, DrawerChatItem } from '@/components/DrawerComponent'
-import './index.css'
-import { onToast } from '@/host/on-toast'
+
+/**
+ * 共享屏本轮只 assert 导航端口、尚未调用(列表跳转由壳内 onPressItem 承接)。
+ * 落空一律可见失败,不静默吞。
+ */
+const onSharedNavigate: OnNavigate = (target) => {
+  onToast(`导航未接入: ${target}`, { kind: 'error' })
+}
 
 /* ============ 类型定义 ============ */
 
@@ -103,10 +113,12 @@ function formatNumber(num: number): string {
   return String(num)
 }
 
-/* ============ 页面主组件 ============ */
+/* ============ 页面主组件(薄壳:数据/支付/选图/导航在此,列表主体由共享屏渲染) ============ */
 
 export default function Community() {
   const tt = useTt()
+  const { t: translate } = useI18n()
+  const { resolvedTheme } = useTheme()
   const [banners, setBanners] = useState<CarouselItem[]>([])
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
@@ -332,7 +344,8 @@ export default function Community() {
     })
     try {
       const userData = Taro.getStorageSync('data') as
-        { avatar?: string; userName?: string; nickname?: string } | undefined
+        | { avatar?: string; userName?: string; nickname?: string }
+        | undefined
       if (userData) {
         setDrawerUserinfo({
           avatar: userData.avatar || '',
@@ -350,6 +363,8 @@ export default function Community() {
     })
   })
 
+  // 分页触底:小程序页面滚动归宿主(useReachBottom),共享屏只负责底部指示;
+  // 与 loadData(true)/usePullDownRefresh 走同一份加载器。
   useReachBottom(() => {
     loadData()
   })
@@ -615,14 +630,14 @@ export default function Community() {
     },
   ]
 
-  // handleAgentCollect / handleAgentLike 暂未被 AgentListPanel 触发(等扩展 onCollect/onLike 回调),
+  // handleAgentCollect / handleAgentLike 暂未被列表卡片触发(共享屏卡片暂无收藏/点赞回调),
   // 此处 void 引用防止 TS6133 未使用警告,接入后移除
   void handleAgentCollect
   void handleAgentLike
-  // formatNumber 暂未接入 AgentListPanel 显示(等扩展 useCount 格式化回调),此处 void 引用防止未使用警告
+  // formatNumber 暂未接入共享屏卡片显示(共享屏按 useCount 原值展示),此处 void 引用防止未使用警告
   void formatNumber
 
-  /** 映射 AgentItem[] 到 AgentInfo[] */
+  /** 映射 AgentItem[] 到 AgentInfo[](支付/详情跳转只认这份 id → 业务字段映射) */
   const agentInfoList: AgentInfo[] = agentList.map((a) => ({
     id: a.id,
     name: a.agentName,
@@ -633,6 +648,24 @@ export default function Community() {
     isVipExclusive: false,
     vipType: a.type === 3 ? 4 : undefined, // type=3 月费(简化映射,对齐原项目 Ai-list_b.vue)
   }))
+
+  /** 共享屏列表项的展示映射(卡片本体由共享屏渲染) */
+  const agentScreenItems: AgentScreenItem[] = agentInfoList.map((a) => ({
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar,
+    description: a.description ?? '',
+    useCount: a.useCount,
+    isVipExclusive: a.isVipExclusive,
+    badgeText: a.category,
+    isPurchasable: a.vipType === 4,
+  }))
+
+  /** 支付端口:共享屏卡片点内购条目 → 壳内查价 + 打开支付弹窗(真实 requestPayment 在弹窗里) */
+  function handleScreenRequestPayment(item: AgentScreenItem) {
+    const agent = agentInfoList.find((a) => a.id === item.id)
+    if (agent) void handlePurchase(agent)
+  }
 
   return (
     // 底部留位取单一出处 `constants/tab-bar-metrics`(自定义 tabBar 是浮层,不压缩页面
@@ -650,351 +683,392 @@ export default function Community() {
           } as React.CSSProperties
         }
       >
-        {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
-        <DrawerComponent
-          visible={showDrawer}
-          onClose={() => setShowDrawer(false)}
-          side="left"
-          groupedData={drawerGroupedData}
-          userinfo={drawerUserinfo}
-          onMenuItemClick={handleDrawerGoPage}
-          onLabelItemClick={handleDrawerLabelClick}
-          onChatItemClick={handleDrawerChatClick}
-          onRemoveChat={handleRemoveChat}
-          onCreateChat={() => {
-            setShowDrawer(false)
-            Taro.navigateTo({ url: '/pkg-ai/ai/chat' })
-          }}
-        />
-
-        <View className="community-main-container" style={{ color: 'var(--color-foreground)' }}>
-          {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
-          <FloatBox />
-
-          {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
-          <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
-            <NavBar
-              variant="ai-home"
-              title={tt('community.m1', 'A I 应用商店')}
-              bgColor="var(--color-card)"
-              showFenLei
-              showSearch
-              onFenLeiClick={handleFenLeiClick}
-              onMenuClick={handleMenuClick}
-              onSearchClick={handleSearchClick}
-            />
-          </View>
-          <View style={{ opacity: 0 }}>
-            <NavBar
-              variant="ai-home"
-              title={tt('community.m2', 'A I 应用商店')}
-              bgColor="var(--color-card)"
-              showFenLei
-              showSearch
-              onFenLeiClick={handleFenLeiClick}
-              onMenuClick={handleMenuClick}
-              onSearchClick={handleSearchClick}
-            />
-          </View>
-
-          {/* mask — 分类弹层遮罩(对齐原项目) */}
-          {showCategoryPopup ? (
-            <View className="community-mask" onClick={() => setShowCategoryPopup(false)} />
-          ) : null}
-
-          {/* s_t_b — 分类弹层(对齐原项目 tagWrapShow 时的弹层) */}
-          {showCategoryPopup ? (
-            <View className="community-s-t-b">
-              <TitleSwitchScrollTitle
-                mainList={titleSwitchMainList}
-                mainSwiperMargin="120rpx"
-                subSwiperMargin="120rpx"
-                onChange={onTitleSwitchChange}
-              />
-              {/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */}
-              <View className="community-fenlei-overlay">
-                <View className="community-fenlei-inner">
-                  {categories.map((item, index) => (
-                    <View
-                      key={item.id}
-                      className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
-                      onClick={() => handleFenleiBtnClick(index, item)}
-                      hoverClass="opacity-60"
-                    >
-                      <Image
-                        className="fenlei_icon"
-                        src={fenleiActive.includes(index) ? item.butUrl : item.url}
-                        mode="widthFix"
-                      />
-                      <Text className="community-fenlei-btn-text">{item.name}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          ) : null}
-
-          {/* 页面内容(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) */}
-          <View
-            className="community-content-area"
-            style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx' }}
-          >
-            {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
-            <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
-              <View className="community-carousel-gradient">
-                <View className="community-carousel-inner">
-                  <Carousel items={banners} autoplay interval={3000} onItemClick={onBannerClick} />
-                </View>
-              </View>
-            </View>
-
-            {/* 客服按钮(对齐原项目服务弹窗入口)*/}
-            <View
-              style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
-              onClick={() => setShowServicePopup(true)}
-              hoverClass="opacity-60"
-            >
-              <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
-                {tt('wallet.recharge.fail.contactService', '联系客服')}
-              </Text>
-            </View>
-
-            {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
-            {showSearch ? (
-              <View
-                className="community-search-area"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: rpx(12),
-                }}
-              >
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <InputArea
-                    value={searchKeyword}
-                    placeholder={tt('community.m3', '请输入查找的智能体名称')}
-                    onInput={handleSearchInput}
-                    onSend={handleSearchSend}
-                    variant="default"
+        {/*
+         * 内容容器(原 community-content-area 的 padding 与 main-container 的相对定位/文字色):
+         * banner / 搜索 / 最近 / 我的 / 列表标题 由插槽交回壳,列表本体(卡片 + 空态 +
+         * 分页指示)由共享屏渲染,共享屏自己带 16px 列表内边距,与旧 ailist_content 对齐。
+         */}
+        <View
+          className="community-content-area community-main-container"
+          style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx', color: 'var(--color-foreground)' }}
+        >
+          <SharedAgentScreen
+            t={translate}
+            items={agentScreenItems}
+            loading={loading}
+            refreshing={false}
+            error={null}
+            onRefresh={() => {
+              void loadData(true)
+            }}
+            onPressItem={(id) => {
+              const agent = agentInfoList.find((a) => a.id === id)
+              if (agent) onAgentListSelect(agent)
+            }}
+            onRequestPayment={handleScreenRequestPayment}
+            // 选图能力端口:本页搜索区走自身 renderSearch 插槽(语音/图片按钮各自有文案与埋点),
+            // 端口仍照常接上,宿主若改用共享屏内置搜索时图片搜索可用。
+            onChooseImages={async (count) => {
+              await chooseImages(count ?? 1)
+            }}
+            onBack={() => {
+              void Taro.navigateBack()
+            }}
+            onNavigate={onSharedNavigate}
+            colorScheme={resolvedTheme}
+            nestedInScrollView
+            // 触底由宿主页 useReachBottom 触发(嵌套模式滚动归页面);loadingMore/hasMore 只驱动底部指示
+            onEndReached={() => {
+              void loadData()
+            }}
+            loadingMore={loading && agentList.length > 0}
+            hasMore={hasMore}
+            emptyText={tt('agent.empty', '暂无智能体')}
+            loadingText={tt('common.loadingShort', '加载中...')}
+            loadingMoreText={tt('common.loadingShort', '加载中...')}
+            noMoreText={tt('common.noMore', '没有更多了')}
+            // 赛道分类是服务端分类参数(改请求),与共享屏的本地关键词 chip 不是同一件事,
+            // 保留本页自己的分类弹层,关闭共享屏 chip 条。
+            showCategoryBar={false}
+            renderHeader={
+              <>
+                {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
+                <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
+                  <NavBar
+                    variant="ai-home"
+                    title={tt('community.m1', 'A I 应用商店')}
+                    bgColor="var(--color-card)"
+                    showFenLei
+                    showSearch
+                    onFenLeiClick={handleFenLeiClick}
+                    onMenuClick={handleMenuClick}
+                    onSearchClick={handleSearchClick}
                   />
                 </View>
-                {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
-                 语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
-                  统一提示该能力在完整版提供,避免「开发中」误导) */}
-                <LineIcon
-                  size={40}
-                  name="mic"
-                  color="var(--color-muted-foreground)"
-                  style={{ padding: rpx(8), flexShrink: 0 }}
-                  onClick={() => {
-                    onToast(tt('community.search13', '语音搜索请在完整版使用'), { kind: 'info' })
-                  }}
-                />
-                {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
-                 后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
-                <LineIcon
-                  size={40}
-                  name="search"
-                  color="var(--color-muted-foreground)"
-                  style={{ padding: rpx(8), flexShrink: 0 }}
-                  onClick={async () => {
-                    try {
-                      await chooseImages(1)
-                      onToast(tt('community.search14', '图片搜索请在完整版使用'), { kind: 'info' })
-                    } catch {
-                      // 用户取消或失败,静默
-                    }
-                  }}
-                />
+                <View style={{ opacity: 0 }}>
+                  <NavBar
+                    variant="ai-home"
+                    title={tt('community.m2', 'A I 应用商店')}
+                    bgColor="var(--color-card)"
+                    showFenLei
+                    showSearch
+                    onFenLeiClick={handleFenLeiClick}
+                    onMenuClick={handleMenuClick}
+                    onSearchClick={handleSearchClick}
+                  />
+                </View>
+
+                {/* mask — 分类弹层遮罩(对齐原项目) */}
+                {showCategoryPopup ? (
+                  <View className="community-mask" onClick={() => setShowCategoryPopup(false)} />
+                ) : null}
+
+                {/* s_t_b — 分类弹层(对齐原项目 tagWrapShow 时的弹层) */}
+                {showCategoryPopup ? (
+                  <View className="community-s-t-b">
+                    <TitleSwitchScrollTitle
+                      mainList={titleSwitchMainList}
+                      mainSwiperMargin="120rpx"
+                      subSwiperMargin="120rpx"
+                      onChange={onTitleSwitchChange}
+                    />
+                    {/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */}
+                    <View className="community-fenlei-overlay">
+                      <View className="community-fenlei-inner">
+                        {categories.map((item, index) => (
+                          <View
+                            key={item.id}
+                            className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
+                            onClick={() => handleFenleiBtnClick(index, item)}
+                            hoverClass="opacity-60"
+                          >
+                            <Image
+                              className="fenlei_icon"
+                              src={fenleiActive.includes(index) ? item.butUrl : item.url}
+                              mode="widthFix"
+                            />
+                            <Text className="community-fenlei-btn-text">{item.name}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+              </>
+            }
+            renderBanner={
+              // 轮播图(对齐原项目 gradient-border + carousel-inner)
+              <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
+                <View className="community-carousel-gradient">
+                  <View className="community-carousel-inner">
+                    <Carousel
+                      items={banners}
+                      autoplay
+                      interval={3000}
+                      onItemClick={onBannerClick}
+                    />
+                  </View>
+                </View>
               </View>
-            ) : null}
-
-            {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
-            {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
-
-            {/* MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0) */}
-            {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
-
-            {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
-            <View className="community-ailist-content">
-              <View className="community-agent-list-header">
-                <Text className="community-agent-list-title">
-                  {tt('community.text15', '智能体推荐')}
-                </Text>
-                <Text
-                  className="community-agent-list-posts"
-                  onClick={() => Taro.navigateTo({ url: '/pkg-content/community/create/index' })}
-                >
-                  {tt('community.posts', '帖子')}
-                </Text>
+            }
+            renderSearch={
+              <>
+                {/* 客服按钮(对齐原项目服务弹窗入口)*/}
                 <View
-                  className="community-agent-list-more"
-                  onClick={() =>
-                    Taro.navigateTo({
-                      url: '/pkg-content/category-detail/index',
-                      fail: () =>
-                        onToast(tt('community.detail16', '分类详情页未配置'), { kind: 'error' }),
-                    })
-                  }
+                  style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
+                  onClick={() => setShowServicePopup(true)}
                   hoverClass="opacity-60"
                 >
-                  <Text>{tt('common.more', '更多')}</Text>
-                  <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-                </View>
-              </View>
-              <AgentListPanel
-                visible
-                agents={agentInfoList}
-                loading={loading}
-                onSelect={onAgentListSelect}
-                onPurchase={handlePurchase}
-              />
-              {!loading && agentList.length === 0 ? (
-                <EmptyState text={tt('agent.empty', '暂无智能体')} />
-              ) : null}
-              {!loading && !hasMore && agentList.length > 0 ? (
-                <View className="community-no-more">
-                  <Text className="community-no-more-text">
-                    {tt('common.noMore', '没有更多了')}
+                  <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
+                    {tt('wallet.recharge.fail.contactService', '联系客服')}
                   </Text>
                 </View>
-              ) : null}
-            </View>
-          </View>
 
-          {/* 返回顶部按钮:外观与几何不在此设定,由 ScrollJumpButton 单一源给出;
-           *  这里只给定位(贴右下 + 给悬浮 TabBar 让位) */}
-          {showBackTop ? (
-            <ScrollJumpButton
-              direction="top"
-              onTap={backToTop}
-              style={{
-                position: 'fixed',
-                right: rpx(scrollJumpInsetRpx()),
-                bottom: rpx(pxToTaroRpx(TAB_BAR_OCCUPIED_PX) + scrollJumpInsetRpx()),
-              }}
-            />
-          ) : null}
-        </View>
-
-        {/* 服务弹窗(二维码名片,对齐原项目 Ai-list_b.vue L213-227 isServicePopupVisible) */}
-        {showServicePopup ? (
-          <View
-            className="fixed inset-0 z-[2000] flex items-center justify-center"
-            style={{ background: 'var(--color-scrim)' }}
-            onClick={() => setShowServicePopup(false)}
-          >
-            <View
-              className="relative"
-              style={{
-                padding: rpx(20),
-                borderRadius: rnRadius['2xl'],
-                background: 'var(--color-card)',
-                maxWidth: '85%',
-              }}
-              onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60"
-            >
-              {/* 名片图片(对齐原项目 mingpian.png) */}
-              <Image
-                src={mingpianImg}
-                mode="widthFix"
-                style={{ width: '100%', borderRadius: rnRadius.lg, marginBottom: rpx(16) }}
-              />
-              {/* 二维码图片(对齐原项目 erweima.png) */}
-              <Image
-                src={erweimaImg}
-                mode="widthFix"
-                style={{ width: '60%', display: 'block', margin: '0 auto' }}
-                showMenuByLongpress
-              />
-              {/* 关闭按钮 */}
-              <View
-                className="absolute"
-                style={{
-                  top: rpx(10),
-                  right: rpx(10),
-                  width: rpx(60),
-                  height: rpx(60),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                onClick={() => setShowServicePopup(false)}
-                hoverClass="opacity-60"
-              >
-                <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* PayPopup 支付弹窗(对齐原项目 Ai-list_b.vue L264-292) */}
-        <PayPopup
-          visible={showPayPopup}
-          pay={payInfo ?? {}}
-          payButtonType="subscription"
-          onClose={() => setShowPayPopup(false)}
-          onPay={async () => {
-            const agent = purchasingAgentRef.current
-            if (!agent || !payInfo) return
-            try {
-              // 1. 创建支付记录
-              await api.createPayHistory({
-                agentId: agent.id,
-                amount: payInfo.amount ?? 0,
-              })
-              // 2. 调微信支付 JSAPI 获取支付参数
-              const payRes = (await api.wechatPay({
-                amount: payInfo.amount ?? 0,
-                orderType: 'agent',
-                productId: agent.id,
-                description: t('community.y2', { p1: agent.name }),
-              })) as {
-                mock?: boolean
-                timeStamp?: string
-                nonceStr?: string
-                package?: string
-                signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
-                paySign?: string
-              }
-              // 3. mock 模式(后端未配置微信支付)
-              if (payRes?.mock) {
-                onToast(tt('community.success17', '支付成功(mock)'), { kind: 'success' })
-                setShowPayPopup(false)
-                void loadData(true)
-                return
-              }
-              // 4. 调起微信支付
-              if (
-                !payRes?.paySign ||
-                !payRes.timeStamp ||
-                !payRes.nonceStr ||
-                !payRes.package ||
-                !payRes.signType
-              ) {
-                onToast(tt('community.pay18', '支付参数异常'), { kind: 'error' })
-                return
-              }
-              await requestPayment({
-                timeStamp: payRes.timeStamp,
-                nonceStr: payRes.nonceStr,
-                package: payRes.package,
-                signType: payRes.signType,
-                paySign: payRes.paySign,
-              })
-              onToast(tt('pay.result.paid', '支付成功'), { kind: 'success' })
-              setShowPayPopup(false)
-              void loadData(true)
-            } catch (err) {
-              // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
-              if (err !== 'cancel') {
-                onToast(tt('pay.failed', '支付失败,请重试'), { kind: 'error' })
-              }
+                {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
+                {showSearch ? (
+                  <View
+                    className="community-search-area"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: rpx(12),
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <InputArea
+                        value={searchKeyword}
+                        placeholder={tt('community.m3', '请输入查找的智能体名称')}
+                        onInput={handleSearchInput}
+                        onSend={handleSearchSend}
+                        variant="default"
+                      />
+                    </View>
+                    {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
+                     语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
+                      统一提示该能力在完整版提供,避免「开发中」误导) */}
+                    <LineIcon
+                      size={40}
+                      name="mic"
+                      color="var(--color-muted-foreground)"
+                      style={{ padding: rpx(8), flexShrink: 0 }}
+                      onClick={() => {
+                        onToast(tt('community.search13', '语音搜索请在完整版使用'), { kind: 'info' })
+                      }}
+                    />
+                    {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
+                     后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
+                    <LineIcon
+                      size={40}
+                      name="search"
+                      color="var(--color-muted-foreground)"
+                      style={{ padding: rpx(8), flexShrink: 0 }}
+                      onClick={async () => {
+                        try {
+                          await chooseImages(1)
+                          onToast(tt('community.search14', '图片搜索请在完整版使用'), { kind: 'info' })
+                        } catch {
+                          // 用户取消或失败,静默
+                        }
+                      }}
+                    />
+                  </View>
+                ) : null}
+              </>
             }
-          }}
-        />
+            // RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0)
+            renderRecent={recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
+            // MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0)
+            renderMine={myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
+            renderListHeader={
+              // ai-list 标题行(原在 ailist_content 内,壳补 32rpx 横向内边距以对齐旧缩进)
+              <View style={{ paddingLeft: rpx(32), paddingRight: rpx(32) }}>
+                <View className="community-agent-list-header">
+                  <Text className="community-agent-list-title">
+                    {tt('community.text15', '智能体推荐')}
+                  </Text>
+                  <Text
+                    className="community-agent-list-posts"
+                    onClick={() => Taro.navigateTo({ url: '/pkg-content/community/create/index' })}
+                  >
+                    {tt('community.posts', '帖子')}
+                  </Text>
+                  <View
+                    className="community-agent-list-more"
+                    onClick={() =>
+                      Taro.navigateTo({
+                        url: '/pkg-content/category-detail/index',
+                        fail: () =>
+                          onToast(tt('community.detail16', '分类详情页未配置'), { kind: 'error' }),
+                      })
+                    }
+                    hoverClass="opacity-60"
+                  >
+                    <Text>{tt('common.more', '更多')}</Text>
+                    <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
+                  </View>
+                </View>
+              </View>
+            }
+            renderDrawer={
+              // DrawerComponent 抽屉 — 对齐原项目放在最外层
+              <DrawerComponent
+                visible={showDrawer}
+                onClose={() => setShowDrawer(false)}
+                side="left"
+                groupedData={drawerGroupedData}
+                userinfo={drawerUserinfo}
+                onMenuItemClick={handleDrawerGoPage}
+                onLabelItemClick={handleDrawerLabelClick}
+                onChatItemClick={handleDrawerChatClick}
+                onRemoveChat={handleRemoveChat}
+                onCreateChat={() => {
+                  setShowDrawer(false)
+                  Taro.navigateTo({ url: '/pkg-ai/ai/chat' })
+                }}
+              />
+            }
+            renderPayModal={
+              // PayPopup 支付弹窗(对齐原项目 Ai-list_b.vue L264-292)
+              <PayPopup
+                visible={showPayPopup}
+                pay={payInfo ?? {}}
+                payButtonType="subscription"
+                onClose={() => setShowPayPopup(false)}
+                onPay={async () => {
+                  const agent = purchasingAgentRef.current
+                  if (!agent || !payInfo) return
+                  try {
+                    // 1. 创建支付记录
+                    await api.createPayHistory({
+                      agentId: agent.id,
+                      amount: payInfo.amount ?? 0,
+                    })
+                    // 2. 调微信支付 JSAPI 获取支付参数
+                    const payRes = (await api.wechatPay({
+                      amount: payInfo.amount ?? 0,
+                      orderType: 'agent',
+                      productId: agent.id,
+                      description: t('community.y2', { p1: agent.name }),
+                    })) as {
+                      mock?: boolean
+                      timeStamp?: string
+                      nonceStr?: string
+                      package?: string
+                      signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
+                      paySign?: string
+                    }
+                    // 3. mock 模式(后端未配置微信支付)
+                    if (payRes?.mock) {
+                      onToast(tt('community.success17', '支付成功(mock)'), { kind: 'success' })
+                      setShowPayPopup(false)
+                      void loadData(true)
+                      return
+                    }
+                    // 4. 调起微信支付
+                    if (
+                      !payRes?.paySign ||
+                      !payRes.timeStamp ||
+                      !payRes.nonceStr ||
+                      !payRes.package ||
+                      !payRes.signType
+                    ) {
+                      onToast(tt('community.pay18', '支付参数异常'), { kind: 'error' })
+                      return
+                    }
+                    await requestPayment({
+                      timeStamp: payRes.timeStamp,
+                      nonceStr: payRes.nonceStr,
+                      package: payRes.package,
+                      signType: payRes.signType,
+                      paySign: payRes.paySign,
+                    })
+                    onToast(tt('pay.result.paid', '支付成功'), { kind: 'success' })
+                    setShowPayPopup(false)
+                    void loadData(true)
+                  } catch (err) {
+                    // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
+                    if (err !== 'cancel') {
+                      onToast(tt('pay.failed', '支付失败,请重试'), { kind: 'error' })
+                    }
+                  }
+                }}
+              />
+            }
+            renderOverlay={
+              <>
+                {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内 */}
+                <FloatBox />
+
+                {/* 返回顶部按钮:外观与几何不在此设定,由 ScrollJumpButton 单一源给出;
+                 *  这里只给定位(贴右下 + 给悬浮 TabBar 让位) */}
+                {showBackTop ? (
+                  <ScrollJumpButton
+                    direction="top"
+                    onTap={backToTop}
+                    style={{
+                      position: 'fixed',
+                      right: rpx(scrollJumpInsetRpx()),
+                      bottom: rpx(pxToTaroRpx(TAB_BAR_OCCUPIED_PX) + scrollJumpInsetRpx()),
+                    }}
+                  />
+                ) : null}
+
+                {/* 服务弹窗(二维码名片,对齐原项目 Ai-list_b.vue L213-227 isServicePopupVisible) */}
+                {showServicePopup ? (
+                  <View
+                    className="fixed inset-0 z-[2000] flex items-center justify-center"
+                    style={{ background: 'var(--color-scrim)' }}
+                    onClick={() => setShowServicePopup(false)}
+                  >
+                    <View
+                      className="relative"
+                      style={{
+                        padding: rpx(20),
+                        borderRadius: rnRadius['2xl'],
+                        background: 'var(--color-card)',
+                        maxWidth: '85%',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      hoverClass="opacity-60"
+                    >
+                      {/* 名片图片(对齐原项目 mingpian.png) */}
+                      <Image
+                        src={mingpianImg}
+                        mode="widthFix"
+                        style={{ width: '100%', borderRadius: rnRadius.lg, marginBottom: rpx(16) }}
+                      />
+                      {/* 二维码图片(对齐原项目 erweima.png) */}
+                      <Image
+                        src={erweimaImg}
+                        mode="widthFix"
+                        style={{ width: '60%', display: 'block', margin: '0 auto' }}
+                        showMenuByLongpress
+                      />
+                      {/* 关闭按钮 */}
+                      <View
+                        className="absolute"
+                        style={{
+                          top: rpx(10),
+                          right: rpx(10),
+                          width: rpx(60),
+                          height: rpx(60),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        onClick={() => setShowServicePopup(false)}
+                        hoverClass="opacity-60"
+                      >
+                        <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+              </>
+            }
+          />
+        </View>
       </View>
     </ThemeRoot>
   )

@@ -98,6 +98,10 @@ export default function Password() {
         onToggleNew={() => setShowNew((v) => !v)}
         onToggleConfirm={() => setShowConfirm((v) => !v)}
         submitLabel={tt('user.password.submit', '修改密码')}
+        // 原页三个输入框都是 maxlength={20} 硬截断(重写时丢过一次) ⇒ 显式传回
+        inputMaxLength={20}
+        // 原页条件即 `newPwd !== '' && !newPwdValid` ⇒ 输入非空即显,与共享屏缺省同为 on-change
+        errorVisibility="on-change"
         newPwdError={
           newPwd !== '' && !newPwdValid
             ? tt('user.password.tooShort', '密码长度 6-20 位')
