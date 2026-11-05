@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +28,9 @@ import {
   classifySessionFailure,
   lastProviderError,
   splitRotateStandoff,
+  refreshAutonomyCandidates,
 } from '../auto-evolve.mjs'
+import { planFaceDigest } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
 
 const GOOD_GATES = {
@@ -1248,6 +1250,43 @@ test('Ⓝb 接线锁:判据真被派发路径消费,且不新增动作名(覆盖
   // 动作面守恒:standoff 复用既有 `non-progress-hold`,不得造一枚没人分档的新动作
   assert.equal(/'non-progress-standoff'/.test(src), false, '新动作名会绕过 autonomy-action-coverage 锁')
   assert.ok(/action: np\.route === 'park' \? 'non-progress-parked' : 'non-progress-hold'/.test(src), 'hold 出口形态变了要同步改这一锁')
+})
+
+// Ⓞ 票面指纹挡在"新鲜"之前(2026-11-05 立)。真读数:就地改写 L2066 之后,
+// 环连续 227 分钟报 `不入本轮:未评估(候选文件未收录本票)` —— 只按钟表判新鲜,
+// 改写过的票在 6 小时窗口里对环不可见;配额每轮都白过一遍池子。
+test('Ⓞa 票面变了就必须重算候选,哪怕文件刚写过', () => {
+  const dir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '.ihui-agent', 'tmp', 'selftest-face')
+  mkdirSync(dir, { recursive: true })
+  const cand = join(dir, 'cand.json')
+  const lines = readFileSync(join(REPO, 'PROJECT_PLAN.md'), 'utf8').split(/\r?\n/)
+  const same = planFaceDigest(lines)
+  assert.ok(same && same.length === 16, '指纹出口坏了(长度/取值形态不对)')
+  // 同指纹 + 刚写 ⇒ 判新鲜(保住 S11a 的原意:84s 的器物不能每轮调)
+  writeFileSync(cand, JSON.stringify({ source: { planDigest: same } }), 'utf8')
+  const f1 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
+  assert.equal(f1.state, 'ok', `同指纹应判新鲜,实得 ${f1.state}:${f1.why}`)
+  // 指纹不同(票被就地改写过)⇒ 必须落到重跑腿;dry-run 档如实报"不写盘",而不是冒充已刷新
+  writeFileSync(cand, JSON.stringify({ source: { planDigest: 'aaaaaaaaaaaaaaa' } }), 'utf8')
+  const f2 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
+  assert.equal(f2.state, 'undetermined', '票面变了还判新鲜 ⇒ 改写后的票对环不可见')
+  assert.ok(/dry-run 不写盘/.test(f2.why), f2.why)
+  // 老缓存没有这一格 ⇒ 维持原行为(不因缺字段每轮白刷 84s)
+  writeFileSync(cand, '{}', 'utf8')
+  const f3 = refreshAutonomyCandidates({ now: Date.now(), dryRun: true, candidatesFile: cand })
+  assert.equal(f3.state, 'ok', '缺 planDigest 的旧文件应沿用钟表档')
+})
+
+test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一把尺)', () => {
+  const gen = readFileSync(join(REPO, 'scripts', 'autonomy-candidates.mjs'), 'utf8')
+  const src = readFileSync(join(REPO, 'scripts', 'auto-evolve.mjs'), 'utf8')
+  assert.ok(/planDigest:\s*planFaceDigest\(planLines\)/.test(gen), '生成器没写指纹 ⇒ 消费侧永远比对不到')
+  assert.ok(/export \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(gen), '生成器改用自己的第二把尺(§0.6 漂移)')
+  assert.ok(
+    /import \{ planFaceDigest \} from '\.\/lib\/plan-face-digest\.mjs'/.test(src),
+    '消费侧没 import 同一把尺 ⇒ 指纹永不一致',
+  )
+  assert.equal(/createHash\('md5'\)/.test(gen), false, '别引入第二把哈希')
 })
 
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——

@@ -67,6 +67,14 @@ export const PLAN_MD = join(ROOT, 'PROJECT_PLAN.md')
  * 行号在并发写台账时会漂移,所以这里只做长度对照,不做内容断言 —— 漂移的后果是
  * 少数票被多算一次保守下限,方向安全。
  */
+/**
+ * 票面指纹(单源,2026-11-05 立):对**生成器实际消费的那份台账文本**取 sha256。
+ * 立因:`refreshAutonomyCandidates` 原先只按 mtime 年龄判新鲜(6h),于是就地改写一张票之后,
+ * 环在数小时内都看不见它 —— 实测读数 `L2066 不入本轮:未评估(候选文件未收录本票)`,挡了 227 分钟。
+ * 消费面与生成面同一段文本 ⇒ 比对双方都走这里,不各写一份哈希(§0.6)。
+ */
+export { planFaceDigest } from './lib/plan-face-digest.mjs'
+
 export function readPlanLines(path = PLAN_MD) {
   try {
     return readFileSync(path, 'utf8').split(/\r?\n/)
@@ -457,7 +465,7 @@ export function buildCandidates({ rows, policy, ledger = [], now = Date.now(), p
 }
 
 /** 落盘文档:rankTicketRows 认 `{ candidates: [...] }`,元信息只做审计用 */
-export function buildDocument({ candidates, generatedAt, policy, rowCount }) {
+export function buildDocument({ candidates, generatedAt, policy, rowCount, planDigest = null }) {
   return {
     schemaVersion: SCHEMA_VERSION,
     generatedAt,
@@ -465,6 +473,9 @@ export function buildDocument({ candidates, generatedAt, policy, rowCount }) {
       face: `node scripts/plan-tasks.mjs ${DISPATCH_ARGS.join(' ')}`,
       rows: rowCount,
       ledger: LEDGER,
+      // 票面指纹:让"候选文件新鲜"不只按钟表判 —— 机主/调度侧就地改写票面后,
+      // 环必须看得见那张票(2026-11-05 实测:L2066 被挡在门外 227 分钟,理由是"未收录本票")。
+      planDigest,
     },
     policy: {
       version: policy.version,
@@ -830,12 +841,14 @@ function main(argv) {
   }
 
   const ledger = readLedger()
-  const built = buildCandidates({ rows, policy, ledger, planLines: readPlanLines() })
+  const planLines = readPlanLines()
+  const built = buildCandidates({ rows, policy, ledger, planLines })
   const doc = buildDocument({
     candidates: built.candidates,
     generatedAt: built.generatedAt,
     policy,
     rowCount: rows.length,
+    planDigest: planFaceDigest(planLines),
   })
 
   // 空面:合法事实,但空候选文件会让决策器判"候选为空 ⇒ 未判定",故不落盘(保留上一轮文件)。

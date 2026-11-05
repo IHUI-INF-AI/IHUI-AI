@@ -94,6 +94,8 @@ import {
 } from './lib/autonomy-nonprogress.mjs'
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
+// 票面指纹与生成器同一把尺(§0.6):比对双方都走 autonomy-candidates 的那一个实现
+import { planFaceDigest } from './lib/plan-face-digest.mjs'
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 /** 调度器接线的锚点(guardian 派发层 import 同一组路径,不另拼第二份 —— §0.6 单一真相源) */
@@ -298,10 +300,27 @@ export function refreshAutonomyCandidates({
     // 卡 `>= 0` 会让"刚生成"被判成不新鲜 ⇒ 每轮都重刷 84s 的器物(S11a 实测抓到)。
     // 时钟回拨也落进同一侧:宁可少刷一次(下一轮自然补),不要每轮白等。
     if (Number.isFinite(ageMs) && ageMs < AUTONOMY_CANDIDATES_REFRESH_MS) {
-      return {
-        state: 'ok',
-        why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑`,
+      // 钟表新鲜还不够:就地改写票面后,旧候选文件里没有那张改写后的票,
+      // 于是环会在 6 小时里一直报"未评估(候选文件未收录本票)"(2026-11-05 实测挡了 227 分钟)。
+      // 票面指纹变了 ⇒ 视为过期,走下面的重跑;老缓存文件没有这一格 ⇒ 维持原行为(不因缺字段白刷 84s)。
+      let cached = null
+      try {
+        cached = JSON.parse(readFileSync(candidatesFile, 'utf8'))?.source?.planDigest ?? null
+      } catch {
+        cached = null
       }
+      const nowDigest = planFaceDigest(
+        String(readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8')).split(/\r?\n/),
+      )
+      if (!cached || cached === nowDigest) {
+        return {
+          state: 'ok',
+          why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑`,
+        }
+      }
+      console.warn(
+        `↻ 票面已变(候选指纹 ${cached.slice(0, 8)}… → ${String(nowDigest).slice(0, 8)}…)⇒ 重算候选,不让改写后的票看不见`,
+      )
     }
   } catch {
     /* 没生成过 ⇒ 继续往下刷 */
