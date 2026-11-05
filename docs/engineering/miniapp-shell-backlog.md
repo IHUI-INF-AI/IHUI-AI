@@ -217,4 +217,14 @@
 - RN 零可见变化：共享件样式逐值复制 RN 原件；RN 旧件 J8/J10 与共享件 J8/J10 同构；`defaultAvatar ?? null` 与原 `undefined` 渲染等价；`emptyText` 两端显式传且值不同（RN 字符串、页 `null`）。
 - 门读数（树 `D:\IHUI-AI-wt-community`，HEAD `447a0c5d93`）：门 299 共享屏 274 / 在册页 329 / 薄壳 223 / 复制页 72（纯复制 63、本地改动 9；LOC 29162/45098=64.7%）/ 无法判定 0 / 台账 74 行；门 105 绿（自述钉 `8c729fcbef56…` matched `68206d93e1`）；门 173 绿（trackedFiles 19313 / testFiles 4138）。
 - 分支与 tip：`feat/agent-home-sections` / `447a0c5d937c3d07ef6a9c001dfbdab26d853c14`。
+
+## NavBar 段：实现层已单源，页内幽灵副本退场（2026-11-06）
+
+事实面：共享骨架 `packages/shared/src/ui/navbar-core.tsx`（容器/状态栏位/行/左中右/通知条）与共享几何 `packages/shared/src/ui/navbar-spec.ts`，两端薄壳真消费 —— 小程序 `apps/miniapp-taro/src/components/NavBar.tsx:249`（ai-home）/`:432`（默认），RN `apps/mobile-rn/src/components/NavBar.tsx:224`；`NavBar` 的 20 条离散槽位在 RN 侧已实现并有用例（`apps/mobile-rn/tests/navbar-ai-home-props.test.tsx`）。web 共享屏 `features/agent-screen/AgentScreen.tsx` 不渲染顶栏（由宿主壳提供），不构成第三条腿。
+
+- 调用点差异（非重复实现，是宿主配置）：页 `pages/community/index.tsx:678-689` 走 `variant="ai-home"`（粘性、capsule 状态栏位、`bgColor=var(--color-card)`、`showFenLei/showSearch/onMenuClick`）；RN `AgentScreen.tsx:653-670` 走默认变体（`NavChrome` 包裹、`leftActions=[PanelLeftRounded]`、`rightActions=[LayoutGrid, Search]`、无 `bgColor`）。标题键（`community.m1` vs `agentScreen.title`）、图标载体（LineIcon vs lucide）、定位（sticky vs `NavChrome`）两端各有取数出处。
+- 三选一结论：**不再抽共享件**。骨架/几何已在共享层；把 call-site 再包一层只有一个收益（透传），不成单源；让 RN 改走 ai-home 会换分类图标（LayoutGrid→Menu）并改变粘性/状态栏位 ⇒ 违反 RN 零可见变化。
+- 页内真重复：第二枚 `opacity:0` 的 NavBar 只用于占高，已换成 `<View style={{ height: appTopBarHeight }} />`（同一取数：`getTopBarMetrics` 的 `top+height+8` 与 NavBar ai-home 的 leading+rowStyle 同式）。
+- 读数：页 AST 51→50（J50→49，T1 不变），LOC 1003→995；RN 41/977 未动（零可见变化逐值依据 = 调用点未改、组件未改）。重复 UI 人读口径：NavBar 同形调用 3 枚（页 2 + RN 1）→ 2 枚（页 1 + RN 1），不冒充页节点降幅。
+- 分支与 tip：见下方提交（`feat/agent-home-sections`）。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
