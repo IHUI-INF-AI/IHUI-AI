@@ -99,6 +99,16 @@ export function normalizeManifest(raw: PluginManifest, source: string): PluginDe
   if (Array.isArray(raw.commands)) def.commands = raw.commands.filter((c) => typeof c === 'string');
   // G-682:dependencies 必须透传,否则 JSON 清单声明的依赖到不了 registry 的注册前闭包校验
   if (Array.isArray(raw.dependencies)) def.dependencies = raw.dependencies.filter((d) => typeof d === 'string');
+  // goal-b49/X2:P2-4 两族声明同理必须透传。此前只透传 tools/hooks/commands/dependencies,
+  // 清单里写的 turnInputContributors / commandContributors 在这里被静默丢掉 ⇒ registry 的
+  // getTurnInputContributorExtensions()/getCommandContributorExtensions() 恒为空、两个 runner
+  // 恒零 —— 「声明 → 注册表」在装载层就断了(与 G-682 同型:声明的功能到不了运行面)。
+  if (Array.isArray(raw.turnInputContributors)) {
+    def.turnInputContributors = raw.turnInputContributors.filter((c) => typeof c === 'string');
+  }
+  if (Array.isArray(raw.commandContributors)) {
+    def.commandContributors = raw.commandContributors.filter((c) => typeof c === 'string');
+  }
   return def;
 }
 
