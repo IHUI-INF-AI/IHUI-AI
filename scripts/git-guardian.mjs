@@ -10235,15 +10235,31 @@ export function auditImmutableGuardNewCommits(opts = {}) {
   const unsigned = parsed.unsigned ?? []
   const tail = `判 ${parsed.audited ?? 0} 枚(合并跳过 ${parsed.skippedMerges ?? 0})/ 红 ${(parsed.breaches ?? []).length} / 未判定 ${(parsed.undetermined ?? []).length} / 无签名 ${unsigned.length} / 待判 ${parsed.pending ?? 0} / 游标 ${String(parsed.cursorBefore || '(无)').slice(0, 12)}→${String(parsed.cursorAfter || '').slice(0, 12)}`
   if (parsed.state === 'breach') {
-    const first = (parsed.breaches ?? [])[0] ?? {}
-    const paths = (first.hits ?? []).map((h) => h.path).join(', ')
-    const breachCount = (parsed.breaches ?? []).length
+    const breaches = parsed.breaches ?? []
+    const breachCount = breaches.length
+    // 逐枚判别码必须打进日志与正文(RP-65,2026-11-05 实测立因):旧行只点**第一枚**的 sha+标题、
+    // 且不带 `code`/`signatureCode`/密钥来源。于是"报 2 枚静默改动"这种指控一旦事后复跑变绿
+    // (同批用 `--range` 重跑三条枚全部 sig-verified),没有任何一面留下"当时判的是哪一格"的证据
+    // ⇒ 只能靠猜。判据不变,报出来的证据必须自证到枚。
+    const describeBreach = (b) =>
+      `${String(b.sha ?? '?').slice(0, 12)}「${String(b.subject ?? '').slice(0, 40)}」` +
+      ` code=${b.code || '?'}` +
+      ` sig=${b.signatureCode || '(无签名档)'}` +
+      ` 钥=${b.keySource || '(取不到)'}` +
+      ` 命中=${(b.hits ?? []).map((h) => h.path).join(',') || '(见 --json)'}` +
+      (b.expired?.length ? ` 到期=${b.expired.join(',')}` : '') +
+      (b.ackedBy ? ` 追认@${b.ackedBy}` : '') +
+      (b.ackProblem ? ` 追认坏=${b.ackProblem}` : '')
+    const perBreach = breaches.slice(0, 5).map(describeBreach).join('\n     · ')
     logger(
-      `❌ 判据面护栏巡检:静默改动判据面 ${breachCount} 枚 —— ${first.sha ?? '?'}「${String(first.subject ?? '').slice(0, 60)}」命中 ${paths || '(见 --json)'} | ${tail}`,
+      `❌ 判据面护栏巡检:静默改动判据面 ${breachCount} 枚 —— ` +
+        breaches.slice(0, 5).map(describeBreach).join(' ; ') +
+        (breachCount > 5 ? ` …另 ${breachCount - 5} 枚见 --json` : '') +
+        ` | ${tail}`,
     )
     notify(
       '判据面被静默改动(无 immutable-exempt 声明)',
-      `判据面(门体 / scripts/lib / 豁免台账 / guardian-runner / AGENTS.md)被改动,而提交信息里没有 \`immutable-exempt: <理由>\`。\n最近一枚:${first.sha ?? '?'}「${String(first.subject ?? '').slice(0, 80)}」\n命中面:${paths || '(见 --json)'}\n\n下一步(可整改):复核这枚改动是不是在削判据;确属必要改动就在下一枚提交信息里补一行 \`immutable-exempt: <≥10 字理由>\`,或复核 scripts/data/immutable-guard.json 里该面是否还该受保护。\n复跑:node scripts/check-immutable-guard.mjs --audit-new --limit 1\n\n${tail}`,
+      `判据面(门体 / scripts/lib / 豁免台账 / guardian-runner / AGENTS.md)被改动,而提交信息里没有 \`immutable-exempt: <理由>\`。\n逐枚判别(最多 5 枚,超出见 --json):\n     · ${perBreach}\n\n下一步(可整改):复核这枚改动是不是在削判据;确属必要改动就在下一枚提交信息里补一行 \`immutable-exempt: <≥10 字理由>\`,或复核 scripts/data/immutable-guard.json 里该面是否还该受保护。\n复跑:node scripts/check-immutable-guard.mjs --audit-new --limit 1\n\n${tail}`,
       {
         severity: 'critical',
         dedupKey: 'undeclared',
