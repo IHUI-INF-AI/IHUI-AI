@@ -80,6 +80,11 @@ describe('审批三键取词键在真实词包中的可得性(shared ×5 语言)
 
 describe('接线自证(源码级):评价与审批必须经 @ihui/api-client', () => {
   const itemSrc = readFileSync(join(END_ROOT, 'src/pkg-ai/ai/ChatMessageItem.tsx'), 'utf8')
+  // 块7 上收后:评价/审批的渲染落点在共享视觉层,端内只注入回调
+  const viewSrc = readFileSync(
+    join(REPO_ROOT, 'packages/app/src/features/chat/ChatMessageItem.tsx'),
+    'utf8',
+  )
   const apiSrc = readFileSync(join(END_ROOT, 'src/api/index.ts'), 'utf8')
 
   it('api/index.ts 从 @ihui/api-client 引入并 re-export 两个共享端点', () => {
@@ -107,11 +112,14 @@ describe('接线自证(源码级):评价与审批必须经 @ihui/api-client', ()
   })
 
   it('点赞/点踩与审批三键都有渲染落点(不允许造好没装车)', () => {
-    expect(itemSrc).toContain('name="check-success"')
-    expect(itemSrc).toContain('name="x-error"')
-    expect(itemSrc).toContain("onClick={() => void handleRate('like')}")
-    expect(itemSrc).toContain("onClick={() => void handleRate('dislike')}")
-    expect(itemSrc).toContain('onClick={() => void handleApproval(action.id)}')
+    expect(viewSrc).toContain("name: 'check-success'")
+    expect(viewSrc).toContain("name: 'x-error'")
+    expect(viewSrc).toContain("onRate('like')")
+    expect(viewSrc).toContain("onRate('dislike')")
+    expect(viewSrc).toContain('onApproval(action.id)')
+    // 端内适配器必须把两条注入腿真的接上,否则共享件只有挂载位没有行为
+    expect(itemSrc).toContain('onRate={(next) => void handleRate(next)}')
+    expect(itemSrc).toContain('onApproval={(actionId) => void handleApproval(actionId)}')
   })
 
   it('UI 图标位不得用 emoji 充当点赞/点踩', () => {
