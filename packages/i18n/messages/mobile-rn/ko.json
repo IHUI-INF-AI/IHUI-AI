@@ -972,7 +972,15 @@
     "accountDeletionSendCode": "코드 전송",
     "accountDeletionConfirm": "계정 삭제 확인",
     "accountDeletionSubmit": "삭제 확인",
-    "accountDeletionSubmitting": "제출 중..."
+    "accountDeletionSubmitting": "제출 중...",
+    "accountDeletionConsequenceTitle": "삭제 후 영향",
+    "accountDeletionConsequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "accountDeletionConsequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "accountDeletionConsequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "accountDeletionConsequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "accountDeletionConsequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "accountDeletionConsequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "accountDeletionConsequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "menu": {
     "artifacts": "산출물 센터",

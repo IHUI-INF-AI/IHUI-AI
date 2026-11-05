@@ -972,7 +972,15 @@
     "accountDeletionSendCode": "發送驗證碼",
     "accountDeletionConfirm": "確認註銷帳號",
     "accountDeletionSubmit": "確認注銷",
-    "accountDeletionSubmitting": "提交中..."
+    "accountDeletionSubmitting": "提交中...",
+    "accountDeletionConsequenceTitle": "註銷後果",
+    "accountDeletionConsequence1": "帳號資料、頭像與暱稱將被永久刪除",
+    "accountDeletionConsequence2": "訂單、積分、餘額與會員權益將清零且無法恢復",
+    "accountDeletionConsequence3": "已發佈的動態、評論、收藏與聊天記錄將被清除",
+    "accountDeletionConsequence4": "已綁定的手機號與信箱將被解綁，無法再用該帳號登入",
+    "accountDeletionConsequence5": "正在生效的會員、課程等權益將立即終止且不退費",
+    "accountDeletionConsequence6": "註銷後同一手機號可重新註冊，但歷史資料無法找回",
+    "accountDeletionConsequence7": "存在未結清交易或違規記錄的帳號，申請可能被拒"
   },
   "menu": {
     "artifacts": "產物中心",

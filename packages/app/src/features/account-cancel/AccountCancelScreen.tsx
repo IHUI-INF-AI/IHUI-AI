@@ -23,6 +23,8 @@ export function AccountCancelScreen({
   showConfirmModal,
   confirmCountdown,
   submitting,
+  consequences = [],
+  phoneReadOnly = false,
   onPhoneChange,
   onConfirmTextChange,
   onSmsCodeChange,
@@ -34,6 +36,10 @@ export function AccountCancelScreen({
 }: AccountCancelScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 页级倒计时只在"端内不用弹窗"时生效(小程序);RN 走 Modal,主按钮不受此闸影响。
+  // 计时器留在端内页,本屏只消费 confirmCountdown 读数。
+  const pageCountdown = !showConfirmModal && confirmCountdown > 0
+  const submitDisabled = submitting || pageCountdown
 
   return (
     <View style={styles.container}>
@@ -44,18 +50,39 @@ export function AccountCancelScreen({
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.desc}>{t('settings.accountDeletionWarning')}</Text>
 
+        {consequences.length > 0 && (
+          <View style={styles.consequenceBox}>
+            <Text style={styles.consequenceTitle}>
+              {t('settings.accountDeletionConsequenceTitle')}
+            </Text>
+            {consequences.map((item, index) => (
+              <Text key={`${index}-${item}`} style={styles.consequenceItem}>
+                {`${index + 1}. ${item}`}
+              </Text>
+            ))}
+          </View>
+        )}
+
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>{t('settings.accountDeletionPhoneLabel')}</Text>
-          <TextField
-            colorScheme={colorScheme}
-            style={styles.input}
-            value={phone}
-            onChangeText={onPhoneChange}
-            placeholder={t('settings.accountDeletionPhonePlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
+          {phoneReadOnly ? (
+            <View style={[styles.input, styles.readonlyBox]}>
+              <Text style={styles.readonlyText}>
+                {phone || t('settings.accountDeletionPhonePlaceholder')}
+              </Text>
+            </View>
+          ) : (
+            <TextField
+              colorScheme={colorScheme}
+              style={styles.input}
+              value={phone}
+              onChangeText={onPhoneChange}
+              placeholder={t('settings.accountDeletionPhonePlaceholder')}
+              placeholderTextColor={tk.text.tertiary}
+              keyboardType="phone-pad"
+              maxLength={11}
+            />
+          )}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -96,14 +123,16 @@ export function AccountCancelScreen({
         </View>
 
         <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.btnDisabled]}
+          style={[styles.submitBtn, submitDisabled && styles.btnDisabled]}
           onPress={onSubmit}
-          disabled={submitting}
+          disabled={submitDisabled}
         >
           <Text style={styles.submitBtnText}>
-            {submitting
-              ? t('settings.accountDeletionSubmitting')
-              : t('settings.accountDeletionSubmit')}
+            {pageCountdown
+              ? `${confirmCountdown}s`
+              : submitting
+                ? t('settings.accountDeletionSubmitting')
+                : t('settings.accountDeletionSubmit')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -164,6 +193,27 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
+    },
+    consequenceBox: {
+      gap: rnSpacing.xs,
+      backgroundColor: tk.surface.light,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.xl,
+    },
+    consequenceTitle: {
+      ...rnType.title,
+      color: tk.text.primary,
+    },
+    consequenceItem: {
+      ...rnType.body,
+      color: tk.text.secondary,
+    },
+    readonlyBox: {
+      justifyContent: 'center',
+    },
+    readonlyText: {
+      fontSize: rnType.title.size,
+      color: tk.text.secondary,
     },
     fieldGroup: {
       gap: rnSpacing.sm,
