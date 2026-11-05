@@ -18,11 +18,17 @@
  * `runCommandContributors`)与 hook `event:matcher` 的唯一判据住在 `./plugin-dispatch.ts`;
  * 本文件只留注册面 + 逐字同签名的转接(§0.6 单一真相源,本层不得有第二份派发实现)。
  *
+ * 分层(goal-b49/Z30 再拆一档,270 → 现读 <250):五枚汇总口的**键集与取源**住在
+ * `./plugin-extensions.ts`(`collectExtensions` 与 `ExtensionDeclarationKey`),本档的
+ * `get*Extensions` 只做逐字转接;「键 ↔ 汇总口」双射与「档内不留第二份汇总实现」由
+ * `tests/plugin-extension-summary-lock.test.ts` 形状锁钉住。
+ *
  * 汇总口现状见 `./index.ts` 的「registry 汇总口现状」(goal-b49/X2,含零生产调用方的复跑口径)。
  */
 
 import type { PluginContext, PluginDefinition, PluginHookContext, TurnContributorContext } from './types.js';
 import { runCommandContributions, runPluginHookEvent, runTurnInputContributions } from './plugin-dispatch.js';
+import { collectExtensions } from './plugin-extensions.js';
 
 export interface RegisterOptions {
   /** 同名冲突时是否覆盖(默认 false) */
@@ -34,12 +40,10 @@ export interface UnregisterOptions {
   callTeardown?: boolean;
 }
 
-/**
- * 五枚汇总口对应的清单声明族(与 `PluginManifest` 的字段逐字同名)。
- * 键集只在这里列一次(goal-b49/Z13):`declaration-consumers.ts` 的 `DeclarationFamily` 是它的别名,
- * 两处各抄一遍正是本仓反复记录过的漂移型(§0.6)。
- */
-export type ExtensionDeclarationKey = 'tools' | 'hooks' | 'commands' | 'turnInputContributors' | 'commandContributors';
+// 键集单源已迁至 `./plugin-extensions.ts`(goal-b49/Z30):此处只再导出既有引用面 ——
+// `declaration-consumers.ts` 的 `DeclarationFamily` 仍从 './registry.js' 取别名,不得断链(§0.6);
+// 「与 PluginManifest 字段逐字同名」的口径与键集本身一并由那件单源承担。
+export type { ExtensionDeclarationKey } from './plugin-extensions.js';
 
 export class PluginRegistry {
   private readonly plugins = new Map<string, PluginDefinition>();
@@ -130,44 +134,32 @@ export class PluginRegistry {
     return this.plugins.has(name);
   }
 
-  /**
-   * 五枚汇总口共用的一把尺:取该扩展族所有声明名并去重。
-   *
-   * goal-b49/Z13 顺手拆档:原先五段逐字同形的循环(每段 6 行)—— 同一件事写五遍必然漂(§0.6)。
-   * `Set` 按插入序去重,故汇总顺序与拆分前**逐字一致**(既有测试钉的就是这个数组)。
-   */
-  private collectExtensions(key: ExtensionDeclarationKey): string[] {
-    const set = new Set<string>();
-    for (const p of this.plugins.values()) {
-      const declared = p[key];
-      if (declared) for (const name of declared) set.add(name);
-    }
-    return Array.from(set);
-  }
+  // ---- 五枚汇总口:取源单点 = ./plugin-extensions.ts#collectExtensions(Z30 逐字转接) ----
+  // 本档不得再自带汇总循环(§0.6);键 ↔ 汇总口的双射由 tests/plugin-extension-summary-lock.test.ts 钉。
 
   /** 汇总所有插件声明的工具扩展名(去重) */
   getToolExtensions(): string[] {
-    return this.collectExtensions('tools');
+    return collectExtensions(this.plugins.values(), 'tools');
   }
 
   /** 汇总所有插件声明的 Hook 扩展标识(去重;形态 `"<event>"` 或 `"<event>:<matcher>"`) */
   getHookExtensions(): string[] {
-    return this.collectExtensions('hooks');
+    return collectExtensions(this.plugins.values(), 'hooks');
   }
 
   /** 汇总所有插件声明的 slash command 扩展名(去重) */
   getCommandExtensions(): string[] {
-    return this.collectExtensions('commands');
+    return collectExtensions(this.plugins.values(), 'commands');
   }
 
   /** P2-4 汇总所有插件声明的 turnInputContributors 扩展名(去重) */
   getTurnInputContributorExtensions(): string[] {
-    return this.collectExtensions('turnInputContributors');
+    return collectExtensions(this.plugins.values(), 'turnInputContributors');
   }
 
   /** P2-4 汇总所有插件声明的 commandContributors 扩展名(去重) */
   getCommandContributorExtensions(): string[] {
-    return this.collectExtensions('commandContributors');
+    return collectExtensions(this.plugins.values(), 'commandContributors');
   }
 
   /** 列出所有已注册插件(浅拷贝,排序按 name) */
@@ -221,47 +213,33 @@ export class PluginRegistry {
   }
 
   /**
-   * 调用所有声明了匹配 event 的插件的 onHook 回调。
+   * 调用所有声明了匹配 event 的插件的 onHook 回调,返回**实际被调到 onHook 的插件数**
+   * (不含仅声明无回调的插件);返回值语义与 Z13 拆分前逐字一致。
    *
-   * **实现住在 `./plugin-dispatch.ts#runPluginHookEvent`**(goal-b49/Z13:本文件交票时已 299 行、
-   * 超 AGENTS §3 的 250 行档,加面先拆档;这里是逐字同签名的转接,不是第二份实现 §0.6)。
-   *
-   * 匹配规则(单源 = `parseHookDeclaration` + `hookMatcherSatisfied`):
-   *   - `"<event>"` / `"<event>:*"` 每次派发都命中;
-   *   - `"<event>:<toolName>"` 只在 `context.toolName` 逐字相等时命中 —— **matcher 真参与派发**
-   *     (旧实现只判 `startsWith(event + ':')`,matcher 被读到却从不参与判定 = Z1 未竟 3);
-   *   - `"<event>:"` 与「上下文没有 toolName」都**不命中**(拼错的清单不得升成全量订阅,§0.10)。
+   * 实现与 `event:matcher` 判据的唯一单源 = `./plugin-dispatch.ts#runPluginHookEvent`
+   * (`parseHookDeclaration` + `hookMatcherSatisfied`:matcher 真参与派发,空串与缺 toolName 一律不命中)。
+   * 这里是转接而不是第二份派发实现(§0.6),规则原文不在本档重抄 —— 同一条判据抄两遍必漂。
    *
    * @param event 钩子事件名(如 'preToolCall' / 'postToolCall')
    * @param context 钩子上下文(工具名 + 参数 + 结果)
-   * @returns 实际调用 onHook 回调的插件数量(不含仅声明无回调的插件)
    */
   async runHook(event: string, context: PluginHookContext): Promise<number> {
     return runPluginHookEvent(this.plugins.values(), event, context, this.ctx.logger);
   }
 
   /**
-   * P2-4 调用所有声明了 turnInputContributors 的插件的 onTurnInputContribute 回调。
-   * 拼接所有非空返回值作为额外输入上下文返回(供 turnStart 时注入 prompt)。
-   * 回调失败不阻塞主流程,仅忽略其返回值。
-   *
-   * **实现住在 `./plugin-dispatch.ts#runTurnInputContributions`**(拆档同 `runHook`,§0.6 转接不复制判据)。
-   *
-   * @param ctx Turn 贡献者上下文(workingDir / turnNumber / maxTurns / sessionId)
-   * @returns 拼接后的额外输入字符串(无贡献时返回空字符串)
+   * P2-4 调用所有声明了 turnInputContributors 的插件的 onTurnInputContribute 回调,
+   * 拼接所有非空返回值作为额外输入上下文(供 turnStart 注入 prompt;回调失败不阻塞、无贡献返空串)。
+   * 实现住在 `./plugin-dispatch.ts#runTurnInputContributions`(拆档同 runHook,§0.6 转接不复制判据)。
    */
   async runTurnInputContributors(ctx: TurnContributorContext): Promise<string> {
     return runTurnInputContributions(this.plugins.values(), ctx);
   }
 
   /**
-   * P2-4 调用所有声明了 commandContributors 的插件的 onCommandContribute 回调。
-   * 回调失败不阻塞主流程。返回实际调用回调的插件数。
-   *
-   * **实现住在 `./plugin-dispatch.ts#runCommandContributions`**(拆档同 `runHook`)。
-   *
-   * @param ctx Turn 贡献者上下文(workingDir / turnNumber / maxTurns / sessionId)
-   * @returns 实际调用 onCommandContribute 回调的插件数量
+   * P2-4 调用所有声明了 commandContributors 的插件的 onCommandContribute 回调,
+   * 返回实际被调用的插件数(回调失败不阻塞主流程)。
+   * 实现住在 `./plugin-dispatch.ts#runCommandContributions`(拆档同 runHook)。
    */
   async runCommandContributors(ctx: TurnContributorContext): Promise<number> {
     return runCommandContributions(this.plugins.values(), ctx);

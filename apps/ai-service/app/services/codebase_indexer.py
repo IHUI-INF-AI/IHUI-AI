@@ -44,6 +44,12 @@ from typing import Any, cast
 from ..core.internal_ticket import internal_service_headers
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
+from .codebase_recall_expand import (
+    fold_adjacent_hits,
+    merge_recall,
+    symbol_seeds,
+    truncate_chunk,
+)
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 from .ignore_rules import (
     DEFAULT_IGNORE_FILENAMES,
@@ -138,6 +144,62 @@ _IGNORED_DIRS: set[str] = {
 
 # 每个切片最大字符数(防 embedding 输入过长)
 MAX_CHUNK_CHARS = 8000
+
+
+def _truncate(content: str) -> str:
+    """切片长度帽的唯一出口(实现单源 = `codebase_recall_expand.truncate_chunk`,§0.6)。
+
+    此前全仓有五处 `x = x[:MAX_CHUNK_CHARS]` 逐字重复;判据只许一份,
+    以后改帽只改 `MAX_CHUNK_CHARS` 这一处。
+    """
+    return truncate_chunk(content, max_chars=MAX_CHUNK_CHARS)
+
+
+# ---- 召回面档位(goal-b49 Z12;取证对齐 triage ② #4「符号扩召回」/#5「行区间就近合并」)----
+#: 合成摘要片的 symbol_type:它们的"符号名"是目录名/文件名(见 `_build_*_summary_chunks`),
+#: 拿去当扩召回种子会把整仓摘要互相拉进来 ⇒ 排除集必须由索引侧给(纯函数层不猜)。
+SUMMARY_SYMBOL_TYPES: frozenset[str] = frozenset({"module_summary", "architecture_summary"})
+#: 行区间就近合并的默认间隔(行):0 = 只真正重叠/相接才并;3 = 允许跨三行缝并片。
+DEFAULT_MERGE_GAP_LINES = 3
+#: 符号扩召回的种子上限(每枚种子 = 一跳 keyword 查询,必须有界,不得随命中数放大)。
+DEFAULT_SYMBOL_EXPAND_SEEDS = 2
+#: 扩召回 env 开关名(缺省**开**;关词 0/false/off)。
+SYMBOL_EXPAND_ENV = "IHUI_CODEBASE_SYMBOL_EXPAND"
+#: 合并间隔 env(非法值 ⇒ 出声回落默认,与 `_lease_wait_seconds` 同一条纪律)。
+MERGE_GAP_ENV = "IHUI_CODEBASE_MERGE_GAP_LINES"
+_RECALL_OFF_VALUES = frozenset({"0", "false", "off", "no"})
+_RECALL_ON_VALUES = frozenset({"1", "true", "on", "yes"})
+
+
+def _recall_env_flag(name: str, default: bool) -> bool:
+    """召回面布尔 env:缺省/空 ⇒ 默认;开/关词各认;非法值**出声**回落默认。"""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().lower()
+    if value in _RECALL_OFF_VALUES:
+        return False
+    if value in _RECALL_ON_VALUES:
+        return True
+    logger.warning("%s=%r 不在认得的取值里,回落默认 %s", name, raw, default)
+    return default
+
+
+def _recall_env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    """召回面整数 env:非数字/越界 ⇒ 出声回落默认(不把 0 当"没配过"冒充判过)。"""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        logger.warning("%s=%r 不是整数,回落默认 %d", name, raw, default)
+        return default
+    if value < minimum:
+        logger.warning("%s=%d 越界(下限 %d),回落默认 %d", name, value, minimum, default)
+        return default
+    return value
+
 # 固定行数切片参数(降级模式)
 FIXED_CHUNK_LINES = 100
 FIXED_CHUNK_OVERLAP = 50
@@ -685,8 +747,7 @@ class CodebaseIndexer:
                 start_idx = node.start_byte
                 end_idx = node.end_byte
                 chunk_content = content[start_idx:end_idx]
-                if len(chunk_content) > MAX_CHUNK_CHARS:
-                    chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+                chunk_content = _truncate(chunk_content)
                 if chunk_content.strip():
                     chunks.append(CodeChunk(
                         file_path="",  # 由调用方填充
@@ -769,8 +830,7 @@ class CodebaseIndexer:
                         end_idx = start_idx
                     chunk_lines = lines[start_idx : end_idx + 1]
                     chunk_content = "\n".join(chunk_lines)
-                    if len(chunk_content) > MAX_CHUNK_CHARS:
-                        chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+                    chunk_content = _truncate(chunk_content)
                     if chunk_content.strip():
                         chunks.append(CodeChunk(
                             file_path="",
@@ -793,8 +853,7 @@ class CodebaseIndexer:
             end = min(start + FIXED_CHUNK_LINES, total_lines)
             chunk_lines = lines[start:end]
             chunk_content = "\n".join(chunk_lines)
-            if len(chunk_content) > MAX_CHUNK_CHARS:
-                chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+            chunk_content = _truncate(chunk_content)
             if chunk_content.strip():
                 chunks.append(CodeChunk(
                     file_path="",
@@ -1171,8 +1230,7 @@ class CodebaseIndexer:
             f"Module summary: {rel_path} ({language})\n"
             f"This module contains {len(symbols)} symbols:\n" + "\n".join(symbols)
         )
-        if len(content) > MAX_CHUNK_CHARS:
-            content = content[:MAX_CHUNK_CHARS]
+        content = _truncate(content)
         return CodeChunk(
             file_path=rel_path,
             line_start=1,
@@ -1211,8 +1269,7 @@ class CodebaseIndexer:
                 f"Contains {len(files)} indexed source files:\n"
                 + "\n".join(files[:200])
             )
-            if len(content) > MAX_CHUNK_CHARS:
-                content = content[:MAX_CHUNK_CHARS]
+            content = _truncate(content)
             chunks.append(
                 CodeChunk(
                     file_path=f"{directory}/",
@@ -1661,8 +1718,19 @@ class CodebaseIndexer:
         top_k: int = 10,
         api_token: str | None = None,
         internal_user_id: str | None = None,
+        symbol_expand: bool | None = None,
+        merge_gap_lines: int | None = None,
     ) -> list[dict[str, Any]]:
-        """语义搜索代码片段(委托给 API 端点)。
+        """语义搜索代码片段(委托给 API 端点;出口带两跳后处理)。
+
+        召回面(2026-11-05 Z12 补,对齐 triage ② #4/#5):
+        - **符号扩召回**:命中片里的真符号(排除 `SUMMARY_SYMBOL_TYPES` 那两类合成摘要片)
+          至多取 `DEFAULT_SYMBOL_EXPAND_SEEDS` 枚当种子,各补一跳 `mode=keyword` 查询,
+          回来的候选按身份键去重并入(命中片**不会**被复制成两份),逐条打
+          `symbol_expanded` / `expanded_from`。env `IHUI_CODEBASE_SYMBOL_EXPAND` 关词可关。
+        - **行区间就近合并**:同文件内间隔 ≤ `merge_gap_lines` 的碎片并成一片下发,
+          被跳过的行在 `content` 里留显式 gap 标记并计 `gap_lines_skipped`。
+          env `IHUI_CODEBASE_MERGE_GAP_LINES`(缺省 3)。
 
         Args:
             query: 自然语言查询(如"用户认证逻辑")。
@@ -1674,26 +1742,40 @@ class CodebaseIndexer:
                 按归属隔离**)。api 侧从 X-User-Id 头取 req.userId 决定可见范围;
                 不传则检索被拒(401)。这与写入面是同一条纪律 —— 只隔离写不隔离读,
                 等于数据换个方向就又漏出去了。
+            symbol_expand: 三态。None = 听 env `IHUI_CODEBASE_SYMBOL_EXPAND`(缺省**开**);
+                True/False = 本次调用显式覆盖 —— 开关两跑就是"符号维到底带来了哪几枚
+                候选"的正向对照,不需要第二把尺。
+            merge_gap_lines: None = 听 env(缺省 3);数字 = 本次显式间隔(0 = 只并重叠/相接)。
 
         Returns:
-            切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score。
+            切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score;
+            走过扩召回/并片的条目另带在账键 `symbol_expanded`/`expanded_from`/
+            `lines_merged`/`merged_ranges`/`gap_lines_skipped`(计数随片下发,不另开读数面)。
+        """
+        out = await self.search_with_recall(
+            query,
+            repo_id=repo_id,
+            language=language,
+            top_k=top_k,
+            api_token=api_token,
+            internal_user_id=internal_user_id,
+            symbol_expand=symbol_expand,
+            merge_gap_lines=merge_gap_lines,
+        )
+        return cast(list[dict[str, Any]], out["chunks"])
+
+    async def _query_chunks(
+        self, payload: dict[str, Any], headers: dict[str, str]
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """一次检索查询的唯一出口 → (切片, 未判定原委)。
+
+        三态分立:`([], None)` = 判过了、确实无命中;`([], 原委)` = **没判**(HTTP 4xx/5xx、
+        网络异常、响应形态不合)。调用方必须把后一档带进回执,不得把"取不到"写成"没有"
+        (§0.3;此前 `search()` 两种情况都只 return [],消费方无从分辨)。
         """
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/search"
-        payload: dict[str, Any] = {
-            "query": query,
-            "topK": top_k,
-            # hybrid=向量+关键词 RRF 融合(服务端默认,显式声明契约,2026-09-07 立)
-            "mode": "hybrid",
-        }
-        if repo_id:
-            payload["repoId"] = repo_id
-        if language:
-            payload["language"] = language
-        # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
-        headers = self._internal_auth_headers(api_token, internal_user_id)
-
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, json=payload, headers=headers)
@@ -1703,14 +1785,110 @@ class CodebaseIndexer:
                         resp.status_code,
                         resp.text[:200],
                     )
-                    return []
+                    return [], f"HTTP {resp.status_code}"
                 data = resp.json()
                 # API 返回 { code, message, data: { chunks: [...] } }
                 inner = data.get("data", data) if isinstance(data, dict) else {}
-                return cast(list[dict[str, Any]], inner.get("chunks", []))
+                if not isinstance(inner, dict):
+                    return [], "响应体不是对象,取不到 chunks"
+                return cast(list[dict[str, Any]], inner.get("chunks", [])), None
         except Exception as e:
             logger.warning("语义搜索失败: %s", e)
-            return []
+            return [], f"{type(e).__name__}:{e}"
+
+    async def search_with_recall(
+        self,
+        query: str,
+        repo_id: str | None = None,
+        language: str | None = None,
+        top_k: int = 10,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
+        *,
+        symbol_expand: bool | None = None,
+        merge_gap_lines: int | None = None,
+    ) -> dict[str, Any]:
+        """`search()` 的完整形态:切片 + 一份召回账(`recall`)。
+
+        `recall` 只报本轮**量到**的数:`base`(第一跳回来几条)、`seeds`(取了哪几枚符号种子)、
+        `symbol_added`(补一跳净增几条)、`merged`(并片并掉几条)、`failures`(哪一跳没判成),
+        开关对照读 `base` 与 `symbol_added` 两格即可解释。
+        """
+        base_payload: dict[str, Any] = {
+            "query": query,
+            "topK": top_k,
+            # hybrid=向量+关键词 RRF 融合(服务端默认,显式声明契约,2026-09-07 立)
+            "mode": "hybrid",
+        }
+        if repo_id:
+            base_payload["repoId"] = repo_id
+        if language:
+            base_payload["language"] = language
+        # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
+        headers = self._internal_auth_headers(api_token, internal_user_id)
+
+        base, base_error = await self._query_chunks(base_payload, headers)
+        union = list(base)
+        recall: dict[str, Any] = {
+            "query": query,
+            "top_k": top_k,
+            "base": len(base),
+            "seeds": [],
+            "symbol_added": 0,
+            "merged": 0,
+            "gap_lines": 0,
+            "failures": [f"首跳未判定:{base_error}"] if base_error else [],
+        }
+
+        expand_on = (
+            _recall_env_flag(SYMBOL_EXPAND_ENV, True)
+            if symbol_expand is None
+            else bool(symbol_expand)
+        )
+        recall["symbol_expand"] = expand_on
+        if expand_on and base:
+            seeds = symbol_seeds(base, limit=DEFAULT_SYMBOL_EXPAND_SEEDS, exclude_symbol_types=SUMMARY_SYMBOL_TYPES)
+            recall["seeds"] = seeds
+            if seeds:
+                seed_top_k = max(1, top_k // 2)
+                legs = await asyncio.gather(
+                    *[
+                        self._query_chunks(
+                            {
+                                **base_payload,
+                                "query": seed,
+                                "topK": seed_top_k,
+                                # 补一跳只认标识符,走词法腿;语义腿会把"名字像"的邻近概念
+                                # 一起拉进来,那一跳的召回增益无法归因到符号名本身。
+                                "mode": "keyword",
+                            },
+                            headers,
+                        )
+                        for seed in seeds
+                    ]
+                )
+                for seed, (rows, err) in zip(seeds, legs, strict=True):
+                    if err:
+                        recall["failures"].append(f"符号腿 {seed} 未判定:{err}")
+                        continue
+                    union, added = merge_recall(union, rows, seed=seed)
+                    recall["symbol_added"] += added
+
+        gap = (
+            _recall_env_int(MERGE_GAP_ENV, DEFAULT_MERGE_GAP_LINES)
+            if merge_gap_lines is None
+            else int(merge_gap_lines)
+        )
+        recall["gap_lines"] = gap
+        try:
+            folded = fold_adjacent_hits(union, gap_lines=gap, max_chars=MAX_CHUNK_CHARS)
+        except ValueError as e:
+            # 畸形行区间不得让整次检索空手而归:原样下发 + 点名,判据不冒绿。
+            logger.warning("行区间就近合并未生效(回落原样下发): %s", e)
+            folded = [dict(h) for h in union]
+            recall["failures"].append(f"并片未判定:{e}")
+        recall["merged"] = len(union) - len(folded)
+        return {"chunks": folded, "recall": recall}
 
 
 codebase_indexer = CodebaseIndexer()

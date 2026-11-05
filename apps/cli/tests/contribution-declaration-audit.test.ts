@@ -21,6 +21,7 @@ import { ACTIVATION_POLICY } from '../src/plugins/activation-events.js';
 import { loadPlugins } from '../src/plugins/loader.js';
 import { PluginRegistry } from '../src/plugins/registry.js';
 import { PLUGIN_HOOK_EVENTS, auditDeclarationConsumers, declarationDiagnosticsOf } from '../src/plugins/declaration-consumers.js';
+import { hookMatcherSatisfied, parseHookDeclaration } from '../src/plugins/plugin-dispatch.js';
 import type { DeclarationFinding, HostNameSurface } from '../src/plugins/declaration-consumers.js';
 
 let root: string;
@@ -111,6 +112,46 @@ describe('② hook 事件段:只认 PLUGIN_HOOK_EVENTS 这一份单源', () => {
     // 未派发那条的原因里本来就要列出在册事件清单)
     expect(diagnostics.some((d) => d.message.includes('hooks:preToolCall'))).toBe(false);
     expect(diagnostics.some((d) => d.message.includes('hooks:postToolCall'))).toBe(false);
+  });
+
+  it('matcher 维进对账(Z29 接 Z13 未竟 3):matcher 在本宿主永远叫不醒 ⇒ 按"吃不下"出声,不静默记成已消费', () => {
+    const registry = registryOf({
+      name: 'z1-matcher',
+      version: '1.0.0',
+      hooks: ['preToolCall', 'preToolCall:not-a-host-tool', 'postToolCall:', 'preToolCall:*', 'postToolCall:read'],
+    });
+    const findings = auditDeclarationConsumers(registry, HOST);
+    for (const ident of ['preToolCall:not-a-host-tool', 'postToolCall:']) {
+      const finding = findingFor(findings, 'hooks', ident);
+      expect(finding.consumed).toBe(false);
+      expect(finding.reasonCode).toBe('matcher-never-fires');
+    }
+    // 正向对照:整档订阅 / 显式通配 / 名字真在宿主工具表 —— 三条都仍算被派发(不得恒喊)
+    for (const ident of ['preToolCall', 'preToolCall:*', 'postToolCall:read']) {
+      expect(findingFor(findings, 'hooks', ident).consumed).toBe(true);
+    }
+    const diagnostics = declarationDiagnosticsOf(findings);
+    expect(diagnostics).toHaveLength(2);
+    expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+    const text = diagnostics.map((d) => d.message).join('\n');
+    expect(text).toContain('hooks:preToolCall:not-a-host-tool');
+    expect(text).toContain('hooks:postToolCall:');
+    expect(text).toContain('dispatched');
+  });
+
+  it('装车证明:对账与派发吃同一把尺 —— 被点名的 matcher 用派发侧逐在册工具验都不命中', () => {
+    const registry = registryOf({ name: 'z1-ruler', version: '1.0.0', hooks: ['preToolCall:not-a-host-tool'] });
+    const finding = findingFor(auditDeclarationConsumers(registry, HOST), 'hooks', 'preToolCall:not-a-host-tool');
+    expect(finding.consumed).toBe(false);
+    const { event, matcher } = parseHookDeclaration(finding.declaration);
+    // 事件段两侧同源:对账认的事件,就是宿主真派发的那个事件(否则 matcher 维再对也是白对)
+    expect(PLUGIN_HOOK_EVENTS).toContain(event);
+    for (const toolName of HOST.toolNames) {
+      expect(hookMatcherSatisfied(matcher, { toolName })).toBe(false);
+    }
+    // 同一条尺的正向对照:名字换成在册工具名 ⇒ 派发侧判命中,对账侧就不再点名
+    expect(hookMatcherSatisfied('read', { toolName: 'read' })).toBe(true);
+    expect(findingFor(auditDeclarationConsumers(registryOf({ name: 'z1-ok', version: '1.0.0', hooks: ['preToolCall:read'] }), HOST), 'hooks', 'preToolCall:read').consumed).toBe(true);
   });
 });
 

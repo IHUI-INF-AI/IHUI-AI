@@ -6,10 +6,19 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { __test__ as oneclick } from '../client-oneclick-switch.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { pickByOrdinal, fmtAccountRow, fmtCountRow, runPoolListJson, POOL_LIST_TS } = oneclick
+const {
+  pickByOrdinal,
+  askOrdinal,
+  RETRY_LIMIT,
+  fmtAccountRow,
+  fmtCountRow,
+  runPoolListJson,
+  POOL_LIST_TS,
+} = oneclick
 
 function row(over = {}) {
   return {
@@ -40,9 +49,38 @@ test('① 序号解析:只认 1..N 的整数,其余一律 null(不猜)', () => {
   assert.equal(pickByOrdinal('1', 0), null)
 })
 
+test('①b 序号重问:空答复=取消、连错 3 次=业务失败(与非 TTY 的 rc=2 分档)', async () => {
+  const asked = []
+  const fakeRl = (answers) => ({
+    question: async (p) => {
+      asked.push(p)
+      return answers.shift() ?? ''
+    },
+  })
+  // 第一次打错、第二次命中 ⇒ 应当成功返回下标
+  assert.deepEqual(await askOrdinal(fakeRl(['99', '2']), '选: ', 8), { idx: 1 })
+  // 空答复 ⇒ 取消(不是失败)
+  assert.deepEqual(await askOrdinal(fakeRl(['']), '选: ', 8), { cancel: true })
+  // 连续 RETRY_LIMIT 次打错 ⇒ fail,且问的次数恰等于上限(不多问一次)
+  asked.length = 0
+  const bad = await askOrdinal(fakeRl(['x', 'y', 'z']), '选: ', 8)
+  assert.deepEqual(bad, { fail: true })
+  assert.equal(asked.length, RETRY_LIMIT)
+  // 打错时必须把射程口径回给人看
+  asked.length = 0
+  const notes = []
+  await askOrdinal(fakeRl(['99', '1']), '选: ', 8, (t) => notes.push(t))
+  assert.match(notes.join(''), /只认 1-8/)
+  // 射程漏传必须当场炸:静默放行任何序号比拒跑更坏
+  await assert.rejects(() => askOrdinal(fakeRl(['99']), '选: '), /正整数射程/)
+})
+
 test('② 展示面:序号行只给脱敏投影,绝不出现令牌形态字段', () => {
-  const line = fmtAccountRow(row(), 0)
-  assert.match(line, /\[1\] 15699571035/)
+  // 名单数据在出口侧已按单源掩码(--mask 档),这里断言的是"展示行不会把全号带出来"
+  const line = fmtAccountRow(row({ name: '156****1035' }), 0)
+  assert.match(line, /\[1\] 156\*\*\*\*1035/)
+  // 负锁:哪天忘了传 --mask,这条先红 —— 11 位连续数字就是手机号全号
+  assert.doesNotMatch(line, /1\d{10}/)
   assert.match(line, /健康=healthy/)
   assert.match(line, /token到期=2026-12-05/)
   assert.match(line, /归属=个人池/)
@@ -57,6 +95,15 @@ test('② 展示面:序号行只给脱敏投影,绝不出现令牌形态字段',
     fmtCountRow({ providerCode: 'qoder', total: 11, enabled: 11 }, 2),
     /\[3\] qoder  池内 11 行\(启用 11\)/,
   )
+})
+
+test('②b 取名单那一趟必须带 --mask(双击出来的是会被截图的窗口)', () => {
+  const entry = fileURLToPath(new URL('../client-oneclick-switch.mjs', import.meta.url))
+  const src = fs.readFileSync(entry, 'utf8').replace(/[⁠​‌‍]*/g, '')
+  assert.match(src, /'--provider', platform, '--json', '--mask'/)
+  // 首屏只有枚数没有名称 ⇒ 不需要掩码档,但必须标注取数时刻(两屏之间池可能被别席改)
+  assert.match(src, /'--counts', '--json'/)
+  assert.match(src, /取数时刻=/)
 })
 
 test('③ 列池管道:污染行照取、非零 exit 落未判定、JSON 解不开落未判定', () => {
