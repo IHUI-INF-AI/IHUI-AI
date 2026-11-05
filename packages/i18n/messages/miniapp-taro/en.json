@@ -5564,7 +5564,10 @@
     "twoFactor": "Two-Factor Authentication",
     "loginAlert": "Login Alerts",
     "desc": "Manage your account security options",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "readOnlyHint": "This page only shows the current status; changes can't be made here",
+    "stateOn": "On",
+    "stateOff": "Off"
   },
   "selfMedia": {
     "title": "Self-Media Assistant",

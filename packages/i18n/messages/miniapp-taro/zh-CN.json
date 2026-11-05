@@ -5564,7 +5564,10 @@
     "twoFactor": "两步验证",
     "loginAlert": "登录提醒",
     "desc": "管理账号安全相关的开关",
-    "loadFailed": "加载安全设置失败"
+    "loadFailed": "加载安全设置失败",
+    "readOnlyHint": "本页仅展示当前状态，不提供修改入口",
+    "stateOn": "已开启",
+    "stateOff": "未开启"
   },
   "selfMedia": {
     "title": "自媒体助手",

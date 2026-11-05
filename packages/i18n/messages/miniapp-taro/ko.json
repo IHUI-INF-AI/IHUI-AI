@@ -5567,7 +5567,10 @@
     "twoFactor": "2단계 인증",
     "loginAlert": "로그인 알림",
     "desc": "계정 보안 관련 설정 관리",
-    "loadFailed": "보안 설정 불러오기 실패"
+    "loadFailed": "보안 설정 불러오기 실패",
+    "readOnlyHint": "이 화면은 현재 상태만 표시하며 여기서 변경할 수 없습니다",
+    "stateOn": "켜짐",
+    "stateOff": "꺼짐"
   },
   "selfMedia": {
     "title": "셀프미디어 어시스턴트",
