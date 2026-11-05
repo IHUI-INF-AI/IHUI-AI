@@ -2,138 +2,92 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
-import { useDidShow } from '@tarojs/taro'
+// 镜像 packages/app/src/features/ranking/RankingScreen.tsx(佣金榜 = 排行榜共享屏的金额变体)
+
+import { useTt, useI18n } from '@/i18n'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import {
+  RankingScreen as SharedRankingScreen,
+  type RankingItem,
+} from '@ihui/rn-app/features/ranking/RankingScreen'
 
-interface RankUser {
-  id: string
-  nickname: string
-  avatar?: string
-  commission: number
-}
+/** 佣金榜金额格式(¥);由本端注入,共享屏内零货币符号硬编码 */
+const AMOUNT = (value: number) => `¥${value}`
 
+/**
+ * 手工迁移(批 4):原 139 行自绘榜单 → 直载 ranking/RankingScreen 共享屏。
+ * 缺的只是「佣金 ¥ 格式 + 榜单标题 + 无 range/学习时长」三件 → 共享屏以显式 props 承担
+ * (amountFormatter / title / showRanges=false / showStudyHours=false)。
+ * 数据腿与本端旧行为逐字同:GET /api/distribution/ranking;条目无 studyHours/isMe ⇒ 不注入不渲染。
+ */
 export default function DistributionRank() {
+  const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
-  const [list, setList] = useState<RankUser[]>([])
+  const [items, setItems] = useState<RankingItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const res = await getDistributionRank()
-      setList(res.list || [])
+      setItems(
+        (res.list || []).map((u, i) => ({
+          id: u.id,
+          rank: i + 1,
+          nickname: u.nickname,
+          avatar: u.avatar ?? null,
+          points: u.commission,
+        })),
+      )
     } catch {
-      // ignore
+      // 原页静默忽略;空态由共享屏承接
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
-  // G-933 冷启动抢跑门控:GET /api/distribution/ranking 由 distributionRoutes 的统一
-  // preHandler 守(`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权。
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
+
+  // G-933 冷启动抢跑门控:GET /api/distribution/ranking 由 distributionRoutes 统一
+  // preHandler 守(apps/api/src/routes/distribution.ts:24)⇒ 需鉴权。
   useDidShow(() => {
     gate.waitUntilReady(load)
   })
 
-  const top3 = list.slice(0, 3)
-  const rest = list.slice(3)
-
-  /* 对齐 RN RankingScreen rankColor:1=warning.amber / 2=text.tertiary / 3=warning.amberText */
-  const PODIUM = [
-    {
-      rank: 1,
-      item: top3[0],
-      border: 'var(--color-warning-amber)',
-      badge: 'var(--color-warning-amber)',
-    },
-    {
-      rank: 2,
-      item: top3[1],
-      border: 'var(--color-text-tertiary)',
-      badge: 'var(--color-text-tertiary)',
-    },
-    {
-      rank: 3,
-      item: top3[2],
-      border: 'var(--color-warning-amber-text)',
-      badge: 'var(--color-warning-amber-text)',
-    },
-  ]
+  const top3 = items.slice(0, 3)
+  const rest = items.slice(3)
 
   return (
     <ThemeRoot className="min-h-screen bg-background">
-      {top3.length >= 3 && (
-        <View className="flex flex-row gap-[16rpx] p-[20rpx] py-[24rpx]">
-          {PODIUM.map(({ rank, item, border, badge }) =>
-            item ? (
-              <View
-                key={rank}
-                className={`flex-1 flex flex-col items-center p-[28rpx] rounded-xl ${rank === 1 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-[var(--color-muted)]'}`}
-              >
-                <View
-                  className="w-[96rpx] h-[96rpx] rounded-2xl border-[length:4rpx] bg-[var(--color-background)] overflow-hidden"
-                  style={{ borderColor: border }}
-                >
-                  <Image
-                    className="w-full h-full"
-                    src={item.avatar || '/static/default-avatar.png'}
-                    mode="aspectFill"
-                  />
-                </View>
-                <Text className="text-body font-semibold text-foreground mt-[16rpx] max-w-full truncate">
-                  {item.nickname}
-                </Text>
-                <Text className="text-body text-[var(--color-success)] mt-[16rpx]">
-                  ¥{item.commission}
-                </Text>
-                <Text
-                  className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)]"
-                  style={{ backgroundColor: badge }}
-                >
-                  {rank}
-                </Text>
-              </View>
-            ) : null,
-          )}
-        </View>
-      )}
-      {rest.length > 0 && (
-        <View className="mx-[20rpx] flex flex-col gap-[16rpx]">
-          {rest.map((u, i) => (
-            <View
-              key={u.id}
-              className="flex flex-row items-center p-[28rpx] rounded-xl border border-border bg-[var(--color-background)]"
-            >
-              <Text className="w-[72rpx] text-title font-bold text-[var(--color-muted-foreground)]">
-                {i + 4}
-              </Text>
-              <View className="w-[88rpx] h-[88rpx] rounded-2xl border-[length:3rpx] border-[var(--color-muted-foreground)] bg-[var(--color-muted)] overflow-hidden">
-                <Image
-                  className="w-full h-full"
-                  src={u.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
-              </View>
-              <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-title font-semibold text-foreground truncate">
-                {u.nickname}
-              </Text>
-              <Text className="text-title font-bold text-[var(--color-success)]">
-                ¥{u.commission}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {!loading && list.length === 0 && (
-        <View className="text-center py-[120rpx] text-body text-[var(--color-text-tertiary)]">
-          <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
-        </View>
-      )}
+      <SharedRankingScreen
+        t={t}
+        top3={top3}
+        rest={rest}
+        range="allTime"
+        onSelectRange={() => {}}
+        loading={loading}
+        refreshing={refreshing}
+        error=""
+        onRefresh={refresh}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+        title={tt('distribution.index.menuRank', '推广排行')}
+        amountFormatter={AMOUNT}
+        showRanges={false}
+        showStudyHours={false}
+        emptyText={tt('distribution.rankEmpty', '暂无排行数据')}
+      />
     </ThemeRoot>
   )
 }
