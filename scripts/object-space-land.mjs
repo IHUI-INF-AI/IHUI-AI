@@ -1721,6 +1721,7 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       problems: [],
       dropped: 0,
       retired: 0,
+      preExistingRetired: 0,
       covered: 0,
       rewritten: 0,
       rewriteSample: [],
@@ -1743,6 +1744,7 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       problems: [`退休通道解析失败:${String(e?.message ?? e).slice(0, 120)}`],
       dropped: 0,
       retired: 0,
+      preExistingRetired: 0,
       covered: 0,
       rewritten: 0,
       rewriteSample: [],
@@ -1750,6 +1752,16 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   }
   const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
   const activeNext = nextItems.filter((it) => !isRetiredRecord(it.value))
+  // ⓪ base 里**已是退休行**且本枚落地里**逐字节仍在册**的条目:不是本轮"被摘",也不再逐条重验
+  // (它们在上一枚落地时已验过一次)。base 已退休却在落地里消失 ⇒ 不进本档豁免,照旧进 dropped
+  // (删行仍红)。2026-11-05 补:此前本档把 base 里既有的退休行也读成"被摘",于是第二轮起
+  // 正规落地通道恒报"假登记/多登记"而误拒,被迫改走 safe-commit。
+  const baseRetiredByCanon = new Map()
+  for (const it of baseItems)
+    if (isRetiredRecord(it.value)) baseRetiredByCanon.set(it.canon, (baseRetiredByCanon.get(it.canon) ?? 0) + 1)
+  const nextRetiredByCanon = new Map()
+  for (const it of retiredItems) nextRetiredByCanon.set(it.canon, (nextRetiredByCanon.get(it.canon) ?? 0) + 1)
+  let preExistingRetired = 0
   // ① 先按身份做多重集匹配(同身份优先配同原文),剩余才是"被摘条目"。
   const used = new Set()
   const nextById = new Map()
@@ -1760,6 +1772,13 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   })
   const dropped = []
   for (const it of baseItems) {
+    if (isRetiredRecord(it.value)) {
+      const c = nextRetiredByCanon.get(it.canon) ?? 0
+      if (c > 0) {
+        nextRetiredByCanon.set(it.canon, c - 1)
+        continue
+      }
+    }
     const id = retireIdentityOf(it.value)
     const pool = nextById.get(id) ?? []
     let pick = pool.find((i) => !used.has(i) && activeNext[i].canon === it.canon)
@@ -1821,7 +1840,16 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   const coveredCounters = new Map()
   let covered = 0
   const overDeclared = []
+  const preExistingRetiredByCanon = new Map()
   for (const it of retiredItems) {
+    const pre = baseRetiredByCanon.get(it.canon) ?? 0
+    if (pre > 0) {
+      // base 里已登记且逐字节未变的退休行:上一枚落地已核验过,不再要求它对应本轮的"被摘"。
+      baseRetiredByCanon.set(it.canon, pre - 1)
+      preExistingRetired++
+      preExistingRetiredByCanon.set(it.canon, (preExistingRetiredByCanon.get(it.canon) ?? 0) + 1)
+      continue
+    }
     const v = it.value
     const where = `退休行 ${(v.retiredFrom ?? '').slice(0, 80) || '(无 retiredFrom)'}`
     if (typeof v.retiredAt !== 'string' || !RETIRED_AT_RE.test(v.retiredAt) || Number.isNaN(Date.parse(v.retiredAt)))
@@ -1882,24 +1910,43 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   if (ok && covered > 0) {
     if (kind === 'jsonl') {
       const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
       filteredBaseText =
         baseItems
           .filter((it) => {
             const c = left.get(it.canon) ?? 0
-            if (c <= 0) return true
-            left.set(it.canon, c - 1)
-            return false
+            if (c > 0) {
+              left.set(it.canon, c - 1)
+              return false
+            }
+            // base 里既有的退休行:落地内容那一侧已被 activeNext 整体剥掉,基线侧必须同步剥掉,
+            // 否则它们的标记键会被读成"消失"(同根因的另一半)。
+            const p = leftPre.get(it.canon) ?? 0
+            if (p > 0) {
+              leftPre.set(it.canon, p - 1)
+              return false
+            }
+            return true
           })
           .map((it) => it.raw)
           .join('\n') + '\n'
       filteredNextText = activeNext.map((it) => it.raw).join('\n') + '\n'
     } else {
       const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
       const prunedBase = pruneJsonValue(JSON.parse(baseText), (el) => {
-        const c = left.get(canonOf(el)) ?? 0
-        if (c <= 0) return false
-        left.set(canonOf(el), c - 1)
-        return true
+        const k = canonOf(el)
+        const c = left.get(k) ?? 0
+        if (c > 0) {
+          left.set(k, c - 1)
+          return true
+        }
+        const p = leftPre.get(k) ?? 0
+        if (p > 0) {
+          leftPre.set(k, p - 1)
+          return true
+        }
+        return false
       })
       const prunedNext = pruneJsonValue(JSON.parse(newText), (el) => isRetiredRecord(el))
       filteredBaseText = JSON.stringify(prunedBase)
@@ -1912,7 +1959,8 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
     channel,
     problems,
     dropped: dropped.length,
-    retired: retiredItems.length,
+    retired: retiredItems.length - preExistingRetired,
+    preExistingRetired,
     covered,
     overDeclared: overDeclared.length,
     // ④ 窄档读数:改写条数 + 逐条补了什么键 + 有多少条是"同主体但判定变了"(只点名,不放行)。
