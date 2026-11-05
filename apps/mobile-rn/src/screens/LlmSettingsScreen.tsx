@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { createUserLlmProvider, listUserLlmProviders, verifyLlmKey } from '@ihui/api-client'
 import {
   LlmSettingsScreen as SharedLlmSettingsScreen,
   type ByokProviderOption,
@@ -130,9 +130,10 @@ function LlmSettingsScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ groups: { providers?: UserLlmProvider[] }[]; total: number }>(
-        '/api/v2/user/llm-providers',
-      )
+      const res = await listUserLlmProviders<{
+        groups: { providers?: UserLlmProvider[] }[]
+        total: number
+      }>()
       if (!res.success) throw new Error(res.error || 'load failed')
       const rows = (res.data?.groups ?? []).flatMap((g) => g.providers ?? [])
       setProviders(
@@ -160,9 +161,9 @@ function LlmSettingsScreen() {
     setVerifyState('verifying')
     setVerifyMsg('')
     try {
-      const r = await fetchApi<{ valid: boolean; message?: string }>('/api/llm/verify-key', {
-        method: 'POST',
-        body: JSON.stringify({ providerCode: selected.code, apiKey }),
+      const r = await verifyLlmKey<{ valid: boolean; message?: string }>({
+        providerCode: selected.code,
+        apiKey,
       })
       if (r.success && r.data) {
         if (r.data.valid) setVerifyState('success')
@@ -190,21 +191,15 @@ function LlmSettingsScreen() {
     if (!selected) return
     setActionPending(true)
     try {
-      const res = await fetchApi<{ id: number; created: boolean; name: string }>(
-        '/api/v2/user/llm-providers',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            providerCode: selected.code,
-            name: selected.name,
-            apiKey,
-            apiFormat: selected.apiFormat,
-            baseUrlOverride: undefined,
-            providerGroup: 'default',
-            sortOrder: 0,
-          }),
-        },
-      )
+      const res = await createUserLlmProvider({
+        providerCode: selected.code,
+        name: selected.name,
+        apiKey,
+        apiFormat: selected.apiFormat,
+        baseUrlOverride: undefined,
+        providerGroup: 'default',
+        sortOrder: 0,
+      })
       if (!res.success) throw new Error(res.error)
       setStep(3)
       void load()

@@ -9,7 +9,11 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  cancelSubscriptionRenewal,
+  getMembershipSubscription,
+  renewSubscription,
+} from '@ihui/api-client'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -50,18 +54,29 @@ export default function MemberSubscriptionPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'subscription'],
     queryFn: () =>
-      apiOrThrow<{ subscription: Subscription | null }>('/api/subscriptions')
-        .then((d) => d.subscription)
+      getMembershipSubscription<{ subscription: Subscription | null }>()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.subscription
+        })
         .catch(() => null),
     enabled: allow,
   })
 
   const cancelMut = useMutation({
-    mutationFn: () => apiOrThrow('/api/subscriptions/cancel', { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await cancelSubscriptionRenewal()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
   const renewMut = useMutation({
-    mutationFn: () => apiOrThrow('/api/subscriptions/renew', { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await renewSubscription()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'subscription'] }),
   })
 

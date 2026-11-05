@@ -15,7 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronLeft, ChevronRight, Eye, FileText } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { listMyArticles } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -76,9 +76,10 @@ export default function UserArticlesScreen() {
     setLoading(true)
     setFailed(false)
     try {
-      const res = await fetchApi<{ list: ArticleRow[]; total: number }>(
-        `/api/article/my?page=${targetPage}&pageSize=${PAGE_SIZE}`,
-      )
+      const res = await listMyArticles<{ list: ArticleRow[]; total: number }>({
+        page: targetPage,
+        pageSize: PAGE_SIZE,
+      })
       if (!res.success) throw new Error(res.error)
       setRows(res.data?.list ?? [])
       setTotal(res.data?.total ?? 0)

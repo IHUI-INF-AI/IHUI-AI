@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getImageTemplates } from '@ihui/api-client'
 import {
   ImageGenTemplatesScreen as SharedImageGenTemplatesScreen,
   type ImageTemplateItem,
@@ -45,10 +45,6 @@ interface ImageTemplate {
   createdAt: string
 }
 
-interface TemplatesData {
-  list: ImageTemplate[]
-}
-
 export default function ImageGenTemplatesScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -76,7 +72,7 @@ export default function ImageGenTemplatesScreen() {
   const load = useCallback(async () => {
     setErrorText('')
     try {
-      const res = await fetchApi<TemplatesData>('/api/image-gen/templates')
+      const res = await getImageTemplates<ImageTemplate>()
       if (!res.success) {
         setErrorText(t('imageGenTemplates.loadFailed'))
         return

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getAskById } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { AskDetailScreen as SharedAskDetailScreen, type AskDetailItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -33,9 +33,9 @@ export function AskDetailScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<AskDetailItem>(`/api/asks/${encodeURIComponent(id)}`)
+      const res = await getAskById(id)
       if (cancelled) return
-      if (res.success) setAsk(res.data)
+      if (res.success) setAsk(res.data as unknown as AskDetailItem)
       else setError(apiFailureToText(res, t('askDetail.loadFailed')))
       setLoading(false)
     })()

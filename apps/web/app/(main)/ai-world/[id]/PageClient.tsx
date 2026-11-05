@@ -11,7 +11,8 @@ import { useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Eye, Calendar, Tag, Sparkles, Star } from 'lucide-react'
 import Image from 'next/image'
 
-import { fetchApi, apiOrThrow } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
+import { addFavorite, checkFavorite, deleteFavorite } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -57,9 +58,10 @@ export default function AiWorldDetailPage() {
   const { data: favData } = useQuery({
     queryKey: ['ai-world', 'favorite', params.id],
     queryFn: () =>
-      apiOrThrow<{ favorited: boolean }>(`/api/favorites/check/aiworld/${params.id}`).then(
-        (d) => d.favorited,
-      ),
+      checkFavorite('aiworld', params.id).then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.favorited
+      }),
     enabled: !!params.id && isAuthed,
   })
 
@@ -67,16 +69,11 @@ export default function AiWorldDetailPage() {
   const favMutation = useMutation({
     mutationFn: async (favorited: boolean) => {
       if (favorited) {
-        const r = await fetchApi<{ favorited: boolean }>(`/api/favorites/aiworld/${params.id}`, {
-          method: 'DELETE',
-        })
+        const r = await deleteFavorite('aiworld', params.id)
         if (!r.success) throw new Error(r.error)
         return false
       }
-      const r = await fetchApi<{ favorited: boolean }>('/api/favorites', {
-        method: 'POST',
-        body: JSON.stringify({ resourceType: 'aiworld', resourceId: params.id }),
-      })
+      const r = await addFavorite('aiworld', params.id)
       if (!r.success) throw new Error(r.error)
       return true
     },

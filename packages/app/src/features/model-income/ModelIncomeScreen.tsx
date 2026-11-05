@@ -47,7 +47,7 @@ export function ModelIncomeScreen({
   onLoadMore,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ModelIncomeScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])

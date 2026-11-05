@@ -76,7 +76,7 @@ describe('dns 快照适配器 — 冷/热/过期/失败四态', () => {
   });
 
   it('② 解析失败缓存短条目:null 出口一致,不冒充"没有内网地址"', async () => {
-    let clock = 0;
+    const clock = 0;
     let fired = 0;
     const resolver = createDnsSnapshotResolver({
       lookup: () => {

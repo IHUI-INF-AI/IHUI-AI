@@ -1784,7 +1784,7 @@ class TestMakeupCardStaticShapeLock:
 async def _wb_request(path, jwt, device_map, body):
     return 200, {}, "token"
 
-async def run_makeup(jwt, device_map):
+async def run_makeup_literal_write(jwt, device_map):
     return await _wb_request(
         "/activity/growth/makeup-cards/use", jwt, device_map, {"target_date": "2026-10-31"}
     )
@@ -1796,14 +1796,14 @@ async def run_makeup(jwt, device_map):
         src = '''
 PATH_MAKEUP_CARD_USE = "/activity/growth/makeup-cards/use"
 
-async def run_makeup(jwt, device_map):
+async def run_makeup_path_const(jwt, device_map):
     return await _wb_request(PATH_MAKEUP_CARD_USE, jwt, device_map, {})
 '''
         assert wt.find_makeup_card_write_hookups(src), "路径常量形态没被抓到"
 
     def test_flags_snake_and_fstring_variants(self) -> None:
         src = '''
-async def run_makeup(base, jwt, device_map):
+async def run_makeup_snake_fstring(base, jwt, device_map):
     return await _post_once(f"{base}/activity/growth/makeup_cards/use", jwt, device_map, {})
 '''
         assert wt.find_makeup_card_write_hookups(src), "下划线/f-string 变体没被抓到"
@@ -1813,7 +1813,7 @@ async def run_makeup(base, jwt, device_map):
         src = '''
 from somewhere_else import PATH_MAKEUP_CARDS_USE
 
-async def run_makeup(jwt, device_map):
+async def run_makeup_imported_id(jwt, device_map):
     return await _wb_request(PATH_MAKEUP_CARDS_USE, jwt, device_map, {})
 '''
         hits = wt.find_makeup_card_write_hookups(src)

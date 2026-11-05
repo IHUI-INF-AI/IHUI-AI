@@ -22,7 +22,23 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduScheduleChangeAction,
+  eduScheduleChangeList,
+  eduSchedulingAutoGenerate,
+  eduSchedulingCheckConflicts,
+  eduSchedulingRuleCreate,
+  eduSchedulingRuleDelete,
+  eduSchedulingRuleList,
+  eduSchedulingRuleUpdate,
+  eduTeacherList,
+  eduTeacherScheduleCreate,
+  eduTeacherScheduleDelete,
+  eduTeacherScheduleList,
+  eduTeacherScheduleUpdate,
+  eduTermList,
+} from '@ihui/api-client'
 import { BackButton, TruncatedText } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -558,7 +574,11 @@ export default function SchedulingPage() {
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -571,18 +591,24 @@ export default function SchedulingPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const { data: rulesData, isLoading: rulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'rule', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: SchedulingRule[] }>(
-        `/api/edu-ai-management/scheduling-rule?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduSchedulingRuleList<{ list: SchedulingRule[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const rules = rulesData?.list ?? []
@@ -590,26 +616,36 @@ export default function SchedulingPage() {
   const { data: teachersData } = useQuery({
     queryKey: ['edu-ai-management', 'teachers'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: EduTeacher[] }>('/api/edu-ai-management/teachers'),
+    queryFn: async () => {
+      const r = await eduTeacherList<{ list: EduTeacher[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const teachers = React.useMemo(() => teachersData?.list ?? [], [teachersData])
 
   const { data: teacherSchedulesData, isLoading: teacherSchedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'teacher-schedule', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: TeacherSchedule[] }>(
-        `/api/edu-ai-management/teacher-schedule?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduTeacherScheduleList<{ list: TeacherSchedule[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const teacherSchedules = teacherSchedulesData?.list ?? []
 
   const { data: changesData, isLoading: changesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'scheduling', 'change', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: ScheduleChange[] }>(
-        `/api/edu-ai-management/schedule-change?termId=${selectedTermId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduScheduleChangeList<{ list: ScheduleChange[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const changes = changesData?.list ?? []
@@ -620,47 +656,51 @@ export default function SchedulingPage() {
   }, [queryClient])
 
   const createRule = useMutation({
-    mutationFn: (data: RuleFormData) =>
-      apiOrThrow('/api/edu-ai-management/scheduling-rule', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: RuleFormData) => {
+      const r = await eduSchedulingRuleCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateRule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: RuleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: RuleFormData }) => {
+      const r = await eduSchedulingRuleUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteRule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/scheduling-rule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduSchedulingRuleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const autoGenerate = useMutation({
-    mutationFn: () =>
-      apiOrThrow<{ success: boolean; message: string }>(
-        '/api/edu-ai-management/scheduling/auto-generate',
-        {
-          method: 'POST',
-          body: JSON.stringify({ termId: selectedTermId }),
-        },
-      ),
+    mutationFn: async () => {
+      const r = await eduSchedulingAutoGenerate<{ success: boolean; message: string }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const checkConflicts = useMutation({
-    mutationFn: () =>
-      apiOrThrow<{ conflicts: string[] }>('/api/edu-ai-management/scheduling/check-conflicts', {
-        method: 'POST',
-        body: JSON.stringify({ termId: selectedTermId }),
-      }),
+    mutationFn: async () => {
+      const r = await eduSchedulingCheckConflicts<{ conflicts: string[] }>({
+        termId: selectedTermId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (data) => {
       setConflicts(data.conflicts)
       setConflictDialogOpen(true)
@@ -668,35 +708,38 @@ export default function SchedulingPage() {
   })
 
   const createTeacherSchedule = useMutation({
-    mutationFn: (data: TeacherScheduleFormData) =>
-      apiOrThrow('/api/edu-ai-management/teacher-schedule', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: TeacherScheduleFormData) => {
+      const r = await eduTeacherScheduleCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateTeacherSchedule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TeacherScheduleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: TeacherScheduleFormData }) => {
+      const r = await eduTeacherScheduleUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteTeacherSchedule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/teacher-schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduTeacherScheduleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const approveChange = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'approve' | 'reject' }) =>
-      apiOrThrow(`/api/edu-ai-management/schedule-change/${id}/${action}`, {
-        method: 'PUT',
-        body: JSON.stringify({}),
-      }),
+    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
+      const r = await eduScheduleChangeAction(id, action, {})
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 

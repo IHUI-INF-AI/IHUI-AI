@@ -122,7 +122,9 @@
       // 真入口 src/index.ts 一起写上,否则补一个就丢一个。
       // worker-entry.ts 由 SubagentWorkerPool 以 path.join(hereDir,'worker-entry.js') 解析后
       // fork() 装载(worker-pool.ts:1324/:776)—— 路径拼接,knip 静态图不可见。
-      "entry": ["src/index.ts", "src/subagents/worker-entry.ts"],
+      // 2026-11-05:trash-prune-entry.ts 同为跨进程边界 —— 守护腿 scripts/lib/git-guardian-trash-expiry.mjs
+      // 以 spawn tsx 的方式读它打到 stdout 的一行结论行(路径拼接),knip 静态图不可见;属进程入口,不是死代码。
+      "entry": ["src/index.ts", "src/subagents/worker-entry.ts", "src/tools/trash-prune-entry.ts"],
       "project": ["src/**/*.ts"],
       // 2026-10-20:esbuild/postject 是 SEA 单文件构建链(build-sea.mjs / build-npm.mjs)的
       // 真依赖,但这两个构建脚本位于 apps/cli/scripts/,在本 workspace 的 project 模式
