@@ -132,8 +132,9 @@ async function main() {
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
-    // 冷启要等 tsx 与库连接(实测空白 1.7~2.9s)—— 不先给一句话,双击的人只会看到"没反应"
-    process.stdout.write('正在读取号池…(首次冷启要等一会儿)\n')
+    // 冷启要等 tsx 与库连接(实测空白 1.7~2.9s;整条切号往返实测 9.1s)—— 不先给一句话,
+    // 双击的人只会看到"没反应",2026-11-05 机主报"根本就不好使"有一半就出在这格。
+    process.stdout.write('正在读取号池…(首次冷启约需几秒,整条切号往返实测约 9 秒)\n')
     const counts = runPoolListJson(tsx, ['--counts', '--json'])
     if (counts.error) {
       process.stderr.write(`❌ ${counts.error}\n`)
