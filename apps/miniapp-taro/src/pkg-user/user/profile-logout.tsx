@@ -18,6 +18,28 @@ import { clearAuth, getRefreshToken, goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { onToast } from '@/host/on-toast'
 
+type Translate = (key: string) => string
+
+/**
+ * 无渲染的登出动作(共享屏 ProfileScreen / SettingsScreen 均由宿主注入 onLogout)。
+ * settings 页的确认弹窗由共享屏 onConfirm 发起,故这里不再自带 showModal。
+ */
+export async function performLogout(t: Translate): Promise<void> {
+  // 令牌要在 clearAuth() 之前取(clear 之后就没了)
+  const refreshToken = getRefreshToken()
+  try {
+    const r = await post<{ revoked?: boolean }>('/auth/logout', { refreshToken })
+    // 服务端没吊销成功 ⇒ 记一条(不粉饰成"已吊销"),本地登出照常执行
+    if (!r?.revoked) logger.error('user/logout', '退出登录:服务端未吊销 refreshToken', null)
+  } catch (e) {
+    logger.error('user/logout', '退出登录', e)
+  }
+  // 清凭据 + 落登出标记是 clearAuth() 一件成对动作,顺序在它内部定死
+  clearAuth()
+  onToast(t('user.loggedOut'), { kind: 'success' })
+  setTimeout(goToLogin, 800)
+}
+
 export function useProfileLogout() {
   const { t } = useI18n()
   return useCallback(() => {
@@ -26,19 +48,7 @@ export function useProfileLogout() {
       content: t('setting.logoutConfirm'),
       success: async (res) => {
         if (!res.confirm) return
-        // 令牌要在 clearAuth() 之前取(clear 之后就没了)
-        const refreshToken = getRefreshToken()
-        try {
-          const r = await post<{ revoked?: boolean }>('/auth/logout', { refreshToken })
-          // 服务端没吊销成功 ⇒ 记一条(不粉饰成"已吊销"),本地登出照常执行
-          if (!r?.revoked) logger.error('user/profile', '退出登录:服务端未吊销 refreshToken', null)
-        } catch (e) {
-          logger.error('user/profile', '退出登录', e)
-        }
-        // 清凭据 + 落登出标记是 clearAuth() 一件成对动作(与 user/settings 同源,顺序在它内部定死)
-        clearAuth()
-        onToast(t('user.loggedOut'), { kind: 'success' })
-        setTimeout(goToLogin, 800)
+        await performLogout(t)
       },
     })
   }, [t])
