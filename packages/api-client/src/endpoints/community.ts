@@ -106,6 +106,45 @@ export async function getCircleById(
   return fetchApi<{ circle: Circle; posts: CirclePost[] }>(`/circles/${encodeURIComponent(id)}`)
 }
 
+/**
+ * 发布社区帖子(2026-11-05 立,门 300 存量 A 类:RN / 小程序端内直拼
+ * `/api/community/posts` 收口)。
+ *
+ * 后端真值:`apps/api/src/routes/community/posts.ts:124`,zod 写入体字段见
+ * `CreateCommunityPostInput`;回包 201 + `{ id, title, content, tags, authorId,
+ * status, publishedAt }`。
+ */
+export interface CreateCommunityPostInput {
+  title: string
+  content: string
+  tags?: string[]
+  cover?: string
+  category?: string
+  visibility?: 'public' | 'private' | 'followers'
+  circleId?: string
+  status?: string
+}
+
+/** POST /api/community/posts 的回包。 */
+export interface CommunityPostCreated {
+  id: string
+  title: string
+  content: string
+  tags: string[]
+  authorId: string
+  status: string
+  publishedAt: string
+}
+
+export async function createCommunityPost(
+  input: CreateCommunityPostInput,
+): Promise<ApiResult<CommunityPostCreated>> {
+  return fetchApi<CommunityPostCreated>('/api/community/posts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
 export async function createCirclePost(
   circleId: string,
   input: { title: string; content: string; images?: string[] },
