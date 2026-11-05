@@ -1519,7 +1519,8 @@
     "okSent": "分享成功",
     "cancelled": "已取消分享",
     "fail": "分享失败",
-    "needAlbum": "需要相册权限才能选择图片"
+    "needAlbum": "需要相册权限才能选择图片",
+    "courseTitle": "推荐课程:{title}"
   },
   "vipScreen": {
     "plans": {
@@ -1921,7 +1922,10 @@
     "start": "开始考试",
     "title": "考试",
     "totalScore": "总分",
-    "questionCountLabel": "题目数"
+    "questionCountLabel": "题目数",
+    "result": {
+      "shareTitle": "我的考试成绩: {n} 分"
+    }
   },
   "examQuestion": {
     "loadFailed": "加载试卷失败",

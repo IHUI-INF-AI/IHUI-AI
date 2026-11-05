@@ -1519,7 +1519,8 @@
     "okSent": "공유됨",
     "cancelled": "공유 취소됨",
     "fail": "공유 실패",
-    "needAlbum": "앨범 권한 필요"
+    "needAlbum": "앨범 권한 필요",
+    "courseTitle": "추천 강의: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1921,7 +1922,10 @@
     "start": "시험 시작",
     "title": "시험",
     "totalScore": "총점",
-    "questionCountLabel": "문제 수"
+    "questionCountLabel": "문제 수",
+    "result": {
+      "shareTitle": "내 시험 성적: {n}점"
+    }
   },
   "examQuestion": {
     "loadFailed": "시험지 로드 실패",

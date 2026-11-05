@@ -1519,7 +1519,8 @@
     "okSent": "共有完了",
     "cancelled": "共有をキャンセル",
     "fail": "共有失敗",
-    "needAlbum": "アルバム権限が必要"
+    "needAlbum": "アルバム権限が必要",
+    "courseTitle": "おすすめコース: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1921,7 +1922,10 @@
     "start": "試験を開始",
     "title": "試験",
     "totalScore": "総得点",
-    "questionCountLabel": "問題数"
+    "questionCountLabel": "問題数",
+    "result": {
+      "shareTitle": "私の試験成績: {n} 点"
+    }
   },
   "examQuestion": {
     "loadFailed": "試験問題の読み込みに失敗しました",
