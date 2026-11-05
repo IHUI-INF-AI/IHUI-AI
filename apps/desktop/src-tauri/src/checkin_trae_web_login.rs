@@ -167,6 +167,12 @@ enum ExchangeFailure {
 
 /// 用 Cookie 直调 GetUserToken。
 async fn exchange_for_token(cookie_header: &str) -> Result<TraeTokenPayload, ExchangeFailure> {
+    // 出站前过出口门(Z17 与 CLI 同源腿):enforce 档拒绝 ⇒ 性质归「其它」而非「未登录」,
+    // 不让用户误以为只是没登录。
+    let target = format!("{TRAE_API_ORIGIN}{GET_USER_TOKEN_PATH}");
+    if let Err(denied) = crate::egress_gate::guard_egress_target(&target) {
+        return Err(ExchangeFailure::Other(format!("出口门拒绝该目标: {denied}")));
+    }
     let resp = shared_client()
         .post(format!("{TRAE_API_ORIGIN}{GET_USER_TOKEN_PATH}"))
         .header("accept", "application/json")
