@@ -125,6 +125,11 @@ test('B 同一路径已登记通知书:放行,并打印"已声明放行"的读�
     const cli = runCli(dir)
     assert.equal(cli.status, 0, '已声明的删除必须放行')
     assert.match(cli.stdout, /已由通知书声明、本次放行/)
+
+    // 提交链用 --quiet 调本器;若 quiet 把放行读数一起吞掉,复盘时只剩"没红"、看不到为什么没红
+    const quiet = runCli(dir, ['--quiet'])
+    assert.equal(quiet.status, 0)
+    assert.match(quiet.stdout, /已由通知书声明、本次放行/, '--quiet 也不得吞掉放行读数')
   } finally {
     rmScratch(dir)
   }

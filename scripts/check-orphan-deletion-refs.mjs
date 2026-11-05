@@ -543,13 +543,14 @@ function main(argv = process.argv.slice(2)) {
       for (const u of g.undetermined) console.error(`     - ${u}`)
       return 0
     }
-    if (!quiet) {
+    if (!quiet)
       console.log(
         `✅ 孤儿删除闸:首列 D 孤儿 ${g.orphanIndex.length} 条 / 仍被活源码引用 ${g.blocked.length + g.declared.length} 条 → 阻断 0 条`,
       )
-      if (g.declared.length)
-        console.log(`   ↳ 已由通知书声明、本次放行:${g.declared.map((d) => d.path).join(', ')}`)
-    }
+    // 已声明的放行读数**不受 --quiet 抑制**:提交链里唯一能证明"这道闸确实看过台账、没有把
+    // 人的决定当成事故"的一行就是它。静默放行会让复盘时只能看到"没红",看不到"为什么没红"。
+    if (g.declared.length)
+      console.log(`   ↳ 已由通知书声明、本次放行:${g.declared.map((d) => d.path).join(', ')}`)
     return 0
   }
   const r = auditOrphanDeletionRefs(root)
