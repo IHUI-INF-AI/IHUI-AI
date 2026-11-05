@@ -591,3 +591,28 @@ export interface ChatMessageBubbleProps {
 **理由**：页面只交数据/节点，不交渲染函数；锚定与挂载语义归共享层。端内视觉子件（Taro 原语 + 端内组件）按 §0 依赖方向不能进 `packages/app`，落 `apps/miniapp-taro/src/pkg-ai/ai/chat-list-extras.tsx`，由页面以节点/映射传入。
 **影响的装配点**：块 1–6 装配时，RN `ChatScreen` 传 `headerNode={renderListHeader}`；小程序页传 `headerNode` / `tailNodes` / `orphanTailNode` / `thinkingNode`；`renderItem` 保留（依赖端内富内容组件，装配批再收）。
 **阴性对照**：不传 `tailNodes` 时不渲染任何行尾；不在 `tailNodes` 中的 id 不渲染；不传 `thinkingNode` 且末条已有正文时不渲染占位。
+
+## 11. ADDENDUM：A13–A15 换锚结论（冻结，2026-11-06）
+
+> 对应 T7 15 锚变异矩阵 A13/A14/A15。矩阵逐条"改坏 → 贴失败原文 → 恢复绿"，本文件只固化三条会被别人动 `ChatScreen.tsx` 时踩到的护栏。
+> 与 §7/§8 同则：**只追加、不改 §0–§10**。
+
+### A-17 槽序：`statusSlot → queueSlot → inputSlot`
+
+**判据**：`ChatScreen` 三槽按"状态条 → 请求队列条 → 输入区"自上而下挂载；槽内容是端内节点，共享层只留挂载位，不判断端、不构造业务节点。
+**必红条件**：删 `packages/app/src/features/chat/ChatScreen.tsx:205` 的 `{queueSlot ?? null}` ⇒ `packages/app/tests/chat-shell-anchors.test.tsx` 必红，失败原文含 `Missing: queueSlot`（断言文案：`expected 'STATUS_SLOTINPUT_SLOT' to contain 'QUEUE_SLOT'`）。
+**改动面**：只许动 [ChatScreen.tsx](file:///D:/IHUI-AI-wt-shell-chat/packages/app/src/features/chat/ChatScreen.tsx#L204-L205) 的两个挂载点（L204 `statusSlot`、L205 `queueSlot`）；`ChatScreenProps`、端内壳、页面壳不动；顺序调整必须同步更新换锚用例。
+
+### A-18 尾注按 `item.id` 挂行后，锚不到落列表尾
+
+**判据**：`tailNodes` 是"id → 节点"只读映射，一律挂在**对应行之后**；`item.id` 不在映射内不渲染；带 `orphanTailNode` 时只落列表尾（`renderFooter` 之前），不得串到别的行。
+**必红条件**：删 `packages/app/src/features/chat/ChatMessageList.tsx:279` 的 `{tailNodes?.get(item.id) ?? null}` ⇒ 同一用例文件必红，失败原文含 `Missing: tailNodes?.get(item.id)`（断言文案：`expected 'USER_ROWASSISTANT_ROWORPHAN_TAIL' to contain 'TAIL_AFTER_A1'`）。
+**改动面**：[ChatMessageList.tsx](file:///D:/IHUI-AI-wt-shell-chat/packages/app/src/features/chat/ChatMessageList.tsx#L279) 的行尾挂载点；共享层不持有业务键、不按角色/端判断；装配器只负责把 `ReadonlyMap` 交进来。
+
+### A-19 请求队列条 `QueueInteractionBar` 走 `queueSlot` 注入
+
+**判据**：`QueueInteractionBar` 是端内独占子件（Taro 原语 + 端内 hook），**不得**进 `packages/app`；共享屏只认 `queueSlot` 挂载位。端内壳的注入点固定在 `chat-shell-extras.tsx:366` 的 `queueSlot:`，其 JSX 根必须是 `<QueueInteractionBar`。
+**必红条件**：把 `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx` 的 `<QueueInteractionBar` 改名/删除（矩阵取 `<QueueStrip`）⇒ `apps/miniapp-taro/tests/d38-side-queue-host.test.tsx` 必红，失败原文含 `to match /<QueueInteractionBar/`。
+**改动面**：端内壳 `queueSlot` 段；RN/web 不承接该子件；共享层零改动。若将来要把队列条共享化，必须先在 `packages/app` 提供无平台依赖的替代载体并另立契约，不得把 Taro 子件塞进共享屏。
+
+**阴性对照汇总**：删 `{queueSlot ?? null}` ⇒ A-17 必红；删 `{tailNodes?.get(item.id) ?? null}` ⇒ A-18 必红；改名 `<QueueInteractionBar` ⇒ A-19 必红。三条各自独立，不允许用"局部绿/源码 grep 绿"替代。
