@@ -819,6 +819,14 @@ export interface DeveloperScreenProps {
   subscribed: boolean
   /** null ⇒ 未加载完或无有效订阅 ⇒ 不渲染开发者信息卡 */
   info: DeveloperSpaceInfo | null
+  /** 头部状态行文案(已开通/未开通/开通中,端侧取词);缺省不渲染 */
+  statusText?: string
+  /** 可见入口集合;缺省 = DEVELOPER_SPACE_ENTRIES 全量。端侧数据源各自不同(RN 4 / 小程序 3) */
+  entryIds?: readonly DeveloperSpaceEntryId[]
+  /** FAQ 之后的主操作(进入广场/继续接单);缺省不渲染 */
+  footerAction?: { label: string; onPress: () => void } | null
+  /** 信息卡是否渲染 API 密钥行;默认 true,小程序无密钥概念传 false */
+  showApiKeyRow?: boolean
   onBecomeDeveloper: () => void
   onRenew: () => void
   onCopyApiKey: (apiKey: string) => void
