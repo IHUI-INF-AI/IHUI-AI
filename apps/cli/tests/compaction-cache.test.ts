@@ -36,7 +36,7 @@ describe('compaction-cache(70% 预压缩缓存)', () => {
     const messages = buildMessages(12);
     await new Promise<void>((resolve) => {
       primeCompactionSummary('sess-1', messages, async () => {
-        resolve('预生成的语义摘要内容');
+        resolve();
         return '预生成的语义摘要内容';
       });
     });

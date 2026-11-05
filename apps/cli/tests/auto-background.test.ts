@@ -119,7 +119,8 @@ describe('G-896416 run_command 超时自动转后台(e2e)', () => {
     expect(result.output).toContain('已自动转入后台');
     const match = result.output.match(/task_id: (bg_\d+_[a-f0-9]+)/);
     expect(match).not.toBeNull();
-    const bgId = match![1];
+    if (match === null || match[1] === undefined) throw new Error('输出必须点名 task_id');
+    const bgId = match[1];
     // 收编后的输出必须进后台缓冲(票面:getTaskOutput(bg) 可读到后续输出)
     await waitForTask(bgId, 15_000);
     const out = getTaskOutput(bgId);

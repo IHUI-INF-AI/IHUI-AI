@@ -79,7 +79,7 @@ describe('mermaid 渲染模块', () => {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
             const outputPath = args[args.indexOf('-o') + 1];
-            if (fs.existsSync(inputPath)) {
+            if (inputPath !== undefined && outputPath !== undefined && fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               // 模拟 mmdc 写入输出文件
               fs.writeFileSync(outputPath, Buffer.from('fake-png-data'));
@@ -110,7 +110,7 @@ describe('mermaid 渲染模块', () => {
           if (calls.length > 0) {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
-            if (fs.existsSync(inputPath)) {
+            if (inputPath !== undefined && fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               proc.stderr.emit('data', Buffer.from('render error'));
               proc.emit('close', 1);
@@ -159,7 +159,7 @@ describe('mermaid 渲染模块', () => {
           if (calls.length > 0) {
             const args = calls[0]?.[1] as string[];
             const inputPath = args[args.indexOf('-i') + 1];
-            if (fs.existsSync(inputPath)) {
+            if (inputPath !== undefined && fs.existsSync(inputPath)) {
               clearInterval(checkInterval);
               resolve();
             }

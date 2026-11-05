@@ -71,17 +71,21 @@ describe('子代理权限档:当前落点(取证结论的可执行版)', () => {
   it('ask 落到 danger gate:无人可问 ⇒ 拒(fail-closed),只有 --allow-dangerous 这一条 flag 路能放', async () => {
     const tool = fakeTool('delete_file')
     const routes: DangerGateDecision[] = []
-    const noPrompt = createDangerGate({ silent: true, onDecision: (d) => routes.push(d) })
+    const noPrompt = createDangerGate({ allowDangerous: false, silent: true, onDecision: (d) => {
+      routes.push(d)
+    } })
     expect(await noPrompt(tool, {})).toBe(false)
     expect(routes[0]?.route).toBe('denied')
     expect(routes[0]?.cause).toBe('no-prompt')
 
-    const declined = createDangerGate({ silent: true, prompt: async () => undefined })
+    const declined = createDangerGate({ allowDangerous: false, silent: true, prompt: async () => false })
     expect(await declined(tool, {})).toBe(false)
 
     // 子代理把父进程的 allowDangerous 一起带下去了 ⇒ flag 路放行,
     // 这正是"规则没下传时用户禁令被绕过"的那一步(修复票要收的是规则下传,不是这条放行)。
-    const flagged = createDangerGate({ allowDangerous: true, silent: true, onDecision: (d) => routes.push(d) })
+    const flagged = createDangerGate({ allowDangerous: true, silent: true, onDecision: (d) => {
+      routes.push(d)
+    } })
     expect(await flagged(tool, {})).toBe(true)
     expect(routes.at(-1)?.route).toBe('flag')
   })

@@ -86,7 +86,7 @@ describe('generateReminders 走结构块而非裸前缀', () => {
   it('70% 阈值提醒既是结构块也保留原措辞', () => {
     const out = generateReminders(makeCtx({ iterations: 1, totalPromptTokens: 4500, totalCompletionTokens: 1100 }));
     expect(out).toHaveLength(1);
-    expect(isFramedReminder(out[0])).toBe(true);
+    expect(isFramedReminder(out[0]!)).toBe(true);
     expect(out[0]).toContain('上下文窗口已用');
     expect(out[0]).toContain('70%');
   });

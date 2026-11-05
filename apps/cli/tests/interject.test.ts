@@ -42,7 +42,7 @@ vi.mock('@ihui/api-client', async (importOriginal) => ({
     const m = line.match(/^data:\s*(.+)$/);
     if (!m) return null;
     try {
-      return JSON.parse(m[1]);
+      return JSON.parse(m[1]!);
     } catch {
       return m[1];
     }

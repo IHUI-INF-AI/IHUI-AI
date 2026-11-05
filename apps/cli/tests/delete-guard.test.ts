@@ -157,12 +157,12 @@ describe('② approve 相缺失 ⇒ 一个文件都没被删(端到端,断言副
     const trashIds = fs.readdirSync(trashRoot).filter((name) => isSafeIdSegment(name));
     expect(trashIds.length).toBe(1);
     const manifestRaw = JSON.parse(
-      fs.readFileSync(path.join(trashRoot, trashIds[0], 'manifest.json'), 'utf-8'),
+      fs.readFileSync(path.join(trashRoot, trashIds[0]!, 'manifest.json'), 'utf-8'),
     ) as unknown;
     expect(isTrashManifestShape(manifestRaw)).toBe(true);
     const first = path.join(workDir, 'del-0.txt');
     expect(findTrashEntry(manifestRaw as never, first)).not.toBeNull();
-    restoreTrashEntry(workDir, trashIds[0], first);
+    restoreTrashEntry(workDir, trashIds[0]!, first);
     expect(fs.readFileSync(first, 'utf-8')).toBe('content-0');
     // 报告腿(四件分离之"报告")与状态目录不混写
     const report = path.join(workDir, '.ihui', 'delete-guard', 'report.jsonl');

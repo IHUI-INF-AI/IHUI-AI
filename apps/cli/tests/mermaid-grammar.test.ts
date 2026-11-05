@@ -32,7 +32,7 @@ describe('b76-12a 票1:发射侧「任意文本不可破坏语法」', () => {
     const src = emitMermaidGraph([{ id: 'ask#1', label: hostileLabel }]);
     const lines = src.split('\n');
     expect(lines[0]).toBe('flowchart TD');
-    const nodeLine = lines[1];
+    const nodeLine = lines[1]!;
     expect(quoteCountIsEven(nodeLine)).toBe(true, `引号必须成对:${nodeLine}`);
     expect(nodeLine).not.toContain('\n');
     expect(nodeLine).not.toContain('`');

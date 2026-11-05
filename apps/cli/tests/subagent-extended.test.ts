@@ -31,6 +31,7 @@ vi.mock('../src/commands/agent.js', () => ({
     stopReason: 'end_turn',
     assistantText: 'task done',
     iterations: 1,
+    branchGeneration: 0,
     usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
   })),
 }));
@@ -117,6 +118,7 @@ beforeEach(() => {
     stopReason: 'end_turn',
     assistantText: 'task done',
     iterations: 1,
+    branchGeneration: 0,
     usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
   });
 
@@ -326,6 +328,7 @@ describe('isolation=worktree — git worktree 隔离生命周期', () => {
       stopReason: 'error',
       assistantText: '',
       iterations: 1,
+      branchGeneration: 0,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
     });
     const tool = createSubagentTool(baseParentOpts);
@@ -473,6 +476,7 @@ describe('SubagentStart/SubagentStop hook 埋点', () => {
       stopReason: 'error',
       assistantText: '',
       iterations: 0,
+      branchGeneration: 0,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, estimatedCostUsd: 0 },
     });
     const tool = createSubagentTool(baseParentOpts);

@@ -172,6 +172,7 @@ async function driveTurn(opts: DriveOptions): Promise<{
   fetchMock.mockImplementation(async (_url: unknown, init: { body?: string }) => {
     requestBodies.push(JSON.parse(String(init?.body ?? '{}')));
     const stream = opts.streams[Math.min(callIndex, opts.streams.length - 1)];
+    if (stream === undefined) throw new Error('fixture 必须至少给一条 stream');
     callIndex += 1;
     return sseResponse(stream);
   });

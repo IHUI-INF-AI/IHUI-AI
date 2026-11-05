@@ -17,6 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { LateDisposableInit } from '../src/acp/server.js';
 import {
   raceInitAgainstAbort,
   attachLateDispose,
@@ -48,8 +49,8 @@ afterEach(() => {
 describe('① 验收格:abort 早于 create resolve ⇒ disposeLate 被调用', () => {
   it('竞态中 abort 先胜出,init 后台 resolve 后迟到句柄被收走', async () => {
     const ac = new AbortController();
-    let resolveInit!: (v: { pluginRegistry: unknown }) => void;
-    const init = new Promise<{ pluginRegistry: unknown }>((r) => {
+    let resolveInit!: (v: LateDisposableInit) => void;
+    const init = new Promise<LateDisposableInit>((r) => {
       resolveInit = r;
     });
     const raced = raceInitAgainstAbort(init, ac.signal);
