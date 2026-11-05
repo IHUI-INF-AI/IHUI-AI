@@ -49,7 +49,13 @@ const exit0 = isWindows ? 'cmd /c exit 0' : "sh -c 'exit 0'";
 process.env.IHUI_TRUST_WORKSPACE = '1';
 
 function fakeTool(name: string): Tool {
-  return { name, description: '', parameters: {}, required: [] };
+  return {
+    name,
+    description: '',
+    parameters: {},
+    required: [],
+    execute: async () => ({ success: true, output: '' }),
+  };
 }
 
 let stderrSpy: ReturnType<typeof vi.spyOn>;
