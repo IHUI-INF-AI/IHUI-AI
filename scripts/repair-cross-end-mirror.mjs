@@ -380,7 +380,7 @@ for (const row of ledgerRows.rows) {
   verdictPatches.push({
     shared: row.shared,
     verdict: 'generated',
-    evidence: `已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建,数据钩子待补`,
+    evidence: `已造页(对账器改档):该屏已被小程序页显式镜像(门 128 尺子命中),台账原写 missing;声明链已建。功能对齐状态**本改档未判定** —— 这一档只核「镜像在位」,不代表数据腿/交互跟上;复核后请在 evidence 写显式裁决前缀,未裁决前它按 hooksBucketOf 留在「真待补」桶,不得由本模板替它下「已闭环」或「欠着」的结论`,
     at: TODAY,
     source: 'repair-cross-end-mirror',
   })

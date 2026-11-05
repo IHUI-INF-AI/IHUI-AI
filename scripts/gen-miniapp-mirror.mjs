@@ -793,9 +793,12 @@ export function buildPage({ spec, fnName, titleKey, subtitleKey, pairs, singles 
     '// 由 scripts/gen-miniapp-mirror.mjs 依首例 aa4c418bff1a 形制生成:文案骨架镜像自共享屏的 i18n 键,',
   )
   L.push(
-    '// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)需按共享屏人工补齐 ——',
+    '// 值逐语取自 mobile-rn 词包(零新译)。交互与数据钩子(列表/请求/跳转)按共享屏的实际字段/端点核实后再补 ——',
   )
-  L.push('// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链,页面级还原度由后续人工轮提升。')
+  L.push(
+    '// 本稿先钉死「镜像声明 + 路由在册 + 词包同键」的声明链;**本头注不声明任何待办**:这一页的功能对齐',
+  )
+  L.push('// 状态由判定台账的 evidence 分桶单源给出(report-rn-miniapp-gaps.mjs 文末),不在这里各写一份。')
   // 键表必须显式给元素类型:`[] as const` 推成 readonly [],解构元素为 never ⇒ TS2488。
   if (pairs.length === 0) L.push('const PAIR_KEYS: readonly (readonly [string, string])[] = []')
   else {
