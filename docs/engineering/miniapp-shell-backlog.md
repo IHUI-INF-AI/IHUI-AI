@@ -260,6 +260,24 @@
 - 调用点差异（非重复实现，是宿主配置）：页 `pages/community/index.tsx:678-689` 走 `variant="ai-home"`（粘性、capsule 状态栏位、`bgColor=var(--color-card)`、`showFenLei/showSearch/onMenuClick`）；RN `AgentScreen.tsx:653-670` 走默认变体（`NavChrome` 包裹、`leftActions=[PanelLeftRounded]`、`rightActions=[LayoutGrid, Search]`、无 `bgColor`）。标题键（`community.m1` vs `agentScreen.title`）、图标载体（LineIcon vs lucide）、定位（sticky vs `NavChrome`）两端各有取数出处。
 - 三选一结论：**不再抽共享件**。骨架/几何已在共享层；把 call-site 再包一层只有一个收益（透传），不成单源；让 RN 改走 ai-home 会换分类图标（LayoutGrid→Menu）并改变粘性/状态栏位 ⇒ 违反 RN 零可见变化。
 - 页内真重复：第二枚 `opacity:0` 的 NavBar 只用于占高，已换成 `<View style={{ height: appTopBarHeight }} />`（同一取数：`getTopBarMetrics` 的 `top+height+8` 与 NavBar ai-home 的 leading+rowStyle 同式）。
-- 读数：页 AST 51→50（J50→49，T1 不变），LOC 1003→995；RN 41/977 未动（零可见变化逐值依据 = 调用点未改、组件未改）。重复 UI 人读口径：NavBar 同形调用 3 枚（页 2 + RN 1）→ 2 枚（页 1 + RN 1），不冒充页节点降幅。
+- 读数归属（防后人误读）：页 AST 51→50（J50→49，T1 不变）、LOC 1003→995 是**页内幽灵副本退场**的数，**不是新单源化成果**——本段未新增任何共享件，单源化额度 = 0；共享骨架自 `17e5b40b65` 起就已存在。门 299 同时报「复制页行数变化（台账 1003 → 现读 995）」，同一处退场在门里也只算行数变化，不是新薄壳/新共享屏。
+- RN 41/977 未动（零可见变化逐值依据 = 调用点未改、组件未改）。重复 UI 人读口径：NavBar 同形调用 3 枚（页 2 + RN 1）→ 2 枚（页 1 + RN 1），不冒充页节点降幅。
 - 分支与 tip：见下方提交（`feat/agent-home-sections`）。
+
+## Drawer 段：无共享件可复用，无新单源化（2026-11-06）
+
+事实面：`packages/app` 无抽屉实现——仅在 `features/settings/SettingsScreen.tsx:26`、`features/profile/ProfileScreen.tsx:25`、`features/ranking-detail/RankingDetailScreen.tsx:21` 的注释里说明“由宿主注入”；`packages/ui-react/src/components/drawer.tsx` 是 Radix/DOM 版，未接入这两个移动宿主。
+
+- 两端现件与 props 全表：小程序 `apps/miniapp-taro/src/components/DrawerComponent.tsx:66-103`（visible / onClose / height / maskClosable / children / side / statusBarHeight / logoUrl / menuItems / labelItems / groupedData / activeChatId / userinfo / onMenuItemClick / onLabelItemClick / onChatItemClick / onRemoveChat / onCreateChat），调用点 `pages/community/index.tsx:654-668`（`side='left'`）；RN `apps/mobile-rn/src/components/Drawer.tsx:128-153`（visible / onClose / user / conversations / onNavigate / onNavigateExtra? / onNavigateCompany? / onClaimFree? / onCreateNewChat / onSelectConversation / onDeleteConversation / onOpenSettings / onOpenMessages / onGoHome），调用点 `AgentScreen.tsx:822-837`。
+- 逐项差异：宽度两端同源 250（页 `taroGeometry.drawerWidth` = 500rpx，RN `min(0.66 屏宽, rnGeometry.drawerWidth)`）；右圆角同 `rnRadiusFor.panel`；遮罩同 0.4（页 `--color-black-40` / RN `OVERLAY_OPACITY`）；开合动画页为 CSS class 滑入（`ai-drawer-border-*`）、RN 为 Modal + Animated 250ms；层级页 `z-[1005]`、RN Modal 原生层；关闭页为遮罩点击 + 头部关闭钮、RN 为遮罩 + Android 返回键；内容槽完全不同（页 5 菜单 + 3 标签 + 按模型/日期对话组 + 底部用户信息；RN 11 组导航树 + 二级子菜单 + 历史对话左滑收藏/删除 + 底部用户行浮层）；文案键页 `DrawerComponent.d1-d4`，RN `Drawer.*` / `drawer.*`。
+- 三选一：**无新单源化**。共享层只有几何与遮罩同源；两端内容槽与交互（左滑手势、折叠导航树、用户行浮层）无法用同一 props 面表达，抽共享件只能做巨型槽位透传 = 搬码；页内也没有第二份副本可清。
+- 读数：页 AST 50（J29 / E20 / S0 / T1），LOC 995；RN 41（J21 / E16 / S1 / T3），LOC 977；重复 UI 节点 Drawer 1↔1，无降幅。
+
+## SearchOverlay 段：两端不是同物，无新单源化（2026-11-06）
+
+事实面：RN 是端内组件 `apps/mobile-rn/src/components/SearchOverlay.tsx`（props `:78-83`：visible / onClose / onPressItem?），屏幕调用 `AgentScreen.tsx:873-876`；注释自述与 HomeScreen 共用同一形态（RN 端内部已单源，但不是跨端）。小程序全仓无 `SearchOverlay`（`grep` 0 命中）；页内是 `showSearch` 条件展开的内联搜索条 `pages/community/index.tsx:755-802`（InputArea + 语音/图片图标），提交走 `onSearch`（`index.tsx:383-395`）本地过滤 `fullAgentList`。
+
+- 逐项差异：形态（RN 全屏遮罩 + 面板 vs 页内联条）；取消/清除（RN 遮罩 / 返回键 / 结果卡关闭并清空输入与结果 vs 页无取消，仅再点顶栏收起）；防抖（RN seq 丢弃过期响应 vs 页无请求）；空态与最近搜索（RN 历史 AsyncStorage 10 条 + 热门词池 + 联想 8 条 + 结果三态 vs 页无）；键盘避让（RN Modal + ScrollView + insets vs 页跟随页面滚动）；结果点击（RN 按类型跳详情并关弹层 vs 页无结果层）。
+- 三选一：**无新单源化 / 结构下限**。两端不是同一件 UI；抽跨端件等于把 RN 弹层整套逻辑与小程序内联条塞进一个新件，且小程序端没有对应消费面（单端槽禁止）。若未来要对齐，属“给小程序补搜索弹层”的新功能票，不在单源化口径内。
+- 读数：页 AST 50 / LOC 995、RN 41 / LOC 977 均不变；重复 UI 节点 0 变动（本段两端本来就不是同形节点）。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
