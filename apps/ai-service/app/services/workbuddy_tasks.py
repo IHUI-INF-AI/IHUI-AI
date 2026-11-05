@@ -307,7 +307,7 @@ def _msg_suffix(payload: Any) -> str:
 async def _post_once(
     url: str,
     headers: dict[str, str],
-    body: dict[str, Any] | list[Any],
+    body: dict[str, Any] | list[dict[str, Any]],
     *,
     timeout: float,
     http: httpx.AsyncClient,
@@ -346,9 +346,7 @@ async def _wb_request(
     path: str,
     jwt: str,
     device_map: dict[str, Any],
-    # /v2/report 的官方报文是数组(见 _fire_growth_events 头注),故请求体允许 list;
-    # 纯注解修正,运行时行为不变。
-    body: dict[str, Any] | list[Any],
+    body: dict[str, Any] | list[dict[str, Any]],
     *,
     timeout: float = DEFAULT_TIMEOUT,
     client: httpx.AsyncClient | None = None,
@@ -364,6 +362,10 @@ async def _wb_request(
     - 网络异常(0/-1)不重试(重试只放大故障);
     - absolute_url(活动遥测主机推断面)命中时跳过双模式分流,直打该 URL,
       鉴权头仍按模式给。
+
+    **body 是整体透传的请求体,本层不按键取值、不遍历**(直接交给 `_post_once` 的
+    `json=body`) ⇒ 单事件用 `dict`,批量事件用 `list[dict]` 都合法;官方
+    `/v2/report` 上报形态本身就是数组(见 `_fire_growth_events` 注释)。
     """
     http = client if client is not None else client_for(device_map)[0]
     token = (jwt or "").strip()
