@@ -19,6 +19,8 @@ import { randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
 // G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
 import { hydrateToolStateMap } from './tool-part-hydration.js';
+// 会话 id 路径穿越修复:会话 id 来自 `--resume`/ACP,不可信 —— 目录段收敛复用产物层唯一实现。
+import { sanitizeSessionSegment } from '../tools/result-envelope/artifact-store.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -35,7 +37,9 @@ export function getSessionStateDir(): string {
 }
 
 export function getSessionStatePath(id: string): string {
-  return path.join(getSessionStateDir(), `${id}.json`);
+  // id 一律先收敛成单段文件名:含 `../`、绝对路径、盘符的 id 不得改变落点。
+  // 合法 UUID/短 id 不受影响(sanitizeSessionSegment 对白名单字符原样返回)。
+  return path.join(getSessionStateDir(), `${sanitizeSessionSegment(id)}.json`);
 }
 
 function ensureStateDir(): void {
