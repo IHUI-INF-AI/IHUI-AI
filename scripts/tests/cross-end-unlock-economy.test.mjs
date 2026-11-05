@@ -260,6 +260,21 @@ test('⑤c 摘掉 import 即翻红(对真源码做变异,不落盘、不改文�
   )
 })
 
+test('⑤d 盲区披露锁:曲线必须自称"上界",且点名两把未复算的反查判据与真反例', () => {
+  // 立因(2026-11-05 实测):另一路代理拿 `pkg-shop/vip/details` 撞出本尺的盲区——
+  // 它唯一 blocker 是 `Taro.navigateTo`,按"extras ⊆ 补齐集"记账算"可解锁",但那个跳转目标是
+  // 小程序/H5 独占支付页,RN 侧无同物路由 ⇒ 合法可填通道根本不存在,该页真解锁 = 0。
+  // 曲线不声明这一维,下一席就会把上界当实测值派单(本仓"汇总面必须声明自己的盲区"那一格)。
+  const src = readFileSync(SCALE, 'utf8')
+  const must = ['上界第二型', 'coveredNavigation', 'apiEndpointsCovered', 'pkg-shop/vip/details']
+  for (const m of must) assert.ok(src.includes(m), `披露必须点名「${m}」,否则汇总面在替未验证的通道背书`)
+  // 摘掉即翻红:删掉披露那一行后,同一断言必须落空(证明这把锁有牙,不是恒真)
+  const i = src.indexOf('上界第二型')
+  assert.ok(i > 0, '前提:披露在位')
+  const mutated = src.slice(0, i) + src.slice(i + 60)
+  assert.ok(!mutated.includes('上界第二型'), '变异:摘掉披露 ⇒ 本锁必须翻红')
+})
+
 test('⑥ 两把口径自相矛盾 ⇒ status=red;对得上 ⇒ ok(成对正反例)', () => {
   const pack = JSON.stringify({ rendered: { ok: '短' } })
   const screen = "const t = (k) => k\nexport const S = () => { t('rendered.ok'); return null }"
