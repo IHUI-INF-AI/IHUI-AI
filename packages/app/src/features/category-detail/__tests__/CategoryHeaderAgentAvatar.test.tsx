@@ -13,7 +13,7 @@ import type { CategoryHeaderProps } from '@ihui/types'
 
 const base: CategoryHeaderProps = {
   name: '内容运营',
-  icon: '🎯',
+  icon: '◆',
   description: '分类描述',
   statusLabel: '已启用',
   statusEnabled: true,
@@ -32,7 +32,7 @@ describe('CategoryHeader 共享段', () => {
   it('名称/状态/付费/时间/描述全部渲染', () => {
     render(<CategoryHeader {...base} colorScheme={testColorScheme} />)
     expect(screen.getByText('内容运营')).toBeTruthy()
-    expect(screen.getByText('🎯')).toBeTruthy()
+    expect(screen.getByText('◆')).toBeTruthy()
     expect(screen.getByText('已启用')).toBeTruthy()
     expect(screen.getByText('付费分类')).toBeTruthy()
     expect(screen.getByText('2026-10-01')).toBeTruthy()
