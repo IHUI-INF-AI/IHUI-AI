@@ -31,7 +31,14 @@
  * 生成块自身的零丢失不在本层裸奔:它由生成器单源(重算即全量覆写,不存在"少带"这一说)
  * + 收敛落地后的 docs 重算腿(47b / auto-commit「README 数字按 HEAD 面重算」系列)承接。
  * AGENTS.md / PROJECT_PLAN.md 无生成块标记,行为与纠偏前逐字节等价。
- */
+ *
+ * ## 判据纠偏二(2026-11-05,第 11 轮收敛实测顶死后定夺)
+ *
+ * 行级 union 的「同题折叠」(attestFoldPair)与「摘除台账 credit」已在**产物面**逐条举证
+ * (去向行在场 ∧ 同主键/指纹 ∧ 注记与票号被接住)后少带原行;本层若再按逐字包含复读,
+ * 被折叠的原始行同时是"归并器证明合法少带"与"本层必须全包含" —— 两道闸互顶,合并死锁。
+ * 纠偏 = 调用方把已认账行(creditedDrops)逐字端进来,本层只免**这些**行;未被任何台账认领的
+ * 缺口一分不放。与纠偏一同口径:补衔接,不削目标。 */
 import { gitRaw } from './face-reader.mjs'
 
 /** `scripts/data` 下的数据件(含子目录)与五语言词包。 */
@@ -159,8 +166,14 @@ export function judgeContentLoss({
   merged,
   paths,
   liveDocs = DEFAULT_LIVE_DOCS,
+  creditedDrops = null,
   read = (rev, path) => readRev(root, rev, path),
 }) {
+  // 已由折叠/摘除台账认过账的行(调用方把 p.folded[].dropped ∪ p.dropLedgerCredited[].dropped 逐字端进来):
+  // attestFoldPair 已在**产物面**举过证(去向行在场 ∧ 同指纹/主键 ∧ 注记与票号被接住),
+  // 本层若再按逐字包含复读一遍,两道闸就互相顶死 —— 折叠线自己既在 missing 里被点名、
+  // 又永远不可能"在 merged 里出现原始形态"。纠偏口径:只免认过账的,未入账缺口一分不放。
+  const credit = creditedDrops instanceof Set ? creditedDrops : new Set((creditedDrops ?? []).map((l) => String(l ?? '').trim()).filter(Boolean))
   const undetermined = []
   let candidates = paths ? [...new Set(paths)] : null
   if (!candidates) {
@@ -192,9 +205,9 @@ export function judgeContentLoss({
         violations.push({ path: p, kind: 'keys', missingOurs, missingTheirs })
       continue
     }
-    // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。
-    const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m))
-    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
+    // 活文档行级包含:生成块已剥、折叠/台账认过账的行免复读(头注「判据纠偏」),人工段落一行不放宽。
+    const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m)).filter((l) => !credit.has(l.trim()))
+    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m)).filter((l) => !credit.has(l.trim()))
     if (missingOurs.length || missingTheirs.length)
       violations.push({ path: p, kind: 'lines', missingOurs, missingTheirs })
   }
