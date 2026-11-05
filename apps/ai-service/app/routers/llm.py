@@ -4849,6 +4849,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 messages, model=req.model, owner_uuid=owner_uuid,
                                 **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
+                                # 2026-11-05 立:agent 工具循环首轮也开启逐分片直推,
+                                # 前端 ToolCallCard 在工具入参流式到达时渐进渲染。
+                                # 零破坏:逐片帧为额外 yield,末尾聚合的 tool-call-start 仍照常产出。
+                                tool_call_args_stream=True,
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
@@ -4880,6 +4884,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "tool_calls":
                                     # astream 统一在流结束前 yield 累积后的完整 tool_calls
                                     first_round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "tool-call-args-delta":
+                                    # 2026-11-05 立:逐分片直推帧(astream tool_call_args_stream=True
+                                    # 时产出)。原样上 wire,前端 api-client 解析后驱动 ToolCallCard
+                                    # 渐进渲染;旧客户端不订阅 onOpenAiToolCall ⇒ 零行为变化。
+                                    # 直接用事件类型串作 SSE 名(与 generic 通道通用兜底同律,
+                                    # 避免引入 llm.py 未导入的 SSE_TOOL_CALL_ARGS_DELTA 常量)。
+                                    yield _sse(_evt_type, evt)
                                 elif _evt_type == "done":
                                     # 记录 model/usage/stub(与 1162-1164 行一致)
                                     accumulated["model"] = evt.get("model", req.model)
@@ -5024,6 +5035,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 messages, model=req.model, owner_uuid=owner_uuid,
                                 **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
+                                # 2026-11-05 立:agent 工具循环后续轮也开启逐分片直推。
+                                tool_call_args_stream=True,
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
@@ -5055,6 +5068,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "tool_calls":
                                     # astream 统一在流结束前 yield 累积后的完整 tool_calls
                                     _round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "tool-call-args-delta":
+                                    # 2026-11-05 立:逐分片直推帧(astream tool_call_args_stream=True
+                                    # 时产出)。原样上 wire,前端驱动 ToolCallCard 渐进渲染;
+                                    # 旧客户端不订阅 onOpenAiToolCall ⇒ 零行为变化。
+                                    yield _sse(SSE_TOOL_CALL_ARGS_DELTA, evt)
                                 elif _evt_type == "done":
                                     # 记录 model/usage/stub(与第一轮一致)
                                     complete_result = {
