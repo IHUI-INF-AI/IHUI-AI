@@ -401,6 +401,12 @@ export interface SubscriptionsItem {
   targetType: string
   targetId: string
   createdAt: string
+  /** 直播订阅扩展字段:仅在 targetType === 'live' 时消费,通用订阅项不传 */
+  title?: string
+  coverUrl?: string | null
+  anchor?: string | null
+  status?: 'upcoming' | 'living' | 'ended'
+  startTime?: string
 }
 
 /** SubscriptionsScreen props */
@@ -414,7 +420,15 @@ export interface SubscriptionsScreenProps {
   onRefresh: () => void
   onLoadMore: () => void
   onCancel: (item: SubscriptionsItem) => void
-  onBack: () => void
+  /** 小程序由原生导航栏承载标题,不传;RN 传 goBack */
+  onBack?: () => void
+  /** 直播提醒开关(不传 = 不渲染提醒卡) */
+  reminderEnabled?: boolean
+  onToggleReminder?: (next: boolean) => void
+  /** 直播行点击(不传 = 直播行不可点) */
+  onPressItem?: (item: SubscriptionsItem) => void
+  /** 空态「去发现」CTA 跳转 */
+  onGoDiscover?: () => void
   colorScheme?: 'light' | 'dark'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -298,6 +298,53 @@ export interface ExamResultScreenProps {
   onNavigate: OnNavigate
 }
 
+/**
+ * 成绩四格统计项(共享段 ExamResultStats)。
+ * 两端各自把字段映射成同一行:label/value 由宿主翻译后注入,tone 只表达配色语义。
+ */
+export interface ExamResultStatItem {
+  key: string
+  label: string
+  value: string
+  tone?: 'correct' | 'wrong' | 'neutral' | 'muted'
+}
+
+/** ExamResultStats props */
+export interface ExamResultStatsProps {
+  items: ExamResultStatItem[]
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 题目回顾条目(小程序 GET /exam/:id/review 与 web getMyRecords details 的同一形状) */
+export interface ExamReviewItem {
+  id: string
+  title: string
+  isCorrect: boolean
+  score: number
+  myAnswer?: string
+  correctAnswer?: string
+  analysis?: string
+}
+
+/** ReviewList props:文案全部宿主注入(两端 i18n 键族不同,不在此强行合并) */
+export interface ExamReviewListProps {
+  items: ExamReviewItem[]
+  title: string
+  labels: {
+    correct: string
+    wrong: string
+    yourAnswer: string
+    correctAnswer: string
+    analysis: string
+    score: (n: number) => string
+    questionIndex: (n: number) => string
+  }
+  /** 错题计数行标题;缺省 = 不渲染该行(web 详情列表无此段) */
+  wrongTitle?: string
+  emptyText: string
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 课程报名列表项 */
 export interface CourseEnrollItem {
   id: string
@@ -823,11 +870,46 @@ export interface SubPackageIndexScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 分类头共享段的字段(web 分类详情页原有 inline 实现抽出的单源)。
+ * 全部字段“给了才渲染”:端内没有的事实不伪造(如 RN 只有路由 title)。
+ */
+export interface CategoryHeaderProps {
+  name: string
+  icon?: string | null
+  description?: string | null
+  /** 状态徽标文案(端内 i18n 注入);未传则不渲染状态徽标 */
+  statusLabel?: string
+  /** 状态是否启用(决定徽标配色);与 statusLabel 配套 */
+  statusEnabled?: boolean
+  /** 付费徽标文案;isPaid 为真时渲染 */
+  paidLabel?: string
+  isPaid?: boolean
+  /** 已格式化的创建时间文案;未传不渲染 */
+  createdAtLabel?: string
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 分类详情 Screen Props */
 export interface CategoryDetailScreenProps {
   t: TFunction
-  items: { id: string; name: string; description?: string; cover?: string }[]
+  items: {
+    id: string
+    name: string
+    description?: string
+    cover?: string
+    /** 条目头像(web 已有同元素;RN 由 Agent.avatar 映射) */
+    avatar?: string | null
+    /** 条目使用次数(web 无此字段;RN 由 Agent.usageCount 映射) */
+    useCount?: number
+  }[]
   activeTab: string
+  /** 页头标题(默认“分类详情”;小程序传 categoryId/全部分类) */
+  title?: string
+  /** 分类头共享段(web 与 RN 同源);不传则只渲染标题 */
+  header?: CategoryHeaderProps
+  /** 三档文案(默认中文;端内有 i18n 时注入,避免回退) */
+  tabLabels?: readonly [string, string, string]
   loading: boolean
   hasMore: boolean
   error: string

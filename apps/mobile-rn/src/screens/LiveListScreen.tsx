@@ -15,6 +15,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import { formatShortDateTime } from '../utils/date-utils'
+import { buildLiveListQuery, LIVE_LIST_TABS } from '../lib/live-list-query'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useHostPorts } from '../host/use-host-ports'
 
@@ -43,12 +44,10 @@ export function LiveListScreen() {
 
   const fetcher = useCallback(
     async ({ page, pageSize }: { page: number; pageSize: number }) => {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-        status: statusTab,
-      })
-      const res = await fetchApi<LivePage>(`/live/list?${params.toString()}`)
+      // `status` 是启用位,阶段走 isLive;直传 tab 字符串会 NaN ⇒ 400(见 lib/live-list-query.ts)
+      const res = await fetchApi<LivePage>(
+        `/live/list?${buildLiveListQuery(statusTab, page, pageSize)}`,
+      )
       if (!res.success) return { success: false as const, error: t('liveList.loadFailed') }
       const list: LiveListItem[] = (res.data?.list ?? []).map((i) => ({
         id: i.id,
@@ -82,6 +81,7 @@ export function LiveListScreen() {
       items={items}
       activeTab={statusTab}
       onSelectTab={onSelectTab}
+      tabs={LIVE_LIST_TABS}
       loading={loading}
       refreshing={refreshing}
       error={error}
@@ -90,9 +90,22 @@ export function LiveListScreen() {
       loadingMore={loadingMore}
       onPressItem={(item: LiveListItem) => onNavigate('LiveDetail', { id: item.id })}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void refresh(); }}
+      onRetry={() => {
+        void refresh()
+      }}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
+      quickActions={{
+        labels: {
+          host: t('live.startLive'),
+          calendar: '',
+          subscriptions: t('subscriptions.title'),
+        },
+        onPressHost: () => onNavigate('LiveHost'),
+        // RN 无直播日历屏(PublishCalendar 是发布日历,语义不同)⇒ 不传 onPressCalendar,不进桶②冒充
+        onPressSubscriptions: () => onNavigate('Subscriptions'),
+        colorScheme: resolvedTheme,
+      }}
     />
   )
 }

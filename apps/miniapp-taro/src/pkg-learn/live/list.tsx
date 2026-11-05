@@ -2,9 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/live-list/LiveListScreen.tsx
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/live-list/LiveListScreen.tsx
+// 端内保留:① GET /live/channels 取数与分页;② 下拉刷新/触底加载;③ 分享钩子;
+// ④ 开播/日历/我的订阅三入口(日历为本端独有,web/RN 无对应屏 ⇒ 桶②)。
 import { useTt, useI18n } from '@/i18n'
-import { View, Text } from '@tarojs/components'
 import Taro, {
   usePullDownRefresh,
   useReachBottom,
@@ -14,13 +15,9 @@ import Taro, {
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
-import {
-  EmptyState,
-  ErrorState,
-  PressableCard,
-  ScreenSkeleton,
-} from '@/components/ScreenStates.taro'
+import { useTheme } from '@/rn-compat/theme'
+import { LiveListScreen } from '@ihui/rn-app/features/live-list/LiveListScreen'
+import type { LiveListItem, LiveListTab } from '@ihui/types'
 
 /**
  * `GET /live/channels`(apps/api/src/routes/live.ts)的 live_channels 行。
@@ -36,9 +33,8 @@ interface LiveChannelRow {
   viewCount: number
 }
 
-/** 状态档与后端 deriveLiveStatus 同判据;该端点恒 publishedOnly=true ⇒ upcoming 打不到 ⇒ 预告档已撤 */
-type LiveBadge = 'living' | 'ended'
-const BADGE_KEY: Record<LiveBadge, string> = { living: 'live.liveNow', ended: 'live.replay' }
+/** 状态档与后端 deriveLiveStatus 同判据;该端点恒 publishedOnly=true ⇒ upcoming 打不到 ⇒ 本端只给三档 */
+const TABS: LiveListTab[] = ['all', 'ongoing', 'ended']
 
 /** 开始时间:与错题本同法(Intl),取不到时刻一律空串(空串再落 '—') */
 function formatStart(iso: string | null): string {
@@ -51,8 +47,10 @@ function formatStart(iso: string | null): string {
 export default function LiveList() {
   const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const [list, setList] = useState<LiveChannelRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [status, setStatus] = useState('')
   const pageRef = useRef(1)
@@ -60,14 +58,6 @@ export default function LiveList() {
   const loadingRef = useRef(false)
   const lenRef = useRef(0)
   const statusRef = useRef('')
-
-  const statusText = useCallback((s: LiveBadge) => t(BADGE_KEY[s]), [t])
-
-  const tabs: { key: string; labelKey: string }[] = [
-    { key: '', labelKey: 'liveList.all' },
-    { key: 'living', labelKey: 'live.liveNow' },
-    { key: 'ended', labelKey: 'live.replay' },
-  ]
 
   const load = useCallback(async (reset = false) => {
     if (loadingRef.current) return
@@ -112,17 +102,31 @@ export default function LiveList() {
     [load],
   )
 
-  const goDetail = useCallback((id: string | number) => {
-    Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${id}` })
-  }, [])
+  const activeTab: LiveListTab =
+    status === 'living' ? 'ongoing' : status === 'ended' ? 'ended' : 'all'
+
+  const onSelectTab = useCallback(
+    (tab: LiveListTab) => {
+      if (tab === 'ongoing') switchStatus('living')
+      else if (tab === 'ended') switchStatus('ended')
+      else switchStatus('')
+    },
+    [switchStatus],
+  )
 
   usePullDownRefresh(() => {
-    load(true).finally(() => Taro.stopPullDownRefresh())
+    setRefreshing(true)
+    load(true).finally(() => {
+      setRefreshing(false)
+      Taro.stopPullDownRefresh()
+    })
   })
-  useReachBottom(() => load())
+  useReachBottom(() => {
+    void load()
+  })
 
   useEffect(() => {
-    load(true)
+    void load(true)
   }, [load])
 
   useShareAppMessage(() => ({
@@ -135,113 +139,54 @@ export default function LiveList() {
     query: '',
   }))
 
+  const items: LiveListItem[] = list.map((item) => ({
+    id: item.id,
+    title: item.title,
+    lecturer: item.lecturerName ?? '',
+    status: item.isLive ? 'ongoing' : 'ended',
+    startAt: formatStart(item.startTime),
+    viewerCount: item.viewCount,
+    cover: null,
+  }))
+
   return (
     <ThemeRoot>
-      {/* 对齐 RN LiveScreen container(tk.surface.bg → var(--color-background))
-          + listBody(paddingHorizontal 10 → 20rpx, paddingVertical 16 → 32rpx) */}
-      <View className="min-h-screen bg-[var(--color-background)] px-[20rpx] pt-[32rpx] pb-[32rpx]">
-        {/* 对齐 RN header 的副标题(标题由小程序原生导航栏承担) */}
-        <Text className="block mb-[24rpx] text-body-sm leading-[normal] text-muted-foreground">
-          {t('liveList.subtitle')}
-        </Text>
-        <View className="flex mb-[24rpx] gap-[16rpx]">
-          <View
-            className="flex-1 bg-primary rounded-xl py-[20rpx] flex items-center justify-center"
-            onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/host/index' })}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-body text-primary-foreground">
-              {tt('live.startLiveBtn', '📺 我要开播')}
-            </Text>
-          </View>
-          <View
-            className="flex-1 bg-card ui-card rounded-lg py-[20rpx] flex items-center justify-center"
-            onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/calendar' })}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-body text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
-          </View>
-          <View
-            className="flex-1 bg-card ui-card rounded-lg py-[20rpx] flex items-center justify-center"
-            onClick={() => Taro.navigateTo({ url: '/pkg-learn/live/subscribe' })}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-body text-foreground">
-              {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
-            </Text>
-          </View>
-        </View>
-        <View className="flex mb-[24rpx] bg-card ui-card rounded-lg">
-          {tabs.map((tab) => (
-            <View
-              key={tab.key}
-              className={`flex-1 text-center py-[20rpx] text-body ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
-              onClick={() => switchStatus(tab.key)}
-              hoverClass="opacity-60"
-            >
-              <Text>{t(tab.labelKey)}</Text>
-            </View>
-          ))}
-        </View>
-
-        {loadFailed && list.length === 0 ? (
-          <View className="mb-[24rpx]">
-            <ErrorState
-              message={t('common.failed')}
-              onRetry={() => load(true)}
-              retryLabel={t('liveList.retry')}
-            />
-          </View>
-        ) : null}
-
-        {list.length > 0 && (
-          <View>
-            {list.map((item) => (
-              <PressableCard
-                key={item.id}
-                className="rounded-lg border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
-                onClick={() => goDetail(item.id)}
-              >
-                {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
-                <View className="flex items-center justify-between gap-[16rpx]">
-                  <Text className="flex-1 ihui-ellipsis text-title font-semibold text-foreground">
-                    {item.title}
-                  </Text>
-                  <View
-                    className={`px-[20rpx] py-[8rpx] rounded-xl ${
-                      item.isLive ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-text-tertiary)]'
-                    }`}
-                  >
-                    <Text className="text-label text-[var(--color-primary-foreground)]">
-                      {statusText(item.isLive ? 'living' : 'ended')}
-                    </Text>
-                  </View>
-                </View>
-                {/* 对齐 RN lecturer 行(marginTop 6 → 12rpx, 14px → 28rpx, text.medium) */}
-                {item.lecturerName ? (
-                  <Text className="block mt-[12rpx] text-body text-[var(--color-text-medium)]">
-                    {t('liveList.lecturer')}: {item.lecturerName}
-                  </Text>
-                ) : null}
-                {/* 对齐 RN metaRow:开始时间 + 观看人数两端对齐(marginTop 8 → 16rpx, 12px → 24rpx, text.tertiary) */}
-                <View className="flex items-center justify-between mt-[16rpx]">
-                  <Text className="text-label text-[var(--color-text-tertiary)]">
-                    {t('liveList.startAt')}: {formatStart(item.startTime) || '—'}
-                  </Text>
-                  <Text className="text-label text-[var(--color-text-tertiary)]">
-                    {t('liveList.viewerCount')} {item.viewCount}
-                  </Text>
-                </View>
-              </PressableCard>
-            ))}
-          </View>
-        )}
-
-        {!loading && !loadFailed && list.length === 0 && <EmptyState title={t('live.empty')} />}
-
-        {loading && <ScreenSkeleton variant="list" count={4} />}
-      </View>
+      <LiveListScreen
+        t={t}
+        items={items}
+        activeTab={activeTab}
+        onSelectTab={onSelectTab}
+        tabs={TABS}
+        loading={loading}
+        refreshing={refreshing}
+        error={loadFailed && list.length === 0 ? t('common.failed') : ''}
+        onRefresh={() => {
+          setRefreshing(true)
+          void load(true).finally(() => setRefreshing(false))
+        }}
+        onPressItem={(item) => Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${item.id}` })}
+        onBack={() => void Taro.navigateBack()}
+        onEndReached={() => void load()}
+        loadingMore={loading && list.length > 0}
+        onRetry={() => void load(true)}
+        colorScheme={resolvedTheme}
+        onNavigate={(target, params) => {
+          if (target === 'LiveDetail' && params?.id !== undefined) {
+            Taro.navigateTo({ url: `/pkg-learn/live/detail?id=${String(params.id)}` })
+          }
+        }}
+        quickActions={{
+          labels: {
+            host: tt('live.startLiveBtn', '📺 我要开播'),
+            calendar: tt('live.calendarBtn', '📅 日历'),
+            subscriptions: tt('live.mySubscriptionBtn', '🔔 我的订阅'),
+          },
+          onPressHost: () => Taro.navigateTo({ url: '/pkg-learn/live/host/index' }),
+          onPressCalendar: () => Taro.navigateTo({ url: '/pkg-learn/live/calendar' }),
+          onPressSubscriptions: () => Taro.navigateTo({ url: '/pkg-learn/live/subscribe' }),
+          colorScheme: resolvedTheme,
+        }}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
