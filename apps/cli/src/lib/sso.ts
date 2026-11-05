@@ -38,6 +38,7 @@ import { writePrivateFile } from './private-file.js';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
+import { escapeHtml } from '@ihui/shared/artifact/render';
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
   extractSsoCode,
@@ -58,23 +59,6 @@ const CALLBACK_PATH = '/callback';
 const CALLBACK_HOST = '127.0.0.1';
 const CALLBACK_URL = `http://localhost:${CALLBACK_PORT}${CALLBACK_PATH}`;
 const SERVER_TIMEOUT_MS = 5 * 60 * 1000; // 5 分钟超时(用户登录可能耗时)
-
-/**
- * 回调页把 query 值写进 HTML 前必须过的转义。
- *
- * 此前 `?error=<原样插值>` 直接落进 `<p>`:回环端口 1738 在 5 分钟等待窗内对本机任意
- * 进程/任意页面可达,`/callback?error=<img src=x onerror=...>` 就是在
- * `http://127.0.0.1:1738` 这个 origin 上执行脚本(反射型 XSS)。回环不等于可信源 ——
- * 浏览器里那页与本 CLI 的回调页同源,能读到回调流程。
- */
-function escapeHtmlText(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 /** query 值归一:node 的 url.parse 对重复参数给 string[],原样进模板会变成 "a,b" 还带对象味道 */
 function firstQueryValue(raw: string | string[] | undefined): string {
@@ -162,7 +146,9 @@ function waitForCallback(expectedState?: string): Promise<string> {
       } else if (parsed.query.error) {
         // 用户主动取消授权(error 参数,真正失败场景)
         const errParam = firstQueryValue(parsed.query.error);
-        const errShown = escapeHtmlText(errParam.slice(0, 200) || '未知错误');
+        // 回调页把 query 值写进 HTML 前必须过共享层转义:回环端口 1738 在 5 分钟等待窗内
+        // 对本机任意进程/页面可达,`?error=<img src=x onerror=...>` 就是该 origin 上的反射型 XSS。
+        const errShown = escapeHtml(errParam.slice(0, 200) || '未知错误');
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
