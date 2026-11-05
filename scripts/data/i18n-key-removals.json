@@ -2792,6 +2792,16 @@
       ],
       "reason": "miniapp-taro 端旧 Taro 组件/页整批壳化后遗留的 83 枚死键（EmptyIllustration/TagInput/TitleSwitch*/VerifyCodeModal/TeamManager/InvitePoster/FilterDropdown/VipUpgradeToast/WithdrawalRecords/tokenBalance 等组件早已随壳化删除；career.* 属 AiCareerScreen，该屏不在承载闭包内，端内 AiCareer 走原生 Taro 页且用 aicareer.*）。反证：① node scripts/scan-dead-i18n-keys.mjs --target miniapp-taro --worktree 现读死键 83 枚、存量基线 0；② 逐键全仓 git grep -F 无 t/tt 整串字面量（exam.passed、withdrawal.records、interaction.like、level.0-2、verify.getCode、career.* 的命中均为子串误配或本端之外的另一端词包/历史台账）；③ 本端 54 处动态 t(`prefix.${x}`) 前缀与这 83 枚无覆盖关系，且多数命名空间名在取词面完全不出现；④ 5 枚契约键声明不含这些键；⑤ career.* 与 shared 同值重复、courseScreen.* / verify.getCode 来自 RN 包，删后离线包仍按承载层补齐规则无损。回潮判据：若重新引入上述组件或让 AiCareerScreen 进承载闭包，须连同当次措辞一起恢复键，不得只补空键。",
       "until": "2027-11-03"
+    },
+    {
+      "file": "packages/i18n/messages/miniapp-taro/ko.json",
+      "keys": [
+        "devEnter.n8nModel.mockSuccess",
+        "devEnter.modelEdit.submitSuccess",
+        "deventerModeledit.q7"
+      ],
+      "reason": "三枚仅存在于 ko 的语言包残留键（其余 zh-CN/en/ja/zh-TW 均无，2026-11-05 i18n 键集实测）。全仓零消费：`devEnter.n8nModel.mockSuccess` 与 `devEnter.modelEdit.submitSuccess` 无 t()/tt() 字面量引用，dev-enter 页面实际用的是 `devEnter.modelEdit.saveSuccess`，n8n-model 页也无 mockSuccess 分支；`deventerModeledit` 为误写的小写命名空间，代码引用面只出现 `devEnter.modelEdit.*`/`modelEdit.*`，`deventerModeledit.q7` 所在的整个命名空间在实现侧零引用，且该命名空间其余键在其他语言仍存在（属另一条独立死键议题，本次只删 ko 多出的 q7 以恢复键集一致性）。回潮判据：若 dev-enter 恢复 mock 生成提交成功提示、或把 `deventerModeledit` 命名空间接回页面消费，须按当时措辞补回对应键，不得只补空键。",
+      "until": "2027-11-05"
     }
   ]
 }
