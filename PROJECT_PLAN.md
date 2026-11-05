@@ -2069,6 +2069,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [ ] B21 考勤 /attendance/rule 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
 - [ ] B22 考勤 /attendance/rule/rotate-qr-secret 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
 - [ ] B25 考勤 /parent/child/:id/attendance 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
+- [ ] B32 考勤 /parent/children/:childId/attendance 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
+- [ ] B34 考勤 /user/check-in 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
+- [ ] B35 考勤 /user/check-in/status 零行为测试:现读@2026-11-05 该端点未被 apps/api/tests/edu-attendance-* 任一枚用例引用 —— 出路=新增一枚 tests 文件,补权限成对用例与越权用例并断言副作用未发生;不得造空壳端点
 ## P0 移动端 RN 完整复刻 Uniapp 历史项目(2026-08-13 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认)
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/mobile-rn/**`,不参与 web/api/ai-service/desktop/extension/miniapp-taro/cli 跨端契约同步。
 > AGENTS.md §24 用户已确认:"完整复刻 Uniapp (推荐)" + "启用 RN TabBar.tsx 5 Tab (推荐)" + 4 维度全做(架构对齐 + 核心组件补全 + 缺失页面补全 + 样式细节对齐)。
@@ -4541,6 +4544,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
   更不得把 30a 的 boilerplate 文案删掉来"消除误判"——要改的是**匹配方式**,不是被匹配的那句话。
 ### 第三阶段(2026-09-24):盘根写歪项 = 载体替换,不是再删一次
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] B41 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B32~B41(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] RP-73 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=RP-64~RP-73(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] B26 〔千段租约〕 本机=WIN-20251101PXT-d4634eb6 段=B17~B26(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 - [x] B54 〔千段租约〕 本机=lichunchuan-96818d62 段=B45~B54(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
