@@ -133,7 +133,8 @@ jobs:
         # —— 无 pipefail 时管道尾部(tee)恒 0,会把整批判红洗成绿(§0.3 严禁"没判/判红"冒充"通过")。
         run: |
           set -o pipefail
-          node scripts/guardian-runner.mjs --timing 2>&1 | tee guardian-full.log
+          mkdir -p .ihui-agent/tmp
+          node scripts/guardian-runner.mjs --timing 2>&1 | tee .ihui-agent/tmp/guardian-full.log
 
       - name: 上传全量原始日志(成败均上传,留存 28 天)
         # 报告档的核心:逐门结果(含每个门的原样回显与耗时)必须留得住,红不必被人当场看见也能事后取证。
@@ -142,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: guardian-full-log-${{ github.run_id }}
-          path: guardian-full.log
+          path: .ihui-agent/tmp/guardian-full.log
           if-no-files-found: warn
           retention-days: 28
 
@@ -165,16 +166,16 @@ jobs:
             echo ''
             echo "- 触发:${{ github.event_name }} · 被审面:${{ github.sha }}"
             echo "- 汇总行(从原始日志现读,取不到不冒充):"
-            grep -E '^ *(通过|失败|❓ 未判定|⏭ 跳过)[: ]' guardian-full.log | sed 's/^/  /' || echo '  (未取到汇总行 —— 见 artifact `guardian-full-log-<run_id>` 原始日志)'
+            grep -E '^ *(通过|失败|❓ 未判定|⏭ 跳过)[: ]' .ihui-agent/tmp/guardian-full.log | sed 's/^/  /' || echo '  (未取到汇总行 —— 见 artifact `guardian-full-log-<run_id>` 原始日志)'
             echo ''
             echo '### 判红的 blocking 门(编号 + 本地复跑命令)'
             echo '```'
-            grep -E '道 blocking 门失败|· \[|单独复现:' guardian-full.log || echo '(未取到判红名单 ⇒ 不冒充"本批没有红",请看 artifact 原始日志)'
+            grep -E '道 blocking 门失败|· \[|单独复现:' .ihui-agent/tmp/guardian-full.log || echo '(未取到判红名单 ⇒ 不冒充"本批没有红",请看 artifact 原始日志)'
             echo '```'
             echo ''
             echo '### 未判定门(§0.3:没判 ≠ 判过;不按缺陷派单,也不记绿)'
             echo '```'
-            grep -E '❓' guardian-full.log || echo '(本批日志里没有未判定门)'
+            grep -E '❓' .ihui-agent/tmp/guardian-full.log || echo '(本批日志里没有未判定门)'
             echo '```'
             echo ''
             echo '本腿是**报告档**:不做 required、不升 blocking、不加 paths 缩射程。红只出日志与本摘要。'
