@@ -31735,14 +31735,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 证据：loader.ts:61 注释自承"非 web 端会把[ICU]语法原样吐成文案"——根因正是 locale 没透传，英文 plural/select 在非 zh 语言下错位（如渲染成 "1 context sources in this turn"）。
   - 收口：非 web 端 `t()` 接入运行时 locale，或在 loader 层按消息包语言兜底透传。
 - [ ] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
-- [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
   - 后果：覆盖安装判定失败、Google Play 拒收"versionCode 未递增"；属 latent 缺陷，依赖 CI 稳定注入才能规避。
   - 收口：回退值改分钟/秒粒度（如 `YYMMDDHHmm`），或构建失败而非复用旧值。
 #### 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计）
 - **排除 A · "RN 渲染 `packages/app` 的 `PayButton`/`TabBar`（DOM）即崩"**：实读 `packages/app/src/index.ts:472` 确实 `export { PayButton, TabBar } from './components'`（DOM 实现，见 `PayButton.tsx:9` 引 `lucide-react`、`TabBar.tsx:18` 注释"用 div/span/img"）。但全仓无任何 app 在 `package.json` 依赖 `@ihui/app`，且 `apps/mobile-rn` 用的是自己的 `apps/mobile-rn/src/components/TabBar.tsx`（RN 原生），根本不引入该 barrel ⇒ 当前不会触发。属"潜在 footgun"而非现行崩溃，不列为 BUG，仅在门禁层建议对 `@ihui/app` 加 RN 引用守卫。
 - **排除 B · "benchmarks/gen.mjs 写字面量 `\\n`"**：实读 `benchmarks/gen.mjs:51-52` 为 `l.replace(/\\/g,'\\\\').replace(/'/g,"\\'")` + `].join('\n')`——是对反斜杠/单引号的**正确转义**，`.join('\n')` 是真实换行而非两字符字面量。原报告把正确转义误读成 bug，撤销。
 - **待核（本次未直接核验、不强行登记）**：① mobile-cap 权限声明与已装插件是否匹配；② `capacitor.config` 是否用 `server.url` 远程加载导致 webDir 白拷；③ release 是否缺 `signingConfig`；④ 亮色模式状态栏近黑；⑤ 推送注册状态前后矛盾；⑥ python SDK `agent_engine.py:603` 的 `stream=True` 是否真的使调用崩。这几条要么证据不足、要么需运行态验证，留待下一轮定向核验，不占派单额度。
-
 ### 本批覆盖边界（未判的不写成判过）
 - **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
 - **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
