@@ -208,7 +208,9 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   ]) {
     if (!g.sessionCommandTemplate.includes(ph)) continue
     if (typeof g[key] !== 'string' || !g[key].trim())
-      throw new GateShapeError(`闸门形状坏:sessionCommandTemplate 用了 ${ph} 而 ${key} 未配置(非空字符串)`)
+      throw new GateShapeError(
+        `闸门形状坏:sessionCommandTemplate 用了 ${ph} 而 ${key} 未配置(非空字符串)`,
+      )
   }
   // 人工阀档:缺字段 = observe(记账不拦)。缺省绝不等于放开 —— 但也绝不因为"没登记"就
   // 一刀切停派,那是把刚修活的发起腿再锁死。enforce 的前置条件由尺子 A6 维量(见 check-autonomy-leg-health)。
@@ -397,7 +399,10 @@ export function rankTicketRows(rows, { policyText, candidatesText, keyOf = ticke
  * 也就是"这一班用的是哪个模型"取决于进程继承到哪个 HOME —— 那是别人的文件,随时会被改写。
  * 模型与入口一律由本仓闸门声明,不再靠继承运气。
  */
-export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey, sessionModel, sessionApiUrl }) {
+export function fillTemplate(
+  tpl,
+  { promptFile, ticketLine, ticketKey, sessionModel, sessionApiUrl },
+) {
   return String(tpl)
     .replaceAll('{promptFile}', promptFile ?? '')
     .replaceAll('{ticketLine}', ticketLine ?? '')
@@ -603,7 +608,8 @@ export function lastProviderError(stdout) {
     } catch {
       continue
     }
-    if (e && e.type === 'error' && typeof e.message === 'string' && e.message.trim()) found = e.message.trim()
+    if (e && e.type === 'error' && typeof e.message === 'string' && e.message.trim())
+      found = e.message.trim()
   }
   return found
 }
@@ -640,7 +646,8 @@ export function splitRotateStandoff(live) {
  * `known=false` ⇒ 输出形状不认识(非 json 通路/被杀/事件格式变了),一律沿用原判定,
  * 绝不用"取不到"冒充"没写"(§0.3)。
  */
-export function classifySessionWrites(stdout) {  const lines = String(stdout ?? '').split(/\r?\n/)
+export function classifySessionWrites(stdout) {
+  const lines = String(stdout ?? '').split(/\r?\n/)
   let known = false
   let writeOk = 0
   let writeTried = 0
@@ -1589,7 +1596,8 @@ function dispatchSession(gates, ticket, dryRun) {
     action = kind.kind === 'no-progress' ? 'session-no-progress' : 'session-failed'
     failureKind = kind.kind
     exitCode = r.status
-    why = `exit=${r.status} ${errText}`  } else {
+    why = `exit=${r.status} ${errText}`
+  } else {
     action = 'session-ok'
     const w = classifySessionWrites(stdout)
     writes = w
@@ -1669,6 +1677,38 @@ export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
     `票面:${face}`,
     `落账:auto-evolve 会话后按 ${manifestPathOf(ticketKey)} 代提交(会话侧无提交权)`,
   ].join('\n')
+}
+
+/**
+ * 「这张票的产物是否已被本环落进 HEAD」——派单前的重派排除(2026-11-05 立)。
+ *
+ * 立因:落账腿成功后,票行仍是 `- [ ]`(结清属活文档写口,本器不登记,见文件头第 14 行),
+ * 而选择路径上**没有任何一格**认得"这枚已经做过了"⇒ 同一张票在下一班、明日、甚至当天就会被
+ * 再派一次;重复派发的产物不是"再来一遍就好",而是**第二份近似测试文件**(同端点、不同文件名),
+ * 那种残骸只能人肉剔。今天的实测形态:票 B71 当天被真派到第 10 次,全靠封禁/预算扣住。
+ *
+ * 判据取向:不查台账尾窗(台账只载最近若干行,落地枚一过期就查不到 ⇒ 把"已做过"读成"没做过"),
+ * 直接问 git —— 落地代提交的信息里恒有 `票键:<key>` 那一行(`buildArtifactCommitMessage` 唯一出口),
+ * 提交面是持久事实,票面被改写则键随之改变 ⇒ 改写后的新射程仍会被正常派发(这是对的语义)。
+ *
+ * 失效方向(§0.3,与 `buildTicketScope` 的"不拦派发"同条纪律):派生失败/超时/取不到 ⇒ 返回 null
+ * ⇒ **不拦**。把"我量不动"写成"已落地"会整面饿死,而这里要的恰恰是反过来。
+ *
+ * `gitLogFn` 注入 = 与 `selectDirtyPaths` 的 `statusFn` 同款:判据只住这一处,测试不抄第二份。
+ */
+export function landedCommitOfTicket(key, { gitLogFn } = {}) {
+  const needle = `票键:${key}`
+  if (!key) return null
+  try {
+    const out = gitLogFn
+      ? gitLogFn(needle)
+      : gitRead(['log', '--fixed-strings', `--grep=${needle}`, '--format=%H', '-n', '1'])
+    if (out === null || out === undefined) return null
+    const sha = String(out).trim().split(/\r?\n/)[0] ?? ''
+    return /^[0-9a-f]{7,40}$/i.test(sha) ? sha : null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -2258,7 +2298,10 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     npLive.sort((a, b) => a.np.attempts - b.np.attempts)
     const standoffs = splitRotateStandoff(npLive)
     for (const s of standoffs) {
-      npHeld.push({ ...s, np: { ...s.np, route: 'standoff', why: `${s.np.why}(池内无空转更少的候选 ⇒ 无处可让)` } })
+      npHeld.push({
+        ...s,
+        np: { ...s.np, route: 'standoff', why: `${s.np.why}(池内无空转更少的候选 ⇒ 无处可让)` },
+      })
     }
     const heldKeys = new Set(npHeld.map((x) => x.key))
     rows = npLive.filter((x) => !heldKeys.has(x.key)).map((x) => x.ticket)
@@ -2347,6 +2390,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       }
       if (!matchWhitelist(ticket.text, gates.ticketWhitelist)) {
         console.log(`⏭ L${ticket.line} 未命中票类白名单 ⇒ 跳过(第一期保守起步)`)
+        continue
+      }
+      // 本环已把这张票的产物落进 HEAD 而票行还没结清 ⇒ 不再重派(判据单源见
+      // `landedCommitOfTicket` 头注;取不到不拦,与"advisory 不饿死环"同一条失效方向)。
+      const alreadyLanded = landedCommitOfTicket(key)
+      if (alreadyLanded) {
+        console.log(
+          `⏭ L${ticket.line} 产物已落地(${alreadyLanded.slice(0, 12)})而票行未结清 ⇒ 跳过重派`,
+        )
         continue
       }
       // 人工阀前置闸(2026-11-01 接线)。白名单回答的是"这类票允许自动派吗",
