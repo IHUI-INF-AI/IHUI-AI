@@ -14,7 +14,14 @@
  *  2. `numberOfLines` 在 RN 是排版能力,小程序只能靠 CSS line-clamp(style.ts 承接)。
  *  3. RN `Image` 默认 `resizeMode: cover`,Taro 默认 `scaleToFill` ⇒ 不显式映射会拉伸变形。
  */
-import { createElement, forwardRef, useImperativeHandle, useState, type ForwardedRef } from 'react'
+import {
+  createElement,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ForwardedRef,
+} from 'react'
 import type { ComponentProps, ReactElement, ReactNode, Ref } from 'react'
 import {
   Image as TaroImage,
@@ -331,10 +338,57 @@ function throttledScroll(
   }
 }
 
-export function ScrollView(props: RNBaseProps) {
+/**
+ * 命令式滚动句柄(2026-11-05):RN 的 ScrollView 有实例方法,小程序没有 ⇒ 由这一层
+ * 翻译成 scrollTop / scrollLeft / scrollWithAnimation 的状态更新再下传 TaroScrollView。
+ * `getScrollResponder` 返回自身,承接 RN 里 `getScrollResponder().scrollTo(...)` 的写法。
+ */
+export interface ScrollViewHandle {
+  scrollTo: (params: { x?: number; y?: number; animated?: boolean }) => void
+  scrollToEnd: (params?: { animated?: boolean }) => void
+  getScrollResponder: () => ScrollViewHandle
+}
+
+function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>) {
   const horizontal = props.horizontal === true
   const base: ViewStyle = horizontal ? { flexDirection: 'row' } : {}
   const throttleMs = typeof props.scrollEventThrottle === 'number' ? props.scrollEventThrottle : 16
+  const [imperative, setImperative] = useState<{
+    top?: number
+    left?: number
+    animated?: boolean
+  }>({})
+  useImperativeHandle(ref, () => {
+    const handle: ScrollViewHandle = {
+      scrollTo: ({ x, y, animated }) => {
+        setImperative((prev) => ({
+          top: typeof y === 'number' ? y : prev.top,
+          left: typeof x === 'number' ? x : prev.left,
+          animated: animated !== false,
+        }))
+      },
+      // RN 的 scrollToEnd 也是"滚到底",这里用足够大的增量走同一路径,不另造定位逻辑
+      scrollToEnd: (params) => {
+        setImperative((prev) => ({
+          top: (prev.top ?? 0) + 1_000_000,
+          left: prev.left,
+          animated: params?.animated !== false,
+        }))
+      },
+      getScrollResponder: () => handle,
+    }
+    return handle
+  }, [])
+  /**
+   * 显式 prop 优先:FlatList 自己维护 scrollTop 并以 prop 下传,不能被命令式状态盖掉;
+   * 只有直接给 ScrollView 挂 ref 调方法时才走 imperative。
+   */
+  const scrollTop = typeof props.scrollTop === 'number' ? props.scrollTop : imperative.top
+  const scrollLeft = typeof props.scrollLeft === 'number' ? props.scrollLeft : imperative.left
+  const scrollWithAnimation =
+    typeof props.scrollWithAnimation === 'boolean'
+      ? props.scrollWithAnimation
+      : imperative.animated === true
   /**
    * 下拉刷新承接(2026-11-01):RN 的 refreshControl 是"挂 <RefreshControl> 子元素的声明位",
    * 手势由 ScrollView 承接;小程序等价物是 refresher 三件套 ⇒ 从元素里解出 refreshing/onRefresh
@@ -354,8 +408,11 @@ export function ScrollView(props: RNBaseProps) {
       enhanced
       // 命令式滚动承载(2026-11-05):RN 端 `FlatList.scrollToEnd` 是 ref 方法,小程序侧没有
       // 对应实例方法 ⇒ 由 FlatList 适配层改写成 scrollTop 递增 + scrollWithAnimation,经此透传。
-      scrollTop={typeof props.scrollTop === 'number' ? props.scrollTop : undefined}
-      scrollWithAnimation={props.scrollWithAnimation === true}
+      scrollTop={scrollTop}
+      scrollLeft={scrollLeft}
+      scrollWithAnimation={scrollWithAnimation}
+      // SectionList 的 scrollToLocation 翻译成 Taro 的 scrollIntoView(id 定位)
+      scrollIntoView={typeof props.scrollIntoView === 'string' ? props.scrollIntoView : undefined}
       showScrollbar={showScrollbar}
       refresherEnabled={rc?.enabled === true}
       refresherTriggered={rc?.refreshing === true}
@@ -373,6 +430,15 @@ export function ScrollView(props: RNBaseProps) {
     </TaroScrollView>
   )
 }
+
+/**
+ * `forwardRef` 是**行为修复**而不是类型糖:RN 的 <ScrollView ref={r}> 拿得到实例,
+ * 旧写法是普通函数组件 ⇒ ref 恒为 null,共享层里 `getScrollResponder().scrollTo(...)`
+ * 这类写法在小程序端静默失效(阴性对照见 tests/rn-compat-flatlist-ref.test.tsx)。
+ */
+export const ScrollView = forwardRef(ScrollViewInner) as unknown as (
+  props: RNBaseProps & { ref?: Ref<ScrollViewHandle> },
+) => ReactElement
 
 /**
  * 下拉刷新:RN 把它做成 ScrollView 的子元素;小程序的下拉手势由 ScrollView 的 refresher
@@ -510,8 +576,39 @@ export const FlatList = forwardRef(FlatListInner) as unknown as (<T = unknown>(
   props: RNFlatListProps<T> & { ref?: Ref<FlatListHandle> },
 ) => ReactElement) & { displayName?: string }
 
-export function TextInput(props: RNBaseProps) {
+/**
+ * 命令式焦点句柄(2026-11-05):RN 的 TextInput 有 focus/blur/clear/isFocused 实例方法。
+ * 小程序没有实例方法 ⇒ focus/blur 翻译成 Taro 的 `focus` 布尔档(受控),clear 走 onChangeText('')。
+ */
+export interface TextInputHandle {
+  focus: () => void
+  blur: () => void
+  clear: () => void
+  isFocused: () => boolean
+}
+
+function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) {
   const multiline = props.multiline === true
+  const [focused, setFocused] = useState(false)
+  // 句柄要跨 focus/blur 保持同一对象(ref 快照语义),故真值放 ref,state 只驱动 focus prop
+  const focusedRef = useRef(false)
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        focusedRef.current = true
+        setFocused(true)
+      },
+      blur: () => {
+        focusedRef.current = false
+        setFocused(false)
+      },
+      // RN 的 clear 是"清空原生文本";受控组件里等价于把空串回给 onChangeText
+      clear: () => (props.onChangeText as ((t: string) => void) | undefined)?.(''),
+      isFocused: () => focusedRef.current,
+    }),
+    [props.onChangeText],
+  )
   const keyboardType = (props.keyboardType as string) ?? 'default'
   const typeMap: Record<string, NonNullable<TaroInputProps['type']>> = {
     // 微信 input 的 type 只有 text/number/idcard/digit/safe-password/nickname ⇒ email/url/tel 无原生键盘档,
@@ -552,6 +649,8 @@ export function TextInput(props: RNBaseProps) {
     maxlength: (props.maxLength as number) ?? -1,
     disabled: props.editable === false,
     autoFocus: props.autoFocus === true,
+    // 受控焦点:focus()/blur() 改的是这一位,和 autoFocus 取或,避免首次挂载把焦点抢回来
+    focus: focused || props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
     style: toTaroStyle(merged(props.style, VIEW_BASE)),
     ...focusBridge,
@@ -577,6 +676,11 @@ export function TextInput(props: RNBaseProps) {
     />
   )
 }
+
+/** 同上:旧写法普通函数组件,<TextInput ref={r}> 恒为 null ⇒ focus() 静默丢失 */
+export const TextInput = forwardRef(TextInputInner) as unknown as (
+  props: RNBaseProps & { ref?: Ref<TextInputHandle> },
+) => ReactElement
 
 function keyTypeOf(keyboardType: string): string {
   return keyboardType === 'default' ? 'text' : keyboardType
@@ -658,21 +762,56 @@ export const KeyboardAvoidingView = View
 export const TouchableHighlight = View
 export const TouchableWithoutFeedback = View
 
+/**
+ * 命令式定位句柄(2026-11-05):RN 的 SectionList 有 scrollToLocation / getScrollResponder。
+ * 小程序拿不到 item 的测量值 ⇒ 不伪造像素偏移,改用 Taro 的 scrollIntoView(id 定位):
+ * 行节点按 sectionIndex/itemIndex 编稳定 id,"滚到那一行"的语义不变。
+ */
+export interface SectionListHandle {
+  scrollToLocation: (info: {
+    sectionIndex: number
+    itemIndex?: number
+    animated?: boolean
+    viewOffset?: number
+    viewPosition?: number
+  }) => void
+  getScrollResponder: () => ScrollViewHandle | null
+}
+
 /** RN 的分区列表:小程序没有分区原语,按「SectionList 语义」逐段渲染(段头 + 段内行) */
-export function SectionList(props: RNBaseProps) {
+function SectionListInner(props: RNBaseProps, ref: ForwardedRef<SectionListHandle>) {
   const sections =
     (props.sections as Array<{ key?: string; data?: unknown[]; renderItem?: unknown }>) ?? []
   const renderSection = props.renderSectionItem as
     ((info: { section: unknown; index: number }) => ReactNode) | undefined
   const ItemSeparator = props.ItemSeparatorComponent as (() => ReactNode) | undefined
+  const scrollRef = useRef<ScrollViewHandle | null>(null)
+  const [scrollIntoView, setScrollIntoView] = useState<string | undefined>(undefined)
+  const [scrollWithAnimation, setScrollWithAnimation] = useState(true)
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToLocation: ({ sectionIndex, itemIndex, animated }) => {
+        setScrollIntoView(`sl-${sectionIndex}-${itemIndex ?? 0}`)
+        setScrollWithAnimation(animated !== false)
+      },
+      getScrollResponder: () => scrollRef.current,
+    }),
+    [],
+  )
   return (
-    <ScrollView {...props}>
+    <ScrollView
+      {...props}
+      ref={scrollRef}
+      scrollIntoView={scrollIntoView}
+      scrollWithAnimation={scrollWithAnimation}
+    >
       {props.ListHeaderComponent as ReactNode}
       {sections.map((section, index) => (
-        <View key={section.key ?? String(index)}>
+        <View key={section.key ?? String(index)} id={`sl-${index}-h`}>
           {renderSection?.({ section, index })}
           {((section.data as unknown[]) ?? []).map((item, i) => (
-            <View key={i}>
+            <View key={i} id={`sl-${index}-${i}`}>
               {i > 0 ? ItemSeparator?.() : null}
               {(
                 section as { renderItem?: (info: { item: unknown; index: number }) => ReactNode }
@@ -688,6 +827,11 @@ export function SectionList(props: RNBaseProps) {
     </ScrollView>
   )
 }
+
+/** 同上:旧写法普通函数组件,<SectionList ref={r}> 恒为 null ⇒ scrollToLocation 静默丢失 */
+export const SectionList = forwardRef(SectionListInner) as unknown as (
+  props: RNBaseProps & { ref?: Ref<SectionListHandle> },
+) => ReactElement
 
 /** 背景图容器:RN 的 ImageBackground = Image 打底 + 内容浮在上层(absolute 铺满) */
 export function ImageBackground(props: RNBaseProps) {
