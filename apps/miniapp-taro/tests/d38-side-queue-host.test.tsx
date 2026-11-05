@@ -162,14 +162,16 @@ describe('D38 交互条:渲染面(词包全走 t(),被拒显式说因)', () => {
   })
 })
 
-describe('D38 装车证明:chat.tsx 必须真的接上宿主与交互条', () => {
+describe('D38 装车证明:页内挂宿主、端内壳挂交互条', () => {
   const chat = readFileSync(CHAT_SOURCE, 'utf8')
+  const shell = readFileSync(join(HERE, '../src/pkg-ai/ai/chat-shell-extras.tsx'), 'utf8')
   const bar = readFileSync(BAR_SOURCE, 'utf8')
   const host = readFileSync(HOST_SOURCE, 'utf8')
 
-  it('chat.tsx 挂了 useSideQueue 与 <QueueInteractionBar />(造好没装车等于没做)', () => {
+  it('chat.tsx 挂了 useSideQueue,<QueueInteractionBar /> 经端内壳注入(造好没装车等于没做)', () => {
     expect(chat).toMatch(/useSideQueue\(/)
-    expect(chat).toMatch(/<QueueInteractionBar/)
+    expect(shell).toMatch(/<QueueInteractionBar/)
+    expect(shell).toMatch(/\n\s+queueSlot,/)
   })
 
   it('流式中发送 ⇒ 入队而不是丢弃(W27 预备消息优先规则)', () => {

@@ -39,10 +39,11 @@ describe('G-403 taro 接线(源码结构层)', () => {
     expect(resetAt).toBeGreaterThan(streamStart)
   })
 
-  it('归因条调用点把缓存两维传给 ContextUsageStrip', () => {
-    const stripAt = chat.indexOf('<ContextUsageStrip')
+  it('归因条调用点(端内壳装配)把缓存两维传给 ContextUsageStrip', () => {
+    const shell = readFileSync(path.resolve(__dirname, '../chat-shell-extras.tsx'), 'utf8')
+    const stripAt = shell.indexOf('<ContextUsageStrip')
     expect(stripAt).toBeGreaterThanOrEqual(0)
-    const block = chat.slice(stripAt, stripAt + 500)
+    const block = shell.slice(stripAt, stripAt + 500)
     expect(block).toContain('cacheReadTokens={latestCacheTokens.cacheReadTokens}')
     expect(block).toContain('cacheWriteTokens={latestCacheTokens.cacheWriteTokens}')
   })

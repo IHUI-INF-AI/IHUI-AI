@@ -164,6 +164,8 @@ describe('完整交错时序(不是只测最顺的那一条)', () => {
 
 describe('装车证明:判据必须真接在 chat.tsx 主链路上', () => {
   const src = readFileSync(path.resolve(__dirname, '../chat.tsx'), 'utf8').replace(/\r\n/g, '\n')
+  // 最终壳:抽屉等视觉节点在端内壳装配文件;页内只保留状态/回调。
+  const shellSrc = readFileSync(path.resolve(__dirname, '../chat-shell-extras.tsx'), 'utf8')
 
   it('换档 effect 与停止按钮共用同一个终止出口(端内不得再写第二套 abort)', () => {
     expect(src).toContain("from './model-switch'")
@@ -189,7 +191,7 @@ describe('装车证明:判据必须真接在 chat.tsx 主链路上', () => {
     // 只切 openModelDrawer 自己的函数体(到下一个顶层声明为止),不看别人的 thinking 守卫
     const body = src.slice(start, src.indexOf('const ', start + 10))
     expect(body).not.toMatch(/\bthinking\b/)
-    expect(src).toContain('onSelect={selectModel}')
+    expect(shellSrc).toContain('onSelect={selectModel}')
   })
 
   it('model-switch.ts 是纯模块:零 import(不把 Taro / React / i18n 第二份真相写进来)', () => {
@@ -204,7 +206,9 @@ describe('装车证明:判据必须真接在 chat.tsx 主链路上', () => {
     expect(probe.calls.notice).toEqual([])
     // 接线侧锁语义而非字节形(prettier 一折行,字面量锁就变成与正确性无关的假红):
     // 换档 effect 走 t() 取键,不塞自造中文;停止按钮不传 notice。
-    expect(src).toMatch(/terminateStream\(\s*\n?\s*t\(\s*'chat\.modelSwitchStopped',\s*\{\s*model:\s*currentModel\s*\}\s*\)\s*\n?\s*\)/)
+    expect(src).toMatch(
+      /terminateStream\(\s*\n?\s*t\(\s*'chat\.modelSwitchStopped',\s*\{\s*model:\s*currentModel\s*\}\s*\)\s*\n?\s*\)/,
+    )
     expect(src).toMatch(/const stopGeneration = useCallback\(\(\) => \{\s*\n\s*terminateStream\(\)/)
     expect(src).not.toMatch(/terminateStream\(\s*'[^']*已终止/)
   })
@@ -213,7 +217,11 @@ describe('装车证明:判据必须真接在 chat.tsx 主链路上', () => {
     for (const l of ['en', 'ja', 'ko', 'zh-CN', 'zh-TW']) {
       const pack = JSON.parse(
         readFileSync(
-          path.resolve(__dirname, '../../../../../../packages/i18n/messages/miniapp-taro', `${l}.json`),
+          path.resolve(
+            __dirname,
+            '../../../../../../packages/i18n/messages/miniapp-taro',
+            `${l}.json`,
+          ),
           'utf8',
         ),
       )

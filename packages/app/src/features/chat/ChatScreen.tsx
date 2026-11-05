@@ -80,6 +80,11 @@ export function ChatScreen({
   onListRef,
   statusSlot,
   queueSlot,
+  headerNode,
+  topSlot,
+  messageListSlots,
+  inputSlot,
+  overlaySlot,
   onNavigate,
   onToast,
 }: ChatScreenProps) {
@@ -95,7 +100,9 @@ export function ChatScreen({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {showHeader ? (
+      {headerNode !== undefined ? (
+        headerNode
+      ) : showHeader ? (
         <ChatHeader
           t={t}
           colorScheme={colorScheme}
@@ -103,6 +110,8 @@ export function ChatScreen({
           navItems={navItems.map((n) => ({ key: n.key, label: n.label, onPress: n.onPress }))}
         />
       ) : null}
+
+      {topSlot ?? null}
 
       {showModelBar ? (
         <TouchableOpacity
@@ -175,7 +184,13 @@ export function ChatScreen({
         renderItem={renderMessage}
         headerNode={renderListHeader}
         renderFooter={renderListFooter === undefined ? undefined : () => <>{renderListFooter}</>}
-        showThinkingPlaceholder={false}
+        showThinkingPlaceholder={messageListSlots?.showThinkingPlaceholder ?? false}
+        tailNodes={messageListSlots?.tailNodes}
+        orphanTailNode={messageListSlots?.orphanTailNode}
+        thinkingNode={messageListSlots?.thinkingNode}
+        className={messageListSlots?.className}
+        scrollTop={messageListSlots?.scrollTop}
+        scrollWithAnimation={messageListSlots?.scrollWithAnimation}
         onLongPressMessage={onLongPressMessage}
         onMessageRef={onMessageRef}
         onListRef={(ref) => {
@@ -195,7 +210,9 @@ export function ChatScreen({
         </View>
       ) : null}
 
-      {showInput ? (
+      {inputSlot !== undefined ? (
+        inputSlot
+      ) : showInput ? (
         <MessageInput
           t={t}
           text={inputText}
@@ -228,6 +245,8 @@ export function ChatScreen({
           colorScheme={colorScheme}
         />
       ) : null}
+
+      {overlaySlot ?? null}
     </View>
   )
 }
