@@ -33,10 +33,16 @@ export function ChangePhoneScreen({
   onSelectNation,
   onSendCode,
   onSubmit,
+  oldPhone,
+  oldCode,
+  oldCodeMin,
+  onOldCodeChange,
+  onSendOldCode,
   colorScheme = 'light',
 }: ChangePhoneScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const oldCodeMissing = !!oldPhone && !(oldCode ?? '').trim()
 
   return (
     <ScrollView
@@ -45,6 +51,45 @@ export function ChangePhoneScreen({
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>{t('user.profile.changePhoneTitle')}</Text>
+
+      {oldPhone ? (
+        <>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t('user.profile.oldPhone')}</Text>
+            <View style={styles.oldPhoneBox}>
+              <Text style={styles.oldPhoneText}>{oldPhone}</Text>
+            </View>
+          </View>
+          <View style={styles.inputWbox}>
+            <Text style={styles.fieldLabel}>{t('user.profile.oldCode')}</Text>
+            <View style={styles.inputBox}>
+              <TextField
+                colorScheme={colorScheme}
+                style={styles.input}
+                value={oldCode ?? ''}
+                onChangeText={onOldCodeChange}
+                placeholder={t('user.profile.codePlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              {oldCodeMin && oldCodeMin > 0 ? (
+                <Text style={styles.countdownText}>
+                  {t('user.profile.resend', { seconds: oldCodeMin })}
+                </Text>
+              ) : (
+                <Tappable
+                  style={styles.sendBtn}
+                  onPress={onSendOldCode}
+                  accessibilityLabel={t('user.profile.sendOldCode')}
+                >
+                  <Text style={styles.sendText}>{t('user.profile.sendOldCode')}</Text>
+                </Tappable>
+              )}
+            </View>
+          </View>
+        </>
+      ) : null}
 
       <View style={styles.inputWbox}>
         <View style={styles.inputBox}>
@@ -123,9 +168,9 @@ export function ChangePhoneScreen({
       {tip ? <Text style={styles.tipText}>{tip}</Text> : null}
 
       <Tappable
-        style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+        style={[styles.submitBtn, (submitting || oldCodeMissing) && styles.submitBtnDisabled]}
         onPress={onSubmit}
-        disabled={submitting}
+        disabled={submitting || oldCodeMissing}
         accessibilityLabel={t('user.profile.confirmChange')}
       >
         <Text style={styles.submitText}>
@@ -148,6 +193,23 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['2xl'],
     },
     inputWbox: { width: '100%', marginBottom: rnSpacing.lg },
+    fieldGroup: { width: '100%', marginBottom: rnSpacing.lg },
+    fieldLabel: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
+    oldPhoneBox: {
+      height: 50,
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.xl,
+      paddingHorizontal: rnSpacing.md,
+      backgroundColor: tk.surface.muted,
+    },
+    oldPhoneText: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {
       flexDirection: 'row',
       alignItems: 'center',

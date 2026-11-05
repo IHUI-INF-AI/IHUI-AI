@@ -7364,7 +7364,10 @@
       "codePlaceholder": "请输入 6 位验证码",
       "sendNewCode": "获取新验证码",
       "resend": "{seconds}s 后重试",
-      "confirmChange": "确认修改"
+      "confirmChange": "确认修改",
+      "oldPhone": "当前手机号",
+      "oldCode": "旧手机号验证码",
+      "sendOldCode": "获取旧验证码"
     }
   },
   "NavBar": {

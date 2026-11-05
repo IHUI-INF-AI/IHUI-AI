@@ -7364,7 +7364,10 @@
       "codePlaceholder": "6桁の認証コードを入力",
       "sendNewCode": "新コード取得",
       "resend": "{seconds}秒後に再試行",
-      "confirmChange": "変更確認"
+      "confirmChange": "変更確認",
+      "oldPhone": "現在の電話番号",
+      "oldCode": "旧電話番号認証コード",
+      "sendOldCode": "旧コード取得"
     }
   },
   "NavBar": {
