@@ -73,7 +73,11 @@ export const PLAN_MD = join(ROOT, 'PROJECT_PLAN.md')
  * 环在数小时内都看不见它 —— 实测读数 `L2066 不入本轮:未评估(候选文件未收录本票)`,挡了 227 分钟。
  * 消费面与生成面同一段文本 ⇒ 比对双方都走这里,不各写一份哈希(§0.6)。
  */
-export { planFaceDigest } from './lib/plan-face-digest.mjs'
+// `export … from` 只是再导出,**不会把绑定引进本模块作用域** ⇒ main 里调用会 ReferenceError
+// (2026-11-05 自伤实录:生成器 exit=2,`planFaceDigest is not defined`,被自己的锁放过去了)。
+// 正解:先 import 再具名导出,两侧同一实现且本模块可用。
+import { planFaceDigest } from './lib/plan-face-digest.mjs'
+export { planFaceDigest }
 
 export function readPlanLines(path = PLAN_MD) {
   try {
