@@ -84,6 +84,14 @@ import {
 // enqueue 契约,不 import 它的运行时(那是 `tools/background-registry.ts` 已经反向 import
 // 本模块形成的环 —— 用 `import type` 把依赖留在编译期,运行时零环)。
 import type { PromptQueue, PromptQueueKind } from '../prompt-queue.js';
+// 产品形态能力闸(goal-b49 Y3):判定本体在 @ihui/types 的 PRODUCT_FORM_CAPABILITIES(本层零判据),
+// 本文件只消费 —— 形态表里关掉/未登记的「本机钩子派发面」在该形态下不派发,且**出声**。
+import {
+  announceProductFormGate,
+  gateProductFormCapability,
+  PRODUCT_FORM_CAPABILITY_OFF,
+  PRODUCT_FORM_CAPABILITY_UNJUDGED,
+} from '../lib/product-form.js';
 
 export interface HookEntry {
   name: string;
@@ -1481,6 +1489,33 @@ async function dispatchHookEntry(
       return { result, state, outcome };
     }
     hostIdentity = verdict.identity;
+  }
+  // 产品形态闸(goal-b49 Y3,2026-11-05):形态表里关掉/未登记的「本机钩子派发面」⇒ 本形态不派发。
+  // 与宿主身份核验同形:deny-by-default + 具名错误码 + skipped 档(exitCode 0 ⇒ 不改写既有阻断语义)。
+  // 失效方向(§0.10):关档与未登记都**出声**(点名形态 · 能力),细节随本条结果进 feedback 面,
+  // 绝不静默放行,也绝不静默拒绝(§0.3:没判 ≠ 判过)。
+  const formGate = gateProductFormCapability('localHooks');
+  if (formGate.state !== 'enabled') {
+    const code =
+      formGate.state === 'disabled'
+        ? PRODUCT_FORM_CAPABILITY_OFF
+        : PRODUCT_FORM_CAPABILITY_UNJUDGED;
+    const stderr =
+      `${code}: ${formGate.reason} — hook "${entry.name}" (event ${hookEvent}) not dispatched ` +
+      `(product-form capability gate, deny-by-default)`;
+    // 同一(形态 × 能力)只出声一次;本条细节走 result.stderr → feedback 面。
+    announceProductFormGate(formGate, 'hooks');
+    const result: HookExecResult = { exitCode: 0, stdout: '', stderr, outcome: 'skipped' };
+    const state = classifyHookTerminal(result.outcome, result.exitCode, blockOnError);
+    const outcome = runOutcomeOfExec(result, blockOnError);
+    emitHookRunEvent({
+      type: 'terminal',
+      hookEvent,
+      hook: entry.name,
+      outcome,
+      exitCode: result.exitCode,
+    });
+    return { result, state, outcome };
   }
   // 核验通过后才把宿主身份 stamp 进钩子子进程 env(钩子侧可据此核验自己的宿主)。
   // 复制 env:调用方在循环间共享同一 env 对象,不得被派发侧污染。
