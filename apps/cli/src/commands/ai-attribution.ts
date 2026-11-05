@@ -92,7 +92,7 @@ export function formatStatsLines(stats: AttributionStatsPayload): string[] {
 }
 
 /** 把一条账行折成人读的一行(纯函数)。 */
-export function formatRecordLine(record: AttributionRecordPayload): string {
+function formatRecordLine(record: AttributionRecordPayload): string {
   const anchor = record.anchor;
   const range =
     anchor.line_start > 0 ? `${anchor.path}:${anchor.line_start}-${anchor.line_end}` : anchor.path;
