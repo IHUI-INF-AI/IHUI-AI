@@ -256,6 +256,7 @@ export default function N8nModelScreen() {
             onRetry={() => void load()}
             onToggle={handleToggle}
             onEdit={handleEdit}
+            onOpen={handleEdit}
             onCreate={handleCreate}
             onBack={() => navigation.goBack()}
             colorScheme={resolvedTheme}
