@@ -91,6 +91,7 @@ import { redactObjectDeepKeyed } from '../redact.js';
 // G-729:截断口径只认码点出口(UTF-16 码元 slice 会切出半个代理对,而切坏的串可能恰好躲过脱敏正则)
 import { truncateToCodePoints } from '../utils/prompt-boundary.js';
 import { findSkill, type Skill } from '../skills/index.js';
+import { showSkillsCatalog } from './skills-catalog-view.js';
 import {
   getMemoryStore,
   loadMemory,
@@ -1007,7 +1008,11 @@ function printBackgroundLedger(liveIds: readonly string[]): void {
   for (const alert of drainLedgerAlerts()) console.info(chalk.red(`⚠ ${alert}`));
 }
 
-async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
+/**
+ * 斜杠命令装载器(唯一分发口)。导出理由:装车证明必须从**分发路径**打进去,
+ * 只测被调函数等于没证明"这条命令真会走到那一格"(AGENTS §0.9)。
+ */
+export async function handleSlashCommand(input: string, state: ReplState, rl: readline.Interface): Promise<void> {
   const [cmdRaw, ...args] = input.slice(1).split(/\s+/);
   const cmd = cmdRaw ?? '';
   switch (cmd) {
@@ -1165,19 +1170,9 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
     }
 
     case 'skills': {
-      if (state.skills.length === 0) {
-        console.info(chalk.dim('暂无 skills(可在 .ihui/skills/*.md 或 ~/.ihui/skills/*.md 创建)'));
-      } else {
-        console.info(chalk.cyan(`\n╭─ 已加载 skills · ${state.skills.length} 项`));
-        const nameWidth = Math.max(...state.skills.map((s) => s.name.length), 8);
-        for (const s of state.skills) {
-          const name = chalk.bold(s.name.padEnd(nameWidth));
-          console.info(`│  ${name}  ${chalk.dim(s.description)}`);
-          console.info(`│  ${' '.repeat(nameWidth)}  ${chalk.dim(`↳ ${s.source}`)}`);
-        }
-        console.info(chalk.cyan('╰─ /skill <name> 查看详情'));
-        console.info('');
-      }
+      // W4 装车票(2026-11-05):清单走 `readSkillCatalog` 那一格(首屏读缓存 + 命中/失效出声)。
+      // 判据不在本文件复算(§0.6);`state.skills` 仍是 `/skill <name>` 取正文的来源(缓存不含正文)。
+      showSkillsCatalog({ cwd: state.opts.workspacePath });
       break;
     }
 
