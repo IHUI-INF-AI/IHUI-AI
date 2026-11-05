@@ -922,26 +922,46 @@ export const glob: Tool = {
       return options.flatMap((opt) => expandBraces(prefix + opt + suffix))
     }
     const patterns = expandBraces(pattern)
-    // 2026-09-03 修复: 原 impl 只用纯文件名匹配 pattern,导致 **/stats.mjs 这类含路径的 pattern 永远失配。
-    // 新语义: pattern 含 '/' → 按相对路径匹配(**/ 可匹配零目录, * 不跨目录段); 不含 '/' → 沿用任意深度文件名匹配。
+    // 2026-11-05 重写:旧实现把整条 pattern 做**链式字符串替换**,后一步会再吃掉前一步刚插进
+    // 正则里的产物 —— `(?:.*/)?` 里的 `?` 被 `?`→`[^/]` 改掉、`*` 被 `*`→`[^/]*` 改掉,
+    // 于是 `**/*attendance*` 编译成 `^([^/]:.[^/]*/)[^/][^/]*attendance[^/]*$`
+    // (要求路径里有一个 `X:` 冒号段)⇒ **凡带 `**/` 的 pattern 恒不匹配**,而工具仍回
+    // success:true + "未找到匹配文件"。现按段编译:先 split('/') 再把每段单独编译成
+    // "不跨目录"的片段,`**` 只在段这一层解释,插进正则的东西不再参与后续替换。
+    const compileSegment = (seg: string): string =>
+      seg
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '[^/]*')
+        .replace(/\?/g, '[^/]');
+    const compilePathPattern = (p: string): string => {
+      const segs = p.split('/');
+      const body: string[] = [];
+      let slashPending = false;
+      segs.forEach((seg, i) => {
+        if (seg === '**' && i < segs.length - 1) {
+          body.push('(?:[^/]+/)*'); // 零或多目录:自带尾斜杠,故下一段前不再补 '/'
+          slashPending = false;
+          return;
+        }
+        if (slashPending) body.push('/');
+        // 末段 `**` 收全部剩余(含"什么都没有");其余段按不跨目录编译
+        body.push(seg === '**' ? '.*' : compileSegment(seg));
+        slashPending = true;
+      });
+      return '^' + body.join('') + '$';
+    };
     const matchers = patterns.map((p) => {
       if (!p.includes('/')) {
-        const re = new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+        const re = new RegExp('^' + compileSegment(p) + '$');
         return (_relPath: string, fileName: string) => re.test(fileName);
       }
-      const re = new RegExp(
-        '^' +
-          p
-            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*\*\//g, '(?:.*/)?') // **/ 可匹配零目录(**/stats.mjs 命中根目录 stats.mjs)
-            .replace(/\*\*/g, '.*')
-            .replace(/\*/g, '[^/]*')
-            .replace(/\?/g, '[^/]') +
-          '$',
-      );
+      const re = new RegExp(compilePathPattern(p));
       return (relPath: string, _fileName: string) => re.test(relPath);
     });
     const results: string[] = [];
+    // 结果一律以 `/` 形态呈现:匹配本来就在 `/` 形态上做,若把 Windows 反斜杠原样吐给模型,
+    // 模型下一次把它当 pattern 传回来就必然失配(同一件文件两种写法,检索面因此自锁)。
+    const relOf = (abs: string): string => relativePath(ctx, abs).replace(/\\/g, '/');
     function walk(dir: string): void {
       if (results.length >= MAX_GLOB_RESULTS) return;
       let entries: fs.Dirent[];
@@ -951,8 +971,8 @@ export const glob: Tool = {
         if (entry.isDirectory()) {
           if (IGNORED_DIRS.has(entry.name)) continue;
           walk(path.join(dir, entry.name));
-        } else if (matchers.some((m) => m(relativePath(ctx, path.join(dir, entry.name)).replace(/\\/g, '/'), entry.name))) {
-          results.push(relativePath(ctx, path.join(dir, entry.name)));
+        } else if (matchers.some((m) => m(relOf(path.join(dir, entry.name)), entry.name))) {
+          results.push(relOf(path.join(dir, entry.name)));
         }
       }
     }
