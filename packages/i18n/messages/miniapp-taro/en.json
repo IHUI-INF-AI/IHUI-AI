@@ -7028,5 +7028,11 @@
     "fields": {
       "payMethod": "Payment Method"
     }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API Keys"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "No subordinates"
   }
 }

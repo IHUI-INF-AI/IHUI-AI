@@ -7031,5 +7031,11 @@
     "fields": {
       "payMethod": "결제 수단"
     }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 키"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "하위 멤버가 없습니다"
   }
 }
