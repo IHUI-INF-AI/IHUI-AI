@@ -1769,6 +1769,28 @@ export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
 }
 
 /**
+ * 派发前闸「瞬时不在位」的复核计划(纯判据,零 IO ⇒ 可锁)。
+ *
+ * 立因(台账现读,不是推测):18:45:09 与 19:00:01 两轮停在
+ * `runner-preflight-missing`,`missing` 字段逐枚点名的都是同一枚
+ * `D:\IHUI-AI/apps/cli/node_modules/tsx/dist/cli.mjs`;而我 19:50 手工复核它**在位**,
+ * mtime 还是 11-03 ⇒ 它是被别席 `pnpm install` **瞬时移走/重挂**的,不是产物真的没了。
+ * 一轮停派 = 一次日预算与一整班等待白费,而它自愈只要几秒。
+ *
+ * 口径:只对 `missing` 复核(其他状态如 `undetermined`/`template-empty` 是"判不出/没配",
+ * 重试不会改变输入,不许拿来当兜底);复核次数与间隔都是常量级、有上界,不引入无界等待。
+ */
+export function preflightRecheckPlan(state, attempt, { maxRechecks = 2, delayMs = 4000 } = {}) {
+  const a = Number(attempt)
+  const max = Number(maxRechecks)
+  if (!Number.isFinite(a) || !Number.isFinite(max)) return { recheck: false, delayMs: 0 }
+  if (state !== 'missing') return { recheck: false, delayMs: 0 }
+  // attempt 从 1 起(首次核验),复核第 N 次对应 attempt = N+1
+  if (a < 1 || a > max + 1) return { recheck: false, delayMs: 0 }
+  return { recheck: a <= max, delayMs: a <= max ? Math.max(0, Number(delayMs) || 0) : 0 }
+}
+
+/**
  * 「这张票的产物是否已被本环落进 HEAD」——派单前的重派排除(2026-11-05 立)。
  *
  * 立因:落账腿成功后,票行仍是 `- [ ]`(结清属活文档写口,本器不登记,见文件头第 14 行),
@@ -2268,7 +2290,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // ---- 派发前闸(2026-11-01 立):执行体不在位 ⇒ 整轮不派,不拿真票去撞 ----
     // 病灶:这条腿 2026-10-25 起在本机死了 6 天(48 轮仅 1 成功),而台账里每一枚失败
     // 都被记成「票失败」并计入连败,3 次即封票 48h —— 调度器自伤却把债摊派给真工作。
-    const pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+    let pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+    // 瞬时不在位(别席 install 正把 tsx 重挂)先复核再停派——判据单源见 `preflightRecheckPlan`。
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const plan = preflightRecheckPlan(pf.state, attempt)
+      if (!plan.recheck) break
+      // 同步等:本器整轮就是同步流程(取票/起会话都阻塞),异步等待不会让任何人受益。
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, plan.delayMs)
+      const again = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
+      console.error(
+        `♻ 派发前闸复核 ${attempt}/${plan.recheck ? 2 : 0}:${pf.why} → ${again.why}(state=${again.state})`,
+      )
+      pf = again
+    }
     if (!dryRun && pf.state !== 'ready' && pf.state !== 'template-empty') {
       record({
         mode: 'dispatch',
