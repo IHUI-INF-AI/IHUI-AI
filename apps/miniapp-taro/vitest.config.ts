@@ -18,6 +18,13 @@ export default defineConfig({
         find: '@rn-shells',
         replacement: path.resolve(__dirname, '../../apps/mobile-rn/src/screens'),
       },
+      // 共享屏真源(packages/app)与构建别名同源:壳承载页按
+      // `@ihui/rn-app/features/<dir>/<Screen>` 具体子路径直引。测试侧同配,
+      // 否则 vitest 解析不到,页面级用例只能靠 mock 字符串硬编码。
+      {
+        find: '@ihui/rn-app',
+        replacement: path.resolve(__dirname, '../../packages/app/src'),
+      },
       // 强制 react / react-dom 单实例(dual React 问题):
       // @ihui/shared 源码从 packages/shared 上下文解析 react → react@19.0.0,
       // 而 react-dom@18.3.1 从 apps/miniapp-taro 上下文解析 react → react@18.3.1。

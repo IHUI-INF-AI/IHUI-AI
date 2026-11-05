@@ -11,6 +11,7 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ComponentType } from 'react'
 import type { TFunction } from './app-shared.js'
 import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
@@ -335,8 +336,27 @@ export interface AigcListScreenProps {
   onLoadMore?: () => void
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /**
+   * 内联视频播放能力端口;缺省 = capability-off(点击视频卡只回 onPressItem)。
+   * Renderer 由端内注入(共享屏零平台 API);播放态由宿主持有并按 playingId 渲染。
+   */
+  video?: {
+    /** 正在内联播放的作品 id;null = 无 */
+    playingId: string | null
+    /** 点击视频卡切换播放/停止(宿主负责建/销毁播放器) */
+    onToggle: (item: AigcListItem) => void
+    /** 端内播放器组件:只接收地址与错误回调,布局由共享屏卡位约束 */
+    Renderer: ComponentType<{ uri: string; onError?: () => void }>
+  }
   /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
   audio?: AudioPort
+  /**
+   * 当前正在播放的音频 id;缺省 = null(按钮恒显示「播放」)。
+   * 与 onToggleAudio 成对注入;宿主负责在播完/失败后清空,共享屏只按此值渲染播放态。
+   */
+  playingAudioId?: string | null
+  /** 音频播放/停止切换端口;缺省回落 audio.play(只播不停) */
+  onToggleAudio?: (item: AigcListItem) => void
   /**
    * 顶部作品轮播端口;缺省 = 不渲染。
    * 共享屏缺少轮播能力时由宿主以数据+回调注入,渲染仍住共享屏,端内不再复制一份。
@@ -509,6 +529,16 @@ export interface AigcPublishScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /**
+   * 允许展示的作品类型档;缺省 = 四档全开。
+   * 端内没有对应上传/预览链路的档位由宿主收敛,避免摆出无法提交的入口。
+   */
+  workTypes?: readonly AigcPublishWorkType[]
+  /**
+   * 是否渲染提示词输入段;缺省 = true。
+   * 文本档没有独立提示词落库槽的宿主传 false,避免用户写下后被静默丢弃。
+   */
+  showPromptField?: boolean
 }
 
 /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */
