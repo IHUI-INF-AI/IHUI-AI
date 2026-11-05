@@ -845,4 +845,139 @@ test('⑰c 接线锁:字面量发射 + 排在连败块之前(走连败=给零推
   assert.ok(iNo > 0 && iFail > 0 && iNo < iFail, '零推进档必须短路在连败封票之前')
   assert.ok(src.slice(iNo, iFail).includes('return'), '那一档只 return,不许顺手把票计进连败')
 })
+
+// ── Ⓐ–Ⓓ 票面范围预解析(2026-11-05 立)──
+// 立因:68 份派发转录写类命中 0;今天那班(票 P85)被派去"新增" compute_simhash,
+// 而 HEAD 面 `git grep` 现读它已在 rename_detect.py 等处存在 —— 会话一路只读到 end_turn。
+// 这一族钉的是"调度侧把查得到的事实先交给会话",不是给会话加散文规矩(散文规矩实测挡不住)。
+const SCOPE_TEXT =
+  'P85 代码检索改名检测:对侧把 `compute_simhash`/`hamming_distance` 作为一等导出、而 `diffTree` 只有三桶 ⇒ ' +
+  '本仓在 `codebase_indexer` 的快照差集上补一枚改名候选;改 `apps/ai-service/app/services/x.py` 与 `docs/README.md`,还有 `odd 短` 和 `abc`'
+
+test('Ⓐ 抽提示:只抽代码标识符与带扩展名路径,散文/中文/短词不进', () => {
+  const h = ae.extractTicketScopeHints(SCOPE_TEXT)
+  assert.deepEqual(h.idents, [
+    'compute_simhash',
+    'hamming_distance',
+    'diffTree',
+    'codebase_indexer',
+  ])
+  assert.deepEqual(
+    h.paths,
+    ['apps/ai-service/app/services/x.py', 'docs/README.md'],
+    '路径按出现顺序',
+  )
+  assert.ok(!h.idents.includes('abc'), '3 字符及以下不当标识符(噪声)')
+  assert.ok(!h.idents.some((x) => x.includes(' ')), '带空格的整段散文不抽')
+  const capped = ae.extractTicketScopeHints(
+    '`aaaa_b` `cccc_d` `eeee_f` `gggg_h` `iiii_j` `kkkk_l`',
+    {
+      maxIdents: 2,
+    },
+  )
+  assert.deepEqual(capped.idents, ['aaaa_b', 'cccc_d'], '上限照收,不静默多抽')
+  assert.deepEqual(ae.extractTicketScopeHints(''), { idents: [], paths: [] }, '空票面不炸')
+})
+
+test('Ⓑ 三态分开:权威"没有"、真没查到、预算用尽——三档形态互不可挪用', () => {
+  const F = ae.buildTicketScope
+  const ok = F(SCOPE_TEXT, {
+    rev: 'r1',
+    grepFn: () =>
+      `r1:apps/ai-service/app/services/rename_detect.py\nr1:PROJECT_PLAN.md\nr1:scripts/data/p.jsonl\nr1:.archify/a/candidate.json`,
+    existsFn: () => true,
+  })
+  assert.equal(ok.hits.length, 4)
+  assert.deepEqual(
+    ok.hits[0].files,
+    ['apps/ai-service/app/services/rename_detect.py'],
+    '剥 HEAD: 前缀并排掉 *.md/*.jsonl/.archify',
+  )
+  assert.deepEqual(ok.presentPaths, ['apps/ai-service/app/services/x.py', 'docs/README.md'])
+  assert.equal(ok.undetermined.length, 0)
+
+  // 取数口答"确实没有"(git grep 退出码 1 ⇒ 空串):算 unresolved,**不**算未判定
+  const none = F(SCOPE_TEXT, { rev: 'r2', grepFn: () => '', existsFn: () => false })
+  assert.equal(none.hits.length, 0)
+  assert.deepEqual(none.unresolved, [
+    'compute_simhash',
+    'hamming_distance',
+    'diffTree',
+    'codebase_indexer',
+  ])
+  assert.equal(none.undetermined.length, 0, '权威否定不许混进"未判定"')
+  assert.deepEqual(none.absentPaths, ['apps/ai-service/app/services/x.py', 'docs/README.md'])
+
+  // 取数口没答(null):逐枚点名未判定,而不是折成"没有"
+  const blind = F(SCOPE_TEXT, { rev: 'r3', grepFn: () => null, existsFn: () => null })
+  assert.equal(blind.hits.length, 0)
+  assert.equal(blind.unresolved.length, 4)
+  assert.equal(blind.undetermined.length, 6, '4 枚标识符 + 2 条路径存在性都没答 ⇒ 逐条点名')
+  assert.ok(
+    blind.undetermined.every((x) => x.includes('未')),
+    '未判定字样必须出现在每一条',
+  )
+
+  // 预算闸:越过预算的余下枚逐条点名"未查",且不冒充 hits/unresolved
+  let clock = 0
+  const over = F(SCOPE_TEXT, {
+    rev: 'r4',
+    budgetMs: 10,
+    now: () => clock,
+    grepFn: () => {
+      clock += 7
+      return 'r4:a.py'
+    },
+    existsFn: () => true,
+  })
+  assert.ok(over.hits.length <= 2, '预算内只查得动前两枚')
+  assert.ok(
+    over.undetermined.some((x) => /预算.*未查/.test(x)),
+    '查不完的必须点名"预算已用尽"',
+  )
+})
+
+test('Ⓒ 文案:命中即讲"可能已实现、不要重写、不记完成";无命中讲"按票面新建"', () => {
+  const withHits = ae.renderTicketScope(
+    ae.buildTicketScope(SCOPE_TEXT, { rev: 'r', grepFn: () => 'r:s/a.py', existsFn: () => true }),
+  )
+  assert.match(withHits, /已被实现/)
+  assert.match(withHits, /不要再写第二份/)
+  assert.match(withHits, /不会被记成完成/, '不许给会话留"报了就算做完"的错觉')
+  assert.match(withHits, /调度侧在 r 面现查/, '取材面必须署名到那一枚提交')
+
+  const empty = ae.renderTicketScope(
+    ae.buildTicketScope('本票没有任何反引号', {
+      rev: 'r',
+      grepFn: () => 'x',
+      existsFn: () => true,
+    }),
+  )
+  assert.match(empty, /无结论/, '没抽到标识符 ⇒ 说"本表无结论",而不是替票面下结论')
+  assert.ok(!/确实尚不存在/.test(empty), '一枚都没查时不许冒"确实不存在"(§0.3)')
+  assert.ok(!/已被实现/.test(empty), '没命中不许冒"已实现"')
+
+  const partial = ae.renderTicketScope(
+    ae.buildTicketScope(SCOPE_TEXT, { rev: 'r', grepFn: () => null, existsFn: () => null }),
+  )
+  assert.match(partial, /没答全/, '没答全时不许冒"确实尚不存在"')
+  assert.match(partial, /未判定/, '没答的部分要单独成行')
+  assert.ok(!/确实尚不存在/.test(partial), '未判定与"权威没有"两种形态互不可挪用')
+})
+
+test('Ⓓ 接线锁:范围表真进派发 prompt,不是造好没装车(§0.9)', () => {
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.ok(/renderTicketScope\(scope\)/.test(src), 'promptText 里必须拼进范围表')
+  assert.ok(/const scope = buildTicketScope\(ticket\.text/.test(src), '范围表按当次票面现算')
+  const iRev = src.indexOf('const revForScope = headShaOf()')
+  const iScope = src.indexOf('const scope = buildTicketScope(')
+  assert.ok(
+    iRev > 0 && iScope > iRev,
+    '先取那一枚提交,再在它上面查(不在 HEAD 上查会读到别席刚推进的面)',
+  )
+  assert.ok(
+    /仓根唯一取值\(调度侧现读\)/.test(src),
+    '盘符事实必须写进 prompt:转录实测有会话按 G:/ 找文件',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

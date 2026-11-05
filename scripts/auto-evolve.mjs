@@ -1129,6 +1129,146 @@ export function decideValveDispatch(valve, mode, { ticketKey = '', ticketLine = 
   return { route: 'dispatch', ledger }
 }
 
+/**
+ * 票面范围预解析(2026-11-05 立)。把票文里反引号圈出的**代码标识符 / 路径**在 HEAD 面现查一遍,
+ * 把命中文件写进派发 prompt,并把"这一枚可能已经实现"这件事讲明白。
+ *
+ * 立因(不是推断,是量出来的):68 份派发转录写类工具命中 **0 次**;今天这班(票 eb2ab5be4ad486ee,
+ * 174.5 秒 / 432,746 tokens / exit 0)被记 `session-no-write`,它的最后一句是「找到目标文件了。
+ * 现在读取关键部分……」——一路读到 end_turn 也没动笔。而它被派去"新增"的 `compute_simhash`
+ * 在 HEAD 面**已经存在**(`git grep` 现读命中 `apps/ai-service/app/services/rename_detect.py` 等)。
+ * 会话缺的不是权限,是"该往哪儿写 / 是否已经写过"这一格事实 —— 那格事实调度侧查得到,而且更便宜。
+ *
+ * 失效方向(§0.3):查不到 ⇒ 如实写"未命中",**不拦派发**(拦了就是把环饿死);取数口抛错 ⇒
+ * 整块落 `undetermined` 并在 prompt 里报名,绝不拿"没查到"冒充"不存在"。
+ * 排除 `*.md`:散文里提一句不等于实现存在(台账行自己就会命中,那是循环引用)。
+ */
+export function extractTicketScopeHints(text, { maxIdents = 6, maxPaths = 6 } = {}) {
+  const idents = []
+  const paths = []
+  for (const m of String(text ?? '').matchAll(/`([^`\n]{2,120})`/g)) {
+    const s = m[1].trim()
+    if (!s) continue
+    // 路径形态:含斜杠且带扩展名(`apps/x/y.py`、`scripts/lib/a.mjs`)
+    if (/^[A-Za-z0-9_.\-/]+\/[A-Za-z0-9_.\-/]+\.[A-Za-z0-9]{1,6}$/.test(s)) {
+      if (!paths.includes(s) && paths.length < maxPaths) paths.push(s)
+      continue
+    }
+    // 标识符形态:纯代码名,≥4 字符(滤掉 `id`/`api` 这类噪声与整段中文)
+    if (/^[A-Za-z_][A-Za-z0-9_]{3,60}$/.test(s)) {
+      if (!idents.includes(s) && idents.length < maxIdents) idents.push(s)
+    }
+  }
+  return { idents, paths }
+}
+
+/**
+ * 用注入的取数口算范围表(纯逻辑,可在测试里成对造命中/未命中/取不到三态)。
+ * `grepFn(ident)` ⇒ `HEAD:<path>` 逐行文本或 null(取不到);
+ * `existsFn(path)` ⇒ true/false/null(取不到,不等于不存在)。
+ */
+export function buildTicketScope(
+  text,
+  {
+    rev = 'HEAD',
+    grepFn,
+    existsFn,
+    maxIdents = 4,
+    maxFilesPerIdent = 6,
+    budgetMs = 30_000,
+    now = () => Date.now(),
+  } = {},
+) {
+  const { idents, paths } = extractTicketScopeHints(text, { maxIdents })
+  const out = {
+    rev,
+    hits: [],
+    absentPaths: [],
+    presentPaths: [],
+    unresolved: [],
+    undetermined: [],
+    identCount: idents.length,
+    pathCount: paths.length,
+  }
+  const t0 = now()
+  for (const ident of idents) {
+    // 预算闸:实测单枚 git grep 在本仓约 6 秒(多席共树时更慢),取票口已经在 79–170 秒档上,
+    // 再叠 4 枚是环的第三瓶颈。越过预算 ⇒ 余下逐枚点名"未判定"(§0.3:没查完就说没查完)。
+    if (now() - t0 > budgetMs) {
+      out.undetermined.push(`${ident}(未判定:预算 ${Math.round(budgetMs / 1000)}s 已用尽,未查)`)
+      continue
+    }
+    let raw = null
+    try {
+      raw = grepFn ? grepFn(ident) : null
+    } catch {
+      raw = null
+    }
+    if (raw === null || raw === undefined) {
+      out.unresolved.push(ident)
+      out.undetermined.push(`${ident}(未判定:取数口没答)`)
+      continue
+    }
+    const files = raw
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^[^:]+:/, '').trim())
+      // 排除的是"不可能算实现"的面:散文(*.md)、机读台账(*.jsonl)、逆向取证件(.archify/)
+      .filter(
+        (p) => p && !/\.md$/i.test(p) && !/\.(jsonl|json)$/i.test(p) && !p.startsWith('.archify/'),
+      )
+      .slice(0, maxFilesPerIdent)
+    if (!files.length) {
+      out.unresolved.push(ident)
+      continue
+    }
+    out.hits.push({ ident, files })
+  }
+  for (const p of paths) {
+    let exists = null
+    try {
+      exists = existsFn ? existsFn(p) : null
+    } catch {
+      exists = null
+    }
+    if (exists === null || exists === undefined) out.undetermined.push(`${p}(未判定:存在性取不到)`)
+    else if (exists) out.presentPaths.push(p)
+    else out.absentPaths.push(p)
+  }
+  return out
+}
+
+/** 范围表 → prompt 段落(空表也要出一段,写明"没查到"不等于"不存在")。 */
+export function renderTicketScope(s) {
+  const L = []
+  L.push(`## 范围预解析(调度侧在 ${s.rev} 面现查,排除 *.md;这是事实不是建议)`)
+  if (s.hits.length) {
+    for (const h of s.hits) L.push(`- 标识符 \`${h.ident}\` 已命中:${h.files.join('、')}`)
+    L.push(`- **先读这些命中文件再决定动不动笔**:若本票要造的东西已经在里面,本票就是**已被实现**——`)
+    L.push(
+      `  不要再写第二份、不要改名重嵌,回答里点名「已实现于 <文件> <证据>」并保持票未勾正常退出。`,
+    )
+    L.push(
+      `  这一档不会被记成完成(自治会话没有翻勾能力),但它是**有效结论**:比零写盘的"我再读一遍"值钱。`,
+    )
+  } else if (s.identCount === 0) {
+    L.push(`- 票面没抽到可查的代码标识符 ⇒ 本表**无结论**(这不等于"目标不存在",按票面自行定位)。`)
+  } else if (s.undetermined.length) {
+    L.push(`- 本表**没答全**(见下"未判定")⇒ 不作"存在/不存在"任何结论,按只读手段自行定位。`)
+  } else {
+    L.push(`- 标识符层被权威回"没有"(git grep 退出码 1)⇒ 目标确实尚不存在,按票面新建。`)
+  }
+  if (s.unresolved.length)
+    L.push(`- 没查到的标识符:${s.unresolved.map((x) => `\`${x}\``).join('、')}`)
+  if (s.presentPaths.length)
+    L.push(`- 票面路径已存在:${s.presentPaths.map((x) => `\`${x}\``).join('、')}`)
+  if (s.absentPaths.length)
+    L.push(`- 票面路径不存在(需新建):${s.absentPaths.map((x) => `\`${x}\``).join('、')}`)
+  if (s.undetermined.length) {
+    L.push(`- **未判定**(取数口没答,不等于"没有"):${s.undetermined.join('、')}`)
+  }
+  return L.join('\n')
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
@@ -1149,11 +1289,31 @@ function dispatchSession(gates, ticket, dryRun) {
   // 让落账腿依赖会话的建目录习惯,等于把成功率押在一个没人保证的行为上。
   mkdirSync(ARTIFACT_MANIFEST_DIR, { recursive: true })
   const promptFile = join(TMP_DIR, `prompt-${key}-${Date.now()}.md`)
+  // 范围表在**派发那一刻**算(不在票池生成时算:票池可能几轮前生成,期间别席已实现)。
+  const revForScope = headShaOf() || 'HEAD'
+  const scope = buildTicketScope(ticket.text, {
+    rev: revForScope,
+    grepFn: (ident) => {
+      const p = gitProbe(['grep', '-l', '-i', '-F', '-e', ident, revForScope])
+      // 退出码 1 是 git 自己说的"确实没有" ⇒ 交回空串(算查到没有),>=2 / 派生失败 ⇒ null 不猜
+      return p === null || p.status >= 2 ? null : p.stdout
+    },
+    existsFn: (p) => {
+      const r = gitProbe(['cat-file', '-e', `${revForScope}:${p}`])
+      if (!r || r.status >= 2) return null
+      return r.status === 0
+    },
+  })
   const promptText = [
     `# 派发票(auto-evolve 单轮)`,
     ``,
     `- 票面:${ticket.text}`,
     `- 台账行:L${ticket.line}(PROJECT_PLAN.md,行号会漂移,以题面定位)`,
+    ``,
+    `**仓根唯一取值(调度侧现读)= \`${ROOT}\`**。转录实测到有会话拿 \`G:/IHUI-AI\` 拼路径`,
+    `(那是另一台机器的历史登记,不是本机事实)⇒ 本会话一切相对路径都以这一行为准。`,
+    ``,
+    renderTicketScope(scope),
     ``,
     `按 AGENTS.md 全部强制条款执行本票;只改本任务文件。`,
     `**取材纪律(2026-11-04 立,有实测依据)**:禁止整份读取 \`PROJECT_PLAN.md\` / \`AGENTS.md\`(本仓现读`,
@@ -1558,6 +1718,25 @@ function gitRead(args) {
   })
   if (r.error || r.status !== 0) return null
   return String(r.stdout ?? '').trim()
+}
+
+/**
+ * 带**退出码**的 git 只读探针(2026-11-05 立,给范围预解析用)。
+ * 为什么不能再借 `gitRead`:它把"非 0"一律折成 null,而 `git grep`/`cat-file -e` 的
+ * 退出码 1 是一句**可信的否定**("确实没有")—— 折成 null 就等于把"没有"说成"没判",
+ * 环会因此永远拿不到"该新建"这个结论。形状:`{status, stdout}`;派生失败 ⇒ null。
+ */
+function gitProbe(args) {
+  const r = spawnSync('git', args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    windowsHide: true,
+    timeout: 60_000,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+  })
+  if (r.error || typeof r.status !== 'number') return null
+  return { status: r.status, stdout: String(r.stdout ?? '').trim() }
 }
 
 function headShaOf() {
@@ -3296,6 +3475,9 @@ async function main(args) {
 export const __test__ = {
   loadGates,
   judgeSelfFace,
+  extractTicketScopeHints,
+  buildTicketScope,
+  renderTicketScope,
   normalizeSessionRuntime,
   classifySessionWrites,
   GateShapeError,
