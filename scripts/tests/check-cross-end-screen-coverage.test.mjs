@@ -32,6 +32,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+// §22c:桶 V 的凭据必须问同一份台账出口,测试里不另抄"什么算已裁决不承载"。
+import { readVerdicts } from '../lib/cross-end-verdicts.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..', '..')
@@ -304,7 +306,7 @@ test('N-本面阳性对照:HEAD 面真实在册页里,新形确实把 N 枚从�
   for (const s of strict) assert.ok(wide.has(s), '宽尺不得把旧尺已认的枚数弄丢(只增不减)')
 })
 
-test('N-桶守恒:直跑 --json,四桶之和必须等于全部未镜像屏,且"真未判定"读 0 不是折成空集', () => {
+test('N-桶守恒:直跑 --json,五桶之和必须等于全部未镜像屏,且"真未判定"读 0 不是折成空集', () => {
   const r = spawnSync(process.execPath, [SCRIPT, '--json'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -314,8 +316,33 @@ test('N-桶守恒:直跑 --json,四桶之和必须等于全部未镜像屏,且"�
   assert.ok(r.status === 0 || r.status === 1, `门体应给出结论(0/1),实得 ${r.status}: ${r.stderr}`)
   const j = JSON.parse(String(r.stdout))
   const b = j.buckets
-  const sum = b['判为无声明'].length + b['提及未成凭据'].length + b['名称歧义'].length + b['真未判定'].length
-  assert.equal(sum, j.notMirrored.length, '逐桶之和必须等于未镜像总数(一项都不许被静默吞)')
+  // 2026-11-05 起五桶(补「已裁决不承载」= 判决台账判过 not-applicable 的屏)。
+  // 补这一桶的原因见门体头注:此前生成器按台账判"不承载"而本门仍把这些屏算进 S/M 报数,
+  // 同一件事两处口径相反 ⇒ 派单会去"镜像"一堆已判不承载的屏(幻影活)。
+  assert.ok(Array.isArray(b['已裁决不承载']), '桶 V 必须在机读档里出现(缺它 = 五桶守恒无从校验,也是回潮信号)')
+  const sum =
+    b['判为无声明'].length +
+    b['提及未成凭据'].length +
+    b['名称歧义'].length +
+    b['真未判定'].length +
+    b['已裁决不承载'].length
+  assert.equal(sum, j.notMirrored.length, '逐桶之和必须等于未镜像总数(一项都不许被静默吞,也不许双计)')
+  // 桶 V 的成员必须真出自那份台账(判据零复算:走库出口,不在测试里抄一份判定)
+  const vRows = readVerdicts('head', ROOT).rows ?? []
+  const naSet = new Set(vRows.filter((x) => x?.verdict === 'not-applicable').map((x) => x.shared))
+  for (const spec of b['已裁决不承载']) {
+    assert.ok(naSet.has(spec), `桶 V 里的 ${spec} 不在台账的 not-applicable 集里 ⇒ 豁免无凭据(§0.7 验过才免)`)
+  }
+  // 失效方向锁:台账不可读时桶 V 必须为 0(不许"读不到就把未镜像屏判成不承载")
+  assert.ok(
+    b['已裁决不承载'].length === 0 || j.stats.verdictsLedgerReadable === true,
+    '台账取不到却仍豁免 ⇒ 把"没判"当"判过"(§0.3 禁止形态)',
+  )
+  assert.equal(
+    typeof j.stats.adjudicatedNotCarried,
+    'number',
+    `桶 V 读数必须是可打印数字,实得 ${JSON.stringify(j.stats.adjudicatedNotCarried)}`,
+  )
   assert.equal(j.stats.undeterminedMiniapp, b['真未判定'].length, '未判定读数必须就是"真未判定"桶,不是差值凑数')
   // 这一条判的是「报数面看得见降幅来自哪一形」= 字段必须存在且是个数字;
   // 不是「该形必须真认出 ≥1 枚」——后者是存量读数,与 R3 棘轮成功条件互斥(同上一条,§12e)。
