@@ -6,9 +6,12 @@
  * Internal Service Token 鉴权(2026-07-24 立)。
  *
  * 用途:ai-service 等内部服务通过 HTTP 调用 API 端点(如 /api/memory)时,
- * 无需用户 JWT,改用 X-Internal-Service-Token + X-User-Id 头鉴权。
+ * 无需用户 JWT,改用短期票(默认档)或 X-Internal-Service-Token + X-User-Id 头鉴权。
  *
  * 设计:
+ * - 默认只认一次性短期票(签名 + TTL + 用途 + 单次使用,密钥为可轮换的 JWT_SECRET)
+ * - 老门(常驻密钥)仅在 `dual`/`legacy` 显式档位下可用,且身份头必须
+ *   `X-Internal-Service-Signature` + `X-Internal-Service-Timestamp` 签名校验
  * - token 与 config.AI_CALLBACK_SECRET 共用(单一密钥,减少配置项)
  * - 为空(未配置)时拒绝所有 internal token 请求(强制配置后才可用)
  * - 主体必须是 uuid 形态(`users.id` 是 uuid 列;形状闸在 `injectVerifiedUser`,
@@ -17,9 +20,9 @@
  * 与 checkAuth 协同:checkAuthOrInternalService 先尝试 JWT,失败降级 internal token。
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
-import { createHash, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { eq } from 'drizzle-orm'
-import { config } from '../config/index.js'
+import { config, isProductionGuard } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { error } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
@@ -35,30 +38,108 @@ import {
 
 const INTERNAL_TOKEN_HEADER = 'x-internal-service-token'
 const USER_ID_HEADER = 'x-user-id'
+/**
+ * 老通道身份签名头(2026-11-05 增补)。
+ *
+ * 老通道原先"持全局密钥 + 自报 X-User-Id ⇒ 直接采信身份"。这正是 F-03 的敞口:
+ * 身份头由调用方自由填写,密钥泄露 = 任意活跃用户身份。现在身份头必须带
+ * `HMAC-SHA256(AI_CALLBACK_SECRET, "legacy-v1\n<userId>\n<timestamp>")`,
+ * 且 timestamp 落在 ±300s 窗口内 —— 缺签名/签名错/时间戳过期一律 401,
+ * 不再有"未签名身份头直接采信"的分支。
+ *
+ * 领域前缀 `legacy-v1` 防止该 HMAC 被挪去签别的凭据;时间戳窗口用于压住
+ * 被抓包重放的窗口。**残余风险**:签名与验签都用同一把 `AI_CALLBACK_SECRET`,
+ * 因此持有该密钥的人仍能为任意 userId 自签通过(old 门的固有形态)。这正是
+ * 默认档必须是 ticket、生产禁止 legacy 的原因;老通道只应作为非生产应急口。
+ */
+const LEGACY_TIMESTAMP_HEADER = 'x-internal-service-timestamp'
+const LEGACY_SIGNATURE_HEADER = 'x-internal-service-signature'
+const LEGACY_SIGNATURE_CONTEXT = 'legacy-v1'
+const LEGACY_SIGNATURE_MAX_SKEW_SECONDS = 300
 
 /**
- * 通道档位(2026-10-06 接线,票档契约早已由 `internal-service-ticket.ts` 定死,
- * 由 `tests/internal-service-ticket.test.ts` 逐条钉住):
+ * 通道档位(2026-10-06 接线,2026-11-05 默认收口):
  *
- * - `ticket`  **只**认短期票。老门彻底关掉(测试「ticket 档:常驻密钥被拒」钉这一条)。
- * - `dual`    两档并存(默认)。老门留着是为了兼容窗口,**不是**兜底 ——
- *             票判失败时**绝不**回落老通道(见下)。
+ * - `ticket`  **只**认短期票。老门彻底关掉(默认档,强校验 + 密钥可轮换)。
+ * - `dual`    两档并存,**必须由显式环境变量开启**;启动打显著告警。仅兼容窗口使用。
  * - `legacy`  回到改造前形态,只用于应急回退;它保的是"能进",不是"安全"。
+ *             **生产环境 + legacy ⇒ 启动直接失败(fail-closed)**。
+ *
+ * 为什么默认不再是 dual:`dual` 放行的是"持一把不轮换的全局密钥 ⇒ 可自报 `x-user-id`",
+ * 即拿到密钥就等于拿到任意活跃用户身份。把它做成默认,等于把这个通道当成常态。
+ * 现在只有显式配置才能打开它,且启动日志会把这件事喊出来。
  *
  * 为什么票判失败不回落:`internal-service-ticket.ts` 顶部第 3 条依据写的是
  * "兼容窗口里有一条**独立、显式、按配置**的旧通道"。若票判失败就自动回落,
  * 那条通道就不是"显式配置"的,而是"检查失败时的默认行为"——
  * 正是本仓记过最多次的失效形态:兜底表现得像功能正常。
  */
-function internalAuthMode(): 'ticket' | 'dual' | 'legacy' {
+export type InternalAuthMode = 'ticket' | 'dual' | 'legacy'
+
+/** 缺省档位 = 只认短期票。这是安全的一档,也是唯一不依赖运维记性的档位。 */
+export const DEFAULT_INTERNAL_AUTH_MODE: InternalAuthMode = 'ticket'
+
+/**
+ * 解析档位。未知值(含未配置)一律落回 `ticket`,而不是旧版的 `dual` ——
+ * 拼错档位名只该把老门关得更死,不该静默把老门打开。
+ */
+export function resolveInternalAuthMode(raw: unknown): InternalAuthMode {
+  const v = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  return v === 'ticket' || v === 'dual' || v === 'legacy' ? v : DEFAULT_INTERNAL_AUTH_MODE
+}
+
+function rawInternalAuthMode(): unknown {
   // 读 env 而不是只读 config:档位切换是**运维面**的动作(改 env 重启即生效),
   // 而 config 是导入期求值的快照。两者在生产同源;测试要靠运行期切档
   // (vi.resetModules 不会重跑 mock 工厂),所以这里以 env 为准、config 兜底。
-  const raw =
-    process.env.INTERNAL_SERVICE_AUTH_MODE ??
-    (config as unknown as { INTERNAL_SERVICE_AUTH_MODE?: string }).INTERNAL_SERVICE_AUTH_MODE
-  const v = (raw ?? 'dual').trim().toLowerCase()
-  return v === 'ticket' || v === 'legacy' ? v : 'dual'
+  const fromEnv = process.env.INTERNAL_SERVICE_AUTH_MODE
+  if (typeof fromEnv === 'string' && fromEnv.trim() !== '') return fromEnv
+  return (config as unknown as { INTERNAL_SERVICE_AUTH_MODE?: string }).INTERNAL_SERVICE_AUTH_MODE
+}
+
+function internalAuthMode(): InternalAuthMode {
+  return resolveInternalAuthMode(rawInternalAuthMode())
+}
+
+/**
+ * 启动期档位守卫(2026-11-05 立)。
+ *
+ * 两条硬约束:
+ *   1. 生产 + `legacy` ⇒ **抛错**,由启动链 `process.exit(1)`。老通道在生产里没有
+ *      "临时用一下"的空间:它默认放行任意活跃用户身份,不能靠运维自觉。
+ *   2. `dual` 是显式兼容档 ⇒ 启动时打显著告警,点名"老门仍在 + 收口动作是什么"。
+ *
+ * 纯函数形态(参数可注入)是为了让"生产 + legacy 启动失败"能被行为测试钉住,
+ * 而不是只能靠读源码相信。
+ */
+export function assertInternalAuthModeAtStartup(
+  opts: { mode?: unknown; isProduction?: boolean } = {},
+): InternalAuthMode {
+  const mode = opts.mode === undefined ? internalAuthMode() : resolveInternalAuthMode(opts.mode)
+  const isProd =
+    typeof opts.isProduction === 'boolean' ? opts.isProduction : Boolean(isProductionGuard)
+
+  if (mode === 'legacy' && isProd) {
+    throw new Error(
+      'INTERNAL_SERVICE_AUTH_MODE=legacy 在生产环境被禁止:老通道只凭全局密钥 + 自报身份头放行,' +
+        '拿到密钥即可冒充任意活跃用户。生产必须使用 ticket(默认)或显式 dual 兼容档。',
+    )
+  }
+  if (mode === 'dual') {
+    logger.warn(
+      '⚠️ [internal-auth] 内部服务鉴权处于 dual 兼容档:老通道仍接受全局密钥 + 已签名身份头。' +
+        '该档只用于兼容窗口;调用方全部改发短期票后应收口为 INTERNAL_SERVICE_AUTH_MODE=ticket。',
+      { event: 'internal_auth_mode_dual' },
+    )
+  }
+  if (mode === 'legacy') {
+    logger.warn(
+      '⚠️ [internal-auth] 内部服务鉴权处于 legacy 应急档(仅非生产允许):' +
+        '老通道是唯一入口,它保的是"能进"而不是"安全"。',
+      { event: 'internal_auth_mode_legacy' },
+    )
+  }
+  return mode
 }
 
 /**
@@ -131,6 +212,39 @@ export function secretsEqual(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a, 'utf8').digest()
   const hb = createHash('sha256').update(b, 'utf8').digest()
   return timingSafeEqual(ha, hb)
+}
+
+type LegacyIdentityVerdict =
+  'ok' | 'missing_signature' | 'bad_timestamp_shape' | 'stale_timestamp' | 'bad_signature'
+
+/**
+ * 校验老通道的自报身份头(2026-11-05)。
+ *
+ * 判据顺序刻意是"先有密钥、再验身份签名":全局密钥那一道仍在(与旧契约一致),
+ * 新增的是"身份头本身也必须可验证"。返回值只供日志分档,响应侧一律同一个 401。
+ * 签名用常数时间比较(`secretsEqual`),时间戳不允许非数字/超窗。
+ */
+function verifyLegacyIdentityHeaders(
+  request: FastifyRequest,
+  userId: string,
+): LegacyIdentityVerdict {
+  const rawTimestamp = request.headers[LEGACY_TIMESTAMP_HEADER]
+  const rawSignature = request.headers[LEGACY_SIGNATURE_HEADER]
+  const timestamp = Array.isArray(rawTimestamp) ? rawTimestamp[0] : rawTimestamp
+  const signature = Array.isArray(rawSignature) ? rawSignature[0] : rawSignature
+  if (!timestamp || !signature) return 'missing_signature'
+  if (!/^\d{1,10}$/.test(timestamp)) return 'bad_timestamp_shape'
+
+  const timestampSeconds = Number(timestamp)
+  const nowSeconds = Math.floor(Date.now() / 1000)
+  if (Math.abs(nowSeconds - timestampSeconds) > LEGACY_SIGNATURE_MAX_SKEW_SECONDS) {
+    return 'stale_timestamp'
+  }
+
+  const expected = createHmac('sha256', config.AI_CALLBACK_SECRET)
+    .update(`${LEGACY_SIGNATURE_CONTEXT}\n${userId}\n${timestamp}`, 'utf8')
+    .digest('hex')
+  return secretsEqual(signature.toLowerCase(), expected) ? 'ok' : 'bad_signature'
 }
 
 /**
@@ -209,6 +323,18 @@ export async function checkInternalServiceToken(
   // 与随后的"存在 + 活跃"查询决定,两道都在 SQL 之前/之内,不放这里重复一份。
   if (!requestedUserId || !/^[a-zA-Z0-9-]{1,128}$/.test(requestedUserId)) {
     reply.status(400).send(error(400, 'Valid X-User-Id header required'))
+    return false
+  }
+
+  // 身份头收口(2026-11-05):密钥对了还不够 —— 自报身份必须自带签名,否则
+  // "持全局密钥 ⇒ 冒充任意活跃用户"这条通道原样保留。没有未签名身份头的放行分支。
+  const identityVerdict = verifyLegacyIdentityHeaders(request, requestedUserId)
+  if (identityVerdict !== 'ok') {
+    request.log.warn(
+      { reason: identityVerdict, ip: request.ip, endpoint: request.url },
+      '[internal-token] legacy identity header rejected (signature required)',
+    )
+    reply.status(401).send(error(401, 'Invalid internal service identity signature'))
     return false
   }
 

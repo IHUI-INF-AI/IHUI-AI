@@ -8,6 +8,7 @@ import { isProductionGuard } from './config/index.js'
 import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
+import { assertInternalAuthModeAtStartup } from './plugins/internal-service-token.js'
 import { createShutdownSignalHandler } from './lib/shutdown-signals.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
@@ -161,6 +162,24 @@ function checkProductionConfig(): void {
   for (const e of errors) logger.error(`   - ${e}`)
   logger.error('   参考 .env.production.example 补齐证书配置(证书放置项目内 cert/ 目录)')
   process.exit(1)
+}
+
+/**
+ * 内部服务鉴权档位启动守卫(2026-11-05,F-03)。
+ *
+ * 生产 + `legacy` ⇒ 这里直接退出(老通道只凭全局密钥 + 自报身份头放行);
+ * `dual` ⇒ 启动打显著告警;默认 `ticket` ⇒ 静默。判据本体在
+ * `plugins/internal-service-token.ts` 的 `assertInternalAuthModeAtStartup`(行为可测)。
+ */
+function checkInternalAuthMode(): void {
+  try {
+    assertInternalAuthModeAtStartup()
+  } catch (err) {
+    logger.error(
+      `❌ 内部服务鉴权档位不安全,启动中止: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    process.exit(1)
+  }
 }
 
 // ── 蓝绿实例角色:进程内定时任务只由「当前活跃色」运行(2026-10-28 立)────────────
@@ -337,6 +356,9 @@ async function start() {
   // 中继出网代理分流:必须早于任何出站 fetch(健康巡检/上游转发都吃全局 dispatcher)。
   // 未配置 RELAY_PROXY_URL 时为 no-op,行为与从前逐字节一致。
   installRelayOutboundProxy()
+
+  // 内部服务鉴权档位守卫(生产 + legacy ⇒ 退出;dual ⇒ 显著告警)
+  checkInternalAuthMode()
 
   // 生产环境微信支付配置完整性检查(失败立即退出)
   checkProductionConfig()
