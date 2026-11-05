@@ -19,6 +19,16 @@
  *     而不是静默降级 —— 对方钩子坏了是 `catch {}`。
  *  4. 不制造恒红门(§12e):守护面默认 **advisory**(出声不阻断),
  *     只有凭据族的 deny 是 enforce;升 blocking 的前置是既有工作流改造完,不是今天。
+ *
+ * 规则表**不含** `.worktrees/**` 一族(goal-b49 S7 裁决,反证钉在
+ * `apps/cli/tests/acl-followup-b49.test.ts` R3 两例):
+ *  ① 威胁型打不中 —— 危险从来不是"删自己那格隔离区",而是 `agentId` 带 `..` 把删除目标
+ *     **折出** `.worktrees/`;折出去之后路径已不落在 `.worktrees/**` 之下,这条规则对它零作用;
+ *  ② 加了会挡死合法腿 —— `IHUI_FILE_ACL_STRICT=1` 那档会把每一次隔离区回收(§12d 建/删/prune、
+ *     worker-pool 收尾、守护对账)一起升成拦,正是 §12e 禁止的恒红门;
+ *  ③ 真正管这一型的层已有:命中即止的裁决排在 `existsSync`/`git`/`rm` 之前
+ *     (`tools/worktree.ts` 的 `WorktreeManager.remove` 与 `subagents/worktree.ts` 的
+ *     `removeWorktree`),外加未合并/未提交/unknown 三档安全判据。
  */
 import { readFileSync } from 'node:fs';
 import { join, isAbsolute, relative, resolve, sep } from 'node:path';
@@ -237,10 +247,15 @@ export function loadGuardFaceRules(
   return outcome;
 }
 
-/** 清缓存(测试与"清单刚被改过"的场景用)。不传参 ⇒ 全清。 */
+/** 清缓存(测试与"清单刚被改过"的场景用)。不传参 ⇒ 全清。出声账同批复位,不留第二把尺。 */
 export function clearGuardRulesCache(workspacePath?: string): void {
-  if (workspacePath === undefined) guardRulesCache.clear();
-  else guardRulesCache.delete(resolve(workspacePath));
+  if (workspacePath === undefined) {
+    guardRulesCache.clear();
+    announcedGuardStates.clear();
+    return;
+  }
+  guardRulesCache.delete(resolve(workspacePath));
+  clearGuardUnjudgedAnnouncements(workspacePath);
 }
 
 function computeGuardFaceRules(
@@ -365,8 +380,73 @@ export function isStrictMode(env: Record<string, string | undefined> = process.e
 }
 
 /**
+ * 守护面不可判时的**出声**出口(goal-b49 S7,判据层单源 —— 消费点不许自己拼这句话)。
+ *
+ * 为什么需要它:`loadGuardFaceRules` 早就有三态,清单坏掉时报 `unjudged`;但那份判定
+ * 折在 `buildFileAccessRules` 里,消费点只拿到"规则表短了一族"这个既成事实 ⇒
+ * 于是"守护面族为空"这件事对人是不可见的(§0.9 静默 = 没判)。
+ * 本出口只做一件事:**同一(工作区 × 原因)只报一次**,并且既不改判据结论、也不放宽任何一档
+ * —— 失效方向恒为"多要一次定向说明",绝不是"多放一次跳门"(§0.10):
+ * 凭据族照旧 enforce 拦(不记绿),合法操作照旧放行(不记红,§12e 不做恒红门)。
+ */
+const announcedGuardStates = new Set<string>();
+
+/** 组一条 unjudged 提示;`guard.state==='ok'` 时返回 null(不该出声的不该出声)。 */
+export function buildGuardUnjudgedNotice(
+  workspacePath: string,
+  guard: GuardManifestOutcome,
+  site: string,
+): string | null {
+  if (guard.state !== 'unjudged') return null;
+  const manifest = join(resolve(workspacePath), GUARD_MANIFEST_REL_PATH);
+  return (
+    `[file-acl unjudged] ${site}:守护面清单不可判 ⇒ 本轮只有凭据族在判,守护面族为空。` +
+    `原因:${guard.reason}。这既不是"判过并通过"也不是"判红"(§0.3)。` +
+    `下一步:确认 ${manifest} 可读且 entries 形状合判据,再重跑本操作。`
+  );
+}
+
+/**
+ * 消费点用的出声动作:同一(工作区 × 原因)首次返回 true 并落 stderr,之后返回 false。
+ * stderr 不可用不影响判定结论(与既有 advisory 出声同形)。
+ */
+export function announceGuardUnjudged(
+  workspacePath: string,
+  guard: GuardManifestOutcome,
+  site: string,
+): boolean {
+  if (guard.state !== 'unjudged') return false;
+  const notice = buildGuardUnjudgedNotice(workspacePath, guard, site);
+  if (notice === null) return false;
+  const key = `${resolve(workspacePath)}|${guard.reason}`;
+  if (announcedGuardStates.has(key)) return false;
+  announcedGuardStates.add(key);
+  try {
+    process.stderr.write(`${notice}\n`);
+  } catch {
+    // 报名通道不可用不改判据结论
+  }
+  return true;
+}
+
+/** 清出声账(与 `clearGuardRulesCache` 同一复位出口;测试与"清单刚被修好"的场景用)。 */
+export function clearGuardUnjudgedAnnouncements(workspacePath?: string): void {
+  if (workspacePath === undefined) {
+    announcedGuardStates.clear();
+    return;
+  }
+  const prefix = `${resolve(workspacePath)}|`;
+  for (const key of [...announcedGuardStates]) {
+    if (key.startsWith(prefix)) announcedGuardStates.delete(key);
+  }
+}
+
+/**
  * 消费点用的总闸:把"裁决 + 严档开关"折成单一出口。
  * `blocked=false` 也可能带 note —— advisory 命中必须出声,静默等于没判(§0.9)。
+ *
+ * `guard` 把守护面清单的三态一并透出(goal-b49 S7):消费点因此能区分
+ * "这一族判过且放行" 与 "这一族根本没判成"(`announceGuardUnjudged` 是唯一出声出口)。
  */
 export function evaluateFileAccess(
   op: FileAccessOp,
@@ -374,22 +454,24 @@ export function evaluateFileAccess(
   workspacePath: string,
   env: Record<string, string | undefined> = process.env,
   read: ManifestReader = defaultManifestReader,
-): { blocked: boolean; verdict: FileAccessVerdict; note: string | null } {
-  const { rules } = buildFileAccessRules(workspacePath, read);
+): { blocked: boolean; verdict: FileAccessVerdict; note: string | null; guard: GuardManifestOutcome } {
+  const { rules, guard } = buildFileAccessRules(workspacePath, read);
   const verdict = decideFileAccess(op, filePath, rules);
-  if (verdict.decision === 'allow') return { blocked: false, verdict, note: null };
+  if (verdict.decision === 'allow') return { blocked: false, verdict, note: null, guard };
   const enforceThis = verdict.enforcement === 'enforce' || isStrictMode(env);
   if (!enforceThis) {
     return {
       blocked: false,
       verdict,
       note: `[file-acl advisory] ${op} ${verdict.path} 命中 ${verdict.rule?.pattern}(${verdict.rule?.source})⇒ 放行但出声:${verdict.nextStep}`,
+      guard,
     };
   }
   return {
     blocked: true,
     verdict,
     note: `[file-acl ${verdict.decision}] ${op} ${verdict.path} 命中 ${verdict.rule?.pattern}:${verdict.rule?.why} 下一步:${verdict.nextStep}`,
+    guard,
   };
 }
 

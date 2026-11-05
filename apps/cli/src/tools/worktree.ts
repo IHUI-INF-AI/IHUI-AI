@@ -33,7 +33,7 @@ import type { Tool } from './index.js';
 // 删除保护链的目录回收腿(goal-b49 W1-①):判据在 @ihui/shared/delete-guard,IO adapter 在工具层
 import { stashDirToTrash } from './file-batch-edit.js';
 // 文件访问裁决的 delete 轴(goal-b49 S5 接线):规则表与档位判据**全在这一件**,本层不抄第二份(§0.6)
-import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 
 /** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
 export const AGENT_BRANCH_PREFIX = 'agent-wt-';
@@ -228,6 +228,8 @@ export class WorktreeManager {
   remove(agentId: string, opts?: { force?: boolean; deleteBranch?: boolean }): boolean {
     const wtPath = path.join(this.rootDir, agentId);
     const aclDelete = evaluateFileAccess('delete', toAclPath(this.sourcePath, wtPath), this.sourcePath);
+    // 守护面清单不可判 ⇒ 出声一次(S7:unjudged 透到消费点;排在下一次 fs 动作之前)
+    announceGuardUnjudged(this.sourcePath, aclDelete.guard, 'worktree_remove');
     if (aclDelete.blocked) {
       throw new Error(aclDelete.note ?? `按文件访问裁决禁止删除 ${wtPath}`);
     }
