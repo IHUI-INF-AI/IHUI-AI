@@ -121,6 +121,10 @@ export interface ConversationImportHistoryRow {
   parsedCount: number
   importedCount: number
   importedAt: string
+  /** 该批次失败条数(后端 failedCount;端侧不传时不渲染这一格) */
+  failedCount?: number
+  /** 该批次失败原文(后端 errorMessage;端侧不传时不渲染这一格) */
+  errorMessage?: string
 }
 
 export interface ConversationImportScreenProps {
@@ -496,8 +500,17 @@ export function ConversationImportScreen({
                   <Text style={styles.rowMeta}>
                     {`${t('conversationImport.historyParsed')} ${h.parsedCount} · ${t(
                       'conversationImport.historyImported',
-                    )} ${h.importedCount} · ${h.importedAt || '—'}`}
+                    )} ${h.importedCount}${
+                      h.failedCount !== undefined
+                        ? ` · ${t('conversationImport.failedCountLabel')} ${h.failedCount}`
+                        : ''
+                    } · ${h.importedAt || '—'}`}
                   </Text>
+                  {h.errorMessage ? (
+                    <Text style={styles.rowMeta} numberOfLines={2}>
+                      {h.errorMessage}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text
                   style={[
