@@ -31817,12 +31817,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构）
   - 对照：`circles.slug` 本就唯一，可建 UNIQUE；title 不应唯一
   - 收口：改普通 INDEX 或先 `SELECT title,count(*) FROM … GROUP BY title HAVING count>1` 查重清洗
-- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；若生产该表已有行，迁移在 ADD COLUMN 处中断**〔待核：生产表是否非空〕：(登记@2026-11-06;归属:机主)
+- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；该表创建于更早的 `0038_missing_tables.sql`/`0043`（既有表），存量非空则 ADD COLUMN 当场中断**〔已坐实：既有表 + 无 DEFAULT〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0108_r83_supplement_27_tables.sql :: oauth_private_keys(client_id, private_key)`
   - 判据：`ALTER TABLE oauth_private_keys ADD COLUMN IF NOT EXISTS client_id varchar(100) NOT NULL;` `ADD COLUMN IF NOT EXISTS private_key text NOT NULL;`
   - 对照：同文件 `is_active` 等带 `DEFAULT 0/1`；此处核心 OAuth 字段漏 DEFAULT
   - 收口：加 `DEFAULT ''` 或先确认表空再 NOT NULL
-- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；若生产该表非空，迁移中断**〔待核：生产表是否非空；注释声称 0 行但无运行时保证〕：(登记@2026-11-06;归属:机主)
+- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；安全性完全押在注释自称的「现存 0 行」上，无任何运行时 `count` 守卫**〔已坐实：结构性赌注〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/20261018160000_agent_state_tables_runtime_reality.sql :: agent_working_memory_compression(original_messages, compressed_to)`
   - 判据：`ALTER TABLE agent_working_memory_compression DROP COLUMN original_messages; … ADD COLUMN original_messages integer NOT NULL;`（compressed_to 同构，均无 DEFAULT）
   - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；此处重建列漏 DEFAULT
