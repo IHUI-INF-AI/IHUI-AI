@@ -451,6 +451,50 @@ export interface DistributionServiceFloat {
   onPress: () => void
 }
 
+/**
+ * 功能宫格条目(对齐 RN FunctionBlockColumn:图标 + 标题 + 可选描述 + 点击)。
+ * 图标二选一:小程序传 CDN 图 `iconUrl`,RN 传 lucide 节点 `iconNode`;条目清单由宿主注入。
+ */
+export interface DistributionFunctionBlock {
+  key: string
+  label: string
+  description?: string
+  iconUrl?: string | null
+  iconNode?: ReactNode
+  onPress: () => void
+}
+
+/**
+ * 分享二维码弹层(对齐 RN BottomPops 二维码弹层 + 小程序 dist-qrpop)。
+ * 弹层壳由共享屏用平台无关的 Modal 渲染;二维码载体与分享入口由宿主注入
+ * (小程序:后端图片 + 微信原生 open-type=share 按钮;RN:QRCode 节点 + Share API)。
+ */
+export interface DistributionQrSheet {
+  visible: boolean
+  title: string
+  /** 小程序:后端返回的二维码图片 URL */
+  imageUrl?: string | null
+  /** RN:宿主注入的二维码节点(自带 ref,供保存相册截图) */
+  qrNode?: ReactNode
+  /** 无二维码时的占位文案 */
+  emptyText?: string
+  copyright?: string
+  tips?: string[]
+  /** 邀请链接文本;有值且传 onCopy 时可点击复制 */
+  linkText?: string
+  saveLabel: string
+  savingLabel?: string
+  saving?: boolean
+  shareLabel?: string
+  copyLabel?: string
+  onClose: () => void
+  onSave: () => void
+  onShare?: () => void
+  onCopy?: () => void
+  /** 宿主注入的分享入口(小程序:微信原生 <Button openType="share">) */
+  shareAction?: ReactNode
+}
+
 /** DistributionScreen props(注入式:wrapper 保留 API 调用 + Alert 弹窗) */
 export interface DistributionScreenProps {
   t: TFunction
@@ -474,6 +518,10 @@ export interface DistributionScreenProps {
   earningsCard?: DistributionEarningsCard
   /** 分佣浮标(可选;缺省不渲染;点击回调由宿主注入) */
   serviceFloat?: DistributionServiceFloat
+  /** 功能宫格(可选;缺省不渲染;条目与图标由宿主注入) */
+  functionBlocks?: DistributionFunctionBlock[]
+  /** 分享二维码弹层(可选;缺省不渲染;二维码载体与分享入口由宿主注入) */
+  qrSheet?: DistributionQrSheet
 }
 
 /** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */

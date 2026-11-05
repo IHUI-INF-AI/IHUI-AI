@@ -3,11 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/distribution/DistributionScreen.tsx
-// 批 5 薄壳化:个人信息卡 / 收益卡 / 分佣浮标以显式 props 注入共享屏;
+// 批 5 薄壳化:个人信息卡 / 收益卡 / 分佣浮标 / 功能宫格 / 二维码弹层均以显式 props 注入共享屏;
 // 分佣比例卡、佣金概览子组件、分销数据列三处重复段已删,源码锁见测试。
+// 仅小程序消费的实名验证弹层与微信 open-type=share 分享按钮下沉 host-overlays(宿主能力节点)。
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Image, Button } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -19,12 +18,15 @@ import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
+import { renderVerifySheet, renderWxShareButton } from './host-overlays'
 import {
   DistributionScreen as SharedDistributionScreen,
   type DistributionInfo,
   type DistributionOverviewCard,
   type DistributionEarningsCard,
   type DistributionServiceFloat,
+  type DistributionFunctionBlock,
+  type DistributionQrSheet,
 } from '@ihui/rn-app/features/distribution/DistributionScreen'
 
 interface OperatorStats {
@@ -297,36 +299,51 @@ export default function DistributionIndex() {
     },
   }
 
+  // 功能宫格(注入共享屏 functionBlocks):图标 URL + 文案 + 点击,条目清单由本端注入
+  const functionBlocks: DistributionFunctionBlock[] = menuItems.map((item, idx) => ({
+    key: item.url ?? item.action ?? String(idx),
+    label: item.label,
+    iconUrl: item.icon,
+    onPress: () => onMenuClick(item),
+  }))
+
+  // 分享二维码弹层(注入共享屏 qrSheet):二维码图片由本端取数;分享按钮注入微信 open-type=share
+  const qrSheet: DistributionQrSheet = {
+    visible: showQrCode,
+    title: tt('distribution.index.qrTitle', '我的分享二维码'),
+    imageUrl: qrCode || null,
+    emptyText: tt('distribution.index.qrLoading', '二维码生成中'),
+    copyright: 'COPYRIGHT © 2025-2035 IHUIINF AGI ALL RIGHTS RESERVED.',
+    saveLabel: tt('distribution.index.saveAlbum', '保存到相册'),
+    shareAction: renderWxShareButton(tt('distribution.index.share', '分享给好友')),
+    onClose: () => setShowQrCode(false),
+    onSave: onSaveQr,
+  }
+
+  // 实名验证弹层 —— 仅小程序消费(不上收共享屏),由宿主模块产出节点
+  const verifySheetNode = showVerify
+    ? renderVerifySheet({
+        title: tt('distribution.index.verifyTitle', '身份信息验证'),
+        avatar,
+        initial,
+        idPlaceholder: tt('distribution.index.idPlaceholder', '请输入身份证号码'),
+        namePlaceholder: tt('distribution.index.namePlaceholder', '请输入姓名'),
+        idValue: idNum,
+        nameValue: idName,
+        copyright: 'Copright © 2025-2035 iHuiInf AGI All Rights Reserved.',
+        confirmLabel: tt('distribution.index.confirm', '确认'),
+        onInputId: setIdNum,
+        onInputName: setIdName,
+        onConfirm: onSaveUserInfo,
+      })
+    : null
+
   /**
-   * 批 5 薄壳:原 469 行复制页 → 直载 distribution/DistributionScreen 共享屏。
-   * 个人信息卡 / 收益卡 / 分佣浮标以显式 props 注入;宫格与二维码/实名弹层留宿主。
-   * 分佣比例卡、佣金概览与分销数据列三处重复段已删(源码锁在测试册)。
+   * 批 5 薄壳:直载 distribution/DistributionScreen 共享屏;个人信息卡 / 收益卡 /
+   * 分佣浮标 / 功能宫格 / 二维码弹层以显式 props 注入。实名弹层仅小程序消费,留宿主模块。
    */
   return (
     <ThemeRoot className="dist-page">
-      {/* FunctionBlockColumn — 对齐 RN 双列卡片网格(宿主固定区) */}
-      <View className="dist-menu-wrap">
-        <View className="dist-menu">
-          {menuItems.map((item, idx) => (
-            <View
-              key={idx}
-              className="dist-menu-item"
-              onClick={() => onMenuClick(item)}
-              hoverClass="opacity-60"
-            >
-              <View className="dist-menu-icon-box">
-                <Image
-                  src={item.icon}
-                  className="dist-menu-icon w-[40rpx] h-[40rpx]"
-                  mode="aspectFit"
-                />
-              </View>
-              <Text className="dist-menu-label">{item.label}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
       <SharedDistributionScreen
         t={t}
         info={info}
@@ -343,86 +360,10 @@ export default function DistributionIndex() {
         overviewCard={overviewCard}
         earningsCard={earningsCard}
         serviceFloat={serviceFloat}
+        functionBlocks={functionBlocks}
+        qrSheet={qrSheet}
       />
-
-      {/* BottomPops 二维码弹窗 */}
-      {showQrCode ? (
-        <View className="dist-mask">
-          <View className="dist-qrpop">
-            <View className="dist-qrpop-header">
-              <Text className="dist-qrpop-title">
-                {tt('distribution.index.qrTitle', '我的分享二维码')}
-              </Text>
-              <Image
-                src={aizhsUrl('sys-mini/xtk/cancel.png')}
-                className="dist-qrpop-close w-[32rpx] h-[32rpx]"
-                mode="aspectFit"
-                onClick={() => setShowQrCode(false)}
-              />
-            </View>
-            <View className="dist-qrpop-qr">
-              {qrCode ? (
-                <Image className="dist-qrpop-img" src={qrCode} mode="aspectFit" />
-              ) : (
-                <View className="dist-qrpop-loading">
-                  <Text>{tt('distribution.index.qrLoading', '二维码生成中')}</Text>
-                </View>
-              )}
-            </View>
-            <Text className="dist-qrpop-copyright">
-              COPYRIGHT © 2025-2035 IHUIINF AGI ALL RIGHTS RESERVED.
-            </Text>
-            <View className="dist-qrpop-actions">
-              <Button className="dist-qrpop-btn" openType="share">
-                {tt('distribution.index.share', '分享给好友')}
-              </Button>
-              <Text className="dist-qrpop-link" onClick={onSaveQr}>
-                {tt('distribution.index.saveAlbum', '保存到相册')}
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* showVerify 身份验证弹窗 */}
-      {showVerify ? (
-        <View className="dist-mask">
-          <View className="dist-verify">
-            <View className="dist-verify-header">
-              <Text className="dist-verify-title">
-                {tt('distribution.index.verifyTitle', '身份信息验证')}
-              </Text>
-            </View>
-            <View className="dist-verify-avatar">
-              {avatar ? (
-                <Image className="dist-verify-avatar-img" src={avatar} mode="aspectFill" />
-              ) : (
-                <View className="dist-verify-avatar-img dist-person-placeholder">
-                  <Text>{initial}</Text>
-                </View>
-              )}
-            </View>
-            <FocusInput
-              className="dist-verify-input"
-              placeholder={tt('distribution.index.idPlaceholder', '请输入身份证号码')}
-              value={idNum}
-              onInput={(e) => setIdNum(e.detail.value)}
-            />
-            <FocusInput
-              className="dist-verify-input"
-              placeholder={tt('distribution.index.namePlaceholder', '请输入姓名')}
-              value={idName}
-              onInput={(e) => setIdName(e.detail.value)}
-            />
-            <Text className="dist-verify-copyright">
-              Copright © 2025-2035 iHuiInf AGI All Rights Reserved.
-            </Text>
-            <View className="dist-verify-btn" onClick={onSaveUserInfo} hoverClass="opacity-60">
-              <Text>{tt('distribution.index.confirm', '确认')}</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {verifySheetNode}
     </ThemeRoot>
   )
 }

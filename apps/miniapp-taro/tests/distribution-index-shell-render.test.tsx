@@ -16,6 +16,7 @@ import { createElement, type ReactNode } from 'react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
+import * as ts from 'typescript'
 
 const captured = vi.hoisted(() => ({
   dist: null as Record<string, unknown> | null,
@@ -115,6 +116,28 @@ const RN_DIST = readFileSync(
   resolve('../../apps/mobile-rn/src/screens/DistributionScreen.tsx'),
   'utf8',
 )
+const HOST_OVERLAYS = readFileSync(resolve('src/pages/distribution/host-overlays.tsx'), 'utf8')
+
+/** AST 计数:页内 JSX 开标签(JsxElement + JsxSelfClosingElement) */
+function jsxOpeningTags(source: string) {
+  const sf = ts.createSourceFile(
+    'index.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  )
+  const out = { elements: 0, selfClosing: 0, fragments: 0, text: 0 }
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxElement(node)) out.elements += 1
+    else if (ts.isJsxSelfClosingElement(node)) out.selfClosing += 1
+    else if (ts.isJsxFragment(node)) out.fragments += 1
+    else if (ts.isJsxText(node) && node.text.trim()) out.text += 1
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return out
+}
 
 describe('distribution/index 薄壳(直载 distribution/DistributionScreen)', () => {
   const html = renderToStaticMarkup(createElement(DistributionIndex))
@@ -136,9 +159,16 @@ describe('distribution/index 薄壳(直载 distribution/DistributionScreen)', ()
     expect(INDEX_SOURCE).not.toContain('earnCommission.rateTitle')
     expect(INDEX_SOURCE).not.toContain('dist-stats')
     expect(INDEX_SOURCE).not.toContain('NavBar')
+    // 宫格 / 二维码弹层 / 实名弹层 / 微信按钮均已离开页内(前两者上收共享屏,后两者下沉宿主模块)
+    expect(INDEX_SOURCE).not.toContain('dist-menu')
+    expect(INDEX_SOURCE).not.toContain('dist-qrpop')
+    expect(INDEX_SOURCE).not.toContain('dist-verify')
+    expect(INDEX_SOURCE).not.toContain('FocusInput')
+    expect(INDEX_SOURCE).not.toContain('openType')
+    expect(INDEX_SOURCE).not.toContain("from '@tarojs/components'")
   })
 
-  it('③ 三段显式 props 真到共享屏(摘掉任一即红)', () => {
+  it('③ 五段显式 props 真到共享屏(摘掉任一即红)', () => {
     const overview = props().overviewCard as Record<string, unknown>
     expect(overview).toBeTruthy()
     expect(overview.nickname).toBe('张三')
@@ -158,22 +188,58 @@ describe('distribution/index 薄壳(直载 distribution/DistributionScreen)', ()
     expect(typeof float.onPress).toBe('function')
     expect(float.label).toBe('我的佣金')
     expect(INDEX_SOURCE).toContain('serviceFloat={serviceFloat}')
+
+    const blocks = props().functionBlocks as Array<Record<string, unknown>>
+    expect(blocks.length).toBe(6)
+    expect(blocks[0]!.label).toBe('我的团队')
+    expect(blocks[0]!.iconUrl).toContain('https://cdn.test/')
+    expect(typeof blocks[0]!.onPress).toBe('function')
+    expect(INDEX_SOURCE).toContain('functionBlocks={functionBlocks}')
+
+    const qr = props().qrSheet as Record<string, unknown>
+    expect(qr).toBeTruthy()
+    expect(qr.title).toBe('我的分享二维码')
+    expect(qr.visible).toBe(false)
+    expect(qr.saveLabel).toBe('保存到相册')
+    expect(typeof qr.onSave).toBe('function')
+    expect(qr.shareAction).toBeTruthy()
+    expect(INDEX_SOURCE).toContain('qrSheet={qrSheet}')
   })
 
   it('④ 共享屏承接分支 + 无平台导航/客服 API', () => {
     expect(DIST_SHARED).toContain('{overviewCard ? (')
     expect(DIST_SHARED).toContain('{earningsCard ? (')
     expect(DIST_SHARED).toContain('{serviceFloat ? (')
-    expect(DIST_SHARED).not.toMatch(/Taro|wx\.|navigateTo|openCustomerServiceChat/)
+    expect(DIST_SHARED).toContain('{functionBlocks?.length ? (')
+    expect(DIST_SHARED).toContain('{qrSheet?.visible ? (')
+    expect(DIST_SHARED).not.toMatch(/Taro|wx\.|navigateTo|openCustomerServiceChat|openType/)
   })
 
-  it('⑤ RN 真消费点', () => {
+  it('⑤ RN 真消费点 + 本地二维码弹层不回潮', () => {
     expect(RN_DIST).toContain('overviewCard={overviewCard}')
     expect(RN_DIST).toContain('earningsCard={earningsCard}')
     expect(RN_DIST).toContain('serviceFloat={info ? serviceFloat : undefined}')
+    expect(RN_DIST).toContain('functionBlocks={functionBlocks}')
+    expect(RN_DIST).toContain('qrSheet={qrSheet}')
+    expect(RN_DIST).not.toContain('<BottomPops')
+    expect(RN_DIST).not.toContain('<FunctionBlockColumn')
+    expect(RN_DIST).not.toContain('qrContent')
   })
 
-  it('⑥ 数据腿保留(overview / rates / 实名 / 二维码 / 门控)', () => {
+  it('⑥ 页内开标签 ≤2(ThemeRoot + 共享屏)', () => {
+    const counts = jsxOpeningTags(INDEX_SOURCE)
+    expect(counts.elements).toBe(1)
+    expect(counts.selfClosing).toBe(1)
+    expect(counts.fragments).toBe(0)
+    expect(counts.text).toBe(0)
+    expect(counts.elements + counts.selfClosing).toBeLessThanOrEqual(2)
+    expect(INDEX_SOURCE).toContain('renderVerifySheet(')
+    expect(INDEX_SOURCE).toContain('renderWxShareButton(')
+    expect(HOST_OVERLAYS).toContain('FocusInput')
+    expect(HOST_OVERLAYS).toContain('openType="share"')
+  })
+
+  it('⑦ 数据腿保留(overview / rates / 实名 / 二维码 / 门控)', () => {
     expect(INDEX_SOURCE).toContain("'/distribution/overview'")
     expect(INDEX_SOURCE).toContain("'/distribution/commission-rates'")
     expect(INDEX_SOURCE).toContain('getOperatorDataCardData')
