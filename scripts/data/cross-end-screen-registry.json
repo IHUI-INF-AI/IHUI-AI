@@ -282,6 +282,11 @@
       "miniapp": "pkg-ai/ai/chat"
     },
     {
+      "shared": "packages/app/src/features/chat/ConversationHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConversationHistoryScreen.tsx",
+      "miniapp": "pkg-ai/ai/history"
+    },
+    {
       "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
       "miniapp": "pkg-user/check-in/index"
