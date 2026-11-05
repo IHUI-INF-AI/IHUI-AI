@@ -311,15 +311,10 @@
 | `pages/study/publish/index` | 160 / 20（19+1T） | 结构下限（同名不同物） | ①不可 ≤2；②重复段 3（标题/正文/提交）；③共享屏是合集表单（`StudyPublishScreen.tsx:356-391`），本页是学习动态（`:84-154`），POST body 含 `visibility/tags`（`:63-68`），RN `apps/mobile-rn/src/screens/StudyPublishScreen.tsx:211-257` 对 `visibility|tags` 零命中 ⇒ 判据 3 否。 |
 | `pages/study/video-detail/index` | 420 / 26 | 部分收敛·结构下限 | ①不可 ≤2；②已收敛 2 段（`VideoNoUrlHint`、`VideoProgressSection`，共享 `VideoPlayerSections`）；③`VideoInfo`/`LikeFavoriteShare`/`VideoTabs`/`Catalog`/`Introduction`/`Comment`/`PayPopup` 七组件在 `packages/app` 与 `apps/mobile-rn` 双双零命中。 |
 
-### 学习域三条口径异常（等口径收口票，不自行改台账）
+### 学习域三条口径异常（处置并入下方决策表）
 
-| 页 | 异常 | 证据 |
-|---|---|---|
-| `pages/study/index` | 声明链含非同物屏 | 台账该行 declaredSpecs = `StudyIndexScreen.tsx` + `StudyProgressScreen.tsx`；前者自述「AI 视频页」（`packages/app/src/features/study-index/StudyIndexScreen.tsx:5-14`），RN 同名页 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx:6` 同述；本页是学习进度页（`pages/study/index.tsx:96-158`），实际只对得上 `StudyProgressScreen.tsx`。 |
-| `pages/study/my-study/index` | 有声明、无 RN 消费 | `apps/mobile-rn/src/navigation/RootNavigator.tsx:1002` 只有 `StudyRecord` 路由；`git grep -n "myStudy\|MyStudy\|my-study" -- apps/mobile-rn` 零命中。 |
-| `pages/study/publish/index` | 声明屏与页面对象不同物 | 共享屏是合集发布（`StudyPublishScreen.tsx:356-391`），本页是学习动态发布（`pages/study/publish/index.tsx:84-154`），POST `/study/publish` body 含 `category/visibility/tags`（`:63-68`）；RN 侧 `:211-257` 无 `visibility/tags`。 |
+`pages/study/index`、`pages/study/my-study/index`、`pages/study/publish/index` 三条的逐屏证据与处置，并入下方【口径异常决策表】，此处不另造表。
 
-- 三条均只登记，**不删不修**；台账一行未动，等口径收口票统一裁决。
 - 复查：11 页重生节点数分别为 21/38/39/36/25/35/13/25/40/20/26，**全部 ≥13，无一 ≤2**，与总账读数一致。
 
 ## 结构下限（不退休；这是结论，不是欠账）
@@ -336,14 +331,32 @@
 | `pkg-ai/ai/conversation-import`（261 行 / 3 枚） | 根 `View` + 原生 `NavBar` + `SharedConversationImportScreen`（`conversation-import.tsx:240-246`） | 零重复 UI 段；8 个 props 两端各传不同实现（`:63` tScreen、`:106` 取文件、`:142` 解析）⇒ 第 2 枚是小程序原生标题栏，硬标 3 卡住，**不退休、不摘台账**。 |
 | `pkg-ai/developer/income`（487 行 / 38 枚：J31 + E3 + S2 + T2） | `ThemeRoot` + `title==='income'` 分支页内 fee tip/统计行（`income.tsx:284-338`）+ 提现明细分支页内布局（`:340-410`） | 两分支都含页内专属装配（`:322-338` feeTip/stat；`:340` 起 cash-list），共享屏只承担 income 分支主体 ⇒ 留宿主。 |
 
-### 口径异常：声明屏与页面业务对象不符（只留档，待重挂映射）
+### 口径异常决策表：声明屏与页面业务对象不符（2026-11-06）
 
-| 台账 route | 声明屏（file:line） | 页面实际业务（file:line） | 处置 |
-|---|---|---|---|
-| `pkg-ai/ranking/index` | `packages/app/src/features/ranking/RankingScreen.tsx:38`（学习积分榜类） | `apps/miniapp-taro/src/pkg-ai/ranking/index.tsx:5`（自述 AI 工具榜、不参与镜像对账）；零重复段 | 待重挂映射，等口径收口票 |
-| `pkg-ai/developer/withdrawal` | `packages/app/src/features/income/IncomeScreen.tsx:36`（佣金收益流；台账另含 `packages/app/src/features/withdraw/WithdrawScreen.tsx:27`） | `apps/miniapp-taro/src/pkg-ai/developer/withdrawal.tsx:9`、`:13`（`getDeveloperWithdrawalList` / 提现记录列表） | 待重挂映射（应只留 `WithdrawScreen`，`IncomeScreen` 待摘），等口径收口票 |
-| `pkg-ai/business-card/index` | `packages/app/src/features/business-card/BusinessCardScreen.tsx:22`（电子名片展示） | `apps/miniapp-taro/src/pkg-ai/business-card/index.tsx:5`（声明对齐）、实际 `:7`/`:9`/`:37`（`Image`+`Button`、分享钩子、`chooseImage` 上传保存） | 待重挂映射，等口径收口票 |
+| 台账 route | 处置 | 依据（file:line） |
+|---|---|---|
+| `pkg-ai/dev-enter/cover/index` | **就地改声明**：`declaredSpecs` 只留 `DeveloperScreen`；301 撤 `DevEnterCoverScreen` 行，本 route 并入 `DeveloperScreen.mpRoutes` | `apps/miniapp-taro/src/pkg-ai/dev-enter/cover/index.tsx:5`（页顶已改挂）；`packages/app/src/features/developer/DeveloperScreen.tsx:162`（RN 真消费）；原声明屏 `dev-enter-cover/DevEnterCoverScreen.tsx:14-18`（planType/onSelectPlan 套餐封面） |
+| `pages/study/index` | **就地改声明**：只留 `StudyProgressScreen`；301 撤 `StudyIndexScreen` 行，本 route 并入 `StudyProgressScreen.mpRoutes` | `apps/miniapp-taro/src/pages/study/index.tsx:5`、`:12`（getStudyInfo/getStudyRecords）；`packages/app/src/features/study-index/StudyIndexScreen.tsx:6-13`（自述「AI 视频页」） |
+| `pkg-ai/ranking/index` | **not-applicable（页面级）**；声明屏 `RankingScreen` 仍由 `pkg-mirror/ranking` 合法承载，不撤共享屏 verdict；待 `declared-object-mismatch` 裁决键 | `apps/miniapp-taro/src/pkg-ai/ranking/index.tsx:5`（自述 AI 工具榜、不参与镜像对账）；`packages/app/src/features/ranking/RankingScreen.tsx:38` |
+| `pkg-ai/developer/withdrawal` | **not-applicable（页面级）**；声明链含 `IncomeScreen`（另有 `pkg-shop` 承载）与 `WithdrawScreen`，不撤共享屏 verdict；待裁决键 | `apps/miniapp-taro/src/pkg-ai/developer/withdrawal.tsx:9`、`:13`（`getDeveloperWithdrawalList`/提现记录列表）；`packages/app/src/features/income/IncomeScreen.tsx:36` |
+| `pkg-ai/business-card/index` | **not-applicable 已落 verdict + 301 registry 撤**（原 `carried/mirrored:true` 为假承载，共享屏转 legal-absence） | `apps/miniapp-taro/src/pkg-ai/business-card/index.tsx:5`、`:7`（Image+Button）、`:9`（分享钩子）、`:37`（`chooseImage` 上传保存）；`packages/app/src/features/business-card/BusinessCardScreen.tsx:22`（电子名片展示） |
+| `pages/study/publish/index` | **not-applicable 已落 verdict + 301 registry 撤**（原假承载，共享屏转 legal-absence） | `apps/miniapp-taro/src/pages/study/publish/index.tsx:23-24`（visibility/tags 表单）、`:63`（POST /study/publish）；`packages/app/src/features/study-publish/StudyPublishScreen.tsx:20-22`、`:449`（课程发布） |
+| `pages/study/my-study/index` | **known-undetermined**（`MoreCourseScreen` 待核）；不撤声明、不摘行 | `apps/miniapp-taro/src/pages/study/my-study/index.tsx:54`（getStudyRecords）、`:94`（注：对齐 StudyRecordScreen）；`MoreCourseScreen` 已于 2026-11-01 判 RN 独占壳 |
+| `pkg-shop/vip/upgrade` | **not-applicable（页面级）**；301 无行、不动；待裁决键 | `apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx:10`（getVipLevels/upgradeVip）、`:147-148`（升级收银）；`packages/app/src/features/vip-level/VipLevelScreen.tsx:5-9`（VIP 等级详情展示） |
+| `pkg-shop/pay/index` | **not-applicable（页面级）**：声明屏是订单列表，页面是单订单收银台；301 无行、不动 | `apps/miniapp-taro/src/pkg-shop/pay/index.tsx:100`、`:129`（单订单 orderNo）、`:217`（apply-coupon）；`packages/app/src/features/payment/PaymentScreen.tsx:63-66`（header + 订单列表） |
+| `pkg-shop/order/refund` | **known-undetermined + 撤 301 carrier 行**（registry 已撤，301 转 undetermined；无已知 verdict 枚举） | `apps/miniapp-taro/src/pkg-shop/order/refund.tsx:71`（单订单 orderNo）、`:108`（refund 提交）、`:156`（RefundHeader）；`packages/app/src/features/order-refund/OrderRefundScreen.tsx:58-61`（多订单列表 + 展开退款表单） |
+| `pkg-shop/vip-trader/index/index` | **known-undetermined + 撤 301 carrier 行**（registry 已撤，区块级假承载）；合规注释原样留档，**接真数据前需产品/合规裁决** | `apps/miniapp-taro/src/pkg-shop/vip-trader/index/index.tsx:111-112`（历史业绩 @demo-data）、`:142-143`（用户评价 @demo-data）；`packages/app/src/features/vip-trader/VipTraderScreen.tsx:89`（共享屏无这两区块） |
+| `pkg-user/user/phone` | **保留 `declaredSpecs`**；`reasonClass` `pure-copy`→`local-delta`；301 carried 保留 + `routeEvidence` 补 local-delta 说明 | `apps/miniapp-taro/src/pkg-user/user/phone.tsx:5`、`:24-27`（两步换绑）、`:49` 起 `tt()` 兜底；`packages/app/src/features/change-phone/ChangePhoneScreen.tsx:15` |
+| `pkg-user/user/email` | **not-applicable（页面级）**：声明屏是换绑手机，页面是邮箱绑定；301 无行 | `apps/miniapp-taro/src/pkg-user/user/email.tsx:13`（bindEmail）、`:23-30`（邮箱输入）；`packages/app/src/features/change-phone/ChangePhoneScreen.tsx:15`、`:47`（绑定手机号） |
+| `pages/setting/cache` | **not-applicable（页面级）**：声明屏是设置/通知设置，页面是缓存管理；301 无行 | `apps/miniapp-taro/src/pages/setting/cache.tsx:10`、`:103`（clearCache）；`packages/app/src/features/settings/SettingsScreen.tsx:55`、`notification-settings/NotificationSettingsScreen.tsx:14` |
+| `pkg-ai/ai-career/index` | **not-applicable**（verdict 2026-11-02 已在册） | `apps/miniapp-taro/src/pkg-ai/ai-career/index.tsx:5`、`:19-30`（aicareer.q1..q21）、`:53`（getAgentList）；`packages/app/src/features/ai-career/AiCareerScreen.tsx:154`、`:184`（问卷 + 报告导出） |
 
-注：以上三行本轮**只留档**——不改台账 `declaredSpecs`、不动 301 登记、不摘行；等口径收口票统一处理。
+口径说明：
+- `not-applicable` 一律走裁决台账 `scripts/data/miniapp-mirror-verdicts.jsonl`，**不写 `mapStatus=not-applicable`**（299 无此枚举）。
+- 页面级 not-applicable（`ranking`、`developer/withdrawal`、`vip/upgrade`、`pay/index`、`user/email`、`setting/cache`）暂**不落共享屏级 verdict**：其声明屏另有合法承载，硬写会误伤同屏其它页；等 `declared-object-mismatch` 裁决键落地后同批登记。
+- `known-undetermined`（`order/refund`、`vip-trader`、`my-study`）同样无 verdict 枚举，只在本表 + 301 `undetermined` 桶留档。
+- 两处规则缺口（`declared-object-mismatch` 裁决键、299 原生 `not-applicable` 枚举）**只记档，不改门脚本、不开规则票**。
+- `ChangePhoneScreen` 硬编码中文 i18n（`ChangePhoneScreen.tsx:47`「绑定手机号」、`:64`「手机号码」）**另开 i18n 票**，不在本批修。
+- 除 `community/create` 已在 main 退休外，本批不摘行、不退休；台账物理 93 行不变。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
