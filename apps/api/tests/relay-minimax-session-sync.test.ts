@@ -29,6 +29,8 @@ const {
   recordKeyOfSecrets,
   recordKeyLabel,
   matchPoolRow,
+  pickTargetRow,
+  namedMissRejection,
   buildMinimaxAutoImportInput,
   revivePatchOf,
   buildSecretsPatch,
@@ -48,6 +50,7 @@ function row(over: Record<string, unknown> = {}) {
     healthStatus: 'down',
     refreshFailureCount: 0,
     tempUnschedulable: false,
+    ownerUserId: null,
     ...over,
   } as unknown as Parameters<typeof matchPoolRow>[0][number]
 }
@@ -248,6 +251,42 @@ describe('secrets 合并 · 以既有为底,只覆盖本次提供的键', () => 
   it('既有坏档(null)⇒ 以本次重建;空白值不入档', () => {
     expect(buildSecretsPatch(null, { region: '  ', clientId: 'cid' })).toEqual({ clientId: 'cid' })
     expect(buildSecretsPatch(null, {})).toBeNull()
+  })
+})
+
+describe('点名回灌 · 一台机只有一个 mcode 会话槽(2026-11-06 切号实测)', () => {
+  const targetId = (d: ReturnType<typeof pickTargetRow>): string | null =>
+    d.kind === 'row' ? d.row.id : null
+
+  it('recordKey 是槽名不是账号身份:三枚号共用同一个 recordKey 时,点名 uid 认到的就是那一行', () => {
+    const a = row({ id: 'r-a', uid: 'auto:aaaa', ownerUserId: null })
+    const b = row({ id: 'r-b', uid: 'auto:bbbb', ownerUserId: 'user-1' })
+    const c = row({ id: 'r-c', uid: 'auto:cccc', ownerUserId: 'user-2' })
+    // 不点名 ⇒ 三行同槽 ⇒ 运营池优先(这就是「镜像本机槽」的语义:个人池那两枚轮不到)
+    expect(targetId(pickTargetRow([a, b, c], { recordKey: RECORD_KEY }))).toBe('r-a')
+    // 点名个人池那一行 ⇒ 只认它,不再落到运营池
+    expect(targetId(pickTargetRow([a, b, c], { uid: 'auto:cccc', recordKey: RECORD_KEY }))).toBe(
+      'r-c',
+    )
+  })
+
+  it('点名未命中 ⇒ 零候选(none),交给落库侧拒写', () => {
+    const a = row({ recordKey: '别的槽' })
+    expect(pickTargetRow([a], { uid: 'auto:zzz', recordKey: RECORD_KEY }).kind).toBe('none')
+  })
+
+  it('点名未命中的处置 = 拒写条目;未点名 / 命中的不是 none ⇒ null(照旧走自动入池)', () => {
+    const rejected = namedMissRejection('auto:zzz', { kind: 'none' })
+    expect(rejected).not.toBeNull()
+    expect(rejected?.uid).toBe('auto:zzz')
+    expect(rejected?.applied).toBe(false)
+    expect(rejected?.error).toContain('未命中')
+    // 反向牙:没点名就不是拒写(否则无人值守的自动入池会被自己掐死)
+    expect(namedMissRejection('', { kind: 'none' })).toBeNull()
+    expect(namedMissRejection(null, { kind: 'none' })).toBeNull()
+    // 反向牙:命中了行也不是拒写
+    expect(namedMissRejection('auto:zzz', { kind: 'row' })).toBeNull()
+    expect(namedMissRejection('auto:zzz', { kind: 'ambiguous' })).toBeNull()
   })
 })
 
