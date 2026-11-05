@@ -28,7 +28,8 @@
     "global-shortcut:default",
     "notification:default",
     "os:default",
-    "store:default",
+    "allow-store-read-entry",
+    "allow-store-write-entry",
     "updater:default",
     "log:default",
     {

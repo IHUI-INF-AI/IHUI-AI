@@ -2955,6 +2955,18 @@
           "markdownDescription": "Enables the stat_file command without any pre-configured scope."
         },
         {
+          "description": "Enables the store_read_entry command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-read-entry",
+          "markdownDescription": "Enables the store_read_entry command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the store_write_entry command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-store-write-entry",
+          "markdownDescription": "Enables the store_write_entry command without any pre-configured scope."
+        },
+        {
           "description": "Enables the take_pending_deep_links command without any pre-configured scope.",
           "type": "string",
           "const": "allow-take-pending-deep-links",
@@ -3649,6 +3661,18 @@
           "type": "string",
           "const": "deny-stat-file",
           "markdownDescription": "Denies the stat_file command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_read_entry command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-read-entry",
+          "markdownDescription": "Denies the store_read_entry command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the store_write_entry command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-store-write-entry",
+          "markdownDescription": "Denies the store_write_entry command without any pre-configured scope."
         },
         {
           "description": "Denies the take_pending_deep_links command without any pre-configured scope.",

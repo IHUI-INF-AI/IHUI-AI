@@ -29,7 +29,10 @@
 //   判据 2(目录级 CJK = 0):扫描面**只含** EBWebView/*/Local Storage/ 与 roaming 顶层 *.json;
 //     禁扫 Cache_Data / Code Cache / GPUCache(无正文且体积大)。必须打印实际扫描文件清单。
 //   判据 3(密钥不入仓):git ls-files 里不得出现 vault 数据文件;vault 文件名落点字符串
-//     在跟踪源码(非测试、非文档)中只允许 local-vault.ts 一处。
+//     在跟踪源码(非测试、非文档)中只允许两处:local-vault.ts(web 消费)与 store_path.rs
+//     (Rust 远程面白名单)。两处必须**取值完全一致**——旧判据只认一处,2026-11-05 桌面
+//     store 越权 P0 修复后 Rust 边界必须独立持有该文件名,故把"唯一"升级成"两点同值";
+//     任一处缺失或取值漂移 ⇒ 违规(不放行)。
 //
 // 硬约束:
 // - 路径一律 realpathSync 解析 junction 真身(数据目录在本仓有"改道"历史),禁止写死盘符;
@@ -369,6 +372,18 @@ export function runGit(args, timeoutMs = GIT_TIMEOUT_MS) {
 }
 
 const SOURCE_EXT = /\.(ts|tsx|js|mjs|cjs|py|rs|go|java|kt|swift)$/
+// 2026-11-05(桌面 store 越权 P0):vault 文件名的第二处合法落点 —— Rust 远程面白名单。
+// 两处必须同值;这里只解析,不复制字面量(值仍以 local-vault.ts 的 VAULT_STORE_FILE 为准尺)。
+const RUST_STORE_GUARD = 'apps/desktop/src-tauri/src/store_path.rs'
+
+/** 从 store_path.rs 的 REMOTE_STORE_ALLOWLIST 解析允许的文件名集合(解析不到返回 null) */
+export function parseRustStoreAllowlist(source) {
+  const start = source.indexOf('REMOTE_STORE_ALLOWLIST')
+  const end = start >= 0 ? source.indexOf('];', start) : -1
+  if (start < 0 || end < 0) return null
+  const files = [...source.slice(start, end).matchAll(/\("([^"]+)",\s*&\[/g)].map((m) => m[1])
+  return files.length > 0 ? files : null
+}
 
 export function checkKeyHygiene(consts) {
   const violations = []
@@ -397,14 +412,32 @@ export function checkKeyHygiene(consts) {
     .filter((p) => SOURCE_EXT.test(p))
     .filter((p) => !/\.test\.|[/\\]tests?[/\\]|[/\\]__tests__[/\\]/.test(p))
   const expected = 'apps/web/src/lib/local-vault.ts'
-  const unexpected = refFiles.filter((p) => p !== expected)
+  const allowedSources = [expected, RUST_STORE_GUARD]
+  const unexpected = refFiles.filter((p) => !allowedSources.includes(p))
   if (unexpected.length > 0) {
-    violations.push(`vault 落点字符串出现在第二处源码(单一真相源被破坏): ${unexpected.join(', ')}`)
+    violations.push(`vault 落点字符串出现在未授权源码(单一真相源被破坏): ${unexpected.join(', ')}`)
   }
   if (!refFiles.includes(expected)) {
     violations.push(`vault 落点字符串在 ${expected} 里反而找不到(常量被搬走?本门判据失效,须人工复核)`)
   }
-  return { violations, trackedCount: tracked.length, refFiles }
+  if (!refFiles.includes(RUST_STORE_GUARD)) {
+    violations.push(`vault 落点字符串在 ${RUST_STORE_GUARD} 里找不到(Rust 远程面白名单被搬走?须人工复核)`)
+  }
+  // 两点同值:局部字面量必须与 VAULT_STORE_FILE 完全一致,漂移即违规(不是"多一处就放过")。
+  let rustAllowlist = null
+  try {
+    rustAllowlist = parseRustStoreAllowlist(readRepoFile(RUST_STORE_GUARD))
+  } catch (e) {
+    return { violations, undetermined: `读取 ${RUST_STORE_GUARD} 失败: ${e.message}` }
+  }
+  if (!rustAllowlist) {
+    violations.push(`${RUST_STORE_GUARD} 的 REMOTE_STORE_ALLOWLIST 解析不到(判据 3 失效)`)
+  } else if (!rustAllowlist.includes(consts.vaultStoreFile)) {
+    violations.push(
+      `Rust 白名单与 VAULT_STORE_FILE 漂移: [${rustAllowlist.join(', ')}] 不含 ${consts.vaultStoreFile}`,
+    )
+  }
+  return { violations, trackedCount: tracked.length, refFiles, rustAllowlist }
 }
 
 // ==================== 路径解析(junction 真身) ====================
@@ -647,9 +680,12 @@ export function selfTest() {
     const hygiene = checkKeyHygiene(consts)
     A('判据3-git ls-files 不跟踪 vault 数据文件', hygiene.violations.length === 0 && !hygiene.undetermined,
       hygiene.undetermined || '')
-    A('判据3-vault 字符串单源在 local-vault.ts',
-      (hygiene.refFiles || []).length === 1 && hygiene.refFiles[0] === 'apps/web/src/lib/local-vault.ts',
-      JSON.stringify(hygiene.refFiles))
+    A('判据3-vault 字符串仅两处(local-vault.ts + store_path.rs)且取值同值',
+      (hygiene.refFiles || []).length === 2 &&
+        hygiene.refFiles.includes('apps/web/src/lib/local-vault.ts') &&
+        hygiene.refFiles.includes(RUST_STORE_GUARD) &&
+        (hygiene.rustAllowlist || []).includes(consts.vaultStoreFile),
+      JSON.stringify({ files: hygiene.refFiles, rustAllowlist: hygiene.rustAllowlist }))
   } finally {
     rmScratch(scratch)
   }
@@ -690,6 +726,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 export const __test__ = {
   parseVaultConstants,
   parsePersistKey,
+  parseRustStoreAllowlist,
   parseAppIdentifier,
   aggregateFaces,
   compactView,
