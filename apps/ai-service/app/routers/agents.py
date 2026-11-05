@@ -307,7 +307,9 @@ async def _supertool_invoke(
         return {"ok": False, "error": f"未知 MCP Server: {server_name}"}
     client = manager.get_client(server_name)
     if client is not None:
-        return await client.call_tool(tool_name, args)
+        # 令牌桶(mcp_token_limit)的归属桶必须由承载层显式传入:这一支绕过
+        # `call_external_tool`,不传就只能退到 server 名兜底,于是"按谁在扣"没人知道。
+        return await client.call_tool(tool_name, args, quota_run_id=user_id)
     return await manager.call_external_tool(server_name, tool_name, args, caller_user_id=user_id)
 
 

@@ -388,7 +388,7 @@ async def test_call_external_tool_success(ac, monkeypatch):
     """调用已连接 server 的工具成功。"""
     _fake_connect_set_connected(monkeypatch)
 
-    async def _fake_call_tool(self, name, arguments):
+    async def _fake_call_tool(self, name, arguments, *, quota_run_id: str = ""):
         return {"content": [{"type": "text", "text": "ok"}]}
 
     monkeypatch.setattr("app.services.mcp_client.MCPClient.call_tool", _fake_call_tool)

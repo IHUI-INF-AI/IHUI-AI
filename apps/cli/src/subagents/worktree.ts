@@ -24,7 +24,7 @@ import {
   WorktreeLandUnprovableError,
 } from '../worktree.js';
 import { readSubagentState } from './state-store.js';
-import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged, judgeWorktreeContainment } from '../sandbox/file-access-policy.js';
 
 export interface WorktreeInfo {
   path: string;
@@ -207,23 +207,47 @@ function emitFileAccessVoice(line: string): void {
 }
 
 /**
+ * 隔离区根(容器性断言的锚点)。`IHUI_WORKTREE_DIR` 若被配成非法落点会抛 ⇒ 回落到
+ * `<sourcePath>/.worktrees`(与默认形态一致),让容器性判定恒拿得到一个可用锚点而非整轮炸在闸口。
+ */
+function containmentRoot(sourcePath: string): string {
+  try {
+    return getDefaultWorktreeRoot(sourcePath);
+  } catch {
+    return path.join(sourcePath, '.worktrees');
+  }
+}
+
+/**
  * 回收子代理隔离工作区。
  *
+ * 容器性断言(goal-b49 W5,判据单源 `sandbox/file-access-policy.ts` 的 `judgeWorktreeContainment`,
+ * 与 ACL **分职**):函数体第一句先判"目标解析后是否仍在隔离区根之下",排在 ACL 与一切 fs 动作之前。
+ * 命拒 = 越界 ⇒ 先出声再抛:三个调用点(`subagent.ts` 收尾、`worker-pool.ts` 三处)都是
+ * `catch { /* ignore *\/ }`,只抛不出声等于把一次判拒写成静默(§0.10);而合法回收因
+ * "隔离区叶子直子"那一臂不会被误杀(worker-pool 把 `parentId` 当 sourcePath 传歪 ⇒ 严格比根会误杀,
+ * 几何臂兜住 ⇒ 正向对照"合法隔离区照常回收"成立)。
+ *
  * R-1(goal-b49 S7,与 S5 的 W-1 同族,判据单源 `sandbox/file-access-policy.ts`):
- * 函数体第一句即问 delete 轴 —— `wtPath` 的两条来路(`removeIsolatedWorktree` 非 manager 臂、
+ * 容器性之后即问 delete 轴 —— `wtPath` 的两条来路(`removeIsolatedWorktree` 非 manager 臂、
  * worker-pool 收尾)都是 `path.join(<worktree 根>, subagentId)`,而 `subagentId` 可以是
  * `dispatch_subagent` 的模型入参 `resumeFrom`,`..` 段能把删除目标折出隔离区之外 ⇒
  * 命拒时 `existsSync` / `git worktree remove` / `spawnSync('rm','-rf')` / prune 一条都不发生。
- * 拒时必须**先出声再抛**:三个调用点(`subagent.ts` 收尾、`worker-pool.ts` 三处)都是
- * `catch { /* ignore *\/ }`,只抛不出声等于把一次判拒写成静默(§0.9/§0.10 的反面)。
+ * 拒时必须**先出声再抛**:同上,只抛不出声等于把一次判拒写成静默(§0.9/§0.10 的反面)。
  *
  * @returns 是否实际移除了目录(路径本就不存在时返回 false)
- * @throws 文件访问裁决判拒时抛带 `[file-acl` 的理由
+ * @throws 容器性判越界 或 文件访问裁决判拒时抛带 `[worktree-containment` / `[file-acl` 的理由
  */
 export function removeWorktree(
   wtPath: string,
   opts: RemoveWorktreeOptions,
 ): boolean {
+  const containment = judgeWorktreeContainment(containmentRoot(opts.sourcePath), wtPath);
+  if (!containment.contained) {
+    const refusal = `[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`;
+    emitFileAccessVoice(refusal);
+    throw new Error(refusal);
+  }
   const aclDelete = evaluateFileAccess('delete', toAclPath(opts.sourcePath, wtPath), opts.sourcePath);
   announceGuardUnjudged(opts.sourcePath, aclDelete.guard, 'subagent_removeWorktree');
   if (aclDelete.blocked) {
@@ -512,23 +536,32 @@ export async function createWorktreeWithFallback(
         // 半成品落盘已由 createWorktreeCoW 自清(own 由刚 mkdir 证明),
         // 这里兜底处理"落盘已完成(marker 齐备)但后置小失败"的自有目录
         //
-        // R-4(goal-b49 S7,与 W-1/R-1 同族 ⇒ **接**):`destination = path.join(root, subagentId)`,
-        // 而 `subagentId` 可以是 `dispatch_subagent` 的模型入参 `resumeFrom` ⇒ 删除目标的名字仍由模型选。
-        // 裁决排在 `existsSync` / `isWorktreeMarkerComplete` / `rmSync` 之前;命拒时**不抛**而是"一个字节不删":
-        // 外层 catch 会把抛错吃掉,而下面的 `createWorktree` 必因路径已存在抛统一错误 ——
-        // 失效方向因此恒为"多要一次定向说明",绝不是"照删不误"(§0.10)。
-        const aclDelete = evaluateFileAccess('delete', toAclPath(sourcePath, destination), sourcePath);
-        announceGuardUnjudged(sourcePath, aclDelete.guard, 'subagent_create_with_fallback');
-        if (aclDelete.blocked) {
-          emitFileAccessVoice(aclDelete.note ?? `按文件访问裁决禁止删除 ${destination}`);
+        // 容器性断言(goal-b49 W5/W9,判据单源 `judgeWorktreeContainment`,与 ACL **分职**):
+        // `destination = path.join(root, subagentId)` 且 `subagentId` 可由模型入参 `resumeFrom` 决定,
+        // `..` 段能把清理目标折出 `root`(隔离区根)之外 ⇒ 先判"解析后仍在 root 之下",排在 ACL 与
+        // `existsSync`/`isWorktreeMarkerComplete`/`rmSync` 之前。命拒时**不抛而是"一个字节不删"**:
+        // 本臂在 catch 内,抛错会被外层吃掉洗成静默(§0.10);不删后由下面的 `createWorktree` 因路径
+        // 已存在抛统一错误 ⇒ 失效方向恒为"多要一次定向说明"。合法自有目录因几何臂不误杀。
+        //
+        // R-4(goal-b49 S7,与 W-1/R-1 同族 ⇒ **接**):容器性之后即问 delete 轴 —— 同样排在
+        // `existsSync` / `isWorktreeMarkerComplete` / `rmSync` 之前;命拒时**不抛**而是"一个字节不删"。
+        const containment = judgeWorktreeContainment(root, destination);
+        if (!containment.contained) {
+          emitFileAccessVoice(`[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`);
         } else {
-          if (aclDelete.note) emitFileAccessVoice(aclDelete.note);
-          try {
-            if (fs.existsSync(destination) && isWorktreeMarkerComplete(destination)) {
-              fs.rmSync(destination, { recursive: true, force: true });
+          const aclDelete = evaluateFileAccess('delete', toAclPath(sourcePath, destination), sourcePath);
+          announceGuardUnjudged(sourcePath, aclDelete.guard, 'subagent_create_with_fallback');
+          if (aclDelete.blocked) {
+            emitFileAccessVoice(aclDelete.note ?? `按文件访问裁决禁止删除 ${destination}`);
+          } else {
+            if (aclDelete.note) emitFileAccessVoice(aclDelete.note);
+            try {
+              if (fs.existsSync(destination) && isWorktreeMarkerComplete(destination)) {
+                fs.rmSync(destination, { recursive: true, force: true });
+              }
+            } catch {
+              // 清理失败忽略,原 git worktree add 会因路径存在抛错
             }
-          } catch {
-            // 清理失败忽略,原 git worktree add 会因路径存在抛错
           }
         }
       }
