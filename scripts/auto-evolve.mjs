@@ -679,6 +679,32 @@ export function todayKey(now = new Date()) {
   return `${y}-${m}-${d}`
 }
 
+/**
+ * 台账 `ts`(UTC ISO)→ **本地**日键,与 `todayKey` 同口径;不可解析 ⇒ null(不冒充"同一天")。
+ *
+ * 立因(2026-11-06 现读实锤):日上限计数一直拿**本地**日键去 `startsWith` 一条 **UTC** 时间戳
+ * ⇒ 本地 00:00–08:00(UTC+8)这段窗口里两者永不相等 ⇒ `dispatched` 恒 0。今晚的现场:
+ * 00:07–00:31 连开六班,每班都记 `真派第 1 次(预算 10/日)`,`--status` 也报"预算 0/10",
+ * 而成本熔断那侧现读近 24h 会话 20/24 —— 日上限在这 8 小时里**结构性不生效**,
+ * 只剩小时/日熔断兜着。修法不是把日键改成 UTC(那是悄悄把"每日"的边界挪到本地 08:00),
+ * 而是把两侧统一到同一口径:行侧换算成本地日再比。
+ */
+export function localDayOf(ts) {
+  if (!ts) return null
+  const d = new Date(String(ts))
+  return Number.isNaN(d.getTime()) ? null : todayKey(d)
+}
+
+/** 「这条台账行属于今天(本地)」——两处计数共用同一个谓词,不再各写一遍 startsWith。 */
+export function isDispatchedToday(entry, now = new Date()) {
+  return (
+    !!entry &&
+    entry.action === 'dispatched' &&
+    localDayOf(entry.ts) !== null &&
+    localDayOf(entry.ts) === todayKey(now)
+  )
+}
+
 function readLedger() {
   try {
     return readFileSync(LEDGER, 'utf8')
@@ -2365,7 +2391,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     }
     let dispatched = 0
     for (const e of ledger) {
-      if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
+      if (isDispatchedToday(e)) dispatched++
     }
     // 池可赢性只在"本轮不派"的两种出口上算 —— 正常派发轮不背这笔 grep 时间。
     const willNotDispatch = rows.length === 0 || dispatched >= gates.dailyDispatchBudget
@@ -2826,10 +2852,7 @@ function printStatus() {
     return
   }
   const ledger = readLedger()
-  const today = todayKey()
-  const dispatched = ledger.filter(
-    (e) => e.action === 'dispatched' && String(e.ts ?? '').startsWith(today),
-  ).length
+  const dispatched = ledger.filter((e) => isDispatchedToday(e)).length
   const quarantined = []
   for (const e of ledger) {
     if (e.action !== 'quarantined') continue
