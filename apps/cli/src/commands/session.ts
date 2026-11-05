@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
+// 会话 id 来自 --resume/--continue 或磁盘内容:文件名收敛 + 落点断言统一走 util/path-guard。
+import { segmentFilePathInside } from '../util/path-guard.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -48,14 +50,19 @@ export function saveSession(session: Session): void {
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
   fs.writeFileSync(
-    path.join(getSessionsDir(), `${session.id}.json`),
+    sessionFilePath(session.id),
     JSON.stringify(session, null, 2),
     'utf-8',
   );
 }
 
+/** 会话文件路径的唯一构造入口(与 compaction 账本共用同一判据)。 */
+function sessionFilePath(id: string): string {
+  return segmentFilePathInside(getSessionsDir(), id, '.json', '会话文件');
+}
+
 export function loadSession(id: string): Session | null {
-  const filePath = path.join(getSessionsDir(), `${id}.json`);
+  const filePath = sessionFilePath(id);
   if (!fs.existsSync(filePath)) return null;
   try {
     const parsed = tryParseJson(fs.readFileSync(filePath, 'utf-8'));
