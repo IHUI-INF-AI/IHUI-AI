@@ -24,8 +24,9 @@
        debug 签名/换签名一律判失败;APK/AAB 体积对 scripts/data/mobile-release-size-baseline.json
        比较(超 +15% 告警、超 +30% 判红;首次/更新基线须显式 -UpdateSizeBaseline)
     5. 发布到固定下载地址(-NoPublish 可跳过):先 node scripts/publish-mobile-apk-gitee.py
-       (16 份分片腿 + 清单, 并行下载的源), 再 node scripts/publish-mobile-apk.mjs
-       (站点腿 + app_versions 登记; 缺生产落点即失败, 不会静默跳过后半条)
+       (16 份分片腿 + 清单, 并行下载的源), 再发站点腿 + app_versions 登记 ——
+       本机有生产 checkout 就地跑 publish-mobile-apk.mjs, 没有则走 publish-mobile-apk-remote.ps1
+       (scp 进生产 checkout, 由同一支发布链执行); 两条路都以公网 latest 切到本次版本收尾
        落版本名副本 + 翻指针 ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
@@ -595,8 +596,17 @@ if ($NoPublish) {
     } else {
       throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
     }
-    node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
-    if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    # 站点腿 + latest 登记只认生产 checkout 的落点。出包机没有那份落点时(2026-11-05 实测),
+    # 走远程腿把包送进生产 checkout 由同一支发布链执行;两条路都以"公网 latest 切到本次版本"收尾。
+    $LocalProdDownload = Join-Path $RepoRoot 'deploy/server-root/remote-images/download'
+    if (Test-Path $LocalProdDownload) {
+      node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
+    } else {
+      Write-Host "[publish] 本机无生产 checkout,改走远程发布腿 (ssh aizhs.top)" -ForegroundColor Yellow
+      & (Join-Path $RepoRoot 'scripts/publish-mobile-apk-remote.ps1') -Apk $Apk -Version $VersionName -VersionCode $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "远程发布腿失败 (exit=$LASTEXITCODE) —— 站点腿或版本登记未完成" }
+    }
     node scripts/check-mobile-download-leg.mjs --apk $Apk
     if ($LASTEXITCODE -ne 0) {
       throw "下载腿门失败 (exit=$LASTEXITCODE) —— 公网地址/体积/证书基准未全绿(2=skipped/未判定也不是绿),不许当成发布成功"
