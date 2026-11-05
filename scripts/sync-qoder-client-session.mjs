@@ -23,6 +23,8 @@
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+import { listProductPids } from './lib/trae-client-process.mjs'
+import { __test__ as traeSyncTest } from './sync-trae-client-session.mjs'
 import path from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -39,16 +41,44 @@ export function parseArgs(argv) {
     if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
     else if (a === '--help' || a === '-h') options.help = true
-    else if (a === '--') continue // pnpm 透传的裸分隔符,不是参数
+    else if (a === '--')
+      continue // pnpm 透传的裸分隔符,不是参数
     else options.error = `未知参数: ${a}`
   }
   return options
 }
 
+/**
+ * 本机 Qoder 客户端进程镜像名(2026-11-05 现读 = `Qoder CN.exe` ⇒ 国内版;国际版按
+ * `Qoder.exe` 一并探测,免得换版后心跳静默断供)。tasklist 解析判据单源 =
+ * scripts/lib/trae-client-process.listProductPids,本层只给清单、不写第二份解析(§0.6)。
+ */
+export const QODER_PRODUCTS = Object.freeze(['Qoder CN', 'Qoder'])
+
+/**
+ * 客户端此刻在不在跑 —— 三态绝不并桶(§0.3):true = 任一产品在跑;false = 都不在;
+ * null = 探测失败(未知)。未知与 true 同向处理(照样写心跳):代价不对称 ——
+ * 误判「没在跑」会让池把「客户端正在自己续期」读成「客户端已静默」,对登记了
+ * 永久保活的号即接管续票,当场把机主正在用的 Qoder 顶下线,而这条号掉线后要手机
+ * 验证码才能登回来(不可逆)。判据与 Trae 腿同一型(见 sync-trae-client-session.mjs)。
+ */
+export function probeQoderClientActive(env = process.env) {
+  let unknown = false
+  for (const product of QODER_PRODUCTS) {
+    const pids = listProductPids(product, env)
+    if (pids === null) {
+      unknown = true
+      continue
+    }
+    if (pids.length > 0) return true
+  }
+  return unknown ? null : false
+}
+
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
 /** 捕获结果 → 同步脚本的 stdin 载荷(纯函数,测试锁形状;凭据与账号身份键只走管道面,不进输出)。 */
-export function buildPayload(sessions, meta) {
+export function buildPayload(sessions, meta, heartbeatAt = null) {
   const accounts = (Array.isArray(sessions) ? sessions : [])
     .map((s) => {
       const uid = str(s?.uid)
@@ -85,7 +115,14 @@ export function buildPayload(sessions, meta) {
       }
     })
     .filter(Boolean)
-  return { providerCode: 'qoder', accounts, meta: meta ?? {} }
+  return {
+    providerCode: 'qoder',
+    accounts,
+    meta: meta ?? {},
+    // 客户端心跳时刻(三态折算单源 = Trae 腿 heartbeatOf);不写 = 让池侧心跳自然过期,
+    // 由调度面按 TTL 判「客户端静默」⇒ 永久保活号才被池接管续期。
+    ...(heartbeatAt ? { clientActiveAt: heartbeatAt } : {}),
+  }
 }
 
 /** 跑 qoder-capture.ps1(pwsh 7+),stdout 即 { sessions:[…] } */
@@ -196,13 +233,20 @@ async function main(argv) {
     process.stderr.write(`❌ 提取失败(未判定): ${captured.error}\n`)
     return 2
   }
-  const payload = buildPayload(captured.sessions, {
-    count: captured.sessions.length,
-    editions: captured.sessions.map((s) => str(s?.edition)).filter(Boolean),
-  })
+  // 心跳在捕获之后、落库之前取:探测的是「本轮跑起来时客户端在不在」,与票是否变化无关
+  const heartbeatAt = traeSyncTest.heartbeatOf(probeQoderClientActive(), new Date().toISOString())
+  const payload = buildPayload(
+    captured.sessions,
+    {
+      count: captured.sessions.length,
+      editions: captured.sessions.map((s) => str(s?.edition)).filter(Boolean),
+    },
+    heartbeatAt,
+  )
   process.stderr.write(
     `提取: ${payload.accounts.length} 条可用会话` +
-      `(uid=${payload.accounts.map((a) => String(a.uid).slice(0, 8)).join(',') || '-'})\n`,
+      `(uid=${payload.accounts.map((a) => String(a.uid).slice(0, 8)).join(',') || '-'}) ` +
+      `客户端心跳=${heartbeatAt ?? '未写(客户端未在跑)'}\n`,
   )
   if (payload.accounts.length === 0) {
     process.stderr.write('❌ 没有可回灌的会话(缺 uid/token)⇒ 未判定\n')
@@ -219,7 +263,7 @@ async function main(argv) {
   } else if (result.json) {
     const s = result.json
     process.stderr.write(
-      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} imported=${s.imported ?? 0} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
+      `回灌完成: applied=${s.applied} skipped=${s.skipped} missing=${s.missing} imported=${s.imported ?? 0} 心跳=${s.heartbeat ?? 0} failed=${s.failed}${s.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
     for (const r of s.rows ?? []) {
       process.stderr.write(
@@ -240,5 +284,13 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, buildPayload }
+export const __test__ = {
+  parseArgs,
+  buildPayload,
+  probeQoderClientActive,
+  QODER_PRODUCTS,
+  // 心跳折算与 Trae 腿必须是**同一个函数引用**(§0.6):测试拿引用相等钉它,
+  // 谁在这儿另写一份三态折算就会被判红
+  heartbeatOf: traeSyncTest.heartbeatOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

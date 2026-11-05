@@ -39,11 +39,20 @@ import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** 被扫的大屏目录(相对仓库根)。 */
+/**
+ * 被扫的大屏目录(相对仓库根)。
+ *
+ * 2026-11-05 改判:原三份路径钉的是 legacy 的「<端>/grafana/dashboards」树,而 3778408c72(11-04)
+ * 已把三棵 legacy 树整体退役删除、面板真身搬进「<端>/panel-defs/panels」。退役那枚同步更新了
+ * check-panel-datasource-wiring / check-grafana-datasource-wiring 的 DASHBOARD_TREES,唯独漏了
+ * 本门这份手抄清单 ⇒ 本门在被审面(HEAD)枚举到 0 枚,自述「未判定」并把 CI 全量档顶成 blocking 红。
+ * 现清单与 check-panel-datasource-wiring.mjs 的 DASHBOARD_TREES[].dashboards 逐字同源,
+ * 且不得把 legacy grafana 树登记回来(那枚提交里的 D13 复活锁仍生效)。
+ */
 const DASHBOARD_DIRS = [
-  'monitoring/grafana/dashboards',
-  'deploy/observability/grafana/dashboards',
-  'deploy/saas/grafana/dashboards',
+  'monitoring/panel-defs/panels',
+  'deploy/observability/panel-defs/panels',
+  'deploy/saas/panel-defs/panels',
 ]
 
 /** 扫发射点的代码根(相对仓库根)。 */

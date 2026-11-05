@@ -21,12 +21,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type * as readline from 'node:readline';
+import type * as CatalogCacheStoreModule from '../src/skills/catalog-cache-store.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const probe = vi.hoisted(() => ({ catalogReads: 0 }));
 vi.mock('../src/skills/catalog-cache-store.js', async (importOriginal) => {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- importOriginal 的泛型要模块类型,拆成 import type * 会与下方的值导入重复
-  const actual = await importOriginal<typeof import('../src/skills/catalog-cache-store.js')>();
+  const actual = await importOriginal<typeof CatalogCacheStoreModule>();
   return {
     ...actual,
     readSkillCatalog: (opts: Parameters<typeof actual.readSkillCatalog>[0]) => {
