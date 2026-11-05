@@ -14,7 +14,11 @@ export type {
   StatusSeverity,
 } from './features/status/StatusScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
-export { SettingsScreen } from './features/settings/SettingsScreen'
+export { SettingsScreen, SettingsLanguageSection } from './features/settings/SettingsScreen'
+export type {
+  SettingsLanguageOption,
+  SettingsLanguageSectionProps,
+} from './features/settings/SettingsScreen'
 export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
 export type {
   SecurityAuditItem,
