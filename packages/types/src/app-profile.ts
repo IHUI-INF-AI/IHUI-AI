@@ -232,17 +232,36 @@ export interface NotificationSettingsItem {
   marketingEnabled: boolean
 }
 
+/** 通知设置行(端侧数据驱动:key 为服务端偏好键,label 由端侧 i18n/映射提供) */
+export interface NotificationSettingsRow {
+  key: string
+  label: string
+  enabled: boolean
+}
+
+/** 通知设置页底部「更多入口」行(两端各自传自家可达目标) */
+export interface NotificationSettingsLink {
+  key: string
+  label: string
+  desc?: string
+  onPress: () => void
+}
+
 /** NotificationSettingsScreen props */
 export interface NotificationSettingsScreenProps {
   t: TFunction
-  settings: NotificationSettingsItem | null
+  items: readonly NotificationSettingsRow[]
   loading: boolean
   saving: boolean
   error: string
   success: string
-  onToggle: (key: keyof NotificationSettingsItem, value: boolean) => void
+  onToggle: (key: string, value: boolean) => void
   onSave: () => void
   onBack: () => void
+  /** 小程序有原生导航栏 ⇒ 传 false 隐藏共享屏自带返回头;RN 传 true。 */
+  showHeader?: boolean
+  extraLinks?: readonly NotificationSettingsLink[]
+  extraLinksTitle?: string
   colorScheme?: 'light' | 'dark'
 }
 
