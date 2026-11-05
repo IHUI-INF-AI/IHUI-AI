@@ -193,9 +193,12 @@ async def voice_stt(
 
         tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
         # 写入音频字节后立即关闭 fd,释放 Windows 文件锁
-        with os.fdopen(tmp_fd, "wb") as f:
-            f.write(audio_bytes)
-            f.flush()
+        f = os.fdopen(tmp_fd, "wb")
+        try:
+            await asyncio.to_thread(f.write, audio_bytes)
+            await asyncio.to_thread(f.flush)
+        finally:
+            await asyncio.to_thread(f.close)
         tmp_fd = -1  # 已关闭,避免 finally 重复 close
 
         text = await asyncio.to_thread(_transcribe_sync, model, tmp_path, language)

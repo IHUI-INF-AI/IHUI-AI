@@ -902,7 +902,9 @@ class SpecGenerator:
 
         for file_path, language in files:
             try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
+                content = await asyncio.to_thread(
+                    file_path.read_text, encoding="utf-8", errors="replace"
+                )
                 if len(content) > MAX_FILE_CHARS:
                     content = content[:MAX_FILE_CHARS]
                 if not content.strip():
@@ -1862,7 +1864,7 @@ class SpecGenerator:
             root = Path(workspace_path).resolve()
             scope_hash = self._compute_scope_hash(scope)
             target = root / ".ihui-agent" / "specs" / f"{scope_hash}.md"
-            target.write_text(new_content, encoding="utf-8")
+            await asyncio.to_thread(target.write_text, new_content, encoding="utf-8")
         except Exception as e:
             logger.warning("增强 spec 持久化失败: %s", e)
 

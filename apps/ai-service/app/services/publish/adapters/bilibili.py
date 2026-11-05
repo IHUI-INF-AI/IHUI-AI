@@ -20,6 +20,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -205,9 +206,10 @@ class BilibiliAdapter(BasePlatformAdapter):
             logger.warning("bilibili.publish upload_id parse 失败: %s", e, exc_info=True)
 
         try:
-            with open(video_path, "rb") as f:
+            f = await asyncio.to_thread(open, video_path, "rb")
+            with f:
                 for i in range(n_chunks):
-                    chunk = f.read(chunk_size)
+                    chunk = await asyncio.to_thread(f.read, chunk_size)
                     async with httpx.AsyncClient(timeout=300.0) as client:
                         part_resp = await client.put(
                             f"{upload_url}",

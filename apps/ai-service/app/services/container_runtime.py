@@ -557,7 +557,7 @@ class ContainerRuntime:
                     for rel, content in files.items():
                         p = Path(workdir) / rel
                         p.parent.mkdir(parents=True, exist_ok=True)
-                        p.write_text(content, encoding="utf-8")
+                        await asyncio.to_thread(p.write_text, content, encoding="utf-8")
                 argv, _shell = self._local_args(command)
                 stdin_data = None
                 cwd = workdir
@@ -656,7 +656,7 @@ class ContainerRuntime:
             )
             self._persist()
             if workdir:
-                shutil.rmtree(workdir, ignore_errors=True)
+                await asyncio.to_thread(shutil.rmtree, workdir, True)
             handle.done_event.set()
             logger.info(
                 "[container_runtime] 结束 run=%s status=%s exit=%s",

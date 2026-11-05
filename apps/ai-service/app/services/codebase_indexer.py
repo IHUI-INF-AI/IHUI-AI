@@ -1361,9 +1361,13 @@ class CodebaseIndexer:
                 if file_path.suffix.lower() in _DOC_EXTS:
                     # 文档格式:扫描轮仅读原始字节算 hash,昂贵的 anydoc 抽取留给切片轮
                     # (所以文档面这一轮不产指纹,近同改名对它们只走精确档)
-                    content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+                    content_hash = hashlib.sha256(
+                        await asyncio.to_thread(file_path.read_bytes)
+                    ).hexdigest()
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                     if not content.strip():
                         continue
                     content_hash = _file_content_hash(content)
@@ -1532,7 +1536,9 @@ class CodebaseIndexer:
                     # 失败则跳过该文件并记 error
                     content = await asyncio.to_thread(_extract_document_markdown, file_path)
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                 file_chunks = self._chunk_by_ast(content, language)
                 for c in file_chunks:
                     c.file_path = rel_path
@@ -1629,7 +1635,9 @@ class CodebaseIndexer:
                 # 文档格式:经 anydoc 抽取 Markdown 后入索引
                 content = await asyncio.to_thread(_extract_document_markdown, path)
             else:
-                content = path.read_text(encoding="utf-8", errors="replace")
+                content = await asyncio.to_thread(
+                    path.read_text, encoding="utf-8", errors="replace"
+                )
             if not content.strip():
                 return result
             chunks = self._chunk_by_ast(content, language)

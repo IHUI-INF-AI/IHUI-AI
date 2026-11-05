@@ -119,8 +119,7 @@ def _fail(tool: str, message: str) -> dict[str, Any]:
 
 async def _load_document(abs_path: str, ext: str) -> anydoc.Document:
     """读取文档字节并在线程池里调 anydoc.to_document，返回 Document 模型。"""
-    with open(abs_path, "rb") as f:
-        data = f.read()
+    data = await asyncio.to_thread(Path(abs_path).read_bytes)
     fmt = _EXT_TO_FORMAT.get(ext, "docx")
     return await asyncio.to_thread(_anydoc.to_document, data, cast("anydoc.Format", fmt))
 
@@ -189,8 +188,7 @@ async def extract_document_assets(arguments: dict[str, Any]) -> dict[str, Any]:
                 filename = f"{base}-{i}{_asset_extension(media_type)}"
                 file_path = os.path.join(out_dir, filename)
                 # 自生成文件名，绝不复用服务器 origin_part，防路径穿越
-                with open(file_path, "wb") as f:
-                    f.write(bytes(data))
+                await asyncio.to_thread(Path(file_path).write_bytes, bytes(data))
                 rel = os.path.relpath(file_path, PROJECT_ROOT).replace("\\", "/")
                 item["filename"] = filename
                 item["extension"] = _asset_extension(media_type).lstrip(".")

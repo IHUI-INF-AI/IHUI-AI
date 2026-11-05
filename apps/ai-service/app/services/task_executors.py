@@ -733,7 +733,9 @@ async def _exec_test_suite(ctx: TaskContext) -> dict[str, Any]:
         report: dict[str, Any] = {}
         if report_path is not None and report_path.is_file():
             with contextlib.suppress(Exception):
-                loaded = json.loads(report_path.read_text(encoding="utf-8"))
+                loaded = json.loads(
+                    await asyncio.to_thread(report_path.read_text, encoding="utf-8")
+                )
                 if isinstance(loaded, dict):
                     report = loaded
             with contextlib.suppress(OSError):
