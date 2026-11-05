@@ -140,7 +140,7 @@ export function BatchCheckInDialog({
             />
           ) : null}
           {result ? (
-            <div className="rounded-md border p-3 text-xs space-y-2">
+            <div className="font-[weight:inherit] rounded-md border p-3 text-label space-y-2">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="flex items-center gap-1.5">
                   {t('batchResultCreated')}

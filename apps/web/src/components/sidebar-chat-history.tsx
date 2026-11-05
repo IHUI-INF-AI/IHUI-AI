@@ -170,7 +170,7 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
   return res.data
 }
 
-type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
+type GroupKey = 'today' | 'thisWeek' | 'thisMonth'
 
 export function groupByDate(
   items: ConversationItem[],
@@ -178,21 +178,16 @@ export function groupByDate(
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   const DAY = 24 * 60 * 60 * 1000
-  // 本周 = 周一 00:00 起(不是"过去 7 天"滚动窗);本月 = 当月 1 号 00:00 起。
-  const startOfWeek = startOfToday - ((now.getDay() + 6) % 7) * DAY
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  const startOfWeek = startOfToday - 7 * DAY
 
   const buckets: Record<GroupKey, ConversationItem[]> = {
     today: [],
     thisWeek: [],
     thisMonth: [],
-    earlier: [],
   }
   for (const item of items) {
-    // 缺 lastMessageAt ⇒ 归「更早」;旧实现兜 t=0 会让它冒领「本月」。
-    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : Number.NaN
-    if (Number.isNaN(t) || t < startOfMonth) buckets.earlier.push(item)
-    else if (t >= startOfToday) buckets.today.push(item)
+    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : 0
+    if (t >= startOfToday) buckets.today.push(item)
     else if (t >= startOfWeek) buckets.thisWeek.push(item)
     else buckets.thisMonth.push(item)
   }
@@ -525,7 +520,7 @@ export function SidebarChatHistory({
         <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-1.5 px-2 py-3 text-label text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
           <span className="min-w-0 flex-1 truncate">{t('loading')}</span>
         </div>
@@ -543,7 +538,7 @@ export function SidebarChatHistory({
         <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-1.5 px-2 py-3 text-label text-muted-foreground">
           <LogIn className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t('loginRequired')}</span>
         </div>
@@ -1394,27 +1389,31 @@ export function SidebarChatHistory({
         )}
 
         {isLoading ? (
-          <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] flex items-center gap-2 px-2 py-3 text-label text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>{t('loading')}</span>
           </div>
         ) : queryError && rawItems.length === 0 ? (
           // D190:仅首屏失败(无任何已加载数据)才整块显示加载失败;
           // 翻页失败时 data 仍在(react-query v5 置 error 但保留 data),列表保持 + 底部重试入口
-          <div className="px-2 py-3 text-xs text-muted-foreground">{tCommon('loadFailed')}</div>
+          <div className="font-[weight:inherit] px-2 py-3 text-label text-muted-foreground">
+            {tCommon('loadFailed')}
+          </div>
         ) : filteredOut ? (
           // D20(G-11)+V3 #62:有会话、但被文件夹筛选或关键词筛到空 —— 必须走"未找到匹配"
           // 而不是"暂无任务记录"。此前判据顺序是 items.length===0 在前,所以搜不到时
           // 界面喊的是"你没有任何任务",清空关键词后文案又变回来 —— 两个完全不同的事实
           // 被同一句文案覆盖(判据 1 的"空态有明确文案"要求正是这一格)。
-          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] px-2 py-4 text-center text-label text-muted-foreground">
             {t('noResults')}
           </div>
         ) : items.length === 0 ? (
           // 真的一条会话都没有(首屏空库),给新建引导而不是"未找到"
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
-            <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
+              {tc('noHistory')}
+            </span>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -1495,7 +1494,7 @@ export function SidebarChatHistory({
         title={t('archiveChatTitle', { title: pendingArchive?.title ?? '' })}
         content={
           <label
-            className="flex items-center gap-2 text-xs text-muted-foreground"
+            className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground"
             data-testid="archive-confirm-no-ask"
           >
             <Checkbox
@@ -1588,5 +1587,4 @@ export function SidebarChatHistory({
     </>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

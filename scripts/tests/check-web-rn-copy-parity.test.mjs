@@ -125,8 +125,8 @@ test('T8 台账:到期即红;count 差额与缺字段点名;scopeFiles 只判本
   assert.equal(malformed.malformed.length, 3)
 })
 
-test('T9 自检全绿(17 例)', () => {
-  assert.equal(G.runSelfTest(), 17)
+test('T9 自检全绿(18 例)', () => {
+  assert.equal(G.runSelfTest(), 18)
 })
 
 test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {

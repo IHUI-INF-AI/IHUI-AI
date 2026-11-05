@@ -27,12 +27,17 @@ export function TemplateCard({ template, onUse, used }: TemplateCardProps) {
     <Card className="flex flex-col">
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">{template.name}</CardTitle>
-        <CardDescription className="text-xs">{template.description}</CardDescription>
+        <CardDescription className="font-[weight:inherit] text-label">
+          {template.description}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 min-w-0">
         <div className="flex flex-wrap gap-1.5">
           {template.sections.map((s) => (
-            <span key={s} className="rounded-md bg-muted px-2 py-0.5 text-xs text-foreground">
+            <span
+              key={s}
+              className="font-[weight:inherit] rounded-md bg-muted px-2 py-0.5 text-label text-foreground"
+            >
               {s}
             </span>
           ))}

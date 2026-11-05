@@ -50,9 +50,11 @@ export function SyncLogPanel({ logs, loading }: SyncLogPanelProps) {
       <CollapsibleContent className="mt-3">
         <div className="rounded-lg border bg-card">
           {loading ? (
-            <div className="p-3 text-sm text-muted-foreground">加载中…</div>
+            <div className="font-[weight:inherit] p-3 text-body text-muted-foreground">加载中…</div>
           ) : logs.length === 0 ? (
-            <div className="p-3 text-sm text-muted-foreground">暂无同步记录</div>
+            <div className="font-[weight:inherit] p-3 text-body text-muted-foreground">
+              暂无同步记录
+            </div>
           ) : (
             <ul className="space-y-1 p-3">
               {logs.map((log) => {
@@ -60,7 +62,7 @@ export function SyncLogPanel({ logs, loading }: SyncLogPanelProps) {
                 return (
                   <li
                     key={log.id}
-                    className="flex items-center gap-3 rounded-md px-2 py-1.5 text-xs hover:bg-accent/30"
+                    className="font-[weight:inherit] flex items-center gap-3 rounded-md px-2 py-1.5 text-label hover:bg-accent/30"
                   >
                     <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 font-medium', st.cls)}>
                       {st.label}
