@@ -2,25 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/change-phone/ChangePhoneScreen.tsx
-
-import { useI18n } from '@/i18n'
-import { logger } from '@/utils/logger'
-import { View, Text, Input } from '@tarojs/components'
-// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
-import { useFieldFocus } from '@/hooks/use-field-focus'
+/**
+ * 修改/绑定手机号 — 小程序薄壳
+ *
+ * UI 单源:packages/app/src/features/change-phone/ChangePhoneScreen.tsx
+ *   RN 消费点:apps/mobile-rn/src/screens/ChangePhoneScreen.tsx:153
+ * 平台能力(GET /user/profile、短信发送、pwdExist 查重、bindPhone)留在本端;
+ * 共享屏内零 Taro、零平台 API。旧验证码步骤与 web ChangePhoneModal 一致。
+ * i18n:共享屏按键经 PHONE_TEXT 映射到既有 user.phone.* / user.security.* 词条,
+ *   不允许渲染裸 key(scripts/tests/miniapp-shell-form.test.mjs T12 断言)。
+ */
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { useI18n } from '@/i18n'
+import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
+import { logger } from '@/utils/logger'
+import { ChangePhoneScreen } from '@ihui/rn-app/features/change-phone/ChangePhoneScreen'
 
-/**
- * 共享 ChangePhoneScreen 的 i18n 键 → 本端既有词条。
- * 未列出的键按原样走 i18n(不得回落到裸 key;门 299 T12 逐键断言)。
- */
-export const PHONE_TEXT: Record<string, string> = {
+/** 共享屏词条 → 本端既有词条(全部解析为人话;缺任一条 T12 必红) */
+const PHONE_TEXT: Record<string, string> = {
   'user.profile.changePhoneTitle': 'user.phone.bindTitle',
   'changePhone.selectNation': 'user.phone.selectNation',
   'user.profile.newPhonePlaceholder': 'user.phone.newPhonePlaceholder',
@@ -29,25 +33,22 @@ export const PHONE_TEXT: Record<string, string> = {
   'user.profile.resend': 'user.phone.resend',
   'user.profile.confirmChange': 'user.phone.bind',
   'changePhone.submitting': 'user.phone.binding',
+  'user.profile.oldPhone': 'user.phone.currentLabel',
+  'user.profile.oldCode': 'user.security.code',
+  'user.profile.sendOldCode': 'user.security.sendCode',
 }
 
 export default function Phone() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
   const [currentPhone, setCurrentPhone] = useState('')
-  const [step, setStep] = useState<1 | 2>(1)
-  // step 1: 验证当前手机号
   const [oldCode, setOldCode] = useState('')
-  const [oldCountdown, setOldCountdown] = useState(0)
-  // step 2: 绑定新手机号
+  const [oldCodeMin, setOldCodeMin] = useState(0)
   const [newPhone, setNewPhone] = useState('')
   const [newCode, setNewCode] = useState('')
-  const [newCountdown, setNewCountdown] = useState(0)
+  const [newCodeMin, setNewCodeMin] = useState(0)
   const [submitting, setSubmitting] = useState(false)
-  // 三个输入盒各自的运行时聚焦档(描边都在盒子上,不在 Input 上)
-  const ffOldCode = useFieldFocus()
-  const ffNewPhone = useFieldFocus()
-  const ffNewCode = useFieldFocus()
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -65,28 +66,32 @@ export default function Phone() {
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
 
+  useEffect(
+    () => () => {
+      if (oldTimerRef.current) clearInterval(oldTimerRef.current)
+      if (newTimerRef.current) clearInterval(newTimerRef.current)
+    },
+    [],
+  )
+
   useDidShow(() => {
     // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
     gate.waitUntilReady(() => {
       void (async () => {
         try {
           const profile = await getProfile()
-          const p = profile.phone || ''
-          setCurrentPhone(p)
-          // 已绑定手机号 → 进入两步流程第一步;未绑定 → 直接进入第二步绑定
-          setStep(p && p.length === 11 ? 1 : 2)
+          setCurrentPhone(profile.phone || '')
         } catch (e) {
           logger.error('user/phone', t('userPhone.q1'), e)
-          setStep(2)
         }
       })()
     })
   })
 
   function startOldCountdown() {
-    setOldCountdown(60)
+    setOldCodeMin(60)
     oldTimerRef.current = setInterval(() => {
-      setOldCountdown((prev) => {
+      setOldCodeMin((prev) => {
         if (prev <= 1) {
           if (oldTimerRef.current) clearInterval(oldTimerRef.current)
           return 0
@@ -97,9 +102,9 @@ export default function Phone() {
   }
 
   function startNewCountdown() {
-    setNewCountdown(60)
+    setNewCodeMin(60)
     newTimerRef.current = setInterval(() => {
-      setNewCountdown((prev) => {
+      setNewCodeMin((prev) => {
         if (prev <= 1) {
           if (newTimerRef.current) clearInterval(newTimerRef.current)
           return 0
@@ -109,8 +114,8 @@ export default function Phone() {
     }, 1000)
   }
 
-  async function onGetOldCode() {
-    if (oldCountdown > 0) return
+  const onSendOldCode = useCallback(async () => {
+    if (oldCodeMin > 0) return
     const p = (currentPhone || '').trim()
     if (!p || p.length !== 11) {
       onToast(tt('user.phone.noCurrent', '当前未绑定手机号'), { kind: 'error' })
@@ -124,20 +129,10 @@ export default function Phone() {
       logger.error('user/phone', t('userPhone.q2'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
-  }
+  }, [currentPhone, oldCodeMin, tt, t])
 
-  function onVerifyOld() {
-    if (oldCode.trim().length !== 6) {
-      onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
-      return
-    }
-    // 当前项目未提供单独的"验证当前手机号"接口,直接进入第二步
-    // 绑定新手机号时后端会再次校验
-    setStep(2)
-  }
-
-  async function onGetNewCode() {
-    if (newCountdown > 0) return
+  const onSendCode = useCallback(async () => {
+    if (newCodeMin > 0) return
     const phone = (newPhone || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
       onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
@@ -167,14 +162,18 @@ export default function Phone() {
       logger.error('user/phone', t('userPhone.q4'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
-  }
+  }, [currentPhone, newCodeMin, newPhone, tt, t])
 
-  async function onSubmit() {
+  const onSubmit = useCallback(async () => {
     if (submitting) return
     const phone = (newPhone || '').trim()
     const code = (newCode || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
       onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
+      return
+    }
+    if (currentPhone && oldCode.trim().length !== 6) {
+      onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
     if (code.length !== 6) {
@@ -192,147 +191,44 @@ export default function Phone() {
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [currentPhone, newCode, newPhone, oldCode, submitting, t, tt])
+
+  const sharedT = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      const mapped = PHONE_TEXT[key]
+      const next = params && 'seconds' in params ? { ...params, s: params.seconds } : params
+      return t(mapped ?? key, next)
+    },
+    [t],
+  )
 
   return (
     <ThemeRoot>
-      {/* 对齐 RN 共享 ChangePhoneScreen:页面浅灰底 + 内容边距 48rpx;居中大标题 44rpx/700 +
-          说明行 28rpx 次级字色;输入盒描边 border.light + muted 底 + 高 100rpx + 圆角 24rpx;
-          发送按钮 28rpx/700 品牌灰蓝纯文字;提交钮品牌底 100rpx 高圆角 24rpx */}
-      <View className="min-h-screen bg-background">
-        {step === 1 ? (
-          <View className="p-[48rpx]">
-            <Text className="block text-center text-[length:44rpx] font-bold text-foreground">
-              {tt('user.phone.step1Title', '验证当前手机号')}
-            </Text>
-            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-body text-muted-foreground">
-              {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
-            </Text>
-            <View className="mb-[32rpx]">
-              <View
-                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
-                style={ffOldCode.focusStyle}
-              >
-                <Input
-                  className="h-full flex-1 text-title text-foreground"
-                  {...ffOldCode.spread}
-                  type="number"
-                  maxlength={6}
-                  placeholder={tt('user.security.code', '请输入验证码')}
-                  value={oldCode}
-                  onInput={(e) => setOldCode(e.detail.value)}
-                />
-                <Text
-                  className={`shrink-0 pl-[24rpx] text-body ${
-                    oldCountdown > 0
-                      ? 'text-muted-foreground'
-                      : 'font-bold text-[var(--color-brand-accent-deep)]'
-                  }`}
-                  onClick={onGetOldCode}
-                >
-                  {oldCountdown > 0
-                    ? `${oldCountdown}s`
-                    : tt('user.security.sendCode', '获取验证码')}
-                </Text>
-              </View>
-            </View>
-            <View
-              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
-                oldCode.trim().length === 6 ? '' : 'opacity-60'
-              }`}
-              hoverClass="opacity-60"
-              onClick={onVerifyOld}
-            >
-              <Text className="text-title font-bold text-[var(--color-surface-light)]">
-                {tt('user.phone.next', '下一步')}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View className="p-[48rpx]">
-            <Text className="block text-center text-[length:44rpx] font-bold text-foreground">
-              {currentPhone
-                ? tt('user.phone.step2Title', '绑定新手机号')
-                : tt('user.phone.bindTitle', '绑定手机号')}
-            </Text>
-            <Text className="mb-[48rpx] mt-[16rpx] block text-center text-body text-muted-foreground">
-              {currentPhone
-                ? `${tt('user.phone.verifiedTip', '当前手机号已通过验证')}: ${maskedPhone}`
-                : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
-            </Text>
-            <View className="mb-[32rpx]">
-              <View
-                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
-                style={ffNewPhone.focusStyle}
-              >
-                <Input
-                  className="h-full flex-1 text-title text-foreground"
-                  {...ffNewPhone.spread}
-                  type="number"
-                  maxlength={11}
-                  placeholder={tt('user.phone.newPhonePlaceholder', '请输入新手机号')}
-                  value={newPhone}
-                  onInput={(e) => setNewPhone(e.detail.value)}
-                />
-              </View>
-            </View>
-            <View className="mb-[32rpx]">
-              <View
-                className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]"
-                style={ffNewCode.focusStyle}
-              >
-                <Input
-                  className="h-full flex-1 text-title text-foreground"
-                  {...ffNewCode.spread}
-                  type="number"
-                  maxlength={6}
-                  placeholder={tt('user.security.code', '请输入验证码')}
-                  value={newCode}
-                  onInput={(e) => setNewCode(e.detail.value)}
-                />
-                <Text
-                  className={`shrink-0 pl-[24rpx] text-body ${
-                    newCountdown > 0
-                      ? 'text-muted-foreground'
-                      : 'font-bold text-[var(--color-brand-accent-deep)]'
-                  }`}
-                  onClick={onGetNewCode}
-                >
-                  {newCountdown > 0
-                    ? `${newCountdown}s`
-                    : tt('user.security.sendCode', '获取验证码')}
-                </Text>
-              </View>
-            </View>
-            <View
-              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
-                /^1\d{10}$/.test((newPhone || '').trim()) &&
-                newCode.trim().length === 6 &&
-                !submitting
-                  ? ''
-                  : 'opacity-60'
-              }`}
-              hoverClass="opacity-60"
-              onClick={onSubmit}
-            >
-              <Text className="text-title font-bold text-[var(--color-surface-light)]">
-                {submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}
-              </Text>
-            </View>
-            <View className="mt-[24rpx] rounded-xl bg-muted p-[24rpx]">
-              <Text className="mb-[12rpx] block text-body font-semibold text-[var(--color-brand-accent-deep)]">
-                {tt('user.phone.noticeTitle', '【更换后影响】')}
-              </Text>
-              <Text className="block text-body leading-[1.6] text-foreground">
-                {tt(
-                  'user.phone.noticeDesc',
-                  '更换成功后,登录、找回密码、消息通知等将使用新手机号;旧手机号将无法再用于本账号登录,请确认后再操作。',
-                )}
-              </Text>
-            </View>
-          </View>
-        )}
-      </View>
+      <ChangePhoneScreen
+        t={sharedT}
+        phoneNumber={newPhone}
+        codeValue={newCode}
+        phoneHead="+86"
+        nationShow={false}
+        codeMin={newCodeMin}
+        sendCodeShow={false}
+        tip=""
+        submitting={submitting}
+        nations={[]}
+        onPhoneChange={setNewPhone}
+        onCodeChange={setNewCode}
+        onToggleNationShow={() => {}}
+        onSelectNation={() => {}}
+        onSendCode={onSendCode}
+        onSubmit={onSubmit}
+        onBack={() => Taro.navigateBack()}
+        oldPhone={currentPhone ? maskedPhone : undefined}
+        oldCode={oldCode}
+        oldCodeMin={oldCodeMin}
+        onOldCodeChange={setOldCode}
+        onSendOldCode={onSendOldCode}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }

@@ -7364,7 +7364,10 @@
       "codePlaceholder": "Enter 6-digit code",
       "sendNewCode": "Get New Code",
       "resend": "Retry in {seconds}s",
-      "confirmChange": "Confirm Change"
+      "confirmChange": "Confirm Change",
+      "oldPhone": "Current Phone",
+      "oldCode": "Old Phone Code",
+      "sendOldCode": "Get Old Code"
     }
   },
   "NavBar": {

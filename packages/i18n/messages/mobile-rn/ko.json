@@ -7364,7 +7364,10 @@
       "codePlaceholder": "6자리 인증코드 입력",
       "sendNewCode": "새 코드 받기",
       "resend": "{seconds}초 후 재시도",
-      "confirmChange": "변경 확인"
+      "confirmChange": "변경 확인",
+      "oldPhone": "현재 전화번호",
+      "oldCode": "기존 전화번호 인증코드",
+      "sendOldCode": "기존 코드 받기"
     }
   },
   "NavBar": {

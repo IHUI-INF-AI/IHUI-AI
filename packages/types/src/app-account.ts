@@ -326,6 +326,12 @@ export interface ChangePhoneScreenProps {
   onSendCode: () => void
   onSubmit: () => void
   onBack: () => void
+  /** 旧手机号(传入即渲染“当前手机号 + 旧验证码”安全步骤,缺省不渲染) */
+  oldPhone?: string
+  oldCode?: string
+  oldCodeMin?: number
+  onOldCodeChange?: (text: string) => void
+  onSendOldCode?: () => void
   colorScheme?: 'light' | 'dark'
 }
 
