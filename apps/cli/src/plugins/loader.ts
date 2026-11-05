@@ -17,6 +17,8 @@
  * 分层(goal-b49/W2 拆分,AGENTS §3 每页 <250 行;判据一条没动,只是换了住处):
  *   - `manifest-scan.ts` — 单份清单的读取/最小校验/规范化 + 判别码→严重级唯一表
  *   - `contribution-audit.ts` — 贡献词表的运行期消费方(逐档裁决 + 默认拒 + findings→诊断)
+ *   - `activation-events.ts` — 激活词表的运行期消费方(装载/延迟/拒绝三态 + findings→诊断)
+ *   - `permission-names.ts` — 声明式权限名 → 正牌 scope 的归属表(数据类判定仍只有一把尺)
  *   - 本文件 — 目录扫描、同名歧义裁决、三个装载出口
  *
  * 想知道"哪些清单被跳过了、为什么"调 loadPluginsWithDiagnostics();
@@ -59,6 +61,7 @@ import {
   type ContributionFinding,
   type PluginContributionAudit,
 } from './contribution-audit.js';
+import { activationDiagnosticsOf, activationInputOf, classifyActivations, summarizeActivations, type ActivationFinding, type PluginActivationAudit } from './activation-events.js';
 
 /**
  * 拆分前后本文件的**导出集逐字不变**(形状锁 = `tests/plugin-contribution-diagnostic-dispatch.test.ts`)。
@@ -81,9 +84,11 @@ interface ManifestCandidate {
   definition: PluginDefinition;
 }
 
-/** 内部扫描结果 = 装载结果 + 贡献裁决(PluginLoadResult 是 types.ts 的既有契约,不扩字段) */
+/** 内部扫描结果 = 装载结果 + 贡献裁决 + 激活事件裁决(PluginLoadResult 是 types.ts 的既有契约,不扩字段) */
 export interface ScanResult extends PluginLoadResult {
   contributions: PluginContributionAudit;
+  /** goal-b49/W6:激活事件的三态裁决(装载/延迟/拒绝),判据单源见 `activation-events.ts` */
+  activations: PluginActivationAudit;
 }
 
 /**
@@ -102,6 +107,8 @@ function scanPlugins(opts: LoadPluginsOptions): ScanResult {
   const diagnostics: PluginDiagnostic[] = [];
   /** 逐档贡献裁决(每份在盘的清单恰好贡献 0..N 条,取决于它声明了几档) */
   const findings: ContributionFinding[] = [];
+  /** 逐档激活裁决(goal-b49/W6):每份清单声明了几个事件就出几条,未声明零条 */
+  const activationFindings: ActivationFinding[] = [];
   /** name → 声明它的候选(长度 >1 即为歧义) */
   const candidates = new Map<string, ManifestCandidate[]>();
 
@@ -114,7 +121,7 @@ function scanPlugins(opts: LoadPluginsOptions): ScanResult {
     diagnostics.push(unexpectedDiagnostic(dir, err));
   }
   if (!isDirectory) {
-    return { plugins, diagnostics, contributions: summarizeContributions(findings) };
+    return { plugins, diagnostics, contributions: summarizeContributions(findings), activations: summarizeActivations(activationFindings) };
   }
 
   /** 收下一份清单:坏清单只留诊断(恰好一条)并继续,好清单进候选等待歧义裁决 */
@@ -127,6 +134,8 @@ function scanPlugins(opts: LoadPluginsOptions): ScanResult {
       // 贡献裁决对**每一份通过最小校验的清单**给出,包括后来因同名歧义被丢弃的那份:
       // 歧义裁决管"装不装",本管"声明了什么、本宿主吃不吃得下",两者互不遮蔽。
       findings.push(...classifyContributions(contributionInputOf(outcome.manifest, definition.name, file)).findings);
+      // 激活事件同批逐档裁决(goal-b49/W6):与贡献一样,管的是"声明了什么、本宿主能不能真触发"
+      activationFindings.push(...classifyActivations(activationInputOf(outcome.manifest, definition.name, file)).findings);
       const bucket = candidates.get(definition.name);
       if (bucket) bucket.push({ name: definition.name, file, definition });
       else candidates.set(definition.name, [{ name: definition.name, file, definition }]);
@@ -198,7 +207,8 @@ function scanPlugins(opts: LoadPluginsOptions): ScanResult {
   // 拒档进主通道(goal-b49/W2):非 accepted 的裁决各摊一条 warning 诊断,与清单级诊断同一条数组、
   // 同一个派发出口(agent.ts 的 reportPluginDiagnostics)——不另开第二条通道,也不升任何档。
   diagnostics.push(...contributionDiagnosticsOf(findings));
-  return { plugins, diagnostics, contributions: summarizeContributions(findings) };
+  diagnostics.push(...activationDiagnosticsOf(activationFindings));
+  return { plugins, diagnostics, contributions: summarizeContributions(findings), activations: summarizeActivations(activationFindings) };
 }
 
 /**
