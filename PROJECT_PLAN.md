@@ -3955,6 +3955,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - [ ]（原 Y-12） RP-7 (2026-10-29) **公网腿 p95 响应 8 秒级（api.aizhs.top）**:机器外视角实测(GitHub App 最近 100 条回调投递,时间跨度 03:03:46Z→03:06:03Z,约 2.3 分钟)成功 95 条中 p50=0.69s、p95=8.34s、max=8.72s,直方图 <0.5s 只有 20 条、>=2s 有 21 条 ⇒ 手机用户走这条腿会持续感到"转圈"。先按维度拆开量(隧道边缘 RTT / 源站处理耗时 / 冷启动排队),再决定是加源站并发还是把该端点挪到不经隧道的臂;判"腿坏"必须用外部正证(GitHub 投递成功率),不得拿本机 curl 自环读数定责
 - [ ] O69 (2026-11-01) 本机 dev 库口令轮换器已入库但**没挂调度** ⇒ 照 `git-guardian.mjs` 的 `sweepExposedCredentialRotation()` 形态挂一轮巡检（`--check` 先行、只在无活服务窗口 `--apply`、结论写"未判定"、节流戳落 `.ihui-agent/state/`），并补镜像用例钉"活服务在场 ⇒ 整轮让路且不记绿"。
 - [ ] S-26 (2026-11-06) **合流时活文档取的是工作树那份滞后副本,把已入库的对侧旧行带回落 later ⇒ F9 反复拦 converge**:现读三面 HEAD=0 / origin/main=0 / **工作树=2 命中**(Y-70 11-02、11-03 两行,且工作树那两行带未提交的 `进行中@…/qoder-rn-release` 牌) ⇒ 两侧账面早已没有这个编号,唯一还带着它的是盘上副本;`git-sync-converge.mjs` 的活文档行级 union 把它带回合并结果 ⇒ F9「基线键集里没有的编号」六轮拒绝推进,而 `plan-collide-renumber.mjs --apply` 按自己的 base 判「新增撞号组 0 ⇒ 无需让号」(两把尺输入面不同,都不算错)。**不许的两种修法**:覆盖工作树副本(= 丢持牌那席的在飞现场)、借 `--update-baseline` 把 F9 键集加宽(= 给新撞号发通行证,§只许收窄)。出路=给 converge 的活文档取材面补一档"只取两侧 blob、不取工作树副本"(与 §5b 把活文档排除在索引自愈之外并不冲突:那一条治的是回盘,这一条治的是合并取材),同批配成对用例:工作树滞后含已入库旧行 ⇒ 归并结果不得出现该键;持牌行真在飞 ⇒ 仍不得覆盖。 **解锁**:该器物落地后重跑 converge 即通(本行由 object-space-land 落,未触碰工作树)。
+- [ ] S-28 (2026-11-06) 〔归:机主凭据面〕**号池两枚死号只能由机主供值解锁:MiniMax 两枚需把 mcode 切到该号登一次再回灌 / OpenCode 一枚需新建 API key**:与保活链无关(强保与回灌已闭环),这三枚各自卡在一手事实上——① minimax `auto:b9d`/`auto:1f9`(票 10-27 过期、从未刷成):其适配器明写"mcode 的 OAuth 刷新端点未实证,不实现 refreshToken,401 自愈靠重新导入",且 minimax 稳定身份是 recordKey(`uid=auto:sha256(recordKey:token)` 随票旋转而变),本机 mcode 现登录的是**另一枚**(`auto:39c7`,dry-run 判 same-token)⇒ 出路=在 mcode 登这两个号之一,再跑 `node scripts/sync-minimax-client-session.mjs`;② opencode `auto:356`(上游 401 `api_key_expired`,适配器注:该错**不可续期、重登无效**)⇒ 需在 opencode 控制台新建 key 后走 `node scripts/relay-account-pool.mjs --from opencode`(本机 auth.json 那枚失效凭据已按 §26 摘净并逐字节备份,agent 不代登录/代注册账号);③ trae `32077461` **结构性无救**(GetUserToken 401 + refreshExpiresAt 为 NULL + is_enabled=false + Trae 已禁验证码重登,本仓无任何再铸票通道)⇒ 它不占本票,事实已在提交信息留痕。解锁:机主任做一项后回话,我跑回灌/导入并当场验健康;两枚确认不救则本行摘除。
   现读:工作树 `PROJECT_PLAN.md` 13887 行 vs HEAD 7240 行(工作树独有 7150 行 = 已被归档搬走的正文仍躺在他人**未提交**的副本里)。
   **零副作用实证**:把工作树那份 blob 只放进私有 `GIT_INDEX_FILE` 探针索引、按 `--staged` 喂守门 84 ⇒ **RC=0**,并打印"✅ 反回退守门通过(判定 1 个文件,无历史版本回写)"。
   根因在判据形状:84 的 R1 要求"暂存 blob **字节级等于**该路径某祖先版本",而这份副本是 `祖先 ⊕ 他人新增` 的混合体 ⇒ 永不等于任何祖先 ⇒ 条件不成立 ⇒ 整型隐身。
@@ -31734,15 +31735,103 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 证据：loader.ts:61 注释自承"非 web 端会把[ICU]语法原样吐成文案"——根因正是 locale 没透传，英文 plural/select 在非 zh 语言下错位（如渲染成 "1 context sources in this turn"）。
   - 收口：非 web 端 `t()` 接入运行时 locale，或在 loader 层按消息包语言兜底透传。
 - [ ] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
-- [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-- [ ] Y-70 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（认领已释放@2026-11-05/stale-claim-strip#mw330uhz-13）
   - 后果：覆盖安装判定失败、Google Play 拒收"versionCode 未递增"；属 latent 缺陷，依赖 CI 稳定注入才能规避。
   - 收口：回退值改分钟/秒粒度（如 `YYMMDDHHmm`），或构建失败而非复用旧值。
 #### 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计）
 - **排除 A · "RN 渲染 `packages/app` 的 `PayButton`/`TabBar`（DOM）即崩"**：实读 `packages/app/src/index.ts:472` 确实 `export { PayButton, TabBar } from './components'`（DOM 实现，见 `PayButton.tsx:9` 引 `lucide-react`、`TabBar.tsx:18` 注释"用 div/span/img"）。但全仓无任何 app 在 `package.json` 依赖 `@ihui/app`，且 `apps/mobile-rn` 用的是自己的 `apps/mobile-rn/src/components/TabBar.tsx`（RN 原生），根本不引入该 barrel ⇒ 当前不会触发。属"潜在 footgun"而非现行崩溃，不列为 BUG，仅在门禁层建议对 `@ihui/app` 加 RN 引用守卫。
 - **排除 B · "benchmarks/gen.mjs 写字面量 `\\n`"**：实读 `benchmarks/gen.mjs:51-52` 为 `l.replace(/\\/g,'\\\\').replace(/'/g,"\\'")` + `].join('\n')`——是对反斜杠/单引号的**正确转义**，`.join('\n')` 是真实换行而非两字符字面量。原报告把正确转义误读成 bug，撤销。
 - **待核（本次未直接核验、不强行登记）**：① mobile-cap 权限声明与已装插件是否匹配；② `capacitor.config` 是否用 `server.url` 远程加载导致 webDir 白拷；③ release 是否缺 `signingConfig`；④ 亮色模式状态栏近黑；⑤ 推送注册状态前后矛盾；⑥ python SDK `agent_engine.py:603` 的 `stream=True` 是否真的使调用崩。这几条要么证据不足、要么需运行态验证，留待下一轮定向核验，不占派单额度。
-
+### 第三轮补扫（ai-service 网络 / DTO 全量 / scripts 业务 / SQL 迁移 / web-api 五面并行深审，BUG-75~92）
+- [ ] BUG-75 **ai-service 语雀连接器在 async 函数内用同步 `requests.get` 阻塞整个事件循环**：模块级 `def _request` 调 `requests.get`，却被 `async def sync` / `async def fetch_document` 直接同步调用，任一语雀请求卡住即冻结所有协程。(登记@2026-11-06;归属:机主)
+  - 位置：`apps/ai-service/app/services/connectors/yuque.py :: import requests(37) / def _request(65) / return requests.get(69)` 被 `async def sync(110)`、`async def fetch_document(160)` 调用
+  - 判据：`return requests.get(url, params=params, headers={...}, timeout=timeout,)` 在同步 `_request`；调用点 `html = _request(f'https://www.yuque.com/{user}/{repo}').text` 在 `async def sync` 内
+  - 对照：同目录 `wecom.py`/`feishu.py`/`dingtalk.py` 均用 `async with httpx.AsyncClient(timeout=...) as client: await client.get(...)`
+  - 收口：把 `_request` 改为 `httpx.AsyncClient` + `await`，或至少 `await asyncio.to_thread(requests.get, ...)`
+- [ ] BUG-76 **ai-service 微信发布库把 app_secret/access_token 拼进 URL query（微信协议强制 token 在 query，非代码可消除；残余风险=凭据经 httpx DEBUG 日志/反代 access_log/异常上下文泄露，缓解=日志脱敏+限 DEBUG 级）**：`get_access_token`/`upload_image`/`upload_media` 等多处 URL 带 `secret=`/`access_token=`。(登记@2026-11-06;归属:机主)
+  - 位置：`apps/ai-service/app/skills/content_engine/lib/wechat_publish.py :: get_access_token(116) / upload_image(140) / upload_media(155,170,199...)`
+  - 判据：`url = f'{API_BASE}/token?grant_type=client_credential&appid={app_id}&secret={app_secret}'`；`url = f'{API_BASE}/media/uploadimg?access_token={token}'`
+  - 对照：同仓 `providers/gemini_provider.py::_auth_headers` 明确凭据只走头、绝不进 URL 并注释 `?key=` 会落 DEBUG 日志；但微信系接口协议强制 query 带 token，代码无法规避
+  - 收口：日志层对 `access_token=`/`secret=` 做正则脱敏，运营环境勿开 httpx DEBUG
+- [ ] BUG-77 **ai-service 企业微信连接器把 corpsecret 放进请求 params（企业微信 gettoken 协议强制 corpid+corpsecret 在 query，非代码可消除；残余风险同 BUG-76，缓解=日志脱敏）**：`WecomConnector.get_access_token` 把 `corpsecret` 进 query。(登记@2026-11-06;归属:机主)
+  - 位置：`apps/ai-service/app/services/connectors/wecom.py :: WecomConnector.get_access_token(78)`
+  - 判据：`params = {'corpid': self.corpid, 'corpsecret': self.corpsecret}` 紧随 `resp = await client.get(url, params=params)`
+  - 对照：同仓 `core/sso.py` OIDC 用 POST body 传 `client_secret` 不进 query；但企业微信官方 gettoken 接口要求 query 携带，无法改
+  - 收口：日志脱敏擦除 `corpsecret=...`；运营环境勿开 httpx DEBUG
+- [ ] BUG-78 **通知未读数契约错位：后端 `/notifications/unread-count` 与 `/badge` 均 `success({ count })`，而 api-client `getUnreadCount()` 声明 `Promise<ApiResult<UnreadCount>>`、`UnreadCount` 是含 message/notification/customerService/total 四字段对象；任何读 `res.data.notification/total` 的消费方都拿 `undefined`**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/api/src/routes/notifications.ts:171-173,758-761` ⇒ `return reply.send(success({ count }))`；`packages/api-client/src/endpoints/notification.ts:190`；`packages/types/src/notification.ts:159-165`
+  - 判据：`success({ count })` vs `export interface UnreadCount { message:number; notification:number; customerService:number; total:number }`
+  - 对照：web 现靠列表 `unread` 字段与本地计算绕开，但 api-client 类型错误会让 TS 消费方误信四字段存在
+  - 收口：后端改回 `success({ message, notification, customerService, total })`，或把 `UnreadCount` 收敛成 `{ count:number }` 并修正所有消费点
+- [ ] BUG-79 **通知模块 `getMessages`(/api/messages) 声明 `ApiResult<PageData<MessageItem>>`，`MessageItem` 含 `fromUserId/fromNickname/fromAvatar`，但后端 `findEduMessages` 实回 `EduMessage`（列 memberId/senderId/title/content/msgType/isRead/createdAt），发件人三字段在响应中恒为 `undefined`**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/api-client/src/endpoints/notification.ts:38-42`；`packages/types/src/notification.ts:147-156`；`apps/api/src/routes/message.ts:194-219` → `findEduMessages` → `packages/database/src/schema/message.ts:51-71`
+  - 判据：`eduMessages` 无 `fromUserId/fromNickname/fromAvatar`；消费侧 `MessageItem` 期望这三字段
+  - 对照：web 实际用的聊天历史加载器是 `chat.ts:573` 的 `getMessages(id,{cursor,direction})`（同名不同源），本函数是通知模块对 `/api/messages` 的错误契约绑定
+  - 收口：把 `/api/messages` 的消费类型改回 `EduMessage` 形状，或后端补发件人字段
+- [ ] BUG-80 **通知列表「只看未读」过滤失效：api-client `getNotifications` 把 `isRead` 序列化为 `?isRead=true`，但后端 `listNotificationsQuery` 只解析 `unread`，`isRead` 参数被忽略，`unreadOnly` 永远 `undefined`，返回全量**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/api-client/src/endpoints/notification.ts:71`；`apps/api/src/routes/notifications.ts:48-59`
+  - 判据：`listNotificationsQuery` 仅 `unread: z.transform(...).pipe(z.boolean().optional())`；消费侧 query 键名 `isRead` 与后端 `unread` 不一致
+  - 对照：无（两侧键名各自写死未对齐）
+  - 收口：统一键名（消费侧改 `unread` 或后端 zod 加 `isRead` 别名）
+- [ ] BUG-81 **客服会话状态枚举错位：后端工单 status 为 `['pending','open','resolved','closed','rejected']`，而消费侧 `CustomerServiceSession.status` 类型是 `'pending'|'active'|'closed'`——`active` 后端永不产出（用 `open`），`open/resolved/rejected` 失去类型保障，消费侧对 `open` 是死分支**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/api/src/routes/customer-service.ts:81`；`packages/types/src/notification.ts:177`；`packages/api-client/src/endpoints/notification.ts:132-137`
+  - 判据：后端 z.enum `['pending','open','resolved','closed','rejected']` vs 类型 `'pending'|'active'|'closed'`
+  - 对照：无
+  - 收口：把类型枚举收敛成与后端一致（加 `open/resolved/rejected`，删 `active`）
+- [ ] BUG-82 **`scripts/seed-all-providers.mjs` 在 `DATABASE_URL` 缺失时用明文 `postgres://postgres:postgres@localhost:5432/ihui` 作兜底 DSN，误在无该变量的环境运行且本机口令可用时会连错库/用弱口令连库**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/seed-all-providers.mjs:483` :: `postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', { max:4, prepare:false })`
+  - 判据：`const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', {...})`
+  - 对照：同仓 `seed-ai-feed-source.mjs:27-31` 在缺失环境变量时 `console.error('[FATAL] DATABASE_URL 未设置'); process.exit(1)` 不内置口令
+  - 收口：删除兜底默认，缺失即 fail-closed 退出
+- [ ] BUG-83 **`scripts/scan-upstream-models.mjs` 同样在 `DATABASE_URL` 缺失时兜底明文 `postgres://postgres:postgres@localhost:5432/ihui`，与上条同源缺陷**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/scan-upstream-models.mjs:94` :: `const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'`
+  - 判据：`const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'`
+  - 对照：`seed-ai-feed-source.mjs` 缺失即退出的正确写法
+  - 收口：删除兜底默认，缺失即退出
+- [ ] BUG-84 **`scripts/seed-ai-feed-source.mjs` 先 `DELETE FROM ai_feed_source` 再循环 `INSERT`，既无 `sql.begin` 事务也无 `--dry-run`；任一 INSERT 失败则整表被清空而部分回填，留脏数据且不可原子回滚**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/seed-ai-feed-source.mjs:49-63` :: `const cleared = await sql\`DELETE FROM ai_feed_source\`` + INSERT 循环，外层仅 try/catch 退
+  - 判据：第12行注释「幂等:先清空再插入」；第49行 DELETE，第52-63行 INSERT 循环，无 `sql.begin`、无 `--dry-run`
+  - 对照：应包 `await sql.begin(async tx => { await tx\`DELETE…\`; for(…) await tx\`INSERT…\` })`；`scan-upstream-models.mjs` 已有 `--dry-run`
+  - 收口：包事务 + 加 `--dry-run` 开关
+- [ ] BUG-85 **迁移 `0126_ai-world-sync.sql` 对已存在的 `ai_world_categories`/`ai_world_items` 表新增 `NOT NULL` 列（`slug`/`kind`/`source`）却无 `DEFAULT`，若这两张表在生产已有数据，迁移直接在 `ADD COLUMN ... NOT NULL` 处报错中断，阻断整轮部署**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0126_ai-world-sync.sql:20,24,28` :: `ADD COLUMN slug varchar(100) NOT NULL` / `kind varchar(32) NOT NULL` / `source varchar(200) NOT NULL`
+  - 判据：该文件 17-19 行已对这两表做 `ALTER COLUMN`，证明是存量表；同仓 0065/0122/0130 加 NOT NULL 前均带 `DEFAULT`
+  - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；本处核心列漏 DEFAULT
+  - 收口：加 `DEFAULT ''`/`DEFAULT 'unknown'` 或先加可空列回填再 `SET NOT NULL`
+- [ ] BUG-86 **迁移 `0212_phase2_refund_invoice_fk.sql` 把 `edu_refunds.order_type` varchar→integer 用 `USING CASE … ELSE COALESCE(CAST(order_type AS integer),0) END`；PG 中 `CAST('' AS integer)` 及任意非数字串（如 `gift`/`recharge`）先抛转换错，COALESCE 捕获不到，整段迁移失败**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0212_phase2_refund_invoice_fk.sql :: edu_refunds.order_type`
+  - 判据：`ALTER COLUMN order_type SET DATA TYPE integer USING CASE … ELSE COALESCE(CAST(order_type AS integer), 0) END;`
+  - 对照：仅映射 `course→7`、`card→8`；未映射值直接走 CAST 报错
+  - 收口：USING 改用 `CASE WHEN order_type IN (…) THEN … ELSE 0 END` 且不走 CAST（先 `USING (CASE … END)::integer` 或先清脏数据）
+- [ ] BUG-87 **迁移 `0085_exam_wrong_unique.sql` 用 `ADD CONSTRAINT … UNIQUE` 加唯一约束，既无 `IF NOT EXISTS` 守卫，又不处理存量重复行；重放报 already exists，且表内已有重复 (user_id,question_id) 时直接中断**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0085_exam_wrong_unique.sql :: exam_wrong_question_user_question_unique`
+  - 判据：`ALTER TABLE exam_wrong_question ADD CONSTRAINT exam_wrong_question_user_question_unique UNIQUE(user_id, question_id);`
+  - 对照：同仓 `0115_r82_seed_unique_indexes.sql` 用 `CREATE UNIQUE INDEX IF NOT EXISTS` 且内容表索引用 `IF NOT EXISTS`
+  - 收口：改 `CREATE UNIQUE INDEX IF NOT EXISTS`，并在加索引前 `DELETE` 掉重复行（保留一条）
+- [ ] BUG-88 **迁移 `0115_r82_seed_unique_indexes.sql` 在 `news_articles`/`asks`/`resources`/`live_channels` 的 `title` 上建 `UNIQUE INDEX`；用了 `IF NOT EXISTS`（重放安全），但内容表标题本不保证唯一，若生产这 4 张表已有重复 title，迁移在建立索引时中断**〔待核：生产数据是否已有重复〕：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0115_r82_seed_unique_indexes.sql :: *_title_uniq`
+  - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构）
+  - 对照：`circles.slug` 本就唯一，可建 UNIQUE；title 不应唯一
+  - 收口：改普通 INDEX 或先 `SELECT title,count(*) FROM … GROUP BY title HAVING count>1` 查重清洗
+- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；若生产该表已有行，迁移在 ADD COLUMN 处中断**〔待核：生产表是否非空〕：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0108_r83_supplement_27_tables.sql :: oauth_private_keys(client_id, private_key)`
+  - 判据：`ALTER TABLE oauth_private_keys ADD COLUMN IF NOT EXISTS client_id varchar(100) NOT NULL;` `ADD COLUMN IF NOT EXISTS private_key text NOT NULL;`
+  - 对照：同文件 `is_active` 等带 `DEFAULT 0/1`；此处核心 OAuth 字段漏 DEFAULT
+  - 收口：加 `DEFAULT ''` 或先确认表空再 NOT NULL
+- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；若生产该表非空，迁移中断**〔待核：生产表是否非空；注释声称 0 行但无运行时保证〕：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/20261018160000_agent_state_tables_runtime_reality.sql :: agent_working_memory_compression(original_messages, compressed_to)`
+  - 判据：`ALTER TABLE agent_working_memory_compression DROP COLUMN original_messages; … ADD COLUMN original_messages integer NOT NULL;`（compressed_to 同构，均无 DEFAULT）
+  - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；此处重建列漏 DEFAULT
+  - 收口：加 `DEFAULT 0` 或先确认表空
+- [ ] BUG-91 **web `EarningsOverview` 用 `${d.conversionRate.toFixed(1)}%` 直接格式化；仅兜底 `data===null`，若后端返回非空但缺 `conversionRate` 的对象，`undefined.toFixed(1)` 抛 TypeError 致组件白屏，唯独该字段走裸 `.toFixed` 而其他指标用 `Intl.NumberFormat`**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/web/src/components/earnings/EarningsOverview.tsx :: value: \`${d.conversionRate.toFixed(1)}%\``
+  - 判据：`const d = data ?? { … conversionRate: 0 … }` 仅兜底 `data===null`；`d.conversionRate.toFixed(1)` 在 `conversionRate===undefined` 时崩
+  - 对照：同组件其余指标用 `Intl.NumberFormat` 且依赖同一 fallback，唯独该字段走裸 `.toFixed`
+  - 收口：`(d.conversionRate ?? 0).toFixed(1)`
+- [ ] BUG-92 **web `use-home-schema.ts` 在拉取首页 schema 时 `.then(...).catch(() => {})` 完全吞掉网络/解析错误，无日志无信号，schema 静默回退；同仓 `use-agent-stream` 等至少 `console.warn` 留痕**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/web/src/hooks/use-home-schema.ts :: .then((res)=>{ if(cancelled||!res.success) return; applySchema(res.data) }).catch(()=>{})`
+  - 判据：`fetchApi(...).then(...).catch(()=>{})`——失败被零痕迹吞掉
+  - 对照：同仓 `use-agent-stream` 在吞错处至少 `console.warn`
+  - 收口：`.catch((e)=>console.warn('[home-schema] load failed', e))`
 ### 本批覆盖边界（未判的不写成判过）
 - **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
 - **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
