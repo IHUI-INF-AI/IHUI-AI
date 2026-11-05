@@ -20,6 +20,7 @@ const REMINDER_KEY = 'live_reminder_enabled'
 
 /** 缺键兜底:小程序 zh-CN 暂无 live.subscribe.* 五键(live.ended 亦缺) */
 const SCREEN_TEXT: Record<string, string> = {
+  'subscriptions.title': '我的订阅',
   'live.subscribe.count': '已订阅',
   'live.subscribe.unit': '场',
   'live.subscribe.reminder': '开播前提醒',
