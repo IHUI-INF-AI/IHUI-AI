@@ -956,6 +956,49 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
         "doc_ref": "app/services/tool_surface.py:PRODUCT_FORM_ENV",
         "reason_if_off": "取值型旋钮(非布尔开关):未设置即 server 形态,能力覆盖表为空 ⇒ 列表面零扰动;取值不在覆盖表键集时该轴整体不生效(判不出不隐藏)",
     },
+    # ============ 工具预算分维配额(goal-b49 S4,2026-11-05 立)============
+    # 四格同族:各自**独立**的配额旋钮,唯一读取点
+    # app/services/tool_budget_governor.py 的 ToolBudgetConfig.from_env(大写键 → 常量
+    # TOOL_BUDGET_*_ENV),0 / 未设置 ⇒ 该维关闭(与 run 循环三维的 enabled 无耦合)。
+    # 登记理由:对标产品把同型配额写死成内置常量(观测 aiFeatures.mcpToolLimit/
+    # mcpTokenLimit/customPromptTokenLimit/historyQueryLimit),我方做成**入库可 diff** 的
+    # 台账格 —— 上限漂移即门 J1/J2 红,超限一律具名拒绝(维度名 + 实测值 + 上限值)。
+    {
+        "key": "tool_budget_mcp_tool_limit",
+        "env": "TOOL_BUDGET_MCP_TOOL_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOOL_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:MCP 注册工具数上限未配置(取值型旋钮,非布尔开关);超限走 check_mcp_tool_count 具名拒绝,不静默截断",
+    },
+    {
+        "key": "tool_budget_mcp_token_limit",
+        "env": "TOOL_BUDGET_MCP_TOKEN_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_MCP_TOKEN_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:MCP 令牌桶上限未配置;按 run 由 consume_mcp_tokens 累加消耗,超额具名拒绝且被拒本次不计入",
+    },
+    {
+        "key": "tool_budget_custom_prompt_token_limit",
+        "env": "TOOL_BUDGET_CUSTOM_PROMPT_TOKEN_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_CUSTOM_PROMPT_TOKEN_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:自定义提示 token 上限未配置;token 量法 = tool_budget_governor.estimate_tokens(如实标注为估算,零第三方依赖)",
+    },
+    {
+        "key": "tool_budget_history_query_limit",
+        "env": "TOOL_BUDGET_HISTORY_QUERY_LIMIT",
+        "default": "0",
+        "category": "开关类",
+        "owner_module": "app.services.tool_budget_governor",
+        "doc_ref": "app/services/tool_budget_governor.py:TOOL_BUDGET_HISTORY_QUERY_LIMIT_ENV",
+        "reason_if_off": "0=该维不拦:历史查询窗口上限未配置;请求条数超窗口由 check_history_query 具名拒绝,不静默截断行数",
+    },
 ]
 
 # 合法类别集合(测试与对账门共同引用的语义域)

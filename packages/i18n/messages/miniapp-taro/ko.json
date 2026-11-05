@@ -6992,5 +6992,34 @@
   "career": {
     "exportingReport": "내보내는 중...",
     "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다"
+  },
+  "activities": {
+    "join": "지금 참여"
+  },
+  "chatSettingsPage": {
+    "model": "모델"
+  },
+  "eduExamListPage": {
+    "start": "시험 시작"
+  },
+  "eduExamPage": {
+    "prevQuestion": "이전 문제",
+    "nextQuestion": "다음 문제"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "이번 주 학습 시간"
+  },
+  "learn": {
+    "signedUp": "신청 완료"
+  },
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "구독 취소"
+  },
+  "student": {
+    "myCertsTitle": "자격증 목록"
   }
 }

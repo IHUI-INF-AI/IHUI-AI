@@ -17,6 +17,16 @@
  * 需要知道"哪些清单被跳过了、为什么"请调 loadPluginsWithDiagnostics();
  * loadPlugins() 保留返回 PluginDefinition[] 的既有契约(agent.ts 等既有调用方零改动)。
  *
+ * G-816034-b49/S2:装载器同时是**贡献词表**的消费方(词表单源 =
+ * `@ihui/types` 的 `EXTENSION_CONTRIBUTION_KINDS`,本文件不得另抄一份名单,§0.6)。
+ * 每份清单声明的 `contributes` 逐档裁决,三态都必须**出声**:
+ *   - `accepted`   :本宿主持有该档、且该插件声明了能在 capability-catalog 落地的权限;
+ *   - `declined`   :本宿主没有该档的落点(如 `nativeModules` 要原生二进制),点名原因;
+ *   - `unknown-kind`:不在词表内,点名当前词表全量。
+ * "识别到但本宿主不支持"与"根本不认识"是两件事,分开编码,免得一种失效形态伪装成另一种。
+ * 权限那一维走 capability-catalog 的**默认拒**:未声明权限的插件拿不到任何数据类,
+ * 其贡献一律 declined(详见 classifyContributions)。
+ *
  * 目录结构示例:
  *   plugins/
  *     my-plugin/
@@ -28,6 +38,12 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+  EXTENSION_CONTRIBUTION_KINDS,
+  extensionDataClassGrant,
+  type CapabilityDataClass,
+  type ExtensionContributionKind,
+} from '@ihui/types';
 import type {
   LoadPluginsOptions,
   PluginDefinition,
@@ -40,6 +56,180 @@ import type {
 
 /** 候选清单文件名(按优先级排序,前者在位时后者被忽略并留一条 warning 诊断) */
 const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
+
+/** 本装载器对某一贡献档的支持结论。 */
+export type ContributionSupport = 'wired' | 'no-host';
+
+/**
+ * 词表逐档的装载期裁决 —— **贡献词表的消费者就住在这里**。
+ *
+ * 键型写成 `Record<ExtensionContributionKind, …>` 而不是 `Record<string, …>`:
+ * 词表加一档而这里没跟上 ⇒ 编译期即红(门 121「声明必须有消费者」里"编译期那一半";
+ * 运行期那一半由 classifyContributions 的用例钉住 —— 只靠注释声称"已接"不算接,§0.9)。
+ *
+ * `no-host` 不是"不支持所以不写":对侧 catalog 把这 8 档原样声明给宿主,没有任何"本机能不能吃"
+ * 的判定;吃不下又不出声 = 静默忽略,用户只看到"插件装了但没东西"。逐档给**可复述的原因**。
+ */
+const CONTRIBUTION_SUPPORT: Record<ExtensionContributionKind, { support: ContributionSupport; reason: string }> = {
+  tools: { support: 'wired', reason: 'loader forwards tools[] to the plugin registry' },
+  commands: { support: 'wired', reason: 'loader forwards commands[] to the plugin registry' },
+  views: { support: 'no-host', reason: 'no workbench/settings view host in the CLI: a contributed view has nowhere to mount' },
+  filePreviewers: { support: 'no-host', reason: 'no file-preview surface in the CLI: nothing consumes filenameSuffixes routing' },
+  qoderAgentSdk: { support: 'no-host', reason: 'no agent-SDK injection channel in this host' },
+  configuration: { support: 'no-host', reason: 'no settings host in the plugin loader; configuration keys are owned by apps/cli settings' },
+  nativeModules: { support: 'no-host', reason: 'requires a native binary (.node) matched to this host ABI; the CLI loader never loads native code' },
+  sidebarNavItems: { support: 'no-host', reason: 'no sidebar surface in the CLI' },
+  sessionResources: { support: 'no-host', reason: 'no session-resource panel in the CLI' },
+  chatMentionProviders: { support: 'no-host', reason: 'no chat mention provider registry in the CLI' },
+};
+
+/** 词表档名 → 裁决表的唯一查表出口(不做第二份名单,也不静默回落成 wired)。 */
+function supportOf(kind: string): { support: ContributionSupport; reason: string } | null {
+  return (CONTRIBUTION_SUPPORT as Record<string, { support: ContributionSupport; reason: string } | undefined>)[
+    kind
+  ] ?? null;
+}
+
+/** 逐档裁决三态:`accepted` / `declined`(本宿主吃不下或拿不到数据类)/ `unknown-kind`(不在词表内)。 */
+export type ContributionVerdict = 'accepted' | 'declined' | 'unknown-kind';
+
+/** 一条贡献裁决(ASCII 文案:要进日志,不得被控制台码页吃掉)。 */
+export interface ContributionFinding {
+  pluginName: string;
+  /** 声明该贡献的清单绝对路径 */
+  file: string;
+  /** 档名(原样照抄清单里的键,便于用户对着自己的文件改) */
+  kind: string;
+  verdict: ContributionVerdict;
+  /** 清单里该档声明了几条(非数组时为 0,并在 reasons 里点名形态问题) */
+  itemCount: number;
+  /** 判定依据(accepted 给出"为什么算数";declined/unknown-kind 给出"为什么不算") */
+  reasons: string[];
+  /** 该插件声明的权限映射出的可达数据类;空数组 = 默认拒(任何数据类都拿不到) */
+  dataClasses: readonly CapabilityDataClass[];
+  /** 声明了但未在 capability-catalog 登记的 scope(逐条点名,不冒充"没限制") */
+  unregisteredPermissions: readonly string[];
+}
+
+/** 一次装载/一次判定的贡献汇总。 */
+export interface PluginContributionAudit {
+  findings: ContributionFinding[];
+  acceptedCount: number;
+  declinedCount: number;
+  unknownKindCount: number;
+}
+
+/** classifyContributions 的入参(从清单原始对象取,不依赖 PluginManifest 形态) */
+export interface ContributionInput {
+  pluginName: string;
+  file: string;
+  permissions?: unknown;
+  contributes?: unknown;
+}
+
+/** 读 permissions 为字符串数组:非数组/非字符串一律按"未声明"处理,由默认拒兜住。 */
+function permissionList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
+/**
+ * 逐档裁决一份清单的 `contributes`。纯函数:不读盘、不改状态、永不抛穿。
+ *
+ * 默认拒的两道闸(缺一不算默认拒):
+ *  1. 档必须落在词表内,否则 unknown-kind 并点名当前词表全量;
+ *  2. 落点了也得有数据面 —— 权限集合经 `extensionDataClassGrant` 求出的可达数据类为空
+ *     (未声明权限 / 声明了但未登记)⇒ 一律 declined,即使该档本身是 `wired`。
+ */
+export function classifyContributions(input: ContributionInput): PluginContributionAudit {
+  const permissions = permissionList(input.permissions);
+  const grant = extensionDataClassGrant({ permissions });
+  const findings: ContributionFinding[] = [];
+
+  if (input.contributes !== undefined) {
+    if (
+      input.contributes === null ||
+      typeof input.contributes !== 'object' ||
+      Array.isArray(input.contributes)
+    ) {
+      findings.push({
+        pluginName: input.pluginName,
+        file: input.file,
+        kind: 'contributes',
+        verdict: 'unknown-kind',
+        itemCount: 0,
+        reasons: ['"contributes" must be a plain object of kind -> contribution[]'],
+        dataClasses: grant.allowed,
+        unregisteredPermissions: grant.unregistered,
+      });
+    } else {
+      for (const [kind, value] of Object.entries(input.contributes as Record<string, unknown>)) {
+        const items = Array.isArray(value) ? value : null;
+        const support = supportOf(kind);
+        const reasons: string[] = [];
+        let verdict: ContributionVerdict;
+        if (!support) {
+          verdict = 'unknown-kind';
+          reasons.push(`"${kind}" is not a known contribution kind`);
+          reasons.push(`known kinds: ${EXTENSION_CONTRIBUTION_KINDS.join('/')}`);
+        } else if (items === null) {
+          verdict = 'declined';
+          reasons.push(`"contributes.${kind}" must be an array; got ${typeof value}`);
+        } else if (support.support === 'no-host') {
+          verdict = 'declined';
+          reasons.push(support.reason);
+        } else if (grant.allowed.length === 0) {
+          verdict = 'declined';
+          reasons.push(
+            permissions.length === 0
+              ? 'no permission declared: default deny, no dataClass reachable'
+              : 'declared permissions map to no dataClass in capability-catalog: default deny',
+          );
+          if (grant.unregistered.length > 0) {
+            reasons.push(`unregistered scopes: ${grant.unregistered.join('/')}`);
+          }
+        } else {
+          verdict = 'accepted';
+          reasons.push(support.reason);
+        }
+        findings.push({
+          pluginName: input.pluginName,
+          file: input.file,
+          kind,
+          verdict,
+          itemCount: items ? items.length : 0,
+          reasons,
+          dataClasses: grant.allowed,
+          unregisteredPermissions: grant.unregistered,
+        });
+      }
+    }
+  }
+
+  return summarizeContributions(findings);
+}
+
+/** 汇总:计数只按 verdict 算一次,单条判定与聚合共用同一实现(不做两遍判据)。 */
+function summarizeContributions(findings: ContributionFinding[]): PluginContributionAudit {
+  return {
+    findings,
+    acceptedCount: findings.filter((f) => f.verdict === 'accepted').length,
+    declinedCount: findings.filter((f) => f.verdict === 'declined').length,
+    unknownKindCount: findings.filter((f) => f.verdict === 'unknown-kind').length,
+  };
+}
+
+/**
+ * 把清单原始对象摊成 classifyContributions 入参。
+ *
+ * `PluginManifest`(types.ts 的既有 schema,本席不得改)没有 contributes/permissions 字段,
+ * 但 `parseManifestFile` 交回的是 JSON.parse 的完整对象,`normalizeManifest` 才做白名单裁剪 ——
+ * 所以这里读的是**裁剪前**的字节。唯一一次加宽集中在这行,不扩散到判定逻辑。
+ */
+function contributionInputOf(manifest: PluginManifest, pluginName: string, file: string): ContributionInput {
+  const raw = manifest as unknown as Record<string, unknown>;
+  return { pluginName, file, permissions: raw.permissions, contributes: raw.contributes };
+}
 
 /**
  * 判别码 → 严重级的唯一映射。
@@ -191,8 +381,13 @@ interface ManifestCandidate {
   definition: PluginDefinition;
 }
 
+/** 内部扫描结果 = 装载结果 + 贡献裁决(PluginLoadResult 是 types.ts 的既有契约,不扩字段) */
+export interface ScanResult extends PluginLoadResult {
+  contributions: PluginContributionAudit;
+}
+
 /**
- * 扫描 pluginsDir,返回已装载插件 + 每一条被跳过清单的诊断。
+ * 扫描 pluginsDir,返回已装载插件 + 每一条被跳过清单的诊断 + 逐档贡献裁决。
  *
  * 扫描规则:
  *   - pluginsDir 不存在 / 不是目录 → 返回空集合(不存在是常态,不记诊断)
@@ -202,9 +397,11 @@ interface ManifestCandidate {
  *   - 任一清单解析失败/校验失败 → 跳过并留诊断,不抛异常
  *   - 同名多份 → 全部不装载,各点名一条诊断(G-684)
  */
-export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoadResult {
+function scanPlugins(opts: LoadPluginsOptions): ScanResult {
   const plugins: PluginDefinition[] = [];
   const diagnostics: PluginDiagnostic[] = [];
+  /** 逐档贡献裁决(每份在盘的清单恰好贡献 0..N 条,取决于它声明了几档) */
+  const findings: ContributionFinding[] = [];
   /** name → 声明它的候选(长度 >1 即为歧义) */
   const candidates = new Map<string, ManifestCandidate[]>();
 
@@ -216,7 +413,9 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
   } catch (err) {
     diagnostics.push(unexpectedDiagnostic(dir, err));
   }
-  if (!isDirectory) return { plugins, diagnostics };
+  if (!isDirectory) {
+    return { plugins, diagnostics, contributions: summarizeContributions(findings) };
+  }
 
   /** 收下一份清单:坏清单只留诊断(恰好一条)并继续,好清单进候选等待歧义裁决 */
   function acceptManifest(file: string): void {
@@ -225,6 +424,9 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
       diagnostics.push(...outcome.diagnostics);
       if (!outcome.manifest) return;
       const definition = normalizeManifest(outcome.manifest, file);
+      // 贡献裁决对**每一份通过最小校验的清单**给出,包括后来因同名歧义被丢弃的那份:
+      // 歧义裁决管"装不装",本管"声明了什么、本宿主吃不吃得下",两者互不遮蔽。
+      findings.push(...classifyContributions(contributionInputOf(outcome.manifest, definition.name, file)).findings);
       const bucket = candidates.get(definition.name);
       if (bucket) bucket.push({ name: definition.name, file, definition });
       else candidates.set(definition.name, [{ name: definition.name, file, definition }]);
@@ -293,7 +495,27 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
   else scanDir(dir, 1);
 
   adjudicate();
+  return { plugins, diagnostics, contributions: summarizeContributions(findings) };
+}
+
+/**
+ * 既有出口:只回装载结果(PluginLoadResult 的字段形状由 types.ts 定,本席不改它)。
+ * 想知道"某份清单声明的贡献档本宿主吃不吃得下"请改调 loadPluginsWithContributionAudit()
+ * —— 那一份贡献裁决在这里是被**函数签名**丢掉,不是被静默忽略:调用方看得见自己拿了什么。
+ */
+export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoadResult {
+  const { plugins, diagnostics } = scanPlugins(opts);
   return { plugins, diagnostics };
+}
+
+/**
+ * 装载 + 逐档贡献裁决(词表消费方出口)。
+ *
+ * 返回形态刻意与 loadPluginsWithDiagnostics 同族并附加 `contributions`,
+ * 使既有 `{ plugins, diagnostics }` 的解构继续可用(不破坏任何已装车的调用点)。
+ */
+export function loadPluginsWithContributionAudit(opts: LoadPluginsOptions): ScanResult {
+  return scanPlugins(opts);
 }
 
 /**
