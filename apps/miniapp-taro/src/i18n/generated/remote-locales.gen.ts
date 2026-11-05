@@ -6,7 +6,7 @@
 // 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: cab1cbf3ed123cc6c1a4fc28032cd1e290e6f597
+// sourceCommit: 8100ab373f5bb5f89cc36b735565dd9a9a16a447
 // inputsSha256: ebd42bbf3a2037b825d68b7378d47115056aeb45d79aa30319eed941a467eb38
 // input: packages/i18n/messages/miniapp-taro/en.json 52d674b07275b9103139856cc9aaa233a279a4fca6091ba053c0d77ad401071b
 // input: packages/i18n/messages/miniapp-taro/ja.json 1d867d5b8dfdaf276273a4c0a29590cc075f7c5a536563386943916646de1cdb
@@ -22,7 +22,7 @@
 // input: packages/i18n/messages/shared/zh-TW.json 1401ddeaced673d2824b67fd31f0e9fcfa525d00e9a35108eff2094bd025fd41
 // carried: present
 // carriedKeys: en=622 ja=622 ko=622 zh-TW=622
-// generatedAt: 2026-11-05T21:21:53.006Z
+// generatedAt: 2026-11-05T22:03:20.272Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {
