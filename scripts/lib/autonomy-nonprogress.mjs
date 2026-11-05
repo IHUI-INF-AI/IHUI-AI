@@ -165,6 +165,13 @@ export const ACTION_EXEMPTIONS = Object.freeze({
     reason: '自我面三面之一取不到 ⇒ 未判定不派,不冒充票级空转(§0.3)',
     site: 'auto-evolve.mjs 自我面闸',
   },
+  // 轮级终局档本身(RP-66):它不带 ticketKey,是"这一串轮"的结论,不是某枚票的第 N 次空转。
+  // 漏登记会怎样:覆盖锁判"有个动作既不计进度也不豁免" ⇒ 红;错登记成 non-progress 会更坏 ——
+  // 下一轮派发时它成了每票的公共计数行,把每张票一起推向 park(正是 §12e 反向)。
+  'runner-face-parked-round': {
+    reason: '轮级:连续 N 轮终止在自我面闸 ⇒ 已喊 critical 一次的终局留痕,不属于任何一枚票的空转',
+    site: 'auto-evolve.mjs 自我面闸(RP-66 轮级档)',
+  },
   // 占班次/轮级这一族:不属于任何一枚票(行内无 ticketKey,或它只是"将要派"的标记)。
   // 登记在此是为了让覆盖锁能证明"不计数"是有理由的决定,而不是又一次静默漏计。
   dispatched: {
@@ -427,6 +434,74 @@ export function lastNonProgressHoldAt(ledger, key) {
   return null
 }
 
+/**
+ * 轮级自我面终局档(RP-66,2026-11-06 立)。
+ *
+ * 立因(现读):`runner-face-stale-disk` / `runner-face-undetermined` 两枚登记在
+ * ACTION_EXEMPTIONS 里 ⇒ 票级阶梯永远不计它们,这是**对的**(多会话共树下盘上副本常年不等于
+ * HEAD,照计就把每张票推向 park)。但豁免之后**没有任何一档替它说话**:环可以连续几十轮
+ * 只在自我面闸上 return,台账每轮多一行 informational,阶梯读数为 0,健康尺按"信息项"放行
+ * ⇒ 一个谁都不喊的稳态停摆。票级阶梯管不了,是因为它压根不属于任何一枚票 —— 要的是**轮级**。
+ *
+ * 计数单位刻意是「轮」而不是「小时」:现读 11 条 dispatched 的轮间隔 =
+ * 0.5 / 0.9 / 4.7 / 5.8 / 8.8 / 10.7 / 12.5 / 42.9 / 48.9 / 322.1 分钟(中位 10.7,双峰),
+ * 按墙钟设阈值会把"调度器被别的席位挤"读成停摆,或反过来把真停摆掩在长间隔里。
+ */
+export const FACE_ROUND_TERMINAL_ACTIONS = Object.freeze([
+  'runner-face-stale-disk',
+  'runner-face-undetermined',
+])
+
+/**
+ * 从台账尾部数"连续多少轮终止在自我面闸上"。
+ * 判序:倒着走,遇到 terminal 就 +1;遇到**任何其它**行就断(不分类、不猜它是好是坏)。
+ * 失效方向 = 少算:取不到行 / 非数组 ⇒ count 0,绝不把"读不懂"读成"停摆很久"。
+ * 同一轮内的其它 informational 行(如同一轮的候选缓存回写)也会断链 —— 这是保守侧,
+ * 代价是停摆要连续 N 轮"干净地只撞面闸"才终局,而不是撞一次就喊。
+ */
+export function faceRoundStreak(rows, { terminalActions = FACE_ROUND_TERMINAL_ACTIONS } = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  const term = new Set(terminalActions)
+  let count = 0
+  let sinceTs = null
+  let lastTs = null
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') break
+    const action = String(row.action ?? '')
+    // 本环自己的轮级终局行:不断链、也不额外占一轮。漏了这一格会是自锁 ——
+    // 喊过一次之后那枚行把自己那串切断,后面第 4、5… 轮永远数回 1,连"仍在同一串"都读不出来。
+    if (action === 'runner-face-parked-round') continue
+    if (!term.has(action)) break
+    count += 1
+    sinceTs = row.ts ?? sinceTs
+    if (lastTs === null) lastTs = row.ts ?? null
+  }
+  return {
+    count,
+    sinceTs: count > 0 ? sinceTs : null,
+    lastTs: count > 0 ? lastTs : null,
+    terminalActions: [...term].sort(),
+  }
+}
+
+/**
+ * 这一轮该不该已经喊过 critical:终局档每枚都带 `streakSince`,与本轮 streak 的
+ * sinceTs 逐字相同 ⇒ 同一串停摆只喊一次(N=3 喊一枚,第 4、5 轮不再重复投递);
+ * 链路断裂后重新攒够会给出新的 sinceTs ⇒ 会再喊,这是对的(那是新的一串停摆)。
+ */
+export function parkedRoundAlreadyAnnounced(rows, sinceTs) {
+  if (!sinceTs) return false
+  const list = Array.isArray(rows) ? rows : []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') continue
+    if (String(row.action ?? '') !== 'runner-face-parked-round') continue
+    return String(row.streakSince ?? '') === String(sinceTs)
+  }
+  return false
+}
+
 export const __test__ = {
   PROGRESS_ACTIONS,
   NON_PROGRESS_ACTIONS,
@@ -437,5 +512,8 @@ export const __test__ = {
   decideNonProgress,
   breakdownNonProgress,
   lastNonProgressHoldAt,
+  FACE_ROUND_TERMINAL_ACTIONS,
+  faceRoundStreak,
+  parkedRoundAlreadyAnnounced,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

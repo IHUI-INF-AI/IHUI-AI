@@ -288,13 +288,94 @@ test('T14 分档明细与计数器同口径:escalation 邮件不许比判定多�
  * `artifact-committed` 至今为 0)。它一旦漏出非推进集,这条轴就又瞎了。
  */
 test('T15 零写入班次计入空转;而真有写盘的 session-ok 仍归零(成对)', () => {
-  assert.equal(np.attemptsSinceProgress([nrow('session-no-write')], 'k1'), 1, '零写入必须占一次空转')
   assert.equal(
-    np.attemptsSinceProgress([nrow('session-no-write'), nrow('session-no-write'), nrow('session-ok')], 'k1'),
+    np.attemptsSinceProgress([nrow('session-no-write')], 'k1'),
+    1,
+    '零写入必须占一次空转',
+  )
+  assert.equal(
+    np.attemptsSinceProgress(
+      [nrow('session-no-write'), nrow('session-no-write'), nrow('session-ok')],
+      'k1',
+    ),
     0,
     '反向:一次真写过盘的成功仍归零,不许把两轴混成一个数',
   )
   const rows = np.breakdownNonProgress([nrow('session-no-write'), nrow('session-no-write')], 'k1')
-  assert.equal(rows.find((r) => r.action === 'session-no-write')?.count, 2, '分档明细里要点名这一档')
+  assert.equal(
+    rows.find((r) => r.action === 'session-no-write')?.count,
+    2,
+    '分档明细里要点名这一档',
+  )
+})
+
+test('T16 轮级面闸停摆按「轮」计数(RP-66):连续计数、断链清零、混合两型同串', () => {
+  const face = (n, from = 0) =>
+    Array.from({ length: n }, (_, i) => ({
+      action: 'runner-face-stale-disk',
+      ts: `2026-11-06T0${from + i}:00:00.000Z`,
+    }))
+  assert.equal(np.faceRoundStreak(face(3)).count, 3)
+  assert.equal(
+    np.faceRoundStreak(face(3)).sinceTs,
+    '2026-11-06T00:00:00.000Z',
+    '串首时刻=去重身份,必须是最老那枚',
+  )
+  assert.equal(
+    np.faceRoundStreak(face(3)).lastTs,
+    '2026-11-06T02:00:00.000Z',
+    '串尾取最新一枚,不能反向',
+  )
+  // 断链:中间夹任何一枚别的动作(哪怕同样"没动手")都必须把串断在这里 —— 少算是保守侧
+  assert.equal(np.faceRoundStreak([...face(2), { action: 'dispatched' }, ...face(1)]).count, 1)
+  // 两型同串:同一道闸的两种形态不许各算一串(否则永远攒不到 N)
+  assert.equal(
+    np.faceRoundStreak([
+      { action: 'runner-face-stale-disk' },
+      { action: 'runner-face-undetermined' },
+      { action: 'runner-face-stale-disk' },
+    ]).count,
+    3,
+  )
+  // 取不到 ⇒ 0,绝不把"读不懂"读成"停摆很久"
+  assert.equal(np.faceRoundStreak(undefined).count, 0)
+  assert.equal(np.faceRoundStreak([]).count, 0)
+  assert.equal(np.faceRoundStreak([null, 'x']).count, 0, '坏行必须断链,不能跳过继续数')
+  // 自锁反例(本枚踩到过的形状):终局档那一行是自己写的账,既不能断链、也不许多占一轮
+  const withOwnRow = [
+    { action: 'runner-face-stale-disk', ts: 'T0' },
+    { action: 'runner-face-stale-disk', ts: 'T1' },
+    { action: 'runner-face-stale-disk', ts: 'T2' },
+    { action: 'runner-face-parked-round', streakSince: 'T0', ts: 'T3' },
+    { action: 'runner-face-stale-disk', ts: 'T4' },
+  ]
+  assert.equal(
+    np.faceRoundStreak(withOwnRow).count,
+    4,
+    '终局行不得把串切断(切断=此后永远数回 1,同串再长也不响)',
+  )
+  assert.equal(np.faceRoundStreak(withOwnRow).sinceTs, 'T0', '串首仍是面闸行那枚,不是终局行的时刻')
+})
+
+test('T17 终局档去重按串、不按时刻;两把尺的词汇表不得漂移(RP-66 成对反向)', () => {
+  const s = [
+    { action: 'runner-face-stale-disk', ts: 'T0' },
+    { action: 'runner-face-parked-round', streakSince: 'T0' },
+  ]
+  assert.equal(np.parkedRoundAlreadyAnnounced(s, 'T0'), true, '同一串只许喊一次')
+  assert.equal(
+    np.parkedRoundAlreadyAnnounced(s, 'T9'),
+    false,
+    '新的一串必须能再喊(否则第二次停摆静默)',
+  )
+  assert.equal(np.parkedRoundAlreadyAnnounced([], 'T0'), false)
+  assert.equal(np.parkedRoundAlreadyAnnounced(s, null), false, '串首取不到 ⇒ 不认已喊,交调用方不发')
+  // 词汇表单源:轮级档认定的两枚必须都在票级豁免表里 —— 摘掉豁免而不摘轮级计数,票会被整片推向 park
+  for (const a of np.FACE_ROUND_TERMINAL_ACTIONS)
+    assert.ok(np.ACTION_EXEMPTIONS[a], `${a} 从票级豁免表被摘掉,而轮级档仍认它是面闸 ⇒ 两把尺互咬`)
+  assert.ok(
+    np.ACTION_EXEMPTIONS['runner-face-parked-round'],
+    '轮级终局档自身必须豁免票级阶梯(它不带 ticketKey)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

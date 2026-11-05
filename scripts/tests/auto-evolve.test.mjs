@@ -30,6 +30,7 @@ import {
   lastProviderError,
   splitRotateStandoff,
   refreshAutonomyCandidates,
+  decideParkedRound,
 } from '../auto-evolve.mjs'
 import { planFaceDigest, planFaceDigestFromHead } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
@@ -1638,5 +1639,68 @@ test('Ⓛ 工序第 0 步:第 1 轮就要发出工具调用本身,且排在第 1
     /`,\n\s*`1\. 只读与本品直接相关的目标文件/.test(src),
     '第 1 步不再是模板串元素 ⇒ 派单正文可能已改写',
   )
+})
+
+test('ⓚ 轮级终局档(RP-66):满 N 轮落一枚不带票头的档、按串只喊一次、门限取不到不猜', () => {
+  const faceRows = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      action: 'runner-face-stale-disk',
+      ticketKey: 'k'.repeat(16),
+      informational: true,
+      ts: `2026-11-06T0${i}:00:00.000Z`,
+    }))
+  const ARG = {
+    faceState: 'stale-disk',
+    faceAction: 'runner-face-stale-disk',
+    faceWhy: '盘上这份缺锚点 x',
+  }
+  const hit = decideParkedRound({ rows: faceRows(3), streakN: 3, ...ARG })
+  assert.equal(hit.emit, true, `满门限必须响:${JSON.stringify(hit.reason)}`)
+  assert.equal(hit.row.action, 'runner-face-parked-round')
+  assert.equal(
+    hit.row.ticketKey,
+    undefined,
+    '轮级档带票头 = 把一串轮记成一枚票的空转,会把每票推向 park',
+  )
+  assert.equal(hit.row.streakSince, '2026-11-06T00:00:00.000Z', '去重身份必须是串首,不是本轮时刻')
+  assert.match(
+    hit.alertId,
+    /runner-face-parked-round:2026-11-06T00/,
+    'alert-id 要按串去重(§5e 身份去重)',
+  )
+  assert.match(hit.mailBody, /单位是轮,不是墙钟/, '正文要点明计数单位,否则下一个人又会拿小时改门限')
+  assert.match(hit.mailBody, /parkedRoundStreak/, '正文必须给出可整改的两条出路(5e-1 准入)')
+
+  // 同串第 4 轮:台账里已有这一串的终局档 ⇒ 不再重复投递,也不再落第二枚
+  const again = decideParkedRound({
+    rows: [...faceRows(3), hit.row, ...faceRows(1)],
+    streakN: 3,
+    ...ARG,
+  })
+  assert.equal(again.emit, false, '一串停摆只许喊一次')
+  assert.match(again.reason, /已.*喊过|已在/, `拒因要点名"已喊过",不能只说没到门限:${again.reason}`)
+
+  // 差一轮不响(成对反向:证明判据真在数行,不是恒发)
+  assert.equal(decideParkedRound({ rows: faceRows(2), streakN: 3, ...ARG }).emit, false)
+  // 链路被真派发放断:同样 3 枚面闸行分处两串 ⇒ 不响
+  assert.equal(
+    decideParkedRound({
+      rows: [
+        ...faceRows(2),
+        { action: 'dispatched', ts: '2026-11-06T02:00:00.000Z' },
+        ...faceRows(1),
+      ],
+      streakN: 3,
+      ...ARG,
+    }).emit,
+    false,
+    '中间真派过一轮 ⇒ 那不是连续停摆',
+  )
+  // 门限坏 ⇒ 不响且不猜(§0.10:少喊一次由 A14 继续报数,绝不是多放一次跳门)
+  for (const badV of [undefined, 0, -1, 1.5, '3']) {
+    const r = decideParkedRound({ rows: faceRows(9), streakN: badV, ...ARG })
+    assert.equal(r.emit, false, `门限 ${String(badV)} 不是正整数,不得凭缺省值发信`)
+    assert.match(r.reason, /parkedRoundStreak/)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
