@@ -44,6 +44,7 @@ import {
   DISPATCH_ARGS,
   LEDGER,
   parseTicketRows,
+  isPlaceholderTicketRow,
   quarantinedUntilOf,
   rankTicketRows,
 } from './auto-evolve.mjs'
@@ -454,9 +455,17 @@ export function buildCandidates({ rows, policy, ledger = [], now = Date.now(), p
   const seen = new Map()
   const duplicates = []
   const candidates = []
+  // 未取号占位行不参与判期打分(判据 import 自 auto-evolve.mjs,本处零复算 §0.6/§22c)。
+  // 立因:候选面现读 1/9 枚就是 `{{NEXT_ID:docs-207}} …`(risk.ruleTouch=3)—— 一行编号都还没分配的
+  // 票被当成可排期的活,既占判期名额又永远无法被认领/结清;跳过但要**报数**,不悄悄消失(§0.3)。
+  const placeholders = []
   for (const row of rows) {
     const text = String(row?.text ?? '')
     if (!text.trim()) continue
+    if (isPlaceholderTicketRow(text)) {
+      placeholders.push({ line: row.line, head: text.slice(0, 40) })
+      continue
+    }
     const c = evaluateTicket(row, ctx)
     if (seen.has(c.id)) {
       duplicates.push({ id: c.id, keptLine: seen.get(c.id), droppedLine: row.line })
@@ -465,7 +474,7 @@ export function buildCandidates({ rows, policy, ledger = [], now = Date.now(), p
     seen.set(c.id, row.line)
     candidates.push(c)
   }
-  return { candidates, duplicates, generatedAt: new Date(now).toISOString() }
+  return { candidates, duplicates, placeholders, generatedAt: new Date(now).toISOString() }
 }
 
 /** 落盘文档:rankTicketRows 认 `{ candidates: [...] }`,元信息只做审计用 */
