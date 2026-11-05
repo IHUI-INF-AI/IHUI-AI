@@ -20,11 +20,12 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as readline from 'node:readline';
+import type * as readline from 'node:readline';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const probe = vi.hoisted(() => ({ catalogReads: 0 }));
 vi.mock('../src/skills/catalog-cache-store.js', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- importOriginal 的泛型要模块类型,拆成 import type * 会与下方的值导入重复
   const actual = await importOriginal<typeof import('../src/skills/catalog-cache-store.js')>();
   return {
     ...actual,
@@ -35,8 +36,9 @@ vi.mock('../src/skills/catalog-cache-store.js', async (importOriginal) => {
   };
 });
 
+import { Command } from 'commander';
 import { handleSlashCommand, type ReplState } from '../src/commands/repl.js';
-import { showSkillsCatalog } from '../src/commands/skills-catalog-view.js';
+import { registerSkillsListCommand, showSkillsCatalog } from '../src/commands/skills-catalog-view.js';
 import { skillCatalogCachePath } from '../src/skills/catalog-cache-store.js';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §15b/§26 唯一落点(禁 os.tmpdir/裸 mkdtemp);属测试面而非生产依赖边
 
@@ -170,6 +172,56 @@ describe('⑤ 空清单与未判定分档(§0.3)', () => {
     } finally {
       rmScratch(empty);
     }
+  });
+});
+
+describe('⑥ 两处出口同形:REPL /skills 与 CLI skills list 共用一份格式化与缓存', () => {
+  /** 走 commander 真分发口(`skills list`);注册体与生产 `index.ts` 挂的是同一个。 */
+  async function linesThroughCli(cwd: string): Promise<string[]> {
+    emitted = [];
+    const program = new Command();
+    registerSkillsListCommand(program.command('skills'), { resolveCwd: () => cwd });
+    await program.parseAsync(['node', 'ihui', 'skills', 'list']);
+    return [...emitted];
+  }
+
+  /** 走 REPL 的 `/skills` 分发口。 */
+  async function linesThroughRepl(cwd: string): Promise<string[]> {
+    emitted = [];
+    const state = { opts: { workspacePath: cwd } } as unknown as ReplState;
+    const rl = { close: () => {} } as unknown as readline.Interface;
+    await handleSlashCommand('/skills', state, rl);
+    return [...emitted];
+  }
+
+  it('同一夹具 ∧ 同一冷缓存态 ⇒ 两条路径的输出行逐字相等', async () => {
+    fs.rmSync(skillCatalogCachePath(), { force: true });
+    const viaCli = await linesThroughCli(project);
+    fs.rmSync(skillCatalogCachePath(), { force: true });
+    const viaRepl = await linesThroughRepl(project);
+
+    expect(viaCli.length).toBeGreaterThan(0);
+    expect(viaCli.some((l) => l.includes('alpha'))).toBe(true);
+    expect(viaRepl).toEqual(viaCli);
+  });
+
+  it('共用同一份缓存:CLI 那一轮落盘,REPL 下一轮必须命中同一个缓存文件(不是各自扫盘)', async () => {
+    fs.rmSync(skillCatalogCachePath(), { force: true });
+    await linesThroughCli(project);
+    expect(fs.existsSync(skillCatalogCachePath())).toBe(true);
+    const viaRepl = await linesThroughRepl(project);
+    expect(viaRepl.some((l) => l.includes('cache hit: 1 entry'))).toBe(true);
+  });
+
+  it('index.ts 只挂命令:skills 组到 show 之前不得再直调 loadSkills(口径只有一份)', () => {
+    const entrySrc = fs.readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    const groupStart = entrySrc.indexOf("program.command('skills')");
+    const showStart = entrySrc.indexOf("command('show <name>')");
+    expect(groupStart).toBeGreaterThan(-1);
+    expect(showStart).toBeGreaterThan(groupStart);
+    const group = entrySrc.slice(groupStart, showStart);
+    expect(group).toContain('registerSkillsListCommand(skillsCmd)');
+    expect(group).not.toContain('loadSkills(');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
