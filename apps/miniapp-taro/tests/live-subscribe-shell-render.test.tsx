@@ -151,4 +151,16 @@ describe('直播订阅页薄壳', () => {
     ;(props.onToggleReminder as (v: boolean) => void)(false)
     expect(h.setStorageSync).toHaveBeenCalledWith('live_reminder_enabled', 'false')
   })
+
+  // 阴性对照:删掉 SCREEN_TEXT 任一键,本段立即回落到裸 key 并转红。
+  it('④ 文案兜底与 RN 同值:标题/三态徽标/空态不再漏 key', () => {
+    const { props } = renderPage()
+    const t = props.t as (k: string) => string
+    expect(t('subscriptions.title')).toBe('我的订阅')
+    expect(t('live.ongoing')).toBe('直播中')
+    expect(t('live.upcoming')).toBe('即将开播')
+    expect(t('live.ended')).toBe('已结束')
+    expect(t('subscriptions.empty')).toBe('暂无订阅')
+    expect(t('subscriptions.title')).not.toBe('subscriptions.title')
+  })
 })
