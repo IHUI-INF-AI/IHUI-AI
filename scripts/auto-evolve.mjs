@@ -1154,6 +1154,23 @@ export function extractTicketScopeHints(text, { maxIdents = 6, maxPaths = 6 } = 
       if (!paths.includes(s) && paths.length < maxPaths) paths.push(s)
       continue
     }
+    // 点号成员引用(`ignore_rules.filter_paths`、`a.b.c`)—— 2026-11-05 实测漏判补上:
+    // P84 那行只带这一种标识符,旧提取器两类都不认 ⇒ 被读成"无从预检",
+    // 而它的实现其实在位、判据实跑 5/5 绿。盲点不补,同类票明天照样漏。
+    // 只认**尾段够具体**(≥6 字符)的:查询打的是尾段名,尾段太短(`a.b.c` 的 `c`、
+    // `id.other` 的 `other`)会把一片无关文件捞成"已命中",那是假阳,比漏判更坏。
+    if (
+      /^[A-Za-z_][A-Za-z0-9_]{1,}(?:\.[A-Za-z_][A-Za-z0-9_]{1,}){1,3}$/.test(s) &&
+      (s.split('.').pop().length ?? 0) >= 6
+    ) {
+      if (!idents.includes(s) && idents.length < maxIdents) idents.push(s)
+      continue
+    }
+    // 裸点文件(`.gitignore`、`.dockerignore`):按存在性核,不当标识符
+    if (/^\.[A-Za-z0-9_][A-Za-z0-9_.-]{1,40}$/.test(s)) {
+      if (!paths.includes(s) && paths.length < maxPaths) paths.push(s)
+      continue
+    }
     // 标识符形态:纯代码名,≥4 字符(滤掉 `id`/`api` 这类噪声与整段中文)
     if (/^[A-Za-z_][A-Za-z0-9_]{3,60}$/.test(s)) {
       if (!idents.includes(s) && idents.length < maxIdents) idents.push(s)
@@ -1199,8 +1216,11 @@ export function buildTicketScope(
       continue
     }
     let raw = null
+    // 点号引用按**末段**去查(代码里 import 的是末段名,全串 `a.b` 反而搜不到);
+    // 标签仍保留点号全称,并在文案里注明"按末段核"—— 换了查询体就得换了说法(§0.3)。
+    const key = ident.includes('.') ? ident.split('.').pop() : ident
     try {
-      raw = grepFn ? grepFn(ident) : null
+      raw = grepFn ? grepFn(key) : null
     } catch {
       raw = null
     }
@@ -1221,7 +1241,7 @@ export function buildTicketScope(
       out.unresolved.push(ident)
       continue
     }
-    out.hits.push({ ident, files })
+    out.hits.push({ ident, files, via: ident.includes('.') ? 'tail' : 'exact' })
   }
   for (const p of paths) {
     let exists = null
@@ -1242,7 +1262,10 @@ export function renderTicketScope(s) {
   const L = []
   L.push(`## 范围预解析(调度侧在 ${s.rev} 面现查,排除 *.md;这是事实不是建议)`)
   if (s.hits.length) {
-    for (const h of s.hits) L.push(`- 标识符 \`${h.ident}\` 已命中:${h.files.join('、')}`)
+    for (const h of s.hits)
+      L.push(
+        `- 标识符 \`${h.ident}\` 已命中${h.via === 'tail' ? '(点号引用按末段核)' : ''}:${h.files.join('、')}`,
+      )
     L.push(`- **先读这些命中文件再决定动不动笔**:若本票要造的东西已经在里面,本票就是**已被实现**——`)
     L.push(
       `  不要再写第二份、不要改名重嵌,回答里点名「已实现于 <文件> <证据>」并保持票未勾正常退出。`,

@@ -1084,4 +1084,43 @@ test('Ⓗ 池可赢性:四档互斥 + 没核完如实报"未核" + 只挂在停�
     '不派的两档都要算到',
   )
 })
+
+test('Ⓙ 点号成员引用与裸点文件都能被预检(补 P84 暴露的仪器盲点)', () => {
+  const h = ae.extractTicketScopeHints(
+    '枚举过 `ignore_rules.filter_paths`,三层引用 `a.b.c.d`;还有 `.gitignore` 与 `apps/x/y.py`;噪声 `id` 与 `id.other`',
+  )
+  assert.deepEqual(h.idents, ['ignore_rules.filter_paths'], '点号引用算标识符(旧实现两类都不认)')
+  assert.ok(
+    !h.idents.includes('a.b.c.d'),
+    '尾段只有 1 字符 ⇒ 查它会捞一片假命中,不算标识符(假阳比漏判更坏)',
+  )
+  assert.deepEqual(h.paths, ['.gitignore', 'apps/x/y.py'], '裸点文件按存在性核,不当标识符')
+  assert.ok(
+    !h.idents.includes('id.other') && !h.idents.includes('id'),
+    '首段短于 3 字符的点号串仍是噪声,不放宽',
+  )
+
+  const s = ae.buildTicketScope('枚举过 `ignore_rules.filter_paths`', {
+    rev: 'r9',
+    // 全串搜不到、末段搜得到 —— 代码里 import 末段名的真实形态
+    grepFn: (k) =>
+      k === 'filter_paths' ? 'r9:apps/ai-service/app/services/ignore_rules.py\nr9:notes.md' : '',
+    existsFn: () => false,
+  })
+  assert.equal(s.identCount, 1)
+  assert.equal(s.hits.length, 1, '按末段核到 ⇒ 不再被读成"无从预检"')
+  assert.equal(s.hits[0].ident, 'ignore_rules.filter_paths', '标签保留点号全称')
+  assert.equal(s.hits[0].via, 'tail', '换过查询体就必须声明是末段命中,不冒充全串命中')
+  assert.deepEqual(s.hits[0].files, ['apps/ai-service/app/services/ignore_rules.py'])
+  assert.match(ae.renderTicketScope(s), /点号引用按末段核/)
+
+  // 反向对照:全串就能命中时 via 必须是 exact(不被 tail 档掩盖)
+  const e = ae.buildTicketScope('新增 `compute_simhash`', {
+    rev: 'r10',
+    grepFn: () => 'r10:a/b.py',
+    existsFn: () => true,
+  })
+  assert.equal(e.hits[0].via, 'exact')
+  assert.ok(!/点号引用按末段核/.test(ae.renderTicketScope(e)), 'exact 命中不许冒"末段核"的说明')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
