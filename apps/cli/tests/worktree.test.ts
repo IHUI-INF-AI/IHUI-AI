@@ -15,6 +15,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import {
   detectCowKind,
   resetCowCache,
@@ -823,8 +824,27 @@ describe('getDefaultWorktreeRoot(subagents)IHUI_WORKTREE_DIR 落点护栏', () =
   })
 
   it('非法:相对路径 ⇒ 抛错(落点随 cwd 漂移,不可申报)', () => {
-    process.env[KEY] = '../outside-wt'
-    expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
+    // 相对串的解析基准就是进程 cwd:若 cwd 落在 <盘>/DevEnv 之下,
+    // '../outside-wt' 会被解析回 DevEnv 白名单内而放行(2026-11-05 实证:
+    // DevEnv worktree 下本用例假红)。故显式 chdir 到盘根(其父仍为自身,
+    // 不在 .worktrees/ 也不在 DevEnv),并用前置断言锁定"样本确实越界",
+    // 避免用例退化成空断言。
+    const here = path.dirname(fileURLToPath(import.meta.url))
+    const repoRoot = path.resolve(here, '../../..')
+    const driveRoot = path.parse(repoRoot).root
+    const savedCwd = process.cwd()
+    try {
+      process.chdir(driveRoot)
+      const escaped = path.resolve('../outside-wt')
+      expect(escaped).toBe(path.join(driveRoot, 'outside-wt'))
+      const normalized = escaped.replace(/\\/g, '/').toLowerCase()
+      expect(normalized).not.toMatch(/^[a-z]:\/devenv(\/|$)/)
+      expect(normalized).not.toContain('/.worktrees/')
+      process.env[KEY] = '../outside-wt'
+      expect(() => getSubagentWorktreeRoot('/repo')).toThrowError(/必须落在项目/)
+    } finally {
+      process.chdir(savedCwd)
+    }
   })
 
   it.skipIf(process.platform !== 'win32')('合法②:<盘>/DevEnv 之下(部署环净面根同族)', () => {
