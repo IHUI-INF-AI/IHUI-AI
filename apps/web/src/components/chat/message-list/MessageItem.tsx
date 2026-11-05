@@ -286,7 +286,19 @@ const MessageItem = React.memo(function MessageItem({
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
   const isSystem = m.role === 'system'
-  const showTyping = !isUser && m.content === '' && isStreaming
+  // #17 折叠中间步骤区总数(四类区段)。2026-11-05 上移到此:showTyping 必须复用它。
+  // 「活动组 StreamGroup」挂在 showTyping 三元表达式的 else 分支里 —— 助手正文为空
+  // 且流式时若恒走 typing 占位,工具卡/计划/终端/子代理整段都不进 DOM,逐分片
+  // 渐进渲染对用户不可见(浏览器实测:卡片直到正文 chunk 到达才一次性以 success
+  // 终态出现)。判据改为「已有任一活动区段即退出 typing 占位」,把活动组挂载与
+  // 正文是否为空解耦;无活动区段的纯思考/等待轮次仍保持原 typing 行为不变。
+  const stepSectionsCount =
+    (m.toolCalls?.length ?? 0) +
+    (m.planSteps?.length ?? 0) +
+    (m.terminalTasks?.length ?? 0) +
+    (m.subagentActivities?.length ?? 0)
+  const showTyping =
+    !isUser && m.content === '' && isStreaming && stepSectionsCount === 0
   const streamingThis = !isUser && isStreaming && isLast
   // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
   // 前端当前可用的会话标识即 chat store 的 conversationId(详见交付说明)。
@@ -482,16 +494,8 @@ const MessageItem = React.memo(function MessageItem({
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
 
-  // #17 折叠中间步骤区总数(2026-09-14 修正):
-  // 原 gate 仅判 `m.toolCalls.length > 0`,导致"只有 planSteps / 终端任务 / subagent 活动
-  // 而没有工具调用"的消息完全不渲染折叠区 —— plan 步骤永久不可见(tests/message-list
-  // 的 PlanStepsCard 用例实证:纯 planSteps 消息 queryByTestId 恒为 null)。
-  // 现取四类区段总数:既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
-  const stepSectionsCount =
-    (m.toolCalls?.length ?? 0) +
-    (m.planSteps?.length ?? 0) +
-    (m.terminalTasks?.length ?? 0) +
-    (m.subagentActivities?.length ?? 0)
+  // #17 折叠中间步骤区总数:定义已上移到 isUser 之后(供 showTyping 判据复用,
+  // 单一真相源)。四类区段总数既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
 
   // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
   // 而不是一句"展开查看更多步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
