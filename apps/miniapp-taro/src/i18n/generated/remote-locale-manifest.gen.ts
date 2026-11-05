@@ -8,7 +8,7 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 8100ab373f5bb5f89cc36b735565dd9a9a16a447
+// sourceCommit: fa028c5f8de87407790ef885636392495755c927
 // inputsSha256: ebd42bbf3a2037b825d68b7378d47115056aeb45d79aa30319eed941a467eb38
 // input: packages/i18n/messages/miniapp-taro/en.json 52d674b07275b9103139856cc9aaa233a279a4fca6091ba053c0d77ad401071b
 // input: packages/i18n/messages/miniapp-taro/ja.json 1d867d5b8dfdaf276273a4c0a29590cc075f7c5a536563386943916646de1cdb
@@ -23,14 +23,14 @@
 // input: packages/i18n/messages/shared/ko.json 38b1a4dee3bf4359ef4db391a15ae1274782aeee7cbd9fb7cd906c3e31b51c7a
 // input: packages/i18n/messages/shared/zh-TW.json 1401ddeaced673d2824b67fd31f0e9fcfa525d00e9a35108eff2094bd025fd41
 // carried: present
-// carriedKeys: en=622 ja=622 ko=622 zh-TW=622
-// generatedAt: 2026-11-05T22:03:20.272Z
+// carriedKeys: en=624 ja=624 ko=624 zh-TW=624
+// generatedAt: 2026-11-05T22:37:28.347Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
-  en: { version: '076e9d00d96c7e1ad2932d3f42c2b33c48eacebd75ac7bf916ea8efbb6a691fb', bytes: 145004 },
-  ja: { version: '72479b94395b99b1561694b7f64591c3b220a62208d4674d811da404a372ea8d', bytes: 166480 },
-  ko: { version: '8bef9ef6d803cc84a70db8b6f88ffc0f39aeb6f27a4b853ac51491343e938452', bytes: 158284 },
-  'zh-TW': { version: 'e2f181ada2de204600c7ff671ab7434d3b9ada5292fde0a152ea4d433aad58e6', bytes: 150252 },
+  en: { version: 'ef4075d7cc1655cd46fef68eda6dcffef88e3e888d2b3de8c0f2c049f53cb507', bytes: 145076 },
+  ja: { version: 'ddf428bcaa3ec3689c7572559d0ef89fb9a16bc96803790cedf1abd58dc72ea3', bytes: 166556 },
+  ko: { version: 'c4b0d70c32d9ecf33cbd9d2f4f672268ff8eafcba325bec5d611dc75a6b21ee9', bytes: 158364 },
+  'zh-TW': { version: 'e50810dc22629d5de6571f77d473a5da855f7dda9e8ecfcb9a6b7602268a2fab', bytes: 150336 },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
