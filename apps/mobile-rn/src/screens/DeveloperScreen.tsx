@@ -8,6 +8,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getDeveloperDevInfo, type DeveloperDevInfo } from '@ihui/api-client'
+import { DEVELOPER_SPACE_ENTRIES } from '@ihui/shared/constants/developer-space'
 import type { DeveloperSpaceEntryId, DeveloperSpaceInfo } from '@ihui/types'
 import { DeveloperScreen as SharedDeveloperScreen } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
@@ -167,7 +168,7 @@ export default function DeveloperScreen() {
         subscribed={Boolean(devData?.subscription)}
         info={info}
         statusText={devData?.subscription ? t('devSpace.opened') : t('devSpace.notOpened')}
-        entryIds={['myAgents', 'agentIncome', 'n8nModel', 'businessCard']}
+        entryIds={DEVELOPER_SPACE_ENTRIES.map((entry) => entry.id)}
         footerAction={{
           label: t('devSpace.enterPlaza'),
           onPress: () => navigation.navigate('Plaza'),

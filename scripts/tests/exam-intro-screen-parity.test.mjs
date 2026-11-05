@@ -120,7 +120,7 @@ describe('plaza/cover:四 prop 两端显式传且值不同', () => {
   it('阳性 C:两端四 prop 各自显式出现,entryIds 4 vs 3', () => {
     assert.match(rnText, /statusText=\{devData\?\.subscription \? t\('devSpace\.opened'\) : t\('devSpace\.notOpened'\)\}/)
     assert.match(miniText, /statusText=\{statusText\}/)
-    assert.match(rnText, /entryIds=\{\['myAgents', 'agentIncome', 'n8nModel', 'businessCard'\]\}/)
+    assert.match(rnText, /entryIds=\{DEVELOPER_SPACE_ENTRIES\.map\(\(entry\) => entry\.id\)\}/)
     assert.match(miniText, /entryIds=\{DEV_ENTRY_IDS\}/)
     const miniIds = miniText.match(/const DEV_ENTRY_IDS = \['myAgents', 'agentIncome', 'n8nModel'\]/)
     assert.ok(miniIds, '小程序数据源 3 项')
