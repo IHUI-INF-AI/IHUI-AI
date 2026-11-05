@@ -16,7 +16,7 @@ import {
 } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
-import { STATUS_MAP } from './helpers'
+import { liveStage, STATUS_MAP } from './helpers'
 import type { Live } from './types'
 
 interface Props {
@@ -68,7 +68,8 @@ export function LiveTable({ rows, isLoading, error, onEdit, onDelete, deletePend
             </TableRow>
           ) : (
             rows.map((l) => {
-              const st = STATUS_MAP[l.status] ?? {
+              const stage = liveStage(l)
+              const st = STATUS_MAP[stage] ?? {
                 labelKey: '',
                 cls: 'bg-muted text-muted-foreground',
               }
@@ -84,7 +85,7 @@ export function LiveTable({ rows, isLoading, error, onEdit, onDelete, deletePend
                         st.cls,
                       )}
                     >
-                      {st.labelKey ? t(st.labelKey) : l.status}
+                      {st.labelKey ? t(st.labelKey) : stage}
                     </span>
                   </TableCell>
                   <TableCell className="px-4 py-2.5 text-right">

@@ -58,12 +58,31 @@ export interface LiveListItem {
 /** 直播列表 tab key */
 export type LiveListTab = 'all' | 'upcoming' | 'ongoing' | 'ended' | string
 
+/** 直播列表快捷动作条的三枚文案(顺序:开播 / 日历 / 我的订阅) */
+export interface LiveQuickActionsLabels {
+  host: string
+  calendar: string
+  subscriptions: string
+}
+
+/** 直播列表快捷动作条 props(平台无关;日历无对应实现的一端不传 onPressCalendar) */
+export interface LiveQuickActionsProps {
+  labels: LiveQuickActionsLabels
+  onPressHost: () => void
+  /** 可选:无直播日历对应实现的一端不传,组件不渲染该按钮 */
+  onPressCalendar?: () => void
+  onPressSubscriptions: () => void
+  colorScheme?: 'light' | 'dark'
+}
+
 /** LiveListScreen props */
 export interface LiveListScreenProps {
   t: TFunction
   items: LiveListItem[]
   activeTab: LiveListTab
   onSelectTab: (tab: LiveListTab) => void
+  /** 可见档位(默认全部四档;端内数据不支持某档时可少传,如小程序恒 publishedOnly 无 upcoming) */
+  tabs?: LiveListTab[]
   loading: boolean
   refreshing: boolean
   error: string
@@ -77,6 +96,8 @@ export interface LiveListScreenProps {
   loadingMore?: boolean
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+  /** 页头下方快捷动作条(开播/日历/我的订阅);不传则不渲染 */
+  quickActions?: LiveQuickActionsProps
 }
 
 /** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */
