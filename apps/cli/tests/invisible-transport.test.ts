@@ -24,6 +24,8 @@ const INVISIBLE_OPS = [0x2061, 0x2062, 0x2063, 0x2064].map((n) => cp(n))
 const BOM = cp(0xfeff)
 const SHY = cp(0x00ad)
 const U = (ch: string): string => `U+${ch.codePointAt(0)!.toString(16).toUpperCase()}`
+const SRC = (rel: string): string =>
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', rel), 'utf8')
 
 const WATERMARK_LIKE = 'xxx' + ZWSP + ZWNJ + ZWJ + WJ + BOM + SHY
 
@@ -42,11 +44,7 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
 
   it('③ 有语义的空白不被误伤(射程只收零语义码点)', () => {
     expect(stripInvisibleForTransport('a\tb\nc d')).toBe('a\tb\nc d')
-    const HAIR_SPACE = cp(0x200a)
-    const LINE_SEP = cp(0x2028)
-    const WORD_SEP = cp(0x2065)
-    const LRI = cp(0x2066)
-    for (const ch of [HAIR_SPACE, LINE_SEP, WORD_SEP, LRI])
+    for (const ch of [cp(0x200a), cp(0x2028), cp(0x2065), cp(0x2066)])
       expect(countInvisibleForTransport(`a${ch}b`), U(ch)).toBe(0)
   })
 
@@ -58,8 +56,7 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
   })
 
   it('⑤ 非字符串/空值不炸(工具结果可能没有正文)', () => {
-    // 按 unknown 入口调用:签名收窄成 string 也不会让这条锁失效(它测的是运行面兜底)
-    const loose = stripInvisibleForTransport as unknown as (v: unknown) => unknown
+    const loose = stripInvisibleForTransport as unknown as (v: unknown, k?: boolean) => unknown
     expect(loose(undefined)).toBe(undefined)
     expect(loose(null)).toBe(null)
     expect(stripInvisibleForTransport('')).toBe('')
@@ -69,7 +66,7 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
   it('⑥ 整族逐码点都被认出(漏一档 = 该档载荷照样 400)', () => {
     const inRange = [ZWSP, ZWNJ, ZWJ, LRM, RLM, WJ, ...INVISIBLE_OPS, BOM, SHY]
     expect(inRange.length).toBe(12)
-    // 夹具形状锁:cp() 若被 .map 直接接走(index/array 会当码点喂进去),这里当场翻红
+    // 夹具形状锁:cp() 若被 .map 直接接走(index/array 会当码点喂进 String.fromCharCode)
     for (const ch of inRange) expect(ch.length).toBe(1)
     for (const ch of inRange) {
       expect(countInvisibleForTransport(`a${ch}b`), U(ch)).toBe(1)
@@ -77,67 +74,68 @@ describe('stripInvisibleForTransport(自治会话自毒病灶,2026-11-05 立)', 
     }
   })
 
-  it('⑦ 表级:只有 tool 档动刀,其余角色连对象引用都不换', () => {
-    const tool = { role: 'tool', content: `read_file 结果${ZWSP}${BOM}`, tool_call_id: 'c1' }
-    const user = { role: 'user', content: `用户原文${ZWSP}` }
-    const assistant = { role: 'assistant', content: `助手原文${ZWJ}` }
-    const out = sanitizeMessagesForTransport([user, assistant, tool])
-    expect(out[2]!.content).toBe('read_file 结果')
-    expect(out[2]!.tool_call_id).toBe('c1')
-    // 反向锁:非 tool 档必须**不**被动 —— 动了就是静默改坏用户可见内容
-    expect(out[0]).toBe(user)
-    expect(out[1]).toBe(assistant)
-    expect((out[0] as { content: string }).content).toBe(`用户原文${ZWSP}`)
+  it('⑦ keepZwj 档:ZWJ 是唯一被留下的码点(emoji 家族不得被拆散)', () => {
+    const family = `👩${ZWJ}👩${ZWJ}👧`
+    expect(countInvisibleForTransport(family, true)).toBe(0)
+    expect(stripInvisibleForTransport(family, true)).toBe(family)
+    // 同一段里混进水印字母表的其他码点 ⇒ 照样认出并剥掉,ZWJ 一个不动
+    const mixed = family + ZWSP + BOM
+    expect(countInvisibleForTransport(mixed, true)).toBe(2)
+    expect(stripInvisibleForTransport(mixed, true)).toBe(family)
+    // 反向锁:tool 档(keepZwj=false)仍按全族判,两把尺不可互换
+    expect(countInvisibleForTransport(family, false)).toBe(2)
   })
 
-  it('⑧ 表级:全表零命中 ⇒ 返回入参数组本身(主循环每轮都过这里,不能白拷一遍)', () => {
-    const clean = [
+  it('⑧ 表级:每一档都过,但非 tool 档留 ZWJ', () => {
+    const tool = { role: 'tool', content: `read_file 结果${ZWSP}${ZWJ}`, tool_call_id: 'c1' }
+    const user = { role: 'user', content: `用户原文${ZWSP}${ZWJ}` }
+    const summary = { role: 'system', content: `上下文摘要${BOM}` }
+    const clean = { role: 'assistant', content: '干净正文' }
+    const out = sanitizeMessagesForTransport([user, clean, tool, summary])
+    expect(out[2]!.content).toBe('read_file 结果') // tool:ZWJ 也剥
+    expect(out[2]!.tool_call_id).toBe('c1')
+    expect(out[0]!.content).toBe(`用户原文${ZWJ}`) // 非 tool:ZWJ 留,载荷剥
+    expect(out[3]!.content).toBe('上下文摘要')
+    expect(out[1]).toBe(clean) // 零命中的那条连对象引用都不换
+  })
+
+  it('⑨ 表级:全表零命中 ⇒ 返回入参数组本身(主循环每轮都过这里)', () => {
+    const arr = [
       { role: 'user', content: 'a' },
       { role: 'tool', content: 'b' },
-    ]
-    expect(sanitizeMessagesForTransport(clean)).toBe(clean)
-  })
-
-  it('⑨ 表级:content 为 null / 缺省不炸(assistant 只带 tool_calls 的那一档)', () => {
-    const out = sanitizeMessagesForTransport([
       { role: 'assistant', content: null },
-      { role: 'tool', content: undefined },
-      { role: 'tool', content: `尾部带载荷${ZWSP}` },
-    ] as never)
-    expect(out[0]!.content).toBe(null)
-    expect(out[2]!.content).toBe('尾部带载荷')
+    ]
+    expect(sanitizeMessagesForTransport(arr)).toBe(arr)
   })
 
-  it('⑩ 接线锁:agent.ts 的三个 provider 出口全部带清洗(摘掉任一即翻红)', () => {
-    const src = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'commands', 'agent.ts'),
-      'utf8',
-    )
-    // 出口清点:数的是真发请求的那三处(带大括号的调用形态),import 语句不计
+  it('⑩ 接线锁:三个 provider 出口全部带清洗(摘掉任一即翻红)', () => {
+    const src = SRC('src/commands/agent.ts')
     const exits =
       (src.match(/streamChat\(\{/g) ?? []).length +
       (src.match(/streamOpenAiCompatible\(\{/g) ?? []).length
     expect(exits, 'apps/cli 的出站调用点数量变了 ⇒ 本锁的射程要跟着逐处点名').toBe(3)
     expect((src.match(/messages:\s*sanitizeMessagesForTransport\(/g) ?? []).length).toBe(3)
-    // 逐处点名:总数够了不算,一处写两遍会顶掉另一处漏接
     expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*opts\.messages\s*\)/)
     expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*\[\s*\{ role: 'system'/)
     expect(src).toMatch(/messages:\s*sanitizeMessagesForTransport\(\s*toOpenAiMessages\(/)
-    // 变异自证:同一套模式必须认不出"未接线"的形态,否则上面三条是空断言
     const mutant = 'await streamChat({ model, messages: opts.messages, signal })'
     expect((mutant.match(/messages:\s*sanitizeMessagesForTransport\(/g) ?? []).length).toBe(0)
   })
 
-  it('⑪ 判据单源:agent.ts 只许 import 复用,不得出现第二份零宽剥离实现', () => {
-    const src = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'commands', 'agent.ts'),
-      'utf8',
-    )
+  it('⑪ 判据单源:agent.ts 只许 import 复用,不得出现第二份零宽实现', () => {
+    const src = SRC('src/commands/agent.ts')
     expect(src).toMatch(/from '\.\.\/util\/invisible-transport\.js'/)
-    expect(
-      /\\u200[B-F]/.test(src),
-      'agent.ts 内出现了零宽码点字面量 ⇒ 判据必须回到 invisible-transport.ts',
-    ).toBe(false)
+    expect(/\\u200[B-F]/.test(src), 'agent.ts 内出现零宽码点字面量 ⇒ 判据必须回到本模块').toBe(
+      false,
+    )
+  })
+
+  it('⑫ 载荷确实会从非 tool 档漏出去(这两条通路是判据要覆盖全部角色的依据)', () => {
+    // 实测:工具输出被按 role:'user' 入历史;压缩摘要是一条非 tool 消息而它带压缩前原文。
+    expect(SRC('src/commands/agent.ts')).toMatch(
+      /opts\.messages\.push\(\{ role: 'user', content \}\)/,
+    )
+    expect(SRC('src/compaction-v2.ts')).toMatch(/content: `\[上下文摘要/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

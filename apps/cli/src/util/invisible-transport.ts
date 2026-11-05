@@ -21,22 +21,30 @@
  * 对模型零语义、对传输有害的码点。
  */
 const INVISIBLE_FOR_TRANSPORT = /[\u200B-\u200F\u2060-\u2064\uFEFF\u00AD]/g
+/** 非 tool 档用这一把:同样的族,但**留 U+200D(ZWJ)** —— 它是 emoji 家族/国旗序列的合法成分。 */
+const INVISIBLE_KEEPING_ZWJ = /[\u200B-\u200C\u200E-\u200F\u2060-\u2064\uFEFF\u00AD]/g
 
-/** 本次剥掉的字符数(调用方可据此留痕;0 = 未改动)。 */
-export function countInvisibleForTransport(text: string): number {
-  return (String(text ?? '').match(INVISIBLE_FOR_TRANSPORT) ?? []).length
+export function countInvisibleForTransport(text: string, keepZwj = false): number {
+  return (String(text ?? '').match(keepZwj ? INVISIBLE_KEEPING_ZWJ : INVISIBLE_FOR_TRANSPORT) ?? [])
+    .length
 }
 
-export function stripInvisibleForTransport(text: string): string {
+export function stripInvisibleForTransport(text: string, keepZwj = false): string {
   if (typeof text !== 'string' || !text) return text
   // 先数后剥:没命中就原样返回同一引用,避免给每条消息都造一份新字符串
-  return countInvisibleForTransport(text) > 0 ? text.replace(INVISIBLE_FOR_TRANSPORT, '') : text
+  const re = keepZwj ? INVISIBLE_KEEPING_ZWJ : INVISIBLE_FOR_TRANSPORT
+  return countInvisibleForTransport(text, keepZwj) > 0 ? text.replace(re, '') : text
 }
 
 type TransportShapedMessage = { role: string; content: string | null | undefined }
 
 /**
- * 消息表级出站清洗:**只动 `tool` 档**,其余角色逐字保留。
+ * 消息表级出站清洗:**每一档都过**,只有 `tool` 档连 ZWJ 一起剥,其余档留 U+200D
+ * (emoji 家族/国旗序列的合法成分,动它会静默改坏可见内容)。
+ * 为什么不是"只动 tool 档"(2026-11-05 当天被实测推翻):载荷不只住在工具结果里 ——
+ * `agent.ts:1744` 把工具输出也按 `role:'user'` 入历史,`compaction-v2.ts:547` 的上下文摘要
+ * 是一条非 tool 消息而它带的正是压缩前的原文。第 14 轮 34 次只读工具调用后照样
+ * `请求包含不合法字符(400)` 就是这条路径漏出来的。
  * 全表零命中 ⇒ 返回入参本身(不复制、不重排)。
  * CLI 的三个 provider 出口(`streamChat` 主循环 / `streamChat` 压缩摘要 /
  * `streamOpenAiCompatible`)都在 `messages:` 那一行调它;判据只住本文件,出口不复算(§0.6)。
@@ -44,12 +52,13 @@ type TransportShapedMessage = { role: string; content: string | null | undefined
 export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   messages: readonly T[],
 ): T[] {
-  const dirty = messages.some(
-    (m) => m.role === 'tool' && countInvisibleForTransport(m.content ?? '') > 0,
-  )
-  if (!dirty) return messages as T[]
+  const hit = (m: T): number =>
+    typeof m.content === 'string' ? countInvisibleForTransport(m.content, m.role !== 'tool') : 0
+  if (!messages.some((m) => hit(m) > 0)) return messages as T[]
   return messages.map((m) =>
-    m.role === 'tool' ? { ...m, content: stripInvisibleForTransport(m.content ?? '') } : m,
+    hit(m) > 0
+      ? { ...m, content: stripInvisibleForTransport(m.content ?? '', m.role !== 'tool') }
+      : m,
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
