@@ -142,7 +142,10 @@ describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
     expect(new WorktreeManager(repo).remove('agent-ok', { force: true })).toBe(true);
     expect(fs.existsSync(wtPath)).toBe(false);
     expect(gitOk(['worktree', 'list'], repo)).not.toContain('agent-ok');
-    expect(stderrText()).not.toContain('[file-acl');
+    // S7 之后"完全没有 file-acl 声音"不再成立:夹具工作区没有守护面清单 ⇒ unjudged 必须出声
+    // (一次,§0.3);这里锁的是"不该判的没被判"—— 无 deny/ask/advisory 判定声。
+    expect(stderrText()).not.toMatch(/\[file-acl (advisory|ask|deny)\]/);
+    expect(stderrText()).toContain('[file-acl unjudged]');
   });
 
   it('② 反例:目录名命中凭据族 ⇒ 拒,且拒绝早于任何删除动作(桩计数 + 注册表双重取证)', () => {

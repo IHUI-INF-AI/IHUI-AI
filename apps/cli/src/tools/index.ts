@@ -21,7 +21,7 @@
 
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
-import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
+import { evaluateFileAccess, toAclPath, announceGuardUnjudged } from '../sandbox/file-access-policy.js';
 // 79 号票运行时的唯一装配点(判定本体在 @ihui/types,本文件只消费).
 import {
   authorizeWritePath,
@@ -1972,6 +1972,8 @@ export function checkPathWritePermission(
   //    (.env 不可改也不可删,但"删一个守护件"要的是定向说明而不是禁止修改),
   //    把删除一律折到写轴 = 只复现了"分维"这个名字,没复现它。
   const acl = evaluateFileAccess(op, toAclPath(ctx.workspacePath, filePath), ctx.workspacePath);
+  // 守护面清单不可判 ⇒ 出声一次(S7:unjudged 透到消费点;只补一次定向说明,不改判据、不升档)
+  announceGuardUnjudged(ctx.workspacePath, acl.guard, `checkPathWritePermission:${op}`);
   if (acl.blocked) {
     return { allowed: false, reason: acl.note ?? `路径 ${filePath} 被文件访问裁决标记为不可${op === 'delete' ? '删' : '写'}` };
   }
