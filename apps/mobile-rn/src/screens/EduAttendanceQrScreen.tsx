@@ -212,7 +212,7 @@ export function EduAttendanceQrScreen() {
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('eduAttendanceQr.chooseClass')}</Text>
+          <Text style={styles.sectionTitle}>{t('eduAttendance.selectClass')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classRow}>
             {classes.map((c) => {
               const on = c.id === classId
@@ -310,7 +310,7 @@ export function EduAttendanceScanScreen() {
       const token = parseAttendancePayload(data)
       if (!token) {
         busyRef.current = true
-        appAlert(t('eduAttendanceQr.scanTitle'), t('eduAttendanceQr.scanInvalidCode'), [
+        appAlert(t('eduAttendance.qrPanelTitle'), t('eduAttendanceQr.scanInvalidCode'), [
           {
             text: t('common.confirm'),
             onPress: () => {
@@ -329,19 +329,19 @@ export function EduAttendanceScanScreen() {
         )
         if (res.success) {
           // 以后端回显展示,列表刷新交给 EduMyAttendanceScreen 的 focus 腿(不本地改行)
-          appAlert(t('eduAttendanceQr.scanTitle'), t('eduAttendanceQr.scanDone'))
+          appAlert(t('eduAttendance.qrPanelTitle'), t('eduAttendanceQr.scanDone'))
           navigation.goBack()
           return
         }
         // 401/403/400/409 一律把后端 message 上屏(过期/换班/未在册/重复签全靠它区分)
         appAlert(
-          t('eduAttendanceQr.scanTitle'),
+          t('eduAttendance.qrPanelTitle'),
           `${t('eduAttendanceQr.scanFailed')}:${res.error ?? '-'}`,
         )
         busyRef.current = false
       } catch (e) {
         appAlert(
-          t('eduAttendanceQr.scanTitle'),
+          t('eduAttendance.qrPanelTitle'),
           `${t('eduAttendanceQr.scanFailed')}:${e instanceof Error ? e.message : '-'}`,
         )
         busyRef.current = false
@@ -355,7 +355,7 @@ export function EduAttendanceScanScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.plainSafe}>
-        <Text style={styles.plainTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.plainTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <Text style={styles.plainHint}>{t('eduAttendanceQr.needLogin')}</Text>
         <Tappable
           onPress={() => navigation.navigate('Login')}
@@ -381,7 +381,7 @@ export function EduAttendanceScanScreen() {
     const denied = permission.status === 'denied'
     return (
       <View style={styles.plainSafe}>
-        <Text style={styles.plainTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.plainTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <Text style={styles.plainHint}>
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
@@ -408,7 +408,7 @@ export function EduAttendanceScanScreen() {
         onBarcodeScanned={submitting ? undefined : onScanned}
       />
       <View style={styles.camOverlay} pointerEvents="box-none">
-        <Text style={styles.camTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.camTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <View style={styles.scanFrame}>
           <View style={[styles.corner, styles.cornerTL]} />
           <View style={[styles.corner, styles.cornerTR]} />

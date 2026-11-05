@@ -114,7 +114,7 @@ export function EduAiVideoComposeScreen() {
         setViewingTaskId(row.id)
         setPrompt('')
       } catch (e) {
-        setCreateError((e as Error).message || t('eduAiPage.videoError'))
+        setCreateError((e as Error).message || t('eduAi.video.error'))
       } finally {
         setCreating(false)
       }
@@ -134,7 +134,7 @@ export function EduAiVideoComposeScreen() {
           setTasks((prev) => prev.map((task) => (task.id === row.id ? row : task)))
           setViewingTaskId(row.id)
         } catch (e) {
-          setRegenerateError((e as Error).message || t('eduAiPage.videoError'))
+          setRegenerateError((e as Error).message || t('eduAi.video.error'))
         } finally {
           setRegenerating(null)
         }

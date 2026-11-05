@@ -92,7 +92,7 @@ function EduSchedulingScreen() {
 
   const columns: ConsoleColumn[] = [
     { key: 'teacher', title: t('eduScheduling.teacher'), render: 'mono', flex: 2 },
-    { key: 'weekday', title: t('eduSchedule.weekdayTitle'), render: 'badge' },
+    { key: 'weekday', title: t('eduScheduling.form.weekday'), render: 'badge' },
     { key: 'time', title: t('eduSchedule.time') },
     { key: 'availability', title: t('eduScheduling.availability') },
   ]

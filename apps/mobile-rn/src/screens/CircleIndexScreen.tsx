@@ -251,7 +251,7 @@ export function CircleIndexScreen() {
   return (
     <View style={styles.container}>
       <NavChrome>
-        <NavBar title={t('circle.index.pageTitle')} onBack={() => navigation.goBack()} />
+        <NavBar title={t('circles.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
       <View style={styles.tabRow}>
         <CategoryInlineBar

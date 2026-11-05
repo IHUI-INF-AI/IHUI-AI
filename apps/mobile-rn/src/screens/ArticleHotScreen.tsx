@@ -88,7 +88,7 @@ export default function ArticleHotScreen() {
   return (
     <View style={styles.container}>
       <NavChrome>
-        <NavBar title={t('articleHot.title')} onBack={() => navigation.goBack()} />
+        <NavBar title={t('articles.hotTitle')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
       {loading ? (
