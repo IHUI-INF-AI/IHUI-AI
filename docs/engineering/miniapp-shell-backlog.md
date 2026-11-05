@@ -35,7 +35,7 @@
 | pages/plaza/index/index | 476 | ② | features/plaza/PlazaScreen.tsx | 缺动态流/筛选/点赞交互；web `apps/web/app/(main)/plaza/page.tsx` | 共享屏 +300 / 壳 120 | 页 `index.tsx:231`/`:265` |
 | pages/share/index | 913 | ② | features/share/ShareScreen.tsx + square/SquareScreen.tsx | 缺 ShareHub 整屏（邀请/海报/收益/抽屉）；web `share/page.tsx` 仅 `redirect('/')`，不可复用 | 共享屏 +450 / 壳 170 | 页 `index.tsx:586`/`:726`（Drawer/Modal） |
 | pkg-ai/ai/chat | 2463 | ② | features/chat/ChatScreen.tsx | 缺任务状态条/MCP 条/工具审批/队列/模型抽屉/素材与技能弹层 6 大块；web 无 | 共享屏 +700 / 壳 260 | 页 `chat.tsx:2232`-`:2396`（6 块） |
-| pkg-ai/ai/history | 919 | ② | features/message-center/MessageCenterScreen.tsx | 缺会话历史列表与批量操作；web `apps/web/app/(main)/messages/page.tsx` | 共享屏 +260 / 壳 120 | 页 `history.tsx:742`-`:822` |
+| pkg-ai/ai/history | 919 | ② | features/message-center/MessageCenterScreen.tsx | 缺会话历史列表与批量操作；web `apps/web/app/(main)/messages/page.tsx` | 共享屏 +260 / 壳 120 | 页 `history.tsx:742`-`:822`；**更正 2026-11-06**：该行在 `feat/miniapp-shell-chat` 已合法退休（五枚标记齐全，`retiredFromSha=d85473ff…`，页直载 `ConversationHistoryScreen`、页内 JSX 1），本行 919/MessageCenterScreen 为退休前旧读数，勿据此复活 |
 | pkg-ai/ai/conversation-import | 423 | ② | features/conversation-import/ConversationImportScreen.tsx | 缺导入分析面板与 `chooseMessageFile` 平台入口；web 无 | 共享屏 +180 / 壳 110 | 页 `conversation-import.tsx:411`(ImportAnalysisPanel) |
 | pkg-ai/ai/agent | 553 | ② | features/agent-screen/AgentScreen.tsx | 缺智能体编辑与模型配置弹窗；web `apps/web/app/(main)/agents/page.tsx` | 共享屏 +220 / 壳 110 | 页 `agent.tsx:543`(ModelConfigDialog) |
 | pkg-ai/ai/agent-detail | 622 | ② | features/agent-detail/AgentDetailScreen.tsx + agent-edit | 缺详情屏与编辑屏两份；web `agents/page.tsx` | 共享屏 +380 / 壳 150 | 页 `agent-detail.tsx:366`/`:379` |
