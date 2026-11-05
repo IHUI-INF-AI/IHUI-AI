@@ -8,8 +8,9 @@
  * 票面:窗口扩容的前置是先量成本 —— 本文件钉四件事:
  *  P1 成本读数:audit 每轮输出尾行必须带机器可 grep 的 `[成本读数]` 行(耗时 / 逐路径祖先
  *     取材次数 / 祖先提交总量 / 窗口截断数)。没有它,扩容定档永远靠体感。
- *  P2 截断报名:祖先清单被窗口截断(确证窗外还有)时必须点名路径与窗口值(`⚠️ [窗口截断]`),
- *     且结论行带"窗口不足"尾注 —— 不得静默绿;反向对照:浅历史路径不得虚报截断(报名吃证据)。
+ *  P2 截断报名:浅窗口用尽(确证窗外还有)时仍须点名路径与窗口值(`⚠️ [窗口截断]`);但 R1 自
+ *     2026-10-25 起走深档(窗口用尽回落全历史)⇒ 同一夹具的回写必须**判红**并点名,不得再喊
+ *     「R1 未判定」/结论行不得带"窗口不足"尾注(深档已判过)。反向对照:浅历史路径不得虚报截断。
  *  P3 巡检档三档:`runWindowProbe`/`renderProbe` 每档读数齐全、形状可 grep、深档取到更多提交,
  *     且默认三档 = ×1/×2/×8(40/80/320)。
  *  P4 probe 只读:跑完 probe 再判,同一夹具的判定结果与未跑过完全一致,默认窗口不被改动
@@ -51,15 +52,18 @@ function repo() {
   return { dir, run }
 }
 
-/** 造 depth 枚"动过 rel"的提交(每次整文件替换成单行 v<i>),与 window 镜像测试同源。 */
+/** 造 depth 枚"动过 rel"的提交(每次整文件替换成单行 v<i>),与 window 镜像测试同源;
+ *  返回第一枚(v1)的 sha9 —— 判红时要点名"回到的是哪一枚"。 */
 function buildDepth(dir, run, rel, depth) {
   put(dir, rel, 'v1\n')
   run('add', '-A')
   run('commit', '-qm', `${rel} v1`)
+  const first = run('rev-parse', 'HEAD').slice(0, 9)
   for (let i = 2; i <= depth; i++) {
     put(dir, rel, `v${i}\n`)
     run('commit', '-qam', `${rel} v${i}`)
   }
+  return first
 }
 
 /**
@@ -124,23 +128,50 @@ test('P1 成本读数:audit 输出必须带机器可 grep 的 [成本读数] 行
   }
 })
 
-test('P2 截断报名:窗口外回写必须点名路径与窗口值且结论带尾注(不得静默绿);浅历史不得虚报', () => {
+test('P2 截断报名:浅窗口用尽但深档已回落全历史 ⇒ 回写必须判红并点名;截断报名与浅历史不虚报仍在', () => {
   const { dir, run } = repo()
   try {
-    buildDepth(dir, run, 'deep.ts', gate.ANCESTOR_WINDOW + 5)
+    const first9 = buildDepth(dir, run, 'deep.ts', gate.ANCESTOR_WINDOW + 5)
+    // 先量语义前提(不是顺着输出抄):浅窗口确凿用尽;深档回落全历史后能取到最老那枚 v1。
+    // 依据见 check-stale-revert.mjs 深档块(L405-418):"窗口用尽 ⇒ 回落到全历史,把'没判'变成'判过'"。
+    const shallow = gate.ancestorWindow(dir, 'deep.ts')
+    assert.equal(shallow.shas.length, gate.ANCESTOR_WINDOW)
+    assert.equal(shallow.truncated, true, '夹具前提:该路径动过的提交必须深于浅窗口')
+    const deep = gate.ancestorWindow(dir, 'deep.ts', { deep: true })
+    assert.equal(deep.truncated, false, '全历史取得 ⇒ 已不是"窗口不足"')
+    assert.equal(deep.shas.length, gate.ANCESTOR_WINDOW + 5)
+    assert.equal(
+      deep.shas[gate.ANCESTOR_WINDOW + 4].slice(0, 9),
+      first9,
+      '全历史必须取到最老那枚(v1)',
+    )
+
     put(dir, 'deep.ts', 'v1\n')
     run('add', '--', 'deep.ts')
+    const loss = []
+    const v = gate.analyze(dir, ['deep.ts'], { windowLoss: loss })
+    assert.deepEqual(v, [{ path: 'deep.ts', commit: first9 }], '深档已取证 ⇒ 必须判红并点名 v1')
+    assert.deepEqual(loss, [], '深档真把它判出来了 ⇒ 不得再喊"窗口不足"')
     const r = gate.audit(dir, { staged: true })
     const out = r.lines.join('\n')
-    assert.equal(r.code, 0, '窗口外无从取证 ⇒ 不判红(判红=凭空定罪);但绿必须带着报名')
-    assert.match(out, /⚠️\s*\[窗口截断\]/, '截断发生必须报名,不得静默')
+    assert.equal(r.code, 1, '浅窗口外的回写在深档下必须拦(旧期望 code 0 的前提已随深档失效)')
+    assert.ok(
+      r.lines.some((l) => l.includes('deep.ts') && l.includes(first9)),
+      '必须点名路径与回到的版本',
+    )
+    assert.match(out, /⚠️\s*\[窗口截断\]/, 'R1r 侧仍走浅窗口:截断发生必须报名,不得静默')
     assert.ok(out.includes('deep.ts'), '必须点名路径')
     assert.ok(
       out.includes(`窗口 ${gate.ANCESTOR_WINDOW} 枚用尽`),
       `必须点名窗口值(${gate.ANCESTOR_WINDOW}),实得:${out.slice(0, 400)}`,
     )
-    assert.match(out, /\[R1 未判定\]/, '"没判"与"判过"必须在账面上长得不一样')
-    assert.match(out, /窗口不足未判定\(R1\)/, '结论行必须把这型未判带进尾注')
+    assert.match(out, /\[R1r 未覆盖\]/, 'R1r 的"窗口用尽/未覆盖"仍须在场(未覆盖 ≠ 通过)')
+    assert.ok(
+      out.includes(`祖先窗口(${gate.ANCESTOR_WINDOW} 枚)已用尽`),
+      'R1r 的点名必须写清窗口枚数与该路径更早版本未取',
+    )
+    assert.doesNotMatch(out, /\[R1 未判定\]/, '深档已判 ⇒ 不得再挂"未判定"')
+    assert.doesNotMatch(out, /窗口不足未判定\(R1\)/, '深档已判 ⇒ 结论行不得带"窗口不足"尾注')
     // 反向对照:浅历史路径的正当编辑 ⇒ 既无截断报名块,读数行的截断数也必须为 0(点名吃证据)。
     put(dir, 'shallow.txt', 'a\n')
     run('add', '-A')
