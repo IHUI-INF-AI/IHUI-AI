@@ -57,9 +57,17 @@ class FakeExternalToolDict:
 class FakeClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
+        # 2026-11-05(goal-b49 W1):`_supertool_invoke` 绕过 `call_external_tool` 的那一支
+        # 现在也必须把**配额归属桶**显式带到出站调用。旧夹具签名 `(name, args)` 钉的正是
+        # "这一支不传主体 ⇒ 令牌桶只能退到 server 名兜底"这一缺陷 —— 按 V3 #47 同一条纪律:
+        # 新行为才是正确,改夹具而不是去掉透传。
+        self.quota_run_ids: list[str] = []
 
-    async def call_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    async def call_tool(
+        self, name: str, args: dict[str, Any], *, quota_run_id: str = ""
+    ) -> dict[str, Any]:
         self.calls.append((name, args))
+        self.quota_run_ids.append(quota_run_id)
         return {"ok": True, "tool": name}
 
 
@@ -192,6 +200,8 @@ async def test_loop_tools_include_external_and_route(
     out = await by_name["ext_only"].executor({"x": 1})
     assert out == {"ok": True, "tool": "ext_only"}
     assert manager.client.calls == [("ext_only", {"x": 1})]
+    # 归属桶 = 承载层主体(不是请求体自报):令牌桶要能回答"这些 token 记在谁头上"
+    assert manager.client.quota_run_ids == ["user-a"]
 
     # 内置工具执行 → 路由回 mcp_server.call_tool
     # V3 #47 第二格(2026-09-26)改此夹具:执行器现在必须把角色透传给 call_tool

@@ -160,11 +160,29 @@ export const PLUGIN_DIAGNOSTIC_CODES = [
   'manifest-unexpected-error',
   /** 依赖环(G-682 的 dependencies 落地后由装载器产出;刻意不复用歧义码) */
   'plugin-dependency-cycle',
+  /**
+   * 贡献档被本宿主拒收(goal-b49/W2):档在词表内、但本 CLI 宿主没有落点(`no-host`),
+   * 或声明的贡献经 capability-catalog 求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-contribution-unknown-kind` **语义不同、文案不得复用** ——
+   * 前者是"认得但吃不下"(要改的是宿主/权限),后者是"词表里压根没这一档"(要改的是清单拼写)。
+   */
+  'plugin-contribution-declined',
+  /** 贡献档不在词表内(goal-b49/W2):诊断正文点名当前词表全量,免得用户对着不存在的落点瞎找 */
+  'plugin-contribution-unknown-kind',
+  /**
+   * 激活事件被本宿主拒收(goal-b49/W6):档在词表内、但本 CLI 没有该事件源(`runHook` 的在册触发点
+   * 只有 preToolCall/postToolCall),或声明的事件经能力目录求不出任何可达数据类(**默认拒**)。
+   * 与 `plugin-activation-unknown-event` **语义不同、文案不得复用** —— 前者要改的是宿主/权限,
+   * 后者是清单拼写。
+   */
+  'plugin-activation-rejected',
+  /** 激活事件不在词表内 / 形态不对(goal-b49/W6):正文点名当前词表全量 */
+  'plugin-activation-unknown-event',
 ] as const;
 
 export type PluginDiagnosticCode = (typeof PLUGIN_DIAGNOSTIC_CODES)[number];
 
-/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略 */
+/** 诊断严重级:`error` = 有清单没被装载;`warning` = 装载了但有内容被忽略(含被本宿主拒收的贡献档) */
 export type PluginDiagnosticSeverity = 'error' | 'warning';
 
 /**
