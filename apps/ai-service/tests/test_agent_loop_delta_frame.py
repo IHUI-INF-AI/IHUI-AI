@@ -123,4 +123,84 @@ async def test_agent_tool_loop_emits_tool_call_args_delta(client, monkeypatch):
     assert len([e for e in events if e["event"] == "done"]) == 1
     # 两轮 astream 都被调用(首轮决策工具 + 续轮产出最终回复),闭环未中断。
     assert astream_call_count["n"] == 2
+
+
+async def test_second_round_agent_loop_emits_tool_call_args_delta(client, monkeypatch):
+    """后续轮(第二轮)逐分片直推同样必须上 wire —— BUG-0006 回归钉子。
+
+    修复前:首轮分支用事件类型串兜底,后续轮却引用了未导入的
+    ``SSE_TOOL_CALL_ARGS_DELTA``,第二轮一旦收到 ``tool-call-args-delta``
+    就抛 NameError,整条 SSE 流退化为 error 帧。本用例让两轮都产逐片帧,
+    断言第二轮那一片确实到达 wire。
+    """
+    rounds: list[bool] = []
+    astream_call_count = {"n": 0}
+
+    async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
+        rounds.append(bool(kwargs.get("tool_call_args_stream", False)))
+        astream_call_count["n"] += 1
+        if astream_call_count["n"] == 1:
+            yield {
+                "type": "tool-call-args-delta",
+                "index": 0,
+                "id": "c1",
+                "name": "web_search",
+                "args": {"q": "te"},
+                "argsComplete": False,
+                "argsPartial": True,
+            }
+            yield {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "web_search", "arguments": '{"q":"test"}'},
+                    }
+                ],
+            }
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+        else:
+            # 第二轮也产逐片帧(修复前这里会触发 NameError)。
+            yield {
+                "type": "tool-call-args-delta",
+                "index": 0,
+                "id": "c2",
+                "name": "web_search",
+                "args": {"q": "test"},
+                "argsComplete": True,
+                "argsPartial": False,
+            }
+            yield {"type": "chunk", "content": "已搜索"}
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+    async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
+        raise AssertionError("W7 #10:tool loop 后续轮不得再调用非流式 complete()")
+
+    async def mock_call_tool(name, arguments, **kwargs):
+        return {"tool": name, "ok": True, "mock": True}
+
+    monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
+    monkeypatch.setattr(llm_router.llm_gateway, "complete", mock_complete)
+    monkeypatch.setattr(_mcp_inst, "call_tool", mock_call_tool)
+
+    raw = await _stream_chat(client, {
+        "messages": [{"role": "user", "content": "搜索 test"}],
+        "model": "test-model",
+        "agent_tools": ["web_search"],
+    })
+    events = _parse_sse_events(raw)
+
+    assert astream_call_count["n"] == 2
+    assert all(rounds), "两轮 astream 都必须带 tool_call_args_stream=True"
+
+    delta_ids = [e["data"]["id"] for e in events if e["event"] == "tool-call-args-delta"]
+    assert "c1" in delta_ids, "首轮逐片帧必须上 wire"
+    assert "c2" in delta_ids, "第二轮逐片帧必须上 wire(BUG-0006:不得 NameError)"
+    assert "error" not in [e["event"] for e in events]
+    # 工具循环仍正常闭环。
+    assert len([e for e in events if e["event"] == "tool-call-start"]) == 1
+    assert len([e for e in events if e["event"] == "tool-result"]) == 1
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

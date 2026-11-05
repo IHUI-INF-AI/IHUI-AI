@@ -34,7 +34,7 @@ import urllib.parse
 from datetime import UTC, datetime
 from typing import Any
 
-import requests
+import httpx
 from bs4 import BeautifulSoup
 
 from app.services.connectors import MAX_DOC_CHARS
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 # 语雀 SSR 注入的 appData(实测 2026-09-02:JSON 经 decodeURIComponent 包裹)
 _APPDATA_RE = re.compile(r'JSON\.parse\(decodeURIComponent\("([^"]+)"\)\)')
 
-# 浏览器 UA(语雀对裸 requests UA 可能返回反爬页)
+# 浏览器 UA(语雀对裸 HTTP 客户端 UA 可能返回反爬页)
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
@@ -62,16 +62,16 @@ def _extra(record: dict[str, Any]) -> dict[str, Any]:
     return extra if isinstance(extra, dict) else {}
 
 
-def _request(
-    url: str, params: dict[str, Any] | None = None, timeout: int = 20
-) -> requests.Response:
-    """带浏览器 UA 的 GET 请求(统一超时,避免挂死)。"""
-    return requests.get(
-        url,
-        params=params,
-        headers={"User-Agent": _UA, "Referer": "https://www.yuque.com/"},
-        timeout=timeout,
-    )
+async def _request(
+    url: str, params: dict[str, Any] | None = None, timeout: float = 20.0
+) -> httpx.Response:
+    """带浏览器 UA 的异步 GET 请求(统一超时,避免挂死事件循环)。"""
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        return await client.get(
+            url,
+            params=params,
+            headers={"User-Agent": _UA, "Referer": "https://www.yuque.com/"},
+        )
 
 
 def _extract_appdata(html: str) -> dict[str, Any]:
@@ -123,7 +123,8 @@ async def sync(record: dict[str, Any]) -> dict[str, Any]:
             "last_sync_at": "",
         }
     try:
-        html = _request(f"https://www.yuque.com/{user}/{repo}").text
+        resp = await _request(f"https://www.yuque.com/{user}/{repo}")
+        html = resp.text
         appdata = _extract_appdata(html)
         raw_book = appdata.get("book")
         book: dict[str, Any] = raw_book if isinstance(raw_book, dict) else {}
@@ -186,7 +187,8 @@ async def fetch_document(record: dict[str, Any], doc_id: str) -> dict[str, Any]:
         }
     try:
         # book_id 不在配置里,每次从首页 appData 取(公开库公开可读)
-        html = _request(f"https://www.yuque.com/{user}/{repo}").text
+        resp = await _request(f"https://www.yuque.com/{user}/{repo}")
+        html = resp.text
         appdata = _extract_appdata(html)
         raw_book = appdata.get("book")
         book: dict[str, Any] = raw_book if isinstance(raw_book, dict) else {}
@@ -200,7 +202,7 @@ async def fetch_document(record: dict[str, Any], doc_id: str) -> dict[str, Any]:
                 "truncated": False,
                 "message": "无法从首页获取 book_id(可能非公开库或页面结构变更)",
             }
-        resp = _request(
+        resp = await _request(
             f"https://www.yuque.com/api/docs/{slug}",
             params={
                 "book_id": book_id,
