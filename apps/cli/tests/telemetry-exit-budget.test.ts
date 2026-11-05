@@ -35,7 +35,7 @@ describe('TelemetryClient — 退出路径的有限预算', () => {
     const client = new TelemetryClient({
       enabled: true,
       endpoint: 'https://telemetry.invalid/v1/collect',
-      fetchImpl: (input, init) => {
+      fetchImpl: (_input, init) => {
         seen = init;
         return Promise.resolve(new Response('{}', { status: 202 }));
       },
