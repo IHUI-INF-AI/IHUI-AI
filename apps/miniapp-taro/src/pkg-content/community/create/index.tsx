@@ -13,7 +13,7 @@ import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
-import { fetchApi } from '@ihui/api-client'
+import { createCommunityPost } from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
@@ -153,17 +153,14 @@ export default function CommunityCreate() {
     }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/community/posts', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: title.trim(),
-        content: content.trim(),
-        circleId,
-        tags: tags
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      }),
+    const res = await createCommunityPost({
+      title: title.trim(),
+      content: content.trim(),
+      circleId,
+      tags: tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     })
     setSaving(false)
     if (res.success && res.data) {

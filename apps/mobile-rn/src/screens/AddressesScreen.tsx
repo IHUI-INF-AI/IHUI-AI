@@ -14,7 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, MapPin, Plus } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  createAddress,
+  deleteAddress,
+  listAddresses,
+  setDefaultAddress,
+  updateAddress,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -100,7 +106,7 @@ export default function AddressesScreen() {
     setLoading(true)
     setFailed(false)
     try {
-      const res = await fetchApi<{ list: Address[] }>('/api/addresses')
+      const res = await listAddresses()
       if (!res.success) throw new Error(res.error)
       setList(res.data?.list ?? [])
     } catch {
@@ -161,10 +167,7 @@ export default function AddressesScreen() {
     }
     setSaving(true)
     try {
-      const payload = JSON.stringify(body)
-      const res = editId
-        ? await fetchApi(`/api/addresses/${editId}`, { method: 'PUT', body: payload })
-        : await fetchApi('/api/addresses', { method: 'POST', body: payload })
+      const res = editId ? await updateAddress(editId, body) : await createAddress(body)
       if (!res.success) throw new Error(res.error)
       setForm(null)
       setEditId(null)
@@ -186,7 +189,7 @@ export default function AddressesScreen() {
           void (async () => {
             setBusyId(a.id)
             try {
-              const res = await fetchApi(`/api/addresses/${a.id}`, { method: 'DELETE' })
+              const res = await deleteAddress(a.id)
               if (!res.success) throw new Error(res.error)
               await load()
             } catch {
@@ -203,7 +206,7 @@ export default function AddressesScreen() {
   const onSetDefault = async (a: Address) => {
     setBusyId(a.id)
     try {
-      const res = await fetchApi(`/api/addresses/${a.id}/default`, { method: 'POST' })
+      const res = await setDefaultAddress(a.id)
       if (!res.success) throw new Error(res.error)
       await load()
     } catch {

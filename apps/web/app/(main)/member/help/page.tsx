@@ -10,19 +10,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { HelpCircle, Loader2, Search, Mail } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listHelpArticles } from '@ihui/api-client'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-
-interface HelpArticle {
-  slug: string
-  title: string
-  summary?: string | null
-  content?: string | null
-  category?: string | null
-  updatedAt?: string | null
-}
 
 export default function MemberHelpPage() {
   const locale = useLocale()
@@ -31,9 +22,12 @@ export default function MemberHelpPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'help-articles'],
     queryFn: () =>
-      apiOrThrow<{ list: HelpArticle[] }>('/api/help/articles')
-        .then((d) => d.list ?? [])
-        .catch(() => [] as HelpArticle[]),
+      listHelpArticles()
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.list ?? []
+        })
+        .catch(() => []),
   })
 
   const articles = data ?? []
