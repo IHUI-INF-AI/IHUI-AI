@@ -1,4 +1,4 @@
-| 跟踪文件 | 19240 |<!--
+<!--
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -92,18 +92,18 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 74 | `cliCommandFiles` |
+| CLI 命令文件 | 75 | `cliCommandFiles` |
 | CLI 工具文件 | 78 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4117 | `testFiles` |
+| 测试文件 | 4121 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 306 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19242 | `trackedFiles` |
+| 跟踪文件 | 19253 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5473,7 +5473,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:把插件贡献审计装到生产装载链,并把 loader.ts 按职责拆到三档(rea goal-b49 W2 席产物,主席复量收口) (74e321fc08)
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9dbe548e3d)
 - 🐞 修复:顶层 import type 替代 import() 类型注解，修复 gate-analyse lint 红 (a939b66110)
-
 **2026-11-03**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (434987ae32)
 - 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a69c95034d)
@@ -42656,3 +42655,6 @@ A: Yes. ~14839+ tests / 4078 test files / 67 e2e spec / 4699 API 路由 / 622 �
 A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` check-miniapp-shell-form.mjs(门 299:小程序「薄壳 vs 复制」实现形态,新增复制页即红;跳过 HUSKY_SKIP_MINIAPP_SHELL_FORM) check-web-mp-route-carriers.mjs(门 301:web↔小程序共享屏承载路由对账;跳过 HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS)
 - API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs` check-api-endpoint-delta.mjs(门 300:三端 API 调用差集台账,棘轮只拦新增;跳过 HUSKY_SKIP_API_ENDPOINT_DELTA) check-drizzle-journal-sync.mjs(迁移链「文件↔journal」双向对账,git-guardian 巡检轮派发)
+| 跟踪文件 | 19240 |<!--
+| 测试文件 | 4117 | `testFiles` |
+| 跟踪文件 | 19241 | `trackedFiles` |
