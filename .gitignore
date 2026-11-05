@@ -641,3 +641,8 @@ deploy/win/.alert-quiet-ledger.jsonl
 
 # 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
 /deliverables/
+
+# 并行会话探针残留落点(2026-11-05 现读:两者均未被任何既有规则命中、均未被跟踪):
+# 前者是小程序端 ad-hoc 探针的临时目录,后者是 e2e 的一次性调试脚本,都不是交付物
+apps/miniapp-taro/probe-tmp/
+apps/web/e2e/tagsview-debug.ts
