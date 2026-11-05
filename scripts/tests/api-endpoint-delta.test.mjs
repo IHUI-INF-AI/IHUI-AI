@@ -25,6 +25,7 @@ import {
   extractEndpoints,
   extractSharedEndpoints,
   normalizePath,
+  normalizeSharedPath,
   prefixOf,
   sharedCoverage,
   sharedPrefixSet,
@@ -91,6 +92,22 @@ test('T5 共享覆盖与前缀深度', () => {
   assert.ok(sharedPrefixSet(['/api/a/b'], 1).has('/api/a'))
 })
 
+test('T5b 共享端点相对路径归一(门 300 假阳性修复)', () => {
+  assert.equal(normalizeSharedPath('/srs/streams'), '/api/srs/streams', '相对字面量按 resolveUrl 补 /api')
+  assert.equal(normalizeSharedPath('/ai/history${buildQs({ a: 1 })}'), '/api/ai/history/:param')
+  assert.equal(normalizeSharedPath('/api/a/b?x=1'), '/api/a/b')
+  assert.equal(normalizeSharedPath('srs/streams'), null, '非斜杠开头不是端点')
+  assert.equal(normalizeSharedPath('/api/(.*)'), null, '正则 matcher 不是端点')
+  // extractSharedEndpoints 只收调用参数位上的相对路径,普通字符串不误收
+  const shared = extractSharedEndpoints('/nonexistent', {
+    listFiles: () => ['packages/api-client/src/endpoints/demo.ts'],
+    readFile: () =>
+      "export const a = () => fetchApi('/srs/streams')\nexport const b = 'views/not-api'\nexport const c = () => compute('/plain/word')\n",
+  })
+  assert.ok(shared.paths.includes('/api/srs/streams'))
+  assert.ok(!shared.paths.some((p) => p.includes('plain')), '非 fetchApi 调用位的相对串不误收')
+})
+
 test('T6 棘轮:未登记 = 红;登记必须 owner + 理由 ≥10 字 + 非 pending', () => {
   const fake = {
     ends: {
@@ -100,10 +117,11 @@ test('T6 棘轮:未登记 = 红;登记必须 owner + 理由 ≥10 字 + 非 pend
     },
     unique: { web: ['/api/new'], rn: [], mp: [] },
   }
-  const stock = { end: 'web', prefix: '/api/new', baseline: true, verdict: 'pending' }
+  const stock = { end: 'web', prefix: '/api/new', baseline: true, verdict: 'platform-only', owner: 'x', reason: '存量已裁决:web 包装层专属链路不可共享' }
   const reg = { end: 'web', prefix: '/api/new', baseline: false, verdict: 'platform-specific', owner: 'x', reason: '平台专属链路无法共享' }
   assert.equal(G.evaluateRatchet(fake, []).reds.length, 1)
   assert.equal(G.evaluateRatchet(fake, [stock]).reds.length, 0)
+  assert.equal(G.evaluateRatchet(fake, [{ ...stock, verdict: 'pending' }]).reds.length, 1, '存量 pending 也必须红')
   assert.equal(G.evaluateRatchet(fake, [reg]).reds.length, 0)
   assert.equal(G.evaluateRatchet(fake, [{ ...reg, owner: '' }]).reds.length, 1)
   assert.equal(G.evaluateRatchet(fake, [{ ...reg, reason: '临时' }]).reds.length, 1)

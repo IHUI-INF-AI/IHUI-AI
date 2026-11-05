@@ -13,16 +13,17 @@
  * 数不出「端内独有前缀」的漂移。本门先把直拼点逐条落账,再做**新增即登记**的棘轮。
  *
  * 判据(先只做棘轮 + 未登记即红,题面):
- *   R1 当前面出现的「端内独有前缀」(该端有、共享端点清单里没有任何路径以它开头)
- *      若不在 scripts/data/api-endpoint-delta-ledger.jsonl ⇒ 红(未登记新增前缀)。
- *   R2 台账里 `baseline:false` 的新登记行必须带 verdict(非 pending)、owner、
- *      reason(≥10 字)⇒ 否则红(白名单不许空口)。
- *   R3 存量(baseline:true)只报数;已消失/漂移记 advisory,不红(存量按批次收)。
+ *   R1 当前面出现的「端内独有前缀」(该端有、按归一后的共享端点清单没有任何路径以该前缀
+ *      开头)且不在 scripts/data/api-endpoint-delta-ledger.jsonl ⇒ 红(未登记新增前缀)。
+ *   R2 台账所有行(存量 baseline:true 与新登记 baseline:false 一律)必须带
+ *      verdict(非 pending)、owner、reason(≥10 字)⇒ 否则红(存量也不许留欠条)。
+ *   R3 存量已消失/漂移记 advisory,不红(允许按批次摘除)。
  *   未判定:提取器识别不了的直接传输调用点(变量/形参/跨文件常量)逐条落"未判定"计数,
  *          绝不折成「没有」;取不到清单/正文 ⇒ exit 2,不记绿。
  *
  * 前缀口径:默认 `/api/<seg1>`(--depth 可切 2/3,便于与历史盘点口径对齐)。
- * 共享端点真相源:`packages/api-client/src/endpoints/**` 内的 `/api` 字面量(归一 `${}`→`:param`)。
+ * 共享端点真相源:`packages/api-client/src/endpoints/**` 内的路径字面量(归一 `${}`→`:param`);
+ *   相对字面量(`fetchApi('/srs/streams')`)按 resolveUrl 规则补 `/api` 前缀后计入。
  * 取材面:默认 HEAD;`--staged` / `--worktree` 为逃生舱。台账读工作树(判据输入,不是被判对象)。
  *
  * Usage:
@@ -48,6 +49,7 @@ import {
   uniquePrefixes,
   scanLineLiterals,
   normalizePath,
+  normalizeSharedPath,
 } from './lib/api-endpoint-literals.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
@@ -152,16 +154,15 @@ export function evaluateRatchet(current, ledger) {
       reds.push({ rule: 'R2', why: `台账行缺 end/prefix: ${JSON.stringify(r).slice(0, 120)}` })
       continue
     }
-    if (r.baseline === true) continue
     if (r.verdict === 'pending' || r.verdict === undefined) {
-      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `新登记行不许 pending(必须给出裁决): ${r.end} ${r.prefix}` })
+      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `台账行不许 pending(存量也必须给出裁决): ${r.end} ${r.prefix}` })
       continue
     }
     if (!r.owner || !String(r.owner).trim()) {
-      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `新登记行缺 owner: ${r.end} ${r.prefix}` })
+      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `台账行缺 owner: ${r.end} ${r.prefix}` })
     }
     if (reasonLen(r.reason) < 10) {
-      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `新登记行理由不足 10 字: ${r.end} ${r.prefix}` })
+      reds.push({ rule: 'R2', end: r.end, prefix: r.prefix, why: `台账行理由不足 10 字: ${r.end} ${r.prefix}` })
     }
   }
   for (const r of ledger) {
@@ -304,6 +305,13 @@ function selfTestFn(root) {
   add('B7 模板串 query 归一去掉', normalizePath('/api/x?a=1') === '/api/x', normalizePath('/api/x?a=1'))
   add('B8 前缀深度:depth=1 ⇒ /api/a', prefixOf('/api/a/b', 1) === '/api/a', prefixOf('/api/a/b', 1))
   add('B9 前缀深度:depth=2 ⇒ /api/a/b', prefixOf('/api/a/b', 2) === '/api/a/b', prefixOf('/api/a/b', 2))
+  add('B14 正例:共享相对路径按 resolveUrl 补 /api', normalizeSharedPath('/srs/streams') === '/api/srs/streams', normalizeSharedPath('/srs/streams'))
+  add('B15 正例:共享绝对路径原样归一', normalizeSharedPath('/api/a/b?x=1') === '/api/a/b', normalizeSharedPath('/api/a/b?x=1'))
+  add(
+    'B16 反例:非斜杠开头/正则形态不算共享端点',
+    normalizeSharedPath('srs/streams') === null && normalizeSharedPath('/api/(.*)') === null,
+    `${normalizeSharedPath('srs/streams')} | ${normalizeSharedPath('/api/(.*)')}`,
+  )
 
   // 未判定(变量/形参/跨文件常量)必须计数
   const sharedPaths = ['/api/a/b']
@@ -319,8 +327,9 @@ function selfTestFn(root) {
     unique: { web: ['/api/new'], rn: [], mp: [] },
   }
   add('C1 阳性对照:端内独有前缀不在台账 ⇒ 必红', evaluateRatchet(fake, []).reds.length === 1, evaluateRatchet(fake, []).reds.length)
-  const stock = { end: 'web', prefix: '/api/new', baseline: true, verdict: 'pending' }
-  add('C2 存量在册 ⇒ 不红', evaluateRatchet(fake, [stock]).reds.length === 0, evaluateRatchet(fake, [stock]).reds.length)
+  const stock = { end: 'web', prefix: '/api/new', baseline: true, verdict: 'platform-only', owner: 'owner-x', reason: '存量已裁决:web 包装层专属链路不可共享' }
+  add('C2 存量已裁决 ⇒ 不红', evaluateRatchet(fake, [stock]).reds.length === 0, evaluateRatchet(fake, [stock]).reds.length)
+  add('C2b 存量 pending ⇒ 红(存量不许留欠条)', evaluateRatchet(fake, [{ ...stock, verdict: 'pending' }]).reds.length === 1, evaluateRatchet(fake, [{ ...stock, verdict: 'pending' }]).reds.length)
   const reg = { end: 'web', prefix: '/api/new', baseline: false, verdict: 'platform-specific', owner: 'owner-x', reason: '该前缀仅存在于平台专属支付回调链路' }
   add('C3 合规新登记 ⇒ 不红', evaluateRatchet(fake, [reg]).reds.length === 0, evaluateRatchet(fake, [reg]).reds.length)
   const shortReason = { ...reg, reason: '临时' }
