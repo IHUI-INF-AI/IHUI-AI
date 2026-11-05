@@ -5,6 +5,7 @@
 // 镜像 packages/app/src/features/team/TeamScreen.tsx(团队**成员列表**共享屏)
 
 import { useTt, useI18n } from '@/i18n'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { getDistributionTeam } from '@/api'
@@ -154,12 +155,19 @@ export default function DistributionTeam() {
   }, [rawList])
 
   /**
-   * 手工迁移(批 5):原 339 行复制页 → 直载 team/TeamScreen 共享屏。
-   * 独有段(团队总人数行/成交订单数·邀请时间排序胶囊/日期弹层/成员指标/名次徽标)
-   * 全部以显式 props 注入;未传这些 props 时 RN 侧视觉与行为不变。
+   * 手工迁移(批 5, A 方案):原 339 行复制页 → 直载 team/TeamScreen 共享屏。
+   * 团队总人数行留在本页(共享屏统计卡已有团队人数);排序胶囊/日期弹层/成员指标/名次徽标
+   * 以显式 props 注入 —— 这些数据 RN 同样拿得到并真消费,不是小程序独有代码搬进共享包。
    */
   return (
     <ThemeRoot className="min-h-screen bg-background">
+      {/* 团队总人数 — 小程序特有统计行(本页内渲染,不进共享屏) */}
+      <View className="mx-[20rpx] mt-[16rpx]">
+        <Text className="text-body text-muted-foreground">
+          {tt('distribution.team.totalMembers', '团队总人数')}:
+          <Text className="font-semibold text-foreground">{teamTotal}</Text>
+        </Text>
+      </View>
       <SharedTeamScreen
         t={t}
         stats={undefined}
@@ -183,10 +191,6 @@ export default function DistributionTeam() {
         colorScheme={resolvedTheme}
         showHeader={false}
         showTabs={false}
-        totalCountRow={{
-          label: tt('distribution.team.totalMembers', '团队总人数'),
-          value: teamTotal,
-        }}
         sortBar={{
           orderLabel: tt('distribution.team.sortByOrderNum', '成交订单数'),
           dateLabel: tt('distribution.team.sortByDate', '邀请时间'),
@@ -195,6 +199,7 @@ export default function DistributionTeam() {
           onSelectOrder: () => setActiveTab('orderNum'),
         }}
         dateOptions={dateOptions}
+        showRankBadge
         onSelectDate={(date) => {
           setSelectedDate(date)
           setActiveTab(date ? 'date' : 'orderNum')
@@ -206,7 +211,6 @@ export default function DistributionTeam() {
           joinTime: tt('distribution.team.joinTime', '邀请时间'),
           viewSubordinates: tt('distribution.team.viewSubordinates', '查看下级'),
         }}
-        showRankBadge
         onPressMember={(memberId) => goSubordinates(memberId)}
       />
     </ThemeRoot>
