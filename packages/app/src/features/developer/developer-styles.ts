@@ -41,6 +41,11 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     ctaBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    statusText: {
+      fontSize: rnType.bodySm.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
     infoCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.card,
@@ -98,7 +103,11 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
     },
-    problemDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary, marginBottom: rnSpacing.sm },
+    problemDesc: {
+      fontSize: rnType.bodySm.size,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
     problemBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.md,
@@ -106,7 +115,11 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.cta,
     },
-    problemBtnText: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.brand.ctaForeground },
+    problemBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '500',
+      color: tk.brand.ctaForeground,
+    },
     contactCard: {
       backgroundColor: tk.surface.card,
       borderRadius: rnRadiusFor.control,
@@ -115,6 +128,18 @@ export function createDeveloperStyles(tk: AppThemeTokens) {
     },
     contactTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
     contactDesc: { fontSize: rnType.label.size, color: tk.text.secondary, marginTop: 3 },
+    footerBtn: {
+      marginTop: rnSpacing['sm-loose'],
+      alignItems: 'center',
+      paddingVertical: 15,
+      borderRadius: rnRadiusFor.control,
+      backgroundColor: tk.brand.cta,
+    },
+    footerBtnText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

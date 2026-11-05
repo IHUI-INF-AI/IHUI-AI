@@ -166,6 +166,13 @@ export default function DeveloperScreen() {
         displayName={user?.nickname ?? user?.username ?? t('devSpace.notLoggedIn')}
         subscribed={Boolean(devData?.subscription)}
         info={info}
+        statusText={devData?.subscription ? t('devSpace.opened') : t('devSpace.notOpened')}
+        entryIds={['myAgents', 'agentIncome', 'n8nModel', 'businessCard']}
+        footerAction={{
+          label: t('devSpace.enterPlaza'),
+          onPress: () => navigation.navigate('Plaza'),
+        }}
+        showApiKeyRow
         onBecomeDeveloper={openCover}
         onRenew={openCover}
         onCopyApiKey={copyApiKey}
