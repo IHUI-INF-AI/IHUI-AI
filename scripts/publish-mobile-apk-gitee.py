@@ -51,6 +51,49 @@ from pathlib import Path
 CONFIG_PATH = Path(__file__).resolve().parent / "data" / "mobile-download-leg.json"
 EXIT_OK, EXIT_FAIL, EXIT_UNDETERMINED = 0, 1, 2
 
+# ── HTTP 出口(2026-11-05 现网教训)─────────────────────────────────────────
+# Windows 上 `urllib.request.getproxies()` 会**读注册表里的系统代理**(本机
+# `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings` 指向 127.0.0.1:7897),
+# 而 curl/node/git 只看环境变量。那个系统代理今天已失效:urllib 每条 https 都在握手阶段被回
+# EOF(实测 6/6 `SSL: UNEXPECTED_EOF_WHILE_READING`,每次卡满 5s),而 curl 同 URL 200/0.2s。
+# 发布链路不许继承这种"只在 Python 里成立"的失败,所以这里显式只认环境变量:给了
+# HTTPS_PROXY 才走代理,否则直连 —— 与 curl/node 的口径一致。
+def build_opener():
+    proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY") or ""
+    if proxy:
+        return urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        )
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+OPENER = build_opener()
+NET_ATTEMPTS = 3
+
+
+def open_url(req, timeout=120, attempts=NET_ATTEMPTS):
+    """带退避的请求:网络层异常(SSL EOF/超时/连接重置)重试,HTTP 4xx 原样抛出。
+
+    为什么必须有这一层:16 份分片 + 整包 + 清单是十几次独立请求,任何一次赶上连接被
+    中途切断,整条发布就判失败(而这一轮已经花了 20 多分钟构建)。HTTP 4xx 是"请求本身
+    不对"(令牌/参数),重试没有意义,立刻抛给调用方如实打印。
+    """
+    last = None
+    for attempt in range(attempts):
+        try:
+            return OPENER.open(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            if e.code < 500 and e.code != 429:
+                raise
+            last = e
+        except Exception as e:  # 网络层:一律按可重试处理,最后一次仍失败由调用方报错
+            last = e
+        if attempt + 1 < attempts:
+            wait = 2 * (attempt + 1)
+            print(f"[net] 第 {attempt + 1}/{attempts} 次失败({last});{wait}s 后重试")
+            time.sleep(wait)
+    raise last
+
 
 def load_config(path=CONFIG_PATH):
     cfg = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -168,7 +211,11 @@ def judge_parts_verification(lengths, expected):
 def fetch_text(url):
     req = urllib.request.Request(url, headers={"Cache-Control": "no-cache", "Pragma": "no-cache"})
     try:
+<<<<<<< ours
         with urllib.request.urlopen(req, timeout=60) as resp:
+=======
+        with open_url(req, timeout=60) as resp:
+>>>>>>> theirs
             return resp.read().decode("utf-8", "replace")
     except Exception as e:
         print(f"[verify] 清单读取失败: {e}")
@@ -268,7 +315,7 @@ class Gitee:
         if body is not None:
             req.add_header("Content-Type", "application/json")
         try:
-            resp = urllib.request.urlopen(req, timeout=timeout)
+            resp = open_url(req, timeout=timeout)
             raw = resp.read()
             if resp.status in (204, 205) or not raw.strip():
                 return {}
@@ -300,7 +347,10 @@ class Gitee:
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
         try:
-            resp = urllib.request.urlopen(req, timeout=1800)
+            # 上传重试 2 次而不是 3 次:每份 5MB 级、超时 1800s,多轮重试会把一轮发版拖过
+            # 计划任务的下一个触发点。重试不会投毒:同名直链取第一个附件,而"已收全"的附件
+            # 才是 Gitee 登记的那一枚(半截传输根本不会出现在附件列表里)。
+            resp = open_url(req, timeout=1800, attempts=2)
             print(f"[gitee] 上传 {filename}: HTTP {resp.status}")
             return resp.status in (200, 201)
         except Exception as e:
@@ -311,7 +361,7 @@ class Gitee:
 def head_content_length(url):
     req = urllib.request.Request(url, method="HEAD")
     try:
-        resp = urllib.request.urlopen(req, timeout=60)
+        resp = open_url(req, timeout=60)
         n = resp.headers.get("Content-Length")
         return int(n) if n and n.isdigit() else None
     except Exception as e:
@@ -400,6 +450,10 @@ def main(argv=None):
                 "prerelease": False,
             },
         )
+    if not rel or not rel.get("id"):
+        # POST 的响应可能在"服务端已建好"之后断在半路(网络层重试会再 POST 一次,
+        # 第二次因 tag 已存在回 400)。这里再读一次标签,避免把"其实建好了"判成失败。
+        rel = g.api(f"{base}/releases/tags/{cfg['cnLegTag']}")
     if not rel or not rel.get("id"):
         print("❌ 找/建 Gitee release 失败")
         return EXIT_FAIL
