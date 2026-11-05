@@ -3,7 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, RefreshControl } from 'react-native'
+import {
+  View,
+  Text,
+  Pressable,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { N8nModelItem, N8nModelScreenProps, N8nModelTab } from '../../types'
 
@@ -13,7 +21,7 @@ import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** n8n 模型管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
-export type { N8nModelItem, N8nModelScreenProps }
+export type { N8nModelItem, N8nModelScreenProps, N8nModelTab }
 
 /** 状态 tab 列表(label 通过 i18n 注入) */
 const TABS: { id: N8nModelTab; labelKey: string }[] = [
@@ -36,6 +44,7 @@ export function N8nModelScreen({
   onRetry,
   onToggle,
   onEdit,
+  onOpen,
   onCreate,
   onBack,
   colorScheme = 'light',
@@ -113,70 +122,94 @@ export function N8nModelScreen({
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={<EmptyState title={t('n8nModel.empty')} colorScheme={colorScheme} />}
-          renderItem={({ item }) => (
-            <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <View style={styles.cardTitleRow}>
-                  <View
-                    style={[styles.dot, item.status === 'running' ? styles.dotRun : styles.dotStop]}
-                  />
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                </View>
-                <Text
-                  style={[
-                    styles.badge,
-                    item.status === 'running' ? styles.badgeRun : styles.badgeStop,
-                  ]}
-                >
-                  {item.status === 'running' ? t('n8nModel.running') : t('n8nModel.stopped')}
-                </Text>
-              </View>
-              {item.desc ? (
-                <Text style={styles.cardDesc} numberOfLines={2}>
-                  {item.desc}
-                </Text>
-              ) : null}
-              {item.url ? (
-                <Text style={styles.cardUrl} numberOfLines={1}>
-                  {item.url}
-                </Text>
-              ) : null}
-              <View style={styles.cardMeta}>
-                <Text style={styles.metaText}>{t('n8nModel.calls', { count: item.calls })}</Text>
-                <Text style={styles.metaText}>
-                  {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
-                </Text>
-                <Text style={styles.metaText}>{item.updatedAt}</Text>
-              </View>
-              <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionBtn,
-                    item.status === 'running' ? styles.actionStop : styles.actionStart,
-                  ]}
-                  onPress={() => onToggle(item)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[styles.actionText, item.status === 'running' && styles.actionStopText]}
+          renderItem={({ item }) => {
+            const hasMeta =
+              typeof item.calls === 'number' ||
+              (typeof item.paramsIn === 'number' && typeof item.paramsOut === 'number') ||
+              !!item.updatedAt
+            return (
+              <View style={styles.card}>
+                <Pressable onPress={() => onOpen?.(item)} disabled={!onOpen}>
+                  <View style={styles.cardHead}>
+                    <View style={styles.cardTitleRow}>
+                      <View
+                        style={[
+                          styles.dot,
+                          item.status === 'running' ? styles.dotRun : styles.dotStop,
+                        ]}
+                      />
+                      <Text style={styles.cardName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.badge,
+                        item.status === 'running' ? styles.badgeRun : styles.badgeStop,
+                      ]}
+                    >
+                      {item.status === 'running' ? t('n8nModel.running') : t('n8nModel.stopped')}
+                    </Text>
+                  </View>
+                  {item.desc ? (
+                    <Text style={styles.cardDesc} numberOfLines={2}>
+                      {item.desc}
+                    </Text>
+                  ) : null}
+                  {item.url ? (
+                    <Text style={styles.cardUrl} numberOfLines={1}>
+                      {item.url}
+                    </Text>
+                  ) : null}
+                  {hasMeta ? (
+                    <View style={styles.cardMeta}>
+                      {typeof item.calls === 'number' ? (
+                        <Text style={styles.metaText}>
+                          {t('n8nModel.calls', { count: item.calls })}
+                        </Text>
+                      ) : null}
+                      {typeof item.paramsIn === 'number' && typeof item.paramsOut === 'number' ? (
+                        <Text style={styles.metaText}>
+                          {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
+                        </Text>
+                      ) : null}
+                      {item.updatedAt ? (
+                        <Text style={styles.metaText}>{item.updatedAt}</Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </Pressable>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[
+                      styles.actionBtn,
+                      item.status === 'running' ? styles.actionStop : styles.actionStart,
+                    ]}
+                    onPress={() => onToggle(item)}
+                    activeOpacity={0.8}
                   >
-                    {item.status === 'running'
-                      ? t('n8nModel.actionStop')
-                      : t('n8nModel.actionStart')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionEdit}
-                  onPress={() => onEdit(item)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.actionEditText}>{t('n8nModel.actionEdit')}</Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.actionText,
+                        item.status === 'running' && styles.actionStopText,
+                      ]}
+                    >
+                      {item.status === 'running'
+                        ? t('n8nModel.actionStop')
+                        : t('n8nModel.actionStart')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionEdit}
+                    onPress={() => onEdit(item)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.actionEditText}>{t('n8nModel.actionEdit')}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          )}
+            )
+          }}
         />
       )}
     </View>
