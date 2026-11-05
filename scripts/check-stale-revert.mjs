@@ -1962,7 +1962,9 @@ function auditInner(repoRoot, opts = {}) {
    */
   if (costMeter?.truncated.size) {
     lines.push(
-      `⚠️  [窗口截断] ${costMeter.truncated.size} 个路径的祖先清单被窗口上限截断(更早的版本本轮未取材,深于窗口的回写判不到):`,
+      `⚠️  [窗口截断] ${costMeter.truncated.size} 个路径的祖先清单被浅窗口上限截断(更早的版本浅窗口内未取;两条通道判别力不同,别读混):`,
+      '   R1(整 blob 通道):窗口用尽即回落全历史 ⇒ 深于窗口的回写照判红,不因截断放行;',
+      '   R1r(读祖先正文通道):仍只在窗口内读祖先 ⇒ 深于窗口的那一段覆盖不到(未覆盖 ≠ 通过,不是"判过且干净")。',
     )
     for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
   }
