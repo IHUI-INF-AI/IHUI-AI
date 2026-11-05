@@ -26,6 +26,7 @@ import { resolve } from 'node:path'
 import test from 'node:test'
 
 import { __test__ as G, planGeneration } from '../gen-miniapp-mirror.mjs'
+import { __test__ as cov } from '../check-cross-end-screen-coverage.mjs'
 
 const REPO = resolve(import.meta.dirname, '..', '..')
 const SRC = readFileSync(resolve(import.meta.dirname, '..', 'gen-miniapp-mirror.mjs'), 'utf8')
@@ -411,5 +412,129 @@ test('B15 朋友圈卡标题独立于转发卡标题(原页两张卡取的是不
     out,
     /getShareInfo\(intent\?\.path \?\? currentPageSharePath\(router\), intent\?\.title/,
     '转发卡仍取 title(两张卡不得共用一个字段而互相污染)',
+  )
+})
+
+/**
+ * 写盘侧镜像识别收成与读盘侧同一把宽尺(2026-11-05 立,§0.6 单一真相源)。
+ *
+ * 立因:读盘侧(report-rn-miniapp-gaps / 门 237 覆盖桶)用宽尺 mirrorDeclarations(形1∪2∪3∪4),
+ * 而写盘侧(gen-miniapp-mirror / repair-cross-end-mirror 的"已镜像桶")曾各自用旧硬路径尺
+ * mirroredSpecs(只认形1)。当日实测 HEAD 面两尺对称差 = 0(都读 256)⇒ 这是**潜伏缺陷**:
+ * 一旦出现只被宽尺认出的新形声明,写盘侧会把已镜像屏判成"未镜像" ⇒ 重复造页/不结清,
+ * 而报告器与门同时报绿。本组钉:① 写盘侧现在认出新形夹具;② 阳性对照:同夹具喂旧尺认不出
+ * (锁有牙,不是恒真断言);③ 两尺对照读数只报差不判;④ 形状锁(逐处点名旧尺调用位,防下一席改回)。
+ */
+const ACT = 'packages/app/src/features/activity/ActivityScreen.tsx'
+const RULER_INDEX = cov.buildSharedIndex([
+  { spec: ACT, domain: 'activity', name: 'ActivityScreen' },
+  { spec: 'packages/app/src/features/help/HelpScreen.tsx', domain: 'help', name: 'HelpScreen' },
+])
+/** 形4(对齐动词 + 裸屏名 + Shared 前缀)夹具:旧硬尺必认不出、宽尺必认出 —— 不许改成含形1硬路径 */
+const WIDE_ONLY_PAGE = {
+  route: 'pkg-user/checkin/index',
+  file: 'apps/miniapp-taro/src/pkg-user/checkin/index.tsx',
+  text: '/* 会员状态卡对齐 SharedActivityScreen */\nexport function CheckinPage(){return null}\n',
+  cssText: '',
+}
+const rulerCtx = (extra = {}) => ({
+  miniapp: { pages: [WIDE_ONLY_PAGE], cfgText: '' },
+  regText: '{"entries":[]}',
+  rnRels: [],
+  rnMap: new Map(),
+  indexText: '',
+  packObjs: {},
+  packError: null,
+  closureCache: new Map(),
+  taroCfgText: '',
+  verdicts: new Map(),
+  sharedIndex: RULER_INDEX,
+  ...extra,
+})
+
+test('R1 写盘=读盘同尺:只被宽尺认出的新形镜像声明 ⇒ 造页器判 skip 不重复造页', () => {
+  const r = planGeneration(REPO, { screenRel: ACT, form: 'shell' }, rulerCtx())
+  assert.equal(r.kind, 'skip', `宽尺该认出这一枚新形声明;实得 kind=${r.kind} why=${r.why}`)
+  assert.match(r.why, /已被小程序页镜像/)
+  assert.match(r.why, /mirrorDeclarations/, '跳过理由必须点名宽尺出处(判据来自哪把尺,人要归因得了)')
+})
+
+test('R2 阳性对照(锁有牙):同一夹具喂旧硬尺 mirroredSpecs ⇒ 认不出', () => {
+  // 若夹具里出现了形1硬路径字面,这条会翻红 —— 那时该换夹具而不是摘断言。
+  assert.equal(
+    cov.mirroredSpecs(WIDE_ONLY_PAGE).has(ACT),
+    false,
+    '夹具必须保持"只被宽尺认出"的新形,否则 R1 退化成恒真断言',
+  )
+  assert.equal(
+    cov
+      .mirrorDeclarations(`${WIDE_ONLY_PAGE.text}\n${WIDE_ONLY_PAGE.cssText}`, RULER_INDEX)
+      .specs.has(ACT),
+    true,
+    '夹具在宽尺下必须命中(反向对照:夹具写坏了也不许悄悄空转)',
+  )
+})
+
+test('R3 两尺对照读数:只报差不判红,wideOnly/legacyOnly 逐条点名', () => {
+  const rr = G.mirrorRulerReadings([WIDE_ONLY_PAGE], RULER_INDEX)
+  assert.equal(rr.wide, 1)
+  assert.equal(rr.legacy, 0, 'legacy 只作对照读数,不参与判定')
+  assert.deepEqual(rr.wideOnly, [ACT])
+  assert.deepEqual(rr.legacyOnly, [])
+})
+
+test('R4 缺共享屏索引 ⇒ 未判定(§0.3:不回落旧硬尺冒充"未镜像"放造页)', () => {
+  const ctx = rulerCtx()
+  delete ctx.sharedIndex
+  const r = planGeneration(REPO, { screenRel: ACT, form: 'shell' }, ctx)
+  assert.equal(
+    r.kind,
+    'undetermined',
+    `宽尺无分母时必须显式未判定;实得 kind=${r.kind} why=${r.why}`,
+  )
+  assert.match(r.why, /sharedIndex/)
+})
+
+test('R5 形状锁:旧硬尺调用位只剩点名格(写盘判定档一律宽尺装配)', () => {
+  const repairSrc = readFileSync(
+    resolve(import.meta.dirname, '..', 'repair-cross-end-mirror.mjs'),
+    'utf8',
+  )
+  // gen:旧尺只许 1 处 = mirrorRulerReadings 的 legacy= 对照读数
+  const genLegacy = SRC.split('\n').filter((l) => l.includes('cov.mirroredSpecs('))
+  assert.equal(
+    genLegacy.length,
+    1,
+    `gen-miniapp-mirror 的旧尺调用只许 legacy= 对照那一处;实得 ${genLegacy.length} 处:\n${genLegacy.join('\n')}`,
+  )
+  assert.match(genLegacy[0], /legacy/, '那一处必须停在 legacy= 对照读数位,不得回到判定位')
+  // repair:旧尺恰 2 处 = legacy= 对照读数 + R1 登记表凭据(与门 128 R1 同尺的具名锚点)
+  const rpLegacy = repairSrc.split('\n').filter((l) => l.includes('cov.mirroredSpecs('))
+  assert.equal(
+    rpLegacy.length,
+    2,
+    `repair-cross-end-mirror 的旧尺调用只许两处(legacy= 对照 + R1-CREDENTIAL-RULER);实得 ${rpLegacy.length} 处:\n${rpLegacy.join('\n')}`,
+  )
+  assert.ok(
+    rpLegacy.some((l) => /legacy/i.test(l)),
+    '其一必须是 legacy= 对照读数(legacyMirroredSpecs)',
+  )
+  assert.ok(
+    rpLegacy.some((l) => l.includes('mpEntry') && l.includes('has(sharedSpec)')),
+    '另一处必须是 R1 登记表凭据核验(门 128 R1 对登记项用的正是这把严格尺;换成宽尺后,新形声明的登记表条目 repair 说"已完整"而 R1 判红且无人补标记 = 恒红门 §12e)',
+  )
+  // 判定输入必须来自宽尺装配(hay=正文⊕伴生样式表 + buildSharedIndex),防下一席改回旧尺
+  assert.match(SRC, /cov\.mirrorDeclarations\(hay, c\.sharedIndex\)\.specs\.has\(shape\.spec\)/)
+  assert.match(
+    SRC,
+    /const hay = `\$\{p\.text \|\| ''\}\\n\$\{p\.cssText \|\| ''\}`/,
+    '装配必须含 cssText(漏掉伴生样式表会让"宽尺"退化成比旧尺还窄的第三把尺)',
+  )
+  assert.match(repairSrc, /cov\.buildSharedIndex\(shared\)/)
+  assert.match(repairSrc, /cov\.mirrorDeclarations\(hay, sharedIndex\)\.specs/)
+  assert.match(
+    repairSrc,
+    /const hay = `\$\{p\.text \|\| ''\}\\n\$\{p\.cssText \|\| ''\}`/,
+    'repair 的逐页 hay 同样必须含 cssText',
   )
 })

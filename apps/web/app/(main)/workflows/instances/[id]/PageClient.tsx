@@ -15,8 +15,12 @@ import { Loader2 } from 'lucide-react'
 import { InstanceHeader } from './InstanceHeader'
 import { InstanceTasks } from './InstanceTasks'
 import { InstanceLogs } from './InstanceLogs'
-import { api } from './helpers'
-import type { Instance, Task, Log, LogLevel } from './types'
+import {
+  getWorkflowInstance,
+  getWorkflowInstanceLogs,
+  getWorkflowInstanceTasks,
+} from '@ihui/api-client'
+import type { LogLevel } from './types'
 
 export default function InstanceDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,20 +35,29 @@ export default function InstanceDetailPage() {
 
   const instQ = useQuery({
     queryKey: ['wf', 'instance', id],
-    queryFn: () =>
-      api<{ instance: Instance }>(`/api/workflows/instances/${id}`).then((d) => d.instance),
+    queryFn: async () => {
+      const r = await getWorkflowInstance(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data.instance
+    },
     enabled: allow,
   })
   const tasksQ = useQuery({
     queryKey: ['wf', 'instance', id, 'tasks'],
-    queryFn: () =>
-      api<{ list: Task[] }>(`/api/workflows/instances/${id}/tasks`).then((d) => d.list ?? []),
+    queryFn: async () => {
+      const r = await getWorkflowInstanceTasks(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data.list ?? []
+    },
     enabled: allow,
   })
   const logsQ = useQuery({
     queryKey: ['wf', 'instance', id, 'logs'],
-    queryFn: () =>
-      api<{ list: Log[] }>(`/api/workflows/instances/${id}/logs`).then((d) => d.list ?? []),
+    queryFn: async () => {
+      const r = await getWorkflowInstanceLogs(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data.list ?? []
+    },
     enabled: allow,
   })
 

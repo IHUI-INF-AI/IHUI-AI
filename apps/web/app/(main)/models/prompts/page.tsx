@@ -43,7 +43,15 @@ import {
   TooltipProvider,
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
-import { fetchApi } from '@/lib/api'
+import {
+  createPrompt,
+  deletePrompt,
+  getPrompt,
+  getPromptContent,
+  listPrompts,
+  rollbackPrompt,
+  updatePrompt,
+} from '@ihui/api-client'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 
@@ -60,21 +68,6 @@ interface PromptVersion {
   content: string
   description: string | null
   created_at: string
-}
-
-interface PromptDetail {
-  name: string
-  description: string | null
-  latest_version: number
-  versions: PromptVersion[]
-  created_at: string
-  updated_at: string
-}
-
-interface PromptContent {
-  name: string
-  version: number
-  content: string
 }
 
 const textareaCls =
@@ -137,7 +130,7 @@ export default function PromptsPage() {
   async function loadPrompts() {
     setLoading(true)
     setError(null)
-    const res = await fetchApi<PromptSummary[]>('/api/prompts')
+    const res = await listPrompts()
     if (res.success) {
       setPrompts(res.data)
     } else {
@@ -147,7 +140,7 @@ export default function PromptsPage() {
   }
 
   async function loadDetail(name: string) {
-    const res = await fetchApi<PromptDetail>(`/api/prompts/${encodeURIComponent(name)}`)
+    const res = await getPrompt(name)
     if (res.success) {
       return res.data
     }
@@ -155,9 +148,7 @@ export default function PromptsPage() {
   }
 
   async function loadContent(name: string, version: number): Promise<string> {
-    const res = await fetchApi<PromptContent>(
-      `/api/prompts/${encodeURIComponent(name)}/content?version=${version}`,
-    )
+    const res = await getPromptContent(name, { version })
     if (res.success) {
       return res.data.content
     }
@@ -201,12 +192,9 @@ export default function PromptsPage() {
     setFormSaving(true)
     try {
       if (editingName) {
-        const res = await fetchApi(`/api/prompts/${encodeURIComponent(editingName)}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            content: formContent.trim(),
-            description: formDesc.trim() || undefined,
-          }),
+        const res = await updatePrompt(editingName, {
+          content: formContent.trim(),
+          description: formDesc.trim() || undefined,
         })
         if (res.success) {
           toast.success(t('prompts.messages.updateSuccess'))
@@ -216,13 +204,10 @@ export default function PromptsPage() {
           setFormErr(res.error)
         }
       } else {
-        const res = await fetchApi('/api/prompts', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: formName.trim(),
-            content: formContent.trim(),
-            description: formDesc.trim() || undefined,
-          }),
+        const res = await createPrompt({
+          name: formName.trim(),
+          content: formContent.trim(),
+          description: formDesc.trim() || undefined,
         })
         if (res.success) {
           toast.success(t('prompts.messages.createSuccess'))
@@ -290,10 +275,7 @@ export default function PromptsPage() {
     if (rollbackTarget === null) return
     setRollbackPending(true)
     try {
-      const res = await fetchApi(`/api/prompts/${encodeURIComponent(historyName)}/rollback`, {
-        method: 'POST',
-        body: JSON.stringify({ target_version: rollbackTarget }),
-      })
+      const res = await rollbackPrompt(historyName, { target_version: rollbackTarget })
       if (res.success) {
         toast.success(t('prompts.history.rollbackSuccess'))
         setHistoryOpen(false)
@@ -315,9 +297,7 @@ export default function PromptsPage() {
   async function confirmDelete() {
     if (!deleteTarget) return
     setDeletePending(true)
-    const res = await fetchApi(`/api/prompts/${encodeURIComponent(deleteTarget)}`, {
-      method: 'DELETE',
-    })
+    const res = await deletePrompt(deleteTarget)
     if (res.success) {
       toast.success(t('prompts.messages.deleteSuccess'))
       setDeleteTarget(null)

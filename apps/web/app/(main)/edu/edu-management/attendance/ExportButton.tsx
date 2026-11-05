@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Download, Loader2 } from 'lucide-react'
 
-import { fetchRaw } from '@/lib/api'
+import { eduAttendanceExport } from '@ihui/api-client'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { ClassSelect } from './ClassSelect'
@@ -42,13 +42,12 @@ export function ExportButton({
     setExporting(true)
     setFailed(false)
     try {
-      const params = new URLSearchParams({
+      const blob = await eduAttendanceExport({
         classId,
         startDate,
         endDate,
         format: 'csv',
       })
-      const blob = await fetchRaw(`/api/edu-ai-management/attendance/export?${params.toString()}`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

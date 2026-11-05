@@ -14,6 +14,7 @@ import {
   getLspReferences,
   getLspDiagnostics,
   getLspHover,
+  postFimMetrics,
 } from '@ihui/api-client'
 import { applyPredictedEditActions } from '@/lib/predictive-edit-api'
 import { cn } from '@/lib/utils'
@@ -266,11 +267,7 @@ function flushFimReport(): void {
   try {
     // Promise.resolve 包裹:即便 fetchApi 返回非 Promise(mock/异常实现)也不抛错
     void Promise.resolve(
-      fetchApi('/api/llm/fim/metrics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: fimReportModel || 'auto', ...delta, latencyMs }),
-      }),
+      postFimMetrics({ model: fimReportModel || 'auto', ...delta, latencyMs }),
     ).catch((error) => {
       console.warn('[ihui-fim] completion metrics report failed (ignored)', error)
     })

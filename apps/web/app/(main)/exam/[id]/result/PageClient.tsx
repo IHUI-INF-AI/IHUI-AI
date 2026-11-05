@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Check, X, Loader2, Clock, Award } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getMyRecords } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -55,7 +55,11 @@ export default function ExamResultPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'records', 'by-paper', id],
-    queryFn: () => apiOrThrow<RecordsData>(`/api/exam/records?examId=${id}&page=1&pageSize=1`),
+    queryFn: async (): Promise<RecordsData> => {
+      const r = await getMyRecords({ examId: id, page: 1, pageSize: 1 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as RecordsData
+    },
     enabled: !!id,
   })
 

@@ -26,6 +26,7 @@ import {
   disableTwoFactor,
   fetchApi,
   getAuthorizations,
+  getMfaRecoveryCodes,
   getSecurityScore,
   getTwoFactorStatus,
   revokeUserSession,
@@ -250,9 +251,7 @@ export default function SecurityCenterScreen() {
             void (async () => {
               setRecoveryBusy(true)
               try {
-                const res = await fetchApi<{ recoveryCodes: string[] }>('/api/mfa/recovery-codes', {
-                  method: 'POST',
-                })
+                const res = await getMfaRecoveryCodes()
                 if (!res.success) {
                   appAlert(
                     t('common.error'),

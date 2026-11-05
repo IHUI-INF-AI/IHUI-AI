@@ -12,7 +12,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Pencil, Trash2, Eye, Heart } from 'lucide-react'
 import { toast } from '@/components/common/Toaster'
 
-import { apiOrThrow } from '@/lib/api'
+import { deleteArticle, listMyArticles } from '@ihui/api-client'
 import { pushError } from '@/stores/error-banner'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
@@ -41,7 +41,11 @@ export default function MyArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'my', page],
-    queryFn: () => apiOrThrow<MyArticlesData>(`/api/article/my?page=${page}&pageSize=20`),
+    queryFn: async () => {
+      const r = await listMyArticles<MyArticlesData>({ page, pageSize: 20 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -51,8 +55,11 @@ export default function MyArticlesPage() {
   }, [error])
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow<{ success: boolean }>(`/api/article/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await deleteArticle<{ success: boolean }>(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('deleteSuccess', { default: '已删除' }))
       qc.invalidateQueries({ queryKey: ['articles', 'my'] })

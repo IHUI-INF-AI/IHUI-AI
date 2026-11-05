@@ -9,7 +9,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Save } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduAttendanceRule,
+  eduAttendanceRuleSave,
+} from '@ihui/api-client'
 import { Alert } from '@/components/feedback'
 import {
   Button,
@@ -70,10 +73,13 @@ export function AttendanceRulePanel({
 
   const ruleQuery = useQuery({
     queryKey: ['edu-attendance-rule', selectedClassId],
-    queryFn: () =>
-      apiOrThrow<{ rule: AttendanceRuleDto | null }>(
-        `/api/edu-ai-management/attendance/rule?classId=${encodeURIComponent(selectedClassId)}`,
-      ),
+    queryFn: async () => {
+      const r = await eduAttendanceRule<{ rule: AttendanceRuleDto | null }>({
+        classId: selectedClassId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: Boolean(selectedClassId),
   })
   const rule = ruleQuery.data?.rule ?? null
@@ -85,11 +91,11 @@ export function AttendanceRulePanel({
   }, [selectedClassId])
 
   const saveMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiOrThrow<{ rule: AttendanceRuleDto | null }>('/api/edu-ai-management/attendance/rule', {
-        method: 'PUT',
-        body: JSON.stringify(body),
-      }),
+    mutationFn: async (body: Record<string, unknown>) => {
+      const r = await eduAttendanceRuleSave<{ rule: AttendanceRuleDto | null }>(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       setDraft({})
       setEnabledDraft(null)

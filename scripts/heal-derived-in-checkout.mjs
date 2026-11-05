@@ -30,7 +30,14 @@
  *   node scripts/heal-derived-in-checkout.mjs            # 三族都看(离线包 + 四端 ui-routes + 样式派生面)
  *   node scripts/heal-derived-in-checkout.mjs --family i18n|ui-routes|tokens
  *   node scripts/heal-derived-in-checkout.mjs --json     # 结论走 JSON(守护读 summary)
- *   node scripts/heal-derived-in-checkout.mjs --self-test # 样式派生一族的判据自检(纯内存夹具,24 例)
+ *   node scripts/heal-derived-in-checkout.mjs --report-only [--family tokens] [--json] [--worktree|--staged]
+ *     # tokens 一族的**结构上零写**只读判定档(2026-11-05 立):不建检出、不写 state 件、不落 blob,
+ *     # 只答一个问题——各腿受管块相对 tokens.css 是否落后、几条落后;结论带 state 与 pending(待落枚数)。
+ *     # 退出码 0=全同形 / 1=有腿落后(一键级联缺省档预演把它登记成 pendingRc,不是器物坏)/ 2=未判定。
+ *     # 立因:--dry-run 并不零写(apply=!argv.includes('--dry-run') 裸跑即写档;判成还写 tokensStateWrite),
+ *     # 且 judgeTokensFace 对「check 与 cmd 同体」那条腿(sync-extension-tokens.mjs)是裸跑——
+ *     # 该器不带 --check 即写回模式 ⇒ 只读档必须经 reportCheckArgv 显式 --check,这才叫结构性零写。
+ *   node scripts/heal-derived-in-checkout.mjs --self-test # 样式派生面判据自检(纯内存夹具;例数末行 SELF-TEST 现读)
  * 调度器:scripts/git-guardian.mjs 巡检轮的三条腿 `healI18nBundleLeg` / `healUiRoutesLeg` /
  *   `healStyleTokensLeg`(共用派发体 runDerivedHealLeg;30 分钟节流,tokens 可用
  *   IHUI_STYLE_TOKENS_HEAL_INTERVAL_MS 单独调)。头注此前写的 `healDerivedInCheckoutLeg`
@@ -562,7 +569,9 @@ export function legArgvAt(
 
 function runAt(dir, argv, timeoutMs = 20 * 60 * 1000) {
   try {
-    execFileSync(argv[0], argv.slice(1), {
+    // 真 stdout 一并带回(旧实现固定返回 '' 把子进程结论行吞掉;只读档要拿校验器自己的"漂移 N 档"原话。
+    // 既有消费方(healTokensFamily / judgeTokensFace)只读 ok/why ⇒ 写档行为一字不变,新增字段无人消费。)
+    const stdout = execFileSync(argv[0], argv.slice(1), {
       cwd: dir,
       encoding: 'utf8',
       windowsHide: true,
@@ -571,12 +580,22 @@ function runAt(dir, argv, timeoutMs = 20 * 60 * 1000) {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, NODE_PATH: [join(ROOT, 'node_modules')].join(delimiter) },
     })
-    return { ok: true, stdout: '' }
+    return { ok: true, stdout: String(stdout ?? ''), code: 0 }
   } catch (e) {
     const why = [e?.stderr, e?.stdout, e?.message, String(e)].find(
       (s) => String(s ?? '').trim().length > 0,
     )
-    return { ok: false, why: String(why).trim().slice(0, 220) }
+    // code:子进程的真实退出码(三态尺约定 0/1/2 = 绿/红/未判定);信号杀/超时 ⇒ null ⇒ 未判定桶。
+    const output = [e?.stdout, e?.stderr]
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .join('\n')
+    return {
+      ok: false,
+      why: String(why).trim().slice(0, 220),
+      code: Number.isInteger(e?.status) ? e.status : null,
+      output,
+    }
   }
 }
 
@@ -793,6 +812,120 @@ export function healTokensFamily({
   if (refused.length > 0) return { state: 'refused', files: [], notes }
   const uniq = [...new Map(ready.map((f) => [f.path, f])).values()]
   return { state: uniq.length > 0 ? 'ready' : 'nothing', files: uniq, notes }
+}
+
+/**
+ * 只读档的唯一 argv 出口(2026-11-05 立)——把"零写"做成**结构**而不是调用方约定:
+ *   · 每条腿的判定权在其校验器自己(本文件不复制判据,§0.6),这里只保证交出去的 argv 是判定档;
+ *   · 登记表第 5 行的 check 与 cmd 同体(sync-extension-tokens.mjs,"一个模式写、一个模式判"):
+ *     裸跑它 = 写回模式往主工作树落字节 ⇒ 写判一体的腿必须显式带 --check 才允许被本档派出;
+ *   · 取材面:缺省 HEAD blob;--staged 判索引面;--worktree 只在本档被调用方显式点名时透传(§0.4)。
+ */
+export function reportCheckArgv({ dir, check, cmd, face = 'head' }) {
+  const argv = [process.execPath, join(dir, 'scripts', check)]
+  const checkBase = String(check).split(/[\\/]/).pop()
+  const dualMode = String(cmd || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((t) => String(t).split(/[\\/]/).pop() === checkBase)
+  if (dualMode) argv.push('--check')
+  if (face === 'staged') argv.push('--staged')
+  else if (face === 'worktree') argv.push('--worktree')
+  return argv
+}
+
+/**
+ * tokens 一族的只读判定档(--report-only 的执行体)。只回答一个问题:
+ * 各端受管块相对 packages/design-tokens/src/styles/tokens.css **是否落后、几条落后**(pending=待落腿数,
+ * pendingPaths=落后腿登记的 file 面)——"落后几档"的原话不在本文件复算,直接带校验器自己的输出(截 200)。
+ * 结构性零写:本函数体内没有任何写原语——不触 withHeadCheckout/landBlobs/tokensStateWrite/runGenerator*,
+ * 唯一外部动作 = 派生 reportCheckArgv 造出的判定档 argv(只读校验器)与 face-reader 的 git show(只读)。
+ * 三态如实(§0.3):源头 blob/登记表取不到、枚举到 0 条腿、任何一腿判不出
+ * ⇒ state=undetermined,不记绿也不冒红。deps 全可注入,镜像测试不派生真子进程。
+ */
+export function reportTokensTier(opts = {}) {
+  const {
+    face = 'head',
+    root = ROOT,
+    reader = null,
+    run = runAt,
+    scriptExists = (abs) => existsSync(abs),
+    sourceSha = tokensSourceSha(root),
+  } = opts
+  const base = {
+    tier: 'report-only',
+    face,
+    source: { rel: TOKENS_SOURCE_REL, sha: String(sourceSha) },
+  }
+  const undetermined = (detail) => ({
+    ...base,
+    state: 'undetermined',
+    pending: 0,
+    pendingPaths: [],
+    unjudged: 0,
+    legs: [],
+    detail,
+  })
+  if (!['head', 'staged', 'worktree'].includes(face))
+    return undetermined(`取材面只认 head/staged/显式 worktree,给了 "${face}"`)
+  if (!/^[0-9a-f]{40}$/.test(String(sourceSha)))
+    return undetermined(
+      `${FACE_LABEL[face] ?? face} 样式源头 blob 取不到(${TOKENS_SOURCE_REL})⇒ 未判定`,
+    )
+  const rd = reader || gate105.makeReader(face, root)
+  rd.prefetch([HOOK_REL])
+  const hookText = rd.has(HOOK_REL) ? rd.read(HOOK_REL) : null
+  if (hookText === null)
+    return undetermined(`${FACE_LABEL[face]} 取不到 ${HOOK_REL} ⇒ 没有尺子,未判定`)
+  const parsed = tokenLegsFrom(hookText)
+  if (!parsed.ok) return undetermined(parsed.why)
+  const legs = []
+  const pendingPaths = []
+  let pending = 0
+  let unjudged = 0
+  for (const leg of parsed.legs) {
+    const entry = { label: leg.label, file: leg.file, state: 'unjudged', why: '' }
+    if (!leg.check) {
+      entry.why = '该腿没有 check 登记 ⇒ 判不出落后与否(不记绿也不冒红)'
+      unjudged++
+      legs.push(entry)
+      continue
+    }
+    if (!scriptExists(join(root, 'scripts', leg.check))) {
+      entry.why = `校验器 ${leg.check} 不在位 ⇒ 取不到输入,未判定`
+      unjudged++
+      legs.push(entry)
+      continue
+    }
+    const r = run(
+      root,
+      reportCheckArgv({ dir: root, check: leg.check, cmd: leg.cmd, face }),
+      5 * 60 * 1000,
+    )
+    if (r.ok) entry.state = 'in-sync'
+    else if (r.code === 1) {
+      entry.state = 'behind'
+      entry.why = String(r.output ?? r.why ?? '').trim().slice(0, 200)
+      pending++
+      pendingPaths.push(...String(leg.file).split(/\s+/).filter(Boolean))
+    } else {
+      entry.why = `校验器未判成(exit=${String(r.code)};非 1 的红是器物问题不是落后):${String(
+        r.output ?? r.why ?? '',
+      )
+        .trim()
+        .slice(0, 160)}`
+      unjudged++
+    }
+    legs.push(entry)
+  }
+  const state = unjudged > 0 ? 'undetermined' : pending > 0 ? 'stale' : 'clean'
+  const detail =
+    state === 'clean'
+      ? `只读档:${FACE_LABEL[face]} 上 ${legs.length} 条 tokens 派生腿全部与源头同形(零检出/零 state 件/零落地)`
+      : state === 'stale'
+        ? `只读档:${pending}/${legs.length} 条腿落后于 ${TOKENS_SOURCE_REL}(待落 file 面 ${pendingPaths.length} 枚);本档不建检出、不写 state 件,补落走写档`
+        : `只读档:${unjudged}/${legs.length} 条腿判不出 ⇒ 整维未判定(§0.3;已判出的腿逐条点名,不并桶)`
+  return { ...base, state, pending, pendingPaths, unjudged, legs, detail }
 }
 
 const LAND_MSG_LINES = [
@@ -1268,7 +1401,178 @@ export function selfTest() {
     famNoHook.state,
   )
 
+  // —— --report-only 只读档(2026-11-05 立):零写 argv + 三态如实 ——
+  const REG2 = [
+    'const TOKEN_SYNC_TARGETS = [',
+    '  {',
+    "    label: '纯判腿',",
+    "    file: 'apps/a/src/app.css',",
+    "    cmd: 'node scripts/sync-a.mjs --quiet',",
+    "    trigger: 'tokens',",
+    "    check: 'check-a.mjs',",
+    '  },',
+    '  {',
+    "    label: '写判一体腿',",
+    "    file: 'apps/x/y.ts apps/x/z.ts',",
+    "    cmd: 'node scripts/sync-extension-tokens.mjs --quiet',",
+    "    trigger: 'tokens',",
+    "    check: 'sync-extension-tokens.mjs',",
+    '  },',
+    ']',
+  ].join('\n')
+  const tierDeps = (over = {}) => {
+    const calls = []
+    const codes = over.codes ?? {}
+    const run = (cwd, argv) => {
+      calls.push({ cwd, argv })
+      const base = String(argv[1]).split(/[\\/]/).pop()
+      const code = codes[base]
+      if (code === 0) return { ok: true, stdout: '', code: 0 }
+      if (code === 1) return { ok: false, why: '判红', code: 1, output: '漂移 2 档' }
+      return { ok: false, why: '未判定', code, output: '' }
+    }
+    const r = reportTokensTier({
+      root: '/T',
+      sourceSha: SHA,
+      reader: fakeRd(over.reg ?? REG2),
+      run,
+      scriptExists: over.scriptExists ?? (() => true),
+    })
+    return { r, calls }
+  }
+  const t25 = tierDeps({ codes: { 'check-a.mjs': 0, 'sync-extension-tokens.mjs': 0 } })
+  const dual = t25.calls.find((c) => String(c.argv[1]).includes('sync-extension-tokens'))
+  const pure = t25.calls.find((c) => String(c.argv[1]).includes('check-a'))
+  P(
+    'S25 只读档对「写判一体腿」必发 --check(裸跑它=写回模式),纯判腿不误挂 --check,head 面不挂面旗',
+    dual?.argv.includes('--check') &&
+      !pure?.argv.includes('--check') &&
+      !dual?.argv.includes('--worktree') &&
+      !dual?.argv.includes('--staged'),
+    JSON.stringify([dual?.argv?.slice(2), pure?.argv?.slice(2)]),
+  )
+  P(
+    'S26 各腿校验全绿 ⇒ state=clean、pending=0,且两腿都真派了',
+    t25.r.state === 'clean' && t25.r.pending === 0 && t25.calls.length === 2,
+    `${t25.r.state}/${t25.r.pending}/${t25.calls.length}`,
+  )
+  const t27 = tierDeps({ codes: { 'check-a.mjs': 0, 'sync-extension-tokens.mjs': 1 } })
+  P(
+    'S27 一条腿判红(exit 1)⇒ stale、pending=1、pendingPaths 展开该腿登记的 file 面、原话带校验器输出',
+    t27.r.state === 'stale' &&
+      t27.r.pending === 1 &&
+      JSON.stringify(t27.r.pendingPaths) === JSON.stringify(['apps/x/y.ts', 'apps/x/z.ts']) &&
+      /漂移 2 档/.test(String(t27.r.legs.find((l) => l.state === 'behind')?.why)),
+    JSON.stringify([t27.r.state, t27.r.pending, t27.r.pendingPaths]),
+  )
+  const t28 = tierDeps({ codes: { 'check-a.mjs': 0, 'sync-extension-tokens.mjs': 2 } })
+  P(
+    'S28 校验器 exit=2 ⇒ 该腿未判定且整维 undetermined(器物坏了不得读成"落后",也不得记绿)',
+    t28.r.state === 'undetermined' && t28.r.unjudged === 1 && t28.r.pending === 0,
+    JSON.stringify([t28.r.state, t28.r.unjudged, t28.r.pending]),
+  )
+  const t29 = tierDeps({
+    codes: { 'check-a.mjs': 0, 'sync-extension-tokens.mjs': 0 },
+    scriptExists: (abs) => !String(abs).includes('sync-extension-tokens'),
+  })
+  P(
+    'S29 校验器不在位 ⇒ 未判定并点名(取不到输入不猜,§0.3)',
+    t29.r.state === 'undetermined' &&
+      /不在位/.test(String(t29.r.legs.find((l) => l.label === '写判一体腿')?.why)),
+    JSON.stringify(t29.r.legs.map((l) => `${l.label}:${l.state}`)),
+  )
+  const faceChecks = []
+  for (const [f, flag] of [
+    ['head', ''],
+    ['staged', '--staged'],
+    ['worktree', '--worktree'],
+  ]) {
+    const calls = []
+    const r2 = reportTokensTier({
+      face: f,
+      root: '/T',
+      sourceSha: SHA,
+      reader: fakeRd(REG2),
+      run: (cwd, argv) => {
+        calls.push(argv)
+        return { ok: true, stdout: '', code: 0 }
+      },
+      scriptExists: () => true,
+    })
+    faceChecks.push(
+      r2.state === 'clean' &&
+        calls.length === 2 &&
+        calls.every((argv) =>
+          flag
+            ? argv.includes(flag) && !argv.includes(flag === '--staged' ? '--worktree' : '--staged')
+            : !argv.includes('--staged') && !argv.includes('--worktree'),
+        ),
+    )
+  }
+  P(
+    'S30 面旗只随显式点名透传:staged→--staged、worktree→--worktree、head 不挂面旗,绝不混面',
+    faceChecks.every(Boolean),
+    JSON.stringify(faceChecks),
+  )
+  const offCalls = []
+  const srcOff = reportTokensTier({
+    root: '/T',
+    sourceSha: '',
+    reader: fakeRd(REG2),
+    run: (cwd, argv) => {
+      offCalls.push(argv)
+      return { ok: true, stdout: '', code: 0 }
+    },
+    scriptExists: () => true,
+  })
+  P(
+    'S31 源头 blob 取不到 ⇒ 整维未判定且一条校验器都不派(没尺子就不动手)',
+    srcOff.state === 'undetermined' && offCalls.length === 0,
+    `${srcOff.state}/${offCalls.length}`,
+  )
+
   return cases
+}
+
+/**
+ * --report-only 的 CLI 档(2026-11-05 立):排在 main() 一切其它分支之前——
+ * 本档**永不**进入 healDerivedInCheckout / tokensStateWrite / withHeadCheckout 那棵写树,
+ * 这是结构保证(先回即达,不是靠调用方约定)。镜像测试 C17 用替身 runner 断言
+ * "只读档一条写动作都不发出"。三态退出码:0 clean / 1 stale(有待落,给级联预演当 pendingRc)/ 2 未判定。
+ */
+function mainReportOnly(argv) {
+  const sel = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (sel.error) {
+    console.error(`❌ ${sel.error}`)
+    return 2
+  }
+  const familyIdx = argv.findIndex((a) => a === '--family')
+  const fam =
+    familyIdx >= 0
+      ? argv[familyIdx + 1]
+      : (argv.find((a) => a.startsWith('--family=')) ?? '').slice(9)
+  if (fam && fam !== 'tokens') {
+    console.error(
+      `❌ --report-only 只判 tokens 一族(现读唯一欠着零写档的维);i18n / ui-routes 族各走自己的判面出口,给了 "${fam}"`,
+    )
+    return 2
+  }
+  const r = reportTokensTier({ face: sel.face })
+  if (argv.includes('--json')) {
+    console.log(JSON.stringify(r))
+  } else {
+    console.log(
+      `[heal-derived-in-checkout] tier=report-only face=${r.face} state=${r.state} pending=${r.pending} pendingPaths=${r.pendingPaths.length} unjudged=${r.unjudged} legs=${r.legs.length}`,
+    )
+    console.log(`  ${r.detail}`)
+    for (const l of r.legs)
+      if (l.state !== 'in-sync') console.log(`   · ${l.label} —— ${l.state} ${String(l.why).slice(0, 160)}`)
+  }
+  return r.state === 'clean' ? 0 : r.state === 'stale' ? 1 : 2
 }
 
 function main(argv) {
@@ -1280,6 +1584,8 @@ function main(argv) {
     console.log(`SELF-TEST ${cases.length - bad.length}/${cases.length} 通过`)
     return bad.length === 0 ? 0 : 1
   }
+  // 只读档排在其它一切之前:return 之后下面的写树(检出/state 件/落地)结构上不可达(2026-11-05)。
+  if (argv.includes('--report-only')) return mainReportOnly(argv)
   const sel = selectFace({
     staged: argv.includes('--staged'),
     worktree: argv.includes('--worktree'),
@@ -1378,6 +1684,9 @@ export const __test__ = {
   legArgvAt,
   judgeTokensFace,
   healTokensFamily,
+  // 只读判定档(2026-11-05 立):argv 构造与判面执行体,镜像测试 import 同一实现(§22c 零复制)
+  reportCheckArgv,
+  reportTokensTier,
   selfTest,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

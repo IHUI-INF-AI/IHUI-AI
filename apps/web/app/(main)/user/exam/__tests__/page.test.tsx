@@ -31,9 +31,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import UserExamPage from '../page'
 
-const { fetchApiMock } = vi.hoisted(() => ({ fetchApiMock: vi.fn() }))
+const { getMyRecordsMock } = vi.hoisted(() => ({ getMyRecordsMock: vi.fn() }))
 
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({ getMyRecords: getMyRecordsMock }))
 
 // next-intl:键名直出,便于断言落到具体词条
 vi.mock('next-intl', () => ({
@@ -88,7 +88,7 @@ function record(over: Record<string, unknown> = {}) {
 }
 
 function respondWith(list: unknown[]) {
-  fetchApiMock.mockResolvedValue({
+  getMyRecordsMock.mockResolvedValue({
     success: true,
     status: 200,
     data: { list, total: list.length, page: 1, pageSize: 20 },
@@ -112,20 +112,18 @@ describe('我的考试页 · 请求路径', () => {
   afterEach(() => cleanup())
 
   // T1
-  it('T1 请求打到存在的 /api/exam/records(不是不存在的 /api/exams)', async () => {
+  it('T1 走共享 getMyRecords(端点固定为 /api/exam/records,不是不存在的 /api/exams)', async () => {
     renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).toBe('/api/exam/records')
+    await waitFor(() => expect(getMyRecordsMock).toHaveBeenCalledTimes(1))
   })
 
   // T2
   it('T2 不把鉴权当查询参数传(后端走 request.userId!,查询串带 userId 是越权隐患)', async () => {
     renderPage()
-    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
-    const url = String(fetchApiMock.mock.calls[0]?.[0])
-    expect(url).not.toContain('userId')
-    expect(url).not.toContain('?')
+    await waitFor(() => expect(getMyRecordsMock).toHaveBeenCalledTimes(1))
+    expect(getMyRecordsMock).toHaveBeenCalledWith()
+    const query = getMyRecordsMock.mock.calls[0]?.[0]
+    expect(JSON.stringify(query ?? {})).not.toContain('userId')
   })
 })
 

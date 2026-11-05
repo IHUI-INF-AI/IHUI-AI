@@ -29,6 +29,7 @@
 import { Undetermined } from './face-reader.mjs'
 import { readFaceOne } from './gate-face.mjs'
 import { __test__ as coverage } from '../check-cross-end-screen-coverage.mjs'
+import { isRetiredRecord } from './ledger-retirement.mjs'
 
 export const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
 export const LEDGER = 'scripts/data/miniapp-shell-copy-ledger.jsonl'
@@ -180,7 +181,9 @@ export function loadRegistry(root, face, registryPath = REGISTRY) {
   return j.entries
 }
 
-/** 台账永远读工作树(判据输入,不是被判对象;CI 干净检出上与 HEAD 等价)。 */
+/** 台账永远读工作树(判据输入,不是被判对象;CI 干净检出上与 HEAD 等价)。
+ *  G-814414 补格(2026-11-05):带「授权退休」标记的行不计入在册条数(它们是被摘条目的
+ *  可核验载体,不是仍欠收敛的存量),所以 `93 → 90` 与门 299 的「复制 90」账实相符。 */
 export function loadLedgerRows(root, ledgerPath = LEDGER) {
   const txt = readFaceOne(root, 'worktree', ledgerPath)
   if (txt === null) return []
@@ -189,6 +192,7 @@ export function loadLedgerRows(root, ledgerPath = LEDGER) {
     .map((l) => l.trim())
     .filter(Boolean)
     .map((l) => JSON.parse(l))
+    .filter((r) => !isRetiredRecord(r))
 }
 
 export function ledgerKey(row) {

@@ -9,7 +9,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, CheckCircle2, XCircle, UserPlus, Link as LinkIcon, Trash2 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduParentBindingConfirm,
+  eduParentBindingCreate,
+  eduParentBindingDelete,
+  eduParentBindingRecords,
+  eduParentBindingReject,
+} from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert, ConfirmDialog, Tooltip } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -65,19 +71,22 @@ export default function ParentBindPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['parent', 'bindings'],
-    queryFn: () => apiOrThrow<BindingListResponse>('/api/edu-ai-management/parent-binding'),
+    queryFn: async () => {
+      const r = await eduParentBindingRecords<BindingListResponse>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
   const bindings = data?.list ?? []
 
   const createMutation = useMutation({
-    mutationFn: (body: { parentId: string; studentId: string; relationship: string }) =>
-      apiOrThrow('/api/edu-ai-management/parent-binding', {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    mutationFn: async (body: { parentId: string; studentId: string; relationship: string }) => {
+      const r = await eduParentBindingCreate(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })
@@ -87,8 +96,11 @@ export default function ParentBindPage() {
   })
 
   const confirmMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent-binding/${id}/confirm`, { method: 'PUT' }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingConfirm(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })
@@ -96,16 +108,22 @@ export default function ParentBindPage() {
   })
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent-binding/${id}/reject`, { method: 'PUT' }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingReject(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent-binding/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })
