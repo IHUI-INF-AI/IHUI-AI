@@ -15,7 +15,7 @@ import {
   type NavigationProp,
   type RouteProp,
 } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduParentChildAttendance } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -48,9 +48,7 @@ function EduChildAttendanceScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: ChildAttendanceRecord[] }>(
-        `/api/edu-ai-management/parent/child/${childId}/attendance`,
-      )
+      const res = await eduParentChildAttendance<{ list: ChildAttendanceRecord[] }>(childId)
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((r) => ({

@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { eduExamScoreTrend, eduExamScoreWeakness } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   EduGradeTrendScreen as SharedEduGradeTrendScreen,
@@ -145,13 +145,11 @@ export function EduGradeTrendScreen() {
     setError('')
     try {
       const [trendRes, weaknessRes] = await Promise.all([
-        fetchApi<TrendPayload>(
-          `/api/edu-ai-management/exam-score/trend/${encodeURIComponent(studentId)}`,
-          selectedSubject ? { params: { subject: selectedSubject } } : {},
+        eduExamScoreTrend<TrendPayload>(
+          studentId,
+          selectedSubject ? { subject: selectedSubject } : undefined,
         ),
-        fetchApi<WeaknessPayload>(
-          `/api/edu-ai-management/exam-score/weakness/${encodeURIComponent(studentId)}`,
-        ),
+        eduExamScoreWeakness<WeaknessPayload>(studentId),
       ])
 
       // 趋势是主数据:它失败才把整屏判成错误态;弱点卡单独失败只清空自己

@@ -26,7 +26,11 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { ChevronLeft, QrCode, RefreshCw, ScanLine } from 'lucide-react-native'
 import QRCodeSvg from 'react-native-qrcode-svg'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduAttendanceQrcode,
+  eduAttendanceQrcodeCheckIn,
+  eduClassList,
+} from '@ihui/api-client'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
@@ -103,7 +107,7 @@ export function EduAttendanceQrScreen() {
   const loadClasses = useCallback(async () => {
     setLoadingClasses(true)
     try {
-      const res = await fetchApi<{ list: ClassRow[] }>('/api/edu-ai-management/class')
+      const res = await eduClassList<{ list: ClassRow[] }>()
       if (res.success) {
         setClasses(res.data?.list ?? [])
         return
@@ -131,9 +135,7 @@ export function EduAttendanceQrScreen() {
     setGenerating(true)
     setQrError(null)
     try {
-      const res = await fetchApi<QrPayloadResult>(
-        `/api/edu-ai-management/attendance/qrcode?classId=${encodeURIComponent(id)}`,
-      )
+      const res = await eduAttendanceQrcode<QrPayloadResult>({ classId: id })
       if (res.success && res.data?.payload) {
         setQr(res.data)
         return
@@ -323,10 +325,7 @@ export function EduAttendanceScanScreen() {
       busyRef.current = true
       setSubmitting(true)
       try {
-        const res = await fetchApi<QrCheckInResult>(
-          '/api/edu-ai-management/attendance/qrcode-check-in',
-          { method: 'POST', body: JSON.stringify({ token }) },
-        )
+        const res = await eduAttendanceQrcodeCheckIn<QrCheckInResult>({ token })
         if (res.success) {
           // 以后端回显展示,列表刷新交给 EduMyAttendanceScreen 的 focus 腿(不本地改行)
           appAlert(t('eduAttendance.qrPanelTitle'), t('eduAttendanceQr.scanDone'))
