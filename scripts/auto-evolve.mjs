@@ -1269,6 +1269,58 @@ export function renderTicketScope(s) {
   return L.join('\n')
 }
 
+/**
+ * 停派那一刻回答"池里到底还剩几张**打得赢**的票"(2026-11-05 立)。
+ *
+ * 立因(手搓预演量出来的,环自己看不见):某轮现读派单面 21 行、白名单命中 **2** 行,
+ * 其中一枚的全部 4 个标识符在 HEAD 面**已命中既有实现**(就是那张被派过 15 次的 P85),
+ * 另一枚"无标识符可核"。⇒ 那一刻即便额度未满,也几乎无活可派。
+ * 但这种读数此前只能靠人手跑一遍范围解析才看得到,明天它会再次隐形,
+ * 于是"环零产出"会被继续读成"模型偷懒"。把这一格装进环自己,判据复用派发侧那一份
+ * `buildTicketScope`(§0.6 不另造尺),只在**本轮不派**的两种出口上算,免得给正常轮加时间。
+ * 成本闸:最多核 3 张(实测单枚 `git grep` 本仓约 6 秒,3 枚 + 30s 预算封顶),
+ * 超出的一律如实记 `未核 N` —— 没核完就说没核完,不拿前 3 张冒充整池(§0.3)。
+ */
+export function readPoolWinnability(rows, { rev, grepFn, existsFn, max = 3 } = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  const t = { 可新建: 0, 疑已实现: 0, 无从预检: 0, 未判定: 0, 未核: 0 }
+  for (let i = 0; i < list.length; i++) {
+    if (i >= max) {
+      t.未核++
+      continue
+    }
+    const s = buildTicketScope(String(list[i]?.text ?? ''), { rev, grepFn, existsFn })
+    if (s.identCount === 0) t.无从预检++
+    else if (s.hits.length) t.疑已实现++
+    else if (s.undetermined.length) t.未判定++
+    else t.可新建++
+  }
+  return t
+}
+
+function poolWinnabilityNote(rows) {
+  const rev = headShaOf() || 'HEAD'
+  try {
+    const t = readPoolWinnability(rows, {
+      rev,
+      grepFn: (i) => {
+        const p = gitProbe(['grep', '-l', '-i', '-F', '-e', i, rev])
+        return p === null || p.status >= 2 ? null : p.stdout
+      },
+      existsFn: (p) => {
+        const r = gitProbe(['cat-file', '-e', `${rev}:${p}`])
+        if (!r || r.status >= 2) return null
+        return r.status === 0
+      },
+    })
+    return `池可赢性(核 ${Math.min(rows.length, 3)}/${rows.length} 枚,判据同派发侧)可新建${t.可新建} 疑已实现${t.疑已实现} 无从预检${t.无从预检} 未判定${t.未判定} 未核${t.未核}`
+  } catch (e) {
+    return `池可赢性 未判定(${String(e?.message ?? e)
+      .split(/\r?\n/)[0]
+      .slice(0, 80)})`
+  }
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
@@ -2133,7 +2185,13 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     for (const e of ledger) {
       if (e.action === 'dispatched' && String(e.ts ?? '').startsWith(todayKey())) dispatched++
     }
-    const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
+    // 池可赢性只在"本轮不派"的两种出口上算 —— 正常派发轮不背这笔 grep 时间。
+    const willNotDispatch = rows.length === 0 || dispatched >= gates.dailyDispatchBudget
+    const summary =
+      `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮` +
+      (willNotDispatch
+        ? ` / ${poolWinnabilityNote(rows.filter((t) => matchWhitelist(t.text, gates.ticketWhitelist)))}`
+        : '')
     if (rows.length === 0) {
       record({
         mode: dryRun ? 'dryrun' : 'dispatch',
@@ -3540,6 +3598,7 @@ export const __test__ = {
   knownFlags,
   extractTicketScopeHints,
   buildTicketScope,
+  readPoolWinnability,
   renderTicketScope,
   normalizeSessionRuntime,
   classifySessionWrites,

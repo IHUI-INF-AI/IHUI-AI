@@ -1044,4 +1044,44 @@ test('Ⓖ 未知旗标 ⇒ exit 2 并点名,不跑轮也不静默忽略', () => 
   for (const f of ['--once', '--no-triage'])
     assert.ok(ae.knownFlags().includes(f), `生产旗标 ${f} 必须在清单里,否则本改动就是冻腿的那一刀`)
 })
+
+test('Ⓗ 池可赢性:四档互斥 + 没核完如实报"未核" + 只挂在停派出口(§0.3)', () => {
+  const F = ae.readPoolWinnability
+  const rows = [
+    { text: '`aaa_bbb` 补一枚新判据' },
+    { text: '这行没有任何反引号标识符' },
+    { text: '`ccc_ddd` 另一枚可新建的' },
+    { text: '`eee_fff` 超出上限的第一枚' },
+    { text: '`ggg_hhh` 超出上限的第二枚' },
+  ]
+  const t = F(rows, { rev: 'r1', grepFn: (i) => (i === 'aaa_bbb' ? 'r1:apps/x/y.py' : ''), max: 3 })
+  assert.deepEqual(
+    [t.疑已实现, t.无从预检, t.可新建, t.未判定, t.未核],
+    [1, 1, 1, 0, 2],
+    '前三枚核过并各归一档,后两枚必须记"未核",不许拿前 3 枚冒充整池',
+  )
+  // 取数口没答 ⇒ 未判定一档,且仍未核数如实
+  const blind = F(rows, { rev: 'r2', grepFn: () => null, max: 1 })
+  assert.equal(blind.未判定, 1)
+  assert.equal(blind.未核, 4)
+  assert.equal(blind.可新建, 0, '没答上来时不许冒"可新建"')
+  assert.deepEqual(F([], { rev: 'r3' }), {
+    可新建: 0,
+    疑已实现: 0,
+    无从预检: 0,
+    未判定: 0,
+    未核: 0,
+  })
+  const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
+  assert.match(
+    src,
+    /willNotDispatch[\s\S]{0,220}poolWinnabilityNote\(rows\.filter\([\s\S]{0,120}matchWhitelist/,
+    '读数只挂在"本轮不派"的出口,且**按派发侧同一张白名单**收窄 —— 把不会派的行算进来会读出没决策价值的数',
+  )
+  assert.match(
+    src,
+    /rows\.length === 0 \|\| dispatched >= gates\.dailyDispatchBudget/,
+    '不派的两档都要算到',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
