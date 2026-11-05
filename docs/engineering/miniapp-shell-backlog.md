@@ -289,6 +289,7 @@
 - 合面时这三页**必须取 batch5 侧版本**，不得被 main 的 `distribution/index`（468 行 / 66 开标签）、`member-detail`（34）、`rank`（17）版本覆盖。
 - 合并后必须在合并树上复测这三页开标签（AST：`JsxElement` + `JsxSelfClosingElement` ≤2），任一 >2 **立即回滚该行退休**（删五枚标记、恢复在册）。
 - 禁跨树判资格：shop5c `39b23363fc` 与 main `a7efb3edfe` 的读数不得用于判定这三行的退休资格。
+- `distribution/index` 合面行为差异（非丢失，已接受）：**小程序浮标失去拖动/边缘吸附**——共享屏 `serviceFloat` 无拖拽能力，为单端加 `draggable` prop 属违规，故接受该差异。
 
 ## 结构下限（不退休；这是结论，不是欠账）
 
