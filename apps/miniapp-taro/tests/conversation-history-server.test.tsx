@@ -340,25 +340,31 @@ describe('③ 排序只有一个出口 —— 置顶优先由共享 sortPinnedFi
 
 describe('④ 源码级反向锁:共享层优先 / 不另起炉灶 / 不直连后端', () => {
   const src = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/history.tsx'), 'utf8')
+  // A2(2026-11-05)薄壳化:列表 UI 与排序出口迁到共享屏,锚点随 UI 落到共享屏;
+  // 端内只保留「拿共享函数做分页切片」的再导出,不得回流第二份排序。
+  const sharedSrc = readFileSync(
+    resolve(__dirname, '../../../packages/app/src/features/chat/ConversationHistoryScreen.tsx'),
+    'utf8',
+  )
   const componentSrc = readFileSync(
     resolve(__dirname, '../src/components/ConversationHistoryItem.tsx'),
     'utf8',
   )
 
-  it('置顶动作与排序都从共享包导入', () => {
+  it('置顶动作仍在端内走共享包;排序出口整体落在共享屏', () => {
     expect(src).toContain("@ihui/shared/chat/conversation-pin'")
     expect(src).toContain('togglePinnedItem(')
-    expect(src).toContain("@ihui/shared/chat/conversation-org'")
-    expect(src).toContain('sortPinnedFirst(')
+    expect(sharedSrc).toContain("@ihui/shared/chat/conversation-org'")
+    expect(sharedSrc).toContain('sortPinnedFirst(')
   })
 
-  it('端内只允许那一处 .sort( 打底时间序 —— 出现第二处就是在自写置顶排序', () => {
-    const sortCalls = src.match(/\.sort\(/g) ?? []
-    expect(sortCalls).toHaveLength(1)
+  it('全仓只允许共享屏那一处 .sort( 打底时间序 —— 端内出现即在自写置顶排序', () => {
+    expect(sharedSrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+    expect(src.match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 
   it('页面与行组件都不得绕过 api-client 直连后端(守门 73 的本地预锁)', () => {
-    for (const text of [src, componentSrc]) {
+    for (const text of [src, sharedSrc, componentSrc]) {
       expect(text).not.toMatch(/Taro\.request\(/)
       expect(text).not.toMatch(/\bfetch\(/)
       expect(text).not.toMatch(/axios/)
