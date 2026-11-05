@@ -33,19 +33,19 @@ export function DayBar(options: {
   const { t } = useI18n()
   const blocked = backfillBlocked(options.date, options.today, options.hm)
   return (
-    <View className="flex flex-wrap items-center justify-end gap-2">
+    <View className="flex flex-wrap items-center justify-end gap-sm">
       <Picker mode="date" value={options.date} onChange={(e) => options.onDate(e.detail.value)}>
         <View className={CHIP}>
-          <Text className="text-xs text-foreground">{options.date}</Text>
+          <Text className="text-label text-foreground">{options.date}</Text>
           <LineIcon name="chevron-down" size={24} />
         </View>
       </Picker>
       <Picker mode="time" value={options.hm} onChange={(e) => options.onHm(e.detail.value)}>
         <View className={CHIP}>
-          <Text className="text-xs text-muted-foreground">{t('eduAttendance.checkInAt')}</Text>
+          <Text className="text-label text-muted-foreground">{t('eduAttendance.checkInAt')}</Text>
           <Text
             className={
-              options.hm === '' ? 'text-xs text-muted-foreground' : 'text-xs text-foreground'
+              options.hm === '' ? 'text-label text-muted-foreground' : 'text-label text-foreground'
             }
           >
             {options.hm === '' ? t('eduAttendance.momentNow') : options.hm}
@@ -54,7 +54,7 @@ export function DayBar(options: {
         </View>
       </Picker>
       {blocked ? (
-        <Text className="w-full text-xs text-amber-600">
+        <Text className="w-full text-label text-amber-600">
           {t('eduAttendance.backfillNeedsTime')}
         </Text>
       ) : null}

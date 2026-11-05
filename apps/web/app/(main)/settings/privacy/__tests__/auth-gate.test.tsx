@@ -53,6 +53,9 @@ vi.mock('lucide-react', () => ({
   Code2: () => <svg />,
   Brain: () => <svg />,
   ChartNoAxesColumn: () => <svg />,
+  // RUM 开关条目用 Activity(page.tsx:19 import),替身缺这条会让整文件收集期报
+  // "No 'Activity' export is defined on the mock"
+  Activity: () => <svg />,
   Loader2: () => <svg />,
 }))
 

@@ -43,7 +43,7 @@
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-xl);
   background: var(--color-muted);
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   box-sizing: border-box;
 }
 .email-input {

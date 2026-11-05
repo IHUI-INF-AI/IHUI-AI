@@ -33,6 +33,7 @@ import pytest
 from app.core.config import settings
 from app.routers import checkin as checkin_router
 from app.services import checkin_scheduler as checkin_scheduler_mod
+from app.services import workbuddy_behaviors as wbb
 from app.services import workbuddy_tasks as wt
 from app.services.workbuddy_tasks import (
     PATH_GROWTH_LOTTERY_DRAW,
@@ -448,6 +449,173 @@ class TestRunGrowth:
         )
 
 
+class TestBehaviorDriver:
+    """2026-11-05 新增:growth 族「行为规划」—— 完整理解任务生命周期。
+
+    覆盖:已知行为任务分类为待用户实操 / 未知 code 返回 None / 待用户实操清单去重 /
+    默认行为计分回调把不可自动的任务登记进 tracker / growth 实跑把行为任务如实标为
+    user_action_required(不伪造、不空转刷次数、不误判为失败)。
+    """
+
+    def test_known_behavior_task_is_not_automatable(self):
+        plan = wbb.classify_growth_task_automation("first_chat")
+        assert plan is not None
+        assert plan.can_automate is False
+        assert "对话" in plan.instruction
+
+    def test_unknown_code_is_none(self):
+        assert wbb.classify_growth_task_automation("no_such_task") is None
+        assert wbb.classify_growth_task_automation("") is None
+
+    def test_human_action_checklist_dedups_and_skips_automatable(self):
+        # 重复 code 应去重;当前所有规划项均 can_automate=False,故全部保留
+        items = wbb.human_action_checklist(["first_chat", "first_chat", "skill_installed"])
+        codes = [i["code"] for i in items]
+        assert codes == ["first_chat", "skill_installed"]
+        for it in items:
+            assert it["instruction"] and it["title"]
+
+    async def test_default_reporter_tracks_user_action(self):
+        tracker: list[str] = []
+        reporter = wbb.build_default_activity_reporter(tracker)
+        # 行为任务:无真实驱动器 ⇒ 登记进 tracker,不抛栈
+        await reporter("first_chat")
+        await reporter("expert_summoned")
+        # 未知 code:不动作、不登记
+        await reporter("mystery_task")
+        assert tracker == ["first_chat", "expert_summoned"]
+
+    async def test_growth_surfaces_user_action_required(self, monkeypatch: pytest.MonkeyPatch):
+        """行为驱动器开启时,growth 实跑把 `first_chat`(available 行为任务)如实标为
+        user_action_required,并在 reason 里给出可执行指引;不 claim、不误判失败。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim")
+        monkeypatch.setattr(settings, "workbuddy_tasks_behavior_driver_enabled", True)
+        # 列表两次一致:first_chat 始终 available(行为任务,不会被自动完成)
+        first_list = ok_envelope({"tasks": [task_row(code="first_chat", status="available")]})
+        lists = iter([first_list, first_list])
+
+        def list_router(request: httpx.Request) -> httpx.Response:
+            try:
+                return httpx.Response(200, json=next(lists))
+            except StopIteration:
+                return httpx.Response(200, json=ok_envelope({"tasks": []}))
+
+        rec = Recorder(
+            {
+                PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_TASKS: list_router,
+            }
+        )
+        dm = {"web_cookie": "session=abc"}
+        async with rec.client() as client:
+            out = await wt.run_growth(TOKEN, dm, dry_run=False, client=client)
+        assert out["user_action_required"] == ["first_chat"]
+        assert out["claimed"] == []  # 行为任务不可自动领奖
+        assert out["unjudged"] is False  # 如实登记,不是"未判定"
+        assert "待用户在客户端实操" in (out["reason"] or "")
+        assert "对话" in (out["reason"] or "")
+
+    async def test_growth_dry_run_still_zero_write_and_no_user_action(self, monkeypatch: pytest.MonkeyPatch):
+        """dry-run 收窄到读面:不调用行为计分回调,user_action_required 为空。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_behavior_driver_enabled", True)
+        rec = Recorder(
+            {
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": [task_row(code="first_chat", status="available")]}),
+            }
+        )
+        dm = {"web_cookie": "session=abc"}
+        async with rec.client() as client:
+            out = await wt.run_growth(TOKEN, dm, dry_run=True, client=client)
+        assert out["user_action_required"] == []
+        # dry-run 不得发写侧调用(accept/claim)
+        assert all(m == "GET" for m in rec.methods())
+
+    def test_parse_task_row_web_shape_normalizes_accept_status_and_nested_progress(self):
+        """WEB 域行无顶层 status、progress 为嵌套对象 ⇒ 必须归一化,否则 18 行全丢。"""
+        row, understood = wt.parse_task_row(
+            {
+                "task_code": "Expert_lighthouse",
+                "title": "体验「腾讯轻量云」专家",
+                "accept_status": "claimed",
+                "progress": {"current": 3, "target": 5},
+            }
+        )
+        assert understood is True
+        assert row["task_code"] == "Expert_lighthouse"
+        assert row["status"] == "claimed"  # 归一化自 accept_status(无顶层 status)
+        assert row["accept_status"] == "claimed"
+        assert row["progress"] == 3
+        assert row["target"] == 5
+
+    def test_parse_task_row_web_shape_without_status_is_understood(self):
+        """WEB 域缺省 status 字段 ⇒ 回退读 accept_status,读懂(不整行丢弃)。"""
+        row, understood = wt.parse_task_row(
+            {"task_code": "wb_wechat_oa_subscribe_task", "title": "关注官方", "accept_status": "accepted"}
+        )
+        assert understood is True
+        assert row["status"] == "accepted"
+
+    async def test_growth_web_domain_merge_surfaces_accepted_and_skips_claimed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """WEB 域并域扫描:行为任务中 `accepted`(动作做完待领奖)如实报待实操,
+        `claimed`(已闭环)正确跳过;CLI 域 5 项照常合并,不重不漏。零真实网络。"""
+        monkeypatch.setattr(settings, "workbuddy_tasks_claim_path", "/activity/growth/tasks/{code}/claim")
+        monkeypatch.setattr(settings, "workbuddy_tasks_behavior_driver_enabled", True)
+
+        cli_tasks = [
+            task_row(code=c, status="available")
+            for c in (
+                "first_chat",
+                "skill_installed",
+                "wechat_linked",
+                "expert_summoned",
+                "template_used",
+            )
+        ]
+        # WEB 域真形态:task_code + accept_status(无顶层 status)+ 嵌套 progress
+        web_tasks = [
+            {"task_code": "wb_wechat_oa_subscribe_task", "title": "关注官方", "accept_status": "accepted", "progress": {"current": 1, "target": 1}},
+            {"task_code": "WorkBuddy_Valorant", "title": "体验无畏契约", "accept_status": "accepted", "progress": {"current": 1, "target": 1}},
+            {"task_code": "Expert_lighthouse", "title": "体验轻量云", "accept_status": "claimed", "progress": {"current": 1, "target": 1}},
+        ]
+        # WEB 列表 URL 含 www.workbuddy.cn/v2;放在 PATH_GROWTH_TASKS 之前以精确区分两域。
+        rec = Recorder(
+            {
+                "www.workbuddy.cn/v2/activity/growth/tasks": ok_envelope({"tasks": web_tasks}),
+                PATH_GROWTH_TASKS_ACCEPT: ok_envelope({}),
+                PATH_GROWTH_STREAK: ok_envelope({}),
+                "/billing/meter/checkin-status": ok_envelope({"total_credits": 10}),
+                PATH_GROWTH_TASKS: ok_envelope({"tasks": cli_tasks}),
+            }
+        )
+        dm = {"web_cookie": "session=abc"}
+        async with rec.client() as client:
+            out = await wt.run_growth(TOKEN, dm, dry_run=False, client=client)
+
+        assert out["ok"] is True
+        uar = out["user_action_required"] or []
+        # CLI 5 项 + WEB 两项 accepted,均如实上报
+        for expected in (
+            "first_chat",
+            "skill_installed",
+            "wechat_linked",
+            "expert_summoned",
+            "template_used",
+            "wb_wechat_oa_subscribe_task",
+            "WorkBuddy_Valorant",
+        ):
+            assert expected in uar, f"缺少待实操项: {expected}"
+        # WEB 域已 claimed 的 Expert_lighthouse 不得误报为待实操
+        assert "Expert_lighthouse" not in uar
+        assert out["unjudged"] is False
+        # 不得对 WEB 域行为任务发起写侧 claim(它们非可领态)
+        assert out["claimed"] == []
+
+
 # ---------------------------------------------------------------------------
 # travel
 # ---------------------------------------------------------------------------
@@ -833,6 +1001,7 @@ class TestRunFamily:
         assert set(out) == {
             "ok", "kind", "accepted", "claimed",
             "credit_delta", "energy_delta", "reason", "unjudged",
+            "user_action_required",
         }
         assert out["kind"] == "growth"
 

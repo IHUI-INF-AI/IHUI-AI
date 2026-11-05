@@ -3,30 +3,40 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * react-native-view-shot 的 web 平台 stub(由 metro.config.cjs resolveRequest 注入,
- * 仅 platform === 'web' 时把 'react-native-view-shot' 重定向到本文件)。
+ * check-merge-content-loss.mjs —— 内容级防丢闸的 CLI 档(独立一笔,治"整份取对侧")。
  *
- * 平台特有:view-shot 依赖原生截图能力(requireNativeComponent),web 无对应实现,
- * captureRef 返回空字符串,调用方(截图保存到相册链路)在 web 上静默降级。
+ * 用法:
+ *   node scripts/check-merge-content-loss.mjs --ours <rev> --theirs <rev> --merged <rev> [--root <dir>]
+ *
+ * 退出码:0 = 两侧键/行都在合并结果里;1 = 有少带(已点名);2 = 取不到/参数缺失(未判定)。
+ * 判定本体在 `lib/content-loss-gate.mjs`,本文件只做参数与出口,不复制第二套判据。
  */
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-/** 与 react-native-view-shot CaptureOptions 兼容的宽松类型(web 无需精确约束) */
-export interface CaptureOptions {
-  format?: 'png' | 'jpg' | 'jpeg' | 'webm'
-  quality?: number
-  result?: 'file' | 'base64' | 'tmpfile' | 'zip' | 'raw'
-  [key: string]: unknown
+import { formatLossReport, judgeContentLoss } from './lib/content-loss-gate.mjs'
+
+function flag(name) {
+  const i = process.argv.indexOf(`--${name}`)
+  return i > 0 ? process.argv[i + 1] : ''
 }
 
-export async function captureRef(_viewRef: unknown, _options?: CaptureOptions): Promise<string> {
-  console.warn('[web-stub] react-native-view-shot 在 web 平台不可用,captureRef 返回空')
-  return ''
+const ours = flag('ours')
+const theirs = flag('theirs')
+const merged = flag('merged')
+const root = flag('root') || resolve(fileURLToPath(import.meta.url), '..', '..')
+
+if (!ours || !theirs || !merged) {
+  console.error('用法:check-merge-content-loss.mjs --ours <rev> --theirs <rev> --merged <rev> [--root <dir>]')
+  process.exit(2)
 }
 
-export async function captureScreen(_options?: CaptureOptions): Promise<string> {
-  console.warn('[web-stub] react-native-view-shot 在 web 平台不可用,captureScreen 返回空')
-  return ''
+const r = judgeContentLoss({ root, ours, theirs, merged })
+if (r.ok) {
+  console.log(`✅ 内容级防丢闸:${r.checked.length} 条受检路径,0 缺失键/行`)
+  process.exit(0)
 }
-
-export default { captureRef, captureScreen }
+console.log(`❌ 内容级防丢闸:${r.violations.length} 个路径少带内容(逐条点名)`)
+console.log(formatLossReport(r))
+process.exit(r.undetermined.length ? 2 : 1)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

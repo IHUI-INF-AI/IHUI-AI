@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing['sm-loose'],
     padding: rnSpacing['2xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary, textAlign: 'center' },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, textAlign: 'center' },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,

@@ -49,7 +49,7 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <Link
         href="/docs"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="font-[weight:inherit] inline-flex items-center gap-1 text-body text-muted-foreground transition-colors hover:text-foreground"
       >
         <BookOpen className="h-4 w-4" />
         {td('navOverview')}
@@ -68,7 +68,7 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
       </header>
 
       {isLoading ? (
-        <p className="rounded-lg border border-border px-3 py-6 text-center text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] rounded-lg border border-border px-3 py-6 text-center text-body text-muted-foreground">
           <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
           {tc('loading')}
         </p>
@@ -77,7 +77,7 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
           <MarkdownBody content={doc.content} />
         </article>
       ) : (
-        <p className="rounded-lg border border-border px-3 py-6 text-center text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] rounded-lg border border-border px-3 py-6 text-center text-body text-muted-foreground">
           {tc('noData')}
         </p>
       )}
@@ -87,7 +87,7 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
           {detail?.prev ? (
             <Link
               href={`/docs/${detail.prev.slug}`}
-              className="group flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] group flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
             >
               <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
               <span className="truncate font-medium">{detail.prev.title}</span>
@@ -98,7 +98,7 @@ export default function DocsDetailPageClient({ initialDetail }: PageClientProps)
           {detail?.next ? (
             <Link
               href={`/docs/${detail.next.slug}`}
-              className="group flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] group flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
             >
               <span className="truncate font-medium">{detail.next.title}</span>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />

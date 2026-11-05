@@ -87,6 +87,9 @@ function makeCommitSpy(dir) {
     calls.push({ paths: paths.map(norm), message })
     gitRaw(['add', '-A', '--', ...paths], dir)
     gitRaw(['commit', '-q', '-F', '-'], dir, { input: `${message}\n` })
+    // 与生产 commitBatch 同契约(2026-11-05:结论行的 collected 只认提交真成功的枚数,
+    // 替身若不回报,本轮就会被读成"一枚没入" ⇒ 契约必须显式履行,不靠"返回空当成功")。
+    return { attempted: paths.length, landed: paths.length, blocker: null }
   }
   return { calls, commit }
 }
@@ -548,7 +551,13 @@ test('T14 接线锁:账本族必须真挂在 main 里,且白名单族从任何�
   assert.match(m, /finally\s*\{[\s\S]*?runLedgerFamily\(/, '账本族必须在 finally 里(①的早退不得短路②)')
   assert.match(m, /whitelistPaths:\s*tally\.paths/, '去重基准必须来自白名单族本轮集合')
   const wl = bodyOf(SRC, 'function runWhitelistFamily(')
-  assert.match(wl, /tally\.collected = i18nPaths\.length \+ restPaths\.length/, '总结论行的 collected 必须是两族合计')
+  // 2026-11-05 改这条锁的钉法(意图不变,口径变诚实):`collected` 必须是**两族真入库**的合计,
+  // 而"挑了但被门拦下"的枚数必须单列 blocked 并点名拦路者 —— 旧钉法把"本批枚数"直接当 collected,
+  // 正是"被无关全局面红门整批拦死却在机读面上长得像收得很好"的成因(现读:账本 229 条申报
+  // 带 landedSha 的 0 条,而结论行连日报 collected=10x)。
+  assert.match(wl, /tally\.collected = wlLanded/, '总结论行的 collected 必须只认提交真成功的枚数')
+  assert.match(wl, /tally\.blocked = wlBlocked/, '被拦枚数必须单列,不许并进 held(held 另有语义)')
+  assert.match(wl, /tally\.blocker \?\?=|blocker = /, '拦路者必须被记名')
 
   const fam = bodyOf(SRC, 'export function runLedgerFamily(')
   for (const needle of [
@@ -684,7 +693,7 @@ test('T19 stdout 闸只在直跑形态开:被 import 形态调用器物不得写
       '  quietMs: 3 * 60 * 1000,',
       '  dry: false,',
       '  busyCheck: () => null,',
-      '  commit: () => {},',
+      '  commit: (p) => ({ attempted: p.length, landed: p.length, blocker: null }),',
       '  logLine: () => {},',
       '});',
       '',
@@ -717,6 +726,69 @@ test('T19 stdout 闸只在直跑形态开:被 import 形态调用器物不得写
   } finally {
     rmScratch(dir, { bestEffort: true })
   }
+})
+
+test('T22 被门整批拦下 ⇒ collected 只认真入库,blocked 单列并点名拦路者(挑了 N 枚 ≠ 入库 N 枚)', () => {
+  // 现读成因:一整个下午 `collected=103` 那类读数其实全是"本轮挑了 103 枚",
+  // 而提交被 check-capability-matrix(J4,别的席位在飞的 ai-service 开关)整批拦死 ——
+  // 账本 229 条申报里带 landedSha 的 0 条。机读面必须能分出这两种形状。
+  const dir = newRepo()
+  try {
+    declare(dir, BUSINESS_PATH, 'x\n')
+    const fail = runLedger(dir, {
+      commit: (p) => ({ attempted: p.length, landed: 0, blocker: 'check-capability-matrix' }),
+    })
+    assert.equal(fail.r.collected, 0, '一枚没入库 ⇒ collected 必须是 0,不得把挑了的枚数报成收了')
+    assert.equal(fail.r.blocked, 1)
+    assert.match(fail.lines.join('\n'), /⛔ 账本族本轮被拦 1 枚\(拦路者=check-capability-matrix\)/)
+    const concl = fail.lines.find((l) => l.startsWith('COLLECT-RESULT'))
+    assert.match(concl, / blocked=1 dry=false blocker=check-capability-matrix$/, `结论行缺拦路者:${concl}`)
+
+    // 阳性对照:同一夹具同一枚数,提交真成功 ⇒ blocked=0 且 blocker 键整个缺席
+    const dir2 = newRepo()
+    try {
+      declare(dir2, BUSINESS_PATH, 'y\n')
+      const okRun = runLedger(dir2)
+      assert.equal(okRun.r.collected, 1, '真入库才算 collected(替身按契约回报)')
+      assert.equal(okRun.r.blocked, 0)
+      const c2 = okRun.lines.find((l) => l.startsWith('COLLECT-RESULT'))
+      assert.ok(!c2.includes('blocker='), `成功轮不得带拦路者键:${c2}`)
+      assert.match(c2, / blocked=0 dry=false$/)
+    } finally {
+      rmScratch(dir2, { bestEffort: true })
+    }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T23 拦路者认得出:喂真实 safe-commit 输出必须认出那道门,认不出要写 unidentified(不猜)', () => {
+  const f = auto.blockerFromOutput
+  const real =
+    '❌ check-capability-matrix: 能力台账对账失败(1 条;判定面:索引 blob):\n' +
+    '   [J4 settings族台账逃逸] 未登记进 capability_matrix.py\n' +
+    '❌ 📋 能力矩阵对账守门(默认关 env 必须登记台账;判定面=索引 blob)...失败，提交已阻止\n'
+  assert.match(f(real), /check-capability-matrix/, '真 safe-commit 输出必须认得出拦路门名')
+  assert.equal(f('❌ check-radius-single-source: 圆角漂移'), 'check-radius-single-source')
+  assert.equal(f('随机一段崩溃栈,没有任何门名'), 'unidentified')
+  assert.equal(f(''), 'unidentified')
+  // 另几类整轮拒(safe-commit 自身的出口,不是某道门判红)—— 现读都真发生过
+  assert.equal(
+    f('❌ 中止 commit —— 这是「有意删除被复活后又收编进提交」的回流,不是正常新增'),
+    'resurrected-deletion-refusal',
+  )
+  assert.equal(f('❌ Step 3: 暂存清单与本任务声明集不符'), 'safe-commit-scope-refusal')
+  assert.equal(f('❌ 并发锁争用耗尽 ⇒ 不落地'), 'safe-commit-lock-exhausted')
+  // hint:认不出精确门名时必须给一行可归因摘要(§5e-1),且去掉引号/反引号/美元符防注入形态
+  assert.match(
+    auto.blockerHint('前一行\n❌ 复活检测命中 scripts/data/x.json 与 87 枚暂存件'),
+    /复活检测命中/,
+  )
+  assert.ok(
+    !auto.blockerHint('❌ 坏掉的东西 "带引号" 与 `反引号` 和 $变量').includes('"'),
+    '摘要必须脱掉引号/反引号/美元符(不得把可执行形态带进日志与邮件)',
+  )
+  assert.equal(auto.blockerHint(''), '')
 })
 
 test('T20 两族合流的机读面:held 相加、reason 以 + 连接具体形态码(键集与前缀一字不改)', () => {

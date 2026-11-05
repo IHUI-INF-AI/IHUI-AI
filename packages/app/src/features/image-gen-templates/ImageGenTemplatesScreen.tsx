@@ -292,7 +292,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
     column: { gap: rnSpacing['sm-loose'] },
     listHeader: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
-    subtitle: { fontSize: 13, color: tk.text.secondary },
+    subtitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -312,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
     },
-    retryText: { fontSize: 13, color: tk.text.primary },
+    retryText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     card: {
       flex: 1,
       padding: rnSpacing.lg,
