@@ -15,6 +15,22 @@ import { TextField } from '../../components/TextField'
 
 type NotifKey = keyof SharedNotificationToggles
 
+/** 语言选项(小程序语言页多一个副行英文名;RN 不传 description 即不渲染) */
+export interface SettingsLanguageOption {
+  value: string
+  label: string
+  description?: string
+}
+
+/** 语言选择分段 props(两端显式传:RN 大设置页 / 小程序 pages/setting/language) */
+export interface SettingsLanguageSectionProps {
+  title: string
+  items: SettingsLanguageOption[]
+  selected: string
+  onSelect: (value: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
 /**
  * SettingsScreen — 跨端共享「设置」页。
  *
@@ -117,17 +133,13 @@ export function SettingsScreen({
           </PressableCard>
         ) : null}
 
-        <Section title={t('settings.language')} styles={styles}>
-          {localeOptions.map((opt) => (
-            <SelectRow
-              key={opt.value}
-              label={opt.label}
-              selected={opt.value === locale}
-              onPress={() => onSelectLocale(opt.value)}
-              styles={styles}
-            />
-          ))}
-        </Section>
+        <SettingsLanguageSection
+          title={t('settings.language')}
+          items={localeOptions}
+          selected={locale}
+          onSelect={onSelectLocale}
+          colorScheme={colorScheme}
+        />
 
         <Section title={t('settings.theme')} styles={styles}>
           {themeOptions.map((opt) => (
@@ -239,6 +251,36 @@ export function SettingsScreen({
 
 type ThemedStyles = ReturnType<typeof createStyles>
 
+/**
+ * 语言选择分段 — 批次 7(2026-11-06)从 SettingsScreen 抽出:
+ * RN 大设置页(本文件)与小程序 pages/setting/language 两端都真消费、都显式传 title/items/selected/onSelect。
+ * 小程序端的副行英文名经 item.description 传入;RN 不传 ⇒ 仍是 label + ✓ 的原有形态,零可见变化。
+ */
+export function SettingsLanguageSection({
+  title,
+  items,
+  selected,
+  onSelect,
+  colorScheme = 'light',
+}: SettingsLanguageSectionProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
+  return (
+    <Section title={title} styles={styles}>
+      {items.map((opt) => (
+        <SelectRow
+          key={opt.value}
+          label={opt.label}
+          description={opt.description}
+          selected={opt.value === selected}
+          onPress={() => onSelect(opt.value)}
+          styles={styles}
+        />
+      ))}
+    </Section>
+  )
+}
+
 function Section({
   title,
   children,
@@ -258,18 +300,27 @@ function Section({
 
 function SelectRow({
   label,
+  description,
   selected,
   onPress,
   styles,
 }: {
   label: string
+  description?: string
   selected: boolean
   onPress: () => void
   styles: ThemedStyles
 }) {
   return (
     <TouchableOpacity style={styles.plainRow} onPress={onPress}>
-      <Text style={styles.rowLabel}>{label}</Text>
+      {description ? (
+        <View style={styles.rowMeta}>
+          <Text style={styles.rowLabel}>{label}</Text>
+          <Text style={styles.rowSubLabel}>{description}</Text>
+        </View>
+      ) : (
+        <Text style={styles.rowLabel}>{label}</Text>
+      )}
       {selected ? <Check size={rnGeometry.glyphSm} color={styles.checkMark.color} /> : null}
     </TouchableOpacity>
   )
@@ -363,6 +414,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: cardBg,
     },
     rowLabel: { fontSize: rnType.title.size, color: rowLabelColor },
+    /** 副行容器(仅 description 存在时渲染;RN 不传 ⇒ 这两格不进布局) */
+    rowMeta: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
+    rowSubLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
     checkMark: { fontSize: rnType.title.size, color: tk.brandAccent.deep, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
