@@ -747,12 +747,22 @@ export function ProfileScreen() {
                 colorScheme={resolvedTheme}
                 realnameStatus={realnameBadge}
                 onToast={onToast}
+                identityTags={
+                  user
+                    ? [
+                        user.isVip === 1
+                          ? { text: t('profile.levelVip'), tone: 'vip' as const }
+                          : { text: t('profile.levelRegular'), tone: 'normal' as const },
+                      ]
+                    : undefined
+                }
                 menuSections={menuSections}
                 onNavigate={(key) => {
                   const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
                   if (item) onNavigate(item)
                 }}
                 onLogout={() => void logout()}
+                onAvatarPress={() => setEditProfileVisible(true)}
                 onBack={() => navigation.goBack()}
               />
             </>
