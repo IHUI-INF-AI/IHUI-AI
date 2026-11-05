@@ -4774,6 +4774,9 @@
   "devSpace": {
     "title": "開発者詳細",
     "notLoggedIn": "未ログイン",
+    "opened": "開通済み",
+    "notOpened": "未開通",
+    "enterPlaza": "広場へ",
     "renew": "継続利用",
     "copy": "コピー",
     "copied": "コピーしました",
