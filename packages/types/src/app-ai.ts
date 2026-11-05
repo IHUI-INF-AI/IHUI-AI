@@ -11,6 +11,7 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
 import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
@@ -522,6 +523,19 @@ export interface AgentScreenItem {
   isVipExclusive?: boolean
   useCount?: number
   rating?: number
+  /** 名称右侧的通用小标签(如分类名);VIP 徽标优先,缺省不渲染 ⇒ 旧行为不变 */
+  badgeText?: string
+  /**
+   * 该条目需先完成支付才能使用(可选)。为 true 且宿主给了 `onRequestPayment` 时,
+   * 卡片点击走支付端口而不是 `onPressItem`;缺省 false ⇒ 与旧行为一致。
+   */
+  isPurchasable?: boolean
+}
+
+/** AgentScreen 分类 chip(宿主注入服务端分类时替换屏内内置的本地关键词分类) */
+export interface AgentScreenCategory {
+  id: string
+  label: string
 }
 
 /** AgentScreen props */
@@ -544,6 +558,78 @@ export interface AgentScreenProps {
   nestedInScrollView?: boolean
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+
+  /* ────────── 分页(可选) ────────── */
+  /**
+   * 触底加载下一页。非嵌套模式由内部 FlatList 触发;嵌套模式的滚动归宿主页
+   * (小程序 `useReachBottom` / RN 外层 ScrollView),宿主在自身触底钩子里调同一份加载。
+   */
+  onEndReached?: () => void
+  /** 追加加载中(非首屏),用于列表底部指示 */
+  loadingMore?: boolean
+  /** 是否还有下一页;显式 `false` 且列表非空时底部显示「没有更多了」 */
+  hasMore?: boolean
+  /** 空态文案(缺省 `t('common.empty')`) */
+  emptyText?: string
+  /** 首屏加载文案(给出时以文字替代骨架屏) */
+  loadingText?: string
+  /** 追加加载文案(缺省 `t('common.loadingShort')`) */
+  loadingMoreText?: string
+  /** 到底文案(缺省 `t('common.noMore')`) */
+  noMoreText?: string
+
+  /* ────────── 分类 / 搜索(可选) ────────── */
+  /**
+   * 宿主注入的分类 chip。给出即替换屏内内置的本地关键词分类,且**不再本地过滤 items**
+   * (过滤由宿主按自身分类口径完成,通常是服务端分类参数)。
+   */
+  categories?: AgentScreenCategory[]
+  /** 宿主分类的当前选中 id(与 `categories` 配套;缺省 null = 全未选) */
+  activeCategory?: string
+  /** 宿主分类点选回调(与 `categories` 配套) */
+  onSelectCategory?: (id: string) => void
+  /** 是否渲染分类 chip 条(缺省 true;宿主已有自己的分类弹层时传 false) */
+  showCategoryBar?: boolean
+  /** 受控关键词;与 `onKeywordChange` 同时给出时屏内渲染搜索框(过滤由宿主完成) */
+  keyword?: string
+  /** 关键词变化回调(与 `keyword` 配套) */
+  onKeywordChange?: (kw: string) => void
+  /** 搜索框占位文案(缺省 `t('common.search')`) */
+  searchPlaceholder?: string
+
+  /* ────────── 平台能力端口(可选,屏内绝不直接调平台 API) ────────── */
+  /**
+   * 支付端口:卡片对 `isPurchasable` 条目请求发起支付。参数是条目本身,
+   * 真实下单/调起微信支付由宿主完成(本屏不碰支付 API、不持有订单)。
+   */
+  onRequestPayment?: (item: AgentScreenItem) => void | Promise<unknown>
+  /**
+   * 选图端口(屏内「图片搜索」入口调用)。用户取消按空值返回,不抛。
+   * 未接图片搜索的宿主不传即可(入口随之不渲染)。
+   */
+  onChooseImages?: (count?: number) => Promise<unknown>
+
+  /* ────────── 宿主专属区块插槽(可选,仅嵌套模式生效) ────────── */
+  /** 顶栏/导航与分类弹层(渲染在内容最前;固定定位由宿主 JSX 自己负责) */
+  renderHeader?: ReactNode
+  /** 轮播 / banner 区块 */
+  renderBanner?: ReactNode
+  /** 宿主自有搜索区(给出时优先于 `keyword` 内置搜索框) */
+  renderSearch?: ReactNode
+  /** 最近使用区块 */
+  renderRecent?: ReactNode
+  /** 我的智能体区块 */
+  renderMine?: ReactNode
+  /** 列表标题行(「智能体推荐 / 帖子 / 更多」等),渲染在列表容器之前 */
+  renderListHeader?: ReactNode
+  /** 抽屉(渲染在最外层,先于其它内容) */
+  renderDrawer?: ReactNode
+  /** 支付弹窗(渲染在最外层,后于其它内容) */
+  renderPayModal?: ReactNode
+  /** 其余宿主浮层(悬浮球 / 客服弹窗 / 返回顶部等,渲染在列表之后) */
+  renderOverlay?: ReactNode
+  /** 列表底部追加内容(分页指示之后) */
+  renderFooter?: ReactNode
 }
 
 /** AI 助手分类 */

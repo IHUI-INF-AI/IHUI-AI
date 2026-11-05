@@ -3,13 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/vip/VipScreen.tsx
+//
+// 本页是**薄壳**:版面(头部/会员状态卡/特权清单/权益详情/等级目录/套餐区/底部购买栏)全部由共享屏渲染;
+// 本端只保留不可上提的平台事实:
+//   ① 取数(getVipInfo/getVipPrivilege/getVipLevels)+ G-933 冷启动鉴权门控 + useDidShow 重拉
+//   ② 套餐数据与选中态、自动续费开关状态
+//   ③ 支付分发 requestWxPayment / 签约跳转 / 成功页跳转(平台专属)
+//   ④ toast、导航、loading/刷新/错误重试状态
+//   ⑤ 背景图资源 URI 与端内图标体系(LineIcon)注入
+//   ⑥ 购买流程 5 弹层 + 既有两个弹窗组件(见 ./purchase-overlays.tsx)
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { View, Text, Button, Image } from '@tarojs/components'
 import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import {
   getVipInfo,
   getVipPrivilege,
@@ -23,19 +31,22 @@ import {
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import {
-  VipBenefitsPopup,
-  VipPriceSelector,
-  VipPayConfirm,
-  type VipBenefit,
-  type PriceOption,
-} from '@/components'
+import { type VipBenefit, type PriceOption } from '@/components'
+import { VipScreen as SharedVipScreen } from '@ihui/rn-app/features/vip/VipScreen'
+import type {
+  OnNavigate,
+  VipLevelItem2,
+  VipMembershipInfo,
+  VipPlanItem,
+  VipPrivilegeItem,
+} from '@ihui/types'
 import './index.css'
 import { aizhsUrl } from '@/constants/icon-urls'
-import LevelsSection from './levels-section'
+import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
+import VipPurchaseOverlays from './purchase-overlays'
 
-// 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
+// 6 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
 interface VipFeature {
   id: string
   icon: string
@@ -91,9 +102,30 @@ function normalizeLevelBenefits(raw: unknown): string[] {
   return out
 }
 
+/** 后端 price 单位为分,共享屏等级卡按元展示 ⇒ 在此换算,显示与旧端 formatPrice 一致 */
+function toLevelItem(level: VipLevel): VipLevelItem2 {
+  return {
+    id: String(level.id),
+    levelName: level.levelName,
+    levelValue: level.levelValue,
+    price: level.price / 100,
+    durationDays: level.durationDays,
+    status: level.status,
+    benefits: normalizeLevelBenefits(level.benefits),
+  }
+}
+
+/**
+ * B1 契约冻结:共享屏只 assert 端口、尚未调用导航;落空必须可见失败,不静默吞。
+ */
+const onNavigate: OnNavigate = (target) => {
+  onToast(`导航未接入: ${target}`, { kind: 'error' })
+}
+
 export default function VipIndexPage() {
   const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
 
   const defaultPlans = useMemo<PriceOption[]>(
     () => [
@@ -163,7 +195,8 @@ export default function VipIndexPage() {
 
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [levels, setLevels] = useState<VipLevel[]>([])
-  const [levelsLoaded, setLevelsLoaded] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
@@ -210,43 +243,55 @@ export default function VipIndexPage() {
     [t],
   )
 
-  const load = useCallback(async () => {
-    Taro.showLoading({ title: t('common.loading'), mask: true })
-    try {
-      const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
-      setInfo(toVipInfo(i))
-      setLevels(lv.items || [])
-      setLevelsLoaded(true)
-      const list = (p.list || []).map((item) => ({
-        id: String(item.id),
-        title: item.title,
-        desc: item.desc,
-      })) as VipBenefit[]
-      setBenefits(list)
-      const opts = (lv.items || []).map((l) => ({
-        id: String(l.id),
-        name: l.levelName,
-        price: l.price / 100,
-        period: `${l.durationDays}${t('page.vip.dayUnit')}`,
-      })) as PriceOption[]
-      const finalOpts = opts.length > 0 ? opts : defaultPlans
-      setPriceOptions(finalOpts)
-      setSelectedPlan((prev) => prev ?? finalOpts[0] ?? null)
-      setLoadFailed(false)
-    } catch (e) {
-      logger.error('vip/index', '获取VIP信息', e)
-      setPriceOptions(defaultPlans)
-      setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
-      setLoadFailed(true)
-      onToast(t('common.failed'), { kind: 'error' })
-    } finally {
-      Taro.hideLoading()
-    }
-  }, [t, defaultPlans])
+  // 首次加载走整屏骨架;回前台/下拉刷新走刷新态,避免每次进页都闪骨架
+  const hasLoadedRef = useRef(false)
 
-  const onSelectPlan = useCallback((opt: PriceOption) => {
-    setSelectedPlan(opt)
-  }, [])
+  const load = useCallback(
+    async (mode: 'initial' | 'refresh' = hasLoadedRef.current ? 'refresh' : 'initial') => {
+      if (mode === 'refresh') setRefreshing(true)
+      else setLoading(true)
+      try {
+        const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
+        setInfo(toVipInfo(i))
+        setLevels(lv.items || [])
+        const list = (p.list || []).map((item) => ({
+          id: String(item.id),
+          title: item.title,
+          desc: item.desc,
+        })) as VipBenefit[]
+        setBenefits(list)
+        const opts = (lv.items || []).map((l) => ({
+          id: String(l.id),
+          name: l.levelName,
+          price: l.price / 100,
+          period: `${l.durationDays}${t('page.vip.dayUnit')}`,
+        })) as PriceOption[]
+        const finalOpts = opts.length > 0 ? opts : defaultPlans
+        setPriceOptions(finalOpts)
+        setSelectedPlan((prev) => prev ?? finalOpts[0] ?? null)
+        setLoadFailed(false)
+        hasLoadedRef.current = true
+      } catch (e) {
+        logger.error('vip/index', '获取VIP信息', e)
+        setPriceOptions(defaultPlans)
+        setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
+        setLoadFailed(true)
+        onToast(t('common.failed'), { kind: 'error' })
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [t, defaultPlans],
+  )
+
+  const onSelectPlan = useCallback(
+    (plan: VipPlanItem) => {
+      const opt = priceOptions.find((item) => item.id === plan.id)
+      if (opt) setSelectedPlan(opt)
+    },
+    [priceOptions],
+  )
 
   // 等级卡片上的「开通会员」:与底部购买栏同一条支付链路 —— 先选中该等级,再走确认弹窗
   const onLevelPurchase = useCallback(
@@ -289,6 +334,10 @@ export default function VipIndexPage() {
     }
   }, [selectedPlan, autoRenew, t, dispatchVipPay])
 
+  const onManage = useCallback(() => {
+    Taro.navigateTo({ url: '/pkg-learn/subscription/contracts/index' })
+  }, [])
+
   const onBenefitsClick = useCallback(() => {
     setShowBenefits(true)
   }, [])
@@ -326,7 +375,7 @@ export default function VipIndexPage() {
   }, [])
 
   // G-933 冷启动门控：load 内是 Promise.all([getVipInfo(需鉴权，routes/vip.ts 处理器 await authenticate)、
-  // getVipPrivilege、getVipLevels(公开)]) 且共用同一次 showLoading/hideLoading —— 拆支会改该页加载态语义，
+  // getVipPrivilege、getVipLevels(公开)]) 且共用同一次加载态 —— 拆支会改该页加载语义，
   // 故整块延后到「鉴权判定落定」。注意 waitUntilReady 只等落定、不等登录 ⇒ 游客在落定后照样走一次
   // (各支自带 .catch/兜底)，所以这是消掉冷启动那一拍，不是把抢跑换成游客白屏。
   const { waitUntilReady } = useAuthReadyGate()
@@ -338,6 +387,45 @@ export default function VipIndexPage() {
 
   const currentPrice = selectedPlan?.price ?? 0
   const daysLeft = info.expireTime ? daysUntil(info.expireTime) : null
+
+  const membership = useMemo<VipMembershipInfo>(
+    () => ({
+      isActive: !!info.level,
+      level: info.level ?? 0,
+      levelName: info.name ?? '',
+      expireTime: info.expireTime ? formatDateByTemplate(info.expireTime, 'YYYY-MM-DD') : '',
+      daysRemaining: daysLeft ?? 0,
+    }),
+    [info, daysLeft],
+  )
+
+  const levelItems = useMemo(() => levels.map(toLevelItem), [levels])
+
+  const plans = useMemo<VipPlanItem[]>(
+    () =>
+      priceOptions.map((opt) => ({
+        id: opt.id,
+        name: opt.name,
+        price: opt.price,
+        originalPrice: opt.originalPrice,
+        period: opt.period,
+      })),
+    [priceOptions],
+  )
+
+  const privilegeItems = useMemo<VipPrivilegeItem[]>(
+    () =>
+      features.map((f) => ({
+        id: f.id,
+        title: f.title,
+        desc: f.desc,
+        badge: 'VIP',
+        icon: (
+          <LineIcon name={f.icon as IconName} size={40} color="var(--color-muted-foreground)" />
+        ),
+      })),
+    [features],
+  )
 
   /**
    * 权益详情条目:各等级 benefits 的并集去重(与 RN 端 apps/mobile-rn/src/screens/VipScreen.tsx:464
@@ -358,333 +446,79 @@ export default function VipIndexPage() {
   }, [levels])
 
   return (
-    <ThemeRoot>
-      <View className="vip-page">
-        {/* 头部 400rpx + vip_back.png 背景 */}
-        <View className="header">
-          <Image
-            className="bg-image"
-            src={aizhsUrl('remote-images/vip_back.png')}
-            mode="aspectFill"
-          />
-          <View className="content">
-            <View className="title">{t('vip.title')}</View>
-            <View className="subtitle">{t('vip.subtitle')}</View>
-            <View className="price-box">
-              <Text className="current-price">¥{currentPrice}</Text>
-            </View>
-          </View>
-        </View>
+    <ThemeRoot className="vip-shared-root">
+      <SharedVipScreen
+        t={t}
+        levels={levelItems}
+        membership={membership}
+        loading={loading}
+        refreshing={refreshing}
+        error={loadFailed ? t('common.failed') : ''}
+        toast=""
+        purchasingId={null}
+        onRefresh={() => void load('refresh')}
+        onPurchase={(level) => onLevelPurchase(level.id)}
+        onRetry={() => void load('initial')}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+        onNavigate={onNavigate}
+        onToast={onToast}
+        inlineError
+        retryLabel={t('vip.retry')}
+        headerBackgroundUri={aizhsUrl('remote-images/vip_back.png')}
+        headerPrice={currentPrice}
+        showBack={false}
+        introduceLabel={t('vip.index.introduce')}
+        onIntroduce={onIntroduceClick}
+        showInactiveMembership
+        privilegeItems={privilegeItems}
+        onViewAllPrivileges={onBenefitsClick}
+        benefitsAfterLevels
+        plans={plans}
+        selectedPlanId={selectedPlan?.id ?? ''}
+        onSelectPlan={onSelectPlan}
+        autoRenew={autoRenew}
+        onToggleAutoRenew={() => setAutoRenew((v) => !v)}
+        autoRenewLabel={t('vip.index.autoRenew')}
+        onManage={onManage}
+        manageLabel={t('vip.index.manageAutoRenew')}
+        purchasePrice={currentPrice}
+        onUpgrade={onUpgradeClick}
+        purchaseLabel={t('vip.subscribe')}
+        benefitItems={benefitItems}
+      />
 
-        {/* 加载失败条(对齐 RN ErrorState:文案 + 重试;重试复用一次 load) */}
-        {loadFailed ? (
-          <View className="mx-[32rpx] mt-[32rpx] px-[24rpx] py-[20rpx] bg-card border-[length:2rpx] border-border rounded-lg flex items-center justify-between">
-            <Text className="text-body-sm leading-[normal] text-muted-foreground">
-              {t('common.failed')}
-            </Text>
-            <Text
-              className="text-body-sm leading-[normal] font-semibold text-[var(--color-brand-accent-deep)]"
-              onClick={() => void load()}
-            >
-              {t('vip.retry')}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* 会员状态卡(对齐 RN SharedVipScreen membershipCard:深灰卡 + 白等级名 + 白 70% 到期行) */}
-        <View className="status-bar">
-          <View className="status-head">
-            <View className="flex flex-col">
-              <Text className="text-label text-[var(--color-white-70)] mb-[8rpx]">
-                {t('vip.currentLevel')}
-              </Text>
-              <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
-            </View>
-            <Text className="intro-link" onClick={onIntroduceClick}>
-              {t('vip.index.introduce')}
-            </Text>
-          </View>
-          {info.expireTime ? (
-            <View className="expire-row flex items-center justify-between">
-              <Text>
-                {/* 到期日与 RN 容器同形(packages/app 侧由 apps/mobile-rn/src/screens/VipScreen.tsx
-                    的 formatDateOnly 收口成日期);后端 /vip/my 直出的是 ISO 串,原样上屏是机器文本 */}
-                {t('vip.expireAt')}:{formatDateByTemplate(info.expireTime, 'YYYY-MM-DD')}
-              </Text>
-              {daysLeft !== null ? (
-                <Text>{t('vip.daysRemaining', { count: daysLeft })}</Text>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-
-        {/* 特权列表(垂直 4 项) */}
-        <View className="features">
-          <View className="section-title">{t('vip.privileges')}</View>
-          <View className="feature-list">
-            {features.map((f) => (
-              <View key={f.id} className="feature-item">
-                <View className="feature-icon">
-                  <LineIcon
-                    name={f.icon as IconName}
-                    size={40}
-                    color="var(--color-muted-foreground)"
-                  />
-                </View>
-                <View className="feature-info">
-                  <Text className="feature-title">{f.title}</Text>
-                  <Text className="feature-desc">{f.desc}</Text>
-                </View>
-                <Text className="feature-tag">VIP</Text>
-              </View>
-            ))}
-          </View>
-          <View className="more-btn" hoverClass="opacity-60" onClick={onBenefitsClick}>
-            <Text>{t('vip.viewAllBenefits')}</Text>
-          </View>
-        </View>
-
-        {/* 会员等级目录(对齐 RN levelsSection:等级名/当前徽章/时长/价格/权益数/开通) */}
-        <LevelsSection
-          levels={levels}
-          currentLevel={info.level}
-          loaded={levelsLoaded}
-          onPurchase={onLevelPurchase}
-        />
-
-        {/* 权益详情(对齐 RN benefitsSection:去重并集 + 标题 + ✓ 图标,无副文案;
-            空数组则不渲染,与 RN「无 benefitItems 则不出现」同向) */}
-        {benefitItems.length > 0 ? (
-          <View className="mt-[24rpx]">
-            <Text className="block px-[28rpx] text-title font-semibold text-foreground">
-              {t('vip.details.benefitsTitle')}
-            </Text>
-            <View className="px-[28rpx] mt-[16rpx]">
-              {benefitItems.map((item) => (
-                <View
-                  key={item.key}
-                  className="flex flex-row items-start gap-[16rpx] bg-card ui-card rounded-lg p-[24rpx] mb-[16rpx]"
-                >
-                  <LineIcon name="check" size={16} color="var(--color-success)" />
-                  <View className="flex-1">
-                    <Text className="block text-body font-medium text-foreground">
-                      {item.title}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
-        <View className="plans-card">
-          <View className="section-title">{t('vip.plans')}</View>
-          <VipPriceSelector
-            options={priceOptions}
-            selectedId={selectedPlan?.id || ''}
-            onSelect={onSelectPlan}
-          />
-          <View
-            className="auto-renew"
-            hoverClass="opacity-60"
-            onClick={() => setAutoRenew((v) => !v)}
-          >
-            <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
-              {/* 勾选位:原勾字符 → LineIcon。取值即该字符实际渲染档位 ——
-                  vip/index.css 的 .auto-mark 记 font-size 24rpx / color
-                  var(--color-brand-accent-foreground);该规则只剩排版属性已随之删除,
-                  故类名不再挂(挂在 mask 载体上既不染色也不定尺寸)。
-                  居中由父级 .auto-check 的 flex 负责,与原先字符同位。 */}
-              {autoRenew ? (
-                <LineIcon name="check" size={24} color="var(--color-brand-accent-foreground)" />
-              ) : null}
-            </View>
-            <Text className="auto-text">{t('vip.index.autoRenew')}</Text>
-          </View>
-          <View
-            className="manage-link"
-            hoverClass="opacity-60"
-            onClick={() => Taro.navigateTo({ url: '/pkg-learn/subscription/contracts/index' })}
-          >
-            <Text>{t('vip.index.manageAutoRenew')}</Text>
-          </View>
-          <View className="member-desc">
-            <View className="section-title small">{t('vip.memberDesc')}</View>
-            <Text className="desc-text">{t('vip.memberDescText')}</Text>
-          </View>
-        </View>
-
-        {/* 底部购买区 fixed */}
-        <View className="buy-section">
-          <View className="price-info">
-            <View className="price">
-              <Text className="symbol">¥</Text>
-              <Text className="number">{currentPrice}</Text>
-            </View>
-          </View>
-          <Button className="buy-btn" onClick={onUpgradeClick}>
-            {t('vip.subscribe')}
-          </Button>
-        </View>
-
-        <VipBenefitsPopup
-          visible={showBenefits}
-          benefits={benefits}
-          onUpgrade={() => {
-            setShowBenefits(false)
-            setShowPayConfirm(true)
-          }}
-          onClose={() => setShowBenefits(false)}
-        />
-
-        <VipPayConfirm
-          visible={showPayConfirm}
-          planName={selectedPlan ? `${selectedPlan.name}VIP` : t('vip.index.memberFallback')}
-          price={selectedPlan?.price}
-          originalPrice={selectedPlan?.originalPrice}
-          paymentMethod={payMethod}
-          onConfirm={onConfirmPay}
-          onCancel={() => setShowPayConfirm(false)}
-          onMethodChange={setPayMethod}
-        />
-
-        {/* 弹窗1: 等级介绍 */}
-        {showIntroduce ? (
-          <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
-              <View className="pp-title">{t('vip.index.introduceTitle')}</View>
-              <View className="pp-body">
-                <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
-              </View>
-              <Button className="pp-btn" onClick={onIntroduceSubscribe}>
-                {t('vip.subscribe')}
-              </Button>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 弹窗2: 确认购买 */}
-        {showConfirm && selectedPlan ? (
-          <View className="pp-mask" onClick={() => setShowConfirm(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
-              <View className="pp-title">{t('vip.index.confirmTitle')}</View>
-              <View className="pp-body">
-                <View className="pp-plan">
-                  <Text className="pp-plan-name">{selectedPlan.name} VIP</Text>
-                  <Text className="pp-plan-price">¥{selectedPlan.price}</Text>
-                  <Text className="pp-plan-period">{selectedPlan.period}</Text>
-                </View>
-              </View>
-              <Button className="pp-btn" onClick={onConfirmNext}>
-                {t('vip.index.payNow')} ¥{selectedPlan.price}
-              </Button>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 弹窗3: 购买须知 */}
-        {showNotice ? (
-          <View className="pp-mask" onClick={() => setShowNotice(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
-              <View className="pp-title">{t('vip.index.noticeTitle')}</View>
-              <View className="pp-body">
-                <Text className="pp-text">{t('vip.index.noticeRule1')}</Text>
-                <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
-                <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
-                <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
-                <View
-                  className="pp-check"
-                  hoverClass="opacity-60"
-                  onClick={() => setNoticeAgreed(!noticeAgreed)}
-                >
-                  <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
-                    {/* 勾选位:原勾字符 → LineIcon。取值即该字符实际渲染档位 ——
-                        vip/index.css 的 .pp-check-mark 记 font-size 24rpx / color
-                        var(--color-brand-accent-foreground);该规则只剩排版属性已随之删除,
-                        故类名不再挂(挂在 mask 载体上既不染色也不定尺寸)。 */}
-                    {noticeAgreed ? (
-                      <LineIcon
-                        name="check"
-                        size={24}
-                        color="var(--color-brand-accent-foreground)"
-                      />
-                    ) : null}
-                  </View>
-                  <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
-                </View>
-              </View>
-              <Button className="pp-btn" onClick={onNoticeAgree}>
-                {t('vip.index.continuePay')}
-              </Button>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 弹窗4: 支付方式选择 */}
-        {showPayMethod ? (
-          <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
-            <View className="pp-card" onClick={(e) => e.stopPropagation()} hoverClass="opacity-60">
-              <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
-              <View className="pp-body">
-                <View
-                  className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
-                  hoverClass="opacity-60"
-                  onClick={() => setPayMethod('wechat')}
-                >
-                  <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
-                  <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
-                  {payMethod === 'wechat' ? (
-                    <LineIcon
-                      className="pp-pay-check"
-                      name="check"
-                      size={32}
-                      color="var(--color-brand)"
-                    />
-                  ) : null}
-                </View>
-                <View
-                  className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
-                  hoverClass="opacity-60"
-                  onClick={() => setPayMethod('alipay')}
-                >
-                  <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
-                  <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
-                  {payMethod === 'alipay' ? (
-                    <LineIcon
-                      className="pp-pay-check"
-                      name="check"
-                      size={32}
-                      color="var(--color-brand)"
-                    />
-                  ) : null}
-                </View>
-              </View>
-              <Button className="pp-btn" onClick={onPayMethodConfirm}>
-                {t('vip.index.confirmPay')}
-              </Button>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 弹窗5: 开通成功 */}
-        {showSuccess ? (
-          <View className="pp-mask">
-            <View className="pp-card">
-              <View className="pp-success-icon">
-                <LineIcon name="check-success" size={64} color="var(--color-success)" />
-              </View>
-              <View className="pp-title">{t('vip.index.successTitle')}</View>
-              <View className="pp-body">
-                <Text className="pp-text">{t('vip.index.successDesc')}</Text>
-              </View>
-              <Button className="pp-btn" onClick={onSuccessViewBenefits}>
-                {t('vip.index.viewBenefits')}
-              </Button>
-            </View>
-          </View>
-        ) : null}
-      </View>
+      <VipPurchaseOverlays
+        showBenefits={showBenefits}
+        benefits={benefits}
+        onBenefitsUpgrade={() => {
+          setShowBenefits(false)
+          setShowPayConfirm(true)
+        }}
+        onBenefitsClose={() => setShowBenefits(false)}
+        showPayConfirm={showPayConfirm}
+        plan={selectedPlan}
+        payMethod={payMethod}
+        onPayConfirm={onConfirmPay}
+        onPayCancel={() => setShowPayConfirm(false)}
+        onPayMethodChange={setPayMethod}
+        showIntroduce={showIntroduce}
+        onCloseIntroduce={() => setShowIntroduce(false)}
+        onIntroduceSubscribe={onIntroduceSubscribe}
+        showConfirm={showConfirm}
+        onCloseConfirm={() => setShowConfirm(false)}
+        onConfirmNext={onConfirmNext}
+        showNotice={showNotice}
+        noticeAgreed={noticeAgreed}
+        onToggleNoticeAgreed={() => setNoticeAgreed((v) => !v)}
+        onCloseNotice={() => setShowNotice(false)}
+        onNoticeAgree={onNoticeAgree}
+        showPayMethod={showPayMethod}
+        onClosePayMethod={() => setShowPayMethod(false)}
+        onPayMethodConfirm={onPayMethodConfirm}
+        showSuccess={showSuccess}
+        onSuccessViewBenefits={onSuccessViewBenefits}
+      />
     </ThemeRoot>
   )
 }

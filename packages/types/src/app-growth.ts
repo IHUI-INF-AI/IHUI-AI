@@ -237,6 +237,29 @@ export interface VipBenefitCardItem {
   desc?: string
 }
 
+/** VIP 套餐档位(平台注入;`plans` 缺省 ⇒ 套餐区不渲染,RN 现状零变化) */
+export interface VipPlanItem {
+  id: string
+  /** 档位名(如「月度会员」) */
+  name: string
+  /** 售价(元) */
+  price: number
+  /** 划线原价(元;缺省不渲染) */
+  originalPrice?: number
+  /** 时长文案(如「30天」;缺省不渲染) */
+  period?: string
+}
+
+/** VIP 顶部特权条目(icon 是平台图标体系的 ReactNode 槽位,共享屏只做布局) */
+export interface VipPrivilegeItem {
+  id: string
+  title: string
+  desc?: string
+  icon?: ReactNode
+  /** 右侧标识文案(如「VIP」;缺省不渲染) */
+  badge?: string
+}
+
 /** VIP 会员信息(平台注入,字段对齐 mobile-rn VipScreen MembershipInfo) */
 export interface VipMembershipInfo {
   isActive: boolean
@@ -269,6 +292,53 @@ export interface VipScreenProps {
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /**
+   * 以下为可选「平台注入区」:全部缺省 undefined ⇒ 与旧版渲染逐像素一致(web/RN 零回归)。
+   * 平台专属资源(背景图 URI)、业务数据(套餐/特权文案)、回调(支付/跳转)一律由宿主传入,
+   * 共享屏只负责布局,不得直接调用任何 wx/Taro API。
+   */
+  /** 头部背景图 URI(平台资源;缺省 ⇒ 沿用现有纯色 header) */
+  headerBackgroundUri?: string
+  /** 头部价格盒金额(元;缺省 ⇒ 不渲染价格盒) */
+  headerPrice?: number
+  /** 是否渲染返回箭头(缺省 true 保持 RN 现状;小程序走原生导航栏可传 false) */
+  showBack?: boolean
+  /** 会员状态卡「介绍」入口文案 + 回调(缺省 ⇒ 不渲染入口) */
+  introduceLabel?: string
+  onIntroduce?: () => void
+  /** 未开通会员也渲染状态卡(缺省 false ⇒ 仅 isActive 时渲染,保持 RN 现状) */
+  showInactiveMembership?: boolean
+  /** 顶部特权清单(缺省 ⇒ 不渲染) */
+  privilegeItems?: VipPrivilegeItem[]
+  /** 权益卡渲染在等级目录之后(缺省 false ⇒ 在等级目录之前,保持 RN 现状) */
+  benefitsAfterLevels?: boolean
+  /** 「查看全部权益」按钮回调(缺省 ⇒ 不渲染按钮) */
+  onViewAllPrivileges?: () => void
+  /** 「查看全部权益」按钮文案(缺省 ⇒ 用 t('vip.viewAllBenefits')) */
+  viewAllPrivilegesLabel?: string
+  /** 套餐档位(缺省 ⇒ 不渲染套餐区) */
+  plans?: VipPlanItem[]
+  selectedPlanId?: string
+  onSelectPlan?: (plan: VipPlanItem) => void
+  /** 自动续费开关状态(缺省 undefined ⇒ 不渲染开关行;受控值由宿主维护) */
+  autoRenew?: boolean
+  onToggleAutoRenew?: () => void
+  /** 自动续费开关文案(缺省 ⇒ 用 t('vip.index.autoRenew')) */
+  autoRenewLabel?: string
+  /** 自动续费管理入口(缺省 ⇒ 不渲染) */
+  onManage?: () => void
+  /** 管理入口文案(缺省 ⇒ 用 t('vip.index.manageAutoRenew')) */
+  manageLabel?: string
+  /** 底部购买栏价格(元;与 onUpgrade 同时提供才渲染) */
+  purchasePrice?: number
+  /** 底部购买栏 CTA 回调 */
+  onUpgrade?: () => void
+  /** 底部购买栏 CTA 文案(缺省 ⇒ 用 t('vip.subscribe')) */
+  purchaseLabel?: string
+  /** 错误条「重试」文案(缺省 ⇒ 错误条只显示文本,保持 RN 现状) */
+  retryLabel?: string
+  /** 有 error 但 levels 为空时仍渲染完整页面(只顶置错误条)而非整屏 ErrorState(缺省 false) */
+  inlineError?: boolean
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */

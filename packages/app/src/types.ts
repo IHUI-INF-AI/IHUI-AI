@@ -157,6 +157,8 @@ export type {
   ExamScreenProps,
   VipLevelItem2,
   VipMembershipInfo,
+  VipPlanItem,
+  VipPrivilegeItem,
   VipScreenProps,
   /** 批次 13(2026-07-29):登录/注册/资料编辑/换绑手机 */
   LoginScreenProps,

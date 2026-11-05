@@ -466,6 +466,17 @@ export interface ChangePwdScreenProps {
   /** 可选:字段内联校验提示(缺省不渲染;校验规则仍由宿主决定) */
   newPwdError?: string
   confirmPwdError?: string
+  /**
+   * 可选:输入框最大长度。缺省 undefined ⇒ 不设上限,web/RN 既有行为零变化。
+   * 小程序原页三个框都是 `maxlength={20}`(硬截断),由壳侧传 20。
+   */
+  inputMaxLength?: number
+  /**
+   * 可选:内联校验提示的出现时机。
+   * - `'on-change'`(缺省):错误值非空即显 —— web/RN 与小程序原页的现有语义;
+   * - `'on-submit'`:仅点击提交后显(宿主只想在提交时暴露错误时用)。
+   */
+  errorVisibility?: 'on-submit' | 'on-change'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
