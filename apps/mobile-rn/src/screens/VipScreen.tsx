@@ -240,10 +240,10 @@ export function VipScreen() {
       setError('')
       const [levelsRes, membershipRes] = await Promise.all([getVipLevels(), getMembershipInfo()])
       if (levelsRes.success) {
-        const mapped = levelsRes.data.map(toVipLevel)
+        const mapped = levelsRes.data.items.map(toVipLevel)
         setLevels(mapped)
         // 从 VipLevel 动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)
-        setPricePlans(buildPricePlans(levelsRes.data, t))
+        setPricePlans(buildPricePlans(levelsRes.data.items, t))
       } else {
         setError(apiFailureToText(levelsRes, t('vip.loadFailed')))
       }
