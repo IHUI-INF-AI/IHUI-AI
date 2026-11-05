@@ -12,11 +12,11 @@
  * - 点击会话 → MessageChat(peerId/name)
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, waitFor, fireEvent } from '@testing-library/react'
+import { render, waitFor, fireEvent, act } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type * as BottomPopsModule from '../src/components/BottomPops'
 
-const { apiMocks } = vi.hoisted(() => ({
+const { apiMocks, i18nStub } = vi.hoisted(() => ({
   apiMocks: {
     fetchApi: vi.fn(),
     listConversations: vi.fn(),
@@ -25,6 +25,7 @@ const { apiMocks } = vi.hoisted(() => ({
     goBack: vi.fn(),
     alert: vi.fn(),
   },
+  i18nStub: { t: (key: string) => key },
 }))
 
 vi.mock('@ihui/api-client', () => ({
@@ -48,8 +49,14 @@ vi.mock('@react-navigation/native', async () => {
   }
 })
 
+// 替身必须按真实契约给**稳定引用**:真实 useI18n 的 t 是 useCallback、context value 是
+// useMemo(packages 同侧的回归锁 tests/i18n-provider-value-identity),而这里每次调用都新造
+// t ⇒ 屏内 uniappT → load 的引用链每渲染必换,useEffect(…,[load]) 与回屏 hook 的 effect
+// 连环重跑,实测单个用例触发 5–7 次 listConversations 且 React 报 "Maximum update depth
+// exceeded";这串重取与点击置顶后的 setConversations 抢最后一次提交,重排会被覆盖回原序。
+// 用恒等 t / 恒等 value 把替身对齐真实契约,取数只跑一次,时序不再随负载漂。
 vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => i18nStub,
 }))
 
 vi.mock('../src/context/ThemeContext', () => ({
@@ -249,19 +256,34 @@ describe('MessageCenterScreen 消息中心', () => {
       expect(container.querySelectorAll('[data-pin-id="c2"]').length).toBe(1)
     })
 
+    // 重排是「PATCH 落定 ⇒ 共享 togglePinnedItem 回写并重排」的纯内存提交。用可控 Promise
+    // 握住这条完成信号:先等调用发出,再显式放行并用 act 把微任务与 React 提交刷干净,
+    // 随后同步断言顺序 —— 不再靠 waitFor 的 1s 轮询窗口去"猜"提交到没到(负载下会被
+    // 判成超时,却把真正的状态竞态掩盖成偶发)。
+    let resolvePin: () => void = () => {}
+    apiMocks.setConversationPinned.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePin = resolve
+        }),
+    )
+
     fireEvent.click(container.querySelector('[data-pin-id="c2"]') as HTMLButtonElement)
 
     await waitFor(() => {
       expect(apiMocks.setConversationPinned).toHaveBeenCalledWith('c2', true)
     })
-    // 重排断言:成功回写后 c2 落到会话区第一位(稳定排序,其余行保持相对顺序)
-    await waitFor(() => {
-      const convButtons = container
-        .querySelector('[data-testid="conversations"]')!
-        .querySelectorAll('button')
-      expect(convButtons[0]?.textContent).toContain('第二')
-      expect(convButtons[1]?.textContent).toContain('第一')
+
+    await act(async () => {
+      resolvePin()
     })
+
+    // 重排断言:成功回写后 c2 落到会话区第一位(稳定排序,其余行保持相对顺序)
+    const convButtons = container
+      .querySelector('[data-testid="conversations"]')!
+      .querySelectorAll('button')
+    expect(convButtons[0]?.textContent).toContain('第二')
+    expect(convButtons[1]?.textContent).toContain('第一')
   })
 
   it('置顶失败 → Alert 喊出(不得静默),列表顺序原样', async () => {
