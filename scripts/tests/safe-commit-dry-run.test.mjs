@@ -151,9 +151,13 @@ test('DRY1 零写:他人暂存删除/修改不被 reset,status 与 index 逐字�
 
   // 输出必须点名"将执行"的命令与影响路径(不是沉默通过)。
   assert.match(out, /\[dry-run\] Step 0\/5 将执行: git-lock acquire/, '未打印加锁计划')
-  assert.match(out, /\[dry-run\] Step 1\/5 将执行: git reset HEAD/, '未打印 reset 计划')
+  assert.match(out, /\[dry-run\] Step 1\/5 将执行: git reset -- <本票声明路径>/, '未打印 scoped reset 计划')
   assert.match(out, /\[dry-run\] Step 2\/5 将执行: git add -A/, '未打印 add 计划')
-  assert.match(out, /真实运行会清空当前 2 项暂存/, '未列出 reset 影响的路径数')
+  assert.match(
+    out,
+    /真实运行\(默认档\)会在 Step 1 之前因这 2 项他席暂存拒绝/,
+    '未说明默认档会 fail-closed 拒绝(而不是清空共享索引)',
+  )
   assert.match(out, /! \[D\] base\.txt/, '未点名会被丢失的暂存删除')
   assert.match(out, /\+ mine\.txt/, '未列出计划暂存的路径')
   assert.match(out, /已执行零条写命令/, '未声明零写')
