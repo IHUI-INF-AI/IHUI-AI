@@ -20,12 +20,13 @@ import {
   Loader2,
 } from 'lucide-react'
 
-import { fetchApi, apiOrThrow } from '@/lib/api'
+import { fetchApi } from '@/lib/api'
+import { getHealth } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
 // RP-35：/api/health 实际返回裸单对象，入口类型保留联合形状，取值前必须归一化。
-import { normalizeHealthPayload, type HealthPayload } from '@/lib/health-payload'
+import { normalizeHealthPayload } from '@/lib/health-payload'
 
 interface HealthEvent {
   id: string
@@ -50,7 +51,10 @@ export default function BackendHealthPage() {
     queryKey: ['admin', 'backend-health'],
     queryFn: async () => {
       // 单对象与数组都从 normalizeHealthPayload 出口，页面内部只认数组。
-      return normalizeHealthPayload(await apiOrThrow<HealthPayload>('/api/health'))
+      // 2026-11-05:改走共享 getHealth（门 300 A 类:该端点跨端同语义,401/续期/超时由共享 client 处理）。
+      const res = await getHealth()
+      if (!res.success) throw new Error(res.error)
+      return normalizeHealthPayload(res.data)
     },
   })
   const { data: events } = useQuery({
