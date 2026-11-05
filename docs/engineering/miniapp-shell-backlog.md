@@ -291,6 +291,37 @@
 - 禁跨树判资格：shop5c `39b23363fc` 与 main `a7efb3edfe` 的读数不得用于判定这三行的退休资格。
 - `distribution/index` 合面行为差异（非丢失，已接受）：**小程序浮标失去拖动/边缘吸附**——共享屏 `serviceFloat` 无拖拽能力，为单端加 `draggable` prop 属违规，故接受该差异。
 
+## 学习域 11 页定性（main `ddabf97143` 实测）
+
+判据三条：①页内渲染型 JSX 能否 ≤2；②与共享屏是否零重复 UI 段；③新 prop/段是否至少被另一端真消费并给 `file:line`（单端消费=搬码，直接不可）。节点口径 = `JsxElement` + `JsxSelfClosingElement` + 非空 `JsxText`。
+
+**结论：0 页可薄壳化，11 页结构下限（其中 2 页已部分收敛）。**
+
+| route | LOC / 节点 | 定性 | 三条判据实测 |
+|---|---|---|---|
+| `pkg-learn/course/list` | 195 / 21（20+1T） | 结构下限 | ①≤2 不可达：20 渲染节点无共享屏承接；②重复段 0；③无新 prop 面。旧判在新树同读数下维持。 |
+| `pkg-learn/course/detail` | 455 / 38 | 部分收敛·结构下限 | ①余 36 节点不可再收；②已真收敛 2 段（`CourseDetailTagRow` 页 `detail.tsx:298` / 共享 `CourseDetailScreen.tsx:80`；`CourseDetailActionBar` 页 `:405` / `:97`）；③其余段 RN 零命中，无新增单端槽。 |
+| `pkg-learn/learn-develop/index` | 254 / 39（36+3T） | 结构下限 | ①不可 ≤2：学习路径 `:126-161`、推荐课程 `:163-218`、排行入口 `:220-236`；②重复段 1：联系按钮 页 `:238-247` vs 共享 `LearnDevelopScreen.tsx:82-100`；③共享屏只吃 `entries`（`:50-81`），RN 侧注入 entries（`apps/mobile-rn/src/screens/LearnDevelopScreen.tsx`），整屏换需 paths/recommend/rank 三个仅小程序消费的槽 ⇒ 判据 3 否。 |
+| `pkg-learn/course-planet/index` | 286 / 36（35+1T） | 结构下限（同名不同物） | ①不可 ≤2；②重复段 0（竖卡 140dp vs 横卡 200×160rpx、三段混排 vs 单列、价格 tab vs 分类 chip、分组 API vs 扁平 API）；③无新 prop 面。 |
+| `pkg-learn/subscription/contracts/index` | 195 / 25 | 结构下限 | ①不可 ≤2（报名合同列表 vs 订阅协议，两个不同对象）；②重复段 0；③无新 prop 面。 |
+| `pages/study/index` | 201 / 35（34+1T） | 结构下限（副记口径异常） | ①不可 ≤2；②重复段 2：统计网格 `:97-124` vs `StudyProgressScreen.tsx:48-67`、课程进度卡 `:149-179` vs `:68-83`；③端独有 2：学习记录入口 `:126-146`、FAB `:188-195`；统计口径不等（`today/total/continuous/courses` vs `completed/total/week/streak`），需 entries/FAB 单端槽 ⇒ 判据 3 否。 |
+| `pages/study/record` | 189 / 13 | 结构下限 | ①不可 ≤2；②近似段 1：统计卡三处像素差（暗色 `surface.light` #262626 vs `surface.card` #1A1A1A；行距 8dp 含末行 vs 12dp gap 无末行余量；数值行高 1.2 vs 未设）；③筛选 tab、记录卡（封面/进度条/继续学习）、分页 `noMore` 在 RN 零命中。 |
+| `pages/study/plan` | 199 / 25 | 结构下限 | ①不可 ≤2；②重复段 3：卡片 `:99-135` vs `StudyPlanScreen.tsx:96-120`、骨架 `:137`、空态 `:138`；③端独有：新建按钮 `:139-144` + 弹窗 `:146-193`（`POST /study/plan` `:79`，RN 无创建流程）⇒ 单端槽，判据 3 否。 |
+| `pages/study/my-study/index` | 226 / 40（38+2T） | 结构下限（副记口径异常） | ①不可 ≤2；②共享屏 0 真共享段（页未 import `StudyRecordScreen`）；③RN 零消费，声明链仅映射。 |
+| `pages/study/publish/index` | 160 / 20（19+1T） | 结构下限（同名不同物） | ①不可 ≤2；②重复段 3（标题/正文/提交）；③共享屏是合集表单（`StudyPublishScreen.tsx:356-391`），本页是学习动态（`:84-154`），POST body 含 `visibility/tags`（`:63-68`），RN `apps/mobile-rn/src/screens/StudyPublishScreen.tsx:211-257` 对 `visibility|tags` 零命中 ⇒ 判据 3 否。 |
+| `pages/study/video-detail/index` | 420 / 26 | 部分收敛·结构下限 | ①不可 ≤2；②已收敛 2 段（`VideoNoUrlHint`、`VideoProgressSection`，共享 `VideoPlayerSections`）；③`VideoInfo`/`LikeFavoriteShare`/`VideoTabs`/`Catalog`/`Introduction`/`Comment`/`PayPopup` 七组件在 `packages/app` 与 `apps/mobile-rn` 双双零命中。 |
+
+### 学习域三条口径异常（等口径收口票，不自行改台账）
+
+| 页 | 异常 | 证据 |
+|---|---|---|
+| `pages/study/index` | 声明链含非同物屏 | 台账该行 declaredSpecs = `StudyIndexScreen.tsx` + `StudyProgressScreen.tsx`；前者自述「AI 视频页」（`packages/app/src/features/study-index/StudyIndexScreen.tsx:5-14`），RN 同名页 `apps/mobile-rn/src/screens/StudyIndexScreen.tsx:6` 同述；本页是学习进度页（`pages/study/index.tsx:96-158`），实际只对得上 `StudyProgressScreen.tsx`。 |
+| `pages/study/my-study/index` | 有声明、无 RN 消费 | `apps/mobile-rn/src/navigation/RootNavigator.tsx:1002` 只有 `StudyRecord` 路由；`git grep -n "myStudy\|MyStudy\|my-study" -- apps/mobile-rn` 零命中。 |
+| `pages/study/publish/index` | 声明屏与页面对象不同物 | 共享屏是合集发布（`StudyPublishScreen.tsx:356-391`），本页是学习动态发布（`pages/study/publish/index.tsx:84-154`），POST `/study/publish` body 含 `category/visibility/tags`（`:63-68`）；RN 侧 `:211-257` 无 `visibility/tags`。 |
+
+- 三条均只登记，**不删不修**；台账一行未动，等口径收口票统一裁决。
+- 复查：11 页重生节点数分别为 21/38/39/36/25/35/13/25/40/20/26，**全部 ≥13，无一 ≤2**，与总账读数一致。
+
 ## 结构下限（不退休；这是结论，不是欠账）
 
 | 页（batch5 读数） | 剩余开标签逐段 | 端独有证据（file:line） |
