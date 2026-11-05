@@ -444,16 +444,25 @@ test('形状锁:safe-commit 必须在 reset 之前取样,只标记不代裁(不�
   //     故一律锚在**带实参的调用文本**上。
   const iSnap = masked.indexOf('snapshotStagedDeleteIntent({ root: repoRoot })')
   const iJudge = masked.indexOf('judgeStagedDeleteIntent({')
-  const iAfter = masked.indexOf('readCachedNameStatus({ root: repoRoot })')
-  const iReset = src.indexOf("gitStep(['reset', 'HEAD']")
+  // 2026-11-04:Step 1 改为 scoped reset;前置守卫(§0.4)也读一次索引面,故"回退后第二次取样"
+  // 必须锚在 reset 之后的**下一次** readCachedNameStatus,不能用 indexOf 的首个命中。
+  const iReset = src.indexOf("gitStep(['reset', '--', ...pathspecArgs(expectedFiles)]")
+  const iAfter = masked.indexOf('readCachedNameStatus({ root: repoRoot })', iReset)
   assert.ok(iSnap > -1 && iReset > -1 && iJudge > -1, '三处调用点都要在')
-  assert.ok(iSnap < iReset, '取样必须早于 git reset HEAD —— 判据的唯一合法取样窗')
-  assert.ok(iAfter > iReset, '清空后的第二次取样必须晚于 reset(否则量的是清空前那一瞬,判据恒空)')
-  assert.ok(iJudge > iReset, '判据必须跑在 reset 之后(它比的是清面前后两次观测)')
+  assert.ok(iSnap < iReset, '取样必须早于 scoped git reset —— 判据的唯一合法取样窗')
+  assert.ok(iAfter > iReset, '回退后的第二次取样必须晚于 reset(否则量的是回退前那一瞬,判据恒空)')
+  assert.ok(iJudge > iReset, '判据必须跑在 reset 之后(它比的是回退前后两次观测)')
 
-  // 三条不许漂:代码面(遮掉注释与字符串后)不得出现自动恢复/自动删除的动词。
+  // 三条不许漂:代码面(遮掉注释与字符串后)**本段**不得出现自动恢复/自动删除的动词。
+  // 判据必须锚在"取样 → 判据"这一节(截至 Step 2 抬头),不能扫全文件:
+  // safe-commit 别处有合法的 writeFileSync(路径清单 scratch / commit message 临时文件),
+  // 全文件扫描会把它们读成"本段在写工作树"(2026-11-04 修:该断言在 HEAD 上已恒红)。
+  const sectionStart = iSnap
+  const sectionEnd = src.indexOf('// ─── 2. git add', iSnap)
+  assert.ok(sectionEnd > sectionStart, '定位不到 Step 2 抬头,无法切片本段')
+  const sectionMasked = maskCommentsAndStrings(src.slice(sectionStart, sectionEnd))
   assert.ok(
-    !/checkout-index|restoreToHead|writeFileSync\(/.test(masked),
+    !/checkout-index|restoreToHead|writeFileSync\(/.test(sectionMasked),
     'safe-commit 的本段不得含任何写工作树的调用(只标记与喊人,绝不代裁)',
   )
   assert.match(src, /actionTaken: 'report-only'/, '落盘账必须自记"只报数"')
