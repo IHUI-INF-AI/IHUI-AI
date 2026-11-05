@@ -407,9 +407,20 @@ node scripts/workbuddy-growth-experts.mjs --do-all; node scripts/workbuddy-growt
 
 ## 11. 对照程序取证:人家的自动面到底覆盖什么(2026-11-05 立)
 
-机主给了对照程序落点(`workbuddy2api` 面板 `wb2api.exe`,Go 原生二进制,无源码)。
-取证方法 = 二进制原文的可打印串扫描(脚本 `.ihui-agent/tmp/wb-ref-scan-exe.mjs`,不入库),
-只看**端点路径族与专码**,不含任何凭据形态的内容。结论两条,都可复跑:
+机主给的对照程序 `wb2api.exe`(workbuddy2api 面板,Go 原生二进制,无源码)取证法 =
+用仓内正式器物 `scripts/inspect-binary-api-paths.mjs` 扫产出物原文,
+只看**端点路径族与业务专码**,不含任何凭据形态内容。复跑那一条(数字现读 2026-11-05):
+
+```bash
+node scripts/inspect-binary-api-paths.mjs "<wb2api.exe 路径>" \
+  --needle subscribe-task,subscribe_task,subscribed,oa_subscribe,wb_wechat,follow-guide,公众号,关注,checkin,daily-checkin,makeup-cards,lottery/draw,travel/depart,accept_all,task_codes
+# ⇒ bytes=8710144 路径族=481
+# ⇒ 扫描面:latin1 原文 8710144 字节内逐字节 indexOf
+```
+
+器物自证:`node scripts/inspect-binary-api-paths.mjs --self-test` ⇒ 8/8;
+镜像测试 `scripts/tests/inspect-binary-api-paths.test.mjs` ⇒ 8 例。
+**「命中 0」在这件器物里一定连着扫描面一起报** —— 没找到不等于不存在(§0.3)。
 
 ### 11.1 它的自动任务面**不含「公众号关注」**
 
