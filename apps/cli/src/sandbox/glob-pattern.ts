@@ -23,7 +23,7 @@ export function normalizeWorkspacePath(filePath: string): string {
 }
 
 /** 把一条 glob 模式编译成锚定正则源码(不含分隔符)。 */
-export function compileGlobSource(pattern: string): string {
+function compileGlobSource(pattern: string): string {
   return pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*\*/g, '<<<GLOBSTAR>>>')

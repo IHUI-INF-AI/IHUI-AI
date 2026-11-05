@@ -58,7 +58,7 @@ import type {
 const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
 
 /** 本装载器对某一贡献档的支持结论。 */
-export type ContributionSupport = 'wired' | 'no-host';
+type ContributionSupport = 'wired' | 'no-host';
 
 /**
  * 词表逐档的装载期裁决 —— **贡献词表的消费者就住在这里**。
@@ -91,10 +91,10 @@ function supportOf(kind: string): { support: ContributionSupport; reason: string
 }
 
 /** 逐档裁决三态:`accepted` / `declined`(本宿主吃不下或拿不到数据类)/ `unknown-kind`(不在词表内)。 */
-export type ContributionVerdict = 'accepted' | 'declined' | 'unknown-kind';
+type ContributionVerdict = 'accepted' | 'declined' | 'unknown-kind';
 
 /** 一条贡献裁决(ASCII 文案:要进日志,不得被控制台码页吃掉)。 */
-export interface ContributionFinding {
+interface ContributionFinding {
   pluginName: string;
   /** 声明该贡献的清单绝对路径 */
   file: string;

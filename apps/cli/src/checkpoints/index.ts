@@ -49,7 +49,7 @@ import {
 export * from './hunk-tracker.js';
 
 /** G-671:manifest 形状校验 —— 缺关键字段/档值非法/schemaVersion 不识别 ⇒ 不算合法 meta。 */
-export function isCheckpointMeta(v: unknown): v is CheckpointMeta {
+function isCheckpointMeta(v: unknown): v is CheckpointMeta {
   if (!isRecord(v)) return false;
   if (typeof v.id !== 'string' || v.id.length === 0) return false;
   if (typeof v.sessionId !== 'string') return false;
