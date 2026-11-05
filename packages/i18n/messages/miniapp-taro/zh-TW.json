@@ -4691,7 +4691,8 @@
       "active": "生效",
       "rejected": "已拒絕",
       "cancelled": "已解除"
-    }
+    },
+    "myAttendanceHint": "查看學生本人簽到記錄"
   },
   "eduChildAttendance": {
     "title": "孩子考勤",
@@ -4717,7 +4718,27 @@
       "absent": "缺勤",
       "leave": "請假"
     },
-    "student": "學生"
+    "student": "學生",
+    "checkInAt": "簽到時刻",
+    "momentNow": "現在",
+    "backfillNeedsTime": "回填非當日考勤須給出該日內的簽到時刻",
+    "checkedInToast": "已簽到",
+    "checkedOutToast": "已簽退",
+    "batchResult": "點名完成：新增 {created}、跳過 {skipped}、遺漏 {missed}",
+    "batchDoneToast": "點名完成",
+    "checkInFor": "代簽到",
+    "batchCheckIn": "批次點名",
+    "noClassReason": "目前清單沒有可選班級",
+    "multiClass": "存在多個班級，本次僅對 {classId} 點名",
+    "statusOther": "其他",
+    "trendWindow": "近 {days} 天",
+    "trendChartScope": "統計範圍：{scope}",
+    "statusDistribution": "狀態分佈",
+    "statsTotalLabel": "考勤總人次",
+    "statsAttendanceRate": "出勤率",
+    "emptyTrend": "暫無趨勢數據",
+    "trendChartTitle": "出勤趨勢",
+    "trendChartHint": "出勤率 = 正常出勤人次 ÷ 該時段有考勤記錄人次（未打卡的學生不在分母內）"
   },
   "eduMgmt": {
     "attendanceTitle": "考勤管理",
@@ -7037,5 +7058,14 @@
   },
   "distributionTeamDetailPage": {
     "noSubordinates": "暫無下級成員"
+  },
+  "eduMyAttendance": {
+    "title": "我的考勤",
+    "selfCheckIn": "我要簽到",
+    "scanCheckIn": "掃碼簽到",
+    "classByBackendHint": "班級由後端按在冊學籍自動確定",
+    "selfDoneToast": "簽到成功",
+    "scanDoneToast": "掃碼簽到成功",
+    "scanInvalidToast": "無效的簽到碼"
   }
 }
