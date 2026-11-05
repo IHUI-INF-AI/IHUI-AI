@@ -962,7 +962,17 @@
       "revokeConfirmTitle": "Revoke device",
       "taskColCreated": "Created",
       "taskColFinished": "Finished"
-    }
+    },
+    "accountDeletionTitle": "Account Deletion",
+    "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
+    "accountDeletionPhoneLabel": "Phone number",
+    "accountDeletionPhonePlaceholder": "Enter phone number",
+    "accountDeletionCodeLabel": "Verification Code",
+    "accountDeletionCodePlaceholder": "Enter verification code",
+    "accountDeletionSendCode": "Send Code",
+    "accountDeletionConfirm": "Confirm account deletion",
+    "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionSubmitting": "Submitting..."
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -4725,7 +4735,9 @@
     "bindFail": "Binding failed",
     "bindOk": "Phone bound",
     "netBusy": "Network error",
-    "netBusyRetry": "Network error, please retry later"
+    "netBusyRetry": "Network error, please retry later",
+    "selectNation": "Select country code",
+    "submitting": "Submitting..."
   },
   "subagents": {
     "tabOverview": "Overview",
@@ -7345,6 +7357,14 @@
     "articles": {
       "prevPage": "Previous",
       "nextPage": "Next"
+    },
+    "profile": {
+      "changePhoneTitle": "Change Phone Number",
+      "newPhonePlaceholder": "Enter new phone number",
+      "codePlaceholder": "Enter 6-digit code",
+      "sendNewCode": "Get New Code",
+      "resend": "Retry in {seconds}s",
+      "confirmChange": "Confirm Change"
     }
   },
   "NavBar": {
