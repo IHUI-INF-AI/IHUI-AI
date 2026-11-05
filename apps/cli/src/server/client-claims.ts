@@ -33,6 +33,17 @@ const CLAIM_SUBDIR = join('clients', 'agent-server');
 /** 心跳节拍必须显著小于判陈线 30s,否则一轮调度抖动就被读成"实例消亡" */
 const HEARTBEAT_MS = 10_000;
 
+/**
+ * 发现阶段的入参:探测在裁决之前完成,所以这里比 shared 的同步判据多允许一种异步形态。
+ * shared 的 `ClaimCheckOptions.probeEndpoint` 只申明同步返回,evaluateServiceClaim 也确为同步;
+ * 但本文件提供的 `defaultProbeEndpoint` 是真实 HTTP(异步),若沿用原类型则默认探测器
+ * 根本无法传给 `discoverLiveClaims`(TS2322)。此处只放宽"发现"这一个入口,
+ * 裁决侧仍是同步(第 273 行把已探结果收进 Map 后以同步闭包交回 selectLiveEndpoints)。
+ */
+export type DiscoverOptions = Omit<ClaimCheckOptions, 'probeEndpoint'> & {
+  readonly probeEndpoint?: (port: number) => Promise<{ generation?: string } | null> | { generation?: string } | null;
+};
+
 export function claimDir(root: string = getIhuiRoot()): string {
   return join(root, CLAIM_SUBDIR);
 }
@@ -246,7 +257,7 @@ async function httpProbe(port: number, timeoutMs = 300): Promise<{ generation?: 
  */
 export async function discoverLiveClaims(
   root: string = getIhuiRoot(),
-  opts: ClaimCheckOptions = {},
+  opts: DiscoverOptions = {},
 ): Promise<DiscoverResult> {
   const { claims, broken } = readClaims(root);
   const scanned = claims.length + broken.length;
