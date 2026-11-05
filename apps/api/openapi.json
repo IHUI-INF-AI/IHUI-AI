@@ -128877,6 +128877,15 @@
         }
       }
     },
+    "/api/edu-ai-management/attendance/self-check-out": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/edu-ai-management/attendance/stats": {
       "get": {
         "responses": {
