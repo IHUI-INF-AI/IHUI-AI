@@ -26,12 +26,14 @@ import {
   judgeLandingProof,
   WRITE_TOOL_NAMES,
   classifySessionFailure,
+  isNonTicketFailure,
   lastProviderError,
   splitRotateStandoff,
   refreshAutonomyCandidates,
 } from '../auto-evolve.mjs'
 import { planFaceDigest } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
+import { TRANSPORT_FAILURE_SIGNS } from '../lib/autonomy-runner.mjs'
 
 const GOOD_GATES = {
   enabled: false,
@@ -1306,6 +1308,31 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// Ⓟ 上游间歇性拒绝不得记到票的连败上(2026-11-05 立,与 d13019e 同族)
+// 现读依据:同一份 body 的失败位置在第 3/10/14/19 轮都出现过,也有整班全程无错;
+// 而 CLI 出站审计那一刻 `sent=0 zwj=0 extra=0`,载荷里控制符/孤立代理/非 BMP 全为 0
+// ⇒ 中转把"请求包含不合法字符(400)"包装成请求缺陷,它是服务面抖动,不是这张票坏。
+test('Ⓟ 中转"不合法字符"归 transport 且不记票连败,真断言失败照旧记票级', () => {
+  const relay = classifySessionFailure({
+    status: 1,
+    stderr: '[error] AI 服务异常: 请求包含不合法字符（400）',
+  })
+  assert.equal(relay.kind, 'transport')
+  assert.equal(relay.sign, '请求包含不合法字符')
+  assert.equal(isNonTicketFailure(relay.kind), true, '这一型封票 = 把上游抖动算成票坏')
+  assert.ok(relay.diagnostics.includes('请求包含不合法字符'), '判别码要留在 diagnostics')
+  const real = classifySessionFailure({ status: 1, stderr: 'AssertionError: 期望 true 实际 false' })
+  assert.equal(real.kind, 'session')
+  assert.equal(isNonTicketFailure(real.kind), false)
+  // 反向锁:签名集里不许混进宽口径(那会把真缺陷一起免掉)
+  for (const bad of ['400', 'error', 'Error', '失败'])
+    assert.equal(
+      TRANSPORT_FAILURE_SIGNS.includes(bad),
+      false,
+      `签名 ${bad} 太宽:会连带免掉真正的票级失败`,
+    )
+})
+
 test('Ⓛ 工序第 0 步:第 1 轮就要发出工具调用本身,且排在第 1 步之前', () => {
   const src = readFileSync(new URL('../../scripts/auto-evolve.mjs', import.meta.url), 'utf8')
   const iSec = src.indexOf('## 工序(硬性顺序')
