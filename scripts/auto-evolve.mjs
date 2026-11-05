@@ -1791,6 +1791,20 @@ export function preflightRecheckPlan(state, attempt, { maxRechecks = 2, delayMs 
 }
 
 /**
+ * 「未取号占位行」判据(2026-11-06 立,现读依据:`PROJECT_PLAN.md` 面上仍有 1 行
+ * `- [ ] {{NEXT_ID:docs-207}} …`,而它正被当成真票送进判期与风险阀,还计入白名单命中)。
+ *
+ * 为什么必须**显式跳过**而不是让它流过去:
+ *  - 这种行的编号还没分配,任何"认领/翻勾/摘行"都无处落笔 ⇒ 会话做完也结不清,票面永远挂着;
+ *  - 它会被模型判期打风险分(今夜实测:`L31450 不入本轮:风险硬阻断:触碰铁律=3`)⇒ 白占一轮判定,
+ *    并把"命中白名单却全被拦"的账面弄成看起来像白名单问题(实际是台账卫生问题)。
+ * 失效方向照 §0.3:只认这一种确定形态(花括号里是 `NEXT_ID`),不做模糊匹配、不顺手摘别人的行。
+ */
+export function isPlaceholderTicketRow(text) {
+  return /\{\{\s*NEXT_ID(?:[:\s][^}]*)?\}\}/.test(String(text ?? ''))
+}
+
+/**
  * 「这张票的产物是否已被本环落进 HEAD」——派单前的重派排除(2026-11-05 立)。
  *
  * 立因:落账腿成功后,票行仍是 `- [ ]`(结清属活文档写口,本器不登记,见文件头第 14 行),
@@ -2530,8 +2544,16 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       return
     }
     let landedSkipped = 0
+    let placeholderSkipped = 0
     for (const ticket of rows) {
       const key = ticketKeyOf(ticket.text)
+      // 未取号占位行排在白名单判定**之前**:否则它会算进"命中白名单"里,
+      // 把"池里没活可派"错报成"白名单太窄"(今夜实测就被它骗过一次方向)。
+      if (isPlaceholderTicketRow(ticket.text)) {
+        placeholderSkipped++
+        console.log(`⏭ L${ticket.line} 未取号占位行({{NEXT_ID}})⇒ 跳过:它无法被认领,也结不了清`)
+        continue
+      }
       const qUntil = quarantinedUntilOf(ledger, key)
       if (qUntil) {
         console.log(`⏭ L${ticket.line} 封禁中(至 ${new Date(qUntil).toISOString()})⇒ 跳过`)
@@ -2829,11 +2851,13 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // 收尾措辞必须与真实原因同形:这一行过去只会说"未命中白名单或在封",而本环刚装上
     // "已落地不重派"那一档 ⇒ 全部因已落地而跳过的轮次会被记成 whitelist 问题,
     // 读台账的人下一步就是去扩白名单(§0.3 的反面:把量到的那件事写成另一件事)。
-    console.log(`ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派)`)
+    console.log(
+      `ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派、未取号占位 ${placeholderSkipped} 枚 ⇒ 需先取号)`,
+    )
     record({
       mode: dryRun ? 'dryrun' : 'dispatch',
       action: 'no-whitelist-hit',
-      note: `${summary} / 已落地待结清跳过 ${landedSkipped} 枚`,
+      note: `${summary} / 已落地待结清跳过 ${landedSkipped} 枚 / 未取号占位跳过 ${placeholderSkipped} 枚`,
     })
   } finally {
     releaseLock()
