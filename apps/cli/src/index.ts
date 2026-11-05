@@ -89,6 +89,7 @@ import { registerMcpMarketCommand } from './commands/mcp-market.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerSecurityCommand } from './commands/security.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
+import { registerAiAttributionCommand } from './commands/ai-attribution.js';
 import { registerReportCommand } from './commands/report.js';
 import { startCloudRun, completeCloudRun } from './cloud-run.js';
 import { registerHooksCommand } from './commands/hooks.js';
@@ -901,6 +902,9 @@ registerSecurityCommand(program);
 
 // checkpoint 子命令组
 registerCheckpointCommand(program);
+
+// ai-attribution 子命令组 — AI 代码归属账读数(判据在服务端 core/ai_code_attribution.py,此处只读)
+registerAiAttributionCommand(program);
 
 // report 子命令组 — 自包含单文件诊断报告(KPI + 阶段瀑布 + findings;判据在 @ihui/shared/reports)
 registerReportCommand(program);
