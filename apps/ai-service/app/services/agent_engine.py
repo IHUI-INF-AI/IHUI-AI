@@ -3509,7 +3509,11 @@ class AgentEngine:
             path = Path(base_dir) / INSTALLATION_ID_FILENAME
             if not path.is_file():
                 return
-            raw = path.read_text(encoding="utf-8", errors="replace").strip()
+            raw = (
+                await asyncio.to_thread(
+                    path.read_text, encoding="utf-8", errors="replace"
+                )
+            ).strip()
             try:
                 inst_id = str(uuid.UUID(raw))
             except (ValueError, AttributeError):
@@ -4070,7 +4074,9 @@ class AgentEngine:
         if isinstance(path, str) and path.strip():
             target = Path(path.strip())
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            await asyncio.to_thread(
+                target.write_text, "\n".join(lines) + "\n", encoding="utf-8"
+            )
             written = str(target)
             # 批58:导出后对同目录冷导出做 gzip 归档(仅 on 时)
             if _engine_rollout_archive_enabled_from_env():
@@ -5674,7 +5680,8 @@ class AgentEngine:
             if size > _MAX_VIEW_IMAGE_BYTES:
                 return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
             try:
-                data = base64.b64encode(target.read_bytes()).decode("ascii")
+                raw = await asyncio.to_thread(target.read_bytes)
+                data = base64.b64encode(raw).decode("ascii")
             except OSError as e:
                 return {"error": f"图片读取失败: {e}"}
             raw_data_url = f"data:{mime};base64,{data}"
@@ -5978,7 +5985,9 @@ class AgentEngine:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         style = file_style.get(rel)
                         if style is None:
-                            target.write_text(target_content, encoding="utf-8")
+                            await asyncio.to_thread(
+                                target.write_text, target_content, encoding="utf-8"
+                            )
                         else:
                             _write_text_preserving(
                                 target, target_content, style[0], style[1]

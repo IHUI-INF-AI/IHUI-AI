@@ -24,12 +24,14 @@ from __future__ import (
     annotations,  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 )
 
+import asyncio
 import json
 import logging
 import os
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .skill_md import parse_skill_md
@@ -961,8 +963,11 @@ class SkillEvolutionService:
                 task_id=str(request.get("taskId", "")),
                 related=parsed.get("relatedSkills", []),
             )
-            with open(os.path.join(auto_dir, f"{skill_name}.md"), "w", encoding="utf-8") as f:
-                f.write(md)
+            await asyncio.to_thread(
+                Path(os.path.join(auto_dir, f"{skill_name}.md")).write_text,
+                md,
+                encoding="utf-8",
+            )
             skill_registry.reload_auto()
             # P3-2:落盘后初始化反馈追踪(SkillFeedbackTracker 单例,空统计,
             # 等待首次使用记录;get_stats 对未知 skill 返回零值统计)

@@ -1796,8 +1796,9 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
                     fpath = os.path.join(dirpath, fname)
                     try:
-                        with open(fpath, encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
+                        content = await asyncio.to_thread(
+                            Path(fpath).read_text, encoding="utf-8", errors="ignore"
+                        )
                     except OSError:
                         continue
 
@@ -2110,8 +2111,7 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
                 "errorCode": "IS_A_DIRECTORY",
             }
-        with open(resolved_path, encoding="utf-8") as f:
-            content = f.read()
+        content = await asyncio.to_thread(Path(resolved_path).read_text, encoding="utf-8")
         # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
         _record_file_base(resolved_path, content)
         # A 格读侧登记(2026-10-31 接线):编辑前脏判定的唯一凭据;失败绝不打断读取
@@ -2249,8 +2249,9 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
             disk_now: str | None = None
             if os.path.isfile(resolved_path):
                 try:
-                    with open(resolved_path, encoding="utf-8") as f:
-                        disk_now = _normalize_eol(f.read())
+                    disk_now = _normalize_eol(
+                        await asyncio.to_thread(Path(resolved_path).read_text, encoding="utf-8")
+                    )
                 except (OSError, UnicodeDecodeError, ValueError):
                     disk_now = None  # 二进制/读不了 → 判不了,交 classify 归 undecidable
             verdict = classify_write_conflict(
@@ -2269,8 +2270,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     ),
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
-            with open(resolved_path, "w", encoding="utf-8") as f:
-                f.write(content)
+            await asyncio.to_thread(Path(resolved_path).write_text, content, encoding="utf-8")
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
             # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
@@ -2319,8 +2319,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             return _err("FILE_NOT_FOUND", "文件不存在")
         if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
-        with open(resolved_path, "rb") as f:
-            raw = f.read()
+        raw = await asyncio.to_thread(Path(resolved_path).read_bytes)
     except OSError as e:
         return _err("IO_ERROR", str(e))
 
@@ -2391,15 +2390,12 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 readState=read_state_field(read_state),
             )
         try:
-            with open(backup_path, "wb") as bf:
-                bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(new_content.encode("utf-8"))
+            await asyncio.to_thread(Path(backup_path).write_bytes, raw)
+            await asyncio.to_thread(Path(resolved_path).write_bytes, new_content.encode("utf-8"))
         except OSError as e:
             # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
             try:
-                with open(resolved_path, "wb") as rf:
-                    rf.write(raw)
+                await asyncio.to_thread(Path(resolved_path).write_bytes, raw)
             except OSError:
                 pass
             with contextlib.suppress(OSError):
@@ -2452,8 +2448,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
             return _err("FILE_NOT_FOUND", "文件不存在")
         if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
-        with open(resolved_path, "rb") as f:
-            raw = f.read()
+        raw = await asyncio.to_thread(Path(resolved_path).read_bytes)
     except OSError as e:
         return _err("IO_ERROR", str(e))
 
@@ -2483,15 +2478,14 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     # 票78 串行化:写回段持 per-path 锁(与 write_file/file_edit 写段互斥,缩竞态窗口)
     async with get_path_write_lock(resolved_path):
         try:
-            with open(backup_path, "wb") as bf:
-                bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(final_content.encode("utf-8"))
+            await asyncio.to_thread(Path(backup_path).write_bytes, raw)
+            await asyncio.to_thread(
+                Path(resolved_path).write_bytes, final_content.encode("utf-8")
+            )
         except OSError as e:
             # 失败回滚:恢复磁盘原内容
             try:
-                with open(resolved_path, "wb") as rf:
-                    rf.write(raw)
+                await asyncio.to_thread(Path(resolved_path).write_bytes, raw)
             except OSError:
                 pass
             with contextlib.suppress(OSError):
@@ -4500,9 +4494,9 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
                 tmpdir, f"gen_{_uuid.uuid4().hex[:8]}.js"
             )
             try:
-                with open(js_path, "w", encoding="utf-8") as f:
-                    f.write(test_code)
-                proc = _subprocess.run(
+                await asyncio.to_thread(Path(js_path).write_text, test_code, encoding="utf-8")
+                proc = await asyncio.to_thread(
+                    _subprocess.run,
                     [node_path, "--check", js_path],
                     capture_output=True, text=True, timeout=30,
                 )
@@ -4519,7 +4513,7 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
                     else "测试已生成,但 node 语法校验失败(见 execution.error)"
                 )
             finally:
-                _shutil.rmtree(tmpdir, ignore_errors=True)
+                await asyncio.to_thread(_shutil.rmtree, tmpdir, True)
             return base
         # 无 node 或 TS(node --check 不支持 TS):如实标注未执行
         base["executed"] = False
@@ -4670,8 +4664,9 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 if query_lower:
                     try:
-                        with open(fpath, encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
+                        content = await asyncio.to_thread(
+                            Path(fpath).read_text, encoding="utf-8", errors="ignore"
+                        )
                         if query_lower not in content.lower():
                             continue
                         # 提取匹配行上下文
@@ -4856,7 +4851,8 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                     "ok": False,
                 }
 
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["git"] + (git_args or []),
             cwd=repo_path,
             capture_output=True,
@@ -5664,7 +5660,7 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
                 "errorCode": "UNSUPPORTED_IMAGE_FORMAT",
             }
         try:
-            raw_bytes = p.read_bytes()
+            raw_bytes = await asyncio.to_thread(p.read_bytes)
         except OSError as e:
             return {
                 "tool": "vision_analyze", "ok": False,
@@ -6813,8 +6809,7 @@ async def _persist_video_to_disk(
 
         path_obj = Path(save_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        with open(path_obj, "wb") as f:
-            f.write(video_bytes)
+        await asyncio.to_thread(path_obj.write_bytes, video_bytes)
         return True, str(path_obj), len(video_bytes), None
     except OSError:
         return False, "", 0, "WRITE_FAILED"
@@ -6844,8 +6839,7 @@ async def _persist_audio_to_disk(
 
         path_obj = Path(save_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        with open(path_obj, "wb") as f:
-            f.write(audio_bytes)
+        await asyncio.to_thread(path_obj.write_bytes, audio_bytes)
         return True, str(path_obj), len(audio_bytes), None
     except OSError:
         return False, "", 0, "WRITE_FAILED"
@@ -6883,8 +6877,7 @@ async def _persist_image_to_disk(
 
         path_obj = Path(save_path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        with open(path_obj, "wb") as f:
-            f.write(image_bytes)
+        await asyncio.to_thread(path_obj.write_bytes, image_bytes)
         return True, str(path_obj), len(image_bytes), None
     except OSError:
         return False, "", 0, "WRITE_FAILED"
@@ -7494,7 +7487,7 @@ async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | 
             p = Path(info)
             if p.exists() and p.is_file():
                 try:
-                    raw = p.read_bytes()
+                    raw = await asyncio.to_thread(p.read_bytes)
                 except OSError:
                     return None, "FILE_READ_FAILED"
                 if raw:
@@ -8355,8 +8348,7 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
                     "error": f"文件超过 50MB 上限({size} 字节)", "errorCode": "FILE_TOO_LARGE",
                     "file_url": None,
                 }
-            with open(path, "rb") as _f:
-                data = _f.read()
+            data = await asyncio.to_thread(Path(path).read_bytes)
             filename = os.path.basename(path) or "file.bin"
         else:
             from .screenshot_service import _validate_url_ssrf
@@ -8880,8 +8872,11 @@ async def _stt_once(
         model = await _asyncio.to_thread(_get_whisper_model)
         tmp_fd, tmp_path = _tempfile.mkstemp(suffix=suffix)
         try:
-            with _os.fdopen(tmp_fd, "wb") as f:
-                f.write(audio_bytes)
+            f = _os.fdopen(tmp_fd, "wb")
+            try:
+                await _asyncio.to_thread(f.write, audio_bytes)
+            finally:
+                await _asyncio.to_thread(f.close)
             text = await _asyncio.to_thread(_transcribe_sync, model, tmp_path, language or None)
         finally:
             with contextlib.suppress(OSError):
@@ -8981,7 +8976,7 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
                 "error": f"音频超限({p.stat().st_size} > {_AUDIO_STT_MAX_BYTES} 字节)",
                 "errorCode": "TOO_LARGE", "text": None,
             }
-        audio_bytes = p.read_bytes()
+        audio_bytes = await asyncio.to_thread(p.read_bytes)
         source = "local_path"
         filename = p.name
 
@@ -10501,8 +10496,9 @@ async def _tool_notebook_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             return _err("FILE_NOT_FOUND", f"笔记本不存在: {resolved_path}")
         if os.path.getsize(resolved_path) > _NOTEBOOK_EDIT_MAX_BYTES:
             return _err("FILE_TOO_LARGE", "笔记本大于 10MB,拒绝编辑")
-        with open(resolved_path, encoding="utf-8") as f:
-            original_text = f.read()
+        original_text = await asyncio.to_thread(
+            Path(resolved_path).read_text, encoding="utf-8"
+        )
     except OSError as e:
         return _err("IO_ERROR", str(e))
 

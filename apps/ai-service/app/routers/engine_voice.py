@@ -131,9 +131,12 @@ async def _transcribe_audio(data: bytes, filename: str, language: str | None) ->
     model = await asyncio.to_thread(_get_whisper_model)
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=_get_suffix(filename))
     try:
-        with os.fdopen(tmp_fd, "wb") as f:
-            f.write(data)
-            f.flush()
+        f = os.fdopen(tmp_fd, "wb")
+        try:
+            await asyncio.to_thread(f.write, data)
+            await asyncio.to_thread(f.flush)
+        finally:
+            await asyncio.to_thread(f.close)
         return await asyncio.to_thread(_transcribe_sync, model, tmp_path, language)
     finally:
         with contextlib.suppress(OSError):

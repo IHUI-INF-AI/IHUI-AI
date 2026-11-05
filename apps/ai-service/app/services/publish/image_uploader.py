@@ -282,7 +282,7 @@ async def download_image(url: str, timeout: float = 30.0) -> Path | None:
                     url, content_type,
                 )
                 return None
-            local_path.write_bytes(resp.content)
+            await asyncio.to_thread(local_path.write_bytes, resp.content)
             logger.debug(
                 "[image_uploader] 下载成功 %s → %s (%d bytes)",
                 url, local_path, len(resp.content),
@@ -344,7 +344,7 @@ async def upload_to_csdn(
             "User-Agent": _UA,
             "Accept": "application/json",
         }
-        files = {"file": (image_path.name, image_path.read_bytes())}
+        files = {"file": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 "https://bizapi.csdn.net/api/v1/upload/image",
@@ -386,7 +386,7 @@ async def upload_to_juejin(
             "Origin": "https://juejin.cn",
             "Referer": "https://juejin.cn/editor/drafts/",
         }
-        files = {"file": (image_path.name, image_path.read_bytes())}
+        files = {"file": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 "https://api.juejin.cn/v1/upload/image",
@@ -428,7 +428,7 @@ async def upload_to_jianshu(
             "Referer": "https://www.jianshu.com/writer/",
             "X-Requested-With": "XMLHttpRequest",
         }
-        files = {"file": (image_path.name, image_path.read_bytes())}
+        files = {"file": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 "https://www.jianshu.com/writer/upload_images",
@@ -474,7 +474,7 @@ async def upload_to_zhihu(
             "Referer": "https://zhuanlan.zhihu.com/write",
             "X-Requested-With": "fetch",
         }
-        files = {"file": (image_path.name, image_path.read_bytes())}
+        files = {"file": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
                 "https://zhuanlan.zhihu.com/api/images",
@@ -521,7 +521,7 @@ async def upload_to_wechat(
             f"?access_token={access_token}&type=image"
         )
         headers = {"User-Agent": _UA}
-        files = {"media": (image_path.name, image_path.read_bytes())}
+        files = {"media": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, headers=headers, files=files)
         if resp.status_code != 200:
@@ -559,7 +559,7 @@ async def upload_to_weibo(
         data: dict[str, Any] = {"access_token": str(access_token)}
         if uid:
             data["uid"] = str(uid)
-        files = {"pic": (image_path.name, image_path.read_bytes())}
+        files = {"pic": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, headers=headers, data=data, files=files)
         if resp.status_code != 200:
@@ -598,7 +598,7 @@ async def upload_to_wordpress(
         return ""
     try:
         # 构造 XML-RPC 请求(wp.uploadFile)
-        file_data = image_path.read_bytes()
+        file_data = await asyncio.to_thread(image_path.read_bytes)
         file_b64 = base64.b64encode(file_data).decode("ascii")
         # 推断 MIME 类型
         ext = image_path.suffix.lower().lstrip(".")
@@ -682,7 +682,7 @@ async def upload_to_bilibili(
             "Accept": "application/json",
             "Referer": "https://member.bilibili.com/platform/upload/video/frame",
         }
-        files = {"cover": (image_path.name, image_path.read_bytes())}
+        files = {"cover": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         data = {"csrf": str(bili_jct)}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(
@@ -859,7 +859,7 @@ async def upload_to_medium(
             "Accept": "application/json",
             "User-Agent": _UA,
         }
-        files = {"image": (image_path.name, image_path.read_bytes())}
+        files = {"image": (image_path.name, await asyncio.to_thread(image_path.read_bytes))}
         async with httpx.AsyncClient(timeout=60.0) as client:
             resp = await client.post(url, headers=headers, files=files)
         # Medium API 成功返回 201

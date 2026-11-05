@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -78,22 +79,22 @@ class KuaishouAdapter(BasePlatformAdapter):
 
         # 上传视频(快手 OpenAPI 单步上传)
         try:
-            with open(p, "rb") as f:
-                files = {"file": (p.name, f, "video/mp4")}
-                async with httpx.AsyncClient(timeout=600.0) as client:
-                    resp = await client.post(
-                        f"{_API_BASE}/openapi/photo/upload_video",
-                        params={
-                            "access_token": token,
-                            "app_id": app_id,
-                            "open_id": open_id,
-                        },
-                        files=files,
-                        data={
-                            "file_size": file_size,
-                            "file_name": p.name,
-                        },
-                    )
+            file_bytes = await asyncio.to_thread(p.read_bytes)
+            files = {"file": (p.name, file_bytes, "video/mp4")}
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                resp = await client.post(
+                    f"{_API_BASE}/openapi/photo/upload_video",
+                    params={
+                        "access_token": token,
+                        "app_id": app_id,
+                        "open_id": open_id,
+                    },
+                    files=files,
+                    data={
+                        "file_size": file_size,
+                        "file_name": p.name,
+                    },
+                )
         except httpx.HTTPError as e:
             return False, f"upload failed: {type(e).__name__}: {e}", {}
 
