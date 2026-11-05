@@ -22,8 +22,8 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
-// 会话/检查点 id 路径穿越修复:目录段收敛复用仓内唯一实现。
-import { sanitizeSessionSegment } from '../tools/result-envelope/artifact-store.js';
+// 会话/检查点 id 路径穿越修复:目录段收敛 + 根内/realpath 断言统一走 util/path-guard。
+import { segmentPathInside } from '../util/path-guard.js';
 
 export * from './hunk-tracker.js';
 
@@ -76,13 +76,12 @@ export class CheckpointManager {
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS;
     // sessionId 来自 `--session`,不得让 `../` 把 baseDir 抬到 `~/.ihui` 之外。
-    // sanitizeSessionSegment 会把分隔符换成 `_`,但 `..` / `.` 是合法目录段 —— 再断言一次落在根内。
-    const checkpointsRoot = path.resolve(os.homedir(), '.ihui', 'checkpoints');
-    const baseDir = path.resolve(checkpointsRoot, sanitizeSessionSegment(this.sessionId));
-    if (!baseDir.startsWith(checkpointsRoot + path.sep)) {
-      throw new Error(`拒绝会话 "${this.sessionId}":检查点目录 "${baseDir}" 不在 "${checkpointsRoot}" 之内`);
-    }
-    this.baseDir = baseDir;
+    // 收敛与根内断言走与 hunk 检查点、计划文件同一套实现(util/path-guard)。
+    this.baseDir = segmentPathInside(
+      path.resolve(os.homedir(), '.ihui', 'checkpoints'),
+      this.sessionId,
+      '会话检查点目录',
+    );
     this.onCorrupt =
       opts.onCorruptManifest ??
       ((entry) => {
@@ -108,23 +107,11 @@ export class CheckpointManager {
   }
 
   /**
-   * 检查点目录的唯一构造入口:id 先收敛成单段,再断言结果严格位于 baseDir 内
-   * (目标存在时按 realpath 再判一次,防符号链接把删除面拐到根外)。
+   * 检查点目录的唯一构造入口:id 先收敛成单段,再做根内 + realpath 断言
+   * (判据与 hunk 检查点、计划文件共用 util/path-guard,不另起炉灶)。
    */
   private checkpointDir(checkpointId: string): string {
-    const root = path.resolve(this.baseDir);
-    const resolved = path.resolve(path.join(root, sanitizeSessionSegment(checkpointId)));
-    if (!resolved.startsWith(root + path.sep)) {
-      throw new Error(`检查点 "${checkpointId}" 不在存储根目录 "${root}" 之内`);
-    }
-    if (fs.existsSync(root) && fs.existsSync(resolved)) {
-      const realRoot = fs.realpathSync(root);
-      const realDir = fs.realpathSync(resolved);
-      if (!realDir.startsWith(realRoot + path.sep)) {
-        throw new Error(`检查点 "${checkpointId}" 符号链接解析后落在存储根目录 "${realRoot}" 之外`);
-      }
-    }
-    return resolved;
+    return segmentPathInside(this.baseDir, checkpointId, '检查点目录');
   }
 
   private resolveRel(filePath: string): string {

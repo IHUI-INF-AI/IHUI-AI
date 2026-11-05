@@ -21,6 +21,8 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
+// 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
+import { segmentPathInside } from '../util/path-guard.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -88,7 +90,12 @@ export class HunkCheckpointManager {
     this.sessionId = opts.sessionId;
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_HUNK_CHECKPOINTS;
-    this.baseDir = path.join(os.homedir(), '.ihui', 'checkpoints', this.sessionId);
+    // sessionId 来自 `--session`,与整文件检查点同解:收敛成单段并断言在 checkpoints 根内。
+    this.baseDir = segmentPathInside(
+      path.resolve(os.homedir(), '.ihui', 'checkpoints'),
+      this.sessionId,
+      '会话 hunk 检查点目录',
+    );
     this.onCorrupt =
       opts.onCorruptManifest ??
       ((entry) => {
@@ -181,7 +188,7 @@ export class HunkCheckpointManager {
       hunks: records,
     };
 
-    const cpDir = path.join(this.baseDir, id);
+    const cpDir = segmentPathInside(this.baseDir, id, 'hunk 检查点目录');
     this.ensureDir(cpDir);
     fs.writeFileSync(
       path.join(cpDir, 'manifest.json'),
@@ -212,7 +219,10 @@ export class HunkCheckpointManager {
   }
 
   get(checkpointId: string): HunkCheckpointMeta | null {
-    const manifestPath = path.join(this.baseDir, checkpointId, 'manifest.json');
+    const manifestPath = path.join(
+      segmentPathInside(this.baseDir, checkpointId, 'hunk 检查点目录'),
+      'manifest.json',
+    );
     const result = readManifestChecked(
       manifestPath,
       checkpointId,
@@ -270,7 +280,8 @@ export class HunkCheckpointManager {
   }
 
   delete(checkpointId: string): boolean {
-    const cpDir = path.join(this.baseDir, checkpointId);
+    // 递归删除前必须先落到根内的真实目录(id 收敛 + 根内/realpath 断言)。
+    const cpDir = segmentPathInside(this.baseDir, checkpointId, 'hunk 检查点目录');
     if (!fs.existsSync(cpDir)) return false;
     fs.rmSync(cpDir, { recursive: true, force: true });
     return true;
