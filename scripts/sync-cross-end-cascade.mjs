@@ -137,6 +137,28 @@ const STAGES = [
     timeoutMs: 10 * 60 * 1000,
   },
   {
+    // 2026-11-05 补链(色轴):守护以 runCrossEndApplyLeg 派发的 4 枚跨端写盘腿里,本腿与
+    // gen-rn-compat 两枚在级联缺席(现读 grep=0)⇒ 一键链只跟着**非色档**(间距/字号/圆角),
+    // 颜色轴改完 web 只能等守护节拍或人敲 —— 机主要"改一发就三端跟随",色轴必须在链里。
+    //  argv 口径与守护逐字同形(git-guardian 现读:sweepRnColorLiteralLeg args:['--apply'])。
+    name: 'rn-color',
+    kind: 'land',
+    desc: 'RN 端色值字面量 → token 取用落档(等价性由器物自己的 colorsAgree 前置断言兜底)',
+    script: 'fix-rn-color-literals.mjs',
+    base: [],
+    apply: ['--apply'],
+    // 零写取证:面由 :531 `argv.includes('--apply') ? 'worktree' : 'head'` 定;:553
+    // `if (!--apply && !--emit-blobs)` 直接返回"只读档(未写盘)",结构上到不了 :509 的
+    // writeFileSync 与 :663 的 registerLanding;--emit-blobs 会往仓根写文件 ⇒ 预演绝不含它。
+    // 有待落时器物退 0(safe 计数写在正文 summary.safe)⇒ 只能靠正文探针认。
+    preview: ['--json'],
+    // 器物含 `hash-object -w`(--emit-blobs 出口)⇒ S11 要求**行为级**零写证明,不接受读码保证。
+    previewProof: 'tests/fix-rn-color-literals-preview-zero-write.test.mjs',
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
+    note: '同值歧义(literal 命中多档)器物自己不猜 ⇒ safe=0,本段判无待落;歧义面归色档对账尺管',
+  },
+  {
     name: 'land-web',
     kind: 'land',
     // 2026-11-04:此处原为 apply: ['--apply'](**不带字重锁**)。具名档是三元组(size/line-height/
@@ -254,6 +276,26 @@ const STAGES = [
     previewProof: 'tests/land-cross-end-shell-pages-preview.test.mjs',
     write: true,
     timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    // 2026-11-05 补链(小程序兼容面):守护 runCrossEndApplyLeg 派发的第 4 枚腿,级联此前 0 引用。
+    // 它产的是**小程序端 RN 兼容层派生件**(lucide 图标全集 + RN 路由名→小程序页映射),
+    // 上游"发新图标名 / 登记表新增一条 rn↔miniapp"不触发提交 ⇒ 不在链里就永远靠人当场手敲
+    // (守门 251 的修法出口正是它;门 260 同型教训已写过一次)。argv 与守护逐字同形(--write)。
+    name: 'rn-compat',
+    kind: 'create',
+    desc: '小程序 RN 兼容层派生件落档(图标全集 + RN 路由名→小程序页映射;排在新落承载页之后)',
+    script: 'gen-rn-compat.mjs',
+    base: [],
+    apply: ['--write'],
+    // 零写取证:默认档与 --check 都不进 --write 分支;--check 取材走 readHeadFace(HEAD 面),
+    // 结构上不碰工作树。缺名字 ⇒ exit 1(现读源码 :813 uncovered>0 出口),那正是 pendingRc;
+    // 取不到输入 ⇒ exit 2 未判定(不记绿也不冒红)。本器只认 --write/--check/--self-test,
+    // 未知旗当场 exit 2 拒绝(不接受被静默当默认档)⇒ 预演档绝不会被误装成"没活"。
+    preview: ['--check'],
+    pendingRc: [1],
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
   },
   {
     name: 'hand-mirror',
@@ -427,6 +469,8 @@ const PENDING_PROBES = {
   'land-web': [{ field: 'changes', optional: true }, { field: 'changedFiles' }],
   'land-rn': [{ field: 'changedFiles' }, { field: 'totalChanges', optional: true }],
   'land-miniapp': [{ field: 'changes', optional: true }, { field: 'changedFiles' }],
+  // 色轴:器物退 0 而把"可直接改写"写在正文 summary.safe(同值歧义不进 safe ⇒ 本段无待落)
+  'rn-color': [{ field: 'summary.safe' }],
   // 声明/收敛/造页族
   'mirror-declare': [{ field: 'summary.findings', optional: true }, { field: 'findings' }],
   'portal-converge': [{ field: 'portalConverge.candidates' }, { field: 'renderConverge.candidates' }],
@@ -583,13 +627,19 @@ export function extractConclusion(stdoutText) {
       /* 回落逐行窗口 */
     }
   }
+  // 器物把机读行夹在人读行**中间**是实测形态(fix-rn-color-literals:报告行 ⇒ {"summary":…} ⇒
+  // "只读档(未写盘)" 尾行)。只从候选起点取到文末会把尾部的散文一起喂给 JSON.parse ⇒ 恒解不出,
+  // 而"解不出"在本层落 unjudged —— 那不是保守,那是把看得见的结论读成看不见(§0.3 反向失效)。
   const lines = raw.split(/\r?\n/)
   for (let i = lines.length - 1; i >= 0; i--) {
     if (!/^\s*[{[]/.test(lines[i])) continue
-    try {
-      return JSON.parse(lines.slice(i).join('\n'))
-    } catch {
-      /* 继续往前找 */
+    for (let k = lines.length - 1; k >= i; k--) {
+      if (!/[}\]]\s*$/.test(lines[k])) continue
+      try {
+        return JSON.parse(lines.slice(i, k + 1).join('\n'))
+      } catch {
+        /* 这段不是完整 JSON,继续往前收 */
+      }
     }
   }
   return null
@@ -808,7 +858,9 @@ async function selfTestRun() {
   await test('S5 --only 认段类但不会扩成全部段;打错字/空值当场 exit 2 并列可用 id', () => {
     assert.equal(parseArgs(['--only=verify']).usageError, null)
     const land = selectStages(STAGES, parseArgs(['--only=land']))
-    assert.equal(land.length, 3, '--only=land 应只命中三条 land 段')
+    // 段类档数不写死(2026-11-05 补色轴腿后 land 由 3 变 4;写死的读数与"选择器少选一段"同形)
+    assert.equal(land.length, STAGES.filter((s) => s.kind === 'land').length, '--only=land 必须命中 land 段类全集')
+    assert.ok(land.length >= 3, 'land 段数异常坍缩')
     assert.ok(land.every((s) => s.kind === 'land'))
     const bad = parseArgs(['--only=reconcile']).usageError
     assert.match(bad, /未知令牌/)

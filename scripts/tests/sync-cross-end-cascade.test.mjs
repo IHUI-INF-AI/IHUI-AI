@@ -35,9 +35,20 @@ test('A2 判序不变量:派生最先、校验压轴、重建排在校验前', (
   assert.ok(kinds.indexOf('rebuild') > kinds.lastIndexOf('land'))
   assert.ok(kinds.indexOf('rebuild') < kinds.indexOf('verify'))
   assert.equal(kinds.at(-1), 'verify')
-  // 三端落档内部也要 web→RN→小程序(与 guardian 主轮次同序)
+  // 三端落档内部也要 web→RN→小程序(与 guardian 主轮次同序);按器物名筛非色档三枚,
+  // 不把"land 档只有这三枚"写死(色轴落档 rn-color 也是 land 档)。
+  const tierLands = C.STAGES.filter((s) => s.kind === 'land' && /-style-tiers$/.test(s.script.replace(/\.mjs$/, ''))).map((s) => s.name)
+  assert.deepEqual(tierLands, ['land-web', 'land-rn', 'land-miniapp'])
   const lands = C.STAGES.filter((s) => s.kind === 'land').map((s) => s.name)
-  assert.deepEqual(lands, ['land-web', 'land-rn', 'land-miniapp'])
+  assert.ok(lands.includes('rn-color'), 'RN 色轴落档必须在链里(色档不在链里 = 一键链只跟非色档)')
+  assert.ok(
+    lands.indexOf('rn-color') < lands.indexOf('land-miniapp'),
+    '色轴落档必须排在小程序落档之前(源改值 ⇒ RN 先跟随 ⇒ 小程序再跟随 RN)',
+  )
+  assert.ok(
+    C.STAGE_IDS.indexOf('rn-token-pairs') < C.STAGE_IDS.indexOf('rn-color'),
+    '色档入表必须早于色值落档(先有档可走,才谈得上把字面量换成取用)',
+  )
 })
 
 test('A3 写盘闸门:缺省档只放行零写预演段,无零写档的点名跳;--apply 全放行;--skip 必跳', () => {
@@ -182,8 +193,13 @@ test('A10 --only=<stageId> 对全部段严格只跑指定段;段类选择不扩�
     )
   }
   const land = C.selectStages(C.STAGES, C.parseArgs(['--only=land']))
-  assert.equal(land.length, 3)
+  // 段类档数同样不写死(2026-11-05 补色轴腿后 land 档由 3 变 4,写死 3 的形态与"选择器少选一段"同形)
+  assert.equal(land.length, C.STAGES.filter((s) => s.kind === 'land').length, '段类选择必须恰好等于该段类全集')
+  assert.ok(land.length >= 3, 'land 档数异常坍缩')
   assert.ok(land.every((s) => s.kind === 'land'))
+  const createSel = C.selectStages(C.STAGES, C.parseArgs(['--only=create']))
+  assert.ok(createSel.length > 0 && createSel.every((s) => s.kind === 'create'), '段类之间不得串味')
+  assert.notDeepEqual(createSel.map((s) => s.name), land.map((s) => s.name), '反向对照:两种段类选出同一集合 = 选择器失灵')
 })
 
 test('A11 未知 stageId / 空 --only 一律 usageError 并列出可用 id,不静默空跑', () => {
@@ -327,7 +343,43 @@ test('A19 结论取面:整段 JSON / 前置人读日志行 / 空输出 三形都
     'AUTO-REGISTER-PORTAL face=head state=off candidates=0 applied=0\nAUTO-REGISTER-RENDER face=head state=off 改判=0\n{\n  "face": "head",\n  "portalConverge": { "candidates": 0 }\n}\n',
   )
   assert.equal(mixed.portalConverge.candidates, 0, '前置日志行不得挡住 JSON 结论')
+  // 机读行夹在人读行**中间**(fix-rn-color-literals 实测形态:报告行 ⇒ {"summary":…} ⇒ "只读档"尾行)。
+  // 旧实现从候选起点一直取到文末 ⇒ 尾部散文一起进 JSON.parse ⇒ 恒解不出 ⇒ 本段被判 unjudged:
+  // 那是把看得见的结论读成看不见,不是保守(§0.3 的反向失效)。
+  const middle = C.extractConclusion(
+    '[fix-color-literals] 面=head 覆盖面档 174 枚;命中 5 处 ⇒ 可直接改写 0\n  歧义 HomeScreen.tsx:347 "#FFFFFF" 命中 11 档\n{"summary":{"face":"head","hits":5,"safe":0,"needsTheme":0,"ambiguous":5,"files":0}}\n[fix-color-literals] 只读档(未写盘)。加 --apply 改写盘上 0 处 landing=0 skipLanded=0\n',
+  )
+  assert.equal(middle?.summary?.safe, 0, '夹在中间的机读行必须解出')
+  assert.equal(C.pendingFromBody(stageOf('rn-color'), middle).state, 'done', '解出后即按正文判,不得回落 unjudged')
   assert.equal(C.extractConclusion(''), null)
   assert.equal(C.extractConclusion('PLAN-RN-PAIRING face=head 未登记色档 10'), null)
+})
+
+test('A20 盲区覆盖锁:守护 runCrossEndApplyLeg 派发的每一枚跨端写盘腿都必须在级联里(2026-11-05 补色轴/兼容面)', () => {
+  // 立因:守护节拍与一键级联是两条派发面。腿只在守护里挂 ⇒ 改完一笔要等 30-60 分钟节拍或人敲;
+  // 本次实测抓到两枚缺席(fix-rn-color-literals 色轴、gen-rn-compat 小程序兼容面)并已补进链。
+  const guardian = readFileSync(join(SCRIPTS, 'git-guardian.mjs'), 'utf8')
+  const legs = [...new Set([...guardian.matchAll(/scriptName:\s*'([^']+\.mjs)'/g)].map((m) => m[1]))]
+  // 阳性对照:抽取器必须真量到守护的腿集(读出 0 枚 = 尺子坏了,不是"没有盲区")
+  assert.ok(legs.length >= 4, `守护 scriptName 腿集只量到 ${legs.length} 枚 ⇒ 抽取式失效,本锁等同空转`)
+  const stageScripts = new Set(C.STAGES.map((s) => s.script))
+  const missing = legs.filter((l) => !stageScripts.has(l))
+  assert.deepEqual(missing, [], `这些守护在跑的跨端写盘腿不在一键级联里(一键链有盲区):${missing.join(', ')}`)
+  // 反向对照:把级联清单换成一枚已知不含守护腿的假清单,同一判据必须翻红(形状锁不能空转)
+  const crippled = new Set(['sync-css-tokens.mjs'])
+  assert.ok(legs.filter((l) => !crippled.has(l)).length > 0, '反向对照失效:假清单也被判成覆盖')
+})
+
+test('A21 色轴段两形:summary.safe>0 ⇒ pending;safe=0 而 hits≠0(同值歧义)⇒ done 不冒活', () => {
+  const color = stageOf('rn-color')
+  assert.equal(C.pendingFromBody(color, { summary: { face: 'head', hits: 5, safe: 2, ambiguous: 3, files: 2 } }).state, 'pending')
+  // 2026-11-05 现读形态:hits=5 / safe=0 / ambiguous=5 —— 歧义面器物自己不猜,级联也不得据此报有待落
+  assert.equal(C.pendingFromBody(color, { summary: { face: 'head', hits: 5, safe: 0, needsTheme: 0, ambiguous: 5, files: 0 } }).state, 'done')
+  assert.equal(C.pendingFromBody(color, null).state, 'unjudged', '登记了探针却拿不到结论 ⇒ 不冒充绿')
+  // 兼容面腿:零写档 --check 缺名字退 1,必须由 pendingRc 接住(而不是被判成器物坏)
+  const compat = stageOf('rn-compat')
+  assert.deepEqual(compat.pendingRc, [1])
+  assert.equal(C.classifyStage(compat, { ran: true, rc: 1, spawnable: true, preview: true }), 'pending')
+  assert.equal(C.classifyStage(compat, { ran: true, rc: 2, spawnable: true, preview: true }), 'unjudged')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
