@@ -23,7 +23,7 @@ import type { PluginDiagnostic, TurnContributorContext } from './types.js';
 import { diagnostic } from './manifest-scan.js';
 import { ACTIVATION_POLICY } from './activation-events.js';
 import type { PluginRegistry, ExtensionDeclarationKey } from './registry.js';
-import { parseHookDeclaration } from './plugin-dispatch.js';
+import { matcherUnreachableOnHost, parseHookDeclaration } from './plugin-dispatch.js';
 import { framePluginTurnInput } from './turn-input-framing.js';
 
 /**
@@ -45,6 +45,8 @@ export type DeclarationReasonCode =
   | 'host-table-hit'
   | 'no-host-implementation'
   | 'event-never-dispatched'
+  /** 事件会派发,但声明的 matcher 在本宿主永远叫不醒(空串 / 不在宿主工具表)—— Z29 接 Z13 未竟 3 */
+  | 'matcher-never-fires'
   | 'no-command-channel'
   | 'command-name-belongs-to-host'
   | 'callback-registered'
@@ -138,10 +140,21 @@ export function auditDeclarationConsumers(registry: PluginRegistry, host: HostNa
     const { event, matcher } = parseHookDeclaration(ident);
     const names = owners.map((p) => p.name);
     if ((PLUGIN_HOOK_EVENTS as readonly string[]).includes(event)) {
+      // matcher 这一维也进对账(Z29 接 Z13 未竟 3):事件会派发,但声明的 matcher 在本宿主永远叫不醒 ⇒
+      // 这条声明其实没有消费者,按"吃不下"出声,不静默记成已消费。判据单源 =
+      // plugin-dispatch.ts#matcherUnreachableOnHost(与派发侧同一把尺,本层不抄第二份 matcher 语义)。
+      const unreachable = matcherUnreachableOnHost(matcher, host.toolNames);
+      if (unreachable !== null) {
+        push('hooks', ident, names, sourceOf(owners), false, 'matcher-never-fires', [
+          unreachable === 'empty-matcher'
+            ? `event "${event}" is dispatched, but an empty matcher never fires (see plugin-dispatch.ts#hookMatcherSatisfied)`
+            : `event "${event}" is dispatched, but matcher "${matcher}" names no tool in this host, so this hook is never invoked`,
+          'fix: name a tool in the host tool table, use "*" to be called on every dispatch, or drop the matcher',
+        ]);
+        continue;
+      }
       push('hooks', ident, names, sourceOf(owners), true, 'host-table-hit', [
-        matcher === null || matcher.length > 0
-          ? `event "${event}" is dispatched by commands/agent.ts#runPluginHooks`
-          : `event "${event}" is dispatched, but the empty matcher never fires (see plugin-dispatch.ts#hookMatcherSatisfied)`,
+        `event "${event}" is dispatched by commands/agent.ts#runPluginHooks`,
       ]);
       continue;
     }

@@ -137,9 +137,13 @@ describe('③ 记账失败 ⇒ 源必须还在(副作用未发生),半件不得�
 
 describe('④ 装车证明:两个搬运点都真的接上镜像腿,且没多出第三条裸删腿', () => {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const src = fs.readFileSync(path.join(here, '..', 'src', 'tools', 'worktree.ts'), 'utf-8');
-  const removeBody = src.slice(src.indexOf('remove(agentId'), src.indexOf('/** 执行 git worktree prune'));
-  const cleanupBody = src.slice(src.indexOf('export function cleanupWorktree'), src.indexOf('// ==================== 隔离 worktree 生命周期'));
+  const toolsDir = path.join(here, '..', 'src', 'tools');
+  // Z30 拆档:入口档只留 WorktreeManager.remove() 这一条腿,独立收尾腿搬到 worktree-cleanup.ts。
+  // 锁随搬运改指新档 —— 判据一条未放宽:两体各钉一次同序,全 worktree 族的 rmSync 仍是两枚、出声仍是两枚。
+  const entrySrc = fs.readFileSync(path.join(toolsDir, 'worktree.ts'), 'utf-8');
+  const cleanupSrc = fs.readFileSync(path.join(toolsDir, 'worktree-cleanup.ts'), 'utf-8');
+  const removeBody = entrySrc.slice(entrySrc.indexOf('remove(agentId'), entrySrc.indexOf('/** 执行 git worktree prune'));
+  const cleanupBody = cleanupSrc.slice(cleanupSrc.indexOf('export function cleanupWorktree'));
 
   /** 顺序钉:同卷核验 → (同卷才)试 rename → 镜像腿 → 既有那一条 rmSync;兜底腿仍在且只有一条 */
   function orderPin(body: string): void {
@@ -157,16 +161,29 @@ describe('④ 装车证明:两个搬运点都真的接上镜像腿,且没多出�
   }
 
   it('WorktreeManager.remove() 与 cleanupWorktree() 都按同一顺序接线', () => {
+    // 切片取空 = 腿被搬去别处而锁没跟着搬(§0.9 假绿)⇒ 先自证两体都取到整条腿再钉次序
+    expect(removeBody.length, '入口档取不到 WorktreeManager.remove() 体').toBeGreaterThan(600);
+    expect(cleanupBody.length, 'worktree-cleanup.ts 取不到 cleanupWorktree() 体').toBeGreaterThan(600);
     orderPin(removeBody);
     orderPin(cleanupBody);
   });
 
-  it('全文件 `fs.rmSync(` 调用点 = 既有两处兜底腿(镜像腿只走既有删除通道,不新增裸删点)', () => {
-    expect(src.match(/^\s+fs\.rmSync\(/gm)).toHaveLength(2);
+  it('全 worktree 族 `fs.rmSync(` 调用点 = 既有两处兜底腿(入口一条 + 收尾档一条,不新增裸删点)', () => {
+    const count = (s: string) => (s.match(/^\s+fs\.rmSync\(/gm) ?? []).length;
+    expect(count(entrySrc)).toBe(1);
+    expect(count(cleanupSrc)).toBe(1);
+    const familyTotal = fs
+      .readdirSync(toolsDir)
+      .filter((f) => /^worktree.*\.ts$/.test(f))
+      .map((f) => count(fs.readFileSync(path.join(toolsDir, f), 'utf-8')))
+      .reduce((a, b) => a + b, 0);
+    expect(familyTotal).toBe(2);
   });
 
   it('镜像不成必须出声(两处 callsite 各一条"退回直接删除"的警告)', () => {
-    expect(src.match(/\[worktree-trash\] ⚠️ 可逆档没走成/g)).toHaveLength(2);
+    const warns = (s: string) => (s.match(/\[worktree-trash\] ⚠️ 可逆档没走成/g) ?? []).length;
+    expect(warns(entrySrc)).toBe(1);
+    expect(warns(cleanupSrc)).toBe(1);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
