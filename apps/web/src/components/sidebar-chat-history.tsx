@@ -64,6 +64,11 @@ import {
   sortPinnedFirst,
   type ConversationOrgMap,
 } from '@ihui/shared'
+// 2026-11-05:日期分桶下沉到共享层(小程序历史页同源消费),语义改动只改那一份。
+import {
+  groupConversationByDate,
+  resolveConversationTimestamp,
+} from '@ihui/shared/chat/conversation-date-group'
 import { useChatStore } from '@/stores/chat'
 import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
 // D165:分组置顶(pin/unpin)客户端 store —— 只存分组名,分组本身仍以 orgMap 派生
@@ -180,14 +185,10 @@ type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
  * updatedAt → createdAt(后端列表接口均已返回);三者都不可用才返回 null,
  * 由调用方归入「更早」。旧实现用 t=0(1970)兜底,会让「没有最后消息时间」的
  * 会话冒领「本月」—— 这一桶是给真实近期会话用的,不能拿默认值占位。
+ * 2026-11-05:回退链实现下沉到 @ihui/shared/chat/conversation-date-group,本端只声明字段优先级。
  */
 function resolveConversationTime(item: ConversationItem): number | null {
-  for (const raw of [item.lastMessageAt, item.updatedAt, item.createdAt]) {
-    if (!raw) continue
-    const t = new Date(raw).getTime()
-    if (!Number.isNaN(t)) return t
-  }
-  return null
+  return resolveConversationTimestamp([item.lastMessageAt, item.updatedAt, item.createdAt])
 }
 
 /**
@@ -199,38 +200,13 @@ function resolveConversationTime(item: ConversationItem): number | null {
  *  - earlier    : 更早(含无可用时间戳的会话)
  * 旧实现按「滚动 7 天」算本周、并把更早的一律塞进 thisMonth,导致用户在本月组里
  * 看到上月会话。
+ * 2026-11-05:切界与分组算法的唯一实现已下沉到 @ihui/shared/chat/conversation-date-group
+ * (小程序历史页消费同一份),本端只保留「本端字段 → 时间锚点」这一层。行为逐字不变。
  */
 export function groupByDate(
   items: ConversationItem[],
 ): { key: GroupKey; items: ConversationItem[] }[] {
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  // getDay():0=周日 ⇒ 距本周一的天数 = (getDay()+6)%7;setDate 负数会自动跨月/跨年
-  const daysSinceMonday = (now.getDay() + 6) % 7
-  const startOfWeek = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - daysSinceMonday,
-  ).getTime()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-
-  const buckets: Record<GroupKey, ConversationItem[]> = {
-    today: [],
-    thisWeek: [],
-    thisMonth: [],
-    earlier: [],
-  }
-  for (const item of items) {
-    const t = resolveConversationTime(item)
-    if (t === null) buckets.earlier.push(item)
-    else if (t >= startOfToday) buckets.today.push(item)
-    else if (t >= startOfWeek) buckets.thisWeek.push(item)
-    else if (t >= startOfMonth) buckets.thisMonth.push(item)
-    else buckets.earlier.push(item)
-  }
-  return (Object.keys(buckets) as GroupKey[])
-    .filter((k) => buckets[k].length > 0)
-    .map((k) => ({ key: k, items: buckets[k] }))
+  return groupConversationByDate(items, resolveConversationTime)
 }
 
 /** V3 #62:可搜索会话的最小结构(仅声明搜索所需字段,便于纯函数单测与泛型复用) */
