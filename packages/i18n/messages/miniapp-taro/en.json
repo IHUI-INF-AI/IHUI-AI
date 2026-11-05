@@ -1190,7 +1190,8 @@
     "getCode": "Get code",
     "confirmLabel": "Confirmation text",
     "confirmPlaceholder": "Enter the text above",
-    "failed": "Account cancellation failed, please try again"
+    "failed": "Account cancellation failed, please try again",
+    "warning": "After account deletion, all your data will be permanently deleted and cannot be recovered."
   },
   "ask": {
     "create": {
@@ -2948,7 +2949,9 @@
       "verifiedTip": "Current phone number verified",
       "bindDesc": "After binding, you can use it to log in, retrieve your password, and receive notifications",
       "bindTitle": "Bind Phone Number",
-      "codeLength": "Please enter the 6-digit verification code"
+      "codeLength": "Please enter the 6-digit verification code",
+      "selectNation": "Select country code",
+      "resend": "Retry in {s}s"
     },
     "profile": {
       "avatar": "Avatar",
