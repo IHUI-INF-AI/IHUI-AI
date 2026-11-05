@@ -1365,6 +1365,33 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓠ 派发前闸的瞬时不在位要复核后再停派(2026-11-06 立):台账现读两轮停在同一枚 tsx 路径,
+// 而同一时刻手工复核它**在位**(mtime 11-03)⇒ 是别席 install 期间的瞬时重挂,不该烧掉一班。
+test('ⓠ preflightRecheckPlan:只对 missing 复核,有上界,其他状态一律不重(不拿重试当兜底)', async () => {
+  const ae = await import('../auto-evolve.mjs')
+  // 首次(missing) ⇒ 复核,且带间隔
+  assert.deepEqual(ae.preflightRecheckPlan('missing', 1), { recheck: true, delayMs: 4000 })
+  // 复核第 2 次仍允许;第 3 次(= maxRechecks+1)⇒ 停,不再无限等
+  assert.equal(ae.preflightRecheckPlan('missing', 2).recheck, true)
+  assert.equal(ae.preflightRecheckPlan('missing', 3).recheck, false)
+  // 成对反向:非 missing 的状态一律不复核 —— `undetermined` 是"判不出"、`template-empty` 是"没配",
+  // 重试不改变输入,拿它们重试等于把无界等待伪装成稳健。
+  for (const s of ['undetermined', 'template-empty', 'ready']) {
+    assert.equal(ae.preflightRecheckPlan(s, 1).recheck, false, `${s} 不该触发复核`)
+  }
+  // 上界由参数定,且非法输入 ⇒ 不复核(不猜)
+  assert.equal(ae.preflightRecheckPlan('missing', 1, { maxRechecks: 0 }).recheck, false)
+  assert.equal(ae.preflightRecheckPlan('missing', 5, { maxRechecks: 2 }).recheck, false)
+  assert.equal(ae.preflightRecheckPlan('missing', undefined).recheck, false)
+  assert.equal(ae.preflightRecheckPlan('missing', 0).recheck, false)
+  assert.deepEqual(
+    ae.preflightRecheckPlan('missing', 1, { maxRechecks: 2, delayMs: 0 }),
+    { recheck: true, delayMs: 0 },
+    '间隔可给 0(不等直接复核),但不得变负',
+  )
+  assert.equal(ae.preflightRecheckPlan('missing', 1, { delayMs: -9 }).delayMs, 0)
+})
+
 // ⓟ 取票腿被击穿后的可证复用(2026-11-06 立):现读 `plan-tasks --open --dispatchable
 // --exclude-inflight` 成功返回 36 行但要 425.8s,而取票口阈值 300s ⇒ 环整天拿不到票池。
 // 同一枚"阈值被击穿"的形态在 11-05 的头注里就被点过名(旧值 120s 必然被击穿)。
@@ -1383,7 +1410,10 @@ test('ⓟ poolFaceFromCache:三条安全条件缺一即不复用(不是"取不�
   // 契约是 `{ rows, why }`:复用必须给出行,拒绝必须给出**是哪一条安全条件不成立**
   // (立因:第一次实时跑这枚复用按设计拒绝了,但代码把理由吞掉只上抛原错 —— §0.10 禁止的沉默)
   const ok = ae.poolFaceFromCache({ cacheText: cache('abc123', good), digestNow: 'abc123' })
-  assert.ok(Array.isArray(ok.rows) && ok.rows.length === 2, `应还原 2 行,实得 ${JSON.stringify(ok)}`)
+  assert.ok(
+    Array.isArray(ok.rows) && ok.rows.length === 2,
+    `应还原 2 行,实得 ${JSON.stringify(ok)}`,
+  )
   assert.deepEqual(ok.rows[0], { line: 6402, text: T1 })
   assert.match(ok.why, /指纹逐字相等/)
   // ② 指纹不等 ⇒ 拒绝,并点名两个指纹
