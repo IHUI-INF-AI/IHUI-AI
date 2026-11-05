@@ -212,3 +212,14 @@
 {"key":"G-61#BUG-61web端新增4个死i18nkey","owner":"机主","waiting":"none","updatedAt":"2026-11-05T14:24:56.740Z","updatedBy":"plan-fields-extract"}
 {"key":"G-62#BUG-623对deploy/prod-bund","owner":"机主","waiting":"none","updatedAt":"2026-11-05T14:24:56.740Z","updatedBy":"plan-fields-extract"}
 {"key":"G-63#BUG-63基准交付账#16流式平滑渲染仍存在且","owner":"机主","waiting":"none","updatedAt":"2026-11-05T14:24:56.740Z","updatedBy":"plan-fields-extract"}
+{"key":"G-64#BUG-64VipScreen用createOr","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-65#BUG-65api-client的Order类型","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-66#BUG-66分页响应契约错位","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-67#BUG-67ai-service发questio","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-68#BUG-68web与小程序baseURL配置键不","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-69#BUG-69同一401三端语义分裂","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-70#BUG-70android","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-71#BUG-71FileProvider暴露整个外部","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-72#BUG-72isRefreshTokenExpi","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-73#BUG-73非web端i18n永远落zh-CN","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
+{"key":"G-74#BUG-74mobile-capversionC","owner":"机主","waiting":"none","updatedAt":"2026-11-05T15:35:46.532Z","updatedBy":"plan-fields-extract"}
