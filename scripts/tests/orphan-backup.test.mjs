@@ -55,7 +55,16 @@ test('① 装车形状锁:三台落地器都必须"import 了 lib 且真的在�
   assert.match(landSrc, /function backupIfAbandoned\(sha, why, root, deps = \{\}\)/, 'land 的弃落守卫不见了')
   assert.match(landSrc, /kind: 'land'/, "land 调用没走 'land' 档")
   assert.match(landSrc, /backupIfAbandoned\(commit, `object-space-land 第 \$\{attempt\} 回 CAS 未抢到`, root\)/, 'CAS 输的那一支没调备份(本票主格子)')
-  assert.match(landSrc, /backupIfAbandoned\(lastMadeCommit/, '12 次耗尽出口没调备份')
+  assert.match(landSrc, /backupIfAbandoned\(\s*lastMadeCommit\b/, '12 次耗尽出口没调备份')
+  // 变异臂:放宽的只有**空白**(prettier 把实参折行是格式化,不是把备份摘掉),备份调用真被摘走时这把尺必须判红。
+  //   放宽正则而不留阳面对照 = 把"摘掉即红"这格悄悄改成"摘掉也绿"(§12e 修红不得顺手削判据)。
+  const mutatedExhaust = landSrc.replace(/backupIfAbandoned\(\s*lastMadeCommit[\s\S]{0,200}?\)\n/, '')
+  assert.notEqual(mutatedExhaust, landSrc, '变异靶没改下去(这条对照是空断言)')
+  assert.doesNotMatch(
+    mutatedExhaust,
+    /backupIfAbandoned\(\s*lastMadeCommit\b/,
+    '摘掉耗尽兜底的备份后仍判过 ⇒ 放宽空白放宽了判据',
+  )
   assert.match(landSrc, /lastMadeCommit = commit/, '耗尽兜底拿不到末枚造出的 sha')
   // union-converge:import + CAS 失败分支调用,且第二份"拼 ref 名"的实现必须已删净
   assert.match(unionSrc, /from '\.\/lib\/orphan-backup\.mjs'/, 'union 没 import lib')
