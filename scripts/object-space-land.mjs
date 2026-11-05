@@ -185,6 +185,8 @@ import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
+// 单实例闸(2026-11-06 立,机理由环机制席承担):复用 git-lock 那一份既有原语,不自造第二把锁。
+import { tryAcquireSingleInstance } from './git-lock.mjs'
 // L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
 // (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
 import { gateLandingMarkers, LANDING_MARKER_SKIP_ENV } from './lib/conflict-marker-landing-gate.mjs'
@@ -2668,6 +2670,86 @@ function runWarmBorderGate({ root, tree, paths }) {
   }
 }
 
+export const LAND_LOCK_UNIT = 'object-space-land'
+/** 锁落点:资源在哪,锁就在哪 —— 跟着被落地的仓走(夹具各拿各的根,互不相干)。 */
+export function landLockDirOf(root) {
+  return join(root, '.ihui-agent', 'state', `${LAND_LOCK_UNIT}.lock`)
+}
+
+/**
+ * 落地器单实例闸(2026-11-06 立)。
+ *
+ * 立因(现读复现,不是猜测):本机曾同时有 5 枚 `object-space-land` 在跑,落地器**没有任 entry 互斥**,
+ * 每枚都要过门 98/231 的两面全量审(单面实测 93s)再抢一次 CAS ⇒ 2026-11-06 05:45 这枚连撞 3 次
+ * CAS 失败才落,而并发还把**另一席**的门预检顶成 rc=9 未判定。"少落一次不是故障,叠五枚才是故障"
+ * —— 与 git-lock G-262 那条同口径(周期任务每 tick 再叠一发 fetch,当轮量到 26 个父进程)。
+ *
+ * 三条不许漂的判序:
+ *  ① 只有 `skipped-held`(别人正持有)才排队等;`error` / `undetermined` **直接退出并点名**——
+ *     拿不到锁的原语自己都说不出锁什么状态时,绝不把"没判"读成"无锁" (§0.3),更不降格成"照落";
+ *  ② 等满上限 ⇒ 未判定 exit 2 + "原样重跑即可",不静默成功、不削覆盖面;
+ *  ③ release 只在拿到锁时给(跳过者结构上删不掉持有者的活锁),且挂在 exit 上,异常路径同样交还。
+ *
+ * `acquireOnce` / `sleep` / `waitMs` 是注入面:镜像测试据此在不建真锁目录、不真等墙钟的前提下
+ * 把四档(kinds)与等待边界逐格跑一遍。
+ */
+export function acquireLandLock({
+  dir,
+  unitId = LAND_LOCK_UNIT,
+  waitMs = Number(process.env.IHUI_LAND_SINGLE_INSTANCE_WAIT_MS ?? 90_000),
+  pollMs = 2_000,
+  acquireOnce = (opts) => tryAcquireSingleInstance(opts),
+  now = () => Date.now(),
+  ensureParent = (d) => mkdirSync(dirname(d), { recursive: true }),
+  sleep = (ms) =>
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(0, Math.trunc(ms))),
+  log = (m) => console.log(m),
+} = {}) {
+  // 锁目录的**父路径**必须先在场:`tryAcquireSingleInstance` 走的是"临时目录 + rename"原子初始化,
+  // rename 不会自建缺失父目录 ⇒ `.ihui-agent/state` 不在时当场 ENOENT。落地器的夹具与换仓通道
+  // (LAND_ROOT 指新仓)恰好常年没有这一层,实测把 105 项套件顶红 61 项、把真落地一律拒成 exit 2 ——
+  // 那是闸自己造的新故障,比它要防的并发更坏(§12e 同型:恒红的那道门逼所有人跳门)。
+  try {
+    ensureParent(dir)
+  } catch (e) {
+    return {
+      acquired: false,
+      kind: 'undetermined',
+      why: `锁父目录建不出来(${String(e?.code ?? e?.message ?? e).slice(0, 120)})⇒ 不猜无锁,也不落地`,
+      holder: null,
+      release: null,
+      waitedMs: 0,
+      attempts: 0,
+      timedOut: false,
+    }
+  }
+  const t0 = now()
+  let attempts = 0
+  let last = null
+  for (;;) {
+    attempts += 1
+    last = acquireOnce({ dir, unitId, log })
+    if (!last || typeof last.acquired !== 'boolean') {
+      return {
+        acquired: false,
+        kind: 'undetermined',
+        why: `acquireOnce 返回值形状不成立(${JSON.stringify(last)?.slice(0, 120)})⇒ 不猜无锁`,
+        holder: null,
+        release: null,
+        waitedMs: now() - t0,
+        attempts,
+        timedOut: false,
+      }
+    }
+    if (last.acquired) return { ...last, waitedMs: now() - t0, attempts, timedOut: false }
+    if (last.kind !== 'skipped-held')
+      return { ...last, waitedMs: now() - t0, attempts, timedOut: false }
+    const left = waitMs - (now() - t0)
+    if (left <= 0) return { ...last, waitedMs: now() - t0, attempts, timedOut: true }
+    sleep(Math.min(pollMs, left))
+  }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -2675,6 +2757,33 @@ async function main() {
     process.exit(2)
   }
   const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
+  // ── 单实例闸(排在一切取材之前:一进来就排队,别先把两面全量审跑完再发现该等)──
+  const landLock = acquireLandLock({ dir: landLockDirOf(root) })
+  if (!landLock.acquired) {
+    console.error(
+      `❌ 未判定:拿不到落地器单实例闸(kind=${landLock.kind})⇒ 本枚不落地、不叠并发。${String(landLock.why ?? '').slice(0, 200)}`,
+    )
+    console.error(
+      `   这**不是内容判红**:等 ${Math.round((landLock.waitedMs ?? 0) / 1000)}s / ${landLock.attempts} 次尝试,` +
+        `持有者=${landLock.holder?.pid ?? '(未报到)'}${landLock.timedOut ? ' ⇒ 等满上限' : ''}。` +
+        `出路 = 等那一枚收尾后原样重跑本命令(不削覆盖面、不改缺省值);等待上限 IHUI_LAND_SINGLE_INSTANCE_WAIT_MS=<ms>。`,
+    )
+    process.exit(2)
+  }
+  if (landLock.kind === 'reentrant') console.log('ℹ 单实例闸:同进程重入(本枚已在临界区内)')
+  process.on('exit', () => {
+    try {
+      if (typeof landLock.release === 'function') {
+        const r = landLock.release()
+        if (r && r.released === false)
+          console.error(
+            `⚠️ 单实例闸未交还:${String(r.why ?? '').slice(0, 160)}(交下一轮按 pid/龄判读)`,
+          )
+      }
+    } catch (e) {
+      console.error(`⚠️ 单实例闸交还抛错:${String(e?.message ?? e).slice(0, 160)}`)
+    }
+  })
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
