@@ -55,11 +55,12 @@ const ROOT = join(HERE, '..')
  * preview = **缺省档真跑的零写 argv**(2026-11-05 逐枚取证登记:写腿全部锁在该器物的 apply/write/land
  *   分支内,读路只有不带 -w 的 hash-object 与只读 git);pendingRc = 该器物"本轮有待落内容"时退的那
  *   几个码(与"器物坏了"分开桶,否则预演会被读成级联判红)。
- * noPreview = 结构上拿不出零写档的段(登记原因,缺省档**点名跳过**不冒充已判)。现读只剩一枚:
- *   derive-tokens —— heal-derived-in-checkout.mjs:1311 `apply = !argv.includes('--dry-run')`,
- *     连 --dry-run 也会 `git worktree add` 建检出并写 state json;
- *   (miniapp-pages 曾同此一格 —— 档位闸跑在物化腿之前,--json 也写 tmp 与共享对象库;
- *    2026-11-05 该器物把走查抽成单源 walkSeams、预演改走纯常量槽位后已翻正为 preview。)
+ * noPreview = 结构上拿不出零写档的段(登记原因,缺省档**点名跳过**不冒充已判)。**2026-11-05 现读 0 枚**
+ *   —— 原有两枚都补出了零写档并翻正为 preview:
+ *   miniapp-pages(档位闸原本跑在物化腿之前 ⇒ 走查抽成单源 walkSeams,预演走纯常量槽位),
+ *   derive-tokens(器物原本档位旗是反的、--dry-run 也建检出并写 state json ⇒ 新增 --report-only 只读档)。
+ *   这条字段**保留不删**:它登记的是"这一段结构上判不了"。器物一旦回潮(有人把写腿挪回判路),
+ *   级联必须重新具名跳过并把原因打全,而不是静默把没判的当判过(§0.3)。
  */
 const STAGES = [
   {
@@ -87,9 +88,14 @@ const STAGES = [
     desc: '样式派生面写回(tokens 族:小程序/RN/extension 各受管块 ← tokens.css 单源)',
     script: 'heal-derived-in-checkout.mjs',
     base: ['--family', 'tokens', '--json'],
-    // 结构上拿不出零写档:器物 :1311 `apply = !argv.includes('--dry-run')` —— 默认即写,
-    // 而 --dry-run 也会 `git worktree add` 真建检出并写 state json(:659→:661)。缺省档点名跳过。
-    noPreview: '器物默认即写档,--dry-run 仍建 linked worktree 并写 state json ⇒ 无零写档',
+    // 2026-11-05 由 noPreview 翻正:该器物原有档位是**反的**(`apply = !argv.includes('--dry-run')`,
+    // 裸跑即写档),而 --dry-run 也不是零写 —— 它 `git worktree add` 真建检出并写 state json。
+    // 现它有了专门的只读档 --report-only(先行早退,写树路径结构不可达;行为证在
+    // tests/heal-derived-in-checkout.test.mjs C17:canary runner 见任何写形态 argv 当场抛,整档零抛)。
+    preview: ['--family', 'tokens', '--report-only', '--json'],
+    pendingRc: [1],
+    // S11 要的行为证明(C17 金丝雀 runner:见任何写形态 argv 当场抛 + seen.length 防空转):
+    previewProof: 'tests/heal-derived-in-checkout.test.mjs',
     write: true,
     timeoutMs: 30 * 60 * 1000,
   },
@@ -775,12 +781,23 @@ async function selfTestRun() {
         const proofAbs = join(HERE, s.previewProof)
         assert.ok(existsSync(proofAbs), `${s.name}:previewProof 不在位(${s.previewProof})`)
         const proof = readFileSync(proofAbs, 'utf8')
-        assert.match(proof, /写记录=0/, `${s.previewProof} 必须真断言"零条写记录"`)
-        assert.match(proof, /阳性对照/, `${s.previewProof} 必须带成对阳性对照,否则"零写"可以是哑探针`)
+        // 锁"性质"而不是某一份证明的用词:① 有行为级探针(金丝雀/canary/替身/探针),不是只读码;
+        // ② 有防空转的成对断言(阳性对照 / 真派了 / 成对)—— 否则"一条都没抛"可以是因为根本没派;
+        // ③ 探针专门盯 hash-object 这一形态(本仓最贵的那一格:共享对象库)。
+        assert.match(
+          proof,
+          /金丝雀|canary|探针|替身/,
+          `${s.previewProof} 必须是**行为级**证明(有写动作探针),而不是只读一遍码`,
+        )
+        assert.match(
+          proof,
+          /阳性对照|真派了|成对/,
+          `${s.previewProof} 必须自带防空转的成对断言,否则"零写"可以是"根本没派到"`,
+        )
         assert.match(
           proof,
           /hash-object/,
-          `${s.previewProof} 的阳性对照必须专门盯 hash-object -w 这一形态`,
+          `${s.previewProof} 的探针必须专门盯 hash-object 这一写形态`,
         )
       }
     }
