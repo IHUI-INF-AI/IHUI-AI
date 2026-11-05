@@ -2016,6 +2016,67 @@ function Test-RequiredKeyInlined {
     } catch { return @('undetermined', "扫描派生失败:$($_.Exception.Message)") }
 }
 
+function Publish-DownloadsSurface {
+    # 2026-11-05 立:生产 web 的 public/ 由运行时 $WebDir 直接提供,而交换链只搬 .next-$DistDir,
+    # 从不搬 public ⇒ 净面构建里 prebuild 的 sync-downloads 把扩展 zip / manifest.json 写在
+    # 一次性净面 public/downloads,随净面回收一起消失,生产下载面永远停在手工刷新那一刻。
+    # 真正能兜住"扩展一改、下载面就新"的位置就是净面产物回搬这一步:把净面刚产出的分发物
+    # 搬进 $WebDir\public\downloads,并在**目标目录**重算 sha256 清单 —— 目标目录里
+    # 已有的 desktop 包不会被删,新清单会把它们一并枚举进去。
+    # 失败只 WARN 不阻断交换:下载面陈旧不影响站点本身可用,下一轮部署(60s 轮询)会重试。
+    param([Parameter(Mandatory)][string]$SourceWebDir, [Parameter(Mandatory)][string]$TargetWebDir)
+    $srcDownloads = Join-Path $SourceWebDir 'public\downloads'
+    $srcExt = Join-Path $srcDownloads 'extension'
+    $dstDownloads = Join-Path $TargetWebDir 'public\downloads'
+    $dstExt = Join-Path $dstDownloads 'extension'
+    try {
+        if (-not (Test-Path -LiteralPath $srcExt)) { Log '[DOWNLOAD-SURFACE] WARN 净面无扩展包目录,跳过刷新'; return }
+        $zips = @(Get-ChildItem -LiteralPath $srcExt -Filter '*.zip' -File -ErrorAction SilentlyContinue)
+        if ($zips.Count -eq 0) { Log '[DOWNLOAD-SURFACE] WARN 净面未产出扩展 zip,跳过刷新'; return }
+        New-Item -ItemType Directory -Force -Path $dstExt | Out-Null
+        $copied = @()
+        foreach ($z in $zips) {
+            $dst = Join-Path $dstExt $z.Name
+            # 先写临时名再改名:运行中的 web 进程随时可能读到这几个文件,不留半截文件窗口。
+            $tmp = "$dst.tmp-$PID"
+            Copy-Item -LiteralPath $z.FullName -Destination $tmp -Force
+            Move-Item -LiteralPath $tmp -Destination $dst -Force
+            $copied += $z.Name
+        }
+        $srcManifest = Join-Path $srcDownloads 'manifest.json'
+        if (Test-Path -LiteralPath $srcManifest) {
+            $dstManifest = Join-Path $dstDownloads 'manifest.json'
+            $tmpManifest = "$dstManifest.tmp-$PID"
+            Copy-Item -LiteralPath $srcManifest -Destination $tmpManifest -Force
+            Move-Item -LiteralPath $tmpManifest -Destination $dstManifest -Force
+        } else {
+            Log '[DOWNLOAD-SURFACE] WARN 净面无 manifest.json,仅刷新 zip(页面版本仍按实物文件名解析)'
+        }
+        $node = Resolve-NodeExe
+        if ($null -eq $node) {
+            Log '[DOWNLOAD-SURFACE] WARN 找不到 node.exe,无法重算 sha256 清单;zip 已刷新但 update-files.json 保持原样'
+            return
+        }
+        $manifestHelper = Join-Path $Root 'scripts\update-file-manifest.mjs'
+        $dstUpdateManifest = Join-Path $dstDownloads 'update-files.json'
+        & $node $manifestHelper generate --dir $dstDownloads --out $dstUpdateManifest 2>&1 |
+            ForEach-Object { Log "[DOWNLOAD-SURFACE] $_" }
+        if ($LASTEXITCODE -ne 0) {
+            Log "[DOWNLOAD-SURFACE] WARN 清单生成失败(exit $LASTEXITCODE),update-files.json 未更新"
+            return
+        }
+        & $node $manifestHelper verify --dir $dstDownloads --manifest $dstUpdateManifest 2>&1 |
+            ForEach-Object { Log "[DOWNLOAD-SURFACE] $_" }
+        if ($LASTEXITCODE -ne 0) {
+            Log "[DOWNLOAD-SURFACE] WARN 清单自校验失败(exit $LASTEXITCODE),下载面可能不一致"
+            return
+        }
+        Ok "[DOWNLOAD-SURFACE] 已刷新 $($copied.Count) 个扩展包 + manifest.json,sha256 清单自校验通过:$($copied -join ', ')"
+    } catch {
+        Log "[DOWNLOAD-SURFACE] WARN 刷新失败(不阻断交换,下一轮重试):$($_.Exception.Message)"
+    }
+}
+
 function Build-Web {
     param(
         [string]$DistDir = 'staging',
@@ -2226,6 +2287,8 @@ function Build-Web {
                     Copy-Item "$bwd\.next-$DistDir" $dstStaging -Recurse -Force
                     if (-not (Test-Path "$dstStaging\BUILD_ID")) { throw "产物回搬后 BUILD_ID 不在位 ⇒ 不交换,保持当前在线版本" }
                     Update-DeployLockHeartbeat
+                    # 与产物回搬同一时机刷新下载面:净面 prebuild 刚生成了本次扩展包,这里落到生产 public。
+                    Publish-DownloadsSurface -SourceWebDir $bwd -TargetWebDir $WebDir
                 }
                 Ok "next build 完成 -> .next-$DistDir"; return
             }
