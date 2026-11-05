@@ -46,9 +46,14 @@ export function getMarketplaceCacheDir(): string {
   return path.join(getIhuiRoot(), 'marketplace-cache');
 }
 
+/** ~/.ihui/plugin-data/ — 插件运行时数据根目录(卸载时的边界面) */
+export function getPluginDataRoot(): string {
+  return path.join(getIhuiRoot(), 'plugin-data');
+}
+
 /** ~/.ihui/plugin-data/<name>/ — 插件运行时数据目录 */
 export function getPluginDataDir(name: string): string {
-  return path.join(getIhuiRoot(), 'plugin-data', name);
+  return path.join(getPluginDataRoot(), name);
 }
 
 /** ~/.ihui/installed-plugins/<name>/ — 单个插件安装路径 */
