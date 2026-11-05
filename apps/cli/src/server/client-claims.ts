@@ -16,7 +16,6 @@
  */
 import { existsSync, readdirSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { request } from 'node:http';
-import { connect } from 'node:net';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import {
@@ -38,7 +37,7 @@ export function claimDir(root: string = getIhuiRoot()): string {
   return join(root, CLAIM_SUBDIR);
 }
 
-export function claimFileFor(id: string, root: string = getIhuiRoot()): string {
+function claimFileFor(id: string, root: string = getIhuiRoot()): string {
   return join(claimDir(root), `${id}.json`);
 }
 
@@ -60,7 +59,7 @@ export function publishClaim(claim: ServiceClaim, root: string = getIhuiRoot()):
   return file;
 }
 
-export function retireClaim(id: string, root: string = getIhuiRoot()): void {
+function retireClaim(id: string, root: string = getIhuiRoot()): void {
   try {
     rmSync(claimFileFor(id, root), { force: true });
   } catch {
@@ -119,7 +118,7 @@ export function startClaim(opts: StartClaimOptions): RunningClaim {
 }
 
 /** pid 判活:EPERM = 存活但无权(与对侧同一语义),其余抛错按消亡 */
-export function isPidAlive(pid: number): boolean {
+function isPidAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
@@ -129,21 +128,6 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-/** TCP 可连性(同步等待版)——只回答"这瞬间有没有人应答",不代表身份 */
-export function tcpProbe(port: number, timeoutMs = 250): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = connect({ host: '127.0.0.1', port });
-    const done = (ok: boolean): void => {
-      socket.removeAllListeners();
-      socket.destroy();
-      resolve(ok);
-    };
-    socket.setTimeout(timeoutMs);
-    socket.once('connect', () => done(true));
-    socket.once('timeout', () => done(false));
-    socket.once('error', () => done(false));
-  });
-}
 
 function readClaims(root: string): { claims: ServiceClaim[]; broken: Array<{ id: string | null; reason: string }> } {
   const dir = claimDir(root);

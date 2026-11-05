@@ -113,7 +113,7 @@ export function UploadZone({
       ) : (
         <UploadCloud className="h-8 w-8 text-muted-foreground" />
       )}
-      <div className="text-sm">
+      <div className="font-[weight:inherit] text-body">
         <p className="font-medium">{t('dragUpload')}</p>
         <p className="text-muted-foreground">{t('clickUpload')}</p>
       </div>

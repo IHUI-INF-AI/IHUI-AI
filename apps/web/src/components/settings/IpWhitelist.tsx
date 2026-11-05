@@ -114,7 +114,9 @@ export function IpWhitelist() {
       <CardContent className="space-y-3">
         {/* 生效语义必须写在界面上:只拦新登录、已在线会话不掉线,且最后改这张表的那台 IP 恒可进
             (否则在错误网络上清空列表的用户会把自己永久锁死,而改列表本身要先登录) */}
-        <p className="text-xs leading-relaxed text-muted-foreground">{t('ip.hint')}</p>
+        <p className="font-[weight:inherit] text-label leading-relaxed text-muted-foreground">
+          {t('ip.hint')}
+        </p>
         <div className="flex gap-2">
           <Input
             placeholder={t('ip.placeholder')}
@@ -126,20 +128,22 @@ export function IpWhitelist() {
             {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="font-[weight:inherit] text-label text-destructive">{error}</p>}
 
         {loading ? (
           <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : ips.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">{t('ip.empty')}</p>
+          <p className="font-[weight:inherit] py-4 text-center text-body text-muted-foreground">
+            {t('ip.empty')}
+          </p>
         ) : (
           <div className="space-y-1.5">
             {ips.map((ip) => (
               <div
                 key={ip}
-                className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+                className="font-[weight:inherit] flex items-center justify-between rounded-lg border px-3 py-2 text-body"
               >
                 <code className="font-mono">{ip}</code>
                 <Button

@@ -135,7 +135,7 @@ export function AccountPoolScreen({
         <View style={styles.card}>
           <View style={styles.rowHead}>
             <Plus size={16} color={tk.text.secondary} />
-            <Text style={styles.cardTitle}>{t('accountPool.addTitle')}</Text>
+            <Text style={styles.cardTitle}>{t('accountPool.add')}</Text>
           </View>
           <View style={styles.chips}>
             {ACCOUNT_POOL_PROVIDERS.map((p) => (

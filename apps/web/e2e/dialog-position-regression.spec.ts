@@ -104,13 +104,16 @@ async function triggerAndMeasure(
   if (opts.mobile) {
     // 2026-09-14 补:goto 后 AI 面板水合渲染需要时间,isVisible 即时检查会误判跳过
     // (sidebar-visual 同款实测),改 waitFor 轮询;≤8s 未出现视为已关闭。
-    const closePanel = page.locator('button[aria-label="关闭"]').first()
-    const panelShown = await closePanel
+    // 2026-11-04 信息架构重构:header 的可见「关闭」收进溢出菜单
+    // (`[data-testid="ai-panel-close"]`,Radix DropdownMenu.Item ⇒ role=menuitem)。
+    const overflowTrigger = page.locator('[data-testid="ai-panel-overflow-trigger"]').first()
+    const panelShown = await overflowTrigger
       .waitFor({ state: 'visible', timeout: 8000 })
       .then(() => true)
       .catch(() => false)
     if (panelShown) {
-      await closePanel.click()
+      await overflowTrigger.click()
+      await page.locator('[data-testid="ai-panel-close"]').click()
       await page.waitForTimeout(500)
     }
     const menuBtn = page.locator('button[aria-label="菜单"]').first()

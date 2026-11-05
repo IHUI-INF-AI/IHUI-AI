@@ -33,13 +33,11 @@ test.describe('新建任务入口统一守门', () => {
     await expect(btn).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator(panelAside)).toBeVisible()
 
-    // 关闭 AI 面板(header 右侧 X,aria-label = common.close)。
-    // 用 getByLabel 正则(CSS 属性正则 button[aria-label=/…/] 会 SyntaxError)
-    await page
-      .locator(panelAside)
-      .getByLabel(/^(关闭|Close)$/i)
-      .first()
-      .click()
+    // 关闭 AI 面板:2026-11-04 信息架构重构把 header 的可见 X 收进溢出菜单
+    // (`[data-testid="ai-panel-close"]`,Radix DropdownMenu.Item ⇒ role=menuitem),
+    // 所以先开溢出菜单再点关闭项;断言语义不变(panel open → false)。
+    await page.locator('[data-testid="ai-panel-overflow-trigger"]').first().click()
+    await page.locator('[data-testid="ai-panel-close"]').click()
     // 面板关闭:aside 从 DOM 移除(if (!open) 分支只渲染 width:0 手柄容器),aria-pressed 同步翻转
     await expect(btn).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator(panelAside)).toBeHidden()

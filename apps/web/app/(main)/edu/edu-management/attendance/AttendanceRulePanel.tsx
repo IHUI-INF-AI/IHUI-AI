@@ -125,7 +125,11 @@ export function AttendanceRulePanel({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-3">
-        {!selectedClassId && <p className="text-xs text-muted-foreground">{t('ruleClassHint')}</p>}
+        {!selectedClassId && (
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
+            {t('ruleClassHint')}
+          </p>
+        )}
 
         {ruleQuery.error ? (
           <Alert variant="danger" description={String((ruleQuery.error as Error).message)} />
@@ -136,7 +140,10 @@ export function AttendanceRulePanel({
         <div className="flex flex-wrap items-end gap-3">
           {THRESHOLDS.map(({ field, labelKey }) => (
             <div key={field} className="space-y-1">
-              <Label htmlFor={`att-rule-${field}`} className="text-xs text-muted-foreground">
+              <Label
+                htmlFor={`att-rule-${field}`}
+                className="font-[weight:inherit] text-label text-muted-foreground"
+              >
                 {t(labelKey)}
               </Label>
               <Input
@@ -162,7 +169,7 @@ export function AttendanceRulePanel({
                 setEnabledDraft(v)
               }}
             />
-            <Label htmlFor="att-rule-enabled" className="text-xs">
+            <Label htmlFor="att-rule-enabled" className="font-[weight:inherit] text-label">
               {t('ruleEnabledLabel')}
             </Label>
           </div>
@@ -177,23 +184,27 @@ export function AttendanceRulePanel({
             )}
             {t('ruleSave')}
           </Button>
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
+          <span className="font-[weight:inherit] whitespace-nowrap text-label text-muted-foreground">
             {t('ruleTimeHint')}
           </span>
           {rule && (
-            <span className="whitespace-nowrap text-xs text-muted-foreground">
+            <span className="font-[weight:inherit] whitespace-nowrap text-label text-muted-foreground">
               {t('ruleQrSecretState')}
               {rule.qrSecretConfigured ? t('ruleQrSecretOn') : t('ruleQrSecretOff')}
             </span>
           )}
         </div>
 
-        {savedTip && <p className="text-xs text-emerald-600 dark:text-emerald-500">{savedTip}</p>}
+        {savedTip && (
+          <p className="font-[weight:inherit] text-label text-emerald-600 dark:text-emerald-500">
+            {savedTip}
+          </p>
+        )}
         {saveMutation.error ? (
           <Alert
             variant="danger"
             description={String((saveMutation.error as Error).message)}
-            action={<p className="text-xs">{t('ruleTimeHint')}</p>}
+            action={<p className="font-[weight:inherit] text-label">{t('ruleTimeHint')}</p>}
           />
         ) : null}
         {rule && !rule.qrSecretConfigured && (

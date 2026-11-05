@@ -42,7 +42,7 @@ export function VipScreen({
   onBack,
   benefitItems,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
   onToast,
 }: VipScreenProps & { onRetry?: () => void }) {
@@ -139,7 +139,7 @@ export function VipScreen({
                     <Text style={styles.cardLevelName}>{level.levelName}</Text>
                     {isCurrent ? (
                       <View style={styles.currentBadge}>
-                        <Text style={styles.currentBadgeText}>{t('vip.currentBadge')}</Text>
+                        <Text style={styles.currentBadgeText}>{t('vip.currentLevel')}</Text>
                       </View>
                     ) : null}
                   </View>

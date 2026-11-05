@@ -117,7 +117,7 @@ function EduParentScreen() {
         { text: t('eduChildGrades.title'), onPress: () => nav('EduChildGrades') },
         { text: t('eduChildMeals.title'), onPress: () => nav('EduChildMeals') },
         { text: t('eduChildBills.title'), onPress: () => nav('EduChildBills') },
-        { text: t('eduChildStudyPlans.title'), onPress: () => nav('EduChildStudyPlans') },
+        { text: t('parentPortal.child.studyPlans'), onPress: () => nav('EduChildStudyPlans') },
       ])
     },
     [navigation, t],

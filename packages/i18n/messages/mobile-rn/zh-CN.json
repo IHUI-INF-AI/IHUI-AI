@@ -2,7 +2,10 @@
   "workflows": {
     "title": "工作流",
     "empty": "暂无工作流",
-    "loadFailed": "工作流加载失败"
+    "loadFailed": "工作流加载失败",
+    "instanceDetail": {
+      "notFound": "实例不存在"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "暂无运行结果",
     "rrule": "调度规则",
     "timezone": "时区",
-    "schedule": "触发方式"
+    "schedule": "触发方式",
+    "lastRunAt": "上次运行"
   },
   "dashboard": {
     "title": "数据看板",
@@ -638,7 +642,8 @@
     "fieldName": "名称",
     "fieldCategory": "分类",
     "fieldDescription": "描述",
-    "fieldPrice": "价格"
+    "fieldPrice": "价格",
+    "createTitle": "创建智能体"
   },
   "chat": {
     "assetCatText": "文本",
@@ -948,7 +953,16 @@
     "theme": "主题",
     "logoutConfirmBody": "确认退出当前账号？",
     "accountDeletionConfirmLabel": "确认注销",
-    "accountDeletionConfirmTitle": "确认注销"
+    "accountDeletionConfirmTitle": "确认注销",
+    "revokeAuth": "撤销会话",
+    "noAuthorizations": "暂无活跃会话",
+    "authorizedAt": "登录时间",
+    "sessionExpiresAt": "过期时间",
+    "devices": {
+      "revokeConfirmTitle": "撤销设备",
+      "taskColCreated": "创建时间",
+      "taskColFinished": "结束时间"
+    }
   },
   "menu": {
     "artifacts": "产物中心",
@@ -1340,7 +1354,11 @@
     "kindAutoContext": "自动检索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成为开发者"
+    "becomeDeveloper": "成为开发者",
+    "settings": {
+      "infoName": "名称",
+      "infoTitle": "开发者信息"
+    }
   },
   "liveHost": {
     "error": {
@@ -1519,7 +1537,8 @@
     "okSent": "分享成功",
     "cancelled": "已取消分享",
     "fail": "分享失败",
-    "needAlbum": "需要相册权限才能选择图片"
+    "needAlbum": "需要相册权限才能选择图片",
+    "courseTitle": "推荐课程:{title}"
   },
   "vipScreen": {
     "plans": {
@@ -1894,7 +1913,9 @@
     "treeRetry": "重试",
     "treeLevelLabel": "第 {level} 层",
     "treeCollapseHint": "点击节点查看详情",
-    "teamTitle": "我的团队"
+    "teamTitle": "我的团队",
+    "colJoinedAt": "加入时间",
+    "colLevel": "等级"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -1921,7 +1942,14 @@
     "start": "开始考试",
     "title": "考试",
     "totalScore": "总分",
-    "questionCountLabel": "题目数"
+    "questionCountLabel": "题目数",
+    "result": {
+      "shareTitle": "我的考试成绩: {n} 分"
+    },
+    "startExam": "开始考试",
+    "wrongQuestions": {
+      "colTime": "添加时间"
+    }
   },
   "examQuestion": {
     "loadFailed": "加载试卷失败",
@@ -2261,7 +2289,9 @@
     "bindFailed": "绑定失败",
     "bindSuccess": "绑定成功",
     "codeRequired": "请输入邀请码",
-    "loadFailed": "加载邀请人失败"
+    "loadFailed": "加载邀请人失败",
+    "noReferrer": "暂未绑定推荐人",
+    "bindBtn": "绑定"
   },
   "register": {
     "phone": "手机号",
@@ -2650,7 +2680,10 @@
       "historyTitle": "签到历史",
       "historyEmpty": "暂无签到记录",
       "historyLoadFailed": "签到历史加载失败",
-      "historyConsecutive": "连续 {days} 天"
+      "historyConsecutive": "连续 {days} 天",
+      "consecutiveDays": "已连续签到 {days} 天",
+      "history": "签到历史",
+      "empty": "暂无签到记录"
     },
     "ruleLink": "积分规则",
     "txTitle": "积分流水",
@@ -3133,7 +3166,8 @@
     "priceInvalid": "价格必须是大于 0 的数字",
     "priceOrder": "起步价不能高于最高价",
     "submitting": "发布中…",
-    "submit": "发布需求"
+    "submit": "发布需求",
+    "contactLabel": "联系方式"
   },
   "businessCard": {
     "title": "我的名片"
@@ -3539,7 +3573,10 @@
     "retryRecharge": "重新充值",
     "withdrawAmount": "提现金额",
     "methodBank": "银行卡",
-    "rechargeMethod": "支付方式"
+    "rechargeMethod": "支付方式",
+    "flowBalance": "余额",
+    "loading": "加载中...",
+    "rechargeOrderNo": "订单号"
   },
   "activity": {
     "empty": "暂无活动",
@@ -3714,7 +3751,9 @@
       "noCertificates": "暂无证书"
     },
     "detail": {
-      "issueDate": "颁发日期"
+      "issueDate": "颁发日期",
+      "statusValid": "有效",
+      "statusRevoked": "已撤销"
     }
   },
   "certDetail": {
@@ -3827,7 +3866,8 @@
   },
   "favorites": {
     "empty": "暂无收藏",
-    "title": "我的收藏"
+    "title": "我的收藏",
+    "remove": "取消收藏"
   },
   "feedback": {
     "contact": "联系方式",
@@ -4215,7 +4255,9 @@
     "ratingSubmitted": "评分已提交",
     "ratingFailed": "评分提交失败",
     "commentPlaceholder": "写下你的评价（可选）",
-    "ratingLoginHint": "登录后可评分"
+    "ratingLoginHint": "登录后可评分",
+    "importBtn": "导入",
+    "exportError": "导出失败"
   },
   "memory": {
     "detail": "详情",
@@ -4311,7 +4353,17 @@
     "platformXiaohongshu": "小红书",
     "platformZhihu": "知乎",
     "platformJuejin": "掘金",
-    "platformShipinhao": "微信视频号"
+    "platformShipinhao": "微信视频号",
+    "history": {
+      "retry": "重试"
+    },
+    "accounts": {
+      "cancelScan": "取消扫码"
+    },
+    "new": {
+      "submitNow": "立即发布",
+      "submitSchedule": "定时发布"
+    }
   },
   "spec": {
     "title": "规范模板库",
@@ -4655,7 +4707,13 @@
     "searchEmpty": "未找到相关结果",
     "expand": "展开全文",
     "collapse": "收起",
-    "score": "相关度"
+    "score": "相关度",
+    "chunks": {
+      "showLess": "收起"
+    },
+    "manage": {
+      "singleDelete": "删除"
+    }
   },
   "changePhone": {
     "phoneRequired": "请输入手机号码",
@@ -5141,7 +5199,8 @@
     "empty": "暂无连接器",
     "items": "文档数",
     "enable": "启用",
-    "disable": "停用"
+    "disable": "停用",
+    "lastSyncAt": "最近同步"
   },
   "verify": {
     "getCode": "请输入验证码",
@@ -5205,7 +5264,17 @@
     "formSubmit": "创建",
     "formFailed": "创建失败",
     "nameRequired": "请填写任务名称",
-    "rruleRequired": "请填写执行计划"
+    "rruleRequired": "请填写执行计划",
+    "toast": {
+      "runDone": "巡检完成",
+      "resumed": "已恢复",
+      "paused": "已暂停"
+    },
+    "action": {
+      "delete": "删除",
+      "runNow": "立即巡检",
+      "history": "历史"
+    }
   },
   "selfHealing": {
     "title": "验证自愈引擎",
@@ -5396,7 +5465,8 @@
     "tierUnknown": "未知来源",
     "generating": "生成中…",
     "restartConfirmTitle": "已有研究进行中",
-    "restartConfirmBody": "重新开始将丢弃当前进度，确定继续？"
+    "restartConfirmBody": "重新开始将丢弃当前进度，确定继续？",
+    "reportTitle": "研究报告"
   },
   "resources": {
     "title": "资源中心",
@@ -5450,7 +5520,8 @@
     "permDeleteFailed": "删除权限失败",
     "permSwitchConfirm": "切换权限确认",
     "permSwitchFailed": "权限切换失败",
-    "permSwitchRisk": "切换权限可能影响现有访问"
+    "permSwitchRisk": "切换权限可能影响现有访问",
+    "convertMarkdownFailed": "转换失败"
   },
   "stepDecision": {
     "decision": {
@@ -5512,7 +5583,8 @@
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
     "summary": "共 {total} 个账号 · 已启用 {enabled}",
-    "addSuccess": "账号已添加"
+    "addSuccess": "账号已添加",
+    "add": "添加账号"
   },
   "checkinAssistant": {
     "title": "签到助手",
@@ -6067,7 +6139,10 @@
     "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
     "trendChartScope": "统计范围：{scope}",
     "trendChartTitle": "出勤趋势",
-    "trendWindow": "近 {days} 天"
+    "trendWindow": "近 {days} 天",
+    "studentPageTitle": "我的考勤",
+    "selectClass": "选择班级",
+    "qrPanelTitle": "扫码签到"
   },
   "eduGrades": {
     "title": "成绩管理",
@@ -6075,7 +6150,8 @@
     "subject": "科目",
     "exam": "考试",
     "score": "分数",
-    "date": "日期"
+    "date": "日期",
+    "pageTitle": "成绩管理"
   },
   "toolbar": {
     "svcTraffic": "流量运营陪跑",
@@ -6230,7 +6306,10 @@
     "teacher": "教师",
     "availability": "可用性",
     "available": "可用",
-    "busy": "已占"
+    "busy": "已占",
+    "form": {
+      "weekday": "星期"
+    }
   },
   "statusPage": {
     "title": "系统状态",
@@ -7247,7 +7326,8 @@
   },
   "learnMapPage": {
     "completed": "已完成",
-    "empty": "暂无学习路径"
+    "empty": "暂无学习路径",
+    "defaultTitle": "学习地图"
   },
   "user": {
     "security": {
@@ -7258,6 +7338,10 @@
         "idCard": "身份证号",
         "idCardPlaceholder": "请输入身份证号"
       }
+    },
+    "articles": {
+      "prevPage": "上一页",
+      "nextPage": "下一页"
     }
   },
   "NavBar": {
@@ -7282,10 +7366,16 @@
     }
   },
   "eduProgressPage": {
-    "weeklyHours": "本周学习时长"
+    "weeklyHours": "本周学习时长",
+    "noData": "暂无数据"
   },
   "learn": {
-    "signedUp": "已报名"
+    "signedUp": "已报名",
+    "signUp": "立即报名",
+    "dailyReview": {
+      "questionLabel": "题目",
+      "statAvgDifficulty": "平均难度"
+    }
   },
   "learnPaymentConfirmPage": {
     "fields": {
@@ -7296,10 +7386,12 @@
     "cancelSubscription": "取消订阅"
   },
   "student": {
-    "myCertsTitle": "我的证书"
+    "myCertsTitle": "我的证书",
+    "wrongBookTitle": "错题本"
   },
   "activities": {
-    "join": "立即参与"
+    "join": "立即参与",
+    "notFound": "活动不存在或已下线"
   },
   "eduAttendanceQr": {
     "chooseClass": "选择班级",
@@ -7326,5 +7418,84 @@
     "scanCheckIn": "扫码签到",
     "selfCheckIn": "我要签到",
     "title": "我的考勤"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "设为默认地址"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "加载失败"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "数据导出",
+      "portabilityCard": "数据可携带",
+      "eraseCard": "数据擦除"
+    },
+    "groups": {
+      "title": "我的群组"
+    },
+    "stt": {
+      "error": "转写失败"
+    },
+    "video": {
+      "error": "编排失败"
+    }
+  },
+  "articles": {
+    "hotTitle": "热门文章",
+    "titleField": "标题",
+    "summaryField": "摘要",
+    "categoryField": "分类"
+  },
+  "agentsCategoriesPage": {
+    "total": "共 {count} 个"
+  },
+  "kbEditPage": {
+    "submitLabel": "保存"
+  },
+  "models": {
+    "keys": {
+      "copy": "复制",
+      "table": {
+        "name": "名称"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "更新时间",
+        "description": "描述"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "暂无下级成员"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "学习计划"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "查看详情"
+  },
+  "businessCardEditPage": {
+    "editTitle": "编辑名片",
+    "bioLabel": "简介"
+  },
+  "checkin": {
+    "colEnabled": "启用",
+    "addAccount": "添加账号"
+  },
+  "circles": {
+    "title": "圈子"
+  },
+  "knowledgeCard": {
+    "delete": "删除"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 密钥"
+  },
+  "agentTeams": {
+    "statsActive": "运行中"
   }
 }

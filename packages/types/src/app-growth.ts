@@ -673,7 +673,12 @@ export interface VipBenefitItem {
   id: string
   name: string
   desc: string
-  level: string
+  /** 等级徽标文案;缺省(小程序端 GET /member/benefits 无 level 字段)则不渲染徽标 */
+  level?: string
+  /** 文字类图标(emoji/短字符);与 iconUri 互斥,均缺省时不渲染图标 */
+  icon?: string
+  /** 图片类图标地址(小程序端后端会返回图片路径);与 icon 互斥 */
+  iconUri?: string
 }
 
 /** VipBenefitScreen props(平台无关,wrapper 注入数据+回调) */

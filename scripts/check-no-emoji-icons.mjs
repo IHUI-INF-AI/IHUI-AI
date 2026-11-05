@@ -13,23 +13,38 @@
  *   Taro: static/images/icons/*.svg 经 <Image> 渲染),禁止 emoji 充当图标。
  *   配置数组里的 icon: 'emoji' 须改为 icon: LucideIcon 组件引用。
  *
- * 检测两类违规(BLOCKING):
+ * 检测三类违规(BLOCKING):
  *   1) 配置数组 icon 字段:icon: '🦄' / icon: "🌟" / icon: `🚀` → 违规
  *   2) 渲染级 emoji 图标:JSX 内 <Text>▶</Text> / <span>✅</span> /
  *      {liked ? '♥' : '♡'} 等直接渲染在 UI 图标位置的 emoji → 违规
+ *   3) 文本位 emoji(2026-11-05 扩射程):标题 / 段落 / 表格 / 徽章里出现在
+ *      JSX 文本节点上的裸 emoji —— 行内判据 2 只认"标签后紧跟 emoji",
+ *      段落中段的 `支持 🌍 多语言` 与拆行后的 `✓ {text}` 整族都在它射程外。
+ *      判法 = `code-mask.scanSpans` 现读字面量/注释跨度,跨度**外**还出现的 emoji
+ *      只可能是 JSX 文本(真实产出)⇒ 命中;跨度内(代码示例/文案/i18n/注释)
+ *      一律豁免,与既有豁免族一致,不新增第二套词法。
+ *
+ * 射程变更(2026-11-05,主席点名):
+ *   旧版把 `app/(main)/docs` 与 `(marketing)` **整文件豁免** ⇒ docs 标题/段落/徽章里的
+ *   emoji 回潮(实测 🌍📁👤💡✅🟡🔴)而门全绿。旧豁免的立因是"文档正文装饰性 emoji"
+ *   与"<pre><code> 里的示例代码",两者现在都由**跨度级**豁免精确覆盖(模板串/注释跨度),
+ *   不需要整文件放行。现读误报评估:全 UI 面 7159 个候选文件,跨度外裸 emoji 仅 9 处
+ *   (全是真实可见文案位,零假阳),docs 子树 0 处 —— 故按"面保持全 UI、判据按跨度收硬"。
  *
  * 加固维度(G-880 判据③,2026-10-23,棘轮档):.svg/.css/.json 此前整片在射程外;
  *   现收 css `content:"🦄"`、json `"icon":"🦄"`、svg emoji 字形三型。
  *   全量档(HEAD)对加固维度**只报数不阻断**(§0.5/§12e,防并行漂移恒红),
  *   `--staged` 档只拦本次提交新增行。立项现读精确判据存量 = 0。
+ *   文本位维度同样走棘轮(立项存量 9 处位于 apps/web|miniapp 的现存页面,非本票可改的
+ *   业务面):全量面只报数,--staged 拦本次新增行。
  *
  * 豁免(不判违规):
  *   - 注释行(// /* * 及行内 // 之后)
  *   - i18n 文案参数:tt('key', '📺 我要开播') / t('key', {…}) 等函数参数内的 emoji
  *   - 评分星数据展示:'★'.repeat(n) / '★0'(评级渲染,非 UI 按钮图标)
  *   - 表情面板(用户输入表情选择,如 InputArea 的表情数组)
- *   - docs/营销页正文里的装饰性 emoji(AGENTS.md §4 明确豁免"文档/营销页正文装饰性 emoji";
- *     但 docs 页面的 icon: 配置字段仍判违规)
+ *   - 代码示例/注释跨度内的 emoji(模板字符串与行/块注释跨度,由 scanSpans 单源判定;
+ *     原"docs/营销页整文件豁免"已删除 —— 装饰性 emoji 不再豁免可见文案位)
  *
  * 用法:
  *   node scripts/check-no-emoji-icons.mjs --staged   (pre-commit, 新增违规则 exit 1)
@@ -51,6 +66,8 @@ import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { COLORS as C } from './lib/logger.mjs'
 import { Undetermined, assertRepoRoot, listFaceFiles, selectFace } from './lib/face-reader.mjs'
 import { addedLineNumbers, readSources } from './lib/face-scan.mjs'
+import { scanSpans } from './lib/code-mask.mjs'
+import { EMOJI_TEXT_STOCK } from './data/emoji-text-stock.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(AGENTS §15:共享工作区 cwd 不可靠,不得用 process.cwd() 定根)。
@@ -71,6 +88,7 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
   - icon: '🦄' 配置字段(AGENTS.md 点名的违规模式)
   - JSX 渲染级 emoji(<Text>▶</Text> / <span>✅</span> / {a ? '♥' : '♡'})
   - 整行裸 emoji(被拆行的 JSX 文本子节点)
+  - 文本位 emoji(标题/段落/表格/徽章里的裸 emoji,棘轮档:全量只报数,新增拦)
 
 加固维度(G-880 判据③,棘轮档 — 全量面只报数,--staged 拦本次新增):
   - .css  content: "🦄"(生成位=渲染位)
@@ -82,7 +100,7 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
   - i18n 参数(tt('k','📺 文案') / t('k', …))
   - 评分星('★'.repeat(n))
   - 表情面板(InputArea 表情数组的数据行)
-  - docs 正文装饰性 emoji(但 docs 的 icon: 字段仍违规)
+  - 模板字符串/注释跨度内的 emoji(代码示例、markdown 导出、日志文本)
   - asset 行级注释(css /* */ 与续行、svg <!-- -->)
 `
 
@@ -187,6 +205,23 @@ const SVG_EMOJI_RE = new RegExp(`[${EMOJI_CHAR_CLASS}]`, 'u')
 /** asset 行级注释豁免:css 块注释起/续行(`/*`、` * `)、js 式 `//`、svg 注释 `<!--`(实测 6 处存量全在这一族) */
 const ASSET_COMMENT_RE = /^\s*(?:\/\/|\/\*|\*|<!--)/
 
+/**
+ * GATE_ID: TBD-emoji-text-copy(拟挂既有 emoji 门,暂不占号,待编号表分配)。
+ * 文本位第二支(2026-11-05):普通字符串字面量里的**中文文案 + emoji**。
+ * 立因:主席点名的射程是「源码里任何面向用户的中文字符串/JSX 文本节点」——
+ *   JSX 文本节点已由 `text emoji (visible copy)` 覆盖,而 `return '✅ 会话执行完成'` /
+ *   `{'Hi, 我是您的AI助手小方👋'}` 这类**字符串文案**两者都看不见。
+ * 收窄(每一条都是实读存量后的判定,不是"怕误报"的空话):
+ *   - 只认字面量里同时含 CJK 与 emoji(纯英文/符号串不判 —— 多为键名、日志码、示例);
+ *   - 测试/夹具/故事/mock/生成物整文件不判(它们天然用 emoji 做断言样本);
+ *   - i18n 参数由既有豁免 5 兜住(本支复用 isExempt,不另开第二套豁免);
+ *   - 模板串(含插值)仍算"代码示例/导出文本"面,不在本支射程(如实登记为已知缺口)。
+ */
+const CJK_RE = /[\u4E00-\u9FFF]/
+const NON_UI_STRING_FILE_RE = /(^|\/)(__tests__|__fixtures__|tests?|fixtures?|e2e|stories|mocks?)(\/|$)|\.(test|spec|stories?)\.(tsx?|jsx?)$|\.generated\.(tsx?|jsx?)$|\/\.tmp[-.]/
+
+/** 文本位存量台账(逐条带理由;格式与判据见 judgeStockLedger,数据在 data/emoji-text-stock.mjs)。 */
+
 // 评分星纯数据(非 JSX 渲染位):'★'.repeat(n) 生成字符串(如导出/纯逻辑),豁免。
 //   注:JSX 渲染位 <Text>★ {rating}</Text> 仍由 RENDER_EMOJI_RE 捕获,不豁免。
 /** 行级豁免判定 — 返回 true 表示该行不算违规 */
@@ -235,14 +270,10 @@ function isExempt(line, file) {
   // 豁免 7:键盘快捷键符号(⌘ ⇧ ⌥ ⌃ 等非 emoji 的 UI 指示符)
   if (em && /[⌘⇧⌥⌃⌫⌦]/.test(line)) return true
 
-  // 豁免 8:docs/营销页正文(AGENTS.md §4 明确豁免"文档/营销页正文装饰性 emoji")。
-  //   含 <code>/<pre> 代码示例里的 icon: '📄' 等演示代码——属文档正文,非真实 UI 配置。
-  //   兼容 Windows 反斜杠路径与正斜杠路径。
-  const isDocsPage =
-    file.includes('app/(main)/docs') ||
-    file.includes('app\\(main)\\docs') ||
-    file.includes('(marketing)')
-  if (isDocsPage) return true
+  // 豁免 8(2026-11-05 已删除):旧版按文件路径整片放行 `app/(main)/docs` 与 `(marketing)`,
+  //   立因是"文档正文装饰性 emoji"与"<pre><code> 示例代码";前者与 A 类任务的方向相冲突
+  //   (主席点名 docs 文案位 emoji 必须拦),后者由 judgeText 的**模板串/注释跨度**豁免精确覆盖。
+  //   删整文件豁免后现读 docs 子树 0 命中(示例代码仍在模板串跨度内),误报评估见头注。
 
   return false
 }
@@ -380,6 +411,80 @@ function runSelfTest() {
   t('分流互不污染:ts 文件不吃 css 维 content 判据', judgeText(OTHER, '  content: "🦄";').length === 0)
   t('asset 判据与 EMOJI_RE 同码位集(派生单源)', ['🦄', '😊', 'A', '©', '中'].every((c) => SVG_EMOJI_RE.test(c) === EMOJI_RE.test(c)))
 
+  // ⑧ 射程扩到文本位(2026-11-05):docs 整文件豁免已删,可见文案位必须拦,代码示例仍豁免
+  const DOCS = 'apps/web/app/(main)/docs/multilingual/page.tsx'
+  t(
+    'docs 标题位 emoji 判违规(整文件豁免已删)',
+    judgeText(DOCS, '<h1 className="text-2xl">🌍 多语言支持</h1>').some((f) => f.label === 'render emoji icon'),
+  )
+  t(
+    '段落中段 emoji 判违规(旧版行内判据的盲区)',
+    judgeText(DOCS, '<p className="text-sm">支持 🌍 多语言与本地化部署</p>').some(
+      (f) => f.label === 'text emoji (visible copy)' && f.ratchet === true,
+    ),
+  )
+  t(
+    '徽章位 emoji 判违规',
+    judgeText(DOCS, '<span className="rounded bg-green-100">✅ 已支持</span>').some((f) => f.label === 'render emoji icon'),
+  )
+  t(
+    '表格单元格 emoji 判违规',
+    judgeText(DOCS, '<td className="px-3">🟡 处理中</td>').length > 0,
+  )
+  t(
+    '拆行后的裸 emoji 判违规',
+    judgeText(DOCS, '        ✓').some((f) => f.label === 'bare emoji JSX child'),
+  )
+  {
+    const tpl = ['const tpl = `', "  icon: '📄',", '  这里演示 📁', '`', 'const after = 1'].join('\n')
+    t('跨行模板串里的代码示例 emoji 豁免(旧版单行反引号奇偶会误报)', judgeText(DOCS, tpl).length === 0)
+  }
+  t('注释里的 emoji 仍豁免', judgeText(DOCS, '// TODO 支持 🌍').length === 0)
+  t("i18n 参数字符串里的 emoji 仍豁免", judgeText(DOCS, "const s = t('docs.title', { icon: '📁' })").length === 0)
+  t(
+    '文本位维度不外溢到非文案行(数据数组仍豁免)',
+    judgeText(OTHER, "const rows = ['✅ ok', '❌ fail']").length === 0,
+  )
+  // ⑨ 字符串文案第二支 + 台账(2026-11-05):中文串里 emoji 必拦,测试/生成物不拦
+  t(
+    '中文字符串文案里的 emoji 判违规(旧版整族隐身)',
+    judgeText(OTHER, "return '✅ 会话执行完成'").some((f) => f.label === 'string emoji (user copy)'),
+  )
+  t(
+    'JSX 表达式里的中文串 emoji 判违规',
+    judgeText(OTHER, "<Text>{'Hi, 我是您的AI助手小方👋'}</Text>").some(
+      (f) => f.label === 'string emoji (user copy)',
+    ),
+  )
+  t('纯英文/符号串含 emoji 不判(键名/示例面)', judgeText(OTHER, "type T = 'ok ✅'").length === 0)
+  t(
+    '测试夹具文件里的 emoji 字符串不判(合法用途)',
+    judgeText('apps/web/src/__tests__/x.test.tsx', "return '✅ 断言样例'").length === 0 &&
+      judgeText('apps/web/src/a.generated.ts', "const s = '✅ 生成提示'").length === 0,
+  )
+  t(
+    '台账判据:存量命中未落账 / 理由不足 10 字 / 残留已消失位置 三种都点名',
+    judgeStockLedger({
+      ledger: [
+        { file: 'a.ts', line: 1, label: 'text emoji (visible copy)', class: 'legit', reason: '短' },
+        { file: 'c.ts', line: 3, label: 'text emoji (visible copy)', class: 'violation', reason: '这一处已不存在但账还在' },
+      ],
+      hits: [
+        { file: 'a.ts', line: 1, label: 'text emoji (visible copy)' },
+        { file: 'b.ts', line: 2, label: 'text emoji (visible copy)' },
+      ],
+    }).problems.length === 3,
+  )
+  t(
+    '台账判据:逐条落账 + 理由 ≥10 字 ⇒ 零问题',
+    judgeStockLedger({
+      ledger: [
+        { file: 'a.ts', line: 1, label: 'text emoji (visible copy)', class: 'violation', reason: '真实文案位,待换图标' },
+      ],
+      hits: [{ file: 'a.ts', line: 1, label: 'text emoji (visible copy)' }],
+    }).problems.length === 0,
+  )
+
   const r = report()
   for (const c of r.cases) {
     console.log(`${c.pass ? '  ✅' : '  ❌'} ${c.name}${!c.pass && c.got && c.got !== 'false' ? ` — ${c.got}` : ''}`)
@@ -409,19 +514,180 @@ function isScanCandidate(rel) {
  * 单文件判定 —— 判据仍只有 `judgeLine`(代码维)/ `judgeAssetLine`(asset 维)各一份,
  * 主循环与 `--self-test` 共用。按扩展名分流,维度互不污染。
  * `allowedLines` 为 null 表示不限行(全量/HEAD 档);`--staged` 档只判本次新增行。
+ *
+ * 2026-11-05 扩射程:
+ *   - 代码维命中若整行 emoji 全部落在**模板串/注释跨度**内 ⇒ 是代码示例或说明文字,丢弃
+ *     (旧版只做单行反引号奇偶,跨行模板(如 docs 的 <CodeBlock code={`…`}> )会漏豁免);
+ *   - 文本位维度:跨度**外**的裸 emoji(JSX 文本节点)逐处登记,标 `ratchet: true`。
+ *     该维度只在 `--staged` 档阻塞新增,(全量/HEAD)由 analyze 计入存量只报数。
  */
 function judgeText(rel, text, allowedLines = null) {
   const asset = ASSET_SCAN_EXTS.some((e) => rel.endsWith(e))
   const findings = []
-  text.split('\n').forEach((line, idx) => {
+  const spans = asset ? null : emojiSpans(text)
+  const lines = text.split('\n')
+  const starts = []
+  let offset = 0
+  for (const line of lines) {
+    starts.push(offset)
+    offset += line.length + 1
+  }
+  lines.forEach((line, idx) => {
     const lineNumber = idx + 1
     if (allowedLines && !allowedLines.has(lineNumber)) return
     // 判定只有一份实现(judgeLine / judgeAssetLine 按扩展名分流)—— 主循环与自检共用,
     // 避免"自检绿而门瞎"那一型
     const f = asset ? judgeAssetLine(rel, line, lineNumber) : judgeLine(line, lineNumber, rel)
-    if (f) findings.push(f)
+    if (!f) return
+    // 整行 emoji 都在模板串/注释跨度里 ⇒ 代码示例/说明文字,不是渲染位
+    if (spans && lineEmojiAllSpanned(line, starts[idx], spans.code)) return
+    findings.push(f)
   })
+  // 文本位维度(棘轮):只在代码维判定后补漏,同行已有命中不重复登记
+  if (spans) {
+    const seenLines = new Set(findings.map((f) => f.line))
+    for (const hit of rawTextEmoji(text, spans.all, starts)) {
+      const lineNumber = hit.line
+      if (seenLines.has(lineNumber)) continue
+      if (allowedLines && !allowedLines.has(lineNumber)) continue
+      const line = lines[lineNumber - 1] ?? ''
+      if (isExempt(line, rel)) continue
+      findings.push({
+        line: lineNumber,
+        col: hit.col,
+        label: 'text emoji (visible copy)',
+        snippet: line.trim().slice(0, 140),
+        ratchet: true,
+      })
+      seenLines.add(lineNumber)
+    }
+    // 第二支:中文文案字符串字面量(见 CJK_RE 上方登记)。测试/生成物整文件不判。
+    if (!NON_UI_STRING_FILE_RE.test(rel)) {
+      for (const hit of stringEmojiHits(spans.strings, starts)) {
+        const lineNumber = hit.line
+        if (seenLines.has(lineNumber)) continue
+        if (allowedLines && !allowedLines.has(lineNumber)) continue
+        const line = lines[lineNumber - 1] ?? ''
+        if (isExempt(line, rel)) continue
+        findings.push({
+          line: lineNumber,
+          col: hit.col,
+          label: 'string emoji (user copy)',
+          snippet: line.trim().slice(0, 140),
+          ratchet: true,
+        })
+        seenLines.add(lineNumber)
+      }
+    }
+  }
   return findings
+}
+
+/** emoji 相关词法跨度(单源 = code-mask.scanSpans,不另造第二套扫描器)。 */
+function emojiSpans(text) {
+  if (!EMOJI_RE.test(text)) return null
+  const spans = scanSpans(text)
+  return {
+    // 代码维豁免:模板串 + 注释
+    code: spans.filter(
+      (s) => s.kind === 'line' || s.kind === 'block' || (s.kind === 'string' && s.isTemplate),
+    ),
+    // 文本位维度豁免:任何字面量/注释都不算"可见文案"
+    all: spans,
+    // 第二支只看普通字符串字面量(模板串仍按代码示例面豁免)
+    strings: spans.filter((s) => s.kind === 'string' && !s.isTemplate),
+  }
+}
+
+/** 绝对偏移 → 行号(行起点已预计算,二分;与 rawTextEmoji 同一算法)。 */
+function offsetToLine(idx, starts) {
+  let lo = 0
+  let hi = starts.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (starts[mid] <= idx) lo = mid
+    else hi = mid - 1
+  }
+  return lo + 1
+}
+
+/** 字符串字面量内的「中文 + emoji」命中(同一字面量必须两者都有)。 */
+function stringEmojiHits(stringSpans, starts) {
+  const out = []
+  for (const s of stringSpans) {
+    const body = s.body ?? ''
+    if (!CJK_RE.test(body)) continue
+    const m = new RegExp(EMOJI_RE.source, 'u').exec(body)
+    if (!m) continue
+    const abs = (s.bodyStart ?? s.start) + m.index
+    const line = offsetToLine(abs, starts)
+    out.push({ line, col: abs - starts[line - 1] + 1, ch: m[0] })
+  }
+  return out
+}
+
+function insideSpan(spans, idx) {
+  for (const s of spans) if (idx > s.start && idx < s.end) return true
+  return false
+}
+
+/** 该行所有 emoji 是否都落在给定跨度内(空行/无 emoji 返回 false)。 */
+function lineEmojiAllSpanned(line, absStart, spans) {
+  const matches = [...line.matchAll(new RegExp(EMOJI_RE.source, 'gu'))]
+  if (matches.length === 0 || spans.length === 0) return false
+  return matches.every((m) => insideSpan(spans, absStart + m.index))
+}
+
+/** 跨度外裸 emoji 扫描:绝对偏移 → 行/列(行起点预计算,避免逐命中切全文)。 */
+function rawTextEmoji(text, spans, starts) {
+  const out = []
+  const matches = [...text.matchAll(new RegExp(EMOJI_RE.source, 'gu'))]
+  for (const m of matches) {
+    if (insideSpan(spans, m.index)) continue
+    let lo = 0
+    let hi = starts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (starts[mid] <= m.index) lo = mid
+      else hi = mid - 1
+    }
+    out.push({ line: lo + 1, col: m.index - starts[lo] + 1, ch: m[0] })
+  }
+  return out
+}
+
+/** 台账键:文件 + 行 + 判据标签(不带 col —— 同行缩进调整不该让台账失效)。 */
+function ledgerKey(h) {
+  return `${h.file}:${h.line}:${h.label}`
+}
+
+/**
+ * 文本位存量台账判据(纯函数)。
+ * 规则:每条必须有 `class`(violation|legit)与 ≥10 字理由;存量命中必须在台账里逐条落账;
+ * 台账不得残留已消失的位置(否则台账与现读两套事实,正是它要防的漂移)。
+ * @returns {{problems: string[]}}
+ */
+export function judgeStockLedger({ ledger, hits }) {
+  const problems = []
+  const rows = new Map()
+  for (const e of ledger) {
+    const key = ledgerKey(e)
+    if (typeof e?.reason !== 'string' || e.reason.trim().length < 10)
+      problems.push(`台账理由不足 10 字:${key}`)
+    if (!['violation', 'legit'].includes(e?.class))
+      problems.push(`台账缺 class(violation|legit):${key}`)
+    if (rows.has(key)) problems.push(`台账同位置重复登记:${key}`)
+    else rows.set(key, e)
+  }
+  const hitKeys = new Set(hits.map(ledgerKey))
+  for (const key of hitKeys) if (!rows.has(key)) problems.push(`存量未落账:${key}`)
+  for (const key of rows.keys()) if (!hitKeys.has(key)) problems.push(`台账残留(该位置已无命中):${key}`)
+  return { problems }
+}
+
+/** 台账本体是随源码入库的模块(§22d:门内零磁盘读;台账与判据同版本,回滚一笔带走)。 */
+export function loadStockLedger() {
+  return EMOJI_TEXT_STOCK
 }
 
 /**
@@ -447,28 +713,40 @@ function analyze({ root = ROOT, face = 'head' } = {}) {
       fileReports: [],
       assetStock: 0,
       assetReports: [],
+      textStock: 0,
+      textReports: [],
       empty: true,
     }
   }
   const { texts, skippedMissing } = readSources(root, face, targets)
+  const staged = face === 'staged'
   let totalViolations = 0
   const fileReports = []
   let assetStock = 0
   const assetReports = []
+  let textStock = 0
+  const textReports = []
   for (const rel of targets) {
     // 只有 worktree 档会缺正文(并发席正删着),已计入 skippedMissing;判空串等于假绿
     if (!texts.has(rel)) continue
-    const findings = judgeText(rel, texts.get(rel), added ? added.get(rel) : null)
+    const findings = judgeText(rel, texts.get(rel), staged ? added.get(rel) : null)
     if (findings.length === 0) continue
-    // 棘轮(§0.5/§12e):asset 加固维度在**非 staged 档**(全量 HEAD / worktree)只报数不阻断;
-    // staged 档 judgeText 已按新增行过滤,命中必是"本次提交带进来的新增"⇒ 并入阻断集照拦。
-    if (ASSET_SCAN_EXTS.some((e) => rel.endsWith(e)) && face !== 'staged') {
-      assetStock += findings.length
-      assetReports.push({ file: rel, findings })
+    // 棘轮(§0.5/§12e):asset 加固维度与文本位维度在**非 staged 档**(全量 HEAD / worktree)
+    // 只报数不阻断;staged 档 judgeText 已按新增行过滤,命中必是"本次提交带进来的新增"⇒ 照拦。
+    const blocking = staged ? findings : findings.filter((f) => !f.ratchet)
+    const ratchet = staged ? [] : findings.filter((f) => f.ratchet)
+    if (ratchet.length > 0) {
+      textStock += ratchet.length
+      textReports.push({ file: rel, findings: ratchet })
+    }
+    if (blocking.length === 0) continue
+    if (!staged && ASSET_SCAN_EXTS.some((e) => rel.endsWith(e))) {
+      assetStock += blocking.length
+      assetReports.push({ file: rel, findings: blocking })
       continue
     }
-    totalViolations += findings.length
-    fileReports.push({ file: rel, findings })
+    totalViolations += blocking.length
+    fileReports.push({ file: rel, findings: blocking })
   }
   return {
     face,
@@ -478,6 +756,8 @@ function analyze({ root = ROOT, face = 'head' } = {}) {
     fileReports,
     assetStock,
     assetReports,
+    textStock,
+    textReports,
     empty: false,
   }
 }
@@ -506,7 +786,25 @@ function printReport(a) {
   if (a.assetStock > 0) {
     console.log(`  加固维度存量: ${a.assetStock} 处 (.svg/.css/.json — 棘轮档,全量面只报数不阻断)`)
   }
+  if (a.textStock > 0) {
+    console.log(`  文本位存量:   ${a.textStock} 处 (标题/段落/表格/徽章的裸 emoji — 棘轮档,只拦新增)`)
+  }
   console.log('')
+
+  if (a.textReports.length > 0) {
+    console.log(
+      `${C.yellow}${C.bold}🔎 文本位 emoji 存量 ${a.textStock} 处 — 只拦本次提交新增(--staged),存量清零后由后续票升 blocking${C.reset}`,
+    )
+    for (const { file, findings } of a.textReports) {
+      console.log(`${C.yellow}${file}${C.reset}`)
+      for (const f of findings) {
+        console.log(
+          `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.yellow}[${f.label}]${C.reset} ${f.snippet}`,
+        )
+      }
+    }
+    console.log('')
+  }
 
   if (a.assetReports.length > 0) {
     console.log(
@@ -545,7 +843,7 @@ function printReport(a) {
   console.log(`  3. Taro 端:static/images/icons/*.svg + <Image src="/static/images/icons/xxx.svg" />`)
   console.log(`  4. 配置数组 icon: 'emoji' → icon: LucideIcon 组件引用`)
   console.log(`  5. 动态切换图标用三元组件: {playing ? <Pause /> : <Play />}`)
-  console.log(`  6. 豁免范围:注释 / i18n 文案参数 / 评分星 / 表情面板 / docs 正文装饰(不含 icon: 字段)`)
+  console.log(`  6. 豁免范围:注释 / i18n 文案参数 / 评分星 / 表情面板 / 代码示例与注释跨度(模板串)`)
   console.log('')
 
   if (a.face === 'staged') {
@@ -601,6 +899,27 @@ export async function main(argv = process.argv.slice(2)) {
     console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx/.svg/.css/.json 变更,跳过${C.reset}`)
     return 0
   }
+  // 文本位存量台账对账(全量面;--staged 只看新增行,不对存量台账施加恒红)。
+  // 台账不一致 = 存量与账两套事实;新增仍由 ratchet 拦截,故此处**只报不改退出码**
+  // (存量清零属后续票;把它立刻升 blocking 会在并行席改动存量处恒红,§12e)。
+  if (face !== 'staged' && result.textReports.length > 0) {
+    let ledger
+    try {
+      ledger = loadStockLedger(ROOT)
+    } catch (e) {
+      console.error(`❌ 无法判定:${e?.message ?? e}`)
+      return 2
+    }
+    const hits = result.textReports.flatMap(({ file, findings }) =>
+      findings.map((f) => ({ file, line: f.line, label: f.label })),
+    )
+    const { problems } = judgeStockLedger({ ledger, hits })
+    if (problems.length === 0) console.log(`${C.green}✅ 文本位存量台账:${hits.length} 处逐条对账通过${C.reset}`)
+    else {
+      console.log(`${C.yellow}${C.bold}❌ 文本位存量台账不一致(${problems.length} 项):${C.reset}`)
+      for (const p of problems) console.log(`  - ${p}`)
+    }
+  }
   return printReport(result)
 }
 
@@ -637,6 +956,8 @@ export const __test__ = {
   EMOJI_PICKER_FILE_RE,
   EMOJI_CHAR_CLASS,
   CHAR_CLASS_BROKEN,
+  judgeStockLedger,
+  loadStockLedger,
   UI_SCAN_ROOTS,
   SCAN_EXTS,
   ASSET_SCAN_EXTS,

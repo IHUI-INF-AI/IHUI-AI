@@ -17,8 +17,8 @@
  * `./index.ts` 的 `CheckpointManager` 取命名分配与序列身份推导。
  */
 
-export const SNAPSHOT_SERIES_SEPARATOR = '@v'
-export const SNAPSHOT_SERIES_MIN_VERSION = 1
+const SNAPSHOT_SERIES_SEPARATOR = '@v'
+const SNAPSHOT_SERIES_MIN_VERSION = 1
 export const SNAPSHOT_SERIES_MAX_VERSION = 999_999_999
 /** 序列种子摘要的十六进制长度(= uuid 去掉连字符后的 32 位) */
 export const SNAPSHOT_SERIES_SEED_HEX_LENGTH = 32
@@ -35,7 +35,7 @@ export interface SnapshotSeriesRef {
   version: number;
 }
 
-export type SnapshotSeriesFailureReason =
+type SnapshotSeriesFailureReason =
   | 'empty-name'
   | 'unsafe-path-segment'
   | 'missing-separator'
@@ -57,7 +57,7 @@ export type SnapshotSeriesUuidResult =
   | { ok: true; uuid: string }
   | { ok: false; reason: 'malformed-seed-hex'; detail: string };
 
-export interface SnapshotSeriesViolation {
+interface SnapshotSeriesViolation {
   name: string;
   reason: 'malformed-name' | 'duplicate-version' | 'version-regression';
   detail: string;

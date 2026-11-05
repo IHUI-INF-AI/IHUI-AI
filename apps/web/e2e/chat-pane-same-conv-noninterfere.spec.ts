@@ -504,6 +504,20 @@ async function dropConversationIntoPane(
   expect(dropped, `${paneId} 必须暴露 [data-pane-empty] 落点`).toBe('dispatched')
 }
 
+/**
+ * 到达「向右拆分」入口(2026-11-04 信息架构重构后的取法):
+ * 入口已从面板头部可见 IconButton 收进「⋯」溢出菜单,菜单项是 Radix `DropdownMenu.Item`
+ * ⇒ 渲染成 `role="menuitem"`(不再是 button)。先点触发器 `ai-panel-overflow-trigger`
+ * 打开菜单,再点同名菜单项;「入口存在」的判据由 toBeVisible 承担
+ * (等价替换原来的 `toHaveCount(1, { timeout: 30_000 })`,超时数值同值)。
+ */
+async function splitRight(page: Page): Promise<void> {
+  await page.locator('[data-testid="ai-panel-overflow-trigger"]').click()
+  const item = page.getByRole('menuitem', { name: SPLIT_ENTRY_RE })
+  await expect(item).toBeVisible({ timeout: 30_000 })
+  await item.click()
+}
+
 async function sendInPane(page: Page, pane: string, text: string): Promise<void> {
   const box = page.locator(`[data-pane-leaf="${pane}"] textarea`).first()
   await expect(box).toBeVisible({ timeout: 30_000 })
@@ -511,12 +525,20 @@ async function sendInPane(page: Page, pane: string, text: string): Promise<void>
   await page.locator(`[data-pane-leaf="${pane}"] [data-testid="send-button"]`).first().click()
 }
 
-/** 在某格的 mode-switcher 里点「工具面板」(菜单经 portal 渲染,打开态下全页唯一) */
+/** 在某格开合工具面板(2026-11-04 信息架构重构后的取法):
+ *  mode-switcher 已随输入区收敛进本格 `+` 菜单(portal 到 body、不在 `[data-pane-leaf]`
+ *  DOM 内),所以先点本格可见的 `add-menu-trigger`,再对门户菜单里唯一打开的
+ *  mode-switcher 操作;选完「工具面板」后 Esc 收起菜单,避免下一步点另一格的 `+`
+ * 时先被"点外部关闭"吃掉一次。 */
 async function toggleToolsPanelIn(page: Page, pane: string): Promise<void> {
-  await page.locator(`[data-pane-leaf="${pane}"] [data-testid="mode-switcher"]`).first().click()
+  await page.locator(`[data-pane-leaf="${pane}"] [data-testid="add-menu-trigger"]`).first().click()
+  const modeSwitcher = page.locator('[data-testid="mode-switcher"]')
+  await expect(modeSwitcher).toBeVisible({ timeout: 10_000 })
+  await modeSwitcher.first().click()
   const item = page.locator('[data-testid="menu-tools-panel"]')
   await expect(item).toHaveCount(1, { timeout: 10_000 })
   await item.click()
+  await page.keyboard.press('Escape')
 }
 
 function toolsPanelBody(page: Page, pane: string) {
@@ -560,9 +582,9 @@ async function prepareSameConversationTwoPanes(page: Page, spec: ConvSpec): Prom
     timeout: 30_000,
   })
 
-  const entry = page.getByRole('button', { name: SPLIT_ENTRY_RE })
-  await expect(entry).toHaveCount(1, { timeout: 30_000 })
-  await entry.first().click()
+  // 2026-11-04 信息架构重构:拆分入口从头部 IconButton 收进「⋯」溢出菜单 ⇒ button 变 menuitem,
+  // 原 toHaveCount(1) 的"入口存在"语义由 helper 内的 toBeVisible 承担(判据不缩水)。
+  await splitRight(page)
   await expect(page.locator('[data-pane-split-root]')).toHaveAttribute(
     'data-pane-leaf-count',
     '2',

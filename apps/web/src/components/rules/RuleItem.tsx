@@ -38,7 +38,9 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
         isActive && 'ring-1 ring-foreground/10',
       )}
     >
-      <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">{index}</span>
+      <span className="font-[weight:inherit] w-6 shrink-0 text-right text-label text-muted-foreground">
+        {index}
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-body font-medium">{rule.name}</span>
@@ -54,7 +56,9 @@ function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: Rul
           )}
         </div>
         {rule.description && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{rule.description}</p>
+          <p className="font-[weight:inherit] mt-0.5 truncate text-label text-muted-foreground">
+            {rule.description}
+          </p>
         )}
       </div>
       <Badge

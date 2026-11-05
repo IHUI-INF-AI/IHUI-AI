@@ -7018,5 +7018,21 @@
   },
   "student": {
     "myCertsTitle": "我的证书"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "提问"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支付方式"
+    }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 密钥"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "暂无下级成员"
   }
 }

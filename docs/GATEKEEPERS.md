@@ -431,6 +431,30 @@ git commit
 
 ---
 
+## 3c. 跨端三把新尺(299/300/301,2026-11-05 落地,均 blocking)
+
+> 编号 = `scripts/guardian-runner.mjs` 注册 id;判据唯一实现在各脚本头注与 `scripts/lib/**`;存量/读数一律现读(`AGENTS.md §0.1`)。
+
+### 第 299 项 check-miniapp-shell-form.mjs(小程序「薄壳 vs 复制」实现形态)
+
+- **判什么**:在册页面若在共享屏登记表/四形镜像声明里被声明为镜像/委托,却**没有真的 import** 共享壳(`@rn-shells/*` / `@ihui/rn-app/features/*` / barrel 同名屏)⇒ 判为复制页。新增复制页即红,存量 93 页走 `scripts/data/miniapp-shell-copy-ledger.jsonl` 棘轮(纯复制 81 / 有本地改动 12)。
+- **面**:默认 HEAD、`--staged` 索引、`--worktree` 人工逃生舱;台账读工作树。映射/在册页读不到 ⇒ exit 2 点名,不折绿。
+- **出口**:`node scripts/check-miniapp-shell-form.mjs [--staged|--worktree|--json|--explain|--self-test|--emit-baseline]`;应急 `HUSKY_SKIP_MINIAPP_SHELL_FORM=1`。
+
+### 第 300 项 check-api-endpoint-delta.mjs(API 端点「端内直拼」差异台账)
+
+- **判什么**:三端 `src` 内的 `/api` 路径字面量/模板串/常量透传,按端与共享端点清单做差集;端内独有前缀未登记 ⇒ 红,新登记行必须带 `verdict`(非 pending)+ owner + reason(≥10 字);识别不了的调用点记「未判定」并计数,不当成「没有」。
+- **面**:默认 HEAD、`--staged` 索引;共享真相源 `packages/api-client/src/endpoints/**`;台账 `scripts/data/api-endpoint-delta-ledger.jsonl`(存量 119 行全 baseline,逐条待裁决,不批量白名单)。
+- **出口**:`node scripts/check-api-endpoint-delta.mjs [--staged|--json|--explain|--self-test|--emit-baseline|--depth N]`;应急 `HUSKY_SKIP_API_ENDPOINT_DELTA=1`。
+
+### 第 301 项 check-web-mp-route-carriers.mjs(web ↔ 小程序共享屏承载路由)
+
+- **判什么**:共享屏的 web 路由在小程序侧是否真有承接路由;缺承载 / 路由不存在 / 别名冲突 ⇒ 红,认不出的单列「未判定」。基线读数(现读):272 屏 / 承载 253 / 缺承载 0 / 路由不存在 0 / 未判定 1 / 合法 18 / 别名 1 / 冲突 0。
+- **面**:`apps/web/`、`apps/miniapp-taro/src/app.config.ts`、`packages/app/src/features/`、`scripts/data/web-rn-screen-map.jsonl`、`scripts/data/cross-end-screen-registry.json`、`scripts/data/web-mp-route-carrier-{ledger,legal}.jsonl`。
+- **出口**:`node scripts/check-web-mp-route-carriers.mjs [--staged|--gate|--json|--explain|--self-test]`;应急 `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1`。
+
+---
+
 ## 4. post-commit git-push-guard.mjs
 
 `scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。
@@ -514,7 +538,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 > `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-03 起该前提不再构成授权**:默认永不跳钩,见 §6.1。
 
-### 6.3 跨端五门应急跳过变量(2026-11-03)
+### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门)
 
 | 门 | 脚本 | 跳过变量 | 默认档 |
 |----|------|----------|--------|
@@ -523,8 +547,11 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | 290 | `scripts/check-miniapp-interaction-hygiene.mjs` | `HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE=1` | blocking(A1/A2);A3/A4 advisory |
 | 291 | `scripts/check-web-rn-copy-parity.mjs` | `HUSKY_SKIP_WEB_RN_COPY_PARITY=1` | blocking(B1/B3);B2 advisory |
 | 298 | `scripts/check-staged-downgrade.mjs` | `HUSKY_SKIP_STALE_DOWNGRADE=1` | blocking |
+| 299 | `scripts/check-miniapp-shell-form.mjs` | `HUSKY_SKIP_MINIAPP_SHELL_FORM=1` | blocking(新增复制页;存量 93 页棘轮) |
+| 300 | `scripts/check-api-endpoint-delta.mjs` | `HUSKY_SKIP_API_ENDPOINT_DELTA=1` | blocking(未登记端内独有前缀) |
+| 301 | `scripts/check-web-mp-route-carriers.mjs` | `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1` | blocking(缺承载/路由不存在/冲突) |
 
-> 五个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
+> 八个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 
 ---
 

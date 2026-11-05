@@ -230,7 +230,7 @@ export function PointsScreen({
                 </Text>
               </View>
               <Text style={styles.cardMuted}>
-                {t('points.signIn.consecutive', { days: today?.consecutiveDays ?? 0 })} ·{' '}
+                {t('points.signIn.consecutiveDays', { days: today?.consecutiveDays ?? 0 })} ·{' '}
                 {t('points.signIn.todayReward')}: {today?.todayReward ?? 0}
               </Text>
               <TouchableOpacity
@@ -253,7 +253,7 @@ export function PointsScreen({
 
             {history ? (
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>{t('points.signIn.historyTitle')}</Text>
+                <Text style={styles.cardTitle}>{t('points.signIn.history')}</Text>
                 {history.loading ? (
                   <ActivityIndicator style={styles.txState} color={tk.text.tertiary} />
                 ) : history.failed ? (
@@ -270,7 +270,7 @@ export function PointsScreen({
                     </TouchableOpacity>
                   </View>
                 ) : history.items.length === 0 ? (
-                  <Text style={styles.cardMuted}>{t('points.signIn.historyEmpty')}</Text>
+                  <Text style={styles.cardMuted}>{t('points.signIn.empty')}</Text>
                 ) : (
                   history.items.map((row) => (
                     <View key={row.signInDate} style={styles.txRow}>

@@ -119,6 +119,14 @@
 //     (含常量拼接链,见 evalStaticExpr 三形判序)才算前缀覆盖;整链可求 ⇒ 按全键接线;
 //     求到一半停在不可求值部分 ⇒ 静态前缀;开头就读不出 ⇒ 照旧动态。改前这类真实发射点全部
 //     判动态/伪键,是"有译文零生产者"假阳性 11753 的主要在册失效型之一(禁整批删词包)。
+//   - **C6 的第五族发射形态**(注入型取词器,2026-11-05 G-816043 补):`t` 不是本文件自己取的,
+//     而是由调用方注入 —— `function X({ t }: Props)` / `({ t }) => …` / `const { t } = props` /
+//     `props.t('x')` / `const { t } = useContext(X)` / `const t = useContext(X).t` /
+//     `const t = useXxxTranslator()` / 显式 `t: TFunction` 参数。packages/app 的共享屏把 `t`
+//     当 prop 收(WalletScreenProps.t),前四族不认 ⇒ 这些屏的发射点全判未接线,词表加键就被
+//     棘轮拦(2026-11-05 实测 mobile-rn 未接线 2664 → 948)。**每一种都必须认出来源**;
+//     认不出来源的裸 `t(...)` 计入 `undetermined`(只报数、不接线、不判绿),
+//     变异对照 `mutate=no-injected` 让正例退回红(镜像 T17 端到端钉同一条)。
 //
 // 判据不会恒红(本仓反复付学费换来的一条):存量走**棘轮**,锚点 = 该文件在 HEAD 自身的
 // 未接线数 —— 只拦"这次改动把未接线加回来了",不追仓库既有债。与改动无关的 blocking 红
@@ -795,7 +803,116 @@ export function extractI18nUsages(text, opts = {}) {
       else fullKeys.push(arg.value)
     }
   }
-  return { fullKeys, prefixes, dynamic, ambiguous }
+  // 第五族(2026-11-05,G-816043 补):**注入型取词器**。前四族只认"本文件自己取词",
+  // 而 packages/app/** 的共享屏把 `t` 当 prop 收(TFunction,见 WalletScreenProps.t),
+  // 于是 `({ t }) => t('wallet.title')` 的发射点一个都不认 ⇒ 往词包加键被棘轮判红。
+  // 边界(不许把门关掉):每一种形态都必须**认出来源**,只认下列六条;
+  // 认不出来源的裸 `t(...)` 计入 undetermined(只报数、不接线、不判绿)。
+  const injected = new Set() // 由 prop/context/hook 注入、本文件内可静态认出来源的取词器
+  // 变异对照通道(与 noStaticConcat 同纪律):关掉第五族 ⇒ 已接线正例必须退回未接线。
+  const allowInjected = opts.noInjected !== true && opts.mutate !== 'no-injected'
+  const addInjected = (local) => {
+    if (!local) return
+    if (nsByLocal.has(local) || rootEmitters.has(local)) return // 已由前四族认领
+    injected.add(local)
+  }
+  const takePatternNames = (pattern) => {
+    for (const raw of pattern.split(',')) {
+      const name = (/^\s*(?:\.\.\.)?([A-Za-z0-9_$]+)/.exec(raw) || [])[1]
+      if (name && name === 't') addInjected(name)
+    }
+  }
+  // ① 参数解构:function X({ t }: Props) / ({ t }) => / ({ title, t }) => …
+  const PARAM_DESTR_RE =
+    /\bfunction\s*[A-Za-z0-9_$]*\s*\(\s*\{([^}]*)\}\s*(?::[^)]{0,160})?\)|\(\s*\{([^}]*)\}\s*(?::[^)]{0,160})?\)\s*=>/g
+  while ((m = PARAM_DESTR_RE.exec(code))) {
+    if (inData(m.index)) continue
+    takePatternNames(m[1] !== undefined ? m[1] : m[2])
+  }
+  // ② props 解构:const { t } = props / const { t } = this.props
+  const PROPS_DESTR_RE =
+    /\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:this\s*\.\s*)?props\b/g
+  while ((m = PROPS_DESTR_RE.exec(code))) {
+    if (inData(m.index)) continue
+    takePatternNames(m[1])
+  }
+  // ③ props 成员:const t = props.t / const t = this.props.t
+  const PROPS_MEMBER_RE =
+    /\b(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:this\s*\.\s*)?props\s*\.\s*t\b/g
+  while ((m = PROPS_MEMBER_RE.exec(code))) {
+    if (inData(m.index)) continue
+    addInjected(m[1])
+  }
+  // ④ context:const { t } = useContext(X) / const t = useContext(X).t
+  const CTX_DESTR_RE = /\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*useContext\s*\(/g
+  while ((m = CTX_DESTR_RE.exec(code))) {
+    if (inData(m.index)) continue
+    takePatternNames(m[1])
+  }
+  const CTX_MEMBER_RE =
+    /\b(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*useContext\s*\([^)]*\)\s*\.\s*t\b/g
+  while ((m = CTX_MEMBER_RE.exec(code))) {
+    if (inData(m.index)) continue
+    addInjected(m[1])
+  }
+  // ⑤ 取词钩子返回:const t = useXxxTranslator()(useTranslations 已由 BIND_RE 认领)
+  const HOOK_FN_RE =
+    /\b(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:await\s+)?use[A-Za-z0-9_$]*(?:Translator|Translation|Translate|I18n|I18N)\s*\(/g
+  while ((m = HOOK_FN_RE.exec(code))) {
+    if (inData(m.index)) continue
+    addInjected(m[1])
+  }
+  // ⑥ 显式类型标注:function X(t: TFunction)(参数直收)
+  const TYPED_PARAM_RE = /[,(]\s*t\s*:\s*TFunction\b/g
+  while ((m = TYPED_PARAM_RE.exec(code))) {
+    if (inData(m.index)) continue
+    addInjected('t')
+  }
+  const scanInjectedCalls = (callRe) => {
+    let mm
+    while ((mm = callRe.exec(code))) {
+      if (inData(mm.index)) continue
+      const rest = code.slice(mm.index + mm[0].length, mm.index + mm[0].length + 400)
+      const arg = parseCallArg(rest)
+      if (arg.kind === 'dynamic') {
+        const tabKeys = tableIndexKeys(rest)
+        if (tabKeys) {
+          for (const k of tabKeys) fullKeys.push(k)
+          continue
+        }
+        dynamic++
+        continue
+      }
+      if (arg.kind === 'prefix') prefixes.push(arg.value)
+      else fullKeys.push(arg.value)
+    }
+  }
+  for (const local of injected) {
+    if (!allowInjected) break
+    if (nsByLocal.has(local)) continue
+    scanInjectedCalls(
+      new RegExp(
+        `(?<![A-Za-z0-9_$.])${local.replace(/\$/g, () => '\\$')}\\s*(?:\\.(?:rich|raw|markup)\\s*)?\\(`,
+        'g',
+      ),
+    )
+  }
+  // ③ 的调用形:props.t('x') / this.props.t('x')(不经局部变量,直接成员取词)
+  if (allowInjected)
+    scanInjectedCalls(/(?<![A-Za-z0-9_$.])(?:this\s*\.\s*)?props\s*\.\s*t\s*(?:\.(?:rich|raw|markup)\s*)?\(/g)
+  // 来源无法静态判定:裸 `t(...)` 且本文件没有任何一族认领 `t` ⇒ 计 undetermined。
+  // 只报数、不接线(这些键照旧留在未接线里) —— 判不了 ≠ 判没有,也 ≠ 判绿。
+  let undetermined = 0
+  if (!nsByLocal.has('t') && !rootEmitters.has('t') && !(allowInjected && injected.has('t'))) {
+    const BARE_T_RE = /(?<![A-Za-z0-9_$.])t\s*(?:\.(?:rich|raw|markup)\s*)?\(/g
+    while ((m = BARE_T_RE.exec(code))) {
+      if (inData(m.index)) continue
+      const before = code.slice(Math.max(0, m.index - 24), m.index)
+      if (/\b(?:function|const|let|var|class|new)\s*$/.test(before)) continue // 声明/构造处不是发射点
+      undetermined++
+    }
+  }
+  return { fullKeys, prefixes, dynamic, ambiguous, undetermined }
 }
 
 /**
@@ -810,12 +927,14 @@ export function judgeI18n(files, lexicon, opts = {}) {
   const emittedPrefixes = []
   let dynamic = 0
   let ambiguous = 0
+  let undeterminedSites = 0
   for (const [rel, text] of files) {
     // 发射点面比候选面宽:含 Next.js App Router 的 apps/web/app/**(见 inI18nScanRoot 注)
     if (!inI18nScanRoot(rel) || typeof text !== 'string') continue
     const u = extractI18nUsages(text, opts)
     dynamic += u.dynamic
     ambiguous += u.ambiguous
+    undeterminedSites += u.undetermined ?? 0
     for (const k of u.fullKeys) emittedFull.add(k)
     for (const p of u.prefixes) emittedPrefixes.push(p)
   }
@@ -867,6 +986,7 @@ export function judgeI18n(files, lexicon, opts = {}) {
     perFile,
     dynamic,
     ambiguous,
+    undeterminedSites,
     skipped,
     undetermined,
     emitted: emittedFull.size,
@@ -1404,7 +1524,10 @@ export function judge(files, opts = {}) {
   }
   let i18n = null
   if (opts.lexicon) {
-    i18n = judgeI18n(files, opts.lexicon, { noStaticConcat: mutate === 'no-concat-prefix' })
+    i18n = judgeI18n(files, opts.lexicon, {
+      noStaticConcat: mutate === 'no-concat-prefix',
+      noInjected: mutate === 'no-injected',
+    })
     // C6 计数并入同一 perFile ⇒ 与 C1~C5 共用 decide() 棘轮(键空间不同不相撞:
     // 词表路径不在 apps|packages/*/src 扫描根里)
     for (const [f, n] of Object.entries(i18n.perFile)) perFile[f] = (perFile[f] || 0) + n
@@ -1644,7 +1767,7 @@ export function main(argv) {
       console.log(`   ⚠️ 名字命中但声明行读不出工厂形态 ⇒ 未立案(不判红也不计未判定):${u}`)
     if (i18n) {
       console.log(
-        `ℹ️ i18n 码表(C6):未接线 ${i18nUnwiredTotal} 键(动态拼键 ${i18n.dynamic} 处、歧义绑定 ${i18n.ambiguous} 处${i18n.skipped.length ? `、异常面板 ${i18n.skipped.length} 个` : ''} —— 动态/歧义只报数不判红)`,
+        `ℹ️ i18n 码表(C6):未接线 ${i18nUnwiredTotal} 键(动态拼键 ${i18n.dynamic} 处、歧义绑定 ${i18n.ambiguous} 处、注入来源未判定 ${i18n.undeterminedSites} 处${i18n.skipped.length ? `、异常面板 ${i18n.skipped.length} 个` : ''} —— 动态/歧义/未判定只报数不判红)`,
       )
       for (const [f, v] of Object.entries(i18n.byFolder)) {
         if (!v.unwired) continue
@@ -2474,6 +2597,69 @@ function selfTest() {
     'U7 根 ns 第二族同样吃拼接前缀(cli 形状)',
     [iConRoot.i18n.prefixes, iConRoot.i18n.byFolder.web.unwired],
     [1, 1],
+  )
+
+  // ⑯b C6 第五族(2026-11-05,G-816043 补):**注入型取词器** —— prop / 参数解构 / context / 钩子返回。
+  //   正例四条必须全部接线;反例四条照旧红(不许把门关成"含 t( 就放行")。
+  const INJ_POS = [
+    [
+      'P1 参数解构 ({ t }: Props)',
+      "import type { TFunction } from '@ihui/types'\nexport function S({ t }: { t: TFunction }): string { return t('chat.hi') }\n",
+    ],
+    [
+      'P2 props 解构 const { t } = props',
+      "export function S(props: { t: (k: string) => string }): string { const { t } = props; return t('chat.hi') }\n",
+    ],
+    [
+      'P3 取词钩子返回 const t = useXxxTranslator()',
+      "export function S(): string { const t = useXxxTranslator(); return t('chat.hi') }\n",
+    ],
+    [
+      'P4 context const t = useContext(X).t',
+      "export function S(): string { const t = useContext(I18nCtx).t; return t('chat.hi') }\n",
+    ],
+  ]
+  for (const [name, src] of INJ_POS) {
+    const r = judge(new Map([['apps/mobile-rn/src/a.tsx', src]]), { lexicon: lexMap })
+    eq(
+      `I19 ${name} ⇒ 发射点接线(chat.hi 摘出未接线,余 2 键仍报)`,
+      [r.i18n.emitted, r.i18n.byFolder.web.unwired],
+      [1, 2],
+    )
+  }
+  const INJ_NEG = [
+    [
+      'N1 局部变量持有普通字符串冒充 t',
+      "const t = 'not-a-translator'\nexport function S(): string { return t('chat.hi') }\n",
+    ],
+    [
+      'N2 局部函数把字面量拼接冒充翻译',
+      "const t = (k: string) => 'raw.' + k\nexport function S(): string { return t('chat.hi') }\n",
+    ],
+    ['N3 未包 i18n 的直接中文串', "export function S(): string { return '你好' }\n"],
+    ['N4 识别不了的动态键', "export function S(k: string): string { return t(k) }\n"],
+  ]
+  for (const [name, src] of INJ_NEG) {
+    const r = judge(new Map([['apps/mobile-rn/src/a.tsx', src]]), { lexicon: lexMap })
+    eq(
+      `I20 ${name} ⇒ 不接线(3 键全部留在未接线)`,
+      [r.i18n.emitted, r.i18n.byFolder.web.unwired],
+      [0, 3],
+    )
+  }
+  eq(
+    'I20 来源无法静态判定 ⇒ 落 undetermined 计数(不折成 0、也不当绿)',
+    judge(new Map([['apps/mobile-rn/src/a.tsx', INJ_NEG[3][1]]]), { lexicon: lexMap }).i18n
+      .undeterminedSites,
+    1,
+  )
+  eq(
+    'M8 变异对照 mutate=no-injected ⇒ 已接线的 props 注入正例退回未接线(新族不是摆设)',
+    judge(new Map([['apps/mobile-rn/src/a.tsx', INJ_POS[1][1]]]), {
+      lexicon: lexMap,
+      mutate: 'no-injected',
+    }).i18n.byFolder.web.unwired,
+    3,
   )
 
   // ⑰ C7 工厂族(G-816034 ①②):候选族扩到导出 create*Handler / create*Transport
