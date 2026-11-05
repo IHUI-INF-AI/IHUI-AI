@@ -66,10 +66,10 @@
     "id": "client-sync-leg-workbuddy",
     "prefix": "WorkBuddy 号池保活腿失效(本机会话不再回灌)",
     "cooldownMs": 604800000,
-    "reason": "2026-11-03 临时止血:本机回灌腿计划任务 IHUI-WorkBuddy-Session-Sync 已 /DISABLE(只停腿、未删任务),腿不再跑也不再产生新的 breach 读数;保活不依赖此腿(续期走 server 端 5 分钟 sweep、空闲 7 天续票、API 签到)。窗口由 720 分钟临时拉长到 7 天(168h),仅为存量 breach 共振降噪。guardian 审计 auditWorkbuddySessionSyncTask 仍保留(scripts/git-guardian.mjs 正由他人修改,本轮不碰),故本条目必须保留不删——先删条目会退回默认 4h 窗口、反而更吵;等 guardian 审计摘除后再删条目。恢复腿时须把 cooldownMs 改回 43200000。Qoder 腿是另一条腿、另一个告警名,不受影响。",
+    "reason": "2026-11-05 腿已恢复,但「窗口回收」这一格暂不动。已成立:回灌腿当天用 scripts/setup-qoder-session-sync-task.ps1 -Kind workbuddy 重新注册并 InteractiveToken 启用,日志现读 10 轮、末 4 轮 applied=1(真产出会话模板回灌),哨兵五维 ok ⇒ 11-03 拉长窗口所要消的那股 breach 共振源头已不存在,本条本该照它自己写的「恢复腿时须把 cooldownMs 改回 43200000」回收。未成立:实测把真实值改成 43200000 后,scripts/tests/alert-delivery-policy.test.mjs 的「族级 24h 上限:逐族实测」从 1 封升到 2 封,与在册期望 cap24=1 顶住 —— 这个期望该填几个放行数,要先读 notifyGuardRed 的 due 判据实现才算得准;没读清之前不把窗口和期望各改一半,那只会让账面与实现对不上。故本条维持 168h,恢复动作连同 cap24 期望同批结清。历史留账:11-03 因该腿停摆产生持续 breach 读数而临时 /DISABLE(只停腿未删任务)并拉到 7 天,当时原文写明恢复条件。guardian 审计 auditWorkbuddySessionSyncTask 仍在册 ⇒ 条目保留不删(先删条目会退回默认 4h 窗口反而更吵,那条理由未变)。Qoder 腿是另一条腿、另一个告警名,不受本条影响。",
     "owner": "git-guardian",
     "reviewBy": "2026-11-16",
-    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 7 封 / 1 个 alertId(3f77e5cb15ec);24h 5 封(间隔 601/256/263/293 分钟)"
+    "evidence": "腿已恢复的凭据 2026-11-05 现读:node scripts/check-qoder-session-sync-task.mjs --task IHUI-WorkBuddy-Session-Sync --log D:/DevEnv/logs/workbuddy-session-sync.log --json ⇒ overall=ok(五维 task_registered/wrapper/identity/log_fresh/log_verdict 全 ok,读数 total=1 applied=1);同一日志现读 10 轮 RUN、末 4 轮 applied=1。窗口未回收的凭据:node --test scripts/tests/alert-delivery-policy.test.mjs 在 cooldownMs=43200000 下「族级 24h 上限」判 2 封(cap24 期望 1),改回 604800000 后同用例回绿。拉长窗口的历史凭据(11-03 立时读数,留账不重算):mail-send-ledger.jsonl 7d 7 封 / 1 个 alertId;24h 5 封"
   },
   {
     "id": "public-entry-tunnel-leg",
