@@ -53,11 +53,18 @@ userId}`** —— 发蛇形 `event_code` 或漏 `timestamp` 会被上游 400 `10
 若运维把配置清空则回到"拒绝执行"。
 `www.workbuddy.ai` 对本 token 全域 401(连对照路径也 401)⇒ 国际域需另一套凭据,未验证。
 
-**上报 200 ≠ 计分(真机实测,2026-10-31 → 2026-11-05 复证)**:11 枚事件码全部 POST 200 后,
-任务列表仍 `status=available`(progress 字段上游不返回)。原因见竞品 README:网关按任务类别
-校验「客户端指纹 + 判据事件链」(CLI / 桌面 `WorkBuddy/5.5.6` / Web 三套),单纯遥测上报不足以
-达标。2026-11-05 进一步实证:用账号 JWT 直打产品行为端点(如 `/v2/chat/completions`)被 **403**
-(行为端点要实时客户端会话上下文)⇒ 服务端引擎无法「服务器到服务器」伪造真行为。
+**上报 200 ≠ 计分(真机实测,2026-10-31 → 2026-11-05 两轮复证)**:
+- 第一轮:11 枚事件码全部 POST 200 后,任务列表仍 `status=available`。
+- 第二轮(2026-11-05 账号 3564,4 个事件码 × 令牌域/WEB 域共 16 次,全 200 code:0):
+  事件后复列 WEB 域 18 行,`template_5`/`chat_5`/`skill_1`/`expert_5` 的 progress 与 status
+  **逐字段零变化** ⇒ 合成遥测事件对成长计分**零效果**;受理回执不是计分凭据(§0.3)。
+- 附带证伪:`/v2/report-assistant` 在令牌域与 WEB 域**均 404「404 Route Not Found」**
+  ⇒ 上报端点族只有 `/v2/report` 一条,不存在「第二个上报端点」。
+- 真实判据是 `progress`/`target`:真机 WEB 域行形如
+  `{task_code,title,progress,target,status,accept_status,reward_credit,reward_energy}`,
+  progress 由**真实行为**推进,到 target ⇒ status 翻 claimed ⇒ 才可 claim。
+- 行为端点(如 `/v2/chat/completions`)用账号 JWT 直打被 **403**(要实时客户端会话上下文)
+  ⇒ 服务端引擎无法「服务器到服务器」伪造真行为。
 
 **故本模块 2026-11-05 重塑后的定位(机主授权「把功能开发完整、用我们自己的功能」)**:
 - 完整理解任务生命周期:`list → classify(可判定/待实操) → attempt(可自动则自动,
@@ -65,6 +72,9 @@ userId}`** —— 发蛇形 `event_code` 或漏 `timestamp` 会被上游 400 `10
 - **不在服务端伪造判据链**:行为类任务要么由持有合法客户端会话的真实驱动器(将来接入,
   在 workbuddy_behaviors.BehaviorPlan.driver 注册)完成,要么如实登记为「待用户在客户端实操」
   并给出精确指引(见 workbuddy_behaviors.BEHAVIOR_PLANS)—— 绝不发空转刷次数的合成事件。
+- **代发路径的返回真值判据**(`_fire_growth_events` + `_growth_progress_advanced`):
+  事件受理(200/code:0)**不算**已计分;只有重读任务列表确认 progress/status 确已前进,
+  才回报「已计分」并让 claim 闭环接手;否则如实登记待用户实操。
 - 把能自动化的腿全部自动化(领任务 / 达标领奖 / 兑换 / 抽奖 / 猫猫旅行 / 夜猫子),并对
   真行为类任务给出可直接执行的用户动作清单,闭环完整、可审计。
 
@@ -821,6 +831,59 @@ async def _claim_one_web(
     return False, f"上游 code={code}{_msg_suffix(payload)}", False
 
 
+async def _growth_progress_snapshot(
+    jwt: str,
+    device_map: dict[str, Any],
+    code: str,
+    *,
+    client: httpx.AsyncClient | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> dict[str, Any] | None:
+    """读某任务的成长进度快照 {progress, target, status, accept_status}。
+
+    取不到该行 ⇒ None(未判定,不拿空对象冒充「没进度」)。CLI 域与 WEB 域都读一遍 ——
+    同一码可能在两域都出现,任一域有行即取该行。
+    """
+    for web in (False, True):
+        lst = await list_growth_tasks(jwt, device_map, client=client, timeout=timeout, web=web)
+        if not lst["ok"]:
+            continue
+        for t in lst.get("tasks") or []:
+            if str(t.get("task_code") or "") != code:
+                continue
+            return {
+                "progress": t.get("progress"),
+                "target": t.get("target"),
+                "status": t.get("status"),
+                "accept_status": t.get("accept_status"),
+            }
+    return None
+
+
+def _growth_progress_advanced(
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> bool:
+    """判定成长进度是否真的前进了(受理回执不算)。
+
+    规则(纯函数,可单测):
+    - 任一侧取不到 ⇒ False(未判定,不谎称已计分);
+    - progress 两侧都是整数且 after > before ⇒ True;
+    - 否则 status/accept_status 从「非已完成」翻成「已完成」也算前进
+      (accepted → claimed / completed);已是完成态 ⇒ 不算前进。
+    """
+    if not before or not after:
+        return False
+    b_prog, a_prog = before.get("progress"), after.get("progress")
+    if isinstance(b_prog, int) and isinstance(a_prog, int) and not isinstance(b_prog, bool):
+        if a_prog > b_prog:
+            return True
+    done_vals = {"claimed", "completed", "done", "finished"}
+    b_status = str(before.get("status") or before.get("accept_status") or "").strip().lower()
+    a_status = str(after.get("status") or after.get("accept_status") or "").strip().lower()
+    return b_status not in done_vals and a_status in done_vals
+
+
 async def _fire_growth_events(
     jwt: str,
     device_map: dict[str, Any],
@@ -828,21 +891,33 @@ async def _fire_growth_events(
     *,
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT,
+    verify: Callable[[], Awaitable[bool]] | None = None,
 ) -> bool:
     """代发一组行为遥测事件到 /v2/report(与官方客户端同构的报文)。
 
-    仅当账号具备浏览器会话(web_mode)时,这些事件才会被成长计分后端采信;否则一律 200
-    code:0 受理但不计分。返回 True ⇔ 全部事件 code:0(受理成功)。是否「真的计分」由上游
-    重判决定(见 run_growth 的 report→重判→claim 闭环),本函数只负责把事件可靠发出。
+    **返回 True 的含义 = 该任务的成长进度确已前进**,不是「事件被受理」。
+    2026-11-05 真机两轮实证把这两件事分开了:
+    * 账号 3559:5 个事件码 → /v2/report 全部 200 code:0,成长任务状态纹丝不动;
+    * 账号 3564:4 个事件码 × 令牌域/WEB 域共 16 次 → 全部 200 code:0,事件后复列 WEB 域 18 行,
+      template_5 / chat_5 / skill_1 / expert_5 的 progress 与 status **逐字段零变化**;
+    * 附带证伪:`/v2/report-assistant` 在两域均 404「404 Route Not Found」⇒ 上报端点族只有
+      `/v2/report` 一条,不存在「第二个上报端点」。
+    ⇒ 遥测受理回执**不可**当作计分凭据(§0.3 不拿受理冒充计分)。
+
+    verify(可选):一个「重读任务列表并判定进度是否前进」的探针。提供时,只有它返回 True
+    才认定计分成功;未提供时一律返回 False(宁可不认领,也不谎称已计分)。
 
     域名/头:沿用 run_activity 的 _activity_hosts_map 绑定;web 域事件带 x-client-platform: web。
     """
+    if not events:
+        return False
     hosts_map, herr = _activity_hosts_map()
     if herr is not None or hosts_map is None:
         return False
     hosts = hosts_map
     uid = workbuddy_extract_uid(jwt)
-    ok = True
+    ts = int(time.time() * 1000)
+    sent_all = True
     for ev in events:
         base = hosts.get(ev) or hosts.get("default") or WB_BASE
         web_ctx = workbuddy_is_web_mode(device_map)
@@ -851,12 +926,21 @@ async def _fire_growth_events(
         extra: dict[str, str] | None = (
             {"x-client-platform": "web"} if base.endswith("workbuddy.cn") else None
         )
-        body: dict[str, Any] = {
-            "eventCode": ev,
-            "timestamp": int(time.time() * 1000),
-        }
+        # 官方客户端上报形态(G:\\workbuddy\\resources\\app.asar 取证):
+        #   CloudProductMetricsReporter.report() → POST `${reportEndpoint}/v2/report`
+        #   body = **数组** [{eventCode, timestamp, reportDelay, ...}]
+        #   (StandardEventService 带 batching + fireBatch,reportDelay 是官方自带的延迟字段)
+        # ⇒ 本仓按同构数组发,而不是单对象。实测两种形态上游都收(200 code:0)且都**不**计分,
+        #    形态对齐是为将来接真实客户端驱动器时不返工,不是计分手段。
+        body: list[dict[str, Any]] = [
+            {
+                "eventCode": ev,
+                "timestamp": ts,
+                "reportDelay": 0,
+            }
+        ]
         if uid:
-            body["userId"] = uid
+            body[0]["userId"] = uid
         status, payload, _mode = await _wb_request(
             "/v2/report",
             jwt,
@@ -869,8 +953,16 @@ async def _fire_growth_events(
         )
         code, _data = _envelope(payload)
         if code != _CODE_OK:
-            ok = False
-    return ok
+            sent_all = False
+    if not sent_all:
+        return False
+    # 受理 ≠ 计分:必须有「进度确已前进」的独立凭据才认领。
+    if verify is None:
+        return False
+    try:
+        return bool(await verify())
+    except Exception:  # noqa: BLE001 — 探针异常 ⇒ 未判定,按未计分处理(不冒红不记绿)
+        return False
 
 
 async def run_growth(
@@ -895,15 +987,35 @@ async def run_growth(
     try:
         behavior_tracker: list[str] = []
         if activity_reporter is None and settings.workbuddy_tasks_behavior_driver_enabled:
-            # fire 闭包:按 web_mode 决定能否代发该任务的映射事件(有浏览器会话才计分)。
+            # fire 闭包:代发该任务的映射事件后,**重读任务列表验证 progress/status 是否前进**,
+            # 只有确已前进才回报 True(= 已计分)。受理回执(200/code:0)不算数。
+            # 会话门用 `workbuddy_web_cookie` 非空(真正携带浏览器会话凭据)而非仅 login_type:
+            # 2026-11-05 实测 5 个号池 workbuddy 账号的 login_type 全为 null、web_cookie 全缺,
+            # 旧判据(workbuddy_is_web_mode 只看 login_type=="web")会把这类账号误判成「有会话」
+            # 而空发事件 —— 判据比事实宽,必须收紧到凭据本身。
             async def _auto_growth(code: str) -> bool:
                 plan = classify_growth_task_automation(code)
                 if plan is None or not plan.events:
                     return False  # 无对应遥测事件 ⇒ 只能待用户实操
-                if not workbuddy_is_web_mode(device_map):
-                    return False  # 无浏览器会话 ⇒ 事件被受理不计分,不空转
+                if not workbuddy_web_cookie(jwt, device_map):
+                    return False  # 无浏览器会话凭据 ⇒ 不发(发了也不计分,纯浪费请求)
+                before = await _growth_progress_snapshot(
+                    jwt, device_map, code, client=eff_client, timeout=timeout
+                )
+
+                async def _verify_progress_advanced() -> bool:
+                    after = await _growth_progress_snapshot(
+                        jwt, device_map, code, client=eff_client, timeout=timeout
+                    )
+                    return _growth_progress_advanced(before, after)
+
                 return await _fire_growth_events(
-                    jwt, device_map, plan.events, client=eff_client, timeout=timeout
+                    jwt,
+                    device_map,
+                    plan.events,
+                    client=eff_client,
+                    timeout=timeout,
+                    verify=_verify_progress_advanced,
                 )
 
             activity_reporter = build_default_activity_reporter(
@@ -1007,14 +1119,38 @@ async def _run_growth_inner(
                 reasons.append(f"accept {fail}")
                 unjudged = status in (0, -1) or not isinstance(payload, dict)
             else:
-                code, _data = _envelope(payload)
+                code, data = _envelope(payload)
                 if code is None:
                     reasons.append("accept 信封不可解析")
                     unjudged = True
-                elif code == _CODE_OK:
-                    accepted = list(to_accept)
-                else:
+                elif code != _CODE_OK:
                     reasons.append(f"accept 上游 code={code}{_msg_suffix(payload)}")
+                else:
+                    # 2026-11-05 真机实证:信封 code=0 ≠ 全部成功 —— data.results[] 逐任务给
+                    # {task_code, status, message}。实测三态语义(账号 3564,同一轮 accept):
+                    #   status="error"  + message="task not found"        ⇒ 码不在该战役内(CLI 域 5 码);
+                    #   status="error"  + message="task already completed" ⇒ 已完成,不必再 accept;
+                    #   status="already_accepted"(无 message、无 error 字段) ⇒ **成功态**:
+                    #     该任务此前已被接受、现在等真实行为(progress 仍 0/target 1)。
+                    # ⇒ 「already_accepted」必须记为 accepted(成功),不得当失败;而 accepted 的
+                    #    语义是「已接受等行为」,不是「完成待领」(这一点此前被误读过)。
+                    results = (data or {}).get("results") if isinstance(data, dict) else None
+                    if isinstance(results, list) and results:
+                        ok_set = {"ok", "success", "accepted", "done", "already_accepted"}
+                        for r in results:
+                            if not isinstance(r, dict):
+                                continue
+                            rc = str(r.get("task_code") or "")
+                            rst = str(r.get("status") or "").strip().lower()
+                            if rst in ok_set:
+                                accepted.append(rc)
+                            else:
+                                reasons.append(
+                                    f"accept {rc} 失败({rst or '无status'}: {r.get('message')})"
+                                )
+                    else:
+                        # 上游未回逐任务 results(旧形态)⇒ 按整包成功记账(保持旧行为)
+                        accepted = list(to_accept)
     claim_path_tmpl = (settings.workbuddy_tasks_claim_path or "").strip()
     if to_claim:
         if not claim_path_tmpl:
@@ -1043,8 +1179,12 @@ async def _run_growth_inner(
         wl = await list_growth_tasks(jwt, device_map, client=client, timeout=timeout, web=True)
         if wl["ok"]:
             # 已完成判定面:CLI 域用配置 claimable 集(默认 completed);WEB 域状态落在
-            # accept_status,终态为 claimed(已完成)/accepted(已接受、动作做完待领奖)等,
-            # 与 CLI 的 completed 不同字,故并域一并认作"已闭环"以免把已领任务误报待实操。
+            # accept_status,终态为 claimed(已完成已领)。
+            # **accepted 不是完成态** —— 2026-11-05 真机(账号 3564 WEB 域 18 行):
+            # Expert_lighthouse / wb_wechat_oa_subscribe_task 的 accept_status="accepted" 且
+            # progress 0/target 1 ⇒ 「已接受、等真实行为」,正是要报给用户的待实操项。
+            # (此前注释把 accepted 写成「动作做完待领奖」是误读;代码集合本就不含 accepted,
+            #  行为正确,此处只把注释校准到事实。)
             done_vals = _status_set(settings.workbuddy_tasks_claimable_statuses) | frozenset(
                 {"claimed", "done", "finished", "completed"}
             )
