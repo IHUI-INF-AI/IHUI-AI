@@ -585,6 +585,11 @@ describe('④ 源码级反向锁', () => {
     'utf8',
   )
   const chatSrc = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/chat.tsx'), 'utf8')
+  // 列表头在 A3 装配前下沉到声明式槽子件(chat.tsx 只交 headerNode 节点)
+  const chatExtrasSrc = readFileSync(
+    resolve(__dirname, '../src/pkg-ai/ai/chat-list-extras.tsx'),
+    'utf8',
+  )
   const historySrc = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/history.tsx'), 'utf8')
 
   it('三个文件都不得绕过 api-client 直连后端(守门 73 的本地预锁)', () => {
@@ -627,7 +632,8 @@ describe('④ 源码级反向锁', () => {
     expect(chatSrc).toContain('earlierHasMore')
     expect(chatSrc).toContain('getMessages(routeSessionId, { cursor, direction:')
     expect(chatSrc).toContain('prependEarlierMessages(')
-    expect(chatSrc).toContain("t('ai.chat.loadEarlier')")
+    expect(chatSrc).toContain('<ChatListHeader')
+    expect(chatExtrasSrc).toContain("t('ai.chat.loadEarlier')")
   })
 
   it('向前翻失败:必须 toast 且不得清空已回放内容(失败分支不得 setMessages([]))', () => {
