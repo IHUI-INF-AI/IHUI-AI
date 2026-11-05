@@ -61,6 +61,7 @@ export function TeamScreen() {
       if (raw) {
         setStats({
           totalMembers: raw.totalMembers,
+          monthNew: raw.monthNew,
           activeMembers: raw.activeMembers,
           directCount: raw.directCount,
           indirectCount: raw.indirectCount,
@@ -129,6 +130,7 @@ export function TeamScreen() {
       t={t}
       stats={stats}
       members={members}
+      statsLayout="full"
       activeTab={activeTab}
       keyword={keyword}
       onKeywordChange={setKeyword}
