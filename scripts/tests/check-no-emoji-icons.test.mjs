@@ -278,6 +278,33 @@ test('E18 文本位射程 + 跨度豁免(docs 整文件豁免删除后的双向�
   assert.equal(hit?.ratchet, true)
 })
 
+test('E19 字符串文案第二支 + 存量台账逐条对账(2026-11-05 扩面)', () => {
+  const REPO = join(__dirname, '..', '..')
+  // 阳性:中文文案字符串里的 emoji 必拦(旧版整族在跨度豁免里隐身)
+  for (const line of [
+    "return '✅ 会话执行完成'",
+    "<Text>{'Hi, 我是您的AI助手小方👋'}</Text>",
+    "setLogs([{ type: 'error', text: '⏹ 用户已停止' }])",
+  ])
+    assert.ok(
+      gate.judgeText(OTHER, line).some((f) => f.label === 'string emoji (user copy)'),
+      `字符串文案漏判:${line}`,
+    )
+  // 阴性:测试夹具/生成物里的 emoji 字符串不判;纯英文/符号串不判(合法用途)
+  assert.equal(gate.judgeText('apps/web/src/__tests__/a.test.tsx', "return '✅ 断言样例'").length, 0)
+  assert.equal(gate.judgeText('apps/web/src/a.generated.ts', "const s = '✅ 生成提示'").length, 0)
+  assert.equal(gate.judgeText(OTHER, "type T = 'ok ✅'").length, 0)
+  assert.equal(gate.judgeText(OTHER, "const s = t('k', '🌍 多语言')").length, 0)
+  // 台账:HEAD 面每一处存量都必须逐条落账(理由 ≥10 字),台账不得残留
+  const ledger = gate.loadStockLedger()
+  const r = gate.analyze({ root: REPO, face: 'head' })
+  const hits = r.textReports.flatMap(({ file, findings }) =>
+    findings.map((f) => ({ file, line: f.line, label: f.label })),
+  )
+  assert.ok(hits.length > 0, 'HEAD 面文本位存量应非 0(否则这条对账没有牙)')
+  assert.deepEqual(gate.judgeStockLedger({ ledger, hits }).problems, [])
+})
+
 test('E13 分流互不污染(有牙锁:摘掉任一维,命中集立刻变化)', () => {
   // 代码形态 `icon: '🦄'` 出现在 css 文件 ⇒ asset 维不吃(若分流被摘,这里立刻多命中)
   assert.deepEqual(gate.judgeText('apps/web/src/a.css', "icon: '🦄'"), [])

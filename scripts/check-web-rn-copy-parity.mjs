@@ -44,8 +44,17 @@
  *   认领数少于现读 ⇒ 红(新增未挂账;B2 仍只 advisory);多于现读 ⇒ advisory(清单腐烂)。
  *   staged 档只判本次动到的屏,未触及屏的存量账不参与差额判序(否则每次提交都刷 68 条腐烂)。
  *
+ * 未解析键(不许折成 0,也不计入已对齐)按成因分桶,逐条带 file:line(见 `classifyUnresolvedKey`):
+ *   - `array-json-value`:键存在但值是数组(`t.raw()` 返回数组)—— 机械可判、当前不参与文字比对。
+ *   - `bundle-gap`:合并后(shared ⊕ 端词包)仍无此键 —— 真缺词条,运行时回显键名,**需人读**。
+ *   - `cross-end-only`:只存在于另一端词包 —— 端词包边界问题,**需人读**。
+ *   端词包组合口径:web = `mergeMessages(shared, web)`(apps/web/src/providers/i18n-provider),
+ *   RN = `mergeMessages(shared, mobile-rn)`(apps/mobile-rn/src/i18n/index.tsx:39);只读端词包
+ *   会把 shared 里的键误算未解析(本轮 2562 → 12,其中 2550 属此类)。
+ *
  * 盲区(静态判不了,写在这里):动态键(`t(\`k.${x}\`)` / `t(variable)`)、模板串拼出来的中文、
  *   `{cond ? '中文' : '英文'}` 里的字面量、共享组件内部文案、web 侧 `next-intl` 之外的取词方式。
+ *   动态键不进解析器射程 ⇒ 不计入未解析数(这是与本门计数器并列的、仍未覆盖的一类)。
  *
  * 集成位置: scripts/guardian-runner.mjs 第 291 项(pre-commit blocking;staged 触发面 =
  *   apps/web/app/ + apps/mobile-rn/src/ + packages/app/src/features/ + 屏幕映射台账 + 本门脚本/台账)。
@@ -65,7 +74,12 @@ import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const REPO = resolve(HERE, '..')
 export const MAP_REL = 'scripts/data/web-rn-screen-map.jsonl'
+/** web 端词包(运行时 components/i18n-provider 走 mergeMessages(shared ⊕ web),见 run 内的组合)。 */
 export const MESSAGES_REL = 'packages/i18n/messages/web/zh-CN.json'
+export const WEB_MESSAGES_REL = MESSAGES_REL
+export const SHARED_MESSAGES_REL = 'packages/i18n/messages/shared/zh-CN.json'
+/** RN 端词包(apps/mobile-rn/src/i18n/index.tsx 走 mergeMessages(shared ⊕ mobile-rn))。 */
+export const RN_MESSAGES_REL = 'packages/i18n/messages/mobile-rn/zh-CN.json'
 export const LEDGER_REL = 'scripts/data/web-rn-copy-diffs.json'
 export const SKIP_ENV = 'HUSKY_SKIP_WEB_RN_COPY_PARITY'
 
@@ -265,7 +279,40 @@ export function flattenMessages(obj, prefix = '', out = new Map()) {
   return out
 }
 
-/** 取 web 文件的 i18n 键(命名空间感知)。返回 `{keys:Set, unresolved:string[]}`。 */
+/**
+ * 端词包组合:`mergeMessages(shared, 端)` 的扁平等价物 —— 同名叶子以端词包为准(last-wins)。
+ * 运行时 web 是 shared ⊕ web、RN 是 shared ⊕ mobile-rn(`apps/mobile-rn/src/i18n/index.tsx:39`);
+ * 只读端词包会把「键就在 shared 里」误算成未解析(本轮 2562 中的 2550 即此类)。
+ */
+export function mergeMessageMaps(base, override) {
+  return new Map([...base, ...override])
+}
+
+/** 收集**数组值**叶子键(next-intl 的 `t.raw()` 可返回数组,flat 字符串表里看不见它们)。 */
+export function flattenArrayKeys(obj, prefix = '', out = new Set()) {
+  if (obj === null || typeof obj !== 'object') return out
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k
+    if (Array.isArray(v)) out.add(key)
+    else if (v && typeof v === 'object') flattenArrayKeys(v, key, out)
+  }
+  return out
+}
+
+/**
+ * 未解析键分桶(自证式,按「为什么静态解析不到」而非按文件名):
+ *  - `array-json-value`:键存在,但值是数组 —— 调用侧走 t.raw(),不是缺键(机械可判,当前不参与文字比对)。
+ *  - `bundle-gap`:合并后的端词包也没有这个键 —— 真缺词条,RN/Web 会回显键名,需人读。
+ *  - `cross-end-only`:只存在于另一端词包(如 RN 用了 miniapp-taro 的键)—— 端词包边界问题,需人读。
+ * 动态键(`t(\`k.${x}\`)` / `t(variable)`)根本不进解析器射程,不计入未解析数(见文件头盲区)。
+ */
+export function classifyUnresolvedKey(key, { arrayKeys, otherBundle }) {
+  if (arrayKeys.has(key)) return 'array-json-value'
+  if (otherBundle?.has(key)) return 'cross-end-only'
+  return 'bundle-gap'
+}
+
+/** 取 web 文件的 i18n 键(命名空间感知)。返回 `{keys:Set, unresolved:string[], unresolvedItems}`。 */
 export function extractWebKeys(text, messages) {
   const masked = maskComments(text)
   const bindings = new Map()
@@ -275,6 +322,7 @@ export function extractWebKeys(text, messages) {
   while ((m = bindRe.exec(masked))) bindings.set(m[1], m[2] || m[3] || m[4] || '')
   const keys = new Set()
   const unresolved = []
+  const unresolvedItems = []
   const callRe = /([A-Za-z_$][\w$]*)(?:\.(?:rich|markup|has|raw))?\s*\(\s*(['"])([^'"]+)\2/g
   while ((m = callRe.exec(masked))) {
     const fn = m[1]
@@ -284,9 +332,13 @@ export function extractWebKeys(text, messages) {
     const composed = ns && !key.startsWith(`${ns}.`) ? `${ns}.${key}` : key
     if (messages.has(composed)) keys.add(composed)
     else if (messages.has(key)) keys.add(key)
-    else unresolved.push(ns ? `${ns}.${key}` : key)
+    else {
+      const miss = ns ? `${ns}.${key}` : key
+      unresolved.push(miss)
+      unresolvedItems.push({ key: miss, line: lineAt(masked, m.index), fn })
+    }
   }
-  return { keys, unresolved }
+  return { keys, unresolved, unresolvedItems }
 }
 
 /** 取 RN 文件的 i18n 键(共享屏的 t 由宿主注入,不认绑定声明,直接认 `t('全键')`)。 */
@@ -294,14 +346,18 @@ export function extractRnKeys(text, messages) {
   const masked = maskComments(text)
   const keys = new Set()
   const unresolved = []
+  const unresolvedItems = []
   const callRe = /\bt\s*\(\s*(['"])([^'"]+)\1/g
   let m
   while ((m = callRe.exec(masked))) {
     const key = m[2]
     if (messages.has(key)) keys.add(key)
-    else if (key.includes('.')) unresolved.push(key)
+    else if (key.includes('.')) {
+      unresolved.push(key)
+      unresolvedItems.push({ key, line: lineAt(masked, m.index), fn: 't' })
+    }
   }
-  return { keys, unresolved }
+  return { keys, unresolved, unresolvedItems }
 }
 
 /** 归一化比较用文案:只压空白,其余逐字比对(不做同义词/标点归一,宁少报不误报)。 */
@@ -377,8 +433,11 @@ function familyForValue(value) {
  * - advisory: B2 同值异键(已剔除通用键白名单/同尾段命名约定/角色裁决)
  * - b3: B3 同义键异值(语义族配对 + 归一化取值比较)
  * - accepted: 已裁决/已豁免(B2 通用键复用、命名约定、同字不同义)
+ * @param messages web 侧词包(shared ⊕ web);B1 与 web 键取值用它。
+ * @param rnMessages RN 侧词包(shared ⊕ mobile-rn);缺省与 messages 同表(夹具兼容)。
+ *   —— 两端词包不同,RN 键只在 mobile-rn 里时用 web 表取值会「取不到 ⇒ 假同值/假缺失」。
  */
-export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
+export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages, rnMessages = messages) {
   const blocking = []
   const advisory = []
   const b3 = []
@@ -425,7 +484,7 @@ export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
   }
   const rnKeyByValue = new Map()
   for (const key of rnKeys) {
-    const v = messages.get(key)
+    const v = rnMessages.get(key)
     if (typeof v !== 'string' || !CJK_RE.test(v)) continue
     const n = normalizeCopy(v)
     if (!rnKeyByValue.has(n)) rnKeyByValue.set(n, [])
@@ -489,7 +548,7 @@ export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
   for (const rk of rnKeys) {
     const fam = familyForKey(rk)
     if (!fam) continue
-    const rnVal = messages.get(rk)
+    const rnVal = rnMessages.get(rk)
     if (typeof rnVal !== 'string' || !CJK_RE.test(rnVal)) continue
     const famWebKeys = [...webKeys].filter((k) => k !== rk && familyForKey(k)?.id === fam.id)
     if (!famWebKeys.length) continue
@@ -883,6 +942,39 @@ export function runSelfTest() {
     const noReason = validateLedgerShape([], undefined)
     expect(noReason.length === 1, '空账缺 emptyReason 未判红')
   })
+  ok('⑱ 端词包分片:RN 键只在 mobile-rn 词包 ⇒ 用 rnMessages 解析并按 RN 取值判 B2', () => {
+    const webMsgs = new Map([['memberAddressFormPage.setDefault', '设为默认地址']])
+    const rnMsgs = new Map([
+      ['memberAddressFormPage.setDefault', '设为默认地址'],
+      ['addresses.defaultLabel', '设为默认地址'],
+    ])
+    const r = judgeScreen(
+      {
+        web: 'addresses',
+        rn: 'rn/A.tsx',
+        webKeys: new Set(['memberAddressFormPage.setDefault']),
+        rnKeys: new Set(['addresses.defaultLabel']),
+        hardcoded: [],
+      },
+      webMsgs,
+      rnMsgs,
+    )
+    expect(r.advisory.length === 1, 'RN 侧词包键未参与 B2(被误当成未解析)')
+    const noRn = judgeScreen(
+      {
+        web: 'addresses',
+        rn: 'rn/A.tsx',
+        webKeys: new Set(['memberAddressFormPage.setDefault']),
+        rnKeys: new Set(['addresses.defaultLabel']),
+        hardcoded: [],
+      },
+      webMsgs,
+    )
+    expect(noRn.advisory.length === 0, '只用 web 词包时不该假报同值异键')
+    expect(classifyUnresolvedKey('a.b', { arrayKeys: new Set(['a.b']), otherBundle: null }) === 'array-json-value', '数组键未分到 array-json-value')
+    expect(classifyUnresolvedKey('a.c', { arrayKeys: new Set(), otherBundle: new Map([['a.c', 'x']]) }) === 'cross-end-only', '跨端词包键未分到 cross-end-only')
+    expect(classifyUnresolvedKey('a.d', { arrayKeys: new Set(), otherBundle: null }) === 'bundle-gap', '真缺键未分到 bundle-gap')
+  })
 
   console.log('🧪 web↔RN 措辞一致性门自检')
   for (const line of cases) console.log(line)
@@ -893,9 +985,18 @@ export function runSelfTest() {
 export async function run({ mode = 'full', json = false } = {}) {
   const face = mode === 'staged' ? 'staged' : 'worktree'
   const mapText = readFace(MAP_REL, 'worktree')
-  const messagesText = readFace(MESSAGES_REL, face) ?? readFace(MESSAGES_REL, 'worktree')
-  if (!mapText || !messagesText) {
-    console.error('❌ 台账行或 zh-CN 消息表取不到 ⇒ 未判定')
+  const readBundle = (rel) => readFace(rel, face) ?? readFace(rel, 'worktree')
+  const webText = readBundle(WEB_MESSAGES_REL)
+  const rnText = readBundle(RN_MESSAGES_REL)
+  const sharedText = readBundle(SHARED_MESSAGES_REL)
+  if (!mapText || !webText || !rnText || !sharedText) {
+    const missing = [
+      !mapText && MAP_REL,
+      !webText && WEB_MESSAGES_REL,
+      !rnText && RN_MESSAGES_REL,
+      !sharedText && SHARED_MESSAGES_REL,
+    ].filter(Boolean)
+    console.error(`❌ 取不到输入:${missing.join(' / ')} ⇒ 未判定(不把读不到读成"零差异")`)
     process.exit(2)
   }
   const { rows, skipped } = loadAlignedRows(mapText)
@@ -903,7 +1004,16 @@ export async function run({ mode = 'full', json = false } = {}) {
     console.error('❌ 台账没有 aligned 行 ⇒ 未判定(不把空集读成"零差异")')
     process.exit(2)
   }
-  const messages = flattenMessages(JSON.parse(messagesText))
+  const webJson = JSON.parse(webText)
+  const rnJson = JSON.parse(rnText)
+  const sharedJson = JSON.parse(sharedText)
+  const shared = flattenMessages(sharedJson)
+  // 两端运行时都是 shared ⊕ 端词包(web: i18n-provider;RN: apps/mobile-rn/src/i18n/index.tsx:39)。
+  const messages = mergeMessageMaps(shared, flattenMessages(webJson))
+  const rnMessages = mergeMessageMaps(shared, flattenMessages(rnJson))
+  const arrayKeys = flattenArrayKeys(sharedJson)
+  for (const k of flattenArrayKeys(webJson)) arrayKeys.add(k)
+  for (const k of flattenArrayKeys(rnJson)) arrayKeys.add(k)
   const routes = new Map(parity.collectWebRoutes(face).map((r) => [r.route, r.rel]))
   const touched = mode === 'staged' ? touchedFiles() : null
   if (mode === 'staged' && !touched) {
@@ -916,8 +1026,8 @@ export async function run({ mode = 'full', json = false } = {}) {
   const acceptedList = []
   const undetermined = []
   const auditedScreens = new Set()
+  const unresolvedItems = []
   let webFileCount = 0
-  let unresolvedKeys = 0
   let untouched = 0
 
   for (const row of rows) {
@@ -948,12 +1058,24 @@ export async function run({ mode = 'full', json = false } = {}) {
       webFileCount += 1
       const r = extractWebKeys(text, messages)
       for (const k of r.keys) webKeys.add(k)
-      unresolvedKeys += r.unresolved.length
+      for (const item of r.unresolvedItems)
+        unresolvedItems.push({
+          side: 'web',
+          file: rel,
+          ...item,
+          bucket: classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: rnMessages }),
+        })
     }
-    const rn = extractRnKeys(rnText, messages)
-    unresolvedKeys += rn.unresolved.length
+    const rn = extractRnKeys(rnText, rnMessages)
+    for (const item of rn.unresolvedItems)
+      unresolvedItems.push({
+        side: 'rn',
+        file: row.rn,
+        ...item,
+        bucket: classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: messages }),
+      })
     const hardcoded = extractHardcodedChinese(rnText)
-    const judged = judgeScreen({ web: row.web, rn: row.rn, webKeys, rnKeys: rn.keys, hardcoded }, messages)
+    const judged = judgeScreen({ web: row.web, rn: row.rn, webKeys, rnKeys: rn.keys, hardcoded }, messages, rnMessages)
     for (const v of judged.blocking) blocked.push(v)
     for (const v of judged.advisory) advisories.push(v)
     for (const v of judged.b3) b3List.push(v)
@@ -981,6 +1103,10 @@ export async function run({ mode = 'full', json = false } = {}) {
   const acceptedUnique = dedupeBy(acceptedList, (r) => `${r.rn}|${r.rnKey}|${r.value}`)
   const advisoriesDeduped = b2Unique.out
   const b3Deduped = b3Unique.out
+  // 未解析键:逐条带 file:line + 成因桶;不许折成 0,也不许算进已对齐。
+  const unresolvedKeys = unresolvedItems.length
+  const unresolvedBuckets = {}
+  for (const it of unresolvedItems) unresolvedBuckets[it.bucket] = (unresolvedBuckets[it.bucket] || 0) + 1
 
   const entries = readLedger()
   if (entries === null) {
@@ -1033,6 +1159,8 @@ export async function run({ mode = 'full', json = false } = {}) {
           skipped,
           undetermined,
           unresolvedKeys,
+          unresolvedBuckets,
+          unresolvedDetail: unresolvedItems,
           blocking: blocked.length,
           blockingDetail: blocked,
           advisory: advisoriesDeduped.length,
@@ -1065,6 +1193,12 @@ export async function run({ mode = 'full', json = false } = {}) {
     console.log(
       `  B1 blocking:${blocked.length}  · B2 advisory:${advisoriesDeduped.length}(去重 ${b2Unique.dup} 条)  · B3 同义异值:${b3Deduped.length}  · 已裁决/豁免:${acceptedUnique.out.length}  · 未判定:${undetermined.length}  · 未解析键:${unresolvedKeys}`,
     )
+    if (unresolvedKeys)
+      console.log(
+        `  未解析键分桶:${Object.entries(unresolvedBuckets).map(([k, n]) => `${k} ${n}`).join(' / ')}(逐条清单见 --json 的 unresolvedDetail)`,
+      )
+    for (const it of unresolvedItems.slice(0, 20))
+      console.log(`   ⚠ 未解析[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
     console.log(
       `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
     )
@@ -1116,8 +1250,14 @@ export const __test__ = {
   validateLedgerShape,
   runSelfTest,
   normalizeCopy,
+  mergeMessageMaps,
+  flattenArrayKeys,
+  classifyUnresolvedKey,
   MAP_REL,
   MESSAGES_REL,
+  WEB_MESSAGES_REL,
+  RN_MESSAGES_REL,
+  SHARED_MESSAGES_REL,
   LEDGER_REL,
   SKIP_ENV,
 }
