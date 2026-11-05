@@ -23,7 +23,8 @@ import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
 import { VipBenefitScreen as SharedVipBenefitScreen } from '@ihui/rn-app/features/vip-benefit/VipBenefitScreen'
-// 共享屏的模块声明档(types/rn-shells.generated.d.ts)只声明组件、不透传类型 ⇒ 类型从真相源取
+// 类型不从共享屏模块取:types/rn-shells.generated.d.ts 已为它生成「只含组件」的环境声明,
+// 环境声明会遮蔽源码的 type 再导出(TS2305);VipBenefitItem 的单源在 @ihui/types。
 import type { VipBenefitItem } from '@ihui/types'
 
 interface Benefit {
