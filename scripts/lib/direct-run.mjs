@@ -2,53 +2,44 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import Taro from '@tarojs/taro'
+/**
+ * 「直接跑 vs 被 import」的守卫判据(单一真相源,2026-11-05 立)。
+ *
+ * ## 为什么要有这道
+ *
+ * 本仓的成长任务脚本同时是**可执行入口**(`node scripts/xxx.mjs --flag`)与
+ * **可复用库**(被别的脚本 / 测试 import 复用其中的纯函数)。若被 import 时也照跑
+ * `main()`,测试进程会被入口逻辑直接掐掉(实测 2026-11-05:CLI 被测试 import 后
+ * 进程当场退出,断言无法跑完)⇒ 必须有守卫。
+ *
+ * ## 判据
+ *
+ * `process.argv[1]`(进程入口实参)解析后的绝对路径 == 本模块自身的绝对路径。
+ * 不相等 ⇒ 本模块是被 import 进来的 ⇒ **不执行** main。
+ *
+ * ## 单一真相源
+ *
+ * 判据只此一份。CLI 脚本一律 `import { isDirectRun } from './lib/direct-run.mjs'`,
+ * 不得在脚本内另抄一份(抄第二份必然漂移,§0.6)。
+ */
+import path from 'node:path'
 
-export interface SubscribeResult {
-  [tmplId: string]: 'accept' | 'reject' | 'ban' | 'filter'
-}
-
-export function requestSubscribeMessage(tmplIds: string[]): Promise<SubscribeResult> {
-  return new Promise((resolve, reject) => {
-    Taro.requestSubscribeMessage({
-      tmplIds,
-      success: (res) => {
-        const result: SubscribeResult = {}
-        for (const id of tmplIds) {
-          const status = (res as Record<string, unknown>)[id]
-          if (typeof status === 'string') {
-            result[id] = status as SubscribeResult[string]
-          }
-        }
-        resolve(result)
-      },
-      fail: (err) => reject(err),
-    } as Taro.requestSubscribeMessage.Option)
-  })
-}
-
-export async function subscribeOnce(tmplIds: string[]): Promise<boolean> {
+/**
+ * 判断当前模块是不是"进程的直接入口"。
+ *
+ * @param {string} moduleUrl 本模块的 `import.meta.url`
+ * @param {string|undefined} argv1 `process.argv[1]`(进程入口实参)
+ * @returns {boolean} true = 直接运行(可以执行 main);false = 被 import(不得执行)
+ */
+export function isDirectRun(moduleUrl, argv1) {
   try {
-    const result = await requestSubscribeMessage(tmplIds)
-    return tmplIds.some((id) => result[id] === 'accept')
+    if (!argv1) return false
+    // file:///G:/x/y.mjs ⇒ pathname = /G:/x/y.mjs ⇒ 去掉前导斜杠还原成 Windows 盘符路径
+    const here = new URL(moduleUrl).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+    return path.resolve(argv1) === path.resolve(here)
   } catch {
+    // 取不到输入 ⇒ 判定为"不是直接运行"(保守方向:宁可不执行,也不误杀宿主进程)
     return false
   }
-}
-
-export function checkSubscribeStatus(tmplIds: string[]): Promise<Record<string, string>> {
-  return new Promise((resolve) => {
-    Taro.getSetting({
-      success: (res) => {
-        const itemSettings = res.subscriptionsSetting?.itemSettings || {}
-        const result: Record<string, string> = {}
-        for (const id of tmplIds) {
-          result[id] = (itemSettings[id] as string) || ''
-        }
-        resolve(result)
-      },
-      fail: () => resolve({}),
-    })
-  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

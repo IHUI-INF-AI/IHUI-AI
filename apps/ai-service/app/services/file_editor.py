@@ -36,11 +36,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from app.core.ai_code_attribution import parse_diff_line_range
 from app.core.tunables import FILE_VERSION_REDIS_TTL as _FILE_VERSION_REDIS_TTL
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源。
 # 此前本模块与 mcp_server 各持一份实现,而只有本模块这份有黑名单判定,
 # 导致 mcp_server 的三个写工具可写 .git/hooks/。现统一由 path_guard 提供。
+from .ai_code_attribution_store import record_attribution
 from .path_guard import SENSITIVE_DIR_PATTERN
 
 logger = logging.getLogger(__name__)
@@ -170,6 +172,31 @@ def generate_diff(old_content: str, new_content: str, file_path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# AI 归属记账(2026-11-05,goal-b49):一次文件改动落一条归属记录
+# ---------------------------------------------------------------------------
+# 判据(工具登记表 / 归属三态 / 回溯裁决)住在 app/core/ai_code_attribution.py,
+# 仓内**只此一份**;本模块只把「这次改动是谁写的」喂进去,自己不判归属。
+# 归属账是观测面不是控制面:记账失败只记日志,绝不影响编辑主流程。
+def _record_attribution(
+    tool: str,
+    file_path: str,
+    hunk: str,
+    line_start: int,
+    line_end: int,
+) -> None:
+    try:
+        record_attribution(
+            tool,
+            file_path,
+            hunk,
+            line_start=line_start,
+            line_end=line_end,
+        )
+    except Exception as e:
+        logger.warning("file_editor 归属记账失败(不影响编辑主流程): %s", e)
+
+
+# ---------------------------------------------------------------------------
 # 核心函数:edit_file
 # ---------------------------------------------------------------------------
 
@@ -232,6 +259,13 @@ def edit_file(
                     "errorCode": "PERMISSION_DENIED",
                     "message": f"文件创建失败: {e}",
                 }
+            _record_attribution(
+                tool="file_edit",
+                file_path=resolved_path,
+                hunk=new_string,
+                line_start=1,
+                line_end=max(1, new_string.count("\n") + 1),
+            )
             return {
                 "ok": True,
                 "action": "created",
@@ -342,7 +376,17 @@ def edit_file(
     # 12. 生成 unified diff
     diff = generate_diff(old_content, new_content, resolved_path)
 
-    # 13. 返回结果
+    # 13. 归属记账(file_edit 这一格 = AI 生成面;行区间取自 diff 的 hunk 头)
+    _line_start, _line_end = parse_diff_line_range(diff)
+    _record_attribution(
+        tool="file_edit",
+        file_path=resolved_path,
+        hunk=diff,
+        line_start=_line_start,
+        line_end=_line_end,
+    )
+
+    # 14. 返回结果
     action = "replaced_all" if (count > 1 and replace_all) else "replaced"
     return {
         "ok": True,

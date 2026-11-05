@@ -56,21 +56,21 @@
 
 | 残余 | 归属 | 为什么本枚没做完 | 谁解锁 |
 | --- | --- | --- | --- |
-| 删除保护链(回收站 + 批量两阶段护栏) | **已落地** `cf1e7f9efe`(主席统一落地,B1 席产物) | 判据层住在 `packages/shared/src/delete-guard/`,三个消费点已接线;未竟 = 回收站的"到期清理"节拍与跨端展示面 | B1-impl.md |
+| 删除保护链(回收站 + 批量两阶段护栏) | **已落地** `cf1e7f9efe`(主席统一落地,B1 席产物) | 判据层住在 `packages/shared/src/delete-guard/`,三个消费点已接线;**未竟 = 跨端展示面**(回收站的「到期清理」节拍已由第七回合落地:端内 adapter `b709aa4ade` + 调度腿 `fd1edb25bd`/`3e3cd3dd9f`) | B1-impl.md |
 | 技能目录缓存的廉价判脏 + 自描述 scope | **已落地** `79597fd9fc`(B4 席产物) | 未竟两条:`readSkillCatalog` 尚未挂 `/skills` 命令;watch 失效受 `fsWatcher.enabled=false` 那一端限制 | B4-impl.md |
 | 分享页去 CDN 外链(离线可读) | **已落地** `2beafada173`(B3 席产物) | 渲染器为受控子集(标题/列表/代码块/链接/粗斜体/表格),不声称全 CommonMark;阳性对照已插回旧 CDN 验证会被抓 | B3-impl.md |
 | 摘掉"我方 git 可用性取决于别人装没装 WorkBuddy" | **已落地** `420e3c3c7a`(主席件,cargo 27 passed 实跑) | 兜底位改指我方 `.ihui` 目录 + 新增 `IHUI_PORTABLE_GIT` 显式登记(与 `gitdir.mjs` 同键名) | W1 §3 第⑩行 |
 | 自包含诊断报告(KPI + 阶段瀑布 + findings) | **已落地** `68d68a2cc450e83a8d469ac0e122f16277f17d4f` | 执行席在传输层断掉(83 步 / 81 分钟),状态件只剩首行 ⇒ 主席按其落盘产物收口:补五语言词典(原只有 zh-CN/en)、补 25 例测试、修两处实现与声明相反的缺陷(阈值 0 档本应关判据,实现写成 `count >= 0` ⇒ 干净轨迹也报)|
 | 子进程网络出口(DNS / 域名裁决那一半引擎) | **已落地** `923546ffec8e145a90c551f8c9c035eca9bc42f4`(B6) | TCP 代理腿需常驻载体(盲写未接线抽象按 §0.9 不落地)、真 DNS 解析适配器、裸域名取词、desktop 同源腿 = 未竟 |
 | 文件 ACL 的 delete 轴消费点 | **已落地** `14e02e57f52337bef3a932d2b23571a84d3c6e1f` | 同一枚还修了两处:①裁决层此前挂在 `folder_trust` 缺省的提前 return 之后 ⇒ 结构性无人问(装了等于没装);②规则表 16 族漏 delete 维(读不到却能删),并加"每条 read deny 必须同管 delete"的穷尽性判据 |
-| Job Object 随父而终(TS 侧) | 下一执行席 | 需 Win32 作业对象封装,与 `os_sandbox.py` 那半不同栈 | W2 §3 末条 + W1 §3-④ |
+| Job Object 随父而终(TS 侧) | **已落地** `e565814a93`(S6 席产物,主席复量收口) | 对侧用 Win32 Job Object(`KILL_ON_JOB_CLOSE`);我方现读是**半格** ⇒ 复现为 `apps/cli/src/util/parent-bound.ts`(248 行,纯判据 `decideWatchdogTick` 四态含 `unjudged`)+ 接线 `mcp-runtime.ts` 的 stdio 派生点,杀树一律 import 既有 spawn-isolated 出口(零复算)。**超越轴**:判据纯函数化可 diff + 看门狗自身有死亡机制 + 观测不到即不判定也不动手 | S6-impl.md |
 | delete 轴**残余**消费点(`git.ts` / `worktree.ts` 的 rm 点从未过裁决) | **已落地** `e99903d61ea`(S7 席产物,主席复量后落地) | 主席逐文件现读(读数 = 该文件内 rm/unlink 点数 / `evaluateFileAccess` 引用数):`git.ts` **2/0**、`worktree.ts` **5/0**、`file-batch-edit.ts` 5/2(对照样板)。S7 逐点定性后接 2 腿(`subagents/worktree.ts` 的 `removeWorktree` + `createWorktreeWithFallback`,目标名来自模型入参 `resumeFrom`,`..` 可折出隔离区)、判**不接** 2 腿各有测试钉住(撤 marker 那一腿加闸反而更不安全;对账腿目录名来自 `readdirSync`,`..` 结构上不可能出现)。未竟两格:① `tools/worktree.ts` 的 `cleanupWorktree`(W-2)前置 = 先改出"可传拒"返回形态并同步 `background-registry.ts:247`(现无论成败都把 `worktreePath` 置 undefined ⇒ 拒绝会被写成静默);② `toAclPath` 越界形态仍走绝对路径回落,正解 = 在两个 worktree 删除出口加"解析后必须仍在 `<worktree 根>` 之下"的容器性断言(与 ACL 不同职,属新增判据维) |
 | 守护面 advisory 升 blocking | 机主/下一批 | 升档前置 = 并行席改动工作流先有「带理由声明」的出口(§12e) | 存量归零后升 |
 | drizzle journal ↔ sql 双向对账尺 | **已落地** `e38aad1c2c`(含两面分判改造) | 尺 warn-only 挂守护巡检轮,不进提交链;真 drift 那枚提交再同批接到人通道才谈可整改性 | B2-impl.md |
 | Trae 面增量 | 未开 | 本批四席全压在 WorkBuddy/Qoder 两个新靶 | goal-b44—b48 残余见 `docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/` |
 | 两道**机器状态门**(门 25 项目外路径违规 / 门 26 父目录污染) | **第五回合现读:判定面已不复现红,更正读数** | 主席 2026-11-05 现读两把尺各跑一次:门 25 = 「⚠️ 3 处 warning(不阻塞),0 处 blocking」RC=0;门 26 RC=0(点名的仍是别席 scratch,但档位只告警)。**上一轮"常年红会堵 safe-commit"这一断言在当下不成立** ⇒ 按 §12e **不削判据、不改射程、不收窄覆盖面**,只更正读数;若日后复红,出路仍是原登记的二选一(确认 `gate-audit-1104` 无主后按 §15 清理 / 对 vendored 压缩件不判并带反证用例) | 本行即更正留痕 |
 | ~~**推送未落地**~~ | **第四回合结清**(合并枚 `9a9d4e733f4` + 二轮 `c3dc90805bb`,`git-push-converge` 现读 `origin=ALREADY(远端=本地)`) | 上一轮"converge 拒推进"的根因**不是判据坏了,是没走它自己给的具名出口**:本侧对 AGENTS.md / README.md 相对基底**零改动**(现读 `git diff --numstat <merge-base> HEAD -- <file>` 空),那 20 行是**继承行**而非本侧改动,远端 `1a55955234 docs(agents): 压缩 AGENTS.md 至 95,722 字节` 是有意清偿 ⇒ 正解 = `--take-theirs-doc AGENTS.md --take-theirs-doc README.md` 声明式透传(该出口的立因注释里就点过"对侧删 AGENTS.md 两行"同型)。**未削判据、未 ALLOW_STALE** | 残余两条见下 |
-| 收敛后的两个非阻断残项 | 下一轮主席 | 现读读数:① `[plan-line-loss]` 工作区有 **1 组同号多候选(共 2 行)** ⇒ 拒自动回插,具名出路 `node scripts/plan-tasks-merge.mjs --heal --match-prefix-holder "<持有行原文片段>" --commit`(自动档对 F4/F4b/F10 刻意只报数);② `heal-worktree-tracked.mjs --align-drift` 在收敛器预算内被截断(rc=143),不影响收敛结论 | 本行即留痕 |
+| 收敛后的两个非阻断残项 | **第七回合现读:两格均已消解** | ① 同号多候选:现读 `plan-tasks-merge --heal` 全维归零(F1/F2/F3/F4/F10/漂开族皆 0)⇒ 无待裁决族,`--match-prefix-holder` 本轮无调用面;② `heal-worktree-tracked.mjs --align-drift` 现读 `.ihui-agent/state/converge-align-state.json` = `consecutiveFailures 0 / lastNote aligned=0 / lastOkAt` 为当轮 ⇒ 上一轮那条 rc=143 截断**本轮不复现**(如实记为不复现,不据此宣称别席已修) | 本行即留痕 |
 
 ## 5. Trae 面复取(第三靶,同批 T1 席)与三条环境事实
 
@@ -172,7 +172,65 @@
 - `expiry.ts` 259 行超档随 adapter 票一并拆。
 - §4 既存的其余格(TCP 代理腿需常驻载体、Trae 面增量、守护面 advisory 升 blocking 的存量归零前置)本回合未动,归属与解锁条件见 §4 原行。
 
-## 11. 复验命令
+## 11. 第七回合(2026-11-05 17:00–18:30)三席产物 + 「到期清理」调度腿收口
+
+| 能力 | 提交(全 40 位起) | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| 回收站到期清理落**端内 adapter**(七步 + fail-closed + 连败退休,判据零复算) | b709aa4ade | `cd apps/cli npx vitest run tests/trash-prune.test.ts` = 11 passed;tsc 0 错;**主席补做端到端**:新入口实跑 = `TRASH-PRUNE state=clean gate=empty manifests=0 entries=0 removed=0 failed=0 skipped=0 bytes=0`(本机 `.ihui/delete-trash` 现读 0 枚 ⇒ 空账档,零写零删零账目) |
+| 权限/命令 **registry 汇总口定性落档** + manifest 别名归一化 | cb9cb55724 | 席把口径用 TS AST 钉死(排定义/注释/import-export/测试),阳性对照 `readSkillCatalog`=1 才算数;据此**五枚汇总口与两 runner 的生产调用均为 0** ⇒ 判「**待接线**」而非死码(§7 三问未过不删)。真断裂是两族声明在 `normalizeManifest` 被丢,已修并补归一化与适配器出口(11 例)。主席复跑:三文件定向合跑 **31 passed**(trash-prune 11 + skills-catalog-wiring 9 + plugin-registry-surface 11) |
+| `skills list` 与 `/skills` **同源同形** + 到期判据按职责拆档 | 4c08c9baf1 | `tests/skills-catalog-wiring.test.ts` = 9 passed;packages/shared 两文件 = 30 passed;`expiry.ts` 259 → **237** 行(<250 档),TTL 解析搬进 `expiry-retention.ts`(42 行),导出集加锁;两个包 tsc 现读 0 错 |
+| 回收站到期清理的**调度腿**(24h 节流 + 三态 + 仅退休才寄信) | fd1edb25bd(端内入口)+ 3e3cd3dd9f(调度腿与接线) | 新镜像 `scripts/tests/git-guardian-trash-expiry.test.mjs` = **15/15 通过**;扇出接线锁 = **8/8 通过**;`npx tsc --noEmit -p apps/cli/tsconfig.json` = 0 错;`check-file-write-safety` = 越线 0;`check-sweeper-liveness` = state=live stalled=0 undetermined=0;判据面护栏 `--range` = **state=clean 红 0**(无签名豁免 1 枚,迁移窗口内已记台账);端到端实跑一次 = 空账档零动作 |
+
+**本回合落定的一条架构约束(踩过才知道的)**:守护腿是裸 node 跑的 `.mjs`,端内实现是 TS —— 架构契约表(`config/architecture-policy.yaml` 的 `repo-tooling`)**不含任何 `apps/*`** ⇒ 工具层**不得 import 端内实现**(门 103 D1)。故跨进程边界必须是一个文件:`apps/cli/src/tools/trash-prune-entry.ts`,守护腿用「spawn 一次 tsx 进程读它那一行结论行」取读数(与 `scripts/auto-evolve.mjs` 派发品牌邮件同一形态)。**这一格是本回合唯一踩过的架构坑,记在此处免得下一票再踩。**
+
+### 11a. T1 席七条缺口(§5)的逐条定性(主席现读,不许照抄席报)
+
+| # | 缺口 | 现读定性 | 归属 / 谁解锁 |
+| --- | --- | --- | --- |
+| 1 | AI 代码归属追踪(git-ai) | **真缺口**:本仓应用面零对位 | 本回合派席 Y1,产出见 §11c |
+| 2 | 企业命令黑名单 + 命令级三段决策 | **真缺口**:本仓应用面零对位 —— `apps/ai-service/app/data/command_policy.json` 现读顶层键只有 `version / description / dangerous_patterns(28) / allowed_prefixes(31) / sensitive_file_markers(6)`,**无** black_list / immutable_paths / enterprise 三档 | 本回合派席 Y2,产出见 §11c |
+| 3 | MCP/提示/历史分维配额 | **已结清** `405239526e8`(W1 席) | — |
+| 4 | 声明式能力开关单源 | **真缺口,但只取两行的交集那一格**:T1 §4 要四维大表、T12 #7 要 `productForm → 能力布尔` 单源;本仓已有的 `packages/types/src/capability-catalog.ts`(机器凭据端点目录)与 `capability-extensions.ts`(扩展 manifest 校验器)**都不是**这一格 ⇒ 按**窄口径**派席 Y3(四维大表是另一票的量,本仓现状撑不起) | 本回合派席 Y3,产出见 §11c |
+| 5 | 更新版本门 + 完整性校验 | **不是真缺口**:checksums 半格本仓**已有对位**(`apps/api/src/routes/artifacts.ts` 的 payload sha256 复验 + `CHECKSUM_MISMATCH` + `services/upload-integrity.ts` 的 md5/sha256 + 对应用例);另一半「apps/desktop 版本过低 → 具名 CTA」—— 本仓 `apps/desktop/src` 现读只有一个别席在飞的新测试文件,**零升级路径代码** ⇒ 无宿主承载面,按 §0.9 **不补成无消费者的声明**(与 W6 的 `onChatMention` 同型:如实不补,不是缺功能) | 已结清(结论:非缺口) |
+| 6 | AI 生成 commit 模型路由 | **已有对位**(T1 自评),本回合未动 | 不列缺口 |
+| 7 | SVN 仓库支持 | T1 自评「低价值,不建议」⇒ 登记为观察即可 | 不落地 |
+
+### 11b. 台账侧(主席现读)
+
+`node scripts/plan-tasks-merge.mjs --heal`(只报不落)现读:F1 0 组 / F2 0 行 / F3 0 处 / F4 0 副本 / F10 0 族 / 漂开族 0 ⇒ **上一轮登记的「4 组同号多行」在本枚已归零,无待裁决族**(`--match-prefix-holder` 出口本轮无调用面)。`check-plan-line-loss` 现读只剩 1 条「同编号仍有别的登记行」的**只报数**项(B31:HEAD 面只有 1 行 B31,历史面另有一行),按该门口径不进自动回捞、不参与退出码 ⇒ 不是待裁决族,不动。`check-task-claims` 现读:超龄完整租约牌 **0 枚** / 裸「（进行中）」标记 **0 枚**。
+
+### 11c. 第七回合末批:三席并行产物(AI 代码归属追踪 / 企业命令黑名单 / 产品形态能力单源)
+
+| 能力(对侧锚点) | 落点 | 主席自审读数(自己复跑,不采信席报自述) |
+| --- | --- | --- |
+| **AI 代码归属追踪**(Trae `extensions/git-ai.git-ai-vscode` v0.1.20;§5 缺口表第 1 行) | ai-service `core/ai_code_attribution*.py` 5 件 + `services/ai_code_attribution_{store,persistence,git}.py` 3 件 + `routers/ai_code_attribution.py` + CLI `commands/ai-attribution.ts` | `pnpm check:pytest -- tests/test_ai_code_attribution.py` = **19 passed**;CLI 侧 `tests/ai-attribution-cli.test.ts` = 5 passed;`check-mypy --worktree` = **0 errors / 700 文件**;水印 **19/19** 残迹 0 |
+| **企业命令黑名单 + 命令级三段决策**(Trae `enterprise_command_blacklist` / `sandbox_model_escape` 进领域侧;§5 缺口表第 2 行) | `core/command_policy_merge.py` + `core/command_policy_tiers.py` + `command_policy.json` 扩两档 + `services/mcp_server.py` 接线 | 新用例 `tests/test_command_policy_merge.py` = **21 passed**;既有消费方回归 6 文件 = **348 passed**;ruff `--worktree` = All checks passed;主席另核 JSON 差异面:旧三段(28/31/6)**逐字未改**、只新增档位键 ⇒ 前端生成物**零漂移** |
+| **产品形态 → 能力布尔 声明式单源**(Qoder `products.qoder` vs `qoder-cn`;T12 #7 与 T1 #4 的交集;§5 缺口表第 4 行) | `packages/types/src/product-form-capabilities.ts`(单源)+ CLI `lib/product-form.ts` + `tools/product-form-gate.ts` + `tools/index.ts` / `hooks/index.ts` 两处消费 | `cd apps/cli npx vitest run tests/product-form-capabilities.test.ts` = **15 passed**;`npx tsc --noEmit -p packages/types` 与 `-p apps/cli` 均 **0 错**;门 89 现读 R4「文档未点名」= **0 枚** ⇒ 本机制不需改 AGENTS.md |
+
+**三席共同的纪律现读证据**:①**判据各只有一份** —— Y1 的 CLI 侧加反向锁(读命令文件源码,断言不得出现判据字面量);Y2 的裁决枚举复用既有 `Decision`,不新造 `command_rule_*` 字符串;Y3 的 `grep PRODUCT_FORM_CAPABILITIES\s*[:=]` 全仓只命中单源一处。②**每格都有真消费方** —— Y1 = `file_editor.edit_file` 两处落账 + `/api/ai-code-attribution/*` 读数路由;Y2 = `mcp_server._tool_run_command` 真实执行路径;Y3 = `registerTools` 与 `dispatchHookEntry` 两处。③**「未判定」独立成态、不折成 deny/allow/unknown** —— Y2 的 `COMMAND_POLICY_UNDETERMINED`、Y3 的 `PRODUCT_FORM_CAPABILITY_UNJUDGED`、Y1 的 `unknown` 归属三态。
+
+**一处主席复量纠正(席报与现读不符,已退回重做)**:Y1 首报「core 248 行 / store 230 行」,主席现读为 **302 / 272** ⇒ 退回该席按职责拆档;重做后 **12 个文件全部 < 250 行**(core 聚合面 95 / verdict 121 / record 128 / stats 59 / trace 60 / store 120 / persistence 184 / git 100 / router 145 / tests 237 / CLI 命令 198 / CLI 测试 89),用例由 18 条增至 19 条。**教训**:席报的行数必须在**最后一次写盘之后当场复读**,不能引用编辑过程中的中间读数。
+
+**三席超越轴(§0.11 第④步,逐席一句话)**
+- Y1:零常驻进程(对侧是 VSCode 扩展 + daemon + 托管运行时)· 判定纯函数可测 · 三态诚实(`unknown` 不折)+ `ai_ratio` / `known_ratio` 双占比并排。
+- Y2:逐条可解释(`matched_rules` 带来源档位)+ 不静默收窄(仓库档被企业档**放宽**时也出声)+ deny 档不可绕门(一次性放行与长期前缀规则都不跳)。
+- Y3:缺键显式出声(对侧缺键按 false 静默降级)+ 形态轴扩到本仓真实四端 + 降权判定是纯函数。
+
+**三席未竟项(逐条给归属与解锁条件,不写「已完成」)**
+
+| 席 | 未竟 | 为什么没做完 | 谁解锁 |
+| --- | --- | --- | --- |
+| Y1 | 人手编辑面没接 | 本仓没有「人手编辑」事件源(人手在编辑器里改代码不经工具链)⇒ 表现为「没记到」,**不是**错记成 human | 需编辑器侧钩子的后续票 |
+| Y1 | `session_id` 恒空 ⇒ 「按会话统计」这一维暂空 | `edit_file()` 签名里没有会话上下文,改签名影响面超出本票 | 调用层(agent_loop / MCP 工具派发腿)透传一行 |
+| Y1 | `commit_sha` 恒空 ⇒ 回溯恒为「回溯不出:改动尚未提交」 | 编辑发生在提交之前,此刻**物理上**无从 blame;如实出声而不是编一个 sha | 需「提交事件回填 sha 到对应账行」的一格,或改由 `git log` 事后反查 |
+| Y1 | 对侧的 checkpoint 日志那一半 | 任务面给的是二选一(CLI checkpoint / ai-service 真调用点),本席选后者先坐实服务端主链 | 与 goal-b49 剩余格同排 |
+| Y2 | 多档五段默认留空 | 刻意:填任何规则都会改变某些命令的运行时判定 ⇒ 属产品决策而非形状改造 | 主席/运维;席报建议首个种子(仓库档 `ask` 加 `npm publish`;企业档 `black_list` 加沙箱逃逸族 `nsenter`/`chroot`/`docker run --privileged`) |
+| Y2 | 企业快照无「下发 / 签名 / 版本协商」面 | 本仓只有「读一份本地快照 JSON」 | 平台席 |
+| Y2 | 对侧枚举穷尽性(是否还有第 17 枚锚点) | 属取证席射程(需函数级反编译),本票只做行为对位 | 取证席 T1 |
+| Y3 | `web/miniapp/rn` 三行无实际占用者 | 本仓今天只有 CLI 形态会被声明 ⇒ 三行是「声明契约的形状」,不是已生效的能力 | 第二个内核宿主接线那一票 |
+| Y3 | 形态声明按进程生效 | 要按连接/按会话声明需另立票 | 后续票 |
+
+## 12. 复验命令
 
 ```bash
 node scripts/watermark.mjs verify docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
