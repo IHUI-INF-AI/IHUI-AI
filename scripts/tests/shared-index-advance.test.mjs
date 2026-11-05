@@ -26,7 +26,10 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { advanceSharedIndexPaths } from '../lib/shared-index-advance.mjs'
 
-const LIB_PATH = fileURLToPath(new URL('../lib/shared-index-advance.mjs', import.meta.url)).replace(/\\/g, '/')
+const LIB_PATH = fileURLToPath(new URL('../lib/shared-index-advance.mjs', import.meta.url)).replace(
+  /\\/g,
+  '/',
+)
 
 /** 一次 git:显式接管 stdio(本机不给会 spawnSync EBUSY),`-C` 定根。 */
 function git(dir, args, env) {
@@ -98,7 +101,11 @@ test('私有索引提交后:共享索引 ls-files -s 等于新 blob(他席 stage
     const sha = privateCommit(dir, join(dir, '.git', 'priv-a.idx'), ['a.txt'], 'priv: a')
 
     // 前置(病灶证据):提交已落地,但共享索引里 a.txt 仍是旧 blob —— 裸提交不刷新共享索引
-    assert.equal(blobOfShared(dir, 'a.txt'), oldBlob, '前置:共享索引应仍停在父树,否则本用例测不到本病灶')
+    assert.equal(
+      blobOfShared(dir, 'a.txt'),
+      oldBlob,
+      '前置:共享索引应仍停在父树,否则本用例测不到本病灶',
+    )
     assert.match(git(dir, ['status', '--porcelain', '--', 'a.txt']), /^MM/, '前置:应呈现 MM')
 
     const res = advanceSharedIndexPaths({
@@ -269,7 +276,12 @@ test('共享索引锁被占:返回 locked,共享索引字节不变,绝不删别�
     writeFileSync(join(dir, 'a.txt'), 'a-v2\n')
     const beforeSig = new Map([['a.txt', sigOfShared(dir, 'a.txt')]])
     const sha = privateCommit(dir, join(dir, '.git', 'priv-b.idx'), ['a.txt'], 'priv: a2')
-    const beforeBytes = execFileSync('git', ['-C', dir, 'ls-files', '-s'], { encoding: 'utf8' })
+    const beforeBytes = execFileSync('git', ['-C', dir, 'ls-files', '-s'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      maxBuffer: 1 << 24,
+    })
 
     const foreignLock = join(dir, '.git', 'index.lock')
     writeFileSync(foreignLock, 'other-session\n')
@@ -283,7 +295,15 @@ test('共享索引锁被占:返回 locked,共享索引字节不变,绝不删别�
     })
     assert.equal(res.ok, false)
     assert.equal(res.reason, 'locked')
-    assert.equal(execFileSync('git', ['-C', dir, 'ls-files', '-s'], { encoding: 'utf8' }), beforeBytes)
+    assert.equal(
+      execFileSync('git', ['-C', dir, 'ls-files', '-s'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        maxBuffer: 1 << 24,
+      }),
+      beforeBytes,
+    )
     assert.ok(existsSync(foreignLock), '别人的 index.lock 被删了(红线 C)')
   } finally {
     rmScratch(dir)
@@ -299,13 +319,17 @@ test('CLI:--sha/--paths/--cwd 走同一实现,输出 JSON 且 exit 0', () => {
     const sha = privateCommit(dir, join(dir, '.git', 'priv-cli.idx'), ['b.txt'], 'priv: b')
     assert.equal(blobOfShared(dir, 'b.txt'), beforeSig.get('b.txt').split(/\s+/)[1])
 
-    const out = execFileSync(process.execPath, [LIB_PATH, '--sha', sha, '--paths', 'b.txt', '--cwd', dir], {
-      cwd: dir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-      env: privateEnv(join(dir, '.git', 'unused-should-not-exist.idx')),
-    })
+    const out = execFileSync(
+      process.execPath,
+      [LIB_PATH, '--sha', sha, '--paths', 'b.txt', '--cwd', dir],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        env: privateEnv(join(dir, '.git', 'unused-should-not-exist.idx')),
+      },
+    )
     const res = JSON.parse(out.trim().split('\n').pop())
     assert.equal(res.ok, true, out)
     assert.deepEqual(res.advanced, ['b.txt'])
