@@ -76,34 +76,72 @@ export function stripInvisibleForTransport(text: string, keepZwj = false): strin
   return out
 }
 
-type TransportShapedMessage = { role: string; content: string | null | undefined }
+type TransportShapedMessage = {
+  role: string
+  content: string | null | undefined
+  /**
+   * 出站射程的**第三格**(2026-11-06 补):助手消息里的工具调用参数不是 `content`,
+   * 而会话把带水印源文件的内容抄进 `read_file`/`glob` 的参数时,零宽就走这一格出去。
+   * 此前 `sent=0` 只覆盖 `content` ⇒ 仪器与病灶同盲一格。
+   */
+  tool_calls?: { function?: { arguments?: string | null } }[]
+}
+
+const argsOf = (m: TransportShapedMessage): string =>
+  (m.tool_calls ?? []).map((c) => c?.function?.arguments ?? '').join('')
 
 /**
  * 消息表级出站清洗:**每一档都过**,只有 `tool` 档连 ZWJ 一起剥,其余档留 U+200D
  * (emoji 家族/国旗序列的合法成分,动它会静默改坏可见内容)。
  * 为什么不是"只动 tool 档":载荷不只住在工具结果里 —— `agent.ts:1744` 把工具输出也按
  * `role:'user'` 入历史,`compaction-v2.ts:547` 的上下文摘要是一条非 tool 消息而它带压缩前原文。
- * **但要说清这两条不是那条 400 的充分解释**(2026-11-05 实测):扩到全角色之后再跑一班,
- * 30 次工具调用 / `iterations=10` 仍 `请求包含不合法字符(400)` ⇒ 带毒段仍在射程外,
- * 所以下面那台 env 自查仪器才是回答这条病灶的东西,不是再猜一轮。
- * 全表零命中 ⇒ 返回入参本身(不复制、不重排)。
+ * 命中数按 **content 维 + tool_calls 参数维** 两格算(单源在本文件,出口不复算 §0.6);
+ * 全表零命中 ⇒ 返回入参本身(不复制、不重排),**未命中的那条调用连对象引用都不换**。
  * CLI 的三个 provider 出口(`streamChat` 主循环 / `streamChat` 压缩摘要 /
- * `streamOpenAiCompatible`)都在 `messages:` 那一行调它;判据只住本文件,出口不复算(§0.6)。
+ * `streamOpenAiCompatible`)都在 `messages:` 那一行调它。
  */
 export function sanitizeMessagesForTransport<T extends TransportShapedMessage>(
   messages: readonly T[],
   label = 'provider',
   extras?: unknown,
 ): T[] {
-  const hit = (m: T): number =>
-    typeof m.content === 'string' ? countInvisibleForTransport(m.content, m.role !== 'tool') : 0
+  const hit = (m: T): number => {
+    const keepZwj = m.role !== 'tool'
+    return (
+      (typeof m.content === 'string' ? countInvisibleForTransport(m.content, keepZwj) : 0) +
+      countInvisibleForTransport(argsOf(m), keepZwj)
+    )
+  }
   const out: T[] = messages.some((m) => hit(m) > 0)
-    ? messages.map((m) =>
-        hit(m) > 0
-          ? { ...m, content: stripInvisibleForTransport(m.content ?? '', m.role !== 'tool') }
-          : m,
-      )
+    ? messages.map((m) => {
+        if (hit(m) <= 0) return m
+        const keepZwj = m.role !== 'tool'
+        const calls = m.tool_calls
+        return {
+          ...m,
+          content:
+            typeof m.content === 'string'
+              ? stripInvisibleForTransport(m.content, keepZwj)
+              : m.content,
+          ...(Array.isArray(calls) && calls.some((c) => c?.function?.arguments)
+            ? {
+                // 逐条按"先数后剥"判:同一条消息里只有**自己命中**的那枚调用才被重建,
+                // 干净的那枚连对象引用都不换(与 ⑧ 档同一条纪律;整条重建会在历史里
+                // 产生同字节不同对象的副本,把"我根本没动它"这件事变得不可证)。
+                tool_calls: calls.map((c) => {
+                  const a = c?.function?.arguments
+                  if (!a || countInvisibleForTransport(a, keepZwj) <= 0) return c
+                  return {
+                    ...c,
+                    function: { ...c.function, arguments: stripInvisibleForTransport(a, keepZwj) },
+                  }
+                }),
+              }
+            : {}),
+        }
+      })
     : (messages as T[])
+
   // 自查仪器(`IHUI_TRANSPORT_AUDIT=1` 才出声,缺省零行为变化):量"序列化前那一刻还剩几枚"。
   // 立因:这条病灶已经被"找到真因"两次而 400 未消,先前所有结论都靠转录旁证;
   // 只有 `sent=0 而 400 仍在` 这一种读数才能把"是不是 messages 这一段带毒"定死。

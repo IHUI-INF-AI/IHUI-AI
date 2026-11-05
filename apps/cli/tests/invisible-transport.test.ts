@@ -56,6 +56,34 @@ describe('invisible-transport(自治会话自毒病灶,2026-11-05 三次修正�
     expect(stripInvisibleForTransport(once)).toBe(once)
   })
 
+  it('⑤′ 射程第三格:零宽藏在 tool_calls[].function.arguments 里也必须剥(2026-11-06)', () => {
+    // 立因:旧读数只覆盖 `content`,而会话读到带三层水印的源文件后会把内容抄进工具参数,
+    // 载荷就换这一格出口 ⇒ `sent=0` 其实是仪器与病灶同盲一格。
+    const ZW = String.fromCharCode(0x200b)
+    const cleanCall = { function: { name: 'list_dir', arguments: '{"path":"clean"}' } }
+    const dirtyCall = { function: { name: 'read_file', arguments: `{"path":"a${ZW}b.ts"}` } }
+    const msgs = [
+      { role: 'user', content: '干净正文' },
+      { role: 'assistant', content: null, tool_calls: [dirtyCall, cleanCall] },
+      { role: 'tool', content: '无参数的 tool 档' },
+    ]
+    const out = sanitizeMessagesForTransport(msgs, 'test')
+    const args = (out[1].tool_calls ?? []).map((c) => c?.function?.arguments).join('|')
+    expect(args).not.toContain(ZW)
+    expect(args).toContain('{"path":"ab.ts"}')
+    // 成对反向:参数本来就干净的调用**不得被重写**(引用相等 = 不复制、不重排)
+    expect(out[1].tool_calls?.[1]).toBe(cleanCall)
+    // content 为 null 的助手消息保持 null(不得把"没有正文"洗成空串)
+    expect(out[1].content).toBeNull()
+    // 只在参数格命中(content 干净)也必须触发清洗
+    const onlyArgs = [{ role: 'assistant', content: '正常正文', tool_calls: [dirtyCall] }]
+    expect(
+      (sanitizeMessagesForTransport(onlyArgs, 'test')[0].tool_calls?.[0]?.function?.arguments ??
+        '') as string,
+    ).not.toContain(ZW)
+    expect(onlyArgs[0].content).toBe('正常正文')
+  })
+
   it('⑤ 非字符串/空值不炸', () => {
     const loose = stripInvisibleForTransport as unknown as (v: unknown, k?: boolean) => unknown
     expect(loose(undefined)).toBe(undefined)
