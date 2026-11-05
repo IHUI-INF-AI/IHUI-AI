@@ -31732,10 +31732,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - **排除 A · "RN 渲染 `packages/app` 的 `PayButton`/`TabBar`（DOM）即崩"**：实读 `packages/app/src/index.ts:472` 确实 `export { PayButton, TabBar } from './components'`（DOM 实现，见 `PayButton.tsx:9` 引 `lucide-react`、`TabBar.tsx:18` 注释"用 div/span/img"）。但全仓无任何 app 在 `package.json` 依赖 `@ihui/app`，且 `apps/mobile-rn` 用的是自己的 `apps/mobile-rn/src/components/TabBar.tsx`（RN 原生），根本不引入该 barrel ⇒ 当前不会触发。属"潜在 footgun"而非现行崩溃，不列为 BUG，仅在门禁层建议对 `@ihui/app` 加 RN 引用守卫。
 - **排除 B · "benchmarks/gen.mjs 写字面量 `\\n`"**：实读 `benchmarks/gen.mjs:51-52` 为 `l.replace(/\\/g,'\\\\').replace(/'/g,"\\'")` + `].join('\n')`——是对反斜杠/单引号的**正确转义**，`.join('\n')` 是真实换行而非两字符字面量。原报告把正确转义误读成 bug，撤销。
 - **待核（本次未直接核验、不强行登记）**：① mobile-cap 权限声明与已装插件是否匹配；② `capacitor.config` 是否用 `server.url` 远程加载导致 webDir 白拷；③ release 是否缺 `signingConfig`；④ 亮色模式状态栏近黑；⑤ 推送注册状态前后矛盾；⑥ python SDK `agent_engine.py:603` 的 `stream=True` 是否真的使调用崩。这几条要么证据不足、要么需运行态验证，留待下一轮定向核验，不占派单额度。
-### 本批覆盖边界（未判的不写成判过）
-- **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
-- **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
-- **已用代码证据排除、不再重复排查的面**（避免下一轮重复劳动）：`as any`/`@ts-ignore` 全仓仅 4+9 处且集中在测试与 seed；包 exports 解析 wildcard 修正后 unresolved 0；`sql.raw` 拼接面全部走 drizzle `sql` 模板或 `sql.join()` 参数绑定；SSRF 的 `utils/ssrf-guard.ts`（`safeFetch` 逐跳）与 `ai-feed-service.ts` 的 `proxyImage`（5 道闸 + 拒 svg）覆盖到位；路径穿越在 `pdf-routes.ts` / `workspace.ts` / `transcode.ts` / 桌面端 `ensure_in_app_data` 均已校验；上传侧 `file-type-validator.ts` 单源（扩展名→MIME→魔数，白名单不收 svg/html）、落盘名 `randomUUID()`、`/uploads/*` 有 `UPLOAD_CSP`；JWT 全仓 HS256 固定 + `algorithms: [ALG]` + `iss`/`aud` 校验、`web/src/lib/auth-utils.ts` 显式拒 `alg !== 'HS256'`；`crypto.ts` 用 `aes-256-gcm` + `randomBytes(12)`、比较走 `secretsEqual`（SHA-256 定长后 `timingSafeEqual`）；CORS 仅 2 处 `*`（图片代理不带 credentials、CLI 回环面）、`cors-origin.ts` 对 `chrome-extension://` fail-closed；登录/短信/支付回调限流在位；logger 唯一落盘口已 `redactCredentialText`；`Math.random()` 唯一生产命中是埋点 session id；无 `createHash('md5'|'sha1')` 存密码；`JWT_SECRET`/`CREDENTIALS_ENCRYPTION_KEY` 强制 ≥32 字符并拒已知占位符；依赖版本（lodash 4.18.1 / axios 1.19.0 / next 16.4.3 / fastify 5.12.7 / jose 6.2.9 / ws 8.21.3 / tar 7.5.22）均不在已知高危区间、未使用 `jsonwebtoken`；CI 无 `echo ${{ secrets.* }}`、无 `permissions: write-all`、无 `pull_request_target`、外部 action 基本 SHA 化。
 ### 第三轮补扫（ai-service 网络 / DTO 全量 / scripts 业务 / SQL 迁移 / web-api 五面并行深审，BUG-75~92）
 - [ ] BUG-75 **ai-service 语雀连接器在 async 函数内用同步 `requests.get` 阻塞整个事件循环**：模块级 `def _request` 调 `requests.get`，却被 `async def sync` / `async def fetch_document` 直接同步调用，任一语雀请求卡住即冻结所有协程。(登记@2026-11-06;归属:机主)
   - 位置：`apps/ai-service/app/services/connectors/yuque.py :: import requests(37) / def _request(65) / return requests.get(69)` 被 `async def sync(110)`、`async def fetch_document(160)` 调用
@@ -31802,21 +31798,24 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`ALTER TABLE exam_wrong_question ADD CONSTRAINT exam_wrong_question_user_question_unique UNIQUE(user_id, question_id);`
   - 对照：同仓 `0115_r82_seed_unique_indexes.sql` 用 `CREATE UNIQUE INDEX IF NOT EXISTS` 且内容表索引用 `IF NOT EXISTS`
   - 收口：改 `CREATE UNIQUE INDEX IF NOT EXISTS`，并在加索引前 `DELETE` 掉重复行（保留一条）
-- [ ] BUG-88 **迁移 `0115_r82_seed_unique_indexes.sql` 在 `news_articles`/`asks`/`resources`/`live_channels` 的 `title` 上建 `UNIQUE INDEX`；用了 `IF NOT EXISTS`（重放安全），但内容表标题本不保证唯一，若生产这 4 张表已有重复 title，迁移在建立索引时中断**〔待核：生产数据是否已有重复〕：(登记@2026-11-06;归属:机主)
+- [ ] BUG-88 **迁移 `0115_r82_seed_unique_indexes.sql` 在 `news_articles`/`asks`/`resources`/`live_channels` 的 `title` 上建 `UNIQUE INDEX`；内容表标题本不保证唯一且 4 张表全部是更早迁移（0014/0016/0018/0034 等）建的既有表，一旦存量出现重复 title，迁移当场中断**〔已坐实：结构性无守卫〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0115_r82_seed_unique_indexes.sql :: *_title_uniq`
-  - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构）
-  - 对照：`circles.slug` 本就唯一，可建 UNIQUE；title 不应唯一
-  - 收口：改普通 INDEX 或先 `SELECT title,count(*) FROM … GROUP BY title HAVING count>1` 查重清洗
-- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；若生产该表已有行，迁移在 ADD COLUMN 处中断**〔待核：生产表是否非空〕：(登记@2026-11-06;归属:机主)
+  - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构；全文件仅 14 行、无任何去重/体检块）
+  - 坐实：4 张表创建于 0014/0016/0018/0034/0043 等更早迁移 ⇒ 既有表非新建；`IF NOT EXISTS` 只防重放、不防存量重复
+  - 对照：同仓 `20261002033500_im_messages_platform_msg_unique.sql` 对同类风险做了完整守卫（先 `count` 重复组、`dup_groups>0` 即 `RAISE EXCEPTION` 并把处置顺序写进异常文本）
+  - 收口：照 im_messages 模式前置重复体检 + 人工裁决，或降为普通 INDEX
+- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；该表创建于更早的 `0038_missing_tables.sql`/`0043`（既有表），存量非空则 ADD COLUMN 当场中断**〔已坐实：既有表 + 无 DEFAULT〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0108_r83_supplement_27_tables.sql :: oauth_private_keys(client_id, private_key)`
   - 判据：`ALTER TABLE oauth_private_keys ADD COLUMN IF NOT EXISTS client_id varchar(100) NOT NULL;` `ADD COLUMN IF NOT EXISTS private_key text NOT NULL;`
+  - 坐实：`CREATE TABLE "oauth_private_keys"` 在 `0038_missing_tables.sql:158` 与 `0043_neat_the_spike.sql:2100` ⇒ 表先于本迁移存在；`IF NOT EXISTS` 只防重复加列、不豁免 NOT NULL 对存量行的约束
   - 对照：同文件 `is_active` 等带 `DEFAULT 0/1`；此处核心 OAuth 字段漏 DEFAULT
   - 收口：加 `DEFAULT ''` 或先确认表空再 NOT NULL
-- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；若生产该表非空，迁移中断**〔待核：生产表是否非空；注释声称 0 行但无运行时保证〕：(登记@2026-11-06;归属:机主)
+- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；安全性完全押在注释自称的「现存 0 行」上，无任何运行时 `count` 守卫**〔已坐实：结构性赌注〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/20261018160000_agent_state_tables_runtime_reality.sql :: agent_working_memory_compression(original_messages, compressed_to)`
   - 判据：`ALTER TABLE agent_working_memory_compression DROP COLUMN original_messages; … ADD COLUMN original_messages integer NOT NULL;`（compressed_to 同构，均无 DEFAULT）
+  - 坐实：DO 块仅在「列存在且类型不匹配」时重建列 ⇒ 若生产该表已被 agent 运行时写入（类型不匹配+非空），`ADD COLUMN NOT NULL` 中断；文件头注释「幂等性…USING 分支在 0 行表上不求值」也以 0 行为前提
   - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；此处重建列漏 DEFAULT
-  - 收口：加 `DEFAULT 0` 或先确认表空
+  - 收口：加 `DEFAULT 0`，或 DO 块内先 `count(*)` 非零即 RAISE（照 im_messages 守卫模式）
 - [ ] BUG-91 **web `EarningsOverview` 用 `${d.conversionRate.toFixed(1)}%` 直接格式化；仅兜底 `data===null`，若后端返回非空但缺 `conversionRate` 的对象，`undefined.toFixed(1)` 抛 TypeError 致组件白屏，唯独该字段走裸 `.toFixed` 而其他指标用 `Intl.NumberFormat`**：(登记@2026-11-06;归属:机主)
   - 位置：`apps/web/src/components/earnings/EarningsOverview.tsx :: value: \`${d.conversionRate.toFixed(1)}%\``
   - 判据：`const d = data ?? { … conversionRate: 0 … }` 仅兜底 `data===null`；`d.conversionRate.toFixed(1)` 在 `conversionRate===undefined` 时崩
@@ -31827,6 +31826,53 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`fetchApi(...).then(...).catch(()=>{})`——失败被零痕迹吞掉
   - 对照：同仓 `use-agent-stream` 在吞错处至少 `console.warn`
   - 收口：`.catch((e)=>console.warn('[home-schema] load failed', e))`
+
+### 第四轮补扫坐实（2026-11-06 深夜：待核闭环 + 四面全量扫描）
+
+- [ ] BUG-93 **`apps/mobile-cap` 的 release `buildType` 完全没有 `signingConfig`：release 块只有 `minifyEnabled false` 与 proguardFiles，产出未签名 APK（无法安装）或误用 debug 签名发布**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/mobile-cap/android/app/build.gradle :: buildTypes { release { … } }`
+  - 判据：`release { minifyEnabled false proguardFiles … }` —— 全块无 `signingConfig signingConfigs.release`，文件内也无 `signingConfigs {}` 定义段
+  - 对照：标准 Capacitor 模板 release 会挂 `signingConfig signingConfigs.release` 并由 keystore.properties 提供
+  - 收口：补 signingConfigs + keystore.properties（凭据走本机密钥目录，不入仓）
+- [ ] BUG-94 **`apps/mobile-cap` 以 `server.url: 'https://aizhs.top'` 远程加载整站，`webDir='www'` 同步产物每次构建白拷进 APK：离线壳失效、包体白白增大**（注释自承首版决策、待后端 CORS 补 `https://localhost` 后切回本地资产）：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/mobile-cap/capacitor.config.ts :: server.url`
+  - 判据：`url: 'https://aizhs.top'` + 注释「首版采用 server.url 远程加载…本地资产离线模式待后端 CORS 白名单补 https://localhost 后切回（见 .mode-local-assets 备注分支）」
+  - 影响：APK 含全量 www 静态资源但运行时不加载；无网即白屏
+  - 收口：按既定备注分支切回本地资产（后端 CORS 补条目后）
+- [ ] BUG-95 **`sdks/python/ihui_sdk`（旧版 Python SDK）的两个端点 `/api/chat/completions` 与 `/api/models` 在全仓任何服务端都不存在 ⇒ `chat_completions_create`/`list_models` 一切调用必 404，整包不可用**（顺带闭环待核「stream=True 必崩」：请求根本到不了 stream 语义）：(登记@2026-11-06;归属:机主)
+  - 位置：`sdks/python/ihui_sdk/__init__.py :: IhuiClient._request`（`_request("/api/chat/completions", …)`、`_request("/api/models", …)`）
+  - 判据：全仓 grep `'/api/chat/completions'` 与 `'/api/models'` 路由注册零命中；apps/api 仅 admin relay 测试引用 `/v1/chat/completions`，ai-service llm.py 路由全部挂 `/api/llm/*`
+  - 对照：新版 `packages/sdk/python/ihui_ai/agent_engine.py` 走 `POST {base}/api/engine/rpc`（真实存在）
+  - 收口：删除旧 SDK 或改指向真实端点
+- [ ] BUG-96 **`scripts/seed-zhs-model-info.mjs` 的 `DELETE FROM zhs_ai_model_info` 在事务外先提交，随后才 `sql.begin` 批量插入 ⇒ INSERT 事务任一失败回滚后，表已被清空且不恢复，模型清单整表丢失**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/seed-zhs-model-info.mjs :: cleared/await sql.begin`
+  - 判据：`const cleared = await sql\`DELETE FROM zhs_ai_model_info\`` 在 `await sql.begin(async (tx) => {…INSERT…})` 之外（:49 vs :53）
+  - 对照：`perm-wire-backfill.mjs` 全程 `sql.begin(tx => …)` 单事务；`seed-all-providers` 用 `ON CONFLICT` 幂等
+  - 收口：把 DELETE 挪进 sql.begin 内
+- [ ] BUG-97 **`scripts/video-ops.mjs` 把 `--bucket=` 的 argv 值未转义直接拼进 `execSync` 模板串，构成命令/参数注入面（对照同仓 `sync-downloads.mjs` 对 PowerShell 分支做了单引号转义）**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/video-ops.mjs :: bucket/execSync(aliyun oss cp)`
+  - 判据：`const bucket = args.find((a) => a.startsWith('--bucket='))?.split('=')[1] || 'yjs-learning'` → ``execSync(`aliyun oss cp "${file}" oss://${bucket}/courses/${key} -f`, …)``
+  - 对照：`sync-downloads.mjs` 用 `.replace(/'/g,"''")` 转义后才拼命令
+  - 收口：对 bucket/file/key 白名单校验或 shell 转义
+- [ ] BUG-98 **`scripts/check-agents.mjs` 是 `postgres:postgres` 明文兜底 DSN 的第三处漏网（BUG-82 seed-all-providers、BUG-83 scan-upstream-models 之后），还叠加从 `.env` 文件读取 `DATABASE_URL` 的旁路**：(登记@2026-11-06;归属:机主)
+  - 位置：`scripts/check-agents.mjs :: const url = process.env.DATABASE_URL || envFile.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ihui'`
+  - 判据：与 BUG-82/83 同源模式；仓库内已修复写法 `apply-realistic-pricing.mjs`/`grant-ihui-superuser.mjs` 的注释点名要剔除该模式
+  - 收口：改 `requireEnv('DATABASE_URL')` 缺失即 exit 2
+- [ ] BUG-99 **`0125_knowledge_graph.sql`（:22/:41 两处）与 `20261104120000_agent_team_collab.sql`（:44/:47/:72 三处）共 5 处 `CREATE UNIQUE INDEX` 无 `IF NOT EXISTS` 也无前置体检：同文件新建表首跑安全，但任何原因重跑/补跑即中断，违反仓库「迁移全幂等」约定**：(登记@2026-11-06;归属:机主)
+  - 位置：`packages/database/drizzle/0125_knowledge_graph.sql :: ux_knowledge_entity_owner_name_type, ux_knowledge_relation_edge`；`20261104120000_agent_team_collab.sql :: agent_team_members_team_member_uq, agent_team_members_active_uq, agent_team_inbox_team_idem_uq`
+  - 对照：`0115` 全部用 `IF NOT EXISTS`；`20261002033500_im_messages` 前置重复体检
+  - 收口：补 `IF NOT EXISTS`（表为同文件新建，无需数据体检）
+- [ ] BUG-100 **`apps/web/src/components/publish/PlatformPreview.tsx` 把文章 `html` 原样插进 `dangerouslySetInnerHTML`（title 走 `escapeHtml` 但 `html` 不过 DOMPurify）——潜伏 XSS 模式；当前全仓无调用方（死组件），风险未激活**：(登记@2026-11-06;归属:机主)
+  - 位置：`apps/web/src/components/publish/PlatformPreview.tsx :: dangerouslySetInnerHTML={{ __html: \`…${escapeHtml(title)}…${html}\` }}`
+  - 判据：`${html}` 无任何消毒；全仓 grep `PlatformPreview` 仅命中组件自身（无消费方）
+  - 对照：`SafeHtml.tsx` 走 `DOMPurify.sanitize`；`MermaidDiagram.tsx` `securityLevel:'strict'` + DOMPurify 二次消毒
+  - 收口：复用前先过 DOMPurify，或直接删除死组件
+
+### 本批覆盖边界（未判的不写成判过）
+- **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
+- **第四轮已把上批四条盲区扫毕**：① ai-service 出站调用全量 grep：verify=False 零命中、模块级 httpx 全带 timeout、AsyncClient 147 处实例化里同行缺 timeout 的 19 处逐点打开全是注释或多行参数（media_tasks 三处均有 httpx.Timeout(20.0, read=…)）⇒ 该面收口为 BUG-75/76/77 + 排除；② DTO 高流量模块逐个比对：auth/me 的 publicUser 把 null 转 '' 与客户端 string|null 仅类型层差异、knowledge-base 客户端注释自证对齐 routes/other/knowledge-base-routes.ts、teams role 枚举两端一致、wallet 为 integer 列返回 number、files maxSize 由后端表单元数据下发 ⇒ 契约面例外即已登记的 BUG-78~81/64~66；③ scripts 业务族 2103 个 .mjs 全量破坏性扫 ⇒ 新增 BUG-96~98（rm -rf 约 80 处全为白名单/临时目录路径、密钥落日志零命中）；④ 366 份 SQL 定向模式扫：ADD COLUMN NOT NULL 无 DEFAULT 全仓仅 3 文件（即 BUG-85/89/90）、USING NULL:: 仅 BUG-2、USING '':: 零命中、DROP 无 IF EXISTS 仅 0123（DO 块守卫内）与 2026 文件（information_schema 守卫内）⇒ 新增 BUG-99。
+- **已用代码证据排除、不再重复排查的面**（避免下一轮重复劳动）：`as any`/`@ts-ignore` 全仓仅 4+9 处且集中在测试与 seed；包 exports 解析 wildcard 修正后 unresolved 0；`sql.raw` 拼接面全部走 drizzle `sql` 模板或 `sql.join()` 参数绑定；SSRF 的 `utils/ssrf-guard.ts`（`safeFetch` 逐跳）与 `ai-feed-service.ts` 的 `proxyImage`（5 道闸 + 拒 svg）覆盖到位；路径穿越在 `pdf-routes.ts` / `workspace.ts` / `transcode.ts` / 桌面端 `ensure_in_app_data` 均已校验；上传侧 `file-type-validator.ts` 单源（扩展名→MIME→魔数，白名单不收 svg/html）、落盘名 `randomUUID()`、`/uploads/*` 有 `UPLOAD_CSP`；JWT 全仓 HS256 固定 + `algorithms: [ALG]` + `iss`/`aud` 校验、`web/src/lib/auth-utils.ts` 显式拒 `alg !== 'HS256'`；`crypto.ts` 用 `aes-256-gcm` + `randomBytes(12)`、比较走 `secretsEqual`（SHA-256 定长后 `timingSafeEqual`）；CORS 仅 2 处 `*`（图片代理不带 credentials、CLI 回环面）、`cors-origin.ts` 对 `chrome-extension://` fail-closed；登录/短信/支付回调限流在位；logger 唯一落盘口已 `redactCredentialText`；`Math.random()` 唯一生产命中是埋点 session id；无 `createHash('md5'|'sha1')` 存密码；`JWT_SECRET`/`CREDENTIALS_ENCRYPTION_KEY` 强制 ≥32 字符并拒已知占位符；依赖版本（lodash 4.18.1 / axios 1.19.0 / next 16.4.3 / fastify 5.12.7 / jose 6.2.9 / ws 8.21.3 / tar 7.5.22）均不在已知高危区间、未使用 `jsonwebtoken`；CI 无 `echo ${{ secrets.* }}`、无 `permissions: write-all`、无 `pull_request_target`、外部 action 基本 SHA 化。
+- **第四轮排除面（证据不足或已对齐，防重复审计）**：mobile-cap 权限/插件无错配（Manifest 仅 INTERNET、插件仅 SplashScreen/Keyboard、push 插件已注释移除且带原因）；mobile-rn 亮色状态栏与推送状态矛盾无代码锚点（无 StatusBar/barStyle、无 PushNotifications）；imgchr_uploader 同步 requests 已设 timeout=30 且调用方为脚本式同步函数、无 async 上下文实证；python SDK stream 分支是文档明示的长连接语义（真缺陷由 BUG-95 取代）；DiagramPreviewModal.svgMarkup 唯一调用方传的是 MermaidDiagram 已消毒 SVG；apply-realistic-pricing 无事务但有 dry-run+幂等、危害低暂缓登记；web 空 catch 零命中、抽样 setInterval 均有 clearInterval、XSS 面 SafeHtml/MermaidDiagram 均走 DOMPurify。
 
 - [ ] P87 [auto-triage] API 5xx 错误签名聚类(POST /api/v:n/codebase/search 503)(登记@2026-11-05/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 24 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:POST /api/v1/codebase/search → 503 POST /api/v1/codebase/search -> 503 / FastifyError: Service Unavailable)
 
