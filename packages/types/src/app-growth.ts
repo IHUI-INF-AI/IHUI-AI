@@ -634,6 +634,12 @@ export interface TeamMember {
   status?: TeamMemberStatus
   /** 缺字段则不渲染关系徽标(不造假) */
   relation?: TeamRelation
+  /** 成交额(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  transactionVolume?: number
+  /** 成交订单数(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  orderNum?: number
+  /** 邀请时间展示文本(可选;仅 memberMetrics 模式下渲染,缺省不补) */
+  createdAtLabel?: string
 }
 
 /**
@@ -653,7 +659,8 @@ export interface TeamTreeNode {
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
   t: TFunction
-  stats: TeamStats | null
+  /** 统计卡;显式 undefined/null 表示不渲染(小程序薄壳用) */
+  stats?: TeamStats | null
   members: TeamMember[]
   activeTab: TeamTab
   loading: boolean
@@ -709,6 +716,43 @@ export interface TeamScreenProps {
   emptyText?: string
   /** 层级树节点点击回调(可选,不传则节点不可点击) */
   onPressTreeMember?: (memberId: string) => void
+  /**
+   * 「团队总人数」单行(可选;有值才在 tabs/sortBar 上方渲染)。
+   * 小程序端独有统计行,未传时 RN/web 视觉不变。
+   */
+  totalCountRow?: { label: string; value: number }
+  /**
+   * 排序胶囊栏(可选;有值时**替代** all/direct/indirect tabs)。
+   * 小程序端独有「成交订单数/邀请时间」两枚胶囊;日期胶囊点击开内部弹层选日期。
+   */
+  sortBar?: {
+    orderLabel: string
+    dateLabel: string
+    active: 'orderNum' | 'date'
+    dateValue?: string
+    onSelectOrder: () => void
+  }
+  /** 日期弹层选项(可选;来自宿主已算好的 YYYY-MM-DD 列表) */
+  dateOptions?: string[]
+  /** 选中日期回调(可选;传空串表示清除日期筛选) */
+  onSelectDate?: (date: string) => void
+  /** 日期弹层标题(可选;缺省用 sortBar.dateLabel) */
+  dateSheetTitle?: string
+  /** 清除日期文案(可选;不传则不渲染清除行) */
+  clearDateLabel?: string
+  /**
+   * 成员卡指标文案(可选;有值时昵称下改渲染成交额/佣金/订单数/邀请时间 + 查看下级)。
+   * 未传时保持原 joinDate + level 两行,RN 视觉不变。
+   */
+  memberMetrics?: {
+    transactionVolume: string
+    commission: string
+    orderNum: string
+    joinTime: string
+    viewSubordinates: string
+  }
+  /** 是否在头像左上角渲染名次徽标(可选;默认 false,RN 视觉不变) */
+  showRankBadge?: boolean
   colorScheme?: 'light' | 'dark'
 }
 

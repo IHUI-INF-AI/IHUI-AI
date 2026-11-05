@@ -7,8 +7,10 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,7 +29,7 @@ import type {
   TFunction,
 } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import {
@@ -104,9 +106,19 @@ export function TeamScreen({
   footerLoadingText,
   footerNoMoreText,
   emptyText,
+  totalCountRow,
+  sortBar,
+  dateOptions,
+  onSelectDate,
+  dateSheetTitle,
+  clearDateLabel,
+  memberMetrics,
+  showRankBadge = false,
 }: TeamScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  /** 日期弹层(内置列表,不依赖平台 Picker;仅小程序变体经 sortBar 打开) */
+  const [dateSheetOpen, setDateSheetOpen] = useState(false)
   const tabItems = useMemo(() => TAB_KEYS.map((k) => ({ id: k, label: t(TAB_LABELS[k]) })), [t])
   // 树区块仅在 wrapper 提供数据源/加载/失败信号时出现;未登录时 wrapper 全部不传 ⇒ 不渲染
   const showTree = tree !== undefined || treeLoading === true || treeFailed === true
@@ -203,7 +215,50 @@ export function TeamScreen({
         </View>
       ) : null}
 
-      {showTabs ? (
+      {totalCountRow ? (
+        <View style={styles.totalCountRow}>
+          <Text style={styles.totalCountText}>
+            {totalCountRow.label}: <Text style={styles.totalCountValue}>{totalCountRow.value}</Text>
+          </Text>
+        </View>
+      ) : null}
+
+      {sortBar ? (
+        <View style={styles.sortRow}>
+          <Pressable
+            onPress={sortBar.onSelectOrder}
+            accessibilityRole="button"
+            style={[styles.sortPill, sortBar.active === 'orderNum' ? styles.sortPillActive : null]}
+          >
+            <Text
+              style={[
+                styles.sortPillText,
+                sortBar.active === 'orderNum' ? styles.sortPillTextActive : null,
+              ]}
+            >
+              {sortBar.orderLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setDateSheetOpen(true)}
+            accessibilityRole="button"
+            style={[styles.sortPill, sortBar.active === 'date' ? styles.sortPillActive : null]}
+          >
+            <Text
+              style={[
+                styles.sortPillText,
+                sortBar.active === 'date' ? styles.sortPillTextActive : null,
+              ]}
+            >
+              {sortBar.dateValue || sortBar.dateLabel}
+            </Text>
+            <ChevronDown
+              size={14}
+              color={sortBar.active === 'date' ? tk.brand.foreground : tk.text.tertiary}
+            />
+          </Pressable>
+        </View>
+      ) : showTabs ? (
         <CategoryInlineBar
           items={tabItems}
           selectedId={activeTab}
@@ -233,6 +288,65 @@ export function TeamScreen({
             returnKeyType="search"
           />
         </View>
+      ) : null}
+
+      {/* 日期弹层(RN 风格底部面板;选项由宿主注入,不 import 平台 Picker) */}
+      {sortBar && dateSheetOpen ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDateSheetOpen(false)}
+        >
+          <View style={styles.modalRoot}>
+            <Pressable
+              style={styles.modalScrim}
+              onPress={() => setDateSheetOpen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            />
+            <View style={styles.modalPanel}>
+              <Text style={styles.modalTitle}>{dateSheetTitle ?? sortBar.dateLabel}</Text>
+              <ScrollView style={styles.modalList}>
+                {(dateOptions ?? []).map((date) => (
+                  <Pressable
+                    key={date}
+                    onPress={() => {
+                      setDateSheetOpen(false)
+                      onSelectDate?.(date)
+                    }}
+                    accessibilityRole="button"
+                    style={[
+                      styles.modalItem,
+                      sortBar.dateValue === date ? styles.modalItemActive : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalItemText,
+                        sortBar.dateValue === date ? styles.modalItemTextActive : null,
+                      ]}
+                    >
+                      {date}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+              {clearDateLabel ? (
+                <Pressable
+                  style={styles.modalCancel}
+                  onPress={() => {
+                    setDateSheetOpen(false)
+                    onSelectDate?.('')
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.modalClearText}>{clearDateLabel}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
       ) : null}
 
       {error ? (
@@ -274,57 +388,114 @@ export function TeamScreen({
             <Text style={styles.footerText}>{footerNoMoreText}</Text>
           ) : null
         }
-        renderItem={({ item }) => (
-          <PressableCard
-            style={styles.card}
-            onPress={() => onPressMember?.(item.id)}
-            colorScheme={colorScheme}
-          >
-            <View style={styles.avatarBox}>
-              {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
-              ) : (
-                <Text style={styles.avatarInitial}>{initials(item.nickname)}</Text>
-              )}
-            </View>
-            <View style={styles.memberInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {item.nickname}
-                </Text>
-                {item.relation ? (
+        renderItem={({ item, index }) => {
+          const rank = index + 1
+          const rankBadgeBg =
+            rank === 1
+              ? rnCssLight.rankGold
+              : rank === 2
+                ? rnCssLight.rankSilver
+                : rank === 3
+                  ? rnCssLight.rankBronze
+                  : tk.surface.muted
+          const rankBadgeText =
+            rank <= 3 ? (rank === 3 ? tk.surface.light : tk.text.primary) : tk.text.secondary
+          return (
+            <PressableCard
+              style={styles.card}
+              onPress={() => onPressMember?.(item.id)}
+              colorScheme={colorScheme}
+            >
+              <View style={styles.avatarBox}>
+                {showRankBadge ? (
+                  <View style={[styles.rankBadge, { backgroundColor: rankBadgeBg }]}>
+                    <Text style={[styles.rankBadgeText, { color: rankBadgeText }]}>
+                      {rank <= 3 ? `No.${rank}` : `${rank}`}
+                    </Text>
+                  </View>
+                ) : null}
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatarImg} />
+                ) : (
+                  <Text style={styles.avatarInitial}>{initials(item.nickname)}</Text>
+                )}
+              </View>
+              <View style={styles.memberInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.memberName} numberOfLines={1}>
+                    {item.nickname}
+                  </Text>
+                  {item.relation ? (
+                    <View
+                      style={[
+                        styles.relationBadge,
+                        item.relation === 'direct' && styles.relationDirect,
+                      ]}
+                    >
+                      <Text style={styles.relationText}>{t(TAB_LABELS[item.relation])}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {memberMetrics ? (
+                  <>
+                    <View style={styles.metricRow}>
+                      <View style={styles.metricPair}>
+                        <Text style={styles.metricLabel}>{memberMetrics.transactionVolume}</Text>
+                        <Text style={styles.metricValue}>
+                          ¥{String(item.transactionVolume ?? 0)}
+                        </Text>
+                      </View>
+                      <View style={styles.metricPair}>
+                        <Text style={styles.metricLabel}>{memberMetrics.commission}</Text>
+                        <Text style={styles.metricValue}>¥{item.contribution}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.metricRow}>
+                      <Text style={styles.metricLabel}>{memberMetrics.orderNum}</Text>
+                      <Text style={styles.metricValue}>{String(item.orderNum ?? 0)}</Text>
+                    </View>
+                    <View style={styles.metricFooterRow}>
+                      <Text style={styles.metricJoinText} numberOfLines={1}>
+                        {memberMetrics.joinTime}: {item.createdAtLabel ?? ''}
+                      </Text>
+                      <Pressable
+                        onPress={() => onPressMember?.(item.id)}
+                        accessibilityRole="button"
+                        style={styles.viewSubordinatesBtn}
+                      >
+                        <Text style={styles.viewSubordinatesText}>
+                          {memberMetrics.viewSubordinates}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.memberMeta}>
+                      {t('distribution.colJoinedAt')}: {item.joinDate}
+                    </Text>
+                    <Text style={styles.memberMeta}>
+                      {t('distribution.colLevel')}: L{item.level}
+                    </Text>
+                  </>
+                )}
+              </View>
+              <View style={styles.memberRight}>
+                <Text style={styles.contributionText}>+¥{item.contribution}</Text>
+                {item.status ? (
                   <View
                     style={[
-                      styles.relationBadge,
-                      item.relation === 'direct' && styles.relationDirect,
+                      styles.statusBadge,
+                      item.status === 'active' ? styles.statusActive : styles.statusInactive,
                     ]}
                   >
-                    <Text style={styles.relationText}>{t(TAB_LABELS[item.relation])}</Text>
+                    <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
                   </View>
                 ) : null}
               </View>
-              <Text style={styles.memberMeta}>
-                {t('distribution.colJoinedAt')}: {item.joinDate}
-              </Text>
-              <Text style={styles.memberMeta}>
-                {t('distribution.colLevel')}: L{item.level}
-              </Text>
-            </View>
-            <View style={styles.memberRight}>
-              <Text style={styles.contributionText}>+¥{item.contribution}</Text>
-              {item.status ? (
-                <View
-                  style={[
-                    styles.statusBadge,
-                    item.status === 'active' ? styles.statusActive : styles.statusInactive,
-                  ]}
-                >
-                  <Text style={styles.statusText}>{t(STATUS_LABELS[item.status])}</Text>
-                </View>
-              ) : null}
-            </View>
-          </PressableCard>
-        )}
+            </PressableCard>
+          )
+        }}
       />
     </View>
   )
@@ -550,6 +721,28 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.success.DEFAULT,
     },
+    totalCountRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingTop: rnSpacing.sm },
+    totalCountText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    totalCountValue: { fontWeight: '600', color: tk.text.primary },
+    sortRow: {
+      flexDirection: 'row',
+      gap: rnSpacing['xs-loose'],
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingVertical: rnSpacing.sm,
+    },
+    sortPill: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.xs,
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.surface.card,
+    },
+    sortPillActive: { backgroundColor: tk.brand.DEFAULT },
+    sortPillText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    sortPillTextActive: { color: tk.brand.foreground, fontWeight: '600' },
     searchRow: { paddingHorizontal: rnSpacing['sm-loose'], paddingBottom: rnSpacing.sm },
     searchInput: {
       height: 40,
@@ -582,6 +775,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     avatarBox: {
+      position: 'relative',
       width: 44,
       height: 44,
       borderRadius: rnRadius['2xl'],
@@ -591,6 +785,38 @@ function createStyles(tk: AppThemeTokens) {
     },
     avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: rnType.subtitle.size, fontWeight: '600', color: tk.text.secondary },
+    rankBadge: {
+      position: 'absolute',
+      left: 0,
+      top: -4,
+      minWidth: 28,
+      height: 22,
+      paddingHorizontal: rnSpacing.xs,
+      borderRadius: rnRadius.xs,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
+    rankBadgeText: { fontSize: rnType.badge.size, fontWeight: '700' },
+    metricRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.xs,
+    },
+    metricPair: { flexDirection: 'row', alignItems: 'baseline', gap: rnSpacing.xs },
+    metricLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    metricValue: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    metricFooterRow: { flexDirection: 'row', alignItems: 'center', marginTop: rnSpacing.xs },
+    metricJoinText: { flex: 1, fontSize: rnType.caption.size, color: tk.text.tertiary },
+    viewSubordinatesBtn: {
+      marginLeft: rnSpacing.sm,
+      paddingHorizontal: rnSpacing.md,
+      paddingVertical: rnSpacing.xs,
+      borderRadius: rnRadius.md,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    viewSubordinatesText: { fontSize: rnType.badge.size, color: tk.brand.foreground },
     memberInfo: { flex: 1, marginLeft: rnSpacing['sm-loose'], marginRight: rnSpacing.sm },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     memberName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary, flex: 1 },
@@ -669,6 +895,35 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
     },
     treeLevelText: { fontSize: rnType.badge.size, color: tk.text.secondary },
+    modalRoot: { flex: 1, justifyContent: 'flex-end' },
+    modalScrim: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: tk.overlay.modal,
+    },
+    modalPanel: {
+      backgroundColor: tk.surface.card,
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
+      paddingHorizontal: rnSpacing.lg,
+      paddingTop: rnSpacing.lg,
+      paddingBottom: rnSpacing.xl,
+    },
+    modalTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    modalList: { marginTop: rnSpacing.sm, maxHeight: 320 },
+    modalItem: {
+      paddingVertical: rnSpacing.md,
+      paddingHorizontal: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+    },
+    modalItemActive: { backgroundColor: tk.surface.muted },
+    modalItemText: { fontSize: rnType.body.size, color: tk.text.primary },
+    modalItemTextActive: { fontWeight: '600', color: tk.text.primary },
+    modalCancel: { marginTop: rnSpacing.md, paddingVertical: rnSpacing.md, alignItems: 'center' },
+    modalClearText: { fontSize: rnType.body.size, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
