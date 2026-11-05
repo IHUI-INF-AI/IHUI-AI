@@ -6898,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "会話",
+    "deleteConv": "会話を削除",
+    "loadMore": "さらに読み込む",
+    "markRead": "既読にする",
+    "searchPh": "チャット/連絡先を検索",
     "title": "メッセージ",
     "type": {
       "course": "コース",

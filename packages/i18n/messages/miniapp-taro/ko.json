@@ -6898,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "대화",
+    "deleteConv": "대화 삭제",
+    "loadMore": "더 불러오기",
+    "markRead": "읽음으로 표시",
+    "searchPh": "대화·연락처 검색",
     "title": "메시지",
     "type": {
       "course": "강좌",
