@@ -15,13 +15,31 @@
  *   }
  * `path` 一律相对清单根目录的 POSIX 风格路径;绝对路径、盘符、`..` 一律判损坏。
  *
- * 校验覆盖六类事实(任一不符 ⇒ ok=false,逐条报 path/期望/实际):
+ * 外部权威条目(2026-11-05 立,根治「桌面端更新必然失败」):
+ *   桌面安装包由 Release 分发(Gitee/GitHub 直链),并不落在 web 下载面目录里;但客户端
+ *   verifyUpdatePackageBeforeInstall 只按「更新 URL 的 basename == 清单里的 path basename」
+ *   匹配条目,随后按条目 size/sha256 校验真实下载字节。清单缺 desktop/* 条目 ⇒ 客户端必抛
+ *   package_entry_missing,重试永远同错。故本器支持从 scripts/data/desktop-update-assets.json
+ *   合入 `desktop/<资产名>` 条目:
+ *   - 资产名必须与 Release 资产名逐字相同(客户端校验用的就是它,不许自造别名);
+ *   - size/sha256 必须来自权威源(GitHub Release 资产的 size/digest,由
+ *     bake-desktop-latest.mjs --assets-from-feed 烘焙;Gitee 镜像字节已按 sha256 对账);
+ *   - 生成时若同名本地文件已存在且 size/sha256 与权威元数据不符 ⇒ 直接失败(绝不静默取一边);
+ *   - 校验时这些「外部条目」跳过「本地文件不存在」判定,但必须与元数据逐字一致;
+ *   - 生成/校验 CLI 都会用桌面更新源(desktop-latest.generated.ts)反查覆盖:源里引用了
+ *     而清单/元数据没登记的资产名 ⇒ desktop_feed_uncovered,当场失败(杜绝元数据过期复发)。
+ *
+ * 校验覆盖事实(任一不符 ⇒ ok=false,逐条报 path/期望/实际):
  *   - manifest_corrupt         清单本身损坏(JSON 坏/schemaVersion 不符/条目形状坏/重复/非法路径/非法 hash)
  *   - file_missing             清单列出的文件在包里不存在(清单多项)
  *   - size_mismatch            字节数不符
  *   - sha256_mismatch          内容哈希不符
  *   - manifest_missing_entry   包里有、清单没列(清单缺项)
  *   - duplicate_entry          同一路径在清单出现两次(歧义,按损坏处理)
+ *   - external_entry_missing   权威元数据登记的外部条目没进清单 ⇒ 客户端必缺条目
+ *   - external_entry_mismatch  清单里的外部条目 size/sha256 与权威元数据不一致(被篡改/过期)
+ *   - external_assets_corrupt  权威元数据文件本身损坏(形状/非法资产名/非法 hash)
+ *   - desktop_feed_uncovered   更新源引用的资产名没有对应清单条目 ⇒ 更新链路必断
  *
  * 设计约束(用户拍板):
  *   - 不得只在 debug 跑,不得失败只打日志继续 —— 本模块只返回结论,调用方必须据此中止;
@@ -31,10 +49,19 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const MANIFEST_SCHEMA_VERSION = 1
 export const UPDATE_MANIFEST_FILENAME = 'update-files.json'
+/** 外部权威条目(桌面安装包)的元数据文件默认落点:随仓库提交,部署链无需联网即可取到。 */
+export const EXTERNAL_ASSETS_SCHEMA_VERSION = 1
+export const EXTERNAL_ASSETS_DIRNAME = 'data'
+export const DEFAULT_EXTERNAL_ASSETS_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  EXTERNAL_ASSETS_DIRNAME,
+  'desktop-update-assets.json',
+)
+export const DESKTOP_ASSETS_PREFIX = 'desktop/'
 const SHA256_RE = /^[0-9a-f]{64}$/
 
 /** 清单根里永不参与校验的目录(与更新包无关且体量巨大)。 */
@@ -66,6 +93,195 @@ function corruptIssue(path, message) {
     actual: null,
     message,
   }
+}
+
+function externalAssetsCorrupt(path, message) {
+  return {
+    code: 'external_assets_corrupt',
+    category: 'external_assets_corrupt',
+    path: path ?? '',
+    expected: null,
+    actual: null,
+    message,
+  }
+}
+
+/** 资产名必须是「纯文件名」:客户端校验按 basename 匹配,带段/带盘符的名字一律不认。 */
+function isPlainAssetName(name) {
+  return (
+    typeof name === 'string' &&
+    name.length > 0 &&
+    !name.includes('/') &&
+    !name.includes('\\') &&
+    name !== '.' &&
+    name !== '..'
+  )
+}
+
+/** 从下载直链取资产名(URL 编码还原);解析不出返回空串。 */
+function assetBasename(url) {
+  try {
+    return decodeURIComponent(new URL(String(url)).pathname.split('/').pop() || '')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 解析「外部权威条目」元数据(桌面安装包 size/sha256)。
+ * 结构:
+ *   { schemaVersion: 1, version, tag, assets: [{ name, size, sha256, url, source }] }
+ * 返回 { ok, assets, issues, note } —— issues 非空时 assets 为空(不拿半份元数据去生成)。
+ */
+export function parseExternalAssets(raw) {
+  let data = raw
+  if (typeof raw === 'string') {
+    try {
+      data = JSON.parse(raw)
+    } catch (e) {
+      return { ok: false, assets: [], issues: [externalAssetsCorrupt('', `元数据 JSON 解析失败: ${e?.message ?? e}`)] }
+    }
+  }
+  if (!isRecord(data)) {
+    return { ok: false, assets: [], issues: [externalAssetsCorrupt('', '元数据不是对象')] }
+  }
+  const issues = []
+  if (data.schemaVersion !== EXTERNAL_ASSETS_SCHEMA_VERSION) {
+    issues.push(
+      externalAssetsCorrupt(
+        '',
+        `schemaVersion 不符:期望 ${EXTERNAL_ASSETS_SCHEMA_VERSION},实际 ${JSON.stringify(data.schemaVersion)}`,
+      ),
+    )
+  }
+  if (!Array.isArray(data.assets)) {
+    issues.push(externalAssetsCorrupt('', '元数据缺 assets 数组'))
+    return { ok: false, assets: [], issues }
+  }
+  const seen = new Set()
+  const assets = []
+  for (const a of data.assets) {
+    if (!isRecord(a)) {
+      issues.push(externalAssetsCorrupt('', 'assets 条目不是对象'))
+      continue
+    }
+    const name = typeof a.name === 'string' ? a.name.trim() : ''
+    if (!isPlainAssetName(name)) {
+      issues.push(
+        externalAssetsCorrupt(
+          String(a.name ?? ''),
+          `资产名非法 ${JSON.stringify(a.name)}(必须是 Release 资产纯文件名,不接受路径段)`,
+        ),
+      )
+      continue
+    }
+    if (seen.has(name)) {
+      issues.push(externalAssetsCorrupt(name, `资产名重复: ${name}(同名两份 size/sha256 会有歧义)`))
+      continue
+    }
+    if (typeof a.sha256 !== 'string' || !SHA256_RE.test(a.sha256)) {
+      issues.push(externalAssetsCorrupt(name, `sha256 格式非法: ${name}(期望 64 位小写十六进制)`))
+      continue
+    }
+    if (!Number.isInteger(a.size) || a.size < 0) {
+      issues.push(externalAssetsCorrupt(name, `size 非法: ${name}(${String(a.size ?? '')},期望非负整数)`))
+      continue
+    }
+    seen.add(name)
+    assets.push({
+      name,
+      path: `${DESKTOP_ASSETS_PREFIX}${name}`,
+      size: a.size,
+      sha256: a.sha256,
+      url: typeof a.url === 'string' ? a.url : '',
+    })
+  }
+  if (issues.length > 0) return { ok: false, assets: [], issues }
+  return {
+    ok: true,
+    assets,
+    issues: [],
+    version: typeof data.version === 'string' ? data.version : '',
+    tag: typeof data.tag === 'string' ? data.tag : '',
+  }
+}
+
+/** 读取外部权威条目元数据;文件不存在时返回空集 + note(是否致命由调用方按场景定)。 */
+export function loadExternalAssets(path = DEFAULT_EXTERNAL_ASSETS_PATH) {
+  if (!existsSync(path)) {
+    return { ok: true, assets: [], issues: [], note: `未发现外部权威元数据 ${path} ⇒ 清单不含 desktop/* 条目` }
+  }
+  return parseExternalAssets(readFileSync(path, 'utf-8'))
+}
+
+/**
+ * 把外部权威条目合入清单文件集。
+ * 同名本地文件已存在时逐字核对 size/sha256:一致则保留(以本地实物为准),不一致直接报冲突。
+ * 返回 { files, issues } —— issues 非空时调用方必须中止生成,不得挑一边写盘。
+ */
+export function mergeExternalAssets(manifest, assets) {
+  const files = (manifest?.files ?? []).map((e) => ({ path: e.path, sha256: e.sha256, size: e.size }))
+  const byPath = new Map(files.map((e) => [e.path, e]))
+  const issues = []
+  for (const a of assets ?? []) {
+    const existing = byPath.get(a.path)
+    if (existing) {
+      if (existing.size !== a.size || existing.sha256 !== a.sha256) {
+        issues.push({
+          code: 'external_entry_conflict',
+          category: 'manifest_corrupt',
+          path: a.path,
+          expected: { size: a.size, sha256: a.sha256 },
+          actual: { size: existing.size, sha256: existing.sha256 },
+          message:
+            `外部条目与本地实物冲突 → ${a.path}` +
+            `(权威元数据 size=${a.size} sha256=${a.sha256};本地实物 size=${existing.size} sha256=${existing.sha256})`,
+        })
+      }
+      continue
+    }
+    const entry = { path: a.path, sha256: a.sha256, size: a.size }
+    files.push(entry)
+    byPath.set(a.path, entry)
+  }
+  files.sort((a, b) => a.path.localeCompare(b.path))
+  return { files, issues }
+}
+
+/**
+ * 用桌面更新源反查覆盖:源里出现的每个资产名,都必须在给定条目集里登记。
+ * 元数据过期(新版 feed + 旧资产表)会在这里当场亮红,而不是等客户端抛 package_entry_missing。
+ * entries 可为 [{name}] 或清单 files([{path}],按 basename 取名字)。
+ */
+export function checkDesktopFeedCoverage(feedText, entries = []) {
+  if (typeof feedText !== 'string' || feedText.length === 0) {
+    return { ok: true, issues: [], required: [] }
+  }
+  // 更新源文件会被 prettier 重排成单引号/无引号键,故键名与引号都要兼容;只取 url 值本身。
+  const urls = [...feedText.matchAll(/["']?url["']?\s*:\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
+  const required = []
+  for (const u of urls) {
+    const name = assetBasename(u)
+    if (name && !required.includes(name)) required.push(name)
+  }
+  const have = new Set(
+    (entries ?? [])
+      .map((e) => (typeof e?.name === 'string' ? e.name : String(e?.path ?? '').split('/').pop()))
+      .filter(Boolean),
+  )
+  const issues = []
+  for (const name of required) {
+    if (have.has(name)) continue
+    issues.push({
+      code: 'desktop_feed_uncovered',
+      category: 'desktop_feed_uncovered',
+      path: `${DESKTOP_ASSETS_PREFIX}${name}`,
+      expected: name,
+      actual: null,
+      message: `更新源引用了资产 ${name},但清单/权威元数据未登记 ⇒ 客户端必抛 package_entry_missing`,
+    })
+  }
+  return { ok: issues.length === 0, issues, required }
 }
 
 /**
@@ -162,8 +378,35 @@ export function parseUpdateFileManifest(raw) {
  * actualFiles: [{ path, size, sha256 }] —— sha256 由调用方算好(便于注入与单测)。
  * 不短路:先逐条核对清单项,再反查包里多出的文件,最后统一返回。
  */
-export function verifyUpdateFileManifest(manifest, actualFiles) {
+export function verifyUpdateFileManifest(manifest, actualFiles, options = {}) {
   const issues = []
+  const externalByPath = new Map((options.externalAssets ?? []).map((a) => [a.path, a]))
+  const expectedByPath = new Map((manifest?.files ?? []).map((e) => [e.path, e]))
+  // 外部条目先与权威元数据逐字对账:缺条目 / 被改 size / 被改 sha 都必须亮红。
+  for (const [path, ext] of externalByPath) {
+    const entry = expectedByPath.get(path)
+    if (!entry) {
+      issues.push({
+        code: 'external_entry_missing',
+        category: 'desktop_feed_uncovered',
+        path,
+        expected: { size: ext.size, sha256: ext.sha256 },
+        actual: null,
+        message: `清单缺外部条目:权威元数据登记的 ${path} 未进清单 ⇒ 客户端必抛 package_entry_missing`,
+      })
+      continue
+    }
+    if (entry.size !== ext.size || entry.sha256 !== ext.sha256) {
+      issues.push({
+        code: 'external_entry_mismatch',
+        category: 'manifest_corrupt',
+        path,
+        expected: { size: ext.size, sha256: ext.sha256 },
+        actual: { size: entry.size, sha256: entry.sha256 },
+        message: `外部条目与权威元数据不一致 → ${path}(元数据 size=${ext.size} sha256=${ext.sha256};清单 size=${entry.size} sha256=${entry.sha256})`,
+      })
+    }
+  }
   const actual = new Map()
   for (const f of actualFiles ?? []) {
     const p = normalizeManifestPath(f?.path)
@@ -178,6 +421,8 @@ export function verifyUpdateFileManifest(manifest, actualFiles) {
     expectedPaths.add(entry.path)
     const got = actual.get(entry.path)
     if (!got) {
+      // 外部权威条目由 Release 分发,本来就不在本地目录里 ⇒ 只认元数据已对账,不算「清单多项」。
+      if (externalByPath.has(entry.path)) continue
       // 清单列了、包里没有 ⇒ 清单多项
       issues.push({
         code: 'file_missing',
@@ -226,7 +471,11 @@ export function verifyUpdateFileManifest(manifest, actualFiles) {
   return {
     ok: issues.length === 0,
     issues,
-    checked: { manifestFiles: (manifest?.files ?? []).length, actualFiles: actual.size },
+    checked: {
+      manifestFiles: (manifest?.files ?? []).length,
+      actualFiles: actual.size,
+      externalFiles: externalByPath.size,
+    },
   }
 }
 
@@ -272,42 +521,53 @@ export function sha256File(absPath) {
   })
 }
 
-/** 为目录生成清单对象(不落盘)。 */
-export async function buildUpdateFileManifest(dir) {
+/** 为目录生成清单对象(不落盘)。externalAssets 为权威元数据条目(桌面安装包)。 */
+export async function buildUpdateFileManifest(dir, externalAssets = []) {
   const files = []
   for (const f of enumeratePackageFiles(dir)) {
     const st = statSync(f.abs)
     files.push({ path: f.path, sha256: await sha256File(f.abs), size: st.size })
   }
+  const merged = mergeExternalAssets({ files }, externalAssets)
+  if (merged.issues.length > 0) {
+    throw new Error(`外部权威条目合入失败:${merged.issues.map((i) => i.message).join('; ')}`)
+  }
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
-    files,
+    files: merged.files,
   }
 }
 
-/** 读盘做一次完整核对(清单 → 目录)。 */
-export async function verifyDirectory(dir, manifest) {
+/** 读盘做一次完整核对(清单 → 目录)。externalAssets 由调用方给,缺省=只核本地文件。 */
+export async function verifyDirectory(dir, manifest, options = {}) {
   const actualFiles = []
   for (const f of enumeratePackageFiles(dir)) {
     const st = statSync(f.abs)
     actualFiles.push({ path: f.path, sha256: await sha256File(f.abs), size: st.size })
   }
-  return verifyUpdateFileManifest(manifest, actualFiles)
+  return verifyUpdateFileManifest(manifest, actualFiles, options)
+}
+
+/** 把清单对象落盘(唯一写法,避免 CLI/调用方各自写一份 JSON 序列化)。 */
+export function saveUpdateFileManifest(outPath, manifest) {
+  mkdirSync(dirname(resolve(outPath)), { recursive: true })
+  writeFileSync(resolve(outPath), `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
 }
 
 /** 生成清单并写盘。 */
-export async function writeUpdateFileManifest(dir, outPath) {
-  const manifest = await buildUpdateFileManifest(dir)
-  mkdirSync(dirname(resolve(outPath)), { recursive: true })
-  writeFileSync(resolve(outPath), `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
+export async function writeUpdateFileManifest(dir, outPath, externalAssets = []) {
+  const manifest = await buildUpdateFileManifest(dir, externalAssets)
+  saveUpdateFileManifest(outPath, manifest)
   return manifest
 }
 
 /** 把校验结论渲染成给人看的多行文本(调用方决定退出码)。 */
 export function renderVerifyReport(result, context) {
+  const external = result.checked?.externalFiles ?? 0
+  const scope = external > 0 ? `清单 ${result.checked.manifestFiles} 项 / 实际 ${result.checked.actualFiles} 个文件 / 外部权威条目 ${external} 项` : `清单 ${result.checked.manifestFiles} 项 / 实际 ${result.checked.actualFiles} 个文件`
   const head = result.ok
-    ? `✅ 逐文件 sha256 校验通过(${context}:清单 ${result.checked.manifestFiles} 项 / 实际 ${result.checked.actualFiles} 个文件)`
+    ? `✅ 逐文件 sha256 校验通过(${context}:${scope})`
     : `❌ 逐文件 sha256 校验失败(${context}:${result.issues.length} 项不符)`
   const lines = result.ok ? [] : result.issues.map((i) => `  - [${i.code}] ${i.message}`)
   return [head, ...lines].join('\n')
@@ -322,22 +582,73 @@ function takeFlag(args, name) {
   return { present: true, value: v }
 }
 
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** 桌面更新源(唯一真源):生成/校验时用它的 url 列表反查自己有没有漏条目。 */
+const DEFAULT_DESKTOP_FEED_PATH = resolve(ROOT, 'apps/web/src/config/desktop-latest.generated.ts')
+
 async function main(argv) {
   const args = argv.slice(2)
   const cmd = args[0]
   const dir = takeFlag(args, '--dir')
   if (!['generate', 'verify'].includes(cmd) || !dir.value) {
-    console.error('用法: node scripts/update-file-manifest.mjs generate|verify --dir <包目录> [--out <清单路径>] [--manifest <清单路径>]')
+    console.error(
+      '用法: node scripts/update-file-manifest.mjs generate|verify --dir <包目录> ' +
+        '[--out <清单路径>] [--manifest <清单路径>] [--external-assets <元数据路径>] ' +
+        '[--no-external-assets] [--desktop-feed <feed 文件>] [--no-desktop-feed-check]',
+    )
     process.exit(2)
   }
   if (!existsSync(dir.value)) {
     console.error(`❌ 目录不存在: ${dir.value}`)
     process.exit(2)
   }
+  // 外部权威条目(桌面安装包):默认读随仓库提交的元数据,部署链不联网也能生成。
+  let external = { ok: true, assets: [], issues: [] }
+  const explicitExternal = takeFlag(args, '--external-assets').value
+  if (!args.includes('--no-external-assets')) {
+    const path = resolve(explicitExternal || DEFAULT_EXTERNAL_ASSETS_PATH)
+    if (explicitExternal && !existsSync(path)) {
+      console.error(`❌ 外部元数据不存在: ${path}`)
+      process.exit(2)
+    }
+    external = loadExternalAssets(path)
+    if (!external.ok) {
+      console.error(`❌ 外部权威元数据损坏(${path}):`)
+      for (const i of external.issues) console.error(`  - [${i.code}] ${i.message}`)
+      process.exit(2)
+    }
+    if (external.note) console.log(`⚠️  ${external.note}`)
+  }
+  // 桌面更新源反查:源里引用、但清单/元数据没登记的资产名 ⇒ 更新链路必断,当场拦下。
+  let feedText = null
+  const explicitFeed = takeFlag(args, '--desktop-feed').value
+  if (!args.includes('--no-desktop-feed-check')) {
+    const feedPath = resolve(explicitFeed || DEFAULT_DESKTOP_FEED_PATH)
+    if (explicitFeed && !existsSync(feedPath)) {
+      console.error(`❌ 桌面更新源不存在: ${feedPath}`)
+      process.exit(2)
+    }
+    if (existsSync(feedPath)) feedText = readFileSync(feedPath, 'utf-8')
+  }
+  const coverageIssues = (entries) => {
+    if (!feedText) return []
+    const cov = checkDesktopFeedCoverage(feedText, entries)
+    return cov.ok ? [] : cov.issues
+  }
   if (cmd === 'generate') {
     const out = takeFlag(args, '--out').value ?? join(resolve(dir.value), UPDATE_MANIFEST_FILENAME)
-    const manifest = await writeUpdateFileManifest(dir.value, out)
-    console.log(`✅ 已生成逐文件清单:${resolve(out)}(${manifest.files.length} 个文件)`)
+    const manifest = await buildUpdateFileManifest(dir.value, external.assets)
+    const uncovered = coverageIssues(manifest.files)
+    if (uncovered.length > 0) {
+      console.error(`❌ 桌面更新源有资产未被清单覆盖(${uncovered.length} 项):`)
+      for (const i of uncovered) console.error(`  - [${i.code}] ${i.message}`)
+      process.exit(1)
+    }
+    saveUpdateFileManifest(out, manifest)
+    console.log(
+      `✅ 已生成逐文件清单:${resolve(out)}(${manifest.files.length} 个文件,` +
+        `其中外部权威条目 ${external.assets.length} 项)`,
+    )
     process.exit(0)
   }
   const manifestPath = takeFlag(args, '--manifest').value ?? join(resolve(dir.value), UPDATE_MANIFEST_FILENAME)
@@ -347,10 +658,21 @@ async function main(argv) {
   }
   const parsed = parseUpdateFileManifest(readFileSync(manifestPath, 'utf-8'))
   if (!parsed.ok) {
-    console.error(renderVerifyReport({ ok: false, issues: parsed.issues, checked: { manifestFiles: 0, actualFiles: 0 } }, dir.value))
+    console.error(
+      renderVerifyReport(
+        { ok: false, issues: parsed.issues, checked: { manifestFiles: 0, actualFiles: 0, externalFiles: 0 } },
+        dir.value,
+      ),
+    )
     process.exit(1)
   }
-  const result = await verifyDirectory(dir.value, parsed.manifest)
+  const uncovered = coverageIssues(parsed.manifest.files)
+  if (uncovered.length > 0) {
+    console.error(`❌ 清单未覆盖桌面更新源的全部资产(${uncovered.length} 项):`)
+    for (const i of uncovered) console.error(`  - [${i.code}] ${i.message}`)
+    process.exit(1)
+  }
+  const result = await verifyDirectory(dir.value, parsed.manifest, { externalAssets: external.assets })
   const text = renderVerifyReport(result, dir.value)
   console.log(text)
   process.exit(result.ok ? 0 : 1)

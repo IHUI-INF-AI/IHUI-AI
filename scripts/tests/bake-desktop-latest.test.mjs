@@ -204,4 +204,110 @@ test('CLI --check:一致 exit 0,字节不一致 exit 1(只读,不写盘)', () =>
     rmScratch(dir)
   }
 })
+
+// ==== 桌面安装包权威条目烘焙(2026-11-05 立) ====
+
+const GH_TABLE = new Map([
+  ['AI_0.1.77_x64-setup.exe', { size: 9690695, digest: `sha256:${'a'.repeat(64)}` }],
+  ['AI_0.1.77_amd64.AppImage', { size: 86968824, digest: `sha256:${'b'.repeat(64)}` }],
+  ['AI_universal.app.tar.gz', { size: 13646808, digest: `sha256:${'c'.repeat(64)}` }],
+])
+
+test('buildDesktopAssets:按更新源唯一资产名去重,size/sha256 取 GitHub digest;GitHub 直链不要求 Gitee 对账', () => {
+  const r = B.buildDesktopAssets({
+    feed: latest,
+    githubAssets: GH_TABLE,
+    giteeSizes: new Map(),
+    version: '0.1.77',
+    tag: 'desktop-v0.1.77',
+  })
+  assert.equal(r.issues.length, 0, JSON.stringify(r.issues))
+  assert.equal(r.assets.length, 3)
+  assert.deepEqual(r.assets.map((a) => a.name), [
+    'AI_0.1.77_amd64.AppImage',
+    'AI_0.1.77_x64-setup.exe',
+    'AI_universal.app.tar.gz',
+  ])
+  const exe = r.assets.find((a) => a.name === 'AI_0.1.77_x64-setup.exe')
+  assert.equal(exe.size, 9690695)
+  assert.equal(exe.sha256, 'a'.repeat(64))
+  assert.equal(exe.giteeSizeVerified, null)
+  assert.equal(exe.source, 'github-release-digest')
+})
+
+test('buildDesktopAssets:Gitee 直链必须字节对账;不等 ⇒ 拒绝;相等 ⇒ giteeSizeVerified=true', () => {
+  const giteeFeed = {
+    ...latest,
+    platforms: Object.fromEntries(
+      Object.entries(latest.platforms).map(([k, v]) => [k, { ...v, url: v.url.replace('github.com/IHUI-INF-AI', 'gitee.com/JLSLSSZWHYXGS_0') }]),
+    ),
+  }
+  const sizes = new Map([
+    ['AI_0.1.77_x64-setup.exe', 9690695],
+    ['AI_0.1.77_amd64.AppImage', 86968824],
+    ['AI_universal.app.tar.gz', 13646808],
+  ])
+  const ok = B.buildDesktopAssets({ feed: giteeFeed, githubAssets: GH_TABLE, giteeSizes: sizes, version: '0.1.77' })
+  assert.equal(ok.issues.length, 0)
+  assert.equal(ok.assets.every((a) => a.giteeSizeVerified === true), true)
+  const bad = new Map(sizes)
+  bad.set('AI_0.1.77_amd64.AppImage', 86968825)
+  const broken = B.buildDesktopAssets({ feed: giteeFeed, githubAssets: GH_TABLE, giteeSizes: bad, version: '0.1.77' })
+  assert.equal(broken.issues.length, 1)
+  assert.equal(broken.issues[0].code, 'desktop_asset_gitee_size_mismatch')
+  assert.match(broken.issues[0].message, /AI_0.1.77_amd64.AppImage/)
+})
+
+test('buildDesktopAssets:GitHub 资产缺 digest/size ⇒ 拒绝,绝不落半份元数据', () => {
+  const noDigest = new Map(GH_TABLE)
+  noDigest.set('AI_0.1.77_x64-setup.exe', { size: 9690695, digest: '' })
+  const r = B.buildDesktopAssets({ feed: latest, githubAssets: noDigest, giteeSizes: new Map(), version: '0.1.77' })
+  assert.equal(r.issues.length, 1)
+  assert.equal(r.issues[0].code, 'desktop_asset_digest_missing')
+  assert.equal(r.assets.length, 2)
+  const noSize = new Map(GH_TABLE)
+  noSize.set('AI_universal.app.tar.gz', { size: 0, digest: `sha256:${'c'.repeat(64)}` })
+  const r2 = B.buildDesktopAssets({ feed: latest, githubAssets: noSize, giteeSizes: new Map(), version: '0.1.77' })
+  assert.equal(r2.issues[0].code, 'desktop_asset_size_missing')
+})
+
+test('serializeDesktopAssets:同输入两次逐字节一致,含版本/tag/三条资产', () => {
+  const built = B.buildDesktopAssets({ feed: latest, githubAssets: GH_TABLE, giteeSizes: new Map(), version: '0.1.77', tag: 'desktop-v0.1.77' })
+  const a = B.serializeDesktopAssets({ version: '0.1.77', tag: 'desktop-v0.1.77', assets: built.assets })
+  const b = B.serializeDesktopAssets({ version: '0.1.77', tag: 'desktop-v0.1.77', assets: built.assets })
+  assert.equal(a, b)
+  const parsed = JSON.parse(a)
+  assert.equal(parsed.schemaVersion, 1)
+  assert.equal(parsed.source, 'github-release-digest')
+  assert.equal(parsed.version, '0.1.77')
+  assert.equal(parsed.tag, 'desktop-v0.1.77')
+  assert.equal(parsed.assets.length, 3)
+  assert.deepEqual(Object.keys(parsed.assets[0]), ['name', 'size', 'sha256', 'url', 'source', 'giteeSizeVerified'])
+})
+
+test('checkAssetsAgainstExisting:一致通过;版本漂移/缺资产逐项点名', () => {
+  const built = B.buildDesktopAssets({ feed: latest, githubAssets: GH_TABLE, giteeSizes: new Map(), version: '0.1.77', tag: 'desktop-v0.1.77' })
+  const text = B.serializeDesktopAssets({ version: '0.1.77', tag: 'desktop-v0.1.77', assets: built.assets })
+  assert.equal(B.checkAssetsAgainstExisting({ existingText: text, expectedText: text }).ok, true)
+  const stale = JSON.parse(text)
+  stale.version = '0.1.76'
+  stale.assets = stale.assets.filter((x) => x.name !== 'AI_0.1.77_amd64.AppImage')
+  const v = B.checkAssetsAgainstExisting({ existingText: JSON.stringify(stale), expectedText: text })
+  assert.equal(v.ok, false)
+  assert.match(v.reason, /version/)
+  assert.match(v.reason, /缺资产 AI_0.1.77_amd64.AppImage/)
+  assert.equal(B.checkAssetsAgainstExisting({ existingText: '', expectedText: text }).ok, false)
+})
+
+test('parseFeedFacts:兼容 prettier 重排(单引号/无引号键)与 JSON 两种形态', () => {
+  const prettier = `export const DESKTOP_LATEST = {\n  version: '0.1.77',\n  platforms: {\n    'windows-x86_64': {\n      url: 'https://gitee.com/a/b/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe',\n    },\n  },\n}\n`
+  assert.deepEqual(B.parseFeedFacts(prettier), {
+    version: '0.1.77',
+    urls: ['https://gitee.com/a/b/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe'],
+  })
+  const json = JSON.stringify({ version: '0.1.77', platforms: { p: { url: 'https://x/y/AI_universal.app.tar.gz' } } })
+  assert.equal(B.parseFeedFacts(json).version, '0.1.77')
+  assert.deepEqual(B.parseFeedFacts(json).urls, ['https://x/y/AI_universal.app.tar.gz'])
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

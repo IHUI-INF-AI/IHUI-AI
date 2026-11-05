@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/bake-desktop-latest.mjs --assets-from-feed",
+  "source": "github-release-digest",
+  "version": "0.1.77",
+  "tag": "desktop-v0.1.77",
+  "assets": [
+    {
+      "name": "AI_0.1.77_amd64.AppImage",
+      "size": 86968824,
+      "sha256": "974d86722ff7811252bb2cdb5cad58e009c500cbef34aac590b8c6019ff99ad6",
+      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.77/AI_0.1.77_amd64.AppImage",
+      "source": "github-release-digest",
+      "giteeSizeVerified": true
+    },
+    {
+      "name": "AI_0.1.77_x64-setup.exe",
+      "size": 9690695,
+      "sha256": "9d9f3cbafef45ab5cdc99f86e1a37fd4f8bdf1ca7d43c6407cb4311a8fb72402",
+      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.77/AI_0.1.77_x64-setup.exe",
+      "source": "github-release-digest",
+      "giteeSizeVerified": true
+    },
+    {
+      "name": "AI_universal.app.tar.gz",
+      "size": 13646808,
+      "sha256": "a3b12a2ff0ee8df4ad8776dcf09c934a9ca9af1518b45c845e33aeb16edba0dc",
+      "url": "https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.77/AI_universal.app.tar.gz",
+      "source": "github-release-digest",
+      "giteeSizeVerified": true
+    }
+  ]
+}

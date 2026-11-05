@@ -36,11 +36,13 @@
  */
 import { execSync } from 'node:child_process'
 import { readFile, writeFile, copyFile, stat, readdir, mkdir } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   UPDATE_MANIFEST_FILENAME,
+  checkDesktopFeedCoverage,
+  loadExternalAssets,
   renderVerifyReport,
   verifyDirectory,
   writeUpdateFileManifest,
@@ -698,13 +700,35 @@ ${C.bold}路径映射:${C.reset}
   // 不做"只在 debug 跑"也不做"失败只打日志继续"。
   if (!dryRun && existsSync(DOWNLOADS_DIR)) {
     const manifestPath = join(DOWNLOADS_DIR, UPDATE_MANIFEST_FILENAME)
-    const fileManifest = await writeUpdateFileManifest(DOWNLOADS_DIR, manifestPath)
-    const verdict = await verifyDirectory(DOWNLOADS_DIR, fileManifest)
+    // 2026-11-05:桌面安装包不在下载面目录里(由 Release 直链分发),但客户端校验按资产名
+    // 匹配清单条目 ⇒ 必须把权威元数据里的 desktop/* 条目一并合入,否则更新必抛 package_entry_missing。
+    const external = loadExternalAssets()
+    if (!external.ok) {
+      throw new Error(`外部权威元数据损坏:${external.issues.map((i) => i.message).join('; ')}`)
+    }
+    if (external.note) log('info', external.note)
+    const fileManifest = await writeUpdateFileManifest(DOWNLOADS_DIR, manifestPath, external.assets)
+    // 用桌面更新源反查覆盖:元数据过期(新版 feed + 旧资产表)必须当场亮红,不能等客户端报错。
+    const feedPath = join(PROJECT_ROOT, 'apps/web/src/config/desktop-latest.generated.ts')
+    if (existsSync(feedPath)) {
+      const coverage = checkDesktopFeedCoverage(readFileSync(feedPath, 'utf-8'), fileManifest.files)
+      if (!coverage.ok) {
+        throw new Error(
+          `桌面更新源有资产未被清单覆盖:${coverage.issues.map((i) => i.message).join('; ')}(` +
+            `请先运行 node scripts/bake-desktop-latest.mjs --assets-from-feed 刷新权威元数据)`,
+        )
+      }
+    }
+    const verdict = await verifyDirectory(DOWNLOADS_DIR, fileManifest, { externalAssets: external.assets })
     console.log(renderVerifyReport(verdict, DOWNLOADS_DIR))
     if (!verdict.ok) {
       throw new Error(`更新包逐文件自校验失败:${verdict.issues.length} 项不符,已中止发布`)
     }
-    log('ok', `逐文件 sha256 清单已发布: ${join('apps/web/public/downloads', UPDATE_MANIFEST_FILENAME)}(${fileManifest.files.length} 个文件)`)
+    log(
+      'ok',
+      `逐文件 sha256 清单已发布: ${join('apps/web/public/downloads', UPDATE_MANIFEST_FILENAME)}(` +
+        `${fileManifest.files.length} 个文件,外部权威条目 ${external.assets.length} 项)`,
+    )
   }
 
   // 汇总
