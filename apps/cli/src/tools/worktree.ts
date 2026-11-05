@@ -32,6 +32,8 @@ import {
 import type { Tool } from './index.js';
 // 删除保护链的目录回收腿(goal-b49 W1-①):判据在 @ihui/shared/delete-guard,IO adapter 在工具层
 import { stashDirToTrash } from './file-batch-edit.js';
+// 文件访问裁决的 delete 轴(goal-b49 S5 接线):规则表与档位判据**全在这一件**,本层不抄第二份(§0.6)
+import { evaluateFileAccess, toAclPath } from '../sandbox/file-access-policy.js';
 
 /** agent 专属 worktree 分支前缀(唯一分支名 agent-wt-<uuid8>) */
 export const AGENT_BRANCH_PREFIX = 'agent-wt-';
@@ -213,10 +215,30 @@ export class WorktreeManager {
    * 遵守删除安全规则:默认仅在 force=true 时强删(调用方须先确认 agent 已结束);
    * git worktree remove 失败时 fallback 到 fs.rmSync(Windows 兼容)。
    *
+   * 前置一道**文件访问裁决的 delete 轴**(goal-b49 S5,判据单源 `sandbox/file-access-policy.ts`):
+   * 命拒即抛 ⇒ `existsSync` / `git worktree remove` / 回收站 rename / `rmSync` 一条都不发生。
+   * 为什么这一处必须接:`agentId` 原样进 `path.join(this.rootDir, agentId)`,而它由**模型入参**决定
+   * (`exit_worktree` 的 `name`、`dispatch_subagent` 的 `resumeFrom` 都走到这里),`..` 段能把删除
+   * 目标折出 `.worktrees/` 之外 ⇒ 那就不再是"回收自己造的隔离区",而是"删任意目录"。
+   * 与 W1 的两阶段批量护栏**不同职**:护栏管"这一批删多少",本层管"这个路径准不准删"。
+   *
    * @returns 是否实际移除了目录(路径本就不存在时返回 false)
+   * @throws 文件访问裁决判拒时抛带 `[file-acl` 的理由(调用方各自决定出声半径)
    */
   remove(agentId: string, opts?: { force?: boolean; deleteBranch?: boolean }): boolean {
     const wtPath = path.join(this.rootDir, agentId);
+    const aclDelete = evaluateFileAccess('delete', toAclPath(this.sourcePath, wtPath), this.sourcePath);
+    if (aclDelete.blocked) {
+      throw new Error(aclDelete.note ?? `按文件访问裁决禁止删除 ${wtPath}`);
+    }
+    // advisory 档(守护面族)出声放行:静默等于没判(§0.9)
+    if (aclDelete.note) {
+      try {
+        process.stderr.write(`${aclDelete.note}\n`);
+      } catch {
+        // 报名通道不可用不改判据结论
+      }
+    }
     if (!fs.existsSync(wtPath)) return false;
 
     // 移除前先捕获分支名(移除后 git 元数据里已查不到)
@@ -322,6 +344,15 @@ export class WorktreeManager {
 /**
  * 独立清理函数 — 供无 manager 实例的场景(如 background-registry 后台任务收尾)调用。
  * 内部所有失败均吞掉(收尾清理不阻塞主流程),并补一次 prune 清元数据。
+ *
+ * **delete 轴定性(S5,2026-11-05):本出口刻意不接裁决**,与 `WorktreeManager.remove` 不同判 ——
+ *  ① 目标不由外部入参决定:唯一调用方 `background-registry.ts` 的 `cleanupTaskWorktree` 传的是
+ *     本进程创建/自身台账恢复的 `task.worktreePath`,模型没有任何参数能折出这个目录;
+ *  ② 返回契约是 `void` 且整体 try/catch 全吞:在这里抛"判拒"会被上层当"清理失败不阻塞"吃掉,
+ *     而调用方随后仍把 `task.worktreePath` 置 undefined ⇒ 把拒绝写成静默(§0.9/§0.10 反面);
+ *  ③ 它是 `remove()` 之外的**守护自身收尾腿**,接了就是把"任务结束了但隔离区永不回收"制度化。
+ * 解锁条件(要接必须先满足两条):本函数改出可传拒的返回形态 **且** 出现把外部入参直接当
+ * `wtPath` 的新调用方 —— 二者齐备再按 `remove()` 的样板接,不在这里预留半个闸。
  */
 export function cleanupWorktree(wtPath: string, sourcePath: string, force = true): void {
   try {
