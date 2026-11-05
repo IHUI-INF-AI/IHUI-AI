@@ -666,13 +666,18 @@ export function appendIntentExpiryLedger(repoRoot, paths, { ttlHours, headSha = 
     appendFileSync(join(dir, 'staged-delete-intent-ledger.jsonl'), line + '\n', 'utf8')
     return true
   } catch (e) {
-    console.log(`⚠️ 到期恢复的意图留痕写不进账(${e?.message ?? e})—— 文件已回盘,清单见本行末尾: ${paths.join(', ')}`)
+    console.log(
+      `⚠️ 到期恢复的意图留痕写不进账(${e?.message ?? e})—— 文件已回盘,清单见本行末尾: ${paths.join(', ')}`,
+    )
     return false
   }
 }
 
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
-export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = intentExpiryTtlHours() } = {}) {
+export function findOrphanedDeletions(
+  repoRoot,
+  { now = Date.now(), ttlHours = intentExpiryTtlHours() } = {},
+) {
   const g = makeGit(repoRoot)
   const st = g(['status', '--porcelain', '-z'])
   const intentTsByPath = stagedIntentLatestTsByPath(repoRoot)
@@ -1265,7 +1270,8 @@ export function subsetRefreshable(repoRoot, candidates, idxBlob, headBlob, loss 
   if (loss && oversized.length)
     loss.push({
       paths: oversized,
-      reason: '索引侧字节**大于** HEAD 侧 ⇒ "行级子集"这一维结构上不成立(加行/扩写不是子集),本层不动',
+      reason:
+        '索引侧字节**大于** HEAD 侧 ⇒ "行级子集"这一维结构上不成立(加行/扩写不是子集),本层不动',
       bucket: 'index-larger-than-head',
     })
   if (loss && tooBig.length) {
@@ -2938,51 +2944,60 @@ function selfTestRun() {
      *   ③工作区有现场必须不碰 ④前像对不上必须不碰 ⑤无留痕必须判"未判定"而非 0(§0.3)。
      *   ㊺-D 是变异对照:同一形态只跑既有那一层 ⇒ 读数必须归零,证明起作用的是新层而不是老代码。
      * ------------------------------------------------------------------ */
-      const buildDebtRepo = (tag) => {
-        const t = mkScratch(tag)
-        const q = makeGit(t)
-        q(['init', '-q', '--initial-branch=main'])
-        q(['config', 'user.email', 't@t'])
-        q(['config', 'user.name', 't'])
-        q(['config', 'core.autocrlf', 'false'])
-        writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\n')
-        q(['add', '-A'])
-        q(['commit', '-qm', 'c0 落地前像'])
-        const headBefore = q(['rev-parse', 'HEAD']).trim()
-        writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\nline-merged\n')
-        q(['commit', '-qam', 'c1 合并成果(HEAD)'])
-        const landed = q(['rev-parse', 'HEAD']).trim()
-        // 悬留形态:索引 + 工作树双双退回 c0(与 commit-tree+update-ref 只推进 HEAD 同形)
-        q(['checkout', '-q', 'HEAD~1', '--', 'PROJECT_PLAN.md'])
-        return { t, q, headBefore, landed }
-      }
-      const writeLandingRecord = (t, rec) => {
-        writeFileSync(
-          ledgerPath(t),
-          `${JSON.stringify({
-            ts: new Date().toISOString(),
-            kind: BYPASS_KIND,
-            landedSha: rec.landed,
-            headBefore: rec.headBefore,
-            declaredFiles: rec.declared,
-            source: 'unit-fixture union-converge --apply',
-          })}\n`,
-          { flag: 'a' },
-        )
-      }
-      const idxBlobOf = (q) => q(['ls-files', '-s', 'PROJECT_PLAN.md']).trim().split(/\s+/)[1]
+    const buildDebtRepo = (tag) => {
+      const t = mkScratch(tag)
+      const q = makeGit(t)
+      q(['init', '-q', '--initial-branch=main'])
+      q(['config', 'user.email', 't@t'])
+      q(['config', 'user.name', 't'])
+      q(['config', 'core.autocrlf', 'false'])
+      writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\n')
+      q(['add', '-A'])
+      q(['commit', '-qm', 'c0 落地前像'])
+      const headBefore = q(['rev-parse', 'HEAD']).trim()
+      writeFileSync(join(t, 'PROJECT_PLAN.md'), 'line-old\nline-merged\n')
+      q(['commit', '-qam', 'c1 合并成果(HEAD)'])
+      const landed = q(['rev-parse', 'HEAD']).trim()
+      // 悬留形态:索引 + 工作树双双退回 c0(与 commit-tree+update-ref 只推进 HEAD 同形)
+      q(['checkout', '-q', 'HEAD~1', '--', 'PROJECT_PLAN.md'])
+      return { t, q, headBefore, landed }
+    }
+    const writeLandingRecord = (t, rec) => {
+      writeFileSync(
+        ledgerPath(t),
+        `${JSON.stringify({
+          ts: new Date().toISOString(),
+          kind: BYPASS_KIND,
+          landedSha: rec.landed,
+          headBefore: rec.headBefore,
+          declaredFiles: rec.declared,
+          source: 'unit-fixture union-converge --apply',
+        })}\n`,
+        { flag: 'a' },
+      )
+    }
+    const idxBlobOf = (q) => q(['ls-files', '-s', 'PROJECT_PLAN.md']).trim().split(/\s+/)[1]
     {
       const a = buildDebtRepo('wt-heal-debt-a-')
       try {
         mkdirSync(join(a.t, '.ihui-agent', 'state'), { recursive: true })
-        writeLandingRecord(a.t, { landed: a.landed, headBefore: a.headBefore, declared: ['PROJECT_PLAN.md'] })
+        writeLandingRecord(a.t, {
+          landed: a.landed,
+          headBefore: a.headBefore,
+          declared: ['PROJECT_PLAN.md'],
+        })
         const headBlob = a.q(['rev-parse', 'HEAD:PROJECT_PLAN.md']).trim()
         const oldBlob = a.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
-        check('㊺ 前提:索引确停在落地前像(且 != HEAD)', idxBlobOf(a.q) === oldBlob && oldBlob !== headBlob)
+        check(
+          '㊺ 前提:索引确停在落地前像(且 != HEAD)',
+          idxBlobOf(a.q) === oldBlob && oldBlob !== headBlob,
+        )
         const r = alignDrifts(a.t)
         check(
           '㊺-A 正控(装车):落地前像形态被 alignDrifts 对齐回 HEAD —— 只算索引',
-          r.landingAligned === 1 && r.landingPaths.includes('PROJECT_PLAN.md') && idxBlobOf(a.q) === headBlob,
+          r.landingAligned === 1 &&
+            r.landingPaths.includes('PROJECT_PLAN.md') &&
+            idxBlobOf(a.q) === headBlob,
         )
         check(
           '㊺-A 反向断律:本层绝不写工作树(19339 行事故那一半),工作区仍是落地前像',
@@ -2996,14 +3011,20 @@ function selfTestRun() {
       const b = buildDebtRepo('wt-heal-debt-b-')
       try {
         mkdirSync(join(b.t, '.ihui-agent', 'state'), { recursive: true })
-        writeLandingRecord(b.t, { landed: b.landed, headBefore: b.headBefore, declared: ['PROJECT_PLAN.md'] })
+        writeLandingRecord(b.t, {
+          landed: b.landed,
+          headBefore: b.headBefore,
+          declared: ['PROJECT_PLAN.md'],
+        })
         const idxBefore = idxBlobOf(b.q)
         // 有人正在这份台账上继续写(工作区 != 索引)⇒ 判据③不成立
         writeFileSync(join(b.t, 'PROJECT_PLAN.md'), 'line-old\n某会话正在写的一行\n')
         const r = alignLandingDebtIndex(b.t)
         check(
           '㊺-B 反控:工作区有现场 ⇒ 零写,且 held 逐条点名原因(不静默)',
-          r.aligned === 0 && r.held.some((h) => h.path === 'PROJECT_PLAN.md') && idxBlobOf(b.q) === idxBefore,
+          r.aligned === 0 &&
+            r.held.some((h) => h.path === 'PROJECT_PLAN.md') &&
+            idxBlobOf(b.q) === idxBefore,
         )
       } finally {
         rmScratch(b.t)
@@ -3031,7 +3052,11 @@ function selfTestRun() {
       try {
         mkdirSync(join(e.t, '.ihui-agent', 'state'), { recursive: true })
         // 有留痕,但那一枚声明的路径不含本文件 ⇒ 前像对不上 ⇒ 不是落地欠账(可能是有意暂存)
-        writeLandingRecord(e.t, { landed: e.landed, headBefore: e.headBefore, declared: ['other.md'] })
+        writeLandingRecord(e.t, {
+          landed: e.landed,
+          headBefore: e.headBefore,
+          declared: ['other.md'],
+        })
         const idxBefore = idxBlobOf(e.q)
         const r = alignLandingDebtIndex(e.t)
         check(
@@ -3046,13 +3071,19 @@ function selfTestRun() {
       const d = buildDebtRepo('wt-heal-debt-d-')
       try {
         mkdirSync(join(d.t, '.ihui-agent', 'state'), { recursive: true })
-        writeLandingRecord(d.t, { landed: d.landed, headBefore: d.headBefore, declared: ['PROJECT_PLAN.md'] })
+        writeLandingRecord(d.t, {
+          landed: d.landed,
+          headBefore: d.headBefore,
+          declared: ['PROJECT_PLAN.md'],
+        })
         const oldBlob = d.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
         // 变异对照:既有那一层(refreshStaleIndex)对本形态必须读数归零 —— 豁免是刻意的
         const only = refreshStaleIndex(d.t)
         check(
           '㊺-D 变异对照:同一形态只跑 refreshStaleIndex ⇒ refreshed=0 且该路径在 exempt 里',
-          only.refreshed === 0 && only.exempt.includes('PROJECT_PLAN.md') && idxBlobOf(d.q) === oldBlob,
+          only.refreshed === 0 &&
+            only.exempt.includes('PROJECT_PLAN.md') &&
+            idxBlobOf(d.q) === oldBlob,
         )
         const r2 = alignLandingDebtIndex(d.t)
         check(
@@ -3432,16 +3463,70 @@ function printSkipsAndLoss(o) {
   }
 }
 
+/**
+ * 运行档判定(纯函数,2026-11-05 立)。
+ *
+ * 立因(读源码实测,非推断):旧写法是 `dryRun = argv.includes('--dry-run') || argv.includes('--check')`,
+ * 也就是**裸跑与敲错旗标都按"真恢复"执行**。这台机的共享工作树上,真恢复会把他人**有意**留下的
+ * 未暂存删除 `git restore` 复活(本文件 2026-09-24 那条注释记的就是这型,当时差点咬掉并发会话
+ * 正在收口的 4 个分类栏文件)—— 而入口只需要一次手滑:`--hlep`、`--check=1`、任何一枚本器不认识的串。
+ * 同族先例今天刚量到:`auto-evolve.mjs --help` 直接把一整轮自主轮跑完(额度 6/6 吃掉一份)。
+ *
+ * 失效方向按 §0.10 / 本文件既有纪律:**少做一件事 + 大声点名**,绝不为"看起来更可用"多写一次盘。
+ * 因此不认识旗标不拒绝退出(那会让守护侧把"拒"读成"自愈失败",而守护是靠解析 stdout 最后一行 JSON
+ * 判账的),而是**降到只读巡检档**并打印原因。合法调用方(`--align-drift --json` 等)一律不受影响。
+ */
+export function healRunMode(argv) {
+  const list = Array.isArray(argv) ? argv : []
+  const KNOWN = ['--align-drift', '--check', '--dry-run', '--json', '--self-test', '--help', '-h']
+  const unknown = list.filter(
+    (a) => typeof a === 'string' && a.startsWith('-') && !KNOWN.includes(a),
+  )
+  const help = list.includes('--help') || list.includes('-h')
+  const checkOnly = list.includes('--check')
+  return {
+    help,
+    unknown,
+    selfTest: list.includes('--self-test'),
+    checkOnly,
+    // 只读档 = 显式巡检 || 显式预演 || 有不认识的旗标(降级,不猜意图)
+    dryRun: checkOnly || list.includes('--dry-run') || unknown.length > 0,
+    degradedToReadOnly: unknown.length > 0 && !checkOnly && !list.includes('--dry-run'),
+  }
+}
+
 async function main() {
   const argv = process.argv.slice(2)
-  if (argv.includes('--self-test')) return selfTestRun()
+  const mode = healRunMode(argv)
+  if (mode.help) {
+    console.log(
+      [
+        'usage: node scripts/heal-worktree-tracked.mjs [档]',
+        '  --check            只判不改(AGENTS.md §5b 承诺的零副作用巡检口径)',
+        '  --dry-run          预演:算出该动什么,一个都不动',
+        '  --align-drift      幻影漂移对齐 + 落后索引刷新 + 第四层旁路孤儿恢复',
+        '  --json             只出一行 JSON(守护/converge 按最后一行解析)',
+        '  --self-test        夹具自检',
+        '  裸跑 = 真恢复(会写索引/工作树)。不认识旗标 ⇒ 自动降到只读档并点名,',
+        '  因为手滑造成他人现场被 restore 复活,比"少修一轮"坏得多(§0.10)。',
+      ].join('\n'),
+    )
+    return 0
+  }
+  if (mode.selfTest) return selfTestRun()
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   if (process.env[SKIP_ENV]) return 0
+  if (mode.degradedToReadOnly) {
+    console.log(
+      `⚠️ 不认识旗标 ${mode.unknown.join(' ')} ⇒ 本轮降到只读巡检档(不写索引、不 restore 任何现场);` +
+        `本器认识的档:${['--check', '--dry-run', '--align-drift', '--json', '--self-test', '--help'].join(' ')}`,
+    )
+  }
   // `--check` 必须是**只判不改**的巡检口径(AGENTS.md §5b 承诺"零副作用"):
   // 旧实现只认 `--dry-run`,`--check` 会一路落到真恢复分支,把他人**有意**的未暂存删除
   // 直接 `git restore` 复活(2026-09-24 差点咬掉并发会话正在收口的 4 个分类栏文件)。
-  const checkOnly = argv.includes('--check')
-  const dryRun = argv.includes('--dry-run') || checkOnly
+  const checkOnly = mode.checkOnly
+  const dryRun = mode.dryRun
   // --align-drift:幻影漂移对齐 + 落后索引刷新 + 第四层旁路孤儿恢复(git-sync-converge 推进 HEAD 后调用)
   if (argv.includes('--align-drift')) {
     const d = alignDrifts(repoRoot, { dryRun })
@@ -3478,8 +3563,7 @@ async function main() {
         console.log(
           `✅ 已还原 ${d.orphanRestored} 个缺失跟踪文件(索引有/盘缺,state A 未暂存删除;restore 仅写工作树不碰索引)`,
         )
-      if (dryRun && d.orphanSafe)
-        console.log(`[check] ${d.orphanSafe} 个可还原(未执行)`)
+      if (dryRun && d.orphanSafe) console.log(`[check] ${d.orphanSafe} 个可还原(未执行)`)
       if (d.orphanIntentLost)
         console.log(`ℹ️ ${d.orphanIntentLost} 个删除意图刚被 safe-commit 清空,只报数不代裁`)
       for (const p of (d.orphanDeferred || []).slice(0, 10))
@@ -3524,7 +3608,10 @@ async function main() {
           const mergeSkips = d.layerSkips.length - lockSkips
           const parts = []
           if (lockSkips) parts.push(`${lockSkips} 层本轮因锁跳过`)
-          if (mergeSkips) parts.push(`${mergeSkips} 层本轮因合并未收口让路(MERGE_HEAD 在,提交或 abort 后自动补上)`)
+          if (mergeSkips)
+            parts.push(
+              `${mergeSkips} 层本轮因合并未收口让路(MERGE_HEAD 在,提交或 abort 后自动补上)`,
+            )
           caveats.push(parts.join(';'))
         }
         if (d.driftUndetermined?.length)
@@ -3606,7 +3693,9 @@ async function main() {
       // 2026-10-23 到期档:摘标超 TTL 的删除意图不再无限期拖着整仓验不动(实测拖了 10 小时,
       // web/api typecheck 恒红、门 236 门体不在面上)。回盘零丢失(内容==HEAD),
       // 意图逐字转进同一本账的新事件 ⇒ 归属会话照样能坐实那次删除。
-      (res.intentExpired ? `;另有 ${res.intentExpired} 个删除意图摘标已超 TTL ⇒ 文件回盘、意图转入留痕` : ''),
+      (res.intentExpired
+        ? `;另有 ${res.intentExpired} 个删除意图摘标已超 TTL ⇒ 文件回盘、意图转入留痕`
+        : ''),
   )
   if (res.intentExpiredPaths?.length) {
     console.log(
