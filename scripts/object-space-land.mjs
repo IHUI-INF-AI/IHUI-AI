@@ -14,10 +14,11 @@
  *    proof 步骤扑空)。**存在性判据问 git 的结论而不是解析它的输出**(G-801):`git show --name-only`
  *    的输出文本默认按 core.quotePath 把非 ASCII 路径八进制转写并加引号,拿输出字节当路径身份,
  *    中文/带空格路径必然比不中 ⇒ 已成功的交付被报成"缺路径";该清单只留作"是否混提"的辅助且必须 -c core.quotePath=false;
- *  - ② 逐路径把共享主索引对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
+ *  - ② 逐路径把共享主索引**与工作树**对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
  *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
  *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
- *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
+ *    索引对齐后磁盘仍缺该路径 ⇒ 才 `git checkout HEAD -- <path>` 补最后一格;
+ *    别人真暂存过的一律**不动并点名"归属他人"**(failed ⇒ 退出码 1 / 让路 ⇒ 2,绝不静默)。
  *  - ③ (G-816708,2026-10-05)声明的落地面含 `PROJECT_PLAN.md` 时,CAS 成功后**就地补跑一次守门 71
  *    台账自愈**(`--heal --commit`,与 `.husky/post-commit` 第 6 节同一条命令、同一个器物:
  *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
@@ -62,7 +63,7 @@
  *              ② **互斥**:同一路径不得同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS(自相矛盾);
  *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
  *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
- *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
+ *              他席已暂存的删除路径由 `alignLandingPaths`(内部 `alignSharedIndex`)保护:不动并点名(§12)。
  *  LAND_MSG    必填,提交信息
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
@@ -186,7 +187,6 @@ import {
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
-  alignSharedIndex,
   casUpdateRef,
   commitTreeWithIndex,
   git,
@@ -199,6 +199,10 @@ import {
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
+// 2026-11-05:CAS 成功之后**索引 + 工作树**一并回写的唯一出口(与 union-converge 装车点同一份判据)。
+// 旧实现只调 alignSharedIndex,于是"索引已对齐、磁盘仍缺"会留下假 `D ` / 编译缺文件;本层在索引
+// 对齐后按"磁盘仍缺才 checkout HEAD -- <path>"补最后一格,判据不在这里另抄第二份。
+import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
 import {
   analyze as staleAncestorAnalysis,
   ancestorCommits,
@@ -3235,31 +3239,42 @@ async function main() {
    */
   uiRoutesFreshnessNotice({ root, paths })
 
-  // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
-  //    删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉(否则 `git status` 显一条
-  //    `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件加回 HEAD —— 本仓 2026-09-27/28
-  //    连复活四次的孤儿组件正是这一型),且他席真暂存过的一律不动并点名(§12)。
-  const align = alignSharedIndex({ root, paths: paths.concat(removePaths), parentRef: parentSha })
-  if (align.lockAbandoned) {
+  // ② 共享主索引 + 工作树对齐(判据在 lib,只有一份):CAS 只推进 ref,**不碰主索引、不碰工作树**;
+  //    落地器若只对齐索引,新 HEAD 里的新增路径会留下「索引有、磁盘无」或假 `D `(下一次普通提交
+  //    就固化成删除)。删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉,且他席真暂存
+  //    过的一律不动并点名(§12)。失败/让路逐条打印并**影响退出码**,不静默:
+  //      failed / lockAbandoned / alignFailed ⇒ 1(落地已在 HEAD,但回写没做完)
+  //      undetermined / skipped(归属他人)⇒ 2(未判定/让路,不冒充完成)
+  const landingAlign = alignLandingPaths({
+    root,
+    paths: paths.concat(removePaths),
+    parentRef: parentSha,
+  })
+  console.log(
+    `✅ 主索引 + 工作树已对齐 ${landingAlign.aligned.length}/${paths.concat(removePaths).length} 路径(索引 ${landingAlign.aligned.length} / checkout ${landingAlign.checkedOut.length})`,
+  )
+  for (const f of landingAlign.failed) console.error(`❌ 落地回写失败:${f.path} —— ${f.reason}`)
+  for (const s of landingAlign.skipped) console.log(`⚠️ 落地回写未动(归属他人):${s.path} —— ${s.reason}`)
+  for (const u of landingAlign.undetermined) console.log(`⚠️ 落地回写未判定:${u.path} —— ${u.reason}`)
+  if (landingAlign.lockAbandoned) {
     console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后单跑索引对齐')
     process.exit(1)
   }
-  if (align.failed) {
-    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
+  if (landingAlign.alignFailed) {
+    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):HEAD 已推进 ${landed.slice(0, 11)}`)
     process.exit(1)
   }
-  console.log(
-    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
-  )
-  if (align.skipped.length > 0) {
-    console.log(
-      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+  if (landingAlign.failed.length > 0) {
+    console.error(
+      `❌ 落地回写未完成(${landingAlign.failed.length} 路径)⇒ HEAD 已推进 ${landed.slice(0, 11)},但索引/工作树没有全部对上`,
     )
+    process.exit(1)
   }
-  if (align.undetermined.length > 0) {
-    console.log(
-      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+  if (landingAlign.undetermined.length > 0 || landingAlign.skipped.length > 0) {
+    console.error(
+      `❌ 落地回写未判定/让路(${landingAlign.undetermined.length} 未判定 / ${landingAlign.skipped.length} 归属他人)⇒ HEAD 已推进 ${landed.slice(0, 11)},这些路径的索引/磁盘状态不记绿`,
     )
+    process.exit(2)
   }
 
   /**
