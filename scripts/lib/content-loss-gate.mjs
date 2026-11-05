@@ -20,6 +20,17 @@
  *
  * 非空即判红并**点名**缺失键/行;判定失败(rev 取不到 / JSON 解不开)同样判红 ——
  * §0.3:判不出不是放行的许可证。本层不参与"要不要删文件"的判断(那是旁路删除硬门的射程)。
+ *
+ * ## 判据纠偏(2026-11-05,实测咬住第 9 轮收敛落地闸后定夺)
+ *
+ * `README.*` 的数字表与"守门点名索引"段是 `gen-doc-numbers.mjs --markdown` 的**生成块**
+ * (`<!-- BEGIN GENERATED … --> … <!-- END GENERATED … -->`)。生成块的行值随两侧各自提交
+ * 时点滚动(trackedFiles/testFiles 只会前进),两侧同一行**天然互斥** —— "合并结果必须包含
+ * 对侧生成行"结构上不可满足,等价于 §12e 定义的恒红门:唯一结局是把每个含 README 数字变化的
+ * 合并逼去跳门。故本层对活文档的行级包含**先剥生成块再判**,人工段落一行不放宽。
+ * 生成块自身的零丢失不在本层裸奔:它由生成器单源(重算即全量覆写,不存在"少带"这一说)
+ * + 收敛落地后的 docs 重算腿(47b / auto-commit「README 数字按 HEAD 面重算」系列)承接。
+ * AGENTS.md / PROJECT_PLAN.md 无生成块标记,行为与纠偏前逐字节等价。
  */
 import { gitRaw } from './face-reader.mjs'
 
@@ -79,6 +90,30 @@ export function textKeySet(text, path) {
   } catch (e) {
     return { error: `${path} 的 JSON 解不开:${String(e?.message ?? e).slice(0, 120)}` }
   }
+}
+
+/**
+ * 剥掉「生成块」(成对的 `<!-- BEGIN GENERATED … -->` / `<!-- END GENERATED … -->` 之间含标记行)。
+ * 生成块是派生态:行值随重算时点滚动,两侧互斥是常态(见头注「判据纠偏」)。
+ * 剥块只做**行级包含判据的输入整形**,不改文件本体、不影响键集面。
+ */
+export function stripGeneratedBlocks(text) {
+  if (text === null || text === undefined) return text
+  const out = []
+  let inGen = false
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim()
+    if (/^<!--\s*BEGIN GENERATED\b/i.test(line)) {
+      inGen = true
+      continue
+    }
+    if (/^<!--\s*END GENERATED\b/i.test(line)) {
+      inGen = false
+      continue
+    }
+    if (!inGen) out.push(raw)
+  }
+  return out.join('\n')
 }
 
 /** 非空行多重集(去首尾空白比较,行内空白不动)。 */
@@ -157,8 +192,9 @@ export function judgeContentLoss({
         violations.push({ path: p, kind: 'keys', missingOurs, missingTheirs })
       continue
     }
-    const missingOurs = missingLines(o, m)
-    const missingTheirs = missingLines(t, m)
+    // 活文档行级包含:生成块已剥(两侧数字互斥是常态,头注「判据纠偏」),人工段落一行不放宽。
+    const missingOurs = missingLines(stripGeneratedBlocks(o), stripGeneratedBlocks(m))
+    const missingTheirs = missingLines(stripGeneratedBlocks(t), stripGeneratedBlocks(m))
     if (missingOurs.length || missingTheirs.length)
       violations.push({ path: p, kind: 'lines', missingOurs, missingTheirs })
   }
@@ -189,5 +225,5 @@ export function formatLossReport(result, { max = __MAX_LISTED } = {}) {
   return lines.join('\n')
 }
 
-export const __test__ = { readRev, diffNames, jsonKeySet, textKeySet, lineMultiset, missingLines, missingKeys, judgeContentLoss, formatLossReport }
+export const __test__ = { readRev, diffNames, jsonKeySet, textKeySet, lineMultiset, stripGeneratedBlocks, missingLines, missingKeys, judgeContentLoss, formatLossReport }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
