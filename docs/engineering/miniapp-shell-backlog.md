@@ -317,6 +317,45 @@
 
 - 复查：11 页重生节点数分别为 21/38/39/36/25/35/13/25/40/20/26，**全部 ≥13，无一 ≤2**，与总账读数一致。
 
+## pages 域复制页 12 张定性（2026-11-06，实测 `ddabf97143`，重放至 `6c85e7ecfe`）
+
+取数范围：门 299 在 `origin/main` 的 `copy` 53 张中，`route` 前缀 `pages/` 共 18 张；排除 `pages/study/*` 6 张（归学习线）与已退休三页（`pages/distribution/index`、`pages/distribution/member-detail/index`、`pages/distribution/rank`，本就不在册），余 **12 张**。清单内无 `pkg-*` 页，无跨域页；`pages/setting/{language,theme}` 已收敛（S2 名单），不在 copy 53。
+
+节点口径：TS AST（`ScriptKind.TSX`）计 `E=JsxElement`、`SC=JsxSelfClosingElement`、`F=JsxFragment`、`T=非空 JsxText`；LOC 取门 299 读数。测于 `ddabf97143` 只读快照；`ddabf97143..6c85e7ecfe` 之间本域 14 页文件零变化（唯一页面变更为 `pages/study/index`，归学习线），读数沿用。
+
+| route | LOC | E+SC+F+T=total | 结论 | 判据证据（file:line） |
+|---|---|---|---|---|
+| `pages/index/index` | 1891 | 77+25+0+3=105 | 结构下限 | 端独有 `ThemeRoot/PushNotification/DrawerComponent/FloatBox` `apps/miniapp-taro/src/pages/index/index.tsx:1262-1288`、`NavBar(ai-home)` `:1293-1302`、内联对话流+直播 banner `:1304-1400`；重复：直播预告 banner 页 `:1351-1400` ↔ `packages/app/src/features/home/HomeScreen.tsx:182-194`；共享屏只渲染问候/铃铛 `HomeScreen.tsx:75-108`、props 仅数据+回调 `:40-53`，无 AI 输入/模型配置/抽屉槽；RN 真消费 `apps/mobile-rn/src/screens/HomeScreen.tsx:1712` ⇒ 新槽只有小程序用=搬码 |
+| `pages/community/index` | 995 | 29+20+0+1=50 | 结构下限 | 端独有 `ThemeRoot/外层 View/Drawer` `apps/miniapp-taro/src/pages/community/index.tsx:642-670`、`FloatBox` `:672`、固定 NavBar `:678`、分类弹层 `:694-721`、轮播 `:735-738`、自写智能体列表 `:812-850`；重复：列表卡片两端各写 页 `:812-850` ↔ `packages/app/src/features/agent-screen/AgentScreen.tsx:172-176`（FlatList `:243`）；共享 props `AgentScreen.tsx:90-103` 无抽屉/轮播/侧栏槽；RN 消费 `apps/mobile-rn/src/screens/AgentScreen.tsx:748`；页已真消费共享段 `pages/community/components/MyAgents.tsx:15`、`RecentAgents.tsx:15` |
+| `pages/user/index` | 1507 | 92+21+0+2=115 | 结构下限 | 端独有 `Drawer/FloatBox/NavBar` `apps/miniapp-taro/src/pages/user/index.tsx:784-862` + 9 项 `UserInfoCard` `:865-889` + 页内 VideoPlayer/LoginPopUp/Slider/StudyBar；重复：头像/昵称/统计格 页 `:869-889` ↔ `packages/app/src/features/profile/ProfileScreen.tsx:73-111`；共享 props `:30-59` 无上述端独有件槽；RN 消费 `apps/mobile-rn/src/screens/ProfileScreen.tsx:730` |
+| `pages/share/index` | 913 | 24+21+0+0=45 | 结构下限（旧判维持） | 旧判基于“RN 三槽全自传、`ArticleListScreen` 无 header/children 插槽”；`ddabf97143` 复测结构未变（913 行 / 45 节点，页仍无共享 import `apps/miniapp-taro/src/pages/share/index.tsx:5-38`），不推翻；重复：本地 `pages/share/components/ShareCard.tsx` vs 共享 `packages/app/src/features/share/ShareScreen.tsx`，列表段页自写 `index.tsx:21-27` ↔ RN 消费的 `ArticleListScreen` `apps/mobile-rn/src/screens/NewsScreen.tsx:503`；RN `ShareScreen` 消费 `apps/mobile-rn/src/screens/ShareScreen.tsx:287` |
+| `pages/exam/result` | 275 | 16+6+0+0=22 | 结构下限 | 已真消费共享段：`apps/miniapp-taro/src/pages/exam/result.tsx:18-19`（`ExamResultStats`/`ReviewList`）、渲染 `:230`、`:233-240`，web 同页同源 `apps/web/app/(main)/exam/[id]/result/PageClient.tsx:190,200`；仍压不到 ≤2：页内 hero `:186-227`、错误块 `:245-249`、NavBar `:179`、页脚三按钮（含 `openType="share"`）`:253-269`；重复：分数/通过态 页 `:186-227` ↔ `packages/app/src/features/exam-result/ExamResultScreen.tsx:57-66`（形态不同，抽段要改 RN 视觉）；RN 消费 `apps/mobile-rn/src/screens/ExamResultScreen.tsx:50` |
+| `pages/circle/detail` | 412 | 45+13+0+1=59 | 结构下限 | 页 `apps/miniapp-taro/src/pages/circle/detail.tsx:223-410` 含评论列表+评论输入栏（`FocusInput`）、图片、AIGC、话题；重复：作者/时间 metaRow 页 `:233-249` ↔ `packages/app/src/features/post-detail/PostDetailScreen.tsx:79-83`，图片行页 ↔ 共享 `:85-96`；共享 props `:32-42` 无评论输入/话题/AIGC 槽；RN 消费 `apps/mobile-rn/src/screens/PostDetailScreen.tsx:76` ⇒ 新增段无另一端消费 |
+| `pages/circle/create` | 410 | 53+6+0+10=69 | 结构下限 | 页 `apps/miniapp-taro/src/pages/circle/create.tsx:227-408` 含 FocusTextarea/图片 `:244-269`、话题 `:271+`、AIGC/可见范围/发布；共享 props `packages/app/src/features/post-create/PostCreateScreen.tsx:18-31` 仅 title/content/tags/saving/error；RN 消费 `apps/mobile-rn/src/screens/PostCreateScreen.tsx:80` ⇒ 图片/话题/AIGC/可见范围四段只有小程序用=搬码 |
+| `pages/ask/create` | 383 | 43+8+0+3=54 | 结构下限 | 页 `apps/miniapp-taro/src/pages/ask/create.tsx:197-381`：分类 `:248-266`+弹层 `:339-370`、悬赏 `:267-283`、配图 `:284-307`、匿名开关 `:308-322`；共享 props `packages/app/src/features/ask-create/AskCreateScreen.tsx:25-38` 仅 title/content/tags/saving/error；RN 消费 `apps/mobile-rn/src/screens/AskCreateScreen.tsx:51` ⇒ 四段端独有 |
+| `pages/member/index` | 514 | 85+11+0+4=100 | 结构下限 | 页 `apps/miniapp-taro/src/pages/member/index.tsx:240-441`：等级网格 `:293-309`、使用统计 `:312+`、权益/CTA；重复：标题+副标题+等级段 页 `:244-309` ↔ `packages/app/src/features/vip/VipScreen.tsx:31-48`（页注释 `:245` 自述“对齐 VipScreen header”）；共享 props 无本地 `VipLevels`/端内导航槽（页 `:237` 直接 `Taro.navigateTo`）；RN 消费 `apps/mobile-rn/src/screens/VipScreen.tsx:654` |
+| `pages/setting/cache` | 206 | 18+3+0+1=22 | 口径异常（待重挂映射 / not-applicable） | 声明归属不成立：`declaredSpecs` 指向 `packages/app/src/features/settings/SettingsScreen.tsx` 与 `packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx`，两者全文无 `cache|缓存|clearStorage` 命中（0）；页实际端独有：`Taro.getStorageInfoSync` `apps/miniapp-taro/src/pages/setting/cache.tsx:25`、`Taro.removeStorageSync` `:93`、`clearCache` `:103`；RN 侧无对应动作，22>2 且无可替共享段（页 `:129-202`）。标 **待重挂映射 / not-applicable**，台账行由内容线统一纠正 |
+| `pages/register/index` | 248 | 18+8+0+0=26 | 结构下限 | 端独有 `PhoneAreaCodePicker` `apps/miniapp-taro/src/pages/register/index.tsx:145-146`、`PasswordVisibilityToggle` `:201`、`useFieldFocus` `:145/:162` 等 4 处；重复：header/表单卡/验证码行 页 `:132-181` ↔ `packages/app/src/features/register/RegisterScreen.tsx:104-146`；共享 props 无区号/可见性/聚焦描边槽；RN 消费 `apps/mobile-rn/src/screens/RegisterScreen.tsx:136` |
+| `pages/forgot-password/index` | 267 | 26+8+2+0=36 | 结构下限 | 页 `apps/miniapp-taro/src/pages/forgot-password/index.tsx:124-260` 两段式：步骤指示器 `:136`、手机号+验证码 `:138-181`、新密码/确认、返回链接；共享 `packages/app/src/features/change-pwd/ChangePwdScreen.tsx:24-51` 是单步改密（仅 3 个密码框），无手机号/验证码/步骤槽；RN 消费 `apps/mobile-rn/src/screens/ChangePwdScreen.tsx:69` ⇒ 多出的步骤段无另一端消费=搬码 |
+
+### 53 张对账未覆盖的 2 张（`pkg-*`，本线认领）
+
+> 以下 2 条来自 53 张总表对账后的未覆盖项（`pkg-about/about/index`、`pkg-content/plaza/set-need/index`）；同三条判据、同 `E+SC+F+T` 口径，只读取证，不碰台账。
+
+| route | LOC | E+SC+F+T=total | 结论 | 判据证据（file:line） |
+|---|---|---|---|---|
+| `pkg-about/about/index` | 248 | 45+9+0+0=54 | 结构下限 | 判据1 压不到 ≤2：最小结构 = 页根 `ThemeRoot` `apps/miniapp-taro/src/pkg-about/about/index.tsx:101` + 共享 `AboutScreen` + 版本行 `:123-127` = **3 枚**；版本行数据来自 `getAbout()` `:77-79`。判据2 有重复：页 hero/故事/价值观/平台/数字/CTA/合规 `:100-245` ↔ 共享 `packages/app/src/features/about/AboutScreen.tsx:108-216`（页 54 枚为整段复写；分段数据已同源 `aboutSections.ts:6-12`，未重复）。判据3 卡点：共享 hero 无版本位 `AboutScreen.tsx:116-120`，RN 薄壳只传 `t/colorScheme/onBack/onRegister/onOpenPortal/entries/onNavigate/onToast` `apps/mobile-rn/src/screens/AboutScreen.tsx:80-89` ⇒ 新增 `version` 槽只有小程序传、RN 吃缺省 = 搬码，故不可判可薄壳化 |
+| `pkg-content/plaza/set-need/index` | 177 | 18+0+0+0=18 | 口径异常（待重挂映射） | 声明屏与实际对象不符：`declaredSpecs` 指向 `packages/app/src/features/set-need/SetNeedScreen.tsx:26-46`（`form` 含 title/description/lowestPrice/peakPrice/contact/cycle/cycleUnit/types/categories/closingTime/imgs，`onSubmit` `:42-44`，是**发布需求表单**）；页面 `apps/miniapp-taro/src/pkg-content/plaza/set-need/index.tsx:25-30` 是**偏好选择**（`selected/level/budget`），数据来自 `GET/POST /plaza/need` `:38,62`，页注释 `:83-84` 自述“小程序页为偏好选择…RN 屏为发布需求表单，内容不同，仅对齐视觉语言”。结构上亦端独有：18>2、`:85-173` 三段选项组 + 固定提交钮，无可替共享段。标 **待重挂映射 / not-applicable**；RN 消费 `apps/mobile-rn/src/screens/SetNeedScreen.tsx:125` |
+
+### pages 域小结
+
+- 本批共 **14 张**：可薄壳化 **0**；结构下限 **12**；口径异常 **2**（`pages/setting/cache`、`pkg-content/plaza/set-need/index`）。
+- 14 张全部 >2 节点，最低为 `pkg-content/plaza/set-need/index` 的 18，仍无一张 ≤2。
+- `pages/exam/result` 特记：**已真消费共享段（`ExamResultStats`/`ReviewList`，web 同页同源），仍因 hero/页脚/NavBar 压不到 ≤2**，故判结构下限而非可薄壳化。
+- `pages/setting/cache` 特记：`declaredSpecs` 指向的两个共享屏全文无缓存段，声明归属不成立；页面实际是平台独有清理动作（`getStorageInfoSync`/`removeStorageSync`/`clearCache`），标 **待重挂映射 / not-applicable**；本线不改台账，纠正由内容线统一做。
+- **规则缺口（待规则票）**：299 的“复制页 / 薄壳”分界只按**是否 import 共享屏入口**判定，不看页内节点数。
+- 实例：`pkg-user/message/index` 仅部分收敛（567 行 / 30 节点）却因 import 共享屏被判进薄壳 ⇒ 复制页少 1（47 而非 48）、薄壳多 1（246）；台账行未退休是对的，记档即可，**不改门脚本**。
+
 ## 结构下限（不退休；这是结论，不是欠账）
 
 本表兼作 S2「已 import 共享屏入口」复核的排除留档（2026-11-06，基线 `ddabf97143`）。判定口径 = 页内渲染型 JSX 总数（`JsxElement + JsxSelfClosingElement + JsxFragment + 非空 JsxText`），**≤2 才许退休，>2 一律留宿主、不摘台账**。S2 只判"已 import 共享屏入口"，不等于能摘。
