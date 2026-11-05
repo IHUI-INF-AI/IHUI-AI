@@ -4668,7 +4668,18 @@ async function main() {
     ...(p.folded || []).flatMap((e) => e.dropped || []),
     ...(p.dropLedgerCredited || []).flatMap((e) => e.dropped || []),
   ].map((l) => String(l ?? '').trim()).filter(Boolean))
-  const contentGate = judgeContentLoss({ root: ROOT, ours: t.head, theirs: t.theirs, merged: p.tree, creditedDrops: creditedDropLines })
+  // 2026-11-05: 内容级防丢闸的「折叠台账」与「本侧处置权」两维早已在 lib 里(`foldLedgers`/`base`),
+  // 落地调用点却只端了 `creditedDrops` ⇒ 那两维在收敛路径上生效次数为 0(判据在、自检过、没人调)。
+  // 这里按 lib 既有签名接线,不新增判据:基底/折叠台账本来就是 plan 已有的产物。
+  const contentGate = judgeContentLoss({
+    root: ROOT,
+    ours: t.head,
+    theirs: t.theirs,
+    merged: p.tree,
+    base: p.base,
+    foldLedgers: p.foldLedgers,
+    creditedDrops: creditedDropLines,
+  })
   if (!contentGate.ok) {
     console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
     console.log(formatLossReport(contentGate))
