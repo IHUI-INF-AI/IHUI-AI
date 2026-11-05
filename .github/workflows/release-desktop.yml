@@ -11,7 +11,10 @@
 #   ③ 对**签名后的字节**重算 SHA256/字节数 → ④ 用签名后的字节重算 Tauri updater `.sig`
 #   → ⑤ signature-gate 在独立 runner 上重新下载产物并验签(不通过即红)
 #   → ⑥ 只有 ⑤ 通过才生成 latest.json(见 publish-updater-json 的 needs)。
-# 凭据缺失时:build 里的签名步跳过,但 signature-gate **必定红**并打印「未签名/未公证」。
+# 凭据缺失时:build 的第一步 "Preflight desktop signing credentials" 在**编译前**逐条点名
+#   缺项并让 job 失败(2026-11-04 加,见 scripts/desktop-signing-preflight.mjs),不再出现
+#   "先编译 30-45 分钟、最后才由 signature-gate 判红"的形态;签名步的 `if:` 只是防未配置
+#   时把空串注进 Tauri,不再是静默降级路径。
 #   这是刻意设计 —— 未签名产物不得被读成成功发布;不要用任何 CI 开关把它改绿。
 #   本地未签名打包豁免是另一条路径(DESKTOP_ALLOW_UNSIGNED=1,仅本机自测,见 apps/desktop/README.md)。
 name: Release Desktop
@@ -67,7 +70,9 @@ jobs:
       # macOS 另有一套凭据(Developer ID + 公证)。签名与公证必须一起齐备:只装证书不公证
       # 的产物在 Gatekeeper 下仍会被拦,等于"看起来签了、装上仍报损坏"——比不签更难排查。
       # 公证两条官方通道二选一:Apple ID(app-specific password)或 App Store Connect API Key。
-      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_PATH != '')) }}
+      # 通道 B 的第三件是 `.p8` **内容**(APPLE_API_KEY_P8),不是路径:workflow 负责落盘并
+      # 把 APPLE_API_KEY_PATH 指到落盘位置(2026-11-05 补,此前只搬路径变量、文件从未存在)。
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_SIGNING_IDENTITY != '' && ((secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '') || (secrets.APPLE_API_KEY != '' && secrets.APPLE_API_ISSUER != '' && secrets.APPLE_API_KEY_P8 != '')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -113,7 +118,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           DESKTOP_TAURI_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           DESKTOP_TAURI_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
         run: node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"
@@ -215,7 +220,6 @@ jobs:
           IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
           IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
         run: |
           set -euo pipefail
           {
@@ -229,10 +233,53 @@ jobs:
             else
               printf 'APPLE_API_KEY=%s\n' "$IN_API_KEY"
               printf 'APPLE_API_ISSUER=%s\n' "$IN_API_ISSUER"
-              printf 'APPLE_API_KEY_PATH=%s\n' "$IN_API_KEY_PATH"
             fi
           } >> "$GITHUB_ENV"
           echo "Apple 签名凭据已导出(证书 + $( [ -n "${IN_APPLE_ID}" ] && echo 'Apple ID 公证' || echo 'App Store Connect API Key 公证' ))"
+
+      # 公证通道 B 的 `.p8` 落盘(2026-11-05 补,缺口 2):此前本文件只把 APPLE_API_KEY_PATH
+      # 写进 GITHUB_ENV,而 `.p8` 从未落盘 ⇒ 三枚 secret 配齐后 notarytool 仍报"读不到密钥文件",
+      # 通道 B 实际是半截。本步把 APPLE_API_KEY_P8 的内容真正写到路径上并收紧权限。
+      # 内容格式约定:**单行 base64**(推荐,与 APPLE_CERTIFICATE 同口径)或**原始 PEM**
+      # (含 `-----BEGIN PRIVATE KEY-----` 字面);两种都收 —— 先认 PEM,否则按 base64 解码,
+      # 解码结果必须仍能认出 PEM 头,否则硬失败(绝不让一个坏密钥文件走到公证阶段)。
+      - name: Materialize App Store Connect API key (macOS, channel B)
+        id: mac-write-api-key
+        if: runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        env:
+          IN_APPLE_ID: ${{ secrets.APPLE_ID }}
+          IN_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+        run: |
+          set -euo pipefail
+          # 通道判定与 Export 步逐字同源:APPLE_ID 非空 ⇒ 走 A,不需要 .p8
+          if [ -n "${IN_APPLE_ID}" ]; then
+            echo '公证通道 A 生效(.p8 无需落盘)'
+            exit 0
+          fi
+          if [ -z "${IN_P8}" ]; then
+            echo '::error::公证通道 B 已启用但 APPLE_API_KEY_P8 为空(签名 preflight 本应拦住)'
+            exit 1
+          fi
+          # 路径仍认 APPLE_API_KEY_PATH(可选覆盖),不填则用 runner 的临时目录
+          TARGET="${IN_API_KEY_PATH:-$RUNNER_TEMP/ihui-asc-api-key.p8}"
+          mkdir -p "$(dirname "$TARGET")"
+          if printf '%s' "$IN_P8" | grep -q 'BEGIN PRIVATE KEY'; then
+            # 原始 PEM:允许 secret 里把换行写成字面 `\n`
+            printf '%b' "$IN_P8" > "$TARGET"
+          else
+            # 单行 base64;openSSL 在 macOS runner 上恒可用,避开 BSD base64 的 -d/-D 差异
+            printf '%s' "$IN_P8" | tr -d '[:space:]' | openssl base64 -d -A > "$TARGET"
+          fi
+          chmod 600 "$TARGET"
+          if ! grep -q 'BEGIN PRIVATE KEY' "$TARGET"; then
+            echo '::error::APPLE_API_KEY_P8 处理后不是 PEM 私钥(确认是单行 base64 或原始 PEM)'
+            rm -f "$TARGET"
+            exit 1
+          fi
+          printf 'APPLE_API_KEY_PATH=%s\n' "$TARGET" >> "$GITHUB_ENV"
+          echo "已落盘 .p8 到 $TARGET(权限 600;内容不打印)"
 
       - name: Build & Release
         id: tauri
@@ -461,7 +508,6 @@ jobs:
           IN_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IN_API_KEY: ${{ secrets.APPLE_API_KEY }}
           IN_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          IN_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
           EXPECTED_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
@@ -479,7 +525,16 @@ jobs:
           if [ -n "${IN_APPLE_ID}" ]; then
             NOTARY_ARGS=(--apple-id "$IN_APPLE_ID" --password "$IN_APPLE_PASSWORD" --team-id "$IN_APPLE_TEAM_ID")
           else
-            NOTARY_ARGS=(--key "$IN_API_KEY_PATH" --key-id "$IN_API_KEY" --issuer "$IN_API_ISSUER")
+            # 通道 B 的密钥文件由 Materialize 步写入并导出到 GITHUB_ENV;这里只**断言它在**
+            if [ -z "${APPLE_API_KEY_PATH:-}" ]; then
+              echo '::error::公证通道 B 缺少 APPLE_API_KEY_PATH(.p8 落盘步未产出)'
+              exit 1
+            fi
+            if [ ! -f "${APPLE_API_KEY_PATH}" ]; then
+              echo "::error::公证通道 B 的 .p8 不存在: ${APPLE_API_KEY_PATH}(落盘步未生效)"
+              exit 1
+            fi
+            NOTARY_ARGS=(--key "${APPLE_API_KEY_PATH}" --key-id "$IN_API_KEY" --issuer "$IN_API_ISSUER")
           fi
           notary_status() { node -e 'const fs=require("fs");const j=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write((j.status||"Unknown")+" "+(j.id||""))' "$1"; }
 
@@ -590,6 +645,27 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # .p8 必须在构建结束(含失败路径)后删除:runner 上的密钥文件不应存活到 job 收尾。
+      # always() 是必须的 —— 构建/公证失败时普通步骤会被跳过,密钥就留在了 runner 上。
+      - name: Remove App Store Connect API key (macOS)
+        id: mac-remove-api-key
+        if: always() && runner.os == 'macOS' && env.APPLE_SIGNING_CONFIGURED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          removed=0
+          for p in "${APPLE_API_KEY_PATH:-}" "$RUNNER_TEMP/ihui-asc-api-key.p8"; do
+            if [ -n "$p" ] && [ -f "$p" ]; then
+              rm -f "$p"
+              removed=$((removed + 1))
+            fi
+          done
+          if [ -f "${APPLE_API_KEY_PATH:-/nonexistent}" ] || [ -f "$RUNNER_TEMP/ihui-asc-api-key.p8" ]; then
+            echo '::error::.p8 未能删除:密钥文件残留在 runner 上'
+            exit 1
+          fi
+          echo "已清理 .p8($removed 处)"
+
       # 同上一条纪律:凭据不齐时三步跳过 ⇒ Release 里躺的是未签名安装包,而 job 是绿的。
       # 不签不是错,但必须让"绿"不被读成"已签名"。
       # 2026-11-03 起,真正的红色结论由下方 signature-gate 给出 —— 本步只负责**显式喊出来**,
@@ -698,14 +774,16 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/release-desktop.yml
-          TRIAGE_IDS: signing-preflight tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env win-authenticode mac-notarize failure-triage
+          TRIAGE_IDS: signing-preflight tauri upload-unsigned-desktop signpath-desktop mac-export-signing-env mac-write-api-key win-authenticode mac-notarize mac-remove-api-key failure-triage
           O_SIGNING_PREFLIGHT: ${{ steps.signing-preflight.outcome }}
           O_TAURI: ${{ steps.tauri.outcome }}
           O_UPLOAD_UNSIGNED_DESKTOP: ${{ steps.upload-unsigned-desktop.outcome }}
           O_SIGNPATH_DESKTOP: ${{ steps.signpath-desktop.outcome }}
           O_MAC_EXPORT_SIGNING_ENV: ${{ steps.mac-export-signing-env.outcome }}
+          O_MAC_WRITE_API_KEY: ${{ steps.mac-write-api-key.outcome }}
           O_WIN_AUTHENTICODE: ${{ steps.win-authenticode.outcome }}
           O_MAC_NOTARIZE: ${{ steps.mac-notarize.outcome }}
+          O_MAC_REMOVE_API_KEY: ${{ steps.mac-remove-api-key.outcome }}
           O_FAILURE_TRIAGE: ${{ steps.failure-triage.outcome }}
         run: bash scripts/ci-failure-triage.sh
 
