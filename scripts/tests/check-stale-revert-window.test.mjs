@@ -215,7 +215,7 @@ test('W4 边界锁(哨兵 off-by-one):动过的提交恰好 = 窗口枚数 ⇒ t
   }
 })
 
-test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未判定"分支与结论尾注不得删、ancestorCommits 仍是投影', () => {
+test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、未判定必须落 exit 2(不得以 ✅ 尾注代偿)、ancestorCommits 仍是投影', () => {
   // 值锁:改小 ANCESTOR_WINDOW 或把深窗口调回 ≤ 浅窗口,这一条先红(行为分支由 W1–W4 的构造面证)。
   assert.ok(G.ANCESTOR_WINDOW >= 40, `ANCESTOR_WINDOW 不得低于 40(现读 ${G.ANCESTOR_WINDOW})`)
   assert.ok(
@@ -243,11 +243,21 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     /\[R1 未判定\]/,
     'audit 的 ❓ 点名块不得被删 —— 删掉它就回到"窗口外回写静默通过"',
   )
+  // 2026-11-05(本票授权改控制流):R1 未判定(含深档取材失败)一律落 exit 2 并只打 ❓ 汇总,
+  // 未判定**不得**以 ✅ 结论行的"窗口不足"尾注代偿 —— 旧尾注只改措辞、不改退出码,正是
+  // 把"没判"记成"判过"的那一型。锁因此从"尾注不得删"改锚到更强的"三桶相加进 exit 2"。
   assert.match(
-    src,
-    /窗口不足未判定\(R1\)/,
-    '结论行尾注不得被删 —— 尾注是"没判"与"判过"在账面上的唯一区别',
+    code,
+    /\(rr\?\.undetermined\?\.length \?\? 0\) \+ \(ms\?\.undetermined\?\.length \?\? 0\) \+ windowLoss\.length/,
+    '未判定三桶必须相加进 exit 2 账面 —— 只算 R1r/R1s 会把 R1 取材失败折回绿',
   )
+  assert.match(code, /code: failed \? 1 : undeterminedCount > 0 \? 2 : 0/, '未判定必须 exit 2')
+  assert.match(
+    code,
+    /if \(!failed && undeterminedCount > 0\)/,
+    '有未判定时只走 ❓ 汇总分支(与 ✅ 结论行互斥),不得两者同时打',
+  )
+  assert.doesNotMatch(code, /r1WindowLoss/, '结论行不得再留 R1 窗口尾注的死参数(那条尾注已不可达)')
   assert.match(src, /深于窗口/, 'R1r 侧的窗口用尽报名措辞不得被删')
   // 形状锁在**原文面**判 max-count:模板串 `` `--max-count=${window + 1}` `` 在遮罩面会被抹白
   // (它是字符串),拿遮罩面判会把锁做成恒假;代码调用形状的锁仍走遮罩面(防注释假接线)。
@@ -262,11 +272,31 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     /const truncated = shas\.length > window/,
     '用尽判据必须按"探针拿满"算(改成 >= 会把恰好等于窗口的浅历史误报成"不足",见 W4)',
   )
-  assert.equal(
-    (code.match(/windowLoss\.push\(/g) ?? []).length,
-    2,
-    'analyze 与 analyzeMerge 两条通道都必须真 push(少一条 = 该通道回到静默)',
+  // 两条通道各有两处落账(深档取材失败 / 窗口用尽):按函数体分别数,防止"总数凑够 4"
+  // 却把某一条通道整条落回静默(这正是旧锁 ==2 时代要防的那件事,只换了形状不放松)。
+  const analyzeBody = code.slice(
+    code.indexOf('export function analyze('),
+    code.indexOf('export function analyzeMerge('),
   )
+  const mergeBody = code.slice(
+    code.indexOf('export function analyzeMerge('),
+    code.indexOf('function firstLine('),
+  )
+  for (const [name, body] of [
+    ['analyze', analyzeBody],
+    ['analyzeMerge', mergeBody],
+  ]) {
+    assert.equal(
+      (body.match(/windowLoss\.push\(/g) ?? []).length,
+      2,
+      `${name} 必须两处落账(深档取材失败 + 窗口用尽),少一处 = 那一格回到静默`,
+    )
+    assert.match(
+      body,
+      /windowLoss\.push\(\{\s*path:\s*p,\s*window:\s*windowFor\(p\),\s*seen:\s*0,\s*undetermined:/,
+      `${name} 的深档取材失败落账必须带可读原因(undetermined),不得只记数不点名`,
+    )
+  }
   // 2026-10-21:枚 9085a780baf(G-926)给 analyze / analyzeMerge / verdictLine 各加了
   // `watermarkPass` 一路 —— 三处形状锁仍停在旧形(红的就是这三条)。锁仍是**形状锁**
   // (钉"必须把收集口传进去"),只把新增的那一路按现役调用形状补上,不放松。
@@ -284,7 +314,7 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
   // 不放松:多出来的那一维正是"结论行必须带着未判定/存量尾注"的新落点,锁在它上面才有意义。
   assert.match(
     code,
-    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length,\s*watermarkPass\.length,\s*staged \? 0 : violations\.length,\s*ms,?\s*\)/,
+    /verdictLine\(\s*modified\.length,\s*rr,\s*watermarkPass\.length,\s*staged \? 0 : violations\.length,\s*ms,?\s*\)/,
     '尾注数字必须现算现传,不得写 0(且 R1s 的桶必须一并传入)',
   )
   assert.match(
