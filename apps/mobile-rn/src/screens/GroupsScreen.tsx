@@ -215,7 +215,7 @@ export default function GroupsScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={[styles.chipText, filter === f && styles.chipOnText]}>
-                  {f === 'all' ? t('groups.allGroups') : t('groups.myGroups')}
+                  {f === 'all' ? t('groups.allGroups') : t('eduAi.groups.title')}
                 </Text>
               </TouchableOpacity>
             ))}

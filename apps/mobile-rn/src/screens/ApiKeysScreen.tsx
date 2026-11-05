@@ -245,7 +245,7 @@ export default function ApiKeysScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.buttonText}>{t('apiKeys.copySecret')}</Text>
+                <Text style={styles.buttonText}>{t('models.keys.copy')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.secretBtn]}
@@ -262,7 +262,7 @@ export default function ApiKeysScreen() {
             <Plus size={16} color={tokens.text.secondary} />
             <Text style={styles.cardTitle}>{t('apiKeys.createTitle')}</Text>
           </View>
-          <Text style={styles.label}>{t('apiKeys.nameLabel')}</Text>
+          <Text style={styles.label}>{t('models.keys.table.name')}</Text>
           <TextField
             colorScheme={resolvedTheme}
             value={name}

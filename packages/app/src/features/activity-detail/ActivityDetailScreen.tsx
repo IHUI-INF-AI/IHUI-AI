@@ -20,7 +20,7 @@ export function ActivityDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ActivityDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -40,7 +40,7 @@ export function ActivityDetailScreen({
   if (error || !item) {
     return (
       <ErrorState
-        message={error || t('activityDetail.empty')}
+        message={error || t('activities.notFound')}
         onRetry={onRetry}
         retryLabel={t('common.back')}
         colorScheme={colorScheme}

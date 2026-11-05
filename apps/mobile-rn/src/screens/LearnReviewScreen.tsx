@@ -185,7 +185,7 @@ export default function LearnReviewScreen() {
       case 'subjective':
         return t('learnReview.typeSubjective')
       default:
-        return t('learnReview.typeUnknown')
+        return t('learn.dailyReview.questionLabel')
     }
   }
 
@@ -222,7 +222,10 @@ export default function LearnReviewScreen() {
                 [t('learnReview.statDue'), String(stats?.totalDue ?? 0)],
                 [t('learnReview.statReviewed'), String(reviewedCount)],
                 [t('learnReview.statStreak'), String(stats?.streak ?? 0)],
-                [t('learnReview.statEase'), stats ? stats.avgEaseFactor.toFixed(2) : '—'],
+                [
+                  t('learn.dailyReview.statAvgDifficulty'),
+                  stats ? stats.avgEaseFactor.toFixed(2) : '—',
+                ],
               ].map(([label, value]) => (
                 <View key={label} style={styles.statCell}>
                   <Text style={styles.statValue}>{value}</Text>

@@ -366,7 +366,7 @@ export default function PublishNewScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, scheduleAt === null && styles.chipOnText]}>
-                    {t('publishNew.scheduleNow')}
+                    {t('publish.new.submitNow')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -375,7 +375,7 @@ export default function PublishNewScreen() {
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.chipText, scheduleAt !== null && styles.chipOnText]}>
-                    {t('publishNew.scheduleLater')}
+                    {t('publish.new.submitSchedule')}
                   </Text>
                 </TouchableOpacity>
               </View>

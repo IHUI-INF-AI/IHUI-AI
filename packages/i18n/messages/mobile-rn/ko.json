@@ -2,7 +2,10 @@
   "workflows": {
     "title": "워크플로우",
     "empty": "워크플로우가 없습니다",
-    "loadFailed": "워크플로우를 불러오지 못했습니다"
+    "loadFailed": "워크플로우를 불러오지 못했습니다",
+    "instanceDetail": {
+      "notFound": "찾을 수 없음"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "실행 결과가 없습니다",
     "rrule": "일정 (RRULE)",
     "timezone": "시간대",
-    "schedule": "실행 주기"
+    "schedule": "실행 주기",
+    "lastRunAt": "마지막 실행"
   },
   "dashboard": {
     "title": "대시보드",
@@ -638,7 +642,8 @@
     "fieldName": "이름",
     "fieldCategory": "카테고리",
     "fieldDescription": "설명",
-    "fieldPrice": "가격"
+    "fieldPrice": "가격",
+    "createTitle": "에이전트 생성"
   },
   "chat": {
     "assetCatText": "텍스트",
@@ -948,7 +953,16 @@
     "theme": "테마",
     "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?",
     "accountDeletionConfirmLabel": "삭제 확인",
-    "accountDeletionConfirmTitle": "삭제 확인"
+    "accountDeletionConfirmTitle": "삭제 확인",
+    "revokeAuth": "세션 취소",
+    "noAuthorizations": "활성 세션이 없습니다",
+    "authorizedAt": "로그인 시간",
+    "sessionExpiresAt": "만료 시간",
+    "devices": {
+      "revokeConfirmTitle": "기기 취소",
+      "taskColCreated": "생성 시간",
+      "taskColFinished": "종료 시간"
+    }
   },
   "menu": {
     "artifacts": "산출물 센터",
@@ -1340,7 +1354,11 @@
     "kindAutoContext": "자동 검색 컨텍스트"
   },
   "developer": {
-    "becomeDeveloper": "개발자 되기"
+    "becomeDeveloper": "개발자 되기",
+    "settings": {
+      "infoName": "이름",
+      "infoTitle": "개발자 정보"
+    }
   },
   "liveHost": {
     "error": {
@@ -1895,7 +1913,9 @@
     "treeRetry": "다시 시도",
     "treeLevelLabel": "{level} 단계",
     "treeCollapseHint": "노드를 눌러 상세 보기",
-    "teamTitle": "내 팀"
+    "teamTitle": "내 팀",
+    "colJoinedAt": "가입 시간",
+    "colLevel": "레벨"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -1925,6 +1945,10 @@
     "questionCountLabel": "문제 수",
     "result": {
       "shareTitle": "내 시험 성적: {n}점"
+    },
+    "startExam": "시험 시작",
+    "wrongQuestions": {
+      "colTime": "추가 시간"
     }
   },
   "examQuestion": {
@@ -2265,7 +2289,9 @@
     "bindFailed": "연결 실패",
     "bindSuccess": "연결되었습니다",
     "codeRequired": "초대 코드 입력",
-    "loadFailed": "추천인 불러오기 실패"
+    "loadFailed": "추천인 불러오기 실패",
+    "noReferrer": "추천인이 없습니다",
+    "bindBtn": "등록"
   },
   "register": {
     "phone": "휴대폰 번호",
@@ -2654,7 +2680,10 @@
       "historyTitle": "출석 내역",
       "historyEmpty": "출석 기록이 없습니다",
       "historyLoadFailed": "출석 내역을 불러오지 못했습니다",
-      "historyConsecutive": "{days}일 연속"
+      "historyConsecutive": "{days}일 연속",
+      "consecutiveDays": "{days}일 연속 체크인",
+      "history": "대화기이것은",
+      "empty": "콘텐츠가 없습니다"
     },
     "ruleLink": "포인트 규칙",
     "txTitle": "포인트 내역",
@@ -3137,7 +3166,8 @@
     "priceInvalid": "가격은 0보다 큰 숫자여야 합니다",
     "priceOrder": "시작가는 최고가보다 높을 수 없습니다",
     "submitting": "등록 중…",
-    "submit": "의뢰 등록"
+    "submit": "의뢰 등록",
+    "contactLabel": "연락처"
   },
   "businessCard": {
     "title": "내 명함"
@@ -3543,7 +3573,10 @@
     "retryRecharge": "다시 충전",
     "withdrawAmount": "금액",
     "methodBank": "은행 카드",
-    "rechargeMethod": "결제 수단"
+    "rechargeMethod": "결제 수단",
+    "flowBalance": "잔액",
+    "loading": "로딩 중...",
+    "rechargeOrderNo": "주문번호"
   },
   "activity": {
     "empty": "활동이 없습니다",
@@ -3718,7 +3751,9 @@
       "noCertificates": "증명서 없음"
     },
     "detail": {
-      "issueDate": "발급일"
+      "issueDate": "발급일",
+      "statusValid": "유효",
+      "statusRevoked": "취소됨"
     }
   },
   "certDetail": {
@@ -3831,7 +3866,8 @@
   },
   "favorites": {
     "empty": "즐겨찾기가 없습니다",
-    "title": "내 즐겨찾기"
+    "title": "내 즐겨찾기",
+    "remove": "제거"
   },
   "feedback": {
     "contact": "연락처",
@@ -4219,7 +4255,9 @@
     "ratingSubmitted": "평가가 제출되었습니다",
     "ratingFailed": "평가 제출에 실패했습니다",
     "commentPlaceholder": "평가를 남겨 주세요 (선택)",
-    "ratingLoginHint": "로그인 후 평가할 수 있습니다"
+    "ratingLoginHint": "로그인 후 평가할 수 있습니다",
+    "importBtn": "가져오기",
+    "exportError": "내보내기 실패"
   },
   "memory": {
     "detail": "상세",
@@ -4315,7 +4353,17 @@
     "platformXiaohongshu": "샤오홍슈",
     "platformZhihu": "지후",
     "platformJuejin": "쥐진",
-    "platformShipinhao": "위챗 채널"
+    "platformShipinhao": "위챗 채널",
+    "history": {
+      "retry": "재시도"
+    },
+    "accounts": {
+      "cancelScan": "스캔 취소"
+    },
+    "new": {
+      "submitNow": "즉시 게시",
+      "submitSchedule": "예약 게시"
+    }
   },
   "spec": {
     "title": "스펙 템플릿",
@@ -4659,7 +4707,13 @@
     "searchEmpty": "결과를 찾지 못했습니다",
     "expand": "전체 펼치기",
     "collapse": "접기",
-    "score": "관련도"
+    "score": "관련도",
+    "chunks": {
+      "showLess": "접기"
+    },
+    "manage": {
+      "singleDelete": "삭제"
+    }
   },
   "changePhone": {
     "phoneRequired": "휴대폰 번호를 입력하세요",
@@ -5145,7 +5199,8 @@
     "empty": "커넥터 없음",
     "items": "문서 수",
     "enable": "사용",
-    "disable": "사용 중지"
+    "disable": "사용 중지",
+    "lastSyncAt": "마지막 동기화"
   },
   "verify": {
     "getCode": "인증 코드를 입력하세요",
@@ -5209,7 +5264,17 @@
     "formSubmit": "만들기",
     "formFailed": "만들기 실패",
     "nameRequired": "작업 이름을 입력하세요",
-    "rruleRequired": "실행 일정을 입력하세요"
+    "rruleRequired": "실행 일정을 입력하세요",
+    "toast": {
+      "runDone": "순찰 완료",
+      "resumed": "재개되었습니다",
+      "paused": "일시중지되었습니다"
+    },
+    "action": {
+      "delete": "삭제",
+      "runNow": "지금 실행",
+      "history": "기록"
+    }
   },
   "selfHealing": {
     "title": "자가 치유 엔진",
@@ -5400,7 +5465,8 @@
     "tierUnknown": "알 수 없는 출처",
     "generating": "생성 중…",
     "restartConfirmTitle": "진행 중인 연구 있음",
-    "restartConfirmBody": "다시 시작하면 현재 진행 상태가 사라집니다. 계속할까요?"
+    "restartConfirmBody": "다시 시작하면 현재 진행 상태가 사라집니다. 계속할까요?",
+    "reportTitle": "연구 보고서"
   },
   "resources": {
     "title": "리소스",
@@ -5454,7 +5520,8 @@
     "permDeleteFailed": "권한 삭제 실패",
     "permSwitchConfirm": "권한 전환 확인",
     "permSwitchFailed": "권한 전환 실패",
-    "permSwitchRisk": "권한 전환은 기존 접근에 영향 가능"
+    "permSwitchRisk": "권한 전환은 기존 접근에 영향 가능",
+    "convertMarkdownFailed": "변환 실패"
   },
   "stepDecision": {
     "decision": {
@@ -5516,7 +5583,8 @@
     "adding": "추가 중…",
     "deleteConfirm": "{name}을(를) 삭제할까요?",
     "summary": "계정 {total}개 · 활성 {enabled}",
-    "addSuccess": "계정이 추가되었습니다"
+    "addSuccess": "계정이 추가되었습니다",
+    "add": "계정 추가"
   },
   "checkinAssistant": {
     "title": "체크인 도우미",
@@ -6071,7 +6139,10 @@
     "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
     "trendChartScope": "집계 범위: {scope}",
     "trendChartTitle": "출석 추이",
-    "trendWindow": "최근 {days}일"
+    "trendWindow": "최근 {days}일",
+    "studentPageTitle": "내 출석",
+    "selectClass": "반 선택",
+    "qrPanelTitle": "QR 출석 체크"
   },
   "eduGrades": {
     "title": "성적 관리",
@@ -6079,7 +6150,8 @@
     "subject": "과목",
     "exam": "시험",
     "score": "점수",
-    "date": "날짜"
+    "date": "날짜",
+    "pageTitle": "성적 관리"
   },
   "toolbar": {
     "svcTraffic": "트래픽운영 동행",
@@ -6234,7 +6306,10 @@
     "teacher": "교사",
     "availability": "가용 여부",
     "available": "가능",
-    "busy": "불가"
+    "busy": "불가",
+    "form": {
+      "weekday": "요일"
+    }
   },
   "statusPage": {
     "title": "시스템 상태",
@@ -7251,7 +7326,8 @@
   },
   "learnMapPage": {
     "completed": "완료됨",
-    "empty": "학습 경로가 없습니다"
+    "empty": "학습 경로가 없습니다",
+    "defaultTitle": "학습 맵"
   },
   "user": {
     "security": {
@@ -7262,6 +7338,10 @@
         "idCard": "신분증 번호",
         "idCardPlaceholder": "신분증 번호 입력"
       }
+    },
+    "articles": {
+      "prevPage": "이전",
+      "nextPage": "다음"
     }
   },
   "NavBar": {
@@ -7286,10 +7366,16 @@
     }
   },
   "eduProgressPage": {
-    "weeklyHours": "이번 주 학습 시간"
+    "weeklyHours": "이번 주 학습 시간",
+    "noData": "데이터 없음"
   },
   "learn": {
-    "signedUp": "신청 완료"
+    "signedUp": "신청 완료",
+    "signUp": "설정즉시보고이름",
+    "dailyReview": {
+      "questionLabel": "문제",
+      "statAvgDifficulty": "평균 난이도"
+    }
   },
   "learnPaymentConfirmPage": {
     "fields": {
@@ -7300,10 +7386,12 @@
     "cancelSubscription": "구독 취소"
   },
   "student": {
-    "myCertsTitle": "자격증 목록"
+    "myCertsTitle": "자격증 목록",
+    "wrongBookTitle": "틀림"
   },
   "activities": {
-    "join": "지금 참여"
+    "join": "지금 참여",
+    "notFound": "찾을 수 없음"
   },
   "eduAttendanceQr": {
     "chooseClass": "클래스 선택",
@@ -7330,5 +7418,84 @@
     "scanCheckIn": "스캔으로 체크인",
     "selfCheckIn": "등교 체크하기",
     "title": "내 출석"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "기본 주소로 설정"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "로딩 실패"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "데이터 내보내기",
+      "portabilityCard": "데이터 이동",
+      "eraseCard": "데이터 삭제"
+    },
+    "groups": {
+      "title": "내 그룹"
+    },
+    "stt": {
+      "error": "변환 실패"
+    },
+    "video": {
+      "error": "편성 실패"
+    }
+  },
+  "articles": {
+    "hotTitle": "인기",
+    "titleField": "제목",
+    "summaryField": "요약",
+    "categoryField": "카테고리"
+  },
+  "agentsCategoriesPage": {
+    "total": "총 {count}개"
+  },
+  "kbEditPage": {
+    "submitLabel": "저장"
+  },
+  "models": {
+    "keys": {
+      "copy": "복사",
+      "table": {
+        "name": "이름"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "업데이트 시간",
+        "description": "설명"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "하위 멤버가 없습니다"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "학습 계획"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "상세 보기"
+  },
+  "businessCardEditPage": {
+    "editTitle": "명함 편집",
+    "bioLabel": "소개"
+  },
+  "checkin": {
+    "colEnabled": "활성화",
+    "addAccount": "계정 추가"
+  },
+  "circles": {
+    "title": "커뮤니티"
+  },
+  "knowledgeCard": {
+    "delete": "삭제"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 키"
+  },
+  "agentTeams": {
+    "statsActive": "실행 중"
   }
 }

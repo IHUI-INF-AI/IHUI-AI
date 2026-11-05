@@ -60,7 +60,7 @@ export function AgentDetailScreen({
         {/* 编辑入口 — 对齐 web 详情页头右侧的编辑键(PageClient.tsx:193-198)，宿主未接线时不渲染 */}
         {onEdit ? (
           <TouchableOpacity style={styles.editBtn} onPress={onEdit} accessibilityRole="button">
-            <Text style={styles.editBtnText}>{t('agentEdit.entry')}</Text>
+            <Text style={styles.editBtnText}>{t('common.edit')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>

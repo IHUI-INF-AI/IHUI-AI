@@ -167,7 +167,7 @@ export function AiSkillDetailScreen() {
     try {
       const res = await exportAiSkill(skill.id)
       if (!res.success) {
-        appAlert(t('aiSkillDetail.exportFailed'), res.error || t('aiSkillDetail.exportFailed'))
+        appAlert(t('aiSkillDetail.exportError'), res.error || t('aiSkillDetail.exportError'))
         return
       }
       const safeId = skill.id.replace(/[^\w.-]/g, '_')
@@ -180,7 +180,7 @@ export function AiSkillDetailScreen() {
         appAlert(t('aiSkillDetail.exportBlocked'), file.uri)
       }
     } catch {
-      appAlert(t('aiSkillDetail.exportFailed'))
+      appAlert(t('aiSkillDetail.exportError'))
     } finally {
       setExporting(false)
     }

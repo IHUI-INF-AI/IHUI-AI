@@ -138,7 +138,7 @@ export function ExamScreen({
               </View>
               {item.startTime ? (
                 <Text style={styles.metaText}>
-                  {t('exam.start')}:{item.startTime}
+                  {t('exam.startExam')}:{item.startTime}
                 </Text>
               ) : null}
               {item.endTime ? (

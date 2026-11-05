@@ -135,7 +135,7 @@ export default function ArticleEditScreen() {
           <Text style={styles.errorText}>{t('articleEdit.loadFailed')}</Text>
         ) : (
           <>
-            <Text style={styles.label}>{t('articleEdit.articleTitle')}</Text>
+            <Text style={styles.label}>{t('articles.titleField')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={title}
@@ -155,7 +155,7 @@ export default function ArticleEditScreen() {
               style={[styles.input, styles.contentInput]}
               editable={!saving}
             />
-            <Text style={styles.label}>{t('articleEdit.summary')}</Text>
+            <Text style={styles.label}>{t('articles.summaryField')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={summary}
@@ -168,7 +168,7 @@ export default function ArticleEditScreen() {
             />
             {categories.length > 0 ? (
               <>
-                <Text style={styles.label}>{t('articleEdit.category')}</Text>
+                <Text style={styles.label}>{t('articles.categoryField')}</Text>
                 <View style={styles.chips}>
                   {categories.map((c) => (
                     <TouchableOpacity
