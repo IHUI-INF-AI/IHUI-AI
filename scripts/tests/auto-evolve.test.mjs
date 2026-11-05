@@ -1365,6 +1365,24 @@ test('Ⓞb 生成器必须把指纹写进它自己的 source(写读两侧同一�
 // Ⓛ 派单正文的第 0 步(2026-11-05 立):同权限档人工探针做过对照 ——
 // v1 无这一句 ⇒ 一轮文字叙述"我打算调用 read_file"后 end_turn(iterations=1、零工具调用);
 // v2 加上这一句 ⇒ 真发出两次 read_file + 第三次作答(iterations=3,rc=0)。
+// ⓡ 未取号占位行不当票用(2026-11-06 立):现读 `PROJECT_PLAN.md` 面上有 1 行
+// `- [ ] {{NEXT_ID:docs-207}} …`,它既无法认领也无法结清,却照样进判期与风险阀,
+// 还把"命中白名单但全被拦"的账面伪装成白名单问题(今夜实测被它带偏过一次方向)。
+test('ⓡ isPlaceholderTicketRow:只认 NEXT_ID 占位形态,已取号的行一律不误伤', async () => {
+  const ae = await import('../auto-evolve.mjs')
+  assert.equal(ae.isPlaceholderTicketRow('{{NEXT_ID:docs-207}} 守门 207 存量清偿第二刀'), true)
+  assert.equal(ae.isPlaceholderTicketRow('B34 考勤 {{NEXT_ID}} 零行为测试'), true)
+  assert.equal(ae.isPlaceholderTicketRow('前面有字 {{ NEXT_ID : b71 }} 后面也有'), true)
+  // 成对反向:已取号/普通票面必须为 false(误伤就是把真活从派单面上抹掉)
+  assert.equal(ae.isPlaceholderTicketRow('B34 考勤 /user/check-in 零行为测试'), false)
+  assert.equal(ae.isPlaceholderTicketRow('G-1080898 拍板 no-auto-gc 的后续'), false)
+  assert.equal(ae.isPlaceholderTicketRow('这行只是提到 NEXT_ID 这个词但没有花括号'), false)
+  assert.equal(ae.isPlaceholderTicketRow(''), false)
+  assert.equal(ae.isPlaceholderTicketRow(undefined), false)
+  // 花括号里的其他令牌(如 {{SOMETHING}})不归本判据管:判据不许顺手变宽
+  assert.equal(ae.isPlaceholderTicketRow('{{OTHER_TOKEN:1}} 别的模板'), false)
+})
+
 // ⓠ 派发前闸的瞬时不在位要复核后再停派(2026-11-06 立):台账现读两轮停在同一枚 tsx 路径,
 // 而同一时刻手工复核它**在位**(mtime 11-03)⇒ 是别席 install 期间的瞬时重挂,不该烧掉一班。
 test('ⓠ preflightRecheckPlan:只对 missing 复核,有上界,其他状态一律不重(不拿重试当兜底)', async () => {
