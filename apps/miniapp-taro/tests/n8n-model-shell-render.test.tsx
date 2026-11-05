@@ -151,6 +151,7 @@ describe('n8n 模型页薄壳(直载 n8n-model/N8nModelScreen)', () => {
     expect(p.refreshing).toBe(false)
     expect(p.error).toBe('')
     expect(p.colorScheme).toBe('light')
+    expect(p.showStatistics).toBe(false)
     expect(Array.isArray(p.items)).toBe(true)
     for (const key of [
       'onSelectTab',
@@ -235,14 +236,20 @@ describe('n8n 模型页薄壳(直载 n8n-model/N8nModelScreen)', () => {
     expect(HOST_SOURCE).not.toContain('react-native')
   })
 
-  it('⑦ 共享屏源码锁:onOpen 承接分支与计数缺省不渲染', () => {
+  it('⑦ 共享屏源码锁:onOpen 承接 + showStatistics 闸(缺省 true / 端内显式 false)', () => {
     expect(SHARED_SOURCE).toContain('onOpen')
     expect(SHARED_SOURCE).toContain('disabled={!onOpen}')
-    expect(SHARED_SOURCE).toContain("typeof item.calls === 'number'")
-    expect(SHARED_SOURCE).toContain("typeof item.paramsIn === 'number'")
+    expect(SHARED_SOURCE).toContain('showStatistics = true')
+    expect(SHARED_SOURCE).not.toContain('hasMeta')
+    expect(SHARED_SOURCE).toMatch(/showStatistics \? \(/)
+    expect(SHARED_SOURCE).toContain('typeof item.calls')
     expect(SHARED_SOURCE).not.toContain('Taro')
     expect(SHARED_SOURCE).not.toContain('wx.')
     expect(SHARED_SOURCE).not.toContain('navigateTo')
+    expect(PAGE_SOURCE).toContain('showStatistics={false}')
+    expect(PAGE_SOURCE).toContain('calls: 0')
+    expect(PAGE_SOURCE).toContain('paramsIn: 0')
+    expect(PAGE_SOURCE).toContain('paramsOut: 0')
   })
 
   it('⑧ RN 消费点锁:onOpen 与 onEdit 同指 handleEdit', () => {

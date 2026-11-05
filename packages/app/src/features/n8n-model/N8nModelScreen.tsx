@@ -48,6 +48,7 @@ export function N8nModelScreen({
   onCreate,
   onBack,
   colorScheme = 'light',
+  showStatistics = true,
 }: N8nModelScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -123,10 +124,6 @@ export function N8nModelScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={<EmptyState title={t('n8nModel.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => {
-            const hasMeta =
-              typeof item.calls === 'number' ||
-              (typeof item.paramsIn === 'number' && typeof item.paramsOut === 'number') ||
-              !!item.updatedAt
             return (
               <View style={styles.card}>
                 <Pressable onPress={() => onOpen?.(item)} disabled={!onOpen}>
@@ -161,23 +158,25 @@ export function N8nModelScreen({
                       {item.url}
                     </Text>
                   ) : null}
-                  {hasMeta ? (
-                    <View style={styles.cardMeta}>
-                      {typeof item.calls === 'number' ? (
-                        <Text style={styles.metaText}>
-                          {t('n8nModel.calls', { count: item.calls })}
-                        </Text>
-                      ) : null}
-                      {typeof item.paramsIn === 'number' && typeof item.paramsOut === 'number' ? (
-                        <Text style={styles.metaText}>
-                          {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
-                        </Text>
-                      ) : null}
-                      {item.updatedAt ? (
-                        <Text style={styles.metaText}>{item.updatedAt}</Text>
-                      ) : null}
-                    </View>
-                  ) : null}
+                  <View style={styles.cardMeta}>
+                    {showStatistics ? (
+                      <>
+                        {typeof item.calls === 'number' ? (
+                          <Text style={styles.metaText}>
+                            {t('n8nModel.calls', { count: item.calls })}
+                          </Text>
+                        ) : null}
+                        {typeof item.paramsIn === 'number' && typeof item.paramsOut === 'number' ? (
+                          <Text style={styles.metaText}>
+                            {t('n8nModel.params', { in: item.paramsIn, out: item.paramsOut })}
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : null}
+                    {item.updatedAt ? (
+                      <Text style={styles.metaText}>{item.updatedAt}</Text>
+                    ) : null}
+                  </View>
                 </Pressable>
                 <View style={styles.cardActions}>
                   <TouchableOpacity

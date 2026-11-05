@@ -214,10 +214,10 @@ export interface N8nModelItem {
   desc: string
   url: string
   status: N8nModelStatus
-  calls?: number
+  calls: number
   updatedAt: string
-  paramsIn?: number
-  paramsOut?: number
+  paramsIn: number
+  paramsOut: number
 }
 
 /** N8nModelScreen props — 注入式 */
@@ -240,6 +240,8 @@ export interface N8nModelScreenProps {
   onCreate: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 是否渲染计数两行(calls / params);缺省 true。小程序契约无此三字段,显式传 false */
+  showStatistics?: boolean
 }
 
 /** 模型编辑售卖方式(对齐 mobile-rn ModelEditScreen SaleType) */
