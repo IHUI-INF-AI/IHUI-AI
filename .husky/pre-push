@@ -287,6 +287,22 @@ EOF
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 fi
 
+# ─── 文档数字对账(DN2 head 面全量,2026-11-05 挂 pre-push) ─────────────────────
+# 提交链只判"本轮触及 README 的那枚"(DN4 防恒红)⇒"只加测试不碰 README"会让正文静默过期;推送频次低 ⇒ 不恒红。
+# 语义 = 不许把带过期正文的树推上去;判据复用门 173,一行未改。
+if [ "${PUSH_NO_FILE_FACE:-0}" = "1" ]; then
+  printf '%s\n' "ℹ️  零文件推送(已逐条证成)⇒ 不跑文档数字门:${PUSH_NO_FILE_FACE_BASIS}" >&2
+else
+  printf '\n%s\n' "🔍 文档数字对账(DN2 head 面全量:正文/生成块必须等于现算值)..." >&2
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-doc-numbers scripts/check-doc-numbers.mjs --strict --push
+  if [ $? -ne 0 ]; then
+    tail -30 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
+    printf '%s\n' "❌ 文档数字对账失败,推送已阻止(修 README 正文/块后重推;日志: .ihui-agent/state/hook-logs/pre-push-doc-numbers.log)" >&2
+    exit 1
+  fi
+  tail -3 .ihui-agent/state/hook-logs/pre-push-doc-numbers.log >&2 || true
+fi
+
 # ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
 # 扫描 zh-CN.json 中已声明但代码无 t()/useTranslations() 引用的死 key,
 # 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
