@@ -19,7 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getExams } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -51,7 +51,11 @@ export default function ExamPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'papers', page],
-    queryFn: () => apiOrThrow<PapersData>(`/api/exam/papers?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: async (): Promise<PapersData> => {
+      const r = await getExams({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as PapersData
+    },
     enabled: allow,
   })
 

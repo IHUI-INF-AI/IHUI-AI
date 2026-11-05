@@ -8,7 +8,8 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { CheckCircle2, ClipboardList, Loader2, Save, Search, XCircle } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
+import { eduApi } from '@/lib/edu'
+import { listPendingMarks } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import {
   Button,
@@ -81,14 +82,15 @@ export default function ExamMarkingPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam-marking', keyword, page],
-    queryFn: () =>
-      eduApi<PageData<MarkRecord>>(
-        `/api/exam/records/pending-marks${buildQs({
-          search: keyword || undefined,
-          page,
-          pageSize: PAGE_SIZE,
-        })}`,
-      ),
+    queryFn: async (): Promise<PageData<MarkRecord>> => {
+      const r = await listPendingMarks<PageData<MarkRecord>>({
+        page,
+        pageSize: PAGE_SIZE,
+        ...(keyword || undefined ? { search: keyword || undefined } : {}),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const gradeMut = useMutation({

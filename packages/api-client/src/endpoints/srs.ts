@@ -33,6 +33,8 @@ export interface SrsStream {
   status: 'active' | 'inactive' | 'banned'
   channelId?: string | null
   endTime?: string | null
+  /** 归属用户(列表投影带,详情可能不带) */
+  userId?: string | null
   createdAt?: string
   updatedAt?: string
 }

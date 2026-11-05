@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, MessageSquare, Eye, CheckCircle2, Send } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { createAnswer, getAnswers, getAskById } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
@@ -56,13 +56,21 @@ export default function AskDetailPage() {
     error,
   } = useQuery({
     queryKey: ['ask', params.id],
-    queryFn: () => apiOrThrow<{ ask: AskDetail }>(`/api/asks/${params.id}`),
+    queryFn: async () => {
+      const r = await getAskById(params.id)
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { ask: AskDetail }
+    },
     enabled: !!params.id,
   })
 
   const { data: answersData, isLoading: answersLoading } = useQuery({
     queryKey: ['ask-answers', params.id],
-    queryFn: () => apiOrThrow<AnswersData>(`/api/asks/${params.id}/answers?page=1&pageSize=10`),
+    queryFn: async (): Promise<AnswersData> => {
+      const r = await getAnswers(params.id, { page: 1, pageSize: 10 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as AnswersData
+    },
     enabled: !!params.id,
   })
 
@@ -70,11 +78,11 @@ export default function AskDetailPage() {
   const [formError, setFormError] = React.useState<string | null>(null)
 
   const answerMut = useMutation({
-    mutationFn: (payload: { content: string }) =>
-      apiOrThrow<{ answer: AnswerItem }>(`/api/asks/${params.id}/answers`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }),
+    mutationFn: async (payload: { content: string }): Promise<{ answer: AnswerItem }> => {
+      const r = await createAnswer(params.id, payload)
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { answer: AnswerItem }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ask-answers', params.id] })
       qc.invalidateQueries({ queryKey: ['ask', params.id] })

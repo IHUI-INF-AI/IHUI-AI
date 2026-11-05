@@ -88,6 +88,10 @@ const examFixture = {
 
 vi.mock('@ihui/api-client', () => ({
   getExams: vi.fn(async () => ({ success: true, data: [examFixture] })),
+  getMyRecords: vi.fn(async () => ({
+    success: true,
+    data: { list: [], total: 0, page: 1, pageSize: 20 },
+  })),
   fetchApi: vi.fn(async () => ({ success: true, data: { list: [], total: 0 } })),
   updatePassword: vi.fn(async () => ({ success: true })),
 }))
