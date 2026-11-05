@@ -7071,6 +7071,44 @@ const AUTONOMY_HEALTH_INTERVAL_MS = Number(
 )
 const AUTONOMY_HEALTH_TIMEOUT_MS = Number(process.env.IHUI_AUTONOMY_HEALTH_TIMEOUT_MS || 240_000)
 
+/**
+ * 健康尺子"自己看不见"的四型统一到人(2026-11-05 立)。
+ * 立因:`sweepAutonomyLegHealth` 原先**只在 verdict=drift 发信**,而这四型只写日志 ——
+ * ① 尺子脚本不在位;② 派生跑完但结论解析不出;③ verdict=unjudged;④ 派发本身抛异常。
+ * 于是"把环弄瞎"比"让环报红"容易得多:任何击穿取料面的输入都能把整维永久停在未判定,
+ * 零邮件、零维度、零台账 action ⇒ 底下 12 条腿有没有漂无人判(§0.3 没判 ≠ 判过;§0.9 没跑 = 没有)。
+ * dedupKey 取**固定类别**,不掺计数/时刻/明细(§5e-3 与守门 224:把抖动塞进身份 = 同日多封的真根因);
+ * 默认按身份 4h 去重 ⇒ 一轮瞎喊一次,持续瞎每 4h 一次,既不刷屏也不会沉默。
+ * 失效方向定死:这一型**不许**为了消音改回只写日志 —— 那正是本函数要防的方向(§0.10)。
+ */
+export const AUTONOMY_LEG_BLIND_IDENTITIES = {
+  'ruler-missing': 'autonomy-leg-health;blind=ruler-missing',
+  unparsed: 'autonomy-leg-health;blind=unparsed',
+  unjudged: 'autonomy-leg-health;blind=unjudged',
+  'dispatch-error': 'autonomy-leg-health;blind=dispatch-error',
+}
+
+function notifyLegBlind(category, whyText, { logger, notify }) {
+  const key = AUTONOMY_LEG_BLIND_IDENTITIES[category] || 'autonomy-leg-health;blind=other'
+  try {
+    notify(
+      '自开发健康尺子本轮没判出来(盲区比红更危险)',
+      `类别:${category}\n读数:${String(whyText ?? '(无)').slice(0, 400)}\n` +
+        '含义:这一维**没有结论**,既不等于"环健康",也不等于"环没动"。健康尺子瞎掉时,底下 12 条腿的漂移无人判。\n' +
+        '出路(按序,不许跳):① 手跑 `node scripts/check-autonomy-leg-health.mjs --json` 看它点名哪一面取不到;' +
+        '② 尺子不在位/被别席占用 ⇒ 先恢复尺子再谈环;③ 不得为消音把这一型改回只写日志(§0.10)。\n' +
+        '取证:`.ihui-agent/state/autonomy-leg-health-last.json` 与守护日志同刻那一行。',
+      { severity: 'critical', dedupKey: key },
+    )
+    logger(`⚠️ 发起腿健康盲区已按身份发信 category=${category} dedup=${key}`)
+  } catch (e) {
+    // 发信腿自己坏 ⇒ 只把"没送到"写进日志,守护整轮不许因此崩;下一轮按同一身份再试(§5e UNDELIVERED 同型)。
+    logger(
+      `❌ 发起腿盲区发信失败 category=${category}(UNDELIVERED,不阻断其余守护):${String(e?.message ?? e).slice(0, 160)}`,
+    )
+  }
+}
+
 export function sweepAutonomyLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -7086,6 +7124,10 @@ export function sweepAutonomyLegHealth(opts = {}) {
     logger(
       'ℹ️ 发起腿健康:尺子脚本不在位(scripts/check-autonomy-leg-health.mjs)⇒ 本轮跳过,不记为已探测',
     )
+    notifyLegBlind('ruler-missing', '尺子脚本不在位 ⇒ 整维零判定,底下 12 条腿无人判', {
+      logger,
+      notify,
+    })
     return { ran: false, why: '尺子脚本不在位' }
   }
   let lastTick = NaN
@@ -7126,10 +7168,10 @@ export function sweepAutonomyLegHealth(opts = {}) {
     } catch {
       /* 落到未判定 */
     }
+    const blindWhy = `rc=${call.status} 首行:${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`
     if (!parsed || !['ok', 'drift', 'unjudged'].includes(parsed.verdict)) {
-      logger(
-        `⚠️ 发起腿健康未产出结论(未判定,不记为已探测):rc=${call.status} ${([call.stderr, call.stdout].filter(Boolean).join(' ⊕ ') || '(无输出)').split(/\r?\n/)[0].slice(0, 140)}`,
-      )
+      logger(`⚠️ 发起腿健康未产出结论(未判定,不记为已探测):${blindWhy}`)
+      notifyLegBlind('unparsed', blindWhy, { logger, notify })
       return { ran: true, judged: false, why: '结论不可解析' }
     }
     try {
@@ -7157,12 +7199,17 @@ export function sweepAutonomyLegHealth(opts = {}) {
     }
     if (parsed.verdict === 'unjudged') {
       logger(`ℹ️ 发起腿健康:未判定 —— ${(parsed.summary || '无原因').slice(0, 200)}`)
+      notifyLegBlind('unjudged', parsed.summary || '尺子自报未判定(未点名原因)', { logger, notify })
       return { ran: true, judged: false, why: '未判定' }
     }
     logger(`✅ 发起腿健康:${(parsed.summary || '').slice(0, 160)}`)
     return { ran: true, judged: true, breaches: 0, unjudged: 0 }
   } catch (e) {
     logger('⚠️ 发起腿健康派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    notifyLegBlind('dispatch-error', String((e && e.message) || e).slice(0, 200), {
+      logger,
+      notify,
+    })
     return { ran: false, why: '派发异常' }
   }
 }

@@ -1425,15 +1425,25 @@ export function judgeDispatchClosure(
   // 于是"票行逐字未变"有两种完全不同的成因:① 这轮真的什么都没落地;② 东西已经进仓,
   // 是**结清/推进腿**没跟上。把它们都说成"会话报成功而零推进",下一个人就会去改提示词,
   // 而该修的是记账腿 —— 判据没错,归因错了同样修不动(§0.3 三态不并桶)。
-  const committedKeys = new Set(
-    events
-      .filter((e) => String(e.action ?? '') === 'artifact-committed' && e.ticketKey)
-      .map((e) => String(e.ticketKey)),
+  // 配对纪律(2026-11-05 补,治上一刀的过宽):提交证据必须**属于那一轮** —— 同票键 ∧ 时刻不早于该轮
+  // 会话结果档。取全台账无窗口的旧写法会让"一次历史/人工提交"长期豁免此后每一次零推进(审计席点名)。
+  // 时刻配不上(取不到 ts)⇒ 一律不算已落账,落回 bare 档:失效方向恒为"多要一次说明",不是"多放一次"。
+  const commitEvents = events.filter(
+    (e) => String(e.action ?? '') === 'artifact-committed' && e.ticketKey,
   )
+  const hasBoundCommitForRound = (s) => {
+    const at = Date.parse(String(s.sourceTs ?? s.ts ?? ''))
+    if (!Number.isFinite(at)) return false
+    return commitEvents.some((c) => {
+      if (String(c.ticketKey) !== String(s.ticketKey)) return false
+      const ct = Date.parse(String(c.ts ?? ''))
+      return Number.isFinite(ct) && ct >= at
+    })
+  }
   const noProgress = []
   const landedButUnadvanced = []
   for (const s of noProgressAll) {
-    if (committedKeys.has(String(s.ticketKey))) landedButUnadvanced.push(s)
+    if (hasBoundCommitForRound(s)) landedButUnadvanced.push(s)
     else noProgress.push(s)
   }
   const unjudgedS = settledRows.filter((e) => e.settled === 'unjudged')
@@ -2083,6 +2093,50 @@ async function selfTest() {
         ]),
         { schedulerSource: closureSrc, ...closureNow },
       )
+      return r.state === 'drift' && r.readout.includes('没有任何绑票键的提交')
+    })(),
+  )
+  ok(
+    'H30e 配对锁:提交时刻**早于**该轮会话 ⇒ 不算本轮落账(一次历史提交不得长期豁免此后每次零推进)',
+    (() => {
+      const r = judgeDispatchClosure(
+        noProgressEv([
+          {
+            action: 'artifact-committed',
+            ticketKey: 'k1',
+            ts: '2026-10-30T05:00:00.000Z',
+            files: ['a.ts'],
+          },
+        ]),
+        { schedulerSource: closureSrc, ...closureNow },
+      )
+      return r.state === 'drift' && r.readout.includes('没有任何绑票键的提交')
+    })(),
+  )
+  ok(
+    'H30f 配对锁:同票但取不到时刻(settled 无 sourceTs/ts)⇒ 落回 bare,绝不因"配不上"而免(失效方向朝多报)',
+    (() => {
+      const ev = [
+        {
+          action: 'session-ok',
+          ticketKey: 'k1',
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: 'B9 **某票** 原文',
+        },
+        {
+          action: 'dispatch-settled',
+          ticketKey: 'k1',
+          settled: 'no-progress',
+          ticketLine: 'B9 **某票** 原文',
+        },
+        {
+          action: 'artifact-committed',
+          ticketKey: 'k1',
+          ts: '2026-11-01T04:00:00.000Z',
+          files: ['a.ts'],
+        },
+      ]
+      const r = judgeDispatchClosure(ev, { schedulerSource: closureSrc, ...closureNow })
       return r.state === 'drift' && r.readout.includes('没有任何绑票键的提交')
     })(),
   )
