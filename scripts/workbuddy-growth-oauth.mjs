@@ -294,12 +294,19 @@ export function planOaRound(rows) {
 }
 
 /**
- * 领奖。
+ * 领奖(通用档):任何**服务端已判完成**的任务码都能领。
+ *
+ * 这是官方客户端「领取奖励」按钮自己那条端点,不是代做行为 —— `completed` 是服务端判出来的,
+ * 本函数只负责把已经属于这个号的奖励取走。**不**接受 `accepted`(行为还没做)当可领。
+ *
  * @param {{accessToken:string, uid:string, domain:string}} cred
+ * @param {string} code 任务码
  */
-export async function claimOaTask(cred) {
+export async function claimTask(cred, code) {
+  const c = String(code ?? '').trim()
+  if (!c) return { ok: false, status: 0, code: -1, msg: '任务码为空(未判定)', already: false }
   try {
-    const r = await fetch(oaClaimUrl(), {
+    const r = await fetch(oaClaimUrl(c), {
       method: 'POST',
       headers: authHeaders(cred),
       body: '{}',
@@ -315,6 +322,14 @@ export async function claimOaTask(cred) {
       already: false,
     }
   }
+}
+
+/**
+ * 领奖(公众号关注项专用档)—— 走 `claimTask` 同一实现,只把任务码钉成 OA。
+ * @param {{accessToken:string, uid:string, domain:string}} cred
+ */
+export async function claimOaTask(cred) {
+  return claimTask(cred, OA_TASK_CODE)
 }
 
 /** 解析命令行(纯函数,离线可测) */
