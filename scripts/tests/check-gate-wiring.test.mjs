@@ -513,11 +513,15 @@ test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真�
   assert.doesNotMatch(self, /R4\([^)\n]*仅报数/, 'R4 结论行仍写「仅报数」,与实现相反')
 
   // 文档可见性:本门不得只靠 README 表格里的一枚 incidental 提及活着。
+  // 2026-11-05:AGENTS.md 的「守门脚本速查」整节已迁到 docs/GATEKEEPERS.md §10,可见性判定必须同面扩到该文档,
+  // 否则本门自己的装车证明会因「条目在 GATEKEEPERS 里」而误红(实测改前 T13 即红)。
   const docs =
-    readFileSync(join(root, 'AGENTS.md'), 'utf8') + readFileSync(join(root, 'README.md'), 'utf8')
+    readFileSync(join(root, 'AGENTS.md'), 'utf8') +
+    readFileSync(join(root, 'README.md'), 'utf8') +
+    readFileSync(join(root, 'docs/GATEKEEPERS.md'), 'utf8')
   assert.ok(
     /^- \*\*.*\*\*\(89\)/m.test(docs) || /^## .*89/m.test(docs),
-    'AGENTS.md 速查须有本门专属条目(标题含 (89))',
+    'AGENTS.md / docs/GATEKEEPERS.md 速查须有本门专属条目(标题含 (89))',
   )
 })
 
@@ -988,5 +992,93 @@ test('T30 R13 形状锁:main() 必须接 findMergedEntries、吃 R8/R9 同一张
   const block = main.slice(main.indexOf('const mergedEntries'), main.indexOf("status: 'red-r13'"))
   assert.ok(!/opts\.strict/.test(block), 'red-r13 属结构性缺陷,默认档就必须判红 —— 挂 --strict 等于平时失明')
 })
+
+// ── 2026-11-05 R2 扩面:被审文档面 AGENTS.md ∪ docs/GATEKEEPERS.md ──
+// 背景(实测):「守门脚本速查」整节迁到 docs/GATEKEEPERS.md §10 后,R2 只把 AGENTS.md 条款喂给
+// findAgentsClaims ⇒ 声明只在该文档时改前 redR2=0(漏检),不是"照旧命中"。本条钉死扩面后的三条反向行为。
+
+test('T31 R2 扩面①:声明只在 docs/GATEKEEPERS.md 且已接线 ⇒ 不得判红(不是恒红机)', () => {
+  const claims = G.collectR2Claims(
+    [
+      { doc: 'AGENTS.md', clauses: [] },
+      { doc: 'docs/GATEKEEPERS.md', clauses: ['- **守门**:`scripts/check-only-gk.mjs`(blocking,接入 runner 第 1 项)'] },
+    ],
+    'check-only-gk.mjs',
+  )
+  assert.equal(claims.length, 1, `扩面后应命中 1 条 GATEKEEPERS 声称(实得 ${claims.length})`)
+  assert.equal(claims[0].doc, 'docs/GATEKEEPERS.md')
+  assert.equal(
+    G.classifyGate({
+      name: 'check-only-gk.mjs',
+      strongPoints: ['runner'],
+      weakPoints: [],
+      headerClaims: [],
+      agentsClaims: claims,
+      allowEntry: null,
+    }).status,
+    'wired',
+    '已接线却因声明来自 GATEKEEPERS 被判红 ⇒ 扩面变成恒红门',
+  )
+  assert.deepEqual(G.R2_DOC_PATHS, ['AGENTS.md', 'docs/GATEKEEPERS.md'], 'R2 文档面常量必须恰为这两份')
+})
+
+test('T32 R2 扩面②:原扫描面(AGENTS.md)一份声明都没有、只在 GATEKEEPERS 有且五处零命中 ⇒ 必须判红', () => {
+  const claims = G.collectR2Claims(
+    [
+      { doc: 'AGENTS.md', clauses: [] },
+      { doc: 'docs/GATEKEEPERS.md', clauses: ['- **守门**:`scripts/check-gk-liar.mjs`(blocking,已接入 pre-commit 第 9 项)'] },
+    ],
+    'check-gk-liar.mjs',
+  )
+  assert.equal(claims.length, 1, `扩面后应命中 1 条(实得 ${claims.length});改前同一夹具为 0 ⇒ 漏检`)
+  assert.equal(
+    G.classifyGate({
+      name: 'check-gk-liar.mjs',
+      strongPoints: [],
+      weakPoints: [],
+      headerClaims: [],
+      agentsClaims: claims,
+      allowEntry: null,
+    }).status,
+    'red-r2',
+  )
+})
+
+test('T33 R2 扩面③:两份都在 ⇒ 同一句按原文去重只计 1 条、每门只报 1 枚 red-r2', () => {
+  const line = '- **守门**:`scripts/check-both-docs.mjs`(blocking,已接入 pre-commit 第 10 项)'
+  const claims = G.collectR2Claims(
+    [
+      { doc: 'AGENTS.md', clauses: [line] },
+      { doc: 'docs/GATEKEEPERS.md', clauses: [line] },
+    ],
+    'check-both-docs.mjs',
+  )
+  assert.equal(claims.length, 1, `两份同句必须去重为 1(实得 ${claims.length})`)
+  assert.equal(new Set(claims.map((c) => c.claim)).size, 1, '去重键必须是声称句原文')
+  const results = [
+    G.classifyGate({
+      name: 'check-both-docs.mjs',
+      strongPoints: [],
+      weakPoints: [],
+      headerClaims: [],
+      agentsClaims: claims,
+      allowEntry: null,
+    }),
+  ]
+  assert.equal(results.filter((r) => r.status === 'red-r2').length, 1, '同一门只许 1 枚 red-r2,不得双报')
+})
+
+test('T34 R2 扩面装车锁:main() 必须同轮读入 docs/GATEKEEPERS.md 并走 collectR2Claims', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const main = src.slice(src.indexOf('async function main('), src.indexOf('// ─── self-test'))
+  assert.ok(main.length > 500, 'main() 区块取形失败 ⇒ 本条断言无牙')
+  assert.ok(
+    main.includes("docReader.read('docs/GATEKEEPERS.md')"),
+    'R2 扩面必须走同一 docReader(HEAD∪索引),不得另起一次工作区读取',
+  )
+  assert.ok(main.includes('collectR2Claims(r2DocClauses, n)'), 'R2 判定必须吃两份文档的并集')
+  assert.equal((main.match(/findAgentsClaims\(agentsClauses, n\)/g) || []).length, 0, '禁止保留只扫 AGENTS.md 的旧路径')
+})
+
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
