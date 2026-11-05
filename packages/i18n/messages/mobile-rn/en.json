@@ -1519,7 +1519,8 @@
     "okSent": "Shared",
     "cancelled": "Share cancelled",
     "fail": "Share failed",
-    "needAlbum": "Album permission required"
+    "needAlbum": "Album permission required",
+    "courseTitle": "Recommended course: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1921,7 +1922,10 @@
     "start": "Start exam",
     "title": "Exam",
     "totalScore": "Total score",
-    "questionCountLabel": "Questions"
+    "questionCountLabel": "Questions",
+    "result": {
+      "shareTitle": "My exam score: {n} points"
+    }
   },
   "examQuestion": {
     "loadFailed": "Failed to load the exam",

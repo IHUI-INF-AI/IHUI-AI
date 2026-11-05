@@ -35,7 +35,7 @@ export function TaskProgressBar({ completed, total, failed, running }: TaskProgr
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="font-[weight:inherit] flex items-center gap-2 text-label">
         {running ? (
           <Loader2 className="h-3 w-3 animate-spin text-amber-600 dark:text-amber-400" />
         ) : allDone ? (
