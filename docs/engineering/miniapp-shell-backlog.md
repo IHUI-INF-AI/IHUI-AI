@@ -324,10 +324,26 @@
 
 ## 结构下限（不退休；这是结论，不是欠账）
 
+本表兼作 S2「已 import 共享屏入口」复核的排除留档（2026-11-06，基线 `ddabf97143`）。判定口径 = 页内渲染型 JSX 总数（`JsxElement + JsxSelfClosingElement + JsxFragment + 非空 JsxText`），**≤2 才许退休，>2 一律留宿主、不摘台账**。S2 只判"已 import 共享屏入口"，不等于能摘。
+
 | 页（batch5 读数） | 剩余开标签逐段 | 端独有证据（file:line） |
 |---|---|---|
 | `pages/distribution/order-list/index`（27 行 / 3 枚） | `ThemeRoot` + `AuthReadyGate` + `DistributionOrderListScreenShell`（`order-list/index.tsx:20-24`） | 第 3 枚是端内冷启动鉴权闸：`apps/miniapp-taro/src/components/AuthReadyGate.tsx:21`；判据见 `apps/miniapp-taro/src/hooks/use-auth-ready-gate.ts:5-7`（依赖端内 store + Taro `isLoggedIn()`，头注明示不下沉共享层）。`apps/mobile-rn`、`apps/web` 对 `AuthReadyGate` 均 0 命中 ⇒ 端独有，2 枚之外不可再收。 |
 | `pages/distribution/commission`（27 行 / 3 枚） | 同上（`commission.tsx:20-24`） | 同上（同一 `AuthReadyGate`，同一端独有判据）。 |
-| `pages/distribution/team`（219 行 / 5 枚） | 多出 `View` + `Text` + `Text`（`team.tsx:165-170`「团队总人数」行） | 数据源是小程序独有分页接口 `getDistributionTeam`（`apps/miniapp-taro/src/api/index.ts:985`）的 `res.total`；共享屏统计卡走 `stats` 入参，RN 侧该接口历史 404（`apps/mobile-rn/src/screens/TeamScreen.tsx:51-53`），本页因此传 `stats={undefined}`（`team.tsx:173`）⇒ 上收只能新增小程序单端消费的 stats 装配，触红线「单端 prop 不算单源化」，故留宿主。 |
+| `pages/distribution/team`（219 行 / 6 枚：开标签 5 + 非空 JsxText 1） | 多出 `View` + `Text` + `Text`（`team.tsx:165-170`「团队总人数」行） | 数据源是小程序独有分页接口 `getDistributionTeam`（`apps/miniapp-taro/src/api/index.ts:985`）的 `res.total`；共享屏统计卡走 `stats` 入参，RN 侧该接口历史 404（`apps/mobile-rn/src/screens/TeamScreen.tsx:51-53`），本页因此传 `stats={undefined}`（`team.tsx:173`）⇒ 上收只能新增小程序单端消费的 stats 装配，触红线「单端 prop 不算单源化」，故留宿主。 |
+| `pages/setting/language`（121 行 / 7 枚） | `ThemeRoot` + `View`(根容器) + `View`(段容器) + `SettingsLanguageSection` + `View`(底部说明) + `Text` + `Text`（`language.tsx:91-114`） | 共享分段只含 section 形态；小程序端副行英文名与底部说明由本页注入（`language.tsx:96-97`、`:108-114`），RN 无同构 ⇒ 留宿主。 |
+| `pages/setting/theme`（148 行 / 8 枚） | `ThemeRoot` + `View`(根容器) + `View`(段容器) + `SettingsThemeSection` + `View`(底部) + `Text` + `Text` + `Text`（`theme.tsx:115-138`） | 图标/副行与底部三行说明为小程序端补充，RN 无同构（`theme.tsx:106`、`:120-121`、`:132-138`）⇒ 留宿主。 |
+| `pkg-ai/ai/conversation-import`（261 行 / 3 枚） | 根 `View` + 原生 `NavBar` + `SharedConversationImportScreen`（`conversation-import.tsx:240-246`） | 零重复 UI 段；8 个 props 两端各传不同实现（`:63` tScreen、`:106` 取文件、`:142` 解析）⇒ 第 2 枚是小程序原生标题栏，硬标 3 卡住，**不退休、不摘台账**。 |
+| `pkg-ai/developer/income`（487 行 / 38 枚：J31 + E3 + S2 + T2） | `ThemeRoot` + `title==='income'` 分支页内 fee tip/统计行（`income.tsx:284-338`）+ 提现明细分支页内布局（`:340-410`） | 两分支都含页内专属装配（`:322-338` feeTip/stat；`:340` 起 cash-list），共享屏只承担 income 分支主体 ⇒ 留宿主。 |
+
+### 口径异常：声明屏与页面业务对象不符（只留档，待重挂映射）
+
+| 台账 route | 声明屏（file:line） | 页面实际业务（file:line） | 处置 |
+|---|---|---|---|
+| `pkg-ai/ranking/index` | `packages/app/src/features/ranking/RankingScreen.tsx:38`（学习积分榜类） | `apps/miniapp-taro/src/pkg-ai/ranking/index.tsx:5`（自述 AI 工具榜、不参与镜像对账）；零重复段 | 待重挂映射，等口径收口票 |
+| `pkg-ai/developer/withdrawal` | `packages/app/src/features/income/IncomeScreen.tsx:36`（佣金收益流；台账另含 `packages/app/src/features/withdraw/WithdrawScreen.tsx:27`） | `apps/miniapp-taro/src/pkg-ai/developer/withdrawal.tsx:9`、`:13`（`getDeveloperWithdrawalList` / 提现记录列表） | 待重挂映射（应只留 `WithdrawScreen`，`IncomeScreen` 待摘），等口径收口票 |
+| `pkg-ai/business-card/index` | `packages/app/src/features/business-card/BusinessCardScreen.tsx:22`（电子名片展示） | `apps/miniapp-taro/src/pkg-ai/business-card/index.tsx:5`（声明对齐）、实际 `:7`/`:9`/`:37`（`Image`+`Button`、分享钩子、`chooseImage` 上传保存） | 待重挂映射，等口径收口票 |
+
+注：以上三行本轮**只留档**——不改台账 `declaredSpecs`、不动 301 登记、不摘行；等口径收口票统一处理。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
