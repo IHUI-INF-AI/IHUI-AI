@@ -126,7 +126,12 @@ describe('号池名单只读出口', () => {
 
   it('枚举到 0 枚 ⇒ exit 0 并如实给下一步,不冒充门坏', async () => {
     const c = capture()
-    const empty: ListOutcome = { providerCode: 'workbuddy', total: 0, accounts: [] }
+    const empty: ListOutcome = {
+      providerCode: 'workbuddy',
+      total: 0,
+      accounts: [],
+      asOf: '2026-11-05T12:00:00.000Z',
+    }
     expect(
       await listMain(['--provider', 'workbuddy'], { ...c.deps, fetch: async () => empty }),
     ).toBe(0)
@@ -140,6 +145,7 @@ describe('号池名单只读出口', () => {
       providerCode: 'qoder',
       total: 2,
       accounts: [row({ uid: 'u-a' }), row({ uid: 'u-b', tokenExpiresAt: null })],
+      asOf: '2026-11-05T12:00:00.000Z',
     }
     expect(await listMain(['--provider', 'qoder'], { ...c.deps, fetch: async () => outcome })).toBe(
       0,
@@ -194,6 +200,33 @@ describe('号池名单只读出口', () => {
     expect(await listMain(['--counts', '--json'], { ...c2.deps, counts: async () => rows })).toBe(0)
     const parsed = JSON.parse(c2.so.join('')) as { counts: typeof rows }
     expect(parsed.counts.reduce((s, r) => s + r.total, 0)).toBe(23)
+  })
+
+  it('--mask:名称按单源掩码,uid 仍留全值,两面都不外泄全号', async () => {
+    const outcome: ListOutcome = {
+      providerCode: 'qoder',
+      total: 1,
+      accounts: [row({ uid: 'u-keep', name: '15699571035' })],
+      asOf: '2026-11-05T12:00:00.000Z',
+    }
+    const c = capture()
+    expect(
+      await listMain(['--provider', 'qoder', '--mask'], { ...c.deps, fetch: async () => outcome }),
+    ).toBe(0)
+    expect(c.so.join('')).not.toMatch(/15699571035/)
+    expect(c.so.join('')).toContain('u-keep')
+    // 人读档必须点出取数时刻(两屏之间池可能被别的会话改)
+    expect(c.so.join('')).toContain('取数时刻=2026-11-05T12:00:00.000Z')
+
+    const c2 = capture()
+    await listMain(['--provider', 'qoder', '--mask', '--json'], {
+      ...c2.deps,
+      fetch: async () => outcome,
+    })
+    const j = JSON.parse(c2.so.join('')) as ListOutcome
+    expect(j.accounts[0].name).not.toBe('15699571035')
+    expect(j.accounts[0].uid).toBe('u-keep')
+    expect(j.asOf).toBe('2026-11-05T12:00:00.000Z')
   })
 
   it('--help ⇒ exit 0 并点名日常入口', async () => {

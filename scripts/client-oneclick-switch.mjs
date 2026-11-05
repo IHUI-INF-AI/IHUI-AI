@@ -17,6 +17,10 @@
  *  - 本文件不查库、不碰凭据、不发明任何可用性判据 —— 只有"序号 → 该行 uid"的映射。
  *  - 非交互环境(stdin 不是 TTY)⇒ exit 2 并说明,绝不静默往下走(§0.3)。
  *  - 切号是有副作用的动作(会改本机客户端登录态),每次派发前逐字回显将要执行的命令并要求确认。
+ *  - 序号打错可重问 3 次;连续打错 ⇒ rc=1(业务失败),与"非 TTY / 取不到数"的 rc=2(未判定)分档
+ *    —— 2026-11-05 真 ConPTY 实测:把这两种混成同一个 rc=2,运维分不清是人打错还是环境没判出来。
+ *  - 名单一律带 --mask:双击出来的是会被截图的窗口,手机号全不许在那种格子里裸着(uid 留全值作映射)。
+ *  - 两屏之间分两次取数,所以每屏都标注取数时刻 —— 池正被别的会话改时,首屏枚数会过期。
  *
  * 桌面双击入口 = scripts/client-oneclick-switch.cmd(→ 本文件)。
  */
@@ -81,6 +85,28 @@ export function pickByOrdinal(raw, length) {
   return n - 1
 }
 
+/** 打错允许重问的次数(席 3 实测:越界即退把"打错"和"环境未判定"混成同一个 rc=2) */
+export const RETRY_LIMIT = 3
+
+/**
+ * 问一个序号:空答复 ⇒ {cancel} 正常收手;连续 RETRY_LIMIT 次打错 ⇒ {fail}(rc=1,
+ * 与"非 TTY/取不到数"的 rc=2 未判定分开 —— 机主打错一次就被踢出窗口,是本入口最难用的一型)。
+ */
+export async function askOrdinal(rl, promptText, length, report = (t) => process.stderr.write(t)) {
+  // 射程必须是正整数:漏传 length 时 n>undefined 恒 false,会把任意序号都判成合法
+  if (!Number.isInteger(length) || length < 1) {
+    throw new Error(`askOrdinal 需要正整数射程,收到 ${String(length)}`)
+  }
+  for (let used = 0; used < RETRY_LIMIT; used++) {
+    const ans = (await rl.question(promptText)).trim()
+    if (!ans) return { cancel: true }
+    const idx = pickByOrdinal(ans, length)
+    if (idx !== null) return { idx }
+    report(`❌ 无效序号(只认 1-${length}),再试一次;回车取消\n`)
+  }
+  return { fail: true }
+}
+
 export function fmtCountRow(r, i) {
   return `  [${i + 1}] ${r.providerCode}  池内 ${r.total} 行(启用 ${r.enabled})`
 }
@@ -106,6 +132,8 @@ async function main() {
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout })
   try {
+    // 冷启要等 tsx 与库连接(实测空白 1.7~2.9s)—— 不先给一句话,双击的人只会看到"没反应"
+    process.stdout.write('正在读取号池…(首次冷启要等一会儿)\n')
     const counts = runPoolListJson(tsx, ['--counts', '--json'])
     if (counts.error) {
       process.stderr.write(`❌ ${counts.error}\n`)
@@ -116,18 +144,17 @@ async function main() {
       process.stdout.write('号池 0 行 —— 先用 relay-account-pool 导入再来切\n')
       return 0
     }
-    process.stdout.write('号池里各客户端的号(按平台):\n')
+    process.stdout.write(`号池里各客户端的号(按平台;取数时刻=${counts.data.asOf ?? '?'}):\n`)
     for (const [i, r] of rows.entries()) process.stdout.write(`${fmtCountRow(r, i)}\n`)
-    const pAns = (await rl.question('输入序号选客户端(回车取消): ')).trim()
-    if (!pAns) return 0
-    const pIdx = pickByOrdinal(pAns, rows.length)
-    if (pIdx === null) {
-      process.stderr.write(`❌ 无效序号: ${pAns}(只认 1-${rows.length})\n`)
-      return 2
+    const p = await askOrdinal(rl, '输入序号选客户端(回车取消): ', rows.length)
+    if (p.cancel) return 0
+    if (p.fail) {
+      process.stderr.write('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
+      return 1
     }
-    const platform = rows[pIdx].providerCode
+    const platform = rows[p.idx].providerCode
 
-    const listed = runPoolListJson(tsx, ['--provider', platform, '--json'])
+    const listed = runPoolListJson(tsx, ['--provider', platform, '--json', '--mask'])
     if (listed.error) {
       process.stderr.write(`❌ ${listed.error}\n`)
       return 2
@@ -137,16 +164,17 @@ async function main() {
       process.stdout.write(`${platform} 池内 0 枚\n`)
       return 0
     }
-    process.stdout.write(`\n${platform} 号池 ${accounts.length} 枚(按 token 到期新→旧):\n`)
+    process.stdout.write(
+      `\n${platform} 号池 ${accounts.length} 枚(按 token 到期新→旧;取数时刻=${listed.data.asOf ?? '?'}):\n`,
+    )
     for (const [i, a] of accounts.entries()) process.stdout.write(`${fmtAccountRow(a, i)}\n`)
-    const aAns = (await rl.question('输入序号切到该号(回车取消): ')).trim()
-    if (!aAns) return 0
-    const aIdx = pickByOrdinal(aAns, accounts.length)
-    if (aIdx === null) {
-      process.stderr.write(`❌ 无效序号: ${aAns}(只认 1-${accounts.length})\n`)
-      return 2
+    const a = await askOrdinal(rl, '输入序号切到该号(回车取消): ', accounts.length)
+    if (a.cancel) return 0
+    if (a.fail) {
+      process.stderr.write('❌ 连续 3 次无效序号,已退出(未改动任何登录态)\n')
+      return 1
     }
-    const target = accounts[aIdx]
+    const target = accounts[a.idx]
     // Trae 系写回前客户端必须已退出(其余平台由写回腿自己判在跑与否);话术不替它代裁
     const note =
       platform === 'trae'
@@ -194,6 +222,8 @@ if (isDirectRun) {
 export const __test__ = {
   runPoolListJson,
   pickByOrdinal,
+  askOrdinal,
+  RETRY_LIMIT,
   fmtCountRow,
   fmtAccountRow,
   POOL_LIST_TS,

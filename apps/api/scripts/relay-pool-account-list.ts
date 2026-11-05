@@ -26,6 +26,8 @@
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 掩码判据走现成单源(与号池快照同步同一个出口),本文件不写第二份手机号掩码式
+import { maskPhone } from './relay-account-switch.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const API_DIR = resolvePath(SCRIPT_DIR, '..')
@@ -70,6 +72,8 @@ export interface ListOutcome {
   providerCode: string
   total: number
   accounts: PoolRow[]
+  /** 取数时刻(ISO):两屏之间池可能被别的会话改动,展示侧必须能点出"这数是几点量的" */
+  asOf: string
 }
 
 /** 第一屏计数行 */
@@ -137,7 +141,12 @@ export async function listPoolAccounts(providerCode: string): Promise<ListOutcom
     .from(aiRelayAccountPool)
     .where(eq(aiRelayAccountPool.providerCode, providerCode))
     .orderBy(aiRelayAccountPool.uid)) as PoolRow[]
-  return { providerCode, total: rows.length, accounts: sortByExpiry(rows) }
+  return {
+    providerCode,
+    total: rows.length,
+    accounts: sortByExpiry(rows),
+    asOf: new Date().toISOString(),
+  }
 }
 
 /**
@@ -169,8 +178,9 @@ export async function listMain(argv: string[], deps: ListDeps = {}): Promise<num
   const json = argv.includes('--json')
   if (argv.includes('--help') || argv.includes('-h')) {
     out(
-      '用法: relay-pool-account-list.ts --provider <平台> [--json] | --counts [--json]\n' +
-        '  只读列号池名单/逐平台枚数(零凭据输出;密文列不入选投影)。日常入口 = switch-client-account.mjs --list\n',
+      '用法: relay-pool-account-list.ts --provider <平台> [--json] [--mask] | --counts [--json]\n' +
+        '  只读列号池名单/逐平台枚数(零凭据输出;密文列不入选投影)。--mask 把名称按单源掩码,\n' +
+        '  供会被截图的人读窗口用(uid 仍留全值作序号映射)。日常入口 = switch-client-account.mjs --list\n',
     )
     return 0
   }
@@ -186,8 +196,9 @@ export async function listMain(argv: string[], deps: ListDeps = {}): Promise<num
       err(`❌ 号池不可达/查询失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
       return 2
     }
+    const asOf = new Date().toISOString()
     if (json) {
-      out(`${JSON.stringify({ counts: counted })}\n`)
+      out(`${JSON.stringify({ counts: counted, asOf })}\n`)
       return 0
     }
     if (counted.length === 0) {
@@ -195,7 +206,7 @@ export async function listMain(argv: string[], deps: ListDeps = {}): Promise<num
       return 0
     }
     const sum = counted.reduce((s, r) => s + r.total, 0)
-    out(`号池共 ${sum} 行,按平台:\n`)
+    out(`号池共 ${sum} 行,按平台(取数时刻=${asOf}):\n`)
     for (const r of counted) out(`  ${r.providerCode} 总=${r.total} 启用=${r.enabled}\n`)
     return 0
   }
@@ -223,16 +234,24 @@ export async function listMain(argv: string[], deps: ListDeps = {}): Promise<num
     err(`❌ 号池不可达/查询失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
     return 2
   }
+  // --mask:展示/机读面的名称一律走单源掩码(双击窗口会被截图,uid 仍留全值作序号映射)
+  const mask = argv.includes('--mask')
+  const shown: ListOutcome = mask
+    ? {
+        ...res,
+        accounts: res.accounts.map((r) => ({ ...r, name: maskPhone(r.name) ?? r.name })),
+      }
+    : res
   if (json) {
-    out(`${JSON.stringify(res)}\n`)
+    out(`${JSON.stringify(shown)}\n`)
     return 0
   }
-  if (res.total === 0) {
+  if (shown.total === 0) {
     out(`号池 ${provider} 账号(共 0 枚):暂无 —— 先用 relay-account-pool 导入\n`)
     return 0
   }
-  out(`号池 ${provider} 账号(共 ${res.total} 枚,按 token 到期新→旧):\n`)
-  for (const r of res.accounts) out(`${rowLine(r)}\n`)
+  out(`号池 ${provider} 账号(共 ${shown.total} 枚,按 token 到期新→旧;取数时刻=${shown.asOf}):\n`)
+  for (const r of shown.accounts) out(`${rowLine(r)}\n`)
   return 0
 }
 
