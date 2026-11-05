@@ -208,24 +208,46 @@ describe('跨端不漂移:端内页与共享屏取同一批 i18n 键', () => {
     return out
   }
 
+<<<<<<< ours
   it('端内页三个登记点的 label 键 = 屏消费的三个键(转壳后可见项清单一字不变)', () => {
+=======
+  // 2026-11-05 改判据:端内页已由 gen-miniapp-mirror 改成「壳承载形制」(端内不写布局/数据,
+  // 直接渲染 @rn-shells/PostCreateScreen)。继续要求页内出现三个 useUiField 登记点,等于要求
+  // 回退这次架构迁移;真正要防的漂移(端内自己另抄一份登记表)改由"页不得自带注册表"来钉,
+  // 三个键的单一真相源仍在共享屏上。
+  it('端内页为壳承载(不再自带登记表),共享屏的 label 键仍是那三个', () => {
+>>>>>>> theirs
     const pageSrc = readFileSync(MINIAPP_PAGE, 'utf8')
     const screenSrc = readFileSync(
       join(HERE, '../src/features/post-create/PostCreateScreen.tsx'),
       'utf8',
     )
+<<<<<<< ours
     const pageKeys = keysOf(pageSrc)
     expect(pageKeys).toEqual([
+=======
+    expect(pageSrc).toContain("from '@rn-shells/PostCreateScreen'")
+    expect(pageSrc).not.toContain('useUiField(')
+    expect(keysOf(screenSrc)).toEqual([
+>>>>>>> theirs
       'postCreate.titleLabel',
       'postCreate.contentLabel',
       'postCreate.tagsLabel',
     ])
+<<<<<<< ours
     expect(keysOf(screenSrc)).toEqual(pageKeys)
   })
 
   it('端内页不再经端内别名取注册表(取源直指共享核 ⇒ 与端内桥接层同一模块实例)', () => {
     const pageSrc = readFileSync(MINIAPP_PAGE, 'utf8')
     expect(pageSrc).toContain("from '@ihui/shared/ui-control/field-registry'")
+=======
+  })
+
+  it('端内页不自己取注册表(取源经壳体转由共享屏决定 ⇒ 不会长出第二份实例)', () => {
+    const pageSrc = readFileSync(MINIAPP_PAGE, 'utf8')
+    expect(pageSrc).not.toContain("from '@ihui/shared/ui-control/field-registry'")
+>>>>>>> theirs
     expect(pageSrc).not.toContain("from '@/lib/ui-field-registry'")
   })
 })
