@@ -1083,6 +1083,11 @@ export function buildUnion(
     const takeDocsUndetermined = []
     // A6:声明理由放行的"本侧少内容"格,逐条交回报告面(不得静默折进"0 丢失")。
     const takeDocCredits = []
+    // 归档整区移出的扣行账,逐行交回落地闸的内容级防丢闸(2026-11-05):
+    // 行级 union 按 archiveDropSet 决定"不补回"(对侧滞后基线带回的旧行),落地闸若不知道同一本账,
+    // 就会把"本侧有意移入归档、归并正确排除"的少带读成丢失 —— 两道闸互顶,合并死锁
+    // (与 base/foldLedgers 那两维同族:判据在、台账在,落地调用点没人端)。
+    const archiveCredited = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -1139,6 +1144,9 @@ export function buildUnion(
       // archiveDropCaps 那一维),F5 落地闸必须问**同一本账**,否则把"本侧有意移入归档、对侧滞后基线
       // 带回又被归并正确排除"的 `<!-- 已归档 -->` 存根读成"未解释少带"(2026-10-29 全仓推送死结)。
       const archiveDropSet = archived && archived.ok ? archiveDropCaps(a, archived) : new Set()
+      // 同一本账同时端给落地闸:行级 union 没补回、报告已经逐行点名的这些行,
+      // 落地闸不该再按逐字包含复读成"丢失"(留痕由 union 的报告面负责,不静默)。
+      for (const l of archiveDropSet) archiveCredited.push(l)
       const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
       if (archived === null) {
         console.log(
@@ -1585,6 +1593,8 @@ export function buildUnion(
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
+      // 归档整区移出的扣行账(逐行):内容级防丢闸按同一本账免复读,留痕已由报告面逐行点名。
+      archiveCredited,
       // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
       foldAmbiguous,
       // 声明式保留行没命中的那些(逐文档):"配了清单"不等于"这轮真放过东西"(§0.3)。
@@ -2302,6 +2312,8 @@ export function plan(
     superseded: vu.superseded,
     foldUndetermined: vu.foldUndetermined,
     foldLedgers: built.foldLedgers,
+    // 归档整区移出的扣行账(逐行):落地闸的内容级防丢闸按同一本账免复读(与 base/foldLedgers 同族接线)。
+    archiveCredited: built.archiveCredited || [],
     foldAmbiguous: built.foldAmbiguous,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
     // 报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
@@ -4667,6 +4679,9 @@ async function main() {
   const creditedDropLines = new Set([
     ...(p.folded || []).flatMap((e) => e.dropped || []),
     ...(p.dropLedgerCredited || []).flatMap((e) => e.dropped || []),
+    // 归档整区移出的扣行账(2026-11-05 接线):行级 union 未补回、报告面已逐行点名的对侧旧基线行,
+    // 与 base/foldLedgers 两维同族 —— 判据在、台账在,落地调用点此前没人端 ⇒ 合并被读成"少带"而死锁。
+    ...(p.archiveCredited || []),
   ].map((l) => String(l ?? '').trim()).filter(Boolean))
   // 2026-11-05: 内容级防丢闸的「折叠台账」与「本侧处置权」两维早已在 lib 里(`foldLedgers`/`base`),
   // 落地调用点却只端了 `creditedDrops` ⇒ 那两维在收敛路径上生效次数为 0(判据在、自检过、没人调)。
