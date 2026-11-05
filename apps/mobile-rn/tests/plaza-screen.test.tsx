@@ -86,6 +86,17 @@ import { PlazaScreen } from '../src/screens/PlazaScreen'
 
 const mockItem = { id: 'p1', title: '需要一个AI客服', status: '2', price: 100 }
 
+/**
+ * 取最近一次渲染捕获的 props。错误状态是 `load()` 的 catch 里才写进 state 的,
+ * 首帧必定先以 loading=true / error='' 被捕获 —— 只等「有过任意一次渲染」再读最后一帧,
+ * 读到的是 catch 之前的状态(高负载下 promise 微任务还没跑完),断言就会拿到空串。
+ */
+function latestPlazaProps() {
+  const captured = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]
+  if (!captured) throw new Error('PlazaScreen 尚未渲染')
+  return captured
+}
+
 describe('PlazaScreen 需求广场', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -150,11 +161,11 @@ describe('PlazaScreen 需求广场', () => {
       error: '请求频率过高,需完成人机验证',
     })
     render(<PlazaScreen />)
+    // 等错误文案真的落到 props 上(条件等待),而不是等「有过一次渲染」就下结论
     await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+      expect(latestPlazaProps().error).toContain('需完成人机验证')
     })
-    const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    expect(props.error).toContain('需完成人机验证')
+    const props = latestPlazaProps()
     expect(props.error).not.toContain('加载失败')
   })
 
@@ -162,9 +173,9 @@ describe('PlazaScreen 需求广场', () => {
     apiMocks.getPlazaList.mockRejectedValue(new Error('network error'))
     render(<PlazaScreen />)
     await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+      expect(latestPlazaProps().error).toContain('网络')
     })
-    const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+    const props = latestPlazaProps()
     expect(props.error).toContain('网络')
     expect(props.error).not.toBe('network error') // 原始英文串不外泄给用户
   })
@@ -173,11 +184,11 @@ describe('PlazaScreen 需求广场', () => {
     apiMocks.getPlazaList.mockRejectedValue(new Error('   '))
     render(<PlazaScreen />)
     await waitFor(() => {
-      expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
+      // 产品已 token 化:回退文案由 t('plaza.index.loadFailedRefresh') 提供。本套件 i18n mock 取键透传,
+      // 断言键本身 = 「无任何可用信息时才落这条通用兜底」的同一判据(旧中文形为 token 化前遗留)。
+      expect(latestPlazaProps().error).toContain('plaza.index.loadFailedRefresh')
     })
-    const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    // 产品已 token 化:回退文案由 t('plaza.index.loadFailedRefresh') 提供。本套件 i18n mock 取键透传,
-    // 断言键本身 = 「无任何可用信息时才落这条通用兜底」的同一判据(旧中文形为 token 化前遗留)。
+    const props = latestPlazaProps()
     expect(props.error).toContain('plaza.index.loadFailedRefresh')
   })
 
