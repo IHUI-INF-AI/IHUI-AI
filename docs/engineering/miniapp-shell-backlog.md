@@ -165,4 +165,56 @@
 | 无 id 用 query 兜底 | `result.tsx:68-80` | `enabled: !!id`（`:65`），无 query 兜底 | 无 | 不可达/缺段 |
 
 以上三段保持「缺段」，不硬扩、不计入复制页下降。
+
+## 口径收口票（2026-11-06；11 行，待合面后由单线一次性改台账）
+
+核对面：`D:\IHUI-AI-wt-content-merge` HEAD `8b2be8d9`（台账 93 行）。行 72 的本方退休尚未合面，见末行备注。票内 route 已逐行与台账原文对齐；此前票上 `pkg-user/...` 属笔误，实际为 `pages/circle/create` / `pages/circle/detail`。
+
+| 行 | route | 现状证据（一句） | 建议动作（一句） |
+|---|---|---|---|
+| 2 | `pages/circle/create` | 407 行；声明 `features/post-create/PostCreateScreen.tsx:17`；页 `:5` 自述“端内独立实现……不参与镜像对账” | 只留备注，不动台账 |
+| 3 | `pages/circle/detail` | 412 行；声明 `features/post-detail/PostDetailScreen.tsx:32`；页 `:5` 同自述 | 只留备注，不动台账 |
+| 18 | `pages/plaza/index/index` | 合面树已 retired（`81a06108`） | 已闭环，不动 |
+| 24 | `pages/setting/privacy` | 合面树已 retired（资讯线 `972b2d3b8d`） | 已闭环，归资讯线 |
+| 38 | `pkg-ai/ai-assistant-n8n/index` | 166 行；声明 `features/n8n-model/N8nModelScreen.tsx`；共享屏是编辑屏，页是「n8n 助手列表」整屏 | 只留备注，不动 |
+| 39 | `pkg-ai/ai-career/index` | 162 行；声明 `features/ai-career/AiCareerScreen.tsx`；registry 已记 2026-11-02 `not-app` 摘除 | 只留备注，不动 |
+| 41 | `pkg-ai/ai-group/index` | 台账 241 行；chat 线已做真壳（页面 240→86、2 枚开标签、直吃 `AgentScreen.tsx:748`） | 本条作废，不动 |
+| 55 | `pkg-ai/ranking/index` | 263 行；声明 `features/ranking/RankingScreen.tsx`；共享屏只有周/月/总切换，页有搜索+多维榜单 | 只留备注，不动 |
+| 60 | `pkg-content/plaza/cover/index` | 合面树已 retired（`81a06108`） | 已闭环，不动 |
+| 63 | `pkg-content/share/creation` | 早已 retired（`retiredFrom` loc=283；当前文件 134 行） | 已闭环，不动 |
+| 72 | `pkg-learn/teacher/detail` | 我方 `feat/agent-home-sections` `68206d93` 已按退休通道摘除；合面树 HEAD 仍 active | 合面后即闭环，不动 |
+
+补正说明：仅行 2/3 存在 route 错位；行 38/39/55 此前票上 route 留空，本次补齐；其余 route 与台账逐字一致，无第二处同类错位。
+
+## 轮播段结构下限（`pages/community/index`，2026-11-06）
+
+事实面（两端调用点：页 `apps/miniapp-taro/src/pages/community/index.tsx:746`；RN `apps/mobile-rn/src/screens/AgentScreen.tsx:689`）：
+
+- 现成共享件 `packages/app/src/features/_shared/BannerCarousel.tsx`，props 仅 `images: ImageSourcePropType[]` + `height?`；真消费端 `CoursePlanetScreen.tsx:123`、`MoreCourseScreen.tsx:176`（RN 壳 `:85`/`:107`，小程序 `pkg-mirror2/more-course/index.tsx:18-23`）。
+- 数据结构：页 `CarouselItem{img:string,title?,subtitle?}` ← `getHomePage().banner`（`coverUrl` 必填）；RN `CarouselSlide{img:string|number,title?,link?}` ← agents 前 5 头像；共享件 `ImageSourcePropType[]`，无 title/link。
+- 比例：页整屏等分 `100/total%`、高 160、`aspectFill`；RN `itemWidth ?? useAppFrameWidth()`、高 160、`cover`；共享件容器实测宽/窗口宽、高 160、`cover`。
+- 边距：页 wrapper `margin 18rpx 0 0 0` + 渐变描边；RN `carouselWrap` marginTop 18rpx / 水平 20rpx；共享件无（调用方自包）。
+- 圆角：页/RN 各 16（组件 + 外层 16）；共享件 `rnRadius.lg`=8。
+- 指示点：几何三出口同源（bottom12/gap6/高6/宽6·16）；配色页 `foreground/80`·`/30`、RN `bg-white`·`bg-white/50`、共享件 `white98`·`white50`；点圆角页/RN md6·sm4、共享件 `rnRadius.xs`=2；点跳转仅页有（`goTo`）。
+- 自动播放：页显式 3000、RN 默认 3000、共享件写死 3000。
+- 点击行为：页整卡 → `item.link` `navigateTo`/toast；RN `TouchableOpacity` 0.9 → agent 对话（登录校验）；共享件无点击。
+- 空态：页同高静默盒；RN 同高 +「暂无轮播图」文案（调用点 `length>0` 守卫，实际不触发）；共享件 `return null`。
+- 失败图：页/RN 整项摘除；共享件无摘除。无图文案兜底（渐变 + title/subtitle）仅页有，依赖 miniapp `app.css`。
+
+三选一结论：**只能写结构下限**（不动代码、不新造第三件）。
+
+- 直接复用否：换 `BannerCarousel` 会改 RN 可见表现（点色、点圆角、圆角、点击反馈）与 web slide 宽（`#root` 宽 → 容器实测宽，左右裁切量变）。
+- 加性 prop 否：补齐至少需 7-8 个 prop，其中 `onDotPress`（指示点跳转）、空态同高盒、无图文案兜底三项只有小程序会传 ⇒ 单端 prop = 搬码；其余项虽可两端显式传，但会把仅做图片展示的共享件扩成带交互/空态/主题点的新件，且该件另有 2 个真实消费方，回归面与收益不符。
+- 结构下限：本段两端各自 `Carousel` 保留；`BannerCarousel` 不承接；`pages/community/index` 的 Banner 缺段仍按本文件第 35 行记录（「Banner 60」），不计入任何单源化成果。
+
+## 批次④ 段级上收读数（2026-11-06）
+
+- 共享件：`packages/app/src/features/agent-screen/AgentRecentUsed.tsx`（136 行，J8+T0=8）、`AgentMyApps.tsx`（166 行，J10+T0=10）。
+- 两端消费：RN `components/RecentAgents.tsx:37`、`components/MyAgents.tsx:51`（屏幕使用点 `AgentScreen.tsx:711`/`:718`）；小程序 `pages/community/components/RecentAgents.tsx:54`、`MyAgents.tsx:58`（页面使用点 `index.tsx:814`/`:817`）。
+- 适配层 LOC：RN 132→46 / 178→64；小程序 82→63 / 91→71。
+- 重复 UI AST：41→22（RN `RecentAgents` 8→1、`MyAgents` 10→1；小程序 10→1、13→1；共享件 J8/J10）。
+- 页 AST：`pages/community/index.tsx` 51→51（J50+T1，LOC 1003→1003）。如实口径：两段在页内本就是页面级自闭合组件，上收共享件不降页内节点，降的是重复实现。
+- RN 零可见变化：共享件样式逐值复制 RN 原件；RN 旧件 J8/J10 与共享件 J8/J10 同构；`defaultAvatar ?? null` 与原 `undefined` 渲染等价；`emptyText` 两端显式传且值不同（RN 字符串、页 `null`）。
+- 门读数（树 `D:\IHUI-AI-wt-community`，HEAD `447a0c5d93`）：门 299 共享屏 274 / 在册页 329 / 薄壳 223 / 复制页 72（纯复制 63、本地改动 9；LOC 29162/45098=64.7%）/ 无法判定 0 / 台账 74 行；门 105 绿（自述钉 `8c729fcbef56…` matched `68206d93e1`）；门 173 绿（trackedFiles 19313 / testFiles 4138）。
+- 分支与 tip：`feat/agent-home-sections` / `447a0c5d937c3d07ef6a9c001dfbdab26d853c14`。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
