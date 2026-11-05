@@ -71,9 +71,9 @@ function firstWritten(): { filepath: string; content: string } {
 describe('crash-handler 进程级异常边界(G-610)', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   let initialExitCode: string | number | null | undefined;
-  let initialUncaught: Array<(...args: never[]) => void>;
-  let initialUnhandled: Array<(...args: never[]) => void>;
-  let initialMonitor: Array<(...args: never[]) => void>;
+  let initialUncaught: ReturnType<typeof process.listeners<'uncaughtException'>>;
+  let initialUnhandled: ReturnType<typeof process.listeners<'unhandledRejection'>>;
+  let initialMonitor: ReturnType<typeof process.listeners<'uncaughtExceptionMonitor'>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
