@@ -389,6 +389,11 @@ export * from './endpoints/social.js'
 // 健康检查 + GDPR 数据权利端点(2026-11-05 立,门 300 存量 A 类:web/RN 同语义直拼收口)
 export * from './endpoints/health.js'
 export * from './endpoints/gdpr.js'
+// MFA / 安全治理 / Prompt 注册表 / Agent 控制桥端点(2026-11-05 立,门 300 存量 A 类)
+export * from './endpoints/mfa.js'
+export * from './endpoints/security.js'
+export * from './endpoints/prompts.js'
+export * from './endpoints/agent-control.js'
 // 收货地址 + 帮助中心端点(2026-11-05 立,门 300 存量 A 类:web/RN/小程序端内直拼收口)
 export * from './endpoints/address.js'
 export * from './endpoints/help.js'
