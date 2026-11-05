@@ -2193,7 +2193,10 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     }
     if (!cost.allowed) {
       const summary = `sessions 近1h=${cost.used.hour} 近24h=${cost.used.day} 墙钟=${cost.used.minutesDay.toFixed(1)}min tokens 近1h=${cost.used.tokensHour} 近24h=${cost.used.tokensDay} 单会话峰值=${cost.used.maxTokens}`
-      record({ mode: 'dispatch', action: 'budget-exhausted', note: summary })
+      // 单行发射:收割器(C4)只认单行 `record({... action: 'x' ...})` 形态,被 prettier 折成多行
+      // 就会"豁免表里有、源码里收不到"⇒ 判红的是我这次的写法,不是判据太严。
+      const costNote = `${cost.breaches.join(';')} | ${summary}`
+      record({ mode: 'dispatch', action: 'cost-breaker-stop', note: costNote })
       console.log(`⏸ 成本熔断:${cost.breaches.join(';')} ⇒ 本轮停转(软停机)`)
       if (!escapeThrottled()) {
         markEscape()

@@ -90,6 +90,13 @@ export const ACTION_EXEMPTIONS = Object.freeze({
     reason: '轮级发起腿额度停转,无票键 ⇒ 没占任何一张票的班次',
     site: 'auto-evolve.mjs 派发前成本闸(blocked.allowed=false 分支)',
   },
+  // 2026-11-06 现读抓到:调度层会话额度越限(软停机)此前发的是**日预算**那枚 `budget-exhausted`
+  // ⇒ 台账上"今天派满了"和"额度熔断停转"两种真因共用一个字面量,读账的人只能改日预算去解熔断。
+  // 与上一枚同理按发射点形状归 exempt:整轮在任何一票之前 return,记录不带 ticketKey。
+  'cost-breaker-stop': {
+    reason: '轮级调度层会话额度熔断停转,无票键 ⇒ 没占任何一张票的班次',
+    site: 'auto-evolve.mjs 派发前成本闸(cost.allowed=false 分支)',
+  },
   'valve-allow': {
     reason: '放行标记,紧随其后必有 session-* 行被计 ⇒ 再计一次就是双计',
     site: 'auto-evolve.mjs decideValveDispatch',
