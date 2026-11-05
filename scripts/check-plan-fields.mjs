@@ -244,7 +244,7 @@ export function judge(
   for (const r of rows.filter(isOpenRow)) {
     const line = r.raw
     const key = compositeKeyOf(line)
-    const rec = key ? (map.get(key) ?? null) : null
+    const rec = fieldsFor({ line, map }).rec
     if (!rec && !hasLease(line)) {
       if (adoptTargets.has(key)) {
         // 新号键能认领旧号键的侧车字段(搬支在册)⇒ 不算"缺交代":结构化归属已在侧车,
