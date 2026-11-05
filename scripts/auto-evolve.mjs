@@ -31,7 +31,18 @@
  *   node scripts/auto-evolve.mjs --self-test   # 内置断言
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, openSync, closeSync, unlinkSync, statSync, utimesSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  appendFileSync,
+  openSync,
+  closeSync,
+  unlinkSync,
+  statSync,
+  utimesSync,
+} from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHmac, randomUUID } from 'node:crypto'
@@ -46,20 +57,41 @@ const invParse = INV_SELF.parseInvariants
 export { ticketKeyOf }
 // 发起腿的「执行体存续」判据单源(2026-11-01 立):盘符归一 + 派发前核验 + 失败分型。
 // 本层零复算判据(§0.6),只做接线。
-import { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure } from './lib/autonomy-runner.mjs'
+import {
+  preflightSessionRunner,
+  resolveSessionCommand,
+  classifySessionFailure,
+  isNonTicketFailure,
+} from './lib/autonomy-runner.mjs'
 export { preflightSessionRunner, resolveSessionCommand, classifySessionFailure, isNonTicketFailure }
 import { gateTicketByHumanValve, VALVE_MODES, VALVE_ACTIONS } from './lib/autonomy-runner.mjs'
 export { gateTicketByHumanValve }
 // 会话后落账腿的判据单源(2026-11-01 立):清单解析/路径安全/真有改动三问都住 lib,本器只做 IO 与编排。
-import { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf } from './lib/ticket-artifacts.mjs'
+import {
+  parseArtifactManifest,
+  sanitizeArtifactPaths,
+  selectDirtyPaths,
+  manifestPathOf,
+} from './lib/ticket-artifacts.mjs'
 // 提交后两腿与 safe-commit 用**同一份实现**(§0.6):正证留痕 + AI 归属 notes。换私有索引通道
 // 不等于放弃这两张证 —— 少了它们,读侧尺子会把每一枚自主提交都读成"没人跑过门/无归属"。
 import { recordGatesThenCommit } from './lib/commit-attestation.mjs'
 import { recordForCommit, normalizeRepoPath } from './lib/ai-authorship-notes.mjs'
 export { parseArtifactManifest, sanitizeArtifactPaths, selectDirtyPaths, manifestPathOf }
 // 第 4 格·会话全文落盘腿:命名 / 脱敏 / 截断 / 轮转判据全在 lib(单一真相源,§0.6),本处只负责"读盘调用"。
-import { buildTranscript, capTranscript, transcriptRelPathOf, isTranscriptName, decideRetention } from './lib/session-transcript.mjs'
-import { attemptsSinceProgress, decideNonProgress, breakdownNonProgress, lastNonProgressHoldAt } from './lib/autonomy-nonprogress.mjs'
+import {
+  buildTranscript,
+  capTranscript,
+  transcriptRelPathOf,
+  isTranscriptName,
+  decideRetention,
+} from './lib/session-transcript.mjs'
+import {
+  attemptsSinceProgress,
+  decideNonProgress,
+  breakdownNonProgress,
+  lastNonProgressHoldAt,
+} from './lib/autonomy-nonprogress.mjs'
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 
@@ -138,19 +170,29 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
     throw new GateShapeError(`闸门配置不是合法 JSON:${e?.message ?? e}`)
   }
   const needBool = ['enabled']
-  const needPosInt = ['dailyDispatchBudget', 'failureStreakLimit', 'quarantineHours', 'maxSessionMinutes']
+  const needPosInt = [
+    'dailyDispatchBudget',
+    'failureStreakLimit',
+    'quarantineHours',
+    'maxSessionMinutes',
+  ]
   for (const k of needBool) {
     if (typeof g[k] !== 'boolean') throw new GateShapeError(`闸门形状坏:${k} 必须是 boolean`)
   }
   for (const k of needPosInt) {
-    if (!Number.isInteger(g[k]) || g[k] <= 0) throw new GateShapeError(`闸门形状坏:${k} 必须是正整数`)
+    if (!Number.isInteger(g[k]) || g[k] <= 0)
+      throw new GateShapeError(`闸门形状坏:${k} 必须是正整数`)
   }
-  if (g.failureStreakLimit < 2) throw new GateShapeError('闸门形状坏:failureStreakLimit 至少为 2(=1 时首败即封票,误伤面过大)')
+  if (g.failureStreakLimit < 2)
+    throw new GateShapeError('闸门形状坏:failureStreakLimit 至少为 2(=1 时首败即封票,误伤面过大)')
   if (!Array.isArray(g.ticketWhitelist) || g.ticketWhitelist.length === 0) {
-    throw new GateShapeError('闸门形状坏:ticketWhitelist 必须是非空数组(第一期靠白名单兜底,不许全放行)')
+    throw new GateShapeError(
+      '闸门形状坏:ticketWhitelist 必须是非空数组(第一期靠白名单兜底,不许全放行)',
+    )
   }
   for (const p of g.ticketWhitelist) {
-    if (typeof p !== 'string' || !p.trim()) throw new GateShapeError('闸门形状坏:ticketWhitelist 出现非字符串/空白项')
+    if (typeof p !== 'string' || !p.trim())
+      throw new GateShapeError('闸门形状坏:ticketWhitelist 出现非字符串/空白项')
   }
   if (typeof g.sessionCommandTemplate !== 'string') {
     throw new GateShapeError('闸门形状坏:sessionCommandTemplate 必须是字符串(空串 = dry-run 档)')
@@ -158,7 +200,9 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   // 人工阀档:缺字段 = observe(记账不拦)。缺省绝不等于放开 —— 但也绝不因为"没登记"就
   // 一刀切停派,那是把刚修活的发起腿再锁死。enforce 的前置条件由尺子 A6 维量(见 check-autonomy-leg-health)。
   if (g.humanValveMode !== undefined && !VALVE_MODES.includes(g.humanValveMode)) {
-    throw new GateShapeError(`闸门形状坏:humanValveMode 只能是 ${VALVE_MODES.join('|')} 之一(现值 ${JSON.stringify(g.humanValveMode)})`)
+    throw new GateShapeError(
+      `闸门形状坏:humanValveMode 只能是 ${VALVE_MODES.join('|')} 之一(现值 ${JSON.stringify(g.humanValveMode)})`,
+    )
   }
   if (g.humanValveMode === undefined) g.humanValveMode = 'observe'
   // 空转记忆档(2026-11-04 立):缺字段 = 用保守缺省,绝不因"没登记"就退回"无限重试同一枚"。
@@ -168,10 +212,13 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   if (g.parkHardLimit === undefined) g.parkHardLimit = 24
   if (g.parkCooldownHours === undefined) g.parkCooldownHours = 24
   for (const k of ['rotateAfterAttempts', 'parkAfterAttempts', 'parkHardLimit']) {
-    if (!Number.isInteger(g[k]) || g[k] <= 0) throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
+    if (!Number.isInteger(g[k]) || g[k] <= 0)
+      throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
   }
   if (!Number.isInteger(g.parkCooldownHours) || g.parkCooldownHours <= 0) {
-    throw new GateShapeError(`闸门形状坏:parkCooldownHours 必须是正整数(现值 ${String(g.parkCooldownHours)})`)
+    throw new GateShapeError(
+      `闸门形状坏:parkCooldownHours 必须是正整数(现值 ${String(g.parkCooldownHours)})`,
+    )
   }
   return g
 }
@@ -224,8 +271,15 @@ export function parseTicketRows(stdout) {
  * "没有候选评估"本来就是这套设计的合法起点(落回台账序),不能让它升级成"本轮不派"。
  * dry-run 不写盘 ⇒ 也就没有新候选可读,如实返回未判定而不是假装刷新过。
  */
-export function refreshAutonomyCandidates({ now = Date.now(), dryRun = false, scriptFile = AUTONOMY_CANDIDATES_SCRIPT, candidatesFile = AUTONOMY_CANDIDATES, runner = null } = {}) {
-  if (!existsSync(scriptFile)) return { state: 'undetermined', why: '生成器物不在位(scripts/autonomy-candidates.mjs)' }
+export function refreshAutonomyCandidates({
+  now = Date.now(),
+  dryRun = false,
+  scriptFile = AUTONOMY_CANDIDATES_SCRIPT,
+  candidatesFile = AUTONOMY_CANDIDATES,
+  runner = null,
+} = {}) {
+  if (!existsSync(scriptFile))
+    return { state: 'undetermined', why: '生成器物不在位(scripts/autonomy-candidates.mjs)' }
   try {
     const st = statSync(candidatesFile)
     const ageMs = now - st.mtimeMs
@@ -233,7 +287,10 @@ export function refreshAutonomyCandidates({ now = Date.now(), dryRun = false, sc
     // 卡 `>= 0` 会让"刚生成"被判成不新鲜 ⇒ 每轮都重刷 84s 的器物(S11a 实测抓到)。
     // 时钟回拨也落进同一侧:宁可少刷一次(下一轮自然补),不要每轮白等。
     if (Number.isFinite(ageMs) && ageMs < AUTONOMY_CANDIDATES_REFRESH_MS) {
-      return { state: 'ok', why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑` }
+      return {
+        state: 'ok',
+        why: `候选文件新鲜(${Math.round(ageMs / 60_000)}min < ${AUTONOMY_CANDIDATES_REFRESH_MS / 3_600_000}h),不重跑`,
+      }
     }
   } catch {
     /* 没生成过 ⇒ 继续往下刷 */
@@ -242,9 +299,18 @@ export function refreshAutonomyCandidates({ now = Date.now(), dryRun = false, sc
   const r =
     typeof runner === 'function'
       ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
-      : spawnSync(process.execPath, [scriptFile, '--apply'], { cwd: ROOT, windowsHide: true, encoding: 'utf8', timeout: 180_000 })
+      : spawnSync(process.execPath, [scriptFile, '--apply'], {
+          cwd: ROOT,
+          windowsHide: true,
+          encoding: 'utf8',
+          timeout: 180_000,
+        })
   if (r.error) return { state: 'undetermined', why: `生成器起不来:${r.error.message}` }
-  if (r.status !== 0) return { state: 'undetermined', why: `生成器 exit=${r.status} ${String(r.stderr ?? '').slice(-160)}` }
+  if (r.status !== 0)
+    return {
+      state: 'undetermined',
+      why: `生成器 exit=${r.status} ${String(r.stderr ?? '').slice(-160)}`,
+    }
   return { state: 'ok', why: '已按结构性证据刷新' }
 }
 
@@ -274,7 +340,11 @@ export function rankTicketRows(rows, { policyText, candidatesText, keyOf = ticke
   for (const r of rows) {
     const key = keyOf(r.text)
     if (used.has(key)) continue
-    skipped.push({ line: r.line, key, reason: deferredById.get(key) ?? '未评估(候选文件未收录本票)' })
+    skipped.push({
+      line: r.line,
+      key,
+      reason: deferredById.get(key) ?? '未评估(候选文件未收录本票)',
+    })
   }
   return {
     rows: ranked,
@@ -319,13 +389,23 @@ export function fillTemplate(tpl, { promptFile, ticketLine, ticketKey }) {
 export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
   const t = String(cmdText ?? '')
   const m = /^(\s*)(?:node|node\.exe)(\s)/i.exec(t)
-  if (!m) return { cmd: t, replaced: false, why: '首 token 不是裸 node ⇒ 不动(自定义 runner 照原样)' }
+  if (!m)
+    return { cmd: t, replaced: false, why: '首 token 不是裸 node ⇒ 不动(自定义 runner 照原样)' }
   const exe = String(execPath ?? '')
-  if (!exe || !/[\\/]/.test(exe)) return { cmd: t, replaced: false, why: `当前进程可执行路径取不到(${JSON.stringify(exe).slice(0, 24)})⇒ 不猜,原样执行` }
+  if (!exe || !/[\\/]/.test(exe))
+    return {
+      cmd: t,
+      replaced: false,
+      why: `当前进程可执行路径取不到(${JSON.stringify(exe).slice(0, 24)})⇒ 不猜,原样执行`,
+    }
   // cmd.exe 下带空格的路径必须引号包住;模板本身刻意零内嵌引号(见下方 windowsVerbatimArguments 注),
   // 这里加的那一对是唯一被许可的引号。
   const quoted = /[\s"]/.test(exe) ? `"${exe}"` : exe
-  return { cmd: m[1] + quoted + m[2] + t.slice(m[0].length), replaced: true, why: `模板首 token 是裸 node ⇒ 换成当前进程运行时(${exe})` }
+  return {
+    cmd: m[1] + quoted + m[2] + t.slice(m[0].length),
+    replaced: true,
+    why: `模板首 token 是裸 node ⇒ 换成当前进程运行时(${exe})`,
+  }
 }
 
 /**
@@ -339,13 +419,27 @@ export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
  * @param {{guardListText?:string|null, headText?:string|null, diskText?:string|null, selfRel:string}} p
  */
 export function judgeSelfFace({ guardListText = null, headText = null, diskText = null, selfRel }) {
-  if (typeof guardListText !== 'string' || typeof headText !== 'string' || typeof diskText !== 'string') {
+  if (
+    typeof guardListText !== 'string' ||
+    typeof headText !== 'string' ||
+    typeof diskText !== 'string'
+  ) {
     return { state: 'undetermined', missing: [], why: '清单 / HEAD 面 / 盘上三份之一取不到 ⇒ 不猜' }
   }
   const parsed = parseInvariantsForSelf(guardListText)
-  if (parsed.problems.length) return { state: 'undetermined', missing: [], why: `锚点清单有问题:${parsed.problems[0].message}` }
+  if (parsed.problems.length)
+    return {
+      state: 'undetermined',
+      missing: [],
+      why: `锚点清单有问题:${parsed.problems[0].message}`,
+    }
   const me = parsed.entries.find((e) => e.path === selfRel)
-  if (!me) return { state: 'undetermined', missing: [], why: `清单里没有 ${selfRel} 这一条 ⇒ 无从判盘上是否落后` }
+  if (!me)
+    return {
+      state: 'undetermined',
+      missing: [],
+      why: `清单里没有 ${selfRel} 这一条 ⇒ 无从判盘上是否落后`,
+    }
   const missing = me.anchors.filter((a) => headText.includes(a) && !diskText.includes(a))
   if (missing.length) {
     return {
@@ -409,7 +503,8 @@ export function parseSessionUsage(stdout) {
     }
     if (e?.type !== 'complete') continue
     const total = Number(e?.usage?.totalTokens)
-    if (!Number.isFinite(total) || total < 0) return { tokens: 0, costUsd: 0, measured: false, stopReason: null }
+    if (!Number.isFinite(total) || total < 0)
+      return { tokens: 0, costUsd: 0, measured: false, stopReason: null }
     const cost = Number(e?.usage?.estimatedCostUsd)
     return {
       tokens: Math.floor(total),
@@ -523,9 +618,39 @@ function record(entry) {
  *
  * 落盘目录 `.ihui-agent/state/session-transcripts` 已被 .gitignore 忽略,证据不进版本库。
  */
-function persistTranscript({ mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut = false, signal = null, prompt = '', stdout = '', stderr = '', notes = '', at = new Date() }) {
+function persistTranscript({
+  mode,
+  ticketKey,
+  ticketLine,
+  cmd,
+  action,
+  exitCode,
+  durationMs,
+  timedOut = false,
+  signal = null,
+  prompt = '',
+  stdout = '',
+  stderr = '',
+  notes = '',
+  at = new Date(),
+}) {
   try {
-    const body = buildTranscript({ at, mode, ticketKey, ticketLine, cmd, action, exitCode, durationMs, timedOut, signal, prompt, stdout, stderr, notes })
+    const body = buildTranscript({
+      at,
+      mode,
+      ticketKey,
+      ticketLine,
+      cmd,
+      action,
+      exitCode,
+      durationMs,
+      timedOut,
+      signal,
+      prompt,
+      stdout,
+      stderr,
+      notes,
+    })
     const capped = capTranscript(body)
     const rel = transcriptRelPathOf({ at, ticketKey, mode, action })
     const abs = join(ROOT, rel)
@@ -579,11 +704,24 @@ export function isPidAlive(pid) {
  * 错误目录吞成"提交的信息有误"),签发侧 setSubject(userId) 这一步不能少。
  * roleId 恒 0(最小权限;校验只认 sub,角色 claim 只是 RBAC 装饰)。
  */
-export function signSessionJwt(secret, { userId, ttlSeconds = JWT_TTL_SECONDS, now = Math.floor(Date.now() / 1000) }) {
+export function signSessionJwt(
+  secret,
+  { userId, ttlSeconds = JWT_TTL_SECONDS, now = Math.floor(Date.now() / 1000) },
+) {
   const b64u = (b) => Buffer.from(b).toString('base64url')
   const header = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const payload = b64u(
-    JSON.stringify({ sub: userId, userId, phone: '', familyId: randomUUID(), roleId: 0, iat: now, iss: 'ihui-ai', aud: 'ihui-ai-users', exp: now + ttlSeconds })
+    JSON.stringify({
+      sub: userId,
+      userId,
+      phone: '',
+      familyId: randomUUID(),
+      roleId: 0,
+      iat: now,
+      iss: 'ihui-ai',
+      aud: 'ihui-ai-users',
+      exp: now + ttlSeconds,
+    }),
   )
   const sig = createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url')
   return `${header}.${payload}.${sig}`
@@ -606,7 +744,10 @@ function resolveJwtSecret() {
  * login 同源存放处)。凭据全程只在内存与该机器态文件,终端零输出(不入聊天不入日志)。
  * secret 探测不到 ⇒ 返回 { ok:false },调用方落「未判定」不派发。
  */
-export async function mintSessionCredential({ userId, writeSettings = (jwt) => writeCliSettingsJwt(jwt) } = {}) {
+export async function mintSessionCredential({
+  userId,
+  writeSettings = (jwt) => writeCliSettingsJwt(jwt),
+} = {}) {
   const found = resolveJwtSecret()
   if (!found) return { ok: false, why: 'JWT_SECRET 探测不到(候选 .env 均缺或强度不足)' }
   const uid = userId ?? (await resolveMachineUserId())
@@ -639,7 +780,9 @@ function writeCliSettingsJwt(jwt) {
     writeFileSync(CLI_SETTINGS, JSON.stringify(s, null, 2), 'utf8')
   } catch (e) {
     // 写不进去也不该把整轮打死:调用方会把"凭据未写入"记成未判定,而不是票面失败。
-    console.error(`⚠ CLI 登录态写入失败(${String(e?.message ?? e).slice(0, 120)})⇒ 本轮会话可能以未登录退出,按未判定记账`)
+    console.error(
+      `⚠ CLI 登录态写入失败(${String(e?.message ?? e).slice(0, 120)})⇒ 本轮会话可能以未登录退出,按未判定记账`,
+    )
   }
 }
 
@@ -656,7 +799,9 @@ async function resolveMachineUserId() {
       const postgres = createRequire(join(ROOT, 'apps', 'api', 'package.json'))('postgres')
       const sql = postgres(m[1].trim())
       try {
-        const rows = await sql.unsafe('SELECT id FROM users ORDER BY role_id DESC, created_at ASC LIMIT 1')
+        const rows = await sql.unsafe(
+          'SELECT id FROM users ORDER BY role_id DESC, created_at ASC LIMIT 1',
+        )
         const id = rows[0]?.id
         if (typeof id === 'string' && /^[0-9a-f-]{36}$/.test(id)) return id
         return null
@@ -707,7 +852,9 @@ function sendEscapeMail(gates, alertId, title, bodyText) {
     return false
   }
   if (!existsSync(TSX_ENTRY) || !existsSync(MAIL_SCRIPT)) {
-    console.error(`⚠️ 逃生邮件未判定:出口不在位(tsx=${existsSync(TSX_ENTRY)} script=${existsSync(MAIL_SCRIPT)})`)
+    console.error(
+      `⚠️ 逃生邮件未判定:出口不在位(tsx=${existsSync(TSX_ENTRY)} script=${existsSync(MAIL_SCRIPT)})`,
+    )
     return false
   }
   mkdirSync(TMP_DIR, { recursive: true })
@@ -731,7 +878,13 @@ function sendEscapeMail(gates, alertId, title, bodyText) {
       '--message-file',
       msgFile,
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, windowsHide: true, timeout: 60_000, encoding: 'utf8' }
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 60_000,
+      encoding: 'utf8',
+    },
   )
   try {
     unlinkSync(msgFile)
@@ -766,7 +919,11 @@ function acquireLock() {
     }
     return acquireLock()
   }
-  writeFileSync(LOCK_FILE, JSON.stringify({ pid: process.pid, at: new Date().toISOString() }), 'utf8')
+  writeFileSync(
+    LOCK_FILE,
+    JSON.stringify({ pid: process.pid, at: new Date().toISOString() }),
+    'utf8',
+  )
   closeSync(fd)
   return { held: false }
 }
@@ -806,9 +963,18 @@ function releaseLock() {
  */
 export const SESSION_RESULT_ACTIONS = Object.freeze(['session-ok', 'session-no-write'])
 
-export function settlePriorDispatches({ ledger = [], currentRows = null, windowHours = Infinity, now = Date.now(), recordedPrefix = 200, sameRowPrefix = 60 } = {}) {
+export function settlePriorDispatches({
+  ledger = [],
+  currentRows = null,
+  windowHours = Infinity,
+  now = Date.now(),
+  recordedPrefix = 200,
+  sameRowPrefix = 60,
+} = {}) {
   const cutoff = now - windowHours * 3600_000
-  const settledOf = new Set(ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')))
+  const settledOf = new Set(
+    ledger.filter((e) => e.action === 'dispatch-settled').map((e) => String(e.sourceTs ?? '')),
+  )
   const outs = []
   for (const e of ledger) {
     if (!SESSION_RESULT_ACTIONS.includes(e.action) || !e.ticketKey) continue
@@ -817,7 +983,13 @@ export function settlePriorDispatches({ ledger = [], currentRows = null, windowH
     if (settledOf.has(String(e.ts))) continue
     const thenPrefix = String(e.ticketLine ?? '').slice(0, recordedPrefix)
     if (!Array.isArray(currentRows)) {
-      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'unjudged', why: '派单面取不到 ⇒ 无法判这张票是否推进' })
+      outs.push({
+        ticketKey: e.ticketKey,
+        ticketLine: thenPrefix,
+        sourceTs: e.ts,
+        state: 'unjudged',
+        why: '派单面取不到 ⇒ 无法判这张票是否推进',
+      })
       continue
     }
     const faceRow = currentRows.find((r) => ticketKeyOf(String(r.text ?? '')) === e.ticketKey)
@@ -825,8 +997,20 @@ export function settlePriorDispatches({ ledger = [], currentRows = null, windowH
       const nowPrefix = String(faceRow.text ?? '').slice(0, recordedPrefix)
       outs.push(
         nowPrefix === thenPrefix
-          ? { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'no-progress', why: `${e.action === 'session-no-write' ? '会话零写入且' : '会话报成功但'}票行逐字未变(L${faceRow.line})` }
-          : { ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票行已改写(L${faceRow.line})` }
+          ? {
+              ticketKey: e.ticketKey,
+              ticketLine: thenPrefix,
+              sourceTs: e.ts,
+              state: 'no-progress',
+              why: `${e.action === 'session-no-write' ? '会话零写入且' : '会话报成功但'}票行逐字未变(L${faceRow.line})`,
+            }
+          : {
+              ticketKey: e.ticketKey,
+              ticketLine: thenPrefix,
+              sourceTs: e.ts,
+              state: 'line-changed',
+              why: `票行已改写(L${faceRow.line})`,
+            },
       )
       continue
     }
@@ -834,12 +1018,26 @@ export function settlePriorDispatches({ ledger = [], currentRows = null, windowH
     // 追加"—— 已追加进展注记"后 key 会变,而追加"（进行中@…）"认领牌 key 不变),
     // 只按 key 找行会把最常见的"只写了注记"掉进 line-gone,而那与"整票结清"是两回事(§10)。
     const headKey = thenPrefix.slice(0, Math.min(sameRowPrefix, thenPrefix.length))
-    const sameRow = headKey ? currentRows.find((r) => String(r.text ?? '').startsWith(headKey)) : null
+    const sameRow = headKey
+      ? currentRows.find((r) => String(r.text ?? '').startsWith(headKey))
+      : null
     if (sameRow) {
-      outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-changed', why: `票键随注记漂移但行首同源 ⇒ 同一张票被改写(L${sameRow.line}),不得记成结清摘行` })
+      outs.push({
+        ticketKey: e.ticketKey,
+        ticketLine: thenPrefix,
+        sourceTs: e.ts,
+        state: 'line-changed',
+        why: `票键随注记漂移但行首同源 ⇒ 同一张票被改写(L${sameRow.line}),不得记成结清摘行`,
+      })
       continue
     }
-    outs.push({ ticketKey: e.ticketKey, ticketLine: thenPrefix, sourceTs: e.ts, state: 'line-gone', why: '派单面上既无同票键也无同前缀行 ⇒ 已摘行或摘出在飞' })
+    outs.push({
+      ticketKey: e.ticketKey,
+      ticketLine: thenPrefix,
+      sourceTs: e.ts,
+      state: 'line-gone',
+      why: '派单面上既无同票键也无同前缀行 ⇒ 已摘行或摘出在飞',
+    })
   }
   return outs
 }
@@ -855,7 +1053,9 @@ function pickTickets() {
   if (r.error) throw new Error(`派单面取不到:${r.error.message}`)
   const rows = parseTicketRows(r.stdout)
   if (rows.length === 0 && r.status !== 0) {
-    throw new Error(`派单面未判定(status=${r.status}):${String(r.stderr ?? r.stdout ?? '').slice(-300)}`)
+    throw new Error(
+      `派单面未判定(status=${r.status}):${String(r.stderr ?? r.stdout ?? '').slice(-300)}`,
+    )
   }
   return rows
 }
@@ -863,9 +1063,13 @@ function pickTickets() {
 /** 失败文本取证:两流各取自己的头尾并标来源,不先拼再截(拼起来截尾会把先拼的那条整段挤掉)。 */
 export function excerptBothEnds(stderr, stdout, max = 150) {
   const one = (label, raw) => {
-    const s = String(raw ?? '').replace(/\s+/g, ' ').trim()
+    const s = String(raw ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
     if (!s) return null
-    return s.length <= max * 2 ? `${label}=${s}` : `${label}=${s.slice(0, max)} …〔中略 ${s.length - max * 2} 字〕… ${s.slice(-max)}`
+    return s.length <= max * 2
+      ? `${label}=${s}`
+      : `${label}=${s.slice(0, max)} …〔中略 ${s.length - max * 2} 字〕… ${s.slice(-max)}`
   }
   const parts = [one('stderr', stderr), one('stdout', stdout)].filter(Boolean)
   return parts.length ? parts.join(' | ') : '(两流皆空)'
@@ -909,7 +1113,10 @@ export function decideValveDispatch(valve, mode, { ticketKey = '', ticketLine = 
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
-    return { action: 'template-empty', why: 'sessionCommandTemplate 未配置 ⇒ 本轮只取票记账,不冒充执行(§0.3)' }
+    return {
+      action: 'template-empty',
+      why: 'sessionCommandTemplate 未配置 ⇒ 本轮只取票记账,不冒充执行(§0.3)',
+    }
   }
   if (dryRun) return { action: 'dryrun-ticket', why: 'dry-run 不真派' }
   // 命令行一律经当次仓根归一(§0:盘符是现读机器事实)。取不到仓根 ⇒ 判未判定,
@@ -1005,8 +1212,16 @@ function dispatchSession(gates, ticket, dryRun) {
   const signal = r.signal ?? null
   // 第 4 格·会话全文落盘:成败都落盘(否则 A7 的每一条 drift 只能靠猜,§0.3)。
   // 先算 action,再一次性落盘 + 返回,避免四条分支各写一遍(分支越多越容易漏 transcript)。
-  let action, failureKind = 'ok', exitCode = 0, why = '', timedOut = false, writes = null
-  if (r.error?.killed || (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)) {
+  let action,
+    failureKind = 'ok',
+    exitCode = 0,
+    why = '',
+    timedOut = false,
+    writes = null
+  if (
+    r.error?.killed ||
+    (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)
+  ) {
     action = 'session-timeout'
     exitCode = null
     timedOut = true
@@ -1021,7 +1236,11 @@ function dispatchSession(gates, ticket, dryRun) {
     // 真因常在头部(ERR_MODULE_NOT_FOUND 的前两行),只截尾会把 "der:639:32" 这类
     // 中段残渣当成原因寄出去 —— 比没有原因更贵。各取头尾并标来源。
     const errText = excerptBothEnds(stderr, stdout)
-    const kind = classifySessionFailure({ status: r.status, stderr: `${stderr}\n${stdout}`, signal })
+    const kind = classifySessionFailure({
+      status: r.status,
+      stderr: `${stderr}\n${stdout}`,
+      signal,
+    })
     // 2026-11-05:退出码含义排在文本签名之前。exit=3 是 CLI 自己的 `no_progress` 终态
     // (整班无工具调用 + 空正文),把它记成 session-failed 会走连败封票,记成
     // runner-unavailable 又成了"我的腿断了"的借口 —— 两向都是错的归因。
@@ -1096,7 +1315,9 @@ export function commitPrefixOf(ticketText) {
 
 /** 代提交消息:正文点名票键与票面(决策链审计靠这两项把提交接回本票)。 */
 export function buildArtifactCommitMessage({ ticketKey, ticketText }) {
-  const face = String(ticketText ?? '').replace(/\s+/g, ' ').trim()
+  const face = String(ticketText ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
   return [
     `${commitPrefixOf(ticketText)}: ${face.slice(0, 80)}`,
     '',
@@ -1138,7 +1359,12 @@ export function partitionProtectedFaces(files, guardListText) {
   try {
     parsed = parseGuardList(guardListText)
   } catch (e) {
-    return { state: 'undetermined', landable: [], protectedHits: [], problems: [{ code: 'parse-throw', message: String(e?.message ?? e) }] }
+    return {
+      state: 'undetermined',
+      landable: [],
+      protectedHits: [],
+      problems: [{ code: 'parse-throw', message: String(e?.message ?? e) }],
+    }
   }
   const problems = parsed.problems ?? []
   if (problems.length > 0 || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
@@ -1151,7 +1377,12 @@ export function partitionProtectedFaces(files, guardListText) {
     if (hit) protectedHits.push({ file: f, path: hit.path, kind: hit.kind ?? '' })
     else landable.push(f)
   }
-  return { state: protectedHits.length > 0 ? 'blocked' : 'clean', landable, protectedHits, problems: [] }
+  return {
+    state: protectedHits.length > 0 ? 'blocked' : 'clean',
+    landable,
+    protectedHits,
+    problems: [],
+  }
 }
 
 /** 真出口:清单按当次仓根现读(§0 盘符是现读机器事实)。读失败 ⇒ null ⇒ 上层判未判定。 */
@@ -1229,10 +1460,19 @@ export function landTicketArtifacts({
   }
   let r
   try {
-    r = commitFn({ files: dirty, message: buildArtifactCommitMessage({ ticketKey, ticketText }), env })
+    r = commitFn({
+      files: dirty,
+      message: buildArtifactCommitMessage({ ticketKey, ticketText }),
+      env,
+    })
   } catch (e) {
     // 并发索引锁/进程起不来都不许把整轮打崩:落 failed 台账,下一轮照常。
-    return { action: 'artifact-commit-failed', files: dirty, dropped, why: `代提交抛错(不牵连本轮):${e?.message ?? e}` }
+    return {
+      action: 'artifact-commit-failed',
+      files: dirty,
+      dropped,
+      why: `代提交抛错(不牵连本轮):${e?.message ?? e}`,
+    }
   }
   if (!r || r.ok !== true) {
     return {
@@ -1242,7 +1482,12 @@ export function landTicketArtifacts({
       why: `代提交未落地或未自证通过(status=${r?.status ?? '?'}):${String(r?.stderr ?? '').slice(-300) || '(无输出)'}`,
     }
   }
-  return { action: 'artifact-committed', files: dirty, dropped, why: `isolated-git 已落地并自证通过(票键 ${ticketKey},sha ${(r?.landedSha ?? '').slice(0, 12)})` }
+  return {
+    action: 'artifact-committed',
+    files: dirty,
+    dropped,
+    why: `isolated-git 已落地并自证通过(票键 ${ticketKey},sha ${(r?.landedSha ?? '').slice(0, 12)})`,
+  }
 }
 
 /** 清单现读:读不到(不存在/读失败)一律 null ⇒ 上层落 missing,不猜内容。 */
@@ -1271,9 +1516,14 @@ function gitPorcelainOf(file) {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
-  const failMsg = !r.error ? null : r.error.code === 'ENOBUFS' ? 'ENOBUFS(输出超缓冲区,不是"没有改动")' : r.error.message
+  const failMsg = !r.error
+    ? null
+    : r.error.code === 'ENOBUFS'
+      ? 'ENOBUFS(输出超缓冲区,不是"没有改动")'
+      : r.error.message
   if (failMsg) throw new Error(String(failMsg))
-  if (r.status !== 0) throw new Error(`git status 退出码 ${r.status}:${String(r.stderr ?? '').slice(-160)}`)
+  if (r.status !== 0)
+    throw new Error(`git status 退出码 ${r.status}:${String(r.stderr ?? '').slice(-160)}`)
   return String(r.stdout ?? '')
 }
 
@@ -1305,7 +1555,10 @@ function commitsBetween(fromSha, toSha) {
 function committedPathsOf(sha) {
   const out = gitRead(['show', '--name-only', '--format=', sha])
   if (out === null) return null
-  const list = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+  const list = out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
   return new Set(list.map((p) => normalizeRepoPath(p)))
 }
 
@@ -1318,17 +1571,39 @@ function committedPathsOf(sha) {
  * @param {{beforeSha?:string|null, afterSha?:string|null, advanced?:number|null,
  *          declaredPaths?:string[], committedPaths?:Set<string>|null}} p
  */
-export function judgeLandingProof({ beforeSha = null, afterSha = null, advanced = null, declaredPaths = [], committedPaths = null } = {}) {
+export function judgeLandingProof({
+  beforeSha = null,
+  afterSha = null,
+  advanced = null,
+  declaredPaths = [],
+  committedPaths = null,
+} = {}) {
   const short = (s) => String(s ?? '').slice(0, 12)
   if (!afterSha) return { ok: false, why: '提交后 HEAD 取不到 ⇒ 不记已落地(未判定不冒绿)' }
-  if (!beforeSha) return { ok: false, why: `提交前 HEAD 取不到 ⇒ 无法证明 ${short(afterSha)} 确由本轮推进` }
-  if (afterSha === beforeSha) return { ok: false, why: `HEAD 未推进(${short(afterSha)} 原地)⇒ 这枚没落地` }
-  if (advanced === null) return { ok: false, why: `HEAD 推进枚数取不到(${short(beforeSha)}→${short(afterSha)})⇒ 未判定,不记已落地` }
-  if (!Number.isFinite(advanced) || advanced < 1) return { ok: false, why: `推进枚数读数非法(${advanced})⇒ 未判定,不记已落地` }
-  if (advanced > 1) return { ok: false, why: `HEAD 一次推进 ${advanced} 枚 ⇒ 顶上那枚无法确认是本票的(并发日常态,下一轮重来)` }
-  if (!committedPaths) return { ok: false, why: `提交 ${short(afterSha)} 的改动集取不到 ⇒ 未判定,不记已落地` }
+  if (!beforeSha)
+    return { ok: false, why: `提交前 HEAD 取不到 ⇒ 无法证明 ${short(afterSha)} 确由本轮推进` }
+  if (afterSha === beforeSha)
+    return { ok: false, why: `HEAD 未推进(${short(afterSha)} 原地)⇒ 这枚没落地` }
+  if (advanced === null)
+    return {
+      ok: false,
+      why: `HEAD 推进枚数取不到(${short(beforeSha)}→${short(afterSha)})⇒ 未判定,不记已落地`,
+    }
+  if (!Number.isFinite(advanced) || advanced < 1)
+    return { ok: false, why: `推进枚数读数非法(${advanced})⇒ 未判定,不记已落地` }
+  if (advanced > 1)
+    return {
+      ok: false,
+      why: `HEAD 一次推进 ${advanced} 枚 ⇒ 顶上那枚无法确认是本票的(并发日常态,下一轮重来)`,
+    }
+  if (!committedPaths)
+    return { ok: false, why: `提交 ${short(afterSha)} 的改动集取不到 ⇒ 未判定,不记已落地` }
   const absent = declaredPaths.filter((p) => !committedPaths.has(p))
-  if (absent.length) return { ok: false, why: `提交 ${short(afterSha)} 里缺声明集 ${absent.length} 枚:${absent.slice(0, 4).join(', ')} ⇒ 不记已落地` }
+  if (absent.length)
+    return {
+      ok: false,
+      why: `提交 ${short(afterSha)} 里缺声明集 ${absent.length} 枚:${absent.slice(0, 4).join(', ')} ⇒ 不记已落地`,
+    }
   return { ok: true, landedSha: afterSha, why: `已落地并五问自证通过(${short(afterSha)})` }
 }
 
@@ -1350,14 +1625,20 @@ export function runLandCommit({ files, message, env = {} }) {
     env: { ...process.env, ...env },
   })
   const tail = excerptBothEnds(String(r.stderr ?? ''), String(r.stdout ?? ''))
-  if (r.status !== 0) return { ok: false, status: r.status ?? null, stderr: `isolated-git 退出码 ${r.status}｜${tail}` }
+  if (r.status !== 0)
+    return {
+      ok: false,
+      status: r.status ?? null,
+      stderr: `isolated-git 退出码 ${r.status}｜${tail}`,
+    }
   const afterSha = headShaOf()
   const declared = files.map((f) => normalizeRepoPath(f))
   const committed = afterSha ? committedPathsOf(afterSha) : null
   const proof = judgeLandingProof({
     beforeSha,
     afterSha,
-    advanced: beforeSha && afterSha && afterSha !== beforeSha ? commitsBetween(beforeSha, afterSha) : null,
+    advanced:
+      beforeSha && afterSha && afterSha !== beforeSha ? commitsBetween(beforeSha, afterSha) : null,
     declaredPaths: declared,
     committedPaths: committed,
   })
@@ -1392,12 +1673,17 @@ export function runLandCommit({ files, message, env = {} }) {
         model: String(env.IHUI_AI_MODEL ?? ''),
         tool: 'auto-evolve',
       })
-      if (note && note.state !== 'recorded') console.error(`⚠ AI 归属 notes 未判定:${(note?.reasons ?? []).join(',')}`)
+      if (note && note.state !== 'recorded')
+        console.error(`⚠ AI 归属 notes 未判定:${(note?.reasons ?? []).join(',')}`)
     } catch (e) {
-      console.error(`⚠ AI 归属 notes 未写入(不影响本枚落地):${String(e?.message ?? e).slice(0, 160)}`)
+      console.error(
+        `⚠ AI 归属 notes 未写入(不影响本枚落地):${String(e?.message ?? e).slice(0, 160)}`,
+      )
     }
   } else {
-    console.error('⚠ AI 归属 notes 未落笔:env.IHUI_AGENT_SESSION_ID 缺失 ⇒ 本枚无归属记录,读侧尺子会记 unjudged,不得读成"人类写的"')
+    console.error(
+      '⚠ AI 归属 notes 未落笔:env.IHUI_AGENT_SESSION_ID 缺失 ⇒ 本枚无归属记录,读侧尺子会记 unjudged,不得读成"人类写的"',
+    )
   }
   return { ok: true, status: 0, stderr: proof.why, landedSha }
 }
@@ -1430,11 +1716,32 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
   if (!dryRun) {
     const costEvents = existsSync(COST_LEDGER) ? parseLedger(readFileSync(COST_LEDGER, 'utf8')) : []
     let cost
+    let blocked
     try {
       cost = evaluate({ caps: costCaps, events: costEvents, kind: 'session' })
+      // 腿断桶自己有闸(2026-11-05):改桶不是给断腿发自由票 —— 越限同样停转并喊人,
+      // 但喊的是"派发通路在坏"(取证指向 A14/A2),不是"活儿太多"。
+      blocked = evaluate({ caps: costCaps, events: costEvents, kind: 'session-blocked' })
     } catch (e) {
       console.error(`❌ 未判定:成本熔断判不了(${e.message})⇒ 本轮不派发`)
       process.exitCode = 2
+      return
+    }
+    if (!blocked.allowed) {
+      const s = `blocked 近1h=${blocked.used.hour} 近24h=${blocked.used.day} 墙钟=${blocked.used.minutesDay.toFixed(1)}min`
+      record({ mode: 'dispatch', action: 'runner-budget-exhausted', note: s })
+      console.log(
+        `⏸ 发起腿额度熔断(与生产班次额度不同一桶):${blocked.breaches.join(';')} ⇒ 本轮停转并喊人`,
+      )
+      if (!escapeThrottled()) {
+        markEscape()
+        sendEscapeMail(
+          gates,
+          'auto-evolve:cost-blocked',
+          '[auto-evolve] 发起腿额度熔断停转(调度器自己的腿在坏)',
+          `腿断桶越限:${blocked.breaches.join(';')}(${s})。含义与 session 越限**不同**:这说明派发通路持续失败,不是活儿太多。\n取证:node scripts/check-autonomy-leg-health.mjs(看 A14-executor-face-stall 与 A2-attribution)与台账末行 runner-unavailable 的 why。`,
+        )
+      }
       return
     }
     if (!cost.allowed) {
@@ -1443,13 +1750,20 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       console.log(`⏸ 成本熔断:${cost.breaches.join(';')} ⇒ 本轮停转(软停机)`)
       if (!escapeThrottled()) {
         markEscape()
-        sendEscapeMail(gates, 'auto-evolve:cost', '[auto-evolve] 成本熔断停转', `调度层会话额度越限:${cost.breaches.join(';')}(${summary})。停派至窗口回落;放量属人工阀 budget-cap-change,须人改 scripts/data/cost-caps.json。`)
+        sendEscapeMail(
+          gates,
+          'auto-evolve:cost',
+          '[auto-evolve] 成本熔断停转',
+          `调度层会话额度越限:${cost.breaches.join(';')}(${summary})。停派至窗口回落;放量属人工阀 budget-cap-change,须人改 scripts/data/cost-caps.json。`,
+        )
       }
       return
     }
   }
   const gateCounts = summarizeHumanGates(humanGates).counts
-  console.log(`🛡 人工阀清单:自决 ${gateCounts.autonomous} 条 / 停机等人 ${gateCounts.gates} 条(命中即安全停机,不重试不绕行)`)
+  console.log(
+    `🛡 人工阀清单:自决 ${gateCounts.autonomous} 条 / 停机等人 ${gateCounts.gates} 条(命中即安全停机,不重试不绕行)`,
+  )
   const lock = acquireLock()
   if (lock.held) {
     console.log(`⏭ 上一轮仍在跑(pid=${lock.pid ?? '?'})⇒ 本轮让路(单实例闸)`)
@@ -1461,15 +1775,22 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // 都被记成「票失败」并计入连败,3 次即封票 48h —— 调度器自伤却把债摊派给真工作。
     const pf = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
     if (!dryRun && pf.state !== 'ready' && pf.state !== 'template-empty') {
-      record({ mode: 'dispatch', action: `runner-preflight-${pf.state}`, why: pf.why, missing: pf.missing ?? [] })
-      console.error(`⛔ 派发前闸未过(state=${pf.state}):${pf.why}${pf.missing?.length ? `｜不在位:${pf.missing.join(', ')}` : ''}`)
+      record({
+        mode: 'dispatch',
+        action: `runner-preflight-${pf.state}`,
+        why: pf.why,
+        missing: pf.missing ?? [],
+      })
+      console.error(
+        `⛔ 派发前闸未过(state=${pf.state}):${pf.why}${pf.missing?.length ? `｜不在位:${pf.missing.join(', ')}` : ''}`,
+      )
       if (!escapeThrottled()) {
         markEscape()
         sendEscapeMail(
           gates,
           'auto-evolve:runner-preflight',
           '[auto-evolve] 自开发发起腿不可用(派发前闸拦停)',
-          `判据:scripts/lib/autonomy-runner.mjs preflightSessionRunner\nstate=${pf.state}｜${pf.why}\n逐枚核验:${(pf.checked ?? []).map((c) => `${c.inPlace ? '✓' : '✗'} ${c.token}`).join('\n')}\n出路:改 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate(仓根写 \${REPO_ROOT} 令牌,别钉盘符),或补齐缺失产物。本轮未派任何票,票面连败计数未受影响。`
+          `判据:scripts/lib/autonomy-runner.mjs preflightSessionRunner\nstate=${pf.state}｜${pf.why}\n逐枚核验:${(pf.checked ?? []).map((c) => `${c.inPlace ? '✓' : '✗'} ${c.token}`).join('\n')}\n出路:改 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate(仓根写 \${REPO_ROOT} 令牌,别钉盘符),或补齐缺失产物。本轮未派任何票,票面连败计数未受影响。`,
         )
       }
       process.exitCode = 2
@@ -1480,7 +1801,11 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     let decisionReadout = '台账序(无候选评估文件)'
     if (!noDecide) {
       const gen = refreshAutonomyCandidates({ dryRun })
-      console.log(gen.state === 'ok' ? `🗳 自治决策候选:${gen.why}` : `⏭ 自治决策候选未刷新(${gen.why})⇒ 本轮按台账序`)
+      console.log(
+        gen.state === 'ok'
+          ? `🗳 自治决策候选:${gen.why}`
+          : `⏭ 自治决策候选未刷新(${gen.why})⇒ 本轮按台账序`,
+      )
     }
     if (!noDecide && existsSync(AUTONOMY_CANDIDATES)) {
       try {
@@ -1491,14 +1816,17 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         rows = ranked.rows
         decisionReadout = `自治决策(${ranked.why})`
         for (const s of ranked.skipped.slice(0, 8)) console.log(`⏭ L${s.line} 不入本轮:${s.reason}`)
-        if (ranked.skipped.length > 8) console.log(`⏭ 另有 ${ranked.skipped.length - 8} 枚压后/未评估(见候选文件)`)
+        if (ranked.skipped.length > 8)
+          console.log(`⏭ 另有 ${ranked.skipped.length - 8} 枚压后/未评估(见候选文件)`)
       } catch (e) {
         record({
           mode: dryRun ? 'dryrun' : 'dispatch',
           action: 'decision-undetermined',
           why: `自治决策排序不可用:${String(e?.message ?? e).slice(0, 220)}`,
         })
-        console.error(`❌ 未判定:自治决策排序不可用(${e?.message ?? e}) ⇒ 本轮不派(不回落成台账序冒充已评估)`)
+        console.error(
+          `❌ 未判定:自治决策排序不可用(${e?.message ?? e}) ⇒ 本轮不派(不回落成台账序冒充已评估)`,
+        )
         process.exitCode = 2
         return
       }
@@ -1508,12 +1836,25 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // 没有这一环,session-ok 永远只是"会话结束了"而不是"票推进了"(§10 交付一致性)。
     const settled = settlePriorDispatches({ ledger, currentRows: allRows })
     for (const s of settled) {
-      record({ mode: 'dispatch', action: 'dispatch-settled', ticketKey: s.ticketKey, ticketLine: s.ticketLine, sourceTs: s.sourceTs, settled: s.state, why: s.why })
+      record({
+        mode: 'dispatch',
+        action: 'dispatch-settled',
+        ticketKey: s.ticketKey,
+        ticketLine: s.ticketLine,
+        sourceTs: s.sourceTs,
+        settled: s.state,
+        why: s.why,
+      })
       if (s.state === 'no-progress') {
         console.log(`⚠ 结算:票 ${s.ticketKey} 会话自称成功但票行零推进 —— ${s.why}`)
         if (!escapeThrottled()) {
           markEscape()
-          sendEscapeMail(gates, 'auto-evolve:no-progress', '[auto-evolve] 有票派出去但零推进(会话"成功"不可信)', `票键:${s.ticketKey}\n票面:${s.ticketLine}\n判据:${s.why}\n这条不是"票失败"(不计连败、不封票),而是"成功判定过松"的凭据。\n出路:核该会话末轮实际做了什么(日志 .ihui-agent/state/auto-evolve-run.log);若它结构上交付不了(自动会话无提交权),这一族就得改判据 —— 派发的合格线要绑"票行推进 + 绑定票键的提交",而不是 CLI 退出码。`)
+          sendEscapeMail(
+            gates,
+            'auto-evolve:no-progress',
+            '[auto-evolve] 有票派出去但零推进(会话"成功"不可信)',
+            `票键:${s.ticketKey}\n票面:${s.ticketLine}\n判据:${s.why}\n这条不是"票失败"(不计连败、不封票),而是"成功判定过松"的凭据。\n出路:核该会话末轮实际做了什么(日志 .ihui-agent/state/auto-evolve-run.log);若它结构上交付不了(自动会话无提交权),这一族就得改判据 —— 派发的合格线要绑"票行推进 + 绑定票键的提交",而不是 CLI 退出码。`,
+          )
         }
       }
     }
@@ -1536,7 +1877,12 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         lastStoodAt: lastNonProgressHoldAt(ledger, npKey),
       })
       if (np.route === 'unjudged') {
-        record({ mode: dryRun ? 'dryrun' : 'dispatch', action: 'nonprogress-unjudged', ticketKey: npKey, why: np.why })
+        record({
+          mode: dryRun ? 'dryrun' : 'dispatch',
+          action: 'nonprogress-unjudged',
+          ticketKey: npKey,
+          why: np.why,
+        })
         console.error(`❓ 空转记忆未判定(${np.why})⇒ 本轮把这枚挪到队尾,不冒充已判(§0.3)`)
       }
       if (np.route === 'cooldown' || np.route === 'park') npHeld.push({ ticket, key: npKey, np })
@@ -1549,8 +1895,15 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       const detail = breakdownNonProgress(ledger, key)
         .map((d) => `${d.action}×${d.count}`)
         .join(' ')
-      const lastHold = [...ledger].reverse().find((e) => e.ticketKey === key && (e.action === 'non-progress-hold' || e.action === 'non-progress-parked'))
-      const isNewEpisode = !lastHold || lastHold.attempts !== np.attempts || lastHold.route !== np.route
+      const lastHold = [...ledger]
+        .reverse()
+        .find(
+          (e) =>
+            e.ticketKey === key &&
+            (e.action === 'non-progress-hold' || e.action === 'non-progress-parked'),
+        )
+      const isNewEpisode =
+        !lastHold || lastHold.attempts !== np.attempts || lastHold.route !== np.route
       if (isNewEpisode) {
         record({
           mode: 'dispatch',
@@ -1584,8 +1937,14 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     }
     const summary = `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮`
     if (rows.length === 0) {
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: npHeld.length ? 'all-held-nonprogress' : 'no-ticket', note: summary })
-      console.log(`✅ ${summary} ⇒ ${npHeld.length ? `候选全被空转记忆扣住(非"无票"),本轮结束` : '无票可派,本轮结束'}`)
+      record({
+        mode: dryRun ? 'dryrun' : 'dispatch',
+        action: npHeld.length ? 'all-held-nonprogress' : 'no-ticket',
+        note: summary,
+      })
+      console.log(
+        `✅ ${summary} ⇒ ${npHeld.length ? `候选全被空转记忆扣住(非"无票"),本轮结束` : '无票可派,本轮结束'}`,
+      )
       return
     }
     if (dispatched >= gates.dailyDispatchBudget) {
@@ -1593,7 +1952,12 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       console.log(`⏸ ${summary} ⇒ 预算耗尽,停派`)
       if (!dryRun && !escapeThrottled()) {
         markEscape()
-        sendEscapeMail(gates, 'auto-evolve:budget', '[auto-evolve] 每日派发预算耗尽', `今日已派 ${dispatched} 轮达上限 ${gates.dailyDispatchBudget}。调度器自动停派至明日;若需放量改 auto-evolve-gates.json 的 dailyDispatchBudget。`)
+        sendEscapeMail(
+          gates,
+          'auto-evolve:budget',
+          '[auto-evolve] 每日派发预算耗尽',
+          `今日已派 ${dispatched} 轮达上限 ${gates.dailyDispatchBudget}。调度器自动停派至明日;若需放量改 auto-evolve-gates.json 的 dailyDispatchBudget。`,
+        )
       }
       return
     }
@@ -1617,19 +1981,38 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       } catch {
         valveText = ''
       }
-      const valve = gateTicketByHumanValve({ ticketText: ticket.text, mode: gates.humanValveMode, valveListText: valveText })
-      const valveRoute = decideValveDispatch(valve, gates.humanValveMode, { ticketKey: key, ticketLine: ticket.text.slice(0, 160) })
+      const valve = gateTicketByHumanValve({
+        ticketText: ticket.text,
+        mode: gates.humanValveMode,
+        valveListText: valveText,
+      })
+      const valveRoute = decideValveDispatch(valve, gates.humanValveMode, {
+        ticketKey: key,
+        ticketLine: ticket.text.slice(0, 160),
+      })
       record({ mode: dryRun ? 'dryrun' : 'dispatch', ...valveRoute.ledger })
       if (valveRoute.route === 'block') {
-        console.log(`⛔ L${ticket.line} 命中人工阀「${valve.ruleId}」⇒ enforce 档不派(不重试、不绕行)`)
+        console.log(
+          `⛔ L${ticket.line} 命中人工阀「${valve.ruleId}」⇒ enforce 档不派(不重试、不绕行)`,
+        )
         if (!escapeThrottled()) {
           markEscape()
-          sendEscapeMail(gates, `auto-evolve:valve:${valve.ruleId}`, '[auto-evolve] 有票命中人工阀,已停派等人', `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n命中规则:${valve.ruleId}\n判据:${valve.reason}\n出路:这一条按清单归机主面(scripts/data/human-valve-list.json),由人执行;或由人把它摘出自动派单面。`)
+          sendEscapeMail(
+            gates,
+            `auto-evolve:valve:${valve.ruleId}`,
+            '[auto-evolve] 有票命中人工阀,已停派等人',
+            `票:L${ticket.line} ${ticket.text.slice(0, 140)}\n命中规则:${valve.ruleId}\n判据:${valve.reason}\n出路:这一条按清单归机主面(scripts/data/human-valve-list.json),由人执行;或由人把它摘出自动派单面。`,
+          )
         }
         continue
       }
       if (valveRoute.route === 'stop-round') {
-        record({ mode: 'dispatch', action: 'valve-unjudged-block', ticketKey: key, why: valve.reason })
+        record({
+          mode: 'dispatch',
+          action: 'valve-unjudged-block',
+          ticketKey: key,
+          why: valve.reason,
+        })
         console.error(`❌ 未判定:${valve.reason} ⇒ enforce 档 fail-closed,本轮停派`)
         process.exitCode = 2
         return
@@ -1637,7 +2020,9 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       if (valveRoute.route === 'skip-observe-stop') {
         // 2026-11-03 改档(用户授权):这条原先是"只记账、仍照派",现在停机不派。
         // 台账动作名保持 valve-observe-stop,并带 dispatched:false 区分"阀判停机但其实派出去了"的旧行。
-        console.log(`👁 L${ticket.line} valve-observe-stop(skip) 命中停机类「${valve.ruleId}」⇒ observe 档停机不派(不再照派白烧会话额度)`)
+        console.log(
+          `👁 L${ticket.line} valve-observe-stop(skip) 命中停机类「${valve.ruleId}」⇒ observe 档停机不派(不再照派白烧会话额度)`,
+        )
         continue
       }
       if (dispatched >= gates.dailyDispatchBudget) {
@@ -1666,34 +2051,64 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       if (!dryRun) {
         const mint = await mintSessionCredential()
         if (!mint.ok) {
-          record({ mode: 'dispatch', action: 'mint-failed', ticketKey: key, ticketLine: ticket.text.slice(0, 200), why: mint.why })
+          record({
+            mode: 'dispatch',
+            action: 'mint-failed',
+            ticketKey: key,
+            ticketLine: ticket.text.slice(0, 200),
+            why: mint.why,
+          })
           console.error(`❌ 未判定:${mint.why} ⇒ 本轮不派发(凭据供值失败,不冒充执行)`)
           process.exitCode = 2
           return
         }
       }
       const res = dispatchSession(gates, ticket, dryRun)
-      record({ mode: dryRun ? 'dryrun' : 'dispatch', action: res.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), exitCode: res.exitCode ?? null, stopReason: res.stopReason ?? null, durationMs: res.durationMs ?? null, tokens: res.tokens ?? null, tokensMeasured: res.tokensMeasured === true, costUsd: res.costUsd ?? null, transcript: res.transcript ?? null, writeOk: res.writeOk ?? null, writeTried: res.writeTried ?? null, runtimeNormalized: res.runtimeNormalized ?? null, why: res.why ?? '' })
+      record({
+        mode: dryRun ? 'dryrun' : 'dispatch',
+        action: res.action,
+        ticketKey: key,
+        ticketLine: ticket.text.slice(0, 200),
+        exitCode: res.exitCode ?? null,
+        stopReason: res.stopReason ?? null,
+        durationMs: res.durationMs ?? null,
+        tokens: res.tokens ?? null,
+        tokensMeasured: res.tokensMeasured === true,
+        costUsd: res.costUsd ?? null,
+        transcript: res.transcript ?? null,
+        writeOk: res.writeOk ?? null,
+        writeTried: res.writeTried ?? null,
+        runtimeNormalized: res.runtimeNormalized ?? null,
+        failureKind: res.failureKind ?? null,
+        why: res.why ?? '',
+      })
       // O6502 记账腿:只有真派(非 dry-run)且拿到墙钟才进账;记不进去就如实告警,不冒充"额度还够"。
       // 第 3 期④:量到 token 就一并记账(单会话闸 + 24 小时闸的取数口);量不到只记墙钟并留响声。
+      // 分桶改判(2026-11-05 立,现读实测):近 24h 24 次记账里 21 次是 `session-failed` ——
+      // **调度器自己腿断的班次**与真跑完的班次过去进同一个 `session` 计数器 ⇒ 环境故障吃光一天
+      // 生产额度,环自我饿死(手工触发也被"近24h 24 次 ≥ 上限 24"挡住)。腿断仍有自己的闸
+      // (cost-caps.json 的 `session-blocked`),不是自由票。
       if (!dryRun && Number.isFinite(res.durationMs) && res.durationMs > 0) {
+        const blocked = isNonTicketFailure(res.failureKind)
         try {
           mkdirSync(dirname(COST_LEDGER), { recursive: true })
           appendFileSync(
             COST_LEDGER,
             chargeLine({
-              kind: 'session',
+              kind: blocked ? 'session-blocked' : 'session',
               minutes: Number((res.durationMs / 60000).toFixed(2)),
               tokens: res.tokensMeasured === true ? res.tokens : undefined,
-              note: `auto-evolve ${res.action}`,
+              note: `auto-evolve ${res.action}${blocked ? ` failureKind=${res.failureKind}` : ''}`,
             }),
-            'utf8'
+            'utf8',
           )
         } catch (e) {
           console.error(`⚠ 成本记账失败(本轮照常收尾,但下一轮判据可能偏松):${e.message}`)
         }
         if (res.tokensMeasured !== true) {
-          console.error('⚠ token 计量未判定(终态行无 usage:超时/被杀/非 json 通路)⇒ 本轮只记墙钟,不虚记 token 额度')
+          console.error(
+            '⚠ token 计量未判定(终态行无 usage:超时/被杀/非 json 通路)⇒ 本轮只记墙钟,不虚记 token 额度',
+          )
         }
       }
       if (res.action === 'template-empty') {
@@ -1711,7 +2126,14 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
           commitFn: runLandCommit,
           dryRun: true,
         })
-        record({ mode: 'dryrun', action: preview.action, ticketKey: key, files: preview.files, dropped: preview.dropped, why: preview.why })
+        record({
+          mode: 'dryrun',
+          action: preview.action,
+          ticketKey: key,
+          files: preview.files,
+          dropped: preview.dropped,
+          why: preview.why,
+        })
         console.log(`🧪 dry-run 落账预览(${preview.action}):${preview.why}`)
         if (preview.files.length) console.log(`   会提交:${preview.files.join(', ')}`)
         console.log(`✅ dry-run 记账完成(不真派)`)
@@ -1720,16 +2142,35 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       dispatched++
       // 日预算的**跨轮**计数读的就是这一行(2026-11-04 实测:调度器重构后再没人发射过 `dispatched`,而
       // 两处计数器仍按 action==='dispatched' 数 ⇒ 每轮都读成"今日已派 0/6",日预算只剩轮内那一半)。
-      record({ mode: 'dispatch', action: 'dispatched', ticketKey: key, ticketLine: ticket.text.slice(0, 200), why: `真派第 ${dispatched} 次(预算 ${gates.dailyDispatchBudget}/日)` })
+      record({
+        mode: 'dispatch',
+        action: 'dispatched',
+        ticketKey: key,
+        ticketLine: ticket.text.slice(0, 200),
+        why: `真派第 ${dispatched} 次(预算 ${gates.dailyDispatchBudget}/日)`,
+      })
       // ---- 故障分型(2026-11-01 立):发起腿级失败 ≠ 票面失败 ----
       // 环境级(ERR_MODULE_NOT_FOUND/ENOENT/路径不存在)是调度器自己的腿断了:
       // 计进票连败 = 每换一次机就把整张派单面逐枚封禁 48h,而真因一行也没被点名。
       if (isNonTicketFailure(res.failureKind) || res.action === 'runner-undetermined') {
-        record({ mode: 'dispatch', action: 'runner-unavailable', ticketKey: key, ticketLine: ticket.text.slice(0, 200), why: res.why })
-        console.error(`⛔ 发起腿故障(分型=${res.failureKind ?? res.action},不计票连败、不封票):${res.why}`)
+        record({
+          mode: 'dispatch',
+          action: 'runner-unavailable',
+          ticketKey: key,
+          ticketLine: ticket.text.slice(0, 200),
+          why: res.why,
+        })
+        console.error(
+          `⛔ 发起腿故障(分型=${res.failureKind ?? res.action},不计票连败、不封票):${res.why}`,
+        )
         if (!escapeThrottled()) {
           markEscape()
-          sendEscapeMail(gates, `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`, `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`, `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`)
+          sendEscapeMail(
+            gates,
+            `auto-evolve:runner-${res.failureKind ?? 'undetermined'}`,
+            `[auto-evolve] 起会话失败已分型为调度器侧(${res.failureKind ?? res.action}),已停派本轮`,
+            `票面(未被计入连败):L${ticket.line} ${ticket.text.slice(0, 120)}\n分型:${res.failureKind ?? res.action}｜${res.why}\n出路:核 scripts/data/auto-evolve-gates.json 的 sessionCommandTemplate 与 CLI 产物是否在位;本器判据 = scripts/lib/autonomy-runner.mjs。`,
+          )
         }
         process.exitCode = 2
         return
@@ -1737,18 +2178,32 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       if (res.action === 'session-no-progress') {
         // 零推进 ≠ 腿故障 ≠ 票坏:它由空转阶梯(rotate/park)负责,不走连败封票,也不进落账腿
         // (会话一个文件都没动,落账腿只能再记一行 manifest-missing ⇒ 同一件事双记账)。
-        console.log(`⚠ 整班零推进(exit=3 no_progress,票键 ${key})⇒ 不计连败、不封票、跳过落账腿;阶梯负责这一族`)
+        console.log(
+          `⚠ 整班零推进(exit=3 no_progress,票键 ${key})⇒ 不计连败、不封票、跳过落账腿;阶梯负责这一族`,
+        )
         return
       }
       if (res.action === 'session-failed' || res.action === 'session-timeout') {
         const streak = failureStreakOf(readLedger(), key)
         if (streak >= gates.failureStreakLimit) {
           const until = new Date(Date.now() + gates.quarantineHours * 3600_000).toISOString()
-          record({ mode: 'dispatch', action: 'quarantined', ticketKey: key, ticketLine: ticket.text.slice(0, 200), until, why: `连败 ${streak} 次(阈值 ${gates.failureStreakLimit})` })
+          record({
+            mode: 'dispatch',
+            action: 'quarantined',
+            ticketKey: key,
+            ticketLine: ticket.text.slice(0, 200),
+            until,
+            why: `连败 ${streak} 次(阈值 ${gates.failureStreakLimit})`,
+          })
           console.log(`⛔ 同票连败 ${streak} 次 ⇒ 封禁至 ${until}`)
           if (!escapeThrottled()) {
             markEscape()
-            sendEscapeMail(gates, `auto-evolve:quarantine:${key.slice(0, 8)}`, '[auto-evolve] 票被自动封禁', `票:L${ticket.line} ${ticket.text.slice(0, 120)}\n连败 ${streak} 次(阈值 ${gates.failureStreakLimit}),自动封禁至 ${until}。封禁明细与连败原因见 ${LEDGER};解封等 until 到期或人工摘除 quarantined 行。`)
+            sendEscapeMail(
+              gates,
+              `auto-evolve:quarantine:${key.slice(0, 8)}`,
+              '[auto-evolve] 票被自动封禁',
+              `票:L${ticket.line} ${ticket.text.slice(0, 120)}\n连败 ${streak} 次(阈值 ${gates.failureStreakLimit}),自动封禁至 ${until}。封禁明细与连败原因见 ${LEDGER};解封等 until 到期或人工摘除 quarantined 行。`,
+            )
           }
         }
         return
@@ -1771,9 +2226,19 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
         commitFn: runLandCommit,
         dryRun: false,
       })
-      record({ mode: 'dispatch', action: landed.action, ticketKey: key, ticketLine: ticket.text.slice(0, 200), files: landed.files, dropped: landed.dropped, why: landed.why })
+      record({
+        mode: 'dispatch',
+        action: landed.action,
+        ticketKey: key,
+        ticketLine: ticket.text.slice(0, 200),
+        files: landed.files,
+        dropped: landed.dropped,
+        why: landed.why,
+      })
       if (landed.action === 'artifact-committed') {
-        console.log(`✅ 落账:代提交 ${landed.files.length} 枚 —— ${landed.files.join(', ')}${landed.dropped.length ? `(剔除无改动 ${landed.dropped.length} 枚)` : ''}`)
+        console.log(
+          `✅ 落账:代提交 ${landed.files.length} 枚 —— ${landed.files.join(', ')}${landed.dropped.length ? `(剔除无改动 ${landed.dropped.length} 枚)` : ''}`,
+        )
       } else if (landed.action === 'artifact-commit-failed') {
         console.error(`⚠ 落账未落地(${landed.action}):${landed.why} ⇒ 本轮照常收尾,下一轮重试`)
       } else {
@@ -1818,12 +2283,20 @@ async function probeSession({ gates, dryRun = false } = {}) {
     writeFileSync(promptFile, promptText, 'utf8')
     const resolvedProbe = resolveSessionCommand(gates.sessionCommandTemplate, ROOT)
     if (resolvedProbe === null) {
-      record({ mode: 'probe', action: 'probe-undetermined', why: '当次仓根取不到 ⇒ 模板无法归一,不冒充已探测' })
+      record({
+        mode: 'probe',
+        action: 'probe-undetermined',
+        why: '当次仓根取不到 ⇒ 模板无法归一,不冒充已探测',
+      })
       console.error('❌ 未判定:当次仓根取不到 ⇒ probe 不做(不回落原模板)')
       process.exitCode = 2
       return
     }
-    const filledProbe = fillTemplate(resolvedProbe, { promptFile, ticketLine: 'probe 自检', ticketKey: 'probe' })
+    const filledProbe = fillTemplate(resolvedProbe, {
+      promptFile,
+      ticketLine: 'probe 自检',
+      ticketKey: 'probe',
+    })
     const cmd = normalizeSessionRuntime(filledProbe).cmd
     const t0 = Date.now()
     // windowsVerbatimArguments 必带:node 对 cmd.exe 有默认引用改写,会把模板里的引号拼进
@@ -1847,7 +2320,10 @@ async function probeSession({ gates, dryRun = false } = {}) {
     // (transcript 20261101T151837251-probe-probe-probe-fail 实证)。probe 的职责是验「起会话通路」,
     // 不是验「能跑危险命令」——后者是自动会话的结构性边界(A7 维已登记)。改为确定性只读校验:
     // read_file 在 headless 下自动放行,回显行是机器可判的固定标记,弱模型也无发挥空间。
-    const passed = r.status === 0 && String(r.stdout ?? '').includes('"stopReason":"end_turn"') && String(r.stdout ?? '').includes('export const TRANSCRIPT_DIR')
+    const passed =
+      r.status === 0 &&
+      String(r.stdout ?? '').includes('"stopReason":"end_turn"') &&
+      String(r.stdout ?? '').includes('export const TRANSCRIPT_DIR')
     // 第 4 格·会话全文落盘:probe 同样要留证据(它跑通说明通路健康,跑挂说明哪一步断)。
     const transcript = persistTranscript({
       mode: 'probe',
@@ -1862,8 +2338,19 @@ async function probeSession({ gates, dryRun = false } = {}) {
       stderr: r.stderr ?? '',
       at: t0,
     })
-    record({ mode: 'probe', action: passed ? 'probe-ok' : 'probe-fail', exitCode: r.status ?? null, durationMs, transcript, why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}` })
-    console.log(passed ? `✅ probe 通过(${(durationMs / 1000).toFixed(1)}s)⇒ 起会话通路健康` : `❌ probe 未通过(status=${r.status})⇒ 记台账 probe-fail`)
+    record({
+      mode: 'probe',
+      action: passed ? 'probe-ok' : 'probe-fail',
+      exitCode: r.status ?? null,
+      durationMs,
+      transcript,
+      why: passed ? '' : `status=${r.status} stdout 尾部=${String(r.stdout ?? '').slice(-160)}`,
+    })
+    console.log(
+      passed
+        ? `✅ probe 通过(${(durationMs / 1000).toFixed(1)}s)⇒ 起会话通路健康`
+        : `❌ probe 未通过(status=${r.status})⇒ 记台账 probe-fail`,
+    )
     if (!passed) process.exitCode = 1
   } finally {
     releaseLock()
@@ -1881,14 +2368,19 @@ function printStatus() {
   }
   const ledger = readLedger()
   const today = todayKey()
-  const dispatched = ledger.filter((e) => e.action === 'dispatched' && String(e.ts ?? '').startsWith(today)).length
+  const dispatched = ledger.filter(
+    (e) => e.action === 'dispatched' && String(e.ts ?? '').startsWith(today),
+  ).length
   const quarantined = []
   for (const e of ledger) {
     if (e.action !== 'quarantined') continue
     const until = Date.parse(e.until)
-    if (Number.isFinite(until) && until > Date.now()) quarantined.push({ key: e.ticketKey, until: e.until, line: e.ticketLine })
+    if (Number.isFinite(until) && until > Date.now())
+      quarantined.push({ key: e.ticketKey, until: e.until, line: e.ticketLine })
   }
-  console.log(`闸门:enabled=${gates.enabled} 预算 ${dispatched}/${gates.dailyDispatchBudget} 轮(今日) 连败阈值 ${gates.failureStreakLimit} 封禁 ${gates.quarantineHours}h 会话上限 ${gates.maxSessionMinutes}min`)
+  console.log(
+    `闸门:enabled=${gates.enabled} 预算 ${dispatched}/${gates.dailyDispatchBudget} 轮(今日) 连败阈值 ${gates.failureStreakLimit} 封禁 ${gates.quarantineHours}h 会话上限 ${gates.maxSessionMinutes}min`,
+  )
   const pfStatus = preflightSessionRunner(gates.sessionCommandTemplate, ROOT)
   const pfReadout =
     pfStatus.state === 'ready'
@@ -1901,7 +2393,9 @@ function printStatus() {
   // O6504 / O6502 现读:调度层真的把这两份清单读进来了,而不是只写在文档里。
   try {
     const hg = summarizeHumanGates(loadHumanGates(readFileSync(HUMAN_GATES_JSON, 'utf8')))
-    console.log(`人工阀:自决 ${hg.counts.autonomous} 条 / 停机等人 ${hg.counts.gates} 条(${hg.gates.map((g) => g.id).join(' / ')})`)
+    console.log(
+      `人工阀:自决 ${hg.counts.autonomous} 条 / 停机等人 ${hg.counts.gates} 条(${hg.gates.map((g) => g.id).join(' / ')})`,
+    )
   } catch (e) {
     console.log(`人工阀:❌ 未判定(${e.message})`)
   }
@@ -1909,14 +2403,17 @@ function printStatus() {
     const caps = loadCaps(readFileSync(COST_CAPS_JSON, 'utf8'))
     const events = existsSync(COST_LEDGER) ? parseLedger(readFileSync(COST_LEDGER, 'utf8')) : []
     const c = evaluate({ caps, events, kind: 'session' })
-    console.log(`成本熔断(session):近1h ${c.used.hour}/${c.caps.perHour ?? '-'} 次 近24h ${c.used.day}/${c.caps.perDay ?? '-'} 次 墙钟 ${c.used.minutesDay.toFixed(1)}/${c.caps.minutesPerDay ?? '-'} 分钟 tokens 近1h ${c.used.tokensHour}/${c.caps.tokensPerHour ?? '-'} 近24h ${c.used.tokensDay}/${c.caps.tokensPerDay ?? '-'} 单会话峰值 ${c.used.maxTokens}/${c.caps.tokensPerSession ?? '-'} ⇒ ${c.allowed ? '放行' : '停转'}`)
+    console.log(
+      `成本熔断(session):近1h ${c.used.hour}/${c.caps.perHour ?? '-'} 次 近24h ${c.used.day}/${c.caps.perDay ?? '-'} 次 墙钟 ${c.used.minutesDay.toFixed(1)}/${c.caps.minutesPerDay ?? '-'} 分钟 tokens 近1h ${c.used.tokensHour}/${c.caps.tokensPerHour ?? '-'} 近24h ${c.used.tokensDay}/${c.caps.tokensPerDay ?? '-'} 单会话峰值 ${c.used.maxTokens}/${c.caps.tokensPerSession ?? '-'} ⇒ ${c.allowed ? '放行' : '停转'}`,
+    )
   } catch (e) {
     console.log(`成本熔断:❌ 未判定(${e.message})`)
   }
   console.log(`当前封票:${quarantined.length === 0 ? '无' : ''}`)
   for (const q of quarantined) console.log(`  - ${q.key} 至 ${q.until} :: ${q.line}`)
   console.log(`台账最近 5 条:`)
-  for (const e of ledger.slice(-5)) console.log(`  ${e.ts} ${e.mode}/${e.action}${e.why ? ` :: ${e.why}` : ''}`)
+  for (const e of ledger.slice(-5))
+    console.log(`  ${e.ts} ${e.mode}/${e.action}${e.why ? ` :: ${e.why}` : ''}`)
 }
 
 /**
@@ -1973,19 +2470,25 @@ function installTask({ apply = false } = {}) {
     process.exitCode = 2
     return
   }
-  const r = spawnSync(PS51, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: ROOT,
-    windowsHide: true,
-    timeout: 90_000,
-    encoding: 'utf8',
-  })
+  const r = spawnSync(
+    PS51,
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ps1],
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      windowsHide: true,
+      timeout: 90_000,
+      encoding: 'utf8',
+    },
+  )
   const out = String(r.stdout ?? '')
   if (r.status === 0 && /STATE=3\s+INTERVAL=PT1H/.test(out)) {
     console.log(`✅ 计划任务已注册(IHUI-AI auto-evolve,每小时,InteractiveToken):${out.trim()}`)
     record({ mode: 'install', action: 'task-registered', why: out.trim() })
   } else {
-    console.error(`❌ 注册未判定(status=${r.status}):${(String(r.stderr ?? '')).slice(-200) || out.slice(-200)}`)
+    console.error(
+      `❌ 注册未判定(status=${r.status}):${String(r.stderr ?? '').slice(-200) || out.slice(-200)}`,
+    )
     process.exitCode = 2
   }
 }
@@ -2001,15 +2504,87 @@ function selfTest() {
   }
   console.log('self-test:')
   // S1 形状锁(成对:好配置过 / 坏配置抛)
-  ok('S1a 形状锁:合法配置通过', (() => { try { return loadGates(() => JSON.stringify({ enabled: false, dailyDispatchBudget: 6, failureStreakLimit: 3, quarantineHours: 48, maxSessionMinutes: 45, sessionCommandTemplate: '', ticketWhitelist: ['readme'] })).enabled === false } catch { return false } })())
-  ok('S1b 形状锁:缺白名单抛 GateShapeError', (() => { try { loadGates(() => '{}'); return false } catch (e) { return e instanceof GateShapeError } })())
-  ok('S1c 形状锁:非法 JSON 抛 GateShapeError', (() => { try { loadGates(() => 'not-json'); return false } catch (e) { return e instanceof GateShapeError } })())
-  ok('S1d 形状锁:failureStreakLimit=1 拒(首败即封误伤)', (() => { try { loadGates(() => JSON.stringify({ enabled: true, dailyDispatchBudget: 1, failureStreakLimit: 1, quarantineHours: 1, maxSessionMinutes: 1, sessionCommandTemplate: '', ticketWhitelist: ['x'] })); return false } catch { return true } })())
+  ok(
+    'S1a 形状锁:合法配置通过',
+    (() => {
+      try {
+        return (
+          loadGates(() =>
+            JSON.stringify({
+              enabled: false,
+              dailyDispatchBudget: 6,
+              failureStreakLimit: 3,
+              quarantineHours: 48,
+              maxSessionMinutes: 45,
+              sessionCommandTemplate: '',
+              ticketWhitelist: ['readme'],
+            }),
+          ).enabled === false
+        )
+      } catch {
+        return false
+      }
+    })(),
+  )
+  ok(
+    'S1b 形状锁:缺白名单抛 GateShapeError',
+    (() => {
+      try {
+        loadGates(() => '{}')
+        return false
+      } catch (e) {
+        return e instanceof GateShapeError
+      }
+    })(),
+  )
+  ok(
+    'S1c 形状锁:非法 JSON 抛 GateShapeError',
+    (() => {
+      try {
+        loadGates(() => 'not-json')
+        return false
+      } catch (e) {
+        return e instanceof GateShapeError
+      }
+    })(),
+  )
+  ok(
+    'S1d 形状锁:failureStreakLimit=1 拒(首败即封误伤)',
+    (() => {
+      try {
+        loadGates(() =>
+          JSON.stringify({
+            enabled: true,
+            dailyDispatchBudget: 1,
+            failureStreakLimit: 1,
+            quarantineHours: 1,
+            maxSessionMinutes: 1,
+            sessionCommandTemplate: '',
+            ticketWhitelist: ['x'],
+          }),
+        )
+        return false
+      } catch {
+        return true
+      }
+    })(),
+  )
   // S2 白名单
   ok('S2a 白名单命中(标题区)', matchWhitelist('**README 数字收尾** 同步四语', ['readme']) === true)
-  ok('S2b 白名单不命中(标题无关)', matchWhitelist('**重构鉴权中间件** 参考 readme 格式', ['readme', '文档']) === false, )
-  ok('S2c 白名单只看标题不进正文(实测缺口回归)', matchWhitelist('**第 3 期·进化回流**:失败票归因沉淀;pnpm 依赖升级自动生成票', ['依赖升级']) === false)
-  ok('S2d 无加粗段回落前 60 字', matchWhitelist('- [ ] 补 README 数字对齐说明,其余正文很长很长很长很长很长很长', ['readme']) === true)
+  ok(
+    'S2b 白名单不命中(标题无关)',
+    matchWhitelist('**重构鉴权中间件** 参考 readme 格式', ['readme', '文档']) === false,
+  )
+  ok(
+    'S2c 白名单只看标题不进正文(实测缺口回归)',
+    matchWhitelist('**第 3 期·进化回流**:失败票归因沉淀;pnpm 依赖升级自动生成票', ['依赖升级']) ===
+      false,
+  )
+  ok(
+    'S2d 无加粗段回落前 60 字',
+    matchWhitelist('- [ ] 补 README 数字对齐说明,其余正文很长很长很长很长很长很长', ['readme']) ===
+      true,
+  )
   // S3 票键与连败
   const k1 = ticketKeyOf('- [ ] 修 README 数字 〔注记〕')
   const k2 = ticketKeyOf('修 README 数字')
@@ -2021,69 +2596,217 @@ function selfTest() {
     { ticketKey: 'k', action: 'session-failed' },
   ]
   ok('S3b 连败计数(其他票不打断, dispatched 打断)', failureStreakOf(streakLedger, 'k') === 2)
-  ok('S3c 封票未到期判出', (() => { const until = new Date(Date.now() + 3600_000).toISOString(); return quarantinedUntilOf([{ ticketKey: 'k', action: 'quarantined', until }], 'k') !== null })())
-  ok('S3d 封票已到期不拦', quarantinedUntilOf([{ ticketKey: 'k', action: 'quarantined', until: new Date(Date.now() - 1000).toISOString() }], 'k') === null)
+  ok(
+    'S3c 封票未到期判出',
+    (() => {
+      const until = new Date(Date.now() + 3600_000).toISOString()
+      return quarantinedUntilOf([{ ticketKey: 'k', action: 'quarantined', until }], 'k') !== null
+    })(),
+  )
+  ok(
+    'S3d 封票已到期不拦',
+    quarantinedUntilOf(
+      [{ ticketKey: 'k', action: 'quarantined', until: new Date(Date.now() - 1000).toISOString() }],
+      'k',
+    ) === null,
+  )
   // S4 模板
-  ok('S4 模板填充', fillTemplate('run --prompt {promptFile} --ticket {ticketKey}', { promptFile: 'a.md', ticketKey: 'kk' }) === 'run --prompt a.md --ticket kk')
+  ok(
+    'S4 模板填充',
+    fillTemplate('run --prompt {promptFile} --ticket {ticketKey}', {
+      promptFile: 'a.md',
+      ticketKey: 'kk',
+    }) === 'run --prompt a.md --ticket kk',
+  )
   // S5 派单面解析(元信息行忽略)
-  const sample = ['── 剔除统计 ──', '  --exclude-inflight:暂移 7 行 ⇒ 出单 2 行 —— L7616 / L7644', '── 7 行(判定面:HEAD blob)──', '  L7626  - [ ] 补号', '  L7643  - [ ] `--allow-dangerous` 确认旁路仍在调用方。'].join('\n')
+  const sample = [
+    '── 剔除统计 ──',
+    '  --exclude-inflight:暂移 7 行 ⇒ 出单 2 行 —— L7616 / L7644',
+    '── 7 行(判定面:HEAD blob)──',
+    '  L7626  - [ ] 补号',
+    '  L7643  - [ ] `--allow-dangerous` 确认旁路仍在调用方。',
+  ].join('\n')
   const parsed = parseTicketRows(sample)
-  ok('S5 解析器:只取判定面 L 行', parsed.length === 2 && parsed[0].line === 7626 && parsed[1].text.includes('allow-dangerous'))
+  ok(
+    'S5 解析器:只取判定面 L 行',
+    parsed.length === 2 && parsed[0].line === 7626 && parsed[1].text.includes('allow-dangerous'),
+  )
   // S6 锁判活
-  ok('S6 pid 判活:自身活 / 不存在者死', isPidAlive(process.pid) === true && isPidAlive(999999999) === false)
+  ok(
+    'S6 pid 判活:自身活 / 不存在者死',
+    isPidAlive(process.pid) === true && isPidAlive(999999999) === false,
+  )
   // S7 取票唯一入口形状(源码级:第二份拼装即 §22c 反面)
-  ok('S7 取票唯一入口 = plan-tasks + 三旗', PLAN_TASKS.endsWith('plan-tasks.mjs') && DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight')
+  ok(
+    'S7 取票唯一入口 = plan-tasks + 三旗',
+    PLAN_TASKS.endsWith('plan-tasks.mjs') &&
+      DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight',
+  )
   // S8 token 计量取数(第 3 期④):终态 complete 行的 usage 是唯一取数口,缺失/形状坏一律未判定
-  const complete = '{"type":"complete","stopReason":"end_turn","usage":{"promptTokens":900,"completionTokens":100,"totalTokens":1000,"estimatedCostUsd":0.12}}'
+  const complete =
+    '{"type":"complete","stopReason":"end_turn","usage":{"promptTokens":900,"completionTokens":100,"totalTokens":1000,"estimatedCostUsd":0.12}}'
   const u1 = parseSessionUsage(`{"type":"start","prompt":"x"}\n${complete}\n`)
-  ok('S8a complete 行 usage → tokens/成本', u1.measured === true && u1.tokens === 1000 && u1.costUsd === 0.12)
-  ok('S8b 无 complete 行(超时/被杀)→ 未计量', parseSessionUsage('{"type":"message_delta","text":"x"}').measured === false)
-  ok('S9a 结算:票已从派单面消失 ⇒ line-gone(结清摘行算推进)', (() => {
-    const led = [{ action: 'session-ok', ticketKey: 'kk', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B1 原文' }]
-    const r = settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') })
-    return r.length === 1 && r[0].state === 'line-gone'
-  })())
-  ok('S9b 结算:票行逐字未变 ⇒ no-progress(会话自称成功也不算推进)', (() => {
-    const text = 'B2 **同一张票** 一字未动'
-    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(text), ts: '2026-10-31T05:00:00.000Z', ticketLine: text }]
-    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text, line: 9 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
-    return r.length === 1 && r[0].state === 'no-progress'
-  })())
-  ok('S9c 结算:票行被改写(加注记/翻勾)⇒ line-changed', (() => {
-    const then = 'B3 **原票面** 前缀一致的部分'
-    const now2 = 'B3 **原票面** 前缀一致的部分 —— 已追加进展注记'
-    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
-    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 3 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
-    return r.length === 1 && r[0].state === 'line-changed'
-  })())
-  ok('S9d 派单面取不到 ⇒ unjudged,不猜成"没推进"也不猜成"推进了"', (() => {
-    const led = [{ action: 'session-ok', ticketKey: 'k4', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B4' }]
-    const r = settlePriorDispatches({ ledger: led, currentRows: null, now: Date.parse('2026-11-01T05:00:00.000Z') })
-    return r.length === 1 && r[0].state === 'unjudged'
-  })())
-  ok('S9e 已结算的成功不重复结算(结算腿每轮都跑也不该把同一枚记两次)', (() => {
-    const led = [
-      { action: 'session-ok', ticketKey: 'k5', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B5' },
-      { action: 'dispatch-settled', ticketKey: 'k5', sourceTs: '2026-10-31T05:00:00.000Z', settled: 'line-gone' },
-    ]
-    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
-  })())
-  ok('S9g 反向锁:票键随尾部注记漂移但行首同源 ⇒ line-changed(不得冒充"结清摘行")', (() => {
-    const then = 'B12 **注记漂移试验** 原文'
-    const now2 = then + ' —— 会话只追加了一句进展'
-    const led = [{ action: 'session-ok', ticketKey: ticketKeyOf(then), ts: '2026-10-31T05:00:00.000Z', ticketLine: then }]
-    const r = settlePriorDispatches({ ledger: led, currentRows: [{ text: now2, line: 12 }], now: Date.parse('2026-11-01T05:00:00.000Z') })
-    return ticketKeyOf(then) !== ticketKeyOf(now2) && r.length === 1 && r[0].state === 'line-changed'
-  })())
-  ok('S9f 窗口语义仍可用:显式传 windowHours 时超窗的成功不进结算', (() => {
-    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
-    return settlePriorDispatches({ ledger: led, currentRows: [], windowHours: 48, now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 0
-  })())
-  ok('S9h 默认不限窗口 ⇒ 超窗的成功也结清(否则悬案永久化,尺子 A7 结构上恒红)', (() => {
-    const led = [{ action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' }]
-    return settlePriorDispatches({ ledger: led, currentRows: [], now: Date.parse('2026-11-01T05:00:00.000Z') }).length === 1
-  })())
-  ok('S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)', parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false)
+  ok(
+    'S8a complete 行 usage → tokens/成本',
+    u1.measured === true && u1.tokens === 1000 && u1.costUsd === 0.12,
+  )
+  ok(
+    'S8b 无 complete 行(超时/被杀)→ 未计量',
+    parseSessionUsage('{"type":"message_delta","text":"x"}').measured === false,
+  )
+  ok(
+    'S9a 结算:票已从派单面消失 ⇒ line-gone(结清摘行算推进)',
+    (() => {
+      const led = [
+        {
+          action: 'session-ok',
+          ticketKey: 'kk',
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: 'B1 原文',
+        },
+      ]
+      const r = settlePriorDispatches({
+        ledger: led,
+        currentRows: [],
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+      })
+      return r.length === 1 && r[0].state === 'line-gone'
+    })(),
+  )
+  ok(
+    'S9b 结算:票行逐字未变 ⇒ no-progress(会话自称成功也不算推进)',
+    (() => {
+      const text = 'B2 **同一张票** 一字未动'
+      const led = [
+        {
+          action: 'session-ok',
+          ticketKey: ticketKeyOf(text),
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: text,
+        },
+      ]
+      const r = settlePriorDispatches({
+        ledger: led,
+        currentRows: [{ text, line: 9 }],
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+      })
+      return r.length === 1 && r[0].state === 'no-progress'
+    })(),
+  )
+  ok(
+    'S9c 结算:票行被改写(加注记/翻勾)⇒ line-changed',
+    (() => {
+      const then = 'B3 **原票面** 前缀一致的部分'
+      const now2 = 'B3 **原票面** 前缀一致的部分 —— 已追加进展注记'
+      const led = [
+        {
+          action: 'session-ok',
+          ticketKey: ticketKeyOf(then),
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: then,
+        },
+      ]
+      const r = settlePriorDispatches({
+        ledger: led,
+        currentRows: [{ text: now2, line: 3 }],
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+      })
+      return r.length === 1 && r[0].state === 'line-changed'
+    })(),
+  )
+  ok(
+    'S9d 派单面取不到 ⇒ unjudged,不猜成"没推进"也不猜成"推进了"',
+    (() => {
+      const led = [
+        { action: 'session-ok', ticketKey: 'k4', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B4' },
+      ]
+      const r = settlePriorDispatches({
+        ledger: led,
+        currentRows: null,
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+      })
+      return r.length === 1 && r[0].state === 'unjudged'
+    })(),
+  )
+  ok(
+    'S9e 已结算的成功不重复结算(结算腿每轮都跑也不该把同一枚记两次)',
+    (() => {
+      const led = [
+        { action: 'session-ok', ticketKey: 'k5', ts: '2026-10-31T05:00:00.000Z', ticketLine: 'B5' },
+        {
+          action: 'dispatch-settled',
+          ticketKey: 'k5',
+          sourceTs: '2026-10-31T05:00:00.000Z',
+          settled: 'line-gone',
+        },
+      ]
+      return (
+        settlePriorDispatches({
+          ledger: led,
+          currentRows: [],
+          now: Date.parse('2026-11-01T05:00:00.000Z'),
+        }).length === 0
+      )
+    })(),
+  )
+  ok(
+    'S9g 反向锁:票键随尾部注记漂移但行首同源 ⇒ line-changed(不得冒充"结清摘行")',
+    (() => {
+      const then = 'B12 **注记漂移试验** 原文'
+      const now2 = then + ' —— 会话只追加了一句进展'
+      const led = [
+        {
+          action: 'session-ok',
+          ticketKey: ticketKeyOf(then),
+          ts: '2026-10-31T05:00:00.000Z',
+          ticketLine: then,
+        },
+      ]
+      const r = settlePriorDispatches({
+        ledger: led,
+        currentRows: [{ text: now2, line: 12 }],
+        now: Date.parse('2026-11-01T05:00:00.000Z'),
+      })
+      return (
+        ticketKeyOf(then) !== ticketKeyOf(now2) && r.length === 1 && r[0].state === 'line-changed'
+      )
+    })(),
+  )
+  ok(
+    'S9f 窗口语义仍可用:显式传 windowHours 时超窗的成功不进结算',
+    (() => {
+      const led = [
+        { action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' },
+      ]
+      return (
+        settlePriorDispatches({
+          ledger: led,
+          currentRows: [],
+          windowHours: 48,
+          now: Date.parse('2026-11-01T05:00:00.000Z'),
+        }).length === 0
+      )
+    })(),
+  )
+  ok(
+    'S9h 默认不限窗口 ⇒ 超窗的成功也结清(否则悬案永久化,尺子 A7 结构上恒红)',
+    (() => {
+      const led = [
+        { action: 'session-ok', ticketKey: 'k6', ts: '2026-10-01T05:00:00.000Z', ticketLine: 'B6' },
+      ]
+      return (
+        settlePriorDispatches({
+          ledger: led,
+          currentRows: [],
+          now: Date.parse('2026-11-01T05:00:00.000Z'),
+        }).length === 1
+      )
+    })(),
+  )
+  ok(
+    'S8c usage 形状坏 → 未计量(不读成 0 tokens 放行)',
+    parseSessionUsage('{"type":"complete","usage":{"totalTokens":"NaN"}}').measured === false,
+  )
   // S10 会话后落账腿(2026-11-01 立):四档 fail-closed + 代提交带票键。
   // 判据全部 import 自 lib/ticket-artifacts.mjs,本处只验"编排有没有按档处置"。
   const commitSpy = () => {
@@ -2097,168 +2820,376 @@ function selfTest() {
     }
   }
   const manifestOf = (files, key = 'k10') => JSON.stringify({ ticketKey: key, files })
-  ok('S10a 清单缺失 ⇒ missing 档,一次提交都不调', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: null, statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-missing' && spy.calls.length === 0
-  })())
-  ok('S10b 清单 JSON 坏 ⇒ invalid,不提交', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: '{"ticketKey":"k10",', statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
-  })())
-  ok('S10c 清单票键不匹配 ⇒ invalid(上一轮的清单不许记到这张票头上)', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs'], 'other'), statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
-  })())
-  ok('S10d files 空数组 ⇒ invalid(写了空清单也算 invalid,不读成"没改")', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf([]), statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
-  })())
-  ok('S10e 路径逃逸(../x、D:/x、/abs/x)⇒ 整批拒绝,不做部分提交', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs', '../x', 'D:/x', '/abs/x']), statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0 && r.dropped.length === 3
-  })())
-  ok('S10f 清单含 PROJECT_PLAN.md ⇒ 整批拒绝(活文档并发冲突)', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs', 'PROJECT_PLAN.md']), statusFn: () => ' M x', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0 && r.dropped.includes('PROJECT_PLAN.md')
-  })())
-  ok('S10g 清单文件全无改动 ⇒ stale,不提交', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs']), statusFn: () => '', commitFn: spy.fn })
-    return r.action === 'artifact-manifest-stale' && spy.calls.length === 0 && r.dropped[0] === 'scripts/a.mjs'
-  })())
-  ok('S10h 有效清单 ⇒ 调提交且 env 带票键/席位,消息点名票键与票面', (() => {
-    const spy = commitSpy()
-    const face = '修复 **落账腿** 结构断点'
-    const r = landTicketArtifacts({
-      ticketKey: 'k10',
-      ticketText: face,
-      manifestText: manifestOf(['scripts/a.mjs', 'scripts/b.mjs']),
-      statusFn: (p) => (p === 'scripts/a.mjs' ? ' M scripts/a.mjs' : ''),
-      commitFn: spy.fn,
-    })
-    const call = spy.calls[0] ?? {}
-    return (
-      r.action === 'artifact-committed' &&
-      r.files.length === 1 &&
-      r.dropped.length === 1 &&
-      call.env?.IHUI_TICKET_KEY === 'k10' &&
-      call.env?.IHUI_AGENT_SESSION_ID === 'auto-evolve' &&
-      /^(feat|fix|chore): /.test(String(call.message ?? '')) &&
-      String(call.message ?? '').includes('k10') &&
-      String(call.message ?? '').includes(face)
-    )
-  })())
-  ok('S10i 提交抛错(并发索引锁)⇒ artifact-commit-failed,不把整轮打崩', (() => {
-    const r = landTicketArtifacts({
-      ticketKey: 'k10',
-      ticketText: '某票',
-      manifestText: manifestOf(['scripts/a.mjs']),
-      statusFn: () => ' M scripts/a.mjs',
-      commitFn: () => {
-        throw new Error('index.lock: File exists')
-      },
-    })
-    return r.action === 'artifact-commit-failed' && r.files.length === 1 && r.why.includes('index.lock')
-  })())
-  ok('S10j dry-run ⇒ 只出预览,不调提交', (() => {
-    const spy = commitSpy()
-    const r = landTicketArtifacts({ ticketKey: 'k10', ticketText: '某票', manifestText: manifestOf(['scripts/a.mjs']), statusFn: () => ' M scripts/a.mjs', commitFn: spy.fn, dryRun: true })
-    return r.action === 'artifact-preview' && r.files.length === 1 && spy.calls.length === 0
-  })())
+  ok(
+    'S10a 清单缺失 ⇒ missing 档,一次提交都不调',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: null,
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return r.action === 'artifact-manifest-missing' && spy.calls.length === 0
+    })(),
+  )
+  ok(
+    'S10b 清单 JSON 坏 ⇒ invalid,不提交',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: '{"ticketKey":"k10",',
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+    })(),
+  )
+  ok(
+    'S10c 清单票键不匹配 ⇒ invalid(上一轮的清单不许记到这张票头上)',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs'], 'other'),
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+    })(),
+  )
+  ok(
+    'S10d files 空数组 ⇒ invalid(写了空清单也算 invalid,不读成"没改")',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf([]),
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return r.action === 'artifact-manifest-invalid' && spy.calls.length === 0
+    })(),
+  )
+  ok(
+    'S10e 路径逃逸(../x、D:/x、/abs/x)⇒ 整批拒绝,不做部分提交',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs', '../x', 'D:/x', '/abs/x']),
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return (
+        r.action === 'artifact-manifest-invalid' && spy.calls.length === 0 && r.dropped.length === 3
+      )
+    })(),
+  )
+  ok(
+    'S10f 清单含 PROJECT_PLAN.md ⇒ 整批拒绝(活文档并发冲突)',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs', 'PROJECT_PLAN.md']),
+        statusFn: () => ' M x',
+        commitFn: spy.fn,
+      })
+      return (
+        r.action === 'artifact-manifest-invalid' &&
+        spy.calls.length === 0 &&
+        r.dropped.includes('PROJECT_PLAN.md')
+      )
+    })(),
+  )
+  ok(
+    'S10g 清单文件全无改动 ⇒ stale,不提交',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs']),
+        statusFn: () => '',
+        commitFn: spy.fn,
+      })
+      return (
+        r.action === 'artifact-manifest-stale' &&
+        spy.calls.length === 0 &&
+        r.dropped[0] === 'scripts/a.mjs'
+      )
+    })(),
+  )
+  ok(
+    'S10h 有效清单 ⇒ 调提交且 env 带票键/席位,消息点名票键与票面',
+    (() => {
+      const spy = commitSpy()
+      const face = '修复 **落账腿** 结构断点'
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: face,
+        manifestText: manifestOf(['scripts/a.mjs', 'scripts/b.mjs']),
+        statusFn: (p) => (p === 'scripts/a.mjs' ? ' M scripts/a.mjs' : ''),
+        commitFn: spy.fn,
+      })
+      const call = spy.calls[0] ?? {}
+      return (
+        r.action === 'artifact-committed' &&
+        r.files.length === 1 &&
+        r.dropped.length === 1 &&
+        call.env?.IHUI_TICKET_KEY === 'k10' &&
+        call.env?.IHUI_AGENT_SESSION_ID === 'auto-evolve' &&
+        /^(feat|fix|chore): /.test(String(call.message ?? '')) &&
+        String(call.message ?? '').includes('k10') &&
+        String(call.message ?? '').includes(face)
+      )
+    })(),
+  )
+  ok(
+    'S10i 提交抛错(并发索引锁)⇒ artifact-commit-failed,不把整轮打崩',
+    (() => {
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs']),
+        statusFn: () => ' M scripts/a.mjs',
+        commitFn: () => {
+          throw new Error('index.lock: File exists')
+        },
+      })
+      return (
+        r.action === 'artifact-commit-failed' &&
+        r.files.length === 1 &&
+        r.why.includes('index.lock')
+      )
+    })(),
+  )
+  ok(
+    'S10j dry-run ⇒ 只出预览,不调提交',
+    (() => {
+      const spy = commitSpy()
+      const r = landTicketArtifacts({
+        ticketKey: 'k10',
+        ticketText: '某票',
+        manifestText: manifestOf(['scripts/a.mjs']),
+        statusFn: () => ' M scripts/a.mjs',
+        commitFn: spy.fn,
+        dryRun: true,
+      })
+      return r.action === 'artifact-preview' && r.files.length === 1 && spy.calls.length === 0
+    })(),
+  )
   // S11:决策候选刷新腿(第 2 期写侧的接线锁)。每条都钉一个具体失效方向。
   const s11Dir = join(TMP_DIR, 'selftest-s11')
   const s11Script = join(ROOT, 'scripts', 'autonomy-candidates.mjs')
-  ok('S11a 候选文件新鲜 ⇒ 不重跑生成器(84s 的器物不能每轮都调)', (() => {
-    mkdirSync(s11Dir, { recursive: true })
-    const cand = join(s11Dir, 'fresh.json')
-    writeFileSync(cand, '{}', 'utf8')
-    let called = 0
-    const r = refreshAutonomyCandidates({ now: Date.now(), scriptFile: s11Script, candidatesFile: cand, runner: () => { called++; return '' } })
-    return r.state === 'ok' && called === 0 && String(r.why).includes('新鲜')
-  })())
-  ok('S11b 候选文件过期 ⇒ 真调生成器一次(节流不等于永不刷新)', (() => {
-    mkdirSync(s11Dir, { recursive: true })
-    const cand = join(s11Dir, 'stale.json')
-    writeFileSync(cand, '{}', 'utf8')
-    const old = new Date(Date.now() - 7 * 3600_000)
-    utimesSync(cand, old, old)
-    let called = 0
-    const r = refreshAutonomyCandidates({ now: Date.now(), scriptFile: s11Script, candidatesFile: cand, runner: () => { called++; return '' } })
-    return r.state === 'ok' && called === 1 && String(r.why).includes('刷新')
-  })())
-  ok('S11c dry-run ⇒ 不刷新且如实说"决策将按台账序",不假装刷过', (() => {
-    const r = refreshAutonomyCandidates({ dryRun: true, scriptFile: s11Script, candidatesFile: join(s11Dir, 'never-exists.json'), runner: () => { throw new Error('dry-run 不该调生成器') } })
-    return r.state === 'undetermined' && String(r.why).includes('dry-run')
-  })())
-  ok('S11d 器物不在位 ⇒ 未判定并点名路径(不把"没装"读成"没有候选"的合法态)', (() => {
-    const r = refreshAutonomyCandidates({ scriptFile: join(s11Dir, 'nope.mjs'), candidatesFile: join(s11Dir, 'x.json'), runner: () => { throw new Error('不该调') } })
-    return r.state === 'undetermined' && String(r.why).includes('不在位')
-  })())
-  ok('S11e 接线锁:刷新腿真在派发主循环里(没有这一行,第 2 期永远不生效)', (() => {
-    const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
-    return /if \(!noDecide\) \{\s*\r?\n\s*const gen = refreshAutonomyCandidates\(\{ dryRun \}\)/.test(src)
-  })())
+  ok(
+    'S11a 候选文件新鲜 ⇒ 不重跑生成器(84s 的器物不能每轮都调)',
+    (() => {
+      mkdirSync(s11Dir, { recursive: true })
+      const cand = join(s11Dir, 'fresh.json')
+      writeFileSync(cand, '{}', 'utf8')
+      let called = 0
+      const r = refreshAutonomyCandidates({
+        now: Date.now(),
+        scriptFile: s11Script,
+        candidatesFile: cand,
+        runner: () => {
+          called++
+          return ''
+        },
+      })
+      return r.state === 'ok' && called === 0 && String(r.why).includes('新鲜')
+    })(),
+  )
+  ok(
+    'S11b 候选文件过期 ⇒ 真调生成器一次(节流不等于永不刷新)',
+    (() => {
+      mkdirSync(s11Dir, { recursive: true })
+      const cand = join(s11Dir, 'stale.json')
+      writeFileSync(cand, '{}', 'utf8')
+      const old = new Date(Date.now() - 7 * 3600_000)
+      utimesSync(cand, old, old)
+      let called = 0
+      const r = refreshAutonomyCandidates({
+        now: Date.now(),
+        scriptFile: s11Script,
+        candidatesFile: cand,
+        runner: () => {
+          called++
+          return ''
+        },
+      })
+      return r.state === 'ok' && called === 1 && String(r.why).includes('刷新')
+    })(),
+  )
+  ok(
+    'S11c dry-run ⇒ 不刷新且如实说"决策将按台账序",不假装刷过',
+    (() => {
+      const r = refreshAutonomyCandidates({
+        dryRun: true,
+        scriptFile: s11Script,
+        candidatesFile: join(s11Dir, 'never-exists.json'),
+        runner: () => {
+          throw new Error('dry-run 不该调生成器')
+        },
+      })
+      return r.state === 'undetermined' && String(r.why).includes('dry-run')
+    })(),
+  )
+  ok(
+    'S11d 器物不在位 ⇒ 未判定并点名路径(不把"没装"读成"没有候选"的合法态)',
+    (() => {
+      const r = refreshAutonomyCandidates({
+        scriptFile: join(s11Dir, 'nope.mjs'),
+        candidatesFile: join(s11Dir, 'x.json'),
+        runner: () => {
+          throw new Error('不该调')
+        },
+      })
+      return r.state === 'undetermined' && String(r.why).includes('不在位')
+    })(),
+  )
+  ok(
+    'S11e 接线锁:刷新腿真在派发主循环里(没有这一行,第 2 期永远不生效)',
+    (() => {
+      const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+      return /if \(!noDecide\) \{\s*\r?\n\s*const gen = refreshAutonomyCandidates\(\{ dryRun \}\)/.test(
+        src,
+      )
+    })(),
+  )
   // S12 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立):命名/脱敏/截断/轮转判据 + 接线锁。
   // 判据全部 import 自 lib/session-transcript.mjs(单一真相源),本处只验"编排有没有按契约处置"。
-  ok('S12a 正文三段齐备(PROMPT/STDOUT/STDERR 横幅)', (() => {
-    const t = buildTranscript({ ticketKey: 'k12', prompt: 'P', stdout: 'O', stderr: 'E' })
-    return t.includes('===== PROMPT(会话被交代了什么) =====') && t.includes('===== STDOUT(事件流原样) =====') && t.includes('===== STDERR =====')
-  })())
-  ok('S12b 脱敏:Bearer 令牌被替换,头部记命中次数', (() => {
-    const t = buildTranscript({ prompt: 'Authorization: Bearer eyJabc.def.ghi token' })
-    return t.includes('«REDACTED:bearer»') && /redacted:.*bearer/.test(t)
-  })())
-  ok('S12c 脱敏:私钥块整段被替换(原文不残留)', (() => {
-    const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----'
-    const t = buildTranscript({ prompt: block })
-    return t.includes('«REDACTED:private-key»') && !t.includes('MIIabc')
-  })())
-  ok('S12d 截断留痕:超限时正文含"中略"且头尾保留,头部 redacted 行仍在', (() => {
-    const big = 'x'.repeat(5 * 1024 * 1024)
-    const t = buildTranscript({ prompt: big })
-    const capped = capTranscript(t)
-    return capped.truncated === true && capped.text.includes('中略') && capped.text.startsWith('# session transcript')
-  })())
-  ok('S12e 不截断:未超限逐字不变', (() => {
-    const t = buildTranscript({ prompt: '短文本' })
-    const capped = capTranscript(t)
-    return capped.truncated === false && capped.text === t
-  })())
-  ok('S12f 命名:transcriptRelPathOf 产物过 isTranscriptName 且含票键', (() => {
-    const rel = transcriptRelPathOf({ at: new Date(), ticketKey: 'deadbeef12345678', mode: 'dispatch', action: 'session-ok' })
-    return isTranscriptName(rel) && rel.includes('deadbeef12345678')
-  })())
-  ok('S12g 轮转:最新一份无论多老都保留(失效方向=多留证据)', (() => {
-    const now = Date.now()
-    const oldest = now - 365 * 86_400_000
-    const newer = now - 100 * 86_400_000 // 也超 14 天,但比 oldest 新 ⇒ 仍豁免保留
-    const r = decideRetention([{ rel: 'oldest.log', mtimeMs: oldest }, { rel: 'newer.log', mtimeMs: newer }], { now, keepDays: 14, keepMax: 500 })
-    return r.keep.length === 1 && r.keep[0] === 'newer.log' && r.drop.length === 1 && r.drop[0].rel === 'oldest.log'
-  })())
-  ok('S12h 轮转:非最新的过期件被删(带 why)', (() => {
-    const now = Date.now()
-    const old = now - 365 * 86_400_000
-    const mid = now - 86_400_000
-    const r = decideRetention([{ rel: 'a.log', mtimeMs: old }, { rel: 'b.log', mtimeMs: mid }, { rel: 'c.log', mtimeMs: now }], { now, keepDays: 14, keepMax: 500 })
-    return r.keep.length === 2 && r.drop.some((d) => d.rel === 'a.log' && /天前/.test(d.why))
-  })())
-  ok('S12i 轮转:mtime 取不到 ⇒ 不删(未判定不猜,§0.3)', (() => {
-    const r = decideRetention([{ rel: 'a.log', mtimeMs: NaN }], { now: Date.now(), keepDays: 14, keepMax: 500 })
-    return r.undetermined.length === 1 && r.drop.length === 0
-  })())
-  ok('S12j 接线锁:dispatchSession / probeSession 都调 persistTranscript 并把 transcript 带进台账', (() => {
-    const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
-    const dispatchWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'dispatch'/.test(src)
-    const probeWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'probe'/.test(src)
-    const ledgerWired = /transcript: res\.transcript \?\? null/.test(src) && /record\(\{ mode: 'probe'[\s\S]*?transcript,/.test(src)
-    return dispatchWired && probeWired && ledgerWired
-  })())
+  ok(
+    'S12a 正文三段齐备(PROMPT/STDOUT/STDERR 横幅)',
+    (() => {
+      const t = buildTranscript({ ticketKey: 'k12', prompt: 'P', stdout: 'O', stderr: 'E' })
+      return (
+        t.includes('===== PROMPT(会话被交代了什么) =====') &&
+        t.includes('===== STDOUT(事件流原样) =====') &&
+        t.includes('===== STDERR =====')
+      )
+    })(),
+  )
+  ok(
+    'S12b 脱敏:Bearer 令牌被替换,头部记命中次数',
+    (() => {
+      const t = buildTranscript({ prompt: 'Authorization: Bearer eyJabc.def.ghi token' })
+      return t.includes('«REDACTED:bearer»') && /redacted:.*bearer/.test(t)
+    })(),
+  )
+  ok(
+    'S12c 脱敏:私钥块整段被替换(原文不残留)',
+    (() => {
+      const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----'
+      const t = buildTranscript({ prompt: block })
+      return t.includes('«REDACTED:private-key»') && !t.includes('MIIabc')
+    })(),
+  )
+  ok(
+    'S12d 截断留痕:超限时正文含"中略"且头尾保留,头部 redacted 行仍在',
+    (() => {
+      const big = 'x'.repeat(5 * 1024 * 1024)
+      const t = buildTranscript({ prompt: big })
+      const capped = capTranscript(t)
+      return (
+        capped.truncated === true &&
+        capped.text.includes('中略') &&
+        capped.text.startsWith('# session transcript')
+      )
+    })(),
+  )
+  ok(
+    'S12e 不截断:未超限逐字不变',
+    (() => {
+      const t = buildTranscript({ prompt: '短文本' })
+      const capped = capTranscript(t)
+      return capped.truncated === false && capped.text === t
+    })(),
+  )
+  ok(
+    'S12f 命名:transcriptRelPathOf 产物过 isTranscriptName 且含票键',
+    (() => {
+      const rel = transcriptRelPathOf({
+        at: new Date(),
+        ticketKey: 'deadbeef12345678',
+        mode: 'dispatch',
+        action: 'session-ok',
+      })
+      return isTranscriptName(rel) && rel.includes('deadbeef12345678')
+    })(),
+  )
+  ok(
+    'S12g 轮转:最新一份无论多老都保留(失效方向=多留证据)',
+    (() => {
+      const now = Date.now()
+      const oldest = now - 365 * 86_400_000
+      const newer = now - 100 * 86_400_000 // 也超 14 天,但比 oldest 新 ⇒ 仍豁免保留
+      const r = decideRetention(
+        [
+          { rel: 'oldest.log', mtimeMs: oldest },
+          { rel: 'newer.log', mtimeMs: newer },
+        ],
+        { now, keepDays: 14, keepMax: 500 },
+      )
+      return (
+        r.keep.length === 1 &&
+        r.keep[0] === 'newer.log' &&
+        r.drop.length === 1 &&
+        r.drop[0].rel === 'oldest.log'
+      )
+    })(),
+  )
+  ok(
+    'S12h 轮转:非最新的过期件被删(带 why)',
+    (() => {
+      const now = Date.now()
+      const old = now - 365 * 86_400_000
+      const mid = now - 86_400_000
+      const r = decideRetention(
+        [
+          { rel: 'a.log', mtimeMs: old },
+          { rel: 'b.log', mtimeMs: mid },
+          { rel: 'c.log', mtimeMs: now },
+        ],
+        { now, keepDays: 14, keepMax: 500 },
+      )
+      return r.keep.length === 2 && r.drop.some((d) => d.rel === 'a.log' && /天前/.test(d.why))
+    })(),
+  )
+  ok(
+    'S12i 轮转:mtime 取不到 ⇒ 不删(未判定不猜,§0.3)',
+    (() => {
+      const r = decideRetention([{ rel: 'a.log', mtimeMs: NaN }], {
+        now: Date.now(),
+        keepDays: 14,
+        keepMax: 500,
+      })
+      return r.undetermined.length === 1 && r.drop.length === 0
+    })(),
+  )
+  ok(
+    'S12j 接线锁:dispatchSession / probeSession 都调 persistTranscript 并把 transcript 带进台账',
+    (() => {
+      const src = readFileSync(join(ROOT, 'scripts', 'auto-evolve.mjs'), 'utf8')
+      const dispatchWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'dispatch'/.test(
+        src,
+      )
+      const probeWired = /const transcript = persistTranscript\(\{[\s\S]*?mode: 'probe'/.test(src)
+      const ledgerWired =
+        /transcript: res\.transcript \?\? null/.test(src) &&
+        /record\(\{ mode: 'probe'[\s\S]*?transcript,/.test(src)
+      return dispatchWired && probeWired && ledgerWired
+    })(),
+  )
   if (failed > 0) {
     console.error(`self-test: ${failed} 例红`)
     process.exitCode = 1
@@ -2292,7 +3223,8 @@ async function main(args) {
     }
     return probeSession({ gates, dryRun: args.includes('--dry-run') })
   }
-  if (args.includes('--dry-run')) return runOnce({ dryRun: true, noDecide: args.includes('--no-decide') })
+  if (args.includes('--dry-run'))
+    return runOnce({ dryRun: true, noDecide: args.includes('--no-decide') })
   const out = await runOnce({ dryRun: false, noDecide: args.includes('--no-decide') })
   // 感知层顺带轮(第 1 期 auto-triage):派发轮完成后独立进程跑一次分诊;
   // 它的失败不顶红派发轮(未判定记它自己的台账),产出受它自己的每日配额约束。
@@ -2313,19 +3245,29 @@ async function main(args) {
   if (!args.includes('--no-retro')) {
     const decisionsPath = join(ROOT, '.ihui-agent', 'deploy-decisions.jsonl')
     if (!existsSync(decisionsPath)) {
-      console.log(`── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(${decisionsPath}),无可提炼的失败桶`)
+      console.log(
+        `── 进化回流写回轮 ──\nℹ 跳过:部署决策台账尚未产生(${decisionsPath}),无可提炼的失败桶`,
+      )
     } else {
-      const rr = spawnSync(process.execPath, [join(ROOT, 'scripts', 'evolution-retro.mjs'), '--apply'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: ROOT,
-        windowsHide: true,
-        timeout: 120_000,
-        encoding: 'utf8',
-      })
+      const rr = spawnSync(
+        process.execPath,
+        [join(ROOT, 'scripts', 'evolution-retro.mjs'), '--apply'],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: ROOT,
+          windowsHide: true,
+          timeout: 120_000,
+          encoding: 'utf8',
+        },
+      )
       const rOut = String(rr.stdout ?? '').trim()
       if (rOut) console.log(`── 进化回流写回轮 ──\n${rOut}`)
       if (rr.status !== 0) {
-        console.error(`⚠ 进化回流写回未判定(rc=${rr.status ?? '?'}):${String(rr.stderr ?? '').trim().slice(-300)}`)
+        console.error(
+          `⚠ 进化回流写回未判定(rc=${rr.status ?? '?'}):${String(rr.stderr ?? '')
+            .trim()
+            .slice(-300)}`,
+        )
       }
     }
   }
