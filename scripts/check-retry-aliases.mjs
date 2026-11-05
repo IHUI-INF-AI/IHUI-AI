@@ -21,6 +21,10 @@
  *                  `onRetry=` 分成 真重载 / 假重载(退出·翻页·清空·空值·空回调) / 未判定
  *                  存量逐枚落账在 scripts/data/retry-reload-baseline.jsonl,新增假重载判红(棘轮)
  *   undetermined   回调透传(`onRetry={onRetry}` 等)与混合体留在未判定桶;不折成真重载、不折成 0
+ *   resolutions    能靠同仓调用链/按钮文案定性的两种情形,落
+ *                  scripts/data/retry-reload-resolutions.jsonl:假重载改判「合法差异」(豁免),
+ *                  透传改判「真重载」。证据逐条 file:line 原文命中才生效;证据失配判红。
+ *                  改判后棘轮基线同步收紧(只数「假重载」,不扩)。
  *
  * 分母与 RN 壳清单不重算(§0.6):共享屏取 `check-cross-end-screen-coverage.mjs` 的
  * `collectShared`,RN 屏取同文件的 `collectRn`;壳侧值导入解析取
@@ -42,12 +46,14 @@ import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { __test__ as shell } from './check-rn-host-shell-coverage.mjs'
 import { gitRaw, Undetermined } from './lib/face-reader.mjs'
 import {
+  applyResolutions,
   classifyRetryExpr,
   isAliasExpr,
   judgeFakeRatchet,
   judgeRetryText,
   onRetryExprs,
   parseBaseline,
+  parseResolutions,
   serializeBaseline,
   siteKey,
   summarize,
@@ -75,6 +81,9 @@ const RETRY_SURFACES = [
 
 /** 存量基线台账(逐文件:行号 + 判定;棘轮只拦"新增假重载") */
 const BASELINE = 'scripts/data/retry-reload-baseline.jsonl'
+
+/** 定性/豁免台账(证据在案才生效;证据失配判红) */
+const RESOLUTIONS = 'scripts/data/retry-reload-resolutions.jsonl'
 
 /** 测试/夹具文件不进产品口径(与既有 alias 扫描的 shared/shell 射程不同:这两端原本就没有伴生测试) */
 const TEST_FILE_RE = /(?:__tests__|__mocks__|\/tests?\/|\.test\.|\.spec\.)/
@@ -216,8 +225,9 @@ function collectRetryCandidateFiles(face, surface) {
  * 三端 onRetry 站点(同一份提取器 + 同一份分类器)。
  * shared/shell 的分母仍取既有 collectShared/collectRn(§0.6 不重算分母);
  * web/miniapp 按关键字收窄后逐份判定。
+ * 定性台账在本面读取并就地改判;证据也按同一面逐条核对。
  */
-function loadRetrySites(face) {
+function loadRetrySites(face, { worktreeFallback = false } = {}) {
   const sites = []
   const push = (end, file, text) => {
     if (typeof text !== 'string')
@@ -231,7 +241,35 @@ function loadRetrySites(face) {
       push(surface.end, file, cov.faceRead(face, file))
     }
   }
-  return sites
+  return { sites, resolutions: applyResolutionRows(face, sites, { worktreeFallback }) }
+}
+
+/**
+ * 读定性台账并作用到站点。取不到该面的台账 ⇒ 该面没有定性记录(空集),
+ * 不回落另一个面;坏行 ⇒ Undetermined(不得把读不出当没定性)。
+ * 维护动作(--write-baseline)允许从工作树兜底读台账(此时台账尚未入库)。
+ */
+function loadResolutions(face, { worktreeFallback = false } = {}) {
+  let text = cov.faceRead(face, RESOLUTIONS)
+  if (text === null && worktreeFallback) text = cov.faceRead('worktree', RESOLUTIONS)
+  if (text === null) return []
+  const { rows, bad } = parseResolutions(text)
+  if (bad.length > 0)
+    throw new Undetermined(
+      `定性台账 ${RESOLUTIONS} 有 ${bad.length} 行读不出(首行: ${bad[0].why} ${bad[0].raw})`,
+    )
+  return rows
+}
+
+/** 定性台账 + 证据同面核对(证据不得跨面取证,否则"改了没收"会被另一面掩盖) */
+function applyResolutionRows(face, sites, { worktreeFallback = false } = {}) {
+  const rows = loadResolutions(face, { worktreeFallback })
+  const readText = (rel) => {
+    const t = cov.faceRead(face, rel)
+    if (t === null && worktreeFallback) return cov.faceRead('worktree', rel)
+    return t
+  }
+  return applyResolutions(sites, rows, { readText })
 }
 
 /** 读基线台账;取不到 / 坏行 ⇒ Undetermined(棘轮无输入不得冒绿) */
@@ -301,6 +339,76 @@ function selfTestFn() {
   )
   cases.push({ name: '棘轮 同键超额新增 ⇒ 判红', pass: twice.newFake.length === 1, got: twice.newFake.length })
 
+  // 定性台账:坏行(理由太短/缺 owner/合法差异缺两端调用点)必须拒收
+  const badRes = parseResolutions(
+    [
+      JSON.stringify({ end: 'web', file: 'a.tsx', expr: 'onRetry', verdict: '真重载', owner: '', reason: '短', evidence: [] }),
+      JSON.stringify({
+        end: 'web',
+        file: 'a.tsx',
+        expr: 'onRetry',
+        verdict: '合法差异',
+        owner: 'x',
+        reason: '这是足够长的理由描述文本',
+        evidence: [{ path: 'a.tsx', line: 1, text: 'onRetry' }],
+        callSites: ['a.tsx:1'],
+      }),
+    ].join('\n'),
+  )
+  cases.push({ name: '定性台账 坏行拒收', pass: badRes.bad.length === 2 && badRes.rows.length === 0, got: badRes.bad.length })
+  // 证据命中 ⇒ 改判;证据失配 ⇒ 保留原判并记 invalid
+  const resRow = {
+    end: 'web',
+    file: 'apps/web/a.tsx',
+    expr: 'onBack',
+    fromCategory: 'exit',
+    verdict: '合法差异',
+    category: 'legal-return',
+    owner: 'scripts/check-retry-aliases.mjs',
+    reason: '按钮文案是返回,语义本就是退出页面',
+    evidence: [{ path: 'apps/web/a.tsx', line: 2, text: 'retryLabel' }],
+    callSites: ['x:1', 'y:2'],
+  }
+  const goodSite = { end: 'web', file: 'apps/web/a.tsx', line: 1, expr: 'onBack', verdict: '假重载', category: 'exit', reason: '' }
+  const okApply = applyResolutions(
+    [{ ...goodSite }],
+    [resRow],
+    { readText: () => 'line1\nretryLabel={t("back")}' },
+  )
+  cases.push({
+    name: '定性 证据命中 ⇒ 改判合法差异',
+    pass: okApply.applied.length === 1 && okApply.invalid.length === 0,
+    got: okApply.applied.length,
+  })
+  const badApply = applyResolutions(
+    [{ ...goodSite }],
+    [resRow],
+    { readText: () => 'line1\nsomething-else' },
+  )
+  cases.push({
+    name: '定性 证据失配 ⇒ 保留原判并记 invalid',
+    pass: badApply.applied.length === 0 && badApply.invalid.length === 1,
+    got: badApply.invalid.length,
+  })
+  // 行号漂移但文本仍在同文件 ⇒ 仍生效(记 drift),不误判失配
+  const driftApply = applyResolutions(
+    [{ ...goodSite }],
+    [resRow],
+    { readText: () => 'retryLabel={t("back")}\nline2' },
+  )
+  cases.push({
+    name: '定性 证据行漂移 ⇒ 文本在案仍生效',
+    pass: driftApply.applied.length === 1 && driftApply.applied[0].drift === true && driftApply.invalid.length === 0,
+    got: driftApply.applied[0]?.drift,
+  })
+  // 合法差异不是假重载 ⇒ 不进棘轮;汇总单独计数
+  const legalSum = summarize([{ ...goodSite, verdict: '合法差异', category: 'legal-return' }])
+  cases.push({
+    name: '汇总 合法差异单独计数(不折进未判定)',
+    pass: legalSum[0].legal === 1 && legalSum[0].undetermined === 0 && legalSum[0].fake === 0,
+    got: legalSum[0].legal,
+  })
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
@@ -318,10 +426,14 @@ if (isDirectRun) {
   let report
   let sites
   let baseline
+  let resolutions
   try {
     const { sharedScreens, rnShells } = loadFace(FACE)
     report = judgeRetryAliases({ sharedScreens, rnShells })
-    sites = loadRetrySites(FACE)
+    // 维护动作(--write-baseline)时定性台账还没入库,允许从工作树兜底读
+    const loaded = loadRetrySites(FACE, { worktreeFallback: writeBaseline })
+    sites = loaded.sites
+    resolutions = loaded.resolutions
     // 重出台账时不需要读旧台账(首次建账时它还不存在)
     baseline = writeBaseline ? [] : loadBaseline(FACE)
   } catch (err) {
@@ -345,8 +457,10 @@ if (isDirectRun) {
 
   const ratchet = judgeFakeRatchet(sites, baseline)
   const sums = summarize(sites)
-  const redCount = report.alias + report.missingRetry + ratchet.newFake.length
+  const redCount =
+    report.alias + report.missingRetry + ratchet.newFake.length + resolutions.invalid.length
   const undeterminedSites = sites.filter((s) => s.verdict === '未判定')
+  const legalSites = sites.filter((s) => s.verdict === '合法差异')
 
   if (jsonMode) {
     console.log(
@@ -361,6 +475,24 @@ if (isDirectRun) {
           improvedFake: ratchet.improved,
           fakeSites: sites.filter((s) => s.verdict === '假重载'),
           undeterminedSites,
+          legalSites,
+          resolutions: {
+            applied: resolutions.applied.map((a) => ({
+              end: a.site.end,
+              file: a.site.file,
+              line: a.site.line,
+              expr: a.site.expr,
+              from: a.from,
+              to: { verdict: a.site.verdict, category: a.site.category },
+              evidenceLineDrift: a.drift,
+            })),
+            invalid: resolutions.invalid.map((b) => ({
+              file: b.site.file,
+              line: b.site.line,
+              problems: b.problems,
+            })),
+            unused: resolutions.unused.map((r) => `${r.end} ${r.file} ${r.expr}`),
+          },
           red: redCount,
         },
         null,
@@ -373,7 +505,7 @@ if (isDirectRun) {
     )
     for (const s of sums) {
       console.log(
-        `  ${s.end.padEnd(8)} 文件 ${s.files} / 站点 ${s.total}: 真重载 ${s.real} · 假重载 ${s.fake} · 未判定 ${s.undetermined}`,
+        `  ${s.end.padEnd(8)} 文件 ${s.files} / 站点 ${s.total}: 真重载 ${s.real} · 假重载 ${s.fake} · 合法差异 ${s.legal} · 未判定 ${s.undetermined}`,
       )
     }
     for (const h of report.aliasHits) console.log(`  alias  ${h.layer}  ${h.file}  onRetry={${h.expr}}`)
@@ -387,10 +519,26 @@ if (isDirectRun) {
     for (const s of ratchet.newFake) {
       console.log(`  ❌ 新增假重载  ${s.end}  ${s.file}:${s.line}  ${s.category}  onRetry={${s.expr}}`)
     }
+    for (const s of legalSites) {
+      console.log(`  合法差异  ${s.end}  ${s.file}:${s.line}  ${s.category}  ${s.reason}`)
+    }
+    for (const b of resolutions.invalid) {
+      console.log(
+        `  ❌ 定性证据失配  ${b.site.file}:${b.site.line}  ${b.problems.join('; ')}`,
+      )
+    }
+    for (const r of resolutions.unused) {
+      console.log(`  定性台账未命中站点(不判红)  ${r.end}  ${r.file}`)
+    }
+    for (const a of resolutions.applied.filter((x) => x.drift)) {
+      console.log(`  定性证据行漂移(文本仍在同文件)  ${a.site.file}:${a.site.line}`)
+    }
     for (const s of undeterminedSites) {
       console.log(`  未判定  ${s.end}  ${s.file}:${s.line}  ${s.category}  ${s.reason}`)
     }
-    console.log(`  台账 ${BASELINE}: ${baseline.length} 行;新增假重载 ${ratchet.newFake.length};已还账 ${ratchet.improved.length}`)
+    console.log(
+      `  台账 ${BASELINE}: ${baseline.length} 行;新增假重载 ${ratchet.newFake.length};已还账 ${ratchet.improved.length};定性生效 ${resolutions.applied.length}(证据行漂移 ${resolutions.applied.filter((x) => x.drift).length}) / 证据失配 ${resolutions.invalid.length} / 未命中 ${resolutions.unused.length}`,
+    )
     if (gateMode) console.log(redCount === 0 ? 'GATE PASS' : 'GATE FAIL')
   }
 
@@ -412,6 +560,7 @@ export const __test__ = {
   summarize,
   siteKey,
   BASELINE,
+  RESOLUTIONS,
   RETRY_SURFACES,
   FACE,
   ROOT,
