@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { ChevronRight } from 'lucide-react-native'
@@ -39,6 +39,8 @@ export function ProfileScreen({
   onLogout,
   onToast,
   realnameStatus,
+  identityTags = [],
+  onAvatarPress,
   colorScheme = 'light',
 }: ProfileScreenProps) {
   const tk = getTokens(colorScheme)
@@ -66,9 +68,17 @@ export function ProfileScreen({
 
       <View style={styles.body}>
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials(user?.nickname)}</Text>
-          </View>
+          {onAvatarPress ? (
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={onAvatarPress}
+              accessibilityRole="button"
+            >
+              {renderAvatar(user?.avatar, user?.nickname, styles)}
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.avatar}>{renderAvatar(user?.avatar, user?.nickname, styles)}</View>
+          )}
           <View style={styles.userMeta}>
             <View style={styles.nicknameRow}>
               <Text style={styles.nickname}>{user?.nickname || t('profile.nickname')}</Text>
@@ -79,6 +89,16 @@ export function ProfileScreen({
                   </Text>
                 </View>
               ) : null}
+            </View>
+            <View style={styles.identityRow}>
+              {identityTags.map((tag) => {
+                const tone = identityTone(tk, tag.tone)
+                return (
+                  <View key={tag.text} style={[styles.identityTag, tone.container]}>
+                    <Text style={[styles.identityTagText, tone.text]}>{tag.text}</Text>
+                  </View>
+                )
+              })}
             </View>
             {user?.email ? <Text style={styles.subText}>{user.email}</Text> : null}
             {user?.phone ? <Text style={styles.subText}>{user.phone}</Text> : null}
@@ -118,6 +138,11 @@ export function ProfileScreen({
                     <item.icon size={20} color={tk.text.primary} />
                   ) : null}
                   <Text style={styles.menuLabel}>{item.label}</Text>
+                  {item.value ? (
+                    <Text style={styles.menuValue} numberOfLines={1}>
+                      {item.value}
+                    </Text>
+                  ) : null}
                   <ChevronRight size={Math.round(16 * fontMultiplier)} color={tk.text.tertiary} />
                 </TouchableOpacity>
               ))}
@@ -138,6 +163,32 @@ export function ProfileScreen({
 function initials(name?: string): string {
   if (!name) return 'U'
   return name.trim().charAt(0).toUpperCase()
+}
+
+/** 头像:有服务端图就渲染图,否则渲染昵称首字母(保持既有降级) */
+function renderAvatar(
+  avatar: string | null | undefined,
+  nickname: string | undefined,
+  styles: ReturnType<typeof createStyles>,
+) {
+  if (avatar) {
+    return <Image source={{ uri: avatar }} style={styles.avatarImage} />
+  }
+  return <Text style={styles.avatarText}>{initials(nickname)}</Text>
+}
+
+/** 身份标签配色:vip 用品牌强调档,其余走中性档(只用既有令牌) */
+function identityTone(tk: AppThemeTokens, tone?: 'vip' | 'admin' | 'normal') {
+  if (tone === 'vip') {
+    return {
+      container: { backgroundColor: tk.brandAccent.light },
+      text: { color: tk.brandAccent.deep },
+    }
+  }
+  return {
+    container: { backgroundColor: tk.surface.muted },
+    text: { color: tk.text.secondary },
+  }
 }
 
 type RealnameStatus = NonNullable<ProfileScreenProps['realnameStatus']>
@@ -167,18 +218,23 @@ function realnameBadgeTone(tk: AppThemeTokens, status: RealnameStatus) {
   }
 }
 
+/** 一格读数:未取到渲染 '--',不把「请求失败/没取到」压成 0 */
+function cellText(v: number | null | undefined): string {
+  return v === null || v === undefined || !Number.isFinite(v) ? '--' : String(v)
+}
+
 function buildStatsCells(
   t: ProfileScreenProps['t'],
   stats: SharedUserStatistics | null | undefined,
-  orderCount: number,
+  orderCount: number | null | undefined,
 ) {
   return [
-    { key: 'courses', label: t('profile.myCourses'), value: stats?.courseCount ?? 0 },
-    { key: 'favorites', label: t('profile.myFavorites'), value: stats?.favoriteCount ?? 0 },
-    { key: 'following', label: t('community.follow'), value: stats?.followingCount ?? 0 },
-    { key: 'fans', label: t('community.follower'), value: stats?.fansCount ?? 0 },
-    { key: 'orders', label: t('profile.myOrders'), value: orderCount },
-    { key: 'points', label: t('wallet.points'), value: stats?.points ?? 0 },
+    { key: 'courses', label: t('profile.myCourses'), value: cellText(stats?.courseCount) },
+    { key: 'favorites', label: t('profile.myFavorites'), value: cellText(stats?.favoriteCount) },
+    { key: 'following', label: t('community.follow'), value: cellText(stats?.followingCount) },
+    { key: 'fans', label: t('community.follower'), value: cellText(stats?.fansCount) },
+    { key: 'orders', label: t('profile.myOrders'), value: cellText(orderCount) },
+    { key: 'points', label: t('wallet.points'), value: cellText(stats?.points) },
   ]
 }
 
@@ -216,8 +272,21 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    avatarImage: {
+      width: 56,
+      height: 56,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.surface.muted,
+    },
     avatarText: { fontSize: 28, fontWeight: '700', color: tk.brandAccent.foreground },
     userMeta: { flex: 1, gap: rnSpacing.xs },
+    identityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.xs },
+    identityTag: {
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing['2xs'],
+      borderRadius: rnRadius.md,
+    },
+    identityTagText: { fontSize: rnType.label.size, fontWeight: '600' },
     nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     nickname: {
       flexShrink: 1,
@@ -267,6 +336,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     menuIcon: { fontSize: rnType.title.size },
     menuLabel: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary },
+    menuValue: { maxWidth: '45%', fontSize: rnType.body.size, color: tk.text.secondary },
     logoutBtn: {
       marginTop: rnSpacing.sm,
       height: 50,
