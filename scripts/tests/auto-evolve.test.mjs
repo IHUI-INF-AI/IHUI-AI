@@ -14,6 +14,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   __test__ as ae,
   gateTicketByHumanValve,
@@ -979,5 +982,66 @@ test('Ⓓ 接线锁:范围表真进派发 prompt,不是造好没装车(§0.9)', 
     /仓根唯一取值\(调度侧现读\)/.test(src),
     '盘符事实必须写进 prompt:转录实测有会话按 G:/ 找文件',
   )
+})
+
+// ── Ⓔ–Ⓖ 旗标纪律(2026-11-05 立)──
+// 立因:本器没有 --help 档,"问一次用法"= 真跑一轮(实测:读阀 + 分诊轮 + 写台账 + 占派发额度)。
+// 而改成"未知旗标即拒绝"之前必须先量收发射点 —— 守护侧真传 `--once --no-triage`,
+// `--once` 从未被认识过,一直靠静默忽略活着;照字面拒绝会当场冻住生产派发腿(自伤形态)。
+const REPO = fileURLToPath(new URL('../../', import.meta.url))
+const LEDGER_PATH = new URL('../../.ihui-agent/state/auto-evolve-ledger.jsonl', import.meta.url)
+const ledgerLines = () => {
+  try {
+    return readFileSync(LEDGER_PATH, 'utf8').split(/\r?\n/).filter(Boolean).length
+  } catch {
+    return 0
+  }
+}
+const runCli = (argv) =>
+  spawnSync(process.execPath, [join('scripts', 'auto-evolve.mjs'), ...argv], {
+    cwd: REPO,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 120_000,
+  })
+
+test('Ⓔ 清单必须覆盖发射侧真传的 argv(少一枚就冻腿,红要落在加旗标那一枚)', () => {
+  const known = ae.knownFlags()
+  const guardian = readFileSync(new URL('../../scripts/git-guardian.mjs', import.meta.url), 'utf8')
+  const m = guardian.match(
+    /spawn\(\s*process\.execPath,\s*\[\s*script,\s*'(--[a-z-]+)'(?:,\s*'(--[a-z-]+)')?\s*\]/,
+  )
+  assert.ok(m, '取不到守护侧 argv ⇒ 本锁空转,必须喊响而不是默认通过')
+  const passed = m.slice(1).filter(Boolean)
+  for (const f of passed) assert.ok(known.includes(f), `守护侧传了 ${f} 而清单没有 ⇒ 生产腿会被拒`)
+  assert.deepEqual(
+    passed.slice().sort(),
+    ['--no-triage', '--once'],
+    '守护侧 argv 形态变了要同步本锁',
+  )
+})
+
+test('Ⓕ --help 打用法且一个动作都不跑(台账行数逐枚核过,不靠推断)', () => {
+  const before = ledgerLines()
+  const r = runCli(['--help'])
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /usage: node scripts\/auto-evolve\.mjs/)
+  assert.match(r.stdout, /认识的全部旗标:/)
+  assert.equal(ledgerLines(), before, '--help 不许往台账写一行(写了就是真跑了轮)')
+  const h = runCli(['-h'])
+  assert.equal(h.status, 0, h.stderr)
+  assert.equal(ledgerLines(), before, '-h 同样不许跑轮')
+})
+
+test('Ⓖ 未知旗标 ⇒ exit 2 并点名,不跑轮也不静默忽略', () => {
+  const before = ledgerLines()
+  const r = runCli(['--hel']) // 手滑形态:今天真踩过的那一次
+  assert.equal(r.status, 2, `期望 2,实得 ${r.status}:${r.stdout}`)
+  assert.match(r.stderr, /不认识旗标 --hel/)
+  assert.match(r.stderr, /usage:/)
+  assert.equal(ledgerLines(), before, '未知旗标那一次也不许写台账(写了=轮真跑了)')
+  for (const f of ['--once', '--no-triage'])
+    assert.ok(ae.knownFlags().includes(f), `生产旗标 ${f} 必须在清单里,否则本改动就是冻腿的那一刀`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

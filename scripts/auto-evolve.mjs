@@ -3406,7 +3406,69 @@ if (isDirectRun) {
   })
 }
 
+/**
+ * 本器认识的旗标(唯一清单)。
+ *
+ * 立因①(2026-11-05 实测):本文件原先**没有 --help 档** —— 敲 `node scripts/auto-evolve.mjs --help`
+ * 想读用法,未知旗标被静默忽略,于是**真的跑完一整轮自主轮**(读人工阀、跑分诊轮、写台账、
+ * 占当日派发额度)。对照组 `scripts/live-doc-edit.mjs` 缺必需 env 时是 `⇒ 拒绝执行`。
+ * §0.10:失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门"。
+ *
+ * 立因②(同一枚实测,差点自伤):守护侧真跑的 argv 是 `--once --no-triage`
+ * (`scripts/git-guardian.mjs:14373`),而计划任务模板(`scripts/auto-evolve.mjs:2643`)传 `--once`
+ * —— **`--once` 从来没被本器认识过**,一直靠"静默忽略"活着。若照字面做"未知旗标即拒绝",
+ * 这一改会当场把生产派发腿冻住(每轮 exit 2)。所以清单必须先收发射点真传的每一枚,
+ * 并由镜像测试 `发射侧 argv ⊆ 本清单` 钉住:加旗标的人不同时更新清单 ⇒ 红在加的人那一枚。
+ *
+ * 形态纪律:必须用**函数声明**(提升)而不是 `export const` —— 本文件的 isDirectRun 调用点
+ * 在源码里早于模块底部常量初始化,const 版实测报 `Cannot access 'KNOWN_FLAGS' before initialization`。
+ */
+export function knownFlags() {
+  return [
+    '--once', // 发射侧与计划任务在用:每次调用本就跑一轮(语义 = 默认档,收进清单只为"未知即拒绝"不冻腿)
+    '--status',
+    '--probe',
+    '--dry-run',
+    '--self-test',
+    '--install-task',
+    '--apply',
+    '--no-decide',
+    '--no-triage',
+    '--no-retro',
+    '--help',
+    '-h',
+  ]
+}
+
+function usageText() {
+  return [
+    'usage: node scripts/auto-evolve.mjs [档] [修饰旗标]',
+    '  (无旗标 / --once)        真跑一轮:取票 → 人工阀 → 派班 → 落账 → 提交',
+    '  --status                 只读:今日额度/最近班次/封票清单(不派生会话)',
+    '  --probe [--dry-run]      单发一次会话探测;--dry-run 只取票不派',
+    '  --dry-run [--no-decide]  整轮预演:走到派发闸前停住',
+    '  --self-test              内建自检档',
+    '  --install-task [--apply] 打印/落盘计划任务注册命令',
+    '  修饰旗标:--no-triage --no-retro --no-decide',
+    '  认识的全部旗标:' + knownFlags().join(' '),
+    '注:未知旗标一律拒绝(exit 2)—— 静默忽略会让一次手滑就烧掉一整轮额度。',
+  ].join('\n')
+}
+
 async function main(args) {
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(usageText())
+    process.exitCode = 0
+    return
+  }
+  const known = knownFlags()
+  const unknown = args.filter((a) => a.startsWith('-') && !known.includes(a))
+  if (unknown.length) {
+    console.error(`❌ 未判定:不认识旗标 ${unknown.join(' ')} ⇒ 不跑任何动作(§0.10 不多放一次跳门)`)
+    console.error(usageText())
+    process.exitCode = 2
+    return
+  }
   if (args.includes('--self-test')) return selfTest()
   if (args.includes('--status')) return printStatus()
   if (args.includes('--install-task')) return installTask({ apply: args.includes('--apply') })
@@ -3475,6 +3537,7 @@ async function main(args) {
 export const __test__ = {
   loadGates,
   judgeSelfFace,
+  knownFlags,
   extractTicketScopeHints,
   buildTicketScope,
   renderTicketScope,
