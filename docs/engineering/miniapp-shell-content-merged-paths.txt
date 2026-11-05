@@ -82,7 +82,11 @@ apps/miniapp-taro/src/hooks/use-ui-control-bridge.ts
 apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts
 apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts
 apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts
+apps/miniapp-taro/src/pages/exam/result.tsx
+apps/miniapp-taro/src/pages/exam/review-list.tsx
 apps/miniapp-taro/src/pages/member/benefits.tsx
+apps/miniapp-taro/src/pages/setting/index.tsx
+apps/miniapp-taro/src/pages/setting/parts.tsx
 apps/miniapp-taro/src/pkg-about/about/help.tsx
 apps/miniapp-taro/src/pkg-ai/ai/permission-stamp.ts
 apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx
@@ -92,6 +96,7 @@ apps/miniapp-taro/src/pkg-content/community/create/index.tsx
 apps/miniapp-taro/src/pkg-content/news/list.tsx
 apps/miniapp-taro/src/pkg-content/news/news-mapper.ts
 apps/miniapp-taro/src/pkg-learn/live/list.tsx
+apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx
 apps/miniapp-taro/src/pkg-shop/wallet/commission/income-item.tsx
 apps/miniapp-taro/src/pkg-user/user/password.tsx
 apps/miniapp-taro/src/rn-compat/route-map.generated.ts
@@ -99,6 +104,7 @@ apps/miniapp-taro/src/utils/doubao-voice-api.ts
 apps/miniapp-taro/src/utils/file-utils.ts
 apps/miniapp-taro/src/utils/keyboard-height.ts
 apps/miniapp-taro/src/utils/push.ts
+apps/miniapp-taro/tests/live-subscribe-shell-render.test.tsx
 apps/miniapp-taro/tests/news-list-shell-render.test.tsx
 apps/miniapp-taro/tests/pkg-content-category-detail-shared-screen.test.tsx
 apps/miniapp-taro/tests/pkg-content-community-create-shared-screen.test.tsx
@@ -163,6 +169,7 @@ apps/mobile-rn/src/screens/PostCreateScreen.tsx
 apps/mobile-rn/src/screens/SecurityAuditScreen.tsx
 apps/mobile-rn/src/screens/SecurityCenterScreen.tsx
 apps/mobile-rn/src/screens/SecuritySettingsScreen.tsx
+apps/mobile-rn/src/screens/SubscriptionsScreen.tsx
 apps/mobile-rn/src/screens/UserArticlesScreen.tsx
 apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx
 apps/mobile-rn/tests/edu-attendance-screens.test.tsx
@@ -299,6 +306,7 @@ docs/WORKBUDDY_TASKS.md
 docs/benchmark-evidence/2026-11/qoder-trae-rea-20261101/T12-mtree-native-and-hook-host.md
 docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/README.md
 docs/engineering/miniapp-shell-backlog.md
+docs/engineering/miniapp-shell-content-merged-paths.txt
 docs/engineering/rn-miniapp-parity-matrix.md
 docs/engineering/share-creator-screen-checklist.md
 packages/api-client/src/endpoints/account-pool.ts
@@ -314,6 +322,7 @@ packages/api-client/src/endpoints/health.ts
 packages/api-client/src/endpoints/help.ts
 packages/api-client/src/endpoints/image-gen.ts
 packages/api-client/src/endpoints/knowledge-base.ts
+packages/api-client/src/endpoints/live.ts
 packages/api-client/src/endpoints/llm.ts
 packages/api-client/src/endpoints/memory.ts
 packages/api-client/src/endpoints/mfa.ts
@@ -333,16 +342,21 @@ packages/app/src/features/category-detail/CategoryDetailScreen.tsx
 packages/app/src/features/category-detail/CategoryHeader.tsx
 packages/app/src/features/category-detail/__tests__/CategoryHeaderAgentAvatar.test.tsx
 packages/app/src/features/change-pwd/ChangePwdScreen.tsx
+packages/app/src/features/exam-result/ExamResultStats.tsx
+packages/app/src/features/exam-result/ReviewList.tsx
+packages/app/src/features/exam-result/__tests__/ExamResultSegments.test.tsx
 packages/app/src/features/live-list/LiveListScreen.tsx
 packages/app/src/features/live-list/LiveQuickActions.tsx
 packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts
 packages/app/src/features/model-edit/model-edit-save.ts
 packages/app/src/features/model-income/ModelIncomeScreen.tsx
 packages/app/src/features/security-settings/SecuritySettingsScreen.tsx
+packages/app/src/features/subscriptions/SubscriptionsScreen.tsx
 packages/app/src/index.ts
 packages/app/src/pilot.ts
 packages/app/tests/article-list-news-segments.test.tsx
 packages/app/tests/change-pwd-screen.test.tsx
+packages/app/tests/subscriptions-live-segments.test.tsx
 packages/database/src/schema/chat-sync-rev.ts
 packages/i18n/messages/cli/en.json
 packages/i18n/messages/cli/ja.json
@@ -368,6 +382,7 @@ packages/i18n/tests/miniapp-security-settings-keys.test.ts
 packages/shared/src/chat/business-forms.ts
 packages/types/src/app-account.ts
 packages/types/src/app-content.ts
+packages/types/src/app-engagement.ts
 packages/types/src/app-learning.ts
 packages/types/src/app-live.ts
 packages/types/tests/app-account-security-doc-truth.test.ts
