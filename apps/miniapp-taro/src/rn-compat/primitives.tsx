@@ -391,7 +391,9 @@ export function RefreshControl(_props: RNBaseProps) {
  */
 export interface RNFlatListProps<T> {
   data?: readonly T[]
-  renderItem?: (info: { item: T; index: number }) => ReactNode
+  // separators 必填以与 RN 的 ListRenderItemInfo<T> 对齐:共享层把 renderItem 形参
+  // 标注为 ListRenderItemInfo<T>(React Native 语义)时,窄签名会因逆变检查当场 TS2322。
+  renderItem?: (info: { item: T; index: number; separators: unknown }) => ReactNode
   keyExtractor?: (item: T, index: number) => string
   numColumns?: number
   contentContainerStyle?: StyleProp<ViewStyle>
@@ -401,6 +403,13 @@ export interface RNFlatListProps<T> {
   ListEmptyComponent?: ReactNode
   ItemSeparatorComponent?: () => ReactNode
   [key: string]: unknown
+}
+// 类型位:共享层 `useRef<FlatList<T>>(null)` 需要 FlatList 在类型空间也可见
+// (RN 里 FlatList 是 class ⇒ 值+类型同名;此处以界面合并提供 ref 实例最小面)。
+export interface FlatList<T = unknown> {
+  readonly __item?: T
+  scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void
+  scrollToOffset?: (params: { offset: number; animated?: boolean }) => void
 }
 export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
   const data = props.data ?? []
@@ -420,7 +429,7 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
       key={keyExtractor ? keyExtractor(item, index) : String(index)}
       style={numColumns > 1 ? { flexGrow: 1, flexBasis: `${100 / numColumns}%` } : undefined}
     >
-      {renderItem?.({ item, index })}
+      {renderItem?.({ item, index, separators: {} })}
     </View>
   )
   return (
@@ -436,7 +445,7 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
         : data.map((item, index) => (
             <View key={keyExtractor ? keyExtractor(item, index) : String(index)}>
               {index > 0 ? Separator?.() : null}
-              {renderItem?.({ item, index })}
+              {renderItem?.({ item, index, separators: {} })}
             </View>
           ))}
       {Footer}

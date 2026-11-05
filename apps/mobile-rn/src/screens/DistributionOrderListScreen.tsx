@@ -103,6 +103,7 @@ export default function DistributionOrderListScreen() {
       onTabChange={(tab) => setActiveTab(tab as TabValue)}
       onEndReached={onEndReached}
       onBack={() => navigation.goBack()}
+      onPressItem={(orderId) => navigation.navigate('OrderDetail', { id: orderId })}
       colorScheme={resolvedTheme}
     />
   )
