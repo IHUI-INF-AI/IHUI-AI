@@ -7364,7 +7364,10 @@
       "codePlaceholder": "請輸入 6 位驗證碼",
       "sendNewCode": "獲取新驗證碼",
       "resend": "{seconds}s 後重試",
-      "confirmChange": "確認修改"
+      "confirmChange": "確認修改",
+      "oldPhone": "當前手機號",
+      "oldCode": "舊手機號驗證碼",
+      "sendOldCode": "獲取舊驗證碼"
     }
   },
   "NavBar": {
