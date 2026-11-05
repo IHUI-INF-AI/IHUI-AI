@@ -354,7 +354,7 @@ describe('④ 离线回放 SchemaMissing 单列一档并点名工具', () => {
   it('SchemaMissing 影子入口直调同样计一档(shadowValidateToolArguments 不经执行链)', () => {
     process.env[TOOL_ARG_VALIDATION_ENV] = 'shadow';
     shadowValidateToolArguments(toolWithoutParameters(), { path: 'x' });
-    const bucket = snapshotToolArgShadow().tools[0];
+    const bucket = snapshotToolArgShadow().tools[0]!;
     expect(bucket.tool).toBe('g712_no_params');
     expect(bucket.schemaMissing).toBe(1);
     expect(bucket.shadowRuns).toBe(0);

@@ -119,9 +119,9 @@ describe('② 偏差行的聚合', () => {
     const { rows, totals } = replayArgumentDeviations(recs, registry(tool()));
     const coerced = rows.filter((r) => r.reason === 'coerced');
     expect(coerced.length).toBe(1);
-    expect(coerced[0].field).toBe('n');
-    expect(coerced[0].expected).toBe('number');
-    expect(coerced[0].actualKind).toBe('string');
+    expect(coerced[0]!.field).toBe('n');
+    expect(coerced[0]!.expected).toBe('number');
+    expect(coerced[0]!.actualKind).toBe('string');
     expect(totals.coercionOnly).toBe(1);
   });
 

@@ -517,7 +517,7 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
     // 验证凭证已写入 mcp-credentials.json
     const creds = await loadMcpCredentials();
     expect(creds['https://mcp.example.com']).toBeDefined();
-    expect(creds['https://mcp.example.com'].accessToken).toBe('e2e-access');
+    expect(creds['https://mcp.example.com']!.accessToken).toBe('e2e-access');
 
     // DPAPI 那一档必须**真的被试过**(而不是因为 mock 缺导出而整段跳过):
     // 有人把 runOneEngine 换掉或删掉时,这条是唯一的报警器。

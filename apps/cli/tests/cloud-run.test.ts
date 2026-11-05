@@ -68,7 +68,7 @@ describe('startCloudRun', () => {
     const runId = await startCloudRun({ task: 'x'.repeat(3000), apiKey: 'k' })
     expect(runId).toBeTruthy()
     const body = JSON.parse(String(lastCall!.init.body)) as Record<string, string>
-    expect(body.task.length).toBe(2000)
+    expect(body.task?.length).toBe(2000)
   })
 
   it('无 apiKey 时不携带 Authorization 头', async () => {

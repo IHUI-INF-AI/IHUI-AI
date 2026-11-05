@@ -94,8 +94,8 @@ describe('mcp-credentials 凭证持久化', () => {
       'https://a.example.com',
       'https://b.example.com',
     ]);
-    expect(all['https://a.example.com'].accessToken).toBe('a');
-    expect(all['https://b.example.com'].accessToken).toBe('b');
+    expect(all['https://a.example.com']!.accessToken).toBe('a');
+    expect(all['https://b.example.com']!.accessToken).toBe('b');
   });
 
   it('setCredential 覆盖同 server 的旧凭证', async () => {

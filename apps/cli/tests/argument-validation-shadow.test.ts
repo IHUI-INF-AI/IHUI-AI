@@ -153,7 +153,7 @@ describe('②shadow 档:被调用,但返回值与不加这段代码时逐字相�
     registerTools([makeTool({ required: undefined as unknown as string[] })]);
     process.env[TOOL_ARG_VALIDATION_ENV] = 'shadow';
     await executeToolCall(call({ path: 'c.txt' }), ctx);
-    const bucket = snapshotToolArgShadow().tools[0];
+    const bucket = snapshotToolArgShadow().tools[0]!;
     expect(bucket.undeterminedRequired).toBe(1);
   });
 });
@@ -192,7 +192,7 @@ describe('④遥测不含任何入参值', () => {
     // 但账确实记下来了(否则"没泄露"只是因为"什么都没记")
     expect(dumped).toContain('shadow_demo');
     expect(dumped).toContain('enum_mismatch');
-    const bucket = snapshotToolArgShadow().tools[0];
+    const bucket = snapshotToolArgShadow().tools[0]!;
     expect(bucket.firstErrorField).toBe('path');
   });
 });

@@ -53,7 +53,7 @@ describe('b76-12f 票3:mermaid 在飞渲染按 source 指纹收敛', () => {
     // 所有调用方拿到同一份结果
     for (const r of results) {
       expect(r.cached).toBe(false);
-      expect(r.buffer).toBe(results[0].buffer);
+      expect(r.buffer).toBe(results[0]!.buffer);
     }
   });
 

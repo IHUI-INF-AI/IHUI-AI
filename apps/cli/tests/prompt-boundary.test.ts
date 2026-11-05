@@ -217,7 +217,7 @@ describe('注入面续接登记(context_agents_md / context_memory / directive_p
   it('producer 文件源码必须真的以该 id 调用出口(登记了没人生产 = 本模块立项要防的那一型)', () => {
     for (const id of NEW_IDS) {
       const producer = getInjectionEntry(id)?.producer ?? '';
-      const [rel] = producer.split('#');
+      const [rel = ''] = producer.split('#');
       expect(rel, `${id} 的 producer 不是 <路径>#<符号> 形态`).toBeTruthy();
       const src = readFileSync(join(repoSrcDir, rel.replace('apps/cli/src/', '')), 'utf8');
       // 出口函数名与 id 同名调用出现在同一文件里(注释里的 id 不在此列:本门只保证"接了",

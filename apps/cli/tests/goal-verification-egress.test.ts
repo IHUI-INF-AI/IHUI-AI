@@ -82,8 +82,8 @@ describe('goal-verify 的出口:带谁的凭据、打哪个基址', () => {
     const v = await runGoalVerification(baseInput);
 
     expect(seen).toHaveLength(1);
-    expect(seen[0].url).toBe(`${resolveCloudRunBase()}${GOAL_VERIFY_PATH}`);
-    expect(seen[0].headers?.Authorization).toBe('Bearer stub.jwt.token');
+    expect(seen[0]!.url).toBe(`${resolveCloudRunBase()}${GOAL_VERIFY_PATH}`);
+    expect(seen[0]!.headers?.Authorization).toBe('Bearer stub.jwt.token');
     expect(v?.goal_status).toBe('achieved');
   });
 

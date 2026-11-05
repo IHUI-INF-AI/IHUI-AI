@@ -244,7 +244,7 @@ describe('DAP 消息编码格式', () => {
       const m = w.match(/Content-Length:\s*(\d+)\r\n\r\n([\s\S]+)/);
       expect(m).not.toBeNull();
       const declared = parseInt(m![1], 10);
-      const body = m![2].substring(0, declared);
+      const body = (m![2] ?? '').substring(0, declared);
       expect(Buffer.byteLength(body, 'utf-8')).toBe(declared);
       // body 应为合法 JSON
       expect(() => JSON.parse(body)).not.toThrow();
