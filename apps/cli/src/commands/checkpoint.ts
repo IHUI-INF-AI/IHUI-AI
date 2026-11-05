@@ -49,6 +49,28 @@ function parseHunkRanges(rangesStr: string): HunkRange[] {
   return ranges;
 }
 
+/**
+ * 回收轮次上账(goal-b49 W3:判据结果必须到得了人,内存里的原因不再只住在内存)。
+ * 两列分列:① 已删计数(版本序列 / 历史 cp_ / 保留 / 候选);② 判据原话的点名行逐条 getLastGcNotes()。
+ * 三态不并桶:undetermined 走 stderr 且明写「未判定 ≠ 通过」,绝不折成"通过",也不拿 0 冒充"没得删"(§0.3)。
+ * 取不到账面(本实例没跑过回收)⇒ 一个字也不编。
+ */
+function reportGcRun(mgr: CheckpointManager): void {
+  const outcome = mgr.getLastGcOutcome();
+  if (!outcome) return;
+  const { plan, legacyDeleted } = outcome;
+  const undetermined = plan.state === 'undetermined';
+  const counts =
+    `已删 版本序列 ${plan.deletions.length} 枚 / 历史 cp_ ${legacyDeleted} 枚 / ` +
+    `保留 ${plan.retained.length} 枚 / 候选 ${plan.totals.candidates} 枚`;
+  const headline = `快照回收账(状态 ${plan.state}${undetermined ? ',未判定 ≠ 通过' : ''}):${counts}`;
+  const paint = undetermined ? chalk.yellow : chalk.dim;
+  (undetermined ? console.warn : console.info)(paint(undetermined ? `⚠ ${headline}` : headline));
+  for (const note of mgr.getLastGcNotes()) {
+    (undetermined ? console.warn : console.info)(paint(`  ${note}`));
+  }
+}
+
 export function registerCheckpointCommand(program: Command): void {
   const cpCmd = program
     .command('checkpoint')
@@ -67,6 +89,8 @@ export function registerCheckpointCommand(program: Command): void {
       const meta = await mgr.snapshot(files, opts.reason ?? 'manual');
       console.info(chalk.green(`✓ 检查点已创建: ${meta.id}`));
       console.info(chalk.dim(`  会话: ${meta.sessionId}  原因: ${meta.reason}  文件: ${Object.keys(meta.files).length} 个`));
+      // goal-b49 W3:落盘即回收 ⇒ 这一轮的账面(已删计数 + 不删原因)当场说出口
+      reportGcRun(mgr);
     });
 
   cpCmd

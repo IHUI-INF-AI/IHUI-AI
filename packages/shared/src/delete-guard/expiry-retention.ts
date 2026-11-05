@@ -2,75 +2,41 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// © 2026 IHUI AI · 一次性校验脚本:用真实 ICU 编译器(intl-messageformat)编译
-// packages/i18n/messages/web 下全部语言包的每个字符串,报告任何无法编译的文案。
-// 用法: node scripts/validate-icu.mjs
-import { readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import type { TrashExpiryUnit } from './types'
 
-const here = dirname(fileURLToPath(import.meta.url))
-const root = join(here, '..')
-// intl-messageformat 在 pnpm store 中,用绝对路径 require
-const IMF = await import(
-  pathToFileURL(
-    join(
-      root,
-      'node_modules/.pnpm/intl-messageformat@11.2.13/node_modules/intl-messageformat/index.js',
-    ),
-  ).href
-).then((m) => m.default ?? m)
+/**
+ * 到期清理的取数与保留期解析(goal-b49 X3,2026-11-05:从 `expiry.ts` 原样搬行,判据一条未改)。
+ *
+ * 为什么单独成页:`expiry.ts` 已到 259 行(AGENTS §3「每页 <250 行」),而"条目档 > 清单档 > 策略档"
+ * 的三档解析与数值宽容取数是可独立成页的一类职责(取数 ≠ 判据)。搬行后语义逐字不变:
+ * 可清/该留/判不出/超上限的判据、结论聚合与 `unitsFromManifest` 仍住 `expiry.ts`。
+ *
+ * 公共面不变:本文件**不进** `delete-guard/index.ts` 的 `export *` 桶,两处导出只为同目录
+ * `expiry.ts` 复用 —— 导出集形状由 `tests/delete-guard-expiry-shape.test.ts` 钉住。
+ */
 
-const MESSAGES_ROOT = join(root, 'packages/i18n/messages/web')
-const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
-
-let totalChecked = 0
-let totalErrors = 0
-const errorsByLocale = {}
-
-function walk(obj, prefix, locale) {
-  for (const [k, v] of Object.entries(obj)) {
-    const path = prefix ? `${prefix}.${k}` : k
-    if (v && typeof v === 'object') {
-      walk(v, path, locale)
-    } else if (typeof v === 'string') {
-      totalChecked++
-      try {
-        // 用真实 ICU 编译器验证;空串合法(babel 插件在构建期可能注入),跳过纯空白
-        new IMF(v, locale)
-      } catch (e) {
-        totalErrors++
-        if (!errorsByLocale[locale]) errorsByLocale[locale] = []
-        errorsByLocale[locale].push({ path, msg: v, err: String(e.message || e) })
-      }
-    }
-  }
+/** 字节数/TTL 等数值字段的宽容取数:非有限数 ⇒ null(不猜 0,不猜"没这个档") */
+export function asFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-for (const locale of LOCALES) {
-  const raw = readFileSync(join(MESSAGES_ROOT, `${locale}.json`), 'utf8')
-  let parsed
-  try {
-    parsed = JSON.parse(raw)
-  } catch (e) {
-    console.error(`[FATAL] ${locale}.json JSON 解析失败: ${e}`)
-    process.exit(2)
+/** 保留期解析:条目档 > 清单档 > 策略档;任一档"存在但形态非法"⇒ 未判定(不跳过去拿下一档猜) */
+export function resolveRetention(
+  unit: TrashExpiryUnit,
+  policyMs: number,
+): { ms: number } | { bad: string } {
+  const entryRaw = unit.entry.retentionMs
+  if (entryRaw !== undefined) {
+    const ms = asFiniteNumber(entryRaw)
+    if (ms === null || ms < 0) return { bad: `条目 retentionMs 形态非法(${String(entryRaw)})` }
+    return { ms }
   }
-  walk(parsed, '', locale)
-}
-
-console.log(`校验完成:共检查 ${totalChecked} 条文案`)
-if (totalErrors === 0) {
-  console.log('✅ 全部语言包 ICU 编译通过,无 MALFORMED_ARGUMENT 风险')
-} else {
-  console.log(`❌ 发现 ${totalErrors} 条无法编译的文案:`)
-  for (const [locale, list] of Object.entries(errorsByLocale)) {
-    console.log(`\n— ${locale} (${list.length} 条) —`)
-    for (const item of list.slice(0, 40)) {
-      console.log(`  ${item.path} = ${JSON.stringify(item.msg)}`)
-      console.log(`    -> ${item.err.split('\n')[0]}`)
-    }
+  const manifestRaw = unit.manifestRetentionMs
+  if (manifestRaw !== undefined && manifestRaw !== null) {
+    const ms = asFiniteNumber(manifestRaw)
+    if (ms === null || ms < 0) return { bad: `清单 retentionMs 形态非法(${String(manifestRaw)})` }
+    return { ms }
   }
-  process.exit(1)
+  return { ms: policyMs }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

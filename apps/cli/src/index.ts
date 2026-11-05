@@ -115,6 +115,7 @@ import { replayArgumentDeviations } from './tools/argument-validation-replay.js'
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
 import { registerSkillPackageCommands } from './commands/skill-package.js';
+import { registerSkillsListCommand } from './commands/skills-catalog-view.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
 // G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
 // 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
@@ -923,24 +924,9 @@ program.addCommand(registryCommand());
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 const skillsCmd = program.command('skills').description(t('cliEntry.skillsCmdDesc'));
 
-skillsCmd
-  .command('list')
-  .description(t('cliEntry.skillsListDesc'))
-  .action(() => {
-    const skills = loadSkills({ cwd: process.cwd() });
-    if (skills.length === 0) {
-      console.info(chalk.dim(t('cliEntry.skillsEmpty')));
-      console.info(chalk.dim('  <cwd>/.ihui/skills/   <cwd>/.agents/skills/   <cwd>/.claude/skills/   <cwd>/.cursor/skills/'));
-      console.info(chalk.dim('  <repo-root>/.ihui/skills/ ...   ~/.ihui/skills/'));
-      return;
-    }
-    console.info(chalk.cyan(t('cliEntry.skillsLoaded', { count: skills.length })));
-    for (const s of skills) {
-      console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
-      console.info(chalk.dim(t('cliEntry.skillsSourceLine', { source: s.source })));
-    }
-    console.info('');
-  });
+// `list` 与 REPL `/skills` 同一展示/缓存出口(goal-b49 X3):格式化与缓存只有一份,
+// 住在 commands/skills-catalog-view.ts;这里只挂子命令,不手搓条目行、不另读一次盘。
+registerSkillsListCommand(skillsCmd);
 
 skillsCmd
   .command('show <name>')

@@ -470,7 +470,9 @@ const styles = StyleSheet.create({
     height: NAVBAR_ROW_HEIGHT_PX,
     paddingHorizontal: rnSpacing.sm,
     borderWidth: 1.5,
-    borderColor: tokens.brand.DEFAULT,
+    // 强调描边取 brandAccent.deep(AGENTS §4「描边不得取墨档」;与小程序端 NavBar 的
+    // `3rpx solid var(--color-brand-accent-deep)` 同一档,跨端同脸)
+    borderColor: tokens.brandAccent.deep,
     borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
