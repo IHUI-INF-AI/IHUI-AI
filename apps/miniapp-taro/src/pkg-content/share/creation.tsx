@@ -1,38 +1,31 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/share-landing/ShareLandingScreen.tsx
+// 声明澄清:此前登记的 ChatScreen(对话域:消息流 + 输入区 + 模型选择)与 SquareScreen(文章流)
+// 均为误挂 —— 本页是只读分享落地页(模型头卡 + 作者行 + 提问气泡 + 回答卡 + 底部两操作),
+// 两者的消息流/文章流结构都不同构,故新建 ShareLandingScreen,不得接入上述两屏。
+// 端内保留:① 路由参数 code;② getShareContentByCode 取数 + 字段映射;③ 载入/错误两态;
+// ④ useShareAppMessage / showShareMenu / previewImage / 导航 / 吐司;⑤ i18n 与主题。
+// 视频/音频的 Taro 组件放在兄弟模块 ./creation-media,本页只传函数引用,不出现渲染型 JSX。
+import { useCallback, useMemo, useState } from 'react'
+import Taro, { getCurrentInstance, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
-import { View, Text, Image, Video, Button, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow, useShareAppMessage, getCurrentInstance } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
 import { getShareContentByCode } from '@/api'
 import { showShareMenu } from '@/utils/share'
 import { logger } from '@/utils/logger'
-import { NavBar } from '@/components'
-import ErrorView from '@/components/ErrorView'
-import { formatDateByTemplate } from '@ihui/shared'
-import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
+import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import {
+  ShareLandingScreen,
+  type ShareLandingContent,
+} from '@ihui/rn-app/features/share-landing/ShareLandingScreen'
+import { renderShareVideo, renderShareAudio } from './creation-media'
 
-interface ShareAnswer {
-  thinking?: string
-  text?: string
-  images?: string[]
-  video?: { url: string; cover?: string; width?: number; height?: number }
-  audio?: { url: string; duration?: number }
-  lists?: Array<{ type: 'text' | 'image' | 'video' | 'audio'; content: string }>
-}
-interface ShareContent {
-  code: string
-  modelName: string
-  modelIcon: string
-  question: string
-  answer: ShareAnswer
-  tokenCost?: number
-  createdAt: string
-  userAvatar?: string | null
-  userName?: string | null
+/** 接口原始记录:UI 内容之外的业务字段(agentId 供「再生成」跳转)留在端内 */
+export interface ShareCreationRecord extends ShareLandingContent {
+  code?: string
   agentId?: string
   userUuid?: string
   gcType?: string
@@ -40,11 +33,25 @@ interface ShareContent {
   status?: number
 }
 
-const fmtTime = (iso: string) => formatDateByTemplate(iso, 'YYYY-MM-DD HH:mm')
+/** 取数行 → 共享屏内容;每个展示字段在此映射一次(测试逐字段断言,删掉任一条即红) */
+export function toShareLandingContent(record: ShareCreationRecord): ShareLandingContent {
+  return {
+    modelName: record.modelName,
+    modelIcon: record.modelIcon,
+    question: record.question,
+    answer: record.answer ?? {},
+    tokenCost: record.tokenCost,
+    createdAt: record.createdAt,
+    userAvatar: record.userAvatar,
+    userName: record.userName,
+  }
+}
 
 export default function ShareCreationPage() {
   const { t } = useI18n()
-  const [content, setContent] = useState<ShareContent | null>(null)
+  const { resolvedTheme } = useTheme()
+  const [content, setContent] = useState<ShareLandingContent | null>(null)
+  const [agentId, setAgentId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -62,8 +69,9 @@ export default function ShareCreationPage() {
     setLoading(true)
     setError('')
     try {
-      const res = (await getShareContentByCode(code)) as ShareContent
-      setContent(res)
+      const record = (await getShareContentByCode(code)) as ShareCreationRecord
+      setContent(toShareLandingContent(record))
+      setAgentId(record.agentId || '')
     } catch (e) {
       logger.error('share/index', '获取分享内容', e)
       setError(e instanceof Error ? e.message : t('share.creation.loadFailed'))
@@ -73,7 +81,7 @@ export default function ShareCreationPage() {
   }, [code, t])
 
   useDidShow(() => {
-    load()
+    void load()
     showShareMenu()
   })
 
@@ -83,200 +91,43 @@ export default function ShareCreationPage() {
     imageUrl: content?.answer?.images?.[0] || content?.modelIcon || '',
   }))
 
+  const onBack = useCallback(() => {
+    void Taro.navigateBack()
+  }, [])
+
+  const onPreviewImage = useCallback((images: string[], index: number) => {
+    Taro.previewImage({ urls: images, current: images[index] })
+  }, [])
+
   const onRegenerate = useCallback(() => {
-    if (content?.agentId) {
-      Taro.navigateTo({ url: `/pkg-ai/ai/agent-detail?id=${content.agentId}` })
+    if (agentId) {
+      Taro.navigateTo({ url: `/pkg-ai/ai/agent-detail?id=${agentId}` })
     } else {
       Taro.navigateTo({ url: '/pkg-ai/ai/chat' })
     }
-  }, [content])
+  }, [agentId])
 
   const onShareFriend = useCallback(() => {
     Taro.showShareMenu({ withShareTicket: true })
     onToast(t('share.creation.clickShare'), { kind: 'info' })
   }, [t])
 
-  if (loading) {
-    return (
-      <View className="min-h-screen bg-background">
-        <NavBar title={t('share.creation.title')} showBack />
-        <View className="flex items-center justify-center py-20">
-          <Text className="text-body text-muted-foreground">{t('share.creation.loading')}</Text>
-        </View>
-      </View>
-    )
-  }
-  if (error || !content) {
-    return (
-      <View className="min-h-screen bg-background">
-        <NavBar title={t('share.creation.title')} showBack />
-        <ErrorView
-          title={t('share.creation.loadFailed')}
-          desc={error || t('share.creation.contentNotExist')}
-          onRetry={load}
-        />
-      </View>
-    )
-  }
-
-  const answer = content.answer || {}
-  const images = answer.images || []
-  const lists = answer.lists || []
-
   return (
-    <ThemeRoot className="min-h-screen bg-background">
-      <NavBar title={t('share.creation.title')} showBack />
-      {/* 对齐 RN ChatScreen msgListContent(paddingHorizontal rpx(16) → 16rpx,paddingVertical rpx(24) → 24rpx) */}
-      <ScrollView scrollY className="h-screen">
-        {/* 会话信息头(小程序端业务展示,保留;卡片规格:底 --color-card、描边 --color-border、
-            radius 12dp → 24rpx、padding 12dp → 24rpx,对齐 SquareScreen card 卡片语言) */}
-        <View className="mx-[16rpx] mt-[16rpx] bg-card rounded-lg border-[length:2rpx] border-border p-[24rpx]">
-          <View className="flex items-center mb-[24rpx]">
-            {content.modelIcon ? (
-              <Image
-                className="w-[64rpx] h-[64rpx] rounded-lg mr-[16rpx]"
-                src={content.modelIcon}
-                mode="aspectFill"
-              />
-            ) : null}
-            <View className="flex-1 min-w-0">
-              <Text className="block text-title font-semibold text-foreground truncate">
-                {content.modelName || t('share.creation.modelDefault')}
-              </Text>
-              <Text className="block text-label text-[var(--color-text-tertiary)]">
-                {fmtTime(content.createdAt)}
-              </Text>
-            </View>
-            {content.tokenCost ? (
-              <Text className="text-label text-[var(--color-text-tertiary)]">
-                {t('share.creation.tokenCost', { n: content.tokenCost })}
-              </Text>
-            ) : null}
-          </View>
-          {content.userName ? (
-            <View className="flex items-center mb-[16rpx]">
-              {content.userAvatar ? (
-                <Image
-                  className="w-[48rpx] h-[48rpx] rounded-lg mr-[16rpx]"
-                  src={content.userAvatar}
-                  mode="aspectFill"
-                />
-              ) : null}
-              <Text className="text-label text-[var(--color-text-tertiary)]">
-                {content.userName}
-              </Text>
-            </View>
-          ) : null}
-          {/* 提问 = 用户消息气泡:对齐 ChatScreen msgBubbleUser(bg brand,radius 16dp → 32rpx,
-              padding rpx(28)/rpx(20),fontSize 15dp → 30rpx/lineHeight 40rpx) */}
-          <View className="flex justify-end">
-            <View className="max-w-[78%] bg-primary rounded-2xl px-[28rpx] py-[20rpx]">
-              <Text className="text-strong leading-[40rpx] text-[var(--color-primary-foreground)]">
-                {content.question}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* AI 回答 = AI 内容卡片:对齐 RN 卡片规范(底 --color-card、描边 --color-border、
-            radius 24rpx、padding 28/24rpx;底色对齐 ChatScreen msgBubbleAi surface.card) */}
-        <View className="mx-[16rpx] mt-[20rpx] flex">
-          <View className="flex-1 bg-card rounded-lg border-[length:2rpx] border-border px-[28rpx] py-[24rpx]">
-            {/* 思考过程:对齐 ChatScreen thinkingBlock(bg surface.muted,radius 8dp → 16rpx) */}
-            {answer.thinking ? (
-              <View className="mb-[12rpx] rounded-lg bg-[var(--color-muted)] overflow-hidden">
-                <View className="px-[20rpx] py-[16rpx]">
-                  <Text className="text-label font-semibold text-muted-foreground">
-                    {t('share.creation.thinkingProcess')}
-                  </Text>
-                </View>
-                {/* 对齐 thinkingContent(12dp → 24rpx,lineHeight 17 → 34rpx) */}
-                <Text className="block px-[20rpx] pb-[20rpx] text-label leading-[34rpx] text-muted-foreground whitespace-pre-wrap">
-                  {answer.thinking}
-                </Text>
-              </View>
-            ) : null}
-            {/* 正文:对齐 msgTextAi(15dp → 30rpx,lineHeight 20 → 40rpx) */}
-            {answer.text ? (
-              <Text className="block text-strong leading-[40rpx] text-foreground whitespace-pre-wrap">
-                {answer.text}
-              </Text>
-            ) : null}
-            {/* 图片:对齐 msgImageWrap/msgImage(radius 8dp → 16rpx,180x140dp → 360x280rpx) */}
-            {images.length ? (
-              <View className="mt-[16rpx] flex flex-wrap gap-[16rpx]">
-                {images.map((url, i) => (
-                  <View
-                    key={i}
-                    className="rounded-lg overflow-hidden"
-                    onClick={() => Taro.previewImage({ urls: images, current: url })}
-                    hoverClass="opacity-60"
-                  >
-                    <Image
-                      className="w-[360rpx] h-[280rpx] bg-[var(--color-muted)]"
-                      src={url}
-                      mode="aspectFill"
-                    />
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            {answer.video?.url ? (
-              <View className="mt-[16rpx] rounded-lg overflow-hidden">
-                <Video
-                  className="w-full"
-                  style={{ height: '420rpx' }}
-                  src={answer.video.url}
-                  poster={answer.video.cover}
-                  controls
-                  objectFit="contain"
-                />
-              </View>
-            ) : null}
-            {answer.audio?.url ? (
-              <View className="mt-[16rpx] px-[20rpx] py-[16rpx] bg-[var(--color-muted)] rounded-lg flex items-center">
-                <Text className="text-label text-foreground flex-1">
-                  {t('share.creation.voiceAnswer')}
-                </Text>
-                <Text className="text-label text-[var(--color-text-tertiary)]">
-                  {answer.audio.duration ? `${answer.audio.duration}s` : ''}
-                </Text>
-              </View>
-            ) : null}
-            {lists.length ? (
-              <View className="mt-[16rpx] flex flex-col gap-[16rpx]">
-                {lists.map((item, i) => (
-                  <View key={i} className="py-[16rpx]">
-                    {item.type === 'image' ? (
-                      <Image className="w-full rounded-lg" src={item.content} mode="widthFix" />
-                    ) : (
-                      <Text className="block text-strong leading-[40rpx] text-foreground whitespace-pre-wrap">
-                        {item.content}
-                      </Text>
-                    )}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        <View className="mx-[16rpx] mt-[24rpx] mb-[48rpx] flex gap-[16rpx]">
-          <Button
-            className="flex-1 text-body rounded-sm !bg-primary !text-[var(--color-primary-foreground)]"
-            onClick={onRegenerate}
-          >
-            {t('share.creation.regenerate')}
-          </Button>
-          <Button
-            className="flex-1 text-body rounded-sm !bg-muted !text-foreground"
-            onClick={onShareFriend}
-          >
-            {t('share.creation.shareFriend')}
-          </Button>
-        </View>
-      </ScrollView>
+    <ThemeRoot>
+      <ShareLandingScreen
+        t={t}
+        state={loading ? 'loading' : error || !content ? 'error' : 'ready'}
+        content={content}
+        errorText={error}
+        onBack={onBack}
+        onRetry={() => void load()}
+        onPreviewImage={onPreviewImage}
+        onRegenerate={onRegenerate}
+        onShareFriend={onShareFriend}
+        colorScheme={resolvedTheme}
+        renderVideo={renderShareVideo}
+        renderAudio={renderShareAudio}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
