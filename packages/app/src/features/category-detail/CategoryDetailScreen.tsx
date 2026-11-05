@@ -3,18 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  FlatList,
-  StyleSheet,
-  type ViewStyle,
-} from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, type ViewStyle } from 'react-native'
 import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { AgentAvatar } from './AgentAvatar'
+import { CategoryHeader } from './CategoryHeader'
 import {
   EmptyState,
   ErrorState,
@@ -33,6 +27,7 @@ export function CategoryDetailScreen({
   items,
   activeTab,
   title,
+  header,
   tabLabels,
   loading,
   hasMore,
@@ -53,13 +48,7 @@ export function CategoryDetailScreen({
       onPress={() => onAgentPress(item.id)}
       colorScheme={colorScheme}
     >
-      {item.avatar ? (
-        <Image source={{ uri: item.avatar }} style={styles.itemAvatar} />
-      ) : (
-        <View style={styles.itemAvatarFallback}>
-          <Text style={styles.itemAvatarText}>{item.name.charAt(0)}</Text>
-        </View>
-      )}
+      <AgentAvatar avatar={item.avatar} name={item.name} colorScheme={colorScheme} />
       <View style={styles.itemBody}>
         <Text style={styles.itemName} numberOfLines={1}>
           {item.name}
@@ -83,6 +72,11 @@ export function CategoryDetailScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{title ?? '分类详情'}</Text>
       </View>
+      {header ? (
+        <View style={styles.headerSection}>
+          <CategoryHeader {...header} colorScheme={colorScheme} />
+        </View>
+      ) : null}
       <View style={styles.tabsRow}>
         {TABS.map((tab, index) => (
           <TouchableOpacity
@@ -138,6 +132,10 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    headerSection: {
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+    },
     tabsRow: {
       flexDirection: 'row',
       paddingHorizontal: rnSpacing['sm-loose'],
@@ -173,21 +171,6 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing.md,
       gap: rnSpacing.md,
     },
-    itemAvatar: {
-      width: 40,
-      height: 40,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.card,
-    },
-    itemAvatarFallback: {
-      width: 40,
-      height: 40,
-      borderRadius: rnRadius.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.card,
-    },
-    itemAvatarText: { fontSize: rnType.title.size, fontWeight: '500', color: tk.text.tertiary },
     itemUseCount: { fontSize: rnType.body.size, color: tk.text.secondary },
     itemBody: { flex: 1, minWidth: 0 },
     itemName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
