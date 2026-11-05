@@ -78,19 +78,19 @@ Headline claims (same source as the table below, all live-computed): **618 table
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 69 | `cliCommandFiles` |
-| CLI 工具文件 | 73 | `cliToolFiles` |
+| CLI 工具文件 | 74 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4045 | `testFiles` |
+| 测试文件 | 4057 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 332 | `guardianGates` |
-| — blocking | 302 | `guardianBlocking` |
+| 工程守门 | 334 | `guardianGates` |
+| — blocking | 304 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 18969 | `trackedFiles` |
+| 跟踪文件 | 19027 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -100,6 +100,44 @@ Headline claims (same source as the table below, all live-computed): **618 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-05**
+- 🔧 Chore/Other:日预算 9→10 —— 机主那条授权要的是"验一次端到端真产出",而 9 枚全烧在未修成因上 (a85b530efd)
+
+**2026-11-05**
+- 🐞 Fix:派单工序补第 0 步"第 1 轮就发出工具调用" —— 同权限档对照量出来的 (a41476316b)
+- 🐞 Fix:派发模型改由闸门声明并写进命令行 —— 不再靠子进程继承哪个 HOME (6ab3ab37c4)
+- 🐞 Fix:出站消息表剥 tool 档零宽载荷 —— 治"自治会话读了水印第枚文件就自毒" (efff5023bb)
+- 🐞 Fix:流期间工具卡渐进渲染可见性根因修复与 E2E 转绿 (bd3ea05c78)
+- 🐞 Fix:推送类器物补用法档,并修 sync-tags 既存死器(一跑即 ReferenceError) (9926b5d4fe)
+- 📚 Docs:B71 的释放注记移到行尾 —— 让票类词回到匹配窗口,机主授权的"按票类登记"那一半 (65173065c3)
+- 🔧 Chore/Other:日预算 6→9 与「测试/质量」两档 —— 机主授权面落地并写明边界与回落 (52e885f1d0)
+- 🐞 Fix:范围预解析认点号成员引用与裸点文件 —— 补 P84 暴露的仪器盲点 (21b60c5792)
+- 📚 Docs:P84 结清即删 —— 五条判据实跑绿,并收口我此前两次的错归因 (50cfd20ab2)
+- 🔧 Chore/Other:二分定位渐进渲染浏览器缺口到消息投影层并显式登记 (b271803ad4)
+- 📚 Docs:P85 结清即删 —— 五条判据逐条实验通过,不是"看起来像做了" (301f820942)
+- 🐞 Fix:补用法档 —— 这枚的默认档是真推 origin,手滑不该动共享状态 (d016326e7c)
+- 🐞 Fix:自愈器的手滑档降到只读 —— 敲错旗标不得按"真恢复"写他人现场 (3a9ebdf90f)
+- 🚀 Feature/Improvement:停派时把"池里还剩几张打得赢的票"记进账面 (1425f4e83f)
+- 🔧 Chore/Other:补交成本熔断改桶的写盘腿夹具 —— 两枚测试件此前悬在工作树未入库 (e5b1185b72)
+- 📚 Docs:RP-66 按现读证伪结清 + RP-94 分叉数字第三次现读更正 (e6e10f22a7)
+- 🔧 Chore/Other:tool-call-args-delta 浏览器真跑改造并显式登记渐进渲染缺口 (a0d5602215)
+- 🐞 Fix:无头会话的 tools 广告面按同一个权限判据过滤 —— 不再摆结构上执行不了的墙 (b3229add9d)
+- 📚 Docs:作用域行不再写死盘符 —— G:/IHUI-AI 是另一台机的现状,代价已被量到 (f8142e97c2)
+- 🐞 Fix:空转阶梯改按行分档 —— 毒票不再被"零推进的结算"每轮归零 (cdb8b1780a)
+- 🔧 Chore/Other:推进文档自动更新水位（生成器写入） (5101d61871)
+- 🔧 Chore/Other:按 --snapshot 重生成本机服务快照并更新仓内引用面 (f0b4a9df44)
+- 📚 Docs:§8 逐条二次复核补 CLOSED/OPEN 标注并保留旧读数 (34ec998472)
+- 🔧 Chore/Other:重生成中文压缩包（zh-cn-pack.gen.ts） (9a1bdb6905)
+- 🔧 Chore/Other:重生成远端语言包压缩体（remote-locales.gen.ts） (69aba4e4f5)
+- 🔧 Chore/Other:重生成远端语言包清单（remote-locale-manifest.gen.ts） (1c7f85e8b9)
+- 🔧 Chore/Other:重生成小程序远端语言包压缩件（zh-TW.b64） (15341d2537)
+- 🔧 Chore/Other:重生成小程序远端语言包压缩件（ko.b64） (07375a618d)
+- 🔧 Chore/Other:重生成小程序远端语言包压缩件（ja.b64） (28597ceb9b)
+- 🔧 Chore/Other:重生成小程序远端语言包压缩件（en.b64） (f7c9a81139)
+- 🐞 Fix:小程序词包补齐源码已引用的 4 枚键并摘除无引用键（zh-TW） (8421f44509)
+- 🐞 Fix:小程序词包补齐源码已引用的 4 枚键并摘除无引用键（zh-CN） (c3313db9e0)
+- 🚀 Feature/Improvement:工具入参逐分片渐进渲染全链路收口（埋点/断流兜底/E2E） (105315ff86)
+
 **2026-11-03**
 - 🔧 Chore/Other:a1029c579c 并入后派生件重算 —— ui-routes 329 页 / README 近期块×4 / last-sha (c95120eb2a)
 
@@ -578,15 +616,6 @@ Headline claims (same source as the table below, all live-computed): **618 table
 - 🐞 Fix:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
 - 🐞 Fix:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
 - 🔧 Chore/Other:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
-
-**2026-11-03**
-- ♻️ Refactor:容器 hover 浮起按 2026-11-03 机主二次定档减淡 —— 数值源 --lift-* 单点收敛(位移-4px→-2px,缩放1.015→1.008,两层阴影 6px/12%+30px/25%→3px/6%+18px/12%,暗档同比例),端内不散改 (03d1c4d32e)
-
-**2026-11-03**
-- 🔧 Chore/Other:补全 10 个文件的 L2 零宽载荷与水印尾标(scripts/watermark.mjs inject 生成物) (0223f5e987)
-- ♻️ Refactor:BannerCarousel 的 50% 白改走设计令牌 rnCssLight.white50 (3d0d31a294)
-- ⚡ Perf:下载栏的站点腿探测改「本机源站优先」,并给安卓版补上真实体积 (6a324ae21d)
-- 🔧 Chore/Other:烘焙 0.1.77 更新源与下载页快照 — Gitee 镜像仓为空仓无 main/tag/release,字节对账未判定故保留 GitHub 直链 (694810b9dc)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
