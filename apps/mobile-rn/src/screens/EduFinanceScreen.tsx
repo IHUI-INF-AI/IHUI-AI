@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduPaymentRecordList } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -62,7 +62,7 @@ function EduFinanceScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: PaymentRecord[] }>('/api/edu-ai-management/payment-record')
+      const res = await eduPaymentRecordList<{ list: PaymentRecord[] }>()
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((r) => ({

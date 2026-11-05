@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { UtensilsCrossed, Loader2 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildMeals } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -54,8 +54,11 @@ export default function ChildMealsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
-    queryFn: () =>
-      apiOrThrow<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    queryFn: async () => {
+      const r = await eduParentChildMeals<{ list: MealItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 

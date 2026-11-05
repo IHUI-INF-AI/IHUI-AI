@@ -15,7 +15,7 @@ import {
   type NavigationProp,
   type RouteProp,
 } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduParentChildGrades } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -45,9 +45,7 @@ function EduChildGradesScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: GradeItem[] }>(
-        `/api/edu-ai-management/parent/child/${childId}/grades`,
-      )
+      const res = await eduParentChildGrades<{ list: GradeItem[] }>(childId)
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((g) => ({

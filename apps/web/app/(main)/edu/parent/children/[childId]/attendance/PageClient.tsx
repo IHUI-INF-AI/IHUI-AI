@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { CalendarCheck, Loader2, Clock, LogOut } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildrenAttendance } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton, AuthGatePrompt } from '@/components/common'
@@ -64,10 +64,11 @@ export default function ChildAttendancePage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
-    queryFn: () =>
-      apiOrThrow<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/parent/children/${childId}/attendance`,
-      ),
+    queryFn: async () => {
+      const r = await eduParentChildrenAttendance<{ list: AttendanceRecord[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 

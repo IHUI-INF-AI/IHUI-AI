@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduClassList, eduTermList } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -42,7 +42,7 @@ function EduEnrollmentScreen() {
     setLoading(true)
     setError(null)
     try {
-      const terms = await fetchApi<{ list: Term[] }>('/api/edu-ai-management/term')
+      const terms = await eduTermList<{ list: Term[] }>()
       if (!terms.success) throw new Error(terms.error || 'load failed')
       const list = terms.data?.list ?? []
       const current = list.find((x) => x.isCurrent) ?? list[0]
@@ -52,9 +52,7 @@ function EduEnrollmentScreen() {
         return
       }
       setTermName(current.name)
-      const res = await fetchApi<{ list: EduClass[] }>(
-        `/api/edu-ai-management/class?termId=${current.id}`,
-      )
+      const res = await eduClassList<{ list: EduClass[] }>({ termId: current.id })
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((c) => ({

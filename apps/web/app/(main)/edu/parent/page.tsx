@@ -32,7 +32,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduParentBindingCreate,
+  eduParentBindingDelete,
+  eduParentBindingList,
+  eduParentBindingUpdate,
+  eduParentChildAttendance,
+  eduParentChildBills,
+  eduParentChildGrades,
+  eduParentChildMeals,
+  eduParentChildSchedule,
+  eduParentChildStudyPlans,
+  eduParentChildren,
+} from '@ihui/api-client'
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -226,7 +238,11 @@ export default function ParentPortalPage() {
   /* ── Children Query ── */
   const childrenQuery = useQuery({
     queryKey: ['parent', 'children'],
-    queryFn: () => apiOrThrow<{ children: ChildInfo[] }>('/api/edu-ai-management/parent/children'),
+    queryFn: async () => {
+      const r = await eduParentChildren<{ children: ChildInfo[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -454,8 +470,11 @@ function CoursesView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
-    queryFn: () =>
-      apiOrThrow<{ list: CourseItem[] }>(`/api/edu-ai-management/parent/child/${childId}/schedule`),
+    queryFn: async () => {
+      const r = await eduParentChildSchedule<{ list: CourseItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -541,8 +560,11 @@ function MealsView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
-    queryFn: () =>
-      apiOrThrow<{ list: MealItem[] }>(`/api/edu-ai-management/parent/children/${childId}/meals`),
+    queryFn: async () => {
+      const r = await eduParentChildMeals<{ list: MealItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -622,8 +644,8 @@ function BillsView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'bills'],
-    queryFn: () =>
-      apiOrThrow<{
+    queryFn: async () => {
+      const r = await eduParentChildBills<{
         bills: Array<{
           enrollmentId: string
           className: string
@@ -644,7 +666,10 @@ function BillsView({ childId }: { childId: string }) {
             }>
           } | null
         }>
-      }>(`/api/edu-ai-management/parent/children/${childId}/bills`),
+      }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -745,10 +770,11 @@ function StudyPlansView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
-    queryFn: () =>
-      apiOrThrow<{ list: StudyPlanItem[] }>(
-        `/api/edu-ai-management/parent/children/${childId}/study-plans`,
-      ),
+    queryFn: async () => {
+      const r = await eduParentChildStudyPlans<{ list: StudyPlanItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -819,8 +845,11 @@ function GradesView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
-    queryFn: () =>
-      apiOrThrow<{ list: GradeItem[] }>(`/api/edu-ai-management/parent/child/${childId}/grades`),
+    queryFn: async () => {
+      const r = await eduParentChildGrades<{ list: GradeItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -957,10 +986,11 @@ function AttendanceView({ childId }: { childId: string }) {
   const { allow } = useAuthGate()
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
-    queryFn: () =>
-      apiOrThrow<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/parent/child/${childId}/attendance`,
-      ),
+    queryFn: async () => {
+      const r = await eduParentChildAttendance<{ list: AttendanceRecord[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
@@ -1093,19 +1123,22 @@ function BindingsManagement() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['parent', 'bindings'],
-    queryFn: () => apiOrThrow<{ list: BindingRecord[] }>('/api/edu-ai-management/parent/binding'),
+    queryFn: async () => {
+      const r = await eduParentBindingList<{ list: BindingRecord[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
   const bindings = data?.list ?? []
 
   const createMutation = useMutation({
-    mutationFn: (body: { parentId: string; studentId: string; relationship: string }) =>
-      apiOrThrow('/api/edu-ai-management/parent-binding', {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    mutationFn: async (body: { parentId: string; studentId: string; relationship: string }) => {
+      const r = await eduParentBindingCreate(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })
@@ -1115,11 +1148,11 @@ function BindingsManagement() {
   })
 
   const confirmMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent/binding/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: 'confirmed' }),
-      }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingUpdate(id, { status: 'confirmed' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })
@@ -1127,19 +1160,22 @@ function BindingsManagement() {
   })
 
   const rejectMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent/binding/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: 'rejected' }),
-      }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingUpdate(id, { status: 'rejected' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/parent-binding/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduParentBindingDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['parent', 'bindings'] })
       queryClient.invalidateQueries({ queryKey: ['parent', 'children'] })

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { ScanLine } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduAttendanceSelfCheckIn, eduMyAttendance } from '@ihui/api-client'
 import {
   ConsoleTableScreen,
   getTokens,
@@ -77,9 +77,9 @@ function EduMyAttendanceScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: MyAttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance/me?date=${attendanceBizDay()}`,
-      )
+      const res = await eduMyAttendance<{ list: MyAttendanceRecord[] }>({
+        date: attendanceBizDay(),
+      })
       if (!res.success) throw new Error(res.error || 'load failed')
       setRecords(res.data?.list ?? [])
     } catch (e) {
@@ -123,11 +123,9 @@ function EduMyAttendanceScreen() {
     }
     setBusy(true)
     try {
-      const res = await fetchApi<{ classId?: string; status?: string }>(
-        '/api/edu-ai-management/attendance/self-check-in',
-        // 只送当日业务日:身份与班级由服务端按登录态/在册学籍现取,状态由规则现算(无 status 键)
-        { method: 'POST', body: JSON.stringify({ date: attendanceBizDay() }) },
-      )
+      const res = await eduAttendanceSelfCheckIn<{ classId?: string; status?: string }>({
+        date: attendanceBizDay(),
+      })
       if (res.success) {
         // 成功:以后端回显的生效信息展示(状态词表与教师端同源),再重新 GET 刷新,不做本地乐观改状态
         const echoed = res.data?.status ? ` (${statusLabel(res.data.status)})` : ''

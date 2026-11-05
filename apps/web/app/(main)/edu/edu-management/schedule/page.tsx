@@ -23,7 +23,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassCreate,
+  eduClassList,
+  eduScheduleCopyLastWeek,
+  eduScheduleCreate,
+  eduScheduleDelete,
+  eduScheduleExport,
+  eduScheduleList,
+  eduScheduleUpdate,
+  eduTermCreate,
+  eduTermList,
+  eduTermUpdate,
+} from '@ihui/api-client'
 import { BackButton, toast, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import {
@@ -566,7 +578,11 @@ export default function SchedulePage() {
   } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
     enabled: allow,
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
@@ -581,8 +597,11 @@ export default function SchedulePage() {
 
   const { data: classesData, isLoading: classesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow && !!selectedTermId,
   })
 
@@ -597,10 +616,14 @@ export default function SchedulePage() {
 
   const { data: schedulesData, isLoading: schedulesLoading } = useQuery({
     queryKey: ['edu-ai-management', 'schedule', selectedTermId, selectedClassId],
-    queryFn: () =>
-      apiOrThrow<{ list: ScheduleEntry[] }>(
-        `/api/edu-ai-management/schedule?termId=${selectedTermId}&classId=${selectedClassId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduScheduleList<{ list: ScheduleEntry[] }>({
+        termId: selectedTermId,
+        classId: selectedClassId,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow && !!selectedTermId && !!selectedClassId,
   })
 
@@ -612,67 +635,70 @@ export default function SchedulePage() {
   }, [queryClient])
 
   const createSchedule = useMutation({
-    mutationFn: (data: ScheduleFormData) =>
-      apiOrThrow('/api/edu-ai-management/schedule', {
-        method: 'POST',
-        body: JSON.stringify({
-          termId: selectedTermId,
-          classId: selectedClassId,
-          courseName: data.courseName,
-          teacher: data.teacher || null,
-          weekday: data.weekday,
-          startTime: data.startTime,
-          endTime: data.endTime,
-          classroom: data.classroom || null,
-          color: data.color || null,
-        }),
-      }),
+    mutationFn: async (data: ScheduleFormData) => {
+      const r = await eduScheduleCreate({
+        termId: selectedTermId,
+        classId: selectedClassId,
+        courseName: data.courseName,
+        teacher: data.teacher || null,
+        weekday: data.weekday,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        classroom: data.classroom || null,
+        color: data.color || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateSchedule = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ScheduleFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          courseName: data.courseName,
-          teacher: data.teacher || null,
-          weekday: data.weekday,
-          startTime: data.startTime,
-          endTime: data.endTime,
-          classroom: data.classroom || null,
-          color: data.color || null,
-        }),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: ScheduleFormData }) => {
+      const r = await eduScheduleUpdate(id, {
+        courseName: data.courseName,
+        teacher: data.teacher || null,
+        weekday: data.weekday,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        classroom: data.classroom || null,
+        color: data.color || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteSchedule = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/schedule/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduScheduleDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const saveTerm = useMutation({
-    mutationFn: (data: Partial<Term>) =>
-      data.id
-        ? apiOrThrow(`/api/edu-ai-management/term/${data.id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-          })
-        : apiOrThrow('/api/edu-ai-management/term', {
-            method: 'POST',
-            body: JSON.stringify(data),
-          }),
+    mutationFn: async (data: Partial<Term>) => {
+      if (data.id) {
+        const r = await eduTermUpdate(data.id, data)
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      }
+      const r = await eduTermCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const saveClass = useMutation({
-    mutationFn: (data: { name: string; grade: string }) =>
-      apiOrThrow('/api/edu-ai-management/class', {
-        method: 'POST',
-        body: JSON.stringify({ ...data, termId: selectedTermId }),
-      }),
+    mutationFn: async (data: { name: string; grade: string }) => {
+      const r = await eduClassCreate({ ...data, termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -684,16 +710,12 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setCopyingLastWeek(true)
     try {
-      const result = await apiOrThrow<{ count: number }>(
-        '/api/edu-ai-management/schedule/copy-last-week',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            classId: selectedClassId,
-            targetWeekStart: formatDate(currentMonday),
-          }),
-        },
-      )
+      const r = await eduScheduleCopyLastWeek<{ count: number }>({
+        classId: selectedClassId,
+        targetWeekStart: formatDate(currentMonday),
+      })
+      if (!r.success) throw new Error(r.error)
+      const result = r.data
       invalidate()
       toast.success(t('copiedCourses', { count: result.count }))
     } catch (e: unknown) {
@@ -707,14 +729,18 @@ export default function SchedulePage() {
     if (!selectedClassId) return
     setExporting(true)
     try {
-      const data = await apiOrThrow<{
+      const r = await eduScheduleExport<{
         schedules: ScheduleEntry[]
         class: { name: string } | null
         dateRange: { startDate: string; endDate: string }
         totalCount: number
-      }>(
-        `/api/edu-ai-management/schedule/export?classId=${selectedClassId}&startDate=${formatDate(weekDays[0]!)}&endDate=${formatDate(weekDays[6]!)}`,
-      )
+      }>({
+        classId: selectedClassId,
+        startDate: formatDate(weekDays[0]!),
+        endDate: formatDate(weekDays[6]!),
+      })
+      if (!r.success) throw new Error(r.error)
+      const data = r.data
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')

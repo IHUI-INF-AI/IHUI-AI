@@ -129,15 +129,17 @@ export function buildBatchCheckInPayload(input: {
 }
 
 /**
- * 考勤清单取数 URL:`GET /api/edu-ai-management/attendance`。
+ * 考勤清单取数参数:`GET /attendance`。
  * status 只在筛选值非空时才进 query —— 「全部状态」在页面侧已被归一成 ''(与请假筛选同一写法),
  * 后端按枚举精确匹配,带上 `status=all` 会让列表恒空(2026-11 实测缺陷)。
  */
-export function buildAttendanceListUrl(date: string, statusFilter: string): string {
-  const params = new URLSearchParams()
-  if (date) params.set('date', date)
-  if (statusFilter) params.set('status', statusFilter)
-  const qs = params.toString()
-  return `/api/edu-ai-management/attendance${qs ? `?${qs}` : ''}`
+export function buildAttendanceListParams(
+  date: string,
+  statusFilter: string,
+): { date?: string; status?: string } {
+  return {
+    date: date || undefined,
+    status: statusFilter || undefined,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
