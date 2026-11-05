@@ -416,17 +416,27 @@ export function normalizeSessionRuntime(cmdText, execPath = process.execPath) {
  * 所以判据只看方向:**只在"盘上缺 HEAD 已有的锚点"(回潮)时停派**;盘上是超集(新增未提交)照派。
  * 锚点表与门 299 同一份(§0.6 不复算):`scripts/data/autonomy-invariants.json`。
  * 任一面取不到 ⇒ 未判定 ⇒ 不派也不谎报(§0.3)。
- * @param {{guardListText?:string|null, headText?:string|null, diskText?:string|null, selfRel:string}} p
+ * @param {{invariantsText?:string|null, headText?:string|null, diskText?:string|null, selfRel:string}} p
+ * @param {string|null} p.invariantsText 锚点表原文(`scripts/data/autonomy-invariants.json`,null ⇒ undetermined)
  */
-export function judgeSelfFace({ guardListText = null, headText = null, diskText = null, selfRel }) {
+export function judgeSelfFace({
+  invariantsText = null,
+  headText = null,
+  diskText = null,
+  selfRel,
+}) {
   if (
-    typeof guardListText !== 'string' ||
+    typeof invariantsText !== 'string' ||
     typeof headText !== 'string' ||
     typeof diskText !== 'string'
   ) {
-    return { state: 'undetermined', missing: [], why: '清单 / HEAD 面 / 盘上三份之一取不到 ⇒ 不猜' }
+    return {
+      state: 'undetermined',
+      missing: [],
+      why: '锚点表 / HEAD 面 / 盘上三份之一取不到 ⇒ 不猜',
+    }
   }
-  const parsed = parseInvariantsForSelf(guardListText)
+  const parsed = parseInvariantsForSelf(invariantsText)
   if (parsed.problems.length)
     return {
       state: 'undetermined',
@@ -479,7 +489,11 @@ function readSelfFace() {
     })
     return r.status === 0 ? String(r.stdout ?? '') : null
   }
-  const guardListText = g(['show', `HEAD:${GUARD_LIST_REL}`])
+  // 接线修复(2026-11-05 实测):这里过去读的是受保护面清单 `immutable-guard.json`,
+  // 而锚点在 `autonomy-invariants.json`(门 299 同一份,§0.6 不另声明第二个路径)。
+  // 清单那份的条目全无 anchors ⇒ `parseInvariants` 必报 list-bad ⇒ 本闸**每轮都以"锚点缺失"停派**,
+  // 而镜像夹具喂的本来就在正确的表形态上 ⇒ 锁全绿、真跑永不派发(尺子 A14 还报 OK:它读的是对的那份)。
+  const invariantsText = g(['show', `HEAD:${INV_SELF.DATA_REL}`])
   const headText = g(['show', `HEAD:${SELF_REL}`])
   let diskText = null
   try {
@@ -487,7 +501,7 @@ function readSelfFace() {
   } catch {
     diskText = null
   }
-  return judgeSelfFace({ guardListText, headText, diskText, selfRel: SELF_REL })
+  return judgeSelfFace({ invariantsText, headText, diskText, selfRel: SELF_REL })
 }
 
 export function parseSessionUsage(stdout) {
