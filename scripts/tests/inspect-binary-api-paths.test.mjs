@@ -57,6 +57,32 @@ test('② needle 清单里的空串跳过,不构造空匹配', () => {
   )
 })
 
+test('⑤ 阳性对照:中文 needle 必须数得出(latin1 字符串匹配会恒 0 = 根本没判)', () => {
+  const buf = Buffer.concat([
+    Buffer.from('pad', 'latin1'),
+    Buffer.from('关注公众号', 'utf8'),
+    Buffer.from('xx', 'latin1'),
+    Buffer.from('再关注', 'utf8'),
+  ])
+  const byName = Object.fromEntries(
+    countNeedles(buf, ['公众号', '关注', '没有这个词']).rows.map((r) => [r.needle, r.count]),
+  )
+  assert.equal(byName['公众号'], 1, JSON.stringify(byName))
+  assert.equal(byName['关注'], 2, JSON.stringify(byName))
+  // 真的不存在的那个仍然报 0(有牙也要能报零)
+  assert.equal(byName['没有这个词'], 0, JSON.stringify(byName))
+})
+
+test('⑤ Buffer 与字符串两种给法结论一致(不因入口形态改变判据)', () => {
+  const s = 'activity/growth 关注 关注'
+  const a = Object.fromEntries(countNeedles(s, ['关注']).rows.map((r) => [r.needle, r.count]))
+  const b = Object.fromEntries(
+    countNeedles(Buffer.from(s, 'utf8'), ['关注']).rows.map((r) => [r.needle, r.count]),
+  )
+  assert.deepEqual(a, b)
+  assert.equal(a['关注'], 2)
+})
+
 test('③ 空原文 ⇒ 路径族空集 + needle 仍报 0(不抛不编造)', () => {
   assert.equal(extractPathStrings('').size, 0)
   assert.equal(extractPathStrings(undefined).size, 0)

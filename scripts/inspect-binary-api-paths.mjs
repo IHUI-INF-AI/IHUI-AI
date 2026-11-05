@@ -53,27 +53,32 @@ export function extractPathStrings(text, re = DEFAULT_RE) {
  * 逐关键词数命中(纯函数)。返回的 `face` 说明扫描面是什么——
  * 「命中 0」只有连着扫描面一起报,才不是把"没找到"说成"不存在"(§0.3)。
  *
- * @param {string} text 二进制原文(latin1)
+ * ⚠ 非 ASCII 关键词必须按 **UTF-8 字节**在原文里找,不能走 latin1 字符串:latin1 把一个
+ * UTF-8 汉字拆成 3 个高位字符,`indexOf('公众号')` 在这种文本上恒 0 —— 那不叫"没命中",
+ * 那叫**根本没判**(2026-11-05 由并行取证席逮到;自证与镜像测试各加一条阳性对照)。
+ *
+ * @param {Buffer|string} input 二进制原文(Buffer 优先;给字符串则按 UTF-8 编码后再找)
  * @param {string[]} needles 关键词清单
  */
-export function countNeedles(text, needles) {
-  const src = String(text ?? '')
+export function countNeedles(input, needles) {
+  const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input ?? ''), 'utf8')
   const list = Array.isArray(needles) ? needles : []
   const rows = []
   for (const n of list) {
     const needle = String(n ?? '')
     if (!needle) continue
+    const nb = Buffer.from(needle, 'utf8')
     let count = 0
     let from = 0
     for (;;) {
-      const i = src.indexOf(needle, from)
+      const i = buf.indexOf(nb, from)
       if (i === -1) break
       count += 1
-      from = i + needle.length
+      from = i + nb.length
     }
     rows.push({ needle, count })
   }
-  return { face: `latin1 原文 ${src.length} 字节内逐字节 indexOf`, rows }
+  return { face: `UTF-8 字节面 ${buf.length} 字节内逐字节 indexOf`, rows }
 }
 
 /** 解析命令行(纯函数,离线可测) */
@@ -132,6 +137,23 @@ export function selfTest() {
   ok('③ 零命中仍回报该键', byName.zz === 0, JSON.stringify(byName))
   ok('③ 扫描面必须随读数一起出', typeof n.face === 'string' && n.face.includes('字节'), n.face)
 
+  // 阳性对照(尺子自己也要被量):把中文塞进 UTF-8 字节面,必须数得出来。
+  // 这一条就是 2026-11-05 那处缺陷的影子牙 —— 改回 latin1 字符串匹配,本条当场翻红。
+  const cjk = Buffer.concat([
+    Buffer.from('junk', 'latin1'),
+    Buffer.from('关注公众号', 'utf8'),
+    Buffer.from('more', 'latin1'),
+    Buffer.from('关注', 'utf8'),
+  ])
+  const cn = Object.fromEntries(
+    countNeedles(cjk, ['公众号', '关注']).rows.map((r) => [r.needle, r.count]),
+  )
+  ok(
+    '⑤ 阳性对照:中文 needle 在 UTF-8 字节面数得出',
+    cn['公众号'] === 1 && cn['关注'] === 2,
+    JSON.stringify(cn),
+  )
+
   // 空输入 ⇒ 路径族空集,但每个 needle 仍要回报(0 也要报,不静默丢键)
   const emptyN = countNeedles('', ['x'])
   ok(
@@ -165,7 +187,8 @@ async function main() {
     const buf = fs.readFileSync(f)
     const text = buf.toString('latin1')
     const paths = [...extractPathStrings(text).keys()].sort()
-    const needles = countNeedles(text, opts.needles)
+    // needle 走 Buffer(UTF-8 字节面),不走 latin1 字符串 —— 否则中文关键词恒 0(= 没判)
+    const needles = countNeedles(buf, opts.needles)
     results.push({
       file: path.basename(f),
       bytes: buf.length,
