@@ -29,8 +29,21 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const MIGRATION_TAG = '20260927100000_tenant_rls_policies_batch1'
+/**
+ * 同一批策略的**两枚**迁移,必须同时在场且正文一致:
+ *   1) batch1 —— 2026-09-26 的原件,`when`=2026-09-27。保留它是为了不改写历史账本
+ *      (journal 的 when 必须恒升序);空库全链重放时它先装一遍。
+ *   2) install —— F-01 的装车件,`when`=2026-11-05。晚于任何已应用账本 ⇒
+ *      drizzle-kit migrate 下一次一定会跑它;正文是幂等的,对已装环境只是重刷。
+ *
+ * 只留 batch1 = 生产 lateGap 永远装不上;只留 install = 空库重放会丢掉 9/26 那一步的
+ * 历史顺序(以及任何按 idx 定格的测试)。所以两枚都在,且正文必须逐字节等价。
+ */
+const LEGACY_MIGRATION_TAG = '20260927100000_tenant_rls_policies_batch1'
+const MIGRATION_TAG = '20261105120000_tenant_rls_policies_batch1_install'
+const MIGRATION_TAGS = Object.freeze([LEGACY_MIGRATION_TAG, MIGRATION_TAG])
 const MIGRATION_PATH = resolve(PKG_DIR, 'drizzle', `${MIGRATION_TAG}.sql`)
+const LEGACY_MIGRATION_PATH = resolve(PKG_DIR, 'drizzle', `${LEGACY_MIGRATION_TAG}.sql`)
 const JOURNAL_PATH = resolve(PKG_DIR, 'drizzle', 'meta', '_journal.json')
 
 /**
@@ -72,6 +85,30 @@ export function stripLineComments(sql) {
     .split(/\r?\n/)
     .filter((line) => !line.trimStart().startsWith('--'))
     .join('\n')
+}
+
+/**
+ * 装车件(install)与原件(batch1)的 SQL 正文必须等价。
+ *
+ * 为什么要有这一条:两枚迁移是同一批策略的两份文本,任何一边被单独改(比如只在装车件里
+ * 加一张表/改一个谓词)都会让"空库重放的结果"和"生产补装的结果"分叉 —— 而且两边各自
+ * 都能通过形态判据,是典型的双真相假绿。判据取剥注释后的逐行比对,不做语义归一:
+ * 宁可对一行注释之外的空白变更报红,也不放过一次真正的策略漂移。
+ */
+export function checkMigrationPayloadParity(installSql, legacySql) {
+  const a = stripLineComments(installSql).trimEnd()
+  const b = stripLineComments(legacySql).trimEnd()
+  if (a === b) return { ok: true, problems: [] }
+  const la = a.split('\n')
+  const lb = b.split('\n')
+  let i = 0
+  while (i < la.length && i < lb.length && la[i] === lb[i]) i += 1
+  return {
+    ok: false,
+    problems: [
+      `装车件与原件在剥注释后第 ${i + 1} 行分叉(装车件 ${JSON.stringify(la[i] ?? '<EOF>')} / 原件 ${JSON.stringify(lb[i] ?? '<EOF>')}) —— 两份文本必须保持同一套策略`,
+    ],
+  }
 }
 
 /** 按 drizzle 的语句分割约定切成语句;顺带保留原文位置便于点名。 */
@@ -235,8 +272,10 @@ export function checkTenantRlsMigration(migrationSql, journalJson) {
     if (entries.length === 0) {
       problems.push('_journal.json 的 entries 为空:核对基准不存在,不能记为通过')
     } else {
-      if (!entries.some((e) => e.tag === MIGRATION_TAG)) {
-        problems.push(`迁移 ${MIGRATION_TAG} 未登记进 _journal.json ⇒ drizzle-kit migrate 会静默跳过它`)
+      for (const tag of MIGRATION_TAGS) {
+        if (!entries.some((e) => e.tag === tag)) {
+          problems.push(`迁移 ${tag} 未登记进 _journal.json ⇒ drizzle-kit migrate 会静默跳过它`)
+        }
       }
       const whens = entries.map((e) => Number(e.when))
       if (whens.some((w, i) => i > 0 && !(w > whens[i - 1]))) {
@@ -343,18 +382,22 @@ function runCli() {
   const asJson = process.argv.includes('--json')
   const selfTest = process.argv.includes('--self-test')
   const migrationSql = readFileSync(MIGRATION_PATH, 'utf8')
+  const legacySql = readFileSync(LEGACY_MIGRATION_PATH, 'utf8')
   const journalJson = readFileSync(JOURNAL_PATH, 'utf8')
 
-  if (selfTest) return selfTestCheck(migrationSql, journalJson)
+  if (selfTest) return selfTestCheck(migrationSql, legacySql, journalJson)
 
   const r = checkTenantRlsMigration(migrationSql, journalJson)
+  // 双文本一致性:装车件不能偷偷偏离原件
+  const parity = checkMigrationPayloadParity(migrationSql, legacySql)
+  r.problems.push(...parity.problems)
   for (const p of r.problems) console.log(`  ✗ ${p}`)
   for (const n of r.notices) console.log(`  ! ${n}`)
   for (const u of r.undetermined) console.log(`  ? 未覆盖:${u}`)
   console.log(
-    `[tenant-rls-policy-check] 纳管表 ${r.facts.tables} · 策略 ${r.facts.policies} · 语句 ${r.facts.statements} · 问题 ${r.problems.length}`,
+    `[tenant-rls-policy-check] 纳管表 ${r.facts.tables} · 策略 ${r.facts.policies} · 语句 ${r.facts.statements} · 问题 ${r.problems.length} · 装车件/原件正文 ${parity.ok ? '一致' : '分叉'}`,
   )
-  if (asJson) console.log(JSON.stringify(r, null, 2))
+  if (asJson) console.log(JSON.stringify({ ...r, parity }, null, 2))
   process.exit(r.problems.length ? 1 : 0)
 }
 
@@ -363,7 +406,7 @@ function runCli() {
  * 文件的形态时,至少一条用例的输入必须取自那个文件);反例从真文本出发,只动一个
  * 形态,要求判据必须由绿变红 —— 只有正向断言的测试等于没写。
  */
-function selfTestCheck(migrationSql, journalJson) {
+function selfTestCheck(migrationSql, legacySql, journalJson) {
   /** @type {Array<{ name: string, pass: boolean, detail: string }>} */
   const cases = []
   const record = (name, pass, detail) => cases.push({ name, pass, detail })
@@ -371,6 +414,8 @@ function selfTestCheck(migrationSql, journalJson) {
   const clean = checkTenantRlsMigration(migrationSql, journalJson)
   record('P0 真迁移文本必须 0 问题(正例)', clean.problems.length === 0, `problems=${clean.problems.length}${clean.problems.length ? ` :: ${clean.problems[0]}` : ''}`)
   record('P1 正例必须是**非空扫**(0 条策略会被当成通过)', clean.facts.policies === TENANT_RLS_TABLES.length * REQUIRED_POLICY_SUFFIXES.length, `policies=${clean.facts.policies}`)
+  const parity = checkMigrationPayloadParity(migrationSql, legacySql)
+  record('P2 装车件与原件正文必须等价(双真相守卫)', parity.ok, parity.problems[0] ?? '')
 
   /** 反例: mutate(真文本) → 必须红,且必须点名(不接受"红了但不知道因为什么")。 */
   const mustBeRed = (name, mutated, expectIn) => {
@@ -402,6 +447,15 @@ function selfTestCheck(migrationSql, journalJson) {
     const r = checkTenantRlsMigration('', journalJson)
     record('N12 空正文必须判"无法判定"而不是绿', r.problems.length > 0 && r.undetermined.length > 0, JSON.stringify(r.problems.slice(0, 1)))
   }
+  {
+    // 双真相守卫的反例:只改"原件"一处,装车件不动 ⇒ 必须红并点名分叉
+    const drifted = legacySql.replace(
+      'FOR SELECT TO PUBLIC\n  USING (public."team_knowledge_space_visible"',
+      'FOR SELECT TO PUBLIC\n  USING (true)',
+    )
+    const r = checkMigrationPayloadParity(migrationSql, drifted)
+    record('N13 装车件与原件正文分叉 ⇒ 红', !r.ok && (r.problems[0] ?? '').includes('分叉'), JSON.stringify(r.problems.slice(0, 1)))
+  }
 
   let failed = 0
   for (const c of cases) {
@@ -426,7 +480,10 @@ if (isDirectRun) {
 /** §22c 双形态出口:vitest 直接 import 判据与清单,不触发 CLI 副作用。 */
 export const __test__ = {
   MIGRATION_TAG,
+  LEGACY_MIGRATION_TAG,
+  MIGRATION_TAGS,
   MIGRATION_PATH,
+  LEGACY_MIGRATION_PATH,
   TENANT_RLS_TABLES,
   REQUIRED_POLICY_SUFFIXES,
   ALLOWED_GUCS,
@@ -434,6 +491,7 @@ export const __test__ = {
   splitStatements,
   parsePolicies,
   checkTenantRlsMigration,
+  checkMigrationPayloadParity,
   isDirectRun,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
