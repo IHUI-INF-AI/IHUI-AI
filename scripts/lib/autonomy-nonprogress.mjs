@@ -28,6 +28,8 @@
 /** 该票真推进了 ⇒ 空转计数归零。 */
 export const PROGRESS_ACTIONS = Object.freeze([
   'session-ok',
+  // ⚠ 这一枚是**动作名默认档**,真实分档由 `bucketOfRow(row)` 按行字段 `settled` 决定:
+  //    零推进的结算(no-progress)必须计进空转,否则毒票每轮被归零(2026-11-05 实测 dispatched 15 次)。
   'dispatch-settled',
   'artifact-committed',
   'task-registered',
@@ -80,6 +82,14 @@ export const NON_PROGRESS_ACTIONS = Object.freeze([
  * 不许出现"先这样"式空话。
  */
 export const ACTION_EXEMPTIONS = Object.freeze({
+  // 2026-11-05 覆盖面锁(C1)现读抓到:发射点 `auto-evolve.mjs:1930` 有这一枚,而三档都不在
+  // ⇒ 阶梯静默跳过它(锁判红,不是运行时判红 —— 它只挂在 pnpm test:scripts 层,不在提交链)。
+  // 归 exempt 的依据是**发射点形状**,不是"看着无害":这一枚在取到任何一票之前整轮 return,
+  // 记录里不带 ticketKey ⇒ 它没有占任何一张票的班次,计进空转就是把轮级故障扣到票头上。
+  'runner-budget-exhausted': {
+    reason: '轮级发起腿额度停转,无票键 ⇒ 没占任何一张票的班次',
+    site: 'auto-evolve.mjs 派发前成本闸(blocked.allowed=false 分支)',
+  },
   'valve-allow': {
     reason: '放行标记,紧随其后必有 session-* 行被计 ⇒ 再计一次就是双计',
     site: 'auto-evolve.mjs decideValveDispatch',
@@ -213,6 +223,34 @@ export function actionBucketOf(action) {
 }
 
 /**
+ * **按行**分档(2026-11-05 立)—— 动作名不够,`dispatch-settled` 必须问它自己那一行。
+ *
+ * 病灶(现读实测):`dispatch-settled` 在 PROGRESS_ACTIONS 里,而它今天写下的正文是
+ * `会话零写入且票行逐字未变(L31444)` —— 结算器把"推进了"和"没推进"**发成同一个动作名**,
+ * 真判据在行字段 `settled` 上(`'no-progress'` / `'line-changed'`)。
+ * 后果:每轮结算都把该票的空转计数**归零**,于是票 `eb2ab5be4ad486ee` 累计 dispatched 15 次 /
+ * valve-allow 17 次,而 `--status` 现读"当前封票:无"、本轮输出"空转扣住 0 行"——
+ * 一张永远推不动的票天天占掉日预算 6 份里的一份,永不轮转也永不 park。
+ * 这与 `session-no-write` 那条 2026-11-04 注释点名的是同一型病,只是入口从"会话终态"挪到了"结算"。
+ *
+ * 取值纪律(不许把缺字段的行硬塞进任一侧):
+ *  · `settled='no-progress'` ⇒ non-progress(占了班次而零推进)
+ *  · `settled='line-changed'` ⇒ progress(票行真被改写)
+ *  · 字段缺失 / 不认识的新形态 ⇒ `'undetermined'` ⇒ **既不归零也不累加**,让阶梯如实报"没认出这一枚"
+ *    (§0.3:没判的东西不能冒充判过;静默选边就是给"归零"或"扣减"任一方向开后门)。
+ */
+export function bucketOfRow(row) {
+  const action = String(row?.action ?? '')
+  if (action === 'dispatch-settled') {
+    const st = String(row?.settled ?? '')
+    if (st === 'no-progress') return 'non-progress'
+    if (st === 'line-changed') return 'progress'
+    return 'undetermined'
+  }
+  return actionBucketOf(action)
+}
+
+/**
  * 从台账尾部往回取该票"距上次推进"的空转次数。
  * 只认 ticketKey 相等的行;PROGRESS ⇒ 立即归零返回 0;NON_PROGRESS ⇒ +1;其余 ⇒ 跳过继续往前数。
  * @param {Array<{ticketKey?:string,action?:string,mode?:string,informational?:boolean}>} ledger
@@ -243,9 +281,10 @@ export function attemptsSinceProgress(ledger, key) {
   if (!Array.isArray(ledger) || !key) return 0
   let n = 0
   for (const e of ticketRowsNewestFirst(ledger, key)) {
-    const action = String(e.action ?? '')
-    if (PROGRESS_ACTIONS.includes(action)) return n
-    if (NON_PROGRESS_ACTIONS.includes(action)) n++
+    // 分档走 bucketOfRow:`dispatch-settled` 的动作名会说谎,只有它自己的 settled 字段说实话
+    const b = bucketOfRow(e)
+    if (b === 'progress') return n
+    if (b === 'non-progress') n++
   }
   return n
 }
@@ -352,9 +391,10 @@ export function breakdownNonProgress(ledger, key) {
   // 与 attemptsSinceProgress 同一套行过滤(dry-run 跳过、同 ts 折一次):
   //  escalation 邮件的分档数必须和阶梯用的数是同一个口径,否则"邮件说 3 次、判定说 6 次"。
   for (const e of ticketRowsNewestFirst(ledger, key)) {
+    const b = bucketOfRow(e)
+    if (b === 'progress') break
+    if (b !== 'non-progress') continue
     const action = String(e.action ?? '')
-    if (PROGRESS_ACTIONS.includes(action)) break
-    if (!NON_PROGRESS_ACTIONS.includes(action)) continue
     tally.set(action, (tally.get(action) || 0) + 1)
   }
   return [...tally.entries()]
