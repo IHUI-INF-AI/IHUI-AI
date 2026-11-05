@@ -240,6 +240,29 @@ export function isPartialRevert(delta) {
   return added * 8 <= removed // 增不得盖过删:大量重写过的算新工作
 }
 
+/** 祖先版本检索窗口(与 staleCopyProbes.ancestors 同一把尺,§0.6:窗口只此一处)。 */
+const STALE_ANCESTOR_WINDOW = 40
+
+/**
+ * 行级祖先命中判据(纯函数;2026-11-05 立,立因枚 8dbe7ed287)。
+ *
+ * 立因(现读,不是推测):8dbe7ed287(`chore(cross-end): 收编守护落档产出(1 件)`)把
+ * 23142d49c7 守护落档刚入库的 11 处具名字号档原样回退。盘上那份副本**不等于任何祖先 blob**
+ * ——它是"落档前的态"再叠上别席的改动,该 blob 历史上从未入库,所以整片等值那一臂看不见它;
+ * 而删 13 / 增 11 的量级又远低于 isPartialRevert 的「删≥15 行 ∧ 删占比≥2%」阈值。可证的共同点
+ * 在**行级**:盘上相对 HEAD 的每一行"新增"都逐字存在于该路径的某个祖先版本,一行新东西都没有。
+ * ⇒ 这不是新工作,是把旧档里的旧行搬回来(滞后副本的混血形态)。
+ *
+ * 口径:added = 盘上相对 HEAD 的多重集新增行数;newLines = 其中在**任何**祖先版本都找不到的
+ * 行数(逐字)。added>0 ∧ newLines===0 ⇒ 判滞后。纯删除(add===0)不归本臂(归 isPartialRevert),
+ * 探针取不到 ⇒ 不判。失效方向仍是"少收编一次"并逐条点名(§0.10),不是静默丢活。
+ */
+export function isLineLevelStale(v) {
+  if (!v || typeof v.added !== 'number' || typeof v.newLines !== 'number') return false
+  if (!(v.added > 0)) return false
+  return v.newLines === 0
+}
+
 /**
  * 滞后副本判据(纯函数;镜像测试直接用它,§22c)。
  *
@@ -294,6 +317,18 @@ export function partitionStaleCopies(paths, probes) {
       why.set(
         p,
         `部分回退嫌疑(HEAD 有而盘上无 ${delta.removed} 行=${((delta.removed / delta.headLines) * 100).toFixed(1)}% 全文 / 盘上新增仅 ${delta.added} 行)`,
+      )
+      continue
+    }
+    // 行级祖先命中臂(2026-11-05 补,立因枚 8dbe7ed287):整片等值臂与部分回退臂都看不见
+    // 「blob 从未入库、但相对 HEAD 的每一行新增都逐字来自祖先」这一型(混血副本的小回退)。
+    // 排在部分回退臂之后:后者阈值更钝、但语义更强(整片批量删),命中优先归它点名。
+    const ancestry = probes.lineAncestry?.(p)
+    if (isLineLevelStale(ancestry)) {
+      skipped.push(p)
+      why.set(
+        p,
+        `行级祖先命中(相对 HEAD 新增 ${ancestry.added} 行,全部逐字来自该路径的祖先版本 ⇒ 滞后副本)`,
       )
       continue
     }
@@ -355,12 +390,65 @@ function staleCopyProbes(p) {
         headLines: headText.split('\n').length,
       }
     },
+    /**
+     * 行级祖先命中臂的输入(2026-11-05,立因枚 8dbe7ed287):盘上相对 HEAD 的"新增行"里,
+     * 有多少行在任何祖先版本都找不到。added=0(纯删除)或任一文本取不到 ⇒ null,该臂不参与。
+     * 读祖先文本是**按需短路**的:剩余未命中行清空即停,绝大多数路径 1–3 枚提交内收敛;
+     * 窗口与 ancestors 同一常量,不得各写一份。
+     */
+    lineAncestry: () => {
+      let headText = null
+      let wtText = null
+      try {
+        headText = git(['show', `HEAD:${p}`])
+      } catch {
+        return null
+      }
+      try {
+        wtText = readFileSync(join(ROOT, p), 'utf8')
+      } catch {
+        return null
+      }
+      if (headText === null || wtText === null) return null
+      // 多重集差:盘上有而 HEAD 没有的行(重复行按份数),与 minusCount 同一口径。
+      const pool = new Map()
+      for (const l of headText.split('\n')) pool.set(l, (pool.get(l) ?? 0) + 1)
+      const added = []
+      for (const l of wtText.split('\n')) {
+        const c = pool.get(l) ?? 0
+        if (c > 0) pool.set(l, c - 1)
+        else added.push(l)
+      }
+      if (added.length === 0) return { added: 0, newLines: 0 } // 纯删除:归部分回退臂,本臂不判
+      let commits = []
+      try {
+        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+      } catch {
+        return null
+      }
+      const remaining = new Set(added)
+      for (const c of commits) {
+        if (remaining.size === 0) break
+        let text = null
+        try {
+          text = git(['show', `${c}:${p}`])
+        } catch {
+          continue
+        }
+        if (text === null) continue
+        for (const l of text.split('\n')) remaining.delete(l)
+      }
+      return { added: added.length, newLines: remaining.size }
+    },
     ancestors: () => {
       let commits = []
       try {
         // 窗口 6→40(2026-10-31):回潮-删除轮次多的路径(aboutPageSections 三删四回)在 6 枚
         // 窗口里可能只见删除不见旧 blob,滞后判定漏网;40 覆盖同一路径的现实轮次。
-        commits = git(['log', '-n', '40', '--format=%H', '--', p])
+        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -400,6 +488,8 @@ function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
     head: (p) => probeFactory(p).head(),
     everExisted: (p) => probeFactory(p).everExisted?.(),
     lineDelta: (p) => probeFactory(p).lineDelta?.(),
+    // 行级祖先命中臂(2026-11-05):同上一批哑臂教训,必须从生产包装器真递进去。
+    lineAncestry: (p) => probeFactory(p).lineAncestry?.(),
     ancestors: (p) => probeFactory(p).ancestors(),
   })
   return { kept: stale.filter((p) => !skipped.includes(p)), skipped, why }
@@ -1778,6 +1868,7 @@ export const __test__ = {
   dropStaleCopies,
   minusCount,
   isPartialRevert,
+  isLineLevelStale,
   partitionI18nBatch,
   autoCommitMessages,
   // 账本收编族(2026-11-03):判据住在 lib/cross-end-landing-ledger.mjs,这里只暴露本器的段。

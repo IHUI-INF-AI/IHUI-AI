@@ -76,6 +76,20 @@ const FROM_PROVIDERS = Object.freeze({
 })
 const FROM_POOL_KEYS = Object.keys(FROM_PROVIDERS)
 
+/**
+ * 帮助面(2026-11-05 收口):HELP 常量里手写的四条是**带前置说明**的那四条(需 pwsh / 需桌面在跑 /
+ * 用哪个 shell),其余平台的 `--from` 一律由 FROM_PROVIDERS 动态列出 —— 帮助文案自己抄一份清单,
+ * 就会在它落新平台时过期:实读本轮就有派单被这段旧文案误导,把「opencode 有提取通路」当成不存在。
+ * 同一份名单不留第二处(§0.6),新平台在此登记即自动出现在帮助面上。
+ */
+const HELP_WITH_NOTE = ['trae', 'workbuddy', 'qoder', 'codearts']
+function helpText() {
+  const rest = FROM_POOL_KEYS.filter((k) => !HELP_WITH_NOTE.includes(k))
+  if (rest.length === 0) return HELP
+  return `${HELP}
+  node scripts/relay-account-pool.mjs --from <${rest.join('|')}>   # 同名提取器已就位,前置条件见 FROM_PROVIDERS 头注`
+}
+
 function parseArgs(argv) {
   const options = {
     from: null,
@@ -153,12 +167,12 @@ function runImporter(payloadText, providerCode, options) {
 async function main(argv) {
   const parsed = parseArgs(argv)
   if (parsed.error) {
-    process.stderr.write(`❌ ${parsed.error}\n\n${HELP}\n`)
+    process.stderr.write(`❌ ${parsed.error}\n\n${helpText()}\n`)
     return 2
   }
   const options = parsed.options
   if (options.help) {
-    process.stdout.write(`${HELP}\n`)
+    process.stdout.write(`${helpText()}\n`)
     return 0
   }
 

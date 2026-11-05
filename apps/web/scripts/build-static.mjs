@@ -296,10 +296,10 @@ async function writeDesktopLegLandingPage(outDir) {
   if (missing.length) {
     console.warn(`[build-static] 桌面资产缺失: ${missing.join(', ')} —— 对应 OS 将落 /download/desktop`)
   }
-  // basePath 与 next.config.ts 的 `repoName` 同口径(GH Pages 以仓库名为前缀);
-  // CI 里 GITHUB_REPOSITORY 一定在,取不到才回落到仓名字面量。
-  const repoName = (process.env.GITHUB_REPOSITORY || '').split('/')[1] || 'IHUI-AI'
-  const basePath = process.env.GITHUB_PAGES === 'true' ? `/${repoName}` : ''
+  // basePath 与 next.config.ts 同口径,统一取自 src/config/base-path.ts(resolveBasePath),
+  // 本脚本不再写第二份"仓库名/是否 Pages"的判断。
+  const basePathModule = await import(new URL('../src/config/base-path.ts', import.meta.url).href)
+  const basePath = basePathModule.resolveBasePath()
   const dir = path.join(outDir, 'dl', 'desktop')
   mkdirSync(dir, { recursive: true })
   writeFileSync(
@@ -368,9 +368,80 @@ function renderDesktopLegHtml({ legs, basePath, version }) {
 `
 }
 
+/**
+ * 静态构建必须自带扩展包下载件(2026-11-05 死链修复)。
+ *
+ * 为什么挂在 build-static 而不是 workflow 里:
+ *  - `apps/web/package.json` 的 `prebuild` 只在 npm 生命周期跑 `next build` 时触发;
+ *    本脚本是直接 spawn `next` 二进制,绕开了 prebuild,所以 CI 干净检出
+ *    (`.gitignore` 忽略 public/downloads 下 zip/manifest/update-files)必然没有下载件 ⇒ 页面 404。
+ *  - 放进本脚本后:GH Pages CI、本地 `pnpm build:static`、Tauri 手动静态构建三个入口都自动兜底,
+ *    不依赖某个人记得在 workflow 里补一步(手工清单必然落后是本仓记过的失效型)。
+ *  - 必须在 next build **之前**执行:静态导出会把 public/ 整体拷进产物。
+ */
+function runExtensionDownloadSync() {
+  const repoRoot = path.resolve(webRoot, '..', '..')
+  // Windows 上 .cmd/.bat 无法无 shell 叉子(Node 官方安全修复后限制),参数均为固定常量,无注入面。
+  const buildCmd = `${process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'} --filter "@ihui/extension..." run build`
+  const buildResult = spawnSync(buildCmd, {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    shell: true,
+    env: process.env,
+    windowsHide: true,
+  })
+  if (buildResult.error || buildResult.status !== 0) {
+    console.error(
+      '[build-static] 扩展端构建失败:',
+      buildResult.error?.message ?? `exit ${buildResult.status}`,
+    )
+    return false
+  }
+  const syncResult = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, 'scripts', 'sync-downloads.mjs'), '--platform=extension'],
+    { cwd: repoRoot, stdio: 'inherit', shell: false, env: process.env, windowsHide: true },
+  )
+  if (syncResult.error || syncResult.status !== 0) {
+    console.error(
+      '[build-static] 扩展包同步失败:',
+      syncResult.error?.message ?? `exit ${syncResult.status}`,
+    )
+    return false
+  }
+  return true
+}
+
+/**
+ * 断言下载件真的落进产物目录 —— 缺任何一项即判构建失败。
+ * 只做存在性判定(文件名/字节由同步脚本自己打印),防"构建绿了但页面 404"的假绿。
+ */
+function assertDownloadArtifacts(rootDir) {
+  const zipDir = path.join(rootDir, 'downloads', 'extension')
+  const zips = existsSync(zipDir) ? readdirSync(zipDir).filter((name) => /\.zip$/i.test(name)) : []
+  const missing = []
+  if (zips.length === 0) missing.push('downloads/extension/*.zip')
+  for (const rel of ['downloads/manifest.json', 'downloads/update-files.json']) {
+    if (!existsSync(path.join(rootDir, ...rel.split('/')))) missing.push(rel)
+  }
+  if (missing.length) {
+    console.error(`[build-static] 静态产物缺少下载件: ${missing.join(', ')} —— 页面会 404,判构建失败`)
+    return false
+  }
+  console.log(`[build-static] 下载件齐备: ${zips.join(', ')} + manifest.json + update-files.json`)
+  return true
+}
+
 let exitCode = 1
 excludeRuntimeRoutes()
 try {
+  // 先补下载件(见 runExtensionDownloadSync 头注),失败即不跑 next build,避免打出 404 页面。
+  const downloadsReady =
+    runExtensionDownloadSync() && assertDownloadArtifacts(path.join(webRoot, 'public'))
+  if (!downloadsReady) {
+    console.error('[build-static] 下载件预构建失败,跳过 next build')
+    exitCode = 1
+  }
   // 2026-09-05: 弃用 --webpack。本机实测 --webpack 3/3 挂死(config 加载后 0 CPU 冻结,
   // distDir 从未创建,无存活子进程);Turbopack(Next 16 默认构建器)静态导出实测成功
   // (EXIT:0,.next-static/index.html 产出,全路由清单生成)。生产链路 build:desktop:saas 同用此路径。
@@ -379,13 +450,15 @@ try {
   // ("Cell AssetIdent no longer exists in task",两次清 .next-static 缓存后同
   // TaskId 复现,上游 bug);server 模式构建(next build 默认 turbopack)不受影响。
   // webpack 构建静态导出产物供 Tauri/GH Pages,行为等价且确定性通过。
-  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
-    cwd: webRoot,
-    stdio: 'inherit',
-    shell: false,
-    env: process.env,
-    windowsHide: true, // 防 Windows 弹可见控制台窗口
-  })
+  const r = downloadsReady
+    ? spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
+        cwd: webRoot,
+        stdio: 'inherit',
+        shell: false,
+        env: process.env,
+        windowsHide: true, // 防 Windows 弹可见控制台窗口
+      })
+    : { error: null, status: 1 }
 
   if (r.error) {
     console.error('[build-static] 启动 next build 失败:', r.error.message)
@@ -411,6 +484,8 @@ try {
     )
     exitCode = 1
   }
+  // 产物契约:public/downloads 必须在静态导出后原样出现在 out/ 里,否则线上 href 仍然 404。
+  if (exitCode === 0 && !assertDownloadArtifacts(outDir)) exitCode = 1
   // 静态面补 `/dl/desktop` 落地页(见 writeDesktopLegLandingPage 头注);失败即判构建失败,
   // 不许"产物里悄悄少一条下载入口"。
   if (exitCode === 0) {

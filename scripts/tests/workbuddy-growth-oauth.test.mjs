@@ -10,12 +10,14 @@
  *   ② 领奖响应的解析:HTTP 200 **不等于**领到了(受理回执 ≠ 业务事实,§0.3);
  *   ③ 一轮轮询的四路分流(要领 / 已到账 / 等达标 / 未判定);
  *   ④ 命令行解析(两种写法 + 下限保护);
- *   ⑤ 「直接跑 vs 被 import」的守卫(单一真相源 `lib/direct-run.mjs`)。
+ *   ⑤ 「直接跑 vs 被 import」的守卫(单一真相源 `lib/direct-run.mjs`);
+ *   ⑥ 订阅任务状态的解析与措辞:`subscribed=false` ≠ 读不到;读不到一律「未判定」。
  *
  * 为什么这些必须钉住:踩过的坑全在**状态词**上——
  *   · 把 `accepted` 当成"已完成" ⇒ 引擎会跳过真待办;
  *   · 把 `claimed` 当成"可领" ⇒ 引擎会反复重领(实测踩过,已改为 finished 集合收口);
- *   · 领奖 HTTP 200 就当成功 ⇒ 把"受理"当"到账"。
+ *   · 领奖 HTTP 200 就当成功 ⇒ 把"受理"当"到账";
+ *   · 把状态端点**取不到**渲染成"服务端说没关注" ⇒ 把人引去做一次本来已经做完的关注。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -23,12 +25,16 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import {
+  OA_SUBSCRIBE_STATUS_URL,
   OA_TASK_CODE,
+  describeSubscribe,
   oaClaimUrl,
   parseArgs,
   parseClaimResponse,
+  parseSubscribeStatus,
   planOaRound,
   selectOaTask,
+  subscribeVerdictOf,
 } from '../workbuddy-growth-oauth.mjs'
 import { isDirectRun } from '../lib/direct-run.mjs'
 
@@ -181,5 +187,77 @@ test('⑤ 直接运行守卫:入口指向本文件 ⇒ true;指向别的文件 �
   // 取不到输入 ⇒ 保守判 false(宁可不执行,也不误杀宿主进程)
   assert.equal(isDirectRun(selfUrl, undefined), false)
   assert.equal(isDirectRun('not-a-url', path.resolve('scripts/lib/direct-run.mjs')), false)
+})
+
+test('⑥ 订阅状态:服务端真回的那一型(实测 2026-11-05)解析出 subscribed=false', () => {
+  const live =
+    '{"code":0,"msg":"OK","data":{"subscribe_task":{"task_code":"wb_wechat_oa_subscribe_task",' +
+    '"subscribed":false,"remaining_seconds":-1,"task_status":"accepted","advanced":false}}}'
+  const s = parseSubscribeStatus(200, live)
+  assert.equal(s.ok, true)
+  assert.equal(s.subscribed, false)
+  assert.equal(s.remainingSeconds, -1)
+  assert.equal(s.taskStatus, 'accepted')
+  assert.equal(subscribeVerdictOf(s), 'not_followed')
+  // 未关注时 -1 不是"倒计时",不许渲染成还在等 24h
+  assert.match(describeSubscribe(s), /未检测到/)
+})
+
+test('⑥ 订阅状态:已关注 + 还有倒计时 ⇒ counting(把秒说成人能读的小时)', () => {
+  const s = parseSubscribeStatus(
+    200,
+    '{"code":0,"data":{"subscribe_task":{"subscribed":true,"remaining_seconds":3725,"task_status":"in_progress"}}}',
+  )
+  assert.equal(s.ok, true)
+  assert.equal(subscribeVerdictOf(s), 'counting')
+  assert.equal(describeSubscribe(s), '已关注,24h 窗还差 1h02m')
+})
+
+test('⑥ 订阅状态:已关注且没有倒计时读数(-1)⇒ followed,不谎报还在等', () => {
+  const s = parseSubscribeStatus(
+    200,
+    '{"code":0,"data":{"subscribe_task":{"subscribed":true,"remaining_seconds":-1,"task_status":"completed"}}}',
+  )
+  assert.equal(subscribeVerdictOf(s), 'followed')
+})
+
+test('⑥ 订阅状态:读不到 ⇒ 未判定,绝不并桶成"没关注"(§0.3)', () => {
+  // 非 JSON
+  const a = parseSubscribeStatus(200, '<html>502</html>')
+  assert.equal(a.ok, false)
+  assert.equal(a.subscribed, null)
+  assert.equal(subscribeVerdictOf(a), 'undetermined')
+  // 形状对但缺 subscribed 布尔
+  const b = parseSubscribeStatus(
+    200,
+    '{"code":0,"data":{"subscribe_task":{"task_status":"accepted"}}}',
+  )
+  assert.equal(b.ok, false)
+  assert.equal(subscribeVerdictOf(b), 'undetermined')
+  // HTTP 非 2xx ⇒ 未判定(不是"服务端说没关注")
+  const c = parseSubscribeStatus(
+    404,
+    '{"code":404,"data":{"subscribe_task":{"subscribed":false,"remaining_seconds":-1}}}',
+  )
+  assert.equal(c.ok, false)
+  assert.equal(subscribeVerdictOf(c), 'undetermined')
+  assert.match(describeSubscribe(c), /未判定/)
+  // HTTP 200 但业务码非 0 ⇒ 同样未判定(受理回执 ≠ 业务事实;这条守卫没人测就等于没有)
+  const d = parseSubscribeStatus(
+    200,
+    '{"code":500,"msg":"internal error","data":{"subscribe_task":{"subscribed":true,"remaining_seconds":-1}}}',
+  )
+  assert.equal(d.ok, false)
+  assert.equal(subscribeVerdictOf(d), 'undetermined')
+  assert.match(describeSubscribe(d), /未判定/)
+  // 整个输入缺失
+  assert.equal(subscribeVerdictOf(null), 'undetermined')
+})
+
+test('⑥ 刷新端点 URL 与官方 bundle 的 qa() 同一条', () => {
+  assert.equal(
+    OA_SUBSCRIBE_STATUS_URL,
+    'https://www.workbuddy.cn/v2/activity/growth/subscribe-task/status',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

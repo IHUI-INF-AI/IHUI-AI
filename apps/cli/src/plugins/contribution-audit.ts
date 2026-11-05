@@ -42,8 +42,8 @@ export type ContributionSupport = 'wired' | 'no-host';
  * 的判定;吃不下又不出声 = 静默忽略,用户只看到"插件装了但没东西"。逐档给**可复述的原因**。
  */
 const CONTRIBUTION_SUPPORT: Record<ExtensionContributionKind, { support: ContributionSupport; reason: string }> = {
-  tools: { support: 'wired', reason: 'loader forwards tools[] to the plugin registry' },
-  commands: { support: 'wired', reason: 'loader forwards commands[] to the plugin registry' },
+  tools: { support: 'wired', reason: 'loader forwards tools[] to the registry, and declaration-consumers.ts audits each name against the host tool table' },
+  commands: { support: 'wired', reason: 'loader forwards commands[] to the registry, and declaration-consumers.ts audits each name against the static slash table' },
   views: { support: 'no-host', reason: 'no workbench/settings view host in the CLI: a contributed view has nowhere to mount' },
   filePreviewers: { support: 'no-host', reason: 'no file-preview surface in the CLI: nothing consumes filenameSuffixes routing' },
   qoderAgentSdk: { support: 'no-host', reason: 'no agent-SDK injection channel in this host' },

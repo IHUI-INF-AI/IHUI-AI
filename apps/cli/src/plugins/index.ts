@@ -26,10 +26,13 @@
  *   // `contributions` 是同一批裁决的结构化形态(档名/条数/可达数据类/未登记 scope)。
  *   // 纯判定另有出口 classifyContributions(),不读盘、不装载,可单独复用与单测。
  *
- * 集成到 Agent 主循环(留作后续任务):
- *   - 启动时调用 loadPlugins + registerAll + runSetups
- *   - 主循环用 getToolExtensions/getHookExtensions/getCommandExtensions 合并到现有 tools/hooks/slash-registry
- *   - 退出时调用 runTeardowns
+ * 主循环接线现状(goal-b49/Z1,2026-11-05 起这段不再是"留作后续任务"):
+ *   - 启动:loadPluginsWithContributionAudit + registerAll + runSetups + 扩展声明对账(全在 setupAgentTools)
+ *   - 每轮:turnStart 走 buildPluginTurnInputSection(插件正文只进本轮下发视图)、
+ *     工具前后走 runPluginHooks(preToolCall/postToolCall)、turnEnd 走 dispatchPluginCommandContributors
+ *   - 退出:runTeardowns(acp/server.ts)
+ *   - **未接**:插件声明的 slash 命令没有注册通道(宿主表是静态 switch),声明的工具名没有实现源
+ *     —— 这两格由对账逐条出声,不由本层假装接上(见上面「registry 汇总口现状」)。
  */
 
 export type {
@@ -107,26 +110,46 @@ export {
 export type { DeclaredPermissionTarget, ExtensionManifestValidatorContract } from './permission-names.js';
 
 /**
- * registry 汇总口现状(goal-b49/X2 现读 2026-11-05;复跑口径
+ * registry 汇总口现状(goal-b49/X2 定性为「待接线」,Z1 于 2026-11-05 接线;复跑口径
  * `.ihui-agent/tmp/rea-goal-b49/count-prod-callers.mjs`:生产调用 = 按名引用点排除
  * 定义 / 注释 / import-export 行 / 测试文件,阳性对照 `readSkillCatalog` 必须数出 ≥1)。
  *
- *   五枚 `get*Extensions` 与 `runTurnInputContributors` / `runCommandContributors` 当前
- *   **零生产调用方**(只有 `registry.ts` 定义与用例)。定性 = 待接线,不是死码 ——
- *   承载的声明面仍被 `contribution-audit` / `activation-events` 裁决,缺的只是运行期消费者。
- *   接线点:getToolExtensions → 主循环工具表合并(`agent.ts` setupAgentTools 的 `listTools()` 之后);
- *   getHookExtensions → 插件面诊断/展示(`runHook` 自按 hooks 匹配,不依赖本枚举);
- *   getCommandExtensions → slash-registry(`SLASH_COMMANDS` 是静态表,尚无插件命令注册口);
- *   turn/command 两族 → `runTurnInputContributors` 未挂 turnStart(`agent.ts` 的 turnStart 派发点)。
- *
- *   AGENTS §0.9:接线前不得对外声称"插件工具/命令已生效";接通时把本段与
- *   `contribution-audit.ts` 的 tools/commands 裁决**一起**翻档,别让两处口径漂开(§0.6)。
+ *   五枚 `get*Extensions` 与 `runTurnInputContributors` / `runCommandContributors` 的消费方
+ *   都在 `./declaration-consumers.ts`(实现单源,本文件只 re-export),调用点逐枚点名:
+ *     - 对账腿 `auditDeclarationConsumers` ← `commands/agent.ts` 的 `setupAgentTools`
+ *       (五枚汇总口都是它的输入;工具名问 `listTools()`、hook 事件段问 `PLUGIN_HOOK_EVENTS`、
+ *       命令族读 `ACTIVATION_POLICY.onCommand`,本层不立第二份裁决);
+ *     - 派发腿 `buildPluginTurnInputSection` ← `runToolLoop` 的 turnStart,
+ *       `dispatchPluginCommandContributors` ← `runToolLoop` 的 turnEnd。
+ *   AGENTS §0.9 的那句话仍然算数,只是主语换了:**插件声明的工具与 slash 命令在本宿主依然不生效**
+ *   —— 工具名背后没有实现(装载器从不 import 插件代码),命令族没有注册通道。Z1 接的是
+ *   "读到并逐条出声"这一格,不是把空壳接成派发;缺的那格(宿主侧命令注册口)在交主席清单里。
+ *   `contribution-audit.ts` 的 tools/commands 裁决理由与本段同批改写(§0.6,两处不许各说各话)。
  */
 export {
   PluginRegistry,
   type RegisterOptions,
   type UnregisterOptions,
 } from './registry.js';
+
+/**
+ * 运行期消费者层(goal-b49/Z1):扩展声明对账 + contributor 两族的派发腿 +
+ * 宿主真派发的插件 hook 事件单源(`PLUGIN_HOOK_EVENTS` —— 派发入口的事件型与对账读同一份)。
+ * 进提示的包装另放一枚 `./turn-input-framing.ts`,因为只有那一层碰 prompt 注入登记面。
+ */
+export {
+  PLUGIN_HOOK_EVENTS,
+  auditDeclarationConsumers,
+  buildPluginTurnInputSection,
+  declarationDiagnosticsOf,
+  dispatchPluginCommandContributors,
+  type DeclarationFamily,
+  type DeclarationFinding,
+  type DeclarationReasonCode,
+  type HostNameSurface,
+  type PluginHookEvent,
+} from './declaration-consumers.js';
+export { PLUGIN_TURN_INPUT_SECTION_ID, framePluginTurnInput } from './turn-input-framing.js';
 
 // P1-4 Plugin Marketplace 集成 — re-export paths/cache/marketplace/installer
 export * from './paths.js';

@@ -5690,8 +5690,17 @@ export function sweepKeepAliveForever(opts = {}) {
   } catch {
     /* 没跑过 */
   }
-  // 上一轮没判出来 ⇒ 只冷却一小时,不能让一次 Redis 抖动把保活停摆六小时
-  const window = lastState === 'undetermined' ? failureCooldownMs : intervalMs
+  // 上一轮「腿自己哑了」⇒ 只冷却一小时,不能让一次 Redis 抖动把保活停摆六小时(头注原话)。
+  // 但哑的形态有两个名,原判据只认其中一个:`undetermined` 是器物自己报的未判定,
+  // `no-result-line` 是结论行根本没取到 —— 2026-11-05 实测:07:13 那轮派发器 spawnSync
+  // ETIMEDOUT,落笔就是 no-result-line,于是按 6 小时冷却,兜底续票空窗 4.4 小时无人管,
+  // 而这段代码自己的头注写的是「失败只冷却 1 小时」。判据与名字漂移 = 注释绿灯、行为红灯。
+  // alert 反向**留在 6 小时**:那是「号掉线」不是「尺子哑」,器物自己已经经唯一出口喊过人,
+  // 把它也压到一小时等于拿坏票每小时撞一次上游鉴权点(本仓点名的封号前兆型)。
+  const window =
+    lastState === 'undetermined' || lastState === 'no-result-line'
+      ? failureCooldownMs
+      : intervalMs
   if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
@@ -5824,7 +5833,10 @@ export function sweepPoolIsolation(opts = {}) {
     /* 没跑过 */
   }
   // 上一轮没判出来 ⇒ 只冷却一小时,不能让一次库抖动把体检停摆六小时
-  const window = lastState === 'undetermined' ? failureCooldownMs : intervalMs
+  const window =
+    lastState === 'undetermined' || lastState === 'no-result-line'
+      ? failureCooldownMs
+      : intervalMs
   if (Number.isFinite(last) && now - last < window) return { ran: false, why: '未到节流窗口' }
   try {
     mkdirSync(dirname(tickFile), { recursive: true })
@@ -15100,6 +15112,7 @@ export const __test__ = {
   // 永久保活派发腿(2026-11-01 接线;镜像测试 keepalive-forever-dispatch 按名 import 判据,
   // 不复制 §22c;不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepKeepAliveForever,
+  sweepPoolIsolation,
   // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
   // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepDanglingCommitAutotag,

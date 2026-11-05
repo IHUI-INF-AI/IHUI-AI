@@ -119,7 +119,12 @@ const NEW_FAMILIES = [
   {
     id: 'client-sync-leg-workbuddy',
     name: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)',
-    // 2026-11-03 临时止血:回灌腿计划任务已 DISABLE,guardian 审计尚在 ⇒ 条目保留不删,窗口拉长到 7 天。
+    // 本值是 scripts/data/alert-delivery-policy.json 的镜像,两处必须逐字一致(由
+    // 「策略表:五族各自在册」那条用例核对,漂了当场红)。
+    // 2026-11-05 实测记录:腿当天已重新注册并 applied=1、哨兵五维 ok,按 11-03 条目自写的
+    // 恢复动作把真实值改成 43200000 后,本用例从 1 封升到 2 封 ⇒ 与 cap24=1 的在册期望冲突;
+    // 该期望该填哪个放行数要先读 notifyGuardRed 的 due 判据实现,不在本轮可当场结清的格内
+    // ⇒ 窗口暂留 168h,恢复动作连同 cap24 期望一起结清才算数。
     cooldownMs: 604800000,
     cap24: 1,
   },
@@ -258,10 +263,7 @@ test('防误删闸:策略表可解析、顶层数组、条目数≥17、关键�
   assert.ok(Array.isArray(parsed), '策略表顶层必须是数组')
   // 下限取 2026-11-03 实测值 17。纪律:正常增条目不动这行;正常删条目必须显式改小这个数,
   // 把「拆降噪判据」变成本次提交里看得见的一次决策,而不是静默漂移。
-  assert.ok(
-    parsed.length >= 17,
-    `条目数 ${parsed.length} 低于下限 17 ⇒ 疑似条目被误删/文件被写短`,
-  )
+  assert.ok(parsed.length >= 17, `条目数 ${parsed.length} 低于下限 17 ⇒ 疑似条目被误删/文件被写短`)
   // 加载器不得静默丢条目(丢条目 = 变相误删)
   const { entries, invalid } = parseAlertDeliveryPolicy(raw)
   assert.ok(Array.isArray(entries), 'entries 必须是数组')

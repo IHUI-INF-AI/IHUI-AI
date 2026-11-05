@@ -2,29 +2,33 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, integer, timestamp } from 'drizzle-orm/pg-core'
+/**
+ * 插件贡献正文的**进提示包装**(goal-b49/Z1 立,与 `declaration-consumers.ts` 同批)。
+ *
+ * 拆成单独一枚文件有两个理由,都不是"文件太长":
+ *   1. 只有这一层碰 `utils/prompt-injection-registry.ts` —— 进模型提示的第三方内容必须走
+ *      `injectHostSection` 的 reference_data 档(与 fs 事件段、AGENTS.md 段同一条纪律),
+ *      对账层不碰提示面,分层才不糊。
+ *   2. 段落 id 是登记面的键,写死在一处,交主席补登记时只改这一行。
+ *
+ * `PLUGIN_TURN_INPUT_SECTION_ID` 目前**尚未**进 `PROMPT_INJECTION_ENTRIES`(那一格在本席白名单外):
+ * 未登记不影响正确性(出口照旧中和边界、照旧记账),但它会落进 `unregisteredInjectionIds()`
+ * 并被可见行点名 —— 这是设计里的"绝不静默",不是漏判。补齐条目 = 交付件的交主席清单第 1 条。
+ */
 
-import { chatMessages } from './chat.js'
+import { injectHostSection } from '../utils/prompt-injection-registry.js';
+
+/** 进提示段落的稳定 id(改名即视为摘线,登记面与判据都认这个字面量)。 */
+export const PLUGIN_TURN_INPUT_SECTION_ID = 'context_plugin_turn_input';
 
 /**
- * chat-sync 修订号账本(2026-10-25 立,票 B02 第三切片)。
- *
- * 每消息一行,`rev` 由 UPSERT 原子递增,是 chat-sync 的 rev 唯一权威源。
- * 立因:此前两档(Redis `INCR chat-sync:rev:<messageId>` / 壁钟回落)都会让端侧把新内容
- * 全判 stale —— Redis 被清或无持久化时重启归零,壁钟值进链后重启必回退。
- * 与消息本体同库 ⇒ 快照端点「内容 + rev」同库同读。
- *
- * 列与迁移 `drizzle/20261025120000_chat_message_sync_revs.sql` 逐字同形;
- * 会话归属刻意不进本表(单源在 chat_messages,快照读 JOIN 一次即可)。
+ * 把插件贡献的正文贴上**出处标签**再按 reference_data 档包装。
+ * 标签用的是汇总口去重后的声明名,不是插件自述 —— 模型看到的归属信息由此来自宿主,而非正文。
  */
-export const chatMessageSyncRevs = pgTable(
-  'chat_message_sync_revs',
-  {
-    messageId: uuid('message_id')
-      .primaryKey()
-      .references(() => chatMessages.id, { onDelete: 'cascade' }),
-    rev: integer('rev').default(0).notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-)
+export function framePluginTurnInput(declaredNames: readonly string[], body: string): string {
+  const trimmed = body.trim();
+  if (trimmed === '') return '';
+  const label = `插件贡献的上下文(宿主在册声明:${declaredNames.join('/')})`;
+  return injectHostSection(PLUGIN_TURN_INPUT_SECTION_ID, `${label}\n${trimmed}`, { kind: 'reference_data' });
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

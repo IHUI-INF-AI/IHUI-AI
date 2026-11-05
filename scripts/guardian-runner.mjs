@@ -945,23 +945,26 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门) ---
+  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门;2026-11-05 升 blocking) ---
   // check-cli-i18n-parity.mjs 是独立脚本(校验 packages/i18n/messages/cli/*.json),
-  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(59 keys/5 locales),
-  // 风险低,warn-only 起步,后续按需升级 blocking。
+  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(511 keys/5 locales),
+  // 差值面现读为 0(head 与 staged 两面同绿),镜像测试 16 例含「一致→exit 0 / 漂移→exit 1」
+  // 成对夹具 ⇒ 按 §12e(存量归零即升档前置)升 blocking;取材面=磁盘,故配 skipEnv。
   {
     id: '2f-cli',
-    label: '🌐 cli i18n parity 守门(warn-only,2026-07-28 立)',
+    label: '🌐 cli i18n parity 守门(blocking,2026-11-05 由 warn 升档)',
     script: 'check-cli-i18n-parity.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CLI_I18N_PARITY',
     stagedTriggers: ["packages/i18n/messages/cli/"],
     onFailHint: [
       '',
       '  💡 cli 端 5 语言 i18n key 集合不一致。',
       '     修复:node scripts/check-cli-i18n-parity.mjs 查看详情,',
       '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
-      '     cli 端 i18n 体量小(63 行),warn-only 起步,后续按需升级 blocking。',
+      '     cli 端 i18n 体量小(511 keys),新增状态词必须同批补齐 5 语言(AGENTS §19)。',
+      '     应急放行:HUSKY_SKIP_CLI_I18N_PARITY=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },
@@ -6488,17 +6491,18 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,观察票 warn 起步)(1 项)---
+  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,2026-11-05 升 blocking)---
   {
     id: '197',
-    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn)',
+    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,blocking;2026-11-05 由 warn 升档)',
     script: 'check-truncation-accounting.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TRUNCATION_ACCOUNTING',
     stagedTriggers: ['packages/', 'apps/api/src/', 'apps/ai-service/app/'],
     onFailHint: [
       '',
-      '  💡 有界列表截断诚实(票 G-998100/G-998101,观察档):',
+      '  💡 有界列表截断诚实(票 G-998100/G-998101,判红档 = --staged 棘轮:改到哪只咬哪):',
       '     ① truncated 声明块裸奔 = interface/type/z.object 块里数组成员 + truncated 却无计数/总量型',
       '        数值兄弟键 ⇒ 同块补 total/unlisted/omitted/… 计数键(正型:packages/types/src/api-contracts.ts',
       '        BoundedListProjection)。函数体/if 块里的同名局部不判。',
@@ -6507,7 +6511,9 @@ const checks = [
       '        终态逐字节一致测试)必须同期落地;字符串槽位/注释提及只报数不判红(绊线咬代码标识符)。',
       '     单独复验:node scripts/check-truncation-accounting.mjs --staged',
       '     自检:node scripts/check-truncation-accounting.mjs --self-test(23 例)',
+      '     镜像:node --test scripts/tests/check-truncation-accounting.test.mjs',
       '     全量档(HEAD 面)只报数恒 exit 0(棘轮:改到哪只咬哪);Python 面只报数不判。',
+      '     应急放行:HUSKY_SKIP_TRUNCATION_ACCOUNTING=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },

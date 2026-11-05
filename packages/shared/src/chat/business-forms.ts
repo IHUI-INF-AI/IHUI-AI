@@ -359,8 +359,54 @@ export function applyFormAction(phase: FormStatePhase, event: FormStateEvent): F
   return assertNeverPhase(phase)
 }
 
+// ---------------------------------------------------------------------------
+// 错误文案有界化(门 181 `check-error-message-bounded.mjs` 修法:describe() 式)
+// 全仓唯一实现:进持久错误文案的"实得值"只描述形状,上限按 UTF-8 字节量。
+// 已有第二消费方(apps/web/src/lib/update-manifest-verify.ts),经
+// `@ihui/shared/chat/business-forms` 复用;是否升格 utils/* 由门持有人定夺。
+// ---------------------------------------------------------------------------
+
+/** describe 输出的 UTF-8 字节上限(度量 `new TextEncoder().encode(v).length`,非字符数)。 */
+export const DESCRIBED_JSON_MAX_BYTES = 96
+
+/** 按 UTF-8 字节预算截断;超限以 `…` 收尾(带省略标记,不冒充完整值)。 */
+function clipUtf8(text: string, maxBytes: number): string {
+  const encoder = new TextEncoder()
+  if (encoder.encode(text).length <= maxBytes) return text
+  const ellipsisBytes = encoder.encode('…').length
+  let used = 0
+  let out = ''
+  for (const ch of text) {
+    const size = encoder.encode(ch).length
+    if (used + size + ellipsisBytes > maxBytes) break
+    out += ch
+    used += size
+  }
+  return `${out}…`
+}
+
+/**
+ * 把 `JSON.stringify(...)` 的实得值收敛成有界形状描述:
+ * 数组 → `array (N items)`、对象 → `object`、字符串 → 截断加省略号、标量 → 原样;
+ * 输入非合法 JSON 文本时按字节上限截断原文(仍带省略标记,绝不产非法 JSON 冒充完整)。
+ */
+export function describeBoundedJsonValue(json: string | undefined): string {
+  if (json === undefined) return 'undefined'
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return clipUtf8(json, DESCRIBED_JSON_MAX_BYTES)
+  }
+  if (parsed === null) return 'null'
+  if (Array.isArray(parsed)) return `array (${parsed.length} items)`
+  if (typeof parsed === 'string') return clipUtf8(JSON.stringify(parsed), DESCRIBED_JSON_MAX_BYTES)
+  if (typeof parsed === 'number' || typeof parsed === 'boolean') return String(parsed)
+  return 'object'
+}
+
 function assertNeverEvent(event: never): never {
-  throw new Error(`unhandled form state event: ${JSON.stringify(event)}`)
+  throw new Error(`unhandled form state event: ${describeBoundedJsonValue(JSON.stringify(event))}`)
 }
 
 function assertNeverPhase(phase: never): never {

@@ -13,13 +13,14 @@
  * 跑法(与本仓既有 tsx 入口同型,见 `scripts/auto-evolve.mjs` 的 `TSX_ENTRY`):
  *   node <repo>/apps/cli/node_modules/tsx/dist/cli.mjs \
  *        <repo>/apps/cli/src/tools/trash-prune-entry.ts --workspace <repo>
+ *   复位连败账目(Z7):同上 + `--reset-strikes --reason "<≥12 字定向说明>"`(说明不足 ⇒ 不写、退 1)
  *
  * 退出码:**打印了结论行 ⇒ 0**(结论好坏由 `state=` 字段承载,不让退出码二义化 —— 「判不出」
  * 与「崩了」必须分得开:前者有结论行、后者没有);没打印出来 ⇒ 1(崩了 / 入参不合法),
  * 守护腿据此判「未跑成」而不是「没有过期件」(§0.3)。
  */
 
-import { pruneExpiredTrash } from './trash-prune.js';
+import { pruneExpiredTrash, resetTrashExpiryRun } from './trash-prune.js';
 
 /** 取旗标值;缺旗标 / 下一个 token 仍是旗标 ⇒ null(不猜)。 */
 function flagValue(argv: readonly string[], name: string): string | null {
@@ -29,13 +30,23 @@ function flagValue(argv: readonly string[], name: string): string | null {
   return value !== undefined && !value.startsWith('--') ? value : null;
 }
 
-/** 单行化:机器读的行不许换行;空白压成下划线,免得解析端要处理多行值。 */
+/** 单行化:机器读的行不许换行;空白压成单空格,免得解析端要处理多行值。 */
 function oneLine(text: string): string {
-  return String(text).replace(/\s+/g, '_');
+  return String(text).replace(/\s+/g, ' ');
 }
 
 const argv = process.argv.slice(2);
 const workspace = flagValue(argv, '--workspace') ?? process.cwd();
+
+// 人工复位连败账目(Z7 给 X1 未竟 1 的那条可解释出口):必须带定向说明,否则一个字不写。
+// 复位后照常打结论行(闸门放行 ⇒ 下一轮就真跑),守护腿不认得这个旗标 ⇒ 默认档行为一字未动。
+if (argv.includes('--reset-strikes')) {
+  const outcome = resetTrashExpiryRun(workspace, flagValue(argv, '--reason') ?? '');
+  process.stdout.write(
+    `TRASH-PRUNE-RESET ok=${outcome.ok ? 'true' : 'false'} reason=${oneLine(outcome.ok ? '已复位:streak 归零并清 retiredAtIso(留痕见 expiry-run-reset.jsonl)' : outcome.reason)}\n`,
+  );
+  process.exit(outcome.ok ? 0 : 1);
+}
 
 const result = pruneExpiredTrash(workspace);
 
@@ -46,5 +57,11 @@ for (const skip of result.skipped) {
 }
 for (const fail of result.failed) {
   process.stdout.write(`TRASH-PRUNE-FAIL reason=${oneLine(fail.reason)}\n`);
+}
+// 逐条点名"是哪一行把这一格冻住的"(Z7 未竟 1:具名可解释,不靠人反解计数)。
+for (const line of result.lines) {
+  if (line.startsWith('TRASH-PRUNE-FROZEN') || line.startsWith('TRASH-PRUNE-QUARANTINE') || line.startsWith('TRASH-PRUNE-GHOST')) {
+    process.stdout.write(`${oneLine(line)}\n`);
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
