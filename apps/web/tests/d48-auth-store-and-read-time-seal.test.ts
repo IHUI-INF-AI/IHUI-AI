@@ -16,24 +16,24 @@ import { createAuthPersistStorage } from '@/lib/chat-persist-crypto'
 const files = vi.hoisted(() => new Map<string, Map<string, unknown>>())
 const storeMode = vi.hoisted(() => ({ broken: false }))
 
-vi.mock('@tauri-apps/plugin-store', () => ({
-  load: async (path: string) => {
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: async (
+    command: string,
+    args: { file: string; key: string; value?: string | null },
+  ) => {
     if (storeMode.broken) throw new Error('IPC denied: origin not in capability list')
-    let entries = files.get(path)
+    let entries = files.get(args.file)
     if (!entries) {
       entries = new Map<string, unknown>()
-      files.set(path, entries)
+      files.set(args.file, entries)
     }
-    return {
-      get: async (key: string) => entries!.get(key),
-      set: async (key: string, value: unknown) => {
-        entries!.set(key, value)
-      },
-      delete: async (key: string) => {
-        entries!.delete(key)
-      },
-      save: async () => {},
+    if (command === 'store_read_entry') return entries.get(args.key) ?? null
+    if (command === 'store_write_entry') {
+      if (args.value === null || args.value === undefined) entries.delete(args.key)
+      else entries.set(args.key, args.value)
+      return true
     }
+    throw new Error(`unexpected store command: ${command}`)
   },
 }))
 

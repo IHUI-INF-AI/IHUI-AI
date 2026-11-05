@@ -95,6 +95,9 @@ fn main() {
             "workbuddy_quarantine_delete",
             "workbuddy_reset_history",
             "workbuddy_reset_factory",
+            // 2026-11-05(桌面 store 越权 P0):替代 store:default 的两条白名单命令。
+            "store_read_entry",
+            "store_write_entry",
         ])),
     )
     .expect("failed to run tauri-build");
