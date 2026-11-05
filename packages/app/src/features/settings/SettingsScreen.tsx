@@ -7,7 +7,7 @@ import { rnRadius, rnRadiusFor, rnGeometry, rnSpacing, rnType } from '@ihui/desi
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { View, Text, Switch, TouchableOpacity, Modal, StyleSheet, ScrollView } from 'react-native'
-import { Check, ChevronRight } from 'lucide-react-native'
+import { Check, ChevronRight, Moon, RefreshCw, Sun } from 'lucide-react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { PressableCard } from '../../components/ScreenStates'
@@ -30,6 +30,26 @@ export interface SettingsLanguageSectionProps {
   onSelect: (value: string) => void
   colorScheme?: 'light' | 'dark'
 }
+
+/** 主题选项(小程序主题页多行首字形与副行说明;RN 不传即维持 label+✓) */
+export interface SettingsThemeOption {
+  value: string
+  label: string
+  description?: string
+  icon?: keyof typeof THEME_GLYPHS
+}
+
+/** 主题选择分段 props(两端显式传:RN 大设置页 / 小程序 pages/setting/theme) */
+export interface SettingsThemeSectionProps {
+  title: string
+  items: SettingsThemeOption[]
+  selected: string
+  onSelect: (value: string) => void
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 主题行首字形(仅小程序主题页传 icon 时渲染;RN 不传 ⇒ 零可见变化) */
+const THEME_GLYPHS = { auto: RefreshCw, light: Sun, dark: Moon }
 
 /**
  * SettingsScreen — 跨端共享「设置」页。
@@ -141,17 +161,13 @@ export function SettingsScreen({
           colorScheme={colorScheme}
         />
 
-        <Section title={t('settings.theme')} styles={styles}>
-          {themeOptions.map((opt) => (
-            <SelectRow
-              key={opt.value}
-              label={opt.label}
-              selected={opt.value === theme}
-              onPress={() => onSelectTheme(opt.value)}
-              styles={styles}
-            />
-          ))}
-        </Section>
+        <SettingsThemeSection
+          title={t('settings.theme')}
+          items={themeOptions}
+          selected={theme}
+          onSelect={onSelectTheme}
+          colorScheme={colorScheme}
+        />
 
         <Section title={t('settings.notification')} styles={styles}>
           {notifRows.map((row) => (
@@ -275,6 +291,39 @@ export function SettingsLanguageSection({
           selected={opt.value === selected}
           onPress={() => onSelect(opt.value)}
           styles={styles}
+          tk={tk}
+        />
+      ))}
+    </Section>
+  )
+}
+
+/**
+ * 主题选择分段 — 批次 7(2026-11-06)从 SettingsScreen 抽出:
+ * RN 大设置页(本文件)与小程序 pages/setting/theme 两端都真消费、都显式传 title/items/selected/onSelect。
+ * 小程序端行首字形(icon)与副行说明(description)为端内补充信息;RN 不传 ⇒ 仍是 label + ✓,零可见变化。
+ */
+export function SettingsThemeSection({
+  title,
+  items,
+  selected,
+  onSelect,
+  colorScheme = 'light',
+}: SettingsThemeSectionProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
+  return (
+    <Section title={title} styles={styles}>
+      {items.map((opt) => (
+        <SelectRow
+          key={opt.value}
+          label={opt.label}
+          description={opt.description}
+          icon={opt.icon}
+          selected={opt.value === selected}
+          onPress={() => onSelect(opt.value)}
+          styles={styles}
+          tk={tk}
         />
       ))}
     </Section>
@@ -301,19 +350,35 @@ function Section({
 function SelectRow({
   label,
   description,
+  icon,
   selected,
   onPress,
   styles,
+  tk,
 }: {
   label: string
   description?: string
+  icon?: keyof typeof THEME_GLYPHS
   selected: boolean
   onPress: () => void
   styles: ThemedStyles
+  tk: AppThemeTokens
 }) {
+  const Glyph = icon ? THEME_GLYPHS[icon] : null
   return (
     <TouchableOpacity style={styles.plainRow} onPress={onPress}>
-      {description ? (
+      {Glyph ? (
+        <View style={styles.rowLead}>
+          <Glyph
+            size={rnGeometry.glyphMd}
+            color={selected ? tk.brandAccent.deep : tk.text.tertiary}
+          />
+          <View style={styles.rowMeta}>
+            <Text style={styles.rowLabel}>{label}</Text>
+            {description ? <Text style={styles.rowSubLabel}>{description}</Text> : null}
+          </View>
+        </View>
+      ) : description ? (
         <View style={styles.rowMeta}>
           <Text style={styles.rowLabel}>{label}</Text>
           <Text style={styles.rowSubLabel}>{description}</Text>
@@ -414,6 +479,14 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: cardBg,
     },
     rowLabel: { fontSize: rnType.title.size, color: rowLabelColor },
+    /** 行首字形 + 文案容器(仅传 icon 时进布局;RN 不传 ⇒ 该格不进树) */
+    rowLead: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.sm,
+    },
     /** 副行容器(仅 description 存在时渲染;RN 不传 ⇒ 这两格不进布局) */
     rowMeta: { flex: 1, minWidth: 0, gap: rnSpacing['2xs'] },
     rowSubLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
