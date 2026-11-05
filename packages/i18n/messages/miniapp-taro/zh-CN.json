@@ -1190,7 +1190,8 @@
     "getCode": "获取验证码",
     "confirmLabel": "确认文字",
     "confirmPlaceholder": "请输入上方文字",
-    "failed": "注销失败,请重试"
+    "failed": "注销失败,请重试",
+    "warning": "注销账号后，您的所有数据将被永久删除且无法恢复。"
   },
   "ask": {
     "create": {
@@ -2948,7 +2949,9 @@
       "verifiedTip": "当前手机号已通过验证",
       "bindDesc": "绑定后可用于登录、找回密码、接收通知",
       "bindTitle": "绑定手机号",
-      "codeLength": "请输入 6 位验证码"
+      "codeLength": "请输入 6 位验证码",
+      "selectNation": "选择区号",
+      "resend": "{s}s 后重新获取"
     },
     "profile": {
       "avatar": "头像",

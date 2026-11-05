@@ -962,7 +962,17 @@
       "revokeConfirmTitle": "デバイスを失効",
       "taskColCreated": "作成日時",
       "taskColFinished": "終了日時"
-    }
+    },
+    "accountDeletionTitle": "アカウント削除",
+    "accountDeletionWarning": "この操作は取り消せません。すべてのデータが削除されます。",
+    "accountDeletionPhoneLabel": "電話番号",
+    "accountDeletionPhonePlaceholder": "電話番号を入力してください",
+    "accountDeletionCodeLabel": "コード",
+    "accountDeletionCodePlaceholder": "認証コードを入力してください",
+    "accountDeletionSendCode": "コード",
+    "accountDeletionConfirm": "アカウント削除の確認",
+    "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionSubmitting": "送信中..."
   },
   "menu": {
     "artifacts": "成果物センター",
@@ -4725,7 +4735,9 @@
     "bindFail": "紐付けに失敗しました",
     "bindOk": "紐付けました",
     "netBusy": "通信エラー",
-    "netBusyRetry": "通信エラー、しばらくして再試行してください"
+    "netBusyRetry": "通信エラー、しばらくして再試行してください",
+    "selectNation": "国番号を選択",
+    "submitting": "送信中..."
   },
   "subagents": {
     "tabOverview": "概要",
@@ -7345,6 +7357,14 @@
     "articles": {
       "prevPage": "前へ",
       "nextPage": "次へ"
+    },
+    "profile": {
+      "changePhoneTitle": "電話番号変更",
+      "newPhonePlaceholder": "新しい電話番号を入力",
+      "codePlaceholder": "6桁の認証コードを入力",
+      "sendNewCode": "新コード取得",
+      "resend": "{seconds}秒後に再試行",
+      "confirmChange": "変更確認"
     }
   },
   "NavBar": {

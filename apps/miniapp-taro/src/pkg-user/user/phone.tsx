@@ -16,6 +16,21 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
 
+/**
+ * 共享 ChangePhoneScreen 的 i18n 键 → 本端既有词条。
+ * 未列出的键按原样走 i18n(不得回落到裸 key;门 299 T12 逐键断言)。
+ */
+export const PHONE_TEXT: Record<string, string> = {
+  'user.profile.changePhoneTitle': 'user.phone.bindTitle',
+  'changePhone.selectNation': 'user.phone.selectNation',
+  'user.profile.newPhonePlaceholder': 'user.phone.newPhonePlaceholder',
+  'user.profile.codePlaceholder': 'user.phone.codeLength',
+  'user.profile.sendNewCode': 'user.security.sendCode',
+  'user.profile.resend': 'user.phone.resend',
+  'user.profile.confirmChange': 'user.phone.bind',
+  'changePhone.submitting': 'user.phone.binding',
+}
+
 export default function Phone() {
   const { t } = useI18n()
   const gate = useAuthReadyGate()

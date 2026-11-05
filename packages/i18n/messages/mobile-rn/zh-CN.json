@@ -962,7 +962,17 @@
       "revokeConfirmTitle": "撤销设备",
       "taskColCreated": "创建时间",
       "taskColFinished": "结束时间"
-    }
+    },
+    "accountDeletionTitle": "账号注销",
+    "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
+    "accountDeletionPhoneLabel": "手机号",
+    "accountDeletionPhonePlaceholder": "输入手机号",
+    "accountDeletionCodeLabel": "验证码",
+    "accountDeletionCodePlaceholder": "输入验证码",
+    "accountDeletionSendCode": "发送验证码",
+    "accountDeletionConfirm": "确认注销账号",
+    "accountDeletionSubmit": "确认注销",
+    "accountDeletionSubmitting": "提交中..."
   },
   "menu": {
     "artifacts": "产物中心",
@@ -4725,7 +4735,9 @@
     "bindFail": "绑定失败",
     "bindOk": "绑定成功",
     "netBusy": "网络异常",
-    "netBusyRetry": "网络异常,请稍后重试"
+    "netBusyRetry": "网络异常,请稍后重试",
+    "selectNation": "选择区号",
+    "submitting": "提交中..."
   },
   "subagents": {
     "tabOverview": "概览",
@@ -7345,6 +7357,14 @@
     "articles": {
       "prevPage": "上一页",
       "nextPage": "下一页"
+    },
+    "profile": {
+      "changePhoneTitle": "修改手机号",
+      "newPhonePlaceholder": "请输入新手机号",
+      "codePlaceholder": "请输入 6 位验证码",
+      "sendNewCode": "获取新验证码",
+      "resend": "{seconds}s 后重试",
+      "confirmChange": "确认修改"
     }
   },
   "NavBar": {
