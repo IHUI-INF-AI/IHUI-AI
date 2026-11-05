@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Flame, Loader2, Eye, ChevronLeft, ChevronRight, Newspaper, ArrowLeft } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listHotArticles } from '@ihui/api-client'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface HotArticle {
@@ -41,7 +41,11 @@ export default function HotArticlesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'hot', page],
-    queryFn: () => apiOrThrow<ArticlesData>(`/api/article/hot?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: async () => {
+      const r = await listHotArticles<ArticlesData>({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const total = data?.total ?? 0

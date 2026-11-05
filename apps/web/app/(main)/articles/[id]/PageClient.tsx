@@ -12,8 +12,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, Newspaper } from 'lucide-react'
 import * as React from 'react'
 
-import { recordBrowseVisit } from '@ihui/api-client'
-import { apiOrThrow } from '@/lib/api'
+import { getArticleDetail, recordBrowseVisit } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
@@ -45,7 +44,11 @@ export default function ArticleDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['articles', 'detail', id],
-    queryFn: () => apiOrThrow<DetailResponse>(`/api/article/detail/${id}`),
+    queryFn: async () => {
+      const r = await getArticleDetail<DetailResponse>(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   // 浏览历史上报(2026-10-04,/member/history 页的写入侧):进详情页即记一条。
