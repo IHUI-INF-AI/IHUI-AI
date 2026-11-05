@@ -302,7 +302,7 @@ function PathNav({
           placeholder={t('manualPathPlaceholder')}
           spellCheck={false}
           autoComplete="off"
-          className="font-[weight:inherit] h-6 min-w-0 flex-1 bg-transparent font-mono text-label text-foreground outline-none placeholder:text-muted-foreground/60"
+          className="h-6 min-w-0 flex-1 bg-transparent font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground/60"
         />
         <TooltipProvider delayDuration={200}>
           <Tooltip>
@@ -378,7 +378,7 @@ function PathNav({
       )}
 
       {isAtRoot && (
-        <span className="font-[weight:inherit] min-w-0 flex-1 truncate text-label text-muted-foreground/80">
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">
           {t('rootHint')}
         </span>
       )}
@@ -436,7 +436,7 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
             onDoubleClick={() => onOpen(entry)}
             data-selected={isSelected}
             className={cn(
-              'font-[weight:inherit] group flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-body transition-colors',
+              'group flex w-full items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-sm transition-colors',
               isSelected ? 'bg-amber-500/15 text-foreground' : 'text-foreground hover:bg-muted/60',
             )}
           >
@@ -731,9 +731,7 @@ export function LocalFolderPicker({
               <FolderOpen className="h-4 w-4 text-amber-500" />
               <span>{t('title')}</span>
             </DialogTitle>
-            <DialogDescription className="font-[weight:inherit] text-label">
-              {t('description')}
-            </DialogDescription>
+            <DialogDescription className="text-xs">{t('description')}</DialogDescription>
           </DialogHeader>
 
           {/* Body */}
@@ -825,21 +823,21 @@ export function LocalFolderPicker({
               >
                 {browsing ? (
                   <li>
-                    <div className="font-[weight:inherit] flex items-center justify-center gap-2 py-12 text-body text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {t('loading')}
                     </div>
                   </li>
                 ) : filteredDirs.length === 0 ? (
                   <li>
-                    <div className="font-[weight:inherit] flex flex-col items-center justify-center gap-2 px-3 py-8 text-center text-body text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2 px-3 py-8 text-center text-sm text-muted-foreground">
                       <Folder className="h-8 w-8 opacity-30" />
                       <span>{filter ? t('noMatch') : t('noDirectories')}</span>
                       {filter && (
                         <button
                           type="button"
                           onClick={() => setFilter('')}
-                          className="font-[weight:inherit] text-label text-amber-700 transition-colors hover:underline dark:text-amber-400"
+                          className="text-xs text-amber-700 transition-colors hover:underline dark:text-amber-400"
                         >
                           {t('clearFilter')}
                         </button>
@@ -862,7 +860,7 @@ export function LocalFolderPicker({
 
             {/* 错误条 */}
             {errorMessage && (
-              <div className="font-[weight:inherit] flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive">
+              <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 min-w-0">{errorMessage}</span>
                 <button
@@ -880,7 +878,7 @@ export function LocalFolderPicker({
             )}
 
             {nativeHint && !errorMessage && (
-              <div className="font-[weight:inherit] flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-label text-amber-700 dark:text-amber-400">
+              <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span className="flex-1 min-w-0">{nativeHint}</span>
                 <button
@@ -944,7 +942,7 @@ export function LocalFolderPicker({
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                   disabled={openMutation.isPending}
-                  className="font-[weight:inherit] px-4 text-body"
+                  className="px-4 text-sm"
                 >
                   {t('cancel')}
                 </Button>
@@ -953,7 +951,7 @@ export function LocalFolderPicker({
                   type="button"
                   onClick={openSelected}
                   disabled={!canOpen}
-                  className="font-[weight:inherit] min-w-[7rem] px-4 text-body"
+                  className="min-w-[7rem] px-4 text-sm"
                 >
                   {openMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span className="truncate">
