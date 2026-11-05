@@ -424,4 +424,71 @@
 - 台账 `loc` 按末行计法比 AST 实测多 1：nickname 172/171、phone 325/324、email 201/200、following 272/271、message 569/568、account-cancel 340/339。
 - 复查：6 页节点数 23/27/18/35/41/23，全部 ≥18，无一 ≤2，与门 299 在 `73fe20b38f` 的总账读数一致。
 
+## 补充：chat 线域内判定归档（2026-11-06，只读）
+
+基线 `origin/main = ddabf97143`。计数口径统一 **E+SC+F+T**：`JsxElement` + `JsxSelfClosingElement` + `JsxFragment` + 非空 `JsxText`（学习线 E+S+T 未含 F，此前各表按 E+S+T 合计时 F 需单列对齐）。
+
+域筛选（门 299 `--explain` + 台账三前缀）：
+- 在册复制页 2 张：`pkg-ai/ai/agent`、`pkg-ai/ai/agent-detail`。
+- `pkg-ai/ai/conversation-import`：分类器已判 shell、台账未摘（S2「可从台账摘除」）。
+- `pkg-ai/ai-group/index`：2 节点（E1+SC1），台账未退休、S2 已提示可摘。
+- 已退休不在册：`pkg-ai/ai/chat`、`pkg-ai/ai/history`、`pkg-ai/ai-chat-detail/index`。
+- 补派三张：`pkg-ai/ai-assistant-n8n/index`、`pkg-ai/agent-dialogue/index`、`pkg-ai/ai-career/index`。
+
+| route | LOC（台账 / 实测） | 节点 E+SC+F+T | 结论 |
+|---|---|---|---|
+| `pkg-ai/ai/agent` | 553 / 552 | 44+10+1+3 = **58** | 结构下限 |
+| `pkg-ai/ai/agent-detail` | 622 / 621 | 53+5+0+3 = **61** | 结构下限 |
+| `pkg-ai/ai/conversation-import` | 423 / 261 | 1+2+0+0 = **3** | 口径异常 |
+| `pkg-ai/ai-assistant-n8n/index` | 166 / 165 | 14+4+0+1 = **19** | 结构下限 |
+| `pkg-ai/agent-dialogue/index` | 677 / 676 | 25+9+2+0 = **36** | 结构下限 |
+| `pkg-ai/ai-career/index` | 162 / 161 | 17+4+0+0 = **21** | 口径异常 |
+
+### 结构下限逐页留档
+
+**1. `pkg-ai/ai/agent`（552 行 / 58）**
+- 实测：E44+SC10+F1+T3。
+- 卡点分段：标题 `agent.tsx:288-292`、Carousel `:296-318`、SearchBar `:320-326`、快捷 Tab `:328-359`、ModelTypeButtonGroup `:362`、排序 `:385-402`、热门 Banner `:408-448`、创建 FAB `:524-531`、BottomActionBar `:533-541`、ModelConfigDialog `:543-548`；即使直载共享屏，这些宿主 chrome 仍留在页内。
+- 判据1：压不到 ≤2——上述 chrome 无共享段可投，且是本端独有交互（排序 / 热门 Banner / 创建 FAB / 配置弹窗）。
+- 判据2：四处重复 UI——标题 `agent.tsx:289` ↔ `AgentScreen.tsx:241`；分类 chips `agent.tsx:365` ↔ `AgentScreen.tsx:113`+`:133`；卡片 `agent.tsx:469` ↔ `AgentScreen.tsx:173`；空态 `agent.tsx:450` ↔ `AgentScreen.tsx:249`。
+- 判据3：`AgentScreenProps`（`packages/types/src/app-ai.ts:532-551`）无任何 chrome 开关；RN 只消费 items/loading/error/refresh/nestedInScrollView/onNavigate（`apps/mobile-rn/src/screens/AgentScreen.tsx:748-764`），RN 另建 Carousel（`:687-708`）与 agent/model 切换（`:726-745`），无排序 / 热门 Banner / 创建 FAB / BottomActionBar / ModelConfigDialog——新增只能小程序单端吃缺省 = 搬码。共享屏固定渲染 BackChevron+标题（`AgentScreen.tsx:235-241`），本端用原生导航（`agent.tsx:287`），要直载还得加 `hideBack/title` 类单端 prop。
+
+**2. `pkg-ai/ai/agent-detail`（621 行 / 61）**
+- 实测：E53+SC5+F0+T3。
+- 卡点分段：Tab 条 `agent-detail.tsx:379-402`、VIP 标 `:426-430`、标签 `:456-466`、权限条 `:468-495`、prologue `:506-513`、示例对话 `:515-543`、systemPrompt `:544-553`、收藏 `:566-572`、相关推荐 `:574-609`、runtime 面板 `:613-617`。
+- 判据1：共享屏只能覆盖头部+基本信息卡+开始对话，上述 10 段无 props 可投；压到 ≤2 需删掉全部业务段，不是收壳是砍功能。
+- 判据2：六处重复——名称/分类 `agent-detail.tsx:425` ↔ `AgentDetailScreen.tsx:57`；编辑键 `:433` ↔ `:61`；描述 `:440` ↔ `:68`；创建者/次数/价格（`agent-detail-meta.tsx:38`）↔ `:70-82`；开始对话 `:560` ↔ `:84`；错误态 `:363` ↔ `:41`。
+- 判据3：`AgentDetailScreenProps`（`app-ai.ts:34-53`）与 `AgentDetailItem`（`:20-31`）均无 prologue/systemPrompt/permission/tags/related；RN 只传基础 item（`apps/mobile-rn/src/screens/AgentDetailScreen.tsx:50-62`）→ 新段 RN 全缺省，判搬码。
+
+### 口径异常：`pkg-ai/ai/conversation-import`（台账 423 / 实测 261 / 3）
+
+- 3 节点拆项：E1（根 `View` `conversation-import.tsx:240`）+ SC2（宿主 `NavBar` `:241-245`、共享屏 `:246-256`）+ F0 + T0。RN 端同构 3 节点（`apps/mobile-rn/src/screens/ConversationImportScreen.tsx:365-381`：`View`+`NavChrome`+共享屏）。
+- 零重复 UI 段：页内无自写 UI，全部由共享屏出（`packages/app/src/features/conversation-import/ConversationImportScreen.tsx:126-151`）。
+- 8 个 props 两端真消费：`onPickFile`（Taro `chooseMessageFile` `conversation-import.tsx:105-138` vs RN `ConversationImportScreen.tsx:160`）、`onParse`/`onCommit`/`onLoadHistory`/`onOpenConversation`/`onAnalyze`（页端 `:141-237`、RN `:191`/`:248`/`:307`/`:341`/`:355`），`t` 与 `colorScheme` 同传。
+- 口径差：台账 `loc 423` / 实测 261 行；门 299 已不把该页列进 `--explain`（import 判 shell）；S2 原文「存量复制页已收敛(可从台账摘除): pkg-ai/ai/conversation-import」。
+- 冲突：S2「可摘」与 ≤2 硬标不兼容——3 节点是宿主壳下限（根 `View` 保 `h-screen`/背景，`NavBar` 是本端原生导航位），删任一都破坏壳。
+- 处置：**待口径收口票，不自行摘行**（退休/摘行归内容线）。
+
+### 补派三页结论
+
+**3. `pkg-ai/ai-assistant-n8n/index`（165 行 / 19：E14+SC4+F0+T1）→ 结构下限**
+- 页自述「端内独立实现…不参与镜像对账」`ai-assistant-n8n/index.tsx:5`。
+- 重复：页头 `:97-101` ↔ `N8nModelScreen.tsx:64-70`（后者另带创建键）；状态点/名称/徽章/描述/URL `:126-152` ↔ `N8nModelScreen.tsx:128-160`。
+- 卡点：共享屏是「列表+编辑」超集，含搜索/状态 Tab/创建键/编辑/启停（`N8nModelScreen.tsx:83-99` 等）；本页是只读列表，直载会多出这些入口，压回需 `hideSearch/hideTabs/hideCreate/readOnly` 类单端 prop，RN 侧只传既有 13 props（`apps/mobile-rn/src/screens/N8nModelScreen.tsx:245-264`）= 搬码。
+- 判据1 卡在「超集段与只读语义冲突」；判据2/3 同上一段。
+
+**4. `pkg-ai/agent-dialogue/index`（676 行 / 36：E25+SC9+F2+T0）→ 结构下限**
+- 重复：气泡行 `agent-dialogue.tsx:605-651` ↔ `ChatRoomScreen.tsx:164-213`；媒体段（图/视频/音频/文件）`agent-dialogue.tsx:510-579` ↔ `ChatRoomScreen.tsx:175-205`；图片预览 `agent-dialogue.tsx:424-433` ↔ `ChatRoomScreen.tsx:232-254`。
+- 卡点：共享屏 chat 态无分页、无空态、无内联视频播放器、无输入栏（`ChatRoomScreen.tsx:67-85` 无 `onLoadMore`/`emptyText`；视频只出「视频消息,点击播放」链接 `:179-187`；输入栏经 `bottomBar` 注入 `:77`/`:230`）；本页需要 `onScrollToUpper` 翻历史 `agent-dialogue.tsx:594`、空态 `:598-604`、内联 `<Video controls poster>` `:521-531`。
+- 判据1：直载后仍剩「注入输入栏（`FocusInput`+发送键 `:655-671`）」+根容器 ≥3 节点；输入栏若搬共享层，RN 已用 BottomActionBar（`apps/mobile-rn/src/screens/AssistantScreen.tsx:246` 调用点），仍是两端各写。
+- 判据2/3：新增 `onLoadMore/emptyText/inlineVideo/showHeader` 等 RN 全不消费（RN 调用点 `AssistantScreen.tsx:246`）= 搬码。
+
+**5. `pkg-ai/ai-career/index`（161 行 / 21：E17+SC4+F0+T0）→ 口径异常**
+- 页自述：本页是「智能体列表」，与共享 `ai-career` 域「问卷+报告导出」非同源、业务键 0 交集、登记表条目已删、台账判 not-applicable（`ai-career/index.tsx:5-8`）。
+- 台账仍留 `declaredSpecs=ai-career/AiCareerScreen`，属声明错配；`AiCareerScreen` 是问卷/报告屏（RN 消费点 `apps/mobile-rn/src/screens/AiCareerScreen.tsx:192-208` 传 questions/formData/result/export）。
+- 真实最近候选是 `AgentScreen`，但其卡片无标签、无 CTA（`AgentScreen.tsx:173-214`），props 无 `tags/onStartChat`（`app-ai.ts:532-551`）；本页标签 `ai-career/index.tsx:124-135`、使用数+开始对话 `:137-148` 只能单端传 = 搬码。
+- 处置：声明按 not-applicable 口径收口，属口径票；不自行改行。
+
+本轮只报结论，退休/纠正行由内容线统一做。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
