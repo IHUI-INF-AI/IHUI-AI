@@ -477,7 +477,7 @@
     "shareHash": "  防篡改 hash: {hash}",
     "shareSize": "  大小: {sizeBytes} bytes",
     "qrGenerated": "  二维码:已生成(data URL)",
-    "qrFallback": "  二维码:降级模式(需引入 qr 库启用)",
+    "qrFallback": "  二维码:未产出(链接超出编码容量或形态不支持)",
     "modeDesc": "查看或切换交互模式: plan(只读调研) | build(执行修改) | review(审查 diff)",
     "modeCurrent": "当前模式: {mode}",
     "modeAvailable": "可用模式: plan(只读) / build(执行) / review(审查)",
