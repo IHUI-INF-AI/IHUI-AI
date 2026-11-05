@@ -2538,6 +2538,13 @@
       "when": 1793635790144,
       "tag": "20261102210000_edu_attendance_rule",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 366,
+      "when": 1793888061055,
+      "tag": "20261105120000_tenant_rls_policies_batch1_install",
+      "breakpoints": true
     }
   ]
 }
