@@ -23,7 +23,9 @@
        APK apksigner 验签 + 证书指纹必须等于正式 keystore;AAB jarsigner 验签 + 同指纹;
        debug 签名/换签名一律判失败;APK/AAB 体积对 scripts/data/mobile-release-size-baseline.json
        比较(超 +15% 告警、超 +30% 判红;首次/更新基线须显式 -UpdateSizeBaseline)
-    5. 发布到固定下载地址(-NoPublish 可跳过):node scripts/publish-mobile-apk.mjs
+    5. 发布到固定下载地址(-NoPublish 可跳过):先 node scripts/publish-mobile-apk-gitee.py
+       (16 份分片腿 + 清单, 并行下载的源), 再 node scripts/publish-mobile-apk.mjs
+       (站点腿 + app_versions 登记; 缺生产落点即失败, 不会静默跳过后半条)
        落版本名副本 + 翻指针 ⇒ 用户链接恒定,不必跟着版本号换地址
 
   签名凭据设计(不入库):
@@ -377,6 +379,9 @@ Push-Location $RepoRoot
 try {
   node scripts/patch-rn-release-signing.mjs
   if ($LASTEXITCODE -ne 0) { throw 'patch-rn-release-signing.mjs 失败' }
+  # android/ 是 prebuild 生成物:OkHttp 强制 HTTP/1.1 的注入同样会被 prebuild 重置,故与签名配置一起幂等重打。
+  node scripts/patch-rn-okhttp-http1.mjs
+  if ($LASTEXITCODE -ne 0) { throw 'patch-rn-okhttp-http1.mjs 失败' }
 } finally { Pop-Location }
 
 Write-Host "`n===== [2/5] 前置检查: keystore + 签名凭据 =====" -ForegroundColor Cyan
@@ -571,6 +576,25 @@ if ($NoPublish) {
 } else {
   Push-Location $RepoRoot
   try {
+    # 5.0 先发 Gitee 分片腿,再发站点腿并登记 —— 顺序不可反:先推站点腿(登记后线上立刻提示升级)
+    # 而分片腿还没就绪,用户会落到慢速单文件腿。Gitee 腿是本机唯一能在"没生产 checkout"时
+    # 自动完成的发布动作,所以它不再允许人肉单独跑一条命令(2026-11-05 实测漏跑过一次)。
+    $GiteeScript = Join-Path $RepoRoot 'scripts/publish-mobile-apk-gitee.py'
+    if (Test-Path $GiteeScript) {
+      if (-not $env:GITEE_TOKEN) {
+        # 令牌不入库:优先环境变量,其次 Windows 凭据管理器里 gitee.com 的 git 凭据(GCM)。
+        $cred = ("protocol=https`nhost=gitee.com`n`n" | git credential fill 2>$null) -join "`n"
+        $tok = [regex]::Match($cred, '(?m)^password=(.+)').Groups[1].Value.Trim()
+        if ($tok) { $env:GITEE_TOKEN = $tok }
+      }
+      if (-not $env:GITEE_TOKEN) {
+        throw 'Gitee 分片腿未发: GITEE_TOKEN 缺失且凭据管理器里取不到 gitee.com —— 不许静默只发站点腿'
+      }
+      py $GiteeScript --apk $Apk --version $VersionName --parts 16 --version-code $VersionCode
+      if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk-gitee.py 失败 (exit=$LASTEXITCODE) —— 分片腿未就绪,不许当成发布成功" }
+    } else {
+      throw "缺 $GiteeScript —— 分片腿无处发布,不许静默跳过"
+    }
     node scripts/publish-mobile-apk.mjs --apk $Apk --version $VersionName --version-code $VersionCode
     if ($LASTEXITCODE -ne 0) { throw "publish-mobile-apk.mjs 失败 (exit=$LASTEXITCODE) —— 包已构建但未发布,不许当成成功" }
     node scripts/check-mobile-download-leg.mjs --apk $Apk
