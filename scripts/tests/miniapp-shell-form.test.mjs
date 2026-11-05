@@ -158,4 +158,35 @@ test('T8 profile 薄壳页:共享入口被认 + 页内无渲染型 JSX(wrapper �
     '阴性对照:复制页材质必须被同一判据命中',
   )
 })
+
+// T9 本批薄壳页形态锁(2026-11-05,pkg-user/user/settings):入口被认 + 页内渲染段归零
+// + 关键传参在位。阴性对照两枚:①摘掉入口行必须不再判薄壳;②删掉 menuItems 传参必须红。
+const SETTINGS_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/user/settings.tsx')
+const SETTINGS_SPEC = ['packages/app/src/features/settings/SettingsScreen.tsx']
+const SETTINGS_PROPS_RE = /menuItems=\{menuItems\}/m
+
+test('T9 settings 薄壳页:共享入口被认 + 页内无渲染型 JSX(wrapper 除外)', () => {
+  const page = readFileSync(SETTINGS_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, SETTINGS_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(/^import[^\n]*@ihui\/rn-app\/features\/settings\/SettingsScreen[^\n]*\n/m, ''),
+      SETTINGS_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(
+    "import { View } from '@tarojs/components'\nexport default () => <View className='st-section' />",
+    RENDER_TAG_RE,
+    '阴性对照:复制页材质必须被同一判据命中',
+  )
+  assert.match(page, SETTINGS_PROPS_RE, '菜单分区必须由页面装配后注入共享屏')
+  assert.doesNotMatch(
+    page.replace(SETTINGS_PROPS_RE, ''),
+    SETTINGS_PROPS_RE,
+    '阴性对照:删掉 menuItems 传参后同一判据必须不再命中',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
