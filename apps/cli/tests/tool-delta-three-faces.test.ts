@@ -56,6 +56,8 @@ vi.mock('@ihui/api-client', () => ({
   streamChat: vi.fn(),
   setBaseUrl: vi.fn(),
   setTokenProvider: vi.fn(),
+  // G-916940③ 起真实 runToolLoop 还引用容量出口;本面只 mock 网络边界,容量给缺省档等值桩
+  getModelContextCapacity: () => 128_000,
   fetchApi: vi.fn(),
   getToken: vi.fn(async () => null),
   formatSSEError: (err: unknown) => ({
