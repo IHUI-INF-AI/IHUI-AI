@@ -2063,7 +2063,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ## Edu AI 管理模块二期 — 完整功能拓展 + 优化
 - [ ]（认领已释放@2026-11-05/stale-claim-strip#mw2teggx-0） B67 考勤既无判定依据也无补录:表里无到校阈值列致迟到/早退全靠人手选,且全仓只有考勤路由读写该表、当日未签到学生不落记录 ⇒ 缺勤恒 0、出勤率虚高 —— 出路=新增班级考勤规则表(阈值+二维码密钥+迁移)并按规则每日幂等补 absent 行,接进后端既有调度器
 - [ ]（认领已释放@2026-11-05/stale-claim-strip#mw2teggx-1） B70 考勤缺三条写路径:请假审批端点只改请假单自身不写考勤行;同文件里排班/招生/线索/催费都有批量端点而考勤只能一人一签;排班有导出而考勤无(教务要报表只能截图)—— 出路=审批通过同事务按区间幂等落 leave、批量点名回库确认并回 missedIds、按班级与日期区间出 CSV
-- [ ] B71 考勤 7 端点零行为测试:全仓关于考勤只有一枚文案契约测试,越权面(他人能否替别班学生签到)至今无人验过 —— 出路(现读@2026-11-05:归属成对用例已在 edu-attendance-parent-portal-authz.test.ts 落地,勿重复造):仍无行为用例的 9 条 = /attendance/{:id,export,qrcode,rule,rule/rotate-qr-secret}、/parent/{child/:id,children/:childId}/attendance、/user/check-in{/status} ⇒ 逐条补权限成对与越权用例并断言副作用未发生;人脸档按裁决不做,不得造空壳端点
+- [ ] B71 考勤 7 端点零行为测试:全仓关于考勤只有一枚文案契约测试,越权面(他人能否替别班学生签到)至今无人验过 —— 出路(单会话射程已收窄@2026-11-05):本票只做一件事=为 GET /attendance/export 补权限成对用例与越权用例并断言副作用未发生,新增一枚 apps/api/tests/edu-attendance-export-authz.test.ts;归属成对用例已在 edu-attendance-parent-portal-authz.test.ts 落地勿重复;其余 8 条无行为用例路由(:id/qrcode/rule/rule-rotate-qr-secret/parent×2/user-check-in×2)由后续票逐条登记,不得塞进本票
 ## P0 移动端 RN 完整复刻 Uniapp 历史项目(2026-08-13 立,平台独占:apps/mobile-rn,AGENTS.md §24 用户已确认)
 > AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/mobile-rn/**`,不参与 web/api/ai-service/desktop/extension/miniapp-taro/cli 跨端契约同步。
 > AGENTS.md §24 用户已确认:"完整复刻 Uniapp (推荐)" + "启用 RN TabBar.tsx 5 Tab (推荐)" + 4 维度全做(架构对齐 + 核心组件补全 + 缺失页面补全 + 样式细节对齐)。
