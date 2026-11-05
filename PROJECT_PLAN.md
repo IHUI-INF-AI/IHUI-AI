@@ -31735,7 +31735,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 收口：非 web 端 `t()` 接入运行时 locale，或在 loader 层按消息包语言兜底透传。
 - [ ] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
 - [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
-- [ ] Y-70 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（认领已释放@2026-11-05/stale-claim-strip#mw330uhz-13）
   - 后果：覆盖安装判定失败、Google Play 拒收"versionCode 未递增"；属 latent 缺陷，依赖 CI 稳定注入才能规避。
   - 收口：回退值改分钟/秒粒度（如 `YYMMDDHHmm`），或构建失败而非复用旧值。
 #### 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计）
