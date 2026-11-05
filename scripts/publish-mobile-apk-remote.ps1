@@ -1,0 +1,77 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+<#
+.SYNOPSIS
+  出包机没有生产 checkout 时,把本次 APK 送进生产 checkout 并跑那条正式发布链(站点腿 + app_versions 登记)。
+.DESCRIPTION
+  为什么要有这条:2026-11-05 实测,站点腿与 latest 行只认生产 checkout 的落点,出包机缺它就只能半发布
+  ——用户更新卡看不到新版。本脚本不重写发布判据:包由**生产机自己**从 Gitee 单文件腿取(80MB 经隧道
+  上传要 5 分钟,直连 Gitee 只要 40 秒),取到后按本机算出的字节数 + SHA256 对账,再交给生产 checkout 的
+  `scripts/publish-mobile-apk.mjs` 执行(三态判据/写后自证/回读全在那边)。
+  终检必须从**公网**读 `/api/app-version/latest`,版本对不上即失败 —— 不许"远程 exit 0"当成功。
+.PARAMETER Apk
+  本机 APK 绝对路径(只用于算 SHA256/字节数,不上传)。
+.PARAMETER Version
+  版本名(须与 APK 内 versionName 一致)。
+.PARAMETER VersionCode
+  版本号(须与 APK 内 versionCode 一致)。
+.PARAMETER TargetHost
+  SSH 主机别名(默认 ssh.aizhs.top,走 ~/.ssh/config 的 Cloudflare Access ProxyCommand)。
+.PARAMETER ProdRoot
+  生产 checkout 绝对路径(默认 D:\DevEnv\ihui-prod)。
+#>
+param(
+  [Parameter(Mandatory = $true)][string]$Apk,
+  [Parameter(Mandatory = $true)][string]$Version,
+  [Parameter(Mandatory = $true)][int]$VersionCode,
+  [string]$TargetHost = 'ssh.aizhs.top',
+  [string]$ProdRoot = 'D:\DevEnv\ihui-prod'
+)
+
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $Apk)) { throw "APK 不存在: $Apk" }
+
+$sha256 = (Get-FileHash $Apk -Algorithm SHA256).Hash.ToLower()
+$bytes = (Get-Item $Apk).Length
+$giteeUrl = 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk'
+$remoteApk = "$ProdRoot\.tmp\ihui-remote-publish.apk"
+
+# 生产侧:取包(已存在且字节一致则复用)→ SHA 对账 → 读生产 DATABASE_URL → 跑正式发布链
+$tpl = @'
+$ErrorActionPreference='Stop'
+Set-Location '__ROOT__'
+New-Item -ItemType Directory -Force -Path '.tmp' | Out-Null
+$f = '__APK__'
+if (-not (Test-Path $f) -or (Get-Item $f).Length -ne __BYTES__) {
+  Invoke-WebRequest -Uri '__URL__' -OutFile $f -TimeoutSec 900
+}
+$h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+"remote sha256=$h bytes=$((Get-Item $f).Length)"
+if ($h -ne '__SHA__') { throw "Gitee 包与本次构建不符: 期望 __SHA__, 实得 $h" }
+$line = Get-Content 'apps\api\.env' | Where-Object { $_ -match '^\s*DATABASE_URL\s*=' } | Select-Object -Last 1
+if ($line) { $env:DATABASE_URL = ($line -replace '^\s*DATABASE_URL\s*=','').Trim().Trim('"').Trim("'") }
+node scripts/publish-mobile-apk.mjs --apk $f --version '__VERSION__' --version-code __VC__
+exit $LASTEXITCODE
+'@
+$remoteScript = $tpl.
+  Replace('__ROOT__', $ProdRoot).
+  Replace('__APK__', $remoteApk).
+  Replace('__BYTES__', [string]$bytes).
+  Replace('__URL__', $giteeUrl).
+  Replace('__SHA__', $sha256).
+  Replace('__VERSION__', $Version).
+  Replace('__VC__', [string]$VersionCode)
+
+$b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
+& ssh -o BatchMode=yes $TargetHost pwsh -NoProfile -EncodedCommand $b64
+if ($LASTEXITCODE -ne 0) { throw "生产发布失败 (exit=$LASTEXITCODE) —— 站点腿或版本登记未完成" }
+
+# 公网终检:线上 latest 必须就是本次版本(远程 exit 0 不构成成功证据)
+$r = Invoke-RestMethod -Uri "https://api.aizhs.top/api/app-version/latest?platform=android&t=$([DateTime]::UtcNow.Ticks)" -TimeoutSec 30
+$live = $r.data.latest
+if ($live.version -ne $Version -or [int]$live.buildNumber -ne $VersionCode) {
+  throw "线上 latest 未切到本次版本: 期望 $Version/$VersionCode, 实得 $($live.version)/$($live.buildNumber)"
+}
+Write-Host "[remote] ✓ 生产已发布并登记: $($live.version)/$($live.buildNumber) → $($live.downloadUrl)" -ForegroundColor Green
+
+# 清掉生产临时包(80MB,不留在生产盘)
+& ssh -o BatchMode=yes $TargetHost "del /q $remoteApk" | Out-Null
