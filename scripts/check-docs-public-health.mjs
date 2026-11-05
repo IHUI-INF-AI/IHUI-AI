@@ -26,6 +26,7 @@
  *   D3 docs 页面源码出现 `icon:` 字段且值为含 emoji 的字符串字面量(\\p{Extended_Pictographic})
  *      ⇒ 点名;组件标识符(icon: BookOpen)不算(成对夹具钉住这条,防判据过宽)。
  *   D4 (2026-11-05) docs 公开面**每个 page.tsx 自身**必须导出 `generateMetadata` 或 `metadata`。
+ *   GATE_ID: TBD-docs-page-metadata(拟挂既有 docs-health 门,暂不占号,待编号表分配)。
  *      立因:13 条整文件回退把 8 个页面的 generateMetadata 删了,而门 291 / i18n 键门 / emoji 门
  *      全绿 —— 没有任何判据在看"页面还有没有自己的 SEO 元数据"。
  *      「多语页面」的可判定定义(不靠人工名单,纯代码特征):源码出现
@@ -37,6 +38,8 @@
  *      整文件回退往往把 i18n 调用和 generateMetadata 一起抹掉,若以信号为门槛,最坏情况恰好隐身。
  *      **不认祖先 layout 的 metadata 继承**:`(main)/layout.tsx` 自带通用 metadata,若允许继承,
  *      页面丢掉自己的 generateMetadata 仍会被父级兜住 —— 正是今天的失效形态,故只认页面自身。
+ *      例外管理:`scripts/data/docs-page-metadata-exempt.json` 豁免表,每条必须给 ≥10 字理由且
+ *      只许登记 `${DOCS_REL}/` 子树内的页面;表损坏 ⇒ exit 2,表缺失按空表(更严)。
  *      面收窄理由:全 app 面按"用了 i18n 就要 metadata"判,现读 572/605 个 page/layout 缺 metadata
  *      (大规模既有存量,不是本判据能要求立刻清的);docs 公开面是本次事故面且现读 18/18 齐备 ⇒
  *      只在此面立硬判据,零存量、零误报。
@@ -68,7 +71,7 @@
  *   node scripts/check-docs-public-health.mjs --json       # 供调度器读结论(不手抄文案)
  *   node scripts/check-docs-public-health.mjs --self-test  # 内联夹具(含反向牙)
  */
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -80,6 +83,8 @@ import { headAnchors, overBaseline, readSources, sourceCandidates } from './lib/
 export const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const APP_REL = 'apps/web/app'
 const DOCS_REL = 'apps/web/app/(main)/docs'
+/** D4 豁免表(只管理确有例外理由的页面;每条 reason ≥10 字,由 judgeExemptionTable 判)。 */
+const METADATA_EXEMPT_REL = 'scripts/data/docs-page-metadata-exempt.json'
 const SITEMAP_REL = 'apps/web/app/sitemap.ts'
 const EXIT = Object.freeze({ clean: 0, violation: 1, unjudged: 2 })
 const PAGE_RE = /^page\.[jt]sx?$/
@@ -368,21 +373,63 @@ export function hasPageMetadata(text) {
  * 只认页面自身,不认祖先 layout 继承 —— 见头注(继承会把今天的失效形态兜绿)。
  * unreadable = 本面读不到正文的候选(非空 ⇒ 该维未判定,不接受"判空串"的假红)。
  */
-export function judgePageMetadata(entries, unreadable = []) {
+export function judgePageMetadata(entries, unreadable = [], exemptions = []) {
   const pages = []
   for (const { rel, text } of entries) {
     if (!PAGE_RE.test(path.posix.basename(rel))) continue
     pages.push({ rel, hasMetadata: hasPageMetadata(text), multilingual: isMultilingualPage(text) })
   }
-  const missing = pages.filter((p) => !p.hasMetadata)
+  const exemptPaths = new Set(exemptions.map((e) => e.path))
+  const missingAll = pages.filter((p) => !p.hasMetadata)
+  // 豁免表只管理"确属例外"的页面(每条带 ≥10 字理由,见 judgeExemptionTable);
+  // 不进 missing ≠ 记绿 —— exempted 单列输出,报告里逐条点名,绝不静默。
+  const exempted = missingAll.filter((p) => exemptPaths.has(p.rel))
+  const missing = missingAll.filter((p) => !exemptPaths.has(p.rel))
   return {
     pages,
     missing,
+    exempted,
     unreadable,
     judged: pages.length,
     multilingualCount: pages.filter((p) => p.multilingual).length,
-    withMetadata: pages.length - missing.length,
+    withMetadata: pages.length - missingAll.length,
+    exemptCount: exempted.length,
   }
+}
+
+/**
+ * 豁免表判据(纯函数):每条必须落在 docs 子树、理由 ≥10 字、路径不重复。
+ * 表损坏 ⇒ 抛错折 exit 2 —— 一个坏表若被静默当成空表,等于把"例外"变成"无人看守的放行"。
+ */
+export function judgeExemptionTable(entries) {
+  const problems = []
+  const seen = new Set()
+  for (const [i, e] of entries.entries()) {
+    const where = `第 ${i + 1} 条(${e?.path ?? '?'})`
+    if (typeof e?.path !== 'string' || !e.path.startsWith(`${DOCS_REL}/`))
+      problems.push(`${where} 不在 ${DOCS_REL}/ 子树内`)
+    if (typeof e?.reason !== 'string' || e.reason.trim().length < 10)
+      problems.push(`${where} 理由不足 10 字`)
+    if (seen.has(e?.path)) problems.push(`${where} 路径重复登记`)
+    else seen.add(e?.path)
+  }
+  return { problems }
+}
+
+/** 读豁免表;表缺失 ⇒ 空表(更严,不静默放宽);表损坏 ⇒ 抛错(exit 2)。 */
+export function loadMetadataExemptions(root = ROOT) {
+  const p = path.join(root, METADATA_EXEMPT_REL)
+  if (!existsSync(p)) return []
+  let doc
+  try {
+    doc = JSON.parse(readFileSync(p, 'utf8'))
+  } catch (e) {
+    throw new Error(`豁免表 ${METADATA_EXEMPT_REL} 不是合法 JSON:${e.message}`)
+  }
+  const entries = Array.isArray(doc?.entries) ? doc.entries : []
+  const { problems } = judgeExemptionTable(entries)
+  if (problems.length > 0) throw new Error(`豁免表 ${METADATA_EXEMPT_REL} 不合法:${problems.join(';')}`)
+  return entries
 }
 
 /** 四维汇成一份结论;每维独立三态,绝不并桶(§0.3)。 */
@@ -453,12 +500,13 @@ export function assemble({ d1, d2, d3, d4 = null, newByFile = null }) {
               : d4.judged === 0
                 ? 'docs 公开面枚举到 0 个 page.tsx ⇒ D4 未判定(不记绿)'
                 : d4.missing.length > 0
-                  ? `${d4.missing.length}/${d4.judged} 个 docs page 缺 metadata/generateMetadata`
-                  : `${d4.judged} 个 docs page 全部自带 metadata(其中多语页 ${d4.multilingualCount} 个)`,
+                  ? `${d4.missing.length}/${d4.judged} 个 docs page 缺 metadata/generateMetadata(另有 ${d4.exemptCount ?? 0} 页在豁免表内)`
+                  : `${d4.judged} 个 docs page 全部自带 metadata(其中多语页 ${d4.multilingualCount} 个;豁免 ${d4.exemptCount ?? 0} 页)`,
           pages: d4.judged,
           withMetadata: d4.withMetadata,
           multilingual: d4.multilingualCount,
           missing: d4.missing,
+          exempted: d4.exempted ?? [],
           unreadable: d4.unreadable,
           counted: true,
         }
@@ -582,7 +630,8 @@ export function runChecks(face, root = ROOT) {
   const d2 = judgeSitemap(readSitemap(face, root), index)
   const d3 = judgeEmojiIcons(docsPages)
   const pageUnits = readDocsPageUnits(appFiles, face, root)
-  const d4 = judgePageMetadata(pageUnits.entries, pageUnits.unreadable)
+  const exemptions = loadMetadataExemptions(root)
+  const d4 = judgePageMetadata(pageUnits.entries, pageUnits.unreadable, exemptions)
   let newByFile = null
   let ratchetNote = ''
   if (face === 'staged') {
@@ -656,6 +705,8 @@ export function printReport(result) {
     if (key === 'D4') {
       for (const it of d.missing)
         console.log(`  - ${it.rel} ⇒ 缺 generateMetadata/metadata(${it.multilingual ? '多语页' : '单语页'})`)
+      for (const it of d.exempted ?? [])
+        console.log(`  · ${it.rel} ⇒ 缺 metadata,但已在豁免表内(理由见 ${METADATA_EXEMPT_REL})`)
       for (const rel of d.unreadable ?? []) console.log(`  ! ${rel} 正文读不到 ⇒ 未判定`)
     }
   }
@@ -677,6 +728,8 @@ export const __test__ = {
   isMultilingualPage,
   hasPageMetadata,
   judgePageMetadata,
+  judgeExemptionTable,
+  loadMetadataExemptions,
   localeFamilies,
   localeBuckets,
   assemble,
@@ -902,6 +955,31 @@ function selfTest() {
     const r = judgePageMetadata([{ rel: 'apps/web/app/(main)/docs/x/page.tsx', text: fake }])
     if (!r.missing.some((m) => m.rel.endsWith('/docs/x/page.tsx')))
       return '注释/模板里的伪导出被当成真导出 ⇒ D4 有假阴性'
+    return null
+  })
+
+  t('D4 豁免表:命中表内且理由 ≥10 字 ⇒ 不进 missing,但单列 exempted(不静默记绿)', () => {
+    const rel = 'apps/web/app/(main)/docs/x/page.tsx'
+    const r = judgePageMetadata(
+      [{ rel, text: 'export default function Page() { return null }' }],
+      [],
+      [{ path: rel, reason: '该页无独立 SEO 需求,由父级聚合页承载索引语义' }],
+    )
+    if (r.missing.length !== 0) return `表内页面仍进 missing(${r.missing.length})`
+    if (r.exempted.length !== 1) return `豁免页未单列(exempted=${r.exempted.length})`
+    return null
+  })
+
+  t('D4 豁免表:理由不足 10 字 / 表外路径 ⇒ 判表损坏(不静默放行)', () => {
+    const rel = 'apps/web/app/(main)/docs/x/page.tsx'
+    const short = judgeExemptionTable([{ path: rel, reason: '短' }])
+    const outside = judgeExemptionTable([
+      { path: 'apps/web/app/(main)/admin/page.tsx', reason: '这条理由足够十个字以上' },
+    ])
+    if (short.problems.length !== 1) return `短理由应点名 1 项,实得 ${short.problems.length}`
+    if (outside.problems.length !== 1) return `表外路径应点名 1 项,实得 ${outside.problems.length}`
+    if (judgeExemptionTable([{ path: rel, reason: '这条理由足够十个字以上' }]).problems.length !== 0)
+      return '合法条目被误判'
     return null
   })
 
