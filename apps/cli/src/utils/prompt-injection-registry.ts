@@ -53,6 +53,7 @@ export const PROMPT_INJECTION_ENTRIES: readonly PromptInjectionEntry[] = [
     kind: 'reference_data',
     producer: 'apps/cli/src/plugins/turn-input-framing.ts#framePluginTurnInput',
     consumer: 'apps/cli/src/commands/agent.ts#runToolLoop',
+    title: '插件贡献上下文档',
   },
   {
     id: 'context_fs_events',
