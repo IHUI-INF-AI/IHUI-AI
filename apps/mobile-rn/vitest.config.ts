@@ -441,6 +441,10 @@ export default defineConfig({
       // Base alias last so it only catches direct @ihui/shared imports
       '@ihui/shared': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
       '@ihui/types': resolve(__dirname, 'tests/__mocks__/ihui-types.ts'),
+      // 具体子路径优先:父别名 '@ihui/rn-app' 指端内 props 捕获替身,按 pattern + '/' 前缀匹配
+      // 会把 '@ihui/rn-app/features/...' 吞成 <替身>/features/... ⇒ 收集期 MODULE_NOT_FOUND。
+      // RN 新屏按 features 子路径消费共享屏时,测试必须能渲染真身(否则测的是替身)。
+      '@ihui/rn-app/features': resolve(__dirname, '../../packages/app/src/features'),
       '@ihui/rn-app': resolve(__dirname, 'tests/__mocks__/ihui-rn-app.ts'),
       '@react-native-clipboard/clipboard': resolve(
         __dirname,
