@@ -17,6 +17,9 @@ import math
 import os
 import re
 import shlex
+import subprocess
+import tempfile
+import threading
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -2226,6 +2229,25 @@ async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "render_repo_tree", "path": resolved, "ok": True, **out.to_dict()}
 
 
+def _write_bytes_atomic(path: str, data: bytes) -> None:
+    """同目录临时件写完再 os.replace:并发 read_file 不会读到截断中的正文。
+
+    read_file/file_edit 的读段已投线程池,与写段真正并行;write_bytes 是
+    截断+写,读线程可能读到半截内容并把它记成 base。原子替换把读者可见的
+    中间态消掉(读侧要么旧完整、要么新完整)。
+    """
+    target = Path(path)
+    fd, tmp = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -2270,7 +2292,9 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     ),
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
-            await asyncio.to_thread(Path(resolved_path).write_text, content, encoding="utf-8")
+            await asyncio.to_thread(
+                _write_bytes_atomic, resolved_path, content.encode("utf-8")
+            )
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
             # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
@@ -2391,11 +2415,13 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         try:
             await asyncio.to_thread(Path(backup_path).write_bytes, raw)
-            await asyncio.to_thread(Path(resolved_path).write_bytes, new_content.encode("utf-8"))
+            await asyncio.to_thread(
+                _write_bytes_atomic, resolved_path, new_content.encode("utf-8")
+            )
         except OSError as e:
             # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
             try:
-                await asyncio.to_thread(Path(resolved_path).write_bytes, raw)
+                await asyncio.to_thread(_write_bytes_atomic, resolved_path, raw)
             except OSError:
                 pass
             with contextlib.suppress(OSError):
@@ -2480,12 +2506,12 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             await asyncio.to_thread(Path(backup_path).write_bytes, raw)
             await asyncio.to_thread(
-                Path(resolved_path).write_bytes, final_content.encode("utf-8")
+                _write_bytes_atomic, resolved_path, final_content.encode("utf-8")
             )
         except OSError as e:
             # 失败回滚:恢复磁盘原内容
             try:
-                await asyncio.to_thread(Path(resolved_path).write_bytes, raw)
+                await asyncio.to_thread(_write_bytes_atomic, resolved_path, raw)
             except OSError:
                 pass
             with contextlib.suppress(OSError):
@@ -4742,6 +4768,29 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# git 调用串行锁:搬进线程池后,同一仓的并发工具调用会真正并行执行 git;
+# 写操作(commit/add/stash…)并发时可能撞上 index.lock。加锁恢复单线程串行语义,
+# 30s 超时按单次调用计算不变。
+_GIT_LOCK = threading.Lock()
+
+
+def _run_git_sync(
+    args: list[str], *, cwd: str
+) -> subprocess.CompletedProcess[str]:
+    """同步执行 git(线程池内),同进程内串行,避免并发 index.lock 冲突。"""
+    with _GIT_LOCK:
+        return subprocess.run(
+            args,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+
+
 async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
     """git_operations: Git 操作(真实 git 命令执行)。
 
@@ -4801,7 +4850,6 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
 
     try:
         import os
-        import subprocess
 
         # 2026-11-01 安全强化:`repo` 是工具入参(模型可控),旧实现直接 abspath 就当 cwd,
         # 于是 role=0 的"只读 git 面"能对服务器任意目录跑 status/ls-files/log/diff ⇒ 跨目录
@@ -4852,15 +4900,7 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                 }
 
         result = await asyncio.to_thread(
-            subprocess.run,
-            ["git"] + (git_args or []),
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-            check=False,
+            _run_git_sync, ["git"] + (git_args or []), cwd=repo_path
         )
 
         output = result.stdout

@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import sys
+import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -236,10 +238,20 @@ class TestWorktreeDirLanding:
             get_default_worktree_root("/repo")
 
     def test_illegal_relative_path_raises(self, monkeypatch):
-        """非法:相对路径(落点随 cwd 漂移,不可申报)。"""
+        """非法:相对路径(落点随 cwd 漂移,不可申报)。
+
+        判据按 cwd 解析相对路径,所以用例自身必须 chdir 到"白名单之外"再跑,
+        否则 worktree 恰落在 D:\\DevEnv 下时,../outside-wt 会被解析成合法落点
+        (pytest 的 tmp_path/basetemp 也在 D:\\DevEnv\\Temp 内,同样不能用)。
+        """
         monkeypatch.setenv(WORKTREE_DIR_ENV, "../outside-wt")
-        with pytest.raises(ValueError, match="必须落在"):
-            get_default_worktree_root("/repo")
+        escape_dir = tempfile.mkdtemp(dir=os.path.expanduser("~"), prefix="ihui-wt-escape-")
+        try:
+            monkeypatch.chdir(escape_dir)
+            with pytest.raises(ValueError, match="必须落在"):
+                get_default_worktree_root("/repo")
+        finally:
+            shutil.rmtree(escape_dir, ignore_errors=True)
 
     def test_error_message_carries_rule_and_value(self, monkeypatch):
         """错误信息必须写明判据(§15b 项目产物不外流)与收到的值/源仓库。"""

@@ -50,6 +50,7 @@ import json
 import os
 import socket
 import tempfile
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -133,6 +134,9 @@ class CheckinBatchMarker:
         self.started_at = _now_iso()
         self._heartbeat_task: asyncio.Task[None] | None = None
         self._stopped = False
+        # beat 已在 to_thread 里跑、clear 仍在事件循环线程:两把刀要互斥,
+        # 否则一次心跳可能在 stop() 删完文件后才落盘,把 marker 复活成「仍在跑」。
+        self._write_lock = threading.Lock()
 
     def _payload(self) -> dict[str, Any]:
         return {
@@ -154,20 +158,24 @@ class CheckinBatchMarker:
             return False
 
     def beat(self) -> bool:
-        if self._stopped:
-            return False
-        return self.write()
+        # 检查与写盘在同一把锁内:stop() 的 clear() 拿同一把锁,
+        # 保证「已置 _stopped 的心跳不再写」「在飞的心跳写完之前不删」。
+        with self._write_lock:
+            if self._stopped:
+                return False
+            return self.write()
 
     def clear(self) -> bool:
-        try:
-            self.path.unlink(missing_ok=True)
-            return True
-        except Exception as e:
-            # 删不掉不算致命:部署侧靠心跳过期兜底(180s 后判 stale)。
-            logger.warning(
-                "[checkin_batch_marker] 删除批次标记失败(部署侧将按心跳过期处理): %s", e
-            )
-            return False
+        with self._write_lock:
+            try:
+                self.path.unlink(missing_ok=True)
+                return True
+            except Exception as e:
+                # 删不掉不算致命:部署侧靠心跳过期兜底(180s 后判 stale)。
+                logger.warning(
+                    "[checkin_batch_marker] 删除批次标记失败(部署侧将按心跳过期处理): %s", e
+                )
+                return False
 
     async def _heartbeat_loop(self) -> None:
         while True:

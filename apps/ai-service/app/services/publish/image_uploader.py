@@ -32,8 +32,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import ipaddress
+import os
 import re
 import socket
+import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -107,6 +109,22 @@ _UA = (
 # 图片临时下载目录(AGENTS.md §15:临时文件放 .ihui-agent/tmp/)
 _IMAGE_TMP_DIR = Path(".ihui-agent/tmp/publish-images").resolve()
 _IMAGE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _write_bytes_atomic(path: Path, data: bytes) -> None:
+    """同目录临时件写完再 os.replace,读者不会看到截断中的文件。"""
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
 
 # 外链图片正则(匹配 <img src="http...">,排除本地路径 / data URI)
 _EXTERNAL_IMG_PATTERN = re.compile(
@@ -282,7 +300,10 @@ async def download_image(url: str, timeout: float = 30.0) -> Path | None:
                     url, content_type,
                 )
                 return None
-            await asyncio.to_thread(local_path.write_bytes, resp.content)
+            # 落点按 URL hash 命名 ⇒ 同一 URL 并发下载会撞同一路径。write_bytes 是
+            # 截断+写,并发读者(upload 侧 read_bytes)可能读到半截文件。改走同目录
+            # 临时件 + os.replace:读侧要么看到旧完整文件,要么看到新完整文件。
+            await asyncio.to_thread(_write_bytes_atomic, local_path, resp.content)
             logger.debug(
                 "[image_uploader] 下载成功 %s → %s (%d bytes)",
                 url, local_path, len(resp.content),
