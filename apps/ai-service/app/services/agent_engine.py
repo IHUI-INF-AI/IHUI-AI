@@ -2050,6 +2050,8 @@ class AgentEngine:
         # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
         # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
+        # Z32 兜底腿的关停面:watchId → 被监视根目录(fs/unwatch 摘循环后要排空一次)
+        self._fs_watch_roots: dict[str, str] = {}
         # 批58 接线:文件变更事件路由器(纯路由层,惰性创建;off 时恒为 None)
         self._file_watcher_router: Any = None
         # Z18 外部手改喂源腿:repo 根 → 已装配的 Receiver(单次扫描驱动,不自起任务;
@@ -3710,6 +3712,138 @@ class AgentEngine:
             )
         return report
 
+    async def drain_file_watch_on_shutdown(
+        self, repo_root: str, *, internal_user_id: str | None = None
+    ) -> dict[str, Any]:
+        """关停序列最终排空腿(Z32 第①格):最后扫一次 + 最后排空一次,量不到批必须出声。
+
+        与周期腿共用 `drive_file_watch_and_drain`(不起任务、不 sleep、不等去抖窗),
+        差别只在「这是最后一次」,所以收口的四档都得可观测(§0.3):
+
+        - `batch` / `idle` ⇒ `measured=True`(idle = 判过「无待发批」,不是没判);
+        - `window-open` ⇒ 批仍扣在桥内:桥与订阅的生命周期归**引擎实例**(不随线程
+          关闭销毁),引擎存活期间下一次排空仍会下发 ⇒ 记 `carried` 并 warning,既不
+          谎报「已下发」也不静默丢;
+        - `undetermined` ⇒ 增量面取不到桥 ⇒ `unjudged=True` + warning 点名原委;
+        - 门控不驱动(非 `on`)**且**该 repo 根从未装配 Receiver/桥 ⇒ 喂源与消费桥都
+          没建过 ⇒ 判过的零(非量不到的零):零扫描、零分发、零日志,默认档与接线前
+          逐字等价;装配过(说明 `ENGINE_FILE_WATCHER_ENABLED` 在产)⇒ 仍排空一次。
+        """
+        from app.core.file_watcher import POLL_STATE_ON, resolve_watch_poll_gate
+
+        from .codebase_incremental_bridge import DRAIN_BATCH, DRAIN_IDLE, DRAIN_WINDOW_OPEN
+
+        key = str(Path(repo_root).resolve())
+        gate = resolve_watch_poll_gate()
+        if not gate.drives() and not (
+            key in self._incremental_bridges or key in self._file_watch_receivers
+        ):
+            return {
+                "leg": "shutdown",
+                "repo": key,
+                "state": gate.state,
+                "reason": gate.reason,
+                "paths": 0,
+                "delivered": 0,
+                "measured": True,
+                "note": "轮询源未开且该 repo 根从未装配 Receiver/桥 ⇒ 无喂源也无消费桥,"
+                        "本腿是判过的零,不是量不到的零",
+            }
+        report = await self.drive_file_watch_and_drain(
+            key, internal_user_id=internal_user_id
+        )
+        report["leg"] = "shutdown"
+        report["repo"] = key
+        if report.get("state") != POLL_STATE_ON:
+            # 关档/未判定但桥已在(喂源走的是 apply_patch 分发,不经轮询):仍排空一次。
+            outcome = await self.pump_incremental_index(
+                key, internal_user_id=internal_user_id
+            )
+            report["drain"] = outcome.kind
+            if outcome.reason:
+                report["drain_reason"] = outcome.reason
+        kind = str(report.get("drain") or "")
+        if kind in (DRAIN_BATCH, DRAIN_IDLE):
+            report["measured"] = True
+            return report
+        report["measured"] = False
+        report["unjudged"] = True
+        held = int(report.get("paths") or 0)
+        report["carried"] = held
+        if kind == DRAIN_WINDOW_OPEN:
+            logger.warning(
+                "关停前排空未落地(repo=%s):去抖窗未到点 ⇒ 本轮扫到的 %d 条(更早入桥者"
+                "本腿量不到)仍扣在桥内,记 carried。桥生命周期归引擎实例,引擎存活期间"
+                "下一次排空仍会下发;只有进程同时退出才会真丢 ⇒ 不静默。",
+                key,
+                held,
+            )
+        else:
+            logger.warning(
+                "关停前排空未判定(repo=%s,drain=%r):%s ⇒ 不得读成「没有变更」",
+                key,
+                kind,
+                report.get("drain_reason") or report.get("reason") or "未给原委",
+            )
+        return report
+
+    async def _stop_workspace_watcher_and_drain(
+        self, thread: EngineThread
+    ) -> dict[str, Any]:
+        """关停序列唯一出口:摘循环 → 等它真退出 → 最终排空一次(一支路径只排一次)。
+
+        为什么必须由「摘循环的那一方」排空(现读事实):`task.cancel()` 把 `_watch()`
+        打断在它自己的定点等待上 ⇒ 循环体内那条周期腿最后一次都跑不到,尾批就此蒸发;
+        而「status 先置 closed 而无人 cancel」那一支,循环醒来还会跑完一整轮(含
+        drive)才退出 ⇒ 排空只归本方法做,不双计。
+        """
+        base = thread.workspace
+        task = self._stop_workspace_watcher(thread.thread_id)
+        if task is not None:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        if not base:
+            return {
+                "leg": "shutdown",
+                "skipped": "no-workspace",
+                "measured": True,
+                "paths": 0,
+            }
+        return await self.drain_file_watch_on_shutdown(
+            base, internal_user_id=thread.user_id
+        )
+
+    async def shutdown_workspace_watchers(self) -> list[dict[str, Any]]:
+        """进程/服务退出的**引擎侧**出口(Z32 第①格「进程退出」半格)。
+
+        现读事实:`app/main.py` 的 lifespan 收尾步(`_run_shutdown_steps`)里没有任何
+        agent_engine 腿 ⇒ 本方法今天无人调用;接线要改 main.py(不在本席白名单),
+        故按已知边界裁清并把前置写进 `.ihui-agent/tmp/rea-goal-b49/Z32-impl.md`。
+        幂等:无在飞循环 ⇒ 零动作、零日志、返回空表。
+        """
+        reports: list[dict[str, Any]] = []
+        for thread_id in list(self._workspace_watchers):
+            thread = self._threads.get(thread_id)
+            if thread is None:
+                self._stop_workspace_watcher(thread_id)
+                logger.warning(
+                    "关停前排空未判定:循环 %s 仍在跑但运行时已被摘走 ⇒ 取不到 workspace,"
+                    "只取消任务、不猜 repo 根(§0.3)",
+                    thread_id,
+                )
+                reports.append(
+                    {
+                        "leg": "shutdown",
+                        "threadId": thread_id,
+                        "state": "unjudged",
+                        "measured": False,
+                    }
+                )
+                continue
+            thread.status = "closed"
+            reports.append(await self._stop_workspace_watcher_and_drain(thread))
+        return reports
+
     def _incremental_bridge_for(
         self, repo_root: str, internal_user_id: str | None = None
     ) -> Any | None:
@@ -4027,7 +4161,9 @@ class AgentEngine:
         thread.status = "closed"
         thread.touch()
         # 关闭即摘除工作区监视器(第七批:防僵尸轮询任务泄漏)
-        self._stop_workspace_watcher(thread.thread_id)
+        # Z32 第①格:摘完循环必须补一次最终排空 —— task.cancel() 会把周期腿打断在
+        # asyncio.sleep 上,尾批否则永远等不到「下一次到点」这一燃。
+        await self._stop_workspace_watcher_and_drain(thread)
         # 清理 shell 快照(批 55:缓存+预热任务+落盘文件)
         self._drop_shell_snapshot(thread.session_id)
         return {"threadId": thread.thread_id, "status": thread.status, "closed": True}
@@ -4428,7 +4564,7 @@ class AgentEngine:
             deleted = store.archive_thread(thread_id) > 0
         if runtime is not None:
             self._threads.pop(thread_id, None)
-            self._stop_workspace_watcher(thread_id)
+            await self._stop_workspace_watcher_and_drain(runtime)  # Z32:关停前排空一次
             self._drop_shell_snapshot(runtime.session_id)
             for future in runtime.pending.values():
                 if not future.done():
@@ -5009,9 +5145,9 @@ class AgentEngine:
             raise JsonRpcError(INVALID_PARAMS, f"path 须为存在的绝对目录: {path_raw}")
         emit_fn: Emitter = emit if emit is not None else _noop_emitter
 
-        old_task = self._fs_watchers.get(watch_id)
-        if old_task is not None:
-            old_task.cancel()
+        principal = _connection_principal(params)  # Z32:兜底腿的写通道主体(§5 显式入参)
+        # 重复注册幂等覆盖:先按关停序列收掉上一条腿(摘循环 → 排空),再建新的。
+        await self._stop_fs_watcher_and_drain(watch_id, principal)
 
         async def _watch() -> None:
             prev = self._scan_workspace(base)
@@ -5027,6 +5163,15 @@ class AgentEngine:
                     f for f in set(curr) & set(prev) if curr[f] != prev[f]
                 )[:100]
                 prev = curr
+                # Z32 第②格兜底腿:`fs/watch` 是**不依赖 watchWorkspace** 的第二条既有
+                # 2s 常驻循环 ⇒ 客户端只开连接级监视(没起线程级工作区循环)时,外部手改
+                # 仍有节奏排空。同一入口、同一把门控:off / 未判定档零动作零写入,默认档
+                # 与本腿接线前逐字等价。身份取承载层绑定主体(§5,不信客户端自报)。
+                # 排在「盘上无变更即 continue」之前 —— 尾批到点时盘上常常并无新变更。
+                with contextlib.suppress(Exception):
+                    await self.drive_file_watch_and_drain(
+                        str(base), internal_user_id=principal
+                    )
                 if not (added or removed or changed):
                     continue
                 with contextlib.suppress(Exception):
@@ -5045,7 +5190,35 @@ class AgentEngine:
                     )
 
         self._fs_watchers[watch_id] = asyncio.create_task(_watch())
+        self._fs_watch_roots[watch_id] = str(base)  # Z32:关停排空要认得这条腿的 repo 根
         return {"watchId": watch_id, "path": str(base)}
+
+    async def _stop_fs_watcher_and_drain(
+        self, watch_id: str, principal: str | None
+    ) -> dict[str, Any] | None:
+        """`fs/watch` 载体的关停序列(Z32 第①格同型腿):摘循环 → 等退出 → 排空一次。
+
+        本方法服务的循环刚被接上兜底排空腿(Z32 第②格),所以它的 cancel 路径也必须
+        排空一次,否则新腿只是把「尾批蒸发」的窗口从线程级挪到了连接级。幂等:两者都
+        取不到 ⇒ 返回 None(没有这条腿,零动作)。登记不到根目录而循环在跑 ⇒ 出声为
+        未判定,**不猜路径**(§0.3)。
+        """
+        task = self._fs_watchers.pop(watch_id, None)
+        root = self._fs_watch_roots.pop(watch_id, None)
+        if task is None and root is None:
+            return None
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
+        if root is None:
+            logger.warning(
+                "fs/watch 关停前排空未判定:watchId=%s 有在跑循环却登记不到被监视根"
+                "⇒ 只取消任务、不猜路径",
+                watch_id,
+            )
+            return {"leg": "shutdown", "state": "unjudged", "measured": False}
+        return await self.drain_file_watch_on_shutdown(root, internal_user_id=principal)
     async def _handle_fs_unwatch(
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
@@ -5053,10 +5226,11 @@ class AgentEngine:
         watch_id = params.get("watchId")
         if not isinstance(watch_id, str) or not watch_id:
             raise JsonRpcError(INVALID_PARAMS, "watchId 须为非空字符串")
-        task = self._fs_watchers.pop(watch_id, None)
-        if task is not None:
-            task.cancel()
-        return {"watchId": watch_id, "stopped": task is not None}
+        # Z32 第①格:这条载体的关停序列 = 摘循环 → 等它退出 → 最终排空一次。
+        report = await self._stop_fs_watcher_and_drain(
+            watch_id, _connection_principal(params)
+        )
+        return {"watchId": watch_id, "stopped": report is not None}
 
     def _serialize_item(self, item: ItemBase) -> dict[str, Any]:
         """item → 可传输 dict(body_payload 展开 + type/seq + 信封)。
@@ -5267,7 +5441,7 @@ class AgentEngine:
         updated = store.set_thread_archived(thread_id, archived)
         if runtime is not None:
             self._threads.pop(thread_id, None)
-            self._stop_workspace_watcher(thread_id)
+            await self._stop_workspace_watcher_and_drain(runtime)  # Z32:关停前排空一次
             if archived:
                 self._drop_shell_snapshot(runtime.session_id)
                 for future in runtime.pending.values():
@@ -5319,6 +5493,12 @@ class AgentEngine:
             role=thread.role,
             plan=deepcopy(thread.plan),
             turn_markers=dict(thread.turn_markers),
+            # Z32 第②格(现读复核出的缺口):原 fork 不携带 watch_workspace ⇒ 分叉出的
+            # 线程恒为 False,`if clone.watch_workspace` 那一格结构上永不成立,线程级
+            # 2s 常驻循环在 fork 后凭空消失(= 「没有该线程就没有周期」的最坏形态)。
+            # 这里只把**既有创建条件**延续过去,不新增载体、不改默认档(源线程 off 则
+            # clone 也 off)。
+            watch_workspace=thread.watch_workspace,
         )
         clone.host_tools = {
             name: HostToolSpec(
@@ -5467,10 +5647,12 @@ class AgentEngine:
 
         self._workspace_watchers[thread.thread_id] = asyncio.create_task(_watch())
 
-    def _stop_workspace_watcher(self, thread_id: str) -> None:
+    def _stop_workspace_watcher(self, thread_id: str) -> asyncio.Task[None] | None:
+        """摘除并取消工作区常驻循环;返回被摘掉的 task 供关停序列等它真退出(Z32)。"""
         task = self._workspace_watchers.pop(thread_id, None)
         if task is not None:
             task.cancel()
+        return task
 
     # ------------------------------------------------------------------
     # shell 环境快照(2026-09-20 批 55 接线,对标 Codex shell_snapshot.rs +
