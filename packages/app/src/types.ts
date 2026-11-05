@@ -162,6 +162,7 @@ export type {
   LoginScreenProps,
   RegisterScreenProps,
   Gender,
+  AvatarEditorProps,
   ProfileEditScreenProps,
   NationOption,
   ChangePhoneScreenProps,

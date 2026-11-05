@@ -147,7 +147,7 @@ export { SignUpScreen } from './features/sign-up/SignUpScreen'
 export { CloudRunsScreen } from './features/cloud-runs/CloudRunsScreen'
 export type { CloudRunItem, CloudRunsScreenProps } from './features/cloud-runs/CloudRunsScreen'
 export { RegisterScreen } from './features/register/RegisterScreen'
-export { ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
+export { AvatarEditor, ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
 export { ChangePhoneScreen } from './features/change-phone/ChangePhoneScreen'
 /** 批次 14(P3-3.3):Agent 市场/Agent 评价/直播/活动/收藏/签到 */
 export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
@@ -639,6 +639,7 @@ export type {
   LoginScreenProps,
   RegisterScreenProps,
   Gender,
+  AvatarEditorProps,
   ProfileEditScreenProps,
   NationOption,
   ChangePhoneScreenProps,

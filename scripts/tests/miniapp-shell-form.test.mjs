@@ -189,4 +189,57 @@ test('T9 settings 薄壳页:共享入口被认 + 页内无渲染型 JSX(wrapper 
     '阴性对照:删掉 menuItems 传参后同一判据必须不再命中',
   )
 })
+
+// T10 本批薄壳页形态锁(2026-11-05,pkg-user/user/avatar):入口被认 + 页内渲染段归零
+// + AvatarEditor 关键传参在位 + RN 真消费同一组件。阴性对照三枚:
+// ①摘掉入口行必须不再判薄壳;②删 onUpload 传参必须红;③删 uploading 传参必须红。
+const AVATAR_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-user/user/avatar.tsx')
+const AVATAR_SPEC = ['packages/app/src/features/profile-edit/ProfileEditScreen.tsx']
+const AVATAR_SHARED = join(ROOT, 'packages/app/src/features/profile-edit/ProfileEditScreen.tsx')
+const AVATAR_RN_PAGE = join(ROOT, 'apps/mobile-rn/src/screens/ProfileEditScreen.tsx')
+const AVATAR_ON_UPLOAD_RE = /onUpload=\{\(url\) =>/m
+const AVATAR_UPLOADING_RE = /uploading=\{uploading\}/m
+const AVATAR_SHARED_ON_UPLOAD_RE = /onPress=\{\(\) => onUpload\(urlInput\.trim\(\)\)\}/m
+
+test('T10 avatar 薄壳页:共享入口被认 + 页内无渲染型 JSX(wrapper 除外)', () => {
+  const page = readFileSync(AVATAR_PAGE, 'utf8')
+  assert.ok(equivalentEntry(page, AVATAR_SPEC), '页面必须直载共享屏等价入口')
+  assert.equal(
+    equivalentEntry(
+      page.replace(/^import[^\n]*@ihui\/rn-app\/features\/profile-edit\/ProfileEditScreen[^\n]*\n/m, ''),
+      AVATAR_SPEC,
+    ),
+    null,
+    '阴性对照:摘掉入口行后不得仍判为薄壳',
+  )
+  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  assert.match(page, AVATAR_ON_UPLOAD_RE, 'URL 入口必须注入 onUpload')
+  assert.doesNotMatch(
+    page.replace(AVATAR_ON_UPLOAD_RE, ''),
+    AVATAR_ON_UPLOAD_RE,
+    '阴性对照:删掉 onUpload 传参后同一判据必须不再命中',
+  )
+  assert.match(page, AVATAR_UPLOADING_RE, '上传遮罩开关必须注入 uploading')
+  assert.doesNotMatch(
+    page.replace(AVATAR_UPLOADING_RE, ''),
+    AVATAR_UPLOADING_RE,
+    '阴性对照:删掉 uploading 传参后同一判据必须不再命中',
+  )
+})
+
+test('T10b AvatarEditor 共享组件消费面 + RN 真消费', () => {
+  const shared = readFileSync(AVATAR_SHARED, 'utf8')
+  assert.match(shared, /export function AvatarEditor\(/m, '共享组件必须以具名导出暴露')
+  assert.match(shared, AVATAR_SHARED_ON_UPLOAD_RE, 'URL 入口必须调用 onUpload')
+  assert.doesNotMatch(
+    shared.replace(AVATAR_SHARED_ON_UPLOAD_RE, ''),
+    AVATAR_SHARED_ON_UPLOAD_RE,
+    '阴性对照:摘掉 onUpload 调用后同一判据必须不再命中',
+  )
+  assert.match(shared, /testID="avatar-upload-mask"/m, '上传遮罩必须在 uploading 时渲染')
+  const rn = readFileSync(AVATAR_RN_PAGE, 'utf8')
+  assert.match(rn, /<AvatarEditor/m, 'RN 资料页必须渲染共享 AvatarEditor')
+  assert.match(rn, /onUpload=\{onUploadAvatarUrl\}/m, 'RN 必须注入 onUpload')
+  assert.match(rn, /uploading=\{avatarUploading\}/m, 'RN 必须注入 uploading')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
