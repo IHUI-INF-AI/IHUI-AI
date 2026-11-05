@@ -31698,6 +31698,48 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] BUG-61 **web 端新增 4 个死 i18n key（第 18 步 `scan-dead-i18n-keys --target all --exit 1` rc=1）**：判据输出「`--exit 1`:发现 4 个死 key(存量基线 0,新增 4)」，判定面为 HEAD blob，报告落在 `.ihui-agent/tmp/i18n-dead-keys-2026-11-05.md`（机器运行态、不入库）。另有 7 枚 web 键与 5 枚 miniapp 键按契约声明豁免（`eduCertificates.*`、`ai.stream.subagent`、`byok.stepN Title` 等，依据已逐条钉在测试里）。出路=读报告点名 4 个键，或补消费点、或按契约声明免除；不得直接抬基线。(登记@2026-11-05;归属:机主)
 - [ ] BUG-62 **3 对 `deploy/prod-bundle` 影子漂移（第 24 步 `check-prod-bundle-shadow` rc=1）**：实测「❌ deploy.sh（入库源独有 15 行、运行副本独有 5 行）」「❌ svc/run-ai.ps1（入库源独有 6 行、运行副本独有 0 行）」「❌ monitor.ps1（入库源独有 3 行、运行副本独有 0 行）」，其余 20 对逐字节相等。该目录被 gitignore 但**线上实跑的是它** ⇒ 二者不一致时"线上行为与仓内代码无关"。与既有记的门 104 三对漂移是同一批、属他席中间态。出路=确认权威侧后用 `scripts/sync-prod-bundle-shadow.mjs` 清偿；清偿前不得据仓内脚本推断线上行为。(登记@2026-11-05;归属:机主)
 - [ ] BUG-63 **基准交付账 `#16 流式平滑渲染` 仍存在且无有效豁免（第 28 步 `check:benchmark-delivery` rc=2）**：判据输出「三态:已交付 41 / 仍存在 2 / 判不出 0」「未豁免的仍存在 1 条:#16 —— `--strict` 下顶红」，另三条"如实登记（不参与定性）"项仍在（`#51 自证 stub 类型`、`#D151 extension 端未接线`、`#45 AGENT_SELF_HEALING_ENABLED 默认 off`）。该尺子刻意不在提交链上（判文档与代码一致性、与提交内容无关）。出路=#16 要么补实现要么按合法暂态挂 `exemptUntil` + `exemptReason`。(登记@2026-11-05;归属:机主)
+### 第二轮补扫（直接代码核验子集，BUG-64~74）
+> 基准同前。第一轮八组深审后又派两组只读补扫，但落账前我用代码锚点逐条复验：原补扫报告里两条"高"项经实读**不成立**（见末尾"复核后排除"），其余按"能锚定确切文件+片段"为准绳登记，不凑数。编号续 BUG-63。
+#### 跨端契约（6 条）
+- [ ] BUG-64 **`VipScreen` 用 `createOrder({type:'vip'})` 而下单 schema 必填 `orderType`**：`apps/mobile-rn/src/screens/VipScreen.tsx:296,338` 调 `createOrder({type:'vip',targetId})`，但 `apps/api/src/routes/order.ts:141` `createOrderSchema` 是 `orderType: z.string().min(1).max(32)`（无 `type`）。后果=RN 会员购买整条链路 400 失败。(登记@2026-11-05;归属:机主)
+  - 后端同文件 `getPriceByOrderType(orderType:string)`（:64）与支付回调查 `orderType` ⇒ 全链路字段名是 `orderType`，前端传 `type` 全丢。
+  - 收口：RN 改传 `orderType`，并在 `api-client` 的 `createOrder` 入参把 `type` 改名 `orderType`（连同 `OrderType` 枚举对齐）。
+- [ ] BUG-65 **`api-client` 的 `Order` 类型与后端订单列字段错位**：`packages/api-client/src/endpoints/order.ts:15-34` 声明 `amount:number`/`type`/`payMethod`/`paidAt`/`refundedAt`，而后端列是 `payAmount`(numeric→字符串)/`orderType`/`payType`/`payTime`/`refundTime`，无 `amount` 列。`getOrders` 返回 `PageData<Order>` ⇒ 订单金额恒渲染占位符。(登记@2026-11-05;归属:机主)
+  - RN 已私下打补丁：`apps/mobile-rn/src/screens/PaymentScreen.tsx:34-50` 注释"后端返回 payAmount/paymentNo/orderType，类型声明 amount/orderNo/type"，用 `row.payAmount ?? row.amount` 兜底 ⇒ 错位属实且已被迫局部绕过，但 `/api/orders/me` 列表端仍未修。
+  - 收口：以数据库列名为真相源统一两端声明，删掉 RN 的临时兜底。
+- [ ] BUG-66 **分页响应契约错位：`paginatedSuccess` 产 `{items,total}` 而客户端 `PageData` 只读 `list`**：`apps/api/src/utils/response.ts:30` `PaginatedData<T>{items,total}` 经 `paginatedSuccess` 返回；`packages/api-client/src/utils.ts:14` `PageData<T>{list,total}`。所有 `fetchApi<PageData<T>>(...)` 消费 `.list` 拿到 `undefined`。(登记@2026-11-05;归属:机主)
+  - 影响面：每个走 `PageData` 的分页列表端点（`getOrders` 等）首屏列表恒空；这是系统性契约断裂，不是单点。
+  - 收口：二选一——后端改 `list` 键，或 `PageData` 改 `items` 并全仓同步；必须成对改并补"两端键名一致"的契约测试。
+- [ ] BUG-67 **ai-service 发 `question` 事件，小程序整端无分发 ⇒ AI 提问卡丢失**：`apps/ai-service/app/routers/llm.py` 在 4867/4923/5041/5097 行 `yield _sse(SSE_QUESTION, {"type":"question","question":q.to_dict()})`；小程序 `apps/miniapp-taro/src/pkg-ai/ai/*` 无 `case 'question'`/`'question':` 分发（已 grep 确认无该分支）。(登记@2026-11-05;归属:机主)
+  - web 与 RN 的解析器有 `question` 处理（共享 `packages/shared` 的 sse_contract 含该事件），唯独小程序 pkg-ai 缺 ⇒ 同一事件三端两种命运。
+  - 收口：小程序 pkg-ai 的 SSE 派发补 `question` case，对齐 web/RN 的提问卡渲染。
+- [ ] BUG-68 **web 与小程序 base URL 配置键不统一**：web 用 `NEXT_PUBLIC_API_BASE_URL`（`apps/web/.env.example:13,17` + `process.env.NEXT_PUBLIC_API_BASE_URL`），小程序用 `BASE_URL`（`apps/miniapp-taro/.env.example:20`、`src/api/index.ts:8`）。两端构建期各读各的键，任一漏配即在运行时静默指向错误/空 base。(登记@2026-11-05;归属:机主)
+  - 原补扫报告称"三套键名（含 `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_API_BASE`）"，实读 `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_API_BASE` 在仓内零命中，确证只有上述两套；按实登记。
+  - 收口：统一为单一环境变量名，跨端构建脚本校验其存在。
+- [ ] BUG-69 **同一 401 三端语义分裂**：web 401→登录弹窗（`apps/web/src/lib/api.ts` 拦截器）；RN 401→清会话登出（`apps/mobile-rn/src/lib/token.ts:85`"续期响应晚于 clearAll"、`lib/config.ts:53`"按服务端明确否定清会话，实测机主账号被登出"）；小程序 `apps/miniapp-taro/src/utils/auth.ts:215` 把 401 读作"会话判死"但不清凭据。(登记@2026-11-05;归属:机主)
+  - 后果：同一张过期/吊销 token，web 让用户续期、RN 直接踢出、小程序半死不活 ⇒ 跨端体验与安全口径不一致，且小程序不清凭据存在重放窗口。
+  - 收口：三端 401 收口为单一策略（建议统一"尝试一次续期，失败再清会话"），抽公共拦截器。
+#### 端侧安全/配置（5 条）
+- [ ] BUG-70 **`android:allowBackup="true"` 使会话凭据进 Android 云备份**：`apps/mobile-cap/android/app/src/main/AndroidManifest.xml:11` `android:allowBackup="true"`，且无 `android:fullBackupContent` 排除名单 ⇒ 含 refresh token 的 SharedPreferences/数据库可被 `adb backup` 或云备份取出。(登记@2026-11-05;归属:机主)
+  - 对照：同仓 `apps/mobile-rn`(Expo) 与 `apps/web` 不由该清单管控，唯 mobile-cap 这条是明文 true。
+  - 收口：改 `allowBackup="false"`，或配 `fullBackupContent` 排除 `tokens/*`；补"release 构建 allowBackup=false"的守卫。
+- [ ] BUG-71 **FileProvider 暴露整个外部存储根（`path="."`）**：`apps/mobile-cap/android/app/src/main/res/xml/file_paths.xml` `<external-path name="my_images" path="."/>` 与 `<cache-path name="my_cache_images" path="."/>`，`path="."` ⇒ 授权 URI 可指向外部存储任意文件。`AndroidManifest.xml:35` 的 provider 为 `exported="false"`+`grantUriPermissions="true"`。(登记@2026-11-05;归属:机主)
+  - 后果：任何获得该 authority 授权（如通过 Intent 投毒或可预测文件名）的 App 可跨应用读整机文件；`path="."` 是 Android 安全反模式。
+  - 收口：把 `path="."` 收紧到具体子目录（如 `path="Pictures/ihui"`），按用途分多个具名 path。
+- [ ] BUG-72 **`isRefreshTokenExpired` 在 `expiresAt` 缺失时 fail-open（永不过期）**：`packages/auth/src/oauth2.ts:1051` `if (!raw) return false`——`expiresAt` 为空/缺字段即返回"未过期"。调用方 `apps/api/src/routes/auth-extended.ts:420` `if (isRefreshTokenExpired(stored))` 据此判定是否拒绝刷新。(登记@2026-11-05;归属:机主)
+  - 后果：一条没写过期时间的 refresh token 记录会被当作永久有效 ⇒ 本应过期的会话可被长期续期，吊销机制对"无 expiry"记录失效。
+  - 收口：缺失/非法 expiresAt 应 fail-closed（`return true` 或抛错），并补全写入侧强制 expiry。
+- [ ] BUG-73 **非 web 端 i18n 永远落 `zh-CN`，英文 `one` 复数分支永不命中**：`packages/i18n/src/icu.ts:284` `locale: options?.locale ?? 'zh-CN'`；`packages/i18n/src/loader.ts:30` `TranslateOptions.locale?` 注释"缺省 zh-CN"，`translate()` 只在 `options.locale` 有值时透传。RN/小程序/CLI 的 `t()` 普遍不传 locale。(登记@2026-11-05;归属:机主)
+  - 证据：loader.ts:61 注释自承"非 web 端会把[ICU]语法原样吐成文案"——根因正是 locale 没透传，英文 plural/select 在非 zh 语言下错位（如渲染成 "1 context sources in this turn"）。
+  - 收口：非 web 端 `t()` 接入运行时 locale，或在 loader 层按消息包语言兜底透传。
+- [ ] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
+  - 后果：覆盖安装判定失败、Google Play 拒收"versionCode 未递增"；属 latent 缺陷，依赖 CI 稳定注入才能规避。
+  - 收口：回退值改分钟/秒粒度（如 `YYMMDDHHmm`），或构建失败而非复用旧值。
+#### 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计）
+- **排除 A · "RN 渲染 `packages/app` 的 `PayButton`/`TabBar`（DOM）即崩"**：实读 `packages/app/src/index.ts:472` 确实 `export { PayButton, TabBar } from './components'`（DOM 实现，见 `PayButton.tsx:9` 引 `lucide-react`、`TabBar.tsx:18` 注释"用 div/span/img"）。但全仓无任何 app 在 `package.json` 依赖 `@ihui/app`，且 `apps/mobile-rn` 用的是自己的 `apps/mobile-rn/src/components/TabBar.tsx`（RN 原生），根本不引入该 barrel ⇒ 当前不会触发。属"潜在 footgun"而非现行崩溃，不列为 BUG，仅在门禁层建议对 `@ihui/app` 加 RN 引用守卫。
+- **排除 B · "benchmarks/gen.mjs 写字面量 `\\n`"**：实读 `benchmarks/gen.mjs:51-52` 为 `l.replace(/\\/g,'\\\\').replace(/'/g,"\\'")` + `].join('\n')`——是对反斜杠/单引号的**正确转义**，`.join('\n')` 是真实换行而非两字符字面量。原报告把正确转义误读成 bug，撤销。
+- **待核（本次未直接核验、不强行登记）**：① mobile-cap 权限声明与已装插件是否匹配；② `capacitor.config` 是否用 `server.url` 远程加载导致 webDir 白拷；③ release 是否缺 `signingConfig`；④ 亮色模式状态栏近黑；⑤ 推送注册状态前后矛盾；⑥ python SDK `agent_engine.py:603` 的 `stream=True` 是否真的使调用崩。这几条要么证据不足、要么需运行态验证，留待下一轮定向核验，不占派单额度。
+
 ### 本批覆盖边界（未判的不写成判过）
 - **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
 - **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
