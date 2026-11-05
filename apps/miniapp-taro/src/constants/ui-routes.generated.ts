@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 889ec0ae6f365ae1cd1c3e7d532ce9ab18f71b62
-// inputsSha256: 52dafe196641549b8698ec09bea12d77b9f525dfadf4a03ad2174a7100ed38d0
+// sourceCommit: 042fcb0d1f3d514dec012f742bba91808cab79eb
+// inputsSha256: 172e8cc6a5c2a25f6cf3eeda15acc2e471d619612e3e68c32750490ad349de2b
 // input: apps/miniapp-taro/src/api/index.ts dfdc97a61a0c282954ec57c76f364fb72d1bb21ae658cd8eb8eb779a56e42258
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -419,7 +419,7 @@
 // input: apps/miniapp-taro/src/pkg-learn/subscription/contracts/index.config.ts c1cc9e3d38fedd0a685ae15c84883c3af873eaf26af53eb78e58d684da398ca2
 // input: apps/miniapp-taro/src/pkg-learn/subscription/contracts/index.tsx 33973cb6b8a612ad37778428048c340dc9786837ea6b910bd537d1735a0ecaaf
 // input: apps/miniapp-taro/src/pkg-learn/teacher/detail.config.ts 9a5dd5daa281ee38657628fd2df074fbed4bc0da0d028a353a2265a7a6214c8a
-// input: apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx 92a678c5fd6b1861ac6a5d6eda5bb1092f1a0e01b18fe3f7e3e1c15c059ad65d
+// input: apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx 8cf48d8143648185e0aec8d9cd3951b58a08c788e935f7d5e13bc9eadfade11a
 // input: apps/miniapp-taro/src/pkg-learn/teacher/list.config.ts f999918b842a0fbc9c35b4f432e09de3286f1d49eef57e36e1e6edba872b1462
 // input: apps/miniapp-taro/src/pkg-learn/teacher/list.tsx 8a49484114cdd05730ae6e2711bd3899fd3c84d774ba721a1872fcc9d95fd1c9
 // input: apps/miniapp-taro/src/pkg-mirror/ai-assistant-n8n/index.tsx f7b4b637c936fcb4ba46539672cd79dea91d9ffb5db875a04afd3181cf5fe816
@@ -729,7 +729,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 593 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-05T18:00:07.142Z
+// generatedAt: 2026-11-05T18:22:06.759Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -1155,7 +1155,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     title: '课程列表',
     tab: false,
     subPackageRoot: 'pkg-learn',
-    requiresParams: false,
+    requiresParams: true,
   },
   {
     path: '/pkg-learn/course/detail',
