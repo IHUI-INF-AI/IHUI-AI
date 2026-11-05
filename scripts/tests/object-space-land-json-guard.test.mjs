@@ -455,6 +455,32 @@ test('退休正例:每条被摘条目都有可核验退休行 ⇒ 放行且退�
   assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), before)
 })
 
+test('退休⑥(2026-11-05 补):base 已含退休行,本轮再摘新行 ⇒ 必须能落地(此前第二轮起恒误拒)', (t) => {
+  const bRetired = JSON.parse(retiredRow(ledgerRows[1]))
+  const baseText = ledgerText([ledgerRows[0], bRetired, ledgerRows[2]])
+  const nextText = ledgerText([ledgerRows[0], bRetired, JSON.parse(retiredRow(ledgerRows[2]))])
+  // 纯函数面:base 里既有退休行不进 dropped,也不要求本轮为它配"被摘条目"。
+  const a = __test__.jsonRetirementAudit({ baseText, newText: nextText, kind: 'jsonl', path: LEDGER_PATH })
+  assert.equal(a.ok, true, `base 里既有退休行不得算"假登记":${JSON.stringify(a.problems)}`)
+  assert.equal(a.dropped, 1, '只有本轮真正被摘的那 1 条进 dropped')
+  assert.equal(a.retired, 1, '退休登记读数只计本轮新增(既有退休行不重复计数)')
+  assert.equal(a.preExistingRetired, 1, '既有退休行必须如实报数,不得静默隐藏')
+  assert.equal(a.covered, 1)
+  // 端到端:正是被误拒的那一格 —— 走正规落地通道,必须能落。
+  const dir = makeRepo(t)
+  commitFile(dir, LEDGER_PATH, ledgerText(ledgerRows), 'A: 台账初版(三条均在册)')
+  commitFile(dir, LEDGER_PATH, baseText, 'B: 前一轮已退休 b(HEAD 里既有退休行)')
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const r = landLedger(dir, nextText)
+  const out = r.stdout + r.stderr
+  assert.equal(r.status, 0, `必须能落,实得 ${r.status}:\n${out}`)
+  assert.match(out, /台账授权退休逐条核验通过/)
+  assert.match(out, /有效覆盖 1 条/)
+  assert.doesNotMatch(out, /假登记|多登记/)
+  assert.doesNotMatch(out, /LAND_ALLOW_STALE/, '放行靠的是判据修好,不是整闸关掉')
+  assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), before)
+})
+
 test('丁(.jsonl):记录重排+追加 ⇒ 0/0 放行;记录内键路径整批删掉 ⇒ 判红', (t) => {
   const dir = makeRepo(t)
   commitFile(dir, 'LEDGER.jsonl', A_JSONL, 'A: 台账初版')
@@ -568,7 +594,7 @@ const MV_ROWS = [
   { shared: 'packages/app/src/features/z/ZScreen.tsx', route: '-', verdict: 'aligned', evidence: '2026-11-03 复核: 三端一致', at: '2026-11-03', source: 'cross-end-audit-2026-11-03' },
 ]
 const mvText = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n'
-const mvAudit = (baseRows, nextRows, ancestors = []) =>
+const mvAudit = (baseRows, nextRows) =>
   __test__.jsonRetirementAudit({ baseText: mvText(baseRows), newText: mvText(nextRows), kind: 'jsonl', path: MV_PATH })
 
 function seedMv(t) {
