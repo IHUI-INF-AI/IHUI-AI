@@ -2,45 +2,25 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt, useI18n, type TtFn } from '@/i18n'
+// 镜像 packages/app/src/features/n8n-model/N8nModelScreen.tsx（n8n 模型列表共享屏）
+
+import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
-import N8nListView from './list-view'
-import type { WorkflowCardItem } from './workflow-card'
+import { useTheme } from '@/rn-compat/theme'
+import {
+  N8nModelScreen as SharedN8nModelScreen,
+  type N8nModelItem,
+  type N8nModelTab,
+} from '@ihui/rn-app/features/n8n-model/N8nModelScreen'
+import { newParam, renderCreateView, type Param } from './create-view'
 import './index.css'
 import { onToast } from '@/host/on-toast'
-
-type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
-
-interface Param {
-  name: string
-  description: string
-  type: ParamType
-  defaultValue: string
-}
-
-const PARAM_TYPES = (tt: TtFn): { value: ParamType; key: string; fb: string }[] => [
-  { value: 'string', key: 'aigc.list.catText', fb: tt('aigc.list.catText', '文本') },
-  { value: 'number', key: 'deventerN8nmodel.d1', fb: tt('deventerN8nmodel.d1', '数字') },
-  { value: 'boolean', key: 'deventerN8nmodel.d2', fb: tt('deventerN8nmodel.d2', '布尔') },
-  { value: 'file', key: 'search.tabs.files', fb: tt('search.tabs.files', '文件') },
-  { value: 'select', key: 'deventerN8nmodel.d3', fb: tt('deventerN8nmodel.d3', '选择') },
-  { value: 'json', key: 'devEnter.n8nModel.typeJson', fb: 'JSON' },
-]
-
-const newParam = (): Param => ({
-  name: '',
-  description: '',
-  type: 'string',
-  defaultValue: '',
-})
 
 /** 读取文本文件(UTF-8),用于解析 n8n JSON 备份 */
 function readTextFile(filePath: string): Promise<string> {
@@ -57,12 +37,16 @@ function readTextFile(filePath: string): Promise<string> {
 export default function N8nModel() {
   const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
 
   const [view, setView] = useState<'list' | 'create'>('list')
   // 列表态
-  const [list, setList] = useState<Record<string, unknown>[]>([])
+  const [items, setItems] = useState<N8nModelItem[]>([])
+  const [tab, setTab] = useState<N8nModelTab>('all')
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
   // 创建表单态
   const [avatar, setAvatar] = useState('')
   const [name, setName] = useState('')
@@ -111,20 +95,39 @@ export default function N8nModel() {
       : null,
   )
 
-  const loadList = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = (await get('/workflows/n8n')) as Record<string, unknown>
-      setList((res?.list as Record<string, unknown>[]) || [])
-    } catch (e) {
-      logger.error('n8n-model', '加载N8N智能体', e)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  /** 原始行 → 共享屏列表项。后端 GET /workflows/n8n 只回 id/name/active/updatedAt,
+   *  calls/paramsIn/paramsOut 不在契约里,故不填(共享屏按缺字段整行不渲染)。 */
+  const loadList = useCallback(
+    async (mode: 'initial' | 'refresh' = 'initial') => {
+      if (mode === 'refresh') setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      try {
+        const res = (await get('/workflows/n8n')) as { list?: Record<string, unknown>[] }
+        const rows = res?.list ?? []
+        setItems(
+          rows.map((raw): N8nModelItem => ({
+            id: String(raw.id ?? ''),
+            name: String(raw.name ?? raw.title ?? ''),
+            desc: String(raw.description ?? raw.desc ?? ''),
+            url: '',
+            status: raw.active === true ? 'running' : 'stopped',
+            updatedAt: String(raw.updatedAt ?? raw.createTime ?? ''),
+          })),
+        )
+      } catch (e) {
+        logger.error('n8n-model', '加载N8N智能体', e)
+        setError(tt('common.operationFailed', '操作失败'))
+      } finally {
+        if (mode === 'refresh') setRefreshing(false)
+        else setLoading(false)
+      }
+    },
+    [tt],
+  )
 
   useDidShow(() => {
-    if (view === 'list') loadList()
+    if (view === 'list') void loadList()
   })
 
   const onItemClick = (id: string) => {
@@ -132,10 +135,10 @@ export default function N8nModel() {
   }
 
   /** 启停:复用 n8n 面唯一存在的启停端点(与 RN toggleN8nWorkflow 同一条腿,后端回读真值) */
-  const onToggleStatus = async (item: WorkflowCardItem) => {
+  const onToggleStatus = async (item: N8nModelItem) => {
     if (!item.id) return
     try {
-      await post(`/ai/n8n/workflows/${item.id}/toggle`, { active: !item.active })
+      await post(`/ai/n8n/workflows/${item.id}/toggle`, { active: item.status !== 'running' })
       await loadList()
     } catch (e) {
       logger.error('n8n-model', '切换n8n工作流状态', e)
@@ -285,252 +288,62 @@ export default function N8nModel() {
       setSubmitting(false)
       setTimeout(() => {
         setView('list')
-        loadList()
+        void loadList()
       }, 1200)
     }
   }
 
-  const renderDefaultInput = (p: Param, which: 'in' | 'out', index: number) => {
-    const setVal = (v: string) => updateParam(which, index, { defaultValue: v })
-    if (p.type === 'boolean') {
-      return (
-        <ThemeRoot>
-          <View className="nm-bool">
-            {(['true', 'false'] as const).map((v) => (
-              <View
-                key={v}
-                className={`nm-bool-opt ${p.defaultValue === v ? 'nm-bool-active' : ''}`}
-                onClick={() => setVal(v)}
-                hoverClass="opacity-60"
-              >
-                <Text>
-                  {v === 'true'
-                    ? tt('devEnter.n8nModel.booleanTrue', '是')
-                    : tt('devEnter.n8nModel.booleanFalse', '否')}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </ThemeRoot>
-      )
-    }
-    if (p.type === 'json') {
-      return (
-        <ThemeRoot>
-          <FocusTextarea
-            className="nm-field-textarea"
-            placeholderClass="text-[var(--color-text-tertiary)]"
-            value={p.defaultValue}
-            placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
-            onInput={(e) => setVal(e.detail.value)}
-          />
-        </ThemeRoot>
-      )
-    }
-    return (
-      <ThemeRoot>
-        <FocusInput
-          className="nm-field-input"
-          placeholderClass="text-[var(--color-text-tertiary)]"
-          type={p.type === 'number' ? 'digit' : 'text'}
-          value={p.defaultValue}
-          placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
-          onInput={(e) => setVal(e.detail.value)}
-        />
-      </ThemeRoot>
-    )
-  }
+  const createViewNode =
+    view === 'create'
+      ? renderCreateView({
+          t,
+          tt,
+          avatar,
+          name,
+          description,
+          n8nFileName,
+          n8nUrl,
+          inputParams,
+          outputParams,
+          submitting,
+          onChooseAvatar: chooseAvatar,
+          onChooseFile: chooseN8nFile,
+          onRemoveFile: removeN8nFile,
+          onNameChange: setName,
+          onDescriptionChange: setDescription,
+          onN8nUrlChange: setN8nUrl,
+          onUpdateParam: updateParam,
+          onAddParam: addParam,
+          onRemoveParam: removeParam,
+          onSubmit: () => void onSubmit(),
+        })
+      : null
 
-  const renderParamList = (params: Param[], which: 'in' | 'out') => (
-    <ThemeRoot>
-      <View className="nm-params">
-        {params.map((p, index) => (
-          <View key={index} className="nm-param">
-            <View className="nm-param-head">
-              <Text className="nm-param-idx">
-                {tt('devEnter.n8nModel.paramPrefix', '参数')} {index + 1}
-              </Text>
-              {params.length > 1 ? (
-                <Text className="nm-param-del" onClick={() => removeParam(which, index)}>
-                  {tt('devEnter.n8nModel.deleteParam', '删除')}
-                </Text>
-              ) : null}
-            </View>
-            <View className="nm-param-field">
-              <Text className="nm-field-label">
-                {tt('devEnter.n8nModel.paramNameLabel', '参数名称')}
-              </Text>
-              <FocusInput
-                className="nm-field-input"
-                placeholderClass="text-[var(--color-text-tertiary)]"
-                value={p.name}
-                placeholder={tt('devEnter.n8nModel.paramNamePlaceholder', '请输入参数名称')}
-                onInput={(e) => updateParam(which, index, { name: e.detail.value })}
-              />
-            </View>
-            <View className="nm-param-field">
-              <Text className="nm-field-label">
-                {tt('devEnter.n8nModel.paramDescLabel', '参数描述')}
-              </Text>
-              <FocusTextarea
-                className="nm-field-textarea"
-                placeholderClass="text-[var(--color-text-tertiary)]"
-                value={p.description}
-                placeholder={tt('devEnter.n8nModel.paramDescPlaceholder', '请输入参数描述')}
-                onInput={(e) => updateParam(which, index, { description: e.detail.value })}
-              />
-            </View>
-            <View className="nm-param-field">
-              <Text className="nm-field-label">
-                {tt('devEnter.n8nModel.paramTypeLabel', '键值类型')}
-              </Text>
-              <View className="nm-type-bar">
-                {PARAM_TYPES(tt).map((tp) => (
-                  <View
-                    key={tp.value}
-                    className={`nm-type ${p.type === tp.value ? 'nm-type-active' : ''}`}
-                    onClick={() =>
-                      updateParam(which, index, {
-                        type: tp.value,
-                        defaultValue: tp.value === 'boolean' ? 'true' : '',
-                      })
-                    }
-                    hoverClass="opacity-60"
-                  >
-                    <Text>{tt(tp.key, tp.fb)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            <View className="nm-param-field">
-              <Text className="nm-field-label">
-                {tt('devEnter.n8nModel.paramDefaultLabel', '默认值')}
-              </Text>
-              {renderDefaultInput(p, which, index)}
-            </View>
-          </View>
-        ))}
-        <View className="nm-add-param" onClick={() => addParam(which)} hoverClass="opacity-60">
-          <Text>+ {tt('devEnter.n8nModel.addParam', '添加参数')}</Text>
-        </View>
-      </View>
-    </ThemeRoot>
-  )
-
-  // ===== 列表视图 =====
-  if (view === 'list') {
-    return (
-      <ThemeRoot>
-        <View className="nm-page">
-          <N8nListView
-            list={list}
-            keyword={keyword}
-            loading={loading}
-            onKeywordChange={setKeyword}
-            onCreate={onCreate}
-            onOpen={(it) => onItemClick(it.id)}
-            onToggle={(it) => void onToggleStatus(it)}
-            onEdit={(it) => onItemClick(it.id)}
-          />
-        </View>
-      </ThemeRoot>
-    )
-  }
-
-  // ===== 创建表单视图 =====
   return (
-    <ThemeRoot>
-      <View className="nm-page">
-        <View className="nm-header">
-          <Text className="nm-title">{tt('devEnter.n8nModel.createTitle', '创建智能体')}</Text>
-        </View>
-        <ScrollView scrollY className="nm-body">
-          {/* 头像 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.avatarLabel', '智能体头像')}</Text>
-          <View className="nm-avatar-wrap" onClick={chooseAvatar} hoverClass="opacity-60">
-            {avatar ? (
-              <Image className="nm-avatar" src={avatar} mode="aspectFill" />
-            ) : (
-              <View className="nm-avatar nm-avatar-ph">
-                <Text className="nm-avatar-text">
-                  {tt('devEnter.n8nModel.avatarPlaceholder', '点击上传头像')}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* 名称 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
-          <FocusInput
-            className="nm-input"
-            placeholderClass="text-[var(--color-text-tertiary)]"
-            maxlength={30}
-            value={name}
-            placeholder={tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称')}
-            onInput={(e) => setName(e.detail.value)}
-          />
-
-          {/* 描述 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
-          <FocusTextarea
-            className="nm-textarea"
-            placeholderClass="text-[var(--color-text-tertiary)]"
-            value={description}
-            placeholder={tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述')}
-            onInput={(e) => setDescription(e.detail.value)}
-          />
-
-          {/* n8n 备份文件 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}</Text>
-          <View className="nm-file-btn" onClick={chooseN8nFile} hoverClass="opacity-60">
-            <Text className="nm-file-text">
-              {n8nFileName ||
-                tt('devEnter.n8nModel.n8nFilePlaceholder', '点击上传 n8n 备份 JSON 文件')}
-            </Text>
-          </View>
-          {n8nFileName ? (
-            <View className="nm-file-info">
-              <Text className="nm-file-name">{n8nFileName}</Text>
-              <Text className="nm-file-remove" onClick={removeN8nFile}>
-                {t('common.delete')}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* n8n 地址 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
-          <FocusInput
-            className="nm-input"
-            placeholderClass="text-[var(--color-text-tertiary)]"
-            maxlength={200}
-            value={n8nUrl}
-            placeholder={tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址')}
-            onInput={(e) => setN8nUrl(e.detail.value)}
-          />
-
-          {/* 输入参数 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.inputParamsLabel', '输入参数')}</Text>
-          {renderParamList(inputParams, 'in')}
-
-          {/* 输出参数 */}
-          <Text className="nm-label">{tt('devEnter.n8nModel.outputParamsLabel', '输出参数')}</Text>
-          {renderParamList(outputParams, 'out')}
-
-          {/* 提交 */}
-          <View
-            className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`}
-            onClick={onSubmit}
-            hoverClass="opacity-60"
-          >
-            <Text>
-              {submitting
-                ? tt('devEnter.n8nModel.submitting', '创建中…')
-                : tt('devEnter.n8nModel.submit', '创建智能体')}
-            </Text>
-          </View>
-          <View className="nm-bottom-space" />
-        </ScrollView>
-      </View>
+    <ThemeRoot className="nm-page">
+      {view === 'create' ? (
+        createViewNode
+      ) : (
+        <SharedN8nModelScreen
+          t={t}
+          items={items}
+          tab={tab}
+          keyword={keyword}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          onSelectTab={setTab}
+          onKeywordChange={setKeyword}
+          onRefresh={() => void loadList('refresh')}
+          onRetry={() => void loadList()}
+          onToggle={(it) => void onToggleStatus(it)}
+          onEdit={(it) => onItemClick(it.id)}
+          onCreate={onCreate}
+          onBack={() => Taro.navigateBack()}
+          onOpen={(it) => onItemClick(it.id)}
+          colorScheme={resolvedTheme}
+        />
+      )}
     </ThemeRoot>
   )
 }

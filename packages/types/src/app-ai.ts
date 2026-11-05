@@ -214,10 +214,10 @@ export interface N8nModelItem {
   desc: string
   url: string
   status: N8nModelStatus
-  calls: number
+  calls?: number
   updatedAt: string
-  paramsIn: number
-  paramsOut: number
+  paramsIn?: number
+  paramsOut?: number
 }
 
 /** N8nModelScreen props — 注入式 */
@@ -235,6 +235,8 @@ export interface N8nModelScreenProps {
   onRetry: () => void
   onToggle: (item: N8nModelItem) => void
   onEdit: (item: N8nModelItem) => void
+  /** 卡片本体按压回调;不传则卡片不可按 */
+  onOpen?: (item: N8nModelItem) => void
   onCreate: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
