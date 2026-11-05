@@ -302,6 +302,8 @@ export type {
   CourseEnrollItem,
   CourseEnrollScreenProps,
   NotificationSettingsItem,
+  NotificationSettingsLink,
+  NotificationSettingsRow,
   NotificationSettingsScreenProps,
   PostCreateScreenProps,
   QrCodeItem,
