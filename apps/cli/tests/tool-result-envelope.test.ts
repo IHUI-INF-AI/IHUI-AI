@@ -110,11 +110,22 @@ describe('超限 → 落盘 → 信封', () => {
     expect(outcome.output).toContain('正文未进入上下文');
     expect(outcome.output).toContain('read_file 分块读取');
 
-    // 落盘位置:必须在给定 workspacePath 之内,且绝不在系统临时目录里
+    // 落盘位置:锚点必须是调用方显式传入的 workspacePath(不得回落到系统临时区)。
+    // 「不在临时区」的反面基准由本用例自己钉:整个 os.tmpdir() 在 worktree 恰落在其
+    // 内部时(D:\DevEnv\Temp)会把合法产物也判红(2026-11-06 实测 1 failed),结论随
+    // worktree 位置漂移。基准目录只用作反向断言,不接收任何产物。
+    const tmpBaseline = fs.mkdtempSync(path.join(os.tmpdir(), 'env-tmp-baseline-'));
+    created.push(tmpBaseline);
     expect(isInsideToolArtifactDir(workspace, parsed!.artifactPath)).toBe(true);
     const abs = path.resolve(workspace, parsed!.artifactPath);
     expect(abs.startsWith(path.resolve(workspace))).toBe(true);
-    expect(abs.startsWith(path.resolve(os.tmpdir()))).toBe(false);
+    // 前置断言:被验路径确实可解析且确实落到了盘上,否则下面的位置断言会退化成空断言
+    expect(parsed!.artifactPath).toBeTruthy();
+    expect(fs.existsSync(abs)).toBe(true);
+    // 正向锚点:产物落在显式 workspace 的会话产物子目录(位置无关)
+    expect(abs.startsWith(path.resolve(toolArtifactDir(workspace, 'sess-abc')) + path.sep)).toBe(true);
+    // 反向:不得落在系统临时区基准子目录内(基准由用例自建,与 worktree 位置无关)
+    expect(abs.startsWith(path.resolve(tmpBaseline) + path.sep)).toBe(false);
     const back = readToolArtifact(workspace, parsed!.artifactPath);
     expect(back.ok).toBe(true);
     if (back.ok) expect(back.content.trimEnd()).toBe(big);
