@@ -11,7 +11,7 @@ name: Guardian Full
 # 分工:**本地求快**(元门档,覆盖"本次改动直接相关的工具/仓库状态"判据),
 #       **CI 求全**(271 道,400s 由 CI 机器承担)。
 #
-# 触发:**当前只开手动**(workflow_dispatch)。
+# 触发:**工作日定时 + 手动**(2026-11-05 接案,治理债①;此前自述「当前只开手动」)。
 #
 # 为什么先不开 push / pull_request 自动触发(2026-10-22,机主要求"不能出任何 bug"):
 # 本地全量实测 269 门有 7 道红,其中 6 道是门 168 判"未入 origin/main 的合并复活" ——
@@ -33,7 +33,29 @@ name: Guardian Full
 # 在红集清零并真跑一次全绿之前,不得取消下面 on: 的注释。
 #
 # 手动验证通过后,把下面 on: 里的 push / pull_request 两段取消注释即可。
+#
+# ── 2026-11-05 接案(治理债①「全量档在 CI 零自动覆盖」)─────────────────────────
+# 现读事实:本腿此前**只有 workflow_dispatch**,且近 9 次手动运行全部 failure、最后一次之后 9 天
+# 零跑动,而门集同期从 271 涨到 332(新增枚数全程零自动覆盖)。全量档在本地只跑元门档
+# (判据 scripts/lib/gate-scope.mjs),git-guardian 的 daemon 也不调 guardian-runner ⇒ 这一格无人守。
+#
+# 接成什么档(定案,不是缩射程也不是升档):
+#   · **工作日定时 + 手动**:红只出日志与 Job Summary,并留全量原始日志 artifact;**不做 required**、
+#     不升 blocking、不加 paths 过滤(那会把它缩成摆设)。required contexts 现读只有
+#     `CI / lint-typecheck-test (push)` ⇒ 本腿红不逼人 `--no-verify`,§12e 那条机理在这里不成立,
+#     因此"先把存量清零再挂"的前提**不成立**(CI 面与本机面是两套存量集合,本机态那批在 CI 永清不掉)。
+#   · 形态照同仓先例 `8end-consistency-cert.yml`(计划触发 + 成败均上传 artifact)。
+#   · 门 208 的「CI 面专属腐烂红」已在判据侧堵到登记那一刻(刀三,见 scripts/check-no-nested-git.mjs
+#     头注与 carrierGuardReasons):被 .gitignore 覆盖的现场若被登进 JSON 具名台账,本机当场红
+#     ⇒ 无法在"本机绿、CI 恒红"的状态下被推进 main。2026-11-05 干净检出面实测:HEAD 面 208 = RC 0。
+#
+# 时刻选择(先 grep 现读全仓 cron 排布再定,不挤爆 runner):既有作业占 0/2/3(:00/:17)/4/6/17:30/
+# 18:00/18:20/19(:00)/20(:00)/00:00 各档,UTC 22 点整空 ⇒ 取 `27 22 * * 1-5`
+# (UTC 工作日 22:27 = 北京 06:27,落在工作日开工前,报告当天就能有人看;:27 也避开整点排队)。
 on:
+  schedule:
+    # 工作日(周一至周五)UTC 22:27 = 北京 06:27;避开既有作业的全部时刻档
+    - cron: '27 22 * * 1-5'
   workflow_dispatch:
 
 # 同一分支新推送就取消上一轮(省额度,也避免旧结论盖住新结论)
@@ -58,7 +80,11 @@ permissions:
 jobs:
   guardian-full:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 → 45:2026-11-05 现读口径下门集已从 271 涨到 runner `--help` 的现读枚数(约三百三十余道),
+    # 按既有实测吞吐(约 290 项 / 16 分钟)外推全量批约 20 分钟,再加 checkout + pnpm install +
+    # packages 构建 + uv 安装,30 分钟是**贴边值**(一次抖动就撞 timeout,而 timeout 只留下
+    # "跑挂了"没有守门结论 ⇒ 按 §0.3 是未判定,不是绿)。45 分钟给足余量,不缩任何门的射程。
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -99,11 +125,26 @@ jobs:
           pip install uv==0.12.1
           uvx --version
 
-      - name: 全量守门(271 道)
+      - name: 全量守门(门集枚数以 runner --help 现读,报告档)
         # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
         # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效
         # (passStaged=false ⇒ 不裁剪),这正是我们要的全量。
-        run: node scripts/guardian-runner.mjs --timing
+        # `set -o pipefail` + tee:把逐门结果落盘成报告件(下面 artifact),同时**保留门的原结论退出码**
+        # —— 无 pipefail 时管道尾部(tee)恒 0,会把整批判红洗成绿(§0.3 严禁"没判/判红"冒充"通过")。
+        run: |
+          set -o pipefail
+          node scripts/guardian-runner.mjs --timing 2>&1 | tee guardian-full.log
+
+      - name: 上传全量原始日志(成败均上传,留存 28 天)
+        # 报告档的核心:逐门结果(含每个门的原样回显与耗时)必须留得住,红不必被人当场看见也能事后取证。
+        # 形态照同仓先例 8end-consistency-cert.yml 的 `if: always()` + if-no-files-found: ignore。
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: guardian-full-log-${{ github.run_id }}
+          path: guardian-full.log
+          if-no-files-found: warn
+          retention-days: 28
 
       - name: 失败时给出下一步
         if: failure()
@@ -112,5 +153,31 @@ jobs:
             echo "::error::全量守门有红。本地复跑:node scripts/guardian-runner.mjs"
             echo "::error::确认与本次改动无关再逃生:HUSKY_SKIP_<NAME>=1(见 AGENTS.md §12e,须在报告留痕)"
           }
+
+      - name: 红门与未判定门写入 Job Summary(报告档;不改判据也不改结论)
+        # 只把**已经判出来的东西**换个地方再摆一次:逐道点名红门编号 + 该门自己的复跑命令,
+        # 未判定单独成段(§0.3:没判 ≠ 判过,不许按缺陷派单也不许当通过)。取不到任何一段一律打
+        # "未取到 ⇒ 不冒充没有红",绝不写 0。
+        if: failure()
+        run: |
+          {
+            echo '## 全量守门定时腿 · 报告档'
+            echo ''
+            echo "- 触发:${{ github.event_name }} · 被审面:${{ github.sha }}"
+            echo "- 汇总行(从原始日志现读,取不到不冒充):"
+            grep -E '^ *(通过|失败|❓ 未判定|⏭ 跳过)[: ]' guardian-full.log | sed 's/^/  /' || echo '  (未取到汇总行 —— 见 artifact `guardian-full-log-<run_id>` 原始日志)'
+            echo ''
+            echo '### 判红的 blocking 门(编号 + 本地复跑命令)'
+            echo '```'
+            grep -E '道 blocking 门失败|· \[|单独复现:' guardian-full.log || echo '(未取到判红名单 ⇒ 不冒充"本批没有红",请看 artifact 原始日志)'
+            echo '```'
+            echo ''
+            echo '### 未判定门(§0.3:没判 ≠ 判过;不按缺陷派单,也不记绿)'
+            echo '```'
+            grep -E '❓' guardian-full.log || echo '(本批日志里没有未判定门)'
+            echo '```'
+            echo ''
+            echo '本腿是**报告档**:不做 required、不升 blocking、不加 paths 缩射程。红只出日志与本摘要。'
+          } >> "$GITHUB_STEP_SUMMARY"
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -15,6 +15,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from ..services.tool_budget_governor import (
+    DIM_CUSTOM_PROMPT_TOKEN_LIMIT,
+    ToolBudgetGovernor,
+)
+from ..services.tool_budget_governor import (
+    tool_budget_governor as _default_budget_gov,
+)
+
 MAX_ADDITIONAL_CONTEXT_VALUE_TOKENS = 1_000
 
 ADDITIONAL_CONTEXT_START_MARKER_PREFIX = "<external_"
@@ -134,20 +142,83 @@ def _developer_message(text: str, content_kind: str) -> dict[str, Any]:
     }
 
 
-class AdditionalContextStore:
-    """key -> entry 去重合并存储;merge 返回「值有变化」的 key 对应的消息 dict 列表。"""
+def custom_prompt_denial_fragment(
+    key: str, reason: str, dimension: str, measured: int, limit: int
+) -> dict[str, Any]:
+    """自定义提示超配额时的**具名拒绝片段**(developer 角色,由本仓自己书写、非外部内容)。
 
-    def __init__(self) -> None:
+    为什么不静默丢掉这一格:附加上下文是"生产侧写入 → 每轮注入"的单向管道,丢掉 =
+    写进去的提示永远没露面,而写的一方看不到任何回执(正是 §0.9 说的那种"没判")。
+    这里把判据原话(维度名 + 实测 + 上限)作为一条独立片段交给模型,失效方向因此是
+    **多要一次定向说明**,而不是把这一维静默放过。
+    """
+    text = (
+        f'<custom_prompt_quota_denied key="{key}" dimension="{dimension}" '
+        f'measured="{measured}" limit="{limit}">\n{reason}\n'
+        "</custom_prompt_quota_denied>"
+    )
+    return _developer_message(text, f"custom_prompt_quota.denied.{key}")
+
+
+class AdditionalContextStore:
+    """key -> entry 去重合并存储;merge 返回「值有变化」的 key 对应的消息 dict 列表。
+
+    2026-11-05 接 `check_custom_prompt`(custom_prompt_token_limit 维):值超配额 ⇒ 该 key
+    产出**具名拒绝片段**而不是内容本身(判据/文案单源在 tool_budget_governor,本层不复算)。
+    被拒的 key **不记入已交付集**(`_values`),因此:① 下一轮同值不重复刷屏(拒绝片段
+    自身按值去重);② 上限调高后无需重启即可把原值正常投出;③ key 被撤或改值时,
+    其拒绝登记一并出清。该维未配置(默认 0)⇒ 一次判定都不额外做,片段与接线前逐字相同。
+    """
+
+    def __init__(self, *, budget_governor: ToolBudgetGovernor | None = None) -> None:
         self._values: dict[str, AdditionalContextEntry] = {}
+        # 被配额拦下的 key 单独记账(键 = key,值 = 当轮被拒的 entry):
+        # 只在"值变了"时重发拒绝片段,避免每轮刷屏,同时保证不把它们误当成已交付。
+        self._denied: dict[str, AdditionalContextEntry] = {}
+        self._budget_gov: ToolBudgetGovernor = (
+            budget_governor if budget_governor is not None else _default_budget_gov
+        )
+
+    def _custom_prompt_denial(
+        self, key: str, entry: AdditionalContextEntry
+    ) -> dict[str, Any] | None:
+        """该 key 本轮是否被自定义提示配额拦下;放行返回 None(未配置时直接短路)。"""
+        if self._budget_gov.config.dim_limit(DIM_CUSTOM_PROMPT_TOKEN_LIMIT) <= 0:
+            return None
+        result = self._budget_gov.check_custom_prompt(
+            entry.value, tool_name=f"additional_context:{key}"
+        )
+        if result.allowed:
+            return None
+        return custom_prompt_denial_fragment(
+            key,
+            result.reason,
+            result.dimension,
+            int(result.used.get(result.dimension, 0)),
+            int(result.limits.get(result.dimension, 0)),
+        )
 
     def merge(
         self, values: dict[str, AdditionalContextEntry]
     ) -> list[dict[str, Any]]:
         fragments: list[dict[str, Any]] = []
+        delivered: dict[str, AdditionalContextEntry] = {}
+        denied: dict[str, AdditionalContextEntry] = {}
         for key in sorted(values):
             entry = values[key]
             if self._values.get(key) == entry:
+                delivered[key] = entry
                 continue
+            denial = self._custom_prompt_denial(key, entry)
+            if denial is not None:
+                # 被拒的 key **不进** delivered 集:下一轮同值不刷屏,但上限调高后
+                # 仍会正常投出(判据每轮重算,不是把一次判定钉死)。
+                denied[key] = entry
+                if self._denied.get(key) != entry:
+                    fragments.append(denial)
+                continue
+            self._denied.pop(key, None)
+            delivered[key] = entry
             content_kind = f"additional_content.{key}"
             if entry.kind == KIND_UNTRUSTED:
                 body = additional_context_body(key, entry.value)
@@ -160,7 +231,8 @@ class AdditionalContextStore:
                         content_kind,
                     )
                 )
-        self._values = dict(values)
+        self._values = delivered
+        self._denied = denied
         return fragments
 
     def get(self, key: str) -> AdditionalContextEntry | None:
@@ -169,8 +241,13 @@ class AdditionalContextStore:
     def __len__(self) -> int:
         return len(self._values)
 
+    def denied_keys(self) -> list[str]:
+        """当前被自定义提示配额拦下、尚未交付的 key(只读诊断出口,供上层如实呈现)。"""
+        return sorted(self._denied)
+
     def clear(self) -> None:
         self._values = {}
+        self._denied = {}
 
 
 def is_additional_context_user_text(text: str) -> bool:

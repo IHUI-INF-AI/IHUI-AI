@@ -143,10 +143,12 @@ import type { Session } from './session.js';
 import { saveSession } from './session.js';
 // G-632:异步解算启动时捕获分支代数 —— 解算期间分支被切换则本轮结果在落地口作废
 import { captureBranchGeneration } from './branch-generation.js';
-// G-728:装载调用点改走诊断出口(loadPluginsWithDiagnostics),数组薄封装 loadPlugins 会把诊断丢进垃圾桶
+// G-728:装载调用点走诊断出口,数组薄封装 loadPlugins 会把诊断丢进垃圾桶
+// goal-b49/W2:诊断出口再换成**带贡献审计**的出口 —— declined/unknown-kind 两档各占 diagnostics
+// 一行,于是它们和清单级诊断同一条主通道到人前(不新增环境变量、不升任何档、不静默)。
 import {
   PluginRegistry,
-  loadPluginsWithDiagnostics,
+  loadPluginsWithContributionAudit,
   type PluginDiagnostic,
   type PluginHookContext,
   type PluginLogger,
@@ -408,9 +410,13 @@ export interface SetupAgentToolsResult {
  * 数组薄封装 loadPlugins() —— 诊断被整块丢弃,坏清单 / 同名弃权对用户不可见,
  * 即守门 64/70/81/115/138 记过的「出口在位而无人调用」那一型。本函数就是"调用"这一半:
  *   - severity === 'error'   ⇒ logger.error(有清单没被装载)
- *   - severity === 'warning' ⇒ logger.warn (装载了,但有内容被优先级忽略)
+ *   - severity === 'warning' ⇒ logger.warn (装载了,但有内容被优先级忽略/被本宿主拒收)
  * 日志行逐条点名 code + 清单绝对路径(只转述 message 会让路径信息随文案改版而丢)。
  * 单条派发不得抛穿:logger 实现若抖,由调用点的 try 兜 —— 诊断失败不得拖垮 agent 启动。
+ *
+ * goal-b49/W2 起,本通道还携带插件**贡献档**的拒收裁决:`plugin-contribution-declined`
+ * (本宿主没有落点,或未声明权限被 capability-catalog 默认拒)与 `plugin-contribution-unknown-kind`
+ * (词表里没有这一档)由装载器摊成 warning 诊断一并送来,一行一条、点名档名与清单路径。
  */
 export function reportPluginDiagnostics(diagnostics: readonly PluginDiagnostic[], logger: PluginLogger): void {
   for (const d of diagnostics) {
@@ -520,7 +526,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
 
   // Plugins 集成:settings.plugins.enabled === true 或外部注入 registry 时,
-  // loadPluginsWithDiagnostics + registerAll + runSetups(真实接入,消除死代码)。
+  // loadPluginsWithContributionAudit + registerAll + runSetups(真实接入,消除死代码)。
   // flag 关闭且未注入时,pluginRegistry=undefined,runToolLoop 内 runPluginHooks 直接 return(零回归)
   let pluginRegistry: PluginRegistry | undefined = opts.pluginRegistry;
   if (!pluginRegistry && settings.plugins?.enabled === true) {
@@ -528,7 +534,10 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       const pluginsDir = settings.plugins.pluginsDir ?? path.join(opts.workspacePath, '.ihui', 'plugins');
       // G-728:改调诊断出口。薄封装 loadPlugins() 只把 plugins 递出来,diagnostics 整块丢弃,
       // 坏清单 / 同名弃权今天仍然不会报到人前 —— 与守门 64/70/81/115/138 同型。
-      const { plugins: defs, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir });
+      // goal-b49/W2:换成带贡献审计的同一族出口。装载器对每份清单的 `contributes` 逐档裁决,
+      // declined(本宿主无落点 / 默认拒)与 unknown-kind(不在词表内)**各占 diagnostics 一条**,
+      // 所以人前可见靠的还是下面这条既有派发,不另开通道、不新增环境变量、不升任何档。
+      const { plugins: defs, diagnostics } = loadPluginsWithContributionAudit({ pluginsDir });
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {
