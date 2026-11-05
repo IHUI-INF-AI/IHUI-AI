@@ -358,4 +358,51 @@ node scripts/workbuddy-growth-oauth.mjs --watch --interval 300 --timeout 90000
 - **取不到输入 ⇒ 报未判定**:任务列表里没有这一项时,报「未判定」并退出该号的轮询,
   不退化成「失败」、不编造进度。
 
+## 10. 「已判完成 → 领奖」这一腿以前没人跑(2026-11-05 立)
+
+驱动客户端做完行为后,服务端把 `accept_status` 判成 `completed` —— **但奖励停在原地等按钮**。
+现读 2026-11-05:号池两个号 36 项里,`completed`(可领未领)攒了 **6 项**没人领。
+这一格是纯 API 动作,零人工:`POST /v2/activity/growth/tasks/{code}/claim`
+就是官方客户端「领取奖励」按钮自己那条端点。
+
+| 关注点 | 文件 |
+| --- | --- |
+| 命令行入口(dry-run / 全领 / 点名一枚) | `scripts/workbuddy-growth-claim.mjs` |
+| 机器锁(7 例,纯函数离线可跑) | `scripts/tests/workbuddy-growth-claim.test.mjs` |
+| 领奖实现与响应解析(**判据不复制**,§0.6) | `scripts/workbuddy-growth-oauth.mjs` 的 `claimTask` / `parseClaimResponse` |
+
+```bash
+node scripts/workbuddy-growth-claim.mjs --dry-run      # 只报有哪几项可领,不动服务端
+node scripts/workbuddy-growth-claim.mjs                # 可领的全领了
+node scripts/workbuddy-growth-claim.mjs --code chat_5  # 只领点名那一枚
+```
+
+**零人工的一键 SOP**(两条,顺序跑;第二条幂等,任何时候再跑都只会报「没有可领项」):
+
+```bash
+node scripts/workbuddy-growth-experts.mjs --do-all; node scripts/workbuddy-growth-claim.mjs
+```
+
+射程边界:
+
+- **只领 `completed`**。`accepted` = 行为还没做 ⇒ 不进射程(拿它去领奖是要一份没挣到的奖励);
+  `claimed` = 已到账 ⇒ 不重领。行内 `--code` 点了名但不在可领集 ⇒ **报未判定并回显该项实际状态**,
+  不静默当成「没有可领的」。
+- **本命令不代做任何行为**。行为要么已经真做过,要么归 §8 的驱动链,要么归 §9 的机主本人。
+
+### 10.1 实测战绩(2026-11-05)
+
+```
+[0bc1074d] 可领 1 项:Expert_lighthouse            ✅ +100积分/+5能量
+[25913b4a] 可领 5 项:WorkBuddy_Valorant / expert_use_maidehao / expert_use_douyinyin /
+                       expert_use_shangjia_xuanchuan / expert_use_bowangwang
+                                                    ✅ 全部到账(100/50/50/50/50 积分 + 各 5 能量)
+汇总:领到 6/6,失败 0,未判定 0
+```
+
+复跑同一条命令 ⇒ `没有可领项(共 18 项,均为终态或等行为)` × 2,幂等验证通过。
+号池现状(现读):**两号各 18 项 ⇒ 17 项 `claimed`,唯一非终态是 §9 那条公众号关注项**。
+
+变异验证:把可领集放宽到也认 `accepted`,镜像用例 ① 当场翻红(还原后 7/7 绿)。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
