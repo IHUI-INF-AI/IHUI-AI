@@ -2221,6 +2221,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-05**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (1f3d29c0bf)
+- 🐞 수정:growth 行为任务判据校正——受理≠计分/accept 三态/报文形态对齐官方客户端 (c70dc9951b)
+
+**2026-11-05**
 - 🔧 기타:收编停留≥3分钟的未提交改动 (858c3718a5)
 - 🐞 수정:delete 轴裁决接到 subagents/worktree 的模型可控删除腿,并让"守护清单取不到"一路出声 (e99903d61e)
 
@@ -2668,10 +2672,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🚀 기능/개선:Gitee 源码只读快照(方案 c)—— 无父单提交 + 周更/发版刷新,force 仅 Gitee main (20919f3d4c)
 - 📚 문서:Gitee main 为发版时点只读快照 —— 明示可能落后 origin/main,最新代码以 GitHub 为准 (8cb42bdffe)
 - 🐞 수정:Gitee tag 改用 git push 推 ref —— 先推 tag 再建 release,tag 已存在按幂等复查(0.1.77「创建标签失败」根因) (96fc64d382)
-
-**2026-11-04**
-- 🔧 기타:收编停留≥3分钟的未提交改动 (c88be8f8a2)
-- 🐞 수정:考勤状态筛选由后端拒收非枚举值——静默查空改成可整改的 400 (1b2a7cda5a)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
