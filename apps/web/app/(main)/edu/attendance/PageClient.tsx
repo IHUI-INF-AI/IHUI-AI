@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Calendar, Loader2, UserCheck } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Loader2, UserCheck } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
@@ -29,24 +29,53 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** 本地业务月键('YYYY-MM');视图按整月推进,不硬编码天数 */
+function monthKey(dateStr: string): string {
+  return dateStr.slice(0, 7)
+}
+
+/** 'YYYY-MM' ⇒ 该月首末日(后端 GET /attendance/me 的 startDate/endDate 现读口径) */
+function monthRange(month: string): { startDate: string; endDate: string } {
+  const [year, num] = month.split('-').map(Number)
+  const last = new Date(year, num, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return {
+    startDate: `${month}-01`,
+    endDate: `${last.getFullYear()}-${pad(last.getMonth() + 1)}-${pad(last.getDate())}`,
+  }
+}
+
+/** 整月前进一步/退一步(跨年由 Date 进位,不在端上补两位判断) */
+function shiftMonth(month: string, delta: number): string {
+  const [year, num] = month.split('-').map(Number)
+  const d = new Date(year, num - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default function MyAttendancePageClient() {
   const t = useTranslations('eduAttendance')
   const queryClient = useQueryClient()
   const { user, isAuthenticated } = useAuth()
   const studentId = user?.id ?? ''
 
-  const [date, setDate] = React.useState(todayStr())
+  const today = todayStr()
+  const currentMonth = monthKey(today)
+  const [month, setMonth] = React.useState(currentMonth)
   const [remark, setRemark] = React.useState('')
   const [signed, setSigned] = React.useState(false)
+  const viewRange = monthRange(month)
+  /** 视图含今日才摆自签入口:翻到历史月时给一枚「点了签的是今天」的按钮是骗人 */
+  const showsToday = month === currentMonth
 
   // 学生本人取自己的考勤一律走 /attendance/me(只要求登录);
   // 旧写法 /attendance?studentId=<本人> 带 edu:view/edu:manage 权限守卫,普通学生必 403
+  // 取数按整月区间(后端 startDate/endDate 既有能力;旧写法只传 date=当日 ⇒ 学生只见当天一行)
   const recordsQuery = useQuery({
-    queryKey: ['edu-attendance-self', date],
+    queryKey: ['edu-attendance-self', viewRange.startDate, viewRange.endDate],
     enabled: isAuthenticated && studentId.length > 0,
     queryFn: () =>
       apiOrThrow<{ list: StudentAttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance/me?date=${date}`,
+        `/api/edu-ai-management/attendance/me?startDate=${viewRange.startDate}&endDate=${viewRange.endDate}`,
       ),
   })
 
@@ -57,7 +86,7 @@ export default function MyAttendancePageClient() {
         '/api/edu-ai-management/attendance/self-check-in',
         {
           method: 'POST',
-          body: JSON.stringify({ date, remark: remark.trim() || undefined }),
+          body: JSON.stringify({ date: today, remark: remark.trim() || undefined }),
         },
       ),
     onSuccess: () => {
@@ -67,7 +96,7 @@ export default function MyAttendancePageClient() {
   })
 
   const records = (recordsQuery.data?.list ?? []).filter((r) => !('deletedAt' in r && r.deletedAt))
-  const todayRecord = records.find((r) => r.date === date) ?? null
+  const todayRecord = records.find((r) => r.date === today) ?? null
 
   /** 后端可读 message 优先显示(409 取不到在册班级 / 403 / 401 一律不许静默) */
   const serverMessage = (error: unknown, fallbackKey: string): string => {
@@ -101,41 +130,73 @@ export default function MyAttendancePageClient() {
       <Card>
         <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value)
+            <Button
+              size="icon-xs"
+              variant="outline"
+              aria-label={t('prevMonth')}
+              onClick={() => {
+                setMonth((m) => shiftMonth(m, -1))
                 setSigned(false)
               }}
-              className="w-40"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground">{t('remark')}</Label>
-            <Input
-              value={remark}
-              onChange={(e) => {
-                setRemark(e.target.value)
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold tabular-nums">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              {month}
+            </span>
+            <Button
+              size="icon-xs"
+              variant="outline"
+              aria-label={t('nextMonth')}
+              onClick={() => {
+                setMonth((m) => shiftMonth(m, 1))
                 setSigned(false)
               }}
-              placeholder={t('remarkPlaceholder')}
-              className="w-40"
-            />
-          </div>
-          <Button
-            size="sm"
-            onClick={() => selfCheckInMutation.mutate()}
-            disabled={selfCheckInMutation.isPending || !!todayRecord?.checkInTime}
-          >
-            {selfCheckInMutation.isPending ? (
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <UserCheck className="mr-1 h-3.5 w-3.5" />
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            {!showsToday && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setMonth(currentMonth)
+                  setSigned(false)
+                }}
+              >
+                {t('thisMonth')}
+              </Button>
             )}
-            {t('selfCheckIn')}
-          </Button>
+          </div>
+          {showsToday && (
+            <>
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">{t('remark')}</Label>
+                <Input
+                  value={remark}
+                  onChange={(e) => {
+                    setRemark(e.target.value)
+                    setSigned(false)
+                  }}
+                  placeholder={t('remarkPlaceholder')}
+                  className="w-40"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={() => selfCheckInMutation.mutate()}
+                disabled={selfCheckInMutation.isPending || !!todayRecord?.checkInTime}
+              >
+                {selfCheckInMutation.isPending ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UserCheck className="mr-1 h-3.5 w-3.5" />
+                )}
+                {t('selfCheckIn')}
+              </Button>
+            </>
+          )}
           {recordsQuery.isLoading && (
             <div className="ml-auto flex items-center text-xs text-muted-foreground">
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
