@@ -26,6 +26,11 @@
  */
 
 import type { Settings } from '../commands/settings.js';
+import { resolveProductForm, type ResolvedProductForm } from '../lib/product-form.js';
+import {
+  gateImportedExtensionsForProjectLayer,
+  type SkippedImportedExtension,
+} from './extension-import-gate.js';
 
 /** 项目层不得写入的 Settings 顶层键:绕过批准/沙箱/审计,或属凭据域。 */
 export const SECURITY_SENSITIVE_SETTINGS_KEYS = [
@@ -150,6 +155,12 @@ export interface RejectedProjectKey {
 export interface ProjectLayerFilterResult {
   accepted: Partial<Settings>;
   rejected: RejectedProjectKey[];
+  /**
+   * 导入期被产品形态门跳过的扩展(具名 + 三态依据)。
+   * 只在项目层 `plugins.extensions` 携带扩展 ID 时出现;无则空数组(零回归)。
+   * 对应 id 已从 `accepted.plugins.extensions` 摘除,不会合入生效配置。
+   */
+  skippedExtensions: SkippedImportedExtension[];
 }
 
 const SECURITY_SET: ReadonlySet<string> = new Set<string>(SECURITY_SENSITIVE_SETTINGS_KEYS);
@@ -157,11 +168,17 @@ const SECURITY_DENY_REASON =
   '安全敏感键:项目层无权写入(绕过批准/沙箱/审计或属凭据域),请改设 ~/.ihui/settings.json(用户全局层)或显式 CLI 参数';
 
 /**
- * 纯函数,零副作用:把一份从 `<cwd>/.ihui/settings.json` 解析出的对象拆成
+ * 把一份从 `<cwd>/.ihui/settings.json` 解析出的对象拆成
  * "项目层有权写入的部分" 与 "必须点名拒绝的部分"。调用方负责把 rejected 吼出来。
+ *
+ * 除逐键策略外,还做**导入期扩展 ID 过滤**(goal-b49 Z27b):项目层 `plugins.extensions` 声明的
+ * 扩展 ID 按当前产品形态逐枚过 `@ihui/types` 的单源门,命中未开/未判定的**从 accepted 摘除并具名
+ * 出声**(静默丢弃 = 让仓库作者换个 id 再来,与「拒绝必须可见」同一条纪律)。判据不住本层(§0.6),
+ * 本函数只是那条真在产导入路径上的接线点(config/index.ts 与 commands/settings.ts 共用它)。
  */
 export function filterProjectLayerSettings(
   parsed: Record<string, unknown>,
+  resolved: ResolvedProductForm = resolveProductForm(),
 ): ProjectLayerFilterResult {
   const accepted: Record<string, unknown> = {};
   const rejected: RejectedProjectKey[] = [];
@@ -186,6 +203,20 @@ export function filterProjectLayerSettings(
     }
     accepted[key] = value;
   }
-  return { accepted: accepted as Partial<Settings>, rejected };
+
+  // 导入期扩展 ID 过滤(仅当项目层带了 plugins 这一格才动它;判据单源在 @ihui/types,本层零复算)。
+  const skippedExtensions =
+    'plugins' in accepted
+      ? gateImportedExtensionsForProjectLayer(accepted.plugins, resolved)
+      : null;
+  if (skippedExtensions) {
+    accepted.plugins = skippedExtensions.value;
+  }
+
+  return {
+    accepted: accepted as Partial<Settings>,
+    rejected,
+    skippedExtensions: skippedExtensions?.skipped ?? [],
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
