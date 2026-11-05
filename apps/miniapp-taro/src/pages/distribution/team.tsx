@@ -2,25 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
-import { View, Text, Image, Picker } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
-import SearchBar from '@/components/SearchBar'
-import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
-import { useState, useRef, useEffect } from 'react'
+// 镜像 packages/app/src/features/team/TeamScreen.tsx(团队**成员列表**共享屏)
+
+import { useTt, useI18n } from '@/i18n'
+import { View, Text } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { getDistributionTeam } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { formatDateByTemplate } from '@ihui/shared'
-import ThemeRoot from '@/components/ThemeRoot'
 import { formatPrice } from '@ihui/shared/utils/format'
+import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import {
+  TeamScreen as SharedTeamScreen,
+  type TeamMember,
+} from '@ihui/rn-app/features/team/TeamScreen'
 
-interface TeamMember {
-  id: string
-  nickname: string
-  avatar?: string
+/** 页面数据层行:共享 TeamMember 的必需字段 + 本页筛选/排序/指标展示所需字段 */
+interface TeamMemberRow extends TeamMember {
   createdAt: number | string
   transactionVolume: number
-  commission: number
   orderNum: number
 }
 
@@ -39,13 +41,15 @@ const toMs = (v: number | string): number => {
 
 export default function DistributionTeam() {
   const tt = useTt()
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
 
-  const [rawList, setRawList] = useState<TeamMember[]>([])
-  const [displayList, setDisplayList] = useState<TeamMember[]>([])
+  const [rawList, setRawList] = useState<TeamMemberRow[]>([])
+  const [displayList, setDisplayList] = useState<TeamMemberRow[]>([])
   const [teamTotal, setTeamTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [searchText, setSearchText] = useState('')
   const [activeTab, setActiveTab] = useState<SortTab>('orderNum')
@@ -61,7 +65,7 @@ export default function DistributionTeam() {
       pageRef.current = 1
       hasMoreRef.current = true
       setHasMore(true)
-      setError(false)
+      setError(null)
     }
     if (!hasMoreRef.current) return
     loadingRef.current = true
@@ -69,18 +73,24 @@ export default function DistributionTeam() {
     try {
       const res = await getDistributionTeam({ page: pageRef.current, pageSize: PAGE_SIZE })
       const rows = (res.list || []) as Array<Record<string, unknown>>
-      const items: TeamMember[] = rows.map((u) => ({
-        id: String(u.id ?? ''),
-        nickname:
-          (u.nickname as string) ||
-          (u.username as string) ||
-          tt('distribution.team.member', '成员'),
-        avatar: (u.avatar as string) || undefined,
-        createdAt: (u.createdAt as number | string) ?? (u.joinTime as string) ?? '',
-        transactionVolume: Number(u.transactionVolume ?? 0),
-        commission: Number(u.commission ?? 0),
-        orderNum: Number(u.orderNum ?? 0),
-      }))
+      const items: TeamMemberRow[] = rows.map((u) => {
+        const createdAt = (u.createdAt as number | string) ?? (u.joinTime as string) ?? ''
+        return {
+          id: String(u.id ?? ''),
+          nickname:
+            (u.nickname as string) ||
+            (u.username as string) ||
+            tt('distribution.team.member', '成员'),
+          avatar: (u.avatar as string) || null,
+          level: Number(u.level ?? 1),
+          joinDate: formatDateByTemplate(createdAt, 'YYYY-MM-DD'),
+          contribution: Number(u.commission ?? 0),
+          createdAt,
+          createdAtLabel: formatDateByTemplate(createdAt, 'YYYY-MM-DD'),
+          transactionVolume: Number(u.transactionVolume ?? 0),
+          orderNum: Number(u.orderNum ?? 0),
+        }
+      })
       setRawList((prev) => (reset ? items : [...prev, ...items]))
       setTeamTotal(res.total ?? (reset ? items.length : teamTotal))
       const more = pageRef.current * PAGE_SIZE < (res.total ?? 0)
@@ -88,7 +98,7 @@ export default function DistributionTeam() {
       setHasMore(more)
       pageRef.current++
     } catch {
-      setError(true)
+      setError(tt('distribution.team.error', '加载失败'))
     } finally {
       loadingRef.current = false
       setLoading(false)
@@ -97,15 +107,11 @@ export default function DistributionTeam() {
 
   // G-933 冷启动抢跑门控:GET /api/distribution/invited-users 属需鉴权端点
   // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)。
-  // useReachBottom 的翻页是用户动作,那时早已落定,不加门。
+  // 触底翻页是用户动作,那时早已落定,不加门;由共享屏 onEndReached 承接。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       void load(true)
     })
-  })
-
-  useReachBottom(() => {
-    load()
   })
 
   // 客户端:日期筛选 + 关键词搜索 + 排序(对齐原 uniapp updateDisplayList)
@@ -123,7 +129,7 @@ export default function DistributionTeam() {
           m.nickname.toLowerCase().includes(kw) ||
           String(m.orderNum).includes(kw) ||
           formatPrice(m.transactionVolume).includes(kw) ||
-          formatPrice(m.commission).includes(kw) ||
+          formatPrice(m.contribution).includes(kw) ||
           formatDateByTemplate(m.createdAt, 'YYYY-MM-DD').includes(kw),
       )
     }
@@ -139,199 +145,74 @@ export default function DistributionTeam() {
     Taro.navigateTo({ url: `/pages/distribution/member-detail/index?id=${id}` })
   }
 
-  /* 对齐原奖牌配色(已 token 化:--color-rank-gold/silver/bronze),转为 tailwind 任意值类 */
-  const medalClass = (rank: number) => {
-    if (rank === 1) return 'bg-[var(--color-rank-gold)] text-muted-foreground'
-    if (rank === 2) return 'bg-[var(--color-rank-silver)] text-muted-foreground'
-    if (rank === 3) return 'bg-[var(--color-rank-bronze)] text-foreground'
-    return 'bg-[var(--color-muted)] text-muted-foreground'
-  }
+  /** 日期弹层选项:由已算好的 createdAtLabel(YYYY-MM-DD)去重升序得出 */
+  const dateOptions = useMemo(() => {
+    const dates = new Set<string>()
+    rawList.forEach((m) => {
+      if (m.createdAtLabel) dates.add(m.createdAtLabel)
+    })
+    return Array.from(dates).sort()
+  }, [rawList])
 
-  const medalText = (rank: number) => (rank <= 3 ? `No.${rank}` : `${rank}`)
-
-  /* 对齐 RN TeamScreen(packages/app 共享屏):搜索框 card 底 + 描边 24rpx 圆角 40dp→80rpx 高,
-     tab 胶囊 24rpx 圆角 active 品牌底,成员卡 surface.bg 底 + 描边 + 44dp→88rpx 圆头像;
-     奖牌/团队总人数行/查看下级按钮为小程序特有静态元素,按 RN 卡片与按钮语言收敛 */
+  /**
+   * 手工迁移(批 5, A 方案):原 339 行复制页 → 直载 team/TeamScreen 共享屏。
+   * 团队总人数行留在本页(共享屏统计卡已有团队人数);排序胶囊/日期弹层/成员指标/名次徽标
+   * 以显式 props 注入 —— 这些数据 RN 同样拿得到并真消费,不是小程序独有代码搬进共享包。
+   */
   return (
-    <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
-      {/* 对齐 RN TeamScreen searchRow:px 10dp→20rpx pb 8dp→16rpx;搜索框统一圆角输入井(共享 SearchBar) */}
-      <SearchBar
-        value={searchText}
-        onInput={setSearchText}
-        placeholder={tt('distribution.team.searchPlaceholder', '搜索我的团友')}
-        onClear={() => setSearchText('')}
-      />
-
-      {/* 团队总人数 — 小程序特有统计行,按 RN 文字层级着色 */}
+    <ThemeRoot className="min-h-screen bg-background">
+      {/* 团队总人数 — 小程序特有统计行(本页内渲染,不进共享屏) */}
       <View className="mx-[20rpx] mt-[16rpx]">
         <Text className="text-body text-muted-foreground">
           {tt('distribution.team.totalMembers', '团队总人数')}:
           <Text className="font-semibold text-foreground">{teamTotal}</Text>
         </Text>
       </View>
-
-      {/* 对齐 RN tabs:py 8dp→16rpx gap 6dp→12rpx;tab px 12dp→24rpx py 6dp→12rpx 圆角 24rpx */}
-      <View className="px-[20rpx] py-[16rpx] flex flex-row gap-[12rpx]">
-        <View
-          className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl ${activeTab === 'orderNum' ? 'bg-primary' : 'bg-card'}`}
-          onClick={() => setActiveTab('orderNum')}
-          hoverClass="opacity-60"
-        >
-          <Text
-            className={`text-body ${activeTab === 'orderNum' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
-          >
-            {tt('distribution.team.sortByOrderNum', '成交订单数')}
-          </Text>
-        </View>
-        <Picker
-          mode="date"
-          value={selectedDate}
-          className="flex-1 min-w-0"
-          onChange={(e) => {
-            setSelectedDate(e.detail.value)
-            setActiveTab('date')
-          }}
-        >
-          <View
-            className={`w-full flex items-center justify-center gap-[8rpx] py-[12rpx] rounded-xl ${activeTab === 'date' ? 'bg-primary' : 'bg-card'}`}
-          >
-            <Text
-              className={`text-body ${activeTab === 'date' ? 'text-[var(--color-primary-foreground)] font-semibold' : 'text-muted-foreground'}`}
-            >
-              {selectedDate || tt('distribution.team.sortByDate', '邀请时间')}
-            </Text>
-            <LineIcon
-              name="chevron-down"
-              size={24}
-              color={
-                activeTab === 'date'
-                  ? 'var(--color-primary-foreground)'
-                  : 'var(--color-muted-foreground)'
-              }
-            />
-          </View>
-        </Picker>
-      </View>
-
-      {/* 对齐 RN listBody:padding 14dp→28rpx + 卡片间 8dp→16rpx */}
-      {displayList.length > 0 && (
-        <View className="px-[20rpx] flex flex-col gap-[16rpx]">
-          {displayList.map((m, idx) => {
-            const rank = idx + 1
-            return (
-              <View
-                key={m.id}
-                className="flex flex-row items-start rounded-xl border border-border bg-background p-[28rpx]"
-              >
-                <View className="flex flex-col items-center flex-shrink-0 mr-[20rpx]">
-                  <View className="relative w-[88rpx] h-[88rpx]">
-                    {m.avatar ? (
-                      <Image
-                        className="w-[88rpx] h-[88rpx] rounded-2xl"
-                        src={m.avatar}
-                        mode="aspectFill"
-                      />
-                    ) : (
-                      <View className="w-[88rpx] h-[88rpx] rounded-2xl bg-[var(--color-muted)] items-center justify-center">
-                        <Text className="text-subtitle font-semibold text-muted-foreground">
-                          {m.nickname.charAt(0) || '?'}
-                        </Text>
-                      </View>
-                    )}
-                    <View
-                      className={`absolute left-0 top-[-8rpx] min-w-[56rpx] h-[56rpx] px-[8rpx] flex items-center justify-center rounded-sm z-10 ${medalClass(rank)}`}
-                    >
-                      <Text className="text-[length:18rpx] font-bold">{medalText(rank)}</Text>
-                    </View>
-                  </View>
-                  <Text className="mt-[12rpx] text-label text-foreground max-w-[88rpx] truncate">
-                    {m.nickname}
-                  </Text>
-                </View>
-
-                <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
-                  <View className="flex flex-row justify-between items-center">
-                    <View className="flex flex-row items-baseline gap-[8rpx]">
-                      <Text className="text-caption text-[var(--color-text-tertiary)]">
-                        {tt('distribution.team.transactionVolume', '成交额')}
-                      </Text>
-                      <Text className="text-body font-semibold text-foreground">
-                        ¥{formatPrice(m.transactionVolume)}
-                      </Text>
-                    </View>
-                    <View className="flex flex-row items-baseline gap-[8rpx]">
-                      <Text className="text-caption text-[var(--color-text-tertiary)]">
-                        {tt('distribution.team.commission', '获取佣金')}
-                      </Text>
-                      <Text className="text-body font-semibold text-foreground">
-                        ¥{formatPrice(m.commission)}
-                      </Text>
-                    </View>
-                  </View>
-                  <View className="flex flex-row items-center">
-                    <Text className="text-caption text-[var(--color-text-tertiary)]">
-                      {tt('distribution.team.orderNum', '成交订单数')}
-                    </Text>
-                    <Text className="ml-[8rpx] text-body font-semibold text-foreground">
-                      {m.orderNum}
-                    </Text>
-                  </View>
-                  <View className="flex flex-row items-center justify-between">
-                    <Text className="flex-1 text-caption text-[var(--color-text-tertiary)] truncate">
-                      {tt('distribution.team.joinTime', '邀请时间')}:{' '}
-                      {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
-                    </Text>
-                    <View
-                      className="ml-[16rpx] px-[24rpx] h-[56rpx] rounded-xl bg-primary flex items-center justify-center flex-shrink-0"
-                      onClick={() => goSubordinates(m.id)}
-                      hoverClass="opacity-60"
-                    >
-                      <Text className="text-label text-[var(--color-primary-foreground)]">
-                        {tt('distribution.team.viewSubordinates', '查看下级')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            )
-          })}
-        </View>
-      )}
-
-      {/* 状态文案 */}
-      {displayList.length === 0 && !loading && !error && (
-        <View className="py-[64rpx] text-center">
-          <Text className="text-body text-[var(--color-text-tertiary)]">
-            {tt('distribution.team.empty', '暂无团队成员')}
-          </Text>
-        </View>
-      )}
-      {error && !loading && (
-        <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-          <Text className="text-body text-muted-foreground text-center">
-            {tt('distribution.team.error', '加载失败')}
-          </Text>
-          <View
-            className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
-            onClick={() => load(true)}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-body font-medium text-[var(--color-primary-foreground)]">
-              {tt('distribution.team.retry', '点击重试')}
-            </Text>
-          </View>
-        </View>
-      )}
-      {loading && (
-        <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
-          {tt('distribution.team.loading', '加载中...')}
-        </Text>
-      )}
-      {!loading && !hasMore && displayList.length > 0 && (
-        <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
-          {tt('distribution.team.noMore', '没有更多了')}
-        </Text>
-      )}
+      <SharedTeamScreen
+        t={t}
+        stats={undefined}
+        members={displayList}
+        activeTab="all"
+        loading={loading && displayList.length === 0}
+        refreshing={false}
+        error={error ?? ''}
+        onSelectTab={() => {}}
+        onRefresh={() => void load(true)}
+        onBack={() => void Taro.navigateBack()}
+        onRetry={() => void load(true)}
+        keyword={searchText}
+        onKeywordChange={setSearchText}
+        onEndReached={() => void load()}
+        loadingMore={loading && displayList.length > 0}
+        hasMore={hasMore}
+        footerLoadingText={tt('distribution.team.loading', '加载中...')}
+        footerNoMoreText={tt('distribution.team.noMore', '没有更多了')}
+        emptyText={tt('distribution.team.empty', '暂无团队成员')}
+        colorScheme={resolvedTheme}
+        showHeader={false}
+        showTabs={false}
+        sortBar={{
+          orderLabel: tt('distribution.team.sortByOrderNum', '成交订单数'),
+          dateLabel: tt('distribution.team.sortByDate', '邀请时间'),
+          active: activeTab,
+          dateValue: selectedDate,
+          onSelectOrder: () => setActiveTab('orderNum'),
+        }}
+        dateOptions={dateOptions}
+        showRankBadge
+        onSelectDate={(date) => {
+          setSelectedDate(date)
+          setActiveTab(date ? 'date' : 'orderNum')
+        }}
+        memberMetrics={{
+          transactionVolume: tt('distribution.team.transactionVolume', '成交额'),
+          commission: tt('distribution.team.commission', '获取佣金'),
+          orderNum: tt('distribution.team.orderNum', '成交订单数'),
+          joinTime: tt('distribution.team.joinTime', '邀请时间'),
+          viewSubordinates: tt('distribution.team.viewSubordinates', '查看下级'),
+        }}
+        onPressMember={(memberId) => goSubordinates(memberId)}
+      />
     </ThemeRoot>
   )
 }

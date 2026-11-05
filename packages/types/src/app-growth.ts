@@ -172,8 +172,9 @@ export interface RankingItem {
   nickname: string
   avatar: string | null
   points: number
-  studyHours: number
-  isMe: boolean
+  /** 学习时长(分钟);非积分榜(如佣金榜)不注入 ⇒ 共享屏不渲染该副行 */
+  studyHours?: number
+  isMe?: boolean
 }
 
 /** RankingScreen props */
@@ -189,6 +190,18 @@ export interface RankingScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 标题覆盖(默认 t('ranking.title')) */
+  title?: string
+  /** 副标题覆盖(默认 t('ranking.subtitle')) */
+  subtitle?: string
+  /** 空态标题覆盖(默认 t('ranking.empty')) */
+  emptyText?: string
+  /** 是否渲染时间范围切换(默认 true;佣金榜等无范围概念时传 false) */
+  showRanges?: boolean
+  /** 是否渲染学习时长副行(默认 true;条目无 studyHours 时可关闭) */
+  showStudyHours?: boolean
+  /** 数值格式化(默认 String);佣金榜注入 v => `¥${v}` */
+  amountFormatter?: (value: number) => string
 }
 
 /** 积分商城商品(平台注入,字段对齐 mobile-rn PointsMallScreen Product) */
@@ -600,9 +613,12 @@ export type TeamTab = 'all' | 'direct' | 'indirect'
 /** 团队统计(平台注入,字段对齐 mobile-rn TeamScreen Stats) */
 export interface TeamStats {
   totalMembers: number
-  activeMembers: number
-  directCount: number
-  indirectCount: number
+  /** 本月新增(compact 布局第二列;全量布局不展示) */
+  monthNew?: number
+  /** 全量布局专用;compact 变体不注入 ⇒ 共享屏不渲染该列 */
+  activeMembers?: number
+  directCount?: number
+  indirectCount?: number
   totalContribution: number
 }
 
@@ -614,8 +630,16 @@ export interface TeamMember {
   level: number
   joinDate: string
   contribution: number
-  status: TeamMemberStatus
-  relation: TeamRelation
+  /** 缺字段则不渲染状态徽标(不造假) */
+  status?: TeamMemberStatus
+  /** 缺字段则不渲染关系徽标(不造假) */
+  relation?: TeamRelation
+  /** 成交额(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  transactionVolume?: number
+  /** 成交订单数(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  orderNum?: number
+  /** 邀请时间展示文本(可选;仅 memberMetrics 模式下渲染,缺省不补) */
+  createdAtLabel?: string
 }
 
 /**
@@ -635,7 +659,8 @@ export interface TeamTreeNode {
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
   t: TFunction
-  stats: TeamStats | null
+  /** 统计卡;显式 undefined/null 表示不渲染(小程序薄壳用) */
+  stats?: TeamStats | null
   members: TeamMember[]
   activeTab: TeamTab
   loading: boolean
@@ -663,8 +688,66 @@ export interface TeamScreenProps {
   treeTotalLevels?: number
   /** 层级树失败重试回调(可选,不传则不渲染重试按钮) */
   onRetryTree?: () => void
+  /** 统计卡布局:full=4 列 + 贡献盒(默认);compact=3 列(总人数/本月新增/总贡献) */
+  statsLayout?: 'full' | 'compact'
+  /** compact 三列标签(wrapper 注入 i18n;不传则用 team.* 键兜底) */
+  compactStatsLabels?: {
+    totalMembers: string
+    monthNew: string
+    totalContribution: string
+  }
+  /** 是否渲染 header(默认 true) */
+  showHeader?: boolean
+  /** 是否渲染 tab 栏(默认 true) */
+  showTabs?: boolean
+  /** 成员列表上方分区标题(可选,不传不渲染) */
+  listTitle?: string
+  /** 触底加载更多(可选,不传不挂 onEndReached) */
+  onEndReached?: () => void
+  /** 正在加载更多(可选) */
+  loadingMore?: boolean
+  /** 是否还有更多(可选;false + footerNoMoreText ⇒ 渲染「没有更多」) */
+  hasMore?: boolean
+  /** 加载更多文案(可选) */
+  footerLoadingText?: string
+  /** 无更多文案(可选) */
+  footerNoMoreText?: string
+  /** 空态标题覆盖(可选,默认 t('team.empty')) */
+  emptyText?: string
   /** 层级树节点点击回调(可选,不传则节点不可点击) */
   onPressTreeMember?: (memberId: string) => void
+  /**
+   * 排序胶囊栏(可选;有值时在 all/direct/indirect tabs **下方叠加**渲染,不替代关系筛选)。
+   * 「成交订单数/邀请时间」两枚胶囊;日期胶囊点击开内部弹层选日期。RN 与小程序均消费。
+   */
+  sortBar?: {
+    orderLabel: string
+    dateLabel: string
+    active: 'orderNum' | 'date'
+    dateValue?: string
+    onSelectOrder: () => void
+  }
+  /** 日期弹层选项(可选;来自宿主已算好的 YYYY-MM-DD 列表) */
+  dateOptions?: string[]
+  /** 选中日期回调(可选;传空串表示清除日期筛选) */
+  onSelectDate?: (date: string) => void
+  /** 日期弹层标题(可选;缺省用 sortBar.dateLabel) */
+  dateSheetTitle?: string
+  /** 清除日期文案(可选;不传则不渲染清除行) */
+  clearDateLabel?: string
+  /**
+   * 成员卡指标文案(可选;有值时昵称下改渲染成交额/佣金/订单数/邀请时间 + 查看下级)。
+   * 未传时保持原 joinDate + level 两行,RN 视觉不变。
+   */
+  memberMetrics?: {
+    transactionVolume: string
+    commission: string
+    orderNum: string
+    joinTime: string
+    viewSubordinates: string
+  }
+  /** 是否在头像左上角渲染名次徽标(可选;默认 false,RN 视觉不变) */
+  showRankBadge?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
@@ -768,6 +851,8 @@ export interface DistributionOrderListScreenProps {
   onTabChange: (tab: string) => void
   onEndReached: () => void
   onBack: () => void
+  /** 条目点击回带订单号;缺省时不渲染点击面(纯浏览态) */
+  onPressItem?: (orderId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

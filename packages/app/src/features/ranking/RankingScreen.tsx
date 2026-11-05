@@ -47,11 +47,18 @@ export function RankingScreen({
   onRefresh,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
+  title,
+  subtitle,
+  emptyText,
+  showRanges = true,
+  showStudyHours = true,
+  amountFormatter,
 }: RankingScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const rangeItems = useMemo(() => RANGES.map((r) => ({ id: r, label: t(RANGE_KEYS[r]!) })), [t])
+  const formatAmount = amountFormatter ?? ((value: number) => String(value))
 
   const rankColor = (rank: number) => {
     if (rank === 1) return tk.warning.amber
@@ -73,18 +80,20 @@ export function RankingScreen({
           colorScheme={colorScheme}
           style={styles.backBtn}
         />
-        <Text style={styles.title}>{t('ranking.title')}</Text>
-        <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
+        <Text style={styles.title}>{title ?? t('ranking.title')}</Text>
+        <Text style={styles.subtitle}>{subtitle ?? t('ranking.subtitle')}</Text>
       </View>
 
-      <CategoryInlineBar
-        items={rangeItems}
-        selectedId={range}
-        onSelect={onSelectRange}
-        colorScheme={colorScheme}
-        contentPaddingHorizontal={10}
-        itemGap={6}
-      />
+      {showRanges ? (
+        <CategoryInlineBar
+          items={rangeItems}
+          selectedId={range}
+          onSelect={onSelectRange}
+          colorScheme={colorScheme}
+          contentPaddingHorizontal={10}
+          itemGap={6}
+        />
+      ) : null}
 
       {error ? (
         <ErrorState
@@ -109,7 +118,7 @@ export function RankingScreen({
               <Text style={styles.podiumName} numberOfLines={1}>
                 {item.nickname || t('ranking.anonymous')}
               </Text>
-              <Text style={styles.podiumPoints}>{item.points}</Text>
+              <Text style={styles.podiumPoints}>{formatAmount(item.points)}</Text>
               <View style={[styles.rankBadge, { backgroundColor: rankColor(item.rank) }]}>
                 <Text style={styles.rankBadgeText}>#{item.rank}</Text>
               </View>
@@ -124,7 +133,9 @@ export function RankingScreen({
         contentContainerStyle={styles.listBody}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<EmptyState title={t('ranking.empty')} colorScheme={colorScheme} />}
+        ListEmptyComponent={
+          <EmptyState title={emptyText ?? t('ranking.empty')} colorScheme={colorScheme} />
+        }
         renderItem={({ item }) => (
           <View style={[styles.card, item.isMe && styles.cardMe]}>
             <Text style={[styles.rankText, { color: rankColor(item.rank) }]}>#{item.rank}</Text>
@@ -140,11 +151,13 @@ export function RankingScreen({
                 {item.nickname || t('ranking.anonymous')}
                 {item.isMe ? ` (${t('ranking.me')})` : ''}
               </Text>
-              <Text style={styles.listMeta}>
-                {t('ranking.studyHours', { count: item.studyHours })}
-              </Text>
+              {showStudyHours ? (
+                <Text style={styles.listMeta}>
+                  {t('ranking.studyHours', { count: item.studyHours ?? 0 })}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.listPoints}>{item.points}</Text>
+            <Text style={styles.listPoints}>{formatAmount(item.points)}</Text>
           </View>
         )}
       />
