@@ -15,12 +15,15 @@
 // .ihui-agent/state/hook-logs/pre-commit.log,由薄壳回显摘要/失败详情。
 // 本文件内部所有 execSync 均带 windowsHide:true,不受影响。
 const { execSync, spawnSync } = require('child_process')
+const path = require('path')
 const {
   takeStagingSnapshot,
   setupRestoreOnExit,
   auditStagingFiles,
 } = require('./staging-snapshot.js')
 const { sanitizeGitEnv } = require('./hook-git-env.js')
+const { buildToolPath } = require('./hook-tool-path.js')
+const HOOK_ROOT = path.resolve(__dirname, '..', '..')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -409,8 +412,15 @@ auditStagingFiles()
 // 与 GIT_INDEX_FILE 保留的配合:`commit --only` 的临时索引只含本次路径、且 index 与
 // worktree 逐字相同 ⇒ 既不产生 MM 判定,也不存在"别人的文件";lint-staged 全程只写
 // 本次提交的临时索引,共享 index.lock 一次都不碰。
-const LINT_STAGED_CMD =
-  'npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged'
+// ─── 启动方式:不依赖继承 PATH(2026-11-05 立)──────────────────────────────
+// 旧写法 `npx lint-staged ...` 经 shell 解析 npx;钩子子进程在 GUI git 面板 / IDE 隐藏
+// shell / WPS 链等上下文里继承的 PATH 可能既没有 node 目录也没有 npx ⇒ 当场报
+// "'npx' is not recognized"(实测,PATH 只剩 System32+Windows+Git\cmd 时复现,exit 1)。
+// 现在直接用**运行本钩子的那个 node**(process.execPath)+ 仓内绝对 bin 启动,不经过 shell;
+// 同时把 PATH 显式构造成 [node 目录, <repo>/node_modules/.bin, ...原 PATH](见 hook-tool-path.js),
+// 让 eslint / prettier 等任务二进制不靠继承值。Windows 与 POSIX 同一条代码路径。
+const LINT_STAGED_BIN = path.join(HOOK_ROOT, 'node_modules', 'lint-staged', 'bin', 'lint-staged.js')
+const LINT_STAGED_FLAGS = ['--max-arg-length', '4096', '--no-stash', '--no-hide-partially-staged']
 // 递增退避 250/750/2000/5000ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
 // 给它几拍重试通常第二三次就通了。间隔递增是为了不给本机已经很忙的进程面再加压。
 // 2026-10-08 由 [200,600,1500] 加厚到 4 档:当日多 agent 并发提交峰值期实测 5/5 连败 ——
@@ -433,18 +443,27 @@ const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
 ]
 
 function spawnLintStagedOnce() {
-  // 形态说明:`shell: true` 是 npx.cmd 在 Windows 上的必需(与既有 execSync 等价);
-  // `windowsHide: true` 是 AGENTS §5b 硬要求(shell:true 不配它会弹可见控制台)。
+  // 形态说明:`process.execPath` + 仓内绝对 bin ⇒ 不再需要 shell,也不再依赖 PATH 里
+  // 有 npx;Windows 与 POSIX 走同一条 spawn 路径。
+  // `windowsHide: true` 是 AGENTS §5b 硬要求(shell 已去掉,但保留以覆盖 node 子进程)。
   // stdio[0]='ignore' 是**本票的兜底本体**:不写 stdio / 写 'pipe' 都是三通道全管道
   // ⇒ 这条 spawn 自己也 EBUSY(本机实测 `npx lint-staged --version` 裸调即 EBUSY)。
   // stdout 仍 inherit ⇒ lint-staged 的任务输出照旧原样透传(不改变它的实际行为)。
   // stderr 改 pipe ⇒ 仅为把指纹文案拿回来做判定,用完原样回显,见下。
-  const r = spawnSync(LINT_STAGED_CMD, {
+  // env.PATH 显式构造(node 目录 + node_modules/.bin + 原 PATH):eslint/prettier 不靠继承值。
+  const r = spawnSync(process.execPath, [LINT_STAGED_BIN, ...LINT_STAGED_FLAGS], {
     cwd: process.cwd(),
     windowsHide: true,
-    shell: true,
     stdio: ['ignore', 'inherit', 'pipe'],
     encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: buildToolPath({
+        envPath: process.env.PATH,
+        execPath: process.execPath,
+        root: HOOK_ROOT,
+      }),
+    },
   })
   const stderr = String(r.stderr || '')
   if (stderr) process.stderr.write(stderr)
@@ -571,16 +590,16 @@ function runLintStaged() {
     console.error(
       `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
     )
-    // ⚠️ 手工复跑必须与 LINT_STAGED_CMD **同旗**:少给 --no-hide-partially-staged 会走
+    // ⚠️ 手工复跑必须与 LINT_STAGED_FLAGS **同旗**:少给 --no-hide-partially-staged 会走
     //    `git restore --worktree` 那条路,当场把并发会话未暂存的改动卷进 patch(见上方双开关注释)。
     console.error(
-      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged`,
+      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):node node_modules/lint-staged/bin/lint-staged.js ${LINT_STAGED_FLAGS.join(' ')}`,
     )
     console.error(
       `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
     )
     console.error(
-      `        npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged --debug`,
+      `        node node_modules/lint-staged/bin/lint-staged.js ${LINT_STAGED_FLAGS.join(' ')} --debug`,
     )
   }
   // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,2026-11-03 **已根治**):「Failed to stage changes from tasks」
