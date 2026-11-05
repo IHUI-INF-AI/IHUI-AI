@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "note": "显式回补清单(2026-11-05 立):这些复合主键的登记行是按历史原文/§1 短形态**有意回补**回来的,不是普通 git merge 带回来的「HEAD 面回捞件」。strip-head-recall-rows.mjs 在判候选后按本清单让路(失效方向恒为「少摘」)。新增条目必须给出 restoredBy(回补提交)与 why,并跑 node scripts/strip-head-recall-rows.mjs --self-test。",
+  "restoredAt": "2026-11-05",
+  "restoredBy": "b01d9d83c9",
+  "case": "合并 965cbec7d3 丢掉 7 条登记行;逐条定性后 6 条真丢、1 条(同票重复行)合法摘除。台账 plan-row-drop.jsonl 里这 6 条的 form=dropped 声明仍在(多为 head-recall-sweep 以外的真席位),故需显式清单挡住下一轮兜底清扫。",
+  "rows": [
+    {
+      "key": "RP-1#26枚「未取号」登记行迁RP族号域并摘旧「号池已",
+      "why": "合并面真丢:前像 - [ ] open,台账仅 live-doc-edit/head-recall-sweep 声明 dropped"
+    },
+    {
+      "key": "RP-37#USDTTRC20ADDRESS仍空",
+      "why": "合并面真丢:前像 - [ ] open,台账 seat=continue-b41 声明 dropped"
+    },
+    {
+      "key": "Y-14#App内更新卡取不到安卓包",
+      "why": "合并面真丢:前像 - [ ] open,台账 seat=live-doc-edit 声明 dropped"
+    },
+    {
+      "key": "RP-47#两把blocking门在提交链上恒「取不到索引b",
+      "why": "合并面真丢:前像 - [ ] open,台账 3 条 head-recall-sweep 声明 dropped"
+    },
+    {
+      "key": "RP-79#旁路器物「未知旗标⇒用法错exit2」收口的剩余",
+      "why": "合并面真丢:前像 - [ ] open,台账 continue-b39 + head-recall-sweep×3 声明 dropped"
+    },
+    {
+      "key": "D05#多用户协作会话",
+      "why": "合并面真丢:前像 - [ ] open,台账 g35-chair 声明 dropped"
+    }
+  ]
+}
