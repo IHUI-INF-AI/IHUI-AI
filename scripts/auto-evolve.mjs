@@ -275,6 +275,51 @@ export function parseTicketRows(stdout) {
 }
 
 /**
+ * 取票腿失败后的**可证复用**(2026-11-06 立)。现读依据:`plan-tasks --open --dispatchable
+ * --exclude-inflight` 这次**成功**返回 36 行,但耗时 **425.8s**,而取票口阈值是 300s
+ * —— 即票面没坏、命令没坏,坏在并发席把通道挤慢(同轮 `git-lock scan`:47 个 git.exe、
+ * 锁等待 P95=33.5s)。此前实测过的一型正是:阈值一被击穿,环整天拿不到票池。
+ *
+ * 与"把超时再抬一层"的区别:这里要**三条同时成立**才敢复用,任一条不成立 ⇒ null ⇒ 照旧
+ * "未判定不派"(§0.3 的失效方向是多要一次说明,不是放行)。
+ *  ① 缓存自述的票面指纹与当次 HEAD 面逐字相等(票面没变 ⇒ 行集同源可证);
+ *  ② 每条候选还原成的行,其票键与候选自述 `id` 逐字相等(算不出同一把键 = 口径变了,不猜);
+ *  ③ 还原出的行非空。
+ * 方向性也如实说:候选面是派单面的**子集**(缓存由同一条命令生成),所以复用只会少派不会多派。
+ * 复用这件事本身进本轮的 `summary` 文本(它会被写进后续台账行的 note),不新增 action 字面量 ——
+ * 独立档 `pool-face-reused` 是更完整的形态,但它要同时过覆盖面豁免表与健康尺 A15 认领表,
+ * 那是另一枚票,不在这里悄悄加发射点。
+ */
+export function poolFaceFromCache({ cacheText, digestNow } = {}) {
+  const no = (why) => ({ rows: null, why })
+  if (!digestNow) return no('当次 HEAD 面的票面指纹取不到(不猜同一面)')
+  if (!cacheText) return no('候选缓存取不到(文件不存在或读失败)')
+  let j
+  try {
+    j = JSON.parse(cacheText)
+  } catch {
+    return no('缓存不是合法 JSON')
+  }
+  const cached = j?.source?.planDigest
+  if (!cached) return no('缓存没有自述票面指纹(旧档或写读不同源)')
+  if (cached !== digestNow) return no(`票面指纹不一致(缓存 ${cached} ≠ 当次 ${digestNow})`)
+  const list = Array.isArray(j?.candidates) ? j.candidates : []
+  if (list.length === 0) return no('缓存候选面为空')
+  const rows = []
+  for (const c of list) {
+    const text = String(c?.title ?? '').trim()
+    const line = Number(c?.line)
+    if (!text) return no('某条候选没有题面,还原不出派单行')
+    if (!Number.isInteger(line) || line <= 0) return no(`某条候选缺可行号(${String(c?.id ?? '?')})`)
+    if (String(c?.id ?? '') !== ticketKeyOf(text)) {
+      return no(`票键不同源:候选自述 ${String(c?.id ?? '')} ≠ 由题面算出的 ${ticketKeyOf(text)}`)
+    }
+    rows.push({ line, text })
+  }
+  return { rows, why: `指纹逐字相等,还原 ${rows.length} 行` }
+}
+
+/**
  * 自治决策排序(第 2 期接线):候选评估文件由 AI 会话写(见 AUTONOMY_CANDIDATES),
  * 本器只按模型排期,不替 AI 编因子 —— "没评估"就是没评估,不补默认值。
  * 有文件 ⇒ 只放行模型判为可排期的票;压后/未收录的票本轮不派(逐条点名原因)。
@@ -2246,7 +2291,28 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       process.exitCode = 2
       return
     }
-    const allRows = pickTickets()
+    let allRows
+    let faceNote = ''
+    try {
+      allRows = pickTickets()
+    } catch (e) {
+      // 可证复用只在指纹逐字相等且票键可还原时成立;不成立 ⇒ 原样上抛,保持"未判定不派"。
+      let cacheText = null
+      try {
+        cacheText = readFileSync(AUTONOMY_CANDIDATES, 'utf8')
+      } catch {
+        cacheText = null
+      }
+      const reuse = poolFaceFromCache({ cacheText, digestNow: planFaceDigestFromHead(ROOT) })
+      if (!reuse.rows || reuse.rows.length === 0) {
+        // 拒绝复用必须说清是哪一条安全条件不成立(§0.10:失效方向是多要一次说明,不是沉默上抛)
+        console.error(`⏭ 票面缓存不可复用:${reuse.why} ⇒ 本轮维持"未判定不派"`)
+        throw e
+      }
+      allRows = reuse.rows
+      faceNote = ` / 票面来源=缓存复用(实时面取不到:${String(e.message ?? e).slice(0, 64)};${reuse.why},候选面⊆派单面 ⇒ 只会少派)`
+      console.log(`♻ ${faceNote.trim()}`)
+    }
     let rows = allRows
     let decisionReadout = '台账序(无候选评估文件)'
     if (!noDecide) {
@@ -2400,6 +2466,7 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     const willNotDispatch = rows.length === 0 || dispatched >= gates.dailyDispatchBudget
     const summary =
       `派单面现读 ${allRows.length} 行 / 判期 ${decisionReadout} / 本轮候选 ${rows.length} 行(空转扣住 ${npHeld.length} 行)/ 今日已派 ${dispatched}/${gates.dailyDispatchBudget} 轮` +
+      faceNote +
       (willNotDispatch
         ? ` / ${poolWinnabilityNote(rows.filter((t) => matchWhitelist(t.text, gates.ticketWhitelist)))}`
         : '')
