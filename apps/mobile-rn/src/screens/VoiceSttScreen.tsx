@@ -121,7 +121,7 @@ export default function VoiceSttScreen() {
       )
       setResult(text)
     } catch (e) {
-      setError(t('voiceStt.transcribeFailed'))
+      setError(t('eduAi.stt.error'))
       console.warn(
         `[rn-voice] VoiceSttScreen transcribe failed: ` +
           `${e instanceof Error ? e.message : 'unknown error'}`,

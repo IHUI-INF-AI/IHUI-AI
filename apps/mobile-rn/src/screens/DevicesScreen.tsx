@@ -151,27 +151,32 @@ export default function DevicesScreen() {
   }
 
   const onRevoke = (device: DeviceRow) => {
-    appAlert(t('devices.revokeTitle'), t('devices.revokeConfirm', { name: device.name }), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('devices.revoke'),
-        style: 'destructive',
-        onPress: () => {
-          setRevoking(device.id)
-          void (async () => {
-            try {
-              const res = await revokeDevice(device.id)
-              if (!res.success) appAlert(t('common.error'), res.error || t('devices.revokeFailed'))
-              else void load()
-            } catch {
-              appAlert(t('common.error'), t('devices.revokeFailed'))
-            } finally {
-              setRevoking(null)
-            }
-          })()
+    appAlert(
+      t('settings.devices.revokeConfirmTitle'),
+      t('devices.revokeConfirm', { name: device.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('devices.revoke'),
+          style: 'destructive',
+          onPress: () => {
+            setRevoking(device.id)
+            void (async () => {
+              try {
+                const res = await revokeDevice(device.id)
+                if (!res.success)
+                  appAlert(t('common.error'), res.error || t('devices.revokeFailed'))
+                else void load()
+              } catch {
+                appAlert(t('common.error'), t('devices.revokeFailed'))
+              } finally {
+                setRevoking(null)
+              }
+            })()
+          },
         },
-      },
-    ])
+      ],
+    )
   }
 
   const toggleDelegate = async (deviceId: string) => {
@@ -408,9 +413,9 @@ export default function DevicesScreen() {
                               </View>
                             </View>
                             <Text style={styles.meta}>
-                              {t('devices.taskCreatedAt')}: {fmt(task.createdAt, locale)}
+                              {t('settings.devices.taskColCreated')}: {fmt(task.createdAt, locale)}
                               {task.finishedAt
-                                ? ` · ${t('devices.taskFinishedAt')}: ${fmt(task.finishedAt, locale)}`
+                                ? ` · ${t('settings.devices.taskColFinished')}: ${fmt(task.finishedAt, locale)}`
                                 : ''}
                             </Text>
                             {task.error ? <Text style={styles.error}>{task.error}</Text> : null}

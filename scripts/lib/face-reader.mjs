@@ -62,6 +62,19 @@ const GIT = resolveGitBin() || 'git'
 // 临时可经环境变量抬高(不改默认值;仅 IHUI-AI 收敛遇多会话争锁时由调用方设高,跑完即还原)
 const GIT_TIMEOUT = Number(process.env.IHUI_GIT_TIMEOUT_MS) || 60000
 const BATCH_TIMEOUT = Number(process.env.IHUI_BATCH_TIMEOUT_MS) || 120000
+
+/**
+ * AGENTS §5b:派生 git 子进程必须 `windowsHide`(Windows 不弹控制台窗口)+ 有界 `timeout`
+ * (不无限挂起)。本函数是**唯一出口**:镜像测试按接口钉死,实现从 `execFileSync` 换成
+ * `gitRaw` 也不允许字段失守。非法/缺失 timeout 一律回落默认值,绝不把护栏关成 0(无界)。
+ */
+export function gitProcessGuards({ timeout } = {}) {
+  const n = Number(timeout)
+  return Object.freeze({
+    windowsHide: true,
+    timeout: Number.isFinite(n) && n > 0 ? n : GIT_TIMEOUT,
+  })
+}
 /** 64MB:真仓单文件最大已实测 >1MB,默认 1MB 会把大 blob 截成"取不到" */
 const GIT_MAX_BUFFER = 64 << 20
 /**
@@ -479,8 +492,7 @@ function gitRawOnce(args, root, opts = {}) {
       {
         cwd: root,
         encoding: opts.binary ? 'buffer' : 'utf8',
-        windowsHide: true,
-        timeout: opts.timeout ?? GIT_TIMEOUT,
+        ...gitProcessGuards({ timeout: opts.timeout }),
         maxBuffer: opts.maxBuffer ?? GIT_MAX_BUFFER,
         stdio,
         ...(opts.input === undefined ? {} : { input: opts.input }),
