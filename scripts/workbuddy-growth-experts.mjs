@@ -58,6 +58,7 @@ import {
   sleep,
 } from './lib/workbuddy-client-drive.mjs'
 import { buildExpertIndex, isLocalNameOf } from './lib/workbuddy-expert-index.mjs'
+import { isDirectRun as isDirectRunGuard } from './lib/direct-run.mjs'
 
 /** 成长任务列表端点(WEB 域 = 18 项成长任务,含全部专家体验项) */
 const TASKS_URL = 'https://www.workbuddy.cn/v2/activity/growth/tasks'
@@ -766,7 +767,8 @@ async function main() {
 
 /**
  * 直接跑 ⇒ 执行;被 import(测试/复用)⇒ 不执行。
- * 判据 = 本文件是不是入口(`process.argv[1]` 指向本文件)。
+ * 判据 = 本文件是不是入口(`process.argv[1]` 指向本文件),实现见
+ * `lib/direct-run.mjs`(单一真相源,§0.6;此处不得另抄一份)。
  * 被 import 时若照跑,测试进程会被 `process.exit` 直接掐掉 ⇒ 必须有这道守卫。
  *
  * 退出码用 `process.exitCode` 而非 `process.exit()`:
@@ -775,16 +777,7 @@ async function main() {
  * 退出码被污染成 -1073740791 ⇒ CI 会把"正常退出"当成崩溃。
  * 故:设 exitCode 后正常返回,让事件循环自然收尾。
  */
-const isDirectRun = (() => {
-  try {
-    return (
-      path.resolve(process.argv[1] ?? '') ===
-      path.resolve(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
-    )
-  } catch {
-    return false
-  }
-})()
+const isDirectRun = isDirectRunGuard(import.meta.url, process.argv[1])
 
 if (isDirectRun) {
   process.exitCode = await main()
