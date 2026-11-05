@@ -91,6 +91,8 @@ import {
   decideNonProgress,
   breakdownNonProgress,
   lastNonProgressHoldAt,
+  faceRoundStreak,
+  parkedRoundAlreadyAnnounced,
 } from './lib/autonomy-nonprogress.mjs'
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
@@ -226,7 +228,16 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   if (g.parkAfterAttempts === undefined) g.parkAfterAttempts = 8
   if (g.parkHardLimit === undefined) g.parkHardLimit = 24
   if (g.parkCooldownHours === undefined) g.parkCooldownHours = 24
-  for (const k of ['rotateAfterAttempts', 'parkAfterAttempts', 'parkHardLimit']) {
+  // 轮级自我面终局档的门限(RP-66,2026-11-06 立)。缺省 3 是量出来的,不是拍的:
+  // 现读 11 条 dispatched 的轮间隔 0.5/0.9/4.7/5.8/8.8/10.7/12.5/42.9/48.9/322.1 分钟,
+  // 中位 10.7 ⇒ 3 轮 ≈ 半小时无人喊地撞同一道面闸,已经足够判"这不是抖一下"。
+  if (g.parkedRoundStreak === undefined) g.parkedRoundStreak = 3
+  for (const k of [
+    'rotateAfterAttempts',
+    'parkAfterAttempts',
+    'parkHardLimit',
+    'parkedRoundStreak',
+  ]) {
     if (!Number.isInteger(g[k]) || g[k] <= 0)
       throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
   }
@@ -595,6 +606,73 @@ function readSelfFace() {
     diskText = null
   }
   return judgeSelfFace({ invariantsText, headText, diskText, selfRel: SELF_REL })
+}
+
+/**
+ * 轮级终局档的判定(RP-66,2026-11-06 立)。纯函数、零 IO:喂台账行 + 门限,出该不该落、
+ * 落什么、按哪枚 since 去重、邮件正文长什么样。
+ *
+ * 为什么必须抽出来:发信与落账那两行住在派发循环深处(要真 git + 真凭据 + 真子会话才到得了),
+ * 而这一串的判据是"尾部连续几轮撞同一道面闸"—— 那是纯行序算术,留在循环里就只能靠端到端摸,
+ * 摸不到就等于没锁(§0.9)。
+ */
+export function decideParkedRound({
+  rows,
+  streakN,
+  faceState,
+  faceAction,
+  faceWhy,
+  terminalActions,
+} = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  const streak = faceRoundStreak(list, { terminalActions })
+  // 只认 number 形态的正整数:loadGates 那把尺对 JSON 里的 "3" 当场 GateShapeError,这里必须同口径,
+  // 否则"字符串门限"在两条路上一个响一个不响(§0.6 同一判据两处不同形 = 其中一处是假的)。
+  const n = streakN
+  if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0)
+    return {
+      emit: false,
+      reason: `parkedRoundStreak 不是正整数(现值 ${String(streakN)})`,
+      streak,
+    }
+  const reached = streak.count >= n
+  const already = reached && parkedRoundAlreadyAnnounced(list, streak.sinceTs)
+  if (!reached || already)
+    return {
+      emit: false,
+      reason: !reached
+        ? `连续 ${streak.count} 轮 < 门限 ${n}`
+        : `这一串已在 ${String(streak.sinceTs)} 喊过`,
+      streak,
+    }
+  return {
+    emit: true,
+    reason: '',
+    streak,
+    alertId: `auto-evolve:runner-face-parked-round:${String(streak.sinceTs)}`,
+    row: {
+      mode: 'dispatch',
+      action: 'runner-face-parked-round',
+      // 刻意不带 ticketKey:这是"这一串轮"的结论,不属于任何一枚票。带票头就是把轮级账塞进票级阶梯。
+      faceState,
+      faceAction,
+      streakRounds: streak.count,
+      streakSince: streak.sinceTs,
+      streakLast: streak.lastTs,
+      why: `连续 ${streak.count} 轮终止在自我面闸(≥${n})⇒ 轮级终局,已喊 critical 一次`,
+    },
+    mailTitle: `[auto-evolve] 自开发环连续 ${streak.count} 轮撞自我面闸停摆`,
+    mailBody: [
+      `形态:${String(faceAction)}(自我面=${String(faceState)}),连续 ${streak.count} 轮只在派发前撞闸后 return。`,
+      `起止:${String(streak.sinceTs)} → ${String(streak.lastTs)}(单位是轮,不是墙钟:现读轮间隔双峰,中位约 10.7 分钟)。`,
+      `成因逐字:${String(faceWhy)}`,
+      '',
+      '收信人能做的两件事(二选一,都不是"再等一轮"):',
+      '  ① 让占着盘上副本的那一席把它的改动落账(判据:HEAD blob 与 disk 逐字节相等),环下一轮自动续派;',
+      '  ② 认定这是常态噪声 ⇒ 调 scripts/data/auto-evolve-gates.json 的 parkedRoundStreak(只放宽"喊人",不放宽"停派")。',
+      '读数面:`node scripts/check-autonomy-leg-health.mjs` 的 A14 维;台账 action=runner-face-parked-round。',
+    ].join('\n'),
+  }
 }
 
 export function parseSessionUsage(stdout) {
@@ -1031,7 +1109,9 @@ function markEscape(now = Date.now()) {
  * 逃生邮件:只经 notify-deploy-failure 唯一出口(守门 81);出口不在位/无收件人 ⇒ 打印并
  * 落「未判定」返回 false,绝不冒充已发(§0.3)。
  */
-function sendEscapeMail(gates, alertId, title, bodyText) {
+function sendEscapeMail(gates, alertId, title, bodyText, severity = 'warning') {
+  // severity 只加一个可选形参,缺省 'warning' ⇒ 本枚之前那 9 处调用逐字节不变(不趁修 A 改 B)。
+  // 取值不在这层再校一遍:白名单在唯一出口 normalizeSeverity 里(§0.6),越界它自己降级。
   const to = resolveMailTo()
   if (!to) {
     // 措辞必须与量到的那件事同形:旧文案断言"缺 ALERT_EMAIL_TO",而真值就在 .env 第 260 行,
@@ -1060,7 +1140,7 @@ function sendEscapeMail(gates, alertId, title, bodyText) {
       '--title',
       title,
       '--severity',
-      'warning',
+      severity,
       '--source',
       'auto-evolve',
       '--alert-id',
@@ -2636,16 +2716,39 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
       if (selfFace.state !== 'ok') {
         // informational ⇒ 不进空转阶梯:这是"本器跑的盘被他人旧基线占了"的环境级形态,
         // 记进票头会把每张票都推向 park(而盘常年脏)——与 runner-unavailable 同一分型纪律。
+        const faceAction =
+          selfFace.state === 'stale-disk' ? 'runner-face-stale-disk' : 'runner-face-undetermined'
         record({
           mode: 'dispatch',
-          action:
-            selfFace.state === 'stale-disk' ? 'runner-face-stale-disk' : 'runner-face-undetermined',
+          action: faceAction,
           ticketKey: key,
           ticketLine: ticket.text.slice(0, 200),
           informational: true,
           why: `${selfFace.why}｜停派本轮,不冒充执行`,
         })
         console.error(`⚠ 自我面不是当前这份:${selfFace.why} ⇒ 本轮不派(不拿半成品当执行体)`)
+        // ---- 轮级终局档(RP-66,2026-11-06)----
+        // 上面那行 informational 被票级阶梯**正确地**豁免了,代价是豁免之后没人替它说话:
+        // 环可以连续几十轮只撞这道面闸,阶梯读数恒 0、尺子按信息项放行 ⇒ 一个谁都不喊的稳态停摆。
+        // 计数单位是「轮」不是「小时」:现读轮间隔双峰(中位 10.7 分钟 / 最长 322 分钟),
+        // 墙钟阈值两头都判错。终局只做三件事:落一枚**不带 ticketKey** 的轮级档、按串去重喊一次
+        // critical、不摘任何豁免(摘了会把每张票推向 park = §12e 反向)。
+        const parked = decideParkedRound({
+          rows: readLedger(),
+          streakN: gates.parkedRoundStreak,
+          faceState: selfFace.state,
+          faceAction,
+          faceWhy: selfFace.why,
+        })
+        if (parked.emit) {
+          record(parked.row)
+          console.error(
+            `⛔ 轮级终局:连续 ${parked.streak.count} 轮撞在自我面闸(自 ${String(parked.streak.sinceTs)})⇒ 落 runner-face-parked-round 并喊人`,
+          )
+          sendEscapeMail(gates, parked.alertId, parked.mailTitle, parked.mailBody, 'critical')
+        } else {
+          console.log(`ℹ 轮级终局档未触发:${parked.reason}(计数单位=轮)`)
+        }
         process.exitCode = 2
         return
       }

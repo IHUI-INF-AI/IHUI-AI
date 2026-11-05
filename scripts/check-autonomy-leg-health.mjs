@@ -831,6 +831,10 @@ export const ACTION_CLAIMS = {
   'runner-undetermined': { dim: 'A2', kind: 'non-progress' },
   'runner-face-stale-disk': { dim: 'A14', kind: 'informational' },
   'runner-face-undetermined': { dim: 'A14', kind: 'non-progress' },
+  // RP-66 轮级终局档:它每串只落一枚(按 streakSince 去重),出现即"这一串轮环真的没动手"。
+  // 归 failure 不归 informational —— informational 的那两枚是环境常态,而这枚是它们连成串之后
+  // 的结论;漏登记不会消音,只会让 A15 报"有动作没人认领"(那是对的,认领表就是防静默)。
+  'runner-face-parked-round': { dim: 'A14', kind: 'failure' },
   'runner-preflight-ready': { dim: 'A1', kind: 'informational' },
   'runner-preflight-missing': { dim: 'A1', kind: 'failure' },
   'runner-preflight-template-empty': { dim: 'A1', kind: 'failure' },
