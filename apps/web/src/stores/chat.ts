@@ -1213,7 +1213,18 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       next[idx] = {
         ...target,
         toolCalls: target.toolCalls?.map((tc) =>
-          revokedIds.has(tc.id) ? { ...tc, status: 'cancelled' as const } : tc,
+          revokedIds.has(tc.id)
+            ? {
+                ...tc,
+                status: 'cancelled' as const,
+                // 2026-11-05 断流兜底:流中途崩溃时,已发 partial 帧的工具卡把最后已知的
+                // 入参收敛为正式 args(而非留空 {}),并清掉流式预览态 —— 避免卡在 running 预览,
+                // 同时让 cancelled 卡仍展示"构建到一半的入参"而非空白。
+                args: tc.partialArgs ?? tc.args,
+                partialArgs: undefined,
+                argsStreaming: undefined,
+              }
+            : tc,
         ),
       }
       return { messages: next }

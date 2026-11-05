@@ -733,6 +733,9 @@ export function createSendAnswer(
         // (各一行),上行寻址凭据没人管,于是上一轮的 sessionId 会活到下一轮。
         chatStore.getState().clearRunScopedState()
         chatStore.getState().markAllAgentStreamsDone()
+        // #23 续答路径对称(2026-11-05 补):流收尾时把仍处 running 的工具卡(含
+        // tool-call-args-delta 半构建入参的卡)置为 cancelled,避免续答断流时卡死在 running 预览。
+        chatStore.getState().revokePendingToolCalls(assistantId)
       }
       // P1-6:流已收尾(正常/报错/超时/主动 stop)→ 标记完成,刷新后不再续接。
       // 与 sendMessage 同理,必须放在代际守卫之外:被切会话 abort 的旧流同样已终止。
