@@ -614,8 +614,13 @@ describe('④ 源码级反向锁', () => {
     expect(historySrc).toMatch(/setList\(snapshot\)[\s\S]{0,200}deleteFailed/)
   })
 
-  it('页面内仍只有一处 .sort( —— 续页没顺手引入第二份排序', () => {
-    expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+  it('排序出口只落共享屏一处 —— 页面与续页都没有第二份排序', () => {
+    const sharedSrc = readFileSync(
+      resolve(__dirname, '../../../packages/app/src/features/chat/ConversationHistoryScreen.tsx'),
+      'utf8',
+    )
+    expect(sharedSrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+    expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 
   it('向前翻:入口由服务端 hasMore 驱动,点击走 fetchEarlierPage + 前插去重(不得另起炉灶)', () => {

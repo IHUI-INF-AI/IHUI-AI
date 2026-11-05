@@ -157,12 +157,15 @@ describe('miniapp-taro · next-intl ICU 反模式回归', () => {
       expect(content, `${rel} 不应含 .replace("{{ 反模式`).not.toMatch(/\.replace\s*\(\s*['"]\{\{/)
     })
 
-    it('ai/history.tsx 第 271 行附近已修复为 t(key, { n: count })', async () => {
-      const abs = join(process.cwd(), 'src/pkg-ai/ai/history.tsx')
+    it('会话条数取词已修复为 t(key, { n }) —— A2 后落共享屏单一取词点', async () => {
+      const abs = join(
+        process.cwd(),
+        '../../packages/app/src/features/chat/ConversationHistoryScreen.tsx',
+      )
       const content = await readFile(abs, 'utf-8')
-      // 找修复后调用 — 单行 t('ai.historyPage.msgCount', { n: count })
+      // 单行 t('ai.historyPage.msgCount', { n: ... }),不是拼串、不是 .replace
       expect(content).toMatch(
-        /t\(\s*['"]ai\.historyPage\.msgCount['"]\s*,\s*\{\s*n:\s*count\s*\}\s*\)/,
+        /t\(\s*['"]ai\.historyPage\.msgCount['"]\s*,\s*\{\s*n:\s*[a-zA-Z0-9_.]+\s*\}\s*\)/,
       )
     })
   })
