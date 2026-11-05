@@ -92,13 +92,22 @@ test('E01 违规族:icon 字段 / JSX 渲染位 / 三元图标 / 裸 emoji 行 �
 
 // ─── ② 豁免族(逐条配反向对照) ───
 
-test('E02 豁免族:注释 / i18n / 评分星 / 表格标记 / 键帽 / docs 正文 全部仍豁免', () => {
+test('E02 豁免族:注释 / i18n / 评分星 / 表格标记 / 键帽 仍豁免;docs 整文件豁免已删除', () => {
   assert.equal(gate.isExempt('// 这里曾有 😊', OTHER), true)
   assert.equal(gate.isExempt("tt('live.start', '📺 我要开播')", OTHER), true)
   assert.equal(gate.isExempt("  return '★'.repeat(n)", OTHER), true)
   assert.equal(gate.isExempt("<td>{c.nullable ? '✓' : '—'}</td>", OTHER), true)
   assert.equal(gate.isExempt('⌫', OTHER), true)
-  assert.equal(gate.isExempt("  icon: '📄',", 'apps/web/app/(main)/docs/page.tsx'), true)
+  // 2026-11-05 射程变更:docs/营销页**不再整文件豁免** —— 否则标题/段落/徽章里的 emoji
+  // 回潮而门全绿(本次事故现场)。可见文案位必须判;代码示例由模板串跨度豁免精确兜住(见 E18)。
+  const DOCS = 'apps/web/app/(main)/docs/page.tsx'
+  assert.equal(gate.isExempt("  icon: '📄',", DOCS), false, 'docs 页的 icon 字段必须判违规')
+  assert.equal(gate.judgeLine('<h1 className="t">🌍 多语言支持</h1>', 1, DOCS)?.label, 'render emoji icon')
+  assert.equal(
+    gate.judgeText(DOCS, '<p>支持 🌍 多语言与本地化部署</p>').find((f) => f.label === 'text emoji (visible copy)')
+      ?.line,
+    1,
+  )
   // 反向对照:同一批字符出现在渲染位 ⇒ 必须判违规(证明豁免没有外溢成"含这些字符就放行")。
   // 样本取门体豁免 6 注释点名的"仍判违规"形态(`<Text>★ {rating}</Text>`);
   // 带 `.repeat(` 的整行按现行判据属行级豁免面(本票禁改判据,反向样本不得依赖它)。
@@ -246,6 +255,27 @@ test('E12 asset 判据有牙:三型各自命中,同位反向对照不命中', ()
   assert.equal(gate.judgeAssetLine('a.json', '  "label": "🎉 活动",', 13), null, 'json 文案字段不是图标位')
   assert.equal(gate.judgeAssetLine('a.svg', '<text>😊</text>', 4)?.label, 'svg emoji glyph')
   assert.equal(gate.judgeAssetLine('a.svg', '<!-- 😊 占位说明 -->', 2), null, 'svg 注释行豁免')
+})
+
+test('E18 文本位射程 + 跨度豁免(docs 整文件豁免删除后的双向牙)', () => {
+  const DOCS = 'apps/web/app/(main)/docs/agent/page.tsx'
+  // 阳性:标题 / 段落中段 / 徽章 / 表格 / 拆行裸 emoji 五处可见文案位,一个都不许漏
+  for (const [line, why] of [
+    ['<h1 className="text-2xl">🌍 多语言支持</h1>', '标题'],
+    ['<p className="text-sm">支持 🌍 多语言与本地化部署</p>', '段落'],
+    ['<span className="badge">✅ 已支持</span>', '徽章'],
+    ['<td className="px-3">🟡 处理中</td>', '表格'],
+    ['        ✓', '拆行裸 emoji'],
+  ])
+    assert.ok(gate.judgeText(DOCS, line).length > 0, `${why}位的 emoji 漏判`)
+  // 阴性:跨行模板串里的示例代码(文档展示形态)不判;注释不判;i18n 参数不判
+  const tpl = ['const demo = `', "  icon: '📄',", '  这里演示 📁', '`', 'const after = 1'].join('\n')
+  assert.equal(gate.judgeText(DOCS, tpl).length, 0, '跨行模板串里的示例 emoji 被误报')
+  assert.equal(gate.judgeText(DOCS, '// TODO 支持 🌍').length, 0)
+  assert.equal(gate.judgeText(DOCS, "const s = t('docs.title', { icon: '📁' })").length, 0)
+  // 单源:文本位维度必须带 ratchet 标记(全量面只报数、--staged 才阻断)
+  const hit = gate.judgeText(DOCS, '支持 🌍 多语言').find((f) => f.label === 'text emoji (visible copy)')
+  assert.equal(hit?.ratchet, true)
 })
 
 test('E13 分流互不污染(有牙锁:摘掉任一维,命中集立刻变化)', () => {
