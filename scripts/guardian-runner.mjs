@@ -7221,7 +7221,7 @@ const checks = [
   {
     id: '302',
     label:
-      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。行高/几何之外覆盖 token 93·几何 128·覆盖 237·RN 壳 283·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173,并纳入样式档 kinds/处数与分叉豁免到期)',
+      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
     script: 'check-cross-end-parity-drift.mjs',
     args: ['--gate'],
     mode: 'warn',
