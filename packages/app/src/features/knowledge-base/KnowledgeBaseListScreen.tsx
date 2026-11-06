@@ -303,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       flex: 1,
-      padding: 0,
+      padding: rnSpacing.none,
       fontSize: rnType.body.size,
       color: tk.text.primary,
     },
@@ -349,7 +349,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardSummary: {
       fontSize: rnType.label.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     cardFooter: {
