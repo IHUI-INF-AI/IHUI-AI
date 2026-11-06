@@ -92,8 +92,8 @@ function createStyles(colorScheme: AppThemeMode) {
   const tokens = getTokens(colorScheme)
   return StyleSheet.create({
     container: {
-      paddingHorizontal: 0,
-      marginBottom: 0,
+      paddingHorizontal: rnSpacing.none,
+      marginBottom: rnSpacing.none,
     },
     header: {
       paddingHorizontal: rnSpacing['sm-loose'],
