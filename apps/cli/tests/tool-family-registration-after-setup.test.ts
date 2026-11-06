@@ -34,7 +34,7 @@ import { GITHUB_PR_TOOLS } from '../src/tools/github-pr.js'
 import { FETCH_TOOLS } from '../src/tools/fetch-url.js'
 import { WEB_SEARCH_TOOLS } from '../src/tools/web-search.js'
 import { TEST_TOOLS } from '../src/tools/run-tests.js'
-import { DIAGNOSTIC_TOOLS } from '../src/tools/diagnostics.js'
+import { DIAGNOSTIC_TOOLS, planLogPack } from '../src/tools/diagnostics.js'
 import { DEBUG_TOOLS } from '../src/tools/debug.js'
 import { CODEGRAPH_TOOLS } from '../src/tools/codegraph.js'
 import { SKILL_TOOLS } from '../src/tools/skill-tool.js'
@@ -106,6 +106,30 @@ describe('工具族活过 setupAgentTools(运行时注册表)', () => {
     for (const tool of tools) {
       expect(getTool(tool.name as string), `CLIPBOARD 默认关,${tool.name} 不该被注册`).toBeUndefined()
     }
+  })
+})
+
+describe('日志包按已量到的天数裁', () => {
+  it('天数没量到不收全部，缺修改时间的文件不进包', () => {
+    const now = Date.parse('2026-11-06T05:00:00.000Z')
+    expect(planLogPack({
+      maxAgeDays: 2,
+      now,
+      files: [
+        { name: 'app/today.log', mtimeMs: now - 60_000 },
+        { name: 'app/old.log', mtimeMs: now - 5 * 24 * 60 * 60 * 1000 },
+      ],
+    })).toMatchObject({ disposition: 'pack', include: ['app/today.log'] })
+    expect(planLogPack({
+      maxAgeDays: null,
+      now,
+      files: [{ name: 'app/today.log', mtimeMs: now }],
+    }).reason).toBe('age-unmeasured')
+    expect(planLogPack({
+      maxAgeDays: 2,
+      now,
+      files: [{ name: 'app/today.log', mtimeMs: null }],
+    })).toMatchObject({ disposition: 'unjudged', reason: 'mtime-unmeasured', include: null })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

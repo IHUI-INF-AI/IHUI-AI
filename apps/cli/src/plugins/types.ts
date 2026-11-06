@@ -126,6 +126,8 @@ export interface LoadPluginsOptions {
   pluginsDir: string;
   /** 是否递归扫描子目录(默认 false,只扫顶层) */
   recursive?: boolean;
+  /** 测试注入。缺省用 stat。读失败不是缺失时必须留诊断。 */
+  stat?: (dir: string) => { isDirectory(): boolean };
 }
 
 /**
