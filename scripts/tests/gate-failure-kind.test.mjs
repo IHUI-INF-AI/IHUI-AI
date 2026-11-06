@@ -35,6 +35,7 @@ import { resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
+import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
 
 const REAL_CRASH_STDERR =
   "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' imported from G:\\IHUI-AI-wt-crash\\scripts\\scan-i18n-zh-residue.mjs\n" +
@@ -408,4 +409,37 @@ test('F9 §0.3 未判定独成一档:exit 2 + 门自称未判定 ⇒ undetermine
   )
   assert.equal(gateFail.detectUndetermined({ status: 0, signal: null, stderr: '未判定' }), null)
 })
+// F10 仓内 import↔export 断链单独分型(2026-11-05 门 299 实测):SyntaxError "does not provide an
+// export named" 此前落 crash 的默认支 ⇒ 出路被写成「先取 build 锁再跑全量 pnpm install」,而断链
+// 与依赖无关(实测按该出路跑完 install 崩溃照旧)。归类仍是 crash(后果一项不减,§12e 不借修文案
+// 削判据),只是出路改为点名真实首行 + 两侧版本对账。反向牙:非断链的 SyntaxError 与缺依赖型措辞不动。
+const EXPORT_BREAK_STDERR =
+  'file:///G:/IHUI-AI/scripts/check-miniapp-shell-form.mjs:50\n' +
+  '  retirementShortfall,\n' +
+  "SyntaxError: The requested module './lib/miniapp-shell-form.mjs' does not provide an export named 'retirementShortfall'\n" +
+  '    at ModuleJob._instantiate (node:internal/modules/esm/module_job:146:21)\n'
+
+test('F10 断链型:仍归 crash(后果不减),出路点名导出名与两侧对账,不得喊 pnpm install', () => {
+  const d = gateFail.decideGateOutcome({ status: 1, signal: null, stderr: EXPORT_BREAK_STDERR })
+  assert.equal(d.kind, 'crash', '断链不得被洗成 pass/red —— crash 档后果照旧(批量非零退出)')
+  assert.match(
+    d.reason,
+    /does not provide an export named 'retirementShortfall'/,
+    'reason 必须带缺失的导出名(只留 SyntaxError 定位不到哪根链断了)',
+  )
+  const step = gateFail.crashNextStep(d.reason)
+  assert.doesNotMatch(step, /先取 build 锁|再跑全量 pnpm install/, '断链出路不得是装依赖动作(§0.8 跑不通的出路,本次实测误归因本体)')
+  assert.match(step, /git show HEAD/, '出路必须给出两侧版本对账动作')
+  const mixed = gateFail.crashAdvisory(1, [d.reason])
+  assert.match(mixed, /断链型 1 道/)
+  assert.doesNotMatch(mixed, /缺依赖型 1 道/, '断链被计进缺依赖型 = 误归因回归')
+  // 反向牙①:非断链的普通 SyntaxError 仍走缺依赖默认档(只拆这一型,不动其它档)
+  assert.match(gateFail.crashAdvisory(1, ['跑不起来:SyntaxError: x']), /缺依赖型 1 道/)
+  assert.match(gateFail.crashNextStep('跑不起来:ERR_MODULE_NOT_FOUND'), /pnpm install/, '真缺依赖的出路不得被这次拆分削掉')
+  // 反向牙②:断链指纹排在 /SyntaxError: / 之前 —— 两条同时命中时取更具体的那条
+  const iBreak = gateFail.CRASH_MARKERS.findIndex((re) => re === gateFail.EXPORT_BREAK_RE)
+  const iSyntax = gateFail.CRASH_MARKERS.findIndex((re) => re.source === 'SyntaxError: ')
+  assert.ok(iBreak >= 0 && iBreak < iSyntax, '断链指纹必须优先于泛化 SyntaxError 指纹')
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
