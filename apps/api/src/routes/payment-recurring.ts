@@ -72,26 +72,75 @@ const scanAndChargeBodySchema = z.object({
 // 辅助函数
 // =============================================================================
 
-function calculateNextChargeTime(billingPeriod: string | null | undefined): Date {
-  const now = new Date()
+/**
+ * 按自然月/年推进日期并夹取到目标月最后一天。
+ * JS `setMonth` 对 1/31 会溢出成 3/3;续费锚点必须落在目标月内(1/31→2/28,闰年 2/29)。
+ * 只做日历推进,不读取当前时间。
+ */
+export function addMonthsClamped(base: Date, months: number): Date {
+  const d = new Date(base.getTime())
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
+  return d
+}
+
+export function calculateNextChargeTime(
+  billingPeriod: string | null | undefined,
+  base: Date = new Date(),
+): Date {
   switch (billingPeriod) {
-    case 'year': {
-      const next = new Date(now)
-      next.setFullYear(next.getFullYear() + 1)
-      return next
-    }
+    case 'year':
+      return addMonthsClamped(base, 12)
     case 'week': {
-      const next = new Date(now)
+      const next = new Date(base)
       next.setDate(next.getDate() + 7)
       return next
     }
     case 'month':
-    default: {
-      const next = new Date(now)
-      next.setMonth(next.getMonth() + 1)
-      return next
-    }
+    default:
+      return addMonthsClamped(base, 1)
   }
+}
+
+/**
+ * 扣款回调幂等键判定。
+ *
+ * 微信扣款报文里可能出现的支付标识:
+ * - out_trade_no:商户侧扣款单号,每笔扣款唯一(首选);
+ * - transaction_id:微信侧支付单号,每笔扣款唯一、重投不变(次选);
+ * - out_contract_code:签约时商户自定义的协议编码,**同一契约所有扣款共用**,
+ *   绝不能作为扣款幂等键(会把下一期正常扣款判成重复而漏发)。
+ *
+ * 判定表:
+ * | 报文组合                       | 幂等键        | 结论 |
+ * | 仅 trade_no                    | out_trade_no  | 可判定 |
+ * | 仅 contract_code + tx_id       | transaction_id| 可判定 |
+ * | trade_no + contract_code       | out_trade_no  | 可判定 |
+ * | trade_no + tx_id               | out_trade_no  | 可判定 |
+ * | 仅 contract_code(无 tx_id)     | 无            | 不可判定,需真实报文验证 |
+ * | 三者皆无                       | 无            | 不可判定,需真实报文验证 |
+ *
+ * 不可判定的组合只能依赖 15 分钟 nonce 去重,超出窗口的重投仍有双写风险,
+ * 因此调用方必须记录告警,不能宣称已完全幂等。
+ */
+export type RecurringChargeIdempotencyKey =
+  | { kind: 'outTradeNo'; value: string }
+  | { kind: 'transactionId'; value: string }
+  | { kind: 'undetermined' }
+
+export function resolveChargeIdempotencyKey(params: {
+  outTradeNo?: string | null
+  transactionId?: string | null
+  outContractCode?: string | null
+}): RecurringChargeIdempotencyKey {
+  const tradeNo = params.outTradeNo?.trim()
+  if (tradeNo) return { kind: 'outTradeNo', value: tradeNo }
+  const transactionId = params.transactionId?.trim()
+  if (transactionId) return { kind: 'transactionId', value: transactionId }
+  return { kind: 'undetermined' }
 }
 
 async function setUserVipAutoRenew(userId: string, autoRenew: 0 | 1): Promise<void> {
@@ -496,8 +545,10 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         }
 
         const contractId = (decrypted.contract_id as string) ?? (body.contract_id as string) ?? ''
-        const outTradeNo =
-          (decrypted.out_contract_code as string) ?? (decrypted.out_trade_no as string) ?? ''
+        // 契约编码(签约时商户生成,同一契约所有扣款共用)与扣款单号必须分开;
+        // 旧实现把 out_contract_code 混进 outTradeNo,导致匹配用错键、幂等判定失真。
+        const outContractCode = (decrypted.out_contract_code as string) ?? ''
+        const outTradeNo = (decrypted.out_trade_no as string) ?? ''
         const transactionId = (decrypted.transaction_id as string) ?? ''
 
         const isSignEvent = eventType === 'PAPAY.SIGN' || eventType === 'contract.signed'
@@ -549,8 +600,9 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         })
 
         if (isSignEvent) {
-          const matchCondition = outTradeNo
-            ? eq(wechatPayContracts.outContractCode, outTradeNo)
+          // 回退链:契约编码 → 扣款单号 → 微信契约号
+          const matchCondition = outContractCode
+            ? eq(wechatPayContracts.outContractCode, outContractCode)
             : outTradeNo
               ? eq(wechatPayContracts.outTradeNo, outTradeNo)
               : contractId
@@ -602,11 +654,14 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
             })
           }
         } else if (isTerminateEvent) {
+          // 回退链:微信契约号 → 契约编码 → 扣款单号
           const matchCondition = contractId
             ? eq(wechatPayContracts.contractId, contractId)
-            : outTradeNo
-              ? eq(wechatPayContracts.outContractCode, outTradeNo)
-              : null
+            : outContractCode
+              ? eq(wechatPayContracts.outContractCode, outContractCode)
+              : outTradeNo
+                ? eq(wechatPayContracts.outTradeNo, outTradeNo)
+                : null
 
           if (matchCondition) {
             // P1 并发安全修复(2026-08-02):SELECT-then-UPDATE 有竞态,且原代码
@@ -638,11 +693,28 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
             })
           }
         } else if (isChargeSuccessEvent) {
+          // 回退链:微信契约号 → 扣款单号 → 契约编码
+          // (契约编码只用于「定位契约」,不能用于「判定同一笔扣款」)
           const matchCondition = contractId
             ? eq(wechatPayContracts.contractId, contractId)
             : outTradeNo
               ? eq(wechatPayContracts.outTradeNo, outTradeNo)
-              : null
+              : outContractCode
+                ? eq(wechatPayContracts.outContractCode, outContractCode)
+                : null
+
+          const chargeKey = resolveChargeIdempotencyKey({
+            outTradeNo,
+            transactionId,
+            outContractCode,
+          })
+          if (chargeKey.kind === 'undetermined') {
+            request.log.warn(
+              { eventType, contractId, outContractCode },
+              'recurring charge callback has no idempotency key (nonce-only dedup, needs real payload verification)',
+            )
+          }
+          const chargeKeyValue = chargeKey.kind === 'undetermined' ? '' : chargeKey.value
 
           if (matchCondition) {
             // P0 资金安全 + 幂等修复(2026-08-02):原实现无事务、无幂等键,
@@ -663,11 +735,13 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
 
               if (!existing) return
 
-              // 幂等检查:同一 outTradeNo 已成功处理过 → 跳过(防重复创建订单)
+              // 幂等检查:同一笔扣款的幂等键(out_trade_no 或 transaction_id)已成功处理过
+              // → 跳过(防重复创建订单)。out_contract_code 不参与,否则会漏发下一期。
+              // 幂等键不可判定时(仅契约编码且无 transaction_id)只能依赖 nonce,已在上方告警。
               if (
+                chargeKeyValue &&
                 existing.lastChargeStatus === 'success' &&
-                outTradeNo &&
-                existing.outTradeNo === outTradeNo
+                existing.outTradeNo === chargeKeyValue
               ) {
                 return
               }
@@ -703,19 +777,29 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                 .set({
                   lastChargeTime: now,
                   lastChargeStatus: 'success',
-                  nextChargeTime: calculateNextChargeTime(billingPeriod),
-                  outTradeNo: outTradeNo || existing.outTradeNo,
+                  // 锚点用契约已存的 nextChargeTime,首次(为空)才用 now;
+                  // 延迟/重投回调不改变续费日。
+                  nextChargeTime: calculateNextChargeTime(
+                    billingPeriod,
+                    existing.nextChargeTime ?? now,
+                  ),
+                  // 存「本次扣款幂等键」:优先 out_trade_no,缺失时存 transaction_id,
+                  // 供下一次重投比对;绝不存会跨期复用的 out_contract_code。
+                  outTradeNo: chargeKeyValue || existing.outTradeNo,
                   updatedAt: now,
                 })
                 .where(eq(wechatPayContracts.id, existing.id))
             })
           }
         } else if (isChargeFailEvent) {
+          // 回退链:微信契约号 → 扣款单号 → 契约编码
           const matchCondition = contractId
             ? eq(wechatPayContracts.contractId, contractId)
             : outTradeNo
               ? eq(wechatPayContracts.outTradeNo, outTradeNo)
-              : null
+              : outContractCode
+                ? eq(wechatPayContracts.outContractCode, outContractCode)
+                : null
 
           if (matchCondition) {
             // P2 数据完整性修复(2026-08-02):加事务保证 lastChargeTime/lastChargeStatus
