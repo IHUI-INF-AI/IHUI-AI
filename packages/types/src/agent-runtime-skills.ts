@@ -14,6 +14,18 @@ export type CapabilityMode = 'read-only' | 'read-write' | 'execute' | 'all'
 
 export type IsolationMode = 'none' | 'worktree' | 'subprocess'
 
+/**
+ * 技能列表态词表(封闭联合;运行时唯一词表,CLI 与其它消费端直接引用,
+ * 不得在别处另抄一份 —— 两处算同一件事必漂移)。
+ */
+export const SKILL_LISTING_STATES = [
+  'platform_unlisted',
+  'user_unlisted',
+  'retired',
+  'removed',
+] as const
+export type SkillListingState = (typeof SKILL_LISTING_STATES)[number]
+
 export interface SkillFrontmatter {
   name?: string
   description?: string
@@ -57,6 +69,17 @@ export interface SkillFrontmatter {
    * 消费方见 apps/cli/src/tools/skill-tool.ts:选档结果 {tier, reason} 必须上报,不得静默。
    */
   tiers?: SkillCapabilityTiers
+  /**
+   * 用户调用开关(frontmatter `user-invocable` / `userInvocable`)。
+   * 三值:undefined=键缺席(默认放行) / false=用户面禁用 / null=值认不出(同样不放行,
+   * 但语义是"判不了"而非"关掉了")。消费方见 apps/cli/src/skills/index.ts 的
+   * decideSkillInvocation 与 commands/repl.ts 的 /skill。
+   */
+  userInvocable?: boolean | null
+  /** 模型调用开关;三值语义同 userInvocable,消费方见技能 prompt 段过滤 */
+  modelInvocable?: boolean | null
+  /** 列表态:undefined=在架 / 四态=下架且各记责任 / null=值认不出(不放行,也不冒充在架) */
+  listing?: SkillListingState | null
 }
 
 export interface SkillPrerequisites {
