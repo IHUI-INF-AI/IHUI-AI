@@ -3430,7 +3430,7 @@
     "phonePlaceholder": "電話番号を入力",
     "privacyPolicy": "プライバシーポリシー",
     "registerNow": "今すぐ登録",
-    "resendCode": "再送",
+    "resendCode": "{seconds}sに",
     "termsOfService": "利用規約",
     "loginFailed": "ログインに失敗しました。再試行"
   },
