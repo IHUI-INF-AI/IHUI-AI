@@ -69,7 +69,7 @@ function SearchContent() {
         q,
         category !== 'all' ? { categoryId: category, pageSize: 50 } : { pageSize: 50 },
       )
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tKb('loadFailed'))
       return res.data
     },
     enabled: allow && q.trim().length > 0,

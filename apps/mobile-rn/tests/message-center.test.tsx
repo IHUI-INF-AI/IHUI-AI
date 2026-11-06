@@ -123,13 +123,27 @@ vi.mock('@ihui/rn-app', async () => {
   }
 })
 
-vi.mock('react-native', async () => {
+// 端内屏已改成深路径取用 '@ihui/rn-app/features/message-center/MessageCenterScreen',
+// 只 mock 包入口管不到深路径 ⇒ 真身共享屏被渲染,骨架里的 data-testid="conversations" /
+// data-pin-id 全部消失(断言读数恒 0)。把同一颗骨架挂到深路径上;入口替身仍留给
+// useRefreshOnFocus 取 useScreenReappear。
+vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', async () => {
+  const { MessageCenterScreen } = await import('@ihui/rn-app')
+  return { MessageCenterScreen }
+})
+
+// 不许整厂复制 react-native 替身:先用 importOriginal 取回共享替身全部出口(含 PixelRatio),
+// 只覆盖本套件要的渲染件。MoreLink(经共享 BackChevron 拉入)渲染期读 PixelRatio.getFontScale,
+// 整厂替换时缺该出口 ⇒ 整文件 "No PixelRatio export is defined on the react-native mock"。
+vi.mock('react-native', async (importOriginal) => {
+  const rn = (await importOriginal()) as Record<string, unknown>
   const { createElement: h } = await import('react')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return h(tag, null, props.children)
     }
   return {
+    ...rn,
     View: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),

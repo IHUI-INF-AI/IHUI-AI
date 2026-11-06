@@ -119,11 +119,13 @@ export const Platform = { OS: 'web' as const }
 // 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
 // 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引
 // MoreLink)。按真实 RN API 面补全,而不是在各套件里各自 vi.mock。
+/** jsdom 没有设备像素比 ⇒ 按 1 取值;两个换算方法仍按像素比公式走,不写成恒等函数。 */
+const devicePixelRatio = 1
 export const PixelRatio = {
-  get: () => 1,
-  getFontScale: () => 1,
-  getPixelSizeForLayoutSize: (size: number) => size,
-  roundToNearestPixel: (size: number) => size,
+  get: () => devicePixelRatio,
+  getFontScale: () => devicePixelRatio,
+  getPixelSizeForLayoutSize: (size: number) => Math.round(size * devicePixelRatio),
+  roundToNearestPixel: (size: number) => Math.round(size * devicePixelRatio) / devicePixelRatio,
 }
 /**
  * 设备指纹采集器读 `I18nManager.getConstants().localeIdentifier` 作为语言段(它比 `Intl` 更接近

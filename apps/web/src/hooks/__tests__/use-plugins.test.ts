@@ -7,12 +7,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 // ─────────────────────────────────────────────────────────────
-// Mock fetchApi:通过 fetchApiMock 控制返回值
+// Mock fetchApi:在 @ihui/api-client 的 fetchApi 边界打桩,端点函数本体保持真实
+// (use-plugins.ts 已改从 @ihui/api-client 直接导入端点函数,旧 mock '@/lib/api' 拦不到)
 // ─────────────────────────────────────────────────────────────
 const fetchApiMock = vi.fn()
-vi.mock('@/lib/api', () => ({
-  fetchApi: (...args: unknown[]) => fetchApiMock(...args),
-}))
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
+// 端点实现(packages/api-client/src/endpoints/*.ts)是从 '../client.js' 导入 fetchApi 的,
+// 与包根不是同一模块 id —— 只 mock 包根拦不到,必须在这一层一并打桩
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 
 import { usePlugins } from '../use-plugins'
 
@@ -33,7 +41,8 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(fetchApiMock).toHaveBeenCalledTimes(1)
-    expect(fetchApiMock).toHaveBeenCalledWith('/api/plugins/installed')
+    // 本层断言的是端点函数传入的原始路径,/api 前缀由 client.ts 的 normalizeUrl 在更内层拼接
+    expect(fetchApiMock).toHaveBeenCalledWith('/plugins/installed')
     expect(result.current.isAuthenticated).toBe(false)
     expect(result.current.states).toEqual({})
   })
@@ -118,7 +127,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
     })
     expect(ok).toBe(true)
     expect(fetchApiMock).toHaveBeenLastCalledWith(
-      '/api/plugins/playwright-mcp/install',
+      '/plugins/playwright-mcp/install',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ pinned: false }),
@@ -191,7 +200,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
       ok = await result.current.uninstall('x')
     })
     expect(ok).toBe(true)
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/install', {
+    expect(fetchApiMock).toHaveBeenLastCalledWith('/plugins/x/install', {
       method: 'DELETE',
     })
     expect(result.current.isInstalled('x')).toBe(false)
@@ -255,7 +264,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
       ok = await result.current.togglePinned('x')
     })
     expect(ok).toBe(true)
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/preferences', {
+    expect(fetchApiMock).toHaveBeenLastCalledWith('/plugins/x/preferences', {
       method: 'PATCH',
       body: JSON.stringify({ pinned: true }),
     })
@@ -301,7 +310,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
       await result.current.toggleInstall('x')
     })
     expect(fetchApiMock).toHaveBeenLastCalledWith(
-      '/api/plugins/x/install',
+      '/plugins/x/install',
       expect.objectContaining({ method: 'POST' }),
     )
     expect(result.current.isInstalled('x')).toBe(true)
@@ -325,7 +334,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
     await act(async () => {
       await result.current.toggleInstall('x')
     })
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/install', {
+    expect(fetchApiMock).toHaveBeenLastCalledWith('/plugins/x/install', {
       method: 'DELETE',
     })
     expect(result.current.isInstalled('x')).toBe(false)

@@ -27,8 +27,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const apiOrThrowMock = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({ apiOrThrow: apiOrThrowMock }))
+const fetchApiMock = vi.hoisted(() => vi.fn())
+// 两个面板已改为从 @ihui/api-client 直接导入端点函数,旧 mock '@/lib/api' 拦不到;
+// 现在只在 fetchApi 边界打桩,端点函数(URL/method/信封解包)保持真实执行。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
+// 端点实现(packages/api-client/src/endpoints/*.ts)从 '../client.js' 导入 fetchApi,
+// 与包根不是同一模块 id —— 只 mock 包根拦不到,必须在这一层一并打桩
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 
 import { AttendanceRulePanel } from '../app/(main)/edu/edu-management/attendance/AttendanceRulePanel'
 import { CheckInQrPanel } from '../app/(main)/edu/edu-management/attendance/CheckInQrPanel'
@@ -60,18 +71,24 @@ function renderPanel(node: React.ReactElement) {
   )
 }
 
-/** 按 URL + method 分流的假 fetch 层(只喂 apiOrThrow,不发真请求) */
+/**
+ * 按 URL + method 分流的假 fetch 层(只喂真实端点函数的 fetchApi 边界,不发真请求)。
+ *
+ * 出参按 fetchApi 的真实口径回信封:成功 `{success:true,data}`,失败 `{success:false,error}`
+ * —— 非 2xx 时 fetchApi 不抛异常,是由端点函数 `if (!r.success) throw new Error(r.error)` 抛出,
+ * 故这里的 Error 只代表"后端 400 那条 message",信封形态必须与真实层一致。
+ */
 function fakeApi(handler: (url: string, init?: RequestInit) => unknown): void {
-  apiOrThrowMock.mockImplementation(async (url: string, init?: RequestInit) => {
+  fetchApiMock.mockImplementation(async (url: string, init?: RequestInit) => {
     const result = handler(url, init)
-    if (result instanceof Error) throw result
-    return result
+    if (result instanceof Error) return { success: false, error: result.message, status: 400 }
+    return { success: true, data: result }
   })
 }
 
 afterEach(() => {
   cleanup()
-  apiOrThrowMock.mockReset()
+  fetchApiMock.mockReset()
 })
 
 describe('AttendanceRulePanel', () => {
@@ -109,7 +126,7 @@ describe('AttendanceRulePanel', () => {
     const { container } = renderPanel(
       React.createElement(AttendanceRulePanel, { classId: CLASS_ID }),
     )
-    await waitFor(() => expect(apiOrThrowMock).toHaveBeenCalled())
+    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
 
     const late = container.querySelector('#att-rule-lateAfter') as HTMLInputElement
     await waitFor(() => expect(late.value).toBe('08:30'))

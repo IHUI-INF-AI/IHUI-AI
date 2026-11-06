@@ -14,8 +14,7 @@
  * 接线扫描刻意不用正则:逐个切出 style 块再按字面量比对,避免转义写法本身漂移。
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   DIALOG_MAX_HEIGHT_RATIO,
@@ -23,12 +22,19 @@ import {
   dialogContentHeightStyle,
 } from '../src/lib/dialog-geometry'
 
-const SRC_DIR = fileURLToPath(new URL('../src/', import.meta.url))
+// 不拼 `new URL(相对路径, import.meta.url)`:jsdom 环境下 import.meta.url 不是 file: 协议,
+// fileURLToPath 直接抛 "The URL must be of scheme file"(收集期 0 用例)。按本端测试通行写法
+// 以 __dirname 解析(同 tests/conversation-pin-unpin-index.test.tsx 的源码读取)。
+const SRC_DIR = resolve(__dirname, '../src')
 const HOOK_RE = /dialogContentHeightStyle|useDialogHeightStyle/
 
 /** 每个弹层消费者:相对 src/ 的路径 + 容器样式键 + 至少几个消费点 */
 const CONSUMERS = [
-  { rel: 'screens/ChatScreen.tsx', keys: ['styles.listDialogContent', 'styles.materialPopup'], min: 5 },
+  {
+    rel: 'screens/ChatScreen.tsx',
+    keys: ['styles.listDialogContent', 'styles.materialPopup'],
+    min: 5,
+  },
   { rel: 'screens/AiAssistantN8nScreen.tsx', keys: ['pickerStyles.sheet'], min: 1 },
   { rel: 'components/chat/AgentSelector.tsx', keys: ['styles.listDialogContent'], min: 1 },
   { rel: 'components/chat/NotesPanel.tsx', keys: ['styles.listDialogContent'], min: 1 },
@@ -119,7 +125,9 @@ describe('全量弹层接线(防回归)', () => {
         expect(refs).toBeGreaterThanOrEqual(c.min)
         expect(consumers.length).toBeGreaterThanOrEqual(c.min)
         for (const block of consumers)
-          expect(block.includes('dialogHeightStyle') || block.includes('listDialogStyle')).toBe(true)
+          expect(block.includes('dialogHeightStyle') || block.includes('listDialogStyle')).toBe(
+            true,
+          )
         for (const k of c.keys) expect(src).toContain('[' + k + ', dialogHeightStyle]')
       })
     })

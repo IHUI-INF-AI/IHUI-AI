@@ -14,6 +14,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { WSNotification } from '@ihui/types'
 
+// BUG-41① 之后小程序端不再回落 `http://localhost:8802/api`:缺 TARO_APP_API_BASE_URL 时
+// BASE_URL 取空串,桥层按设计跳过建连(该行为由 buildTaroNotificationWsUrl 的独立用例覆盖)。
+// 本套验的是「建连 + 消息消费 + 回传」路径,故按真机部署形态显式给出基址(与 .env.example 同键),
+// 让 BASE_URL 有 host —— 下面的 ws url 断言即以这份配置为准。
+process.env.TARO_APP_API_BASE_URL = 'http://localhost:8802/api'
+
 interface FakeWsClient {
   connect: ReturnType<typeof vi.fn>
   disconnect: ReturnType<typeof vi.fn>
@@ -83,10 +89,21 @@ vi.mock('@/utils/taro-websocket-adapter', () => ({
   },
 }))
 
-// 只替换 createNotificationClient / fetchApi 两个出口,保留真实的 buildNotificationWsUrl
-// (用于对照证明"微信无 URL 构造器"这个坑被绕开)
-vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>
+/**
+ * 2026-11-06 修红(端点迁移同批债):桥的能力上报/结果回传改为从 `@ihui/api-client`
+ * 取 reportAgentControlCapability/Result;端点文件内部是
+ * `import { fetchApi } from '../client.js'`,**不经 barrel**。此前整模块替换 barrel
+ * 只裁掉了端点函数,桥调用得到 undefined ⇒ 上报全被 catch 吞成 warn,断言拿到
+ * 空数组/undefined。
+ *
+ * 小程序 vitest 未给 `@ihui/api-client` 配源码别名(包 exports 指 dist),端点里的
+ * '../client.js' 即 `packages/api-client/dist/client.js` —— 此处按这个真实模块 id
+ * 部分替换,只打桩 fetchApi 出口(保留 normalizeUrl/401 等全部真实语义)。
+ * 断言里的 url 是端点源码传入的**原始路径**('/api/agent-control/...'),/api 前缀
+ * 拼接发生在更内层的 normalizeUrl。
+ */
+vi.mock('../../../../../packages/api-client/dist/client.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
   return {
     ...actual,
     fetchApi: (url: string, options?: { body?: string }) => {
@@ -94,6 +111,15 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
       mocks.fetchCalls.push({ url, body })
       return Promise.resolve({ success: true, data: { registered: true, accepted: true } })
     },
+  }
+})
+
+// 只替换 createNotificationClient 一个出口,保留真实的 buildNotificationWsUrl
+// (用于对照证明"微信无 URL 构造器"这个坑被绕开)
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
     createNotificationClient: (
       _config: unknown,
       handlers?: { onMessage?: (msg: WSNotification) => void },

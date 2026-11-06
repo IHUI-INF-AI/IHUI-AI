@@ -252,13 +252,23 @@ describe('PlazaScreen 需求广场', () => {
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostCreate', {})
   })
 
-  it('点击需求项 navigate 到 PostDetail', async () => {
+  // 2026-11-05 起(PlazaScreen.tsx:282 showDetail)onPressItem 不再直接导航,而是先开共享
+  // 「详情居中弹层」;跳详情页由弹层 detail.onOpenDetail 发出(PlazaScreen.tsx:558-561)。
+  // 判据随之覆盖整条链:单击必开弹层(且弹层拿到的就是被点的条目)→ 弹层「查看详情」带 id 跳
+  // PostDetail。原"navigate('PostDetail',{id:'p1'})"断言逐字保留,并补上中间一跳,强度只增不减。
+  it('点击需求项先开详情弹层,再由弹层「查看详情」navigate 到 PostDetail', async () => {
     render(<PlazaScreen />)
     await waitFor(() => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
     const props = plazaScreenPropsCaptured[0]!
     await (props.onPressItem as (item: unknown) => void)(mockItem)
+    await waitFor(() => {
+      const last = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+      expect((last.detail as { item: unknown }).item).toEqual(mockItem)
+    })
+    const last = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+    await (last.detail as { onOpenDetail: (item: unknown) => void }).onOpenDetail(mockItem)
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostDetail', { id: 'p1' })
   })
 })

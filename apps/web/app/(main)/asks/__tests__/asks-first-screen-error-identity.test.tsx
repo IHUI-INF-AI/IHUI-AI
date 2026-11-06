@@ -158,17 +158,33 @@ describe('③ 源码锁:该族失败分支不得回到丢身份写法', () => {
   const read = (rel: string) => readFileSync(join(root, rel), 'utf8')
   const helpersSource = read('helpers.ts')
   const listSource = read('AsksList.tsx')
+  const pageClientSource = read('PageClient.tsx')
   // 说明性文字也会带执行性字符(本仓 stripJsonc 那一课的镜像形态):helpers 的头注逐字写着
   // 旧写法 `throw new Error(r.error)` 作为病灶记录,而源码锁要拦的是**代码**里的它。
   // 所以反向断言必须在剥注释后的代码面上判 —— 否则锁会把"解释自己为什么存在"判成违规。
   const codeOnly = (src: string) =>
     src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
-  it('helpers.api() 只此一份且走唯一出口;AsksList 错误分支经 toUserFriendlyMessage', () => {
-    expect(helpersSource).toMatch('export { apiOrThrow as api }')
+  it('该族只有一个取数出口(@ihui/api-client 端点);本地 api 壳与 error.message 上屏都不得回潮', () => {
+    // helpers.ts 现只承载 PAGE_SIZE:再长出 fetchApi/apiOrThrow/api 函数即是第二份 api 实现。
+    expect(helpersSource).toMatch('export const PAGE_SIZE = 20')
+    expect(codeOnly(helpersSource)).not.toMatch(/fetchApi\s*\(|apiOrThrow|function\s+api\b/)
+    expect(codeOnly(helpersSource)).not.toMatch(/from\s+['"]@\/lib\/api['"]/)
+    // 页面取数必须走共享端点层(单源出口),且不得在页面里自建第二套 api / 直连 fetchApi。
+    expect(codeOnly(pageClientSource)).toMatch(
+      /import\s*\{[^}]*\b(getAsks|createAsk)\b[^}]*\}\s*from\s*['"]@ihui\/api-client['"]/,
+    )
+    expect(codeOnly(pageClientSource)).not.toMatch(/fetchApi\s*\(|from\s+['"]@\/lib\/api['"]/)
+    // 反向:失败分支不得回到只取 message 的旧写法(注释里的病灶记录不算)。旧锁只钉了 helpers,
+    // 而 helpers 已收成只剩 PAGE_SIZE,真正的取数失败分支在 PageClient —— 必须一并钉住,否则锁是空转。
     expect(codeOnly(helpersSource)).not.toMatch(/throw new Error\(\s*r\.error\s*\)/)
+    expect(codeOnly(pageClientSource)).not.toMatch(/throw new Error\(\s*r\.error\s*\)/)
+    expect(codeOnly(pageClientSource)).toMatch(/throw apiFailureToError\(r\)/)
+    expect(codeOnly(pageClientSource)).toMatch(
+      /import\s*\{[^}]*\bapiFailureToError\b[^}]*\}\s*from\s*['"]@ihui\/shared\/utils['"]/,
+    )
+    // 错误分支的身份判序只此一份出口:toUserFriendlyMessage(直读 error.message 即丢身份)。
     expect(listSource).toMatch('toUserFriendlyMessage(error)')
-    // 错误分支直读 error.message 上屏 = 守门 135 明言"不判的第二半",在这里必须锁死
     expect(codeOnly(listSource)).not.toMatch(/\{\s*error\.message\s*\}/)
   })
 })

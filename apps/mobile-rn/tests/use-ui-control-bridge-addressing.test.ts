@@ -21,13 +21,32 @@ const h = vi.hoisted(() => ({
   warns: [] as unknown[][],
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  fetchApi: (url: string, opts: { body?: string }) => {
-    h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
-    return Promise.resolve({ success: true })
-  },
-  createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
-}))
+/**
+ * 2026-11-06 修红(同 use-ui-control-bridge.test.ts 的根因):端点层迁移后,桥从
+ * `@ihui/api-client` 取 reportAgentControlResult,而端点文件内部
+ * `import { fetchApi } from '../client.js'`,不经 barrel —— 整模块替换 barrel 会让端点函数
+ * 变 undefined,回执一条也发不出。这里按真实模块 id 部分替换 client,仅打桩 fetchApi
+ * 出口(保留真实实现里另外的导出与 normalizeUrl/401 语义);url 取端点源码传入的原始路径。
+ */
+vi.mock('../../../packages/api-client/src/client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    fetchApi: (url: string, opts: { body?: string }) => {
+      h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
+      return Promise.resolve({ success: true })
+    },
+  }
+})
+
+/** 只替换通知 WS 工厂,其余导出(端点函数等)保持真实实现 */
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
+  }
+})
 
 vi.mock('../src/lib/ui-action-registry', () => ({
   configureRnUiBridge: vi.fn(),

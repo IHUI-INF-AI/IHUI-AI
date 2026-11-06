@@ -12,6 +12,8 @@
  * 判据本身住 `@ihui/shared/utils/agent-action-addressing`,此处刻意不 mock 它(装车证明)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// 仅取类型做 importOriginal 的泛参;`typeof import('…')` 会被 consistent-type-imports 判违规。
+import type * as ApiClientClient from '@ihui/api-client/client'
 
 const { fetchApiMock, executeUiActionMock, warnSpy } = vi.hoisted(() => ({
   fetchApiMock: vi.fn(),
@@ -20,8 +22,12 @@ const { fetchApiMock, executeUiActionMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+// 端点函数内部从 `../client.js` 取 fetchApi,故打桩层落在 client 子模块;
+// importOriginal 保留其余导出(整体替换会丢 reportAgentControlResult 等,回执变 undefined)。
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiClientClient>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 vi.mock('@/lib/ui-action-registry', () => ({
   configureUiControlBridge: vi.fn(),
   resetUiControlBridge: vi.fn(),
@@ -49,6 +55,9 @@ function wsFrame(requestId: string, assignment?: Record<string, unknown>) {
 }
 
 function resultPosts(): Array<{ body: Record<string, unknown> }> {
+  // 匹配的是端点函数传给 fetchApi 的原始路径(packages/api-client/src/endpoints/agent-control.ts
+  // 实参即 '/api/agent-control/result');baseUrl 与 `/api` 前缀的规范化在更内层 client.ts 完成,
+  // 不会回到本 fake,故此处按端点源码实参写,不写绝对 URL。
   return fetchApiMock.mock.calls
     .filter((c) => String(c[0]) === '/api/agent-control/result')
     .map((c) => ({ body: JSON.parse((c[1] as { body: string }).body) as Record<string, unknown> }))

@@ -82,6 +82,12 @@ describe('开发者空间屏 i18n 词包:devSpace.* 与 developerInfo.* 五语�
     const consumed = new Set<string>([
       ...TABLE_KEYS.map((k) => k.slice(k.indexOf('.') + 1)),
       'title',
+      // 订阅状态两态 + 广场入口:消费点 apps/mobile-rn/src/screens/DeveloperScreen.tsx:
+      // statusText 三元取 devSpace.opened / devSpace.notOpened(L170),入口 label 取
+      // devSpace.enterPlaza(L173)⇒ 三枚确有消费方,登记进表而不是删词包。
+      'opened',
+      'notOpened',
+      'enterPlaza',
       'notLoggedIn',
       'renew',
       'copy',

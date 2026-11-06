@@ -30,7 +30,7 @@ export default function KBEditPage() {
     queryKey: ['kb', 'categories'],
     queryFn: async () => {
       const res = await getKnowledgeBaseCategories<KBCategory>()
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tKb('loadFailed'))
       return res.data.list ?? []
     },
   })
@@ -44,7 +44,7 @@ export default function KBEditPage() {
         categoryId: form.categoryId || undefined,
         tags: form.tags.length > 0 ? form.tags : undefined,
       })
-      if (!res.success) throw new Error(res.error || '保存失败')
+      if (!res.success) throw new Error(res.error || tKb('saveFailed'))
       return res.data
     },
     onSuccess: () => {

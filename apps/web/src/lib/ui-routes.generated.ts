@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 8100ab373f5bb5f89cc36b735565dd9a9a16a447
-// inputsSha256: 5a4b1aaa92e4c2ad6bf4509c718b96e956ca95b3838aaabf5a94545b0194da0e
+// sourceCommit: b5bc7e7f5c43253ce18f73acc42a6eaade927b49
+// inputsSha256: 398b78b348c4ed0175935b7cd6f6d821e86b4b56a2c121985937f735f3f21f15
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -645,7 +645,7 @@
 // input: apps/web/app/(main)/ja/use-cases/ai-translation/page.tsx 63c564de2abca3212448c1cd32576ebe305936736e651b64fa6a52a9e4ed60ca
 // input: apps/web/app/(main)/knowledge-base/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/knowledge-base/edit/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
-// input: apps/web/app/(main)/knowledge-base/edit/page.tsx 2144ec06b399ff0743f00d8ae1a46293c7268f94c081ccc407fbd417d63afae2
+// input: apps/web/app/(main)/knowledge-base/edit/page.tsx d1a1245de2d78ef49ad44eae77243be41f0a4ab7440631276822a062c47de216
 // input: apps/web/app/(main)/knowledge-base/page.tsx f6806ee60537bd39671f905b3171c899e396efbfda870dad928109339179efb1
 // input: apps/web/app/(main)/knowledge-base/search/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/knowledge-cards/page.tsx d5f739f5cc337ce681004d22caeee0b57871330d913c10bf2bbe9171205dc551
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-05T22:05:34.889Z
+// generatedAt: 2026-11-06T11:59:48.646Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [

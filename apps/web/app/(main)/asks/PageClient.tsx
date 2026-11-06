@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl'
 import { HelpCircle, Plus } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { createAsk, getAsks } from '@ihui/api-client'
+import { apiFailureToError } from '@ihui/shared/utils'
 
 import { BackButton } from '@/components/common'
 import { AsksFilter } from './AsksFilter'
@@ -40,7 +41,9 @@ export default function AsksPageClient() {
     queryKey: ['asks', debounced],
     queryFn: async (): Promise<AsksData> => {
       const r = await getAsks({ page: 1, pageSize: PAGE_SIZE, search: debounced })
-      if (!r.success) throw new Error(r.error)
+      // 失败分支必须经 apiFailureToError 保住 status/errorCode:手搓 new Error(r.error) 会把
+      // 401 的身份剥掉,被 toUserFriendlyMessage 的「参数类」正则改判成「提交的信息有误」。
+      if (!r.success) throw apiFailureToError(r)
       return r.data as unknown as AsksData
     },
   })
@@ -48,7 +51,8 @@ export default function AsksPageClient() {
   const createMut = useMutation({
     mutationFn: async (payload: { title: string; content: string }): Promise<{ ask: AskItem }> => {
       const r = await createAsk(payload)
-      if (!r.success) throw new Error(r.error)
+      // 同 queryFn:保留 ApiResult 的 status/errorCode,避免 401 被误判为表单错误。
+      if (!r.success) throw apiFailureToError(r)
       return r.data as unknown as { ask: AskItem }
     },
     onSuccess: () => {

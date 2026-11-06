@@ -25,13 +25,37 @@ vi.mock('@tarojs/taro', () => ({
   default: { eventCenter: { trigger: vi.fn() }, onAppShow: vi.fn(), onAppHide: vi.fn() },
 }))
 
-vi.mock('@ihui/api-client', () => ({
-  fetchApi: (url: string, opts: { body?: string }) => {
-    h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
-    return Promise.resolve({ success: true })
-  },
-  createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
-}))
+/**
+ * 2026-11-06 修红(端点迁移同批债):桥实现改为从 `@ihui/api-client` 取
+ * reportAgentControlResult,而端点文件内部 `import { fetchApi } from '../client.js'`,
+ * **不经 barrel** —— 整模块替换 barrel 只删掉了两个端点函数,桥调用得到 undefined,
+ * 回执全被 catch 吞成 warn(断言拿到空数组)。
+ *
+ * 故按端点实际解析到的同一模块打桩:小程序 vitest 未给 `@ihui/api-client` 配源码别名,
+ * 包 exports 指 `dist`,端点里的 '../client.js' 即 `packages/api-client/dist/client.js`;
+ * 此处只替换 fetchApi 出口(保留 normalizeUrl/401 等真实语义)。
+ * fetchApi 收到的是端点源码传入的**原始路径**('/api/agent-control/...'),/api 前缀
+ * 的拼接发生在更内层的 normalizeUrl。
+ */
+vi.mock('../../../packages/api-client/dist/client.js', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    fetchApi: (url: string, opts: { body?: string }) => {
+      h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
+      return Promise.resolve({ success: true })
+    },
+  }
+})
+
+/** 只替换通知 WS 工厂,其余导出(端点函数等)保持真实实现 */
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
+  }
+})
 
 vi.mock('@/lib/ui-action-registry', () => ({
   configureTaroUiBridge: vi.fn(),

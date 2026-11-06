@@ -23,9 +23,18 @@ vi.mock('@/hooks/use-auth-gate', () => ({
 }))
 
 const fetchApi = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({
-  fetchApi: fetchApi,
-}))
+// 页面已改为直接从 @ihui/api-client 导入 exportGdprData 等端点函数,旧 mock '@/lib/api' 拦不到;
+// 现在只在 fetchApi 边界打桩,端点函数(URL/method/信封)保持真实执行。
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApi(...args) }
+})
+// 端点实现(packages/api-client/src/endpoints/*.ts)从 '../client.js' 导入 fetchApi,
+// 与包根不是同一模块 id —— 只 mock 包根拦不到,必须在这一层一并打桩
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApi(...args) }
+})
 
 const logout = vi.hoisted(() => vi.fn())
 vi.mock('@/stores/auth', () => ({
@@ -160,6 +169,8 @@ describe('数据权利页 · 登录态门三态', () => {
     fireEvent.click(screen.getByText('exportBtn'))
 
     await waitFor(() => expect(fetchApi).toHaveBeenCalledTimes(1))
+    // 本层断言的是端点函数传入的原始路径(/api 前缀由 client.ts 的 normalizeUrl 负责);
+    // gdpr 端点源码传的就是已带 /api 的 '/api/gdpr/export',故此处保持原样
     expect(fetchApi).toHaveBeenCalledWith('/api/gdpr/export', { method: 'POST' })
   })
 

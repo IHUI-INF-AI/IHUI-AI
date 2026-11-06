@@ -10,6 +10,8 @@
  *  - 指派端回执必须回显服务端派发的 assignment.token + 自报本实例(客户端只回显,不算身份)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+// 仅取类型做 importOriginal 的泛参;`typeof import('…')` 会被 consistent-type-imports 判违规。
+import type * as ApiClientClient from '@ihui/api-client/client'
 
 const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
   fetchApiMock: vi.fn(),
@@ -18,8 +20,12 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+// 端点函数内部从 `../client.js` 取 fetchApi,故打桩层落在 client 子模块;
+// importOriginal 保留其余导出(整体替换会丢 reportAgentControlResult 等,回执变 undefined)。
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiClientClient>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),
   clipboardGet: clipboardGetMock,

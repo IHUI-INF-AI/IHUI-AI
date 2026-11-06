@@ -50,12 +50,17 @@ function strip(src: string): string {
 }
 
 function namedClause(clause: string): string[] {
-  return clause
-    .split(',')
-    .map((raw) => raw.trim())
-    .filter((t) => t !== '' && !t.startsWith('type '))
-    .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
-    .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  return (
+    clause
+      .split(',')
+      .map((raw) => raw.trim())
+      .filter((t) => t !== '' && !t.startsWith('type '))
+      .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
+      // 对象字面量的简写键(`return { Screen: shared.Screen }`)也计入出口:
+      // 只认行首 `Key:` 会把写在同一行的工厂判成"缺出口",尺子读小同样造红。
+      .map((t) => (t.split(':')[0] ?? '').trim())
+      .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  )
 }
 
 /** 端内(被测试加载到的那一层)从 barrel 具名取用的值导入。 */
@@ -92,9 +97,7 @@ function testLoadedSrcFiles(): Set<string> {
 function mockExports(): Set<string> {
   const code = strip(readFileSync(MOCK, 'utf8'))
   const names = new Set<string>()
-  for (const m of code.matchAll(
-    /export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g,
-  ))
+  for (const m of code.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g))
     for (const n of namedClause(m[1] ?? '')) names.add(n)
   for (const m of code.matchAll(
     /export\s+(?:declare\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g,

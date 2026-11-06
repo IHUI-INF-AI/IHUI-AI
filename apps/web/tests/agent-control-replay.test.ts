@@ -16,6 +16,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { createReplayWatermark } from '@ihui/shared/utils/agent-action-addressing'
+// 仅取类型做 importOriginal 的泛参;`typeof import('…')` 会被 consistent-type-imports 判违规。
+import type * as ApiClientClient from '@ihui/api-client/client'
 
 const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
   fetchApiMock: vi.fn(),
@@ -24,8 +26,13 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+// 打桩层是 api-client 的 client 子模块(端点函数内部 `import { fetchApi } from '../client.js'`),
+// 只覆盖 fetchApi、其余导出用 importOriginal 补全 —— 整体替换 `@ihui/api-client` 会连
+// reportAgentControlResult/reportAgentControlCapability 一起丢掉,回执在运行期变 undefined。
+vi.mock('@ihui/api-client/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiClientClient>()
+  return { ...actual, fetchApi: (...args: unknown[]) => fetchApiMock(...args) }
+})
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),
   clipboardGet: clipboardGetMock,
@@ -137,6 +144,9 @@ describe('桌面桥重放接线(use-agent-control handleWsMessage)', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(fetchApiMock).toHaveBeenCalledTimes(1)
     const calls = fetchApiMock.mock.calls as Array<[string, unknown]>
+    // 断言的是端点函数传给 fetchApi 的**原始路径**(packages/api-client/src/endpoints/agent-control.ts
+    // 实参即 '/api/agent-control/result');baseUrl 拼接与 normalizeUrl 的 `/api` 补全发生在本层更内层的
+    // client.ts 里,不会回到 fake fetchApi,所以这里既不写成绝对 URL、也不放宽成"只校验被调用过"。
     expect(calls.every(([url]) => String(url).includes('/api/agent-control/result'))).toBe(true)
   })
 })
