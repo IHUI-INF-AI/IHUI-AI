@@ -261,7 +261,7 @@ export const eduAttendanceRecord = pgTable(
  * 考勤规则表 (edu_attendance_rule)。
  * 迟到/早退/缺勤判定阈值与扫码签到密钥的唯一落库处 —— 此前仓库内无任何判定依据,
  * edu_attendance_record.status 的 late/early/absent 三值无人写入,本表即后端自动判定
- * 与缺勤补录的数据源。一个班级只应有一条规则 ⇒ class_id 唯一。
+ * 与缺勤补录的数据源。一个班级只应有一条**未软删**规则 ⇒ (class_id) WHERE deleted_at IS NULL 部分唯一。
  * 三个时刻均为 time 型(每日重复的墙钟时刻,不含日期/时区);留空表示该项不判。
  */
 export const eduAttendanceRule = pgTable(
@@ -270,7 +270,6 @@ export const eduAttendanceRule = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     classId: uuid('class_id')
       .notNull()
-      .unique()
       .references(() => eduClass.id, { onDelete: 'cascade' }),
     lateAfter: time('late_after'), // 超过该时刻签到判 late
     earlyBefore: time('early_before'), // 早于该时刻签退判 early
@@ -282,6 +281,18 @@ export const eduAttendanceRule = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
+    /**
+     * 部分唯一索引:未软删规则内每班仅一条(与 20261107004000 迁移一致)。
+     * 软删行不参与唯一,便于保留历史留痕。
+     */
+    classLiveUq: uniqueIndex('edu_attendance_rule_class_id_live_unique')
+      .on(t.classId)
+      .where(sql`deleted_at is null`),
+    /**
+     * 全量 class_id 索引:partial unique 只覆盖 deleted_at IS NULL 的行,
+     * 无法服务 `DELETE FROM edu_class` 的 FK ON DELETE CASCADE 反查
+     * (`edu-ai-management.ts` 的 `DELETE /class/:id` 走硬删)。故保留,不冗余。
+     */
     classIdx: index('ix_edu_att_rule_class').on(t.classId),
     enabledIdx: index('ix_edu_att_rule_enabled').on(t.enabled),
   }),
