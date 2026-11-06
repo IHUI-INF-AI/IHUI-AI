@@ -94,8 +94,11 @@ describe('mcp-credentials 凭证持久化', () => {
       'https://a.example.com',
       'https://b.example.com',
     ]);
-    expect(all['https://a.example.com'].accessToken).toBe('a');
-    expect(all['https://b.example.com'].accessToken).toBe('b');
+    const a = all['https://a.example.com'];
+    const b = all['https://b.example.com'];
+    if (a === undefined || b === undefined) throw new Error('凭证缺失');
+    expect(a.accessToken).toBe('a');
+    expect(b.accessToken).toBe('b');
   });
 
   it('setCredential 覆盖同 server 的旧凭证', async () => {

@@ -86,9 +86,11 @@ describe('generateReminders 走结构块而非裸前缀', () => {
   it('70% 阈值提醒既是结构块也保留原措辞', () => {
     const out = generateReminders(makeCtx({ iterations: 1, totalPromptTokens: 4500, totalCompletionTokens: 1100 }));
     expect(out).toHaveLength(1);
-    expect(isFramedReminder(out[0])).toBe(true);
-    expect(out[0]).toContain('上下文窗口已用');
-    expect(out[0]).toContain('70%');
+    const firstReminder = out[0];
+    if (firstReminder === undefined) throw new Error('没有生成提醒');
+    expect(isFramedReminder(firstReminder)).toBe(true);
+    expect(firstReminder).toContain('上下文窗口已用');
+    expect(firstReminder).toContain('70%');
   });
 
   it('两类提醒同时触发时各是一个宿主块', () => {
@@ -217,8 +219,9 @@ describe('注入面续接登记(context_agents_md / context_memory / directive_p
   it('producer 文件源码必须真的以该 id 调用出口(登记了没人生产 = 本模块立项要防的那一型)', () => {
     for (const id of NEW_IDS) {
       const producer = getInjectionEntry(id)?.producer ?? '';
-      const [rel] = producer.split('#');
+      const rel = producer.split('#')[0];
       expect(rel, `${id} 的 producer 不是 <路径>#<符号> 形态`).toBeTruthy();
+      if (rel === undefined) throw new Error(`${id} 的 producer 缺少路径`);
       const src = readFileSync(join(repoSrcDir, rel.replace('apps/cli/src/', '')), 'utf8');
       // 出口函数名与 id 同名调用出现在同一文件里(注释里的 id 不在此列:本门只保证"接了",
       // 严格的面/注释判定由 scripts/check-prompt-injection-registry.mjs R1 负责)。
