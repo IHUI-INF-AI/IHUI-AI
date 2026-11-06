@@ -2084,7 +2084,8 @@
     "new": "New",
     "empty": "No content",
     "noDesc": "No description",
-    "useCount": "{n} uses"
+    "useCount": "{n} uses",
+    "recommended": "Recommended"
   },
   "circle": {
     "empty": "No content",
