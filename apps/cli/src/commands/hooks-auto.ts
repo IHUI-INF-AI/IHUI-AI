@@ -120,13 +120,18 @@ function hooksTrustFile(): string {
   );
 }
 
-/** 读用户级信任集(工作区绝对路径);文件缺失/损坏一律视为空(fail-closed)。 */
+/** 读用户级信任集。文件确实没有才是空集;读不到必须抛,不能说成没批准过。 */
 export function loadTrustedWorkspaces(): Set<string> {
   const file = hooksTrustFile();
-  if (!fs.existsSync(file)) return new Set();
-  // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
-  // 一次 EBUSY 会把整张信任清单重写成只有一行(与 hooks/trust.ts 同一语义)。
-  const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { trusted?: string[] } | null;
+  let text: string;
+  try {
+    text = fs.readFileSync(file, 'utf-8');
+  } catch (error) {
+    const code = trustReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`钩子信任名单读不到,不能把它说成没有批准过的工作区 (${code})`);
+  }
+  const raw = JSON.parse(text) as { trusted?: string[] } | null;
   if (!raw || typeof raw !== 'object') throw new Error(`信任清单格式非法: ${file}`);
   return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
 }

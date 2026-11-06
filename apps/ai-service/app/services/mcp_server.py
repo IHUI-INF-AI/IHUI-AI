@@ -16,6 +16,7 @@ import json
 import math
 import os
 import re
+import stat
 import shlex
 import time
 from collections.abc import Awaitable, Callable, Mapping
@@ -2521,6 +2522,27 @@ async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "render_repo_tree", "path": resolved, "ok": True, **out.to_dict()}
 
 
+def _classify_path(path: str) -> tuple[str, os.stat_result | None]:
+    """missing = 确实没有; unread = 读失败; present = 量到了。"""
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return "missing", None
+    except OSError:
+        return "unread", None
+    return "present", st
+
+
+def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
+    """普通文件才算 present。目录或读失败都不是「文件不存在」。"""
+    kind, st = _classify_path(path)
+    if kind != "present" or st is None:
+        return kind, None
+    if not stat.S_ISREG(st.st_mode):
+        return "unread", None
+    return "present", st
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -2541,13 +2563,30 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
         async with get_path_write_lock(resolved_path):
             # 写前基线漂移判定(判定与写盘同锁内完成,判定结果对写盘时刻负责)
             baseline = _FILE_BASE_CONTENT.get(resolved_path)
+            presence, _st = _classify_existing_file(resolved_path)
+            if presence == "unread":
+                return {
+                    "tool": "write_file",
+                    "path": resolved_path,
+                    "ok": False,
+                    "errorCode": "UNREADABLE",
+                    "error": "目标读不到,不能覆盖",
+                }
             disk_now: str | None = None
-            if os.path.isfile(resolved_path):
+            if presence == "present":
                 try:
                     with open(resolved_path, encoding="utf-8") as f:
                         disk_now = _normalize_eol(f.read())
-                except (OSError, UnicodeDecodeError, ValueError):
-                    disk_now = None  # 二进制/读不了 → 判不了,交 classify 归 undecidable
+                except OSError:
+                    return {
+                        "tool": "write_file",
+                        "path": resolved_path,
+                        "ok": False,
+                        "errorCode": "UNREADABLE",
+                        "error": "目标读不到,不能覆盖",
+                    }
+                except (UnicodeDecodeError, ValueError):
+                    disk_now = None  # 二进制 → 判不了,交 classify 归 undecidable
             verdict = classify_write_conflict(
                 disk_now, baseline, _normalize_eol(content)
             )
@@ -2610,7 +2649,10 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        if not os.path.isfile(resolved_path):
+        presence, _st = _classify_existing_file(resolved_path)
+        if presence == "unread":
+            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
+        if presence == "missing":
             return _err("FILE_NOT_FOUND", "文件不存在")
         if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
@@ -2743,7 +2785,10 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        if not os.path.isfile(resolved_path):
+        presence, _st = _classify_existing_file(resolved_path)
+        if presence == "unread":
+            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
+        if presence == "missing":
             return _err("FILE_NOT_FOUND", "文件不存在")
         if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
