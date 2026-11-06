@@ -84,6 +84,44 @@ fn clip(raw: &str) -> String {
     out
 }
 
+/// 文件名逃逸的纯判据:白名单裸名 + canonicalize 后仍须落在 `dir` 内。
+///
+/// 四式逃逸在这里一次收口:
+/// - 绝对路径(`C:\Windows\auth.json`)、上跳(`../auth.json`)、子目录(`sub/auth.json`)
+///   在**词法**层被拒 —— 只接受单分量裸名;
+/// - junction / 符号链接由注入的 `canonicalize` 解析后比前缀(CI 造不出真实
+///   junction,与 `workspace_index` 的 `dir_verdict` 同一套可测口径);
+/// - `dir` 自身被换成指向外部的链接时,同样在 canonical 前缀比对里落空。
+fn ensure_bare_file_in_dir(
+    dir: &Path,
+    file: &str,
+    canonicalize: &dyn Fn(&Path) -> Option<PathBuf>,
+) -> Result<PathBuf, String> {
+    let p = Path::new(file);
+    if file.is_empty()
+        || file == "."
+        || file == ".."
+        || file.contains('/')
+        || file.contains('\\')
+        || p.is_absolute()
+        || p.components().count() != 1
+    {
+        return Err(format!("store 文件名必须是裸文件名(拒绝): {}", clip(file)));
+    }
+    let path = dir.join(file);
+    if let Some(real) = canonicalize(&path) {
+        if let Some(base) = canonicalize(dir) {
+            if !real.starts_with(&base) {
+                return Err(format!(
+                    "store 路径(经符号链接/junction 解析)不在 app_data 目录内(拒绝): {}",
+                    clip(&path.display().to_string())
+                ));
+            }
+        }
+    }
+    Ok(path)
+}
+
 /// 解析落盘路径并复用宿主既有的 app_data 包含性校验。
 ///
 /// `ensure_in_app_data` 先做词法前缀,再对已存在路径 canonicalize(解析 symlink/
@@ -95,7 +133,7 @@ pub(crate) fn store_path(app: &tauri::AppHandle, file: &'static str) -> Result<P
         .path()
         .app_data_dir()
         .map_err(|e| format!("app_data_dir 解析失败: {}", e))?;
-    let path = dir.join(file);
+    let path = ensure_bare_file_in_dir(&dir, file, &|p| std::fs::canonicalize(p).ok())?;
     let as_str = path.to_string_lossy().into_owned();
     crate::ensure_in_app_data(app, &as_str).map_err(|e| format!("store 路径校验失败: {}", e))?;
     Ok(path)
@@ -272,6 +310,116 @@ mod tests {
         assert!(scope_for("auth.json", "a/b").is_err());
         assert!(scope_for("auth.json", "refresh token").is_err());
         assert!(scope_for("auth.json", &"k".repeat(MAX_KEY_LEN + 1)).is_err());
+    }
+
+    /// T1 验收:落盘路径恒为 `app_data_dir/<白名单裸名>`,不得多一层子目录。
+    #[test]
+    fn vault路径恒在app数据目录下() {
+        let dir = Path::new(r"C:\Users\me\AppData\Roaming\com.ihui.desktop");
+        let ident = |p: &Path| Some(p.to_path_buf());
+        for scope in ALLOWED {
+            let path = ensure_bare_file_in_dir(dir, scope.file, &ident)
+                .unwrap_or_else(|e| panic!("白名单裸名必须合法: {e}"));
+            assert_eq!(path.parent(), Some(dir), "落盘路径必须直接位于 app_data 下");
+            assert_eq!(
+                path.components().count(),
+                dir.components().count() + 1,
+                "不得多一级子目录"
+            );
+        }
+    }
+
+    /// T1 验收:绝对路径 / 上跳 / 子目录 / junction / 符号链接五形逃逸全部拒绝。
+    /// junction 与 symlink 用注入的 canonicalize 模拟(CI 造不出真实链接,与
+    /// workspace_index 的 dir_verdict 同一套可测口径),真实链接另有两支 #[cfg(windows)]。
+    #[test]
+    fn 路径逃逸五式全部拒绝() {
+        let dir = Path::new(r"C:\Users\me\AppData\Roaming\com.ihui.desktop");
+        let missing = |_p: &Path| -> Option<PathBuf> { None };
+        for bad in [
+            r"C:\Windows\auth.json",
+            "../auth.json",
+            r"..\auth.json",
+            "sub/auth.json",
+            "auth.json/../ihui-vault.json",
+            r"\\?\C:\Windows\auth.json",
+            "",
+            ".",
+            "..",
+        ] {
+            assert!(
+                ensure_bare_file_in_dir(dir, bad, &missing).is_err(),
+                "文件名 {:?} 必须被拒",
+                bad
+            );
+        }
+        // junction/symlink:裸名合法,但真实解析落在 app_data 之外
+        let escape = |p: &Path| -> Option<PathBuf> {
+            if p == dir.join("auth.json") {
+                Some(PathBuf::from(r"C:\Windows\System32\auth.json"))
+            } else {
+                Some(p.to_path_buf())
+            }
+        };
+        assert!(
+            ensure_bare_file_in_dir(dir, "auth.json", &escape).is_err(),
+            "符号链接/junction 解析到目录外必须被拒"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn 真实junction逃逸被拒() {
+        let root = temp_dir("junction-escape");
+        let appdata = root.join("appdata");
+        let outside = root.join("outside");
+        std::fs::create_dir_all(&appdata).expect("建 appdata");
+        std::fs::create_dir_all(&outside).expect("建 outside");
+        let link = appdata.join("auth.json");
+        let out = std::process::Command::new("cmd")
+            .args([
+                "/C",
+                "mklink",
+                "/J",
+                &link.display().to_string(),
+                &outside.display().to_string(),
+            ])
+            .output()
+            .expect("运行 mklink");
+        if !out.status.success() {
+            eprintln!(
+                "跳过真实 junction 用例(环境不允许): {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            return;
+        }
+        let err = ensure_bare_file_in_dir(&appdata, "auth.json", &|p| std::fs::canonicalize(p).ok())
+            .expect_err("junction 指向外部必须被拒");
+        assert!(
+            err.contains("符号链接/junction") || err.contains("不在 app_data"),
+            "拒绝理由须点明链接解析: {err}"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn 真实符号链接逃逸被拒() {
+        let root = temp_dir("symlink-escape");
+        let appdata = root.join("appdata");
+        let outside = root.join("outside");
+        std::fs::create_dir_all(&appdata).expect("建 appdata");
+        std::fs::create_dir_all(&outside).expect("建 outside");
+        let link = appdata.join("ihui-vault.json");
+        if std::os::windows::fs::symlink_dir(&outside, &link).is_err() {
+            eprintln!("跳过真实符号链接用例(需开发者模式/特权)");
+            return;
+        }
+        let err = ensure_bare_file_in_dir(&appdata, "ihui-vault.json", &|p| std::fs::canonicalize(p).ok())
+            .expect_err("符号链接指向外部必须被拒");
+        assert!(
+            err.contains("符号链接/junction") || err.contains("不在 app_data"),
+            "拒绝理由须点明链接解析: {err}"
+        );
     }
 
     #[test]

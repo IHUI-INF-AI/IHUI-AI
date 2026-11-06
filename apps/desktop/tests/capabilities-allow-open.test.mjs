@@ -10,7 +10,7 @@
 //   4) 必须覆盖实测调用域(见 ALLOWED_EXACT 处证据),且不许出现枚举外条目。
 // 运行:node apps/desktop/tests/capabilities-allow-open.test.mjs
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -146,6 +146,25 @@ export function judgeRemoteVaultScope(caps) {
   return { ok: problems.length === 0, problems }
 }
 
+// 验收补充:ACL 判定看的是**每个 capability 文件**的 remote.urls 覆盖面。
+// 只要某文件对远程 origin 生效,它 permissions 里的 `store:*` 就不会被 ACL 拒 ——
+// 远程页仍能 `invoke('plugin:store|load', {path:'C:\\...'})`。故全目录扫描:
+// 任何带 remote.urls 的文件都不得授予 store 前缀权限。
+export function judgeRemoteStoreAcl(capFiles) {
+  const problems = []
+  let remoteFiles = 0
+  for (const { file, caps } of capFiles) {
+    const urls = caps?.remote?.urls
+    if (!Array.isArray(urls) || urls.length === 0) continue
+    remoteFiles++
+    for (const raw of caps.permissions ?? []) {
+      const perm = typeof raw === 'string' ? raw : raw?.identifier ?? ''
+      if (perm.startsWith('store:')) problems.push(`${file} 对远程 origin 授予 ${perm}`)
+    }
+  }
+  return { ok: problems.length === 0, problems, remoteFiles }
+}
+
 // ── 应用生命周期面收口(2026-11-07 缺陷挖掘 T7/T11)──────────────────────────
 // `autostart:default` / `allow-quit-app` / `allow-restart-app` 都挂在远程 capability 上:
 // 线上页(含任意 XSS)可以静默改写开机启动项、直接 quit/restart 应用(打断更新与登录链路)。
@@ -196,6 +215,7 @@ function main() {
   let vaultGuard
   let lifecycleLeak
   let updaterScope
+  let storeAcl
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
@@ -204,6 +224,12 @@ function main() {
     vaultGuard = judgeRemoteVaultScope(caps)
     lifecycleLeak = judgeRemoteLifecycleScope(caps)
     updaterScope = judgeUpdaterScope(caps)
+    const capDir = join(here, '..', 'src-tauri', 'capabilities')
+    storeAcl = judgeRemoteStoreAcl(
+      readdirSync(capDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((file) => ({ file, caps: JSON.parse(readFileSync(join(capDir, file), 'utf8')) })),
+    )
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
@@ -213,6 +239,13 @@ function main() {
   assert.equal(guard.ok, true, 'remote.urls 覆盖面缺失:\n  ' + guard.problems.join('\n  '))
   assert.equal(cmdGuard.ok, true, 'remote 命令授权缺失:\n  ' + cmdGuard.problems.join('\n  '))
   assert.equal(vaultGuard.ok, true, 'remote store 通道未收口:\n  ' + vaultGuard.problems.join('\n  '))
+  assert.equal(
+    storeAcl.ok,
+    true,
+    '远程 origin 的 ACL 仍放行 store 权限(plugin:store|load 不会被拒):\n  ' +
+      storeAcl.problems.join('\n  '),
+  )
+  assert.ok(storeAcl.remoteFiles >= 1, '必须至少有一个 capability 对远程 origin 生效,否则本判据未判定')
   assert.deepEqual(
     lifecycleLeak,
     [],
@@ -230,6 +263,9 @@ function main() {
   )
   console.log('PASS remote.urls 覆盖 apex+www(308 重定向后的真实 origin)')
   console.log('PASS remote 侧无 store:default,仅 vault_read/vault_write 受限命令')
+  console.log(
+    'PASS 全部 ' + storeAcl.remoteFiles + ' 个对远程生效的 capability 均无 store:* 权限(plugin:store|load 必被 ACL 拒)',
+  )
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -298,5 +334,5 @@ if (isDirectRun) {
   console.log('PASS 更新入口只在本地 origin/托盘(远程 capability 无 updater:default)')
 }
 
-export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, ALLOWED_EXACT, hostOf }
+export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, judgeRemoteStoreAcl, ALLOWED_EXACT, hostOf }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
