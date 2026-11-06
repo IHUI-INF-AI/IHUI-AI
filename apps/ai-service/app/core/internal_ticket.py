@@ -85,6 +85,13 @@ INTERNAL_TICKET_SCOPES: frozenset[str] = frozenset(
         "memory",  # /api/memory
         "self-evolution",  # clawdbot 自进化回写
         "registry-sync",  # 注册表漂移检测
+        # ── X-Internal-Secret 族票据化(2026-11-06)新增用途 ──
+        "knowledge-card",  # ai-service 经验抽取写卡
+        "skills-market",  # clawdbot 自进化发布 skill 到市场
+        "relay-user-pool",  # ai-service 签到侧回填个人号池
+        "relay-account-pool-credential",  # ai-service 凭证回写号池
+        "checkin-pool",  # api → ai-service 号池/签到同步
+        "prompt-scan-bypass",  # api → ai-service 服务间正文免注入扫描
     }
 )
 

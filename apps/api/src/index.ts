@@ -9,6 +9,7 @@ import type { Worker } from 'bullmq'
 import type { FastifyInstance } from 'fastify'
 import { buildServer } from './server.js'
 import { assertInternalAuthModeAtStartup } from './plugins/internal-service-token.js'
+import { assertInternalSecretAuthModeAtStartup } from './plugins/internal-secret-auth.js'
 import { createShutdownSignalHandler } from './lib/shutdown-signals.js'
 import { startWorkers } from './workers/index.js'
 import { startSchedulerWorker } from './workers/scheduler-worker.js'
@@ -174,6 +175,8 @@ function checkProductionConfig(): void {
 function checkInternalAuthMode(): void {
   try {
     assertInternalAuthModeAtStartup()
+    // X-Internal-Secret 族单独一档(2026-11-06):同一套"生产禁 legacy"纪律。
+    assertInternalSecretAuthModeAtStartup()
   } catch (err) {
     logger.error(
       `❌ 内部服务鉴权档位不安全,启动中止: ${err instanceof Error ? err.message : String(err)}`,

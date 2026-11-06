@@ -171,6 +171,12 @@ const envSchema = z.object({
   // 未知值在运行期解析里一律落回 ticket(fail-closed):拼错档位名不得静默把老门打开。
   INTERNAL_SERVICE_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('ticket'),
 
+  // ── X-Internal-Secret 族鉴权档位(2026-11-06)──
+  // 与上面的 INTERNAL_SERVICE_AUTH_MODE 分开:那一档管 x-internal-service-token /
+  // x-user-id 老通道,这一档管 5 个仍以 x-internal-secret 为唯一凭据的内网端点。
+  // ticket = 只认短期票(默认,fail-closed);dual = 兼容窗口;legacy = 应急回退(生产启动失败)。
+  INTERNAL_SECRET_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('ticket'),
+
   // 票的 TTL 上限(秒),**由验票侧封顶**——发票方误配大值时"短期"这个前提必须还成立。
   INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
