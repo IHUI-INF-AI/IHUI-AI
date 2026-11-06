@@ -372,6 +372,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.trae-html-share-packages',
   // 2026-09-10 显式审批:.kc-backup 提交备份目录
   '.kc-backup',
+  // 2026-11-06 登记:worktree 分支指针归档(删树不删分支的快照,ref 仍在 D:\IHUI-AI-git-repo;
+  // 由多会话/worktree 清理工具持续生成,内含 branch-pointers.md / wt-land/manifest.csv 纯文本元数据,
+  // 非活跃 worktree、不进 git 跟踪)。与 .spec-mode/.runtime/.loomy-attachments 同类:只登记、不搬不删
+  // (搬/删无效,工具下一轮又会原地重建)。缺失时守门 44 在 --staged 面把"未跟踪、非忽略"的它
+  // 报"无法判定"(exit 2)⇒ 每枚提交都被逼走应急旁路连带跳过全部守门(§12e 恒红门同型),登记即解除。
+  '.worktrees-archive',
 ])
 
 // ============================================================================
