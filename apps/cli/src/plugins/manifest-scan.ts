@@ -16,6 +16,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDefinitePathAbsence } from './path-safety.js';
 import type {
   PluginDefinition,
   PluginDiagnostic,
@@ -175,22 +176,25 @@ export function findManifestInDir(dir: string, stat?: (path: string) => fs.Stats
   const present: string[] = [];
   for (const name of MANIFEST_FILES) {
     const candidate = path.join(dir, name);
+    let missing = false;
     try {
       look(candidate);
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
-      return {
-        primary: null,
-        diagnostics: [
-          diagnostic(
-            'manifest-unreadable',
-            candidate,
-            `清单读不到,不能改用下一份: ${errorText(err)}`,
-          ),
-        ],
-      };
+      if (!isDefinitePathAbsence(err)) {
+        return {
+          primary: null,
+          diagnostics: [
+            diagnostic(
+              'manifest-unreadable',
+              candidate,
+              `清单读不到,不能改用下一份: ${errorText(err)}`,
+            ),
+          ],
+        };
+      }
+      missing = true;
     }
+    if (missing) continue;
     present.push(candidate);
   }
   const primary = present[0] ?? null;

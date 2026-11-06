@@ -57,6 +57,7 @@ import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js
 import {
   checkSymlinkContainment,
   classifyRealpathFailure,
+  isDefinitePathAbsence,
   type ContainmentStage,
 } from './path-safety.js';
 import {
@@ -264,7 +265,7 @@ export function loadInstallRegistry(): InstallRegistry {
       error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
         ? (error as { code: string }).code
         : 'unknown';
-    if (code === 'ENOENT' || code === 'ENOTDIR') return { records: [] };
+    if (isDefinitePathAbsence(error)) return { records: [] };
     throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
   }
   try {
@@ -457,13 +458,17 @@ export function readPluginManifest(
   const look = stat ?? ((target: string) => fs.statSync(target));
   for (const name of MANIFEST_FILES) {
     const p = path.join(pluginDir, name);
+    let absent = false;
     try {
       look(p);
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
-      throw new Error(`插件清单读不到,不能改用下一份候选 (${code ?? 'unknown'}): ${p}`);
+      if (!isDefinitePathAbsence(err)) {
+        const code = (err as NodeJS.ErrnoException).code;
+        throw new Error(`插件清单读不到,不能改用下一份候选 (${code ?? 'unknown'}): ${p}`);
+      }
+      absent = true;
     }
+    if (absent) continue;
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
@@ -478,7 +483,7 @@ export function readPluginManifest(
       }
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
-      if (code && code !== 'ENOENT' && code !== 'ENOTDIR') {
+      if (code && !isDefinitePathAbsence(err)) {
         throw new Error(`插件清单读不到,不能改用下一份候选 (${code}): ${p}`);
       }
       // 损坏 JSON 继续尝试下一个候选
@@ -820,10 +825,10 @@ async function installLocal(
   try {
     sourceStat = look(resolvedSrc);
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') {
+    if (isDefinitePathAbsence(err)) {
       throw new Error(`本地源不是目录: ${resolvedSrc}`);
     }
+    const code = (err as NodeJS.ErrnoException).code;
     throw new Error(`本地源读不到,不能把它说成不是目录 (${code ?? 'unknown'}): ${resolvedSrc}`);
   }
   if (!sourceStat.isDirectory()) {
@@ -1116,8 +1121,7 @@ export function findPluginSubdir(
       look(target);
       return 'present';
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+      if (isDefinitePathAbsence(err)) return 'missing';
       return 'unreadable';
     }
   };
@@ -1135,8 +1139,7 @@ export function findPluginSubdir(
   try {
     entries = list(cachePath, { withFileTypes: true });
   } catch (err) {
-    const verdict = classifyRealpathFailure(err);
-    if (verdict.kind === 'missing' && verdict.errno !== 'EISDIR') return undefined;
+    if (isDefinitePathAbsence(err)) return undefined;
     throw new Error(`插件目录列不出来,不能把它说成清单在根上 (${cachePath})`);
   }
   for (const e of entries) {
@@ -1218,7 +1221,7 @@ function pluginDirPresence(target: string, stat: (target: string) => unknown): '
     const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
       ? (error as { code: string }).code
       : 'unknown';
-    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    if (isDefinitePathAbsence(error)) return 'missing';
     throw new Error(`插件目录读不到,不能把它说成没装过,也不摘注册 (${code})`);
   }
 }
