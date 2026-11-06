@@ -215,7 +215,7 @@ test('冷却表:文件缺失/坏 JSON 一律退回空表,不得抛(守护链上�
 
 test('装车证明:守护每轮真的会触发修复器,且修复器真的会跳过冷却中的项', () => {
   const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
-  assert.match(guard, /function healHomeJunctions\(\)/, '守护里必须有这一层自愈')
+  assert.match(guard, /function healHomeJunctions\(/, '守护里必须有这一层自愈')
   assert.match(guard, /call\(fixer, \['--apply'\]/, '判红后必须真的调修复器')
   assert.match(
     guard,
@@ -279,7 +279,11 @@ test('墙钟节流:守护的 10 秒 tick 不得把按 2 分钟设计的自愈提
   assert.equal(due(String(now - 600_000), now, 600_000), true, '刚好到间隔边界 ⇒ 到期')
   assert.equal(due(String(now + 10_000), now, 600_000), false, '时钟回拨(时间戳在未来)不得变成永久放行')
   const guard = readFileSync(new URL('../git-guardian.mjs', import.meta.url), 'utf8')
-  assert.match(guard, /if \(!homeHealDue\(lastRaw, Date\.now\(\)\)\) return/, '挂点必须真在自愈开头')
+  assert.match(
+    guard,
+    /if \(!homeHealDue\(lastRaw, Date\.now\(\), intervalMs\)\) return/,
+    '挂点必须真在自愈开头,且节律走 tickFile/intervalMs 默认参数(可被族三解析)',
+  )
 })
 
 test('端到端:把 USERPROFILE 换成系统账户家目录再调修复器 ⇒ 必须喊"未判定"、不得打印那行汇总', () => {

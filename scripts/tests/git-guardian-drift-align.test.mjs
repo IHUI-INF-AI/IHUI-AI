@@ -38,15 +38,21 @@ const REPO = resolve(HERE, '..', '..')
 const GUARDIAN = join(REPO, 'scripts', 'git-guardian.mjs')
 const HEAL_DIR = join(REPO, 'scripts')
 
-/** 取函数体(按大括号配平,不用正则猜行) */
+/** 取函数体(按参数括号 → 大括号配平,不用正则猜行;参数已解构 `{tickFile=…}` 也不会被误当函数体) */
 function funcBody(src, name) {
   const start = src.indexOf(`function ${name}(`)
   assert.ok(start >= 0, `源文件里找不到 ${name}()`)
-  const open = src.indexOf('{', start)
+  let pd = 0
+  let i = src.indexOf('(', start)
+  for (; i < src.length; i++) {
+    if (src[i] === '(') pd++
+    else if (src[i] === ')' && --pd === 0) break
+  }
+  const open = src.indexOf('{', i)
   let depth = 0
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++
-    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1)
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') depth++
+    else if (src[j] === '}' && --depth === 0) return src.slice(open, j + 1)
   }
   assert.fail(`${name}() 花括号未配平`)
 }
