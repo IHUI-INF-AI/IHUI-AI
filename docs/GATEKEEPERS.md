@@ -455,6 +455,16 @@ git commit
 
 ---
 
+## 3d. 手写迁移 snapshot 回写尺(350,2026-11-07 落地,只读、未挂提交链)
+
+> 350 为文档登记号,未注册进 `scripts/guardian-runner.mjs`:存量未归零前本尺不挂提交链(§12e),以 `--check` 供人工/CI 定点使用;判据唯一实现在脚本头注。
+
+| 编号 | 脚本 | 一句话判据 | 存量基线 |
+|---|---|---|---|
+| 350 | `scripts/check-hand-migration-snapshot.mjs` | 每条迁移新增的列/索引/约束必须存在于同号 snapshot(缺号取最近前序);基线外新增即红,取不到即未判定 | 1086 |
+
+---
+
 ## 4. post-commit git-push-guard.mjs
 
 `scripts/git-push-guard.mjs` 是 [AGENTS.md §21](../AGENTS.md) 任务完成硬定义的核心防线,解决"commit 后忘记 push"协作事故。
