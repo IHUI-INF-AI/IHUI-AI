@@ -8,7 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "postinstall": "node scripts/fix-expo-metro-junction.mjs && node scripts/lib/patch-lint-staged-stdio.mjs --soft",
+    "postinstall": "node scripts/fix-expo-metro-junction.mjs && node scripts/lib/patch-lint-staged-stdio.mjs --soft && node scripts/sync-mobile-app-json-version.mjs",
     "dev": "turbo run dev",
     "rea": "npx -y rea-agents@6.4.0",
     "dev:safe": "node scripts/run-start-dev.mjs",
@@ -210,6 +210,8 @@
     "probe:web-rn-gap": "node scripts/probe-web-rn-gap.mjs",
     "gen:miniapp-mirror": "node scripts/gen-miniapp-mirror.mjs --all",
     "gen:miniapp-mirror:apply": "node scripts/gen-miniapp-mirror.mjs --all --apply",
+    "gen:mobile-app-json": "node scripts/sync-mobile-app-json-version.mjs",
+    "check:mobile-app-json": "node scripts/sync-mobile-app-json-version.mjs --check",
     "check:miniapp-generated": "node scripts/check-miniapp-generated.mjs",
     "check:miniapp-css-landing": "node scripts/check-miniapp-css-landing.mjs --min-coverage 0.9",
     "check:miniapp-css-landing:report": "node scripts/check-miniapp-css-landing.mjs --min-coverage 0",
