@@ -137,6 +137,68 @@ async def test_execute_with_explicit_session_id_reuses_session(client):
     assert status.json()["messageCount"] == 2
 
 
+async def test_execute_graph_failure_returns_502_not_200(client, mock_llm_gateway):
+    """图执行失败必须是 5xx,不得用 200 + 空 summary 伪装成功。
+
+    回归:旧实现把图异常降级成 logger.warning 后照常返回 200,
+    调用方无法区分"执行失败"与"模型没有输出"。
+    """
+    mock_llm_gateway.complete = AsyncMock(side_effect=RuntimeError("boom"))
+    resp = await client.post(
+        "/api/agent-runtime/execute",
+        json={"message": "will fail", "mode": "default"},
+    )
+    assert resp.status_code == 502
+    detail = resp.json()["detail"]
+    assert "graph execution failed" in detail
+    assert "boom" in detail
+
+
+async def test_execute_redis_io_does_not_block_event_loop(client, monkeypatch):
+    """同步 Redis 客户端的 get/set 不得在事件循环线程上执行。
+
+    回归:旧实现直接在 async handler 里调 r.set/r.get,Redis 挂起时
+    整个事件循环停摆;这里用慢速 fake 观测调用线程 + 循环推进量。
+    """
+    import asyncio
+    import threading
+    import time as _time
+
+    seen_threads: list[str] = []
+    ticks = 0
+
+    class _SlowRedis:
+        def set(self, *args: object, **kwargs: object) -> None:
+            seen_threads.append(threading.current_thread().name)
+            _time.sleep(0.15)
+
+        def get(self, *args: object, **kwargs: object) -> None:
+            seen_threads.append(threading.current_thread().name)
+            _time.sleep(0.15)
+
+    monkeypatch.setattr(agent_runtime, "_get_redis", lambda: _SlowRedis())
+
+    async def _ticker() -> None:
+        nonlocal ticks
+        for _ in range(60):
+            await asyncio.sleep(0.005)
+            ticks += 1
+
+    ticker = asyncio.create_task(_ticker())
+    with patch("app.services.agent_graph.llm_gateway") as gw:
+        gw.complete = AsyncMock(
+            return_value={"content": "ok", "model": "mock", "stub": False}
+        )
+        resp = await client.post("/api/agent-runtime/execute", json={"message": "hi"})
+    ticker.cancel()
+
+    assert resp.status_code == 200
+    assert seen_threads, "Redis 的 set/get 一次都没有被调用"
+    assert threading.current_thread().name not in seen_threads
+    # 慢速 Redis 阻塞 150ms 期间,事件循环若被占住则 tick 数接近 0。
+    assert ticks >= 5
+
+
 # =============================================================================
 # POST /api/agent-runtime/execute/stream
 # =============================================================================

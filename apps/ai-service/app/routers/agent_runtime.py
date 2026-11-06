@@ -132,9 +132,23 @@ def _get_or_create_session(
     return session
 
 
-def _require_session(session_id: str, user_id: str, is_admin: bool = False) -> SessionState:
-    """查找会话并校验归属;不归属当前用户时按 404 处理(不泄露会话是否存在)。"""
-    session = _find_session(session_id)
+async def _require_session(
+    session_id: str, user_id: str, is_admin: bool = False
+) -> SessionState:
+    """查找会话并校验归属;不归属当前用户时按 404 处理(不泄露会话是否存在)。
+
+    Redis 回填走 asyncio.to_thread(同步 redis 客户端),不阻塞事件循环;
+    内存命中/写入都留在事件循环线程内,避免 _sessions 跨线程并发改。
+    """
+    session = _sessions.get(session_id)
+    if session is not None:
+        session.last_access = time.time()
+    else:
+        loaded = await asyncio.to_thread(_load_session_redis, session_id)
+        if loaded is not None:
+            _sessions[loaded.id] = loaded
+            _evict_if_needed()
+            session = loaded
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     owner = session.user_id
@@ -153,7 +167,11 @@ def _get_current_user(request: Request) -> tuple[str, bool]:
 
 
 def _find_session(session_id: str) -> SessionState | None:
-    """查找会话(只读):内存 → Redis 回填,不新建。"""
+    """查找会话(只读):内存 → Redis 回填,不新建。
+
+    注意:Redis 回填是同步网络 IO。async 端点请走 `_require_session`,
+    它把该同步调用放进 worker 线程,避免阻塞事件循环。
+    """
     if session_id in _sessions:
         _sessions[session_id].last_access = time.time()
         return _sessions[session_id]
@@ -184,7 +202,15 @@ def _get_redis() -> Any:
 
             # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
             # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-            _redis_client = redis.from_url(redis_url, decode_responses=True, protocol=2, socket_connect_timeout=2)
+            # socket_timeout 必须显式设置:只设 connect_timeout 时,连接建立后
+            # 服务端不返回(get/set 挂起)会让同步调用无限期阻塞。
+            _redis_client = redis.from_url(
+                redis_url,
+                decode_responses=True,
+                protocol=2,
+                socket_connect_timeout=2,
+                socket_timeout=2,
+            )
             _redis_client.ping()
         except Exception:
             _redis_client = None
@@ -245,7 +271,8 @@ async def execute(req: ExecuteRequest, request: Request) -> ExecuteResponse:
     user_id, is_admin = _get_current_user(request)
     session = _get_or_create_session(req.sessionId, req.botId or "default", user_id, is_admin)
     session.messages.append(SessionMessage(role="user", content=req.message))
-    _save_session_redis(session)
+    # Redis 客户端是同步的:放进 worker 线程,避免同步网络 IO 卡住事件循环。
+    await asyncio.to_thread(_save_session_redis, session)
 
     summary = ""
     try:
@@ -262,8 +289,20 @@ async def execute(req: ExecuteRequest, request: Request) -> ExecuteResponse:
         }
         result = await graph.ainvoke(initial_state)
         summary = result.get("summary", "")
+        # 图节点内部吞异常后把原因写进 state["error"](见 agent_graph 各 node),
+        # 因此 ainvoke 正常返回不代表成功 —— 必须显式检查,否则会退化成
+        # 200 + 空 summary。
+        graph_error = result.get("error")
+        if graph_error:
+            raise RuntimeError(str(graph_error))
     except Exception as e:
+        # 错误不得伪装成成功:旧实现吞掉异常后返回 200 + 空 summary,
+        # 调用方无法区分"图执行失败"与"模型没输出",与 /execute/stream 的
+        # error 帧语义也不一致。这里统一置失败态并回 502。
+        session.status = "failed"
+        await asyncio.to_thread(_save_session_redis, session)
         logger.warning("agent_runtime /execute graph failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"graph execution failed: {e}") from e
 
     return ExecuteResponse(
         sessionId=session.id, mode=req.mode, received=req.message, summary=summary
@@ -277,7 +316,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
     user_id, is_admin = _get_current_user(request)
     session = _get_or_create_session(req.sessionId, req.botId or "default", user_id, is_admin)
     session.messages.append(SessionMessage(role="user", content=req.message))
-    _save_session_redis(session)
+    await asyncio.to_thread(_save_session_redis, session)
 
     async def event_stream() -> AsyncIterator[str]:
         yield _sse_frame("session", {"sessionId": session.id})
@@ -334,7 +373,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                                 )
                             )
                             session.status = "completed"
-                            _save_session_redis(session)
+                            await asyncio.to_thread(_save_session_redis, session)
                             yield _sse_frame(
                                 "done",
                                 {
@@ -371,7 +410,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
             raise
         except Exception as e:
             session.status = "failed"
-            _save_session_redis(session)
+            await asyncio.to_thread(_save_session_redis, session)
             yield _sse_frame("error", {"message": f"graph execution failed: {e}"})
 
     return StreamingResponse(
@@ -385,7 +424,7 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
 async def get_status(session_id: str, request: Request) -> dict[str, Any]:
     # P1 修复(2026-08-06): 校验会话归属,防跨用户读取他人会话状态
     user_id, is_admin = _get_current_user(request)
-    session = _require_session(session_id, user_id, is_admin)
+    session = await _require_session(session_id, user_id, is_admin)
     return {"sessionId": session.id, "status": session.status, "messageCount": len(session.messages)}
 
 
@@ -399,9 +438,9 @@ async def cancel_session(
 ) -> dict[str, Any]:
     # P1 修复(2026-08-06): 校验会话归属,防跨用户取消他人会话
     user_id, is_admin = _get_current_user(request)
-    session = _require_session(session_id, user_id, is_admin)
+    session = await _require_session(session_id, user_id, is_admin)
     session.status = "cancelled"
-    _save_session_redis(session)
+    await asyncio.to_thread(_save_session_redis, session)
     return {"sessionId": session_id, "status": "cancelled"}
 
 
@@ -422,7 +461,7 @@ async def list_sessions(request: Request, limit: int = 20, offset: int = 0) -> d
 async def get_session(session_id: str, request: Request) -> dict[str, Any]:
     # P1 修复(2026-08-06): 校验会话归属,防跨用户读取他人会话(含消息内容)
     user_id, is_admin = _get_current_user(request)
-    session = _require_session(session_id, user_id, is_admin)
+    session = await _require_session(session_id, user_id, is_admin)
     return session.model_dump()
 
 
@@ -430,9 +469,9 @@ async def get_session(session_id: str, request: Request) -> dict[str, Any]:
 async def resume_session(session_id: str, request: Request) -> dict[str, Any]:
     # P1 修复(2026-08-06): 校验会话归属,防跨用户续用他人会话
     user_id, is_admin = _get_current_user(request)
-    session = _require_session(session_id, user_id, is_admin)
+    session = await _require_session(session_id, user_id, is_admin)
     session.status = "running"
-    _save_session_redis(session)
+    await asyncio.to_thread(_save_session_redis, session)
     return {"sessionId": session_id, "status": "running"}
 
 

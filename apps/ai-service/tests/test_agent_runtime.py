@@ -319,8 +319,12 @@ async def test_execute_endpoint_creates_session_and_calls_graph(monkeypatch):
     fake_graph.ainvoke.assert_awaited_once()
 
 
-async def test_execute_endpoint_graph_failure_returns_empty_summary(monkeypatch):
-    """graph.ainvoke 抛异常时,summary 为空但不报 500。"""
+async def test_execute_endpoint_graph_failure_returns_502(monkeypatch):
+    """graph 执行失败必须回 502,不得用 200 + 空 summary 伪装成功。
+
+    旧契约(200 + summary="")会让调用方无法区分"失败"与"模型无输出",
+    与 /execute/stream 的 error 帧语义也不一致。
+    """
     fake_graph = MagicMock()
     fake_graph.ainvoke = AsyncMock(side_effect=RuntimeError("graph boom"))
     monkeypatch.setattr(agent_runtime, "get_agent_graph", lambda: fake_graph)
@@ -330,8 +334,8 @@ async def test_execute_endpoint_graph_failure_returns_empty_summary(monkeypatch)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.post("/agent-runtime/execute", json={"message": "test"})
 
-    assert resp.status_code == 200
-    assert resp.json()["summary"] == ""
+    assert resp.status_code == 502
+    assert "graph boom" in resp.json()["detail"]
 
 
 async def test_execute_endpoint_with_existing_session_id(monkeypatch):
@@ -474,7 +478,7 @@ async def test_get_status_returns_message_count(monkeypatch):
     """status 端点:返回 sessionId/status/messageCount。"""
     s = SessionState(id="s1", botId="b")
     s.messages.append(SessionMessage(role="user", content="x"))
-    monkeypatch.setattr(agent_runtime, "_find_session", lambda sid: s)
+    _sessions[s.id] = s
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.get("/agent-runtime/s1/status")
@@ -496,7 +500,7 @@ async def test_cancel_session_404_when_missing(monkeypatch):
 async def test_cancel_session_marks_cancelled(monkeypatch):
     """cancel 端点:把 session.status 置为 cancelled。"""
     s = SessionState(id="c1")
-    monkeypatch.setattr(agent_runtime, "_find_session", lambda sid: s)
+    _sessions[s.id] = s
     monkeypatch.setattr(agent_runtime, "_save_session_redis", lambda x: None)
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -532,7 +536,7 @@ async def test_resume_session_marks_running(monkeypatch):
     """resume 端点:把 session.status 置为 running。"""
     s = SessionState(id="r1")
     s.status = "cancelled"
-    monkeypatch.setattr(agent_runtime, "_find_session", lambda sid: s)
+    _sessions[s.id] = s
     monkeypatch.setattr(agent_runtime, "_save_session_redis", lambda x: None)
     app = _make_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
