@@ -116,7 +116,6 @@ function makeProps(overrides: Partial<SettingsScreenProps> = {}): SettingsScreen
     onLogout: () => {},
     menuItems: [],
     onMenuPress: () => {},
-    onBack: () => {},
     ...overrides,
   }
 }

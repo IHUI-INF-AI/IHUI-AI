@@ -141,9 +141,6 @@ export default function AiAssistantScreen() {
           },
         ])
       }
-      onPressCategory={(categoryId, title) =>
-        navigation.navigate('CategoryDetail', { categoryId, title })
-      }
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

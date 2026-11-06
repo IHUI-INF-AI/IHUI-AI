@@ -152,7 +152,6 @@ export function SharedDemoScreen() {
           menuSections={menuSections}
           onNavigate={(key) => console.info('nav:', key)}
           onLogout={() => console.info('logout')}
-          onBack={() => setTab('about')}
         />
       )}
       {tab === 'settings' && (
@@ -178,7 +177,6 @@ export function SharedDemoScreen() {
           menuItems={menuItems}
           onMenuPress={(key) => console.info('menu:', key)}
           appVersion={APP_VERSION}
-          onBack={() => setTab('about')}
         />
       )}
       {tab === 'cards' && (
