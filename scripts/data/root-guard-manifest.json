@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T20:22:16.001Z",
+  "sealedAt": "2026-11-06T20:41:56.272Z",
   "sealedBy": "root-guard --seal",
-  "reason": "门 302 注册(e2e skip 制度化 + 固定等待条件化),按门 267 要求同枚重封 root-guard 清单",
+  "reason": "门 302 补登 AGENTS.md 条款，按门 267 同枚重封 root-guard 清单",
   "targets": [
     {
       "id": "guardian-runner",
