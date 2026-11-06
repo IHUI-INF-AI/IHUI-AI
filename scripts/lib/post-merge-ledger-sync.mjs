@@ -83,12 +83,81 @@ function readPlanFaceText({ root = '', readFace } = {}) {
   return text
 }
 
-/** 判据模块 = 守门 13d 那一份;加载不了 ⇒ null(调用方折成"未判定",不冒充 0)。 */
-function loadRatchet() {
+/**
+ * 夹具注入面的判据探针(2026-11-06 立,治 loadRatchet/loadPurgeTool 恒 null)。
+ *
+ * 取证(Node v22.22.2):require() 这两个 ESM 会因其静态图含 top-level await 抛
+ * ERR_REQUIRE_ASYNC_MODULE(根在 strip-stale-closed-rows.mjs 第 127 行),被 try/catch
+ * 吞成 null ⇒ 夹具注入面三个 residue 结构性失明(§0.3 禁把未判定折成 0)。改在本模块
+ * 顶层 await import() 又会撞上 bypass-git → 本层那条 ESM 环,Node 报
+ * "unsettled top-level await" 直接挂死(实测 exit 13)。
+ *
+ * 正解 = 与生产面同型:离开本进程模块图,走只读子进程探针。子进程里本层只被静态
+ * import、不处于求值中 ⇒ 环不存在,TLA 由 ESM 求值正常消化。
+ * 判据只此一份(§0.6):探针在子进程里动态 import() 器物的真导出,把注入的 text 经
+ * stdin 喂给它、读机器可读结论行 —— 不复制任何正则/计数/渲染差逻辑。
+ * spawnSync 同步等结论 ⇒ 三个 residue 导出与 postMergeLedgerSync 仍是同步函数,
+ * 所有调用方(3 台旁路落地器 + 镜像测试)的同步消费契约一字不变。
+ * 结论行取不到 / 数字形态坏 / 子进程失败 ⇒ null = 未判定(§0.3,绝不冒充 0)。
+ */
+const RATCHET_URL = new URL('../check-plan-dup-pointer-ratchet.mjs', import.meta.url).href
+const PURGE_URL = new URL('../plan-pointer-purge.mjs', import.meta.url).href
+
+function runProbe(script, input) {
   try {
-    return require(join(HERE, '..', 'check-plan-dup-pointer-ratchet.mjs'))
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+      input,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 300000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    if (!r || typeof r.status !== 'number' || r.status !== 0) return null
+    return String(r.stdout || '')
   } catch {
     return null
+  }
+}
+
+function probeRatchet(text, key) {
+  const script = `
+    const R = await import(${JSON.stringify(RATCHET_URL)})
+    let s = ''
+    for await (const c of process.stdin) s += c
+    console.log('RATCHET-NOTE ' + R.countPointerRows(s))
+    console.log('RATCHET-TWIN ' + R.twinFoldCount(s))
+  `
+  const out = runProbe(script, text)
+  if (out === null) return null
+  const line = out.split(/\r?\n/).find((l) => l.startsWith(key + ' '))
+  if (!line) return null
+  const n = line.slice((key + ' ').length).trim()
+  if (!/^\d+$/.test(n)) return null
+  return Number(n)
+}
+
+function probePurge(text, opts) {
+  const absorb = !!(opts && opts.absorb)
+  const script = `
+    const P = await import(${JSON.stringify(PURGE_URL)})
+    let s = ''
+    for await (const c of process.stdin) s += c
+    console.log('PURGE-WORK ' + P.workResidueCount(s, { absorb: ${absorb} }))
+  `
+  const out = runProbe(script, text)
+  if (out === null) return null
+  const line = out.split(/\r?\n/).reverse().find((l) => l.startsWith('PURGE-WORK'))
+  if (!line) return null
+  const n = line.slice('PURGE-WORK'.length).trim()
+  if (!/^\d+$/.test(n)) return null
+  return Number(n)
+}
+
+/** 判据模块 = 守门 13d 那一份(经子进程探针问,判据住在本器 §0.6)。 */
+function loadRatchet() {
+  return {
+    countPointerRows: (text) => probeRatchet(text, 'RATCHET-NOTE'),
+    twinFoldCount: (text) => probeRatchet(text, 'RATCHET-TWIN'),
   }
 }
 
@@ -133,13 +202,9 @@ export function twinFoldResidue({ root = '', readFace } = {}) {
   }
 }
 
-/** 复清器的处置判据**只许问,不许搬**(2026-10-25 立,判据住在本器 §0.6)。 */
+/** 复清器的处置判据**只许问,不许搬**(2026-10-25 立,判据住在本器 §0.6;经子进程探针问)。 */
 function loadPurgeTool() {
-  try {
-    return require(join(HERE, '..', 'plan-pointer-purge.mjs'))
-  } catch {
-    return null
-  }
+  return { workResidueCount: (text, opts) => probePurge(text, opts) }
 }
 
 /**
