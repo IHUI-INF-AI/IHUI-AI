@@ -8866,6 +8866,10 @@
           "title": "服務提供商繁忙",
           "action": "請稍後重試"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "這次消耗需要你確認",
+          "action": "確認後再重試，未確認不會呼叫生圖"
+        },
         "ALREADY_CLAIMED": {
           "title": "該任務已被他人認領",
           "action": "改領其他任務，或等對方釋放後再試"
@@ -8997,6 +9001,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "該操作已被安全原則攔截",
           "action": "修改後重試"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "這條命令被原則拒絕",
+          "action": "換一條命令，或請管理員調整原則"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "這條命令的原則還沒判出來",
+          "action": "先不要執行，等原則可讀後再試"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "需要確認後才會執行",

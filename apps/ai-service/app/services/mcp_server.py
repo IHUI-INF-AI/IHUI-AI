@@ -7374,7 +7374,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
 
     # 高消耗审批:宿主盖过的余额/批准才算数。拒绝发生在选 provider 之前,
     # 所以上游调用次数在拒绝时是 0。没给余额则不计量,旧调用保持原样。
-    from ..core.credit_spend_approval import gate_image_spend
+    from ..core.mcp_tool_approval import gate_image_spend
 
     credit_block = gate_image_spend(arguments)
     if credit_block is not None:
@@ -14277,7 +14277,7 @@ class MCPServer:
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
             # G6(2026-07-26):同时注入 __user_id/__session_id 供 knowledge_lookup
             # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
-            from ..core.credit_spend_approval import apply_host_credit_facts
+            from ..core.mcp_tool_approval import apply_host_credit_facts
 
             args_with_role = apply_host_credit_facts(
                 arguments,
