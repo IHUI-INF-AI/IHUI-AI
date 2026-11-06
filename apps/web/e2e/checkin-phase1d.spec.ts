@@ -195,7 +195,7 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     // 空状态 + 无裸 i18n 键
     await expect(authenticatedPage.getByText('暂无签到账号，点击右上角添加')).toBeVisible()
     const html = await authenticatedPage.content()
-    expect(html).not.toContain('checkin.checkin')
+    expect(html).not.toContain('checkinAssistant.checkin')
   })
 
   test('录入对话框:含分组字段;提交后分组徽章与分组筛选出现', async ({ authenticatedPage }) => {
@@ -264,7 +264,7 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     await authenticatedPage.getByRole('tab', { name: '积分看板' }).click()
     await expect(authenticatedPage.getByText('暂无积分数据，完成首次签到后生成看板')).toBeVisible()
     const html = await authenticatedPage.content()
-    expect(html).not.toContain('checkin.checkin')
+    expect(html).not.toContain('checkinAssistant.checkin')
   })
 
   test('一键全部签到按钮存在且可点击状态正常(不点击,避免真实外网签到)', async ({

@@ -20477,7 +20477,7 @@
     "wizardAuditEntries": "查看全部扫描明细",
     "wizardAuditScope": "扫描范围：{cn} 与 {roaming}，共 {files} 个文件。"
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "自动做任务",
     "taskPanelAutoTitle": "自动巡检",
     "taskPanelAutoLoading": "读取中…",

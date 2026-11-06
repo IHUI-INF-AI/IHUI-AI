@@ -110,7 +110,7 @@ const WB_SWEEP_TONE_CLASS: Record<WbSweepTone, string> = {
 }
 
 export function WorkbuddyTaskPanel({ accounts }: { accounts: TaskPanelAccount[] }) {
-  const t = useTranslations('checkin')
+  const t = useTranslations('checkinAssistant')
   const wbAccounts = React.useMemo(
     () => accounts.filter((a) => (a.platform ?? '') === 'workbuddy'),
     [accounts],
