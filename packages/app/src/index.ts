@@ -58,6 +58,9 @@ export { NotificationListScreen } from './features/notification/NotificationList
 export { HistoryScreen } from './features/history/HistoryScreen'
 export { CertificateScreen } from './features/certificate/CertificateScreen'
 export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
+/** 2026-11-06 门 6 还账:会话历史共享屏此前只走深路径,barrel 补出口供 RN 薄壳直取 */
+export { ConversationHistoryScreen } from './features/chat/ConversationHistoryScreen'
+export type { ConversationHistoryGroup } from './features/chat/ConversationHistoryScreen'
 export { OrderScreen } from './features/order/OrderScreen'
 export { StudyPlanScreen } from './features/study-plan/StudyPlanScreen'
 export { WalletScreen } from './features/wallet/WalletScreen'

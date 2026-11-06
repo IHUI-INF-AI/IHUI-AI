@@ -14,7 +14,7 @@ import {
   setConversationPinned,
 } from '@ihui/api-client'
 import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
-import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app/features/message-center/MessageCenterScreen'
+import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
 import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
