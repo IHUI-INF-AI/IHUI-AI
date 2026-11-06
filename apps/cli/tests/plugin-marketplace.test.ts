@@ -383,6 +383,15 @@ describe('Plugin Marketplace', () => {
       expect(reg.records).toEqual([]);
     });
 
+    it('loadInstallRegistry 非空损坏文件不说成没有已装插件', () => {
+      const regPath = getRegistryPath();
+      fs.mkdirSync(path.dirname(regPath), { recursive: true });
+      const body = '{"records":[{"name":"kept"}]\n';
+      fs.writeFileSync(regPath, body);
+      expect(() => loadInstallRegistry()).toThrow(/插件登记表读不到/);
+      expect(fs.readFileSync(regPath, 'utf-8')).toBe(body);
+    });
+
     it('loadInstallRegistry 文件不存在返回空注册表', () => {
       const reg = loadInstallRegistry();
       expect(reg.records).toEqual([]);
