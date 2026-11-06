@@ -37,6 +37,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import time
 from typing import cast
@@ -622,14 +623,29 @@ def _archive_source(md_path: str) -> None:
     """清理阶段把源 md 从 articles/ 移到 articles/archive/(按日期号存档)。仅 --only-cleanup 调用。"""
     import shutil as _sh
     src = os.path.normpath(os.path.abspath(md_path))
-    if not os.path.isfile(src):
+    try:
+        src_mode = os.stat(src).st_mode
+    except FileNotFoundError:
         print(f'    ⚠️ 源md不存在,跳过归档: {src}')
+        return
+    except OSError:
+        print(f'    ⚠️ 源md读不到,不能把它说成不存在: {src}')
+        return
+    if not stat.S_ISREG(src_mode):
+        print(f'    ⚠️ 源md读不到,不能把它说成不存在: {src}')
         return
     articles_dir = os.path.dirname(src)
     archive_dir = os.path.join(articles_dir, 'archive')
     os.makedirs(archive_dir, exist_ok=True)
     dst = os.path.join(archive_dir, os.path.basename(src))
-    if os.path.exists(dst):
+    try:
+        os.stat(dst)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        print(f'    ⚠️ 归档目标读不到,不能覆盖: {os.path.basename(src)}')
+        return
+    else:
         print(f'    ℹ️ 已归档,跳过: {os.path.basename(src)}')
         return
     try:
