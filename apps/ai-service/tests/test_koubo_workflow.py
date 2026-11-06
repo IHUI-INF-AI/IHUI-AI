@@ -1652,4 +1652,67 @@ def test_topic_pool_default_date_uses_cn_today(monkeypatch, capsys) -> None:
     tp.main()
     out = capsys.readouterr().out
     assert "# 口播稿热点选题池 · 全网版 · 2031-02-03" in out
+
+
+def test_display_checkpoint_unreadable_file_is_fail(monkeypatch, tmp_path) -> None:
+    """K1: 硬门禁检查点读不出来时不得 fail-open 成通过,必须 False + 原因。"""
+    import io
+    import sys
+    from pathlib import Path
+
+    tools_dir = Path(__file__).resolve().parents[1] / "app" / "skills" / "koubo_workflow" / "tools"
+    monkeypatch.syspath_prepend(str(tools_dir))
+    monkeypatch.syspath_prepend(str(tools_dir.parent))
+    import project_boundary as pb
+
+    monkeypatch.setattr(pb, "check_action", lambda **kw: None)
+
+    # 模块导入时会把 sys.stdout 换成新的 TextIOWrapper:用临时 buffer 兜住,
+    # 避免污染 pytest 捕获流。
+    real_out, real_err = sys.stdout, sys.stderr
+    sys.stdout = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="replace")
+    try:
+        from app.skills.koubo_workflow.tools import koubo_validate as kv
+    finally:
+        sys.stdout, sys.stderr = real_out, real_err
+
+    # 传目录本身:open() 必抛 IsADirectoryError,等价于「文件读不出来」。
+    ok, detail = kv._display_checkpoint(str(tmp_path), 1)
+    assert ok is False
+    assert "读取失败" in detail
+    assert "FAIL" in detail
+
+
+def test_gate_fact_check_import_error_is_fail(monkeypatch) -> None:
+    """K1b: 门禁A+ 的依赖缺失不得静默放行(旧实现 ImportError ⇒ return True)。"""
+    import builtins
+    import importlib
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    pp = importlib.import_module("app.skills.content_engine.publish_pipeline")
+    real_import = builtins.__import__
+
+    def _fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "lib.fact_check":
+            raise ImportError("simulated missing fact_check")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    assert pp.gate_fact_check("unused.md", "t") is False
+
+
+def test_published_memory_corrupt_json_fails_loud(monkeypatch, tmp_path) -> None:
+    """K1b: 已发布记忆损坏时不得当作「没有记忆」继续判绿。"""
+    import importlib
+
+    v = importlib.import_module("app.skills.content_engine.lib.validate")
+    base = tmp_path / "content_engine"
+    base.mkdir()
+    (base / "已发布内容记忆.json").write_text("{broken", encoding="utf-8")
+    monkeypatch.setattr(v, "__file__", str(base / "lib" / "validate.py"))
+
+    with pytest.raises(RuntimeError) as exc:
+        v._load_published_memory(str(tmp_path / "article.md"))
+    assert "已发布记忆不可读" in str(exc.value)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

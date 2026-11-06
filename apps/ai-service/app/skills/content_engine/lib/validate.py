@@ -312,8 +312,12 @@ def _load_published_memory(md_path: str) -> dict[str, Any] | None:
                 with open(cand, encoding='utf-8') as f:
                     return cast(dict[str, Any], json.load(f))
             except (OSError, json.JSONDecodeError) as e:
-                print(f'[validate] 读已发布记忆失败({cand}): {e}')
-                return None
+                # K1b: 已发布记忆是去重/原创度/图片复用的硬输入。读不出来时若按
+                # 「没有记忆」继续判分,等于把未检测的风险判成通过 ⇒ fail-closed。
+                raise RuntimeError(
+                    f'已发布记忆不可读({cand}): {e}。'
+                    f'禁止在记忆缺失/损坏时继续判绿,请修复或移走该文件后重跑。'
+                ) from e
     return None
 
 

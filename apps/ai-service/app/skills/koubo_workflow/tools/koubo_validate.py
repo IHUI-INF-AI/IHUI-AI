@@ -1341,7 +1341,10 @@ def _display_checkpoint(filepath: str, n_articles: int) -> tuple[bool, str]:
         with open(filepath, encoding='utf-8') as _f:
             text = _f.read()
     except Exception as e:
-        return True, f'检查点跳过(读取失败:{e})'
+        # 硬门禁 fail-closed: 读不出被验证文件就无法比对「是否全量显示」,
+        # 放行等于把「未全量显示」判成通过。必须给出可见的失败原因。
+        return False, (f'全量显示检查点读取失败(无法比对,按 FAIL 处理): {e}。'
+                       f'请修复文件可读性后重跑,不得以「跳过」交付。')
     h = hashlib.sha256(text.strip().encode('utf-8')).hexdigest()[:16]
     if not os.path.exists(DISPLAY_HASH_FILE):
         return False, (f'尚未建立全量显示检查点(sha={h})。必须运行 koubo_display.py 输出并粘贴'

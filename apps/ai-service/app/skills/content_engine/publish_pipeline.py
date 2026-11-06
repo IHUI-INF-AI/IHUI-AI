@@ -106,9 +106,10 @@ def gate_fact_check(md_path: str, title: str) -> bool:
     print('\n[门禁A+] 事实核查（第23项，12子检查，HIGH级阻断）...')
     try:
         from lib.fact_check import fact_check as _fc
-    except ImportError:
-        print('  ⚠️ fact_check 模块未找到,跳过(降级运行)')
-        return True
+    except ImportError as e:
+        # K1b: 门禁A+ 是硬门禁,依赖缺失不得静默放行。
+        print(f'  ❌ fact_check 模块未找到: {e} ⇒ 门禁A+ 无法执行,按 FAIL 处理(禁止推送)')
+        return False
     # 把 md 转成 article dict + 自动建 claims_registry(2026-07-12 修复 C12)
     with open(md_path, encoding='utf-8') as _f:
         text = _f.read()
