@@ -26,7 +26,7 @@ import {
 import {
   ConversationHistoryScreen as SharedConversationHistoryScreen,
   type ConversationHistoryGroup,
-} from '@ihui/rn-app/features/chat/ConversationHistoryScreen'
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'

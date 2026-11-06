@@ -6,8 +6,8 @@
 // 非中文语言包离线 gzip+base64 内联,运行时经 fflate 解压,数据与源 JSON 无损等价(见 __tests__/i18n-compressed.test.ts)
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: bca76e727546057da679e8970511dbc809f09dbd
-// inputsSha256: 3a1fff10fee5ef27842e655fb4fa2ccf19e46de4d66aefa657ff1d06e8610052
+// sourceCommit: effec7af3983bf11097dc079aa5abba6a06d82b6
+// inputsSha256: 2b11f1e42dc981484f4f33557f52d1e558f109784334ab3099554883fb157e81
 // input: packages/i18n/messages/miniapp-taro/en.json f3d1aa1545de3e7e9122a147348cb4e82b35fe0f0f88d1ad3cf279ffe0dfe923
 // input: packages/i18n/messages/miniapp-taro/ja.json 048c3bc52104d06ec5df3320145b274cbd3dbe5feb574208e99b8550dc670d2a
 // input: packages/i18n/messages/miniapp-taro/ko.json 971b34dfa479936ade0659dc9fafd8367d662f9f53a7a16b8edfaaf37c44d179
@@ -15,14 +15,14 @@
 // input: packages/i18n/messages/mobile-rn/en.json 47d085a50731e4c8264aa0cacf0e1a9f551794729629245f285b756ae17c3758
 // input: packages/i18n/messages/mobile-rn/ja.json 6b6e2338769021d228735cec075ba23d2bd5c059ccc4d2b5f685e5296e27d2f7
 // input: packages/i18n/messages/mobile-rn/ko.json 0cb14610cc4a8c97c9b8d3dedcd51c26f9400e64d270ca9dcf28ddeb754cfbb6
-// input: packages/i18n/messages/mobile-rn/zh-TW.json 52f489396ae2d6d82f2f8175ebbd2889df7b17802b94d41a669d227bbf2dfdc3
+// input: packages/i18n/messages/mobile-rn/zh-TW.json 2dbc5eb01d3c6a168205d1929bd64617f7e981e45819ce60a7477ae412ad2fac
 // input: packages/i18n/messages/shared/en.json 34a2866503f59fcd043bc5e87a43bdfa988c6e78f8728249c3d822011c41149e
 // input: packages/i18n/messages/shared/ja.json 527698798fdd3389b1b83b768cbc850836d8eeb4196405f8d929e9812a16f679
 // input: packages/i18n/messages/shared/ko.json 38b1a4dee3bf4359ef4db391a15ae1274782aeee7cbd9fb7cd906c3e31b51c7a
 // input: packages/i18n/messages/shared/zh-TW.json 1401ddeaced673d2824b67fd31f0e9fcfa525d00e9a35108eff2094bd025fd41
 // carried: present
 // carriedKeys: en=634 ja=634 ko=634 zh-TW=634
-// generatedAt: 2026-11-06T14:20:34.937Z
+// generatedAt: 2026-11-06T14:32:52.692Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_B64: Record<RemoteLocale, string> = {
