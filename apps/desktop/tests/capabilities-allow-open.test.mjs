@@ -88,22 +88,41 @@ export function judgeAllowOpen(caps) {
   return { ok: problems.length === 0, problems, urls: urls.filter((u) => u !== null) }
 }
 
+// ── remote.urls 覆盖面(2026-11-07 缺陷挖掘回归钉)──────────────────────────
+// 主窗配置 https://aizhs.top/ 实测 308 → https://www.aizhs.top/;Tauri ACL 按
+// 每次 IPC 的 Origin 头匹配 capability.remote.urls。apex 与 www 是**两个不同
+// origin**,只写 apex 会让重定向后的线上页 100% 被 ACL 拒绝(全部自定义命令失效)。
+const REQUIRED_REMOTE_URLS = ['http://tauri.localhost', 'https://aizhs.top/*', 'https://www.aizhs.top/*']
+
+export function judgeRemoteUrls(caps) {
+  const problems = []
+  const urls = caps.remote?.urls ?? []
+  for (const required of REQUIRED_REMOTE_URLS) {
+    if (!urls.includes(required)) problems.push('remote.urls 缺少实际 origin: ' + required)
+  }
+  return { ok: problems.length === 0, problems }
+}
+
 function main() {
   let verdict
+  let guard
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
+    guard = judgeRemoteUrls(caps)
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
     process.exit(2)
   }
   assert.equal(verdict.ok, true, 'allow-open 白名单违规:\n  ' + verdict.problems.join('\n  '))
+  assert.equal(guard.ok, true, 'remote.urls 覆盖面缺失:\n  ' + guard.problems.join('\n  '))
   console.log(
     'PASS shell:allow-open 白名单 ' +
       verdict.urls.length +
       ' 条全显式域名(无裸协议通配/后缀通配),覆盖 aizhs.top/www.aizhs.top/localhost:8801',
   )
+  console.log('PASS remote.urls 覆盖 apex+www(308 重定向后的真实 origin)')
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
