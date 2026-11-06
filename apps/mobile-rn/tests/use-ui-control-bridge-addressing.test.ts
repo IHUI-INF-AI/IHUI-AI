@@ -22,6 +22,16 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
+  // 2026-11-06:主干桥接层改为经 api-client 两个具名端口上报,替身缺出口会在注册时抛
+  // "No export is defined on the mock";且必须把载荷落回 h.posts,否则回执断言永远空转。
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
+    return Promise.resolve({ success: true })
+  },
   fetchApi: (url: string, opts: { body?: string }) => {
     h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
     return Promise.resolve({ success: true })
