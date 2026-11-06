@@ -43,7 +43,7 @@
  *   node scripts/check-sweeper-liveness.mjs --self-test
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, utimesSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -253,9 +253,10 @@ function dispatchFaceOf(rows) {
 }
 
 /**
- * 承载面心跳:`.ihui-agent/state/git-guardian.lock` 的 `at=` 键值对(lib/guardian-lock.mjs 的
- * DEFAULT_LOCK_PATH,每轮 beat 一次)。它证明"执行体本身在动"。
- * 取不到 ⇒ 'missing';解析不出 ⇒ null。两种都由上层落未判定,不折成"承载面停了"。
+ * `.ihui-agent/state/git-guardian.lock` 的 `at=` = **取锁时刻**(lib/guardian-lock.mjs 只在
+ * openSync 成功时写一次,轮次刷新不动它)。保留此读取只为"取锁时刻"这一真实语义,
+ * 它不是心跳。
+ * 取不到 ⇒ 'missing';解析不出 ⇒ null。
  */
 export function readCarrierAt(file) {
   let raw
@@ -268,6 +269,20 @@ export function readCarrierAt(file) {
   if (!m) return null
   const t = Date.parse(m[1].trim())
   return Number.isFinite(t) ? t : null
+}
+
+/**
+ * 承载面心跳 = 锁文件 **mtime**(lib/guardian-lock.mjs 用 utimesSync 续约,其头注写明
+ * "heartbeat 的载体是锁文件的 mtime,不是重写文件内容")。只有它证明"执行体本身在动";
+ * `at=` 取锁后恒定不动,拿它当心跳会把一个正在跑的执行体永久判成"停了"。
+ * 取不到 ⇒ 'missing';读不出 mtime ⇒ null。两种都由上层落未判定,不折成"承载面停了"。
+ */
+export function readCarrierHeartbeatMs(file) {
+  try {
+    return statSync(file).mtimeMs
+  } catch (e) {
+    return e?.code === 'ENOENT' ? 'missing' : null
+  }
 }
 
 /** 顶层 `const IDENT = …`(可跨行,含 `export const` 形)的初始化式;取不到 ⇒ null。 */
@@ -591,9 +606,11 @@ export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) 
   const stateDir = path.join(root, '.ihui-agent', 'state')
   // 承载面心跳:整条执行体都不在动的时候,不许把 24 枚冻结戳逐枚算到腿头上
   // (与 verdictFor 的 'dispatch-not-moving' 同一纪律:派发层停摆另属一族,不冒名 stalled)。
-  const carrierAt = readCarrierAt(path.join(stateDir, 'git-guardian.lock'))
-  const carrierAgeMin = Number.isFinite(carrierAt)
-    ? Math.max(0, Math.round((nowMs - carrierAt) / MIN_MS))
+  // 口径 = 锁文件 mtime(utimesSync 续约);at= 只是取锁时刻,恒不刷新,不能当心跳。
+  const carrierLock = path.join(stateDir, 'git-guardian.lock')
+  const carrierBeatMs = readCarrierHeartbeatMs(carrierLock)
+  const carrierAgeMin = Number.isFinite(carrierBeatMs)
+    ? Math.max(0, Math.round((nowMs - carrierBeatMs) / MIN_MS))
     : null
   const carrierMoving = carrierAgeMin !== null && carrierAgeMin <= CARRIER_FRESH_MIN
   const breaches = []
@@ -1206,6 +1223,12 @@ function selfTest() {
         JSON.stringify({ attemptAt: new Date(ms).toISOString() }),
         'utf8',
       )
+    // 锁夹具:at= 是取锁时刻(可单独指定),心跳看 mtime ⇒ 两处都必须显式给。
+    const writeLock = (mtimeMs, role, atMs = mtimeMs) => {
+      const f = path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock')
+      writeFileSync(f, `pid=9999\nat=${new Date(atMs).toISOString()}\nrole=${role}\n`, 'utf8')
+      utimesSync(f, new Date(mtimeMs), new Date(mtimeMs))
+    }
     writeGuardian(fixtureSrc)
     stamp('alpha-tick.json', NOW - 4 * MIN_MS)
     // ㉒ main-only 且无标记 ⇒ 背离点名(2026-11-03 事故原形)
@@ -1237,11 +1260,7 @@ function selfTest() {
     )
     // ㉕ 节流戳冻结 > 声明节律×3 ⇒ stamp-frozen;刚写过 ⇒ 不点名
     //     (前提:承载面心跳在动 —— 轮级锁 1 分钟前刚 beat,否则算"整条执行体停了",另属一族)
-    writeFileSync(
-      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
-      `pid=9999\nat=${new Date(NOW - MIN_MS).toISOString()}\nrole=git-guardian:daemon\n`,
-      'utf8',
-    )
+    writeLock(NOW - MIN_MS, 'git-guardian:daemon')
     stamp('alpha-tick.json', NOW - 4 * 60 * MIN_MS)
     v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
     t(
@@ -1256,11 +1275,7 @@ function selfTest() {
     )
     // ㉛ 承载面心跳也停 ⇒ 冻结戳降级成"未判定(carrier-not-moving)",不冒名 stalled
     //     (与 verdictFor 的 dispatch-not-moving 同一纪律:派发层停摆是另一族问题)
-    writeFileSync(
-      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
-      `pid=9999\nat=${new Date(NOW - 4 * HOUR_MS).toISOString()}\nrole=git-guardian:round\n`,
-      'utf8',
-    )
+    writeLock(NOW - 4 * HOUR_MS, 'git-guardian:round')
     stamp('alpha-tick.json', NOW - 4 * 60 * MIN_MS)
     v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
     t(
@@ -1269,11 +1284,18 @@ function selfTest() {
         !v.items.some((x) => x.kind === 'stamp-frozen'),
       JSON.stringify(v.items.map((x) => `${x.leg}:${x.kind}`)),
     )
-    writeFileSync(
-      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
-      `pid=9999\nat=${new Date(NOW - MIN_MS).toISOString()}\nrole=git-guardian:daemon\n`,
-      'utf8',
+    // ㉛b 同源口径自证:at=(取锁时刻)停在 4 小时前,但锁 mtime 1 分钟前刚续
+    //      ⇒ 执行体在动,冻结戳必须冒名 stamp-frozen,不许沿用 at= 把整条执行体判成"停了"。
+    writeLock(NOW - MIN_MS, 'git-guardian:round', NOW - 4 * HOUR_MS)
+    stamp('alpha-tick.json', NOW - 4 * 60 * MIN_MS)
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉛b at= 旧但锁 mtime 新鲜 ⇒ 心跳按 mtime 算,该腿落 stamp-frozen 而非 carrier-not-moving',
+      v.items.some((x) => x.leg === 'auditAlpha' && x.kind === 'stamp-frozen') &&
+        !v.items.some((x) => x.kind === 'carrier-not-moving'),
+      JSON.stringify(v.items.map((x) => `${x.leg}:${x.kind}`)),
     )
+    writeLock(NOW - MIN_MS, 'git-guardian:daemon')
     // ㉖ 戳文件不在 ⇒ 未判定逐条(§0.3:绝不折成"没跑过所以没事")
     writeFileSync(path.join(pdir, '.ihui-agent', 'state', 'alpha-tick.json'), '{畸形', 'utf8')
     v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
@@ -1385,6 +1407,7 @@ export const __test__ = {
   resolveTickFile,
   readStampMs,
   readCarrierAt,
+  readCarrierHeartbeatMs,
   PARITY_FREEZE_FACTOR,
   CARRIER_FRESH_MIN,
   PARITY_EXEMPT_MARK,

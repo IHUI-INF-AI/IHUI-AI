@@ -7,7 +7,7 @@
 // 出口(§22c),本文件不重写任何判定;守护层只锁"装车成套 + 节流有牙 + 三态分档"。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, utimesSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../git-guardian.mjs'
@@ -281,12 +281,17 @@ function parityHarness(source) {
         JSON.stringify({ attemptAt: new Date(atMs).toISOString() }),
         'utf8',
       ),
-    carrier: (atMs) =>
-      writeFileSync(
-        path.join(root, '.ihui-agent', 'state', 'git-guardian.lock'),
-        `pid=9\nat=${new Date(atMs).toISOString()}\nrole=git-guardian:daemon\n`,
-        'utf8',
-      ),
+    // 锁夹具:at= 是取锁时刻(可单独指定),心跳看 mtime ⇒ 两处都必须显式给。
+    carrierBoth: ({ atMs, mtimeMs }) => {
+      const file = path.join(root, '.ihui-agent', 'state', 'git-guardian.lock')
+      writeFileSync(file, `pid=9\nat=${new Date(atMs).toISOString()}\nrole=git-guardian:daemon\n`, 'utf8')
+      utimesSync(file, new Date(mtimeMs), new Date(mtimeMs))
+    },
+    carrier: (heartbeatMs) => {
+      const file = path.join(root, '.ihui-agent', 'state', 'git-guardian.lock')
+      writeFileSync(file, `pid=9\nat=${new Date(heartbeatMs).toISOString()}\nrole=git-guardian:daemon\n`, 'utf8')
+      utimesSync(file, new Date(heartbeatMs), new Date(heartbeatMs))
+    },
     kindOf: (leg) => {
       const v = P.dispatchParityVerdict({ nowMs: NOW, root })
       const hit = (v.items ?? []).find((x) => x.leg === leg)
@@ -383,6 +388,40 @@ test('族三冻结戳有牙,且承载面停摆时降级成未判定(不冒名 st
   }
 })
 
+test('族三承载面心跳口径自证:at= 旧 + mtime 新鲜 ⇒ 不看 at=(修前必红);mtime 真旧 ⇒ 仍 carrier-not-moving', () => {
+  const h = parityHarness(GUARDIAN_SRC)
+  try {
+    // ① at= 停在 4 小时前(取锁时刻,恒定不刷新),mtime 1 分钟前刚续 ⇒ 执行体在动
+    h.carrierBoth({ atMs: NOW - 4 * 60 * MIN, mtimeMs: NOW - MIN })
+    h.stamp('plan-closed-sweep-last.json', NOW - 60 * MIN)
+    assert.equal(
+      h.kindOf('sweepStaleClosedRows'),
+      'stamp-frozen',
+      '修前读 at= 会误判 carrier-not-moving;心跳载体是 mtime,冻结戳必须冒名 stamp-frozen',
+    )
+    const v = P.dispatchParityVerdict({ nowMs: NOW, root: h.root })
+    assert.equal(
+      v.bits.find((b) => b.startsWith('承载面心跳=')),
+      '承载面心跳=1 分钟前',
+      '心跳读数必须是 mtime 的 1 分钟,不是 at= 的 240 分钟',
+    )
+    // ② at= 新鲜但 mtime 真停 4 小时 ⇒ 不能一刀切绿,仍必须 carrier-not-moving
+    h.carrierBoth({ atMs: NOW - MIN, mtimeMs: NOW - 4 * 60 * MIN })
+    h.stamp('plan-closed-sweep-last.json', NOW - 60 * MIN)
+    assert.equal(
+      h.kindOf('sweepStaleClosedRows'),
+      'carrier-not-moving',
+      'at= 新鲜不代表有心跳;mtime 停了就得保持未判定',
+    )
+    // ③ 新鲜戳 + 新鲜 mtime ⇒ 该腿 live(不点名)
+    h.carrierBoth({ atMs: NOW - 4 * 60 * MIN, mtimeMs: NOW - MIN })
+    h.stamp('plan-closed-sweep-last.json', NOW - 4 * MIN)
+    assert.equal(h.kindOf('sweepStaleClosedRows'), null, '心跳与戳都在动 ⇒ 不点名')
+  } finally {
+    rmScratch(h.root)
+  }
+})
+
 /** 最小双链夹具:一条「无戳位」腿(具名声明)+ 一条正常戳位腿。两条链各 ≥20 行(tick 区段形状判据)。 */
 function parityFixtureSource() {
   const pad = Array.from({ length: 20 }, (_, i) => `  const pad${i} = ${i}`)
@@ -474,6 +513,14 @@ test('族三节流戳读数器:ISO 文本 / epoch 毫秒 / JSON attemptAt 三形
     writeFileSync(path.join(dir, 'bare.lock'), 'pid=1\nrole=x\n', 'utf8')
     assert.equal(P.readCarrierAt(path.join(dir, 'bare.lock')), null, '锁里没有 at= ⇒ 未判定,不读成"刚跳过"')
     assert.equal(P.readCarrierAt(path.join(dir, 'nope.lock')), 'missing')
+    // 心跳口径:at= 是取锁时刻,心跳看锁文件 mtime;两处都不许混
+    utimesSync(lock, new Date(NOW - 3 * MIN), new Date(NOW - 3 * MIN))
+    assert.ok(
+      Math.abs(P.readCarrierHeartbeatMs(lock) - (NOW - 3 * MIN)) < 2000,
+      '心跳必须读锁 mtime',
+    )
+    assert.equal(P.readCarrierAt(lock), NOW - 2 * MIN, 'at= 仍保留取锁时刻语义,不被心跳口径改写')
+    assert.equal(P.readCarrierHeartbeatMs(path.join(dir, 'nope.lock')), 'missing')
   } finally {
     rmScratch(dir)
   }
