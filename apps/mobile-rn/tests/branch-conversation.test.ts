@@ -136,6 +136,10 @@ describe('接线:真 api-client 的 branchConversation 跑通一次', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
+      headers: { get: () => null },
+      // BUG-13 起 2xx 先读 text() 再解析,只给 json() 的替身会让真实现误判「空体」→ success:false
+      text: async () =>
+        JSON.stringify({ code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }),
       json: async () => ({ code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }),
     })
     vi.stubGlobal('fetch', fetchMock)

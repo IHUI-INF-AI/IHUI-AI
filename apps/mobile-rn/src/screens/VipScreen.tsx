@@ -307,7 +307,7 @@ export function VipScreen() {
     setPurchasingId(level.id)
     setToast('')
     try {
-      const res = await createOrder({ type: 'vip', targetId: level.id })
+      const res = await createVipOrder(level.id)
       if (res.success) {
         setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
         // 订单创建成功后弹出购买须知,引导用户完成支付
@@ -349,7 +349,7 @@ export function VipScreen() {
       setBottomPopupVisible(false)
       setToast('')
       try {
-        const res = await createOrder({ type: 'vip', targetId: levelId })
+        const res = await createVipOrder(levelId)
         if (res.success) {
           setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
         } else {
@@ -678,7 +678,9 @@ export function VipScreen() {
         onRefresh={() => load(true)}
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
-        onRetry={() => { void load(); }}
+        onRetry={() => {
+          void load()
+        }}
         colorScheme={resolvedTheme}
         onNavigate={onNavigate}
         onToast={onToast}
