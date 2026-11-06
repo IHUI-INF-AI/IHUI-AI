@@ -519,8 +519,10 @@ export function landsLedger(paths) {
  *    镜像测试 `post-merge-ledger-sync.test.mjs` 的 L2 装车锁目前只钉两台收敛器,把它扩到
  *    落地器三台(object-space-land / live-doc-edit / plan-tasks-merge)是那一票的收口动作。
  *
- * 失败一律**大声点名且不改变落地成败**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证
- * 已经通过的落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,静默的自愈等于没有自愈)。
+ * 失败仍一律**大声点名**,但按 RP-71 / §0.3 的新契约:**落地内容不回滚、不判红,调用方却必须以
+ * exit 2 记未判定、拒绝报绿**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证已经通过的
+ * 落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,且不得静默报绿 —— 静默的自愈等于
+ * 没有自愈)。退出码折算统一走下方 `landingExitWithHeal`,本函数只如实返回 `ran/ok`,不改退出码本身。
  *
  * @param {{root:string, paths:string[], log?:Function, loud?:Function}} a
  * @returns {{triggered:boolean, ran:boolean, ok:boolean, why:string}}
@@ -550,5 +552,20 @@ export function rerunLedgerHeal({
         `   这一轮的"缺不缺登记行"没有任何一面得出过结论 ⇒ 不得当成"什么都没缺";手工补跑:node scripts/check-plan-line-loss.mjs --heal --commit`,
     )
   return { triggered: true, ran: r.ran, ok: r.ok, why: r.why }
+}
+
+/**
+ * RP-71 / §0.3:把落地器原有结论与「就地补跑台账自愈」的结果折成最终退出码(纯函数,不写盘不打日志)。
+ *  - `heal` 缺失或 `triggered=false`(本次落地不含台账)、`baseCode!==0`(落地器自己已有结论)⇒ 原样返回;
+ *  - 自愈跑成(`ran && ok`)⇒ 0;
+ *  - 自愈跑而未成 / 未派生成功 ⇒ **2 未判定**(不是 1:不判红、不回滚,只拒绝报绿)。
+ * @param {number} baseCode
+ * @param {{triggered:boolean, ran:boolean, ok:boolean, why:string}|null|undefined} heal
+ * @returns {number}
+ */
+export function landingExitWithHeal(baseCode, heal) {
+  if (!heal || !heal.triggered) return baseCode
+  if (baseCode !== 0) return baseCode
+  return heal.ran && heal.ok ? 0 : 2
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
