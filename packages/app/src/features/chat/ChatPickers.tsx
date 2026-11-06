@@ -135,6 +135,7 @@ export function ChatPickers({
             <Text style={styles.title}>{t(titleKeyFor(mode))}</Text>
             <TouchableOpacity
               style={styles.closeButton}
+              hitSlop={8}
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}

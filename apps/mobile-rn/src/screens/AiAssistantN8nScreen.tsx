@@ -57,6 +57,7 @@ import {
   type ListRenderItem,
 } from 'react-native'
 import { appAlert } from '../components/BottomPops'
+import { dialogContentHeightStyle } from '../lib/dialog-geometry'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
@@ -1205,10 +1206,13 @@ export default function AiAssistantN8nScreen() {
     }))
   }, [modelList])
 
-  // RN 0.86 Fabric:内部列表需要确定高度才能滚动。0.55 是给 sheet 自身 maxHeight:'70%'
-  // 留出头部高度的余量,避免列表被 overflow 裁掉。
+  // 弹层高度唯一源:sheet 拿到确定 height/maxHeight 后,内部列表用 flex:1 撑满剩余空间,
+  // 不再另写一份「给头部留余量」的比例(见 lib/dialog-geometry.ts)。
   const { height: windowHeight } = useWindowDimensions()
-  const modelPickerHeight = Math.round(windowHeight * 0.55)
+  const dialogHeightStyle = useMemo(
+    () => dialogContentHeightStyle(windowHeight),
+    [windowHeight],
+  )
 
   const selectedModelLabel = useMemo(() => {
     const m = modelListItems.find((item) => item.id === selectedModelId)
@@ -2099,7 +2103,7 @@ export default function AiAssistantN8nScreen() {
       >
         <View style={pickerStyles.overlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowModelPicker(false)} />
-          <View style={pickerStyles.sheet}>
+          <View style={[pickerStyles.sheet, dialogHeightStyle]}>
             <View style={pickerStyles.header}>
               <Text style={pickerStyles.title}>{t('chat.selectModel')}</Text>
               <TouchableOpacity
@@ -2111,8 +2115,8 @@ export default function AiAssistantN8nScreen() {
                 <Text style={pickerStyles.close}>{'×'}</Text>
               </TouchableOpacity>
             </View>
-            <View style={[pickerStyles.listWrap, { height: modelPickerHeight }]}>
-              {/* sheet-flex-ok:外层 listWrap 已内联确定高度 height: modelPickerHeight,
+            <View style={pickerStyles.listWrap}>
+              {/* sheet 已有确定高度(dialogHeightStyle),listWrap 以 flex:1 占满 header 之外剩余空间;
                   ModelPickerList 组件头注释契约 = 调用方提供定高/flex 容器 */}
               <ModelPickerList
                 items={modelListItems}
@@ -2453,8 +2457,7 @@ const pickerStyles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    maxHeight: '70%',
-    minHeight: '40%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
   },
   header: {
     flexDirection: 'row',
@@ -2473,9 +2476,10 @@ const pickerStyles = StyleSheet.create({
     color: tokens.text.tertiary,
     lineHeight: 26,
   },
-  // 高度由 useWindowDimensions 内联传入(modelPickerHeight),此处只保留布局语义
+  // sheet 已有确定高度,flex:1 占满 header 之外的剩余空间(不再手写比例)
   listWrap: {
     width: '100%',
+    flex: 1,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
