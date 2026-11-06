@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
 | 跟踪文件 | 19486 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -42662,3 +42660,6 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | 跟踪文件 | 19464 | `trackedFiles` |
 | 测试文件 | 4215 | `testFiles` |
 | 跟踪文件 | 19463 | `trackedFiles` |
+| 测试文件 | 4216 | `testFiles` |
+| 跟踪文件 | 19476 | `trackedFiles` |
+- UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `cross-end-ui-parity-debt.mjs`(2026-11-06 装车的只读欠债账,不进提交链 §12e;轴一 miniapp↔RN 四维 + 轴二 web↔RN 五维,判据全消费门 128 --json 自己零复算;派发层 = git-guardian 的 auditCrossEndDebtLedger(),main 健康轮次 + daemon tick 双挂点共用一枚节流戳,60 分钟、先写 attemptAt 后派生;rc=0/1/2 三态:rc=1 族涨只逐族写日志**不到人**(§5e-1:基线 2026-10-22 的涨项非本次引入,能做的动作是按族派单收口;提前开 IHUI_CROSS_END_DEBT_MAIL=1),rc=2 或结论取不到落未判定不记绿;镜像 scripts/tests/cross-end-debt-dispatch.test.mjs 11 例 import __test__ 零复算 §22c)
