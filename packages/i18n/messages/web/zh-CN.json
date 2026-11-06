@@ -5907,6 +5907,7 @@
           "completed": "已完成",
           "failed": "失败",
           "pending": "待审核",
+          "processing": "处理中",
           "rejected": "已驳回"
         },
         "subtitle": "管理用户提现申请与流水",
