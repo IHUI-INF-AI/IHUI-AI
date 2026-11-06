@@ -24,7 +24,12 @@
  * 故 `agentId?: string` 出现在每个判别成员的元信息中,而非独立事件。
  */
 
-import { CHAT_SYNC_EVENT_NAMES, type ChatSyncEventName, type GoalStatus } from '@ihui/types'
+import {
+  CHAT_SYNC_EVENT_NAMES,
+  type BudgetLevel,
+  type ChatSyncEventName,
+  type GoalStatus,
+} from '@ihui/types'
 // b76-13 票2:帧级字段 schema 用(本文件下方 SSE_FRAME_SCHEMAS;shared 的既有依赖)
 import { z as zod } from 'zod'
 
@@ -832,8 +837,12 @@ export type SSEEventPayload =
        * 批次 3(2026-11-06)新增 stopped —— 原先 ≥100% 只走 HTTP 429,流内
        * (agent 循环中途超限)没有任何可消费的终态帧,端上无法区分"请求失败"
        * 与"预算护栏主动停下"。`stopped` 只在流内出现,429 仍是请求级错误。
+       * 值域不在此重抄:单源 = packages/types/orchestration.ts 的 BUDGET_LEVELS
+       * (§0.6;本行曾自持一份三档字面量,与 @ihui/api-client 的载荷类型各写各的 ——
+       * 2026-11-06 实测两侧已落到不同代际:一处三档、一处两档,于是同一枚 stopped
+       * 在 utils/sse-parse.ts 交出时被判 TS2322,而全量面与产物面给出的答案还不一致)。
        */
-      level: 'warning' | 'critical' | 'stopped'
+      level: BudgetLevel
       /** 当日已用占限额百分比(0~100) */
       percent?: number
       /** 当日已用 tokens */
