@@ -14,7 +14,7 @@
  *   - 会话输出累积到 outputBuffer,terminal_read 返回自上次读取以来的增量
  */
 
-import { spawn as spawnChild } from 'node:child_process';
+import { spawn as spawnChild, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import * as crypto from 'node:crypto';
 import type { Tool, ToolResult } from './index.js';
@@ -26,6 +26,9 @@ import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
+// 降级 spawn 在 Windows 下只杀 cmd.exe 会留下孙进程(见 spawn-isolated 的注释与 G-690);
+// 终端会话关闭走同一条"杀进程树"出口,不再各自写一套 taskkill / 进程组逻辑。
+import { killProcessTree } from '../util/spawn-isolated.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
 
@@ -96,6 +99,8 @@ try {
 
 // PTY 实例最小接口(与 node-pty 的 IPty 兼容,避免静态 import 失败)
 interface IPty {
+  /** node-pty 的进程 id(ConPTY 树杀需要;某些实现/桩可能没有) */
+  pid?: number;
   write(data: string): void;
   resize(cols: number, rows: number): void;
   kill(signal?: string): void;
@@ -105,9 +110,12 @@ interface IPty {
 
 // 统一会话进程句柄(node-pty IPty 或 ChildProcess fallback 共用)
 interface SessionProc {
+  pid?: number;
   write(data: string): void;
   resize?(cols: number, rows: number): void;
   kill(signal?: string): void;
+  /** 杀整棵进程树;缺省(桩/旧句柄)时调用方回落 kill。抛错必须向上传播,不许假报成功。 */
+  killTree?(): void;
   onData(cb: (data: string) => void): () => void;
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): () => void;
 }
@@ -161,9 +169,28 @@ function spawnPty(command: string, cwd: string, cols: number, rows: number): Ses
   }) as unknown as IPty;
   pty.write(`${command}\r`); // 立即注入命令
   return {
+    pid: pty.pid,
     write: (data: string) => pty.write(data),
     resize: (c: number, r: number) => pty.resize(c, r),
     kill: (signal?: string) => pty.kill(signal),
+    // node-pty 的 kill 只作用于 shell 领先进程；Windows 下它启动的子进程仍在 ConPTY 树里，
+    // 由 taskkill /T /F 一并收走。任务栏杀失败(无 taskkill/无权限)才回落到 pty.kill，
+    // 且**不吞掉 kill 的错** —— 上层据此如实报"关闭失败"。
+    killTree: () => {
+      if (process.platform === 'win32' && pty.pid) {
+        let treeKilled = false;
+        try {
+          treeKilled = spawnSync('taskkill', ['/pid', String(pty.pid), '/T', '/F'], { stdio: 'ignore' }).status === 0;
+        } catch {
+          treeKilled = false; // taskkill 不可用：回落到 pty.kill
+        }
+        if (treeKilled) {
+          try { pty.kill(); } catch { /* 已随树终止，pty 句柄回收报错无需上抛 */ }
+          return;
+        }
+      }
+      pty.kill();
+    },
     onData: (cb) => {
       const h = pty.onData(cb);
       return () => h.dispose();
@@ -185,8 +212,12 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
     stdio: ['pipe', 'pipe', 'pipe'],
   });
   return {
+    pid: child.pid,
     write: (data: string) => { child.stdin?.write(data); },
     kill: (signal?: string) => { try { child.kill(signal as NodeJS.Signals); } catch { /* ignore */ } },
+    // Windows 的 shell:true 会多套一层 cmd.exe：child.kill 只杀 cmd，真正的命令变成孤儿。
+    // 复用 spawn-isolated 的树杀出口（Windows taskkill /T /F，POSIX 进程组）。
+    killTree: () => killProcessTree(child),
     onData: (cb) => {
       const h1 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
       const h2 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
@@ -209,10 +240,25 @@ function pruneStaleSessions(): void {
   const now = Date.now();
   for (const [id, s] of sessions) {
     if (now - s.lastActivityAt > SESSION_TIMEOUT_MS) {
-      try { s.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+      const proc = s.proc;
+      if (!proc) {
+        sessions.delete(id);
+        continue;
+      }
+      try {
+        if (proc.killTree) proc.killTree();
+        else proc.kill('SIGTERM');
+      } catch { /* 已死/无权限：仍从注册表摘除，避免名额被死会话占住 */ }
       sessions.delete(id);
     }
   }
+}
+
+/** 活跃(未退出)会话数：已退出的会话只保留输出供 terminal_read 取末态，不再占并发名额。 */
+function activeSessionCount(): number {
+  let n = 0;
+  for (const s of sessions.values()) if (!s.exited) n += 1;
+  return n;
 }
 
 // ==================== 工具实现 ====================
@@ -266,7 +312,7 @@ export const terminal_open: Tool = {
 
     // 清理超时会话 + 限额检查
     pruneStaleSessions();
-    if (sessions.size >= MAX_SESSIONS) {
+    if (activeSessionCount() >= MAX_SESSIONS) {
       return { success: false, output: '', error: `超过最大并发终端数(${MAX_SESSIONS})` };
     }
 
@@ -473,7 +519,20 @@ export const terminal_close: Tool = {
     const session = sessions.get(sessionId);
     if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
 
-    try { session.proc?.kill('SIGTERM'); } catch { /* ignore */ }
+    // 已退出的会话没有需要杀的进程：摘除即可。仍在运行的会话必须用树杀，
+    // 且杀失败时**不得**假报"已关闭"并摘表（否则调用方以为收掉了，实际留下孤儿进程/句柄）。
+    if (!session.exited) {
+      const proc = session.proc;
+      if (!proc) {
+        return { success: false, output: '', error: `会话 ${sessionId} 无进程句柄，无法确认关闭；已保留会话` };
+      }
+      try {
+        if (proc.killTree) proc.killTree();
+        else proc.kill('SIGTERM');
+      } catch (e) {
+        return { success: false, output: '', error: `会话 ${sessionId} 关闭失败(进程可能仍存活): ${(e as Error).message}` };
+      }
+    }
     sessions.delete(sessionId);
     return {
       success: true,

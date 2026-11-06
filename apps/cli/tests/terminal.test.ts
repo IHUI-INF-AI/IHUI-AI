@@ -33,6 +33,8 @@ interface MockPty {
   resized: Array<{ cols: number; rows: number }>;
   killed: boolean;
   killedSignal?: string;
+  /** 打开后 kill 抛错：用于验"关闭失败必须如实上报"，而不是 try/catch 后假报已关闭 */
+  failKill?: boolean;
   write(data: string): void;
   resize(cols: number, rows: number): void;
   kill(signal?: string): void;
@@ -54,9 +56,14 @@ const mockState = vi.hoisted(() => {
       resized: [],
       killed: false,
       killedSignal: undefined,
+      failKill: false,
       write(data: string) { pty.written.push(data); },
       resize(cols: number, rows: number) { pty.resized.push({ cols, rows }); },
-      kill(signal?: string) { pty.killed = true; pty.killedSignal = signal; },
+      kill(signal?: string) {
+        if (pty.failKill) throw new Error('kill EPERM(模拟句柄泄漏/无权限)');
+        pty.killed = true;
+        pty.killedSignal = signal;
+      },
       onData(cb: (data: string) => void) {
         dataCallbacks.push(cb);
         return { dispose: () => { const i = dataCallbacks.indexOf(cb); if (i >= 0) dataCallbacks.splice(i, 1); } };
@@ -258,6 +265,19 @@ describe('terminal_open', () => {
     const sendB = await terminal_send.execute({ sessionId: idB, input: 'test' }, ctx);
     expect(sendB.success).toBe(true);
   });
+
+  it('已退出的会话不占并发名额:退出 1 个后仍可开满 10 个新会话', async () => {
+    // 修前限额按 sessions.size 算：退出的会话仍留在表里供 terminal_read 取末态，
+    // 于是"开 1 个 → 它自己退出 → 再开 10 个"会在第 10 个被误拒(9 成功 / 1 失败)。
+    const first = await openSession('echo first');
+    first.pty.emitExit(0);
+
+    for (let i = 0; i < 10; i++) {
+      const r = await terminal_open.execute({ command: `echo next${i}` }, ctx);
+      expect(r.success, `第 ${i + 1} 个新会话应被允许(已退出会话不该占名额)`).toBe(true);
+      createdSessionIds.push(extractSessionId(r.output)!);
+    }
+  });
 });
 
 // ==================== terminal_send ====================
@@ -369,6 +389,23 @@ describe('terminal_close', () => {
     const result = await terminal_read.execute({ sessionId: id }, ctx);
     expect(result.success).toBe(false);
     expect(result.error).toContain('不存在');
+  });
+
+  it('杀进程失败时不得假报"已关闭":success=false 且会话保留', async () => {
+    // 修前:`try { kill } catch {}` 后无条件 delete + success:true —— 调用方以为收掉了，
+    // 实际进程/句柄仍在（Windows 下还会留下 ConPTY 子进程）。这里让 kill 抛错验这一格。
+    const { id, pty } = await openSession();
+    pty.failKill = true;
+
+    const result = await terminal_close.execute({ sessionId: id }, ctx);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('关闭失败');
+    expect(result.output).not.toContain('已关闭');
+
+    // 会话必须保留，调用方才有机会重试/排查；不能把它从注册表抹掉当成功
+    pty.failKill = false;
+    const read = await terminal_read.execute({ sessionId: id, timeout: 50 }, ctx);
+    expect(read.success).toBe(true);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
