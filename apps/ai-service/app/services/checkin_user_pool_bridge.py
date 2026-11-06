@@ -61,12 +61,11 @@ def _auth_headers(secret: str, owner_user_id: str) -> dict[str, str]:
     与既有机器凭据验真出口同源),x-internal-service-ticket 短期票同带 —— 主体绑定
     payload 里的 ownerUserId(两个端点 upsert/delete 都带,是真实的 apps/api 用户 id)。
     X-Internal-Secret 是本端点的机机凭据,与内部票两回事,经 extra 原样带上。
-    scope 取封闭集里"ai-service 回调写入 apps/api"那一档(ai-callback);若后续 api 侧
-    为 relay user-pool 端点声明更细的用途,须两侧同笔换档。
+    scope 取封闭集里的 ``relay-user-pool``(2026-11-06 与 api 侧端点声明同笔换档)。
     """
     return internal_service_headers(
         owner_user_id,
-        "ai-callback",
+        "relay-user-pool",
         legacy_token=secret,
         extra={"Content-Type": "application/json", "X-Internal-Secret": secret},
     )

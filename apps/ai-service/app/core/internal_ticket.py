@@ -98,6 +98,11 @@ INTERNAL_TICKET_SCOPES: frozenset[str] = frozenset(
 DEFAULT_TICKET_TTL_SECONDS = 60
 MAX_TICKET_TTL_SECONDS = 300
 
+# 服务主体(票面 sub 以 service: 开头,不冒充任何真人 uuid)。
+# 2026-11-06 X-Internal-Secret 族票据化:api ↔ ai-service 的系统级同步调用使用。
+INTERNAL_SERVICE_PRINCIPAL_API = "service:apps-api"
+INTERNAL_SERVICE_PRINCIPAL_AI = "service:ai-service"
+
 
 def ticket_ttl_seconds(raw: float | None = None) -> int:
     """把 TTL 归一到 [1, 300] 秒。
@@ -241,6 +246,8 @@ __all__ = [
     "INTERNAL_TICKET_SCOPES",
     "INTERNAL_TICKET_TYPE",
     "INTERNAL_TOKEN_HEADER",
+    "INTERNAL_SERVICE_PRINCIPAL_AI",
+    "INTERNAL_SERVICE_PRINCIPAL_API",
     "InternalServiceCredentialError",
     "MAX_TICKET_TTL_SECONDS",
     "USER_ID_HEADER",
