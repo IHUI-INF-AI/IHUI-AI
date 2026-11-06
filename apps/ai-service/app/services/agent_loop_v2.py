@@ -2914,6 +2914,10 @@ class AgentLoopV2:
         self._trace_id_explicit: bool = trace_id is not None
         # 构造期即绑定到事件流:此后所有 emit 的 payload 自动注入该 trace_id
         self._events.bind_trace(self._trace_id)
+        # 跨进程续跑:每个 tool_call 的尝试序号。deterministic invocationId =
+        # `agent:{session}:{tool_call_id}:{attempt_seq}`,同一次执行跨进程稳定,
+        # 服务端按 invocationId 去重才真正生效(此前每次 uuid4 现生成,去重是空话)。
+        self._tool_attempts: dict[str, int] = {}
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -2921,11 +2925,28 @@ class AgentLoopV2:
             self._session_id = uuid.uuid4().hex
         return self._session_id
 
+    def _note_tool_attempt(self, tool_call_id: str) -> int:
+        """登记一次工具执行尝试,返回本次 attempt_seq(从 1 起)。
+
+        只在**本次执行真的开始**时调用:策略拦截/审批拒绝在它之前返回,不算一次
+        执行尝试。续跑重试由调用方预置起始序号(见 resume 分支),不会从 1 重来。
+        """
+        seq = self._tool_attempts.get(tool_call_id, 0) + 1
+        self._tool_attempts[tool_call_id] = seq
+        return seq
+
+    def _current_tool_attempt(self, tool_call_id: str) -> int:
+        """当前 tool_call 的尝试序号;未登记(旧路径/未执行)按 1。"""
+        return self._tool_attempts.get(tool_call_id, 1)
+
     def _reset_run_state(self) -> None:
         """每次 run/resume 开始前重置运行时状态。"""
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 续跑:尝试序号按 run 重置;resume 分支会按回执 attempt_seq 重新预置,
+        # 保证重试得到 attempt_seq+1 而不是从 1 再来。
+        self._tool_attempts = {}
         # 批58(接线):executed_tool_calls per-turn 生命周期——新轮次清空
         # (对标 codex 对齐 per-turn 语义);off/None 零副作用,异常隔离。
         if self._executed_tool_calls is not None:
@@ -6575,11 +6596,14 @@ class AgentLoopV2:
 
         账是证据面,不跟可观测录制开关走(`_pipeline_record_active` 关的是 step
         录制,账行是审计证据),因此调用位在 `_maybe_record_step` 的短路**之前**。
-        invocation_id 每次调用 uuid4 现生成(账侧幂等键:重放被服务端 duplicate 吸收,
-        不双计);input/output 用既有摘要素材(`_summarize_step` 产物,原文不出进程,
-        includeRaw 不下发 ⇒ 服务端默认 false 只存摘要);权限词汇见
-        `_ledger_permission_facts`。派发腿本体同 D154 mcp_status(create_task + 5s
-        超时 + 吞异常计数);这里再包一层 try,保证证据面任何失败都不穿透主循环。
+        invocation_id 是**确定性**键 `agent:{session}:{tool_call_id}:{attempt_seq}`,
+        不是 uuid4 现生成 —— 同一 tool_call 的同一 attempt 跨进程得到同一个编号,
+        服务端按 invocationId 去重才真正成立(此前随机 uuid 让去重承诺失效)。
+        该键只是账侧幂等键,**不是**续跑权威凭证:能不能重放只看耐久回执
+        (`tool_state.resume_receipts`)。input/output 用既有摘要素材(`_summarize_step`
+        产物,原文不出进程,includeRaw 不下发 ⇒ 服务端默认 false 只存摘要);权限
+        词汇见 `_ledger_permission_facts`。派发腿本体同 D154 mcp_status(create_task +
+        5s 超时 + 吞异常计数);这里再包一层 try,保证证据面任何失败都不穿透主循环。
 
         @returns `(permission_decision, permission_cause, invocation_id)` ——
         2026-10-28 起把本次账行的事实投影交回调用方,供 step 录制面**回指同一行**
@@ -6594,7 +6618,10 @@ class AgentLoopV2:
             cwd, exit_code, output_complete, terminal_reason = _ledger_execution_facts(
                 tc, tr, hint
             )
-            invocation_id = str(uuid.uuid4())
+            invocation_id = (
+                f"agent:{self._session_id or ''}:{tc.id}:"
+                f"{self._current_tool_attempt(tc.id)}"
+            )
             dispatched = record_tool_invocation(
                 user_id=self._user_id,
                 session_id=self._session_id or "",
@@ -7198,6 +7225,10 @@ class AgentLoopV2:
             session_env_token = set_session_env_context(self._session_id or None)
         except Exception:
             logger.debug("会话身份上下文注入失败(降级,子进程无会话身份): %s", tc.name)
+
+        # 跨进程续跑:真正执行前登记尝试序号(策略拦截/审批拒绝在上面已返回,
+        # 不算执行尝试)。后续 LLM 重试链仍是一次 attempt,不按 retry_count 拆分。
+        self._note_tool_attempt(tc.id)
 
         # P0-B(2026-09-18):_wait_interruptible 包裹工具执行——长工具(如
         # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
