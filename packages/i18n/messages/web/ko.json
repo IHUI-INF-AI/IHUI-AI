@@ -29823,6 +29823,8 @@
   },
   "knowledgeBase": {
     "backToList": "목록으로 돌아가기",
+    "loadFailed": "불러오지 못했습니다",
+    "saveFailed": "저장하지 못했습니다",
     "searchPlaceholder": "지식 베이스 문서 검색...",
     "metaTitle": "지식 베이스 — 엔터프라이즈 RAG 지식 관리 시스템 | IHUI AI",
     "metaDescription": "IHUI AI 지식 베이스: 30개 이상의 데이터 소스 연결, 하이브리드 검색(벡터 + BM25 + 지식 그래프), 인용 추적, 세부 권한 관리를 지원합니다. 흩어진 문서를 대화 가능한 AI 지식 두뇌로 바꿔 드립니다.",

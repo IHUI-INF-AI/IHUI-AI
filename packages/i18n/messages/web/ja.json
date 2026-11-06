@@ -29823,6 +29823,8 @@
   },
   "knowledgeBase": {
     "backToList": "一覧に戻る",
+    "loadFailed": "読み込みに失敗しました",
+    "saveFailed": "保存に失敗しました",
     "searchPlaceholder": "ナレッジベースの記事を検索...",
     "metaTitle": "ナレッジベース — 企業 RAG 知識管理システム | IHUI AI",
     "metaDescription": "IHUI AI ナレッジベース:30 以上のデータソース接続、ハイブリッド検索(ベクトル + BM25 + 知識グラフ)、引用の追跡、細粒度の権限管理に対応。散在するドキュメントを対話できる AI 知識脳に変えます。",

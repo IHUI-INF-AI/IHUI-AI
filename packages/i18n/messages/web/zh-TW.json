@@ -29795,6 +29795,8 @@
   },
   "knowledgeBase": {
     "backToList": "返回列表",
+    "loadFailed": "載入失敗",
+    "saveFailed": "儲存失敗",
     "searchPlaceholder": "搜索知識庫文章...",
     "metaTitle": "知識庫 — 企業 RAG 知識管理系統 | 智匯 AI",
     "metaDescription": "智匯 AI 知識庫:支持 30+ 數據源接入,混合檢索(向量 + BM25 + 知識圖譜),引用追溯,細粒度權限管控。幫企業把散落文檔變成可對話的 AI 知識大腦。",

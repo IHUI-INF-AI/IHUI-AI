@@ -29820,6 +29820,8 @@
   },
   "knowledgeBase": {
     "backToList": "Back to list",
+    "loadFailed": "Failed to load",
+    "saveFailed": "Failed to save",
     "searchPlaceholder": "Search knowledge base articles...",
     "metaTitle": "Knowledge Base — Enterprise RAG Knowledge Management | IHUI AI",
     "metaDescription": "IHUI AI knowledge base: connect 30+ data sources, hybrid retrieval (vector + BM25 + knowledge graph), citation tracing and fine-grained permission control. Turn scattered documents into a conversable AI knowledge brain for your enterprise.",

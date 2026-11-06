@@ -29824,6 +29824,8 @@
   },
   "knowledgeBase": {
     "backToList": "返回列表",
+    "loadFailed": "加载失败",
+    "saveFailed": "保存失败",
     "searchPlaceholder": "搜索知识库文章...",
     "metaTitle": "知识库 — 企业 RAG 知识管理系统 | 智汇 AI",
     "metaDescription": "智汇 AI 知识库:支持 30+ 数据源接入,混合检索(向量 + BM25 + 知识图谱),引用追溯,细粒度权限管控。帮企业把散落文档变成可对话的 AI 知识大脑。",
