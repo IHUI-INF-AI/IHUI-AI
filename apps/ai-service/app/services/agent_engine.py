@@ -728,6 +728,9 @@ class EngineThread:
     # 每轮结束后估算 token 超阈值即确定性压缩(发 context.compacted, trigger=auto)
     auto_compact: bool = False
     auto_compact_threshold: int = _AUTOCOMPACT_DEFAULT_THRESHOLD
+    # 用途桶用量表。缺席时压缩只看上面的绝对 token 上限。
+    usage_thresholds: dict[str, Any] | None = None
+    context_capacity: int | None = None
     # 结构化终答(2026-09-18 第四批,对标 Codex output_schema):轮末校验 finalResponse
     output_schema: dict[str, Any] | None = None
     # 角色模板(2026-09-18 第四批,对标 Codex agent-roles):追加进 system
@@ -1420,6 +1423,21 @@ def _read_source_preserving(path: Any) -> tuple[str, str, bool]:
     text = raw.decode("utf-8", errors="replace")
     newline = "\r\n" if "\r\n" in text else "\n"
     return text.replace("\r\n", "\n"), newline, bom
+
+
+def _classify_patch_target(path: Any) -> str:
+    """missing = 没有; unread = 读失败; file = 普通文件; other = 目录或其他。"""
+    import stat as _stat
+
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    if _stat.S_ISREG(st.st_mode):
+        return "file"
+    return "other"
 
 
 def _write_text_preserving(path: Any, text: str, newline: str, bom: bool) -> None:
@@ -2845,7 +2863,9 @@ class AgentEngine:
         before_snapshot: dict[str, float] = {}
         if thread.workspace:
             with contextlib.suppress(Exception):
-                before_snapshot = self._scan_workspace(Path(thread.workspace))
+                scanned = self._scan_workspace(Path(thread.workspace))
+                if isinstance(scanned, dict):
+                    before_snapshot = scanned
         thread.messages.append({"role": "user", "content": text})
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
@@ -2978,6 +2998,8 @@ class AgentEngine:
                 # 非 git 工作区:mtime 快照比对(新增/删除/修改),新增文件给
                 # difflib 全文 diff;修改文件无基线内容,如实标注不伪造 diff
                 after_snapshot = self._scan_workspace(Path(thread.workspace))
+                if after_snapshot is None:
+                    after_snapshot = before_snapshot
                 added = sorted(set(after_snapshot) - set(before_snapshot))[:50]
                 removed = sorted(set(before_snapshot) - set(after_snapshot))[:50]
                 modified = sorted(
@@ -3051,11 +3073,18 @@ class AgentEngine:
         if thread.auto_compact:
             with contextlib.suppress(Exception):
                 from app.core.context_compaction import estimate_messages_tokens
+                from app.core.token_budget_config import compact_decision
 
-                if (
-                    estimate_messages_tokens(thread.messages)
-                    >= thread.auto_compact_threshold
-                ):
+                decision = compact_decision(
+                    estimate_messages_tokens(thread.messages),
+                    thread.auto_compact_threshold,
+                    thread.usage_thresholds,
+                    capacity=thread.context_capacity,
+                    model=thread.model,
+                )
+                if isinstance(result, dict) and decision["pressure"] is not None:
+                    result["usagePressure"] = decision["pressure"]
+                if decision["compact"]:
                     await self._compact_thread(
                         thread, keep_recent=8, emit=emit, trigger="auto"
                     )
@@ -3967,6 +3996,12 @@ class AgentEngine:
             from app.core.agents_md import load_project_instructions
 
             md = load_project_instructions(workspace)
+            if md.unread_files:
+                if _agents_md_state_enabled_from_env():
+                    thread.agents_md_state.maybe_fragment(
+                        workspace, None, unreadable=True
+                    )
+                return
             has_text = not md.is_empty()
             text = md.content if has_text else None
             if not _agents_md_state_enabled_from_env():
@@ -5157,12 +5192,17 @@ class AgentEngine:
                     curr = self._scan_workspace(base)
                 except Exception:  # noqa: BLE001 - 目录被删等,跳过本轮
                     continue
-                added = sorted(set(curr) - set(prev))[:100]
-                removed = sorted(set(prev) - set(curr))[:100]
-                changed = sorted(
-                    f for f in set(curr) & set(prev) if curr[f] != prev[f]
-                )[:100]
-                prev = curr
+                if curr is None or prev is None:
+                    if curr is not None:
+                        prev = curr
+                    added, removed, changed = [], [], []
+                else:
+                    added = sorted(set(curr) - set(prev))[:100]
+                    removed = sorted(set(prev) - set(curr))[:100]
+                    changed = sorted(
+                        f for f in set(curr) & set(prev) if curr[f] != prev[f]
+                    )[:100]
+                    prev = curr
                 # Z32 第②格兜底腿:`fs/watch` 是**不依赖 watchWorkspace** 的第二条既有
                 # 2s 常驻循环 ⇒ 客户端只开连接级监视(没起线程级工作区循环)时,外部手改
                 # 仍有节奏排空。同一入口、同一把门控:off / 未判定档零动作零写入,默认档
@@ -5588,12 +5628,20 @@ class AgentEngine:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _scan_workspace(base: Path) -> dict[str, float]:
-        """工作区文件 mtime 快照(相对路径;上限 2000 项;跳过 .git/依赖目录)。"""
+    def _scan_workspace(base: Path) -> dict[str, float] | None:
+        """工作区文件 mtime 快照。目录或文件读不到时返回 None,不能当成已删除。"""
         snapshot: dict[str, float] = {}
         count = 0
+        unread = 0
         skip_dirs = {"node_modules", "__pycache__", ".venv", "venv", "dist", "build"}
-        for root, dirs, files in os.walk(base):
+
+        def _on_walk_error(err: OSError) -> None:
+            nonlocal unread
+            if isinstance(err, FileNotFoundError):
+                return
+            unread += 1
+
+        for root, dirs, files in os.walk(base, onerror=_on_walk_error):
             dirs[:] = [
                 d for d in dirs if not d.startswith(".") and d not in skip_dirs
             ]
@@ -5604,12 +5652,15 @@ class AgentEngine:
                 try:
                     rel = str(p.relative_to(base)).replace("\\", "/")
                     snapshot[rel] = p.stat().st_mtime
+                except FileNotFoundError:
+                    continue
                 except OSError:
+                    unread += 1
                     continue
                 count += 1
                 if count >= _WATCH_MAX_ENTRIES:
-                    return snapshot
-        return snapshot
+                    return None if unread else snapshot
+        return None if unread else snapshot
 
     def _start_workspace_watcher(self, thread: EngineThread) -> None:
         if not thread.workspace or thread.thread_id in self._workspace_watchers:
@@ -5621,12 +5672,17 @@ class AgentEngine:
             while thread.status != "closed":
                 await asyncio.sleep(_WATCH_INTERVAL)
                 curr = self._scan_workspace(base)
-                added = sorted(set(curr) - set(prev))[:100]
-                removed = sorted(set(prev) - set(curr))[:100]
-                changed = sorted(
-                    f for f in set(curr) & set(prev) if curr[f] != prev[f]
-                )[:100]
-                prev = curr
+                if curr is None or prev is None:
+                    if curr is not None:
+                        prev = curr
+                    added, removed, changed = [], [], []
+                else:
+                    added = sorted(set(curr) - set(prev))[:100]
+                    removed = sorted(set(prev) - set(curr))[:100]
+                    changed = sorted(
+                        f for f in set(curr) & set(prev) if curr[f] != prev[f]
+                    )[:100]
+                    prev = curr
                 # Z18:外部手改喂源 + 尾批周期排空都挂在**这条已在跑的常驻循环**上
                 # (不自起 daemon、不新建任务)。排在 added/removed/changed 的空判
                 # 之前 —— 尾批到点时盘上常常并无新变更,只有到点这件事。
@@ -6051,12 +6107,20 @@ class AgentEngine:
                 target.relative_to(base)
             except (OSError, ValueError):
                 return {"error": "path 越出工作区,拒绝读取"}
-            if not target.is_file():
+            try:
+                image_stat = target.stat()
+            except FileNotFoundError:
+                return {"error": f"文件不存在: {raw}"}
+            except OSError as e:
+                return {"error": f"图片读不到,不能把它说成不存在: {e}"}
+            import stat as _image_mode
+
+            if not _image_mode.S_ISREG(image_stat.st_mode):
                 return {"error": f"文件不存在: {raw}"}
             mime = _IMAGE_MIME_TYPES.get(target.suffix.lower())
             if mime is None:
                 return {"error": f"不支持的图片类型: {target.suffix or '(无后缀)'}"}
-            size = target.stat().st_size
+            size = image_stat.st_size
             if size > _MAX_VIEW_IMAGE_BYTES:
                 return {"error": f"图片超过大小上限({_MAX_VIEW_IMAGE_BYTES} 字节)"}
             try:
@@ -6272,17 +6336,27 @@ class AgentEngine:
                     new_content = "\n".join(
                         text for tag, text in section["hunks"][0]["lines"] if tag == "+"
                     )
-                    if target.exists():
+                    target_kind = _classify_patch_target(target)
+                    if target_kind == "unread":
+                        return {"error": f"新增目标读不到,不能把它说成不存在: {target_rel}"}
+                    if target_kind != "missing":
                         return {"error": f"新增文件已存在: {target_rel}"}
                     plan.append((target_rel, "created", new_content))
                     diff_pairs[target_rel] = (None, new_content)
                     planned_files.append(target_rel)
                     continue
-                if not target.is_file() and old_rel == target_rel:
-                    return {"error": f"目标文件不存在: {target_rel}"}
+                if old_rel == target_rel:
+                    target_kind = _classify_patch_target(target)
+                    if target_kind == "unread":
+                        return {"error": f"目标文件读不到,不能把它说成不存在: {target_rel}"}
+                    if target_kind != "file":
+                        return {"error": f"目标文件不存在: {target_rel}"}
                 source_rel = old_rel if old_rel != "/dev/null" else target_rel
                 source = (base / source_rel).resolve()
-                if not source.is_file():
+                source_kind = _classify_patch_target(source)
+                if source_kind == "unread":
+                    return {"error": f"目标文件读不到,不能把它说成不存在: {source_rel}"}
+                if source_kind != "file":
                     return {"error": f"目标文件不存在: {source_rel}"}
                 try:
                     # 保留原文件换行风格与 BOM:CRLF 仓库打补丁后不被悄悄改成 LF

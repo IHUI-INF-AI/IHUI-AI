@@ -263,38 +263,53 @@ export function readTrustFileSnapshot(
  * 是否手动禁用了某 hook(读 ~/.ihui/disabled-hooks)。
  * 文件不存在 / 读取失败 → 不禁用(默认启用)。
  */
-export function isHookDisabled(hookName: string): boolean {
-  if (!existsSync(DISABLED_HOOKS_PATH)) return false
+export type DisabledHooksRead =
+  | { state: 'absent' }
+  | { state: 'ok'; names: string[] }
+  | { state: 'unreadable'; code: string }
+
+function disabledHooksErrorCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string' && code !== '') return code
+  }
+  return 'unknown'
+}
+
+/** 禁用名单缺文件是空名单。读失败不是空名单。 */
+export function readDisabledHooks(filePath: string = DISABLED_HOOKS_PATH): DisabledHooksRead {
   try {
-    const content = readFileSync(DISABLED_HOOKS_PATH, 'utf-8')
+    const content = readFileSync(filePath, 'utf-8')
+    const names: string[] = []
     for (const rawLine of content.split('\n')) {
       const line = rawLine.trim()
       if (!line || line.startsWith('#')) continue
-      if (line === hookName) return true
+      names.push(line)
     }
-    return false
-  } catch {
-    return false
+    return { state: 'ok', names }
+  } catch (error) {
+    const code = disabledHooksErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { state: 'absent' }
+    return { state: 'unreadable', code }
   }
+}
+
+export function isHookDisabled(hookName: string, filePath: string = DISABLED_HOOKS_PATH): boolean {
+  const read = readDisabledHooks(filePath)
+  return read.state === 'ok' && read.names.includes(hookName)
 }
 
 /**
  * 列出所有被禁 hook 名(用于 /hooks list 等 UI)。
+ * 文件不存在是空名单。读失败不能说成没有禁用项。
  */
-export function listDisabledHooks(): string[] {
-  if (!existsSync(DISABLED_HOOKS_PATH)) return []
-  try {
-    const content = readFileSync(DISABLED_HOOKS_PATH, 'utf-8')
-    const out: string[] = []
-    for (const rawLine of content.split('\n')) {
-      const line = rawLine.trim()
-      if (!line || line.startsWith('#')) continue
-      out.push(line)
-    }
-    return out
-  } catch {
-    return []
+export function listDisabledHooks(filePath: string = DISABLED_HOOKS_PATH): string[] {
+  const read = readDisabledHooks(filePath)
+  if (read.state === 'unreadable') {
+    throw new Error(`disabled-hooks 读不到,不能把它说成没有禁用项 (${read.code})`)
   }
+  if (read.state === 'absent') return []
+  return read.names
 }
 
 /**
@@ -661,14 +676,15 @@ function parseHumanHookOverrideLine(rawLine: string): HumanHookOverrideRecord | 
 export function readHumanHookOverrides(
   overridesText?: string,
   overridesPath: string = HOOK_OVERRIDES_PATH,
-): { records: HumanHookOverrideRecord[]; malformed: number } {
+): { records: HumanHookOverrideRecord[]; malformed: number; unreadable: string | null } {
   let content = overridesText
   if (content === undefined) {
-    if (!existsSync(overridesPath)) return { records: [], malformed: 0 }
     try {
       content = readFileSync(overridesPath, 'utf-8')
-    } catch {
-      return { records: [], malformed: 0 }
+    } catch (error) {
+      const code = disabledHooksErrorCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { records: [], malformed: 0, unreadable: null }
+      return { records: [], malformed: 0, unreadable: code }
     }
   }
   const records: HumanHookOverrideRecord[] = []
@@ -680,7 +696,7 @@ export function readHumanHookOverrides(
     if (rec) records.push(rec)
     else malformed += 1
   }
-  return { records, malformed }
+  return { records, malformed, unreadable: null }
 }
 
 /**
@@ -760,7 +776,11 @@ export function grantHumanHookOverride(
 
 /** 台账全量回读(展示/审计用)。 */
 export function listHumanHookOverrides(overridesPath: string = HOOK_OVERRIDES_PATH): HumanHookOverrideRecord[] {
-  return readHumanHookOverrides(undefined, overridesPath).records
+  const read = readHumanHookOverrides(undefined, overridesPath)
+  if (read.unreadable) {
+    throw new Error(`hook-overrides 读不到,不能把它说成没有放行 (${read.unreadable})`)
+  }
+  return read.records
 }
 
 /**
@@ -884,6 +904,7 @@ export interface HookGateResult {
   reason?:
     | 'disabled-in-config'
     | 'disabled-by-user'
+    | 'disable-list-unreadable'
     | 'folder-not-trusted'
     | 'content-not-confirmed'
   /** 详细说明(给用户/日志看) */
@@ -935,6 +956,7 @@ export function gateHook(
   trustFileText?: string,
   overridesText?: string,
   trustFilePath?: string,
+  disabledHooksPath?: string,
 ): HookGateResult {
   // 人工放行的匹配素材:束摘要缺失(半套/没接)时无从核对"放的是哪份内容" → 台账不参与。
   const overrideBundleDigest = spec.bundleDigest ?? ''
@@ -958,7 +980,15 @@ export function gateHook(
       detail: `hook "${spec.name}" is disabled in hooks.json`,
     }
   }
-  if (isHookDisabled(spec.name)) {
+  const disabled = readDisabledHooks(disabledHooksPath)
+  if (disabled.state === 'unreadable') {
+    return {
+      allowed: false,
+      reason: 'disable-list-unreadable',
+      detail: `disabled-hooks 读不到,不能把它说成没有禁用项 (${disabled.code})`,
+    }
+  }
+  if (disabled.state === 'ok' && disabled.names.includes(spec.name)) {
     return {
       allowed: false,
       reason: 'disabled-by-user',

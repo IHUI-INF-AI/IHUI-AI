@@ -21,6 +21,9 @@ import {
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 let currentBudgetEvent: BudgetEvent | null = null
+// 批次 3(2026-11-06):当前预算帧所属会话 —— stopped 是**会话级**终态事实,
+// 切到别的会话后不得继续显示"本轮已停止"(warning/critical 既有行为不变,不读它)。
+let currentBudgetConversationId: string | null = null
 const budgetListeners = new Set<() => void>()
 
 // G-404(2026-09-29 立):瞬时 0 投影的两枚模块级状态 ——
@@ -57,7 +60,22 @@ export function getHeldBudgetFrame(): BudgetEvent | null {
  * 都源于同一枚坏采样,逐字段部分采信会把坏值劈成半真半假),并在 heldBudgetFrame
  * 留诊断;其余情形(含 usedTokens=undefined 的"未收到"语义)维持原覆盖+通知行为。
  */
-export function setBudgetEvent(event: BudgetEvent): void {
+export function setBudgetEvent(event: BudgetEvent, conversationId?: string | null): void {
+  // 批次 3(2026-11-06):stopped 是流内预算护栏的**终态** —— 流已经停下,
+  // 之后任何 warning/critical 帧都不得把它覆盖回"仅警告"(否则界面会谎称还能继续生成)。
+  if (currentBudgetEvent?.level === 'stopped' && event.level !== 'stopped') return
+  if (event.level === 'stopped') {
+    // 终态帧不复用 G-404 的瞬时 0 判据:它携带的是"停止"这一事实而不是用量采样,
+    // 即便 usedTokens=0 也必须落下(held 会让用户完全看不到停止原因)。
+    pendingTrustedZeroPhase = null
+    heldBudgetFrame = null
+    currentBudgetEvent = event
+    // 调用方未传会话时沿用上一帧的归属;clear 会一并回收,不跨会话复活。
+    if (conversationId !== undefined) currentBudgetConversationId = conversationId
+    notifyBudgetListeners()
+    return
+  }
+  if (conversationId !== undefined) currentBudgetConversationId = conversationId
   const phase: ContextSamplePhase = pendingTrustedZeroPhase ?? 'streaming'
   pendingTrustedZeroPhase = null
   const resolution = resolveContextUsedSample(
@@ -78,6 +96,7 @@ export function setBudgetEvent(event: BudgetEvent): void {
 export function clearBudgetEvent(): void {
   pendingTrustedZeroPhase = null
   heldBudgetFrame = null
+  currentBudgetConversationId = null
   if (currentBudgetEvent === null) return
   currentBudgetEvent = null
   notifyBudgetListeners()
@@ -86,6 +105,11 @@ export function clearBudgetEvent(): void {
 /** useSyncExternalStore 的 client snapshot 口 */
 export function getBudgetEvent(): BudgetEvent | null {
   return currentBudgetEvent
+}
+
+/** 当前预算帧的会话归属(stopped 展示据此过滤跨会话残留);无帧时为 null。 */
+export function getBudgetConversationId(): string | null {
+  return currentBudgetConversationId
 }
 
 /** SSR/首帧前的 server snapshot 口:未收到帧一律不渲染 */
@@ -106,6 +130,15 @@ export function subscribeBudgetEvent(listener: () => void): () => void {
  * 钳到 0..100:block 档 percent=100 走 429 不进本条,但帧在途竞态下不得画出超宽条。
  */
 export function budgetBarPercent(event: BudgetEvent): number {
+  // stopped 帧按生产端语义优先用 usagePercent(停止时该作用域的真实百分比,可 >100),
+  // 仍走同一 clampPercent 出口,不在这里内联裁剪。
+  if (
+    event.level === 'stopped' &&
+    typeof event.usagePercent === 'number' &&
+    Number.isFinite(event.usagePercent)
+  ) {
+    return clampPercent(event.usagePercent)
+  }
   if (typeof event.percent === 'number' && Number.isFinite(event.percent)) {
     return clampPercent(event.percent)
   }

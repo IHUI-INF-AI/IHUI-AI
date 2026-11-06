@@ -754,20 +754,31 @@ interface HooksSourceBundle {
   raw: Record<string, unknown>;
 }
 
-function readHooksConfigBundle(p: string): HooksSourceBundle | null {
-  if (!fs.existsSync(p)) return null;
+function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): HooksSourceBundle | null {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   try {
-    const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
-    // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
-    if (!isRecord(parsed)) return null;
-    return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
-  } catch {
-    return null;
+    look(p);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`钩子配置读不到,不能把它当成没有钩子 (${code ?? 'unknown'})`);
   }
+  let text: string;
+  try {
+    text = fs.readFileSync(p, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code) throw new Error(`钩子配置读不到,不能把它当成没有钩子 (${code})`);
+    throw err;
+  }
+  const parsed = tryParseJson(text);
+  // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
+  if (!isRecord(parsed)) return null;
+  return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
 }
 
-function readHooksConfigFile(p: string): HooksConfig | null {
-  return readHooksConfigBundle(p)?.config ?? null;
+function readHooksConfigFile(p: string, stat?: (path: string) => fs.Stats): HooksConfig | null {
+  return readHooksConfigBundle(p, stat)?.config ?? null;
 }
 
 /** 剥掉派发侧盖上的派生字段,只留磁盘上那份声明(信任记录与门内比对必须用同一个口径) */
@@ -849,6 +860,7 @@ export function digestOfHookDeclaration(entry: unknown): string {
  */
 export function computeHookContentDigests(
   cwd: string = process.cwd(),
+  stat?: (path: string) => fs.Stats,
 ): { bundleDigest: string; declarations: Record<string, string> } {
   const paths: string[] = [];
   if (process.env.IHUI_HOOKS_CONFIG) paths.push(process.env.IHUI_HOOKS_CONFIG);
@@ -858,7 +870,7 @@ export function computeHookContentDigests(
   const roots: Array<Record<string, unknown>> = [];
   const declarations: Record<string, string> = {};
   for (const p of paths) {
-    const bundle = readHooksConfigBundle(p);
+    const bundle = readHooksConfigBundle(p, stat);
     if (!bundle) continue;
     // 来源名取相对 cwd 的那一段(<.ihui|...>/hooks.json)或绝对路径本身(单源模式)——
     // 不含盘符前缀,所以"仓库搬家"不会因为路径字符串变化而额外掉信任(搬家本来就要重批目录)。
@@ -899,17 +911,17 @@ export function getHooksPath(): string {
  * IHUI_HOOKS_CONFIG 环境变量设置时退化为单源(向后兼容)。
  * 每条钩子都会被盖上 `source` / `sourceFolder`(派发时判目录信任要用)。
  */
-export function loadHooksConfig(cwd: string = process.cwd()): HooksConfig {
+export function loadHooksConfig(cwd: string = process.cwd(), stat?: (path: string) => fs.Stats): HooksConfig {
   if (process.env.IHUI_HOOKS_CONFIG) {
     const p = process.env.IHUI_HOOKS_CONFIG;
-    const parsed = readHooksConfigFile(p);
+    const parsed = readHooksConfigFile(p, stat);
     if (!parsed) return {};
     return stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p));
   }
   const paths = listHooksConfigPaths(cwd);
   let acc: HooksConfig = {};
   for (const p of [...paths].reverse()) {
-    const parsed = readHooksConfigFile(p);
+    const parsed = readHooksConfigFile(p, stat);
     if (parsed) {
       acc = deepMergeHooks(acc, stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p)));
     }

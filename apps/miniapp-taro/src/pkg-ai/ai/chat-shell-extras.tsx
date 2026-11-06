@@ -26,6 +26,10 @@ import { InputArea, SkillsPopup, MaterialPopup } from '@/components'
 import ChatMessageItem from './ChatMessageItem'
 import MessageVersionMenu from './message-version-menu'
 import ContextUsageStrip from './context-usage-strip'
+import CompactionBoundaryStrip from './compaction-boundary-strip'
+import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
+import { describeBudgetStopMeta } from './chat-cap-text'
+import type { BudgetStopView } from '@/lib/chat-budget-ledger-frames'
 import McpStatusStrip from './mcp-status-strip'
 import TaskStatusBar from './task-status-bar'
 import ToolApprovalCard from './tool-approval-card'
@@ -74,6 +78,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     workspaceTier,
     tierText,
     latestCacheTokens,
+    // 批次 3:七类上下文账本 / 压缩边界 / 预算停止终态(均由页内 SSE 或进入会话查询落 state)
+    contextLedger,
+    compactionBoundary,
+    budgetStop,
     scrollTop,
     scrollToBottom,
     earlierHasMore,
@@ -271,8 +279,12 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           maxTokens={currentModel ? getModelContextCapacity(currentModel) : 0}
           cacheReadTokens={latestCacheTokens.cacheReadTokens}
           cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
+          contextLedger={contextLedger?.ledger ?? null}
+          contextLedgerTurn={contextLedger?.turnIndex ?? null}
         />
       ) : null}
+      {/* 批次 3:压缩边界回看。boundary 缺席/旧会话无此能力时组件返回 null,不占位。 */}
+      <CompactionBoundaryStrip boundary={compactionBoundary} />
     </>
   )
 
@@ -605,6 +617,18 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     ),
     renderListFooter: (
       <>
+        {/* 批次 3:预算硬停止 = 会话终态的内联提示(非失败卡)。只消费 level='stopped' 的
+            BudgetStopView;其后即使再来 warning 帧也不会改写该 state,提示因此不被覆盖。 */}
+        {budgetStop ? (
+          <View className="budget-stop-inline">
+            <Text className="budget-stop-main">
+              {budgetStopReasonText((budgetStop as BudgetStopView).reasonCode)}
+            </Text>
+            <Text className="budget-stop-meta">
+              {describeBudgetStopMeta(budgetStop as BudgetStopView)}
+            </Text>
+          </View>
+        ) : null}
         {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
         {streamActivities.length > 0 ? (
           <View className="msg-item assistant">

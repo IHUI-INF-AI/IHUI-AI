@@ -367,6 +367,124 @@ export const SSE_APPROVAL_EXPIRED_PAYLOAD_KEY = 'expired'
  */
 export const SSE_APPROVAL_EXPIRED_REASON_PAYLOAD_KEY = 'expired_reason'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 批次 3(2026-11-06):预算硬约束 / 上下文七类账本 / 压缩边界。
+//
+// 三组形状的单一事实源都在本文件:
+//  ① BUDGET_STOP_REASON_CODES —— 预算硬停止原因码封闭集,消费端只做展示/查询,
+//     不得据字符串前缀猜档;两侧同值由 Python `app/core/budget_reason.py` 钉住。
+//  ② CONTEXT_LEDGER_CATEGORIES —— 七类上下文占用**固定顺序**的封闭集:
+//     system_prompt / system_tools / skills / messages / other / free_space / auto_compact。
+//     账本每轮一行,`categories` 必须逐类齐全(缺失不许省略,用 0 表示"确实未占用")。
+//  ③ CompactBoundary —— 压缩边界与保留段(head/anchor/tail),供回看压缩前关键片段。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 预算硬停止原因码(封闭集)。`provider_budget_exhausted` 指上游模型账户额度耗尽。 */
+export const BUDGET_STOP_REASON_CODES = [
+  'daily_token_limit',
+  'daily_cost_limit',
+  'hourly_token_limit',
+  'pillar_token_limit',
+  'request_token_limit',
+  'provider_budget_exhausted',
+] as const
+
+export type BudgetStopReason = (typeof BUDGET_STOP_REASON_CODES)[number]
+
+/** 运行时守卫:未知原因码一律不认(不猜档、不回落成通用文案)。 */
+export function isBudgetStopReason(value: unknown): value is BudgetStopReason {
+  return (
+    typeof value === 'string' && (BUDGET_STOP_REASON_CODES as readonly string[]).includes(value)
+  )
+}
+
+/** 预算作用域:日/小时/支柱/单请求/上游供应商。 */
+export const BUDGET_STOP_SCOPES = ['daily', 'hourly', 'pillar', 'request', 'provider'] as const
+export type BudgetStopScope = (typeof BUDGET_STOP_SCOPES)[number]
+
+/** 上下文占用七类(固定顺序;UI 按此顺序渲染,不自行排序)。 */
+export const CONTEXT_LEDGER_CATEGORIES = [
+  'system_prompt',
+  'system_tools',
+  'skills',
+  'messages',
+  'other',
+  'free_space',
+  'auto_compact',
+] as const
+
+export type ContextLedgerCategory = (typeof CONTEXT_LEDGER_CATEGORIES)[number]
+
+/** 单类占用。`tokens` 恒为整数;`percent` 是相对 `contextLimit` 的百分比(0~100)。 */
+export interface ContextLedgerCategoryUsage {
+  category: ContextLedgerCategory
+  tokens: number
+  percent: number
+}
+
+/**
+ * 单轮上下文账本。每轮(assistant turn)一行,由 ai-service 在 usage 帧收尾处计算并下发,
+ * 网关落库后经查询接口回放(刷新/换端仍可见)。
+ *
+ * 口径:token 数为估算时 `tokenizer='heuristic'`,与 provider 上报的 usage 存在小偏差;
+ * `usedTokens` = 前五类之和(messages 含工具结果),`free_space` = 限额扣除已用与
+ * `auto_compact` 预留,三者恒满足 used + free_space + auto_compact = contextLimit。
+ */
+export interface ContextLedger {
+  /** 本轮实际模型(取不到时 null) */
+  model: string | null
+  /** 模型上下文窗口上限 */
+  contextLimit: number
+  /** 已用 token(前五类之和) */
+  usedTokens: number
+  /** usedTokens / contextLimit × 100,保留一位小数 */
+  percentage: number
+  /** 七类占用,按 CONTEXT_LEDGER_CATEGORIES 顺序齐全 */
+  categories: ContextLedgerCategoryUsage[]
+  /** 计量口径:provider_usage = 直接采用上游 usage;heuristic = 本地估算 */
+  tokenizer: 'provider_usage' | 'heuristic'
+  /** 本轮是否发生过压缩 */
+  compacted: boolean
+  /** 采集时间(ISO 8601) */
+  capturedAt: string
+}
+
+/** 保留段锚点:压缩边界上被保留/被替代的关键消息。`index` 为压缩前消息下标(0 起)。 */
+export interface PreservedSegmentAnchor {
+  index: number
+  role: string
+  /** 数据库消息 id(网关有则填,无则 null) */
+  messageId?: string | null
+  /** 关键片段摘录(≤200 字符,用于回看) */
+  excerpt: string
+  /** 内容摘要指纹(sha256 前 16 位),用于与原文对齐 */
+  digest?: string
+}
+
+/**
+ * 压缩边界。语义:
+ *  · anchor = 压缩摘要落点(替代被压缩区间的消息);
+ *  · head   = 摘要之后第一条被保留的消息;
+ *  · tail   = 摘要之前最后一条被压缩掉的消息。
+ * `removedRange` 是压缩前消息下标闭区间,供 UI 精确提示"哪一段被折叠"。
+ */
+export interface CompactBoundary {
+  /** 压缩触发来源(llm / truncated / incompressible …),与 compaction 帧 trigger 同值 */
+  trigger: string
+  tokensBefore: number
+  tokensAfter: number
+  /** 被压缩掉的消息条数 */
+  messagesSummarized: number
+  /** 压缩耗时(毫秒;取不到时 null) */
+  durationMs: number | null
+  preservedSegment: {
+    head: PreservedSegmentAnchor | null
+    anchor: PreservedSegmentAnchor | null
+    tail: PreservedSegmentAnchor | null
+  }
+  removedRange: { startIndex: number; endIndex: number } | null
+}
+
 /**
  * SSE 判别联合(精确 payload 类型)。
  * 待收紧字段用 `Record<string, unknown>` + 注释标注;禁用 `any`。
@@ -682,6 +800,12 @@ export type SSEEventPayload =
       /** G-150:压缩触发来源(llm / truncated / incompressible …)。
        *  incompressible = 已到上限仍压不下去,界面须给"开新对话/减少上下文"这类**动作**而非静默。 */
       trigger?: string
+      /**
+       * 批次 3(2026-11-06):压缩边界 + 保留段(head/anchor/tail)。缺席 = 旧帧代际差
+       * (该字段上线前的帧不发它),读作"无边界可回看",不是"没有压缩"。
+       * 落库表 `chat_compaction_boundaries`,查询接口回放归档片段。
+       */
+      boundary?: CompactBoundary
     }>
   // 中途引导注入确认(Steer,2026-09-19 立):
   // 流式对话期间用户经 steer 端点提交引导文本,tool loop 每轮 LLM 调用前
@@ -703,8 +827,13 @@ export type SSEEventPayload =
   // (errorCode: BUDGET_EXHAUSTED,不走本事件)。
   | SSEEventWithMeta<{
       type: 'budget'
-      /** 档位:warning(80%~95%)| critical(95%~100%) */
-      level: 'warning' | 'critical'
+      /**
+       * 档位:warning(80%~95%)| critical(95%~100%)| stopped(硬停止)。
+       * 批次 3(2026-11-06)新增 stopped —— 原先 ≥100% 只走 HTTP 429,流内
+       * (agent 循环中途超限)没有任何可消费的终态帧,端上无法区分"请求失败"
+       * 与"预算护栏主动停下"。`stopped` 只在流内出现,429 仍是请求级错误。
+       */
+      level: 'warning' | 'critical' | 'stopped'
       /** 当日已用占限额百分比(0~100) */
       percent?: number
       /** 当日已用 tokens */
@@ -715,6 +844,21 @@ export type SSEEventPayload =
       tier?: string
       /** 限额重置时间(ISO,次日 0 点,可选) */
       resetAt?: string
+      /**
+       * 硬停止原因码(仅 level='stopped' 时必填)。闭集见 BUDGET_STOP_REASON_CODES;
+       * 网关落库 `chat_budget_stops`,端上据 reasonCode 出一句话说明,不再猜。
+       */
+      reasonCode?: BudgetStopReason
+      /** 停止作用域(仅 stopped 时下发) */
+      scope?: BudgetStopScope
+      /** 触发停止的支柱(scope='pillar' 时下发,如 chat/agent/media) */
+      pillar?: string
+      /** 停止时的用量百分比(0~100,可 >100) */
+      usagePercent?: number
+      /** 停止时该作用域剩余 token(可能为 0) */
+      remainingTokens?: number
+      /** 停止发生在第几轮迭代(agent 循环;非 agent 链路缺席) */
+      stoppedAtIteration?: number
     }>
   // 消息级计量帧(D1/D7 于 2026-09-19 立;2026-09-28 由 D132 补入判别联合)。
   // 字段清单的权威在 `apps/ai-service/app/core/sse_contract.py` 的
@@ -779,6 +923,12 @@ export type SSEEventPayload =
        *  G-724:发射处当前写死 `None` —— 本帧恒为 null,真成本走 usageDetail 持久化通道
        *  (要读成本请调查询接口,不要从 usage 帧取)。 */
       costUsd: number | null
+      /**
+       * 批次 3(2026-11-06):本轮七类上下文账本。缺席 = 旧帧代际差或该链路未采集,
+       * 读作"本轮无账本"(不是全 0);七类齐全性由 `categories` 长度=7 钉住。
+       * 网关在转发本帧时落库 `chat_context_ledgers`,前端可经查询接口回放。
+       */
+      contextLedger?: ContextLedger
     }>
   // 文件写类工具的流中 diff 预览帧(D113 于 2026-09-27 立;2026-09-28 由 D132 补入联合;
   // 载荷语义 = **增量**,G-816035 于 2026-10-08 按机主拍板收口为增量口径)。

@@ -144,6 +144,37 @@ def test_edit_file_zero_matches_no_create(tmp_path):
     assert f.read_text(encoding="utf-8") == "def foo():\n    pass\n"
 
 
+def test_edit_file_unreadable_is_not_created(tmp_path, monkeypatch):
+    """文件在但读不到时,即使要求新建也不能覆盖。"""
+    f = tmp_path / "keep.py"
+    f.write_text("keep\n", encoding="utf-8")
+    monkeypatch.setattr(file_editor, "_path_presence", lambda _path: "unread")
+    out = edit_file(
+        file_path=str(f),
+        old_string="keep",
+        new_string="gone",
+        create_if_missing=True,
+    )
+    assert out["ok"] is False
+    assert out["errorCode"] == "UNREADABLE"
+    assert f.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_path_presence_permission_error_is_unread(tmp_path, monkeypatch):
+    f = tmp_path / "keep.py"
+    f.write_text("keep\n", encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(f)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    assert file_editor._path_presence(str(f)) == "unread"
+    assert f.read_text(encoding="utf-8") == "keep\n"
+
+
 def test_edit_file_file_not_found_no_create(tmp_path):
     """edit_file 文件不存在 + create_if_missing=False:FILE_NOT_FOUND。"""
     f = tmp_path / "ghost.py"

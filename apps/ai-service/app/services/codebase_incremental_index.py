@@ -38,6 +38,7 @@ from .codebase_indexer import (
     CodeChunk,
     IndexResult,
     _default_repo_id,
+    classify_fs_path,
     _extract_document_markdown,
     _merkle_root,
 )
@@ -71,7 +72,13 @@ async def index_changed_paths(
     其余每一格(重索引/零成本跳过/删除清理)都在 IndexResult 上可数。
     """
     root = Path(repo_path).resolve()
-    if not root.exists() or not root.is_dir():
+    root_kind = classify_fs_path(root)
+    if root_kind == "unread":
+        return IndexResult(
+            repo_id=repo_id or "",
+            errors=[f"仓库路径读不到,不能把它说成不存在或不是目录: {repo_path}"],
+        )
+    if root_kind != "dir":
         return IndexResult(repo_id=repo_id or "", errors=[f"仓库路径不存在或不是目录: {repo_path}"])
 
     repo_id = repo_id or _default_repo_id(root)

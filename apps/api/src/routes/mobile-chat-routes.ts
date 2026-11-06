@@ -67,6 +67,14 @@ import { escapeHtml } from '../websocket/chat-server.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { isUuidString } from '../utils/uuid.js'
 import { success, error } from '../utils/response.js'
+// 批次 3(2026-11-06):RN Agent 流与主聊天网关复用**同一套**账本写入函数,
+// 不复制第二套落库逻辑;写入失败由 store 自己 try/catch,转发循环只负责调用。
+import {
+  recordBudgetStop,
+  recordCompactionBoundary,
+  recordContextLedger,
+} from '../services/chat-ledger-store.js'
+import type { CompactBoundary, ContextLedger } from '@ihui/shared'
 
 const contentBodySchema = z.object({
   content: z.string().trim().min(1, 'content 不能为空').max(5000, 'content 过长'),
@@ -164,6 +172,99 @@ function parseAgentStreamFrame(payload: string, eventName: string | null): Agent
     return { kind: 'delta', content: json.content }
   }
   return null
+}
+
+/**
+ * 批次 3(2026-11-06):RN Agent 流的账本旁路采集。
+ *
+ * 本端点面向客户端**只转发**正文/完成/错误三类帧(见 `AgentStreamFrame` 注释)—— 这一点
+ * 不变,账本帧依旧不进客户端事件序列;此处仅在 `data:` 行上顺手落库,不改帧、不改协议。
+ *
+ * 坐标限制(必须点名,不做假数据):Agent 会话存放在 `agent_runtime_sessions`,**不属于**
+ * `chat_conversations`,而三张账本表的 conversation_id 外键指向 chat_conversations ⇒
+ * 本链路没有可写会话坐标:
+ *  - `budget`(stopped):表允许 conversation_id 为空 ⇒ 照常落一行(仍可按 user 审计);
+ *  - `usage`/`compaction`:无会话坐标整笔不落(store 记 debug),不伪造 conversation_id;
+ *  - messageId 是 `msg_<ts>_a` 占位串(非 UUID),store 会折成 null,避免 PG 22P02。
+ */
+function captureMobileLedgerFrame(
+  eventName: string | null,
+  payload: string,
+  ctx: { userId: string | null; messageId: string | null },
+  log: { debug: (obj: unknown, msg?: string) => void; warn: (obj: unknown, msg?: string) => void },
+): void {
+  if (
+    !eventName ||
+    (eventName !== 'usage' && eventName !== 'budget' && eventName !== 'compaction')
+  ) {
+    return
+  }
+  if (!ctx.userId || payload === '[DONE]') return
+  let frame: Record<string, unknown>
+  try {
+    const parsed = JSON.parse(payload) as unknown
+    if (!parsed || typeof parsed !== 'object') return
+    frame = parsed as Record<string, unknown>
+  } catch {
+    return
+  }
+  const conversationId = typeof frame.conversationId === 'string' ? frame.conversationId : null
+  const messageId = typeof frame.messageId === 'string' ? frame.messageId : ctx.messageId
+  const numberOrNull = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+
+  if (eventName === 'usage') {
+    const ledger = frame.contextLedger
+    if (!ledger || typeof ledger !== 'object') return
+    void recordContextLedger(
+      {
+        userId: ctx.userId,
+        conversationId,
+        messageId,
+        ledger: ledger as ContextLedger,
+        turnIndex: numberOrNull(frame.turnIndex),
+      },
+      log,
+    )
+    return
+  }
+  if (eventName === 'budget') {
+    if (frame.level !== 'stopped') return
+    void recordBudgetStop(
+      {
+        userId: ctx.userId,
+        conversationId,
+        messageId,
+        level: 'stopped',
+        reasonCode: typeof frame.reasonCode === 'string' ? frame.reasonCode : '',
+        scope: typeof frame.scope === 'string' ? frame.scope : '',
+        pillar: typeof frame.pillar === 'string' ? frame.pillar : null,
+        usedTokens: numberOrNull(frame.usedTokens),
+        limitTokens: numberOrNull(frame.limitTokens),
+        usagePercent: numberOrNull(frame.usagePercent) ?? numberOrNull(frame.percent),
+        remainingTokens: numberOrNull(frame.remainingTokens),
+        stoppedAtIteration: numberOrNull(frame.stoppedAtIteration),
+      },
+      log,
+    )
+    return
+  }
+  const boundary =
+    frame.boundary && typeof frame.boundary === 'object'
+      ? frame.boundary
+      : frame.compaction && typeof frame.compaction === 'object'
+        ? (frame.compaction as Record<string, unknown>).boundary
+        : undefined
+  if (!boundary || typeof boundary !== 'object') return
+  void recordCompactionBoundary(
+    {
+      userId: ctx.userId,
+      conversationId,
+      messageId,
+      boundary: boundary as CompactBoundary,
+    },
+    log,
+  )
 }
 
 /** SSE 响应头(与 /ai/chat/stream 同一套;hijack 绕过 cors 插件,故手动按同一判据回显)。 */
@@ -519,6 +620,23 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
           if (!line.startsWith('data:')) continue
           const payload = line.slice(5).replace(/^\s/, '')
           if (payload === '') continue
+          // 批次 3:账本帧旁路采集先于归类 —— 这三类帧本来就不进客户端事件序列
+          // (parseAgentStreamFrame 返回 null 后 continue),但落库不受此影响。
+          captureMobileLedgerFrame(
+            pendingEvent,
+            payload,
+            { userId, messageId: assistantMessageId },
+            request.log,
+          )
+          // ai-service 的 compaction 是 data-only 帧(无 event: 行),用廉价子串预筛后补采一次。
+          if (pendingEvent === null && payload.includes('"compaction"')) {
+            captureMobileLedgerFrame(
+              'compaction',
+              payload,
+              { userId, messageId: assistantMessageId },
+              request.log,
+            )
+          }
           const frame = parseAgentStreamFrame(payload, pendingEvent)
           if (!frame) continue
           if (frame.kind === 'delta') {

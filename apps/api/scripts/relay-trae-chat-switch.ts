@@ -14,9 +14,13 @@
  *   scripts/lib/trae-chat-carry.mjs(四处账号绑定面重绑的纯操作)
  * 号池取数/解密沿用 client-switch 的同一段(直连库,只输脱敏面)。
  *
- * 模式:--to <uid|名称> [--dry-run] [--force] [--no-launch] [--json]
- * 退出码:0 成功(dry-run 亦 0)/ 1 业务失败(已尽力回滚,回滚明细在报告里)/ 2 未判定
+ * 模式:--to <uid|名称> [--owner <ops|前缀≥8位>] [--product <Trae CN|TRAE SOLO CN|Trae>]
+ *       [--dry-run] [--force] [--no-launch] [--json]
+ * 退出码:0 成功(dry-run 亦 0)/ 1 业务失败(无匹配、目标串命中多枚号、同 uid 多持有者未定向、
+ * 已尽力回滚 —— 回滚明细在报告里)/ 2 未判定
  * (参数错、本机无客户端、池行解不出、在跑又没 --force)。
+ * 多持有者(同 uid 的运营池行 + 个人池行,号池去重键允许并存)**不给结论只给定向**,判据在
+ * scripts/lib/trae-client-switch.mjs 的 pickPoolCandidates(与 client-switch 腿同一枚实现)。
  * 安全:任何输出不含凭据明文;正库写回前整文件备份,失败逐件还原。
  */
 import fs from 'node:fs'
@@ -50,6 +54,7 @@ const { setTimeout: sleep } = await import('node:timers/promises')
 
 interface Args {
   target: string
+  owner: string
   product: string
   dryRun: boolean
   force: boolean
@@ -62,6 +67,7 @@ interface Args {
 function parseArgs(argv: string[]): Args {
   const o: Args = {
     target: '',
+    owner: '',
     product: '',
     dryRun: false,
     force: false,
@@ -79,6 +85,14 @@ function parseArgs(argv: string[]): Args {
         break
       }
       o.target = v
+    } else if (a === '--owner') {
+      // 定向开关:同 uid 多持有者(运营池 + 个人池并存)时指明切哪一池;判据在 lib,本层不重抄
+      const v = argv[++i]
+      if (!v || v.startsWith('--')) {
+        o.error = String(sw.OWNER_SELECTOR_USAGE)
+        break
+      }
+      o.owner = v
     } else if (a === '--product') {
       const v = argv[++i]
       if (!v || v.startsWith('--')) {
@@ -104,20 +118,33 @@ function parseArgs(argv: string[]): Args {
   return o
 }
 
-async function pickPoolRow(target: string) {
+/**
+ * 目标串 → 池行候选(判据单源 = sw.pickPoolCandidates;本层只负责取数,不再自己挑一枚)。
+ * 号池去重键是 (owner_user_id, provider_code, uid),同 uid 双持有者合法并存 ⇒ 命中 >1 行
+ * 一律返回具名歧义,由调用方打印"这一 uid 有两个持有者"与定向后的下一步命令。
+ */
+async function pickPoolRow(target: string, owner: string) {
   const rows = await db
     .select()
     .from(aiRelayAccountPool)
     .where(eq(aiRelayAccountPool.providerCode, 'trae'))
-  const t = target.trim()
-  let hit = rows.filter((r) => r.uid === t)
-  if (hit.length === 0) hit = rows.filter((r) => r.name === t)
-  if (hit.length === 0) hit = rows.filter((r) => r.name.includes(t))
-  if (hit.length === 0) return { error: `池内没有匹配 "${t}" 的 Trae 账号(--list 查看全部)` }
-  const uids = [...new Set(hit.map((r) => r.uid))]
-  if (uids.length > 1) return { error: `"${t}" 命中多枚号,请用 uid 精确指定` }
-  hit.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
-  return { row: hit[0] }
+  return sw.pickPoolCandidates(rows, target, { owner })
+}
+
+/** 多持有者歧义的具名结论:人类面逐行 stderr,机读面报告由调用方写 stdout(判据与措辞单源在 lib) */
+function ambiguityOutput(picked: { candidates: Array<Record<string, unknown>> }, target: string) {
+  const notice = sw.ambiguousOwnerNotice(target, picked.candidates, {
+    entry: 'node scripts/switch-trae-client-with-chat.mjs',
+  })
+  for (const line of notice.printLines) process.stderr.write(`${line}\n`)
+  return {
+    outcome: 'ambiguous-owner',
+    matched: String(target),
+    holderCount: picked.candidates.length,
+    holders: notice.holders,
+    nextCommands: notice.commands,
+    steps: ['abort-ambiguous-owner'],
+  }
 }
 
 /** 池行 → 切号参数(token/rt/profile/device;与 client-switch 同判据面) */
@@ -165,18 +192,36 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (o.help) {
     process.stdout.write(
-      '用法: pnpm tsx apps/api/scripts/relay-trae-chat-switch.ts --to <uid|名称> [--product <Trae CN|TRAE SOLO CN|Trae>] [--dry-run] [--force] [--no-launch] [--json]\n' +
-        '把池号写回本机客户端登录态,并把旧登录号(该产品面)的对话记录重绑到该号(切号携带对话;日常入口 = node scripts/switch-trae-client-with-chat.mjs)。\n',
+      '用法: pnpm tsx apps/api/scripts/relay-trae-chat-switch.ts --to <uid|名称> [--owner <ops|owner 前缀≥8位>] [--product <Trae CN|TRAE SOLO CN|Trae>] [--dry-run] [--force] [--no-launch] [--json]\n' +
+        '把池号写回本机客户端登录态,并把旧登录号(该产品面)的对话记录重绑到该号(切号携带对话;日常入口 = node scripts/switch-trae-client-with-chat.mjs)。\n' +
+        '  --owner  同一 uid 在池里有两个合法持有者(运营池 + 个人池)时定向用;不定向 ⇒ 具名歧义、不写任何文件。\n',
     )
     return 0
   }
 
-  const picked = await pickPoolRow(o.target)
-  if (picked.error) {
+  const picked = await pickPoolRow(o.target, o.owner)
+  if (picked.decision === 'bad-owner-selector') {
+    // 参数面错误与 --to 缺参同档(未判定 = 2),绝不"当作没给定向"继续跑
     process.stderr.write(`❌ ${picked.error}\n`)
+    return 2
+  }
+  if (picked.decision === 'not-found') {
+    process.stderr.write(
+      `❌ 池内没有匹配 "${o.target.trim()}" 的 Trae 账号${picked.scopeNote ?? ''}(--list 查看全部)\n`,
+    )
     return 1
   }
-  const row = picked.row!
+  if (picked.decision === 'ambiguous-uid') {
+    process.stderr.write(`❌ "${o.target.trim()}" 命中多枚号,请用 uid 精确指定:\n`)
+    for (const r of picked.candidates) process.stderr.write(`  ${sw.describePoolCandidate(r)}\n`)
+    return 1
+  }
+  if (picked.decision === 'ambiguous-owner') {
+    // 同 uid 双持有者:给"多要一次定向说明",不是给一个看起来已经办成的结论
+    process.stdout.write(`${JSON.stringify(ambiguityOutput(picked, o.target))}\n`)
+    return 1
+  }
+  const row = picked.row
   const dec = decodePoolRow(row)
   if (dec.error) {
     process.stderr.write(`❌ ${dec.error}\n`)
@@ -207,7 +252,9 @@ export async function main(argv: string[]): Promise<number> {
 
   const steps: string[] = []
   const report: Record<string, unknown> = {
-    target: { uid: newUid, name: row.name },
+    // holder 一栏 = 这一枚池行的持有者(脱敏);候选唯一才走到这里,见 pickPoolRow
+    target: { uid: newUid, name: row.name, holder: sw.describePoolOwner(row) },
+    holderCount: picked.candidates.length,
     oldUid,
     dryRun: o.dryRun,
     steps,
@@ -223,7 +270,9 @@ export async function main(argv: string[]): Promise<number> {
     willCloseClient: !o.noLaunch,
   }
 
-  if (oldUid && oldUid === newUid) {
+  // noop 的合法含义 = 候选唯一 ∧ 确为当前在用那枚(判据单源 = sw.narrowByCurrentAccount)
+  const decided = sw.narrowByCurrentAccount(picked, oldUid)
+  if (decided.decision === 'same-account') {
     // 该客户端已登着目标号:对话本来就在名下,无事可做(不重加密、不折腾文件)
     // 注:产品面是 per-client 的 —— SOLO 与 Trae CN 各自判各自的登录态,互不顶替。
     steps.push('noop-same-account')

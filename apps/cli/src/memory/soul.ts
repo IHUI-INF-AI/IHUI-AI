@@ -80,18 +80,24 @@ export class SoulMemory {
   }
 
   private load(): SoulProfile {
-    if (!fs.existsSync(this.filePath)) return emptyProfile();
+    let raw: string;
     try {
-      const parsed = tryParseJson(fs.readFileSync(this.filePath, 'utf-8'));
-      if (!isRecord(parsed)) return emptyProfile();
-      return {
-        preferences: Array.isArray(parsed.preferences) ? parsed.preferences : [],
-        values: Array.isArray(parsed.values) ? parsed.values : [],
-        goals: Array.isArray(parsed.goals) ? parsed.goals : [],
-      } as SoulProfile;
-    } catch {
-      return emptyProfile();
+      raw = fs.readFileSync(this.filePath, 'utf-8');
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return emptyProfile();
+      throw new Error(`用户画像读不到,不能把它说成是空的 (${code})`);
     }
+    const parsed = tryParseJson(raw);
+    if (!isRecord(parsed)) return emptyProfile();
+    return {
+      preferences: Array.isArray(parsed.preferences) ? parsed.preferences : [],
+      values: Array.isArray(parsed.values) ? parsed.values : [],
+      goals: Array.isArray(parsed.goals) ? parsed.goals : [],
+    } as SoulProfile;
   }
 
   private save(): void {

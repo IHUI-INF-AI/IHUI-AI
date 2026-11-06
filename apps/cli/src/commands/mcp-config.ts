@@ -244,6 +244,24 @@ export interface LoadMcpConfigOptions {
    * false 时只加载家目录来源 —— 见 Settings.mcpTrustProjectServers。
    */
   includeProject?: boolean;
+  /** 配置文件在但读失败。缺省打到 stderr。不存在的文件不调用。 */
+  onUnread?: (filePath: string, code: string) => void;
+}
+
+function mcpConfigErrorCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && code !== '') return code;
+  }
+  return 'unknown';
+}
+
+function reportUnreadMcpConfig(filePath: string, code: string, onUnread?: (filePath: string, code: string) => void): void {
+  if (onUnread) {
+    onUnread(filePath, code);
+    return;
+  }
+  process.stderr.write(`warning: mcp.json 读不到,不能把它说成没有配置: ${filePath} (${code})\n`);
 }
 
 /**
@@ -274,13 +292,21 @@ export function loadMcpConfig(cwd: string = process.cwd(), opts: LoadMcpConfigOp
     .flatMap((r) => r.paths);
   let acc: McpConfig = { servers: [] };
   for (const p of [...paths].reverse()) {
-    if (!fs.existsSync(p)) continue;
+    let raw: string;
     try {
-      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
+      raw = fs.readFileSync(p, 'utf-8');
+    } catch (error) {
+      const code = mcpConfigErrorCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      reportUnreadMcpConfig(p, code, opts.onUnread);
+      continue;
+    }
+    try {
+      const parsed = tryParseJson(raw);
       // 数组/标量不是合法 McpConfig,防止误合并损坏配置(normalizeMcpInput 内部已过滤)
       acc = deepMergeMcpConfig(acc, normalizeMcpInput(parsed));
-    } catch {
-      // 读文件失败忽略,继续下一源
+    } catch (error) {
+      reportUnreadMcpConfig(p, mcpConfigErrorCode(error), opts.onUnread);
     }
   }
   return acc;
@@ -288,6 +314,14 @@ export function loadMcpConfig(cwd: string = process.cwd(), opts: LoadMcpConfigOp
 
 function saveMcpConfig(config: McpConfig): void {
   const configPath = getMcpConfigPath();
+  try {
+    fs.readFileSync(configPath, 'utf-8');
+  } catch (error) {
+    const code = mcpConfigErrorCode(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`mcp.json 读不到,不能把它覆盖成新配置 (${code})`);
+    }
+  }
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   // 2026-10-31 安全强化第 20 批(F3):mcp.json 含明文 token/secret(用户 --token

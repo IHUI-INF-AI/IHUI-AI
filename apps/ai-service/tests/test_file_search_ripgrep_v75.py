@@ -244,6 +244,94 @@ def test_content_channel_actually_uses_rg_on_real_hits(repo_fixture: Path) -> No
     assert all(h.line_numbers for h in res.hits), "命中却拿不到行号 ⇒ rg 通道输出形态没对上"
 
 
+def test_unreadable_directory_is_not_a_complete_enumeration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """子目录列不出来时,枚举不能报成完整,也不能动目录里的文件。"""
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "ok.py").write_text("x = 1\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("secret = 1\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path):
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    paths, prov = rgp.enumerate_with_walk(root, ignored_dirs=frozenset(), suffixes=(".py",))
+    assert "ok.py" in paths
+    assert "blocked/hidden.py" not in paths
+    assert prov.degraded_reason is not None
+    assert "不能把枚举说成完整" in prov.degraded_reason
+    assert hidden.read_text(encoding="utf-8") == "secret = 1\n"
+
+
+def test_unreadable_directory_is_not_an_empty_file_search(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来且没有命中时,文件搜索不能报成零结果成功。"""
+    import asyncio
+
+    from app.services.mcp_server import _tool_file_search
+
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "keep.txt").write_text("hello\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("needle_token = 1\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path):
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setenv("IHUI_DISABLE_RIPGREP_ENUMERATION", "1")
+    monkeypatch.setattr(os, "scandir", deny)
+    out = asyncio.run(
+        _tool_file_search(
+            {
+                "path": str(root),
+                "pattern": "*.py",
+                "query": "needle_token",
+                "max_results": 20,
+            }
+        )
+    )
+    assert out["ok"] is False
+    assert out["matches"] == []
+    assert "不能把枚举说成完整" in out["message"]
+    assert "放宽 pattern" not in out["message"]
+    assert hidden.read_text(encoding="utf-8") == "needle_token = 1\n"
+
+
+def test_unreadable_file_is_not_a_clean_miss(tmp_path: Path) -> None:
+    """目标是目录时读失败不是「没有命中」,也不能动里面的文件。"""
+    (tmp_path / "keep.txt").write_text("hello\n", encoding="utf-8")
+    blocked = tmp_path / "blocked.txt"
+    blocked.mkdir()
+    (blocked / "inner.txt").write_text("secret", encoding="utf-8")
+    res = rgp.search_file_contents(
+        tmp_path,
+        files=["keep.txt", "blocked.txt", "gone.txt"],
+        needle="secret",
+        max_results=10,
+        prefer_rg=False,
+    )
+    assert res.hits == []
+    assert res.unread_files == 1
+    assert res.provenance is not None
+    assert res.provenance.degraded_reason is not None
+    assert "不能把它们说成没有命中" in res.provenance.degraded_reason
+    assert blocked.is_dir()
+    assert (blocked / "inner.txt").read_text(encoding="utf-8") == "secret"
+
+
 # ---------------------------------------------------------------------------
 # 判据 4:懒索引护栏读到的分母不得因换通道而变
 # ---------------------------------------------------------------------------
@@ -550,6 +638,35 @@ async def _call_file_search_arg(root: str, pattern: str, query: str, fuzzy: bool
     return await _tool_file_search(
         {"path": root, "pattern": pattern, "query": query, "fuzzy": fuzzy, "max_results": 50}
     )
+
+
+def test_unreadable_directory_is_not_listed_as_a_file(tmp_path, monkeypatch):
+    """目录在但 stat 失败时,不能告诉模型这不是目录。"""
+    import asyncio
+
+    target = tmp_path / "blocked"
+    target.mkdir()
+    hidden = target / "hidden.txt"
+    hidden.write_text("keep\n", encoding="utf-8")
+
+    from app.services import mcp_server
+
+    monkeypatch.setattr(
+        mcp_server, "_validate_path_in_workspace", lambda _path: (True, str(target))
+    )
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    out = asyncio.run(mcp_server._tool_list_files({"path": str(target)}))
+    assert out["ok"] is False
+    assert out["errorCode"] == "UNREADABLE"
+    assert out["error"].startswith("目录读不到")
+    assert hidden.read_text(encoding="utf-8") == "keep\n"
 
 
 def cleanup_fixtures() -> None:

@@ -269,6 +269,19 @@ def _render_wiki(
 # =============================================================================
 
 
+class KnowledgeCardsUnread(OSError):
+    """已有卡片或 wiki 读不到。不得当成没有再覆盖。"""
+
+
+def _refuse_unreadable(path: Path) -> None:
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译") from exc
+
+
 async def compile_project(
     project_id: str,
     workspace_root: str | Path,
@@ -302,14 +315,23 @@ async def compile_project(
     wiki_path = wiki_dir / f"{slug}.md"
 
     # 幂等盖章:既有卡库源指纹相同 ⇒ 沿用旧 compiled_at(重编译逐字节不变)。
+    # 读不到必须在写之前停住:Path.exists 对权限错误会把异常抛出来,这里改成显式拒绝覆盖。
     compiled_at = ""
-    if cards_path.exists():
-        try:
-            prev = json.loads(cards_path.read_text(encoding="utf-8"))
-            if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
-                compiled_at = str(prev[0].get("compiled_at") or "")
-        except (OSError, ValueError):
-            compiled_at = ""
+    if not dry_run:
+        _refuse_unreadable(cards_path)
+        _refuse_unreadable(wiki_path)
+    try:
+        prev = json.loads(cards_path.read_text(encoding="utf-8"))
+        if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
+            compiled_at = str(prev[0].get("compiled_at") or "")
+    except FileNotFoundError:
+        compiled_at = ""
+    except OSError as exc:
+        if not dry_run:
+            raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译") from exc
+        compiled_at = ""
+    except ValueError:
+        compiled_at = ""
     if not compiled_at:
         compiled_at = datetime.now(UTC).isoformat()
     for c in cards:

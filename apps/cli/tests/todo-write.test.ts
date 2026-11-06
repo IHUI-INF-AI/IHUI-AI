@@ -12,7 +12,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { todo_read, todo_write, readTodoList } from '../src/tools/todo-write.js'
+import { clearTodoFile, todo_read, todo_write, readTodoList } from '../src/tools/todo-write.js'
 import type { ToolContext } from '../src/tools/index.js'
 
 function makeCtx(tmp: string): ToolContext {
@@ -193,6 +193,26 @@ describe('todo_read 工具', () => {
     } catch {
       // ignore
     }
+  })
+
+  it('任务清单读不到时不说成没有任务,也不覆盖', async () => {
+    const todoPath = path.join(tmp, '.ihui', 'todos.json')
+    fs.mkdirSync(todoPath, { recursive: true })
+    const read = await todo_read.execute({}, ctx)
+    expect(read.success).toBe(false)
+    expect(read.error).toContain('不能把它说成没有任务')
+    expect(read.output).not.toContain('(无 todo)')
+    const write = await todo_write.execute(
+      { merge: true, todos: [{ id: 't1', content: 'x', status: 'pending', priority: 'low' }] },
+      ctx,
+    )
+    expect(write.success).toBe(false)
+    expect(fs.statSync(todoPath).isDirectory()).toBe(true)
+    expect(clearTodoFile(tmp)).toBe('unreadable')
+    expect(fs.statSync(todoPath).isDirectory()).toBe(true)
+    const missing = path.join(tmp, 'empty-workspace')
+    fs.mkdirSync(missing)
+    expect(clearTodoFile(missing)).toBe('absent')
   })
 
   it('空清单返回 (无 todo),不创建持久化文件', async () => {

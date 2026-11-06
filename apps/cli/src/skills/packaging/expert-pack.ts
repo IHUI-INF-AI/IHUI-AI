@@ -56,6 +56,8 @@ export interface GenerateExpertPackInput {
   keyId: string
   outputPath: string
   manifestGate?: ManifestGate
+  /** 测试注入。缺省走 fs.statSync。 */
+  stat?: (path: string) => fs.Stats
 }
 
 export interface GeneratedExpertPack {
@@ -127,9 +129,27 @@ export function generateExpertPack(input: GenerateExpertPackInput): GeneratedExp
     })
   }
   const files = new Map<string, Buffer>()
+  const look = input.stat ?? ((target: string) => fs.statSync(target))
   for (const skillId of skillIds) {
     const sourceDir = sources.get(skillId)
-    if (!sourceDir || !fs.existsSync(path.join(sourceDir, MANIFEST_FILE))) {
+    const manifestPath = sourceDir ? path.join(sourceDir, MANIFEST_FILE) : ''
+    let manifestMissing = !sourceDir
+    if (manifestPath) {
+      try {
+        look(manifestPath)
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code
+        if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+          throw new SkillPackageError(
+            'SKILL_PKG_EXPERT_SKILL_NOT_FOUND',
+            `技能清单读不到,不能把它说成没装再打进专家包 (${code ?? 'unknown'})`,
+            { skillId, path: manifestPath },
+          )
+        }
+        manifestMissing = true
+      }
+    }
+    if (!sourceDir || manifestMissing) {
       throw new SkillPackageError(
         'SKILL_PKG_EXPERT_SKILL_NOT_FOUND',
         `专家包引用的技能不存在或未安装:${skillId}`,
@@ -197,15 +217,53 @@ export function generateExpertPack(input: GenerateExpertPackInput): GeneratedExp
  * 从安装根发现技能源(id → 目录)。CLI `skills pack` 不额外要路径,直接复用安装台账。
  * 坏 manifest 的目录跳过(不能把一个读不懂的目录当成"存在的技能")。
  */
-export function discoverInstalledSkillSources(installRoot: string): Map<string, string> {
+export function discoverInstalledSkillSources(
+  installRoot: string,
+  stat?: (path: string) => fs.Stats,
+): Map<string, string> {
   const sources = new Map<string, string>()
-  if (!fs.existsSync(installRoot)) return sources
+  const look = stat ?? ((target: string) => fs.statSync(target))
+  try {
+    look(installRoot)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return sources
+    throw new SkillPackageError(
+      'SKILL_PKG_EXPERT_SKILL_NOT_FOUND',
+      `已安装技能根读不到,不能把它说成没有已装技能 (${code ?? 'unknown'})`,
+      { path: installRoot },
+    )
+  }
   for (const entry of fs.readdirSync(installRoot, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue
     const manifestPath = path.join(installRoot, entry.name, MANIFEST_FILE)
-    if (!fs.existsSync(manifestPath)) continue
     try {
-      const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { id?: unknown }
+      look(manifestPath)
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue
+      throw new SkillPackageError(
+        'SKILL_PKG_EXPERT_SKILL_NOT_FOUND',
+        `技能清单读不到,不能把它说成没装 (${code ?? 'unknown'})`,
+        { path: manifestPath },
+      )
+    }
+    let text: string
+    try {
+      text = fs.readFileSync(manifestPath, 'utf8')
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code
+      if (code) {
+        throw new SkillPackageError(
+          'SKILL_PKG_EXPERT_SKILL_NOT_FOUND',
+          `技能清单读不到,不能把它说成没装 (${code})`,
+          { path: manifestPath },
+        )
+      }
+      throw err
+    }
+    try {
+      const raw = JSON.parse(text) as { id?: unknown }
       if (typeof raw.id === 'string') sources.set(raw.id, path.join(installRoot, entry.name))
     } catch {
       // 读不懂的安装目录不进技能源;它本身就是坏的,不能拿来生成专家包

@@ -872,14 +872,25 @@ function renameDirectoryWithRetry(from: string, to: string): void {
 export function takeOwnershipOfTarget(
   target: string,
   staging: string,
-  opts?: { authority?: SwapAuthority | null; faultAt?: SwapFaultStage },
+  opts?: { authority?: SwapAuthority | null; faultAt?: SwapFaultStage; stat?: (path: string) => fs.Stats },
 ): StagedSwap {
   const transactionId = crypto.randomUUID();
   // 未显式给(undefined / 没这个键)⇒ 由路径推导(安装目录 ⇒ registry 那条记录;其余 ⇒ standalone);
   // 显式给 null ⇒ 调用方点名"这笔没有权威面",不再推导。唯一实现见 authorityForTarget。
   const authority = opts?.authority !== undefined ? opts.authority : authorityForTarget(target);
   const swapBase: Omit<StagedSwap, 'superseded' | 'hadPrevious'> = { target, staging, transactionId, authority };
-  if (!fs.existsSync(target)) return { ...swapBase, superseded: null, hadPrevious: false };
+  const look = opts?.stat ?? ((p: string) => fs.statSync(p));
+  try {
+    look(target);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ...swapBase, superseded: null, hadPrevious: false };
+    throw new DirectorySwapError(
+      target,
+      `插件目录读不到,不能把它当成没有再换上新副本 (${code ?? 'unknown'})`,
+      null,
+    );
+  }
 
   const superseded = supersededPathFor(target);
   activeSwapScratch.add(superseded);
@@ -953,11 +964,30 @@ export function landStagedSwap(swap: StagedSwap): void {
   activeSwapScratch.delete(swap.staging);
 }
 
-/** 把归档放回目标位置;成功返回 null(= 现状已复原),失败返回保留路径。 */
-function restoreSuperseded(swap: StagedSwap): string | null {
+/**
+ * 把归档放回目标位置;成功返回 null(= 现状已复原),失败返回保留路径。
+ * 归档确实没有(ENOENT/ENOTDIR) ⇒ null。其它读失败 ⇒ 抛错(消息含「读不到」),不改名、不删除。
+ * 目标读不到 ⇒ 返回保留路径,不把归档盖上去。
+ */
+export function restoreSuperseded(swap: StagedSwap, stat?: (path: string) => fs.Stats): string | null {
   if (!swap.hadPrevious || !swap.superseded) return null;
-  if (!fs.existsSync(swap.superseded)) return null;
-  if (fs.existsSync(swap.target)) return swap.superseded; // 槽位又被占了 ⇒ 不许覆盖,现场保留
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(swap.superseded);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`归档读不到,不能把它当成已经复原 (${code ?? 'unknown'}):${swap.superseded}`);
+  }
+  let targetMissing = false;
+  try {
+    look(swap.target);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') return swap.superseded;
+    targetMissing = true;
+  }
+  if (!targetMissing) return swap.superseded; // 槽位又被占了 ⇒ 不许覆盖,现场保留
   try {
     fs.renameSync(swap.superseded, swap.target);
     activeSwapScratch.delete(swap.superseded);
@@ -978,9 +1008,31 @@ function restoreSuperseded(swap: StagedSwap): string | null {
  *      把权威仍指向的那份旧快照当垃圾删。现在权威记录带 transactionId 字段并写着别的号 ⇒ 拒删。
  *      字段尚未接线时是 `unknown`(见 `authorityTransactionVerdict` 的"为什么"),行为与改动前逐字一致。
  */
-export function finalizeStagedSwap(swap: StagedSwap): SwapFinalizeOutcome {
+export function finalizeStagedSwap(swap: StagedSwap, stat?: (path: string) => fs.Stats): SwapFinalizeOutcome {
   if (!swap.hadPrevious || !swap.superseded) return { deleted: false, reason: '没有旧副本需要处置' };
-  if (!fs.existsSync(swap.target) || fs.existsSync(swap.staging)) {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  const classify = (p: string): { kind: 'present' | 'absent' | 'unreadable'; code?: string } => {
+    try {
+      look(p);
+      return { kind: 'present' };
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'absent', code };
+      return { kind: 'unreadable', code };
+    }
+  };
+  const targetState = classify(swap.target);
+  const stagingState = classify(swap.staging);
+  if (targetState.kind === 'unreadable' || stagingState.kind === 'unreadable') {
+    const parts: string[] = [];
+    if (targetState.kind === 'unreadable') parts.push(`目标(${targetState.code ?? 'unknown'})`);
+    if (stagingState.kind === 'unreadable') parts.push(`暂存(${stagingState.code ?? 'unknown'})`);
+    return {
+      deleted: false,
+      reason: `权威状态读不到,不能确认落盘,保留旧副本归档不删:${swap.superseded} :: ${parts.join('、')}`,
+    };
+  }
+  if (targetState.kind === 'absent' || stagingState.kind === 'present') {
     return { deleted: false, reason: `权威状态未确认落盘,保留旧副本归档不删:${swap.superseded}` };
   }
   const tx = readSwapMarker(swap.superseded);
@@ -1022,7 +1074,7 @@ export function finalizeStagedSwap(swap: StagedSwap): SwapFinalizeOutcome {
 export function commitStagedSwap(
   target: string,
   staging: string,
-  opts?: { signal?: AbortSignal; authority?: SwapAuthority | null; faultAt?: SwapFaultStage },
+  opts?: { signal?: AbortSignal; authority?: SwapAuthority | null; faultAt?: SwapFaultStage; stat?: (path: string) => fs.Stats },
 ): { swap: StagedSwap; finalized: SwapFinalizeOutcome } {
   if (opts?.signal?.aborted) {
     discardStagingDirectory(staging);
@@ -1042,6 +1094,7 @@ export function commitStagedSwap(
     swap = takeOwnershipOfTarget(target, staging, {
       authority: opts?.authority,
       faultAt: opts?.faultAt,
+      stat: opts?.stat,
     });
   } catch (e) {
     // 没拿到所有权 ⇒ 目标一步没动,临时物自己清掉
@@ -1205,7 +1258,7 @@ async function deleteCommittedArchive(archive: string): Promise<SwapRecoveryEntr
  */
 export async function recoverStaleSwapArtifacts(
   target: string,
-  opts?: { isPidAlive?: PidAliveProbe; authority?: SwapAuthority | null },
+  opts?: { isPidAlive?: PidAliveProbe; authority?: SwapAuthority | null; stat?: (path: string) => fs.Stats },
 ): Promise<SwapRecoveryEntry[]> {
   const parent = path.dirname(target);
   const base = path.basename(target);
@@ -1213,8 +1266,19 @@ export async function recoverStaleSwapArtifacts(
   let entries: string[];
   try {
     entries = fs.readdirSync(parent);
-  } catch {
-    return []; // 缓存根还没有 ⇒ 不可能有遗留现场
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    if (code === 'ENOENT') return [];
+    return [
+      {
+        archive: parent,
+        action: 'left-as-is',
+        reason: `缓存目录读不到,不能把它说成没有遗留现场 (${code})`,
+      },
+    ];
   }
   const archives = entries.filter((name) => name.startsWith(prefix) && name !== base);
   if (archives.length === 0) return [];
@@ -1253,7 +1317,25 @@ export async function recoverStaleSwapArtifacts(
           ? { path: marker.authorityPath, recordKey: marker.authorityKey }
           : authorityForTarget(marker.target ?? target);
     const verdict = authority ? authorityTransactionVerdict(authority, marker.transactionId) : 'unknown';
-    const slotFree = !fs.existsSync(target);
+    const look = opts?.stat ?? ((p: string) => fs.statSync(p));
+    let slotFree = false;
+    try {
+      look(target);
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') slotFree = true;
+      else {
+        outcomes.push({
+          archive,
+          action: 'left-as-is',
+          reason: `插件槽位读不到,不能把它当成空的再回位 (${code})`,
+        });
+        continue;
+      }
+    }
     const ask = authority
       ? `权威面 ${authority.path}${authority.recordKey ? `(记录 ${authority.recordKey})` : ''} 结论=${verdict}`
       : '该 target 无权威记录可问(standalone)';

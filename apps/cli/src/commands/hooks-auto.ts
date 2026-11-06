@@ -131,9 +131,41 @@ export function loadTrustedWorkspaces(): Set<string> {
   return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
 }
 
+function trustReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+/** 准备写入用的信任集。文件不存在可以新建。读不到不能覆盖成只剩新的工作区。 */
+function readTrustedForUpdate(): Set<string> {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(hooksTrustFile(), 'utf-8');
+  } catch (error) {
+    const code = trustReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`钩子信任名单读不到,不能把它覆盖成只剩新的工作区 (${code})`);
+  }
+  try {
+    const parsed = JSON.parse(raw) as { trusted?: string[] };
+    return new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((item) => path.resolve(item)) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/** 读不到就停。放在写入函数外面,是为了和基线解析那一段各用各的变量名。 */
+function refuseUnreadableTrustList(): void {
+  const trusted = readTrustedForUpdate();
+  if (trusted.size < 0) throw new Error('信任清单格式非法');
+}
+
 /** 把工作区写入信任集(信任是显式动作,不提供删除出口——删除属 GC 范畴)。 */
 export function addTrustedWorkspace(workspacePath: string): void {
   const abs = path.resolve(workspacePath);
+  refuseUnreadableTrustList();
   const file = hooksTrustFile();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   // 落盘前捕获**这一次**读到的字节作为基线并在它之上重算;commitAtomicWrite
@@ -370,17 +402,25 @@ function hookSignature(hook: HookDefinition): string {
 export class HookAutoDiscovery {
   private readonly workspacePath: string;
   private readonly hooks: Map<string, HookDefinition> = new Map();
+  private readonly readDir: (dir: string) => fs.Dirent[];
+  private unreadScans: string[] = [];
   private watchers: fs.FSWatcher[] = [];
   private watchTimer: ReturnType<typeof setTimeout> | null = null;
   private watching = false;
 
-  constructor(workspacePath: string) {
+  constructor(workspacePath: string, readDir?: (dir: string) => fs.Dirent[]) {
     this.workspacePath = path.resolve(workspacePath);
+    this.readDir = readDir ?? ((dir) => fs.readdirSync(dir, { withFileTypes: true }));
+  }
+
+  unreadScanCount(): number {
+    return this.unreadScans.length;
   }
 
   /** 扫描所有 hook 目录,返回发现的 hooks(按 priority 降序) */
   discover(): HookDefinition[] {
     this.hooks.clear();
+    this.unreadScans = [];
     let trusted: Set<string>;
     try {
       trusted = loadTrustedWorkspaces();
@@ -407,6 +447,13 @@ export class HookAutoDiscovery {
         );
       }
     }
+    if (this.unreadScans.length > 0) {
+      console.warn(
+        chalk.yellow(
+          `⚠ 有 ${this.unreadScans.length} 个 hook 目录或文件读不到,不能把它们说成没有 hook (${this.unreadScans[0]})`,
+        ),
+      );
+    }
     return this.getHooks();
   }
 
@@ -423,11 +470,16 @@ export class HookAutoDiscovery {
 
   /** 扫描单个目录下的 hook 文件(扁平,不递归);trusted=false 时全部禁用 */
   private scanDirectory(dir: string, sourceLabel: string, trusted: boolean): void {
-    if (!fs.existsSync(dir)) return;
     let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
+      entries = this.readDir(dir);
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return;
+      this.unreadScans.push(`${dir} (${code})`);
       return;
     }
     for (const entry of entries) {
@@ -453,7 +505,12 @@ export class HookAutoDiscovery {
     let content: string;
     try {
       content = fs.readFileSync(fullPath, 'utf-8');
-    } catch {
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') this.unreadScans.push(`${fullPath} (${code})`);
       return null;
     }
     const filename = path.basename(fullPath);

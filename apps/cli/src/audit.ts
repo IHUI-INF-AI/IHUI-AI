@@ -135,13 +135,30 @@ function parseSinceToTimestamp(since: string): number | null {
 }
 
 /** 查询审计日志,支持按工具名/时间/成功状态过滤 */
-export function queryAuditLog(opts: AuditQueryOptions = {}): AuditQueryResult {
+export function queryAuditLog(
+  opts: AuditQueryOptions = {},
+  stat?: (path: string) => fs.Stats,
+): AuditQueryResult {
   const logPath = getAuditLogPath();
-  if (!fs.existsSync(logPath)) {
-    return { entries: [], total: 0, filtered: 0 };
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(logPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      return { entries: [], total: 0, filtered: 0 };
+    }
+    throw new Error(`审计日志读不到,不能把它说成没有记录 (${code ?? 'unknown'})`);
   }
 
-  const content = fs.readFileSync(logPath, 'utf-8');
+  let content: string;
+  try {
+    content = fs.readFileSync(logPath, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code) throw new Error(`审计日志读不到,不能把它说成没有记录 (${code})`);
+    throw err;
+  }
   const lines = content.split('\n').filter((l) => l.trim().length > 0);
 
   let sinceTs: number | null = null;

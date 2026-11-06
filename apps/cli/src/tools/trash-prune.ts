@@ -89,7 +89,23 @@ function classifyRows(manifests: readonly ScannedTrash[]): RowBuckets {
  * 七步:①枚举 ②闸门 ③现量 ④判到期(判据层)⑤逐条删除(既有通道)⑥更新清单 + 写账目 ⑦三态结论。
  * 本机 `.ihui/delete-trash` 现读 0 枚 ⇒ 走 `gate='empty'` 提前返回:零 fs 写、零账目、零日志行。
  */
-export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions = {}): TrashPruneResult {
+function withReceipt(result: TrashPruneResult, nowIso: string, scanComplete: boolean): TrashPruneResult & { receipt: SentinelReceiptPlan } {
+  return {
+    ...result,
+    receipt: admitSentinelReceipt({
+      name: 'trash-prune',
+      status: result.state,
+      reason: result.reason,
+      scanned: result.scanned.entries,
+      linked: result.removed.length,
+      reclaimedBytes: result.reclaimedBytes,
+      scannedAt: nowIso,
+      truncated: scanComplete ? false : null,
+    }),
+  };
+}
+
+export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions = {}): TrashPruneResult & { receipt: SentinelReceiptPlan } {
   const nowIso = opts.nowIso ?? new Date().toISOString();
   const policy: ExpiryRunPolicy = {
     nowIso, minIntervalMs: opts.minIntervalMs ?? DEFAULT_EXPIRY_RUN_MIN_INTERVAL_MS,
@@ -100,16 +116,16 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
   const scanned = scanTrash(getDeleteTrashDir(workspacePath));
   const counts = { manifests: scanned.manifests.length, entries: scanned.manifests.reduce((n, m) => n + m.manifest.entries.length, 0) };
   if (counts.entries === 0 && scanned.bad.length === 0) {
-    return noAction({
+    return withReceipt(noAction({
       state: 'clean', gate: 'empty', scanned: counts,
       reason: counts.manifests === 0 ? '回收站无在册清单:空账,零动作' : `回收站只剩 ${counts.manifests} 枚空壳目录(在册条目 0):零动作,不摘壳`,
       summary: `TRASH-PRUNE state=clean gate=empty manifests=${counts.manifests} entries=0 removed=0 failed=0 skipped=0 bytes=0`,
-    });
+    }), nowIso, true);
   }
 
   // ② 闸门(死亡机制):账目坏 / 时刻取不到 ⇒ undetermined,不据此放行
   const ledgerFile = getExpiryLedgerPath(workspacePath);
-  const ledgerRead = readExpiryLedger(ledgerFile, initialExpiryLedger());
+  const ledgerRead = readExpiryLedger(ledgerFile, initialExpiryLedger(), opts.stat);
   const decision: ExpiryRunDecision = decideExpiryRun(ledgerRead.raw, policy);
   if (decision.gate !== 'run') {
     const blockedState: TrashPruneState = decision.gate === 'undetermined' ? 'undetermined' : 'clean';
@@ -117,15 +133,19 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
     let ledger: ExpiryRunLedger | null = null;
     // 未判定也要落账:死亡机制靠它累计(连败达上限 ⇒ retired);其余闸态零写
     if (decision.gate === 'undetermined') {
-      try {
-        const next = nextExpiryLedger(ledgerRead.raw, 'undetermined', policy);
-        writeExpiryLedger(ledgerFile, next);
-        ledger = next;
-      } catch (err) {
-        failed.push({ trashId: null, relativeTrashPath: null, reason: `运行账目写回失败(封票未落地):${msgOf(err)}` });
+      if (ledgerRead.note?.includes('读不到')) {
+        failed.push({ trashId: null, relativeTrashPath: null, reason: ledgerRead.note });
+      } else {
+        try {
+          const next = nextExpiryLedger(ledgerRead.raw, 'undetermined', policy);
+          writeExpiryLedger(ledgerFile, next);
+          ledger = next;
+        } catch (err) {
+          failed.push({ trashId: null, relativeTrashPath: null, reason: `运行账目写回失败(封票未落地):${msgOf(err)}` });
+        }
       }
     }
-    return noAction(
+    return withReceipt(noAction(
       {
         state: blockedState, gate: decision.gate, scanned: counts,
         reason: ledgerRead.note === null ? decision.reason : `${decision.reason};${ledgerRead.note}`,
@@ -135,7 +155,7 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
           ` bytes=0 overBudget=0 streak=${ledger?.streak ?? decision.streak}`,
       },
       { failed, skipped: [...scanned.bad], ledger, lines: [summarizeExpiryGate(decision)] },
-    );
+    ), nowIso, scanned.bad.length === 0);
   }
 
   // ③④ 逐行分桶(现量)+ 判到期(判据层唯一实现;被隔离的行根本不进这里)
@@ -222,7 +242,7 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
     ...failed.map((f) => `TRASH-PRUNE-FAIL ${f.trashId ?? '-'} ${f.relativeTrashPath ?? '-'} ${f.reason}`),
   ];
   const overBudgetBytes = plan.overBudget.reduce((n, i) => n + (i.bytes ?? 0), 0);
-  return {
+  return withReceipt({
     state, gate: decision.gate, reason, scanned: counts, removed, failed, skipped, lines, plan, ledger,
     quarantined: buckets.quarantined, frozen: buckets.frozen, ghosts: update.ghosts, reclaimedBytes,
     overBudget: { entries: plan.overBudget.length, bytes: overBudgetBytes },
@@ -232,7 +252,7 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
       ` skipped=${skipped.length} bytes=${reclaimedBytes} overBudget=${plan.overBudget.length}` +
       ` streak=${ledger?.streak ?? -1} quarantined=${buckets.quarantined.length}` +
       ` frozen=${buckets.frozen.length} ghosts=${update.ghosts.length}`,
-  };
+  }, nowIso, scanned.bad.length === 0);
 }
 
 /**
@@ -241,5 +261,81 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
  */
 export function resetTrashExpiryRun(workspacePath: string, reason: string, nowIso = new Date().toISOString()): TrashPruneResetOutcome {
   return resetExpiryRunLedger(getExpiryLedgerPath(workspacePath), reason, nowIso);
+}
+
+export type SentinelReceiptPlan = {
+  disposition: 'complete' | 'unjudged' | 'refused';
+  reason:
+    | 'receipt-complete'
+    | 'name-invalid'
+    | 'name-versioned'
+    | 'status-unmeasured'
+    | 'reason-absent'
+    | 'count-unmeasured'
+    | 'count-invalid'
+    | 'linked-exceeds-scanned'
+    | 'clock-unmeasured'
+    | 'truncated-unmeasured';
+  scanned: number | null;
+  linked: number | null;
+  reclaimedBytes: number | null;
+  truncated: boolean | null;
+};
+
+const SENTINEL_NAME_VERSIONED = /done\d+$/i;
+
+function sentinelCountOk(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function sentinelClockOk(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+  if (typeof value !== 'string' || value.trim() === '') return false;
+  return !Number.isNaN(Date.parse(value));
+}
+
+/**
+ * 完成哨兵必须带量化回执。缺计数、缺时钟或缺截断旗时不记完成，也不把缺席编成 0。
+ * 名字把版本号烤在末尾的旧形态直接拒绝。本函数不写盘。
+ */
+export function admitSentinelReceipt(input: {
+  name: unknown;
+  status: unknown;
+  reason: unknown;
+  scanned: unknown;
+  linked: unknown;
+  reclaimedBytes: unknown;
+  scannedAt: unknown;
+  truncated: unknown;
+}): SentinelReceiptPlan {
+  const blank = (reason: SentinelReceiptPlan['reason'], disposition: SentinelReceiptPlan['disposition']): SentinelReceiptPlan => ({
+    disposition,
+    reason,
+    scanned: null,
+    linked: null,
+    reclaimedBytes: null,
+    truncated: null,
+  });
+  if (typeof input.name !== 'string' || input.name.trim() === '') return blank('name-invalid', 'unjudged');
+  if (SENTINEL_NAME_VERSIONED.test(input.name.trim())) return blank('name-versioned', 'refused');
+  if (typeof input.status !== 'string' || input.status.trim() === '') return blank('status-unmeasured', 'unjudged');
+  if (typeof input.reason !== 'string' || input.reason.trim() === '') return blank('reason-absent', 'unjudged');
+  if (input.scanned === null || input.scanned === undefined || input.linked === null || input.linked === undefined || input.reclaimedBytes === null || input.reclaimedBytes === undefined) {
+    return blank('count-unmeasured', 'unjudged');
+  }
+  if (!sentinelCountOk(input.scanned) || !sentinelCountOk(input.linked) || !sentinelCountOk(input.reclaimedBytes)) {
+    return blank('count-invalid', 'unjudged');
+  }
+  if (input.linked > input.scanned) return blank('linked-exceeds-scanned', 'refused');
+  if (!sentinelClockOk(input.scannedAt)) return blank('clock-unmeasured', 'unjudged');
+  if (typeof input.truncated !== 'boolean') return blank('truncated-unmeasured', 'unjudged');
+  return {
+    disposition: 'complete',
+    reason: 'receipt-complete',
+    scanned: input.scanned,
+    linked: input.linked,
+    reclaimedBytes: input.reclaimedBytes,
+    truncated: input.truncated,
+  };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

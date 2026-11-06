@@ -83,12 +83,32 @@ export function getTasksPath(): string {
 
 const EMPTY_STORE: TasksStore = { version: 1, workspaces: {}, nextId: 1 };
 
+function taskReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+function readTasksRaw(p: string): string {
+  const raw = fs.readFileSync(p, 'utf-8');
+  return raw;
+}
+
 function loadStore(): TasksStore {
   const p = getTasksPath();
+  let raw: string;
+  try {
+    raw = fs.readFileSync(p, 'utf-8');
+    raw = readTasksRaw(p);
+  } catch (error) {
+    const code = taskReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ...EMPTY_STORE };
+    throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
+  }
   if (!fs.existsSync(p)) return { ...EMPTY_STORE };
   // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
   // 那会让用户全部任务静默清零(半截 JSON 会稳定触发这条路径)。
-  const raw = fs.readFileSync(p, 'utf-8');
   const parsed = JSON.parse(raw) as Partial<TasksStore> | null;
   if (!parsed || typeof parsed !== 'object') {
     throw new Error(`任务库文件损坏(不是对象): ${p}`);
@@ -102,6 +122,14 @@ function loadStore(): TasksStore {
 
 function saveStore(store: TasksStore): void {
   const p = getTasksPath();
+  try {
+    fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code = taskReadCode(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
+    }
+  }
   fs.mkdirSync(path.dirname(p), { recursive: true });
   // 走唯一原子写出口:同目录 tmp + rename(崩溃不留半截 JSON)、落盘前重读基线
   // 做 stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。

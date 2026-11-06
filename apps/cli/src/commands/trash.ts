@@ -121,7 +121,12 @@ function pickEntry(
 }
 
 /** 恢复一个误删件:前置全过才交给 `restoreTrashEntry`(真消费方)。 */
-export function restoreFromTrash(workspacePath: string, trashId: string, pathArg?: string): TrashRestoreOutcome {
+export function restoreFromTrash(
+  workspacePath: string,
+  trashId: string,
+  pathArg?: string,
+  stat?: (path: string) => fs.Stats,
+): TrashRestoreOutcome {
   const loaded = loadManifest(workspacePath, trashId);
   if ('fail' in loaded) return loaded.fail;
   const picked = pickEntry(loaded.manifest, workspacePath, pathArg);
@@ -137,12 +142,23 @@ export function restoreFromTrash(workspacePath: string, trashId: string, pathArg
   }
 
   // 具名拒绝:目标已存在 ⇒ 不覆盖现网现场(restore 不启动 ⇒ 副作用未发生)
-  if (fs.existsSync(entry.originalPath)) {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(entry.originalPath);
     return {
       ok: false,
       code: 'target-exists',
       reason: `恢复拒绝:原路径已存在(${entry.originalPath}),不覆盖。确需覆盖请先手工移走现件`,
     };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      return {
+        ok: false,
+        code: 'restore-failed',
+        reason: `恢复拒绝:原路径读不到,不能把它说成不存在再恢复覆盖 (${code ?? 'unknown'})`,
+      };
+    }
   }
 
   try {

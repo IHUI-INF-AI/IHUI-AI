@@ -57,6 +57,10 @@ import { FallbackBanner } from './FallbackBanner'
 // (`isStreaming` / 最后一条助手消息的工具态与错误态 / 审批待决),与"哪一条消息"无关:
 // 挂进 MessageItem 会变成"每条消息各挂一枚",同一次流式里 N 条历史消息同时声称自己在跑。
 import { TurnStatusLine } from './turn-status-line'
+// 批次 3(2026-11-06):会话级旁路提示 —— 预算硬停止与压缩边界回看。
+// 挂在消息流尾部（与 TurnStatusLine 同一挂载位置），避免改 MessageItem 的工具卡区域。
+import { SessionBudgetStopNotice } from '../budget-stop-notice'
+import { CompactionBoundaryReview } from '../compaction-boundary-review'
 // G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
 import { windowPaddings } from '../windowing'
@@ -761,6 +765,8 @@ export function MessageList({
         {/* D71 十态轮次状态徽章(2026-10-29 装车):流尾一行,只对**活跃轮次**出现
             (判据 `shouldShowTurnStatusLine` 复用 shared 的 `isActiveTurnState`)。
             空闲/已完成/已终止时整段不渲染 —— 历史消息不该满屏"已完成"。 */}
+        <SessionBudgetStopNotice conversationId={conversationId} />
+        <CompactionBoundaryReview conversationId={conversationId} />
         <TurnStatusLine />
         <div ref={bottomRef} />
       </div>
