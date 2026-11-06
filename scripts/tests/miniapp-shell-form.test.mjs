@@ -869,6 +869,176 @@ test('T17d conversation-import 新字段:error/failedCount/errorMessage 三处 +
   assert.match(rn, /error: t\('conversationImport\.commitFailed'/m, 'RN commit 失败原因必须回带')
 })
 
+// T18 299-C1(2026-11-06 批次②):薄壳 = 页内**业务** JSX ≤2,宿主骨架白名单不计入。
+// 白名单只有三类:ThemeRoot(只跳自身)/ 宿主导航 NavBar|NavChrome|header·nav·tabbar 词元(整棵子树)/
+// 根容器高度·背景基准(只跳最外层自身)。阴性对照四枚:
+// ①去掉根容器高度基准并加一枚业务节点 ⇒ 3 ⇒ 复制;②把 ThemeRoot 换成任意 Wrapper ⇒ 不豁免 ⇒ 复制;
+// ③把 NavBar 换成 Text ⇒ 子树不再豁免 ⇒ 复制;④结构下限是"计入豁免后仍 ≥3",不是"有 import 就绿"。
+const C1_ROOT_PAGE = `import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+export default function P() {
+  return (
+    <View className="flex flex-col h-screen bg-background">
+      <NavBar title="卡片" />
+      <DemoScreen />
+    </View>
+  )
+}
+`
+const C1_THEME_PAGE = `import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+export default function P() {
+  return (
+    <ThemeRoot>
+      <View className="p-2">
+        <DemoScreen />
+      </View>
+    </ThemeRoot>
+  )
+}
+`
+
+test('T18 299-C1 宿主骨架白名单不计入业务 JSX,计入后仍 ≥3 照旧判复制', () => {
+  const base = { route: 'demo/c1', file: 'demo/c1.tsx', declaredSpecs: SPEC, registry: { miniapp: 'demo/c1' } }
+  const rootShell = classifyPage({ ...base, text: C1_ROOT_PAGE })
+  assert.equal(rootShell.impl, 'shell', '根容器 h-screen/bg-background 只跳自身 ⇒ 业务 JSX ≤2')
+  assert.ok(rootShell.businessJsx <= 2, `businessJsx=${rootShell.businessJsx}`)
+
+  const themeShell = classifyPage({ ...base, text: C1_THEME_PAGE })
+  assert.equal(themeShell.impl, 'shell', 'ThemeRoot 只跳自身,子树照常计数 ⇒ 业务 JSX 2')
+  assert.ok(themeShell.businessJsx <= 2, `businessJsx=${themeShell.businessJsx}`)
+
+  // 阴性对照①:根容器不再命中高度/背景基准 + 加一枚业务节点 ⇒ 3 ⇒ 复制
+  const brokeRoot = C1_ROOT_PAGE.replace('flex flex-col h-screen bg-background', 'flex flex-col').replace(
+    '<NavBar title="卡片" />',
+    '<Text>标题</Text>',
+  )
+  const c1 = classifyPage({ ...base, text: brokeRoot })
+  assert.equal(c1.impl, 'copy', '豁免失效后同一把尺子必须判复制')
+  assert.ok(c1.businessJsx >= 3, `businessJsx=${c1.businessJsx}`)
+
+  // 阴性对照②:ThemeRoot 换成任意 Wrapper ⇒ 不在白名单 ⇒ 不豁免(禁止通配任意 View/Fragment)
+  const brokeTheme = C1_THEME_PAGE.replace('<ThemeRoot>', '<Wrapper>').replace('</ThemeRoot>', '</Wrapper>')
+  const c2 = classifyPage({ ...base, text: brokeTheme })
+  assert.equal(c2.impl, 'copy', '白名单之外的容器不得豁免')
+
+  // 阴性对照③:NavBar 换成 Text ⇒ 导航子树豁免不成立 ⇒ 复制
+  const brokeNav = C1_ROOT_PAGE.replace('<NavBar title="卡片" />', '<Text>卡片</Text>')
+  const c3 = classifyPage({ ...base, text: brokeNav })
+  assert.equal(c3.impl, 'copy', '非宿主导航节点不得整棵豁免')
+})
+
+// T19 299-C2:与共享屏零重复 UI 段。同构指纹 = tag 序 + className 词集 + 非空文本集。
+// 阴性对照三枚:①共享屏无该段 ⇒ 不判重复 ⇒ 薄壳;②共享屏正文读不到(sharedText=null)⇒ 未判定,不报绿;
+// ③同一页只要有一段同构即判复制(不是"大部分像"才算)。
+const C2_PAGE = `import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+export default function P() {
+  return (
+    <View className="h-screen">
+      <Text>同步中</Text>
+    </View>
+  )
+}
+`
+const C2_SHARED_HIT = `export default function S() { return (<View className="x"><Text>同步中</Text></View>) }`
+const C2_SHARED_MISS = `export default function S() { return (<View className="x"><Text>已同步</Text></View>) }`
+
+test('T19 299-C2 与共享屏零重复 UI 段(读不到不报绿)', () => {
+  const base = { route: 'demo/c2', file: 'demo/c2.tsx', text: C2_PAGE, declaredSpecs: SPEC, registry: { miniapp: 'demo/c2' }, rnText: undefined }
+  const dup = classifyPage({ ...base, sharedText: C2_SHARED_HIT })
+  assert.equal(dup.impl, 'copy', '存在同构段 ⇒ 复制')
+  assert.equal(dup.duplicateUi, true)
+  assert.match(dup.note, /重复 UI 段/)
+
+  const clean = classifyPage({ ...base, sharedText: C2_SHARED_MISS })
+  assert.equal(clean.impl, 'shell', '共享屏无该段 ⇒ 薄壳')
+  assert.equal(clean.duplicateUi, false)
+
+  // 阴性对照②:共享屏正文读不到 ⇒ 不能报绿
+  const blind = classifyPage({ ...base, sharedText: null })
+  assert.equal(blind.impl, 'undetermined', '共享屏正文读不到不得判薄壳')
+  assert.match(blind.note, /共享屏正文读不到/)
+})
+
+// T20 299-C3:无"只有单端消费"的 prop。注入型 prop(JSX 值/render prop)必须在另一端同名真传。
+// 阴性对照三枚:①RN 同传同名 prop ⇒ 不判单端;②RN 正文读不到(rnText=null)⇒ 未判定,不报绿;
+// ③普通数据 prop(体内无 JSX)不参与该条。
+const C3_PAGE = `import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+function renderTabBody() {
+  return <Text>内容</Text>
+}
+export default function P() {
+  return (
+    <View className="h-screen">
+      <DemoScreen renderTabBody={renderTabBody} />
+    </View>
+  )
+}
+`
+const C3_RN_MISS = `export default function R() { return (<DemoScreen />) }`
+const C3_RN_HIT = `export default function R() { return (<DemoScreen renderTabBody={renderTabBody} />) }`
+
+test('T20 299-C3 单端消费 prop(另一端未传即不判薄壳)', () => {
+  const base = { route: 'demo/c3', file: 'demo/c3.tsx', text: C3_PAGE, declaredSpecs: SPEC, registry: { miniapp: 'demo/c3' }, sharedText: C2_SHARED_MISS }
+  const oneEnd = classifyPage({ ...base, rnText: C3_RN_MISS })
+  assert.equal(oneEnd.impl, 'copy', 'renderTabBody 只有小程序端传 ⇒ 复制')
+  assert.deepEqual(oneEnd.injectedProps, ['renderTabBody'])
+  assert.match(oneEnd.note, /单端消费 prop/)
+
+  const bothEnd = classifyPage({ ...base, rnText: C3_RN_HIT })
+  assert.equal(bothEnd.impl, 'shell', '两端同名真传 ⇒ 薄壳')
+
+  // 阴性对照②:RN 正文读不到 ⇒ 不能证明跨端消费 ⇒ 未判定
+  const blind = classifyPage({ ...base, rnText: null })
+  assert.equal(blind.impl, 'undetermined', 'RN 对照缺失不得判薄壳')
+  assert.match(blind.note, /RN 对照读不到/)
+
+  // ③普通数据 prop(体内无 JSX)不参与
+  const plainDataProp = classifyPage({
+    ...base,
+    text: C3_PAGE.replace('renderTabBody={renderTabBody}', 'count={3}'),
+    rnText: C3_RN_MISS,
+  })
+  assert.equal(plainDataProp.impl, 'shell', '数据 prop 不是注入段,不触发 C3')
+  assert.deepEqual(plainDataProp.injectedProps, [])
+})
+
+// T21 299 `not-applicable` 枚举(2026-11-06 批次②):显式声明 + 可校验 + 可反证。
+// 阴性对照:①缺 declaredSpecs ⇒ 校验红;②note 无 file:line 证据 ⇒ 校验红;③页面仍接入口/有重复段/有注入
+// prop 时被反证 ⇒ S0 红(填值不是后门);④合法行既不进 S1 也不进 S2"可摘"。
+test('T21 not-applicable 校验与 S0 反证', () => {
+  const legal = {
+    route: 'demo/na',
+    file: 'demo/na.tsx',
+    loc: 10,
+    mapStatus: 'not-applicable',
+    impl: 'not-applicable',
+    reasonClass: null,
+    declaredSpecs: SPEC,
+    note: 'demo/na.tsx:10 声明屏 DemoScreen 是课程发布,页面是学习计划 ⇒ 非同业务对象',
+  }
+  assert.equal(G.validateLedger([legal]).length, 0, '合法 not-applicable 行必须通过校验')
+  assert.ok(G.validateLedger([{ ...legal, declaredSpecs: [] }]).length > 0, '缺被否定声明 ⇒ 红')
+  assert.ok(G.validateLedger([{ ...legal, note: '不适用' }]).length > 0, '无 file:line 证据 ⇒ 红')
+
+  const naRow = { ...legal, loc: 10 }
+  const green = evaluateRatchet([naRow], [legal])
+  assert.equal(green.reds.length, 0, '合法 not-applicable 不得判红')
+  assert.ok(!green.advisories.some((a) => /可从台账摘除/.test(a.why)), '不得报"可摘"')
+  assert.equal(green.stats.notApplicable, 1)
+
+  const rejected = {
+    route: 'demo/na2',
+    file: 'demo/na2.tsx',
+    loc: 10,
+    mapStatus: 'declaration',
+    impl: 'copy',
+    reasonClass: 'pure-copy',
+    notApplicableRejected: true,
+    note: '台账 not-applicable 被拒: 仍接共享屏入口',
+  }
+  const red = evaluateRatchet([rejected], [])
+  assert.ok(red.reds.some((r) => r.rule === 'S0'), '被反证的 not-applicable 必须判红')
+})
+
 test('T17e conversation-import failedCountLabel 十份词包逐键非空/非裸 key', () => {
   const keys = ['conversationImport.failedCountLabel']
   const rn = readLocales(RN_LOCALES, keys, null, 'mobile-rn')
