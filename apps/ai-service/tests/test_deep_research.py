@@ -660,6 +660,47 @@ def test_request_step_budget_absent_is_unjudged():
     assert admit_request_step(True)[0] == "unjudged"
 
 
+class _CountingSource(FakeSource):
+    def __init__(self) -> None:
+        self.searches = 0
+        self.fetches = 0
+
+    async def search(self, query, k=6):
+        self.searches += 1
+        return await super().search(query, k)
+
+    async def fetch(self, url, max_chars=6000):
+        self.fetches += 1
+        return await super().fetch(url, max_chars)
+
+
+async def test_request_step_budget_stops_before_the_next_outbound():
+    """步数用完后不再搜索、不再抓取。上限认不出时一次外呼都不发。"""
+    spent = _CountingSource()
+    spent_report = await run_deep_research(
+        "预算",
+        sources=[spent],
+        llm_complete_fn=_make_llm(["子问题1"], []),
+        max_iterations=4,
+        request_step_budget=1,
+    )
+    assert spent.searches == 1
+    assert spent.fetches == 0
+    assert spent_report.step_stop == "budget-spent"
+
+    blocked = _CountingSource()
+    blocked_report = await run_deep_research(
+        "预算无效",
+        sources=[blocked],
+        llm_complete_fn=_make_llm(["子问题1"], []),
+        max_iterations=4,
+        request_step_budget=0,
+    )
+    assert blocked.searches == 0
+    assert blocked.fetches == 0
+    assert blocked_report.step_stop == "budget-invalid"
+
+
 def test_research_phase_refuses_skipping_verify():
     """没核验不能成稿;Fetch 之后可以再搜,也可以核验。认不出的阶段名是未判定。"""
     done = ["Scope", "Search", "Fetch"]

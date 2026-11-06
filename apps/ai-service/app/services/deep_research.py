@@ -52,6 +52,7 @@ _DEFAULT_MAX_ITERATIONS = 4
 _DEFAULT_CONCURRENCY = 4
 _DEFAULT_GAPS_PER_ROUND = 3
 _DEFAULT_FETCH_PER_SUBQUESTION = 3
+REQUEST_STEP_BUDGET = 100
 _SEARCH_RESULTS_K = 6
 _BODY_MAX_CHARS = 6000
 
@@ -205,6 +206,7 @@ class ResearchReport:
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     iteration: int = 0
     phase_log: list[str] = field(default_factory=list)
+    step_stop: str = ""
 
     # ---- 序列化(供 FastAPI JSON 返回)----
     def to_dict(self) -> dict[str, Any]:
@@ -234,6 +236,7 @@ class ResearchReport:
             "gap_questions": self.gap_questions,
             "iteration": self.iteration,
             "max_iterations": self.max_iterations,
+            "step_stop": self.step_stop,
             "evidence": [
                 {
                     "question": e.question,
@@ -701,25 +704,50 @@ def _build_synthesis_prompt(
 # 检索执行
 # ---------------------------------------------------------------------------
 
+class _RequestSteps:
+    """一次研究共用的请求步数。admit 在两次 await 之间同步加一,并发任务不会把同一步算两次。"""
+
+    def __init__(self, limit: int | None, report: ResearchReport) -> None:
+        self.limit = limit
+        self.taken = 0
+        self.report = report
+
+    def admit(self) -> bool:
+        verdict, reason = admit_request_step(self.taken, limit=self.limit)
+        if verdict != "allow":
+            self.report.step_stop = reason
+            return False
+        self.taken += 1
+        return True
+
+
 async def _search_one(
     source: Any,
     question: str,
     *,
     sem: asyncio.Semaphore,
     max_fetch: int,
+    meter: _RequestSteps,
 ) -> EvidenceUnit:
     """对单个子问题:搜索 → 取前几个来源抓取正文 → 合并为一条证据。
 
     受外层 Semaphore 限流:同一个多源并发批次内,真正的并发上限为 concurrency。
     """
     async with sem:  # 并发上限:占住信号量槽位再执行搜索+抓取
-        return await _search_one_impl(source, question, max_fetch=max_fetch)
+        return await _search_one_impl(source, question, max_fetch=max_fetch, meter=meter)
 
 
 async def _search_one_impl(
-    source: Any, question: str, *, max_fetch: int
+    source: Any, question: str, *, max_fetch: int, meter: _RequestSteps
 ) -> EvidenceUnit:
     """_search_one 的实际执行体(已在信号量槽位内)。"""
+    if not meter.admit():
+        return EvidenceUnit(
+            question=question,
+            content="",
+            sources=[],
+            source_name=getattr(source, "name", "mcp"),
+        )
     urls: list[str] = []
     sources: list[SourceRef] = []
     snippets: list[str] = []
@@ -738,8 +766,13 @@ async def _search_one_impl(
             if snip:
                 snippets.append(snip)
 
-        # 并发受限地抓取正文(url_order 保持稳定)
-        fetches = [source.fetch(url) for url in urls[:max_fetch]]
+        # 每条抓取单独占一步。预算用完的地址不创建协程,避免半截请求已经发出。
+        admitted_urls: list[str] = []
+        for url in urls[:max_fetch]:
+            if not meter.admit():
+                break
+            admitted_urls.append(url)
+        fetches = [source.fetch(url) for url in admitted_urls]
         bodies = []
         for fut in asyncio.as_completed(fetches):
             try:
@@ -780,6 +813,7 @@ async def _retrieve_many(
     sources: list[Any],
     concurrency: int,
     max_fetch: int,
+    meter: _RequestSteps,
 ) -> list[EvidenceUnit]:
     """并行检索一组问题(子问题或 gap 追问),跨多源去重合并。"""
     if not questions:
@@ -787,7 +821,7 @@ async def _retrieve_many(
     sem = asyncio.Semaphore(concurrency)
     # 遍历多源,收集全部证据(源之间按 URL 去重由 Report.dedup 兜底)
     tasks = [
-        _search_one(src, q, sem=sem, max_fetch=max_fetch)
+        _search_one(src, q, sem=sem, max_fetch=max_fetch, meter=meter)
         for src in sources
         for q in questions
     ]
@@ -910,6 +944,7 @@ async def run_deep_research(
     gaps_per_round: int = _DEFAULT_GAPS_PER_ROUND,
     max_fetch: int = _DEFAULT_FETCH_PER_SUBQUESTION,
     factcheck_llm_fn: FactcheckLLMFn | None = None,
+    request_step_budget: int | None = REQUEST_STEP_BUDGET,
 ) -> ResearchReport:
     """执行 agentic 多轮深度研究,返回结构化报告。
 
@@ -925,6 +960,7 @@ async def run_deep_research(
         query=query,
         max_iterations=max_iterations,
     )
+    meter = _RequestSteps(request_step_budget, report)
 
     def _enter(title: str) -> bool:
         verdict = admit_research_phase(report.phase_log, title)
@@ -957,6 +993,7 @@ async def run_deep_research(
             sources=srcs,
             concurrency=concurrency,
             max_fetch=max_fetch,
+            meter=meter,
         )
         if not _enter("Fetch"):
             return report
@@ -964,6 +1001,10 @@ async def run_deep_research(
         # 3. 双向深度调查:gap 追问 + 再检索,循环至 max_iterations
         report.iteration = 0
         for i in range(1, max_iterations + 1):
+            round_verdict, round_reason = admit_request_step(meter.taken, limit=meter.limit)
+            if round_verdict != "allow":
+                report.step_stop = report.step_stop or round_reason
+                break
             _apply_progress(
                 report, PHASE_DEEPEN, f"第 {i}/{max_iterations} 轮追问"
             )
@@ -985,6 +1026,7 @@ async def run_deep_research(
                 sources=srcs,
                 concurrency=concurrency,
                 max_fetch=max_fetch,
+                meter=meter,
             )
             if not _enter("Fetch"):
                 return report
@@ -1159,7 +1201,6 @@ class DeepResearchManager:
 
 VOTES_PER_CLAIM = 3
 REFUTATIONS_REQUIRED = 2
-REQUEST_STEP_BUDGET = 100
 
 _CONFIDENCE = frozenset({"high", "medium", "low"})
 _FENCE_JSON = re.compile(r"```json\s*([\s\S]*?)```", re.IGNORECASE)
