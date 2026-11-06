@@ -29514,6 +29514,8 @@
     "selfCheckIn": "自助簽到",
     "selfCheckInSuccess": "簽到成功",
     "selfCheckInFailed": "簽到失敗,請稍後重試",
+    "selfCheckOutSuccess": "簽退成功",
+    "selfCheckOutFailed": "簽退失敗,請稍後重試",
     "notLoggedIn": "請先登入後查看本人考勤",
     "rulePanelTitle": "考勤規則",
     "ruleClassHint": "選擇班級後載入該班規則",

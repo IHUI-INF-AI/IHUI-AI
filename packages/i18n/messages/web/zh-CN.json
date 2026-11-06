@@ -29543,6 +29543,8 @@
     "selfCheckIn": "自助签到",
     "selfCheckInSuccess": "签到成功",
     "selfCheckInFailed": "签到失败,请稍后重试",
+    "selfCheckOutSuccess": "签退成功",
+    "selfCheckOutFailed": "签退失败,请稍后重试",
     "notLoggedIn": "请先登录后查看本人考勤",
     "rulePanelTitle": "考勤规则",
     "ruleClassHint": "选择班级后加载该班规则",

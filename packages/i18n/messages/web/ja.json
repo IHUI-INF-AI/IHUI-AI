@@ -29542,6 +29542,8 @@
     "selfCheckIn": "セルフチェックイン",
     "selfCheckInSuccess": "チェックインに成功しました",
     "selfCheckInFailed": "チェックインに失敗しました。後でもう一度お試しください",
+    "selfCheckOutSuccess": "退席に成功しました",
+    "selfCheckOutFailed": "退席に失敗しました。後でもう一度お試しください",
     "notLoggedIn": "ログイン後に自分の出席記録を確認できます",
     "rulePanelTitle": "出席ルール",
     "ruleClassHint": "クラスを選ぶとそのクラスのルールを読み込みます",

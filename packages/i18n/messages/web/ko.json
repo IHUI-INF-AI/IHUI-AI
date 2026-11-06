@@ -29542,6 +29542,8 @@
     "selfCheckIn": "셀프 체크인",
     "selfCheckInSuccess": "체크인이 완료되었습니다",
     "selfCheckInFailed": "체크인에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "selfCheckOutSuccess": "퇴실이 완료되었습니다",
+    "selfCheckOutFailed": "퇴실에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "notLoggedIn": "로그인 후 본인의 출석 기록을 확인할 수 있습니다",
     "rulePanelTitle": "출석 규칙",
     "ruleClassHint": "반을 선택하면 해당 반의 규칙을 불러옵니다",
