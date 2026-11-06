@@ -26,6 +26,9 @@ export const CHANNEL_LABEL: Record<WithdrawalItem['channel'], string> = {
 export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
   pending: 'withdrawals.status.pending',
   approved: 'withdrawals.status.approved',
+  // BUG-30②:WithdrawalStatus 六值补齐后必须同步补 processing ——
+  // 审核通过、转账回调落定前处于该态;缺键时 Record 检查直接红,运行时也会显示空标签。
+  processing: 'withdrawals.status.processing',
   rejected: 'withdrawals.status.rejected',
   completed: 'withdrawals.status.completed',
   failed: 'withdrawals.status.failed',
@@ -33,6 +36,8 @@ export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
 export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600',
   approved: 'bg-emerald-500/10 text-emerald-600',
+  // processing = in-flight(已通过、未落定),沿用 amber 口径,与 pending 同色系
+  processing: 'bg-amber-500/10 text-amber-600',
   rejected: 'bg-muted text-muted-foreground',
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
