@@ -33,6 +33,7 @@ from app.services.deep_research import (
     _fallback_synthesize,
     adjudicate_claim,
     admit_request_step,
+    admit_research_phase,
     cross_check,
     extract_model_json,
     grade_source,
@@ -659,6 +660,16 @@ def test_request_step_budget_absent_is_unjudged():
     assert admit_request_step(True)[0] == "unjudged"
 
 
+def test_research_phase_refuses_skipping_verify():
+    """没核验不能成稿;Fetch 之后可以再搜,也可以核验。认不出的阶段名是未判定。"""
+    done = ["Scope", "Search", "Fetch"]
+    assert admit_research_phase(done, "Synthesize")["disposition"] == "refused"
+    assert admit_research_phase(done, "Verify")["disposition"] == "entered"
+    assert admit_research_phase(done, "Search")["disposition"] == "entered"
+    assert admit_research_phase(["Scope", "Fetch"], "Verify")["reason"] == "history-invalid"
+    assert admit_research_phase([], "Warmup")["reason"] == "title-unrecognized"
+
+
 def test_ledger_row_has_no_model_text():
     row = json.loads(ledger_row("c1", adjudicate_claim([_ballot(True), _ballot(True), _ballot(False)])))
     assert row["claimId"] == "c1"
@@ -687,6 +698,10 @@ async def test_factcheck_votes_kill_and_self_yes_keeps_heuristic():
         factcheck_llm_fn=_kill,
     )
     assert killed.crosscheck[0]["verification"] == VerificationStatus.CONFLICTING.value
+    assert killed.phase_log[0] == "Scope"
+    assert killed.phase_log[-1] == "Synthesize"
+    verify_at = killed.phase_log.index("Verify")
+    assert verify_at < killed.phase_log.index("Synthesize")
 
     async def _self(pairs):
         return [
