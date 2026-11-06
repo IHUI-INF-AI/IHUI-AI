@@ -3,16 +3,19 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 弹层高度单一真相源 + ChatScreen 接线回归。
+ * 弹层高度单一真相源 + 全量弹层接线回归。
  *
- * 两条腿缺一不可:① 纯函数行为(比例/取整/边界);② 源码接线(样式表里不许再出现
- * 百分比上限、不许再手写比例,且每个弹层消费点都必须带上统一 style)。
- * 第 ② 条是防回归的关键 —— 只修模型列表、漏掉其余弹层,正是本票要根治的那一型。
+ * 三条腿:① 纯函数行为;② 每个弹层消费点都带上统一 style;③ 消费清单与源码面一致
+ * (新增弹层若没登记进清单、或把百分比上限抄回样式表,都必须红)。
+ * 第一版只锁 ChatScreen 单文件,结果从它抽出的 AgentSelector / NotesPanel /
+ * SlashCommandPalette / VoicePanel 以及另起一屏的 AiAssistantN8nScreen 全部漏带修复,
+ * 这一版按「清单 + 全源码扫描」双证收口。
  *
  * 接线扫描刻意不用正则:逐个切出 style 块再按字面量比对,避免转义写法本身漂移。
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   DIALOG_MAX_HEIGHT_RATIO,
@@ -20,12 +23,31 @@ import {
   dialogContentHeightStyle,
 } from '../src/lib/dialog-geometry'
 
-const screenSrc = readFileSync(
-  fileURLToPath(new URL('../src/screens/ChatScreen.tsx', import.meta.url)),
-  'utf8',
-)
+const SRC_DIR = fileURLToPath(new URL('../src/', import.meta.url))
+const HOOK_RE = /dialogContentHeightStyle|useDialogHeightStyle/
 
-const DIALOG_KEYS = ['styles.listDialogContent', 'styles.materialPopup'] as const
+/** 每个弹层消费者:相对 src/ 的路径 + 容器样式键 + 至少几个消费点 */
+const CONSUMERS = [
+  { rel: 'screens/ChatScreen.tsx', keys: ['styles.listDialogContent', 'styles.materialPopup'], min: 5 },
+  { rel: 'screens/AiAssistantN8nScreen.tsx', keys: ['pickerStyles.sheet'], min: 1 },
+  { rel: 'components/chat/AgentSelector.tsx', keys: ['styles.listDialogContent'], min: 1 },
+  { rel: 'components/chat/NotesPanel.tsx', keys: ['styles.listDialogContent'], min: 1 },
+  { rel: 'components/chat/SlashCommandPalette.tsx', keys: ['styles.listDialogContent'], min: 1 },
+  { rel: 'components/chat/VoicePanel.tsx', keys: ['styles.listDialogContent'], min: 1 },
+] as const
+
+const readSrc = (rel: string) => readFileSync(join(SRC_DIR, rel), 'utf8')
+
+function walk(dir: string, base = ''): string[] {
+  const out: string[] = []
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name)
+    const rel = base ? base + '/' + name : name
+    if (statSync(full).isDirectory()) out.push(...walk(full, rel))
+    else if (/\.tsx?$/.test(name)) out.push(rel)
+  }
+  return out
+}
 
 /** 切出所有 style={...} 块(目标块内部不含嵌套花括号,按首个右括号收尾即可) */
 function styleBlocks(src: string): string[] {
@@ -67,28 +89,40 @@ describe('dialogContentHeight(纯函数)', () => {
   })
 })
 
-describe('ChatScreen 弹层接线(防回归)', () => {
-  it('样式表里不再出现百分比上限字面量', () => {
-    expect(screenSrc).not.toContain("'70%'")
+describe('全量弹层接线(防回归)', () => {
+  it('所有消费单一真相源的源码文件都登记在清单里(新增弹层必须登记)', () => {
+    const actual = walk(SRC_DIR)
+      .filter((rel) => HOOK_RE.test(readSrc(rel)))
+      .filter((rel) => rel !== 'lib/dialog-geometry.ts' && rel !== 'lib/use-dialog-height.ts')
+      .sort()
+    expect(actual).toEqual(CONSUMERS.map((c) => c.rel).sort())
   })
-  it('不再手写比例 / modelPickerHeight', () => {
-    expect(screenSrc).not.toContain('modelPickerHeight')
-    expect(screenSrc).not.toContain('Math.round(windowHeight')
-  })
-  it('从单一真相源 import 并产出统一 style', () => {
-    expect(screenSrc).toContain('dialogContentHeightStyle')
-    expect(screenSrc).toContain('const dialogHeightStyle = useMemo(')
-  })
-  it('所有弹层容器消费点都接上 dialogHeightStyle', () => {
-    const refs = DIALOG_KEYS.reduce((n, k) => n + countOf(screenSrc, k), 0)
-    const consumers = styleBlocks(screenSrc).filter((b) =>
-      DIALOG_KEYS.some((k) => b.includes(k)),
-    )
-    expect(refs).toBeGreaterThanOrEqual(5)
-    expect(consumers.length).toBe(refs)
-    for (const block of consumers) {
-      expect(block).toContain('dialogHeightStyle')
-    }
-  })
+
+  for (const c of CONSUMERS) {
+    describe(c.rel, () => {
+      const src = readSrc(c.rel)
+      it('样式表里不再出现百分比上限 / 手写比例', () => {
+        expect(src).not.toContain("'70%'")
+        expect(src).not.toContain("'40%'")
+        expect(src).not.toContain('modelPickerHeight')
+        expect(src).not.toContain('Math.round(windowHeight')
+      })
+      it('从单一真相源接线并产出统一 style', () => {
+        expect(HOOK_RE.test(src)).toBe(true)
+        expect(src).toContain('dialogHeightStyle')
+      })
+      it('所有弹层容器消费点都接上确定高度', () => {
+        const refs = c.keys.reduce((n: number, k: string) => n + countOf(src, k), 0)
+        const consumers = styleBlocks(src).filter(
+          (b) => c.keys.some((k) => b.includes(k)) || b.includes('listDialogStyle'),
+        )
+        expect(refs).toBeGreaterThanOrEqual(c.min)
+        expect(consumers.length).toBeGreaterThanOrEqual(c.min)
+        for (const block of consumers)
+          expect(block.includes('dialogHeightStyle') || block.includes('listDialogStyle')).toBe(true)
+        for (const k of c.keys) expect(src).toContain('[' + k + ', dialogHeightStyle]')
+      })
+    })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
