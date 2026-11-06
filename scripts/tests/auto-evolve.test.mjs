@@ -32,9 +32,11 @@ import {
   refreshAutonomyCandidates,
   decideParkedRound,
   parseSupplyHolds,
+  classifyTimedOutRound,
 } from '../auto-evolve.mjs'
 import { planFaceDigest, planFaceDigestFromHead } from '../autonomy-candidates.mjs'
 import { NON_PROGRESS_ACTIONS, PROGRESS_ACTIONS } from '../lib/autonomy-nonprogress.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 import { TRANSPORT_FAILURE_SIGNS } from '../lib/autonomy-runner.mjs'
 
 const GOOD_GATES = {
@@ -1763,5 +1765,108 @@ test('ⓜ 账面挂账搁置台账:三态不并桶、到期自动回池、坏行
   const empty = parseSupplyHolds('\n   \n', { now: NOW })
   assert.equal(empty.state, 'ok')
   assert.equal(empty.held.length, 0)
+})
+
+/**
+ * ⓮ 被环自己上限掐死的一班必须归 `cancelled`(RP-74 的环侧那一半)。
+ *
+ * 现读依据(2026-11-06 本机台账):`session-timeout` 在 390 行里 **0 行**,而 `maxSessionMinutes`
+ * 现读 45、最长一班 28.5 分钟 ⇒ 0 行是正常结果。正因如此这一支的 `failureKind` 一直停在初始化的
+ * `'ok'` 上从未被检验过 —— 第一次真被上限掐死时会连着错三件事:① `isNonTicketFailure('ok')` 为假
+ * ⇒ "发起腿故障"那档的停派与邮件都不响;② 分桶落进 `session` 而不是 `session-blocked`,墙钟照吃
+ * 生产额度;③ 分档明细里它与真成功同名(§0.3 三态不并桶的反面)。语义与 exit=130 同型:既不是票坏
+ * 也不是推进 ⇒ 不记票失败也不记成功。判据抽成纯出口 `classifyTimedOutRound` 就是因为
+ * `dispatchSession` 不导出、真派子进程,判据留在里面只能靠端到端摸(§0.9:摸不到 = 没锁)。
+ */
+test('⓮ 被上限掐死的一班归 cancelled:killed / 到顶 SIGTERM / 早退 SIGTERM / rc=0 / 坏上限 五档成对', () => {
+  const CAP = 45
+  // ① killed(进程槽耗尽那一型)⇒ 恒判超时,且必须让"出口那把尺"认成非票故障
+  const k = classifyTimedOutRound({
+    killed: true,
+    signal: null,
+    durationMs: 3000,
+    maxSessionMinutes: CAP,
+  })
+  assert.equal(k.timedOut, true, 'killed 必须判超时(与 130 同型,不是票坏)')
+  assert.equal(k.failureKind, 'cancelled', "缺省停在 'ok' 就是本枚要治的原病")
+  assert.equal(
+    isNonTicketFailure('cancelled'),
+    true,
+    '归类必须被 isNonTicketFailure 认下来,否则"发起腿故障"那档的停派与邮件都不响',
+  )
+  // ② SIGTERM 但只跑了一分钟 ⇒ 不判超时:早退的 SIGTERM 不是环掐的,留给后面的分型去认
+  const early = classifyTimedOutRound({
+    killed: false,
+    signal: 'SIGTERM',
+    durationMs: 60000,
+    maxSessionMinutes: CAP,
+  })
+  assert.equal(early.timedOut, false, '没顶到上限的 SIGTERM 不得算成环的上限掐死')
+  // ③ SIGTERM 且顶到上限(留 5s 抖动)⇒ 判超时,且读数必须点名是哪一格上限
+  const atCap = classifyTimedOutRound({
+    killed: false,
+    signal: 'SIGTERM',
+    durationMs: CAP * 60000 - 4000,
+    maxSessionMinutes: CAP,
+  })
+  assert.equal(atCap.timedOut, true, '顶到 maxSessionMinutes 的 SIGTERM 就是环自己掐的')
+  assert.match(atCap.why, /maxSessionMinutes=45/, 'why 必须带上上限,否则下一个人只能重测一遍')
+  // ④ 跑满上限但正常退出 ⇒ 不被这一支抢走(正向对照:归类权只给真被掐死的)
+  const ok = classifyTimedOutRound({
+    killed: false,
+    signal: null,
+    durationMs: CAP * 60000,
+    maxSessionMinutes: CAP,
+  })
+  assert.equal(ok.timedOut, false, 'rc=0 无信号 ⇒ 不是超时')
+  // ⑤ 坏输入逐个问:取不到一律不判超时(与改前 NaN 比较恒假同口径,不新增第三种结局)
+  for (const bad of [
+    { killed: false, signal: 'SIGTERM', durationMs: null, maxSessionMinutes: CAP },
+    { killed: false, signal: 'SIGTERM', durationMs: 1000, maxSessionMinutes: null },
+    { killed: false, signal: 'SIGTERM', durationMs: 1000, maxSessionMinutes: 0 },
+    { killed: false, signal: 'SIGTERM', durationMs: 1000, maxSessionMinutes: Number.NaN },
+  ]) {
+    const v = classifyTimedOutRound(bad)
+    assert.equal(v.timedOut, false, `坏输入必须不判超时:${JSON.stringify(bad)}`)
+    assert.equal(v.failureKind, null, '不判超时时不得顺手写一个归类')
+  }
+  // ⑤b 上限给成字符串 '45' 仍按 Number() 语义生效 ⇒ 证明没有把调用方的既有形态打坏
+  const strCap = classifyTimedOutRound({
+    killed: false,
+    signal: 'SIGTERM',
+    durationMs: CAP * 60000,
+    maxSessionMinutes: '45',
+  })
+  assert.equal(strCap.timedOut, true, 'gates 里那一格本来就是 JSON 取值,字符串形态必须照旧生效')
+  // ⑥ 接线 + 形状:调用点必须真用上结论,且**超时那一档**里不得再出现 'ok'。
+  //    反向那半必须判代码面:紧跟着调用点的注释就写着"为何不再是 'ok'",判全文会读到
+  //    自己的解释文字并恒红 —— 与取号器镜像档同一型(遮罩唯一实现 lib/code-mask.mjs,§0.6)。
+  const AE_SRC = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'auto-evolve.mjs'),
+    'utf8',
+  )
+  const AE_CODE = maskComments(AE_SRC)
+  assert.equal(
+    AE_CODE.split('\n').length,
+    AE_SRC.split('\n').length,
+    '遮罩必须保行数(行注释整段删、块注释保住换行),否则命中位置与原文错位',
+  )
+  assert.match(
+    AE_CODE,
+    /const roundCut = classifyTimedOutRound\(\{/,
+    '判据必须真被 dispatchSession 调用(造好没装车 = 没有)',
+  )
+  const timeoutBlock = /if \(roundCut\.timedOut\) \{([\s\S]{0,400}?)\n  \}/.exec(AE_CODE)
+  assert.ok(timeoutBlock, '超时分支必须在场(取不到 ⇒ 这一档结构上没人判)')
+  assert.match(
+    timeoutBlock[1],
+    /failureKind = roundCut\.failureKind/,
+    '超时分支必须用上纯出口的归类,而不是就地写一个字面量',
+  )
+  assert.doesNotMatch(
+    timeoutBlock[1],
+    /failureKind = 'ok'/,
+    "超时那一档不得再把归类留在 'ok'(初始化那行在分支之外,不算命中 —— 这正是判代码面而不是判全文的理由)",
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
