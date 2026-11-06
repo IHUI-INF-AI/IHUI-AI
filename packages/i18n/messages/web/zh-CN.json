@@ -14691,6 +14691,8 @@
     "dagAddEdge": "+ 边",
     "addNodeButton": "添加节点",
     "addEdgeButton": "添加边",
+    "dagRemoveNode": "移除节点",
+    "dagRemoveEdge": "移除边",
     "dagEditorTitle": "DAG 节点 / 边编辑器",
     "retrySection": "失败重试",
     "interval": "间隔",

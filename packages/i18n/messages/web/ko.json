@@ -14690,6 +14690,8 @@
     "dagAddEdge": "+ 간선",
     "addNodeButton": "노드 추가",
     "addEdgeButton": "간선 추가",
+    "dagRemoveNode": "노드 제거",
+    "dagRemoveEdge": "간선 제거",
     "dagEditorTitle": "DAG 노드 / 간선 편집기",
     "retrySection": "실패 시 재시도",
     "interval": "간격",
