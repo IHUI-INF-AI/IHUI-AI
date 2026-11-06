@@ -1,21 +1,21 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T07:15:28.196Z",
+  "sealedAt": "2026-11-06T14:12:47.838Z",
   "sealedBy": "root-guard --seal",
-  "reason": "上一枚给 git-guardian 加 auditCrossEndDebtLedger 调度腿(规则文件被改),清单必须按 HEAD 面重封才能同源;否则 root-guard --check 在所有签出 fail-closed",
+  "reason": "重封根护栏清单:AGENTS.md 体积压缩(门207)改变被审面字节;清单 guardian-runner/judgement-libs 两枚粘贴落后于已入库内容。全部哈希由 hashTarget 现算,未手改数字",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "49d1d2326e6b6df7af6a2c975fe02f430def0aa904735f59cc4c0b371cbf5ec5"
+      "sha256": "8016a45e39c546c65098aa235a9032c95ed7d1fb18ff14136aea610a837ee7d7"
     },
     {
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "619674c0ebb424165919bedee340ef0229e3d2067e12516ea61e04c3fb478a3c"
+      "sha256": "3c0c9911433d755ed746336a32c264b7bb62a86b3e20dc53d8b3be3f5668d0f2"
     },
     {
       "id": "agents-ironlaw",
