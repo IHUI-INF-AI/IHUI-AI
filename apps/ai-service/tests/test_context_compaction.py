@@ -43,6 +43,7 @@ from app.core.context_compaction import (
     _build_structured_summary,
     _split_pair_groups,
     _summarize_message,
+    _truncate_fallback,
     compress_messages_if_needed,
     estimate_messages_tokens,
     estimate_tokens,
@@ -457,6 +458,40 @@ def test_compress_truncate_fallback_single_long_message():
     # 除最后一条外的全部 non-system 消息被摘要化
     assert info["removed_count"] == 6
     assert info["usage_ratio"] == info["original_tokens"] / context_limit
+
+
+def test_truncate_fallback_multiple_rounds_keeps_single_marker():
+    """多轮截断必须每轮从原始串切:不得把上一轮标记的残段留在正文里。
+
+    病理口径:trigger_threshold(742)大于全量 tokens(342),迭代只能靠 target
+    (321 = 全量 - 21)收敛;裁剪步长(3 字符)小于标记长度(7),旧实现会把上一轮
+    "…[已" 残段留在正文 —— 修前 `TRUNCATE_MARKER[:3]` 计数为 2,且内容是从已
+    截断串再切,而非原始串的前缀。生产口径(0.8/0.6×context)下 trigger 小于全量,
+    该路径不可达,故本条只做算法契约的左移,不改变线上行为。
+    """
+    prefix = "x" * 50
+    text = "中" * 300
+    non_system = [{"role": "user", "content": prefix}, {"role": "user", "content": text}]
+    summary = {"role": "user", "content": _build_structured_summary([non_system[0]])}
+    full = estimate_messages_tokens([summary, {"role": "user", "content": text}])
+    target = full - 21
+    trigger = full + 400
+
+    out = _truncate_fallback([], non_system, 100000, full, trigger, target)
+    assert out is not None
+    cand, info = out
+    content = cand[-1]["content"]
+
+    # 用户口径:整枚标记只能出现一次(修前即绿,保留为回归断言)
+    assert content.count(TRUNCATE_MARKER) == 1
+    # 可红口径:修前上一轮标记残段会让前缀片段出现 2 次
+    assert content.count(TRUNCATE_MARKER[:3]) == 1
+    assert content.endswith(TRUNCATE_MARKER)
+    # 必须从原始串切,而不是从上一轮的截断结果继续切
+    assert content == text[: len(content) - len(TRUNCATE_MARKER)] + TRUNCATE_MARKER
+    # 修完总 token 要收敛到 target 以内
+    assert info["compressed_tokens"] <= target
+    assert estimate_messages_tokens(cand) <= target
 
 
 def test_compress_incompressible_when_system_too_large():

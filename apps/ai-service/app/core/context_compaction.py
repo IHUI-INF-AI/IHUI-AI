@@ -679,20 +679,27 @@ def _truncate_fallback(
     kept_group[target_idx] = truncated_target
     candidate = [*system_msgs, fallback_summary, *kept_group]
 
-    keep_content = target_content
+    # 每轮都从原始内容切:若在已截断串上继续切,上一轮的标记会被切成残段
+    # ("…[已…[已截断]"),既不美观也会让内容随轮次漂移。keep_len 是累计保留长度,
+    # 标记只在最终结果末尾追加一次。
+    original_content = target_content
+    keep_len = len(original_content)
     tokens = 0
     for _attempt in range(MAX_TRUNCATE_ATTEMPTS):
-        truncated_target["content"] = keep_content
+        if keep_len >= len(original_content):
+            truncated_target["content"] = original_content
+        else:
+            truncated_target["content"] = original_content[:keep_len] + TRUNCATE_MARKER
         tokens = estimate_messages_tokens(candidate)
         if tokens <= target_threshold:
             break  # 截断成功
-        if len(keep_content) <= MIN_TRUNCATE_CHARS:
+        if keep_len <= MIN_TRUNCATE_CHARS:
             break  # 截到下限仍不达标
         excess_tokens = tokens - target_threshold
         # 每 char 的 token 数(BPE 密度),据此估算需裁剪的字符数,1.2 倍安全余量
-        density = estimate_tokens(keep_content) / max(1, len(keep_content))
+        density = estimate_tokens(original_content) / max(1, len(original_content))
         cut_chars = math.ceil((excess_tokens / max(density, 0.01)) * 1.2)
-        keep_content = keep_content[: max(MIN_TRUNCATE_CHARS, len(keep_content) - cut_chars)] + TRUNCATE_MARKER
+        keep_len = max(MIN_TRUNCATE_CHARS, keep_len - cut_chars)
 
     if tokens >= trigger_threshold:
         # 截断到最小长度仍超触发阈值 → 第二级 incompressible
