@@ -20,6 +20,7 @@
  *   8. 生产环境必填 env vars 提示(.env.production / .env)
  *   9. MIGRATION_GAP_REPORT.md 缺失数 ≤ 上限(如有)
  *  10. Git 工作区状态(uncommitted 改动只警告不阻断)
+ *  11. dist 产物与 HEAD 源码同步(check:stale-dist --strict;无法判定即失败)
  *
  * 用法:
  *   node scripts/pre-deploy.mjs                # 全量硬性门禁
@@ -566,6 +567,26 @@ function checkGitStatus() {
 }
 
 // =====================================================
+// 11. dist 产物与 HEAD 源码同步
+// =====================================================
+function checkStaleDist() {
+  header('11. dist 产物与 HEAD 源码同步')
+  // --strict:取不到被审面/dist 未构建 ⇒ exit 2。发布前"写不出合格证"即按失败处理(fail-closed)。
+  const r = run('node scripts/check-stale-dist.mjs --strict')
+  if (r.ok) {
+    recordStatus('ok', 'check:stale-dist', 'dist 声明与 HEAD 源码同步')
+    return
+  }
+  const reason =
+    r.code === 2
+      ? '无法判定(dist 未构建或被审面取不到),拒绝出具同步合格证'
+      : 'dist 落后于 HEAD 源码,须重建后再发布'
+  recordStatus('fail', 'check:stale-dist', reason)
+  const tail = (r.stdout || r.stderr || '').trim().split('\n').slice(-8).join('\n')
+  if (tail) console.log(`${C.dim}${tail}${C.reset}`)
+}
+
+// =====================================================
 // 主流程
 // =====================================================
 async function main() {
@@ -591,6 +612,7 @@ async function main() {
   checkEnvVars()
   checkMigrationGapReport()
   checkGitStatus()
+  checkStaleDist()
 
   // ============ 汇总 ============
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
