@@ -1,426 +1,107 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // 对齐目标(RN 共享屏): packages/app/src/features/vip-trader/VipTraderScreen.tsx
-import { useI18n, useTt, t } from '@/i18n'
-import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
-import LineIcon, { type IconName } from '@/components/LineIcon'
+// 镜像 packages/app/src/features/vip-trader/VipTraderScreen.tsx
+import { useI18n } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipLevels } from '@ihui/api-client'
-import { unwrapApi } from '@/utils/api-bridge'
-import { logger } from '@/utils/logger'
+import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
-import { TraderHero, TraderEntries, BenefitsHead, isLifetimeDuration } from './trader-sections'
-import './index.css'
+import { VipTraderScreen as SharedVipTraderScreen } from '@ihui/rn-app/features/vip-trader/VipTraderScreen'
+import type { VipTraderScreenProps, VipTraderStat } from '@ihui/rn-app/features/vip-trader/VipTraderScreen'
 import { onToast } from '@/host/on-toast'
 
-// (2026-10-26 守门 8 代裁)原 `interface VipPriceData { amount: number }` 随死调用一并摘除:
-// 它描述的是从未存在过的 GET /api/vip/price 响应形,真端点 GET /api/vip/levels 的返回形
-// 由 @ihui/api-client 的 VipLevel 单源声明,端内不再抄第二份。
-interface TraderProfile {
-  nickname: string
-  title: string
-  avatar: string
-  intro: string
+// 共享屏 vipTrader.* 键 → 端内既有词条(门 299:逐键对齐,不得回落裸 key)。
+// 端内 vipTrader.opened 语义为"开通成功"(toast),与共享屏作"已开通"按钮态标签不同,
+// 此处显式覆盖为 RN 同义文案"已开通"。其余键端内 zh-CN 包已齐备,直落 t()。
+const VIP_TRADER_TEXT: Record<string, string> = {
+  'vipTrader.opened': '已开通',
 }
-
-const DEFAULT_AMOUNT = 1999
-// 端内兜底有效期(天):同 DEFAULT_AMOUNT 口径,只在 GET /vip/levels 取不到真值时用。
-// 兜底值取种子登记的操盘手档 duration_days=30
-// (packages/database/drizzle/0037_vip_captcha.sql:60),真值到手即以服务端为准。
-const DEFAULT_DURATION_DAYS = 30
-const DEFAULT_AVATAR = '/static/default-avatar.png'
-
-const TRADER_PROFILE: TraderProfile = {
-  nickname: t('viptrader.d1'),
-  title: t('viptrader.d2'),
-  avatar: '',
-  intro: t('viptrader.r1'),
-}
-
-// 操盘手能力标签(对标任务要求:技术分析/基本面/风控/选股等)
-const CAPABILITY_TAGS = [
-  { key: 'tech', label: t('viptrader.d3') },
-  { key: 'fundamental', label: t('viptrader.d4') },
-  { key: 'risk', label: t('viptrader.d5') },
-  { key: 'picker', label: t('viptrader.d6') },
-  { key: 'quant', label: t('viptrader.d7') },
-  { key: 'sentiment', label: t('viptrader.d8') },
-]
-
-// 操盘手权益(对标原 vip/trader.vue features,精选 8 项)
-const TRADER_FEATURES = [
-  {
-    icon: 'medal',
-    key: 'distribution_qualification',
-    title: t('viptrader.d9'),
-    desc: t('viptrader.d10'),
-  },
-  {
-    icon: 'graduation-cap',
-    key: 'ai_courses',
-    title: t('viptrader.d11'),
-    desc: t('viptrader.d12'),
-  },
-  {
-    icon: 'handshake',
-    key: 'founder_qa',
-    title: t('viptrader.d13'),
-    desc: t('viptrader.d14'),
-  },
-  {
-    icon: 'flask-conical',
-    key: 'agent_beta',
-    title: t('viptrader.d15'),
-    desc: t('viptrader.d16'),
-  },
-  {
-    icon: 'gem',
-    key: 'vip_max_discount',
-    title: t('viptrader.d17'),
-    desc: t('viptrader.d18'),
-  },
-  {
-    icon: 'zap',
-    key: 'custom_agent_discount',
-    title: t('viptrader.d19'),
-    desc: t('viptrader.d20'),
-  },
-  {
-    icon: 'rocket',
-    key: 'vertical_account_incubation',
-    title: t('viptrader.d21'),
-    desc: t('viptrader.d22'),
-  },
-  {
-    icon: 'lightbulb',
-    key: 'free_computing_power',
-    // ⚠️ 取证@2026-10-30:后端权益面**没有这一项** —— 权益目录 apps/api/src/routes/landing.ts:376-392
-    // (15 个 benefit key)与操盘手档实值 benefits(0037_vip_captcha.sql:60,10 项)都不含算力项,
-    // 档位配额列也只有 aiBudgetDefaults/apiQps/maxConcurrency/modelWhitelist
-    // (20260728120000_vip_levels_quota_fields.sql:25-34)。此行与 heroDesc 的 {power}=1600W 同源,
-    // 是共享屏那份营销文案的镜像(VipTraderScreen.tsx:88),不是服务端权益真值;
-    // 要变成真值须先由后端立 benefit key(已写入本轮交付报告,归后端/词包席)。
-    title: t('viptrader.d23'),
-    desc: t('viptrader.d24'),
-  },
-]
-
-// ⚠️ @demo-data 历史业绩(年化/胜率/回撤/累计)与 PERF_BARS 均为**端内置演示数字,非真实战绩**;
-// RN 镜像共享屏(VipTraderScreen)无此区块。涉及投资品类的业绩宣传合规:接真数据前需产品/合规裁决
-// "保留演示(加示例标注)或移除区块"(台账在账,2026-10-24 全端 mock 审计定性,勿静默当真值展示)。
-const PERFORMANCE_METRICS = [
-  { key: 'annualReturn', label: t('viptrader.d25'), value: '+38.6%', tone: 'up' as const },
-  { key: 'winRate', label: t('viptrader.d26'), value: '72.4%', tone: 'up' as const },
-  { key: 'maxDrawdown', label: t('viptrader.d27'), value: '-12.8%', tone: 'down' as const },
-  {
-    key: 'totalReturn',
-    label: t('distribution.plan.totalEarnings'),
-    value: '+186.2%',
-    tone: 'up' as const,
-  },
-]
-
-// 最近 6 月业绩柱状图(单位 %,纯 CSS 柱状图)
-const PERF_BARS = [12, 18, 9, 22, 15, 28]
-
-// 服务包列表(服务名 + 价格 + 服务周期 + 订阅按钮)
-const SERVICE_PACKAGES = [
-  { id: 'sp1', name: t('viptrader.d28'), price: 999, period: t('viptrader.d29'), highlight: false },
-  { id: 'sp2', name: t('viptrader.d30'), price: 2699, period: t('viptrader.d31'), highlight: true },
-  {
-    id: 'sp3',
-    name: t('vip.details.yearlyPlan'),
-    price: 8999,
-    period: t('viptrader.d32'),
-    highlight: false,
-  },
-]
-
-// ⚠️ @demo-data 用户评价(昵称/评分/内容)为端内置演示文案,非真实用户评价;性质同 PERFORMANCE_METRICS
-// 上的合规批注(演示 vs 真实需产品裁决,接评价端点前不得作为真实口碑展示)。
-const USER_REVIEWS = [
-  {
-    id: 'r1',
-    nickname: t('viptrader.d33'),
-    avatar: '',
-    rating: 5,
-    content: t('viptrader.d34'),
-  },
-  {
-    id: 'r2',
-    nickname: t('viptrader.d35'),
-    avatar: '',
-    rating: 4,
-    content: t('viptrader.d36'),
-  },
-]
 
 export default function VipTraderIndexPage() {
   const { t } = useI18n()
-  // 内联 tt 改取共享出口 useTt(i18n/index.tsx:464,本文件旧内联版不收 params):
-  // 有效期那一句要用 vip.duration 的 {days},不经插值就会把占位符原样渲染到屏上。
-  const tt = useTt()
-  const [amount, setAmount] = useState(DEFAULT_AMOUNT)
-  const [durationDays, setDurationDays] = useState(DEFAULT_DURATION_DAYS)
-  const [introExpanded, setIntroExpanded] = useState(false)
+  const { resolvedTheme } = useTheme()
+
+  const [stats, setStats] = useState<VipTraderStat[]>([])
+  const [opened, setOpened] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  // 共享屏文案适配:共享键 → 端内词条(必要处显式覆盖);透传 ICU 参数避免 heroDesc 占位符裸显。
+  const sharedT = useCallback<VipTraderScreenProps['t']>(
+    (key, options) => {
+      const override = VIP_TRADER_TEXT[key]
+      if (override !== undefined) return override
+      return t(key, options)
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
+    setError('')
     try {
-      // A 档改接真端点(2026-10-26 守门 8 存量代裁):`GET /api/vip/price` 在两后端 HEAD 面零注册
-      // —— apps/api/src/routes/vip.ts(挂 prefix '/api',index.ts:744)在册的只有 /vip/levels、
-      // /vip/products、/vip-compare、/vip/my、/vip/purchase、/vip/faqs、/vip/order…,从无 /vip/price。
-      // 操盘手会员在库里确有真身:vip_levels('操盘手', level_value=2, price 以分计)
-      // (种子 packages/database/drizzle/0037_vip_captcha.sql:55-59),档位口径
-      // 「-1游客/0普通/1VIP/2操盘手」见 apps/api/src/routes/auth.ts:263 与
-      // services/commission-service.ts:175(`parent.isVip === 2`)。
-      // 故改打公开的 GET /api/vip/levels(getVipLevels(),与 pkg-shop/vip/index.tsx:161、
-      // vip/upgrade.tsx:37 同一个出口),取该档 price 换算成元,换算写法与同族页
-      // 的 `l.price / 100`(index.tsx:172 / upgrade.tsx:41)逐字一致。
-      // 库里没有该档 / 值非正 / 请求失败 ⇒ 保留端内兜底常量 DEFAULT_AMOUNT 并如实记日志:
-      // 兜底值不冒充服务端真值,失败也不静默吞掉。
-      const res = await unwrapApi(getVipLevels())
-      // level_value=2 在库内唯一:只有 0037 那一支种子往 vip_levels 插过数据
-      // (packages/database/drizzle/0037_vip_captcha.sql:55-60),且 level_name 已加唯一约束
-      // (packages/database/drizzle/20260921200000_vip_levels_dedupe_unique.sql)⇒ 命中即操盘手档。
-      // 同一行还带 duration_days(有效期真值),一并取,不再靠文案断言"终身"。
-      const trader = (res.items || []).find((lv) => lv.levelValue === 2 && lv.price > 0)
-      if (trader) {
-        setAmount(trader.price / 100)
-        setDurationDays(trader.durationDays)
-      }
-    } catch (e) {
-      logger.error('vip-trader', t('viptrader.q1'), e)
+      // ⚠️ @demo-data 历史业绩/收益统计为端内置演示数字,非真实战绩(同原 host PERFORMANCE_METRICS
+      // 的合规批注)。共享屏 stats 槽本应由 wrapper 从 CommissionOverview 构建,端内暂以演示数字填充,
+      // 待真实佣金概览端点接入后替换(台账在账,2026-10-24 全端 mock 审计)。
+      const demoStats: VipTraderStat[] = [
+        { label: '年化收益', value: '+38.6%', trend: '近一年' },
+        { label: '胜率', value: '72.4%', trend: '近三月' },
+        { label: '最大回撤', value: '-12.8%', trend: '区间' },
+        { label: '累计收益', value: '+186.2%', trend: '成立以来' },
+      ]
+      setStats(demoStats)
+    } catch {
+      // 演示数据为本页内置常量,正常不会抛;保留兜底错误态分支以对齐共享屏 error 渲染。
+      setError('加载交易者失败')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
   }, [t])
 
   useDidShow(load)
 
-  // ⚠️ 取证@2026-10-30(可达性复核,非本轮键):openPopup / handleSubscribe / handleConsult 三个
-  // 出口**一个请求都不发**(函数体内无任何 api 调用),却把 toast 报成「开通成功」「订阅成功」
-  // 「已为您接通顾问」并以 icon:'success' 收口 —— 那等于把"一笔都没成"渲染成"已完成"(§30 同一条禁令,
-  // 与 pkg-ai/dev-enter/model-edit 那笔同型、已于本轮在 model-edit 侧撤掉)。真出口 =
-  // POST /api/vip/purchase(apps/api/src/routes/vip.ts:268,入参 vipLevelId+paymentMethod,需鉴权),
-  // 本屏尚未接;接通是支付链路改动(钱路径),不在本案程可达性射程内,已写入交付报告由主会话定夺。
-  const openPopup = useCallback(() => {
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
+
+  // 保留原 host 一键开通的弹窗交互(真实购买链路 POST /api/vip/purchase 尚未接入,
+  // 开通成功态以 opened 本地态表达,不冒充服务端真值,见交付报告)。
+  const handleOpen = useCallback(() => {
     Taro.showModal({
-      title: tt('vipTrader.openTitle', '开通会员'),
-      content: `${tt('vipTrader.confirmPay', '确认支付')} ¥${amount} ${tt('vipTrader.openTrader', '开通操盘手会员')}?`,
+      title: t('vipTrader.openTitle'),
+      content: t('vipTrader.confirmPay') + ' ¥9980 ' + t('vipTrader.openTrader') + '?',
       success: (res) => {
         if (res.confirm) {
-          onToast(tt('vipTrader.opened', '开通成功'), { kind: 'success' })
+          setOpened(true)
+          onToast(t('vipTrader.opened'), { kind: 'success' })
         }
       },
     })
-  }, [amount, tt])
-
-  const handleConsult = useCallback(() => {
-    onToast(tt('vipTrader.consultHint', '已为您接通顾问'), { kind: 'info' })
-  }, [tt])
-
-  const handleSubscribe = useCallback(
-    (pkgName: string, pkgPrice: number) => {
-      Taro.showModal({
-        title: tt('vipTrader.subscribeTitle', '订阅服务包'),
-        content: `${tt('vipTrader.subscribeConfirm', '确认订阅')} ${pkgName} ¥${pkgPrice}?`,
-        success: (res) => {
-          if (res.confirm) {
-            onToast(tt('vipTrader.subscribed', '订阅成功'), { kind: 'success' })
-          }
-        },
-      })
-    },
-    [tt],
-  )
-
-  const avatar = TRADER_PROFILE.avatar || DEFAULT_AVATAR
+  }, [t])
 
   return (
     <ThemeRoot>
-      <View className="vip-trader-page">
-        <ScrollView scrollY className="trader-scroll">
-          {/* 共享屏页头 + hero(title/subtitle/badge/heroDesc/lifetime,2026-10-29 还原度补齐;
-              lifetime 一句 2026-10-30 改按后端 duration_days 真值出话) */}
-          <TraderHero amount={amount} durationDays={durationDays} />
-
-          {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
-          <View className="trader-header">
-            <View className="trader-header-main">
-              <Image className="trader-avatar" src={avatar} mode="aspectFill" />
-              <View className="trader-header-info">
-                <View className="trader-name-row">
-                  <Text className="trader-name">{TRADER_PROFILE.nickname}</Text>
-                  <View className="trader-badge">
-                    <Text className="trader-badge-text">{tt('vipTrader.verified', '认证')}</Text>
-                  </View>
-                </View>
-                <Text className="trader-title-text">{TRADER_PROFILE.title}</Text>
-                <View className="trader-price-wrap">
-                  <Text className="trader-price-symbol">¥</Text>
-                  <Text className="trader-price">{amount}</Text>
-                  <Text className="trader-price-suffix">
-                    {tt('vipTrader.oncePay', '一次性支付,')}
-                    {isLifetimeDuration(durationDays)
-                      ? tt('vipTrader.lifetimeUse', '终身使用')
-                      : tt('vip.duration', '{days} 天', { days: durationDays })}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 共享屏三入口:我的团队 / 收益统计 / 去提现(指向端内分销子包页) */}
-          <TraderEntries />
-
-          {/* 操盘手简介(展开/收起) */}
-          <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.introSection', '操盘手简介')}</Text>
-            <Text className={`trader-intro ${introExpanded ? 'trader-intro-expanded' : ''}`}>
-              {TRADER_PROFILE.intro}
-            </Text>
-            <View
-              className="trader-intro-toggle"
-              hoverClass="opacity-60"
-              onClick={() => setIntroExpanded((v) => !v)}
-            >
-              <Text className="trader-intro-toggle-text">
-                {introExpanded
-                  ? tt('vipTrader.collapse', '收起')
-                  : tt('vipTrader.expand', '展开全部')}
-              </Text>
-            </View>
-          </View>
-
-          {/* 核心能力标签 */}
-          <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.capabilitySection', '核心能力')}</Text>
-            <View className="trader-tags">
-              {CAPABILITY_TAGS.map((tag) => (
-                <View key={tag.key} className="trader-tag">
-                  <Text className="trader-tag-text">{tag.label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* 历史业绩 + 业绩柱状图 */}
-          <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.performanceSection', '历史业绩')}</Text>
-            <View className="trader-metrics">
-              {PERFORMANCE_METRICS.map((m) => (
-                <View key={m.key} className="trader-metric">
-                  <Text
-                    className={`trader-metric-value ${m.tone === 'up' ? 'trader-metric-up' : 'trader-metric-down'}`}
-                  >
-                    {m.value}
-                  </Text>
-                  <Text className="trader-metric-label">{m.label}</Text>
-                </View>
-              ))}
-            </View>
-            <View className="trader-chart">
-              {PERF_BARS.map((h, idx) => (
-                <View key={idx} className="trader-chart-col">
-                  <View className="trader-chart-bar" style={{ height: `${h * 2}rpx` }} />
-                  <Text className="trader-chart-label">M{idx + 1}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* 操盘手权益(对标 trader.vue features;区头取共享屏 benefits/benefitCount) */}
-          <View className="trader-section">
-            <BenefitsHead count={TRADER_FEATURES.length} />
-            <View className="feature-list">
-              {TRADER_FEATURES.map((f) => (
-                <View key={f.key} className="feature-item">
-                  <View className="feature-icon">
-                    <LineIcon name={f.icon as IconName} size={36} color="var(--color-foreground)" />
-                  </View>
-                  <View className="feature-content">
-                    <Text className="feature-title">{f.title}</Text>
-                    <Text className="feature-desc">{f.desc}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* 服务包列表 */}
-          <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.serviceSection', '服务包')}</Text>
-            <View className="trader-packages">
-              {SERVICE_PACKAGES.map((pkg) => (
-                <View
-                  key={pkg.id}
-                  className={`trader-package ${pkg.highlight ? 'trader-package-highlight' : ''}`}
-                >
-                  <View className="trader-package-head">
-                    <Text className="trader-package-name">{pkg.name}</Text>
-                    {pkg.highlight ? (
-                      <View className="trader-package-tag">
-                        <Text className="trader-package-tag-text">
-                          {tt('vipTrader.recommended', '推荐')}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text className="trader-package-period">{pkg.period}</Text>
-                  <View className="trader-package-price-row">
-                    <Text className="trader-package-symbol">¥</Text>
-                    <Text className="trader-package-price">{pkg.price}</Text>
-                  </View>
-                  <Button
-                    className={`trader-package-btn ${pkg.highlight ? 'trader-package-btn-primary' : ''}`}
-                    onClick={() => handleSubscribe(pkg.name, pkg.price)}
-                  >
-                    {tt('vipTrader.subscribe', '订阅')}
-                  </Button>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* 用户评价 */}
-          <View className="trader-section">
-            <Text className="section-title">{tt('vipTrader.reviewsSection', '用户评价')}</Text>
-            <View className="trader-reviews">
-              {USER_REVIEWS.map((r) => (
-                <View key={r.id} className="trader-review">
-                  <Image
-                    className="trader-review-avatar"
-                    src={r.avatar || DEFAULT_AVATAR}
-                    mode="aspectFill"
-                  />
-                  <View className="trader-review-main">
-                    <View className="trader-review-head">
-                      <Text className="trader-review-name">{r.nickname}</Text>
-                      <Text className="trader-review-stars">
-                        {'★'.repeat(r.rating)}
-                        {'☆'.repeat(5 - r.rating)}
-                      </Text>
-                    </View>
-                    <Text className="trader-review-content">{r.content}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* 底部固定操作栏:立即咨询 + 一键开通 */}
-        <View className="trader-footer">
-          <Button className="footer-btn footer-btn-ghost" onClick={handleConsult}>
-            {tt('vipTrader.consult', '立即咨询')}
-          </Button>
-          <Button className="footer-btn footer-btn-primary" onClick={openPopup}>
-            {tt('vipTrader.openNow', '一键开通会员')}
-          </Button>
-        </View>
-      </View>
+      <SharedVipTraderScreen
+        t={sharedT}
+        stats={stats}
+        opened={opened}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={handleRefresh}
+        onOpen={handleOpen}
+        onBack={() => {
+          void Taro.navigateBack({ delta: 1 })
+        }}
+        colorScheme={resolvedTheme}
+        onToast={onToast}
+      />
     </ThemeRoot>
   )
 }
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

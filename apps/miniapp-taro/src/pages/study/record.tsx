@@ -1,85 +1,67 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// 镜像 packages/app/src/features/study-record/StudyRecordScreen.tsx
 
-// 对齐目标(RN 共享屏): packages/app/src/features/study-record/StudyRecordScreen.tsx
-import { useTt } from '@/i18n'
-import { View, Text } from '@tarojs/components'
-import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { get, getStudyRecords } from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import Taro, { useReachBottom } from '@tarojs/taro'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useI18n, useTt } from '@/i18n'
+import { useTheme } from '@/rn-compat/theme'
 import { useUserStore } from '@/stores/user'
+import { get, getStudyRecords, type StudyRecord } from '@/api'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import { RecordStats, type StudyStats } from './record-stats'
-import { RecordCard, statusOf, type RecordStatus, type StudyRecordRow } from './record-card'
 import { onToast } from '@/host/on-toast'
-
-type FilterTab = 'all' | RecordStatus
+import { StudyRecordScreen as SharedStudyRecordScreen } from '@ihui/rn-app/features/study-record/StudyRecordScreen'
+import type {
+  StudyRecordItem,
+  StudyRecordStats,
+  StudyRecordStatus,
+} from '@ihui/types'
 
 const PAGE_SIZE = 20
 
-const TAB_BASE =
-  'flex-1 flex items-center justify-center h-[96rpx] text-body leading-[normal] rounded-xl text-muted-foreground'
-const TAB_ACTIVE = 'bg-cta text-cta-foreground font-semibold'
-const STATE_TEXT = 'block text-center text-body leading-[normal] text-muted-foreground py-[96rpx]'
+/**
+ * 三态派生:与 RN 共享屏 statusLabel 三档同义(RN LearnRecord 自带 status;
+ * 小程序端 GET /study/records 仅回 progress => 统一由 progress 派生)。
+ */
+function statusOf(progress: number): StudyRecordStatus {
+  if (progress >= 100) return 'completed'
+  if (progress > 0) return 'in_progress'
+  return 'paused'
+}
 
-export default function StudyRecord() {
+/**
+ * 小程序壳承载 study-record 共享屏:布局 / 统计卡 / 记录卡列表 / 下拉刷新 / 空态全部由
+ * packages/app/src/features/study-record/StudyRecordScreen.tsx 负责;本页只出本端事实 ——
+ * 取词(useI18n,共享键 studyRecord.* / common.back 本端词典已齐备,无需 TEXT 映射)、
+ * 主题档(resolvedTheme)、鉴权门控(useAuthReadyGate)、分页(useReachBottom)、
+ * Taro 平台能力(navigateBack / navigateTo)与轻提示(onToast)。
+ * 共享屏不自带 onEndReached,分页由本页 useReachBottom 注入并累加到 records。
+ */
+export default function StudyRecordPage() {
+  const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const { waitUntilReady } = useAuthReadyGate()
   const user = useUserStore((s) => s.user)
 
-  const [stats, setStats] = useState<StudyStats | null>(null)
-  const [rawList, setRawList] = useState<StudyRecordRow[]>([])
-  const [displayList, setDisplayList] = useState<StudyRecordRow[]>([])
-  const [activeTab, setActiveTab] = useState<FilterTab>('all')
+  const [records, setRecords] = useState<StudyRecordItem[]>([])
+  const [stats, setStats] = useState<StudyRecordStats | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
 
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
-  const loadingRef = useRef(false)
   const totalRef = useRef(0)
+  const loadingRef = useRef(false)
 
-  const load = useCallback(
-    async (reset = false) => {
-      if (loadingRef.current) return
-      if (reset) {
-        pageRef.current = 1
-        hasMoreRef.current = true
-        setHasMore(true)
-        setError(false)
-      }
-      if (!hasMoreRef.current) return
-      loadingRef.current = true
-      setLoading(true)
-      try {
-        const res = await getStudyRecords({ page: pageRef.current, pageSize: PAGE_SIZE })
-        const rows = (res.list || []) as StudyRecordRow[]
-        setRawList((prev) => (reset ? rows : [...prev, ...rows]))
-        totalRef.current = res.total ?? (reset ? rows.length : totalRef.current)
-        const more = pageRef.current * PAGE_SIZE < totalRef.current
-        hasMoreRef.current = more
-        setHasMore(more)
-        pageRef.current++
-      } catch {
-        setError(true)
-        onToast(tt('common.failed', '加载失败'), { kind: 'error' })
-      } finally {
-        loadingRef.current = false
-        setLoading(false)
-      }
-    },
-    [tt],
-  )
+  const userNickname = user?.nickname || user?.username || ''
 
-  // 统计卡数据源 = GET /study/statistics(RN 容器 getStudyStatistics 的同一个聚合端点),
-  // 与列表各自降级:统计取不到不阻塞记录列表。
   const loadStats = useCallback(async () => {
     try {
-      const data = await get<StudyStats>('/study/statistics')
+      const data = await get<Partial<StudyRecordStats>>('/study/statistics')
       setStats({
         totalDuration: Number(data.totalDuration ?? 0),
         totalCourses: Number(data.totalCourses ?? 0),
@@ -93,96 +75,91 @@ export default function StudyRecord() {
     }
   }, [])
 
-  usePullDownRefresh(() => {
-    Promise.all([loadStats(), load(true)]).finally(() => Taro.stopPullDownRefresh())
-  })
+  const fetchPage = useCallback(
+    async (mode: 'initial' | 'refresh' | 'more') => {
+      if (loadingRef.current) return
+      const reset = mode === 'initial' || mode === 'refresh'
+      if (reset) {
+        pageRef.current = 1
+        hasMoreRef.current = true
+        setError('')
+      }
+      if (!hasMoreRef.current) return
+      loadingRef.current = true
+      if (mode === 'initial') setLoading(true)
+      if (mode === 'refresh') setRefreshing(true)
+      try {
+        const res = await getStudyRecords({ page: pageRef.current, pageSize: PAGE_SIZE })
+        const rows = (res.list || []) as Array<StudyRecord & { lessonTitle?: string }>
+        const mapped: StudyRecordItem[] = rows.map((r) => ({
+          id: r.id,
+          courseTitle: r.courseTitle || null,
+          lessonTitle: r.lessonTitle ?? null,
+          status: statusOf(r.progress),
+          duration: r.duration,
+          progress: r.progress,
+          lastStudyAt: r.time,
+        }))
+        setRecords((prev) => (reset ? mapped : [...prev, ...mapped]))
+        const total = res.total ?? (reset ? mapped.length : totalRef.current)
+        hasMoreRef.current = pageRef.current * PAGE_SIZE < total
+        totalRef.current = total
+        pageRef.current++
+      } catch {
+        const msg = tt('common.failed', '加载失败')
+        setError(msg)
+        onToast(msg, { kind: 'error' })
+      } finally {
+        loadingRef.current = false
+        if (mode === 'initial') setLoading(false)
+        if (mode === 'refresh') setRefreshing(false)
+      }
+    },
+    [tt],
+  )
 
-  useReachBottom(() => {
-    load()
-  })
-
+  // G-933 冷启动抢跑门控:GET /study/records 与 GET /study/statistics 均鉴权 => 整块挡到门后
   useEffect(() => {
-    // G-933 冷启动抢跑门控:GET /api/study/records(user 插件组级 userAuthPreHandler)与
-    // GET /api/study/statistics(同插件 authenticate)全需鉴权 ⇒ 整块挡到门后;卸载即注销,不留悬空订阅。
     return waitUntilReady(() => {
       void loadStats()
-      void load(true)
+      void fetchPage('initial')
     })
-  }, [waitUntilReady, load, loadStats])
+  }, [waitUntilReady, loadStats, fetchPage])
 
-  // 客户端筛选:三态与 RN 共享屏同义(completed / in_progress / paused)
-  useEffect(() => {
-    setDisplayList(
-      activeTab === 'all' ? rawList : rawList.filter((r) => statusOf(r.progress) === activeTab),
-    )
-  }, [rawList, activeTab])
+  const handleRefresh = useCallback(() => {
+    void loadStats()
+    void fetchPage('refresh')
+  }, [loadStats, fetchPage])
 
-  const goCourse = useCallback((courseId: string) => {
-    if (courseId) Taro.navigateTo({ url: `/pkg-learn/course/detail?id=${courseId}` })
+  useReachBottom(() => {
+    void fetchPage('more')
+  })
+
+  const handleBack = useCallback(() => {
+    void Taro.navigateBack({ delta: 1 })
   }, [])
 
-  const tabs: Array<{ key: FilterTab; label: string }> = [
-    { key: 'all', label: tt('study.recordPage.tabAll', '全部') },
-    { key: 'in_progress', label: tt('studyRecord.statusInProgress', '进行中') },
-    { key: 'completed', label: tt('studyRecord.statusCompleted', '已完成') },
-    { key: 'paused', label: tt('studyRecord.statusPaused', '已暂停') },
-  ]
-
-  // 副标题取登录用户昵称(RN 容器同源:user?.nickname ?? user?.username)
-  const displayName = user?.nickname || user?.username || ''
+  const handleNavigate = useCallback((target: string) => {
+    void Taro.navigateTo({ url: target })
+  }, [])
 
   return (
-    // 对齐 RN StudyRecordScreen(共享屏):容器 bg surface.bg,listBody p14dp→28rpx/pb32dp→64rpx
-    <View className="min-h-screen bg-background px-[28rpx] pt-[28rpx] pb-[64rpx] box-border">
-      {/* 对齐 RN header:标题由原生导航栏承担(record.config.ts),副标题「{昵称} 的学习记录」留在页内 */}
-      <Text className="block text-label text-muted-foreground mb-[20rpx]">
-        {tt('studyRecord.subtitle', '{name} 的学习记录', { name: displayName })}
-      </Text>
-
-      {/* 学习统计卡对齐 RN statsCard:6 指标 2 行(累计时长/课程总数/已完成课程/课时总数/已完成课时/连续天数) */}
-      <RecordStats stats={stats} />
-
-      {/* 状态筛选 tab(业务保留):视觉对齐 RN tab 语言,激活 bg brand + 对比字 */}
-      <View className="flex gap-[12rpx] mb-[24rpx]">
-        {tabs.map((tb) => (
-          <View
-            key={tb.key}
-            className={`${TAB_BASE} ${activeTab === tb.key ? TAB_ACTIVE : 'bg-card'}`}
-            hoverClass="opacity-60"
-            onClick={() => setActiveTab(tb.key)}
-          >
-            <Text>{tb.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* 记录卡片对齐 RN card:p14dp→28rpx / radius 12dp→24rpx / border light;标题 16dp→32rpx/700,进度 fill 对齐 RN success */}
-      {displayList.length > 0 && (
-        <View className="flex flex-col gap-[16rpx]">
-          {displayList.map((r) => (
-            <ThemeRoot key={r.id}>
-              <RecordCard row={r} onOpen={() => goCourse(r.courseId)} />
-            </ThemeRoot>
-          ))}
-        </View>
-      )}
-
-      {/* 状态文案 */}
-      {displayList.length === 0 && !loading && !error && (
-        <EmptyState title={tt('studyRecord.empty', '暂无学习记录')} />
-      )}
-      {error && !loading && (
-        <ErrorState
-          message={tt('common.failed', '加载失败')}
-          onRetry={() => load(true)}
-          retryLabel={tt('common.retry', '点击重试')}
-        />
-      )}
-      {loading && <ScreenSkeleton variant="list" count={4} />}
-      {!loading && !hasMore && displayList.length > 0 && (
-        <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
-      )}
-    </View>
+    <ThemeRoot>
+      <SharedStudyRecordScreen
+        t={t}
+        records={records}
+        stats={stats}
+        userNickname={userNickname}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={handleRefresh}
+        onBack={handleBack}
+        colorScheme={resolvedTheme}
+        onNavigate={handleNavigate}
+        onToast={onToast}
+      />
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
