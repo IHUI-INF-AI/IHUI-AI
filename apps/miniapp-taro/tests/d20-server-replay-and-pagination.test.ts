@@ -585,6 +585,15 @@ describe('④ 源码级反向锁', () => {
     'utf8',
   )
   const chatSrc = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/chat.tsx'), 'utf8')
+  // 列表头在 A3 装配前下沉到声明式槽子件(chat.tsx 只交 headerNode 节点)
+  const chatExtrasSrc = readFileSync(
+    resolve(__dirname, '../src/pkg-ai/ai/chat-list-extras.tsx'),
+    'utf8',
+  )
+  const shellExtrasSrc = readFileSync(
+    resolve(__dirname, '../src/pkg-ai/ai/chat-shell-extras.tsx'),
+    'utf8',
+  )
   const historySrc = readFileSync(resolve(__dirname, '../src/pkg-ai/ai/history.tsx'), 'utf8')
 
   it('三个文件都不得绕过 api-client 直连后端(守门 73 的本地预锁)', () => {
@@ -614,15 +623,22 @@ describe('④ 源码级反向锁', () => {
     expect(historySrc).toMatch(/setList\(snapshot\)[\s\S]{0,200}deleteFailed/)
   })
 
-  it('页面内仍只有一处 .sort( —— 续页没顺手引入第二份排序', () => {
-    expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+  it('排序出口只落共享屏一处 —— 页面与续页都没有第二份排序', () => {
+    const sharedSrc = readFileSync(
+      resolve(__dirname, '../../../packages/app/src/features/chat/ConversationHistoryScreen.tsx'),
+      'utf8',
+    )
+    expect(sharedSrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+    expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 
   it('向前翻:入口由服务端 hasMore 驱动,点击走 fetchEarlierPage + 前插去重(不得另起炉灶)', () => {
     expect(chatSrc).toContain('earlierHasMore')
     expect(chatSrc).toContain('getMessages(routeSessionId, { cursor, direction:')
     expect(chatSrc).toContain('prependEarlierMessages(')
-    expect(chatSrc).toContain("t('ai.chat.loadEarlier')")
+    // 最终壳:列表头节点由端内壳装配文件传入共享屏槽位
+    expect(shellExtrasSrc).toContain('<ChatListHeader')
+    expect(chatExtrasSrc).toContain("t('ai.chat.loadEarlier')")
   })
 
   it('向前翻失败:必须 toast 且不得清空已回放内容(失败分支不得 setMessages([]))', () => {

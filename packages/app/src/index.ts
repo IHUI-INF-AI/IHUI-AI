@@ -14,7 +14,17 @@ export type {
   StatusSeverity,
 } from './features/status/StatusScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
-export { SettingsScreen } from './features/settings/SettingsScreen'
+export {
+  SettingsScreen,
+  SettingsLanguageSection,
+  SettingsThemeSection,
+} from './features/settings/SettingsScreen'
+export type {
+  SettingsLanguageOption,
+  SettingsLanguageSectionProps,
+  SettingsThemeOption,
+  SettingsThemeSectionProps,
+} from './features/settings/SettingsScreen'
 export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
 export type {
   SecurityAuditItem,
@@ -147,7 +157,7 @@ export { SignUpScreen } from './features/sign-up/SignUpScreen'
 export { CloudRunsScreen } from './features/cloud-runs/CloudRunsScreen'
 export type { CloudRunItem, CloudRunsScreenProps } from './features/cloud-runs/CloudRunsScreen'
 export { RegisterScreen } from './features/register/RegisterScreen'
-export { ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
+export { AvatarEditor, ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
 export { ChangePhoneScreen } from './features/change-phone/ChangePhoneScreen'
 /** 批次 14(P3-3.3):Agent 市场/Agent 评价/直播/活动/收藏/签到 */
 export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
@@ -367,6 +377,15 @@ export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/Ch
  * error-any,连锁 TS2724 + TS7006 共 4 错(CI 实测 run 37105480849);文件本身从未删除,
  * 恢复 value 导出即根治。类型契约 ChatScreen* 仍自 ./types 导出。 */
 export { ChatScreen } from './features/chat/ChatScreen'
+export { ChatHeader, ChatCollapsibleCard, ChatCompactionBanner } from './features/chat/ChatHeader'
+export type {
+  ChatHeaderProps,
+  ChatHeaderNavItem,
+  ChatCollapsibleCardProps,
+  ChatCompactionBannerProps,
+} from './features/chat/ChatHeader'
+export { ChatMessageList, ChatMessageBubble } from './features/chat/ChatMessageList'
+export type { ChatMessageListProps, ChatMessageBubbleProps } from './features/chat/ChatMessageList'
 /** G-403/G-225(2026-10-25):上下文占用归因面板单独导出 —— RN 主聊天屏自绘导航栏并传
  * `showModelBar={false}`,走不到 ChatScreen 内部那一处渲染位,缓存两维因此在 RN 无入口。
  * 导出的是**同一个组件**(不是第三份实现):web 用 ring、小程序用归因条、RN 用这块面板,
@@ -639,6 +658,7 @@ export type {
   LoginScreenProps,
   RegisterScreenProps,
   Gender,
+  AvatarEditorProps,
   ProfileEditScreenProps,
   NationOption,
   ChangePhoneScreenProps,
@@ -706,6 +726,9 @@ export type {
   ModelEditPayCycle,
   ModelEditAudience,
   ModelEditOption,
+  ModelEditValueOption,
+  ModelEditCycleOption,
+  ModelEditAudienceOption,
   ModelEditBaseInfo,
   ModelEditFieldValues,
   ModelEditScreenProps,
@@ -766,7 +789,9 @@ export type {
   RealNameAuthItem,
   RealNameAuthScreenProps,
   SecuritySettingsItem,
+  SecuritySettingsRow,
   SecuritySettingsScreenProps,
+  SecuritySettingsSection,
   /** 批次 23(2026-07-29):Agent 系深屏 + 课程系深屏 */
   AgentStatData,
   AgentStatScreenProps,
@@ -824,6 +849,13 @@ export type {
   DistributionProduct,
   DistributionInfo,
   DistributionScreenProps,
+  DistributionOverviewCard,
+  DistributionEarningsTab,
+  DistributionEarningsItem,
+  DistributionEarningsCard,
+  DistributionServiceFloat,
+  DistributionFunctionBlock,
+  DistributionQrSheet,
   ExamQuestionItem,
   ExamQuestionPaper,
   ExamQuestionScreenProps,
@@ -1334,3 +1366,4 @@ export { ChatWorkbenchScreen } from './features/chat-workbench/ChatWorkbenchScre
 export type { ChatWorkbenchScreenProps } from './features/chat-workbench/ChatWorkbenchScreen'
 export type { ChatWorkbenchConversationItem } from './features/chat-workbench/chat-workbench-types'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+export { LiveQuickActions } from './features/live-list/LiveQuickActions'

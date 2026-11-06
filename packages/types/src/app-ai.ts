@@ -11,6 +11,7 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ComponentType } from 'react'
 import type { TFunction } from './app-shared.js'
 import type { AudioPort, OnNavigate, OnToast } from './app-host-ports.js'
 
@@ -235,23 +236,35 @@ export interface N8nModelScreenProps {
   onRetry: () => void
   onToggle: (item: N8nModelItem) => void
   onEdit: (item: N8nModelItem) => void
+  /** 卡片本体按压回调;不传则卡片不可按 */
+  onOpen?: (item: N8nModelItem) => void
   onCreate: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 是否渲染计数两行(calls / params);缺省 true。小程序契约无此三字段,显式传 false */
+  showStatistics?: boolean
 }
 
 /** 模型编辑售卖方式(对齐 mobile-rn ModelEditScreen SaleType) */
 export type ModelEditSaleType = 'free' | 'limited' | 'paid'
-/** 模型编辑收费周期(对齐 mobile-rn ModelEditScreen PayCycle) */
-export type ModelEditPayCycle = 'month' | 'year' | 'permanent'
-/** 模型编辑面向群体(对齐 mobile-rn ModelEditScreen Audience) */
-export type ModelEditAudience = 'all' | 'member'
+/** 模型编辑收费周期(月/季/年/永久;季度档为小程序独有,由宿主显式注入选项) */
+export type ModelEditPayCycle = 'month' | 'quarter' | 'year' | 'permanent'
+/** 模型编辑面向群体(全部/会员为 RN 口径,个人/企业为小程序口径,由宿主显式注入选项) */
+export type ModelEditAudience = 'all' | 'member' | 'individual' | 'enterprise'
 
 /** 模型编辑选项(类别/部门/折扣等通用 chip 选项) */
 export interface ModelEditOption {
   id: string
   label: string
 }
+
+/** 模型编辑带值选项(周期/面向群体;值域由宿主按自身口径显式传入) */
+export interface ModelEditValueOption<T extends string> {
+  value: T
+  label: string
+}
+export type ModelEditCycleOption = ModelEditValueOption<ModelEditPayCycle>
+export type ModelEditAudienceOption = ModelEditValueOption<ModelEditAudience>
 
 /** 模型编辑基础信息(头像+名称+开场白) */
 export interface ModelEditBaseInfo {
@@ -280,6 +293,13 @@ export interface ModelEditScreenProps {
   deptOptions: ModelEditOption[]
   freeDurations: string[]
   discountOptions: ModelEditOption[]
+  /** 周期档与面向群体由宿主显式注入:RN 传月/年/永久、全部/会员;小程序传月/季/年、个人/企业 */
+  cycleOptions: ModelEditCycleOption[]
+  audienceOptions: ModelEditAudienceOption[]
+  /** 真实加载态(两端显式传,共享屏不自造) */
+  loading: boolean
+  /** 是否渲染头部取消键(小程序靠原生导航栏,显式 false) */
+  showCancel: boolean
   submitting: boolean
   onChange: <K extends keyof ModelEditFieldValues>(key: K, value: ModelEditFieldValues[K]) => void
   onToggleCategory: (id: string) => void
@@ -335,8 +355,27 @@ export interface AigcListScreenProps {
   onLoadMore?: () => void
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /**
+   * 内联视频播放能力端口;缺省 = capability-off(点击视频卡只回 onPressItem)。
+   * Renderer 由端内注入(共享屏零平台 API);播放态由宿主持有并按 playingId 渲染。
+   */
+  video?: {
+    /** 正在内联播放的作品 id;null = 无 */
+    playingId: string | null
+    /** 点击视频卡切换播放/停止(宿主负责建/销毁播放器) */
+    onToggle: (item: AigcListItem) => void
+    /** 端内播放器组件:只接收地址与错误回调,布局由共享屏卡位约束 */
+    Renderer: ComponentType<{ uri: string; onError?: () => void }>
+  }
   /** 音频播放端口;缺省 = capability-off(宿主未注入时不得静默假播放) */
   audio?: AudioPort
+  /**
+   * 当前正在播放的音频 id;缺省 = null(按钮恒显示「播放」)。
+   * 与 onToggleAudio 成对注入;宿主负责在播完/失败后清空,共享屏只按此值渲染播放态。
+   */
+  playingAudioId?: string | null
+  /** 音频播放/停止切换端口;缺省回落 audio.play(只播不停) */
+  onToggleAudio?: (item: AigcListItem) => void
   /**
    * 顶部作品轮播端口;缺省 = 不渲染。
    * 共享屏缺少轮播能力时由宿主以数据+回调注入,渲染仍住共享屏,端内不再复制一份。
@@ -509,6 +548,16 @@ export interface AigcPublishScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /**
+   * 允许展示的作品类型档;缺省 = 四档全开。
+   * 端内没有对应上传/预览链路的档位由宿主收敛,避免摆出无法提交的入口。
+   */
+  workTypes?: readonly AigcPublishWorkType[]
+  /**
+   * 是否渲染提示词输入段;缺省 = true。
+   * 文本档没有独立提示词落库槽的宿主传 false,避免用户写下后被静默丢弃。
+   */
+  showPromptField?: boolean
 }
 
 /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态,4 屏迁移自 mobile-rn) */

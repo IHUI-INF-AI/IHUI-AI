@@ -1190,7 +1190,15 @@
     "getCode": "認証コード取得",
     "confirmLabel": "確認テキスト",
     "confirmPlaceholder": "上記のテキストを入力",
-    "failed": "アカウント解除に失敗しました。もう一度お試しください"
+    "failed": "アカウント解除に失敗しました。もう一度お試しください",
+    "warning": "アカウント削除後、すべてのデータが完全に削除され、復元できません。",
+    "consequence1": "アカウント情報・アバター・ニックネームは永久に削除されます",
+    "consequence2": "注文・ポイント・残高・会員特典はゼロになり、復元できません",
+    "consequence3": "公開した投稿・コメント・お気に入り・チャット履歴は消去されます",
+    "consequence4": "連携中の電話番号とメールは解除され、このアカウントではログインできません",
+    "consequence5": "有効中の会員・コースなどの特典は直ちに終了し、返金はありません",
+    "consequence6": "同じ電話番号で再登録できますが、過去のデータは復元できません",
+    "consequence7": "未精算の取引や違反記録があるアカウントは、申請が拒否される場合があります"
   },
   "ask": {
     "create": {
@@ -2948,7 +2956,9 @@
       "verifiedTip": "現在の電話番号は認証済みです",
       "bindDesc": "連携後、ログイン・パスワード再発行・通知の受信に利用できます",
       "bindTitle": "携帯電話番号を連携",
-      "codeLength": "6桁の認証コードを入力してください"
+      "codeLength": "6桁の認証コードを入力してください",
+      "selectNation": "国番号を選択",
+      "resend": "{s}秒後に再取得"
     },
     "profile": {
       "avatar": "アバター",
@@ -6800,7 +6810,15 @@
     "newPassword": "新しいパスワード",
     "language": "言語",
     "theme": "テーマ",
-    "version": "バージョン"
+    "version": "バージョン",
+    "accountDeletionConsequenceTitle": "削除後の影響",
+    "accountDeletionConsequence1": "アカウント情報・アバター・ニックネームは永久に削除されます",
+    "accountDeletionConsequence2": "注文・ポイント・残高・会員特典はゼロになり、復元できません",
+    "accountDeletionConsequence3": "公開した投稿・コメント・お気に入り・チャット履歴は消去されます",
+    "accountDeletionConsequence4": "連携中の電話番号とメールは解除され、このアカウントではログインできません",
+    "accountDeletionConsequence5": "有効中の会員・コースなどの特典は直ちに終了し、返金はありません",
+    "accountDeletionConsequence6": "同じ電話番号で再登録できますが、過去のデータは復元できません",
+    "accountDeletionConsequence7": "未精算の取引や違反記録があるアカウントは、申請が拒否される場合があります"
   },
   "liveList": {
     "subtitle": "素晴らしいライブをお見逃しなく",
@@ -6880,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "会話",
+    "deleteConv": "会話を削除",
+    "loadMore": "さらに読み込む",
+    "markRead": "既読にする",
+    "searchPh": "チャット/連絡先を検索",
     "title": "メッセージ",
     "type": {
       "course": "コース",

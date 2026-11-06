@@ -5,19 +5,23 @@
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
-import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
-import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
+import {
+  setThemePreference,
+  THEME_STORAGE_KEY,
+  useAppTheme,
+  type ThemePreference,
+} from '@/lib/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
+import { SettingsThemeSection } from '@ihui/rn-app/features/settings/SettingsScreen'
 
 const THEME_KEY = THEME_STORAGE_KEY
 
 interface ThemeOption {
   value: string
-  icon: string
   labelKey: string
   label: string
   descKey: string
@@ -26,7 +30,6 @@ interface ThemeOption {
 
 const AUTO_THEME = (tt: TtFn): ThemeOption => ({
   value: 'auto',
-  icon: 'refresh-cw',
   labelKey: 'settings.themeSystem',
   label: tt('settings.themeSystem', '跟随系统'),
   descKey: 'settingTheme.d1',
@@ -37,7 +40,6 @@ const THEMES = (tt: TtFn): ThemeOption[] => [
   AUTO_THEME(tt),
   {
     value: 'light',
-    icon: 'sun',
     labelKey: 'themeToggle.lightMode',
     label: tt('themeToggle.lightMode', '浅色模式'),
     descKey: 'settingTheme.d2',
@@ -45,7 +47,6 @@ const THEMES = (tt: TtFn): ThemeOption[] => [
   },
   {
     value: 'dark',
-    icon: 'moon',
     labelKey: 'themeToggle.darkMode',
     label: tt('themeToggle.darkMode', '深色模式'),
     descKey: 'settingTheme.d3',
@@ -57,6 +58,7 @@ const VALID_VALUES: readonly string[] = ['auto', 'light', 'dark']
 
 export default function ThemePage() {
   const { t } = useI18n()
+  const { resolved } = useAppTheme()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [current, setCurrent] = useState<string>(() => {
     try {
@@ -79,7 +81,7 @@ export default function ThemePage() {
 
   const onSelect = useCallback(
     async (v: string) => {
-      if (!VALID_VALUES.includes(v) || v === current) return
+      if (!VALID_VALUES.includes(v) || v === current || submitting) return
       setCurrent(v)
       try {
         // 写入本地存储 + 同步原生导航栏/tabBar 配色 + 广播主题变更事件
@@ -98,70 +100,33 @@ export default function ThemePage() {
         setSubmitting(false)
       }
     },
-    [current, tt],
+    [current, submitting, tt],
   )
+
+  // 行文案/副行说明/行首字形全由本页注入:共享分段只负责 section 形态(标题 + 卡片 + 行 + ✓)
+  const items = THEMES(tt).map((th) => ({
+    value: th.value,
+    label: tt(th.labelKey, th.label),
+    description: tt(th.descKey, th.desc),
+    icon: th.value as 'auto' | 'light' | 'dark',
+  }))
 
   return (
     <ThemeRoot>
       {/* 根容器背景对齐 RN SettingsScreen container(pageBg=surface.bg → --color-background);
           上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
       <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
-        {/* 主题选择对齐 RN SettingsScreen 主题 Section(共享 packages/app SettingsScreen):
-            标题对齐 sectionTitle 14dp→28rpx(text.secondary→muted-foreground)+ 距卡片 gap 8dp→16rpx;
-            列表对齐 sectionCard:圆角 8dp→16rpx + divider(border.light)底 + 行间 hairline(2rpx);
-            行对齐 plainRow:minHeight 60dp→120rpx / py 14dp→28rpx / px 12dp→24rpx,
-            卡面亮色 surface.light→--color-card、暗色 surface.muted→--color-muted(dark:bg-muted) */}
+        {/* 主题分段(标题 + 3 行 + 行首字形 + 副行 + ✓)已抽成共享件:
+            packages/app/src/features/settings/SettingsScreen.tsx 的 SettingsThemeSection,
+            RN 大设置页与本页同一段;图标/副行为小程序端补充信息,底部三行说明 RN 无同构 ⇒ 留页内 */}
         <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-body text-muted-foreground">
-            {tt('settings.theme', '主题')}
-          </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
-            {THEMES(tt).map((th) => (
-              <View
-                key={th.value}
-                className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
-                onClick={() => {
-                  if (!submitting) void onSelect(th.value)
-                }}
-                hoverClass="opacity-60"
-              >
-                <View className="flex min-w-0 flex-1 flex-row items-center">
-                  {/* 主题图标为小程序端补充信息(RN SelectRow 仅 label+✓):40rpx,
-                      选中态随 RN brandAccent.DEFAULT→--color-brand-accent */}
-                  <LineIcon
-                    className="shrink-0"
-                    name={th.icon as IconName}
-                    size={40}
-                    color={
-                      current === th.value
-                        ? 'var(--color-brand-accent-deep)'
-                        : 'var(--color-muted-foreground)'
-                    }
-                  />
-                  <View className="ml-[16rpx] min-w-0 flex-1">
-                    {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-title text-muted-foreground">
-                      {tt(th.labelKey, th.label)}
-                    </Text>
-                    {/* 副行(说明)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
-                    <Text className="mt-[4rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                      {tt(th.descKey, th.desc)}
-                    </Text>
-                  </View>
-                </View>
-                {/* 选中态对齐 RN SelectRow checkMark: 16dp→32rpx bold + brandAccent→--color-brand-accent;
-                    选中项由 check 矢量图标呈现,不再渲染 RN 没有的 Radio/RadioGroup 展示件 */}
-                {current === th.value ? (
-                  <LineIcon
-                    className="ml-[16rpx] shrink-0"
-                    name="check"
-                    size={32}
-                    color="var(--color-brand-accent-deep)"
-                  />
-                ) : null}
-              </View>
-            ))}
-          </View>
+          <SettingsThemeSection
+            title={tt('settings.theme', '主题')}
+            items={items}
+            selected={current}
+            onSelect={onSelect}
+            colorScheme={resolved}
+          />
         </View>
 
         {/* 主题说明对齐 RN versionText: 12dp→24rpx + text.tertiary + 居中;marginTop 4dp→8rpx */}

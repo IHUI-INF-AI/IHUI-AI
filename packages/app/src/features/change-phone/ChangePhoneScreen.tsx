@@ -33,10 +33,16 @@ export function ChangePhoneScreen({
   onSelectNation,
   onSendCode,
   onSubmit,
+  oldPhone,
+  oldCode,
+  oldCodeMin,
+  onOldCodeChange,
+  onSendOldCode,
   colorScheme = 'light',
 }: ChangePhoneScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const oldCodeMissing = !!oldPhone && !(oldCode ?? '').trim()
 
   return (
     <ScrollView
@@ -44,14 +50,53 @@ export function ChangePhoneScreen({
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>绑定手机号</Text>
+      <Text style={styles.title}>{t('user.profile.changePhoneTitle')}</Text>
+
+      {oldPhone ? (
+        <>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t('user.profile.oldPhone')}</Text>
+            <View style={styles.oldPhoneBox}>
+              <Text style={styles.oldPhoneText}>{oldPhone}</Text>
+            </View>
+          </View>
+          <View style={styles.inputWbox}>
+            <Text style={styles.fieldLabel}>{t('user.profile.oldCode')}</Text>
+            <View style={styles.inputBox}>
+              <TextField
+                colorScheme={colorScheme}
+                style={styles.input}
+                value={oldCode ?? ''}
+                onChangeText={onOldCodeChange}
+                placeholder={t('user.profile.codePlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              {oldCodeMin && oldCodeMin > 0 ? (
+                <Text style={styles.countdownText}>
+                  {t('user.profile.resend', { seconds: oldCodeMin })}
+                </Text>
+              ) : (
+                <Tappable
+                  style={styles.sendBtn}
+                  onPress={onSendOldCode}
+                  accessibilityLabel={t('user.profile.sendOldCode')}
+                >
+                  <Text style={styles.sendText}>{t('user.profile.sendOldCode')}</Text>
+                </Tappable>
+              )}
+            </View>
+          </View>
+        </>
+      ) : null}
 
       <View style={styles.inputWbox}>
         <View style={styles.inputBox}>
           <Tappable
             style={styles.areaBox}
             onPress={onToggleNationShow}
-            accessibilityLabel="选择区号"
+            accessibilityLabel={t('changePhone.selectNation')}
           >
             <Text style={styles.areaText}>{phoneHead}</Text>
             <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: rnSpacing.sm }} />
@@ -61,7 +106,7 @@ export function ChangePhoneScreen({
             style={styles.input}
             value={phoneNumber}
             onChangeText={onPhoneChange}
-            placeholder="手机号码"
+            placeholder={t('user.profile.newPhonePlaceholder')}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="phone-pad"
             maxLength={11}
@@ -91,7 +136,7 @@ export function ChangePhoneScreen({
             style={styles.input}
             value={codeValue}
             onChangeText={onCodeChange}
-            placeholder={t('user.security.code')}
+            placeholder={t('user.profile.codePlaceholder')}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="number-pad"
             maxLength={6}
@@ -100,19 +145,21 @@ export function ChangePhoneScreen({
             <Tappable
               style={styles.sendBtn}
               onPress={onSendCode}
-              accessibilityLabel={t('user.security.sendCode')}
+              accessibilityLabel={t('user.profile.sendNewCode')}
             >
-              <Text style={styles.sendText}>{t('user.security.sendCode')}</Text>
+              <Text style={styles.sendText}>{t('user.profile.sendNewCode')}</Text>
             </Tappable>
           ) : codeMin > 0 ? (
-            <Text style={styles.countdownText}>{codeMin}秒后重新获取</Text>
+            <Text style={styles.countdownText}>
+              {t('user.profile.resend', { seconds: codeMin })}
+            </Text>
           ) : (
             <Tappable
               style={styles.sendBtn}
               onPress={onSendCode}
-              accessibilityLabel="重新获取验证码"
+              accessibilityLabel={t('user.profile.sendNewCode')}
             >
-              <Text style={styles.sendText}>获取验证码</Text>
+              <Text style={styles.sendText}>{t('user.profile.sendNewCode')}</Text>
             </Tappable>
           )}
         </View>
@@ -121,12 +168,14 @@ export function ChangePhoneScreen({
       {tip ? <Text style={styles.tipText}>{tip}</Text> : null}
 
       <Tappable
-        style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+        style={[styles.submitBtn, (submitting || oldCodeMissing) && styles.submitBtnDisabled]}
         onPress={onSubmit}
-        disabled={submitting}
-        accessibilityLabel="确定"
+        disabled={submitting || oldCodeMissing}
+        accessibilityLabel={t('user.profile.confirmChange')}
       >
-        <Text style={styles.submitText}>{submitting ? '提交中...' : '确定'}</Text>
+        <Text style={styles.submitText}>
+          {submitting ? t('changePhone.submitting') : t('user.profile.confirmChange')}
+        </Text>
       </Tappable>
     </ScrollView>
   )
@@ -144,6 +193,23 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: rnSpacing['2xl'],
     },
     inputWbox: { width: '100%', marginBottom: rnSpacing.lg },
+    fieldGroup: { width: '100%', marginBottom: rnSpacing.lg },
+    fieldLabel: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.sm,
+    },
+    oldPhoneBox: {
+      height: 50,
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.xl,
+      paddingHorizontal: rnSpacing.md,
+      backgroundColor: tk.surface.muted,
+    },
+    oldPhoneText: { fontSize: rnType.title.size, color: tk.text.secondary },
     inputBox: {
       flexDirection: 'row',
       alignItems: 'center',

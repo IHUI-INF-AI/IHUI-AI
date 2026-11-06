@@ -85,6 +85,15 @@ export interface ImportCommitResult {
   imported: number
   failed: number
   readonly committed?: readonly CommittedImportConversation[]
+  /**
+   * 部分失败时的可展示文案(可选)。
+   *
+   * 端侧一次提交里既有落库成功也有失败时,只返回 string 会让结果区整块消失
+   * (共享屏的 string 分支只 setError),而端侧原本是"失败红字 + 结果区"并存。
+   * 故把失败文案挂在结果对象上:共享屏 success 分支仍渲染 committed,同时把这段
+   * 原文落进 error。端侧不回带该字段时行为与从前一致。
+   */
+  readonly errorMessage?: string
 }
 
 /**
@@ -112,6 +121,10 @@ export interface ConversationImportHistoryRow {
   parsedCount: number
   importedCount: number
   importedAt: string
+  /** 该批次失败条数(后端 failedCount;端侧不传时不渲染这一格) */
+  failedCount?: number
+  /** 该批次失败原文(后端 errorMessage;端侧不传时不渲染这一格) */
+  errorMessage?: string
 }
 
 export interface ConversationImportScreenProps {
@@ -265,6 +278,8 @@ export function ConversationImportScreen({
         setDoneMessage(
           t('conversationImport.commitDone', { imported: result.imported, failed: result.failed }),
         )
+        // 部分失败:端侧回带的失败原文与结果区并存(空串清掉上一轮的红字)
+        setError(result.errorMessage ?? '')
         // 结果区取代"导完就没下文":清单来自端侧回带,端侧没给就不渲染
         setCommitted(result.committed ?? [])
         resetPreview()
@@ -485,8 +500,17 @@ export function ConversationImportScreen({
                   <Text style={styles.rowMeta}>
                     {`${t('conversationImport.historyParsed')} ${h.parsedCount} · ${t(
                       'conversationImport.historyImported',
-                    )} ${h.importedCount} · ${h.importedAt || '—'}`}
+                    )} ${h.importedCount}${
+                      h.failedCount !== undefined
+                        ? ` · ${t('conversationImport.failedCountLabel')} ${h.failedCount}`
+                        : ''
+                    } · ${h.importedAt || '—'}`}
                   </Text>
+                  {h.errorMessage ? (
+                    <Text style={styles.rowMeta} numberOfLines={2}>
+                      {h.errorMessage}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text
                   style={[
@@ -585,7 +609,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    pickButtonText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    pickButtonText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     rowCard: {
       padding: rnSpacing['sm-loose'],
@@ -608,7 +636,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     commitButtonDisabled: { backgroundColor: tk.border.medium },
-    commitButtonText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    commitButtonText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     warningBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',

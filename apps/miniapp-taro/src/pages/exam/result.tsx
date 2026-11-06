@@ -14,7 +14,10 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import { ScreenSkeleton } from '@/components/ScreenStates.taro'
-import { ReviewList, type ReviewQuestion } from './review-list'
+import { useTheme } from '@/rn-compat/theme'
+import { ExamResultStats } from '@ihui/rn-app/features/exam-result/ExamResultStats'
+import { ReviewList } from '@ihui/rn-app/features/exam-result/ReviewList'
+import type { ExamResultStatItem, ExamReviewItem, ExamReviewListProps } from '@ihui/types'
 import './result.css'
 
 interface ExamResultInfo {
@@ -28,6 +31,18 @@ interface ExamResultInfo {
   unanswered?: number
   passScore?: number
   totalScore?: number
+}
+
+/** 题目回顾行(GET /exam/:id/review) */
+interface ReviewQuestion {
+  id: string
+  title: string
+  type?: string
+  myAnswer?: string
+  correctAnswer?: string
+  analysis?: string
+  isCorrect: boolean
+  score: number
 }
 
 export default function ExamResult() {
@@ -108,30 +123,55 @@ export default function ExamResult() {
     Taro.showShareMenu({ withShareTicket: true })
   }, [])
 
-  const stats = [
+  const { resolvedTheme } = useTheme()
+  const stats: ExamResultStatItem[] = [
     {
+      key: 'correct',
       label: tt('exam.result.correct', '答对'),
       value: tt('exam.result.correctValue', '{n} 题', { n: info.correct || 0 }),
-      cls: 'correct',
+      tone: 'correct',
     },
     {
+      key: 'wrong',
       label: tt('exam.result.wrong', '答错'),
       value: tt('exam.result.wrongValue', '{n} 题', { n: info.wrong || 0 }),
-      cls: 'wrong',
+      tone: 'wrong',
     },
     {
+      key: 'unanswered',
       label: tt('exam.result.unanswered', '未答'),
       value: tt('exam.result.unansweredValue', '{n} 题', { n: info.unanswered || 0 }),
-      cls: 'unanswered',
+      tone: 'muted',
     },
     {
+      key: 'duration',
       label: tt('exam.result.duration', '用时'),
       value: tt('exam.result.durationValue', '{n} 分钟', {
         n: info.duration || 0,
       }),
-      cls: 'duration',
+      tone: 'neutral',
     },
   ]
+
+  const reviewItems: ExamReviewItem[] = reviews.map((q) => ({
+    id: q.id,
+    title: q.title,
+    isCorrect: q.isCorrect,
+    score: q.score,
+    myAnswer: q.myAnswer,
+    correctAnswer: q.correctAnswer,
+    analysis: q.analysis,
+  }))
+
+  const reviewLabels: ExamReviewListProps['labels'] = {
+    correct: tt('exam.result.reviewCorrect', '正确'),
+    wrong: tt('exam.result.reviewWrong', '错误'),
+    yourAnswer: `${tt('examResult.yourAnswer', '你的答案')}:`,
+    correctAnswer: `${tt('examResult.correctAnswer', '正确答案')}:`,
+    analysis: `${tt('exam.result.analysis', '解析')}:`,
+    score: (n) => tt('exam.result.reviewScore', '{n} 分', { n }),
+    questionIndex: (n) => tt('exam.result.questionIdx', '第 {n} 题', { n }),
+  }
 
   return (
     <ThemeRoot>
@@ -186,18 +226,18 @@ export default function ExamResult() {
                 ) : null}
               </View>
 
-              {/* 答题统计 */}
-              <View className="exam-result-stats">
-                {stats.map((s, i) => (
-                  <View key={i} className="exam-result-stat-item">
-                    <Text className={`exam-result-stat-value ${s.cls}`}>{s.value}</Text>
-                    <Text className="exam-result-stat-label">{s.label}</Text>
-                  </View>
-                ))}
-              </View>
+              {/* 答题统计:共享段 ExamResultStats(web PageClient 同源) */}
+              <ExamResultStats items={stats} colorScheme={resolvedTheme} />
 
-              {/* 题目回顾(含错题段;同目录子模块,键与共享屏同源) */}
-              <ReviewList reviews={reviews} />
+              {/* 题目回顾:共享段 ReviewList(含错题段;web PageClient 同源) */}
+              <ReviewList
+                items={reviewItems}
+                title={tt('exam.result.reviewTitle', '题目回顾')}
+                labels={reviewLabels}
+                wrongTitle={tt('examResult.wrongQuestions', '错题')}
+                emptyText={tt('exam.result.noReview', '暂无题目回顾')}
+                colorScheme={resolvedTheme}
+              />
             </View>
           ) : null}
 

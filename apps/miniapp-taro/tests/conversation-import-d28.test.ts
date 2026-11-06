@@ -724,7 +724,19 @@ describe('⑥ 源码反向锁', () => {
   })
 
   it('截断与 warnings 必须真的渲染出来(不许只留 state 不上屏)', () => {
-    const body = strip(src('src/pkg-ai/ai/conversation-import-parts.tsx'))
+    // 原意图(2026-09-21 立):页内 conversation-import-parts.tsx 负责渲染 truncated 与
+    // warnings,判据是"这两处真的上屏,而不是只留 state"。
+    // 2026-11-05 该页薄壳化,渲染真相源迁到共享屏(RN/小程序消费同一份)⇒ 断言同一行为
+    // 落在共享屏上;parts 文件已删除,这条锁不得因结构消失而放空。
+    const body = strip(
+      readFileSync(
+        resolve(
+          __dirname,
+          '../../../packages/app/src/features/conversation-import/ConversationImportScreen.tsx',
+        ),
+        'utf8',
+      ),
+    )
     expect(body).toContain('truncatedWarning')
     expect(body).toContain('warnings.map(')
   })
@@ -762,7 +774,9 @@ describe('⑥ 源码反向锁', () => {
       },
     )
     const accepted = new Set<string>(formatParity.parseRegistryMap(registryBlob).exts)
-    const claimed: string[] = formatParity.parseMimeByExt(src('src/rn-compat/native-document.ts')).exts
+    const claimed: string[] = formatParity.parseMimeByExt(
+      src('src/rn-compat/native-document.ts'),
+    ).exts
     expect(claimed.length).toBeGreaterThan(0) // 枚举到 0 判死,不拿 0 冒充"本端没有承诺"
     expect(accepted.size).toBeGreaterThan(0)
     // json 是唯一在册例外:ai-service document_tools.SUPPORTED_EXTENSIONS 有 .json 解码路径

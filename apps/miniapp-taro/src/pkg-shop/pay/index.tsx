@@ -8,14 +8,9 @@ import LineIcon from '@/components/LineIcon'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
-import {
-  getVipOrderPayInfo,
-  createAlipayMiniappPayment,
-  type VipPayInfo,
-  getWalletBalance,
-  get,
-  post,
-} from '@/api'
+import { getVipOrderPayInfo, type VipPayInfo } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
+import { createAlipayMiniappPayment, getWalletBalance, get, post } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
 import { onToast } from '@/host/on-toast'
@@ -299,7 +294,7 @@ export default function PayIndex() {
         }
         return
       }
-      const res = await getVipOrderPayInfo(orderNo)
+      const res = await unwrapApi(getVipOrderPayInfo(orderNo))
       if (res.status === 'paid') {
         Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=paid` })
         return

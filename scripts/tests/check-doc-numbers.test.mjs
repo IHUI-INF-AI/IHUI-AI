@@ -370,8 +370,14 @@ test('T11 差值棘轮接在裁决路径上,且盲区在结论行披露', () => 
   const src = readFileSync(P, 'utf8').replace(/\r\n/g, '\n')
   const checks = [
     [/export function splitArchiveStock\(/, 'splitArchiveStock 定义被摘 —— 棘轮不存在'],
-    [/const baselineRef = face === 'head' \? 'HEAD\^' : 'HEAD'/, '基线面未按档位取(HEAD 档要取 HEAD^)'],
-    [/splitArchiveStock\(r\.violations, text, baselines\.get\(rel\) \?\? null\)/, '裁决路径没接棘轮 ⇒ 历史区存量会重新变成阻断项'],
+    [
+      /const baselineRef = face === 'head' \? 'HEAD\^' : face === 'staged' \? stagedBaseline\.ref : 'HEAD'/,
+      '基线面未按档位取(HEAD 档取 HEAD^;staged 档取本地 origin/main 快照)',
+    ],
+    [
+      /splitArchiveStock\(r\.violations, text, baselines\.get\(rel\) \?\? null, \{ baselineTexts: snapshots \}\)/,
+      '裁决路径没接棘轮 ⇒ 历史区存量会重新变成阻断项',
+    ],
     [/历史快照区存量 \$\{stockTotal\} 处/, '盲区没在结论行披露 ⇒ "没判"会被读成"判过了"(§0.3)'],
   ]
   for (const [re, why] of checks) {
@@ -505,5 +511,84 @@ test('T12 面旗真换取材面:head 读 HEAD 树、index 读索引、worktree �
     if (!/无法判定|取不到/.test(r.stderr)) throw new Error(`无 HEAD 未点名:${r.stderr}`)
   } finally {
     rmScratch(e)
+  }
+})
+
+/**
+ * T13 staged 基准快照换成本地 origin/main(2026-11-05)
+ *
+ * 病灶:staged 档的差分归属只认分支 upstream(取不到就整轮 undetermined-red,每枚提交要人工跳钩)。
+ * 目标:改用仓库里一直存在的 remote-tracking ref 当基准快照,只换来源、不改判据语义。三臂:
+ *  ① 存量红(两侧快照都已红、本票未触及)⇒ 只报数不阻断;
+ *  ② 本票引入(新增/改写的行写旧数)⇒ 仍 exit 1 并点名本票文件;
+ *  ③ ref 真的不存在 ⇒ 退回今日口径(全判),绝不把"取不到"记成绿。
+ * 依赖:临时仓里用 `git update-ref refs/remotes/origin/main HEAD` 造 ref(不需要真远端/不联网)。
+ */
+test('T13 staged 基准快照 = 本地 origin/main:存量红不阻断 / 本票引入必红 / 缺 ref 退回全判', async () => {
+  const gen = await import('../gen-doc-numbers.mjs')
+  const s = mkScratch('doc-num-origin-snapshot')
+  try {
+    const files = {
+      'package.json': JSON.stringify({ name: 'x', version: '0.0.0' }),
+      'packages/database/src/schema/a.ts': 'export const t1 = pgTable("t1", {})\n',
+      'apps/api/src/routes/a.ts': "server.get('/x', () => {})\n",
+      'apps/ai-service/app/a.py': '@router.get("/z")\ndef z():\n    return 1\n',
+      'apps/web/src/lib/publish/platform-schemas.ts': "export const PLATFORM_SCHEMAS = [{ platformId: 'csdn' }]\n",
+      'scripts/guardian-runner.mjs': "const CHECKS = [{ id: '1', script: 'a.mjs', mode: 'blocking', skipEnv: 'X' }]\n",
+      'docker-compose.yml': 'services:\n  api:\n    image: x\n',
+      'a.test.ts': '// test file',
+    }
+    for (const [rel, body] of Object.entries(files)) {
+      mkdirSync(`${s}/${dirname(rel)}`, { recursive: true })
+      writeFileSync(`${s}/${rel}`, body)
+    }
+    git(s, 'init', '-q', '-b', 'main')
+    git(s, 'add', '-A')
+    git(s, 'commit', '-q', '-m', 'seed')
+    // README 先占位、再按"README 已在被审面上"的现算生成块 —— 与 T4 同一条纪律(否则 trackedFiles 天生差)。
+    writeFileSync(`${s}/README.md`, 'placeholder\n')
+    writeFileSync(`${s}/README.en.md`, 'placeholder\n')
+    git(s, 'add', '--', 'README.md', 'README.en.md')
+    git(s, 'commit', '-q', '-m', 'docs: add READMEs')
+    const d = gen.collectNumbers({ root: s, face: 'head' })
+    const block = gen.toMarkdown(d)
+    const tables = d.numbers.dbTables
+    const stale = tables + 416
+    // 刻意留一处存量的旧数(HEAD 与 origin/main 都已经红)
+    writeFileSync(`${s}/README.md`, `本项目 ${stale} 张表。\n\n${block}\n`)
+    writeFileSync(`${s}/README.en.md`, `This project has ${stale} tables.\n\n${block}\n`)
+    git(s, 'add', '--', 'README.md', 'README.en.md')
+    git(s, 'commit', '-q', '-m', 'docs: stale prose (存量红)')
+    // 本地 remote-tracking ref:不依赖分支 upstream、不联网也要能当基准快照
+    git(s, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+    const seeded = readFileSync(`${s}/README.md`, 'utf8')
+
+    // ① 存量红:本票只在 README 上加一行不含数字的叙述,旧数一行未动 ⇒ 不阻断(exit 0)且点名 origin/main
+    writeFileSync(`${s}/README.md`, `${seeded}\n补充说明:这一行不含对外数字。\n`)
+    git(s, 'add', '--', 'README.md')
+    const stockRun = run(s, ['--staged', '--root', s])
+    if (stockRun.code !== 0) throw new Error(`存量红不得阻断本票,实得 ${stockRun.code}\n${stockRun.stdout}${stockRun.stderr}`)
+    if (!/差值棘轮/.test(stockRun.stdout)) throw new Error(`必须走行级棘轮:\n${stockRun.stdout}`)
+    if (!/origin\/main/.test(stockRun.stdout)) throw new Error(`结论行必须点名基准快照 origin/main:\n${stockRun.stdout}`)
+    if (!/存量漂移/.test(stockRun.stdout)) throw new Error(`存量必须只报数:\n${stockRun.stdout}`)
+
+    // ② 本票引入:本票在新增行上写旧数 ⇒ 仍判红,并点名 README.md / dbTables
+    writeFileSync(`${s}/README.md`, `${seeded}\n新增口径:${stale} 张表。\n`)
+    git(s, 'add', '--', 'README.md')
+    const intro = run(s, ['--staged', '--root', s])
+    if (intro.code !== 1) throw new Error(`本票引入的旧数必须 exit 1,实得 ${intro.code}\n${intro.stdout}${intro.stderr}`)
+    if (!/README\.md/.test(intro.stdout) || !/dbTables` 写着/.test(intro.stdout))
+      throw new Error(`必须点名本票文件与取数键:\n${intro.stdout}`)
+
+    // ③ 该 ref 真的不存在(仓库没有 origin)⇒ 退回今日口径:基线面取不到,全判(不静默放宽)
+    git(s, 'update-ref', '-d', 'refs/remotes/origin/main')
+    writeFileSync(`${s}/README.md`, `${seeded}\n补充说明:这一行不含对外数字。\n`)
+    git(s, 'add', '--', 'README.md')
+    const noRef = run(s, ['--staged', '--root', s])
+    if (noRef.code !== 1) throw new Error(`无 ref 必须退回全判(exit 1),实得 ${noRef.code}\n${noRef.stdout}${noRef.stderr}`)
+    if (!/origin\/main|取不到|全判/.test(noRef.stdout + noRef.stderr))
+      throw new Error(`无 ref 必须点名为什么不可判:\n${noRef.stdout}\n${noRef.stderr}`)
+  } finally {
+    rmScratch(s)
   }
 })

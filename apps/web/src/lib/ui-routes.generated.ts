@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 0302399f1b6a8f15a2d7d8481ea2e629bfdc2b84
-// inputsSha256: 62b9569e9b5bbb353ea01274bb2b877f15116b8b6d40ba963364b962c199be84
+// sourceCommit: 8100ab373f5bb5f89cc36b735565dd9a9a16a447
+// inputsSha256: 5a4b1aaa92e4c2ad6bf4509c718b96e956ca95b3838aaabf5a94545b0194da0e
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -134,7 +134,7 @@
 // input: apps/web/app/(main)/admin/edu/finance/statistics/page.tsx 313c8bea46fe5a5c1d5afd8a0b5eeba0aa41c3ab7786ad5ae4059fdc5fa9da8a
 // input: apps/web/app/(main)/admin/edu/learn/community/page.tsx 71b103c12eb9d4930277ec1e7948f34d983157ccb96630afa1f85e3f44c03b07
 // input: apps/web/app/(main)/admin/edu/learn/homework/page.tsx 05ead5e35de8ea261268c335e157c85fb9906014ff0d557f4e3fc2af27cbe124
-// input: apps/web/app/(main)/admin/edu/learn/live/page.tsx 7a05e96d4d0c67a96764ac8f459af671935f99ff31bb8bfea86090ec9afce2e8
+// input: apps/web/app/(main)/admin/edu/learn/live/page.tsx fa769e5ef54e76cb00c8a3e7f4bdfa1155c2810c46a82a78260a5c9fc92c0d0e
 // input: apps/web/app/(main)/admin/edu/learn/maps/page.tsx e06417d597e8366578058dced464c5ae0df8703ef553290d3bc6684f76f973a6
 // input: apps/web/app/(main)/admin/edu/learn/materials/page.tsx 0059381cb9b99fc2b8509a22199e358c946dd7ab5e21c82ad20a54193049833d
 // input: apps/web/app/(main)/admin/edu/learn/page.tsx cd08dfb297068f82a0c993d019beebca09e6ffa9521c37579ef03d86d77aad89
@@ -681,7 +681,7 @@
 // input: apps/web/app/(main)/live/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/live/[id]/play/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/live/host/page.tsx 7c8870b75aac09c7f9f3682fe4fcca02004fcf47e3c118aff6f62e5b42c3546c
-// input: apps/web/app/(main)/live/page.tsx d6c83bfa37b1ff2f151bc75b0cf62a518d215ce8e778a91e5b3e1be37729e3f3
+// input: apps/web/app/(main)/live/page.tsx b8329086aac80eaba16ad6805e9b72fa4ec2e69d30d95768729a3dd419d7cb21
 // input: apps/web/app/(main)/mcp-projects/page.tsx 8083d86a1ffdc43d0480d154482c92eeb73b0ea5ca834c4ff5d3811cc1194eca
 // input: apps/web/app/(main)/mcp-store/page.tsx 3801930b21799b9b5fdfda53588178b765ed08d5dcf53aedd69fa6f0591fae38
 // input: apps/web/app/(main)/media-tasks/page.tsx 0d25f6dd87d853c2ec502afbad5261286ff52f60b04c7e7a187c79a2adf7c8a1
@@ -916,7 +916,7 @@
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-research/page.tsx db52516707beb2fae2bd7dfa2b64e34d115a936e846b5a14b4d101a97d14826c
 // input: apps/web/app/(main)/zh-TW/use-cases/ai-translation/page.tsx c7c0170f598a1af19d65151fb3e563cd6a9417fccb3a37928ac9a576ba3a0133
 // input: apps/web/app/(marketing)/page.tsx 8004f807b187bbd827d227e7bc43dff4efd301968e177cfdf807c1d700681c97
-// input: apps/web/app/(pilot)/shared-pilot/page.tsx d5664785dc04ee9f0cbdc55c2a9720e5c9010b4f83464f093fe36a8487334d0b
+// input: apps/web/app/(pilot)/shared-pilot/page.tsx 9975df741eb36ba898430197ab7eddf572df3fee58f7f80850223e45ef82b0fa
 // input: apps/web/app/e2e-harness/markdown-stream/page.tsx bb6709962fc89b42c92d9c1f56750ecdb12a85bac9bd6add9afdfb15c5f22d5f
 // input: apps/web/app/en/agents/page.tsx 10b327a0a31a1070ebd2fa5262363dc7788bd1ecfa139540eac3a370d131d68f
 // input: apps/web/app/en/docs/page.tsx 529c775bd22eb952b5be3a8647385c8980bbf460cae7a411d722e6d6a0382c03
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-05T10:43:48.504Z
+// generatedAt: 2026-11-05T22:05:34.889Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [

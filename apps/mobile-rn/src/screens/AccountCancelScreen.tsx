@@ -9,7 +9,7 @@ import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
+import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app/features/account-cancel/AccountCancelScreen'
 import { deleteAccountWithCode, sendSmsCode } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import { useAuth } from '../context/AuthContext'
@@ -30,7 +30,7 @@ export default function AccountCancelScreen() {
   const [smsCode, setSmsCode] = useState('')
   const [countdown, setCountdown] = useState(0)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [confirmCountdown, setConfirmCountdown] = useState(5)
+  const [confirmCountdown, setConfirmCountdown] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   // 二次确认闸门的状态位:第一击开弹窗,弹窗内那一击才真发请求(见 onSubmit)
   const confirmGateRef = useRef(false)
@@ -48,7 +48,8 @@ export default function AccountCancelScreen() {
       return () => clearTimeout(timer)
     } else if (confirmCountdown === 0 && showConfirmModal) {
       setShowConfirmModal(false)
-      setConfirmCountdown(5)
+      // 关窗后归零:页级倒计时只对"无弹窗端"生效,RN 主按钮不应被它再锁 5 秒。
+      setConfirmCountdown(0)
     }
   }, [confirmCountdown, showConfirmModal])
 
@@ -134,6 +135,16 @@ export default function AccountCancelScreen() {
       showConfirmModal={showConfirmModal}
       confirmCountdown={confirmCountdown}
       submitting={submitting}
+      consequences={[
+        t('settings.accountDeletionConsequence1'),
+        t('settings.accountDeletionConsequence2'),
+        t('settings.accountDeletionConsequence3'),
+        t('settings.accountDeletionConsequence4'),
+        t('settings.accountDeletionConsequence5'),
+        t('settings.accountDeletionConsequence6'),
+        t('settings.accountDeletionConsequence7'),
+      ]}
+      phoneReadOnly={true}
       onPhoneChange={setInputPhone}
       onConfirmTextChange={setConfirmText}
       onSmsCodeChange={setSmsCode}

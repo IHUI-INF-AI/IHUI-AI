@@ -7,7 +7,9 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
+import { getVipLevels, upgradeVip, type VipPayInfo } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
+import { createAlipayMiniappPayment, post } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
 import './upgrade.css'
@@ -35,7 +37,7 @@ export default function UpgradePage() {
   const load = useCallback(async () => {
     Taro.showLoading({ title: t('common.loading'), mask: true })
     try {
-      const res = await getVipLevels()
+      const res = await unwrapApi(getVipLevels())
       const list: Plan[] = (res.items || []).map((l) => ({
         id: String(l.id),
         name: l.levelName,
@@ -142,7 +144,7 @@ export default function UpgradePage() {
       return
     }
     try {
-      const res = await upgradeVip(plan.id)
+      const res = await unwrapApi(upgradeVip(plan.id))
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
       logger.error('vip/upgrade', t('vipUpgrade.q3'), e)

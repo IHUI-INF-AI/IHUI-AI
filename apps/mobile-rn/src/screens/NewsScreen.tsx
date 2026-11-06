@@ -42,11 +42,9 @@ import { FREE_RESOURCE_URL } from '../constants/links'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import {
-  SquareScreen as SharedSquareScreen,
-  type ArticleItem,
-  type CategoryItem,
-} from '@ihui/rn-app'
+import { ArticleListScreen as SharedArticleListScreen } from '@ihui/rn-app'
+import type { ArticleListItem, CategoryItem } from '@ihui/types'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -122,13 +120,19 @@ export default function NewsScreenWrapper() {
     }
   }
 
-  const [items, setItems] = useState<ArticleItem[]>([])
+  const [items, setItems] = useState<ArticleListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState('')
+  /** 搜索框输入值(未提交;提交后才进 searchKeyword 触发请求) */
+  const [keyword, setKeyword] = useState('')
+  /** 已提交的搜索词(参与资讯请求,避免每敲一个字都重拉) */
+  const [searchKeyword, setSearchKeyword] = useState('')
+  /** 已读 id(显式注入共享屏,屏内不碰存储;本端持久化在 AsyncStorage) */
+  const [readIds, setReadIds] = useState<string[]>([])
   /** 分类 chips:「全部」恒在,其余按 `news_categories` 表实回追加(取不到就只留「全部」,不冒充判过) */
   const [categories, setCategories] = useState<readonly { id: string; name: string }[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORY.id)
@@ -137,8 +141,21 @@ export default function NewsScreenWrapper() {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
-  /** 资讯列表 ref(共享 SquareScreen 通过 onListRef 暴露,用于返回顶部 scrollToOffset) */
-  const listRef = useRef<FlatList<ArticleItem> | null>(null)
+  /** 资讯列表 ref(共享 ArticleListScreen 通过 onListRef 暴露,用于返回顶部 scrollToOffset) */
+  const listRef = useRef<FlatList<ArticleListItem> | null>(null)
+
+  /** 已读集合:进页读一次,点击时乐观写入(与本端存储 key 对齐小程序 news_read_ids) */
+  useEffect(() => {
+    void AsyncStorage.getItem('news_read_ids').then((raw) => {
+      if (!raw) return
+      try {
+        const arr: unknown = JSON.parse(raw)
+        if (Array.isArray(arr)) setReadIds(arr.map(String))
+      } catch {
+        // 脏数据忽略,不阻塞列表
+      }
+    })
+  }, [])
 
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
     setFloatBox({ visible: true, type, message })
@@ -334,20 +351,26 @@ export default function NewsScreenWrapper() {
         // `/api/articles/:id`(同样是 news_articles)查 ⇒ 列表给 knowledge 的 id、详情按 news 的
         // id 查,两条腿跨了两个域,点击恒查不到。域统一到 news 后,详情才能真打开。
         const categoryId = selectedCategory === ALL_CATEGORY.id ? undefined : selectedCategory
-        const res = await getNews(
-          categoryId
-            ? { page: targetPage, pageSize: PAGE_SIZE, categoryId }
-            : { page: targetPage, pageSize: PAGE_SIZE },
-        )
+        const query: { page: number; pageSize: number; categoryId?: string; keyword?: string } = {
+          page: targetPage,
+          pageSize: PAGE_SIZE,
+        }
+        if (categoryId) query.categoryId = categoryId
+        if (searchKeyword) query.keyword = searchKeyword
+        const res = await getNews(query)
         if (res.success && res.data) {
-          const list: ArticleItem[] = (res.data.list ?? []).map((n) => ({
+          const list: ArticleListItem[] = (res.data.list ?? []).map((n) => ({
             id: String(n.id),
             title: n.title,
+            author: n.authorName || t('news.anonAuthor'),
+            views: n.viewCount ?? 0,
+            publishedAt: n.publishedAt ?? '',
             summary: n.summary,
-            authorName: n.authorName || t('news.anonAuthor'),
-            createdAt: n.publishedAt,
-            viewCount: n.viewCount ?? 0,
             category: n.categoryName ?? undefined,
+            pinned: Boolean(
+              (n as { isPinned?: boolean; isTop?: boolean }).isPinned ??
+              (n as { isTop?: boolean }).isTop,
+            ),
           }))
           setItems((prev) => (append ? [...prev, ...list] : list))
           setPage(targetPage)
@@ -371,7 +394,7 @@ export default function NewsScreenWrapper() {
         setLoadingMore(false)
       }
     },
-    [selectedCategory, t],
+    [selectedCategory, t, searchKeyword],
   )
 
   useEffect(() => {
@@ -423,15 +446,27 @@ export default function NewsScreenWrapper() {
   )
 
   const handleItemClick = useCallback(
-    (id: string) => {
+    (item: ArticleListItem) => {
+      // 已读态:乐观更新 + 落 AsyncStorage(key 与小程序 news_read_ids 对齐)
+      setReadIds((prev) => {
+        if (prev.includes(item.id)) return prev
+        const next = [...prev, item.id]
+        void AsyncStorage.setItem('news_read_ids', JSON.stringify(next))
+        return next
+      })
       // 列表与详情同域(news_articles)后才能真打开:web 资讯列表项跳 `/news/${id}`
       // (apps/web/app/(main)/news/NewsSidebar.tsx:74),RN 等价已注册路由 = NewsArticle。
       // 旧写法接的是 ArticleDetail —— 那条路由按 `/api/articles/:id` 查 news_articles,
       // 而列表此前给的是 knowledge_base 的 id,所以是恒 404 的坏链路。
-      rootNav?.navigate('NewsArticle', { id })
+      rootNav?.navigate('NewsArticle', { id: item.id })
     },
     [rootNav],
   )
+
+  /** 搜索提交:只提交词,请求由 load 的依赖变化触发(避免每敲一个字重拉) */
+  const handleSearch = useCallback(() => {
+    setSearchKeyword(keyword.trim())
+  }, [keyword])
 
   const categoriesForShared = useMemo<CategoryItem[]>(
     () => [
@@ -440,6 +475,13 @@ export default function NewsScreenWrapper() {
     ],
     [categories, t],
   )
+
+  /** 置顶条目:优先带 isPinned/isTop 的实回,否则「全部」分类下取首条(与小程序页同口径) */
+  const pinnedItem = useMemo<ArticleListItem | null>(() => {
+    const hit = items.find((i) => i.pinned)
+    if (hit) return hit
+    return selectedCategory === ALL_CATEGORY.id ? (items[0] ?? null) : null
+  }, [items, selectedCategory])
 
   /** 返回顶部(对齐 Uniapp backToTop → pageScrollTo,RN 端用列表 ref scrollToOffset) */
   const handleBackToTop = useCallback(() => {
@@ -458,27 +500,37 @@ export default function NewsScreenWrapper() {
             // 同 PlazaScreen:根 tab 传 onBack 会与抽屉菜单键并列成两条返回键
           />
         </NavChrome>
-        <SharedSquareScreen
+        <SharedArticleListScreen
           t={t}
-          onRetry={() => { void load(1, false); }}
+          onRetry={() => {
+            void load(1, false)
+          }}
+          onToast={(msg) => showFloat(msg, 'error')}
           colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           items={items}
           loading={loading}
           refreshing={refreshing}
           error={error}
+          keyword={keyword}
+          onKeywordChange={setKeyword}
+          onSearch={handleSearch}
           categories={categoriesForShared}
           selectedCategory={selectedCategory}
           onSelectCategory={handleSelectCategory}
+          pinnedItem={pinnedItem}
+          readIds={readIds}
           onRefresh={handleRefresh}
           onEndReached={handleEndReached}
-          onItemClick={handleItemClick}
+          onPressItem={handleItemClick}
+          onBack={() => navigation.goBack()}
           showBackTop={true}
           onBackToTop={handleBackToTop}
           onListRef={(ref) => {
-            listRef.current = ref as FlatList<ArticleItem> | null
+            listRef.current = ref as FlatList<ArticleListItem> | null
           }}
           hideHeader
           contentBottomPadding={tabBarScrollReserve(insets.bottom)}
+          noMore={!hasMore}
         />
         <FloatBox
           visible={floatBox.visible}

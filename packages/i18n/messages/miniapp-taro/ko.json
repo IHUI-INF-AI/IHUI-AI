@@ -1190,7 +1190,15 @@
     "getCode": "인증번호 받기",
     "confirmLabel": "확인 문구",
     "confirmPlaceholder": "위 문구 입력",
-    "failed": "계정 탈퇴 실패, 다시 시도해 주세요"
+    "failed": "계정 탈퇴 실패, 다시 시도해 주세요",
+    "warning": "계정 삭제 후 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.",
+    "consequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "consequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "consequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "consequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "consequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "consequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "consequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "ask": {
     "create": {
@@ -2948,7 +2956,9 @@
       "verifiedTip": "현재 휴대폰 번호가 인증되었습니다",
       "bindDesc": "연동 후 로그인, 비밀번호 찾기, 알림 수신에 사용할 수 있습니다",
       "bindTitle": "휴대전화 번호 연동",
-      "codeLength": "6자리 인증번호를 입력하세요"
+      "codeLength": "6자리 인증번호를 입력하세요",
+      "selectNation": "국가 코드 선택",
+      "resend": "{s}초 후 재시도"
     },
     "profile": {
       "avatar": "아바타",
@@ -6800,7 +6810,15 @@
     "newPassword": "새 비밀번호",
     "language": "언어",
     "theme": "테마",
-    "version": "버전"
+    "version": "버전",
+    "accountDeletionConsequenceTitle": "삭제 후 영향",
+    "accountDeletionConsequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "accountDeletionConsequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "accountDeletionConsequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "accountDeletionConsequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "accountDeletionConsequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "accountDeletionConsequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "accountDeletionConsequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "liveList": {
     "subtitle": "다양한 라이브, 놓치지 마세요",
@@ -6880,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "대화",
+    "deleteConv": "대화 삭제",
+    "loadMore": "더 불러오기",
+    "markRead": "읽음으로 표시",
+    "searchPh": "대화·연락처 검색",
     "title": "메시지",
     "type": {
       "course": "강좌",

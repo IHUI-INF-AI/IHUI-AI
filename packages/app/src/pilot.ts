@@ -12,5 +12,27 @@
 export { IcpRecordScreen } from './features/icp-record/IcpRecordScreen'
 export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
 export { AgreementScreen } from './features/agreement/AgreementScreen'
+// 分类详情页的两段(web 侧原先 inline 实现,2026-11-05 抽为单源后由 web 经本入口消费)
+export { CategoryHeader } from './features/category-detail/CategoryHeader'
+export { AgentAvatar } from './features/category-detail/AgentAvatar'
+export type { CategoryHeaderProps, CategoryDetailScreenProps } from '@ihui/types'
+// 考试结果页的两段(web 侧原先 inline 实现,2026-11-05 抽为单源后由 web 经本入口消费)
+export { ExamResultStats } from './features/exam-result/ExamResultStats'
+export { ReviewList } from './features/exam-result/ReviewList'
+export type {
+  ExamResultStatItem,
+  ExamResultStatsProps,
+  ExamReviewItem,
+  ExamReviewListProps,
+} from '@ihui/types'
+// A2(2026-11-05):AI 会话历史共享屏 —— web 试点承载(react-native-web 同源)
+export {
+  ConversationHistoryScreen,
+  orderHistoryRows,
+} from './features/chat/ConversationHistoryScreen'
+export type {
+  ConversationHistoryGroup,
+  ConversationHistoryRow,
+} from './features/chat/ConversationHistoryScreen'
 export type { AnnouncementDetailItem } from './types'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

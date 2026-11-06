@@ -962,7 +962,25 @@
       "revokeConfirmTitle": "撤銷設備",
       "taskColCreated": "建立時間",
       "taskColFinished": "結束時間"
-    }
+    },
+    "accountDeletionTitle": "賬號注銷",
+    "accountDeletionWarning": "此操作不可逆，所有數據將永久丟失。",
+    "accountDeletionPhoneLabel": "手機號",
+    "accountDeletionPhonePlaceholder": "輸入手機號",
+    "accountDeletionCodeLabel": "驗證碼",
+    "accountDeletionCodePlaceholder": "輸入驗證碼",
+    "accountDeletionSendCode": "發送驗證碼",
+    "accountDeletionConfirm": "確認註銷帳號",
+    "accountDeletionSubmit": "確認注銷",
+    "accountDeletionSubmitting": "提交中...",
+    "accountDeletionConsequenceTitle": "註銷後果",
+    "accountDeletionConsequence1": "帳號資料、頭像與暱稱將被永久刪除",
+    "accountDeletionConsequence2": "訂單、積分、餘額與會員權益將清零且無法恢復",
+    "accountDeletionConsequence3": "已發佈的動態、評論、收藏與聊天記錄將被清除",
+    "accountDeletionConsequence4": "已綁定的手機號與信箱將被解綁，無法再用該帳號登入",
+    "accountDeletionConsequence5": "正在生效的會員、課程等權益將立即終止且不退費",
+    "accountDeletionConsequence6": "註銷後同一手機號可重新註冊，但歷史資料無法找回",
+    "accountDeletionConsequence7": "存在未結清交易或違規記錄的帳號，申請可能被拒"
   },
   "menu": {
     "artifacts": "產物中心",
@@ -4725,7 +4743,9 @@
     "bindFail": "綁定失敗",
     "bindOk": "綁定成功",
     "netBusy": "網路異常",
-    "netBusyRetry": "網路異常,請稍後重試"
+    "netBusyRetry": "網路異常,請稍後重試",
+    "selectNation": "選擇區號",
+    "submitting": "提交中..."
   },
   "subagents": {
     "tabOverview": "概覽",
@@ -4774,6 +4794,9 @@
   "devSpace": {
     "title": "開發者詳情",
     "notLoggedIn": "未登入",
+    "opened": "已開通",
+    "notOpened": "未開通",
+    "enterPlaza": "進入廣場",
     "renew": "續費",
     "copy": "複製",
     "copied": "已複製",
@@ -4883,6 +4906,7 @@
     "historyFailed": "載入導入歷史失敗:{error}",
     "historyParsed": "解析",
     "historyImported": "導入",
+    "failedCountLabel": "失敗",
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失敗",
@@ -7342,6 +7366,17 @@
     "articles": {
       "prevPage": "上一頁",
       "nextPage": "下一頁"
+    },
+    "profile": {
+      "changePhoneTitle": "修改手機號",
+      "newPhonePlaceholder": "請輸入新手機號",
+      "codePlaceholder": "請輸入 6 位驗證碼",
+      "sendNewCode": "獲取新驗證碼",
+      "resend": "{seconds}s 後重試",
+      "confirmChange": "確認修改",
+      "oldPhone": "當前手機號",
+      "oldCode": "舊手機號驗證碼",
+      "sendOldCode": "獲取舊驗證碼"
     }
   },
   "NavBar": {

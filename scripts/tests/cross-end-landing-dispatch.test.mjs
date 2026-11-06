@@ -35,6 +35,7 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
 import {
+  readMainAncestry,
   sweepCrossEndLandingLeg,
   sweepCssTokensSourceLeg,
   sweepMiniappMessageKeysLeg,
@@ -49,7 +50,9 @@ const GUARDIAN = resolve(import.meta.dirname, '..', 'git-guardian.mjs')
 const CSS_SYNC = resolve(import.meta.dirname, '..', 'sync-css-tokens.mjs')
 const SRC = readFileSync(GUARDIAN, 'utf8')
 
-const fixture = () => ({ tickFile: join(mkScratch('cross-end-landing-'), 'tick.json') })
+/** 基线让路闸的默认注入值:本片测的是收编腿本身,祖先关系恒为"已含远端"。 */
+const OK_ANCESTRY = () => ({ state: 'descendant', headSha: 'head-sha', mainSha: 'origin-main-sha', behind: 0 })
+const fixture = () => ({ tickFile: join(mkScratch('cross-end-landing-'), 'tick.json'), ancestry: OK_ANCESTRY })
 /** 每条腿各用独立 scratch 内的独立戳名,避免同片测试互踩节流窗口 */
 const tick = (name) => join(mkScratch('cross-end-landing-'), name)
 const logsOf = () => {
@@ -562,3 +565,78 @@ test('U11 词包搬运腿挂载与器内契约锁(改措辞即点名,防腿静�
   assert.match(tool, /check-miniapp-mirror-fidelity\.mjs/, '缺口口径必须 import/调用既有尺子')
   assert.doesNotMatch(tool, /function consumedKeys|MARK_RE/, '本器不得自带第二份取词判据')
 })
+
+test('T10 基线让路闸:HEAD 落后 origin/main ⇒ 整轮让路,一次都不派生', () => {
+  const { logs, logger } = logsOf()
+  let calls = 0
+  const r = sweepCrossEndLandingLeg({
+    ...fixture(),
+    logger,
+    ancestry: () => ({ state: 'behind', headSha: 'aaaa1111', mainSha: 'bbbb2222', behind: 83 }),
+    runner: () => {
+      calls += 1
+      return { status: 0, stdout: collectLine({ collected: 1 }), stderr: '' }
+    },
+  })
+  assert.equal(calls, 0, '落后基线上不许派生 —— 否则把旧工作树字节提交进本地 main')
+  assert.equal(r.ran, false)
+  assert.equal(r.why, 'HEAD 不是 origin/main 的后代')
+  const line = logs.find((l) => /⏸️ 跨端落库/.test(l))
+  assert.ok(line, '让路必须留日志,不许静默(§0.9)')
+  assert.match(line, /HEAD=aaaa1111/)
+  assert.match(line, /origin\/main=bbbb2222/)
+  assert.match(line, /落后 83 枚/)
+  assert.ok(!logs.some((l) => /📦/.test(l)), '让路轮不得落成收编读数')
+})
+
+test('T10b 基线让路闸 fail-closed:origin/main 取不到 ⇒ 让路,不读成"已同步"', () => {
+  const { logs, logger } = logsOf()
+  let calls = 0
+  const r = sweepCrossEndLandingLeg({
+    ...fixture(),
+    logger,
+    ancestry: () => ({ state: 'unknown', headSha: 'cccc3333', mainSha: null, behind: null, why: 'origin/main 取不到' }),
+    runner: () => {
+      calls += 1
+      return { status: 0, stdout: collectLine(), stderr: '' }
+    },
+  })
+  assert.equal(calls, 0, '未判定必须让路(§0.3 不许用空集冒充"没有待收")')
+  assert.equal(r.ran, false)
+  assert.match(logs.join('\n'), /fail-closed/)
+  assert.match(logs.join('\n'), /HEAD=cccc3333/)
+})
+
+test('T11 基线让路闸阳性对照:HEAD 是 origin/main 后代 ⇒ 照常收编', () => {
+  const { logs, logger } = logsOf()
+  const r = sweepCrossEndLandingLeg({
+    ...fixture(),
+    logger,
+    ancestry: () => ({ state: 'descendant', headSha: 'dddd4444', mainSha: 'eeee5555', behind: 0 }),
+    runner: runnerOf(collectLine({ collected: 2, ledgerCollected: 2 })),
+  })
+  assert.equal(r.ran, true)
+  assert.equal(r.collected, 2)
+  assert.ok(logs.some((l) => /📦 跨端落库/.test(l)), '后代表态不得被让路闸误拦(T10 的反向对照)')
+})
+
+test('T12 readMainAncestry 三态:后代 / 落后 / 取不到远端', () => {
+  const fake = (over = {}) => (args) => {
+    const a = args.join(' ')
+    if (a === 'rev-parse --verify HEAD') return over.head ?? 'HEAD-SHA\n'
+    if (a === 'rev-parse --verify origin/main') return over.main === null ? null : (over.main ?? 'MAIN-SHA\n')
+    if (a === 'rev-list --count HEAD..origin/main') return `${over.behind ?? 0}\n`
+    if (a === 'merge-base --is-ancestor origin/main HEAD') {
+      if (over.ancestor === 'error') throw Object.assign(new Error('boom'), { status: 128 })
+      if (over.ancestor === false) throw Object.assign(new Error('not ancestor'), { status: 1 })
+      return ''
+    }
+    throw new Error(`未预期的 git 调用:${a}`)
+  }
+  assert.equal(readMainAncestry(fake({ ancestor: true, behind: 0 })).state, 'descendant')
+  assert.equal(readMainAncestry(fake({ ancestor: false, behind: 83 })).state, 'behind')
+  assert.equal(readMainAncestry(fake({ ancestor: true, behind: 5 })).state, 'behind', '两条判据取严:落后枚数 >0 即让路')
+  assert.equal(readMainAncestry(fake({ main: null })).state, 'unknown')
+  assert.equal(readMainAncestry(fake({ ancestor: 'error' })).state, 'unknown', '判不出 ⇒ fail-closed')
+})
+

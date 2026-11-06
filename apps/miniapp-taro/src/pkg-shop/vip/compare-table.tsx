@@ -6,7 +6,8 @@
 import { View, Text } from '@tarojs/components'
 import { useCallback, useEffect, useState } from 'react'
 import { useI18n } from '@/i18n'
-import { get } from '@/api'
+import { getVipCompare } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { logger } from '@/utils/logger'
 import type { VipCompareRow } from '@ihui/types'
 
@@ -30,7 +31,7 @@ export default function CompareTable() {
     setLoading(true)
     setError(false)
     try {
-      const data = await get<VipCompareRow[]>('/vip-compare')
+      const data = await unwrapApi(getVipCompare())
       setRows(Array.isArray(data) ? data : [])
     } catch (e) {
       logger.error('pkg-shop/vip/details', '获取会员对比', e)

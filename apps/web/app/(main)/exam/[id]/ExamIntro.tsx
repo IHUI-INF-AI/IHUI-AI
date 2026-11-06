@@ -4,11 +4,10 @@
 
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2, FileCheck } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { ExamIntroScreen } from '@ihui/rn-app/features/exam-intro/ExamIntroScreen'
 
 import type { PaperDetail } from './types'
 
@@ -20,52 +19,34 @@ interface Props {
   onStart: () => void
 }
 
+/**
+ * web 端「试卷介绍」适配器:真渲染共享屏 ExamIntroScreen(web + 小程序,不含 RN)。
+ * 仅做取词/取数与 3 项统计映射;不向 web 新增参与/规则/历史段。
+ */
 export function ExamIntro({ paper, isPending, isError, error, onStart }: Props) {
   const t = useTranslations('exam')
+  const router = useRouter()
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      <Link
-        href="/exam"
-        className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {t('back')}
-      </Link>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-heading">
-            <FileCheck className="h-5 w-5 text-primary" />
-            {paper.title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-3 text-center text-body">
-            <div className="rounded-md border p-3">
-              <div className="text-muted-foreground">{t('questionCountLabel')}</div>
-              <div className="font-semibold">{paper.questions.length}</div>
-            </div>
-            <div className="rounded-md border p-3">
-              <div className="text-muted-foreground">
-                {t('totalScore', { score: paper.totalScore })}
-              </div>
-              <div className="font-semibold">{paper.totalScore}</div>
-            </div>
-            <div className="rounded-md border p-3">
-              <div className="text-muted-foreground">
-                {t('duration', { minutes: paper.duration })}
-              </div>
-              <div className="font-semibold">{paper.duration}m</div>
-            </div>
-          </div>
-          <Button className="w-full" size="lg" disabled={isPending} onClick={onStart}>
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {t('startExam')}
-          </Button>
-          {isError && <p className="text-label text-destructive">{(error as Error)?.message}</p>}
-        </CardContent>
-      </Card>
-    </div>
+    <ExamIntroScreen
+      headerTitle={t('title')}
+      title={paper.title}
+      stats={[
+        { label: t('questionCountLabel'), value: String(paper.questions.length) },
+        { label: t('totalScore', { score: paper.totalScore }), value: String(paper.totalScore) },
+        { label: t('duration', { minutes: paper.duration }), value: `${paper.duration}m` },
+      ]}
+      state="ready"
+      loadingText={t('loading')}
+      errorText={isError ? ((error as Error)?.message ?? '') : ''}
+      retryText={t('back')}
+      startText={t('startExam')}
+      startingText={t('startExam')}
+      starting={isPending}
+      onStart={onStart}
+      onRetry={onStart}
+      onBack={() => router.push('/exam')}
+      colorScheme="light"
+    />
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

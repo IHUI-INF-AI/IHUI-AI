@@ -8,6 +8,8 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
+import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import {
   Radio,
   PlayCircle,
@@ -16,9 +18,8 @@ import {
   ChevronRight,
   Calendar,
   ExternalLink,
-  RadioTower,
 } from 'lucide-react'
-import Link from 'next/link'
+import { LiveQuickActions } from '@ihui/rn-app/features/live-list/LiveQuickActions'
 
 import { apiOrThrow } from '@/lib/api'
 import {
@@ -85,7 +86,10 @@ function formatTime(value: string | null, locale: string): string {
 
 export default function LivePage() {
   const t = useTranslations('eduAi.live')
+  const subsT = useTranslations('subscriptions')
   const locale = useLocale()
+  const router = useRouter()
+  const { resolvedTheme } = useTheme()
 
   const [category, setCategory] = React.useState<string | null>(null)
   const [page, setPage] = React.useState(1)
@@ -131,13 +135,6 @@ export default function LivePage() {
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <BackButton fallbackHref="/edu-ai" />
-        <Link
-          href="/live/host"
-          className="inline-flex items-center gap-1.5 ui-control rounded-sm border border-border bg-card px-3 py-1.5 text-body text-foreground transition-colors hover:bg-secondary/60"
-        >
-          <RadioTower className="h-4 w-4" />
-          {t('hostLink')}
-        </Link>
       </div>
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-display font-bold tracking-tight">
@@ -146,6 +143,14 @@ export default function LivePage() {
         </h1>
         <p className="text-label text-muted-foreground">{t('subtitle')}</p>
       </header>
+
+      {/* 快捷动作条:与小程序/RN 共用同一段(LiveQuickActions);web 无直播日历页 ⇒ 不传 onPressCalendar */}
+      <LiveQuickActions
+        labels={{ host: t('hostLink'), calendar: '', subscriptions: subsT('title') }}
+        onPressHost={() => router.push('/live/host')}
+        onPressSubscriptions={() => router.push('/subscriptions')}
+        colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      />
 
       {/* 分类筛选 chips */}
       <div className="flex flex-wrap items-center gap-2">

@@ -962,7 +962,25 @@
       "revokeConfirmTitle": "Revoke device",
       "taskColCreated": "Created",
       "taskColFinished": "Finished"
-    }
+    },
+    "accountDeletionTitle": "Account Deletion",
+    "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
+    "accountDeletionPhoneLabel": "Phone number",
+    "accountDeletionPhonePlaceholder": "Enter phone number",
+    "accountDeletionCodeLabel": "Verification Code",
+    "accountDeletionCodePlaceholder": "Enter verification code",
+    "accountDeletionSendCode": "Send Code",
+    "accountDeletionConfirm": "Confirm account deletion",
+    "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionSubmitting": "Submitting...",
+    "accountDeletionConsequenceTitle": "What Happens After Deletion",
+    "accountDeletionConsequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "accountDeletionConsequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "accountDeletionConsequence3": "Published posts, comments, favorites and chat history will be erased",
+    "accountDeletionConsequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "accountDeletionConsequence5": "Active memberships and courses will end immediately with no refund",
+    "accountDeletionConsequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "accountDeletionConsequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "menu": {
     "artifacts": "Artifacts",
@@ -4725,7 +4743,9 @@
     "bindFail": "Binding failed",
     "bindOk": "Phone bound",
     "netBusy": "Network error",
-    "netBusyRetry": "Network error, please retry later"
+    "netBusyRetry": "Network error, please retry later",
+    "selectNation": "Select country code",
+    "submitting": "Submitting..."
   },
   "subagents": {
     "tabOverview": "Overview",
@@ -4774,6 +4794,9 @@
   "devSpace": {
     "title": "Developer Details",
     "notLoggedIn": "Not signed in",
+    "opened": "Activated",
+    "notOpened": "Not activated",
+    "enterPlaza": "Enter Plaza",
     "renew": "Renew",
     "copy": "Copy",
     "copied": "Copied",
@@ -4883,6 +4906,7 @@
     "historyFailed": "Failed to load import history: {error}",
     "historyParsed": "Parsed",
     "historyImported": "Imported",
+    "failedCountLabel": "Failed",
     "statusSuccess": "Success",
     "statusPartial": "Partial",
     "statusFailed": "Failed",
@@ -7342,6 +7366,17 @@
     "articles": {
       "prevPage": "Previous",
       "nextPage": "Next"
+    },
+    "profile": {
+      "changePhoneTitle": "Change Phone Number",
+      "newPhonePlaceholder": "Enter new phone number",
+      "codePlaceholder": "Enter 6-digit code",
+      "sendNewCode": "Get New Code",
+      "resend": "Retry in {seconds}s",
+      "confirmChange": "Confirm Change",
+      "oldPhone": "Current Phone",
+      "oldCode": "Old Phone Code",
+      "sendOldCode": "Get Old Code"
     }
   },
   "NavBar": {
