@@ -28,7 +28,14 @@ const config: CapacitorConfig = {
     // 本地资产专用 origin:不与线上 API 域名同 host,避免 WebView 把 /api/* 请求
     // 拦截进本地资产服务器(2026-09-06 实测 404)。
     hostname: 'localhost',
-    // BUG-94:不再设置 server.url —— 移除远程整站加载,www 作为离线壳真正生效。
+    // BUG-94:默认本地资产(离线壳)—— 不设置 server.url,WebView 直接加载 APK 内 www/;
+    // www 由 scripts/sync-web.mjs 同步,不再远程加载整站,包体不再白白增大,
+    // 离线也能开壳。webDir='www' 同步逻辑保留不变。
+    // 切回远程的前提:后端 CORS 已放行 https://localhost(配套 apps/web 构建期 baseUrl)。
+    // 临时切回远程整站加载(开发/灰度用,生产默认关):设 MOBILE_CAP_USE_REMOTE=1。
+    ...(process.env.MOBILE_CAP_USE_REMOTE === '1'
+      ? { url: 'https://aizhs.top' }
+      : {}),
   },
   // 2026-09-07 真机修复:状态栏遮挡内容。
   // 根因:Android WebView(Chromium<140,本站壳实测 WebView=130)对 env(safe-area-inset-*)
