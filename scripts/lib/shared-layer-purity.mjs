@@ -14,6 +14,15 @@
  * hoverClass、className 直接落盘。平台专属资产(仅一端消费)可保留,但必须在台账登记
  * consumption 证据(file:line)+ owner + expires + why;既不许硬改成"看起来纯",也不许
  * 以"共享层就该纯"为由删掉唯一消费端的唯一实现。
+ *
+ * 扫描面写死(2026-11-06,裁定:以本分析器口径为准):
+ *   目录 = `packages/app/src/features/` + `packages/app/src/components/`(PURITY_ROOTS,不再扩缩);
+ *   文件 = 上述两目录下 `.ts/.tsx`(排除 `*.test.*`),现读 358 个;命中 14 个(存量棘轮)。
+ *   四信号 = [`rpx`: /[-0-9.]rpx/g]、[`cssVar`: /var\\(--/g]、[`hoverClass`: /\\bhoverClass\\b/g]、
+ *            [`className`: /\\bclassName=/g];逐信号按文件计数,只降不升。
+ * 与体检报告口径的差异**源于覆盖面,不是判据松紧**:体检只扫 features/ 得 1 个违规文件
+ * (ChatMessageItem.tsx,且只被小程序消费);本实现扫 features+components 得 14 个存量文件,
+ * 多出的 13 个是 components/ 下的历史存量,均已逐文件登记棘轮,不因此放松任何判据。
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
