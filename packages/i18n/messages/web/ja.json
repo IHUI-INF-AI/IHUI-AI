@@ -5907,6 +5907,7 @@
           "completed": "完了",
           "failed": "失敗",
           "pending": "審査待ち",
+          "processing": "処理中",
           "rejected": "却下済"
         },
         "subtitle": "ユーザー引き出し申請と取引の管理",
