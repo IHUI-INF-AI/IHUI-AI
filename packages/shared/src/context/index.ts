@@ -94,6 +94,8 @@ export interface EnrichResult {
   budget: number
   sources: Array<{ type: ContextType; label: string; tokens: number }>
   truncated: boolean
+  /** 截断前源条目总数(生产端未透出时缺席;与 `truncated` 成对) */
+  total?: number
 }
 
 /** 上下文源预算分配 */
