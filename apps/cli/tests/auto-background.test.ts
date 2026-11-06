@@ -119,13 +119,16 @@ describe('G-896416 run_command 超时自动转后台(e2e)', () => {
     expect(result.output).toContain('已自动转入后台');
     const match = result.output.match(/task_id: (bg_\d+_[a-f0-9]+)/);
     expect(match).not.toBeNull();
-    const bgId = match![1];
+    if (match === null) throw new Error('auto-background: 输出缺少 task_id');
+    const bgId = match[1];
+    if (bgId === undefined) throw new Error('auto-background: task_id 捕获组缺失');
     // 收编后的输出必须进后台缓冲(票面:getTaskOutput(bg) 可读到后续输出)
     await waitForTask(bgId, 15_000);
     const out = getTaskOutput(bgId);
-    expect(out!.status).toBe('exited');
-    expect(out!.exitCode).toBe(0);
-    expect(out!.stdout).toContain('late-output-after-adopt');
+    if (out === null) throw new Error(`auto-background: 后台任务 ${bgId} 无输出记录`);
+    expect(out.status).toBe('exited');
+    expect(out.exitCode).toBe(0);
+    expect(out.stdout).toContain('late-output-after-adopt');
   }, 20_000);
 
   it('验收②反向锁:sleep 类不收编 —— 任何结果形态都不得出现转后台消息', async () => {
