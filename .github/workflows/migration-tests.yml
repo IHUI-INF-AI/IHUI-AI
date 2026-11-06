@@ -11,12 +11,16 @@ on:
     branches: [main, develop]
     paths:
       - 'packages/database/src/**'
-      - 'packages/database/migrations/**'
+      - 'packages/database/drizzle/**'
+      - 'packages/database/drizzle.config.ts'
+      - 'scripts/check-drizzle-push-safety.mjs'
   pull_request:
     branches: [main, develop]
     paths:
       - 'packages/database/src/**'
-      - 'packages/database/migrations/**'
+      - 'packages/database/drizzle/**'
+      - 'packages/database/drizzle.config.ts'
+      - 'scripts/check-drizzle-push-safety.mjs'
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
 permissions:
@@ -57,6 +61,13 @@ jobs:
 
       - name: Run migrations
         run: cd packages/database && pnpm drizzle-kit push --force
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+
+      # T7 闸门:库内每张 public 表必须 ∈ 已建模 ∪ 保留清单(152 张),否则 push 计划里就是 DROP TABLE。
+      # 静态面同时断言 tablesFilter == retained-tables.json、已建模表不得被过滤。
+      - name: Check push plan has no DROP TABLE (T7)
+        run: node scripts/check-drizzle-push-safety.mjs --db "$DATABASE_URL"
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/test
 

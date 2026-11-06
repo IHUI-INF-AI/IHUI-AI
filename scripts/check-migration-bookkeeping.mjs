@@ -487,6 +487,82 @@ export function b12Outcome({ paths, error }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// B14(T10)新迁移文件棘轮 —— 只对新文件立规矩,存量不改历史。
+//   ① 单文件语句数 ≤ maxStatements(按 drizzle 的 `--> statement-breakpoint` 计,与 0043 实测口径一致);
+//   ② 对 >100MB 的表建索引必须 CONCURRENTLY/事务外,不得在迁移文件里裸 `CREATE INDEX`
+//      (PG 的 SHARE 锁会挡住写入;drizzle 逐文件事务,CONCURRENTLY 也进不去,只能走事务外脚本)。
+//   存量(文件名日期 < grandfatheredBefore)一律豁免 —— 1203 处裸 CREATE INDEX 与 0043 的 767 条
+//   语句已在票面记录,不改历史。
+// ════════════════════════════════════════════════════════════════════════════
+
+/** `20261107003000_xxx` ⇒ 20261107;非日期前缀返回 null。 */
+export function tagDayOf(tag) {
+  const m = String(tag ?? '').match(/^(\d{4})(\d{2})(\d{2})\d{6}/)
+  if (!m) return null
+  return `${m[1]}${m[2]}${m[3]}`
+}
+
+/** 与 drizzle 一致:语句数 = breakpoint 数 + 1(单语句文件 = 1)。 */
+export function statementCountOf(sqlText) {
+  const n = (String(sqlText ?? '').match(/--> statement-breakpoint/g) ?? []).length
+  return n + 1
+}
+
+/**
+ * 找出「对 >100MB 表、且非 CONCURRENTLY 的 CREATE INDEX」。
+ * @returns {{table:string, line:number}[]}
+ */
+export function bigTableIndexHits(sqlText, bigTables) {
+  const big = new Set((bigTables ?? []).map((x) => String(x?.name ?? x).toLowerCase()))
+  const hits = []
+  const re = /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?!CONCURRENTLY\b)[^;]*?\bON\s+(?:ONLY\s+)?(?:[`"']?[A-Za-z0-9_$]+[`"']?\.)?([`"']?[A-Za-z0-9_$]+[`"']?)/gi
+  const lines = String(sqlText ?? '').split(/\r?\n/)
+  lines.forEach((line, i) => {
+    for (const m of line.matchAll(re)) {
+      const table = m[1].replace(/[`"']/g, '')
+      if (big.has(table.toLowerCase())) hits.push({ table, line: i + 1 })
+    }
+  })
+  return hits
+}
+
+/**
+ * 纯判据:只对 `tagDay >= grandfatheredBefore` 的新文件判。
+ * `readSql(tag)` 返回正文或 null(文件缺失由 B1 判,这里不重复判红)。
+ */
+export function newFileBudgetFindings({ entries, readSql, budget }) {
+  const maxStatements = Number(budget?.maxStatements ?? 50)
+  const cutoff = String(budget?.grandfatheredBefore ?? '2026-11-07').replace(/-/g, '')
+  const bigTables = budget?.bigTables ?? []
+  const allowedIndex = new Set((budget?.indexExempt ?? []).map(String))
+  const issues = []
+  let checked = 0
+  let grandfathered = 0
+  let maxObserved = 0
+  for (const e of entries ?? []) {
+    const day = tagDayOf(e?.tag)
+    if (!day || day < cutoff) {
+      grandfathered++
+      continue
+    }
+    const text = readSql(e.tag)
+    if (text === null || text === undefined) continue
+    checked++
+    const n = statementCountOf(text)
+    if (n > maxObserved) maxObserved = n
+    if (n > maxStatements)
+      issues.push(`B14 ${e.tag} 语句数 ${n} > ${maxStatements}(新文件上限;拆成多条迁移)`)
+    if (!allowedIndex.has(e.tag)) {
+      for (const h of bigTableIndexHits(text, bigTables))
+        issues.push(
+          `B14 ${e.tag}:${h.line} 对 >100MB 表 ${h.table} 建索引未走 CONCURRENTLY/事务外脚本(SHARE 锁会挡写)`,
+        )
+    }
+  }
+  return { issues, checked, grandfathered, maxObserved, maxStatements, cutoff }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // B11(G-657)已应用迁移内容不可变对账 —— 判据层全部是纯函数。
 // 为什么必须整层是纯函数:本维问的是"账本这一行 ↔ 正文这一份字节"配不配,
 // 而真仓的 psql 面在本机长期取不到(实测候选表里没有 C 盘那一条 ⇒ `spawnSync psql ENOENT`)。
@@ -1739,6 +1815,48 @@ export function runSelfTest() {
     }
   }
 
+  // ── B14(T10)新迁移棘轮:构造面正反例(计数口径 / 大表索引 / 存量豁免)
+  {
+    eq('B14-Q1 tag 日期前缀解析', tagDayOf('20261107003000_x'), '20261107')
+    eq('B14-Q1b 非日期前缀 ⇒ null', String(tagDayOf('legacy_x')), 'null')
+    eq('B14-Q2 语句数 = breakpoint+1(三条语句)', statementCountOf('a;--> statement-breakpoint\nb;--> statement-breakpoint\nc;'), 3)
+    eq('B14-Q2b 单语句文件 ⇒ 1', statementCountOf('SELECT 1;\n'), 1)
+    eq(
+      'B14-Q3 大表裸 CREATE INDEX ⇒ 命中',
+      bigTableIndexHits('CREATE INDEX ix ON "ai_feed_hot_item"(id);', [{ name: 'ai_feed_hot_item' }]).length,
+      1,
+    )
+    eq(
+      'B14-Q3b CONCURRENTLY ⇒ 不命中',
+      bigTableIndexHits('CREATE INDEX CONCURRENTLY ix ON ai_feed_hot_item(id);', [{ name: 'ai_feed_hot_item' }]).length,
+      0,
+    )
+    eq(
+      'B14-Q3c 小表 ⇒ 不命中',
+      bigTableIndexHits('CREATE INDEX ix ON users(id);', [{ name: 'ai_feed_hot_item' }]).length,
+      0,
+    )
+    const budget = { grandfatheredBefore: '2026-11-07', maxStatements: 50, bigTables: [{ name: 'api_logs' }], indexExempt: [] }
+    const mk = (tag, text) => ({ tag, text })
+    const r1 = newFileBudgetFindings({
+      entries: [mk('20260101000000_old', 'x;'), mk('20261107003000_new', 'y;')],
+      readSql: (t) => (t.startsWith('20260101') ? 'x;' : 'y;'),
+      budget,
+    })
+    ok('B14-Q4 存量豁免、新文件受检', r1.grandfathered === 1 && r1.checked === 1 && r1.issues.length === 0)
+    const fiftyOne = Array.from({ length: 51 }, () => 'SELECT 1;').join('--> statement-breakpoint\n')
+    const r2 = newFileBudgetFindings({ entries: [mk('20261107003000_new', fiftyOne)], readSql: () => fiftyOne, budget })
+    ok('B14-Q5 新文件 51 条 ⇒ 判红', r2.issues.length === 1 && /51 > 50/.test(r2.issues[0]))
+    const fifty = Array.from({ length: 50 }, () => 'SELECT 1;').join('--> statement-breakpoint\n')
+    const r3 = newFileBudgetFindings({ entries: [mk('20261107003000_new', fifty)], readSql: () => fifty, budget })
+    ok('B14-Q5b 恰好 50 条 ⇒ 不红(边界含等号)', r3.issues.length === 0 && r3.maxObserved === 50)
+    const idxSql = 'CREATE INDEX ix ON api_logs(created_at);'
+    const r4 = newFileBudgetFindings({ entries: [mk('20261107003000_new', idxSql)], readSql: () => idxSql, budget })
+    ok('B14-Q6 新文件对大表裸建索引 ⇒ 判红', r4.issues.length === 1 && /api_logs/.test(r4.issues[0]))
+    const r5 = newFileBudgetFindings({ entries: [mk('20261107003000_new', idxSql)], readSql: () => null, budget })
+    ok('B14-Q7 文件取不到 ⇒ 本维不判(B1 负责报缺)', r5.issues.length === 0 && r5.checked === 0)
+  }
+
   // ── B11 端到面:通过 `--ledger-from` 取证通道跑真 CLI,证明**判据真被接在 CLI 上**
   //    (§守门 70/76/81/115 同一条:函数在、自检过,但 `--db` 流程没调它 = 提交链上一路绿灯。)
   try {
@@ -1992,6 +2110,39 @@ if (isDirectRun) {
     } else {
       // 未判定:报名字与原因,既不冒红也不记绿(绝不静默省掉这一行)。
       console.log(`  ${C.yellow}! ${b12.line}${C.reset}`)
+    }
+  }
+
+  // ---------- B14: 新迁移文件棘轮(T10/T11:只立新规,不改历史) ----------
+  console.log(`${C.bold}[迁移记账] B14 新迁移文件棘轮${C.reset}`)
+  {
+    let budget = null
+    let why = ''
+    try {
+      budget = JSON.parse(readFileSync(join(ROOT, 'scripts/migration-newfile-budget.json'), 'utf8'))
+    } catch (e) {
+      why = `scripts/migration-newfile-budget.json 读不到或不是合法 JSON(${String(e?.code ?? e)})`
+    }
+    if (!budget) {
+      console.log(`  ${C.yellow}! B14 未判定:${why} —— 该行不代表新迁移已过棘轮${C.reset}`)
+    } else {
+      const r = newFileBudgetFindings({
+        entries: journal.entries,
+        readSql: (tag) => {
+          try {
+            return readFileSync(join(ROOT, 'packages/database/drizzle', `${tag}.sql`), 'utf8')
+          } catch {
+            return null
+          }
+        },
+        budget,
+      })
+      for (const line of r.issues) bad(line)
+      if (!r.issues.length)
+        ok(
+          `B14 新迁移棘轮通过(检查 ${r.checked} 个新文件 ≥ ${r.cutoff},单文件最大 ${r.maxObserved} 条 ≤ ` +
+            `${r.maxStatements};存量 ${r.grandfathered} 个豁免,0043/1203 处历史出票不改)`,
+        )
     }
   }
 
@@ -2571,6 +2722,11 @@ export const __test__ = {
   sqlDupAcrossDirs,
   b12FindingLine,
   b12Outcome,
+  // B14(T10)新迁移棘轮判据层 —— 镜像测试直接 import,不得在测试里另写一份计数/大表规则。
+  tagDayOf,
+  statementCountOf,
+  bigTableIndexHits,
+  newFileBudgetFindings,
   runSelfTest,
   writeGateFixture,
   mkFixtureRepo,

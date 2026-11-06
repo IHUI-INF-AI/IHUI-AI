@@ -121,7 +121,7 @@ export const userEmails = pgTable(
       .notNull(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     isPrimary: boolean('is_primary').default(false).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     userIdIdx: index('user_emails_user_idx').on(t.userId),

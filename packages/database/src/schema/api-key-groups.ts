@@ -13,6 +13,7 @@ import {
   index,
   text,
   boolean,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 
 /**
@@ -76,7 +77,7 @@ export const apiKeyGroupMembers = pgTable(
   },
   (t) => ({
     groupIdx: index('api_key_group_members_group_idx').on(t.groupId),
-    apiKeyUniqueIdx: index('api_key_group_members_api_key_unique').on(t.apiKeyId),
+    apiKeyUniqueIdx: uniqueIndex('api_key_group_members_api_key_unique').on(t.apiKeyId),
   }),
 )
 

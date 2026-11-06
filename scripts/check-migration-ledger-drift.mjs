@@ -68,6 +68,7 @@ import { requireFlagValue } from './lib/flag-value.mjs'
 const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..')
 const JOURNAL_REL = 'packages/database/drizzle/meta/_journal.json'
 const DEFAULT_LEDGER_TABLE = 'drizzle.__drizzle_migrations'
+const DEFAULT_BASELINE_REL = 'scripts/migration-ledger-baseline.json'
 
 // ══════════════ 纯函数层(零副作用,经 __test__ 供 §22c 镜像测试直接 import) ══════════════
 
@@ -108,6 +109,97 @@ export function compareLedger(entries, ledgerRows) {
   const actual = ledgerRows.length
   const missing = actual < expected ? entries.slice(actual).map((e) => ({ idx: e.idx, tag: e.tag })) : []
   return { expected, actual, missing, surplus: Math.max(0, actual - expected) }
+}
+
+/**
+ * T8 账本自证不变式(只读,不判应用状态 —— 那一维仍归 compareLedger):
+ *   ① id 唯一且严格递增(账本主键必须单调,回退/重复说明写入路径被并发或人工插队污染);
+ *   ② id 无空洞 —— **基线豁免段之外**的任何缺号都算新增偏差(棘轮:存量不判红,新增必红);
+ *   ③ created_at 非递减(同一批迁移的记账时间不得倒流;基线豁免 4 个历史倒挂);
+ *   ④ 与 journal 一一对应 = 行数相等(由 compareLedger 判,本函数不重复判)。
+ * hash 匹配(第 4 条判据的另一读法)归 check-db-migration-gaps 的 hashDrift 维(T9),本门不抢。
+ *
+ * @param {{id:number|string,created_at:string|number|null}[]} rows 按 id 升序读出的账本行
+ * @param {{missingIdRanges?:number[][],nonMonotonicIds?:number[]}} baseline 存量偏差基线(可缺省)
+ * @returns {{
+ *   ids: {duplicate:number[], outOfOrder:{id:number,prev:number}[], newHoles:{from:number,to:number,count:number}[],
+ *         baselineHoleCount:number, count:number, minId:number|null, maxId:number|null},
+ *   createdAt: {newReversals:{id:number,at:number,prev:number}[], baselineReversals:number, missing:number}
+ * }}
+ */
+export function checkLedgerInvariants(rows, baseline = {}) {
+  const list = (rows ?? []).map((r) => ({ id: Number(r?.id), at: Number(r?.created_at ?? r?.createdAt) }))
+  const ids = list.map((r) => r.id)
+  const count = ids.length
+  const minId = count ? ids[0] : null
+  const maxId = count ? ids[count - 1] : null
+
+  // ① 唯一 + 严格递增(输入已 ORDER BY id,回退只可能来自重复主键或读库排序异常)
+  const seen = new Set()
+  const duplicate = []
+  const outOfOrder = []
+  for (let i = 0; i < count; i++) {
+    if (seen.has(ids[i])) duplicate.push(ids[i])
+    seen.add(ids[i])
+    if (i > 0 && ids[i] < ids[i - 1]) outOfOrder.push({ id: ids[i], prev: ids[i - 1] })
+  }
+
+  // ② 空洞:把基线允许的闭区间展开成集合,其余缺号按连续区间合并输出(避免 826 行刷屏)
+  const allowed = new Set()
+  let baselineHoleCount = 0
+  for (const r of baseline.missingIdRanges ?? []) {
+    const [from, to] = r.map(Number)
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) continue
+    for (let id = from; id <= to; id++) allowed.add(id)
+    baselineHoleCount += to - from + 1
+  }
+  const newHoles = []
+  if (count) {
+    let open = null
+    for (let id = minId; id <= maxId; id++) {
+      if (seen.has(id) || allowed.has(id)) {
+        if (open) {
+          newHoles.push({ from: open.from, to: open.to, count: open.to - open.from + 1 })
+          open = null
+        }
+      } else {
+        if (!open) open = { from: id, to: id }
+        else open.to = id
+      }
+    }
+    if (open) newHoles.push({ from: open.from, to: open.to, count: open.to - open.from + 1 })
+  }
+
+  // ③ created_at 非递减;基线按"倒挂发生的行 id"豁免(行 id 稳定,时间戳本身会随库状态变)
+  const exempt = new Set((baseline.nonMonotonicIds ?? []).map(Number))
+  const newReversals = []
+  let missing = 0
+  let baselineReversals = 0
+  for (let i = 0; i < count; i++) {
+    if (!Number.isFinite(list[i].at)) missing++
+    if (i > 0 && Number.isFinite(list[i].at) && Number.isFinite(list[i - 1].at) && list[i].at < list[i - 1].at) {
+      if (exempt.has(ids[i])) baselineReversals++
+      else newReversals.push({ id: ids[i], at: list[i].at, prev: list[i - 1].at })
+    }
+  }
+
+  return {
+    ids: { duplicate, outOfOrder, newHoles, baselineHoleCount, count, minId, maxId },
+    createdAt: { newReversals, baselineReversals, missing },
+  }
+}
+
+/** 不变式是否成立:只有**基线之外**的新偏差才判红(棘轮语义)。 */
+export function ledgerInvariantsOk(inv) {
+  const i = inv?.ids ?? {}
+  const c = inv?.createdAt ?? {}
+  return (
+    (i.duplicate?.length ?? 0) === 0 &&
+    (i.outOfOrder?.length ?? 0) === 0 &&
+    (i.newHoles?.length ?? 0) === 0 &&
+    (c.newReversals?.length ?? 0) === 0 &&
+    (c.missing ?? 0) === 0
+  )
 }
 
 /** DSN 脱敏:密码位打 ***,供日志安全输出(任何情况下不回显完整凭据,§5d)。 */
@@ -163,10 +255,13 @@ function printHelp() {
   --journal <path>     drizzle journal 路径(默认 ${JOURNAL_REL},相对仓库根)
   --ledger-table <t>   账本表(默认 ${DEFAULT_LEDGER_TABLE},格式 schema.table)
   --strict             部署后调用建议:DSN 缺失/驱动不可用/连不上库一律 exit 1(默认降级 SKIP exit 0)
+  --no-baseline        关闭 T8 存量偏差基线豁免(对全部缺号/倒挂判红)
   --self-test          内置断言(不连库)
   --help               本帮助
 
 判据:journal 序号全集 vs 账本行全集(行数与水位序),缺行/多余行即红。
+另含 T8 只读不变式(id 唯一且严格递增、基线外无新增缺号、created_at 非递减),新增偏差即红;
+存量偏差(826 个缺号/4 处倒挂)按 scripts/migration-ledger-baseline.json 豁免,只许收紧不许放宽。
 本门只判**应用状态**这一个维度,该维度按记录集判定、不按迁移文件内容 hash 判定(文件字节会因重放/水印注入而变,而记账行集与水位序不变)。hash 判的另外两维另有主:账本行 hash 合法性与唯一性 = 守门 49 的 B9;已应用迁移内容是否漂移 = 守门 49 的 B11(源码头注写明了分维边界与在飞状态)。`)
 }
 
@@ -222,6 +317,28 @@ async function main() {
     process.exit(2)
   }
 
+  // 锚点 1b:T8 存量偏差基线(棘轮)。基线缺省/损坏时**不豁免任何偏差**(宁可红,不静默放水)。
+  let baseline = {}
+  let baselineNote = ''
+  if (args.includes('--no-baseline')) {
+    baselineNote = '基线被 --no-baseline 关闭(本次对全部偏差判红)'
+  } else {
+    const bp = join(ROOT, DEFAULT_BASELINE_REL)
+    if (!existsSync(bp)) {
+      baselineNote = `基线文件 ${DEFAULT_BASELINE_REL} 不在位 ⇒ 本次不豁免存量偏差`
+    } else {
+      try {
+        baseline = JSON.parse(readFileSync(bp, 'utf8'))
+        baselineNote =
+          `基线 ${DEFAULT_BASELINE_REL}(rows=${baseline.rows ?? '?'}, ` +
+          `豁免缺号 ${baseline.missingIdRanges?.length ?? 0} 段/${baseline.missingIdCount ?? '?'} 个, ` +
+          `豁免倒挂 ${baseline.nonMonotonicIds?.length ?? 0} 个)`
+      } catch (e) {
+        baselineNote = `基线文件解析失败(${e?.message ?? e}) ⇒ 本次不豁免存量偏差`
+      }
+    }
+  }
+
   // 锚点 2:DSN
   const dsn = resolveDsn(args, process.env)
   if (!dsn) skip('未提供 DSN(--dsn / IHUI_LEDGER_DSN / DATABASE_URL 均为空)')
@@ -234,7 +351,7 @@ async function main() {
   let ledgerRows
   try {
     ledgerRows = await sql.unsafe(
-      `SELECT hash, created_at FROM "${ledger.schema}"."${ledger.table}" ORDER BY id`,
+      `SELECT id, hash, created_at FROM "${ledger.schema}"."${ledger.table}" ORDER BY id`,
     )
   } catch (e) {
     skip(`数据库不可达或账本表不存在:${e?.message ?? e} · DSN=${maskDsn(dsn)}`)
@@ -246,6 +363,46 @@ async function main() {
   console.log(
     `[ledger-drift] journal=${cmp.expected} 条 · 账本=${cmp.actual} 行 · 表=${ledger.schema}.${ledger.table} · DSN=${maskDsn(dsn)}`,
   )
+  console.log(`  ${baselineNote}`)
+
+  // ── T8 账本自证不变式(id 单调不空洞 / created_at 单调;行集对齐与 hash 匹配另两维) ──
+  const inv = checkLedgerInvariants(ledgerRows, baseline)
+  const invOk = ledgerInvariantsOk(inv)
+  const holeTxt = inv.ids.newHoles.length
+    ? `新增缺号 ${inv.ids.newHoles.reduce((n, h) => n + h.count, 0)} 个(${inv.ids.newHoles
+        .slice(0, 5)
+        .map((h) => (h.from === h.to ? `${h.from}` : `${h.from}-${h.to}`))
+        .join(', ')}${inv.ids.newHoles.length > 5 ? ', …' : ''})`
+    : '无新增缺号'
+  const revTxt = inv.createdAt.newReversals.length
+    ? `新增倒挂 ${inv.createdAt.newReversals.length} 处(首个 id=${inv.createdAt.newReversals[0].id})`
+    : '无新增倒挂'
+  if (invOk) {
+    console.log(
+      `[ledger-drift] ✅ 不变式:id 严格递增且${holeTxt} · created_at 非递减且${revTxt} · ` +
+        `基线豁免缺号 ${inv.ids.baselineHoleCount} 个/倒挂 ${inv.createdAt.baselineReversals} 个 · id 区间 ${inv.ids.minId}..${inv.ids.maxId}`,
+    )
+  } else {
+    if (inv.ids.duplicate.length)
+      console.error(`  ✗ id 重复:${inv.ids.duplicate.slice(0, 5).join(', ')}`)
+    if (inv.ids.outOfOrder.length)
+      console.error(
+        `  ✗ id 回退:${inv.ids.outOfOrder.slice(0, 5).map((o) => `${o.prev}→${o.id}`).join(', ')}`,
+      )
+    for (const h of inv.ids.newHoles)
+      console.error(
+        `  ✗ id 空洞(基线外新增):${h.from === h.to ? h.from : `${h.from}-${h.to}`}(${h.count} 个)`,
+      )
+    for (const r of inv.createdAt.newReversals.slice(0, 10))
+      console.error(`  ✗ created_at 倒挂:id=${r.id} ${r.prev} → ${r.at}(基线外新增)`)
+    if (inv.createdAt.missing)
+      console.error(`  ✗ created_at 为空/非数字:${inv.createdAt.missing} 行`)
+    console.error(
+      '[ledger-drift] ❌ 账本不变式被破坏(基线外新增偏差)—— 先查写入路径(并发 migrate / 手工补账本 / 时钟跳变),' +
+        '再更新 scripts/migration-ledger-baseline.json 前必须逐条给出归因',
+    )
+    process.exit(1)
+  }
 
   if (cmp.missing.length > 0) {
     for (const m of cmp.missing) {
@@ -342,6 +499,53 @@ function runSelfTest() {
   assert(parseLedgerTable('evil; drop') === null, 'parseLedgerTable: 非标识符拒绝')
   assert(parseLedgerTable('nodot') === null, 'parseLedgerTable: 缺 schema 拒绝')
 
+  // T8 不变式:构造面正反例(基线内缺号/倒挂不判红,基线外新增必红)
+  const invRows = [
+    { id: 1, created_at: 100 },
+    { id: 2, created_at: 110 },
+    { id: 4, created_at: 120 },
+    { id: 5, created_at: 130 },
+  ]
+  const invBase = { missingIdRanges: [[3, 3]], nonMonotonicIds: [] }
+  const inv1 = checkLedgerInvariants(invRows, invBase)
+  assert(ledgerInvariantsOk(inv1), 'T8-a 基线内缺号3 ⇒ 不变式成立(棘轮不判存量)')
+  const inv2 = checkLedgerInvariants(
+    [
+      { id: 1, created_at: 100 },
+      { id: 2, created_at: 110 },
+      { id: 5, created_at: 120 },
+    ],
+    {},
+  )
+  assert(!ledgerInvariantsOk(inv2) && inv2.ids.newHoles[0]?.from === 3, 'T8-b 基线外缺号3-4 ⇒ 判红')
+  const inv3 = checkLedgerInvariants(
+    [
+      { id: 1, created_at: 100 },
+      { id: 2, created_at: 90 },
+    ],
+    {},
+  )
+  assert(
+    !ledgerInvariantsOk(inv3) && inv3.createdAt.newReversals[0]?.id === 2,
+    'T8-c created_at 倒挂 ⇒ 判红',
+  )
+  const inv4 = checkLedgerInvariants(
+    [
+      { id: 1, created_at: 100 },
+      { id: 2, created_at: 90 },
+    ],
+    { nonMonotonicIds: [2] },
+  )
+  assert(ledgerInvariantsOk(inv4), 'T8-d 基线内倒挂 ⇒ 豁免')
+  const inv5 = checkLedgerInvariants(
+    [
+      { id: 1, created_at: 100 },
+      { id: 1, created_at: 100 },
+    ],
+    {},
+  )
+  assert(!ledgerInvariantsOk(inv5) && inv5.ids.duplicate.length === 1, 'T8-e id 重复 ⇒ 判红')
+
   // 真实 journal 冒烟:仓库内 journal 可解析且条目数与生产水位口径(285)同量级
   try {
     const real = parseJournal(readFileSync(join(ROOT, JOURNAL_REL), 'utf8'))
@@ -358,6 +562,8 @@ function runSelfTest() {
 export const __test__ = {
   parseJournal,
   compareLedger,
+  checkLedgerInvariants,
+  ledgerInvariantsOk,
   maskDsn,
   resolveDsn,
   parseLedgerTable,

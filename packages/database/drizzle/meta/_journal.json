@@ -2580,6 +2580,41 @@
       "when": 1793952060000,
       "tag": "20261107001000_drop_stale_refund_order_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 372,
+      "version": "7",
+      "when": 1793952120000,
+      "tag": "20261107002000_chat_share_token_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 373,
+      "version": "7",
+      "when": 1793952180000,
+      "tag": "20261107003000_crash_reports_user_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 374,
+      "version": "7",
+      "when": 1793952240000,
+      "tag": "20261107004000_edu_attendance_rule_partial_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 375,
+      "version": "7",
+      "when": 1793952300000,
+      "tag": "20261107005000_t4_not_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 376,
+      "version": "7",
+      "when": 1793952360000,
+      "tag": "20261107006000_rewrite_default_cleanup",
+      "breakpoints": true
     }
   ]
 }

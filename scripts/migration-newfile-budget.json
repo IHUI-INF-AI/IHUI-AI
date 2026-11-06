@@ -1,0 +1,12 @@
+{
+  "//": "T10 新迁移文件棘轮预算。只对新文件(tag 日期 >= grandfatheredBefore)生效;存量不改历史。",
+  "grandfatheredBefore": "2026-11-07",
+  "maxStatements": 50,
+  "bigTables": [
+    { "name": "audit_logs_chain", "bytes": 561000000, "evidence": "535MB / 11282 行" },
+    { "name": "ai_feed_hot_item", "bytes": 245000000, "evidence": "234MB / 58606 行" },
+    { "name": "api_logs", "bytes": 136000000, "evidence": "130MB / 11287 行" }
+  ],
+  "indexExempt": [],
+  "note": ">100MB 目标表的索引必须走 CONCURRENTLY 或事务外脚本:PG 建索引期间持 SHARE 锁挡写,drizzle 迁移逐文件事务内也无法 CONCURRENTLY。存量 1203 处裸 CREATE INDEX 与 0043(767 条语句)已在票面记录,不在此棘轮内回溯。"
+}

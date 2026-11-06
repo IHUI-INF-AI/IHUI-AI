@@ -321,7 +321,7 @@ export const aiRelayDiscovery = pgTable(
     /** 上游定价快照(JSON,如 { input: 0.5, output: 1.5, currency: 'CNY' }) */
     upstreamPrice: jsonb('upstream_price'),
     /** 上游返回的能力标签(JSON array,如 ['chat', 'vision', 'tools']) */
-    capabilities: jsonb('capabilities').default([]),
+    capabilities: jsonb('capabilities').default([]).notNull(),
     /** 上游返回的描述 */
     description: text('description'),
     /** 状态:discovered / pending / approved / rejected */
@@ -334,7 +334,7 @@ export const aiRelayDiscovery = pgTable(
     /** 审批通过后写入 aiModelConfigModels 的 id(关联追溯) */
     approvedModelRowId: bigint('approved_model_row_id', { mode: 'number' }),
     /** 原始上游 metadata(完整保留,用于审批参考) */
-    rawMetadata: jsonb('raw_metadata').default({}),
+    rawMetadata: jsonb('raw_metadata').default({}).notNull(),
     discoveredAt: timestamp('discovered_at', { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

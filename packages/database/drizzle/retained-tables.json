@@ -1,0 +1,1075 @@
+{
+  "$comment": "Drizzle 保留清单(勿手改顺序;CI 断言 drizzle.config.ts 的 tablesFilter 与本文件一致)。由 dev 实库只读清点生成于 2026-11-07。",
+  "policy": "本文件列出的表不进入 Drizzle schema 的 push/generate 判定面 ⇒ drizzle-kit push 不会对其发 DROP TABLE。bucket=in-use 需补建模并从本清单移除;legacy-archive 归档后删除;monthly-partition 由分区流程维护。",
+  "counts": {
+    "in-use": 38,
+    "legacy-archive": 96,
+    "monthly-partition": 18
+  },
+  "tables": [
+    {
+      "name": "checkin_records",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 7,
+      "codeRefs": 1
+    },
+    {
+      "name": "checkin_accounts",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 16,
+      "codeRefs": 2
+    },
+    {
+      "name": "checkin_error_counts",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 1,
+      "codeRefs": 0
+    },
+    {
+      "name": "publish_metrics",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "publish_style_check",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "checkin_credits_daily",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "edu_agreement",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "point_exchange",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "payment_callbacks",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 6
+    },
+    {
+      "name": "transfer_infos",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "user_sk_info",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "simple_bot_configs",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "learn_record_log",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "learn_topic_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "keepalive_account_state",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "keepalive_events",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 34,
+      "codeRefs": 0
+    },
+    {
+      "name": "learn_topic_topic_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "zhs_agent_settlement",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "ownership_backfill_state",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "_ownership_backfill_20261102_agent_tasks",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "ai_gc_task",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "live_tencent_cloud_live_stream",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_comment",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_follow",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_like",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_report",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "circle_circle_member",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_paper_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_paper_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_paper_paper_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "learn_order",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "ask_question_categories",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "learn_topic_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "media_tasks",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "edu_answer",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_article",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_ask_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_authority",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_carousel",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_circle",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_circle_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_circle_dynamic",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_comment",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "edu_exam_chapter",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_chapter_section",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_paper",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_paper_question",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_paper_rule",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_question",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_exam_record",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_favorite",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_index_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_index_config",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_learn_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_learn_map",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_lesson_homework",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_like",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_news",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_question",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_resource",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "edu_resource_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_resource_product",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "edu_role",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_role_authority",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_trade",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_visit_log",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_watch_record",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_course_new",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "zhs_educational_course",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_identity_ext",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_information",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_knowledge_planet",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_official_information",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_organization_ext",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_popular_courses",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_resources",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "zhs_user_agent_free_time",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "live_category_relation",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "live_channel_category",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "live_channel_category_relation",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "live_channel_lecturer",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_sensitive",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "behavior_share",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_exam_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_exam_chapter",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_exam_chapter_section",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_question_and_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "exam_question_category",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "exam_question_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "learn_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "learn_lesson_category_relation",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "learn_sign_up",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "message_announcement",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "message_announcement_read_record",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "message_notice",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "message_read_log",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "notification_subscription",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "point_goods",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "resource_category_relation",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "resource_resource",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "resource_resource_category_relation",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "resource_resource_download",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "resource_resource_search_record",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "search_log",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "t_member_company",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "t_order_payment",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "visit_page",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "visit_source",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "visit_stats",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "edu_order_items",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "resource_search_logs",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "user_jobs",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_member_company_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_member_level_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_member_post_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_member_tag_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "edu_resource_product_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "department_relations",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "payment_configs",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "agent_category_links",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 5
+    },
+    {
+      "name": "member_group_member_relations",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "resource_tag_relations",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "agent_buy_scheduled_tasks",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "auth_identities",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "audit_logs_202507",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202508",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202509",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202510",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202511",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202512",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202601",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202602",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202603",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202604",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202605",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "t_tencent_cloud_live_stream",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 2
+    },
+    {
+      "name": "audit_logs_202606",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202607",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202608",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202609",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_202610",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 13659,
+      "codeRefs": 0
+    },
+    {
+      "name": "audit_logs_default",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "t_knowledge_point",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "t_school",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "t_clazz",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "t_course_recommend",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "t_course_recommend_log",
+      "bucket": "legacy-archive",
+      "reason": "旧域(edu/t_/behavior/learn/exam/circle 等)遗留表,当前 schema 未覆盖;归档前保留",
+      "liveRows": 0,
+      "codeRefs": 3
+    },
+    {
+      "name": "rag_chunks",
+      "bucket": "in-use",
+      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "liveRows": 0,
+      "codeRefs": 4
+    },
+    {
+      "name": "audit_logs_202611",
+      "bucket": "monthly-partition",
+      "reason": "audit_logs 月分表,由分区/归档流程维护,不建模",
+      "liveRows": 0,
+      "codeRefs": 0
+    }
+  ]
+}

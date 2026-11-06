@@ -36,7 +36,7 @@ export const zhsAgentBuy = pgTable(
     agentName: varchar('agent_name', { length: 128 }), // 智能体名称(冗余便于列表展示)
     bugName: varchar('bug_name', { length: 128 }), // 购买者昵称(冗余)
     categoryId: integer('category_id'), // 智能体分类 ID(冗余)
-    discount: numeric('discount', { precision: 5, scale: 2 }).default('1.00'), // 折扣(0-1, 1.00=无折扣)
+    discount: numeric('discount', { precision: 5, scale: 2 }).default('1.00').notNull(), // 折扣(0-1, 1.00=无折扣)
     prologue: text('prologue'), // 智能体开场白(冗余便于审计)
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

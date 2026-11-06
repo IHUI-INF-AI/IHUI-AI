@@ -1,0 +1,164 @@
+{
+  "//": "T9 hashDrift 存量豁免清单(棘轮)。只豁免 capturedAt 时点的 25 条存量;任何新 tag 出现 hashDrift => 直接红。每条必须有 state 与对应证据路径,CI 会校验 compensation 文件存在。",
+  "capturedAt": "2026-11-07",
+  "baselineTags": 25,
+  "method": "账本旧 hash 与 git 历史 blob 逐一比对:sha256(blob)==ledger hash,再比对去水印后的可见正文(canonical-equal)",
+  "states": {
+    "compensated": "内容确有变化,已有/本次新增补偿迁移把存量库追平",
+    "rewrite-verified": "21:05 批改写,逐件体检判定等价且幂等,并由 from-zero ④ 断言背书",
+    "watermark-verified": "旧 blob 与现文件去水印后正文逐字相同,仅水印字节差,无需补偿",
+    "pending": "账本旧 blob 不在 git 历史(疑似工作区直改后未提交),未定性;出票跟踪,不豁免新漂移"
+  },
+  "entries": [
+    {
+      "tag": "0085_exam_wrong_unique",
+      "state": "rewrite-verified",
+      "evidence": "8362ac24fa",
+      "note": "唯一索引改写为幂等守卫,语义等价;b300206291 逐件体检结论"
+    },
+    {
+      "tag": "0108_r83_supplement_27_tables",
+      "state": "compensated",
+      "compensation": "20261107006000_rewrite_default_cleanup.sql",
+      "note": "旧版给 oauth_private_keys.ai_world_* 留了 DEFAULT '';06000 撤默认"
+    },
+    {
+      "tag": "0110_skills_tombstone",
+      "state": "pending",
+      "ticket": "DB-DRIFT-01",
+      "note": "账本旧 blob 不在 git 历史;需拿 B11 修订证明或人工核对旧字节来源"
+    },
+    {
+      "tag": "0115_r82_seed_unique_indexes",
+      "state": "rewrite-verified",
+      "evidence": "8362ac24fa",
+      "note": "4 处唯一索引加幂等守卫,语义等价"
+    },
+    {
+      "tag": "0125_knowledge_graph",
+      "state": "rewrite-verified",
+      "evidence": "8362ac24fa",
+      "note": "2 处建表/索引加 IF NOT EXISTS,语义等价"
+    },
+    {
+      "tag": "0126_ai-world-sync",
+      "state": "compensated",
+      "compensation": "20261107006000_rewrite_default_cleanup.sql",
+      "note": "旧版给 ai_world_categories/items 留了 DEFAULT '';06000 撤默认"
+    },
+    {
+      "tag": "0212_phase2_refund_invoice_fk",
+      "state": "compensated",
+      "compensation": "20261107001000_drop_stale_refund_order_fk.sql",
+      "note": "旧版遗留退款单旧外键;01000 仅在新旧 FK 共存时删旧;0212 的 CASE 语法由 b300206291 修复"
+    },
+    {
+      "tag": "20260913000000_llm_call_logs_config_id_bigint",
+      "state": "pending",
+      "ticket": "DB-DRIFT-02",
+      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+    },
+    {
+      "tag": "20260913160000_multimodal_billing",
+      "state": "pending",
+      "ticket": "DB-DRIFT-03",
+      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+    },
+    {
+      "tag": "20260913170000_cost_cents_numeric",
+      "state": "pending",
+      "ticket": "DB-DRIFT-04",
+      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+    },
+    {
+      "tag": "20260916170000_api_subscription_windows_and_peak_pricing",
+      "state": "compensated",
+      "compensation": "20261107000000_repair_api_subscription_drift.sql",
+      "note": "plans 8 列 + 3 表 + 7 索引由 00000 追平"
+    },
+    {
+      "tag": "20260917100000_admin_console_modules",
+      "state": "watermark-verified",
+      "evidence": "134c565dbd",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260919100000_edu_canteen",
+      "state": "watermark-verified",
+      "evidence": "104d3de918",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260919140000_user_emails",
+      "state": "watermark-verified",
+      "evidence": "0f3c27828d",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260920110000_conversation_imports",
+      "state": "watermark-verified",
+      "evidence": "0f3c27828d",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260920170000_agent_checkpoints",
+      "state": "watermark-verified",
+      "evidence": "0f3c27828d",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260924100000_chat_history_projection",
+      "state": "watermark-verified",
+      "evidence": "950723390e",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260926100000_github_app_tables",
+      "state": "watermark-verified",
+      "evidence": "0a4893fdc7",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20260930120000_edu_study_loops",
+      "state": "pending",
+      "ticket": "DB-DRIFT-05",
+      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+    },
+    {
+      "tag": "20260930130000_points_mall_orders",
+      "state": "watermark-verified",
+      "evidence": "69d1d0e71e",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20261003020000_codebase_chunks_tenant_ttl",
+      "state": "pending",
+      "ticket": "DB-DRIFT-06",
+      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+    },
+    {
+      "tag": "20261018160000_agent_state_tables_runtime_reality",
+      "state": "compensated",
+      "compensation": "20261107006000_rewrite_default_cleanup.sql",
+      "note": "旧版空表分支给 agent_working_memory_compression 两列留默认;06000 撤默认"
+    },
+    {
+      "tag": "20261023180000_relay_account_pool_owner",
+      "state": "watermark-verified",
+      "evidence": "8e6f8fe101",
+      "note": "旧 blob sha256 == ledger hash;去水印后正文逐字相同"
+    },
+    {
+      "tag": "20261027090000_default_user_avatar",
+      "state": "pending",
+      "ticket": "DB-DRIFT-07",
+      "note": "该迁移在快照之后应用,无旧 ledger hash 可比;需现场取账本 hash 后回溯"
+    },
+    {
+      "tag": "20261104120000_agent_team_collab",
+      "state": "rewrite-verified",
+      "evidence": "b300206291",
+      "note": "3 处 IF NOT EXISTS 加守卫,语义等价"
+    }
+  ]
+}

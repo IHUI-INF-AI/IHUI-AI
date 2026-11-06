@@ -9334,7 +9334,8 @@ export function auditMigrationGaps(opts = {}) {
         ? runner()
         : (() => {
             try {
-              const out = execFileSync(process.execPath, [script, '--json'], {
+              // T9:hashDrift 升 blocking —— 存量 25 条走豁免清单,清单外新漂移必须判红
+              const out = execFileSync(process.execPath, [script, '--json', '--fail-on-hash-drift'], {
                 cwd: WORKTREE,
                 encoding: 'utf8',
                 windowsHide: true, // §5b
@@ -9373,11 +9374,31 @@ export function auditMigrationGaps(opts = {}) {
     const late = p.lateGap
     const pending = Array.isArray(p.pending) ? p.pending : []
     const drift = Array.isArray(p.hashDrift) ? p.hashDrift : []
-    if (late.length === 0) {
+    const driftUnexplained = Array.isArray(p.hashDriftUnexplained) ? p.hashDriftUnexplained : []
+    if (late.length === 0 && driftUnexplained.length === 0) {
       logger(
-        `✅ 迁移缺口审计:无中间缺口(applied=${p.applied ?? '?'} / pending=${pending.length} / hashDrift=${drift.length} 只报数)`,
+        `✅ 迁移缺口审计:无中间缺口(applied=${p.applied ?? '?'} / pending=${pending.length} / ` +
+          `hashDrift=${drift.length}(存量豁免)/ 未豁免漂移=0)`,
       )
       return { ran: true, judged: true, ok: true }
+    }
+    if (late.length === 0 && driftUnexplained.length) {
+      const dTags = driftUnexplained.map((x) => String(x)).sort()
+      const outcome = notify(
+        'DB 迁移账本出现未登记的新 hash 漂移',
+        `未豁免漂移 ${dTags.length} 条:${dTags.join(', ')}\n` +
+          `口径:已应用过的迁移文件字节被改 ⇒ drizzle 不会重跑,存量库可能与新链不一致。\n` +
+          `处置:①逐条定位旧 blob 并比对去水印正文(canonical-equal 可判无补偿);②确有语义变化则补一条补偿迁移;\n` +
+          `③在 scripts/migration-hash-drift-exempt.json 登记 state+证据后才可放行(pending 必须带票号)。\n` +
+          `取证:node scripts/check-db-migration-gaps.mjs --json`,
+        { severity: 'critical', dedupKey: `migration-hash-drift;set=${dTags.join('+').slice(0, 600)}` },
+      )
+      logger(
+        outcome && outcome.suppressed
+          ? `ℹ️ 迁移缺口审计:同一漂移窗口内已通报,本轮压住 —— ${dTags.join(', ').slice(0, 140)}`
+          : `❌ 迁移缺口审计:新 hash 漂移已派发到邮件通道 —— ${dTags.join(', ').slice(0, 140)}`,
+      )
+      return { ran: true, judged: true, ok: false, hashDriftUnexplained: dTags.length }
     }
     const tags = late.map((x) => (x && x.tag) || '(无名)').sort()
     const outcome = notify(

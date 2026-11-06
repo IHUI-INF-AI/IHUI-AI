@@ -3060,6 +3060,23 @@ function Invoke-DbMigrate {
         } else {
             Log "MIG   无待应用迁移 ⇒ 跳过迁移前快照(pg_dump 不在无变更轮次制造无用磁盘)"
         }
+        # ── vector 扩展前置断言(2026-11-07 立)────────────────────────────────
+        # 迁移链里有 4 个文件以 superuser 身份 CREATE EXTENSION "vector";目标库未预装时,以非 superuser
+        # 执行会报 42501,紧接着 4 处建表/改列级联成 "relation does not exist",把"缺扩展"伪装成
+        # "迁移写坏"。这里在 db:migrate 之前用**只读**查询把根因点出来并硬失败(不切流)。
+        if ($null -ne $pendPre -and $pendPre -gt 0) {
+            $psqlChk = Get-PsqlExe
+            if ($psqlChk -and $env:DATABASE_URL) {
+                $vec = ((& $psqlChk $env:DATABASE_URL -At -c "select count(*) from pg_extension where extname='vector';" 2>$null) | Out-String).Trim()
+                $sup = ((& $psqlChk $env:DATABASE_URL -At -c "select rolSuper from pg_roles where rolname=current_user;" 2>$null) | Out-String).Trim()
+                if ($vec -eq '0') {
+                    Fail "DB 迁移前置检查失败:目标库未安装 vector 扩展" -Detail "部署前置:先由 superuser 在目标库执行 CREATE EXTENSION IF NOT EXISTS vector(当前角色 superuser=$sup;目标库=$(Get-DbNameFromUrl -Url $env:DATABASE_URL))。本次不执行迁移、不切流;后续 relation does not exist 是缺扩展的级联假象,不是迁移写坏。" -Reason 'db-vector-missing'
+                }
+                Log "MIG   前置检查:vector 扩展已装(superuser=$sup)"
+            } else {
+                Log "MIG   前置检查跳过:psql 或 DATABASE_URL 不可用 —— 不据此硬失败"
+            }
+        }
         $mig = Invoke-MigrateWithBudget -BudgetSec $migBudgetSec
         # 取码即存(2026-09-26 主修点,现读复现):旧顺序是 & pnpm db:migrate → Get-PendingMigrationCount
         # (原生 psql)→ Test-MigrateOrphans(又一次原生 psql)→ 才判 $LASTEXITCODE —— 两次 psql 把它

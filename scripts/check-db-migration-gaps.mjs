@@ -24,12 +24,19 @@
  *   node scripts/check-db-migration-gaps.mjs                 # 只读审计
  *   node scripts/check-db-migration-gaps.mjs --json          # 机器可读
  *   node scripts/check-db-migration-gaps.mjs --repair --yes  # 应用 lateGap 的 SQL 并补账本行
+ *   node scripts/check-db-migration-gaps.mjs --fail-on-hash-drift  # T9:未豁免的新漂移判红(存量按清单豁免)
  *   node scripts/check-db-migration-gaps.mjs --self-test
  *   --env-file <path>   DSN 来源(默认 apps/api/.env;也可直接用 env DATABASE_URL)
  *   --journal <path>    journal(默认 packages/database/drizzle/meta/_journal.json)
+ *   --exempt <path>     hashDrift 存量豁免清单(默认 scripts/migration-hash-drift-exempt.json)
  *   --backup-dir <path> 修复前账本快照目录(默认 D:/DevEnv/backups,§5b 批准落点;env IHUI_BACKUP_DIR 可覆盖)
  *
- * 退出码:0 = 无 lateGap;1 = 有 lateGap(或修复中某条失败);2 = 未判定(psql/DSN/库/journal 取不到)。
+ * T9 口径:hashDrift 由「只报数」升为**可阻断**,但只对**清单外的新漂移**判红(存量 25 条逐条给了
+ * compensated/rewrite-verified/watermark-verified/pending 处理路径);清单不合法(compensation 文件缺失、
+ * pending 无票号)属配置错误,直接 exit 2,不做静默降级。
+ *
+ * 退出码:0 = 无 lateGap(且 blocking 档下无未豁免漂移);1 = 有 lateGap / 未豁免漂移(或修复中某条失败);
+ *        2 = 未判定(psql/DSN/库/journal 取不到,或豁免清单不合法)。
  * 密码纪律:DSN 只经 PGPASSWORD 传给子进程,绝不进 argv/日志;任何输出都不打印 DSN。
  */
 import { createHash } from 'node:crypto'
@@ -45,6 +52,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_JOURNAL = join(ROOT, 'packages/database/drizzle/meta/_journal.json')
 const DEFAULT_ENV_FILE = join(ROOT, 'apps/api/.env')
 const DEFAULT_BACKUP_DIR = 'D:/DevEnv/backups'
+const DEFAULT_EXEMPT_PATH = join(ROOT, 'scripts/migration-hash-drift-exempt.json')
+const EXEMPT_STATES = new Set(['compensated', 'rewrite-verified', 'watermark-verified', 'pending'])
 
 /** journal 在 `<drizzle>/meta/` 下,而 SQL 文件在 `<drizzle>/` —— 两者差一层,取错会把每条都读成“文件缺失”。 */
 export function migrationsDirOf(journalPath) {
@@ -79,6 +88,62 @@ export function classifyMigrationGaps({ journal, applied, fileHashOf }) {
     else if (whens.has(String(when))) out.hashDrift.push(e)
     else if (when > maxApplied) out.pending.push(e)
     else out.lateGap.push(e)
+  }
+  return out
+}
+
+/**
+ * T9 hashDrift 存量豁免清单校验(纯函数;`fileExists` 由调用方注入以便构造面测试)。
+ * 契约:进入清单的 tag 必须:
+ *   · state ∈ 四档;compensated 的 compensation 文件必须真实存在(防“写了票没落地”);
+ *   · rewrite-verified / watermark-verified 必须有 evidence(commit 短号);
+ *   · pending 必须有 ticket(未定性也要留追号,不许裸豁免)。
+ * 返回 { ok, byTag:Map<tag,entry>, problems:string[] }。
+ */
+export function loadHashDriftExempt(raw, fileExists = () => true) {
+  const problems = []
+  const byTag = new Map()
+  const entries = Array.isArray(raw?.entries) ? raw.entries : []
+  if (!entries.length) problems.push('豁免清单为空或缺少 entries 数组')
+  for (const e of entries) {
+    const tag = String(e?.tag ?? '').trim()
+    if (!tag) {
+      problems.push('存在 tag 为空的条目')
+      continue
+    }
+    if (byTag.has(tag)) problems.push(`${tag}:重复条目`)
+    if (!EXEMPT_STATES.has(e?.state)) {
+      problems.push(`${tag}:state 非法(${e?.state})`)
+      continue
+    }
+    if (e.state === 'compensated') {
+      if (!e.compensation) problems.push(`${tag}:compensated 缺 compensation`)
+      else if (!fileExists(e.compensation)) problems.push(`${tag}:compensation 文件不存在(${e.compensation})`)
+    } else if (e.state === 'pending') {
+      if (!e.ticket) problems.push(`${tag}:pending 缺 ticket`)
+    } else if (!e.evidence) {
+      problems.push(`${tag}:${e.state} 缺 evidence`)
+    }
+    byTag.set(tag, e)
+  }
+  return { ok: problems.length === 0, byTag, problems }
+}
+
+/**
+ * 把 hashDrift 分成「已豁免(存量)」与「未豁免(新增)」。
+ * 只有未豁免的 tag 在 --fail-on-hash-drift 档下判红;pending 计入存量但单独报数。
+ */
+export function partitionHashDrift(driftTags, exempt) {
+  const known = exempt?.byTag ?? new Map()
+  const out = { exempted: [], unexplained: [], counts: {} }
+  for (const tag of driftTags ?? []) {
+    const e = known.get(tag)
+    if (e) {
+      out.exempted.push({ tag, state: e.state })
+      out.counts[e.state] = (out.counts[e.state] ?? 0) + 1
+    } else {
+      out.unexplained.push(tag)
+    }
   }
   return out
 }
@@ -140,7 +205,13 @@ function readApplied(psql, dsn) {
   return { ok: true, applied: rows }
 }
 
-export const __test__ = { classifyMigrationGaps, readDsn, migrationsDirOf }
+export const __test__ = {
+  classifyMigrationGaps,
+  loadHashDriftExempt,
+  partitionHashDrift,
+  readDsn,
+  migrationsDirOf,
+}
 
 function selfTest() {
   const checks = []
@@ -167,6 +238,35 @@ function selfTest() {
   ok('S5 maxApplied 取账本最大值', r.maxApplied === 300)
   const empty = classifyMigrationGaps({ journal: { entries: [] }, applied: [], fileHashOf: () => null })
   ok('S6 空 journal ⇒ 四桶全空(不静默造红)', empty.applied.length + empty.lateGap.length + empty.pending.length + empty.hashDrift.length === 0)
+
+  // T9 豁免清单:契约校验 + 存量/新增分割
+  const goodRaw = {
+    entries: [
+      { tag: 'x1', state: 'compensated', compensation: '20261107006000_a.sql' },
+      { tag: 'x2', state: 'rewrite-verified', evidence: 'abc1234' },
+      { tag: 'x3', state: 'watermark-verified', evidence: 'def5678' },
+      { tag: 'x4', state: 'pending', ticket: 'DB-DRIFT-01' },
+    ],
+  }
+  const good = loadHashDriftExempt(goodRaw, (f) => f === '20261107006000_a.sql')
+  ok('S7 合法豁免清单 ⇒ ok', good.ok && good.byTag.size === 4)
+  const bad = loadHashDriftExempt(
+    {
+      entries: [
+        { tag: 'y1', state: 'compensated', compensation: 'missing.sql' },
+        { tag: 'y2', state: 'pending' },
+        { tag: 'y3', state: 'bogus' },
+        { tag: 'y1', state: 'rewrite-verified', evidence: 'e' },
+      ],
+    },
+    () => false,
+  )
+  ok('S8 非法清单 ⇒ 逐条报问题(缺文件/缺票/state 非法/重复)', bad.ok === false && bad.problems.length === 4)
+  const part = partitionHashDrift(['x1', 'x2', 'zz_new'], good)
+  ok('S9 存量豁免、新增未豁免', part.exempted.length === 2 && part.unexplained.length === 1 && part.unexplained[0] === 'zz_new')
+  const partNo = partitionHashDrift(['x1'], { byTag: new Map() })
+  ok('S10 清单为空 ⇒ 全部未豁免(不静默放水)', partNo.unexplained.length === 1)
+
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -193,6 +293,8 @@ function main() {
   const backupDir = opt('--backup-dir', process.env.IHUI_BACKUP_DIR || DEFAULT_BACKUP_DIR)
   const repair = has('--repair')
   const json = has('--json')
+  const failOnDrift = has('--fail-on-hash-drift')
+  const exemptPath = opt('--exempt', DEFAULT_EXEMPT_PATH)
 
   let journal
   try {
@@ -228,6 +330,27 @@ function main() {
   }
   const g = classifyMigrationGaps({ journal, applied: ap.applied, fileHashOf })
 
+  // T9:hashDrift 存量豁免清单(缺文件/坏条目一律 exit 2,不静默降级)
+  let exemptRaw
+  try {
+    exemptRaw = JSON.parse(readFileSync(exemptPath, 'utf8'))
+  } catch (e) {
+    console.log(`⚠️ 未判定 —— hashDrift 豁免清单读不到:${exemptPath}(${String(e?.code ?? e)})`)
+    console.log('GAPS-RESULT state=undetermined lateGap=0 pending=0 hashDrift=0')
+    return 2
+  }
+  const exempt = loadHashDriftExempt(exemptRaw, (name) => existsSync(join(dir, name)))
+  if (!exempt.ok) {
+    console.error(`❌ hashDrift 豁免清单不合法(${exemptPath}):`)
+    for (const p of exempt.problems) console.error(`  · ${p}`)
+    console.log('GAPS-RESULT state=undetermined lateGap=0 pending=0 hashDrift=0')
+    return 2
+  }
+  const part = partitionHashDrift(g.hashDrift.map((e) => e.tag), exempt)
+  const driftCounts =
+    `compensated=${part.counts.compensated ?? 0}/rewrite=${part.counts['rewrite-verified'] ?? 0}/` +
+    `watermark=${part.counts['watermark-verified'] ?? 0}/pending=${part.counts.pending ?? 0}`
+
   const fmt = (list) => list.slice(0, 20).map((e) => `${e.tag}(${new Date(Number(e.when)).toISOString().slice(0, 10)})`)
   if (json) {
     console.log(
@@ -236,26 +359,42 @@ function main() {
         pending: g.pending.map((e) => e.tag),
         lateGap: g.lateGap.map((e) => ({ tag: e.tag, when: e.when })),
         hashDrift: g.hashDrift.map((e) => e.tag),
+        hashDriftExempted: part.exempted,
+        hashDriftUnexplained: part.unexplained,
         maxApplied: g.maxApplied,
       }),
     )
   } else {
     console.log(
-      `应用账本: applied=${g.applied.length} / lateGap=${g.lateGap.length} / pending=${g.pending.length} / hashDrift=${g.hashDrift.length}(只报数)`,
+      `应用账本: applied=${g.applied.length} / lateGap=${g.lateGap.length} / pending=${g.pending.length} / ` +
+        `hashDrift=${g.hashDrift.length}(豁免 ${part.exempted.length},未豁免 ${part.unexplained.length})`,
     )
     if (g.lateGap.length) console.log(`  ❌ 中间缺口(drizzle 永不应用):${fmt(g.lateGap).join(', ')}`)
     if (g.pending.length) console.log(`  ⏳ 待应用(drizzle 下轮会补):${fmt(g.pending).join(', ')}`)
-    if (g.hashDrift.length) console.log(`  ℹ️ 账本 hash 与现文件不同但 when 已在账(内容后改/水印):${fmt(g.hashDrift).join(', ')}`)
+    if (g.hashDrift.length)
+      console.log(
+        `  ℹ️ 账本 hash 与现文件不同但 when 已在账:共 ${g.hashDrift.length} 条,` +
+          `存量豁免 ${part.exempted.length}(${driftCounts}),未豁免 ${part.unexplained.length}`,
+      )
+    if (part.unexplained.length)
+      console.log(
+        `  ${failOnDrift ? '❌' : '⚠️'} 未豁免漂移${failOnDrift ? '(blocking)' : '(仅告警,加 --fail-on-hash-drift 即红)'}:` +
+          `${fmt(part.unexplained.map((tag) => ({ tag, when: journal.entries.find((e) => e.tag === tag)?.when }))).join(', ')}`,
+      )
+    if (part.counts.pending)
+      console.log(`  📝 未定性存量 ${part.counts.pending} 条(pending 票号见 scripts/migration-hash-drift-exempt.json)`)
   }
 
   if (!repair) {
     // `--json` 契约:**只输出一行 JSON**,不再追加人读摘要 —— 调用方(守护/部署)按“最后一行”解析,
     // 多一行摘要就等于把可解析读数永远判成"未判定"(2026-10-25 实测踩中)。
+    const red = g.lateGap.length > 0 || (failOnDrift && part.unexplained.length > 0)
     if (!json)
       console.log(
-        `GAPS-RESULT state=${g.lateGap.length ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} hashDrift=${g.hashDrift.length}`,
+        `GAPS-RESULT state=${red ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} ` +
+          `hashDrift=${g.hashDrift.length} hashDriftUnexplained=${part.unexplained.length}`,
       )
-    return g.lateGap.length ? 1 : 0
+    return red ? 1 : 0
   }
   if (!has('--yes')) {
     console.log('❌ 修复档必须显式 --yes(会在生产库执行 DDL 并写迁移账本)')
