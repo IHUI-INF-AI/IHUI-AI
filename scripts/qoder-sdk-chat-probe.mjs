@@ -26,14 +26,17 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PROMPT = process.argv[2] || '只回复一个词: pong'
 const TIMEOUT_MS = Number(process.env.QODER_PROBE_TIMEOUT_MS || 120000)
 
-/** 候选安装根目录（env 优先，其余为常见落点） */
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/** 候选安装根目录（env 优先,其余为仓根内约定落点与常见安装位置） */
 const APP_DIR_CANDIDATES = [
   process.env.QODER_APP_DIR,
-  'D:/电脑软件/Qoder CN',
+  path.join(REPO_ROOT, '.DevEnv', 'tools', 'Qoder CN'),
   'C:/Program Files/Qoder CN',
   'C:/Program Files (x86)/Qoder CN',
 ].filter(Boolean)
