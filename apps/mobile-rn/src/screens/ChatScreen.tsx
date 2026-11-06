@@ -60,6 +60,7 @@ import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { tokens } from '../theme/active-tokens'
+import { dialogContentHeightStyle } from '../lib/dialog-geometry'
 import {
   BookOpen,
   Bot,
@@ -544,11 +545,13 @@ export function ChatScreen() {
     systemPrompt: '',
     streamEnabled: true,
   })
-  // RN 0.86 Fabric:百分比 maxHeight 不会给子节点确定高度,内部列表无法滚动 →
-  // 用 useWindowDimensions 算出确定高度,并同步覆盖 listDialogContent 的 maxHeight:'70%'
-  // (两者不一致会被 maxHeight 截断,导致底部内容被 overflow:hidden 裁掉)
+  // ── 弹层内容高度:单一真相源 src/lib/dialog-geometry.ts ──
+  // RN 0.86 Fabric 下百分比 maxHeight 不给子节点确定高度 ⇒ 内部 ScrollView / FlatList
+  // 无法滚动,且 overflow:'hidden' 会把底部内容裁掉。此前只有「模型列表」补了确定高度,
+  // 而比例与样式表里的百分比上限各写一份靠人工同步,改一处忘另一处即截断。
+  // 现在比例、取整、height/maxHeight 配对全在那一个模块里,本屏所有弹层统一消费。
   const { height: windowHeight } = useWindowDimensions()
-  const modelPickerHeight = Math.round(windowHeight * 0.7)
+  const dialogHeightStyle = useMemo(() => dialogContentHeightStyle(windowHeight), [windowHeight])
 
   // ── 模型/对话状态 ──
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
@@ -3173,7 +3176,10 @@ export function ChatScreen() {
           onRequestClose={closeMaterialList}
         >
           <Tappable style={styles.modalMask} onPress={closeMaterialList}>
-            <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={[styles.materialPopup, dialogHeightStyle]}
+              onPress={(e) => e.stopPropagation()}
+            >
               <MaterialList
                 categories={MATERIAL_CATEGORY_KEYS.map((c) => ({ ...c, label: t(c.label) }))}
                 activeCategory={materialTab}
@@ -3198,7 +3204,10 @@ export function ChatScreen() {
         onRequestClose={closeMaterialDetail}
       >
         <Tappable style={styles.modalMask} onPress={closeMaterialDetail}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('mat.detailLabel')}
@@ -3335,7 +3344,10 @@ export function ChatScreen() {
           {/* 外层由 Pressable 换成避让层后,点遮罩关闭的手势下移到这枚满屏 Pressable
               (与 BottomPops / VerifyCodeModal 同一形态),否则"点空白处关掉"会静默失效。 */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setUrlInputVisible(false)} />
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>网页链接</Text>
               <Tappable
@@ -3381,7 +3393,10 @@ export function ChatScreen() {
         onRequestClose={() => setFileUploadVisible(false)}
       >
         <Tappable style={styles.modalMask} onPress={() => setFileUploadVisible(false)}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>文件上传</Text>
               <Tappable
@@ -3435,10 +3450,7 @@ export function ChatScreen() {
       >
         <Tappable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
           <Pressable
-            style={[
-              styles.listDialogContent,
-              { height: modelPickerHeight, maxHeight: modelPickerHeight },
-            ]}
+            style={[styles.listDialogContent, dialogHeightStyle]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
@@ -4012,8 +4024,8 @@ const styles = StyleSheet.create({
   },
   // ── 素材库弹窗(Modal 内部对话框样式,参考 listDialogContent) ──
   materialPopup: {
+    // 高度由 dialogHeightStyle 统一注入(禁止在此写百分比上限,见 dialog-geometry.ts)
     width: '88%',
-    maxHeight: '70%',
     backgroundColor: tokens.surface.bg,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
@@ -4203,8 +4215,8 @@ const styles = StyleSheet.create({
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {
+    // 高度由 dialogHeightStyle 统一注入(禁止在此写百分比上限,见 dialog-geometry.ts)
     width: '88%',
-    maxHeight: '70%',
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',

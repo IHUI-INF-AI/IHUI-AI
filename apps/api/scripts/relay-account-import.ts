@@ -23,7 +23,9 @@
  *   ... --stdin              从标准输入读 JSON
  *   ... --dry-run            只校验与预检,不写库
  *   ... --no-health          导入后不做上游健康检查
- *   ... --json               输出机器可读摘要
+ *   ... --json               输出机器可读摘要(含 ownerUserIdMasked / ownerSource)
+ *   ... --owner <users.id>   落该用户的个人池;缺省 = 运营池(不猜)
+ *   ... --owner-source <名>  归属来源透传(词汇单源 scripts/lib/pool-owner.mjs)
  *
  * 安全:任何输出都不包含令牌明文;cookies/token 只在内存与加密落库之间流动。
  * 退出码:0 成功 / 1 校验不通过或全部失败 / 2 参数/读取/环境未判定。
@@ -65,6 +67,12 @@ interface CliOptions {
    * 与机主 2026-10-31「我自己填入号池的账号只能跟着我的账号走」直接相违。
    */
   ownerUserId: string | null
+  /**
+   * 归属来源词汇的唯一真相源 = `scripts/lib/pool-owner.mjs` 的 `OWNER_SOURCES`
+   * (`explicit-flag` | `default-owner-file` | `none`)。本脚本**只透传不解释**(故不在此
+   * 复制第二份清单,§0.6),缺省按"给了 --owner 就是显式旗标,否则 none"如实回填。
+   */
+  ownerSource: string
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -76,6 +84,14 @@ const HELP = `账号池导入(服务端落库)
 直接调用:
   pnpm exec tsx scripts/relay-account-import.ts (--file <json> | --stdin)
     [--provider <${RELAY_PROVIDERS.join('|')}>] [--dry-run] [--no-health] [--json]
+    [--owner <users.id>]      落该用户的个人池;缺省 = 运营池
+    [--owner-source <名>]     归属来源(explicit-flag|default-owner-file|none),编排器透传;
+                              缺省按"给了 --owner 记 explicit-flag,否则 none"回填。
+                              词汇唯一真相源 = scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
+                              本脚本只透传不解释。
+
+归属默认(2026-11-06 器物化):编排器不带 --owner 时会读本机 ~/.wb-switch/pool-owner 并代填,
+  取不到才落运营池(取不到的原因由编排器打在 stdout,不静默)。直调本脚本不享有该默认。
 
 输入:标准账号导出 JSON({accounts:[...]} 或裸数组);provider 可来自 --provider 或文件顶层 providerCode。
 退出码:0 成功 / 1 校验不通过或全部失败 / 2 参数或环境未判定。`
@@ -93,6 +109,7 @@ function parseArgs(argv: string[]): {
     health: true,
     json: false,
     ownerUserId: null,
+    ownerSource: '',
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -118,6 +135,18 @@ function parseArgs(argv: string[]): {
         return { help: false, options: null, error: '--owner 需要 users.id(不给 = 运营池,不猜)' }
       }
       options.ownerUserId = v
+    } else if (arg === '--owner-source') {
+      // 只透传不解释:词汇的唯一真相源在 scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
+      // 本脚本不得复制第二份清单(§0.6);取值形状校验与同文件其余带值旗标同一把尺。
+      const v = (argv[++i] ?? '').trim()
+      if (!v || v.startsWith('--')) {
+        return {
+          help: false,
+          options: null,
+          error: '--owner-source 需要来源短名(explicit-flag|default-owner-file|none)',
+        }
+      }
+      options.ownerSource = v
     } else {
       return { help: false, options: null, error: `未知参数: ${arg}` }
     }
@@ -128,11 +157,29 @@ function parseArgs(argv: string[]): {
   if (!options.stdin && !options.file) {
     return { help: false, options: null, error: '缺少输入:--file <json> 或 --stdin' }
   }
+  // 来源缺省回填(单独直调本脚本时没有编排器给旗标):给了 --owner 就是显式旗标,否则 none。
+  if (!options.ownerSource) {
+    options.ownerSource = options.ownerUserId ? 'explicit-flag' : 'none'
+  }
   return { help: false, options, error: null }
 }
 
 function readStdin(): string {
   return readFileSync(0, 'utf8')
+}
+
+/**
+ * 归属的对外显示形态:个人池 = 前 8 位 + ***(完整 users.id 不外显,非机密也不必外显);
+ * 运营池 = null。人类面与 --json 机器面共用本函数 ⇒ 两端不可能给出不同结论。
+ */
+function ownerUserIdForDisplay(opts: CliOptions): string | null {
+  return opts.ownerUserId ? `${opts.ownerUserId.slice(0, 8)}***` : null
+}
+
+/** 人类面归属短语(与 ownerUserIdForDisplay / ownerSource 同源) */
+function ownerDisplayText(opts: CliOptions): string {
+  if (opts.ownerUserId) return `${ownerUserIdForDisplay(opts)} 个人池(来源:${opts.ownerSource})`
+  return `运营池(来源:${opts.ownerSource})`
 }
 
 export interface HealthOutcome {
@@ -292,6 +339,10 @@ async function main(argv: string[]): Promise<number> {
       ok: true,
       dryRun: true,
       providerCode,
+      // 归属如实上报:机器面与人类面必须读同一枚结论(2026-11-06 与编排器同步新增)
+      // 值一律脱敏形态(前 8 位 + ***),与人类面同一把尺;完整 uuid 不外显。
+      ownerUserIdMasked: ownerUserIdForDisplay(opts),
+      ownerSource: opts.ownerSource,
       total: report.total,
       valid: report.valid,
       // 口径点名:这里的 duplicateUids/uid 一律是"落库口径"(与 importAccounts 同键源),
@@ -349,6 +400,9 @@ async function main(argv: string[]): Promise<number> {
   const summary = {
     ok: result.failed === 0,
     providerCode,
+    // 归属如实上报:与预检档、人类面同源(值脱敏,完整 uuid 不外显)
+    ownerUserIdMasked: ownerUserIdForDisplay(opts),
+    ownerSource: opts.ownerSource,
     total: result.total,
     imported: result.imported,
     updated: result.updated,
@@ -374,7 +428,7 @@ async function main(argv: string[]): Promise<number> {
     process.stdout.write(
       `导入完成:平台=${providerCode} 新增=${result.imported} 更新=${result.updated} 跳过=${result.skipped} 失败=${result.failed}` +
         // 归属必须回显:此前 CLI 没有 owner 出口,个人池的号被静默打回运营池 = 别人也可能被调度到它
-        ` 归属=${opts.ownerUserId ? `${opts.ownerUserId.slice(0, 8)}*** 个人池` : '运营池(未给 --owner)'}\n`,
+        ` 归属=${ownerDisplayText(opts)}\n`,
     )
     for (const item of summary.items) {
       process.stdout.write(
