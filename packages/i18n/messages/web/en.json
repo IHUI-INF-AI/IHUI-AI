@@ -29539,6 +29539,8 @@
     "selfCheckIn": "Self check-in",
     "selfCheckInSuccess": "Checked in successfully",
     "selfCheckInFailed": "Check-in failed, please try again later",
+    "selfCheckOutSuccess": "Checked out successfully",
+    "selfCheckOutFailed": "Check-out failed, please try again later",
     "notLoggedIn": "Sign in to view your attendance",
     "rulePanelTitle": "Attendance rules",
     "ruleClassHint": "Pick a class to load its rules",
