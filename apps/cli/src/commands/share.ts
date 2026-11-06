@@ -93,11 +93,95 @@ export interface ShareQrBlock {
  * 完整性:正文区携带 `data-sha256`(= 传入 markdown 的摘要),页内脚本对「原始 Markdown」文本重算比对;
  * 取不到输入或宿主无 WebCrypto 时显式显示「未判定」,不记绿也不冒红。
  */
-export function renderShareHtml(markdown: string, hash: string, title: string, qr?: ShareQrBlock): string {
+const SESSION_PHASE_ID = /^[a-z0-9][a-z0-9_-]{0,40}$/;
+
+export type SessionReportJudgment = {
+  disposition: 'judged' | 'unjudged';
+  reason:
+    | 'within-budget'
+    | 'over-budget'
+    | 'budget-unmeasured'
+    | 'elapsed-unmeasured'
+    | 'phases-unmeasured'
+    | 'phase-unreadable';
+  overBudget: boolean | null;
+  phases: { id: string; cache: 'hit' | 'miss' }[] | null;
+};
+
+function nonNegativeMs(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+  return value;
+}
+
+/** 预算和阶段都必须是量到的数。缺一不记成达标，缓存也只认 hit/miss 两个字。 */
+export function judgeSessionReport(input: {
+  budgetMs: unknown;
+  elapsedMs: unknown;
+  phases: unknown;
+}): SessionReportJudgment {
+  const blank = (reason: SessionReportJudgment['reason']): SessionReportJudgment => ({
+    disposition: 'unjudged',
+    reason,
+    overBudget: null,
+    phases: null,
+  });
+  const budget = nonNegativeMs(input.budgetMs);
+  if (budget === null) return blank('budget-unmeasured');
+  const elapsed = nonNegativeMs(input.elapsedMs);
+  if (elapsed === null) return blank('elapsed-unmeasured');
+  if (!Array.isArray(input.phases)) return blank('phases-unmeasured');
+  const phases: { id: string; cache: 'hit' | 'miss' }[] = [];
+  for (const item of input.phases) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) return blank('phase-unreadable');
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== 'string' || !SESSION_PHASE_ID.test(row.id)) return blank('phase-unreadable');
+    if (row.cache !== 'hit' && row.cache !== 'miss') return blank('phase-unreadable');
+    phases.push({ id: row.id, cache: row.cache });
+  }
+  const overBudget = elapsed > budget;
+  return {
+    disposition: 'judged',
+    reason: overBudget ? 'over-budget' : 'within-budget',
+    overBudget,
+    phases,
+  };
+}
+
+function readSessionReport(session: Session): SessionReportJudgment {
+  const extra = session as Session & { budgetMs?: unknown; elapsedMs?: unknown; phases?: unknown };
+  return judgeSessionReport({
+    budgetMs: extra.budgetMs,
+    elapsedMs: extra.elapsedMs,
+    phases: extra.phases,
+  });
+}
+
+function renderSessionReportSection(report: SessionReportJudgment): string {
+  if (report.disposition !== 'judged' || report.overBudget === null || report.phases === null) {
+    return `<section class="session-report" data-report="unjudged" data-reason="${escapeHtml(report.reason)}"><h2>会话读数</h2><p>预算或阶段没量到，不记成达标，也不把缺测写成未命中。</p></section>`;
+  }
+  const rows = report.phases
+    .map((phase) => {
+      const label = phase.cache === 'hit' ? '命中' : '未命中';
+      return `<li data-phase="${escapeHtml(phase.id)}" data-cache="${phase.cache}">${escapeHtml(phase.id)} ${label}</li>`;
+    })
+    .join('');
+  const verdict = report.overBudget ? '超过预算' : '未超过预算';
+  return `<section class="session-report" data-report="judged" data-reason="${report.reason}"><h2>会话读数</h2><p>${verdict}</p><ul>${rows}</ul></section>`;
+}
+
+export function renderShareHtml(
+  markdown: string,
+  hash: string,
+  title: string,
+  qr?: ShareQrBlock,
+  report?: SessionReportJudgment,
+): string {
   const safeTitle = escapeHtml(title);
   const safeMarkdown = escapeHtml(markdown);
   const hash8 = hash.slice(0, 8);
   const bodyHtml = renderMarkdownToHtml(markdown, { collapseLanguages: ['tool_call'] });
+  const reportHtml = report ? renderSessionReportSection(report) : '';
   const qrHtml =
     qr && qr.svg
       ? `<section class="share-qr">
@@ -150,6 +234,7 @@ export function renderShareHtml(markdown: string, hash: string, title: string, q
   <span class="integrity" id="integrity">完整性:未判定(等待校验)</span>
 </div>
 ${qrHtml}
+${reportHtml}
 <main id="content" class="markdown" data-sha256="${escapeHtml(hash)}">${bodyHtml}</main>
 <details class="raw"><summary>原始 Markdown(离线可读,亦是完整性校验基准)</summary><pre id="raw-markdown">${safeMarkdown}</pre></details>
 <footer class="foot">离线自包含 · 无外部脚本 / 无外部样式 / 无外部图片请求(正文由本地受控子集渲染器在导出时生成)</footer>
@@ -213,14 +298,15 @@ export class ShareManager {
 
     const title = opts.title ?? this.deriveTitle(session);
     const markdown = this.renderMarkdown(session, title, includeToolCalls, includeFiles);
+    const report = readSessionReport(session);
 
     // upload 负责:计算 hash + 二维码 + 生成 HTML + 写入 .ihui-agent/shared/<hash8>.html + 返回短链
-    const { url, hash, qr, qrDataUrl } = await this.upload(markdown, title);
+    const { url, hash, qr, qrDataUrl } = await this.upload(markdown, title, report);
     const hash8 = hash.slice(0, 8);
     const sharedDir = this.getSharedDir();
 
     // 按 format 额外生成对应文件(HTML 始终生成,保证分享链接可打开)
-    let primaryContent = renderShareHtml(markdown, hash, title, qr);
+    let primaryContent = renderShareHtml(markdown, hash, title, qr, report);
     if (format === 'markdown') {
       primaryContent = markdown;
       fs.writeFileSync(path.join(sharedDir, `${hash8}.md`), markdown, 'utf-8');
@@ -250,6 +336,7 @@ export class ShareManager {
   private async upload(
     content: string,
     title: string,
+    report: SessionReportJudgment,
   ): Promise<{ url: string; hash: string; qr: ShareQrBlock; qrDataUrl: string }> {
     const hash = this.computeHash(content);
     const hash8 = hash.slice(0, 8);
@@ -259,7 +346,7 @@ export class ShareManager {
     }
     const url = this.generateShortUrl(hash8);
     const { block: qr, dataUrl: qrDataUrl } = this.generateQRCode(url);
-    fs.writeFileSync(path.join(sharedDir, `${hash8}.html`), renderShareHtml(content, hash, title, qr), 'utf-8');
+    fs.writeFileSync(path.join(sharedDir, `${hash8}.html`), renderShareHtml(content, hash, title, qr, report), 'utf-8');
     return { url, hash, qr, qrDataUrl };
   }
 

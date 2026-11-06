@@ -24,7 +24,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
-import { renderShareHtml, ShareManager } from '../src/commands/share.js';
+import { judgeSessionReport, renderShareHtml, ShareManager } from '../src/commands/share.js';
 import {
   escapeHtml,
   IMAGE_REF_PREFIX,
@@ -305,6 +305,30 @@ describe('③ 端到端:真写盘的分享文件仍零外链', () => {
     // CRLF 归一后 `<b>` 也只剩文本 ⇒ 分享页不因会话内容而发外部请求
     expect(html).toContain('响应正文里有 CRLF');
     expect(html).toContain('&lt;b&gt;标签&lt;/b&gt;');
+    expect(html).toContain('data-report="unjudged"');
+    expect(html).toContain('data-reason="budget-unmeasured"');
+  });
+});
+
+describe('会话读数相对预算', () => {
+  it('预算没量到不写成达标，缓存布尔也不折成命中', () => {
+    const hash = 'd'.repeat(64);
+    const judged = judgeSessionReport({
+      budgetMs: 1000,
+      elapsedMs: 1200,
+      phases: [{ id: 'prompt', cache: 'miss' }],
+    });
+    expect(judged).toMatchObject({ disposition: 'judged', reason: 'over-budget', overBudget: true });
+    const html = renderShareHtml('# 读数', hash, '读数', undefined, judged);
+    expect(html).toContain('data-report="judged"');
+    expect(html).toContain('data-cache="miss"');
+    expect(html).toContain('超过预算');
+    expect(judgeSessionReport({ budgetMs: null, elapsedMs: 0, phases: [] }).reason).toBe('budget-unmeasured');
+    expect(judgeSessionReport({
+      budgetMs: 10,
+      elapsedMs: 1,
+      phases: [{ id: 'prompt', cache: true }],
+    }).reason).toBe('phase-unreadable');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
