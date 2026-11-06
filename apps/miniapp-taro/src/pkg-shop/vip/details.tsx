@@ -106,7 +106,7 @@ export default function VipDetailsPage() {
       : tt('vip.details.monthlyPlan', '月度会员')
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
+    <ThemeRoot className="min-h-screen bg-background pb-[140rpx]">
       {/* 顶部标题区(对齐 RN VipCompareScreen header:px20/py24,back 32 medium,title 40 bold) */}
       <View className="pt-[24rpx] px-[20rpx] pb-[24rpx]">
         <Text className="block text-heading font-bold text-foreground">
@@ -150,50 +150,46 @@ export default function VipDetailsPage() {
           {PLANS.map((p) => {
             const active = selectedPlan === p.type
             return (
-              <ThemeRoot key={p.type}>
-                <View
-                  key={p.type}
-                  className={`flex-1 relative bg-card border-[length:2rpx] rounded-xl py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
-                  hoverClass="opacity-60"
-                  onClick={() => selectPlan(p.type)}
-                >
-                  {p.type === 'yearly' ? (
-                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-badge py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
-                      {t('developer.subscribe.recommended')}
-                    </Text>
-                  ) : null}
-                  <View className="flex flex-col mb-[16rpx]">
-                    <Text className="text-strong font-bold text-foreground">
-                      {planName(p.type)}
-                    </Text>
-                    <Text className="text-label text-muted-foreground mt-[6rpx]">
-                      {p.days}
-                      {t('page.vip.dayUnit')}
-                    </Text>
-                  </View>
-                  <View className="flex items-start mb-[20rpx]">
-                    <Text className="text-body-sm text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
-                      ¥
-                    </Text>
-                    <Text className="text-heading text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
-                      {formatPrice(p.price)}
-                    </Text>
-                  </View>
-                  <View className="flex flex-col gap-[10rpx]">
-                    {p.benefits.map((b, i) => (
-                      <View key={i} className="flex items-start">
-                        <LineIcon
-                          name="check"
-                          size={24}
-                          color="var(--color-muted-foreground)"
-                          className="mr-[12rpx]"
-                        />
-                        <Text className="flex-1 text-label text-foreground leading-[1.4]">{b}</Text>
-                      </View>
-                    ))}
-                  </View>
+              <View
+                key={p.type}
+                className={`flex-1 relative bg-card border-[length:2rpx] rounded-xl py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
+                hoverClass="opacity-60"
+                onClick={() => selectPlan(p.type)}
+              >
+                {p.type === 'yearly' ? (
+                  <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-badge py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
+                    {t('developer.subscribe.recommended')}
+                  </Text>
+                ) : null}
+                <View className="flex flex-col mb-[16rpx]">
+                  <Text className="text-strong font-bold text-foreground">{planName(p.type)}</Text>
+                  <Text className="text-label text-muted-foreground mt-[6rpx]">
+                    {p.days}
+                    {t('page.vip.dayUnit')}
+                  </Text>
                 </View>
-              </ThemeRoot>
+                <View className="flex items-start mb-[20rpx]">
+                  <Text className="text-body-sm text-[var(--color-danger)] font-semibold leading-none mt-[8rpx]">
+                    ¥
+                  </Text>
+                  <Text className="text-heading text-[var(--color-danger)] font-semibold leading-none ml-[4rpx]">
+                    {formatPrice(p.price)}
+                  </Text>
+                </View>
+                <View className="flex flex-col gap-[10rpx]">
+                  {p.benefits.map((b, i) => (
+                    <View key={i} className="flex items-start">
+                      <LineIcon
+                        name="check"
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                        className="mr-[12rpx]"
+                      />
+                      <Text className="flex-1 text-label text-foreground leading-[1.4]">{b}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             )
           })}
         </View>
@@ -213,7 +209,7 @@ export default function VipDetailsPage() {
       >
         {t('vip.details.upgrade')}
       </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

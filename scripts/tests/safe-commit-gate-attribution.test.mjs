@@ -430,7 +430,13 @@ test('真实钩子日志取样:解析结果必须与手工核对一致(缺席则
   const text = readFileSync(logPath, 'utf8')
   const p = __test__.parseGateSummary(text)
   assert.equal(p.batchReported, true, '真实日志里存在汇总块却解析不到 ⇒ 格式锚点已漂')
-  assert.ok(p.failed.length > 0, '真实日志含跳门记录,却一条失败门都没解析出来')
+  // 日志是机器运行态、每轮覆盖写:最近一轮全绿时里面**没有失败门样本**,这条取样就无从核对。
+  // 按本测试自己的口径("缺席则判未判定,不计为通过")——skip 而不是把"没样本"断言成"解析坏了",
+  // 也不许反过来断言成通过(那等于拿空样本发合格证)。
+  if (p.failed.length === 0) {
+    t.skip('本机最近一轮批量全绿:日志无失败门样本 ⇒ 未判定(不记为通过)')
+    return
+  }
   assert.ok(
     p.failed.every((f) => /^[0-9a-z][0-9a-z-]*$/i.test(f.id) && f.script.endsWith('.mjs')),
     `解析出的 id/script 形态异常,说明正则跨行吃错了内容:${JSON.stringify(p.failed.slice(0, 3))}`,
@@ -2519,5 +2525,28 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
     )
   })
 }
+
+/**
+ * S30(2026-11-05 第二阶段):外部状态快照改「本地 remote-tracking ref 兜底」的装车锁。
+ * 判据本体(无 ref / 两侧同红 / 本票引入 / 快照前移)已在上面 `selfTest` 的 S30f–S30i 里逐条钉住;
+ * 这条只钉"salt 已装车、旧口径已撤",避免造好不接线(本仓 64/70/76 的教训)。
+ */
+test('S30 外部快照本地兜底已装车:走 composeExternalsSnapshot,旧"不回退"口径已撤', () => {
+  assert.match(
+    safeCommitSource,
+    /composeExternalsSnapshot/,
+    'safe-commit 未接上 composeExternalsSnapshot ⇒ 本地 ref 兜底是空转',
+  )
+  assert.match(
+    safeCommitSource,
+    /EXTERNALS_LOCAL_REF/,
+    'safe-commit 未引用 EXTERNALS_LOCAL_REF ⇒ 读的 ref 与判据层不是同一枚',
+  )
+  assert.doesNotMatch(
+    safeCommitSource,
+    /不回退\*\*本地 remote-tracking ref/,
+    '旧"不回退本地 remote-tracking ref"的口径还在 ⇒ 注释与实现两份真相',
+  )
+})
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

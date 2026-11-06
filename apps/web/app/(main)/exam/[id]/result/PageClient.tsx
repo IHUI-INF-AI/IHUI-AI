@@ -13,8 +13,8 @@ import { ArrowLeft, Check, X, Loader2, Award } from 'lucide-react'
 
 import { getMyRecords } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
-import { ExamResultStats, ReviewList } from '@ihui/rn-app/pilot'
-import type { ExamResultStatItem, ExamReviewItem } from '@ihui/rn-app/pilot'
+import type { TFunction } from '@ihui/types'
+import { ExamResultReviewList, ExamResultStats } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
 
 interface ResultDetail {
@@ -45,9 +45,51 @@ interface RecordsData {
   total: number
 }
 
-const normalizeAnswer = (v: string | string[]): string => {
-  if (Array.isArray(v)) return v.length > 0 ? v.join('、') : '-'
-  return v && v.trim() ? v : '-'
+/**
+ * 共享段(packages/app `exam-result-sections`)的 key → 本端 `exam.result.*` 词表。
+ * 统计网格 / 全量解析的**渲染**已在共享段里,这里只做词表适配,不重复任何 UI。
+ */
+function buildSharedTranslator(
+  tExam: (key: string, values?: Record<string, string | number>) => string,
+): TFunction {
+  return (key, options) => {
+    switch (key) {
+      case 'examResult.statCorrect':
+        return tExam('result.correct')
+      case 'examResult.statWrong':
+        return tExam('result.wrong')
+      case 'examResult.statUnanswered':
+        return tExam('result.unanswered')
+      case 'examResult.duration':
+        return tExam('result.duration')
+      case 'examResult.durationUnit':
+        return tExam('result.minutes', { n: Number(options?.n ?? 0) })
+      case 'examResult.countUnit':
+        return String(options?.n ?? 0)
+      case 'examResult.reviewTitle':
+        return tExam('result.detailsTitle')
+      case 'examResult.noReview':
+        return tExam('result.detailsEmpty')
+      case 'examResult.questionIdx':
+        return String(options?.n ?? '')
+      case 'examResult.reviewCorrect':
+        return tExam('result.reviewCorrect')
+      case 'examResult.reviewWrong':
+        return tExam('result.reviewWrong')
+      case 'examResult.yourAnswer':
+        return tExam('result.yourAnswer')
+      case 'examResult.unansweredAnswer':
+        return tExam('result.unansweredAnswer')
+      case 'examResult.correctAnswer':
+        return tExam('result.correctAnswer')
+      case 'examResult.analysis':
+        return tExam('result.analysis')
+      case 'examResult.reviewScore':
+        return tExam('result.points', { n: Number(options?.n ?? 0) })
+      default:
+        return key
+    }
+  }
 }
 
 export default function ExamResultPage() {
@@ -66,45 +108,18 @@ export default function ExamResultPage() {
   })
 
   const result = data?.list?.[0] ?? null
-
-  // 成绩四格与答题详情改由共享段承载(packages/app/src/features/exam-result),
-  // web 只做字段映射与文案注入;两端 i18n 键族不同,不在此合并。若无记录则不构造。
-  const stats: ExamResultStatItem[] = result
-    ? [
-        {
-          key: 'correct',
-          label: t('result.correct'),
-          value: String(result.correctCount),
-          tone: 'correct',
-        },
-        { key: 'wrong', label: t('result.wrong'), value: String(result.wrongCount), tone: 'wrong' },
-        {
-          key: 'unanswered',
-          label: t('result.unanswered'),
-          value: String(result.unansweredCount),
-          tone: 'muted',
-        },
-        {
-          key: 'duration',
-          label: t('result.duration'),
-          value: t('result.minutes', { n: result.duration }),
-          tone: 'neutral',
-        },
-      ]
-    : []
-
-  const reviewItems: ExamReviewItem[] = result
-    ? result.details.map((d) => ({
-        id: d.questionId,
-        title: d.title,
-        isCorrect: d.isCorrect,
-        score: d.score,
-        myAnswer: normalizeAnswer(d.userAnswer),
-        // web 权益:答对不展示正确答案(原 inline 实现的 !d.isCorrect 分支)
-        correctAnswer: d.isCorrect ? undefined : normalizeAnswer(d.correctAnswer),
-        analysis: d.analysis ?? undefined,
-      }))
-    : []
+  const sharedT = buildSharedTranslator(
+    t as unknown as (key: string, values?: Record<string, string | number>) => string,
+  )
+  const reviews = (result?.details ?? []).map((d: ResultDetail) => ({
+    id: d.questionId,
+    title: d.title,
+    yourAnswer: d.userAnswer,
+    correctAnswer: d.correctAnswer,
+    isCorrect: d.isCorrect,
+    score: d.score,
+    analysis: d.analysis,
+  }))
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -186,8 +201,22 @@ export default function ExamResultPage() {
             {result.isPassed ? t('passed') : t('failed')}
           </p>
         </CardHeader>
-        <CardContent>
-          <ExamResultStats items={stats} colorScheme="light" />
+        {/* 错/未答/正确/用时 四格 —— 渲染归共享段(exam-result-sections),词表由 buildSharedTranslator 适配 */}
+        <CardContent className="pt-0">
+          <ExamResultStats
+            item={{
+              id: result.examId,
+              score: result.score,
+              totalScore: result.totalScore,
+              passed: result.isPassed,
+              correctCount: result.correctCount,
+              wrongCount: result.wrongCount,
+              unansweredCount: result.unansweredCount,
+              totalCount: result.correctCount + result.wrongCount + result.unansweredCount,
+              duration: result.duration,
+            }}
+            t={sharedT}
+          />
         </CardContent>
         <CardContent className="pt-0">
           <div className="flex items-center gap-2 text-label text-muted-foreground">
@@ -197,21 +226,8 @@ export default function ExamResultPage() {
         </CardContent>
       </Card>
 
-      <ReviewList
-        items={reviewItems}
-        title={t('result.detailsTitle')}
-        labels={{
-          correct: t('result.correct'),
-          wrong: t('result.wrong'),
-          yourAnswer: t('result.yourAnswer'),
-          correctAnswer: t('result.correctAnswer'),
-          analysis: t('result.analysis'),
-          score: (n) => t('result.points', { n }),
-          questionIndex: (n) => `${n}.`,
-        }}
-        emptyText={t('result.detailsEmpty')}
-        colorScheme="light"
-      />
+      {/* 全量解析(题干 + 你的答案 + 正确答案 + 解析 + 本题得分) —— 渲染归共享段 */}
+      <ExamResultReviewList reviews={reviews} t={sharedT} />
     </div>
   )
 }

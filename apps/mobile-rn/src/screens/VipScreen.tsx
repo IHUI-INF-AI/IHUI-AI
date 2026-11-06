@@ -32,6 +32,7 @@ import {
   type VipMembershipInfo,
   scaleText,
 } from '@ihui/rn-app'
+import { resolveVipIndexFeatures } from '@ihui/rn-app/features/vip/view-model'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
@@ -217,6 +218,14 @@ const TABS: readonly { key: PlanTab; labelKey: string }[] = [
 export function VipScreen() {
   const { onNavigate, onToast } = useHostPorts()
   const { t } = useI18n()
+  // i18n 缺失键回落(特权列表文案与小程序同源)
+  const tt = useCallback(
+    (key: string, fallback: string) => {
+      const value = t(key as never) as string
+      return value === key ? fallback : value
+    },
+    [t],
+  )
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   // route.params.type 五分支驱动(对齐 Uniapp vip_info/index.vue onLoad 行 58-76)
@@ -684,6 +693,11 @@ export function VipScreen() {
         colorScheme={resolvedTheme}
         onNavigate={onNavigate}
         onToast={onToast}
+        features={resolveVipIndexFeatures(tt)}
+        viewBenefits={{
+          label: tt('vip.viewAllBenefits', '查看全部权益'),
+          onPress: () => navigation.navigate('VipBenefit'),
+        }}
       />
       <PurchaseNoticePopUp
         visible={introVisible}

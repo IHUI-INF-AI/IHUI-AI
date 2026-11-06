@@ -2,56 +2,47 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
-import type { ExamResultStatsProps } from '@ihui/types'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+// 批次 5:VIP 升级页部分薄壳的纯映射层。状态机留在页面,渲染描述由共享屏 VipScreen 消费。
 
-/**
- * 成绩四格统计共享段(原小程序页内 stats.map 与 web PageClient 的 4 格 grid 的单源)。
- * 纯 RN 原语 + tokens:web 经 react-native-web 承载,RN / 小程序经共享层承载。
- * 文案与数值由宿主注入,本段不取词、不拼「题/分钟」单位。
- */
-export function ExamResultStats({ items, colorScheme = 'light' }: ExamResultStatsProps) {
-  const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
+import type { VipLevel } from '@/api'
+import type { VipFeatureItem, VipLevelItem2 } from '@ihui/types'
 
-  return (
-    <View style={styles.row}>
-      {items.map((it) => (
-        <View key={it.key} style={styles.cell}>
-          <Text style={[styles.value, { color: toneColor(tk, it.tone) }]}>{it.value}</Text>
-          <Text style={styles.label}>{it.label}</Text>
-        </View>
-      ))}
-    </View>
-  )
+/** 与 RN 端 normalizeBenefits 同口径:字符串或 { name } 对象都归一为文案数组 */
+function normalizeBenefits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      out.push(item)
+      continue
+    }
+    if (item && typeof item === 'object' && 'name' in item) {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === 'string') out.push(name)
+    }
+  }
+  return out
 }
 
-function toneColor(
-  tk: AppThemeTokens,
-  tone: ExamResultStatsProps['items'][number]['tone'],
-): string {
-  if (tone === 'correct') return tk.success.deepText
-  if (tone === 'wrong') return tk.danger.DEFAULT
-  if (tone === 'muted') return tk.text.secondary
-  return tk.text.primary
+/** 后端 /vip/levels 的 price 单位为分,共享屏按元渲染(toFixed(2)) ⇒ 此处唯一换算出口 */
+export function buildUpgradeLevels(items: VipLevel[]): VipLevelItem2[] {
+  return items.map((l) => ({
+    id: String(l.id),
+    levelName: l.levelName,
+    levelValue: l.levelValue ?? 0,
+    price: Number(l.price ?? 0) / 100,
+    durationDays: l.durationDays,
+    status: l.status,
+    benefits: normalizeBenefits(l.benefits),
+  }))
 }
 
-function createStyles(tk: AppThemeTokens) {
-  return StyleSheet.create({
-    row: { flexDirection: 'row', gap: rnSpacing.md },
-    cell: {
-      flex: 1,
-      alignItems: 'center',
-      paddingVertical: rnSpacing['sm-loose'],
-      paddingHorizontal: rnSpacing.sm,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
-    },
-    value: { fontSize: rnType.title.size, fontWeight: '600' },
-    label: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.secondary },
-  })
+/** 升级页权益清单(vip.upgrade.rights 纯文案)→ 共享屏 features 段 */
+export function buildUpgradeRights(rights: string[]): VipFeatureItem[] {
+  return rights.map((title, index) => ({
+    id: `right-${index}`,
+    title,
+    desc: '',
+  }))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

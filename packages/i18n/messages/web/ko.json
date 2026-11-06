@@ -16340,7 +16340,12 @@
       "points": "{n}점",
       "submittedAt": "제출 시간: {time}",
       "unanswered": "미응답",
-      "yourAnswer": "사용자 답변:"
+      "yourAnswer": "사용자 답변:",
+      "correct": "정답",
+      "wrong": "오답",
+      "reviewCorrect": "정답",
+      "reviewWrong": "오답",
+      "unansweredAnswer": "미응답"
     },
     "score": "점수 {score} / {total}",
     "startExam": "시험 시작",

@@ -2,23 +2,31 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 镜像 packages/app/src/features/topup-success/TopupSuccessScreen.tsx
-import { useTt } from '@/i18n'
-import { View, Text, Button } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
+// 镜像 packages/app/src/features/topup-success/TopupSuccessScreen.tsx(直载共享屏 + 注入本端事实)
+//
+// 本端保留(不可丢的业务):
+//   ① router 参数解码(订单号/套餐/时长/支付方式/支付时间,缺省值时按套餐类型推算)
+//   ② 本地订单记录(VIP_ORDERS_KEY / VIP_PAID_STATUS_KEY,挂载时只记一次)
+//   ③ 平台出口:查看权益(redirectTo)、返回首页(switchTab)、分享好友(switchTab 失败降级 navigateTo)、
+//      复制订单号(setClipboardData)
+// 版面(成功图标/标题/副标题/激活提示/信息卡/主次按钮/分享入口)全部由共享屏渲染。
+
 import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '@/i18n'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
-import { formatDateByTemplate } from '@ihui/shared'
-import { safeDecodeURIComponent } from '@ihui/shared'
+import { formatDateByTemplate, safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
-import './success.css'
+import { useTheme } from '@/rn-compat/theme'
+import { TopupSuccessScreen as SharedTopupSuccessScreen } from '@ihui/rn-app/features/topup-success/TopupSuccessScreen'
 
 /** 安全 decode router 参数 */
 const decodeParam = (v: string | undefined): string => (v ? safeDecodeURIComponent(v) : '')
 
+type Tt = (key: string, fallback: string, params?: Record<string, string | number>) => string
+
 /** 推算支付方式文案(未传时默认微信) */
-const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) => string) => {
+const resolvePayMethod = (raw: string | undefined, tt: Tt) => {
   const v = (raw || '').toLowerCase()
   if (v.includes('ali') || v.includes('zfb')) return tt('vip.success.payAlipay', '支付宝')
   if (v.includes('wechat') || v.includes('wx') || v === '')
@@ -27,17 +35,14 @@ const resolvePayMethod = (raw: string | undefined, tt: (k: string, fb: string) =
 }
 
 /** 根据套餐类型推算会员时长 */
-const resolveDuration = (
-  tt: (k: string, fb: string, v?: Record<string, string | number>) => string,
-  plan: string,
-  days?: string,
-): string => {
+const resolveDuration = (tt: Tt, plan: string, days?: string): string => {
   const n = days || (plan === 'yearly' ? '365' : plan === 'quarterly' ? '90' : '30')
   return tt('vip.success.daysUnit', `${n} 天`, { n })
 }
 
 export default function VipSuccessPage() {
-  const tt = useTt()
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const router = useRouter()
 
   const orderNo = router.params.orderNo || ''
@@ -49,6 +54,18 @@ export default function VipSuccessPage() {
   const payTimeParam = decodeParam(router.params.payTime)
 
   const [saved, setSaved] = useState(false)
+
+  const tt: Tt = useCallback(
+    (key, fallback, params) => {
+      const v = t(key, params)
+      if (v === key) {
+        if (!params) return fallback
+        return fallback.replace(/\{(\w+)\}/g, (_, k) => String(params[k] ?? ''))
+      }
+      return v
+    },
+    [t],
+  )
 
   const payTime = payTimeParam
     ? formatDateByTemplate(payTimeParam, 'YYYY-MM-DD HH:mm:ss')
@@ -64,7 +81,7 @@ export default function VipSuccessPage() {
         : tt('vip.success.monthlyPlan', '月度会员'))
 
   // 记录支付状态到本地(对齐原 uniapp recordPayment 逻辑)
-  const recordPayment = () => {
+  const recordPayment = useCallback(() => {
     if (saved) return
     try {
       const orderData = {
@@ -86,122 +103,63 @@ export default function VipSuccessPage() {
     } catch {
       // 静默忽略本地存储失败
     }
-  }
+  }, [saved, orderNo, planType, displayPlanName, amount, payTime, payMethod, duration])
 
   // 首次渲染时记录一次
   useEffect(() => {
     recordPayment()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次
-  }, [])
-
-  const goBenefits = () => {
-    Taro.redirectTo({ url: '/pkg-shop/vip/index' })
-  }
-
-  const goHome = () => {
-    Taro.switchTab({ url: '/pages/index/index' })
-  }
-
-  const goShare = () => {
-    Taro.switchTab({
-      url: '/pages/distribution/index',
-    }).catch(() => {
-      Taro.navigateTo({ url: '/pages/distribution/index' })
-    })
-  }
+  }, [recordPayment])
 
   const copyOrderNo = () => {
     if (!orderNo) return
     Taro.setClipboardData({ data: orderNo })
   }
 
+  const rows = [
+    { label: tt('vip.success.planName', '套餐名称'), value: displayPlanName },
+    { label: tt('vip.success.duration', '会员时长'), value: duration },
+    { label: tt('vip.success.amount', '支付金额'), value: `¥${amount}` },
+    { label: tt('vip.success.payMethod', '支付方式'), value: payMethod },
+    { label: tt('vip.success.payTime', '支付时间'), value: payTime },
+    ...(orderNo
+      ? [{ label: tt('order.orderNo', '订单号'), value: orderNo, onPress: copyOrderNo }]
+      : []),
+  ]
+
   return (
     <ThemeRoot>
-      <View className="vs-page">
-        {/* ===== 成功图标 + 标题 ===== */}
-        <View className="vs-icon-wrap">
-          <LineIcon
-            className="vs-icon"
-            name="check-success"
-            size={128}
-            color="var(--color-success-deep)"
-          />
-        </View>
-        <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
-        <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
-
-        {/* ===== 会员权益激活提示 ===== */}
-        <View className="vs-activation">
-          <LineIcon
-            className="vs-activation-icon"
-            name="sparkles"
-            size={32}
-            color="var(--color-brand)"
-          />
-          <Text className="vs-activation-text">
-            {tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
-          </Text>
-        </View>
-
-        {/* ===== 订单信息卡片 ===== */}
-        <View className="vs-info-card">
-          <View className="vs-info-row">
-            <Text className="vs-info-label">{tt('vip.success.planName', '套餐名称')}</Text>
-            <Text className="vs-info-value">{displayPlanName}</Text>
-          </View>
-          <View className="vs-info-row">
-            <Text className="vs-info-label">{tt('vip.success.duration', '会员时长')}</Text>
-            <Text className="vs-info-value">{duration}</Text>
-          </View>
-          <View className="vs-info-row">
-            <Text className="vs-info-label">{tt('vip.success.amount', '支付金额')}</Text>
-            <Text className="vs-info-value">¥{amount}</Text>
-          </View>
-          <View className="vs-info-row">
-            <Text className="vs-info-label">{tt('vip.success.payMethod', '支付方式')}</Text>
-            <Text className="vs-info-value">{payMethod}</Text>
-          </View>
-          <View className="vs-info-row">
-            <Text className="vs-info-label">{tt('vip.success.payTime', '支付时间')}</Text>
-            <Text className="vs-info-value">{payTime}</Text>
-          </View>
-          {orderNo ? (
-            <View className="vs-info-row" hoverClass="opacity-60" onClick={copyOrderNo}>
-              <Text className="vs-info-label">{tt('order.orderNo', '订单号')}</Text>
-              <Text className="vs-info-value">{orderNo}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* ===== 主操作按钮(对齐 RN 共享 TopupSuccessScreen:次按钮在上、主按钮在下) ===== */}
-        <View className="vs-btn-group">
-          <Button className="vs-btn-outline" onClick={goBenefits}>
-            {tt('vip.index.viewBenefits', '查看会员权益')}
-          </Button>
-          <Button className="vs-btn-primary" onClick={goHome}>
-            {tt('pay.backHome', '返回首页')}
-          </Button>
-        </View>
-
-        {/* ===== 分享好友赚佣金入口 ===== */}
-        <View className="vs-share" hoverClass="opacity-60" onClick={goShare}>
-          <View className="vs-share-icon">
-            <LineIcon
-              className="vs-share-icon-text"
-              name="package"
-              size={40}
-              color="var(--color-muted-foreground)"
-            />
-          </View>
-          <View className="vs-share-content">
-            <Text className="vs-share-title">{tt('vip.success.shareTitle', '分享好友赚佣金')}</Text>
-            <Text className="vs-share-desc">
-              {tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金')}
-            </Text>
-          </View>
-          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-        </View>
-      </View>
+      <SharedTopupSuccessScreen
+        t={t}
+        amount={amount}
+        orderId={orderNo}
+        time={payTime}
+        title={tt('vip.index.successTitle', '开通成功')}
+        subtitle={tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}
+        notice={tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
+        rows={rows}
+        secondaryLabel={tt('vip.index.viewBenefits', '查看会员权益')}
+        primaryLabel={tt('pay.backHome', '返回首页')}
+        onViewOrder={() => {
+          Taro.redirectTo({ url: '/pkg-shop/vip/index' })
+        }}
+        onGoHome={() => {
+          Taro.switchTab({ url: '/pages/index/index' })
+        }}
+        footerLink={{
+          title: tt('vip.success.shareTitle', '分享好友赚佣金'),
+          desc: tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金'),
+          onPress: () => {
+            Taro.switchTab({ url: '/pages/distribution/index' }).catch(() => {
+              Taro.navigateTo({ url: '/pages/distribution/index' })
+            })
+          },
+        }}
+        showBack={false}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }
