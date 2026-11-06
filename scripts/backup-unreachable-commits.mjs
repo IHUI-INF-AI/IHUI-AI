@@ -9,15 +9,47 @@
 // 命名: unreachable-commits-backup/<yyyymmdd-HHMMSS>-<hash12>
 import { execSync, spawnSync } from 'node:child_process'
 
+import { gitBinary } from './lib/face-reader.mjs'
+
+/**
+ * git 取源(2026-11-06 改造,根因是一枚**崩溃**不是慢):
+ *  旧写法在**模块顶层** `execSync('where git')`,本机当次实测该派生直接以
+ *  `status=3221225773`(0xC0000409 fastfail)、stdout/stderr 皆空 死掉 ⇒ 整个器物在 import 阶段
+ *  抛裸栈退出。后果比"这次没跑成"重:守门 30a 点名"待处置 109 枚悬空 commit"时,唯一的批量出口
+ *  其实一跑就崩,而崩掉的栈被当成"运维工具的一次失败",账面看起来仍然"有人管"。
+ *
+ * 现在:① 取源走仓里唯一实现 `lib/face-reader.gitBinary()`(§0.6 —— 第二份 `where git` 必然漂移,
+ *  本机服务身份 PATH 是死目录时它给不出东西);② 取不到 ⇒ **显式未判定退出 2 并点名原因**,
+ *  不在顶层抛栈,也绝不带着空 GIT_BIN 往下跑一堆 tag;③ 仍保留 `where git` 作次名兜底,
+ *  但它现在包在 try 里 —— 兜底失败只是少一条来源,不是整枚器物炸在 import 上。
+ */
 const GIT_BIN = (() => {
-  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-  const w = execSync('where git', { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true })
-  for (const raw of w.split('\n')) {
-    const p = raw.trim()
-    if (/\\cmd\\git\.exe$/i.test(p)) return p
+  const fromLib = gitBinary()
+  if (typeof fromLib === 'string' && fromLib !== '') return fromLib
+  try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    const w = execSync('where git', {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+    })
+    for (const raw of String(w).split('\n')) {
+      const p = raw.trim()
+      if (/\\cmd\\git\.exe$/i.test(p)) return p
+    }
+  } catch {
+    // 取不到就是取不到:交给下面的统一出口,不在这里冒充"那就用裸 git 试试"
   }
-  return 'git'
+  return ''
 })()
+if (GIT_BIN === '') {
+  console.error(
+    '❌ 未判定:本器取不到 git 可执行体(lib/face-reader.gitBinary() 与 `where git` 两档皆空)⇒ 一行 tag 都不打。' +
+      '这是"没判成",不是"没有悬空 commit 要备份";请按 AGENTS §12g 先让 git 可寻址再重跑本器。',
+  )
+  process.exit(2)
+}
 function runGit(args) {
   const r = spawnSync(GIT_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   if (r.status !== 0) throw new Error(`git ${args[0]} exit=${r.status}: ${(r.stderr || '').slice(0, 150)}`)
