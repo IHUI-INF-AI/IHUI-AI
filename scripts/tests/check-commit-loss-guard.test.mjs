@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-commit-loss-guard.mjs'
@@ -964,5 +964,87 @@ test('装车证明: 窗维判据必须真挂在 main 的判定链上(函数在�
       assert.match(src, exportRe, `${name} 必须进 __test__ 导出面,供镜像直接消费而非另抄判据`)
   }
   assert.match(src, /wholeWalkFailed/, '整批派生失败那一支必须有实现,不得只写在注释里')
+})
+
+// ─── 门 30a 缓存判据(2026-11-07):只缓存绿结论、红结论强制重算 ───────────────
+// 三条用例钉的是用户验收口径:
+//   A TTL 内**新增悬空 commit 后立即提交**,陈旧红缓存不得阻断;
+//   B 绿结论可复用,但判定文本必须如实带 computedAt/ageMinutes,不得再声称"HEAD 未变";
+//   C 红结论不得落盘(下一位提交者读不到上一轮的陈旧红)。
+const CACHE_FACE = { windowDays: 30, strict: 0, filterStash: 1, tagFingerprint: 'e3b0c44298fc1c14' }
+function writeLossCacheFixture(dir, blocking, summary) {
+  writeFileSync(
+    join(dir, '.git', 'ihui-commit-loss-cache.json'),
+    JSON.stringify({
+      ts: Date.now(),
+      computedAt: new Date().toISOString(),
+      head: 'fixture-head',
+      blocking,
+      summary,
+      face: CACHE_FACE,
+    }),
+  )
+}
+
+test('门30a: TTL 内新增悬空 commit 后立即提交 → 陈旧红缓存不得阻断', () => {
+  const dir = createTempRepo()
+  try {
+    // 侧分支造一枚**窗外**悬空 commit:现算结论应为绿(超窗只报数),且没有 reset 干扰
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git checkout -b stale-red-branch', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit --allow-empty -m "old-dangling"', {
+      cwd: dir,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        GIT_AUTHOR_DATE: '2020-01-01T00:00:00 +0800',
+        GIT_COMMITTER_DATE: '2020-01-01T00:00:00 +0800',
+      },
+    })
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D stale-red-branch', { cwd: dir, stdio: 'ignore' })
+    // 新增悬空之后、立即提交之前,写一枚 TTL 内的陈旧红快照
+    writeLossCacheFixture(dir, true, 'STALE-RED-MARKER')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 0, `陈旧红不得阻断,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.doesNotMatch(r.stdout, /STALE-RED-MARKER/, 'TTL 内的红快照必须作废重算')
+    assert.doesNotMatch(r.stdout, /复用/, '红快照不得被复用')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('门30a: 绿缓存可复用,但判定文本必须带 computedAt/ageMinutes 且不再声称 HEAD 未变', () => {
+  const dir = createTempRepo()
+  try {
+    writeLossCacheFixture(dir, false, 'GREEN-CACHE-MARKER')
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 0, `绿缓存应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(r.stdout, /GREEN-CACHE-MARKER/, '绿快照应被复用(否则测的不是命中路径)')
+    assert.match(r.stdout, /computedAt=/, '判定文本必须带 computedAt')
+    assert.match(r.stdout, /ageMinutes=/, '判定文本必须带 ageMinutes')
+    assert.doesNotMatch(r.stdout, /HEAD 未变/, 'HEAD 不进 key,不得再写这句假文案')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('门30a: 红结论不得落盘(下一位提交者不得读到陈旧红)', () => {
+  const dir = createTempRepo()
+  try {
+    // 侧分支造一枚**窗内**悬空 commit ⇒ 现算必然 exit 1
+    // 必须带文件改动:空提交与 init 树相同,会命中「树同题不同」的等价残留白名单而不阻塞
+    execSync('git checkout -b red-branch', { cwd: dir, stdio: 'ignore' })
+    writeFileSync(join(dir, 'red.txt'), 'red\n')
+    execSync('git add red.txt', { cwd: dir, stdio: 'ignore' })
+    execSync('git commit -m "dangling-now"', { cwd: dir, stdio: 'ignore' })
+    execSync('git checkout main', { cwd: dir, stdio: 'ignore' })
+    execSync('git branch -D red-branch', { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(r.status, 1, `窗内悬空应阻塞,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.ok(!existsSync(join(dir, '.git', 'ihui-commit-loss-cache.json')), '红结论不得写盘')
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

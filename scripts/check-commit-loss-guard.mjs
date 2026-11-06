@@ -514,16 +514,25 @@ function dropBackedResets(resets, backedHashes, beforeHashOf = () => '') {
 
 // ── 结论缓存(2026-10-21 立,只为把提交链从 2~5 分钟压到秒级)──────────────────────
 // 本门判的全是**仓库状态**(reset 历史 / 悬空 commit / tag 备份完整性),不是本次提交内容;
-// 而本仓现读悬空 commit 18,448 枚、lost-commit tag 24,404 枚,全量复核实测 2~5 分钟,
-// 期间 CPU 仅 1s —— 时间全花在逐枚 git 派生上,占提交链 40% 以上。
-// 这些集合只由 reset / stash / gc 驱动,分钟级不动 ⇒ 按 (HEAD 未变 + TTL 30min) 复用结论。
-// 命中即秒回,并**打印复用了几分钟前的结论**,不把"复用"写成"刚判过"。
-// 失效方向:TTL 内新增的悬空 commit 本门看不见 —— 由 IHUI-GIT-GUARD 巡检与 post-commit 的
-// lost-commit tag 同步兜底;要当场重算:IHUI_COMMIT_LOSS_NO_CACHE=1。
+// 而本仓现读悬空 commit 18,448 枚、lost-commit tag 24,404 枚,全量复核实测 179s(2026-11-07),
+// 期间 CPU 仅 1s —— 时间全花在逐枚 git 派生上。
+//
+// 2026-11-07 收紧(票 30a):
+//   - **只缓存绿结论**:`blocking !== false` 的条目一律不落盘,读到任何红快照(含历史遗留)
+//     一律作废重算 ⇒ 「TTL 内的陈旧红把新提交阻断」从结构上不可能发生;
+//   - 命中时如实打印 `computedAt/ageMinutes`,不再声称"HEAD 未变"(HEAD 根本不进 key:
+//     每枚提交都推进 HEAD,进 key 等于命中率≈0,等价于每次全量算);
+//   - 残余风险(如实登记):TTL 内的**陈旧绿**可能漏看新产生的悬空 commit —— 由
+//     IHUI-GIT-GUARD 巡检与 post-commit 的 lost-commit tag 同步兜底;要当场重算:
+//     IHUI_COMMIT_LOSS_NO_CACHE=1。
 const LOSS_CACHE_TTL_MS = 30 * 60_000
 const lossCachePath = () => join(realGitDir(), 'ihui-commit-loss-cache.json')
 function currentHeadSha() {
   return gitText(['rev-parse', 'HEAD'], { allowFail: true })
+}
+/** 现算结论的时间戳字段(判定文本必须带 computedAt/ageMinutes,由聚合器原样透出)。 */
+function verdictStamp() {
+  return `computedAt=${new Date().toISOString()} ageMinutes=0,现算`
 }
 /**
  * 缓存的**判定输入面** —— 只有这一组取值逐字相同的旧结论才可以复用。
@@ -569,6 +578,11 @@ function readLossCache() {
   try {
     const j = JSON.parse(readFileSync(lossCachePath(), 'utf8'))
     if (!j || typeof j.ts !== 'number' || typeof j.blocking !== 'boolean') return null
+    // 只复用绿结论(2026-11-07,票 30a):红快照(含历史遗留/手工写入)一律作废重算 ⇒
+    // 「TTL 内新增或回收悬空 commit 后,陈旧红把新提交阻断」从结构上不可能发生。
+    if (j.blocking !== false) return null
+    // 旧版快照没有 computedAt ⇒ 判定文本无法如实标注时间,同样作废重算(宁算一遍)。
+    if (typeof j.computedAt !== 'string') return null
     // 刻意**不**把 HEAD 纳入 key(2026-10-21):提交本身不改变悬空集合,而每枚提交都推进 HEAD
     // ⇒ 拿 HEAD 当 key 等于"缓存永不命中"(第一版就是这么写的,实测首跑 231s 后第二次仍全量)。
     // 悬空集合只由 reset / stash / gc 驱动,用 TTL 控新鲜度即可。
@@ -588,8 +602,17 @@ function readLossCache() {
 }
 function writeLossCache(obj) {
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return
+  // 只缓存绿结论(2026-11-07,票 30a):红结论不落盘,下一位提交者读不到陈旧红。
+  if (obj.blocking !== false) return
   try {
-    writeFileSync(lossCachePath(), JSON.stringify({ ...obj, face: lossCacheFace() }))
+    writeFileSync(
+      lossCachePath(),
+      JSON.stringify({
+        ...obj,
+        computedAt: new Date(obj.ts).toISOString(),
+        face: lossCacheFace(),
+      }),
+    )
   } catch {
     /* 写不进去只是下次重算,不影响本次判定 */
   }
@@ -1364,13 +1387,14 @@ async function main() {
   const cachedLoss = readLossCache()
   if (cachedLoss) {
     const ageMin = Math.round((Date.now() - cachedLoss.ts) / 60000)
+    // 命中只可能是绿结论(readLossCache 已拒红),文案不再声称"HEAD 未变"(HEAD 不进 key)。
     console.log(
-      `  ${C.dim}复用 ${ageMin} 分钟前的结论(HEAD 未变;强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+      `  ${C.dim}复用 ${ageMin} 分钟前的绿结论(computedAt=${cachedLoss.computedAt};强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
     )
     console.log(
-      `  ${cachedLoss.blocking ? `${C.red}❌ ${cachedLoss.summary}` : `${C.green}✅ ${cachedLoss.summary}`}${C.reset}`,
+      `  ${C.green}✅ ${cachedLoss.summary}${C.reset} ${C.dim}(computedAt=${cachedLoss.computedAt} ageMinutes=${ageMin})${C.reset}`,
     )
-    process.exit(cachedLoss.blocking ? 1 : 0)
+    process.exit(0)
   }
 
   // 26k tag 的可达性表全程只算这一次:detectResets 的"reset 丢掉的那枚是否已备份"与后面
@@ -1960,7 +1984,7 @@ async function main() {
   }
 
   if (issues.length === 0) {
-    console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset}`)
+    console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset} ${C.dim}(${verdictStamp()})${C.reset}`)
     process.exit(0)
   }
 
@@ -1971,7 +1995,7 @@ async function main() {
   // 2026-07-25 升级:isBlocking 模式(guardian-runner 30a 注册)直接 exit 1
   if (blocking && (isStrict || isBlocking)) {
     console.log(
-      `\n${C.red}${C.bold}❌ commit 丢失风险,阻塞 commit${C.reset} (请先处理:备份 / 确认 reset 安全)`,
+      `\n${C.red}${C.bold}❌ commit 丢失风险,阻塞 commit${C.reset} ${C.dim}(${verdictStamp()})${C.reset}\n   ${C.red}(请先处理:备份 / 确认 reset 安全)${C.reset}`,
     )
     // 2026-09-12 补:本机宿主会清理 gitdir 下 depth>=2 的嵌套 ref 目录
     // (refs/remotes/<remote>/、refs/tags/<ns>/) → 表现为"仅远端/仅本地"抖动,
@@ -1992,10 +2016,12 @@ async function main() {
     console.log(
       `   2. 紧急跳过(不推荐):${C.cyan}HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...${C.reset}`,
     )
-    writeLossCache({ ts: Date.now(), head: currentHeadSha(), blocking: true, summary: issues.join('; ') })
+    // 红结论不落盘(writeLossCache 内部守卫):下一位提交者必须现算,不得吃陈旧红。
     process.exit(1)
   }
 
+  // warn 绿出口同样是判定结论:补一行带时间戳的结论,保证聚合器任何路径都拿得到两个字段。
+  console.log(`  ${C.green}✅ 未阻塞(有告警)${C.reset} ${C.dim}(${verdictStamp()})${C.reset}`)
   console.log(`\n${C.yellow}💡 建议:${C.reset}`)
   console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
   console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
