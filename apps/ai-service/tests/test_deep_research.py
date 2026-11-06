@@ -31,8 +31,13 @@ from app.services.deep_research import (
     _dedupe_url,
     _extract_headings,
     _fallback_synthesize,
+    adjudicate_claim,
+    admit_request_step,
+    admit_research_phase,
     cross_check,
+    extract_model_json,
     grade_source,
+    ledger_row,
     run_deep_research,
 )
 
@@ -607,4 +612,113 @@ async def test_factcheck_llm_unknown_question_ignored():
     f = report.crosscheck[0]
     assert f["verification"] == VerificationStatus.CORROBORATED.value  # 无匹配 → 启发式保留
     assert "source" not in f
+
+
+def _ballot(refuted: bool, *, role: str = "counter") -> dict[str, object]:
+    return {"role": role, "refuted": refuted, "evidence": "src", "confidence": "high"}
+
+
+def test_two_refutes_kill_and_self_yes_is_unjudged():
+    """满 2 张独立反驳票判死;只有提出者自己的赞成票时未判定,不当成立。"""
+    killed = adjudicate_claim([_ballot(True), _ballot(True), None])
+    assert killed["disposition"] == "killed"
+    assert killed["refuted"] == 2
+    self_yes = adjudicate_claim([_ballot(False, role="claimant")] * 3)
+    assert self_yes["disposition"] == "unjudged"
+    assert self_yes["reason"] == "self-yes-without-counter"
+    short = adjudicate_claim([_ballot(False)])
+    assert short["disposition"] == "unjudged"
+    assert short["reason"] == "quorum-short"
+
+
+def test_quorum_survives_and_extra_panel_is_unjudged():
+    """两张独立票且反驳不足 2 时成立;超过 3 票整组未判定,不截前 3 张。"""
+    live = adjudicate_claim([_ballot(False), _ballot(True), _ballot(False, role="claimant")])
+    assert live["disposition"] == "survives"
+    assert live["independent"] == 2
+    assert adjudicate_claim([_ballot(True)] * 4)["reason"] == "panel-over"
+
+
+def test_json_extract_falls_through_bad_fence():
+    """坏掉的 json 代码块要继续试下一种形态,三种都失败时给出原因。"""
+    value, how = extract_model_json('前言\n```json\n{bad\n```\n{"refuted": false}')
+    assert how == "object"
+    assert value == {"refuted": False}
+    missing, reason = extract_model_json("没有对象")
+    assert missing is None
+    assert reason == "no-json"
+    broken, broken_reason = extract_model_json("```json\n{bad\n```")
+    assert broken is None
+    assert broken_reason == "json-invalid"
+
+
+def test_request_step_budget_absent_is_unjudged():
+    """没给步数上限是未判定;到达上限停止。布尔值不当成数字。"""
+    assert admit_request_step(0, limit=None) == ("unjudged", "budget-absent")
+    assert admit_request_step(100) == ("stop", "budget-spent")
+    assert admit_request_step(99) == ("allow", "within-budget")
+    assert admit_request_step(True)[0] == "unjudged"
+
+
+def test_research_phase_refuses_skipping_verify():
+    """没核验不能成稿;Fetch 之后可以再搜,也可以核验。认不出的阶段名是未判定。"""
+    done = ["Scope", "Search", "Fetch"]
+    assert admit_research_phase(done, "Synthesize")["disposition"] == "refused"
+    assert admit_research_phase(done, "Verify")["disposition"] == "entered"
+    assert admit_research_phase(done, "Search")["disposition"] == "entered"
+    assert admit_research_phase(["Scope", "Fetch"], "Verify")["reason"] == "history-invalid"
+    assert admit_research_phase([], "Warmup")["reason"] == "title-unrecognized"
+
+
+def test_ledger_row_has_no_model_text():
+    row = json.loads(ledger_row("c1", adjudicate_claim([_ballot(True), _ballot(True), _ballot(False)])))
+    assert row["claimId"] == "c1"
+    assert row["disposition"] == "killed"
+    assert "evidence" not in row
+
+
+async def test_factcheck_votes_kill_and_self_yes_keeps_heuristic():
+    """带 votes 时计票覆盖模型自报结论;只有自评票时不覆盖启发式。"""
+    items, _llm = _dual_source_report_llm()
+
+    async def _kill(pairs):
+        return [
+            {
+                "question": pairs[0]["question"],
+                "conclusion": VerificationStatus.CORROBORATED.value,
+                "votes": [_ballot(True), _ballot(True), None],
+            }
+        ]
+
+    killed = await run_deep_research(
+        "分级研究",
+        sources=[MultiDomainSource(items)],
+        llm_complete_fn=_llm,
+        max_iterations=1,
+        factcheck_llm_fn=_kill,
+    )
+    assert killed.crosscheck[0]["verification"] == VerificationStatus.CONFLICTING.value
+    assert killed.phase_log[0] == "Scope"
+    assert killed.phase_log[-1] == "Synthesize"
+    verify_at = killed.phase_log.index("Verify")
+    assert verify_at < killed.phase_log.index("Synthesize")
+
+    async def _self(pairs):
+        return [
+            {
+                "question": pairs[0]["question"],
+                "conclusion": VerificationStatus.CONFLICTING.value,
+                "votes": [_ballot(False, role="claimant")] * 3,
+            }
+        ]
+
+    kept = await run_deep_research(
+        "分级研究",
+        sources=[MultiDomainSource(items)],
+        llm_complete_fn=_llm,
+        max_iterations=1,
+        factcheck_llm_fn=_self,
+    )
+    assert kept.crosscheck[0]["verification"] == VerificationStatus.CORROBORATED.value
+    assert "source" not in kept.crosscheck[0]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

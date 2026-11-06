@@ -94,8 +94,10 @@ describe('内部凭据比较必须走 secretsEqual 单源', () => {
 
   it('接线锁:该文件不得再出现裸 `!==` 比内部密钥,且必须 import secretsEqual', () => {
     const src = readFileSync(join(ROOT, ROUTE_FILE), 'utf8')
+    // 2026-11-06 起同一模块还 import 了 checkInternalServiceToken(承载层主体出口),
+    // 故按"具名 secretsEqual 必须来自该单源模块"判,不再锁整行字面量。
     expect(src).toMatch(
-      /import \{ secretsEqual \} from '\.\.\/plugins\/internal-service-token\.js'/,
+      /import \{[^}]*\bsecretsEqual\b[^}]*\} from '\.\.\/plugins\/internal-service-token\.js'/,
     )
     expect(src).not.toMatch(/provided\s*!==\s*secret/)
     // 变异自证:把新写法摘回旧写法,同一把尺子必须量出来(否则上面那条 not.toMatch 只是文本巧合)

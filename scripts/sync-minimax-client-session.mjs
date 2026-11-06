@@ -27,6 +27,11 @@
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
 // 落库段窗口与失败身份判据单源(§0.6):三条同型腿不各写一份 120_000
 import { DB_WRITE_TIMEOUT_MS, stageFailureText } from './lib/sync-stage-timeouts.mjs'
+import { listProductPids } from './lib/trae-client-process.mjs'
+import { __test__ as traeSyncTest } from './sync-trae-client-session.mjs'
+// 映像名清单单源 = scripts/local-login.mjs 的 CLIENT_IMAGES(写回腿与心跳探测共用一张表,
+// 换发行版时只改那一处;本层不写第二份候选名,§0.6)
+import { CLIENT_IMAGES } from './local-login.mjs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -60,6 +65,29 @@ export function parseArgs(argv) {
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
 
+/** 本机 mcode 客户端映像名(单源派生自 CLIENT_IMAGES.minimax,本层不另立清单) */
+export const MINIMAX_PRODUCTS = Object.freeze([...(CLIENT_IMAGES.minimax ?? [])])
+
+/**
+ * 客户端此刻在不在跑 —— 三态绝不并桶(§0.3):true=任一在跑;false=都不在;null=探测失败。
+ * 未知与 true 同向(照样写心跳):误判「没在跑」会让登记了永久保活的号被池接管续票,
+ * 而 mcode 的 refresh_token 是轮换型 ⇒ 当场把机主正在用的桌面端顶下线,且这条号
+ * 掉线后必须手机验证码才登得回来(2026-11-06 实测:上游拒绝旧 rt 时客户端直接清槽)。
+ * 判据与 Trae/Qoder 腿同一型(本仓第四条同型腿)。
+ */
+export function probeMinimaxClientActive(env = process.env) {
+  let unknown = false
+  for (const product of MINIMAX_PRODUCTS) {
+    const pids = listProductPids(product, env)
+    if (pids === null) {
+      unknown = true
+      continue
+    }
+    if (pids.length > 0) return true
+  }
+  return unknown ? null : false
+}
+
 /** 记录键的人读短名(leveldb 键分隔符后的账号哈希尾 8 位;非凭据) */
 export function recordKeyLabel(recordKey) {
   const key = str(recordKey)
@@ -77,7 +105,7 @@ export function recordKeyLabel(recordKey) {
  * recordKey 认到的是「槽」不是「账号」⇒ 只有恰有一条会话时才允许点名;多条会话
  * 点一行无法判定这条会话属于谁,一律落到 meta.uidError 由调用方拒(§0.3 不猜)。
  */
-export function buildPayload(extracted, uid = '') {
+export function buildPayload(extracted, uid = '', heartbeatAt = null) {
   const accounts = (Array.isArray(extracted?.accounts) ? extracted.accounts : [])
     .map((a) => {
       const accessToken = str(a?.accessToken)
@@ -122,6 +150,8 @@ export function buildPayload(extracted, uid = '') {
   return {
     providerCode: 'minimax',
     accounts,
+    // 心跳只在量到「客户端在跑/探测未知」时带上;拿不到时刻就不带(不带 ≠ false,§0.3)
+    ...(typeof heartbeatAt === 'string' && heartbeatAt ? { clientActiveAt: heartbeatAt } : {}),
     meta: {
       count: accounts.length,
       skipped: typeof meta.skipped === 'number' ? meta.skipped : 0,
@@ -226,7 +256,8 @@ async function main(argv) {
     return 2
   }
 
-  const payload = buildPayload(extracted, parsed.uid)
+  const heartbeatAt = traeSyncTest.heartbeatOf(probeMinimaxClientActive(), new Date().toISOString())
+  const payload = buildPayload(extracted, parsed.uid, heartbeatAt)
   if (payload.meta.uidError) {
     process.stderr.write(`❌ ${payload.meta.uidError}(未判定)\n`)
     return 2
@@ -247,7 +278,8 @@ async function main(argv) {
   )
   process.stderr.write(
     `提取: ${payload.accounts.length} 条可用会话` +
-      `${payload.meta.skipped > 0 ? `(跳过 ${payload.meta.skipped} 条双缺记录)` : ''}\n`,
+      `${payload.meta.skipped > 0 ? `(跳过 ${payload.meta.skipped} 条双缺记录)` : ''}` +
+      `${payload.clientActiveAt ? ` 心跳=已记(${payload.clientActiveAt})` : ' 心跳=未带(客户端未跑)'}\n`,
   )
   for (const line of lines) process.stderr.write(`  ${line}\n`)
   if (payload.accounts.length === 0) {
@@ -288,5 +320,13 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, buildPayload, recordKeyLabel }
+export const __test__ = {
+  parseArgs,
+  buildPayload,
+  recordKeyLabel,
+  probeMinimaxClientActive,
+  MINIMAX_PRODUCTS,
+  // 心跳时刻判据单源 = Trae 腿(本层不复算,§22c)
+  heartbeatOf: traeSyncTest.heartbeatOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
