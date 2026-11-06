@@ -213,6 +213,7 @@ export type {
   ExamHistoryScreenProps,
   ExamResultWrongQuestion,
   ExamResultItem,
+  ExamResultReviewItem,
   ExamResultScreenProps,
   ModelIncomeTab,
   ModelIncomeItem,

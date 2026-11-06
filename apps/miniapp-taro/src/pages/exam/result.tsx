@@ -2,271 +2,198 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/exam-result/ExamResultScreen.tsx
-import { useTt } from '@/i18n'
-import { logger } from '@/utils/logger'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
-import LineIcon from '@/components/LineIcon'
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/exam-result/ExamResultScreen.tsx
+// (RN 端消费点 apps/mobile-rn/src/screens/ExamResultScreen.tsx 同屏)。
+// 端内保留:① 取数(GET /exam/records/:id + 成绩汇总 rank)并映射为共享屏 item;
+// ② onNavigate 真映射(ExamQuestion → /pages/exam/answer?id=<examId>;Exam → /pages/exam/list);
+// ③ 微信分享原生节点(openType="share")与 useShareAppMessage 落点。
+// 删除自绘 hero/stats/review/footer:四格统计、全量解析、底部三操作均由共享屏输出。
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
-import { useState, useEffect, useCallback } from 'react'
-import { getExamResult, get } from '@/api'
+import { View } from '@tarojs/components'
+import { useCallback, useEffect, useState } from 'react'
+import { useI18n } from '@/i18n'
+import { get, getExamResult } from '@/api'
+import { logger } from '@/utils/logger'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { NavBar } from '@/components'
+import { onToast } from '@/host/on-toast'
 import ThemeRoot from '@/components/ThemeRoot'
-import { ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { NavBar } from '@/components'
 import { useTheme } from '@/rn-compat/theme'
-import { ExamResultStats } from '@ihui/rn-app/features/exam-result/ExamResultStats'
-import { ReviewList } from '@ihui/rn-app/features/exam-result/ReviewList'
-import type { ExamResultStatItem, ExamReviewItem, ExamReviewListProps } from '@ihui/types'
+import { ExamResultScreen as SharedExamResultScreen } from '@ihui/rn-app/features/exam-result/ExamResultScreen'
+import type { ExamResultItem, OnNavigate } from '@ihui/types'
+import { renderWxShareButton } from './host-overlays'
 import './result.css'
 
-interface ExamResultInfo {
+/** GET /exam/records/:id 的必要字段(apps/api/src/routes/exam.ts) */
+interface ExamRecordDetail {
+  examId: string
+  score: number
+  totalScore: number
+  isPassed: boolean
+  correctCount: number
+  wrongCount: number
+  unansweredCount: number
+  duration: number
+  submittedAt: string
+  details: Array<{
+    questionId: string
+    title: string
+    userAnswer: string | string[] | null
+    correctAnswer: string | string[] | null
+    isCorrect: boolean
+    score: number
+    analysis: string | null
+  }>
+}
+
+/** 成绩汇总(GET /exam/:id/result):只取排名/总人数,分数以记录为准 */
+interface ExamResultSummary {
   score: number
   pass: boolean
   rank?: number
   total?: number
-  duration?: number
-  correct?: number
-  wrong?: number
-  unanswered?: number
-  passScore?: number
-  totalScore?: number
 }
 
-/** 题目回顾行(GET /exam/:id/review) */
-interface ReviewQuestion {
-  id: string
-  title: string
-  type?: string
-  myAnswer?: string
-  correctAnswer?: string
-  analysis?: string
-  isCorrect: boolean
-  score: number
+function toResultItem(
+  recordId: string,
+  record: ExamRecordDetail,
+  summary: ExamResultSummary | null,
+): ExamResultItem {
+  const totalCount = record.correctCount + record.wrongCount + record.unansweredCount
+  return {
+    id: recordId,
+    examId: record.examId,
+    score: record.score,
+    totalScore: record.totalScore,
+    passed: record.isPassed,
+    correctCount: record.correctCount,
+    wrongCount: record.wrongCount,
+    unansweredCount: record.unansweredCount,
+    totalCount,
+    duration: record.duration,
+    submittedAt: record.submittedAt,
+    rank: summary?.rank,
+    rankTotal: summary?.total,
+    details: record.details.map((detail) => ({
+      id: detail.questionId,
+      title: detail.title,
+      yourAnswer: detail.userAnswer,
+      correctAnswer: detail.correctAnswer,
+      isCorrect: detail.isCorrect,
+      score: detail.score,
+      analysis: detail.analysis,
+    })),
+  }
 }
 
-export default function ExamResult() {
-  const tt = useTt()
+/** 旧深链兜底:交卷页以外的入口可能只带快捷参数(无 id ⇒ 不取数) */
+function fromQueryParams(params: Record<string, string | undefined>): ExamResultItem {
+  const correct = Number(params.correct) || 0
+  const wrong = Number(params.wrong) || 0
+  const unanswered = Number(params.unanswered) || 0
+  return {
+    id: '',
+    examId: params.examId,
+    score: Number(params.score) || 0,
+    totalScore: Number(params.totalScore) || 0,
+    passed: params.pass === 'true',
+    correctCount: correct,
+    wrongCount: wrong,
+    unansweredCount: unanswered,
+    totalCount: correct + wrong + unanswered,
+    duration: Number(params.duration) || 0,
+  }
+}
+
+export default function ExamResultPage() {
+  const { t } = useI18n()
   const router = useRouter()
-  const [info, setInfo] = useState<ExamResultInfo>({ score: 0, pass: false })
-  const [reviews, setReviews] = useState<ReviewQuestion[]>([])
-  const [loading, setLoading] = useState(true)
-  // 加载失败态:与共享屏一致(ErrorState 承接 examResult.loadFailed),不再只弹一次 toast 就当无事
-  const [error, setError] = useState('')
+  const { resolvedTheme } = useTheme()
   const { waitUntilReady } = useAuthReadyGate()
+  const [item, setItem] = useState<ExamResultItem | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const recordId = router.params.id
 
-  // G-933 冷启动抢跑门控:成绩两支请求都需鉴权 ——
-  // GET /api/exam/:id/result(apps/api/src/routes/exam.ts:756)与
-  // GET /api/exam/:id/review(exam.ts:806),两支都是 handler 内
-  // `if (!(await checkAuth(request, reply))) return`(注册前缀 /api 见 routes/index.ts:598)。
-  // 走查询参数(score=…)的那一支不发任何请求,原样照走,不挡。
+  // G-933 冷启动抢跑门控:记录与成绩汇总两支 GET 均需鉴权
   useEffect(() => {
     const params = router.params
-    // 交卷后 answer.tsx 只带 score / pass 两个快捷参数(**不带** correct / wrong / 未答 / 用时),
-    // 而这一支原先照单构造 info 且一个请求都不发 ⇒ 成绩页"答题数/对/错/未答/用时"五项全 0、
-    // 题目回顾永久空白。有 recordId(id) 时以服务端结果为准,查询参数只作缺 id 时的兜底。
-    if (!params.id && params.score) {
-      setInfo({
-        score: Number(params.score),
-        pass: params.pass === 'true',
-        duration: Number(params.duration) || 0,
-        correct: Number(params.correct) || 0,
-        wrong: Number(params.wrong) || 0,
-        unanswered: Number(params.unanswered) || 0,
-      })
+    if (!recordId) {
+      if (params.score) {
+        setItem(fromQueryParams(params))
+        setError('')
+      } else {
+        // 无 id 也无快捷分数:不再永久 skeleton,显式落错误态(无重试按钮)
+        setItem(null)
+        setError(t('examResult.loadFailed'))
+      }
       setLoading(false)
       return
     }
-    if (!params.id) return
-    const id = params.id
     return waitUntilReady(() => {
       setLoading(true)
-      getExamResult(id)
-        .then((res) => {
-          setInfo(res)
-          // 加载题目回顾
-          get<{ list: ReviewQuestion[] }>(`/exam/${id}/review`)
-            .then((r) => setReviews(r.list || []))
-            .catch(() => setReviews([]))
-            .finally(() => setLoading(false))
-        })
+      setError('')
+      Promise.all([
+        get<ExamRecordDetail>(`/exam/records/${recordId}`),
+        // 汇总只补排名;失败不拖垮整页,分数/题解以记录为准
+        getExamResult(recordId).catch(() => null),
+      ])
+        .then(([record, summary]) => setItem(toResultItem(recordId, record, summary)))
         .catch((e) => {
           logger.error('exam/result', '考试结果加载', e)
-          // 共享屏口径:失败由页面正文承接(examResult.loadFailed),不靠一次性 toast
-          setError(tt('examResult.loadFailed', '加载失败'))
-          setLoading(false)
+          setError(t('examResult.loadFailed'))
         })
+        .finally(() => setLoading(false))
     })
-  }, [router.params, tt, waitUntilReady])
+  }, [router.params, recordId, reloadKey, t, waitUntilReady])
 
   useShareAppMessage(() => ({
-    title: info.score
-      ? tt('exam.result.shareTitle', '我的考试成绩: {n} 分', { n: info.score })
-      : tt('share.appTitle', '智汇 AI - 让学习更高效'),
+    title: item?.score ? t('examResult.shareTitle', { n: item.score }) : t('share.appTitle'),
     path: '/pages/exam/list',
   }))
 
-  const goList = useCallback(() => {
-    Taro.redirectTo({ url: '/pages/exam/list' })
+  const onBack = useCallback(() => {
+    Taro.navigateBack()
   }, [])
 
-  const goRetry = useCallback(() => {
-    const id = router.params.id
-    if (id) {
-      Taro.redirectTo({ url: `/pages/exam/detail?id=${id}` })
-    } else {
+  const reload = useCallback(() => {
+    setReloadKey((key) => key + 1)
+  }, [])
+
+  // 共享屏底部两操作的唯一平台跳转点:逻辑 target 在这里落成小程序路径
+  const onNavigate = useCallback<OnNavigate>((target, navParams) => {
+    if (target === 'ExamQuestion') {
+      const examId = navParams?.examId
+      if (examId !== undefined && examId !== null && examId !== '') {
+        Taro.redirectTo({ url: `/pages/exam/answer?id=${String(examId)}` })
+        return
+      }
       Taro.navigateBack()
+      return
     }
-  }, [router.params.id])
-
-  const onShare = useCallback(() => {
-    Taro.showShareMenu({ withShareTicket: true })
+    if (target === 'Exam') {
+      Taro.redirectTo({ url: '/pages/exam/list' })
+      return
+    }
+    onToast(`导航未接入: ${target}`, { kind: 'error' })
   }, [])
-
-  const { resolvedTheme } = useTheme()
-  const stats: ExamResultStatItem[] = [
-    {
-      key: 'correct',
-      label: tt('exam.result.correct', '答对'),
-      value: tt('exam.result.correctValue', '{n} 题', { n: info.correct || 0 }),
-      tone: 'correct',
-    },
-    {
-      key: 'wrong',
-      label: tt('exam.result.wrong', '答错'),
-      value: tt('exam.result.wrongValue', '{n} 题', { n: info.wrong || 0 }),
-      tone: 'wrong',
-    },
-    {
-      key: 'unanswered',
-      label: tt('exam.result.unanswered', '未答'),
-      value: tt('exam.result.unansweredValue', '{n} 题', { n: info.unanswered || 0 }),
-      tone: 'muted',
-    },
-    {
-      key: 'duration',
-      label: tt('exam.result.duration', '用时'),
-      value: tt('exam.result.durationValue', '{n} 分钟', {
-        n: info.duration || 0,
-      }),
-      tone: 'neutral',
-    },
-  ]
-
-  const reviewItems: ExamReviewItem[] = reviews.map((q) => ({
-    id: q.id,
-    title: q.title,
-    isCorrect: q.isCorrect,
-    score: q.score,
-    myAnswer: q.myAnswer,
-    correctAnswer: q.correctAnswer,
-    analysis: q.analysis,
-  }))
-
-  const reviewLabels: ExamReviewListProps['labels'] = {
-    correct: tt('exam.result.reviewCorrect', '正确'),
-    wrong: tt('exam.result.reviewWrong', '错误'),
-    yourAnswer: `${tt('examResult.yourAnswer', '你的答案')}:`,
-    correctAnswer: `${tt('examResult.correctAnswer', '正确答案')}:`,
-    analysis: `${tt('exam.result.analysis', '解析')}:`,
-    score: (n) => tt('exam.result.reviewScore', '{n} 分', { n }),
-    questionIndex: (n) => tt('exam.result.questionIdx', '第 {n} 题', { n }),
-  }
 
   return (
     <ThemeRoot>
       <View className="exam-result-page">
-        <NavBar title={tt('exam.result.pageTitle', '考试结果')} showBack />
-        <ScrollView scrollY className="exam-result-body">
-          {loading ? <ScreenSkeleton variant="list" count={4} /> : null}
-
-          {!loading && !error ? (
-            <View>
-              {/* 成绩展示 */}
-              <View className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}>
-                <View className="exam-result-badge">
-                  {info.pass ? (
-                    <LineIcon
-                      name="check"
-                      size={48}
-                      color="var(--color-primary)"
-                      style={{ display: 'block' }}
-                    />
-                  ) : (
-                    <LineIcon
-                      name="x"
-                      size={48}
-                      color="var(--color-danger)"
-                      style={{ display: 'block' }}
-                    />
-                  )}
-                </View>
-                <Text className="exam-result-status">
-                  {info.pass
-                    ? tt('examResult.passed', '已通过')
-                    : tt('examResult.failed', '未通过')}
-                </Text>
-                <Text className="exam-result-score">
-                  {tt('exam.result.scoreValue', '{n} 分', { n: info.score })}
-                </Text>
-                {info.totalScore ? (
-                  <Text className="exam-result-total">
-                    {tt('exam.result.totalScoreValue', '满分 {n} 分', {
-                      n: info.totalScore,
-                    })}
-                  </Text>
-                ) : null}
-                {info.rank ? (
-                  <Text className="exam-result-rank">
-                    {tt('exam.result.rankValue', '第 {n} 名 / 共 {total} 人', {
-                      n: info.rank,
-                      total: info.total ?? 0,
-                    })}
-                  </Text>
-                ) : null}
-              </View>
-
-              {/* 答题统计:共享段 ExamResultStats(web PageClient 同源) */}
-              <ExamResultStats items={stats} colorScheme={resolvedTheme} />
-
-              {/* 题目回顾:共享段 ReviewList(含错题段;web PageClient 同源) */}
-              <ReviewList
-                items={reviewItems}
-                title={tt('exam.result.reviewTitle', '题目回顾')}
-                labels={reviewLabels}
-                wrongTitle={tt('examResult.wrongQuestions', '错题')}
-                emptyText={tt('exam.result.noReview', '暂无题目回顾')}
-                colorScheme={resolvedTheme}
-              />
-            </View>
-          ) : null}
-
-          {/* 加载失败:共享屏口径是页面正文承接 ErrorState,而不是弹一次 toast 就当加载完了 */}
-          {!loading && error ? (
-            <View className="exam-result-card">
-              <Text className="exam-result-loading">{error}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {/* 底部按钮 */}
-        {!loading ? (
-          <View className="exam-result-footer">
-            <Button className="exam-result-btn exam-result-btn-primary" onClick={goRetry}>
-              {tt('exam.result.retry', '再考一次')}
-            </Button>
-            <Button className="exam-result-btn exam-result-btn-secondary" onClick={goList}>
-              {tt('exam.result.goList', '查看考试列表')}
-            </Button>
-            <Button
-              className="exam-result-btn exam-result-btn-secondary"
-              onClick={onShare}
-              openType="share"
-            >
-              {tt('exam.result.share', '分享成绩')}
-            </Button>
-          </View>
-        ) : null}
+        <NavBar title={t('exam.result.pageTitle')} showBack={false} />
+        <SharedExamResultScreen
+          t={t}
+          item={item}
+          loading={loading}
+          error={error}
+          onBack={onBack}
+          onRetry={recordId ? reload : undefined}
+          colorScheme={resolvedTheme}
+          onNavigate={onNavigate}
+          shareAction={renderWxShareButton(t('examResult.share'))}
+        />
       </View>
     </ThemeRoot>
   )

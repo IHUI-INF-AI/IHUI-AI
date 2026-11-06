@@ -267,6 +267,10 @@ export type { SkillMarketListScreenProps } from './features/skills-market/SkillM
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
 export { ExamResultScreen } from './features/exam-result/ExamResultScreen'
+export {
+  ExamResultActions,
+  renderExamResultAction,
+} from './features/exam-result/exam-result-sections'
 export { ModelIncomeScreen } from './features/model-income/ModelIncomeScreen'
 export { TokenValueScreen } from './features/token-value/TokenValueScreen'
 /** 批次 17(2026-07-29):直播详情/主播端/预告/回放(单条直播深 4 屏) */

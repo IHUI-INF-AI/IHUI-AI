@@ -3,18 +3,49 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useState } from 'react'
+import { Share } from 'react-native'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getResult } from '@ihui/api-client'
+import { getResult, type ExamResult } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { ExamResultScreen as SharedExamResultScreen, type ExamResultItem } from '@ihui/rn-app'
+import {
+  ExamResultScreen as SharedExamResultScreen,
+  renderExamResultAction,
+  type ExamResultItem,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useHostPorts } from '../host/use-host-ports'
 
 type Route = RouteProp<RootStackParamList, 'ExamResult'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 记录接口 → 共享屏口径(显式映射,不再 as unknown 猜字段) */
+function toResultItem(id: string, data: ExamResult): ExamResultItem {
+  return {
+    id,
+    examId: data.examId,
+    score: data.score,
+    totalScore: data.totalScore,
+    passed: data.isPassed,
+    correctCount: data.correctCount,
+    wrongCount: data.wrongCount,
+    unansweredCount: data.unansweredCount,
+    totalCount: data.correctCount + data.wrongCount + data.unansweredCount,
+    duration: data.duration,
+    submittedAt: data.submittedAt,
+    details: data.details.map((detail) => ({
+      id: detail.questionId,
+      title: detail.title,
+      yourAnswer: detail.userAnswer,
+      correctAnswer: detail.correctAnswer,
+      isCorrect: detail.isCorrect,
+      score: detail.score,
+      analysis: detail.analysis,
+    })),
+  }
+}
 
 export function ExamResultScreen() {
   const { resolvedTheme } = useTheme()
@@ -35,7 +66,7 @@ export function ExamResultScreen() {
       setError('')
       const res = await getResult(id)
       if (cancelled) return
-      if (res.success) setResult(res.data as unknown as ExamResultItem)
+      if (res.success) setResult(toResultItem(id, res.data))
       else setError(apiFailureToText(res, t('examResult.loadFailed')))
       setLoading(false)
     })()
@@ -45,6 +76,12 @@ export function ExamResultScreen() {
   }, [id, t, reloadKey])
 
   const { onNavigate } = useHostPorts()
+
+  // 与小程序同一注入点:两端只差实现体(这里用 RN Share,小程序用原生 openType)
+  const doShare = () => {
+    const message = result ? t('examResult.shareTitle', { n: result.score }) : t('share.appTitle')
+    void Share.share({ message }).catch(() => undefined)
+  }
 
   return (
     <SharedExamResultScreen
@@ -56,6 +93,12 @@ export function ExamResultScreen() {
       onRetry={reload}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
+      shareAction={renderExamResultAction({
+        label: t('examResult.share'),
+        onPress: doShare,
+        colorScheme: resolvedTheme,
+        variant: 'secondary',
+      })}
     />
   )
 }

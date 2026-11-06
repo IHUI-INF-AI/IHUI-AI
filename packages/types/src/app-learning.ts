@@ -11,6 +11,8 @@
  * 要加类型请加到对应域文件;不要让类型回到 app.ts(app.ts 只允许再导出)。
  */
 
+import type { ReactNode } from 'react'
+
 import type { AppIcon, TFunction } from './app-shared.js'
 import type { OnNavigate, OnToast } from './app-host-ports.js'
 
@@ -271,19 +273,43 @@ export interface ExamResultWrongQuestion {
   correctAnswer: string
 }
 
+/** 单题解析行(平台把记录 details 映射成同一口径后注入) */
+export interface ExamResultReviewItem {
+  id: string
+  title: string
+  /** 宿主答案口径由 normalizeExamAnswer 统一(数组以 "、" 连接) */
+  yourAnswer?: string | string[] | null
+  correctAnswer?: string | string[] | null
+  isCorrect: boolean
+  score?: number
+  analysis?: string | null
+}
+
 /** 考试结果详情(平台注入,字段对齐 mobile-rn ExamResultScreen ExamResult) */
 export interface ExamResultItem {
+  /** 记录 id(路由回跳 / 分享落点用) */
   id: string
-  examTitle: string
+  /** 试卷 id:再考一次跳 ExamQuestion 时需要;记录接口缺失时不传 */
+  examId?: string
+  examTitle?: string
   score: number
   totalScore: number
   passed: boolean
   correctCount: number
+  /** 缺省时由 totalCount - correct - unanswered 反算 */
+  wrongCount?: number
+  unansweredCount?: number
   totalCount: number
   /** 答题时长(分钟) */
   duration: number
-  submittedAt: string
-  wrongQuestions: ExamResultWrongQuestion[]
+  submittedAt?: string
+  /** 排名(仅成绩汇总接口提供) */
+  rank?: number
+  rankTotal?: number
+  /** 全量解析(题目回顾真源) */
+  details?: ExamResultReviewItem[]
+  /** 旧错题口径,保留兼容;共享屏已改用 details */
+  wrongQuestions?: ExamResultWrongQuestion[]
 }
 
 /** ExamResultScreen props */
@@ -296,6 +322,11 @@ export interface ExamResultScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+  /**
+   * 平台分享节点由宿主注入;两端必须在同一注入点消费。
+   * 小程序 = 原生 <Button openType="share">,RN = Share.share 按钮。
+   */
+  shareAction?: ReactNode
 }
 
 /**

@@ -11,7 +11,8 @@ import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
-import { assertRequiredPort } from '../../host/ports'
+import { assertRequiredPort, isPortErrorState } from '../../host/ports'
+import { ExamResultActions, ExamResultReviewList, ExamResultStats } from './exam-result-sections'
 
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
@@ -25,77 +26,80 @@ export function ExamResultScreen({
   onRetry,
   colorScheme = 'light',
   onNavigate,
+  shareAction,
 }: ExamResultScreenProps & { onRetry?: () => void }) {
-  assertRequiredPort('onNavigate', onNavigate)
+  const navigate = assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主。path 是**列表页**而非本页 ⇒ 必须显式发布,交宿主兜底会把落点改成成绩页自己。
   usePublishShareIntent({
-    title: item ? t('exam.result.shareTitle', { n: item.score }) : t('share.appTitle'),
+    title: item ? t('examResult.shareTitle', { n: item.score }) : t('share.appTitle'),
     path: '/pages/exam/list',
   })
+
+  // 底部三操作里的两个导航动作:逻辑 target 由宿主映射,屏内不调平台 API。
+  const goRetry = () => {
+    if (!item?.examId) return onBack()
+    if (isPortErrorState(navigate)) return
+    navigate('ExamQuestion', { examId: item.examId })
+  }
+  const goList = () => {
+    if (isPortErrorState(navigate)) return
+    navigate('Exam')
+  }
 
   if (loading) {
     return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
   if (error || !item) {
     return (
-      <ErrorState
-        message={error || t('examResult.loadFailed')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('examResult.loadFailed')}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-      <Text style={styles.title}>{item.examTitle}</Text>
-      <View
-        style={[styles.scoreCard, item.passed ? styles.scoreCardPassed : styles.scoreCardFailed]}
-      >
-        <Text style={styles.scoreText}>
-          {item.score}/{item.totalScore}
-        </Text>
-        <Text style={item.passed ? styles.passedText : styles.failedText}>
-          {item.passed ? t('examResult.passed') : t('examResult.failed')}
-        </Text>
-      </View>
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaPillText}>
-            {t('examResult.correct', { count: item.correctCount, total: item.totalCount })}
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        {item.examTitle ? <Text style={styles.title}>{item.examTitle}</Text> : null}
+        <View
+          style={[styles.scoreCard, item.passed ? styles.scoreCardPassed : styles.scoreCardFailed]}
+        >
+          <Text style={styles.scoreText}>
+            {item.totalScore > 0 ? `${item.score}/${item.totalScore}` : String(item.score)}
+          </Text>
+          <Text style={item.passed ? styles.passedText : styles.failedText}>
+            {item.passed ? t('examResult.passed') : t('examResult.failed')}
           </Text>
         </View>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaPillText}>
-            {t('examResult.duration', { min: item.duration })}
+        <ExamResultStats item={item} t={t} colorScheme={colorScheme} />
+        {item.rank ? (
+          <Text style={styles.rank}>
+            {t('examResult.rank', { rank: item.rank, total: item.rankTotal ?? 0 })}
           </Text>
-        </View>
+        ) : null}
+        {item.submittedAt ? <Text style={styles.submittedAt}>{item.submittedAt}</Text> : null}
+        <ExamResultReviewList reviews={item.details ?? []} t={t} colorScheme={colorScheme} />
+      </ScrollView>
+      <View style={styles.footer}>
+        <ExamResultActions
+          t={t}
+          colorScheme={colorScheme}
+          onRetryExam={goRetry}
+          onViewList={goList}
+          shareAction={shareAction}
+        />
       </View>
-      <Text style={styles.submittedAt}>{item.submittedAt}</Text>
-      {item.wrongQuestions.length > 0 ? (
-        <>
-          <Text style={styles.sectionTitle}>{t('examResult.wrongQuestions')}</Text>
-          {item.wrongQuestions.map((q) => (
-            <View key={q.index} style={styles.card}>
-              <Text style={styles.question}>
-                {q.index + 1}. {q.question}
-              </Text>
-              <Text style={styles.yourAnswer}>
-                {t('examResult.yourAnswer')}: {q.yourAnswer}
-              </Text>
-              <Text style={styles.correctAnswer}>
-                {t('examResult.correctAnswer')}: {q.correctAnswer}
-              </Text>
-            </View>
-          ))}
-        </>
-      ) : null}
-    </ScrollView>
+    </View>
   )
 }
 
@@ -132,36 +136,24 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.danger.DEFAULT,
     },
-    metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.sm },
-    metaPill: {
-      paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
+    rank: {
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+      marginBottom: rnSpacing.sm,
     },
-    metaPillText: { fontSize: rnType.body.size, color: tk.text.primary },
     submittedAt: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
       marginBottom: rnSpacing.lg,
     },
-    sectionTitle: {
-      fontSize: rnType.subtitle.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-      marginBottom: rnSpacing.sm,
-    },
-    card: {
-      padding: rnSpacing['md-loose'],
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
+    footer: {
+      borderTopWidth: 1,
+      borderTopColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      marginBottom: rnSpacing.sm,
+      paddingHorizontal: rnSpacing['sm-loose'],
+      paddingBottom: rnSpacing.md,
+      paddingTop: rnSpacing.xs,
     },
-    question: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
-    yourAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    correctAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
