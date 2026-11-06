@@ -524,6 +524,9 @@ export function mergeSettingsFromCwd(
 export function saveSettingsTemplate(overwrite = false): boolean {
   const p = getSettingsPath();
   const current = readSettingsObjectForUpdate(p);
+  if (current.state === 'corrupt') {
+    throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
+  }
   if (current.state !== 'missing' && !overwrite) return false;
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
