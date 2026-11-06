@@ -342,6 +342,16 @@ describe('路径与 ID 工具', () => {
     expect(getSessionStatePath('xyz')).toBe(path.join('/abc', 'xyz.json'));
   });
 
+  it('会话 id 含路径分隔符/.. 时必须拒绝,不得拼到状态目录之外', () => {
+    process.env.IHUI_SESSION_STATE_DIR = '/abc';
+    // 修前:`${id}.json` 直接拼 —— '../escape' 读 <home>/.ihui/escape.json,
+    // 'a/b' 把 patchSession 的写落到子目录,Windows 的 'C:\\evil' 直接换盘。
+    expect(() => getSessionStatePath('../escape')).toThrow(/非法会话 id/);
+    expect(() => getSessionStatePath('a/b')).toThrow(/非法会话 id/);
+    expect(() => getSessionStatePath('C:\\evil')).toThrow(/非法会话 id/);
+    expect(() => getSessionStatePath('..')).toThrow(/非法会话 id/);
+  });
+
   it('newSessionId 返回唯一非空字符串', () => {
     const a = newSessionId();
     const b = newSessionId();

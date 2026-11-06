@@ -34,7 +34,21 @@ export function getSessionStateDir(): string {
   return path.join(os.homedir(), '.ihui', 'sessions');
 }
 
+/** 会话 id 只允许"单个普通文件名段":它来自外部输入(--resume 的 CLI 参数与 SDK 调用)。 */
+function isSafeStateId(id: string): boolean {
+  if (typeof id !== 'string' || id.length === 0) return false;
+  if (id === '.' || id === '..') return false;
+  // 路径分隔符 / Windows 盘符与 NTFS 备用流(`C:`)；冒号在合法 id(UUID)里不会出现。
+  if (id.includes('/') || id.includes('\\') || id.includes(':')) return false;
+  if (id.includes('\0')) return false;
+  return !path.isAbsolute(id) && path.basename(id) === id;
+}
+
 export function getSessionStatePath(id: string): string {
+  // 不做校验直接 `${id}.json` 拼接会把状态文件读写移出状态目录:
+  // `--resume ../evil` 读 <home>/.ihui/evil.json(任意会话形状的 JSON),
+  // `--resume a/b` 更是把后续 patchSession 的写落到别的目录。id 非法 ⇒ 大声拒绝。
+  if (!isSafeStateId(id)) throw new Error(`非法会话 id(不允许路径分隔符/盘符/..): ${id}`);
   return path.join(getSessionStateDir(), `${id}.json`);
 }
 
