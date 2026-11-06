@@ -780,8 +780,14 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 // (auto_refresh::check_app_update)若有在飞的下载/结果回调,
                 // 按 checkId 作废;新检查一旦开始,旧回调没有消费价值。
                 auto_refresh::invalidate_inflight_update_checks();
-                // 动作走闸门投递:检查更新是"点了就该有反馈"的动作,冷启动期丢失尤其明显
-                deliver_tray_action(app, "check_update");
+                // 2026-11-07(缺陷挖掘 T6):updater:default 已撤出远程 capability,不能再把
+                // 「检查更新」交给线上页 —— 前端那条 `deliver_tray_action("check_update")` 链
+                // 现在会被 ACL 拒。改为托盘直连 Rust 更新链:静默检查 → minisign 验签 →
+                // 下载安装(端点仍是 tauri.conf.json 的单端点),发现新版会发系统通知。
+                let check_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    auto_refresh::check_app_update(&check_app).await;
+                });
                 if let Some(window) = app.get_webview_window("main") {
                     log::info!("[window-show] site=tray_menu_update trigger=用户点托盘菜单「检查更新」");
                     let _ = window.show();
@@ -4420,6 +4426,25 @@ mod lifecycle_acl_tests {
     const M_TRAY_UPDATE_ARM: &str = concat!("\"tray.", "update\" =>");
     const M_EXIT_CALL: &str = concat!("exit_", "application(app);");
     const M_AUTOSTART_PLUGIN: &str = concat!("tauri_plugin_autostart::", "init(");
+    const M_TRAY_UPDATE_RUST_CHECK: &str = concat!("auto_refresh::check_app_update", "(&check_app)");
+
+    /// 2026-11-07 T6:`updater:default` 撤出远程后,托盘「检查更新」必须直连 Rust 更新链
+    /// (旧实现只是 `deliver_tray_action("check_update")` 交给线上页,撤销后那条链会被 ACL 拒)。
+    #[test]
+    fn 更新入口只在本地origin与托盘() {
+        assert!(
+            CAPS_LOCAL.contains("\"updater:default\""),
+            "local capability 缺 updater:default ⇒ 本地 origin 无法更新"
+        );
+        assert!(
+            !CAPS_REMOTE.contains("\"updater:default\""),
+            "远程 capability 不得持有 updater:default"
+        );
+        assert!(
+            SRC.contains(M_TRAY_UPDATE_RUST_CHECK),
+            "托盘「检查更新」未直连 Rust 更新链 ⇒ 撤销远程 updater 后托盘入口失效"
+        );
+    }
 
     #[test]
     fn 托盘与本地origin仍保留生命周期入口() {

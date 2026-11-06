@@ -153,6 +153,18 @@ export function judgeRemoteVaultScope(caps) {
 // 故远程侧撤销,本地 origin 专用 capability 保留。
 const LIFECYCLE_PERMS = ['autostart:default', 'allow-quit-app', 'allow-restart-app']
 
+// ── 更新入口收口(2026-11-07 缺陷挖掘 T6)──────────────────────────────────
+// `updater:default` 挂在远程 capability 上 = 线上页(含 XSS)可触发下载/安装/重启;
+// 安装器还会在 %TEMP% 留下永不清理的 `*-updater-*` 目录(tauri-plugin-updater 的
+// `make_temp_dir` 用 `.keep()`)。新面:更新入口只在本地 origin/托盘,远程侧撤销。
+function judgeUpdaterScope(caps) {
+  const granted = (caps.permissions ?? []).filter((p) => typeof p === 'string')
+  return {
+    remoteHasUpdater: granted.includes('updater:default'),
+    leaks: granted.filter((p) => p === 'updater:default'),
+  }
+}
+
 function judgeRemoteLifecycleScope(caps) {
   const granted = (caps.permissions ?? []).filter((p) => typeof p === 'string')
   return LIFECYCLE_PERMS.filter((p) => granted.includes(p))
@@ -183,6 +195,7 @@ function main() {
   let cmdGuard
   let vaultGuard
   let lifecycleLeak
+  let updaterScope
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
@@ -190,6 +203,7 @@ function main() {
     cmdGuard = judgeRemoteCommandGrants(caps)
     vaultGuard = judgeRemoteVaultScope(caps)
     lifecycleLeak = judgeRemoteLifecycleScope(caps)
+    updaterScope = judgeUpdaterScope(caps)
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
@@ -203,6 +217,11 @@ function main() {
     lifecycleLeak,
     [],
     'remote capability 仍授予应用生命周期权限:\n  ' + lifecycleLeak.join('\n  '),
+  )
+  assert.equal(
+    updaterScope.remoteHasUpdater,
+    false,
+    'remote capability 仍授予 updater:default(线上页可触发下载/安装/重启)',
   )
   console.log(
     'PASS shell:allow-open 白名单 ' +
@@ -260,8 +279,17 @@ if (isDirectRun) {
   console.log('PASS plugins.shell.open 运行面正则钉:' + openRe)
   judgeDragDropConf()
   console.log('PASS main 窗口 OS 级拖拽已关闭(远程页拿不到拖入文件绝对路径)')
-  judgeLocalLifecycleScope()
+  const localLifecycle = judgeLocalLifecycleScope()
+  assert.deepEqual(localLifecycle, LIFECYCLE_PERMS)
   console.log('PASS 本地 origin capability 保留 autostart/quit/restart(远程侧已撤销)')
+  const local = JSON.parse(
+    readFileSync(join(here, '..', 'src-tauri', 'capabilities', 'local.json'), 'utf8'),
+  )
+  assert.ok(
+    (local.permissions ?? []).includes('updater:default'),
+    '本地 origin capability 缺 updater:default ⇒ 本地设置面/托盘链路无法更新',
+  )
+  console.log('PASS 更新入口只在本地 origin/托盘(远程 capability 无 updater:default)')
 }
 
 export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, ALLOWED_EXACT, hostOf }

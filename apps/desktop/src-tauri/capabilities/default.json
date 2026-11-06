@@ -27,7 +27,6 @@
     "global-shortcut:default",
     "notification:default",
     "os:default",
-    "updater:default",
     "log:default",
     {
       "identifier": "shell:allow-open",

@@ -335,12 +335,59 @@ fn is_stale_update_check(check_id: u64) -> bool {
     check_id != UPDATE_CHECK_GENERATION.load(Ordering::SeqCst)
 }
 
+/// 安装前清理更新临时包(2026-11-07 缺陷挖掘 T6)。
+///
+/// tauri-plugin-updater 2.10.1 的 Windows 安装路径(`make_temp_dir`)用 `.keep()`:
+/// 下载/解包目录 `<app_name>-<version>-updater-*` 以及 `<app_name>-<version>-installer.exe`
+/// 不会随 TempDir 析构删除。安装被中断(进程被杀、断网、验签失败、安装器争抢)时这些
+/// 包会永远躺在 %TEMP%。单实例插件保证同一时刻只有一个安装者,所以在**下载前**直接
+/// 清掉本应用的全部更新临时包,既回收残留也不会误删别的应用/用户文件。
+fn is_update_temp_artifact(name: &str, app_name: &str) -> bool {
+    if !name.starts_with(&format!("{}-", app_name)) {
+        return false;
+    }
+    if name.contains("-updater-") {
+        return true;
+    }
+    let lower = name.to_ascii_lowercase();
+    name.contains("-installer") && (lower.ends_with(".exe") || lower.ends_with(".msi"))
+}
+
+fn clean_update_temp_in(dir: &std::path::Path, app_name: &str) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut removed = 0usize;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !is_update_temp_artifact(&name, app_name) {
+            continue;
+        }
+        let path = entry.path();
+        let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
+        let result = if is_dir {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+        match result {
+            Ok(()) => removed += 1,
+            Err(e) => log::warn!("[auto-refresh] 清理更新临时包失败 {name}: {e}"),
+        }
+    }
+    removed
+}
+
+fn clean_update_temp(app_name: &str) -> usize {
+    clean_update_temp_in(&std::env::temp_dir(), app_name)
+}
+
 /// 应用自更新检查(每小时一次):经 tauri updater 的**单端点** `https://aizhs.top/desktop-feed.json`
 /// (见 tauri.conf.json 的 plugins.updater.endpoints;2026-10-05 机主拍板定稿,不再有多端点回退,
 /// 原先的 Gitee raw 端点已随桌面 feed 真源化删除)检查新版,
 /// 有则下载+静默安装(安装器接管前先做退出准备,应用退出后重启即新版)。
 /// **开发构建例外**:函数体首按 `cfg!(debug_assertions)` 早退,不下载不重启(见该处注释)。
-async fn check_app_update(app: &tauri::AppHandle) {
+pub(crate) async fn check_app_update(app: &tauri::AppHandle) {
     // 开发构建(debug_assertions:`tauri dev` / `tauri build --debug`)一律不自更新。
     // 实测危害:`pnpm dev:desktop:saas` 起来的壳照样读线上 feed,下载 7.9MB 后静默安装并
     // 自杀重启,把正在改代码的人从自己的会话里踢出去(取证窗口连续两次因此中断);
@@ -390,6 +437,12 @@ async fn check_app_update(app: &tauri::AppHandle) {
             let ver = update.version.clone();
             log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
             notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
+            // 2026-11-07(T6):插件临时包用 `.keep()`,中断后不回收。单实例保证无并发安装,
+            // 下载前先清掉本应用历史更新包,避免 %TEMP% 无限累积。
+            let cleaned = clean_update_temp(&app.package_info().name);
+            if cleaned > 0 {
+                log::info!("[auto-refresh] 安装前清理旧更新临时包 {cleaned} 项");
+            }
             // ⚠️ 第二个闭包**不是**"退出前钩子"。插件签名是
             //   `download_and_install(on_chunk, on_download_finish)`,而
             //   updater.rs:710 在 `verify_signature()`(:712)**之前**就调用它。
@@ -1010,6 +1063,59 @@ mod tests {
         assert!(is_resumable_url("http://localhost:8801/agents", "http://localhost:8801"));
         assert!(!is_resumable_url("http://localhost:8802/agents", "http://localhost:8801"));
         assert!(!is_resumable_url("https://aizhs.top/agents", "http://localhost:8801"));
+    }
+
+    // ── 更新临时包清理(2026-11-07 缺陷挖掘 T6) ──
+
+    static UPDATE_TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn 更新临时包识别只认本应用() {
+        let app = "智汇AI";
+        assert!(is_update_temp_artifact("智汇AI-1.0.0-updater-abc", app));
+        assert!(is_update_temp_artifact("智汇AI-1.0.0-installer.exe", app));
+        assert!(is_update_temp_artifact("智汇AI-1.0.0-installer.msi", app));
+        // 前缀差一位 / 扩展名不对 → 一律不动(宁可留垃圾也不误删)
+        assert!(!is_update_temp_artifact("OtherApp-1.0.0-updater-abc", app));
+        assert!(!is_update_temp_artifact("x智汇AI-1.0.0-updater-abc", app));
+        assert!(!is_update_temp_artifact("智汇AI-notes.txt", app));
+        assert!(!is_update_temp_artifact("智汇AI-1.0.0-installer.zip", app));
+    }
+
+    /// 模拟安装被中断(进程被杀/断网)后 `%TEMP%` 里的残留,断言安装前清理能回收且
+    /// 清理后零残留;同时无关文件不得误删。
+    #[test]
+    fn 安装前清理中断残留且不留垃圾() {
+        let dir = std::env::temp_dir().join(format!(
+            "ihui-update-temp-test-{}-{}",
+            std::process::id(),
+            UPDATE_TEMP_SEQ.fetch_add(1, Ordering::SeqCst)
+        ));
+        std::fs::create_dir_all(&dir).expect("建测试目录");
+        let app = "智汇AI";
+        // 插件 `.keep()` 留下的目录 + 里面没删掉的安装器
+        let stale_dir = dir.join(format!("{app}-1.2.3-updater-abc"));
+        std::fs::create_dir_all(&stale_dir).expect("建残留目录");
+        std::fs::write(stale_dir.join(format!("{app}-1.2.3-installer.exe")), b"x")
+            .expect("写残留安装器");
+        let stale_exe = dir.join(format!("{app}-1.2.3-installer.exe"));
+        std::fs::write(&stale_exe, b"x").expect("写残留安装器");
+        // 无关文件必须保留
+        let keep = dir.join("other-app-notes.txt");
+        std::fs::write(&keep, b"keep").expect("写无关文件");
+
+        let removed = clean_update_temp_in(&dir, app);
+        assert_eq!(removed, 2, "应删掉 1 个 updater 目录 + 1 个 installer");
+        assert!(!stale_dir.exists(), "残留 updater 目录未回收");
+        assert!(!stale_exe.exists(), "残留 installer 未回收");
+        assert!(keep.exists(), "无关文件被误删");
+        let leftover = std::fs::read_dir(&dir)
+            .expect("读测试目录")
+            .flatten()
+            .filter(|entry| is_update_temp_artifact(&entry.file_name().to_string_lossy(), app))
+            .count();
+        assert_eq!(leftover, 0, "清理后不得有本应用更新临时包残留");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     // ── 后端基址派生(2026-10-13):窗口 origin 是唯一真源 ──
