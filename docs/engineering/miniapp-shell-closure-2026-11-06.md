@@ -115,7 +115,7 @@
 | 门 | 命令 | 退出码 | 现场 |
 | --- | --- | --- | --- |
 | 173 A | `check-doc-numbers.mjs --strict` | 2 | `⚠️ 未判定 description：未提供 --description ⇒ 简介面本轮不判`；`结论:--strict:1 项未判定 ⇒ 拒绝出具合格证` |
-| 173 A+ | `--strict --push` | 0 | 现算 22 个数字；`散文/简介命中 76574 处数字`、`守门 336 道`、历史快照区存量 61073 处、`trackedFiles 19454` |
+| 173 A+ | `--strict --push` | 0 | 现算 22 个数字；`散文/简介命中 76573 处数字`、`守门 336 道`、历史快照区存量 61073 处、`trackedFiles 19454` |
 | 173 B | `--strict --description -` | 1 | `❌ 简介 dbTables = 340,现算 621`、`❌ 简介 llmModels = 176,现算 100`。两条均为**仓库外元数据陈旧**（GitHub 仓库简介，原文见 `docs/exposure/repo-metadata-optimization.md:204`），本批未修，需 GitHub 写权限另开票 |
 | 299 自检 | `check-miniapp-shell-form.mjs --self-test` | 0 | `自检 35 例,失败 0`；两例历史红（T17a/T17d）由 `6ac3ef1b5c` 修复；D5 变异对照由本批对齐（见 §2.2 末段） |
 | 105 A | `check-miniapp-generated.mjs --strict` | 1 | `[R2] apps/miniapp-taro/src/static/images/icons/minus.svg`、`triangle-alert.svg` 两处孤儿图标（产物目录文件无静态引用） |
