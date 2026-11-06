@@ -2196,12 +2196,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       thresholds[field] = hm
     }
 
-    // upsert 按 classId(unique)幂等(本仓幂等铁律 onConflictDoUpdate);冲突更新面只写本次给出的字段。
+    // upsert 按 (classId, deleted_at IS NULL) 幂等(本仓幂等铁律 onConflictDoUpdate);
+    // 唯一约束是 partial unique(仅未软删行),冲突目标必须带同样的谓词,否则 PG 报
+    // "no unique or exclusion constraint matching the ON CONFLICT specification"。
     const [row] = await db
       .insert(eduAttendanceRule)
       .values({ classId, ...thresholds, ...(enabled === undefined ? {} : { enabled }) })
       .onConflictDoUpdate({
         target: eduAttendanceRule.classId,
+        targetWhere: sql`deleted_at is null`,
         set: {
           ...thresholds,
           ...(enabled === undefined ? {} : { enabled }),
