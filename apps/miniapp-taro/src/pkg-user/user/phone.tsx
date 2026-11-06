@@ -51,6 +51,11 @@ export default function Phone() {
   const [submitting, setSubmitting] = useState(false)
   const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 发码/绑定是写操作:倒计时只在请求返回后置 >0,同 tick 连点会重复发短信/重复绑定,故用 ref 互斥
+  const oldSendingRef = useRef(false)
+  const newSendingRef = useRef(false)
+  const submittingRef = useRef(false)
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -66,10 +71,12 @@ export default function Phone() {
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
 
+  // 页面卸载时清掉两个倒计时与延迟返回定时器,避免后台继续 tick / 多退一层页面
   useEffect(
     () => () => {
       if (oldTimerRef.current) clearInterval(oldTimerRef.current)
       if (newTimerRef.current) clearInterval(newTimerRef.current)
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
     },
     [],
   )
@@ -89,6 +96,8 @@ export default function Phone() {
   })
 
   function startOldCountdown() {
+    // 复用前先清旧表:重复触发(含连点发码)不得叠加两个 interval 让秒数双跳
+    if (oldTimerRef.current) clearInterval(oldTimerRef.current)
     setOldCodeMin(60)
     oldTimerRef.current = setInterval(() => {
       setOldCodeMin((prev) => {
@@ -102,6 +111,8 @@ export default function Phone() {
   }
 
   function startNewCountdown() {
+    // 复用前先清旧表:重复触发(含连点发码)不得叠加两个 interval 让秒数双跳
+    if (newTimerRef.current) clearInterval(newTimerRef.current)
     setNewCodeMin(60)
     newTimerRef.current = setInterval(() => {
       setNewCodeMin((prev) => {
@@ -115,12 +126,13 @@ export default function Phone() {
   }
 
   const onSendOldCode = useCallback(async () => {
-    if (oldCodeMin > 0) return
+    if (oldCodeMin > 0 || oldSendingRef.current) return
     const p = (currentPhone || '').trim()
     if (!p || p.length !== 11) {
       onToast(tt('user.phone.noCurrent', '当前未绑定手机号'), { kind: 'error' })
       return
     }
+    oldSendingRef.current = true
     try {
       await sendSmsCode(p)
       onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
@@ -128,11 +140,13 @@ export default function Phone() {
     } catch (e) {
       logger.error('user/phone', t('userPhone.q2'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
+    } finally {
+      oldSendingRef.current = false
     }
   }, [currentPhone, oldCodeMin, tt, t])
 
   const onSendCode = useCallback(async () => {
-    if (newCodeMin > 0) return
+    if (newCodeMin > 0 || newSendingRef.current) return
     const phone = (newPhone || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
       onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
@@ -142,30 +156,33 @@ export default function Phone() {
       onToast(tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'), { kind: 'error' })
       return
     }
+    newSendingRef.current = true
     try {
-      const exist = await pwdExist(phone)
-      if (exist) {
-        onToast(tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), {
-          kind: 'error',
-        })
-        return
+      try {
+        const exist = await pwdExist(phone)
+        if (exist) {
+          onToast(tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), {
+            kind: 'error',
+          })
+          return
+        }
+      } catch (e) {
+        logger.error('user/phone', t('userPhone.q3'), e)
+        // 查询失败不阻塞,继续发送
       }
-    } catch (e) {
-      logger.error('user/phone', t('userPhone.q3'), e)
-      // 查询失败不阻塞,继续发送
-    }
-    try {
       await sendSmsCode(phone)
       onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
       startNewCountdown()
     } catch (e) {
       logger.error('user/phone', t('userPhone.q4'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
+    } finally {
+      newSendingRef.current = false
     }
   }, [currentPhone, newCodeMin, newPhone, tt, t])
 
   const onSubmit = useCallback(async () => {
-    if (submitting) return
+    if (submitting || submittingRef.current) return
     const phone = (newPhone || '').trim()
     const code = (newCode || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
@@ -180,15 +197,18 @@ export default function Phone() {
       onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     try {
       await bindPhone(phone, code)
       onToast(tt('user.phone.bindSuccess', '手机号绑定成功'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1000)
+      // 存引用以便卸载时取消:否则用户在 1s 内自行返回会多退一层页面
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/phone', t('user.phone.bindTitle'), e)
       onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }, [currentPhone, newCode, newPhone, oldCode, submitting, t, tt])

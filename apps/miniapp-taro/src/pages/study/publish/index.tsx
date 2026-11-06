@@ -8,7 +8,7 @@ import { View, Text, Button, Picker } from '@tarojs/components'
 import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -23,6 +23,14 @@ export default function StudyPublish() {
   const [visibility, setVisibility] = useState(0)
   const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
+  // 发布成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
   // AI 操控通道(2026-09-21):学习计划表单的三个输入框(界面上无独立 label,placeholder 即屏上文案)。
   // 发布按钮不注册 submit —— 对外发布不可撤销,交回用户。
   useUiField({
@@ -68,7 +76,7 @@ export default function StudyPublish() {
         tags: tags.trim(),
       })
       onToast(t('study.publish.published'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('study/publish', 'submit', e)
     } finally {

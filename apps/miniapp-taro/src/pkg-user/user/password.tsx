@@ -10,7 +10,7 @@
 // 渲染(页头、三个密码框、显示/隐藏、内联校验、忘记入口、提交按钮)全部委托共享屏。
 
 import Taro from '@tarojs/taro'
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { changePassword } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
@@ -29,6 +29,14 @@ export default function Password() {
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // 改密成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -63,7 +71,7 @@ export default function Password() {
     try {
       await changePassword({ oldPassword: oldPwd, newPassword: newPwd })
       onToast(tt('user.password.success', '密码修改成功'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1000)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/password', '修改密码', e)
       /* `common.failed` 五语言词条是「加载失败」,用在提交失败处是说谎文案;

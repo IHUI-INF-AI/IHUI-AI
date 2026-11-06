@@ -4,7 +4,7 @@
 
 import { useTt } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -30,6 +30,14 @@ export default function WithdrawalPage() {
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
   const availableRef = useRef(0)
+  // 提现成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const methods = buildWithdrawMethods(tt)
   const texts = buildWithdrawTexts(tt)
@@ -62,7 +70,7 @@ export default function WithdrawalPage() {
     try {
       await withdraw({ amount: amt, type: method })
       onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // ignore
     } finally {
