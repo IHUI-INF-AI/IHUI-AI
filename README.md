@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4261 | `testFiles` |
+| 测试文件 | 4262 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19591 | `trackedFiles` |
+| 跟踪文件 | 19592 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -42744,5 +42744,5 @@ A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 �
 A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 | 测试文件 | 4252 | `testFiles` |
 | 跟踪文件 | 19567 | `trackedFiles` |
-| 测试文件 | 4261 | `testFiles` |
+| 测试文件 | 4262 | `testFiles` |
 | 跟踪文件 | 19586 | `trackedFiles` |
