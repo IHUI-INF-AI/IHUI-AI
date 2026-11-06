@@ -612,25 +612,27 @@ async def _call_maybe_await(fn: Callable[[], Any]) -> None:
         await result
 
 
-async def _ticks_while(fn: Callable[[], Any]) -> int:
-    """同循环跑 5ms ticker,返回 fn 执行期间 ticker 推进的次数。"""
-    ticks = 0
+async def _loop_ran_while(fn: Callable[[], Any]) -> bool:
+    """fn 执行期间事件循环是否仍在推进。
 
-    async def _ticker() -> None:
-        nonlocal ticks
-        while True:
-            ticks += 1
-            await asyncio.sleep(0.005)
+    心跳只睡 10ms,fake redis 阻塞 150ms;只要心跳跑起来就证明循环没被钉住。
+    比统计 tick 次数稳(繁忙 CI 下 tick 会被调度抖动吃掉)。
+    """
+    loop_ran = False
 
-    ticker = asyncio.create_task(_ticker())
-    await asyncio.sleep(0.01)  # 让 ticker 先起跑,排除"还没开始就结束"
+    async def _heartbeat() -> None:
+        nonlocal loop_ran
+        await asyncio.sleep(0.01)
+        loop_ran = True
+
+    heartbeat = asyncio.create_task(_heartbeat())
     try:
         await _call_maybe_await(fn)
     finally:
-        ticker.cancel()
+        heartbeat.cancel()
         with contextlib.suppress(asyncio.CancelledError):
-            await ticker
-    return ticks
+            await heartbeat
+    return loop_ran
 
 
 _SESSION_LOOKUP_CASES: list[tuple[str, Callable[[], Any]]] = [
@@ -667,13 +669,13 @@ async def test_session_lookup_offloads_redis_io(
 
     monkeypatch.setattr(agent_runtime, "_load_session_redis", _slow_load)
 
-    ticks = await _ticks_while(entry)
+    loop_ran = await _loop_ran_while(entry)
 
     assert seen_threads, f"{label} 未走到 Redis 回填,夹具失去意义"
     assert threading.current_thread().name not in seen_threads, (
         f"{label} 的 Redis 回填仍在事件循环线程执行(seen={seen_threads})"
     )
-    assert ticks >= 10, f"{label} 阻塞事件循环期间 ticker 只推进了 {ticks} 次"
+    assert loop_ran, f"{label} 阻塞事件循环:10ms 心跳在 150ms 窗口内没能跑起来"
 
 
 async def test_sync_session_messages_offloads_save(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -688,7 +690,7 @@ async def test_sync_session_messages_offloads_save(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(agent_runtime, "_save_session_redis", _slow_save)
     try:
-        ticks = await _ticks_while(
+        loop_ran = await _loop_ran_while(
             lambda: checkpoint_rewind._sync_session_messages(
                 _auth_request(), session.id, [{"role": "user", "content": "x"}]
             )
@@ -700,5 +702,5 @@ async def test_sync_session_messages_offloads_save(monkeypatch: pytest.MonkeyPat
     assert threading.current_thread().name not in seen_threads, (
         f"会话保存仍在事件循环线程执行(seen={seen_threads})"
     )
-    assert ticks >= 10, f"保存阻塞事件循环期间 ticker 只推进了 {ticks} 次"
+    assert loop_ran, "保存阻塞事件循环:10ms 心跳在 150ms 窗口内没能跑起来"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.core.cn_time import cn_today
 from app.services.spec_generator import (
     MAX_FILE_CHARS,
     MAX_SPEC_FILES,
@@ -535,7 +536,7 @@ class TestTemplateVariables:
         variables = generator._get_template_variables(str(ts_workspace))
         assert variables["project"] == "test-workspace"
         assert variables["version"] == "2.1.0"
-        assert variables["date"] == date.today().strftime("%Y-%m-%d")
+        assert variables["date"] == cn_today().strftime("%Y-%m-%d")
 
     def test_get_variables_no_package_json(self, generator, tmp_path):
         """无 package.json → 降级默认值。"""
@@ -1329,8 +1330,6 @@ class TestSingleton:
 
     def test_build_frontmatter_from_fields_default_date_uses_cn_today(self, generator, monkeypatch):
         """票2:默认 date 按东八区日历切日,不用宿主 naive date.today()。"""
-        from datetime import date
-
         from app.services import spec_generator as sg
 
         monkeypatch.setattr(sg, "cn_today", lambda: date(2031, 2, 3), raising=False)
@@ -1339,8 +1338,6 @@ class TestSingleton:
 
     def test_get_template_variables_date_uses_cn_today(self, generator, ts_workspace, monkeypatch):
         """票2:模板变量 date 同样按东八区日历切日。"""
-        from datetime import date
-
         from app.services import spec_generator as sg
 
         monkeypatch.setattr(sg, "cn_today", lambda: date(2031, 2, 3), raising=False)
