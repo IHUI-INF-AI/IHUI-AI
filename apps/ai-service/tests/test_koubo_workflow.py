@@ -1715,4 +1715,23 @@ def test_published_memory_corrupt_json_fails_loud(monkeypatch, tmp_path) -> None
     with pytest.raises(RuntimeError) as exc:
         v._load_published_memory(str(tmp_path / "article.md"))
     assert "已发布记忆不可读" in str(exc.value)
+
+
+def test_full_audit_watermark_exception_is_not_no_watermark(monkeypatch, tmp_path) -> None:
+    """K2: 水印检测异常不得被算成「无水印」,必须计入 wm_count(fail-closed)。"""
+    import importlib
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    fa = importlib.import_module("app.skills.content_engine.full_audit")
+    images = tmp_path / "output" / "images"
+    images.mkdir(parents=True)
+    (images / "a.jpg").write_bytes(b"not-an-image")
+    monkeypatch.chdir(tmp_path)
+
+    def _boom(_path):
+        raise OSError("simulated unreadable image")
+
+    wm_count, details = fa._scan_watermarks(["a.jpg"], image_open=_boom)
+    assert wm_count == 1
+    assert "检测异常" in details[0]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

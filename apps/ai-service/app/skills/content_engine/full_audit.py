@@ -166,6 +166,72 @@ def _list_pycache(base: str) -> tuple[list[str], int]:
     return found, unread
 
 
+def _has_watermark(img: Any) -> tuple[bool, str]:
+    w, h = img.size
+    # 只检查底边区域（水印最常见位置），降低自然场景误报
+    regs = {
+        'bl': (0, int(h * 0.78), int(w * 0.30), h),
+        'br': (int(w * 0.70), int(h * 0.78), w, h),
+        'bot': (int(w * 0.25), int(h * 0.85), int(w * 0.75), h),
+    }
+    small = img.convert('RGB').resize((50, 50))
+    dom = Counter(list(small.getdata())).most_common(1)[0][0]
+    for name, box in regs.items():
+        crop = img.crop(box).convert('RGB')
+        px = list(crop.getdata())
+        n = len(px)
+        rm = sum(p[0] for p in px) / n
+        gm = sum(p[1] for p in px) / n
+        bm = sum(p[2] for p in px) / n
+        var = sum(((p[0] - rm) ** 2 + (p[1] - gm) ** 2 + (p[2] - bm) ** 2) for p in px) / n
+        std = math.sqrt(var / 3)
+        diff = math.sqrt((rm - dom[0]) ** 2 + (gm - dom[1]) ** 2 + (bm - dom[2]) ** 2)
+        # 实心色块水印：极低方差 + 与主图明显色差
+        if std < 10 and diff > 80:
+            return True, f'{name}色块'
+        # 文字水印：大量深色小像素且区域整体低方差（文字带很规整）
+        g = crop.convert('L')
+        dark = sum(1 for v in list(g.getdata()) if v < 120) / n
+        if dark > 0.25 and std < 18:
+            return True, f'{name}文字'
+    return False, ''
+
+
+def _scan_watermarks(
+    check_list: list[str], image_open: Any = None
+) -> tuple[int, list[str]]:
+    """扫描无水印铁律;检测异常一律计入 wm_count(fail-closed)。
+
+    与 C3+ 真图铁律的既有处置一致:读不出来/解不开的样本按「未通过」计数,
+    绝不因为异常而静默当作「无水印」。
+    """
+    if image_open is None:
+        from PIL import Image
+        image_open = Image.open
+    wm_count = 0
+    wm_details: list[str] = []
+    for img_f in check_list:
+        if img_f in ('点赞.jpg', '关注.jpg', '公众号置底.png'):
+            continue
+        if not (img_f.lower().endswith('.jpg') or img_f.lower().endswith('.jpeg')
+                or img_f.lower().endswith('.png')):
+            continue
+        img_p = os.path.join('output/images', img_f)
+        if not os.path.exists(img_p):
+            img_p = os.path.join('assets/images', img_f)
+        if not os.path.exists(img_p):
+            continue
+        try:
+            wm, why = _has_watermark(image_open(img_p).convert('RGB'))
+            if wm:
+                wm_count += 1
+                wm_details.append(f'{img_f}({why})')
+        except Exception as e:
+            wm_count += 1
+            wm_details.append(f'{img_f}(检测异常:{e})')
+    return wm_count, wm_details
+
+
 def add(dim: str, ok: bool, detail: str = '', warn: bool = False) -> None:
     if warn:
         results.append((dim, '⚠️ WARN', detail))
@@ -372,56 +438,9 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
             else f'❌ 检测到 {fake_count} 张假图: {fake_details[:3]}')
         # C3++ 无水印铁律 (2026-07-15 用户强制): 只检测典型水印位（底边三处），
         # 避免把自然纯色天空/墙面/纸张误判为水印。
-        def _has_watermark(img: Any) -> tuple[bool, str]:
-            w, h = img.size
-            # 只检查底边区域（水印最常见位置），降低自然场景误报
-            regs = {
-                'bl': (0, int(h * 0.78), int(w * 0.30), h),
-                'br': (int(w * 0.70), int(h * 0.78), w, h),
-                'bot': (int(w * 0.25), int(h * 0.85), int(w * 0.75), h),
-            }
-            small = img.convert('RGB').resize((50, 50))
-            dom = Counter(list(small.getdata())).most_common(1)[0][0]
-            for name, box in regs.items():
-                crop = img.crop(box).convert('RGB')
-                px = list(crop.getdata())
-                n = len(px)
-                rm = sum(p[0] for p in px) / n
-                gm = sum(p[1] for p in px) / n
-                bm = sum(p[2] for p in px) / n
-                var = sum(((p[0] - rm) ** 2 + (p[1] - gm) ** 2 + (p[2] - bm) ** 2) for p in px) / n
-                std = math.sqrt(var / 3)
-                diff = math.sqrt((rm - dom[0]) ** 2 + (gm - dom[1]) ** 2 + (bm - dom[2]) ** 2)
-                # 实心色块水印：极低方差 + 与主图明显色差
-                if std < 10 and diff > 80:
-                    return True, f'{name}色块'
-                # 文字水印：大量深色小像素且区域整体低方差（文字带很规整）
-                g = crop.convert('L')
-                dark = sum(1 for v in list(g.getdata()) if v < 120) / n
-                if dark > 0.25 and std < 18:
-                    return True, f'{name}文字'
-            return False, ''
-        wm_count = 0
-        wm_details = []
-        for img_f in check_list:
-            if img_f in ('点赞.jpg', '关注.jpg', '公众号置底.png'):
-                continue
-            if not (img_f.lower().endswith('.jpg') or img_f.lower().endswith('.jpeg') or img_f.lower().endswith('.png')):
-                continue
-            img_p = os.path.join('output/images', img_f)
-            if not os.path.exists(img_p):
-                img_p = os.path.join('assets/images', img_f)
-            if not os.path.exists(img_p):
-                continue
-            try:
-                wm, why = _has_watermark(Image.open(img_p).convert('RGB'))
-                if wm:
-                    wm_count += 1
-                    wm_details.append(f'{img_f}({why})')
-            except Exception:
-                pass
+        wm_count, wm_details = _scan_watermarks(check_list, Image.open)
         add('C3++ 无水印铁律 (角落实心块/密集小字=0)', wm_count == 0,
-            '全部无水印' if wm_count == 0 else f'❌ 检测到 {wm_count} 张疑似水印: {wm_details[:3]}')
+            '全部无水印' if wm_count == 0 else f'❌ 检测到 {wm_count} 张疑似水印/检测异常: {wm_details[:3]}')
     except ImportError:
         add('C3+ 真图铁律 (PIL可用)', False, 'PIL 未安装,无法检测')
     if args.title:
