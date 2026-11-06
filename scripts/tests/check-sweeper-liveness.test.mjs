@@ -7,7 +7,7 @@
 // 出口(§22c),本文件不重写任何判定;守护层只锁"装车成套 + 节流有牙 + 三态分档"。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../git-guardian.mjs'
@@ -18,7 +18,8 @@ const GUARDIAN_SRC = readFileSync(fileURLToPath(new URL('../git-guardian.mjs', i
 const PROBE_SRC = readFileSync(fileURLToPath(new URL('../check-sweeper-liveness.mjs', import.meta.url)), 'utf8')
 
 const NOW = Date.parse('2026-10-23T12:00:00Z')
-const min = (m) => m * 60000
+const MIN = 60000
+const min = (m) => m * MIN
 const hr = (h) => h * 3600000
 
 function harness(extra = {}) {
@@ -56,11 +57,23 @@ test('挂点位置:必须排在两把清扫器派发之后(同轮 tick 刚刷新
   assert.ok(claim >= 0 && liveness > claim, `背离巡检必须排在 sweepStaleClaimMarks 之后(实得 claim@${claim} liveness@${liveness})`)
 })
 
+/**
+ * 单函数切片(2026-11-05 修既存红):旧写法用「本函数行首 → 另一个硬编码函数名」取体,
+ * 别席往中间插入 auditIndexUnmerged / auditLintStagedPins 之后,切片一下跨了 3 个函数,
+ * 邻座的 notifyGuardRed 被算到本探针头上 ⇒ 「只读探针不喊人」恒红(与提交内容无关的红门,§12e)。
+ * 改成按 `^export function` 边界只切**一个**函数体:判据没有放宽,只是不再串味。
+ */
+function oneLegBody(name) {
+  const at = GUARDIAN_SRC.indexOf(`export function ${name}(`)
+  assert.ok(at >= 0, `找不到 export function ${name}(装车锁该红在这里,不许默认已接线)`)
+  const rest = GUARDIAN_SRC.slice(at + 1)
+  const nxt = rest.search(/^export function /m)
+  assert.ok(nxt > 0, `${name} 之后找不到函数边界 ⇒ 切片不可信,按判红处理`)
+  return GUARDIAN_SRC.slice(at, at + 1 + nxt)
+}
+
 test('只读探针铁律:不改守护退出码、不喊人(§12e 恒红门禁令)', () => {
-  const body = GUARDIAN_SRC.slice(
-    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
-    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
-  )
+  const body = oneLegBody('auditSweeperLiveness')
   assert.ok(!/notifyGuardRed/.test(body), '本格判的是巡检层空转,与提交内容无关 ⇒ 不得 notify')
   assert.ok(!/process\.exit/.test(body), '探针自己不得改退出码')
   assert.ok(/readProbeVerdict/.test(body), '结论必须走 readProbeVerdict 三态分档(rc=1/2 的 stdout 也是结论)')
@@ -231,10 +244,7 @@ test('存量口径单一真相源:探针 import 生产实现,守护派发层零�
   assert.match(PROBE_SRC, /closedRows\.partitionStaleByProtection\(/)
   assert.match(PROBE_SRC, /claimMarks\.planSweep\(/)
   assert.match(PROBE_SRC, /claimMarks\.planFaceBlockedBy\(/)
-  const body = GUARDIAN_SRC.slice(
-    GUARDIAN_SRC.indexOf('export function auditSweeperLiveness'),
-    GUARDIAN_SRC.indexOf('export function auditTunnelLegHealth'),
-  )
+  const body = oneLegBody('auditSweeperLiveness')
   assert.ok(!/planSweep|partitionStaleByProtection|staleClosedVerdict/.test(body), '派发层不该自己算存量(它只负责节流、派发、分档)')
 })
 
@@ -244,9 +254,170 @@ test('两族配置与生产端逐字一致:tick/ledger 文件名不许别席改�
     [
       ['closed-stock', 'plan-closed-sweep-last.json', 'plan-row-drop.jsonl', 'stale-closed-sweep'],
       ['claim-marks', 'stale-claim-strip-last.json', 'stale-claim-strip.jsonl', null],
+      // 第三族没有这两个输入:键表从 git-guardian.mjs 源码现解析(§0.6),所以 tick/ledger 恒 null
+      ['dispatch-parity', null, null, null],
     ],
   )
   // 守护派发点写的 tick 文件名必须同款(改一格 = 探针永远读不到派发心跳)
   assert.match(GUARDIAN_SRC, /plan-closed-sweep-last\.json/)
   assert.match(GUARDIAN_SRC, /stale-claim-strip-last\.json/)
+})
+
+// ── 第三族 dispatch-parity(票 RP-74;判据一律 import,本文件不另写一份 §22c)────────
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+/** 造一个"只有一份守护源码 + 一个 state 目录"的夹具仓根,族三的全部输入都在这里现解析/现读。 */
+function parityHarness(source) {
+  const root = mkScratch('sweeper-parity-')
+  mkdirSync(path.join(root, 'scripts'), { recursive: true })
+  mkdirSync(path.join(root, '.ihui-agent', 'state'), { recursive: true })
+  if (source !== null) writeFileSync(path.join(root, 'scripts', 'git-guardian.mjs'), source, 'utf8')
+  return {
+    root,
+    guardian: (text) => writeFileSync(path.join(root, 'scripts', 'git-guardian.mjs'), text, 'utf8'),
+    stamp: (name, atMs) =>
+      writeFileSync(
+        path.join(root, '.ihui-agent', 'state', name),
+        JSON.stringify({ attemptAt: new Date(atMs).toISOString() }),
+        'utf8',
+      ),
+    carrier: (atMs) =>
+      writeFileSync(
+        path.join(root, '.ihui-agent', 'state', 'git-guardian.lock'),
+        `pid=9\nat=${new Date(atMs).toISOString()}\nrole=git-guardian:daemon\n`,
+        'utf8',
+      ),
+    kindOf: (leg) => {
+      const v = P.dispatchParityVerdict({ nowMs: NOW, root })
+      const hit = (v.items ?? []).find((x) => x.leg === leg)
+      return hit ? hit.kind : null
+    },
+  }
+}
+
+test('族三零清单:键表只能来自现解析守护源码,本探针里不许出现第二份腿清单(§0.6)', () => {
+  assert.equal(P.FAMILIES[2].id, 'dispatch-parity')
+  assert.equal(typeof P.FAMILIES[2].selfVerdict, 'function')
+  assert.equal(P.FAMILIES[2].stockOf, undefined, '族三不自算存量,它算的是双链对等')
+  // 族三的实现必须"读源码 + 解默认值",不是拿常量数组比名字
+  assert.match(PROBE_SRC, /readFileSync\(path\.join\(root,\s*'scripts',\s*'git-guardian\.mjs'\)/)
+  assert.match(PROBE_SRC, /intervalMs\\s\*\[:=\]/)
+  assert.match(PROBE_SRC, /tickFile\\s\*\[:=\]/)
+  // 本测试文件也不许出现硬编码腿清单:全部经 P.__test__ 取(§22c)
+  assert.ok(!/const\s+PARITY_LEGS\s*=/.test(PROBE_SRC), '族三若内置腿清单 = 第二份真相源,必漂')
+})
+
+test('族三未判定不记绿:取不到守护源码 ⇒ undetermined 并点名文件(§0.3/§0.4)', () => {
+  const h = parityHarness(null)
+  try {
+    const v = P.dispatchParityVerdict({ nowMs: NOW, root: h.root })
+    assert.equal(v.state, 'undetermined')
+    assert.equal(v.why, 'guardian-source-unreadable')
+    assert.ok(v.detail.includes('scripts/git-guardian.mjs'), `未判定必须点名取不到的那枚输入:${v.detail}`)
+    assert.equal(v.stock, 0, '未判定不得折算成"有 N 条背离",也不得折算成 0 条通过')
+  } finally {
+    rmScratch(h.root)
+  }
+})
+
+test('族三键表自证:真源码现解析出 ≥90 条腿,两条链都非空(解析到 0 条按未判定处理)', () => {
+  const v = P.dispatchParityVerdict({ nowMs: Date.now(), root: REPO_ROOT })
+  assert.ok(v.mainFace > 0 && v.tickFace > 0, `两条执行体链都判不出:main=${v.mainFace} tick=${v.tickFace}`)
+  assert.ok(v.legsParsed >= 90, `现解析键表只有 ${v.legsParsed} 条(2026-11-05 现读 ≥100)⇒ 解析面塌了`)
+  assert.equal(v.why === 'dispatch-key-table-empty', false, '键表 0 条必须落未判定,这里不该成立')
+})
+
+test('族三背离有牙:真源码里凡 main-only 的腿都必须挂点旁有具名理由(§0.7 验过才免)', () => {
+  const v = P.dispatchParityVerdict({ nowMs: Date.now(), root: REPO_ROOT })
+  const naked = (v.items ?? []).filter((x) => x.kind === 'main-only')
+  assert.deepEqual(
+    naked.map((x) => x.leg),
+    [],
+    `这些腿只挂在一次性 main 链且挂点旁没有 dispatch-parity-exempt 理由:${naked.map((x) => x.leg).join(', ')}`,
+  )
+  assert.ok(v.deferred >= 1, `B 档腿一条也没被具名豁免(deferred=${v.deferred})⇒ 标记行被摘了`)
+})
+
+test('族三变异自证:摘掉挂点旁的豁免标记行 ⇒ 该腿立刻进背离;补回来 ⇒ 归 deferred', () => {
+  // 拿真源码做夹具(只写进 scratch,不碰仓库那枚),证明"豁免"不是白拿的
+  const h = parityHarness(GUARDIAN_SRC)
+  try {
+    const withMark = P.dispatchParityVerdict({ nowMs: Date.now(), root: h.root })
+    const nakedBefore = (withMark.items ?? []).filter((x) => x.kind === 'main-only').map((x) => x.leg)
+    assert.deepEqual(nakedBefore, [], `基线就该零裸腿,实得:${nakedBefore.join(',')}`)
+    const stripped = GUARDIAN_SRC.split(/\r?\n/)
+      .filter((l) => !/dispatch-parity-exempt:/.test(l))
+      .join('\n')
+    assert.ok(stripped.length < GUARDIAN_SRC.length, '夹具没真摘掉标记行 ⇒ 本自证无效')
+    h.guardian(stripped)
+    const after = P.dispatchParityVerdict({ nowMs: Date.now(), root: h.root })
+    const nakedAfter = (after.items ?? []).filter((x) => x.kind === 'main-only').map((x) => x.leg)
+    assert.ok(nakedAfter.length >= 1, '摘掉全部豁免标记后仍零背离 ⇒ 这道判据是瞎的(恒绿)')
+    assert.ok(
+      nakedAfter.includes('ensureS4u') || nakedAfter.includes('ensureGuardDaemonAlive'),
+      `摘标记必须点到 B 档那两腿,实得:${nakedAfter.join(', ')}`,
+    )
+    assert.ok(after.deferred === 0, `标记摘干净了 deferred 还 >0 ⇒ deferred 不是从源码现算的:${after.deferred}`)
+  } finally {
+    rmScratch(h.root)
+  }
+})
+
+test('族三冻结戳有牙,且承载面停摆时降级成未判定(不冒名 stalled)', () => {
+  const h = parityHarness(GUARDIAN_SRC)
+  try {
+    h.carrier(NOW - MIN) // 承载面 1 分钟前刚 beat ⇒ 执行体在动
+    h.stamp('plan-closed-sweep-last.json', NOW - 60 * 60 * MIN) // 5 分钟节律的腿 60 分钟没动
+    assert.equal(h.kindOf('sweepStaleClosedRows'), 'stamp-frozen', '戳冻结却没点名 ⇒ 键表→戳这条路没接上')
+    h.carrier(NOW - 4 * 60 * MIN) // 整条执行体停了 4 小时
+    assert.equal(
+      h.kindOf('sweepStaleClosedRows'),
+      'carrier-not-moving',
+      '承载面自己没在动时不许把账算到单条腿头上(与 verdictFor 的 dispatch-not-moving 同一纪律)',
+    )
+    h.carrier(NOW - MIN)
+    h.stamp('plan-closed-sweep-last.json', NOW - 4 * MIN) // 刚写过 ⇒ 不点名
+    assert.equal(h.kindOf('sweepStaleClosedRows'), null, '新鲜戳被算成背离 ⇒ 判据过严会天天狼来了')
+  } finally {
+    rmScratch(h.root)
+  }
+})
+
+test('族三节流戳读数器:ISO 文本 / epoch 毫秒 / JSON attemptAt 三形态都吃得,读不出不折成 0', () => {
+  const dir = mkScratch('sweeper-parity-stamp-')
+  try {
+    const iso = path.join(dir, 'a.ts')
+    writeFileSync(iso, new Date(NOW - 7 * MIN).toISOString(), 'utf8')
+    assert.equal(P.readStampMs(iso), NOW - 7 * MIN)
+    const ms = path.join(dir, 'b.tick')
+    writeFileSync(ms, String(NOW - 3 * MIN), 'utf8')
+    assert.equal(P.readStampMs(ms), NOW - 3 * MIN)
+    const json = path.join(dir, 'c.json')
+    writeFileSync(json, JSON.stringify({ attemptAt: new Date(NOW - MIN).toISOString() }), 'utf8')
+    assert.equal(P.readStampMs(json), NOW - MIN)
+    const bad = path.join(dir, 'd.json')
+    writeFileSync(bad, '{畸形', 'utf8')
+    assert.equal(P.readStampMs(bad), null, '形状读不出必须 null,不许猜一个时刻')
+    assert.equal(P.readStampMs(path.join(dir, 'nope.json')), 'missing', '文件不在 ⇒ missing(≠ 没跑过就一定红)')
+    const lock = path.join(dir, 'git-guardian.lock')
+    writeFileSync(lock, `pid=1\nat=${new Date(NOW - 2 * MIN).toISOString()}\nrole=git-guardian:round\n`, 'utf8')
+    assert.equal(P.readCarrierAt(lock), NOW - 2 * MIN)
+    writeFileSync(path.join(dir, 'bare.lock'), 'pid=1\nrole=x\n', 'utf8')
+    assert.equal(P.readCarrierAt(path.join(dir, 'bare.lock')), null, '锁里没有 at= ⇒ 未判定,不读成"刚跳过"')
+    assert.equal(P.readCarrierAt(path.join(dir, 'nope.lock')), 'missing')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('族三接进 measure():三族齐全、族三不自读节流台账(它没有那两个输入)', () => {
+  const m = P.measure({ nowMs: Date.now(), root: REPO_ROOT })
+  assert.deepEqual(
+    m.families.map((f) => f.id),
+    ['closed-stock', 'claim-marks', 'dispatch-parity'],
+  )
+  const p = m.families.find((f) => f.id === 'dispatch-parity')
+  assert.equal(p.tick, null, '族三若还带 tick 文件名,就是又抄了一份派发心跳(§0.6)')
+  assert.equal(p.ledger, null)
+  assert.ok(p.legsParsed >= 90 && p.bits.length >= 4, `族三读数缺失:${JSON.stringify(p).slice(0, 160)}`)
 })
