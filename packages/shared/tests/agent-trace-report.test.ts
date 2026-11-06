@@ -2,14 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import vm from 'node:vm'
+
 import { describe, expect, it } from 'vitest'
 
-import { buildAgentTraceReport } from '../src/reports/agent-trace-report'
+import { buildAgentTraceReport, reloadAgentTraceReport } from '../src/reports/agent-trace-report'
 import type { AgentTrace, AgentTraceStep } from '../src/reports/agent-trace-types'
 import {
   computeAgentTraceKpi,
   evaluateAgentTraceFindings,
   isMeasuredDuration,
+  layoutTraceLanes,
   normalizeAgentTraceStep,
 } from '../src/reports/trace-metrics'
 import { TRACE_FINDING_DEFAULTS } from '../src/reports/agent-trace-types'
@@ -193,6 +196,111 @@ describe('自包含文档:零外链、转义、深浅色与打印版式(超越�
     })
     expect(ko.html).toContain('주요 수치')
     expect(ko.html).toContain('lang="ko"')
+    expect(ko.html).not.toContain('id="lanes"')
+  })
+})
+
+describe('启动瀑布按时间窗分道', () => {
+  it('越出窗口或前序对不上就不画条', () => {
+    const laid = layoutTraceLanes({
+      originMs: 0,
+      horizonMs: 1000,
+      spans: [
+        { id: 'boot', lane: 'main', startMs: 0, endMs: 200, fromId: null },
+        { id: 'paint', lane: 'renderer', startMs: 200, endMs: 500, fromId: 'boot' },
+      ],
+    })
+    expect(laid.disposition).toBe('laid-out')
+    expect(laid.lanes?.[1]?.spans[0]).toMatchObject({
+      id: 'paint',
+      fromId: 'boot',
+      leftPct: 20,
+      widthPct: 30,
+    })
+    const html = buildAgentTraceReport({
+      trace: trace(steps(['a', 'success', 1]), {
+        spanOriginMs: 0,
+        spanHorizonMs: 1000,
+        spans: [{ id: 'boot', lane: 'main', startMs: 0, endMs: 200 }],
+      }),
+    }).html
+    expect(html).toContain('data-lanes="laid-out"')
+    expect(html).toContain('data-span="boot"')
+    expect(html).toContain('left:0%;width:20%')
+    expect(layoutTraceLanes({ originMs: null, horizonMs: 1000, spans: [] }).reason).toBe(
+      'window-unmeasured',
+    )
+    expect(
+      layoutTraceLanes({
+        originMs: 0,
+        horizonMs: 1000,
+        spans: [{ id: 'boot', lane: 'main', startMs: 0, endMs: 1200 }],
+      }).reason,
+    ).toBe('span-outside')
+    expect(
+      layoutTraceLanes({
+        originMs: 0,
+        horizonMs: 1000,
+        spans: [{ id: 'paint', lane: 'renderer', startMs: 10, endMs: 20, fromId: 'missing' }],
+      }).lanes,
+    ).toBeNull()
+  })
+})
+
+describe('拖入新载荷：读不出来就留下原报告', () => {
+  it('坏耗时和越窗都不换页，量到的步骤和分道才重渲', () => {
+    const previous = trace(steps(['old', 'success', 1]))
+    const html = buildAgentTraceReport({ trace: previous }).html
+    expect(html).toContain('id="reloadStatus"')
+    expect(html).toContain("addEventListener('drop'")
+    const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))
+    expect(script.indexOf('keep(plan.reason)')).toBeLessThan(script.indexOf('removeChild'))
+    const start = script.indexOf('function spanIdOk')
+    const end = script.indexOf('function admit')
+    const sandbox: {
+      result: { lanes: Array<{ leftPct: number; widthPct: number }> } | null
+      raw: unknown
+    } = {
+      result: null,
+      raw: {
+        spanOriginMs: 0,
+        spanHorizonMs: 1000,
+        spans: [{ id: 'boot', lane: 'main', startMs: 0, endMs: 200 }],
+      },
+    }
+    vm.runInNewContext(`${script.slice(start, end)}\nresult = layoutSpans(raw)`, sandbox)
+    expect(sandbox.result?.lanes[0]).toMatchObject({ leftPct: 0, widthPct: 20 })
+    expect(
+      layoutTraceLanes({
+        originMs: 0,
+        horizonMs: 1000,
+        spans: [{ id: 'boot', lane: 'main', startMs: 0, endMs: 200 }],
+      }).lanes?.[0]?.spans[0],
+    ).toMatchObject({
+      leftPct: 0,
+      widthPct: 20,
+    })
+
+    const badDuration = reloadAgentTraceReport(previous, {
+      toolCalls: [{ toolName: 'fresh', status: 'success', durationMs: 'no' }],
+    })
+    expect(badDuration).toMatchObject({
+      disposition: 'keep',
+      reason: 'duration-unmeasured',
+      report: null,
+    })
+    const outside = reloadAgentTraceReport(previous, {
+      spanOriginMs: 0,
+      spanHorizonMs: 1000,
+      spans: [{ id: 'boot', lane: 'main', startMs: 0, endMs: 1200 }],
+    })
+    expect(outside).toMatchObject({ disposition: 'keep', reason: 'span-outside', report: null })
+    const replaced = reloadAgentTraceReport(previous, {
+      toolCalls: [{ toolName: 'fresh', status: 'success', durationMs: 4 }],
+    })
+    expect(replaced.disposition).toBe('replace')
+    expect(replaced.report?.html).toContain('fresh')
+    expect(replaced.report?.html).not.toContain('class="name">old')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

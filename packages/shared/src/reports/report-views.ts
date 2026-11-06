@@ -11,7 +11,7 @@
 import { escapeHtml } from '../artifact/render'
 import { AGENT_REPORT_COPY_KEYS as K, FINDING_COPY_KEYS } from './report-copy'
 import type { AgentTrace, AgentTraceKpi, TraceFinding } from './agent-trace-types'
-import { isMeasuredDuration } from './trace-metrics'
+import { isMeasuredDuration, type TraceLaneLayout } from './trace-metrics'
 import { formatDurationMs, formatShare, formatTraceInstant } from './report-format'
 import type { NumberFormatter } from './report-format'
 import type { createCopyCollector } from './report-copy'
@@ -120,6 +120,27 @@ export function renderWaterfall(trace: AgentTrace, kpi: AgentTraceKpi, copy: Cop
     `<button id="copyReport" type="button" data-done-text="${copyDone}">${escapeHtml(copy.copy(K.waterfallCopy))}</button>` +
     `<span class="k readout" id="stepHiddenCount" data-template="${hiddenTemplate}"></span></div>`
   return `<section id="waterfall"><h2>${escapeHtml(copy.copy(K.waterfallTitle))}</h2>${toolbar}<ol class="steps" id="stepList">${rows}${emptyRow}</ol></section>`
+}
+
+export function renderTraceLanes(layout: TraceLaneLayout, copy: Copy): string {
+  if (layout.disposition !== 'laid-out' || layout.lanes === null) {
+    return `<section id="lanes" data-lanes="unjudged" data-reason="${escapeHtml(layout.reason)}"><p class="meta">${escapeHtml(copy.copy(K.waterfallUnmeasuredMark))}</p></section>`
+  }
+  if (layout.lanes.length === 0) {
+    return `<section id="lanes" data-lanes="laid-out" data-reason="laid-out"><p class="meta">${escapeHtml(copy.copy(K.waterfallEmpty))}</p></section>`
+  }
+  const body = layout.lanes
+    .map((lane) => {
+      const bars = lane.spans
+        .map((span) => {
+          const from = span.fromId === null ? '' : ` data-from="${escapeHtml(span.fromId)}"`
+          return `<span class="lane-bar" data-span="${escapeHtml(span.id)}"${from} style="left:${span.leftPct}%;width:${span.widthPct}%"></span>`
+        })
+        .join('')
+      return `<div class="lane" data-lane="${escapeHtml(lane.lane)}"><div class="lane-track">${bars}</div></div>`
+    })
+    .join('')
+  return `<section id="lanes" data-lanes="laid-out" data-reason="laid-out">${body}</section>`
 }
 
 export function renderFindings(findings: TraceFinding[], copy: Copy): string {

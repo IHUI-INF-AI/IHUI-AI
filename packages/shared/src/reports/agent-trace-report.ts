@@ -18,11 +18,20 @@
  * 本模块零 DOM、零 IO、零时钟:同一输入必得同一文档 ⇒ 可 diff、可测。DOM API 只出现在**产出的
  * 字符串**里(REPORT_INTERACTION_JS),由打开该文档的浏览器执行。
  */
-import type { AgentTraceReport, BuildAgentTraceReportOptions } from './agent-trace-types'
+import type {
+  AgentTrace,
+  AgentTraceReport,
+  BuildAgentTraceReportOptions,
+} from './agent-trace-types'
 import { AGENT_REPORT_COPY_KEYS as K, createCopyCollector } from './report-copy'
 import { buildAgentReportCss } from './report-styles'
 import { makeNumberFormatter } from './report-format'
-import { computeAgentTraceKpi, evaluateAgentTraceFindings } from './trace-metrics'
+import {
+  admitDroppedTrace,
+  computeAgentTraceKpi,
+  evaluateAgentTraceFindings,
+  layoutTraceLanes,
+} from './trace-metrics'
 import {
   renderCopyGap,
   renderFindings,
@@ -31,6 +40,7 @@ import {
   renderHead,
   renderKpis,
   renderMessages,
+  renderTraceLanes,
   renderWaterfall,
 } from './report-views'
 import { escapeHtml } from '../artifact/render'
@@ -46,6 +56,166 @@ const REPORT_INTERACTION_JS = `;(function () {
   var clear = document.getElementById('stepFilterClear')
   var copyBtn = document.getElementById('copyReport')
   var out = document.getElementById('stepHiddenCount')
+  var status = document.getElementById('reloadStatus')
+  function keep(reason) {
+    if (!status) return
+    status.setAttribute('data-reload', 'keep')
+    status.setAttribute('data-reason', reason)
+  }
+  function spanIdOk(value) {
+    return typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,40}$/.test(value)
+  }
+  function finiteMs(value) {
+    return typeof value === 'number' && isFinite(value) ? value : null
+  }
+  function layoutSpans(raw) {
+    var origin = finiteMs(raw.spanOriginMs)
+    var horizon = finiteMs(raw.spanHorizonMs)
+    if (origin === null || horizon === null) return { reason: 'window-unmeasured' }
+    if (horizon <= origin) return { reason: 'window-empty' }
+    if (!Array.isArray(raw.spans)) return { reason: 'spans-unmeasured' }
+    var whole = horizon - origin
+    var pending = []
+    var ids = {}
+    for (var i = 0; i < raw.spans.length; i++) {
+      var item = raw.spans[i]
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return { reason: 'span-unreadable' }
+      if (!spanIdOk(item.id) || !spanIdOk(item.lane) || ids[item.id]) return { reason: 'span-unreadable' }
+      var start = finiteMs(item.startMs)
+      var end = finiteMs(item.endMs)
+      if (start === null || end === null || end < start) return { reason: 'span-unreadable' }
+      if (start < origin || end > horizon) return { reason: 'span-outside' }
+      var fromId = null
+      if (item.fromId !== undefined && item.fromId !== null) {
+        if (!spanIdOk(item.fromId) || item.fromId === item.id) return { reason: 'edge-unknown' }
+        fromId = item.fromId
+      }
+      ids[item.id] = 1
+      pending.push({
+        id: item.id,
+        lane: item.lane,
+        fromId: fromId,
+        leftPct: Math.round(((start - origin) / whole) * 1000) / 10,
+        widthPct: Math.round(((end - start) / whole) * 1000) / 10
+      })
+    }
+    for (var j = 0; j < pending.length; j++) {
+      if (pending[j].fromId !== null && !ids[pending[j].fromId]) return { reason: 'edge-unknown' }
+    }
+    return { lanes: pending }
+  }
+  function admit(raw) {
+    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return { reason: 'payload-unreadable' }
+    var hasSteps = Object.prototype.hasOwnProperty.call(raw, 'toolCalls')
+    var hasSpans = Object.prototype.hasOwnProperty.call(raw, 'spans')
+    if (!hasSteps && !hasSpans) return { reason: 'payload-unmeasured' }
+    if (hasSteps) {
+      if (!Array.isArray(raw.toolCalls)) return { reason: 'steps-unmeasured' }
+      var allowed = { running: 1, success: 1, error: 1, cancelled: 1 }
+      for (var i = 0; i < raw.toolCalls.length; i++) {
+        var step = raw.toolCalls[i]
+        if (!step || typeof step !== 'object' || Array.isArray(step)) return { reason: 'step-unreadable' }
+        if (typeof step.toolName !== 'string' || step.toolName.trim() === '') return { reason: 'step-unreadable' }
+        if (typeof step.status !== 'string' || !allowed[step.status]) return { reason: 'step-unreadable' }
+        if (Object.prototype.hasOwnProperty.call(step, 'durationMs') && step.durationMs !== null && step.durationMs !== undefined) {
+          if (typeof step.durationMs !== 'number' || !isFinite(step.durationMs) || step.durationMs < 0) {
+            return { reason: 'duration-unmeasured' }
+          }
+        }
+      }
+    }
+    if (!hasSpans) return { steps: raw.toolCalls }
+    var laid = layoutSpans(raw)
+    if (laid.reason) return { reason: laid.reason }
+    return { steps: hasSteps ? raw.toolCalls : null, lanes: laid.lanes }
+  }
+  function paint(raw) {
+    var plan = admit(raw)
+    if (plan.reason) { keep(plan.reason); return }
+    if (plan.steps && list) {
+      while (list.firstChild) list.removeChild(list.firstChild)
+      var max = 0
+      for (var i = 0; i < plan.steps.length; i++) {
+        if (typeof plan.steps[i].durationMs === 'number' && plan.steps[i].durationMs > max) max = plan.steps[i].durationMs
+      }
+      var mark = status ? status.getAttribute('data-unmeasured') || '' : ''
+      for (var n = 0; n < plan.steps.length; n++) {
+        var step = plan.steps[n]
+        var row = document.createElement('li')
+        row.className = 'step'
+        row.setAttribute('data-status', step.status)
+        var name = document.createElement('span')
+        name.className = 'name'
+        name.textContent = step.toolName
+        var ms = document.createElement('span')
+        ms.className = 'ms readout'
+        var measured = typeof step.durationMs === 'number'
+        ms.textContent = measured ? String(step.durationMs) : mark
+        var track = document.createElement('span')
+        track.className = 'track'
+        var bar = document.createElement('span')
+        bar.className = 'bar'
+        bar.setAttribute('data-state', measured ? 'measured' : 'unmeasured')
+        var width = measured && max > 0 ? ((step.durationMs / max) * 100).toFixed(1) : '0.0'
+        bar.setAttribute('style', 'width:' + width + '%')
+        track.appendChild(bar)
+        row.appendChild(name)
+        row.appendChild(track)
+        row.appendChild(ms)
+        list.appendChild(row)
+      }
+    }
+    if (plan.lanes) {
+      var host = document.getElementById('lanes')
+      if (!host) {
+        host = document.createElement('section')
+        host.id = 'lanes'
+        var report = document.getElementById('report')
+        if (report) report.appendChild(host)
+      }
+      while (host.firstChild) host.removeChild(host.firstChild)
+      host.setAttribute('data-lanes', 'laid-out')
+      host.setAttribute('data-reason', 'laid-out')
+      for (var k = 0; k < plan.lanes.length; k++) {
+        var span = plan.lanes[k]
+        var lane = document.createElement('div')
+        lane.className = 'lane'
+        lane.setAttribute('data-lane', span.lane)
+        var bar = document.createElement('span')
+        bar.className = 'lane-bar'
+        bar.setAttribute('data-span', span.id)
+        if (span.fromId) bar.setAttribute('data-from', span.fromId)
+        bar.setAttribute('style', 'left:' + span.leftPct + '%;width:' + span.widthPct + '%')
+        lane.appendChild(bar)
+        host.appendChild(lane)
+      }
+    }
+    if (status) {
+      status.setAttribute('data-reload', 'replace')
+      status.setAttribute('data-reason', 'measured')
+    }
+  }
+  function applyText(text) {
+    var raw
+    try { raw = JSON.parse(text) } catch (err) { keep('payload-unreadable'); return }
+    paint(raw)
+  }
+  document.addEventListener('dragover', function (event) { event.preventDefault() })
+  document.addEventListener('drop', function (event) {
+    event.preventDefault()
+    var file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]
+    if (!file || typeof FileReader === 'undefined') { keep('payload-unmeasured'); return }
+    var reader = new FileReader()
+    reader.onload = function () { applyText(String(reader.result || '')) }
+    reader.onerror = function () { keep('payload-unreadable') }
+    reader.readAsText(file)
+  })
+  document.addEventListener('paste', function (event) {
+    if (event.target && event.target.id === 'stepFilter') return
+    var text = event.clipboardData && event.clipboardData.getData('text/plain')
+    if (!text) return
+    applyText(text)
+  })
   if (!list) return
   function apply() {
     var q = input ? input.value.trim().toLowerCase() : ''
@@ -85,10 +255,22 @@ export function buildAgentTraceReport(options: BuildAgentTraceReportOptions): Ag
 
   // 取词是一串求值过程 ⇒ 欠账清单必须在正文、页脚、标题都取过词之后再取快照,
   // 否则后求值的键会进机读结果却不进文档(读数与视图两套口径 = 漂移)。
+  const laneHtml =
+    trace.spans === undefined
+      ? ''
+      : renderTraceLanes(
+          layoutTraceLanes({
+            originMs: trace.spanOriginMs,
+            horizonMs: trace.spanHorizonMs,
+            spans: trace.spans,
+          }),
+          copy,
+        )
   const main = [
     renderHead(trace, copy, nf),
     renderKpis(kpi, copy, nf),
     renderWaterfall(trace, kpi, copy),
+    laneHtml,
     renderFindings(findings, copy),
     renderMessages(trace, copy),
     renderGlossary(copy),
@@ -110,6 +292,7 @@ export function buildAgentTraceReport(options: BuildAgentTraceReportOptions): Ag
     '<style>' + buildAgentReportCss() + '</style>',
     '</head>',
     '<body>',
+    `<p id="reloadStatus" class="meta" data-reload="idle" data-reason="" data-unmeasured="${escapeHtml(copy.copy(K.waterfallUnmeasuredMark))}"></p>`,
     `<main id="report">${main}${gap}${footer}</main>`,
     '<script>' + REPORT_INTERACTION_JS + '</script>',
     '</body>',
@@ -117,5 +300,22 @@ export function buildAgentTraceReport(options: BuildAgentTraceReportOptions): Ag
   ].join('')
 
   return { kpi, findings, missingCopyKeys, html }
+}
+
+/** 用同一套判据重渲。读不出来就留空报告，调用方继续用原来那份。 */
+export function reloadAgentTraceReport(
+  previous: AgentTrace,
+  raw: unknown,
+  options: Omit<BuildAgentTraceReportOptions, 'trace'> = {},
+): { disposition: 'keep' | 'replace'; reason: string; report: AgentTraceReport | null } {
+  const plan = admitDroppedTrace(previous, raw)
+  if (plan.disposition === 'keep' || plan.trace === null) {
+    return { disposition: 'keep', reason: plan.reason, report: null }
+  }
+  return {
+    disposition: 'replace',
+    reason: plan.reason,
+    report: buildAgentTraceReport({ ...options, trace: plan.trace }),
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
