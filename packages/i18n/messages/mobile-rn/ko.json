@@ -4808,7 +4808,8 @@
     "title": "지식 플래닛",
     "newOfficial": "공지",
     "newCommunity": "커뮤니티",
-    "enter": "플래닛 입장"
+    "enter": "플래닛 입장",
+    "memberCount": "{count}명의 멤버"
   },
   "knowledgeRag": {
     "title": "RAG 지식 베이스",

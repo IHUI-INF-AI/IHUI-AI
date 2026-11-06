@@ -25,7 +25,16 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 // 知识星球资讯列表(api 层 miniapp-compat 路由,返回 { list, total };旧路径 /resource/getKnowledgePlanet 已下线 404)
-const API_PATH = '/api/knowledge-planet/news'
+// 分页参数与 web 同源(apps/web/app/(main)/knowledge-planet/page.tsx:41),不传则落后端默认档。
+const API_PATH = '/api/knowledge-planet/news?page=1&pageSize=20'
+const INFO_API_PATH = '/api/knowledge-planet/info'
+
+/** GET /knowledge-planet/info 的真实回包字段(routes/miniapp-compat-routes.ts:1644-1658) */
+interface PlanetInfo {
+  name: string
+  memberCount: number
+  description: string
+}
 
 function toTimestamp(time: string | number | undefined): number {
   if (time === undefined || time === null) return Date.now()
@@ -43,6 +52,7 @@ export function KnowledgePlanetScreen() {
   const [items, setItems] = useState<
     { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
   >([])
+  const [planet, setPlanet] = useState<PlanetInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -50,17 +60,22 @@ export function KnowledgePlanetScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<{
-        list: {
-          id: string | number
-          title: string
-          summary?: string | null
-          coverImage?: string | null
-          createdAt?: string | number
-        }[]
-        total: number
-      }>(API_PATH)
+      const [res, infoRes] = await Promise.all([
+        fetchApi<{
+          list: {
+            id: string | number
+            title: string
+            summary?: string | null
+            coverImage?: string | null
+            createdAt?: string | number
+          }[]
+          total: number
+        }>(API_PATH),
+        fetchApi<PlanetInfo>(INFO_API_PATH),
+      ])
       if (!res.success) throw apiFailureToError(res)
+      // 星球信息轴独立降级:取不到只不渲染头卡,不得连带把已取到的列表判成加载失败
+      setPlanet(infoRes.success && infoRes.data ? infoRes.data : null)
       const rawList = res.data?.list ?? []
       setItems(
         rawList.map((raw) => ({
@@ -104,13 +119,16 @@ export function KnowledgePlanetScreen() {
       <SharedKnowledgePlanetScreen
         t={t}
         items={items}
+        planet={planet}
         loading={loading}
         refreshing={refreshing}
         error={error}
         onRefresh={onRefresh}
         onItemClick={onItemClick}
         onBack={() => navigation.goBack()}
-        onRetry={() => { void load(); }}
+        onRetry={() => {
+          void load()
+        }}
         colorScheme={resolvedTheme}
       />
       {/* 加载遮罩(对齐原项目 common/Loading 全屏 loading-mask 语义) */}
