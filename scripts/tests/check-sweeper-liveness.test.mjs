@@ -302,7 +302,7 @@ test('族三零清单:键表只能来自现解析守护源码,本探针里不许
   // 族三的实现必须"读源码 + 解默认值",不是拿常量数组比名字
   assert.match(PROBE_SRC, /readFileSync\(path\.join\(root,\s*'scripts',\s*'git-guardian\.mjs'\)/)
   assert.match(PROBE_SRC, /intervalMs\\s\*\[:=\]/)
-  assert.match(PROBE_SRC, /tickFile\\s\*\[:=\]/)
+  assert.match(PROBE_SRC, /\[Tt\]ickFile\\s\*\[:=\]/)
   // 本测试文件也不许出现硬编码腿清单:全部经 P.__test__ 取(§22c)
   assert.ok(!/const\s+PARITY_LEGS\s*=/.test(PROBE_SRC), '族三若内置腿清单 = 第二份真相源,必漂')
 })
@@ -381,6 +381,75 @@ test('族三冻结戳有牙,且承载面停摆时降级成未判定(不冒名 st
   } finally {
     rmScratch(h.root)
   }
+})
+
+/** 最小双链夹具:一条「无戳位」腿(具名声明)+ 一条正常戳位腿。两条链各 ≥20 行(tick 区段形状判据)。 */
+function parityFixtureSource() {
+  const pad = Array.from({ length: 20 }, (_, i) => `  const pad${i} = ${i}`)
+  return [
+    'async function main() {',
+    '  const CHECK_ONLY = false',
+    ...pad,
+    '  if (!CHECK_ONLY) auditNoStampLeg()',
+    '  if (!CHECK_ONLY) auditStampedLeg()',
+    '}',
+    'function startDaemon() {',
+    '  const CHECK_ONLY = false',
+    ...pad,
+    '  const tick = () => {',
+    '    const q0 = 0',
+    ...Array.from({ length: 20 }, (_, i) => `    const q${i + 1} = ${i}`),
+    '    if (!CHECK_ONLY) auditNoStampLeg()',
+    '    if (!CHECK_ONLY) auditStampedLeg()',
+    '  }',
+    '  setInterval(tick, 1000)',
+    '}',
+    '// dispatch-parity-no-stamp: auditNoStampLeg 只在异常时动作,没有可写周期戳的位置',
+    'function auditNoStampLeg() {',
+    '  return null',
+    '}',
+    'function auditStampedLeg({ tickFile = STAMPED_TICK, intervalMs = STAMPED_INTERVAL_MS } = {}) {',
+    '  return tickFile',
+    '}',
+    "const STAMPED_TICK = join(STATE_DIR, 'stamped-tick.json')",
+    'const STAMPED_INTERVAL_MS = 5 * 60 * 1000',
+    '',
+  ].join('\n')
+}
+
+test('族三无戳位腿:具名声明后保持 undetermined,不折成 stalled/live(§0.3)', () => {
+  const h = parityHarness(parityFixtureSource())
+  try {
+    h.carrier(NOW - MIN) // 承载面在动
+    h.stamp('stamped-tick.json', NOW - MIN) // 有戳位的腿新鲜 ⇒ 唯一未判来源只能是那条无戳位腿
+    const v = P.dispatchParityVerdict({ nowMs: NOW, root: h.root })
+    const item = (v.items ?? []).find((x) => x.leg === 'auditNoStampLeg')
+    assert.ok(item, '无戳位腿必须逐条点名,不许静默略过')
+    assert.equal(item.kind, 'no-stamp-slot', `无戳位腿被读成了 ${item.kind}(应保持未判定)`)
+    assert.match(item.detail, /无戳位，判据不适用/, `理由必须写清"判据不适用":${item.detail}`)
+    assert.equal(v.state, 'undetermined', `只有无戳位腿未判时不许读成 ${v.state}(§0.3)`)
+    assert.equal(v.stock, 0, '无戳位不是背离,不得计入 stalled 存量')
+  } finally {
+    rmScratch(h.root)
+  }
+})
+
+test('族三解析面:曾「无戳位/无节律」的腿全部接上,残留未判定只剩具名无戳位(§0.6)', () => {
+  const v = P.dispatchParityVerdict({ nowMs: Date.now(), root: REPO_ROOT })
+  const residual = (v.items ?? []).filter((x) =>
+    ['tickfile-unresolved', 'interval-unresolved', 'no-fn-body'].includes(x.kind),
+  )
+  assert.deepEqual(
+    residual.map((x) => `${x.leg}[${x.kind}]`),
+    [],
+    `仍有腿解析不出戳位/节律(2026-11-06 现读应为 0):${residual.map((x) => x.leg).join(', ')}`,
+  )
+  const noStamp = (v.items ?? []).filter((x) => x.kind === 'no-stamp-slot')
+  assert.ok(noStamp.length >= 12, `具名无戳位腿只剩 ${noStamp.length} 条(应为 12)⇒ 标记行被摘了`)
+  assert.ok(
+    noStamp.every((x) => /无戳位，判据不适用/.test(x.detail)),
+    '无戳位腿必须逐条写清「无戳位,判据不适用」',
+  )
 })
 
 test('族三节流戳读数器:ISO 文本 / epoch 毫秒 / JSON attemptAt 三形态都吃得,读不出不折成 0', () => {

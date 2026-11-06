@@ -171,6 +171,9 @@ const GUARDIAN_REL = 'scripts/git-guardian.mjs'
 const PARITY_LEG_PREFIX_RE =
   /^(audit|sweep|heal|watch|dispatch|report|rotate|refresh|scrub|reap|archive|ensure|converge|autoRegister|gc|check)[A-Z]/
 const PARITY_EXEMPT_MARK = 'dispatch-parity-exempt:'
+/** 「确实没有可写戳位」的具名声明:格式 `dispatch-parity-no-stamp: <腿名> <理由>`。
+ *  这类腿**保持未判定**并逐条点名 —— 绝不为消未判定而硬造门限,也不折成 live(§0.3)。 */
+const PARITY_NO_STAMP_MARK = 'dispatch-parity-no-stamp:'
 /** 冻结倍率:腿自己声明的节律 ×3 还看不到新戳 ⇒ 承载面根本没跑到它(与 SILENT_HOURS 同族参数)。 */
 const PARITY_FREEZE_FACTOR = 3
 /** 承载面心跳多新才算"执行体在动":轮级锁每轮 beat 一次,30 分钟 = 连丢一整段节拍(与 DISPATCH_FRESH_MIN 同档)。 */
@@ -282,8 +285,9 @@ function constExprOf(lines, name) {
   return acc
 }
 
-/** intervalMs 表达式 → 毫秒;解不出 ⇒ null(上层落未判定,不自造默认节律)。 */
-function resolveIntervalMs(expr, lines, depth = 0) {
+/** intervalMs 表达式 → 毫秒;解不出 ⇒ null(上层落未判定,不自造默认节律)。
+ *  `resolveConst` 注入时,常量可跨一层 import 取(如 HOME_HEAL_MIN_INTERVAL_MS 住 lib)。 */
+function resolveIntervalMs(expr, lines, depth = 0, resolveConst = null) {
   if (expr === null || expr === undefined || depth > 8) return null
   // 多行 Number( 换行形态会被拼成 "...,\n)" ⇒ 先摘掉括号尾部的悬挂逗号
   let e = String(expr)
@@ -292,8 +296,16 @@ function resolveIntervalMs(expr, lines, depth = 0) {
     .replace(/,$/, '')
   const coalesce = e.match(/\?\?\s*(.+)$/)
   if (coalesce) e = coalesce[1].trim()
-  const env = e.match(/^Number\(\s*process\.env\.['\w]+\s*\|\|\s*(.+?)\s*\)$/)
-  if (env) return resolveIntervalMs(env[1], lines, depth + 1)
+  // `Number(a || b || 1800000)`:逐段试解,取第一个解得出的(env 名本身解不出,落到字面默认值)
+  const num = e.match(/^Number\(\s*(.+?)\s*\)$/)
+  if (num) {
+    const parts = num[1].split('||')
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const r = resolveIntervalMs(parts[i], lines, depth + 1, resolveConst)
+      if (r !== null) return r
+    }
+    return null
+  }
   // 纯乘式(不 eval):5 * 60 * 1000 / 6 * 60 * 60 * 1000 / 30_000 之类
   const product = e.match(/^(\d+(?:_\d+)*)(?:\s*\*\s*\d+(?:_\d+)*)+$/)
   if (product)
@@ -303,53 +315,158 @@ function resolveIntervalMs(expr, lines, depth = 0) {
       .reduce((a, b) => a * b, 1)
   if (/^\d+(?:_\d+)*$/.test(e)) return Number(e.replace(/_/g, ''))
   const id = e.match(/^([A-Z][A-Z0-9_]*)$/)
-  if (id) return resolveIntervalMs(constExprOf(lines, id[1]), lines, depth + 1)
+  if (id) {
+    const found = resolveConst
+      ? resolveConst(id[1])
+      : (() => {
+          const x = constExprOf(lines, id[1])
+          return x === null ? null : { expr: x, lines }
+        })()
+    if (found) return resolveIntervalMs(found.expr, found.lines, depth + 1, resolveConst)
+    return null
+  }
   return null
 }
 
 /** tickFile 表达式 → {file};模板名(逐族展开)⇒ {dynamic:true},该腿计入"无从量"而非"没跑"。 */
-function resolveTickFile(expr, lines, depth = 0) {
+function resolveTickFile(expr, lines, depth = 0, resolveConst = null) {
   if (expr === null || expr === undefined || depth > 8) return null
   const e = String(expr).trim().replace(/,$/, '')
   if (/\$\{/.test(e)) return { dynamic: true }
   const id = e.match(/^([A-Z][A-Z0-9_]*)$/)
-  if (id) return resolveTickFile(constExprOf(lines, id[1]), lines, depth + 1)
+  if (id) {
+    const found = resolveConst
+      ? resolveConst(id[1])
+      : (() => {
+          const x = constExprOf(lines, id[1])
+          return x === null ? null : { expr: x, lines }
+        })()
+    if (found) return resolveTickFile(found.expr, found.lines, depth + 1, resolveConst)
+    return null
+  }
   const lits = [...e.matchAll(/'([^']+)'/g)].map((m) => m[1])
   if (!lits.length) return null
   const file = lits[lits.length - 1]
-  return /\./.test(file) ? { file } : null
+  // 有扩展名 ⇒ 直接认;`join(dir, …, 'name')` 形末段即文件名(本仓若干戳位没有扩展名,不许因此判成"没戳");
+  // 纯字面路径 ⇒ 取 basename。其余(三元表达式、非路径字面量)仍判不明。
+  if (/\./.test(file) || /join\(/.test(e)) return { file }
+  if (/[\\/]/.test(file)) return { file: file.split(/[\\/]/).pop() }
+  return null
 }
 
-/** 键表:每条被派发的腿 → {tickFile, intervalMs}(函数默认值区现取,`tickFile: X` 传参形也算)。 */
-function keyTableOf(lines, legNames) {
+/** 具名 import(`import { a, b as c } from './x.mjs'`,含跨行块)的本地名 → 相对路径;按行取,不 eval。 */
+function importMapOf(lines) {
+  const map = new Map()
+  let buf = ''
+  for (const raw of lines) {
+    const l = raw.trim()
+    if (!buf) {
+      if (!/^import\s*\{/.test(l)) continue
+      buf = l
+    } else buf += ' ' + l
+    if (!/\}\s*from\s*'/.test(buf)) continue
+    const m = buf.match(/^import\s*\{([^}]*)\}\s*from\s*'([^']+)'/)
+    if (m)
+      for (const part of m[1].split(',')) {
+        const t = part.trim()
+        if (!t) continue
+        const name = t.split(/\s+as\s+/).pop().trim()
+        if (name) map.set(name, m[2])
+      }
+    buf = ''
+  }
+  return map
+}
+
+/** 从赋值式里取 `键 = 值` 的右侧:括号内逗号不算分隔,深度归零后的 `,`/`}` 收口(join(...) 不会被切坏)。 */
+function assignTailOf(line, keyRe) {
+  const m = keyRe.exec(line)
+  if (!m) return null
+  let depth = 0
+  let out = ''
+  for (const ch of line.slice(m.index + m[0].length)) {
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      if (depth === 0) break
+      depth--
+    } else if (ch === ',' && depth === 0) break
+    out += ch
+  }
+  return out.trim()
+}
+
+/**
+ * 键表:每条被派发的腿 → {tickFile, intervalMs}(函数默认值区现取,`tickFile:`/`defaultTickFile:` 传参形也算)。
+ * `root` 注入时跟随具名 import 去定义所在模块取默认值(腿住 lib 的也能量),常量亦跟随一层;
+ * root 缺省时只看本文件(镜像测试的夹具源码仍走老路径)。
+ */
+function keyTableOf(lines, legNames, { root = null } = {}) {
+  const importMap = importMapOf(lines)
+  const moduleCache = new Map()
+  const moduleLines = (rel) => {
+    if (!root || !rel || !rel.startsWith('.')) return null
+    const file = path.resolve(path.join(root, 'scripts'), rel)
+    if (!moduleCache.has(file)) {
+      try {
+        moduleCache.set(file, readFileSync(file, 'utf8').split(/\r?\n/))
+      } catch {
+        moduleCache.set(file, null)
+      }
+    }
+    return moduleCache.get(file)
+  }
+  const resolveConst = (bodyLines) => (name) => {
+    const e = constExprOf(bodyLines, name)
+    if (e !== null) return { expr: e, lines: bodyLines }
+    const e2 = constExprOf(lines, name)
+    if (e2 !== null) return { expr: e2, lines }
+    const rel = importMap.get(name)
+    const ml = rel ? moduleLines(rel) : null
+    if (!ml) return null
+    const e3 = constExprOf(ml, name)
+    return e3 === null ? null : { expr: e3, lines: ml }
+  }
   const table = new Map()
   for (const name of legNames) {
-    const i = lines.findIndex((l) => new RegExp(`^(?:export )?function ${name}\\(`).test(l))
-    if (i < 0) {
-      table.set(name, { tickFile: null, intervalMs: null, hasFn: false, rawInterval: null })
+    const defRe = new RegExp(`^(?:export )?function ${name}\\(`)
+    let at = lines.findIndex((l) => defRe.test(l))
+    let body = lines
+    if (at < 0) {
+      const rel = importMap.get(name)
+      const ml = rel ? moduleLines(rel) : null
+      const i = ml ? ml.findIndex((l) => defRe.test(l)) : -1
+      if (i >= 0) {
+        at = i
+        body = ml
+      }
+    }
+    if (at < 0) {
+      table.set(name, { tickFile: null, intervalMs: null, hasFn: false, rawInterval: null, rawTick: null, no: null })
       continue
     }
     let intv = null
     let tick = null
-    for (let k = i + 1; k < Math.min(i + 60, lines.length); k++) {
-      const l = lines[k]
-      if (/^(?:export )?function |^export const |^\/\*\*|^const __test__/.test(l)) break
-      if (/^\}/.test(l)) break
+    for (let k = at; k < Math.min(at + 60, body.length); k++) {
+      const l = body[k]
+      if (k > at) {
+        if (/^(?:export )?function |^export const |^\/\*\*|^const __test__/.test(l)) break
+        if (/^\}/.test(l)) break
+      }
       const s = l.trim()
-      let m = s.match(/^tickFile\s*[:=]\s*(.+?),?$/)
-      if (m && tick === null) tick = m[1]
-      m = s.match(/^intervalMs\s*[:=]\s*(.+?),?$/)
-      if (m && intv === null) intv = m[1]
+      if (s.startsWith('//') || s.startsWith('*')) continue
+      if (tick === null) tick = assignTailOf(s, /(?:^|[,{(])\s*(?:default)?[Tt]ickFile\s*[:=]/)
+      if (intv === null) intv = assignTailOf(s, /(?:^|[,{(])\s*intervalMs\s*[:=]/)
       if (tick !== null && intv !== null) break
     }
-    const f = resolveTickFile(tick, lines)
+    const f = resolveTickFile(tick, body, 0, resolveConst(body))
     table.set(name, {
       tickFile: f && f.file ? f.file : null,
       dynamic: !!(f && f.dynamic),
-      intervalMs: resolveIntervalMs(intv, lines),
+      intervalMs: resolveIntervalMs(intv, body, 0, resolveConst(body)),
       rawInterval: intv,
+      rawTick: tick,
       hasFn: true,
-      no: i + 1,
+      no: at + 1,
     })
   }
   return table
@@ -442,7 +559,16 @@ export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) 
   const main = dispatchFaceOf(faces.main)
   const tick = dispatchFaceOf(faces.tick)
   const legs = [...new Set([...main.keys(), ...tick.keys()])]
-  const table = keyTableOf(faces.lines, legs)
+  const table = keyTableOf(faces.lines, legs, { root })
+  // 「无戳位」具名声明:只在源码里逐条点名,不在本文件维护名单(§0.6)。
+  // 这类腿保持未判定 —— 不许为了把未判定清零去硬造一枚门限戳(§0.3)。
+  const noStampOf = new Map()
+  for (const l of faces.lines) {
+    const at = l.indexOf(PARITY_NO_STAMP_MARK)
+    if (at < 0) continue
+    const m = l.slice(at + PARITY_NO_STAMP_MARK.length).trim().match(/^([A-Za-z_]\w*)\s+(.+)/)
+    if (m) noStampOf.set(m[1], m[2].trim())
+  }
   const pinned = legs.filter((n) => {
     const r = table.get(n)
     return r && (r.tickFile || r.dynamic || r.intervalMs !== null)
@@ -499,6 +625,12 @@ export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) 
     if (!onMain && onTick) {
       // 只在 tick 上(事件驱动修复动作等)不是本次事故那一型,只报数不判背离
       tickOnly++
+      continue
+    }
+    const noStamp = noStampOf.get(name)
+    if (noStamp) {
+      // 具名声明「这条腿根本没有可写周期戳的位置」:保持未判定并点名,不折成 live(§0.3)。
+      unjudged.push({ leg: name, kind: 'no-stamp-slot', detail: `无戳位，判据不适用：${noStamp}` })
       continue
     }
     if (!entry.hasFn) {
@@ -576,13 +708,15 @@ export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) 
       `B档已具名豁免=${deferred}`,
       carrierAgeMin === null ? '承载面心跳=取不到' : `承载面心跳=${carrierAgeMin} 分钟前`,
       maxFreshAgeMin === null ? '最老新鲜戳=—' : `最老新鲜戳=${maxFreshAgeMin} 分钟前`,
+      `无戳位具名=${kindOf(unjudged, 'no-stamp-slot')}`,
     ],
     detail:
       `腿→tickFile→intervalMs 键表 ${legs.length} 条,全部从 ${GUARDIAN_REL} 源码现解析(本文件零清单)` +
       `;背离 ${breaches.length}(main-only ${kindOf(breaches, 'main-only')}、戳冻结 ${kindOf(breaches, 'stamp-frozen')}、` +
       `豁免腐烂 ${kindOf(breaches, 'exempt-stale')});未判定 ${unjudged.length}(戳不在 ${kindOf(unjudged, 'stamp-missing')}、` +
       `形状读不出 ${kindOf(unjudged, 'stamp-unparsed')}、节律解不出 ${kindOf(unjudged, 'interval-unresolved')}、` +
-      `动态戳名 ${kindOf(unjudged, 'tickfile-dynamic')}、承载面未动 ${kindOf(unjudged, 'carrier-not-moving')})` +
+      `动态戳名 ${kindOf(unjudged, 'tickfile-dynamic')}、承载面未动 ${kindOf(unjudged, 'carrier-not-moving')}、` +
+      `无戳位具名 ${kindOf(unjudged, 'no-stamp-slot')})` +
       `;只挂 tick ${tickOnly}` +
       (breaches.length
         ? `;出路=main-only 那族逐条补进常驻 tick(或就地写 dispatch-parity-exempt 理由),戳冻结那一族要落到` +
@@ -590,7 +724,7 @@ export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) 
         : unjudged.length
           ? `;未判定逐条 ⇒ ${namesOf(unjudged)}`
           : ''),
-    stockNote: `背离 ${breaches.length} / 未判定 ${unjudged.length} / 豁免 ${deferred} / 仅 tick ${tickOnly}`,
+    stockNote: `背离 ${breaches.length} / 未判定 ${unjudged.length}(无戳位 ${kindOf(unjudged, 'no-stamp-slot')}) / 豁免 ${deferred} / 仅 tick ${tickOnly}`,
     items: [...breaches, ...unjudged],
   }
 }

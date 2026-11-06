@@ -81,11 +81,11 @@ function beatRoundLock() {
   if (!r.ok && r.lost) activeRoundLock = null
 }
 
-import { auditLintStagedPins as pinsAudit } from './lib/lint-staged-pin-audit.mjs'
+import { auditLintStagedPins as pinsAudit, PIN_INTERVAL_MS } from './lib/lint-staged-pin-audit.mjs'
 import { rotateAppendLog } from './lib/log-rotation.mjs'
 // 会话全文落盘腿(第 4 格·观测腿,2026-11-01 立)的过期回收:保留期判据全在 lib(单一真相源),本处只取盘 + 调判据 + 留声 + 删。
 import { decideRetention, isTranscriptName, TRANSCRIPT_DIR } from './lib/session-transcript.mjs'
-import { runRegistrySyncHealth } from './lib/registry-sync-audit.mjs'
+import { runRegistrySyncHealth, REGISTRY_SYNC_INTERVAL_MS } from './lib/registry-sync-audit.mjs'
 import { createHash } from 'node:crypto'
 import { homedir, hostname } from 'node:os'
 import { isInteractiveUserHome } from './check-home-junctions.mjs'
@@ -145,6 +145,7 @@ import {
 // 公网探测的**告警身份归一**住在尺子那侧(§0.6 单一真相源,2026-10-17 立):派发层只负责把它填进
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
+// dispatch-parity-no-stamp: auditProdForeignWork 只读生产签出工作区，void 返回，无戳位
 import { auditProdForeignWork } from './git-guardian-prod-foreign.mjs'
 // G-24 事故归档回收器的调度接线臂(2026-10-26,席位 goal-20261026-b14r3):dry-run 只判不删、
 // 开关面默认关、读数写日志通道留痕;实现单源在 lib(守门 103 C1 行数上限,主文件只留挂点)。
@@ -185,6 +186,7 @@ import {
   clearUndeterminedStreak,
   judgeRefsHealth,
   homeHealDue,
+  HOME_HEAL_MIN_INTERVAL_MS,
   classifyMergeLossOutcome,
   parseMergeLossCount,
 } from './lib/git-guardian-pure.mjs'
@@ -1701,26 +1703,26 @@ function refsOk() {
 }
 
 // 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1381(门 103 C1 收口)〉首意: 工作区已跟踪文件存续自愈(2026-09-23 立)。宿主清理层会成批删除工作区目录
-function healWorktreeTracked() {
+function healWorktreeTracked({ tickFile = WORKTREE_ALIGN_TICK, intervalMs = WORKTREE_HEAL_INTERVAL_MS } = {}) {
   // 2026-10-04 复核补节流(细节移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md):本函数与收敛对齐
   // 自愈同轮写同一索引,无节流会抢 index.lock 并多花一次 40–51 秒;节流判据用「对齐层跑过的窗口」,
   // 对齐真实动作面而不是随便加个时间戳。
   const now = Date.now()
   let lastAlign = 0
   try {
-    lastAlign = Number(readFileSync(WORKTREE_ALIGN_TICK, 'utf8')) || 0
+    lastAlign = Number(readFileSync(tickFile, 'utf8')) || 0
   } catch {
     /* 首次:没有 tick 就是该跑 */
   }
-  if (now - lastAlign < WORKTREE_HEAL_INTERVAL_MS) {
+  if (now - lastAlign < intervalMs) {
     log(
       `ℹ️ 工作区存续自愈跳过:对齐层 ${Math.round((now - lastAlign) / 1000)}s 前刚跑过(同一轮不必跑两遍写索引动作)`,
     )
     return
   }
   try {
-    mkdirSync(dirname(WORKTREE_ALIGN_TICK), { recursive: true })
-    writeFileSync(WORKTREE_ALIGN_TICK, String(now), 'utf8')
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, String(now), 'utf8')
   } catch {
     /* tick 写不下去也要跑:否则一次盘错就永久失明 */
   }
@@ -1837,7 +1839,7 @@ function healWorktreeTracked() {
 const HOME_HEAL_LOCK = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.heal.lock')
 const HOME_HEAL_STAMP = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.last-heal.txt')
 
-function healHomeJunctions() {
+function healHomeJunctions({ tickFile = HOME_HEAL_STAMP, intervalMs = HOME_HEAL_MIN_INTERVAL_MS } = {}) {
   const dir = dirname(fileURLToPath(import.meta.url))
   const judge = join(dir, 'check-home-junctions.mjs')
   const fixer = join(dir, 're-home-junctions.mjs')
@@ -1847,14 +1849,14 @@ function healHomeJunctions() {
   // ── ⓪b 墙钟节流 ──
   let lastRaw = ''
   try {
-    lastRaw = readFileSync(HOME_HEAL_STAMP, 'utf8')
+    lastRaw = readFileSync(tickFile, 'utf8')
   } catch {
     lastRaw = ''
   }
-  if (!homeHealDue(lastRaw, Date.now())) return
+  if (!homeHealDue(lastRaw, Date.now(), intervalMs)) return
   try {
-    mkdirSync(dirname(HOME_HEAL_STAMP), { recursive: true })
-    writeFileSync(HOME_HEAL_STAMP, String(Date.now()), 'utf8')
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, String(Date.now()), 'utf8')
   } catch {
     /* 时间戳写不进去只失去节流这一层的保护,不得因此不跑本轮 */
   }
@@ -1989,18 +1991,18 @@ function healHomeJunctions() {
 const TZ_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'host-timezone-audit-tick.ts')
 const TZ_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
-function auditHostTimezone() {
+function auditHostTimezone({ tickFile = TZ_AUDIT_TICK, intervalMs = TZ_AUDIT_INTERVAL_MS } = {}) {
   try {
     let last = 0
     try {
-      last = Number(readFileSync(TZ_AUDIT_TICK, 'utf8')) || 0
+      last = Number(readFileSync(tickFile, 'utf8')) || 0
     } catch {
       /* 首次:没有 tick 就是该跑 */
     }
-    if (Date.now() - last < TZ_AUDIT_INTERVAL_MS) return
+    if (Date.now() - last < intervalMs) return
     try {
-      mkdirSync(dirname(TZ_AUDIT_TICK), { recursive: true })
-      writeFileSync(TZ_AUDIT_TICK, String(Date.now()))
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, String(Date.now()))
     } catch {
       /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
     }
@@ -2082,18 +2084,18 @@ const DISK_ROOT_AUDIT_TICK = join(
 const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
 // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1781(门 103 C1 收口)〉首意: 告警去重的**计数分档**:档内抖动不重报,跨档才算真恶化/真缓解。
-function auditDiskRootHygiene() {
+function auditDiskRootHygiene({ tickFile = DISK_ROOT_AUDIT_TICK, intervalMs = DISK_ROOT_AUDIT_INTERVAL_MS } = {}) {
   try {
     let last = 0
     try {
-      last = Number(readFileSync(DISK_ROOT_AUDIT_TICK, 'utf8')) || 0
+      last = Number(readFileSync(tickFile, 'utf8')) || 0
     } catch {
       /* 首次:没有 tick 就是该跑 */
     }
-    if (Date.now() - last < DISK_ROOT_AUDIT_INTERVAL_MS) return
+    if (Date.now() - last < intervalMs) return
     try {
-      mkdirSync(dirname(DISK_ROOT_AUDIT_TICK), { recursive: true })
-      writeFileSync(DISK_ROOT_AUDIT_TICK, String(Date.now()))
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, String(Date.now()))
     } catch {
       /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
     }
@@ -2256,18 +2258,18 @@ function probeGitFilterKeys(bin) {
   }
 }
 
-function auditGitFilterResidue() {
+function auditGitFilterResidue({ tickFile = GIT_FILTER_AUDIT_TICK, intervalMs = GIT_FILTER_AUDIT_INTERVAL_MS } = {}) {
   try {
     let last = 0
     try {
-      last = Number(readFileSync(GIT_FILTER_AUDIT_TICK, 'utf8')) || 0
+      last = Number(readFileSync(tickFile, 'utf8')) || 0
     } catch {
       /* 首次:没有 tick 就是该跑 */
     }
-    if (Date.now() - last < GIT_FILTER_AUDIT_INTERVAL_MS) return
+    if (Date.now() - last < intervalMs) return
     try {
-      mkdirSync(dirname(GIT_FILTER_AUDIT_TICK), { recursive: true })
-      writeFileSync(GIT_FILTER_AUDIT_TICK, String(Date.now()))
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, String(Date.now()))
     } catch {
       /* tick 写不下去也要判一次:否则一次盘错就永久失明 */
     }
@@ -2355,6 +2357,7 @@ function clearMergeLossUndetermined(file = MERGE_LOSS_UNDET_FILE) {
   clearUndeterminedStreak(file)
 }
 
+// dispatch-parity-no-stamp: auditMergeAdditionLoss 只在合并吞并对账出缺口时写未判定台账，无周期戳位
 function auditMergeAdditionLoss() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-merge-addition-loss.mjs')
   if (!existsSync(script)) return
@@ -2424,6 +2427,7 @@ function auditMergeAdditionLoss() {
 }
 
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1976(门 103 C1 收口)〉首意: 本地恢复源的增量刷新层(§5b 里那条"唯一空白层")。
+// dispatch-parity-no-stamp: refreshRecoverySource 只按备份刷新结果留声，无节律戳位
 function refreshRecoverySource() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'git-backup-refresh.mjs')
   if (!existsSync(script)) return
@@ -3170,6 +3174,7 @@ function readAlignStateSafe(p) {
 }
 
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2567(门 103 C1 收口)〉首意: 每轮 tick 的收尾对齐停摆检查。notify 出口可注入(镜像测试用假派发器断言参数,
+// dispatch-parity-no-stamp: checkConvergeAlignStall 每轮收尾读状态文件才判，仅停摆时写状态，无派发节律戳位
 export function checkConvergeAlignStall(opts = {}) {
   const {
     now = Date.now(),
@@ -3290,6 +3295,7 @@ export function notifyEnvUndetermined(
   return { mailed: false, heldMs, tier: held.tier }
 }
 
+// dispatch-parity-no-stamp: auditEnvDrift 未判定连击台账只在漂移时写，无周期戳位
 export function auditEnvDrift(opts = {}) {
   const {
     notify = notifyGuardRed,
@@ -3597,6 +3603,7 @@ export function egressAlertDetail(parsed, kindLabel) {
   )
 }
 
+// dispatch-parity-no-stamp: auditEgressIpDrift 未判定连击台账只在漂移时写，无周期戳位
 export function auditEgressIpDrift(opts = {}) {
   const {
     notify = notifyGuardRed,
@@ -3716,6 +3723,7 @@ export function auditEgressIpDrift(opts = {}) {
 }
 
 // 〈原 18 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2949(门 103 C1 收口)〉首意: 生产签出外来工作巡检已外置至 scripts/git-guardian-prod-foreign.mjs
+// dispatch-parity-no-stamp: rotateRunLogs 按日志尺寸/稳定窗判定，无固定节律戳位
 function rotateRunLogs() {
   const targets = [LOG, join(WORKTREE, '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')]
   const hookDir = join(WORKTREE, '.ihui-agent', 'state', 'hook-logs')
@@ -3751,6 +3759,7 @@ function rotateRunLogs() {
 // 但**最新一份永远豁免**(它是"最近一次到底怎么死的"唯一证据,删了等于把自愈能力削掉一块)。
 // 判据全部 import 自 lib/session-transcript.mjs 的 decideRetention(单一真相源,§0.6),
 // 本处只负责"取盘 + 调用 + 留声 + 删除",绝不在此复算保留期(第二份判据必漂移,§22c)。
+// dispatch-parity-no-stamp: gcSessionTranscripts 按 mtime 保留期双闸判定，无固定节律戳位
 function gcSessionTranscripts() {
   const dir = join(WORKTREE, TRANSCRIPT_DIR)
   let names = []
@@ -3791,6 +3800,7 @@ function gcSessionTranscripts() {
   )
 }
 
+// dispatch-parity-no-stamp: healRootSeal 只在盘根封口异常时动作，无周期戳位
 function healRootSeal() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'seal-c-root-stray.mjs')
   if (!existsSync(script)) return
@@ -3828,6 +3838,7 @@ const WATCHDOG_KICK = join(WORKTREE, '.ihui-agent', 'state', 'credential-health-
 const WATCHDOG_STALL_MS = 18 * 3600 * 1000
 const WATCHDOG_KICK_COOLDOWN_MS = 6 * 3600 * 1000
 
+// dispatch-parity-no-stamp: watchWatchdog 心跳由外部计划任务写，WATCHDOG_KICK 仅停摆时写，无自身周期戳位
 function watchWatchdog() {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-credential-health.mjs')
   if (!existsSync(script)) return
@@ -3899,6 +3910,7 @@ const PATROL_KICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-kick.ts')
 const PATROL_STALL_FACTOR = 3
 const PATROL_KICK_COOLDOWN_MS = 6 * 3600 * 1000
 
+// dispatch-parity-no-stamp: watchPatrolHeartbeat 只消费 ops-patrol 心跳，仅停摆时 kick，无自身周期戳位
 export function watchPatrolHeartbeat(opts = {}) {
   const {
     now = Date.now(),
@@ -5377,7 +5389,7 @@ export function sweepLocalDevDbRotation(opts = {}) {
     root = dirname(dirname(fileURLToPath(import.meta.url))),
     tickFile = join(dirname(LOG), 'dev-db-rotation-last.json'),
     pendingFile = join(dirname(LOG), 'dev-db-rotation-pending.json'),
-    probeIntervalMs = DEV_DB_PROBE_INTERVAL_MS,
+    intervalMs = DEV_DB_PROBE_INTERVAL_MS,
     logger = log,
     runner = null,
     livePortsProbe = null,
@@ -5455,7 +5467,7 @@ export function sweepLocalDevDbRotation(opts = {}) {
     }
   }
 
-  // ② 窗口:有欠账才探测;探测本身按 probeIntervalMs 压频次(不进冷却档,只压 netstat)。
+  // ② 窗口:有欠账才探测;探测本身按 intervalMs 压频次(不进冷却档,只压 netstat)。
   const probeAt = Number.isFinite(Date.parse(String(tick?.probeAt ?? '').trim()))
     ? Date.parse(String(tick.probeAt))
     : NaN
@@ -5466,7 +5478,7 @@ export function sweepLocalDevDbRotation(opts = {}) {
     : NaN
   const retryDue =
     Number.isFinite(lastAttemptAt) && now - lastAttemptAt >= DEV_DB_ROTATION_COOLDOWN_MS
-  if (!retryDue && Number.isFinite(probeAt) && now - probeAt < probeIntervalMs) {
+  if (!retryDue && Number.isFinite(probeAt) && now - probeAt < intervalMs) {
     const state = String(tick?.state ?? 'window-probe')
     logger(`ℹ️ dev 库口令轮换:未到窗口探测节律(state=${state})⇒ 本轮不派生,不记绿`)
     return {
@@ -6820,7 +6832,7 @@ export function auditIndexUnmerged(opts = {}) {
 // lint-staged stdio 三针盯针(2026-10-27):判据/节流/到人住 lib/lint-staged-pin-audit.mjs;判机器状态 ⇒ 不进提交链(§12e)。
 const PIN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'lint-staged-pin-tick.json')
 export function auditLintStagedPins(opts = {}) {
-  return pinsAudit({ tickFile: PIN_TICK, logger: log, notify: notifyGuardRed, ...opts })
+  return pinsAudit({ tickFile: PIN_TICK, intervalMs: PIN_INTERVAL_MS, logger: log, notify: notifyGuardRed, ...opts })
 }
 export function auditTunnelLegHealth(opts = {}) {
   const {
@@ -7536,6 +7548,10 @@ const CLIENT_SYNC_INTERVAL_MS = Number(
     process.env.IHUI_QODER_SYNC_TASK_INTERVAL_MS ||
     30 * 60 * 1000,
 )
+// 两腿的节流戳单源:派发面从 git-guardian.mjs 现解析(`tickFile` 必须可解析成具体文件名),
+// 模板名 `${kind}-...` 会被判成"动态戳名 ⇒ 无从量";故在此按 kind 显式落两枚常量,helper 同源取用。
+const QODER_SYNC_TICK = join(WORKTREE, '.ihui-agent', 'state', 'qoder-sync-task-tick.iso')
+const WORKBUDDY_SYNC_TICK = join(WORKTREE, '.ihui-agent', 'state', 'workbuddy-sync-task-tick.iso')
 const CLIENT_SYNC_TIMEOUT_MS = Number(
   process.env.IHUI_CLIENT_SYNC_TASK_TIMEOUT_MS ||
     process.env.IHUI_QODER_SYNC_TASK_TIMEOUT_MS ||
@@ -7548,7 +7564,7 @@ export function auditClientSyncTask(kind, opts = {}) {
   const {
     now = Date.now(),
     intervalMs = CLIENT_SYNC_INTERVAL_MS,
-    tickFile = join(WORKTREE, '.ihui-agent', 'state', `${kind}-sync-task-tick.iso`),
+    tickFile = kind === 'qoder' ? QODER_SYNC_TICK : WORKBUDDY_SYNC_TICK,
     lastFile = join(WORKTREE, '.ihui-agent', 'state', `${kind}-sync-task-last.json`),
     logger = log,
     notify = notifyGuardRed,
@@ -7669,11 +7685,19 @@ export function auditClientSyncTask(kind, opts = {}) {
 }
 
 export function auditQoderSessionSyncTask(opts = {}) {
-  return auditClientSyncTask('qoder', opts)
+  return auditClientSyncTask('qoder', {
+    tickFile: QODER_SYNC_TICK,
+    intervalMs: CLIENT_SYNC_INTERVAL_MS,
+    ...opts,
+  })
 }
 
 export function auditWorkbuddySessionSyncTask(opts = {}) {
-  return auditClientSyncTask('workbuddy', opts)
+  return auditClientSyncTask('workbuddy', {
+    tickFile: WORKBUDDY_SYNC_TICK,
+    intervalMs: CLIENT_SYNC_INTERVAL_MS,
+    ...opts,
+  })
 }
 
 /** 资产路径可达性 + 证书到期的**常驻**派发点(尺子 = `scripts/check-asset-path-health.mjs`,2026-10-28 立) */
@@ -9451,6 +9475,7 @@ export function auditRegistrySyncHealth(opts = {}) {
   return runRegistrySyncHealth({
     script: join(dirname(fileURLToPath(import.meta.url)), 'check-registry-sync-health.mjs'),
     tickFile: REGISTRY_SYNC_AUDIT_TICK,
+    intervalMs: REGISTRY_SYNC_INTERVAL_MS,
     cwd: WORKTREE,
     logger: log,
     notify: notifyGuardRed,
@@ -9872,18 +9897,19 @@ export function readProbeVerdict({ status, stdout, stderr } = {}) {
 }
 
 // 〈原 13 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l5257(门 103 C1 收口)〉首意: 开工前基线新鲜度的**只报数**账(机制规格 MECHANISM-SPEC-2 §2 的守护侧挂点)。
-function reportBaselineFreshness() {
+function reportBaselineFreshness({
+  tickFile = join(dirname(LOG), 'baseline-freshness-stamp'),
+  intervalMs = 30 * 60 * 1000,
+} = {}) {
   const script = join(dirname(fileURLToPath(import.meta.url)), 'check-baseline-freshness.mjs')
   if (!existsSync(script)) return
-  const stampFile = join(dirname(LOG), 'baseline-freshness-stamp')
-  const THROTTLE_MS = 30 * 60 * 1000
   let lastRun = 0
   try {
-    lastRun = Number(readFileSync(stampFile, 'utf8').trim()) || 0
+    lastRun = Number(readFileSync(tickFile, 'utf8').trim()) || 0
   } catch {
     lastRun = 0
   }
-  const full = Date.now() - lastRun > THROTTLE_MS
+  const full = Date.now() - lastRun > intervalMs
   const args = ['--json', '--no-fetch']
   if (!full) args.push('--skip-drift-analysis')
   let parsed = null
@@ -9922,8 +9948,8 @@ function reportBaselineFreshness() {
   }
   if (full) {
     try {
-      mkdirSync(dirname(stampFile), { recursive: true })
-      writeFileSync(stampFile, String(Date.now()))
+      mkdirSync(dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, String(Date.now()))
     } catch {
       /* 节流戳写失败只意味着下次多跑一遍全账,不影响判定 */
     }
@@ -12343,7 +12369,7 @@ export function sweepUiMirrorLeg(opts = {}) {
     args: ['--apply'],
     defaultTickFile: join(dirname(LOG), 'ui-mirror-last.json'),
     label: '小程序↔RN 映射块落档',
-    opts,
+    opts: { intervalMs: CROSS_END_APPLY_INTERVAL_MS, ...opts },
   })
 }
 
@@ -12354,7 +12380,7 @@ export function sweepRnColorLiteralLeg(opts = {}) {
     args: ['--apply'],
     defaultTickFile: join(dirname(LOG), 'rn-color-literals-last.json'),
     label: 'RN 色字面量落档',
-    opts,
+    opts: { intervalMs: CROSS_END_APPLY_INTERVAL_MS, ...opts },
   })
 }
 
@@ -12373,7 +12399,7 @@ export function sweepRnCompatLeg(opts = {}) {
     args: ['--write'],
     defaultTickFile: join(dirname(LOG), 'rn-compat-last.json'),
     label: '小程序 RN 兼容层派生产物落档',
-    opts,
+    opts: { intervalMs: CROSS_END_APPLY_INTERVAL_MS, ...opts },
   })
 }
 
@@ -13000,6 +13026,7 @@ export function restartGuardianService({
  *  ③ 允许重启的执行体里温和自重启一次,带熔断(每窗口 1 次、失败不重试、动作写审计行)。
  * 全部依赖可注入(scan / notify / doRestart / stateFile / auditFile),测试用替身取证,绝不真重启。
  */
+// dispatch-parity-no-stamp: auditGuardianCodeFreshness stateFile 仅重启时写，本进程每轮都执行，无节律戳位
 export function auditGuardianCodeFreshness(opts = {}) {
   const {
     now = Date.now(),
