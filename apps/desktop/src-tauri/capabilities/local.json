@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "local",
+  "description": "本地 origin / 托盘专用能力(2026-11-07 缺陷挖掘 T7/T11)。autostart、quit、restart 三项从远程 capability 撤销后只在这里保留:本文件不声明 remote.urls,故只对应用自身 origin(tauri://localhost / http://tauri.localhost)生效 —— 线上页(含任意 XSS)调 plugin:autostart|enable/disable、quit_app、restart_app 会被 ACL 直接拒。托盘退出/重启在 Rust 侧直接执行,本就不经 IPC;本地 origin 页面(离屏兜底页/本地设置面)仍可调用这三项。",
+  "windows": ["main", "admin"],
+  "permissions": ["autostart:default", "allow-quit-app", "allow-restart-app"]
+}

@@ -146,17 +146,50 @@ export function judgeRemoteVaultScope(caps) {
   return { ok: problems.length === 0, problems }
 }
 
+// ── 应用生命周期面收口(2026-11-07 缺陷挖掘 T7/T11)──────────────────────────
+// `autostart:default` / `allow-quit-app` / `allow-restart-app` 都挂在远程 capability 上:
+// 线上页(含任意 XSS)可以静默改写开机启动项、直接 quit/restart 应用(打断更新与登录链路)。
+// 托盘退出/重启本来就在 Rust 侧直接执行,不需要 IPC;设置项在本地 origin 页面仍可调用。
+// 故远程侧撤销,本地 origin 专用 capability 保留。
+const LIFECYCLE_PERMS = ['autostart:default', 'allow-quit-app', 'allow-restart-app']
+
+function judgeRemoteLifecycleScope(caps) {
+  const granted = (caps.permissions ?? []).filter((p) => typeof p === 'string')
+  return LIFECYCLE_PERMS.filter((p) => granted.includes(p))
+}
+
+function judgeLocalLifecycleScope() {
+  const local = JSON.parse(
+    readFileSync(join(here, '..', 'src-tauri', 'capabilities', 'local.json'), 'utf8'),
+  )
+  assert.ok(
+    !('remote' in local) && !('webviews' in local),
+    'local capability 不得声明 remote.urls(否则等于又对线上页开放)',
+  )
+  assert.ok(!('platforms' in local) || Array.isArray(local.platforms), 'platforms 形状异常')
+  const granted = new Set((local.permissions ?? []).filter((p) => typeof p === 'string'))
+  for (const perm of LIFECYCLE_PERMS) {
+    assert.ok(granted.has(perm), 'local capability 缺 ' + perm)
+  }
+  for (const win of ['main', 'admin']) {
+    assert.ok((local.windows ?? []).includes(win), 'local capability 缺窗口 ' + win)
+  }
+  return LIFECYCLE_PERMS
+}
+
 function main() {
   let verdict
   let guard
   let cmdGuard
   let vaultGuard
+  let lifecycleLeak
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
     guard = judgeRemoteUrls(caps)
     cmdGuard = judgeRemoteCommandGrants(caps)
     vaultGuard = judgeRemoteVaultScope(caps)
+    lifecycleLeak = judgeRemoteLifecycleScope(caps)
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
@@ -166,6 +199,11 @@ function main() {
   assert.equal(guard.ok, true, 'remote.urls 覆盖面缺失:\n  ' + guard.problems.join('\n  '))
   assert.equal(cmdGuard.ok, true, 'remote 命令授权缺失:\n  ' + cmdGuard.problems.join('\n  '))
   assert.equal(vaultGuard.ok, true, 'remote store 通道未收口:\n  ' + vaultGuard.problems.join('\n  '))
+  assert.deepEqual(
+    lifecycleLeak,
+    [],
+    'remote capability 仍授予应用生命周期权限:\n  ' + lifecycleLeak.join('\n  '),
+  )
   console.log(
     'PASS shell:allow-open 白名单 ' +
       verdict.urls.length +
@@ -222,6 +260,8 @@ if (isDirectRun) {
   console.log('PASS plugins.shell.open 运行面正则钉:' + openRe)
   judgeDragDropConf()
   console.log('PASS main 窗口 OS 级拖拽已关闭(远程页拿不到拖入文件绝对路径)')
+  judgeLocalLifecycleScope()
+  console.log('PASS 本地 origin capability 保留 autostart/quit/restart(远程侧已撤销)')
 }
 
 export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, ALLOWED_EXACT, hostOf }

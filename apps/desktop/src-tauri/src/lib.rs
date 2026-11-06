@@ -4405,4 +4405,61 @@ pub fn run() {
             std::process::exit(1);
         });
 }
+
+/// 2026-11-07 缺陷挖掘 T7/T11:生命周期能力从远程 capability 撤销后,仍须保证
+/// 两条合法入口可用 —— ① 托盘退出/检查更新是 Rust 侧直接执行,不经 IPC;
+/// ② 本地 origin(应用自身 origin)仍持有 autostart/quit/restart 授权,
+/// 离屏兜底页与本地设置面照常可调。标记用 concat! 拆开,避免 include_str! 自命中。
+#[cfg(test)]
+mod lifecycle_acl_tests {
+    const CAPS_LOCAL: &str = include_str!("../capabilities/local.json");
+    const CAPS_REMOTE: &str = include_str!("../capabilities/default.json");
+    const SRC: &str = include_str!("lib.rs");
+
+    const M_TRAY_QUIT_ARM: &str = concat!("\"tray.", "quit\" =>");
+    const M_TRAY_UPDATE_ARM: &str = concat!("\"tray.", "update\" =>");
+    const M_EXIT_CALL: &str = concat!("exit_", "application(app);");
+    const M_AUTOSTART_PLUGIN: &str = concat!("tauri_plugin_autostart::", "init(");
+
+    #[test]
+    fn 托盘与本地origin仍保留生命周期入口() {
+        // 本地 origin capability:三项授权在,且没有 remote 段(只对应用自身 origin 生效)
+        assert!(
+            CAPS_LOCAL.contains("\"autostart:default\""),
+            "local capability 缺 autostart:default ⇒ 本地设置面无法改开机启动项"
+        );
+        assert!(
+            CAPS_LOCAL.contains("\"allow-quit-app\""),
+            "local capability 缺 allow-quit-app"
+        );
+        assert!(
+            CAPS_LOCAL.contains("\"allow-restart-app\""),
+            "local capability 缺 allow-restart-app"
+        );
+        assert!(
+            !CAPS_LOCAL.contains("\"remote\""),
+            "local capability 不得声明 remote ⇒ 否则等于又对线上页开放"
+        );
+        // 远程 capability:三项必须都不在
+        for perm in [
+            "\"autostart:default\"",
+            "\"allow-quit-app\"",
+            "\"allow-restart-app\"",
+        ] {
+            assert!(
+                !CAPS_REMOTE.contains(perm),
+                "远程 capability 不得包含 {}",
+                perm
+            );
+        }
+        // 托盘走 Rust 直接退出 / 投递检查更新,不依赖被撤销的 IPC 授权
+        assert!(SRC.contains(M_TRAY_QUIT_ARM), "托盘退出菜单项缺失");
+        assert!(SRC.contains(M_TRAY_UPDATE_ARM), "托盘「检查更新」菜单项缺失");
+        assert!(SRC.contains(M_EXIT_CALL), "托盘退出未直接调用 exit_application");
+        assert!(
+            SRC.contains(M_AUTOSTART_PLUGIN),
+            "autostart 插件未注册 ⇒ 本地 origin 也无法改启动项"
+        );
+    }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
