@@ -563,5 +563,51 @@ describe('followableOf:可自动跟随上界只认"两侧各恰好一个候选�
     assert.equal(c.cells, 0)
     assert.deepEqual(c.items, [])
   })
+
+  it('F8 形状分层用门的 webCount/rnCount:该维两侧各只有 1 个档 = single-tier,还有别的档 = residual(它只排"先量谁",不是"照它改")', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'strong', dims: { radius: { webOnly: ['8'], rnOnly: ['6'], status: 'diff', webCount: 1, rnCount: 1 } } },
+        { name: 'residual', dims: { radius: { webOnly: ['6'], rnOnly: ['4'], status: 'diff', webCount: 2, rnCount: 2 } } },
+      ]),
+    )
+    assert.deepEqual(c.byStrength, { 'single-tier': 1, residual: 1 })
+    assert.equal(c.items[0].strength, 'single-tier', '取值唯一的排在前面(派单先量它)')
+    assert.equal(c.items[1].strength, 'residual')
+    assert.equal(c.followable, 2, '两者都算"取值无歧义" ⇒ 不许把弱档从计数里抹掉')
+  })
+
+  it('F8b 实测边界锁:人读面必须带"取值唯一 ≠ 同元素"那句(9 条逐条回源码抽检 0 条成立)', () => {
+    const src = readFileSync(resolve(HERE, '../cross-end-ui-parity-debt.mjs'), 'utf8').replace(/\s+/g, ' ')
+    assert.match(src, /"取值唯一"≠"同元素"/, '台账不许把 single-tier 说成可直接改 RN 的清单')
+    assert.match(src, /0 条是同元素同属性/)
+  })
+
+  it('F9 门没给档数计数 ⇒ strength=unknown,不猜(缺输入要落未判定色,不许折成 residual)', () => {
+    const c = L.followableOf(jsonOf([{ name: 'X', dims: { radius: cell({ w: ['6'], r: ['4'], s: 'diff' }) } }]))
+    assert.equal(c.items[0].strength, 'unknown')
+    assert.deepEqual(c.byStrength, { unknown: 1 })
+    assert.equal(c.followable, 1)
+  })
+
+  it('F10 清单必须自带两侧文件指针(取门的 detail.web/rn)—— 否则派单还要别人再 join 一次', () => {
+    const c = L.followableOf({
+      webRn: {
+        dimensions: ['radius'],
+        detail: [
+          {
+            name: 'wallet/withdraw',
+            web: 'apps/web/app/(main)/wallet/withdraw/page.tsx',
+            rn: 'packages/app/src/features/withdraw/WithdrawScreen.tsx',
+            dims: { radius: { webOnly: ['6'], rnOnly: ['4'], status: 'diff', webCount: 2, rnCount: 2 } },
+          },
+        ],
+      },
+    })
+    assert.equal(c.items[0].webFile, 'apps/web/app/(main)/wallet/withdraw/page.tsx')
+    assert.equal(c.items[0].rnFile, 'packages/app/src/features/withdraw/WithdrawScreen.tsx')
+    assert.equal(c.items[0].web, '6', '值必须逐字取门的明细(本层不换算成数字/不映射 token 档)')
+    assert.equal(c.items[0].rn, '4')
+  })
 })
 
