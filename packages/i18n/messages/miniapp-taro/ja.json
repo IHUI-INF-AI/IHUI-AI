@@ -2084,7 +2084,8 @@
     "new": "新着",
     "empty": "コンテンツなし",
     "noDesc": "説明なし",
-    "useCount": "{n} 回使用"
+    "useCount": "{n} 回使用",
+    "recommended": "おすすめ"
   },
   "circle": {
     "empty": "コンテンツなし",

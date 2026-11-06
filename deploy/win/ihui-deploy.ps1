@@ -126,7 +126,11 @@ $CleanBuildEnabled = ($env:IHUI_DEPLOY_CLEAN_BUILD -ne '0')
 # 现落在 D:\DevEnv\ihui-deploy-build:与 $BackupDir('D:\DevEnv\backups\deploy')同属 D:\DevEnv\ 这一
 # **非临时**根,清理脚本(c-drive-auto-maintain.ps1 只扫 C 盘产物、盘根与若干具名目录)够不着它。
 # 硬编码 D:\DevEnv\... 与本文件既有风格一致($BackupDir 即在此根下)。
-$CleanBuildRootDefault = 'D:\DevEnv\ihui-deploy-build'
+# DevEnv 根一律按仓库根所在盘现读推导,不写死盘符(IHUI_DEVENV_ROOT 可显式覆盖);
+# AGENTS §0 机器事实现读纪律,与 ihui-pg-backup-scheduler.ps1 的 G-298 同一条口径。
+# 本文件与 clean-build-purge.ps1 共用这一份推导,安全闸两侧才不会各认一个根。
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $Root) + '\DevEnv' }
+$CleanBuildRootDefault = Join-Path $DevEnvRoot 'ihui-deploy-build'
 $CleanBuildWt = if ($env:IHUI_DEPLOY_CLEAN_WT) { $env:IHUI_DEPLOY_CLEAN_WT } else { "$CleanBuildRootDefault\clean-build-wt" }
 # 净面的一切 git 调用都必须带这一串:服务身份是 **SYSTEM**,而净面目录由交互账户创建,
 # git 会判"dubious ownership"直接 exit 128(2026-09-29 17:38:56 实测,`[clean-out] fatal:
@@ -186,9 +190,9 @@ if (-not $CleanBuildPathOk) {
     $CleanBuildEnabled = $false
 }
 $AiDir      = "$Root\apps\ai-service"
-$BackupDir  = 'D:\DevEnv\backups\deploy'
+$BackupDir  = Join-Path $DevEnvRoot 'backups\deploy'
 # 健康门禁凭据的生产机本地兜底文件(仓库外;IHUI_ADMIN_PASSWORD 优先)
-$AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FILE } else { 'D:\DevEnv\secrets\admin-password.txt' }
+$AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FILE } else { Join-Path $DevEnvRoot 'secrets\admin-password.txt' }
 # 凭据解析与"两处漂移"对照的唯一实现(admin-credential.ps1);本文件不得再手写第二份取值序。
 # 2026-10-10 立:env 块陈旧而文件可用时,旧写法全程无声(llm 门禁盲 + 白烧失败登录),
 # 现在两处不一致会在 BackendLogin-Token 里记一条 WARN(只记指纹,不记口令)。
@@ -224,7 +228,7 @@ $AiServiceHealth = "http://127.0.0.1:8803/health"
 #    (09:23 由 IHUI-DEPLOYLOOP 服务实测复现)。与 deploy\prod-bundle\svc\run-api.ps1
 #    的 PATH 前置保持一致;额外补 WindowsPowerShell\v1.0(web prebuild 的 sync-downloads
 #    链会调 powershell.exe)以及 pnpm 自带的 node_modules\.bin。
-foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\windows\System32\WindowsPowerShell\v1.0')) {
+foreach ($p in @((Join-Path $DevEnvRoot 'runtimes\node'), (Join-Path $DevEnvRoot 'tools\npm-global'), 'C:\windows\System32\WindowsPowerShell\v1.0')) {
     if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
 }
 
@@ -247,11 +251,11 @@ foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\wind
 #    零人裁;而盘根 .pnpm-store 的正确形态只有一个:D:\DevEnv\tools\pnpm(§26 登记的
 #    store 真身)或部署环显式给出的 PNPM_HOME(指向 DevEnv 下的 store)。两样都没有时
 #    拒绝 install —— $ErrorActionPreference='Stop' + 顶层 throw ⇒ 非零退出,不静默继续。
-$IhuiPnpmHome = 'D:\DevEnv\tools\pnpm'
+$IhuiPnpmHome = Join-Path $DevEnvRoot 'tools\pnpm'
 if (Test-Path $IhuiPnpmHome) {
     $env:PNPM_HOME = $IhuiPnpmHome
 } elseif (-not $env:PNPM_HOME) {
-    throw '拒绝 install:pnpm store 无法钉到 DevEnv,避免盘根外流(.pnpm-store) —— 未找到 D:\DevEnv\tools\pnpm 且环境无 PNPM_HOME;出路:创建 D:\DevEnv\tools\pnpm(§26 store 真身)或在部署环 AppEnvironmentExtra 显式设置 PNPM_HOME 指向 DevEnv 下的 store(台账 G-1059129)'
+    throw "拒绝 install:pnpm store 无法钉到 DevEnv,避免盘根外流(.pnpm-store) —— 未找到 $IhuiPnpmHome 且环境无 PNPM_HOME;出路:创建 $IhuiPnpmHome(§26 store 真身)或在部署环 AppEnvironmentExtra 显式设置 PNPM_HOME 指向 DevEnv 下的 store(台账 G-1059129)"
 }
 
 # ── 并发锁(2026-09-07 加;2026-09-26 判据重写):手动 -deployLatest 与计划任务 loop 可能
@@ -378,7 +382,7 @@ function Resolve-NodeExe {
     # 不用 pnpm/npx:它们是 shell 包装脚本,服务上下文下 PATH 更不可靠。
     $cmd = Get-Command node.exe -ErrorAction SilentlyContinue
     if ($cmd -and (Test-Path $cmd.Source)) { return $cmd.Source }
-    foreach ($p in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+    foreach ($p in @((Join-Path $DevEnvRoot 'runtimes\node\node.exe'), 'C:\Program Files\nodejs\node.exe')) {
         if (Test-Path $p) { return $p }
     }
     return $null
@@ -625,7 +629,7 @@ function Test-TransientFailureText {
 }
 
 function Get-NssmExe {
-    foreach ($c in @('D:\DevEnv\tools\nssm\nssm.exe', (Join-Path $env:SystemRoot 'System32\nssm.exe'))) {
+    foreach ($c in @((Join-Path $DevEnvRoot 'tools\nssm\nssm.exe'), (Join-Path $env:SystemRoot 'System32\nssm.exe'))) {
         if (Test-Path -LiteralPath $c) { return $c }
     }
     $g = Get-Command nssm.exe -ErrorAction SilentlyContinue
@@ -1876,7 +1880,7 @@ function Get-CleanBuildWebDir {
                 # ⇒ 防 pnpm 的「store 已变更 ⇒ 需要 purge?」确认在非交互管道里把整轮部署挂死
                 # (2026-10-22 06:04 实测卡 43 分钟、pnpm CPU 恒 0、日志零输出)。
                 $env:CI = '1'
-                $instLines = @($null | & 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
+                $instLines = @($null | & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
                 $irc = $LASTEXITCODE
                 if ($instLines.Count -le 12) {
                     $instLines | ForEach-Object { Log "[clean-install] $_" }
@@ -2101,7 +2105,7 @@ function Build-Web {
     Set-Location $bwd
     if (-not (Test-Path (Join-Path $bwd 'node_modules\.bin\next.cmd'))) {
         Log "web 依赖缺失,先 pnpm install"
-        & "D:\DevEnv\tools\npm-global\pnpm.cmd" install
+        & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') install
         # throw 而非 Fail(2026-09-21 根治):Fail 直接 exit 1 会绕过外层 catch 的失败冷却,
         # 下一轮无冷却反复重试;throw 统一走主流程 catch → Set-BuildCooldown → 告警去重。
         if ($LASTEXITCODE -ne 0) { throw "pnpm install 失败(exit $LASTEXITCODE)" }
@@ -2116,7 +2120,7 @@ function Build-Web {
     #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
     foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
         Log "重建 $pkg dist ..."
-        & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
+        & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
     }
     # ── 主仓 dist 同步(2026-10-13 加,生产 checkout 解耦后补的结构性缺口):api 以 tsx
@@ -2143,7 +2147,7 @@ function Build-Web {
             #   ③ `$null |`   ⇒ stdin 立即 EOF,不给"等一个永不到来的回车"的机会。
             # 采样口径同净面那段:首 3 + 末 8,错误首行必落盘。
             $env:CI = '1'
-            $rootLines = @($null | & "D:\DevEnv\tools\npm-global\pnpm.cmd" install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
+            $rootLines = @($null | & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
             if ($rootLines.Count -le 12) {
                 $rootLines | ForEach-Object { Log "[root-install] $_" }
             } else {
@@ -2160,7 +2164,7 @@ function Build-Web {
         }
         foreach ($pkg in @('@ihui/types','@ihui/i18n','@ihui/dom-actions','@ihui/context-compaction','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
             Log "主仓重建 $pkg dist ..."
-            & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
+            & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') --filter $pkg run build
             if ($LASTEXITCODE -ne 0) { Log "WARN  主仓 $pkg dist 重建失败(exit $LASTEXITCODE),api 可能滞留旧 dist,需人工核查" }
         }
     } finally {
@@ -2193,7 +2197,7 @@ function Build-Web {
             $bldOut = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-out.log"
             $bldErr = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-err.log"
             try {
-                $bldProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'build' `
+                $bldProc = Start-Process -FilePath (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') -ArgumentList 'build' `
                     -WorkingDirectory $bwd -NoNewWindow -PassThru `
                     -RedirectStandardOutput $bldOut -RedirectStandardError $bldErr
                 if (-not $bldProc.WaitForExit(30 * 60 * 1000)) {
@@ -2205,7 +2209,7 @@ function Build-Web {
                 }
             } catch {
                 Log "Start-Process 构建异常($($_.Exception.Message)),回退直调"
-                & 'D:\DevEnv\tools\npm-global\pnpm.cmd' build
+                & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') build
                 $exitCode = $LASTEXITCODE
             }
             $errTail = @(Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)
@@ -2354,7 +2358,7 @@ function Do-Rollback {
                             --svc-blue 'IHUI-WEB-BLUE' --svc-green 'IHUI-WEB-GREEN' `
                             --port-blue 8851 --port-green 8852 `
                             --health-path '/' --health-match '<!DOCTYPE html' `
-                            --state-file $bgStateFile --log-file 'D:\DevEnv\logs\web-bluegreen.log' 2>&1
+                            --state-file $bgStateFile --log-file (Join-Path $DevEnvRoot 'logs\web-bluegreen.log') 2>&1
                         $rbRc = $LASTEXITCODE
                     }
                     $rbBg | ForEach-Object { Log "  [bg-rollback] $_" }
@@ -2666,7 +2670,7 @@ if ($rollbackOnly) {
 #      ② 失败时按签名去重推送(12h 内同一签名只推一次;压重复不压新故障,无每日总量封顶);
 #      ③ 本轮标 degraded,收尾再显式提示一次。仍**不改退出码**(NSSM/包装器语义未知,不冒险)。
 function Get-PsqlExe {
-    foreach ($c in @('D:\DevEnv\runtimes\pgsql\bin\psql.exe')) { if (Test-Path $c) { return $c } }
+    foreach ($c in @((Join-Path $DevEnvRoot 'runtimes\pgsql\bin\psql.exe'))) { if (Test-Path $c) { return $c } }
     $g = Get-Command psql.exe -ErrorAction SilentlyContinue
     if ($g) { return $g.Source }
     return $null
@@ -2838,7 +2842,7 @@ function Invoke-MigrateWithBudget {
     $code = $null
     try {
         try {
-            $migProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'run', 'db:migrate' `
+            $migProc = Start-Process -FilePath (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') -ArgumentList 'run', 'db:migrate' `
                 -WorkingDirectory (Get-Location).Path -NoNewWindow -PassThru `
                 -RedirectStandardOutput $migOutFile -RedirectStandardError $migErrFile
             if (-not $migProc.WaitForExit($BudgetSec * 1000)) {
@@ -2853,7 +2857,7 @@ function Invoke-MigrateWithBudget {
             # 与构建段同形的兜底:Start-Process 起不来时回退直调(无预算保护,如实喊出来)。
             # 回退分支同样**取码即存** —— 本票修的就是隔步读码,不在兜底路径上重犯。
             Log "Start-Process 迁移异常($($_.Exception.Message)),回退直调(本轮无超时保护,生效预算=不适用)"
-            & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-File -FilePath $migOutFile -Encoding utf8
+            & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') run db:migrate 2>&1 | Out-File -FilePath $migOutFile -Encoding utf8
             $code = $LASTEXITCODE
         }
         $out = ((Get-Content $migOutFile -Raw -ErrorAction SilentlyContinue) + "`n" +
@@ -2892,7 +2896,7 @@ function Resolve-PgToolExe {
         }
     } catch {}
     # ④ 历史落点 + ⑤ PATH
-    $dirs.Add('D:\DevEnv\runtimes\pgsql\bin')
+    $dirs.Add((Join-Path $DevEnvRoot 'runtimes\pgsql\bin'))
     $cmd = Get-Command "$ToolName.exe" -ErrorAction SilentlyContinue
     if ($cmd -and $cmd.Source) { $dirs.Add((Split-Path -Parent $cmd.Source)) }
     foreach ($d in @($dirs | Select-Object -Unique)) {
@@ -2927,7 +2931,7 @@ function Invoke-PreMigrationSnapshot {
     $dbName = Get-DbNameFromUrl -Url $env:DATABASE_URL
     $safeDb = if ($dbName) { $dbName -replace '[^A-Za-z0-9_.-]', '_' } else { 'db' }
     $sha10 = if ($Sha -match '^[0-9a-f]{7,40}$') { $Sha.Substring(0, [Math]::Min(10, $Sha.Length)) } else { 'unknown' }
-    $outDir = 'D:\DevEnv\backups\pg-deploy'
+    $outDir = Join-Path $DevEnvRoot 'backups\pg-deploy'
     try { if (-not (Test-Path -LiteralPath $outDir)) { New-Item -ItemType Directory -Force -Path $outDir | Out-Null } }
     catch { return @{ Ok = $false; Path = ''; Detail = "快照目录创建失败:$outDir($_)" } }
     # 路径与命名同时带「库名 + 时间 + 本轮 sha」 ⇒ 事后可按快照反查它是哪一版代码前置的现场。
@@ -3000,6 +3004,26 @@ function Invoke-PreMigrationSnapshot {
         $strength = 'magic+sha256+toc'
     }
     return @{ Ok = $true; Path = $dumpPath; Detail = "size=$len sha256=$hash strength=$strength shaFile=$shaFile" }
+}
+
+function Invoke-MigrationsLandedAudit {
+    # 迁移先行闸·逐枚落地审计(2026-11-06 立,归票 Y-70③;判据单源在
+    # scripts/check-migrations-landed.mjs,本函数只派发不复算,AGENTS §0.6)。
+    # 立因:Get-PendingMigrationCount 是"journal 总数 − 库内行数"的数量算术(负数还截 0),
+    # 枚数配平而 0364_app_versions_store_channel 恰未落地的那种形态在它这里恒等于 0 ——
+    # Y-70③ 的硬约束「先 db:migrate 应用迁移,再上线含 store 列 select 的代码(反过来以
+    # 42703 失败)」要成立,必须逐枚点名"差哪几枚",而不是比个数。
+    # 三态绝不并桶:0=全部落地;1=点名缺哪几枚(拒切流);2=未判定(同样不切流,fail-closed §0.3)。
+    $gate = Join-Path $Root 'scripts\check-migrations-landed.mjs'
+    if (-not (Test-Path $gate)) { return @{ Code = 2; Out = "落地审计闸文件缺失:$gate" } }
+    Push-Location $Root
+    try {
+        $out = & node scripts\check-migrations-landed.mjs --json 2>&1 | Out-String
+        $code = [int]$LASTEXITCODE
+    } catch {
+        return @{ Code = 2; Out = "落地审计闸调用异常:$_" }
+    } finally { Pop-Location }
+    return @{ Code = $code; Out = ($out -replace '\s+$', '') }
 }
 
 function Invoke-DbMigrate {
@@ -3098,11 +3122,29 @@ function Invoke-DbMigrate {
                 # reason 只留固定类(它会进两层身份);生效预算的实时数值只进正文 —— 见
                 # Note-MigrateFailure 头注 [2026-10-26] 那一格。
                 Note-MigrateFailure -reason "超时被终止(未判定,无退出码)" -pendingTxt $pendTxt -RealtimeDetail "db:migrate 生效超时预算 ${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以 deploy-loop.log 的 MIG 行为准)"
+                # 2026-11-06(Y-70③):旧链在超时(=迁移结果未知)后照常切流,会把半迁移 schema
+                # 推给读新列的代码(42703 型)。现由逐枚审计裁决:全落地才继续,否则不切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -eq 0) {
+                    Log "OK  db:migrate 超时未判定,但逐枚落地审计通过(journal 每条在库内都有本人行),本轮继续"
+                } else {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "timeout landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(迁移超时且逐枚审计未通过 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
             'UNDET' {
                 # 显式"无法判定"分支:既不得记成功,也不得记失败(两回事);打印取不到的原因。
                 # 措辞刻意不含「完成」二字 —— 让"判不了"在日志 grep 面上也不冒充成功态。
                 Log "WARN  db:migrate exit 0 但待应用数**无法判定**(原因:${script:PendingMigrationReason})—— 不计为成功,也不计失败"
+                # 2026-11-06(Y-70③):"数不出枚数"不再原样往下走。改问逐枚落地审计:
+                # 全落地才放行(计数面抖动反而不再误伤);缺则点名拒切流;审计也判不了 ⇒ fail-closed 不切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -eq 0) {
+                    Ok "待应用数无法判定,但逐枚落地审计通过(journal 每条在库内都有本人行)"
+                } else {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "pending=UNDET landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(pending 无法判定且逐枚审计未通过 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
             'PEND' {
                 # 2026-11-04:exit 0 但仍有 pending = 「跑过没应用完」,属确定性坏状态(不是抖动),
@@ -3115,6 +3157,13 @@ function Invoke-DbMigrate {
             'OK' {
                 # 唯一能打出"完成"字样的分支:退出码=0(取码即存的那份)且 pending=0 两者齐备。
                 Ok "db:migrate 完成(exit 0)"
+                # 2026-11-06(Y-70③):exit 0 + pending=0 仍是数量算术,看不见"枚数配平而恰差
+                # 0364"与 2026-09-13 那型"跑过没应用"。切流前逐枚审计,缺则点名拒切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -ne 0) {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(逐枚落地审计 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
         }
     } finally { Pop-Location }
@@ -3139,7 +3188,7 @@ function Invoke-DbSeedSteps {
     }
     Push-Location "$Root\packages\database"
     try {
-        $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
+        $seedOut = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
         $seedOut | Write-Host
         if ($LASTEXITCODE -eq 0) {
             Ok "seed 完成(exit 0)"
@@ -3149,7 +3198,7 @@ function Invoke-DbSeedSteps {
             $seedExit1 = $LASTEXITCODE
             Log "WARN  seed 失败(exit $seedExit1),60 秒后同轮重试 1 次(独立一次新执行,疑似 PG 重启/备份窗口)"
             Start-Sleep -Seconds 60
-            $seedOut2 = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
+            $seedOut2 = & (Join-Path $DevEnvRoot 'tools\npm-global\pnpm.cmd') exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
             $seedOut2 | Write-Host
             $seedExit2 = $LASTEXITCODE
             if ($seedExit2 -eq 0) { Log "OK    seed 瞬时失败已重试成功,疑似 PG 重启/备份窗口" }
@@ -3604,7 +3653,7 @@ $webBg = $true
 if ($env:IHUI_DEPLOY_WEB_BG -and $env:IHUI_DEPLOY_WEB_BG -match '^(?i:0|false|off)$') { $webBg = $false }
 
 $WebBgStateFile = Join-Path $Root 'deploy\run\web-bluegreen.json'
-$WebBgLogFile   = 'D:\DevEnv\logs\web-bluegreen.log'
+$WebBgLogFile   = Join-Path $DevEnvRoot 'logs\web-bluegreen.log'
 $WebBgPorts     = @{ blue = 8851; green = 8852 }
 
 if ($webBg) {
@@ -4134,7 +4183,7 @@ if (-not (Test-HealthGate)) {
                 if ($apiOk) { $bgOk = $true; break }
                 Log "WARN  蓝绿切换返回 0 但源站健康未通过(第 $bgTry/2 次)"
             } else {
-                Log "WARN  api 蓝绿切换失败 rc=$bgRc(第 $bgTry/2 次):目标色未就绪 ⇒ 未切流,旧色仍在服务;详见 D:\DevEnv\logs\api-bluegreen.log"
+                Log "WARN  api 蓝绿切换失败 rc=$bgRc(第 $bgTry/2 次):目标色未就绪 ⇒ 未切流,旧色仍在服务;详见 $(Join-Path $DevEnvRoot 'logs\api-bluegreen.log')"
                 if (-not (Test-TransientFailureText -Text $bgText)) {
                     Log "FAIL-SUMMARY class=api-bluegreen rc=$bgRc 判为确定性失败(非瞬时连接错误),不再重试"
                     break
@@ -4147,7 +4196,7 @@ if (-not (Test-HealthGate)) {
         } else {
             $bgWhy = if ($bgAttempts -ge 2) { "连续 $bgAttempts 次未成功" } else { '第 1 次即判确定性失败(非瞬时连接错误)' }
             Write-HardFailSummary -Class 'api-bluegreen' -Attempts $bgAttempts -Detail "rc=$bgRc $bgWhy output=$(($bgText -replace '\s+', ' ').Trim())"
-            Fail "api 蓝绿切换 $bgWhy(rc=$bgRc):本轮失败,不打印部署完成、不刷绿" -Detail "目标色起不来/健康未通过;旧色仍在服务但新代码未上岗;详见 D:\DevEnv\logs\api-bluegreen.log" -Reason 'api-bluegreen-failed'
+            Fail "api 蓝绿切换 $bgWhy(rc=$bgRc):本轮失败,不打印部署完成、不刷绿" -Detail "目标色起不来/健康未通过;旧色仍在服务但新代码未上岗;详见 $(Join-Path $DevEnvRoot 'logs\api-bluegreen.log')" -Reason 'api-bluegreen-failed'
         }
     } elseif ($apiName) {
         Log "未启用蓝绿(缺 IHUI-API-BLUE/GREEN 或 $bgScript),退回原地重启 api 服务($apiName)"

@@ -8866,6 +8866,10 @@
           "title": "Provider busy",
           "action": "Please try again later"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "This spend needs your approval",
+          "action": "Approve and retry. Image generation stays off until you do"
+        },
         "ALREADY_CLAIMED": {
           "title": "This task has already been claimed",
           "action": "Claim another task, or wait for the holder to release it"
@@ -9001,6 +9005,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "This action was blocked by a security policy",
           "action": "Adjust and retry"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "This command was denied by policy",
+          "action": "Use a different command, or ask an admin to change the policy"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "This command policy could not be judged",
+          "action": "Do not run it until the policy can be read"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "This action needs your confirmation first",
@@ -15012,6 +15024,33 @@
       "grantRuleConfirmCancel": "Cancel",
       "approve": "Approve",
       "argsPreview": "Arguments",
+      "decisionDetail": "Operation details",
+      "decisionDetailReason": "Reason",
+      "decisionDetailRisk": "Risk",
+      "decisionDetailScope": "Scope",
+      "decisionDetailCwd": "Working directory",
+      "decisionDetailPaths": "Affected paths",
+      "decisionDetailCommand": "Command",
+      "rawArgs": "Raw arguments",
+      "riskLow": "Low",
+      "riskMedium": "Medium",
+      "riskHigh": "High",
+      "scopeFsRead": "Read",
+      "scopeFsWrite": "Write",
+      "scopeFsDelete": "Delete",
+      "scopeExec": "Execute",
+      "scopeNetwork": "Network",
+      "scopeDb": "Database",
+      "scopeOther": "Other",
+      "reasonDangerousCommand": "Dangerous command",
+      "reasonDestructiveOperation": "Destructive operation",
+      "reasonWritesFiles": "Writes files",
+      "reasonDeletesFiles": "Deletes files",
+      "reasonExecutesCommand": "Executes command",
+      "reasonNetworkAccess": "Network access",
+      "reasonDatabaseWrite": "Database write",
+      "reasonHighRiskTool": "High-risk tool",
+      "reasonRequiresConfirmation": "Requires confirmation",
       "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
       "pendingCount": "{count} more pending",
       "reject": "Reject",

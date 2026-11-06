@@ -503,6 +503,23 @@ describe('PromptQueue', () => {
       expect(counter).toBeGreaterThanOrEqual(6);
     });
 
+    it('排队记录读不到时不删也不覆盖', async () => {
+      const persistPath = path.join(tmpDir, 'keep.json');
+      fs.writeFileSync(persistPath, '{"keep":true}\n', 'utf-8');
+      const original = fs.readFileSync(persistPath);
+      const denied = () => {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      };
+      const q = new PromptQueue();
+      q.enqueue('new');
+      await expect(q.loadFromDisk(persistPath, denied)).rejects.toThrow(/读不到/);
+      await expect(q.saveToDisk(persistPath, denied)).resolves.toBeUndefined();
+      await expect(q.clearDisk(persistPath, denied)).rejects.toThrow(/读不到/);
+      expect(fs.readFileSync(persistPath)).toEqual(original);
+    });
+
     it('clearDisk 删除持久化文件', async () => {
       const persistPath = path.join(tmpDir, 'clear.json');
       const q = new PromptQueue();

@@ -62,6 +62,9 @@ const SELF_TEST_PLAN_FOR_TEST = [
   { id: 'ST10', expect: 'reject', name: '声明式还原·反向②:假 restoredFrom(那枚 blob 里没这行)⇒ 拒;why 过短 ⇒ exit 2' },
   { id: 'ST11', expect: 'reject', name: '声明式还原·反向③:不传旗 ⇒ 与设立前同形(同一现场照旧被陈旧守卫拒)' },
   { id: 'ST12', expect: 'reject', name: '声明式还原·未被消费的声明(该行没复活)⇒ 拒;与 ALLOW_STALE 同举 ⇒ exit 2' },
+  { id: 'ST13', expect: 'reject', name: '无需落地档:整片声明与基线逐字节相同 ⇒ rc=3 且逐条举证(绝不与 0 共用)' },
+  { id: 'ST14', expect: 'accept', name: '落地自证:真建提交必须打印 LANDED <40 位 sha>,且回读 HEAD 逐字节等于它' },
+  { id: 'ST15', expect: 'reject', name: '空跑必须响:带完整落地基约却没被认成直接执行 ⇒ 非零 + 点名"一个字节都没落地"(旧形态是静默 rc=0)' },
 ]
 const GIT = resolveGitBin() || 'git'
 const RUN_OPTS = { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }

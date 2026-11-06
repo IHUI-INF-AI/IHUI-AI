@@ -84,13 +84,13 @@ import {
   resolveLeaseTurns,
 } from '../utils/permission-lease-flag.js';
 import type { PluginRegistry } from '../plugins/index.js';
-import { readTodoList } from '../tools/todo-write.js';
+import { clearTodoFile, readTodoList } from '../tools/todo-write.js';
 import { createToolDeltaPreviewStore, pickToolDeltaPreviewText } from '../tools/file-edit-preview.js';
 // G-701:/tool 回看记录的入参必须走键名档出口 —— 值形状档对「键名是凭据而值不像」的入参整类失明
 import { redactObjectDeepKeyed } from '../redact.js';
 // G-729:截断口径只认码点出口(UTF-16 码元 slice 会切出半个代理对,而切坏的串可能恰好躲过脱敏正则)
 import { truncateToCodePoints } from '../utils/prompt-boundary.js';
-import { findSkill, type Skill } from '../skills/index.js';
+import { admitSkillListing, decideSkillInvocation, findSkill, type Skill } from '../skills/index.js';
 import { showSkillsCatalog } from './skills-catalog-view.js';
 import {
   getMemoryStore,
@@ -1187,6 +1187,16 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
         console.info(chalk.yellow(`未找到 skill: ${name}(/skills 查看可用列表)`));
         break;
       }
+      const listing = admitSkillListing(skill.frontmatter?.listing);
+      if (listing.disposition !== 'listed') {
+        console.info(chalk.yellow(`skill ${skill.name} is not listed (${listing.reason}). Body was not shown.`));
+        break;
+      }
+      const invocation = decideSkillInvocation('user', skill.frontmatter?.userInvocable);
+      if (invocation.disposition !== 'allow') {
+        console.info(chalk.yellow(`skill ${skill.name} is not open on /skill (${invocation.reason}). Body was not shown.`));
+        break;
+      }
       console.info(chalk.cyan(`\n╭─ ${chalk.bold(skill.name)}`));
       console.info(chalk.cyan('│'));
       console.info(`│  ${chalk.dim('来源:')} ${chalk.magenta(skill.source)}`);
@@ -1209,7 +1219,13 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
         setMemoryEnabled(false);
         console.info(chalk.yellow('✓ memory 已关闭'));
       } else if (sub === 'show') {
-        const entries = loadMemory(state.opts.workspacePath);
+        let entries: ReturnType<typeof loadMemory>;
+        try {
+          entries = loadMemory(state.opts.workspacePath);
+        } catch (err) {
+          console.info(chalk.yellow(err instanceof Error ? err.message : 'memory 读不到,不能把它说成没有条目'));
+          break;
+        }
         if (entries.length === 0) {
           console.info(chalk.dim('暂无 memory 条目(/memory add <text> 添加)'));
         } else {
@@ -1234,14 +1250,28 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
         const catIdx = args.indexOf('--category');
         const category = catIdx >= 0 ? args[catIdx + 1] ?? '通用' : '通用';
         const target = isGlobal ? store.globalPath : store.projectPath;
-        addMemoryEntry(target, text, category);
+        const written = addMemoryEntry(target, text, category, {
+          sessionId: state.session?.id ?? state.opts.sessionId,
+          at: new Date().toISOString(),
+        });
+        if (!written || written.disposition !== 'rotate') {
+          console.info(chalk.yellow(`memory was not written (${written?.reason ?? 'session-invalid'}).`));
+          break;
+        }
         console.info(chalk.green(`✓ 已添加 memory(${isGlobal ? '全局' : '项目'}): ${text}`));
         // 重新加载到 state
         state.memory = loadMemory(state.opts.workspacePath);
       } else if (sub === 'clear') {
         const isGlobal = args.includes('--global');
         const target = isGlobal ? store.globalPath : store.projectPath;
-        clearMemory(target);
+        const cleared = clearMemory(target, {
+          sessionId: state.session?.id ?? state.opts.sessionId,
+          at: new Date().toISOString(),
+        });
+        if (cleared && cleared.disposition !== 'rotate') {
+          console.info(chalk.yellow(`memory was not cleared (${cleared.reason}).`));
+          break;
+        }
         console.info(chalk.green(`✓ 已清空 ${isGlobal ? '全局' : '项目'} memory`));
         state.memory = loadMemory(state.opts.workspacePath);
       } else if (sub === 'search') {
@@ -1250,7 +1280,13 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
           console.info(chalk.yellow('用法: /memory search <关键词>'));
           break;
         }
-        const entries = loadMemory(state.opts.workspacePath);
+        let entries: ReturnType<typeof loadMemory>;
+        try {
+          entries = loadMemory(state.opts.workspacePath);
+        } catch (err) {
+          console.info(chalk.yellow(err instanceof Error ? err.message : 'memory 读不到,不能把它说成没有条目'));
+          break;
+        }
         if (entries.length === 0) {
           console.info(chalk.dim('  memory 为空,先用 /memory add <text> 添加'));
           break;
@@ -1282,21 +1318,19 @@ export async function handleSlashCommand(input: string, state: ReplState, rl: re
       // P0-9 TodoWrite 工具配套 slash 命令:显示/清除 todo 清单
       const sub = args[0] ?? 'show';
       if (sub === 'clear') {
-        const todoPath = `${state.opts.workspacePath}/.ihui/todos.json`;
-        try {
-          const fs = await import('node:fs');
-          if (fs.existsSync(todoPath)) {
-            fs.unlinkSync(todoPath);
-            console.info(chalk.green('✓ todo 清单已清空'));
-          } else {
-            console.info(chalk.dim('当前无 todo 清单文件'));
-          }
-        } catch {
-          console.info(chalk.red('清空失败'));
-        }
+        const cleared = clearTodoFile(state.opts.workspacePath);
+        if (cleared === 'cleared') console.info(chalk.green('✓ todo 清单已清空'));
+        else if (cleared === 'absent') console.info(chalk.dim('当前无 todo 清单文件'));
+        else console.info(chalk.yellow('任务清单读不到,不能把它说成已经清空'));
       } else if (sub === 'show') {
         const ctx = state.ctx ?? { workspacePath: state.opts.workspacePath };
-        const todos = readTodoList(ctx);
+        let todos: ReturnType<typeof readTodoList>;
+        try {
+          todos = readTodoList(ctx);
+        } catch (error) {
+          console.info(chalk.yellow(error instanceof Error ? error.message : '任务清单读不到,不能把它说成没有任务'));
+          break;
+        }
         if (todos.length === 0) {
           console.info(chalk.dim('暂无 todo(Agent 可通过 todo_write 工具创建)'));
         } else {
@@ -2415,7 +2449,13 @@ async function handleCheckpoint(state: ReplState, args: string[]): Promise<void>
     return;
   }
   if (args.length === 0) {
-    const list = state.checkpoints.list();
+    let list: ReturnType<CheckpointManager['list']>;
+    try {
+      list = state.checkpoints.list();
+    } catch (err) {
+      console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+      return;
+    }
     if (list.length === 0) {
       console.info(chalk.dim('暂无检查点'));
       return;
@@ -2461,7 +2501,11 @@ async function handleRollback(state: ReplState, args: string[]): Promise<void> {
   }
   try {
     const result = await state.checkpoints.restore(targetId);
-    console.info(chalk.green(`✓ 已回滚到检查点: ${targetId}`));
+    if (result.notRestored.length > 0) {
+      console.info(chalk.yellow(`检查点 ${targetId} 有 ${result.notRestored.length} 个文件没有写回`));
+    } else {
+      console.info(chalk.green(`✓ 已回滚到检查点: ${targetId}`));
+    }
     console.info(chalk.dim(`  恢复: ${result.restored.length} 个 / 移除: ${result.removed.length} 个`));
   } catch (err) {
     console.info(chalk.red(`✗ 回滚失败: ${err instanceof Error ? err.message : String(err)}`));
@@ -2473,7 +2517,13 @@ function handleDiff(state: ReplState, args: string[]): void {
     console.info(chalk.yellow('会话未初始化'));
     return;
   }
-  const entries = state.checkpoints.diff(args[0]);
+  let entries: ReturnType<CheckpointManager['diff']>;
+  try {
+    entries = state.checkpoints.diff(args[0]);
+  } catch (err) {
+    console.info(chalk.yellow(err instanceof Error ? err.message : String(err)));
+    return;
+  }
   if (entries.length === 0) {
     console.info(chalk.dim('无差异'));
     return;
@@ -2481,9 +2531,10 @@ function handleDiff(state: ReplState, args: string[]): void {
   const mod = entries.filter((e) => e.status === 'modified').length;
   const add = entries.filter((e) => e.status === 'added').length;
   const del = entries.filter((e) => e.status === 'removed').length;
-  console.info(chalk.cyan(`\n╭─ 差异 · ${entries.length} 项(${chalk.yellow(`M ${mod}`)} · ${chalk.green(`+ ${add}`)} · ${chalk.red(`- ${del}`)})`));
+  const unknown = entries.filter((e) => e.status === 'unmeasured').length;
+  console.info(chalk.cyan(`\n╭─ 差异 · ${entries.length} 项(${chalk.yellow(`M ${mod}`)} · ${chalk.green(`+ ${add}`)} · ${chalk.red(`- ${del}`)} · ${chalk.dim(`? ${unknown}`)})`));
   for (const e of entries) {
-    const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : chalk.red('-');
+    const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : e.status === 'unmeasured' ? chalk.dim('?') : chalk.red('-');
     console.info(`│  ${icon} ${e.path}`);
   }
   console.info(chalk.cyan('╰─'));

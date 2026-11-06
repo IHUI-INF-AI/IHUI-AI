@@ -41,7 +41,7 @@ import {
   readSnapshotMeta,
   removeSnapshotDir,
   restoreSnapshotFiles,
-  snapshotRootExists,
+  probeSnapshotRoot,
   snapshotRootDir,
   writeSnapshotManifest,
   type CheckpointDiffEntry,
@@ -132,12 +132,14 @@ export class CheckpointManager {
     const id = formatSnapshotSeriesDirName(allocation.ref);
     const cpDir = path.join(this.baseDir, id);
     ensureHostDir(cpDir);
+    const copied = copyFilesIntoSnapshot(this.workspacePath, cpDir, files);
     const meta: CheckpointMeta = {
       id,
       sessionId: this.sessionId,
       createdAt: new Date().toISOString(),
       reason,
-      files: copyFilesIntoSnapshot(this.workspacePath, cpDir, files),
+      files: copied.files,
+      ...(copied.skipped.length > 0 ? { skipped: copied.skipped } : {}),
     };
 
     writeSnapshotManifest(cpDir, meta);
@@ -153,8 +155,10 @@ export class CheckpointManager {
   }
 
   list(): CheckpointMeta[] {
-    // 语义逐字保留:快照根本就不存在 ⇒ 原样返回,连上次隔离账面都不动(拆分前就是先判断再清零)
-    if (!snapshotRootExists(this.baseDir)) return [];
+    // 快照根本就不存在 ⇒ 原样返回。读不到目录时抛错,不把清单说成空。
+    const root = probeSnapshotRoot(this.baseDir);
+    if (root === 'missing') return [];
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成没有检查点');
     const metas: CheckpointMeta[] = [];
     this.lastQuarantined = [];
     for (const name of listSubDirNames(this.baseDir)) {
@@ -168,6 +172,7 @@ export class CheckpointManager {
           this.lastQuarantined.push(entry);
         },
       });
+      if (result.status === 'unreadable') throw new Error(result.detail);
       if (result.status === 'ok') metas.push(result.meta);
     }
     return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -175,22 +180,32 @@ export class CheckpointManager {
 
   get(checkpointId: string): CheckpointMeta | null {
     const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
+    if (result.status === 'unreadable') throw new Error(result.detail);
     return result.status === 'ok' ? result.meta : null;
   }
 
-  async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[] }> {
-    const meta = this.get(checkpointId);
-    if (!meta) {
-      throw new Error(`检查点 ${checkpointId} 不存在`);
+  private readCheckpoint(checkpointId: string): CheckpointMeta {
+    const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
+    if (result.status === 'ok') return result.meta;
+    if (result.status === 'unreadable') throw new Error(result.detail);
+    if (result.status === 'corrupt') {
+      throw new Error(`检查点 ${checkpointId} 清单读不到(${result.entry.reason}),不能把它说成不存在`);
     }
+    throw new Error(`检查点 ${checkpointId} 不存在`);
+  }
+
+  async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[]; notRestored: string[] }> {
+    const meta = this.readCheckpoint(checkpointId);
     return restoreSnapshotFiles(this.workspacePath, path.join(this.baseDir, checkpointId), meta.files);
   }
 
   diff(checkpointId?: string): CheckpointDiffEntry[] {
-    const cp = checkpointId
-      ? this.get(checkpointId)
-      : this.list()[0] ?? null;
-    if (!cp) return [];
+    if (checkpointId) {
+      const cp = this.readCheckpoint(checkpointId);
+      return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
+    }
+    const cp = this.list()[0] ?? null;
+    if (!cp) throw new Error('暂无检查点,不能把它说成没有差异');
     return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
   }
 

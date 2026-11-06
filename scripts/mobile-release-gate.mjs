@@ -13,17 +13,24 @@
  * 本脚本把这条链收成一份实现,本地脚本与 CI 都调它,避免两处清单各自漂移。
  *
  * 门链(顺序固定,任一非零即中止,不产出可交付产物):
+ *   0. harmony-readiness `node scripts/harmony-build.mjs --check`(**仅 --platform harmony 时前置**)
+ *                     —— 鸿蒙产物五格现读,判据单源在 scripts/harmony-build.mjs,本门只转述不复算
+ *                     (§0.6);未齐即中止,免得跑完四轮 gradle 才发现本机根本没有 SDK。
  *   1. typecheck      `pnpm --filter "@ihui/mobile-rn..." run typecheck`(RN 依赖闭包全量 TS;
  *                     不跑全仓 turbo typecheck —— web/api 的 TS 错误与这个包无关,拿它掐手机出包是假耦合)
  *   2. rn-tests       `pnpm --filter "@ihui/mobile-rn..." run test`(RN 闭包测试)
  *   3. version-code   `node scripts/check-mobile-version-code.mjs`
  *   4. base-bake      `node scripts/check-mobile-api-base-bake.mjs`
  *
+ * `--platform harmony` 时第 1~4 道**一道不摘**:RN 源码闭包是两端共用的,而版本号/基址两道门
+ * 多判一次不伤(判据是安卓形态 ⇒ 对鸿蒙出包只属"顺带看过",不构成假绿)。
+ *
  * 失败信息点名是哪道门 + 退出码;exit 2 是「未判定」,同样按失败处理(不记绿)。
  *
  * 用法:
- *   node scripts/mobile-release-gate.mjs            # CI:HEAD 面(干净 checkout)
- *   node scripts/mobile-release-gate.mjs --worktree # 本地出包:工作树面(将要构建的那份)
+ *   node scripts/mobile-release-gate.mjs                      # CI:HEAD 面(干净 checkout)
+ *   node scripts/mobile-release-gate.mjs --worktree           # 本地出包:工作树面(将要构建的那份)
+ *   node scripts/mobile-release-gate.mjs --platform harmony   # 鸿蒙出包:先过产物五格现读
  */
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
@@ -32,13 +39,27 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 export const GATE = 'mobile-release-gate'
 
+/** 出包目标平台:缺省 android ⇒ 既有调用方(ps1 / CI)行为逐字不变。 */
+export const SUPPORTED_PLATFORMS = Object.freeze(['android', 'harmony'])
+
 /**
  * 纯函数:构造门链。本地传 worktree ⇒ 版本号/基址两道门审「将要构建的那份」;
  * CI 保持缺省 HEAD 面(clean checkout 下两面相同,但口径不混用)。
+ * platform='harmony' 时**前置**一道产物就绪门,执行体就是 scripts/harmony-build.mjs 本身
+ * (同一把尺、同一份判据,本门不复算五格任何一格,§0.6)。
  */
-export function planGates({ face = 'head' } = {}) {
+export function planGates({ face = 'head', platform = 'android' } = {}) {
   const faceArgs = face === 'worktree' ? ['--worktree'] : []
-  return [
+  const gates = []
+  if (platform === 'harmony') {
+    gates.push({
+      id: 'harmony-readiness',
+      name: 'HarmonyOS 产物五格现读(判据单源 scripts/harmony-build.mjs)',
+      cmd: 'node',
+      args: ['scripts/harmony-build.mjs', '--check'],
+    })
+  }
+  gates.push(
     {
       id: 'typecheck',
       name: 'mobile-rn dependency closure typecheck',
@@ -63,7 +84,8 @@ export function planGates({ face = 'head' } = {}) {
       cmd: 'node',
       args: ['scripts/check-mobile-api-base-bake.mjs', ...faceArgs],
     },
-  ]
+  )
+  return gates
 }
 
 function runGate(g) {
@@ -78,24 +100,45 @@ function runGate(g) {
 function main() {
   const argv = process.argv.slice(2)
   const face = argv.includes('--worktree') ? 'worktree' : 'head'
+  const pIdx = argv.findIndex((a) => a === '--platform')
+  const platform = pIdx >= 0 ? argv[pIdx + 1] : 'android'
+  if (pIdx >= 0 && (!platform || platform.startsWith('-'))) {
+    console.error(`[${GATE}] 用法错:--platform 必须带值(${SUPPORTED_PLATFORMS.join('/')})`)
+    return 2
+  }
+  if (!SUPPORTED_PLATFORMS.includes(platform)) {
+    console.error(
+      `[${GATE}] 用法错:--platform="${platform}" 不在册(只认 ${SUPPORTED_PLATFORMS.join('/')})⇒ 不猜默认值,直接未判定`,
+    )
+    return 2
+  }
   if (argv.includes('--help')) {
-    console.info('用法:node scripts/mobile-release-gate.mjs [--worktree]')
+    console.info(
+      `用法:node scripts/mobile-release-gate.mjs [--worktree] [--platform ${SUPPORTED_PLATFORMS.join('|')}]`,
+    )
     return 0
   }
-  const gates = planGates({ face })
+  const gates = planGates({ face, platform })
   for (let i = 0; i < gates.length; i++) {
     const g = gates[i]
     const n = `${i + 1}/${gates.length}`
     console.info(`\n[${GATE}] ${n} ${g.id} (${g.name}) —— ${g.cmd} ${g.args.join(' ')}`)
     const code = runGate(g)
     if (code !== 0) {
-      const why = code === 2 ? '未判定(exit 2,按失败处理)' : code < 0 ? '进程启动失败/被环境终止' : `exit ${code}`
+      const why =
+        code === 2
+          ? '未判定(exit 2,按失败处理)'
+          : code < 0
+            ? '进程启动失败/被环境终止'
+            : `exit ${code}`
       console.error(`[${GATE}] ❌ 门失败:${g.id} (${g.name}) ${why} —— 出包中止,不产出可发布产物`)
       return code === 2 || code < 0 ? 1 : code
     }
     console.info(`[${GATE}] ✅ ${n} ${g.id} 通过`)
   }
-  console.info(`\n[${GATE}] ✅ 门链全部通过(${gates.length}/${gates.length},取材面:${face})`)
+  console.info(
+    `\n[${GATE}] ✅ 门链全部通过(${gates.length}/${gates.length},取材面:${face},目标平台:${platform})`,
+  )
   return 0
 }
 
@@ -103,5 +146,5 @@ function main() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exit(main())
 
-export const __test__ = { planGates, GATE }
+export const __test__ = { planGates, GATE, SUPPORTED_PLATFORMS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

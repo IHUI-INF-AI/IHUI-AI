@@ -354,6 +354,9 @@ class AgentStepRecorder:
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
+        if not self._loaded:
+            logger.warning("agent_step_recorder 读不到,不能把它覆盖成新记录")
+            return
         try:
             # 2026-10-03 数据出域合规整改:原子写(临时文件 + os.replace),
             # 避免崩在半截时盘上留一个坏 JSON(读侧会 fail-closed 成空 ⇒ 静默丢数据)。

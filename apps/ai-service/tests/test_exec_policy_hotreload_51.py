@@ -18,6 +18,7 @@ Windows 环境:路径用 pathlib;文件写入显式 ``encoding="utf-8"`` 与 ``n
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 
 import pytest
@@ -79,6 +80,28 @@ async def test_append_rule_memory_and_disk(tmp_path: Path) -> None:
     # 落盘文件含新行
     content = (rules_dir / "default.rules").read_text(encoding="utf-8")
     assert "PROMPT|git push --force" in content
+
+
+async def test_unreadable_rules_file_is_not_overwritten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    path = _write_rules(rules_dir, "default.rules", "DENY|sudo rm\n")
+    original = path.read_bytes()
+    mgr = ExecPolicyManager(rules_dir)
+    before = tuple(mgr.current().rules)
+    real_stat = Path.stat
+
+    def fake_stat(self: Path, *args: object, **kwargs: object) -> os.stat_result:
+        if os.path.abspath(self) == os.path.abspath(path):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    with pytest.raises(OSError, match="读不到"):
+        await mgr.append_rule(PrefixRule(("git", "push"), Decision.PROMPT, source="runtime"))
+    monkeypatch.undo()
+    assert path.read_bytes() == original
+    assert tuple(mgr.current().rules) == before
 
 
 async def test_append_rule_persists_after_reload(tmp_path: Path) -> None:

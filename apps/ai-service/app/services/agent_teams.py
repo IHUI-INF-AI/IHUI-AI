@@ -577,10 +577,9 @@ class TeamTaskBoard:
     # ---- 存档 ----
 
     def _ensure_loaded(self) -> None:
-        """惰性读盘一次;读不到按空表(不抛错),坏了也不覆盖磁盘原文件。"""
+        """惰性读盘一次。文件没有或内容坏按空表;读失败不算空表,也不标成已加载。"""
         if self._loaded:
             return
-        self._loaded = True
         try:
             raw, dropped = load_ttl_records(
                 self._file,
@@ -589,17 +588,21 @@ class TeamTaskBoard:
                 max_items=_TEAM_TASK_MAX_ITEMS,
                 validate=_is_valid_task_record,
             )
-        except Exception as e:  # noqa: BLE001 - 存档坏不该让任务板不可用
-            logger.warning("[agent_teams] 团队任务板读盘失败(按空表继续): %s", e)
+        except Exception as e:  # noqa: BLE001 - 读不到不能按空表覆盖
+            logger.warning("[agent_teams] 团队任务板读不到,不能按空表覆盖: %s", e)
             return
         if dropped:
             logger.info("[agent_teams] 团队任务板加载:清理过期/坏记录 %d 条", dropped)
         self._records = {
             str(key): dict(value) for key, value in raw.items() if isinstance(value, dict)
         }
+        self._loaded = True
 
     def _persist(self) -> None:
         """全量写回(原子写,失败只告警:内存副本仍在,下次变更再试)。"""
+        if not self._loaded:
+            logger.warning("[agent_teams] 团队任务板读不到,不能把它覆盖成新任务")
+            return
         write_json_atomic(self._file, self._records, indent=2)
 
     # ---- 读 ----

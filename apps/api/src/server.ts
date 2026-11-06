@@ -55,6 +55,8 @@ import rlsContextPlugin from './plugins/rls-context.js'
 import authDefaultDenyPlugin from './plugins/auth-default-deny.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
+// BUG-4:网络分段的"公开路由"判定复用单一真相源(plugins/public-paths.ts),与鉴权闸/租户绕过同一把尺。
+import { isNetworkPublicPath as isPublicPath } from './plugins/public-paths.js'
 import apiLoggerPlugin from './plugins/api-logger.js'
 import csrfPlugin from './plugins/csrf.js'
 import responseSanitizerPlugin from './plugins/response-sanitizer.js'
@@ -366,16 +368,6 @@ export async function buildServer(): Promise<FastifyInstance> {
     '/api/withdrawal/',
     '/api/settings/',
   ]
-  // 公开路由前缀(不注入网络分段,保持公网可达)
-  const PUBLIC_PREFIXES = [
-    '/api/health',
-    '/api/landing',
-    '/api/public/',
-    '/api/oss/public/',
-    '/api/metrics',
-    '/business-metrics',
-    '/api/csrf-token',
-  ]
 
   server.addHook('onRoute', (routeOptions) => {
     const url = routeOptions.url ?? ''
@@ -425,8 +417,8 @@ export async function buildServer(): Promise<FastifyInstance> {
       return
     }
 
-    // 公开路由:不注入网络分段(保持公网可达)
-    if (PUBLIC_PREFIXES.some((p) => url.startsWith(p))) return
+    // 公开路由:不注入网络分段(保持公网可达)。BUG-4:复用单一真相源的段边界安全匹配。
+    if (isPublicPath(url.split('?')[0] ?? url)) return
 
     // 敏感业务路由:允许公网但启用网络分段(strict 模式下 unknown IP 拒绝)
     if (SENSITIVE_BUSINESS_PREFIXES.some((p) => url.startsWith(p))) {

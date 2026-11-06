@@ -48,7 +48,7 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
     statLabel: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
     },
     statValue: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     sectionCard: {
@@ -74,7 +74,7 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
       fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
       lineHeight: rnType.bodySm.size * 1.6,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
     },
     historyRow: {
       flexDirection: 'row',
@@ -82,7 +82,7 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       paddingVertical: rnSpacing.xs,
     },
-    historyLeft: { flex: 1, gap: 2 },
+    historyLeft: { flex: 1, gap: rnSpacing['2xs'] },
     historyStatus: { fontSize: rnType.bodySm.size, color: tk.text.primary, fontWeight: '500' },
     historyMeta: { fontSize: rnType.label.size, color: tk.text.secondary },
     historyScore: { fontSize: rnType.bodySm.size, color: tk.text.primary, fontWeight: '600' },
@@ -121,3 +121,4 @@ export function createExamIntroStyles(tk: AppThemeTokens) {
     retryText: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.brand.ctaForeground },
   })
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

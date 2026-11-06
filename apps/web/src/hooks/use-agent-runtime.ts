@@ -221,6 +221,10 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     es.onopen = () => {
       setConnected(true)
       setStreamError(null)
+      // BUG-11:真正连上 ⇒ 本条流「唯一一次续期」预算重新发放。旧实现只在换 agentId
+      // 时复位,同一 agentId 长会话首次续期成功后 tried 恒 true,15 分钟后第二次
+      // 401 直接落 unauthorized-after-refresh 永久死透。
+      authRetryRef.current = { agentId, tried: false }
     }
     /**
      * 2026-10-26 修「cookie 内那枚 15 分钟 JWT 过期后,运行时事件流静默死透」。
