@@ -13822,7 +13822,18 @@ async function main() {
     if (!CHECK_ONLY) healHomeJunctions()
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
-    if (!CHECK_ONLY) auditMergeAdditionLoss()
+    // 2026-11-07 收口(A8 四条恒 rotting 的真因):本机实际执行体是计划任务单轮(vbs 起
+    // `node git-guardian.mjs`,无 --daemon),而下面这四条此前把 legThrottle 只挂在 tick 面 ⇒
+    // ① 节流戳一枚不写,A8/check-sweeper-liveness 恒判"腿死了";② 单轮每 2 分钟把带 240s 派生
+    // 的重活重跑一遍(实测 13:03「合并吞并对账未判定(派生超时/被杀 ETIMEDOUT SIGTERM)」即此)。
+    // 修法 = 两承载面共用同一 tick 文件(与其余各层同一挂点语义),双执行体并存也只有先到者真跑;
+    // 间隔一律与 tick 面逐字一致,不另存一份(SILENCE 判据按登记表 nominalIntervalMs 现算)。
+    const MERGE_LOSS_TICK = join(dirname(LOG), 'merge-addition-loss-dispatch-last.json')
+    const RECOVERY_SOURCE_TICK = join(dirname(LOG), 'recovery-source-dispatch-last.json')
+    const RUN_LOG_ROTATE_TICK = join(dirname(LOG), 'run-log-rotate-dispatch-last.json')
+    const BASELINE_FRESHNESS_TICK = join(dirname(LOG), 'baseline-freshness-dispatch-last.json')
+    if (!CHECK_ONLY && legThrottle(MERGE_LOSS_TICK, 30 * 60 * 1000, Date.now(), log))
+      auditMergeAdditionLoss()
     // 主机时区漂移问责:必须与上面同格(健康轮次早退之前 + !CHECK_ONLY)—— 挂进 CHECK_ONLY 路径
     // 等于永不执行,本文件已踩过两次(工作区自愈层、根封口层)。
     if (!CHECK_ONLY) auditHostTimezone()
@@ -13832,11 +13843,14 @@ async function main() {
     // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
     if (!CHECK_ONLY) auditDiskRootHygiene()
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
-    if (!CHECK_ONLY) reportBaselineFreshness()
+    if (!CHECK_ONLY && legThrottle(BASELINE_FRESHNESS_TICK, 60 * 60 * 1000, Date.now(), log))
+      reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
-    if (!CHECK_ONLY) refreshRecoverySource()
+    if (!CHECK_ONLY && legThrottle(RECOVERY_SOURCE_TICK, 30 * 60 * 1000, Date.now(), log))
+      refreshRecoverySource()
     // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
-    if (!CHECK_ONLY) rotateRunLogs()
+    if (!CHECK_ONLY && legThrottle(RUN_LOG_ROTATE_TICK, 30 * 60 * 1000, Date.now(), log))
+      rotateRunLogs()
     // 会话全文落盘(第 4 格·观测腿)过期回收:同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     // 判据(天数 + 条数双闸,最新一份豁免)全在 lib/session-transcript.mjs。
     if (!CHECK_ONLY) gcSessionTranscripts()

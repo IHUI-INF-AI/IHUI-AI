@@ -157,6 +157,14 @@ def test_non_list_json_returns_empty(isolated_store):
     assert store.list_owned(A) == []
 
 
+def test_corrupt_json_is_not_overwritten(isolated_store):
+    body = "{ 这不是合法 JSON"
+    isolated_store.write_text(body, encoding="utf-8")
+    with pytest.raises(store.ConnectorStoreUnread, match="corrupt"):
+        store.save(A, _record())
+    assert isolated_store.read_text(encoding="utf-8") == body
+
+
 def test_unreadable_store_is_not_overwritten(isolated_store, monkeypatch):
     original = json.dumps(
         [{"key": "yuque:docs", "owner_user_id": A, "name": "keep", "app_secret": ""}],

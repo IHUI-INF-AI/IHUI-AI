@@ -537,6 +537,8 @@ def test_review_store_corrupt_json_defaults(review_path):
     review_path.write_text("{broken", encoding="utf-8")
     assert mcp_market_review.get_status("git") == "approved"
     assert mcp_market_review.get_status("whatever") == "pending"
+    assert mcp_market_review.set_status("other", "approved") is None
+    assert review_path.read_text(encoding="utf-8") == "{broken"
 
 
 def test_review_store_invalid_status_raises(review_path):

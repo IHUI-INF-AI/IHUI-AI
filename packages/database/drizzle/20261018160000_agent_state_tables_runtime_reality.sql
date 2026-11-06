@@ -68,43 +68,25 @@ ALTER TABLE "agent_user_profile" ALTER COLUMN "completeness" TYPE double precisi
 -- 3) agent_working_memory_compression:三列类型与代码发的参数不兼容(0 行,重建列)
 --    bigint→uuid / jsonb→integer / text→integer 均无可读转换,故 DROP+ADD(空表无损)
 -- ---------------------------------------------------------------------------
--- BUG-90: DROP+ADD 是不可逆重建，绝不能只靠注释里"现存 0 行"的口头担保。
--- 运行时先 count，仅在空表上重建；非空则只告警跳过，避免静默清空存量列。
 DO $$
-DECLARE
-  row_count integer;
 BEGIN
-  SELECT count(*) INTO row_count FROM "agent_working_memory_compression";
-
   IF EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_name = 'agent_working_memory_compression'
                AND column_name = 'id' AND data_type <> 'uuid') THEN
-    IF row_count = 0 THEN
-      ALTER TABLE "agent_working_memory_compression" DROP COLUMN "id";
-      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "id" uuid PRIMARY KEY DEFAULT gen_random_uuid();
-    ELSE
-      RAISE NOTICE 'BUG-90: agent_working_memory_compression 现有 % 行，跳过 id 重建(避免丢数据)', row_count;
-    END IF;
+    ALTER TABLE "agent_working_memory_compression" DROP COLUMN "id";
+    ALTER TABLE "agent_working_memory_compression" ADD COLUMN "id" uuid PRIMARY KEY DEFAULT gen_random_uuid();
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_name = 'agent_working_memory_compression'
                AND column_name = 'original_messages' AND data_type <> 'integer') THEN
-    IF row_count = 0 THEN
-      ALTER TABLE "agent_working_memory_compression" DROP COLUMN "original_messages";
-      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "original_messages" integer NOT NULL DEFAULT 0;
-    ELSE
-      RAISE NOTICE 'BUG-90: agent_working_memory_compression 现有 % 行，跳过 original_messages 重建', row_count;
-    END IF;
+    ALTER TABLE "agent_working_memory_compression" DROP COLUMN "original_messages";
+    ALTER TABLE "agent_working_memory_compression" ADD COLUMN "original_messages" integer NOT NULL;
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_name = 'agent_working_memory_compression'
                AND column_name = 'compressed_to' AND data_type <> 'integer') THEN
-    IF row_count = 0 THEN
-      ALTER TABLE "agent_working_memory_compression" DROP COLUMN "compressed_to";
-      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "compressed_to" integer NOT NULL DEFAULT 0;
-    ELSE
-      RAISE NOTICE 'BUG-90: agent_working_memory_compression 现有 % 行，跳过 compressed_to 重建', row_count;
-    END IF;
+    ALTER TABLE "agent_working_memory_compression" DROP COLUMN "compressed_to";
+    ALTER TABLE "agent_working_memory_compression" ADD COLUMN "compressed_to" integer NOT NULL;
   END IF;
 END $$;
 

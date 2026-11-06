@@ -319,10 +319,8 @@ END $$;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "key_type" SET DATA TYPE varchar(50);--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "key_type" SET DEFAULT 'RSA';--> statement-breakpoint
--- BUG-89: oauth_private_keys 是 0038/0043 建的既有表，存量非空时 NOT NULL 无 DEFAULT
--- 会在 ADD COLUMN 处当场中断；补空串 DEFAULT 让迁移可重放(真实密钥由外部 keystore 注入)。
-ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "client_id" varchar(100) NOT NULL DEFAULT '';--> statement-breakpoint
-ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "private_key" text NOT NULL DEFAULT '';--> statement-breakpoint
+ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "client_id" varchar(100) NOT NULL;--> statement-breakpoint
+ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "private_key" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "public_key" text;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "is_active" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
 ALTER TABLE "ai_model_config" ADD COLUMN IF NOT EXISTS "icon_svg" text;--> statement-breakpoint

@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19588 | `trackedFiles` |
+| 跟踪文件 | 19591 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5451,6 +5451,40 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-07**
+- 🚀 新功能/改进:落三组确证未落地的真工作（RN 测试面 4 枚 + 类型预算器 4 枚 + tabbar 图标生成器换代） (521e7853d4)
+- 📚 文档:合并后按现读尖重算生成块数字（trackedFiles/testFiles/apiRoutes 等） (0c67ea403f)
+- 📚 文档:结档 miniapp-shell content-batch2 三件套（spec/tasks/checklist） (3048057ccb)
+- 🐞 修复:规格差异和流水线记录读不到不再说成没有 (27ce4c3148)
+- 🐞 修复:补真运行时已在消费的类型面(skill 三字段/stat 注入/压缩阈值/unreadable 分支),cli T1 15 条归零 (c3d3fb644a)
+- 📚 文档:生成块按现读尖归位(四语) + last-sha 跟随 (00ed09fe38)
+- 🐞 修复:损坏的百科缓存不再被换成新摘要 (2c6b134f1e)
+- 🐞 修复:损坏的配置即使强制也不换成模板 (0e1d479c5a)
+- 📚 文档:README 生成块按 HEAD 现算归位(trackedFiles 19566→19567、testFiles 4251→4252) (22790a0797)
+- 🐞 修复:读不到或损坏的名单不再被整份覆盖 (2cae179ad5)
+- 🐞 修复:catch 绑定不再遮蔽 error() 响应助手,stat 注入类型跟随 statSync 重载;消除 7 条 T1 红 (d5923692c8)
+- 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (f4e1c402ca)
+- 🐞 修复:补真运行时已在消费的类型面(skill 三字段/stat 注入/压缩阈值/unreadable 分支),cli T1 15 条归零 (f660808092)
+- 🐞 修复:损坏的插件登记表不再被读成没有已装插件 (ec5240013b)
+- 🐞 修复:隐私政策过度声明收口 + 路由级回落锁补测(接棒 11-06 中断会话 set4) (80b4b2bb0d)
+- 📚 文档:README 生成块按 HEAD 现算归位(trackedFiles 19561→19563、testFiles 4249→4251) (257fac5a34)
+- 🐞 修复:读不到的技能目录和项目根不再写成空清单 (3092936925)
+- 🐞 修复:doubao Cookie 头按 ByteString 归一,非 Latin-1 字符 percent-encode;消除 U+FFFD 触发的 fetch ByteString 异常把未判定伪装成凭据错误。补两条回归用例(vitest 40/40 绿),重导入后健康态回到 unknown/未判定 (3e0a1b5497)
+- 🐞 修复:读不到不再当成没有再覆盖 (be7022c861)
+- 🔧 工程/其他:补齐 6 枚文件溯源水印(47p HEAD 面欠账清零) (305e237c4e)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (e4dc97f170)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (027c2e3da9)
+- 🔧 工程/其他:欠债快照与 README 数字按修好的尺在新面重算 —— 派生态不搬旧面副本 (0b17ae1193)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (8b76a25dee)
+- 🚀 新功能/改进:量具纠错(D3)+配对改判+轴一结清+词包扩面 —— 未落地链整体重放到活尖单枚落地 (e20af7a824)
+
+**2026-11-06**
+- 🐞 修复:首页模型选择弹窗高度按内容自适应(修复列表塌成0高看不见) (8d8a28770f)
+- ♻️ 重构:props 契约下沉 @ihui/types 单一源 + 会话历史排序上移 shared (2447a00d04)
+- 🐞 修复:读不到不再当成没有再覆盖 (5aee34e06e)
+- 🐞 修复:预算档位枚举收回单一真相源,budget 帧改按 type 认领不再滑进正文兜底链 (7af1564716)
+- 🐞 修复:撤销/重做的删除腿与写入腿各收敛到唯一出口,消除合并机械并存留下的实害 (544f1eba4d)
+
 **2026-11-07**
 - 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
 - 🚀 新功能/改进:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
@@ -42744,3 +42778,5 @@ A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 �
 A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 | 测试文件 | 4252 | `testFiles` |
 | 跟踪文件 | 19567 | `trackedFiles` |
+| 测试文件 | 4260 | `testFiles` |
+| 跟踪文件 | 19586 | `trackedFiles` |

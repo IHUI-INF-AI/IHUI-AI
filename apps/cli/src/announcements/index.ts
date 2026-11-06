@@ -164,7 +164,7 @@ function announcementReadCode(error: unknown): string {
   return 'unknown';
 }
 
-/** 读取本地缓存。文件不存在、损坏或过期返回 null。读失败不能当成没有公告。 */
+/** 读取本地缓存。文件不存在或已过期返回 null。损坏不能当成没有,否则下一轮会整份覆盖。 */
 export function loadCache(cachePath: string, ttlMs: number = DEFAULT_CACHE_TTL_MS): AnnouncementBrief[] | null {
   let raw: string;
   try {
@@ -174,14 +174,17 @@ export function loadCache(cachePath: string, ttlMs: number = DEFAULT_CACHE_TTL_M
     if (code === 'ENOENT' || code === 'ENOTDIR') return null;
     throw new Error(`公告缓存读不到,不能把它说成没有公告 (${code})`);
   }
+  let parsed: CacheFile;
   try {
-    const parsed = JSON.parse(raw) as CacheFile;
-    if (!parsed || typeof parsed.fetchedAt !== 'number' || !Array.isArray(parsed.list)) return null;
-    if (Date.now() - parsed.fetchedAt > ttlMs) return null;
-    return parsed.list;
+    parsed = JSON.parse(raw) as CacheFile;
   } catch {
-    return null;
+    throw new Error('公告缓存读不到,不能把它覆盖成新公告 (corrupt)');
   }
+  if (!parsed || typeof parsed.fetchedAt !== 'number' || !Array.isArray(parsed.list)) {
+    throw new Error('公告缓存读不到,不能把它覆盖成新公告 (corrupt)');
+  }
+  if (Date.now() - parsed.fetchedAt > ttlMs) return null;
+  return parsed.list;
 }
 
 /** 写入本地缓存(失败不抛错) */
@@ -225,7 +228,7 @@ export async function refreshAnnouncements(
   return list;
 }
 
-/** 加载已读 ID 集合。文件不存在或内容损坏是空集合。读失败不能当成没有已读。 */
+/** 加载已读 ID 集合。文件不存在是空集合。损坏不能当成没有已读,否则标记一条会把原文件换成只剩这一条。 */
 export function loadSeenIds(seenPath: string = getDefaultSeenPath()): Set<string> {
   let raw: string;
   try {
@@ -235,13 +238,16 @@ export function loadSeenIds(seenPath: string = getDefaultSeenPath()): Set<string
     if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
     throw new Error(`已读公告读不到,不能把它说成没有已读 (${code})`);
   }
+  let parsed: SeenFile;
   try {
-    const parsed = JSON.parse(raw) as SeenFile;
-    if (!parsed || !Array.isArray(parsed.seenIds)) return new Set();
-    return new Set(parsed.seenIds);
+    parsed = JSON.parse(raw) as SeenFile;
   } catch {
-    return new Set();
+    throw new Error('已读公告读不到,不能把它覆盖成只剩新的一条 (corrupt)');
   }
+  if (!parsed || !Array.isArray(parsed.seenIds)) {
+    throw new Error('已读公告读不到,不能把它覆盖成只剩新的一条 (corrupt)');
+  }
+  return new Set(parsed.seenIds);
 }
 
 /** 标记某条公告为已读(幂等,失败不抛错) */
