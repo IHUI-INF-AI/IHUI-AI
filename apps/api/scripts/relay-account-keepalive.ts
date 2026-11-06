@@ -214,6 +214,25 @@ export async function listKeepAliveForever(): Promise<KeepAliveRow[]> {
 }
 
 /**
+ * `--once` 的心跳写入口(2026-11-06 立,修 heartbeated 恒 0)。
+ *
+ * 立因:此处曾把上游 uid 当主键交给 touchClientHeartbeat,而它按 `where id = <rowId>` 写 —
+ * uid 是上游身份、id 是本表 UUID,两个空间 ⇒ 命中 0 行,heartbeated 永远是 0,独立保活腿
+ * 「客户端在跑就让位」的证据链整条空转(2026-11-06 生产实测:客户端在跑仍 heartbeated=0)。
+ * 判据:只吃 listKeepAliveForever 的行对象取主键 id,不做 uid→id 的猜测映射。
+ */
+export async function writeKeepAliveHeartbeats(
+  rows: readonly KeepAliveRow[],
+  at: string | null | undefined,
+  touch: typeof touchClientHeartbeat = touchClientHeartbeat,
+): Promise<number> {
+  if (!at) return 0
+  const rowIds = rows.filter((r) => r.providerCode === 'trae').map((r) => r.id)
+  if (rowIds.length === 0) return 0
+  return touch(rowIds, at, false)
+}
+
+/**
  * 单号诊断(2026-10-31 立):把这枚号在保活档的每一道闸逐一摊开。
  *
  * 立因:`--once` 的汇总只给 `keepalive=2 refreshSkipped=3` 这种计数,答不出「我登记的那枚
@@ -331,10 +350,7 @@ export async function main(argv: string[]): Promise<number> {
     // api 一挂心跳必然陈旧 ⇒ 池判成静默 ⇒ 接管续期 ⇒ 把用户正在用的 Trae 顶下线(登不回来)。
     let heartbeated = 0
     if (a.clientActiveAt) {
-      const uids = (await listKeepAliveForever())
-        .filter((r) => r.providerCode === 'trae')
-        .map((r) => r.uid)
-      heartbeated = await touchClientHeartbeat(uids, a.clientActiveAt, false)
+      heartbeated = await writeKeepAliveHeartbeats(await listKeepAliveForever(), a.clientActiveAt)
     }
     const res = await scheduler.sweepAccountPool()
     // 巡检产出面是「全标量 + 两分支同键集」的契约(relay-account-pool-sweep-result.test.ts),
@@ -386,5 +402,10 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, setKeepAliveForever, listKeepAliveForever }
+export const __test__ = {
+  parseArgs,
+  setKeepAliveForever,
+  listKeepAliveForever,
+  writeKeepAliveHeartbeats,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
