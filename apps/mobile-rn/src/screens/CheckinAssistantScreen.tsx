@@ -24,6 +24,7 @@ import { NavChrome } from '../components/NavChrome'
 import { WorkbuddyTaskSection } from '../components/WorkbuddyTaskSection'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
+import { useRefreshOnFocus } from '../hooks'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -74,6 +75,13 @@ export default function CheckinAssistantScreen() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // 回屏(导航焦点回到本屏)重取:账号池可能在别处被改动,只靠首挂会看到陈旧列表。
+  // 必须传稳定引用 —— 每次 render 新建回调会让 focus effect 反复退订/订阅,变成「每次重渲都拉」。
+  const refreshOnReappear = useCallback(() => {
+    void load(true)
+  }, [load])
+  useRefreshOnFocus(refreshOnReappear)
 
   const stats = useMemo(() => {
     const synced = list.filter((a) => Boolean(a.device_map?.pool_account_id)).length
