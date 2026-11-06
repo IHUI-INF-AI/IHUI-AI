@@ -262,4 +262,32 @@ test('T7 区段自证:两段切片非空且互不串味,防止"切错段⇒恒�
   assert.ok(body.includes('daemon:提交窗口期'), 'tick 切片丢了提交窗口判据 ⇒ 切片边界不对')
   assert.equal(main.includes('daemon:提交窗口期'), false, 'main 段读到了 daemon 段 ⇒ 两段串味,按区段断言已失效')
 })
+
+test('T8 节流戳两面一致:已接线的腿必须在 main() 与 tick 两面共用同一 tick 文件', () => {
+  // 为什么补这条(2026-11-07,票 RP-74 收口):T1/T2 只锁"调用出现在两段里",锁不住"节流戳
+  // 写不写"。实测形态 = 4 条腿(main 面 `if (!CHECK_ONLY) fn()` 无节流、tick 面带 legThrottle),
+  // 而本机唯一执行体是计划任务单轮(vbs 起 `node git-guardian.mjs`,无 --daemon)⇒ 戳一枚不写,
+  // A8 恒判 4 枚 rotting(看起来"腿死了",实际是"账没人记"),且单轮每 2 分钟重跑 240s 派生。
+  // 射程不抄第二份清单(§0.6):从登记表现读 —— 只要某条的 stamp 在任一段出现过,就要求两段都有。
+  const reg = JSON.parse(
+    readFileSync(path.join(ROOT, 'scripts', 'data', 'autonomy-leg-liveness.json'), 'utf8'),
+  )
+  const legs = Array.isArray(reg.legs) ? reg.legs : []
+  const main = mainBodyOf(src)
+  const tick = tickBodyOf(src)
+  const wired = legs.filter((l) => l.stamp && (main.includes(l.stamp) || tick.includes(l.stamp)))
+  assert.ok(wired.length > 0, '登记表里一条已接线的腿都没读到 ⇒ 本锁失去射程,按判红处理')
+  const missMain = wired.filter((l) => !main.includes(l.stamp)).map((l) => `${l.owner}(${l.stamp})`)
+  const missTick = wired.filter((l) => !tick.includes(l.stamp)).map((l) => `${l.owner}(${l.stamp})`)
+  assert.deepEqual(
+    missMain,
+    [],
+    `main() 单轮面没写这些节流戳 ⇒ 本机(无 --daemon)跑一轮不记账,A8 恒判 rotting: ${missMain.join(', ')}`,
+  )
+  assert.deepEqual(missTick, [], `daemon tick 面没写这些节流戳: ${missTick.join(', ')}`)
+  assert.ok(
+    main.includes('merge-addition-loss-dispatch-last.json'),
+    '反证:本锁的射程里必须含 2026-11-07 收口的那一族,否则改动被回灌后这条恒真',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
