@@ -13,6 +13,7 @@ import {
   resolveEffectiveConfig,
 } from '../src/commands/settings.js'
 import { recordInstall } from '../src/lib/registry-client.js'
+import { addTask } from '../src/commands/tasks.js'
 
 describe('settings 加载/保存/合并', () => {
   let tmpDir: string
@@ -124,6 +125,30 @@ describe('安装清单损坏时不覆盖', () => {
       ).toThrow(/不能把它说成没有已装项 \(corrupt\)/)
       expect(fs.readFileSync(corrupt, 'utf-8')).toBe(body)
     } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('任务库根不是对象时不覆盖', () => {
+  it('数组根不会被收成只剩新的一条', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-tasks-array-'))
+    const prevHome = process.env.HOME
+    const prevProfile = process.env.USERPROFILE
+    process.env.HOME = dir
+    process.env.USERPROFILE = dir
+    const file = path.join(dir, '.ihui', 'tasks.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const body = '[]'
+    fs.writeFileSync(file, body, 'utf-8')
+    try {
+      expect(() => addTask(dir, '新任务')).toThrow(/不是对象/)
+      expect(fs.readFileSync(file, 'utf-8')).toBe(body)
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME
+      else process.env.HOME = prevHome
+      if (prevProfile === undefined) delete process.env.USERPROFILE
+      else process.env.USERPROFILE = prevProfile
       fs.rmSync(dir, { recursive: true, force: true })
     }
   })
