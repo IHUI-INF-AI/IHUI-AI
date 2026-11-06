@@ -154,6 +154,21 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(userGroups.id, idParsed.data.id))
       .limit(1)
     if (!group) return reply.status(404).send(error(404, '用户组不存在'))
+    // 归属闸:成员名单含昵称/头像,仅组所有者、在册成员或系统管理员可读。
+    // 此前仅登录即可读任意 groupId 的成员(结合 GET / 可列出全部组 ⇒ 全员 PII 可枚举)。
+    if (
+      !isSystemAdmin(request, { includeInternalChannel: false }) &&
+      group.ownerId !== request.userId
+    ) {
+      const [membership] = await db
+        .select({ id: userGroupMembers.id })
+        .from(userGroupMembers)
+        .where(
+          and(eq(userGroupMembers.groupId, group.id), eq(userGroupMembers.userId, request.userId!)),
+        )
+        .limit(1)
+      if (!membership) return reply.status(403).send(error(403, '无权查看此用户组成员'))
+    }
     // 投影 join users:成员行本身无昵称/头像(2026-11-01 G-998102 AiGroup 票:共享屏成员卡
     // 需要 name),只加字段不减字段,既有消费方(userId/role)不受影响
     const list = await db
