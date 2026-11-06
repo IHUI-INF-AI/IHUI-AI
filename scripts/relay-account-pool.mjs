@@ -12,6 +12,10 @@
  *        node scripts/relay-account-pool.mjs --from trae
  *   3) 直接导入标准账号 JSON({accounts:[...]} 或裸数组):
  *        node scripts/relay-account-pool.mjs --file accounts.json [--provider workbuddy]
+ *   4) 「一行一个 token」的行文本直接入池(2026-11-06 立,补上纯文本手上没有出口那一格):
+ *        node scripts/relay-account-pool.mjs --tokens-file tokens.txt --provider workbuddy [--dry-run]
+ *      折叠判据单源 = scripts/lib/relay-account-tokens-text.mjs;本文件只做参数面与回显,
+ *      不另写一份校验 ⇒ 预检读数(uid/expired/duplicateUids)与 3) 逐字同源。
  *
  * 编排:提取/读取 → (stdin 传 JSON,不落盘) → apps/api/scripts/relay-account-import.ts
  *       → 校验 → importAccounts 落库(按 provider+uid 覆盖,重复跑即刷新令牌)→ 健康检查。
@@ -29,6 +33,16 @@ import {
   maskPoolOwner,
   resolveDefaultPoolOwner,
 } from './lib/pool-owner.mjs'
+// 「一行一个 token」行文本的折叠单源(§0.6):校验/uid/去重一律留给下游预检,本文件不抄第二份
+import {
+  TOKENS_TEXT_REASON_TEXT,
+  buildAccountsPayload,
+  loadMaskPhone,
+  parseTokensLineText,
+  renderDuplicateNotice,
+  renderEntryMapLines,
+  renderNoteLines,
+} from './lib/relay-account-tokens-text.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
@@ -42,12 +56,23 @@ const HELP = `反代账号池导入
   node scripts/relay-account-pool.mjs --from qoder                # 取本机 Qoder 登录态并导入(需 pwsh 7+;客户端不必在跑)
   node scripts/relay-account-pool.mjs --from codearts           # 取本机 CodeArts Agent 登录态并导入(Windows 自带 powershell 即可;桌面不必在跑)
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
-    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给
+  node scripts/relay-account-pool.mjs --tokens-file <tokens.txt> --provider <code>   # 「一行一个 token」的行文本入池
+    [--name-prefix <前缀>]                 缺名称时的自动名前缀(名=<前缀->token-<12位指纹>)
+    [--provider <trae|workbuddy|qoder|codearts|codex|opencode|minimax|zcode|loomy|doubao|lingma|grokbot>]   文件顶层无 providerCode 时必须给;--tokens-file 无顶层 providerCode ⇒ 必须给
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
     [--ops-pool]                             显式落运营池(压过默认归属;与 --owner 互斥)
     [--json]                                 机器可读摘要(提取信息走 stderr)
+
+行文本形态(--tokens-file,2026-11-06 立,手上只有纯文本时的出口):
+  一行一枚 token;空行与 # 起始的注释行忽略;行内可写「名称<TAB或空格>token」两段形态。
+  缺名称的自动名 = token-<12位sha256指纹>(可加 --name-prefix),不用"账号1/账号2"那种事后对不上号的名。
+  折叠只做文本形态换算(单源 scripts/lib/relay-account-tokens-text.mjs),校验/uid/去重全部留给
+  与 --file 同一条下游 ⇒ --dry-run 报的 uid/expired/duplicateUids 两通道逐字同源;
+  同批 token 重复不折半,预检照旧报 duplicateUids 并由本器点名行号;
+  空文件 / 全是注释行 / 读不到 ⇒ exit 2 未判定并点名原因(不报"导入 0 枚");
+  token 明文不入任何输出,人给的名称按 packages/shared 的 maskPhone 单源脱敏后回显。
 
 归属默认(2026-11-06 器物化,机主 2026-10-31 永久指令"我自己填入号池的账号只能跟着我的账号走"):
   不带 --owner 时,先读本机个人池归属配置 ~/.wb-switch/pool-owner(一行 users.id):
@@ -110,6 +135,8 @@ function parseArgs(argv) {
   const options = {
     from: null,
     file: null,
+    tokensFile: null,
+    namePrefix: '',
     providerCode: null,
     dryRun: false,
     health: true,
@@ -123,6 +150,8 @@ function parseArgs(argv) {
     if (arg === '--help' || arg === '-h') options.help = true
     else if (arg === '--from') options.from = argv[++i] ?? ''
     else if (arg === '--file') options.file = argv[++i] ?? ''
+    else if (arg === '--tokens-file') options.tokensFile = argv[++i] ?? ''
+    else if (arg === '--name-prefix') options.namePrefix = argv[++i] ?? ''
     else if (arg === '--provider') options.providerCode = argv[++i] ?? ''
     else if (arg === '--dry-run') options.dryRun = true
     else if (arg === '--no-health') options.health = false
@@ -136,14 +165,38 @@ function parseArgs(argv) {
     } else return { options: null, error: `未知参数: ${arg}` }
   }
   if (options.help) return { options, error: null }
+  if (options.namePrefix.startsWith('--')) {
+    return { options: null, error: '--name-prefix 需要一段前缀(自动名 = <前缀->token-<12位指纹>)' }
+  }
   if (options.owner && options.opsPool)
     return {
       options: null,
       error: '--owner 与 --ops-pool 只能二选一(个人池归属与运营池不得同时指定)',
     }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
-  if (!options.from && !options.file)
-    return { options: null, error: `缺少输入:--from ${FROM_POOL_KEYS.join('|')} 或 --file <json>` }
+  if (options.tokensFile && options.file)
+    return {
+      options: null,
+      error: '--tokens-file 与 --file 只能二选一(行文本与标准 JSON 是同一条下游的两个入口)',
+    }
+  if (options.from && options.tokensFile)
+    return {
+      options: null,
+      error: '--from 与 --tokens-file 只能二选一(本机提取与行文本导入不能同批混灌)',
+    }
+  if (!options.from && !options.file && !options.tokensFile)
+    return {
+      options: null,
+      error: `缺少输入:--from ${FROM_POOL_KEYS.join('|')}、--file <json> 或 --tokens-file <txt>`,
+    }
+  if (options.tokensFile && !options.providerCode) {
+    // 行文本里没有 providerCode 可回落(标准 JSON 有顶层那枚),所以平台必须显式给;
+    // 取值合法性仍由下游 isRelayProviderCode 单源判,本层不抄第二份(§0.6)。
+    return {
+      options: null,
+      error: '--tokens-file 必须配 --provider <code>(行文本不带平台;平台取值合法性由下游预检判)',
+    }
+  }
   if (options.from && !FROM_POOL_KEYS.includes(options.from)) {
     return {
       options: null,
@@ -246,7 +299,12 @@ function runImporter(payloadText, providerCode, options, decision) {
 }
 
 /** 可注入面(测试用):下游导入与默认归属读取都必须能被替身接走,绝不真写库、绝不读真机文件。 */
-const DEFAULT_DEPS = { runImporter, resolveDefaultOwner: resolveDefaultPoolOwner }
+const DEFAULT_DEPS = {
+  runImporter,
+  resolveDefaultOwner: resolveDefaultPoolOwner,
+  // 名称脱敏单源的装载出口(测试注入替身,绝不依赖 packages/shared 的构建产物在不在)
+  loadMaskPhone,
+}
 
 async function main(argv, injectedDeps = {}) {
   const deps = { ...DEFAULT_DEPS, ...injectedDeps }
@@ -417,6 +475,43 @@ async function main(argv, injectedDeps = {}) {
     )
     providerCode = extracted.providerCode
     payloadText = JSON.stringify(extracted)
+  } else if (options.tokensFile) {
+    // 「一行一个 token」行文本入口:本层只折叠 + 回显,判定一律留给下游同一条通路
+    // (validateAccountExport / resolveImportAccountUidProbe / importAccounts)。
+    const tokensPath = path.resolve(options.tokensFile)
+    let tokensText
+    try {
+      tokensText = fs.readFileSync(tokensPath, 'utf8')
+    } catch (e) {
+      process.stderr.write(
+        `❌ 读取行文本失败(未判定): ${e instanceof Error ? e.message : String(e)}\n   文件=${tokensPath}\n`,
+      )
+      return 2
+    }
+    const folded = parseTokensLineText(tokensText, { namePrefix: options.namePrefix })
+    if (folded.reason !== 'ok') {
+      process.stderr.write(
+        `❌ 行文本没有可用 token(未判定):${TOKENS_TEXT_REASON_TEXT[folded.reason] ?? folded.reason}\n` +
+          `   文件=${tokensPath} 总行=${folded.stats.lines} 空白=${folded.stats.blank} 注释=${folded.stats.comments}\n` +
+          '   出路:一行一枚 token(空行与 # 起始的注释行会被忽略;可写「名称<TAB或空格>token」两段形态)。\n',
+      )
+      return 2
+    }
+    // 折叠台账走 stderr:序号↔行号↔指纹的对应关系必须留得下,又不能污染 --json 的 stdout 机器面
+    const maskPhoneFn = await deps.loadMaskPhone()
+    process.stderr.write(
+      `行文本折入: 文件=${tokensPath} token=${folded.stats.tokens} 空白行=${folded.stats.blank} 注释行=${folded.stats.comments}\n` +
+        renderEntryMapLines(folded.entries, maskPhoneFn) +
+        '\n',
+    )
+    const dupNotice = renderDuplicateNotice(folded.duplicates)
+    if (dupNotice) process.stderr.write(dupNotice)
+    if (folded.notes.length > 0) {
+      process.stderr.write(
+        `⚠️ 行形态提示 ${folded.notes.length} 条(不拦截,判定权留给下游预检):\n${renderNoteLines(folded.notes)}\n`,
+      )
+    }
+    payloadText = JSON.stringify(buildAccountsPayload(folded.entries))
   } else {
     try {
       payloadText = fs.readFileSync(path.resolve(options.file), 'utf8')
