@@ -993,6 +993,7 @@
     "changePhone": "電話番号変更",
     "accountCancel": "アカウント退会",
     "checkUpdate": "アップデート確認",
+    "autoInstallPermission": "自動インストール権限",
     "appPermission": "アプリの権限",
     "usageRules": "利用規範",
     "businessLicense": "営業許可証",
@@ -4794,9 +4795,6 @@
   "devSpace": {
     "title": "開発者詳細",
     "notLoggedIn": "未ログイン",
-    "opened": "開通済み",
-    "notOpened": "未開通",
-    "enterPlaza": "広場へ",
     "renew": "継続利用",
     "copy": "コピー",
     "copied": "コピーしました",
