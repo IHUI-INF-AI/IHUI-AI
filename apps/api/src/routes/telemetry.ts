@@ -4,6 +4,7 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { routeObservabilityEvent } from '../services/audit-log-service.js'
 import { success, error } from '../utils/response.js'
 
 /**
@@ -34,6 +35,46 @@ const ingestBodySchema = z.object({
   events: z.array(telemetryEventSchema).min(1).max(100),
 })
 
+const TELEMETRY_PENDING_CAP = 1000
+
+type PendingTelemetry = { name: string; timestamp: number; props?: string }
+
+const pendingTelemetry: PendingTelemetry[] = []
+
+export function resetTelemetryPendingForTests(): void {
+  pendingTelemetry.length = 0
+}
+
+export function telemetryPendingCount(): number {
+  return pendingTelemetry.length
+}
+
+/** 遥测只进待发送队列，不写审计链。队列放不下时 accepted 是 0。 */
+export function enqueueTelemetryEvents(
+  events: ReadonlyArray<{ name: string; timestamp: number; props?: Record<string, unknown> }>,
+  cap = TELEMETRY_PENDING_CAP,
+): { accepted: number; reason: 'telemetry-deferred' | 'telemetry-dropped' } {
+  const room = Number.isInteger(cap) && cap >= 1 ? cap : 0
+  const fits = events.length > 0 && pendingTelemetry.length + events.length <= room
+  if (!fits) {
+    routeObservabilityEvent({ channel: 'telemetry', persisted: false, pending: false })
+    return { accepted: 0, reason: 'telemetry-dropped' }
+  }
+  for (const event of events) {
+    pendingTelemetry.push({
+      name: event.name,
+      timestamp: event.timestamp,
+      props: event.props ? JSON.stringify(event.props).slice(0, 4096) : undefined,
+    })
+  }
+  const queued = routeObservabilityEvent({ channel: 'telemetry', persisted: false, pending: true })
+  if (queued.disposition !== 'defer') {
+    pendingTelemetry.splice(pendingTelemetry.length - events.length, events.length)
+    return { accepted: 0, reason: 'telemetry-dropped' }
+  }
+  return { accepted: events.length, reason: 'telemetry-deferred' }
+}
+
 export const telemetryRoutes: FastifyPluginAsync = async (server) => {
   // POST /v1/telemetry/ingest
   // 接收事件批量,记录到日志(后续可扩展到数据库)
@@ -51,24 +92,29 @@ export const telemetryRoutes: FastifyPluginAsync = async (server) => {
         const events = parsed.data.events
         // 简化:仅记录到日志(后续可扩展到 DB 表 telemetry_events)
         // 用 server.log.info 而非 console.info,以便被 pino ELK 管线收集
+        const queued = enqueueTelemetryEvents(events)
         server.log.info(
           {
             module: 'telemetry',
-            eventCount: events.length,
-            events: events.map((e) => ({
+            eventCount: queued.accepted,
+            reason: queued.reason,
+            events: events.slice(0, queued.accepted).map((e) => ({
               name: e.name,
               timestamp: e.timestamp,
-              // props 序列化为字符串,长度限制 4KB(防止日志膨胀)
               props: e.props ? JSON.stringify(e.props).slice(0, 4096) : undefined,
             })),
           },
           'telemetry ingest received',
         )
-        return reply.send(success({ accepted: events.length }))
+        return reply.send(success({ accepted: queued.accepted, reason: queued.reason }))
       } catch (err) {
         server.log.warn({ err, module: 'telemetry' }, 'telemetry ingest failed')
-        // 失败仍返回 success(避免客户端重试堆积)
-        return reply.send(success({ accepted: 0, error: 'ingest failed' }))
+        const dropped = routeObservabilityEvent({
+          channel: 'telemetry',
+          persisted: false,
+          pending: false,
+        })
+        return reply.send(success({ accepted: 0, reason: dropped.reason }))
       }
     },
   )

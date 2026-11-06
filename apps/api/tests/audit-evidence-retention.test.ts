@@ -50,7 +50,17 @@ vi.mock('@ihui/database', () => ({
   llmCallLogs: { id: 'llm_call_logs_id' },
 }))
 
-import { computeAuditHash, verifyAuditLogIntegrity } from '../src/services/audit-log-service.js'
+import {
+  computeAuditHash,
+  observeAuditWrite,
+  routeObservabilityEvent,
+  verifyAuditLogIntegrity,
+} from '../src/services/audit-log-service.js'
+import {
+  enqueueTelemetryEvents,
+  resetTelemetryPendingForTests,
+  telemetryPendingCount,
+} from '../src/routes/telemetry.js'
 import {
   RAW_EVIDENCE_METADATA_FIELDS,
   resolveAuditEvidencePolicy,
@@ -60,6 +70,7 @@ import {
   planEvidenceRechain,
   applyEvidenceUpdatesToRows,
   auditEvidenceIntegrityReport,
+  admitLedgerSeal,
   runAuditEvidenceRetention,
   type EvidenceChainRow,
   type EvidenceTx,
@@ -530,6 +541,108 @@ describe('86D SQL 形态与降级(镜像判据,防"函数在而 SQL 漂")', () =
     expect(tail?.params.some((p) => typeof p === 'string' && p.includes('"purged":true'))).toBe(
       false,
     )
+  })
+})
+
+describe('台账封存缺摘要或裁条数不算封住', () => {
+  const hash = 'ab'.repeat(32)
+  it('空段不带首尾摘要，裁掉的条数没量到就不封', () => {
+    expect(
+      admitLedgerSeal({
+        segment: 'mail-send',
+        entryCount: 2,
+        droppedCount: 1,
+        firstHash: hash,
+        lastHash: 'cd'.repeat(32),
+        fileSha256: 'ef'.repeat(32),
+        sealedAt: '2026-11-06T05:08:00.000Z',
+      }),
+    ).toMatchObject({ disposition: 'sealed', entryCount: 2, droppedCount: 1 })
+    expect(
+      admitLedgerSeal({
+        segment: 'mail-send',
+        entryCount: null,
+        droppedCount: 0,
+        firstHash: null,
+        lastHash: null,
+        fileSha256: hash,
+        sealedAt: '2026-11-06T05:08:00.000Z',
+      }).reason,
+    ).toBe('count-unmeasured')
+    expect(
+      admitLedgerSeal({
+        segment: 'mail-send',
+        entryCount: 0,
+        droppedCount: null,
+        firstHash: null,
+        lastHash: null,
+        fileSha256: hash,
+        sealedAt: '2026-11-06T05:08:00.000Z',
+      }).reason,
+    ).toBe('dropped-unmeasured')
+    expect(
+      admitLedgerSeal({
+        segment: 'mail-send',
+        entryCount: 0,
+        droppedCount: 0,
+        firstHash: hash,
+        lastHash: null,
+        fileSha256: hash,
+        sealedAt: '2026-11-06T05:08:00.000Z',
+      }).reason,
+    ).toBe('hash-invalid')
+  })
+})
+
+describe('审计没落库不能改成待发送', () => {
+  it('遥测可以排队，审计必须已经写入', () => {
+    expect(
+      routeObservabilityEvent({ channel: 'audit', persisted: true, pending: false }),
+    ).toMatchObject({
+      disposition: 'persist',
+      channel: 'audit',
+    })
+    expect(
+      routeObservabilityEvent({ channel: 'audit', persisted: null, pending: true }),
+    ).toMatchObject({
+      disposition: 'unjudged',
+      reason: 'persist-unmeasured',
+    })
+    expect(
+      routeObservabilityEvent({ channel: 'audit', persisted: false, pending: true }),
+    ).toMatchObject({
+      disposition: 'refused',
+      reason: 'audit-not-persisted',
+    })
+    expect(
+      routeObservabilityEvent({ channel: 'telemetry', persisted: false, pending: true }),
+    ).toMatchObject({
+      disposition: 'defer',
+      channel: 'telemetry',
+    })
+    expect(
+      routeObservabilityEvent({ channel: 'telemetry', persisted: true, pending: null }).reason,
+    ).toBe('pending-unmeasured')
+    expect(observeAuditWrite(undefined)).toMatchObject({
+      disposition: 'refused',
+      reason: 'audit-not-persisted',
+    })
+    expect(observeAuditWrite('audit-id')).toMatchObject({
+      disposition: 'persist',
+      reason: 'audit-persisted',
+    })
+    expect(observeAuditWrite(true).reason).toBe('persist-unmeasured')
+  })
+
+  it('遥测进待发送队列，满了就不把收到的条数算成收下', () => {
+    resetTelemetryPendingForTests()
+    const one = enqueueTelemetryEvents([{ name: 'app-start', timestamp: 1 }], 1)
+    expect(one).toEqual({ accepted: 1, reason: 'telemetry-deferred' })
+    expect(telemetryPendingCount()).toBe(1)
+    const overflow = enqueueTelemetryEvents([{ name: 'first-paint', timestamp: 2 }], 1)
+    expect(overflow).toEqual({ accepted: 0, reason: 'telemetry-dropped' })
+    expect(telemetryPendingCount()).toBe(1)
+    resetTelemetryPendingForTests()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

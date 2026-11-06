@@ -28,6 +28,10 @@ const { mockRecordAuditLog, mockAddAuditLog, mockAddApiLogsBatch } = vi.hoisted(
 
 vi.mock('../src/services/audit-log-service.js', () => ({
   recordAuditLog: mockRecordAuditLog,
+  observeAuditWrite: (id: unknown) => ({
+    disposition: typeof id === 'string' && id.length > 0 ? 'persist' : 'refused',
+    reason: typeof id === 'string' && id.length > 0 ? 'audit-persisted' : 'audit-not-persisted',
+  }),
 }))
 
 vi.mock('../src/db/search-queries.js', () => ({
@@ -257,7 +261,10 @@ describe('O5 开放面审计归因(plugins/audit-logger + audit + api-logger)', 
         model: 'gpt-4o',
         // 6 层嵌套 + 数组,超过 SUMMARY_MAX_DEPTH:最深一层应折叠,不得带出原文
         a: { b: { c: { d: { e: { f: PROMPT_TEXT } } } } },
-        messages: Array.from({ length: 5 }, (_, i) => ({ role: 'user', content: `${PROMPT_TEXT}${i}` })),
+        messages: Array.from({ length: 5 }, (_, i) => ({
+          role: 'user',
+          content: `${PROMPT_TEXT}${i}`,
+        })),
       },
     })
     await drainAsync()
