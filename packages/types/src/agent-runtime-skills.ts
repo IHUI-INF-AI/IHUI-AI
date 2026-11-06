@@ -57,6 +57,15 @@ export interface SkillFrontmatter {
    * 消费方见 apps/cli/src/tools/skill-tool.ts:选档结果 {tier, reason} 必须上报,不得静默。
    */
   tiers?: SkillCapabilityTiers
+  /**
+   * 上架状态声明(原样字符串,未经归一;消费方必须先过 admitSkillListing)。
+   * null = 声明了键但值无法识别(与"键缺席"不同形,不得折叠)。
+   */
+  listing?: string | null
+  /** 是否允许用户直接调用(user-invocable),三值:undefined 缺席 / boolean / null 无法识别 */
+  userInvocable?: boolean | null
+  /** 是否允许模型自动调用(model-invocable),三值语义同上 */
+  modelInvocable?: boolean | null
 }
 
 export interface SkillPrerequisites {
