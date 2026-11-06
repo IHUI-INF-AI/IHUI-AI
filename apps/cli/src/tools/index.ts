@@ -176,6 +176,15 @@ export interface ToolResult {
    */
   persistence?: ToolResultPersistence;
   /**
+   * handler 自述的**结构化载荷**(browser-page 一族:`browser_page_snapshot` 的
+   * `{scope, counts, handles}`、动作结果的 `{sideEffect, sideEffectReason, detail}`)。
+   *
+   * 这些 handler 早就把它随结果一起返回,只是此前没有在契约面声明 —— 于是调用方(含测试)
+   * 只能靠断言才读得到,而"契约里没有"看起来又像"运行时也没有"。此处按事实补齐:
+   * 仍可缺席,存在时也只是 opaque map,渲染侧不得据此臆造语义。
+   */
+  data?: Record<string, unknown>;
+  /**
    * handler 产出的完整内容落盘路径(artifact,如 result-envelope 的 `relativePath` 口径)。
    * 只做原样搬运进 `persistence.artifactPath`,不臆造路径;缺席 = 没有可回捞的全文。
    */
