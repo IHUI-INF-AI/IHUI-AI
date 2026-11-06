@@ -236,7 +236,7 @@
     }
   ],
   "webRn": {
-    "recordedAt": "2026-11-06T03:01:47.955Z",
+    "recordedAt": "2026-11-06T04:59:58.570Z",
     "state": "judged",
     "dimensions": ["widthHeight", "padding", "spacing", "radius", "fontSize"],
     "uncoveredKeys": [],
@@ -261,6 +261,187 @@
       "over": 0,
       "invalid": 0,
       "unregistered": 128
+    },
+    "automationCeiling": {
+      "cells": 514,
+      "followable": 25,
+      "needsAdjudication": 489,
+      "pairsWithFollowable": 24,
+      "byDim": {
+        "widthHeight": {
+          "cells": 108,
+          "followable": 7
+        },
+        "padding": {
+          "cells": 121,
+          "followable": 3
+        },
+        "spacing": {
+          "cells": 114,
+          "followable": 5
+        },
+        "fontSize": {
+          "cells": 73,
+          "followable": 1
+        },
+        "radius": {
+          "cells": 98,
+          "followable": 9
+        }
+      },
+      "items": [
+        {
+          "pair": "agents/featured",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        },
+        {
+          "pair": "articles/hot",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        },
+        {
+          "pair": "automations",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 80
+        },
+        {
+          "pair": "edu/parent",
+          "dim": "fontSize",
+          "web": 18,
+          "rn": 12
+        },
+        {
+          "pair": "help",
+          "dim": "spacing",
+          "web": 24,
+          "rn": 12
+        },
+        {
+          "pair": "learn/map",
+          "dim": "radius",
+          "web": 12,
+          "rn": 4
+        },
+        {
+          "pair": "resources",
+          "dim": "spacing",
+          "web": 6,
+          "rn": 24
+        },
+        {
+          "pair": "search",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 12
+        },
+        {
+          "pair": "self-healing",
+          "dim": "padding",
+          "web": 6,
+          "rn": 40
+        },
+        {
+          "pair": "settings",
+          "dim": "padding",
+          "web": 8,
+          "rn": 12
+        },
+        {
+          "pair": "settings/activity",
+          "dim": "spacing",
+          "web": 16,
+          "rn": 12
+        },
+        {
+          "pair": "settings/activity",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 12
+        },
+        {
+          "pair": "settings/data-rights",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        },
+        {
+          "pair": "settings/icp-record",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 50
+        },
+        {
+          "pair": "settings/notifications",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 50
+        },
+        {
+          "pair": "settings/usage",
+          "dim": "radius",
+          "web": 4,
+          "rn": 8
+        },
+        {
+          "pair": "student/my-asks",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        },
+        {
+          "pair": "student/papers",
+          "dim": "spacing",
+          "web": 16,
+          "rn": 10
+        },
+        {
+          "pair": "subscriptions",
+          "dim": "padding",
+          "web": 40,
+          "rn": 2
+        },
+        {
+          "pair": "team-memory",
+          "dim": "spacing",
+          "web": 2,
+          "rn": 4
+        },
+        {
+          "pair": "tools/pdf",
+          "dim": "radius",
+          "web": 8,
+          "rn": 6
+        },
+        {
+          "pair": "tools/pdf/merge",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 10
+        },
+        {
+          "pair": "tools/pdf/split",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 10
+        },
+        {
+          "pair": "user/ask",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        },
+        {
+          "pair": "wallet/withdraw",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4
+        }
+      ],
+      "why": "其余记录是集合级歧义(一侧多候选或一侧无读数)⇒ 任何落档腿都必须 held 不猜,不得当成可自动修"
     },
     "total": 2099,
     "families": [
