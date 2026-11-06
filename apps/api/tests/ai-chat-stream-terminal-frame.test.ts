@@ -140,11 +140,15 @@ vi.mock('../src/services/knowledge-chat-context.js', () => ({
   loadKnowledgeContext: vi.fn().mockResolvedValue(null),
 }))
 // 与既有 ai-chat-stream 测试同款:隔离 packages/shared 主入口的他席半致态。
-vi.mock('@ihui/shared', () => ({
-  toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
-  redactSecrets: vi.fn((s: string) => s),
-  redactUserHomePathLiterals: vi.fn((s: string) => s),
-}))
+vi.mock('@ihui/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
+    redactSecrets: vi.fn((s: string) => s),
+    redactUserHomePathLiterals: vi.fn((s: string) => s),
+  }
+})
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 

@@ -115,6 +115,10 @@ import { estimateLiveUsage } from './live-usage'
 import { hydrateHistoryMessage } from './history-message'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
 import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
+// 批次 3(2026-11-06):stopped 档 toast 文案与内联提示条共用 shared 的唯一原因码映射
+import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
+// 批次 3(2026-11-06):compaction 帧的可选 boundary → 会话级回看状态(刷新后另有查询回放)
+import { noteCompactionBoundary } from './compaction-boundary'
 // 79 号票:请求级权限双轴的唯一取值实现(显式双轴优先,否则按单轴映射派生)
 import { resolveRequestAxes } from '@/lib/permission-axes'
 // D155(2026-09-29 立):下行告警三档(config-warning/deprecation-notice/guardian-warning)
@@ -972,6 +976,8 @@ export function createSendMessage(
               trigger: info.trigger,
             })
           }
+          // 批次 3(2026-11-06):帧带 boundary 才落回看态(旧帧缺席 ⇒ 保持现状，不伪造"无压缩")
+          noteCompactionBoundary(conversationId, info.boundary)
 
           // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据
           const compressedMessages = info.compressedMessages as
@@ -1361,7 +1367,8 @@ export function createSendMessage(
         // 429 硬中断,走 onError 的 BUDGET_EXHAUSTED 分支(见下)。
         onBudget: (evt: BudgetEvent) => {
           // V3 #69:先把帧落进进度条状态(输入框上方常驻实时条),再按 2026-09-19 原设计提示一次
-          setBudgetEvent(evt)
+          // 批次 3:带上会话归属,stopped 终态只在该会话的消息区展示。
+          setBudgetEvent(evt, conversationId)
           // token 数格式化:≥1 万用「X.X 万」缩写,否则原样展示
           const fmtTokens = (n: number | undefined) =>
             n === undefined ? '?' : n >= 10000 ? `${Math.floor(n / 1000) / 10} 万` : `${n}`
@@ -1370,6 +1377,14 @@ export function createSendMessage(
             parts.push(`已用 ${fmtTokens(evt.usedTokens)} / ${fmtTokens(evt.limitTokens)} tokens`)
           }
           if (evt.percent !== undefined) parts.push(`${evt.percent}%`)
+          else if (evt.level === 'stopped' && evt.usagePercent !== undefined) {
+            parts.push(`${evt.usagePercent}%`)
+          }
+          if (evt.level === 'stopped') {
+            // 批次 3:预算护栏主动停流 —— 终态提示，原"用量较高"文案不再适用。
+            toast.warning(budgetStopReasonText(evt.reasonCode), { description: parts.join(',') })
+            return
+          }
           parts.push('明日 0 点重置')
           if (evt.tier) parts.push(`(${evt.tier} 档)`)
           if (evt.level === 'critical') {
