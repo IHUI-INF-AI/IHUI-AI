@@ -88,8 +88,13 @@ export const GATE_DIRECTIONS = [
   ['fidelityRetractionRot', 'up', '键级撤除台账腐烂行'],
   ['tierRnMissingN', 'up', 'RN 端非档值用量(处)'],
   ['tierRnMissingKinds', 'up', 'RN 端非档值种类'],
-  ['tierRnForkN', 'up', 'RN↔web 同元素取异档用量(处)'],
-  ['tierRnForkKinds', 'up', 'RN↔web 异档种类'],
+  /**
+   * 2026-11-07 forkN 拆两栏:判据只对「未登记」那栏判新增/恶化;「已登记」那栏(forkNAllowed /
+   * forkKindsAllowed)只进 values 做读数展示,不进判据(登记才是承认差异的合法通道)。
+   * 两栏恒等式由尺子自检钉住(forkNAllowed + forkNUnregistered == forkN,种类同理)。
+   */
+  ['tierRnForkNUnregistered', 'up', 'RN↔web 取异档且未登记允许差异(处)'],
+  ['tierRnForkKindsUnregistered', 'up', 'RN↔web 取异档且未登记允许差异(种)'],
   ['tierWebOffN', 'up', 'web 端非档/异档用量(处)'],
   ['tierWebOffKinds', 'up', 'web 端非档/异档种类'],
   ['tierPending', 'up', '待裁分叉允许差异行'],
@@ -267,7 +272,11 @@ function judgeImpl({
       ? {}
       : {
           tierRnMissingN: finiteOrNull(styleTiers?.json?.rn?.missingN),
+          // forkN 总量与「已登记」栏只做读数展示(不进 GATE_DIRECTIONS ⇒ 不判红)。
           tierRnForkN: finiteOrNull(styleTiers?.json?.rn?.forkN),
+          tierRnForkNAllowed: finiteOrNull(styleTiers?.json?.rn?.forkNAllowed),
+          // 判据只认未登记那栏。
+          tierRnForkNUnregistered: finiteOrNull(styleTiers?.json?.rn?.forkNUnregistered),
           tierWebOffN: (() => {
             const w = styleTiers?.json?.web
             if (!w) return null
@@ -346,7 +355,10 @@ function judgeImpl({
       ? {}
       : {
           tierRnMissingKinds: finiteOrNull(styleTiers?.json?.rn?.missingTier),
+          // 同 forkN:种类总量与「已登记」栏只做读数展示,判据只认未登记栏。
           tierRnForkKinds: finiteOrNull(styleTiers?.json?.rn?.fork),
+          tierRnForkKindsAllowed: finiteOrNull(styleTiers?.json?.rn?.forkKindsAllowed),
+          tierRnForkKindsUnregistered: finiteOrNull(styleTiers?.json?.rn?.forkKindsUnregistered),
           tierWebOffKinds: (() => {
             const w = styleTiers?.json?.web
             if (!w) return null
@@ -606,7 +618,7 @@ function judgeImpl({
   const webRnExit =
     'node scripts/check-web-rn-style-tiers.mjs --json 看 rnMissingValues / rnForkValues / forkAllowance.pendingTop,再按维度跑 node scripts/land-web-style-tiers.mjs 与 node scripts/land-rn-style-tiers.mjs 预演'
   tierWorse('tierRnMissingN', 'RN 端非档值用量', webRnExit)
-  tierWorse('tierRnForkN', 'RN↔web 同元素取异档的用量', webRnExit)
+  tierWorse('tierRnForkNUnregistered', 'RN↔web 取异档且未登记的用量', webRnExit)
   tierWorse('tierWebOffN', 'web 端自身非档/异档用量', webRnExit)
   tierWorse(
     'tierPending',
