@@ -1395,7 +1395,7 @@
   color: var(--color-foreground);
 }
 .ctx-usage-ledger-num {
-  min-width: 96rpx;
+  min-width: var(--spacing-5xl);
   text-align: right;
   font-size: var(--text-caption);
   color: var(--color-foreground);
