@@ -2552,6 +2552,13 @@
       "when": 1793959200000,
       "tag": "20261106180000_share_token_expires_at",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 370,
+      "when": 1793971800000,
+      "tag": "20261106213000_agent_meta_lessons_indexes",
+      "breakpoints": true
     }
   ]
 }
