@@ -144,11 +144,15 @@ vi.mock('../src/services/knowledge-chat-context.js', () => ({
 }))
 // 半致态隔离(同 open-timing 测试第 9 条注记):require-permission 顶层 import '@ihui/shared'
 // 主入口,当前工作树面 import 期即崩,与本票判据无关,用文件级 mock 隔离。
-vi.mock('@ihui/shared', () => ({
-  toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
-  redactSecrets: vi.fn((s: string) => s),
-  redactUserHomePathLiterals: vi.fn((s: string) => s),
-}))
+vi.mock('@ihui/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
+    redactSecrets: vi.fn((s: string) => s),
+    redactUserHomePathLiterals: vi.fn((s: string) => s),
+  }
+})
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 import { detachOnClose, findSession } from '../src/utils/sse-stream-registry.js'

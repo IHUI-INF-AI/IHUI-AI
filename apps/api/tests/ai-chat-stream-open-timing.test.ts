@@ -194,11 +194,15 @@ import {
 //    任何 import '@ihui/shared' 主入口的模块(require-permission.ts:10)在 import 期即崩,
 //    既有 ai-chat-stream-tools.test.ts 亦同样崩(已复现,非本次改动引入)。本文件不消费
 //    shared 主入口的任何具名导出,用文件级 mock 隔离该崩溃:不改 vitest 配置、不碰 shared 文件。
-vi.mock('@ihui/shared', () => ({
-  toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
-  redactSecrets: vi.fn((s: string) => s),
-  redactUserHomePathLiterals: vi.fn((s: string) => s),
-}))
+vi.mock('@ihui/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
+    redactSecrets: vi.fn((s: string) => s),
+    redactUserHomePathLiterals: vi.fn((s: string) => s),
+  }
+})
 
 const USER_TOKEN = 'Bearer user-token'
 
