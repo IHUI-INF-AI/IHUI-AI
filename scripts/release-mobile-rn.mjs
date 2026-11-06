@@ -233,6 +233,58 @@ export function firstMeaningfulLine(text) {
   )
 }
 
+/**
+ * 取渠道最新 update 组(createdAt 倒序第一个)。`channel:list` 的 currentPage 是数组,
+ * `channel:view` 的是单个对象 —— 两种都收;eas-cli 偶尔把 banner 混进 stdout,故从第一个 `{` 起解析。
+ * 用于 OTA 腿的"真落地"判据:发之前取基线组,发之后再取,组变了才算发出去。
+ */
+export function newestUpdateGroup(jsonBody, name) {
+  const text = String(jsonBody ?? '')
+  const start = text.indexOf('{')
+  if (start < 0) return null
+  let parsed
+  try {
+    parsed = JSON.parse(text.slice(start))
+  } catch {
+    return null
+  }
+  const rows = Array.isArray(parsed?.currentPage)
+    ? parsed.currentPage
+    : parsed?.currentPage
+      ? [parsed.currentPage]
+      : []
+  const hit = rows.find((c) => c?.name === name)
+  if (!hit) return null
+  const groups = []
+  const walk = (list) => {
+    for (const item of list ?? []) {
+      if (Array.isArray(item)) walk(item)
+      else if (item && typeof item === 'object') groups.push(item)
+    }
+  }
+  for (const b of hit.updateBranches ?? []) walk(b.updateGroups)
+  groups.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
+  return groups[0] ?? null
+}
+
+/**
+ * 只挑 eas update 的结论行。此前只打 firstMeaningfulLine,而它恒取第一行(环境变量警告),
+ * 真正的 "✔ Published! / Update group ID" 全被吞掉 —— 2026-11-06 两次据此误判"已发"。
+ */
+export function summaryLines(text) {
+  return String(text ?? '')
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        /^(✔|✖|Published|Branch|Runtime version|Platform|Update group ID|Android update ID|Message|Commit)/.test(
+          l,
+        ) || /error/i.test(l),
+    )
+    .slice(-10)
+}
+
 // netstat 必须是绝对路径(§5b 同型):受限 PATH 下裸名派生只会得到 `spawn netstat ENOENT`。
 // 推导优先 + 硬编码兜底 + 按当次存在性选在位者,与 check-tunnel-leg-health.mjs 的 NETSTAT_BIN 同一范式。
 const SYSTEM_ROOT = (process.env.SystemRoot || process.env.windir || 'C:\\Windows').replace(
@@ -846,6 +898,12 @@ async function main() {
     const channel = id.replace('ota-', '')
     const message =
       opt('m') ?? opt('message') ?? `release ${id} @ ${new Date().toISOString().slice(0, 16)}Z`
+    // 真落地判据(2026-11-06 立):只看 exit=0 + 渠道存在时,一次"啥也没发"的退出也能冒绿;
+    // 所以发之前先取最新组做基线,发之后再取一次,只有组变了才算发出去。
+    const beforeGroup = newestUpdateGroup(
+      ev.eas(['channel:view', channel, '--json'], { timeout: 120000 }).out,
+      channel,
+    )
     const r = ev.eas(
       [
         'update',
@@ -861,12 +919,24 @@ async function main() {
       ],
       { timeout: 900000 },
     )
-    console.log(
-      `eas update(${channel}) exit=${r.code} ${firstMeaningfulLine(r.out) || firstMeaningfulLine(r.err)}`,
+    for (const line of summaryLines(r.out)) console.log(`  ${line}`)
+    if (r.code !== 0) {
+      console.log(
+        `eas update(${channel}) exit=${r.code} ${firstMeaningfulLine(r.err) || firstMeaningfulLine(r.out)}`,
+      )
+      return 1
+    }
+    const afterGroup = newestUpdateGroup(
+      ev.eas(['channel:view', channel, '--json'], { timeout: 120000 }).out,
+      channel,
     )
-    const back = findChannel(ev.eas(['channel:list', '--json']).out, channel)
-    console.log(`回读渠道:${back.status} ${back.detail}`)
-    return r.code === 0 && back.status === STATUS.FOUND ? 0 : 1
+    const landed = Boolean(afterGroup?.group) && afterGroup.group !== beforeGroup?.group
+    console.log(
+      `eas update(${channel}) exit=0 group=${afterGroup?.group ?? '(读不到)'} ${landed ? '✓ 新组已落地' : '⚠ 回读未见新组 ⇒ 判未落地'}`,
+    )
+    if (afterGroup?.createdAt)
+      console.log(`  最新组:${afterGroup.createdAt} ${afterGroup.message ?? ''}`)
+    return landed ? 0 : 1
   }
 
   return exitCode(report)
@@ -987,6 +1057,59 @@ function selfTest() {
     /eas update --channel \$\{name\} --environment \$\{name\}/.test(self),
     true,
   )
+  // OTA 腿"真落地"判据锁(2026-11-06):组没变就必须判未落地,否则又会回到"exit=0 就冒绿"
+  eq(
+    'newest:数组形态(channel:list)',
+    newestUpdateGroup(
+      JSON.stringify({
+        currentPage: [
+          {
+            name: 'production',
+            updateBranches: [
+              {
+                updateGroups: [
+                  [{ group: 'old', createdAt: '2026-11-01T00:00:00Z' }],
+                  [{ group: 'new', createdAt: '2026-11-02T00:00:00Z' }],
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+      'production',
+    )?.group,
+    'new',
+  )
+  eq(
+    'newest:对象形态(channel:view)',
+    newestUpdateGroup(
+      JSON.stringify({
+        currentPage: {
+          name: 'production',
+          updateBranches: [
+            { updateGroups: [[{ group: 'g1', createdAt: '2026-11-03T00:00:00Z' }]] },
+          ],
+        },
+      }),
+      'production',
+    )?.group,
+    'g1',
+  )
+  eq(
+    'newest:渠道不存在 ⇒ null',
+    newestUpdateGroup(JSON.stringify({ currentPage: [] }), 'production'),
+    null,
+  )
+  eq(
+    'newest:banner 混入仍可解析',
+    newestUpdateGroup(`★ eas-cli@1.0.0\n${JSON.stringify({ currentPage: [] })}`, 'production'),
+    null,
+  )
+  eq(
+    'summary:吞掉环境变量警告,留住发布结果',
+    summaryLines('\x1b[2menv: load .env\x1b[0m\n✔ Published!\nUpdate group ID abc').join('|'),
+    '✔ Published!|Update group ID abc',
+  )
   const fail = cases.filter((c) => !c.pass).length
   for (const c of cases)
     console.log(
@@ -1000,6 +1123,8 @@ export const __test__ = {
   foldStatus,
   checkSubmitProfile,
   findChannel,
+  newestUpdateGroup,
+  summaryLines,
   firstMeaningfulLine,
   probeRuntimeVersion,
   buildLegs,
