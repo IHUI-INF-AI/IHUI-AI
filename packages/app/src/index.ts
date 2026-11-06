@@ -419,6 +419,8 @@ export { StudyPublishScreen } from './features/study-publish/StudyPublishScreen'
 export type { StudyPublishScreenProps } from './features/study-publish/StudyPublishScreen'
 export type { StudyCategory } from './features/study-publish/StudyPublishScreen'
 export type { StageOption } from './features/study-publish/StudyPublishScreen'
+/** 批次 3(2026-11-05):充值比例档位给 RN 端显式传参消费(共享屏条件渲染纯段同源) */
+export { TOPUP_TIERS } from './features/app-topup/view-model'
 
 /** 批次 38(2026-08-15):StudyIndex 学习视频 */
 export { StudyIndexScreen } from './features/study-index/StudyIndexScreen'
@@ -691,6 +693,7 @@ export type {
   ExamHistoryItem,
   ExamHistoryScreenProps,
   ExamResultWrongQuestion,
+  ExamResultReviewItem,
   ExamResultItem,
   ExamResultScreenProps,
   ModelIncomeTab,
