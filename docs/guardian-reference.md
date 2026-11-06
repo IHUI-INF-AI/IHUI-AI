@@ -27,8 +27,8 @@
 
 ### 1.1 blocking 项（302 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 | 1 | 🔐 API key 泄露 | check-api-key-leak.mjs | — | — |
 | 2 | 🌐 i18n 键完整性 | check-i18n-keys.mjs | — | — |
 | 2b | 🔍 zh-TW 简体字残留 | scan-i18n-zh-residue.mjs | zh-TW | — |
@@ -237,7 +237,7 @@
 | 182 | 控制面 strict 棘轮门(b76-12c票2配套):扫描面(apps/api/src/plugins + packages/shared/src)的 z.object+.strict+.catch 总和只减不增(基线 91);禁 passthrough 降红/禁装饰字段塞控制面 | check-wire-strictness.mjs | — | 有 |
 | 183 | 分片上传聚合预算棘轮门(b76-12c票3配套):chunked-upload.ts 的 begin 新建装配检(isPerUserSessionBudgetExceeded)与每片落盘追加检(wouldStagedBudgetOverflow)各 ≥1,两档常量须在 PROTOCOL_UPLOAD_LIMITS 登记,防死表回潮 | check-upload-budget.mjs | — | 有 |
 | 184 | 📚 活文档点名路径存续性对账(blocking,正文反引号点名的仓内路径必须在被审面在位;索引缺而 HEAD 在 ⇒ 红,HEAD 缺席只 warning,2026-09-30 D169 立) | check-live-doc-references.mjs | — | 有 |
-| 185 | 迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿) | check-migration-immutable.mjs | — | 有 |
+| 185 | 迁移内容不可变性对账(已入库 drizzle 迁移不得被改写;IM1 与"该 tag 首次入库的 blob"逐字节比,存量只报数;IM2 判本次改写面;枚举 0 判死不记绿) | check-migration-immutable.mjs | 登记: scripts/data/migration-rewrite-ledger.jsonl —— 修已入库正文的正规流程 = 登记(附从零 370/370 验证与夹具断言),不是 skipEnv;登记与正文不符/证据缺/过期一律 exit 2 | 有 |
 | 189 | Python import 入库存续性对账 | check-python-import-landed.mjs | — | 有 |
 | 192 | 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责) | check-registry-worktree-superset.mjs | — | 有 |
 | 194 | 🧯 §22d 入口守卫对账:scripts/**.mjs 不得顶层裸 main()(存量以 node scripts/check-direct-run-guard.mjs 末行现读为准,差值棘轮只拦本次新增) | check-direct-run-guard.mjs | — | 有 |
@@ -335,8 +335,8 @@
 
 ### 1.2 warn 项（29 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 | 3 | 🗄️ schema drift | check-db-schema-drift.mjs | — | — |
 | 45 | 🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26) | check-c-drive-paths.mjs | --staged | 有 |
 | 13b | 📐 PROJECT_PLAN.md 体积(warn-only) | check-project-plan-size.mjs | — | — |
@@ -369,8 +369,8 @@
 
 ### 1.3 info 项（1 项）
 
-| ID | Label | Script | Args |
-|----|-------|--------|------|
+| ID | Label | Script | Args / 正规豁免通道 |
+|----|-------|--------|----------------------|
 | 23 | 📋 staged 文件清单(info) | check-staged-files.mjs | — |
 
 ### 1.4 失败提示详情（onFailHint）
@@ -4123,7 +4123,8 @@ node scripts/generate-guardian-docs.mjs --help
 
 1. 读取 `scripts/guardian-runner.mjs` 源码
 2. 字符级解析 `const checks = [...]` 数组（字符串/注释感知，避免误匹配）
-3. 对每个 check 对象提取 `id` / `label` / `script` / `args` / `mode` / `onFailHint`
+3. 对每个 check 对象提取 `id` / `label` / `script` / `args` / `mode` / `onFailHint` / `exemptionNote`
+   （`exemptionNote` = 该门的**正规豁免通道**说明，与 `args` 同格渲染；两样都没有才落 `—`）
 4. 同时提取对象前的 `//` 注释块（包含升级评估、设计原因等上下文）
 5. 与内置的 `UPGRADE_TIMELINE`（升级时间表）和 `NAMESPACE_MAP`（命名空间映射）合并
 6. 渲染 Markdown 模板，写入 `docs/guardian-reference.md`
