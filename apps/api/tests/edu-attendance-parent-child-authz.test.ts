@@ -35,6 +35,8 @@
  * 夹具形状抄同族既有件 tests/edu-attendance-parent-portal-authz.test.ts(config/db/logger/
  * auth/usercenter 桩基座);身份一律走真实鉴权链(桩只替"验签"这一步),不手写 request.userId。
  */
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify'
 
@@ -560,6 +562,52 @@ describe('两枚登记形态对同一枚 pending 绑定必须同判', () => {
     expect(res.statusCode, res.text).toBe(200)
     expect(listOf(res.body).map((r) => r.id)).toEqual(['att-x-1'])
     expect(H.unclassified).toEqual([])
+  })
+})
+
+// =============================================================================
+// 3. RP-70 收敛形状锁:两枚注册都指向同一出口 serveChildAttendance(§0.6 单源),
+//    confirmed 归属判据只落一份,不得再退回两枚独立处理器各抄一份
+// =============================================================================
+
+/** 静态取证面:照抄同族 tests/edu-attendance-write-and-parent-list-contract.test.ts 的内容锚点法。 */
+const ROUTE_SRC = readFileSync(
+  fileURLToPath(new URL('../src/routes/edu-ai-management.ts', import.meta.url)),
+  'utf8',
+)
+
+function handlerBody(registration: string): string {
+  const start = ROUTE_SRC.indexOf(registration)
+  if (start < 0) return ''
+  const next = ROUTE_SRC.indexOf('\n  server.', start + registration.length)
+  return ROUTE_SRC.slice(start, next < 0 ? start + 4000 : next)
+}
+
+describe('RP-70:两路由指向同一出口(收敛形状锁)', () => {
+  const singular = handlerBody(`server.get('/parent/child/:id/attendance'`)
+  const plural = handlerBody(`server.get('/parent/children/:childId/attendance'`)
+  const outlet = (() => {
+    const start = ROUTE_SRC.indexOf('async function serveChildAttendance(')
+    if (start < 0) return ''
+    const next = ROUTE_SRC.indexOf('\n  server.', start)
+    return ROUTE_SRC.slice(start, next < 0 ? start + 4000 : next)
+  })()
+
+  it('出口函数只定义一份', () => {
+    expect(ROUTE_SRC.match(/async function serveChildAttendance\(/g) ?? []).toHaveLength(1)
+    expect(outlet, '出口函数体必须可读').not.toBe('')
+  })
+
+  it('两条路由注册都委托给同一出口(不是两枚独立处理器各落一份)', () => {
+    expect(singular.match(/serveChildAttendance\(request, reply/g) ?? []).toHaveLength(1)
+    expect(plural.match(/serveChildAttendance\(request, reply/g) ?? []).toHaveLength(1)
+  })
+
+  it('confirmed 归属判据只在出口里落一次:两条路由切片内不得再各抄一份', () => {
+    const clause = "eq(eduParentStudentBinding.status, 'confirmed')"
+    expect(outlet, '出口函数必须自持归属判据').toContain(clause)
+    expect(singular, '单数端点不得再内联归属判据').not.toContain(clause)
+    expect(plural, '复数端点不得再内联归属判据').not.toContain(clause)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
