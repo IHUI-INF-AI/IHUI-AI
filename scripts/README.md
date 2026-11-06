@@ -150,12 +150,11 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 | verify-cli-acp-launch.mjs    | ACP (Agent Client Protocol) server 启动验证(initialize + session/new) | —             | 模拟最小 ACP 客户端              |
 | verify-cli-stepfun-llm.mjs   | 真实 LLM 联调验证(stepfun/agnes plan 套餐 key 连通)                   | —             | 真实 key 从 .env 读取,验证后清理 |
 
-### API 工具(2 个)
+### API 工具(1 个)
 
 | 脚本名                   | 用途                                                   | pre-commit 项 | 备注                                                                 |
 | ------------------------ | ------------------------------------------------------ | ------------- | -------------------------------------------------------------------- |
 | find-route-conflicts.mjs | 扫描后端路由文件,输出按 method+path 分组的真实重复路由 | —             | 取材面=server.ts+routes/index.ts 两入口,barrel 递归下钻,只报数不判红 |
-| generate-stub-routes.mjs | 根据 api-routes-missing.json 批量生成前端缺失路由桩    | —             | 输出 apps/api/src/routes/frontend-stub-*.ts                          |
 
 ### 基础设施(4 个)
 
@@ -168,24 +167,24 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 
 ### 运维/部署工具(7 个)
 
-| 脚本名                   | 用途                                                               | pre-commit 项 | 备注                                |
-| ------------------------ | ------------------------------------------------------------------ | ------------- | ----------------------------------- |
-| dev-web.mjs              | 启动 @ihui/web dev server + 进程树生命周期管理(防僵尸 next-server) | —             | 支持 `--clean` `--port`             |
-| miniapp-preview.mjs      | 启动 miniapp H5 开发服务器并输出预览 URL                           | —             | `pnpm -F @ihui/miniapp-taro dev:h5` |
-| grant-ihui-superuser.mjs | 给 ihui 数据库用户授予 SUPERUSER                                   | —             | 幂等                                |
-| test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803   |
-| video-ops.mjs            | 视频下载(yt-dlp)与 OSS 上传工具                                    | —             | 等价自历史项目 PowerShell 脚本      |
-| heal-unresponsive-services.mjs | 不响应服务自愈动作器(默认只读;`--apply` 才重启)。判据只取 `check-service-binary-paths.mjs --json`,连续 N 轮才动 + 冷却 + 窗口上限防重启风暴 | — | 台账 `scripts/data/service-auto-restart.json`。`expected-stopped` 档(退役服务 / 蓝绿冷备)由门裁定、动作器**绝不**拉起 |
-| scrub-temp-fixtures.mjs  | TEMP / scratch 夹具残留清扫(默认只报;`--apply` 才删)               | —             | 7 天账龄闸 + 名字围栏 + 绝不穿重解析点;24h 档由 `git-guardian` 调度。扫描根取 `scratch-dir.mjs` 的 `scratchRoot()`(G-158 后落点在仓内 `.DevEnv/Temp`) |
+| 脚本名                         | 用途                                                                                                                                        | pre-commit 项 | 备注                                                                                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dev-web.mjs                    | 启动 @ihui/web dev server + 进程树生命周期管理(防僵尸 next-server)                                                                          | —             | 支持 `--clean` `--port`                                                                                                                               |
+| miniapp-preview.mjs            | 启动 miniapp H5 开发服务器并输出预览 URL                                                                                                    | —             | `pnpm -F @ihui/miniapp-taro dev:h5`                                                                                                                   |
+| grant-ihui-superuser.mjs       | 给 ihui 数据库用户授予 SUPERUSER                                                                                                            | —             | 幂等                                                                                                                                                  |
+| test-llm-connection.mjs        | 验证 AI service LLM 接入是否可用(/health + 模型调用)                                                                                        | —             | 默认 AI_URL=http://localhost:8803                                                                                                                     |
+| video-ops.mjs                  | 视频下载(yt-dlp)与 OSS 上传工具                                                                                                             | —             | 等价自历史项目 PowerShell 脚本                                                                                                                        |
+| heal-unresponsive-services.mjs | 不响应服务自愈动作器(默认只读;`--apply` 才重启)。判据只取 `check-service-binary-paths.mjs --json`,连续 N 轮才动 + 冷却 + 窗口上限防重启风暴 | —             | 台账 `scripts/data/service-auto-restart.json`。`expected-stopped` 档(退役服务 / 蓝绿冷备)由门裁定、动作器**绝不**拉起                                 |
+| scrub-temp-fixtures.mjs        | TEMP / scratch 夹具残留清扫(默认只报;`--apply` 才删)                                                                                        | —             | 7 天账龄闸 + 名字围栏 + 绝不穿重解析点;24h 档由 `git-guardian` 调度。扫描根取 `scratch-dir.mjs` 的 `scratchRoot()`(G-158 后落点在仓内 `.DevEnv/Temp`) |
 
 ### 证书管理(4 个)
 
-| 脚本名                         | 用途                                                                                             | pre-commit 项 | 备注                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------- |
-| fetch-wechat-platform-cert.mjs | 微信支付 V3 平台证书拉取(写入 cert/platform_cert.pem)                                            | —             | 用于验签回调                                |
-| cert-renew-watchdog.mjs        | 平台证书续签 Watchdog(周期拉取,有变化才写入)                                                     | —             | 建议 cron:每月 1 次                         |
-| cert-expiry-check.mjs          | 证书过期检查(提前 30 天告警 + 私钥格式 + 证书私钥匹配)                                            | —             | 已过期 exit 1                               |
-| check-asset-path-health.mjs    | 受管 `.env` 引用的绝对路径可达性 + 证书到期(委托 cert-expiry-check,单一判据)                     | —             | `git-guardian` 每 6h 派发(`auditAssetPathHealth`) |
+| 脚本名                         | 用途                                                                         | pre-commit 项 | 备注                                              |
+| ------------------------------ | ---------------------------------------------------------------------------- | ------------- | ------------------------------------------------- |
+| fetch-wechat-platform-cert.mjs | 微信支付 V3 平台证书拉取(写入 cert/platform_cert.pem)                        | —             | 用于验签回调                                      |
+| cert-renew-watchdog.mjs        | 平台证书续签 Watchdog(周期拉取,有变化才写入)                                 | —             | 建议 cron:每月 1 次                               |
+| cert-expiry-check.mjs          | 证书过期检查(提前 30 天告警 + 私钥格式 + 证书私钥匹配)                       | —             | 已过期 exit 1                                     |
+| check-asset-path-health.mjs    | 受管 `.env` 引用的绝对路径可达性 + 证书到期(委托 cert-expiry-check,单一判据) | —             | `git-guardian` 每 6h 派发(`auditAssetPathHealth`) |
 
 ### 其他工具(1 个)
 
