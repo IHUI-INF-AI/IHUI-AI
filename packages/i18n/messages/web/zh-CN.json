@@ -16340,7 +16340,12 @@
       "points": "{n}分",
       "submittedAt": "提交时间：{time}",
       "unanswered": "未答",
-      "yourAnswer": "你的答案："
+      "yourAnswer": "你的答案：",
+      "correct": "答对",
+      "wrong": "答错",
+      "reviewCorrect": "正确",
+      "reviewWrong": "错误",
+      "unansweredAnswer": "未作答"
     },
     "score": "得分 {score} / {total}",
     "startExam": "开始考试",
