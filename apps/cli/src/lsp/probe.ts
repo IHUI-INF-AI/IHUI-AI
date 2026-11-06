@@ -326,10 +326,11 @@ export function probeAllLspServers(
 export function checkWorkspaceMarkers(
   config: LspServerConfig,
   workspacePath: string,
-): { required: string[]; found: string[] } {
+): { required: string[]; found: string[]; unreadable: boolean } {
   const required = config.workspaceMarkers ?? [];
-  if (required.length === 0) return { required, found: [] };
+  if (required.length === 0) return { required, found: [], unreadable: false };
   const found: string[] = [];
+  let unreadable = false;
   for (const marker of required) {
     if (marker.startsWith('*.')) {
       const suffix = marker.slice(1);
@@ -337,13 +338,21 @@ export function checkWorkspaceMarkers(
         const entries = fs.readdirSync(workspacePath);
         if (entries.some((e) => e.endsWith(suffix))) found.push(marker);
       } catch {
-        // 工作区不可读:如实留空(found 为空即"没量到"),不得猜成"有"
+        // 工作区不可读:如实留空**并点名读不到**,不得猜成"有"或"没有"
+        unreadable = true;
       }
       continue;
     }
-    if (fs.existsSync(path.join(workspacePath, marker))) found.push(marker);
+    try {
+      fs.statSync(path.join(workspacePath, marker));
+      found.push(marker);
+    } catch (err) {
+      // 只有 ENOENT/ENOTDIR 才算"确实没有";其它读失一律记读不到,不冒充缺席
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') unreadable = true;
+    }
   }
-  return { required, found };
+  return { required, found, unreadable };
 }
 
 /** 把一条探测结果压成一行诊断文本(状态行必须自带原因,不得只给个词)。 */
