@@ -159,7 +159,8 @@
  *  走 `commit-tree` + CAS ⇒ 钩子结构性不跑 ⇒ 挂在 `.husky/post-commit` 第 6 节的那层自愈对本器从来
  *  不会触发;而本器改的正是登记行(整行改写档把 `- [ ]` 翻成 `- [x] ✅…`),一次误写就是"已入库的登记行
  *  被滞后底稿带回"那一型。派生与失败臂措辞复用 `lib/post-merge-ledger-sync.mjs` 那一份(与两台收敛器
- *  同一个器物,不另发明第二套调用协议);补跑没跑成只喊一行 stderr,**不改本器退出码**。
+ *  同一个器物,不另发明第二套调用协议);补跑跑而未成/未派生成功仍大声点名 stderr,但按 RP-71 / §0.3
+ *  折成 **exit 2 未判定**(内容不回滚、不判红,只拒绝报绿;折算见 `landingExitWithHeal`)。
  *  未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带这一跑,本票开工时它
  *  正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
  *
@@ -211,6 +212,7 @@ import {
   sameLines,
   writeBlob,
   rerunLedgerHeal,
+  landingExitWithHeal,
 } from './lib/bypass-git.mjs'
 import {
   usedIdsOfPrefix,
@@ -3264,9 +3266,10 @@ async function main() {
    * (自愈若建了恢复提交,随后的对齐会把共享索引对齐到恢复后的 blob,而不是把缺行那份写进索引)。
    * 提交档而非报告档 + 为什么不成环:见 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头注
    * (这一跑是 post-commit 那节的替身,必须与原件同形;替身自己不跑钩子,且只在 HEAD 真缺行时建提交)。
-   * 补跑失败只喊一行(stderr),不改本器退出码。
+   * 补跑跑而未成/未派生成功仍大声点名(stderr),但按 RP-71 / §0.3 折成 **exit 2 未判定**:落地内容
+   * 已在 HEAD(不回滚、不判红),只拒绝报绿;折算口径见 `lib/bypass-git.mjs` 的 `landingExitWithHeal`。
    */
-  rerunLedgerHeal({ root, paths: [doc] })
+  const ledgerHeal = rerunLedgerHeal({ root, paths: [doc] })
 
   const align = alignSharedIndex({ root, paths: [doc], parentRef: parentSha })
   // G-321②:走到这里内容**已经**入库并过了回读 ⇒ 索引没对齐只是副作用,不得冒充整次失败。
@@ -3289,7 +3292,10 @@ async function main() {
     )
     process.exit(2)
   }
-  process.exit(verdict.code)
+  const finalCode = landingExitWithHeal(verdict.code, ledgerHeal)
+  if (finalCode === 2 && verdict.code === 0)
+    console.error('❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;落地内容已在 HEAD(不回滚、不判红),但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit')
+  process.exit(finalCode)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

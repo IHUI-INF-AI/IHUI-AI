@@ -203,6 +203,7 @@ import {
   writeBlob,
   writeBlobOfWorktree,
   rerunLedgerHeal,
+  landingExitWithHeal,
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
@@ -3540,9 +3541,10 @@ async function main() {
    * 用提交档还是报告档、以及为什么不成环:理由写在 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头上
    * (一句话:这一跑是 post-commit 第 6 节的替身,替身必须与原件同形;恢复提交仍由 commit-tree 产生
    * ⇒ 钩子不跑 ⇒ 结构上回不到本器,且它只在 HEAD 真缺行时才建提交,补完即"无缺失"⇒ 严格收敛)。
-   * 补跑失败只喊一行(stderr),不改本轮落地的退出码 —— 零丢失自证已通过的落地不该被替身判红。
+   * 补跑跑而未成/未派生成功仍大声点名(stderr),按 RP-71 / §0.3 折成 **exit 2 未判定** —— 落地内容
+   * 不回滚、不判红,只拒绝报绿;折算口径见 `lib/bypass-git.mjs` 的 `landingExitWithHeal`。
    */
-  rerunLedgerHeal({ root, paths })
+  const ledgerHeal = rerunLedgerHeal({ root, paths })
 
   /**
    * G-816040 的旁路落地半格(2026-10-18 立):四端 `ui-routes` 派生态的写回出口挂在
@@ -3589,7 +3591,7 @@ async function main() {
    * G-113(头注④,2026-10-23):落地后复跑受影响判据。位置与 ③ 同一条理由链 —— 必须在
    * CAS 成功且提交面回读通过之后(没落地的东西没有"落地那一刻"可补),且在主索引对齐之后
    * (tsc --files 档读盘上那份,对齐后索引=落地面,盘的漂已由 notes 点名,不静默)。
-   * 与 ③ 不同的一点:③ 失败只喊一行不改退出码(自愈替身无权判红一次零丢失自证已通过的落地),
+   * 与 ③ 不同的一点:③ 已按 RP-71 折成 exit 2 未判定(自愈替身不判红、不回滚,但拒绝报绿),
    * 本档是**判据本身** —— 票面纪律:复跑失败 ⇒ 大声报数 + exit 非 0;不回滚(既成事实),
    * 但拒绝静默。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
    */
@@ -3606,7 +3608,10 @@ async function main() {
     )
     process.exit(2)
   }
-  process.exit(0)
+  const finalCode = landingExitWithHeal(0, ledgerHeal)
+  if (finalCode === 2)
+    console.error('❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;零丢失自证已过的落地不回滚、不判红,但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit')
+  process.exit(finalCode)
 }
 
 /**

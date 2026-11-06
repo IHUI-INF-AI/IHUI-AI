@@ -2558,7 +2558,7 @@ test('L2 G-816708 反向对照:同样的落地但不含台账 ⇒ 那个进程�
   )
 })
 
-test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来,且不得冒出"无缺失"', (t) => {
+test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地报 2(未判定),但必须喊出来,且不得冒出"无缺失"', (t) => {
   const dir = makeLedgerRepo(t)
   installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_STALE)
@@ -2570,7 +2570,7 @@ test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但�
     '--heal --commit',
     '补跑必须是**提交档**(与 post-commit 第 6 节同形),报告档等于把回补留给下一个人',
   )
-  assert.equal(r.status, 0, `替身没跑成不该把零丢失自证已过的落地判红,实得 ${r.status}:\n${out}`)
+  assert.equal(r.status, 2, 'RP-71:自愈跑而未成 ⇒ exit 2 未判定,不得报绿')
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
 })
