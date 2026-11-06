@@ -94,7 +94,6 @@ Headline claims (same source as the table below, all live-computed): **621 table
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
-<!-- END GENERATED NUMBERS -->
 
 
 ## Recent updates (auto-maintained)
