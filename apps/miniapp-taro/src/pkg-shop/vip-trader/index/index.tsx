@@ -34,20 +34,20 @@ const DEFAULT_DURATION_DAYS = 30
 const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 const TRADER_PROFILE: TraderProfile = {
-  nickname: t('viptrader.d1'),
-  title: t('viptrader.d2'),
+  nickname: t('vipTrader.d1'),
+  title: t('vipTrader.d2'),
   avatar: '',
-  intro: t('viptrader.r1'),
+  intro: t('vipTrader.r1'),
 }
 
 // 操盘手能力标签(对标任务要求:技术分析/基本面/风控/选股等)
 const CAPABILITY_TAGS = [
-  { key: 'tech', label: t('viptrader.d3') },
-  { key: 'fundamental', label: t('viptrader.d4') },
-  { key: 'risk', label: t('viptrader.d5') },
-  { key: 'picker', label: t('viptrader.d6') },
-  { key: 'quant', label: t('viptrader.d7') },
-  { key: 'sentiment', label: t('viptrader.d8') },
+  { key: 'tech', label: t('vipTrader.d3') },
+  { key: 'fundamental', label: t('vipTrader.d4') },
+  { key: 'risk', label: t('vipTrader.d5') },
+  { key: 'picker', label: t('vipTrader.d6') },
+  { key: 'quant', label: t('vipTrader.d7') },
+  { key: 'sentiment', label: t('vipTrader.d8') },
 ]
 
 // 操盘手权益(对标原 vip/trader.vue features,精选 8 项)
@@ -55,44 +55,44 @@ const TRADER_FEATURES = [
   {
     icon: 'medal',
     key: 'distribution_qualification',
-    title: t('viptrader.d9'),
-    desc: t('viptrader.d10'),
+    title: t('vipTrader.d9'),
+    desc: t('vipTrader.d10'),
   },
   {
     icon: 'graduation-cap',
     key: 'ai_courses',
-    title: t('viptrader.d11'),
-    desc: t('viptrader.d12'),
+    title: t('vipTrader.d11'),
+    desc: t('vipTrader.d12'),
   },
   {
     icon: 'handshake',
     key: 'founder_qa',
-    title: t('viptrader.d13'),
-    desc: t('viptrader.d14'),
+    title: t('vipTrader.d13'),
+    desc: t('vipTrader.d14'),
   },
   {
     icon: 'flask-conical',
     key: 'agent_beta',
-    title: t('viptrader.d15'),
-    desc: t('viptrader.d16'),
+    title: t('vipTrader.d15'),
+    desc: t('vipTrader.d16'),
   },
   {
     icon: 'gem',
     key: 'vip_max_discount',
-    title: t('viptrader.d17'),
-    desc: t('viptrader.d18'),
+    title: t('vipTrader.d17'),
+    desc: t('vipTrader.d18'),
   },
   {
     icon: 'zap',
     key: 'custom_agent_discount',
-    title: t('viptrader.d19'),
-    desc: t('viptrader.d20'),
+    title: t('vipTrader.d19'),
+    desc: t('vipTrader.d20'),
   },
   {
     icon: 'rocket',
     key: 'vertical_account_incubation',
-    title: t('viptrader.d21'),
-    desc: t('viptrader.d22'),
+    title: t('vipTrader.d21'),
+    desc: t('vipTrader.d22'),
   },
   {
     icon: 'lightbulb',
@@ -103,8 +103,8 @@ const TRADER_FEATURES = [
     // (20260728120000_vip_levels_quota_fields.sql:25-34)。此行与 heroDesc 的 {power}=1600W 同源,
     // 是共享屏那份营销文案的镜像(VipTraderScreen.tsx:88),不是服务端权益真值;
     // 要变成真值须先由后端立 benefit key(已写入本轮交付报告,归后端/词包席)。
-    title: t('viptrader.d23'),
-    desc: t('viptrader.d24'),
+    title: t('vipTrader.d23'),
+    desc: t('vipTrader.d24'),
   },
 ]
 
@@ -112,9 +112,9 @@ const TRADER_FEATURES = [
 // RN 镜像共享屏(VipTraderScreen)无此区块。涉及投资品类的业绩宣传合规:接真数据前需产品/合规裁决
 // "保留演示(加示例标注)或移除区块"(台账在账,2026-10-24 全端 mock 审计定性,勿静默当真值展示)。
 const PERFORMANCE_METRICS = [
-  { key: 'annualReturn', label: t('viptrader.d25'), value: '+38.6%', tone: 'up' as const },
-  { key: 'winRate', label: t('viptrader.d26'), value: '72.4%', tone: 'up' as const },
-  { key: 'maxDrawdown', label: t('viptrader.d27'), value: '-12.8%', tone: 'down' as const },
+  { key: 'annualReturn', label: t('vipTrader.d25'), value: '+38.6%', tone: 'up' as const },
+  { key: 'winRate', label: t('vipTrader.d26'), value: '72.4%', tone: 'up' as const },
+  { key: 'maxDrawdown', label: t('vipTrader.d27'), value: '-12.8%', tone: 'down' as const },
   {
     key: 'totalReturn',
     label: t('distribution.plan.totalEarnings'),
@@ -128,13 +128,13 @@ const PERF_BARS = [12, 18, 9, 22, 15, 28]
 
 // 服务包列表(服务名 + 价格 + 服务周期 + 订阅按钮)
 const SERVICE_PACKAGES = [
-  { id: 'sp1', name: t('viptrader.d28'), price: 999, period: t('viptrader.d29'), highlight: false },
-  { id: 'sp2', name: t('viptrader.d30'), price: 2699, period: t('viptrader.d31'), highlight: true },
+  { id: 'sp1', name: t('vipTrader.d28'), price: 999, period: t('vipTrader.d29'), highlight: false },
+  { id: 'sp2', name: t('vipTrader.d30'), price: 2699, period: t('vipTrader.d31'), highlight: true },
   {
     id: 'sp3',
     name: t('vip.details.yearlyPlan'),
     price: 8999,
-    period: t('viptrader.d32'),
+    period: t('vipTrader.d32'),
     highlight: false,
   },
 ]
@@ -144,17 +144,17 @@ const SERVICE_PACKAGES = [
 const USER_REVIEWS = [
   {
     id: 'r1',
-    nickname: t('viptrader.d33'),
+    nickname: t('vipTrader.d33'),
     avatar: '',
     rating: 5,
-    content: t('viptrader.d34'),
+    content: t('vipTrader.d34'),
   },
   {
     id: 'r2',
-    nickname: t('viptrader.d35'),
+    nickname: t('vipTrader.d35'),
     avatar: '',
     rating: 4,
-    content: t('viptrader.d36'),
+    content: t('vipTrader.d36'),
   },
 ]
 
@@ -192,7 +192,7 @@ export default function VipTraderIndexPage() {
         setDurationDays(trader.durationDays)
       }
     } catch (e) {
-      logger.error('vip-trader', t('viptrader.q1'), e)
+      logger.error('vip-trader', t('vipTrader.q1'), e)
     }
   }, [t])
 

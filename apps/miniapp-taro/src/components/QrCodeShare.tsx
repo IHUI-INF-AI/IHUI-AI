@@ -30,13 +30,13 @@ export default function QrCodeShare({
   const tt = useTt()
   const handleSave = () => {
     if (!qrUrl) {
-      Taro.showToast({ title: tt('qrcode.generating', '二维码生成中'), icon: 'loading' })
+      Taro.showToast({ title: tt('qrCode.generating', '二维码生成中'), icon: 'loading' })
       return
     }
     Taro.saveImageToPhotosAlbum({
       filePath: qrUrl,
-      success: () => onToast(tt('qrcode.savedAlbum', '已保存到相册'), { kind: 'success' }),
-      fail: () => onToast(tt('qrcode.saveFailed', '保存失败'), { kind: 'error' }),
+      success: () => onToast(tt('qrCode.savedAlbum', '已保存到相册'), { kind: 'success' }),
+      fail: () => onToast(tt('qrCode.saveFailed', '保存失败'), { kind: 'error' }),
     })
     onSave?.()
   }
@@ -56,7 +56,7 @@ export default function QrCodeShare({
         ) : (
           <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
             <Text className="text-label text-muted-foreground">
-              {tt('qrcode.loading', '二维码加载中')}
+              {tt('qrCode.loading', '二维码加载中')}
             </Text>
           </View>
         )}
@@ -71,7 +71,7 @@ export default function QrCodeShare({
 
       {userName && (
         <Text className="mt-lg text-body text-foreground">
-          {t('qrcode.from', { name: userName })}
+          {t('qrCode.from', { name: userName })}
         </Text>
       )}
 
