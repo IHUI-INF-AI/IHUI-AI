@@ -47,6 +47,55 @@ export function dataPayloadOfLine(line: string): string | null {
   return line
 }
 
+// ===== BUG-67:AI 主动提问(question 帧)的端内认领层 =====
+// 共享 @ihui/shared/utils/sse-parse 的 SSEEvent 联合类型不含 'question',parseSSEChunk
+// 也不认领该帧(web/RN 走 tryParseQuestion 整行旁路);本端复用同一条 onRawLine 旁路
+// 自行认领,再经 api/index.ts 的 onQuestion 回调分发到提问卡组件。
+export const QUESTION_FRAME_TYPE = 'question'
+
+/** 与 @ihui/api-client streamChat.onQuestion / 后端 Question.to_dict() 逐字同形。 */
+export interface QuestionCardPayload {
+  questionId: string
+  prompt: string
+  options: Array<{ id: string; label: string }>
+  allowCustom: boolean
+  allowMultiple: boolean
+}
+
+/** 一行 SSE 文本 → 提问卡载荷;非本族帧/字段不合法 ⇒ null(丢弃,不猜,不回落正文)。 */
+export function parseQuestionLine(line: string): QuestionCardPayload | null {
+  const payload = dataPayloadOfLine(line)
+  if (!payload || !payload.includes(`"${QUESTION_FRAME_TYPE}"`)) return null
+  let json: Record<string, unknown>
+  try {
+    json = JSON.parse(payload) as Record<string, unknown>
+  } catch {
+    return null
+  }
+  if (json?.type !== QUESTION_FRAME_TYPE) return null
+  const q = json.question
+  if (!q || typeof q !== 'object' || Array.isArray(q)) return null
+  const obj = q as Record<string, unknown>
+  if (typeof obj.questionId !== 'string' || obj.questionId === '') return null
+  if (typeof obj.prompt !== 'string' || obj.prompt === '') return null
+  const rawOptions = Array.isArray(obj.options) ? obj.options : []
+  const options: Array<{ id: string; label: string }> = []
+  for (const item of rawOptions) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const o = item as Record<string, unknown>
+    if (typeof o.id === 'string' && typeof o.label === 'string') {
+      options.push({ id: o.id, label: o.label })
+    }
+  }
+  return {
+    questionId: obj.questionId,
+    prompt: obj.prompt,
+    options,
+    allowCustom: obj.allowCustom !== false,
+    allowMultiple: obj.allowMultiple === true,
+  }
+}
+
 /**
  * 一行 SSE 文本 → 审批请求视图;不是这一族帧(或 approval_id 缺失/空)⇒ null(丢弃,不猜)。
  *

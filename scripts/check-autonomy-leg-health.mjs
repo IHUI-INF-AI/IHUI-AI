@@ -81,12 +81,14 @@ export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
   return t
 }
 
-/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。
+/** 读台账(缺文件 / 0 字节空文件 ⇒ 一律 ok:false,由调用方如实标 unjudged,
+ *  不用 0 冒充"没失败过";空台账读成"从未失败"是 §0.3 明令禁止的假绿)。
  *  默认全量读:`limit` 截断会把超窗历史行挤出被审面,判据就会随台账增长悄悄变绿/变红(§12e)。 */
 export function readLedgerEvents(limit = Infinity) {
   if (!existsSync(LEDGER)) return { ok: false, events: [], why: `台账不在位:${LEDGER}` }
   const raw = readFileSync(LEDGER, 'utf8').trim()
-  if (!raw) return { ok: true, events: [], why: '台账空' }
+  // BUG-42④:日志轮转/清空后返回 ok:true,events:[] 会被各维读成"从未失败过" ⇒ 判未判定。
+  if (!raw) return { ok: false, events: [], why: `台账为空(0 字节):${LEDGER} ⇒ 未判定` }
   const events = raw
     .split('\n')
     .slice(Number.isFinite(limit) ? -limit : 0)

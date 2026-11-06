@@ -34,6 +34,8 @@ import { resolveRealm } from '../src/services/upstream-adapters/workbuddy-protoc
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const API_DIR = resolvePath(SCRIPT_DIR, '..')
+/** 仓根(apps/api/scripts → 上三层);`scripts/lib/pool-owner.mjs` 的装载基准 */
+const REPO_ROOT = resolvePath(SCRIPT_DIR, '..', '..', '..')
 
 /** 号池行同步所需的最小投影(解密后的明文 token 只在内存流转) */
 export interface PoolAccountInput {
@@ -55,16 +57,29 @@ export function poolSnapshotName(uid: string): string {
 
 /**
  * 本机归属配置(2026-10-31 机主令):`~/.wb-switch/pool-owner` 一行 users.id。
- * 设了 ⇒ 只同步该 owner 的个人池;文件不存在/空 ⇒ null(沿用全局池 owner IS NULL 旧行为)。
+ * 设了 ⇒ 只同步该 owner 的个人池;读不到 ⇒ null(沿用全局池 owner IS NULL 旧行为)。
  * 值不进任何输出/日志(users.id 非机密,但没必要外显)。
+ *
+ * **读取实现只有一份**(§0.6):住在工具层 `scripts/lib/pool-owner.mjs`,与本仓入池方向
+ * (`scripts/relay-account-pool.mjs` 的默认归属)共用同一把尺子。apps/api → repo-tooling 的
+ * **静态** import 会被架构契约表 `config/architecture-policy.yaml` 的 D1 判红(apps/api 已
+ * `managed:true` 且 requires 未登记 repo-tooling,政策明文"不得改用 arch-exempt 糊过去"),
+ * 故沿用 `apps/api/scripts` 既有「动态 import scripts/lib/*.mjs」模式
+ * (relay-login-local-verified.ts 同款)。装载失败 ⇒ 调用时显式抛错(§0.3 取不到输入不猜,
+ * 也绝不回落到本文件里另抄一份读法)。
  */
+const poolOwnerLib = await import(
+  pathToFileURL(join(REPO_ROOT, 'scripts', 'lib', 'pool-owner.mjs')).href
+).catch(() => null)
+
 export function resolvePoolOwner(home = homedir()): string | null {
-  try {
-    const raw = readFileSync(join(home, '.wb-switch', 'pool-owner'), 'utf8').trim()
-    return raw.length > 0 ? raw : null
-  } catch {
-    return null
+  if (!poolOwnerLib || typeof poolOwnerLib.readPoolOwnerFile !== 'function') {
+    throw new Error(
+      '个人池归属读取模块(scripts/lib/pool-owner.mjs)装载失败 ⇒ 未判定:不猜归属,不在本文件另写第二份读法',
+    )
   }
+  const read = poolOwnerLib.readPoolOwnerFile({ home }) as { value: string | null }
+  return read.value
 }
 
 /**
@@ -149,7 +164,10 @@ export interface SyncOutcome {
  */
 function snapshotFingerprint(body: string): string {
   try {
-    const j = JSON.parse(body) as { auth?: Record<string, unknown>; account?: Record<string, unknown> }
+    const j = JSON.parse(body) as {
+      auth?: Record<string, unknown>
+      account?: Record<string, unknown>
+    }
     const a = j.auth ?? {}
     const acc = j.account ?? {}
     return JSON.stringify([
@@ -243,7 +261,10 @@ export async function syncPoolSnapshots(deps: SyncDeps = {}): Promise<SyncOutcom
   for (const a of accounts) {
     const body = buildPoolSnapshot(a, now)
     const dest = join(backupsDir, poolSnapshotName(a.uid))
-    if (existsSync(dest) && snapshotFingerprint(readFileSync(dest, 'utf8')) === snapshotFingerprint(body)) {
+    if (
+      existsSync(dest) &&
+      snapshotFingerprint(readFileSync(dest, 'utf8')) === snapshotFingerprint(body)
+    ) {
       outcome.unchanged++
       continue
     }

@@ -24,6 +24,7 @@ import json
 import os
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -418,6 +419,22 @@ def test_non_list_json_returns_empty(store_path):
     """文件内容非列表 → 视为空。"""
     store_path.write_text(json.dumps({"a": 1}), encoding="utf-8")
     assert mcp_store.list_installed() == []
+
+
+def test_unreadable_store_is_not_overwritten(store_path, monkeypatch):
+    original = json.dumps([{"name": "keep", "key": "keep"}], ensure_ascii=False)
+    store_path.write_text(original, encoding="utf-8")
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(store_path):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    with pytest.raises(mcp_store.McpStoreUnread, match="读不到"):
+        mcp_store.save_installed({"name": "new", "key": "new"})
+    assert store_path.read_text(encoding="utf-8") == original
 
 
 def test_write_failure_returns_none(store_path, monkeypatch):

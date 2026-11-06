@@ -235,7 +235,7 @@ describe('delete 轴消费点:WorktreeManager.remove / exit_worktree', () => {
     expect(fn).toBeTruthy();
     const aclAt = fn.indexOf('evaluateFileAccess(');
     expect(aclAt).toBeGreaterThan(-1);
-    for (const needle of ["'worktree', 'remove'", 'stashDirToTrash(', 'fs.rmSync(', 'fs.existsSync(wtPath)']) {
+    for (const needle of ["'worktree', 'remove'", 'stashDirToTrash(', 'fs.rmSync(', 'look(wtPath)']) {
       expect(fn.indexOf(needle)).toBeGreaterThan(aclAt);
     }
   });

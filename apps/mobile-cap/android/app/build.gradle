@@ -1,5 +1,56 @@
 apply plugin: 'com.android.application'
 
+// ===== BUG-93:release 签名凭据(只从本机密钥目录读,绝不入仓) =====
+// IHUI_KEYSTORE_PROPERTIES 指向仓库外的 keystore.properties(storeFile/keyAlias/
+// storePassword/keyPassword);未设置时回退 ~/.gradle/ihui-keystore.properties。
+// 任何明文凭据都不得写入本文件/仓库;生产 admin 密码永不落盘。
+def ihuiKeystoreProps = new Properties()
+def ihuiKeystorePropsFile = System.getenv('IHUI_KEYSTORE_PROPERTIES')
+    ? file(System.getenv('IHUI_KEYSTORE_PROPERTIES'))
+    : file("${System.getProperty('user.home')}/.gradle/ihui-keystore.properties")
+def ihuiSigningReady = false
+if (ihuiKeystorePropsFile.exists()) {
+    ihuiKeystoreProps.load(new FileInputStream(ihuiKeystorePropsFile))
+    ihuiSigningReady = ihuiKeystoreProps['storeFile'] && ihuiKeystoreProps['keyAlias']
+}
+// release 任务缺签名凭据 / 清单仍开着 allowBackup ⇒ 直接失败,杜绝"未签名 APK"与凭据外泄。
+def ihuiReleaseTask = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+if (ihuiReleaseTask) {
+    if (!ihuiSigningReady) {
+        throw new GradleException(
+            '[BUG-93] release 签名凭据缺失:请设置 IHUI_KEYSTORE_PROPERTIES 指向本机 ' +
+            'keystore.properties(storeFile/keyAlias/storePassword/keyPassword),凭据不入仓')
+    }
+    if (!file('src/main/AndroidManifest.xml').text.contains('android:allowBackup="false"')) {
+        throw new GradleException('[BUG-70] release 构建要求 AndroidManifest.xml 中 android:allowBackup="false"')
+    }
+}
+
+// ===== BUG-74:versionCode 必须由 CI 注入构建号,禁止时间粒度回退 =====
+// 旧回退 yyMMddHH 只到小时(同小时两次 assembleRelease 产同号 ⇒ 覆盖安装判定失败 /
+// Play 拒收);改成 YYMMDDHHmm 又会溢出 int32(2026 年起 10 位 > 2147483647)。
+// 根治:release 必须由 CI 注入单调递增的 IHUI_VERSION_CODE,缺注入直接失败而非复用旧值;
+// 非 release(本地 debug / IDE sync)用秒级 epoch 单调递增,与发布号分域,仅用于本地安装。
+def ihuiInjectedVersionCode = System.getenv('IHUI_VERSION_CODE')
+if (!ihuiInjectedVersionCode && ihuiReleaseTask) {
+    throw new GradleException(
+        '[BUG-74] release 构建必须由 CI 注入 IHUI_VERSION_CODE(单调递增构建号),' +
+        '禁止回退到 YYMMDDHH 小时粒度')
+}
+// BUG-74(本轮补强):注入值必须是纯正整数且落在 int32 之内。空串/含字母/越界
+// 会让 Integer.parseInt 抛难定位异常,或把单调构建号变成不可比的字符串 —— 一律在
+// 配置阶段就失败,绝不落到 versionCode 上(仍不产生任何时间粒度静默回退)。
+if (ihuiInjectedVersionCode && !(ihuiInjectedVersionCode ==~ /^[1-9][0-9]*$/)) {
+    throw new GradleException(
+        '[BUG-74] IHUI_VERSION_CODE 必须是纯正整数(单调递增构建号),实际=' + ihuiInjectedVersionCode)
+}
+if (ihuiInjectedVersionCode && ihuiInjectedVersionCode.toBigInteger() > 2147483647G) {
+    throw new GradleException(
+        '[BUG-74] IHUI_VERSION_CODE 超出 Android versionCode 的 int32 上限 2147483647')
+}
+def ihuiVersionCode = ihuiInjectedVersionCode
+    ?: String.valueOf((int) (System.currentTimeMillis() / 1000L))
+
 android {
     namespace "top.aizhs.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,17 +58,7 @@ android {
         applicationId "top.aizhs.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // 2026-10-17 起不再写死版本号(此前是 versionCode 1 / versionName "1.0",
-        // 与 apps/mobile-cap/package.json 长期不一致且永远不涨,属"看起来有版本"的假号):
-        //   versionName —— CI 注入 IHUI_MOBILE_VERSION 时用它(与 RN 端同源,由
-        //     scripts/resolve-mobile-version.mjs 派生);未注入则自动跟随本端 package.json,
-        //     不再需要在两个文件里各写一份。
-        //   versionCode —— 同样优先取注入值;缺省时按 UTC YYMMDDHH 现算(天然单调递增),
-        //     避免"号段永远停在 1"导致 Android 拒绝覆盖安装。
-        versionCode Integer.parseInt(
-            System.getenv('IHUI_VERSION_CODE')
-                ?: new Date().format('yyMMddHH', TimeZone.getTimeZone('UTC'))
-        )
+        versionCode Integer.parseInt(ihuiVersionCode)
         versionName(
             System.getenv('IHUI_MOBILE_VERSION')
                 ?: new groovy.json.JsonSlurper().parseText(file('../../package.json').text).version
@@ -29,10 +70,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (ihuiSigningReady) {
+                storeFile file(ihuiKeystoreProps['storeFile'])
+                storePassword ihuiKeystoreProps['storePassword']
+                keyAlias ihuiKeystoreProps['keyAlias']
+                keyPassword ihuiKeystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // BUG-93:release 挂真实签名配置,不再产出未签名 APK / 误用 debug 签名。
+            signingConfig signingConfigs.release
         }
     }
 }

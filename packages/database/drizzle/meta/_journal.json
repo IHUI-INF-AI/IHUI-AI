@@ -2552,6 +2552,13 @@
       "when": 1793937600000,
       "tag": "20261106120000_tool_ledger_execution_facts",
       "breakpoints": true
+    },
+    {
+      "idx": 368,
+      "version": "7",
+      "when": 1793944800000,
+      "tag": "20261106140000_chat_ledger",
+      "breakpoints": true
     }
   ]
 }

@@ -480,7 +480,12 @@ async function main() {
   // AGENTS §22d/批次 G2:建库连接只在 CLI 真正执行时发生,被 import 时零副作用。
   const require = createRequire(import.meta.url)
   const postgres = require('postgres')
-  const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', { max: 4, prepare: false })
+  const dsn = process.env.DATABASE_URL
+  if (!dsn) {
+    console.error('[FATAL] DATABASE_URL 未设置(拒绝使用内置默认连接串)')
+    process.exit(2)
+  }
+  const sql = postgres(dsn, { max: 4, prepare: false })
 
   console.log(`\n========== 批量添加所有主流模型厂商 ${dryRun ? '(DRY-RUN)' : ''} ==========`)
   console.log(`待添加 ${PROVIDERS.length} 个厂商,共 ${PROVIDERS.reduce((s, p) => s + p.models.length, 0)} 个模型\n`)

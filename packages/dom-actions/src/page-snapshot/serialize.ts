@@ -18,6 +18,7 @@ import {
   type PageSnapshotRaw,
   type PageSnapshotResult,
 } from './contract.js'
+import { truncateByGrapheme, graphemeLength } from '@ihui/shared/utils/truncate'
 
 /** 行渲染时已丢弃的字段集合。 */
 type Dropped = Set<string>
@@ -65,7 +66,7 @@ function formatBody(raw: PageSnapshotRaw, budget: PageSnapshotBudget, notices: s
     const heading = block.heading ? `[${block.heading}] ` : ''
     const room = budget.bodyChars - used - heading.length
     if (room <= 0) break
-    const text = block.text.length > room ? block.text.slice(0, Math.max(1, room - 1)) + '…' : block.text
+    const text = graphemeLength(block.text) > room ? truncateByGrapheme(block.text, Math.max(1, room - 1)) + '…' : block.text
     blocks.push(heading ? { heading: block.heading as string, text } : { text })
     used += heading.length + text.length
   }

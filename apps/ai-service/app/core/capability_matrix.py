@@ -171,11 +171,14 @@ CAPABILITY_MATRIX: list[dict[str, str]] = [
     {
         "key": "agent_budget",
         "env": "AGENT_BUDGET_ENABLED",
-        "default": "false",
+        # 批次 3(2026-11-06):成本护栏由默认关改为**默认开** —— 阈值仍走 Redis
+        # hub:budget:config 覆盖 + 代码默认,开关只决定"执不执行这套阈值"。
+        # 默认关等于没有护栏,超支只能靠账单事后发现;运维可显式置 off 关闭。
+        "default": "true",
         "category": "开关类",
         "owner_module": "app.services.agent_loop_v2",
         "doc_ref": "app/services/agent_loop_v2.py:262",
-        "reason_if_off": "预算治理(RBCT)默认关,显式开启后生效",
+        "reason_if_off": "显式置 off 时预算硬约束整体不执行(默认 true=执行);阈值本身仍由 Redis hub:budget:config 覆盖,不是代码写死",
     },
     {
         "key": "agent_team_relay",

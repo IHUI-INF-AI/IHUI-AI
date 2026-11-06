@@ -38,6 +38,15 @@ describe('Codegraph 工具', () => {
       expect(result.output).toContain('无代码文件');
     });
 
+    it('工作区读不到时不说成没有代码文件', async () => {
+      const file = path.join(workspace, 'not-a-dir');
+      fs.writeFileSync(file, 'x');
+      const result = await codegraph.execute({}, { workspacePath: file });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('不能把它说成没有代码文件');
+      expect(result.output).not.toContain('无代码文件');
+    });
+
     it('扫描 .ts/.tsx/.js/.jsx 文件', async () => {
       writeFile('a.ts', "import { b } from './b';\n");
       writeFile('b.tsx', "export const b = 1;\n");

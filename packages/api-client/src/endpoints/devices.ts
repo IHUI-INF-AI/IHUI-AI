@@ -60,7 +60,7 @@ export const deviceEndpoints = {
  * - 设备面(heartbeat/claim/progress/complete/fail)带 pair-exchange 兑换回的短期设备
  *   bearer token。设备面一律走本文件私有 fetchDeviceApi(原生 transport + 信封解析):
  *   fetchApi 会在宿主已登录时强制覆盖 Authorization 为人 JWT,设备令牌必须豁免该覆盖;
- *   且 GET /devices/claim 的 204 空响应在 fetchApi 的 response.json() 上会炸。
+ *   BUG-13 起空体 204 由通用层与 fetchDeviceApi 同口径处理(判据已下沉,不再特判)。
  */
 
 // =============================================================================
@@ -193,8 +193,14 @@ async function fetchDeviceApi<T>(
   }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
   const response = await getTransport()(url, { method: init.method, headers, body: init.body })
-  if (response.status === 204) return { success: true, data: null as T, status: 204 }
   const text = await response.text().catch(() => '')
+  // BUG-13:2xx 空体(204 或空 body)= 成功且 data=null。修复前通用层 fetchApi 会在
+  // 空体上被 response.json() 炸,才逼出本文件 `if (status === 204)` 这条私有补丁;
+  // 判据下沉到通用层后,此处以「空体」为唯一判据,与 fetchOnce 同口径,不再是 204 特判。
+  // 有体但非法 JSON 时 envelope=null ⇒ 落到下面 !envelope 分支,带 status 判失败(不重试)。
+  if (response.ok && text.trim() === '') {
+    return { success: true, data: null as T, status: response.status }
+  }
   let envelope: Envelope<T> | null = null
   try {
     envelope = text ? (JSON.parse(text) as Envelope<T>) : null

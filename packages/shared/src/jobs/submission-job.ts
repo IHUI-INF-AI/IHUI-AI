@@ -19,6 +19,8 @@
  * 与它的判据测试,不造 UI。
  */
 
+import { deepClone } from '../utils/object'
+
 /** 状态闭集。`paused-log` 是"提交被挂起、等用户继续上传日志"的中间态,不是失败也不是完成。 */
 export type SubmissionJobStatus = 'running' | 'paused-log' | 'success' | 'error'
 
@@ -91,16 +93,11 @@ function deepFreeze(value: unknown): void {
 /**
  * 冻结提交瞬间的表单快照:先深拷贝再深冻结。
  * 深拷贝是必须的 —— 直接 freeze 调用方的原对象会把用户还活着的表单一起冻死;
- * structuredClone 不可克隆(表单里混进函数一类非数据)时退回浅拷贝并继续冻结,
- * 顶层隔离的保证不丢,也不静默吞字段。
+ * 统一走共享深拷贝出口 deepClone(BUG-28⑥):structuredClone 不可用/失败时也不再
+ * 退回浅拷贝(浅拷贝会让嵌套字段与 Date/Map/Set 静默丢失,与「不静默吞字段」相悖)。
  */
 function freezeFormSnapshot<T extends object>(form: T): T {
-  let copy: unknown
-  try {
-    copy = structuredClone(form)
-  } catch {
-    copy = { ...form }
-  }
+  const copy = deepClone(form)
   deepFreeze(copy)
   return copy as T
 }

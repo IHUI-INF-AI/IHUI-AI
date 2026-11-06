@@ -18,7 +18,8 @@
   }
 - 默认值:内置目录条目(人工预审过的官方/社区 server)默认 approved;
   其余 key(外部新增条目)默认 pending,待管理员审核
-- 读写失败降级:读失败按默认值返回,写失败返回 None,不抛异常不崩服务
+- 文件不存在或内容损坏仍按默认状态;权限等读不到要抛,写入侧不覆盖
+- 写失败返回 None,不抛异常不崩服务
 """
 
 from __future__ import annotations
@@ -33,6 +34,10 @@ from typing import Any
 _STORE_PATH = Path(__file__).resolve().parents[2] / "data" / "mcp_market_review.json"
 _LOCK = threading.Lock()
 
+
+class MarketReviewUnread(OSError):
+    """审核名单读不到。调用方不得把它当成空名单再写回去。"""
+
 # 合法审核状态:待审核 / 已通过 / 已驳回
 STATUS_PENDING = "pending"
 STATUS_APPROVED = "approved"
@@ -46,15 +51,22 @@ def now_iso() -> str:
 
 
 def _load() -> dict[str, dict[str, Any]]:
-    """读取全部审核记录;文件缺失 / 损坏 / 非对象时返回空 dict(异常降级)。"""
+    """读取全部审核记录。文件缺失、损坏或非对象时返回空 dict。读不到则抛。"""
     try:
-        if not _STORE_PATH.exists():
-            return {}
-        raw = _STORE_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except Exception:  # noqa: BLE001 - 读失败返回空 dict,不崩服务
+        _STORE_PATH.stat()
+    except FileNotFoundError:
         return {}
+    except OSError as exc:
+        raise MarketReviewUnread(f"审核名单读不到,不能把它覆盖成新名单: {exc}") from exc
+    try:
+        raw = _STORE_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise MarketReviewUnread(f"审核名单读不到,不能把它覆盖成新名单: {exc}") from exc
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _write(records: dict[str, dict[str, Any]]) -> bool:
@@ -129,7 +141,10 @@ def set_status(
     if status not in VALID_STATUSES:
         raise ValueError(f"非法审核状态: {status!r}(须为 pending/approved/rejected)")
     with _LOCK:
-        records = _load()
+        try:
+            records = _load()
+        except MarketReviewUnread:
+            return None
         rec = records.get(key, {})
         rec["status"] = status
         rec["reviewed_by"] = reviewed_by

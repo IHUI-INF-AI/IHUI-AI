@@ -140,14 +140,24 @@ export function deleteTrashEntry(
   workspacePath: string,
   dir: string,
   relativeTrashPath: string,
+  stat?: (target: string) => unknown,
 ): { ok: true } | { ok: false; reason: string } {
   if (!isInsideDir(dir, relativeTrashPath)) return { ok: false, reason: '条目路径越出该 trashId 目录:拒删' };
   const target = path.join(dir, relativeTrashPath);
   const acl = evaluateFileAccess('delete', toAclPath(workspacePath, target), workspacePath);
   announceGuardUnjudged(workspacePath, acl.guard, 'trash_prune');
   if (acl.blocked) return { ok: false, reason: acl.note ?? '按文件访问裁决禁止删除' };
+  const look = stat ?? fs.statSync;
   try {
-    if (!fs.existsSync(target)) return { ok: false, reason: '删除时已不存在(上轮已摘或外部清理)' };
+    try {
+      look(target);
+    } catch (error) {
+      const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: false, reason: '删除时已不存在(上轮已摘或外部清理)' };
+      return { ok: false, reason: `回收件读不到,不能把它说成已经不存在 (${code})` };
+    }
     fs.rmSync(target, { recursive: true, force: false });
     return { ok: true };
   } catch (err) {
@@ -228,9 +238,20 @@ export function resetExpiryRunLedger(ledgerFile: string, reason: string, nowIso:
   return { ok: true, before: parsed };
 }
 
-/** 读账目:从未存在 = 首次运行的合法起点;读不到 / JSON 坏 ⇒ raw=null(闸门据此判未判定) */
-export function readExpiryLedger(file: string, initial: unknown): { raw: unknown; note: string | null } {
-  if (!fs.existsSync(file)) return { raw: initial, note: null };
+/** 读账目:从未存在 = 首次运行的合法起点;读不到 / JSON 坏 ⇒ raw=null(闸门据此判未判定,且不得覆盖原文件) */
+export function readExpiryLedger(
+  file: string,
+  initial: unknown,
+  stat?: (path: string) => fs.Stats,
+): { raw: unknown; note: string | null } {
+  const look = stat ?? ((p: string) => fs.statSync(p));
+  try {
+    look(file);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { raw: initial, note: null };
+    return { raw: null, note: `运行账目读不到,不能把它覆盖成新账 (${code ?? 'unknown'})` };
+  }
   let text: string;
   try {
     text = fs.readFileSync(file, 'utf-8');

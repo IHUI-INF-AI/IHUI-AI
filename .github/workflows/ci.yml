@@ -36,6 +36,7 @@ jobs:
   # 见 scripts/check-ci-failure-triage-wiring.mjs W4:无 id 步骤只报数)。
   preflight-watermark:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -45,6 +46,7 @@ jobs:
 
   preflight-conflict-markers:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -67,6 +69,7 @@ jobs:
   # 满足保护,那才是真洞:见 scripts/check-ci-failure-triage-wiring.mjs 同族的"绿而无结论"型)。
   gate-analyse:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -248,6 +251,7 @@ jobs:
   #   本门一律不使用 continue-on-error / `|| true`(一条吞掉退出码的步骤等于没有该步骤)。
   gate-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -326,6 +330,7 @@ jobs:
   # 分片把"包之间"的并行度交给 runner,而不是靠单机超配。
   gate-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # 分片号走 job 级 env 而不是在 `run:` 里直接写 `${{ matrix.shard }}`:
     # 失败分诊(scripts/ci-failure-triage.sh)会把失败步骤的 `run:` 原样重跑一遍,
     # 而它拿不到 GitHub 的表达式展开 —— 实测 run 41567631871 的 shard 3 分诊因此报
@@ -389,6 +394,7 @@ jobs:
     needs: [gate-build, gate-analyse, gate-test]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -423,6 +429,7 @@ jobs:
 
   python-ai-service:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/ai-service
@@ -448,29 +455,28 @@ jobs:
 
       - name: Install dependencies
         id: install-deps
-        run: uv pip install --system -e ".[dev]" || echo "依赖安装失败(可能缺少可选依赖,跳过)"
+        # BUG-44:去掉 `|| echo` 吞错,装不上依赖即该步失败 ⇒ job 判红。
+        run: uv pip install --system -e ".[dev]"
 
-      # 装没装上问产物,不问退出码:上面那行 `|| echo` 会把"环境根本没搭起来"读成绿灯,
-      # 于是后面每一步都在未安装的环境上跑,失败看起来像代码 bug(归因被搬走比红灯更贵)。
-      #
-      # 为什么本格先只做可闻化(observe 档)而不直接判红:现读证据取不到"今天到底装上了没"。
-      # 本 job 的步骤只有 Install dependencies / Syntax check 两条,后者不需要 dev extra,
-      # 而前者的 step conclusion=success 是**被 `|| echo` 吃出来的**(completed run 41257612029
-      # 取证:job=python-ai-service conclusion=success,全 job 没有任何跑 pytest 的步骤)。
-      # 拿一个量不到的读数当"存量已归零"直接把 blocking 装上,就是 §12e 禁止的恒红门形状。
-      #
-      # 升 blocking 的出口(明确、可执行):下一次 CI 读到 notice(dev extra 真在位)之后,
-      # 把本步改成 `python -c "import pytest"` 单命令即红。两条分支各留一条可见信号,
-      # 不写"什么都不响"的那一格。
-      - name: Probe dev extra(observe 档,不阻断)
+      - name: Verify dev extra (blocking)
         id: probe-dev-extra
+        # BUG-44:原 observe 档两条分支都 exit 0,结构上不可能红。改为单命令断言,
+        # pytest 不可 import 即该步失败(与 ci-monorepo.yml 的 test-python 同款前置)。
+        run: python -c "import pytest"
+
+      - name: Pytest (离线单测子集)
+        id: pytest
+        # BUG-44:补真跑测试的步(此前全 job 无任何 pytest 步骤,CI 账面绿而 ai-service 从未被验证)。
+        # 命令与 ci-monorepo.yml 的 test-python 对齐,排除真网/端到端集成测试。
         run: |
-          if python -c "import pytest"; then
-            echo "::notice::dev extra 在位(pytest 可 import)—— 本步可升 blocking"
-          else
-            echo "::warning::dev extra 没装上:上一步的 || echo 把安装失败吃掉了,本步之后的 python 步骤都在未安装的环境上跑"
-            exit 0
-          fi
+          pytest -m "not network" \
+            --ignore=tests/test_configure_automation_task_real.py \
+            --ignore=tests/test_knowledge_lookup_g6_e2e.py \
+            --ignore=tests/test_mcp_oauth_authorization_code_e2e.py \
+            --ignore=tests/test_mcp_streamable_http_e2e.py \
+            --ignore=tests/test_native_fc_e2e_real.py \
+            --ignore=tests/test_tool_loop_e2e.py \
+            --basetemp "$RUNNER_TEMP/ihui-pytest_tmp"
 
       - name: Syntax check
         id: syntax-check
@@ -486,17 +492,19 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/ci.yml
-          TRIAGE_IDS: checkout setup-python install-uv install-deps probe-dev-extra syntax-check
+          TRIAGE_IDS: checkout setup-python install-uv install-deps probe-dev-extra pytest syntax-check
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_PYTHON: ${{ steps.setup-python.outcome }}
           O_INSTALL_UV: ${{ steps.install-uv.outcome }}
           O_INSTALL_DEPS: ${{ steps.install-deps.outcome }}
           O_PROBE_DEV_EXTRA: ${{ steps.probe-dev-extra.outcome }}
+          O_PYTEST: ${{ steps.pytest.outcome }}
           O_SYNTAX_CHECK: ${{ steps.syntax-check.outcome }}
         run: cd ../../ && bash scripts/ci-failure-triage.sh
 
   ai-service-schema-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       postgres:

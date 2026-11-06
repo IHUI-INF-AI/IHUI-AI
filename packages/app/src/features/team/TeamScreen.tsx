@@ -554,9 +554,13 @@ function TeamTreeSection({
             <Pressable
               onPress={onRetryTree}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.treeRetryBtn, pressed && styles.treeRetryBtnPressed]}
+              style={styles.treeRetryBtn}
             >
-              <Text style={styles.treeRetryText}>{t('distribution.treeRetry')}</Text>
+              {({ pressed }) => (
+                <Text style={[styles.treeRetryText, pressed && styles.treeRetryBtnPressed]}>
+                  {t('distribution.treeRetry')}
+                </Text>
+              )}
             </Pressable>
           ) : null}
         </View>

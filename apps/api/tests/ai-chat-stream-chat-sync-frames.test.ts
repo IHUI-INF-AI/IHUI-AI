@@ -136,12 +136,16 @@ vi.mock('../src/services/repo-wiki-context.js', () => ({
 vi.mock('../src/services/knowledge-chat-context.js', () => ({
   loadKnowledgeContext: vi.fn().mockResolvedValue(null),
 }))
-vi.mock('@ihui/shared', () => ({
-  toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
-  redactSecrets: vi.fn((s: string) => s),
-  redactUserHomePaths: vi.fn((s: string) => s),
-  redactUserHomePathLiterals: vi.fn((s: string) => s),
-}))
+vi.mock('@ihui/shared', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    toUserFriendlyMessage: vi.fn((e: unknown) => (e instanceof Error ? e.message : 'error')),
+    redactSecrets: vi.fn((s: string) => s),
+    redactUserHomePaths: vi.fn((s: string) => s),
+    redactUserHomePathLiterals: vi.fn((s: string) => s),
+  }
+})
 
 import {
   aiChatStreamRoutes,

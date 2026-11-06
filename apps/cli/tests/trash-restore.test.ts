@@ -86,6 +86,24 @@ describe('① 正例:删→列→恢复,内容逐字节回来', () => {
 });
 
 describe('② 反例:具名拒绝且断言副作用没发生', () => {
+  it('原路径读不到时不说成不存在,也不把回收件盖回去', () => {
+    const target = path.join(ws, 'keep.txt');
+    fs.writeFileSync(target, 'original', 'utf-8');
+    recycleDeleteSingleFile(ws, target);
+    fs.writeFileSync(target, 'LIVE-DIFFERENT', 'utf-8');
+    const row = listTrash(ws).rows[0]!;
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const r = restoreFromTrash(ws, row.trashId, 'keep.txt', denied);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/读不到/);
+    expect(fs.readFileSync(target, 'utf-8')).toBe('LIVE-DIFFERENT');
+    expect(fs.existsSync(path.join(trashDirOf(row.trashId), row.relativeTrashPath))).toBe(true);
+  });
+
   it('目标已存在 ⇒ target-exists,现网内容一字未动,回收件仍在', () => {
     const target = path.join(ws, 'keep.txt');
     fs.writeFileSync(target, 'original', 'utf-8');

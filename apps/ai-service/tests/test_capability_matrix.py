@@ -63,7 +63,8 @@ def test_current_reads_env_live(monkeypatch):
 
     monkeypatch.delenv("AGENT_BUDGET_ENABLED", raising=False)
     row = next(r for r in get_capability_matrix() if r["env"] == "AGENT_BUDGET_ENABLED")
-    assert row["current"] == "false", "env 未设置时 current 应回落到登记的 default"
+    # 批次 3:成本护栏默认开(台账 default 同步改为 true),未设置 env 时应回落 true。
+    assert row["current"] == "true", "env 未设置时 current 应回落到登记的 default"
 
 
 def test_compaction_marked_canary_not_defect():

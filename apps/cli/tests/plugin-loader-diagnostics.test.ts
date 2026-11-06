@@ -14,6 +14,7 @@ import {
   type PluginDiagnostic,
   type PluginDiagnosticCode,
 } from '../src/plugins/index.js';
+import { findManifestInDir } from '../src/plugins/manifest-scan.js';
 
 /**
  * G-683 — 坏清单不得静默吞。
@@ -213,6 +214,19 @@ describe('G-683 坏清单装载诊断:被跳过必须报名', () => {
     expect(exactlyOne(result.diagnostics).code).toBe('manifest-json-invalid');
   });
 
+  it('插件目录读不到时不说成没有插件', () => {
+    const result = loadPluginsWithDiagnostics({
+      pluginsDir: root,
+      stat: () => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      },
+    });
+    expect(result.plugins).toEqual([]);
+    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics[0]?.code).toBe('manifest-unexpected-error');
+    expect(result.diagnostics[0]?.message).toContain('denied');
+  });
+
   it('pluginsDir 不存在 / 不是目录 ⇒ 空集合且零诊断(不存在是常态,不造假噪声)', () => {
     const missing = loadPluginsWithDiagnostics({ pluginsDir: path.join(root, 'no-such-dir') });
     expect(missing).toEqual({ plugins: [], diagnostics: [] });
@@ -241,6 +255,38 @@ describe('G-683 坏清单装载诊断:被跳过必须报名', () => {
       expect(diagnostic.file.length).toBeGreaterThan(0);
       expect(diagnostic.message.length).toBeGreaterThan(0);
     }
+  });
+
+  it('findManifestInDir：plugin.json 因 EACCES 读不到时不能改用下一份', () => {
+    const dir = pluginDir('unreadable-primary');
+    const primaryFile = writeManifest(dir, 'PRIMARY', 'plugin.json');
+    const fallbackFile = writeManifest(dir, 'FALLBACK', 'plugin.config.json');
+    const stat = (target: string): fs.Stats => {
+      if (path.basename(target) === 'plugin.json') {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      }
+      return fs.statSync(target);
+    };
+
+    const lookup = findManifestInDir(dir, stat);
+
+    expect(lookup.primary).toBeNull();
+    expect(lookup.primary).not.toBe(fallbackFile);
+    const unread = lookup.diagnostics.find((d) => d.code === 'manifest-unreadable');
+    expect(unread?.file).toBe(primaryFile);
+    expect(unread?.message).toContain('读不到');
+    expect(unread?.message).toContain('不能改用下一份');
+    expect(fs.readFileSync(primaryFile, 'utf-8')).toBe('PRIMARY');
+    expect(fs.readFileSync(fallbackFile, 'utf-8')).toBe('FALLBACK');
+  });
+
+  it('findManifestInDir：只有 plugin.config.json 时仍被选中', () => {
+    const dir = pluginDir('config-only');
+    const fallbackFile = writeManifest(dir, 'FALLBACK', 'plugin.config.json');
+
+    expect(findManifestInDir(dir).primary).toBe(fallbackFile);
+    expect(findManifestInDir(dir, undefined)).toEqual({ primary: fallbackFile, diagnostics: [] });
+    expect(fs.readFileSync(fallbackFile, 'utf-8')).toBe('FALLBACK');
   });
 
   it('G-684 要求:环依赖有专属判别码,不复用同名歧义的码', () => {

@@ -400,6 +400,46 @@ def _route_block_images_fonts(route: Any) -> None:
         route.continue_()
 
 
+def _screenshot_html_sync(html_content: str) -> str:
+    """同步:把 HTML 字符串渲染成 PNG 的 base64(无 data: 前缀)。
+
+    走与 _take_screenshot_sync 同一个专属 sync_executor 线程(Playwright sync API
+    有 greenlet 线程亲和性),因此只应由 screenshot_html_to_base64 提交执行。
+    """
+    browser = _get_browser_sync()
+    context = browser.new_context(
+        viewport={"width": 1280, "height": 720},
+        locale="zh-CN",
+        timezone_id="Asia/Shanghai",
+    )
+    context.route("**/*", _route_block_images_fonts)  # 含逐跳 SSRF guard + 拦图片/字体
+    page = context.new_page()
+    try:
+        page.set_content(html_content, wait_until="load", timeout=15000)
+        shot = page.screenshot(type="png")
+        return base64.b64encode(shot).decode("ascii")
+    finally:
+        page.close()
+        context.close()
+
+
+def screenshot_html_to_base64(html_content: str) -> str | None:
+    """把 HTML 内容渲染成 PNG base64 字符串(BUG-35:补齐被引用的函数)。
+
+    routers/ai_skills.py 的 _try_screenshot_html 原本 getattr 这个名字,但本模块
+    从未实现 ⇒ 恒 None ⇒ HTML 缩略图增强整体静默失效。这里用真实能力组合实现:
+    单例 sync Browser + page.set_content + page.screenshot,钉在专属 sync_executor
+    线程执行(与 take_screenshot 同款线程亲和策略),失败返回 None 由调用方降级。
+    """
+    if not html_content or not html_content.strip():
+        return None
+    try:
+        return sync_executor.submit(_screenshot_html_sync, html_content).result(timeout=20)
+    except Exception as e:  # noqa: BLE001 - 降级为无缩略图,不影响主流程
+        logger.warning("[screenshot_service] HTML 截图失败: %s: %s", type(e).__name__, e)
+        return None
+
+
 # === async wrapper(供 FastAPI 路由调用)===
 
 

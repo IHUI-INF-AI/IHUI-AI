@@ -418,12 +418,21 @@ test('T4 防覆盖护栏:目标路径在基线与当下 HEAD 之间被别人改�
   )
 })
 
-test('T5 声明无差异 ⇒ 事先拒绝(提交面回读永远证不了"改了它")', (t) => {
+test('T5 声明无差异(整片)⇒ 无需落地档 rc=3 + 逐条举证,绝不与 0 共用;部分无差异仍 rc=1(S-OSL-PROOF 契约更正)', (t) => {
   const dir = makeRepo(t)
   const before = git(['rev-parse', 'HEAD'], { root: dir })
   const r = runLand(dir, { paths: 'a.txt', msg: 'chore: no-op' }) // 盘上 a.txt == HEAD 的 v1
-  assert.equal(r.status, 1)
-  assert.match(r.stderr, /逐字节相同|无差异/)
+  assert.equal(r.status, 3, `整片无差异必须走"无需落地"档 rc=3,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.match(out, /NOTHING-TO-LAND/, `必须点名无需落地,现读:${out.slice(0, 400)}`)
+  assert.match(out, /逐字节相同/, `必须逐条举证 blob 等值,现读:${out.slice(0, 400)}`)
+  assert.match(out, /baseRef=HEAD=[0-9a-f]{40}/, `举证必须带基线全量 sha,现读:${out.slice(0, 400)}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '无需落地档不得推进 HEAD')
+  // 反向对照:同一声明里掺一条真有差异的路径 ⇒ 仍是"业务拒绝(1)",本档不得吞掉它
+  writeFileSync(join(dir, 'sub', 'keep.txt'), 'keep v2(本次真改)\n')
+  const r2 = runLand(dir, { paths: 'a.txt;sub/keep.txt', msg: 'chore: partial no-op' })
+  assert.equal(r2.status, 1, `部分无差异必须照旧 rc=1,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`)
+  assert.match((r2.stderr || '') + (r2.stdout || ''), /逐字节相同|无差异/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before)
 })
 
@@ -3429,4 +3438,182 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
   const out = (r.stderr || '') + (r.stdout || '')
   assert.match(out, /消失|丢/, `必须把"丢"讲明白,现读:${out.slice(0, 800)}`)
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
+})
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * S-OSL-PROOF(2026-11-06)落地自证三档:票面要求"用注入假执行的镜像用例钉住三件事"——
+ *   ① rc=0 但 HEAD 未推进 ⇒ 必须非零退出;② 落地成功必须打印并校验 40 位 sha;
+ *   ③ 无需落地必须带举证文案。
+ * 判据一律 import 源脚本的 __test__ 出口(§22c),不在测试里复制第二份实现;
+ * 端到端那几枚走 mkScratch 临时私有索引仓(§15c:夹具不落仓库树内、绝不推真 ref)。
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+const SELF_HREF = new URL('../object-space-land.mjs', import.meta.url).href
+const FULL40 = /^LANDED ([0-9a-f]{40})$/m
+
+test('T-PF-1 注入假执行:judgeLandedProof 三态不并桶(HEAD 未推进/问不到/无 40 位 sha 一律非 0)', () => {
+  const { judgeLandedProof, RC } = __test__
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  // 正向:逐字等值 ⇒ 0,且打印的必须是那枚全量 sha
+  const ok = judgeLandedProof({ createdSha: A, headAfter: A, parentSha: B })
+  assert.equal(ok.ok, true, `等值必须判绿:${JSON.stringify(ok)}`)
+  assert.equal(ok.code, RC.LANDED)
+  assert.equal(ok.line, `LANDED ${A}`)
+  // 反向①:本轮造出 sha,HEAD 却没推进到它(且不在 HEAD 历史里)⇒ 必须非零,两个 sha 逐字点名
+  const drift = judgeLandedProof({ createdSha: A, headAfter: B, parentSha: B, headContainsMade: false })
+  assert.equal(drift.ok, false, 'HEAD 未推进到本轮 sha 却记绿 ⇒ 正是空跑被读成落地那一型')
+  assert.equal(drift.code, RC.UNJUDGED)
+  assert.match(drift.why, new RegExp(A))
+  assert.match(drift.why, new RegExp(B))
+  // 反向①b:两者不等且祖先性**问不到** ⇒ 未判定(不记绿也不冒红),不得折成"已落地"
+  for (const anc of [null, undefined]) {
+    const u = judgeLandedProof({ createdSha: A, headAfter: B, headContainsMade: anc })
+    assert.equal(u.ok, false, `祖先判定为 ${JSON.stringify(anc)} 时不得记绿`)
+    assert.equal(u.code, RC.UNJUDGED)
+    assert.match(u.why, /未判定|问不到/)
+  }
+  // 合法前向①c:CAS 之后本器补跑的台账自愈可能再建一枚前向提交 ⇒ 本轮 sha 在 HEAD 历史里
+  // 仍是 0,但必须把 HEAD_NOW 点名(绿的含义是"本轮 sha 已入库",不是"HEAD 停在它")。
+  const fwd = judgeLandedProof({ createdSha: A, headAfter: B, headContainsMade: true })
+  assert.equal(fwd.ok, true, `前向推进不得恒红(§12e):${JSON.stringify(fwd)}`)
+  assert.equal(fwd.code, RC.LANDED)
+  assert.equal(fwd.line, `LANDED ${A}`)
+  assert.equal(fwd.forward, true)
+  assert.equal(fwd.headNow, B)
+  // 反向②:回读问不到 ⇒ 未判定(不记绿,也不冒充"缺路径")
+  for (const got of [null, undefined, ''])
+    assert.equal(
+      judgeLandedProof({ createdSha: A, headAfter: got }).code,
+      RC.UNJUDGED,
+      `HEAD 回读取不到(${JSON.stringify(got)})必须按未判定,不得折成"已落地"`,
+    )
+  // 反向③:拿不出一枚 40 位提交 sha ⇒ 落地根本没发生,不得冒 0
+  for (const made of ['', null, undefined, A.slice(0, 9)])
+    assert.equal(
+      judgeLandedProof({ createdSha: made, headAfter: A }).code,
+      RC.UNJUDGED,
+      `短/空 sha(${JSON.stringify(made)})不构成落地凭据(§1 证据指针:短 sha 腐烂率 30.2%)`,
+    )
+})
+
+test('T-PF-2 注入假执行:judgeNothingToLand 只在整片落空时点火,并交出逐条举证文案', () => {
+  const { judgeNothingToLand, RC } = __test__
+  const oidA = 'a'.repeat(40)
+  const oidB = 'b'.repeat(40)
+  const noop = judgeNothingToLand({
+    paths: ['a.txt'],
+    removePaths: [],
+    mine: new Map([['a.txt', oidA]]),
+    base: new Map([['a.txt', oidA]]),
+    noDiff: ['a.txt'],
+    removeInBase: [],
+    baseRef: 'HEAD',
+    baseSha: oidB,
+  })
+  assert.equal(noop.noop, true, JSON.stringify(noop))
+  assert.equal(noop.evidence.length, 1)
+  assert.match(noop.evidence[0], new RegExp(oidA))
+  assert.match(noop.evidence[0], /逐字节相同/)
+  assert.match(noop.rerun, /baseRef=HEAD=/)
+  assert.notEqual(RC.NOTHING_TO_LAND, RC.LANDED, '无需落地档不得复用 0 那一档')
+  // 反向:只要还有一条真有差异 ⇒ 不点火,交回原本的业务拒绝
+  const partial = judgeNothingToLand({
+    paths: ['a.txt', 'c.txt'],
+    removePaths: [],
+    mine: new Map([['a.txt', oidA], ['c.txt', oidB]]),
+    base: new Map([['a.txt', oidA], ['c.txt', oidA]]),
+    noDiff: ['a.txt'],
+    removeInBase: [],
+    baseRef: 'HEAD',
+    baseSha: oidB,
+  })
+  assert.equal(partial.noop, false, '部分无差异被折成"无需落地"就是把该落的放行')
+  // 反向:待摘除路径仍在基线树里 ⇒ 有活要干,不点火
+  assert.equal(
+    judgeNothingToLand({
+      paths: [],
+      removePaths: ['gone.txt'],
+      mine: new Map(),
+      base: new Map(),
+      noDiff: [],
+      removeInBase: ['gone.txt'],
+      baseRef: 'HEAD',
+      baseSha: oidB,
+    }).noop,
+    false,
+    '还有东西要摘时不得判成无需落地',
+  )
+  // 反向:声明面为空不在本档射程(由 parseArgs 的清单守卫负责),不得冒充"无需落地"
+  assert.equal(
+    judgeNothingToLand({ paths: [], removePaths: [], noDiff: [], removeInBase: [] }).noop,
+    false,
+  )
+})
+
+test('T-PF-3 端到端正控:真落地必须打印 LANDED <40 位 sha>,且 rev-parse HEAD 逐字等于它', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'a.txt'), 'v1(本次真改)\n')
+  const r = runLand(dir, { paths: 'a.txt', msg: 'chore: landed proof' })
+  assert.equal(r.status, 0, `正控必须落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const m = r.stdout.match(FULL40)
+  assert.ok(m, `stdout 必须有一行整条 LANDED <40 位 sha>,现读:${String(r.stdout).slice(-600)}`)
+  assert.equal(
+    git(['rev-parse', 'HEAD'], { root: dir }).trim(),
+    m[1],
+    '打印的 LANDED 必须就是回读到的 HEAD',
+  )
+})
+
+test('T-PF-4 端到端反向:带完整落地基约却没被认成直接执行 ⇒ 非零 + 点名"一个字节都没落地"(旧形态是静默 rc=0)', (t) => {
+  const dir = makeRepo(t)
+  const head = git(['rev-parse', 'HEAD'], { root: dir }).trim()
+  // 假执行面:以 import 形态调用本器(与 2026-11-06 事故那一支同形 —— argv[1] 不是本文件)
+  const r = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(SELF_HREF)})`], {
+    ...runOpts,
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: 'a.txt',
+      LAND_MSG: 'chore: silent zero must shout',
+    },
+  })
+  assert.notEqual(r.status, 0, `空跑却回 0 = 把"没发生"报成"发生过":${r.stdout}|${r.stderr}`)
+  assert.match(
+    (r.stderr || '') + (r.stdout || ''),
+    /一个字节都没落地/,
+    `必须点名什么都没落地,现读:${(r.stderr || '') + (r.stdout || '')}`,
+  )
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }).trim(), head, '空跑不得动 HEAD')
+  // 正向对照(两臂成对):不带落地基约的纯 import 必须仍然零副作用、仍然 rc=0 且不出声
+  // —— 镜像测试就是这么 import 本器的,把它一并拦死等于拆掉测试面。
+  const bareEnv = { ...process.env, LAND_ROOT: dir }
+  delete bareEnv.LAND_PATHS
+  delete bareEnv.LAND_REMOVE_PATHS
+  delete bareEnv.LAND_MSG
+  const bare = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(SELF_HREF)})`], {
+    ...runOpts,
+    env: bareEnv,
+  })
+  assert.equal(bare.status, 0, `纯 import 不得被拦:${bare.stderr}`)
+  assert.equal((bare.stdout || '').trim(), '', `纯 import 不该出声:${bare.stdout}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }).trim(), head)
+})
+
+test('T-PF-5 looksLikeLandingContract 纯函数面:齐备才算"想落地",半边缺不算', () => {
+  const { looksLikeLandingContract } = __test__
+  assert.equal(looksLikeLandingContract({ LAND_PATHS: 'a.txt', LAND_MSG: 'chore: x' }), true)
+  assert.equal(
+    looksLikeLandingContract({ LAND_REMOVE_PATHS: '  a.txt ', LAND_MSG: 'chore: x' }),
+    true,
+    '纯删除也是合法的落地基约(与"想落地"同义)',
+  )
+  assert.equal(looksLikeLandingContract({ LAND_PATHS: 'a.txt' }), false, '缺 LAND_MSG 不构成基约')
+  assert.equal(looksLikeLandingContract({ LAND_MSG: 'chore: x' }), false, '缺清单不构成基约')
+  assert.equal(
+    looksLikeLandingContract({ LAND_PATHS: '  ;  ', LAND_MSG: 'chore: x' }),
+    false,
+    '空/纯分隔符的清单不构成基约',
+  )
+  assert.equal(looksLikeLandingContract({}), false, '裸 env 不得被认成落地意图(测试面 import)')
 })

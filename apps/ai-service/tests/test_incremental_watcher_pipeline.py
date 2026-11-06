@@ -165,6 +165,19 @@ async def test_deleted_file_purged_from_index(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_unreadable_root_does_not_enter_incremental_delete(tmp_path, monkeypatch):
+    (tmp_path / "keep.py").write_text("keep\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "app.services.codebase_incremental_index.classify_fs_path",
+        lambda _path: "unread",
+    )
+    idx = CodebaseIndexer.__new__(CodebaseIndexer)
+    result = await index_changed_paths(idx, str(tmp_path), [str(tmp_path / "keep.py")])
+    assert any("读不到" in err for err in result.errors)
+    assert (tmp_path / "keep.py").read_text(encoding="utf-8") == "keep\n"
+
+
+@pytest.mark.asyncio
 async def test_empty_and_malformed_batch_are_undetermined(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()

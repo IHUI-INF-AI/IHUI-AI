@@ -21,7 +21,6 @@ import { PluginRegistry } from '../src/plugins/registry.js';
 import {
   EXTENSION_DECLARATION_KEYS,
   EXTENSION_SUMMARY_GETTERS,
-  collectExtensions,
 } from '../src/plugins/plugin-extensions.js';
 
 const registrySource = readFileSync(new URL('../src/plugins/registry.ts', import.meta.url), 'utf-8');

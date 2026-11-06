@@ -18,7 +18,7 @@ import { QrCode } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import {
   checkPaymentStatus,
-  createOrder,
+  fetchApi,
   createWechatAppPayment,
   getMembershipInfo,
   getVipLevels,
@@ -56,6 +56,20 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  * 契约 VipLevelItem2.benefits 已同步收成 string[] ⇒ 端内在此归一。取不到/非数组一律返回空,
  * 共享屏按「无权益数据」处理,不造词。
  */
+/**
+ * BUG-64:后端 POST /api/orders 的 createOrderSchema 必填 `orderType`(z.string()),
+ * 且 resolveOrderAmount 对 orderType='2' 反查 VIP 等级真实价格(不传金额时由服务端补齐)。
+ * packages/api-client 的 createOrder 入参是 `type: OrderType` 且直接 JSON.stringify 成 body,
+ * 字段名与值都与后端不符(旧调用 createOrder({type:'vip'}) 必 400)。
+ * 该共享端点属本组范围外(见「范围外待转派」),故本屏按后端契约直接下单。
+ */
+function createVipOrder(targetId: string) {
+  return fetchApi<{ orderNo: string; payAmount: number }>('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({ orderType: '2', targetId }),
+  })
+}
+
 function normalizeBenefits(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const out: string[] = []

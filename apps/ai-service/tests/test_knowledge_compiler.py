@@ -13,12 +13,15 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from app.services.knowledge_compiler import (
+    KnowledgeCardsUnread,
     compile_project,
     load_active_cards,
     select_relevant_cards,
@@ -194,6 +197,27 @@ async def test_dry_run_writes_nothing(tmp_path):
 # =============================================================================
 # 辅助面:slug / 命中选卡
 # =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_unreadable_cards_are_not_overwritten(tmp_path, monkeypatch):
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    await compile_project("proj-a", ws, sources=_sources())
+    cards_path = ws / ".ihui" / "knowledge" / "cards" / "proj-a.json"
+    original = cards_path.read_bytes()
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(cards_path):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    with pytest.raises(KnowledgeCardsUnread, match="读不到"):
+        await compile_project("proj-a", ws, sources=_sources())
+    monkeypatch.undo()
+    assert cards_path.read_bytes() == original
 
 
 def test_slugify_rules():

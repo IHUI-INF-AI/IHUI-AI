@@ -33,7 +33,10 @@ const QUICK_AMOUNTS = [50, 100, 200, 500, 1000, 2000] as const
 const MIN_YUAN = 1,
   MAX_YUAN = 50000,
   DEFAULT_YUAN = 100,
-  POLL_INTERVAL_MS = 3000
+  POLL_INTERVAL_MS = 3000,
+  // BUG-41④:支付轮询必须有上限(对齐同端 PayResultScreen 的 MAX_POLL_COUNT),
+  // 否则未支付时 pollTimer 会一直跑到页面卸载,长期占用请求与定时器。
+  MAX_POLL_COUNT = 30
 /**
  * 购买中枢 —— 对齐 web `/purchase`(订阅套餐 + 账户充值双 Tab)。
  * 订阅(apps/api/src/routes/developer-relay.ts):
@@ -155,7 +158,16 @@ export default function PurchaseScreen() {
 
   const startPolling = (outTradeNo: string) => {
     if (pollTimer.current) clearInterval(pollTimer.current)
+    // BUG-41④:设最大轮询次数(对齐 PayResultScreen.MAX_POLL_COUNT),超限停表,
+    // 避免未支付订单把定时器与请求无限占着(页面不卸载就永不停止)。
+    let pollCount = 0
     pollTimer.current = setInterval(async () => {
+      pollCount += 1
+      if (pollCount > MAX_POLL_COUNT) {
+        if (pollTimer.current) clearInterval(pollTimer.current)
+        pollTimer.current = null
+        return
+      }
       try {
         const res = await fetchApi<{ status: string }>(
           `/api/payments/wechat/status/${encodeURIComponent(outTradeNo)}`,

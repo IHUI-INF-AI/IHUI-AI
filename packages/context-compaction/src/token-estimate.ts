@@ -42,7 +42,7 @@ export const MESSAGE_OVERHEAD_TOKENS = 4
 export const TOOL_CALL_OVERHEAD_TOKENS = 4
 /** 多模态图片占位估算(每张图按 OpenAI low-detail ~85 tokens、high-detail ~170 tokens 的中位值取整);
  *  对超大 base64 数据 URI,避免对整段 base64 做 BPE(慢且虚高) */
-export const IMAGE_TOKEN_PLACEHOLDER = 1200
+export const IMAGE_TOKEN_PLACEHOLDER = 128
 
 /** data:image/...;base64,XXX 多模态图片占位正则(全局) */
 const DATA_IMAGE_RE = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+/g

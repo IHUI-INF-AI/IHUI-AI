@@ -78,6 +78,9 @@ export const chatConversations = pgTable(
     // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
     // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
     shareToken: varchar('share_token', { length: 32 }).unique(),
+    // BUG-50:分享链接过期时间。此前分享链接永不过期且无撤销入口,任何拿到 token 的人可永久查看。
+    // 设为 NULL = 无过期(仅用于历史存量兼容,迁移已统一回填为有限期);新建分享必带有限期。
+    shareTokenExpiresAt: timestamp('share_token_expires_at', { withTimezone: true }),
     // D35(2026-09-24 立):长会话历史投影状态(对标 Codex thread_history_projection_state)。
     // null = 尚未投影过;形态 { nextRolloutByteOffset, nextRolloutOrdinal, lastRolledAt }:
     // nextRolloutByteOffset 为增量回放的字节断点(流式续读),nextRolloutOrdinal 为

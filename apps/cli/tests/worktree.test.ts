@@ -36,9 +36,11 @@ import {
   DEFAULT_WORKTREE_DIR,
   getDefaultWorktreeRoot,
   cleanupWorktree,
+  removeIsolatedWorktree,
 } from '../src/tools/worktree.js'
+import { cleanupStaleWorktrees, measuredPruneCount, planStaleBranchDeletes } from '../src/tools/worktree-state.js'
 // subagent 版 getDefaultWorktreeRoot(读 IHUI_WORKTREE_DIR;与 tools 版同名不同物,别名导入)
-import { getDefaultWorktreeRoot as getSubagentWorktreeRoot } from '../src/subagents/worktree.js'
+import { getDefaultWorktreeRoot as getSubagentWorktreeRoot, pruneWorktrees as pruneSubagentWorktrees } from '../src/subagents/worktree.js'
 
 // 全文件均为真实 git 子进程 + 临时目录操作,并行全量跑时受机器负载影响大,
 // 15s 全局默认易误伤(实测孤儿检测用例高负载下超时重试 2 次仍失败)→ 文件级提升到 60s。
@@ -477,6 +479,67 @@ describe('removeWorktree', () => {
     const missing = path.join(tmpDir, 'never-existed')
     await expect(removeWorktree(missing)).resolves.toBeUndefined()
   })
+
+  it('确认目录时读不到,不摘注册', () => {
+    const wt = path.join(tmpDir, 'still-there')
+    fs.mkdirSync(wt)
+    fs.writeFileSync(path.join(wt, 'keep.txt'), 'keep\n', 'utf-8')
+    let pruned = 0
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const manager = {
+      remove: () => true,
+      prune: () => {
+        pruned += 1
+        return pruned
+      },
+    }
+    expect(() => removeIsolatedWorktree({
+      sourcePath: tmpDir,
+      agentId: 'still-there',
+      path: wt,
+      viaManager: true,
+      manager: manager as never,
+      force: true,
+      stat: () => { throw denied },
+    })).toThrow(/读不到/)
+    expect(pruned).toBe(0)
+    expect(fs.readFileSync(path.join(wt, 'keep.txt'), 'utf8')).toBe('keep\n')
+  })
+
+  it('目录确实不在才摘注册', () => {
+    let pruned = 0
+    const missing = new Error('missing') as NodeJS.ErrnoException
+    missing.code = 'ENOENT'
+    const manager = {
+      remove: () => false,
+      prune: () => {
+        pruned += 1
+        return 3
+      },
+    }
+    const result = removeIsolatedWorktree({
+      sourcePath: tmpDir,
+      agentId: 'gone',
+      path: path.join(tmpDir, 'gone'),
+      viaManager: true,
+      manager: manager as never,
+      force: true,
+      stat: () => { throw missing },
+    })
+    expect(pruned).toBe(1)
+    expect(result).toEqual({ removed: false, pruned: 3 })
+  })
+
+  it('读不到时不说成已经不在,也不删除', async () => {
+    const wt = path.join(tmpDir, 'blocked')
+    fs.mkdirSync(wt)
+    fs.writeFileSync(path.join(wt, 'keep.txt'), 'keep\n', 'utf-8')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    await expect(removeWorktree(wt, () => { throw denied })).rejects.toThrow(/读不到/)
+    expect(fs.readFileSync(path.join(wt, 'keep.txt'), 'utf8')).toBe('keep\n')
+  })
 })
 
 // ============ findGitRoot ============
@@ -704,6 +767,37 @@ describe('WorktreeManager.diff', () => {
   it('worktree 不存在时抛错', () => {
     const mgr = new WorktreeManager(repo)
     expect(() => mgr.diff('ghost')).toThrowError(/不存在/)
+  })
+})
+
+describe('隔离副本名单没读到', () => {
+  it('不把分支当成孤儿,也不报清理条数', () => {
+    expect(planStaleBranchDeletes({
+      worktreesListed: false,
+      liveBranches: [],
+      branchNames: ['agent-wt-abc'],
+    })).toEqual([])
+    expect(planStaleBranchDeletes({
+      worktreesListed: true,
+      liveBranches: ['agent-wt-live'],
+      branchNames: ['agent-wt-live', 'agent-wt-gone'],
+    })).toEqual(['agent-wt-gone'])
+    expect(measuredPruneCount(true, 5, false, 0, true)).toBeNull()
+    expect(measuredPruneCount(true, 3, true, 1, true)).toBe(2)
+  })
+
+  it('不是仓库时不说成没有隔离副本', () => {
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-unread-'))
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      expect(cleanupStaleWorktrees(bare)).toEqual({ pruned: 0, branchesDeleted: 0 })
+      expect(spy.mock.calls.map((call) => String(call[0])).join('')).toContain('不能把它说成没有隔离副本')
+      expect(pruneSubagentWorktrees(bare)).toBe(0)
+      expect(spy.mock.calls.map((call) => String(call[0])).join('')).toContain('不能把清理条数说成 0')
+    } finally {
+      spy.mockRestore()
+      fs.rmSync(bare, { recursive: true, force: true })
+    }
   })
 })
 

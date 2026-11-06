@@ -72,6 +72,25 @@ from .rg_fallback_parity import EnumerationProvenance
 
 logger = logging.getLogger(__name__)
 
+
+def classify_fs_path(path: Path) -> str:
+    """dir/file/other = 量到了; missing = 没有; unread = 读失败,不能说成没有。"""
+    import stat as _stat
+
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    if _stat.S_ISDIR(st.st_mode):
+        return "dir"
+    if _stat.S_ISREG(st.st_mode):
+        return "file"
+    return "other"
+
+
+
 # ---- anydoc 文档提取引擎(可选依赖)----
 # 文档格式(docx/doc/pdf/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub)为二进制容器,
 # 直接 read_text 会产生乱码切片;经 anydoc 抽取为 Markdown 后再入索引。
@@ -1392,7 +1411,13 @@ class CodebaseIndexer:
             IndexResult 统计信息。
         """
         root = Path(repo_path).resolve()
-        if not root.exists() or not root.is_dir():
+        root_kind = classify_fs_path(root)
+        if root_kind == "unread":
+            return IndexResult(
+                repo_id=repo_id or "",
+                errors=[f"仓库路径读不到,不能把它说成不存在或不是目录: {repo_path}"],
+            )
+        if root_kind != "dir":
             return IndexResult(
                 repo_id=repo_id or "",
                 errors=[f"仓库路径不存在或不是目录: {repo_path}"],
@@ -1516,6 +1541,19 @@ class CodebaseIndexer:
                 {"newPath": new_path, "oldPath": old_path}
                 for new_path, old_path in sorted(dir_diff.moved.items())
             ]
+        if incremental and (traversal_prov.unread_dirs or traversal_prov.saturated):
+            # 没列全的差集里,缺席的路径可能还在读不到的目录里,或在触顶之后。
+            # 拿它去删切片,等于把没量到说成已删除。
+            deleted_paths = []
+            if traversal_prov.unread_dirs:
+                result.errors.append(
+                    f"有 {traversal_prov.unread_dirs} 个目录读不到,"
+                    "不能把没列到的文件当成已删除,本轮跳过幽灵切片清理"
+                )
+            if traversal_prov.saturated:
+                result.errors.append(
+                    "枚举触顶,没列到的文件不能当成已删除,本轮跳过幽灵切片清理"
+                )
         if incremental and snapshot.state in (SNAPSHOT_STATE_CORRUPT, SNAPSHOT_STATE_TRUNCATED):
             # 坏档派生的"已删除集"不可信:宁可这一轮不清幽灵切片,也不拿一份自证失败的档
             # 去删活文件的切片。上一轮这条是安静退化成 prev={} 的,于是"没清理"被读成"清理完了"。
@@ -1691,7 +1729,13 @@ class CodebaseIndexer:
             internal_user_id: 内部用户 ID(写入向量化 chunk 时隔离归属)。
         """
         path = Path(file_path).resolve()
-        if not path.exists() or not path.is_file():
+        path_kind = classify_fs_path(path)
+        if path_kind == "unread":
+            return IndexResult(
+                repo_id=repo_id,
+                errors=[f"文件读不到,不能把它说成不存在: {file_path}"],
+            )
+        if path_kind != "file":
             return IndexResult(
                 repo_id=repo_id,
                 errors=[f"文件不存在: {file_path}"],

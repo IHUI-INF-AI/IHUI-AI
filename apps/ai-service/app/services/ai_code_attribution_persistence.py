@@ -123,6 +123,9 @@ class AiCodeAttributionStore:
 
     def _persist(self) -> None:
         """全量写回 JSON(原子写);失败保留内存数据,下次变更再试。"""
+        if not self._loaded:
+            logger.warning("ai_code_attribution 读不到,不能把它覆盖成新记录")
+            return
         write_json_atomic(self._file, self._records, indent=2)
 
     # ------------------------------------------------------------------

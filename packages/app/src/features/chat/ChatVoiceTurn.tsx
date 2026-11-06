@@ -213,6 +213,7 @@ export function ChatVoicePanel({
             <Text style={styles.panelTitle}>{t('chat.menuToVoice')}</Text>
             <TouchableOpacity
               style={styles.closeButton}
+              hitSlop={8}
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}

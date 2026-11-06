@@ -64,6 +64,22 @@ describe('文件编辑工具(临时工作区)', () => {
       expect(r.error).toContain('path');
     });
 
+    it('检查点没拍成仍写入,并在结果里说明', async () => {
+      const failing = {
+        workspacePath: workDir,
+        checkpoints: {
+          snapshotSync() {
+            throw new Error('检查点目录读不到');
+          },
+        },
+      } as ToolContext;
+      const tool = createWriteFileTool(failing);
+      const r = await tool.execute({ path: 'a.txt', content: 'hi' }, failing);
+      expect(r.success).toBe(true);
+      expect(fs.readFileSync(path.join(workDir, 'a.txt'), 'utf-8')).toBe('hi');
+      expect(r.output).toContain('自动检查点没有拍成: 检查点目录读不到');
+    });
+
     it('创建新文件并报告行数/字节数', async () => {
       const r = await writeTool.execute({ path: 'a.txt', content: 'hello\nworld' }, ctx);
       expect(r.success).toBe(true);
@@ -150,6 +166,7 @@ THREE
       const r = await deleteTool.execute({ path: 'no.txt' }, ctx);
       expect(r.success).toBe(false);
       expect(r.error).toContain('文件不存在');
+      expect(r.error).not.toContain('删除没有执行');
     });
 
     it('删除目录返回错误', async () => {

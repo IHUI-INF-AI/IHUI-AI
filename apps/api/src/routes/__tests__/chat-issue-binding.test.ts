@@ -96,6 +96,7 @@ const CONVERSATION_A = {
   pinned: false,
   pinnedAt: null,
   shareToken: null,
+  shareTokenExpiresAt: null,
   historyProjectionState: null,
   groupId: null,
 }

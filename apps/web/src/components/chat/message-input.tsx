@@ -315,11 +315,16 @@ export function MessageInput({
   // W27 升级:初始读取按当前 conversationId 对应的草稿 key
   // 2026-10-06(O59⑤):改走加密通道。桌面端值是密文、peekSync 恒返 null ⇒ 初值先空,
   // 由 usePromptDrafts 内部解密完成后一次性回填(机主拍板:不闪旧明文)。
-  const [value, setValue] = React.useState(() => {
-    if (typeof window === 'undefined') return ''
+  // BUG-27②:首帧确定值(空串),SSR/CSR 一致。草稿是客户端状态(localStorage),
+  // 不能在 useState 初始化函数里同步读 —— 浏览器明文路径 peekSync 直接返回真值,
+  // 会造成「SSR '' / CSR 草稿正文」首帧不一致、整块子树被丢弃重建。改由 useEffect
+  // 水合后回填(桌面端解密回填仍由 usePromptDrafts 负责)。
+  const [value, setValue] = React.useState('')
+  React.useEffect(() => {
     const convId = chatStore.getState().conversationId
-    return peekInitialDraft(convId ? `chat:draft:${convId}` : 'chat:draft')
-  })
+    const draft = peekInitialDraft(convId ? `chat:draft:${convId}` : 'chat:draft')
+    if (draft) setValue(draft)
+  }, [])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   // D68 统一多源建议面板:单一聚合入口(工具栏按钮),旧三浮层入口原样保留不回归。

@@ -27,7 +27,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { promises as fs, existsSync } from 'node:fs';
+import { promises as fs, statSync, type Stats } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 // D38 队列交互的编排判据唯一真相源(端内不得手写重排/编辑逻辑,§3 共享层优先)
@@ -317,7 +317,15 @@ export class PromptQueue extends EventEmitter {
    *
    * @param persistPath 持久化文件路径(默认 ~/.ihui/state/prompt-queue.json)
    */
-  async saveToDisk(persistPath: string = getDefaultPersistPath()): Promise<void> {
+  async saveToDisk(
+    persistPath: string = getDefaultPersistPath(),
+    stat: (path: string) => Stats = statSync,
+  ): Promise<void> {
+    try {
+      queuePresence(persistPath, stat);
+    } catch {
+      return;
+    }
     const pendingItems = this.items.filter((it) => it.status === 'pending');
     const payload: PersistFile = {
       version: 1,
@@ -351,13 +359,18 @@ export class PromptQueue extends EventEmitter {
    * @param persistPath 持久化文件路径(默认 ~/.ihui/state/prompt-queue.json)
    * @returns 加载的项数量
    */
-  async loadFromDisk(persistPath: string = getDefaultPersistPath()): Promise<number> {
-    if (!existsSync(persistPath)) return 0;
+  async loadFromDisk(
+    persistPath: string = getDefaultPersistPath(),
+    stat: (path: string) => Stats = statSync,
+  ): Promise<number> {
+    if (queuePresence(persistPath, stat) === 'missing') return 0;
     let parsed: PersistFile;
     try {
       const raw = await fs.readFile(persistPath, 'utf-8');
       parsed = JSON.parse(raw) as PersistFile;
-    } catch {
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code) throw new Error(`排队记录读不到,不能把它当成没有再删掉 (${code})`);
       // JSON 解析失败:文件损坏,删除后返回 0
       await fs.unlink(persistPath).catch(() => {});
       return 0;
@@ -396,14 +409,27 @@ export class PromptQueue extends EventEmitter {
    * 清理持久化文件(用户主动 clear 时调用)。
    * 文件不存在时不抛错。
    */
-  async clearDisk(persistPath: string = getDefaultPersistPath()): Promise<void> {
+  async clearDisk(
+    persistPath: string = getDefaultPersistPath(),
+    stat: (path: string) => Stats = statSync,
+  ): Promise<void> {
+    if (queuePresence(persistPath, stat) === 'missing') return;
     try {
-      if (existsSync(persistPath)) {
-        await fs.unlink(persistPath);
-      }
+      await fs.unlink(persistPath);
     } catch {
       // 删除失败静默
     }
+  }
+}
+
+function queuePresence(p: string, stat: (path: string) => Stats): 'missing' | 'present' {
+  try {
+    stat(p);
+    return 'present';
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    throw new Error(`排队记录读不到,不能把它当成没有 (${code ?? 'unknown'})`);
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

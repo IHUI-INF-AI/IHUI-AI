@@ -97,7 +97,7 @@ import { resolveSandboxOptions } from '../sandbox/index.js';
 import { resolveCliPermissionAxisFromSettings } from '../sandbox/permission-axis-runtime.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
-import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
+import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, measuredCompactRatio, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
 import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-compaction';
 // WP-2 三道有效性守卫的运行期装配 + WP-3 工具结果预算信封与已读状态跟踪
@@ -129,7 +129,7 @@ import { setSkillCatalog, resetLoadedSkills } from '../skills/session.js';
 import { SKILL_TOOLS } from '../tools/skill-tool.js';
 import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-boundary.js';
 import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
-import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
+import { loadMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, onHookRunEvent } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
@@ -343,11 +343,12 @@ export function readAgentsMd(workspacePath: string): string | undefined {
   const p = path.join(workspacePath, 'AGENTS.md');
   let content: string | undefined;
   try {
-    if (fs.existsSync(p)) {
-      content = fs.readFileSync(p, 'utf-8');
+    content = fs.readFileSync(p, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      console.info(chalk.yellow('AGENTS.md 读不到,不能把它说成仓库里没有'));
     }
-  } catch {
-    // 读取失败忽略(读不动 ⇒ 下面判据自然不派发)
   }
   if (content !== undefined && content.trim().length > 0) {
     void runHook('instructionsLoaded', { workspacePath, instructionsPath: p }).catch(() => {
@@ -600,13 +601,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   if (skills.length > 0 && !opts.silent) {
     console.info(chalk.dim(`  📚 已加载 ${skills.length} 个 skill(/skills 查看,/skill <name> 调用)`));
   }
-  const memory = loadMemory(opts.workspacePath);
-  if (memory.length > 0 && !opts.silent) {
-    console.info(chalk.dim(`  🧠 已加载 ${memory.length} 条 memory(/memory 查看)`));
+  const memoryPrompt = loadMemoryForPrompt(opts.workspacePath, 'session-start');
+  if (memoryPrompt.reasons.includes('text-unreadable') && !opts.silent) {
+    console.info(chalk.yellow('memory 读不到,不能把它说成没有条目'));
+  }
+  if (memoryPrompt.entryCount > 0 && !opts.silent) {
+    console.info(chalk.dim(`  🧠 已加载 ${memoryPrompt.entryCount} 条 memory(/memory 查看)`));
   }
   // G-427 接线:技能段广告按真实工具表门控(Skill 不在表内 ⇒ 整块不出)
   const skillsText = formatSkillsForPrompt(skills, { toolTable: tools.map((t) => t.name) });
-  const memoryText = formatMemoryForPrompt(memory);
+  const memoryText = memoryPrompt.text;
   // AGENTS.md / memory 是**用户仓库与磁盘上的第三方文本**,直接拼进 system prompt 等于让
   // 它们披宿主语气 —— 走登记出口的 reference_data 档(内部过 neutralizeBoundaries 剥冒充标签)。
   // 没有内容时**不记 skipped**:仓库无 AGENTS.md 是常态不是降级,记一行就等于每轮造假噪声
@@ -653,7 +657,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     permissionMode: opts.permissionMode,
   };
 
-  return { systemPrompt, ctx, skills, memory, pluginRegistry };
+  return { systemPrompt, ctx, skills, memory: memoryPrompt.entries, pluginRegistry };
 }
 
 export interface RunToolLoopOptions {
@@ -1651,7 +1655,7 @@ export async function decideCompaction(
       // 阈值时 fire-and-forget 预生成摘要缓存(复用同一 sampler 路径,产物与实时生成一致);
       // 88% 真压缩时命中缓存 → compressContextV2 零 LLM 调用,首响应零摘要阻塞。
       // P3-11 同构收敛:兜底阈值引用共享包单源(此前二次写死 0.88 造成漂移面)。
-      const triggerRatio = v2Config.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
+      const triggerRatio = measuredCompactRatio(v2Config.triggerRatio) ?? DEFAULT_TRIGGER_RATIO;
       const tokensBefore = estimateMessagesTokens(messages);
       const usageRatio = opts.contextLimit > 0 ? tokensBefore / opts.contextLimit : 0;
       if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBefore < Math.floor(opts.contextLimit * triggerRatio)) {
@@ -1668,7 +1672,10 @@ export async function decideCompaction(
       const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
       const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
-        triggerRatio: opts.triggerRatioOverride ?? v2Config.triggerRatio,
+        triggerRatio:
+          measuredCompactRatio(opts.triggerRatioOverride) ??
+          measuredCompactRatio(v2Config.triggerRatio) ??
+          DEFAULT_TRIGGER_RATIO,
         targetRatio: v2Config.targetRatio,
         samplingTimeoutMs: v2Config.samplingTimeoutMs,
         // G-815992 层1:非 Auto 触发只 1 次(不透传时 V2 走内建默认 3 次,即 Auto 档)
@@ -1695,7 +1702,9 @@ export async function decideCompaction(
   const v1Result = compressContextIfNeeded(messages, {
     contextLimit: opts.contextLimit,
     // /compact 手动压缩:伪造阈值 0.87 使 ceil(t/0.87)*0.87 的 floor 恰为 t,必然触发
-    ...(opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined ? { triggerRatio: opts.triggerRatioOverride } : {}),
+    ...(opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined
+      ? { triggerRatio: measuredCompactRatio(opts.triggerRatioOverride) ?? DEFAULT_TRIGGER_RATIO }
+      : {}),
   });
   return { ...v1Result, reason: v2AttemptFailed ? 'sampler-failed' : 'disabled' };
 }

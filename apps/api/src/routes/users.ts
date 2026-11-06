@@ -19,6 +19,7 @@ import {
   isSystemAdminUser,
   updateUser,
   mergeUserAccounts,
+  revokeAllUserRefreshTokens,
 } from '../db/queries.js'
 import { countFollowing, countFollowers, countFavorites } from '../db/social-queries.js'
 import { updateUserPassword } from '../db/usercenter-queries.js'
@@ -40,6 +41,8 @@ const updateSchema = z.object({
     .string()
     .regex(/^1[3-9]\d{9}$/, '手机号格式不正确')
     .optional(),
+  // BUG-6 根治:改绑 email/phone 属账号凭据变更,必须携带当前密码确认(对齐 auth.ts 的 PUT /api/auth/me)
+  currentPassword: z.string().min(1).max(200).optional(),
 })
 
 function publicUser(user: {
@@ -220,6 +223,23 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '系统内置管理员资料不可修改'))
     }
 
+    // BUG-6 根治:改绑手机/邮箱属账号凭据变更,必须携带当前密码二次确认。
+    // 仅本人改自己时要求(管理员改他人资料属授权操作,不需知道对方密码);
+    // 借临时会话(XSS/借机)静默改绑实现持久接管的链路在此被截断。
+    const isSelf = id === currentUserId
+    const changingIdentity =
+      (parsed.data.email !== undefined && parsed.data.email !== existing.email) ||
+      (parsed.data.phone !== undefined && parsed.data.phone !== existing.phone)
+    if (changingIdentity && isSelf) {
+      if (!parsed.data.currentPassword || !existing.passwordHash) {
+        return reply.status(403).send(error(403, '改绑手机/邮箱需要验证当前密码'))
+      }
+      const ok = await verifyPassword(parsed.data.currentPassword, existing.passwordHash)
+      if (!ok) {
+        return reply.status(403).send(error(403, '当前密码错误'))
+      }
+    }
+
     // 手机号唯一性校验:如改了手机号,确认新号未被其他用户占用
     if (parsed.data.phone && parsed.data.phone !== existing.phone) {
       const conflict = await findUserByPhone(parsed.data.phone)
@@ -228,7 +248,15 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    const updated = await updateUser(id, parsed.data)
+    // currentPassword 不入库,剥离后再写
+    const { currentPassword: _currentPassword, ...updateData } = parsed.data
+    void _currentPassword
+    const updated = await updateUser(id, updateData)
+    // BUG-6 根治:凭据变更后吊销全部 refresh token,迫使其他活跃会话重新认证,
+    // 阻断"改绑 → 验证码登录"的持久接管链。
+    if (changingIdentity) {
+      await revokeAllUserRefreshTokens(id)
+    }
     return reply.send(success({ user: publicUser(updated) }))
   })
 

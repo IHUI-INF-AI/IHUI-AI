@@ -23,9 +23,9 @@
  *
  * 用法:node scripts/check-sanitizer-bypass.mjs [--staged]
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { join, relative } from 'node:path'
-import { gitRaw } from './lib/face-reader.mjs'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { catBatch, gitRaw, Undetermined } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -60,52 +60,69 @@ const WHITELIST = new Set([
   'member-users.ts',
 ])
 
+/**
+ * 名单与内容**同面同轮**(BUG-20②,提交链 --staged 档):此前用 `git diff --cached`
+ * 划候选(索引面)、却 `readFileSync` 读工作树正文 ⇒ 暂存违规版本 + 工作树改回干净即可洗白。
+ * 现 --staged 一次 catBatch 读索引面 `:${p}`;全量档保持既有语义(列 tracked 清单 + 盘上正文,
+ * 镜像测试夹具靠它)。清单/内容任一取不到 ⇒ Undetermined ⇒ 调用方 exit 2,绝不返回空清单判绿。
+ */
 function getFilesToCheck() {
+  const pick = (output) =>
+    output
+      .trim()
+      .split('\n')
+      .map((f) => f.replace(/\r$/, ''))
+      .filter(
+        (f) =>
+          f &&
+          f.startsWith('apps/api/src/routes/') &&
+          f.endsWith('.ts') &&
+          !f.includes('__tests__/'),
+      )
   if (isStaged) {
     try {
-      // 2026-10-26 G-54:git 派生收口到 face-reader(gitRaw 内部已带 safe.directory/quotepath/-C/stdio/windowsHide/timeout)
-      const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
-      return output
-        .trim()
-        .split('\n')
-        .filter(
-          (f) =>
-            f.startsWith('apps/api/src/routes/') &&
-            f.endsWith('.ts') &&
-            !f.includes('__tests__/'),
-        )
-        .map((f) => join(ROOT, f))
-    } catch {
-      return []
+      const rels = pick(gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT))
+      const specs = rels.map((p) => `:${p}`)
+      const map = catBatch(ROOT, specs)
+      return rels.map((rel, i) => ({ rel, content: map.get(specs[i]) }))
+    } catch (e) {
+      throw new Undetermined(`索引面名单/内容取材失败:${e?.message ?? e}`)
     }
   }
   try {
-    // 注意:不用 `git ls-files "apps/api/src/routes/**/*.ts"`。
-    // Windows 上 PowerShell 会吞引号、git pathspec `**` 对深层子目录匹配不稳定,
-    // 经常返回空列表导致 full 模式漏检。改为列目录 + JS 过滤更可靠。
-    // 2026-10-26 G-54:git 派生收口到 face-reader(args 数组形态,无 shell 引号问题,上面注释的教训仍成立)
-    const output = gitRaw(['ls-files', 'apps/api/src/routes/'], ROOT)
-    return output
-      .trim()
-      .split('\n')
-      .filter((f) => f && f.endsWith('.ts') && !f.includes('__tests__/'))
-      .map((f) => join(ROOT, f))
-  } catch {
-    return []
+    const rels = pick(gitRaw(['ls-files', 'apps/api/src/routes/'], ROOT))
+    return rels.map((rel) => {
+      let content = null
+      try {
+        content = readFileSync(join(ROOT, rel), 'utf8')
+      } catch {
+        content = null // 盘上不存在 = 少扫一个,不是取不到
+      }
+      return { rel, content }
+    })
+  } catch (e) {
+    throw new Undetermined(`全量档名单取材失败:${e?.message ?? e}`)
   }
 }
 
-const files = getFilesToCheck()
+let entries
+try {
+  entries = getFilesToCheck()
+} catch (e) {
+  if (e instanceof Undetermined) {
+    console.error(`❌ [skipResponseSanitization] 未判定(取不到被审面,既不判绿也不判红):${e.message}`)
+    process.exit(2)
+  }
+  throw e
+}
 let violations = 0
 
-for (const filePath of files) {
-  if (!existsSync(filePath)) continue
-  const relPath = relative(ROOT, filePath).replace(/\\/g, '/')
+for (const { rel: relPath, content } of entries) {
+  // 该面无此文件(未跟踪/缺席)= 少扫一个,不是取不到;整批取材失败已在上面折成 exit 2。
+  if (content === undefined || content === null) continue
   const basename = relPath.split('/').pop()
 
   if (WHITELIST.has(basename)) continue
-
-  const content = readFileSync(filePath, 'utf-8')
 
   // 必须同时包含 reply.send/success 和敏感关键字才检查
   const hasReplyOrSuccess = /\breply\.(send|status)/.test(content) || /\bsuccess\s*\(/.test(content)

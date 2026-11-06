@@ -100,7 +100,7 @@ describe('跨端一致性 fixtures(token + 结构化摘要行格式)', () => {
   it('暴露的开销常量值正确(防回退)', () => {
     expect(MESSAGE_OVERHEAD_TOKENS).toBe(4)
     expect(TOOL_CALL_OVERHEAD_TOKENS).toBe(4)
-    expect(IMAGE_TOKEN_PLACEHOLDER).toBe(1200)
+    expect(IMAGE_TOKEN_PLACEHOLDER).toBe(128)
   })
 
   for (const fx of fixtures) {

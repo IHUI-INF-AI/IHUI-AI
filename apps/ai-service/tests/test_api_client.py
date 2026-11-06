@@ -329,7 +329,7 @@ def test_prompt_mode_literal():
 
 def test_customer_service_session_status_literal():
     """CustomerServiceSessionStatus Literal。"""
-    assert set(get_args(CustomerServiceSessionStatus)) == {"pending", "active", "closed"}
+    assert set(get_args(CustomerServiceSessionStatus)) == {"pending", "open", "resolved", "closed", "rejected"}
 
 
 def test_customer_service_from_type_literal():

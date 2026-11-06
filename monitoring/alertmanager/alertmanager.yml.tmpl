@@ -73,9 +73,12 @@ inhibit_rules:
   # 明细见 noise-rules.yml(本文件的 inhibit_rules 段为合并后的可用稿,已同步)
   # 根因覆盖则抑制衍生告警,避免"一个故障多条告警":
   # API 宕机 → 其错误率/响应时间随之失效 → 抑制
+  # BUG-22:目标 ApiHighErrorRate 的 expr 是 sum(rate(...))/sum(rate(...)) 聚合后无 instance 标签,
+  # 而源 ApiDown = up{job="api"}==0 带 instance ⇒ equal:['instance'] 永不匹配、抑制永不生效。
+  # 改空标签集:只要 ApiDown(critical)在 firing 即抑制全部 ApiHighErrorRate(衍生告警)。
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiHighErrorRate"']
-    equal: ['instance']
+    equal: []
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiSlowResponse"']
     equal: ['instance']

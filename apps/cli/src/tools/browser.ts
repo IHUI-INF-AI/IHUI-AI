@@ -64,8 +64,9 @@ function cdpHttpGet(
 }
 
 /** 发现系统上的 Chrome/Edge/Chromium 可执行文件(Windows/macOS/Linux 常见路径)。 */
-export function findChromeExecutable(): string | undefined {
+export function findChromeExecutable(stat?: (path: string) => fs.Stats): string | undefined {
   if (process.env.IHUI_BROWSER_EXECUTABLE) return process.env.IHUI_BROWSER_EXECUTABLE;
+  const look = stat ?? ((target: string) => fs.statSync(target));
   const candidates: string[] = [];
   if (process.platform === 'win32') {
     const pf = process.env['ProgramFiles'] ?? 'C:\\Program Files';
@@ -96,9 +97,12 @@ export function findChromeExecutable(): string | undefined {
   }
   for (const c of candidates) {
     try {
-      if (fs.existsSync(c)) return c;
-    } catch {
-      // 忽略探测异常,继续尝试下一个
+      look(c);
+      return c;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      throw new Error(`浏览器可执行文件读不到,不能改用下一个 (${code ?? 'unknown'}): ${c}`);
     }
   }
   return undefined;

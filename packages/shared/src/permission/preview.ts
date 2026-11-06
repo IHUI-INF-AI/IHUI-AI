@@ -24,6 +24,8 @@
  * 端内只许渲染、不许复制判据(AGENTS §3 共享层优先)。
  */
 
+import { graphemeLength, truncateByGrapheme } from '../utils/truncate'
+
 /** 承载层键名:参数对象挂在外层载荷的这两个键之下(优先级 input → rawInput)。 */
 export const PERMISSION_PREVIEW_CARRIER_KEYS = ['input', 'rawInput'] as const
 
@@ -235,10 +237,14 @@ export function buildToolPermissionPreview(
   }
 
   const rawCommand = firstString(pickByAliases(args, PERMISSION_PREVIEW_KEY_ALIASES.command))
-  const command = rawCommand !== null && rawCommand.length > maxCommandChars
-    ? rawCommand.slice(0, maxCommandChars)
-    : rawCommand
-  const commandTruncated = rawCommand !== null && rawCommand.length > maxCommandChars
+  // BUG-52:命令长度与截断都按字素簇(code point)计,不再用 slice(0, max) 按 UTF-16
+  // code unit 截断 —— 后者会把 emoji / 增补汉字的代理对劈成两半,渲染成 U+FFFD。
+  const commandLen = rawCommand !== null ? graphemeLength(rawCommand) : 0
+  const commandTruncated = rawCommand !== null && commandLen > maxCommandChars
+  const command =
+    commandTruncated && rawCommand !== null
+      ? truncateByGrapheme(rawCommand, maxCommandChars)
+      : rawCommand
 
   const scope = firstString(pickByAliases(args, PERMISSION_PREVIEW_KEY_ALIASES.scope))
 

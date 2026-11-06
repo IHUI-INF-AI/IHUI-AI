@@ -564,6 +564,21 @@ describe('市场条目解析', () => {
     expect(loaded.reason).toBe('marketplace-registry-malformed');
     expect(loaded.marketplaces).toEqual([]);
   });
+
+  it('登记台账读不到时不说成文件不存在', () => {
+    const file = path.join(scratch, 'blocked-marketplaces.json');
+    fs.writeFileSync(file, '{"version":1,"marketplaces":[]}\n', 'utf8');
+    const original = fs.readFileSync(file);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const loaded = loadRegisteredMarketplaces({ file, stat: denied });
+    expect(loaded.ok).toBe(false);
+    expect(loaded.reason).toBe('marketplace-registry-unreadable');
+    expect(fs.readFileSync(file)).toEqual(original);
+  });
 });
 
 // ==================== CLI 出口(默认零副作用 + 档位可分辨) ====================
