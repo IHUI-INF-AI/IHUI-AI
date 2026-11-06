@@ -37,7 +37,6 @@ from ..services.agent_loop_v2 import (
     ToolDefinition,
     instructional_inputs_from_env,
 )
-from ..utils.tool_call_args import normalize_tool_call_args
 from ..services.plan_mode import (
     READONLY_TOOLS,
     TASK_STATUSES,
@@ -50,6 +49,7 @@ from ..services.plan_mode import (
     update_task_status,
     validate_transition,
 )
+from ..utils.tool_call_args import normalize_tool_call_args
 
 logger = logging.getLogger(__name__)
 

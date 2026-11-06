@@ -31,7 +31,6 @@ from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
 from ..core.turn_stop_reason import TurnStopReason, ensure_turn_stop_reason
-from ..utils.tool_call_args import normalize_tool_call_args
 from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -79,6 +78,7 @@ from ..services.memory import memory_store
 from ..services.run_ownership import owner_of, record_ownership, release_ownership
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+from ..utils.tool_call_args import normalize_tool_call_args
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
