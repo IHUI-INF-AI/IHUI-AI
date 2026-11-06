@@ -26,6 +26,7 @@ import {
   SoulMemory,
   type MemoryEntry,
 } from '../src/memory/index.js';
+import { addInstalledSkill } from '../src/commands/ai-skills.js';
 
 describe('Memory 持久记忆', () => {
   let tmpDir: string;
@@ -554,6 +555,17 @@ describe('长期记忆和用户画像读不到', () => {
       expect(fs.statSync(memoryFile).isDirectory()).toBe(true);
       expect(() => new SoulMemory(dir)).toThrow(/不能把它说成是空的/);
       expect(fs.statSync(soulFile).isDirectory()).toBe(true);
+      const corruptSoul = path.join(dir, 'profile', '.ihui-agent', 'memory', 'soul.json');
+      fs.mkdirSync(path.dirname(corruptSoul), { recursive: true });
+      const soulBody = '{not json';
+      fs.writeFileSync(corruptSoul, soulBody);
+      expect(() => new SoulMemory(path.join(dir, 'profile'))).toThrow(/不能把它说成是空的/);
+      expect(fs.readFileSync(corruptSoul, 'utf-8')).toBe(soulBody);
+      const skills = path.join(dir, 'ai-skills.json');
+      const skillBody = '{"installed":["keep"]\n';
+      fs.writeFileSync(skills, skillBody);
+      expect(() => addInstalledSkill('new', skills)).toThrow(/不能把它覆盖成只剩新的一项/);
+      expect(fs.readFileSync(skills, 'utf-8')).toBe(skillBody);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

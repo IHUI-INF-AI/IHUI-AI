@@ -92,7 +92,9 @@ export class SoulMemory {
       throw new Error(`用户画像读不到,不能把它说成是空的 (${code})`);
     }
     const parsed = tryParseJson(raw);
-    if (!isRecord(parsed)) return emptyProfile();
+    if (!isRecord(parsed)) {
+      throw new Error('用户画像读不到,不能把它说成是空的 (corrupt)');
+    }
     return {
       preferences: Array.isArray(parsed.preferences) ? parsed.preferences : [],
       values: Array.isArray(parsed.values) ? parsed.values : [],

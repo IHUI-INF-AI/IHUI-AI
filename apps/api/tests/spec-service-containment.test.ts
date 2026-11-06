@@ -26,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { copyOrPlaceholder } from '../src/services/registry-sync/config-migrator.js'
 import { specService } from '../src/services/spec-service.js'
-import { checkpointManager, permissionManager } from '../src/services/workspace-ai-service.js'
+import { checkpointManager, incrementalIndexer, permissionManager } from '../src/services/workspace-ai-service.js'
 import type { SpecScope } from '@ihui/shared'
 
 let scratchRoot: string
@@ -221,5 +221,38 @@ describe('读不到不覆盖', () => {
       else process.env.IHUI_WORKSPACE_ROOTS = saved
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('规格文件读不到时流水线失败且不换成新正文', async () => {
+    const { createHash } = await import('node:crypto')
+    const ws = join(scratchRoot, 'ws-unread')
+    mkdirSync(ws)
+    const scopeObj = { type: scope.type, path: null }
+    const hash = createHash('md5')
+      .update(JSON.stringify(scopeObj, Object.keys(scopeObj).sort()), 'utf8')
+      .digest('hex')
+      .slice(0, 12)
+    const specFile = join(ws, '.ihui-agent', 'specs', `${hash}.md`)
+    mkdirSync(specFile, { recursive: true })
+    writeFileSync(join(specFile, 'keep.txt'), 'keep', 'utf8')
+    const result = await specService.runFullPipeline({
+      workspacePath: ws,
+      scope,
+      newSpec: 'replacement',
+      autoCommit: false,
+    })
+    expect(result.overallStatus).toBe('failed')
+    expect(result.stages[0]?.log).toContain('规格原文读不到')
+    expect(readFileSync(join(specFile, 'keep.txt'), 'utf8')).toBe('keep')
+  })
+
+  it('代码索引损坏时增量对比不覆盖原文件', () => {
+    const ws = join(scratchRoot, 'idx-unread')
+    const indexFile = join(ws, '.ihui', 'codebase-index.json')
+    mkdirSync(join(ws, '.ihui'), { recursive: true })
+    const body = '{not json'
+    writeFileSync(indexFile, body, 'utf8')
+    expect(() => incrementalIndexer.diff(ws)).toThrow(/代码索引读不到/)
+    expect(readFileSync(indexFile, 'utf8')).toBe(body)
   })
 })
