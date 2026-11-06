@@ -14,9 +14,33 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
-import { resolveSession } from '../src/index.js';
+import { resolveSession, settleCliEntryFailure, runAgentAndExit } from '../src/index.js';
 import { getCompactionTimelineLedgerPath } from '../src/compaction-timeline-resume.js';
+import type * as SessionModule from '../src/commands/session.js';
 import { createSession, saveSession } from '../src/commands/session.js';
+
+/**
+ * I 组需要把 createSession 换成"可计数/可阻断"的包装(验校验顺序),默认仍逐字透传到真实实现,
+ * 因此本文件其余用例的建会话行为完全不变。
+ */
+const sessionCtl = vi.hoisted(() => ({ blockCreate: false, createCalls: 0 }));
+
+vi.mock('../src/commands/session.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof SessionModule>();
+  return {
+    ...actual,
+    createSession: ((...args: Parameters<typeof actual.createSession>) => {
+      sessionCtl.createCalls += 1;
+      if (sessionCtl.blockCreate) {
+        // 阻断档只用于验"校验前不许建会话";返回值形状够过下游即可,不会真跑到 runAgent
+        return { id: 'blocked-session', history: [] } as unknown as ReturnType<
+          typeof actual.createSession
+        >;
+      }
+      return actual.createSession(...args);
+    }) as typeof actual.createSession,
+  };
+});
 
 /** 假时钟钉死值(2024-10-04T00:00:00Z):追加终态的 atMs 断言写死成它。 */
 const PINNED_NOW_MS = 1728000000000;
@@ -152,5 +176,113 @@ describe('G-816014 resume 必经点收敛悬挂压缩时间线', () => {
     fs.writeFileSync(getCompactionTimelineLedgerPath(id), '42', 'utf-8');
 
     expect(() => resolveSession({ resume: id })).toThrow(/not an array/);
+  });
+});
+
+/**
+ * H 顶层契约两格(与压缩账本无关,但复用同一份"真实入口 + 损坏账本"夹具):
+ *
+ * H1 结构化输出时 stdout 是数据通道(--json / --output-format json|markdown|yaml / 非 TTY)。
+ *    恢复提示若走 console.info,会有一行人类文案插进 NDJSON 流 —— 消费方对整段 stdout 做
+ *    JSON.parse 即失败,而 --json 的用户恰恰是脚本。
+ * H2 顶层 async action 抛错必须落 exitCode=1。commander 的 parse() 不 await action 的
+ *    Promise,拒绝变成 unhandledRejection,而 crash-handler 对 unhandledRejection 只记日志、
+ *    不动 exitCode ⇒ `ihui --resume <账本损坏>` 这类失败以 0 退出,CI 读成成功。
+ */
+describe('H 顶层入口契约:结构化输出不污染 stdout / 失败退出码非 0', () => {
+  let prevExitCode: number | string | undefined;
+
+  beforeEach(() => {
+    prevExitCode = process.exitCode;
+  });
+
+  afterEach(() => {
+    // process.exitCode 是原型上的访问器,delete 会抛 TypeError;直接复位为 0(成功)
+    process.exitCode =
+      typeof prevExitCode === 'number' || typeof prevExitCode === 'string' ? prevExitCode : 0;
+    vi.restoreAllMocks();
+  });
+
+  it('H1 结构化模式:恢复提示改道 stderr,stdout 一行都不许有', () => {
+    const id = writeSessionFixture();
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const resolved = resolveSession({ resume: id }, true);
+
+    expect(resolved.sessionId).toBe(id);
+    expect(infoSpy).not.toHaveBeenCalled();
+    // 只钉"恢复提示在 stderr":进程内可能有与本次断言无关的告警噪声,不按总次数判
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes(id))).toBe(true);
+  });
+
+  it('H2 文本模式维持原样:提示仍走 stdout(不得为了 --json 误伤交互用户)', () => {
+    const id = writeSessionFixture();
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    resolveSession({ resume: id });
+
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls.some((c) => String(c[0]).includes(id))).toBe(false);
+  });
+
+  it('H3 action 抛错(真实损坏账本)⇒ exitCode=1,且错误上屏而非静默', async () => {
+    const id = writeSessionFixture();
+    fs.writeFileSync(getCompactionTimelineLedgerPath(id), '{not json', 'utf-8');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    process.exitCode = 0;
+
+    await settleCliEntryFailure(async () => {
+      resolveSession({ resume: id }, true);
+    });
+
+    expect(process.exitCode).toBe(1);
+    // 恢复提示发生在收敛之前 → 账本损坏时只有失败汇总这一条 stderr
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * I `--goal-criteria` 是纯旗标校验(读文件 + 校验结构),必须在**任何副作用之前**完成。
+ *
+ * 修前它被作为 runAgent 的参数表达式求值:那时 `createSession` 已写会话文件、权限租约已授、
+ * 云运行已发出;`process.exit(2)` 又跳过 finally 里的租约撤销/云会话收尾,于是一次纯参数
+ * 错误会留下半启动的现场。I1 用可阻断的 createSession 计数验顺序:修前 createCalls==1(红),
+ * 修后 ==0。
+ */
+describe('I --goal-criteria 校验先于副作用', () => {
+  it('I1 指标文件不存在 ⇒ exit 2,且一个会话都不许建', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw Object.assign(new Error('process.exit'), { exitCode: Number(code ?? 0) });
+    }) as typeof process.exit);
+    sessionCtl.blockCreate = true;
+    sessionCtl.createCalls = 0;
+
+    await expect(
+      (async (): Promise<unknown> => {
+        try {
+          await runAgentAndExit(
+            '任务',
+            { goalCriteria: path.join(scratch as string, 'missing-criteria.json') } as unknown as Parameters<
+              typeof runAgentAndExit
+            >[1],
+            false,
+          );
+          return null;
+        } catch (e) {
+          return e;
+        }
+      })().then((e) => {
+        // 顺序判据先落:修前是"先建会话(1)后才校验",这里必须为 0
+        expect(sessionCtl.createCalls).toBe(0);
+        expect(e).toMatchObject({ exitCode: 2 });
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(sessionCtl.createCalls).toBe(0);
+    expect(errSpy).toHaveBeenCalled();
+    sessionCtl.blockCreate = false;
   });
 });

@@ -267,7 +267,15 @@ function resolveGoalCriteria(raw: unknown): GoalHardCriterion[] | undefined {
 }
 
 // 导出仅为测试装配(与 readPromptFile 同例):装配测试必须穿过真实的 resume 漏斗,不许复制其实现。
-export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
+export function resolveSession(
+  opts: Record<string, unknown>,
+  structuredOutput = false,
+): ResolvedSession {
+  // 结构化输出(--json、--output-format json|markdown|yaml、或 stdout 被管道/重定向到非 TTY)时,
+  // stdout 是**数据通道**(NDJSON 事件流)。恢复提示若仍走 console.info,就会有一行人类文案插进
+  // 事件流中间,消费方对整段 stdout 做 JSON.parse 直接失败 —— 而 --json 的用户恰恰是脚本。
+  // 进度/提示归 stderr(与 background-drain 播报同惯例),文本交互模式维持原 stdout 行为。
+  const notice = structuredOutput ? console.error : console.info;
   if (opts.continue) {
     const session = getMostRecentSession();
     if (session) {
@@ -280,14 +288,14 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
       // 否则恢复出来的账面会把"压缩死在中途"读成"压缩判过了"。收敛失败(账本损坏/
       // 落盘失败)向上抛:宁可不 resume,不得拿坏账装成功 —— 本仓"失败必须响"。
       recoverCompactionTimelinesForSession(session.id);
-      console.info(
+      notice(
         chalk.dim(
           t('cli.sessionResumed', { id: session.id, count: session.history.length }),
         ),
       );
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.yellow(t('cli.noSessions')));
+    notice(chalk.yellow(t('cli.noSessions')));
     return {};
   }
   if (opts.resume) {
@@ -295,14 +303,14 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
     if (session) {
       // G-816014 装配点:同上 —— --resume 分支与 --continue 分支是同一个必经漏斗的两面。
       recoverCompactionTimelinesForSession(session.id);
-      console.info(
+      notice(
         chalk.dim(
           t('cli.sessionResumedWithId', { id: session.id, count: session.history.length }),
         ),
       );
       return { sessionId: session.id, history: session.history };
     }
-    console.info(chalk.red(t('common.notFound', { target: opts.resume as string })));
+    notice(chalk.red(t('common.notFound', { target: opts.resume as string })));
     process.exit(1);
   }
   return {};
@@ -310,6 +318,17 @@ export function resolveSession(opts: Record<string, unknown>): ResolvedSession {
 
 function resolveJsonMode(opts: OptionValues): boolean {
   return opts.json === true || !process.stdout.isTTY;
+}
+
+/**
+ * stdout 是否已经是"给机器读的"通道。--json 之外,显式 --output-format json|markdown|yaml 同样
+ * 让 runAgent 输出结构化事件(headless-format.ts 的 eventToJson/eventToMarkdown),恢复提示必须
+ * 一并改道 stderr;否则"显式要求 JSON 却在 TTY 里跑"会得到一行人类文案 + 后面的事件流。
+ */
+function resolveStructuredOutputMode(opts: OptionValues): boolean {
+  if (resolveJsonMode(opts)) return true;
+  const fmt = typeof opts.outputFormat === 'string' ? opts.outputFormat : '';
+  return fmt === 'json' || fmt === 'markdown' || fmt === 'yaml';
 }
 
 export function readPromptFile(
@@ -354,11 +373,17 @@ function resolvePrompt(
   return result.content;
 }
 
-async function runAgentAndExit(
+// 导出仅为测试装配:旗标校验顺序必须能验"校验先于副作用",否则用例只能靠读代码断言。
+export async function runAgentAndExit(
   prompt: string,
   opts: OptionValues,
   jsonMode: boolean,
 ): Promise<void> {
+  // 纯旗标校验必须最先做:--goal-criteria 只是"读文件 + 校验结构",失败按约定 exit 2。
+  // 它此前被塞在 runAgent 的参数表里,也就是会话文件已写、租约已授、云运行已发出之后才求值 ——
+  // 一次纯参数错误会把已经开动的副作用留在半路(且 process.exit 跳过 finally 里的租约撤销
+  // 与云会话收尾)。把它提到任何副作用之前:失败即退出,现场零落地。
+  const goalCriteria = resolveGoalCriteria(opts.goalCriteria);
   const cfg = resolveEffectiveConfig({
     cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
     cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
@@ -396,7 +421,7 @@ async function runAgentAndExit(
   try {
     session = createSession(opts.workspace, cfg.model);
     // 如果 --resume/--continue,加载历史到 session.history
-    const resumed = resolveSession(opts);
+    const resumed = resolveSession(opts, jsonMode || resolveStructuredOutputMode(opts));
     if (resumed.sessionId && resumed.history) {
       session.id = resumed.sessionId;
       session.history = resumed.history;
@@ -495,7 +520,7 @@ async function runAgentAndExit(
         permissionMode: cfg.permissionMode,
         // WP-8③:goal 模式 —— 指标由 --goal-criteria 声明,文本由 --goal 给出;
         // 不声明即完全走旧路径(逐零差异),声明了就必须过独立校验才允许退 0。
-        goalCriteria: resolveGoalCriteria(opts.goalCriteria),
+        goalCriteria,
         goal: typeof opts.goal === 'string' ? opts.goal : prompt,
       });
       process.exitCode = stopReasonToExitCode(result.stopReason);
@@ -658,7 +683,7 @@ program
         cliMcp: opts.mcp === true ? true : undefined,
         cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
       });
-      const session = resolveSession(opts);
+      const session = resolveSession(opts, resolveStructuredOutputMode(opts));
       // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
       if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
       await startREPL({
@@ -697,7 +722,7 @@ const chatCmd = program
       cliMcp: opts.mcp === true ? true : undefined,
       cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
     });
-    const session = resolveSession(opts);
+    const session = resolveSession(opts, resolveStructuredOutputMode(opts));
     // 默认档 = 行模式;只有 IHUI_TUI=1 才接管(接不住时打印原因并继续走 startREPL)。
     if (await maybeRunFullScreen(opts, cfg, session.sessionId)) return;
     await startREPL({
@@ -1378,6 +1403,30 @@ auditCmd
     console.info(chalk.dim(t('cliEntry.auditToolArgsFooter', { coerced: totals.coercionOnly, threw: totals.validatorThrew })));
   });
 
+/**
+ * 顶层 action 的失败必须落成非 0 退出码 —— 否则"命令失败"在 CI/脚本眼里就是"成功"。
+ *
+ * commander 的 `program.parse()` 对 async action 只调用不 await:Promise 拒绝变成
+ * unhandledRejection,而 crash-handler 对 unhandledRejection 明确只记日志、不动 exitCode
+ * (避免 Promise 链里的 bug 直接打断 REPL)。两件事叠在一起:任何从 action 里抛出的错误
+ * (恢复会话时账本损坏、配置解析失败、网络层抛出)都让进程以 0 退出。这里改用 parseAsync
+ * 并接住拒绝:仍不强制中断进程(REPL 语义不变),但退出码诚实地是 1。
+ *
+ * 导出仅为测试装配:装配测试直接喂一个 rejected promise,验"退出码/文案"这一格。
+ */
+export function settleCliEntryFailure(run: () => Promise<unknown>): Promise<void> {
+  return run().then(
+    () => undefined,
+    (err: unknown) => {
+      const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+      console.error(`ihui: 命令执行失败\n${detail}`);
+      if (typeof process.exitCode !== 'number' || process.exitCode === 0) {
+        process.exitCode = 1;
+      }
+    },
+  );
+}
+
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   // G-18:每次 CLI 进程启动落一份 run manifest(argv/ppid/env/cwd/项目身份),写失败静默。
   writeRunManifest();
@@ -1405,7 +1454,9 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     console.error(renderStartupLine(startupTracker.reading()));
     if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
   });
-  program.parse();
+  // parseAsync(而非 parse):async action 的拒绝必须被接住并落成 exitCode=1,
+  // 否则 unhandledRejection 只记日志、进程以 0 退出 —— 见 settleCliEntryFailure 注释。
+  void settleCliEntryFailure(() => program.parseAsync());
   startupTracker.mark('commandParsed');
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
