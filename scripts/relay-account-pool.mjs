@@ -91,6 +91,8 @@ const HELP = `反代账号池导入
   - Qoder 读 %APPDATA%\\com.qoder[cn].app.* 的 auth.v1.dat(DPAPI+AES-GCM,须以登录
      Qoder 的同一 Windows 用户跑;IHUI_QODER_CAPTURE_PS1 可换捕获脚本),客户端不必在跑;
      无 pwsh 环境降级:qoder-capture.ps1 -OutFile 后 pnpm qoder:import -- --session-file;
+     该降级通道 2026-11-06 起与本页同一把归属尺:显式 --owner > 本机 ~/.wb-switch/pool-owner 默认 > 运营池,
+     本人号请事先写好归属文件或直接带 --owner(不带又不配 ⇒ 落运营池并点名原因,不静默);
   - CodeArts 读 %APPDATA%\codearts-agent\User\globalStorage\state.vscdb 的
      HuaweiCloudSession 秘密(v10+DPAPI+AES-GCM,须以登录 CodeArts 的同一 Windows 用户跑;
      桌面在跑可能持锁,先关再提;IHUI_CODEARTS_SCAN_USERS=0 可关 profile 兜底);

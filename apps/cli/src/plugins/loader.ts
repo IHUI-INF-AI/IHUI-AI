@@ -38,6 +38,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDefinitePathAbsence } from './path-safety.js';
 import type {
   LoadPluginsOptions,
   PluginDefinition,
@@ -116,9 +117,10 @@ function scanPlugins(opts: LoadPluginsOptions): ScanResult {
 
   let isDirectory = false;
   try {
-    isDirectory = fs.existsSync(dir) && fs.statSync(dir).isDirectory();
+    const stat = opts.stat ?? ((target: string) => fs.statSync(target));
+    isDirectory = stat(dir).isDirectory();
   } catch (err) {
-    diagnostics.push(unexpectedDiagnostic(dir, err));
+    if (!isDefinitePathAbsence(err)) diagnostics.push(unexpectedDiagnostic(dir, err));
   }
   if (!isDirectory) {
     return { plugins, diagnostics, contributions: summarizeContributions(findings), activations: summarizeActivations(activationFindings) };
