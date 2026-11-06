@@ -43,9 +43,9 @@ test('L2 装车锁:两条旁路合并落地路径都必须调本出口 —— �
     )
     assert.match(code, /postMergeLedgerSync\(/, `${rel} import 了却没调用(判据存在而永不调用 = 没有)`)
   }
-  // G-816708/RP-71:两台落地器走的是"就地补跑"那条出口(rerunLedgerHeal),同属"落地后必须有补跑"的装车面。
-  // 第四台 plan-tasks-merge.mjs 仍未接补跑,按纪律不碰 —— 既不放进本清单,也不替它放宽判据。
-  for (const rel of ['live-doc-edit.mjs', 'object-space-land.mjs']) {
+  // G-816708/RP-71:三台落地器走的是"就地补跑"那条出口(rerunLedgerHeal),同属"落地后必须有补跑"的装车面。
+  // plan-tasks-merge.mjs 已按方案 A 收返回值并走 landingExitWithHeal 折算 ⇒ 纳入本清单,判据不放宽。
+  for (const rel of ['live-doc-edit.mjs', 'object-space-land.mjs', 'plan-tasks-merge.mjs']) {
     const code = CODE(rel)
     assert.match(
       code,

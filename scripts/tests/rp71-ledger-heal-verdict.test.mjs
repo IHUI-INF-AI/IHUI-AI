@@ -126,8 +126,8 @@ test('T6 契约B 六臂:base 保留 / 未触发保留 / 跑而未成 2 / 成功 
 
 // ── T7 静态装车锁:readFileSync + assert.match,不跑真仓、不跑落地器 ──
 
-test('T7 静态装车锁:两台落地器真消费 rerunLedgerHeal 返回值并走 landingExitWithHeal;heal() 函数体真调 healOutcomeExit', () => {
-  for (const rel of ['live-doc-edit.mjs', 'object-space-land.mjs']) {
+test('T7 静态装车锁:三台落地器真消费 rerunLedgerHeal 返回值并走 landingExitWithHeal;heal() 函数体真调 healOutcomeExit', () => {
+  for (const rel of ['live-doc-edit.mjs', 'object-space-land.mjs', 'plan-tasks-merge.mjs']) {
     const code = SRC(rel)
     assert.match(
       code,

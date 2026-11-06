@@ -37,7 +37,6 @@ const require = createRequire(import.meta.url)
 // 判据实现按**自身位置**取(§15:ROOT 由脚本自身推导)。`root` 参数是"被落地的仓库根",
 // 只用于 git 取面与派生工作目录 —— 拿它去 require 判据会让换仓通道/测试夹具直接取不到尺子。
 const HERE = dirname(fileURLToPath(import.meta.url))
-const SCRIPT_REL = join('scripts', 'check-plan-line-loss.mjs')
 /** 复清器(G-32):存量清偿 + 守恒断言 + 台账 + 自带推送,全在那一件器物里,本层只决定"要不要叫它"。 */
 const PURGE_REL = join('scripts', 'plan-pointer-purge.mjs')
 const PLAN_REL = 'PROJECT_PLAN.md'
@@ -384,7 +383,10 @@ function reportSameKeyGroups(g, log = (s) => console.log(s)) {
  */
 function runLineLossHeal({ root, log = (s) => console.log(s), spawnFn } = {}) {
   const run = spawnFn || spawnSync
-  const abs = resolve(String(root || ''), SCRIPT_REL)
+  // 2026-11-06 修复:自愈脚本必须按代码库自身位置解析(import.meta.url),而非 root+scripts ——
+  // 旁路落地常在非代码库 root(临时仓/独立 checkout)跑,root 下没有 scripts/ 会让 spawn 找不到脚本,
+  // 自愈"跑而未成"被 landingExitWithHeal 折成 exit 2,掩盖本应 rc=0 的成功。生产 root 即代码库,行为不变。
+  const abs = fileURLToPath(new URL('../check-plan-line-loss.mjs', import.meta.url))
   let r
   try {
     r = run(process.execPath, [abs, '--heal', '--commit'], {
