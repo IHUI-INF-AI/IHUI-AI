@@ -48,20 +48,15 @@ const ConfigSchema = z.object({
   ENABLE_AUDIT_LOG: z.coerce.boolean().default(true),
 })
 
-export const config = ConfigSchema.parse(process.env)
-
-/**
- * P1-2.2: 审计日志路径
- * 部署侧统一管理,gitignore(每个部署实例一份)
- */
-export const AUDIT_LOG_PATH = resolve(config.SAAS_ROOT, 'admin-api-audit.log')
-
+// ADMIN_API_KEY 自动生成必须先于 schema.parse —— schema 要求 min(32),
+// 若把生成放到 parse 之后,未配置时 parse 先抛 ZodError,生成分支永远执行不到
+// (2026-11-07 实测:ADMIN_API_KEY 未设置 ⇒ 容器启动即崩,自动生成/指纹提示全是死代码)。
 if (!process.env.ADMIN_API_KEY) {
   // 自动生成(仅首次启动)
   const generated = Array.from(crypto.getRandomValues(new Uint8Array(32)))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
-  config.ADMIN_API_KEY = generated
+  process.env.ADMIN_API_KEY = generated
   // 2026-07-21 安全审计加固:严禁在 console 中明文打印生成的密钥
   // 风险:若 stdout 被日志聚合系统 / 终端历史 / 监控面板捕获,
   // 攻击者可读取完整 ADMIN_API_KEY 绕过所有 x-admin-api-key 鉴权
@@ -71,4 +66,12 @@ if (!process.env.ADMIN_API_KEY) {
   console.warn(`   fingerprint: ${fingerprint}  (len=${generated.length})`)
   console.warn(`   请将此值写入 deploy/saas/.env 持久化(查看生成值请用 'grep ADMIN_API_KEY .env')`)
 }
+
+export const config = ConfigSchema.parse(process.env)
+
+/**
+ * P1-2.2: 审计日志路径
+ * 部署侧统一管理,gitignore(每个部署实例一份)
+ */
+export const AUDIT_LOG_PATH = resolve(config.SAAS_ROOT, 'admin-api-audit.log')
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
