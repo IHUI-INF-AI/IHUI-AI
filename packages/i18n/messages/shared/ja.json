@@ -39,6 +39,7 @@
     "toolBrowserCloseTabActivity": "{state, select, running {タブを閉じています} completed {タブを閉じました} other {タブを閉じる}}",
     "toolBrowserSwitchTabActivity": "{state, select, running {タブを切り替えています} completed {タブを切り替えました} other {タブを切り替え}}",
     "toolReadFile": "ファイル内容を読み取る",
+    "toolReadToolOutput": "ツール出力を読み取る",
     "toolEditFile": "ファイルを編集",
     "toolWriteFile": "ファイルに書き込む",
     "toolCreateFile": "ファイルを作成",

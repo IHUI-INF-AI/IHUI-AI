@@ -39,6 +39,7 @@
     "toolBrowserCloseTabActivity": "{state, select, running {正在关闭网页标签} completed {已关闭网页标签} other {关闭网页标签}}",
     "toolBrowserSwitchTabActivity": "{state, select, running {正在切换网页标签} completed {已切换网页标签} other {切换网页标签}}",
     "toolReadFile": "读取文件内容",
+    "toolReadToolOutput": "读取工具输出",
     "toolEditFile": "编辑文件",
     "toolWriteFile": "写入文件",
     "toolCreateFile": "创建文件",
