@@ -387,9 +387,21 @@ function validateOp(op: BatchEditOperation, ctx: EditToolContext): ValidatedOp {
   if ((op.type === 'create' || op.type === 'update') && op.content === undefined) {
     return { op, abs, exists: false, error: `${op.type} 操作缺少 content: ${op.filePath}` };
   }
-  const exists = fs.existsSync(abs);
-  if (exists && fs.statSync(abs).isDirectory()) {
-    return { op, abs, exists, error: `目标是目录不是文件: ${op.filePath}` };
+  let exists = false;
+  try {
+    const st = fs.statSync(abs);
+    if (st.isDirectory()) {
+      return { op, abs, exists: true, error: `目标是目录不是文件: ${op.filePath}` };
+    }
+    exists = true;
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      return { op, abs, exists: false, error: `目标读不到,不能按不存在覆盖: ${op.filePath} (${code ?? 'unknown'})` };
+    }
   }
   if (op.type === 'update' && !exists) {
     return { op, abs, exists, error: `update 操作目标文件不存在: ${op.filePath}` };

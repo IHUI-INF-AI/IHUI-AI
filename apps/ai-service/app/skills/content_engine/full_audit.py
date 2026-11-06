@@ -22,6 +22,7 @@ import io
 import json
 import os
 import re
+import stat
 import sys
 import time
 import urllib.request
@@ -78,7 +79,13 @@ def _scan_koubo_pollution(root_dir: str) -> tuple[list[tuple[str, str]], int]:
     返回 (命中列表, 读失败次数)。目录不存在是空命中且读失败为 0。
     列目录或读文件失败时,不能把空命中说成目录清洁。
     """
-    if not os.path.isdir(root_dir):
+    try:
+        root_stat = os.stat(root_dir)
+    except FileNotFoundError:
+        return [], 0
+    except OSError:
+        return [], 1
+    if not stat.S_ISDIR(root_stat.st_mode):
         return [], 0
     # 合法规则文档（必须排除）: 文件名匹配跳过扫描
     DOC_FILES = {
@@ -136,7 +143,13 @@ def _list_pycache(base: str) -> tuple[list[str], int]:
 
     目录不存在是空名单且列失败为 0。列目录失败时不能说没有残留。
     """
-    if not os.path.isdir(base):
+    try:
+        base_stat = os.stat(base)
+    except FileNotFoundError:
+        return [], 0
+    except OSError:
+        return [], 1
+    if not stat.S_ISDIR(base_stat.st_mode):
         return [], 0
     found: list[str] = []
     unread = 0
