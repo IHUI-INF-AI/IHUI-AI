@@ -7,7 +7,9 @@ services:
     name: ihui-web
     env: node
     plan: free
-    rootDir: apps/web
+    # rootDir 上提到仓库根(省略即根):buildCommand 的 pnpm install --frozen-lockfile
+    # 与 pnpm --filter @ihui/web... 都是 workspace 级命令,必须在含 pnpm-lock.yaml +
+    # pnpm-workspace.yaml 的根执行;apps/web 下这两份清单都不存在,rootDir 落在这里必失败。
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @ihui/web... build
     startCommand: pnpm --filter @ihui/web start
     envVars:
@@ -23,7 +25,9 @@ services:
         sync: false
       - key: CREDENTIALS_ENCRYPTION_KEY
         sync: false
-    healthCheckPath: /api/health
+    # web 服务上 /api/health 无上游:rewrites 默认指 127.0.0.1:8802,Render 上不存在本地
+    # API,该路径必然失败。改指静态导出首页(/),它是 web 自己能稳定 200 应答的路径。
+    healthCheckPath: /
 
   - type: web
     name: ihui-api
@@ -87,5 +91,8 @@ databases:
     plan: free
     databaseName: ihui
   - name: ihui-redis
+    # 缺 type 会被 Render blueprint 按 databases 段默认语义当作 PostgreSQL 创建,
+    # 应用的 REDIS_URL 于是指向一个 PG 实例 —— 显式钉成 redis。
+    type: redis
     plan: free
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

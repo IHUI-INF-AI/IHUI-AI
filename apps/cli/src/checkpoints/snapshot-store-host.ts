@@ -35,6 +35,16 @@ export interface CheckpointDiffEntry {
   status: 'unchanged' | 'modified' | 'added' | 'removed';
 }
 
+/** manifest 的**键**必须是工作区相对路径:拒绝空/绝对路径/盘符/UNC/任何 `..` 段。 */
+function isSafeWorkspaceRelPath(rel: string): boolean {
+  if (typeof rel !== 'string' || rel.length === 0) return false;
+  const p = rel.replace(/\\/g, '/');
+  if (p.startsWith('/')) return false;
+  if (/^[a-zA-Z]:\//.test(p)) return false;
+  if (p.split('/').includes('..')) return false;
+  return true;
+}
+
 /** G-671:manifest 形状校验 —— 缺关键字段/档值非法/schemaVersion 不识别 ⇒ 不算合法 meta。 */
 function isCheckpointMeta(v: unknown): v is CheckpointMeta {
   if (!isRecord(v)) return false;
@@ -44,7 +54,9 @@ function isCheckpointMeta(v: unknown): v is CheckpointMeta {
   if (typeof v.reason !== 'string') return false;
   if (!isRecord(v.files)) return false;
   if (v.schemaVersion !== undefined && v.schemaVersion !== 1) return false;
-  return Object.values(v.files).every((k) => k === 'snap' || k === 'added');
+  return Object.entries(v.files).every(
+    ([rel, k]) => (k === 'snap' || k === 'added') && isSafeWorkspaceRelPath(rel),
+  );
 }
 
 /** 量快照体积的枚举预算:超预算即"量不出来"⇒ 该候选不删(AGENTS §0.3) */
@@ -146,7 +158,10 @@ export function restoreSnapshotFiles(
   const restored: string[] = [];
   const removed: string[] = [];
   for (const [rel, kind] of Object.entries(files)) {
-    const absInWorkspace = path.join(workspacePath, rel);
+    // 回放侧必须复用录制侧 resolveWorkspaceRelPath 的越界校验:manifest 键被
+    // 篡改成 ../../.ssh/authorized_keys 时,直接 path.join 会删/写到工作区外。
+    const safeRel = resolveWorkspaceRelPath(workspacePath, rel);
+    const absInWorkspace = path.join(workspacePath, safeRel);
     if (kind === 'added') {
       if (fs.existsSync(absInWorkspace)) {
         fs.rmSync(absInWorkspace, { recursive: true, force: true });
@@ -172,7 +187,9 @@ export function diffSnapshotFiles(
 ): CheckpointDiffEntry[] {
   const entries: CheckpointDiffEntry[] = [];
   for (const [rel, kind] of Object.entries(files)) {
-    const absInWorkspace = path.join(workspacePath, rel);
+    // 回放/比对两侧都复用录制侧 resolveWorkspaceRelPath 的越界校验。
+    const safeRel = resolveWorkspaceRelPath(workspacePath, rel);
+    const absInWorkspace = path.join(workspacePath, safeRel);
     const existsNow = fs.existsSync(absInWorkspace);
     if (kind === 'added') {
       entries.push({ path: rel, status: existsNow ? 'added' : 'unchanged' });

@@ -110,7 +110,9 @@ export const rewardedVideoAdRoutes: FastifyPluginAsync = async (server) => {
       // 发放失败:回滚每日计数并释放去重锁,允许广告平台重试
       await server.redis.decrby(dailyKey, rewardAmount)
       await server.redis.del(`${AD_TX_PREFIX}${body.transactionId}`)
-      return reply.status(500).send(error(500, `积分发放失败: ${(e as Error).message}`))
+      // /notify 是匿名第三方广告回调面:异常原文只进服务端日志,对外一律通用文案。
+      request.log.error({ err: e }, 'rewarded-video-ad points award failed')
+      return reply.status(500).send(error(500, '积分发放失败,请稍后重试'))
     }
     // 通过 WS 通知用户积分到账(若 pushNotification 可用)
     try {
