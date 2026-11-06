@@ -67,10 +67,11 @@ class McpStoreUnread(OSError):
     """安装名单读不到。调用方不得把它当成空名单再写回去。"""
 
 
-def _load() -> list[dict[str, Any]]:
-    """读取全部安装记录;文件缺失/损坏/非列表时返回空列表。
+def _load(*, for_update: bool = False) -> list[dict[str, Any]]:
+    """读取全部安装记录。文件缺失是空列表。
 
-    读失败(权限、目标是目录)不算没有安装记录,抛 McpStoreUnread,避免保存用空名单覆盖。
+    读失败(权限、目标是目录)不算没有安装记录。非空损坏在写入前必须抛,
+    只读查询仍按空名单,避免服务被一份坏文件打崩。
     """
     try:
         _STORE_PATH.stat()
@@ -80,12 +81,21 @@ def _load() -> list[dict[str, Any]]:
         raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
     try:
         raw = _STORE_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        return data if isinstance(data, list) else []
     except OSError as exc:
         raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
-    except Exception:  # noqa: BLE001 - 损坏内容仍按空名单,不崩服务
+    if raw.strip() == "":
         return []
+    try:
+        data = json.loads(raw)
+    except Exception as exc:  # noqa: BLE001 - 损坏内容只在写入前拒绝
+        if for_update:
+            raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单 (corrupt)") from exc
+        return []
+    if not isinstance(data, list):
+        if for_update:
+            raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单 (corrupt)")
+        return []
+    return data
 
 
 def _write(records: list[dict[str, Any]]) -> bool:
@@ -125,7 +135,7 @@ def save_installed(record: dict[str, Any]) -> dict[str, Any] | None:
         写成功返回入参 record;写失败返回 None。
     """
     with _LOCK:
-        records = _load()
+        records = _load(for_update=True)
         name = record.get("name", "")
         replaced = False
         for i, rec in enumerate(records):
