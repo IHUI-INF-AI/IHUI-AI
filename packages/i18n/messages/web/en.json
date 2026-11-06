@@ -5907,6 +5907,7 @@
           "completed": "Completed",
           "failed": "Failed",
           "pending": "Pending Review",
+          "processing": "Processing",
           "rejected": "Rejected"
         },
         "subtitle": "Manage user withdrawal requests and flows",
