@@ -50,6 +50,7 @@ test.describe('长回答流式平滑度(隔离路由实跑)', () => {
         () => (document.querySelector('[data-testid="markdown-stream"]')?.textContent ?? '').length,
       )
       samples.push(len)
+      // WAIT-POLICY:TIMING-0003 SSE/流式/轮询事件到达间隔窗口,事件本身不可观察
       await page.waitForTimeout(15)
     }
 
@@ -88,6 +89,7 @@ test.describe('长回答流式平滑度(隔离路由实跑)', () => {
       })
       if (curLen > 0 && curLen === prevLen) break
       prevLen = curLen
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(150)
     }
     expect(prevLen, '驱动应已推进到全文(源串长度 >0 且已停止增长)').toBeGreaterThan(1000)

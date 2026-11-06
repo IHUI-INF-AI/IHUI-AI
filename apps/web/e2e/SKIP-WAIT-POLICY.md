@@ -1,0 +1,74 @@
+# e2e skip 与固定等待制度（SKIP-WAIT-POLICY）
+
+本文件是 `apps/web/e2e/` 与 `apps/web/tests/visual/` 下所有 `.spec.ts(x)` / `.setup.ts` 的
+唯一判据来源。守门 **302**（`scripts/check-e2e-skip-wait-policy.mjs`）按本文件执行，其纯判据
+实现在 `scripts/lib/e2e-skip-wait-policy.mjs`，登记台账在 `apps/web/e2e/skip-register.json`。
+
+结论先写死：**没有理由、没有关联编号的 skip 一律判失败**；固定等待只能出现在“条件不可观察”
+的计时窗口，其余必须改成条件等待（`expect.poll` / `locator.waitFor` / Playwright 自动重试断言）。
+
+## 1. skip 的允许条件（只有两类）
+
+每一条 `test.skip` / `test.fixme` / `setupTest.skip` / `authTest.skip` 调用必须同时满足：
+
+1. 调用里带一段**可读理由**（去掉 `[SKIP:<id>]` 标记后不少于 8 个字符）；
+2. 调用里带 `[SKIP:<id>]` 标记，且 `<id>` 在 `skip-register.json` 的 `skips` 中存在；
+3. 该登记项 `category` 只能是 `ENV` 或 `BUG`，并带 `owner` 与 `reviewBy`（不得早于今天）。
+
+### 1.1 `ENV:<key>` — 环境 / 数据前置不可造
+
+仅当“本机确实没有这项环境能力或数据前置，且 spec 自己会先检测再跳过”时允许，例如：
+
+- 缺少口令/凭据（`E2E_ADMIN_PASSWORD`、OAuth、GitHub token）；
+- 没有 seed 数据或后端未起（登录态失效、接口未返回历史数据）；
+- 第三方服务/配额不可用。
+
+登记项必须引用 `skip-register.json` 的 `envRefs` 中已存在的 `<key>`。**禁止**把“页面元素不存在”
+写成 ENV —— 元素不存在要么是产品缺陷（走 BUG），要么应改成硬断言。
+
+### 1.2 `BUG:<缺陷号>` — 已挂账的产品缺陷或未实现能力
+
+仅当“被测能力确实缺失/已知缺陷，且已在台账登记缺陷号”时允许：
+
+- 登记项 `ref` 形如 `BUG:E2E-SKIP-0001`；
+- 该缺陷必须存在于 `defects`，`status` 为 `open`，且有 `owner` / `reviewBy`；
+- 缺陷修复后必须把对应 skip 改成正式断言并关闭缺陷，**不允许长期挂账**。
+
+### 1.3 明确禁止
+
+- 裸 `test.skip()` / `setupTest.skip()`（无参数、无理由）；
+- `test.skip(condition)` 只给条件不给理由；
+- “元素缺失即 skip”“接口慢即 skip”“断言不好写就 skip”；
+- 引用不存在的编号、过期未复审、台账里有但代码里没用的孤儿条目。
+
+## 2. 固定等待（`waitForTimeout`）的允许条件
+
+`page.waitForTimeout(N)` 只允许用于**没有可观察信号**的计时窗口，且调用前必须紧邻一行注解：
+
+```ts
+// WAIT-POLICY:TIMING-0002 输入去抖窗口 300ms，需完整覆盖后才采样
+await page.waitForTimeout(300)
+```
+
+规则：
+
+1. 注解必须在调用同一条语句行之前（同一行行内注释或紧邻上一行均可）；
+2. `TIMING-xxxx` 必须存在于 `skip-register.json` 的 `timings`，理由 ≥8 字，带 `owner` / `reviewBy`；
+3. 只允许这些计时类：UI 过渡落定、去抖/节流、SSE/流式/轮询间隔、视觉几何稳定、外部服务响应、
+   为构造卡顿/超时场景的显式停顿；
+4. **不得**用于等页面加载、等登录、等接口返回、等元素出现 —— 这些必须改成条件等待。
+
+建议替代写法：
+
+- 等元素出现/消失：`await locator.waitFor({ state: 'visible', timeout })` 或 `await expect(locator).toBeVisible()`；
+- 等异步值：`await expect.poll(async () => value, { timeout }).toBe(expected)`；
+- 等导航：`await page.waitForURL(...)` / `await expect(page).toHaveURL(...)`；
+- 断言前的“稳一稳”：直接删掉固定等待，Playwright 断言本身会重试。
+
+## 3. 判据与豁免
+
+- 新代码（本次改动之后）必须 100% 满足；存量已按本文件一次性登记，登记项带复审日期。
+- `reviewBy` 到期由守门判红，必须复审：能删除的删除、能改条件等待的改条件等待、仍要保留的
+  重新登记并说明原因。
+- 台账与代码必须一一对应：代码引用了台账没有的 id = 红；台账有 id 但代码不再引用 = 孤儿 = 红。
+- 任何“取不到判据/读不了台账”的情形走 **未判定**（exit 2），不得冒绿。
