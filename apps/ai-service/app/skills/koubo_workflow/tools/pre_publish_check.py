@@ -60,15 +60,31 @@ if sys.platform == 'win32':
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 
+SUBPROCESS_TIMEOUT_S = 60
+# 依据(2026-11-07 实测,单份稿件/本机): scan_ambig 1.24s、scan_canonical 0.19s、
+# koubo_validate 0.13s、koubo_quality_gate 0.33s、hot_topic 0.18s(离线);
+# 唯一合法长等待是 hot_topic 内部 urlopen(timeout=20)。60s ≈ 48× 实测本地耗时,
+# 且 ≥3× 单次网络上限,既不会误伤慢机,又能把挂起变成确定失败。
+
+
 def run_script(cmd: list[str], label: str) -> tuple[int, str]:
-    """运行子脚本，返回 (returncode, output)"""
+    """运行子脚本，返回 (returncode, output)。
+
+    超时是硬失败(124),不降级为「跳过」:预检必须给出可判定的结论。
+    """
     print(f'\n{"=" * 70}')
     print(f'  ▶ {label}')
     print(f'    $ {" ".join(cmd)}')
     print('=' * 70)
-    result = subprocess.run(
-        cmd, capture_output=True, text=True, encoding='utf-8', errors='replace'
-    )
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, encoding='utf-8', errors='replace',
+            timeout=SUBPROCESS_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        msg = f'❌ 子脚本超时(>{SUBPROCESS_TIMEOUT_S}s): {" ".join(cmd)} ⇒ FAIL(不得跳过)'
+        print(msg)
+        return 124, msg
     # 仅输出最后 30 行（避免刷屏）
     output_lines = (result.stdout + result.stderr).strip().split('\n')
     tail = '\n'.join(output_lines[-30:])

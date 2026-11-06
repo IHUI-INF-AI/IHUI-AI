@@ -1734,4 +1734,35 @@ def test_full_audit_watermark_exception_is_not_no_watermark(monkeypatch, tmp_pat
     wm_count, details = fa._scan_watermarks(["a.jpg"], image_open=_boom)
     assert wm_count == 1
     assert "检测异常" in details[0]
+
+
+def test_run_script_timeout_reports_fail(monkeypatch) -> None:
+    """K3: 子脚本超时必须是可见的硬失败(124 + 超时信息),不许无限等待或降级跳过。"""
+    import io
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    tools_dir = Path(__file__).resolve().parents[1] / "app" / "skills" / "koubo_workflow" / "tools"
+    monkeypatch.syspath_prepend(str(tools_dir))
+
+    real_out, real_err = sys.stdout, sys.stderr
+    sys.stdout = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(io.BytesIO(), encoding="utf-8", errors="replace")
+    try:
+        import pre_publish_check as ppc
+    finally:
+        sys.stdout, sys.stderr = real_out, real_err
+
+    seen: dict[str, object] = {}
+
+    def _boom(cmd, **kwargs):
+        seen.update(kwargs)
+        raise subprocess.TimeoutExpired(cmd=cmd, timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(ppc.subprocess, "run", _boom)
+    rc, out = ppc.run_script([sys.executable, "slow.py"], "label")
+    assert rc == 124
+    assert "超时" in out
+    assert seen.get("timeout") == ppc.SUBPROCESS_TIMEOUT_S
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
