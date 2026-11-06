@@ -490,14 +490,14 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     // 无等价 DOM 可断言 → skip。
     test.skip(
       true,
-      'TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标',
+      'TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标 [SKIP:SKIP-0167]',
     )
   })
 
   test('11. subagent 事件相对时间显示(刚刚 / Ns 前)', async () => {
     // 原断言 TimelineEventRow 内 formatRelativeTime 输出。重构后无 timeline 行,
     // 无相对时间 UI → skip。
-    test.skip(true, '相对时间显示为 TimelineEventRow 特有,重构后已移除,无等价目标')
+    test.skip(true, '相对时间显示为 TimelineEventRow 特有,重构后已移除,无等价目标 [SKIP:SKIP-0168]')
   })
 
   test('12. pane 运行中状态图标:等待规划 spinner 带 animate-spin', async ({ adminPage: page }) => {
@@ -526,7 +526,10 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
   test('13. subagent 事件颜色(type=cyan-500)', async () => {
     // 原断言 TimelineEventRow TypeIcon class 含 text-cyan-500。重构后无 timeline 行,
     // 事件类型颜色图标已移除 → skip。
-    test.skip(true, 'TimelineEventRow 类型颜色图标(text-cyan-500)已随 timeline 行移除,无等价目标')
+    test.skip(
+      true,
+      'TimelineEventRow 类型颜色图标(text-cyan-500)已随 timeline 行移除,无等价目标 [SKIP:SKIP-0169]',
+    )
   })
 
   test('14. pane 面板关闭再打开后状态保持(会话就绪不丢失)', async ({ adminPage: page }) => {
@@ -591,13 +594,19 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
   test('16. Timeline 事件计数徽章', async () => {
     // 原断言 TimelineTab 头部事件计数徽章(data-testid="timeline-total-count")。
     // 重构后 TimelineTab 无 UI 挂载,计数徽章已不存在 → skip。
-    test.skip(true, '事件计数徽章为 TimelineTab 特有,重构后 TimelineTab 无挂载,无等价目标')
+    test.skip(
+      true,
+      '事件计数徽章为 TimelineTab 特有,重构后 TimelineTab 无挂载,无等价目标 [SKIP:SKIP-0170]',
+    )
   })
 
   test('17. subagent 事件 title 显示 role', async () => {
     // 原断言 TimelineEventRow title 字段 = spawn 事件的 role。重构后无 timeline 行,
     // role title 展示已随 timeline 行移除 → skip。
-    test.skip(true, 'TimelineEventRow title(role)展示已随 timeline 行移除,无等价目标')
+    test.skip(
+      true,
+      'TimelineEventRow title(role)展示已随 timeline 行移除,无等价目标 [SKIP:SKIP-0171]',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

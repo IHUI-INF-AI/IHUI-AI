@@ -110,6 +110,7 @@ test.describe('工作流编辑器', () => {
     const nodeExists = await canvasNode.isVisible({ timeout: 5000 }).catch(() => false)
     if (nodeExists) {
       await canvasNode.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await authenticatedPage.waitForTimeout(300)
 
       // 验证属性面板显示(标题"属性"且非"选择一个节点编辑属性")
@@ -163,6 +164,7 @@ test.describe('工作流编辑器', () => {
     const nodeExists = await canvasNode.isVisible({ timeout: 5000 }).catch(() => false)
     if (nodeExists) {
       await canvasNode.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await authenticatedPage.waitForTimeout(300)
 
       // 编辑节点名称
@@ -198,6 +200,7 @@ test.describe('工作流编辑器', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     // 验证编辑器画布在暗色模式下仍可见

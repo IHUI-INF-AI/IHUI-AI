@@ -69,7 +69,7 @@ test.describe.parallel('SEO 专项', () => {
     const response = await request.get('/robots.txt')
     // dev 环境可能未配置 robots.txt,200 或 404 均可接受
     if (response.status() === 404) {
-      test.skip(true, 'robots.txt 未配置(dev 环境)')
+      test.skip(true, 'robots.txt 未配置(dev 环境) [SKIP:SKIP-0178]')
       return
     }
     expect(response.status()).toBe(200)

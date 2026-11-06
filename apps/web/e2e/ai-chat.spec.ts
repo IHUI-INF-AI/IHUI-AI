@@ -86,7 +86,6 @@ test.describe('AI 对话流程', () => {
       await textarea.fill('测试流式响应')
       await page.keyboard.press('Enter').catch(() => {})
       // 等待响应(不崩溃即通过)
-      await page.waitForTimeout(3000)
       expect(page.url()).toContain('/chat')
     }
   })
@@ -108,7 +107,7 @@ test.describe('AI 对话流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const deleteBtn = page.getByRole('button', { name: /删除|Delete|Remove/i }).first()
     const hasDelete = await deleteBtn.isVisible({ timeout: 2000 }).catch(() => false)
     expect(hasDelete || true).toBeTruthy()

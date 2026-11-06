@@ -49,7 +49,7 @@ test.describe('通知中心', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const readBtn = page
       .getByRole('button')
       .filter({
@@ -65,7 +65,7 @@ test.describe('通知中心', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const deleteBtn = page.getByRole('button', { name: /删除|Delete|Remove/i }).first()
     const hasDelete = await deleteBtn.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasDelete || true).toBeTruthy()
@@ -76,7 +76,7 @@ test.describe('通知中心', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 筛选可能是 tab(全部/未读/已读)
     const filterTab = page.getByRole('tab', { name: /全部|未读|已读|All|Unread|Read/i }).first()
     const filterBtn = page.getByRole('button', { name: /全部|未读|已读|All|Unread|Read/i }).first()
@@ -90,11 +90,10 @@ test.describe('通知中心', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const item = page.locator('[role="listitem"], article, a').first()
     if (await item.isVisible({ timeout: 3000 }).catch(() => false)) {
       await item.click().catch(() => {})
-      await page.waitForTimeout(1000)
       expect(page.url()).toBeTruthy()
     }
   })

@@ -186,6 +186,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
         .poll(() => activeDotIndex(page), { timeout: 10_000, intervals: [200] })
         .toBe(before + 1)
       // 圆点尺寸有 transition-all duration-300,等动画结束再量几何
+      // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
       await page.waitForTimeout(450)
 
       const afterHeights = await dotHeightsPx(page)
@@ -212,6 +213,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End'] as const) {
         await page.keyboard.press(key)
         // 覆盖 900ms 节流锁:若方向键仍被翻页 handler 消费,激活点会在该窗口内变成 1
+        // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
         await page.waitForTimeout(THROTTLE_WINDOW_MS)
         const idx = await activeDotIndex(page)
         console.log(`[P2] 按 ${key} 后 1.2s,激活点下标 = ${idx}(期望仍为 0)`)
@@ -251,6 +253,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       ).toBe('e2e-focus-guard-probe')
 
       await page.keyboard.press('PageDown')
+      // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
       await page.waitForTimeout(THROTTLE_WINDOW_MS)
       const idx = await activeDotIndex(page)
       const log = await keyProbeLog(page)
@@ -271,7 +274,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       const page = authenticatedPage
       await page.goto('/chat', { waitUntil: 'domcontentloaded' })
       if (!page.url().includes('/chat')) {
-        authTest.skip(true, `/chat 被重定向到 ${page.url()},登录态未生效`)
+        authTest.skip(true, `/chat 被重定向到 ${page.url()},登录态未生效 [SKIP:SKIP-0050]`)
       }
       if (
         await page
@@ -279,7 +282,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
           .isVisible()
           .catch(() => false)
       ) {
-        authTest.skip(true, '登录弹窗出现,会话失效,无法验证 /chat 键位归属')
+        authTest.skip(true, '登录弹窗出现,会话失效,无法验证 /chat 键位归属 [SKIP:SKIP-0051]')
       }
       await waitForRail(page)
       await waitForPagingHydrated(page)
@@ -288,6 +291,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       await blurActiveElement(page)
       for (const key of ['ArrowDown', 'ArrowUp'] as const) {
         await page.keyboard.press(key)
+        // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
         await page.waitForTimeout(THROTTLE_WINDOW_MS)
         const idx = await activeDotIndex(page)
         console.log(`[P4] /chat 按 ${key} 后 1.2s,翻页指示器激活点 = ${idx}(基线 ${before})`)
@@ -307,7 +311,10 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       const ids = await listConversationIds(page)
       console.log(`[P4b] 历史会话候选 id(${ids.length} 个): ${JSON.stringify(ids)}`)
       if (ids.length === 0) {
-        authTest.skip(true, 'API 未返回任何历史会话,无法验证消息焦点切换(非断言失败)')
+        authTest.skip(
+          true,
+          'API 未返回任何历史会话,无法验证消息焦点切换(非断言失败) [SKIP:SKIP-0052]',
+        )
         return
       }
       let rendered = 0
@@ -326,7 +333,7 @@ base.describe('整屏翻页 × 对话流 键盘键位归属回归', () => {
       if (rendered < 2 || rendered > 12) {
         authTest.skip(
           true,
-          `候选会话渲染消息数不在 2..12 区间(实测 ${rendered}),无法可靠断言相邻切换(非断言失败)`,
+          `候选会话渲染消息数不在 2..12 区间(实测 ${rendered}),无法可靠断言相邻切换(非断言失败) [SKIP:SKIP-0053]`,
         )
         return
       }

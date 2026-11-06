@@ -53,7 +53,7 @@ test.describe('AI 能力面板', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-capability')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 筛选可能是 tab 或 select
     const tabs = page.getByRole('tab').first()
     const select = page.getByRole('combobox').first()
@@ -67,12 +67,11 @@ test.describe('AI 能力面板', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-capability')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 能力项可能是 card 或 listitem
     const item = page.locator('[role="listitem"], [role="gridcell"], article, .card').first()
     if (await item.isVisible({ timeout: 3000 }).catch(() => false)) {
       await item.click().catch(() => {})
-      await page.waitForTimeout(1000)
       expect(page.url()).toBeTruthy()
     }
   })
@@ -82,7 +81,7 @@ test.describe('AI 能力面板', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-capability')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const callBtn = page
       .getByRole('button')
       .filter({

@@ -102,7 +102,7 @@ test.describe('文档中心状态码成对断言(单段)', () => {
     if (status === 500) {
       test.skip(
         true,
-        `未判定:${ghostPath} 回 500 = 探针问不到(四态 'unknown'),按判据不落 404;需活的后端在场才判得动`,
+        `未判定:${ghostPath} 回 500 = 探针问不到(四态 'unknown'),按判据不落 404;需活的后端在场才判得动 [SKIP:SKIP-0045]`,
       )
       return
     }
@@ -156,10 +156,7 @@ test.describe('文档中心状态码成对断言(目录树全量,现读不抄清
   // 给 5 分钟(空载机器上整组实际 <5s)。
   test.setTimeout(300_000)
 
-  const docsRoot = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../app/(main)/docs',
-  )
+  const docsRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../app/(main)/docs')
 
   /** 递归收集「含 page.tsx 的目录」相对 docs 的路径;`[slug]` 动态段与 `_` 前缀私有段不参与。 */
   function collectDocPagePaths(dir: string, rel: string[], acc: string[]): void {

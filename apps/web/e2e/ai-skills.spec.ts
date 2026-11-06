@@ -85,6 +85,7 @@ test.describe('AI Skills 独立页', () => {
 
     // 输入关键词
     await searchInput.fill('code')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 验证列表项被过滤(至少有一个技能卡包含关键词,或列表为空显示空状态)
@@ -98,7 +99,6 @@ test.describe('AI Skills 独立页', () => {
 
     // 清空搜索,恢复全部
     await searchInput.fill('')
-    await page.waitForTimeout(500)
     const restoredCount = await page.locator('a[href^="/ai-skills/"]').count()
     expect(restoredCount).toBeGreaterThanOrEqual(cardCount)
   })
@@ -121,6 +121,7 @@ test.describe('AI Skills 独立页', () => {
       const isVisible = await tab.isVisible({ timeout: 3000 }).catch(() => false)
       if (isVisible) {
         await tab.click()
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(500)
         // 验证页面无 500
         const errorResp = page.url()

@@ -43,7 +43,7 @@ test.describe('顶部搜索按钮容器 与 MainShell 工作区卡片 左对齐�
   test('搜索按钮 / 工作区卡片 / work-area 三者 left 严格对齐', async ({ adminPage }) => {
     await adminPage.goto('/chat')
     // 等待路由 + AI 面板 + 顶栏完全渲染
-    await adminPage.waitForTimeout(2000)
+    await adminPage.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
 
     const measure = await adminPage.evaluate(() => {
       const workArea = document.getElementById('work-area-portal-root')

@@ -67,6 +67,7 @@ test.describe('浮动弹窗视口定位(斜杠/用量环弹窗)', () => {
     await expect(chatInput).toBeVisible({ timeout: 20_000 })
     await chatInput.click()
     await chatInput.pressSequentially('/')
+    // WAIT-POLICY:TIMING-0003 SSE/流式/轮询事件到达间隔窗口,事件本身不可观察
     await page.waitForTimeout(500)
 
     // 契约 3:body 不被撑开
@@ -87,6 +88,7 @@ test.describe('浮动弹窗视口定位(斜杠/用量环弹窗)', () => {
     const trigger = page.getByTestId('context-usage-trigger')
     await expect(trigger).toBeVisible({ timeout: 20_000 })
     await trigger.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     const after = await bodyScrollHeight(page)

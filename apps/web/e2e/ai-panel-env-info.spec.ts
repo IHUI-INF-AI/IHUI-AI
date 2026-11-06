@@ -130,11 +130,11 @@ test.describe('AI panel env-info (重构后)', () => {
   test('本地行/分支行展开显示仓库信息', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
-    test.skip(!hasData, '无工作区,跳过仓库信息展开断言')
+    test.skip(!hasData, '无工作区,跳过仓库信息展开断言 [SKIP:SKIP-0013]')
 
     const localRow = popover.locator('[data-testid="env-info-row-branch"]')
     if ((await localRow.count()) === 0) {
-      test.skip(true, '工作区非 git 仓库或为错误态,无本地行')
+      test.skip(true, '工作区非 git 仓库或为错误态,无本地行 [SKIP:SKIP-0014]')
       return
     }
 
@@ -171,11 +171,11 @@ test.describe('AI panel env-info (重构后)', () => {
   test('提交或推送行打开提交弹窗', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
-    test.skip(!hasData, '无工作区,跳过提交弹窗断言')
+    test.skip(!hasData, '无工作区,跳过提交弹窗断言 [SKIP:SKIP-0015]')
 
     const commitPushRow = popover.locator('[data-testid="env-info-row-commit-push"]')
     if ((await commitPushRow.count()) === 0 || (await commitPushRow.isDisabled())) {
-      test.skip(true, '当前无变更可提交或行缺失,跳过提交弹窗断言')
+      test.skip(true, '当前无变更可提交或行缺失,跳过提交弹窗断言 [SKIP:SKIP-0016]')
       return
     }
     await commitPushRow.click()
@@ -204,7 +204,7 @@ test.describe('AI panel env-info (重构后)', () => {
 
     const viewFullBtn = popover.locator('[data-testid="env-info-view-full"]')
     if ((await viewFullBtn.count()) === 0) {
-      test.skip(true, 'header 未提供完整详情按钮,跳过')
+      test.skip(true, 'header 未提供完整详情按钮,跳过 [SKIP:SKIP-0017]')
       return
     }
     await viewFullBtn.click()
@@ -304,12 +304,12 @@ test.describe('AI panel env-info (重构后)', () => {
   test('GitHub 配置弹窗打开/交互', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
-    test.skip(!hasData, '无工作区,跳过 GitHub 配置弹窗断言')
+    test.skip(!hasData, '无工作区,跳过 GitHub 配置弹窗断言 [SKIP:SKIP-0018]')
 
     // 无 token 时 PR 行显示「连接 GitHub」入口;有 token/非 GitHub 仓库则不渲染
     const connectBtn = popover.locator('[data-testid="env-info-connect-github"]')
     if ((await connectBtn.count()) === 0) {
-      test.skip(true, '无配置入口(非 GitHub/已配置),跳过')
+      test.skip(true, '无配置入口(非 GitHub/已配置),跳过 [SKIP:SKIP-0019]')
       return
     }
     await connectBtn.click()
@@ -327,12 +327,12 @@ test.describe('AI panel env-info (重构后)', () => {
   test('GitHub 授权流程(使用 GitHub 授权)', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
-    test.skip(!hasData, '无工作区,跳过 GitHub 授权流程断言')
+    test.skip(!hasData, '无工作区,跳过 GitHub 授权流程断言 [SKIP:SKIP-0020]')
 
     // 无 token 时 PR 行显示「连接 GitHub」入口;有 token/非 GitHub 仓库则不渲染
     const connectBtn = popover.locator('[data-testid="env-info-connect-github"]')
     if ((await connectBtn.count()) === 0) {
-      test.skip(true, '无连接入口(非 GitHub/已配置),跳过')
+      test.skip(true, '无连接入口(非 GitHub/已配置),跳过 [SKIP:SKIP-0021]')
       return
     }
     await connectBtn.click()
@@ -340,7 +340,7 @@ test.describe('AI panel env-info (重构后)', () => {
     // 授权主按钮(新结构);旧结构未实现 OAuth UI 时跳过
     const authStart = authenticatedPage.locator('[data-testid="github-auth-start"]')
     if ((await authStart.count()) === 0) {
-      test.skip(true, 'OAuth 授权 UI 未就绪(无「使用 GitHub 授权」按钮),跳过')
+      test.skip(true, 'OAuth 授权 UI 未就绪(无「使用 GitHub 授权」按钮),跳过 [SKIP:SKIP-0022]')
       return
     }
     await expect(authStart).toBeVisible({ timeout: 10000 })
@@ -391,11 +391,11 @@ test.describe('AI panel env-info (重构后)', () => {
   test('比较分支行 GitHub 外链', async ({ authenticatedPage }) => {
     await openHome(authenticatedPage)
     const { popover, hasData } = await openEnvPopover(authenticatedPage)
-    test.skip(!hasData, '无工作区,跳过比较分支行断言')
+    test.skip(!hasData, '无工作区,跳过比较分支行断言 [SKIP:SKIP-0023]')
 
     const compareRow = popover.locator('[data-testid="env-info-row-compare"]')
     if ((await compareRow.count()) === 0) {
-      test.skip(true, '无比较分支行(非 git 仓库/错误态),跳过')
+      test.skip(true, '无比较分支行(非 git 仓库/错误态),跳过 [SKIP:SKIP-0024]')
       return
     }
     await expect(compareRow).toBeVisible({ timeout: 10000 })

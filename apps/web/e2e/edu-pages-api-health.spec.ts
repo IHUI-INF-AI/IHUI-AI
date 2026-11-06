@@ -25,7 +25,11 @@ const PAGES = [
 
 test.describe('教育页接口健康', () => {
   for (const p of PAGES) {
-    test(`${p.label}页的数据请求不得出现 4xx/5xx`, async ({ adminPage: page }: { adminPage: Page }) => {
+    test(`${p.label}页的数据请求不得出现 4xx/5xx`, async ({
+      adminPage: page,
+    }: {
+      adminPage: Page
+    }) => {
       test.setTimeout(90_000)
       const bad: string[] = []
       let unauthorized = 0
@@ -41,15 +45,23 @@ test.describe('教育页接口健康', () => {
       })
       await page.goto(p.path, { waitUntil: 'domcontentloaded' })
       if (page.url().includes('login')) {
-        test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}(机器态,非页面缺陷)`)
+        test.skip(
+          true,
+          `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}(机器态,非页面缺陷) [SKIP:SKIP-0049]`,
+        )
         return
       }
       // 等一轮取数完成(该页取数后才渲染面板,过早断言会漏掉请求)
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(8000)
       // 财务页要切到「缴费记录」面板才会发那批请求
       const tab = page.getByRole('tab', { name: '缴费记录' })
       if ((await tab.count()) > 0) {
-        await tab.first().click().catch(() => {})
+        await tab
+          .first()
+          .click()
+          .catch(() => {})
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(4000)
       }
       // 本机常见环境态:8801/8802 是并发会话起的 dev 进程,代码可能落后于 HEAD。
@@ -63,7 +75,8 @@ test.describe('教育页接口健康', () => {
           'dev 进程长期不重启时,已修的读侧别名/新端点会以 404 形态出现(实测踩过)。' +
           '私有实例三臂对照可判真伪:新端点 401 / 已知端点 401 / 假路径 404。',
       ).toEqual([])
-      if (unauthorized > 0) console.log(`NOTE ${p.label}: ${unauthorized} 个 401(登录态相关,未计失败)`)
+      if (unauthorized > 0)
+        console.log(`NOTE ${p.label}: ${unauthorized} 个 401(登录态相关,未计失败)`)
     })
   }
 })
