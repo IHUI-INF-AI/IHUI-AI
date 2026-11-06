@@ -81,6 +81,53 @@ export const R = () => <DemoScreen onPress={'oops'} />`
   assert.equal(unknown.buckets.shadow.length, 0, '阴性对照:声明语义不可静态归类时不得报影子契约')
 })
 
+test('壳承载页模型修正:零 attrs 单壳页不作独立消费端;真传 prop / 额外渲染仍判 C1', () => {
+  const shared = `interface DemoScreenProps { title: string; flag: boolean; deadOne?: string; alive?: string }
+export default function DemoScreen({ title, alive }: DemoScreenProps) {
+  return <View><Text>{title}</Text><Text>{alive}</Text></View>
+}`
+  const rn = `import { DemoScreen } from '@ihui/rn-app'
+export const R = () => <DemoScreen title={'x'} flag={true} />
+`
+  const carrierPage = `import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><DemoScreen /></ThemeRoot>`
+  const carrier = analyzeScreenContract({ pageText: carrierPage, sharedText: shared, rnText: rn, specs: [SPEC] })
+  assert.equal(carrier.carrier, true, '零 attrs + 仅宿主根 + 无页内取数 ⇒ 判为壳承载页')
+  assert.deepEqual(props(carrier, 'single-end'), [], '承载页的「仅 RN 传」不得进 C1')
+  assert.equal(carrier.carrierExempt, 2, '豁免计数必须可核对(title/flag 两条)')
+  assert.deepEqual(props(carrier, 'dead'), ['deadOne'], '承载页内 RN 侧自身的死契约仍照常判')
+
+  // 反证 1:页面真传 prop ⇒ 不是承载页,仍是 C1 消费端
+  const propPage = `import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <DemoScreen title={'x'} />`
+  const prop = analyzeScreenContract({ pageText: propPage, sharedText: shared, rnText: rn, specs: [SPEC] })
+  assert.equal(prop.carrier, false)
+  assert.deepEqual(props(prop, 'single-end'), ['flag'], '真传 prop 的页不得因模型修正被误豁免')
+
+  // 反证 2:零 attrs 但有额外渲染 ⇒ 不是纯承载页,保持原判
+  const extraPage = `import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <AuthReadyGate><DemoScreen /></AuthReadyGate>`
+  const extra = analyzeScreenContract({ pageText: extraPage, sharedText: shared, rnText: rn, specs: [SPEC] })
+  assert.equal(extra.carrier, false)
+  assert.ok(extra.carrierReason?.startsWith('extra-jsx'))
+  assert.deepEqual(props(extra, 'single-end'), ['flag', 'title'].sort())
+
+  // 反证 3:页内自带取数 ⇒ 不是承载页
+  const fetchPage = `import { DemoScreen } from '@rn-shells/DemoScreen'
+import { fetchApi } from '@ihui/api-client'
+export default () => { const d = fetchApi('/api/x'); return <DemoScreen /> }`
+  const fetchRow = analyzeScreenContract({ pageText: fetchPage, sharedText: shared, rnText: rn, specs: [SPEC] })
+  assert.equal(fetchRow.carrier, false, '页内取数的页是独立消费端,不得豁免')
+
+  // 棘轮:旧基线残留的承载页单端条目不进 C5,其他页照常 C5
+  const stale = [{ route: 'carrier-route', bucket: 'single-end', prop: 'p', why: 'w' }]
+  const skipped = evaluateContractRatchet([], stale, { carrierRoutes: new Set(['carrier-route']) })
+  assert.equal(skipped.advisories.length, 0)
+  assert.equal(skipped.stats.carrierStaleExempt, 1)
+  const notSkipped = evaluateContractRatchet([], stale, { carrierRoutes: new Set() })
+  assert.equal(notSkipped.advisories.filter((a) => a.rule === 'C5').length, 1)
+})
+
 test('C4 未解析:读不到/类型解不开/属性展开/未渲染 都只进未解析', () => {
   const page = `import { DemoScreen } from '@rn-shells/DemoScreen'
 export default () => <DemoScreen title={'x'} />`

@@ -912,13 +912,102 @@ function extractConsumerUsage(text, specs) {
   return { state: found ? 'ok' : 'not-found', attrs, spread }
 }
 
+function collectJsxNodes(node, acc) {
+  if (!node) return acc
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) acc.push(node)
+  ts.forEachChild(node, (c) => {
+    collectJsxNodes(c, acc)
+  })
+  return acc
+}
+
+function lineOfNode(sf, node) {
+  return sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+}
+
+/** 页内取数痕迹(壳承载页不允许自带数据层)。 */
+const CARRIER_DATA_RE =
+  /(?:@ihui\/api-client|fetchApi\s*\(|\bfetch\s*\(|\bTaro\.request\s*\(|\bwx\.request\s*\(|\buni\.request\s*\(|\baxios\b|\/api\/|\buseRequest\b)/
+
+/** 页内副作用/宿主调用痕迹(壳承载页只允许空白挂载,不允许自己再挂钩子)。 */
+const CARRIER_SIDE_EFFECT_TOKENS = ['useEffect', 'useState', 'useReducer', 'useRequest', 'Taro.', 'wx.', 'uni.']
+
+/**
+ * 壳承载页取证(模型修正 2026-11-07)。
+ *
+ * 零 attrs 壳承载页渲染的就是 RN 壳本体 —— 它本身就是 RN 屏的一部分,不是共享屏的
+ * **独立消费端**。把它与 RN 壳并排比「谁传了 prop」属自比其子节点,是判据模型错误。
+ * 只有同时满足下列四条才判为承载页(任一不满足 ⇒ 保持原判,仍作为独立消费端参与 C1):
+ *   ① 页面 import 的 `@rn-shells/<X>` 与声明共享屏同名(X = spec base);
+ *   ② 默认导出组件的 return 树里只有 1 个 RN 壳元素,且该元素 0 个属性(无 {...spread});
+ *   ③ 除宿主根(ThemeRoot / 根布局容器)外没有任何额外 JSX;
+ *   ④ 页内无取数痕迹,也无 useEffect/useState/Taro./wx./uni. 等副作用或宿主调用。
+ *
+ * @returns {{carrier:boolean,reason:string|null,evidence:object|null}}
+ */
+export function detectShellCarrier(text, specs = []) {
+  const no = (reason, evidence = null) => ({ carrier: false, reason, evidence })
+  if (typeof text !== 'string' || !(specs || []).length) return no('no-spec')
+  const sf = contractAst(text)
+  if (!sf) return no('page-unreadable')
+  const base = String(specs[0]).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
+  if (!base) return no('no-spec')
+  const shellLocals = new Set()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue
+    const mod = st.moduleSpecifier?.text || ''
+    if (mod !== `@rn-shells/${base}`) continue
+    if (st.importClause.name) shellLocals.add(st.importClause.name.text)
+    const nb = st.importClause.namedBindings
+    if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) shellLocals.add(el.name.text)
+  }
+  if (shellLocals.size === 0) return no('no-shell-entry')
+  const comp = findExportedComponent(sf)
+  if (!comp) return no('no-exported-component')
+  const roots = returnRoots(comp)
+  if (roots.length === 0) return no('no-return-jsx')
+  const jsx = []
+  for (const rt of roots) collectJsxNodes(rt, jsx)
+  const shellEls = jsx.filter((n) => shellLocals.has(jsxTag(n)))
+  if (shellEls.length !== 1) return no(`shell-elements-${shellEls.length}`)
+  const shellAttrs = attrsOf(shellEls[0]).properties
+  if (shellAttrs.length !== 0) return no(`shell-attrs-${shellAttrs.length}`)
+  const rootSet = new Set(roots)
+  const extra = jsx.filter((n) => {
+    if (n === shellEls[0]) return false
+    if (jsxTag(n) === 'ThemeRoot') return false
+    if (rootSet.has(n) && (ROOT_BASIS_RE.test(attrText(n, 'className')) || /height/.test(attrText(n, 'style')))) return false
+    return true
+  })
+  if (extra.length > 0) {
+    return no(`extra-jsx-${extra.length}`, extra.map((n) => ({ tag: jsxTag(n), line: lineOfNode(sf, n) })))
+  }
+  const code = codeOnly(text)
+  const pageEffects = []
+  if (CARRIER_DATA_RE.test(code)) pageEffects.push('data-layer')
+  for (const tok of CARRIER_SIDE_EFFECT_TOKENS) if (code.includes(tok)) pageEffects.push(tok)
+  if (pageEffects.length > 0) return no(`page-side-effect-${pageEffects.join(',')}`)
+  return {
+    carrier: true,
+    reason: null,
+    evidence: {
+      shellEntry: `@rn-shells/${base}`,
+      shellTag: jsxTag(shellEls[0]),
+      line: lineOfNode(sf, shellEls[0]),
+      attrCount: 0,
+      extraJsx: 0,
+      pageEffects: [],
+    },
+  }
+}
+
 /**
  * 屏级契约判定(纯函数,读文件走 ctx.readFile,保证与取材面同面)。
  * @param {{route:string,file:string|null,pageText:string|null,sharedText:string|null,rnText:string|null,specs:string[],readFile?:(rel:string)=>string|null}} p
  */
 export function analyzeScreenContract(p) {
   const specs = p?.specs ?? []
-  const empty = { inScope: false, state: 'unresolved', reason: 'no-declared-spec', buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [] }, declared: 0 }
+  const empty = { inScope: false, state: 'unresolved', reason: 'no-declared-spec', buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [] }, declared: 0, carrier: false, carrierEvidence: null, carrierReason: null, carrierExempt: 0 }
   if (specs.length === 0) return empty
   const ctx = { readFile: typeof p.readFile === 'function' ? p.readFile : () => null }
   const specRel = specs[0]
@@ -929,6 +1018,10 @@ export function analyzeScreenContract(p) {
     reason: code,
     buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [{ prop: code, why }] },
     declared: 0,
+    carrier: false,
+    carrierEvidence: null,
+    carrierReason: null,
+    carrierExempt: 0,
   })
   if (typeof p?.pageText !== 'string') return unresolved('page-unreadable', '页面正文在该面读不到')
   if (typeof p?.sharedText !== 'string') return unresolved('shared-unreadable', '共享屏正文在该面读不到')
@@ -937,6 +1030,7 @@ export function analyzeScreenContract(p) {
   const page = extractConsumerUsage(p.pageText, specs)
   if (page.state === 'unreadable') return unresolved('page-unreadable', '页面正文解析失败')
   if (page.state === 'not-found') return unresolved('page-no-element', '页面未渲染被声明的共享屏')
+  const carrier = detectShellCarrier(p.pageText, specs)
   const rn = extractConsumerUsage(p.rnText, specs)
   if (rn.state === 'missing') return unresolved('rn-missing', 'RN 对照正文在该面读不到')
   if (rn.state === 'unreadable') return unresolved('rn-unreadable', 'RN 对照正文解析失败')
@@ -948,6 +1042,7 @@ export function analyzeScreenContract(p) {
   const rnAttrs = rn.attrs
   const buckets = { 'single-end': [], dead: [], shadow: [], unresolved: [] }
   const allNames = new Set([...pageAttrs.keys(), ...rnAttrs.keys()])
+  let carrierExempt = 0
   for (const name of allNames) {
     const d = declared.get(name)
     if (!d) {
@@ -963,6 +1058,12 @@ export function analyzeScreenContract(p) {
     const inPage = pageAttrs.has(name)
     const inRn = rnAttrs.has(name)
     if (inPage !== inRn) {
+      // 模型修正(2026-11-07):零 attrs 壳承载页不是独立消费端,它渲染的就是 RN 壳本体。
+      // 这类「仅 RN 传」不记 C1,单独记壳承载页豁免(不进基线、不进 C5)。
+      if (carrier.carrier && !inPage) {
+        carrierExempt++
+        continue
+      }
       buckets['single-end'].push({ prop: name, why: inPage ? '仅小程序页传,RN 未传' : '仅 RN 传,小程序页未传' })
     }
   }
@@ -980,6 +1081,10 @@ export function analyzeScreenContract(p) {
     declared: screen.props.length,
     openContract: Boolean(screen.openContract),
     passed: { page: pageAttrs.size, rn: rnAttrs.size },
+    carrier: Boolean(carrier.carrier),
+    carrierEvidence: carrier.carrier ? carrier.evidence : null,
+    carrierReason: carrier.carrier ? null : carrier.reason,
+    carrierExempt,
   }
 }
 
@@ -1027,8 +1132,16 @@ export function validateContractBaseline(entries) {
  * - 新增命中(当前有、基线无)⇒ 红(C1..C4);
  * - 基线有、当前无 ⇒ advisory(可收紧,不红);
  * - 基线非法 ⇒ 红(C0)。
+ *
+ * `opts.carrierRoutes`:当前面判定为「零 attrs 壳承载页」的路由集合。这些页不作为独立
+ * 消费端,其 single-end 条目不进 C1;若旧基线里仍留着它们的 single-end 条目,也不进 C5,
+ * 单独计入 `carrierStaleExempt`(模型修正,不是人为放行)。
+ *
+ * @param {object[]} items 当前面契约命中
+ * @param {object[]} baseline 基线条目
+ * @param {{carrierRoutes?: Set<string>}} [opts]
  */
-export function evaluateContractRatchet(items, baseline) {
+export function evaluateContractRatchet(items, baseline, opts = {}) {
   const badBaseline = validateContractBaseline(baseline)
   const reds = badBaseline.map((b) => ({ rule: 'C0', why: b.why, row: b.entry ?? null }))
   const base = new Map((Array.isArray(baseline) ? baseline : []).filter((e) => e && typeof e === 'object' && e.route && e.bucket && e.prop).map((e) => [contractKey(e), e]))
@@ -1037,9 +1150,15 @@ export function evaluateContractRatchet(items, baseline) {
     if (base.has(contractKey(i))) continue
     reds.push({ rule: CONTRACT_RULE[i.bucket] ?? 'C4', why: `新增屏级契约问题(${i.bucket}): ${i.route} · ${i.prop} —— ${i.why}`, row: i })
   }
+  const carrierRoutes = opts.carrierRoutes instanceof Set ? opts.carrierRoutes : new Set(opts.carrierRoutes || [])
   const advisories = []
+  let carrierStaleExempt = 0
   for (const [key, e] of base) {
     if (current.has(key)) continue
+    if (e.bucket === 'single-end' && carrierRoutes.has(e.route)) {
+      carrierStaleExempt++
+      continue
+    }
     advisories.push({ rule: 'C5', why: `基线条目当前面无命中(可收紧): ${e.route} · ${e.bucket} · ${e.prop}` })
   }
   const byBucket = Object.fromEntries(CONTRACT_BUCKETS.map((b) => [b, items.filter((i) => i.bucket === b).length]))
@@ -1052,6 +1171,7 @@ export function evaluateContractRatchet(items, baseline) {
       newItems: reds.filter((r) => r.rule !== 'C0').length,
       stale: advisories.length,
       byBucket,
+      carrierStaleExempt,
     },
   }
 }

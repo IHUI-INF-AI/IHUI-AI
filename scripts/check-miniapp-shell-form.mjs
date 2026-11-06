@@ -43,6 +43,7 @@
  *   node scripts/check-miniapp-shell-form.mjs --self-test            # 正反例自测
  *   node scripts/check-miniapp-shell-form.mjs --emit-baseline        # 生成存量台账(jsonl)
  *   node scripts/check-miniapp-shell-form.mjs --emit-contract-baseline # 合并新增屏级契约基线条目(只追加)
+ *   node scripts/check-miniapp-shell-form.mjs --rebuild-contract-baseline # 按当前面重建屏级契约基线(承载页条目不写入,附审计读数)
  */
 
 import { writeFileSync } from 'node:fs'
@@ -61,6 +62,7 @@ import {
   loadRegistry,
   retirementShortfall,
   contractItemsOf,
+  contractKey,
   evaluateContractRatchet,
   mergeContractBaseline,
   validateContractBaseline,
@@ -77,6 +79,7 @@ const selfTest = argv.includes('--self-test')
 const explainMode = argv.includes('--explain')
 const emitBaseline = argv.includes('--emit-baseline')
 const emitContractBaseline = argv.includes('--emit-contract-baseline')
+const rebuildContractBaseline = argv.includes('--rebuild-contract-baseline')
 
 const log = (...a) => {
   if (!jsonMode) console.log(...a)
@@ -143,7 +146,14 @@ function loadContractBaseline(root) {
   return j.entries
 }
 
-/** 基线只许新增:已有条目原样保留,只追加当前面新命中。 */
+/** 当前面判定为「零 attrs 壳承载页」的路由集合(模型修正,不是白名单)。 */
+function carrierRoutesOf(rows) {
+  return new Set(rows.filter((r) => r.contract?.carrier).map((r) => r.route))
+}
+
+/** 基线只许新增:已有条目原样保留,只追加当前面新命中。
+ *  例外(2026-11-07 模型修正):壳承载页的 single-end 条目是判据假阳性,合并时剔除并计数;
+ *  其余条目仍逐字保留 —— 不是放宽判据。 */
 function emitContractBaselineFile(root, face) {
   const txt = readFaceOne(root, 'worktree', CONTRACT_BASELINE)
   let existing = []
@@ -159,18 +169,76 @@ function emitContractBaselineFile(root, face) {
     if (bad.length) throw new Undetermined(`现有屏级契约基线形状非法,拒绝合并: ${bad[0].why}`)
   }
   const { rows } = classifyMiniappPages(root, face, loadLedgerRows(root))
+  const carrierRoutes = carrierRoutesOf(rows)
+  const carrierEntries = existing.filter((e) => e.bucket === 'single-end' && carrierRoutes.has(e.route))
+  const keptExisting = existing.filter((e) => !(e.bucket === 'single-end' && carrierRoutes.has(e.route)))
   const items = contractItemsOf(rows)
-  const merged = mergeContractBaseline(existing, items, { at: '2026-11-07', face })
+  const merged = mergeContractBaseline(keptExisting, items, { at: '2026-11-07', face })
   const doc = {
     $comment:
-      '屏级契约定向回归基线(门 299 C1-C4)。只许新增条目:存量问题在此登记后不红,新增命中才红;删条目=放宽判据。',
+      '屏级契约定向回归基线(门 299 C1-C4)。只许新增条目:存量问题在此登记后不红,新增命中才红;删条目=放宽判据。' +
+      '2026-11-07 模型修正:零 attrs 壳承载页不作为独立消费端,其 single-end 条目不进基线(见 audit.carrierExempt);这是判据模型修正,不是人为放行。',
     at: '2026-11-07',
     face,
+    audit: { carrierPages: carrierRoutes.size, carrierExempt: carrierEntries.length },
     entries: merged.entries,
   }
   writeFileSync(join(root, CONTRACT_BASELINE), JSON.stringify(doc, null, 2) + '\n', 'utf8')
   log(
-    `✅ 已写屏级契约基线 ${CONTRACT_BASELINE}:保留 ${merged.kept} 条 + 新增 ${merged.added} 条 = ${merged.entries.length} 条(面=${face})`,
+    `✅ 已写屏级契约基线 ${CONTRACT_BASELINE}:保留 ${merged.kept} 条 + 新增 ${merged.added} 条 = ${merged.entries.length} 条` +
+      `(剔除壳承载页 single-end ${carrierEntries.length} 条,面=${face})`,
+  )
+  return 0
+}
+
+/** 按当前面重建屏级契约基线(不合并旧条目),并写入审计读数。
+ *  前提:旧基线必须先原样归档(本命令不会替你归档,避免原地改写后只剩新数字)。 */
+function rebuildContractBaselineFile(root, face) {
+  const runRows = classifyMiniappPages(root, face, loadLedgerRows(root)).rows
+  const carrierRoutes = carrierRoutesOf(runRows)
+  const carrierPages = runRows.filter((r) => r.contract?.carrier)
+  const carrierExempt = runRows.reduce((a, r) => a + (r.contract?.carrierExempt || 0), 0)
+  const items = contractItemsOf(runRows)
+  const bad = validateContractBaseline(items)
+  if (bad.length) throw new Undetermined(`当前面契约命中形状非法,拒绝重建: ${bad[0].why}`)
+  const leak = items.filter((i) => i.bucket === 'single-end' && carrierRoutes.has(i.route))
+  if (leak.length) {
+    throw new Undetermined(`重建拒绝:仍有 ${leak.length} 条 single-end 落在壳承载页(例:${leak[0].route}·${leak[0].prop})`)
+  }
+  const prevTxt = readFaceOne(root, 'worktree', CONTRACT_BASELINE)
+  let prev = null
+  if (prevTxt !== null) {
+    try {
+      prev = JSON.parse(prevTxt)
+    } catch (e) {
+      throw new Undetermined(`旧屏级契约基线不是合法 JSON,拒绝重建: ${e?.message ?? e}`)
+    }
+  }
+  const prevEntries = Array.isArray(prev?.entries) ? prev.entries : []
+  const countBy = (arr, b) => arr.filter((e) => e.bucket === b).length
+  const sorted = items.slice().sort((a, b) => contractKey(a).localeCompare(contractKey(b)))
+  const doc = {
+    $comment:
+      '屏级契约定向回归基线(门 299 C1-C4)。只许新增条目:存量问题在此登记后不红,新增命中才红;删条目=放宽判据。' +
+      '2026-11-07 模型修正:零 attrs 壳承载页不作为独立消费端,其 single-end 条目不进基线(见 audit.carrierExempt);这是判据模型修正,不是人为放行。',
+    at: '2026-11-07',
+    face,
+    audit: {
+      archive: 'scripts/data/miniapp-shell-contract-baseline.archive-20261107.json',
+      previousEntries: prevEntries.length,
+      previousByBucket: Object.fromEntries(['single-end', 'dead', 'shadow', 'unresolved'].map((b) => [b, countBy(prevEntries, b)])),
+      carrierPages: carrierPages.length,
+      carrierExempt,
+      currentEntries: sorted.length,
+      currentByBucket: Object.fromEntries(['single-end', 'dead', 'shadow', 'unresolved'].map((b) => [b, countBy(sorted, b)])),
+      removed: prevEntries.length - sorted.length,
+    },
+    entries: sorted,
+  }
+  writeFileSync(join(root, CONTRACT_BASELINE), JSON.stringify(doc, null, 2) + '\n', 'utf8')
+  log(
+    `✅ 已重建屏级契约基线 ${CONTRACT_BASELINE}:${sorted.length} 条(旧 ${prevEntries.length} - 壳承载豁免 ${prevEntries.length - sorted.length})` +
+      `;承载页 ${carrierPages.length} 个 / C1 豁免 ${carrierExempt} 条(面=${face})`,
   )
   return 0
 }
@@ -180,10 +248,13 @@ function run(root, face) {
   const { rows, shared, pageCount, registryCount } = classifyMiniappPages(root, face, ledger)
   const badLedger = validateLedger(ledger)
   const { reds, advisories, stats } = evaluateRatchet(rows, ledger)
-  const contractEval = evaluateContractRatchet(contractItemsOf(rows), loadContractBaseline(root))
+  const carrierRoutes = carrierRoutesOf(rows)
+  const contractEval = evaluateContractRatchet(contractItemsOf(rows), loadContractBaseline(root), { carrierRoutes })
   reds.push(...contractEval.reds)
   advisories.push(...contractEval.advisories)
   stats.contract = contractEval.stats
+  stats.contract.carrierPages = rows.filter((r) => r.contract?.carrier).length
+  stats.contract.carrierExempt = rows.reduce((a, r) => a + (r.contract?.carrierExempt || 0), 0)
   for (const b of badLedger) reds.push({ rule: 'S0', why: b.why, row: b.row })
   const undeterminedRows = rows.filter((r) => r.impl === 'undetermined')
   stats.face = face
@@ -226,6 +297,9 @@ function run(root, face) {
               reason: r.contract.reason,
               declared: r.contract.declared,
               buckets: r.contract.buckets,
+              carrier: r.contract.carrier,
+              carrierEvidence: r.contract.carrierEvidence,
+              carrierExempt: r.contract.carrierExempt,
             })),
         },
         null,
@@ -249,6 +323,9 @@ function run(root, face) {
     log(`无法判定                : ${stats.undetermined}${undeterminedRows.length ? ' —— ' + undeterminedRows.map((r) => r.route).slice(0, 6).join(', ') : ''}`)
     log(
       `屏级契约(四档)         : 单端 ${stats.contract.byBucket['single-end']} / 死契约 ${stats.contract.byBucket.dead} / 影子 ${stats.contract.byBucket.shadow} / 未解析 ${stats.contract.byBucket.unresolved}(基线 ${stats.contract.baseline} 条,新增 ${stats.contract.newItems},可收紧 ${stats.contract.stale})`,
+    )
+    log(
+      `壳承载页豁免            : 页 ${stats.contract.carrierPages} 个 / 单端条目 ${stats.contract.carrierExempt} 条(不作为独立消费端;旧基线残留 ${stats.contract.carrierStaleExempt} 条不进 C5)`,
     )
     log(`存量台账                : ${stats.ledgerRows} 行`)
     if (advisories.length) {
@@ -475,6 +552,34 @@ export default function DemoScreen({ title, flag, deadButUsed }: DemoScreenProps
   })
   add('F12 拆 return:未接入口的复制页也跑契约核对(不早退)', noEntryRow.contract?.inScope === true, noEntryRow.contract?.state)
 
+  // F13-F16:模型修正(2026-11-07)——零 attrs 壳承载页不作为独立消费端。
+  const carrierPage = `import { DemoScreen } from '@rn-shells/DemoScreen'\nexport default () => <ThemeRoot><DemoScreen /></ThemeRoot>`
+  const carrierContract = analyzeScreenContract({ pageText: carrierPage, sharedText: sharedContract, rnText: rnContract, specs: [contractSpec] })
+  add(
+    'F13 壳承载页:零 attrs 单壳 + 仅宿主根 ⇒ carrier=true,单端条目不进 C1',
+    carrierContract.carrier === true && carrierContract.buckets['single-end'].length === 0 && carrierContract.carrierExempt === 2,
+    `${String(carrierContract.carrier)}/${carrierContract.buckets['single-end'].length}/${carrierContract.carrierExempt}`,
+  )
+  add(
+    'F14 壳承载页:RN 侧自身的影子/死契约仍照常判定(不是整页静默)',
+    carrierContract.buckets.shadow.some((x) => x.prop === 'extraProp') && carrierContract.buckets.dead.some((x) => x.prop === 'deadOne'),
+    `${carrierContract.buckets.shadow.length}/${carrierContract.buckets.dead.length}`,
+  )
+  const propPage = `import { DemoScreen } from '@rn-shells/DemoScreen'\nexport default () => <DemoScreen title={'x'} />`
+  const propContract = analyzeScreenContract({ pageText: propPage, sharedText: sharedContract, rnText: rnContract, specs: [contractSpec] })
+  add(
+    'F15 反证:页面真传 prop ⇒ carrier=false,仍是 C1 消费端(单端 flag 照报)',
+    propContract.carrier === false && propContract.buckets['single-end'].some((x) => x.prop === 'flag'),
+    `${String(propContract.carrier)}/${JSON.stringify(propContract.buckets['single-end'].map((x) => x.prop))}`,
+  )
+  const extraPage = `import { DemoScreen } from '@rn-shells/DemoScreen'\nexport default () => <AuthReadyGate><DemoScreen /></AuthReadyGate>`
+  const extraContract = analyzeScreenContract({ pageText: extraPage, sharedText: sharedContract, rnText: rnContract, specs: [contractSpec] })
+  add(
+    'F16 反证:零 attrs 但有额外渲染 ⇒ 不豁免,仍是 C1 消费端',
+    extraContract.carrier === false && extraContract.carrierReason?.startsWith('extra-jsx') && extraContract.buckets['single-end'].length === 2,
+    `${String(extraContract.carrier)}/${extraContract.carrierReason}/${extraContract.buckets['single-end'].length}`,
+  )
+
   // 回归基线:存量入册不红、新增红、去掉基线条目只给可收紧、非法基线红。
   const baseItems = [
     { route: 'demo/cut', bucket: 'single-end', prop: 'renderX', why: '仅小程序页传,RN 未传' },
@@ -496,6 +601,18 @@ export default function DemoScreen({ title, flag, deadButUsed }: DemoScreenProps
     'G5 基线只许新增:已有条目 why 原样保留,新条目追加',
     merged.kept === 1 && merged.added === 1 && merged.entries[0].why === '历史原文',
     `${merged.kept}/${merged.added}/${merged.entries[0]?.why}`,
+  )
+  const g6 = evaluateContractRatchet([], baseItems, { carrierRoutes: new Set(['demo/cut']) })
+  add(
+    'G6 壳承载页:旧基线残留的 single-end 不进 C1 也不进 C5,单独计数(其他桶照常 C5)',
+    g6.reds.length === 0 && g6.advisories.length === 1 && g6.stats.carrierStaleExempt === 1,
+    `${g6.reds.length}/${g6.advisories.length}/${g6.stats.carrierStaleExempt}`,
+  )
+  const g7 = evaluateContractRatchet([], baseItems, { carrierRoutes: new Set() })
+  add(
+    'G7 阴性对照:非承载页的旧基线条目仍按 C5 提示(豁免不是无差别放行)',
+    g7.reds.length === 0 && g7.advisories.length === baseItems.length && g7.stats.carrierStaleExempt === 0,
+    `${g7.reds.length}/${g7.advisories.length}/${g7.stats.carrierStaleExempt}`,
   )
 
   add('E1 映射表读不到 ⇒ Undetermined(exit 2 语义)', threw, threw)
@@ -524,13 +641,14 @@ function loadText(root, rel) {
 /** §22d:直执行才跑主流程;被测试 import 时只导出。 */
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
-export const __test__ = { validateLedger, emit, run, selfTestFn, loadContractBaseline, emitContractBaselineFile }
+export const __test__ = { validateLedger, emit, run, selfTestFn, loadContractBaseline, emitContractBaselineFile, rebuildContractBaselineFile }
 
 if (isDirectRun) {
   try {
     const face = resolveFace(argv)
     if (selfTest) process.exit(selfTestFn(ROOT))
     if (emitBaseline) process.exit(emit(ROOT, face))
+    if (rebuildContractBaseline) process.exit(rebuildContractBaselineFile(ROOT, face))
     if (emitContractBaseline) process.exit(emitContractBaselineFile(ROOT, face))
     process.exit(run(ROOT, face))
   } catch (e) {
