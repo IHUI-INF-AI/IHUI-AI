@@ -24,7 +24,7 @@ vi.mock('../src/utils/ssrf-guard.js', () => ({
     /^172\.(1[6-9]|2\d|3[01])\./.test(h),
 }))
 
-const { findGitEgressToken, clampSandboxTimeout } = await import(
+const { findGitEgressToken, clampSandboxTimeout, settleSandboxJob } = await import(
   '../src/services/workspace-ai-service.js'
 )
 const { IntegrationManager, isBlockedIntegrationHost } = await import(
@@ -85,6 +85,37 @@ describe('沙箱执行超时归一', () => {
     [99_999_999, 120000],
   ])('timeoutMs=%s ⇒ %s', (raw, expected) => {
     expect(clampSandboxTimeout(raw)).toBe(expected)
+  })
+
+  it('截止先到时不保留退出码，没有数字退出码时也不编成 1', () => {
+    const timedOut = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: true,
+      code: 1,
+      stdout: '',
+      stderr: 'killed',
+    })
+    expect(timedOut.reason).toBe('deadline-exceeded')
+    expect(timedOut.exitCode).toBeNull()
+
+    const failed = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: false,
+      code: 2,
+      stdout: '',
+      stderr: 'no',
+    })
+    expect(failed).toMatchObject({ disposition: 'failed', reason: 'exit-nonzero', exitCode: 2 })
+
+    const missing = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: false,
+      code: 'ENOENT',
+      stdout: '',
+      stderr: 'spawn',
+    })
+    expect(missing.reason).toBe('exit-unmeasured')
+    expect(missing.exitCode).toBeNull()
   })
 })
 

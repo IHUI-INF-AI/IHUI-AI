@@ -107,12 +107,22 @@ function runGit(args: string[], cwd: string): GitResult {
   };
 }
 
+function readGitignoreOrEmpty(gitignorePath: string): string {
+  try {
+    return fs.readFileSync(gitignorePath, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return '';
+    throw new Error(`gitignore 读不到,不能把它覆盖成只剩隔离目录 (${code ?? 'unknown'})`);
+  }
+}
+
 function ensureGitignoreEntry(sourcePath: string, entry: string): void {
   const gitignorePath = path.join(sourcePath, '.gitignore');
-  let content = '';
-  if (fs.existsSync(gitignorePath)) {
-    content = fs.readFileSync(gitignorePath, 'utf-8');
-  }
+  const content = readGitignoreOrEmpty(gitignorePath);
   if (content.split(/\r?\n/).includes(entry)) return;
   const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
   fs.writeFileSync(gitignorePath, content + newline + entry + '\n', 'utf-8');
