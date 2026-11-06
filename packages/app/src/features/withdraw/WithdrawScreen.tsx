@@ -10,6 +10,7 @@ import type { WithdrawScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { resolveWithdrawSegments } from './view-model'
 
 /** 提现共享屏 — props 注入式跨端组件(表单状态由 wrapper 管理) */
 export type { WithdrawScreenProps }
@@ -37,53 +38,132 @@ export function WithdrawScreen({
   onBack,
   colorScheme = 'light',
   balance,
+  methods,
+  method,
+  onMethodChange,
+  accountInfo,
+  onAccountInfoChange,
+  onFillAll,
+  recordsLabel,
+  onRecords,
+  texts,
+  submitting = false,
 }: WithdrawScreenProps & WithdrawBalanceOptions) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const tx = texts ?? {}
+  const seg = resolveWithdrawSegments({
+    methods,
+    accountInfo,
+    onAccountInfoChange,
+    onFillAll,
+    recordsLabel,
+    onRecords,
+  })
+  const busy = loading || submitting
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('withdraw.title')}</Text>
+        <BackChevron
+          onPress={onBack}
+          label={tx.back ?? t('common.back')}
+          colorScheme={colorScheme}
+        />
+        <Text style={styles.title}>{tx.title ?? t('withdraw.title')}</Text>
       </View>
       <View style={styles.body}>
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>{t('withdraw.availableBalance')}</Text>
+          <Text style={styles.balanceLabel}>
+            {tx.availableBalance ?? t('withdraw.availableBalance')}
+          </Text>
           <Text style={styles.balanceValue}>{(balance ?? 0).toFixed(2)}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.label}>{t('wallet.withdrawAmount')}</Text>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>{tx.amountLabel ?? t('wallet.withdrawAmount')}</Text>
+            {seg.showFillAll ? (
+              <TouchableOpacity onPress={onFillAll}>
+                <Text style={styles.fillAll}>{tx.fillAll ?? '全部提现'}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
             value={amount}
             onChangeText={onAmountChange}
-            placeholder={t('withdraw.amountPlaceholder')}
+            placeholder={tx.amountPlaceholder ?? t('withdraw.amountPlaceholder')}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="decimal-pad"
           />
-          <Text style={styles.label}>{t('wallet.methodBank')}</Text>
-          <TextField
-            colorScheme={colorScheme}
-            style={styles.input}
-            value={bankCardId}
-            onChangeText={onBankCardIdChange}
-            placeholder={t('withdraw.bankCardPlaceholder')}
-            placeholderTextColor={tk.text.tertiary}
-          />
+
+          {seg.showMethods && methods ? (
+            <>
+              <Text style={styles.label}>{tx.methodLabel ?? '提现方式'}</Text>
+              <View style={styles.methodRow}>
+                {methods.map((m) => (
+                  <TouchableOpacity
+                    key={m.id}
+                    style={[styles.methodItem, method === m.id && styles.methodItemActive]}
+                    onPress={() => onMethodChange?.(m.id)}
+                  >
+                    <Text style={[styles.methodText, method === m.id && styles.methodTextActive]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {seg.showAccount ? (
+            <>
+              <Text style={styles.label}>{tx.accountLabel ?? '收款账户'}</Text>
+              <TextField
+                colorScheme={colorScheme}
+                style={styles.input}
+                value={accountInfo ?? ''}
+                onChangeText={(text: string) => onAccountInfoChange?.(text)}
+                placeholder={tx.accountPlaceholder ?? '请输入收款账户'}
+                placeholderTextColor={tk.text.tertiary}
+              />
+            </>
+          ) : null}
+
+          {!seg.showAccount && bankCardId !== undefined && onBankCardIdChange ? (
+            <>
+              <Text style={styles.label}>{tx.bankCardLabel ?? t('wallet.methodBank')}</Text>
+              <TextField
+                colorScheme={colorScheme}
+                style={styles.input}
+                value={bankCardId}
+                onChangeText={onBankCardIdChange}
+                placeholder={tx.bankCardPlaceholder ?? t('withdraw.bankCardPlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+              />
+            </>
+          ) : null}
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {success ? <Text style={styles.successText}>{success}</Text> : null}
           <TouchableOpacity
-            style={[styles.submitBtn, loading && styles.btnDisabled]}
+            style={[styles.submitBtn, busy && styles.btnDisabled]}
             onPress={onSubmit}
-            disabled={loading}
+            disabled={busy}
           >
             <Text style={styles.submitText}>
-              {loading ? t('withdraw.submitting') : t('withdraw.submit')}
+              {busy
+                ? (tx.submitting ?? t('withdraw.submitting'))
+                : (tx.submit ?? t('withdraw.submit'))}
             </Text>
           </TouchableOpacity>
-          <Text style={styles.hint}>{t('withdraw.feeHint')}</Text>
+          <Text style={styles.hint}>{tx.feeHint ?? t('withdraw.feeHint')}</Text>
+          {seg.showRecords ? (
+            <TouchableOpacity onPress={onRecords} style={styles.recordsRow}>
+              <Text style={styles.recordsText}>{recordsLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </View>
@@ -123,6 +203,30 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     label: { ...rnType.body, color: tk.text.secondary, marginTop: rnSpacing.sm },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: rnSpacing.sm,
+    },
+    fillAll: { ...rnType.body, color: tk.brand.DEFAULT },
+    methodRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
+    },
+    methodItem: {
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.sm,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+    },
+    methodItemActive: { borderColor: tk.brand.DEFAULT },
+    methodText: { ...rnType.body, color: tk.text.secondary },
+    methodTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     input: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
@@ -149,6 +253,8 @@ function createStyles(tk: AppThemeTokens) {
     btnDisabled: { backgroundColor: tk.text.tertiary },
     submitText: { ...rnType.title, color: tk.brand.ctaForeground },
     hint: { ...rnType.caption, color: tk.text.tertiary, marginTop: rnSpacing.sm },
+    recordsRow: { marginTop: rnSpacing.md, alignItems: 'center' },
+    recordsText: { ...rnType.body, color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

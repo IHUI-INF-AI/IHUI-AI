@@ -382,17 +382,14 @@ export default function NavBar({
                 }}
                 onClick={onJoinClick}
                 hoverClass="opacity-60"
+                ariaRole="button"
+                ariaLabel={joinText}
               >
-                <Text
-                  style={{
-                    color: 'var(--color-primary)',
-                    fontSize: toUnit(NAVBAR_ACTION_LABEL_FONT_PX),
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {joinText}
-                </Text>
+                <LineIcon
+                  name="user-plus"
+                  size={ACTION_GLYPH_RPX_NUM}
+                  color="var(--color-primary)"
+                />
               </View>
             ) : null}
           </>

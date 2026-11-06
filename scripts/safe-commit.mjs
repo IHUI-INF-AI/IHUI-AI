@@ -83,8 +83,10 @@ import {
   classifyHookFailure,
   COMMIT_MSG_FACE,
   decideCommitMsgStageIndexFace,
+  composeExternalsSnapshot,
   decideWithCommitMsgStage,
   decideWithSelfRunBatch,
+  EXTERNALS_LOCAL_REF,
   needsBatchSelfRun,
   parseGateSummary,
   verdictLine,
@@ -1898,47 +1900,73 @@ if (hookFailed && commitResult.status !== 0) {
    * 归因层据此定责,零风险改动就被一道门堵死(§12e 型伤害:结局是逼人 --no-verify)。
    *
    * 读数取三件(合起来才叫"这一跑时远端在哪"):
-   *  ① 本分支的上游名(`rev-parse --abbrev-ref @{u}`)—— 取不到 ⇒ 快照不成立;
-   *  ② 该上游分支的**网络真值 tip**(`ls-remote <remote> refs/heads/<branch>`)—— 与门 29 自己
-   *     读的同一件东西同源。这里**不回退**本地 remote-tracking ref:本地那份只在有人 fetch 时才动,
-   *     拿它冒充"远端 tip"就等于把"问不到"折算成"没变"(AGENTS §0.3 明令禁止的正是这一步);
+   *  ① 本分支的上游名(`rev-parse --abbrev-ref @{u}`);
+   *  ② 该上游分支的**网络真值 tip**(`ls-remote <remote> refs/heads/<branch>`);
    *  ③ 本地 `refs/remotes/*` 全量清单(`for-each-ref`)—— 它不是 ② 的兜底,是**额外的漂移探针**:
    *     守护进程每 2 分钟 `git fetch origin main`,刷新本身就说明远端动过。
-   * 任何一件取不到、或枚举到 0 条 ⇒ 返回 null,归因层落 undetermined 并点名"取不到"。
+   *
+   * 2026-11-05(票「无 upstream 的 staged 面也要差分归属」)补第二来源,口径见
+   * `composeExternalsSnapshot` 头注:三件齐全仍走网络真值(逐字同旧口径);三件取不全时,
+   * 用本地 `refs/remotes/origin/main` 的 tip + `refs/remotes` 清单兜底 —— 它标明
+   * `source=remote-tracking`,与网络口径不可比成相等(换了来源就是"两侧不是同一份外部状态");
+   * 两路都取不到才返回 null,归因层仍落 undetermined 并点名"取不到"(不静默放宽)。
    * ⚠️ 每一跑**前后各读一次**(共四枚),不在归因层里 spawn(它保持纯判定 + 注入式复跑)。
    */
-  const EXTERNALS_UNAVAILABLE_WHY =
-    '外部状态快照现读失败(rev-parse @{u} / ls-remote / for-each-ref 任一取不到或枚举为 0)'
+  let externalsWhy = null
   const readGateExternals = () => {
+    // 每一件独立兜底:取不到只让该件为空,不把整次读数一票否决(否则本地 ref 兜底永远走不到)。
+    let upstream = ''
     try {
-      const upstream = String(
+      upstream = String(
         gitRaw(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], repoRoot) ?? '',
       ).trim()
-      const slash = upstream.indexOf('/')
-      if (slash <= 0 || slash === upstream.length - 1) return null
+    } catch {
+      upstream = ''
+    }
+    const slash = upstream.indexOf('/')
+    let tip = ''
+    if (slash > 0 && slash < upstream.length - 1) {
       const remote = upstream.slice(0, slash)
       const branch = upstream.slice(slash + 1)
-      const norm = (s) =>
-        String(s ?? '')
-          .split(/\r?\n/)
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .sort()
-      const tip = norm(gitRaw(['ls-remote', remote, `refs/heads/${branch}`], repoRoot, { timeout: 30000 }))
-      const tracked = norm(
-        gitRaw(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes'], repoRoot),
-      )
-      if (tip.length === 0 || tracked.length === 0) return null
-      return `upstream=${upstream}\nremoteTip=${tip.join(' | ')}\nremoteRefs=${tracked.join(' | ')}`
-    } catch {
-      return null
+      try {
+        tip = gitRaw(['ls-remote', remote, `refs/heads/${branch}`], repoRoot, { timeout: 30000 })
+      } catch {
+        tip = ''
+      }
     }
+    let tracked = ''
+    try {
+      tracked = gitRaw(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/remotes'], repoRoot)
+    } catch {
+      tracked = ''
+    }
+    let localTip = ''
+    try {
+      localTip = String(
+        gitRaw(['rev-parse', '--verify', `${EXTERNALS_LOCAL_REF}^{commit}`], repoRoot, {
+          timeout: 30000,
+        }) ?? '',
+      ).trim()
+    } catch {
+      localTip = ''
+    }
+    const snap = composeExternalsSnapshot({
+      upstream,
+      remoteTip: tip,
+      remoteRefs: tracked,
+      localTip,
+    })
+    externalsWhy = snap.why
+    return snap.value
   }
   /** 把某一跑的前后两枚读数打包成归因层认的形状(取不到就照实给 null + 原因)。 */
   const externalsOf = (before, after) => ({
     before,
     after,
-    why: before === null || after === null ? EXTERNALS_UNAVAILABLE_WHY : null,
+    why:
+      before === null || after === null
+        ? externalsWhy || '外部状态快照现读失败(网络与本地 remote-tracking ref 两路都取不到)'
+        : null,
   })
   const runGate = (script) => {
     const externalsBefore = readGateExternals()

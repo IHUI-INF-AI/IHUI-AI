@@ -16337,7 +16337,12 @@
       "points": "{n} pts",
       "submittedAt": "Submitted at: {time}",
       "unanswered": "Unanswered",
-      "yourAnswer": "Your answer:"
+      "yourAnswer": "Your answer:",
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "reviewCorrect": "Correct",
+      "reviewWrong": "Wrong",
+      "unansweredAnswer": "Not answered"
     },
     "score": "Score {score} / {total}",
     "startExam": "Start Exam",

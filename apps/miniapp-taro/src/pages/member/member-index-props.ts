@@ -2,17 +2,29 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { View, Text } from '@tarojs/components'
-import { t, useTt } from '@/i18n'
-import { formatPrice } from '@ihui/shared/utils/format'
 import type { VipLevel } from '@/api'
+import type { VipLevelItem2 } from '@ihui/types'
 
-interface VipLevelsProps {
-  /** 后端 GET /vip/levels 的 items(公开端点,price 单位为分) */
-  levels: VipLevel[]
-  /** 拉取失败时的提示文案;空串 = 正常 */
-  error: string
-  onRetry: () => void
+/**
+ * 权益文案归一:后端 /vip/levels 的 benefits 实返数组(string 或 {name}),
+ * 与 RN 端 `apps/mobile-rn/src/screens/VipScreen.tsx:60-75` 同口径。
+ * 纯函数;不 import 任何 `@ihui/rn-app`(壳声明生成器会把共享包导出降级)。
+ */
+export function normalizeBenefits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const text = item.trim()
+      if (text) out.push(text)
+      continue
+    }
+    if (item && typeof item === 'object') {
+      const name = (item as { name?: unknown }).name
+      if (typeof name === 'string' && name.trim()) out.push(name.trim())
+    }
+  }
+  return out
 }
 
 /**
@@ -41,56 +53,19 @@ export function pickPermanentLevel(levels: VipLevel[]): VipLevel | null {
 }
 
 /**
- * 会员等级区 —— 对齐共享屏 packages/app/src/features/vip/VipScreen.tsx 的 levelsSection:
- * 等级名 + 时长(vip.duration) + 权益项数(vip.benefitsCount) + 价格;
- * 列表为空走 vip.empty,拉取失败走 vip.retry 重试。
- * 标题取 vip.plans(套餐选择):页内「会员等级」已由成长梯度区承接,两区不重名。
+ * 档位列表转换:接口 price 单位为分(`formatPrice` 同口径),共享段 `VipLevelsSection`
+ * 按元渲染(`¥ {price.toFixed(2)}`)⇒ 这里做 分→元。
+ * 权益归一成 string[],其余字段透传。
  */
-export default function VipLevels({ levels, error, onRetry }: VipLevelsProps) {
-  const tt = useTt()
-
-  return (
-    <View className="mx-[20rpx] mb-[24rpx] p-[28rpx] bg-background border border-border rounded-lg">
-      <Text className="block text-heading font-semibold text-foreground mb-[24rpx]">
-        {tt('vip.plans', '套餐选择')}
-      </Text>
-      {error ? (
-        <View className="flex items-center justify-between">
-          <Text className="text-label text-muted-foreground">{error}</Text>
-          <Text className="text-label text-[var(--color-brand)]" onClick={onRetry}>
-            {tt('vip.retry', '重试')}
-          </Text>
-        </View>
-      ) : levels.length === 0 ? (
-        <Text className="block text-label text-muted-foreground">
-          {tt('vip.empty', '暂无会员等级信息')}
-        </Text>
-      ) : (
-        levels.map((level) => {
-          const benefitsCount = level.benefits ? Object.keys(level.benefits).length : 0
-          return (
-            <View key={level.id} className="mb-[16rpx] p-[20rpx] border border-border rounded-lg">
-              <View className="flex items-center justify-between">
-                <Text className="text-body font-semibold text-foreground">
-                  {level.levelName}
-                </Text>
-                <Text className="text-label text-muted-foreground">
-                  {t('vip.duration', { days: level.durationDays })}
-                </Text>
-              </View>
-              <View className="flex items-end justify-between mt-[12rpx]">
-                <Text className="text-caption text-muted-foreground">
-                  {benefitsCount > 0 ? t('vip.benefitsCount', { count: benefitsCount }) : ''}
-                </Text>
-                <Text className="text-subtitle font-bold text-[var(--color-vip-gold-start)]">
-                  ¥ {formatPrice(level.price)}
-                </Text>
-              </View>
-            </View>
-          )
-        })
-      )}
-    </View>
-  )
+export function toLevelItems(levels: VipLevel[]): VipLevelItem2[] {
+  return levels.map((l) => ({
+    id: l.id,
+    levelName: l.levelName,
+    levelValue: l.levelValue,
+    price: l.price / 100,
+    durationDays: l.durationDays,
+    status: l.status,
+    benefits: normalizeBenefits(l.benefits),
+  }))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Modal,
   StyleSheet,
+  Image,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppTopupScreenProps } from '../../types'
@@ -18,20 +19,11 @@ import type { AppTopupScreenProps } from '../../types'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { resolveAppTopupSegments } from './view-model'
 
 /** AppTopupScreen props re-export(单一来源 @ihui/types) */
 export type { AppTopupScreenProps }
-
-/**
- * 三档充值比例(每 1 元对应的智汇值,硬编码沿用原项目 top-up/index.vue
- * data 初始值:denomination 20000 / denominationVip 40000 / denominationOperate 80000,
- * 不做后台配置)。
- */
-const TOPUP_TIERS = [
-  { key: 'normal', label: '普通用户', tokens: 20000 },
-  { key: 'vip', label: '会员', tokens: 40000 },
-  { key: 'trader', label: '操盘手', tokens: 80000 },
-] as const
+export { TOPUP_TIERS } from './view-model'
 
 /** 等价 @ihui/shared/utils/formatTokenValue(≥10000 → 'X.XX万'),共享层不依赖 shared 包,内联实现 */
 function formatTokenValue(value: number): string {
@@ -59,17 +51,30 @@ export function AppTopupScreen({
   onCloseIntro,
   onBack,
   colorScheme = 'light',
+  user,
+  rateTiers,
+  submitting = false,
+  texts,
 }: AppTopupScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const selectedOption = amountOptions.find((o) => o.id === selectedId)
+  const tx = texts ?? {}
+  const seg = resolveAppTopupSegments({
+    user,
+    balance,
+    rateTiers,
+    selectedId,
+    customAmount,
+    submitting,
+  })
+  const submitLabel = submitting ? (tx.submitting ?? '充值中…') : (tx.submit ?? '立即充值')
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>充值</Text>
+        <Text style={styles.title}>{tx.title ?? '充值'}</Text>
       </View>
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -83,22 +88,40 @@ export function AppTopupScreen({
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>账户余额</Text>
-          <Text style={styles.balanceValue}>{'¥' + (balance / 100).toFixed(2)}</Text>
-        </View>
+        {seg.showUser && user ? (
+          <View style={styles.userCard}>
+            {user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.userAvatar} />
+            ) : (
+              <View style={[styles.userAvatar, styles.userAvatarPlaceholder]}>
+                <Text style={styles.userAvatarText}>{(user.nickname ?? 'U').slice(0, 1)}</Text>
+              </View>
+            )}
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user.nickname ?? tx.guest ?? '游客'}</Text>
+              {user.subtitle ? <Text style={styles.userSub}>{user.subtitle}</Text> : null}
+            </View>
+          </View>
+        ) : null}
+
+        {seg.showBalance ? (
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>{tx.balanceLabel ?? '账户余额'}</Text>
+            <Text style={styles.balanceValue}>{'¥' + ((balance ?? 0) / 100).toFixed(2)}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>选择金额</Text>
+          <Text style={styles.sectionTitle}>{tx.amountTitle ?? '选择金额'}</Text>
           {/* 三档比例展示(对齐原项目 top-up/index.vue 的充值比例区,当前档位高亮) */}
           <View style={styles.rateBox}>
-            <Text style={styles.rateTitle}>充值比例</Text>
-            {TOPUP_TIERS.map((tier) => (
+            <Text style={styles.rateTitle}>{tx.rateTitle ?? '充值比例'}</Text>
+            {seg.tiers.map((tier) => (
               <Text
                 key={tier.key}
                 style={[styles.rateItem, userTier === tier.key && styles.rateItemActive]}
               >
-                {tier.label} 1元={formatTokenValue(tier.tokens)}智汇值
+                {tier.label ? `${tier.label} ` : ''}1元={formatTokenValue(tier.tokens)}智汇值
               </Text>
             ))}
           </View>
@@ -120,14 +143,14 @@ export function AppTopupScreen({
             style={styles.customInput}
             value={customAmount}
             onChangeText={onCustomAmountChange}
-            placeholder="或输入自定义金额"
+            placeholder={tx.customPlaceholder ?? '或输入自定义金额'}
             placeholderTextColor={tk.text.tertiary}
             keyboardType="numeric"
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>支付方式</Text>
+          <Text style={styles.sectionTitle}>{tx.methodTitle ?? '支付方式'}</Text>
           <View style={styles.payList}>
             {payMethods.map((method) => (
               <TouchableOpacity
@@ -145,11 +168,11 @@ export function AppTopupScreen({
         </View>
 
         <TouchableOpacity
-          style={[styles.submitBtn, !selectedOption && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, (!seg.canSubmit || submitting) && styles.submitBtnDisabled]}
           onPress={onSubmit}
-          disabled={!selectedOption}
+          disabled={!seg.canSubmit || submitting}
         >
-          <Text style={styles.submitBtnText}>立即充值</Text>
+          <Text style={styles.submitBtnText}>{submitLabel}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -157,12 +180,12 @@ export function AppTopupScreen({
       <Modal visible={introVisible} transparent animationType="fade" onRequestClose={onCloseIntro}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>充值说明</Text>
+            <Text style={styles.modalTitle}>{tx.introTitle ?? '充值说明'}</Text>
             <Text style={styles.modalBody}>
-              充值金额将立即到账，可用于购买课程、服务等。如有问题请联系客服。
+              {tx.introBody ?? '充值金额将立即到账，可用于购买课程、服务等。如有问题请联系客服。'}
             </Text>
             <TouchableOpacity style={styles.modalClose} onPress={onCloseIntro}>
-              <Text style={styles.modalCloseText}>{t('common.gotIt')}</Text>
+              <Text style={styles.modalCloseText}>{tx.gotIt ?? t('common.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -183,6 +206,38 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
+    userCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing['sm-loose'],
+      margin: rnSpacing['sm-loose'],
+      padding: rnSpacing.lg,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    userAvatar: { width: 48, height: 48, borderRadius: 24 },
+    userAvatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+    },
+    userAvatarText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    userInfo: { flex: 1, gap: rnSpacing.xs },
+    userName: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    userSub: {
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+    },
     balanceCard: {
       margin: rnSpacing['sm-loose'],
       padding: rnSpacing.lg,
