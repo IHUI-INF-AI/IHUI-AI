@@ -12254,6 +12254,53 @@ const CROSS_END_LANDING_INTERVAL_MS = Number(
   process.env.IHUI_CROSS_END_LANDING_INTERVAL_MS || 15 * 60 * 1000,
 )
 
+/**
+ * 收编腿的基线让路判据(2026-11-06 机主令)。
+ *
+ * 立因(现读):主树 `main` 落后 `origin/main` 83 枚(0 ahead / 83 behind),而收编器会把
+ * **工作树字节**交给 safe-commit(`scripts/auto-commit-quiet.mjs:473-475`)——工作树里的
+ * README 副本仍写着旧数(门 173 staged 面实测 `dbTables 622→621` / `testFiles 4098→4189`),
+ * 一旦收编就是"在 83 枚前的旧基线上提交旧内容";post-commit 的 push-guard 又必然被非快进
+ * 拒绝(`scripts/git-push-guard.mjs:220` 默认推 main),结果只堆本地旧提交。
+ *
+ * 判据:
+ *   · `merge-base --is-ancestor origin/main HEAD` 退出 0 ⇒ `descendant`(允许收编);
+ *   · 退出 1 ⇒ `behind`(落后或分叉)⇒ 让路;
+ *   · 取不到 `origin/main` / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
+ *     不许把"忘了 fetch"读成"已同步")。
+ */
+export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)) {
+  const headSha = String(run(['rev-parse', '--verify', 'HEAD'], true) ?? '').trim() || null
+  const mainSha = String(run(['rev-parse', '--verify', 'origin/main'], true) ?? '').trim() || null
+  if (!headSha || !mainSha) {
+    return {
+      state: 'unknown',
+      headSha,
+      mainSha,
+      behind: null,
+      why: !mainSha ? 'origin/main 取不到(未 fetch 或远端分支不存在)' : 'HEAD 取不到',
+    }
+  }
+  let behind = null
+  try {
+    behind = Number(String(run(['rev-list', '--count', 'HEAD..origin/main'])).trim())
+  } catch {
+    behind = null
+  }
+  // `merge-base --is-ancestor` 的退出码是唯一凭据:0=后代,1=不是后代(落后/分叉),其它=未判定。
+  // 用抛错对象上的 .status 判,而不是 allowFail 的 null —— null 会把"退出 1"与"真错误"折成同一档。
+  let state = 'unknown'
+  try {
+    run(['merge-base', '--is-ancestor', 'origin/main', 'HEAD'])
+    state = 'descendant'
+  } catch (e) {
+    state = e && typeof e.status === 'number' && e.status === 1 ? 'behind' : 'unknown'
+  }
+  // 反向自证:rev-list 数出落后枚数 > 0 时,即便 merge-base 给了 0 也不放行(两条判据取严)。
+  if (state === 'descendant' && Number.isFinite(behind) && behind > 0) state = 'behind'
+  return { state, headSha, mainSha, behind, why: state === 'unknown' ? 'merge-base 判不出祖先关系' : null }
+}
+
 export function sweepCrossEndLandingLeg(opts = {}) {
   const {
     now = Date.now(),
@@ -12261,6 +12308,7 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
     logger = log,
     runner = null,
+    ancestry = null,
     // 与其余跨端腿同一注入面(被别的 sweepXxx 用同名默认):漏了这一行就是运行期 ReferenceError,
     // 而 node --check 查不出来(模块能加载 ≠ 能调用)。
     notify = notifyGuardRed,
@@ -12269,6 +12317,19 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '器物不在位' }
+  }
+  // 基线让路闸放在节流之前:让路轮不得消耗 15 分钟窗口,否则追上 origin/main 后还要空等一轮。
+  const anc = typeof ancestry === 'function' ? ancestry() : readMainAncestry()
+  if (!anc || anc.state !== 'descendant') {
+    const head = anc?.headSha ?? '未判定'
+    const main = anc?.mainSha ?? '未判定'
+    const behind = anc?.behind === null || anc?.behind === undefined ? '未判定' : String(anc.behind)
+    logger(
+      anc?.state === 'unknown'
+        ? `⏸️ 跨端落库:本轮让路 —— origin/main 取不到或判不出(${anc?.why ?? '未判定'};HEAD=${head})⇒ 无法证明已含远端,按未同步处理(fail-closed),不派 auto-commit-quiet`
+        : `⏸️ 跨端落库:本轮让路 —— HEAD=${head} 不是 origin/main=${main} 的后代(落后 ${behind} 枚)⇒ 旧基线收编会被 push-guard 非快进拒推、只堆本地提交,不派 auto-commit-quiet`,
+    )
+    return { ran: false, why: 'HEAD 不是 origin/main 的后代', ancestry: anc }
   }
   if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
   const timeoutMs = Number(process.env.IHUI_CROSS_END_LANDING_TIMEOUT_MS || 20 * 60 * 1000)
