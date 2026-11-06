@@ -105,7 +105,7 @@ jobs:
       # 移动端 app.json 的 expo.version 是 apps/mobile-rn/package.json 的**派生产物**
       # (生成器 = scripts/sync-mobile-app-json-version.mjs,根 postinstall 会跑它)。
       # 本步必须排在 `pnpm install` **之前**:装依赖时 postinstall 会把陈旧提交先自愈,
-      # 门 214 的 I 维就再也抓不到"提交里的派生值漂了"这件事 —— 那等于变相放宽判据。
+      # 门 `check-version-drift` 的 I 维就再也抓不到"提交里的派生值漂了"这件事 —— 那等于变相放宽判据。
       # 本步只读:派生值与真源不一致 ⇒ exit 1,先把生成器跑一遍再随版本改动一并提交。
       - name: Mobile app.json version freshness (派生值必须与真源一致)
         id: mobile-app-json-fresh
