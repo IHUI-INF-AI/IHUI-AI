@@ -37,9 +37,11 @@
  *
  * ## 收窄规则(判据灵魂,必须实现)
  *
- * literal 第一段(大小写不敏感、**精确匹配**)∈ {IHUI-AI, DevEnv} ⇒ 不立 W1。
+ * literal 第一段(大小写不敏感、**精确匹配**)∈ {IHUI-AI, DevEnv, IHUI-AI-git-repo} ⇒ 不立 W1。
  * `D:\DevEnv\ihui-deploy-build`、`G:\IHUI-AI\.worktrees\x`、`D:\IHUI-AI\scripts` 全部
  * 天然过关;`G:\IHUI-AI-wt-b674\x`(首段是另一个目录,不是前缀匹配)照旧立 W1;
+ * `IHUI-AI-git-repo` 是本机工作区(`D:\IHUI-AI\.git` 只是指针文件)的真 gitdir,
+ * ihui-deploy.ps1 只把它当 `git fetch` 的**只读来源**用,从不写入 ⇒ 同列收窄;
  * `.pytest_tmp`/`backups` 等不在收窄集内,立 W1(它们的合法性走豁免台账,不走收窄)。
  * 裸 `X:\`(无段)不立意——唯独两处例外:compose 首参(由后续第一个引号字面量定夺,
  * `join('D:\\','DevEnv',…)` 窄化放过、`join('G:\\','probe-x')` 立 W1)与写 sink 实参
@@ -144,7 +146,7 @@ export const TARGET_EXTS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.py',
 const EXT_GLOBS = ['*.ts', '*.tsx', '*.js', '*.mjs', '*.cjs', '*.py', '*.ps1', '*.sh']
 
 /** 收窄集:literal 首段(大小写不敏感、精确匹配)命中 ⇒ 不立 W1。 */
-export const NARROWED_SEGS = new Set(['ihui-ai', 'devenv'])
+export const NARROWED_SEGS = new Set(['ihui-ai', 'devenv', 'ihui-ai-git-repo'])
 
 /** 结构性排除(硬编码)。理由见头注「结构性排除」。 */
 export const STRUCTURAL_EXCLUDES = new Set([
@@ -206,8 +208,8 @@ W1 六族:join/resolve 首参盘根 · fs 写 sink 路径位实参 · exec/spawn
   PowerShell 写 cmdlet · PowerShell 简单赋值 · sh 重定向与 cp/mv/mkdir 类
 W2 只报数:existsSync/readFileSync/statSync 族、os.path.exists、Path(<literal>)
   构造器、Test-Path/Get-Content、sh 的 cat/test/ls 族
-收窄:literal 首段(大小写不敏感,精确匹配)∈ {IHUI-AI, DevEnv} ⇒ 不立 W1
-  (IHUI-AI-wt-b674 不是前缀匹配,照旧立)
+收窄:literal 首段(大小写不敏感,精确匹配)∈ {IHUI-AI, DevEnv, IHUI-AI-git-repo} ⇒ 不立 W1
+  (IHUI-AI-wt-b674 不是前缀匹配,照旧立;IHUI-AI-git-repo 是本机真 gitdir,只作 git fetch 只读来源)
 
 用法:
   node scripts/check-disk-root-write.mjs [选项]
@@ -1492,6 +1494,8 @@ export function selfTest() {
     return j.w1.length === 0 && j.narrowed.length === 2
   })(), JSON.stringify(J('a.mjs', "join('D:\\\\', 'DevEnv', 'x')")))
   t('ST2 精确匹配不是前缀:IHUI-AI-wt-b674 照旧立 W1', w1('a.mjs', "join('G:\\\\', 'IHUI-AI-wt-b674', 'x')") === 1)
+  t('ST2b 只读 gitdir 收窄不吞近似名:IHUI-AI-git-repo-old 仍立 W1(精确匹配)', w1('a.mjs', "join('G:\\\\', 'IHUI-AI-git-repo-old', 'x')") === 1)
+  t('ST2c 收窄后阳性对照:盘根写 sink 仍立 W1(写盘判据没有变成"不判")', w1('a.mjs', "fs.writeFileSync('G:/probe-x/out.bin', data)\n") === 1)
   t('ST3 非收窄首段(G:\\backups)立 W1', w1('a.mjs', "join('G:\\\\backups', 'x')") === 1)
   t('ST4 drivePathOf:裸根 / 分段 / 正斜杠', (() => {
     const bare = drivePathOf("'D:\\\\'")
