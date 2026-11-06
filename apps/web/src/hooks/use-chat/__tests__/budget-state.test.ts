@@ -13,13 +13,20 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   budgetBarPercent,
   clearBudgetEvent,
+  getBudgetConversationId,
   getBudgetEvent,
+  getHeldBudgetFrame,
   setBudgetEvent,
   subscribeBudgetEvent,
 } from '../budget-state'
 import type { BudgetEvent } from '@ihui/api-client'
 
-const warning: BudgetEvent = { level: 'warning', percent: 85.3, usedTokens: 85300, limitTokens: 100000 }
+const warning: BudgetEvent = {
+  level: 'warning',
+  percent: 85.3,
+  usedTokens: 85300,
+  limitTokens: 100000,
+}
 const critical: BudgetEvent = { level: 'critical', percent: 98.4 }
 
 describe('budget-state(V3 #69 唯一落点)', () => {
@@ -63,7 +70,9 @@ describe('budget-state(V3 #69 唯一落点)', () => {
       expect(budgetBarPercent(warning)).toBe(85.3)
     })
     it('缺 percent ⇒ 由 used/limit 同式回算(向下取整到 0.1)', () => {
-      expect(budgetBarPercent({ level: 'warning', usedTokens: 85300, limitTokens: 100000 })).toBe(85.3)
+      expect(budgetBarPercent({ level: 'warning', usedTokens: 85300, limitTokens: 100000 })).toBe(
+        85.3,
+      )
     })
     it('percent 越界钳到 0..100(竞态下不画超宽条)', () => {
       expect(budgetBarPercent({ level: 'critical', percent: 140 })).toBe(100)
@@ -72,6 +81,52 @@ describe('budget-state(V3 #69 唯一落点)', () => {
     it('既无 percent 也无可算比值 ⇒ 0(条不假装有任何进度)', () => {
       expect(budgetBarPercent({ level: 'warning' })).toBe(0)
       expect(budgetBarPercent({ level: 'warning', usedTokens: 5, limitTokens: 0 })).toBe(0)
+    })
+  })
+
+  // 批次 3(2026-11-06):stopped 是流内预算护栏的终态 —— 降级帧不得把它改回"还能继续"
+  describe('stopped 终态', () => {
+    const stopped: BudgetEvent = {
+      level: 'stopped',
+      reasonCode: 'daily_token_limit',
+      scope: 'daily',
+      usagePercent: 135.4,
+      usedTokens: 0,
+      limitTokens: 100000,
+      remainingTokens: 0,
+      stoppedAtIteration: 3,
+    }
+
+    it('stopped 之后到来的 warning/critical 一律不得覆盖终态', () => {
+      setBudgetEvent(stopped, 'conv-1')
+      setBudgetEvent(warning, 'conv-1')
+      setBudgetEvent(critical, 'conv-1')
+      expect(getBudgetEvent()).toBe(stopped)
+    })
+
+    it('warning → stopped 是允许的升级方向(流内停流事实必须落屏)', () => {
+      setBudgetEvent(warning, 'conv-1')
+      setBudgetEvent(stopped, 'conv-1')
+      expect(getBudgetEvent()).toBe(stopped)
+    })
+
+    it('stopped 帧即使 usedTokens=0 也不被 G-404 瞬时 0 判据 held', () => {
+      setBudgetEvent(warning)
+      setBudgetEvent(stopped, 'conv-1')
+      expect(getBudgetEvent()).toBe(stopped)
+      expect(getHeldBudgetFrame()).toBeNull()
+    })
+
+    it('stopped 的百分比优先用服务端 usagePercent(仍走同一 clamp 出口)', () => {
+      expect(budgetBarPercent(stopped)).toBe(100)
+      expect(budgetBarPercent({ level: 'stopped', usagePercent: 87.6 })).toBe(87.6)
+    })
+
+    it('会话归属随帧记录、clear 一并回收(不跨会话复活停止提示)', () => {
+      setBudgetEvent(warning, 'conv-1')
+      expect(getBudgetConversationId()).toBe('conv-1')
+      clearBudgetEvent()
+      expect(getBudgetConversationId()).toBeNull()
     })
   })
 })
@@ -88,7 +143,9 @@ describe('V3 #69 接线存续性(源码级)', () => {
   })
 
   it('条组件走 useSyncExternalStore 订阅(只读快照不重算第二份数)', () => {
-    expect(read('../../../components/chat/context-budget-bar.tsx')).toContain('useSyncExternalStore(')
+    expect(read('../../../components/chat/context-budget-bar.tsx')).toContain(
+      'useSyncExternalStore(',
+    )
   })
 
   it('进度条真挂在输入区状态槽上,不是建好无人 import(2026-09-30 起挂载点迁入 InputStatusSlot)', () => {
