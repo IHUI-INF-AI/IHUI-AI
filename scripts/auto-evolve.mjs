@@ -93,6 +93,7 @@ import {
   lastNonProgressHoldAt,
   faceRoundStreak,
   parkedRoundAlreadyAnnounced,
+  decideSupplyStall,
 } from './lib/autonomy-nonprogress.mjs'
 // 判据面(受保护面)的匹配判据单源在护栏纯函数层;本器只调用,不重抄任何匹配规则(§0.6)。
 import { parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
@@ -238,11 +239,15 @@ export function loadGates(readFile = (p) => readFileSync(p, 'utf8')) {
   // 现读 11 条 dispatched 的轮间隔 0.5/0.9/4.7/5.8/8.8/10.7/12.5/42.9/48.9/322.1 分钟,
   // 中位 10.7 ⇒ 3 轮 ≈ 半小时无人喊地撞同一道面闸,已经足够判"这不是抖一下"。
   if (g.parkedRoundStreak === undefined) g.parkedRoundStreak = 3
+  // 供给断档门限(2026-11-06 立)。6 轮是按现读调度节拍(约 1 轮/小时)取的"六小时无人管即响":
+  // 短于一天的正常空窗(夜里没人补票是常态)不该喊,长于一天的断档就是"票供给"这件事本身没人负责。
+  if (g.supplyStallRounds === undefined) g.supplyStallRounds = 6
   for (const k of [
     'rotateAfterAttempts',
     'parkAfterAttempts',
     'parkHardLimit',
     'parkedRoundStreak',
+    'supplyStallRounds',
   ]) {
     if (!Number.isInteger(g[k]) || g[k] <= 0)
       throw new GateShapeError(`闸门形状坏:${k} 必须是正整数(现值 ${String(g[k])})`)
@@ -3088,14 +3093,90 @@ async function runOnce({ dryRun = false, noDecide = false } = {}) {
     // 收尾措辞必须与真实原因同形:这一行过去只会说"未命中白名单或在封",而本环刚装上
     // "已落地不重派"那一档 ⇒ 全部因已落地而跳过的轮次会被记成 whitelist 问题,
     // 读台账的人下一步就是去扩白名单(§0.3 的反面:把量到的那件事写成另一件事)。
+    // 供给断档 census(2026-11-06 立):这一行过去只说"本轮无派发",但**为什么**无派发有两种相反成因,
+    // 现读实证:派单面 8 行、白名单 16 档**逐档命中全 0**(而面上躺着"灰度槽位从未拿到产物""消息级版本
+    // 切换"这种正是自部署/自更新本体的票)。把"面空了"和"政策面窄"写成同一个读数,下一步一定是有人
+    // 去扩白名单或去删票 —— 所以这里必须把两型分开,并且把逐档分布一起记下来,别让下一个人手工重算。
+    const openFaceCount = Array.isArray(rows) ? rows.length : 0
+    const whitelistCensus = (gates.ticketWhitelist || []).map((p) => ({
+      pattern: String(p),
+      hits: (rows || []).filter((tk) => matchWhitelist(String(tk?.text ?? ''), [p])).length,
+    }))
+    const stall = decideSupplyStall(readLedger(), {
+      streakN: gates.supplyStallRounds,
+      now: Date.now(),
+    })
     console.log(
-      `ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派、账面挂账 ${supplyHoldSkipped} 枚 ⇒ 等归属方结清、未取号占位 ${placeholderSkipped} 枚 ⇒ 需先取号)`,
+      `ℹ 本轮无派发(未命中白名单或在封;其中已落地待结清 ${landedSkipped} 枚 ⇒ 不再重派、账面挂账 ${supplyHoldSkipped} 枚 ⇒ 等归属方结清、未取号占位 ${placeholderSkipped} 枚 ⇒ 需先取号)｜派单面 ${openFaceCount} 行,逐档命中 ${whitelistCensus.filter((c) => c.hits > 0).length}/${whitelistCensus.length} 档`,
     )
     record({
       mode: dryRun ? 'dryrun' : 'dispatch',
-      action: 'no-whitelist-hit',
-      note: `${summary} / 已落地待结清跳过 ${landedSkipped} 枚 / 未取号占位跳过 ${placeholderSkipped} 枚`,
+      action: openFaceCount === 0 ? 'no-open-tickets' : 'no-whitelist-hit',
+      openFaceCount,
+      whitelistPatterns: whitelistCensus.length,
+      whitelistHitPatterns: whitelistCensus.filter((c) => c.hits > 0).length,
+      // 只带非零命中档与" stranded 前两行"的短标题,防把整段票面塞进台账(§5e-3 不许把抖动明细写进身份)
+      whitelistTop: whitelistCensus
+        .filter((c) => c.hits > 0)
+        .map((c) => `${c.pattern}=${c.hits}`)
+        .join(','),
+      stranded: (rows || []).slice(0, 3).map((tk) =>
+        String(tk?.text ?? '')
+          .replace(/^-\s*\[[ x]\]\s*/, '')
+          .slice(0, 60),
+      ),
+      note: `${summary} / 已落地待结清跳过 ${landedSkipped} 枚 / 账面挂账跳过 ${supplyHoldSkipped} 枚 / 未取号占位跳过 ${placeholderSkipped} 枚`,
     })
+    // 轮级终局:同型连续 N 轮(缺省 6 轮;现读调度节拍约每小时一轮 ⇒ 6 小时无人管即响)。
+    // 与 runner-face-parked-round 同一条纪律:去重按**串首**、邮件不带 ticketKey、不摘任何豁免。
+    const stallNow = decideSupplyStall(
+      [...readLedger()], // 含刚记下的这一行
+      { streakN: gates.supplyStallRounds, now: Date.now() },
+    )
+    if (stallNow.emit) {
+      record({
+        mode: dryRun ? 'dryrun' : 'dispatch',
+        action: 'supply-stall-round',
+        stallKind: stallNow.kind,
+        streakRounds: stallNow.count,
+        streakSince: stallNow.sinceTs,
+        streakLast: stallNow.lastTs,
+        openFaceCount,
+        why: `连续 ${stallNow.count} 轮同型供给断档(${stallNow.kind},门限 ${gates.supplyStallRounds})⇒ 轮级终局,已喊一次`,
+      })
+      console.error(
+        `⛔ 供给断档终局:连续 ${stallNow.count} 轮 ${stallNow.kind} ⇒ 落 supply-stall-round 并喊人`,
+      )
+      sendEscapeMail(
+        gates,
+        `auto-evolve:supply-stall-round:${stallNow.kind}:${String(stallNow.sinceTs)}`,
+        `[auto-evolve] 供给断档:连续 ${stallNow.count} 轮 ${stallNow.kind}`,
+        [
+          `型:${stallNow.kind}(门限 ${gates.supplyStallRounds} 轮;现读调度节拍约 1 轮/小时 ⇒ 约 ${stallNow.count} 小时无票可派)。`,
+          `起止:${String(stallNow.sinceTs)} → ${String(stallNow.lastTs)}(计数单位=轮)。`,
+          `本轮派单面行数=${openFaceCount};白名单 ${whitelistCensus.length} 档中命中 ${whitelistCensus.filter((c) => c.hits > 0).length} 档。`,
+          `逐档命中:${whitelistCensus.map((c) => `${c.pattern}=${c.hits}`).join(' ')}`,
+          ...(stallNow.kind === 'supply-mismatch'
+            ? [
+                '',
+                `这一型是**政策面比票窄**:面上有行,但没有一档白名单认得它们。头 ${Math.min(3, openFaceCount)} 行原文:`,
+                ...(rows || [])
+                  .slice(0, 3)
+                  .map((tk) => '  · ' + String(tk?.text ?? '').slice(0, 120)),
+                '出路(二选一,都由台账席定):① 把这些票改写成能命中既有档的表述;② 在 auto-evolve-gates.json 的 ticketWhitelist 增加档 —— 加档前必须先问人工阀清单会不会把危险动作一起放进自动派发(阀在 observe 档只记账不拦)。',
+              ]
+            : [
+                '',
+                '这一型是**派单面真的空了**:台账里没有可派单行(结清即删的正常结果)。',
+                '出路:台账席补登下一批真工作;若确实见底,这不是故障。',
+              ]),
+          '读数面:node scripts/check-autonomy-leg-health.mjs 的 A13/A15 维;台账 action=supply-stall-round。',
+        ].join('\n'),
+        'critical',
+      )
+    } else if (stall.count > 0) {
+      console.log(`ℹ 供给断档未到门限:${stall.reason}`)
+    }
   } finally {
     releaseLock()
   }

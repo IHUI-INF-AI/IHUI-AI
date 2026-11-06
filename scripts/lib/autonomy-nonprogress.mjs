@@ -190,8 +190,17 @@ export const ACTION_EXEMPTIONS = Object.freeze({
     site: 'auto-evolve.mjs 预算闸',
   },
   'no-whitelist-hit': {
-    reason: '轮级:本轮无一枚命中白名单的收尾读数,与具体票无关',
+    reason: '轮级:派单面非空但白名单逐档命中 0 的收尾读数,与具体票无关',
     site: 'auto-evolve.mjs 白名单闸',
+  },
+  // 2026-11-06 把上一枚拆成两型(成因相反,合写会诱导人去看错那一侧):
+  'no-open-tickets': {
+    reason: '轮级:派单面为空的收尾读数(台账见底),不属于任何一枚票,也不是政策面窄',
+    site: 'auto-evolve.mjs 派单面 census',
+  },
+  'supply-stall-round': {
+    reason: '轮级:同型供给断档连续 N 轮的终局留痕,已按串喊过一次,不属于任何一枚票的空转',
+    site: 'auto-evolve.mjs 供给断档终局档',
   },
   'no-ticket': {
     reason: '轮级:本轮候选为空的收尾读数,不属于任何一枚票',
@@ -509,6 +518,105 @@ export function parkedRoundAlreadyAnnounced(rows, sinceTs) {
   return false
 }
 
+/**
+ * 供给断档的轮级判定(RP-66 的同族第二型,2026-11-06 立)。
+ *
+ * 为什么必须与"自我面停摆"分开成一档:两种安静长得一模一样(本轮没派任何东西),成因完全相反。
+ * ① 面闸停摆 = 机制坏了(已由 `runner-face-parked-round` 接管);
+ * ② 供给断档 = 机制正常但**无票可派**,而它自己还要再分两型:
+ *    · `supply-mismatch`  派单面非空,但白名单逐档命中 0 ⇒ 政策覆盖面比票窄(现读实证:
+ *      16 档全 0,而面上躺着"灰度槽位从未拿到产物""消息级版本切换"这类票);
+ *    · `no-open-tickets`  派单面为空 ⇒ 台账真见底,该问的是"还剩什么没做"。
+ * 把这两型合成一个"没票"读数,下一步一定是有人去扩白名单(或者更糟:去删票)。
+ *
+ * 判序:台账尾部连续同型的轮次计数;`openFaceCount` 取不到/不是数字 ⇒ 该轮记 `unknown`,
+ * 既不算 mismatch 也不算 no-open,并且**断链**(§0.3:不把"没读到"折进任何一型)。
+ * 任何一次真派发(dispatched)或别的终局行同样断链 —— 供给恢复即刻归零。
+ */
+export const SUPPLY_STALL_ROUND_ACTIONS = Object.freeze(['no-whitelist-hit', 'no-open-tickets'])
+export const SUPPLY_STALL_KIND_UNKNOWN = 'unknown'
+
+export function supplyStallKindOf(row) {
+  if (!row || typeof row !== 'object') return SUPPLY_STALL_KIND_UNKNOWN
+  const action = String(row.action ?? '')
+  if (!SUPPLY_STALL_ROUND_ACTIONS.includes(action)) return null
+  if (action === 'no-open-tickets') return 'no-open-tickets'
+  const n = row.openFaceCount
+  if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return SUPPLY_STALL_KIND_UNKNOWN
+  return n > 0 ? 'supply-mismatch' : 'no-open-tickets'
+}
+
+export function decideSupplyStall(rows, { streakN = 6, now = Date.now() } = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  // 门限只认 number 形态正整数(与 loadGates 同口径):"6" / 0 / NaN 一律不响。
+  // 反例成本实测过:门限读成 NaN 时 `count >= NaN` 恒假 ⇒ 这一档永久静默,而读数上看不出它坏过
+  // (与"两套时钟一比,按日上限就静默失效"同型)。
+  if (typeof streakN !== 'number' || !Number.isInteger(streakN) || streakN <= 0)
+    return {
+      kind: SUPPLY_STALL_KIND_UNKNOWN,
+      count: 0,
+      sinceTs: null,
+      lastTs: null,
+      unknownRounds: 0,
+      emit: false,
+      reason: `supplyStallRounds 不是正整数(现值 ${JSON.stringify(streakN)})⇒ 终局档不响`,
+    }
+  let kind = null
+  let count = 0
+  let sinceTs = null
+  let lastTs = null
+  let unknownRounds = 0
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    // 本档自己写的那行:不断链、也不额外占一轮(RP-66 那一枚刚踩过这型自锁 —— 切断之后
+    // 第 N+1 轮永远数回 1,连"仍在同一串"都读不出来,更不会再喊)。
+    if (row && typeof row === 'object' && String(row.action ?? '') === 'supply-stall-round')
+      continue
+    const k = supplyStallKindOf(row)
+    if (k === SUPPLY_STALL_KIND_UNKNOWN) {
+      unknownRounds += 1
+      break
+    }
+    if (k === null) break
+    if (kind === null) kind = k
+    else if (k !== kind) break
+    count += 1
+    sinceTs = row.ts ?? sinceTs
+    if (lastTs === null) lastTs = row.ts ?? null
+  }
+  const reached = count >= streakN && (kind === 'supply-mismatch' || kind === 'no-open-tickets')
+  const already = reached && parkedRoundAlreadyAnnouncedBy(list, 'supply-stall-round', sinceTs)
+  return {
+    kind: kind ?? SUPPLY_STALL_KIND_UNKNOWN,
+    count,
+    sinceTs: count > 0 ? sinceTs : null,
+    lastTs: count > 0 ? lastTs : null,
+    unknownRounds,
+    emit: reached && !already,
+    reason: !reached
+      ? `连续 ${count} 轮同型 < 门限 ${streakN}${kind ? `(型=${kind})` : ''}${unknownRounds ? ` / 另有 ${unknownRounds} 轮取不到派单面计数 ⇒ 断链不猜` : ''}`
+      : already
+        ? `这一串(${String(kind)}自 ${String(sinceTs)})已喊过 ⇒ 不重复投递`
+        : `连续 ${count} 轮同型 ${kind} ⇒ 轮级终局`,
+  }
+}
+
+/**
+ * 按串去重的通用出口(RP-66 那一枚同一条判序,这里只做"动作名可传")。
+ * 键 = 串首时刻:同一串只喊一次,断裂后重新攒够是新串 ⇒ 会再喊(第二次断档同样是事故)。
+ */
+export function parkedRoundAlreadyAnnouncedBy(rows, action, sinceTs) {
+  if (!sinceTs) return false
+  const list = Array.isArray(rows) ? rows : []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') continue
+    if (String(row.action ?? '') !== action) continue
+    return String(row.streakSince ?? '') === String(sinceTs)
+  }
+  return false
+}
+
 export const __test__ = {
   PROGRESS_ACTIONS,
   NON_PROGRESS_ACTIONS,
@@ -522,5 +630,9 @@ export const __test__ = {
   FACE_ROUND_TERMINAL_ACTIONS,
   faceRoundStreak,
   parkedRoundAlreadyAnnounced,
+  SUPPLY_STALL_ROUND_ACTIONS,
+  supplyStallKindOf,
+  decideSupplyStall,
+  parkedRoundAlreadyAnnouncedBy,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
