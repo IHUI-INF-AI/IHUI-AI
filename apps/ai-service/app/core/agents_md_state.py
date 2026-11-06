@@ -175,8 +175,12 @@ class AgentsMdState:
         self,
         directory: str | None = None,
         text: str | None = None,
+        *,
+        unreadable: bool = False,
     ) -> dict[str, Any] | None:
         """按状态机产出片段(对齐 codex render_diff + ihui 逐字节比较)。
+
+        unreadable:本轮文件在,但读失败。不得改快照,也不得发 REMOVAL。
 
         分支:
         1. 首次 + 内容            → 普通片段
@@ -185,6 +189,8 @@ class AgentsMdState:
         4. 删除(无内容)且先前有     → REMOVAL 片段
         5. 首次空(无内容)         → None
         """
+        if unreadable:
+            return None
         current = self._current_snapshot(directory, text)
 
         # 无变化 → 不注入(codex: Known(previous) if previous == &current → None)。

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import app.tools as tools_pkg
 from app.tools.init_agents_md import init_agents_md
@@ -160,6 +161,22 @@ async def test_explicit_whitelisted_output_writes_draft(tmp_path):
 # ---------------------------------------------------------------------------
 # 5. 负面参数
 # ---------------------------------------------------------------------------
+async def test_unreadable_workspace_is_not_written_as_empty(tmp_path, monkeypatch):
+    ws = _make_workspace(tmp_path)
+    target = ws / "AGENTS.md"
+    target.write_text("keep me\n", encoding="utf-8")
+
+    def deny(self):
+        raise PermissionError(13, "denied", str(self))
+
+    monkeypatch.setattr(Path, "iterdir", deny)
+    result = await init_agents_md({"workspace_root": str(ws), "output_path": "AGENTS.md"})
+    assert result["ok"] is False
+    assert result["errorCode"] == "WORKSPACE_UNREAD"
+    assert "不能把它写成空目录" in result["message"]
+    assert target.read_text(encoding="utf-8") == "keep me\n"
+
+
 async def test_missing_workspace_root(tmp_path):
     result = await init_agents_md({})
     assert result["ok"] is False
