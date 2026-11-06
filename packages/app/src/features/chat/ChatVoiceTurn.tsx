@@ -234,7 +234,7 @@ export function ChatVoicePanel({
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                 >
-                  <Text style={[styles.toneText, active ? styles.toneTextActive : null]}>
+                  <Text style={[styles.toneText, active ? styles.toneButtonActiveText : null]}>
                     {tone.label}
                   </Text>
                 </TouchableOpacity>
@@ -283,7 +283,7 @@ function createStyles(tokens: AppThemeTokens) {
     waveBar: {
       width: 4,
       borderRadius: rnRadius.sm,
-      backgroundColor: tokens.brand.DEFAULT,
+      backgroundColor: tokens.brandAccent.DEFAULT,
     },
     timer: {
       textAlign: 'center',
@@ -330,7 +330,7 @@ function createStyles(tokens: AppThemeTokens) {
     actionButton: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tokens.surface.muted,
     },
     actionText: {
@@ -387,13 +387,13 @@ function createStyles(tokens: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tokens.text.primary,
     },
-    toneTextActive: {
+    toneButtonActiveText: {
       color: tokens.brand.ctaForeground,
     },
     confirmButton: {
       alignItems: 'center',
       paddingVertical: rnSpacing.md,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tokens.brand.cta,
     },
     confirmText: {
