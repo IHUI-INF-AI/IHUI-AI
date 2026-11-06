@@ -92,8 +92,19 @@ export function resolveMainProcessesFromRows(rows) {
  * 该参数只出现在 gpu/renderer/utility 等子进程上。因此按"带 --user-data-dir 的子进程 →
  * 沿 ParentProcessId 上溯到 WorkBuddy 根进程"来定位主进程,并按 user-data-dir 去重。
  */
+/**
+ * 「探测失败」与「确实 0 个主进程」是两件事(2026-11-06 现读):CIM 查询抛错/15s 超时、
+ * 空输出、JSON 解析失败原来一律吞成 [],下游把"量不到"写成"未发现主进程"并落到确定文案。
+ * 这里给返回数组挂一个非索引属性,既有调用方按数组消费(长度/遍历/解构)逐字不变,
+ * 需要区分的一方能读到 probe.ok=false ⇒ 归「未判定」,不冒充 0。
+ */
+function withProbe(rows, probe) {
+  rows.probe = probe
+  return rows
+}
+
 export function listWorkbuddyMainProcesses(execFileImpl = execFileSync) {
-  if (process.platform !== 'win32') return []
+  if (process.platform !== 'win32') return withProbe([], { ok: true, reason: '非 win32 平台不适用' })
   const script =
     "$ErrorActionPreference='Stop';" +
     "Get-CimInstance Win32_Process -Filter \"Name='WorkBuddy.exe'\" | " +
@@ -105,17 +116,20 @@ export function listWorkbuddyMainProcesses(execFileImpl = execFileSync) {
       windowsHide: true,
       timeout: 15000,
     })
-  } catch {
-    return []
+  } catch (e) {
+    return withProbe([], {
+      ok: false,
+      reason: `CIM 探测抛错或 15s 窗口超时(${String(e?.code ?? e?.message ?? '未知').slice(0, 80)})`,
+    })
   }
-  if (!out.trim()) return []
+  if (!out.trim()) return withProbe([], { ok: false, reason: 'CIM 输出为空,量不到进程' })
   let rows
   try {
     rows = JSON.parse(out)
   } catch {
-    return []
+    return withProbe([], { ok: false, reason: 'CIM 输出不是合法 JSON' })
   }
-  return resolveMainProcessesFromRows(rows)
+  return withProbe(resolveMainProcessesFromRows(rows), { ok: true })
 }
 
 /** user-data-dir → 版本:'workbuddy'(国内) / 'workbuddy-ai'(国际)。判不出返回 null */
