@@ -95,6 +95,13 @@ def _write(root: Path, rel: str, body: str) -> Path:
     return path
 
 
+def _write_bytes(root: Path, rel: str, body: bytes) -> Path:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(body)
+    return path
+
+
 def _measured_distance() -> int:
     """夹具自检:真实文本的指纹距离必须落在候选档内(否则用例自己先红)。"""
     return hamming_distance(compute_simhash(_BODY), compute_simhash(_EDITED))
@@ -180,5 +187,74 @@ async def test_near_stage_over_candidate_cap_degrades_and_says_so(tmp_path):
     assert second.result.rename_candidates == []
     note = second.result.rename_note or ""
     assert NEAR_STAGE_SKIPPED_TOO_MANY in note, note
+    assert "只判了精确改名" in note, note
+
+
+@pytest.mark.asyncio
+async def test_near_stage_over_cap_on_the_new_side_alone_degrades_and_says_so(tmp_path):
+    """③-b′:**新侧**单独超限(旧侧只有 1 枚)⇒ `or` 的另一半也能独立触发降级。
+
+    上一枚钉的是 `rest_old > RENAME_MAX_CANDIDATES_PER_SIDE`;本枚把旧侧压到 1,
+    只让新侧越过上限,证明判据不是只有左半边有效。
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    _write(root, "src/old_only.py", "def doomed():\n    return 1\n")
+    await _index(root)
+
+    (root / "src/old_only.py").unlink()
+    new_rels = [f"src/new_{i:03d}.py" for i in range(RENAME_MAX_CANDIDATES_PER_SIDE + 1)]
+    for i, rel in enumerate(new_rels):
+        _write(root, rel, f"def added_{i}():\n    return {i}\n")
+    second = await _index(root)
+
+    assert second.deleted == ["src/old_only.py"], "超限只影响近同判定,删除面照常"
+    # 513 枚文件会额外产出目录/架构合成切片(其 file_path 形如 "src/"),所以只钉"逐文件切片"。
+    assert set(new_rels) <= second.written_paths, "新增面照常重嵌入"
+    assert "src/old_only.py" not in second.written_paths
+    assert second.result.files_renamed == 0
+    assert second.result.rename_candidates == []
+    note = second.result.rename_note or ""
+    assert NEAR_STAGE_SKIPPED_TOO_MANY in note, note
+    assert "只判了精确改名" in note, note
+
+
+#: 文档类扩展名:从源模块取,且必须在枚举映射里(anydoc 缺席时这族根本不进枚举面)。
+_DOC_EXT = next((ext for ext in sorted(ci._DOC_EXTS) if ext in ci._EXT_TO_LANG), None)
+_DOC_SKIP = pytest.mark.skipif(
+    _DOC_EXT is None,
+    reason="anydoc 未安装:.doc 系扩展名不进枚举面,本边界不可达",
+)
+
+
+@_DOC_SKIP
+@pytest.mark.asyncio
+async def test_renamed_document_without_fingerprint_never_becomes_a_candidate(tmp_path):
+    """③-c:文档不产 simhash ⇒ 内容变过的文档改名只能按「删 + 增」读并如实报降级。
+
+    源码实读(`index_repository` 扫描轮):`_DOC_EXTS` 只算 `sha256(read_bytes)`,
+    `fingerprint` 保持 None;因此近同档对文档永远拿不到输入 ⇒ `skipped-no-fingerprints`,
+    不可能产出 `rename_candidates`(精确档则仅在同字节时由 content-hash 直判)。
+    """
+    ext = _DOC_EXT
+    root = tmp_path / "repo"
+    root.mkdir()
+    old_rel = f"docs/old{ext}"
+    new_rel = f"docs/new{ext}"
+    _write_bytes(root, old_rel, b"version one")
+    # 只替换 anydoc 解析(夹具是伪二进制):本用例钉的是"不产指纹",不是文档解析器行为。
+    with patch.object(ci, "_extract_document_markdown", lambda _path: "doc body\n"):
+        first = await _index(root)
+        (root / old_rel).rename(root / new_rel)
+        _write_bytes(root, new_rel, b"version two")
+        second = await _index(root)
+
+    assert first.written_paths == {old_rel}
+    assert second.deleted == [old_rel], "文档改名按「删 + 增」读,旧路径照删"
+    assert second.written_paths == {new_rel}, "新文档照常重嵌入"
+    assert second.result.files_renamed == 0
+    assert second.result.rename_candidates == [], "文档不产指纹 ⇒ 近同档无从判起,不许出现候选"
+    note = second.result.rename_note or ""
+    assert NEAR_STAGE_SKIPPED_NO_FINGERPRINTS in note, note
     assert "只判了精确改名" in note, note
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
