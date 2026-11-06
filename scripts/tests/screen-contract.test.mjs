@@ -128,6 +128,63 @@ export default () => { const d = fetchApi('/api/x'); return <DemoScreen /> }`
   assert.equal(notSkipped.advisories.filter((a) => a.rule === 'C5').length, 1)
 })
 
+test('包装层扩模型(2026-11-07):可证明透传才豁免;cloneElement/context/页内钩子仍判 C1', () => {
+  const shared = `interface DemoScreenProps { title: string; flag: boolean }
+export default function DemoScreen({ title }: DemoScreenProps) { return <View>{title}</View> }`
+  const rn = `import { DemoScreen } from '@ihui/rn-app'
+export const R = () => <DemoScreen title={'x'} flag={true} />`
+  const files = {
+    'apps/miniapp-taro/src/components/DemoGate.tsx': `import type { ReactNode } from 'react'
+export default function DemoGate({ children }: { children: ReactNode }) {
+  return <>{children}</>
+}`,
+    'apps/miniapp-taro/src/components/PropGate.tsx': `import * as React from 'react'
+export default function PropGate({ children }: { children?: React.ReactNode }) {
+  return React.cloneElement(children as React.ReactElement, { title: 'injected' })
+}`,
+    'apps/miniapp-taro/src/pages/demo/wrapped.tsx': `import DemoGate from '@/components/DemoGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><DemoGate><DemoScreen /></DemoGate></ThemeRoot>`,
+    'apps/miniapp-taro/src/pages/demo/prop.tsx': `import PropGate from '@/components/PropGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><PropGate><DemoScreen /></PropGate></ThemeRoot>`,
+    'apps/miniapp-taro/src/pages/demo/taro.tsx': `import DemoGate from '@/components/DemoGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+import { useDidShow } from '@tarojs/taro'
+export default () => <ThemeRoot><DemoGate><DemoScreen /></DemoGate></ThemeRoot>`,
+  }
+  const readFile = (rel) => (Object.hasOwn(files, rel) ? files[rel] : null)
+  const run = (page) =>
+    analyzeScreenContract({
+      pageText: files[`apps/miniapp-taro/src/pages/demo/${page}.tsx`],
+      file: `apps/miniapp-taro/src/pages/demo/${page}.tsx`,
+      sharedText: shared,
+      rnText: rn,
+      specs: [SPEC],
+      readFile,
+    })
+
+  const wrapped = run('wrapped')
+  assert.equal(wrapped.carrier, true, '只接 children + Fragment 透传 ⇒ 与零 attrs 壳页同属承载页')
+  assert.equal(wrapped.carrierVia, 'wrapper')
+  assert.deepEqual(props(wrapped, 'single-end'), [], '包装层承载页的「仅 RN 传」不得进 C1')
+  assert.equal(wrapped.carrierExempt, 2)
+  const w = wrapped.carrierEvidence.wrappers[0]
+  assert.equal(w.file, 'apps/miniapp-taro/src/components/DemoGate.tsx')
+  assert.equal(w.componentLine, 2)
+  assert.equal(w.attrCount, 0, '使用处自身必须 0 attrs')
+  assert.equal(w.proof.shellAttrsInjected, 0)
+
+  const prop = run('prop')
+  assert.equal(prop.carrier, false, '阴性对照:包装层 cloneElement 塞 prop ⇒ 不豁免')
+  assert.deepEqual(props(prop, 'single-end'), ['flag', 'title'], '仍按 C1 报单端')
+
+  const taro = run('taro')
+  assert.equal(taro.carrier, false, '页内 import @tarojs/taro 运行时钩子 ⇒ 不是纯载体')
+  assert.match(taro.carrierReason ?? '', /taro-hooks/)
+  assert.deepEqual(props(taro, 'single-end'), ['flag', 'title'])
+})
+
 test('C4 未解析:读不到/类型解不开/属性展开/未渲染 都只进未解析', () => {
   const page = `import { DemoScreen } from '@rn-shells/DemoScreen'
 export default () => <DemoScreen title={'x'} />`

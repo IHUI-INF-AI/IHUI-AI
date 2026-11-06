@@ -198,6 +198,8 @@ function rebuildContractBaselineFile(root, face) {
   const carrierRoutes = carrierRoutesOf(runRows)
   const carrierPages = runRows.filter((r) => r.contract?.carrier)
   const carrierExempt = runRows.reduce((a, r) => a + (r.contract?.carrierExempt || 0), 0)
+  const carrierWrapperPages = carrierPages.filter((r) => r.contract?.carrierVia === 'wrapper')
+  const carrierWrapperExempt = carrierWrapperPages.reduce((a, r) => a + (r.contract?.carrierExempt || 0), 0)
   const items = contractItemsOf(runRows)
   const bad = validateContractBaseline(items)
   if (bad.length) throw new Undetermined(`当前面契约命中形状非法,拒绝重建: ${bad[0].why}`)
@@ -217,28 +219,49 @@ function rebuildContractBaselineFile(root, face) {
   const prevEntries = Array.isArray(prev?.entries) ? prev.entries : []
   const countBy = (arr, b) => arr.filter((e) => e.bucket === b).length
   const sorted = items.slice().sort((a, b) => contractKey(a).localeCompare(contractKey(b)))
+  const prevKeys = new Set(prevEntries.map(contractKey))
+  const nextKeys = new Set(sorted.map(contractKey))
+  const removedEntries = prevEntries.filter((e) => !nextKeys.has(contractKey(e)))
+  const addedEntries = sorted.filter((e) => !prevKeys.has(contractKey(e)))
+  const removalAudit = {
+    removed: removedEntries.length,
+    allSingleEnd: removedEntries.every((e) => e.bucket === 'single-end'),
+    allOnCarrierRoutes: removedEntries.every((e) => carrierRoutes.has(e.route)),
+    added: addedEntries.length,
+  }
   const doc = {
     $comment:
       '屏级契约定向回归基线(门 299 C1-C4)。只许新增条目:存量问题在此登记后不红,新增命中才红;删条目=放宽判据。' +
-      '2026-11-07 模型修正:零 attrs 壳承载页不作为独立消费端,其 single-end 条目不进基线(见 audit.carrierExempt);这是判据模型修正,不是人为放行。',
+      '2026-11-07 模型修正:零 attrs 壳承载页不作为独立消费端,其 single-end 条目不进基线(见 audit.carrierExempt);' +
+      '第二轮扩模型:壳外层只包 AuthReadyGate 式**可证明透传**包装层(包装组件只接 children、不 cloneElement/Children/context/createElement,children 仅经 JSX Fragment 原样透传,使用处 0 attrs)同样豁免;' +
+      '不可证明的包装层、以及页内仍有 Taro./useEffect/@tarojs/taro 运行时钩子的页保持原判。这是判据模型修正,不是人为放行。' +
+      '基线重建用 scripts/object-space-land.mjs + LAND_ALLOW_STALE=1(显式重建需越过 stale 保护);逐条删除审计见 audit.removal,旧基线原样归档见 audit.archive。',
     at: '2026-11-07',
     face,
     audit: {
-      archive: 'scripts/data/miniapp-shell-contract-baseline.archive-20261107.json',
+      archive: 'scripts/data/miniapp-shell-contract-baseline.archive-20261107-model1.json',
       previousEntries: prevEntries.length,
       previousByBucket: Object.fromEntries(['single-end', 'dead', 'shadow', 'unresolved'].map((b) => [b, countBy(prevEntries, b)])),
       carrierPages: carrierPages.length,
       carrierExempt,
+      carrierWrapperPages: carrierWrapperPages.length,
+      carrierWrapperExempt,
       currentEntries: sorted.length,
       currentByBucket: Object.fromEntries(['single-end', 'dead', 'shadow', 'unresolved'].map((b) => [b, countBy(sorted, b)])),
       removed: prevEntries.length - sorted.length,
+      removal: removalAudit,
+      landing: {
+        tool: 'scripts/object-space-land.mjs',
+        env: 'LAND_ALLOW_STALE=1',
+        why: '显式重建屏级契约基线(模型修正剔除假阳性);stale 保护只允许在显式重建时越过',
+      },
     },
     entries: sorted,
   }
   writeFileSync(join(root, CONTRACT_BASELINE), JSON.stringify(doc, null, 2) + '\n', 'utf8')
   log(
     `✅ 已重建屏级契约基线 ${CONTRACT_BASELINE}:${sorted.length} 条(旧 ${prevEntries.length} - 壳承载豁免 ${prevEntries.length - sorted.length})` +
-      `;承载页 ${carrierPages.length} 个 / C1 豁免 ${carrierExempt} 条(面=${face})`,
+      `;承载页 ${carrierPages.length} 个 / C1 豁免 ${carrierExempt} 条(其中透传包装层 ${carrierWrapperPages.length} 页 / ${carrierWrapperExempt} 条);面=${face}`,
   )
   return 0
 }
@@ -255,6 +278,11 @@ function run(root, face) {
   stats.contract = contractEval.stats
   stats.contract.carrierPages = rows.filter((r) => r.contract?.carrier).length
   stats.contract.carrierExempt = rows.reduce((a, r) => a + (r.contract?.carrierExempt || 0), 0)
+  stats.contract.carrierWrapperPages = rows.filter((r) => r.contract?.carrier && r.contract?.carrierVia === 'wrapper').length
+  stats.contract.carrierWrapperExempt = rows.reduce(
+    (a, r) => a + (r.contract?.carrier && r.contract?.carrierVia === 'wrapper' ? r.contract?.carrierExempt || 0 : 0),
+    0,
+  )
   for (const b of badLedger) reds.push({ rule: 'S0', why: b.why, row: b.row })
   const undeterminedRows = rows.filter((r) => r.impl === 'undetermined')
   stats.face = face
@@ -325,7 +353,7 @@ function run(root, face) {
       `屏级契约(四档)         : 单端 ${stats.contract.byBucket['single-end']} / 死契约 ${stats.contract.byBucket.dead} / 影子 ${stats.contract.byBucket.shadow} / 未解析 ${stats.contract.byBucket.unresolved}(基线 ${stats.contract.baseline} 条,新增 ${stats.contract.newItems},可收紧 ${stats.contract.stale})`,
     )
     log(
-      `壳承载页豁免            : 页 ${stats.contract.carrierPages} 个 / 单端条目 ${stats.contract.carrierExempt} 条(不作为独立消费端;旧基线残留 ${stats.contract.carrierStaleExempt} 条不进 C5)`,
+      `壳承载页豁免            : 页 ${stats.contract.carrierPages} 个 / 单端条目 ${stats.contract.carrierExempt} 条(其中经可证明透传包装层 ${stats.contract.carrierWrapperPages} 页 / ${stats.contract.carrierWrapperExempt} 条;不作为独立消费端;旧基线残留 ${stats.contract.carrierStaleExempt} 条不进 C5)`,
     )
     log(`存量台账                : ${stats.ledgerRows} 行`)
     if (advisories.length) {
@@ -578,6 +606,98 @@ export default function DemoScreen({ title, flag, deadButUsed }: DemoScreenProps
     'F16 反证:零 attrs 但有额外渲染 ⇒ 不豁免,仍是 C1 消费端',
     extraContract.carrier === false && extraContract.carrierReason?.startsWith('extra-jsx') && extraContract.buckets['single-end'].length === 2,
     `${String(extraContract.carrier)}/${extraContract.carrierReason}/${extraContract.buckets['single-end'].length}`,
+  )
+
+  // F17-F19:第二轮扩模型(2026-11-07)—— 透传包装层,可证才扩。
+  // 包装层实现只能从源码机械证明:只接 children、不 cloneElement/Children/context/createElement、
+  // children 仅经 JSX Fragment 原样透传;使用处自身 0 attrs。
+  const wrapperFiles = {
+    'apps/miniapp-taro/src/components/DemoGate.tsx': `import type { ReactNode } from 'react'
+export default function DemoGate({ children }: { children: ReactNode }) {
+  return <>{children}</>
+}`,
+    'apps/miniapp-taro/src/components/PropGate.tsx': `import * as React from 'react'
+export default function PropGate({ children }: { children?: React.ReactNode }) {
+  return React.cloneElement(children as React.ReactElement, { title: 'injected' })
+}`,
+    'apps/miniapp-taro/src/components/CtxGate.tsx': `import * as React from 'react'
+const Ctx = React.createContext(null)
+export default function CtxGate({ children }: { children?: React.ReactNode }) {
+  return <Ctx.Provider value={null}>{children}</Ctx.Provider>
+}`,
+    'apps/miniapp-taro/src/pages/demo/wrapped.tsx': `import DemoGate from '@/components/DemoGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><DemoGate><DemoScreen /></DemoGate></ThemeRoot>`,
+    'apps/miniapp-taro/src/pages/demo/prop-gate.tsx': `import PropGate from '@/components/PropGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><PropGate><DemoScreen /></PropGate></ThemeRoot>`,
+    'apps/miniapp-taro/src/pages/demo/ctx-gate.tsx': `import CtxGate from '@/components/CtxGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+export default () => <ThemeRoot><CtxGate><DemoScreen /></CtxGate></ThemeRoot>`,
+    'apps/miniapp-taro/src/pages/demo/taro-gate.tsx': `import DemoGate from '@/components/DemoGate'
+import { DemoScreen } from '@rn-shells/DemoScreen'
+import { useDidShow } from '@tarojs/taro'
+export default () => <ThemeRoot><DemoGate><DemoScreen /></DemoGate></ThemeRoot>`,
+  }
+  const wrapperRead = (rel) => (Object.hasOwn(wrapperFiles, rel) ? wrapperFiles[rel] : null)
+  const wrapped = analyzeScreenContract({
+    pageText: wrapperFiles['apps/miniapp-taro/src/pages/demo/wrapped.tsx'],
+    file: 'apps/miniapp-taro/src/pages/demo/wrapped.tsx',
+    sharedText: sharedContract,
+    rnText: rnContract,
+    specs: [contractSpec],
+    readFile: wrapperRead,
+  })
+  add(
+    'F17 包装层正例:AuthReadyGate 式透传壳(只接 children + Fragment 透传)⇒ 与零 attrs 壳页同豁免',
+    wrapped.carrier === true && wrapped.carrierVia === 'wrapper' && wrapped.buckets['single-end'].length === 0 && wrapped.carrierExempt === 2,
+    `${String(wrapped.carrier)}/${wrapped.carrierVia}/${wrapped.buckets['single-end'].length}/${wrapped.carrierExempt}`,
+  )
+  add(
+    'F17b 包装层正例:包装组件实现位置与用法位置均可核对(file:line)',
+    wrapped.carrierEvidence?.wrappers?.[0]?.file === 'apps/miniapp-taro/src/components/DemoGate.tsx' &&
+      wrapped.carrierEvidence?.wrappers?.[0]?.componentLine === 2 &&
+      wrapped.carrierEvidence?.wrappers?.[0]?.attrCount === 0,
+    wrapped.carrierEvidence?.wrappers?.[0],
+  )
+  const propGate = analyzeScreenContract({
+    pageText: wrapperFiles['apps/miniapp-taro/src/pages/demo/prop-gate.tsx'],
+    file: 'apps/miniapp-taro/src/pages/demo/prop-gate.tsx',
+    sharedText: sharedContract,
+    rnText: rnContract,
+    specs: [contractSpec],
+    readFile: wrapperRead,
+  })
+  add(
+    'F18 阴性对照:包装层 cloneElement 给壳塞 prop ⇒ 不予豁免,仍判 C1',
+    propGate.carrier === false && propGate.carrierReason?.startsWith('extra-jsx') && propGate.buckets['single-end'].length === 2,
+    `${String(propGate.carrier)}/${propGate.carrierReason}/${propGate.buckets['single-end'].length}`,
+  )
+  const ctxGate = analyzeScreenContract({
+    pageText: wrapperFiles['apps/miniapp-taro/src/pages/demo/ctx-gate.tsx'],
+    file: 'apps/miniapp-taro/src/pages/demo/ctx-gate.tsx',
+    sharedText: sharedContract,
+    rnText: rnContract,
+    specs: [contractSpec],
+    readFile: wrapperRead,
+  })
+  add(
+    'F18b 阴性对照:包装层自建 context/Provider ⇒ 不可机械证明透传,仍判 C1',
+    ctxGate.carrier === false && ctxGate.buckets['single-end'].length === 2,
+    `${String(ctxGate.carrier)}/${ctxGate.carrierReason}/${ctxGate.buckets['single-end'].length}`,
+  )
+  const taroGate = analyzeScreenContract({
+    pageText: wrapperFiles['apps/miniapp-taro/src/pages/demo/taro-gate.tsx'],
+    file: 'apps/miniapp-taro/src/pages/demo/taro-gate.tsx',
+    sharedText: sharedContract,
+    rnText: rnContract,
+    specs: [contractSpec],
+    readFile: wrapperRead,
+  })
+  add(
+    'F19 页内做事页保持原判:包装层透传但页面 import @tarojs/taro 运行时钩子 ⇒ 不豁免',
+    taroGate.carrier === false && /taro-hooks/.test(taroGate.carrierReason ?? '') && taroGate.buckets['single-end'].length === 2,
+    `${String(taroGate.carrier)}/${taroGate.carrierReason}/${taroGate.buckets['single-end'].length}`,
   )
 
   // 回归基线:存量入册不红、新增红、去掉基线条目只给可收紧、非法基线红。

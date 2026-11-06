@@ -1,0 +1,3465 @@
+{
+  "$comment": "屏级契约定向回归基线(门 299 C1-C4)。只许新增条目:存量问题在此登记后不红,新增命中才红;删条目=放宽判据。2026-11-07 模型修正:零 attrs 壳承载页不作为独立消费端,其 single-end 条目不进基线(见 audit.carrierExempt);这是判据模型修正,不是人为放行。",
+  "at": "2026-11-07",
+  "face": "worktree",
+  "audit": {
+    "archive": "scripts/data/miniapp-shell-contract-baseline.archive-20261107.json",
+    "previousEntries": 2403,
+    "previousByBucket": {
+      "single-end": 2321,
+      "dead": 1,
+      "shadow": 10,
+      "unresolved": 71
+    },
+    "carrierPages": 156,
+    "carrierExempt": 1831,
+    "currentEntries": 573,
+    "currentByBucket": {
+      "single-end": 491,
+      "dead": 1,
+      "shadow": 10,
+      "unresolved": 71
+    },
+    "removed": 1830
+  },
+  "entries": [
+    {
+      "route": "pages/ask/create",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/circle/create",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/circle/detail",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/community/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "data",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "onCopyOrder",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "onWithdraw",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/commission",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "activeTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "dateOptions",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "keyword",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "memberMetrics",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "members",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onKeywordChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onPressMember",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onPressTreeMember",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onRetryTree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onSelectDate",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "onSelectTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "showRankBadge",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "sortBar",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "stats",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "statsLayout",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "tree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "treeFailed",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "treeLoading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/company/index",
+      "bucket": "single-end",
+      "prop": "treeTotalLevels",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "compactStatsLabels",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "dateOptions",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "emptyText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "footerLoadingText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "footerNoMoreText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "keyword",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "listTitle",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "memberMetrics",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onEndReached",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onKeywordChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onPressMember",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onPressTreeMember",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onRetryTree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "onSelectDate",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "showHeader",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "showRankBadge",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "showTabs",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "sortBar",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "tree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "treeFailed",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "treeLoading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/member-detail/index",
+      "bucket": "single-end",
+      "prop": "treeTotalLevels",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "activeTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "keyword",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onEndReached",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onKeywordChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onSearch",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "onTabChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "orders",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/order-list/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan-form/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/distribution/plan-list/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "onOpenVip",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "overview",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "rates",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/plan/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/rank",
+      "bucket": "single-end",
+      "prop": "emptyText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/rank",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "emptyText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "footerLoadingText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "footerNoMoreText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "onEndReached",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "onPressTreeMember",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "onRetryTree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "showHeader",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "showTabs",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "statsLayout",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "tree",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "treeFailed",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "treeLoading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/team",
+      "bucket": "single-end",
+      "prop": "treeTotalLevels",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "amount",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "balance",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "bankCardId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "onAmountChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "onBankCardIdChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "onSubmit",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "success",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/distribution/withdraw",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/exam/detail",
+      "bucket": "unresolved",
+      "prop": "rn-missing",
+      "why": "RN 对照正文在该面读不到"
+    },
+    {
+      "route": "pages/exam/result",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/forgot-password/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/index/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/member/coupon",
+      "bucket": "single-end",
+      "prop": "onOpenCouponCenter",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/member/coupon",
+      "bucket": "single-end",
+      "prop": "onUseCoupon",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/member/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "onEndReached",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/member/integral",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/plaza/index/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/plaza/index/index",
+      "bucket": "single-end",
+      "prop": "contentBottomPadding",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/register/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/setting/cache",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/setting/language",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/setting/theme",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/share/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/my-study/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/plan",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/publish/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/rank",
+      "bucket": "single-end",
+      "prop": "emptyText",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/study/rank",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pages/study/rank",
+      "bucket": "single-end",
+      "prop": "subtitle",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pages/study/record",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/study/video-detail/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pages/user/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-about/about-shared/index",
+      "bucket": "dead",
+      "prop": "appInfo",
+      "why": "声明了但两端都没传、屏内正文也没消费"
+    },
+    {
+      "route": "pkg-about/about-shared/index",
+      "bucket": "single-end",
+      "prop": "onRegister",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/agreement/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/agreement/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/agreement/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/app-permission/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-about/about/help",
+      "bucket": "single-end",
+      "prop": "feedbackError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/help",
+      "bucket": "single-end",
+      "prop": "searchPlaceholder",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-about/about/icp-record/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-about/about/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-about/about/privacy",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/privacy",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/privacy",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-about/about/usage-rules/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-ai/agent-dialogue/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/ai-assistant-n8n/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/ai-assistant/index",
+      "bucket": "single-end",
+      "prop": "onPressCategory",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-career/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "containerStyle",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "flatListStyle",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "isInputFocused",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "itemSeparatorComponent",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "onInputBlur",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "onInputFocus",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "queueSlot",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "renderListFooter",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "renderMessage",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "showHeader",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "showInput",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "showModelBar",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-chat-detail/index",
+      "bucket": "single-end",
+      "prop": "statusSlot",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "exporting",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "invokeError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "invokeResult",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "invoking",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onExport",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onInvoke",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onRate",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "onVariableChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "ratingError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "ratingLoginHint",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "ratingStats",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "ratingSubmitted",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "skill",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "title",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/detail/index",
+      "bucket": "single-end",
+      "prop": "variables",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "importing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "onImport",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "onOpenSkill",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai-skill/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ai/agent-detail",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/ai/agent",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/ai/chat",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-ai/ai/history",
+      "bucket": "single-end",
+      "prop": "emptyIconSrc",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-ai/aigc/list",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-ai/business-card/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/dev-enter/cover/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "avatarUrl",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "displayName",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "entryIds",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "footerAction",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "info",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onBecomeDeveloper",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onContactService",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onCopyApiKey",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onEntryPress",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onProblemPress",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "onRenew",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "showApiKeyRow",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "statusText",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "subscribed",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/dev-space/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/developer/withdrawal",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onPressCompare",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onSelectProvider",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "onSelectType",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "providerId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "providers",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/model-plaza/index",
+      "bucket": "single-end",
+      "prop": "typeFilter",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-ai/ranking/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-content/category-detail/index",
+      "bucket": "single-end",
+      "prop": "header",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "categoryName",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "onSelect",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news-category/index",
+      "bucket": "single-end",
+      "prop": "total",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "item",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/detail",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "categories",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "hideHeader",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "keyword",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "noMore",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "onKeywordChange",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "onSearch",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "onSelectCategory",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "pinnedItem",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "readIds",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "searchPlaceholder",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/news/list",
+      "bucket": "single-end",
+      "prop": "selectedCategory",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-content/plaza/set-need/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-content/share/creation",
+      "bucket": "unresolved",
+      "prop": "rn-missing",
+      "why": "RN 对照正文在该面读不到"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "followBusy",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "locale",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onFollow",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onPostPress",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onPublish",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "posts",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-content/topic/detail",
+      "bucket": "single-end",
+      "prop": "topic",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/course-planet/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-learn/course/detail",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-learn/course/list",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-learn/learn-develop/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "chatError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "chatStatus",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "input",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "live",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "messages",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onInputChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onOpenChat",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onSend",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "onSubscribe",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "subscribed",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "subscribing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/detail",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/host/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/live/subscribe",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/subscription/contracts/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-learn/teacher/detail",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-learn/teacher/detail",
+      "bucket": "single-end",
+      "prop": "onViewCourses",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-learn/teacher/list",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-mirror/course/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-mirror/favorites/index",
+      "bucket": "unresolved",
+      "prop": "rn-no-element",
+      "why": "RN 消费点未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "activeCategoryId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "categories",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onCategoryChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onSearchChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "onSelect",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "search",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/knowledge-base-list/index",
+      "bucket": "single-end",
+      "prop": "total",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "error",
+      "why": "消费端传了契约里不存在的 prop「error」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "hasMore",
+      "why": "消费端传了契约里不存在的 prop「hasMore」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "items",
+      "why": "消费端传了契约里不存在的 prop「items」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "loading",
+      "why": "消费端传了契约里不存在的 prop「loading」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "loadingMore",
+      "why": "消费端传了契约里不存在的 prop「loadingMore」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "onLoadMore",
+      "why": "消费端传了契约里不存在的 prop「onLoadMore」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "onRefresh",
+      "why": "消费端传了契约里不存在的 prop「onRefresh」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "onRetry",
+      "why": "消费端传了契约里不存在的 prop「onRetry」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "onSelect",
+      "why": "消费端传了契约里不存在的 prop「onSelect」"
+    },
+    {
+      "route": "pkg-mirror/news-category/index",
+      "bucket": "shadow",
+      "prop": "refreshing",
+      "why": "消费端传了契约里不存在的 prop「refreshing」"
+    },
+    {
+      "route": "pkg-mirror3/team-detail/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "item",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/detail",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "activeTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onPay",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "onSelectTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/list",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund-list",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/order/refund",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/pay/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "amount",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "checking",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "onBackHome",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "onViewOrders",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "status",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/pay/result/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "activeTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "balance",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "onRecharge",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "onSelectTab",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "records",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/token/balance",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-shop/vip-trader/index/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/vip/details",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/vip/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/vip/privilege",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/vip/success",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/vip/upgrade",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/wallet/recharge/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-shop/wallet/withdrawal/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/account-cancel/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "busyId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "draft",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onBackToCheckin",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onCheckin",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onDelete",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onDraftChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onSave",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "onToggle",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "rows",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "submitting",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/account-pool/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "convertError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "convertingFileId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "convertResult",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "deleteError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "files",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "filesError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "filesLoading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "members",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onCloseConvertResult",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onConvert",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onRemove",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onRetryFiles",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "onUpload",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "project",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "removingFileId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "tasks",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "uploadError",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-workspace-project/index",
+      "bucket": "single-end",
+      "prop": "uploading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/ai-world-collection/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/assistant/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "info",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "onSign",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "signing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/check-in/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/course-homework/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "entries",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "onSelectSubject",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "selectedSubject",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "studentId",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-grade-trend/index",
+      "bucket": "single-end",
+      "prop": "weaknesses",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/edu-teacher-study-plan/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-user/favorites/index",
+      "bucket": "unresolved",
+      "prop": "spread",
+      "why": "实参含 {...spread},属性面不可静态枚举"
+    },
+    {
+      "route": "pkg-user/following/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/lecturer-list/index",
+      "bucket": "unresolved",
+      "prop": "rn-no-element",
+      "why": "RN 消费点未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/legal-docs-hub/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "conversations",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "hasMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "notification",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onDeleteConversation",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onMarkRead",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onPressConversation",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "onTogglePin",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "renderTabBody",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/message/index",
+      "bucket": "single-end",
+      "prop": "tabs",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "keyword",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onKeywordChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onPageChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onRetry",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onSearch",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onSelect",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "onTagChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "page",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "tag",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "tags",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "total",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/skill-market-list/index",
+      "bucket": "single-end",
+      "prop": "totalPages",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/square/index",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "items",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "loadingMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onCancel",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onGoDiscover",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onLoadMore",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onPressItem",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onRefresh",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "onToggleReminder",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "refreshing",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "reminderEnabled",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/subscriptions/index",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/avatar",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/user/email",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/user/nickname",
+      "bucket": "unresolved",
+      "prop": "page-no-element",
+      "why": "页面未渲染被声明的共享屏"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "confirmPwdError",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "errorVisibility",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "forgotLabel",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "inputMaxLength",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "newPwdError",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "onForgotOld",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/password",
+      "bucket": "single-end",
+      "prop": "submitLabel",
+      "why": "仅小程序页传,RN 未传"
+    },
+    {
+      "route": "pkg-user/user/profile",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "colorScheme",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "error",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "idNumber",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "loading",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "name",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "onBack",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "onIdNumberChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "onNameChange",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "onSubmit",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "status",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "submitting",
+      "why": "仅 RN 传,小程序页未传"
+    },
+    {
+      "route": "pkg-user/user/realname",
+      "bucket": "single-end",
+      "prop": "t",
+      "why": "仅 RN 传,小程序页未传"
+    }
+  ]
+}

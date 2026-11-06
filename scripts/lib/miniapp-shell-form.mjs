@@ -26,6 +26,7 @@
  *   - `undetermined` : 页面/映射读不到,或声明解到重名歧义 ⇒ 不判绿也不判红,单列点名。
  */
 
+import { posix } from 'node:path'
 import ts from 'typescript'
 import { Undetermined } from './face-reader.mjs'
 import { readFaceOne } from './gate-face.mjs'
@@ -929,23 +930,157 @@ function lineOfNode(sf, node) {
 const CARRIER_DATA_RE =
   /(?:@ihui\/api-client|fetchApi\s*\(|\bfetch\s*\(|\bTaro\.request\s*\(|\bwx\.request\s*\(|\buni\.request\s*\(|\baxios\b|\/api\/|\buseRequest\b)/
 
-/** 页内副作用/宿主调用痕迹(壳承载页只允许空白挂载,不允许自己再挂钩子)。 */
+/** 页内副作用/宿主调用痕迹(壳承载页只允许空白挂载,不允许自己再挂钩子)。
+ *  `@tarojs/taro` 的运行时钩子另由 AST 识别(见 taroRuntimeImportsOf):纯壳页不引 Taro,
+ *  3 个 ShareWrap 页正是靠 useDidShow/useShareAppMessage 等页内钩子保持原判。 */
 const CARRIER_SIDE_EFFECT_TOKENS = ['useEffect', 'useState', 'useReducer', 'useRequest', 'Taro.', 'wx.', 'uni.']
 
+/** 页面里 `@tarojs/taro` 的**运行时**导入(类型导入不算);有 ⇒ 端内挂钩子,不是纯载体。 */
+function taroRuntimeImportsOf(sf) {
+  const out = []
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue
+    if (st.moduleSpecifier?.text !== '@tarojs/taro') continue
+    if (st.importClause.isTypeOnly) continue
+    if (st.importClause.name) out.push('default')
+    const nb = st.importClause.namedBindings
+    if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) if (!el.isTypeOnly) out.push(el.name.text)
+  }
+  return out
+}
+
+/** 页面文件 + import 说明符 ⇒ 仓库相对候选路径(`@/` 与相对路径;第三方模块不解析)。 */
+function resolveImportCandidates(pageFile, spec) {
+  let base = null
+  if (spec.startsWith('@/')) base = `apps/miniapp-taro/src/${spec.slice(2)}`
+  else if (/^\.\.?(\/|$)/.test(spec)) base = posix.normalize(posix.join(posix.dirname(pageFile), spec))
+  else return []
+  if (/\.(tsx|ts|jsx|js)$/.test(base)) return [base]
+  return [
+    `${base}.tsx`,
+    `${base}.ts`,
+    `${base}.jsx`,
+    `${base}.js`,
+    `${base}/index.tsx`,
+    `${base}/index.ts`,
+    `${base}/index.jsx`,
+    `${base}/index.js`,
+  ]
+}
+
+/** 页内 JSX 节点 + 祖先链(用于证明「包装层只是壳的外罩」)。 */
+function collectJsxChains(node, stack, acc) {
+  if (!node) return acc
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+    acc.push({ node, parents: stack.slice() })
+    if (ts.isJsxElement(node)) {
+      const next = stack.concat([node])
+      for (const c of node.children ?? []) collectJsxChains(c, next, acc)
+    }
+    return acc
+  }
+  ts.forEachChild(node, (c) => {
+    collectJsxChains(c, stack, acc)
+  })
+  return acc
+}
+
 /**
- * 壳承载页取证(模型修正 2026-11-07)。
+ * 机械证明「透传包装层、不注参」(2026-11-07 扩模型,可证才扩)。
+ *
+ * 只认能被源码证据锁死的形态:包装组件只接 `children`(无其余 prop、无 ...rest)、
+ * 不 `cloneElement`、不操作 `React.Children`、不自建 context、不 `createElement`,
+ * 且 `children` 只作为 JSX Fragment 的直接子表达式原样透传(不包任何元素/属性)。
+ * 任一条不成立 ⇒ 不予豁免,页面保持原判(仍作为独立消费端参与 C1)。
+ */
+function proveTransparentWrapper(ctx, pageFile, tag, moduleSpec) {
+  const fail = (why, file = null) => ({ ok: false, why, file })
+  if (!pageFile) return fail('wrapper-page-file-unknown')
+  let file = null
+  let text = null
+  for (const cand of resolveImportCandidates(pageFile, moduleSpec)) {
+    const t = ctx.readFile(cand)
+    if (typeof t === 'string') {
+      file = cand
+      text = t
+      break
+    }
+  }
+  if (!file) return fail('wrapper-module-unresolved')
+  const wsf = contractAst(text)
+  if (!wsf) return fail('wrapper-unreadable', file)
+  const comp = findExportedComponent(wsf)
+  if (!comp) return fail('wrapper-component-unresolved', file)
+  const params = paramsOfComponent(comp)
+  if (params.length > 1) return fail('wrapper-props-unproven', file)
+  if (params.length === 1) {
+    const nm = params[0]?.name
+    if (!nm || !ts.isObjectBindingPattern(nm)) return fail('wrapper-props-unproven', file)
+    if (nm.elements.some((e) => e.dotDotDotToken)) return fail('wrapper-rest-props', file)
+    const keys = nm.elements.map((e) => (e.propertyName ? e.propertyName.getText() : e.name?.getText()))
+    const extra = keys.filter((k) => k !== 'children')
+    if (extra.length > 0) return fail(`wrapper-extra-props:${extra.join(',')}`, file)
+  }
+  const code = codeOnly(text)
+  if (/\bcloneElement\s*\(/.test(code)) return fail('wrapper-cloneElement', file)
+  if (/\bChildren\s*[.[]/.test(code)) return fail('wrapper-children-manipulation', file)
+  if (/\bcreateContext\s*\(/.test(code)) return fail('wrapper-context', file)
+  if (/\bcreateElement\s*\(/.test(code)) return fail('wrapper-createElement', file)
+  const usages = []
+  const walk = (n, parent) => {
+    if (!n) return
+    if (
+      ts.isJsxExpression(n) &&
+      n.expression &&
+      ts.isIdentifier(n.expression) &&
+      n.expression.text === 'children'
+    ) {
+      usages.push({ parent })
+    }
+    ts.forEachChild(n, (c) => walk(c, n))
+  }
+  walk(comp, null)
+  if (usages.length === 0) return fail('wrapper-children-not-passed', file)
+  if (usages.some((u) => !ts.isJsxFragment(u.parent))) return fail('wrapper-children-wrapped-in-element', file)
+  return {
+    ok: true,
+    file,
+    line: lineOfNode(wsf, comp),
+    tag,
+    module: moduleSpec,
+    evidence: {
+      params: 'children-only',
+      cloneElement: false,
+      childrenManipulation: false,
+      context: false,
+      createElement: false,
+      childrenPassThrough: 'jsx-fragment',
+      shellAttrsInjected: 0,
+    },
+  }
+}
+
+/**
+ * 壳承载页取证(模型修正 2026-11-07,第二轮扩模型:透传包装层)。
  *
  * 零 attrs 壳承载页渲染的就是 RN 壳本体 —— 它本身就是 RN 屏的一部分,不是共享屏的
  * **独立消费端**。把它与 RN 壳并排比「谁传了 prop」属自比其子节点,是判据模型错误。
- * 只有同时满足下列四条才判为承载页(任一不满足 ⇒ 保持原判,仍作为独立消费端参与 C1):
+ *
+ * 包装层扩展(可证才扩):页面若在壳外面包了一层 `AuthReadyGate` 之类,只有当包装层
+ * **可机械证明为透传壳、不注参**(见 proveTransparentWrapper,且使用处自身 0 attrs),
+ * 才与零 attrs 壳页同属承载页。不能证明 ⇒ 保持原判。
+ *
+ * 同时满足下列各条才判为承载页(任一不满足 ⇒ 保持原判,仍作为独立消费端参与 C1):
  *   ① 页面 import 的 `@rn-shells/<X>` 与声明共享屏同名(X = spec base);
  *   ② 默认导出组件的 return 树里只有 1 个 RN 壳元素,且该元素 0 个属性(无 {...spread});
- *   ③ 除宿主根(ThemeRoot / 根布局容器)外没有任何额外 JSX;
- *   ④ 页内无取数痕迹,也无 useEffect/useState/Taro./wx./uni. 等副作用或宿主调用。
+ *   ③ 壳的祖先链上只允许宿主根(ThemeRoot / 根布局容器)与已证明的透传包装层;
+ *      其余任何额外 JSX 都不允许;
+ *   ④ 页内无取数痕迹,也无 useEffect/useState/Taro./wx./uni. 等副作用或宿主调用,
+ *      且不 import `@tarojs/taro` 的运行时钩子。
  *
  * @returns {{carrier:boolean,reason:string|null,evidence:object|null}}
  */
-export function detectShellCarrier(text, specs = []) {
+export function detectShellCarrier(text, specs = [], opts = {}) {
   const no = (reason, evidence = null) => ({ carrier: false, reason, evidence })
   if (typeof text !== 'string' || !(specs || []).length) return no('no-spec')
   const sf = contractAst(text)
@@ -953,12 +1088,15 @@ export function detectShellCarrier(text, specs = []) {
   const base = String(specs[0]).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
   if (!base) return no('no-spec')
   const shellLocals = new Set()
+  const importMap = new Map()
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !st.importClause) continue
     const mod = st.moduleSpecifier?.text || ''
+    if (st.importClause.name) importMap.set(st.importClause.name.text, mod)
+    const nb = st.importClause.namedBindings
+    if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) importMap.set(el.name.text, mod)
     if (mod !== `@rn-shells/${base}`) continue
     if (st.importClause.name) shellLocals.add(st.importClause.name.text)
-    const nb = st.importClause.namedBindings
     if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) shellLocals.add(el.name.text)
   }
   if (shellLocals.size === 0) return no('no-shell-entry')
@@ -966,37 +1104,74 @@ export function detectShellCarrier(text, specs = []) {
   if (!comp) return no('no-exported-component')
   const roots = returnRoots(comp)
   if (roots.length === 0) return no('no-return-jsx')
-  const jsx = []
-  for (const rt of roots) collectJsxNodes(rt, jsx)
-  const shellEls = jsx.filter((n) => shellLocals.has(jsxTag(n)))
-  if (shellEls.length !== 1) return no(`shell-elements-${shellEls.length}`)
-  const shellAttrs = attrsOf(shellEls[0]).properties
+  const chains = []
+  for (const rt of roots) collectJsxChains(rt, [], chains)
+  const shellHits = chains.filter((x) => shellLocals.has(jsxTag(x.node)))
+  if (shellHits.length !== 1) return no(`shell-elements-${shellHits.length}`)
+  const shellNode = shellHits[0].node
+  const shellAttrs = attrsOf(shellNode).properties
   if (shellAttrs.length !== 0) return no(`shell-attrs-${shellAttrs.length}`)
+  const ctx = { readFile: typeof opts.readFile === 'function' ? opts.readFile : () => null }
   const rootSet = new Set(roots)
-  const extra = jsx.filter((n) => {
-    if (n === shellEls[0]) return false
-    if (jsxTag(n) === 'ThemeRoot') return false
-    if (rootSet.has(n) && (ROOT_BASIS_RE.test(attrText(n, 'className')) || /height/.test(attrText(n, 'style')))) return false
-    return true
-  })
-  if (extra.length > 0) {
-    return no(`extra-jsx-${extra.length}`, extra.map((n) => ({ tag: jsxTag(n), line: lineOfNode(sf, n) })))
+  const allowed = new Set([shellNode, ...shellHits[0].parents])
+  const wrappers = []
+  const rejected = []
+  for (const parentNode of shellHits[0].parents) {
+    const tag = jsxTag(parentNode)
+    if (tag === 'ThemeRoot') continue
+    if (rootSet.has(parentNode) && (ROOT_BASIS_RE.test(attrText(parentNode, 'className')) || /height/.test(attrText(parentNode, 'style')))) continue
+    const parentAttrs = attrsOf(parentNode).properties
+    if (parentAttrs.length > 0) {
+      rejected.push({ tag, line: lineOfNode(sf, parentNode), why: `wrapper-attrs-${parentAttrs.length}` })
+      continue
+    }
+    const moduleSpec = importMap.get(tag)
+    if (!moduleSpec) {
+      rejected.push({ tag, line: lineOfNode(sf, parentNode), why: 'wrapper-not-statically-imported' })
+      continue
+    }
+    const proof = proveTransparentWrapper(ctx, opts.file, tag, moduleSpec)
+    if (!proof.ok) {
+      rejected.push({ tag, line: lineOfNode(sf, parentNode), why: proof.why, file: proof.file })
+      continue
+    }
+    wrappers.push({
+      tag,
+      line: lineOfNode(sf, parentNode),
+      module: moduleSpec,
+      file: proof.file,
+      componentLine: proof.line,
+      attrCount: 0,
+      proof: proof.evidence,
+    })
+  }
+  const extra = chains.filter((x) => !allowed.has(x.node))
+  if (extra.length > 0 || rejected.length > 0) {
+    const evidence = [
+      ...extra.map((x) => ({ tag: jsxTag(x.node), line: lineOfNode(sf, x.node) })),
+      ...rejected,
+    ]
+    return no(`extra-jsx-${evidence.length}`, evidence)
   }
   const code = codeOnly(text)
   const pageEffects = []
   if (CARRIER_DATA_RE.test(code)) pageEffects.push('data-layer')
   for (const tok of CARRIER_SIDE_EFFECT_TOKENS) if (code.includes(tok)) pageEffects.push(tok)
+  const taroHooks = taroRuntimeImportsOf(sf)
+  if (taroHooks.length > 0) pageEffects.push('taro-hooks')
   if (pageEffects.length > 0) return no(`page-side-effect-${pageEffects.join(',')}`)
   return {
     carrier: true,
     reason: null,
     evidence: {
       shellEntry: `@rn-shells/${base}`,
-      shellTag: jsxTag(shellEls[0]),
-      line: lineOfNode(sf, shellEls[0]),
+      shellTag: jsxTag(shellNode),
+      line: lineOfNode(sf, shellNode),
       attrCount: 0,
       extraJsx: 0,
       pageEffects: [],
+      carrierVia: wrappers.length > 0 ? 'wrapper' : 'direct',
+      wrappers,
     },
   }
 }
@@ -1007,7 +1182,7 @@ export function detectShellCarrier(text, specs = []) {
  */
 export function analyzeScreenContract(p) {
   const specs = p?.specs ?? []
-  const empty = { inScope: false, state: 'unresolved', reason: 'no-declared-spec', buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [] }, declared: 0, carrier: false, carrierEvidence: null, carrierReason: null, carrierExempt: 0 }
+  const empty = { inScope: false, state: 'unresolved', reason: 'no-declared-spec', buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [] }, declared: 0, carrier: false, carrierEvidence: null, carrierReason: null, carrierVia: null, carrierExempt: 0 }
   if (specs.length === 0) return empty
   const ctx = { readFile: typeof p.readFile === 'function' ? p.readFile : () => null }
   const specRel = specs[0]
@@ -1021,6 +1196,7 @@ export function analyzeScreenContract(p) {
     carrier: false,
     carrierEvidence: null,
     carrierReason: null,
+    carrierVia: null,
     carrierExempt: 0,
   })
   if (typeof p?.pageText !== 'string') return unresolved('page-unreadable', '页面正文在该面读不到')
@@ -1030,7 +1206,7 @@ export function analyzeScreenContract(p) {
   const page = extractConsumerUsage(p.pageText, specs)
   if (page.state === 'unreadable') return unresolved('page-unreadable', '页面正文解析失败')
   if (page.state === 'not-found') return unresolved('page-no-element', '页面未渲染被声明的共享屏')
-  const carrier = detectShellCarrier(p.pageText, specs)
+  const carrier = detectShellCarrier(p.pageText, specs, { file: p.file, readFile: ctx.readFile })
   const rn = extractConsumerUsage(p.rnText, specs)
   if (rn.state === 'missing') return unresolved('rn-missing', 'RN 对照正文在该面读不到')
   if (rn.state === 'unreadable') return unresolved('rn-unreadable', 'RN 对照正文解析失败')
@@ -1084,6 +1260,7 @@ export function analyzeScreenContract(p) {
     carrier: Boolean(carrier.carrier),
     carrierEvidence: carrier.carrier ? carrier.evidence : null,
     carrierReason: carrier.carrier ? null : carrier.reason,
+    carrierVia: carrier.carrier ? carrier.evidence?.carrierVia ?? 'direct' : null,
     carrierExempt,
   }
 }
