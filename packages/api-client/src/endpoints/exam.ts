@@ -188,6 +188,24 @@ export async function getResult(id: string): Promise<ApiResult<ExamResult>> {
   return fetchApi<ExamResult>(`/exam/records/${encodeURIComponent(id)}`)
 }
 
+/** 成绩摘要(含同卷名次) —— 与小程序 `getExamResult` 同一后端端点,RN 侧名次真源 */
+export interface ExamResultSummary {
+  score: number
+  pass: boolean
+  rank?: number
+  total?: number
+  duration: number
+  correct: number
+  wrong: number
+  unanswered: number
+  passScore?: number
+  totalScore?: number
+}
+
+export async function getExamResultSummary(id: string): Promise<ApiResult<ExamResultSummary>> {
+  return fetchApi<ExamResultSummary>(`/exam/${encodeURIComponent(id)}/result`)
+}
+
 export async function getWrongBook(
   query: { page?: number; pageSize?: number; examId?: string } = {},
 ): Promise<ApiResult<PageData<WrongQuestion>>> {
@@ -324,7 +342,9 @@ export async function getExamPaper<T = { paper: Exam }>(examId: string): Promise
 }
 
 /** 开始答题 — POST /api/exam/papers/:id/start */
-export async function startExam<T = { record: { id: string } }>(examId: string): Promise<ApiResult<T>> {
+export async function startExam<T = { record: { id: string } }>(
+  examId: string,
+): Promise<ApiResult<T>> {
   return fetchApi<T>(`/api/exam/papers/${encodeURIComponent(examId)}/start`, { method: 'POST' })
 }
 

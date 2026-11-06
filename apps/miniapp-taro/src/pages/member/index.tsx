@@ -17,7 +17,9 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import { formatPrice } from '@ihui/shared/utils/format'
 import ThemeRoot from '@/components/ThemeRoot'
-import VipLevels, { pickEntryLevel, pickPermanentLevel } from './vip-levels'
+// 档位段单源:与 RN `apps/mobile-rn/src/screens/VipScreen.tsx:663` 消费同一共享段(子路径导入,禁桶入口)
+import { VipLevelsSection } from '@ihui/rn-app/features/vip/VipLevelsSection'
+import { pickEntryLevel, pickPermanentLevel, toLevelItems } from './member-index-props'
 import './index.css'
 
 interface BenefitItem {
@@ -126,7 +128,6 @@ export default function MemberIndexPage() {
   const [error, setError] = useState('')
   // 会员等级(VIP 套餐)—— GET /vip/levels 公开端点,与 pkg-shop/vip 购买页同源
   const [vipLevels, setVipLevels] = useState<VipLevel[]>([])
-  const [vipLevelsError, setVipLevelsError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -143,9 +144,10 @@ export default function MemberIndexPage() {
       setInfo(memberInfo)
       if (levelsRes) {
         setVipLevels(levelsRes.items || [])
-        setVipLevelsError('')
       } else {
-        setVipLevelsError(tt('member.index.loadFailed', '加载失败'))
+        // 档位拉取失败统一由顶部错误条承接(与共享屏页级 errorBar 同语义),
+        // RN 对应页级重试: apps/mobile-rn/src/screens/VipScreen.tsx:676-677
+        setError(tt('member.index.loadFailed', '加载失败'))
       }
       if (userProfile) {
         const raw = userProfile as Record<string, unknown>
@@ -203,11 +205,19 @@ export default function MemberIndexPage() {
       ? tt('vip.daysRemaining', '剩余 {count} 天', { count: remainDays })
       : ''
 
-  // VIP CTA 的价格一律取同页 <VipLevels> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
+  // VIP CTA 的价格一律取同页 <VipLevelsSection> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
   // 此处曾写死 ¥588 / ¥1288,而库里在册档位是 3990/29900/99000/32400 分(packages/database/drizzle/
   // 0037_vip_captcha.sql 种子)⇒ 写死价就是可见错误文案。取不到档位时整块不渲染,不拿 0 或常量冒充。
   const entryLevel = useMemo(() => pickEntryLevel(vipLevels), [vipLevels])
   const permanentLevel = useMemo(() => pickPermanentLevel(vipLevels), [vipLevels])
+  // 共享段按元渲染,这里做 分→元 + benefits 归一(纯函数在 member-index-props.ts)
+  const levelItems = useMemo(() => toLevelItems(vipLevels), [vipLevels])
+  // 共享段 t 契约为 TFunction(key, options?);小程序 useTt 是 (key, fallback, params)
+  // ⇒ 适配一层:回退兜底位取键名(段内词条与 RN 同键,缺词时显键而不另造文案)
+  const sectionT = useMemo(
+    () => (key: string, options?: Record<string, string | number>) => tt(key, key, options),
+    [tt],
+  )
 
   // 根据成长值推算当前等级
   const growth = info.growth || 0
@@ -378,11 +388,14 @@ export default function MemberIndexPage() {
           </View>
         </View>
 
-        {/* ===== 会员等级(套餐)—— 对齐共享屏 levelsSection:等级 / 时长 / 权益数 / 价格 ===== */}
-        <VipLevels
-          levels={vipLevels}
-          error={vipLevelsError}
-          onRetry={() => gate.waitUntilReady(load)}
+        {/* ===== 会员等级(套餐)—— 共享段单源:等级 / 时长 / 权益数 / 价格 =====
+            会员中心已有自身 CTA(goToPayment),为避免同屏两个购买入口,不注入 onPurchase ⇒ 纯展示。 */}
+        <VipLevelsSection
+          t={sectionT}
+          title={tt('vip.plans', '套餐选择')}
+          levels={levelItems}
+          membership={null}
+          purchasingId={null}
         />
 
         {/* ===== VIP CTA(三态) ===== */}

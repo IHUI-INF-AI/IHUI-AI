@@ -437,6 +437,8 @@ interface NavRowModel {
    * 用户中心」与 web 同形:父项可点进、箭头就地展开、子项缩进一列。
    */
   children?: readonly NavRowModel[]
+  /** 只显示图标(2026-11-06:「扫一扫」去文字),文字只作 accessibilityLabel */
+  iconOnly?: boolean
 }
 
 function NavRow({ item }: { item: NavRowModel }) {
@@ -444,7 +446,13 @@ function NavRow({ item }: { item: NavRowModel }) {
   return (
     <Pressable
       onPress={item.onPress}
-      className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60"
+      accessibilityRole="button"
+      accessibilityLabel={item.label}
+      className={
+        item.iconOnly
+          ? 'h-9 w-9 items-center justify-center rounded-md active:opacity-60'
+          : 'h-9 flex-row items-center gap-2.5 rounded-md px-2.5 active:opacity-60'
+      }
       style={active ? styles.navRowActive : undefined}
       android_ripple={{ color: tokens.surface.muted }}
     >
@@ -452,13 +460,15 @@ function NavRow({ item }: { item: NavRowModel }) {
         size={rnGeometry.glyphMd}
         color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
       />
-      <Text
-        numberOfLines={1}
-        className="flex-1 font-medium"
-        style={active ? styles.navRowActiveText : styles.navRowText}
-      >
-        {item.label}
-      </Text>
+      {item.iconOnly ? null : (
+        <Text
+          numberOfLines={1}
+          className="flex-1 font-medium"
+          style={active ? styles.navRowActiveText : styles.navRowText}
+        >
+          {item.label}
+        </Text>
+      )}
     </Pressable>
   )
 }
@@ -764,6 +774,7 @@ export function Drawer(props: DrawerProps) {
       active: selfActive || Boolean(children?.some((child) => child.active)),
       onPress: () => handleNavTarget(item.target),
       children,
+      iconOnly: item.iconOnly,
     }
   }
 

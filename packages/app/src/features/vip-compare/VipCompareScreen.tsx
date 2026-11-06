@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
@@ -12,6 +12,7 @@ import type { VipCompareScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 import { assertRequiredPort } from '../../host/ports'
+import { VipMatrix } from './VipMatrix'
 
 /** VIP 对比共享屏 — props 注入式跨端组件 */
 export type { VipCompareScreenProps }
@@ -68,21 +69,20 @@ export function VipCompareScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('vipCompare.title')}</Text>
       </View>
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.cell, styles.cellFeature]}>{t('vipCompare.feature')}</Text>
-          <Text style={styles.cell}>{t('vipCompare.basic')}</Text>
-          <Text style={styles.cell}>{t('vipCompare.premium')}</Text>
-          <Text style={styles.cell}>{t('vipCompare.enterprise')}</Text>
-        </View>
-        {rows.map((row, idx) => (
-          <View key={idx} style={[styles.tableRow, idx % 2 === 1 && styles.rowAlt]}>
-            <Text style={[styles.cell, styles.cellFeature, styles.cellText]}>{row.feature}</Text>
-            <Text style={[styles.cell, styles.cellText]}>{row.basic}</Text>
-            <Text style={[styles.cell, styles.cellText]}>{row.premium}</Text>
-            <Text style={[styles.cell, styles.cellText]}>{row.enterprise}</Text>
-          </View>
-        ))}
+      <View style={styles.tableWrap}>
+        <VipMatrix
+          columns={[
+            t('vipCompare.feature'),
+            t('vipCompare.basic'),
+            t('vipCompare.premium'),
+            t('vipCompare.enterprise'),
+          ]}
+          rows={rows.map((row) => ({
+            label: row.feature,
+            values: [row.basic, row.premium, row.enterprise],
+          }))}
+          colorScheme={colorScheme}
+        />
       </View>
     </ScrollView>
   )
@@ -99,24 +99,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.md,
     },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    table: {
-      margin: rnSpacing.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      borderRadius: rnRadius.xl,
-      overflow: 'hidden',
-    },
-    tableHeader: { flexDirection: 'row', backgroundColor: tk.surface.muted },
-    tableRow: { flexDirection: 'row' },
-    rowAlt: { backgroundColor: tk.surface.muted },
-    cell: {
-      flex: 1,
-      padding: rnSpacing['sm-loose'],
-      fontSize: rnType.caption.size,
-      color: tk.text.secondary,
-    },
-    cellFeature: { flex: 1.2, fontWeight: '600', color: tk.text.primary },
-    cellText: { fontSize: rnType.caption.size },
+    tableWrap: { margin: rnSpacing.lg },
     center: {
       flex: 1,
       alignItems: 'center',

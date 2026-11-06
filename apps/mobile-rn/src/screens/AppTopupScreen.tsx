@@ -9,7 +9,7 @@ import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { AppTopupScreen as SharedAppTopupScreen } from '@ihui/rn-app'
+import { AppTopupScreen as SharedAppTopupScreen, TOPUP_TIERS } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useWechatPayment } from '../hooks/useWechatPayment'
@@ -129,6 +129,9 @@ export default function AppTopupScreen() {
       onCloseIntro={onCloseIntro}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      user={user ? { avatar: user.avatar, nickname: user.nickname } : undefined}
+      rateTiers={TOPUP_TIERS}
+      submitting={paying}
     />
   )
 }

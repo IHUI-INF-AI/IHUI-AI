@@ -38,6 +38,13 @@ export default function TopupSuccessScreen() {
   const goOrder = () => navigation.navigate('Order')
   const goHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
 
+  // 信息行改由调用方注入(缺省三行仍是充值金额/订单编号/充值时间,文案与改前逐字相同)
+  const rows = [
+    { label: '充值金额', value: `¥${amount.toFixed(2)}` },
+    { label: '订单编号', value: orderId },
+    { label: '充值时间', value: time ?? '' },
+  ]
+
   return (
     <>
       <SharedTopupSuccessScreen
@@ -45,6 +52,7 @@ export default function TopupSuccessScreen() {
         amount={amount}
         orderId={orderId}
         time={time}
+        rows={rows}
         onViewOrder={goOrder}
         onGoHome={goHome}
         faqItems={TOPUP_FAQ_ITEMS.map((k) => t(k))}
