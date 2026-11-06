@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchaseName: {
     fontSize: rnType.title.size,
-    lineHeight: 22,
+    lineHeight: rnType.strong.lineHeight,
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
@@ -508,13 +508,13 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchaseSymbol: {
     fontSize: rnType.title.size,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
   } as TextStyle,
   purchasePrice: {
     fontSize: rnType.heading.size,
-    lineHeight: 28,
+    lineHeight: rnType.heading.lineHeight,
     fontWeight: '700',
     color: tokens.success.DEFAULT,
   } as TextStyle,
@@ -529,12 +529,12 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchaseBenefit: {
     fontSize: rnType.body.size,
-    lineHeight: 22,
+    lineHeight: rnType.strong.lineHeight,
     color: tokens.text.secondary,
   } as TextStyle,
   purchaseBenefitHighlight: {
     fontSize: rnType.body.size,
-    lineHeight: 22,
+    lineHeight: rnType.strong.lineHeight,
     color: tokens.brandAccent.deep,
     fontWeight: '600',
   } as TextStyle,
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchaseAgreementText: {
     fontSize: rnType.label.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   } as TextStyle,
   purchasePayBtn: {
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   purchasePayBtnText: {
     fontSize: rnType.title.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as TextStyle,

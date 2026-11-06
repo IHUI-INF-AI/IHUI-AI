@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     fontSize: MODEL_LIST_BADGE_FONT_PX,
     fontWeight: '700',
     color: RANK_GOLD_TEXT,
-    lineHeight: 12,
+    lineHeight: rnType.badge.lineHeight,
   },
   newBadge: {
     marginLeft: MODEL_LIST_BADGE_MARGIN_LEFT_PX,
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     fontSize: MODEL_LIST_BADGE_FONT_PX,
     fontWeight: '700',
     color: tokens.surface.light,
-    lineHeight: 12,
+    lineHeight: rnType.badge.lineHeight,
   },
   freeBadge: {
     paddingHorizontal: MODEL_LIST_PRICE_BADGE_PADDING_X_PX,

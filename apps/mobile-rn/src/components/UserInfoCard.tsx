@@ -677,7 +677,7 @@ const newStyles = StyleSheet.create({
     color: tokens.text.secondary,
     textAlign: 'center',
     marginBottom: rnSpacing.md,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   },
   modalBenefitList: {
     alignSelf: 'stretch',
