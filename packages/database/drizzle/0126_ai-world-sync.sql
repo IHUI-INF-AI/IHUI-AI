@@ -27,6 +27,11 @@ ALTER TABLE "ai_world_items" ADD COLUMN "slug" varchar(200);--> statement-breakp
 ALTER TABLE "ai_world_items" ADD COLUMN "summary" varchar(1000);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "url" varchar(1000);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "source" varchar(200) NOT NULL DEFAULT '';--> statement-breakpoint
+-- 2026-11-06 补:三个 DEFAULT '' 只为给存量行回填以放行重放;ai-world-items.ts 定义这三列
+-- 均为"NOT NULL 无默认",必须撤掉默认值,否则新写入会静默落 '' 并与 TS schema 漂开。
+ALTER TABLE "ai_world_categories" ALTER COLUMN "slug" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ALTER COLUMN "kind" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ALTER COLUMN "source" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "source_url" varchar(1000);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "published_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "fetched_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
