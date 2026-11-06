@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
 | 跟踪文件 | 19475 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -42660,3 +42658,5 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
 | 跟踪文件 | 19464 | `trackedFiles` |
+| 测试文件 | 4215 | `testFiles` |
+| 跟踪文件 | 19463 | `trackedFiles` |
