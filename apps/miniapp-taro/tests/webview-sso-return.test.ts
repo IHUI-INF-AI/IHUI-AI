@@ -22,16 +22,20 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { taroStorage, mockFetch, mockOnToast, authSpies } = vi.hoisted(() => ({
-  taroStorage: {} as Record<string, unknown>,
-  mockFetch: vi.fn(),
-  mockOnToast: vi.fn(),
-  authSpies: {
-    setToken: vi.fn(),
-    setRefreshToken: vi.fn(),
-    setUserInfo: vi.fn(),
-  },
-}))
+const { taroStorage, mockFetch, mockOnToast, authSpies } = vi.hoisted(() => {
+  // 同 sso.test.ts:API 基址由 env 决定,缺省值现为生产域名,测试内钉回本地端口(判据不变)。
+  process.env.TARO_APP_API_BASE_URL = 'http://localhost:8802/api'
+  return {
+    taroStorage: {} as Record<string, unknown>,
+    mockFetch: vi.fn(),
+    mockOnToast: vi.fn(),
+    authSpies: {
+      setToken: vi.fn(),
+      setRefreshToken: vi.fn(),
+      setUserInfo: vi.fn(),
+    },
+  }
+})
 
 vi.mock('@tarojs/taro', () => {
   const named = {

@@ -4,10 +4,15 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { taroStorage, mockFetch } = vi.hoisted(() => ({
-  taroStorage: {} as Record<string, unknown>,
-  mockFetch: vi.fn(),
-}))
+const { taroStorage, mockFetch } = vi.hoisted(() => {
+  // 与 sso-path.test.ts 同口径:API 基址由 env 决定,缺省值现为生产域名,
+  // 测试内钉回本地端口,否则 mockFetch 的完整 URL 期望没有成立路径(判据不变)。
+  process.env.TARO_APP_API_BASE_URL = 'http://localhost:8802/api'
+  return {
+    taroStorage: {} as Record<string, unknown>,
+    mockFetch: vi.fn(),
+  }
+})
 
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',

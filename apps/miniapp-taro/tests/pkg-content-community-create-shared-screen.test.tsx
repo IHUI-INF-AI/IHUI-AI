@@ -12,7 +12,7 @@
 //   ① 渲染的是共享屏(哨兵 testid 出现在输出里);
 //   ② 页里现在传的 12 个 prop 逐个到达,名字集合精确相等、值语义逐条对齐
 //      (title/content/tags 为空串、saving=false、error=''、colorScheme 走主题、
-//       t 取真实文案、五个回调都是函数且 onBack 真调 Taro.navigateBack);
+//       t 取真实文案、五个回调都是函数且 onBack 真调 navigation.goBack);
 //   ③ 阴性对照:少一个键 / 某键为 undefined 时同一断言必须红
 //      (证明"共享屏改字段名后这页静默坏"能被这条测试抓到)。
 import { describe, it, expect, vi } from 'vitest'
@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
   navigateBack: vi.fn(),
   navigateTo: vi.fn(),
   redirectTo: vi.fn(),
+  goBack: vi.fn(),
   screen: { props: null as Record<string, unknown> | null, renders: 0 },
 }))
 
@@ -75,6 +76,29 @@ vi.mock('@/i18n', () => {
 
 vi.mock('@/lib/ui-field-registry', () => ({ useUiField: () => undefined }))
 vi.mock('@/rn-compat/theme', () => ({ useTheme: () => ({ resolvedTheme: 'dark' }) }))
+// 2026-11-06 补:本套件真渲染 RN 壳(端内页面 → `@rn-shells/PostCreateScreen`),
+// 而「取词/主题换到端内真相源」是**构建期**插件(config/rn-shell-replace-plugin.ts)的行为,
+// vitest 不跑打包 ⇒ 壳自己的 `../i18n` / `../context/ThemeContext` 会按 RN 原样求值并抛
+// `useI18n must be used within I18nProvider`。这里给两个模块同形替身(词包只覆盖判据用到的
+// 键,主题给 dark),判据不变:仍然断言「colorScheme 来自主题」「t 取到真实文案」。
+vi.mock('../../../apps/mobile-rn/src/i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, fallback?: string): string =>
+      key === 'postCreate.title' ? '发布帖子' : (fallback ?? key),
+  }),
+}))
+vi.mock('../../../apps/mobile-rn/src/context/ThemeContext', () => ({
+  useTheme: () => ({ resolvedTheme: 'dark', theme: 'dark' }),
+}))
+// 2026-11-06:壳承载后「返回」落点是 RN 壳里的 `navigation.goBack()`(见
+// apps/mobile-rn/src/screens/PostCreateScreen.tsx),不再直调 Taro.navigateBack。
+// 这里给导航族同形替身,把 goBack 换成可观测 spy —— 判据仍是「onBack 不是空壳,
+// 真把返回动作交给了导航层」。
+vi.mock('@react-navigation/native', () => ({
+  useNavigation: () => ({ goBack: h.goBack, navigate: vi.fn(), replace: vi.fn() }),
+  useRoute: () => ({ params: {} }),
+  useIsFocused: () => true,
+}))
 vi.mock('@/components/ThemeRoot', () => ({
   default: (props: { children?: ReactNode }) => createElement('div', null, props.children),
 }))
@@ -110,12 +134,12 @@ function assertSharedScreenProps(props: Record<string, unknown>): void {
   // t 必须是页的取词函数:同一枚键取到真实文案
   expect(typeof props.t).toBe('function')
   expect((props.t as (key: string) => string)('postCreate.title')).toBe('发布帖子')
-  // 五个回调必须都是函数;onBack 真的落 Taro.navigateBack(不是空壳)
+  // 五个回调必须都是函数;onBack 真的把返回交给导航层(不是空壳)
   for (const key of ['onTitleChange', 'onContentChange', 'onTagsChange', 'onSubmit', 'onBack']) {
     expect(typeof props[key]).toBe('function')
   }
   ;(props.onBack as () => void)()
-  expect(h.navigateBack).toHaveBeenCalledTimes(1)
+  expect(h.goBack).toHaveBeenCalledTimes(1)
 }
 
 describe('pkg-content/community/create 真渲染共享屏', () => {
@@ -127,7 +151,7 @@ describe('pkg-content/community/create 真渲染共享屏', () => {
   })
 
   it('12 个 prop 逐个到达,值语义与页内事实一致', () => {
-    h.navigateBack.mockClear()
+    h.goBack.mockClear()
     renderToStaticMarkup(createElement(CommunityCreate as never))
     assertSharedScreenProps(h.screen.props as Record<string, unknown>)
   })

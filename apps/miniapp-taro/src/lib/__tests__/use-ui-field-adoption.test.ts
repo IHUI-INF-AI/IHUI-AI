@@ -45,11 +45,17 @@ const ADOPTED: readonly string[] = [
   // 采纳语义由壳源负责(与上面 feedback 同一条口径)。
   'pkg-about/about/help.tsx',
   'pkg-ai/aigc/publish.tsx',
-  // 'pkg-ai/dev-enter/n8n-model/index.tsx' 2026-11-06 换成宿主模块:
-  // 页面转薄壳(列表=共享屏 N8nModelScreen,创建=端内 create-view),
-  // 三个登记点随创建表单迁到 create-view.tsx,语义不变、setter 与输入事件同源。
-  'pkg-ai/dev-enter/n8n-model/create-view.tsx',
-  'pkg-content/community/create/index.tsx',
+  // 'pkg-ai/dev-enter/n8n-model/index.tsx' 2026-11-06 页面转薄壳(列表=共享屏 N8nModelScreen,
+  // 创建=端内 create-view 宿主模块)。三个登记点**留在页面**:setName/setDescription/setN8nUrl
+  // 是页面 useState 的 setter;create-view 是纯渲染函数(不在组件树里、不能调 hook),登记只能
+  // 挂在状态持有者一侧。同源性由页面把这三个 setter 以对象属性(onNameChange 等)透传给
+  // create-view、那边的输入事件落到同一个 setter 证明(见下方 reaches 的对象属性透传判据)。
+  'pkg-ai/dev-enter/n8n-model/index.tsx',
+  // 'pkg-content/community/create/index.tsx' 2026-11-06 摘除:58c0ed7986 把它升级为
+  // 「壳承载形制」的自动生成镜像(scripts/gen-miniapp-mirror.mjs 产出,23 行,端内不写
+  // 布局/数据,渲染 = packages/app PostCreateScreen 经 @rn-shells/PostCreateScreen)。
+  // 端内已无表单代码,登记点随承载形制移出本锁射程;采纳语义由壳源负责 —— 壳源
+  // packages/app/src/features/post-create/PostCreateScreen.tsx 仍有 3 处 useUiField。
   'pkg-shop/order/refund.tsx',
   'pkg-user/user/email.tsx',
   // 'pkg-user/user/feedback.tsx' 2026-10-31 摘除:c94567126c 把该页转为壳承载形制
@@ -150,7 +156,11 @@ describe('逐屏采纳防漂移:业务屏必须真的交出写通道', () => {
           // Props 透传形态(2026-10-31 补,组件拆分后):setter 以 JSX 属性值直传子组件
           // (publish.tsx 的 onTitleChange={setTitle},输入事件在 publish-form 子文件,
           // 对接由子组件 prop 契约管)—— 写函数以 JSX 值形态出现在本文件即算同源。
-          new RegExp(`=\\s*\\{?\\s*${fn}\\b`).test(src)
+          new RegExp(`=\\s*\\{?\\s*${fn}\\b`).test(src) ||
+          // 对象属性透传形态(2026-11-06 补,宿主模块拆出后):表单渲染抽到 create-view.tsx 后,
+          // 页面以 `onNameChange: setName` 把**同一个 setter** 交给渲染模块(n8n-model 现形)。
+          // no-op / 与本文件状态无关的变量仍会在上面的 setValue 判据与这里双重红掉。
+          new RegExp(`\\b[A-Za-z_$][\\w$]*:\\s*${fn}\\b`).test(src)
         if (!reaches) {
           offenders.push(
             `${rel}: setValue 写的 ${fn} 与输入事件回调(${[...new Set(handlerFns)].join('/') || '无'})不同源`,

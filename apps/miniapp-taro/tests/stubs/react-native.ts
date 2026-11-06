@@ -25,7 +25,18 @@ export const View = make('div')
 export const Text = make('span')
 export const Image = make('img')
 export const TouchableOpacity = make('button')
-export const Pressable = make('button')
+// Pressable 在真 RN 里支持函数子节点(渲染态 `({pressed}) => ReactNode`),壳的
+// 胶囊按钮正是这个形态;交给 make 会把它当普通 child 渲染 ⇒ React 报
+// "Functions are not valid as a React child"。这里按真实语义求值一次(pressed=false),
+// 只补形状,不改任何断言。
+export const Pressable = (
+  props: AnyProps & { children?: ReactNode | ((s: { pressed: boolean }) => ReactNode) },
+) => {
+  const { children, ...rest } = props
+  const content = typeof children === 'function' ? children({ pressed: false }) : children
+  return createElement('button', rest, content)
+}
+Pressable.displayName = 'RNStub_Pressable'
 export const ScrollView = make('div')
 export const TextInput = make('input')
 export const Modal = make('div')
@@ -63,6 +74,22 @@ export const StyleSheet = {
 }
 
 export const Platform = { OS: 'ios', select: (v: Record<string, unknown>) => v.ios ?? v.default }
+
+// 2026-11-06 补齐:RN 共享屏的 ThemeContext / active-tokens 在模块求值期就会读 Appearance
+// (systemMode)并可选调 DevSettings.reload;缺这两个原语时收集期直接 TypeError。
+export const Appearance = {
+  getColorScheme: (): 'light' | 'dark' => 'light',
+  addChangeListener: (_listener?: unknown) => ({ remove: () => {} }),
+  removeChangeListener: (_listener?: unknown) => {},
+  setColorScheme: (_scheme: string) => {},
+}
+
+export const useColorScheme = (): 'light' | 'dark' =>
+  Appearance.getColorScheme() === 'dark' ? 'dark' : 'light'
+
+export const DevSettings = {
+  reload: (_reason?: string) => {},
+}
 
 export const Dimensions = {
   get: () => ({ width: 375, height: 812, scale: 2, fontScale: 2 }),

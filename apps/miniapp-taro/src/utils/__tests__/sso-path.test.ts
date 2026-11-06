@@ -14,7 +14,14 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 // === Mock @tarojs/taro ===
 // taroStorage 必须走 vi.hoisted:sso.ts 现静态引 utils/auth,auth 在模块初始化就调
 // getStorageSync(hydrate tokenStore),普通 const 会被 vi.mock 提升甩到后面(TDZ)。
-const taroStorage = vi.hoisted(() => ({}) as Record<string, unknown>)
+const taroStorage = vi.hoisted(() => {
+  // 基址钉在本地端口:api-config 的 BASE_URL 缺省已收敛为生产域名
+  // (BUG-68 兜底 PROD_API_BASE_URL=https://api.aizhs.top/api),不钉住 env 则下面
+  // 'http://localhost:8802/api/**' 的完整 URL 断言没有成立路径。此处只固定运行环境,
+  // 不改任何判据:锁的仍是「单个 /api 前缀」。
+  process.env.TARO_APP_API_BASE_URL = 'http://localhost:8802/api'
+  return {} as Record<string, unknown>
+})
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',
   removeStorageSync: (key: string) => {

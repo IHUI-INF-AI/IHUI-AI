@@ -108,7 +108,11 @@ vi.mock('@/i18n', () => ({
 }))
 vi.mock('@/utils/privacy', () => ({ initPrivacyGuard: vi.fn() }))
 vi.mock('@/utils/push-init', () => ({ initPushSubscription: vi.fn() }))
-vi.mock('@/utils/crash-report', () => ({ initCrashReport: vi.fn() }))
+// 2026-11-06:mock 与真实导出对齐 —— app.tsx 在初始化链 catch 里调 `reportCrash`,
+// 只桩 `initCrashReport` 会让"链在测试环境按设计抛错(BUG-41 缺配置)"变成一条
+// Unhandled Rejection(整次 vitest 退出码 1,误报为套件红)。这里同时桩掉上报出口,
+// 判据不变(本用例只判 authReady 三态)。
+vi.mock('@/utils/crash-report', () => ({ initCrashReport: vi.fn(), reportCrash: vi.fn() }))
 vi.mock('@/lib/theme', () => ({ initTheme: vi.fn() }))
 vi.mock('@/lib/device-fingerprint', () => ({ taroDeviceFingerprintCollector: vi.fn() }))
 vi.mock('@/hooks/use-ui-control-bridge', () => ({ useUiControlBridge: vi.fn() }))
