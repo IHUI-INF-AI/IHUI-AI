@@ -80,6 +80,11 @@ export interface AgentListProps {
    * 仅接受非空字符串,空串/undefined 均不渲染。
    */
   subtitleField?: 'description' | 'prologue'
+  /**
+   * 列表内容尺寸变化(可选)。弹层要「按内容自适应高度」时由调用方消费:
+   * 列表必须先有确定高度才会渲染并上报内容尺寸,调用方据此把 height 收回到内容高。
+   */
+  onContentSizeChange?: (width: number, height: number) => void
 }
 
 function keyExtractor(item: AgentListItem): string {
@@ -176,6 +181,7 @@ export default function AgentList({
   emptyText: emptyTextProp,
   style,
   subtitleField,
+  onContentSizeChange,
 }: AgentListProps): React.JSX.Element {
   const { t } = useI18n()
   const emptyText = emptyTextProp ?? t('agentList.emptyText')
@@ -194,7 +200,11 @@ export default function AgentList({
       style={[styles.container, style, { opacity, transform: [{ translateY: slide }] }]}
     >
       <View style={styles.inner}>
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentBody}
+          onContentSizeChange={onContentSizeChange}
+        >
           {items.map((item) => {
             // 按 subtitleField 取副标题;仅非空字符串才下发(trim 过纯空白),
             // subtitleField 未传 ⇒ 恒为 undefined ⇒ Row 走既有单行分支。
