@@ -25,6 +25,7 @@ import {
 } from '@ihui/shared/delete-guard';
 import {
   createBatchEditTool,
+  createBatchUndoTool,
   getDeleteTrashDir,
   restoreTrashEntry,
   stashDirToTrash,
@@ -216,6 +217,36 @@ describe('② approve 相缺失 ⇒ 一个文件都没被删(端到端,断言副
     expect(fs.readFileSync(path.join(workDir, 'single.txt'), 'utf-8')).toBe('solo');
   });
 
+  it('checkpoint 读不到时不说成不存在,也不回滚', async () => {
+    const live = path.join(workDir, 'live.txt');
+    fs.writeFileSync(live, 'KEEP', 'utf-8');
+    const checkpointId = 'cp-unread';
+    const manifestPath = path.join(workDir, '.ihui', 'batch-checkpoints', checkpointId, 'manifest.json');
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        id: checkpointId,
+        createdAt: NOW,
+        workspacePath: workDir,
+        files: [{ filePath: live, relativePath: 'live.txt', existedBefore: false }],
+      }),
+      'utf-8',
+    );
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const tool = createBatchUndoTool(ctx, denied);
+    const r = await tool.execute({ checkpointId }, ctx);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('读不到');
+    expect(r.error).not.toContain('checkpoint 不存在');
+    expect(fs.readFileSync(live, 'utf-8')).toBe('KEEP');
+    expect(fs.readFileSync(manifestPath, 'utf-8')).toContain(checkpointId);
+  });
+
   it('worktree 兜底腿:目录整搬回收站可恢复;rmSync 兜底仍在源码里未摘除', () => {
     const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
     const src = fs.readFileSync(path.join(repo, 'apps/cli/src/tools/worktree.ts'), 'utf-8');
@@ -227,6 +258,40 @@ describe('② approve 相缺失 ⇒ 一个文件都没被删(端到端,断言副
     const stashed = stashDirToTrash(workDir, fakeWt, 'agent-x');
     expect(fs.existsSync(fakeWt)).toBe(false);
     expect(fs.existsSync(stashed)).toBe(true);
+  });
+
+  it('原子回滚读不到新建文件时不报完成', async () => {
+    const rel = 'born.txt';
+    const created = path.join(workDir, rel);
+    const denied = (target: string) => {
+      if (path.resolve(target) === path.resolve(created)) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(target);
+    };
+    const tool = createBatchEditTool(ctx, denied);
+    const r = await tool.execute(
+      {
+        operations: [
+          { type: 'create', filePath: rel, content: 'atom-keep' },
+          { type: 'create', filePath: `${rel}/child.txt`, content: 'later' },
+        ],
+      },
+      ctx,
+    );
+    expect(fs.readFileSync(created, 'utf-8')).toBe('atom-keep');
+    const body = JSON.parse(r.output) as {
+      rollbackPerformed?: boolean;
+      operations: Array<{ filePath: string; status: string; error?: string }>;
+    };
+    const createdOp = body.operations.find((op) => op.filePath === rel);
+    const childOp = body.operations.find((op) => op.filePath === `${rel}/child.txt`);
+    expect(childOp?.status).toBe('failed');
+    expect(body.rollbackPerformed).toBe(false);
+    expect(createdOp?.status).not.toBe('rolled-back');
+    expect(r.output).toContain('读不到');
   });
 });
 

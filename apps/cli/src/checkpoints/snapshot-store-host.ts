@@ -28,11 +28,13 @@ export interface CheckpointMeta {
   createdAt: string;
   reason: string;
   files: Record<string, 'snap' | 'added'>;
+  /** 请求里不是普通文件的路径。不写入 files，回滚不会动它们。 */
+  skipped?: string[];
 }
 
 export interface CheckpointDiffEntry {
   path: string;
-  status: 'unchanged' | 'modified' | 'added' | 'removed';
+  status: 'unchanged' | 'modified' | 'added' | 'removed' | 'unmeasured';
 }
 
 /** G-671:manifest 形状校验 —— 缺关键字段/档值非法/schemaVersion 不识别 ⇒ 不算合法 meta。 */
@@ -44,6 +46,9 @@ function isCheckpointMeta(v: unknown): v is CheckpointMeta {
   if (typeof v.reason !== 'string') return false;
   if (!isRecord(v.files)) return false;
   if (v.schemaVersion !== undefined && v.schemaVersion !== 1) return false;
+  if (v.skipped !== undefined && (!Array.isArray(v.skipped) || !v.skipped.every((name) => typeof name === 'string'))) {
+    return false;
+  }
   return Object.values(v.files).every((k) => k === 'snap' || k === 'added');
 }
 
@@ -55,9 +60,26 @@ export function snapshotRootDir(sessionId: string): string {
   return path.join(os.homedir(), '.ihui', 'checkpoints', sessionId);
 }
 
-/** 快照根是否存在(编排层用它区分「没有这一层」与「有但为空」⇒ 账面清空语义不漂移) */
+export type SnapshotRootProbe = 'missing' | 'present' | 'unreadable';
+
+/** 快照根三态:不存在、是目录、读不到。读不到不得并进「不存在」。 */
+export function probeSnapshotRoot(
+  baseDir: string,
+  io: { statSync?: typeof fs.statSync } = {},
+): SnapshotRootProbe {
+  const statSync = io.statSync ?? fs.statSync;
+  try {
+    return statSync(baseDir).isDirectory() ? 'present' : 'unreadable';
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    return 'unreadable';
+  }
+}
+
+/** 快照根是否存在(只认目录;读不到不是存在,调用方必须另看 probe) */
 export function snapshotRootExists(baseDir: string): boolean {
-  return fs.existsSync(baseDir);
+  return probeSnapshotRoot(baseDir) === 'present';
 }
 
 export function ensureHostDir(dir: string): void {
@@ -66,15 +88,21 @@ export function ensureHostDir(dir: string): void {
   }
 }
 
-/** 基目录下的**全部**条目名(含文件);基目录不存在 ⇒ 空表(不猜、不回落别处) */
-export function listEntryNames(baseDir: string): string[] {
-  if (!fs.existsSync(baseDir)) return [];
+const SNAPSHOT_ROOT_UNREADABLE = '检查点目录读不到,不能把它说成没有检查点';
+
+/** 基目录下的**全部**条目名(含文件);基目录不存在 ⇒ 空表;读不到 ⇒ 抛错 */
+export function listEntryNames(baseDir: string, io: { statSync?: typeof fs.statSync } = {}): string[] {
+  const root = probeSnapshotRoot(baseDir, io);
+  if (root === 'missing') return [];
+  if (root === 'unreadable') throw new Error(SNAPSHOT_ROOT_UNREADABLE);
   return fs.readdirSync(baseDir);
 }
 
-/** 基目录下的子目录名(非目录条目剔除);基目录不存在 ⇒ 空表 */
-export function listSubDirNames(baseDir: string): string[] {
-  if (!fs.existsSync(baseDir)) return [];
+/** 基目录下的子目录名(非目录条目剔除);基目录不存在 ⇒ 空表;读不到 ⇒ 抛错 */
+export function listSubDirNames(baseDir: string, io: { statSync?: typeof fs.statSync } = {}): string[] {
+  const root = probeSnapshotRoot(baseDir, io);
+  if (root === 'missing') return [];
+  if (root === 'unreadable') throw new Error(SNAPSHOT_ROOT_UNREADABLE);
   return fs
     .readdirSync(baseDir, { withFileTypes: true })
     .filter((e) => e.isDirectory())
@@ -92,24 +120,34 @@ export function resolveWorkspaceRelPath(workspacePath: string, filePath: string)
 }
 
 /**
- * 逐文件镜像进快照目录:原文件存在 ⇒ 拷贝并记 'snap';不存在 ⇒ 记 'added';
- * 非普通文件 ⇒ 跳过不记。落点越界即抛(抛前已建的目录保留,与拆分前同形)。
+ * 逐文件镜像进快照目录:普通文件 ⇒ 拷贝并记 'snap';确认不存在 ⇒ 记 'added';
+ * 读不到 ⇒ 抛错,不记成待删除的新文件。非普通文件记入 skipped,不写入 files。落点越界即抛。
  */
 export function copyFilesIntoSnapshot(
   workspacePath: string,
   cpDir: string,
   files: string[],
-): CheckpointMeta['files'] {
+  io: { statSync?: typeof fs.statSync } = {},
+): { files: CheckpointMeta['files']; skipped: string[] } {
+  const statSync = io.statSync ?? fs.statSync;
   const recorded: CheckpointMeta['files'] = {};
+  const skipped: string[] = [];
   for (const f of files) {
     const rel = resolveWorkspaceRelPath(workspacePath, f);
     const absInWorkspace = path.join(workspacePath, rel);
-    if (!fs.existsSync(absInWorkspace)) {
-      recorded[rel] = 'added';
-      continue;
+    let stat: fs.Stats;
+    try {
+      stat = statSync(absInWorkspace);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        recorded[rel] = 'added';
+        continue;
+      }
+      throw new Error(`检查点读不到 ${rel},不把它记成待删除的新文件`);
     }
-    const stat = fs.statSync(absInWorkspace);
     if (!stat.isFile()) {
+      skipped.push(rel);
       continue;
     }
     const dest = path.join(cpDir, rel);
@@ -117,7 +155,7 @@ export function copyFilesIntoSnapshot(
     fs.copyFileSync(absInWorkspace, dest);
     recorded[rel] = 'snap';
   }
-  return recorded;
+  return { files: recorded, skipped };
 }
 
 export function writeSnapshotManifest(cpDir: string, meta: CheckpointMeta): void {
@@ -137,31 +175,52 @@ export function readSnapshotMeta(
   });
 }
 
-/** 回滚:manifest 记 'added' 的删掉、记 'snap' 的覆盖回工作区;两边清单缺失即跳过(不猜) */
+function workspacePresence(abs: string, statSync: typeof fs.statSync): 'present' | 'missing' | 'unreadable' {
+  try {
+    statSync(abs);
+    return 'present';
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    return 'unreadable';
+  }
+}
+
+/** 回滚:manifest 记 'added' 的删掉、记 'snap' 的覆盖回工作区;副本不在或读不到时记入 notRestored */
 export function restoreSnapshotFiles(
   workspacePath: string,
   cpDir: string,
   files: CheckpointMeta['files'],
-): { restored: string[]; removed: string[] } {
+  io: { statSync?: typeof fs.statSync } = {},
+): { restored: string[]; removed: string[]; notRestored: string[] } {
+  const statSync = io.statSync ?? fs.statSync;
   const restored: string[] = [];
   const removed: string[] = [];
+  const notRestored: string[] = [];
   for (const [rel, kind] of Object.entries(files)) {
     const absInWorkspace = path.join(workspacePath, rel);
     if (kind === 'added') {
-      if (fs.existsSync(absInWorkspace)) {
+      const presence = workspacePresence(absInWorkspace, statSync);
+      if (presence === 'unreadable') {
+        notRestored.push(rel);
+        continue;
+      }
+      if (presence === 'present') {
         fs.rmSync(absInWorkspace, { recursive: true, force: true });
         removed.push(rel);
       }
     } else {
       const src = path.join(cpDir, rel);
-      if (fs.existsSync(src)) {
-        ensureHostDir(path.dirname(absInWorkspace));
-        fs.copyFileSync(src, absInWorkspace);
-        restored.push(rel);
+      if (workspacePresence(src, statSync) !== 'present') {
+        notRestored.push(rel);
+        continue;
       }
+      ensureHostDir(path.dirname(absInWorkspace));
+      fs.copyFileSync(src, absInWorkspace);
+      restored.push(rel);
     }
   }
-  return { restored, removed };
+  return { restored, removed, notRestored };
 }
 
 /** 工作区 vs 快照的逐文件比对,只回非 unchanged 项 */
@@ -169,11 +228,18 @@ export function diffSnapshotFiles(
   workspacePath: string,
   cpDir: string,
   files: CheckpointMeta['files'],
+  io: { statSync?: typeof fs.statSync } = {},
 ): CheckpointDiffEntry[] {
+  const statSync = io.statSync ?? fs.statSync;
   const entries: CheckpointDiffEntry[] = [];
   for (const [rel, kind] of Object.entries(files)) {
     const absInWorkspace = path.join(workspacePath, rel);
-    const existsNow = fs.existsSync(absInWorkspace);
+    const presence = workspacePresence(absInWorkspace, statSync);
+    if (presence === 'unreadable') {
+      entries.push({ path: rel, status: 'unmeasured' });
+      continue;
+    }
+    const existsNow = presence === 'present';
     if (kind === 'added') {
       entries.push({ path: rel, status: existsNow ? 'added' : 'unchanged' });
     } else {
@@ -182,14 +248,20 @@ export function diffSnapshotFiles(
         continue;
       }
       const same = fileContentEqual(absInWorkspace, path.join(cpDir, rel));
+      if (same === null) {
+        entries.push({ path: rel, status: 'unmeasured' });
+        continue;
+      }
       entries.push({ path: rel, status: same ? 'unchanged' : 'modified' });
     }
   }
   return entries.filter((e) => e.status !== 'unchanged');
 }
 
-export function removeSnapshotDir(cpDir: string): boolean {
-  if (!fs.existsSync(cpDir)) return false;
+export function removeSnapshotDir(cpDir: string, io: { statSync?: typeof fs.statSync } = {}): boolean {
+  const root = probeSnapshotRoot(cpDir, io);
+  if (root === 'missing') return false;
+  if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成未找到');
   fs.rmSync(cpDir, { recursive: true, force: true });
   return true;
 }
@@ -232,7 +304,148 @@ function measureDirBytes(dir: string): number | null {
   return bytes;
 }
 
-function fileContentEqual(a: string, b: string): boolean {
+export type ChangeIndexRow = {
+  id: string;
+  requestId: string;
+  summary: string;
+  fileCount: number;
+  additions: number;
+  deletions: number;
+  detailRef: string;
+};
+
+export type ChangeIndexPlan = {
+  disposition: 'projected' | 'unjudged';
+  reason: 'projected' | 'changes-unmeasured' | 'row-unreadable' | 'count-mismatch' | 'ref-mismatch';
+  rows: ChangeIndexRow[] | null;
+};
+
+export type ChangeDetailPlan = {
+  disposition: 'read' | 'unjudged' | 'refused';
+  reason: 'read' | 'ref-invalid' | 'request-mismatch' | 'detail-unmeasured' | 'path-invalid' | 'count-mismatch';
+  files: string[] | null;
+};
+
+const CHANGE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/;
+const CHANGE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_./-]+$/;
+
+function changeCountOk(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * 变更列表只留摘要、计数和明细指针，不带文件名。
+ * 声明的 fileCount 和量到的文件名条数不一致，整份列表不投影。
+ */
+export function projectChangeIndex(changes: unknown): ChangeIndexPlan {
+  const blank = (reason: ChangeIndexPlan['reason']): ChangeIndexPlan => ({
+    disposition: 'unjudged',
+    reason,
+    rows: null,
+  });
+  if (!Array.isArray(changes)) return blank('changes-unmeasured');
+  const rows: ChangeIndexRow[] = [];
+  for (const value of changes) {
+    if (value === null || typeof value !== 'object') return blank('row-unreadable');
+    const row = value as Record<string, unknown>;
+    if (typeof row.id !== 'string' || !CHANGE_ID.test(row.id)) return blank('row-unreadable');
+    if (typeof row.requestId !== 'string' || !CHANGE_ID.test(row.requestId)) return blank('row-unreadable');
+    if (typeof row.summary !== 'string') return blank('row-unreadable');
+    if (!Array.isArray(row.fileNames) || !row.fileNames.every((name) => typeof name === 'string' && CHANGE_PATH.test(name))) {
+      return blank('row-unreadable');
+    }
+    if (!changeCountOk(row.additions) || !changeCountOk(row.deletions)) return blank('row-unreadable');
+    if (!changeCountOk(row.fileCount) || row.fileCount !== row.fileNames.length) return blank('count-mismatch');
+    const detailRef = `${row.id}.${row.requestId}`;
+    if (row.detailRef !== undefined && row.detailRef !== detailRef) return blank('ref-mismatch');
+    rows.push({
+      id: row.id,
+      requestId: row.requestId,
+      summary: row.summary,
+      fileCount: row.fileCount,
+      additions: row.additions,
+      deletions: row.deletions,
+      detailRef,
+    });
+  }
+  return { disposition: 'projected', reason: 'projected', rows };
+}
+
+/**
+ * 明细只认指针指向的那一份。明细没量到时，不用列表里的文件名顶上。
+ */
+export function readChangeDetail(input: {
+  detailRef: unknown;
+  requestId: unknown;
+  detail: unknown;
+}): ChangeDetailPlan {
+  const blank = (reason: ChangeDetailPlan['reason'], disposition: ChangeDetailPlan['disposition'] = 'unjudged'): ChangeDetailPlan => ({
+    disposition,
+    reason,
+    files: null,
+  });
+  if (typeof input.detailRef !== 'string') return blank('ref-invalid', 'refused');
+  const dot = input.detailRef.indexOf('.');
+  const changeId = dot > 0 ? input.detailRef.slice(0, dot) : '';
+  const refRequest = dot > 0 ? input.detailRef.slice(dot + 1) : '';
+  if (!CHANGE_ID.test(changeId) || !CHANGE_ID.test(refRequest) || input.detailRef !== `${changeId}.${refRequest}`) {
+    return blank('ref-invalid', 'refused');
+  }
+  if (input.requestId !== refRequest) return blank('request-mismatch', 'refused');
+  if (input.detail === null || input.detail === undefined) return blank('detail-unmeasured');
+  if (typeof input.detail !== 'object') return blank('detail-unmeasured');
+  const detail = input.detail as Record<string, unknown>;
+  if (!Array.isArray(detail.files) || !detail.files.every((name) => typeof name === 'string' && CHANGE_PATH.test(name))) {
+    return blank('path-invalid', 'refused');
+  }
+  if (detail.fileCount !== undefined && (!changeCountOk(detail.fileCount) || detail.fileCount !== detail.files.length)) {
+    return blank('count-mismatch', 'unjudged');
+  }
+  return { disposition: 'read', reason: 'read', files: detail.files };
+}
+
+export type RequestFileTreePlan = {
+  disposition: 'read' | 'unjudged' | 'refused';
+  reason: 'read' | 'request-invalid' | 'memo-unmeasured' | 'request-absent' | 'entry-unreadable' | 'clock-unmeasured';
+  files: Array<{ path: string; name: string; size: number }> | null;
+};
+
+const REQUEST_FILE_TREE_ID = /^[a-f0-9]{32}$/;
+
+/**
+ * 文件树按请求号取。别的请求的树不能顶上，体积没量到也不写成 0。
+ */
+export function readRequestFileTree(input: { requestId: unknown; memo: unknown }): RequestFileTreePlan {
+  const blank = (
+    reason: RequestFileTreePlan['reason'],
+    disposition: RequestFileTreePlan['disposition'] = 'unjudged',
+  ): RequestFileTreePlan => ({ disposition, reason, files: null });
+  if (typeof input.requestId !== 'string' || !REQUEST_FILE_TREE_ID.test(input.requestId)) {
+    return blank('request-invalid', 'refused');
+  }
+  if (input.memo === null || input.memo === undefined || typeof input.memo !== 'object' || Array.isArray(input.memo)) {
+    return blank('memo-unmeasured');
+  }
+  const memo = input.memo as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(memo, input.requestId)) return blank('request-absent', 'refused');
+  const entry = memo[input.requestId];
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return blank('entry-unreadable');
+  const row = entry as Record<string, unknown>;
+  if (typeof row.createdAt !== 'string' || Number.isNaN(Date.parse(row.createdAt))) return blank('clock-unmeasured');
+  if (!Array.isArray(row.files)) return blank('entry-unreadable');
+  const files: Array<{ path: string; name: string; size: number }> = [];
+  for (const item of row.files) {
+    if (item === null || typeof item !== 'object') return blank('entry-unreadable');
+    const file = item as Record<string, unknown>;
+    if (typeof file.path !== 'string' || !CHANGE_PATH.test(file.path)) return blank('entry-unreadable');
+    if (typeof file.name !== 'string' || file.name.trim() === '' || /[\\/]/.test(file.name)) return blank('entry-unreadable');
+    if (typeof file.size !== 'number' || !Number.isInteger(file.size) || file.size < 0) return blank('entry-unreadable');
+    files.push({ path: file.path, name: file.name, size: file.size });
+  }
+  return { disposition: 'read', reason: 'read', files };
+}
+
+function fileContentEqual(a: string, b: string): boolean | null {
   try {
     const sa = fs.statSync(a);
     const sb = fs.statSync(b);
@@ -241,7 +454,7 @@ function fileContentEqual(a: string, b: string): boolean {
     const hb = crypto.createHash('sha256').update(fs.readFileSync(b)).digest('hex');
     return ha === hb;
   } catch {
-    return false;
+    return null;
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

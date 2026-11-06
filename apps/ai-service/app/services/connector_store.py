@@ -110,14 +110,23 @@ def _public(rec: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in rec.items() if not str(k).startswith("_")}
 
 
-def _load() -> list[dict[str, Any]]:
-    """读取全部连接器记录;文件缺失/损坏/非列表时返回空列表(异常降级)。
+class ConnectorStoreUnread(OSError):
+    """名单读不到。调用方不得把它当成空名单再写回去。"""
 
+
+def _load() -> list[dict[str, Any]]:
+    """读取全部连接器记录;文件缺失/损坏/非列表时返回空列表。
+
+    读失败(权限、目标是目录)不算没有名单,抛 ConnectorStoreUnread,避免 save 用空名单覆盖。
     app_secret 落盘为密文形态(enc:v1: 前缀),读出时透明解密回明文。
     """
     try:
-        if not _STORE_PATH.exists():
-            return []
+        _STORE_PATH.stat()
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise ConnectorStoreUnread("连接器名单读不到,不能把它覆盖成新名单") from exc
+    try:
         raw = _STORE_PATH.read_text(encoding="utf-8")
         data = json.loads(raw)
         if not isinstance(data, list):
@@ -131,7 +140,9 @@ def _load() -> list[dict[str, Any]]:
                     rec[_SECRET_RAW] = raw_secret
                 rec["app_secret"] = plain
         return data
-    except Exception:  # noqa: BLE001 - 读失败返回空列表,不崩服务
+    except OSError as exc:
+        raise ConnectorStoreUnread("连接器名单读不到,不能把它覆盖成新名单") from exc
+    except Exception:  # noqa: BLE001 - 损坏内容仍按空名单,不崩服务
         return []
 
 

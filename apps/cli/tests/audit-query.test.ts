@@ -58,6 +58,18 @@ describe('P1-3 queryAuditLog 基础查询', () => {
     expect(result.filtered).toBe(0)
   })
 
+  it('日志读不到不能说成没有记录', () => {
+    writeEntries([{ timestamp: '2025-01-01T00:00:00.000Z', tool: 'keep', input: {} }])
+    const original = fs.readFileSync(tmpAuditPath)
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    expect(() => queryAuditLog({}, denied)).toThrow(/读不到/)
+    expect(fs.readFileSync(tmpAuditPath)).toEqual(original)
+  })
+
   it('日志文件不存在返回空结果', () => {
     if (fs.existsSync(tmpAuditPath)) fs.unlinkSync(tmpAuditPath)
     const result = queryAuditLog()

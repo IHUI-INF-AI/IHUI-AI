@@ -25,6 +25,8 @@ import { verifySkillPackage, type VerifySkillPackageOptions } from './verify.js'
 export interface SkillPackagePaths {
   /** 技能安装根;缺省 ~/.ihui/installed-skills */
   installRoot?: string
+  /** 测试注入。省略时用 fs.statSync。 */
+  stat?: (path: string) => fs.Stats
 }
 
 export function getDefaultSkillInstallRoot(): string {
@@ -58,6 +60,22 @@ function writeStagedTree(targetDir: string, contents: ReadonlyMap<string, Buffer
     files.push(relative)
   }
   return files
+}
+
+function targetPresence(
+  target: string,
+  stat: ((path: string) => fs.Stats) | undefined,
+  failure: { code: 'SKILL_PKG_INSTALL_COMMIT_FAILED' | 'SKILL_PKG_UNINSTALL_RESIDUE'; message: string },
+): 'missing' | 'present' {
+  const look = stat ?? ((p: string) => fs.statSync(p))
+  try {
+    look(target)
+    return 'present'
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing'
+    throw new SkillPackageError(failure.code, `${failure.message} (${code ?? 'unknown'})`, { path: target })
+  }
 }
 
 function assertSafePackageId(id: string): void {
@@ -95,7 +113,12 @@ export function installSkillPackage(packagePath: string, options: InstallOptions
     fs.mkdirSync(stagingDir, { recursive: true })
     files = writeStagedTree(stagingDir, contents)
 
-    if (fs.existsSync(finalPath)) {
+    if (
+      targetPresence(finalPath, options.stat, {
+        code: 'SKILL_PKG_INSTALL_COMMIT_FAILED',
+        message: '技能目录读不到,不能把它当成没装过再换上新包',
+      }) === 'present'
+    ) {
       fs.renameSync(finalPath, supersededPath)
       movedOld = true
     }
@@ -171,7 +194,12 @@ export function uninstallSkillPackage(id: string, options: SkillPackagePaths = {
   assertSafePackageId(id)
   const installRoot = options.installRoot ?? getDefaultSkillInstallRoot()
   const target = path.join(installRoot, id)
-  if (!fs.existsSync(target)) {
+  if (
+    targetPresence(target, options.stat, {
+      code: 'SKILL_PKG_UNINSTALL_RESIDUE',
+      message: '技能目录读不到,不能把它说成没装过,也不卸载',
+    }) === 'missing'
+  ) {
     return { ok: true, id, removed: false, removedFiles: [], residual: [] }
   }
   if (!fs.statSync(target).isDirectory()) {

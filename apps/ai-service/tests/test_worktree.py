@@ -648,6 +648,27 @@ class TestCreateWorktree:
 
 class TestRemoveWorktree:
     @pytest.mark.asyncio
+    async def test_unreadable_path_is_not_removed(self, tmp_path, monkeypatch):
+        """读不到时不 git remove、不 rmtree。"""
+        calls = []
+
+        async def fake_git(args, cwd, *, timeout=30.0):
+            calls.append(args)
+            return (0, b"", b"")
+
+        monkeypatch.setattr(worktree, "_git", fake_git)
+
+        def denied(path):
+            raise PermissionError(13, "denied", path)
+
+        with patch("app.services.worktree.os.stat", denied):
+            with patch("app.services.worktree.shutil.rmtree") as mock_rmtree:
+                with pytest.raises(OSError, match="读不到"):
+                    await remove_worktree(str(tmp_path / "wt"), str(tmp_path))
+        assert calls == []
+        mock_rmtree.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_force_true_adds_force_flag(self, tmp_path, monkeypatch):
         """force=True → git worktree remove --force <path>。"""
         calls = []

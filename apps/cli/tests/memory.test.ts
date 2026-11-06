@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import {
   loadMemory,
+  loadMemoryForPrompt,
   searchMemory,
   addMemoryEntry,
   clearMemory,
@@ -18,6 +19,11 @@ import {
   getProjectMemoryDir,
   setMemoryEnabled,
   formatMemoryForPrompt,
+  promptMemoryForOccasion,
+  planMemoryRotation,
+  selectMemoryForOccasion,
+  LongTermMemory,
+  SoulMemory,
   type MemoryEntry,
 } from '../src/memory/index.js';
 
@@ -346,6 +352,37 @@ describe('Memory 持久记忆', () => {
       expect(formatMemoryForPrompt([])).toBe('');
     });
 
+    it('记忆件只在声明的时机注入,没写时机不算随时可读', () => {
+      const doc = '---\nread_when: Session start / identity recall\n---\nKEEP\n';
+      expect(selectMemoryForOccasion({ text: doc, occasion: 'session-start' })).toMatchObject({
+        disposition: 'admitted',
+        body: 'KEEP\n',
+      });
+      expect(selectMemoryForOccasion({ text: doc, occasion: 'identity recall' }).disposition).toBe('admitted');
+      const identityOnly = '---\nread_when: identity recall\n---\nONLY\n';
+      const mismatch = selectMemoryForOccasion({ text: identityOnly, occasion: 'session-start' });
+      expect(mismatch.reason).toBe('occasion-mismatch');
+      expect(mismatch.body).toBe('');
+      expect(selectMemoryForOccasion({ text: '# Memory\n- x', occasion: 'session-start' })).toMatchObject({
+        reason: 'timing-absent',
+        body: '',
+      });
+      expect(selectMemoryForOccasion({ text: doc, occasion: 'tool-failure' }).reason).toBe('occasion-unrecognized');
+      const prompted = promptMemoryForOccasion({
+        occasion: 'session-start',
+        documents: [
+          { source: 'project', text: '---\nread_when: session-start\n---\n## 通用\n- 用 pnpm\n' },
+          { source: 'global', text: '# Memory\n- 不该出现\n' },
+        ],
+      });
+      expect(prompted.text).toContain('用 pnpm');
+      expect(prompted.text).not.toContain('不该出现');
+      expect(prompted.reasons).toContain('timing-absent');
+      expect(promptMemoryForOccasion({ occasion: 'session-start', documents: null }).reasons).toEqual([
+        'documents-unmeasured',
+      ]);
+    });
+
     it('包含标题和分类信息', () => {
       const entries: MemoryEntry[] = [
         { raw: '- 条目1', text: '条目1', source: 'global', category: '用户偏好' },
@@ -409,6 +446,16 @@ describe('Memory 持久记忆', () => {
       expect(loadMemory(tmpDir)).toEqual([]);
     });
 
+    it('记忆文件读不到时不说成没有条目', () => {
+      const store = getMemoryStore(tmpDir);
+      fs.mkdirSync(store.projectPath, { recursive: true });
+      expect(() => loadMemory(tmpDir)).toThrow(/不能把它说成没有条目/);
+      const prompt = loadMemoryForPrompt(tmpDir, 'session-start');
+      expect(prompt.reasons).toContain('text-unreadable');
+      expect(prompt.text).toBe('');
+      expect(prompt.entryCount).toBe(0);
+    });
+
     it('禁用后 add 仍生效但 load 返回空', () => {
       const store = getMemoryStore(tmpDir);
       addMemoryEntry(store.globalPath, '条目A', '通用');
@@ -420,6 +467,96 @@ describe('Memory 持久记忆', () => {
       expect(entries).toHaveLength(1);
       expect(entries[0]!.text).toBe('条目A');
     });
+  });
+});
+
+describe('记忆轮转必须带时刻和字节数', () => {
+  it('没量到的上一版不写成 0，超过上限不留 bak', () => {
+    const plan = planMemoryRotation({
+      sessionId: 's1',
+      previousBytes: 120,
+      nextBytes: 80,
+      byteCap: 4096,
+      at: '2026-11-06T05:05:00.000Z',
+    });
+    expect(plan).toMatchObject({
+      disposition: 'rotate',
+      bakName: 's1_memory.md.bak',
+      previousBytes: 120,
+      at: '2026-11-06T05:05:00.000Z',
+    });
+    expect(planMemoryRotation({
+      sessionId: 's1',
+      previousBytes: null,
+      nextBytes: 80,
+      byteCap: 4096,
+      at: '2026-11-06T05:05:00.000Z',
+    }).reason).toBe('bytes-unmeasured');
+    expect(planMemoryRotation({
+      sessionId: 's1',
+      previousBytes: 120,
+      nextBytes: 80,
+      byteCap: 4096,
+      at: null,
+    }).reason).toBe('clock-unmeasured');
+    expect(planMemoryRotation({
+      sessionId: 's1',
+      previousBytes: 5000,
+      nextBytes: 80,
+      byteCap: 4096,
+      at: '2026-11-06T05:05:00.000Z',
+    }).disposition).toBe('refused');
+  });
+
+  it('写入会留下上一版，超上限时不覆盖原文件', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-memory-rotate-'));
+    const file = path.join(dir, 'mem.md');
+    const at = '2026-11-06T05:05:00.000Z';
+    try {
+      fs.writeFileSync(file, 'old-body', 'utf-8');
+      const wrote = addMemoryEntry(file, '新条目', '通用', { sessionId: 's1', at, byteCap: 4096 });
+      expect(wrote?.disposition).toBe('rotate');
+      expect(fs.readFileSync(path.join(dir, 's1_memory.md.bak'), 'utf-8')).toBe('old-body');
+      expect(fs.readFileSync(file, 'utf-8')).toContain('新条目');
+      fs.writeFileSync(file, 'x'.repeat(100), 'utf-8');
+      const refused = addMemoryEntry(file, 'nope', '通用', { sessionId: 's1', at, byteCap: 40 });
+      expect(refused?.reason).toBe('over-cap');
+      expect(fs.readFileSync(file, 'utf-8')).toBe('x'.repeat(100));
+      expect(fs.readFileSync(path.join(dir, 's1_memory.md.bak'), 'utf-8')).toBe('old-body');
+      const blocked = path.join(dir, 'blocked.md');
+      fs.mkdirSync(blocked);
+      expect(() => addMemoryEntry(blocked, 'nope', '通用', { sessionId: 's1', at, byteCap: 4096 })).toThrow(
+        /不能把它覆盖成新条目/,
+      );
+      expect(clearMemory(blocked, { sessionId: 's1', at })?.reason).toBe('bytes-unmeasured');
+      expect(fs.statSync(blocked).isDirectory()).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('长期记忆和用户画像读不到', () => {
+  it('不说成没有条目,也不覆盖', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-long-memory-'));
+    const memoryFile = path.join(dir, '.ihui-agent', 'memory', 'MEMORY.md');
+    const soulFile = path.join(dir, '.ihui-agent', 'memory', 'soul.json');
+    fs.mkdirSync(memoryFile, { recursive: true });
+    fs.mkdirSync(soulFile);
+    const memory = new LongTermMemory(dir);
+    const missing = new LongTermMemory(path.join(dir, 'fresh'));
+    try {
+      expect(missing.load()).toEqual([]);
+      missing.append('记得这个');
+      expect(missing.load().map((entry) => entry.text)).toEqual(['记得这个']);
+      expect(() => memory.load()).toThrow(/不能把它说成没有条目/);
+      expect(() => memory.append('新条目')).toThrow(/不能把它覆盖成新条目/);
+      expect(fs.statSync(memoryFile).isDirectory()).toBe(true);
+      expect(() => new SoulMemory(dir)).toThrow(/不能把它说成是空的/);
+      expect(fs.statSync(soulFile).isDirectory()).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

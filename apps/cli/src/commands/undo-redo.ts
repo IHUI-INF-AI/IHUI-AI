@@ -123,6 +123,7 @@ export interface UndoRedoDeps {
   readonly classifyUndoVerdict?: typeof classifyUndoVerdict;
   readonly diffWorkspaceSnapshots?: typeof diffWorkspaceSnapshots;
   readonly probeCheckpoint?: (indexFile: string) => UndoCheckpointProbe;
+  readonly stat?: (file: string) => unknown;
 }
 
 /** /redo 返回 */
@@ -164,6 +165,27 @@ interface SessionHistory {
 /** undoStack 最大容量,超过自动丢弃最老的 */
 const MAX_UNDO_STACK = 100;
 
+export function undoTargetKind(
+  target: string,
+  stat: (file: string) => unknown = fs.statSync,
+): { kind: 'present' } | { kind: 'missing' } | { kind: 'unread'; code: string } {
+  try {
+    stat(target);
+    return { kind: 'present' };
+  } catch (error) {
+    const code = undoHistoryReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'missing' };
+    return { kind: 'unread', code };
+  }
+}
+
+function undoHistoryReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
 /**
  * UndoRedoManager — 管理 per-session 的文件改动 undo/redo 栈。
  *
@@ -188,6 +210,7 @@ export class UndoRedoManager {
       diffWorkspaceSnapshots,
       probeCheckpoint: (indexFile: string) => probeUndoCheckpoint(indexFile),
       ...deps,
+      stat: deps.stat ?? fs.statSync,
     };
   }
 
@@ -226,13 +249,11 @@ export class UndoRedoManager {
     // 一个文件都不碰,并把事实原样交给上层 —— 这条路径与"试了但失败"
     // 在结果里必须是两种可分辨的形态,否则文案又会退回"一律同一句"。
     const checkpoint = this.deps.probeCheckpoint(this.getHistoryFile(sessionId));
-    this.load(sessionId);
-    const history = this.cache.get(sessionId)!;
     if (checkpoint.status !== 'available') {
       return {
         undoneSteps: 0,
         changes: [],
-        remaining: history.undoStack.length,
+        remaining: 0,
         attemptedSteps: 0,
         failedFiles: [],
         failedReasons: [],
@@ -244,6 +265,8 @@ export class UndoRedoManager {
         checkpoint,
       };
     }
+    this.load(sessionId);
+    const history = this.cache.get(sessionId)!;
     const actualSteps = Math.min(steps, history.undoStack.length);
     if (actualSteps <= 0) {
       // 无步可撤:一个字节都没动过(连失败的写入都没发生)⇒ 那句承诺成立。
@@ -392,20 +415,27 @@ export class UndoRedoManager {
       ? change.filePath
       : path.resolve(this.workspacePath, change.filePath);
     const content = reverse ? change.beforeContent : change.afterContent;
+    const kind = undoTargetKind(fullPath, this.deps.stat);
+    if (kind.kind === 'unread') {
+      const error = new Error(`撤销目标读不到,不能把它覆盖或删除 (${kind.code})`) as NodeJS.ErrnoException;
+      error.code = kind.code;
+      throw error;
+    }
     if (content === null) {
       // reverse=true 且 beforeContent=null → 文件原本不存在,删除当前文件
       // reverse=false 且 afterContent=null → 文件应被删除
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    } else {
-      // 确保父目录存在(新建文件场景)
-      const dir = path.dirname(fullPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(fullPath, content, 'utf-8');
+      if (kind.kind === 'present') fs.unlinkSync(fullPath);
+      return;
     }
+    const dir = path.dirname(fullPath);
+    const dirKind = undoTargetKind(dir, this.deps.stat);
+    if (dirKind.kind === 'unread') {
+      const error = new Error(`撤销目标的目录读不到,不能在里面写入 (${dirKind.code})`) as NodeJS.ErrnoException;
+      error.code = dirKind.code;
+      throw error;
+    }
+    if (dirKind.kind === 'missing') fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(fullPath, content, 'utf-8');
   }
 
   /** 生成人类可读的改动描述 */
@@ -424,26 +454,44 @@ export class UndoRedoManager {
   private persist(sessionId: string): void {
     const history = this.cache.get(sessionId);
     if (!history) return;
+    const file = this.getHistoryFile(sessionId);
+    try {
+      fs.readFileSync(file, 'utf-8');
+    } catch (error) {
+      const code = undoHistoryReadCode(error);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`撤销历史读不到,不能把它覆盖成新记录 (${code})`);
+      }
+    }
     const dir = this.getHistoryDir();
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(this.getHistoryFile(sessionId), JSON.stringify(history, null, 2), 'utf-8');
+    fs.writeFileSync(file, JSON.stringify(history, null, 2), 'utf-8');
   }
 
   /** 加载:从磁盘 JSON 读取 history 到内存缓存(已缓存则跳过) */
   private load(sessionId: string): void {
     if (this.cache.has(sessionId)) return;
     const file = this.getHistoryFile(sessionId);
+    let raw: string | null = null;
+    try {
+      raw = fs.readFileSync(file, 'utf-8');
+    } catch (error) {
+      const code = undoHistoryReadCode(error);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`撤销历史读不到,不能把它覆盖成新记录 (${code})`);
+      }
+    }
     let history: SessionHistory = { undoStack: [], redoStack: [] };
-    if (fs.existsSync(file)) {
+    if (raw !== null) {
       try {
-        const parsed = JSON.parse(fs.readFileSync(file, 'utf-8')) as Partial<SessionHistory>;
+        const parsed = JSON.parse(raw) as Partial<SessionHistory>;
         if (parsed && Array.isArray(parsed.undoStack) && Array.isArray(parsed.redoStack)) {
           history = { undoStack: parsed.undoStack, redoStack: parsed.redoStack };
         }
       } catch {
-        // 损坏的文件,使用空 history
+        // 损坏的内容,使用空 history
       }
     }
     this.cache.set(sessionId, history);

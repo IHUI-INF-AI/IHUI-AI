@@ -54,9 +54,11 @@ import {
   checkUploadSize,
   discoverSessionCandidates,
   discoverSessionFiles,
+  scanSessionExports,
   expandTilde,
   isSessionSource,
   parseOnlySpec,
+  planPeerMigration,
   resolveExportFile,
   resolveSelection,
   runSessionsCommit,
@@ -387,6 +389,25 @@ describe('sessions sources / discover', () => {
     expect(out).not.toContain('aider');
   });
 
+  it('目录读不到时不说成没有导出文件，也不把修改时间写成 0', async () => {
+    const spy = captureConsole();
+    const blocked = path.join(tmpRoot, 'blocked');
+    const io = {
+      readStat: async (file: string) => {
+        if (file === blocked) return { isFile: () => false, isDirectory: () => true, mtimeMs: 1 };
+        return null;
+      },
+      readDir: async () => [{ name: 'a.jsonl', isDirectory: () => false, isFile: () => true }],
+    };
+    const scan = await scanSessionExports('claude_code', blocked, 10, io);
+    expect(scan.scanComplete).toBe(false);
+    expect(scan.candidates).toEqual([]);
+    expect(await runSessionsDiscover('claude_code', { path: blocked }, io)).toBe(false);
+    const err = spy.error.join('\n');
+    expect(err).toContain('扫描没有完成');
+    expect(err).not.toContain('未发现导出文件');
+  });
+
   it('discover 非法来源直接失败且不发请求', async () => {
     const spy = captureConsole();
     expect(await runSessionsDiscover('not-a-source', { path: tmpRoot })).toBe(false);
@@ -673,6 +694,46 @@ describe('sessions history', () => {
     const spy = captureConsole();
     expect(await runSessionsHistory()).toBe(false);
     expect(spy.error.join('\n')).toContain('unauthorized');
+  });
+});
+
+describe('跨产品迁移预演不写', () => {
+  it('发现没量到不说成空清单,没迁入不能同步', () => {
+    const found = planPeerMigration({
+      source: 'workbuddy',
+      phase: 'migrate',
+      discovered: ['mem-1'],
+      migrated: false,
+      dryRun: true,
+    });
+    expect(found).toMatchObject({ disposition: 'planned', reason: 'dry-run', writes: 0, items: ['mem-1'] });
+    expect(
+      planPeerMigration({
+        source: 'codex',
+        phase: 'sync',
+        discovered: ['mem-1'],
+        migrated: false,
+        dryRun: false,
+      }).reason,
+    ).toBe('out-of-order');
+    expect(
+      planPeerMigration({
+        source: 'qoder-work',
+        phase: 'migrate',
+        discovered: null,
+        migrated: null,
+        dryRun: true,
+      }).reason,
+    ).toBe('discovery-unmeasured');
+    expect(
+      planPeerMigration({
+        source: 'other',
+        phase: 'discover',
+        discovered: [],
+        migrated: null,
+        dryRun: true,
+      }).reason,
+    ).toBe('source-unrecognized');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -139,6 +139,34 @@ describe('W9 容器性:装车证明 + 三拒型 + 正向 + structuralChild + W-2
     expect(probe.rmSync + probe.renameSync + probe.gitWorktree + probe.rmCmd).toBe(0);
   });
 
+  it('读不到时不说成不存在,也不新建', () => {
+    const dest = path.join(repo, '.worktrees', 'agent-blocked');
+    fs.mkdirSync(dest, { recursive: true });
+    const payload = path.join(dest, 'payload.txt');
+    fs.writeFileSync(payload, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const gitBefore = probe.gitWorktree;
+    expect(() => new WorktreeManager(repo).create('agent-blocked', { stat: () => { throw denied; } })).toThrow(/读不到/);
+    expect(fs.readFileSync(payload, 'utf8')).toBe('keep\n');
+    expect(probe.gitWorktree).toBe(gitBefore);
+  });
+
+  it('读不到时不是已经不在,目录和账面都不能当成清掉', () => {
+    const wtPath = makeRealWorktree('agent-unread');
+    const payload = path.join(wtPath, 'payload.txt');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const out = cleanupWorktree(wtPath, repo, true, () => {
+      throw denied;
+    });
+    expect(out.status).toBe('failed');
+    if (out.status === 'failed') expect(out.reason).toContain('读不到');
+    expect(fs.readFileSync(payload, 'utf8')).toContain('agent-unread');
+    expect(() => new WorktreeManager(repo).remove('agent-unread', { force: true, stat: () => { throw denied; } })).toThrow(/读不到/);
+    expect(fs.readFileSync(payload, 'utf8')).toContain('agent-unread');
+  });
+
   it('②c 跨盘越界走 cleanupWorktree:返回可传拒 refused + 零删除', () => {
     // win32 用另一盘符(与 repo 盘不同 ⇒ relative() 返回绝对 ⇒ 严格比根失配、父叶子≠.worktrees);
     // POSIX 下该形态落进无关绝对根,同样被容器性拒。判定是纯路径数学,不需要该目录真存在。
@@ -210,7 +238,7 @@ describe('W9 容器性:装车证明 + 三拒型 + 正向 + structuralChild + W-2
     // Z30 拆档:收尾腿已搬进 worktree-cleanup.ts ⇒ 锁随搬运改指新档,判据原样(容器性 < existsSync)
     const tw = fs.readFileSync(new URL('../src/tools/worktree-cleanup.ts', import.meta.url), 'utf8');
     const cu = tw.slice(tw.indexOf('export function cleanupWorktree'));
-    expect(cu.indexOf('judgeWorktreeContainment(')).toBeLessThan(cu.indexOf('fs.existsSync(wtPath)'));
+    expect(cu.indexOf('judgeWorktreeContainment(')).toBeLessThan(cu.indexOf('look(wtPath)'));
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

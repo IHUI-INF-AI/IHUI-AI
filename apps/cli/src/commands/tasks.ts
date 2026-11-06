@@ -82,11 +82,24 @@ export function getTasksPath(): string {
 
 const EMPTY_STORE: TasksStore = { version: 1, workspaces: {}, nextId: 1 };
 
+function taskReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
 function loadStore(): TasksStore {
   const p = getTasksPath();
+  let raw: string;
   try {
-    if (!fs.existsSync(p)) return { ...EMPTY_STORE };
-    const raw = fs.readFileSync(p, 'utf-8');
+    raw = fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code = taskReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ...EMPTY_STORE };
+    throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
+  }
+  try {
     const parsed = JSON.parse(raw) as Partial<TasksStore>;
     if (!parsed || typeof parsed !== 'object') return { ...EMPTY_STORE };
     return {
@@ -101,6 +114,14 @@ function loadStore(): TasksStore {
 
 function saveStore(store: TasksStore): void {
   const p = getTasksPath();
+  try {
+    fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code = taskReadCode(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
+    }
+  }
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(store, null, 2) + '\n', 'utf-8');
 }

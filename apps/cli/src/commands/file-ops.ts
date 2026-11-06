@@ -29,11 +29,18 @@ export function cmdRead(workspacePath: string, filePath: string): void {
     return
   }
   const fullPath = resolvePath(workspacePath, filePath)
-  if (!fs.existsSync(fullPath)) {
-    console.info(chalk.red(`文件不存在: ${filePath}`))
+  let stat: fs.Stats
+  try {
+    stat = fs.statSync(fullPath)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      console.info(chalk.red(`文件不存在: ${filePath}`))
+      return
+    }
+    console.info(chalk.red(`文件读不到,不能把它说成不存在: ${filePath}`))
     return
   }
-  const stat = fs.statSync(fullPath)
   if (stat.isDirectory()) {
     console.info(chalk.yellow(`是目录,用 /ls 查看: ${filePath}`))
     return
@@ -43,7 +50,13 @@ export function cmdRead(workspacePath: string, filePath: string): void {
   if (showTruncate) {
     console.info(chalk.yellow(`文件过大 (${(stat.size / 1024).toFixed(1)} KB),仅显示前 1000 行`))
   }
-  const content = fs.readFileSync(fullPath, 'utf-8')
+  let content: string
+  try {
+    content = fs.readFileSync(fullPath, 'utf-8')
+  } catch {
+    console.info(chalk.red(`文件读不到,不能把它说成是空的: ${filePath}`))
+    return
+  }
   const lines = content.split('\n').slice(0, 1000)
   // 卡片化:头部信息条 + 行号 + 内容
   const header = `📄 ${filePath}  ${chalk.dim(`${lines.length} 行 · ${sizeLabel}`)}`
@@ -62,16 +75,29 @@ export function cmdRead(workspacePath: string, filePath: string): void {
 export function cmdLs(workspacePath: string, dirPath: string): void {
   const target = dirPath || '.'
   const fullPath = resolvePath(workspacePath, target)
-  if (!fs.existsSync(fullPath)) {
-    console.info(chalk.red(`路径不存在: ${target}`))
+  let stat: fs.Stats
+  try {
+    stat = fs.statSync(fullPath)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      console.info(chalk.red(`路径不存在: ${target}`))
+      return
+    }
+    console.info(chalk.red('目录读不到,不能把它说成是空的'))
     return
   }
-  const stat = fs.statSync(fullPath)
   if (!stat.isDirectory()) {
     console.info(chalk.yellow(`是文件,用 /read 查看: ${target}`))
     return
   }
-  const entries = fs.readdirSync(fullPath, { withFileTypes: true })
+  let entries: fs.Dirent[]
+  try {
+    entries = fs.readdirSync(fullPath, { withFileTypes: true })
+  } catch {
+    console.info(chalk.red('目录读不到,不能把它说成是空的'))
+    return
+  }
   const dirs = entries.filter((e) => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))
   const files = entries.filter((e) => e.isFile()).sort((a, b) => a.name.localeCompare(b.name))
   const total = dirs.length + files.length
@@ -85,6 +111,7 @@ export function cmdLs(workspacePath: string, dirPath: string): void {
     console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${chalk.cyan.bold(d.name + '/')}`)
   })
   // 文件列表(带大小)
+  let sizeUnread = false
   files.forEach((f, i) => {
     const isLast = i === files.length - 1
     const branch = isLast ? '└─' : '├─'
@@ -92,6 +119,7 @@ export function cmdLs(workspacePath: string, dirPath: string): void {
     try {
       fstat = fs.statSync(path.join(fullPath, f.name))
     } catch {
+      sizeUnread = true
       console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${f.name}`)
       return
     }
@@ -99,6 +127,7 @@ export function cmdLs(workspacePath: string, dirPath: string): void {
     const sizeLabel = chalk.dim(size.padStart(8))
     console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${f.name} ${sizeLabel}`)
   })
+  if (sizeUnread) console.info(chalk.yellow('有文件的大小没有量到'))
   console.info(chalk.cyan('╰─'))
   console.info('')
 }
@@ -116,11 +145,25 @@ export function cmdGrep(workspacePath: string, pattern: string, searchPath: stri
     return
   }
   const fullPath = resolvePath(workspacePath, searchPath || '.')
-  if (!fs.existsSync(fullPath)) {
-    console.info(chalk.red(`路径不存在: ${searchPath}`))
-    return
-  }
   const results: string[] = []
+  let scanComplete = true
+
+  function searchFile(filePath: string): void {
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const lines = content.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i]!)) {
+          const relPath = path.relative(workspacePath, filePath)
+          const line = lines[i]!.trim().slice(0, 120)
+          results.push(`${chalk.dim(relPath)}:${chalk.cyan(String(i + 1))} ${line}`)
+          if (results.length >= MAX_GREP_RESULTS) break
+        }
+      }
+    } catch {
+      scanComplete = false
+    }
+  }
 
   function walk(dir: string): void {
     if (results.length >= MAX_GREP_RESULTS) return
@@ -128,6 +171,7 @@ export function cmdGrep(workspacePath: string, pattern: string, searchPath: stri
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true })
     } catch {
+      scanComplete = false
       return
     }
     for (const entry of entries) {
@@ -137,29 +181,37 @@ export function cmdGrep(workspacePath: string, pattern: string, searchPath: stri
         if (IGNORED_DIRS.has(entry.name)) continue
         walk(entryPath)
       } else if (entry.isFile()) {
-        try {
-          const content = fs.readFileSync(entryPath, 'utf-8')
-          const lines = content.split('\n')
-          for (let i = 0; i < lines.length; i++) {
-            if (regex.test(lines[i]!)) {
-              const relPath = path.relative(workspacePath, entryPath)
-              const line = lines[i]!.trim().slice(0, 120)
-              results.push(`${chalk.dim(relPath)}:${chalk.cyan(String(i + 1))} ${line}`)
-              if (results.length >= MAX_GREP_RESULTS) break
-            }
-          }
-        } catch {
-          // skip binary/unreadable files
-        }
+        searchFile(entryPath)
       }
     }
   }
 
-  walk(fullPath)
+  let rootStat: fs.Stats
+  try {
+    rootStat = fs.statSync(fullPath)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      console.info(chalk.red(`路径不存在: ${searchPath}`))
+      return
+    }
+    console.info(chalk.yellow('路径读不到,不能把结果说成没有匹配'))
+    return
+  }
+  if (rootStat.isFile()) searchFile(fullPath)
+  else if (rootStat.isDirectory()) walk(fullPath)
+  else scanComplete = false
 
+  if (!scanComplete && results.length === 0) {
+    console.info(chalk.yellow('扫描没有完成,不能把结果说成没有匹配'))
+    return
+  }
   if (results.length === 0) {
     console.info(chalk.dim('未找到匹配'))
     return
+  }
+  if (!scanComplete) {
+    console.info(chalk.yellow('扫描没有完成,下面只是已经读到的匹配'))
   }
   // 卡片化:头部信息条 + 按文件分组折叠(粗略实现:连续相同路径前缀合并)
   console.info(chalk.cyan(`\n╭─ 🔍 ${pattern}  ${chalk.dim(`${results.length} 匹配` + (results.length >= MAX_GREP_RESULTS ? ' · 截断' : ''))}`))
@@ -197,6 +249,7 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
     .replace(/\?/g, '.')
   const regex = new RegExp(`^${regexStr}$`)
   const results: string[] = []
+  let scanComplete = true
 
   function walk(dir: string): void {
     if (results.length >= MAX_GLOB_RESULTS) return
@@ -204,6 +257,7 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true })
     } catch {
+      scanComplete = false
       return
     }
     for (const entry of entries) {
@@ -219,9 +273,16 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
 
   walk(workspacePath)
 
+  if (!scanComplete && results.length === 0) {
+    console.info(chalk.yellow('扫描没有完成,不能把结果说成没有匹配文件'))
+    return
+  }
   if (results.length === 0) {
     console.info(chalk.dim('未找到匹配文件'))
     return
+  }
+  if (!scanComplete) {
+    console.info(chalk.yellow('扫描没有完成,下面只是已经读到的文件'))
   }
   // 卡片化:头部信息条 + 树形结构(按目录分组)
   results.sort()
@@ -269,8 +330,12 @@ export async function cmdBash(workspacePath: string, command: string, checkpoint
         const meta = checkpoints.snapshotSync(filesToSnapshot, 'auto_pre_bash')
         autoCheckpointId = meta.id
         console.info(chalk.dim(`  📸 自动检查点: ${meta.id} (${Object.keys(meta.files).length} 文件)`))
-      } catch {
-        // 快照失败不阻塞命令执行
+        if (meta.skipped && meta.skipped.length > 0) {
+          console.info(chalk.yellow(`  未纳入检查点: ${meta.skipped.join(', ')}`))
+        }
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err)
+        console.info(chalk.yellow(`自动检查点没有拍成: ${detail}`))
       }
     }
   }

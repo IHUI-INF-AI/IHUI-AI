@@ -10,7 +10,7 @@
  * 默认 enabled=false(执行器只认 enabled ⇒ 结构性断开),用户显式
  * `ihui hooks-auto trust` 后才生效;~/.ihui/hooks 全局目录免信任。
  */
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -64,6 +64,29 @@ describe('工作区 hook 信任门', () => {
     for (const h of workspaceHooks) {
       expect(h.enabled).toBe(true)
     }
+  })
+
+  it('信任名单读不到时不覆盖,执行侧仍视为未信任', () => {
+    mkdirSync(join(scratch, 'trust.json'))
+    expect(loadTrustedWorkspaces().size).toBe(0)
+    expect(() => addTrustedWorkspace(scratch)).toThrow(/不能把它覆盖成只剩新的工作区/)
+    expect(statSync(join(scratch, 'trust.json')).isDirectory()).toBe(true)
+  })
+
+  it('hook 目录读不到时不能当成没有 hook', () => {
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const missing = new Error('missing') as NodeJS.ErrnoException
+    missing.code = 'ENOENT'
+    const hookDir = join(scratch, '.claude', 'hooks')
+    const discovery = new HookAutoDiscovery(scratch, (dir) => {
+      if (dir === hookDir) throw denied
+      throw missing
+    })
+    const hooks = discovery.discover().filter((h) => h.sourceLabel !== 'global')
+    expect(hooks).toEqual([])
+    expect(discovery.unreadScanCount()).toBe(1)
+    expect(statSync(join(hookDir, 'pre_tool_demo.sh')).isFile()).toBe(true)
   })
 
   it('信任文件损坏 ⇒ 视为空集(fail-closed,不抛错)', () => {
