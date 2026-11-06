@@ -26,6 +26,14 @@
  *   因此本平台的续期策略必须与 trae/qoder 同档登记为 client-first(判据在
  *   `relay-account-pool-scheduler.ts` 的 CLIENT_FIRST_FLAGS,同批已加 minimax 档)。
  *   未实证面(不冒绿):新票 expires_in 真值、旧 rt 二用是否恒返 400、上游是否校验 Origin/UA。
+ * - 实弹核验(2026-11-06 本机,机主单独授权):
+ *   ① 对照组一把明显假的 rt ⇒ `400 invalid_grant`;② 本机现役号的真 rt ⇒ 同一个码;
+ *   ③ 同一枚号的 access 票打本适配器已实证的余量端点 ⇒ `401 {"error":"invalid access token"}`。
+ *   读法:两条独立端点都拒这枚号的凭据 ⇒ 判「这枚号在上游已失效」成立;
+ *   但**「我方请求形状对活号也正确」仍未证** —— 本机已无活号可作正向对照,该格留给
+ *   下一枚真登录的号(届时 refreshOne 成功即自动补上这格证据:成功会写 credVersion+1 并清零失败计数)。
+ *   副作用如实记:那次实验把该行 refreshFailureCount 推到 2、并按 authRejected 语义把到期列收敛到
+ *   实验时刻 —— 在"凭据已被上游拒"这个事实下,收敛是真阴性,不回滚。
  * - 凭证映射(服务端 mapMinimaxImport,主会话集成):token←accessToken,
  *   refreshTokenEnc←refreshToken,secretsEnc←JSON{clientId,audience,region,…};
  *   到期←expiresAtMs(上游给的真值)。
