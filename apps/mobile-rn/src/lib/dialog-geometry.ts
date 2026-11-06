@@ -72,4 +72,22 @@ export function dialogMaxHeightStyle(
   if (!isValidWindowHeight(windowHeight)) return null
   return { maxHeight: dialogContentHeight(windowHeight, ratio) }
 }
+
+/**
+ * 「内容小则矮、内容多到上限后内部滚动」的弹层高度(纯函数)。
+ *
+ * 弹层想按内容自适应,就必须先让列表拿到一个确定高度,否则 RN 0.86 Fabric 下
+ * 列表在无高度边界里塌成 0、连内容尺寸都不上报。因此:未测得内容(contentHeight<=0)
+ * 时先返回上限(列表先铺开、上报内容尺寸);测得后取 min(内容高, 上限)。
+ * 上限无效时返回 null,调用方不写 height,弹层退回自然高度而不是 0 高。
+ */
+export function adaptiveDialogContentHeight(
+  contentHeight: number,
+  maxHeight: number,
+): number | null {
+  if (!Number.isFinite(maxHeight) || maxHeight <= 0) return null
+  const cap = Math.round(maxHeight)
+  if (!Number.isFinite(contentHeight) || contentHeight <= 0) return cap
+  return Math.min(Math.round(contentHeight), cap)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
