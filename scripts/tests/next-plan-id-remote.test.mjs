@@ -511,8 +511,28 @@ test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号
   assert.match(TOOL_SRC, /const DEFAULT_FAMILY = 'O'/, '缺省族必须只有一个来源')
   assert.match(
     TOOL_SRC,
-    /const FAMILY = \(familyFlag\.value \?\? DEFAULT_FAMILY\)\.toUpperCase\(\)/,
-    '族必须由 --family 取值、缺省落 DEFAULT_FAMILY(写死 O 就是本票要治的原病)',
+    // 〔改判@2026-11-06,取证三条:① 实现那行自枚 73eac1c22b「号域族注册表(RP 多字母族在册,
+    //   单字母逐字不变)」起就是 FAMILY_ENTRY.name,旧字面量在 HEAD 面上已不存在(现读
+    //   git show HEAD:scripts/next-plan-id.mjs 含 '(familyFlag.value ?? DEFAULT_FAMILY).toUpperCase()'
+    //   = false);② 当次 CLI 现读 --family RP ⇒ rc=0 出 RP-5、--family Z ⇒ rc=0 出 Z-2,
+    //   换族真发得出号这一件事没坏;③ 未在册(--family OO)与缺值(--family)两支仍 rc=2 且 stdout 空。
+    //   ⇒ 这是**锁陈旧**而不是实现回退:断言必须跟着"族是第一等参数"这一意图的新载体走,
+    //   而不是把实现改回写死单字母的旧形态(那会重新引入 RP 多字母族发不出号的原病)。〕
+    /const FAMILY = FAMILY_ENTRY\.name/,
+    '族名必须来自族目(FAMILY_ENTRY),而 FAMILY_ENTRY 只由 --family 取值或落 DEFAULT_FAMILY 得到',
+  )
+  assert.match(
+    TOOL_SRC,
+    /familyFlag\.value === null\s*\?\s*lookupPlanIdFamily\(DEFAULT_FAMILY\)/,
+    '缺省必须落 DEFAULT_FAMILY(而不是落某个硬编码字母)',
+  )
+  assert.doesNotMatch(
+    TOOL_SRC,
+    // 只钉代码位:`next-plan-id.mjs` 的头注第 121 行就**逐字写着** `const FAMILY = 'O'`(那是改判留痕),
+    // 不限定行首形态的锁会读到自己的解释文字并恒红 —— 本仓被这一型咬过多次(守门 70/131/135/98 D4)。
+    // 完整的正解是拿 lib/code-mask 把注释整段遮掉再扫;这里先用最小代价的那一档(锚代码行首)。
+    /^\s*const FAMILY = 'O'\s*(\/\/.*)?$/m,
+    '族名不得再写死 O —— 那正是本票要治的原病,也是多字母族发不出号的形态(注释里的留痕不算)',
   )
   assert.match(
     TOOL_SRC,
@@ -535,7 +555,10 @@ test('T12 族是第一等参数:--family 单源 + 标题形状只换字母 + 号
   // 数字段算术单源:族感知那一份复用 headingNum(T6 逐字锁定的那一份),不另写 `^Z(\d+)`
   assert.match(
     TOOL_SRC,
-    /const headingNumOf = \(key\) => headingNum\(/,
+    // `\s*` 不是让步,是必须:实现那行是 `const headingNumOf = (key) =>` 换行后接 `headingNum(`
+    // (prettier 对模板串嵌套的折叠形态)。旧正则要求两者同行 ⇒ 锁随格式化而红,
+    // 而它要钉的意图("数字段算术只有一份 = 复用 headingNum")与行宽无关。
+    /const headingNumOf = \(key\) =>\s*headingNum\(/,
     '族感知数字段必须复用 headingNum 那一份算术(另写一族正则即第二份判据)',
   )
   assert.doesNotMatch(TOOL_SRC, /\^Z\(\\d\+\)/, '不得另写一族数字段正则')
@@ -555,7 +578,15 @@ test('T13 --family Z 真发得出号;缺值 / 非单字母必须 exit 2 且不�
       timeout: 60_000,
     })
     assert.equal(bad.status, 2, `${JSON.stringify(args)} 必须 exit 2(给了旗标就要有值 / 值须单字母),实得 ${bad.status}`)
-    assert.match(String(bad.stderr), /单字母族名/, `${JSON.stringify(args)} 必须点名取值要求,实得:${bad.stderr}`)
+    // 〔改判@2026-11-06:旧正则要"单字母族名"连写,而现读两支的点名分别是
+    //   "需要一个在册族名(单字母 A–Z 或多字母 RP)…(不得静默退回默认)"与
+    //   "需要一个**在册**族名(大小写归一;在册 = A–Z 单字母 + RP 多字母)…⇒ 拒绝发号"。
+    //   意图(必须点名取值要求、不许静默退回缺省族)未变,变的是在册口径。〕
+    assert.match(
+      String(bad.stderr),
+      /在册族名|在册\*\*族名|拒绝发号/,
+      `${JSON.stringify(args)} 必须点名"在册族名"这一取值要求,实得:${bad.stderr}`,
+    )
     assert.equal(String(bad.stdout).trim(), '', `${JSON.stringify(args)} 不得在 stdout 给号`)
   }
   // 正证:换族必须真能发号(族满三族之后新票唯一的合法取号路)
