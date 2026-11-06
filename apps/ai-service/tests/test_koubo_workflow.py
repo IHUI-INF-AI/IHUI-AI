@@ -1329,4 +1329,172 @@ class TestSingleton:
         assert hasattr(koubo_workflow_service, "_graph")
         # _graph 要么是编译对象(available) 要么是 None
         assert koubo_workflow_service._graph is None or hasattr(koubo_workflow_service._graph, "ainvoke")
+
+
+def test_unreadable_directory_is_not_a_clean_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来时,边界扫描不能报两棵树干净。"""
+    import os
+
+    from app.skills.koubo_workflow import scan_boundary as sb
+
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "ok.md").write_text("fine\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("koubo\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    sb.issues.clear()
+    unread = sb.scan_tree(str(root), "wechat")
+    assert unread >= 1
+    assert sb.issues == []
+    assert sb.scan_status(unread) == "incomplete"
+    assert hidden.read_text(encoding="utf-8") == "koubo\n"
+
+
+def test_unreadable_directory_is_not_a_clean_wechat_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """公众号审计列不到子目录时,不能写成目录清洁。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    from app.skills.content_engine.full_audit import _scan_koubo_pollution
+
+    root = tmp_path / "wechat"
+    root.mkdir()
+    (root / "article.md").write_text("普通文章\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("口播稿\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    hits, unread = _scan_koubo_pollution(str(root))
+    assert hits == []
+    assert unread >= 1
+    missing_hits, missing_unread = _scan_koubo_pollution(str(tmp_path / "absent"))
+    assert missing_hits == []
+    assert missing_unread == 0
+    assert hidden.read_text(encoding="utf-8") == "口播稿\n"
+
+
+def test_unreadable_directory_is_not_a_clean_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """写作前扫描列不到子目录时,不能报无越界。"""
+    import argparse
+    import os
+
+    from app.skills.koubo_workflow.tools import project_preflight as preflight
+
+    koubo = tmp_path / "koubo"
+    gzh = tmp_path / "gzh"
+    koubo.mkdir()
+    gzh.mkdir()
+    (koubo / "ok.txt").write_text("a\n", encoding="utf-8")
+    blocked = koubo / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.html"
+    hidden.write_text("<p>x</p>\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    code = preflight.cmd_scan(
+        argparse.Namespace(),
+        koubo_dir=str(koubo),
+        gzh_dir=str(gzh),
+    )
+    assert code == 2
+    assert hidden.read_text(encoding="utf-8") == "<p>x</p>\n"
+
+
+def test_unreadable_directory_is_not_a_passed_hygiene_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """卫生检查列不到子目录时,项目边界不能判通过。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "koubo")
+    from app.skills.koubo_workflow.tools.project_hygiene import HygieneChecker
+
+    was = tmp_path / "wechat"
+    koubo = tmp_path / "koubo"
+    was.mkdir()
+    koubo.mkdir()
+    (was / "article.md").write_text("普通文章\n", encoding="utf-8")
+    blocked = was / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("口播稿\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    checker = HygieneChecker()
+    checker.check_cross_project_boundary(was_dir=str(was), koubo_dir=str(koubo))
+    by_name = {name: (ok, detail) for name, ok, detail in checker.results}
+    ok, detail = by_name["项目边界·公众号目录无 .txt/MMDD.txt (零容忍)"]
+    assert ok is False
+    assert "不能把边界说成通过" in detail
+    assert hidden.read_text(encoding="utf-8") == "口播稿\n"
+
+
+def test_unreadable_directory_is_not_a_clean_pycache_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """列不到子目录时,不能说没有 __pycache__ 残留。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    from app.skills.content_engine.full_audit import _list_pycache
+
+    root = tmp_path / "proj"
+    root.mkdir()
+    blocked = root / "blocked"
+    blocked.mkdir()
+    cache = blocked / "__pycache__"
+    cache.mkdir()
+    leftover = cache / "mod.pyc"
+    leftover.write_bytes(b"x")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    found, unread = _list_pycache(str(root))
+    assert found == []
+    assert unread >= 1
+    missing, missing_unread = _list_pycache(str(tmp_path / "absent"))
+    assert missing == []
+    assert missing_unread == 0
+    assert leftover.read_bytes() == b"x"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
