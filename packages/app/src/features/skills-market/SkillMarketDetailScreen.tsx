@@ -339,7 +339,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     desc: {
       fontSize: rnType.body.size,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       color: tk.text.primary,
     },
     tagRow: {

@@ -267,7 +267,7 @@ export function ProfileEditScreen({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: 14, gap: rnSpacing.md }}
+      contentContainerStyle={{ padding: rnSpacing['md-loose'], gap: rnSpacing.md }}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>

@@ -233,7 +233,11 @@ function createStyles(tk: AppThemeTokens) {
     benefitIcon: { marginTop: rnSpacing['2xs'] },
     benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
     benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    benefitDesc: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
+    benefitDesc: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.secondary,
+    },
     levelsSection: {
       paddingHorizontal: rnSpacing['sm-loose'],
       marginTop: rnSpacing.lg,

@@ -154,13 +154,16 @@ export function TokenValueScreen({
               style={styles.tabRow}
             />
             {error ? (
-              <View style={{ paddingHorizontal: 4, paddingBottom: 4 }}>
+              <View style={{ paddingHorizontal: rnSpacing.xs, paddingBottom: rnSpacing.xs }}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             ) : null}
           </View>
         }
-        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingHorizontal: rnSpacing['sm-loose'],
+          paddingBottom: rnSpacing['3xl'],
+        }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           loading ? (

@@ -684,7 +684,11 @@ function createCoverStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     // 蒙层恒为深色半透明,其上的关闭符两主题都用白色(base=不随主题翻转的浅色档,同 SearchInput 先例)
-    clearText: { fontSize: rnType.subtitle.size, color: baseTokens.surface.light, lineHeight: 18 },
+    clearText: {
+      fontSize: rnType.subtitle.size,
+      color: baseTokens.surface.light,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     icon: { fontSize: 28, color: tk.text.tertiary },
     hint: { fontSize: rnType.body.size, color: tk.text.tertiary },
     pressed: { opacity: 0.85 },

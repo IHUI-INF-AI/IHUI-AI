@@ -365,13 +365,13 @@ function createStyles(tk: AppThemeTokens) {
     introPara: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       marginBottom: rnSpacing['sm-loose'],
     },
     introParaLast: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     sectionCard: {
       backgroundColor: tk.surface.light,
@@ -384,7 +384,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       marginBottom: rnSpacing.md,
     },
     subtitle: {
@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens) {
     paragraph: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       marginBottom: rnSpacing['sm-loose'],
     },
     footer: {
@@ -406,13 +406,13 @@ function createStyles(tk: AppThemeTokens) {
     footerLine: {
       fontSize: rnType.body.size,
       color: tk.text.tertiary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       marginBottom: rnSpacing.sm,
     },
     footerLineLast: {
       fontSize: rnType.body.size,
       color: tk.text.tertiary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
   })
 }
