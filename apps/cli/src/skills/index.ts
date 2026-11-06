@@ -68,13 +68,20 @@ import { parseFrontmatterJson, parseSkillsFrontmatter } from './frontmatter.js';
 import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
 import { declareShadowSurfaces } from './allowed-tools-shadow.js';
 import * as os from 'node:os';
-import type { SkillCapabilityTiers, SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
+import {
+  SKILL_LISTING_STATES,
+  type SkillCapabilityTiers,
+  type SkillFrontmatter,
+  type SkillListingState,
+  type SkillPrerequisites,
+  type SkillSource,
+} from '@ihui/types';
 
 /**
  * Skill frontmatter 元信息由 `@ihui/types` 统一维护(P0-2 对齐 packages/types 契约),
  * 此处 re-export 供现有消费方(../tests/skills.test.ts 等)按原路径 import。
  */
-export type { SkillFrontmatter, SkillPrerequisites, SkillSource };
+export type { SkillFrontmatter, SkillListingState, SkillPrerequisites, SkillSource };
 
 /** 解析后的 skill 定义(原始结构,含路径与 frontmatter) */
 export interface SkillDefinition {
@@ -280,9 +287,8 @@ function parseInvocableFlag(front: string, keys: readonly string[]): boolean | n
 
 export type SkillInvocationCaller = 'user' | 'model';
 
-export const SKILL_LISTING_STATES = ['platform_unlisted', 'user_unlisted', 'retired', 'removed'] as const;
-
-export type SkillListingState = (typeof SKILL_LISTING_STATES)[number];
+/** 词表本体由 `@ihui/types` 单源维护,此处 re-export 供既有消费方按原路径引用。 */
+export { SKILL_LISTING_STATES };
 
 export type SkillListingPlan =
   | { disposition: 'listed'; reason: 'absent' }
