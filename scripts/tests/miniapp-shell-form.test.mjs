@@ -1115,6 +1115,7 @@ test('T22 S2「可摘」真值锁:任一条不成立即不得给摘除建议', (
     [{ ...shell, businessJsx: 3 }, /超阈值/],
     [{ ...shell, mapStatus: 'none' }, /未接共享屏映射/],
     [{ ...shell, shellEntry: null }, /入口证据/],
+    [{ ...shell, localDelta: true }, /本地数据层痕迹/],
     [{ ...shell, impl: 'undetermined' }, /不可判/],
     [null, /当前面无对应页/],
   ]
