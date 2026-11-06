@@ -255,4 +255,50 @@ describe('读不到不覆盖', () => {
     expect(() => incrementalIndexer.diff(ws)).toThrow(/代码索引读不到/)
     expect(readFileSync(indexFile, 'utf8')).toBe(body)
   })
+
+  it('分支文件读不到时差异对比不说成不存在', async () => {
+    const branchDir = join(scratchRoot, '.ihui-agent', 'specs', 'branches', 'feature-ok.md')
+    mkdirSync(branchDir, { recursive: true })
+    writeFileSync(join(branchDir, 'keep.txt'), 'keep', 'utf8')
+    await expect(
+      specService.diffBranch({ scope, workspacePath: scratchRoot, branchName: 'feature-ok' }),
+    ).rejects.toThrow(/不能把它说成不存在/)
+    expect(readFileSync(join(branchDir, 'keep.txt'), 'utf8')).toBe('keep')
+  })
+
+  it('主规格读不到时差异对比不把主规格说成空的', async () => {
+    const { createHash } = await import('node:crypto')
+    const scopeObj = { type: scope.type, path: null }
+    const hash = createHash('md5')
+      .update(JSON.stringify(scopeObj, Object.keys(scopeObj).sort()), 'utf8')
+      .digest('hex')
+      .slice(0, 12)
+    mkdirSync(join(scratchRoot, '.ihui-agent', 'specs', 'branches'), { recursive: true })
+    writeFileSync(
+      join(scratchRoot, '.ihui-agent', 'specs', 'branches', 'feature-ok.md'),
+      'branch body\n',
+      'utf8',
+    )
+    const mainFile = join(scratchRoot, '.ihui-agent', 'specs', `${hash}.md`)
+    mkdirSync(mainFile, { recursive: true })
+    writeFileSync(join(mainFile, 'keep.txt'), 'keep', 'utf8')
+    await expect(
+      specService.diffBranch({ scope, workspacePath: scratchRoot, branchName: 'feature-ok' }),
+    ).rejects.toThrow(/不能把它说成空规格/)
+    expect(readFileSync(join(mainFile, 'keep.txt'), 'utf8')).toBe('keep')
+  })
+
+  it('流水线记录不是目录时不说成没有', async () => {
+    const backup = join(scratchRoot, '.ihui-agent', 'specs', 'backups', 'pipe1')
+    mkdirSync(join(scratchRoot, '.ihui-agent', 'specs', 'backups'), { recursive: true })
+    writeFileSync(backup, 'keep', 'utf8')
+    await expect(
+      specService.getPipelineStatus({
+        workspacePath: scratchRoot,
+        scope,
+        pipelineId: 'pipe1',
+      }),
+    ).rejects.toThrow(/不能把它说成没有/)
+    expect(readFileSync(backup, 'utf8')).toBe('keep')
+  })
 })
