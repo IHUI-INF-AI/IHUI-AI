@@ -248,6 +248,12 @@ function judgeShellOpenConf() {
   assert.ok(re.test('https://aizhs.top/'), '产品域放行')
   assert.ok(re.test('https://www.aizhs.top/agents'), 'www 子域放行')
   assert.ok(re.test('http://localhost:8801/sso/login'), 'dev SSO 外开放行(与声明面 dev 条目对齐)')
+  // T12:旧的 localhost(:\\d+)? 等于把本机**任意端口**都放给 openExternalUrl。
+  // 线上页(含 XSS)可以拿它唤起本机 3000/6379/11434 等任意服务的 URL(协议处理器/浏览器
+  // 单点登录回调劫持面)。devUrl 全仓钉死 8801 ⇒ 端口没有"随配置变化"的理由,必须写死。
+  assert.ok(!re.test('http://localhost:3000/sso/login'), '非 8801 的本地端口必须拒绝')
+  assert.ok(!re.test('http://localhost/sso/login'), '裸 localhost(默认 80)必须拒绝')
+  assert.ok(!/\\d\+|\{\d+(?:,\d*)?\}|\[0-9\]\+/.test(openRe), '正则不得含任意端口通配: ' + openRe)
   assert.ok(!re.test('https://evil.example.com/phish'), '第三方域拒绝(钓鱼链)')
   assert.ok(!re.test('javascript:alert(1)'), 'javascript: 形态拒绝')
   return openRe
