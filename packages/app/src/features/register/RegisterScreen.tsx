@@ -300,7 +300,7 @@ function createStyles(tk: AppThemeTokens) {
     agreementText: {
       flex: 1,
       fontSize: rnType.body.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     agreementLink: { color: tk.brand.DEFAULT },
