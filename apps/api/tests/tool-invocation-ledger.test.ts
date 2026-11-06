@@ -301,6 +301,68 @@ describe('落库形态(复用链,不绕链)', () => {
     expect(inserted!['traceId']).toBe('b'.repeat(32))
   })
 
+  // 批次 2(2026-11-06 立):执行事实四列 —— cwd/exitCode/outputComplete/terminalReason。
+  // 四列都是**可选**(老写入方零差异),但一旦带上就必须过严格尺子:词汇越界、
+  // 数值越界、类型擦边一律在入口拒绝,而不是靠 DB CHECK 事后炸整行。
+  it('执行事实四列随行落库;缺省时整行仍是老形状(可选不强制)', async () => {
+    let n = 0
+    mockExecute.mockImplementation(async () => {
+      n += 1
+      if (n % 3 === 2) return [{ current_hash: 'f'.repeat(64) }]
+      if (n % 3 === 0) return [{ id: 'chain-row-2' }]
+      return []
+    })
+    mockSelect.mockReturnValue({
+      from: () => ({ where: () => ({ limit: async () => [] }) }),
+    })
+    let inserted: Record<string, unknown> | undefined
+    mockInsert.mockImplementation(() => ({
+      values: (row: Record<string, unknown>) => {
+        inserted = row
+        return {
+          onConflictDoNothing: () => ({ returning: async () => [{ id: 'ledger-2' }] }),
+        }
+      },
+    }))
+
+    const result = await recordToolInvocationLedger(
+      { userId: USER_ID },
+      entry({
+        invocationId: 'b'.repeat(16) + '#2',
+        cwd: '/repo/apps/web',
+        exitCode: 2,
+        outputComplete: false,
+        terminalReason: 'error',
+      }),
+      {},
+    )
+    expect(result.status).toBe('recorded')
+    expect(inserted!['cwd']).toBe('/repo/apps/web')
+    expect(inserted!['exitCode']).toBe(2)
+    expect(inserted!['outputComplete']).toBe(false)
+    expect(inserted!['terminalReason']).toBe('error')
+  })
+
+  it('执行事实严格尺子:越界/擦边值入口即拒,不交给 DB CHECK', () => {
+    for (const bad of [
+      { cwd: 'x'.repeat(1025) },
+      { cwd: '' },
+      { exitCode: 2_147_483_648 },
+      { exitCode: -2_147_483_649 },
+      { exitCode: 1.5 },
+      { exitCode: true },
+      { outputComplete: 'yes' },
+      { terminalReason: 'finished' },
+    ]) {
+      expect(toolInvocationLedgerEntrySchema.safeParse(entry(bad)).success).toBe(false)
+    }
+    expect(
+      toolInvocationLedgerEntrySchema.safeParse(
+        entry({ cwd: '/r', exitCode: 0, outputComplete: true, terminalReason: 'completed' }),
+      ).success,
+    ).toBe(true)
+  })
+
   it('链写失败 ⇒ 账不落,status=chain_failed(不绕链、不记绿)', async () => {
     const insertLedger = vi.fn()
     const result = await recordToolInvocationLedger(

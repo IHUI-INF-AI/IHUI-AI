@@ -26,10 +26,12 @@
 
 import { z } from 'zod'
 import {
+  projectToolApprovalDecisionInfo,
   projectToolApprovalEnvFacts,
   type ToolApprovalExecEnvironment as ApiToolApprovalExecEnvironment,
   type ToolApprovalNetworkTarget as ApiToolApprovalNetworkTarget,
 } from '@ihui/api-client'
+import type { ToolApprovalOperationScope, ToolApprovalReasonCode } from './contract'
 // G-816042:分发工厂的"未识别事件名"分支必须计数并报名,而不是静默 null(与 isAgentTaskEventName
 // 同族的另一面 —— 那个谓词回答"这个名字在不在契约里",这里回答"不在的时候有没有人知道")。
 import { recordUnknownSseEventName } from './unknown-event-telemetry'
@@ -212,6 +214,14 @@ export interface ToolApprovalWirePayload {
   exec_environment?: Record<string, unknown>
   network_target?: Record<string, unknown>
   blocked_network_targets?: Record<string, unknown>[]
+  // 批次 2(2026-11-06):结构化审批决策信息(线格式,与主对话流同族)。
+  reason_code?: string
+  risk_level?: string
+  argv?: string[] | null
+  cwd?: string | null
+  affected_paths?: string[]
+  scope?: string
+  summary?: string
 }
 
 // ============================================================================
@@ -486,6 +496,14 @@ const TOOL_APPROVAL_FIELDS = z.object({
   exec_environment: z.record(z.string(), z.unknown()).optional(),
   network_target: z.record(z.string(), z.unknown()).optional(),
   blocked_network_targets: z.array(z.record(z.string(), z.unknown())).optional(),
+  // 批次 2:结构化审批决策信息(可选附加键;缺席=老生产者,不是"无风险")。
+  reason_code: z.string().optional(),
+  risk_level: z.string().optional(),
+  argv: z.union([z.array(z.string()), z.null()]).optional(),
+  cwd: z.union([z.string(), z.null()]).optional(),
+  affected_paths: z.array(z.string()).optional(),
+  scope: z.string().optional(),
+  summary: z.string().optional(),
 })
 const TOOL_APPROVAL_ROUTE = z.looseObject(TOOL_APPROVAL_FIELDS.pick({}).shape)
 
@@ -613,6 +631,15 @@ export interface ToolApprovalEvent {
   execEnvironment?: ApiToolApprovalExecEnvironment
   networkTarget?: ApiToolApprovalNetworkTarget
   blockedNetworkTargets?: ApiToolApprovalNetworkTarget[]
+  // 批次 2(2026-11-06):结构化审批决策信息(可选)。缺席 = 老生产者/描述失败,
+  // 端上退回 `argsPreview` 裸 JSON 渲染;不是"没有风险/没有目录"。
+  reasonCode?: ToolApprovalReasonCode
+  riskLevel?: 'low' | 'medium' | 'high'
+  argv?: string[] | null
+  cwd?: string | null
+  affectedPaths?: string[]
+  scope?: ToolApprovalOperationScope
+  summary?: string
 }
 
 // ============================================================================
@@ -855,6 +882,9 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
     argsPreview: String(p.args_preview ?? ''),
     dangerLevel: p.danger_level ?? 'high',
     sessionId: String(data.session_id ?? p.session_id ?? ''),
+    // 批次 2:结构化决策信息与 D159 env 事实共用同一投影纪律(判据只在
+    // @ihui/api-client 一处),封闭集外/型不符 ⇒ 字段缺席(退回 argsPreview)。
+    ...projectToolApprovalDecisionInfo(p),
     // D159:与 chat-stream 通道共用同一份投影(见上 import 处注释)—— 判据只有一份,
     // 两条流各自"认哪些字段算环境事实"不可能漂开。
     ...projectToolApprovalEnvFacts(p),

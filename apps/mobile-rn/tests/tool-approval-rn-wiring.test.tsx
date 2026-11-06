@@ -517,4 +517,50 @@ describe('D136 ⑥ 决策回传失败必须响,不得静默当"已处理"', () =
     expect(text()).toContain('—')
   })
 })
+
+// 批次 2(2026-11-06 立):结构化审批决策信息在 RN 端的装车证明 —— 与 web/小程序同源
+// (字段来自 @ihui/api-client 的同一份投影),但本端不做裸 JSON 折叠,直接把摘要与
+// 原因/风险/范围/目录/路径/命令逐行摊开(小屏读不了 details 交互)。
+describe('批次 2 结构化决策信息(移动端逐行渲染)', () => {
+  it('结构化字段在位:摘要与逐行标签都取自真词包', () => {
+    const { send, text } = mount()
+    send(
+      event({
+        reasonCode: 'writes_files',
+        riskLevel: 'medium',
+        scope: 'fs_write',
+        cwd: '/repo',
+        affectedPaths: ['src/a.ts', 'src/b.ts'],
+        argv: ['git', 'status'],
+        summary: '写入 2 个文件',
+      }),
+    )
+    expect(text()).toContain(realText('toolApproval.decisionDetail'))
+    expect(text()).toContain('写入 2 个文件')
+    expect(text()).toContain(realText('toolApproval.decisionDetailReason'))
+    expect(text()).toContain(realText('toolApproval.reasonWritesFiles'))
+    expect(text()).toContain(realText('toolApproval.decisionDetailRisk'))
+    expect(text()).toContain(realText('toolApproval.riskMedium'))
+    expect(text()).toContain(realText('toolApproval.decisionDetailScope'))
+    expect(text()).toContain(realText('toolApproval.scopeFsWrite'))
+    expect(text()).toContain('/repo')
+    expect(text()).toContain('src/a.ts、src/b.ts')
+    expect(text()).toContain('git status')
+  })
+
+  it('老生产者(无结构化字段):不渲染结构化块,参数预览仍在', () => {
+    const { send, text } = mount()
+    send(event())
+    expect(text()).not.toContain(realText('toolApproval.decisionDetail'))
+    expect(text()).toContain(realText('toolApproval.argsPreview'))
+  })
+
+  it('cwd 显式 null:不写 null,也不出工作目录行', () => {
+    const { send, text } = mount()
+    send(event({ reasonCode: 'requires_confirmation', cwd: null, argsPreview: 'ls' }))
+    expect(text()).toContain(realText('toolApproval.decisionDetail'))
+    expect(text()).not.toContain(realText('toolApproval.decisionDetailCwd'))
+    expect(text()).not.toContain('null')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
