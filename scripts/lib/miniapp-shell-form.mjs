@@ -537,6 +537,7 @@ export function classifyPage(page) {
     duplicateUi: false,
     injectedProps: [...info.injected],
     singleEndProps: [],
+    localDelta,
     note: shellEntry
       ? `结构与 import 双证(业务 JSX ${info.count},零重复 UI 段,无单端 prop)`
       : `结构薄壳(业务 JSX ${info.count},零重复 UI 段,无单端 prop;未命中 import 入口)`,
@@ -669,7 +670,8 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
 /**
  * 台账条目“可摘”的真值判据(只许更严,不得放宽)。
  * 只有当前判定确实成立才返回 null:页面在册且现读为薄壳、业务 JSX ≤2、零重复 UI 段、
- * 无单端消费 prop、有共享屏入口证据。任一不成立都返回原因 ⇒ 调用方不得给摘除建议。
+ * 无单端消费 prop、有共享屏入口证据、且页面无本地数据层痕迹(2026-11-06 加严:薄壳只是
+ * 结构面收敛,仍有本地数据层的页面不得提示“可摘”)。任一不成立都返回原因 ⇒ 调用方不得给摘除建议。
  * @param {object|null} row 当前面分类结果(`classifyPage`/`classifyMiniappPages` 的产物)
  * @returns {string|null} null = 可摘;否则为不可摘的具体原因
  */
@@ -679,6 +681,7 @@ export function retirementShortfall(row) {
   if (row.impl === 'undetermined') return '当前形态不可判'
   if (row.impl !== 'shell') return `当前判为 ${row.impl}(不在薄壳射程)`
   if (row.mapStatus === 'none' || row.mapStatus === 'missing-file') return '当前未接共享屏映射'
+  if (row.localDelta === true) return '页面仍有本地数据层痕迹(local-delta)'
   if (typeof row.businessJsx !== 'number' || row.businessJsx > 2) {
     return `业务 JSX ${row.businessJsx} 超阈值(>2)`
   }
@@ -733,7 +736,12 @@ export function evaluateRatchet(rows, ledger) {
     }
     if (r.impl === 'copy') continue
     const shortfall = retirementShortfall(r)
-    if (shortfall === null) {
+    if (shortfall === null && l.reasonClass === 'local-delta') {
+      advisories.push({
+        rule: 'S2',
+        why: `存量条目台账标记为本地改动(local-delta),即使结构已收敛也不得摘除: ${l.route}`,
+      })
+    } else if (shortfall === null) {
       advisories.push({
         rule: 'S2',
         why: `存量复制页已收敛(可从台账摘除:业务 JSX ${r.businessJsx} ≤ 2、零重复 UI 段、无单端 prop): ${l.route}`,
