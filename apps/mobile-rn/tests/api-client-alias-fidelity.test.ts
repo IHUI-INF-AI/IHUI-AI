@@ -481,6 +481,7 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
     const { fetchApi } = (await import('@ihui/api-client')) as {
       fetchApi: (url: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>
     }
+    const body = { code: 4001, message: 'boom', errorCode: 'BIZ_4001' }
     const fetchMock = vi.fn(async (_input: string | URL, _init?: unknown) => {
       void _input
       void _init
@@ -488,7 +489,9 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
         ok: true,
         status: 200,
         headers: { get: () => null },
-        json: async () => ({ code: 4001, message: 'boom', errorCode: 'BIZ_4001' }),
+        // BUG-13:fetchApi 对 2xx 走 response.text(),mock 必须提供与 json 同源的 text。
+        text: async () => JSON.stringify(body),
+        json: async () => body,
       } as unknown as Response
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -507,6 +510,7 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
     const { branchConversation } = (await import('@ihui/api-client')) as {
       branchConversation: (c: string, m: string) => Promise<Record<string, unknown>>
     }
+    const body = { code: 0, message: 'ok', data: { conversation: { id: 'srv-9' } } }
     const fetchMock = vi.fn(async (_input: string | URL, init?: unknown) => {
       void _input
       void init
@@ -514,7 +518,9 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
         ok: true,
         status: 200,
         headers: { get: () => null },
-        json: async () => ({ code: 0, message: 'ok', data: { conversation: { id: 'srv-9' } } }),
+        // BUG-13:fetchApi 对 2xx 走 response.text(),mock 必须提供与 json 同源的 text。
+        text: async () => JSON.stringify(body),
+        json: async () => body,
       } as unknown as Response
     })
     vi.stubGlobal('fetch', fetchMock)
