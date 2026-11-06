@@ -40,6 +40,7 @@ import {
   execGitCapped,
   type GitSpawnOptions,
 } from './git-runner.js';
+import { classifyRealpathFailure } from './path-safety.js';
 import {
   collectInstallFileDigests,
   loadInstallRegistry,
@@ -93,14 +94,37 @@ export type GateLoadOutcome =
 let gateCache: { key: string; outcome: GateLoadOutcome } | null = null;
 
 /** 从给定起点向上找仓根下的门体(不猜盘符、不硬编码绝对路径 —— AGENTS §15) */
-export function locateIntegrityGateFile(startDirs: readonly string[]): string | null {
+export function locateIntegrityGateFile(
+  startDirs: readonly string[],
+  stat?: (target: string) => fs.Stats,
+): string | null {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  const classify = (target: string): 'present' | 'missing' | 'unreadable' => {
+    try {
+      look(target);
+      return 'present';
+    } catch (err) {
+      const verdict = classifyRealpathFailure(err);
+      return verdict.kind === 'missing' && verdict.errno !== 'EISDIR' ? 'missing' : 'unreadable';
+    }
+  };
   const override = process.env[GATE_PATH_ENV];
-  if (override) return fs.existsSync(override) ? override : null;
+  if (override) {
+    const kind = classify(override);
+    if (kind === 'unreadable') {
+      throw new Error(`完整性门体读不到,不能把它说成没装 (${override})`);
+    }
+    return kind === 'present' ? override : null;
+  }
   for (const start of startDirs) {
     let dir = path.resolve(start);
     for (let depth = 0; depth < 8; depth += 1) {
       const candidate = path.join(dir, GATE_SCRIPT);
-      if (fs.existsSync(candidate)) return candidate;
+      const kind = classify(candidate);
+      if (kind === 'unreadable') {
+        throw new Error(`完整性门体读不到,不能把它说成没装 (${candidate})`);
+      }
+      if (kind === 'present') return candidate;
       const parent = path.dirname(dir);
       if (parent === dir) break;
       dir = parent;
@@ -116,7 +140,16 @@ export function locateIntegrityGateFile(startDirs: readonly string[]): string | 
 export async function loadIntegrityGate(
   startDirs: readonly string[] = [path.dirname(fileURLToPath(import.meta.url)), process.cwd()],
 ): Promise<GateLoadOutcome> {
-  const file = locateIntegrityGateFile(startDirs);
+  let file: string | null;
+  try {
+    file = locateIntegrityGateFile(startDirs);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'integrity-gate-unusable',
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
   if (!file) {
     return {
       ok: false,

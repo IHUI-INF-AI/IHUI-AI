@@ -42,7 +42,7 @@ const resolveIdTokens = LDE.resolveIdTokens
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..')
 
 /** 本次补表新增的字母(按票面 Z-1 结清的现读;测试只问族表本身,不自立第二份清单)。 */
-const NEW_LETTERS = ['Z', 'Y', 'Q', 'K']
+const NEW_LETTERS = ['Z', 'Y', 'Q', 'K', 'S']
 
 /**
  * Z-1 之后按 goal-b25 追加的族(RP)。单字母已无可用位,理由写在族表旁注里:唯一未被占用的单字母
