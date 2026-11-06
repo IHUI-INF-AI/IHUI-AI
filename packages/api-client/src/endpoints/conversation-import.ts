@@ -71,6 +71,8 @@ export interface ParsedImportConversation {
 export interface ConversationImportParseResult {
   conversations: ParsedImportConversation[]
   truncated: boolean
+  /** 截断前会话总数(生产端未透出时缺席;与 `truncated` 成对) */
+  total?: number
   warnings: string[]
 }
 

@@ -38,9 +38,9 @@ from .codebase_indexer import (
     CodeChunk,
     IndexResult,
     _default_repo_id,
-    classify_fs_path,
     _extract_document_markdown,
     _merkle_root,
+    classify_fs_path,
 )
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 

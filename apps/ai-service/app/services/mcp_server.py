@@ -1655,7 +1655,7 @@ def _search_codebase_keyword_sync(
 
     # ③ 逐文件按 ignored 过滤 + 读取 + 符号匹配
     for dirpath, filenames, file_rels in snapshots:
-        for fname, rel_posix in zip(filenames, file_rels):
+        for fname, rel_posix in zip(filenames, file_rels, strict=False):
             if count >= max_results:
                 return matches, count
             if rel_posix in ignored:
@@ -2001,8 +2001,6 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     async def _keyword_leg() -> dict[str, Any]:
         """关键词腿(真实文件系统 regex 符号 + 引用扫描,不碰数据库)。"""
         try:
-            import fnmatch
-            import os
             from pathlib import Path
 
             root = Path(path).resolve()
