@@ -104,6 +104,31 @@ const MAX_TABS: usize = 12;
 /// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
 static WB_LOGIN_POLLING: AtomicBool = AtomicBool::new(false);
 
+/// 登录结果回跳地址的可信 origin 白名单(2026-11-07 缺陷挖掘)。
+///
+/// `wb-checkin-login` 轮询命中后会把含 WorkBuddy Cookie 的 JSON 拼进回跳地址的
+/// `#wb_import=` 片段再导航。片段对**目标页 JS 可见**,而发起页可能是内嵌浏览器里
+/// 的任意第三方站点 —— 因此回跳目标必须是可信 origin,不可信页一律回落到线上签到页,
+/// 避免 Cookie 被 evil.com / aizhs.top.evil.com 之类的页面读走。
+const TRUSTED_RETURN_HOSTS: &[&str] = &["aizhs.top", "www.aizhs.top"];
+
+fn trusted_return_base(raw: &str) -> Option<String> {
+    let mut url = Url::parse(raw).ok()?;
+    let host = url.host_str()?.to_ascii_lowercase();
+    let trusted = match url.scheme() {
+        "https" => TRUSTED_RETURN_HOSTS.contains(&host.as_str()),
+        // dev / test:壳页由 localhost 提供;生产不依赖这两个 origin。
+        "http" => matches!(host.as_str(), "localhost" | "127.0.0.1" | "tauri.localhost"),
+        "tauri" => host == "localhost",
+        _ => false,
+    };
+    if !trusted {
+        return None;
+    }
+    url.set_fragment(None);
+    Some(url.to_string())
+}
+
 /// Chrome UA。WebView2 默认 UA 带 `Edg/` 标识,登录类站点可能据 UA 走不同分支
 /// (也会把"内嵌"这件事暴露给站点);显式伪装成 Chrome,与内核事实自洽。
 pub const CHROME_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -940,14 +965,11 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             };
             // 回跳地址 = 发起页当前 URL 去 fragment(2026-10-18):跟随发起页而不是
             // 硬编码线上签到页,本地/测试环境的登录结果才回得了家。
+            // 2026-11-07 收口:只接受可信 origin(见 `trusted_return_base`),否则回落到
+            // 线上签到页。发起页可以是任意第三方站点,不能让 Cookie 片段导航到它。
             let return_base = active_wv()
                 .and_then(|wv| wv.url().ok())
-                .map(|u| {
-                    let mut u = u;
-                    u.set_fragment(None);
-                    u.to_string()
-                })
-                .filter(|s| !s.is_empty())
+                .and_then(|u| trusted_return_base(u.as_str()))
                 .unwrap_or_else(|| "https://aizhs.top/checkin".to_string());
             // 降级窗(单 webview)没有"新标签"可开:当前页直接导航去登录页 ——
             // 签到页会被顶掉,但登录完成后看护会把这一页导航回带 #wb_import=
@@ -1323,6 +1345,29 @@ mod tests {
 
     fn u(s: &str) -> Url {
         Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn login_return_base_rejects_untrusted_origin() {
+        for bad in [
+            "https://evil.example/phish#x",
+            "https://aizhs.top.evil.com/c",
+            "https://evil.com/?next=https://aizhs.top",
+            "javascript:alert(1)",
+            "data:text/html,<h1>x</h1>",
+            "//evil.example/c",
+            "",
+        ] {
+            assert_eq!(trusted_return_base(bad), None, "不可信回跳地址不该放行: {bad}");
+        }
+        for good in [
+            "https://aizhs.top/checkin#wb_import=1",
+            "https://www.aizhs.top/checkin",
+            "http://localhost:8801/checkin",
+            "tauri://localhost/checkin",
+        ] {
+            assert!(trusted_return_base(good).is_some(), "可信回跳地址被误挡: {good}");
+        }
     }
 
     #[test]
