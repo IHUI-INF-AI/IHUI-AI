@@ -23,6 +23,29 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
+
+function errnoOf(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
+/** ENOENT/ENOTDIR 才是真的没有。其它读失败不能拿来覆盖或删除。 */
+export async function classifyWorkspacePath(
+  abs: string,
+  statImpl: (path: string) => Promise<unknown> = stat,
+): Promise<'absent' | 'present' | 'unreadable'> {
+  try {
+    await statImpl(abs)
+    return 'present'
+  } catch (error) {
+    const code = errnoOf(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent'
+    return 'unreadable'
+  }
+}
 import type { Dirent } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { agentLoop } from './workspace-ai-service.js'
@@ -146,8 +169,11 @@ async function collectFiles(
             continue
           }
           files.push(relative(root, full).split(sep).join('/'))
-        } catch {
-          /* 单文件 stat 失败忽略 */
+        } catch (error) {
+          skipped.push({
+            path: relative(root, full).split(sep).join('/'),
+            reason: `读不到,不能把它说成没有 (${errnoOf(error) ?? 'unknown'})`,
+          })
         }
       }
     }
@@ -250,6 +276,7 @@ export async function planAtomicRollback(
 
   const restore: AtomicRollbackPlan['restore'] = []
   const remove: AtomicRollbackPlan['remove'] = []
+  const unread: AtomicRollbackPlan['uncovered'] = []
   const snapshotPaths = new Set<string>()
   let unchanged = 0
   let restoreBytes = 0
@@ -257,7 +284,12 @@ export async function planAtomicRollback(
   for (const rec of meta.files) {
     snapshotPaths.add(rec.path)
     const abs = join(wsAbs, rec.path)
-    if (!existsSync(abs)) {
+    const presence = await classifyWorkspacePath(abs)
+    if (presence === 'unreadable') {
+      unread.push({ path: rec.path, reason: '当前文件读不到,不能按快照覆盖' })
+      continue
+    }
+    if (presence === 'absent') {
       restore.push({ path: rec.path, snapshotHash: rec.hash, currentHash: null })
       restoreBytes += rec.size
       continue
@@ -273,13 +305,13 @@ export async function planAtomicRollback(
 
   // 本地新增(快照没有的文件)→ 将删除;同样有界扫描
   const { files: currentFiles } = await collectFiles(wsAbs)
+  const held = new Set((meta.skipped ?? []).map((item) => item.path))
   for (const rel of currentFiles) {
-    if (!snapshotPaths.has(rel)) {
-      remove.push({ path: rel, currentHash: sha256(await readFile(join(wsAbs, rel))) })
-    }
+    if (snapshotPaths.has(rel) || held.has(rel)) continue
+    remove.push({ path: rel, currentHash: sha256(await readFile(join(wsAbs, rel))) })
   }
 
-  const uncovered = meta.skipped
+  const uncovered = [...(meta.skipped ?? []), ...unread]
   const newMigrationFiles = [...restore.map((r) => r.path), ...remove.map((r) => r.path)].filter(
     (p) => isMigrationFile(p),
   )
