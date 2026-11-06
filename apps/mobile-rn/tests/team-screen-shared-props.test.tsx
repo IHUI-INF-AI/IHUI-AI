@@ -210,6 +210,21 @@ describe('RN TeamScreen 真消费共享屏 team/TeamScreen props(A 方案)', () 
     expect(props().hasMore).toBe(false)
   })
 
+  /** onRetry 真接线:首次失败后重试重新拉取 page 1 并清错 */
+  it('onRetry 真接线:失败后重试重新拉取并清错', async () => {
+    apiMocks.getTeamStats.mockResolvedValueOnce({ success: false })
+    renderScreen()
+    await waitFor(() => expect(props().error).toBe(val('team.loadFailed')))
+    expect(typeof props().onRetry).toBe('function')
+    const callsBefore = apiMocks.getTeamMembers.mock.calls.length
+
+    await act(async () => {
+      ;(props().onRetry as () => void)()
+    })
+    await waitFor(() => expect(props().error).toBe(''))
+    await waitFor(() => expect(apiMocks.getTeamMembers.mock.calls.length).toBe(callsBefore + 1))
+  })
+
   /** loadingMore 防重入:同一帧连续两次触底,page 2 只发一次 */
   it('loadingMore 期间重复触底不重复请求 page 2', async () => {
     let resolvePage2: (value: unknown) => void = () => {}
