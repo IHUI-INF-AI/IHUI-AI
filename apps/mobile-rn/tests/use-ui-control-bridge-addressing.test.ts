@@ -32,6 +32,8 @@ vi.mock('@ihui/api-client', () => ({
     h.posts.push({ url: '/api/agent-control/result', body: payload })
     return Promise.resolve({ success: true })
   },
+  // 并入主干 5f0e886a89 时上游替身已自带同名出口,本次只在原处保留一份
+  // (重复键触发 TS1117,且后写者会静默覆盖前者)。
   fetchApi: (url: string, opts: { body?: string }) => {
     h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
     return Promise.resolve({ success: true })
