@@ -214,10 +214,7 @@ function unreadDirFinding(dir: string, why: string): WatchFinding {
  * 扫一个目录下的 UNDELIVERED 标记。目录不存在 ⇒ 空(开发机/非本机安静);
  * JSON 坏 ⇒ undetermined 口径 finding(不静默、不洗成通过)。
  */
-export function scanUndeliveredDir(
-  dir: string,
-  stat: (target: string) => ReturnType<typeof statSync> = statSync,
-): WatchFinding[] {
+export function scanUndeliveredDir(dir: string, stat: typeof statSync = statSync): WatchFinding[] {
   try {
     if (!stat(dir).isDirectory()) return [unreadDirFinding(dir, '不是目录')]
   } catch (e) {
