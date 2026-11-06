@@ -2566,6 +2566,13 @@
       "when": 1793948400000,
       "tag": "20261106150000_fix_missing_indexes_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 371,
+      "version": "7",
+      "when": 1794016800000,
+      "tag": "20261107100000_share_token_expires_at",
+      "breakpoints": true
     }
   ]
 }
