@@ -127,7 +127,7 @@ def _reset_stores():
     mcp_server._SESSION_EXTRA_ROOTS.reset()
 
 
-def test_owner_check_blocks_other_user_and_allows_owner_and_admin() -> None:
+async def test_owner_check_blocks_other_user_and_allows_owner_and_admin() -> None:
     """反向牙:原实现把 owner 写在 user_id 键上,读侧读不到 ⇒ 这一整条检查形同不存在。"""
     cc.record_compaction(
         "sess-victim",
@@ -137,20 +137,20 @@ def test_owner_check_blocks_other_user_and_allows_owner_and_admin() -> None:
         user_id="alice",
     )
     # 本人放行
-    who, is_admin = cc._authorize_session(_fake_request("alice"), "sess-victim")
+    who, is_admin = await cc._authorize_session(_fake_request("alice"), "sess-victim")
     assert who == "alice" and is_admin is False
     # 他人 ⇒ 403(这一枚在原实现下不会发生)
     with pytest.raises(HTTPException) as caught:
-        cc._authorize_session(_fake_request("mallory"), "sess-victim")
+        await cc._authorize_session(_fake_request("mallory"), "sess-victim")
     assert caught.value.status_code == 403
     # 管理员豁免(既有语义不变)
-    who2, is_admin2 = cc._authorize_session(_fake_request("root", 1), "sess-victim")
+    who2, is_admin2 = await cc._authorize_session(_fake_request("root", 1), "sess-victim")
     assert who2 == "root" and is_admin2 is True
 
 
-def test_unowned_session_still_passes() -> None:
+async def test_unowned_session_still_passes() -> None:
     """正向对照:没登记过归属的会话不因本枚变严(宽松档照旧)。"""
-    who, _ = cc._authorize_session(_fake_request("anyone"), "sess-unknown")
+    who, _ = await cc._authorize_session(_fake_request("anyone"), "sess-unknown")
     assert who == "anyone"
 
 

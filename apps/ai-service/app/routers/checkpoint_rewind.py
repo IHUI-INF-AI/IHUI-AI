@@ -28,6 +28,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import difflib
 import logging
 import time
@@ -58,10 +59,10 @@ def _current_user(request: Request) -> tuple[str, bool]:
     return user_id, int(role_id) >= 1
 
 
-def _authorize_session(request: Request, session_id: str) -> None:
+async def _authorize_session(request: Request, session_id: str) -> None:
     """校验会话归属:session 存在且属他人时拒绝(管理员除外)。"""
     user_id, is_admin = _current_user(request)
-    session = agent_runtime._find_session(session_id)
+    session = await agent_runtime.find_session_async(session_id)
     if session is not None:
         owner = getattr(session, "user_id", "") or ""
         if owner and owner != user_id and not is_admin:
@@ -119,12 +120,12 @@ class RestoreResponse(BaseModel):
     message: str = ""
 
 
-def _sync_session_messages(
+async def _sync_session_messages(
     request: Request, session_id: str, messages: list[dict[str, Any]]
 ) -> None:
     """把恢复后的消息历史同步回 agent_runtime 会话(尽力而为,失败仅 warning)。"""
     try:
-        session = agent_runtime._find_session(session_id)
+        session = await agent_runtime.find_session_async(session_id)
         if session is None:
             return
         session.messages = [
@@ -135,7 +136,7 @@ def _sync_session_messages(
             )
             for m in messages
         ]
-        agent_runtime._save_session_redis(session)
+        await asyncio.to_thread(agent_runtime._save_session_redis, session)
     except Exception as e:  # pragma: no cover - 防御性异常
         logger.warning("checkpoint_rewind 会话消息同步失败: %s", e, exc_info=True)
 
@@ -224,7 +225,7 @@ async def list_checkpoints(
 ) -> dict[str, Any]:
     """列出指定会话可回滚的 checkpoint 元数据。"""
     # 触发鉴权 + 归属校验(无归属会话时也执行 JWT 校验,复用 get_current_user_id)
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     manager = get_agent_checkpoint_manager()
     metas = await manager.list_for_session(session_id)
     return {
@@ -257,7 +258,7 @@ async def list_file_history(
     身份与归属一律走该文件既有出口 `_authorize_session`(§5:session_id 是被操作的
     资源坐标,不是调用方自报的主体;主体只从 JWT 派生)。
     """
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     versions = file_editor.list_file_versions(session_id, path)
     return FileVersionsResponse(
         session_id=session_id,
@@ -275,7 +276,7 @@ async def restore_checkpoint(
 ) -> RestoreResponse:
     """把会话恢复到指定 checkpoint(对话历史 + 迭代数 + tool state,可选文件回滚)。"""
     session_id = body.session_id
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     manager = get_agent_checkpoint_manager()
 
     try:
@@ -299,7 +300,7 @@ async def restore_checkpoint(
     # - code / both:按 checkpoint 记录的文件版本回滚文件
     scope = body.effective_scope()
     if scope in ("conversation", "both"):
-        _sync_session_messages(request, session_id, restored["messages"])
+        await _sync_session_messages(request, session_id, restored["messages"])
 
     file_versions = restored.get("file_versions", [])
     file_changes = 0
@@ -382,7 +383,7 @@ async def checkpoint_impact(
     - scope=code / both:按 checkpoint 记录的文件版本引用,逐个比对当前磁盘内容,
       返回 old(当前)/new(快照)内容 + 增删行数;清单超过 50 个时截断并标记 truncated。
     """
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     manager = get_agent_checkpoint_manager()
     try:
         restored = await manager.restore(session_id=session_id, checkpoint_id=checkpoint_id)

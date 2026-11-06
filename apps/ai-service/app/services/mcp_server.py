@@ -9823,7 +9823,9 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
         result["message"] = "未提供 conversation_id,返回空 artifacts"
         return result
 
-    cached = _load_artifacts(conversation_id)
+    # artifacts_store 的读出口是同步 Redis HGETALL:放进 worker 线程,
+    # 避免一次慢响应把 MCP 工具(运行在事件循环上)整段钉住。
+    cached = await asyncio.to_thread(_load_artifacts, conversation_id)
     if not cached:
         result["message"] = "无会话 artifacts 记录(可能为新会话或 Redis 未命中)"
         return result

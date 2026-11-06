@@ -132,23 +132,29 @@ def _get_or_create_session(
     return session
 
 
-async def _require_session(
-    session_id: str, user_id: str, is_admin: bool = False
-) -> SessionState:
-    """查找会话并校验归属;不归属当前用户时按 404 处理(不泄露会话是否存在)。
+async def find_session_async(session_id: str) -> SessionState | None:
+    """只读查找会话(async 版):内存 → Redis 回填,不新建。
 
     Redis 回填走 asyncio.to_thread(同步 redis 客户端),不阻塞事件循环;
     内存命中/写入都留在事件循环线程内,避免 _sessions 跨线程并发改。
+    async 端点(含兄弟路由 helper)一律走这里,禁止直调同步的 `_find_session`。
     """
     session = _sessions.get(session_id)
     if session is not None:
         session.last_access = time.time()
-    else:
-        loaded = await asyncio.to_thread(_load_session_redis, session_id)
-        if loaded is not None:
-            _sessions[loaded.id] = loaded
-            _evict_if_needed()
-            session = loaded
+        return session
+    loaded = await asyncio.to_thread(_load_session_redis, session_id)
+    if loaded is not None:
+        _sessions[loaded.id] = loaded
+        _evict_if_needed()
+    return loaded
+
+
+async def _require_session(
+    session_id: str, user_id: str, is_admin: bool = False
+) -> SessionState:
+    """查找会话并校验归属;不归属当前用户时按 404 处理(不泄露会话是否存在)。"""
+    session = await find_session_async(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="session not found")
     owner = session.user_id
@@ -169,8 +175,9 @@ def _get_current_user(request: Request) -> tuple[str, bool]:
 def _find_session(session_id: str) -> SessionState | None:
     """查找会话(只读):内存 → Redis 回填,不新建。
 
-    注意:Redis 回填是同步网络 IO。async 端点请走 `_require_session`,
-    它把该同步调用放进 worker 线程,避免阻塞事件循环。
+    注意:Redis 回填是同步网络 IO。async 端点请走 `find_session_async`
+    (或带归属校验的 `_require_session`),它们把该同步调用放进 worker 线程,
+    避免阻塞事件循环;本函数只留给同步上下文与测试。
     """
     if session_id in _sessions:
         _sessions[session_id].last_access = time.time()

@@ -18,13 +18,23 @@
 - GET /api/agent-runtime/permission/check?toolName=Write&mode=plan&dangerLevel=write — deny
 - GET /api/personas — 200 + 5 persona(确认 personas router 已注册到 main.py)
 - /execute/stream 多场景:default mode / plan mode / graph 失败 / Redis 不可用降级 / Redis 可用持久化
+- 票3:timeline / checkpoint_rewind / context_compaction 的会话查找与 checkpoint 保存
+  必须离开事件循环线程(慢速 fake redis + 同循环 ticker 夹具,修前 5 红)
 """
 
+import asyncio
+import contextlib
+import inspect
+import threading
+import time
+import types
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.routers import agent_runtime
+from app.routers import agent_runtime, checkpoint_rewind, context_compaction, timeline
 
 
 @pytest.fixture(autouse=True)
@@ -577,4 +587,118 @@ async def test_personas_router_registered_returns_5(client):
     assert len(data["personas"]) == 5
     expected = {"researcher", "coder", "reviewer", "architect", "debugger"}
     assert {p["name"] for p in data["personas"]} == expected
+
+
+# =============================================================================
+# 票3:兄弟路由的会话查找 / 保存不得阻塞事件循环
+# =============================================================================
+
+
+class _AuthState:
+    def __init__(self, user_id: str = "alice", role_id: int = 0) -> None:
+        self.user_id = user_id
+        self.role_id = role_id
+
+
+def _auth_request(user_id: str = "alice", role_id: int = 0) -> types.SimpleNamespace:
+    """只喂各 `_authorize_session` 实际读取的两维(state.user_id / state.role_id)。"""
+    return types.SimpleNamespace(state=_AuthState(user_id, role_id))
+
+
+async def _call_maybe_await(fn: Callable[[], Any]) -> None:
+    """兼容同步/异步实现:修前的同步函数会直接在事件循环里跑(本夹具抓的就是它)。"""
+    result = fn()
+    if inspect.isawaitable(result):
+        await result
+
+
+async def _ticks_while(fn: Callable[[], Any]) -> int:
+    """同循环跑 5ms ticker,返回 fn 执行期间 ticker 推进的次数。"""
+    ticks = 0
+
+    async def _ticker() -> None:
+        nonlocal ticks
+        while True:
+            ticks += 1
+            await asyncio.sleep(0.005)
+
+    ticker = asyncio.create_task(_ticker())
+    await asyncio.sleep(0.01)  # 让 ticker 先起跑,排除"还没开始就结束"
+    try:
+        await _call_maybe_await(fn)
+    finally:
+        ticker.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await ticker
+    return ticks
+
+
+_SESSION_LOOKUP_CASES: list[tuple[str, Callable[[], Any]]] = [
+    ("timeline._authorize_session", lambda: timeline._authorize_session(_auth_request(), "sess-x")),
+    (
+        "checkpoint_rewind._authorize_session",
+        lambda: checkpoint_rewind._authorize_session(_auth_request(), "sess-x"),
+    ),
+    (
+        "context_compaction._authorize_session",
+        lambda: context_compaction._authorize_session(_auth_request(), "sess-x"),
+    ),
+    (
+        "checkpoint_rewind._sync_session_messages(find)",
+        lambda: checkpoint_rewind._sync_session_messages(
+            _auth_request(), "sess-x", [{"role": "user", "content": "x"}]
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "label,entry", _SESSION_LOOKUP_CASES, ids=[c[0] for c in _SESSION_LOOKUP_CASES]
+)
+async def test_session_lookup_offloads_redis_io(
+    monkeypatch: pytest.MonkeyPatch, label: str, entry: Callable[[], Any]
+) -> None:
+    seen_threads: list[str] = []
+
+    def _slow_load(_session_id: str) -> None:
+        seen_threads.append(threading.current_thread().name)
+        time.sleep(0.15)
+        return None
+
+    monkeypatch.setattr(agent_runtime, "_load_session_redis", _slow_load)
+
+    ticks = await _ticks_while(entry)
+
+    assert seen_threads, f"{label} 未走到 Redis 回填,夹具失去意义"
+    assert threading.current_thread().name not in seen_threads, (
+        f"{label} 的 Redis 回填仍在事件循环线程执行(seen={seen_threads})"
+    )
+    assert ticks >= 10, f"{label} 阻塞事件循环期间 ticker 只推进了 {ticks} 次"
+
+
+async def test_sync_session_messages_offloads_save(monkeypatch: pytest.MonkeyPatch) -> None:
+    """checkpoint_rewind 的 `_save_session_redis` 同样不得在事件循环里跑。"""
+    session = agent_runtime.SessionState(id="sess-save-x", botId="b", user_id="alice")
+    agent_runtime._sessions[session.id] = session
+    seen_threads: list[str] = []
+
+    def _slow_save(_session: agent_runtime.SessionState) -> None:
+        seen_threads.append(threading.current_thread().name)
+        time.sleep(0.15)
+
+    monkeypatch.setattr(agent_runtime, "_save_session_redis", _slow_save)
+    try:
+        ticks = await _ticks_while(
+            lambda: checkpoint_rewind._sync_session_messages(
+                _auth_request(), session.id, [{"role": "user", "content": "x"}]
+            )
+        )
+    finally:
+        agent_runtime._sessions.pop(session.id, None)
+
+    assert seen_threads, "未走到会话保存,夹具失去意义"
+    assert threading.current_thread().name not in seen_threads, (
+        f"会话保存仍在事件循环线程执行(seen={seen_threads})"
+    )
+    assert ticks >= 10, f"保存阻塞事件循环期间 ticker 只推进了 {ticks} 次"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

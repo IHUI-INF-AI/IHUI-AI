@@ -125,12 +125,12 @@ def list_compaction_events(
     return records[: max(1, min(int(limit), MAX_QUERY_LIMIT))]
 
 
-def _authorize_session(request: Request, session_id: str) -> tuple[str, bool]:
+async def _authorize_session(request: Request, session_id: str) -> tuple[str, bool]:
     """校验登录态 + 会话归属(与 checkpoint_rewind 语义一致,管理员豁免)。"""
     user_id = get_current_user_id_sync(request)
     role_id = getattr(request.state, "role_id", 0) or 0
     is_admin = int(role_id) >= 1
-    session = agent_runtime._find_session(session_id)
+    session = await agent_runtime.find_session_async(session_id)
     if session is not None:
         owner = getattr(session, "user_id", "") or ""
         if owner and owner != user_id and not is_admin:
@@ -158,7 +158,7 @@ async def list_compaction_history(
     limit: int = Query(50, ge=1, le=MAX_QUERY_LIMIT, description="返回条数(最新在前)"),
 ) -> dict[str, Any]:
     """返回指定会话的上下文压缩历史(时间倒序)与总次数。"""
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     with _lock:
         records = list(_history.get(session_id, []))
     total = len(records)

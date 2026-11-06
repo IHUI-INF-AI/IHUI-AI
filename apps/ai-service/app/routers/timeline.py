@@ -25,12 +25,12 @@ router = APIRouter(prefix="/timeline", tags=["timeline"])
 logger = logging.getLogger(__name__)
 
 
-def _authorize_session(request: Request, session_id: str) -> None:
+async def _authorize_session(request: Request, session_id: str) -> None:
     """校验会话归属:session 存在且属他人时拒绝(管理员除外)。"""
     user_id = get_current_user_id_sync(request)
     role_id = getattr(request.state, "role_id", 0) or 0
     is_admin = int(role_id) >= 1
-    session = agent_runtime._find_session(session_id)
+    session = await agent_runtime.find_session_async(session_id)
     if session is not None:
         owner = getattr(session, "user_id", "") or ""
         if owner and owner != user_id and not is_admin:
@@ -44,7 +44,7 @@ async def get_timeline(
     limit: int = Query(MAX_EVENTS, ge=1, le=MAX_EVENTS, description="返回事件上限"),
 ) -> dict[str, Any]:
     """返回指定会话的全部活动统一时间线(步骤/压缩/检查点/成本/注入拦截)。"""
-    _authorize_session(request, session_id)
+    await _authorize_session(request, session_id)
     data: dict[str, Any] = await aggregate_timeline(session_id, limit=limit)
     return {"code": 0, "message": "ok", "data": data}
 
