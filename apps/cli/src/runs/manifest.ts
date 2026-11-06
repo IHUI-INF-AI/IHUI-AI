@@ -15,7 +15,7 @@
  */
 
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, renameSync, statSync, writeFileSync, type Stats } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
@@ -47,15 +47,35 @@ export interface RunManifestOptions {
   cliVersion?: string | null
   now?: () => Date
   runId?: string
+  /** 测试注入。缺省用 statSync。读失败不是缺失时不得当成没有仓库。 */
+  stat?: (target: string) => Stats
 }
 
 const MANIFEST_DIR = join('.ihui-agent', 'state', 'runs')
 
-/** 从 start 向上找带 `.git`(目录或 gitfile)或 `pnpm-workspace.yaml` 的目录。 */
-export function findProjectRoot(start: string): string | null {
+function markerState(target: string, stat: (path: string) => Stats): 'present' | 'absent' | 'unreadable' {
+  try {
+    stat(target)
+    return 'present'
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent'
+    return 'unreadable'
+  }
+}
+
+/** 从 start 向上找带 `.git`(目录或 gitfile)或 `pnpm-workspace.yaml` 的目录。读不到标记时不改去上一层。 */
+export function findProjectRoot(start: string, stat: (path: string) => Stats = statSync): string | null {
   let dir = resolve(start)
   for (;;) {
-    if (existsSync(join(dir, '.git')) || existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir
+    const git = markerState(join(dir, '.git'), stat)
+    const workspace = markerState(join(dir, 'pnpm-workspace.yaml'), stat)
+    if (git === 'unreadable' || workspace === 'unreadable') {
+      throw new Error(`项目根标记读不到,不能把它说成没有再写到别的目录: ${dir}`)
+    }
+    if (git === 'present' || workspace === 'present') return dir
     const parent = dirname(dir)
     if (parent === dir) return null
     dir = parent
@@ -80,7 +100,7 @@ function safeCliVersion(): string | null {
 export function buildRunManifest(options: RunManifestOptions = {}): RunManifest {
   const cwd = options.cwd ?? process.cwd()
   const env = options.env ?? process.env
-  const root = findProjectRoot(cwd)
+  const root = findProjectRoot(cwd, options.stat ?? statSync)
   return {
     runId: options.runId ?? randomUUID(),
     startedAt: (options.now ?? (() => new Date()))().toISOString(),
