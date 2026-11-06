@@ -146,7 +146,7 @@ async function updateCheckinDeviceMap(
 }
 
 export default function CheckinPage() {
-  const t = useTranslations('checkin')
+  const t = useTranslations('checkinAssistant')
   // 2026-10-14 登录态门(与 /chat/favorites、/business-card/favorites 同型):
   // 冷启动时 bootstrap 的静默刷新与本页挂载请求赛跑,未拿到 access token 就发 GET
   // ⇒ 注定 401 ⇒ 整页被「加载失败」块替换。门先把挂载请求压到登录态确定之后。
