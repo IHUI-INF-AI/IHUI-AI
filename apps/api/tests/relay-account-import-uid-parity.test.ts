@@ -381,6 +381,35 @@ describe('T9 Y-24 稳定身份键:换票不换键、换账号必换键、缺材�
     expect(b).not.toBe(a)
   })
 
+  it('doubao:uid_tt 相同而会话票(sessionid)不同 ⇒ uid 相同(本票最初报障的那一支)', async () => {
+    const withUid = (sid: string, uidTt: string) =>
+      ({
+        source: 'chrome-cookie',
+        key: 'sessionid',
+        value: sid,
+        cookies: [
+          { name: 'sessionid', value: sid },
+          { name: 'uid_tt', value: uidTt },
+        ],
+      }) as never
+    const a = await importedUid('doubao', [withUid('syn-sid-A', 'syn-uidtt-1')])
+    const b = await importedUid('doubao', [withUid('syn-sid-B', 'syn-uidtt-1')])
+    expect(a).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(b).toBe(a)
+    // 换账号 ⇒ 必换键(不许把两枚豆包号并成一枚)
+    const other = await importedUid('doubao', [withUid('syn-sid-A', 'syn-uidtt-2')])
+    expect(other).not.toBe(a)
+  })
+
+  it('doubao:载荷里没有 uid_tt 族 ⇒ 如实回落旧口径,不硬造伪稳定键', async () => {
+    const bare = (sid: string) =>
+      ({ source: 'chrome-cookie', key: 'sessionid', value: sid, cookies: [] }) as never
+    const a = await importedUid('doubao', [bare('syn-sid-A')])
+    const b = await importedUid('doubao', [bare('syn-sid-B')])
+    expect(a).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(b).not.toBe(a)
+  })
+
   it('zcode:声明 customer_id 相同而票不同 ⇒ uid 相同;声明缺失才回落', async () => {
     const b = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
     const jwt = (claims: Record<string, unknown>) => `${b({ alg: 'none' })}.${b(claims)}.syn`
