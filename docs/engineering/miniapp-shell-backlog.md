@@ -432,7 +432,7 @@
 - 在册复制页 2 张：`pkg-ai/ai/agent`、`pkg-ai/ai/agent-detail`。
 - `pkg-ai/ai/conversation-import`：分类器已判 shell、台账未摘（S2「可从台账摘除」）。
 - `pkg-ai/ai-group/index`：2 节点（E1+SC1），台账未退休、S2 已提示可摘。
-- 已退休不在册：`pkg-ai/ai/chat`、`pkg-ai/ai/history`、`pkg-ai/ai-chat-detail/index`。
+- 已退休不在册：`pkg-ai/ai/history`、`pkg-ai/ai-chat-detail/index`。（`pkg-ai/ai/chat` 2026-11-06 并发合流后页内业务 JSX 回到 7，已按 S1 撤销退休、重新登记在册，见台账第 44 行）
 - 补派三张：`pkg-ai/ai-assistant-n8n/index`、`pkg-ai/agent-dialogue/index`、`pkg-ai/ai-career/index`。
 
 | route | LOC（台账 / 实测） | 节点 E+SC+F+T | 结论 |
