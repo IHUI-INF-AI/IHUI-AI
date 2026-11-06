@@ -14,6 +14,7 @@ import {
   type RumCollectorOptions,
   type RumEvent,
 } from '../collector'
+import { reportStartupMarks, startupMarkFields } from '../startup'
 
 function makeCollector(options: Partial<RumCollectorOptions> = {}): {
   collector: RumCollector
@@ -337,6 +338,35 @@ describe('RUM 采集：AI 指标与长任务', () => {
         value: original,
       })
     }
+  })
+})
+
+describe('启动点对照声明，没出现的点要列出来', () => {
+  it('漏掉的点不算全齐，声明或观测没量到也不记绿', () => {
+    expect(reportStartupMarks({ declared: ['boot', 'paint'], observed: ['boot'] })).toMatchObject({
+      disposition: 'incomplete',
+      reason: 'marks-missing',
+      missing: ['paint'],
+    })
+    expect(reportStartupMarks({ declared: ['boot'], observed: ['boot'] }).disposition).toBe(
+      'complete',
+    )
+    expect(reportStartupMarks({ declared: [], observed: [] }).reason).toBe('schema-empty')
+    expect(reportStartupMarks({ declared: null, observed: [] }).reason).toBe('schema-unmeasured')
+    expect(reportStartupMarks({ declared: ['boot'], observed: null }).reason).toBe(
+      'observation-unmeasured',
+    )
+    expect(reportStartupMarks({ declared: ['boot'], observed: ['boot', 'extra'] }).reason).toBe(
+      'undeclared-hit',
+    )
+  })
+
+  it('首屏没量到就上报缺失，不把 first-paint 写成已经打过', () => {
+    expect(startupMarkFields(null)).toEqual({
+      startup_mark_disposition: 'incomplete',
+      startup_marks_missing: 'first-paint',
+    })
+    expect(startupMarkFields(12)).toEqual({ startup_mark_disposition: 'complete' })
   })
 })
 

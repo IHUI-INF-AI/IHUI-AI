@@ -66,6 +66,24 @@ describe('sanitizeRumProps', () => {
     expect(props).toEqual({ app_start_ms: 120, platform: 'windows' })
   })
 
+  it('启动点结论只收三态，缺失名单里的空段整段丢掉', () => {
+    expect(
+      sanitizeRumProps({
+        startup_mark_disposition: 'incomplete',
+        startup_marks_missing: 'first-paint',
+      }),
+    ).toEqual({
+      startup_mark_disposition: 'incomplete',
+      startup_marks_missing: 'first-paint',
+    })
+    expect(
+      sanitizeRumProps({
+        startup_mark_disposition: 'green',
+        startup_marks_missing: 'first-paint,',
+      }),
+    ).toEqual({})
+  })
+
   it('非法平台值归一为 other，错误摘要被脱敏', () => {
     const props = sanitizeRumProps({
       platform: 'Mozilla/5.0',
