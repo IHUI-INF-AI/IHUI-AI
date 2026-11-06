@@ -66,6 +66,10 @@
  *       #   "需人工",把发布链卡在分叉上(2026-09-28 实测挡停约 3 小时)。
  *       #   声明它 = 该路径持有者说"本侧这一份是被取代的",整文件取对侧。
  *       #   纪律照抄 --take-ours:逐条声明、逐条打印、写进合并提交信息;不声明就仍是 needHuman。
+ *       #   值必须是**裸路径**:`<path>=<理由>` 是 --take-theirs-doc 那一族的形态,写到这里
+ *       #   整枚 token 按逐字路径查表永远查不到。2026-11-06 实测过这种"配了副不被消费的声明"
+ *       #   (调用方只读到"还需人工",读不到"你的声明没生效")⇒ 现与 doc 族共用同一条点名判序
+ *       #   (`staleSidePickRows`,§0.6 单一真相源):错道 / 未判定 / 未命中一律当场进 bad 点名。
  *   node scripts/union-converge.mjs --take-theirs-doc <path> [--take-theirs-doc <path>]...
  *       # 活文档专用(2026-10-27 补):该路径**整份 blob 取对侧**并跳过行级 union。
  *       #   立因:路径级 --take-theirs 对活文档**不生效** —— 1) 的活文档循环不问选边声明,
@@ -971,6 +975,81 @@ export function takeDocHas(docs, path) {
 export function takeDocReason(docs, path) {
   if (!(docs instanceof Map)) return ''
   return String(docs.get(path) ?? '').trim()
+}
+
+/**
+ * 声明式选边出口的「错道 / 未命中 / 未判定」点名判序 —— `--take-theirs-doc` / `--take-theirs` /
+ * `--take-ours` **三族共用这一份实现**(§0.6 单一真相源,不得再写第二份点名)。
+ *
+ * 立因(2026-11-06 实测,票「take-theirs 错道声明静默不消费」):此前这条判序只有 doc 族有
+ * (住在 `plan()` 里那段按 LIVE_DOCS 过滤的循环),路径族(`--take-theirs` / `--take-ours`)完全没有:
+ * 调用方把值写成 `README.en.md=<理由>`(那是 doc 族的形态,`union-converge` 的 doc 族才吃
+ * `<path>=<理由>`)时,整枚 token 被按**逐字路径**查表 ⇒ 永远查不到 ⇒ 一个字节都不消费,
+ * 而报告只会复读同一句「需人工 N」。也就是说"配了一副不被消费的声明"与"没配声明"在日志里
+ * 同形 —— 正是本仓点过名的「把没量到写成量到了」那一型(§0.3:配了清单 ≠ 这轮真放过东西)。
+ *
+ * 判序(一条声明只落一格,自上而下;`consumed === true` 的一条绝不进射程 —— 已生效的声明
+ * 不许被再判一遍,那是假红):
+ *   ① 值为空 ⇒ 未判定(连它指哪条路径都无从核对);
+ *   ② 路径族而值含 `=` ⇒ **错道**(本族按逐字路径消费;带理由的整份取代是 doc 族那型);
+ *   ③ 两侧都取不到该路径 blob ⇒ **未判定**(不记通过,也不冒充"路径不存在");
+ *   ④ doc 族而该路径不是活文档 ⇒ 未命中(行级 union 不覆盖它,该走 `--take-theirs`);
+ *   ⑤ 路径族而该路径是活文档 ⇒ 未命中(路径级选边到不了行级 union,该走 `--take-theirs-doc`);
+ *   ⑥ 其余(路径存在、族也对,本轮却没走到选边那一格)⇒ 未命中(清单陈旧或串档)。
+ * ④⑤ 互为反向,措辞与既有 doc 族逐字同形(T-Doc-e 钉过的那句不得漂)。
+ *
+ * 纯函数:事实(consumed / exists / 是否活文档)由调用方 `plan()` 现读后喂进来,本函数零 IO。
+ *
+ * @param {Array<{flag:string,value:string,consumed:boolean,exists?:boolean}>} picks
+ * @param {{liveDocs?:string[]}} [opts] 活文档清单(缺省取本模块 LIVE_DOCS 单源)
+ * @returns {string[]} 可直接并进 `plan()` 的 `bad` 清单(空数组 ⇒ 本轮声明全部真被消费)
+ */
+export function staleSidePickRows(picks, opts = {}) {
+  const list = Array.isArray(picks) ? picks : []
+  const liveDocs = Array.isArray(opts.liveDocs) ? opts.liveDocs : LIVE_DOCS
+  const rows = []
+  for (const d of list) {
+    if (!d || d.consumed === true) continue
+    const flag = String(d.flag ?? '')
+    const value = String(d.value ?? '')
+    const isDoc = flag === '--take-theirs-doc'
+    if (value.trim() === '') {
+      rows.push(`${flag} 未判定(声明值为空 ⇒ 无从核对它指的是哪条路径,不记通过)`)
+      continue
+    }
+    if (!isDoc && value.includes('=')) {
+      rows.push(
+        `${value} ${flag} 错道声明(本族按**逐字路径**查表,值里不得带 =<理由>;` +
+          `带理由的整份取代只有活文档族 --take-theirs-doc '<path>=<理由>' 才吃。` +
+          `该声明本轮一个字节都没被消费 ⇒ 不记通过,别把它读成"已放过这一路径")`,
+      )
+      continue
+    }
+    if (d.exists !== true) {
+      rows.push(
+        `${value} ${flag} 未判定(声明的路径两侧都取不到:路径不存在或对象不在本机)⇒ 不记通过`,
+      )
+      continue
+    }
+    if (isDoc && !liveDocs.includes(value)) {
+      rows.push(
+        `${value} --take-theirs-doc 声明未命中(该路径存在但不在活文档清单 ${liveDocs.join('/')} 里,行级 union 本就不覆盖它;整路径取对侧请改用 --take-theirs)⇒ 不记通过`,
+      )
+      continue
+    }
+    if (!isDoc && liveDocs.includes(value)) {
+      rows.push(
+        `${value} ${flag} 声明未命中(该路径是活文档,走 1) 的行级 union,路径级选边结构上到不了它;` +
+          `整份取对侧请改用 --take-theirs-doc '${value}=<理由>')⇒ 不记通过`,
+      )
+      continue
+    }
+    rows.push(
+      `${value} ${flag} 声明未命中(本轮该路径没有走到"两侧同改"的选边那一格 ⇒ 清单属陈旧或串档,` +
+        '没有任何东西因它被放过)⇒ 不记通过',
+    )
+  }
+  return rows
 }
 
 export function takeTheirsDocLoss(oursText, theirsText) {
@@ -2253,21 +2332,43 @@ export function plan(
     takeTheirsDocs,
     lenient,
   )
-  // --take-theirs-doc 的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西):
+  // 声明式选边的陈旧/错道声明必须当场点名(§0.3:配了清单 ≠ 这轮真放过东西)。
+  // 三族同一条判序(唯一实现 = 本模块 staleSidePickRows,§0.6):
   //  · 声明的路径两侧都取不到 ⇒ 未判定(不记通过);
-  //  · 声明的路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责,
-  //    --take-theirs-doc 只对"会被行级 union 覆盖选边"的活文档才有意义)。
-  // buildUnion 的活文档循环只遍历 LIVE_DOCS,不在清单里的声明那里永远看不见 ⇒ 只能在 plan() 这一层拦。
-  const staleDocPicks = []
-  for (const d of takeDocPaths(takeTheirsDocs)) {
-    if (LIVE_DOCS.includes(d)) continue
-    const exists = blobOf(ours, d, cwd) || blobOf(theirs, d, cwd)
-    staleDocPicks.push(
-      exists
-        ? `${d} --take-theirs-doc 声明未命中(该路径存在但不在活文档清单 ${LIVE_DOCS.join('/')} 里,行级 union 本就不覆盖它;整路径取对侧请改用 --take-theirs)⇒ 不记通过`
-        : `${d} --take-theirs-doc 未判定(声明的路径两侧都取不到:路径不存在或对象不在本机)⇒ 不记通过`,
-    )
-  }
+  //  · doc 族:路径存在但不在活文档清单 ⇒ 未命中(该族整路径取对侧本就由 --take-theirs 负责);
+  //  · 路径族(--take-theirs / --take-ours):值写成 '<path>=<理由>' ⇒ 错道,整枚 token 按逐字路径
+  //    查表永远查不到,此前**静默不消费**(2026-11-06 实测:调用方读到的是"还需人工",不是
+  //    "你的声明没生效");族与路径类型不匹配、本轮没走到选边那一格 ⇒ 未命中。
+  // buildUnion 的两条循环各自只遍历自己那一族(LIVE_DOCS / diffNames(base,theirs)),
+  // 落在射程外的声明在那里永远看不见 ⇒ 只能在 plan() 这一层按"消费了没有"拦。
+  const consumedOurs = new Set(built.keptOurs || [])
+  const consumedTheirs = new Set(built.keptTheirs || [])
+  const sidePicks = [
+    ...takeDocPaths(takeTheirsDocs).map((d) => ({
+      flag: '--take-theirs-doc',
+      value: d,
+      // 活文档循环无条件遍历 LIVE_DOCS ⇒ 落在清单里的 doc 族声明本轮必被消费
+      //   ("对侧 blob 取不到"那一格由 buildUnion/verifyUnion 各自点名,不在此重复)。
+      consumed: LIVE_DOCS.includes(d),
+      // 落在清单里的那条已被消费 ⇒ 判序在第一条就跳过,不必问 blob 存在性(省两次 git)。
+      exists: LIVE_DOCS.includes(d)
+        ? true
+        : Boolean(blobOf(ours, d, cwd) || blobOf(theirs, d, cwd)),
+    })),
+    ...[...(takeOurs || [])].map((v) => ({
+      flag: '--take-ours',
+      value: v,
+      consumed: consumedOurs.has(v),
+      exists: v.includes('=') ? undefined : Boolean(blobOf(ours, v, cwd) || blobOf(theirs, v, cwd)),
+    })),
+    ...[...(takeTheirs || [])].map((v) => ({
+      flag: '--take-theirs',
+      value: v,
+      consumed: consumedTheirs.has(v),
+      exists: v.includes('=') ? undefined : Boolean(blobOf(ours, v, cwd) || blobOf(theirs, v, cwd)),
+    })),
+  ]
+  const staleSidePicks = staleSidePickRows(sidePicks, { liveDocs: LIVE_DOCS })
   // 折叠层拒绝裁定的组必须以「未判定」进落地闸(2026-10-20):两版并存不是"没得折",而是"机器不敢猜"。
   // 让它静默通过 = 把下一次合并的裁定权交给并不在场的人;拦下来点名 = §0.10 要的那个方向。
   const ambiguousRows = []
@@ -2301,7 +2402,7 @@ export function plan(
       ...ambiguousRows,
       ...stalePickRows,
       ...staleLossRows,
-      ...staleDocPicks,
+      ...staleSidePicks,
     ],
     // 两条路径的"少带份数"合流:两侧同改的丢行分流(built.caps)+ 活文档行 union(vu.pointerCaps)。
     // 只接其中一条 = 台账这一族恰好无人点名,而那正是本票要防的形状。
@@ -2630,6 +2731,61 @@ function selfTest() {
        *    (取代是本侧持有者的决定,不是归并器的失误)。
        */
       const forcedT = plan(o2, t2, d2, new Set(), new Map(), new Set(['clash.ts']))
+      /**
+       * 变异臂(2026-11-06 立,票「take-theirs 错道声明静默不消费」):上面 T-a 钉的是"声明被消费",
+       * 这一臂钉的是"声明**没被**消费时必须自己喊出来"。四种形态各一条,且都成对留正向对照
+       * (§0.3:取不到输入 ⇒ 未判定;配了清单却空转 ⇒ 点名,绝不冒充"判过"):
+       *  ① 值写成 `<path>=<理由>`(那是 --take-theirs-doc 那一族的形态)⇒ 错道点名;
+       *  ② 声明一个两侧都没有的路径 ⇒ 未判定点名;
+       *  ③ 对活文档做路径级选边 ⇒ 未命中,并点名另一族(与 doc 族那条提示互为反向);
+       *  ④ 正控:T-a 那种被真消费的声明不得产生任何点名(已生效的再判一遍 = 假红)。
+       */
+      const wrongShape = plan(
+        o2,
+        t2,
+        d2,
+        new Set(),
+        new Map(),
+        new Set(['clash.ts=本侧这一份是被取代的那一份']),
+      )
+      ok(
+        'T-a2 变异臂①:--take-theirs 值写成 <path>=<理由> ⇒ 当场点名错道(不再只复读"需人工")',
+        () =>
+          wrongShape.bad.some(
+            (b) => b.includes('--take-theirs 错道声明') && b.includes('clash.ts'),
+          ) && wrongShape.needHuman.some((h) => h.path === 'clash.ts'),
+        JSON.stringify(wrongShape.bad),
+      )
+      const ghostOurs = plan(o2, t2, d2, new Set(['no-such-path.ts']))
+      ok(
+        'T-a3 变异臂②:--take-ours 声明两侧都取不到的路径 ⇒ 未判定点名(不记通过也不记"没声明过")',
+        () =>
+          ghostOurs.bad.some(
+            (b) =>
+              b.includes('no-such-path.ts') && b.includes('--take-ours') && b.includes('未判定'),
+          ),
+        JSON.stringify(ghostOurs.bad),
+      )
+      const onLiveDoc = plan(o2, t2, d2, new Set(), new Map(), new Set(['PROJECT_PLAN.md']))
+      ok(
+        'T-a4 变异臂③:对活文档做路径级选边 ⇒ 未命中点名,并给出 --take-theirs-doc 那条正解',
+        () =>
+          onLiveDoc.bad.some(
+            (b) =>
+              b.includes('PROJECT_PLAN.md') &&
+              b.includes('声明未命中') &&
+              b.includes('--take-theirs-doc'),
+          ),
+        JSON.stringify(onLiveDoc.bad),
+      )
+      ok(
+        'T-a5 正控:被真消费的声明不得被再判一遍(点名只给没消费的那些)',
+        () =>
+          !forcedT.bad.some(
+            (b) => b.includes('clash.ts') && (b.includes('错道') || b.includes('声明未命中')),
+          ),
+        JSON.stringify(forcedT.bad),
+      )
       ok(
         'T-a 声明 --take-theirs ⇒ 该路径整文件取对侧并点名(不藏在 tookTheirs 里)',
         forcedT.keptTheirs.includes('clash.ts') &&
@@ -4933,6 +5089,8 @@ export const __test__ = {
   // A6(2026-11-03):整份取对侧的零丢失判据只此一份,镜像测试直接 import,不得复算第二份
   takeTheirsDocLoss,
   takeDocPaths,
+  // 声明式选边三族共用的「错道/未命中/未判定」点名判序只此一份(§0.6),镜像测试直接问它
+  staleSidePickRows,
   resolveTargets,
   hasCommit,
   unreachableObjectGuidance,

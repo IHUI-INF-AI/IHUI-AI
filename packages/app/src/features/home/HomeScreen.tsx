@@ -17,7 +17,7 @@ import { useFontMultiplier } from '../../components/MoreLink'
 import { SectionHeader } from '../../components/SectionHeader'
 import { ScreenSkeleton } from '../../components/ScreenStates'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 export type { HomeRecommendItem, HomeLiveItem, HomeProgressItem, HomeMenuItem, HomeScreenProps }
 
@@ -308,7 +308,11 @@ function createStyles(tk: AppThemeTokens) {
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },
     greeting: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    welcome: { marginTop: rnSpacing['xs-loose'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    welcome: {
+      marginTop: rnSpacing['xs-loose'],
+      fontSize: rnType.bodySm.size,
+      color: tk.text.secondary,
+    },
     dot: { marginRight: rnSpacing.sm, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
@@ -325,7 +329,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    badgeText: { fontSize: rnType.badge.size, fontWeight: '700', color: '#FFFFFF' },
+    badgeText: {
+      fontSize: rnType.badge.size,
+      fontWeight: '700',
+      color: rnCssLight.dangerForeground,
+    },
     errorWrap: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -344,7 +352,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
     },
-    errorRetryText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
+    errorRetryText: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: rnCssLight.dangerForeground,
+    },
     section: { paddingHorizontal: rnSpacing.lg, marginTop: rnSpacing['2xl'] },
     sectionHeader: {
       flexDirection: 'row',
@@ -390,7 +402,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     tagLive: { backgroundColor: tk.danger.DEFAULT },
     tagUpcoming: { backgroundColor: tk.warning.DEFAULT },
-    tagText: { fontSize: rnType.label.size, fontWeight: '600', color: '#FFFFFF' },
+    tagText: { fontSize: rnType.label.size, fontWeight: '600', color: rnCssLight.dangerForeground },
     tagUpcomingText: { color: '#1A1A1A' },
     metaText: { marginTop: rnSpacing.xs, fontSize: rnType.bodySm.size, color: tk.text.secondary },
     metaTertiary: { marginTop: rnSpacing.xs, fontSize: rnType.label.size, color: tk.text.tertiary },
@@ -415,7 +427,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
     menuCell: {
       width: '33.333%',

@@ -23,6 +23,19 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
+import { formatInspection, inspectGenerated } from '../../../scripts/lib/generated-output-check.mjs'
+
+/**
+ * 两个出口:--check 只比对不落盘(退出码 0 新鲜 / 1 陈旧 / 2 用法错误);
+ * --write 或缺省 = 既有行为(生成并落盘)。缺省保持写是为了不破坏 pnpm gen:ui-routes 等既有调用。
+ */
+const ARGV = process.argv.slice(2)
+const UNKNOWN_ARGS = ARGV.filter((arg) => arg !== '--check' && arg !== '--write')
+if (UNKNOWN_ARGS.length > 0) {
+  console.error(`未知参数:${UNKNOWN_ARGS.join(' ')}(只支持 --check / --write)`)
+  process.exit(2)
+}
+const CHECK_MODE = ARGV.includes('--check')
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(webRoot, '..', '..')
@@ -161,6 +174,13 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
 ${routeLines.join('\n')}
 ]
 `
+
+if (CHECK_MODE) {
+  const verdict = inspectGenerated({ outFile, expected: content, label: 'apps/web/src/lib/ui-routes.generated.ts' })
+  console.log(formatInspection(verdict))
+  console.log(`  (${routes.length} 条路由;--check 不落盘)`)
+  process.exit(verdict.ok ? 0 : 1)
+}
 
 writeFileSync(outFile, content, 'utf8')
 console.log(`已生成 ${outFile}，共 ${routes.length} 条路由。`)

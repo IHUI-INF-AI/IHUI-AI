@@ -7,7 +7,7 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { BankCardItem, BankCardScreenProps } from '../../types'
 
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnCssLight, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -123,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
     holder: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
-      color: 'rgba(255,255,255,0.85)',
+      color: rnCssLight.white85,
     },
   })
 }

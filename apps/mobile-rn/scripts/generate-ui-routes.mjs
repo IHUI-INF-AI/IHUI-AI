@@ -20,6 +20,19 @@ import { fileURLToPath } from 'node:url'
 
 // 自述钉唯一实现(G-816040):inputsSha256 烘进产物头,门侧同面重算同集输入判陈旧
 import { renderPin } from '../../../scripts/lib/generated-input-pin.mjs' // arch-exempt: ui-routes 派生码生成脚本属构建工具面(非运行时依赖边),须与守门 105 自述钉共用同一 renderPin 源;正解=「工具支持层」在策略表建档并降到 apps 之下 until 2026-12-28
+import { formatInspection, inspectGenerated } from '../../../scripts/lib/generated-output-check.mjs'
+
+/**
+ * 两个出口:--check 只比对不落盘(退出码 0 新鲜 / 1 陈旧 / 2 用法错误);
+ * --write 或缺省 = 既有行为(生成并落盘 + 幂等水印注入)。
+ */
+const ARGV = process.argv.slice(2)
+const UNKNOWN_ARGS = ARGV.filter((arg) => arg !== '--check' && arg !== '--write')
+if (UNKNOWN_ARGS.length > 0) {
+  console.error(`未知参数:${UNKNOWN_ARGS.join(' ')}(只支持 --check / --write)`)
+  process.exit(2)
+}
+const CHECK_MODE = ARGV.includes('--check')
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(scriptDir, '..')
@@ -341,6 +354,18 @@ function main() {
   })
 
   const content = emitFile({ entries, stackCount, tabCount, pinLines })
+
+  if (CHECK_MODE) {
+    const verdict = inspectGenerated({
+      outFile,
+      expected: content,
+      label: 'apps/mobile-rn/src/constants/ui-routes.generated.ts',
+    })
+    console.info(formatInspection(verdict))
+    console.info(`  (${entries.length} 条 Screen;--check 不落盘)`)
+    process.exit(verdict.ok ? 0 : 1)
+  }
+
   mkdirSync(dirname(outFile), { recursive: true })
   writeFileSync(outFile, content, 'utf8')
 

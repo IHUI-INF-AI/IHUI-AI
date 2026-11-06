@@ -402,9 +402,683 @@ export function singleEndProps(info, rnText) {
   return info.injected.filter((name) => !new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=`).test(rnText))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 屏级契约(2026-11-07):单端 prop / 死契约 / 影子契约 / 未解析。
+//
+// WHY 独立成档:2026-11-06 形态门在 `业务 JSX > 2` 处提前 return,导致「重复 UI 段 / 单端 prop」
+// 两类证据在结构下限以上的页面**根本没算过** —— 页面被判成复制页就结束,契约面漏判。
+// 本档要求契约核对**无论形态结论如何都跑满全量**,四档各自出证据:
+//
+//   - 单端 prop  : 共享屏在 A 端被传了 prop X、B 端没传同名 prop(入口契约不对等);
+//   - 死契约     : 共享屏 props 类型里声明了 X,但两端都没传、屏内正文也没消费(只声明不消费);
+//   - 影子契约   : 声明与消费语义不一致 —— 声明是 X 类值(函数/布尔/字符串/数字/数组/对象),
+//                  消费端却传入另一类值;或消费端传了契约里**不存在**的 prop(消费的影子)。
+//   - 未解析     : 静态无法判定(共享屏正文/RN 对照读不到、props 类型解不开、属性展开、页面未渲染)。
+//
+// 判定纪律:
+//   ① 只有在页/屏两侧都拿到 AST 证据时才判单端/死/影子;拿不到 ⇒ 只进「未解析」,绝不折绿;
+//   ② props 类型解析失败/开放索引签名/未知 heritage ⇒ 整个屏记「未解析」,不猜;
+//   ③ `未解析` 也是回归制的判定档:新增未解析 = 新增盲区 ⇒ 红(不允许用“无法判定”换绿)。
+//   ④ 存量一律进基线(scripts/data/miniapp-shell-contract-baseline.json),只对新增做红。
+
+const CONTRACT_BUCKETS = ['single-end', 'dead', 'shadow', 'unresolved']
+export const CONTRACT_BASELINE = 'scripts/data/miniapp-shell-contract-baseline.json'
+const CONTRACT_AST_CACHE = new Map()
+const CONTRACT_RULE = { 'single-end': 'C1', dead: 'C2', shadow: 'C3', unresolved: 'C4' }
+
+function contractAst(text) {
+  if (typeof text !== 'string') return null
+  if (CONTRACT_AST_CACHE.has(text)) return CONTRACT_AST_CACHE.get(text)
+  let sf = null
+  try {
+    sf = ts.createSourceFile('contract.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  } catch {
+    sf = null
+  }
+  CONTRACT_AST_CACHE.set(text, sf)
+  if (CONTRACT_AST_CACHE.size > 800) CONTRACT_AST_CACHE.delete(CONTRACT_AST_CACHE.keys().next().value)
+  return sf
+}
+
+function normalizeRel(p) {
+  const out = []
+  for (const seg of String(p || '').split('/')) {
+    if (!seg || seg === '.') continue
+    if (seg === '..') out.pop()
+    else out.push(seg)
+  }
+  return out.join('/')
+}
+
+const CONTRACT_MODULE_ALIASES = [
+  ['@ihui/types', 'packages/types/src'],
+  ['@ihui/shared', 'packages/shared/src'],
+  ['@ihui/rn-app', 'packages/app/src'],
+  ['@ihui/api-client', 'packages/api-client/src'],
+]
+
+/** 模块说明符 → 仓内相对路径(只解析本仓相对路径与已知 workspace 别名;解不到返回 null)。 */
+function resolveContractModule(fromFile, spec) {
+  if (!spec) return { base: null, tails: [] }
+  // TS 的 NodeNext 写法用 `.js` 指向 `.ts` 源文件(仓内 types 包全量如此),必须先剥再试。
+  const clean = spec.replace(/\.(js|jsx)$/, '')
+  const tailsOf = (base) => [base, `${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`]
+  if (clean.startsWith('.')) {
+    const dir = String(fromFile || '').split('/').slice(0, -1).join('/')
+    const base = normalizeRel(`${dir}/${clean}`)
+    return { base: base || null, tails: base ? tailsOf(base) : [] }
+  }
+  for (const [prefix, target] of CONTRACT_MODULE_ALIASES) {
+    if (clean !== prefix && !clean.startsWith(`${prefix}/`)) continue
+    if (clean === prefix) return { base: target, tails: [`${target}/index.ts`, `${target}/index.tsx`] }
+    const tail = clean.slice(prefix.length + 1)
+    const base = normalizeRel(`${target}/${tail}`)
+    return { base, tails: tailsOf(base) }
+  }
+  return { base: null, tails: [] }
+}
+
+function readContractModule(ctx, fromFile, spec) {
+  const r = resolveContractModule(fromFile, spec)
+  if (!r.base) return { file: null, text: null }
+  for (const cand of r.tails) {
+    const txt = ctx.readFile(cand)
+    if (txt !== null) return { file: cand, text: txt }
+  }
+  return { file: null, text: null }
+}
+
+function hasExportModifier(st) {
+  return Boolean(st?.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword))
+}
+
+/**
+ * 在「文件 + 名字」维度定位类型声明(interface / type alias),跟随 import / re-export / export *。
+ * 解不到 ⇒ null(调用方记未解析,不许猜)。
+ */
+function findContractTypeDecl(ctx, sf, file, name, seen = new Set(), depth = 0) {
+  if (!name || depth > 6) return null
+  const key = `${file || '<inline>'}\u0000${name}`
+  if (seen.has(key)) return null
+  seen.add(key)
+  if (sf) {
+    for (const st of sf.statements) {
+      if ((ts.isInterfaceDeclaration(st) || ts.isTypeAliasDeclaration(st)) && st.name?.text === name) {
+        return { node: st, sf, file }
+      }
+    }
+  }
+  if (!sf || !file) return null
+  for (const st of sf.statements) {
+    if (ts.isImportDeclaration(st) && st.importClause) {
+      const nb = st.importClause.namedBindings
+      let imported = null
+      if (nb && ts.isNamedImports(nb)) {
+        for (const el of nb.elements) {
+          if (el.name.text === name) imported = el.propertyName?.text ?? name
+        }
+      }
+      if (!imported) continue
+      const next = readContractModule(ctx, file, st.moduleSpecifier?.text)
+      if (!next.file) continue
+      const r = findContractTypeDecl(ctx, contractAst(next.text), next.file, imported, seen, depth + 1)
+      if (r) return r
+    }
+    if (ts.isExportDeclaration(st)) {
+      const spec = st.moduleSpecifier?.text
+      if (st.exportClause && ts.isNamedExports(st.exportClause)) {
+        for (const el of st.exportClause.elements) {
+          if (el.name.text !== name) continue
+          const next = readContractModule(ctx, file, spec)
+          if (!next.file) continue
+          const r = findContractTypeDecl(ctx, contractAst(next.text), next.file, el.propertyName?.text ?? name, seen, depth + 1)
+          if (r) return r
+        }
+      } else if (!st.exportClause && spec) {
+        const next = readContractModule(ctx, file, spec)
+        if (!next.file) continue
+        const r = findContractTypeDecl(ctx, contractAst(next.text), next.file, name, seen, depth + 1)
+        if (r) return r
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 声明语义类别:只看**最外层类型节点**(旧实现用整段文本正则,`{ onSelect: () => void }`
+ * 这种对象类型里有回调会被误判成 function,把消费端传对象误报成影子契约)。
+ */
+function declaredKindOfType(typeNode, depth = 0) {
+  if (!typeNode || depth > 3) return 'unknown'
+  let n = typeNode
+  while (n && (ts.isParenthesizedTypeNode(n) || ts.isTypeOperatorNode(n) || ts.isOptionalTypeNode(n))) n = n.type
+  if (!n) return 'unknown'
+  if (ts.isFunctionTypeNode(n)) return 'function'
+  if (ts.isConstructorTypeNode(n)) return 'function'
+  if (n.kind === ts.SyntaxKind.BooleanKeyword) return 'boolean'
+  if (n.kind === ts.SyntaxKind.StringKeyword) return 'string'
+  if (n.kind === ts.SyntaxKind.NumberKeyword) return 'number'
+  if (ts.isArrayTypeNode(n)) return 'array'
+  if (ts.isTupleTypeNode(n)) return 'array'
+  if (ts.isTypeLiteralNode(n)) return 'object'
+  if (ts.isLiteralTypeNode(n)) {
+    const lit = n.literal
+    if (lit.kind === ts.SyntaxKind.TrueKeyword || lit.kind === ts.SyntaxKind.FalseKeyword) return 'boolean'
+    if (ts.isStringLiteral(lit) || ts.isNoSubstitutionTemplateLiteral(lit)) return 'string'
+    if (ts.isNumericLiteral(lit)) return 'number'
+    if (lit.kind === ts.SyntaxKind.NullKeyword) return 'null'
+    return 'unknown'
+  }
+  if (ts.isTypeReferenceNode(n)) {
+    const name = n.typeName.getText().split('.').pop()
+    if (name === 'TFunction' || name === 'Function') return 'function'
+    if (name === 'Array' || name === 'ReadonlyArray') return 'array'
+    if (name === 'Record' || name === 'Readonly') return 'object'
+    return 'unknown'
+  }
+  if (ts.isUnionTypeNode(n)) {
+    const kinds = [...new Set(n.types.map((t) => declaredKindOfType(t, depth + 1)))]
+    const concrete = kinds.filter((k) => k !== 'unknown' && k !== 'null')
+    return concrete.length === 1 ? concrete[0] : 'unknown'
+  }
+  if (ts.isIntersectionTypeNode(n)) {
+    const kinds = [...new Set(n.types.map((t) => declaredKindOfType(t, depth + 1)))]
+    const concrete = kinds.filter((k) => k !== 'unknown' && k !== 'null' && k !== 'object')
+    return concrete.length === 1 ? concrete[0] : 'object'
+  }
+  return 'unknown'
+}
+
+function exprKindOf(node) {
+  if (!node) return 'unknown'
+  switch (node.kind) {
+    case ts.SyntaxKind.ArrowFunction:
+    case ts.SyntaxKind.FunctionExpression:
+      return 'function'
+    case ts.SyntaxKind.TrueKeyword:
+    case ts.SyntaxKind.FalseKeyword:
+      return 'boolean'
+    case ts.SyntaxKind.StringLiteral:
+    case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
+      return 'string'
+    case ts.SyntaxKind.NumericLiteral:
+      return 'number'
+    case ts.SyntaxKind.ObjectLiteralExpression:
+      return 'object'
+    case ts.SyntaxKind.ArrayLiteralExpression:
+      return 'array'
+    case ts.SyntaxKind.NullKeyword:
+      return 'null'
+    case ts.SyntaxKind.JsxElement:
+    case ts.SyntaxKind.JsxSelfClosingElement:
+    case ts.SyntaxKind.JsxFragment:
+      return 'jsx'
+    default:
+      break
+  }
+  if (
+    ts.isPrefixUnaryExpression(node) &&
+    node.operator === ts.SyntaxKind.MinusToken &&
+    ts.isNumericLiteral(node.operand)
+  ) {
+    return 'number'
+  }
+  if (ts.isParenthesizedExpression(node)) return exprKindOf(node.expression)
+  return 'unknown'
+}
+
+function attrKindOf(a) {
+  const init = a?.initializer
+  if (!init) return 'boolean'
+  if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init)) return 'string'
+  if (ts.isJsxExpression(init)) return exprKindOf(init.expression)
+  return 'unknown'
+}
+
+function propNameOfMember(m) {
+  if (!m?.name) return null
+  if (ts.isIdentifier(m.name) || ts.isStringLiteral(m.name) || ts.isNumericLiteral(m.name)) return m.name.text
+  return null
+}
+
+function membersOfInterface(ctx, node, sf, file, seen, depth) {
+  const members = []
+  const known = new Set()
+  let openContract = false
+  let state = 'ok'
+  let reason = null
+  for (const m of node.members) {
+    if (ts.isIndexSignatureDeclaration(m)) {
+      openContract = true
+      continue
+    }
+    if (ts.isPropertySignature(m)) {
+      const name = propNameOfMember(m)
+      if (!name) continue
+      if (!known.has(name)) {
+        known.add(name)
+        members.push({ name, optional: Boolean(m.questionToken), kind: declaredKindOfType(m.type) })
+      }
+      continue
+    }
+    if (ts.isMethodSignature(m)) {
+      const name = propNameOfMember(m)
+      if (name && !known.has(name)) {
+        known.add(name)
+        members.push({ name, optional: Boolean(m.questionToken), kind: 'function' })
+      }
+    }
+  }
+  for (const h of node.heritageClauses ?? []) {
+    for (const t of h.types ?? []) {
+      const name = String(t.expression?.getText?.() ?? '').split('.').pop()
+      if (!name) {
+        openContract = true
+        continue
+      }
+      const decl = findContractTypeDecl(ctx, sf, file, name, seen, depth + 1)
+      if (!decl) {
+        openContract = true
+        continue
+      }
+      const sub = membersOfDecl(ctx, decl.node, decl.sf, decl.file, seen, depth + 1)
+      if (sub.state !== 'ok') {
+        state = sub.state
+        reason = sub.reason
+        openContract = true
+        continue
+      }
+      openContract = openContract || sub.openContract
+      for (const p of sub.members) {
+        if (known.has(p.name)) continue
+        known.add(p.name)
+        members.push(p)
+      }
+    }
+  }
+  return { state, reason, members, openContract }
+}
+
+function mergeMembersOfTypes(ctx, parts, sf, file, seen, depth) {
+  const merged = { state: 'ok', reason: null, members: [], openContract: false }
+  const known = new Set()
+  for (const part of parts) {
+    const r = resolvePropsTypeNode(ctx, part, sf, file, seen, depth + 1)
+    if (r.state !== 'ok') return { ...r, members: merged.members }
+    merged.openContract = merged.openContract || r.openContract
+    for (const p of r.members) {
+      if (known.has(p.name)) continue
+      known.add(p.name)
+      merged.members.push(p)
+    }
+  }
+  return merged
+}
+
+function membersOfDecl(ctx, node, sf, file, seen, depth) {
+  if (depth > 5) return { state: 'unresolved', reason: 'props-depth', members: [], openContract: true }
+  if (ts.isInterfaceDeclaration(node)) return membersOfInterface(ctx, node, sf, file, seen, depth)
+  if (ts.isTypeAliasDeclaration(node)) {
+    const t = node.type
+    if (ts.isTypeLiteralNode(t)) return membersOfInterface(ctx, t, sf, file, seen, depth)
+    if (ts.isIntersectionTypeNode(t)) return mergeMembersOfTypes(ctx, t.types, sf, file, seen, depth)
+    if (ts.isTypeReferenceNode(t)) return resolvePropsTypeNode(ctx, t, sf, file, seen, depth + 1)
+    return { state: 'unresolved', reason: 'props-shape-unsupported', members: [], openContract: true }
+  }
+  return { state: 'unresolved', reason: 'props-shape-unsupported', members: [], openContract: true }
+}
+
+function resolvePropsTypeNode(ctx, node, sf, file, seen, depth) {
+  let cur = node
+  while (cur && (ts.isParenthesizedTypeNode(cur) || ts.isTypeOperatorNode(cur))) cur = cur.type
+  if (!cur) return { state: 'unresolved', reason: 'props-shape-unsupported', members: [], openContract: true }
+  if (ts.isTypeLiteralNode(cur)) return membersOfInterface(ctx, cur, sf, file, seen, depth)
+  if (ts.isIntersectionTypeNode(cur)) return mergeMembersOfTypes(ctx, cur.types, sf, file, seen, depth)
+  if (ts.isTypeReferenceNode(cur)) {
+    const raw = cur.typeName.getText()
+    const name = raw.split('.').pop()
+    const fcLike = new Set(['FC', 'FunctionComponent', 'ComponentType', 'PropsWithChildren'])
+    if (fcLike.has(name) && cur.typeArguments?.length) {
+      const r = resolvePropsTypeNode(ctx, cur.typeArguments[0], sf, file, seen, depth)
+      if (name === 'PropsWithChildren' && r.state === 'ok' && !r.members.some((p) => p.name === 'children')) {
+        r.members = [...r.members, { name: 'children', optional: true, kind: 'unknown' }]
+      }
+      return r
+    }
+    const decl = findContractTypeDecl(ctx, sf, file, name, seen, depth)
+    if (!decl) return { state: 'unresolved', reason: 'props-type-unresolved', members: [], openContract: true }
+    return membersOfDecl(ctx, decl.node, decl.sf, decl.file, seen, depth + 1)
+  }
+  if (ts.isUnionTypeNode(cur)) return { state: 'unresolved', reason: 'props-union', members: [], openContract: true }
+  return { state: 'unresolved', reason: 'props-shape-unsupported', members: [], openContract: true }
+}
+
+function findContractComponent(sf, baseName) {
+  const direct = findExportedComponent(sf)
+  if (direct) return direct
+  const cands = []
+  for (const st of sf.statements) {
+    if (ts.isFunctionDeclaration(st) && st.name && hasExportModifier(st) && /Screen$/.test(st.name.text)) {
+      cands.push({ name: st.name.text, node: st })
+    }
+    if (ts.isVariableStatement(st) && hasExportModifier(st)) {
+      for (const d of st.declarationList.declarations) {
+        if (ts.isIdentifier(d.name) && /Screen$/.test(d.name.text)) cands.push({ name: d.name.text, node: d })
+      }
+    }
+  }
+  if (cands.length === 0) return null
+  const exact = cands.find((c) => c.name === baseName)
+  if (exact) return exact.node
+  if (cands.length === 1) return cands[0].node
+  return null
+}
+
+function paramsOfComponent(comp) {
+  if (!comp) return []
+  if (ts.isFunctionDeclaration(comp) || ts.isFunctionExpression(comp) || ts.isArrowFunction(comp)) {
+    return comp.parameters ?? []
+  }
+  if (ts.isVariableDeclaration(comp)) {
+    const init = comp.initializer
+    if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) return init.parameters ?? []
+    return []
+  }
+  return []
+}
+
+function propsTypeOfComponent(comp) {
+  if (!comp) return { reason: 'component-not-found' }
+  if (ts.isVariableDeclaration(comp)) {
+    const anno = comp.type
+    if (anno && ts.isTypeReferenceNode(anno)) {
+      const name = anno.typeName.getText().split('.').pop()
+      if (['FC', 'FunctionComponent', 'ComponentType'].includes(name) && anno.typeArguments?.length) {
+        return { node: anno.typeArguments[0] }
+      }
+    }
+  }
+  const params = paramsOfComponent(comp)
+  if (params.length === 0) return { zero: true }
+  const p = params[0]
+  if (!p?.type) return { reason: 'props-untyped' }
+  return { node: p.type }
+}
+
+function collectContractRefs(comp) {
+  const refs = new Set()
+  const spreads = new Set()
+  const skip = new Set(paramsOfComponent(comp))
+  let destructuredRest = false
+  for (const p of skip) {
+    if (p?.name && ts.isObjectBindingPattern(p.name)) {
+      if (p.name.elements.some((el) => el.dotDotDotToken)) destructuredRest = true
+    }
+  }
+  const walk = (n) => {
+    if (!n || skip.has(n)) return
+    if (ts.isInterfaceDeclaration(n) || ts.isTypeAliasDeclaration(n) || ts.isImportDeclaration(n)) return
+    if (typeof ts.isTypeNode === 'function' && ts.isTypeNode(n)) return
+    if (ts.isIdentifier(n)) refs.add(n.text)
+    if ((ts.isSpreadAssignment(n) || ts.isSpreadElement(n)) && ts.isIdentifier(n.expression)) {
+      spreads.add(n.expression.text)
+    }
+    ts.forEachChild(n, walk)
+  }
+  walk(comp)
+  return { refs, spreads, destructuredRest }
+}
+
+/**
+ * 解析共享屏 props 契约。
+ * @returns {{state:'ok'|'unresolved',reason:string|null,props:object[],openContract:boolean,used:Set<string>|null}}
+ */
+function extractScreenContract(ctx, sharedText, specRel, baseName) {
+  if (typeof sharedText !== 'string') return { state: 'unresolved', reason: 'shared-unreadable', props: [], openContract: true, used: null }
+  const sf = contractAst(sharedText)
+  if (!sf) return { state: 'unresolved', reason: 'shared-unreadable', props: [], openContract: true, used: null }
+  const comp = findContractComponent(sf, baseName)
+  if (!comp) return { state: 'unresolved', reason: 'component-not-found', props: [], openContract: true, used: null }
+  const info = propsTypeOfComponent(comp)
+  if (info.zero) return { state: 'ok', reason: null, props: [], openContract: false, used: new Set() }
+  if (!info.node) return { state: 'unresolved', reason: info.reason || 'props-untyped', props: [], openContract: true, used: null }
+  const r = resolvePropsTypeNode(ctx, info.node, sf, specRel, new Set(), 0)
+  if (r.state !== 'ok') return { ...r, props: [], used: null }
+  const refs = collectContractRefs(comp)
+  const allUsed = refs.destructuredRest || [...refs.spreads].length > 0
+  return {
+    state: 'ok',
+    reason: null,
+    props: r.members,
+    openContract: Boolean(r.openContract),
+    used: refs.refs,
+    allUsed,
+  }
+}
+
+/**
+ * 契约面的消费端局部名:在 sharedLocalNames 基础上补齐 barrel 别名
+ * (`import { PlazaScreen as SharedPlazaScreen } from '@ihui/rn-app'` —— 模块路径不含屏名,
+ * 旧实现只认路径命中,会把 RN 侧消费点整个漏掉,导致 rn-no-element 假未解析)。
+ * 仅对已知壳 barrel 放行别名,避免把同名无关组件当成共享屏。
+ */
+function contractLocalNames(sf, specs) {
+  const names = sharedLocalNames(sf, specs)
+  const bases = (specs || []).map((s) => String(s).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')).filter(Boolean)
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue
+    const mod = st.moduleSpecifier?.text || ''
+    if (!/^@ihui\/rn-app(\/|$)/.test(mod) && !mod.startsWith('@rn-shells')) continue
+    const nb = st.importClause.namedBindings
+    if (!nb || !ts.isNamedImports(nb)) continue
+    for (const el of nb.elements) {
+      if (el.propertyName && bases.includes(el.propertyName.text)) names.add(el.name.text)
+    }
+  }
+  return names
+}
+
+/** 页面/RN 对共享屏的实参面:属性名 → 传值语义类别集合;是否出现 `{...spread}`。 */
+function extractConsumerUsage(text, specs) {
+  if (typeof text !== 'string') return { state: 'missing', attrs: new Map(), spread: false }
+  const sf = contractAst(text)
+  if (!sf) return { state: 'unreadable', attrs: new Map(), spread: false }
+  const names = contractLocalNames(sf, specs)
+  const attrs = new Map()
+  let found = false
+  let spread = false
+  const walk = (n) => {
+    if (!n) return
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) {
+      if (names.has(jsxTag(n))) {
+        found = true
+        for (const a of attrsOf(n).properties) {
+          if (ts.isJsxAttribute(a)) {
+            const name = a.name.getText()
+            if (!attrs.has(name)) attrs.set(name, new Set())
+            attrs.get(name).add(attrKindOf(a))
+          } else {
+            spread = true
+          }
+        }
+      }
+      for (const c of n.children ?? []) walk(c)
+      return
+    }
+    ts.forEachChild(n, walk)
+  }
+  walk(sf)
+  return { state: found ? 'ok' : 'not-found', attrs, spread }
+}
+
+/**
+ * 屏级契约判定(纯函数,读文件走 ctx.readFile,保证与取材面同面)。
+ * @param {{route:string,file:string|null,pageText:string|null,sharedText:string|null,rnText:string|null,specs:string[],readFile?:(rel:string)=>string|null}} p
+ */
+export function analyzeScreenContract(p) {
+  const specs = p?.specs ?? []
+  const empty = { inScope: false, state: 'unresolved', reason: 'no-declared-spec', buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [] }, declared: 0 }
+  if (specs.length === 0) return empty
+  const ctx = { readFile: typeof p.readFile === 'function' ? p.readFile : () => null }
+  const specRel = specs[0]
+  const baseName = String(specRel).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
+  const unresolved = (code, why) => ({
+    inScope: true,
+    state: 'unresolved',
+    reason: code,
+    buckets: { 'single-end': [], dead: [], shadow: [], unresolved: [{ prop: code, why }] },
+    declared: 0,
+  })
+  if (typeof p?.pageText !== 'string') return unresolved('page-unreadable', '页面正文在该面读不到')
+  if (typeof p?.sharedText !== 'string') return unresolved('shared-unreadable', '共享屏正文在该面读不到')
+  const screen = extractScreenContract(ctx, p.sharedText, specRel, baseName)
+  if (screen.state !== 'ok') return unresolved(screen.reason || 'props-type-unresolved', `props 契约解不开(${screen.reason || 'unknown'})`)
+  const page = extractConsumerUsage(p.pageText, specs)
+  if (page.state === 'unreadable') return unresolved('page-unreadable', '页面正文解析失败')
+  if (page.state === 'not-found') return unresolved('page-no-element', '页面未渲染被声明的共享屏')
+  const rn = extractConsumerUsage(p.rnText, specs)
+  if (rn.state === 'missing') return unresolved('rn-missing', 'RN 对照正文在该面读不到')
+  if (rn.state === 'unreadable') return unresolved('rn-unreadable', 'RN 对照正文解析失败')
+  if (rn.state === 'not-found') return unresolved('rn-no-element', 'RN 消费点未渲染被声明的共享屏')
+  if (page.spread || rn.spread) return unresolved('spread', '实参含 {...spread},属性面不可静态枚举')
+
+  const declared = new Map(screen.props.map((x) => [x.name, x]))
+  const pageAttrs = page.attrs
+  const rnAttrs = rn.attrs
+  const buckets = { 'single-end': [], dead: [], shadow: [], unresolved: [] }
+  const allNames = new Set([...pageAttrs.keys(), ...rnAttrs.keys()])
+  for (const name of allNames) {
+    const d = declared.get(name)
+    if (!d) {
+      if (screen.openContract) continue
+      buckets.shadow.push({ prop: name, why: `消费端传了契约里不存在的 prop「${name}」` })
+      continue
+    }
+    const kinds = [...pageAttrs.get(name) ?? [], ...rnAttrs.get(name) ?? []].filter((k) => k && k !== 'unknown')
+    if (d.kind !== 'unknown' && kinds.length > 0 && kinds.some((k) => k !== d.kind)) {
+      buckets.shadow.push({ prop: name, why: `声明为 ${d.kind},消费端传入 ${kinds.join('/')}` })
+      continue
+    }
+    const inPage = pageAttrs.has(name)
+    const inRn = rnAttrs.has(name)
+    if (inPage !== inRn) {
+      buckets['single-end'].push({ prop: name, why: inPage ? '仅小程序页传,RN 未传' : '仅 RN 传,小程序页未传' })
+    }
+  }
+  const used = (name) => Boolean(screen.allUsed || screen.used?.has(name))
+  for (const d of screen.props) {
+    if (allNames.has(d.name)) continue
+    if (used(d.name)) continue
+    buckets.dead.push({ prop: d.name, why: '声明了但两端都没传、屏内正文也没消费' })
+  }
+  return {
+    inScope: true,
+    state: 'ok',
+    reason: null,
+    buckets,
+    declared: screen.props.length,
+    openContract: Boolean(screen.openContract),
+    passed: { page: pageAttrs.size, rn: rnAttrs.size },
+  }
+}
+
+/** 把逐行契约证据拍平成基线条目(一条 = route + 档 + prop)。 */
+export function contractItemsOf(rows) {
+  const items = []
+  for (const r of rows) {
+    const c = r?.contract
+    if (!c?.buckets) continue
+    for (const bucket of CONTRACT_BUCKETS) {
+      for (const hit of c?.buckets?.[bucket] ?? []) {
+        items.push({ route: r.route, bucket, prop: hit.prop, why: hit.why })
+      }
+    }
+  }
+  return items
+}
+
+export function contractKey(item) {
+  return `${item?.route ?? '?'}\u0000${item?.bucket ?? '?'}\u0000${item?.prop ?? '?'}`
+}
+
+/** 基线形状校验:四档枚举、字段齐全、key 唯一。返回问题清单(空 = 合法)。 */
+export function validateContractBaseline(entries) {
+  const bad = []
+  if (!Array.isArray(entries)) return [{ why: '基线条目必须是数组' }]
+  const seen = new Set()
+  for (const e of entries) {
+    if (!e || typeof e !== 'object') {
+      bad.push({ why: '基线条目不是对象' })
+      continue
+    }
+    const missing = ['route', 'bucket', 'prop', 'why'].filter((k) => typeof e[k] !== 'string' || !e[k])
+    if (missing.length) bad.push({ why: `基线条目缺字段 ${missing.join(',')}`, entry: e })
+    if (!CONTRACT_BUCKETS.includes(e.bucket)) bad.push({ why: `基线 bucket 非法: ${e.bucket}`, entry: e })
+    const key = contractKey(e)
+    if (seen.has(key)) bad.push({ why: `基线条目重复 key: ${key}`, entry: e })
+    seen.add(key)
+  }
+  return bad
+}
+
+/**
+ * 回归棘轮纯判定(不读盘)。
+ * - 新增命中(当前有、基线无)⇒ 红(C1..C4);
+ * - 基线有、当前无 ⇒ advisory(可收紧,不红);
+ * - 基线非法 ⇒ 红(C0)。
+ */
+export function evaluateContractRatchet(items, baseline) {
+  const badBaseline = validateContractBaseline(baseline)
+  const reds = badBaseline.map((b) => ({ rule: 'C0', why: b.why, row: b.entry ?? null }))
+  const base = new Map((Array.isArray(baseline) ? baseline : []).filter((e) => e && typeof e === 'object' && e.route && e.bucket && e.prop).map((e) => [contractKey(e), e]))
+  const current = new Map(items.map((i) => [contractKey(i), i]))
+  for (const i of items) {
+    if (base.has(contractKey(i))) continue
+    reds.push({ rule: CONTRACT_RULE[i.bucket] ?? 'C4', why: `新增屏级契约问题(${i.bucket}): ${i.route} · ${i.prop} —— ${i.why}`, row: i })
+  }
+  const advisories = []
+  for (const [key, e] of base) {
+    if (current.has(key)) continue
+    advisories.push({ rule: 'C5', why: `基线条目当前面无命中(可收紧): ${e.route} · ${e.bucket} · ${e.prop}` })
+  }
+  const byBucket = Object.fromEntries(CONTRACT_BUCKETS.map((b) => [b, items.filter((i) => i.bucket === b).length]))
+  return {
+    reds,
+    advisories,
+    stats: {
+      items: items.length,
+      baseline: base.size,
+      newItems: reds.filter((r) => r.rule !== 'C0').length,
+      stale: advisories.length,
+      byBucket,
+    },
+  }
+}
+
+/** 基线只许新增:已有条目逐字保留(含 why),只追加当前面无对应条目的新命中。 */
+export function mergeContractBaseline(existing, items, meta = {}) {
+  const bad = validateContractBaseline(existing)
+  if (bad.length) throw new Error(`基线条目非法,拒绝合并: ${bad[0].why}`)
+  const kept = existing.map((e) => ({ ...e }))
+  const keys = new Set(kept.map(contractKey))
+  const added = []
+  for (const i of items.slice().sort((a, b) => contractKey(a).localeCompare(contractKey(b)))) {
+    if (keys.has(contractKey(i))) continue
+    keys.add(contractKey(i))
+    added.push({ route: i.route, bucket: i.bucket, prop: i.prop, why: i.why })
+  }
+  return {
+    entries: [...kept, ...added],
+    added: added.length,
+    kept: kept.length,
+    meta,
+  }
+}
+
 /**
  * 单页分类(纯函数,供门/自测/台账生成共用)。
- * @param {{route:string,file:string|null,text:string|null,loc?:number,declaredSpecs?:string[],analysisSpecs?:string[],registry?:object|null,ambiguousNames?:string[],sharedText?:string|null,rnText?:string|null}} page
+ * @param {{route:string,file:string|null,text:string|null,loc?:number,declaredSpecs?:string[],analysisSpecs?:string[],registry?:object|null,ambiguousNames?:string[],sharedText?:string|null,rnText?:string|null,readFile?:(rel:string)=>string|null}} page
  */
 export function classifyPage(page) {
   const text = page?.text ?? null
@@ -418,6 +1092,7 @@ export function classifyPage(page) {
       reasonClass: 'undetermined',
       shellEntry: null,
       declaredSpecs: page?.declaredSpecs ?? [],
+      contract: null,
       note: '映射指向的页面文件在该面读不到',
     }
   }
@@ -431,6 +1106,7 @@ export function classifyPage(page) {
       reasonClass: 'undetermined',
       shellEntry: null,
       declaredSpecs: page?.declaredSpecs ?? [],
+      contract: null,
       note: '页面正文在该面读不到(不回落另一个面)',
     }
   }
@@ -448,6 +1124,7 @@ export function classifyPage(page) {
       reasonClass: null,
       shellEntry: hasShellImport(text) ? '@rn-shells' : null,
       declaredSpecs: [],
+      contract: null,
       note: '未被映射声明为镜像/委托 ⇒ 不在本判据射程',
     }
   }
@@ -455,13 +1132,27 @@ export function classifyPage(page) {
   const info = analyzePageForm(text, specsForAnalysis)
   const shellEntry = hasShellImport(text) ? '@rn-shells' : equivalentEntry(text, declared)
   const localDelta = DATA_LAYER_RE.test(codeOnly(text))
+  // 屏级契约核对先跑,且不受形态结论影响:此前 `业务 JSX > 2` / 未接入口两处提前 return
+  // 会在契约取证之前退出,导致“复制页”仅仅被点名、契约面从未被核对。现在先全量取证。
+  const contract = analyzeScreenContract({
+    route: page.route,
+    file: page.file,
+    pageText: text,
+    sharedText: page?.sharedText,
+    rnText: page?.rnText,
+    specs: specsForAnalysis,
+    readFile: page?.readFile,
+  })
+  const dup = hasDuplicatedUi(info, page?.sharedText)
+  const oneEnd = singleEndProps(info, page?.rnText)
   const evidence = {
     businessJsx: info.count,
-    duplicateUi: null,
+    duplicateUi: dup,
     injectedProps: [...info.injected],
-    singleEndProps: null,
+    singleEndProps: oneEnd,
+    contract,
   }
-  const asCopy = (note, duplicateUi = null) => ({
+  const asCopy = (note) => ({
     route: page.route,
     file: page.file,
     loc: page.loc ?? text.split('\n').length,
@@ -471,7 +1162,6 @@ export function classifyPage(page) {
     shellEntry: shellEntry || null,
     declaredSpecs: declared,
     ...evidence,
-    duplicateUi,
     note,
   })
   const asUndetermined = (note) => ({
@@ -504,19 +1194,16 @@ export function classifyPage(page) {
     }
     return asCopy(localDelta ? '有自有数据层痕迹的复制页' : '纯布局复制页(无自有数据层痕迹)')
   }
-  // 结构下限:计入宿主骨架豁免后仍 ≥3 ⇒ 复制。
+  // 结构下限:计入宿主骨架豁免后仍 ≥3 ⇒ 复制。注意:契约证据已在上方全量取证,
+  // 这里提前 return 只决定形态结论,不再丢契约面。
   if (info.count > 2) {
     return asCopy(`业务 JSX ${info.count} > 2(宿主骨架豁免后仍超结构下限)`)
   }
-  const dup = hasDuplicatedUi(info, page?.sharedText)
   if (dup === true) {
-    return asCopy('与共享屏存在零重复判据下的重复 UI 段', true)
+    return asCopy('与共享屏存在零重复判据下的重复 UI 段')
   }
-  const oneEnd = singleEndProps(info, page?.rnText)
   if (Array.isArray(oneEnd) && oneEnd.length > 0) {
-    const row = asCopy(`单端消费 prop(${oneEnd.join(',')}): 另一端未传同名 prop`, false)
-    row.singleEndProps = [...oneEnd]
-    return row
+    return asCopy(`单端消费 prop(${oneEnd.join(',')}): 另一端未传同名 prop`)
   }
   if (dup === null || oneEnd === null) {
     const why = [dup === null ? '共享屏正文读不到' : null, oneEnd === null ? 'RN 对照读不到' : null]
@@ -533,10 +1220,7 @@ export function classifyPage(page) {
     reasonClass: null,
     shellEntry: shellEntry || 'structural',
     declaredSpecs: declared,
-    businessJsx: info.count,
-    duplicateUi: false,
-    injectedProps: [...info.injected],
-    singleEndProps: [],
+    ...evidence,
     note: shellEntry
       ? `结构与 import 双证(业务 JSX ${info.count},零重复 UI 段,无单端 prop)`
       : `结构薄壳(业务 JSX ${info.count},零重复 UI 段,无单端 prop;未命中 import 入口)`,
@@ -631,6 +1315,7 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
         ambiguousNames: [...d.ambiguous],
         sharedText,
         rnText,
+        readFile: readText,
       }),
     )
   }

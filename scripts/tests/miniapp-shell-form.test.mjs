@@ -143,6 +143,13 @@ test('T5 真实仓 HEAD 面:当前复制页全部在册,门 exit 0', () => {
   assert.ok(j.stats.copy > 0, '存量复制页必须被数出来,否则射程存疑')
   assert.ok(j.stats.shell > 0, '薄壳页必须被数出来,否则阴性对照缺失')
   assert.equal(j.stats.ledgerRows, loadLedgerRows(ROOT).length)
+  // 屏级契约四档:存量全部在基线内 ⇒ 新增红必须为 0;基线非空(否则等于无基准)。
+  assert.ok(j.stats.contract, '屏级契约四档必须报数')
+  assert.ok(j.stats.contract.baseline > 0, '屏级契约基线不得为空')
+  assert.equal(j.stats.contract.newItems, 0, '存量在册后不得有新增契约红')
+  for (const b of ['single-end', 'dead', 'shadow', 'unresolved']) {
+    assert.equal(typeof j.stats.contract.byBucket[b], 'number')
+  }
 })
 
 test('T6 射程真覆盖:真实仓同时存在复制页与薄壳页(对照材质)', () => {
