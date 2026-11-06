@@ -49,6 +49,9 @@ import {
   type AttributionMessage,
 } from '@ihui/shared/utils/context-attribution'
 import type { SegmentLabelKey } from '@ihui/types'
+// 批次 3(2026-11-06):服务端七类账本（进入会话/每轮 usage 后查询；不可得时回退客户端归因）
+import { ContextLedgerPanel } from './context-ledger-panel'
+import type { ContextLedgerRecord } from '@/hooks/use-chat/context-ledger'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
@@ -381,6 +384,14 @@ export function ContextUsageRing({
   const conversationId = chatStore((s) => s.conversationId)
   const usageByMessageId = chatStore((s) => s.usageByMessageId)
   const translateDetail = useDetailLabelTranslator()
+  // 批次 3:最近 20 轮账本里被点选的那一轮；有值时大圆环切到该轮的服务端口径。
+  // latestLedger=服务端最新一轮：账本可得时主圆环默认优先采信它，缺账本才回退客户端估算。
+  const [selectedLedger, setSelectedLedger] = React.useState<ContextLedgerRecord | null>(null)
+  const [latestLedger, setLatestLedger] = React.useState<ContextLedgerRecord | null>(null)
+  React.useEffect(() => {
+    setSelectedLedger(null)
+    setLatestLedger(null)
+  }, [conversationId])
 
   const maxTokens = React.useMemo(() => getModelContextCapacity(model), [model])
 
@@ -411,6 +422,12 @@ export function ContextUsageRing({
 
   const usedTokens = attribution.totalTokens
   const ratio = maxTokens > 0 ? usedTokens / maxTokens : 0
+  // 点选历史轮次时，圆环一律用服务端账本的 used/limit 与已算好的 percentage，
+  // 端内不再以 contextLimit 作除数（口径与 clamp 都是服务端单源）。
+  const ledgerView = selectedLedger ?? latestLedger
+  const ringUsedTokens = ledgerView ? ledgerView.usedTokens : usedTokens
+  const ringMaxTokens = ledgerView ? ledgerView.contextLimit : maxTokens
+  const ringRatio = ledgerView ? ledgerView.percentage / 100 : ratio
   const messageCount = messages.filter(
     (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
   ).length
@@ -699,11 +716,11 @@ export function ContextUsageRing({
 
             {/* 大圆环 + 模型信息 */}
             <div className="flex items-center gap-4">
-              <PanelRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+              <PanelRing ratio={ringRatio} usedTokens={ringUsedTokens} maxTokens={ringMaxTokens} />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-label">
                 <StatRow label={t('currentModel')} value={model} truncate />
-                <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
-                <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
+                <StatRow label={t('used')} value={formatTokenCount(ringUsedTokens)} mono />
+                <StatRow label={t('max')} value={formatTokenCount(ringMaxTokens)} mono />
                 <StatRow label={t('messages')} value={String(messageCount)} mono />
                 {/* B 节(2026-09-30):今日额度行 —— 收到过 budget 帧才渲染,不假装有任何进度;
                     percent 走 budgetBarPercent(与 ContextBudgetBar 同源同式),tier 是服务端
@@ -893,6 +910,14 @@ export function ContextUsageRing({
                 )}
               </div>
             </div>
+
+            {/* 批次 3:服务端七类账本主视图；不可得时上面的客户端归因即兜底 */}
+            <ContextLedgerPanel
+              conversationId={conversationId}
+              refreshKey={usageByMessageId}
+              onSelect={setSelectedLedger}
+              onLatestChange={setLatestLedger}
+            />
 
             {/* 压缩区 */}
             <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
