@@ -23,8 +23,21 @@
 # (无进程)。若需启用,先在本机原生方式起好 otel-collector(8888) 与 Jaeger(16686)。
 # ============================================================================
 #
-# 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒
-# 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 :latest 是本地 tag,非外部拉取
+# 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒。
+#
+# 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 tag 走 IHUI_IMAGE_TAG
+# (BUG-0058,2026-11-07 立;变量名沿用 deploy/saas 既有约定):
+#
+#   IHUI_IMAGE_TAG=$(git rev-parse --short HEAD) docker compose build && docker compose up -d
+#
+# 为什么不再是写死的 :latest —— 这 4 个镜像都是本仓 build: 产物(无 registry 推送,CI 侧
+# build.yml 是 push:false,package.json 版本恒为 0.0.0,仓库不存在可引用的语义化版本号)。
+# 写死 :latest 的实际后果不是"引来投毒"(本地 tag 不会被远端覆盖),而是三个可追溯性缺口:
+#   ① 每次 build 覆盖同名 tag ⇒ 回滚没有可指的旧引用;
+#   ② 无法回答"正在跑的是哪一次提交构建出来的";
+#   ③ 一旦将来给 CI 加上 push:true,:latest 会被原样推上公网,变成真正的漂移源。
+# 默认值 local 是**非版本占位**(语义 = 本机构建产物,不得用于生产),不是猜出来的版本号;
+# 发布/回滚必须显式注入 IHUI_IMAGE_TAG=某个 git sha 或发布 tag。
 # ============================================================================
 # 可观测性服务 Profile(2026-07-25 立)
 # ============================================================================
@@ -39,7 +52,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.api
-    image: ihui-api:latest
+    image: ihui-api:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-api
     restart: unless-stopped
     environment:
@@ -145,7 +158,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.api
-    image: ihui-api:latest
+    image: ihui-api:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-worker
     restart: unless-stopped
     command: ['node', 'apps/api/dist/worker-entry.js']
@@ -208,7 +221,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.web
-    image: ihui-web:latest
+    image: ihui-web:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-web
     restart: unless-stopped
     environment:
@@ -237,7 +250,7 @@ services:
     build:
       context: ./apps/ai-service
       dockerfile: Dockerfile
-    image: ihui-ai-service:latest
+    image: ihui-ai-service:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-ai-service
     restart: unless-stopped
     ports:
@@ -324,7 +337,7 @@ services:
     build:
       context: .
       dockerfile: deploy/docker/Dockerfile.migrate
-    image: ihui-migrate:latest
+    image: ihui-migrate:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-migrate
     environment:
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}

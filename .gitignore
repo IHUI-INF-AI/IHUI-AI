@@ -219,6 +219,16 @@ scripts/.ihui-agent/*
 /.ihui-agent/archive/*
 !/.ihui-agent/archive/PROJECT_PLAN_*.md
 !/.ihui-agent/archive/AGENTS_*.md
+# 守门判据腐烂基线(BUG-0056,2026-11-07 立)。它是"守门注册表/judgement-libs 里点名的
+# 脚本 vs 磁盘上的路径"这一格读数的纯函数结果,与机器无关、任何 clone 都可复现 —— 因此
+# 属于可审计锚点(G-173 同条规矩),不是纯机器状态。
+# 不入库的代价不是"门不跑",而是方向更隐蔽:新环境 baseline=undetermined ⇒ 当下每条腐烂
+# 都按新增报(门必红),人只能重新 --write-baseline 认账;而认账那一刻会把当时**所有**腐烂
+# (含真正的本次新增)一次性写进基线,此后 ratchet 再也标不出它们 —— 门被永久洗白。
+# 故只放行这一枚文件,state/ 其余运行时状态仍整目录忽略。
+!/.ihui-agent/state/
+/.ihui-agent/state/*
+!/.ihui-agent/state/gate-rot-baseline.json
 .qoder/
 # 2026-10-19 补(门 44 同上):第三方 AI 工具 CodeArts Doer 在本仓的工作目录,
 # 与上面 .qoder/ .trae/ .superpowers/ 同一口径 —— 工具自有配置/技能/记忆,不是本仓产物。
