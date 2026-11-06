@@ -230,6 +230,22 @@ def test_wiki_text_never_contains_sensitive_file_content(fake_llm, tmp_path, mon
     assert "public readme" in text, "非敏感文件应正常进入文本(证明扫描没被整体打死)"
 
 
+def test_unreadable_cache_is_not_replaced(fake_llm, workspace):
+    """缓存路径是目录时,不能把它换成一份新摘要。"""
+    repo_wiki_engine.clear_wiki_cache()
+    cache = repo_wiki_engine._cache_file(workspace, workspace)
+    os.makedirs(cache)
+    marker = os.path.join(cache, "keep.txt")
+    with open(marker, "w", encoding="utf-8") as fh:
+        fh.write("keep")
+    text = asyncio.run(repo_wiki_engine.ensure_wiki(workspace, workspace))
+    assert text
+    assert "SUMMARY[README.md]" in text
+    assert os.path.isdir(cache)
+    with open(marker, encoding="utf-8") as fh:
+        assert fh.read() == "keep"
+
+
 def test_ihui_wiki_disable_hard_switch_still_wins(fake_llm, workspace, monkeypatch):
     """IHUI_WIKI_DISABLE=1 仍是最高优先级硬开关(不放宽任何情况下都生效)。"""
     repo_wiki_engine.clear_wiki_cache()

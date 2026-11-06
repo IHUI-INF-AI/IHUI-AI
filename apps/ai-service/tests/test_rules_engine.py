@@ -323,6 +323,23 @@ class TestCRUD:
     def test_delete_nonexistent_returns_false(self, engine):
         assert engine.delete("nonexistent") is False
 
+    def test_unreadable_rule_is_not_dropped(self, engine, monkeypatch):
+        rule = engine.create({"name": "Keep Me", "content": "stay"})
+        path = os.path.join(engine._rules_dir, f"{rule.id}.md")
+        original = open(path, encoding="utf-8").read()
+        real_stat = os.stat
+
+        def fake_stat(target, *args, **kwargs):
+            if os.path.abspath(target) == os.path.abspath(path):
+                raise PermissionError(13, "denied", target)
+            return real_stat(target, *args, **kwargs)
+
+        monkeypatch.setattr(re_module.os, "stat", fake_stat)
+        assert engine.delete(rule.id) is False
+        monkeypatch.undo()
+        assert engine.get(rule.id) is not None
+        assert open(path, encoding="utf-8").read() == original
+
     def test_reload_picks_up_new_files(self, engine, rules_dir):
         """reload 热加载新文件。"""
         # 手动写一个 .md 文件

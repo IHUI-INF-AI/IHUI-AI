@@ -737,6 +737,26 @@ def test_persist_sync_resets_dirty(store: VectorMemoryStore):
     assert store._dirty is False
 
 
+def test_unreadable_archive_is_not_overwritten(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    path = tmp_path / "memory.json"
+    path.write_bytes(b'{"entries":{"keep":1}}\n')
+    original = path.read_bytes()
+    store = VectorMemoryStore(persist_path=str(path))
+    assert store._hydrated is False
+    store._dirty = True
+    real_stat = os.stat
+
+    def fake_stat(target, *args, **kwargs):
+        if os.path.abspath(target) == os.path.abspath(path):
+            raise PermissionError(13, "denied", target)
+        return real_stat(target, *args, **kwargs)
+
+    monkeypatch.setattr(vm_mod.os, "stat", fake_stat)
+    store._persist_sync({"entries": {}, "vectors": {}})
+    assert path.read_bytes() == original
+    assert store._dirty is True
+
+
 def test_persist_sync_creates_parent_dir(tmp_path):
     """_persist_sync 自动创建父目录(不报错)。"""
     path = str(tmp_path / "subdir" / "nested" / "mem.json")
