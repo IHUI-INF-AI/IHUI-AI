@@ -8,7 +8,8 @@
  * 判据全部 import 生产实现(§22c),不复制算法。钉三件事:
  *   ① 账本解析口径(撕裂行/中间坏行/时间字段/近窗自报);
  *   ② 三分类判定(always 必产 / conditional 条件产 / none 不参与)与三态聚合;
- *   ③ **恒红门反向锁**:条件产腿合法静默必须 ok,派发戳只作旁证不参与三态。
+ *   ③ **恒红门反向锁**:条件产腿「运行但静默」必须 drift 且点名,不许折成 ok
+ *      (2026-11-07 收紧;原判据把它读成"合法静默")。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -120,15 +121,17 @@ test('T10 always 腿账一次都没产过 ⇒ drift(不是 unjudged)', () => {
   assert.equal(r.state, 'drift')
 })
 
-test('T11 恒红门反向锁:conditional 静默超窗 + 无自报 ⇒ ok', () => {
+test('T11 恒红门反向锁:conditional 静默超窗 + 无自报 ⇒ drift(运行但静默,不折成 ok)', () => {
   const r = classifyLegOutputs({
     legs: [leg()],
     ledgers: { 'x.jsonl': row('2026-10-01T00:00:00.000Z') + '\n' },
     stamps: { 'x-dispatch-last.json': { attemptAtMs: NOW - 60_000 } },
     now: NOW,
   })
-  assert.equal(r.state, 'ok', '条件产腿合法静默被判红 ⇒ 尺子会被整片放宽,比没有尺子更坏')
-  assert.match(r.rows[0].why, /合法静默/)
+  assert.equal(r.state, 'drift', '静默超窗但无自报 = 运行但静默,判 ok 等于让真静默蒙混过关')
+  assert.match(r.rows[0].why, /运行但静默/, '必须带具名原因')
+  assert.match(r.rows[0].why, />1440min/, '必须点名实际静默时长已越过 ceiling')
+  assert.match(r.rows[0].why, /派发戳 1min 前/, '戳只作旁证但须在读数里')
 })
 
 test('T12 dep-radar 真况回放:静默 + 日志自报未判定 ⇒ unjudged 点名输入面断链', () => {
@@ -152,7 +155,7 @@ test('T13 conditional 账内近窗自报未判定同样顶起 unjudged(不依赖
   assert.equal(r.state, 'unjudged')
 })
 
-test('T14 conditional 账空无基线 ⇒ unjudged,不冒充合法静默', () => {
+test('T14 conditional 账空无基线 ⇒ unjudged,不冒充静默合法', () => {
   const r = classifyLegOutputs({ legs: [leg()], ledgers: { 'x.jsonl': '' }, now: NOW })
   assert.equal(r.state, 'unjudged')
   assert.match(r.rows[0].why, /无基线/)

@@ -18,7 +18,9 @@
  * 判据三分类(登记表 scripts/data/autonomy-leg-liveness.json 的 outputKind 是唯一真源):
  *   · always      : 静默超窗 ⇒ drift(每轮必写却没写,可整改)
  *   · conditional : 静默超窗 **且** 近窗自报未判定 ⇒ unjudged(输入面断链,点名给修法);
- *                   静默超窗但无自报 ⇒ ok(合法静默)
+ *                   静默超窗但**无自报** ⇒ drift(运行但静默:账停更、器物又没自报断链,
+ *                   无法证明"本轮本来就不该产"⇒ 不得折成 ok。2026-11-07 收紧:
+ *                   原判据把"超窗不出声"读成合法静默,等于让真静默蒙混过关)
  *   · none / coveredBy : n/a,不参与三态
  * 形状坏行、登记表字段腐烂、账读不到 ⇒ 一律 unjudged(§0.3:不拿「没判」冒充「判过」)。
  * 派发戳只作 readout 旁证,**绝不参与三态**(与 A11 同规:戳只记 attemptAt,不记结论)。
@@ -158,7 +160,7 @@ export function classifyLegOutputs({ legs, ledgers = {}, stamps = {}, selfReport
       rows.push(
         kind === 'always'
           ? { ...base, state: 'drift', why: `每轮必写的产出账一条都没有 ⇒ 零产出${stampTail}` }
-          : { ...base, state: 'unjudged', why: `条件产腿一次都没产过、无基线 ⇒ 合法静默与漏产分不出${stampTail}` },
+          : { ...base, state: 'unjudged', why: `条件产腿一次都没产过、无基线 ⇒ 静默与漏产分不出${stampTail}` },
       )
       continue
     }
@@ -174,8 +176,8 @@ export function classifyLegOutputs({ legs, ledgers = {}, stamps = {}, selfReport
     const selfReported = selfReports[id] === true || p.undetermined > 0
     rows.push(
       selfReported
-        ? { ...base, state: 'unjudged', why: `条件产腿静默 ${base.ageMin}min 且近窗自报未判定 ⇒ 采集输入面断链,不是合法静默${stampTail}` }
-        : { ...base, state: 'ok', why: `条件产腿静默 ${base.ageMin}min 但无自报未判定 ⇒ 合法静默${stampTail}` },
+        ? { ...base, state: 'unjudged', why: `条件产腿静默 ${base.ageMin}min 且近窗自报未判定 ⇒ 采集输入面断链(不是有产出,也不是静默合法)${stampTail}` }
+        : { ...base, state: 'drift', why: `条件产腿静默 ${base.ageMin}min(>${Math.round(leg.silenceCeilingMs / 60_000)}min)且近窗无自报未判定 ⇒ 运行但静默:无法证明本轮不该产,不得判 ok(须补具名产出或按 outputKind 改口径)${stampTail}` },
     )
   }
   const drift = rows.filter((r) => r.state === 'drift')

@@ -43,7 +43,8 @@
  * 守护日志连续 5 天自报「未判定」(pnpm audit 继承守护进程失效代理 ⇒ stdout 空)。
  * 这一维按登记表 outputKind 三分类对账全部 12 腿:always 静默超窗 ⇒ drift;
  * conditional 静默超窗且**该腿最近一条日志**自报未判定 ⇒ unjudged(点名输入面);
- * 静默但无自报 ⇒ ok(合法静默,不许做成恒红门);none / coveredBy ⇒ n/a。
+ * conditional 静默超窗但**无自报** ⇒ drift(运行但静默,不得折成 ok —— 2026-11-07 收紧);
+ * none / coveredBy ⇒ n/a。
  * 判据单一真源 scripts/lib/autonomy-leg-output.mjs,本层只搬运输入:登记表按被审面取,
  * 产出台账/派发戳/守护日志是运行态只读盘上真值,日志 20MiB+ 只 tail 最近 4MiB。
  *
@@ -739,11 +740,15 @@ export function judgeLegOutputs(res) {
   const points = named
     .slice(0, 4)
     .map((r) => `${r.id.replace(/-dispatch-last\.json$/, '')}(${r.state}:${r.why})`)
-  // 全绿时也要把「哪几条是条件产腿的合法静默」写进读数:否则运维分不清
-  // "真有产出" 与 "本来就不该产",下一次就会被诱导去整片放宽判据。
-  const silentOk = res.rows.filter((r) => r.state === 'ok' && /合法静默/.test(r.why)).length
+  // 2026-11-07 收紧:条件产腿「运行但静默」已改判 drift,不再有"合法静默不顶红"尾巴。
+  // 这档必须逐条在 readout 里点名(带 ceiling 与派发戳龄),否则会以"条件产腿"名义被静默放过。
+  const conditionalSilent = res.rows.filter(
+    (r) => r.state === 'drift' && /运行但静默/.test(r.why),
+  ).length
   const silentTail =
-    res.state === 'ok' && silentOk > 0 ? ` ｜ 条件产腿合法静默 ${silentOk} 条(不顶红)` : ''
+    res.state === 'drift' && conditionalSilent > 0
+      ? ` ｜ 条件产腿运行但静默 ${conditionalSilent} 条(已按 drift 顶红,不折成 ok)`
+      : ''
   return {
     dim,
     state: res.state,
@@ -752,8 +757,8 @@ export function judgeLegOutputs(res) {
       res.state === 'ok'
         ? ''
         : res.state === 'drift'
-          ? '出路:① always 腿每轮必写却零产出 ⇒ 查器物写盘分支/守护派发点是否真跑到;② 与 A8 戳龄对照(戳新账静默 = 写入面断,戳也停 = 腿整体停摆);③ 不得删台账或调大 silenceCeilingMs 抹绿。登记表 = scripts/data/autonomy-leg-liveness.json'
-          : '出路:条件产腿「静默 + 近窗自报未判定」= 采集输入面断了,不是合法静默 ⇒ 先让器物拿得到输入(如 pnpm audit 被继承代理掐断 ⇒ 显式注入干净 env),再看下一轮自报是否消失;登记表字段腐烂/坏行则先修形状。不得删台账或整片放宽判据。',
+          ? '出路:① always 腿每轮必写却零产出 ⇒ 查器物写盘分支/守护派发点是否真跑到;② 条件产腿「静默超窗且无自报未判定」= 运行但静默:要么本轮确实无事可做(须在登记表按 outputKind/ceiling 显式改口径,不许直接抹绿),要么产出链断了 ⇒ 查该腿写盘与自报;③ 与 A8 戳龄对照(戳新账静默 = 写入面断,戳也停 = 腿整体停摆);④ 不得删台账或调大 silenceCeilingMs 抹绿。登记表 = scripts/data/autonomy-leg-liveness.json'
+          : '出路:条件产腿「静默 + 近窗自报未判定」= 采集输入面断了 ⇒ 先让器物拿得到输入(如 pnpm audit 被继承代理掐断 ⇒ 显式注入干净 env),再看下一轮自报是否消失;登记表字段腐烂/坏行则先修形状。不得删台账或整片放宽判据。',
   }
 }
 
@@ -2676,9 +2681,9 @@ async function selfTest() {
     })(),
   )
   ok(
-    'H55 恒红门反向锁:条件产腿合法静默 ⇒ A12 ok 且不顶红',
+    'H55 恒红门反向锁:条件产腿运行但静默 ⇒ A12 drift 顶红并点名该腿(不再折成 ok)',
     (() => {
-      const a12Ok = judgeLegOutputs(
+      const a12Drift = judgeLegOutputs(
         classifyLegOutputs({
           legs: [dep12],
           ledgers: depLedger12,
@@ -2695,9 +2700,14 @@ async function selfTest() {
         gatesText: g,
         events: { ok: true, events: [] },
         ticketRows: [{ text: 'a', line: 1 }],
-        outputAll: a12Ok,
+        outputAll: a12Drift,
       })
-      return a12Ok.state === 'ok' && a12Ok.readout.includes('合法静默') && r.state !== 'drift'
+      return (
+        a12Drift.state === 'drift' &&
+        a12Drift.readout.includes('运行但静默') &&
+        a12Drift.readout.includes('dep-radar') &&
+        r.state === 'drift'
+      )
     })(),
   )
   ok(
