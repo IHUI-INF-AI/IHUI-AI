@@ -14,6 +14,46 @@
   ],
   "targets": {
     "web": {
+      "agentCreate.title": {
+        "reason": "B2 同值异键收编(10ab23989ec,2026-11-05)把共享屏 AgentCreateScreen 的标题取词由 agentCreate.title 改指 canonical web 键 agent.createTitle;旧键按零删除口径留在五语言包,本端无静态引用属预期,非孤儿。摘键须与 B2 收编线同批,本席不删他人词条。",
+        "evidence": [
+          {
+            "file": "scripts/data/web-rn-copy-b2-plan.json",
+            "line": 1154,
+            "contains": "\"rnKey\": \"agentCreate.title\""
+          },
+          {
+            "file": "scripts/data/web-rn-copy-b2-plan.json",
+            "line": 1156,
+            "contains": "[\"agent.createTitle\"]"
+          },
+          {
+            "file": "packages/app/src/features/agent-create/AgentCreateScreen.tsx",
+            "line": 57,
+            "contains": "t('agent.createTitle')"
+          }
+        ]
+      },
+      "activityDetail.empty": {
+        "reason": "B2 同值异键收编(10ab23989ec,2026-11-05)把共享屏 ActivityDetailScreen 的缺数据文案由 activityDetail.empty 改指 canonical web 键 activities.notFound;旧键按零删除口径留在五语言包,本端无静态引用属预期,非孤儿。摘键须与 B2 收编线同批,本席不删他人词条。",
+        "evidence": [
+          {
+            "file": "scripts/data/web-rn-copy-b2-plan.json",
+            "line": 1444,
+            "contains": "\"rnKey\": \"activityDetail.empty\""
+          },
+          {
+            "file": "scripts/data/web-rn-copy-b2-plan.json",
+            "line": 1446,
+            "contains": "[\"activities.notFound\"]"
+          },
+          {
+            "file": "packages/app/src/features/activity-detail/ActivityDetailScreen.tsx",
+            "line": 43,
+            "contains": "t('activities.notFound')"
+          }
+        ]
+      },
       "eduCertificates.certificateNo": {
         "reason": "ba00a288ef 证书并套归并:edu/certificates 详情并入 canonical /certificate,旧 eduCertificates.* locale 键条目保留零删除(契约测试 family-i18n-contract 重指该决策),新文案走 certificate.detail.* —— 本端无静态引用属预期,非孤儿。",
         "evidence": [
