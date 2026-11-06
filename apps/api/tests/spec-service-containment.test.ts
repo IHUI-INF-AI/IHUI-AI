@@ -11,12 +11,22 @@
  * 钉住:登记根闸 fail-closed / branchName 白名单 / version 白名单 / 根内正常建分支
  * (闸不削合法能力,正向对照)。零网络、零 DB。
  */
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { copyOrPlaceholder } from '../src/services/registry-sync/config-migrator.js'
 import { specService } from '../src/services/spec-service.js'
+import { checkpointManager, permissionManager } from '../src/services/workspace-ai-service.js'
 import type { SpecScope } from '@ihui/shared'
 
 let scratchRoot: string
@@ -50,9 +60,7 @@ describe('spec-service 登记根闸', () => {
 
   it('IHUI_WORKSPACE_ROOTS 未登记 ⇒ fail-closed 拒绝', async () => {
     delete process.env.IHUI_WORKSPACE_ROOTS
-    await expect(
-      specService.listBranches(scratchRoot),
-    ).rejects.toThrow(/未启用/)
+    await expect(specService.listBranches(scratchRoot)).rejects.toThrow(/未启用/)
   })
 })
 
@@ -70,9 +78,9 @@ describe('spec-service 段白名单', () => {
   })
 
   it('loadSpec 的 version 含 `..` 穿越 ⇒ 拒绝(读侧同面)', async () => {
-    await expect(
-      specService.loadSpec(scratchRoot, scope, '../../some-evil'),
-    ).rejects.toThrow(/版本号/)
+    await expect(specService.loadSpec(scratchRoot, scope, '../../some-evil')).rejects.toThrow(
+      /版本号/,
+    )
   })
 
   it('mergeBranch / diffBranch 的 branchName 穿越同面拒绝', async () => {
@@ -102,5 +110,116 @@ describe('spec-service 正向对照(闸不削合法能力)', () => {
     expect(existsSync(join(scratchRoot, '.ihui-agent', 'specs', 'branches', 'feature-ok.md'))).toBe(
       true,
     )
+  })
+})
+
+describe('读不到不覆盖', () => {
+  function scratch(): string {
+    return mkdtempSync(join(tmpdir(), 'ihui-unread-'))
+  }
+
+  it('备份源是目录时不写空占位', async () => {
+    const dir = scratch()
+    try {
+      const src = join(dir, 'src')
+      const dst = join(dir, 'dst')
+      mkdirSync(src)
+      await expect(copyOrPlaceholder(src, dst)).rejects.toThrow(/读不到/)
+      expect(() => statSync(dst)).toThrow()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('备份源确实没有时才写空占位', async () => {
+    const dir = scratch()
+    try {
+      const dst = join(dir, 'dst')
+      await copyOrPlaceholder(join(dir, 'missing.txt'), dst)
+      expect(readFileSync(dst, 'utf8')).toBe('')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('检查点文件读不到时不覆盖', () => {
+    const dir = scratch()
+    try {
+      const file = join(dir, '.ihui', 'checkpoints.json')
+      mkdirSync(file, { recursive: true })
+      expect(() =>
+        checkpointManager.snapshot(dir, { tool: 'write', description: 'x', files: [] }),
+      ).toThrow(/读不到/)
+      expect(statSync(file).isDirectory()).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('权限规则读不到时不说成没有拒绝规则', () => {
+    const dir = scratch()
+    try {
+      const file = join(dir, '.claude', 'settings.json')
+      mkdirSync(file, { recursive: true })
+      expect(() => permissionManager.loadRules(dir)).toThrow(/读不到/)
+      expect(statSync(file).isDirectory()).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('分支索引读不到时不建分支、不覆盖索引', async () => {
+    const dir = scratch()
+    const saved = process.env.IHUI_WORKSPACE_ROOTS
+    process.env.IHUI_WORKSPACE_ROOTS = dir
+    const index = join(dir, '.ihui-agent', 'specs', 'branches', 'index.json')
+    mkdirSync(index, { recursive: true })
+    try {
+      await expect(
+        specService.createBranch({
+          scope,
+          workspacePath: dir,
+          branchName: 'feature-ok',
+          baseVersion: 'latest',
+        }),
+      ).rejects.toThrow(/读不到/)
+      expect(statSync(index).isDirectory()).toBe(true)
+      expect(() =>
+        statSync(join(dir, '.ihui-agent', 'specs', 'branches', 'feature-ok.md')),
+      ).toThrow()
+    } finally {
+      if (saved === undefined) delete process.env.IHUI_WORKSPACE_ROOTS
+      else process.env.IHUI_WORKSPACE_ROOTS = saved
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('主规格读不到时不用分支覆盖', async () => {
+    const dir = scratch()
+    const saved = process.env.IHUI_WORKSPACE_ROOTS
+    process.env.IHUI_WORKSPACE_ROOTS = dir
+    try {
+      const branch = await specService.createBranch({
+        scope,
+        workspacePath: dir,
+        branchName: 'feature-ok',
+        baseVersion: 'latest',
+      })
+      writeFileSync(
+        join(dir, '.ihui-agent', 'specs', 'branches', 'feature-ok.md'),
+        'branch body',
+        'utf8',
+      )
+      const main = join(dir, '.ihui-agent', 'specs', `${branch.specId}.md`)
+      mkdirSync(main, { recursive: true })
+      await expect(
+        specService.mergeBranch({ scope, workspacePath: dir, branchName: 'feature-ok' }),
+      ).rejects.toThrow(/读不到/)
+      expect(statSync(main).isDirectory()).toBe(true)
+    } finally {
+      if (saved === undefined) delete process.env.IHUI_WORKSPACE_ROOTS
+      else process.env.IHUI_WORKSPACE_ROOTS = saved
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

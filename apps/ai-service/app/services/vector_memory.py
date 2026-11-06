@@ -354,7 +354,15 @@ class VectorMemoryStore:
         if self._hydrated:
             return len(self._entries)
         if not os.path.isfile(self._persist_path):
-            self._hydrated = True
+            try:
+                os.stat(self._persist_path)
+            except FileNotFoundError:
+                self._hydrated = True
+                return 0
+            except OSError as exc:
+                logger.warning("向量记忆读不到,不能按空记忆覆盖: %s", exc)
+                return 0
+            logger.warning("向量记忆读不到,不能按空记忆覆盖: %s", self._persist_path)
             return 0
         # 内容损坏按空处理。读失败(权限/目录)不算空,也不标成已加载,避免随后覆盖。
         try:

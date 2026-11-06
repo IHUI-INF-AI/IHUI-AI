@@ -429,4 +429,46 @@ export function createProcessProbe(options: ProcessProbeOptions = {}): ProcessPr
     },
   }
 }
+
+export type BoundedJobVerdict = {
+  disposition: 'succeeded' | 'failed' | 'unjudged'
+  reason:
+    | 'exit-zero'
+    | 'exit-nonzero'
+    | 'deadline-exceeded'
+    | 'deadline-unmeasured'
+    | 'finished-unmeasured'
+    | 'exit-unmeasured'
+    | 'log-unmeasured'
+    | 'log-invalid'
+  exitCode: number | null
+}
+
+/**
+ * 可能挂死的系统调用必须带已量到的截止时间。
+ * 截止先到是未判定，不是失败，也不把对方的超时退出码当成结果。
+ * 主日志或降级日志都没量到，同样不算这次已经做完。本函数不派生进程。
+ */
+export function judgeBoundedSystemJob(input: {
+  deadlineSec: unknown
+  finished: unknown
+  exitCode: unknown
+  log: unknown
+}): BoundedJobVerdict {
+  const blank = (reason: BoundedJobVerdict['reason']): BoundedJobVerdict => ({
+    disposition: 'unjudged',
+    reason,
+    exitCode: null,
+  })
+  if (typeof input.deadlineSec !== 'number' || !Number.isInteger(input.deadlineSec) || input.deadlineSec < 1) {
+    return blank('deadline-unmeasured')
+  }
+  if (typeof input.finished !== 'boolean') return blank('finished-unmeasured')
+  if (!input.finished) return blank('deadline-exceeded')
+  if (input.log === null || input.log === undefined) return blank('log-unmeasured')
+  if (input.log !== 'primary' && input.log !== 'fallback') return blank('log-invalid')
+  if (typeof input.exitCode !== 'number' || !Number.isInteger(input.exitCode)) return blank('exit-unmeasured')
+  if (input.exitCode === 0) return { disposition: 'succeeded', reason: 'exit-zero', exitCode: 0 }
+  return { disposition: 'failed', reason: 'exit-nonzero', exitCode: input.exitCode }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -65,15 +65,16 @@ function parseDoc(value: string | null): AttributionDoc {
       typeof parsed.files !== 'object' ||
       parsed.files === null
     ) {
-      return { files: {} }
+      throw new Error('归属记录读不到,不能把它说成没有')
     }
     const files: Record<string, LineAttribution[]> = {}
     for (const [path, records] of Object.entries(parsed.files)) {
       if (Array.isArray(records)) files[path] = records as LineAttribution[]
     }
     return { files }
-  } catch {
-    return { files: {} }
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('归属记录读不到')) throw error
+    throw new Error('归属记录读不到,不能把它说成没有')
   }
 }
 
@@ -128,7 +129,13 @@ export const workspaceAttributionRoutes: FastifyPluginAsync = async (server) => 
     if (!parsed.success) return reply.status(400).send(error(400, 'workspacePath 与 file 必填'))
     const { workspacePath, file } = parsed.data
     if (!(await assertWorkspaceAccess(request, reply, workspacePath, 'read'))) return
-    const records = await loadRecords(request.userId!, workspacePath)
+    let records: LineAttribution[]
+    try {
+      records = await loadRecords(request.userId!, workspacePath)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '归属记录读不到,不能把它说成没有'
+      return reply.status(409).send(error(409, message))
+    }
     const outcome = queryAttribution({ workspacePath, file, records })
     if (!outcome.ok) {
       const message =
@@ -160,7 +167,13 @@ export const workspaceAttributionRoutes: FastifyPluginAsync = async (server) => 
     const userId = request.userId!
     const { list } = await findUserPreferences(userId, ATTRIBUTION_GROUP)
     const row = list.find((item) => item.key === workspaceKey(workspacePath))
-    const doc = parseDoc(row?.value ?? null)
+    let doc: AttributionDoc
+    try {
+      doc = parseDoc(row?.value ?? null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '归属记录读不到,不能把它说成没有'
+      return reply.status(409).send(error(409, message))
+    }
     doc.files[relative] = records.map((record) => ({
       ...record,
       filePath: relative,

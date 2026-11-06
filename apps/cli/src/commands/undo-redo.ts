@@ -425,10 +425,9 @@ export class UndoRedoManager {
     if (content === null) {
       // reverse=true 且 beforeContent=null → 文件原本不存在,删除当前文件
       // reverse=false 且 afterContent=null → 文件应被删除
+      // 裁决(本侧三态覆盖对侧 existsSync 那一档):absent 不 unlink、unreadable 在函数
+      // 开头即抛出并带 code,两者绝不混成同一条路径;裸 existsSync 分支随之退场。
       if (kind.kind === 'present') fs.unlinkSync(fullPath);
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
       return;
     }
     const dir = path.dirname(fullPath);
@@ -438,14 +437,13 @@ export class UndoRedoManager {
       error.code = dirKind.code;
       throw error;
     }
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
     if (dirKind.kind === 'missing') fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(fullPath, content, 'utf-8');
-      // 走唯一原子写出口:同目录 tmp + rename(不留半截文件)、落盘前重读基线做
-      // stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。
-      commitAtomicWrite(captureWriteBaseline(fullPath), content);
+    // 裁决:写盘只走对侧引入的唯一原子写出口(同目录 tmp+rename、基线重读做 stale 冲突
+    // 检测、拒绝穿透符号链接)。裸 fs.writeFileSync 必须退场——它与 commitAtomicWrite 是同
+    // 一句的两种拼法,并存即先裸写再原子写,三重保护全被前一次裸写抹掉。
+    // 走唯一原子写出口:同目录 tmp + rename(不留半截文件)、落盘前重读基线做
+    // stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。
+    commitAtomicWrite(captureWriteBaseline(fullPath), content);
   }
 
   /** 生成人类可读的改动描述 */

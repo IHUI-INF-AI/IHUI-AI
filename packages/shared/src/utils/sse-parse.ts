@@ -26,6 +26,10 @@ import type {
   FormRequestEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+// 预算档位合法值的唯一判据(单源 = @ihui/types/orchestration.ts 的 BUDGET_LEVELS):
+// 本解析器不再自持一份 `=== 'warning' || === 'critical' || === 'stopped'` 字面量副本
+// (§0.6 第二份必然漂移;漂开的表现是终态帧被静默丢弃)。表外档位整帧不产出,不猜档。
+import { isBudgetLevel } from '@ihui/types'
 import {
   applyFrame,
   createWatermarkState,
@@ -569,10 +573,12 @@ function parseLineEvent(line: string): SSEEvent | null {
     // 批次 3(2026-11-06):stopped 是预算硬停止终态帧。此前这里只认 warning/critical,
     // 会让"因预算停止"在 CLI/扩展等共享解析器消费端被静默丢弃 —— 失败表现是安静的,
     // 故必须在同一分支接住,并原样透传原因码(不猜档、不造默认)。
-    if (
-      json?.type === 'budget' &&
-      (json.level === 'warning' || json.level === 'critical' || json.level === 'stopped')
-    ) {
+    // 档位合法值不在此重抄(§0.6):判据走 @ihui/types 的 BUDGET_LEVELS 单源守卫。
+    // **认领按 type,校验按档位**:level 不在闭集(含缺键)⇒ 丢弃,绝不滑到下方
+    // content/delta/text 泛化兜底 —— D113/D151/D152 同一条纪律("把没认出来写成看见了"
+    // 是本仓最高频失效型;这一格的具体后果是上游塞进 budget 帧的文本被喷成正文增量)。
+    if (json?.type === 'budget') {
+      if (!isBudgetLevel(json.level)) return null
       return {
         type: 'budget',
         budget: {

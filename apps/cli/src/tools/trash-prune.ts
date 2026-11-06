@@ -113,7 +113,8 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
   };
 
   // ① 枚举:空账(含"只剩空壳目录")no-op —— 没有东西可判,不冒充判过,也不累加连败(§0.3)
-  const scanned = scanTrash(getDeleteTrashDir(workspacePath));
+  const trashRoot = getDeleteTrashDir(workspacePath);
+  const scanned = opts.stat === undefined ? scanTrash(trashRoot) : scanTrash(trashRoot, opts.stat);
   const counts = { manifests: scanned.manifests.length, entries: scanned.manifests.reduce((n, m) => n + m.manifest.entries.length, 0) };
   if (counts.entries === 0 && scanned.bad.length === 0) {
     return withReceipt(noAction({

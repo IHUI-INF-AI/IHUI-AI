@@ -423,6 +423,25 @@ describe('skill package install security chain', () => {
     expect(fs.readFileSync(skill, 'utf8')).toBe('keep');
   });
 
+  it('does not report the staging directory removed when it cannot be read', () => {
+    const dir = makeTempDir();
+    const publisher = createPublisher(dir);
+    const root = path.join(dir, 'installed');
+    fs.mkdirSync(root, { recursive: true });
+    const pkg = writePackage(dir, buildPackage({ manifest: baseManifest(), publisher }));
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const error = capture(() =>
+      installSkillPackage(pkg, { trustedKeysPath: publisher.trustStorePath, installRoot: root, stat: denied }),
+    );
+    expect(error.detail.stagingRemoved).toBe(false);
+    expect(error.message).toMatch(/不能把它说成已经删掉/);
+    expect(fs.readdirSync(root).some((entry) => entry.startsWith('.staging-'))).toBe(true);
+  });
+
   it('uninstalls file-by-file and reports zero residue', () => {
     const dir = makeTempDir();
     const publisher = createPublisher(dir);

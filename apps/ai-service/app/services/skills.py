@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -718,7 +719,7 @@ class SkillRegistry:
         parsed = parse_skill_md(content)
         return parsed.name, parsed.description, parsed.instructions
 
-    def _iter_skill_files(self) -> tuple[list[str], list[str]]:
+    def _iter_skill_files(self) -> tuple[list[str], list[str], list[str]]:
         """枚举待加载的 skill md 文件路径(默认 auto 目录,可叠加 env 扫描根)。
 
         默认扫描 ``app/skills/auto/*.md``;若设置环境变量 ``IHUI_SKILL_SCAN_ROOTS``
@@ -735,6 +736,7 @@ class SkillRegistry:
         self.source_dirs = roots
         files: list[str] = []
         unread_roots: list[str] = []
+        unread_files: list[str] = []
         for root in roots:
             try:
                 names = os.listdir(root)
@@ -754,9 +756,21 @@ class SkillRegistry:
                 if not fname.endswith(".md"):
                     continue
                 path = os.path.join(root, fname)
-                if os.path.isfile(path):
+                try:
+                    st = os.stat(path)
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    logger.warning(
+                        "skills._iter_skill_files 技能文件读不到,不能把它说成已删除(path=%s): %s",
+                        path,
+                        exc,
+                    )
+                    unread_files.append(path)
+                    continue
+                if stat.S_ISREG(st.st_mode):
                     files.append(path)
-        return files, unread_roots
+        return files, unread_roots, unread_files
 
     def _load_auto_skills(self) -> None:
         """增量扫描并注册 skill(自进化生成的 skill + 可配扫描源)。
@@ -765,7 +779,7 @@ class SkillRegistry:
         (仅移除 source=auto 者,不误删 builtin/ai-top)。无参调用幂等。
         """
         seen_paths: set[str] = set()
-        skill_files, unread_roots = self._iter_skill_files()
+        skill_files, unread_roots, unread_files = self._iter_skill_files()
         for path in skill_files:
             seen_paths.add(path)
             try:
@@ -798,6 +812,8 @@ class SkillRegistry:
         for path in list(self._auto_files):
             if path not in seen_paths and _path_under_any(path, unread_roots):
                 seen_paths.add(path)
+        for path in unread_files:
+            seen_paths.add(path)
         # 增量移除已删除文件对应的 skill(仅 auto 来源)
         for path in [p for p in self._auto_files if p not in seen_paths]:
             _mtime, name = self._auto_files.pop(path)
