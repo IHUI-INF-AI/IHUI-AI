@@ -469,6 +469,12 @@
 - 冲突：S2「可摘」与 ≤2 硬标不兼容——3 节点是宿主壳下限（根 `View` 保 `h-screen`/背景，`NavBar` 是本端原生导航位），删任一都破坏壳。
 - 处置：**待口径收口票，不自行摘行**（退休/摘行归内容线）。
 
+### 追加判定：`pkg-ai/ai/conversation-import` 3 节点为结构下限（2026-11-06）
+
+- 读数：页 **261 行** / **3 节点**（宿主容器 `conversation-import.tsx:240` + 宿主导航 `:241-245` + 共享屏 `:246-256`）/ **零重复 UI 段** / **8 props 两端真消费**（小程序 `:246-256` ↔ RN `apps/mobile-rn/src/screens/ConversationImportScreen.tsx:382-387`；实现分叉 `:160`/`:191`/`:248`/`:307`/`:341`/`:355`）。
+- 结构性理由：3 节点 = 宿主容器 + 宿主导航 + 共享屏，与 RN 端同构。共享屏是「仅内容体」（Fragment + ScrollView，`ConversationImportScreen.tsx:297-299`；容器 `flex:1` @ `:566`），自身不含头部。≤2 只有两条路径：①共享屏内置头部——两端现用实现不同（小程序 `@/components/NavBar` vs RN `NavChrome`+`NavBar`，`apps/mobile-rn/src/screens/ConversationImportScreen.tsx:384-385`），共享一套必改一端可见头部；②删根容器或删导航后靠单端 prop 保行为——rn-compat 的 `ScrollView` 落地为 Taro `ScrollView`（`apps/miniapp-taro/src/rn-compat/primitives.tsx:441-466`），依赖 `h-screen` 容器给高度边界，删容器即滚动区塌陷。故不硬凑 2 节点。
+- 台账处置：**本行不退休、一行不动**。3 节点的成因是宿主骨架，非闲置节点；≤2 判据对宿主骨架的口径由并行批次②统一收口，届时再由内容线判定是否补退休行。
+
 ### 补派三页结论
 
 **3. `pkg-ai/ai-assistant-n8n/index`（165 行 / 19：E14+SC4+F0+T1）→ 结构下限**
