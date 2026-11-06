@@ -3578,13 +3578,18 @@ if ($webBg) {
     # .next-canary,灰度只认那一份(deploy/win/ihui-canary-gray.ps1 的 $GrayDist)。
     # robocopy 的 0-7 都是成功档(1=有复制),>=8 才是真失败;真失败**不阻断部署**,只让灰度
     # 如实进"未判定"——那一格由 ihui-deploy-loop.ps1 折算成 unknown,不记判定通过。
+    # [GRAY-SLOT-3STATE] 产物在位 ≠ 灰度实例在位(票 L31441):镜像成功只证明「候选产物已在位」,
+    # 灰度实例本身另有「在位 / 不在位 / 未判定」三档。后两档一律是「未判定」,单独出声:
+    # 不折成判定通过、不折成失败、不 advance、不阻断部署(§12e 存量未归零不升 blocking)。
+    # 本段只改这一档的措辞与终态,不动整轮红绿;判据链见 ihui-canary-artifact.mjs /
+    # ihui-canary-stage.mjs,镜像锁 scripts/tests/gray-slot-three-state-lock.test.mjs。
     $grayCanaryDist = Join-Path $WebDir '.next-canary'
     & robocopy.exe "$WebDir\.next-staging" $grayCanaryDist /MIR /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
     $rcRc = $LASTEXITCODE
     if ($rcRc -ge 8) {
-        Log "WARN  灰度产物镜像失败(robocopy exit=$rcRc)⇒ 本轮灰度无产物,档位将按 unknown 处理(不阻断部署)"
+        Log "WARN  [GRAY-SLOT-3STATE] 灰度产物镜像失败(robocopy exit=$rcRc)⇒ 产物不在位这一档:未判定(灰度实例无产物可服务),不折成判定通过、不折成失败、不 advance、不阻断部署(§12e)"
     } else {
-        Log "OK    灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档)"
+        Log "OK    [GRAY-SLOT-3STATE] 灰度产物已镜像 .next-staging → .next-canary(robocopy exit=$rcRc;0-7 为成功档);产物在位 ≠ 灰度实例在位,灰度实例「不在位 / 未判定」这一档仍单独记为未判定,不折成判定通过、不 advance"
     }
     Remove-Item "$WebDir\$webTargetDist" -Recurse -Force -ErrorAction SilentlyContinue
     Move-Item "$WebDir\.next-staging" "$WebDir\$webTargetDist"
