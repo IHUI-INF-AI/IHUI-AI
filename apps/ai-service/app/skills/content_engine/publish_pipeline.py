@@ -39,6 +39,7 @@ import os
 import re
 import stat
 import sys
+import tempfile
 import time
 from typing import cast
 
@@ -314,23 +315,30 @@ def push_draft(html: str, title: str, digest: str, author: str, cover_path: str,
         'only_fans_can_comment': 0,
     }
     draft_id = create_draft([article])
-    if draft_id:
-        print(f'\n🎉 草稿推送成功！draft media_id: {draft_id}')
-        print('   请到公众号后台「草稿箱」查看')
-        # 2026-07-12 修复：推送成功后自动更新已发布记忆（避免下次配图查重漏拦、避免重发同题）
-        _update_published_memory(title, draft_id, html, cover_path)
-    else:
+    if not draft_id:
         print('\n❌ 草稿创建失败')
+        return cast(str | None, draft_id)
+    # 2026-07-12 修复：推送成功后自动更新已发布记忆（避免下次配图查重漏拦、避免重发同题）
+    # K4: 记忆更新失败必须显式失败——不能先打「推送成功」再把没记录的说成已发布。
+    if not _update_published_memory(title, draft_id, html, cover_path):
+        print('  ❌ 草稿已创建但已发布记忆更新失败 ⇒ 本次发布按失败处理(不得宣称已推送)')
+        return None
+    print(f'\n🎉 草稿推送成功！draft media_id: {draft_id}')
+    print('   请到公众号后台「草稿箱」查看')
     return cast(str | None, draft_id)
 
 
-def _update_published_memory(title: str, draft_id: str, html: str, cover_path: str) -> None:
-    """推送成功后更新 已发布内容记忆.json (published + image_registry)
-    2026-07-12 集成：之前要手动跑 update_memory.py 临时脚本,易漏更新导致配图查重/主题查重失灵"""
+def _update_published_memory(title: str, draft_id: str, html: str, cover_path: str) -> bool:
+    """推送成功后更新 已发布内容记忆.json (published + image_registry)。
+
+    返回是否成功。写盘走临时文件 + os.replace:失败时旧文件保持完整,
+    且必须向上返回失败,禁止「打印成功路径」后继续宣称已完成。
+    """
     mem_path = os.path.join(BASE, '已发布内容记忆.json')
     if not os.path.exists(mem_path):
-        print(f'  ⚠️ 记忆文件不存在,跳过自动更新: {mem_path}')
-        return
+        print(f'  ❌ 记忆文件不存在,无法记录本次发布(按失败处理): {mem_path}')
+        return False
+    tmp_path: str | None = None
     try:
         with open(mem_path, encoding='utf-8') as f:
             mem = json.load(f)
@@ -352,11 +360,22 @@ def _update_published_memory(title: str, draft_id: str, html: str, cover_path: s
                     'url': u, 'title': title, 'date': pub_entry['date']
                 })
         mem['last_updated'] = time.strftime('%Y-%m-%dT%H:%M:%S')
-        with open(mem_path, 'w', encoding='utf-8') as f:
+        fd, tmp_path = tempfile.mkstemp(dir=BASE, prefix='.已发布内容记忆.', suffix='.tmp')
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
             json.dump(mem, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, mem_path)
+        tmp_path = None
         print('  ✅ 已发布记忆已更新 (published+1, used_images记录)')
+        return True
     except Exception as e:
-        print(f'  ⚠️ 自动更新已发布记忆失败(非阻断): {e}')
+        print(f'  ❌ 自动更新已发布记忆失败: {e}')
+        return False
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
 
 
 def main() -> None:
@@ -570,7 +589,7 @@ def main() -> None:
         # 时流程照常走完并打印"✅ 已推送完整摸鱼绿草稿"——静默假成功。
         # 现在推送失败必须硬失败，绝不许把"没推上去"说成"已推送"。
         if not draft_id:
-            print('\n❌ 流水线中止：草稿推送失败（未拿到 draft media_id），不得宣称已推送')
+            print('\n❌ 流水线中止：草稿推送或已发布记忆更新失败（未完成可发布状态），不得宣称已推送')
             sys.exit(1)
         print('\n[6/6] 当前草稿箱状态：')
         list_drafts(offset=0, count=5)
@@ -602,7 +621,9 @@ def main() -> None:
             sys.exit(1)
         print(f'\n  ✅ 物理审计 PASS {passed} / FAIL 0 — 流水线彻底完成')
     except Exception as e:
-        print(f'  ⚠️ full_audit 调用失败(非阻断): {e}')
+        # K4b: 物理审计是硬门禁的最后一环,调用失败不得打印「非阻断」后继续宣称交付。
+        print(f'\n❌ 流水线中止: 物理审计无法执行({e}) ⇒ 不得宣称已交付')
+        sys.exit(1)
 
     if args.dry_run:
         print('\n' + '=' * 64)

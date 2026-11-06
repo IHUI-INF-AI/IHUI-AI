@@ -1765,4 +1765,69 @@ def test_run_script_timeout_reports_fail(monkeypatch) -> None:
     assert rc == 124
     assert "超时" in out
     assert seen.get("timeout") == ppc.SUBPROCESS_TIMEOUT_S
+
+
+def test_update_published_memory_failure_returns_false_and_keeps_old_file(
+    monkeypatch, tmp_path
+) -> None:
+    """K4: 记忆写盘失败必须显式失败(False),且原子写不得截断原文件。"""
+    import importlib
+    import json
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    pp = importlib.import_module("app.skills.content_engine.publish_pipeline")
+    mem = tmp_path / "已发布内容记忆.json"
+    original = {"published": [{"title": "旧文"}], "image_registry": {"used_images": []}}
+    mem.write_text(json.dumps(original, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(pp, "BASE", str(tmp_path))
+
+    def _boom(*_a, **_kw):
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr(pp.json, "dump", _boom)
+    ok = pp._update_published_memory("新文", "draft-1", "<p>x</p>", "cover.png")
+
+    assert ok is False
+    assert json.loads(mem.read_text(encoding="utf-8")) == original
+    assert not list(tmp_path.glob(".已发布内容记忆.*.tmp"))
+
+
+def test_update_published_memory_success_is_atomic(monkeypatch, tmp_path) -> None:
+    """K4: 成功路径返回 True,内容落盘,临时文件不残留。"""
+    import importlib
+    import json
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    pp = importlib.import_module("app.skills.content_engine.publish_pipeline")
+    mem = tmp_path / "已发布内容记忆.json"
+    mem.write_text(json.dumps({"published": [], "image_registry": {}}, ensure_ascii=False),
+                   encoding="utf-8")
+    monkeypatch.setattr(pp, "BASE", str(tmp_path))
+
+    ok = pp._update_published_memory("新文", "draft-1", '<p><img src="https://x/a.jpg"></p>', "c.png")
+    assert ok is True
+    saved = json.loads(mem.read_text(encoding="utf-8"))
+    assert len(saved["published"]) == 1
+    assert not list(tmp_path.glob(".已发布内容记忆.*.tmp"))
+
+
+def test_validate_image_dup_check_exception_is_fail(monkeypatch, tmp_path) -> None:
+    """K1b: 门禁A 第22项配图查重异常时不得「跳过」放行(必须 (失败))。"""
+    import importlib
+
+    v = importlib.import_module("app.skills.content_engine.lib.validate")
+    md = tmp_path / "article.md"
+    md.write_text(
+        "# 标题\n\n" + "这是一段足够长的正文用于通过基础检查。" * 40 + "\n\n![a](images/a.jpg)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        v,
+        "_load_published_memory",
+        lambda _p: {"image_registry": {"used_images": [{"file": ["unhashable"]}]}},
+    )
+    _ok, reports = v.validate(str(md))
+    item22 = next(r for r in reports if r.startswith("22."))
+    assert "(失败)" in item22
+    assert "跳过" not in item22
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

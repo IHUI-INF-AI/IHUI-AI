@@ -1019,9 +1019,13 @@ def validate(md_path: str) -> tuple[bool, list[str]]:
             else:
                 reports.append(f"22. 配图重复检测: (通过) 无重复配图，使用{len(doc_images)}张新图")
         except Exception as e:
-            reports.append(f"22. 配图重复检测: ⚠️ 检测跳过 ({str(e)[:80]})")
+            # K1b: 门禁A 第22项。检测异常不得算「通过」,否则重复用图会静默放行。
+            all_pass = False
+            reports.append(f"22. 配图重复检测: (失败) 检测异常,无法判定是否重复: {str(e)[:80]}")
     else:
-        reports.append("22. 配图重复检测: ⚠️ 跳过（未找到已发布内容记忆.json）")
+        # K1b: 记忆缺失时同样无法判定重复 ⇒ fail-closed,不再「跳过」放行。
+        all_pass = False
+        reports.append("22. 配图重复检测: (失败) 未找到已发布内容记忆.json,无法做配图查重")
 
     return all_pass, reports
 
