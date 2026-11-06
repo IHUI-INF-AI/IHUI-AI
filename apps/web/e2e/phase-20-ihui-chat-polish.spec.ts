@@ -36,7 +36,7 @@ async function waitForChatReady(page: Page): Promise<boolean> {
   if (!page.url().includes('/chat')) return false
   // 2026-08-27 修复:受保护页未登录不再跳转,而是原地弹 LoginDialog 遮罩(登录弹窗懒触发策略)。
   // 遮罩会拦截 trigger 点击导致 30s 超时,按软跳过设计返回 false。等 2s 覆盖 401 异步触发。
-  await page.waitForTimeout(2000)
+  await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
   if (
     await page
       .getByTestId('login-dialog')
@@ -65,7 +65,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
     page,
   }) => {
     if (!(await openPane(page))) {
-      test.skip(true, 'chat 页面未就绪,跳过键盘拖拽 E2E')
+      test.skip(true, 'chat 页面未就绪,跳过键盘拖拽 E2E [SKIP:SKIP-0139]')
       return
     }
 
@@ -82,6 +82,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
     const minimize = page.locator('[data-testid="pane-minimize"]').first()
     if (await minimize.isVisible({ timeout: 1000 }).catch(() => false)) {
       await minimize.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       const trigger = page.locator(TRIGGER_TESTID)
       await trigger.click()
@@ -89,7 +90,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
 
     const header = page.locator(HEADER_TESTID).first()
     if (!(await header.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'pane header 不可见,跳过')
+      test.skip(true, 'pane header 不可见,跳过 [SKIP:SKIP-0140]')
       return
     }
 
@@ -101,14 +102,18 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
 
     // 2) focus 到 header(模拟键盘用户 Tab 进入)
     await header.focus().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(100)
 
     // 3) 按 ArrowRight 3 次(共 15px,clamp 后至少 8)
     await page.keyboard.press('ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(100)
     await page.keyboard.press('ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(100)
     await page.keyboard.press('ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     // 4) 验证 localStorage 写入
@@ -128,7 +133,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       expect(saved.x as number).toBeLessThanOrEqual(800)
     } else {
       // 软断言:可能因 focus 路径不通(header 内有 button 拦截) → 键盘未触发
-      test.skip(true, 'localStorage 未写入键盘位置(focus 路径不通),跳过')
+      test.skip(true, 'localStorage 未写入键盘位置(focus 路径不通),跳过 [SKIP:SKIP-0141]')
       return
     }
 
@@ -141,7 +146,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
 
   test('P1-1 键盘拖拽:Shift+ArrowRight 加速 25px(写 localStorage,值更大)', async ({ page }) => {
     if (!(await openPane(page))) {
-      test.skip(true, 'chat 页面未就绪,跳过')
+      test.skip(true, 'chat 页面未就绪,跳过 [SKIP:SKIP-0142]')
       return
     }
 
@@ -156,15 +161,17 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
 
     const header = page.locator(HEADER_TESTID).first()
     if (!(await header.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'header 不可见,跳过')
+      test.skip(true, 'header 不可见,跳过 [SKIP:SKIP-0143]')
       return
     }
 
     await header.focus().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(100)
 
     // Shift+ArrowRight 1 次 = 25px
     await page.keyboard.press('Shift+ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     const saved = await page.evaluate(() => {
@@ -182,7 +189,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       expect(x).toBeGreaterThanOrEqual(8)
       expect(x).toBeLessThanOrEqual(736)
     } else {
-      test.skip(true, 'localStorage 未写入加速位置,跳过')
+      test.skip(true, 'localStorage 未写入加速位置,跳过 [SKIP:SKIP-0144]')
     }
   })
 
@@ -191,7 +198,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
     page,
   }) => {
     if (!(await openPane(page))) {
-      test.skip(true, 'chat 页面未就绪,跳过')
+      test.skip(true, 'chat 页面未就绪,跳过 [SKIP:SKIP-0145]')
       return
     }
 
@@ -211,7 +218,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
         .isVisible({ timeout: 3000 })
         .catch(() => false))
     ) {
-      test.skip(true, 'overview 复制按钮不可见(可能无 overview 数据),跳过')
+      test.skip(true, 'overview 复制按钮不可见(可能无 overview 数据),跳过 [SKIP:SKIP-0146]')
       return
     }
 
@@ -219,6 +226,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       .first()
       .click()
       .catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 验证剪贴板含 # 任务总览 标题
@@ -228,24 +236,25 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       expect(clip).toContain('# 任务总览')
     } else {
       // 软断言:clipboard 可能在 headless 不可用
-      test.skip(true, 'clipboard 不可读(headless 限制),只验证点击不报错')
+      test.skip(true, 'clipboard 不可读(headless 限制),只验证点击不报错 [SKIP:SKIP-0147]')
     }
   })
 
   // ───────── 测试 3:P1-3 Timeline 导出 Markdown ─────────
   test('P1-3 Timeline 导出:timeline tab 内的 download 按钮存在 + 点击不报错', async ({ page }) => {
     if (!(await openPane(page))) {
-      test.skip(true, 'chat 页面未就绪,跳过')
+      test.skip(true, 'chat 页面未就绪,跳过 [SKIP:SKIP-0148]')
       return
     }
 
     // 切到 timeline tab
     const timelineBtn = page.locator(TIMELINE_TAB_BTN('timeline'))
     if (!(await timelineBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'timeline tab 按钮不可见,跳过')
+      test.skip(true, 'timeline tab 按钮不可见,跳过 [SKIP:SKIP-0149]')
       return
     }
     await timelineBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 找导出按钮(可能在 tab header 或 pane header)
@@ -259,7 +268,10 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
         .isVisible({ timeout: 2000 })
         .catch(() => false))
     ) {
-      test.skip(true, 'timeline 导出按钮不可见(可能无 timeline 数据或实现细节),跳过')
+      test.skip(
+        true,
+        'timeline 导出按钮不可见(可能无 timeline 数据或实现细节),跳过 [SKIP:SKIP-0150]',
+      )
       return
     }
 
@@ -277,14 +289,14 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       expect(filename).toMatch(/\.md$/)
     } else {
       // 软断言:可能导出用 blob+anchor 不会触发 download 事件
-      test.skip(true, '未触发 download 事件(可能用 blob+anchor 方式),跳过下载验证')
+      test.skip(true, '未触发 download 事件(可能用 blob+anchor 方式),跳过下载验证 [SKIP:SKIP-0151]')
     }
   })
 
   // ───────── 测试 4:P1-4 SubAgent 右键菜单 ─────────
   test('P1-4 SubAgent 右键菜单:子代理树右键打开 4 类复制菜单', async ({ page }) => {
     if (!(await openPane(page))) {
-      test.skip(true, 'chat 页面未就绪,跳过')
+      test.skip(true, 'chat 页面未就绪,跳过 [SKIP:SKIP-0152]')
       return
     }
 
@@ -296,7 +308,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
         .isVisible({ timeout: 3000 })
         .catch(() => false))
     ) {
-      test.skip(true, '子代理树不可见(无 active subagent),跳过右键菜单 E2E')
+      test.skip(true, '子代理树不可见(无 active subagent),跳过右键菜单 E2E [SKIP:SKIP-0153]')
       return
     }
 
@@ -305,13 +317,14 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
       .first()
       .click({ button: 'right' })
       .catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(400)
 
     // 2) 验证菜单出现
     const menu = page.locator('[data-testid="subagent-task-tree-context-menu"]')
     const menuVisible = await menu.isVisible({ timeout: 2000 }).catch(() => false)
     if (!menuVisible) {
-      test.skip(true, '右键菜单未出现(可能 onContextMenu 未挂载或事件未触发),跳过')
+      test.skip(true, '右键菜单未出现(可能 onContextMenu 未挂载或事件未触发),跳过 [SKIP:SKIP-0154]')
       return
     }
 
@@ -342,6 +355,7 @@ test.describe('Phase 20 AI 工作台 4 大 P1 细节优化', () => {
 
     // 6) Esc 关闭
     await page.keyboard.press('Escape')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
     const stillVisible = await menu.isVisible({ timeout: 500 }).catch(() => false)
     expect(stillVisible).toBe(false)
@@ -353,7 +367,7 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
   // ── v18.1 P1-1 键盘拖拽 ───────────
   adminTest('v18.1 P1-1 键盘:Header 焦点 + ArrowRight 持久化位置', async ({ adminPage }) => {
     if (!(await waitForChatReady(adminPage))) {
-      test.skip(true, 'adminPage 未就绪,跳过')
+      test.skip(true, 'adminPage 未就绪,跳过 [SKIP:SKIP-0155]')
       return
     }
 
@@ -369,24 +383,28 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
     // 打开 pane
     const trigger = adminPage.locator(TRIGGER_TESTID)
     await trigger.click().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(300)
     const pane = adminPage.locator(PANE_TESTID).first()
     if (!(await pane.isVisible({ timeout: 3000 }).catch(() => false))) {
-      test.skip(true, 'adminPage pane 不可见,跳过')
+      test.skip(true, 'adminPage pane 不可见,跳过 [SKIP:SKIP-0156]')
       return
     }
 
     const header = adminPage.locator(HEADER_TESTID).first()
     if (!(await header.isVisible({ timeout: 2000 }).catch(() => false))) {
-      test.skip(true, 'header 不可见,跳过')
+      test.skip(true, 'header 不可见,跳过 [SKIP:SKIP-0157]')
       return
     }
 
     await header.focus().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(100)
     await adminPage.keyboard.press('ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(200)
     await adminPage.keyboard.press('ArrowRight')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(200)
 
     const saved = await adminPage.evaluate(() => {
@@ -403,18 +421,19 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
       adminExpect(x).toBeGreaterThanOrEqual(8)
       adminExpect(x).toBeLessThanOrEqual(800)
     } else {
-      test.skip(true, 'adminPage 键盘拖拽未持久化,跳过')
+      test.skip(true, 'adminPage 键盘拖拽未持久化,跳过 [SKIP:SKIP-0158]')
     }
   })
 
   // ── v18.2 P1-2 Overview 复制按钮 ──
   adminTest('v18.2 P1-2 Overview 复制按钮:存在 + 点击不报错', async ({ adminPage }) => {
     if (!(await waitForChatReady(adminPage))) {
-      test.skip(true, 'adminPage 未就绪,跳过')
+      test.skip(true, 'adminPage 未就绪,跳过 [SKIP:SKIP-0159]')
       return
     }
     const trigger = adminPage.locator(TRIGGER_TESTID)
     await trigger.click().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(300)
 
     const copyBtn = adminPage.locator(
@@ -426,7 +445,7 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
         .isVisible({ timeout: 2000 })
         .catch(() => false))
     ) {
-      test.skip(true, 'adminPage overview 复制按钮不可见,跳过')
+      test.skip(true, 'adminPage overview 复制按钮不可见,跳过 [SKIP:SKIP-0160]')
       return
     }
     // 点击不报错
@@ -441,19 +460,21 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
     'v18.3 P1-3 Timeline 导出按钮:存在 + 切换到 timeline tab 可见',
     async ({ adminPage }) => {
       if (!(await waitForChatReady(adminPage))) {
-        test.skip(true, 'adminPage 未就绪,跳过')
+        test.skip(true, 'adminPage 未就绪,跳过 [SKIP:SKIP-0161]')
         return
       }
       const trigger = adminPage.locator(TRIGGER_TESTID)
       await trigger.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
 
       const timelineBtn = adminPage.locator(TIMELINE_TAB_BTN('timeline'))
       if (!(await timelineBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
-        test.skip(true, 'adminPage timeline tab 按钮不可见,跳过')
+        test.skip(true, 'adminPage timeline tab 按钮不可见,跳过 [SKIP:SKIP-0162]')
         return
       }
       await timelineBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
 
       const exportBtn = adminPage.locator(
@@ -467,7 +488,7 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
       if (visible) {
         adminExpect(visible).toBe(true)
       } else {
-        test.skip(true, 'adminPage timeline 导出按钮不可见(无 timeline 数据),跳过')
+        test.skip(true, 'adminPage timeline 导出按钮不可见(无 timeline 数据),跳过 [SKIP:SKIP-0163]')
       }
     },
   )
@@ -475,11 +496,12 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
   // ── v18.4 P1-4 SubAgent 右键菜单 ──
   adminTest('v18.4 P1-4 SubAgent 右键:右键打开菜单 + 含 4 类操作', async ({ adminPage }) => {
     if (!(await waitForChatReady(adminPage))) {
-      test.skip(true, 'adminPage 未就绪,跳过')
+      test.skip(true, 'adminPage 未就绪,跳过 [SKIP:SKIP-0164]')
       return
     }
     const trigger = adminPage.locator(TRIGGER_TESTID)
     await trigger.click().catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(300)
 
     const subagentTree = adminPage.locator(SUBAGENT_TREE)
@@ -489,7 +511,7 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
         .isVisible({ timeout: 2000 })
         .catch(() => false))
     ) {
-      test.skip(true, 'adminPage subagent 树不可见(无 active subagent),跳过')
+      test.skip(true, 'adminPage subagent 树不可见(无 active subagent),跳过 [SKIP:SKIP-0165]')
       return
     }
 
@@ -497,12 +519,13 @@ test.describe('Phase 20 v18 adminPage 4 大 P1 测试', () => {
       .first()
       .click({ button: 'right' })
       .catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(400)
 
     const menu = adminPage.locator('[data-testid="subagent-task-tree-context-menu"]')
     const menuVisible = await menu.isVisible({ timeout: 2000 }).catch(() => false)
     if (!menuVisible) {
-      test.skip(true, 'adminPage 右键菜单未出现,跳过')
+      test.skip(true, 'adminPage 右键菜单未出现,跳过 [SKIP:SKIP-0166]')
       return
     }
 

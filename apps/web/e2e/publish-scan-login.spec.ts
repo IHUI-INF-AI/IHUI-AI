@@ -88,7 +88,6 @@ test.describe('@browser-hub 发布账号 · 扫码登录必须走 HTTP 二维码
 
     // D 深色态:同一弹窗重开也必须看得见
     await page.evaluate(() => document.documentElement.classList.add('dark'))
-    await page.waitForTimeout(400)
     await expect(qr).toBeVisible()
     await page.screenshot({ path: 'test-results/scan-login-dark.png', fullPage: false })
     await page.evaluate(() => document.documentElement.classList.remove('dark'))

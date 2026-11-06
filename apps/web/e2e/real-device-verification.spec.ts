@@ -136,6 +136,7 @@ test.describe('真机验证 8 项清单', () => {
     // 如果 reasoning 按钮可见,验证点击展开/折叠
     if (reasoningVisible) {
       await reasoningButton.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(300)
       // 点击后按钮文案应变化为 "Hide reasoning" / "隐藏推理过程"
       const hideButton = page.getByRole('button', {
@@ -308,6 +309,7 @@ test.describe('真机验证 - 已登录状态', () => {
           .first()
         if (await modelButton.isVisible({ timeout: 5000 }).catch(() => false)) {
           await modelButton.click()
+          // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
           await page.waitForTimeout(500)
 
           // 验证下拉菜单出现
@@ -327,7 +329,7 @@ test.describe('真机验证 - 已登录状态', () => {
       await context.close()
     } catch {
       // 后端不可用,跳过
-      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试')
+      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试 [SKIP:SKIP-0174]')
     }
   })
 
@@ -361,17 +363,19 @@ test.describe('真机验证 - 已登录状态', () => {
           await expect(searchInput).toHaveValue('test')
 
           // 等待过滤生效
+          // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
           await page.waitForTimeout(500)
 
           // 清空搜索
           await searchInput.fill('')
+          // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
           await page.waitForTimeout(300)
         }
       }
 
       await context.close()
     } catch {
-      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试')
+      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试 [SKIP:SKIP-0175]')
     }
   })
 
@@ -402,6 +406,7 @@ test.describe('真机验证 - 已登录状态', () => {
         // 旧正则 /submit|提交反馈|new|新建/ 命中不到任何按钮 ⇒ 停在 list 视图,
         // 而 ImageUpload 只在 FeedbackForm(tab==='new')里渲染 ⇒ 断言取不到输入。
         await page.getByRole('button', { name: '最新', exact: true }).click()
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(500)
 
         // 验证图片上传组件存在
@@ -422,7 +427,7 @@ test.describe('真机验证 - 已登录状态', () => {
 
       await context.close()
     } catch {
-      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试')
+      test.skip(!loggedIn, '后端不可用或登录失败,跳过已登录测试 [SKIP:SKIP-0176]')
     }
   })
 })

@@ -31,9 +31,7 @@ import { test, expect, type Page } from './fixtures'
  *  client.ts 的 processLine 有水位闸(shouldDropByWatermark),id:/event: 行需先喂
  *  frameSeqTracker 才能与随后的 data 配对;只发裸 data: 行会被判成 undetermined 帧。*/
 function makeSSE(events: ReadonlyArray<Record<string, unknown>>): string {
-  return events
-    .map((e, i) => `id: ${i + 1}\ndata: ${JSON.stringify(e)}\n\n`)
-    .join('')
+  return events.map((e, i) => `id: ${i + 1}\ndata: ${JSON.stringify(e)}\n\n`).join('')
 }
 
 /**
@@ -95,9 +93,7 @@ async function installPartialArgsProbe(page: Page): Promise<void> {
         '[data-stream-group-trigger="true"][aria-expanded="false"]',
       ) as HTMLElement | null
       if (collapsedGroup) collapsedGroup.click()
-      const row = document.querySelector(
-        '[data-testid="tool-call-row-c1"]',
-      ) as HTMLElement | null
+      const row = document.querySelector('[data-testid="tool-call-row-c1"]') as HTMLElement | null
       const expanded = row?.getAttribute('data-stream-expanded') ?? 'absent'
       // 预览块住在 StreamRow 的 expanded 展开区(tool-call-card.tsx:1517)。dev 首次
       // 编译 / hydration 期间,测试线程的一次 Playwright click 可能落在 React 绑定
@@ -204,13 +200,7 @@ async function mockToolCallArgsDeltaStream(
   // 若首片窗口太短,采样器看到的第一个文本会是后续片,「出现过首片 a」就会假红。
   const firstFrameDelay = opts.firstFrameDelayMs ?? 0
   await page.addInitScript(
-    (
-      { sse, delay, firstFrameDelay }: {
-        sse: string
-        delay: number
-        firstFrameDelay: number
-      },
-    ) => {
+    ({ sse, delay, firstFrameDelay }: { sse: string; delay: number; firstFrameDelay: number }) => {
       const orig = window.fetch.bind(window)
       const probe = window as unknown as {
         __sseFetchHits?: number
@@ -381,6 +371,7 @@ test.describe('tool-call-args-delta 增量渲染端到端', () => {
       undefined,
       { timeout: 45000 },
     )
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
     // 收尾:complete 帧清预览、tool-result 收敛卡片、finally 兜底把残留 running
     // 卡置 cancelled ⇒ 预览块必须卸载且卡片仍挂载。

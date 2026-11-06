@@ -46,6 +46,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     test(`视口 ${width}px — footer 高度 + 元素可见性`, async ({ adminPage }) => {
       await adminPage.setViewportSize({ width, height: 800 })
       // 等待响应式布局稳定
+      // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
       await adminPage.waitForTimeout(500)
 
       // 1. footer 高度 ≥ 130px(v10 拉高底线)
@@ -113,6 +114,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
   test('视口 1280px — 生态合作 5 列同行布局(每列 1 个或 2 个图标)', async ({ adminPage }) => {
     // 2026-08-26 修复:1024 → 1280 —— xl:grid-cols-5 需 ≥1280 视口(组件已从 lg 改为 xl)
     await adminPage.setViewportSize({ width: 1280, height: 800 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(500)
 
     // v11 拆分后:5 分组 × 4-5 图标,xl+ 5 列同行
@@ -137,6 +139,7 @@ test.describe('SiteFooter v10/v11 防回归', () => {
 
   test('国际化键 — 切换到英文后 footer Tooltip 仍显示英文模型名', async ({ adminPage }) => {
     await adminPage.setViewportSize({ width: 1280, height: 800 })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(500)
 
     // 切到英文
