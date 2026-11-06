@@ -141,9 +141,9 @@ CLI 侧发布走 token:本地 `ihui-cli-publish`;CI 由 `release-cli.yml` 先试
 
 ## 发布前检查
 
-### pre-deploy.mjs 10 项门禁
+### pre-deploy.mjs 11 项门禁
 
-`scripts/pre-deploy.mjs` 在发布前执行 10 项检查,任一失败则中止发布:
+`scripts/pre-deploy.mjs` 在发布前执行 11 项检查,任一失败则中止发布:
 
 | # | 检查项 | 命令 / 校验 |
 | --- | --- | --- |
@@ -157,6 +157,7 @@ CLI 侧发布走 token:本地 `ihui-cli-publish`;CI 由 `release-cli.yml` 先试
 | 8 | i18n parity(zh-CN 与 4 语言 key 一致) | `node scripts/check-i18n-keys.mjs` |
 | 9 | 数据库 migration 完整性 | `node scripts/check-api-migration-completeness.mjs` |
 | 10 | DB schema 无漂移 | `node scripts/check-db-schema-drift.mjs` |
+| 11 | packages/* dist 产物与源码同步 | `node scripts/check-stale-dist.mjs --strict` |
 
 ### 一键执行
 
@@ -736,7 +737,7 @@ gh secret list --repo IHUI-INF-AI/IHUI-AI
 
 ### 发布前
 
-- [ ] `node scripts/pre-deploy.mjs` 10 项全绿
+- [ ] `node scripts/pre-deploy.mjs` 11 项全绿
 - [ ] 更新 `docs/CHANGELOG.md` 对应版本段
 - [ ] 更新各端 `version` 字段(package.json / pom.xml / csproj 等)
 - [ ] 更新 README(若触发了 [AGENTS.md §22](../AGENTS.md) 功能变更场景)

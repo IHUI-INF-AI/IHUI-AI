@@ -221,7 +221,7 @@ function titleMarker(rest) {
  * 与 `WP` 现状同形,不是本族新开的缺口。**扫描面一格未放宽**:新族只是多一个号域,占用判据仍只有
  * `scanFamilyIdHits` 那一份。
  */
-const ID = String.raw`G-\d+[a-z]?|D-?\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|WP-?\d+[a-z]?|A\d+[a-z]?|H\d+[a-z]?|守门\s*\d+[a-z]?|V3-\d+[a-z]?|Z-?\d+[a-z]?|Y-?\d+[a-z]?|Q-?\d+[a-z]?|K-?\d+[a-z]?|RP-?\d+[a-z]?`
+const ID = String.raw`G-\d+[a-z]?|D-?\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|WP-?\d+[a-z]?|A\d+[a-z]?|H\d+[a-z]?|守门\s*\d+[a-z]?|V3-\d+[a-z]?|Z-?\d+[a-z]?|Y-?\d+[a-z]?|Q-?\d+[a-z]?|K-?\d+[a-z]?|S-?\d+[a-z]?|RP-?\d+[a-z]?`
 /**
  * 单一真相源出口(2026-09-26):`scripts/lib/plan-task-index.mjs` 按编号收敛任务状态时
  * 必须用**同一族**编号 —— 两处各写一遍必然漂移,而漂移的形态是"一边判孪生、一边判真丢失"

@@ -16,6 +16,8 @@
  * 带 `{主题}` 占位的模板原样发给模型 —— 那不是 web 的"放入草稿"语义。故这里改为
  * 「预览 + 复制 + 去对话」:复制到剪贴板,由用户在输入框粘贴并补全占位符。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
@@ -72,6 +74,7 @@ interface ChatTemplatesData {
 }
 
 export default function ChatTemplatesScreen() {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -299,7 +302,7 @@ export default function ChatTemplatesScreen() {
         onRequestClose={closePreview}
       >
         <Tappable style={styles.overlay} onPress={closePreview}>
-          <Tappable style={styles.sheet} onPress={() => undefined}>
+          <Tappable style={[styles.sheet, dialogHeightStyle]} onPress={() => undefined}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={2}>
                 {preview?.title ?? t('chatTemplates.previewTitle')}
@@ -435,7 +438,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     padding: rnSpacing.lg,
     gap: rnSpacing['sm-loose'],
-    maxHeight: '80%',
+    maxHeight: undefined,
   },
   sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
   sheetTitle: {
