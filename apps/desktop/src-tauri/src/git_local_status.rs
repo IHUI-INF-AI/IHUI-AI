@@ -529,7 +529,7 @@ pub fn check_root_within_bases(root: &str, bases: &[String], fold: bool) -> Gate
         return Gate::Refuse {
             kind: Blindness::OutOfBounds,
             reason: format!(
-                "宿主没有登记任何允许基目录（{} 未设且用户主目录不可用），无从判定授权边界 ⇒ 拒绝，不按放行处理",
+                "宿主没有登记任何允许基目录（{} 未设置），无从判定授权边界 ⇒ 拒绝，不按放行处理",
                 ENV_GIT_BASES
             ),
         };

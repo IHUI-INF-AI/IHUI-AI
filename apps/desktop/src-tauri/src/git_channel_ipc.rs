@@ -150,24 +150,23 @@ pub struct GitChannelState {
     fold_case: bool,
 }
 
-/// 允许基目录：`IHUI_DESKTOP_GIT_BASES`（`;` 分隔绝对路径）∪ 用户主目录。
+/// 允许基目录：**只认** `IHUI_DESKTOP_GIT_BASES`（`;` 分隔绝对路径）。
 ///
-/// 为什么把主目录算进去：桌面端是用户自己的机器，工作区几乎必然在自己主目录之下；
-/// 而**没有任何**允许基目录时判据是"一律拒"（见 `check_root_within_bases`），
-/// 不会静默放开。需要更窄的边界就设那个环境变量。
+/// 2026-11-07（缺陷挖掘 T2）：旧实现无条件并入 `USERPROFILE`/`HOME`，等于把
+/// "用户主目录下任意仓库"都算作已授权 —— 远程页调一次 `git_authorize_workspace`
+/// 就能把主目录里的工程拉进本地 git/diff 通道。默认零基：没有显式登记时
+/// `check_root_within_bases` 一律拒（见该函数），不会静默放开。要放开某个根，
+/// 必须由宿主显式配置这个环境变量。
 pub fn bases_from_env() -> Vec<String> {
+    bases_from_lookup(&|key| std::env::var(key).ok())
+}
+
+/// 纯函数版本（可单测，不读进程环境）：只解析 env 值，`;` 分隔 + 去空 + 去重。
+pub(crate) fn bases_from_lookup(lookup: &dyn Fn(&str) -> Option<String>) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
-    if let Ok(raw) = std::env::var(ENV_GIT_BASES) {
+    if let Some(raw) = lookup(ENV_GIT_BASES) {
         for part in raw.split(';') {
             let trimmed = part.trim();
-            if !trimmed.is_empty() {
-                out.push(trimmed.to_string());
-            }
-        }
-    }
-    for key in ["USERPROFILE", "HOME"] {
-        if let Ok(value) = std::env::var(key) {
-            let trimmed = value.trim();
             if !trimmed.is_empty() && !out.iter().any(|existing| existing == trimmed) {
                 out.push(trimmed.to_string());
             }
@@ -558,5 +557,59 @@ fn kind_names() -> Vec<&'static str> {
     .iter()
     .map(|k| k.as_str())
     .collect()
+}
+
+#[cfg(test)]
+mod base_registry_tests {
+    use super::*;
+    use crate::git_local_status::{check_root_within_bases, Gate};
+
+    /// 2026-11-07(缺陷挖掘 T2):允许基目录**只认显式配置**。
+    /// 旧实现把 USERPROFILE/HOME 无条件并进登记表 ⇒ 远程页只要调一次
+    /// git_authorize_workspace,就能把用户主目录下任意仓库授权给本地 git 通道。
+    /// 本测试在未显式配置 env 的进程里必须看到空登记表,且未授权目录被拒。
+    #[test]
+    fn 无env时不隐式授权主目录且未授权目录被拒() {
+        if std::env::var(ENV_GIT_BASES).is_ok() {
+            return; // 该测试进程显式配置过 env,本条不适用(纯函数用例另行覆盖)
+        }
+        let bases = bases_from_env();
+        assert!(
+            bases.is_empty(),
+            "未显式配置 {} 时不得把主目录算作允许基:{:?}",
+            ENV_GIT_BASES,
+            bases
+        );
+        let gate = check_root_within_bases("D:\\not-authorized\\proj", &bases, true);
+        assert!(
+            matches!(gate, Gate::Refuse { .. }),
+            "空允许基时任何 root 都必须被拒"
+        );
+        assert!(!gate.is_pass());
+    }
+
+    /// 纯函数:即便宿主环境里有 USERPROFILE/HOME,也不会进登记表;env 值去空去重。
+    #[test]
+    fn 只采信显式配置的base并去空去重() {
+        let bases = bases_from_lookup(&|key| {
+            (key == ENV_GIT_BASES).then(|| " D:\\work\\a ; ;D:\\work\\a;D:\\work\\b ".to_string())
+        });
+        assert_eq!(
+            bases,
+            vec!["D:\\work\\a".to_string(), "D:\\work\\b".to_string()]
+        );
+        let bases = bases_from_lookup(&|key| match key {
+            "USERPROFILE" | "HOME" => Some("C:\\Users\\someone".to_string()),
+            _ => None,
+        });
+        assert!(bases.is_empty(), "主目录变量不得隐式成为允许基");
+    }
+
+    #[test]
+    fn 空允许基一律拒绝() {
+        let gate = check_root_within_bases("D:\\somewhere\\proj", &[], true);
+        assert!(matches!(gate, Gate::Refuse { .. }));
+        assert!(!gate.is_pass());
+    }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
