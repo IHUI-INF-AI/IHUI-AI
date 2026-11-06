@@ -312,10 +312,12 @@ jobs:
       - name: Verify binary
         shell: bash
         run: |
+          # 不许 `|| true`:--version 跑不起来的二进制一旦被上传 Release,用户拿到的是
+          # 一个解压即崩的产物。坏产物必须在本步红掉,让 Release 停在草稿态。
           if [ "${{ matrix.os }}" = "windows" ]; then
-            ./apps/cli/dist-sea/ihui.exe --version || true
+            ./apps/cli/dist-sea/ihui.exe --version
           else
-            ./apps/cli/dist-sea/ihui --version || true
+            ./apps/cli/dist-sea/ihui --version
           fi
 
       - name: Generate SHA256 checksum (Linux/macOS)

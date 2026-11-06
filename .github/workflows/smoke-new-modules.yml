@@ -48,8 +48,18 @@ jobs:
         run: |
           # 比对当前与上游分支差异，识别新增路由/前端模块文件
           BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          # 不许 `|| true`:BASE 为空/不可达时 git diff 非零,旧写法把它吞成 COUNT=0,
+          # 后续 typecheck/lint/test 全被 `if count != 0` 跳过 —— 新模块检查静默不跑。
+          if [ -z "$BASE" ]; then
+            echo "::error::BASE 为空(pull_request.base.sha / before 都取不到)⇒ 无法识别新增模块"
+            exit 1
+          fi
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::error::BASE=$BASE 不是可取到的提交 ⇒ 差异比对不可信"
+            exit 1
+          fi
           git diff --name-status --diff-filter=A "$BASE" HEAD -- \
-            'apps/api/src/routes/*.ts' 'apps/web/src/**' > /tmp/added.txt || true
+            'apps/api/src/routes/*.ts' 'apps/web/src/**' > /tmp/added.txt
           COUNT=$(wc -l < /tmp/added.txt)
           echo "count=$COUNT" >> $GITHUB_OUTPUT
           if [ "$COUNT" -gt 0 ]; then

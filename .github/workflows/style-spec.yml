@@ -72,9 +72,29 @@ jobs:
           echo "检测高特异性选择器 (嵌套 > $HIGH_SPECIFICITY_THRESHOLD 层)..."
           # 检测 CSS 中 4+ 层嵌套选择器 (简化: 以空格分隔的选择器组合)
           # 模式: .a .b .c .d {  或  .a > .b > .c > .d {
+          # 先确认扫描根存在:两个目录都不存在时 grep 返回 2,旧写法 `2>/dev/null || true`
+          # 把「读不到」吞成「没命中」,高特异性检测在目录改名/搬移后会永久假绿。
+          scan_dirs=""
+          for d in apps/web/app apps/web/src; do
+            if [ -d "$d" ]; then scan_dirs="$scan_dirs $d"; fi
+          done
+          if [ -z "$scan_dirs" ]; then
+            echo "::error::高特异性检测根不存在(apps/web/app 与 apps/web/src 都不在)⇒ 不能当成零命中"
+            exit 1
+          fi
+          # grep rc: 0=有命中 1=无命中 2=读取失败。1 才是合法的"没命中"。
+          grep_err="$(mktemp)"
+          rc=0
           high_spec_hits=$(grep -rnE '\.[a-zA-Z][a-zA-Z0-9_-]*(\s+[.#>][a-zA-Z][a-zA-Z0-9_-]*){3,}\s*\{' \
             --include='*.css' --include='*.scss' \
-            apps/web/app apps/web/src 2>/dev/null || true)
+            $scan_dirs 2>"$grep_err") || rc=$?
+          if [ "$rc" -ge 2 ]; then
+            echo "::error::grep 读取失败(rc=$rc),扫描没跑完,不能记作零命中:"
+            cat "$grep_err"
+            rm -f "$grep_err"
+            exit 1
+          fi
+          rm -f "$grep_err"
           if [ -n "$high_spec_hits" ]; then
             echo "::error::检测到高特异性选择器 (> 4 层嵌套), 请用 :where() 包裹:"
             echo "$high_spec_hits" | while IFS= read -r line; do

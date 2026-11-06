@@ -320,7 +320,18 @@ jobs:
           set +e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/loop-runtime/STATE.md .github/loop-runtime/loop-run-log.md 2>/dev/null || true
+          # 不许 `2>/dev/null || true`:回写文件缺失/索引锁时 git add 会非零,旧写法把它
+          # 吞掉后 git commit 报 "nothing to commit",于是把「回写没发生」冒充成「本轮无变更」。
+          for f in .github/loop-runtime/STATE.md .github/loop-runtime/loop-run-log.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error::loop 回写目标缺失:$f ⇒ git add 失败不能当成「无变更」"
+              exit 1
+            fi
+          done
+          if ! git add .github/loop-runtime/STATE.md .github/loop-runtime/loop-run-log.md; then
+            echo "::error::loop 回写:git add 非零(索引锁/权限/路径),不能继续冒充「无变更」"
+            exit 1
+          fi
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
           ahead=$(git rev-list --count "@{u}..HEAD" 2>/dev/null)
           [ -n "$ahead" ] || ahead="未判定"
