@@ -207,6 +207,7 @@ function buildWebRnRows(json) {
 function followableOf(json) {
   const dims = Array.isArray(json?.webRn?.dimensions) ? json?.webRn?.dimensions : []
   const byDim = {}
+  const byStrength = {}
   let cells = 0
   let followable = 0
   const items = []
@@ -225,20 +226,46 @@ function followableOf(json) {
         byDim[d].followable++
         pairsWithFollowable.add(f.name)
         /**
-         * 清单才是可派工的形态:一个计数只回答"值不值得造腿",逐条 (屏, 维, web 值, RN 值)
-         * 才回答"动哪一行"。值也一律取门的明细数组,本层不换算单位、不映射 token 档。
+         * 清单才是可派工的形态:一个计数只回答"值不值得造腿",逐条 (屏, 维, web 值, RN 值, 两侧文件)
+         * 才回答"动哪一行"。值一律取门的明细数组,文件指针取门的 `detail[].web/rn` —— 本层不换算单位、
+         * 不映射 token 档、不自己找文件。
+         *
+         * `strength` 用门的 `webCount/rnCount`(该维两侧各自共有几个档)分强/弱:1↔1 才是"整屏这一维
+         * 只有一个档",两侧不同最像同一个东西长得不一样;>1 的那批是**残差档** —— 实测
+         * `wallet/withdraw` 两端都有 lg(8)(其实已对齐),4 来自控件描边、6 来自另一个元素 ⇒ 弱条目
+         * 直接"把 RN 改成 web 的值"会改错元素。门没给这两个计数就落 `unknown`,不猜。
          */
-        items.push({ pair: f.name, dim: d, web: (c.webOnly ?? [])[0], rn: (c.rnOnly ?? [])[0] })
+        const wc = typeof c.webCount === 'number' ? c.webCount : null
+        const rc = typeof c.rnCount === 'number' ? c.rnCount : null
+        const strength = wc === null || rc === null ? 'unknown' : wc === 1 && rc === 1 ? 'single-tier' : 'residual'
+        byStrength[strength] = (byStrength[strength] || 0) + 1
+        items.push({
+          pair: f.name,
+          dim: d,
+          web: (c.webOnly ?? [])[0] ?? null,
+          rn: (c.rnOnly ?? [])[0] ?? null,
+          webTierCount: wc,
+          rnTierCount: rc,
+          strength,
+          webFile: f.web ?? null,
+          rnFile: f.rn ?? null,
+        })
       }
     }
   }
-  items.sort((a, b) => a.pair.localeCompare(b.pair) || a.dim.localeCompare(b.dim))
+  items.sort(
+    (a, b) =>
+      (a.strength === 'single-tier' ? 0 : 1) - (b.strength === 'single-tier' ? 0 : 1) ||
+      a.pair.localeCompare(b.pair) ||
+      a.dim.localeCompare(b.dim),
+  )
   return {
     cells,
     followable,
     needsAdjudication: cells - followable,
     pairsWithFollowable: pairsWithFollowable.size,
     byDim,
+    byStrength,
     items,
     why:
       cells === 0
@@ -624,7 +651,10 @@ async function main() {
       console.log(
         `  可自动跟随上界 = ${ceiling.followable} / ${ceiling.cells} 条 (对,维) 分叉` +
           `(${ceiling.cells ? ((ceiling.followable / ceiling.cells) * 100).toFixed(1) : '0'}%,涉及 ${ceiling.pairsWithFollowable} 屏)` +
-          ` —— 只有"两侧各恰好一个候选值"才有机械可跟随的语义;其余 ${ceiling.needsAdjudication} 条是集合级歧义或一侧无读数,` +
+          ` —— 只有"两侧各恰好一个候选值"才有机械可跟随的语义;其余 ${ceiling.needsAdjudication} 条是集合级歧义或一侧无读数。` +
+          `强/弱:强候选 ${ceiling.byStrength['single-tier'] ?? 0} 条(该维两侧各只有 1 个档)` +
+          ` / 残差 ${ceiling.byStrength.residual ?? 0} 条(两侧都还有别的档,这条只是差集里的残值)` +
+          ` / 门未给档数 ${ceiling.byStrength.unknown ?? 0} 条 —— ` +
           `任何落档腿都必须 held 不猜(${ceiling.why})`,
       )
       if (ceiling.items.length)
