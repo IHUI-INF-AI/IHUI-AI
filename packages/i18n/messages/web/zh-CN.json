@@ -8866,6 +8866,10 @@
           "title": "服务提供商繁忙",
           "action": "请稍后重试"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "这次消耗需要你确认",
+          "action": "确认后再重试，未确认不会调用生图"
+        },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
           "action": "改领其他任务，或等对方释放后再试"
@@ -8997,6 +9001,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "该操作已被安全策略拦截",
           "action": "修改后重试"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "这条命令被策略拒绝",
+          "action": "换一条命令，或让管理员调整策略"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "这条命令的策略还没判出来",
+          "action": "先不要执行，等策略可读后再试"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "需要确认后才会执行",
