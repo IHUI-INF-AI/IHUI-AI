@@ -9,6 +9,8 @@ import { useI18n, useTt } from '@/i18n'
 const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+// BUG-67:AI 主动提问卡(question 帧)的页级浮层节点(Taro 原生组件,不进共享屏槽位)。
+import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   chatStream,
@@ -226,6 +228,15 @@ export default function ChatPage() {
     error?: string
   }
   const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
+  // BUG-67:AI 主动提问卡(question 帧)。载荷由 api/index.ts 的 onRawLine 旁路认领后
+  // 经 onQuestion 回调落到这里;同 questionId 幂等覆盖(断线重连回放不重复挂卡)。
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  } | null>(null)
   // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
   const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
   // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
@@ -351,6 +362,8 @@ export default function ChatPage() {
     setGoalNotice(null)
     // D77:表单待填/终态同样是会话级 —— 旧会话的卡不得挂到新会话头上。
     setBusinessForms([])
+    // BUG-67:提问卡同样是会话级 —— 旧会话未答的提问不得挂到新会话头上。
+    setPendingQuestion(null)
     setFormSendingRequestId(null)
     earlierCursorRef.current = null
   }, [])
@@ -1270,6 +1283,11 @@ export default function ChatPage() {
                 return [...prev, entry]
               })
             },
+            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → 下方提问卡 JSX。
+            // 选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
+            onQuestion: (q) => {
+              setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
@@ -2024,6 +2042,54 @@ export default function ChatPage() {
   return (
     <ThemeRoot className="page">
       <SharedChatScreen {...buildChatShellProps(shellCtx)} />
+      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
+          点选项把回答写回输入框,用户点发送即续流;关闭只收卡,不吞掉已有输入。 */}
+      {pendingQuestion ? (
+        <View
+          style={{
+            position: 'fixed',
+            left: '16px',
+            right: '16px',
+            bottom: '96px',
+            zIndex: 999,
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+          }}
+        >
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+            {pendingQuestion.prompt}
+          </Text>
+          {pendingQuestion.options.map((o) => (
+            <View
+              key={o.id}
+              onClick={() => {
+                setInputValue(o.label)
+                setPendingQuestion(null)
+              }}
+              style={{
+                marginTop: '10px',
+                padding: '10px',
+                borderRadius: '8px',
+                borderWidth: '1px',
+                borderColor: '#dddddd',
+              }}
+            >
+              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+            </View>
+          ))}
+          <View onClick={() => setPendingQuestion(null)} style={{ marginTop: '10px', padding: '8px' }}>
+            <Text style={{ fontSize: '13px', color: '#888888' }}>
+              {pendingQuestion.allowCustom
+                ? pendingQuestion.allowMultiple
+                  ? '可多选 / 自行输入,也可关闭'
+                  : '可自行输入,也可关闭'
+                : '关闭'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </ThemeRoot>
   )
 }

@@ -53,7 +53,12 @@ function loadLocaleKeys(locale) {
 async function main() {
   const quiet = process.argv.includes('--quiet')
   if (!existsSync(CLI_I18N_DIR)) {
-    if (!quiet) console.log('[OK] cli i18n directory does not exist, skipping')
+    // BUG-43④:目录不在位 = 取不到被审面 ⇒ **未判定**,不得打 [OK] 声称合格。
+    // 既有镜像测试(check-cli-i18n-parity.test.mjs)锁本档 exit 0 + stdout "skipping",
+    // 故保留 exit 0 契约,改由 stderr 的 [UNDETERMINED] 标记把"没审到"交付给守门执行器
+    // (guardian-executor 的 applyGateResult 认该标记 ⇒ 记未判定、不记绿、批量 exit 2)。
+    if (!quiet) console.log('cli i18n directory does not exist, skipping (UNDETERMINED)')
+    console.error('[UNDETERMINED] 未判定:cli i18n 目录不存在 ⇒ 无法判定,不判绿也不判红')
     process.exit(0)
   }
   const existing = readdirSync(CLI_I18N_DIR)
@@ -62,7 +67,9 @@ async function main() {
     .filter((l) => REQUIRED_LOCALES.includes(l))
 
   if (existing.length === 0) {
-    if (!quiet) console.log('[OK] cli i18n files not yet present, skipping')
+    // 同 BUG-43④:五语言文件一枚都不在 = 没有可比的被审面 ⇒ 未判定,不记绿。
+    if (!quiet) console.log('cli i18n files not yet present, skipping (UNDETERMINED)')
+    console.error('[UNDETERMINED] 未判定:cli i18n 五语言文件一枚都不在 ⇒ 无法判定')
     process.exit(0)
   }
 

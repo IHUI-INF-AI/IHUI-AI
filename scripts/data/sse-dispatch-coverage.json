@@ -73,6 +73,7 @@
       "onGuardianWarning": "no-stream-alert-ui",
       "onReasoningEffortNotice": "D130 批准的口径是「web 输入区加第三轴」(用户 2026-09-29 预填确认),本端输入区没有推理强度控件 ⇒ 没有可展示的回落通知位。刻意不退化成\"收到就 console 一下\":那会把一个用户看不见的档位变化写成一条只有开发者能发现的痕迹,而票第 8 栏点名的正是\"选了档而什么都没发生\"这一型静默失效。解阻判据:该端补出档位控件(需自带控件 ×5 语言词表)后,删除本项并接 onReasoningEffortNotice 回调。",
       "onAgentDelta": "no-agent-delta-ui",
+      "onBudget": "装配器与词表已在 @ihui/shared/chat 备好(cli / mobile-rn 已消费),本端缺的是 `src/api/index.ts` 的 dispatch case —— 该文件当前被并行会话的 D49①(rateChatMessage / sendToolApprovalResponse)改动占住,补 case 会把他人未提交工作代收进本票(§12 红线),故显式登记而非静默。解阻判据:该文件工作树与 HEAD 一致后接 `case 'budget'` + chat.tsx 注册 + 6 键 ×5 语言入 `ai.stream.*`。",
       "onDelta": "该端聊天渲染按 tokens 概览驱动,未逐 delta 消费;seed 现状,若后续接入逐字流请删除本项并上调 baseline。",
       "onMemoryUpdates": "no-memory-update-ui",
       "onQuestion": "no-question-ui",

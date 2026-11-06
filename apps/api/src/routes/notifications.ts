@@ -6,6 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { inArray, sql } from 'drizzle-orm'
 import { users } from '@ihui/database'
+import type { UnreadCount } from '@ihui/types'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
 import {
@@ -25,6 +26,7 @@ import {
   broadcastNotification,
   attachTopicToList,
 } from '../db/notification-queries.js'
+import { countUnreadEduMessages } from '../db/message-queries.js'
 import { sendEmail } from '../services/email-service.js'
 import { renderNoticeEmail } from '../services/email-templates.js'
 import { sendSmsMessage } from '../services/sms.js'
@@ -34,6 +36,27 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 const ADMIN_ROLE_ID = 1
 
 const NOTIFICATION_TYPES = ['system', 'order', 'project', 'comment', 'mention', 'follow'] as const
+
+/**
+ * BUG-78:后端未读数响应与 @ihui/types 的 UnreadCount 契约对齐(单一真相源)。
+ * 三路读数均为真实查询/计算:notification = 未读且未归档通知数,
+ * message = 站内未读消息数,customerService 暂无未读统计维度按 0 计(不伪造),
+ * total 为三者之和;count 与 notification 同值以兼容 /badge 历史语义与 web 角标消费点。
+ */
+async function buildUnreadCount(userId: string): Promise<UnreadCount> {
+  const [notification, message] = await Promise.all([
+    countUnread(userId),
+    countUnreadEduMessages(userId),
+  ])
+  const customerService = 0
+  return {
+    count: notification,
+    notification,
+    message,
+    customerService,
+    total: notification + message + customerService,
+  }
+}
 
 // =============================================================================
 // Zod schemas
@@ -45,6 +68,8 @@ const paginationQuery = {
 }
 import { buildResponseSchema, paginationQuerySchema } from '../utils/api-schemas.js'
 
+// BUG-80:过滤键名与 @ihui/types 的 NotificationListFilters 收敛到唯一真相源 `unread`;
+// 旧版 api-client 的 `isRead` 不在本 schema 内(z.object 默认 strip),不再被误当作过滤开关。
 const listNotificationsQuery = z.object({
   ...paginationQuery,
   type: z.transform(emptyToUndefined).pipe(z.enum(NOTIFICATION_TYPES).optional()),
@@ -167,10 +192,9 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /notifications/unread-count - 未读通知数
+  // GET /notifications/unread-count - 未读统计(与 @ihui/types UnreadCount 对齐)
   server.get('/notifications/unread-count', async (request, reply) => {
-    const count = await countUnread(request.userId!)
-    return reply.send(success({ count }))
+    return reply.send(success(await buildUnreadCount(request.userId!)))
   })
 
   // PATCH /notifications/:id/read - 标记单条已读（仅本人）
@@ -755,10 +779,9 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /notifications/badge - 未读通知角标(返回 count,与 /unread-count 语义一致,路径别名供前端不同模块调用)
+  // GET /notifications/badge - 未读统计角标(与 /unread-count 同形,路径别名供前端不同模块调用)
   server.get('/notifications/badge', async (request, reply) => {
-    const count = await countUnread(request.userId!)
-    return reply.send(success({ count }))
+    return reply.send(success(await buildUnreadCount(request.userId!)))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

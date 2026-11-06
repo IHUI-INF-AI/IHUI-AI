@@ -4,8 +4,15 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { and, eq, gte, lt } from 'drizzle-orm'
-import { userFollows, examRecords, userAuthInfo, users } from '@ihui/database'
+import { and, eq, gte, lt, inArray } from 'drizzle-orm'
+import {
+  userFollows,
+  examRecords,
+  userAuthInfo,
+  users,
+  pointTransactions,
+  userPoints,
+} from '@ihui/database'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -13,7 +20,7 @@ import { todayString, shiftDate } from '../utils/checkin-helpers.js'
 import {
   findTodaySignIn,
   findRecentSignInRecords,
-  findPointTransactions,
+  ensureUserPoints,
 } from '../db/gamification-queries.js'
 import { hasClaimedFirstShare } from '../db/point-queries.js'
 import { earnPoints } from '../services/points-service.js'
@@ -268,9 +275,20 @@ function progressOf(def: TaskDef, ctx: TaskProgressCtx): number {
 // ---------------------------------------------------------------------------
 // 领取查重:source='task' 的流水里按 description 匹配周期键
 // ---------------------------------------------------------------------------
-async function loadClaimedKeys(userId: string): Promise<Set<string>> {
-  const { list } = await findPointTransactions({ userId, page: 1, pageSize: 200, source: 'task' })
-  return new Set(list.map((t) => t.description).filter((d): d is string => !!d))
+/** 精确按周期键查重:不再拉取固定 200 条窗口(流水超窗即可重复领取的旧根因)。 */
+async function loadClaimedKeys(userId: string, keys: string[]): Promise<Set<string>> {
+  if (keys.length === 0) return new Set<string>()
+  const rows = await db
+    .select({ description: pointTransactions.description })
+    .from(pointTransactions)
+    .where(
+      and(
+        eq(pointTransactions.userId, userId),
+        eq(pointTransactions.source, 'task'),
+        inArray(pointTransactions.description, keys),
+      ),
+    )
+  return new Set(rows.map((r) => r.description).filter((d): d is string => !!d))
 }
 
 // ---------------------------------------------------------------------------
@@ -302,9 +320,10 @@ export const pointsTasksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const today = todayString()
+    const keys = TASK_DEFS.map((def) => periodKey(def, today))
     const [ctx, claimedKeys] = await Promise.all([
       computeProgressCtx(userId, today),
-      loadClaimedKeys(userId),
+      loadClaimedKeys(userId, keys),
     ])
 
     const list = TASK_DEFS.filter((d) => !parsed.data.type || d.type === parsed.data.type).map(
@@ -343,18 +362,38 @@ export const pointsTasksRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '任务不存在'))
       }
       const today = todayString()
-      const [ctx, claimedKeys] = await Promise.all([
-        computeProgressCtx(userId, today),
-        loadClaimedKeys(userId),
-      ])
       const key = periodKey(def, today)
-      if (claimedKeys.has(key)) {
-        return reply.status(409).send(error(409, '该任务本期已领取'))
-      }
+      const ctx = await computeProgressCtx(userId, today)
       if (progressOf(def, ctx) < def.target) {
         return reply.status(400).send(error(400, '任务尚未完成'))
       }
-      const result = await earnPoints(userId, def.reward, 'task', key)
+      // 单事务 + 用户积分行锁:把「精确查重 → 发放」串行化,并发双击不会双倍发放。
+      // 查重按 description 精确匹配,不再受 200 条窗口限制;DB 层唯一约束待迁移侧补。
+      // ensureUserPoints 在事务外先确保积分行存在,FOR UPDATE 才有可锁之行。
+      await ensureUserPoints(userId)
+      const result = await db.transaction(async (tx) => {
+        await tx
+          .select({ userId: userPoints.userId })
+          .from(userPoints)
+          .where(eq(userPoints.userId, userId))
+          .for('update')
+        const claimed = await tx
+          .select({ id: pointTransactions.id })
+          .from(pointTransactions)
+          .where(
+            and(
+              eq(pointTransactions.userId, userId),
+              eq(pointTransactions.source, 'task'),
+              eq(pointTransactions.description, key),
+            ),
+          )
+          .limit(1)
+        if (claimed.length > 0) return null
+        return earnPoints(userId, def.reward, 'task', key, undefined, tx)
+      })
+      if (!result) {
+        return reply.status(409).send(error(409, '该任务本期已领取'))
+      }
       return reply.send(success({ points: result.points, reward: def.reward }))
     },
   )

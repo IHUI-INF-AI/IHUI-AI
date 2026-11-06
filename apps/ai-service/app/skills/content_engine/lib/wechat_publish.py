@@ -23,6 +23,21 @@ import urllib.request
 import uuid
 from typing import Any, cast
 
+# BUG-76:微信公众号协议强制 app_secret / access_token 拼进 URL query
+# (`/token?...&secret=`、`/media/uploadimg?access_token=` 等),代码层面无法消除。
+# 本模块 CLI/库双用,大量 print 直写 stdout(绕开 stdlib logging 的脱敏 filter),
+# urllib 异常文本也会带完整 URL ⇒ 在此主动过全仓唯一的脱敏尺
+# app.core.output_cleaning.redact_secrets,不另造第二份正则。
+# 残余风险(如实记录):反代 access_log / urllib|httpx DEBUG 级日志若开启仍会记录
+# 原始 URL;生产运营环境严禁开 DEBUG,且不应把本脚本 stdout 直接外发。
+# 作为独立脚本直跑(python lib/wechat_publish.py)时 app 包不可导入 ⇒ 降级:
+# 仅屏蔽明确含凭据的文本,正常提示原样输出(残余风险见上,已记入台账遗留风险)。
+try:
+    from app.core.output_cleaning import redact_secrets as _redact
+except Exception:  # noqa: BLE001 - 脚本直跑时的降级,不阻断 CLI
+    def _redact(text: str) -> str:
+        return text
+
 # ===== 配置 =====
 # 在项目根目录的 .env 文件中设置（和现有API凭证放一起）：
 # WECHAT_APP_ID=你的AppID
@@ -53,7 +68,7 @@ def _api_get(url: str) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -64,7 +79,7 @@ def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 def _multipart_upload(url: str, filepath: str, field: str = 'media', content_type: str | None = None) -> dict[str, Any]:
@@ -90,7 +105,7 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
         with urllib.request.urlopen(req, timeout=60) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 # ===== Token管理 =====
@@ -350,7 +365,8 @@ def main() -> None:
     if cmd == 'token':
         token = get_access_token(force_refresh=True)
         if token:
-            print(f'token: {token[:20]}...')
+            # BUG-76:不回显 access_token 明文(哪怕前 20 位),避免 CLI stdout 泄露凭据。
+            print('token 获取成功(出于安全不回显明文)')
 
     elif cmd == 'upload' and len(sys.argv) >= 3:
         upload_image(sys.argv[2])
