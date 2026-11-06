@@ -100,6 +100,10 @@ Headline claims (same source as the table below, all live-computed): **624 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-07**
+- 🐞 Fix:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
+- 🚀 Feature/Improvement:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
+
+**2026-11-07**
 - 🚀 Feature/Improvement:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
 
 **2026-11-06**
@@ -362,13 +366,6 @@ Headline claims (same source as the table below, all live-computed): **624 table
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (43f56aa425)
 - 🐞 Fix:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
 - 🐞 Fix:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
-
-**2026-11-04**
-- 🔧 Chore/Other:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
-- 🐞 Fix:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
-- 🐞 Fix:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
-- 🐞 Fix:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (38f420f6cb)
-- 🐞 Fix:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (860fc3e087)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
