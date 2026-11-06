@@ -56,7 +56,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--web.enable-lifecycle'
     ports:
-      - '127.0.0.1:8825:9090'
+      - '127.0.0.1:8815:9090'
     restart: unless-stopped
 
 volumes:

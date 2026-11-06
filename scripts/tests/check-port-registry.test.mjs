@@ -888,3 +888,79 @@ test('BUG-0011 夹具:尾随裸引号 ⇒ 精确点名该行 port-spec-invalid',
   assert.match(errors[0].raw, /4317'/)
   assert.equal(errors[0].reason, 'port-spec-invalid')
 })
+// ─── BUG-0059:Prometheus 宿主口四处对账(2026-11-06 立)────────────────────
+// observability 编排写 8825,而端口注册表 §2.2 / 根 compose / .env.production.example
+// 都是 8815;8820-8829 是辅助工具预留段,基础设施不得占用。
+const ROOT_COMPOSE_REL = join(__dirname, '..', '..', 'docker-compose.yml')
+const PORT_DOC_REL = join(__dirname, '..', '..', 'docs', 'port-management.md')
+const ENV_TEMPLATE_REL = join(__dirname, '..', '..', '.env.production.example')
+
+/** 端口注册表 docs §2 里 Prometheus 那一行的首格端口号。 */
+function obsRegistryPrometheusHostPort(docText) {
+  const line = String(docText)
+    .split(/\r?\n/)
+    .find((row) => /^\|\s*\d{4}\s*\|\s*Prometheus\s*\|/.test(row))
+  if (!line) return null
+  const cell = line.split('|')[1]
+  return Number(cell.trim())
+}
+
+/** 根 compose 里 Prometheus 的默认宿主口(`${PROMETHEUS_PORT:-8815}`)。 */
+function obsRootComposePrometheusHostPort(text) {
+  const match = String(text).match(/PROMETHEUS_PORT:-(\d{4})/)
+  return match ? Number(match[1]) : null
+}
+
+/** 生产环境模板里登记的单值 `PROMETHEUS_PORT=...`。 */
+function obsEnvTemplatePrometheusHostPort(text) {
+  const match = String(text).match(/^PROMETHEUS_PORT=(\d{4})\s*$/m)
+  return match ? Number(match[1]) : null
+}
+
+/** Prometheus 宿主口 ↔ 注册表真值的差异清单(空数组 = 对齐)。 */
+function obsCompareHostPorts(hosts, expected) {
+  const issues = []
+  if (!hosts || hosts.length !== 1) {
+    issues.push(`prometheus 宿主口数量=${hosts ? hosts.length : 'null'}(应为 1)`)
+    return issues
+  }
+  if (hosts[0] !== expected) issues.push(`prometheus 宿主口 ${hosts[0]} ≠ 注册表 ${expected}`)
+  return issues
+}
+
+test('BUG-0059 真实配置:注册表 §2 / 根 compose / 生产模板 / observability 编排同为 8815', () => {
+  const registry = obsRegistryPrometheusHostPort(readFileSync(PORT_DOC_REL, 'utf8'))
+  const root = obsRootComposePrometheusHostPort(readFileSync(ROOT_COMPOSE_REL, 'utf8'))
+  const template = obsEnvTemplatePrometheusHostPort(readFileSync(ENV_TEMPLATE_REL, 'utf8'))
+  assert.equal(registry, 8815, 'docs/port-management.md §2.2 登记 Prometheus=8815')
+  assert.equal(root, 8815, '根 compose PROMETHEUS_PORT 默认值=8815')
+  assert.equal(template, 8815, '.env.production.example 的 PROMETHEUS_PORT=8815')
+  const hosts = obsHostPortsForService(readFileSync(OBS_COMPOSE_REL, 'utf8'), 'prometheus')
+  assert.deepEqual(obsCompareHostPorts(hosts, registry), [])
+})
+
+test('BUG-0059 夹具:编排漂成 8825 ⇒ 与注册表 8815 的偏差被点名', () => {
+  const real = readFileSync(OBS_COMPOSE_REL, 'utf8')
+  const { text } = obsMutateOneLine(real, "'127.0.0.1:8815:9090'", "'127.0.0.1:8825:9090'")
+  const hosts = obsHostPortsForService(text, 'prometheus')
+  assert.deepEqual(hosts, [8825], '夹具确实改到了 Prometheus 段')
+  const expected = obsRegistryPrometheusHostPort(readFileSync(PORT_DOC_REL, 'utf8'))
+  assert.deepEqual(
+    obsCompareHostPorts(hosts, expected),
+    ['prometheus 宿主口 8825 ≠ 注册表 8815'],
+    '8825 漂移必须被精确点名',
+  )
+})
+
+test('BUG-0059 夹具:生产模板漂成 9091 ⇒ 同样被精确点名', () => {
+  const real = readFileSync(ENV_TEMPLATE_REL, 'utf8')
+  const { text, mutatedLine } = obsMutateOneLine(real, 'PROMETHEUS_PORT=8815', 'PROMETHEUS_PORT=9091')
+  const host = obsEnvTemplatePrometheusHostPort(text)
+  assert.equal(host, 9091, `夹具确实改到了模板第 ${mutatedLine} 行`)
+  const expected = obsRegistryPrometheusHostPort(readFileSync(PORT_DOC_REL, 'utf8'))
+  assert.deepEqual(
+    obsCompareHostPorts([host], expected),
+    ['prometheus 宿主口 9091 ≠ 注册表 8815'],
+    '9091 漂移必须被精确点名',
+  )
+})
