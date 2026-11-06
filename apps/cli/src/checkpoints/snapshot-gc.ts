@@ -91,6 +91,8 @@ export function judgeSnapshotGcPolicy(p: SnapshotGcPolicy): string[] {
 function describeVerdict<M extends SnapshotGcManifestMeta>(name: string, v: ManifestReadResult<M>): Verdict<M> {
   if (v.status === 'ok') return { ok: true, meta: v.meta };
   if (v.status === 'missing') return { ok: false, reason: 'manifest-missing', detail: `${name}: 清单不存在` };
+  // 读不到 ≠ 损坏:前者无隔离件、也没有证据说内容坏了,必须各记各的账
+  if (v.status === 'unreadable') return { ok: false, reason: 'manifest-unreadable', detail: `${name}: ${v.detail}` };
   return { ok: false, reason: 'manifest-corrupt', detail: `${name}: ${v.entry.reason} —— ${v.entry.detail}` };
 }
 
