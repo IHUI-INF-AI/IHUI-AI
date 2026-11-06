@@ -31,6 +31,7 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useHostGitWorkspace } from '@/hooks/use-host-git-workspace'
 
@@ -175,22 +176,23 @@ export function HostGitSection() {
           <ul className="max-h-40 overflow-y-auto text-[11px]" data-testid="host-git-entry-list">
             {facts.entries.map((entry) => (
               <li key={`${entry.kind}:${entry.path}`} className="rounded-sm hover:bg-accent">
-                <button
-                  type="button"
-                  data-testid="host-git-entry"
-                  data-kind={entry.kind}
-                  className="flex w-full cursor-pointer items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
-                  title={t('hostGit.diffTitle', { path: entry.path })}
-                  onClick={() => void getDiff(entry.path)}
-                >
-                  <span className="w-16 shrink-0 font-mono text-[10px]">{entry.kind}</span>
-                  <span className="flex-1 truncate">{entry.path}</span>
-                  {entry.old_path && (
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                      {entry.old_path}
-                    </span>
-                  )}
-                </button>
+                <Tooltip content={t('hostGit.diffTitle', { path: entry.path })}>
+                  <button
+                    type="button"
+                    data-testid="host-git-entry"
+                    data-kind={entry.kind}
+                    className="flex w-full cursor-pointer items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
+                    onClick={() => void getDiff(entry.path)}
+                  >
+                    <span className="w-16 shrink-0 font-mono text-[10px]">{entry.kind}</span>
+                    <span className="flex-1 truncate">{entry.path}</span>
+                    {entry.old_path && (
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                        {entry.old_path}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
               </li>
             ))}
           </ul>
