@@ -516,14 +516,10 @@ export function landsLedger(paths) {
  *  给落地器同一个逃生舱等于把本票要闭的那个洞重新开一条(旁路落地不跑钩子,那面旗在钩子里才有意义)。
  *
  * 谁在调用本出口(逐台点名,少一台就是该型缺陷没兜住):
- *  · 已接:`object-space-land.mjs`(本票) · `live-doc-edit.mjs`(本票)
+ *  · 已接补跑并折算:`object-space-land.mjs` · `live-doc-edit.mjs` ·
+ *    `plan-tasks-merge.mjs`(方案 A:9 站收返回值 + landingExitWithHeal 折算)
  *  · 早已接(先例,走的是同一个器物):`git-sync-converge.mjs` / `union-converge.mjs`
- *  · **未接,本票动不了**:`scripts/plan-tasks-merge.mjs` —— 它是第四台旁路落地器
- *    (`--heal --commit` / `--fold-twins --commit` 都走 commit-tree + CAS,同样不跑钩子,
- *    而它落的内容正是台账行)。它同样必须自带补跑,否则本票的洞在它那一台上原地复活。
- *    未做的原因是硬约束而不是遗漏:该文件本票开工时是 ` M`(他人持有),票面明令禁止改动;
- *    镜像测试 `post-merge-ledger-sync.test.mjs` 的 L2 装车锁目前只钉两台收敛器,把它扩到
- *    落地器三台(object-space-land / live-doc-edit / plan-tasks-merge)是那一票的收口动作。
+ *    (收敛器刻意"失败不阻断收敛,下一枚走钩子的提交仍会再兜一次",不改本轮结论)
  *
  * 失败仍一律**大声点名**,但按 RP-71 / §0.3 的新契约:**落地内容不回滚、不判红,调用方却必须以
  * exit 2 记未判定、拒绝报绿**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证已经通过的
