@@ -82,26 +82,73 @@ import { resolveGitBin } from './lib/gitdir.mjs'
  * 不触推送),因此注入根只改变「push-state 与 HEAD 读自哪棵树」,不改任何判据。
  */
 // ─── 参数(先于 ROOT 解析取:--root= 是「注入缝」旗标,见上头注)───
-// 用法档(2026-11-05 立,同族第四枚)。本器**没有只读档**:它的全部工作就是推远端,
-// 所以手滑敲一枚不认识的旗标等于对 origin 发起一次共享状态改动(与 auto-evolve 的 --help
-// 曾真跑一整轮、heal 的手滑档曾真 restore 他人现场同型 —— 见 d911f93 / 3a9ebdf / d016326)。
-// 只加"问用法 ⇒ 一个字都不做"这一档,不改默认档与既有旗标语义:
-// 收敛器被 post-commit/守护多处调用,在这里关"未知旗标即拒绝"之前必须先逐枚数清发射侧,
-// 那会把自己要用的推送腿冻住(本日 `--once` 的教训)。
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
-  console.log(
-    [
-      'usage: node scripts/git-push-converge.mjs [选项]',
-      '  默认档 = 对全部在册远端做 fetch→收敛→push(会改动 origin,非只读)',
-      '  本器没有 dry-run/只读档;要判断能否推,先单独跑 node scripts/git-push-converge.mjs --help 之外',
-      '  的只读尺(如 node scripts/check-push-sync.mjs)。',
-      '  注:这一档只打用法,不 fetch、不 push、不写任何状态。',
-    ].join('\n'),
-  )
+/**
+ * 用法档 + 未知旗闸(RP-68,2026-11-06;2026-11-05 那档只做了 `--help`,同族 RP-91 残留)。
+ * 本器**没有只读档**:默认档的全部工作就是 fetch→收敛→push origin,所以手滑敲一枚不认识的
+ * 旗标 = 对 origin 发起一次共享状态改动(与 auto-evolve 的 --help 曾真跑一整轮、heal 的手滑档
+ * 曾真 restore 他人现场同型 —— 见 d911f93 / 3a9ebdf / d016326)。
+ *
+ * 「关闸前先清点发射侧」这一前置本次逐枚数过(§0.10:漏一枚就会把自己要用的推送腿冻住,
+ * 本日 `--once` 的教训):全仓真正**执行**本器的只有镜像测试
+ * `scripts/tests/git-push-converge-root-pin.test.mjs` 的 `[TOOL, '--remotes=']`;其余命中全是
+ * 不产生 argv 的引用 —— `.husky/post-commit` 的提示文案、`git-push-guard.mjs` 的日志串、
+ * `check-git-read-timeout.mjs` 的文件名清单、docs/README/AGENTS/PROJECT_PLAN 的散文。
+ * 故下面的白名单 = 本文件自身消费点全集,由 `scripts/tests/converge-help-exit-code.test.mjs`
+ * 从源码现扫做完备性对账(§0.6 单一真相源,不在别处再写一份清单)。
+ *
+ * 两条不许漂:① 闸必须在 **任何** IO(含 `resolveGitBin()` 与 push-state 读取)之前,
+ * 否则"零副作用"只是措辞;② 用法文案只有 `USAGE` 一份,--help 与错误出口共用。
+ */
+const USAGE = Object.freeze([
+  '用法: node scripts/git-push-converge.mjs [选项]',
+  '  --help / -h              只打用法,rc=0:不 fetch、不 push、不写任何状态',
+  '  --remotes=<a,b>          指定远端(默认 origin)',
+  '  --branch=<name>          指定分支(默认 main)',
+  '  --force-with-lease       分叉时允许 lease 强推(慎用)',
+  '  --timeout=<ms>           单仓网络超时(默认 180000)',
+  '  --root=<目录>             测试注入缝:改 push-state/HEAD 的取材树,生产链不得传',
+  '  默认档 = fetch→收敛→push(会改动 origin,非只读);要只读核验请跑 node scripts/check-push-sync.mjs。',
+  '  退出码: 0 收敛/已同步/远端领先待 ff · 1 推送失败或分叉 · 2 用法错(未知旗标)',
+])
+
+/** 动作档(不吃值)。 */
+const KNOWN_BOOLEAN_FLAGS = Object.freeze(['--help', '-h', '--force-with-lease'])
+/** 带值档:本器只认 `--name=value`,与下面 getArg 的取值形态逐字一致。 */
+const KNOWN_VALUE_FLAGS = Object.freeze(['--remotes', '--branch', '--timeout', '--root'])
+
+/**
+ * 纯函数:找出 argv 里第一枚不认识的旗标;null = 全部认识。零 IO、零副作用。
+ * 值旗缺 `=`(如裸 `--remotes`)与布尔旗带 `=`(如 `--force-with-lease=1`)都判用法错 ——
+ * 前者取值本来就不成形,后者会被 hasFlag 静默忽略,两者都会落进默认档推 origin。
+ * 裸位置参数沿用旧语义忽略:本器无任何位置参数消费点,这一维不在本票(未知旗)射程内。
+ */
+function findUnknownFlag(argv) {
+  for (const a of argv) {
+    if (!a.startsWith('-')) continue
+    const eq = a.indexOf('=')
+    const name = eq === -1 ? a : a.slice(0, eq)
+    if (KNOWN_BOOLEAN_FLAGS.includes(name) && eq === -1) continue
+    if (KNOWN_VALUE_FLAGS.includes(name) && eq !== -1) continue
+    return a
+  }
+  return null
+}
+
+const CLI_ARGS = process.argv.slice(2)
+{
+  const bad = findUnknownFlag(CLI_ARGS)
+  if (bad !== null) {
+    console.log(`❌ 用法错:${bad} 不在已登记旗标里 ⇒ 不得按默认档推 origin(本器没有只读档)`)
+    console.log(USAGE.join('\n'))
+    process.exit(2)
+  }
+}
+if (CLI_ARGS.includes('--help') || CLI_ARGS.includes('-h')) {
+  console.log(USAGE.join('\n'))
   process.exit(0)
 }
 
-const args = process.argv.slice(2)
+const args = CLI_ARGS
 const getArg = (name, def) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`))
   return hit ? hit.split('=').slice(1).join('=') : def
