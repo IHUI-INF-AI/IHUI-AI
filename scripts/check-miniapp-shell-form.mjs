@@ -65,16 +65,24 @@ function validateLedger(ledger) {
   for (const r of ledger) {
     const missing = ['route', 'file', 'loc', 'mapStatus', 'reasonClass'].filter((k) => r?.[k] === undefined)
     if (missing.length) bad.push({ row: r, why: `台账行缺字段 ${missing.join(',')}` })
-    if (!['copy', 'undetermined'].includes(r?.impl) && r?.impl !== undefined)
+    if (!['copy', 'undetermined', 'not-applicable'].includes(r?.impl) && r?.impl !== undefined)
       bad.push({ row: r, why: `台账行 impl 非法: ${r?.impl}` })
+    if (r?.mapStatus === 'not-applicable') {
+      if (r.impl !== 'not-applicable') bad.push({ row: r, why: 'mapStatus=not-applicable 必须 impl=not-applicable' })
+      if (!Array.isArray(r.declaredSpecs) || r.declaredSpecs.length === 0)
+        bad.push({ row: r, why: 'mapStatus=not-applicable 必须声明被否定的 declaredSpecs(不许只填值)' })
+      if (typeof r.note !== 'string' || r.note.replace(/\s+/g, '').length < 16 || !/[:：]/.test(r.note))
+        bad.push({ row: r, why: 'mapStatus=not-applicable 的 note 必须含 file:line 级证据(≥16 字且带冒号)' })
+    }
   }
   return bad
 }
 
 function emit(root, face) {
-  const { rows } = classifyMiniappPages(root, face)
+  const ledger = loadLedgerRows(root)
+  const { rows } = classifyMiniappPages(root, face, ledger)
   const keep = rows
-    .filter((r) => r.impl === 'copy' || r.impl === 'undetermined')
+    .filter((r) => r.impl === 'copy' || r.impl === 'undetermined' || r.impl === 'not-applicable')
     .sort((a, b) => a.route.localeCompare(b.route))
     .map((r) => ({
       route: r.route,
@@ -88,13 +96,13 @@ function emit(root, face) {
       at: '2026-11-05',
     }))
   writeFileSync(join(root, LEDGER), keep.map((r) => JSON.stringify(r)).join('\n') + '\n', 'utf8')
-  log(`✅ 已写存量台账 ${LEDGER}:${keep.length} 行(copy ${keep.filter((r) => r.impl === 'copy').length} / undetermined ${keep.filter((r) => r.impl === 'undetermined').length},面=${face})`)
+  log(`✅ 已写存量台账 ${LEDGER}:${keep.length} 行(copy ${keep.filter((r) => r.impl === 'copy').length} / undetermined ${keep.filter((r) => r.impl === 'undetermined').length} / not-applicable ${keep.filter((r) => r.impl === 'not-applicable').length},面=${face})`)
   return 0
 }
 
 function run(root, face) {
-  const { rows, shared, pageCount, registryCount } = classifyMiniappPages(root, face)
   const ledger = loadLedgerRows(root)
+  const { rows, shared, pageCount, registryCount } = classifyMiniappPages(root, face, ledger)
   const badLedger = validateLedger(ledger)
   const { reds, advisories, stats } = evaluateRatchet(rows, ledger)
   for (const b of badLedger) reds.push({ rule: 'S0', why: b.why, row: b.row })
@@ -111,7 +119,24 @@ function run(root, face) {
           face,
           copy: rows
             .filter((r) => r.impl === 'copy')
-            .map((r) => ({ route: r.route, file: r.file, loc: r.loc, mapStatus: r.mapStatus, reasonClass: r.reasonClass, declaredSpecs: r.declaredSpecs })),
+            .map((r) => ({
+              route: r.route,
+              file: r.file,
+              loc: r.loc,
+              mapStatus: r.mapStatus,
+              reasonClass: r.reasonClass,
+              declaredSpecs: r.declaredSpecs,
+              businessJsx: r.businessJsx,
+              duplicateUi: r.duplicateUi,
+              injectedProps: r.injectedProps,
+              note: r.note,
+            })),
+          notApplicable: rows
+            .filter((r) => r.impl === 'not-applicable')
+            .map((r) => ({ route: r.route, note: r.note })),
+          rejectedNotApplicable: rows
+            .filter((r) => r.notApplicableRejected)
+            .map((r) => ({ route: r.route, note: r.note })),
           undetermined: undeterminedRows.map((r) => ({ route: r.route, file: r.file, note: r.note })),
         },
         null,
@@ -127,10 +152,11 @@ function run(root, face) {
     log(`判定面                  : ${face}`)
     log(`共享屏(真相源)          : ${stats.shared}`)
     log(`小程序在册页            : ${stats.pages}(映射登记 ${stats.registryEntries} 条)`)
-    log(`判为薄壳(已 import 入口) : ${stats.shell}`)
+    log(`判为薄壳(结构+入口双证) : ${stats.shell}`)
     log(
       `判为复制页              : ${stats.copy}(纯复制 ${stats.pureCopy} / 有本地改动 ${stats.localDelta};LOC ${stats.copyLoc}/${stats.totalLoc} = ${(stats.copyRatio * 100).toFixed(1)}%)`,
     )
+    log(`判为 not-applicable     : ${stats.notApplicable}`)
     log(`无法判定                : ${stats.undetermined}${undeterminedRows.length ? ' —— ' + undeterminedRows.map((r) => r.route).slice(0, 6).join(', ') : ''}`)
     log(`存量台账                : ${stats.ledgerRows} 行`)
     if (advisories.length) {
