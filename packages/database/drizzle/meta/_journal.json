@@ -2545,6 +2545,13 @@
       "when": 1793888061055,
       "tag": "20261105120000_tenant_rls_policies_batch1_install",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 369,
+      "when": 1793959200000,
+      "tag": "20261106180000_share_token_expires_at",
+      "breakpoints": true
     }
   ]
 }
