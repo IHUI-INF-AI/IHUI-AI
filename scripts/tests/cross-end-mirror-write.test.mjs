@@ -105,8 +105,13 @@ test('V2b generated 档合法(已造页但数据钩子待补 —— 必须能记
   assert.equal(bad.length, 0)
 })
 
-test('V2c 四档口径齐(missing/generated/not-applicable + declare 不在列)', () => {
-  assert.deepEqual([...V.VERDICT_KINDS].sort(), ['generated', 'missing', 'not-applicable'])
+test('V2c 四档口径齐(missing/generated/not-applicable/declared-object-mismatch + declare 不在列)', () => {
+  assert.deepEqual([...V.VERDICT_KINDS].sort(), [
+    'declared-object-mismatch',
+    'generated',
+    'missing',
+    'not-applicable',
+  ])
 })
 
 test('V3 归并:同屏以本批为准,新增计数只算新键', () => {
