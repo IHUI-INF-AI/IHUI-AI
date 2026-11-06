@@ -16,6 +16,7 @@
  *
  * 平台特有:依赖 react-native Animated/ScrollView,不适合共享层。
  */
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useEffect, useRef } from 'react'
 import {
   Animated,
@@ -177,6 +178,7 @@ export default function AgentList({
   style,
   subtitleField,
 }: AgentListProps): React.JSX.Element {
+  const dialogHeightStyle = useDialogHeightStyle()
   const { t } = useI18n()
   const emptyText = emptyTextProp ?? t('agentList.emptyText')
   const slide = useRef(new Animated.Value(60)).current
@@ -191,10 +193,18 @@ export default function AgentList({
 
   return (
     <Animated.View
-      style={[styles.container, style, { opacity, transform: [{ translateY: slide }] }]}
+      style={[
+        styles.container,
+        dialogHeightStyle,
+        style,
+        { opacity, transform: [{ translateY: slide }] },
+      ]}
     >
       <View style={styles.inner}>
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
+        <ScrollView
+          style={[styles.content, dialogHeightStyle]}
+          contentContainerStyle={styles.contentBody}
+        >
           {items.map((item) => {
             // 按 subtitleField 取副标题;仅非空字符串才下发(trim 过纯空白),
             // subtitleField 未传 ⇒ 恒为 undefined ⇒ Row 走既有单行分支。
@@ -228,7 +238,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    maxHeight: '70%',
+    maxHeight: undefined,
     overflow: 'hidden',
   },
   inner: {
@@ -239,7 +249,7 @@ const styles = StyleSheet.create({
   content: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    maxHeight: '70%',
+    maxHeight: undefined,
   },
   contentBody: {
     paddingHorizontal: rnSpacing['sm-loose'],
