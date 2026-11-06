@@ -37,60 +37,39 @@ jobs:
       - name: Fetch current lifecycle configuration
         id: current
         run: |
+          set -uo pipefail
           BUCKET="${{ inputs.bucket || secrets.S3_BUCKET }}"
-          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
-          aws s3api get-bucket-lifecycle-configuration --bucket "$BUCKET" > /tmp/current-lifecycle.json || echo '{"Rules":[]}' > /tmp/current-lifecycle.json
+          if [ -z "$BUCKET" ]; then
+            echo "::error::bucket 未提供(inputs.bucket 与 secrets.S3_BUCKET 均为空)"
+            exit 1
+          fi
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          ERR=/tmp/aws-lifecycle-err.txt
+          # 读取失败 ≠ 线上没有配置:只有 AWS 明确回 NoSuchLifecycleConfiguration 才按 Rules=[] 判;
+          # 其余错误(凭据/网络/权限/桶名)一律 ::error + 非 0,不得伪装成「无规则」再判成漂移或绿。
+          if aws s3api get-bucket-lifecycle-configuration --bucket "$BUCKET" \
+              > /tmp/current-lifecycle.json 2>"$ERR"; then
+            echo "读取成功"
+          elif grep -q 'NoSuchLifecycleConfiguration' "$ERR"; then
+            echo '{"Rules":[]}' > /tmp/current-lifecycle.json
+            echo "线上确无生命周期配置(NoSuchLifecycleConfiguration)⇒ 按 Rules=[] 判"
+          else
+            echo "::error::读取生命周期配置失败(非 NoSuchLifecycleConfiguration):"
+            tail -n 3 "$ERR"
+            exit 1
+          fi
 
       - name: Compare against declared configuration
-        id: compare
         run: |
-          # 声明配置位于 deploy/s3-lifecycle.yml，先转为 JSON 后比对
-          python3 - <<'PY'
-          import json, sys, os, subprocess
-          decl_path = 'deploy/s3-lifecycle.yml'
-          # BUG-56③:解析失败绝不能当"无声明 ⇒ 无漂移"。缺文件/解析非 0/空输出一律判红(fail-closed),
-          # 不再用 .stdout 静默吞掉 returncode/stderr。
-          if not os.path.isfile(decl_path):
-              print('::error::声明文件缺失: ' + decl_path)
-              sys.exit(2)
-          proc = subprocess.run(
-            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', decl_path],
-            capture_output=True, text=True
-          )
-          if proc.returncode != 0 or not proc.stdout.strip():
-              print('::error::声明文件解析失败(returncode=%s): %s' % (proc.returncode, proc.stderr.strip()))
-              sys.exit(2)
-          try:
-              declared_doc = json.loads(proc.stdout)
-          except ValueError as e:
-              print('::error::声明文件解析结果不是合法 JSON: %s' % e)
-              sys.exit(2)
-          declared_rules = declared_doc.get('Rules', []) if isinstance(declared_doc, dict) else []
-          if not declared_rules:
-              print('::error::声明文件未解析出任何 Rules —— 判据失明,不得判无漂移')
-              sys.exit(2)
-          try:
-              with open('/tmp/current-lifecycle.json') as f:
-                  current = json.load(f)
-          except ValueError as e:
-              print('::error::线上生命周期配置不是合法 JSON: %s' % e)
-              sys.exit(2)
-          current_rules = current.get('Rules', [])
-          drift = len(declared_rules) != len(current_rules)
-          # ::set-output 已废弃:不写 $GITHUB_OUTPUT 则 output 恒空,Report drift 永不触发 ⇒ 恒绿。
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
-              fh.write('drift=%s\n' % ('true' if drift else 'false'))
-          print(f'声明规则数: {len(declared_rules)}, 实际规则数: {len(current_rules)}')
-          PY
+          set -uo pipefail
+          # 声明配置位于 deploy/s3-lifecycle.yml,先转 JSON;解析失败/空输出 ⇒ 不可判定(exit 2),
+          # 绝不当「无声明 ⇒ 无漂移」。
+          if ! python3 -c 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))' \
+              deploy/s3-lifecycle.yml > /tmp/declared-lifecycle.json 2>/tmp/declared-err.txt; then
+            echo "::error::声明文件解析失败: $(tail -n 3 /tmp/declared-err.txt)"
+            exit 2
+          fi
+          # 内容级比较(键排序规范化),改 Days 而条数不变也判漂移;漂移 exit 1、不可判定 exit 2。
+          python3 deploy/aws/s3-lifecycle-compare.py /tmp/declared-lifecycle.json /tmp/current-lifecycle.json
 
-      - name: Report drift
-        if: steps.compare.outputs.drift == 'true'
-        run: |
-          echo "::warning::检测到 S3 生命周期配置漂移（桶 ${{ steps.current.outputs.bucket }}）"
-          echo "声明规则与实际规则数量不一致，请人工核对 deploy/s3-lifecycle.yml 与线上配置"
-          exit 1
-
-      - name: No drift
-        if: steps.compare.outputs.drift != 'true'
-        run: echo "✅ S3 生命周期配置无漂移"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
