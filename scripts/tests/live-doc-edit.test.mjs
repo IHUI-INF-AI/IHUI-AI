@@ -1753,7 +1753,7 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
 // 那层自愈对本器从来不会触发;而本器改的正是登记行。三条用例与 object-space-land 同构:
 //  H1 正向(真门,不是桩):整行改写把编号从行上摘掉 ⇒ 同一轮里点名 + 前向恢复提交;
 //  H2 反向对照:同样的调用形态但 LIVE_DOC 不是台账 ⇒ 不得多派生那一个进程(哨兵可证);
-//  H3 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来。
+//  H3 方向锁 + 失败臂:补跑没跑成 ⇒ 落地不回滚、不判红,以 exit 2 记未判定、拒绝报绿,且必须喊出来。
 // 夹具一律 `git init -b main`:门 71 的恢复提交写 refs/heads/main(既有实现),分支名不对就只剩
 // "跑而未成"那一档可测;桩只仿"有没有被派生 / 退出码 / stderr"三格传输,不仿判据(与门体桩同规)。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1858,11 +1858,12 @@ test('H2 G-816708 反向对照:同样的落地形态但 LIVE_DOC 不是台账 �
   assert.doesNotMatch(out, /\[G-816708\]/, '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)')
 })
 
-test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来', (t) => {
+test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地报 2(未判定),但必须喊出来', (t) => {
   const { dir, inputs } = makeLedgerDocRepo(t)
   installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
   const rep = join(inputs, 'replace.json')
   writeFileSync(rep, JSON.stringify([{ before: LD_B, after: LD_B_DONE }]), 'utf8')
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
   const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
   const out = `${r.stdout}\n${r.stderr}`
   assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(没人写哨兵)')
@@ -1871,7 +1872,12 @@ test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但�
     '--heal --commit',
     '补跑必须是提交档(与 post-commit 第 6 节同形)',
   )
-  assert.equal(r.status, 0, `替身没跑成不该把已入库的落地判红,实得 ${r.status}:\n${out}`)
+  assert.equal(r.status, 2, 'RP-71:自愈跑而未成 ⇒ exit 2 未判定,不得报绿')
+  assert.notEqual(
+    git(['rev-parse', 'HEAD'], { root: dir }),
+    before,
+    'RP-71:报 2 只是"未判定",不得回滚 —— 改写那一枚提交必须仍在 HEAD 上',
+  )
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
 })

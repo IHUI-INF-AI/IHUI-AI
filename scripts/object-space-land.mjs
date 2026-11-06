@@ -23,7 +23,9 @@
  *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
  *    **结构上不跑任何钩子** ⇒ 那层自愈对旁路落地从来不会触发,台账被滞后副本写回时账面只剩
  *    "自愈每轮都跑过、什么都没缺"。判据必须在真跑它的那一刻才成立,否则等于没有(§1 为
- *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
+ *    `git-sync-converge` 补同一条时的原话)。补跑跑而未成/未派生成功按 RP-71 / §0.3
+ *    折成 **exit 2 未判定**(不判红、不回滚,只拒绝报绿;折算口径见 `lib/bypass-git.mjs`
+ *    的 `landingExitWithHeal`);
  *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
  *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
  *  - ④ (G-113,2026-10-23)落地、回读、主索引对齐全部完成后,**复跑受影响判据**
@@ -3668,8 +3670,9 @@ async function main() {
    * 本步只做**复检与点名**,不做写回:写回档 `--heal-ui-routes` 的纪律是"面上取不到/工作树副本≠面副本/
    * 量级异常 ⇒ 拒绝并点名",而 CAS 之后磁盘那份恰好与新品不一致(别人或本人的在飞现场),在这里跑它
    * 只会得到一次"拒绝写回"的噪声,却可能把他人现场改脏 —— 要写回必须由人显式跑那条命令。
-   * 退出码刻意不改(与上面 rerunLedgerHeal 同一条理由):零丢失自证已通过的落地,不该被替身判红;
-   * 真正的判定权仍在提交链那一轮的 `--staged` 面。
+   * 退出码不在本处硬改,但上面判据面声明自检软设的 `process.exitCode=2` 会在末尾由 `baseBefore`
+   * 带进 `landingExitWithHeal`,不得被 `process.exit(finalCode)` 洗掉(RP-71 / §12e);零丢失自证
+   * 已过的落地不判红、不回滚,只拒绝报绿。真正的判定权仍在提交链那一轮的 `--staged` 面。
    */
   uiRoutesFreshnessNotice({ root, paths })
 
@@ -3721,8 +3724,9 @@ async function main() {
     )
     process.exit(2)
   }
-  const finalCode = landingExitWithHeal(0, ledgerHeal)
-  if (finalCode === 2)
+  const baseBefore = Number(process.exitCode) || 0
+  const finalCode = landingExitWithHeal(baseBefore, ledgerHeal)
+  if (finalCode === 2 && baseBefore === 0)
     console.error(
       '❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;零丢失自证已过的落地不回滚、不判红,但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit',
     )
@@ -3883,6 +3887,16 @@ const stTreeHas = (dir, p) => {
   }
 }
 
+// 夹具必须自带判据面清单,否则 dec 恒 undetermined ⇒ 软设 2 被 baseBefore 保住 ⇒ 正控假红(RP-71)。
+// 数组形态经 parseGuardList 判 problems=0 && entries 非空;path「never-hit/」不命中任何夹具路径
+// ⇒ dec.hits=0 ⇒ state='ok' ⇒ 不软设 2。两处造仓函数共用本常量(单一真相源)。
+const SELFTEST_GUARD_JSON =
+  JSON.stringify(
+    [{ path: 'never-hit/', kind: 'rule-doc', why: '自证夹具占位,不命中任何夹具路径', reviewBy: '2099-01-01' }],
+    null,
+    2,
+  ) + '\n'
+
 /** 造三文件临时仓:gone.txt(待摘) / keep.txt(不动) / sub/stay.txt(嵌套路径)。 */
 function stMakeRepo() {
   const dir = mkScratch('osl-self-')
@@ -3891,6 +3905,8 @@ function stMakeRepo() {
   writeFileSync(join(dir, 'keep.txt'), 'keep me v1\n', 'utf8')
   mkdirSync(join(dir, 'sub'), { recursive: true })
   writeFileSync(join(dir, 'sub', 'stay.txt'), 'stay\n', 'utf8')
+  mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+  writeFileSync(join(dir, GUARD_DATA_REL), SELFTEST_GUARD_JSON, 'utf8')
   stGit(dir, ['add', '-A'])
   stGit(dir, ['commit', '-q', '-m', 'selftest-base'])
   return dir
@@ -4014,6 +4030,8 @@ async function runSelfTest() {
   const RS_LINE_B = 'export const secondUndeclaredG35 = true'
   const RS_TICKET = '// ticket g35-s7 的本票新内容行'
   function stMakeRestoreRepo(dir) {
+    mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
+    writeFileSync(join(dir, GUARD_DATA_REL), SELFTEST_GUARD_JSON, 'utf8')
     writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\n${RS_LINE_B}\nbeta\n`, 'utf8')
     stGit(dir, ['add', '-A'])
     stGit(dir, ['commit', '-q', '-m', 'A: 两枚日后成为还原对象的声明行'])

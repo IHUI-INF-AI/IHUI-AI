@@ -31,6 +31,12 @@
  * 本层加的只是"这次落地是否含台账"那条触发条件与大声点名 —— 两台落地器各写一份条件必然漂开
  * (本文件头注那三条漂移实例之一正是"同一规矩两份实现")。
  *
+ * RP-71 / §0.3 起本层再装**第三条落地契约**:`landingExitWithHeal(baseCode, heal)` 把落地器原有
+ * 结论与就地补跑自愈的结果折成最终退出码 —— `heal` 缺失 / `triggered=false` / `baseCode!==0` 一律
+ * 原样返回 baseCode;baseCode===0 且自愈已触发时,跑成(`ran && ok`)⇒ 0,自愈未跑成 ⇒ **2 未判定**
+ * (拒绝报绿,但落地内容不回滚、不判红)。各落地器必须消费 `rerunLedgerHeal()` 的返回值再走这里折算,
+ * 不得再让末尾 process.exit 把自愈软设的退出码洗掉。
+ *
  * 纪律(与本仓既有共用层同规):
  *  - git 一律**绝对路径**候选解析(AGENTS §5b"git 调用不得依赖环境";2026-10-08 起二进制取数走
  *    scripts/lib/face-reader.mjs 的 gitBinary(),与其同一条兜底链,不再抄第三份候选表)。
@@ -522,7 +528,9 @@ export function landsLedger(paths) {
  * 失败仍一律**大声点名**,但按 RP-71 / §0.3 的新契约:**落地内容不回滚、不判红,调用方却必须以
  * exit 2 记未判定、拒绝报绿**(与 lib/post-merge-ledger-sync.mjs 第 2 条同规:零丢失自证已经通过的
  * 落地,不该被一次补跑没跑成判成失败;但"没跑成"必须被喊出来,且不得静默报绿 —— 静默的自愈等于
- * 没有自愈)。退出码折算统一走下方 `landingExitWithHeal`,本函数只如实返回 `ran/ok`,不改退出码本身。
+ * 没有自愈)。退出码折算统一走下方 `landingExitWithHeal`,本函数只如实返回 `ran/ok`、不改退出码本身
+ * —— 这**不等于**"失败也不影响退出码":折算统一交给 `landingExitWithHeal`,调用方**必须消费返回值**
+ * 去折最终退出码,否则自愈跑而未成会被静默吞成报绿。
  *
  * @param {{root:string, paths:string[], log?:Function, loud?:Function}} a
  * @returns {{triggered:boolean, ran:boolean, ok:boolean, why:string}}
