@@ -50,6 +50,10 @@ from app.core.sse_contract import (
     release_admission,
     take_admission,
 )
+from app.core.internal_ticket import (
+    INTERNAL_SERVICE_PRINCIPAL_AI,
+    mint_internal_service_ticket,
+)
 
 from ..core.approval_replay import (
     EXPIRY_RETENTION_SECONDS,
@@ -8100,10 +8104,23 @@ async def _fire_callback(
             settings.api_service_url,
         )
         return
-    headers: dict[str, str] = {"X-Internal-Secret": settings.ai_callback_secret}
+    # 2026-11-06 X-Internal-Secret 族票据化:回调鉴权改走短期票(scope=ai-callback),
+    # 票面主体绑定 metadata.userId;兼容窗口内同发旧密钥。
+    # 每次重试必须重签一张新票 —— 验票侧按 jti 单次消费,5xx 重试用旧票会被判 replayed。
+    callback_user_id = str((body.get("metadata") or {}).get("userId") or "") or INTERNAL_SERVICE_PRINCIPAL_AI
 
     max_attempts = 3  # 首次 + 2 次重试
     for attempt in range(max_attempts):
+        ticket = mint_internal_service_ticket(callback_user_id, "ai-callback")
+        if not ticket:
+            logger.error(
+                "LLM callback skipped: JWT_SECRET 未配置,无法签发内部回调票(拒绝无票回调)"
+            )
+            return
+        headers: dict[str, str] = {
+            "X-Internal-Secret": settings.ai_callback_secret,
+            "X-Internal-Service-Ticket": ticket,
+        }
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(url, json=body, headers=headers)
