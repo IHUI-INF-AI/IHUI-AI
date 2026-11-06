@@ -57,6 +57,15 @@ function extractListEntries(src: string, listName: string): string[] {
   return [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
 }
 
+/** `export const NAME: readonly string[] = [` 形态(上面的 extractListEntries 只认无类型注解的 `const NAME = [`)。 */
+function extractDeclaredEntries(src: string, listName: string): string[] {
+  const block = src.match(
+    new RegExp(`const ${listName}\\s*:\\s*readonly string\\[\\]\\s*=\\s*\\[([\\s\\S]*?)\\]`),
+  )
+  if (!block) return []
+  return [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+}
+
 function segmentsOf(url: string): string[] {
   return url
     .split('/')
@@ -116,7 +125,12 @@ describe('G-815989 / 显式声明面钉子(server.ts onRoute 注入)', () => {
   })
 
   it('公开/敏感业务两份注入清单可解析且非空', () => {
-    expect(extractListEntries(serverTs, 'PUBLIC_PREFIXES').length).toBeGreaterThan(0)
+    // 2026-11-06(BUG-4 合法重构后):公开清单已收敛到单一真相源 plugins/public-paths.ts,
+    // server.ts 走 isPublicPath 消费;原先钉的 PUBLIC_PREFIXES 字面量已随重构删除。
+    // 判据改钉「消费点真实 + 真相源非空」,不锁已删除的旧字面量(锁旧形会让合法重构恒红)。
+    expect(serverTs).toContain('isPublicPath(')
+    const publicPaths = readSrc('plugins/public-paths.ts')
+    expect(extractDeclaredEntries(publicPaths, 'NETWORK_PUBLIC_PREFIX_PATHS').length).toBeGreaterThan(0)
     expect(extractListEntries(serverTs, 'SENSITIVE_BUSINESS_PREFIXES').length).toBeGreaterThan(0)
   })
 
