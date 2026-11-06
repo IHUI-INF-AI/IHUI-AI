@@ -380,6 +380,10 @@ function indexLockPath({ root }) {
  * 否则任何人一次不带 pathspec 的提交会把刚删的文件加回 HEAD —— 本仓一枚孤儿组件因此连着复活四次);
  * "索引里没有"算已就位;"索引≠父提交态"仍归他人不动。
  * 返回 { moved, already, skipped:[{path,reason}], undetermined:[{path,reason}], lockAbandoned, failed }。
+ * **四个桶在每一条出口都必须是数组**(让路档与"轮次耗尽/持续失败"档也一样,零条就是空数组):
+ * 曾有两处把 moved/already 写成数字 0,下游 `[...(align.moved ?? [])]` 里 `0 ?? []` 仍是 0 ⇒
+ * `TypeError: 0 is not iterable`(Z42 实测崩型;Z63 在消费侧加归一化守卫兜住,Z69 在这一侧治本)。
+ * 计数一律由消费方 `桶.length` 现算,本层不代算 —— 把"没对齐"写成 0 会被读成"对齐了 0 个"。
  */
 export function alignSharedIndex({
   root,
@@ -399,7 +403,7 @@ export function alignSharedIndex({
         /* 锁刚被释放,下一轮重判 */
       }
       if (age > lockMaxAgeMs) {
-        return { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: true, failed: false }
+        return { moved: [], already: [], skipped: [], undetermined: [], lockAbandoned: true, failed: false }
       }
       sleepMs(waitMs)
       continue
@@ -470,7 +474,7 @@ export function alignSharedIndex({
       sleepMs(waitMs)
     }
   }
-  return { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: false, failed: true, error: '轮次耗尽' }
+  return { moved: [], already: [], skipped: [], undetermined: [], lockAbandoned: false, failed: true, error: '轮次耗尽' }
 }
 
 /**
