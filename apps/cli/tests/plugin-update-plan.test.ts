@@ -40,6 +40,7 @@ import {
   checkUpdates,
   planUpdate,
   gitCandidateStager,
+  classifyStagedSubtree,
   gitAncestryJudge,
   gitRemoteHeadReader,
   lsRemoteSha,
@@ -700,6 +701,26 @@ describe('形状锁(§0.6/§22c:判据不得有第二份)', () => {
     expect(err).toBeInstanceOf(Error);
     expect((err as Error).message).toContain('读不到');
     expect((err as Error).message.startsWith('完整性门体没装')).toBe(false);
+  });
+
+  it('候选子树读不到时不说成没有', () => {
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const unread = classifyStagedSubtree('staged', () => {
+      throw denied;
+    });
+    expect(unread.ok).toBe(false);
+    if (!unread.ok) {
+      expect(unread.reason).toBe('candidate-subtree-unreadable');
+      expect(unread.detail).toContain('读不到');
+    }
+    const missing = new Error('missing') as NodeJS.ErrnoException;
+    missing.code = 'ENOENT';
+    const absent = classifyStagedSubtree('staged', () => {
+      throw missing;
+    });
+    expect(absent.ok).toBe(false);
+    if (!absent.ok) expect(absent.reason).toBe('candidate-subtree-missing');
   });
 
   it('本测试自己也遵守同一条纪律:摘要只问写侧采集器,不复刻判据', () => {

@@ -23,7 +23,7 @@
  * 的 ScanItem 形态,`ingest` 幂等落为 RepairTaskRecord(同 key 重放不重置既有状态)。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Redis } from 'ioredis'
 
@@ -173,30 +173,47 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function nodeErrorCode(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object' || !('code' in err)) return undefined
+  const code = (err as { code: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
 export function createRepairTaskStore(filePath: string, audit?: AuditLogger): RepairTaskStore {
   let state: StoreFileShape | null = null
 
   const ensureLoaded = (): StoreFileShape => {
     if (state) return state
+    let raw: string
     try {
-      if (existsSync(filePath)) {
-        const parsed = JSON.parse(readFileSync(filePath, 'utf8')) as Partial<StoreFileShape>
-        state =
-          parsed && typeof parsed === 'object' && parsed.tasks && typeof parsed.tasks === 'object'
-            ? { tasks: parsed.tasks }
-            : { tasks: {} }
-      } else {
-        state = { tasks: {} }
-      }
+      raw = readFileSync(filePath, 'utf8')
     } catch (err) {
-      // 文件损坏:降级为空存储并大声告警(内存去重仍有效;绝不让一个坏文件洗掉判定)
-      audit?.warn('[automation-repair] 任务存储读取失败,按空存储降级', {
+      const code = nodeErrorCode(err)
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        state = { tasks: {} }
+        return state
+      }
+      audit?.warn('[automation-repair] 任务存储读取失败,拒绝按空存储覆盖', {
         path: filePath,
         err: String(err),
       })
-      state = { tasks: {} }
+      throw new Error(`修复任务读不到,不能按空存储覆盖 (${code ?? 'unknown'})`)
     }
-    return state
+    let parsed: Partial<StoreFileShape>
+    try {
+      parsed = JSON.parse(raw) as Partial<StoreFileShape>
+    } catch (err) {
+      audit?.warn('[automation-repair] 任务存储读取失败,拒绝按空存储覆盖', {
+        path: filePath,
+        err: String(err),
+      })
+      throw new Error('修复任务读不到,不能按空存储覆盖 (parse)')
+    }
+    if (parsed && typeof parsed === 'object' && parsed.tasks && typeof parsed.tasks === 'object') {
+      state = { tasks: parsed.tasks }
+      return state
+    }
+    throw new Error('修复任务读不到,不能按空存储覆盖 (parse)')
   }
 
   const persist = (): void => {

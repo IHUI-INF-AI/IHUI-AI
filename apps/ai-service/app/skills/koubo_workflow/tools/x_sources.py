@@ -38,6 +38,7 @@ X 平台在沙箱的可达性（已实测 2026-07-16）：
 
 import json
 import os
+import stat
 from datetime import datetime
 from typing import TypedDict, cast
 
@@ -248,6 +249,28 @@ def coverage_dir() -> str:
     return d
 
 
+def _read_coverage_list(path: str) -> list[dict[str, object]]:
+    """文件确实没有才是空列表。读不到或不是列表时拒绝覆盖。"""
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise OSError(f"核查记录读不到,不能按空记录覆盖: {path}") from exc
+    if not stat.S_ISREG(st.st_mode):
+        raise OSError(f"核查记录读不到,不能按空记录覆盖: {path}")
+    try:
+        with open(path, encoding='utf-8') as handle:
+            loaded = json.load(handle)
+    except OSError as exc:
+        raise OSError(f"核查记录读不到,不能按空记录覆盖: {path}") from exc
+    except json.JSONDecodeError as exc:
+        raise OSError(f"核查记录读不到,不能按空记录覆盖: {path}") from exc
+    if not isinstance(loaded, list):
+        raise OSError(f"核查记录读不到,不能按空记录覆盖: {path}")
+    return cast(list[dict[str, object]], loaded)
+
+
 def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str:
     """记录本次 X 信源核查覆盖，供审计/复盘。"""
     date = datetime.now().strftime('%Y-%m-%d')
@@ -259,16 +282,8 @@ def log_coverage(topic: str, checked_handles: list[str], notes: str = '') -> str
         'notes': notes,
         'ts': datetime.now().isoformat(timespec='seconds'),
     }
-    # 同主题追加，不覆盖
-    data: list[dict[str, object]] = []
-    if os.path.exists(path):
-        try:
-            with open(path, encoding='utf-8') as _f:
-                loaded = json.load(_f)
-            if isinstance(loaded, list):
-                data = loaded
-        except Exception:
-            data = []
+    # 同主题追加。文件确实没有才从空列表开始;读不到不能盖掉旧记录。
+    data = _read_coverage_list(path)
     data.append(rec)
     with open(path, 'w', encoding='utf-8') as _f:
         json.dump(data, _f, ensure_ascii=False, indent=2)

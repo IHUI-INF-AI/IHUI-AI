@@ -31,6 +31,7 @@ from __future__ import annotations
 import glob
 import os
 import re
+import stat
 import sys
 from typing import Any, cast
 
@@ -81,11 +82,20 @@ COLOR_GREEN_DOT = (0x10, 0xB9, 0x81)   # mac 圆点 绿
 
 
 def _load_body_from_md() -> str:
-    """从已修复的md文件读取正文，确保脚本与md始终同步"""
-    if os.path.exists(MD_PATH):
+    """从已修复的 md 读取正文。文件确实没有才当空;读不到不能按空内容写回。"""
+    try:
+        st = os.stat(MD_PATH)
+    except FileNotFoundError:
+        return ""
+    except OSError as exc:
+        raise OSError(f"文章读不到,不能按空内容写回: {MD_PATH}") from exc
+    if not stat.S_ISREG(st.st_mode):
+        raise OSError(f"文章读不到,不能按空内容写回: {MD_PATH}")
+    try:
         with open(MD_PATH, encoding='utf-8') as f:
             return f.read()
-    return ""
+    except OSError as exc:
+        raise OSError(f"文章读不到,不能按空内容写回: {MD_PATH}") from exc
 
 
 BODY = _load_body_from_md()
@@ -95,6 +105,7 @@ BODY = _load_body_from_md()
 def write_md() -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     project_boundary.check_write(MD_PATH)
+    _load_body_from_md()
     with open(MD_PATH, 'w', encoding='utf-8') as f:
         f.write(BODY)
     print(f"[1/4] Markdown 已写入: {MD_PATH}")
@@ -127,11 +138,23 @@ def build_docx(md_path: str = MD_PATH, docx_path: str = DOCX_PATH,
     print("\n[构建] 构建DOCX（摸鱼绿主题 v5 极致美化，全标记兼容）...")
 
     # 读取MD（参数化，不再依赖全局 BODY）
-    if not os.path.exists(md_path):
+    try:
+        md_stat = os.stat(md_path)
+    except FileNotFoundError:
         print(f"  ❌ MD不存在: {md_path}")
         return None
-    with open(md_path, encoding='utf-8') as f:
-        body_text = f.read()
+    except OSError:
+        print(f"  ❌ MD读不到,不能把它说成不存在: {md_path}")
+        return None
+    if not stat.S_ISREG(md_stat.st_mode):
+        print(f"  ❌ MD读不到,不能把它说成不存在: {md_path}")
+        return None
+    try:
+        with open(md_path, encoding='utf-8') as f:
+            body_text = f.read()
+    except OSError:
+        print(f"  ❌ MD读不到,不能把它说成不存在: {md_path}")
+        return None
     # 压空行: 3+连续空行→1空行(避免 doc 导入平台后排版出现大片空白, 用户第二十二反馈)
     body_text = re.sub(r"\n{3,}", "\n\n", body_text)
 

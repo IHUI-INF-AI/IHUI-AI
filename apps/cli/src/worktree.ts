@@ -54,6 +54,8 @@ export interface WorktreeOptions {
   preserveWorkingTree?: boolean
   /** skip 文件集合(默认空) */
   skip?: Set<string>
+  /** 测试注入。省略时用 fs.statSync。 */
+  stat?: (target: string) => fs.Stats
 }
 
 export interface WorktreeResult {
@@ -547,7 +549,8 @@ function parseLinkedGitFile(gitPath: string): string | undefined {
  */
 export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeResult> {
   const start = Date.now()
-  const { source, destination, ref, preserveWorkingTree = false, skip } = opts
+  const { source, destination, ref, preserveWorkingTree = false, skip, stat } = opts
+  const look = stat ?? fs.statSync
 
   // 0. 2026-10-31 安全强化第 20 批(F4):ref 形状校验 —— 必须在任何副作用
   //    (mkdir/复制/marker)之前。拒前导 `-`(选项注入面:git checkout 会把
@@ -568,8 +571,17 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
 
   // 1. 校验源 .git 存在
   const srcGit = path.join(source, '.git')
-  if (!fs.existsSync(srcGit)) {
-    throw new Error(`源目录不是 git 仓库(缺少 .git): ${source}`)
+  try {
+    look(srcGit)
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown'
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      throw new Error(`源目录不是 git 仓库(缺少 .git): ${source}`)
+    }
+    throw new Error(`源目录的 .git 读不到,不能把它说成不是仓库 (${code})`)
   }
 
   // 解析 linked worktree 的实际 gitdir(source/.git 是文件时)
@@ -730,21 +742,27 @@ export async function removeWorktree(
   }
 
   const gitPath = path.join(wtPath, '.git')
+  let linkedFile = false
+  try {
+    const gitStat = look(gitPath) as { isFile?: () => boolean }
+    linkedFile = gitStat.isFile?.() === true
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown'
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树的 .git 读不到,不能把它当成没有标记再整棵删除 (${code})`)
+    }
+  }
 
   try {
     let isLinked = false
     let sourceRepo: string | undefined
 
-    if (fs.existsSync(gitPath)) {
-      try {
-        const stat = fs.statSync(gitPath)
-        if (stat.isFile()) {
-          isLinked = true
-          sourceRepo = parseLinkedGitFile(gitPath)
-        }
-      } catch {
-        isLinked = false
-      }
+    if (linkedFile) {
+      isLinked = true
+      sourceRepo = parseLinkedGitFile(gitPath)
     }
 
     if (isLinked && sourceRepo) {
