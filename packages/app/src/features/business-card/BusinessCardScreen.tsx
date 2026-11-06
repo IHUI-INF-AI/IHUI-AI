@@ -33,7 +33,7 @@ export function BusinessCardScreen({
   onShareWechat,
   onShareMoments,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: BusinessCardScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
     bio: {
       marginTop: rnSpacing.md,
       fontSize: rnType.body.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.medium,
     },
     contactsBox: {

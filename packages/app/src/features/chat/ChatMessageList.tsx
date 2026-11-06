@@ -336,13 +336,17 @@ function createStyles(tk: AppThemeTokens) {
     },
     bubbleUser: { backgroundColor: tk.brand.DEFAULT },
     bubbleAi: { backgroundColor: tk.surface.muted },
-    bubbleText: { fontSize: rnType.body.size, color: tk.text.primary, lineHeight: 22 },
+    bubbleText: {
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+      lineHeight: rnType.strong.lineHeight,
+    },
     reasoningToggle: { paddingVertical: rnSpacing['2xs'] },
     reasoningToggleText: { fontSize: rnType.label.size, color: tk.text.secondary },
     reasoningBody: {
       fontSize: rnType.label.size,
       color: tk.text.secondary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       marginBottom: rnSpacing.xs,
     },
     codeWrap: {
