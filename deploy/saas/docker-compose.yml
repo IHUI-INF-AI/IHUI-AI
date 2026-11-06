@@ -84,7 +84,9 @@ services:
       - HOST=127.0.0.1
       - PORT=8830
       - LOG_LEVEL=${ADMIN_API_LOG_LEVEL:-info}
-      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      # 旧写法 `${ADMIN_API_KEY:-}` 在 .env 漏配时注入空串,admin-api 起来才在启动/鉴权阶段
+      # 才暴露;改用 `:?` 让 compose 在 up 之前直接失败,错误出现在启动点而不是运行点。
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY 未配置(.env 或环境变量必填)}
       - CORS_ORIGIN=${ADMIN_CORS_ORIGIN:-http://localhost:8801}
       # P1-2.3:admin-api 内部访问 Prometheus(同网络)
       - PROMETHEUS_URL=http://prometheus:9090
@@ -136,6 +138,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - ihui-saas-net
+    # 镜像自带 HEALTHCHECK 固定探 http://localhost:8080/healthz,但本服务用 --port=8808
+    # ⇒ 自带探针必然失败(容器恒 unhealthy,监控看到的是假状态)。显式覆盖成实际端口;
+    # 镜像基于 alpine,自带 busybox wget,无需额外装包。
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1:8808/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   # Prometheus — 指标存储 + PromQL
   prometheus:
