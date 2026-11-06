@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(8),
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.light,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.brandAccent.DEFAULT,

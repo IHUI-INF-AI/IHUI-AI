@@ -169,7 +169,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    avatarActionPrimaryText: { fontSize: rnType.body.size, color: tk.surface.light },
+    avatarActionPrimaryText: { fontSize: rnType.body.size, color: tk.brand.ctaForeground },
     avatarActionOutlineText: { fontSize: rnType.body.size, color: tk.text.secondary },
     avatarHint: { alignItems: 'center', gap: rnSpacing['2xs'] },
     avatarHintText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
@@ -400,7 +400,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     genderItemActive: { backgroundColor: tk.brand.cta },
     genderText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    genderTextActive: { color: tk.surface.light },
+    genderTextActive: { color: tk.brand.ctaForeground },
     errorBar: {
       backgroundColor: tk.danger.light,
       borderRadius: rnRadius.lg,
@@ -415,7 +415,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
-    saveText: { color: tk.surface.light, ...rnType.title },
+    saveText: { color: tk.brand.ctaForeground, ...rnType.title },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

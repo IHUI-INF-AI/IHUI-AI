@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     marginVertical: rpx(12),
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(16),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.warning.light,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.warning.amber,
