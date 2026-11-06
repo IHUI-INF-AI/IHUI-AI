@@ -12,14 +12,18 @@ import * as os from 'node:os';
 import {
   loadSkills,
   formatSkillsForPrompt,
+  admitSkillListing,
+  decideSkillInvocation,
   findSkill,
   findRepoRoot,
   parseSkillDefinition,
   getAllowedTools,
+  SkillScanUnread,
   type Skill,
   type SkillFrontmatter,
   type SkillDefinition,
 } from '../src/skills/index.js';
+import { injectionLedger } from '../src/utils/prompt-injection-registry.js';
 
 describe('Skills 平面加载', () => {
   let tmpDir: string;
@@ -503,6 +507,85 @@ body line 1`;
     writeSkill(path.join(tmpDir, '.ihui', 'skills'), 'empty-desc', content);
     const skills = loadSkills({ cwd: tmpDir });
     expect(skills[0]!.description).toBe('body line 1');
+  });
+
+  it('user-invocable false 不放行,认不出的 model 值是未判定,缺席仍放行', () => {
+    const def = parseSkillDefinition(
+      '---\nname: gated\nuser-invocable: false\nmodelInvocable: maybe\n---\nSECRET-BODY',
+      '/abs/gated.md',
+    );
+    expect(def.frontmatter.userInvocable).toBe(false);
+    expect(def.frontmatter.modelInvocable).toBe(null);
+    expect(def.unknownFrontmatterKeys).toBeUndefined();
+    expect(decideSkillInvocation('user', def.frontmatter.userInvocable)).toEqual({
+      disposition: 'denied',
+      reason: 'user-disabled',
+    });
+    expect(decideSkillInvocation('model', def.frontmatter.modelInvocable).disposition).toBe('unjudged');
+    expect(decideSkillInvocation('model', undefined).disposition).toBe('allow');
+  });
+
+  it('model-invocable 关闭时正文不进提示', () => {
+    const hidden: Skill = {
+      name: 'hidden',
+      source: '/x',
+      description: 'd',
+      body: 'SECRET-BODY',
+      priority: 0,
+      frontmatter: { modelInvocable: false },
+    };
+    const text = formatSkillsForPrompt([hidden]);
+    expect(text).not.toContain('SECRET-BODY');
+    const record = injectionLedger().find((row) => row.id === 'skill_list');
+    expect(record?.status).toBe('skipped');
+    expect(record?.reason ?? '').toContain('model-invocable');
+  });
+
+  it('listing 四态不进提示,认不出的值不算在架', () => {
+    const def = parseSkillDefinition(
+      '---\nname: gone\nlisting: removed\n---\nSECRET-BODY',
+      '/abs/gone.md',
+    );
+    expect(def.frontmatter.listing).toBe('removed');
+    expect(def.unknownFrontmatterKeys).toBeUndefined();
+    expect(admitSkillListing('user_unlisted').reason).toBe('user_unlisted');
+    expect(admitSkillListing('retired').reason).not.toBe('removed');
+    expect(admitSkillListing('disabled').reason).toBe('listing-unrecognized');
+    expect(admitSkillListing(undefined).disposition).toBe('listed');
+    const text = formatSkillsForPrompt([
+      {
+        name: 'gone',
+        source: '/x',
+        description: 'd',
+        body: 'SECRET-BODY',
+        priority: 0,
+        frontmatter: { listing: 'removed' },
+      },
+    ]);
+    expect(text).not.toContain('SECRET-BODY');
+    const record = injectionLedger().find((row) => row.id === 'skill_list');
+    expect(record?.reason ?? '').toContain('removed');
+  });
+
+  it('技能目录读不到时不返回空清单', () => {
+    const dir = path.join(tmpDir, '.ihui', 'skills');
+    fs.mkdirSync(dir, { recursive: true });
+    const denied = Object.assign(new Error('denied'), { code: 'EACCES' });
+    expect(() => loadSkills({
+      cwd: tmpDir,
+      onNotice: () => {},
+      readDir: (target) => {
+        if (target === dir) throw denied;
+        return fs.readdirSync(target, { withFileTypes: true });
+      },
+    })).toThrow(SkillScanUnread);
+  });
+
+  it('仓库标记读不到时不改去上一层', () => {
+    const denied = Object.assign(new Error('denied'), { code: 'EACCES' });
+    expect(() => findRepoRoot(tmpDir, () => {
+      throw denied;
+    })).toThrow(SkillScanUnread);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
