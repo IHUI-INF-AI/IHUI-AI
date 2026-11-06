@@ -130,11 +130,15 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
     },
-    scopeText: { fontSize: rnType.body.size, color: tk.text.secondary, lineHeight: 22 },
+    scopeText: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.strong.lineHeight,
+    },
     footer: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
     },

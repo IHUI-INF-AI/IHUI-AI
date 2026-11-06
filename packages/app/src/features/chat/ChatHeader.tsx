@@ -4,7 +4,7 @@
 
 import { useMemo, type ReactNode } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnSpacing, rnType, rnRadius } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
@@ -261,14 +261,14 @@ function createStyles(tk: AppThemeTokens) {
     cardButtonText: { fontSize: rnType.label.size, color: tk.text.secondary },
     cardBody: {
       marginTop: rnSpacing.xs,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       padding: rnSpacing.sm,
     },
     banner: {
       marginHorizontal: rnSpacing.md,
       marginTop: rnSpacing['2xs'],
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing['2xs'],
