@@ -7,7 +7,7 @@
     "compensated": "内容确有变化,已有/本次新增补偿迁移把存量库追平",
     "rewrite-verified": "21:05 批改写,逐件体检判定等价且幂等,并由 from-zero ④ 断言背书",
     "watermark-verified": "旧 blob 与现文件去水印后正文逐字相同,仅水印字节差,无需补偿",
-    "pending": "账本旧 blob 不在 git 历史(疑似工作区直改后未提交),未定性;出票跟踪,不豁免新漂移"
+    "pending": "缺证据:账本旧 blob 不在 git 历史(工作区直改后未提交);只记录缺哪份证据,不作定性,不写成「疑似」;出票跟踪,不豁免新漂移"
   },
   "entries": [
     {
@@ -122,7 +122,7 @@
       "tag": "20260930120000_edu_study_loops",
       "state": "pending",
       "ticket": "DB-DRIFT-05",
-      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+      "note": "缺证据:账本应用时刻 2026-09-30 12:00 早于该文件首次提交 36529fc3f6(14:28:59) 2h29m ⇒ 是从未提交的工作树应用的;缺应用时刻工作树快照 / IDE local history,现有部署备份最早 2026-10-26 覆盖不到,DB 只存 hash"
     },
     {
       "tag": "20260930130000_points_mall_orders",
@@ -134,7 +134,7 @@
       "tag": "20261003020000_codebase_chunks_tenant_ttl",
       "state": "pending",
       "ticket": "DB-DRIFT-06",
-      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
+      "note": "缺证据:账本应用时刻 2026-10-03 12:00 早于该文件首次提交 96df1af7c7(16:32:52) 4h33m ⇒ 是从未提交的工作树应用的;缺应用时刻工作树快照 / IDE local history,现有部署备份最早 2026-10-26 覆盖不到,DB 只存 hash"
     },
     {
       "tag": "20261018160000_agent_state_tables_runtime_reality",

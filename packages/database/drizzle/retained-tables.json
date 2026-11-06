@@ -1,8 +1,9 @@
 {
   "$comment": "Drizzle 保留清单(勿手改顺序;CI 断言 drizzle.config.ts 的 tablesFilter 与本文件一致)。由 dev 实库只读清点生成于 2026-11-07。",
-  "policy": "本文件列出的表不进入 Drizzle schema 的 push/generate 判定面 ⇒ drizzle-kit push 不会对其发 DROP TABLE。bucket=in-use 需补建模并从本清单移除;legacy-archive 归档后删除;monthly-partition 由分区流程维护。",
+  "policy": "本文件列出的表不进入 Drizzle schema 的 push/generate 判定面 ⇒ drizzle-kit push 不会对其发 DROP TABLE。bucket=in-use 需补建模并从本清单移除，但 owner=ai-service 的 9 张 TS 侧只读、不得建模(建模前须先由 ai-service 交接 DDL 所有权)；pending-archive 为待归档候选(与 legacy-archive 同退役流程、单独一桶，未执行任何删除)；legacy-archive 归档后删除；monthly-partition 由分区流程维护。",
   "counts": {
-    "in-use": 38,
+    "in-use": 9,
+    "pending-archive": 29,
     "legacy-archive": 96,
     "monthly-partition": 18
   },
@@ -10,23 +11,29 @@
     {
       "name": "checkin_records",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 7,
-      "codeRefs": 1
+      "codeRefs": 1,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "checkin_accounts",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 16,
-      "codeRefs": 2
+      "codeRefs": 2,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "checkin_error_counts",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 1,
-      "codeRefs": 0
+      "codeRefs": 0,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "publish_metrics",
@@ -45,9 +52,11 @@
     {
       "name": "checkin_credits_daily",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 0,
-      "codeRefs": 0
+      "codeRefs": 0,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "edu_agreement",
@@ -108,16 +117,20 @@
     {
       "name": "keepalive_account_state",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 0,
-      "codeRefs": 0
+      "codeRefs": 0,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "keepalive_events",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 34,
-      "codeRefs": 0
+      "codeRefs": 0,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "learn_topic_topic_category_relation",
@@ -136,21 +149,23 @@
     {
       "name": "ownership_backfill_state",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 0,
-      "codeRefs": 5
+      "codeRefs": 5,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "_ownership_backfill_20261102_agent_tasks",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "ai_gc_task",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
@@ -241,9 +256,11 @@
     {
       "name": "media_tasks",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service 真实读写且自持 DDL(ensure_table 自建表)；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 0,
-      "codeRefs": 4
+      "codeRefs": 4,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "edu_answer",
@@ -562,29 +579,29 @@
     },
     {
       "name": "live_category_relation",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "live_channel_category",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "live_channel_category_relation",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "live_channel_lecturer",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
@@ -674,85 +691,85 @@
     },
     {
       "name": "message_announcement",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "message_announcement_read_record",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "message_notice",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "message_read_log",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "notification_subscription",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "point_goods",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "resource_category_relation",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "resource_resource",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 5
     },
     {
       "name": "resource_resource_category_relation",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "resource_resource_download",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "resource_resource_search_record",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "search_log",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 4
     },
@@ -772,22 +789,22 @@
     },
     {
       "name": "visit_page",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "visit_source",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
     {
       "name": "visit_stats",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 3
     },
@@ -800,15 +817,15 @@
     },
     {
       "name": "resource_search_logs",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "user_jobs",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
@@ -849,22 +866,22 @@
     },
     {
       "name": "department_relations",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 4
     },
     {
       "name": "payment_configs",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 4
     },
     {
       "name": "agent_category_links",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 5
     },
@@ -877,22 +894,22 @@
     },
     {
       "name": "resource_tag_relations",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "agent_buy_scheduled_tasks",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
     {
       "name": "auth_identities",
-      "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "bucket": "pending-archive",
+      "reason": "无业务引用证据（仅出现在 tablesFilter 自指）+ 活行数 0",
       "liveRows": 0,
       "codeRefs": 2
     },
@@ -1060,9 +1077,11 @@
     {
       "name": "rag_chunks",
       "bucket": "in-use",
-      "reason": "当前业务仍在读写的表,需补 schema 建模",
+      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
       "liveRows": 0,
-      "codeRefs": 4
+      "codeRefs": 4,
+      "owner": "ai-service",
+      "ddlOwner": "ai-service"
     },
     {
       "name": "audit_logs_202611",
