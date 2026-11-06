@@ -7,7 +7,7 @@
  * 残留指纹审计器 —— 回答一个问题:「TRAE 到底重置彻底了吗?」
  *
  * 方法(不靠感觉,靠比对):
- *   1. 从历史备份集(G:/trae-real-test-backup)+ 身份历史账本
+ *   1. 从历史备份集(默认:仓根同级 trae-real-test-backup)+ 身份历史账本
  *      (~/.trae-proxy/identity-history.json)提取全部"身份类旧值"
  *      (machineid / MachineGuid / storage.json 的 telemetry.* 与 aha.device.* /
  *       state.vscdb 键里的 32hex 与 uuid / DIPS 等),构成**黑名单**
@@ -21,16 +21,26 @@
  *   --strict  门禁模式:硬命中 > 0 ⇒ 退出码 1;覆盖面不完整(有 >12MB 文件未浸水)⇒ 退出码 2(未判定,不得读成通过)
  * 环境变量:
  *   AUDIT_SKIP_REGISTRY=1     跳过注册表定点枚举(CI / 快跑)
+ *   AUDIT_BACKUP_DIR          覆盖历史备份集目录(默认 <仓根上级>/trae-real-test-backup)
  *   AUDIT_IDENTITY_HISTORY    覆盖身份历史账本路径(默认 %USERPROFILE%\.trae-proxy\identity-history.json)
  */
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = resolve(SCRIPT_DIR, '..')
 
 const ARGV = process.argv.slice(2)
 const JSON_MODE = ARGV.includes('--json')
 const STRICT = ARGV.includes('--strict')
-const BACKUP = ARGV.includes('--backup') ? ARGV[ARGV.indexOf('--backup') + 1] : 'G:/trae-real-test-backup'
+const BACKUP = ARGV.includes('--backup')
+  ? ARGV[ARGV.indexOf('--backup') + 1]
+  : (process.env.AUDIT_BACKUP_DIR || '').trim() || join(dirname(REPO_ROOT), 'trae-real-test-backup')
+if (!existsSync(BACKUP)) {
+  console.error(`[audit] 历史备份集不存在,仅用身份历史账本: ${BACKUP}`)
+}
 const HOME = process.env.USERPROFILE || process.env.HOME
 const APPDATA = process.env.APPDATA || join(HOME, 'AppData/Roaming')
 const LOCALAPPDATA = process.env.LOCALAPPDATA || join(HOME, 'AppData/Local')
