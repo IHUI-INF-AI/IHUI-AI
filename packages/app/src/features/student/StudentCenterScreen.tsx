@@ -9,6 +9,7 @@
  * 报告导出三键(pdf/excel/json,对应 web :71-88 DropdownMenu)、六个快捷入口(:81-88)。
  * 取数/导出/导航由 RN 薄壳注入。
  */
+import { rnSpacing } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import {
   Award,
@@ -296,7 +297,7 @@ export function StudentCenterScreen({
         </View>
 
         {loading ? (
-          <View style={{ paddingVertical: 8 }}>
+          <View style={{ paddingVertical: rnSpacing.sm }}>
             <ActivityIndicator color={tk.text.secondary} />
           </View>
         ) : null}
