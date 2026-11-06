@@ -134,6 +134,17 @@ async def test_tool_search_codebase_nonexistent_path():
     assert "路径不存在" in out["message"]
 
 
+async def test_tool_search_codebase_unreadable_path_is_not_missing(tmp_path, monkeypatch):
+    """目录读不到时不能说路径不存在。"""
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_path", lambda _path: ("unread", None)
+    )
+    out = await _tool_search_codebase({"query": "foo", "path": str(tmp_path)})
+    assert out["ok"] is False
+    assert "路径读不到" in out["message"]
+    assert "路径不存在" not in out["message"]
+
+
 async def test_tool_search_codebase_path_is_file(tmp_path):
     """路径是文件而非目录时返回 ok=False。"""
     f = tmp_path / "f.py"
@@ -673,6 +684,18 @@ async def test_tool_file_search_nonexistent_path():
     assert "路径不存在" in out["message"]
 
 
+async def test_tool_file_search_unreadable_path_is_not_missing(tmp_path, monkeypatch):
+    """目录读不到时不能说路径不存在,也不把名单交成空成功。"""
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_path", lambda _path: ("unread", None)
+    )
+    out = await _tool_file_search({"path": str(tmp_path)})
+    assert out["ok"] is False
+    assert out["matches"] == []
+    assert "路径读不到" in out["message"]
+    assert "路径不存在" not in out["message"]
+
+
 async def test_tool_file_search_path_is_file(tmp_path):
     """路径是文件而非目录时返回 ok=False。"""
     f = tmp_path / "file.txt"
@@ -769,6 +792,34 @@ async def test_tool_git_operations_disallowed_action():
     assert out["ok"] is False
     assert "不允许" in out["message"]
     assert "status" in out["message"]  # 列出允许的操作
+
+
+async def test_tool_read_file_unreadable_is_not_missing(tmp_path, monkeypatch):
+    target = tmp_path / "keep.txt"
+    target.write_text("keep\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_path_in_workspace",
+        lambda _path: (True, str(target)),
+    )
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_path", lambda _path: ("unread", None)
+    )
+    out = await _tool_read_file({"path": str(target)})
+    assert out["ok"] is False
+    assert out["errorCode"] == "UNREADABLE"
+    assert out["content"] == ""
+    assert target.read_text(encoding="utf-8") == "keep\n"
+
+
+async def test_tool_git_operations_unreadable_repo_is_not_missing(tmp_path, monkeypatch):
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(tmp_path))
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_path", lambda _path: ("unread", None)
+    )
+    out = await _tool_git_operations({"action": "status", "repo": str(tmp_path)})
+    assert out["ok"] is False
+    assert "读不到" in out["message"]
+    assert out["output"] == ""
 
 
 async def test_tool_git_operations_nonexistent_repo(monkeypatch):

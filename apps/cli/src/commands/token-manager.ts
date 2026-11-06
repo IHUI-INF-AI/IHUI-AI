@@ -27,9 +27,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
-import { getSettingsPath, loadSettings, type Settings } from './settings.js';
+import { getSettingsPath, loadSettings, readSettingsObjectForUpdate, type Settings } from './settings.js';
 import { writePrivateFile } from '../lib/private-file.js';
-import { tryParseJson, isRecord } from '../util/json.js';
 import { classifyCredential, isMachineCredential, decodeJwtClaims } from '../config/credentials.js';
 import {
   InflightLedger,
@@ -79,17 +78,8 @@ function persistTokens(accessToken: string, refreshToken: string): boolean {
   const settingsPath = getSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  let existing: Settings = {};
-  if (fs.existsSync(settingsPath)) {
-    try {
-      const raw = fs.readFileSync(settingsPath, 'utf-8');
-      // 损坏/非对象(如数组、标量)一律从头建,防止把数组误当 Settings 写丢 token
-      const parsed = tryParseJson(raw);
-      if (isRecord(parsed)) existing = parsed as Settings;
-    } catch {
-      // 读文件失败,从头建
-    }
-  }
+  const read = readSettingsObjectForUpdate(settingsPath);
+  const existing: Settings = read.state === 'ok' ? read.settings : {};
   if (classifyCredential(existing.apiKey) === 'api_key') {
     return false;
   }

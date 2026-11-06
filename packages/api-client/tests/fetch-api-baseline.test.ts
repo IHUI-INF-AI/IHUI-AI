@@ -168,4 +168,68 @@ describe('fetchApi 四情形行为基线(未注册 unauthorized 钩子时必须�
     })
   }
 })
+
+/**
+ * BUG-13 回归:2xx 空体判据下沉到通用层后的两条硬约束。
+ * 修复前 fetchOnce 的 response.json() 在空体上抛 SyntaxError ⇒ normalizeErrorToResult
+ * 归一成「无 status 的网络异常」⇒ 命中网络重试 ⇒ 非幂等写(POST)被重放。
+ */
+describe('BUG-13:2xx 空体 204 ⇒ 不重试且 success', () => {
+  afterEach(() => {
+    setTransport(undefined as unknown as Transport)
+    setTokenProvider({ getToken: () => null })
+    __resetRefreshStateForTest()
+  })
+
+  it('204 空体:一次请求即成功、不重放 POST、不调用 response.json()', async () => {
+    let transportCalls = 0
+    let jsonCalled = 0
+    const transport: Transport = async () => {
+      transportCalls++
+      return {
+        ok: true,
+        status: 204,
+        headers: { get: () => null },
+        text: async () => '',
+        json: async () => {
+          jsonCalled++
+          throw new Error('response.json() 不应在 2xx 空体上被调用')
+        },
+      } as unknown as TransportResponse
+    }
+    setTransport(transport)
+
+    const result = await fetchApi<{ id: string }>('/things', { method: 'POST' })
+
+    expect(result).toEqual({ success: true, data: null, status: 204 })
+    expect(transportCalls).toBe(1) // 无网络重试 ⇒ 非幂等 POST 没被重放
+    expect(jsonCalled).toBe(0)
+  })
+
+  it('2xx 空体但非法 JSON ≠ 网络异常:不重试、失败带 status', async () => {
+    let transportCalls = 0
+    const transport: Transport = async () => {
+      transportCalls++
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        text: async () => 'not-json',
+        json: async () => {
+          throw new Error('response.json() 不应被调用')
+        },
+      } as unknown as TransportResponse
+    }
+    setTransport(transport)
+
+    const result = await fetchApi<{ id: string }>('/things', { method: 'POST' })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.status).toBe(200) // 带 status ⇒ 不会被当网络异常重试
+      expect(result.error).toBe('响应体不是合法 JSON')
+    }
+    expect(transportCalls).toBe(1)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

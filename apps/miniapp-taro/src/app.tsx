@@ -36,31 +36,45 @@ import { createTaroStreamTransport } from './utils/taro-stream-transport'
 import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { useUserBroadcastSync } from './hooks/use-user-broadcast-sync'
 import { HostToastLayer } from './host/HostToastLayer'
-import { BASE_URL } from './utils/api-config'
+import { BASE_URL, assertApiBaseConfigured } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
-import { initCrashReport } from './utils/crash-report'
+import { initCrashReport, reportCrash } from './utils/crash-report'
 import { startPageViewTracking, settlePageTime } from './utils/visit-tracker'
 import './app.css'
 
-// 初始化 api-client:注入 Taro transport + token provider + baseUrl
-// 使 @ihui/api-client 共享端点可在小程序运行时使用(替代 native fetch)
-// token provider 通过 bindTokenStoreToApiClient 统一接入跨端 TokenStore 契约
-// 2026-09-27:补 refreshAccessToken —— 此前小程序没注入,`refreshAccessTokenOnce()` 第一行
-// 就 return null ⇒ access token 一过期直接判死,没有任何续期机会(RN 端 2026-09-22 已补)。
-// 同批注册 401 出口:会话真死了要给用户一条"去登录"的路,而不是每屏各显示一句通用文案。
-bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
-setUnauthorizedHandler(onUnrecoverableUnauthorized)
-setBaseUrl(BASE_URL.replace(/\/api$/, ''))
-setTransport(createTaroTransport())
-setStreamTransport(createTaroStreamTransport())
-setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
-// 2026-10-26:主动续期(此前只有 401 兜底;空闲 15 分钟后首次操作必先失败一次)
-startTokenAutoRefresh()
-
-// 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
-initCrashReport()
+// 初始化链(BUG-41⑤):先注册崩溃上报,再把整条注入链异步化并包 try/catch。
+// 旧形态是模块级同步副作用链,任一步抛错即整包白屏,而 initCrashReport() 还在链尾
+// ⇒ 崩溃上报永无机会。现在把上报放在链首,链内异常一律捕获并主动上报白屏根因,
+// 且不再让同步抛错打断模块求值(异步 IIFE 内失败不会让整个 app 模块崩掉)。
+void (async () => {
+  initCrashReport()
+  try {
+    // BUG-41①:生产/真机缺 TARO_APP_API_BASE_URL 直接失败,禁止静默回落 localhost。
+    assertApiBaseConfigured()
+    // 初始化 api-client:注入 Taro transport + token provider + baseUrl
+    // 使 @ihui/api-client 共享端点可在小程序运行时使用(替代 native fetch)
+    // token provider 通过 bindTokenStoreToApiClient 统一接入跨端 TokenStore 契约
+    // 2026-09-27:补 refreshAccessToken —— 此前小程序没注入,`refreshAccessTokenOnce()` 第一行
+    // 就 return null ⇒ access token 一过期直接判死,没有任何续期机会(RN 端 2026-09-22 已补)。
+    // 同批注册 401 出口:会话真死了要给用户一条"去登录"的路,而不是每屏各显示一句通用文案。
+    bindTokenStoreToApiClient(tokenStore, { refreshAccessToken })
+    setUnauthorizedHandler(onUnrecoverableUnauthorized)
+    setBaseUrl(BASE_URL.replace(/\/api$/, ''))
+    setTransport(createTaroTransport())
+    setStreamTransport(createTaroStreamTransport())
+    setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
+    // 2026-10-26:主动续期(此前只有 401 兜底;空闲 15 分钟后首次操作必先失败一次)
+    startTokenAutoRefresh()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
+    reportCrash(`[bootstrap] 初始化链失败: ${message}`, stack)
+    console.error('[IHUI] 初始化链失败,已上报:', message)
+    // 不 rethrow:模块求值已完成,App 仍可渲染;失败不再表现为"整包白屏且零上报"。
+  }
+})()
 
 // 2026-08-12 修复:pageError "Object" 异常字符串化
 // 子组件 try/catch 中 console.error(throwObj) 时,React 会被事件循环还原为

@@ -287,4 +287,111 @@ node scripts/git-sync-converge.mjs            # 收敛唯一入口(勿手工 fet
 - 落档面的「两枚 docs 账」由主席代落:goal-b46 席 `T12-mtree-and-hook-host.md` §C1 表 1.0.91 行的「8 条里 5 条 async」现读为 **6 条 async / 2 条 sync**,「首次出现 `matcher`」现读位置在 **grp 层**(包裹 `hooks:[...]` 那一级)而非叶子 `hook` 层,1.0.91 的 8 条叶子共带 4 处非空 matcher ⇒ 依据 = 同目录 `T12-mtree-native-and-hook-host.md` §3 末「就地更正」表,已就地更正该两行(不抄副本、不加指针注记)。
 - 门禁复跑红全部与本次内容无关,按 §12e 只报不修:门 29 push-sync(随推送腿结清)/ 门 30c 点名 `scripts/tests/{check-mobile-download-leg,check-web-rn-copy-parity}.test.mjs` 陈旧副本(他席在飞,`scripts/**` 票面排除)/ 门 41 旁支与 stale 远程跟踪引用(机器状态)/ 门 42 rc=2 未判定(点名 8 个 `apps/miniapp-taro/**`、`packages/database/**` 文件不存在,他席删除面在飞,结构上取不到输入)/ 门 277 未判定(装机根 `C:\Users\Administrator\.ihui\installed-plugins` 不存在)/ 门 275 存量 62 只报数;Z14 那枚曾点名门 30a 的 5 枚悬空 commit 未 tag(`fix(knip)`/`fix(cli)` 他席产物)与 6 道超预算未跑门,后续枚次复跑归零或转绿,无一道点名本席内容。
 - 残留未落(全部是票面排除项,非漏落):`apps/cli/tests/checkpoints-corrupt-manifest.test.ts`(头注自述 goal-b49 **S3** 席产物)/ `apps/desktop/src/lib/__tests__/task-receiver.test.mjs`(索引里他席新加)。
+## 15. 第十回合(2026-11-06 00:00–)第四波八格 · 主席自写(前一张写账席 Z43 死在读素材阶段,29 次调用零落笔)
+
+### 15a. 已入库(提交号一律 `git log --format='%H %s' -25` 现读,§1 禁短 sha)
+
+| 能力/格 | 提交 | 主席自己复量过的读数 |
+| --- | --- | --- |
+| 内置网段表改派生态单源件 + 生成器 + 三格对账尺 + Rust `include_str!`(Z26) | 现读取全 40 位,见 `git log --oneline -- scripts/generate-egress-builtin-list.mjs` | 六枚路径中 `generate-egress-builtin-list.mjs` 与 `packages/shared/src/utils/egress-builtin-list.json` 经 `git cat-file -e HEAD:<path>` 逐枚命中 ✓ |
+| `registry.ts` 270→248(键集迁 `plugin-extensions.ts`)+ `worktree.ts` 396→223(五档,三把可改锁改指新档并**加严**)+ prettier 长行族具名豁免(Z30) | 同上现读 | `apps/cli/src/plugins/plugin-extensions.ts`、`apps/cli/src/tools/worktree-state.ts` 命中 HEAD ✓ |
+| 事件驱动增量索引的关停前排空四路 + 第二条既有 2s 循环兜底(Z32) | 同上现读 | `apps/ai-service/tests/test_file_watch_drain_shutdown.py` 命中 HEAD ✓ |
+| MCP `symbol_name` 精确过滤 + 段账改吃 `stage_telemetry` 单源 + 验收尺 J5 维(Z28) | 同上现读 | `apps/ai-service/tests/test_symbol_name_filter_b49z28.py` 命中 HEAD ✓ |
+| 取证册 §14 与旧册 §C1 两格就地更正(Z25) | `96cf3502d0704e1b0d2c01e20b52674050868489` / `c72e99d6eb2423352bf35a787bb3bdb3f8a780ac`(Z25 自读) | 该席末行 `origin=ALREADY` 且水印 2/2 |
+
+### 15b. 待落清单(由 Z42 合车落地,落地后必须在下一枚提交补账——**没发生的事不写成已完成**)
+
+- Z36:apps/api 侧 `symbolName` 过滤位前移(条件进 `whereParts`、`LIMIT` 吃脱离 topK 的行预算)。主席自己复跑:`npx vitest run tests/codebase-search-symbol-name-{filter,route}.test.ts` = **2 files / 17 passed** ✓(同族 `codebase-search.test.ts` 在该端不存在,vitest 未点名 ⇒ 记「该路径无此件」而非「跑绿」)。
+- Z40:卫生尺 `check-verify-tmp-files.mjs` 扩 `tmp-*` 形态射程 + 镜像 23 条。主席自己复量:全量档「verify-*.* / tmp-*.* 均在合法落点」**存量 0**、`node --test` = **23 pass / 0 fail** ✓。
+- Z35:`main.py` 关停步表挂 `agent_engine_watchers`(排 mcp_stdio_bridge 后、shared_db_pool 前)+ 3 例;该席读数 pytest 10/10、mypy 0 errors。
+- Z37(Z36 之后那半格:MCP 侧改下推)与 Z41(86 号门升 blocking 前置复量 + `docs/guardian-reference.md` 措辞)**本节节稿时仍在飞**,读数待补,不许预先翻勾。
+
+### 15c. 推翻主席假设的四处现读(派单的人也要被证伪)
+
+1. **Z32 推翻「没有 watchWorkspace 就没有周期 = 选择而非缺陷」**:fork 不携带 `watch_workspace` 字段 ⇒ 分叉后周期**结构上归零**;且确有第二条不依赖它的既有 2s 循环(`fs/watch` 的 `_watch()`)可挂兜底。
+2. **Z33 抓到一枚恒真断言**:`command-policy-syntax-surface` 第⑥例把布尔塞进 `expect` 第二参、比的是同一个字符串 ⇒ 自拆档落起从未生效;反向实验(预算改 20 仍全绿)坐实,改真断言后当场翻红,已还原并证零变异残留。
+3. **Z36 定位根因是位置不是缺失**:HTTP 侧「按符号取全部」做不到,是因为三腿都 **SQL `LIMIT topK*2` 先截、JS `slice(0,topK)` 后滤**,不是"库里没这个字段"。
+4. **Z38 纠正本席派单书**:第二腿错误数是 **4 条**(`tmp-mcode-identity` 2 + `tmp-mcode-queue-state` 2),不是 6 条;`tmp-mcode-guard.ts` 在 include 面内但贡献 0 条。同时量出 §25 那把尺**结构上看不见 `tmp-*` 形态** ⇒ 才有 Z40 的扩射程。
+
+### 15d. 裁决登记(不留待拍板)与合法终态
+
+- **插件执行入口 = 已裁未开**(Z31):真拦路不是信任面缺失(`src/hooks/trust.ts` 默认拒+摘要+fail-closed 早已在场),而是 `LoadPluginsOptions` 无信任入参、`PluginDefinition` 的 JSON 路径产不出可调用体,且加执行腿必破 HEAD 的静态锁。对侧现读纠正:`catalog.v1.json` 10/10 枚带 `main`+`sha256` ⇒ **入口住宿主中央 catalog,不住插件清单**;开通道形态钉死为「约定入口+摘要台账+trust 双条件+dataClass 默认拒」四件同批。`onCommand` 保持 `reject`。
+- **prettier 长行族 = 具名豁免**(Z30,`owner/expires=2027-01-31/evidence/why` + 两条到期复评出口),没选改判据;如实边界:既有 `cli/` 通配本就整片排除 apps/cli,这次买到的是把"偶然通配"换成可到期、可问责的裁决。
+- **`upgradeGates` = 非缺口**(Z27):版本门三方早已接通(api `decideCliMinVersion` / web `app-version-gate.ts` / CLI `updater.ts`),另立声明维无消费者即 §0.9 空壳。
+- **合法终态,不是待办**:巨型 PE 函数级穷尽性 = 未判定·射程外(Ghidra >1h,REA 硬预算 5.5min);`-F`/`ProxyJump` 值内二跳 = 诚实边界(留反例);`tmp-*.{json,md}` 刻意不收(扩展名口径以 tsconfig include 面为准);`SYMBOL_SCOPED_ROW_CAP=200` 触顶按相关度取前 200 = 为守住缺省形状未加 `truncated` 键的已知取舍。
+
+## 16. 第十一回合(2026-11-06 03:00–13:00)第五/六波 · 死席收编与机主面分家定稿
+
+> 本节由 Z70 写账席自写;所有提交号与读数一律本席 17:5x 现读(`git log` / `git cat-file` / `git rev-parse <face>:<path>` / 只读审计器实跑),不照抄席报。
+> 票面时间跨度与实际不符一事见 16c 第 6 条。
+
+### 16a. 入库件表(提交号全 40 位,`git log --format='%H %s'` 现读 + `merge-base --is-ancestor` 逐枚自证在 HEAD 祖先链)
+
+| 格/能力 | 提交(全 40 位) | 本席自己复量的凭据 |
+| --- | --- | --- |
+| 活文档取材面三态(取不到 ⇒ 未判定,不冒绿)——Z46 席 S-26 前半格 | `2cc79d0526b37c17a36dd597113a7aad90d53354` | 该枚 subject 现读点名「Z46 席 L3957 S-26 前半格」;`git log -1 -- scripts/git-sync-converge.mjs` 链上可追 |
+| 收编器台账类活文档入库前「面一致性」闸(滞后台账不得按 pathspec 直提)——Z53 席 S-26 后半格 | `c187332042e3e2d02d8155e6e54f58b4ab6ce8e5` | 同枚 subject 现读;镜像 7 例(Z54 席复跑 7/7) |
+| guardian tick 覆盖面补搬,`TICK_REQUIRED` 97→98——Z48 席 RP-74 第一批 | `f651be6ca5044c382e8715e7be22aa669358309d` | Z54 席复跑 fanout 8/8 + `LIVENESS-RESULT state=idle-clean stalled=0 undetermined=0 families=3` |
+| 号池鉴权面主体改承载层注入(Z51)+ uid 稳定身份键 9 例(Z47) | `7f6b68bcd499b25aeccdfbde8f622bd9d84c663b` | 用例文件 `apps/api/tests/relay-pool-uid-keysource-rotation.test.ts` 现读 IN-HEAD |
+| 逐枚迁移落地闸 + 号池解锁收口一条命令 + deploy 切流前三支——Z50 席 Y-70③/S-28 | `4f55375985ed3e393dcd6d602f70948601a3c775` | 本席现读该枚 subject;`scripts/relay-account-unlock-verify.mjs` 在 HEAD,其「下一步」文案即 16d 第 6/7 行出处 |
+| 鸿蒙/华为发布链矩阵与门链(Z60 矩阵改动 + Z49 合车一枚) | `cf39ffd6413f1e7b3f9ef21e04e783183fedc946` | 本席现读 `git log -1 -- scripts/mobile-release-gate.mjs` = 该枚;Z67 记的 3 面逐字对上 |
+| 鸿蒙/华为两件出口脚本本体(`harmony-build.mjs`、`submit-store-huawei.mjs`)及其镜像测试 | `77d07a5d295e4af81d83f512861b520230c51f27` | 本席 `git cat-file -e HEAD:<path>` 四路全 IN-HEAD;`git log -1 --` 两枚均指该枚 ⇒ Z54 枚六「未落」已由其后的合车枚结清 |
+| 旁路落地后索引对齐腿崩溃归一(桶形态 + ref 取空守卫)——Z63 判据面 | `217323b15b17c8b8d78ed1cead5c88482a1c0d6b` | `scripts/lib/landing-worktree-align.mjs` 现读 IN-HEAD;带 `immutable-exempt:` 正文行(Z63 残余 4 要求) |
+| Z63 镜像 7 例(`landing-worktree-align.test.mjs`) | `14fc3af6dd13d3f6c64e490067b174cbb707c067` | 现读 IN-HEAD;本席复算 `tests 7` 的形态与 Z67 落地前的 7/7 一致 |
+| 对象空间落地器补空跑与静默零推进的显式响,四档退出码自证 | `2a769677b5960321ef9d01bfe6b68f672eb62623` | 本席 `git show --stat` 现读三面(`object-space-land.mjs` + 两枚测试);**归属席未判定**:Z68 心跳文件实测不存在,不据内容反推是谁的产物 |
+| 豆包提取器出界载荷补齐 `name` 同值别名(Y-25 席,Z66 残余 1 的那半格) | `1c634a38b2c5a0a972d45b804bf5f8c05e4ce7c6` | 现读 `git show --stat` = `scripts/lib/doubao-auth-extract.mjs` 单面 +11/-1 |
+| 台账摘行:Y-25 两格结清、Y-24 就地改写只留 validate 落面那一格 | `796c202e17e140d337894eb75c6608b7e3fd9936`(= 本席起读 HEAD) | subject 现读逐字;活文档面本轮不由写账席动,本席未碰 `PROJECT_PLAN.md` |
+
+**待落清单(工作树/索引现读形态,未入库 ⇒ 依 §0.3 不写 sha、不写成已完成)**
+
+- Z66 件 1:`apps/api/scripts/relay-account-import-validate.ts` = ` M`(validate CLI 键源改吃落库口径 `resolveImportAccountUidProbe`,服务载入失败 exit 2 未判定)。
+- Z66 件 3:`apps/api/scripts/relay-pool-uid-keysource-audit.ts` = `??`、`apps/api/tests/relay-pool-uid-keysource-audit.test.ts` = `??`、`apps/api/tests/relay-pool-validate-cli-uid-keysource.test.ts` = `??`(K3 下游档位锁)。
+- Z58:`apps/ai-service/app/services/checkin_user_pool_bridge.py` = ` M`,`git diff --stat` 现读 28 insertions / 10 deletions;改后读数缺(见 16b)。
+- Z69 起席目标(`scripts/lib/bypass-git.mjs` 的 `alignSharedIndex` 两档桶写成数字 0 ⇒ 治本):**现读未落地**,`:402` 与 `:473` 两行逐字仍是 `return { moved: 0, already: 0, … }`;Z63 只在下游 `landing-worktree-align.mjs` 加了归一守卫。
+- Z54 枚六拒落的那格(`scripts/release-mobile-rn.mjs` → `./harmony-build.mjs` 悬空相对引用预检)已由 `77d07a5d295e4af81d83f512861b520230c51f27` + `cf39ffd6413f1e7b3f9ef21e04e783183fedc946` 两枚同链解结:预检要的落点当下 IN-HEAD。
+
+### 16b. 死席登记与三档处置口径
+
+口径(本节自定并逐张套用,不借他票措辞):**甲档** = 心跳齐备带末行读数 ⇒ 直接收编落地;**乙档** = 产物成型而读数缺 ⇒ 由后席复跑收编、台账不翻勾;**丙档** = 零落笔(死在取素材阶段) ⇒ 主席自写代结或重派,不登记为工作。
+
+| 席 | 心跳末次写入(mtime 现读) | 距本席现读静默 | 产物形态 | 档 | 处置 |
+| --- | --- | --- | --- | --- | --- |
+| Z46 | 11:15:48 | 6h40m | 心跳完整:8 例末行 + 三面回查读数 | 甲 | 已由合车枚 `2cc79d0526b37c17a36dd597113a7aad90d53354` 入库;票面后半格(merge-live-doc 以工作树为底)按其席意见另开一票 |
+| Z42 | 11:49:10 | 6h06m | 心跳完整:4 枚 14 面 + 推送四读数自证「未同步」 | 甲 | 六枚全在 HEAD 祖先链;其推送腿由 Z54/Z57 接手结清 |
+| Z58 | 12:20:52 | 5h34m | **心跳只有「改前现场」**(行号 + 对照面 + 三面读点枚举),改后读数 0 条;工作树 +28/-10 成型 | 乙 | 代码仍在飞未入库 ⇒ 按乙档登记「产物成型、读数缺失」,**不翻勾**;派单书令「由 Z68 复跑收编」缺凭据(Z68 心跳实测不存在) |
+| Z68 | 无心跳文件(MISSING 现读) | 不可测——取不到写入面 ⇒ 静默时长记未判定 | 归属不可证 | 未判定 | 按 §0.3 不冒绿也不反推:16a 那枚 `2a769677b5960321ef9d01bfe6b68f672eb62623` 只登记内容,不登记席位 |
+| Z43(第十回合) | — | — | 29 次调用零落笔 | 丙 | 主席自写代结(见 §15 标题),不补登记工作 |
+
+**「死了多久」的口径更正**:派单书给的运行时长(Z46 13 分钟 / Z42 96 分钟 / Z58 4.3 小时)在本席量测面(心跳文件 mtime + 内容完整度 + git 三面)结构上取不到对应读数源 ⇒ 本席只报**静默时长**,运行时长按未判定处理,不照抄进账。
+
+### 16c. 推翻主席(派单书)假设的现读清单
+
+1. **「Y-3 那格是本侧删除」不成立——实测是远端新增**。一手证据(Z57 席,本席复算 `git cat-file -e HEAD:…` = YES):基底 `c76c57d280f5f40b2e81044b1203c33494a334ce` 该路径 NO、本侧父 `c83967490e839b80809548b857bf6addd5975c63` NO、远端父 `a1b1bf04fff95a4d106c57c8229bbbf261b13047` YES;`git log --all --no-renames --diff-filter=D` 全仓 0 命中;删除意图台账 0 命中;全可达历史只有一枚新增提交 `e3c238e2ca1fb192ea48ab5319a6c799cdd5df4c`。§7 三问:承载 `renderVerifySheet` + `renderWxShareButton`;等价实现无(共享屏只收宫格/二维码,弹层与分享按钮按该枚裁决明确「定宿主」);三面消费方(`distribution/index.tsx` import、测试 `readFileSync`、生成物 input 自述)逐条在 ⇒ 不可删。
+2. **`ui-routes.generated.ts` 是滞后索引,不是「该重跑的生成物」**。内容寻址:收敛当时 HEAD == origin 同 blob,而索引/工作区逐字节等于合并前 HEAD 的同路径 blob ⇒ 门 298 型「只推进 HEAD、不动索引」残留;`check-miniapp-generated.mjs`(面=head)对该路径的四端自述钉 = matched ⇒ HEAD 侧字节是真生成物。生成器 `apps/miniapp-taro/scripts/generate-ui-routes.mjs` 读工作区源,工作区当时仍滞后,**先对齐 HEAD 再重跑**才是正确顺序,当时的顺序重算只会复现被弃快照。
+3. **同一型滞后回写本轮已复发**(Z57 残余 2 的预言命中,本席 17:5x 现读):HEAD 该路径 = `c544afbc80cd37b3e6c73d24f1a552dd0b849522`,而索引 / 工作区 / `origin/main` 三面同为 `0cd8f92137668a881558650e41676b4d69df3381`,后者逐字等于祖先枚 `20d8c2289f16bc9e5cd19d3170a9b180e952ab96` 的同路径 blob;`git status --porcelain` = `M `。⇒ 从该索引提交即触发门 298,不是「重跑生成器」能解释的形态。
+4. **Z47 交回的「24 行/23 键 多出一枚同键重复行」归因已追到,不是持久脏行**。本席只读实跑(Z66 待落器物,从工作树跑 `--check`,零写盘):`AUDIT-RESULT state=clean rowCount=23 distinctKeys=23 dupGroups=0 actions=0 noop=0 refused=0 mappings=0 mode=check`。与 Z54 席 04:35Z 的 `rows=24 distinct=23`、Z66 席 06:15Z 的 `23/23` 连成一线 ⇒ 那枚多出行是他席 trae 写入在飞的自然结果;Z54 要求「翻勾前主席请复量这一格」现已复量。
+5. **豆包采集腿那半格不属 Z66,而属他席 Y-25——且该半格现已入库**:`1c634a38b2c5a0a972d45b804bf5f8c05e4ce7c6`(出界载荷补 `name` 同值别名,+11/-1)。Z66 残余 1「不提交则 K3 声明档锁只在下游形状层成立」的前提已消;仍欠的是 Z66 自己那三件(validate 键源 + 迁库器物 + 用例),见 16a 待落清单。
+6. **派单书两处事实不成立**:① 「`Z58-impl.md` 不存在」——实测存在,1943 字节、mtime 2026-11-06 12:20:52,内容是「改前现场」而非零落笔,所以按乙档(有产物无读数)登记,不按丙档;② 「由 Z68 复跑收编」——`Z68-impl.md` 实测 MISSING,复跑凭据缺位,本席不把它写成已收编。
+7. **回合时间跨度**:票面写 03:00–13:00,本席现读第五/六波心跳一直写到 17:50:52(Z69),Z60 14:57 / Z66 17:13 / Z67 17:28 均落在票面窗口之外;标题按票面保留原样,实际跨度以本条为准。
+8. **同步态(§20 字面判据)**:本席现读 `git rev-list --left-right --count HEAD...origin/main` = `11 0`,`git rev-parse HEAD` = `796c202e17e140d337894eb75c6608b7e3fd9936`、`origin/main` = `d6d3d747eb5d1c87ed0b624e9fd4db722b760b71` ⇒ 本地领先 11 枚,**本轮不声明「完成」**;写账席按票面禁跑任何落地/推送器物,交并发落地席推送后由下一节补账。
+
+### 16d. 机主面定稿表(分家:机器能代做的已做完,以下每一格只缺机主职权面的供值)
+
+前置口径(三条实测,决定「为什么没有回填这条路」):`apps/mobile-rn/.env` 与 `.env.local` 在工作树**根本不存在**(不是键为空);`submit-store-huawei.mjs` **不加载 dotenv**;四家接口凭据原文在网盘**都不存在** ⇒ 无值可回填,当前唯一生效通道 = 密钥目录里的文件。密钥根现读走 `scripts/lib/key-dir.mjs`(盘符不写死,可 `IHUI_MODEL_KEY_DIR` 覆盖);本轮**零回填、零 `.env` 改动、零新建凭据**。
+
+| 事项 | 要什么(只要字段名,绝不含值) | 放哪 | 验证命令(整条可复制) |
+| --- | --- | --- | --- |
+| 华为 AppGallery(最轻的一格) | AGC「用户与权限 → Connect API → 创建 API 客户端」(角色勾“应用上架管理”)生成的 `client_id` + `client_secret`(可再带一行 `应用ID`) | 密钥根**新建** `华为Connect API密钥.txt`,逐行 `client_id: <值>` / `client_secret: <值>`;**不要改**现有 `华为appid 密钥.txt`(那枚字段是 `应用ID`/`密钥`,结构上落 HMS 旧凭据分支,实测 `ret.code=203890688` 不认) | `node scripts/submit-store-huawei.mjs`(默认 dry-run 零出网)<br>`node scripts/probe-store-channel.mjs --vendor huawei` |
+| 小米应用商店 | dev.mi.com「应用管理 → 自动发布接口」的接口私钥(重置即令旧值失效)+ 开发者账号邮箱 + 包名 | 密钥根新建 `小米接口私钥.txt`(行:`接口私钥:` / `开发者账号邮箱:` / `包名: zh.ai.sq`) | `node scripts/probe-store-channel.mjs --vendor xiaomi` ——如实边界:该家 probe 的 `found` 只代表**凭据件在位**(签名腿仍打占位串),真判“对方接受”要等签名腿落地 |
+| 腾讯应用宝 | open.qq.com「账户管理 → API 发布接口」的 `access_secret` + **主账号** `user_id`(官方明写子账号不允许)+ `app_id` | 密钥根新建 `应用宝access_secret.txt`(行:`user_id:` / `access_secret:` / `app_id:`) | `node scripts/probe-store-channel.mjs --vendor yyb` ——官方硬边界:API 不支持新应用发布,首包必须先在后台手工上线 |
+| 荣耀应用市场 | developer.honor.com「管理中心 → 开放能力 → 凭证」的 `client_id` + `client_secret` | 密钥根新建 `荣耀API密钥.txt`(两行同字段名) | `node scripts/probe-store-channel.mjs --vendor honor`(官方对查询类限流 <3min/次,勿连打) |
+| App 备案号 | 工信部备案管理系统「我的备案 → App」页签里智汇AI 的 **App 备案号**(未办则提交 App 备案,省级通管局约 20 个工作日) | `scripts/data/app-icp-filing.json` = `{"appFilingNumber":"<App备案号>","authority":"工信部ICP/IP地址及域名信息备案管理系统","verifiedAt":"<核验日期 ISO>"}`(号是公开信息,可入仓) | `node scripts/prepare-store-bundle.mjs --json`(国内店 blockers 里 `备案在册性:unjudged` 应消失)<br>**为什么现在不建**:网盘实读只有**网站备案**(`吉ICP备2025027274号-2`,主体号 `吉ICP备2025027274号`,网站 智汇社区AGI / aizhs.top),截图里「网站 \| App」页签的 App 侧没被拍进;把网站备案号写进兜底位会把法律级前置从 unjudged 直接翻成 found,正是 `prepare-store-bundle.mjs` 注释点名的“账面 ready 而法律上发不了”那一型 ⇒ 刻意不建。 |
+| MiniMax Code(mcode)重登收口 | 本机 mcode 用手机验证码重新登录一次 | 无需入仓(客户端会话文件由既有回灌腿自取) | `node scripts/relay-account-unlock-verify.mjs --provider minimax --uid <池行uid>`(0 收口完成 / 1 具名拒绝 / 2 未判定;本器绝不代取凭据) |
+| OpenCode 新建 key 收口 | 后台新建 API key 并放入本地文件(如 `keys.json`) | 机主自备文件,不入仓不入聊天 | `node scripts/relay-account-unlock-verify.mjs --provider opencode --closure import --file keys.json [--owner <users.id>] [--old-uid <旧行uid>]` |
+| 鸿蒙外部件 ① 工具链 | DevEco Studio + HarmonyOS SDK(含 `hvigorw`) | 安装后给 `IHUI_DEVECO_SDK_HOME=<SDK 根>`,或让 `hvigorw` 进 PATH(候选位 `D:\DevEnv\Huawei`、`C:\Program Files\Huawei\DevEco Studio`) | `node scripts/harmony-build.mjs --json`(第三格「构建工具链」转 found) |
+| 鸿蒙外部件 ② 签名与商店凭据 | AGC 鸿蒙 appId + 发布证书 `.cer` + Profile `.p7b` + 私钥 `.keystore` | §5d 密钥目录,文件名含 鸿蒙/harmony/ohos 即可被匹配;**不入仓不入聊天** | `node scripts/probe-store-channel.mjs --vendor harmony` 与 `node scripts/release-mobile-rn.mjs --json` 的 `store-harmony` 行 |
+| 鸿蒙外部件 ③ 发布端点形态 | 已核实的鸿蒙**查询类**发布 API 端点(文档正文需登录,本器不猜 URL) | 补进 `scripts/probe-store-channel.mjs` 的 `CHANNELS.harmony`(只登记形态,判据不改) | `node scripts/probe-store-channel.mjs --vendor harmony`(由现读 `[unjudged]` 转 found/missing) |
+| 鸿蒙第 4 件(不算机主面) | RN for Harmony 产物侧工程 = 独立工程票,归属产物工程席 | — | 现读:`node scripts/harmony-build.mjs` 默认 `--check` rc=1,五格逐条点名缺件(枚举到 0 判死不记绿);本机零 SDK ⇒ 构建腿结构上跑不起来,这是缺件清单而非链没接 |
+
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

@@ -449,3 +449,132 @@ async def test_i5_interrupt_batch_ingest_failure_does_not_block_abort(
         await loop._execute_tools(
             [ToolCall(id="a", name="ok_tool", args={}), ToolCall(id="b", name="int_tool", args={})]
         )
+
+
+# =============================================================================
+# J 执行事实(2026-11-06 批2立):cwd/exitCode/outputComplete/terminalReason
+# =============================================================================
+#
+# 此前账行只有"谁在什么会话调用了什么工具",没有"在哪执行、退出码多少、输出是否
+# 完整、为什么收尾"。这四列是工具执行纵深的最小证据面;词汇越界不得伪造邻近档。
+
+
+def test_j_terminal_reasons_mirror_ts() -> None:
+    """J 收尾原因封闭集与 apps/api TOOL_INVOCATION_TERMINAL_REASONS 逐值同集。"""
+    assert tll.TERMINAL_REASONS == (
+        "completed",
+        "error",
+        "rejected_by_user",
+        "approval_timeout",
+        "blocked",
+        "cancelled",
+        "timeout",
+        "unknown",
+    )
+
+
+@pytest.mark.asyncio
+async def test_j2_execution_facts_payload(recorder: list[dict[str, Any]]) -> None:
+    """J2 执行事实原样进载荷;exitCode 只认整数、越界 terminalReason 降级不外发。"""
+    await asyncio.sleep(0)
+    assert (
+        tll.record_tool_invocation(
+            **_good(
+                cwd="/repo",
+                exit_code=2,
+                output_complete=False,
+                terminal_reason="completed",
+            )
+        )
+        is True
+    )
+    assert (
+        tll.record_tool_invocation(
+            **_good(
+                invocation_id=str(uuid4()),
+                cwd="x" * 1500,
+                exit_code=True,
+                terminal_reason="finished",
+            )
+        )
+        is True
+    )
+    await asyncio.sleep(0)
+    first, second = recorder
+    assert first["cwd"] == "/repo"
+    assert first["exitCode"] == 2
+    assert first["outputComplete"] is False, "False 必须外发(缺省 ≠ 未观测)"
+    assert first["terminalReason"] == "completed"
+    assert len(second["cwd"]) == tll._MAX_CWD
+    assert "exitCode" not in second, "bool 是 int 子类,不得冒充退出码"
+    assert "terminalReason" not in second, "越界词汇不得折叠成邻近档"
+
+
+@pytest.mark.asyncio
+async def test_j3_signed_int32_exit_code_only(recorder: list[dict[str, Any]]) -> None:
+    """J3 exitCode 是 int32 列:越界值不带(整行 400 比丢一列更糟)。"""
+    await asyncio.sleep(0)
+    assert tll.record_tool_invocation(**_good(exit_code=2_147_483_648)) is True
+    assert tll.record_tool_invocation(**_good(invocation_id=str(uuid4()), exit_code=-2)) is True
+    await asyncio.sleep(0)
+    assert "exitCode" not in recorder[0]
+    assert recorder[1]["exitCode"] == -2
+
+
+@pytest.mark.parametrize(
+    ("error_type", "hint", "error", "want"),
+    [
+        ("user_rejected", None, "用户拒绝", "rejected_by_user"),
+        (None, ("rejected_by_user", ""), None, "rejected_by_user"),
+        ("approval_timeout", None, "审批超时", "approval_timeout"),
+        ("permission_denied", None, "plan 拦截", "blocked"),
+        (None, ("security_blocked", ""), None, "blocked"),
+        ("timeout", None, "执行超时", "timeout"),
+        ("cancelled", None, "已取消", "cancelled"),
+        ("boom", None, "炸了", "error"),
+        (None, None, None, "completed"),
+    ],
+)
+def test_k_terminal_reason_mapping(
+    error_type: str | None, hint: tuple[str, str] | None, error: str | None, want: str
+) -> None:
+    """K 终态映射只读既有事实(error_type/hint/error),不新造判定。"""
+    tr = ToolResult(
+        tool_call_id="c1", name="echo_tool", result=None, error=error, error_type=error_type
+    )
+    assert alv2._ledger_terminal_reason(tr, hint) == want
+
+
+def test_l_execution_facts_prefer_result_then_args() -> None:
+    """L cwd 优先结果回报、其次入参;exitCode 只从结果取;bool 不算退出码。"""
+    tc = ToolCall(id="c1", name="run_command", args={"cwd": "/from-args"})
+    tr = ToolResult(
+        tool_call_id="c1",
+        name="run_command",
+        result={"cwd": " /from-result ", "exit_code": 3},
+    )
+    cwd, exit_code, output_complete, reason = alv2._ledger_execution_facts(tc, tr, None)
+    assert cwd == "/from-result"
+    assert exit_code == 3
+    assert output_complete is True
+    assert reason == "completed"
+
+    tc2 = ToolCall(id="c2", name="run_command", args={"cwd": "/from-args"})
+    tr2 = ToolResult(tool_call_id="c2", name="run_command", result={"exitCode": True})
+    cwd2, exit_code2, _, _ = alv2._ledger_execution_facts(tc2, tr2, None)
+    assert cwd2 == "/from-args"
+    assert exit_code2 is None
+
+
+def test_l2_output_complete_false_when_artifact_attached() -> None:
+    """L2 输出落盘分页 ⇒ outputComplete=False(上下文没拿到完整输出)。"""
+    tc = ToolCall(id="c1", name="run_command", args={})
+    tr = ToolResult(
+        tool_call_id="c1",
+        name="run_command",
+        result={"ok": True},
+        output_artifact={"artifactId": "a" * 32},
+    )
+    _, _, output_complete, reason = alv2._ledger_execution_facts(tc, tr, None)
+    assert output_complete is False
+    assert reason == "completed"

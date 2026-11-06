@@ -63,18 +63,23 @@ function getTodosPath(ctx: ToolContext): string {
   return path.join(ctx.workspacePath, '.ihui', 'todos.json');
 }
 
-/** 读取当前 todos(文件不存在返回空数组) */
+/** 读取当前 todos。文件不存在是空清单。读失败不能当成没有任务。 */
 function loadTodos(ctx: ToolContext): TodoItem[] {
   const p = getTodosPath(ctx);
+  let raw: string;
   try {
-    if (!fs.existsSync(p)) return [];
-    const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = tryParseJson(raw);
-    if (!isRecord(parsed) || !isJsonArray(parsed.todos)) return [];
-    return parsed.todos as unknown as TodoItem[];
-  } catch {
-    return [];
+    raw = fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+    throw new Error(`任务清单读不到,不能把它说成没有任务 (${code})`);
   }
+  const parsed = tryParseJson(raw);
+  if (!isRecord(parsed) || !isJsonArray(parsed.todos)) return [];
+  return parsed.todos as unknown as TodoItem[];
 }
 
 /** 保存 todos(自动创建 .ihui 目录) */
@@ -185,13 +190,17 @@ export const todo_write: Tool = {
       const err = validateTodo(opts.todos[i], i);
       if (err) return { success: false, output: '', error: err };
     }
-    let finalTodos: TodoItem[];
-    if (opts.merge) {
-      const oldTodos = loadTodos(ctx);
-      finalTodos = mergeTodos(oldTodos, opts.todos);
-    } else {
-      finalTodos = opts.todos;
+    let oldTodos: TodoItem[];
+    try {
+      oldTodos = loadTodos(ctx);
+    } catch (error) {
+      return {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : '任务清单读不到,不能把它说成没有任务',
+      };
     }
+    const finalTodos = opts.merge ? mergeTodos(oldTodos, opts.todos) : opts.todos;
     // 排序:in_progress > pending > completed;新两态追加在既有三态之后;同 status 内按 priority 降序
     const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2, cancelled: 3, blocked: 4 };
     const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
@@ -240,7 +249,16 @@ export const todo_read: Tool = {
     },
   },
   async execute(_args, ctx): Promise<ToolResult> {
-    const todos = loadTodos(ctx);
+    let todos: TodoItem[];
+    try {
+      todos = loadTodos(ctx);
+    } catch (error) {
+      return {
+        success: false,
+        output: '',
+        error: error instanceof Error ? error.message : '任务清单读不到,不能把它说成没有任务',
+      };
+    }
     if (todos.length === 0) return { success: true, output: '(无 todo)' };
     return { success: true, output: `当前 ${todos.length} 个 todo:\n${renderTodos(todos)}` };
   },
@@ -249,6 +267,23 @@ export const todo_read: Tool = {
 /** 读取当前 todo 清单(供 /todo slash 命令使用) */
 export function readTodoList(ctx: ToolContext): TodoItem[] {
   return loadTodos(ctx);
+}
+
+/** 清空清单文件。不存在是 absent。读不到或删不掉不能说成已经清空。 */
+export function clearTodoFile(workspacePath: string): 'cleared' | 'absent' | 'unreadable' {
+  const todoPath = path.join(workspacePath, '.ihui', 'todos.json');
+  try {
+    if (!fs.statSync(todoPath).isFile()) return 'unreadable';
+    fs.unlinkSync(todoPath);
+    return 'cleared';
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent';
+    return 'unreadable';
+  }
 }
 
 /** 全量写出 todo 清单(供计划-执行闭环同步勾选使用,与 todo_write 工具同存储) */

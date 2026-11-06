@@ -25,6 +25,7 @@ import {
   prepareStagingDirectory,
   recoverStaleSwapArtifacts,
   refreshFlagPathFor,
+  restoreSuperseded,
   supersededPathFor,
   swapMarkerName,
   swapScratchMarkers,
@@ -380,6 +381,20 @@ describe('目录级提交点原语 — 所有权 / 落盘 / 事务号', () => {
     expect(fs.existsSync(supersededPathFor(target))).toBe(false);
   });
 
+  it('目标读不到时不换成新副本', () => {
+    const target = makeTarget('unread-target', { 'old.txt': 'keep' });
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    expect(() => commitStagedSwap(target, staging, { stat: denied })).toThrow(/读不到/);
+    expect(fs.readFileSync(path.join(target, 'old.txt'), 'utf-8')).toBe('keep');
+    expect(fs.existsSync(path.join(target, 'new.txt'))).toBe(false);
+  });
+
   it('目标本就不存在(首次落位):commitStagedSwap 不做任何改名,直接落权威状态', () => {
     const target = path.join(tmpHome, 'swap-root', 'first-time');
     const staging = prepareStagingDirectory(target);
@@ -410,6 +425,69 @@ describe('目录级提交点原语 — 所有权 / 落盘 / 事务号', () => {
     expect(isUsableDirectoryCopy(target)).toBe(true);
     expect(fs.readFileSync(path.join(target, 'old.txt'), 'utf-8')).toBe('old');
     expect(fs.existsSync(path.join(target, 'new.txt'))).toBe(false);
+  });
+
+  it('归档读不到时不当成已复原,目标上的原文件字节不变', () => {
+    const target = makeTarget('unread-archive', { 'old.txt': 'keep-bytes' });
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const swap = takeOwnershipOfTarget(target, staging);
+    const archive = swap.superseded as string;
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, 'old.txt'), 'keep-bytes', 'utf-8');
+    const denied = (p: string) => {
+      if (p === archive) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(p);
+    };
+    expect(() => restoreSuperseded(swap, denied)).toThrow(/读不到/);
+    expect(fs.readFileSync(path.join(target, 'old.txt'), 'utf-8')).toBe('keep-bytes');
+    expect(fs.readFileSync(path.join(archive, 'old.txt'), 'utf-8')).toBe('keep-bytes');
+  });
+
+  it('目标读不到时不把归档盖上去,也不当成已复原', () => {
+    const target = makeTarget('unread-restore-target', { 'old.txt': 'keep-bytes' });
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const swap = takeOwnershipOfTarget(target, staging);
+    const archive = swap.superseded as string;
+    const denied = (p: string) => {
+      if (p === target) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(p);
+    };
+    expect(restoreSuperseded(swap, denied)).toBe(archive);
+    expect(fs.existsSync(target)).toBe(false);
+    expect(fs.readFileSync(path.join(archive, 'old.txt'), 'utf-8')).toBe('keep-bytes');
+  });
+
+  it('staging 读不到时 finalize 不删旧副本', () => {
+    const target = makeTarget('unread-staging', { 'old.txt': 'old-bytes' });
+    const staging = prepareStagingDirectory(target);
+    fs.writeFileSync(path.join(staging, 'new.txt'), 'new', 'utf-8');
+    const swap = takeOwnershipOfTarget(target, staging);
+    landStagedSwap(swap);
+    const archive = swap.superseded as string;
+    const oldBytes = fs.readFileSync(path.join(archive, 'old.txt'), 'utf-8');
+    const denied = (p: string) => {
+      if (p === swap.staging) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(p);
+    };
+    const outcome = finalizeStagedSwap(swap, denied);
+    expect(outcome.deleted).toBe(false);
+    expect(outcome.reason).toContain('读不到');
+    expect(fs.readFileSync(path.join(archive, 'old.txt'), 'utf-8')).toBe(oldBytes);
+    expect(fs.existsSync(archive)).toBe(true);
   });
 });
 
@@ -483,6 +561,23 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     // 目标仍是新副本 —— 恢复没有把它换回旧代,也没有把旧代内容混进来
     expect(fs.readFileSync(path.join(scene.target, 'new.txt'), 'utf-8')).toBe('new');
     expect(fs.existsSync(path.join(scene.target, 'old.txt'))).toBe(false);
+  });
+
+  it('槽位读不到时不当成空槽,也不把归档回位盖上去', async () => {
+    const scene = seedCrashScene({ name: 'unread-slot' });
+    fs.mkdirSync(scene.target, { recursive: true });
+    fs.writeFileSync(path.join(scene.target, 'keep.txt'), 'keep', 'utf-8');
+    writeAuthority(scene.authorityFile, 'an-older-generation-txn');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const outcomes = await recoverStaleSwapArtifacts(scene.target, { isPidAlive: deadWriter, stat: denied });
+    expect(outcomes.map((o) => o.action)).toEqual(['left-as-is']);
+    expect(outcomes[0]?.reason).toMatch(/读不到/);
+    expect(fs.readFileSync(path.join(scene.target, 'keep.txt'), 'utf-8')).toBe('keep');
+    expect(fs.existsSync(path.join(scene.archive, 'old.txt'))).toBe(true);
   });
 
   it('② 权威不含该事务号 + 目标为空槽 ⇒ 归档 rename 回位(旧代回到权威槽位)', async () => {

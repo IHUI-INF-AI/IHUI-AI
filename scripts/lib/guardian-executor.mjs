@@ -93,7 +93,27 @@ if (showTiming) {
 const GATE_PROGRESS_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-progress.log')
 function appendGateProgress(check, r, elapsedMs) {
   try {
-    const status = r?.error ? 'error' : r?.status === 0 && r?.signal === null ? 'pass' : 'fail'
+    // §0.3 三态:exit 2 + 门自称「未判定」是独立一档,不得记成 fail —— 进度台账是归因一手证据,
+    // 把「取不到输入」与「判出了违规」混成同一行会带人去修不存在的缺陷。判定走 decideGateOutcome
+    // 同一把尺子(与 applyGateResult 的 kindPre 同源),观测旁路不另抄一份分类。
+    const gateStderr = typeof r?.stderr === 'string' ? r.stderr : ''
+    let status
+    if (r?.error) status = 'error'
+    // BUG-55 × BUG-43④:门以 exit 0 + stderr 显式 [UNDETERMINED] 交付「未判定」时
+    // (check-cli-i18n-parity.mjs 被审面目录不在位即此型),applyGateResult 已判 undetermined 不记绿,
+    // 而进度台账若只看 status===0 就会把「没判」记成 pass —— 三态污染的一手证据。
+    // 标记与 applyGateResult 的 [UNDETERMINED] 检查同源:只认门自己的显式声明,不猜、不放宽;
+    // exit 2 + 自称未判定仍走 decideGateOutcome 这一把尺子,观测旁路不另抄分类。
+    else if (
+      gateStderr.includes('[UNDETERMINED]') ||
+      decideGateOutcome({
+        status: r?.status ?? null,
+        signal: r?.signal ?? null,
+        stderr: gateStderr,
+      }).kind === 'undetermined'
+    ) status = 'undetermined'
+    else if (r?.status === 0 && r?.signal === null) status = 'pass'
+    else status = 'fail'
     mkdirSync(dirname(GATE_PROGRESS_FILE), { recursive: true })
     appendFileSync(
       GATE_PROGRESS_FILE,
@@ -118,6 +138,13 @@ let skipped = 0
 // §0.3「未判定」独成一档(2026-10-27):既不是 passed(没拿到"通过"这个结论)也不是 failed
 // (没有判出任何违规)。单独计数 ⇒ 汇总既能把它逐道点名出来,又不会把"没判"算进"失败"。
 let undetermined = 0
+// info 门失败既不该拦提交,也**绝不许记绿**(把失败计成 passed 就是"没判写成判过")。
+// 单列一档:不计 passed/failed/undetermined,只逐道点名,退出码不变(info 门本就不拦)。
+let infoDegraded = 0
+const infoDegradedGates = []
+// 快档/硬预算/应急放行跳过的 blocking 门:门根本没跑,没拿到"通过"这个结论。
+// 与 stagedTriggers 未命中(设计上的正常跳过)分开记 —— 后者与本次提交内容无关,不进此清单。
+const skippedBlockingGates = []
 const startTime = Date.now()
 // 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
 // —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
@@ -227,7 +254,7 @@ function printSummary(useStderr) {
       /* 观测旁路:落盘失败不影响判据 */
     }
   }
-  const executed = passed + warned + failed + skipped + undetermined
+  const executed = passed + warned + failed + skipped + undetermined + infoDegraded
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
   out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
@@ -241,6 +268,9 @@ function printSummary(useStderr) {
   // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
   // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
   out(`  ${C.yellow}❓ 未判定: ${undetermined}(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)${C.reset}`)
+  // info 门失败与"跳过但没跑"的 blocking 门都必须占一行:不许把"没判/没跑"藏进"通过"。
+  out(`  ${C.yellow}⚠ info 门失败(未记绿): ${infoDegraded}${C.reset}`)
+  out(`  ${C.yellow}⏭ 跳过的 blocking 门(未判定): ${skippedBlockingGates.length}${C.reset}`)
   out(`  总耗时: ${totalTime}s`)
 }
 
@@ -424,6 +454,12 @@ const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
 // 2026-10-21:12 并发实测更慢(check-dangling-local-imports 从秒级涨到 32.8s,CPU 竞争反噬),
 // 回到 8;达标靠"快档"而不是堆并发。
 const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
+// ─── 单门超时看门狗(并行档 2026-10-12 立;2026-11-06 BUG-43① 补到串行档)──────
+// 并行分支有 gateTimer + ETIMEDOUT 兜底,串行 spawnSync 此前**无 timeout** ⇒ 非并行池的写者门
+// 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
+// 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
+// 绝不静默洗成通过。
+const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -555,7 +591,7 @@ async function dispatchPar(check, cmdArgs) {
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
   // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
   if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
@@ -633,6 +669,21 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       err.status = r.status ?? null
       err.signal = r.signal ?? null
       throw err
+    }
+    // 门自称「未判定」(取不到被审面)但按既有镜像测试契约仍 exit 0 的那一族(BUG-43④):
+    // 绝不能把"没审到"计成 passed。只认 stderr 里的显式标记,不猜、不放宽到其它门。
+    if (check.mode === 'blocking' && gateStderr.includes('[UNDETERMINED]')) {
+      undetermined++
+      undeterminedGates.push({
+        id: check.id,
+        label: check.label,
+        script: check.script,
+        reason: '门自称未判定(被审面不在位)',
+      })
+      console.error(
+        `${C.yellow}❓ [${check.id}] ${check.label} 交付未判定(被审面不在位)⇒ **不记绿**${C.reset}`,
+      )
+      return
     }
     passed++
     if (showTiming) {
@@ -729,8 +780,13 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
         console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
       }
     } else {
-      // info 模式:失败不计数,视为通过
-      passed++
+      // info 模式:不拦提交,但**绝不记绿** —— 把失败计成 passed 就是"没判写成判过"(§0.3)。
+      // 单列 infoDegraded 一档:不计 passed/failed/undetermined,逐道点名,退出码不变。
+      infoDegraded++
+      infoDegradedGates.push({ id: check.id, label: check.label, script: check.script })
+      console.warn(
+        `${C.yellow}⚠️ [${check.id}] ${check.label} info 门失败(未记绿,不阻塞 commit)${C.reset}`,
+      )
       if (showTiming) {
         console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
       }
@@ -758,6 +814,13 @@ for (const check of effectiveChecks) {
   if (fastMode && budgetBlown) {
     skipped++
     deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
+    if (check.mode === 'blocking')
+      skippedBlockingGates.push({
+        id: String(check.id),
+        label: check.label,
+        script: check.script,
+        reason: '快档硬预算到点,剩余门未派发',
+      })
     continue
   }
   // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
@@ -768,6 +831,13 @@ for (const check of effectiveChecks) {
     // 同 stagedTriggers / 重型门:应急放行不 spawn 任何门进程,纯记账 ⇒ 不设屏障。
     skipped++
     selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
+    if (check.mode === 'blocking')
+      skippedBlockingGates.push({
+        id: String(check.id),
+        label: check.label,
+        script: check.script,
+        reason: `应急放行 ${check.skipEnv}=1`,
+      })
     console.info(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
     continue
   }
@@ -799,6 +869,14 @@ for (const check of effectiveChecks) {
     skipped++
     // 必须进延后清单:预算没爆时 post-commit 也要知道这 N 道 blocking 门没跑(镜像测试 T6 锁死)。
     deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
+    // 快档跳过的 blocking 门 = 没拿到"通过"结论:单列未判定档,批量不得 exit 0(BUG-19①)。
+    if (check.mode === 'blocking')
+      skippedBlockingGates.push({
+        id: String(check.id),
+        label: check.label,
+        script: check.script,
+        reason: '快档重型门延后,本轮未跑',
+      })
     notTriggeredGates.push({
       id: String(check.id),
       label: check.label,
@@ -852,6 +930,9 @@ for (const check of effectiveChecks) {
     stdio: ['ignore', 'inherit', 'pipe'],
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
+    // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
+    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
+    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
   })
   applyGateResult(check, r, checkStart, cmdArgs)
 }
@@ -942,8 +1023,34 @@ if (undeterminedGates.length > 0) {
   process.exit(UNDETERMINED_EXIT_CODE)
 }
 
-// push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;failed===0 守卫与打印在 lib 内)
-writePushGateCache({ C, failed, pushGate, checks: effectiveChecks })
+// info 门失败与"跳过但没跑"的 blocking 门都必须逐道点名(§0.3 不许静默把"没判/没跑"写成"通过")。
+if (infoDegradedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.yellow}⚠️ ${infoDegradedGates.length} 道 info 门失败(未记绿,不阻塞 commit):${C.reset}`,
+  )
+  for (const g of infoDegradedGates)
+    console.error(`   · [${g.id}] ${g.label}(复现:node scripts/${g.script})`)
+}
+// BUG-19①:快档/硬预算/应急放行跳过的 blocking 门 ⇒ 门根本没跑、没拿到"通过"结论。
+// 与"判出违规"(red)、"取不到输入"(undetermined)都不同桶,但同样不许落成 exit 0。
+if (skippedBlockingGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.yellow}⛔ 本批有 ${skippedBlockingGates.length} 道 blocking 门**没跑**(快档/预算/应急放行)⇒ ` +
+      `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口:${C.reset}`,
+  )
+  for (const g of skippedBlockingGates)
+    console.error(`   · [${g.id}] ${g.label} —— ${g.reason}(复现:node scripts/${g.script})`)
+  console.error(
+    `   ${C.dim}没跑到 ≠ 通过,§0.3 不记绿;设 IHUI_GATE_FAST=0 跑全量档即可清偿。${C.reset}`,
+  )
+  process.exit(UNDETERMINED_EXIT_CODE)
+}
+
+// push-gate 全部通过 → 写缓存(2026-10-16 外置到 lib/guardian-pushgate-cache.mjs;守卫与打印在 lib 内)。
+// BUG-19④:把 skipped/undetermined/infoDegraded 一并传入,lib 内只有全零才写 passed:true。
+writePushGateCache({ C, failed, skipped, undetermined, infoDegraded, pushGate, checks: effectiveChecks })
 
 process.exit(0)
 }

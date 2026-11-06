@@ -1356,6 +1356,120 @@
   padding-left: var(--spacing-md-loose);
   padding-top: var(--spacing-2xs);
 }
+
+/* ── 批次 3:七类上下文账本(用量展示位内可折叠;free_space 已由内联中性色 token 标注) ── */
+.ctx-usage-ledger {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1rpx solid var(--color-border);
+}
+.ctx-usage-ledger-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+}
+.ctx-usage-ledger-title {
+  flex: 1;
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+.ctx-usage-ledger-toggle {
+  font-size: var(--text-badge);
+  color: var(--color-brand-accent);
+}
+.ctx-usage-ledger-panel {
+  padding-top: var(--spacing-2xs);
+}
+.ctx-usage-ledger-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-2xs) 0;
+}
+.ctx-usage-ledger-label {
+  flex: 1;
+  font-size: var(--text-caption);
+  color: var(--color-foreground);
+}
+.ctx-usage-ledger-num {
+  min-width: 96rpx;
+  text-align: right;
+  font-size: var(--text-caption);
+  color: var(--color-foreground);
+}
+
+/* ── 批次 3:预算硬停止内联提示(非失败卡:中性底 + 警告色左缘,无错误图标) ── */
+.budget-stop-inline {
+  margin: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-card);
+  border-left: 4rpx solid var(--color-warning);
+  border-radius: var(--radius-md);
+}
+.budget-stop-main {
+  display: block;
+  font-size: var(--text-caption);
+  color: var(--color-foreground);
+}
+.budget-stop-meta {
+  display: block;
+  margin-top: var(--spacing-2xs);
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+
+/* ── 批次 3:压缩边界回看条(折叠态一行摘要,展开后 head/anchor/tail + removedRange) ── */
+.compact-boundary {
+  margin: var(--spacing-xs) var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.compact-boundary-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+}
+.compact-boundary-title {
+  flex: 1;
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+.compact-boundary-toggle {
+  font-size: var(--text-badge);
+  color: var(--color-brand-accent);
+}
+.compact-boundary-panel {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+  border-top: 1rpx solid var(--color-border);
+}
+.compact-boundary-row {
+  padding: var(--spacing-2xs) 0;
+}
+.compact-boundary-label {
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+.compact-boundary-meta {
+  margin-left: var(--spacing-xs);
+  font-size: var(--text-badge);
+  color: var(--color-muted-foreground);
+}
+.compact-boundary-excerpt {
+  display: block;
+  margin-top: var(--spacing-2xs);
+  font-size: var(--text-caption);
+  color: var(--color-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .ctx-usage-details {
   margin-left: var(--spacing-md-loose);
   margin-bottom: var(--spacing-xs);

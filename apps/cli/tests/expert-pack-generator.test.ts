@@ -93,6 +93,59 @@ describe('expert pack generator', () => {
     expect(fromTar.content.equals(first.checksumsBytes)).toBe(true);
   });
 
+  it('安装根读不到时不说成没有已装技能', () => {
+    const dir = makeTempDir();
+    const publisher = createPublisher(dir);
+    const root = path.join(dir, 'installed');
+    installFixtureSkill(root, dir, publisher, 'skill-a');
+    const skillFile = path.join(root, 'skill-a', 'SKILL.md');
+    const original = fs.readFileSync(skillFile);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const error = capture(() => discoverInstalledSkillSources(root, denied));
+    expect(error.message).toMatch(/读不到/);
+    expect(fs.readFileSync(skillFile)).toEqual(original);
+  });
+
+  it('does not pack a skill whose manifest cannot be read', () => {
+    const dir = makeTempDir();
+    const publisher = createPublisher(dir);
+    const root = path.join(dir, 'installed');
+    installFixtureSkill(root, dir, publisher, 'skill-a');
+    const sources = discoverInstalledSkillSources(root);
+    const skillFile = path.join(root, 'skill-a', 'SKILL.md');
+    const original = fs.readFileSync(skillFile);
+    const outputPath = path.join(dir, 'unread-expert.tar');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const error = capture(() =>
+      generateExpertPack({
+        id: 'unread-expert',
+        name: 'Unread Expert',
+        version: '1.0.0',
+        skillIds: ['skill-a'],
+        promptTemplate: 'n/a',
+        rules: [],
+        modelTier: 'standard',
+        skillSources: sources,
+        signingKey: publisher.privateKey,
+        keyId: publisher.keyId,
+        outputPath,
+        stat: denied,
+      }),
+    );
+    expect(error.message).toMatch(/读不到/);
+    expect(error.message).not.toMatch(/不存在或未安装/);
+    expect(fs.existsSync(outputPath)).toBe(false);
+    expect(fs.readFileSync(skillFile)).toEqual(original);
+  });
+
   it('rejects a referenced skill id that does not exist, naming it', () => {
     const dir = makeTempDir();
     const publisher = createPublisher(dir);

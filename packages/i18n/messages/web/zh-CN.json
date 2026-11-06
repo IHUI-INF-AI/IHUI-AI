@@ -8866,6 +8866,10 @@
           "title": "服务提供商繁忙",
           "action": "请稍后重试"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "这次消耗需要你确认",
+          "action": "确认后再重试，未确认不会调用生图"
+        },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
           "action": "改领其他任务，或等对方释放后再试"
@@ -8997,6 +9001,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "该操作已被安全策略拦截",
           "action": "修改后重试"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "这条命令被策略拒绝",
+          "action": "换一条命令，或让管理员调整策略"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "这条命令的策略还没判出来",
+          "action": "先不要执行，等策略可读后再试"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "需要确认后才会执行",
@@ -15016,6 +15028,33 @@
       "grantRuleConfirmCancel": "取消",
       "approve": "批准",
       "argsPreview": "参数预览",
+      "decisionDetail": "操作详情",
+      "decisionDetailReason": "原因",
+      "decisionDetailRisk": "风险",
+      "decisionDetailScope": "作用域",
+      "decisionDetailCwd": "执行目录",
+      "decisionDetailPaths": "受影响路径",
+      "decisionDetailCommand": "命令",
+      "rawArgs": "原始参数",
+      "riskLow": "低",
+      "riskMedium": "中",
+      "riskHigh": "高",
+      "scopeFsRead": "读取",
+      "scopeFsWrite": "写入",
+      "scopeFsDelete": "删除",
+      "scopeExec": "执行",
+      "scopeNetwork": "网络",
+      "scopeDb": "数据库",
+      "scopeOther": "其他",
+      "reasonDangerousCommand": "危险命令",
+      "reasonDestructiveOperation": "破坏性操作",
+      "reasonWritesFiles": "写入文件",
+      "reasonDeletesFiles": "删除文件",
+      "reasonExecutesCommand": "执行命令",
+      "reasonNetworkAccess": "访问网络",
+      "reasonDatabaseWrite": "写数据库",
+      "reasonHighRiskTool": "高危工具",
+      "reasonRequiresConfirmation": "需要确认",
       "description": "AI 请求执行以下高危操作,请确认是否允许",
       "pendingCount": "还有 {count} 个待审批",
       "reject": "拒绝",

@@ -114,6 +114,35 @@ function _ownerScope(ownerUuid: string | null | undefined) {
   )
 }
 
+/**
+ * 符号精确过滤档的取回上限(2026-11-06 Z36 立)。
+ *
+ * 为什么不能沿用 topK:本档的语义是「按符号名取回库内**全部**切片」,而 topK 的语义是
+ * 「相关度前 N」。带符号过滤仍拿 topK 当上限,等于把刚摆正的「先滤后截」再截一刀 ——
+ * 召回损失只是换了个数字复发,本票就没修到东西。
+ *
+ * 上限为什么仍然必须有:一列 symbol_name 在归属域内能匹配多少行没有任何语义下界
+ * (同名符号可以散布在几百个文件),而本表存的是用户代码明文,单次响应不该无界。
+ */
+export const SYMBOL_SCOPED_ROW_CAP = 200
+
+/**
+ * 一次检索的取回预算:进 SQL 的 `LIMIT`(fetchLimit)与出参条数上限(outCap)。
+ *
+ * 唯一职责是把「过滤在 limit 之前」这件事落到数字上:
+ * - 无 symbolName ⇒ 与在册行为逐字相同(fetchLimit = topK*2、outCap = topK);
+ * - 有 symbolName ⇒ 两条都脱离 topK,取回上限由 SYMBOL_SCOPED_ROW_CAP 单独定。
+ * 两个数字必须同源算出,不要让各腿各写一遍(第二份必然漂移)。
+ */
+export function rowBudget(
+  symbolName: string | undefined,
+  topK: number,
+): { fetchLimit: number; outCap: number } {
+  return symbolName
+    ? { fetchLimit: SYMBOL_SCOPED_ROW_CAP, outCap: SYMBOL_SCOPED_ROW_CAP }
+    : { fetchLimit: topK * 2, outCap: topK }
+}
+
 class CodebaseIndexService {
   /**
    * 批量写入代码切片(增量更新模式)。
@@ -237,22 +266,29 @@ class CodebaseIndexService {
    *    - score = 1 - (embedding <=> query),范围 0~1,越大越相似
    * 3. 当 query embedding 不可用时返回空结果(调用方应 fallback 到 regex 搜索)
    *
-   * 可选过滤:repoId(限定仓库)、language(限定语言)
+   * 可选过滤:repoId(限定仓库)、language(限定语言)、symbolName(限定符号名,**逐字等值**)
+   *
+   * symbolName(2026-11-06 Z36 立):过滤条件进 WHERE(即发生在 `LIMIT` **之前**),
+   * 且该档下取回上限脱离 topK(见 rowBudget)。「先取回再在内存里挑同符号」不是过滤,
+   * 是拿截断集冒充全量 —— 那正是本票要消除的语义。
    *
    * ownerUuid(2026-10-03 新增,**必填**):不传即返回空(fail-closed)。整改前
    * repoId 是可选的,不传就跨全部仓库检索 —— 本表存的是用户代码明文,那等于
    * 任何登录用户都能检索到别人的代码。归属过滤是**无条件**的,不因调用方
-   * "只想搜自己"而省略。
+   * "只想搜自己"而省略。symbolName 是被过滤的**数据列**,不是身份:它只能与
+   * 归属谓词 AND,永远不得替代归属谓词。
    */
   async search(opts: {
     query: string
     repoId?: string
     language?: string
+    symbolName?: string
     topK?: number
     scoreThreshold?: number
     ownerUuid?: string | null
   }): Promise<SearchResult[]> {
-    const { query, repoId, language, topK = 10, scoreThreshold = 0, ownerUuid } = opts
+    const { query, repoId, language, symbolName, topK = 10, scoreThreshold = 0, ownerUuid } = opts
+    const { fetchLimit, outCap } = rowBudget(symbolName, topK)
 
     const queryEmbedding = await this._getEmbedding(query)
     if (!queryEmbedding || queryEmbedding.length !== 1536) {
@@ -265,6 +301,7 @@ class CodebaseIndexService {
       const whereParts = [sql`"embedding" IS NOT NULL`, _ownerScope(ownerUuid)]
       if (repoId) whereParts.push(sql`"repo_id" = ${repoId}`)
       if (language) whereParts.push(sql`"language" = ${language}`)
+      if (symbolName) whereParts.push(sql`"symbol_name" = ${symbolName}`)
 
       const rows = (await db.execute(sql`
         SELECT
@@ -281,7 +318,7 @@ class CodebaseIndexService {
         FROM "codebase_chunks"
         WHERE ${sql.join(whereParts, sql` AND `)}
         ORDER BY "embedding" <=> ${vectorLiteral}::vector
-        LIMIT ${topK * 2}
+        LIMIT ${fetchLimit}
       `)) as Array<{
         id: string
         file_path: string
@@ -313,7 +350,7 @@ class CodebaseIndexService {
           })
         }
       }
-      return results.slice(0, topK)
+      return results.slice(0, outCap)
     } catch (e) {
       logger.warn('[codebase-index-service.search] pgvector query failed:', { err: e as Error })
       return []
@@ -330,15 +367,21 @@ class CodebaseIndexService {
    *
    * ownerUuid(2026-10-03 新增,**必填**):与 search() 同一纪律。词法通道同样
    * 返回 content 明文,不隔离它就是一条完整的跨用户读取面。
+   *
+   * symbolName(2026-11-06 Z36 立):同 search() —— 逐字等值条件进 WHERE,发生在
+   * `LIMIT` 之前;本腿过去没有 JS 侧截断,靠 SQL `LIMIT topK*2` 收口,故该档的上限
+   * 必须一并脱离 topK,否则「按符号取回全部」在词法腿上仍然是拿截断集充数。
    */
   async keywordSearch(opts: {
     query: string
     repoId?: string
     language?: string
+    symbolName?: string
     topK?: number
     ownerUuid?: string | null
   }): Promise<SearchResult[]> {
-    const { query, repoId, language, topK = 10, ownerUuid } = opts
+    const { query, repoId, language, symbolName, topK = 10, ownerUuid } = opts
+    const { fetchLimit } = rowBudget(symbolName, topK)
     try {
       const whereParts = [
         sql`to_tsvector('simple', "content" || ' ' || coalesce("symbol_name", '') || ' ' || "file_path") @@ websearch_to_tsquery('simple', ${query})`,
@@ -346,6 +389,7 @@ class CodebaseIndexService {
       ]
       if (repoId) whereParts.push(sql`"repo_id" = ${repoId}`)
       if (language) whereParts.push(sql`"language" = ${language}`)
+      if (symbolName) whereParts.push(sql`"symbol_name" = ${symbolName}`)
 
       const rows = (await db.execute(sql`
         SELECT
@@ -364,7 +408,7 @@ class CodebaseIndexService {
         FROM "codebase_chunks"
         WHERE ${sql.join(whereParts, sql` AND `)}
         ORDER BY "score" DESC
-        LIMIT ${topK * 2}
+        LIMIT ${fetchLimit}
       `)) as Array<{
         id: string
         file_path: string
@@ -405,30 +449,36 @@ class CodebaseIndexService {
    *
    * ownerUuid(2026-10-03 新增,**必填**):向下透传给两个子通道,任一子通道漏传
    * 都会让 hybrid 变成跨用户读面(RRF 只融合排名,不隔离内容)。
+   *
+   * symbolName(2026-11-06 Z36 立):向下透传给两个子通道(与 ownerUuid 同一纪律:
+   * 漏一条腿就等于该腿的结果集没过滤,融合出来的仍是截断集)。融合后的 `limit` 与
+   * 收尾 `slice` 必须走同一个 rowBudget,否则"先滤后截"在融合这一步又被 topK 补一刀。
    */
   async hybridSearch(opts: {
     query: string
     repoId?: string
     language?: string
+    symbolName?: string
     topK?: number
     scoreThreshold?: number
     ownerUuid?: string | null
   }): Promise<SearchResult[]> {
-    const { query, repoId, language, topK = 10, scoreThreshold = 0, ownerUuid } = opts
+    const { query, repoId, language, symbolName, topK = 10, scoreThreshold = 0, ownerUuid } = opts
+    const { fetchLimit, outCap } = rowBudget(symbolName, topK)
 
     const [vectorResults, keywordResults] = await Promise.all([
-      this.search({ query, repoId, language, topK, scoreThreshold, ownerUuid }).catch(
+      this.search({ query, repoId, language, symbolName, topK, scoreThreshold, ownerUuid }).catch(
         () => [] as SearchResult[],
       ),
-      this.keywordSearch({ query, repoId, language, topK, ownerUuid }).catch(
+      this.keywordSearch({ query, repoId, language, symbolName, topK, ownerUuid }).catch(
         () => [] as SearchResult[],
       ),
     ])
 
     if (vectorResults.length === 0 && keywordResults.length === 0) return []
 
-    const fused = reciprocalRankFusion(vectorResults, keywordResults, 60, topK * 2)
-    return applyLexicalBoost(fused, query).slice(0, topK)
+    const fused = reciprocalRankFusion(vectorResults, keywordResults, 60, fetchLimit)
+    return applyLexicalBoost(fused, query).slice(0, outCap)
   }
 
   /**

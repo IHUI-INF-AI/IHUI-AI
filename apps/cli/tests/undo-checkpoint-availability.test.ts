@@ -159,6 +159,62 @@ describe('D22046 /undo 撤销前的检查点探测(集成)', () => {
     expect(claimOf(res)).toContain('文件检查点不可用');
   });
 
+  it('撤销历史读不到时不覆盖成新记录', async () => {
+    const blocked = indexFileOf(SESSION);
+    fs.mkdirSync(blocked, { recursive: true });
+    const mgr = new UndoRedoManager(ws);
+    expect(() =>
+      mgr.recordChange(SESSION, {
+        toolName: 'edit_file',
+        filePath: 'a.txt',
+        beforeContent: 'a1',
+        afterContent: 'a2',
+        timestamp: 1,
+      }),
+    ).toThrow(/不能把它覆盖成新记录/);
+    const res = await mgr.undo(SESSION, 1);
+    expect(res.checkpoint.status).toBe('unreadable');
+    expect(res.attemptedSteps).toBe(0);
+    expect(fs.statSync(blocked).isDirectory()).toBe(true);
+  });
+
+  it('撤销目标读不到时不覆盖也不删除', async () => {
+    const file = path.join(ws, 'keep.txt');
+    fs.writeFileSync(file, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const realStat = fs.statSync;
+    const mgr = new UndoRedoManager(ws, {
+      stat: (target: string) => {
+        if (path.resolve(target) === path.resolve(file)) throw denied;
+        return realStat(target);
+      },
+    });
+    mgr.recordChange(SESSION, {
+      toolName: 'edit_file',
+      filePath: 'keep.txt',
+      beforeContent: 'replaced\n',
+      afterContent: 'keep\n',
+      timestamp: 1,
+    });
+    const overwritten = await mgr.undo(SESSION, 1);
+    expect(overwritten.undoneSteps).toBe(0);
+    expect(overwritten.failedReasons[0]).toContain('读不到');
+    expect(fs.readFileSync(file, 'utf-8')).toBe('keep\n');
+
+    mgr.recordChange(SESSION, {
+      toolName: 'delete_file',
+      filePath: 'keep.txt',
+      beforeContent: null,
+      afterContent: 'keep\n',
+      timestamp: 2,
+    });
+    const deleted = await mgr.undo(SESSION, 1);
+    expect(deleted.undoneSteps).toBe(0);
+    expect(deleted.failedReasons[0]).toContain('读不到');
+    expect(fs.readFileSync(file, 'utf-8')).toBe('keep\n');
+  });
+
   it('② 索引不存在 ⇒ missing,文案是 undoUnavailable 那一句', async () => {
     const res = await new UndoRedoManager(ws).undo(SESSION, 1);
 

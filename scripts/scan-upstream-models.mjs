@@ -17,7 +17,7 @@
  *   node scripts/scan-upstream-models.mjs --dry-run     # 预览不写入
  *
  * 环境变量:
- *   DATABASE_URL                数据库连接(默认 postgres://postgres:postgres@localhost:5432/ihui)
+ *   DATABASE_URL                数据库连接(必填;缺失时脚本立即中止,不允许回退到内置默认连接串)
  *   CREDENTIALS_ENCRYPTION_KEY  API key 加密密钥(从 .env 读取)
  */
 import { createRequire } from 'node:module'
@@ -91,7 +91,11 @@ function resolveApiKey(raw) {
   throw new Error(`api_key_enc 类型不支持: ${typeof raw}`)
 }
 
-const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'
+const dbUrl = process.env.DATABASE_URL
+if (!dbUrl) {
+  console.error('[FATAL] DATABASE_URL 未设置(拒绝使用内置默认连接串)')
+  process.exit(2)
+}
 const sql = postgres(dbUrl, { max: 4, prepare: false })
 
 function log(step, msg, data = null) {

@@ -1365,5 +1365,23 @@ export type {
 export { ChatWorkbenchScreen } from './features/chat-workbench/ChatWorkbenchScreen'
 export type { ChatWorkbenchScreenProps } from './features/chat-workbench/ChatWorkbenchScreen'
 export type { ChatWorkbenchConversationItem } from './features/chat-workbench/chat-workbench-types'
+
+// 门 301 还账(2026-11-06):「试卷介绍」「分享落地页」两共享屏补 RN 腿,barrel 供 RN 壳直接 import
+export { ExamIntroScreen } from './features/exam-intro/ExamIntroScreen'
+export type {
+  ExamIntroScreenProps,
+  ExamIntroStat,
+  ExamIntroHistoryRow,
+} from './features/exam-intro/ExamIntroScreen'
+export { ShareLandingScreen, formatShareTime } from './features/share-landing/ShareLandingScreen'
+export type {
+  ShareLandingScreenProps,
+  ShareLandingContent,
+  ShareLandingAnswer,
+  ShareLandingVideo,
+  ShareLandingAudio,
+  ShareLandingListItem,
+  ShareLandingState,
+} from './features/share-landing/ShareLandingScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 export { LiveQuickActions } from './features/live-list/LiveQuickActions'

@@ -33,6 +33,8 @@ import fp from 'fastify-plugin'
 import { checkAuth } from './auth.js'
 import { config, runtimeEnv } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+// BUG-4:公开面清单与段边界匹配收归单一真相源(plugins/public-paths.ts),三处消费方共用同一把尺。
+import { isAuthPublicPath as isPublicPath } from './public-paths.js'
 
 export type AuthDefaultDenyMode = 'off' | 'observe' | 'enforce'
 
@@ -62,122 +64,6 @@ function resolveAuthDefaultDenyMode(): AuthDefaultDenyMode {
   return raw === 'off' || raw === 'enforce' ? raw : 'observe'
 }
 
-/**
- * 完全匿名的面。
- *
- * 注意:这里**不需要**列"已有鉴权的路由" —— 它们自己的 preHandler 先跑并 401,
- * 兜底只是第二道。列在这里的唯一含义是"这条路径没有、也不需要登录".
- * 名单偏宽是安全的(最坏等于该路径不设兜底),偏窄会误拦真实流量 ⇒ 新增一律先 observe。
- */
-const PUBLIC_EXACT: ReadonlySet<string> = new Set([
-  '/',
-  '/health',
-  '/ready',
-  '/live',
-  '/metrics',
-  '/business-metrics',
-  '/api/health',
-  '/api/metrics',
-  '/api/business-metrics',
-  '/api/csrf-token',
-  '/api/landing',
-  '/api/version',
-  '/.well-known/agent.json',
-  '/.well-known/agent-card.json',
-  '/.well-known/apple-app-site-association',
-  '/.well-known/assetlinks.json',
-  // 2026-11-01 三条按证据补入(本机 enforce 下实测被拦,而三条都在别处被声明为公开面):
-  //   /api/configs —— routes/system.ts:178 注释自述"公开配置(无需鉴权)"+ withPublicEdgeCache;
-  //                    plugins/tenant.ts:41 早已把它列为公开面(独兜底闸这一份没列 ⇒ 两把尺子分叉)。
-  //   /api/announcements —— routes/content.ts:223 零 preHandler、handler 内 authenticate 是**可选**的;
-  //                    匿名 200 由 tests/content-routes.real.test.ts:123 断言;消费方 use-announcements.ts:34。
-  //   /api/ai-education/teacher-certification —— routes/ai-education.ts:292 全文件零 addHook/preHandler
-  //                    (写侧 :337 才 requireAdmin);api-client/src/endpoints/edu-ai.ts:13 明写
-  //                    "列表/详情 GET 公开";消费方 web/app/(main)/edu-ai/certification/page.tsx:113。
-  '/api/configs',
-  '/api/announcements',
-  '/api/ai-education/teacher-certification',
-  // 2026-11-03 按证据补入:文档中心两条读面。
-  //   routes/content.ts:395(`GET /docs` 注释自述「公开：文档列表」)与 :426(`GET /docs/:slug`
-  //   注释自述「公开：文档详情」)全文件零 preHandler,handler 内也不读 request.userId。
-  //   线上匿名实测(2026-11-03):`GET https://www.aizhs.top/api/docs/quickstart` = 401,
-  //   而消费方是公开页面(web 详情页 + web 端服务端存在性探针),兜底闸把它当私面拦了。
-  //   `/api/admin/docs` 住在 adminContentRoutes(content.ts:446 起,插件级 requireAdmin),
-  //   不在这两条前缀下,鉴权不受影响。
-  '/api/docs',
-])
-
-const PUBLIC_PREFIXES: readonly string[] = [
-  // 探活与指标
-  '/api/health/',
-  // 静态与公开文件
-  '/uploads/',
-  '/api/oss/public/',
-  '/api/public/',
-  // 登录/注册/OAuth/SSO 入口(各端点自己决定要不要凭据)
-  '/api/auth/',
-  '/api/oauth/',
-  '/oauth/',
-  '/api/sso/',
-  // 外部平台回调(签名校验,不走 JWT)
-  '/api/callback/',
-  '/api/webhooks/',
-  '/api/payments/',
-  '/api/payment/',
-  '/api/cozeZhsApi/',
-  // 2026-10-29 observe 档上线 5 分钟即抓到的真实流量:GitHub App webhook 走 HMAC 验签
-  // (services/github-app/signature.ts),匿名到达。漏了这一条就切 enforce = CI 回调全 401。
-  '/api/github-app/',
-  // 协议发现
-  '/.well-known/',
-  // 机器面(API Key 自证;requireApiKeyAuth 会写 request.apiKey)
-  '/v1/',
-  '/v1beta/',
-  '/api/mcp',
-  // 公开市场与公开内容
-  '/api/agents',
-  '/api/categories',
-  '/api/landing',
-  '/api/voice/',
-  '/api/crash-reports',
-  // 文档详情 `/api/docs/:slug`(见上面 PUBLIC_EXACT 的 `/api/docs` 条目注释)。
-  // 带尾斜杠是段边界:不会顺带放过 `/api/docs-xyz` 之类的将来路径。
-  '/api/docs/',
-  // 2026-10-29 主动探测(无凭据 GET,只认 200)与 observe 实测补入:
-  // 门户落地页 / 首页内容聚合 / 分类字典缓存。三者都是渲染首页所需,漏了会让首页空屏。
-  '/landing',
-  '/api/feature-center/',
-  '/api/ai-world/',
-  '/api/cache/agent-category-dict/',
-  // 2026-10-29 切 enforce 后由 enforce-401 日志抓出的合法公开面:
-  // 客户端启动即调的版本检查(源码注释自述"公开"),以及新闻列表。
-  // 注意 /api/configs 刻意**不**加:ai-user-model-chat 那份实现要 request.userId,
-  // 匿名访问本就该 401。
-  '/api/app-version/',
-  '/api/news/',
-  // 2026-10-30 enforce 实测补全:以下 33 条被兜底闸 401 的路径里,逐条按语义分两类。
-  // 归"公开内容"的放行(前端匿名页面与埋点),归"个人/权限/执行面"的保持拦截:
-  //   · 保持 401:chat/conversations*、subagents/*、workspace/permission-*、
-  //     agent-control/capability、settings/contact、configs、knowledge/search
-  '/api/news',
-  '/api/articles',
-  '/api/tools',
-  '/api/help/',
-  '/api/ai-feed/',
-  '/api/live/',
-  '/api/vip/levels',
-  '/api/circles',
-  '/api/relay/models/public',
-  '/api/relay/monitor/',
-  '/api/model-leaderboard',
-  '/api/learn/',
-  '/api/exam/papers',
-  // 匿名埋点:未登录访客也要上报浏览,否则漏斗整段缺失
-  '/api/analytics/track',
-  '/api/visit-tracking/',
-  // 探活:路由自身已显式豁免,兜底闸必须同面(否则监控误报)
-  '/api/knowledge/health',
-]
 
 /**
  * "凭据校验在 handler 内完成"的路由面(2026-11-01 立)—— 兜底闸不得抢在这些路由自己的
@@ -213,9 +99,8 @@ const SELF_AUTHENTICATED_PREFIXES: readonly string[] = [
 /**
  * 段边界安全的匹配:条目不带 `/` 时**只等值**,带 `/` 时才是前缀。
  *
- * 为什么不复用 PUBLIC_PREFIXES 那把尺(`path === p || path.startsWith(p)`):它没有段边界,
- * `/api/agents` 会顺带放过 `/api/agentsXYZ`(子代理审计现读到的一处形态)。那一份我**不动**
- * —— 收紧它会把当下靠它活着的匿名面判掉,属另一件事;但新清单不许把同一个毛病复制一遍。
+ * 与公开面清单同一把尺(`plugins/public-paths.ts` 的 `matchesPrefix`):BUG-4 已把"无段边界"
+ * 的 `path.startsWith(p)` 收敛为统一原语,公开面与自验面现在走同一套段边界语义,不再各写一份。
  */
 function isSelfAuthenticatedRoute(rawUrl: string): boolean {
   const path = (rawUrl.split('?')[0] ?? rawUrl) || '/'
@@ -236,8 +121,8 @@ function isInScope(url: string): boolean {
 
 function isAuthDefaultPublicPath(rawUrl: string): boolean {
   const path = (rawUrl.split('?')[0] ?? rawUrl) || '/'
-  if (PUBLIC_EXACT.has(path)) return true
-  return PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))
+  // BUG-4:委托给单一真相源(plugins/public-paths.ts),其内已用段边界安全的 matchesPrefix。
+  return isPublicPath(path)
 }
 
 /** observe 档日志节流:同 (方法+路径) 60s 一条,防被刷时先打满日志盘。 */

@@ -43,10 +43,19 @@ issues: list[str] = []
 def add(where: str, detail: str) -> None:
     issues.append(f"[{where}] {detail}")
 
-def scan_tree(root: str, side: str) -> None:
+def scan_tree(root: str, side: str) -> int:
+    """扫描一棵树。返回列失败的目录数。目录不存在返回 0。"""
     if not os.path.isdir(root):
-        return
-    for cur, subdirs, files in os.walk(root):
+        return 0
+    unread = 0
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread
+        if isinstance(err, FileNotFoundError):
+            return
+        unread += 1
+
+    for cur, subdirs, files in os.walk(root, onerror=_on_walk_error):
         subdirs[:] = [d for d in subdirs if d not in SKIP_DIRS]
         for fn in files:
             ext = os.path.splitext(fn)[1].lower()
@@ -73,13 +82,38 @@ def scan_tree(root: str, side: str) -> None:
                     continue
                 if fn in WECHAT_SCRIPTS:
                     add("口播稿", f"公众号专属脚本出现在口播稿树: {rel}")
+    return unread
+
+
+def scan_status(unread: int) -> str:
+    """列目录失败时不得报干净。"""
+    if unread:
+        return "incomplete"
+    if issues:
+        return "fail"
+    return "pass"
+
 
 def main() -> None:
-    scan_tree(WECHAT, "wechat")
-    scan_tree(KOUBO, "koubo")
+    issues.clear()
+    unread = scan_tree(WECHAT, "wechat") + scan_tree(KOUBO, "koubo")
+    status = scan_status(unread)
     if len(sys.argv) > 2 and sys.argv[1] == "--json":
         with open(sys.argv[2], "w", encoding="utf-8") as f:
-            json.dump({"violations": issues, "count": len(issues)}, f, ensure_ascii=False, indent=2)
+            json.dump(
+                {
+                    "violations": issues,
+                    "count": len(issues),
+                    "directories_unreadable": unread,
+                    "status": status,
+                },
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+    if status == "incomplete":
+        print(f"[边界扫描] 有 {unread} 个目录读不到,不能把扫描说成干净。FAIL")
+        sys.exit(2)
     if issues:
         print("=" * 64)
         print(f"[边界扫描·发现 {len(issues)} 处窜工作残留] FAIL")

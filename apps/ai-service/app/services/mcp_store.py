@@ -39,7 +39,7 @@
 - **角色从哪来**:管理员判定只认 `app/core/jwt_auth.resolve_request_role_id` 那一个出口
   (roleId >= 1,与 AGENTS §5 同档)。本模块是 store 层,**不碰 HTTP 对象** —— 角色由承载层
   作为入参传进来,缺省 0 = 普通用户(fail-closed:只带 user_id 不带角色的调用不得被当管理员)。
-- 读写失败降级:读失败返回空列表/None,写失败返回 False,不抛异常不崩服务
+- 读写失败:文件不存在或内容损坏仍返回空列表;权限等读不到要抛,不能当成空名单再写回去。写失败返回 False
 - 进程内加锁防止并发写坏文件(跨进程并发不在本模块职责内)
 """
 
@@ -63,15 +63,28 @@ def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+class McpStoreUnread(OSError):
+    """安装名单读不到。调用方不得把它当成空名单再写回去。"""
+
+
 def _load() -> list[dict[str, Any]]:
-    """读取全部安装记录;文件缺失/损坏/非列表时返回空列表(异常降级)。"""
+    """读取全部安装记录;文件缺失/损坏/非列表时返回空列表。
+
+    读失败(权限、目标是目录)不算没有安装记录,抛 McpStoreUnread,避免保存用空名单覆盖。
+    """
     try:
-        if not _STORE_PATH.exists():
-            return []
+        _STORE_PATH.stat()
+    except FileNotFoundError:
+        return []
+    except OSError as exc:
+        raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
+    try:
         raw = _STORE_PATH.read_text(encoding="utf-8")
         data = json.loads(raw)
         return data if isinstance(data, list) else []
-    except Exception:  # noqa: BLE001 - 读失败返回空列表,不崩服务
+    except OSError as exc:
+        raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
+    except Exception:  # noqa: BLE001 - 损坏内容仍按空名单,不崩服务
         return []
 
 

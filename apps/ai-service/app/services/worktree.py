@@ -188,6 +188,13 @@ async def remove_worktree(
     2. shutil.rmtree(ignore_errors=True)(git 失败时,如文件锁)
     3. 仅 log warning(全失败时不抛错,避免阻塞 WorkerPool)
     """
+    try:
+        os.stat(wt_path)
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    except OSError as exc:
+        raise OSError(f"工作树读不到,不能把它说成已经不在,也不删除 ({exc.errno})") from exc
+
     # 层 1:git worktree remove
     args = ["worktree", "remove"]
     if force:

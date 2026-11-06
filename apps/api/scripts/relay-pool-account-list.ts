@@ -261,7 +261,12 @@ export async function listMain(argv: string[], deps: ListDeps = {}): Promise<num
     out(`号池 ${provider} 账号(共 0 枚):暂无 —— 先用 relay-account-pool 导入\n`)
     return 0
   }
-  out(`号池 ${provider} 账号(共 ${shown.total} 枚,按 token 到期新→旧;取数时刻=${shown.asOf}):\n`)
+  out(
+    `号池 ${provider} 账号(共 ${shown.total} 枚,按 token 到期新→旧;取数时刻=${shown.asOf})` +
+      // 2026-11-06 净检出复量抓的缺口:只有交互腿强制了 --mask,手敲这一条时名称栏是全号裸奔。
+      (mask ? '' : ' ⚠ 未带 --mask,名称为号池原值(常被截图的场合请加 --mask)') +
+      ':\n',
+  )
   for (const r of shown.accounts) out(`${rowLine(r)}\n`)
   return 0
 }

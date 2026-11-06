@@ -128,13 +128,47 @@ describe('① R-1 subagents/removeWorktree(与 S5 的 W-1 同族 ⇒ 接)', () =
     expect(fs.existsSync(path.join(dest, 'payload.txt'))).toBe(true);
     expect(stderrText).toContain('[file-acl'); // 调用方 catch 吞掉抛错时,拒绝仍然出声(§0.9/§0.10)
   });
-  it('次序锁:裁决排在 existsSync / git worktree remove / spawnSync rm 之前', () => {
+  it('读不到时不说成已经不在,也不回收注册', () => {
+    const wt = createWorktree('parent', 'agent-unread', repo);
+    const payload = path.join(wt.path, 'payload.txt');
+    fs.writeFileSync(payload, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const gitBefore = probe.gitWorktree;
+    expect(() => removeWorktree(wt.path, {
+      sourcePath: repo,
+      force: true,
+      stat: () => {
+        throw denied;
+      },
+    })).toThrow(/不能把它说成已经不在/);
+    expect(fs.readFileSync(payload, 'utf8')).toBe('keep\n');
+    expect(probe.gitWorktree).toBe(gitBefore);
+    expect(probe.rmCmd).toBe(0);
+    expect(probe.rmSync).toBe(0);
+  });
+  it('次序锁:裁决排在 stat / git worktree remove / spawnSync rm 之前', () => {
     const body = fnBody('removeWorktree');
     const acl = body.indexOf('evaluateFileAccess(');
     expect(acl).toBeGreaterThan(-1);
-    for (const later of ['fs.existsSync(', "'worktree', 'remove'", "spawnSync('rm'"]) {
+    for (const later of ['stat(wtPath)', "'worktree', 'remove'", "spawnSync('rm'"]) {
       expect(body.indexOf(later)).toBeGreaterThan(acl);
     }
+  });
+});
+
+describe('新建时读不到不能当成不存在', () => {
+  it('读不到时不说成不存在,也不新建', () => {
+    const dest = path.join(repo, '.worktrees', 'agent-blocked');
+    fs.mkdirSync(dest, { recursive: true });
+    const payload = path.join(dest, 'payload.txt');
+    fs.writeFileSync(payload, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const gitBefore = probe.gitWorktree;
+    expect(() => createWorktree('parent', 'agent-blocked', repo, () => { throw denied; })).toThrow(/读不到/);
+    expect(fs.readFileSync(payload, 'utf8')).toBe('keep\n');
+    expect(probe.gitWorktree).toBe(gitBefore);
   });
 });
 
@@ -184,6 +218,17 @@ describe('③ R-2/R-3 定性锁(不接,理由必须由行为兜住)', () => {
     expect(fs.existsSync(own)).toBe(false);
     expect(actions.find((a) => a.subagentId === 'half-landed')?.action).toBe('kept-unprovable');
     expect(fs.existsSync(half)).toBe(true);
+  });
+  it('session 行读不到时不把工作树说成没有会话再删掉', () => {
+    const own = landFakeOwnDir('unread-session');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const actions = reconcileWorktreeArtifacts(repo, { stat: denied });
+    expect(actions.find((a) => a.subagentId === 'unread-session')?.action).toBe('kept-unprovable');
+    expect(fs.readFileSync(path.join(own, 'payload.txt'), 'utf-8')).toBe('work\n');
   });
 });
 

@@ -19,9 +19,22 @@ import { writePrivateFile } from '../lib/private-file.js';
 import { DEFAULT_POLICY_OPTIONS } from '../config/defaults.js';
 import { DEFAULT_SANDBOX_PROFILE } from '../config/sandbox-profile.js';
 
-/** 检测是否需要首次引导(~/.ihui/settings.json 不存在) */
-export function needsFirstRunSetup(): boolean {
-  return !fs.existsSync(getSettingsPath());
+type SettingsStat = (path: string) => fs.Stats;
+
+function settingsPresence(p: string, stat: SettingsStat): 'missing' | 'present' {
+  try {
+    stat(p);
+    return 'present';
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    throw new Error(`配置读不到,不能把它当成没有再生成一份新的 (${code ?? 'unknown'})`);
+  }
+}
+
+/** 检测是否需要首次引导。文件确实不存在才需要;读不到则抛错,不能当成没有。 */
+export function needsFirstRunSetup(stat: SettingsStat = (p) => fs.statSync(p)): boolean {
+  return settingsPresence(getSettingsPath(), stat) === 'missing';
 }
 
 /**
@@ -31,8 +44,9 @@ export function needsFirstRunSetup(): boolean {
  * - 非 TTY:用默认值静默生成(headless 模式不阻塞 CI)
  * - 用户 Ctrl+C:进程退出
  */
-export async function runFirstRunSetup(): Promise<boolean> {
+export async function runFirstRunSetup(stat: SettingsStat = (p) => fs.statSync(p)): Promise<boolean> {
   const settingsPath = getSettingsPath();
+  if (settingsPresence(settingsPath, stat) === 'present') return false;
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 

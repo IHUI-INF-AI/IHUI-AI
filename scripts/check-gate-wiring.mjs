@@ -1890,9 +1890,44 @@ async function main(argv = process.argv.slice(2)) {
     localToday(),
     new Set(gateNames),
   )
-  const reds = [...by('red-r1'), ...by('red-r2')]
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
+  // BUG-42②:豁免清单腐烂 / 可撤销 / reviewBy 过期此前**只打印不判红**(§0.7「验过才免且会到期」
+  // 在唯一有到期机制的清单上没牙)。现逐条进 reds;现读三者皆 0 ⇒ 不会装红即恒红(§12e)。
+  // entries 侧也补一道:一旦数据面给豁免挂了 reviewBy,到期即判红(现读无该字段 ⇒ 空集不恒红)。
+  // 位置刻意放在「R3 登记面扩面」之前,且只用展开式而非 reds.push ⇒ 不落进镜像测试 T34 的 upToR5 形状锁。
+  const reds = [
+    ...by('red-r1'),
+    ...by('red-r2'),
+    ...revocable.map((e) => ({
+      status: 'red-exempt-rot',
+      script: e.script,
+      reason: `豁免腐烂:登记了但实际已接线(${e.type})—— 幂等守卫不得只判存在`,
+    })),
+    ...staleExempt.map((e) => ({
+      status: 'red-stale-exempt',
+      script: e.script,
+      reason: `僵尸台账条目:脚本已不在 HEAD(${e.type})`,
+    })),
+    ...r3Summary.expired.map((e) => ({
+      status: 'red-review-expired',
+      script: String(e.path).replace(/^scripts\//, ''),
+      reason: `R3 归属台账 reviewBy ${e.reviewBy} 已过期 ⇒ 豁免到期未复裁(§0.7 会到期)`,
+    })),
+    ...allowEntries
+      .filter(
+        (e) =>
+          e &&
+          typeof e.reviewBy === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(e.reviewBy) &&
+          e.reviewBy < localToday(),
+      )
+      .map((e) => ({
+        status: 'red-exempt-expired',
+        script: e.script,
+        reason: `台账豁免 reviewBy ${e.reviewBy} 已过期 ⇒ 未复裁(§0.7 会到期)`,
+      })),
+  ]
 
   // ── R3 登记面扩面(2026-11-05,治理债②「接」的那一半)────────────────────
   // 面从「门形脚本名」扩到 `scripts/` 直属全部 .mjs。命中口径**沿用上面那一支**

@@ -236,7 +236,7 @@
     }
   ],
   "webRn": {
-    "recordedAt": "2026-11-06T03:01:47.955Z",
+    "recordedAt": "2026-11-06T06:06:18.114Z",
     "state": "judged",
     "dimensions": ["widthHeight", "padding", "spacing", "radius", "fontSize"],
     "uncoveredKeys": [],
@@ -261,6 +261,316 @@
       "over": 0,
       "invalid": 0,
       "unregistered": 128
+    },
+    "automationCeiling": {
+      "cells": 514,
+      "followable": 25,
+      "needsAdjudication": 489,
+      "pairsWithFollowable": 24,
+      "byDim": {
+        "widthHeight": {
+          "cells": 108,
+          "followable": 7
+        },
+        "padding": {
+          "cells": 121,
+          "followable": 3
+        },
+        "spacing": {
+          "cells": 114,
+          "followable": 5
+        },
+        "fontSize": {
+          "cells": 73,
+          "followable": 1
+        },
+        "radius": {
+          "cells": 98,
+          "followable": 9
+        }
+      },
+      "byStrength": {
+        "residual": 16,
+        "single-tier": 9
+      },
+      "items": [
+        {
+          "pair": "automations",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 80,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/automations/page.tsx",
+          "rnFile": "packages/app/src/features/automations/AutomationsScreen.tsx"
+        },
+        {
+          "pair": "edu/parent",
+          "dim": "fontSize",
+          "web": 18,
+          "rn": 12,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/edu/parent/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/EduParentScreen.tsx"
+        },
+        {
+          "pair": "search",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 12,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/search/page.tsx",
+          "rnFile": "packages/app/src/features/search/SearchScreen.tsx"
+        },
+        {
+          "pair": "settings/activity",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 12,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/settings/activity/page.tsx",
+          "rnFile": "packages/app/src/features/activity/ActivityScreen.tsx"
+        },
+        {
+          "pair": "settings/icp-record",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 50,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/settings/icp-record/page.tsx",
+          "rnFile": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
+        },
+        {
+          "pair": "settings/notifications",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 50,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/settings/notifications/page.tsx",
+          "rnFile": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx"
+        },
+        {
+          "pair": "tools/pdf",
+          "dim": "radius",
+          "web": 8,
+          "rn": 6,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/tools/pdf/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/PdfToolsScreen.tsx"
+        },
+        {
+          "pair": "tools/pdf/merge",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 10,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/tools/pdf/merge/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx"
+        },
+        {
+          "pair": "tools/pdf/split",
+          "dim": "widthHeight",
+          "web": 16,
+          "rn": 10,
+          "webTierCount": 1,
+          "rnTierCount": 1,
+          "strength": "single-tier",
+          "webFile": "apps/web/app/(main)/tools/pdf/split/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx"
+        },
+        {
+          "pair": "agents/featured",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/agents/featured/page.tsx",
+          "rnFile": "packages/app/src/features/agent-market/AgentMarketScreen.tsx"
+        },
+        {
+          "pair": "articles/hot",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/articles/hot/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/ArticleHotScreen.tsx"
+        },
+        {
+          "pair": "help",
+          "dim": "spacing",
+          "web": 24,
+          "rn": 12,
+          "webTierCount": 4,
+          "rnTierCount": 4,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/help/page.tsx",
+          "rnFile": "packages/app/src/features/help/HelpScreen.tsx"
+        },
+        {
+          "pair": "learn/map",
+          "dim": "radius",
+          "web": 12,
+          "rn": 4,
+          "webTierCount": 4,
+          "rnTierCount": 4,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/learn/map/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/LearnMapScreen.tsx"
+        },
+        {
+          "pair": "resources",
+          "dim": "spacing",
+          "web": 6,
+          "rn": 24,
+          "webTierCount": 5,
+          "rnTierCount": 5,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/resources/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/ResourcesScreen.tsx"
+        },
+        {
+          "pair": "self-healing",
+          "dim": "padding",
+          "web": 6,
+          "rn": 40,
+          "webTierCount": 5,
+          "rnTierCount": 5,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/self-healing/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/SelfHealingScreen.tsx"
+        },
+        {
+          "pair": "settings",
+          "dim": "padding",
+          "web": 8,
+          "rn": 12,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/settings/page.tsx",
+          "rnFile": "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx"
+        },
+        {
+          "pair": "settings/activity",
+          "dim": "spacing",
+          "web": 16,
+          "rn": 12,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/settings/activity/page.tsx",
+          "rnFile": "packages/app/src/features/activity/ActivityScreen.tsx"
+        },
+        {
+          "pair": "settings/data-rights",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/settings/data-rights/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/DataRightsScreen.tsx"
+        },
+        {
+          "pair": "settings/usage",
+          "dim": "radius",
+          "web": 4,
+          "rn": 8,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/settings/usage/page.tsx",
+          "rnFile": "packages/app/src/features/usage/UsageScreen.tsx"
+        },
+        {
+          "pair": "student/my-asks",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/student/my-asks/page.tsx",
+          "rnFile": "packages/app/src/features/ask-list/AskListScreen.tsx"
+        },
+        {
+          "pair": "student/papers",
+          "dim": "spacing",
+          "web": 16,
+          "rn": 10,
+          "webTierCount": 5,
+          "rnTierCount": 5,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/student/papers/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/MyPapersScreen.tsx"
+        },
+        {
+          "pair": "subscriptions",
+          "dim": "padding",
+          "web": 40,
+          "rn": 2,
+          "webTierCount": 8,
+          "rnTierCount": 8,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/subscriptions/page.tsx",
+          "rnFile": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+        },
+        {
+          "pair": "team-memory",
+          "dim": "spacing",
+          "web": 2,
+          "rn": 4,
+          "webTierCount": 4,
+          "rnTierCount": 4,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/team-memory/page.tsx",
+          "rnFile": "apps/mobile-rn/src/screens/TeamMemoryScreen.tsx"
+        },
+        {
+          "pair": "user/ask",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/user/ask/page.tsx",
+          "rnFile": "packages/app/src/features/ask-list/AskListScreen.tsx"
+        },
+        {
+          "pair": "wallet/withdraw",
+          "dim": "radius",
+          "web": 6,
+          "rn": 4,
+          "webTierCount": 2,
+          "rnTierCount": 2,
+          "strength": "residual",
+          "webFile": "apps/web/app/(main)/wallet/withdraw/page.tsx",
+          "rnFile": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
+        }
+      ],
+      "why": "其余记录是集合级歧义(一侧多候选或一侧无读数)⇒ 任何落档腿都必须 held 不猜,不得当成可自动修"
     },
     "total": 2099,
     "families": [

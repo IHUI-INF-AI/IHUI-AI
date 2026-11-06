@@ -6,6 +6,7 @@
 // + header + 关闭),纯受控渲染:候选由 props 传入,选中只回调,零副作用。
 
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import {
   BookOpen,
   CircleHelp,
@@ -55,7 +56,7 @@ const styles = StyleSheet.create({
   },
   listDialogContent: {
     width: '88%',
-    maxHeight: '70%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -165,11 +166,13 @@ export function SlashCommandPalette({
   onSelect,
   onClose,
 }: SlashCommandPaletteProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const listDialogStyle = [styles.listDialogContent, dialogHeightStyle]
   if (!visible) return null
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Tappable style={styles.modalMask} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>{t('slashCmd.paletteTitle')}</Text>
             <Tappable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>

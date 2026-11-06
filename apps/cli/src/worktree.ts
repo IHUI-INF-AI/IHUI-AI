@@ -713,8 +713,21 @@ async function readModifiedFiles(repoDir: string): Promise<string[]> {
  * - 路径不存在 → 直接返回(不抛错)
  * - 删除失败记录到 stderr 但返回成功,避免阻塞清理流程
  */
-export async function removeWorktree(wtPath: string): Promise<void> {
-  if (!fs.existsSync(wtPath)) return
+export async function removeWorktree(
+  wtPath: string,
+  stat?: (target: string) => unknown,
+): Promise<void> {
+  const look = stat ?? fs.statSync
+  try {
+    look(wtPath)
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown'
+    if (code === 'ENOENT' || code === 'ENOTDIR') return
+    throw new Error(`工作树读不到,不能把它说成已经不在,也不删除 (${code})`)
+  }
 
   const gitPath = path.join(wtPath, '.git')
 

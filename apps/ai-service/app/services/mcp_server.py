@@ -281,13 +281,24 @@ def _tool_result_token_estimate(obj: object) -> int:
     return total
 
 
-def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
+def _truncate_tool_output(
+    result: dict[str, Any],
+    *,
+    tool_name: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """call_tool 出口统一输出护栏:将超 token 预算的字符串值截断。
 
     策略(确定性、保持 dict 结构与控制字段完整):
     - 总 token <= 预算 → 原样返回,不加 truncated 标志
     - 超限 → 收集全部字符串叶子(受保护 key 除外),按长度降序贪心截断,
       直到总 token <= 预算;每个被截断字符串追加标记,并置顶层 truncated=True
+
+    批次 2(2026-11-06):截断前先把**完整结果**落盘为工件(`tool_output_artifacts`),
+    并在返回体追加 `output_artifact`(bytes/chars/digest/offset/next/complete)与
+    `output_continuation` 指引。此前标记只写"可用分页参数获取更多"却没有任何续读
+    凭据,模型只能重跑工具 —— 现在任何调用面(main chat / agent loop / supertool)
+    都拿到同一份可续读凭据。
 
     注意:截断量为近似(标记本身占少量 token),已在边界内;目的是防上下文膨胀,
     不保证精确等于预算(误差 < 标记长度)。
@@ -298,6 +309,22 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     total = _tool_result_token_estimate(result)
     if total <= max_tokens:
         return result
+
+    # 完整结果先落盘(force=True:token 估算是逐串 floor 求和,与整串估算可能差 1-2,
+    # 但只要进入截断分支就必须有工件,不能出现"截断了却没有续读凭据")。
+    artifact: dict[str, Any] | None = None
+    try:
+        from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
+
+        artifact = maybe_spill_tool_output(
+            serialize_tool_payload(result),
+            tool_name=tool_name or str(result.get("tool") or ""),
+            session_id=session_id,
+            keep_chars=0,
+            force=True,
+        )
+    except Exception as e:  # noqa: BLE001 - 工件面异常不许影响工具返回
+        logger.warning("[mcp] 工具输出工件落盘失败(降级为纯截断): %s", e)
 
     # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
     leaves: list[tuple[Any, Any, str]] = []
@@ -343,6 +370,23 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     for parent, key, keep_chars in plan:
         parent[key] = parent[key][:keep_chars] + marker
     result["truncated"] = True
+    if artifact is not None:
+        # 续读凭据:offset=0 = 从头分页(正文是逐串截断而非前缀截断,给 0 才不丢信息)。
+        result["output_artifact"] = {
+            "artifact_id": artifact.get("artifactId"),
+            "digest": artifact.get("digest"),
+            "bytes": artifact.get("bytes"),
+            "chars": artifact.get("chars"),
+            "offset": 0,
+            "next": 0,
+            "complete": False,
+            "truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+        }
+        result["output_continuation"] = (
+            f"完整输出已落盘(共 {artifact.get('chars')} 字符)。用 "
+            f'read_tool_output(artifact_id="{artifact.get("artifactId")}", offset=0) '
+            "分页续读,直到返回 complete=true。"
+        )
     return result
 
 
@@ -1322,6 +1366,8 @@ async def _lazy_index_and_research(
     path: str,
     max_results: int,
     internal_user_id: str | None = None,
+    *,
+    symbol_name: str | None = None,
 ) -> LazyIndexOutcome:
     """懒索引:语义通道空结果且 path 为本地目录时,尽力做一次 Merkle 增量索引后重搜。
 
@@ -1399,9 +1445,14 @@ async def _lazy_index_and_research(
             return LazyIndexOutcome(results=[], status=guard.status, reason=guard.reason, guard=guard)
         await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
         # 2026-10-03:检索同样带归属(api 侧按 owner_uuid 隔离检索面)
+        # Z37:重搜这一跳必须带上同一枚符号过滤位 —— 不带就等于「建完索引后把整仓 topK
+        # 端回来再指望装配层挑」,那正是本票要拆掉的先截后滤。缺省档连关键字都不多发。
+        research_kwargs: dict[str, Any] = {"top_k": max_results, "internal_user_id": internal_user_id}
+        if symbol_name:
+            research_kwargs["symbol_name"] = symbol_name
         results = cast(
             list[dict[str, Any]],
-            await indexer.search(query, top_k=max_results, internal_user_id=internal_user_id),
+            await indexer.search(query, **research_kwargs),
         )
         if results:
             return LazyIndexOutcome(results=results, status="searched", reason=None, guard=guard)
@@ -1557,6 +1608,128 @@ def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
     return ignored
 
 
+def _search_codebase_keyword_sync(
+    root: Any, query: str, pattern: str, max_results: int, symbol_type: str,
+    code_exts: set[str], ignored_dirs: set[str], symbol_patterns: dict[str, Any],
+    on_walk_error: Callable[[OSError], None] | None = None,
+    on_unread_file: Callable[[], None] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    """同步执行关键词腿:os.walk + 一次性 git check-ignore + 文件读取/符号匹配。
+
+    BUG-9:整段含同步文件系统遍历 / 子进程 / 阻塞读,必须经
+    ``await asyncio.to_thread(_search_codebase_keyword_sync, ...)`` 调用,
+    否则大仓库一次搜索会把事件循环(全部 SSE / 健康检查 / 调度)卡死,
+    ``asyncio.wait_for`` 也抢不到同步阻塞。原先**每个目录**起一次
+    ``git check-ignore`` 子进程(成百上千次进程启动);这里先把全部相对路径收齐,
+    一次 ``--stdin`` 批量传入(台账收口要点),N 次降为 1 次。
+
+    读不到不等于没有:调用方可传 on_walk_error / on_unread_file。不传时保持
+    os.walk 的默认静默,返回形状不变。FileNotFoundError 是遍历期消失,不计未读。
+    """
+    import fnmatch
+    import os
+
+    patterns = [p.strip() for p in pattern.split(",") if p.strip()] if pattern else []
+    query_lower = query.lower()
+    matches: list[dict[str, Any]] = []
+    count = 0
+
+    # ① 一次 os.walk 收齐全部目录/文件相对路径(纯遍历,无子进程)
+    snapshots: list[tuple[str, list[str], list[str]]] = []
+    all_rels: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root, onerror=on_walk_error):
+        dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
+        file_rels = [
+            os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
+            for fname in filenames
+        ]
+        snapshots.append((dirpath, filenames, file_rels))
+        all_rels.extend(
+            os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+            for d in dirnames
+        )
+        all_rels.extend(file_rels)
+
+    # ② 一次 --stdin 批量过 gitignore(替代原先逐目录的 N 次 subprocess.run)
+    ignored = _git_check_ignore(root, all_rels)
+
+    # ③ 逐文件按 ignored 过滤 + 读取 + 符号匹配
+    for dirpath, filenames, file_rels in snapshots:
+        for fname, rel_posix in zip(filenames, file_rels):
+            if count >= max_results:
+                return matches, count
+            if rel_posix in ignored:
+                continue
+            if patterns:
+                if not any(fnmatch.fnmatch(fname, p) for p in patterns):
+                    continue
+            else:
+                ext = os.path.splitext(fname)[1].lower()
+                if ext not in code_exts:
+                    continue
+
+            fpath = os.path.join(dirpath, fname)
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+            except FileNotFoundError:
+                continue
+            except OSError:
+                if on_unread_file is not None:
+                    on_unread_file()
+                continue
+
+            lines = content.splitlines()
+            rel_path = os.path.relpath(fpath, root)
+            if query_lower not in content.lower():
+                continue
+
+            symbol_matches: list[tuple[int, str, str]] = []
+            for sym_type, sym_re in symbol_patterns.items():
+                if symbol_type and sym_type != symbol_type:
+                    continue
+                for m in sym_re.finditer(content):
+                    sym_name = m.group(1)
+                    if sym_name.lower() == query_lower or query_lower in sym_name.lower():
+                        line_no = content.count("\n", 0, m.start()) + 1
+                        line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+                        symbol_matches.append((line_no, sym_type, line_text))
+
+            line_matches: list[tuple[int, str]] = []
+            for i, line_text in enumerate(lines):
+                if query_lower in line_text.lower():
+                    line_matches.append((i + 1, line_text))
+
+            seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+            for ln_no, ln_text in line_matches:
+                if ln_no not in seen_lines:
+                    symbol_matches.append((ln_no, "reference", ln_text))
+                    seen_lines.add(ln_no)
+
+            if not symbol_matches:
+                continue
+
+            for line_no, sym_type, line_text in symbol_matches[:10]:
+                start = max(0, line_no - 3)
+                end = min(len(lines), line_no + 2)
+                preview = "\n".join(
+                    f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                )
+                matches.append({
+                    "path": rel_path,
+                    "file": fname,
+                    "line": line_no,
+                    "symbol_type": sym_type,
+                    "code": line_text.strip()[:200],
+                    "preview": preview[:500],
+                })
+                count += 1
+                if count >= max_results:
+                    break
+
+    return matches, count
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(关键词腿 + 语义腿并跑,RRF 融合)。
 
@@ -1568,7 +1741,17 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     - symbol_type: 符号类型过滤(def/class/func/function/interface/type,默认空=全部)
     - symbol_name: 符号名**精确**过滤(逐字相等、大小写敏感;Z28 格 1)。默认空 ⇒ 过滤链
       根本不发起,返回体与旧实现逐字节相同;非空时命中集只保留"被定义符号名逐字等于该值"
-      的片(不做前缀/包含匹配 —— 那是 query 那一维已有的语义)
+      的片(不做前缀/包含匹配 —— 那是 query 那一维已有的语义)。
+      **Z37 起该位已下推到检索腿**:symbol_name 随首跳进 HTTP 请求体
+      (`POST /api/v1/codebase/search` 的 `symbolName`),等值条件在 api 侧进 SQL `WHERE`、
+      发生在 `LIMIT` 之前,且该档的取回预算脱离 topK(单源 = api 的 `rowBudget()`)。
+      装配层的逐字过滤**保留**(不是回落):关键词腿是本地文件系统扫描,不经 HTTP,
+      下推覆盖不到它;对已下推的语义腿而言这一层是幂等的,两侧不一致的次数读进
+      `stats.symbol_pushdown_disagree`。api 侧取不到响应 ⇒ `stats.symbol_filter`
+      落 `unjudged:<原委>` 并让语义腿具名失败,不静默当成本地过滤成功。
+      符号档另有一处**必须出声的口径变化**:`max_results` 不再截断出参(Z28 那格
+      「先截后滤」缺口的另一半),命中条数只受 api 那份行预算约束;
+      段账 detail 与 `stats.symbol_filter` 都点名当下是哪一档,缺省档一字不动。
     - 忽略常见依赖/构建/缓存目录
     - 忽略二进制文件
     - 返回: 文件路径 + 行号 + 符号类型 + 代码行 + 上下文预览
@@ -1723,11 +1906,18 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 "reason": "use_semantic=False(调用方显式关闭语义腿)",
             }
         try:
-            from .codebase_indexer import codebase_indexer
+            from .codebase_indexer import SymbolFilterUndetermined, codebase_indexer
             # 2026-10-03:检索按归属隔离(见 _caller_user_id 处注释)
-            semantic_results = await codebase_indexer.search(
-                query, top_k=max_results, internal_user_id=_caller_user_id
-            )
+            # Z37 下推:符号档才追加 `symbol_name` 这一枚关键字入参 —— 缺省档连**调用形状**
+            # 都与今天逐字相同(在册替身里那些把签名收紧成 query/top_k/internal_user_id 的
+            # fake_search 因此结构上不可能被本票碰坏)。
+            search_kwargs: dict[str, Any] = {"top_k": max_results, "internal_user_id": _caller_user_id}
+            if symbol_name:
+                search_kwargs["symbol_name"] = symbol_name
+            semantic_results = await codebase_indexer.search(query, **search_kwargs)
+            if symbol_name:
+                # 走到这里 = 首跳判过了(`search()` 在未判定时抛 SymbolFilterUndetermined)。
+                stats["symbol_filter"] = "pushed"
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
@@ -1738,9 +1928,16 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     path,
                     max_results,
                     internal_user_id=_caller_user_id,
+                    **({"symbol_name": symbol_name} if symbol_name else {}),
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
+                if symbol_name and lazy.status == "failed":
+                    # 懒索引把重搜异常咽成 status="failed" 是在册兜底(缺省档一字不动),
+                    # 符号档不借这一格把「取不到」读成「库里没有」⇒ 就地转具名未判定(§0.3)。
+                    raise SymbolFilterUndetermined(
+                        f"symbol_name={symbol_name} 懒索引重搜未判定:{lazy.reason}"
+                    )
                 stages.record(
                     "lazy_index",
                     "ok" if semantic_results else "empty",
@@ -1749,7 +1946,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     detail=f"status={lazy.status}: {lazy.reason}",
                 )
             leg_matches: list[dict[str, Any]] = []
-            for r in list(semantic_results)[:max_results]:
+            # Z37:符号档不在本侧补 topK 那一刀。api 的 `rowBudget()` 早把该档的取回预算
+            # 脱钩出 topK(Z36 单源 = SYMBOL_SCOPED_ROW_CAP),这里再 `[:max_results]`
+            # 就是把刚摆正的次序重新削成「先截后滤」(§0.6:预算只许那份判据算一次)。
+            # 缺省档口径逐字节不变:仍然 top_k = max_results、仍然先截。
+            scoped_semantic = list(semantic_results)
+            for r in scoped_semantic if symbol_name else scoped_semantic[:max_results]:
                 content_preview = r.get("content", "")
                 if len(content_preview) > 500:
                     content_preview = content_preview[:500]
@@ -1771,6 +1973,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         except TimeoutError as e:
             semantic_index_field = {"status": "timeout", "reason": f"{type(e).__name__}: {e}"}
             stats["vector_leg"] = "timeout"
+            if symbol_name:
+                stats["symbol_filter"] = f"unjudged:TimeoutError:{e}"
             return {
                 "status": "timeout",
                 "matches": [],
@@ -1779,6 +1983,10 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
             semantic_index_field = {"status": "failed", "reason": f"{type(e).__name__}: {e}"}
             stats["vector_leg"] = "failed"
+            # Z37:符号档的「取不到响应」必须在这一格落名(含 `SymbolFilterUndetermined`,
+            # 它由检索腿在首跳未判定时抛出)。缺省档不写这一格 ⇒ 出参形状逐字节不变。
+            if symbol_name:
+                stats["symbol_filter"] = f"unjudged:{type(e).__name__}:{e}"
             logger.warning(
                 "search_codebase 语义腿失败(状态与原因已进返回体,不再静默回落): %s: %s",
                 type(e).__name__,
@@ -1813,122 +2021,46 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     "reason": f"路径不是目录: {path}",
                 }
 
-            # 构建 pattern 列表(支持逗号分隔多 pattern)
-            if pattern:
-                patterns = [p.strip() for p in pattern.split(",") if p.strip()]
-            else:
-                patterns = []  # 用扩展名过滤
+            # BUG-9:整段同步遍历 + 子进程 + 阻塞读统一挪到线程池,事件循环不再被
+            # 大仓库搜索卡死(wait_for 抢不到同步阻塞);git check-ignore 一次批量(见 helper)。
+            # 读不到的计数住在本帧:遍历在线程里跑,钩子把次数加回来。
+            unread_dirs = 0
+            unread_files = 0
 
-            query_lower = query.lower()
-            matches: list[dict[str, Any]] = []
-            count = 0
+            def _on_walk_error(err: OSError) -> None:
+                nonlocal unread_dirs
+                if isinstance(err, FileNotFoundError):
+                    return
+                unread_dirs += 1
 
-            for dirpath, dirnames, filenames in os.walk(root):
-                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-                dir_rels = [
-                    os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                    for d in dirnames
-                ]
-                file_rels = [
-                    os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
-                    for fname in filenames
-                ]
-                ignored = _git_check_ignore(root, dir_rels + file_rels)
-                if ignored:
-                    dirnames[:] = [
-                        d
-                        for d in dirnames
-                        if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                        not in ignored
-                    ]
-                for fname in filenames:
-                    if count >= max_results:
-                        break
-                    rel_posix = os.path.relpath(
-                        os.path.join(dirpath, fname), root
-                    ).replace("\\", "/")
-                    if rel_posix in ignored:
-                        continue
-                    # pattern 或扩展名过滤
-                    if patterns:
-                        if not any(fnmatch.fnmatch(fname, p) for p in patterns):
-                            continue
-                    else:
-                        ext = os.path.splitext(fname)[1].lower()
-                        if ext not in _CODE_EXTS:
-                            continue
+            def _on_unread_file() -> None:
+                nonlocal unread_files
+                unread_files += 1
 
-                    fpath = os.path.join(dirpath, fname)
-                    try:
-                        with open(fpath, encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                    except OSError:
-                        continue
-
-                    lines = content.splitlines()
-                    rel_path = os.path.relpath(fpath, root)
-
-                    # 先快速过滤:文件内容必须含 query(大小写不敏感)
-                    if query_lower not in content.lower():
-                        continue
-
-                    # 1) 符号定义匹配:扫描每种符号模式
-                    symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
-                    for sym_type, sym_re in _SYMBOL_PATTERNS.items():
-                        if symbol_type and sym_type != symbol_type:
-                            continue
-                        for m in sym_re.finditer(content):
-                            sym_name = m.group(1)
-                            if sym_name.lower() == query_lower or query_lower in sym_name.lower():
-                                # 计算 line_no
-                                line_no = content.count("\n", 0, m.start()) + 1
-                                line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
-                                symbol_matches.append((line_no, sym_type, line_text))
-
-                    # 2) 通用行匹配(任意包含 query 的行)
-                    line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
-                    for i, line_text in enumerate(lines):
-                        if query_lower in line_text.lower():
-                            line_matches.append((i + 1, line_text))
-
-                    # 合并:符号匹配优先,再补通用行匹配(去重)
-                    seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
-                    for ln_no, ln_text in line_matches:
-                        if ln_no not in seen_lines:
-                            symbol_matches.append((ln_no, "reference", ln_text))
-                            seen_lines.add(ln_no)
-
-                    if not symbol_matches:
-                        continue
-
-                    # 限制每个文件最多 10 条匹配
-                    for line_no, sym_type, line_text in symbol_matches[:10]:
-                        # 提取上下文(前后各 2 行)
-                        start = max(0, line_no - 3)
-                        end = min(len(lines), line_no + 2)
-                        preview = "\n".join(
-                            f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
-                        )
-                        matches.append({
-                            "path": rel_path,
-                            "file": fname,
-                            "line": line_no,
-                            "symbol_type": sym_type,
-                            "code": line_text.strip()[:200],
-                            "preview": preview[:500],
-                        })
-                        count += 1
-                        if count >= max_results:
-                            break
-
-                if count >= max_results:
-                    break
-
+            matches, count = await asyncio.to_thread(
+                _search_codebase_keyword_sync,
+                root, query, pattern, max_results, symbol_type,
+                _CODE_EXTS, _IGNORED_DIRS, _SYMBOL_PATTERNS,
+                _on_walk_error, _on_unread_file,
+            )
+            note = None
+            if unread_dirs or unread_files:
+                note = (
+                    f"有 {unread_dirs} 个目录、{unread_files} 个文件读不到,"
+                    "不能把检索说成完整"
+                )
+            if not matches and note:
+                return {
+                    "status": "unjudged",
+                    "matches": [],
+                    "truncated": False,
+                    "reason": note,
+                }
             return {
                 "status": "ok",
                 "matches": matches,
                 "truncated": count >= max_results,
-                "reason": None,
+                "reason": note,
             }
         except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
             stats["keyword_leg"] = "failed"
@@ -2042,22 +2174,44 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     asm_clock = stages.clock()
     # 精确过滤位在截断**之前**生效:先截再滤会把"名次在 topK 之后但符号名逐字命中"的片
     # 直接筛掉(那是召回损失,不是过滤)。未启用过滤时截断口径与旧实现逐字节相同。
+    #
+    # Z37:符号档这一格也**不再按 max_results 收尾** —— 过滤位已下推到检索腿,行预算归
+    # api 侧 `rowBudget()` 单源(Z36 立 SYMBOL_SCOPED_ROW_CAP),本侧再补一刀就是把刚
+    # 摆正的次序再削一次。`max_results` 在符号档因此降级为「非符号档的出参上限」,
+    # 这不是静默改动:段账 detail 与 stats.symbol_filter 都点名了当下走的是哪一档。
     candidates = fused if symbol_name else fused[:max_results]
     matches: list[dict[str, Any]] = []
+    pushdown_disagree = 0
     for f in candidates:
         item = dict(f.item)
         if symbol_name and not _symbol_exact_hit(item):
+            # 「两侧逐字一致」做成**量出来的读数**,不是硬断言:被本侧摘掉的片若来自已下推的
+            # 语义腿,说明 api 那份过滤位与本侧判据读出了不同结果 —— 记数点名,不因此判死。
+            if "vector" in f.fused_from:
+                pushdown_disagree += 1
             continue
         item["fused_from"] = "+".join(f.fused_from)
         item["rrf_score"] = round(f.score, 6)
         matches.append(item)
-        if symbol_name and len(matches) >= max_results:
-            break
+    if symbol_name:
+        stats["symbol_pushdown_disagree"] = pushdown_disagree
+        stats.setdefault(
+            "symbol_filter",
+            # 语义腿压根没跑(use_semantic=False)时不存在「下推」这件事,只有装配层本地过滤;
+            # 跑了却没写下结论 = 没走到给 stats 赋值的那一行,按未判定记,不冒充 pushed。
+            "not-attempted:use_semantic=False" if not use_semantic else "unjudged:语义腿未给出结论",
+        )
     stages.record(
         "assemble", "ok" if matches else "empty",
         duration_ms=asm_clock.elapsed_ms(), count=len(matches),
         **(
-            {"detail": f"symbol_name={symbol_name} 逐字精确过滤后剩 {len(matches)} 片"}
+            {
+                "detail": (
+                    f"symbol_name={symbol_name} 逐字精确过滤后剩 {len(matches)} 片"
+                    f"(已下推检索腿:{stats.get('symbol_filter')};max_results={max_results} "
+                    f"在符号档不截断,不一致读数 {pushdown_disagree})"
+                )
+            }
             if symbol_name
             else {}
         ),
@@ -2187,6 +2341,35 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         ),
     }
+
+
+async def _tool_read_tool_output(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_tool_output(批次 2):按 offset 分页续读落盘的工具输出工件。
+
+    只读、无副作用;artifactId 严格校验(见 tool_output_artifacts)。失败返回稳定
+    `error` 词而不是抛异常 —— 抛异常会被误记成"工具执行失败"并污染审计终态。
+    """
+    from .tool_output_artifacts import read_tool_output_page
+
+    artifact_id = arguments.get("artifact_id")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return {
+            "tool": "read_tool_output",
+            "ok": False,
+            "error": "unknown_artifact",
+            "artifactId": "",
+        }
+    try:
+        offset = int(arguments.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    raw_limit = arguments.get("limit")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else 4000
+    except (TypeError, ValueError):
+        limit = 4000
+    page = read_tool_output_page(artifact_id, offset=max(0, offset), limit=limit)
+    return {"tool": "read_tool_output", **page}
 
 
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -4670,7 +4853,9 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 with open(js_path, "w", encoding="utf-8") as f:
                     f.write(test_code)
-                proc = _subprocess.run(
+                # BUG-9:同步 node 子进程改真异步(对齐同文件 python 分支的 to_thread 写法)。
+                proc = await asyncio.to_thread(
+                    _subprocess.run,
                     [node_path, "--check", js_path],
                     capture_output=True, text=True, timeout=30,
                 )
@@ -5024,7 +5209,9 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                     "ok": False,
                 }
 
-        result = subprocess.run(
+        # BUG-9:同步 git 子进程改真异步,避免整段卡死事件循环。
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["git"] + (git_args or []),
             cwd=repo_path,
             capture_output=True,
@@ -6211,7 +6398,11 @@ async def _tool_dispatch_subagent(
             if _par_needs_help:
                 _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
-            return _truncate_tool_output(_payload)
+            return _truncate_tool_output(
+                _payload,
+                tool_name="dispatch_subagent",
+                session_id=arguments.get("session_id"),
+            )
         except Exception as e:
             return {
                 "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
@@ -6293,7 +6484,11 @@ async def _tool_dispatch_subagent(
                 _payload["errorCode"] = "AGENT_NOT_FOUND"
                 _payload["availableAgents"] = sorted(set(_reg.names()))
         # 0-6 单子代理输出限额:复用 0-2 截断助手
-        return _truncate_tool_output(_payload)
+        return _truncate_tool_output(
+            _payload,
+            tool_name="dispatch_subagent",
+            session_id=arguments.get("session_id"),
+        )
     except Exception as e:
         return {
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
@@ -7307,6 +7502,15 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "errorCode": err_code,
                 "message": f"save_path 校验失败: {err_code}",
             }
+
+    # 高消耗审批:宿主盖过的余额/批准才算数。拒绝发生在选 provider 之前,
+    # 所以上游调用次数在拒绝时是 0。没给余额则不计量,旧调用保持原样。
+    from ..core.mcp_tool_approval import gate_image_spend
+
+    credit_block = gate_image_spend(arguments)
+    if credit_block is not None:
+        credit_block["prompt"] = prompt
+        return credit_block
 
     chain = _image_provider_chain(provider)
     if not chain:
@@ -10837,7 +11041,7 @@ _TOOLS: list[MCPTool] = [
                 "path": {"type": "string", "description": "搜索路径(默认当前目录)"},
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
-                "symbol_name": {"type": "string", "description": "符号名精确过滤(逐字相等、大小写敏感;默认空=不过滤)。这是**装配层的精确过滤位**,不是第 2 个查询词:命中集只保留被定义符号名逐字等于本值的片。要按索引列在库侧精确取回某符号的**全部**切片,还得靠 api 侧 searchSchema 的 symbolName 过滤位(现读该处只有 indexSchema 有 symbolName,searchSchema 无,见 apps/api/src/routes/v1-codebase-search.ts)。"},
+                "symbol_name": {"type": "string", "description": "符号名精确过滤(逐字相等、大小写敏感;默认空=不过滤)。这不是第 2 个查询词:命中集只保留被定义符号名逐字等于本值的片。Z37 起该位**已下推到检索腿**(随首跳进 POST /api/v1/codebase/search 的 symbolName,等值条件在 api 侧进 SQL WHERE、早于 LIMIT,取回预算脱离 topK,单源 = apps/api/src/services/codebase-index-service.ts 的 rowBudget),故按符号名取回库内切片不再受 max_results 截断;装配层仍做一次逐字过滤(关键词腿是本地扫描,不经 HTTP)。出参 stats.symbol_filter 读数三档:pushed / unjudged:<原委> / not-attempted。"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
                 "use_semantic": {"type": "boolean", "description": "是否启用语义腿(pgvector ANN,默认 True;False=显式只要关键词腿)。语义腿不可用不再静默回落:响应体 mode/reasons 会点名是哪条腿没答上来", "default": True},
             },
@@ -10944,6 +11148,36 @@ _TOOLS: list[MCPTool] = [
             "type": "object",
             "properties": {"path": {"type": "string", "description": "文件绝对或相对路径"}},
             "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="read_tool_output",
+        description=(
+            "读取此前因超长而落盘的工具输出工件(按字符 offset 分页续读)。"
+            "工具结果正文会给出 output_artifact_id 与 output_offset;用本工具按 offset 继续读,"
+            "直到返回 complete=true。只读,不产生任何副作用"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "artifact_id": {
+                    "type": "string",
+                    "description": "工具结果正文里给出的 output_artifact_id(32 位小写 hex)",
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "从第几个字符开始读(用上一次返回的 next);默认 0",
+                    "minimum": 0,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "本页最多返回的字符数,默认 4000,上限 20000",
+                    "minimum": 1,
+                    "maximum": 20000,
+                },
+            },
+            "required": ["artifact_id"],
+            "additionalProperties": False,
         },
     ),
     MCPTool(
@@ -13742,6 +13976,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
+    "read_tool_output": _tool_read_tool_output,
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
@@ -14130,6 +14365,8 @@ class MCPServer:
         user_role: int = 0,
         user_id: str | None = None,
         session_id: str | None = None,
+        credit_balance: int | None = None,
+        credit_approval: str | None = None,
     ) -> dict[str, Any]:
         """调用指定工具(带权限矩阵校验)。
 
@@ -14202,7 +14439,13 @@ class MCPServer:
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
             # G6(2026-07-26):同时注入 __user_id/__session_id 供 knowledge_lookup
             # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
-            args_with_role = dict(arguments or {})
+            from ..core.mcp_tool_approval import apply_host_credit_facts
+
+            args_with_role = apply_host_credit_facts(
+                arguments,
+                balance=credit_balance,
+                approval=credit_approval,
+            )
             args_with_role["__user_role"] = user_role
             args_with_role["__user_id"] = user_id
             args_with_role["__session_id"] = session_id
@@ -14244,7 +14487,7 @@ class MCPServer:
             except Exception:  # noqa: BLE001
                 logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
-            return _truncate_tool_output(result)
+            return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:

@@ -55,7 +55,7 @@ export function createAgentWorktree(
   sourcePath: string,
   rootDir: string,
   agentId: string,
-  opts?: { startPoint?: string },
+  opts?: { startPoint?: string; stat?: (target: string) => unknown },
 ): WorktreeCreateResult {
   if (!agentId || agentId.trim().length === 0) {
     throw new Error('agentId 不能为空');
@@ -66,7 +66,20 @@ export function createAgentWorktree(
   ensureWorktreeGitignore(sourcePath);
 
   const wtPath = path.join(rootDir, agentId);
-  if (fs.existsSync(wtPath)) {
+  const look = opts?.stat ?? fs.statSync;
+  let occupied = false;
+  try {
+    look(wtPath);
+    occupied = true;
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树路径读不到,不能把它说成不存在再新建 (${code})`);
+    }
+  }
+  if (occupied) {
     throw new Error(`worktree 路径已存在: ${wtPath}(同一 agentId 不能重复创建)`);
   }
 
@@ -87,10 +100,37 @@ export function createAgentWorktree(
   return { agentId, path: wtPath, branch, createdAt: new Date().toISOString() };
 }
 
-/** 列出所有 agent 专属 worktree(git worktree list --porcelain,按分支前缀过滤) */
-export function listAgentWorktrees(sourcePath: string): WorktreeEntry[] {
+type AgentWorktreeList = { listed: true; entries: WorktreeEntry[] } | { listed: false; entries: [] };
+
+/**
+ * 名单没读到时不删除分支,也不把前后条数差说成清理了多少。
+ * 读到了才按「分支不在存活名单里」决定可删的名字。本函数不调用 git。
+ */
+export function planStaleBranchDeletes(input: {
+  worktreesListed: boolean;
+  liveBranches: readonly string[];
+  branchNames: readonly string[];
+}): string[] {
+  if (!input.worktreesListed) return [];
+  const live = new Set(input.liveBranches);
+  return input.branchNames.filter((name) => !live.has(name));
+}
+
+/** 前后名单有一边没读到,就不报清理条数。 */
+export function measuredPruneCount(
+  beforeListed: boolean,
+  beforeCount: number,
+  afterListed: boolean,
+  afterCount: number,
+  pruneOk: boolean,
+): number | null {
+  if (!pruneOk || !beforeListed || !afterListed) return null;
+  return Math.max(0, beforeCount - afterCount);
+}
+
+function readAgentWorktrees(sourcePath: string): AgentWorktreeList {
   const r = runGit(['worktree', 'list', '--porcelain'], sourcePath);
-  if (!r.ok) return [];
+  if (!r.ok) return { listed: false, entries: [] };
   const out: WorktreeEntry[] = [];
   let curPath = '';
   let curBranch = '';
@@ -117,7 +157,12 @@ export function listAgentWorktrees(sourcePath: string): WorktreeEntry[] {
     }
   }
   flush();
-  return out;
+  return { listed: true, entries: out };
+}
+
+/** 列出所有 agent 专属 worktree(git worktree list --porcelain,按分支前缀过滤) */
+export function listAgentWorktrees(sourcePath: string): WorktreeEntry[] {
+  return readAgentWorktrees(sourcePath).entries;
 }
 
 /** 按 agentId 查找 worktree 条目,不存在返回 null */
@@ -127,11 +172,10 @@ export function findAgentWorktree(sourcePath: string, agentId: string): Worktree
 
 /** 执行 git worktree prune,返回清理掉的失效 worktree 数量 */
 export function pruneWorktrees(sourcePath: string): number {
-  const before = listAgentWorktrees(sourcePath);
+  const before = readAgentWorktrees(sourcePath);
   const r = runGit(['worktree', 'prune'], sourcePath);
-  if (!r.ok) return 0;
-  const after = listAgentWorktrees(sourcePath);
-  return Math.max(0, before.length - after.length);
+  const after = r.ok ? readAgentWorktrees(sourcePath) : { listed: false as const, entries: [] as [] };
+  return measuredPruneCount(before.listed, before.entries.length, after.listed, after.entries.length, r.ok) ?? 0;
 }
 
 /**
@@ -142,8 +186,12 @@ export function pruneWorktrees(sourcePath: string): number {
  * @returns { pruned: 清理的孤儿 worktree 数, branchesDeleted: 删除的孤儿分支数 }
  */
 export function cleanupStaleWorktrees(sourcePath: string): { pruned: number; branchesDeleted: number } {
-  const entries = listAgentWorktrees(sourcePath);
-  const stale = entries.filter((e) => !e.dirExists);
+  const listed = readAgentWorktrees(sourcePath);
+  if (!listed.listed) {
+    process.stderr.write('warning: worktree 列表读不到,不能把它说成没有隔离副本,也不删除分支\n');
+    return { pruned: 0, branchesDeleted: 0 };
+  }
+  const stale = listed.entries.filter((e) => !e.dirExists);
   let pruned = 0;
   let branchesDeleted = 0;
 
@@ -152,18 +200,21 @@ export function cleanupStaleWorktrees(sourcePath: string): { pruned: number; bra
     if (r.ok) pruned = stale.length;
   }
 
-  // 孤儿分支检测:agent-wt-* 分支存在但已无对应 worktree
+  // 孤儿分支检测:agent-wt-* 分支存在但已无对应 worktree。名单没再读到就不删。
   const branchList = runGit(
     ['branch', '--list', `${AGENT_BRANCH_PREFIX}*`, '--format=%(refname:short)'],
     sourcePath,
   );
   if (branchList.ok) {
-    const liveBranches = new Set(listAgentWorktrees(sourcePath).map((e) => e.branch));
-    for (const b of branchList.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) {
-      if (!liveBranches.has(b)) {
-        const d = runGit(['branch', '-D', b], sourcePath);
-        if (d.ok) branchesDeleted++;
-      }
+    const live = readAgentWorktrees(sourcePath);
+    const names = branchList.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    for (const b of planStaleBranchDeletes({
+      worktreesListed: live.listed,
+      liveBranches: live.entries.map((e) => e.branch),
+      branchNames: names,
+    })) {
+      const d = runGit(['branch', '-D', b], sourcePath);
+      if (d.ok) branchesDeleted++;
     }
   }
 

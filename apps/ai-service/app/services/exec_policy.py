@@ -940,7 +940,17 @@ def _append_rule_line(target: Path, rule: PrefixRule) -> None:
     """将规则行追加到落盘文件(保证行分隔正确,Windows 下用 ``\\n``)。"""
     target.parent.mkdir(parents=True, exist_ok=True)
     line = _format_rule_line(rule) + "\n"
-    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    try:
+        target.stat()
+    except FileNotFoundError:
+        existing = ""
+    except OSError as exc:
+        raise OSError(f"执行策略读不到,不能把它覆盖成只剩新的一行: {exc}") from exc
+    else:
+        try:
+            existing = target.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise OSError(f"执行策略读不到,不能把它覆盖成只剩新的一行: {exc}") from exc
     if existing and not existing.endswith("\n"):
         existing += "\n"
     target.write_text(existing + line, encoding="utf-8", newline="\n")

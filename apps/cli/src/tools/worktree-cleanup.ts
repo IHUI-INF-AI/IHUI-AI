@@ -50,14 +50,33 @@ export type WorktreeCleanupOutcome =
  * 命拒 = 越出隔离区根 ⇒ 先出声再返 `refused`,排在 `existsSync`/`git worktree remove`/回收站
  * rename/`rmSync` 之前 ⇒ 一个字节不删。合法隔离区因"隔离区叶子直子"那一臂不误杀。
  */
-export function cleanupWorktree(wtPath: string, sourcePath: string, force = true): WorktreeCleanupOutcome {
+function pathCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+export function cleanupWorktree(
+  wtPath: string,
+  sourcePath: string,
+  force = true,
+  stat?: (target: string) => unknown,
+): WorktreeCleanupOutcome {
   const containment = judgeWorktreeContainment(getDefaultWorktreeRoot(sourcePath), wtPath);
   if (!containment.contained) {
     emitWorktreeVoice(`[worktree-containment] ${containment.reason}。下一步:${containment.nextStep}`);
     return { status: 'refused', reason: containment.reason };
   }
   try {
-    if (!fs.existsSync(wtPath)) return { status: 'absent' };
+    const look = stat ?? fs.statSync;
+    try {
+      look(wtPath);
+    } catch (error) {
+      const code = pathCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { status: 'absent' };
+      return { status: 'failed', reason: `工作树读不到,不能把它说成已经不在 (${code})` };
+    }
     const args = ['worktree', 'remove', wtPath];
     if (force) args.push('--force');
     const r = runGit(args, sourcePath);

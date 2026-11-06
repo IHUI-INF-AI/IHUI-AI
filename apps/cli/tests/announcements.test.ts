@@ -302,6 +302,20 @@ describe('fetchAnnouncements / getAnnouncements / refreshAnnouncements', () => {
     expect(list).toEqual([]);
   });
 
+  it('缓存和已读名单读不到时不说成没有,也不覆盖', async () => {
+    fs.mkdirSync(cachePath, { recursive: true });
+    fs.mkdirSync(seenPath, { recursive: true });
+    expect(() => loadCache(cachePath)).toThrow(/不能把它说成没有公告/);
+    await expect(
+      getAnnouncements({ apiUrl: 'http://127.0.0.1:0', cachePath, cacheTtlMs: 60_000 }),
+    ).rejects.toThrow(/不能把它说成没有公告/);
+    expect(fs.statSync(cachePath).isDirectory()).toBe(true);
+    expect(() => loadSeenIds(seenPath)).toThrow(/不能把它说成没有已读/);
+    expect(() => markSeen(seenPath, 'a-1')).toThrow(/不能把它说成没有已读/);
+    expect(() => markAllSeen(seenPath, sampleList)).toThrow(/不能把它说成没有已读/);
+    expect(fs.statSync(seenPath).isDirectory()).toBe(true);
+  });
+
   it('refreshAnnouncements 绕过缓存直接 HTTP(失败返回 [])', async () => {
     const list = await refreshAnnouncements({
       apiUrl: 'http://127.0.0.1:0',

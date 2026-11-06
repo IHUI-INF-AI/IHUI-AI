@@ -63,6 +63,7 @@ jobs:
     # 创建 0-job 空 run 并标 failure(GitHub 行为);此守卫使其变为 skipped。
     if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     env:
       # 与 release-cli 同一把开关:四项凭据齐备才置 true(step-level if 不支持 secrets
       # 上下文,故先在 job env 折算)。未配置时下面那组签名步整体跳过,发布链与今日逐字同形。
@@ -805,6 +806,7 @@ jobs:
           - label: macos-universal
             runner: macos-latest
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -971,6 +973,7 @@ jobs:
     # 少了它,未签名/未公证的包会照样被写进 latest.json,已装客户端自动升级后验签失败/被拦。
     needs: [build, signature-gate]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -998,6 +1001,7 @@ jobs:
     name: Sync Downloads to public/downloads/
     needs: [build, publish-updater-json]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout (main branch for commit)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -1132,6 +1136,7 @@ jobs:
     # 默认开启;显式关闭:仓库 Settings → Variables → GITEE_SYNC_ENABLED=false
     if: ${{ vars.GITEE_SYNC_ENABLED != 'false' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

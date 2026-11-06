@@ -16,7 +16,7 @@ export interface SdkConfig {
   baseUrl?: string
   /** 请求超时(毫秒),默认 30000。流式请求不超时。 */
   timeout?: number
-  /** 最大重试次数,默认 2。网络错误和 5xx 自动重试,429 不重试。 */
+  /** 最大重试次数,默认 2。仅幂等方法(GET/HEAD/OPTIONS)或带幂等键的写操作会自动重试网络错误/5xx。 */
   maxRetries?: number
   /** 自定义 fetch 实现(测试/拦截用)。 */
   fetch?: typeof fetch
@@ -111,14 +111,30 @@ export class BaseClient {
 
   /**
    * 发起 JSON 请求并解析响应。
-   * 网络错误和 5xx 自动重试(指数退避 500ms/1000ms),429 和 4xx 不重试。
+   *
+   * BUG-14:自动重放只认「幂等方法(GET/HEAD/OPTIONS)」或「显式携带幂等键的写操作」;
+   * POST/PATCH/PUT/DELETE 默认一次都不重放(否则 5xx/网络抖动会重复下单、重复扣费)。
+   * 可重试错误仅限网络异常与 5xx;429 / 4xx / 空体 / 解析失败一律不重试(指数退避 500/1000ms)。
+   * 2xx 空体不再 `undefined as T` —— 显式返回 null(void 写操作不受影响);
+   * 有体但解析失败抛 SdkError 且不重试。
    * 若 body 为 FormData,则不 JSON 序列化、不设置 Content-Type(由运行时自动添加 boundary)。
    */
-  async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    idempotencyKey?: string,
+  ): Promise<T> {
     const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
+    const upperMethod = method.toUpperCase()
+    const idempotentMethod =
+      upperMethod === 'GET' || upperMethod === 'HEAD' || upperMethod === 'OPTIONS'
+    const canRetry =
+      idempotentMethod || (typeof idempotencyKey === 'string' && idempotencyKey.length > 0)
+    const retryBudget = canRetry ? this.maxRetries : 0
     let lastError: SdkError | undefined
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= retryBudget; attempt++) {
       if (attempt > 0) {
         const delay = RETRY_DELAYS[attempt - 1] ?? 1000
         await sleep(delay)
@@ -131,6 +147,9 @@ export class BaseClient {
         const headers = this.buildHeaders()
         if (isFormData) {
           delete headers['Content-Type']
+        }
+        if (idempotencyKey) {
+          headers['Idempotency-Key'] = idempotencyKey
         }
 
         const resp = await this.fetchFn(this.buildUrl(path), {
@@ -147,8 +166,21 @@ export class BaseClient {
 
         if (resp.ok) {
           const text = await resp.text()
-          if (!text) return undefined as T
-          return JSON.parse(text) as T
+          if (!text) {
+            // 2xx 真空体:显式返回 null,不再 `undefined as T` 假装拿到了 T。
+            // void / 可空调用方(DELETE/cancel 等写操作)不受影响;需要实体的调用方按 null 判空。
+            return null as T
+          }
+          try {
+            return JSON.parse(text) as T
+          } catch {
+            // 有体但解析失败 ≠ 网络抖动:不重试,直接判失败。
+            throw new SdkError(
+              resp.status,
+              'invalid_json_response',
+              'Response body is not valid JSON',
+            )
+          }
         }
 
         const errBody = await this.parseErrorBody(resp)

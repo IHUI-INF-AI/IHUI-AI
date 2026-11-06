@@ -53,6 +53,14 @@ import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 import { loadKnowledgeContext } from '../services/knowledge-chat-context.js'
 // G6 企业治理面(2026-10-30 立):模型准入检查点(ORG_POLICIES_ENABLED 关=直通,行为逐字节不变)
 import { guardModelAdmission } from '../services/org-policy-service.js'
+// 批次 3(2026-11-06):预算停止 / 上下文账本 / 压缩边界的落库出口。
+// 写入函数自带 try/catch 且一律 fire-and-forget —— 账本写失败只进日志,绝不中断转发。
+import {
+  recordBudgetStop,
+  recordCompactionBoundary,
+  recordContextLedger,
+} from '../services/chat-ledger-store.js'
+import type { CompactBoundary, ContextLedger } from '@ihui/shared'
 import {
   abortConversationStreams,
   createSession,
@@ -63,6 +71,7 @@ import {
   findSession,
   finishSession,
   getReplayEvents,
+  startHeartbeat,
   takeoverStream,
   waitForReplayHeadroom,
 } from '../utils/sse-stream-registry.js'
@@ -458,6 +467,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     reply: FastifyReply,
     userId: string | undefined,
     model: string | undefined,
+    ledger?: { conversationId?: string | null; messageId?: string | null },
   ): Promise<BudgetGateResult> {
     if (!userId) return { decision: 'allow' } // 无 userId 无法校验, 放行
     try {
@@ -469,6 +479,27 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       // block: 与 checkBudget 同口径 used >= limit(limit=0 时恒成立, 保持既有语义)
       if (usedTokens >= limitTokens) {
+        const percent = limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100
+        // 批次 3(2026-11-06):请求级硬停止同样留证据。判定式只有 token 维度 ⇒
+        // reasonCode 恒为 daily_token_limit(成本判据不在本函数内,不猜档)。
+        // fire-and-forget:429 响应不被账本写入拖慢,写失败由 store 记日志。
+        void recordBudgetStop(
+          {
+            // 归属列取认证主体(request.userId),不取客户端可整写的 metadata.userId;
+            // 后者只用于预算查询口径(既有行为),不用于落库归属。
+            userId: request.userId ?? userId,
+            conversationId: ledger?.conversationId ?? null,
+            messageId: ledger?.messageId ?? null,
+            level: 'stopped',
+            reasonCode: 'daily_token_limit',
+            scope: 'daily',
+            usedTokens,
+            limitTokens,
+            usagePercent: percent,
+            remainingTokens: Math.max(0, limitTokens - usedTokens),
+          },
+          request.log,
+        )
         // P2-2 日预算超限:下发 Retry-After(60s)让客户端按协商重试,而非无脑指数退避
         sseMetrics.budgetRejects++
         sseMetrics.retryAfterSent++
@@ -477,15 +508,17 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           code: 429,
           message: '预算超限',
           errorCode: 'BUDGET_EXHAUSTED',
-          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          percent,
           usedTokens,
           limitTokens,
           resetAt,
           data: { reason: 'budget_exceeded', detail: '日 token 预算已用尽' },
+          // 增量字段:既有契约与测试读 errorCode/percent,新消费端可据 reasonCode 说明原因。
+          reasonCode: 'daily_token_limit',
         })
         return {
           decision: 'block',
-          percent: limitTokens > 0 ? Math.floor((usedTokens / limitTokens) * 1000) / 10 : 100,
+          percent,
           usedTokens,
           limitTokens,
           tier,
@@ -695,6 +728,84 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       livePrevious.finished = true
     }
     const session = createSession(raw, new AbortController(), replayKey, upstreamSessionId)
+    // 2026-11-06 批1:主聊天流周期心跳。此前本链路只在「等审批/等表单/排队」的
+    // ai-service 分支里发 keep-alive,工具执行/长推理等静默期一个字节都没有 ——
+    // 而客户端读环是 30s 空闲判定(packages/api-client/src/client.ts),静默超窗
+    // 会被判成断线并重连/重跑上游。心跳是 SSE 注释帧(`: ping`,经 registry 唯一
+    // 实现),不编号、不进回放缓冲,重连重放语义零变化;断线期间 registry 自动跳过,
+    // 接管换绑后新连接继续收拍。必须在 finally 停止,否则会话结束后仍会写已关闭连接。
+    const stopHeartbeat = startHeartbeat(session)
+
+    // ── 批次 3 账本采集(2026-11-06)──────────────────────────────────────────
+    // 只在命名帧转发路径上旁路采集:不改帧字节、不改顺序、不改编号;写入全 fire-and-forget,
+    // 账本失败只进日志(store 内已 try/catch),转发循环永不因落库失败而中断。
+    // userId 取承载层认证身份(不取客户端可整写的 metadata.userId);conversationId/messageId
+    // 取请求 metadata —— 与 chat-sync / 元素包同一条坐标来源。
+    const ledgerUserId = request.userId
+    const ledgerConversationId = opts.metadata?.conversationId ?? null
+    const ledgerMessageId = opts.metadata?.messageId ?? null
+
+    const numberOrNull = (v: unknown): number | null =>
+      typeof v === 'number' && Number.isFinite(v) ? v : null
+
+    /** 按命名帧种类落账本。payload 为帧 data 的对象形态(已 JSON.parse)。 */
+    function captureLedgerPayload(eventName: string, payload: unknown): void {
+      if (!ledgerUserId || !ledgerConversationId) return
+      if (!payload || typeof payload !== 'object') return
+      const p = payload as Record<string, unknown>
+      const messageId =
+        typeof p.messageId === 'string' && p.messageId ? p.messageId : ledgerMessageId
+      if (eventName === 'usage') {
+        const rawLedger = p.contextLedger
+        if (!rawLedger || typeof rawLedger !== 'object') return // 旧帧代际差:无账本可落,不是全 0
+        void recordContextLedger(
+          {
+            userId: ledgerUserId,
+            conversationId: ledgerConversationId,
+            messageId,
+            ledger: rawLedger as ContextLedger,
+            turnIndex: numberOrNull(p.turnIndex),
+          },
+          request.log,
+        )
+        return
+      }
+      if (eventName === 'budget') {
+        // warning/critical 只是提醒,不落证据;硬停止才有一行 chat_budget_stops。
+        if (p.level !== 'stopped') return
+        void recordBudgetStop(
+          {
+            userId: ledgerUserId,
+            conversationId: ledgerConversationId,
+            messageId,
+            level: 'stopped',
+            reasonCode: typeof p.reasonCode === 'string' ? p.reasonCode : '',
+            scope: typeof p.scope === 'string' ? p.scope : '',
+            pillar: typeof p.pillar === 'string' ? p.pillar : null,
+            usedTokens: numberOrNull(p.usedTokens),
+            limitTokens: numberOrNull(p.limitTokens),
+            usagePercent: numberOrNull(p.usagePercent) ?? numberOrNull(p.percent),
+            remainingTokens: numberOrNull(p.remainingTokens),
+            stoppedAtIteration: numberOrNull(p.stoppedAtIteration),
+          },
+          request.log,
+        )
+        return
+      }
+      if (eventName === 'compaction') {
+        const boundary = p.boundary
+        if (!boundary || typeof boundary !== 'object') return // 无边界信息的旧帧:不造空行
+        void recordCompactionBoundary(
+          {
+            userId: ledgerUserId,
+            conversationId: ledgerConversationId,
+            messageId,
+            boundary: boundary as CompactBoundary,
+          },
+          request.log,
+        )
+      }
+    }
 
     // 首事件:压缩通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
@@ -708,6 +819,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (evt.key === 'compaction') {
         chunk.type = 'compaction'
         emitNamedEvent(session, 'compaction', JSON.stringify(chunk))
+        // 批次 3:本地压缩若带 boundary(契约可选字段)才落边界;不带则整笔跳过。
+        captureLedgerPayload('compaction', evt.payload)
         continue
       }
       // 2026-09-19 立:budget 用量提醒命名帧 —— payload 即完整 data(顶层平铺,
@@ -716,6 +829,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // 断线重连走接管/重放路径时随缓冲一并下发。
       if (evt.key === 'budget') {
         emitNamedEvent(session, 'budget', JSON.stringify(evt.payload))
+        // 本批次首帧仍是 warning/critical(放行提醒);level='stopped' 才留一行证据。
+        captureLedgerPayload('budget', evt.payload)
         continue
       }
       emitEvent(session, JSON.stringify(chunk))
@@ -1027,6 +1142,19 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           if (pendingNamedEvent) {
             const data = line.startsWith('data:') ? line.slice(5).replace(/^\s/, '') : null
             if (data && data !== '[DONE]') {
+              // 批次 3(2026-11-06):转发前旁路采集 usage/budget/compaction 三类命名帧的账本载荷。
+              // 解析失败/形状不合契约只在 store 内 debug,帧本身照旧原样编号转发。
+              if (
+                pendingNamedEvent === 'usage' ||
+                pendingNamedEvent === 'budget' ||
+                pendingNamedEvent === 'compaction'
+              ) {
+                try {
+                  captureLedgerPayload(pendingNamedEvent, JSON.parse(data))
+                } catch {
+                  /* 非 JSON 命名帧:不采集,照旧透传 */
+                }
+              }
               emitNamedEvent(session, pendingNamedEvent, data)
               pendingNamedEvent = null
               continue
@@ -1041,14 +1169,32 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // fallback 降级通知在重放后丢事件名,前端 onSteer/onFallback 不触发。
           // 其余命名帧(plan_updated/tool-summary/citations)维持原样透传:其 data
           // 行需走下方 agentId 注入分支(绑 agent 对话的 subagent 分流),通用化捕获会跳过。
+          // 2026-11-06(批次 3):budget(硬停止终态)与 compaction(压缩边界)同为**会话级**
+          // 命名帧,不含 subagent 分流语义 ⇒ 并入同一配对缓冲,重连重放时账本帧仍保真。
           // V3 #58(2026-09-26 立):tool-approval(主对话流工具审批门)同样走原样
           // 行透传 —— event: 行 + data: 行经 emitUpstreamLine 编号进回放缓冲,
           // 断线重连重放后仍是合法命名帧;前端 streamChat 按 data.type 分流解析,
           // 决策回传走 ai-service 流级端点(与 postToolResult 同族,不经网关)。
-          const evMatch = /^event:\s*(usage|steer|fallback)\s*$/.exec(line)
+          const evMatch = /^event:\s*(usage|steer|fallback|budget|compaction)\s*$/.exec(line)
           if (evMatch) {
             pendingNamedEvent = evMatch[1] ?? null
             continue
+          }
+          // 批次 3(2026-11-06):ai-service 的压缩帧是 **data-only**
+          // (`data: {"compaction":{…,"boundary":{…}}}` 无 `event:` 行,见
+          // ai-service/app/routers/llm.py::_compaction_frame —— 载荷只有 compaction 键,
+          // **没有** type 字段),不落入上方命名帧配对分支 ⇒ 用廉价子串预筛后旁路捕获。
+          // 判据只认顶层 compaction 对象:解析失败或旧帧不带 boundary 时照旧透传。
+          if (line.startsWith('data:') && line.includes('"compaction"')) {
+            const captureData = line.slice(5).replace(/^\s/, '')
+            try {
+              const json = JSON.parse(captureData) as Record<string, unknown>
+              if (json.compaction && typeof json.compaction === 'object') {
+                captureLedgerPayload('compaction', json.compaction)
+              }
+            } catch {
+              /* 非 JSON data 行:透传,不捕获 */
+            }
           }
           // G-998168 票5:openTiming 注入(仅一次)—— 挂在客户端看到的**首帧**数据载荷上
           // (additive optional 字段,非新增命名事件:契约文件/事件名集合零变化,
@@ -1161,6 +1307,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     } finally {
       raw.off('close', onClose)
       clearTimeout(serverTimeout)
+      // 心跳必须先于 finishSession 停止:停止后再收尾,避免会话摘除后定时器仍持有 raw。
+      stopHeartbeat()
       // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
       // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
       if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
@@ -1407,6 +1555,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         reply,
         metadata?.userId ?? request.userId,
         resolvedModel,
+        {
+          conversationId: metadata?.conversationId ?? null,
+          messageId: metadata?.messageId ?? null,
+        },
       )
       if (budgetGate.decision === 'block') {
         return
@@ -1700,7 +1852,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
       // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
-      const budgetGate = await checkTokenBudget(request, reply, userId, resolvedModel)
+      const budgetGate = await checkTokenBudget(request, reply, userId, resolvedModel, {
+        conversationId: metadata?.conversationId ?? null,
+        messageId: metadata?.messageId ?? null,
+      })
       if (budgetGate.decision === 'block') {
         return
       }

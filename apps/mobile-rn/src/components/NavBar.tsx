@@ -253,7 +253,7 @@ export function NavBar({
               action={{
                 icon: menuIcon ?? Menu,
                 onPress: onMenuClick ?? (() => {}),
-                a11yLabel: t('NavBar.z2'),
+                a11yLabel: t('common.menu'),
               }}
             />
           ) : null}

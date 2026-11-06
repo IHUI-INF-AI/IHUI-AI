@@ -9,6 +9,8 @@ import { useI18n, useTt } from '@/i18n'
 const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+// BUG-67:AI 主动提问卡(question 帧)的页级浮层节点(Taro 原生组件,不进共享屏槽位)。
+import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   chatStream,
@@ -20,6 +22,11 @@ import {
   getAigcList,
   getAgentDetail,
   getAgentList,
+  // 批次 3(2026-11-06):进入会话回放最近一次预算停止 / 七类账本 / 压缩边界。
+  // 三条查询均为静默失败(页面不回退 toast,账本缺席时用量位继续走现有估算)。
+  fetchConversationLatestBudgetStop,
+  fetchConversationContextLedgers,
+  fetchConversationCompactionBoundaries,
 } from '@/api'
 import {
   formatSSEError,
@@ -40,6 +47,12 @@ import {
   postFormResponse,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import type { CompactBoundary } from '@ihui/shared'
+import {
+  applyBudgetStopEvent,
+  type BudgetStopView,
+  type ContextLedgerEntry,
+} from '@/lib/chat-budget-ledger-frames'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 // 票59 小程序腿:判族/投影唯一源(共享层;web 侧 lib/message-version-family 已收口为同报 re-export)。
@@ -215,6 +228,15 @@ export default function ChatPage() {
     error?: string
   }
   const [businessForms, setBusinessForms] = useState<readonly BusinessFormView[]>([])
+  // BUG-67:AI 主动提问卡(question 帧)。载荷由 api/index.ts 的 onRawLine 旁路认领后
+  // 经 onQuestion 回调落到这里;同 questionId 幂等覆盖(断线重连回放不重复挂卡)。
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  } | null>(null)
   // 上行在途标记(防重复提交;与 approvalSending 同纪律,按条目 requestId 标记)
   const [formSendingRequestId, setFormSendingRequestId] = useState<string | null>(null)
   // ── G-403(2026-10-07):消息级 usage 缓存两维(onUsage 帧 → 归因条)──
@@ -225,6 +247,15 @@ export default function ChatPage() {
     cacheReadTokens: number | null
     cacheWriteTokens: number | null
   }>({ cacheReadTokens: null, cacheWriteTokens: null })
+
+  // ── 批次 3(2026-11-06):预算停止终态 / 七类上下文账本 / 压缩边界 ──
+  // budgetStop 只在 level='stopped' 时写入;后续 warning 帧不碰它(终态不可被降级覆盖)。
+  // contextLedger 与 compactionBoundary 允许流内更新,进入会话时再由查询接口补历史态。
+  const [budgetStop, setBudgetStop] = useState<BudgetStopView | null>(null)
+  const [contextLedger, setContextLedger] = useState<ContextLedgerEntry | null>(null)
+  const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
+  const conversationId =
+    sessionId || (routeSessionId && !routeSessionId.startsWith('hist_') ? routeSessionId : '')
 
   /**
    * D136:审批决议回传(卡片 onDecision 的唯一出口)。
@@ -331,6 +362,8 @@ export default function ChatPage() {
     setGoalNotice(null)
     // D77:表单待填/终态同样是会话级 —— 旧会话的卡不得挂到新会话头上。
     setBusinessForms([])
+    // BUG-67:提问卡同样是会话级 —— 旧会话未答的提问不得挂到新会话头上。
+    setPendingQuestion(null)
     setFormSendingRequestId(null)
     earlierCursorRef.current = null
   }, [])
@@ -732,6 +765,28 @@ export default function ChatPage() {
         runServerReplay()
       })
     }
+    // 批次 3:进入会话回放三条查询(预算停止最新一条 / 最近账本 / 最近压缩边界)。
+    // 无服务端会话(本机快照 / 空会话)不查;查询内部静默失败 ⇒ 不弹 toast、不阻塞输入。
+    // 流式进行中(含从后台回前台触发的 show)不清状态也不查库,避免把本轮 live 账本/边界清掉。
+    if (!thinking) {
+      // 先清空再落库:换会话时不能把上一会话的停止提示或边界挂到新页。
+      setBudgetStop(null)
+      setContextLedger(null)
+      setCompactionBoundary(null)
+      if (conversationId) {
+        void Promise.all([
+          fetchConversationLatestBudgetStop(conversationId),
+          fetchConversationContextLedgers(conversationId, 5),
+          fetchConversationCompactionBoundaries(conversationId, 5),
+        ]).then(([stop, ledgers, boundaries]) => {
+          if (stop) setBudgetStop(stop)
+          const latestLedger = ledgers[0]
+          if (latestLedger) setContextLedger(latestLedger)
+          const latestBoundary = boundaries[0]
+          if (latestBoundary) setCompactionBoundary(latestBoundary)
+        })
+      }
+    }
     // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
     try {
       const savedFav = Taro.getStorageSync(FAVORITE_STORAGE_KEY)
@@ -865,6 +920,10 @@ export default function ChatPage() {
       setStreamActivities([])
       // G-403:新一轮开始,重置上一轮的缓存读数(旧账不得挂到新消息上)
       setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+      // 批次 3:新一轮开始清掉上一轮的停止提示与压缩边界回看(本轮若再压缩/再停止会重新落)。
+      // contextLedger 不在这里清:新 usage 帧到达前的旧账本是最近一轮的真实读数,不应闪空。
+      setBudgetStop(null)
+      setCompactionBoundary(null)
       roundTraceIdRef.current = undefined
       startThinkingProgress()
       scrollToBottom()
@@ -1224,6 +1283,11 @@ export default function ChatPage() {
                 return [...prev, entry]
               })
             },
+            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → 下方提问卡 JSX。
+            // 选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
+            onQuestion: (q) => {
+              setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {
@@ -1244,6 +1308,17 @@ export default function ChatPage() {
                 cacheReadTokens: info.cacheReadTokens ?? null,
                 cacheWriteTokens: info.cacheWriteTokens ?? null,
               })
+            },
+            // 批次 3(2026-11-06):usage 帧携带的七类上下文账本(由 api/index 的原始行旁路
+            // 认领后回调)。共享解析面只折旧 usage 字段,这里不重解帧、只落 state。
+            onContextLedger: (ledger) => setContextLedger({ ledger, turnIndex: null }),
+            // 批次 3:compaction 帧的压缩边界(保留段 + 折叠区间)。无 boundary 不触发回调;
+            // 展开交互见 CompactionBoundaryStrip,本端不在此拼 UI 文案。
+            onCompactionBoundary: (boundary) => setCompactionBoundary(boundary),
+            // 批次 3:预算档位帧。`stopped` 是终态 —— 只有它能写 budgetStop;
+            // warning/critical 一律不碰该 state(后到的 warning 不得覆盖停止提示)。
+            onBudget: (evt) => {
+              setBudgetStop((prev) => applyBudgetStopEvent(prev, evt))
             },
             onReconnect: (attempt, delayMs) =>
               pushStreamActivity(
@@ -1906,6 +1981,10 @@ export default function ChatPage() {
     inputValue,
     lastAssistantCards,
     latestCacheTokens,
+    // 批次 3:端内壳的上下文账本 / 压缩边界 / 预算停止终态(三个节点只消费这里传入的 state)
+    contextLedger,
+    compactionBoundary,
+    budgetStop,
     loadingEarlier,
     materialDrawerVisible,
     materialHasMore,
@@ -1963,6 +2042,54 @@ export default function ChatPage() {
   return (
     <ThemeRoot className="page">
       <SharedChatScreen {...buildChatShellProps(shellCtx)} />
+      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
+          点选项把回答写回输入框,用户点发送即续流;关闭只收卡,不吞掉已有输入。 */}
+      {pendingQuestion ? (
+        <View
+          style={{
+            position: 'fixed',
+            left: '16px',
+            right: '16px',
+            bottom: '96px',
+            zIndex: 999,
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+          }}
+        >
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+            {pendingQuestion.prompt}
+          </Text>
+          {pendingQuestion.options.map((o) => (
+            <View
+              key={o.id}
+              onClick={() => {
+                setInputValue(o.label)
+                setPendingQuestion(null)
+              }}
+              style={{
+                marginTop: '10px',
+                padding: '10px',
+                borderRadius: '8px',
+                borderWidth: '1px',
+                borderColor: '#dddddd',
+              }}
+            >
+              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+            </View>
+          ))}
+          <View onClick={() => setPendingQuestion(null)} style={{ marginTop: '10px', padding: '8px' }}>
+            <Text style={{ fontSize: '13px', color: '#888888' }}>
+              {pendingQuestion.allowCustom
+                ? pendingQuestion.allowMultiple
+                  ? '可多选 / 自行输入,也可关闭'
+                  : '可自行输入,也可关闭'
+                : '关闭'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </ThemeRoot>
   )
 }

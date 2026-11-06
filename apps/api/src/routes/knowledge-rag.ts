@@ -178,7 +178,10 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
     const q = (req.query as { limit?: string }) ?? {}
-    const limit = q.limit ? Math.max(1, Math.min(100, Number(q.limit))) : 10
+    const parsedLimit = Number(q.limit)
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(100, Math.floor(parsedLimit)))
+      : 10
     const owner = requireUserId(req)
     try {
       const chunks = await knowledgeRagService.getDocChunks(id, owner, limit)

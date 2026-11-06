@@ -108,6 +108,148 @@ export const MAX_READ_BYTES = 512 * 1024;
  */
 export const BINARY_SNIFF_BYTES = 1024;
 
+export type BundledToolPlan =
+  | { disposition: 'use'; reason: 'bundled' | 'explicit-host'; source: 'bundled' | 'host'; path: string }
+  | {
+      disposition: 'unjudged';
+      reason:
+        | 'path-invalid'
+        | 'presence-unmeasured'
+        | 'host-not-substitute'
+        | 'host-absent'
+        | 'header-unmeasured'
+        | 'header-truncated'
+        | 'arch-unrecognized';
+      source: 'none';
+      path: '';
+    }
+  | { disposition: 'refused'; reason: 'foreign-arch' | 'not-pe'; source: 'none'; path: '' };
+
+const PE_MACHINE_BY_ARCH: Record<string, number> = {
+  x64: 0x8664,
+  arm64: 0xaa64,
+  ia32: 0x14c,
+};
+
+function peBytes(header: unknown): Uint8Array | null {
+  if (header instanceof Uint8Array) return header;
+  if (!Array.isArray(header) || header.some((item) => !Number.isInteger(item) || item < 0 || item > 255)) {
+    return null;
+  }
+  return Uint8Array.from(header);
+}
+
+function peU16(bytes: Uint8Array, offset: number): number | null {
+  if (offset < 0 || offset + 2 > bytes.length) return null;
+  return bytes[offset]! | (bytes[offset + 1]! << 8);
+}
+
+function peU32(bytes: Uint8Array, offset: number): number | null {
+  if (offset < 0 || offset + 4 > bytes.length) return null;
+  return (
+    bytes[offset]! |
+    (bytes[offset + 1]! << 8) |
+    (bytes[offset + 2]! << 16) |
+    (bytes[offset + 3]! << 24)
+  ) >>> 0;
+}
+
+export type PeArchJudgment = {
+  disposition: 'match' | 'unjudged' | 'refused';
+  reason: 'match' | 'header-unmeasured' | 'header-truncated' | 'not-pe' | 'arch-unrecognized' | 'foreign-arch';
+};
+
+/** 只认 PE 头里的 Machine。宿主架构认不出，或头被截断，都不算匹配。 */
+export function judgePeArch(input: { hostArch: unknown; header: unknown }): PeArchJudgment {
+  if (typeof input.hostArch !== 'string' || !(input.hostArch in PE_MACHINE_BY_ARCH)) {
+    return { disposition: 'unjudged', reason: 'arch-unrecognized' };
+  }
+  const bytes = peBytes(input.header);
+  if (bytes === null) return { disposition: 'unjudged', reason: 'header-unmeasured' };
+  if (bytes.length < 0x40) return { disposition: 'unjudged', reason: 'header-truncated' };
+  if (bytes[0] !== 0x4d || bytes[1] !== 0x5a) return { disposition: 'refused', reason: 'not-pe' };
+  const lfanew = peU32(bytes, 0x3c);
+  if (lfanew === null || lfanew > 1024 || peU16(bytes, lfanew + 4) === null) {
+    return { disposition: 'unjudged', reason: 'header-truncated' };
+  }
+  if (
+    bytes[lfanew] !== 0x50 ||
+    bytes[lfanew + 1] !== 0x45 ||
+    bytes[lfanew + 2] !== 0 ||
+    bytes[lfanew + 3] !== 0
+  ) {
+    return { disposition: 'refused', reason: 'not-pe' };
+  }
+  const machine = peU16(bytes, lfanew + 4);
+  if (machine !== PE_MACHINE_BY_ARCH[input.hostArch]) {
+    return { disposition: 'refused', reason: 'foreign-arch' };
+  }
+  return { disposition: 'match', reason: 'match' };
+}
+
+function bundledPathOk(value: string): boolean {
+  if (!value || value.includes('\0') || value.includes('\n') || value.includes('\r')) return false;
+  return !value.split(/[/\\]/).includes('..');
+}
+
+/**
+ * 包内工具优先。没量到包内文件在不在,不用宿主 PATH 上的同名程序顶上。
+ * 量到包内没有、且调用方显式允许时,才用宿主路径,并标明 source=host。
+ */
+export function selectBundledTool(input: {
+  bundledPath: string | null;
+  bundledExists: boolean | null;
+  hostPath: string | null;
+  allowHost: boolean;
+  hostArch?: unknown;
+  peHeader?: unknown;
+}): BundledToolPlan {
+  const none = (
+    reason:
+      | 'path-invalid'
+      | 'presence-unmeasured'
+      | 'host-not-substitute'
+      | 'host-absent'
+      | 'header-unmeasured'
+      | 'header-truncated'
+      | 'arch-unrecognized',
+  ): BundledToolPlan => ({
+    disposition: 'unjudged',
+    reason,
+    source: 'none',
+    path: '',
+  });
+  const archAsked = input.hostArch !== undefined || input.peHeader !== undefined;
+  const archGate = (): BundledToolPlan | null => {
+    if (!archAsked) return null;
+    const arch = judgePeArch({ hostArch: input.hostArch, header: input.peHeader });
+    if (arch.disposition === 'match') return null;
+    if (arch.disposition === 'refused') {
+      const reason = arch.reason === 'foreign-arch' || arch.reason === 'not-pe' ? arch.reason : 'not-pe';
+      return { disposition: 'refused', reason, source: 'none', path: '' };
+    }
+    const unjudgedReason =
+      arch.reason === 'header-unmeasured' ||
+      arch.reason === 'header-truncated' ||
+      arch.reason === 'arch-unrecognized'
+        ? arch.reason
+        : 'header-unmeasured';
+    return none(unjudgedReason);
+  };
+  if (input.bundledExists === null) return none('presence-unmeasured');
+  if (input.bundledExists) {
+    if (input.bundledPath === null || !bundledPathOk(input.bundledPath)) return none('path-invalid');
+    const blocked = archGate();
+    if (blocked) return blocked;
+    return { disposition: 'use', reason: 'bundled', source: 'bundled', path: input.bundledPath };
+  }
+  if (!input.allowHost) return none('host-not-substitute');
+  if (input.hostPath === null || !bundledPathOk(input.hostPath)) return none('host-absent');
+  const blocked = archGate();
+  if (blocked) return blocked;
+  return { disposition: 'use', reason: 'explicit-host', source: 'host', path: input.hostPath };
+}
+
 // ==================== Ripgrep 集成 ====================
 //
 // 引擎标识与"降级留痕"的口径对齐本仓 Python 侧的
@@ -532,14 +674,20 @@ export const read_file: Tool = {
         error: aclRead.note ?? `按文件访问裁决禁止读取 ${filePath}`,
       };
     }
-    if (!fs.existsSync(abs)) {
-      return {
-        success: false,
-        output: '',
-        error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
-      };
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(abs);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        return {
+          success: false,
+          output: '',
+          error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+        };
+      }
+      return { success: false, output: '', error: `文件读不到,不能把它说成不存在: ${filePath}` };
     }
-    const stat = fs.statSync(abs);
     if (stat.isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
 
     // G-937971 file_unchanged 短路:cacheKey=(path,offset,limit),mtime+size 同 ⇒
@@ -557,7 +705,15 @@ export const read_file: Tool = {
     if (binaryHint) return { success: true, output: binaryHint };
 
     // 字节闸在**读取处**生效(旧写法是 readFileSync 整份进内存再切 500 行,行闸形同虚设)。
-    const { text, bytesRead, totalBytes, byteTruncated } = readHeadOfFile(abs, MAX_READ_BYTES);
+    let text: string;
+    let bytesRead: number;
+    let totalBytes: number;
+    let byteTruncated: boolean;
+    try {
+      ({ text, bytesRead, totalBytes, byteTruncated } = readHeadOfFile(abs, MAX_READ_BYTES));
+    } catch {
+      return { success: false, output: '', error: `文件读不到,不能把它说成是空的: ${filePath}` };
+    }
 
     /** 记一条已读缓存(partial 标记决定它能否被下次短路复用) */
     const recordReadState = (isPartialView: boolean): void => {
@@ -795,19 +951,39 @@ export const list_dir: Tool = {
   async execute(args, ctx): Promise<ToolResult> {
     const dirPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, dirPath);
-    if (!fs.existsSync(abs)) return { success: false, output: '', error: `路径不存在: ${dirPath}` };
-    const stat = fs.statSync(abs);
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(abs);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        return { success: false, output: '', error: `路径不存在: ${dirPath}` };
+      }
+      return { success: false, output: '', error: '目录读不到,不能把它说成是空的' };
+    }
     if (!stat.isDirectory()) return { success: false, output: '', error: `是文件,不是目录: ${dirPath}` };
-    const entries = fs.readdirSync(abs, { withFileTypes: true });
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(abs, { withFileTypes: true });
+    } catch {
+      return { success: false, output: '', error: '目录读不到,不能把它说成是空的' };
+    }
     const dirs = entries.filter((e) => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name));
     const files = entries.filter((e) => e.isFile()).sort((a, b) => a.name.localeCompare(b.name));
     const lines: string[] = [];
+    let sizeUnread = false;
     for (const d of dirs) lines.push(`${d.name}/`);
     for (const f of files) {
-      const fstat = fs.statSync(path.join(abs, f.name));
-      const size = fstat.size < 1024 ? `${fstat.size}B` : `${(fstat.size / 1024).toFixed(1)}K`;
-      lines.push(`${f.name} (${size})`);
+      try {
+        const fstat = fs.statSync(path.join(abs, f.name));
+        const size = fstat.size < 1024 ? `${fstat.size}B` : `${(fstat.size / 1024).toFixed(1)}K`;
+        lines.push(`${f.name} (${size})`);
+      } catch {
+        sizeUnread = true;
+        lines.push(`${f.name} (大小读不到)`);
+      }
     }
+    if (sizeUnread) lines.push('有文件的大小没有量到');
     return { success: true, output: lines.join('\n') };
   },
 };
@@ -827,7 +1003,7 @@ export const list_dir: Tool = {
 function execJsWalkGrep(
   pattern: string,
   opts: { cwd: string; searchPath: string; type?: string; glob?: string; max: number },
-): { state: 'hits'; results: string[] } | { state: 'no-match' } | { state: 'failed'; reason: string } {
+): { state: 'hits'; results: string[] } | { state: 'no-match' } | { state: 'incomplete'; results: string[] } | { state: 'failed'; reason: string } {
   let regex: RegExp;
   try {
     regex = new RegExp(pattern, 'i');
@@ -835,10 +1011,26 @@ function execJsWalkGrep(
     return { state: 'failed', reason: `JS RegExp cannot compile this pattern: ${err instanceof Error ? err.message : String(err)}` };
   }
   const results: string[] = [];
+  let scanComplete = true;
+  function readMatchedFile(entryPath: string): void {
+    try {
+      const content = fs.readFileSync(entryPath, 'utf-8');
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i]!)) {
+          const rel = path.relative(opts.cwd, entryPath);
+          results.push(`${rel}:${i + 1} ${lines[i]!.trim().slice(0, 120)}`);
+          if (results.length >= opts.max) break;
+        }
+      }
+    } catch {
+      scanComplete = false;
+    }
+  }
   function walk(dir: string): void {
     if (results.length >= opts.max) return;
     let entries: fs.Dirent[];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { scanComplete = false; return; }
     for (const entry of entries) {
       if (results.length >= opts.max) return;
       const entryPath = path.join(dir, entry.name);
@@ -848,21 +1040,24 @@ function execJsWalkGrep(
       } else if (entry.isFile()) {
         if (opts.glob && !matchesGlob(entryPath, opts.cwd, opts.glob)) continue;
         if (opts.type && !matchesType(entry.name, opts.type)) continue;
-        try {
-          const content = fs.readFileSync(entryPath, 'utf-8');
-          const lines = content.split('\n');
-          for (let i = 0; i < lines.length; i++) {
-            if (regex.test(lines[i]!)) {
-              const rel = path.relative(opts.cwd, entryPath);
-              results.push(`${rel}:${i + 1} ${lines[i]!.trim().slice(0, 120)}`);
-              if (results.length >= opts.max) break;
-            }
-          }
-        } catch { /* skip binary */ }
+        readMatchedFile(entryPath);
       }
     }
   }
-  walk(opts.searchPath);
+  let root: fs.Stats;
+  try {
+    root = fs.statSync(opts.searchPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      return { state: 'failed', reason: `path missing: ${opts.searchPath}` };
+    }
+    return { state: 'incomplete', results: [] };
+  }
+  if (root.isFile()) readMatchedFile(opts.searchPath);
+  else if (root.isDirectory()) walk(opts.searchPath);
+  else scanComplete = false;
+  if (!scanComplete) return { state: 'incomplete', results };
   return results.length === 0 ? { state: 'no-match' } : { state: 'hits', results };
 }
 
@@ -882,7 +1077,15 @@ export const grep: Tool = {
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
     const searchPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, searchPath);
-    if (!fs.existsSync(abs)) return { success: false, output: '', error: `路径不存在: ${searchPath}` };
+    try {
+      fs.statSync(abs);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        return { success: false, output: '', error: `路径不存在: ${searchPath}` };
+      }
+      return { success: false, output: '', error: '路径读不到,不能把结果说成没有匹配' };
+    }
 
     const rgOpts = {
       cwd: ctx.workspacePath,
@@ -919,6 +1122,16 @@ export const grep: Tool = {
       };
     }
     const degradedNote = engineNote(ENGINE_JS_WALK, rg.reason);
+    if (walk.state === 'incomplete') {
+      if (walk.results.length === 0) {
+        return { success: false, output: '', error: '扫描没有完成,不能把结果说成没有匹配' };
+      }
+      const partialTruncated = walk.results.length >= MAX_GREP_RESULTS ? `\n...(仅显示前 ${MAX_GREP_RESULTS} 条)` : '';
+      return {
+        success: true,
+        output: `${walk.results.join('\n')}${partialTruncated}\n扫描没有完成,下面只是已经读到的匹配${degradedNote}`,
+      };
+    }
     if (walk.state === 'no-match') return { success: true, output: `未找到匹配${degradedNote}` };
     const truncated = walk.results.length >= MAX_GREP_RESULTS ? `\n...(仅显示前 ${MAX_GREP_RESULTS} 条)` : '';
     return { success: true, output: walk.results.join('\n') + truncated + degradedNote };
@@ -966,10 +1179,11 @@ export const glob: Tool = {
       return (relPath: string, _fileName: string) => re.test(relPath);
     });
     const results: string[] = [];
+    let scanComplete = true;
     function walk(dir: string): void {
       if (results.length >= MAX_GLOB_RESULTS) return;
       let entries: fs.Dirent[];
-      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { scanComplete = false; return; }
       for (const entry of entries) {
         if (results.length >= MAX_GLOB_RESULTS) return;
         if (entry.isDirectory()) {
@@ -981,10 +1195,14 @@ export const glob: Tool = {
       }
     }
     walk(ctx.workspacePath);
+    if (!scanComplete && results.length === 0) {
+      return { success: false, output: '', error: '扫描没有完成,不能把结果说成没有匹配文件' };
+    }
     if (results.length === 0) return { success: true, output: '未找到匹配文件' };
     results.sort();
     const truncated = results.length >= MAX_GLOB_RESULTS ? `\n...(仅显示前 ${MAX_GLOB_RESULTS} 个)` : '';
-    return { success: true, output: results.join('\n') + truncated };
+    const scanNote = scanComplete ? '' : '\n扫描没有完成,下面只是已经读到的文件';
+    return { success: true, output: results.join('\n') + truncated + scanNote };
   },
 };
 

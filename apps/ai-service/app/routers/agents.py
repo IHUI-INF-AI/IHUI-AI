@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 # §30 状态词汇一等契约(2026-10-31 立):done 帧的「失败结局 + 停摆位置」两键判定全在词表模块,
 # 本路由只搬运已取到的**类型化**信号(最后一个带 error_type 的工具结果),不从 error 散文反推。
 from ..core.agent_failure_vocabulary import failure_signal as _failure_signal
+from ..core.budget_reason import normalize_budget_reason, scope_for_budget_reason
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
 from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 
@@ -404,7 +405,11 @@ async def _build_loop_v2_tools(
     """
     pool = await _build_supertool_pool(tool_names, user_id)
     if pool is not None:
-        return _supertool_tools_from_pool(pool, tool_names, user_role, user_id)
+        return _with_spill_reader(
+            _supertool_tools_from_pool(pool, tool_names, user_role, user_id),
+            user_role=user_role,
+            session_key=session_key,
+        )
 
     # —— 现有路径(无外部 server / 开关关闭 / 聚合异常时逐字节等价) ——
     from ..services.agent_loop_v2 import ToolDefinition
@@ -449,7 +454,45 @@ async def _build_loop_v2_tools(
                     executor=_exec,
                 )
             )
-    return tools
+    return _with_spill_reader(tools, user_role=user_role, session_key=session_key)
+
+
+def _with_spill_reader(
+    tools: list[Any], *, user_role: int, session_key: str
+) -> list[Any]:
+    """批次 2:确保 `read_tool_output` 始终随清单暴露(只读,零副作用)。
+
+    理由:工具输出落盘后,正文会给出 `output_artifact_id` 让模型续读;若本会话的
+    工具是调用方显式白名单(`tool_names`),这个续读工具会被过滤掉 —— 模型拿着
+    续读凭据却无工具可用,长输出等于永久截断。把它定为"无论白名单如何都纳入"的
+    第二枚强制工具(第一枚是 deferral 下的 get_tool_schema),只读属性由 plan_mode
+    READONLY_TOOLS 同处保证。
+    """
+    if any(getattr(t, "name", "") == "read_tool_output" for t in tools):
+        return tools
+    from ..services.agent_loop_v2 import ToolDefinition
+    from ..services.mcp_server import mcp_server
+
+    meta = next(
+        (mt for mt in mcp_server.list_tools() if mt.name == "read_tool_output"), None
+    )
+    if meta is None:
+        return tools
+
+    async def _exec(args: dict[str, Any]) -> Any:
+        return await mcp_server.call_tool(
+            "read_tool_output", args, user_role=user_role, session_id=session_key or None
+        )
+
+    return [
+        *tools,
+        ToolDefinition(
+            name=meta.name,
+            description=meta.description,
+            parameters=meta.input_schema,
+            executor=_exec,
+        ),
+    ]
 
 
 class _LLMGatewayResponseError(RuntimeError):
@@ -1833,6 +1876,49 @@ async def execute_agent_stream(
                         success=frame_success,
                         last_error_family=_last_error_family,
                     )
+                    # 批次 3(2026-11-06):预算硬停终态帧 —— 原先 agent 循环中途
+                    # 超限只把 stop_reason=budget_exceeded 塞进 done,端上无法区分
+                    # "任务失败"与"预算护栏主动停下"。命名帧 event: budget,level=stopped,
+                    # 网关据 reasonCode 落库、前端出一句话说明;正式 done 帧仍照发,
+                    # 两帧顺序为 budget 在 done 之前(终态原因先交代)。
+                    if frame_stop_reason == "budget_exceeded":
+                        _budget_raw = getattr(result, "budget", None)
+                        _budget_info: dict[str, Any] = (
+                            _budget_raw if isinstance(_budget_raw, dict) else {}
+                        )
+                        _bd_code = str(_budget_info.get("reason_code") or "")
+                        if not _bd_code:
+                            # 兼容旧构造点(尚未写 reason_code 的 budget 摘要):
+                            # 从 error 散文归一,绝不下发空码。
+                            _bd_code = normalize_budget_reason(
+                                str(getattr(result, "error", "") or "")
+                            )
+                        _bd_scope = str(
+                            _budget_info.get("scope") or scope_for_budget_reason(_bd_code)
+                        )
+                        _bd_pct = _budget_info.get("usage_percent")
+                        budget_evt: dict[str, Any] = {
+                            "type": "budget",
+                            "level": "stopped",
+                            "task_id": task_id,
+                            "session_id": session_id,
+                            "reasonCode": _bd_code,
+                            "scope": _bd_scope,
+                        }
+                        if isinstance(_budget_info.get("pillar"), str):
+                            budget_evt["pillar"] = _budget_info["pillar"]
+                        if isinstance(_bd_pct, (int, float)) and not isinstance(_bd_pct, bool):
+                            # governor 内部是**比率**(1.0 = 100%);契约这一格是 0~100
+                            # 百分数(可 >100),换算只在这一处,不在网关再乘。
+                            budget_evt["usagePercent"] = round(float(_bd_pct) * 100.0, 2)
+                        if isinstance(_budget_info.get("remaining_tokens"), int):
+                            budget_evt["remainingTokens"] = _budget_info["remaining_tokens"]
+                        if isinstance(_budget_info.get("stopped_at_iteration"), int):
+                            budget_evt["stoppedAtIteration"] = _budget_info[
+                                "stopped_at_iteration"
+                            ]
+                        eid_budget = sse_buffer.append(task_id, budget_evt)
+                        yield _format_sse(eid_budget, budget_evt)
                     # 结果事件(唯一 done,含 success/stop_reason/output)
                     # 2026-09-17 修复:去掉 [:2000] 截断——长回复被静默截断,
                     # 前端拿不到完整 final_response;SSE 行大小由网关层保证。

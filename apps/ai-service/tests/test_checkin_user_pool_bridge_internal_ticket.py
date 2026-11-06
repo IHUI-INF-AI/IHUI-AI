@@ -6,8 +6,9 @@
 
 票面:反向同步请求直拼 X-Internal-Service-Token 常驻密钥头。改后:经
 app.core.internal_ticket.internal_service_headers 唯一出口取头,dual 兼容窗内旧头
-照发、x-internal-service-ticket 短期票同带 —— 主体绑定 payload.ownerUserId
-(upsert/delete 两个端点都带,是真实的 apps/api 用户 id)。
+照发、x-internal-service-ticket 短期票同带 —— 主体绑定调用方显式交进来的
+owner_user_id(2026-11-06 Z58 起请求体不再自报 ownerUserId,见
+test_checkin_user_pool_bridge_owner_subject.py)。
 
 全程纯单元:HTTP 在本模块 httpx.AsyncClient 层拦截,不连生产 PG(8810)/Redis(8811)、
 不触达真实 apps/api。
@@ -76,7 +77,7 @@ def test_反向_签不出票时只发旧头绝不发空票坏票(
 
 
 async def test_出站链路_post_真把头带上了(monkeypatch: pytest.MonkeyPatch, with_secrets: None) -> None:
-    """_post 全链路(httpx 层拦截):upsert 载荷里的 ownerUserId 成为票主体。"""
+    """_post 全链路(httpx 层拦截):显式交进来的主体成为票主体,body 不带主体键。"""
     captured: dict[str, Any] = {}
 
     class FakeResp:
@@ -104,7 +105,8 @@ async def test_出站链路_post_真把头带上了(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(ub.httpx, "AsyncClient", FakeClient)
     data = await ub._post(
         ub.UPSERT_PATH,
-        {"ownerUserId": OWNER, "platform": "qoder", "checkinAccountId": 1},
+        {"platform": "qoder", "checkinAccountId": 1},
+        owner_user_id=OWNER,
     )
     assert data == {"poolAccountId": "pa-1"}
     assert captured["url"].endswith(ub.UPSERT_PATH)

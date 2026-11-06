@@ -97,7 +97,7 @@ export function LiveListScreen() {
       onNavigate={onNavigate}
       quickActions={{
         labels: {
-          host: t('live.startLive'),
+          host: t('liveHost.startLive'),
           calendar: '',
           subscriptions: t('subscriptions.title'),
         },

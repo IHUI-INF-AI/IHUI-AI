@@ -25,7 +25,9 @@ MCPOAuthClient 沿用 test_mcp_oauth.py 的 patch httpx.AsyncClient 手法。
 from __future__ import annotations
 
 import asyncio
+import os
 import urllib.parse
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -40,6 +42,7 @@ from app.services.mcp_oauth import (
     MCPOAuthConfig,
     MCPOAuthError,
     MCPOAuthToken,
+    OAuthPersistUnread,
     _load_persisted_token,
     _persist_token,
 )
@@ -212,6 +215,25 @@ def test_corrupt_persist_file_backed_up_before_discard(tmp_path):
     assert backups[0].read_text(encoding="utf-8") == "definitely-not-a-token"
     # 原位置已腾空:后续成功写入从干净状态开始,取证现场保留在备份里
     assert not persist.exists()
+
+
+def test_unreadable_persist_file_is_not_overwritten(tmp_path, monkeypatch):
+    persist = tmp_path / "token.json"
+    persist.write_text('{"access_token":"keep"}\n', encoding="utf-8")
+    original = persist.read_bytes()
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(persist):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    with pytest.raises(OAuthPersistUnread, match="读不到"):
+        _load_persisted_token(MCPOAuthConfig(persist_path=str(persist)))
+    _persist_token(MCPOAuthConfig(persist_path=str(persist)), MCPOAuthToken(access_token="new"))
+    assert list(tmp_path.glob("*.corrupt-*")) == []
+    assert persist.read_bytes() == original
 
 
 def test_intact_persist_file_not_backed_up(tmp_path):

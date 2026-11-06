@@ -27,6 +27,7 @@ jobs:
   thank:
     if: github.event_name == 'watch'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       issues: write
     steps:
@@ -109,6 +110,7 @@ jobs:
     # 判据只认非 Bot 评论(github-actions 自己的关闭留言 type==='Bot',不会阻止后续轮次)。
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       issues: write
     steps:

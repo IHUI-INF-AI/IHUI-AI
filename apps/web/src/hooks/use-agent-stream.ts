@@ -320,7 +320,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       if (reconnectAttemptRef.current === 0) setTailAccount(null)
 
       const dispatch = (evt: SSEEvent) => {
-        receivedAnyEventRef.current = true
+        // BUG-12:重连计数只在拿到**真实首帧**(成功解析并派发的 SSE 事件)后清零,
+        // 而非 200 响应头。200+空体的连续重连必须让阶梯递增到 MAX_RECONNECT_ATTEMPTS。
+        if (!receivedAnyEventRef.current) {
+          receivedAnyEventRef.current = true
+          if (reconnectAttemptRef.current > 0) {
+            reconnectAttemptRef.current = 0
+            setReconnectAttempt(0)
+          }
+        }
         setState((prev) => {
           // 优化(问题 4-3):token 事件高频(每 LLM token 一条),且 events 数组在下游
           // (use-agent-progress.ts)只消费 plan/subagent/tool_call/tool_result/terminal 等结构化
@@ -468,12 +476,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           const reader = res.body.getReader()
           streamRef.current = reader
 
-          // 重连成功后重置计数
-          if (reconnectAttemptRef.current > 0) {
-            reconnectAttemptRef.current = 0
-            setReconnectAttempt(0)
-          }
-
+          // BUG-12:重连计数不得在 200 响应头处清零 —— 否则服务端连续 200+空体时
+          // attempt 永远是 1、退避永远 3s,MAX_RECONNECT_ATTEMPTS 形同虚设。
+          // 清零点移到"收到真实首帧之后"(见 dispatch)。
           const decoder = new TextDecoder()
           // G-815939:切帧交给带账目的累加器。原先这里是自己写的 buffer 循环,
           // 而 `done` 一到就 break —— 缓冲区里剩下的那半帧**既不解析也不报**,永久消失且零痕迹。
