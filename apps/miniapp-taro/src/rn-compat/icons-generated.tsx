@@ -252,6 +252,8 @@ const S = {
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-map-pin"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />\n  <circle cx="12" cy="10" r="3" />\n</svg>\n',
   Maximize:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-maximize"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M8 3H5a2 2 0 0 0-2 2v3" />\n  <path d="M21 8V5a2 2 0 0 0-2-2h-3" />\n  <path d="M3 16v3a2 2 0 0 0 2 2h3" />\n  <path d="M16 21h3a2 2 0 0 0 2-2v-3" />\n</svg>\n',
+  Maximize2:
+    '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-maximize-2"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M15 3h6v6" />\n  <path d="m21 3-7 7" />\n  <path d="m3 21 7-7" />\n  <path d="M9 21H3v-6" />\n</svg>\n',
   Medal:
     '<!-- @license lucide-static v1.31.0 - ISC -->\n<svg\n  class="lucide lucide-medal"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" />\n  <path d="M11 12 5.12 2.2" />\n  <path d="m13 12 5.88-9.8" />\n  <path d="M8 7h8" />\n  <circle cx="12" cy="17" r="5" />\n  <path d="M12 18v-2h-.5" />\n</svg>\n',
   Megaphone:
@@ -589,6 +591,7 @@ export const MailOpen = makeIcon('MailOpen', src('MailOpen'))
 export const Map = makeIcon('Map', src('Map'))
 export const MapPin = makeIcon('MapPin', src('MapPin'))
 export const Maximize = makeIcon('Maximize', src('Maximize'))
+export const Maximize2 = makeIcon('Maximize2', src('Maximize2'))
 export const Medal = makeIcon('Medal', src('Medal'))
 export const Megaphone = makeIcon('Megaphone', src('Megaphone'))
 export const Menu = makeIcon('Menu', src('Menu'))
