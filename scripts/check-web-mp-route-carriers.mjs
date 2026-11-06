@@ -44,7 +44,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
-import { readVerdicts } from './lib/cross-end-verdicts.mjs'
+import { mergeVerdictRows, parseVerdictRows, serializeVerdicts, verdictKey, readVerdicts } from './lib/cross-end-verdicts.mjs'
 import { Undetermined } from './lib/face-reader.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -123,8 +123,15 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
   const idx = cov.buildSharedIndex(shared)
   const routeIndex = new Map(mpPages.map((p) => [p.route, p]))
   const legalBySpec = new Map()
+  const mismatchBySpec = new Map()
   for (const v of verdictRows || []) {
-    if (v && v.verdict === 'not-applicable') legalBySpec.set(v.shared, v)
+    if (!v) continue
+    if (v.verdict === 'not-applicable') legalBySpec.set(v.shared, v)
+    // 「声明错配」按 (shared, route) 收:它只撤销那一条声明,不是整屏判决(不折合法差异)。
+    if (v.verdict === 'declared-object-mismatch' && typeof v.route === 'string' && v.route && v.route !== '-') {
+      if (!mismatchBySpec.has(v.shared)) mismatchBySpec.set(v.shared, new Set())
+      mismatchBySpec.get(v.shared).add(v.route)
+    }
   }
 
   // registry 按 shared 归并(同屏多条路由不丢:VipScreen 两条入口别名是既有事实)
@@ -148,7 +155,14 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
   const legalRows = []
   for (const s of shared) {
     const spec = s.spec
-    const regRoutes = [...new Set(regBySpec.get(spec) || [])].sort()
+    // registry 路由全集先取齐,再按 (shared, route) 剔除被判「声明错配」的那几条:
+    // 剔除只作用于这一条声明,绝不让整屏降级为 legal-absence(同屏其他合法承载照旧参与判定)。
+    const regRoutesAll = [...new Set(regBySpec.get(spec) || [])].sort()
+    const mismatchSet = mismatchBySpec.get(spec) || new Set()
+    const mismatchRoutes = regRoutesAll.filter((r) => mismatchSet.has(r))
+    const mismatchUnmatched = [...mismatchSet].filter((r) => !regRoutesAll.includes(r))
+    const regRoutes = regRoutesAll.filter((r) => !mismatchSet.has(r))
+    const allExcludedByMismatch = regRoutesAll.length > 0 && regRoutes.length === 0
     const webRows = webCarriersOf(webMap, spec)
     const pageEvidence = regRoutes.map((route) => {
       const page = routeIndex.get(route)
@@ -164,7 +178,11 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
     let verdict
     let reason
     const legal = legalBySpec.get(spec)
-    if (legal) {
+    if (allExcludedByMismatch) {
+      // 全部登记路由都被「声明错配」撤销 ⇒ 该屏没有任何可判声明;这既不是绿、也不是合法差异。
+      verdict = VERDICTS.undetermined
+      reason = `全部登记路由已判 declared-object-mismatch(${mismatchRoutes.join(',')}) ⇒ 该屏无剩余可判声明(不判承载/不判合法差异)`
+    } else if (legal) {
       verdict = VERDICTS.legalAbsence
       reason = `verdict 台账判过 not-applicable: ${legal.evidence || '(无证据)'}`
     } else if (regRoutes.length === 0) {
@@ -195,7 +213,9 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
       domain: s.domain || '',
       webCarried: webRows.length > 0,
       webRows,
-      mpRoutes: regRoutes,
+      mpRoutes: regRoutesAll,
+      mismatchRoutes,
+      mismatchUnmatched,
       routeEvidence: pageEvidence,
       verdict,
       duplicate,
@@ -229,6 +249,10 @@ export function judgeCarriers({ shared, registryRows, verdictRows, mpPages, webM
     legalAbsence: rows.filter((r) => r.verdict === VERDICTS.legalAbsence),
     duplicateAlias: rows.filter((r) => r.duplicate === 'multi-route-alias'),
     duplicateConflict: rows.filter((r) => r.duplicate === 'route-shared'),
+    // 被「声明错配」剔除的登记路由总条数(逐条可见:行内 mismatchRoutes)。
+    mismatchIgnored: rows.reduce((n, r) => n + (r.mismatchRoutes?.length || 0), 0),
+    // 声明了 mismatch 但路由不在该屏 registry 里的条数(拼错路由不得静默无声 —— 不算剔除,只点名)。
+    mismatchUnmatched: rows.reduce((n, r) => n + ((r.mismatchUnmatched || []).length), 0),
   }
   return { rows, legalRows, readouts }
 }
@@ -243,6 +267,8 @@ export function serializeRows(rows) {
         webCarried: r.webCarried,
         webRows: r.webRows,
         mpRoutes: r.mpRoutes,
+        mismatchRoutes: r.mismatchRoutes || [],
+        mismatchUnmatched: r.mismatchUnmatched || [],
         routeEvidence: r.routeEvidence,
         verdict: r.verdict,
         duplicate: r.duplicate,
@@ -439,6 +465,156 @@ function selfTestFn() {
   const noLegal = judgeCarrierRatchet(base.readouts, base.rows.map((r) => ({ shared: r.shared, verdict: r.verdict })), [])
   push('棘轮 新合法差异无账判红', noLegal.newLegal.length === 1, noLegal.newLegal.length)
 
+  // ---- 「声明错配」(declared-object-mismatch):只撤销一条 (shared, route) 声明 ----
+  const MISM = `${SHARED}/mism/MismScreen.tsx`
+  const mismShared = [{ spec: MISM, domain: 'mism', name: 'MismScreen' }]
+  const mismRegistry = [
+    { shared: MISM, miniapp: 'pkg-mism/a/index' },
+    { shared: MISM, miniapp: 'pkg-mism/b/index' },
+  ]
+  const mismEvidence = (route) => `apps/miniapp-taro/src/${route}.tsx:7 页面实为另一业务对象`
+  const mismatchA = {
+    shared: MISM,
+    route: 'pkg-mism/a/index',
+    verdict: 'declared-object-mismatch',
+    evidence: mismEvidence('pkg-mism/a/index'),
+  }
+  const mismatchB = {
+    shared: MISM,
+    route: 'pkg-mism/b/index',
+    verdict: 'declared-object-mismatch',
+    evidence: mismEvidence('pkg-mism/b/index'),
+  }
+  const mismPagesOne = [
+    { route: 'pkg-mism/a/index', file: 'apps/miniapp-taro/src/pkg-mism/a/index.tsx', text: mirrorText('MismScreen'), cssText: '' },
+    { route: 'pkg-mism/b/index', file: 'apps/miniapp-taro/src/pkg-mism/b/index.tsx', text: 'export default {}', cssText: '' },
+  ]
+  const mismPagesBoth = [
+    mismPagesOne[0],
+    { ...mismPagesOne[1], text: mirrorText('MismScreen') },
+  ]
+
+  // 正例:两条登记路由,其中一条被声明错配剔除 ⇒ 剩一条有效 ⇒ 仍承载(不折整屏缺口)
+  const oneMism = judgeCarriers({
+    shared: mismShared,
+    registryRows: mismRegistry,
+    verdictRows: [mismatchB],
+    mpPages: mismPagesOne,
+    webMap: [],
+  })
+  push('正例 一条声明错配剔除后仍承载', oneMism.rows[0]?.verdict === VERDICTS.carried, oneMism.rows[0]?.verdict)
+  push(
+    '正例 mismatchRoutes 逐条记账',
+    JSON.stringify(oneMism.rows[0]?.mismatchRoutes) === JSON.stringify(['pkg-mism/b/index']),
+    oneMism.rows[0]?.mismatchRoutes,
+  )
+  push('读数 mismatchIgnored 计价', oneMism.readouts.mismatchIgnored === 1, oneMism.readouts.mismatchIgnored)
+
+  // 校验:声明里的 route 不在该屏 registry ⇒ 不算剔除(不得静默生效),单独点名 mismatchUnmatched
+  const typoRoute = judgeCarriers({
+    shared: mismShared,
+    registryRows: mismRegistry,
+    verdictRows: [{ ...mismatchA, route: 'pkg-mism/typo/index' }],
+    mpPages: mismPagesBoth,
+    webMap: [],
+  })
+  push(
+    '校验 拼错路由 ⇒ 剔除 0 / 点名 1',
+    typoRoute.readouts.mismatchIgnored === 0 && typoRoute.readouts.mismatchUnmatched === 1,
+    `${typoRoute.readouts.mismatchIgnored}/${typoRoute.readouts.mismatchUnmatched}`,
+  )
+
+  // 阴性对照:错配打在另一条路由上,本条路照旧承载(不得按 shared 整屏剔除)
+  const otherRoute = judgeCarriers({
+    shared: mismShared,
+    registryRows: mismRegistry,
+    verdictRows: [mismatchB],
+    mpPages: mismPagesBoth,
+    webMap: [],
+  })
+  push(
+    '对照 错配不影响同屏另一条路',
+    otherRoute.rows[0]?.verdict === VERDICTS.carried &&
+      otherRoute.rows[0]?.routeEvidence.some((e) => e.route === 'pkg-mism/a/index' && e.mirrored),
+    otherRoute.rows[0]?.verdict,
+  )
+
+  // 反例:全部登记路由都被剔除 ⇒ 未判定,绝不许判绿/判成 legal-absence
+  const allMism = judgeCarriers({
+    shared: mismShared,
+    registryRows: mismRegistry,
+    verdictRows: [mismatchA, mismatchB],
+    mpPages: mismPagesBoth,
+    webMap: [],
+  })
+  push(
+    '反例 全部声明错配 ⇒ 未判定且非合法差异',
+    allMism.rows[0]?.verdict === VERDICTS.undetermined &&
+      allMism.readouts.legalAbsence.every((r) => r.shared !== MISM),
+    allMism.rows[0]?.verdict,
+  )
+  push(
+    '反例 全部声明错配 reason 点名',
+    /全部登记路由已判 declared-object-mismatch/.test(allMism.rows[0]?.reason || ''),
+    allMism.rows[0]?.reason,
+  )
+
+  // 校验:合法行被接受;缺 route / route='-' / 缺 evidence / evidence 无 文件:行 ⇒ 归 bad
+  const okMism = parseVerdictRows(JSON.stringify(mismatchB))
+  push('校验 合法 mismatch 行被接受', okMism.bad.length === 0 && okMism.rows.length === 1, okMism.bad.length)
+  const noRoute = parseVerdictRows(JSON.stringify({ ...mismatchB, route: '' }))
+  push('校验 缺 route 归 bad', noRoute.bad.length === 1 && /route/.test(noRoute.bad[0].why), noRoute.bad[0]?.why)
+  const dashRoute = parseVerdictRows(JSON.stringify({ ...mismatchB, route: '-' }))
+  push('校验 route="-" 归 bad', dashRoute.bad.length === 1 && /route/.test(dashRoute.bad[0].why), dashRoute.bad[0]?.why)
+  const noEv = parseVerdictRows(JSON.stringify({ ...mismatchB, evidence: '' }))
+  push('校验 缺 evidence 归 bad', noEv.bad.length === 1 && /evidence/.test(noEv.bad[0].why), noEv.bad[0]?.why)
+  const noLoc = parseVerdictRows(JSON.stringify({ ...mismatchB, evidence: '页面实为另一业务对象' }))
+  push(
+    '校验 evidence 无 文件:行 归 bad',
+    noLoc.bad.length === 1 && /文件:行/.test(noLoc.bad[0].why),
+    noLoc.bad[0]?.why,
+  )
+
+  // 互斥:同屏 not-applicable 与 mismatch 不能共存 ⇒ 涉事行全部归 bad(不静默丢)
+  const conflictRows = parseVerdictRows(
+    [
+      JSON.stringify({ shared: MISM, route: '-', verdict: 'not-applicable', evidence: 'apps/web/x.tsx:1 不承载' }),
+      JSON.stringify(mismatchB),
+    ].join('\n'),
+  )
+  push(
+    '互斥 同屏 not-applicable + mismatch 判 bad',
+    conflictRows.rows.length === 0 &&
+      conflictRows.bad.length === 2 &&
+      conflictRows.bad.every((b) => /同屏 not-applicable 与 declared-object-mismatch 语义冲突/.test(b.why)),
+    `${conflictRows.rows.length}/${conflictRows.bad.length}`,
+  )
+
+  // 键:同 shared 不同 route 两条 mismatch 归并后都在(不得互相覆盖)
+  const mergedMism = mergeVerdictRows([], [mismatchA, mismatchB])
+  push(
+    '键 同屏两条 mismatch 归并后不互吃',
+    mergedMism.rows.length === 2 &&
+      mergedMism.total === 2 &&
+      mergedMism.rows.filter((r) => r.route === 'pkg-mism/a/index').length === 1 &&
+      mergedMism.rows.filter((r) => r.route === 'pkg-mism/b/index').length === 1,
+    mergedMism.total,
+  )
+  push(
+    '键 verdictKey 按 (shared,route) 区分',
+    verdictKey(mismatchA) !== verdictKey(mismatchB) && verdictKey(mismatchA) === verdictKey({ ...mismatchA }),
+    verdictKey(mismatchA),
+  )
+
+  // 序列化:键序固定,且 mismatch 的 route 不回落 '-'
+  const serMism = JSON.parse(serializeVerdicts([mismatchB]))
+  push(
+    '序列化 mismatch route 不回落 -',
+    serMism.route === 'pkg-mism/b/index' &&
+      Object.keys(serMism).join(',') === 'shared,route,verdict,evidence,at,source',
+    Object.keys(serMism).join(','),
+  )
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
@@ -516,6 +692,8 @@ function main() {
             legalAbsence: r.legalAbsence,
             duplicateAlias: r.duplicateAlias,
             duplicateConflict: r.duplicateConflict,
+            mismatchIgnored: r.mismatchIgnored,
+            mismatchUnmatched: r.mismatchUnmatched,
           },
           newGaps: ratchet.newRows,
           newLegal: ratchet.newLegal,
@@ -528,7 +706,7 @@ function main() {
     )
   } else {
     console.log(
-      `[check-web-mp-route-carriers] face=${FACE} 共享屏=${r.shared} 承载=${r.carried} 台账=${baselineRows.length} 行`,
+      `[check-web-mp-route-carriers] face=${FACE} 共享屏=${r.shared} 承载=${r.carried} 台账=${baselineRows.length} 行 声明错配剔除=${r.mismatchIgnored}`,
     )
     const buckets = [
       ['mp 缺承载', r.missingCarrier],
