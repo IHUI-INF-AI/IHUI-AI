@@ -38,7 +38,7 @@ export function CategoryDetailScreen({
   onBack,
   onRetry,
   colorScheme = 'light',
-}: CategoryDetailScreenProps & { onRetry?: () => void }) {
+}: CategoryDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

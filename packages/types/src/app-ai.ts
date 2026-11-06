@@ -593,6 +593,8 @@ export interface AgentScreenProps {
   nestedInScrollView?: boolean
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** AI 助手分类 */

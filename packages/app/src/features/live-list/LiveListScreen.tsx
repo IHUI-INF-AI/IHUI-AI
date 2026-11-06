@@ -69,7 +69,7 @@ export function LiveListScreen({
   colorScheme = 'light',
   onNavigate,
   quickActions,
-}: LiveListScreenProps & { onRetry?: () => void }) {
+}: LiveListScreenProps) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
