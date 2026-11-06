@@ -26,6 +26,7 @@ export const CHANNEL_LABEL: Record<WithdrawalItem['channel'], string> = {
 export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
   pending: 'withdrawals.status.pending',
   approved: 'withdrawals.status.approved',
+  processing: 'withdrawals.status.processing',
   rejected: 'withdrawals.status.rejected',
   completed: 'withdrawals.status.completed',
   failed: 'withdrawals.status.failed',
@@ -33,6 +34,7 @@ export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
 export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600',
   approved: 'bg-emerald-500/10 text-emerald-600',
+  processing: 'bg-sky-500/10 text-sky-600',
   rejected: 'bg-muted text-muted-foreground',
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',

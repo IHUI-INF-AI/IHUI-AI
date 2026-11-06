@@ -5907,6 +5907,7 @@
           "completed": "완료",
           "failed": "실패",
           "pending": "심사 대기",
+          "processing": "처리 중",
           "rejected": "반려됨"
         },
         "subtitle": "사용자 출금 신청 및 거래 관리",
