@@ -170,6 +170,18 @@ MERGE_GAP_ENV = "IHUI_CODEBASE_MERGE_GAP_LINES"
 _RECALL_OFF_VALUES = frozenset({"0", "false", "off", "no"})
 _RECALL_ON_VALUES = frozenset({"1", "true", "on", "yes"})
 
+#: 符号名过滤位下推后「这一跳没判成」的具名异常(goal-b49 Z37)。
+#:
+#: 为什么必须是异常而不是 `[]`:符号档的语义承诺是「库内**全部**同符号切片」,
+#: 而 `search()` 的旧契约把「HTTP 4xx/5xx、网络异常、响应形态不合」和「确实无命中」
+#: 一起咽成 `[]`(§0.3 早在 `_query_chunks` 头注点名过这一型)。缺省档里那格只是
+#: 「语义腿没给结果」,装配层照常按融合出参,危害有限;符号档里它是**冒充判定**——
+#: 调用方以为过滤跑过了,实际连一次查询都没落地。故符号档下首跳未判定时不再返回 `[]`,
+#: 改为抛出本异常,由消费方(`mcp_server._semantic_leg`)转成具名结论。
+#: 缺省档(symbol_name 为空)一次都不抛,行为与今天逐字节相同。
+class SymbolFilterUndetermined(RuntimeError):
+    """symbol_name 已下推、但检索腿取不到响应 ⇒ 未判定(不得静默回落成「没有」)。"""
+
 
 def _recall_env_flag(name: str, default: bool) -> bool:
     """召回面布尔 env:缺省/空 ⇒ 默认;开/关词各认;非法值**出声**回落默认。"""
@@ -1720,6 +1732,7 @@ class CodebaseIndexer:
         internal_user_id: str | None = None,
         symbol_expand: bool | None = None,
         merge_gap_lines: int | None = None,
+        symbol_name: str | None = None,
     ) -> list[dict[str, Any]]:
         """语义搜索代码片段(委托给 API 端点;出口带两跳后处理)。
 
@@ -1746,6 +1759,12 @@ class CodebaseIndexer:
                 True/False = 本次调用显式覆盖 —— 开关两跑就是"符号维到底带来了哪几枚
                 候选"的正向对照,不需要第二把尺。
             merge_gap_lines: None = 听 env(缺省 3);数字 = 本次显式间隔(0 = 只并重叠/相接)。
+            symbol_name: 符号名**精确**过滤位(goal-b49 Z37 下推)。None/空串 = 不过滤,
+                这一格今天长什么样就还长什么样(连 HTTP 请求体都不新增键);非空 = 逐字
+                等值条件随首跳一起交给 api 的 `/api/v1/codebase/search`,由 **api 侧单源**
+                `rowBudget()` 决定取回上限(Z36 立:`SYMBOL_SCOPED_ROW_CAP`),本层不复算
+                那份预算,更不在这里做「先截后滤」(§0.6)。取不到响应 ⇒ 抛
+                `SymbolFilterUndetermined`,不返回 `[]` 冒充「库里没有」(§0.3)。
 
         Returns:
             切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score;
@@ -1761,6 +1780,7 @@ class CodebaseIndexer:
             internal_user_id=internal_user_id,
             symbol_expand=symbol_expand,
             merge_gap_lines=merge_gap_lines,
+            symbol_name=symbol_name,
         )
         return cast(list[dict[str, Any]], out["chunks"])
 
@@ -1807,12 +1827,17 @@ class CodebaseIndexer:
         *,
         symbol_expand: bool | None = None,
         merge_gap_lines: int | None = None,
+        symbol_name: str | None = None,
     ) -> dict[str, Any]:
         """`search()` 的完整形态:切片 + 一份召回账(`recall`)。
 
         `recall` 只报本轮**量到**的数:`base`(第一跳回来几条)、`seeds`(取了哪几枚符号种子)、
         `symbol_added`(补一跳净增几条)、`merged`(并片并掉几条)、`failures`(哪一跳没判成),
         开关对照读 `base` 与 `symbol_added` 两格即可解释。
+
+        Z37 补一格 `symbol_filter`:只在**请求了**符号名过滤时出现(`recall["symbol_name"]`
+        是下传的那枚串,`recall["symbol_pushdown"]` 是 `pushed` / `unjudged:<原委>`)。
+        缺省档这两个键都不存在 ⇒ 召回账形状与今天逐字节相同。
         """
         base_payload: dict[str, Any] = {
             "query": query,
@@ -1824,6 +1849,13 @@ class CodebaseIndexer:
             base_payload["repoId"] = repo_id
         if language:
             base_payload["language"] = language
+        # Z37 下推:符号名精确过滤位进**请求体**(不是回来再挑)。
+        # 空串一律不进 payload —— api 侧 searchSchema 是 `min(1)`,把 "" 发过去会拿到 400,
+        # 而 400 在符号档的语义是「未判定」,会把一次本来不该发起过滤的缺省查询顶成红。
+        # 所以「空 = 不过滤」在这一格仍然是逐字节等价于今天(连 payload 都不多一个键)。
+        sym_filter = str(symbol_name or "").strip()
+        if sym_filter:
+            base_payload["symbolName"] = sym_filter
         # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
         headers = self._internal_auth_headers(api_token, internal_user_id)
 
@@ -1839,6 +1871,16 @@ class CodebaseIndexer:
             "gap_lines": 0,
             "failures": [f"首跳未判定:{base_error}"] if base_error else [],
         }
+        if sym_filter:
+            recall["symbol_name"] = sym_filter
+            # 下推成不成,必须是量出来的两档,不许都读成「库里没有该符号」:
+            #   unjudged —— 首跳根本没判成(HTTP/网络/响应形态),抛出具名异常交消费方定档;
+            #   pushed   —— 首跳判过了(哪怕回来 0 条,那也是「查过了,没有」这一格)。
+            recall["symbol_pushdown"] = "unjudged" if base_error else "pushed"
+        if sym_filter and base_error:
+            raise SymbolFilterUndetermined(
+                f"symbol_name={sym_filter} 已下推,但检索腿未判定:{base_error}"
+            )
 
         expand_on = (
             _recall_env_flag(SYMBOL_EXPAND_ENV, True)
@@ -1861,6 +1903,10 @@ class CodebaseIndexer:
                                 # 补一跳只认标识符,走词法腿;语义腿会把"名字像"的邻近概念
                                 # 一起拉进来,那一跳的召回增益无法归因到符号名本身。
                                 "mode": "keyword",
+                                # Z37:base_payload 里的 symbolName 随 `**` 一起透传下来
+                                # (与 Z36 在 hybridSearch 里向下透传同一纪律)——补一跳不得
+                                # 把过滤丢掉,否则符号档会在扩召回这一步重新引进别符号的片,
+                                # 而 api 侧那份 rowBudget 也白脱钩了。
                             },
                             headers,
                         )
