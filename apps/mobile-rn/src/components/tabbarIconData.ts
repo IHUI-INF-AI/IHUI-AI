@@ -9,6 +9,30 @@
  * (钉死见 packages/types/src/app-account.ts 的 8a7926ead7 对照实验)。这族是位图插画、
  * 无等价 SVG 源,故内联为 data URI 绕开该取源链,图一字未改。
  * 尺寸取 72px(展示 24dp,覆盖 3x 屏足够)。
+ *
+ * 源图 sha256(由生成器写入,--check 据此判源图是否变化):
+ *   tabbar_1.png=bbdf21d5cf5709ec00e9556a39c25d77f568e783204a4a20aeb18d7d642f384b
+ *   tabbar_1_act.png=c21785395251ecedb4a13f3540a40865b73346b817af268a7431b38e760f5295
+ *   tabbar_2.png=457913a04e816d86c28981ab05561ed3dedd031a28a65b79c3612580f2e0351e
+ *   tabbar_2_act.png=c6fb7045f4dc3b427d02852c4ed159888a21677c8b6b26a28ddddd5b1d4ff1eb
+ *   tabbar_3.png=7c58135dee5dff39cd9da50b26c6a300fd9afb9ecab236fc799855de2286c6d8
+ *   tabbar_3_act.png=dcf6a15aea52bb198b69235f85f2b963b4f2567a638664e8349b6ece4944c0c9
+ *   tabbar_4.png=39374e76677a5a902376e3cc592f09801a26d2abb88184ee36a074fdfc82aaff
+ *   tabbar_4_act.png=1411d59f856f1063f560ca22f1136cce44106bd8c6bef43c2ad199bfb3451cc0
+ *   tabbar_5.png=195c6aba8b308b56f41830f0b05c8f5d3bbe50825f4703e7f22ca0297d9fde49
+ *   tabbar_5_act.png=12edd0e65ef30a40d6f76760d411e545338193881735c7be38381216a8666a41
+ *
+ * 产物 payload sha256(对 base64 字符串本体算,防手改;不解码):
+ *   AI_SHOP_INACTIVE=ecbb37707e7541effed2eea732ea1e7d3310747b96929fc7b2cbbfe40a9d3c1b
+ *   AI_SHOP_ACTIVE=be7206aceec9c62bd1920106adba2188685c2d17247e221447be5af5503233cd
+ *   PLAZA_INACTIVE=2e368feba88e42b79cf2ca28d36f7d30af54073920c9a42c411eb392ef6d31d0
+ *   PLAZA_ACTIVE=fc3a4f53c2d4c5d440fe4eb192eb8519aa4a8c53d039b6c4a0d4266f23757c2d
+ *   HOME_INACTIVE=3238bbc9cde1e791ab824102f190bc6c607ee53ee151161dfeb12ffda0f99958
+ *   HOME_ACTIVE=0d184e0770a173b64b8780c0f165e255492dc62ec6a1f6b0a0b67383c725d9fe
+ *   NEWS_INACTIVE=1b0eb31211b43844902509286560fbfc1b6bced7e103957f5f11708027875803
+ *   NEWS_ACTIVE=6b698631b3cf8e944b25db034e0b28f4a5f768d373ffa7736edddd6bfacecd5b
+ *   MINE_INACTIVE=b11dceb237e93679920bf46c0c98bf435934a8376a3b6b978cfe05aee759b110
+ *   MINE_ACTIVE=3bbe55d1e670f18daf83b704280894ce213d022f7dda053f14185f580a1b7b12
  */
 export const TABBAR_ICON_DATA = {
   AI_SHOP_INACTIVE:

@@ -50,12 +50,17 @@ function strip(src: string): string {
 }
 
 function namedClause(clause: string): string[] {
-  return clause
-    .split(',')
-    .map((raw) => raw.trim())
-    .filter((t) => t !== '' && !t.startsWith('type '))
-    .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
-    .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  return (
+    clause
+      .split(',')
+      .map((raw) => raw.trim())
+      .filter((t) => t !== '' && !t.startsWith('type '))
+      // `export { default as X }` / `import { X as Y }` 取别名后的名字
+      .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
+      // 内联工厂的 `return { Key: value }` 形态:键在冒号前(单行写法此前被整条漏读,读成"缺出口")
+      .map((t) => (t.split(':')[0] ?? '').trim())
+      .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  )
 }
 
 /** 端内(被测试加载到的那一层)从 barrel 具名取用的值导入。 */
@@ -92,9 +97,7 @@ function testLoadedSrcFiles(): Set<string> {
 function mockExports(): Set<string> {
   const code = strip(readFileSync(MOCK, 'utf8'))
   const names = new Set<string>()
-  for (const m of code.matchAll(
-    /export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g,
-  ))
+  for (const m of code.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g))
     for (const n of namedClause(m[1] ?? '')) names.add(n)
   for (const m of code.matchAll(
     /export\s+(?:declare\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g,

@@ -138,3 +138,41 @@ test('T6 建图失败不得静默:必须退回未加宽 scope 并留下可见理
     '建图失败必须明写"退回未加宽 scope",让人看得见判据被跳过',
   )
 })
+
+// ─── 2026-11-06:定向快通道绕开"陈旧 dist 前置" ⇒ 拿着旧 .d.ts 判干净 HEAD 文件 ──────
+// 病形(实测):api-client 的三值 budget 类型随 11945bd4f5 入库后,工作树的 packages/*/dist
+// 仍停在二值态。全量通道有 staleDistPreflight 会先重建;快通道直接 spawn app 自己的 tsc,
+// 于是 ChatScreen / budget-note / chat-ledger / sse-parse 共 17 处报错全落在**干净的 HEAD 文件**上,
+// 归因判成"已入库红",推送被拦死(快通道 exit 1)。下面两是"接线形态"的钉子:
+// 变异实测 —— 摘掉快通道这段前置后,T1~T6 仍全绿(它们只看 scope 加宽),只有 T7 会红。
+
+test('T7 接线形态:快通道必须先跑 typecheck-full --preflight-only,再 spawn app 自己的 typecheck', () => {
+  assert.match(
+    SRC,
+    /resolve\(__dirname, 'typecheck-full\.mjs'\), '--preflight-only'/,
+    '快通道未复用全量通道的陈旧 dist 前置实现 —— 必须是同一份,不许在本文件重造第二套判据',
+  )
+  const iPreflight = SRC.indexOf("'--preflight-only'")
+  // 与 T3 同坑:spawn 形态在文件头注里也出现过,基准必须落在真跑它的那次调用。
+  const iFastTsc = SRC.indexOf("spawnSync('pnpm', ['--filter', String(_fast.name), 'run', 'typecheck']")
+  assert.ok(iPreflight > 0, '快通道的陈旧 dist 前置被摘线 ⇒ 回到"拿旧产物下结论"的原病')
+  assert.ok(iFastTsc > 0, '找不到快通道的真 typecheck spawn(主流程被改写 ⇒ 本锁须同步)')
+  assert.ok(iPreflight < iFastTsc, '前置必须早于快通道 tsc,否则等于没接')
+  // 反面对照:前置失败不得静默继续拿旧产物下结论,也不得沿用 build 的退出码冒充"类型红"。
+  // 判据(2026-11-06 裁决):只建产物不判类型 ⇒ 建不出来 = 输入面取不到 = `未判定 exit 2`。
+  //   不许 exit 0(拿旧 .d.ts 下结论);不许 exit 1(上层读成"已入库红",把 build 失败归错因)。
+  assert.match(
+    SRC,
+    /未判定\(exit 2\):陈旧 dist 前置重建失败[\s\S]{0,200}process\.exit\(2\)/,
+    '前置重建失败必须归"未判定 exit 2",不得降级放行(exit 0)、也不得沿用 build 的 1(=冒充类型红)',
+  )
+})
+
+test('T8 快通道前置必须放在定向前(而不是被 --dry-run 或降级分支吃掉)', () => {
+  // --dry-run 只打判据面、不跑类型检查 ⇒ 前置也不该在 dry-run 里起 build(否则 scout 会改写本机 dist)。
+  const iDryRunExit = SRC.indexOf('--dry-run')
+  assert.ok(iDryRunExit > 0, '找不到 --dry-run 分支(结构变了 ⇒ 本锁须同步)')
+  const iPreflight = SRC.indexOf("'--preflight-only'")
+  assert.ok(iPreflight > iDryRunExit, '--dry-run 必须先短路,前置不得在只读勘察路径上起 build')
+})
+
