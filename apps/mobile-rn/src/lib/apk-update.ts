@@ -39,8 +39,15 @@ import {
   DownloadCancellation,
   DownloadCancelledError,
 } from './ranged-download'
+import { downloadApkParts } from './multipart-download'
 import { APP_USER_AGENT, APP_VERSION } from './config'
-import { resolveApkDownloadUrl, type ApkLegId } from './apk-download-legs'
+import {
+  APK_CN_LEG_URL,
+  APK_MIN_BYTES,
+  APK_PARTS_MANIFEST_URL,
+  resolveApkDownloadUrl,
+  type ApkLegId,
+} from './apk-download-legs'
 
 export type ApkUpdateState =
   | 'idle'
@@ -116,6 +123,7 @@ const listeners = new Set<() => void>()
 let inFlightCheck: Promise<ApkUpdateState> | null = null
 /** 正在飞的下载任务(取消时按类型分派:分片腿靠令牌,单流腿靠 pauseAsync) */
 type ActiveDownload =
+  | { kind: 'parts'; cancellation: DownloadCancellation }
   | { kind: 'ranged'; cancellation: DownloadCancellation }
   | { kind: 'legacy'; task: FileSystem.DownloadResumable }
 
@@ -355,16 +363,8 @@ async function downloadApkLegacy(url: string, target: string): Promise<string> {
   }
 }
 
-/**
- * 下载 APK(分片加速 + 原生单流兜底)。
- *
- * 分片是**尝试**,不是唯一可用的腿:真机实测它在跨境慢链路上可能整批挂到读超时
- * (8 条 × 2MB 在 95s 内 0 字节;改 4 条 × 512KB 后 4 片仍在 64s 超时点集体 onerror),
- * 首片看门狗会在 45s 内撤单。所以这里对**任何**非取消的分片失败都退回
- * `createDownloadResumable` —— 慢,但是原生流式、有真实进度,绝不让用户盯着 0% 假装在下载。
- * 取消/半包口径在分片腿里判,这里只负责选腿与错误归类。
- */
-async function downloadApk(url: string, version: string): Promise<string> {
+/** 单文件腿:Range 分片 → 原生单流。任何非取消失败都落到"至少能下完"的那条。 */
+async function downloadApkSingle(url: string, version: string): Promise<string> {
   const target = apkFileUri(version)
   if (!target) throw new Error('设备没有可写的缓存目录')
 
@@ -401,6 +401,64 @@ async function downloadApk(url: string, version: string): Promise<string> {
       activeDownload = null
     }
   }
+}
+
+/**
+ * 下载 APK:先走 Gitee 多分片(8 路独立连接),失败再回退单文件腿。
+ *
+ * 为什么把多分片放在最前面(2026-11-05 同机实测):
+ *   站点腿(EdgeOne 免费版)有套餐吞吐硬顶,4→24 连接都停在 4.5–6.4 MB/s;
+ *   Gitee 多连接线性叠加(8 连接 15.36 MB/s)。而多分片**不需要 Range**,也就绕开了
+ *   "Gitee 单文件回 200 整包"这个旧限制 —— 每一份都是一条独立连接、一次普通 GET。
+ *
+ * 为什么这里不再先跑选腿探针:探针只服务单文件腿(要比两条腿谁快、体积对不对得上);
+ * 多分片自带"版本 + 总字节 + 每份字节"三重对账,先探腿只会白等最多 8s。选腿挪到失败之后。
+ *
+ * 返回 `url` 是**本次真正可用的单文件直链**,给"下载成功但安装失败"那条浏览器降级用。
+ */
+async function downloadApk(
+  primaryUrl: string,
+  version: string,
+): Promise<{ uri: string; url: string }> {
+  const target = apkFileUri(version)
+  if (!target) throw new Error('设备没有可写的缓存目录')
+
+  const cancellation = new DownloadCancellation()
+  activeDownload = { kind: 'parts', cancellation }
+  try {
+    const result = await downloadApkParts({
+      manifestUrl: APK_PARTS_MANIFEST_URL,
+      expectedVersion: version,
+      uri: target,
+      minTotalBytes: APK_MIN_BYTES,
+      cancellation,
+      onProgress: (p) =>
+        patch({
+          downloadLeg: 'cn',
+          progress:
+            p.totalBytes > 0
+              ? Math.min(100, Math.round((p.downloadedBytes / p.totalBytes) * 100))
+              : 0,
+          downloadedBytes: p.downloadedBytes,
+          totalBytes: p.totalBytes,
+          bytesPerSecond: p.bytesPerSecond,
+          connections: p.connections,
+        }),
+    })
+    return { uri: result.uri, url: APK_CN_LEG_URL }
+  } catch (e) {
+    if (e instanceof DownloadCancelledError) throw e
+    // 多分片同样是"加速尝试":清单缺失/版本不符/首字节停滞/落盘不完整,一律退回单文件腿。
+    // 它与 ranged 腿的区别只在于:这里要先选腿(单文件腿有 site/cn 两条,谁快谁对账过谁)。
+  } finally {
+    if (activeDownload?.kind === 'parts' && activeDownload.cancellation === cancellation) {
+      activeDownload = null
+    }
+  }
+
+  const leg = await resolveApkDownloadUrl(primaryUrl)
+  patch({ downloadLeg: leg.leg })
+  return { uri: await downloadApkSingle(leg.url, version), url: leg.url }
 }
 
 /**
@@ -449,15 +507,12 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     return 'error'
   }
 
-  /**
-   * 选腿(2026-11-04):服务端只下发一条站点腿,而现网那条腿实测落在 Cloudflare 洛杉矶,
-   * 256KB 探针 30s 都可能 0 字节;Gitee 国内腿同机 ttfb 0.32s。这里并发探两条腿,
-   * 谁真把字节读回来且体积对账一致就走谁;全灭/异常一律保持服务端主腿(见 apk-download-legs.ts)。
-   */
-  const leg = await resolveApkDownloadUrl(downloadUrl)
-
-  // B:能力缺失直接交给浏览器 —— 这里**不下载**,避免"下完装不上"的双重浪费
+  // B:能力缺失直接交给浏览器 —— 这里**不下载**,避免"下完装不上"的双重浪费。
+  // 选腿(2026-11-04)只服务这条路径:服务端主腿现网落在 Cloudflare 洛杉矶,256KB 探针 30s
+  // 都可能 0 字节;Gitee 国内腿同机 ttfb 0.32s。并发探两条腿、谁真读回字节且体积对账一致就走谁。
+  // 应用内下载不再先探腿 —— 多分片腿自带版本/体积对账,先探只会白等最多 8s(见 downloadApk)。
   if (!canInstallInApp()) {
+    const leg = await resolveApkDownloadUrl(downloadUrl)
     patch({ state: 'installing', installMode: 'browser', lastError: null })
     try {
       await openInBrowser(leg.url)
@@ -480,13 +535,14 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     downloadedBytes: 0,
     totalBytes: 0,
     bytesPerSecond: 0,
-    connections: 1,
-    downloadLeg: leg.leg,
+    connections: 8,
+    // 多分片腿就是国内腿(清单与分片都挂在 Gitee 固定 tag 下);回退时 downloadApk 会改成真实选中的腿。
+    downloadLeg: 'cn',
     lastError: null,
   })
-  let uri: string
+  let downloaded: { uri: string; url: string }
   try {
-    uri = await downloadApk(leg.url, latestVersion)
+    downloaded = await downloadApk(downloadUrl, latestVersion)
   } catch (e) {
     patch({
       state: 'error',
@@ -495,6 +551,7 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
     })
     return 'error'
   }
+  const uri = downloaded.uri
 
   patch({ state: 'installing', fileUri: uri, progress: 100 })
   try {
@@ -511,9 +568,9 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
         installMode: 'browser',
         lastError: installError instanceof Error ? installError.message : String(installError),
       })
-      // 最后一道:把选中的那条直链给浏览器,至少让用户能升级完成(下载的临时文件由系统缓存清理)
+      // 最后一道:把本次真正可用的那条直链给浏览器,至少让用户能升级完成(临时文件由系统缓存清理)
       try {
-        await openInBrowser(leg.url)
+        await openInBrowser(downloaded.url)
       } catch {
         /* 浏览器也打不开就停在 error,由 UI 如实告知 */
       }
@@ -526,8 +583,8 @@ export async function applyApkUpdate(): Promise<ApkUpdateState> {
 export async function cancelApkDownload(): Promise<void> {
   const active = activeDownload
   activeDownload = null
-  if (active?.kind === 'ranged') {
-    // 令牌一置,分片腿立刻停派新片并 abort 在飞请求(见 ranged-download 的 onCancel)
+  if (active?.kind === 'ranged' || active?.kind === 'parts') {
+    // 令牌一置,分片腿立刻停派新片并 abort 在飞请求(见 ranged-download / multipart-download 的 onCancel)
     active.cancellation.cancel()
   } else if (active?.kind === 'legacy') {
     try {
