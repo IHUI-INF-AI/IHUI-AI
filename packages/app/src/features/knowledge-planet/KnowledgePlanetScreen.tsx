@@ -12,7 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { Newspaper } from 'lucide-react-native'
+import { Globe, Newspaper, Users } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -23,12 +23,13 @@ export type { KnowledgePlanetScreenProps }
 export function KnowledgePlanetScreen({
   t,
   items,
+  planet,
   loading,
   error,
   onItemClick,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: KnowledgePlanetScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -44,6 +45,29 @@ export function KnowledgePlanetScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>知识星球</Text>
       </View>
+      {planet ? (
+        <View style={styles.planetCard}>
+          <View style={styles.planetIcon}>
+            <Globe size={24} color={tk.text.primary} />
+          </View>
+          <View style={styles.planetBody}>
+            <Text style={styles.planetName} numberOfLines={1}>
+              {planet.name}
+            </Text>
+            {planet.description ? (
+              <Text style={styles.planetDesc} numberOfLines={1}>
+                {planet.description}
+              </Text>
+            ) : null}
+            <View style={styles.planetMeta}>
+              <Users size={14} color={tk.text.tertiary} />
+              <Text style={styles.planetMembers}>
+                {t('knowledgePlanet.memberCount', { count: planet.memberCount })}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
       {loading ? (
         <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error ? (
@@ -145,6 +169,40 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     itemSummary: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
     itemDate: { fontSize: rnType.caption.size, color: tk.text.tertiary } as TextStyle,
+    planetCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.md,
+      marginHorizontal: rnSpacing['sm-loose'],
+      marginBottom: rnSpacing.md,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      backgroundColor: tk.surface.light,
+    } as ViewStyle,
+    planetIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: rnRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.muted,
+    } as ViewStyle,
+    planetBody: {
+      flex: 1,
+      gap: rnSpacing['xs-loose'],
+    } as ViewStyle,
+    planetName: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    } as TextStyle,
+    planetDesc: { fontSize: rnType.body.size, color: tk.text.secondary } as TextStyle,
+    planetMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+    } as ViewStyle,
+    planetMembers: { fontSize: rnType.caption.size, color: tk.text.tertiary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

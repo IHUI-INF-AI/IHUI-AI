@@ -63,7 +63,7 @@ function getTodosPath(ctx: ToolContext): string {
   return path.join(ctx.workspacePath, '.ihui', 'todos.json');
 }
 
-/** 读取当前 todos。文件不存在是空清单。读失败不能当成没有任务。 */
+/** 读取当前 todos。文件不存在或空文件是空清单。非空损坏不能当成没有任务。 */
 function loadTodos(ctx: ToolContext): TodoItem[] {
   const p = getTodosPath(ctx);
   let raw: string;
@@ -77,8 +77,11 @@ function loadTodos(ctx: ToolContext): TodoItem[] {
     if (code === 'ENOENT' || code === 'ENOTDIR') return [];
     throw new Error(`任务清单读不到,不能把它说成没有任务 (${code})`);
   }
+  if (raw.trim() === '') return [];
   const parsed = tryParseJson(raw);
-  if (!isRecord(parsed) || !isJsonArray(parsed.todos)) return [];
+  if (!isRecord(parsed) || !isJsonArray(parsed.todos)) {
+    throw new Error('任务清单读不到,不能把它说成没有任务 (corrupt)');
+  }
   return parsed.todos as unknown as TodoItem[];
 }
 

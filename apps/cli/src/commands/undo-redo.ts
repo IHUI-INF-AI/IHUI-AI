@@ -493,14 +493,17 @@ export class UndoRedoManager {
     }
     let history: SessionHistory = { undoStack: [], redoStack: [] };
     if (raw !== null) {
+      let parsed: Partial<SessionHistory> | null = null;
       try {
-        const parsed = JSON.parse(raw) as Partial<SessionHistory>;
-        if (parsed && Array.isArray(parsed.undoStack) && Array.isArray(parsed.redoStack)) {
-          history = { undoStack: parsed.undoStack, redoStack: parsed.redoStack };
-        }
+        const value: unknown = JSON.parse(raw);
+        if (value !== null && typeof value === 'object') parsed = value as Partial<SessionHistory>;
       } catch {
-        // 损坏的内容,使用空 history
+        parsed = null;
       }
+      if (parsed === null || !Array.isArray(parsed.undoStack) || !Array.isArray(parsed.redoStack)) {
+        throw new Error('撤销历史读不到,不能把它覆盖成新记录 (corrupt)');
+      }
+      history = { undoStack: parsed.undoStack, redoStack: parsed.redoStack };
     }
     this.cache.set(sessionId, history);
   }

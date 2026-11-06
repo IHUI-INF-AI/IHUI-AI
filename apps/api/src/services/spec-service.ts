@@ -1546,7 +1546,7 @@ ${requirementPreview}
     const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
     const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
-    const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
+    const branchContent = await readUtf8OrAbsent(branchFile, '分支文件读不到,不能把它说成不存在')
     if (!branchContent) {
       return {
         diff: '',
@@ -1557,9 +1557,10 @@ ${requirementPreview}
         error: `分支文件不存在: ${input.branchName}`,
       }
     }
-    const mainContent = await readFile(mainFile, 'utf-8').catch(() => '')
+    const mainContent = await readUtf8OrAbsent(mainFile, '主规格读不到,不能把它说成空规格再出差异')
+    const mainText = mainContent ?? ''
 
-    const { diff, addedLines, removedLines } = computeUnifiedDiff(mainContent, branchContent)
+    const { diff, addedLines, removedLines } = computeUnifiedDiff(mainText, branchContent)
     return {
       diff,
       addedLines,
@@ -1588,8 +1589,15 @@ ${requirementPreview}
     const backupDir = join(root, '.ihui-agent', 'specs', 'backups', input.pipelineId)
     const relBackup = relative(root, backupDir).replace(/\\/g, '/')
 
-    const statResult = await stat(backupDir).catch(() => null)
-    if (!statResult || !statResult.isDirectory()) {
+    let statResult: Awaited<ReturnType<typeof stat>> | null
+    try {
+      statResult = await stat(backupDir)
+    } catch (error) {
+      const code = readFailureCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') statResult = null
+      else throw new Error(`流水线记录读不到,不能把它说成没有 (${code ?? 'unknown'})`)
+    }
+    if (!statResult) {
       return {
         pipelineId: input.pipelineId,
         stages: [],
@@ -1600,8 +1608,17 @@ ${requirementPreview}
         error: `未找到流水线记录: ${input.pipelineId}`,
       }
     }
+    if (!statResult.isDirectory()) {
+      throw new Error('流水线记录读不到,不能把它说成没有 (not-directory)')
+    }
 
-    const entries = await readdir(backupDir).catch(() => [] as string[])
+    let entries: string[]
+    try {
+      entries = await readdir(backupDir)
+    } catch (error) {
+      const code = readFailureCode(error)
+      throw new Error(`流水线记录读不到,不能把它说成没有备份 (${code ?? 'unknown'})`)
+    }
     const bakCount = entries.filter((f) => f.endsWith('.bak')).length
     return {
       pipelineId: input.pipelineId,
@@ -1634,14 +1651,24 @@ ${requirementPreview}
     const errors: string[] = []
     let rolled = 0
 
-    const statResult = await stat(backupPath).catch(() => null)
-    if (!statResult || !statResult.isDirectory()) {
+    let statResult: Awaited<ReturnType<typeof stat>> | null
+    try {
+      statResult = await stat(backupPath)
+    } catch (error) {
+      const code = readFailureCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') statResult = null
+      else throw new Error(`备份目录读不到,不能把它说成不存在 (${code ?? 'unknown'})`)
+    }
+    if (!statResult) {
       return {
         rolled: 0,
         errors: [`备份目录不存在: ${input.backupDir}`],
         backupDir: input.backupDir,
         error: '备份目录不存在',
       }
+    }
+    if (!statResult.isDirectory()) {
+      throw new Error('备份目录读不到,不能把它说成不存在 (not-directory)')
     }
 
     try {
