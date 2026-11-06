@@ -16,7 +16,9 @@ import {
   probeDependency,
   probePort,
   detectWorkspaceIssues,
+  mergeHealScan,
   repairWorkspaceIssue,
+  compileRepairBatch,
 } from '../self-healing'
 import {
   judgeKillIdentity,
@@ -120,6 +122,78 @@ describe('detectWorkspaceIssues', () => {
   })
 })
 
+describe('再扫没量到的问题留着', () => {
+  it('端口这次没测，不能从上一份里消失；静音不写原因就不合并', () => {
+    const previous = [
+      {
+        kind: 'port' as const,
+        severity: 'warn' as const,
+        detail: '端口仍被占用。',
+        fixPlan: '先确认占用进程。',
+      },
+      {
+        kind: 'disk' as const,
+        severity: 'error' as const,
+        detail: '磁盘不足。',
+        fixPlan: '清理缓存后再看。',
+      },
+    ]
+    const kept = mergeHealScan({
+      previous,
+      next: [],
+      measuredKinds: ['disk'],
+      muted: [],
+    })
+    expect(kept.disposition).toBe('merged')
+    expect(kept.issues?.map((issue) => issue.kind)).toEqual(['port'])
+    const silent = mergeHealScan({
+      previous,
+      next: [],
+      measuredKinds: ['port', 'disk'],
+      muted: [{ kind: 'port', reason: '' }],
+    })
+    expect(silent.reason).toBe('mute-unreadable')
+    expect(silent.issues).toHaveLength(2)
+    expect(mergeHealScan({ previous: null, next: [], measuredKinds: [], muted: [] }).reason).toBe(
+      'previous-unreadable',
+    )
+  })
+})
+
+describe('修复命令收成一份脚本，读不出就不给半份', () => {
+  it('坏命令整份拒绝，没有命令不算空脚本', () => {
+    expect(
+      compileRepairBatch([
+        { command: 'pnpm install --no-frozen-lockfile' },
+        { command: 'rm -rf /' },
+      ]),
+    ).toMatchObject({ disposition: 'unjudged', reason: 'command-unreadable', script: null })
+    expect(compileRepairBatch([{ command: null }, { command: null }])).toMatchObject({
+      reason: 'commands-unmeasured',
+      script: null,
+      commandCount: null,
+    })
+    expect(compileRepairBatch(null).reason).toBe('steps-unmeasured')
+  })
+
+  it('依赖修复的预演带上已量到的安装命令，索引修复不编造命令', async () => {
+    const ws = makeWorkspace()
+    const dependency = await repairWorkspaceIssue({
+      workspacePath: ws,
+      kind: 'dependency',
+      dryRun: true,
+    })
+    expect(dependency.batch).toMatchObject({
+      disposition: 'dump',
+      commandCount: 1,
+      script: 'pnpm install --no-frozen-lockfile\n',
+    })
+    const index = await repairWorkspaceIssue({ workspacePath: ws, kind: 'index', dryRun: true })
+    expect(index.batch.script).toBeNull()
+    expect(index.batch.reason).toBe('commands-unmeasured')
+  })
+})
+
 describe('repairWorkspaceIssue', () => {
   it('dryRun=true:所有 step 为 planned,不产生任何写入', async () => {
     const ws = makeWorkspace()
@@ -212,7 +286,10 @@ const STRANGER: ProcIdentitySnapshot = {
 describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
   it('①特征不符 ⇒ 拒杀:record 点名 pid/期望/实得,且断言未派生终止命令', async () => {
     const spy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
-    const out = await killProcessVerified(4242, expectPort8801(), { inspect: async () => STRANGER, runKill: spy })
+    const out = await killProcessVerified(4242, expectPort8801(), {
+      inspect: async () => STRANGER,
+      runKill: spy,
+    })
     expect(out.killed).toBe(false)
     if (!out.killed) {
       expect(out.reason).toBe('identity-mismatch')
@@ -224,7 +301,9 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
   })
 
   it('②特征相符 ⇒ 正常杀:派生恰好一次且命令指向该 pid(正向对照,不改坏功能)', async () => {
-    const spy = vi.fn(async (_bin: string, argv: string[]): Promise<string> => `done ${argv.join(' ')}`)
+    const spy = vi.fn(
+      async (_bin: string, argv: string[]): Promise<string> => `done ${argv.join(' ')}`,
+    )
     const out = await killProcessVerified(4242, expectPort8801(), {
       inspect: async () => MINE,
       runKill: spy,
@@ -241,27 +320,36 @@ describe('killProcessVerified 身份复核出口(G-670 成对判据)', () => {
 
   it('③pid 已不存在/取不到 ⇒ 未判定不杀(与改动前"没东西可杀"行为一致),探针抛错同侧', async () => {
     const spy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
-    const gone = await killProcessVerified(999999, expectPort8801(), { inspect: async () => null, runKill: spy })
+    const gone = await killProcessVerified(999999, expectPort8801(), {
+      inspect: async () => null,
+      runKill: spy,
+    })
     expect(gone.killed).toBe(false)
     if (!gone.killed) expect(gone.reason).toBe('undetermined')
-    const threw = await killProcessVerified(
-      999998,
-      expectPort8801(),
-      {
-        inspect: async () => {
-          throw new Error('probe down')
-        },
-        runKill: spy,
+    const threw = await killProcessVerified(999998, expectPort8801(), {
+      inspect: async () => {
+        throw new Error('probe down')
       },
-    )
+      runKill: spy,
+    })
     expect(threw.killed).toBe(false)
     if (!threw.killed) expect(threw.reason).toBe('undetermined')
     expect(spy).not.toHaveBeenCalled()
   })
 
   it('judgeKillIdentity 纯判据:期望设了而实得缺位⇒不成立;executable 维大小写不敏感', () => {
-    expect(judgeKillIdentity({ executablePath: null, commandLine: 'x 8801' }, { executablePathIncludes: 'node.exe' }).ok).toBe(false)
-    expect(judgeKillIdentity({ executablePath: 'D:\\NODEJS\\Node.EXE', commandLine: '8801' }, { executablePathIncludes: 'node.exe' }).ok).toBe(true)
+    expect(
+      judgeKillIdentity(
+        { executablePath: null, commandLine: 'x 8801' },
+        { executablePathIncludes: 'node.exe' },
+      ).ok,
+    ).toBe(false)
+    expect(
+      judgeKillIdentity(
+        { executablePath: 'D:\\NODEJS\\Node.EXE', commandLine: '8801' },
+        { executablePathIncludes: 'node.exe' },
+      ).ok,
+    ).toBe(true)
     expect(judgeKillIdentity({ executablePath: 'a', commandLine: 'b' }, {}).ok).toBe(true)
   })
 
@@ -286,7 +374,9 @@ describe('repairWorkspaceIssue port 修复已走身份复核出口(装车证明,
     await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen))
     const addr = server.address()
     const port = typeof addr === 'object' && addr ? addr.port : 0
-    const killSpy = vi.fn(async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN')
+    const killSpy = vi.fn(
+      async (_bin: string, _argv: string[]): Promise<string> => 'SHOULD-NOT-RUN',
+    )
     try {
       const result = await repairWorkspaceIssue({
         workspacePath: makeWorkspace(),
