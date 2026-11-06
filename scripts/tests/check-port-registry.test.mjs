@@ -780,3 +780,111 @@ test('S-5 真仓阳性对照:工作树两面必须双向 0(看不见存量不算
   assert.ok(judged.docCount === judged.derivedCount && judged.docCount > 40, `现读基数 ${judged.docCount}/${judged.derivedCount}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ─── BUG-0011:observability 编排 ports 段尾随裸引号(2026-11-06 立)────────────
+// 2026-10-31 d72f60ea8c 批量去掉左引号后,7 条映射只剩右引号,YAML 把整串当纯标量,
+// 容器口解成 4317'/4318'/8888'/16686'/14250'/14268'/9090',compose config 报
+// invalid containerPort。判据:每条映射必须是合法 `<[ip:]host>:<container>` 规格。
+const OBS_COMPOSE_REL = join(__dirname, '..', '..', 'deploy', 'observability', 'docker-compose.observability.yml')
+const OBS_IP_PREFIX = '(?:(?:127\\.0\\.0\\.1|0\\.0\\.0\\.0|host\\.docker\\.internal):)?'
+const OBS_STRICT_PORT_SPEC = new RegExp(`^${OBS_IP_PREFIX}(\\d{1,5}):(\\d{1,5})$`)
+
+/** 解析一行 ports 条目;非法(尾随裸引号、缺段、非数字等)返回 null。 */
+function obsParsePortEntry(line) {
+  const outer = line.match(/^\s*-\s+(?:'([^']+)'|([^'#\s]+))\s*(?:#.*)?$/)
+  if (!outer) return null
+  const spec = outer[1] ?? outer[2]
+  const inner = spec.match(OBS_STRICT_PORT_SPEC)
+  if (!inner) return null
+  return { host: Number(inner[1]), container: Number(inner[2]), spec }
+}
+
+/** 逐条扫描所有服务的 ports 段:合法项进 entries,非法项带行号进 errors。 */
+function obsScanPortLines(text) {
+  const lines = String(text).split(/\r?\n/)
+  const errors = []
+  const entries = []
+  let portsIndent = -1
+  let inPorts = false
+
+  lines.forEach((line, index) => {
+    const indent = line.match(/^\s*/)[0].length
+    if (/^\s*ports:\s*$/.test(line)) {
+      inPorts = true
+      portsIndent = indent
+      return
+    }
+    if (!inPorts) return
+    if (/^\s*#/.test(line) || line.trim() === '') return
+    if (indent <= portsIndent) {
+      inPorts = false
+      return
+    }
+    if (!/^\s*-\s/.test(line)) return
+    const parsed = obsParsePortEntry(line)
+    if (parsed) {
+      entries.push({ line: index + 1, ...parsed })
+      return
+    }
+    errors.push({ line: index + 1, raw: line.trim(), reason: 'port-spec-invalid' })
+  })
+
+  return { errors, entries }
+}
+
+/** 取某个服务(2 空格缩进的顶层键)的宿主端口列表;服务不存在返回 null。 */
+function obsHostPortsForService(text, service) {
+  const lines = String(text).split(/\r?\n/)
+  const start = lines.findIndex((line) => new RegExp(`^ {2}${service}:\\s*$`).test(line))
+  if (start < 0) return null
+  const hosts = []
+  let inPorts = false
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^ {2}\S/.test(line) && !/^ {2}#/.test(line)) break
+    if (/^ {4}ports:\s*$/.test(line)) {
+      inPorts = true
+      continue
+    }
+    if (!inPorts) continue
+    if (/^\s*#/.test(line) || line.trim() === '') continue
+    if (/^ {6}-\s/.test(line)) {
+      const parsed = obsParsePortEntry(line)
+      if (parsed) hosts.push(parsed.host)
+      continue
+    }
+    inPorts = false
+  }
+  return hosts
+}
+
+/** 把真实文本的某一行替换成坏行,返回 {text, mutatedLine}。 */
+function obsMutateOneLine(text, needle, replacement) {
+  const lines = text.split(/\r?\n/)
+  const index = lines.findIndex((line) => line.includes(needle))
+  assert.ok(index >= 0, `夹具前提失败:真实编排里找不到 ${needle}`)
+  lines[index] = lines[index].replace(needle, replacement)
+  return { text: lines.join('\n'), mutatedLine: index + 1 }
+}
+
+test('BUG-0011 真实 observability 编排:ports 段七条映射全部合法', () => {
+  const text = readFileSync(OBS_COMPOSE_REL, 'utf8')
+  const { errors, entries } = obsScanPortLines(text)
+  assert.deepEqual(errors, [], '尾随裸引号会被判 port-spec-invalid')
+  assert.equal(entries.length, 7, 'otel 3 + jaeger 3 + prometheus 1')
+  const prom = entries.find((entry) => entry.container === 9090)
+  assert.ok(prom, 'Prometheus 容器口 9090 必须存在')
+  assert.match(prom.spec, /^127\.0\.0\.1:\d{4}:9090$/, '宿主口必须是 4 位纯数字,不带引号')
+  assert.deepEqual(obsHostPortsForService(text, 'otel-collector'), [8812, 8813, 8888])
+  assert.deepEqual(obsHostPortsForService(text, 'jaeger'), [8814, 14250, 14268])
+})
+
+test('BUG-0011 夹具:尾随裸引号 ⇒ 精确点名该行 port-spec-invalid', () => {
+  const real = readFileSync(OBS_COMPOSE_REL, 'utf8')
+  const { text, mutatedLine } = obsMutateOneLine(real, "'127.0.0.1:8812:4317'", "127.0.0.1:8812:4317'")
+  const { errors } = obsScanPortLines(text)
+  assert.equal(errors.length, 1, '只报被改坏的那一条,不连坐')
+  assert.equal(errors[0].line, mutatedLine)
+  assert.match(errors[0].raw, /4317'/)
+  assert.equal(errors[0].reason, 'port-spec-invalid')
+})
