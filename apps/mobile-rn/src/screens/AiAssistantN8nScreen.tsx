@@ -1209,10 +1209,7 @@ export default function AiAssistantN8nScreen() {
   // 弹层高度唯一源:sheet 拿到确定 height/maxHeight 后,内部列表用 flex:1 撑满剩余空间,
   // 不再另写一份「给头部留余量」的比例(见 lib/dialog-geometry.ts)。
   const { height: windowHeight } = useWindowDimensions()
-  const dialogHeightStyle = useMemo(
-    () => dialogContentHeightStyle(windowHeight),
-    [windowHeight],
-  )
+  const dialogHeightStyle = useMemo(() => dialogContentHeightStyle(windowHeight), [windowHeight])
 
   const selectedModelLabel = useMemo(() => {
     const m = modelListItems.find((item) => item.id === selectedModelId)
@@ -2262,7 +2259,7 @@ const bubbleStyles = StyleSheet.create({
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
-  text: { fontSize: rnType.body.size, lineHeight: 20 },
+  text: { fontSize: rnType.body.size, lineHeight: rnType.body.lineHeight },
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
@@ -2288,7 +2285,7 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     fontSize: rnType.body.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.error.text,
   },
   errorRetry: {
@@ -2329,7 +2326,7 @@ const bubbleStyles = StyleSheet.create({
   },
   thinkingText: {
     fontSize: rnType.label.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   },
   // 操作按钮行(对齐 Uniapp action-buttons:左消耗文案 + 右按钮组)
@@ -2372,7 +2369,7 @@ const bubbleStyles = StyleSheet.create({
   },
   blockHint: {
     fontSize: rnType.label.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   },
   // 卡片(工具调用 / 终端任务共用外壳)
@@ -2409,7 +2406,7 @@ const bubbleStyles = StyleSheet.create({
   monoText: {
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
     fontSize: rnType.caption.size,
-    lineHeight: 16,
+    lineHeight: rnType.label.lineHeight,
     color: tokens.text.medium,
   },
   terminalCommand: {
@@ -2429,7 +2426,12 @@ const bubbleStyles = StyleSheet.create({
     fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
-  planText: { flex: 1, fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.primary },
+  planText: {
+    flex: 1,
+    fontSize: rnType.label.size,
+    lineHeight: rnType.bodySm.lineHeight,
+    color: tokens.text.primary,
+  },
   // 状态徽标(pending/active/done/failed 四态:底色 + 文字色成对)
   badge: {
     paddingHorizontal: rpx(8),
@@ -2474,7 +2476,7 @@ const pickerStyles = StyleSheet.create({
   close: {
     fontSize: rnType.display.size,
     color: tokens.text.tertiary,
-    lineHeight: 26,
+    lineHeight: rnType.subtitle.lineHeight,
   },
   // sheet 已有确定高度,flex:1 占满 header 之外的剩余空间(不再手写比例)
   listWrap: {
