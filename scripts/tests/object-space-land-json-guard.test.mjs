@@ -481,6 +481,21 @@ test('退休⑥(2026-11-05 补):base 已含退休行,本轮再摘新行 ⇒ 必�
   assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), before)
 })
 
+test('退休⑦(2026-11-06 补):web-rn 配对台账身份 = web+rn 复合主键 ⇒ 逐条附证据的改判不算摘除', () => {
+  const MAP = 'scripts/data/web-rn-screen-map.jsonl'
+  const row = { web: 'settings/activity', rn: 'packages/app/src/features/activity/ActivityScreen.tsx', status: 'aligned', note: '同名直配', at: '2026-10-24', state: 'verified' }
+  const twin = { web: 'activities', rn: 'packages/app/src/features/activity/ActivityScreen.tsx', status: 'aligned', note: '端点族与键空间双确认', at: '2026-10-24', state: 'verified' }
+  const text = (rows) => rows.map((r) => JSON.stringify(r)).join('\n') + '\n'
+  const baseText = text([row, twin])
+  const judged = { ...row, status: 'pending', state: 'pending', note: '2026-11-06 回源码复验:同名串味', domainAudit: { verdict: 'carrier-imprecise', at: '2026-11-06' } }
+  const a = __test__.jsonRetirementAudit({ baseText, newText: text([judged, twin]), kind: 'jsonl', path: MAP })
+  assert.equal(a.dropped, 0, `改判(status/note/state/domainAudit)不得算摘除:${JSON.stringify(a)}`)
+  assert.equal(a.ok, true, JSON.stringify(a.problems))
+  const b = __test__.jsonRetirementAudit({ baseText, newText: text([twin]), kind: 'jsonl', path: MAP })
+  assert.equal(b.dropped, 1, '反向对照:web+rn 那对身份真消失 ⇒ 仍进摘除射程,本组主键不弱化任何一维')
+  assert.equal(b.ok, false, '没写 retired 的真摘行必须判红')
+})
+
 test('丁(.jsonl):记录重排+追加 ⇒ 0/0 放行;记录内键路径整批删掉 ⇒ 判红', (t) => {
   const dir = makeRepo(t)
   commitFile(dir, 'LEDGER.jsonl', A_JSONL, 'A: 台账初版')
