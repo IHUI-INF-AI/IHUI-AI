@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
 import { SUPPORTED_EXTS } from './office-preview'
 
 /**
@@ -238,21 +239,22 @@ interface ArtifactTurnBadgeProps {
 export function ArtifactTurnBadge({ turn, messageId, className }: ArtifactTurnBadgeProps) {
   const t = useTranslations('artifactTurn')
   return (
-    <button
-      type="button"
-      data-testid="artifact-turn-badge"
-      data-turn={turn}
-      title={t('jumpToOrigin')}
-      aria-label={t('jumpToOrigin')}
-      onClick={() => jumpToMessageOrigin(messageId)}
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
-        className,
-      )}
-    >
-      <Undo2 className="h-3 w-3" />
-      {t('turn', { turn })}
-    </button>
+    <Tooltip content={t('jumpToOrigin')}>
+      <button
+        type="button"
+        data-testid="artifact-turn-badge"
+        data-turn={turn}
+        aria-label={t('jumpToOrigin')}
+        onClick={() => jumpToMessageOrigin(messageId)}
+        className={cn(
+          'inline-flex shrink-0 items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+          className,
+        )}
+      >
+        <Undo2 className="h-3 w-3" />
+        {t('turn', { turn })}
+      </button>
+    </Tooltip>
   )
 }
 
