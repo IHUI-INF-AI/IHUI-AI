@@ -14690,6 +14690,8 @@
     "dagAddEdge": "+ エッジ",
     "addNodeButton": "ノードを追加",
     "addEdgeButton": "エッジを追加",
+    "dagRemoveNode": "ノードを削除",
+    "dagRemoveEdge": "エッジを削除",
     "dagEditorTitle": "DAG ノード / エッジエディター",
     "retrySection": "失敗時リトライ",
     "interval": "間隔",

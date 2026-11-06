@@ -14687,6 +14687,8 @@
     "dagAddEdge": "+ Edge",
     "addNodeButton": "Add node",
     "addEdgeButton": "Add edge",
+    "dagRemoveNode": "Remove node",
+    "dagRemoveEdge": "Remove edge",
     "dagEditorTitle": "DAG node / edge editor",
     "retrySection": "Retry on failure",
     "interval": "Interval",
