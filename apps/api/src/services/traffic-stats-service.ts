@@ -258,6 +258,8 @@ export interface TrafficLiveSnapshot {
   families: Array<{ family: string; pv: number }>
   /** true = 族分解被 UA 种类预算截断 ⇒ `families` / 真人 / 机器人三处都只是下界 */
   truncated: boolean
+  /** 族分解预算前的 UA 种类观测总数(与 `truncated` 成对:截断时 `families` 只是下界) */
+  uaKindsTotal: number
   /** 本次聚合完成的时刻(ms) —— 大屏"新鲜度"就报 `now - computedAtMs` */
   computedAtMs: number
 }
@@ -297,6 +299,7 @@ export async function computeTrafficLiveSnapshot(
     botPv24h: bot,
     families,
     truncated: folded.truncated,
+    uaKindsTotal: folded.uaKindsObserved,
     computedAtMs: Date.now(),
   }
 }

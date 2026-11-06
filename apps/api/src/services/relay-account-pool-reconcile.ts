@@ -124,6 +124,8 @@ export interface ReconcilePlan {
   outOfScopeByProvider: Record<string, number>
   /** 被单轮配额挤掉的动作数(>0 表示本轮未处理完,下轮继续) */
   truncated: number
+  /** 本轮应有的动作总数 = `actions.length + truncated`(截断时它才是分母) */
+  actionsTotal: number
   /**
    * 号池已停用且签到侧无此行的行数:跳过 missing 补链(2026-10-24 立)。
    * pool-sync 是 upsert —— 对被弃用的账号执行补推,等于把它的身份在签到侧自动
@@ -242,6 +244,7 @@ export function planReconciliation(
     outOfScope,
     outOfScopeByProvider: Object.fromEntries(outOfScopeByProvider),
     truncated,
+    actionsTotal: actions.length + truncated,
     skippedDisabledMissing,
   }
 }
