@@ -2630,6 +2630,14 @@ struct DeepLinkGateState {
 static STARTUP_START_HIDDEN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
+/// 主窗是否已因「本轮首次加载完成」点亮过(2026-11-07 缺陷挖掘)。
+///
+/// 此前 `on_page_load` 每次 `Finished` 都无条件 `show()` —— 热刷新 / 离线兜底页 /
+/// 错误页自愈都会把用户**手动隐藏**的主窗重新弹出来。窗口生命周期内只该由首次加载
+/// 点亮一次;之后的可见性完全归用户与显式命令(托盘「显示主窗」等)管。
+static MAIN_SHOWN_ONCE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 /// 票 L7220 P3(2026-10-21 立):main 窗的**主文档加载完成**标记,由 `on_page_load`
 /// 的 `PageLoadEvent::Finished` 回调置位,由启动健康门(`startup_health_gate`)读。
 ///
@@ -3358,6 +3366,10 @@ mod startup_health_gate_tests {
     const M_FORBIDDEN_URL: &str = concat!(".", "url()");
     const M_FORBIDDEN_VIS: &str = concat!(".", "is_visible()");
     const M_OLD_REVEAL: &str = concat!("site=startup_", "timeout_reveal");
+    /// 2026-11-07 缺陷挖掘:点亮必须只认本轮首次加载完成。此前每次 `Finished`
+    /// (热刷新/离线兜底页/错误页自愈)都无条件 `show()`,用户手动隐藏后一刷新就被
+    /// 重新弹出来。标记同样用 concat! 拆开,避免本模块自身命中。
+    const M_SHOW_ONCE: &str = concat!("MAIN_SHOWN_", "ONCE.swap(true");
 
     /// 从 `marker` 之后第一个 `{` 起做**括号配平**,返回该块(含首尾括号)的字节区间。
     ///
@@ -3399,6 +3411,7 @@ mod startup_health_gate_tests {
             M_SETUP,
             M_GATE_SPAWN,
             M_LOOP_START,
+            M_SHOW_ONCE,
         ] {
             let hits = SRC.matches(marker).count();
             assert_eq!(
@@ -3437,6 +3450,23 @@ mod startup_health_gate_tests {
         assert!(
             body.contains("if label == \"main\""),
             "置位必须只认 main 窗:admin/其它窗与主窗就绪与否不是同一件事"
+        );
+    }
+
+    #[test]
+    fn 点亮只认首次加载完成() {
+        let (s, e) = block_after(M_ON_PAGE_LOAD).expect("on_page_load 块取不到");
+        let body = &SRC[s..e];
+        assert!(
+            body.contains(M_SHOW_ONCE),
+            "show() 未受「本轮首次加载」闩锁约束 ⇒ 热刷新/离线兜底导航会把用户已隐藏的主窗重新弹出(本票原始缺陷)"
+        );
+        // 闩锁必须在 show 之前取用(swap 返回旧值),否则等于没锁。
+        let show_at = body.find("win.show()").expect("main 窗 show() 调用点不见了");
+        let once_at = body.find(M_SHOW_ONCE).unwrap();
+        assert!(
+            once_at < show_at,
+            "闩锁取用排在 show() 之后 ⇒ 判据失效,窗口每次 Finished 仍会被点亮"
         );
     }
 
@@ -3628,9 +3658,13 @@ pub fn run() {
                 return;
             }
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-                if let Some(win) = wv.app_handle().get_webview_window("main") {
-                    log::info!("[window-show] site=page_load_finished trigger=主文档加载完成 ⇒ 点亮(chrome 第一帧可见,替代探活点亮)");
-                    let _ = win.show();
+                // 2026-11-07 缺陷挖掘:只在本轮**首次**加载完成时点亮。后续导航(热刷新/
+                // 离线兜底页/错误页自愈)一律不改可见性,否则用户手动隐藏后一刷新就弹回。
+                if !MAIN_SHOWN_ONCE.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                    if let Some(win) = wv.app_handle().get_webview_window("main") {
+                        log::info!("[window-show] site=page_load_finished trigger=主文档首次加载完成 ⇒ 点亮(chrome 第一帧可见,替代探活点亮)");
+                        let _ = win.show();
+                    }
                 }
             }
         })
