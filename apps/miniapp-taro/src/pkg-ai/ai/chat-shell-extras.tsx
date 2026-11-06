@@ -37,7 +37,7 @@ import QueueInteractionBar from './queue-interaction-bar'
 import { ChatListHeader, ChatThinkingPlaceholder } from './chat-list-extras'
 import { ModelDrawer, AgentDrawer, HistoryDrawer } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
-import type { ChatScreenMessage, ChatScreenProps } from '@ihui/rn-app/features/chat/ChatScreen'
+import type { ChatScreenMessage, ChatScreenProps } from '@ihui/rn-app'
 
 // 端内壳上下文:页级状态/回调按页内局部名 shorthand 传入。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -139,6 +139,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     selectSkill,
     inputValue,
     setInputValue,
+    pendingQuestion,
+    setPendingQuestion,
     imgsList,
     sendMessage,
     handleImageAdd,
@@ -509,6 +511,59 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         onClear={handleClearHistory}
       />
       <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
+      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
+          挂共享屏既有 overlaySlot(容器内最后渲染位,视口固定定位 + zIndex 层级语义),
+          不再以页级浮层写回 chat.tsx;点选项把回答写回输入框,用户点发送即续流;
+          关闭只收卡,不吞掉已有输入。 */}
+      {pendingQuestion ? (
+        <View
+          style={{
+            position: 'fixed',
+            left: '16px',
+            right: '16px',
+            bottom: '96px',
+            zIndex: 999,
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+          }}
+        >
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+            {pendingQuestion.prompt}
+          </Text>
+          {pendingQuestion.options.map((o: { id: string; label: string }) => (
+            <View
+              key={o.id}
+              onClick={() => {
+                setInputValue(o.label)
+                setPendingQuestion(null)
+              }}
+              style={{
+                marginTop: '10px',
+                padding: '10px',
+                borderRadius: '8px',
+                borderWidth: '1px',
+                borderColor: '#dddddd',
+              }}
+            >
+              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+            </View>
+          ))}
+          <View
+            onClick={() => setPendingQuestion(null)}
+            style={{ marginTop: '10px', padding: '8px' }}
+          >
+            <Text style={{ fontSize: '13px', color: '#888888' }}>
+              {pendingQuestion.allowCustom
+                ? pendingQuestion.allowMultiple
+                  ? '可多选 / 自行输入,也可关闭'
+                  : '可自行输入,也可关闭'
+                : '关闭'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {reasoningPopupVisible ? (
         <View
           style={{

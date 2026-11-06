@@ -16,6 +16,8 @@
 //  - 批准:校验通过才上行,失败停在 filling 并把错误挂在具体字段上;
 //  - 拒绝:直达终态且不带 values(拒绝零副作用),理由仅 reject 可带;
 //  - 上行失败/无会话锚点:显式 failed 态可重试,不得把"没发出去"读成"已处理"。
+import { DIALOG_HEIGHT_RATIOS } from '../../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CalendarDays, Check, Mail, X } from 'lucide-react-native'
@@ -235,6 +237,7 @@ function FormPanel({
   onApprove,
   onReject,
 }: FormPanelProps) {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.businessForm)
   const { t } = useI18n()
   const s = useMemo(() => createStyles(), [])
   const kind: BusinessFormKind = entry.frame.kind
@@ -275,7 +278,7 @@ function FormPanel({
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
         <Tappable style={s.backdrop} onPress={onClose}>
-          <View style={s.sheet}>
+          <View style={[s.sheet, dialogHeightStyle]}>
             <View style={s.chrome}>
               <Text style={s.title}>{t(`${NS}.aria.${kind}`)}</Text>
               {statusText ? <Text style={s.chipStatus}>{statusText}</Text> : null}
@@ -377,7 +380,7 @@ function createStyles() {
     backdrop: { flex: 1, backgroundColor: rnCssLight.black45, justifyContent: 'flex-end' },
     // 门 217:sheet 是 bounded 容器 ⇒ 内部唯一弹性块是 body(ScrollView),固定 chrome 显式 flexShrink:0。
     sheet: {
-      maxHeight: '78%',
+      maxHeight: undefined,
       flexDirection: 'column',
       gap: rnSpacing.sm,
       padding: rnSpacing.md,

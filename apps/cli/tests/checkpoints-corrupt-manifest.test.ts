@@ -8,6 +8,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { CheckpointManager } from '../src/checkpoints/index.js'
 import { HunkCheckpointManager } from '../src/checkpoints/hunks.js'
+import { quarantineManifest } from '../src/checkpoints/manifest-integrity.js'
 
 /**
  * G-671(2026-10-01)checkpoint manifest 损坏隔离 —— 票面验收:
@@ -235,6 +236,20 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
     expect(fs.existsSync(path.join(baseDir, hunkMeta.id, 'manifest.json'))).toBe(true)
     expect(mgr.getQuarantinedManifests().map((c) => c.checkpointId)).toEqual(['cp_stillbad'])
     expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('隔离目标名读不到时不改名,原清单留在原地', () => {
+    const dir = makeCpDir('cp_unread_dest', '{"id":"cp_unread_dest"}')
+    const manifest = path.join(dir, 'manifest.json')
+    const before = fs.readFileSync(manifest)
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    expect(quarantineManifest(manifest, denied)).toBeNull()
+    expect(fs.readFileSync(manifest)).toEqual(before)
+    expect(fs.readdirSync(dir).some((name) => name.startsWith('manifest.corrupt-'))).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

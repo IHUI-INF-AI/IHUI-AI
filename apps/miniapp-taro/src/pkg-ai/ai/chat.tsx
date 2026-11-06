@@ -9,8 +9,8 @@ import { useI18n, useTt } from '@/i18n'
 const floderInputIcon = aizhsUrl('remote-images/floder_input.png')
 const fileIcon = aizhsUrl('remote-images/file.png')
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
-// BUG-67:AI 主动提问卡(question 帧)的页级浮层节点(Taro 原生组件,不进共享屏槽位)。
-import { View, Text } from '@tarojs/components'
+// BUG-67 提问卡:浮层节点已下沉到 ./chat-shell-extras 的 overlaySlot(共享屏既有槽位),
+// 页内不再挂 Taro View/Text 节点;本页 return 只保留 ThemeRoot + SharedChatScreen。
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   chatStream,
@@ -83,7 +83,7 @@ import { logger } from '@/utils/logger'
 // 块 2:消息列表宿主与气泡单源在共享层(packages/app/src/features/chat/ChatMessageList.tsx)。
 // 最终壳:共享屏在共享层,端内节点注入到 ./chat-shell-extras。
 import { ChatScreen as SharedChatScreen } from '@ihui/rn-app/features/chat/ChatScreen'
-import type { ChatScreenMessage } from '@ihui/rn-app/features/chat/ChatScreen'
+import type { ChatScreenMessage } from '@ihui/rn-app'
 import { buildChatShellProps } from './chat-shell-extras'
 import { resolvePermissionTierText } from './permission-tier-text'
 // 台账票 68:流式中切换模型 → 先终止当前这一轮,再让本轮/下一轮自动带入新模型。
@@ -1283,8 +1283,8 @@ export default function ChatPage() {
                 return [...prev, entry]
               })
             },
-            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → 下方提问卡 JSX。
-            // 选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
+            // BUG-67:AI 主动提问(question 帧)→ 页级挂起态 → ./chat-shell-extras 的
+            // overlaySlot 提问卡。选项点击把回答写回输入框,用户点发送即续流;消费端不新起 answer 端点。
             onQuestion: (q) => {
               setPendingQuestion((prev) => (prev?.questionId === q.questionId ? prev : q))
             },
@@ -1999,6 +1999,7 @@ export default function ChatPage() {
     openMaterialDrawer,
     openModelDrawer,
     openSkillsPopup,
+    pendingQuestion,
     reasoningPopupContent,
     reasoningPopupVisible,
     scrollToBottom,
@@ -2015,6 +2016,7 @@ export default function ChatPage() {
     setMaterialDrawerVisible,
     setMaterialTab,
     setModelDrawerVisible,
+    setPendingQuestion,
     setReasoningPopupContent,
     setReasoningPopupVisible,
     setSelectedMaterial,
@@ -2042,54 +2044,6 @@ export default function ChatPage() {
   return (
     <ThemeRoot className="page">
       <SharedChatScreen {...buildChatShellProps(shellCtx)} />
-      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
-          点选项把回答写回输入框,用户点发送即续流;关闭只收卡,不吞掉已有输入。 */}
-      {pendingQuestion ? (
-        <View
-          style={{
-            position: 'fixed',
-            left: '16px',
-            right: '16px',
-            bottom: '96px',
-            zIndex: 999,
-            padding: '16px',
-            borderRadius: '12px',
-            backgroundColor: '#ffffff',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
-          }}
-        >
-          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
-            {pendingQuestion.prompt}
-          </Text>
-          {pendingQuestion.options.map((o) => (
-            <View
-              key={o.id}
-              onClick={() => {
-                setInputValue(o.label)
-                setPendingQuestion(null)
-              }}
-              style={{
-                marginTop: '10px',
-                padding: '10px',
-                borderRadius: '8px',
-                borderWidth: '1px',
-                borderColor: '#dddddd',
-              }}
-            >
-              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
-            </View>
-          ))}
-          <View onClick={() => setPendingQuestion(null)} style={{ marginTop: '10px', padding: '8px' }}>
-            <Text style={{ fontSize: '13px', color: '#888888' }}>
-              {pendingQuestion.allowCustom
-                ? pendingQuestion.allowMultiple
-                  ? '可多选 / 自行输入,也可关闭'
-                  : '可自行输入,也可关闭'
-                : '关闭'}
-            </Text>
-          </View>
-        </View>
-      ) : null}
     </ThemeRoot>
   )
 }
