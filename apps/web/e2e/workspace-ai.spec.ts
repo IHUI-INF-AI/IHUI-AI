@@ -57,6 +57,7 @@ test.describe('AI 工作区', () => {
     const hasCreate = await createBtn.isVisible({ timeout: 5000 }).catch(() => false)
     if (hasCreate) {
       await createBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1000)
       const dialog = page.getByRole('dialog').first()
       if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -75,7 +76,7 @@ test.describe('AI 工作区', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/workspace')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 代码编辑器可能是 textarea 或含 monaco/cm 的容器
     const editor = page.locator('textarea, [role="textbox"], .monaco-editor, .cm-editor').first()
     const hasEditor = await editor.isVisible({ timeout: 3000 }).catch(() => false)
@@ -87,7 +88,7 @@ test.describe('AI 工作区', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/workspace')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const uploadBtn = page
       .getByRole('button')
       .filter({

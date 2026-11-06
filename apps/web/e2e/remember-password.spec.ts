@@ -59,6 +59,7 @@ async function openLoginDialog(page: Page) {
     // boundingBox 会一直等到用例级 30s 超时(flaky 根因)。改为作用在元素自身的强制点击,
     // 与同文件 switchToPasswordTab 的既有修法同源。
     await disagreeBtn.click({ force: true })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
   }
 }

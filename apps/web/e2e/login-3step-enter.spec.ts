@@ -146,7 +146,7 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
     // 在 dev 环境 mock OTP 流程下 submit 时机不稳定(取决于验证码是否真正
     // 发出,Turnstile 验证等)。改为直接 mock login API + 检查 submit 触发,
     // 而非依赖完整 3 步键盘交互链路。
-    test.skip(true, '依赖完整 OTP/agreement 链路,本批跳过改为后续 mock 化')
+    test.skip(true, '依赖完整 OTP/agreement 链路,本批跳过改为后续 mock 化 [SKIP:SKIP-0054]')
 
     let loginApiCalled = false
     // 2026-08-26 修复:实际登录提交是 POST /api/auth/login(共享 LoginForm 调用),
