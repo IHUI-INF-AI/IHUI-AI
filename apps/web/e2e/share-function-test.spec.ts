@@ -242,6 +242,7 @@ test.describe('分享功能 E2E 测试', () => {
     const sharePage = await context.newPage()
     await sharePage.goto(shareUrl)
     await sharePage.waitForLoadState('domcontentloaded')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await sharePage.waitForTimeout(3000)
 
     console.log('[share-test] 分享页面 URL:', sharePage.url())
@@ -325,7 +326,7 @@ test.describe('分享功能 E2E 测试', () => {
     const freshPage = await freshContext.newPage()
     await freshPage.goto(shareUrl)
     await freshPage.waitForLoadState('domcontentloaded')
-    await freshPage.waitForTimeout(2000)
+    await freshPage.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
 
     const freshUrl = freshPage.url()
     console.log('[share-test] 无登录态分享页面 URL:', freshUrl)
@@ -366,7 +367,7 @@ test.describe('分享功能 E2E 测试', () => {
     const authPage = await context.newPage()
     await authPage.goto(WEB_URL)
     await authPage.waitForLoadState('domcontentloaded')
-    await authPage.waitForTimeout(2000)
+    await authPage.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
 
     console.log('[share-test] 首页 URL:', authPage.url())
 
@@ -391,6 +392,7 @@ test.describe('分享功能 E2E 测试', () => {
     if (convVisible) {
       console.log('[share-test] 点击对话按钮...')
       await convBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await authPage.waitForTimeout(2000)
       console.log('[share-test] 对话已打开，URL:', authPage.url())
 
@@ -409,6 +411,7 @@ test.describe('分享功能 E2E 测试', () => {
       if (shareBtnVisible) {
         console.log('[share-test] 点击分享按钮...')
         await shareBtn.click()
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await authPage.waitForTimeout(1500)
 
         const toastVisible = await authPage

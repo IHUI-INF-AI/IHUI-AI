@@ -48,12 +48,11 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(TAG_PATH)) {
       // middleware 拒绝 admin 登录态(可能 API 未 seed),graceful skip
-      setupTest.skip(true, 'admin 登录态被拒绝或后端不可用')
+      setupTest.skip(true, 'admin 登录态被拒绝或后端不可用 [SKIP:SKIP-0001]')
     }
     // 列表 main 区域可见
     const main = adminPage.locator('main, [role="main"]').first()
     await expect(main).toBeVisible({ timeout: 10000 })
-    await adminPage.waitForTimeout(500)
     expect(filterRealErrors(serverErrors)).toHaveLength(0)
     const real = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
@@ -65,7 +64,7 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     await adminPage.goto(TAG_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(TAG_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0002]')
     }
 
     // 2026-08-26 修复:限定 main 区域,避免误中侧边栏"新建任务"按钮
@@ -75,7 +74,7 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
       .filter({ hasText: /新建|创建|添加|新增|Create|New|Add/i })
       .first()
     if (!(await createBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-      setupTest.skip(true, '未找到"新建"按钮')
+      setupTest.skip(true, '未找到"新建"按钮 [SKIP:SKIP-0003]')
     }
     await createBtn.click()
     // 等待对话框
@@ -94,6 +93,7 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
       .first()
     if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await submitBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(2000)
     }
     expect(TEST_TAG_NAME.length).toBeGreaterThan(0)
@@ -103,13 +103,14 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     await adminPage.goto(TAG_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(TAG_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0004]')
     }
 
     const searchInput = adminPage.getByPlaceholder(/搜索|查找|Search/i).first()
     if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
       await searchInput.fill('E2E')
       await adminPage.keyboard.press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(1500)
     }
     const list = adminPage.locator('table, [role="table"], ul, [role="list"]').first()
@@ -122,10 +123,10 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     await adminPage.goto(TAG_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(TAG_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0005]')
     }
 
-    await adminPage.waitForTimeout(1500)
+    await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     // 2026-08-26 修复:同上行 — 限定 main 区域,避免误中侧边栏"编辑"
     const editBtn = adminPage
       .locator('main')
@@ -133,7 +134,7 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
       .filter({ hasText: /编辑|修改|Edit/i })
       .first()
     if (!(await editBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      setupTest.skip(true, '无编辑按钮(可能列表为空)')
+      setupTest.skip(true, '无编辑按钮(可能列表为空) [SKIP:SKIP-0006]')
     }
     await editBtn.click()
     const dialog = adminPage.getByRole('dialog').first()
@@ -149,10 +150,10 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     await adminPage.goto(TAG_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(TAG_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0007]')
     }
 
-    await adminPage.waitForTimeout(1500)
+    await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     // 2026-08-26 修复:同上行 — 限定 main 区域,避免误中侧边栏"删除"
     const deleteBtn = adminPage
       .locator('main')
@@ -160,11 +161,10 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
       .filter({ hasText: /删除|Delete|Remove/i })
       .first()
     if (!(await deleteBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      setupTest.skip(true, '无删除按钮(可能列表为空)')
+      setupTest.skip(true, '无删除按钮(可能列表为空) [SKIP:SKIP-0008]')
     }
     adminPage.once('dialog', (d) => d.accept().catch(() => {}))
     await deleteBtn.click()
-    await adminPage.waitForTimeout(1500)
     expect(adminPage.url()).toContain(TAG_PATH)
   })
 })

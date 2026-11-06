@@ -80,7 +80,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
 
       const ready = await waitForChatWithTrigger(adminPage)
       if (!ready) {
-        setupTest.skip(true, 'admin 未登录或 /chat 不可达 / trigger 未渲染,跳过')
+        setupTest.skip(true, 'admin 未登录或 /chat 不可达 / trigger 未渲染,跳过 [SKIP:SKIP-0036]')
         return
       }
 
@@ -126,7 +126,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
 
       const ready = await waitForChatWithTrigger(adminPage)
       if (!ready) {
-        setupTest.skip(true, 'admin 未登录或 /chat 不可达 / trigger 未渲染,跳过')
+        setupTest.skip(true, 'admin 未登录或 /chat 不可达 / trigger 未渲染,跳过 [SKIP:SKIP-0037]')
         return
       }
 
@@ -143,10 +143,11 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
       })
       const triggerElement = triggerHandle.asElement()
       if (!triggerElement) {
-        setupTest.skip(true, 'trigger 元素句柄不可用,跳过点击')
+        setupTest.skip(true, 'trigger 元素句柄不可用,跳过点击 [SKIP:SKIP-0038]')
         return
       }
       await triggerElement.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(500)
 
       // 2) 找 Popover dialog(由 Popover 组件渲染 role="dialog" + aria-label=triggerLabel)
@@ -156,7 +157,10 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
         .filter({ hasText: /压缩|Compress/i })
         .first()
       if (!(await dialog.isVisible({ timeout: 3000 }).catch(() => false))) {
-        setupTest.skip(true, 'Popover 弹层未出现(可能 button 渲染失败 / ICU 报错),跳过压缩测试')
+        setupTest.skip(
+          true,
+          'Popover 弹层未出现(可能 button 渲染失败 / ICU 报错),跳过压缩测试 [SKIP:SKIP-0039]',
+        )
         return
       }
 
@@ -166,7 +170,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
         .filter({ hasText: COMPRESS_BTN_200K_PATTERN })
         .first()
       if (!(await compressBtn.isVisible({ timeout: 2000 }).catch(() => false))) {
-        setupTest.skip(true, '压缩按钮未渲染(可能 disabled 或 i18n key 缺失),跳过')
+        setupTest.skip(true, '压缩按钮未渲染(可能 disabled 或 i18n key 缺失),跳过 [SKIP:SKIP-0040]')
         return
       }
 
@@ -192,7 +196,10 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
         expect(status, `compress API returned ${status} ${compressResp.url()}`).toBeLessThan(500)
       } else {
         // 软跳过:网络监听超时,可能是 dev server 冷启动 / 后端不可用
-        setupTest.skip(true, 'compress API 响应监听超时(可能后端冷启动),跳过 5xx 断言')
+        setupTest.skip(
+          true,
+          'compress API 响应监听超时(可能后端冷启动),跳过 5xx 断言 [SKIP:SKIP-0041]',
+        )
         return
       }
 
@@ -203,7 +210,10 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
       const toastVisible = await toast.isVisible({ timeout: 5000 }).catch(() => false)
       if (!toastVisible) {
         // toast 没出现,可能是失败路径(4xx 业务错),不强 fail
-        setupTest.skip(true, '压缩 toast 未出现(可能业务失败,后端 4xx),跳过 description 断言')
+        setupTest.skip(
+          true,
+          '压缩 toast 未出现(可能业务失败,后端 4xx),跳过 description 断言 [SKIP:SKIP-0042]',
+        )
         return
       }
 
@@ -242,7 +252,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
   // ============================================
   setupTest('点击压缩按钮后,页面 URL 仍为 /chat(无 _not-found 兜底)', async ({ adminPage }) => {
     if (!(await waitForChatWithTrigger(adminPage))) {
-      setupTest.skip(true, 'admin 未登录或 /chat 不可达,跳过')
+      setupTest.skip(true, 'admin 未登录或 /chat 不可达,跳过 [SKIP:SKIP-0043]')
       return
     }
 
@@ -259,6 +269,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
     const triggerElement = triggerHandle.asElement()
     if (triggerElement) {
       await triggerElement.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(500)
     }
 
@@ -267,7 +278,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
       .filter({ hasText: /压缩|Compress/i })
       .first()
     if (!(await dialog.isVisible({ timeout: 2000 }).catch(() => false))) {
-      setupTest.skip(true, 'Popover 未出现,跳过')
+      setupTest.skip(true, 'Popover 未出现,跳过 [SKIP:SKIP-0044]')
       return
     }
 
@@ -277,6 +288,7 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
       .first()
     if (await compressBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await compressBtn.click().catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(3000)
     }
 

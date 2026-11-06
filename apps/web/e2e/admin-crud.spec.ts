@@ -61,6 +61,7 @@ test.describe('Admin CRUD 流程', () => {
       .first()
     if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await createBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1000)
       // 对话框或新页面应出现
       const dialog = page.getByRole('dialog').first()
@@ -92,7 +93,7 @@ test.describe('Admin CRUD 流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/tags')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 查找编辑/删除按钮(操作列常见)
     const editBtn = page.getByRole('button', { name: /编辑|修改|Edit/i }).first()
     const deleteBtn = page.getByRole('button', { name: /删除|Delete|Remove/i }).first()

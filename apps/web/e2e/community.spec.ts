@@ -73,11 +73,10 @@ test.describe('社区完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/circles')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const postItem = page.locator('a, article, [role="listitem"]').first()
     if (await postItem.isVisible({ timeout: 3000 }).catch(() => false)) {
       await postItem.click().catch(() => {})
-      await page.waitForTimeout(1500)
       expect(page.url()).toBeTruthy()
     }
   })
@@ -87,7 +86,7 @@ test.describe('社区完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/circles')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const likeBtn = page.getByRole('button', { name: /赞|Like/i }).first()
     const commentBtn = page.getByRole('button', { name: /评论|Comment/i }).first()
     const collectBtn = page.getByRole('button', { name: /收藏|Collect|Favorite/i }).first()

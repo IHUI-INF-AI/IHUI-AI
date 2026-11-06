@@ -177,7 +177,7 @@ test.describe('第三方登录 - 跳转目标验证', () => {
       if (!platformEnabled || localEnv) {
         test.skip(
           true,
-          `${!platformEnabled ? `未配置 ${p.key} OAuth 凭据` : '本地 dev 环境(厂商拒收 redirect_uri)'},跳过真实厂商跳转验证`,
+          `${!platformEnabled ? `未配置 ${p.key} OAuth 凭据` : '本地 dev 环境(厂商拒收 redirect_uri)'},跳过真实厂商跳转验证 [SKIP:SKIP-0027]`,
         )
         return
       }

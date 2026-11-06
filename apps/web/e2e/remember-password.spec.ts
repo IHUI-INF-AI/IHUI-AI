@@ -61,6 +61,7 @@ async function openLoginDialog(page: Page) {
       await page.mouse.down()
       await page.mouse.up()
     }
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
   }
 }

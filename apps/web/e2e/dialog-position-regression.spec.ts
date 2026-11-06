@@ -111,11 +111,13 @@ async function triggerAndMeasure(
       .catch(() => false)
     if (panelShown) {
       await closePanel.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
     }
     const menuBtn = page.locator('button[aria-label="菜单"]').first()
     await expect(menuBtn).toBeVisible({ timeout: 5000 })
     await menuBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
   }
 
@@ -147,6 +149,7 @@ async function triggerAndMeasure(
   await expect(passwordTab).toBeVisible({ timeout: 5000 })
   await passwordTab.click()
   // 等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(500)
 
   // 5. 填表(**不**勾选协议 — defaultAgreed=false,弹窗由 agreementMode='notice-dialog' 触发)

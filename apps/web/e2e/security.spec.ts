@@ -40,7 +40,7 @@ test.describe.parallel('安全专项', () => {
     // Next 本身无论本地还是 CI(8801 纯 HTTP)都不跳转 → 本测试在 e2e 环境
     // 永远不成立(先前 IS_CI 判断反而使其只在 CI 恒红)。改为仅在显式提供
     // 生产形态目标(E2E_HTTPS_PROBE_URL)时执行,e2e 套件默认跳过。
-    test.skip(!process.env.E2E_HTTPS_PROBE_URL, 'e2e 环境无 HTTPS 强制跳转层,跳过')
+    test.skip(!process.env.E2E_HTTPS_PROBE_URL, 'e2e 环境无 HTTPS 强制跳转层,跳过 [SKIP:SKIP-0177]')
     const probeUrl = process.env.E2E_HTTPS_PROBE_URL as string
     const response = await request.get(probeUrl, { maxRedirects: 0 }).catch(() => null)
     if (response) {
@@ -140,6 +140,7 @@ test.describe.parallel('安全专项', () => {
     if (await search.isVisible({ timeout: 3000 }).catch(() => false)) {
       await search.fill('<script>alert(1)</script>')
       await page.keyboard.press('Enter').catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
       // 验证页面没有注入的 script 标签
       const injected = await page.locator('script:has-text("alert(1)")').count()

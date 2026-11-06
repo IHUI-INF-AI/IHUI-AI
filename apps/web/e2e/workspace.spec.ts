@@ -31,6 +31,7 @@ test.describe('Workspace 页面', () => {
         .first()
       if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
         await createBtn.click()
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(1000)
         // 对话框应出现
         const dialog = page.getByRole('dialog').first()

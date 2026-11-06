@@ -55,6 +55,7 @@ const CONTROL_RADIUS_PX = RADIUS_STEPS[RADIUS_ROLES.control]
 // 打开 AI 侧边面板:登录后 /chat 直接渲染 docked AISidePanel
 async function openAiPanel(page: Page) {
   await page.goto('/chat', { waitUntil: 'domcontentloaded' })
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(3000) // 等水合 + 会话 bootstrap
   await page
     .locator(AI_PANEL)
@@ -85,7 +86,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     await openAiPanel(page)
     const panel = page.locator(AI_PANEL).first()
     if (!(await panel.isVisible().catch(() => false))) {
-      test.skip(true, 'AI 面板未显示(可能未登录或 store 状态不匹配),跳过此测试')
+      test.skip(true, 'AI 面板未显示(可能未登录或 store 状态不匹配),跳过此测试 [SKIP:SKIP-0216]')
       return
     }
 
@@ -118,7 +119,6 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
 
     // 3. 打开添加菜单 → 提示词模板 + 添加为上下文引用 并列可见
     await addBtn.click()
-    await page.waitForTimeout(600)
     const menu = page.locator(MENU).first()
     await expect(menu, '添加菜单应可见').toBeVisible()
     await expect(page.locator(PROMPT_ITEM).first(), '「提示词模板」菜单项应可见').toBeVisible()
@@ -135,6 +135,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
 
     // 兜底关闭菜单,避免影响下一个测试
     await page.keyboard.press('Escape').catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
   })
 
@@ -145,13 +146,14 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     await openAiPanel(page)
     const panel = page.locator(AI_PANEL).first()
     if (!(await panel.isVisible().catch(() => false))) {
-      test.skip()
+      test.skip(true, '未触发会话时 AI 面板未挂载,视觉基线无法采样 [SKIP:SKIP-0217]')
       return
     }
 
     const addBtn = page.locator(ADD_BTN).first()
     await addBtn.scrollIntoViewIfNeeded()
     await addBtn.hover()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     // 验证 hover 态:按钮在 hover 时 translateY(-1px) + bg-accent
@@ -186,14 +188,16 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     await openAiPanel(page)
     const panel = page.locator(AI_PANEL).first()
     if (!(await panel.isVisible().catch(() => false))) {
-      test.skip()
+      test.skip(true, '未触发会话时 AI 面板未挂载,视觉基线无法采样 [SKIP:SKIP-0218]')
       return
     }
 
     // 打开添加菜单 → 点「提示词模板」→ Popover 出现
     await page.locator(ADD_BTN).first().click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
     await page.locator(PROMPT_ITEM).first().click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
 
     // 验证 Popover 出现且包含 5 个模板按钮
@@ -213,6 +217,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     // 点击第一个模板 → textarea 应自动填充
     const firstTemplateBtn = popover.locator('button').first()
     await firstTemplateBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
 
     // 验证 textarea value 包含模板内容(至少 5 个字符,说明有内容)
@@ -227,6 +232,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
 
     // 兜底:如果 Popover 没自动关闭,主动点击外部关闭,避免影响下一个测试
     await page.keyboard.press('Escape').catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
   })
 
@@ -237,7 +243,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     await openAiPanel(page)
     const panel = page.locator(AI_PANEL).first()
     if (!(await panel.isVisible().catch(() => false))) {
-      test.skip()
+      test.skip(true, '未触发会话时 AI 面板未挂载,视觉基线无法采样 [SKIP:SKIP-0219]')
       return
     }
 
@@ -249,6 +255,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
       document.documentElement.classList.add('dark')
       window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'dark' }))
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(800)
 
     // 验证 dark mode 已应用
@@ -267,9 +274,9 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
 
     // 打开 Popover → 截图
     await addBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(600)
     await page.locator(PROMPT_ITEM).first().click()
-    await page.waitForTimeout(600)
     const popover = page.locator(POPOVER).last()
     await expect(popover, 'dark mode 下模板 Popover 应可见').toBeVisible()
     await page.screenshot({
@@ -285,7 +292,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     await openAiPanel(page)
     const panel = page.locator(AI_PANEL).first()
     if (!(await panel.isVisible().catch(() => false))) {
-      test.skip()
+      test.skip(true, '未触发会话时 AI 面板未挂载,视觉基线无法采样 [SKIP:SKIP-0220]')
       return
     }
 
@@ -294,7 +301,7 @@ test.describe('AI 对话框 - 提示词模板 5 状态自验', () => {
     const chips = page.locator(CHIPS_WRAPPER).first()
     const chipsExists = await chips.isVisible().catch(() => false)
     if (!chipsExists) {
-      test.skip(true, '空状态 chips 未出现(可能 AI 面板未处于空状态)')
+      test.skip(true, '空状态 chips 未出现(可能 AI 面板未处于空状态) [SKIP:SKIP-0221]')
       return
     }
 

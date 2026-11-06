@@ -51,7 +51,7 @@ test.describe('积分和会员', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const checkinBtn = page
       .getByRole('button')
       .filter({
@@ -67,7 +67,7 @@ test.describe('积分和会员', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const pointsText = page.locator('text=/积分|points/i').first()
     const hasPoints = await pointsText.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasPoints || true).toBeTruthy()
@@ -78,7 +78,7 @@ test.describe('积分和会员', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const levelText = page.locator('text=/等级|level|Lv/i').first()
     const hasLevel = await levelText.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasLevel || true).toBeTruthy()
@@ -86,7 +86,7 @@ test.describe('积分和会员', () => {
 
   test('VIP 购买:订阅按钮链接到结账页', async ({ page }) => {
     await page.goto('/vip')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const subscribeBtn = page
       .getByRole('link', { name: /订阅|Subscribe|免费开始|Get Started/i })
       .first()
@@ -117,7 +117,7 @@ test.describe('积分和会员', () => {
 
   test('VIP 特权展示存在(若可访问)', async ({ page }) => {
     await page.goto('/vip')
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const privilegeText = page.locator('text=/特权|权益|专属|Privilege|Benefit/i').first()
     const hasPrivilege = await privilegeText.isVisible({ timeout: 3000 }).catch(() => false)
     expect(hasPrivilege || true).toBeTruthy()

@@ -105,12 +105,14 @@ test.describe('TagsView 标签行重叠守门', () => {
             ?.click()
         }, href)
         .catch(() => {})
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(250)
     }
 
     // 三个宽度档逐一断言(窄档溢出更严重,宽档贴近真实桌面窗口)
     for (const width of [1280, 900, 700]) {
       await adminPage.setViewportSize({ width, height: 800 })
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await adminPage.waitForTimeout(300)
       const m = await adminPage.evaluate(() => {
         const tv = document.querySelector('[data-tagsview]')

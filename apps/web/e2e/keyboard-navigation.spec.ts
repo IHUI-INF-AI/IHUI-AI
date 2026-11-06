@@ -48,6 +48,7 @@ test.describe('键盘导航', () => {
     await page.waitForLoadState('domcontentloaded')
 
     await page.keyboard.press('Tab')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     const hasFocusVisible = await page.evaluate(() => {
@@ -72,6 +73,7 @@ test.describe('键盘导航', () => {
     }
 
     await page.keyboard.press('Enter')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     const urlAfter = page.url()
     expect(urlAfter).toBeTruthy()
@@ -119,6 +121,7 @@ test.describe('键盘导航', () => {
       if (radioCount > 1) {
         await radios.first().focus()
         await page.keyboard.press('ArrowDown')
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(200)
         const checkedRadios = await firstGroup
           .locator('[role="radio"][aria-checked="true"]')
@@ -139,6 +142,7 @@ test.describe('键盘导航', () => {
       const combobox = comboboxes.first()
       await combobox.focus()
       await page.keyboard.press('Enter')
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(200)
       const expanded = await combobox.getAttribute('aria-expanded')
       expect(typeof expanded).toBe('string')
