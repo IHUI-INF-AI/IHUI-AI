@@ -72,26 +72,40 @@ function replaceAny(src, pairs) {
 // ---------- 注入段定义(锚 = Expo prebuild 模板原文; 注入 = 目标态) ----------
 const SECTIONS = [
   {
-    label: '版本号同步 (versionName ← package.json)',
-    detect: (s) => s.includes('def appVersionName'),
+    // 2026-11-06:优先 -PversionName(自动发版把**显示版本**传进来),package.json 只做缺省。
+    // 病灶:此前 versionName 一律读 package.json,而 package.json version 是**原生基座**
+    // (runtimeVersion 桶,长期 0.0.12)。于是 0.0.15 的包装到手机上,系统设置里仍显示
+    // 0.0.12(用户能看到的"版本"与站点/DB 登记的版本差一截)。
+    // 解耦点就在这里:versionName / versionCode 跟 -P 走,package.json 只管 runtimeVersion。
+    label: '版本号同步 (versionName ← -PversionName / package.json)',
+    detect: (s) => s.includes("findProperty('versionName')"),
     apply: (s) =>
-      s.replace(
-        "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'\n\nandroid {",
+      replaceAny(s, [
         [
-          "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'",
-          '',
-          `// 版本号(${MARK}): versionName 同步 apps/mobile-rn/package.json, 与 JS 侧保持一致;`,
-          '// versionCode 支持 -PversionCode=N 覆盖(脚本内自增), 缺省 1。',
-          // ⚠️ 必须让 appVersionName 保持 **String** 类型。
-          // 曾写成 `new File([...].execute(...).text.trim())` —— 拿到的是 File 对象,
-          // 而 AGP 的 versionName 是 Property<String>, File → String 转换失败被置为 null,
-          // 抛 `IllegalArgumentException: Value is null`(行号指向 versionName 那一行)。
-          // 2026-09-15 实测修复, 请勿再包 new File。
+          "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'\n\nandroid {",
+          [
+            "def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'",
+            '',
+            `// 版本号(${MARK}): 显示版本优先 -PversionName(自动发版注入), 缺省回落 apps/mobile-rn/package.json;`,
+            '// versionCode 支持 -PversionCode=N 覆盖(脚本内自增), 缺省沿用模板值。',
+            '// runtimeVersion 仍由 package.json version 决定(app.config.js), 两者解耦是刻意为之。',
+            // ⚠️ 必须让 appVersionName 保持 **String** 类型。
+            // 曾写成 `new File([...].execute(...).text.trim())` —— 拿到的是 File 对象,
+            // 而 AGP 的 versionName 是 Property<String>, File → String 转换失败被置为 null,
+            // 抛 `IllegalArgumentException: Value is null`(行号指向 versionName 那一行)。
+            // 2026-09-15 实测修复, 请勿再包 new File。
+            'def appVersionName = (findProperty(\'versionName\') ?: ["node", "--print", "require(\'./package.json\').version"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()).toString()',
+            '',
+            'android {',
+          ].join('\n'),
+        ],
+        // 锚 2:旧注入态(只读 package.json) —— 非 clean prebuild 时也要能升级到新口径,
+        // 否则 detect 已不认它、apply 又匹配不到模板锚点,整段静默停在旧行为。
+        [
           'def appVersionName = ["node", "--print", "require(\'./package.json\').version"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()',
-          '',
-          'android {',
-        ].join('\n')
-      ),
+          'def appVersionName = (findProperty(\'versionName\') ?: ["node", "--print", "require(\'./package.json\').version"].execute(null, rootDir.getAbsoluteFile().getParentFile()).text.trim()).toString()',
+        ],
+      ]),
   },
   {
     label: 'defaultConfig 版本号接入',
