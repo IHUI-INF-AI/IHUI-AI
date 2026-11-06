@@ -23,6 +23,7 @@ import { eq } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { dbRead } from '../db/index.js'
 import { config } from '../config/index.js'
+import { buildInternalCallHeaders } from '../utils/internal-call-headers.js'
 import { logger } from '../utils/logger.js'
 import {
   buildPoolSyncAccount,
@@ -264,12 +265,19 @@ export async function fetchPoolAccounts(
   if (!secret) {
     return { ok: false, accounts: [], error: 'AI_CALLBACK_SECRET 未配置,跳过对账(不阻塞 sweep)' }
   }
+  const authHeaders = await buildInternalCallHeaders({
+    scope: 'checkin-pool',
+    legacySecret: secret,
+  })
+  if (!authHeaders) {
+    return { ok: false, accounts: [], error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票对账)' }
+  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-accounts`,
       {
         method: 'GET',
-        headers: { 'X-Internal-Secret': secret },
+        headers: authHeaders,
         signal: AbortSignal.timeout(15_000),
       },
     )
@@ -406,12 +414,20 @@ async function postCredFlush(
   if (accountIds.length === 0) return { ok: true, ...base, error: null }
   const secret = config.AI_CALLBACK_SECRET
   if (!secret) return { ok: false, ...base, error: 'AI_CALLBACK_SECRET 未配置,跳过凭证回写 flush' }
+  const authHeaders = await buildInternalCallHeaders({
+    scope: 'checkin-pool',
+    legacySecret: secret,
+    extra: { 'Content-Type': 'application/json' },
+  })
+  if (!authHeaders) {
+    return { ok: false, ...base, error: 'JWT_SECRET 未配置,无法签发内部票据(拒绝无票 flush)' }
+  }
   try {
     const resp = await fetchImpl(
       `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-cred-flush`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+        headers: authHeaders,
         body: JSON.stringify({ accountIds }),
         signal: AbortSignal.timeout(15_000),
       },
