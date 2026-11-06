@@ -248,6 +248,16 @@ export class UsageLedger {
 //
 // 阈值由共享包统一为 0.88(88%),跨端一致。
 
+/**
+ * 量得出来的压缩比值:只接受有限且落在 (0,1) 开区间的数。
+ * 配置来源(settings JSON / CLI 覆盖)可能给 null、NaN 或越界值;量不出 ⇒ null,
+ * 由调用方回落到 DEFAULT_TRIGGER_RATIO,不得把坏值直接喂给压缩器。
+ */
+export function measuredCompactRatio(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 1) return null;
+  return value;
+}
+
 /** CLI 专用压缩选项(扩展共享包 RatioCompressionOptions,增加 workspacePath/sessionId 用于 hook 透传) */
 export interface CLICompressionOptions extends RatioCompressionOptions {
   /** 工作区路径(透传给 preCompact/postCompact hook 上下文) */
