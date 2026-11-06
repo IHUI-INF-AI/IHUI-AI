@@ -48,9 +48,13 @@ vi.mock('@react-navigation/native', async () => {
   }
 })
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+// t 必须是**稳定引用**:每次渲染新建箭头函数 ⇒ wrapper 的 useCallback(...,[t]) 每轮失效
+// ⇒ load 身份变化 ⇒ useEffect 每渲染重跑一次拉取 ⇒ 置顶成功后的重排会被后到的列表回填覆盖
+// (单跑侥幸绿,全量并发下 4s 超时必红,并伴 "Maximum update depth exceeded")。
+vi.mock('../src/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ t }) }
+})
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),

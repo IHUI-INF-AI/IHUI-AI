@@ -55,9 +55,12 @@ vi.mock('@react-navigation/native', async () => {
   }
 })
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+// t 必须是**稳定引用**(与 message-center.test.tsx 同一条):每次渲染新建箭头函数 ⇒
+// wrapper 的 load 身份每轮变化 ⇒ useEffect 每渲染重取一次 ⇒ 取消置顶后的重排被回填覆盖。
+vi.mock('../src/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ t }) }
+})
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
