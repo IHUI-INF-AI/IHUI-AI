@@ -41,10 +41,12 @@ vi.mock('@ihui/api-client', async (importOriginal) => ({
   parseStreamLine: (line: string) => {
     const m = line.match(/^data:\s*(.+)$/);
     if (!m) return null;
+    const payload = m[1];
+    if (payload === undefined) return null;
     try {
-      return JSON.parse(m[1]);
+      return JSON.parse(payload);
     } catch {
-      return m[1];
+      return payload;
     }
   },
 }))
