@@ -2,7 +2,7 @@
   "version": 1,
   "owner": "cross-end-parity",
   "expires": "2027-06-30",
-  "generatedAt": "2026-11-06T22:51:22.542Z",
+  "generatedAt": "2026-11-06T23:30:58.012Z",
   "face": "HEAD",
   "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。",
   "evidence": [
