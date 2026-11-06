@@ -5826,6 +5826,26 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _approval_id = f"appr_{uuid.uuid4().hex[:12]}"
                                 # 参数预览截断 200 字符(与 agent 任务流 tool-approval 口径一致)
                                 _args_preview = json.dumps(args, ensure_ascii=False)[:200]
+                                # 批次 2(2026-11-06):结构化审批决策信息,与 agent
+                                # 任务流共用 `tool_approval_descriptor`(字段逐名一致)。
+                                # 风险档以本链路既有的 `_danger` 为准,描述器不另造口径。
+                                try:
+                                    from ..services.tool_approval_descriptor import (
+                                        describe_tool_request as _describe_tool_request,
+                                    )
+
+                                    _decision_info = _describe_tool_request(
+                                        tool_name,
+                                        args if isinstance(args, dict) else None,
+                                        risk_level=_danger,
+                                    )
+                                except Exception as _desc_exc:  # noqa: BLE001 - 描述失败退旧字段
+                                    logger.warning(
+                                        "审批决策信息组装失败(tool=%s): %s",
+                                        tool_name,
+                                        _desc_exc,
+                                    )
+                                    _decision_info = None
                                 _approval_ev = asyncio.Event()
                                 _approval_sessions.setdefault(session_id, {})[_approval_id] = {
                                     "event": _approval_ev,
@@ -5882,6 +5902,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             tool_name,
                                             args if isinstance(args, dict) else None,
                                             owner_uuid,
+                                        ),
+                                        # 批次 2:结构化决策信息(可选附加键,老客户端忽略)。
+                                        **(
+                                            {
+                                                "reason_code": _decision_info.get("reason_code"),
+                                                "risk_level": _decision_info.get("risk_level"),
+                                                "argv": _decision_info.get("argv"),
+                                                "cwd": _decision_info.get("cwd"),
+                                                "affected_paths": _decision_info.get("affected_paths")
+                                                or [],
+                                                "scope": _decision_info.get("scope"),
+                                                "summary": _decision_info.get("summary"),
+                                            }
+                                            if _decision_info is not None
+                                            else {}
                                         ),
                                     },
                                 )

@@ -345,6 +345,49 @@ describe('parseToolApprovalEvent', () => {
     expect(evt!.dangerLevel).toBe('high')
   })
 
+  it('批次 2:结构化决策字段转 camelCase,显式 null 与封闭集外值各自处理', () => {
+    const evt = parseToolApprovalEvent(
+      JSON.stringify({
+        type: 'tool-approval',
+        payload: {
+          approval_id: 'a1',
+          reason_code: 'writes_files',
+          risk_level: 'medium',
+          argv: ['git', 'status'],
+          cwd: null,
+          affected_paths: ['src/a.ts'],
+          scope: 'fs_write',
+          summary: '写入 src/a.ts',
+        },
+      }),
+    )
+    expect(evt!.reasonCode).toBe('writes_files')
+    expect(evt!.riskLevel).toBe('medium')
+    expect(evt!.argv).toEqual(['git', 'status'])
+    expect(evt!.cwd).toBeNull()
+    expect(evt!.affectedPaths).toEqual(['src/a.ts'])
+    expect(evt!.scope).toBe('fs_write')
+    expect(evt!.summary).toBe('写入 src/a.ts')
+  })
+
+  it('批次 2:封闭集外的 reason/scope 与脏 argv 一律缺席(退回 argsPreview)', () => {
+    const evt = parseToolApprovalEvent(
+      JSON.stringify({
+        type: 'tool-approval',
+        payload: {
+          reason_code: 'finished',
+          scope: 'shell',
+          argv: ['ls', 1],
+          affected_paths: ['ok.txt', 2],
+        },
+      }),
+    )
+    expect(evt!.reasonCode).toBeUndefined()
+    expect(evt!.scope).toBeUndefined()
+    expect(evt!.argv).toBeUndefined()
+    expect(evt!.affectedPaths).toEqual(['ok.txt'])
+  })
+
   it('type 守卫:非 tool-approval 事件与载荷缺失返回 null', () => {
     expect(parseToolApprovalEvent(JSON.stringify({ type: 'message', payload: {} }))).toBeNull()
     expect(parseToolApprovalEvent(JSON.stringify({ type: 'tool-approval' }))).toBeNull()
@@ -444,7 +487,9 @@ function viewKeys(event: object): string {
 
 describe('G-721 字段缺席与显式 null 的分工', () => {
   it('self-heal ok:缺席与显式 null 同落 null,两者都不得被读成 false,也不得长出第二套"没值"表示', () => {
-    const absent = parseSelfHealEvent(JSON.stringify({ payload: { phase: 'finished', attempts: 2 } }))
+    const absent = parseSelfHealEvent(
+      JSON.stringify({ payload: { phase: 'finished', attempts: 2 } }),
+    )
     const explicitNull = parseSelfHealEvent(
       JSON.stringify({ payload: { phase: 'finished', ok: null, attempts: 2 } }),
     )
@@ -477,7 +522,9 @@ describe('G-721 字段缺席与显式 null 的分工', () => {
     expect(absent!.failed).not.toBe(0)
     expect(nullish!.failed).toBeNull()
     // 相变只由 phase 判:started 相即便显式发了 ok=true,也不得被当"结果已报"
-    expect(parseSelfHealEvent(JSON.stringify({ payload: { phase: 'started', ok: true } }))!.ok).toBeNull()
+    expect(
+      parseSelfHealEvent(JSON.stringify({ payload: { phase: 'started', ok: true } }))!.ok,
+    ).toBeNull()
   })
 
   it('plan-step decision/reason:缺席与显式 null 同落 null,绝不落空串', () => {
@@ -563,7 +610,9 @@ describe('G-721 字段缺席与显式 null 的分工', () => {
       return frame.usage
     }
     // ① 键在不在,两态不同形(折叠只许发生在渲染位;解析位一折这条就红)
-    expect(Object.prototype.hasOwnProperty.call(usageOf(absentFrame), 'reasoningTokens')).toBe(false)
+    expect(Object.prototype.hasOwnProperty.call(usageOf(absentFrame), 'reasoningTokens')).toBe(
+      false,
+    )
     expect(Object.prototype.hasOwnProperty.call(usageOf(nullFrame), 'reasoningTokens')).toBe(true)
     // ② 值也不同形:undefined(未知,旧帧) ≠ null(报了"没有推理用量")
     expect(usageOf(absentFrame).reasoningTokens).toBeUndefined()

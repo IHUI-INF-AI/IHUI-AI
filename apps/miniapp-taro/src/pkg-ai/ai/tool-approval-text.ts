@@ -34,6 +34,15 @@ export interface ApprovalRequestView {
   argsPreview: string
   dangerLevel: 'high' | 'medium' | 'low'
   sessionId?: string
+  // 批次 2(2026-11-06):结构化审批决策信息(全部可选;缺席 = 老生产者,卡片退回
+  // 仅参数预览的旧形态)。类型与 api-client `ToolApprovalEvent` 一致,不另立口径。
+  reasonCode?: string
+  riskLevel?: 'low' | 'medium' | 'high'
+  argv?: string[] | null
+  cwd?: string | null
+  affectedPaths?: string[]
+  scope?: string
+  summary?: string
 }
 
 /**
@@ -95,6 +104,12 @@ export interface ApprovalTexts {
   manualOverride: string
   manualOverrideDesc: string
   recordsTitle: string
+  // 批次 2(2026-11-06):结构化决策信息的取词(键在 ai.toolApproval.*;词包未刷新
+  // 时按本文件既定规矩回落端内中文,绝不吐 raw key)。
+  decisionDetail: string
+  decisionCwd: string
+  decisionPaths: string
+  decisionCommand: string
 }
 
 const APPROVAL_TEXT_TABLE: ReadonlyArray<{ out: keyof ApprovalTexts; key: string; zh: string }> = [
@@ -132,7 +147,33 @@ const APPROVAL_TEXT_TABLE: ReadonlyArray<{ out: keyof ApprovalTexts; key: string
   },
   { out: 'recordsTitle', key: 'ai.toolApproval.recordsTitle', zh: '本轮已处理的审批' },
   { out: 'pendingCount', key: 'ai.toolApproval.pendingCount', zh: '还有 {count} 条待你决策' },
+  { out: 'decisionDetail', key: 'ai.toolApproval.decisionDetail', zh: '操作详情' },
+  { out: 'decisionCwd', key: 'ai.toolApproval.decisionCwd', zh: '执行目录' },
+  { out: 'decisionPaths', key: 'ai.toolApproval.decisionPaths', zh: '受影响路径' },
+  { out: 'decisionCommand', key: 'ai.toolApproval.decisionCommand', zh: '命令' },
 ]
+
+/**
+ * 批次 2:结构化决策信息的**渲染降级**形态(小程序不做完整 dl 布局,只出
+ * 一行摘要 + 至多三行事实)。返回 null = 该帧没有结构化字段(老生产者),
+ * 卡片保持"仅参数预览"的旧形态,不是"字段都在但故意不画"。
+ */
+export function describeApprovalDetail(
+  view: ApprovalRequestView,
+  texts: ApprovalTexts,
+): { summary: string; lines: string[] } | null {
+  const argv = Array.isArray(view.argv) ? view.argv.filter((item) => item.trim() !== '') : []
+  const paths = Array.isArray(view.affectedPaths)
+    ? view.affectedPaths.filter((item) => item.trim() !== '')
+    : []
+  const lines: string[] = []
+  if (view.cwd) lines.push(`${texts.decisionCwd}: ${view.cwd}`)
+  if (paths.length > 0) lines.push(`${texts.decisionPaths}: ${paths.slice(0, 5).join('、')}`)
+  if (argv.length > 0) lines.push(`${texts.decisionCommand}: ${argv.join(' ')}`)
+  const summary = typeof view.summary === 'string' ? view.summary.trim() : ''
+  if (summary === '' && lines.length === 0) return null
+  return { summary, lines }
+}
 
 export function resolveApprovalTexts(tt: TranslateWithFallback): ApprovalTexts {
   const out = {} as ApprovalTexts

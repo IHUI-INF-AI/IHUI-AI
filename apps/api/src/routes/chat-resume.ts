@@ -11,6 +11,7 @@ import { config } from '../config/index.js'
 import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import { findConversationById, findMessageById } from '../db/chat-queries.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { startSseHeartbeat } from '../utils/sse-stream-registry.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
 
 /**
@@ -191,6 +192,10 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
       const timeout = setTimeout(() => controller.abort(), 5 * 60_000)
       const onClose = () => controller.abort()
       request.raw.on('close', onClose)
+      // 2026-11-06 批1:续接流同样是"上游静默可达数分钟"(等审批/长推理)的一条流,
+      // 没有周期心跳时会被代理 idle 超时切断,前端只能再走一次续接。注释帧不占
+      // id 序号(本端点无 Last-Event-ID 语义),对 parseStreamLine 透明(注释行 → null)。
+      const stopHeartbeat = startSseHeartbeat((frame) => raw.write(frame))
 
       try {
         raw.write(
@@ -262,6 +267,7 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
       } finally {
         request.raw.off('close', onClose)
         clearTimeout(timeout)
+        stopHeartbeat()
         raw.end()
       }
     },

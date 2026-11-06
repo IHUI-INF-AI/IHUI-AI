@@ -166,8 +166,17 @@ export type {
   // 漏一条是**跨包**的悬空具名导入(守门 98 在 HEAD 面直接红)。
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
+  // 批次 2(2026-11-06):结构化审批决策信息的类型与封闭集(与 D159 同一显式命名清单纪律)。
+  ToolApprovalReasonCode,
+  ToolApprovalOperationScope,
 } from './client.js'
-export { projectToolApprovalEnvFacts, projectToolApprovalExpiredFact } from './client.js'
+export {
+  TOOL_APPROVAL_REASON_CODES,
+  TOOL_APPROVAL_OPERATION_SCOPES,
+  projectToolApprovalDecisionInfo,
+  projectToolApprovalEnvFacts,
+  projectToolApprovalExpiredFact,
+} from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'

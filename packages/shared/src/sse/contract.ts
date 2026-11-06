@@ -267,6 +267,42 @@ export const TOOL_APPROVAL_DENIAL_REASONS = ['not_allowed', 'not_allowed_local',
 export type ToolApprovalDenialReason = (typeof TOOL_APPROVAL_DENIAL_REASONS)[number]
 
 /**
+ * 批次 2(2026-11-06):审批原因码封闭集。与生产侧
+ * `apps/ai-service/app/services/tool_approval_descriptor.py::REASON_CODES` 逐值同集
+ * (多一档或少一档 = 端上 unknown 或丢掉一个真实原因,两侧由
+ * `apps/ai-service/tests/test_tool_approval_descriptor.py` 对账)。
+ */
+export const TOOL_APPROVAL_REASON_CODES = [
+  'dangerous_command',
+  'destructive_operation',
+  'writes_files',
+  'deletes_files',
+  'executes_command',
+  'network_access',
+  'database_write',
+  'high_risk_tool',
+  'requires_confirmation',
+] as const
+
+export type ToolApprovalReasonCode = (typeof TOOL_APPROVAL_REASON_CODES)[number]
+
+/**
+ * 批次 2:操作作用域封闭集(表示这次调用影响哪个面)。与生产侧
+ * `tool_approval_descriptor.py::OPERATION_SCOPES` 逐值同集。
+ */
+export const TOOL_APPROVAL_OPERATION_SCOPES = [
+  'fs_read',
+  'fs_write',
+  'fs_delete',
+  'exec',
+  'network',
+  'db',
+  'other',
+] as const
+
+export type ToolApprovalOperationScope = (typeof TOOL_APPROVAL_OPERATION_SCOPES)[number]
+
+/**
  * `tool-approval` 帧的执行环境字段(**线格式**)。
  *
  * 与生产侧逐字同形:`apps/ai-service/app/services/approval_persistence.py::
@@ -545,6 +581,24 @@ export type SSEEventPayload =
       expired?: true
       /** D-07:失效原因(stream_closed / cancelled / timeout),只读展示用。 */
       expired_reason?: string
+      // 批次 2(2026-11-06):结构化审批决策信息。两条审批链(agent 任务流 `agents.py`
+      // 与主对话流 `llm.py`)都由 `tool_approval_descriptor.describe_tool_request`
+      // 产出,字段逐名一致;**全部可选** —— 缺席 = 老生产者/描述失败,端上退回
+      // `args_preview` 裸 JSON 渲染(不是"没有风险")。
+      /** 为什么弹窗(封闭集);值与 TOOL_APPROVAL_REASON_CODES 同集 */
+      reason_code?: ToolApprovalReasonCode
+      /** 风险档;以生产侧既有 danger 判定为准,不另造口径 */
+      risk_level?: 'low' | 'medium' | 'high'
+      /** 命令类工具的规范化参数数组;非命令类为 null/缺席 */
+      argv?: string[] | null
+      /** 执行目录(只认参数声明/结果回报,不反推);未上报为 null/缺席 */
+      cwd?: string | null
+      /** 受影响路径(≤20 条,每条 ≤260 字符);缺席 = 不涉及文件面 */
+      affected_paths?: string[]
+      /** 操作作用域(影响哪个面,不是授权作用域) */
+      scope?: ToolApprovalOperationScope
+      /** 一句人话摘要(≤120 字符):命令文本/SQL/路径/URL */
+      summary?: string
     }>
   // 对话流业务表单请求(V3 #63:llm.py 的 request_business_form 拦截位发出;
   // 前端 BusinessFormSection 消费,应答经 form-response 端点回传)。

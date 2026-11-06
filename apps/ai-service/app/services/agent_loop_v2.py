@@ -1091,6 +1091,10 @@ class ToolResult:
     # L5-8 错误恢复:失败的错误分类(timeout/connection/http_5xx/http_4xx/unknown,
     # 2026-08-12 立,供前端展示与可观测;成功为 None)
     error_type: str | None = None
+    # 批次 2(2026-11-06 立):超阈值输出的落盘分页凭据(artifactId/digest/offset/next/
+    # complete/totalChars/path)。None = 输出完整进入上下文,无落盘。由 _execute_tools
+    # 在账行/事件之前统一填充,供 bound_tool_result_for_context、tool_after 与审计复用。
+    output_artifact: dict[str, Any] | None = None
 
 
 @dataclass
@@ -1237,6 +1241,74 @@ def _ledger_permission_facts(
     if decision_hint in ("auto_skip_approval", "bypass_skip_approval"):
         return "flag", None
     return "approved", None
+
+
+# 批次 2(2026-11-06 立):账行执行事实的取值键(只认声明/回报的原样值,不反推路径)。
+_CWD_ARG_KEYS: tuple[str, ...] = ("cwd", "working_directory", "workingDirectory", "workdir", "directory")
+_EXIT_CODE_KEYS: tuple[str, ...] = ("exit_code", "exitCode")
+
+
+def _ledger_terminal_reason(
+    tr: ToolResult, hint: tuple[str, str] | None
+) -> str:
+    """把循环终态映射到收尾原因封闭集(镜像 apps/api TOOL_INVOCATION_TERMINAL_REASONS)。
+
+    映射只读既有事实(error_type / hint / error),不新造判定:
+    - 用户拒绝 → rejected_by_user;审批超时 → approval_timeout;
+    - 权限/注入/扫描拦截 → blocked;工具自身超时 → timeout;调用取消 → cancelled;
+    - 其余有 error 或非零退出码 → error;无错 → completed。
+    """
+    decision_hint = hint[0] if hint else None
+    if tr.error_type == "user_rejected" or decision_hint == "rejected_by_user":
+        return "rejected_by_user"
+    if tr.error_type == "approval_timeout":
+        return "approval_timeout"
+    if tr.error_type in (
+        "permission_denied",
+        ERROR_INJECTION_BLOCKED,
+        ERROR_SCAN_BLOCKED,
+    ) or decision_hint == "security_blocked":
+        return "blocked"
+    if tr.error_type == "timeout":
+        return "timeout"
+    if tr.error_type in ("cancelled", "canceled", "aborted"):
+        return "cancelled"
+    if tr.error:
+        return "error"
+    return "completed"
+
+
+def _ledger_execution_facts(
+    tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
+) -> tuple[str | None, int | None, bool, str]:
+    """从入参与结果提取账行执行事实 `(cwd, exitCode, outputComplete, terminalReason)`。
+
+    cwd 优先取结果回报(宿主真实执行目录),否则取入参声明;两者都没有 = None。
+    exitCode 只认整数(排除 bool),缺省 None(未观测 ≠ 0)。
+    outputComplete = 本次输出是否完整进入上下文(false 表示已落盘分页)。
+    """
+    cwd: str | None = None
+    for source in (tr.result if isinstance(tr.result, dict) else None, tc.args):
+        if not isinstance(source, dict):
+            continue
+        for key in _CWD_ARG_KEYS:
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                cwd = value.strip()[:1024]
+                break
+        if cwd:
+            break
+
+    exit_code: int | None = None
+    if isinstance(tr.result, dict):
+        for key in _EXIT_CODE_KEYS:
+            value = tr.result.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                exit_code = value
+                break
+
+    output_complete = tr.output_artifact is None
+    return cwd, exit_code, output_complete, _ledger_terminal_reason(tr, hint)
 
 
 # ---------------------------------------------------------------------------
@@ -1514,6 +1586,24 @@ class AgentEventStream:
                     "retry_count": tr.retry_count,
                     "duration_ms": round(tr.duration_ms, 2),
                     **evidence,
+                    # 批次 2:超阈值输出已落盘时下发可续读凭据(未落盘不带键,
+                    # 与"篇幅正常"无法区分 —— 键缺席 = 输出完整进入上下文)。
+                    **(
+                        {
+                            "output_artifact": {
+                                "artifact_id": tr.output_artifact.get("artifactId"),
+                                "digest": tr.output_artifact.get("digest"),
+                                "bytes": tr.output_artifact.get("bytes"),
+                                "chars": tr.output_artifact.get("chars"),
+                                "complete": False,
+                                "truncated_on_disk": bool(
+                                    tr.output_artifact.get("truncatedOnDisk")
+                                ),
+                            }
+                        }
+                        if tr.output_artifact
+                        else {}
+                    ),
                 })
             payload: dict[str, Any] = {
                 "session_id": session_id,
@@ -1552,6 +1642,7 @@ class AgentEventStream:
         network_target: dict[str, Any] | None = None,
         blocked_network_targets: list[dict[str, Any]] | None = None,
         prompt_options: dict[str, Any] | None = None,
+        decision_info: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1561,6 +1652,17 @@ class AgentEventStream:
             "danger_level": "high",
             "session_id": session_id,
         }
+        # 批次 2(2026-11-06):结构化审批决策信息(原因/风险/argv/cwd/受影响路径/
+        # 作用域/可读摘要)。与主对话流共用同一份 `tool_approval_descriptor`,两条
+        # 链路字段逐名一致;缺席 = 老生产者未上报,前端按旧 args_preview 渲染。
+        if decision_info is not None:
+            payload["reason_code"] = decision_info.get("reason_code")
+            payload["risk_level"] = decision_info.get("risk_level") or payload["danger_level"]
+            payload["argv"] = decision_info.get("argv")
+            payload["cwd"] = decision_info.get("cwd")
+            payload["affected_paths"] = decision_info.get("affected_paths") or []
+            payload["scope"] = decision_info.get("scope")
+            payload["summary"] = decision_info.get("summary")
         # V3 #80:guardian 复核三态随弹窗事件下发(status 恒在,缺席≠无风险)。
         if guardian_review is not None:
             payload["guardian_review"] = guardian_review
@@ -2155,10 +2257,15 @@ def bound_tool_result_for_context(
     *,
     tool_name: str | None = None,
     session_id: str | None = None,
+    artifact: dict[str, Any] | None = None,
 ) -> str:
     """把工具结果收成 role:tool 正文。预算复用 mcp_server 的工具输出上限。
 
-    未超预算原样 json。超出部分落临时文件,正文留截断说明和文件指针。
+    未超预算原样 json。超出预算时走 `tool_output_artifacts` 落盘分页(批次 2):
+    完整输出落工件,正文保留预览 + `output_artifact_id/output_offset/output_next/
+    output_complete/output_digest` 五项机器可读凭据,模型可用 `read_tool_output`
+    按 offset 续读;`artifact` 由 `_execute_tools` 提前产出(保证账行/事件/上下文
+    共用同一份凭据),缺省时本函数就地落盘(兼容其它调用方)。
 
     2026-10-31:截断完之后还要过一层**宿主定界**。工具结果是外部世界(网页、MCP server、
     文件、命令输出)写进模型上下文的路径,原样拼接时模型分不清"宿主的话"和"捞回来的一段字",
@@ -2167,23 +2274,55 @@ def bound_tool_result_for_context(
     """
     from .mcp_server import _estimate_tokens_len, _get_tool_output_max_tokens
     from .tool_context_boundary import scan_and_frame_tool_result
+    from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
 
-    try:
-        text = json.dumps(payload, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        text = json.dumps({"error": "tool result not serializable"}, ensure_ascii=False)
+    text = serialize_tool_payload(payload)
     max_tokens = _get_tool_output_max_tokens()
     if _estimate_tokens_len(text) > max_tokens:
         keep_chars = max_tokens * 4
-        overflow = text[keep_chars:]
-        spilled = _spill_tool_overflow(overflow)
-        dropped = _estimate_tokens_len(overflow)
-        if spilled:
-            note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+        if artifact is None:
+            artifact = maybe_spill_tool_output(
+                text,
+                tool_name=tool_name or "",
+                session_id=session_id,
+                keep_chars=keep_chars,
+                # 已在超预算分支:必须落盘,不能因两套估算差 1-2 token 退回无凭据截断。
+                force=True,
+            )
+        if artifact is not None:
+            # 预留 ~360 字符给说明与 JSON 凭据,预览取工件预览与预算的较小者。
+            preview_budget = max(0, keep_chars - 360)
+            preview = artifact.get("preview") or text[:preview_budget]
+            preview = preview[:preview_budget]
+            offset = len(preview)
+            status = {
+                "output_artifact_id": artifact.get("artifactId"),
+                "output_offset": offset,
+                "output_next": offset,
+                "output_complete": False,
+                "output_digest": artifact.get("digest"),
+                "output_total_bytes": artifact.get("bytes"),
+                "output_total_chars": artifact.get("chars"),
+                "output_truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+            }
+            note = (
+                f"\n…[输出过长,已落盘:共 {artifact.get('chars')} 字符;"
+                f"用 read_tool_output(artifact_id=\"{artifact.get('artifactId')}\", "
+                f"offset={offset}) 续读]\n"
+                + json.dumps(status, ensure_ascii=False)
+            )
+            text = preview + note
         else:
-            note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
-        head_len = max(0, keep_chars - len(note))
-        text = text[:head_len] + note
+            # 落盘失败:退回历史行为(尾部写临时文件),并在正文明确"未能落盘"。
+            overflow = text[keep_chars:]
+            spilled = _spill_tool_overflow(overflow)
+            dropped = _estimate_tokens_len(overflow)
+            if spilled:
+                note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+            else:
+                note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
+            head_len = max(0, keep_chars - len(note))
+            text = text[:head_len] + note
     return scan_and_frame_tool_result(
         text, source="tool", tool_name=tool_name, session_id=session_id
     )
@@ -5137,6 +5276,8 @@ class AgentLoopV2:
                             "content": bound_tool_result_for_context(
                                 tr.result if not tr.error else {"error": tr.error},
                                 tool_name=tr.name,
+                                session_id=self._session_id,
+                                artifact=tr.output_artifact,
                             ),
                         }
                     )
@@ -5709,6 +5850,13 @@ class AgentLoopV2:
             # 语义一字未变:读不到/形状不对 ⇒ 该字段缺席(与"上报了但读不到"仍是两件事)。
             exec_env = env_facts.get("exec_environment")
             blocked_net = env_facts.get("blocked_network_targets")
+            try:
+                from .tool_approval_descriptor import describe_tool_request
+
+                decision_info = describe_tool_request(tc.name, tc.args)
+            except Exception as exc:  # noqa: BLE001 - 描述失败不阻断弹窗(退旧字段)
+                logger.warning("审批决策信息组装失败(tool=%s): %s", tc.name, exc)
+                decision_info = None
             await self._events.tool_approval(
                 approval_id=approval_id,
                 tool_name=tc.name,
@@ -5723,6 +5871,7 @@ class AgentLoopV2:
                 ),
                 # G-09:选项真实可用性随弹窗帧下发(持久选项受 elicitation 能力门控)
                 prompt_options=prompt_options.to_event_payload(),
+                decision_info=decision_info,
             )
             # 等待用户决策(批准/拒绝/超时)
             try:
@@ -6134,10 +6283,12 @@ class AgentLoopV2:
                         duration_ms=0,
                     )
                     results.append(tr)
+                    self._attach_tool_output_artifact(tc, tr)
                     self._maybe_record_step(tc, tr)
                     self._record_deliverable_step(tc, tr)
                 else:
                     results.append(item)
+                    self._attach_tool_output_artifact(tc, item)
                     self._maybe_record_step(tc, item)
                     self._record_deliverable_step(tc, item)
                     tr = item
@@ -6153,6 +6304,7 @@ class AgentLoopV2:
             for idx, tc in enumerate(tool_calls):
                 result = await self._execute_single(tc)
                 serial_results.append(result)
+                self._attach_tool_output_artifact(tc, result)
                 self._maybe_record_step(tc, result)
                 self._record_deliverable_step(tc, result)
                 decision, reason = _derive_step_decision(result)
@@ -6312,6 +6464,49 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("b04 中断批补录工具账失败(降级,不影响中断): %s", e)
 
+    def _attach_tool_output_artifact(self, tc: ToolCall, tr: ToolResult) -> None:
+        """批次 2:超预算工具输出落盘为工件,把凭据挂到 ToolResult 上(失败不阻塞)。
+
+        账行/`tool_after` 事件/上下文正文三处共用这一份凭据 —— 各自再算一遍会漂移
+        (同一输出出现两个 artifactId 或两套 offset)。落盘失败保持 None,由
+        `bound_tool_result_for_context` 退回历史纯截断路径。
+        """
+        if tr.output_artifact is not None:
+            return
+        try:
+            # MCP 工具面已在出口 `_truncate_tool_output` 统一落盘并下发凭据(覆盖
+            # main chat / agent loop / supertool 全部调用面),这里只做搬运,避免
+            # 同一输出出现第二个 artifactId。
+            if isinstance(tr.result, dict) and isinstance(
+                tr.result.get("output_artifact"), dict
+            ):
+                raw = tr.result["output_artifact"]
+                tr.output_artifact = {
+                    "artifactId": raw.get("artifact_id"),
+                    "digest": raw.get("digest"),
+                    "bytes": raw.get("bytes"),
+                    "chars": raw.get("chars"),
+                    "complete": bool(raw.get("complete")),
+                    "truncatedOnDisk": bool(raw.get("truncated_on_disk")),
+                }
+                return
+            # 非 MCP 执行器(自定义 registry / 测试替身):就地落盘作为兜底。
+            from .mcp_server import _get_tool_output_max_tokens
+            from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
+
+            payload = {"error": tr.error} if tr.error else tr.result
+            artifact = maybe_spill_tool_output(
+                serialize_tool_payload(payload),
+                tool_name=tr.name or tc.name or "",
+                session_id=self._session_id,
+                tool_call_id=tc.id,
+                keep_chars=_get_tool_output_max_tokens() * 4,
+            )
+            if artifact is not None:
+                tr.output_artifact = artifact
+        except Exception as e:  # noqa: BLE001 - 工件面任何异常都不许影响工具执行
+            logger.warning("工具输出落盘失败(降级为纯截断): %s", e)
+
     def _maybe_ingest_tool_ledger(
         self, tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
     ) -> tuple[str, str | None, str]:
@@ -6335,6 +6530,9 @@ class AgentLoopV2:
         """
         try:
             decision, cause = _ledger_permission_facts(tr, hint)
+            cwd, exit_code, output_complete, terminal_reason = _ledger_execution_facts(
+                tc, tr, hint
+            )
             invocation_id = str(uuid.uuid4())
             dispatched = record_tool_invocation(
                 user_id=self._user_id,
@@ -6350,6 +6548,10 @@ class AgentLoopV2:
                     {"error": tr.error} if tr.error else tr.result
                 ),
                 trace_id=self._trace_id,
+                cwd=cwd,
+                exit_code=exit_code,
+                output_complete=output_complete,
+                terminal_reason=terminal_reason,
             )
             return decision, cause, invocation_id if dispatched else ""
         except Exception as e:
