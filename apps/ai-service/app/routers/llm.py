@@ -30,6 +30,11 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.internal_ticket import (
+    INTERNAL_SERVICE_PRINCIPAL_AI,
+    mint_internal_service_ticket,
+)
+
 # 差距①留痕 + 断流续传(2026-10-31 接线):准入留痕账本、恢复窗口与水位状态机的三个出口
 # (mark_admission_acked / begin_recovery / end_recovery)**唯一住在 `core/sse_contract.py`**。
 # 接线前两件事各有两套真相:本路由自持一份 `_admission_seen` dict(账本+判据都在路由),
@@ -49,10 +54,6 @@ from app.core.sse_contract import (
     recovery_clock_ms,
     release_admission,
     take_admission,
-)
-from app.core.internal_ticket import (
-    INTERNAL_SERVICE_PRINCIPAL_AI,
-    mint_internal_service_ticket,
 )
 
 from ..core.approval_replay import (

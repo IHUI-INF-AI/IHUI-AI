@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 __all__ = [
     "repair_json",
@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 
-def repair_json(text: str) -> "RepairResult":
+def repair_json(text: str) -> RepairResult:
     """一次性尽力修复残缺 JSON。
 
     输入可为：被截断的流、带尾随逗号的对象、裸键名、单引号字符串、含注释或裸
@@ -80,7 +80,7 @@ def repair_json(text: str) -> "RepairResult":
     return {"ok": False, "value": None, "recovered": False, "error": "unrepairable JSON"}
 
 
-class RepairResult(Dict[str, Any]):
+class RepairResult(dict[str, Any]):
     """修复结果（dict 形态以保持与 TS 侧 ``RepairResult`` 字段一致）。"""
 
 
@@ -90,14 +90,14 @@ def _reject_constant(token: str) -> Any:
     raise ValueError(f"invalid JSON constant: {token}")
 
 
-def _try_parse(text: str) -> Optional[Any]:
+def _try_parse(text: str) -> Any | None:
     try:
         return json.loads(text, parse_constant=_reject_constant)
     except (ValueError, json.JSONDecodeError):
         return None
 
 
-def _attempt_candidates(cands: list[str]) -> Optional["RepairResult"]:
+def _attempt_candidates(cands: list[str]) -> RepairResult | None:
     for c in cands:
         value = _try_parse(c)
         if value is not None:
@@ -306,7 +306,7 @@ def _neutralize_non_finite(text: str) -> str:
     return text
 
 
-def _trim_trailing_partial(text: str) -> Optional[str]:
+def _trim_trailing_partial(text: str) -> str | None:
     """去掉残缺流尾部的半个 token（半截字符串 / 半截键名:值 / 半截值），返回可闭合前缀或 None。"""
     # 1) 末尾在字符串内：回退到最后一个未闭合引号之前
     in_string = False
@@ -355,7 +355,7 @@ class StreamingJsonRepair:
         self._completed = False
         self._last_complete_value: Any = None
 
-    def push(self, chunk: str) -> Dict[str, Any]:
+    def push(self, chunk: str) -> dict[str, Any]:
         self._buffer += chunk
 
         if self._completed:

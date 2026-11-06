@@ -35,12 +35,12 @@ from __future__ import annotations
 
 import json
 import logging
-
-from ..utils.tool_call_args import normalize_tool_call_args
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
+
+from ..utils.tool_call_args import normalize_tool_call_args
 
 logger = logging.getLogger(__name__)
 
