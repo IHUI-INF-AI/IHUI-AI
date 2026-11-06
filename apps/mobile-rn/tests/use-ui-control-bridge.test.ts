@@ -32,6 +32,20 @@ vi.mock('@ihui/api-client', () => ({
     })
     return h.fetchImpl ? h.fetchImpl(url, opts) : Promise.resolve({ success: true })
   },
+  // 桥层已收口到共享端点函数(门300 A类,见 packages/api-client/src/endpoints/agent-control.ts);
+  // 整包替身缺这两条出口时调用点拿 undefined(异常被桥层吞掉只 warn),回执一条都发不出去。
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/capability', { method: 'POST' })
+      : Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/result', { method: 'POST' })
+      : Promise.resolve({ success: true })
+  },
   createNotificationClient: (
     config: { baseUrl: string; tokenProvider: () => string | null },
     handlers: { onMessage?: (msg: unknown) => void },

@@ -252,13 +252,22 @@ describe('PlazaScreen 需求广场', () => {
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostCreate', {})
   })
 
-  it('点击需求项 navigate 到 PostDetail', async () => {
+  it('点击需求项先开共享详情弹层,再由弹层「查看详情」navigate 到 PostDetail', async () => {
     render(<PlazaScreen />)
     await waitFor(() => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
-    const props = plazaScreenPropsCaptured[0]!
-    await (props.onPressItem as (item: unknown) => void)(mockItem)
+    const first = plazaScreenPropsCaptured[0]!
+    await (first.onPressItem as (item: unknown) => void)(mockItem)
+    // 2026-11-05 起点击不再直跳详情页,而是先亮共享「详情居中弹层」(与小程序同屏)
+    expect(apiMocks.navigate).not.toHaveBeenCalledWith('PostDetail', { id: 'p1' })
+    await waitFor(() => {
+      const latest = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+      expect((latest.detail as { item?: unknown }).item).toMatchObject({ id: 'p1' })
+    })
+    const latest = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+    const onOpenDetail = (latest.detail as { onOpenDetail: (item: unknown) => void }).onOpenDetail
+    await onOpenDetail(mockItem)
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostDetail', { id: 'p1' })
   })
 })

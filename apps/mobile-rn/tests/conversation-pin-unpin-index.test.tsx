@@ -74,7 +74,9 @@ interface StubConv {
 // features 共享层 MessageCenterScreen 骨架替身:比 message-center.test.tsx 多暴露
 // data-conv-id / data-pinned 两个属性 —— 本票判据要同时读"行落在第几个 index"
 // 与"该行渲染出的置顶标记",缺其一就验不出「UI 说没变、数据已经变了」那一型。
-vi.mock('@ihui/rn-app', async () => {
+// 端内薄壳已从子路径直引共享屏(src/screens/MessageCenterScreen.tsx:17),替身必须挂在真实
+// 取用路径上,否则 mock 落空、data-conv-id/data-pinned 在真 DOM 上并不存在。
+vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', async () => {
   const { createElement: h } = await import('react')
   // 2026-10-30(票 L30756):useRefreshOnFocus 薄壳经本包入口取 useScreenReappear;本文件局部
   // mock 了整个包 ⇒ 必须补这条出口(纯 React hook,直连真源码),否则屏挂载即报缺导出。
@@ -127,8 +129,17 @@ vi.mock('@ihui/rn-app', async () => {
   }
 })
 
+// 端内薄壳经本包入口只取 useScreenReappear(src/hooks/use-refresh-on-focus.ts:8),其余走子路径。
+vi.mock('@ihui/rn-app', async () => {
+  const { useScreenReappear } = await import('../../../packages/app/src/hooks/use-screen-reappear')
+  return { useScreenReappear }
+})
+
 vi.mock('react-native', async () => {
   const { createElement: h } = await import('react')
+  // 同 message-center:整包 mock 的套件必须覆盖共享屏用到的 RN 面(ScreenStates 骨架屏的
+  // Animated.loop/sequence + Easing.inOut),否则整文件在首个渲染上失败。
+  const { Animated, Easing } = await import('./__mocks__/react-native')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return h(tag, null, props.children)
@@ -152,6 +163,16 @@ vi.mock('react-native', async () => {
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     // AppState(2026-10-30):useRefreshOnFocus 的 RN adapter 挂载期订阅;本套件不测回前台。
     AppState: { currentState: 'active' as const, addEventListener: () => ({ remove() {} }) },
+    // 共享 MoreLink/BackChevronCore 经 PixelRatio.getFontScale 换算字号倍率;本文件整包 mock 了
+    // react-native,缺这条出口即渲染期抛 No PixelRatio export(键与共享替身逐字同源)。
+    PixelRatio: {
+      get: () => 1,
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (size: number) => size,
+      roundToNearestPixel: (size: number) => size,
+    },
+    Animated,
+    Easing,
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })

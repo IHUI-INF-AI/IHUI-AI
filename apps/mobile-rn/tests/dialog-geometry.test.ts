@@ -12,7 +12,7 @@
  * 接线扫描刻意不用正则:逐个切出 style 块再按字面量比对,避免转义写法本身漂移。
  */
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   DIALOG_MAX_HEIGHT_RATIO,
@@ -20,10 +20,9 @@ import {
   dialogContentHeightStyle,
 } from '../src/lib/dialog-geometry'
 
-const screenSrc = readFileSync(
-  fileURLToPath(new URL('../src/screens/ChatScreen.tsx', import.meta.url)),
-  'utf8',
-)
+// 本仓 vitest 环境下 `import.meta.url` 是 vite 的 http 形态,`fileURLToPath` 会报
+// "The URL must be of scheme file";沿用仓内既有等价写法(见 image-preview-modal-pan.test.tsx:87)
+const screenSrc = readFileSync(resolve(__dirname, '../src/screens/ChatScreen.tsx'), 'utf8')
 
 const DIALOG_KEYS = ['styles.listDialogContent', 'styles.materialPopup'] as const
 
@@ -81,9 +80,7 @@ describe('ChatScreen 弹层接线(防回归)', () => {
   })
   it('所有弹层容器消费点都接上 dialogHeightStyle', () => {
     const refs = DIALOG_KEYS.reduce((n, k) => n + countOf(screenSrc, k), 0)
-    const consumers = styleBlocks(screenSrc).filter((b) =>
-      DIALOG_KEYS.some((k) => b.includes(k)),
-    )
+    const consumers = styleBlocks(screenSrc).filter((b) => DIALOG_KEYS.some((k) => b.includes(k)))
     expect(refs).toBeGreaterThanOrEqual(5)
     expect(consumers.length).toBe(refs)
     for (const block of consumers) {

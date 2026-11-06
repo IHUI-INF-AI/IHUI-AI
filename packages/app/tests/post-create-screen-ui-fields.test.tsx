@@ -208,25 +208,38 @@ describe('跨端不漂移:端内页与共享屏取同一批 i18n 键', () => {
     return out
   }
 
-  it('端内页三个登记点的 label 键 = 屏消费的三个键(转壳后可见项清单一字不变)', () => {
+  it('端内页已是薄壳(零登记点),三枚 label 键仍只在共享屏消费(可见项清单一字不变)', () => {
     const pageSrc = readFileSync(MINIAPP_PAGE, 'utf8')
     const screenSrc = readFileSync(
       join(HERE, '../src/features/post-create/PostCreateScreen.tsx'),
       'utf8',
     )
-    const pageKeys = keysOf(pageSrc)
-    expect(pageKeys).toEqual([
+    // 转壳(2026-11-06):端内页只 import 壳、不写布局/登记;把 useUiField 再抄回薄壳就是伪薄壳
+    expect(pageSrc).toContain("from '@rn-shells/PostCreateScreen'")
+    expect(keysOf(pageSrc)).toEqual([])
+    // 可见项清单仍由共享屏消费,且与转壳前逐条同形
+    expect(keysOf(screenSrc)).toEqual([
       'postCreate.titleLabel',
       'postCreate.contentLabel',
       'postCreate.tagsLabel',
     ])
-    expect(keysOf(screenSrc)).toEqual(pageKeys)
   })
 
-  it('端内页不再经端内别名取注册表(取源直指共享核 ⇒ 与端内桥接层同一模块实例)', () => {
+  it('注册表取源直指共享核:端内页不经端内别名,登记点落在共享屏', () => {
     const pageSrc = readFileSync(MINIAPP_PAGE, 'utf8')
-    expect(pageSrc).toContain("from '@ihui/shared/ui-control/field-registry'")
+    const shellSrc = readFileSync(
+      join(HERE, '../../../apps/mobile-rn/src/screens/PostCreateScreen.tsx'),
+      'utf8',
+    )
+    const screenSrc = readFileSync(
+      join(HERE, '../src/features/post-create/PostCreateScreen.tsx'),
+      'utf8',
+    )
     expect(pageSrc).not.toContain("from '@/lib/ui-field-registry'")
+    // 端内页 → RN 壳 → 共享屏 这条转投链必须真实成立,注册表只在共享核取用
+    expect(pageSrc).toContain("from '@rn-shells/PostCreateScreen'")
+    expect(shellSrc).toContain("from '@ihui/rn-app'")
+    expect(screenSrc).toContain("from '@ihui/shared/ui-control/field-registry'")
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

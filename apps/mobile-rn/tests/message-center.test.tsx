@@ -56,8 +56,10 @@ vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
 }))
 
-// features 共享层 MessageCenterScreen 骨架(渲染 header/tab/列表/会话区块)
-vi.mock('@ihui/rn-app', async () => {
+// features 共享层 MessageCenterScreen 骨架(渲染 header/tab/列表/会话区块)。
+// 端内薄壳已改为从子路径直引共享屏(见 src/screens/MessageCenterScreen.tsx:17),
+// 替身必须挂在真实取用路径上,否则 mock 落空、断言读的是真 DOM 上没有的 testid。
+vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', async () => {
   const { createElement: h } = await import('react')
   // 2026-10-30(票 L30756):useRefreshOnFocus 薄壳经本包入口取 useScreenReappear;本文件局部
   // mock 了整个包 ⇒ 必须补这条出口(纯 React hook,直连真源码),否则屏挂载即报缺导出。
@@ -123,8 +125,17 @@ vi.mock('@ihui/rn-app', async () => {
   }
 })
 
+// 端内薄壳经本包入口只取 useScreenReappear(src/hooks/use-refresh-on-focus.ts:8),其余走子路径。
+vi.mock('@ihui/rn-app', async () => {
+  const { useScreenReappear } = await import('../../../packages/app/src/hooks/use-screen-reappear')
+  return { useScreenReappear }
+})
+
 vi.mock('react-native', async () => {
   const { createElement: h } = await import('react')
+  // 整包 mock 的套件也要覆盖共享屏实际用到的 RN 面(见 __mocks__/react-native.ts 顶部约定):
+  // ScreenStates 骨架屏渲染期调 Animated.loop/sequence + Easing.inOut,缺任一条即整文件渲染失败。
+  const { Animated, Easing } = await import('./__mocks__/react-native')
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       return h(tag, null, props.children)
@@ -148,6 +159,16 @@ vi.mock('react-native', async () => {
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     // AppState(2026-10-30):useRefreshOnFocus 的 RN adapter 挂载期订阅;本套件不测回前台。
     AppState: { currentState: 'active' as const, addEventListener: () => ({ remove() {} }) },
+    // 共享 MoreLink/BackChevronCore 经 PixelRatio.getFontScale 换算字号倍率;本文件整包 mock 了
+    // react-native,缺这条出口即渲染期抛 No PixelRatio export(键与共享替身逐字同源)。
+    PixelRatio: {
+      get: () => 1,
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (size: number) => size,
+      roundToNearestPixel: (size: number) => size,
+    },
+    Animated,
+    Easing,
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })

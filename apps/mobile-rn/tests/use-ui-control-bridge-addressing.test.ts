@@ -26,6 +26,16 @@ vi.mock('@ihui/api-client', () => ({
     h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
     return Promise.resolve({ success: true })
   },
+  // 同 use-ui-control-bridge.test.ts:桥层已走共享端点函数(门300 A类),
+  // 整包替身缺出口会让调用点抛 TypeError 并被桥层吞成 warn,回执全丢。
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
+    return Promise.resolve({ success: true })
+  },
   createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
 }))
 
