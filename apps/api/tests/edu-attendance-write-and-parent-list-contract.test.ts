@@ -531,9 +531,11 @@ describe('PUT /attendance/:id 的写面收口(status 死字段已摘)', () => {
     expect(res.statusCode).toBe(200)
     expect(H.writes).toEqual(['update'])
     expect(H.sets.length).toBe(1)
-    expect(H.sets[0].remark).toBe('订正备注')
-    expect(H.sets[0].checkInMethod).toBe('manual')
-    expect(H.sets[0].updatedAt).toBeInstanceOf(Date)
+    const onlySet = H.sets[0]
+    if (!onlySet) throw new Error('写面只落了一条 set 的期望未成立:sets[0] 取不到')
+    expect(onlySet.remark).toBe('订正备注')
+    expect(onlySet.checkInMethod).toBe('manual')
+    expect(onlySet.updatedAt).toBeInstanceOf(Date)
   })
 
   it('鉴权先于一切:无 token ⇒ 401、无 edu:manage ⇒ 403,两者零写链调用、零 set', async () => {
@@ -644,7 +646,9 @@ describe('GET /parent/children/:childId/attendance 的 status 枚举闸(与单�
     const list =
       (res.body.data as { list?: Array<Record<string, unknown>> } | undefined)?.list ?? []
     expect(list.length).toBe(1)
-    expect(String(list[0].status)).toBe('present')
+    const firstRow = list[0]
+    if (!firstRow) throw new Error('列表只有一行的期望未成立:list[0] 取不到')
+    expect(String(firstRow.status)).toBe('present')
     expect(H.reads).toBeGreaterThan(0)
   })
 
