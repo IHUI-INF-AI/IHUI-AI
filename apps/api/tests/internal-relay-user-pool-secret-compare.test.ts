@@ -97,7 +97,8 @@ describe('内部凭据比较必须走 secretsEqual 单源', () => {
   it('接线锁:鉴权必须走 X-Internal-Secret 族统一出口,本文件不得再自行比对密钥', () => {
     const src = readFileSync(join(ROOT, ROUTE_FILE), 'utf8')
     expect(src).toMatch(
-      /import \{ authorizeInternalSecretCall, ticketSubjectAllows \} from '\.\.\/plugins\/internal-secret-auth\.js'/,
+      // 允许格式化把 import 折行(本仓库 prettier 宽度 100),判据是"来自统一出口"而非字面一行
+      /import\s*\{\s*authorizeInternalSecretCall,\s*ticketSubjectAllows,\s*\}\s*from\s*'\.\.\/plugins\/internal-secret-auth\.js'/,
     )
     // 第二道:端点自己不得再直接读旧密钥头/自行比较 —— 判据只有一处,才不会两侧强度分叉
     expect(src).not.toMatch(/request\.headers\['x-internal-secret'\]/)
