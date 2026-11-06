@@ -10,7 +10,7 @@ import {
   type MessagePatchedEvent,
   type MessageTerminalEvent,
 } from '@ihui/types'
-import { useChatStore } from '../chat'
+import { planColdStartRestore, useChatStore } from '../chat'
 
 describe('useChatStore', () => {
   beforeEach(() => {
@@ -1295,6 +1295,45 @@ describe('useChatStore', () => {
       expect(useChatStore.getState()).not.toBe(before)
       expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(2)
     })
+  })
+})
+
+describe('冷启动先显示列表再对深链', () => {
+  const now = Date.parse('2026-11-06T05:10:00.000Z')
+  const snapshot = {
+    version: 1,
+    savedAt: '2026-11-06T05:09:00.000Z',
+    items: [{ id: 'c1', title: '进行中', titleMode: 'user', spaceName: 'G:/IHUI-AI' }],
+  }
+
+  it('数字标题档不折成用户标题,深链不在快照里只留列表', () => {
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot,
+        route: { path: '/conversation/c1', savedAt: '2026-11-06T05:09:30.000Z' },
+      }),
+    ).toMatchObject({ disposition: 'restore', routeId: 'c1' })
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot: {
+          ...snapshot,
+          items: [{ id: 'c1', title: '进行中', titleMode: 2, spaceName: 'G:/IHUI-AI' }],
+        },
+        route: null,
+      }).reason,
+    ).toBe('item-unreadable')
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot,
+        route: { path: '/conversation/missing', savedAt: '2026-11-06T05:09:30.000Z' },
+      }),
+    ).toMatchObject({ disposition: 'list-only', reason: 'route-absent', routeId: null })
+    expect(planColdStartRestore({ now, snapshot: null, route: null }).reason).toBe(
+      'snapshot-unmeasured',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

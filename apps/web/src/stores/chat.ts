@@ -2558,4 +2558,109 @@ export function createChatStore(persistName: string = 'ihui-chat') {
 
 /** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
 export const useChatStore = createChatStore()
+
+export type ColdStartTitleMode = 'auto' | 'user'
+
+export type ColdStartItem = {
+  id: string
+  title: string
+  titleMode: ColdStartTitleMode
+  spaceName: string
+}
+
+export type ColdStartPlan = {
+  disposition: 'restore' | 'list-only' | 'unjudged'
+  reason:
+    | 'restore'
+    | 'route-unmeasured'
+    | 'route-invalid'
+    | 'route-absent'
+    | 'route-clock-unmeasured'
+    | 'route-clock-ahead'
+    | 'snapshot-unmeasured'
+    | 'clock-unmeasured'
+    | 'clock-ahead'
+    | 'items-unmeasured'
+    | 'item-unreadable'
+    | 'version-unrecognized'
+    | 'now-unmeasured'
+  items: ColdStartItem[] | null
+  routeId: string | null
+}
+
+const COLD_START_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/
+const COLD_START_ROUTE = /^\/conversation\/([A-Za-z0-9][A-Za-z0-9_-]{0,80})$/
+const COLD_START_FUTURE_MS = 5 * 60 * 1000
+
+function coldStartClock(value: unknown, now: number): 'ok' | 'missing' | 'ahead' | 'bad' {
+  let ms: number
+  if (typeof value === 'number' && Number.isFinite(value)) ms = value
+  else if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Date.parse(value))) {
+    ms = Date.parse(value)
+  } else if (value === null || value === undefined) return 'missing'
+  else return 'bad'
+  if (ms > now + COLD_START_FUTURE_MS) return 'ahead'
+  return 'ok'
+}
+
+function readColdStartItem(value: unknown): ColdStartItem | null {
+  if (value === null || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  if (typeof row.id !== 'string' || !COLD_START_ID.test(row.id)) return null
+  if (typeof row.title !== 'string') return null
+  if (row.titleMode !== 'auto' && row.titleMode !== 'user') return null
+  if (typeof row.spaceName !== 'string' || row.spaceName.trim() === '') return null
+  return { id: row.id, title: row.title, titleMode: row.titleMode, spaceName: row.spaceName }
+}
+
+/**
+ * 冷启动分两段:列表快照可以先显示,深链必须指向这份快照里的会话。
+ * 标题档只认 auto/user,数字或布尔不折成用户标题。
+ * 快照或当前时刻没量到就不恢复。本函数不写盘、不导航。
+ */
+export function planColdStartRestore(input: {
+  now: unknown
+  snapshot: unknown
+  route: unknown
+}): ColdStartPlan {
+  const blank = (reason: ColdStartPlan['reason']): ColdStartPlan => ({
+    disposition: 'unjudged',
+    reason,
+    items: null,
+    routeId: null,
+  })
+  if (typeof input.now !== 'number' || !Number.isFinite(input.now)) return blank('now-unmeasured')
+  if (input.snapshot === null || input.snapshot === undefined) return blank('snapshot-unmeasured')
+  if (typeof input.snapshot !== 'object') return blank('snapshot-unmeasured')
+  const snapshot = input.snapshot as Record<string, unknown>
+  if (snapshot.version !== 1) return blank('version-unrecognized')
+  const saved = coldStartClock(snapshot.savedAt, input.now)
+  if (saved === 'missing' || saved === 'bad') return blank('clock-unmeasured')
+  if (saved === 'ahead') return blank('clock-ahead')
+  if (!Array.isArray(snapshot.items)) return blank('items-unmeasured')
+  const items: ColdStartItem[] = []
+  for (const row of snapshot.items) {
+    const item = readColdStartItem(row)
+    if (!item) return blank('item-unreadable')
+    items.push(item)
+  }
+  const listOnly = (reason: ColdStartPlan['reason']): ColdStartPlan => ({
+    disposition: 'list-only',
+    reason,
+    items,
+    routeId: null,
+  })
+  if (input.route === null || input.route === undefined) return listOnly('route-unmeasured')
+  if (typeof input.route !== 'object') return listOnly('route-invalid')
+  const route = input.route as Record<string, unknown>
+  const routeClock = coldStartClock(route.savedAt, input.now)
+  if (routeClock === 'missing' || routeClock === 'bad') return listOnly('route-clock-unmeasured')
+  if (routeClock === 'ahead') return listOnly('route-clock-ahead')
+  if (typeof route.path !== 'string') return listOnly('route-invalid')
+  const match = COLD_START_ROUTE.exec(route.path)
+  if (!match) return listOnly('route-invalid')
+  const routeId = match[1]
+  if (!routeId || !items.some((item) => item.id === routeId)) return listOnly('route-absent')
+  return { disposition: 'restore', reason: 'restore', items, routeId }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
