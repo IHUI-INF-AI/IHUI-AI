@@ -5448,6 +5448,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **功能说明**:`/goods/select` 补的是购物车的商品分页读腿;`/sign-ups` 把课程报名与考试报名聚合成"我的报名"一张列表;`/auth/wechat/mini/one-tap-login` 是新建的一枚端点 —— 此前 `/mini/login` 对新用户只回 `{needPhone:true, openId}` 且不发 token,而 `/mini/phone` 要求已登录且不回 token,这条链结构上从来没通过(用例见 `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`)。
 - **使用方式**:三者均由 `apps/api/src/routes/index.ts` 注册(`goods.ts` 走 `prefix:'/api'`、`sign-ups.ts` 走 `prefix:'/api/sign-ups'`、`auth-extended.ts` 走 auth 前缀);请求参数由 Zod 校验,`/api/auth/wechat/mini/one-tap-login` 入参为 `{ loginCode, phoneCode }`(`strictObject`,未知键即 400)。
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
+### GitHub App webhook 异步派发(2026-11-06 按 §21 补登,RP-69)
+`POST /api/github-app/webhook` 的 `pull_request` / `issue_comment` 两条派发路径改为「先回 200、再异步处理」(Y-91)。
+- **环境变量**:`GITHUB_WEBHOOK_RESPONSE_BUDGET_MS` —— 应答预算(ms),语义是「最多让 GitHub 等多久」,**不是超时取消**:预算到点先回 200,任务不中断、不重试,后台跑完照样落投递表。
+- **缺省与取值**:500ms(现读 `DEFAULT_RESPONSE_BUDGET_MS = 500`);读不到、非有限数或负数一律回落该缺省,不猜值。`0` = 纯异步档,一律先回 200。
+- **响应新增字段 `dispatch`**:取值 `'inline'` 或 `'async'`。预算内跑完回 `dispatch:'inline'` 并保留原有 `outcome`(既有响应形状不回退);预算到点或 `0` 档(deferred)回 `dispatch:'async'`,不带 `outcome`,重活在后台队列内跑完并落表。
+- **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-06**
