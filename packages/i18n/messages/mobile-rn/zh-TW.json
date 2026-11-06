@@ -4808,7 +4808,8 @@
     "title": "知識星球",
     "newOfficial": "官方資訊",
     "newCommunity": "星球社群",
-    "enter": "進入星球"
+    "enter": "進入星球",
+    "memberCount": "{count} 位成員"
   },
   "knowledgeRag": {
     "title": "RAG 知識庫",
