@@ -3,39 +3,38 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Button, Input } from '@tarojs/components'
-// 描边画在外层输入盒上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
-import { useFieldFocus } from '@/hooks/use-field-focus'
-import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app/features/withdraw/WithdrawScreen'
 import { onToast } from '@/host/on-toast'
+import type { TFunction } from '@ihui/types'
+import { buildWithdrawMethods, buildWithdrawTexts, formatWithdrawAmount } from './withdrawal-props'
 
-const priceFmt = new Intl.NumberFormat('zh-CN', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
+/**
+ * 薄壳(第 3 批):版面/输入/方式选择/记录入口全部交给共享屏 WithdrawScreen,本端只保留
+ *   ① G-933 冷启动鉴权门控(getDistributionInfo → 组级 authenticate);
+ *   ② 提现提交与成功回退;
+ *   ③ 到账方式/文案的本端映射(withdrawal-props.ts)。
+ * 观感差异(已知并接受):原页金额输入盒的聚焦描边档由共享屏 TextField 统一承载。
+ */
 export default function WithdrawalPage() {
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
-  // 提现金额输入盒的运行时聚焦档(描边在盒子上,不在 Input 上)
-  const ffAmount = useFieldFocus()
   const availableRef = useRef(0)
 
-  const methods = [
-    { value: 'wechat', label: tt('distribution.withdraw.methodWechat', '微信'), icon: '微' },
-    { value: 'alipay', label: tt('distribution.withdraw.methodAlipay', '支付宝'), icon: '支' },
-  ]
+  const methods = buildWithdrawMethods(tt)
+  const texts = buildWithdrawTexts(tt)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const info = await getDistributionInfo()
       setAvailable(info.available)
@@ -43,13 +42,13 @@ export default function WithdrawalPage() {
     } catch {
       // ignore
     }
-  }
+  }, [])
 
-  const fillAll = () => {
-    setAmount(priceFmt.format(availableRef.current))
-  }
+  const fillAll = useCallback(() => {
+    setAmount(formatWithdrawAmount(availableRef.current))
+  }, [])
 
-  const onSubmit = async () => {
+  const onSubmit = useCallback(async () => {
     const amt = Number(amount)
     if (!amt || amt <= 0) {
       onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
@@ -69,11 +68,11 @@ export default function WithdrawalPage() {
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [amount, method, tt])
 
-  const goRecords = () => {
+  const goRecords = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-ai/developer/withdrawal' })
-  }
+  }, [])
 
   useDidShow(() => {
     // G-933 冷启动门控:可提现金额(GET /distribution/overview,组级 authenticate)需鉴权
@@ -84,86 +83,28 @@ export default function WithdrawalPage() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background p-lg">
-        {/* 可提现金额卡片 — 对齐 RN WithdrawScreen balanceCard(padding 14/radius 12/白卡) */}
-        <View className="px-lg py-md rounded-lg bg-card mb-lg">
-          <Text className="block text-body text-muted-foreground">
-            {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
-          </Text>
-          <Text className="block text-display font-bold text-foreground mt-sm">
-            {priceFmt.format(available)}
-          </Text>
-        </View>
-
-        {/* 提现金额 + 提现方式卡片 — 对齐 RN WithdrawScreen card(padding 12/radius 12/border.light) */}
-        <View className="rounded-lg border border-border bg-card p-lg">
-          <Text className="block text-body text-muted-foreground">
-            {tt('wallet.withdrawal.amountLabel', '提现金额')}
-          </Text>
-          <View
-            className="flex items-center mt-sm h-[50px] px-md rounded-xl border border-border bg-[var(--color-muted)]"
-            style={ffAmount.focusStyle}
-          >
-            <Text className="text-title font-semibold text-foreground">¥</Text>
-            <Input
-              className="flex-1 text-title font-normal text-foreground ml-[12rpx]"
-              {...ffAmount.spread}
-              type="digit"
-              value={amount}
-              onInput={(e) => setAmount(e.detail.value)}
-              placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
-            />
-            <Text className="text-caption text-[var(--color-text-tertiary)]" onClick={fillAll}>
-              {tt('distribution.withdraw.all', '全部提现')}
-            </Text>
-          </View>
-
-          <Text className="block text-body text-muted-foreground mt-lg mb-sm">
-            {tt('distribution.withdraw.method', '提现方式')}
-          </Text>
-          <View className="flex gap-md">
-            {methods.map((m) => (
-              <View
-                key={m.value}
-                className={`flex-1 flex items-center p-[28rpx] border-[length:2rpx] rounded-xl bg-card ${method === m.value ? 'border-[var(--color-primary)]' : 'border-border'}`}
-                onClick={() => setMethod(m.value)}
-                hoverClass="opacity-60"
-              >
-                <View
-                  className={`w-[56rpx] h-[56rpx] rounded-lg flex items-center justify-center text-body-sm leading-[normal] font-semibold mr-[20rpx] text-[var(--color-surface-light)] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
-                >
-                  {m.icon}
-                </View>
-                <Text className="flex-1 text-title font-normal text-foreground">{m.label}</Text>
-                <View
-                  className={`w-[36rpx] h-[36rpx] border-[length:2rpx] rounded-sm flex items-center justify-center ${method === m.value ? 'bg-primary border-brand-accent-deep' : 'border-border bg-card'}`}
-                >
-                  {method === m.value && (
-                    <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <Button
-          className="mt-xl bg-cta text-cta-foreground rounded-sm text-title font-semibold"
-          loading={submitting}
-          disabled={submitting}
-          onClick={onSubmit}
-        >
-          {tt('distribution.withdraw.submit', '提交申请')}
-        </Button>
-
-        <View
-          className="mt-md text-center text-caption text-[var(--color-text-tertiary)]"
-          onClick={goRecords}
-          hoverClass="opacity-60"
-        >
-          <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
-        </View>
-      </View>
+      <SharedWithdrawScreen
+        t={tt as unknown as TFunction}
+        amount={amount}
+        loading={false}
+        error=""
+        success=""
+        onAmountChange={setAmount}
+        onSubmit={onSubmit}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        colorScheme={resolvedTheme}
+        balance={available}
+        methods={methods}
+        method={method}
+        onMethodChange={setMethod}
+        onFillAll={fillAll}
+        onRecords={goRecords}
+        recordsLabel={texts.records}
+        texts={texts}
+        submitting={submitting}
+      />
     </ThemeRoot>
   )
 }

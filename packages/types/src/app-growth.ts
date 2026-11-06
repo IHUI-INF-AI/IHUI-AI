@@ -259,6 +259,84 @@ export interface VipMembershipInfo {
   daysRemaining: number
 }
 
+/** VIP 特权特性条目(共享屏渲染用) */
+export interface VipFeatureItem {
+  id: string
+  /** 图标组件;缺省由共享屏按 id 兜底 */
+  icon?: AppIcon
+  title: string
+  desc: string
+  /** 右侧角标;缺省则不渲染 */
+  tag?: string
+}
+
+/** VIP 套餐档位(价格按元计) */
+export interface VipPlanOption {
+  id: string
+  name: string
+  price: number
+  period: string
+}
+
+/** 套餐选择卡(未传则不渲染) */
+export interface VipPlansBlock {
+  title: string
+  options: VipPlanOption[]
+  selectedId: string
+  onSelect: (id: string) => void
+  autoRenewLabel: string
+  autoRenew: boolean
+  onToggleAutoRenew: () => void
+  manageLabel?: string
+  onManage?: () => void
+  memberDescTitle?: string
+  memberDescText?: string
+}
+
+/** 底部购买栏(未传则不渲染) */
+export interface VipBuyBar {
+  price: number
+  label: string
+  onPress: () => void
+}
+
+/** 弹层支付方式行 */
+export interface VipOverlayMethod {
+  id: string
+  label: string
+  /** 左侧圆形文字标(如“微”“付”) */
+  badge: string
+  active: boolean
+  onPress: () => void
+}
+
+/** 弹层套餐摘要 */
+export interface VipOverlayPlan {
+  name: string
+  price: number
+  period?: string
+  originalPrice?: number
+}
+
+/**
+ * 统一弹层(权益/介绍/确认/须知/支付方式/成功/支付确认)。
+ * 只声明数据与回调,渲染由共享屏完成;未传则不渲染。
+ */
+export interface VipOverlay {
+  kind: 'intro' | 'confirm' | 'notice' | 'method' | 'success' | 'benefits' | 'payConfirm'
+  title: string
+  /** 正文行(intro/notice/success) */
+  lines?: string[]
+  plan?: VipOverlayPlan
+  benefits?: VipBenefitCardItem[]
+  /** 购买须知勾选 */
+  agree?: { label: string; checked: boolean; onToggle: () => void }
+  methods?: VipOverlayMethod[]
+  primaryLabel: string
+  onPrimary: () => void
+  onClose?: () => void
+}
+
 /** VipScreen props */
 export interface VipScreenProps {
   t: TFunction
@@ -282,6 +360,20 @@ export interface VipScreenProps {
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 头部展示的当前价格(元);缺省则不渲染 */
+  headerPrice?: number
+  /** 会员卡右上“等级介绍”入口;缺省则不渲染 */
+  introduce?: { label: string; onPress: () => void }
+  /** 特权列表;缺省则不渲染 */
+  features?: VipFeatureItem[]
+  /** 特权列表下方“查看全部权益”入口 */
+  viewBenefits?: { label: string; onPress: () => void }
+  /** 套餐选择/自动续费/会员说明卡;缺省则不渲染 */
+  plans?: VipPlansBlock
+  /** 底部购买栏;缺省则不渲染 */
+  buyBar?: VipBuyBar
+  /** 统一弹层;缺省/null 则不渲染 */
+  overlay?: VipOverlay | null
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
@@ -858,6 +950,61 @@ export interface VipBenefitItem {
   iconUri?: string
 }
 
+/** 特权页入口种类 */
+export type VipBenefitEntryKind = 'level' | 'trader' | 'privateAdvisory'
+
+/** 特权页入口卡片 */
+export interface VipBenefitEntry {
+  id: VipBenefitEntryKind
+  label: string
+  /** 图标组件;缺省由共享屏按 id 兜底 */
+  icon?: AppIcon
+  onPress: () => void
+}
+
+/** 特权页头部等级信息 */
+export interface VipBenefitHeaderInfo {
+  levelName: string
+  isOpened: boolean
+  /** 顶部标题;缺省用 vipBenefit.title */
+  title?: string
+  /** 已开通时的到期文案(未传则显示 activateHint) */
+  expireText?: string
+  /** 未开通提示 */
+  activateHint?: string
+}
+
+/** 权益矩阵行 */
+export interface VipBenefitMatrixRow {
+  id: string
+  label: string
+  values: string[]
+}
+
+/** 特权页弹层(内容 + 回调;只传一个) */
+export type VipBenefitPopup =
+  | {
+      kind: 'matrix'
+      title: string
+      primaryLabel: string
+      onPrimary: () => void
+      onClose: () => void
+      columns: string[]
+      rows: VipBenefitMatrixRow[]
+      desc?: string
+      /** 高亮列下标(0 起) */
+      highlightColumn?: number
+    }
+  | {
+      kind: 'benefits'
+      title: string
+      primaryLabel: string
+      onPrimary: () => void
+      onClose: () => void
+      intro?: string
+      items: string[]
+    }
+
 /** VipBenefitScreen props(平台无关,wrapper 注入数据+回调) */
 export interface VipBenefitScreenProps {
   t: TFunction
@@ -866,6 +1013,14 @@ export interface VipBenefitScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 头部等级徽标/到期提示;缺省则不渲染 */
+  header?: VipBenefitHeaderInfo
+  /** 3 个入口卡片;缺省则不渲染 */
+  entries?: VipBenefitEntry[]
+  /** 矩阵/权益弹层;缺省/null 则不渲染 */
+  popup?: VipBenefitPopup | null
+  /** 底部升级按钮;缺省则不渲染 */
+  upgrade?: { label: string; onPress: () => void }
 }
 
 /** 团队成员详情 props(批次 34 2026-08-15 建,2026-08-21 扩展 loading/error/onRetry + member 可空) */

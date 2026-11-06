@@ -198,6 +198,8 @@ export const ICONS = {
     '<svg\n  class="lucide lucide-rectangle-horizontal"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="20" height="12" x="2" y="6" rx="2" />\n</svg>',
   'key-round':
     '<svg\n  class="lucide lucide-key-round"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />\n  <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />\n</svg>',
+  'user-plus':
+    '<svg\n  class="lucide lucide-user-plus"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />\n  <circle cx="9" cy="7" r="4" />\n  <line x1="19" x2="19" y1="8" y2="14" />\n  <line x1="22" x2="16" y1="11" y2="11" />\n</svg>',
 } as const
 
 export type IconName = keyof typeof ICONS
