@@ -543,7 +543,7 @@ fn env_proxy_present() -> bool {
 }
 
 /// 探活 Client 构建:env 代理缺席时叠读 Windows 系统代理(见 system_proxy_url)。
-fn build_probe_client() -> reqwest::Client {
+fn build_probe_client() -> Option<reqwest::Client> {
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(12))
         .user_agent("ihui-desktop-auto-refresh");
@@ -562,9 +562,15 @@ fn build_probe_client() -> reqwest::Client {
             }
         }
     }
-    builder
-        .build()
-        .expect("auto-refresh: build reqwest client")
+    match builder.build() {
+        Ok(c) => Some(c),
+        Err(e) => {
+            log::warn!(
+                "[auto-refresh] 探活 Client 构建失败(代理/TLS 初始化异常),本轮不探活(不 panic): {e}"
+            );
+            None
+        }
+    }
 }
 
 /// 直连 Client:目标 host 命中 `should_bypass_proxy` 时使用(见该函数头注)。
@@ -572,13 +578,21 @@ fn build_probe_client() -> reqwest::Client {
 /// 与 `build_probe_client` 同参数(timeout/user_agent),唯一差别是 `.no_proxy()`
 /// —— reqwest 的 `Proxy::all` 没有 bypass 列表,禁不掉已挂的 env 代理,
 /// 所以这里整建一个不走任何代理的 Client,按目标 host 分流选用。
-fn build_direct_probe_client() -> reqwest::Client {
-    reqwest::Client::builder()
+fn build_direct_probe_client() -> Option<reqwest::Client> {
+    match reqwest::Client::builder()
         .timeout(Duration::from_secs(12))
         .user_agent("ihui-desktop-auto-refresh")
         .no_proxy()
         .build()
-        .expect("auto-refresh: build reqwest client")
+    {
+        Ok(c) => Some(c),
+        Err(e) => {
+            log::warn!(
+                "[auto-refresh] 直连探活 Client 构建失败(TLS 初始化异常),本轮不探活(不 panic): {e}"
+            );
+            None
+        }
+    }
 }
 
 /// 探活/指纹目标是否应**绕过**系统/env 代理直连。
@@ -621,7 +635,7 @@ pub(crate) fn should_bypass_proxy(host: &str) -> bool {
 /// 放在 `start()` 里二选一(而不是给 Client 挂 per-request bypass)——
 /// reqwest 没有 per-request no_proxy,且一个 base 只有一个 origin,
 /// 整生命周期只需判一次。
-fn select_probe_client(base: &BackendBase) -> reqwest::Client {
+fn select_probe_client(base: &BackendBase) -> Option<reqwest::Client> {
     let host = tauri::Url::parse(&base.frontend_url)
         .ok()
         .and_then(|u| u.host_str().map(str::to_string));
@@ -664,7 +678,14 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         // 2026-10-15:回环/内网基址(localhost:8801 开发联调等)必须直连 ——
         // 系统代理(Clash)对 localhost 不保证 DIRECT,`Proxy::all` 无 bypass 列表,
         // 会把本机探活导去节点造成假离线(详见 select_probe_client 头注)。
-        let client = select_probe_client(&base);
+        // 2026-11-07 缺陷挖掘:Client 构建失败(系统代理/TLS 初始化异常)此前 `.expect`
+        // 直接 abort 整个进程;现在降级为「本轮不做自动探活/重连」,主窗由 page_load 照常点亮。
+        let Some(client) = select_probe_client(&base) else {
+            log::error!(
+                "[auto-refresh] 探活 Client 构建失败 ⇒ 自动刷新/离线重连本轮停用(不 panic、不杀进程)"
+            );
+            return;
+        };
 
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
@@ -917,6 +938,27 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 2026-11-07 缺陷挖掘:HTTP Client 构建失败(系统代理/TLS 初始化异常、env 表异常)
+    /// 此前走 `.expect` ⇒ release 档 `panic = "abort"` ⇒ 整个桌面进程静默消失(无日志、
+    /// 无恢复)。源码锁:两处构建函数与签到共用 Client 都不许再出现 panic 出口。
+    /// 标记用 concat! 拆开,避免本模块自身命中。
+    const M_BAD_PROBE: &str = concat!("build reqwest ", "client");
+    const M_BAD_WB: &str = concat!("reqwest client ", "build");
+
+    #[test]
+    fn client_build_must_degrade_not_panic() {
+        let af = include_str!("auto_refresh.rs");
+        let cw = include_str!("checkin_web_login.rs");
+        assert!(
+            !af.contains(M_BAD_PROBE),
+            "auto_refresh 探活 Client 仍有 panic 出口 ⇒ proxy/TLS 初始化失败即整进程 abort"
+        );
+        assert!(
+            !cw.contains(M_BAD_WB),
+            "checkin_web_login 共用 Client 仍有 panic 出口 ⇒ 签到探测会带走整个桌面进程"
+        );
+    }
 
     // ── 判定的核心回归点:单次瞬时失败绝不能触发"整页替换" ──
 

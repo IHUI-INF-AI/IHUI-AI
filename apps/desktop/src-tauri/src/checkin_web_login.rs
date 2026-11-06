@@ -137,7 +137,9 @@ pub async fn probe_cookie_checkin(cookie_header: &str) -> Option<bool> {
     // 出站前过出口门(Z17 与 CLI 同源腿):被拒 ⇒ 报「未知」而不是伪报「登录态无效」,
     // 理由已具名出声(见 egress_gate::report_egress_warnings)。
     crate::egress_gate::guard_egress_target(&format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status")).ok()?;
-    let resp = shared_client()
+    // Client 构建失败 ⇒ 本轮判「未知」(None),不 panic 整进程
+    let client = shared_client().ok()?;
+    let resp = client
         .post(format!("{WB_WEB_ORIGIN}/v2/billing/meter/checkin-status"))
         .header("accept", "application/json")
         .header("content-type", "application/json")
@@ -174,7 +176,8 @@ pub async fn probe_cookie_accounts(cookie_header: &str) -> Result<ProbeOutcome, 
     if let Err(denied) = crate::egress_gate::guard_egress_target(&target) {
         return Err(format!("出口门拒绝该目标: {denied}"));
     }
-    let resp = shared_client()
+    let client = shared_client()?;
+    let resp = client
         .get(format!("{WB_WEB_ORIGIN}{ACCOUNTS_PATH}"))
         .header("accept", "application/json")
         .header("cookie", cookie_header)
@@ -225,14 +228,20 @@ pub enum WebLoginProbe {
     Error { message: String },
 }
 
-fn shared_client() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .timeout(Duration::from_secs(PROBE_HTTP_TIMEOUT_SECS))
-            .build()
-            .expect("reqwest client build")
-    })
+/// 共用 HTTP Client(构建失败时返回 Err 而不是 panic —— 2026-11-07 缺陷挖掘:
+/// release 档 `panic = "abort"`,一次 TLS 初始化失败就会把整个桌面进程带走,
+/// 用户在签到页只看到窗口消失且无任何日志)。
+fn shared_client() -> Result<&'static reqwest::Client, String> {
+    static CLIENT: OnceLock<Result<reqwest::Client, String>> = OnceLock::new();
+    CLIENT
+        .get_or_init(|| {
+            reqwest::Client::builder()
+                .timeout(Duration::from_secs(PROBE_HTTP_TIMEOUT_SECS))
+                .build()
+                .map_err(|e| format!("HTTP 客户端初始化失败: {e}"))
+        })
+        .as_ref()
+        .map_err(|e| e.clone())
 }
 
 // ---------------------------------------------------------------------------
