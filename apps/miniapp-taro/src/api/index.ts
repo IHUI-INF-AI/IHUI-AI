@@ -51,6 +51,8 @@ import type {
   SubagentProgressEvent,
   // G-425:done 帧 finishReason 透传事件(载荷口径与 web 端 streamChat.onFinishReason 同一份契约)
   FinishReasonEvent,
+  // 批次 3:预算档位帧(warning/critical/stopped)载荷类型复用 api-client
+  BudgetEvent,
   // api-client 已有类型(用于本地映射,字段差异见各 mapped type 注释)
   Course as ApiCourse,
   Live as ApiLive,
@@ -72,13 +74,22 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
 import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
+import {
+  parseBudgetStopData,
+  parseCompactBoundary,
+  parseCompactionBoundaryLine,
+  parseContextLedgerRow,
+  parseUsageContextLedgerLine,
+  type BudgetStopView,
+  type ContextLedgerEntry,
+} from '@/lib/chat-budget-ledger-frames'
 // D77(2026-10-17 落地小程序腿 / 2026-10-19 收编):form_request 帧的**认领层 + 投影**单源在共享层
 // (@ihui/shared/chat/form-request-frame)。端内**不再走 onRawLine 二次认领**:共享解析面
 // (@ihui/shared/utils/sse-parse)已于 2026-10-18 在 meta 泛化兜底之前认领该帧族,
 // 原先"共享面不认领 ⇒ 不走旁路该帧会被折成 meta、kind/fields/actions 全丢"的前提已不成立;
 // 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
 // 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
-import type { FormRequestFramePayload } from '@ihui/shared'
+import type { CompactBoundary, ContextLedger, FormRequestFramePayload } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -89,6 +100,7 @@ import type {
 } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
 import {
+  fetchApi,
   signRecurringContract as _signRecurringContract,
   listRecurringContracts as _listRecurringContracts,
   getRecurringContract as _getRecurringContract,
@@ -473,6 +485,22 @@ export interface StreamEventCallbacks {
    * streamChat.onFinishReason 同一纪律)。
    */
   onFinishReason?: (evt: FinishReasonEvent) => void
+  /**
+   * 批次 3(2026-11-06):预算档位帧。共享 sse-parse 已认领 warning/critical/stopped,
+   * 本端只透传;消费侧只在 level='stopped' 时落到终态提示(后续 warning 不得覆盖)。
+   * 载荷类型复用 @ihui/api-client 的 BudgetEvent,端内不抄第二份字段。
+   */
+  onBudget?: (evt: BudgetEvent) => void
+  /**
+   * 批次 3(2026-11-06):usage 帧的七类上下文账本。共享解析面只折 usage 旧字段,
+   * `contextLedger` 由本文件 onRawLine 旁路认领后回调;缺席/形状不认 ⇒ 不触发。
+   */
+  onContextLedger?: (ledger: ContextLedger) => void
+  /**
+   * 批次 3(2026-11-06):compaction 帧的压缩边界(保留段 + 折叠区间)。
+   * 共享解析面同样只折旧字段,`boundary` 由 onRawLine 旁路认领;无边界 ⇒ 不触发。
+   */
+  onCompactionBoundary?: (boundary: CompactBoundary) => void
 }
 
 /**
@@ -573,6 +601,11 @@ export const chatStream = async (
         break
       case 'compaction':
         if (evt.compaction) onCompaction?.(evt.compaction)
+        break
+      // 批次 3:预算档位帧(共享解析面已认领 stopped)。本层原样透传,
+      // warning/critical 是否上屏由页内决定;stopped 的终态语义也在页内收口。
+      case 'budget':
+        if (evt.budget) callbacks?.onBudget?.(evt.budget)
         break
       // G-815976:partial_done —— 流异常中断且已发过 chunk 的标记帧。共享 sse-parse 已在
       // 兜底链之前认领该帧(不认领就整帧丢失),这里只承接已认领的 evt.partialDone;
@@ -744,6 +777,16 @@ export const chatStream = async (
       if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
         callbacks.onToolApproval(evt)
       }
+      // 批次 3:共享解析面只折 usage/compaction 的旧字段,七类账本与压缩边界
+      // 会在那一层被静默丢掉 ⇒ 这两维在本端旁路认领(形状不认即丢弃,不猜不补)。
+      const ledger = parseUsageContextLedgerLine(line)
+      if (ledger && callbacks && typeof callbacks.onContextLedger === 'function') {
+        callbacks.onContextLedger(ledger)
+      }
+      const boundary = parseCompactionBoundaryLine(line)
+      if (boundary && callbacks && typeof callbacks.onCompactionBoundary === 'function') {
+        callbacks.onCompactionBoundary(boundary)
+      }
     },
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
@@ -754,6 +797,65 @@ export const chatStream = async (
     },
     readTimeoutMs: STREAM_READ_TIMEOUT_MS,
   })
+}
+
+/* ============ 批次 3:上下文账本 / 压缩边界 / 预算停止回放 ============ */
+
+/** 查询成功且形状可认的条目；任何失败(网络/404/旧库无表)一律空数组,由页面静默回退。 */
+async function fetchConversationItems(
+  conversationId: string,
+  resource: 'context-ledger' | 'compaction-boundaries' | 'budget-stops',
+  limit: number,
+): Promise<unknown[]> {
+  if (!conversationId) return []
+  try {
+    const result = await fetchApi<{ items?: unknown }>(
+      `/ai/chat/conversations/${encodeURIComponent(conversationId)}/${resource}`,
+      { method: 'GET', params: { limit } },
+    )
+    if (!result.success || !result.data) return []
+    const items = result.data.items
+    return Array.isArray(items) ? (items as unknown[]) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 最近若干轮七类上下文账本(新→旧)。只返回通过严格形状校验的条目;
+ * 失败静默(不发 toast、不抛错),用量展示位继续用现有估算。
+ */
+export async function fetchConversationContextLedgers(
+  conversationId: string,
+  limit = 5,
+): Promise<ContextLedgerEntry[]> {
+  const items = await fetchConversationItems(conversationId, 'context-ledger', limit)
+  return items
+    .map((item) => parseContextLedgerRow(item))
+    .filter((item): item is ContextLedgerEntry => item !== null)
+}
+
+/** 最近若干条压缩边界(新→旧);无边界/失败 ⇒ 空数组。 */
+export async function fetchConversationCompactionBoundaries(
+  conversationId: string,
+  limit = 5,
+): Promise<CompactBoundary[]> {
+  const items = await fetchConversationItems(conversationId, 'compaction-boundaries', limit)
+  return items
+    .map((item) => parseCompactBoundary(item))
+    .filter((item): item is CompactBoundary => item !== null)
+}
+
+/** 会话最近一次预算硬停止(取新→旧第一条);没有记录/失败 ⇒ null。 */
+export async function fetchConversationLatestBudgetStop(
+  conversationId: string,
+): Promise<BudgetStopView | null> {
+  const items = await fetchConversationItems(conversationId, 'budget-stops', 1)
+  for (const item of items) {
+    const stop = parseBudgetStopData(item, false)
+    if (stop) return stop
+  }
+  return null
 }
 
 /* ============ 用户设置 ============ */

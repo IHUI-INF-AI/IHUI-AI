@@ -1738,6 +1738,176 @@ export interface UsageEvent {
   /** prompt 缓存**写入** token 数;三态同上(Anthropic 系才有原生字段,
    *  其余厂商上游不回报时应保持 null,而不是写 0 冒充"该厂商不写缓存")。 */
   cacheWriteTokens?: number | null
+  /**
+   * 批次 3(2026-11-06):本轮七类上下文账本(命名帧可选字段)。缺席 = 旧帧代际差
+   * 或该链路未采集,读作"本轮无账本",不是七类全 0。权威定义在
+   * `@ihui/shared` 的 sse/contract.ts ContextLedger(本包零依赖,故本地镜像)。
+   */
+  contextLedger?: ContextLedgerSnapshot
+}
+
+/** 上下文占用七类(固定顺序,与 @ihui/shared CONTEXT_LEDGER_CATEGORIES 同值)。 */
+export type ContextLedgerCategorySnapshot =
+  'system_prompt' | 'system_tools' | 'skills' | 'messages' | 'other' | 'free_space' | 'auto_compact'
+
+/** 单类占用(相对 contextLimit 的百分比)。 */
+export interface ContextLedgerCategoryUsageSnapshot {
+  category: ContextLedgerCategorySnapshot
+  tokens: number
+  percent: number
+}
+
+/** 单轮上下文账本快照(线格式 camelCase)。 */
+export interface ContextLedgerSnapshot {
+  model: string | null
+  contextLimit: number
+  usedTokens: number
+  percentage: number
+  /** 必须七类齐全;长度≠7 或含未知类别 ⇒ 整帧账本丢弃(不猜档) */
+  categories: ContextLedgerCategoryUsageSnapshot[]
+  tokenizer: 'provider_usage' | 'heuristic'
+  compacted: boolean
+  capturedAt: string
+}
+
+/** 压缩保留段锚点快照(回看压缩前关键片段用)。 */
+export interface PreservedSegmentAnchorSnapshot {
+  index: number
+  role: string
+  messageId?: string | null
+  excerpt: string
+  digest?: string
+}
+
+/** 压缩边界快照(compaction 帧可选字段 boundary 的本地镜像)。 */
+export interface CompactBoundarySnapshot {
+  trigger: string
+  tokensBefore: number
+  tokensAfter: number
+  messagesSummarized: number
+  durationMs: number | null
+  preservedSegment: {
+    head: PreservedSegmentAnchorSnapshot | null
+    anchor: PreservedSegmentAnchorSnapshot | null
+    tail: PreservedSegmentAnchorSnapshot | null
+  }
+  removedRange: { startIndex: number; endIndex: number } | null
+}
+
+/** 七类账本类别闭集(与 @ihui/shared CONTEXT_LEDGER_CATEGORIES 同值、同序)。 */
+const CONTEXT_LEDGER_CATEGORY_SET: ReadonlySet<string> = new Set([
+  'system_prompt',
+  'system_tools',
+  'skills',
+  'messages',
+  'other',
+  'free_space',
+  'auto_compact',
+])
+
+const isNonNegativeFinite = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0
+
+/**
+ * 批次 3(2026-11-06):解析 usage 帧的 contextLedger。
+ * 形状判据(strict):contextLimit>0、categories 恰 7 条、类别在闭集且不重复、
+ * tokens/percent 为有限非负数。任一不满足 ⇒ undefined(整帧丢弃,不猜档),
+ * 与"没量到不造 0"的既有纪律同口径。
+ */
+export function parseContextLedgerSnapshot(raw: unknown): ContextLedgerSnapshot | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const record = raw as Record<string, unknown>
+  if (!isNonNegativeFinite(record.contextLimit) || record.contextLimit <= 0) return undefined
+  if (!Array.isArray(record.categories) || record.categories.length !== 7) return undefined
+  const seen = new Set<string>()
+  const categories: ContextLedgerCategoryUsageSnapshot[] = []
+  for (const item of record.categories) {
+    if (!item || typeof item !== 'object') return undefined
+    const entry = item as Record<string, unknown>
+    if (typeof entry.category !== 'string' || !CONTEXT_LEDGER_CATEGORY_SET.has(entry.category)) {
+      return undefined
+    }
+    if (seen.has(entry.category)) return undefined
+    if (!isNonNegativeFinite(entry.tokens) || !isNonNegativeFinite(entry.percent)) return undefined
+    seen.add(entry.category)
+    categories.push({
+      category: entry.category as ContextLedgerCategorySnapshot,
+      tokens: entry.tokens,
+      percent: entry.percent,
+    })
+  }
+  // 长度=7 + 无重复 + 全在闭集 ⇒ seen.size 必为 7;这条显式判据只防未来闭集扩容后漏改。
+  if (seen.size !== CONTEXT_LEDGER_CATEGORY_SET.size) return undefined
+  if (!isNonNegativeFinite(record.usedTokens) || !isNonNegativeFinite(record.percentage)) {
+    return undefined
+  }
+  if (record.tokenizer !== 'provider_usage' && record.tokenizer !== 'heuristic') return undefined
+  if (typeof record.capturedAt !== 'string' || record.capturedAt === '') return undefined
+  return {
+    model: typeof record.model === 'string' ? record.model : null,
+    contextLimit: record.contextLimit,
+    usedTokens: record.usedTokens,
+    percentage: record.percentage,
+    categories,
+    tokenizer: record.tokenizer,
+    compacted: record.compacted === true,
+    capturedAt: record.capturedAt,
+  }
+}
+
+/** 保留段锚点解析;字段缺失按 null(锚点可以不存在),存在则必须形状完整。 */
+function parsePreservedAnchor(raw: unknown): PreservedSegmentAnchorSnapshot | null {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'object') return null
+  const record = raw as Record<string, unknown>
+  if (!isNonNegativeFinite(record.index) || typeof record.role !== 'string') return null
+  if (typeof record.excerpt !== 'string') return null
+  return {
+    index: record.index,
+    role: record.role,
+    messageId: typeof record.messageId === 'string' ? record.messageId : null,
+    excerpt: record.excerpt,
+    ...(typeof record.digest === 'string' ? { digest: record.digest } : {}),
+  }
+}
+
+/**
+ * 批次 3(2026-11-06):解析 compaction 帧的 boundary(压缩边界 + 保留段)。
+ * 形状不认 ⇒ undefined;不回填 0/空锚点 —— "无边界"与"压缩了但边界未知"必须可分。
+ */
+export function parseCompactBoundarySnapshot(raw: unknown): CompactBoundarySnapshot | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const record = raw as Record<string, unknown>
+  if (typeof record.trigger !== 'string' || record.trigger === '') return undefined
+  if (!isNonNegativeFinite(record.tokensBefore) || !isNonNegativeFinite(record.tokensAfter)) {
+    return undefined
+  }
+  if (!isNonNegativeFinite(record.messagesSummarized)) return undefined
+  if (!record.preservedSegment || typeof record.preservedSegment !== 'object') return undefined
+  const segment = record.preservedSegment as Record<string, unknown>
+  const removedRaw = record.removedRange
+  let removedRange: { startIndex: number; endIndex: number } | null = null
+  if (removedRaw !== undefined && removedRaw !== null) {
+    if (typeof removedRaw !== 'object') return undefined
+    const range = removedRaw as Record<string, unknown>
+    if (!isNonNegativeFinite(range.startIndex) || !isNonNegativeFinite(range.endIndex)) {
+      return undefined
+    }
+    removedRange = { startIndex: range.startIndex, endIndex: range.endIndex }
+  }
+  return {
+    trigger: record.trigger,
+    tokensBefore: record.tokensBefore,
+    tokensAfter: record.tokensAfter,
+    messagesSummarized: record.messagesSummarized,
+    durationMs: isNonNegativeFinite(record.durationMs) ? record.durationMs : null,
+    preservedSegment: {
+      head: parsePreservedAnchor(segment.head),
+      anchor: parsePreservedAnchor(segment.anchor),
+      tail: parsePreservedAnchor(segment.tail),
+    },
+    removedRange,
+  }
 }
 
 /** G-1058632(2026-10-05 立):从上游 usage 对象接住 prompt 缓存读/写两维。
@@ -1846,6 +2016,11 @@ export interface StreamChatOptions {
     /** 压缩触发方式:ratio/absolute(常规摘要压缩)/truncated(超长单条消息截断降级)/incompressible */
     trigger?: string
     compressedMessages?: Array<{ role: string; content: string }>
+    /**
+     * 批次 3(2026-11-06):压缩边界与保留段(head/anchor/tail)。缺席 = 旧帧代际差,
+     * 读作"无边界可回看",不是"没有压缩"。用于刷新后回看压缩前关键片段。
+     */
+    boundary?: CompactBoundarySnapshot
   }) => void
   /** AI 主动提问回调:LLM 在流中输出 [[ASK_USER:JSON]] 标记时触发,前端弹窗让用户回答 */
   onQuestion?: (question: {
@@ -2530,8 +2705,12 @@ function readSendAdmissionReceipt(raw: Record<string, unknown>): SendAdmissionRe
  *          "limitTokens":100000,"tier":"个人版","resetAt":"2026-09-20T16:00:00.000Z"}
  */
 export interface BudgetEvent {
-  /** 档位:warning(80%~95%)| critical(95%~100%) */
-  level: 'warning' | 'critical'
+  /**
+   * 档位:warning(80%~95%)| critical(95%~100%)| stopped(硬停止)。
+   * 批次 3(2026-11-06)新增 stopped:预算护栏主动停流时下发终态帧,
+   * 与请求级 429(BUDGET_EXHAUSTED)区分 —— 前者流已经开始,后者流未开始。
+   */
+  level: 'warning' | 'critical' | 'stopped'
   /** 当日已用占限额百分比(0~100) */
   percent?: number
   /** 当日已用 tokens */
@@ -2542,6 +2721,18 @@ export interface BudgetEvent {
   tier?: string
   /** 限额重置时间(ISO,东八区次日 0 点,可选) */
   resetAt?: string
+  /** 硬停止原因码(仅 stopped 必填;闭集见 @ihui/shared BUDGET_STOP_REASON_CODES) */
+  reasonCode?: string
+  /** 停止作用域(daily/hourly/pillar/request/provider) */
+  scope?: string
+  /** 触发停止的支柱(scope='pillar' 时下发) */
+  pillar?: string
+  /** 停止时用量百分比(0~100,可 >100) */
+  usagePercent?: number
+  /** 停止时该作用域剩余 token */
+  remainingTokens?: number
+  /** 停止发生在第几轮迭代(agent 循环) */
+  stoppedAtIteration?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -4189,23 +4380,33 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       if (!data || data === '[DONE]') return
       try {
         const json = JSON.parse(data)
-        if (json?.compaction?.triggered === true) {
+        // 兼容两种线格式:历史顶层 key 形态 {"compaction":{...}} 与命名帧形态
+        // {"type":"compaction",...}(网关 extraFirstEvents 两种都会发)。
+        const compactionPayload =
+          json?.compaction && typeof json.compaction === 'object'
+            ? json.compaction
+            : json?.type === 'compaction'
+              ? json
+              : null
+        if (compactionPayload?.triggered === true) {
           opts.onCompaction!({
-            tokensBefore: Number(json.compaction.tokensBefore ?? 0),
-            tokensAfter: Number(json.compaction.tokensAfter ?? 0),
-            removedCount: Number(json.compaction.removedCount ?? 0),
+            tokensBefore: Number(compactionPayload.tokensBefore ?? 0),
+            tokensAfter: Number(compactionPayload.tokensAfter ?? 0),
+            removedCount: Number(compactionPayload.removedCount ?? 0),
             // A10B-8:截断量是披露判据的事实来源。**刻意不写 `?? 0` 归一** ——
             // 旧帧(生产者尚未带该字段)缺席必须原样传成 undefined,归零等于把
             // "没被告知"改写成"确实没截断",消费侧就退回"该说不说"的沉默那一型。
             truncatedCount:
-              typeof json.compaction.truncatedCount === 'number' &&
-              Number.isFinite(json.compaction.truncatedCount)
-                ? json.compaction.truncatedCount
+              typeof compactionPayload.truncatedCount === 'number' &&
+              Number.isFinite(compactionPayload.truncatedCount)
+                ? compactionPayload.truncatedCount
                 : undefined,
-            usageRatio: Number(json.compaction.usageRatio ?? 0),
+            usageRatio: Number(compactionPayload.usageRatio ?? 0),
             trigger:
-              typeof json.compaction.trigger === 'string' ? json.compaction.trigger : undefined,
-            compressedMessages: json.compaction.compressedMessages,
+              typeof compactionPayload.trigger === 'string' ? compactionPayload.trigger : undefined,
+            compressedMessages: compactionPayload.compressedMessages,
+            // 批次 3(2026-11-06):边界形状不认则缺席(不猜),前端按"无边界可回看"处理。
+            boundary: parseCompactBoundarySnapshot(compactionPayload.boundary),
           })
         }
       } catch {
@@ -5075,6 +5276,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // 头注「逐行转发上游原始 data 行…不改写」)。沿用门控就等于对唯一有数据的通路全盲。
           // 上游没回报 ⇒ null(未采到),不得在此造 0。
           ...parseUsageCacheTokens(usage),
+          // 批次 3(2026-11-06):七类账本只在命名帧读取;形状不认(七类不齐/未知类别)
+          // 整帧丢弃,不猜档 —— 与本包"不造默认值"纪律同口径。
+          contextLedger: isNamedFrame ? parseContextLedgerSnapshot(json.contextLedger) : undefined,
         })
       } catch {
         /* 非 JSON 或非 usage 事件忽略 */
@@ -5163,7 +5367,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       try {
         const json = JSON.parse(data) as Record<string, unknown>
         if (json?.type !== 'budget') return
-        if (json?.level !== 'warning' && json?.level !== 'critical') return
+        // 批次 3(2026-11-06):stopped 是终态档,必须与 warning/critical 一样被接住,
+        // 否则硬停止帧会被静默丢弃,前端永远看不到"因预算停止"。
+        if (json?.level !== 'warning' && json?.level !== 'critical' && json?.level !== 'stopped')
+          return
         opts.onBudget!({
           level: json.level,
           percent: typeof json.percent === 'number' ? json.percent : undefined,
@@ -5171,6 +5378,21 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
           tier: typeof json.tier === 'string' ? json.tier : undefined,
           resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
+          reasonCode: typeof json.reasonCode === 'string' ? json.reasonCode : undefined,
+          scope: typeof json.scope === 'string' ? json.scope : undefined,
+          pillar: typeof json.pillar === 'string' ? json.pillar : undefined,
+          usagePercent:
+            typeof json.usagePercent === 'number' && Number.isFinite(json.usagePercent)
+              ? json.usagePercent
+              : undefined,
+          remainingTokens:
+            typeof json.remainingTokens === 'number' && Number.isFinite(json.remainingTokens)
+              ? json.remainingTokens
+              : undefined,
+          stoppedAtIteration:
+            typeof json.stoppedAtIteration === 'number' && Number.isFinite(json.stoppedAtIteration)
+              ? json.stoppedAtIteration
+              : undefined,
         })
       } catch {
         /* 非 JSON 或非 budget 事件忽略 */

@@ -2545,6 +2545,13 @@
       "when": 1793764800000,
       "tag": "20261104120000_agent_team_collab",
       "breakpoints": true
+    },
+    {
+      "idx": 367,
+      "version": "7",
+      "when": 1793944800000,
+      "tag": "20261106140000_chat_ledger",
+      "breakpoints": true
     }
   ]
 }

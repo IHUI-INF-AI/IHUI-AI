@@ -87,6 +87,13 @@ from ..core.agent_failure_vocabulary import (
 # 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
 from ..core.background_tasks import spawn
 
+# 批次 3(2026-11-06):预算硬停原因归一到与 TS 契约一致的封闭集(不把 free-text
+# reason 直接丢给前端/BI,也不在这里另立一份码表)。
+from ..core.budget_reason import (
+    normalize_budget_reason,
+    scope_for_budget_reason,
+)
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -461,9 +468,16 @@ def _high_risk_tools_from_env() -> frozenset[str]:
 def _agent_budget_enabled_from_env() -> bool:
     """Agent 主循环预算硬约束总开关(env AGENT_BUDGET_ENABLED)。
 
-    默认 off:Phase 1 剩余项未验收,避免线上突变;设为 on/1/true/yes 时完全生效。
+    批次 3(2026-11-06)改为**默认开启**:
+    - 成本护栏是硬约束,默认关闭等于没有护栏 —— 配置中心(Redis `hub:budget:config`)
+      已经有阈值,但开关不打开时一条也不会被执行,超支只能靠账单事后发现。
+    - 阈值不在代码里写死,仍然走 `BudgetConfig` 的 Redis 覆盖 + 代码默认;运维可以
+      随时用 env 显式置 off/0/false/no 关掉,不需要改代码。
+    - 无 Redis / 无配置时 check_budget 以内存零用量返回 allowed=True(取不到用量才
+      fail-open),不会把正常调用误阻断;真实超限发生在有配置且用量可读的场景,
+      那种场景下 `allowed=False` 一定被尊重。
     """
-    return os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
+    return os.environ.get("AGENT_BUDGET_ENABLED", "true").strip().lower() in (
         "on", "1", "true", "yes",
     )
 
@@ -473,6 +487,10 @@ def _rollout_budget_limit_from_env() -> int:
 
     >0 时启用 RolloutBudget 记账 + 阈值提醒投递(默认 off,零行为变化);
     提醒阈值默认 (10000, 2000)(剩余 token 两档)。
+
+    刻意**不随批次 3 一起默认开启**:与日/小时护栏不同,per-session 覆盖会截断
+    正在进行的长任务(护栏按租户维度、不会因为一次长任务提前耗尽),而 per-session
+    上限该定多少是产品定价决策,不是工程常量。默认关闭是取舍,不是遗漏。
     """
     try:
         return int(os.environ.get("AGENT_ROLLOUT_BUDGET_TOKENS", "0") or 0)
@@ -2253,7 +2271,8 @@ class AgentLoopV2:
         # 判 [arg-type] 红 ⇒ 整条 ai-service 提交链被这条存量堵住。
         axis_resolution: "_AxisResolution | None" = None,  # noqa: UP037 -- 本模块没有 from __future__ import annotations,去引号会在 import 期求值并 NameError(实测 agents.py:498 同型);类型线索只走 TYPE_CHECKING-only import,运行时不构造
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
-        # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
+        # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(批次 3 起
+        #   默认 on:成本护栏默认开启,阈值由 Redis 配置中心决定;置 off 可显式关闭);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
         # budget_pillar:check_budget/record_usage 使用的预算支柱(默认 terminal,见
         #   _agent_budget_pillar_from_env 注释;值须 ∈ _VALID_PILLARS)。
@@ -2531,7 +2550,10 @@ class AgentLoopV2:
             }
 
         # 1-6 token 治理:预算硬约束开关/支柱/粗估 token(2026-09-02 立)。
-        # 优先级:构造参数 > env;默认 off(向后兼容,避免 Phase 1 未验收线上突变)。
+        # 优先级:构造参数 > env;默认 on(批次 3:成本护栏默认开启,阈值仍由
+        # Redis 配置中心决定;运维可用 AGENT_BUDGET_ENABLED=off 显式关闭)。
+        # 注意 AGENT_ROLLOUT_BUDGET_TOKENS(per-session 硬上限)保持默认关闭,
+        # 理由见 _rollout_budget_limit_from_env。
         self._budget_enabled: bool = (
             _agent_budget_enabled_from_env() if budget_enabled is None else bool(budget_enabled)
         )
@@ -3075,6 +3097,9 @@ class AgentLoopV2:
                     "retention_dropped_groups": int(
                         retention_meta.get("dropped_groups") or 0
                     ),
+                    # 批次 3:压缩边界(与 chat 链路 compaction 帧同一份 boundary,
+                    # 只加不改既有键)。
+                    **({"boundary": info["boundary"]} if info.get("boundary") else {}),
                 }
             )
             # W9#5(2026-09-18):压缩发生即经 hook_engine 发 SSE 通知(此前压缩结果只进
@@ -3088,6 +3113,8 @@ class AgentLoopV2:
                     "compressed_tokens": info.get("compressed_tokens"),
                     "removed_count": info.get("removed_count"),
                     "trigger": "llm" if info.get("llm_summary") else "deterministic",
+                    # 批次 3:边界随事件下发(默认路径无 boundary 时连键都不出现)。
+                    **({"boundary": info["boundary"]} if info.get("boundary") else {}),
                 },
             )
             logger.warning(
@@ -4550,41 +4577,55 @@ class AgentLoopV2:
     # 1-6 token 治理:预算硬约束辅助(2026-09-02 立)
     # ------------------------------------------------------------------
 
-    async def _check_budget_safe(self) -> tuple[bool, str, float, int]:
+    async def _check_budget_safe(self) -> tuple[bool, str, float, int, str, str]:
         """每轮 LLM 调用前的预算硬约束检查(安全版,永不阻塞主循环)。
 
         Returns:
-            (是否硬停止, 原因, usage_percent, remaining_tokens)
+            (是否硬停止, 原因, usage_percent, remaining_tokens, reason_code, scope)
 
         语义:
-        - check_budget 抛 BudgetExceededError → 视为硬停止(allowed=False 同处理)。
-        - check_budget 返回 allowed=False(已达 hard_stop)→ 硬停止,优雅中断循环。
+        - check_budget 抛 BudgetExceededError → 视为硬停止(allowed=False 同处理);
+          异常里只有 free-text,原因码用 core.budget_reason 归一化。
+        - check_budget 返回 allowed=False(已达 hard_stop)→ 硬停止,优雅中断循环,
+          reason_code/scope 直接取结果里的机器字段(批次 3)。
         - 返回 allowed=True 但 degrade_to_model 非空 → 仅记日志提示,不中断(软降级)。
-        - 任何其它异常 → 降级放行(不阻塞),记录 warning。
+        - 任何其它异常 → 降级放行(不阻塞),记录 warning。放行只用于"取不到用量",
+          不掩盖真实超限:`allowed=False` 那条路不经过异常分支。
         """
         if not self._budget_enabled:
-            return False, "", 0.0, 0
+            return False, "", 0.0, 0, "", ""
         try:
             budget_check = await llm_budget_governor.check_budget(
                 self._budget_pillar,
                 estimated_tokens=self._budget_max_token_estimate,
             )
         except BudgetExceededError as e:
+            reason_text = str(e)
+            reason_code = normalize_budget_reason(reason_text)
             return (
                 True,
-                str(e),
+                reason_text,
                 getattr(e, "usage_percent", 0.0),
                 getattr(e, "remaining_tokens", 0),
+                reason_code,
+                scope_for_budget_reason(reason_code),
             )
         except Exception as e:
             logger.warning("budget_governor.check_budget 调用失败(降级放行,不阻塞): %s", e)
-            return False, "", 0.0, 0
+            return False, "", 0.0, 0, "", ""
         if not budget_check.allowed:
+            # 批次 3:governor 已给出封闭集码;缺省时用 free-text 归一化兜底,
+            # 绝不让 reason_code 为空(空码在前端/BI 侧等于"原因未知")。
+            reason_code = budget_check.reason_code or normalize_budget_reason(
+                budget_check.reason
+            )
             return (
                 True,
                 budget_check.reason,
                 budget_check.usage_percent,
                 budget_check.remaining_tokens,
+                reason_code,
+                budget_check.scope or scope_for_budget_reason(reason_code),
             )
         # 软降级:仅记录提示,不中断循环
         if budget_check.degrade_to_model:
@@ -4595,7 +4636,7 @@ class AgentLoopV2:
                 budget_check.usage_percent * 100,
                 budget_check.reason,
             )
-        return False, "", budget_check.usage_percent, budget_check.remaining_tokens
+        return False, "", budget_check.usage_percent, budget_check.remaining_tokens, "", ""
 
     async def _record_budget_usage_safe(
         self, content: str, usage: Any, model: str
@@ -4710,11 +4751,27 @@ class AgentLoopV2:
                     budget_reason,
                     budget_pct,
                     budget_rem,
+                    budget_code,
+                    budget_scope,
                 ) = await self._check_budget_safe()
                 if budget_stopped:
                     # 优雅中断:保留已完成 iterations、不抛未捕获异常、落 checkpoint
+                    budget_detail = {
+                        "enabled": True,
+                        "pillar": self._budget_pillar,
+                        "reason_code": budget_code,
+                        "scope": budget_scope,
+                        "usage_percent": budget_pct,
+                        "remaining_tokens": budget_rem,
+                        "stopped_at_iteration": i,
+                    }
                     checkpoint_id = await self._save_checkpoint_safe(
-                        iteration=i - 1, messages=messages, status="budget_exceeded",
+                        iteration=i - 1,
+                        messages=messages,
+                        status="budget_exceeded",
+                        # 批次 3:checkpoint 的 budget_exceeded 记录必须带机器原因码,
+                        # 续跑方/运维据此区分"额度耗尽"与"取数失败放行",不靠散文。
+                        metadata={"budget_exceeded": dict(budget_detail)},
                     )
                     return AgentLoopResult(
                         compaction_events=self._compaction_events,
@@ -4734,6 +4791,10 @@ class AgentLoopV2:
                             "usage_percent": budget_pct,
                             "remaining_tokens": budget_rem,
                             "stopped_at_iteration": i,
+                            # 批次 3 新增(与既有键兼容,只加不改):
+                            "reason_code": budget_code,
+                            "scope": budget_scope,
+                            "reason": budget_reason,
                         },
                     )
 
