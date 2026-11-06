@@ -993,6 +993,7 @@
     "changePhone": "Change Phone",
     "accountCancel": "Cancel Account",
     "checkUpdate": "Check Update",
+    "autoInstallPermission": "Auto-Install Permission",
     "appPermission": "App Permissions",
     "usageRules": "Usage Rules",
     "businessLicense": "Business License",
