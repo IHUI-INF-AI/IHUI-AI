@@ -592,8 +592,8 @@ function selfTest() {
   {
     const m = mutate(
       base[FILES.pyEffort],
-      '{"minimal", "low", "medium", "high"}',
-      '{"low", "medium", "high"}',
+      '{"minimal", "low", "medium", "high", "xhigh", "max"}',
+      '{"low", "medium", "high", "xhigh", "max"}',
     )
     const r = D(withFile(FILES.pyEffort, m.src))
     t(
@@ -605,8 +605,8 @@ function selfTest() {
     )
     const neg = mutate(
       base[FILES.pyEffort],
-      '{"minimal", "low", "medium", "high"}',
-      '{"high","medium","low","minimal"}',
+      '{"minimal", "low", "medium", "high", "xhigh", "max"}',
+      '{"max","xhigh","high","medium","low","minimal"}',
     )
     const r2 = D(withFile(FILES.pyEffort, neg.src))
     t('C5 反向对照:集合换书写顺序 ⇒ 不红(判的是集合不是抄写次序)', neg.changed && r2.drifts.length === 0)
@@ -614,15 +614,15 @@ function selfTest() {
   {
     const m = mutate(
       base[FILES.tsEffort],
-      "['minimal', 'low', 'medium', 'high']",
-      "['minimal', 'low', 'medium', 'high', 'xhigh']",
+      "['minimal', 'low', 'medium', 'high', 'xhigh', 'max']",
+      "['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']",
     )
     const r = D(withFile(FILES.tsEffort, m.src))
     t(
       'C6 有牙:运行时数组加一档而联合没加 ⇒ C5 与 C6 同点名(两侧都不许装看不见)',
       m.changed &&
-        r.drifts.some((d) => d.startsWith('C6') && d.includes('xhigh')) &&
-        r.drifts.some((d) => d.startsWith('C5') && d.includes('xhigh')),
+        r.drifts.some((d) => d.startsWith('C6') && d.includes('ultra')) &&
+        r.drifts.some((d) => d.startsWith('C5') && d.includes('ultra')),
     )
   }
   {
@@ -652,8 +652,8 @@ function selfTest() {
   {
     const m = mutate(
       base[FILES.tsEffortContract],
-      "['minimal', 'low', 'medium', 'high']",
-      "['minimal', 'low', 'medium', 'high', 'xhigh']",
+      "  'max',\n] as const satisfies readonly ReasoningEffort[]",
+      "  'max',\n  'ultra',\n] as const satisfies readonly ReasoningEffort[]",
     )
     const r = D(withFile(FILES.tsEffortContract, m.src))
     t(
@@ -664,7 +664,7 @@ function selfTest() {
   {
     const m = mutate(
       base[FILES.pyEffort],
-      'known_efforts: frozenset[str] = frozenset({"minimal", "low", "medium", "high"})',
+      'known_efforts: frozenset[str] = frozenset({"minimal", "low", "medium", "high", "xhigh", "max"})',
       'known_efforts: frozenset[str] = _DEFAULT_EFFORTS',
     )
     const r = D(withFile(FILES.pyEffort, m.src))
