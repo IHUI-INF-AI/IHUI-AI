@@ -278,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pinnedCard: {
       padding: rnSpacing['md-loose'],
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -287,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
     pinnedBadge: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.bg,
       marginBottom: rnSpacing.sm,

@@ -293,7 +293,7 @@ function createStyles(tk: AppThemeTokens) {
       alignSelf: 'flex-start',
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing['xs-loose'],
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.sm,
     },
     statusBadgeLiving: { backgroundColor: tk.danger.light },
