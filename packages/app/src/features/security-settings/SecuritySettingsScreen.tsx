@@ -12,9 +12,15 @@ import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 安全设置共享屏 — props 注入式跨端组件 */
-export type { SecuritySettingsItem, SecuritySettingsRow, SecuritySettingsSection } from '../../types'
+export type {
+  SecuritySettingsItem,
+  SecuritySettingsRow,
+  SecuritySettingsSection,
+} from '../../types'
 
-export function SecuritySettingsScreen(props: SecuritySettingsScreenProps & { onRetry?: () => void }) {
+export function SecuritySettingsScreen(
+  props: SecuritySettingsScreenProps & { onRetry?: () => void },
+) {
   const { t, sections, loading, error, onBack, onRetry } = props
   const footerLink = props.footerLink
   // 页内标题/返回条由端侧决定:小程序隐私页没有 header（showHeader=false），RN 有（true）。
@@ -43,7 +49,11 @@ export function SecuritySettingsScreen(props: SecuritySettingsScreenProps & { on
     return (
       <View style={styles.container}>
         {header}
-        <ErrorState message={error || t('common.empty')} onRetry={onRetry} colorScheme={colorScheme} />
+        <ErrorState
+          message={error || t('common.empty')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -189,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       flexShrink: 0,
