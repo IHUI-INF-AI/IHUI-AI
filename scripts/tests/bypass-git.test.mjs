@@ -15,14 +15,17 @@
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import * as bg from '../lib/bypass-git.mjs'
 import { buildCommittedRecord, ledgerPath, readLedgerRecords } from '../lib/commit-attestation.mjs'
+import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+// 只读消费方(治本那一刀的下游对照):不改动它,只把它当被检对象(Z69 票面硬要求)
+import { __test__ as landingAlignApi } from '../lib/landing-worktree-align.mjs'
 
 const GIT = resolveGitBin() || 'git'
 const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20 }
@@ -694,5 +697,135 @@ test('T21 票键绑定:给了才记、不给不写空串;读侧 round-trip 保�
   assert.equal(recs.length, 1)
   assert.equal(recs[0].ticketKey, bound.ticketKey, '读侧必须保留 ticketKey')
   assert.equal(recs[0].ticketLine, bound.ticketLine, '读侧必须保留 ticketLine')
+})
+
+// ===== Z69:让路档/耗尽档的桶形态治本(Z42 崩型的根侧,不是下游那一侧) =====
+// 立因:alignSharedIndex 的 lockAbandoned 档与「轮次耗尽」档曾把 moved/already 写成**数字 0**,
+// 下游 landing-worktree-align 旧写法 [...(align.moved ?? [])] 里 0 ?? [] 仍是 0 ⇒ TypeError。
+// Z63 在消费侧加归一化守卫兜住(只读,本文件不动它);Z69 在这一侧改回数组。
+// 判据一律 import 被测出口,本文件不复制任何判据(§0.6/§22c)。
+// 用例:
+//  Z1 让路档(真·超龄 index.lock)⇒ 四桶皆数组且长度 0,flag 一字未动,索引零副作用;
+//  Z2 耗尽档(轮次跑满)⇒ 同上,failed/error 仍如实;
+//  Z3 反向对照(成对):同一份真返回值喂进旧消费形态必须不抛;把 0 加回(旧形态)⇒ 同一把尺当场抛;
+//  Z4 下游对照:真让路场景下 landing-worktree-align 的守卫**一条也不触发**(不再靠守卫兜);
+//     同把守卫喂进旧 0 形态仍如实点名(守卫没被摘掉,只是不再被真跑命中);
+//  Z5 源码形状锁:alignSharedIndex 体内不得再出现 `moved: 0` / `already: 0` 字面量(加回即翻红)。
+
+/** 放一枚指定年龄的 .git/index.lock(只发生在临时夹具仓内;不碰真仓、不删别人的锁)。 */
+function plantIndexLock(dir, ageMs) {
+  const lock = join(dir, '.git', 'index.lock')
+  writeFileSync(lock, '')
+  const at = new Date(Date.now() - ageMs)
+  utimesSync(lock, at, at)
+  return lock
+}
+
+/** Z42 崩溃正身(旧消费形态):只拿来喂夹具证明对照有牙,生产侧早已不用。 */
+const oldSpreadConsume = (align) => [...(align.moved ?? []), ...(align.already ?? [])]
+
+const BUCKETS = ['moved', 'already', 'skipped', 'undetermined']
+const assertAllBucketsAreEmptyArrays = (r, who) => {
+  for (const k of BUCKETS) {
+    assert.ok(Array.isArray(r[k]), `${who} 的 ${k} 桶必须是数组,实得 ${typeof r[k]}=${JSON.stringify(r[k])}`)
+    assert.equal(r[k].length, 0, `${who} 的 ${k} 桶让路/耗尽时必须是一条也不有的空数组`)
+  }
+}
+
+test('Z1 让路档:超龄 index.lock ⇒ moved/already 是长度为 0 的数组(不是数字 0),flag 与零副作用照旧', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const indexBefore = bg.indexBlobOf('a.txt', { root: dir })
+  plantIndexLock(dir, 3_600_000) // 远超默认 lockMaxAgeMs=120s ⇒ 走让路档
+  try {
+    const r = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head })
+    assertAllBucketsAreEmptyArrays(r, '让路档')
+    assert.equal(r.lockAbandoned, true, '让路档的存在性判据不得被本次改动带跑')
+    assert.equal(r.failed, false, '让路不是失败,两档不得并桶')
+    assert.equal(r.error, undefined, '让路档不产 error')
+    assert.equal(bg.indexBlobOf('a.txt', { root: dir }), indexBefore, '让路档对索引必须零动作(不代删别人的锁)')
+  } finally {
+    utimesSync(join(dir, '.git', 'index.lock'), new Date(), new Date())
+  }
+})
+
+test('Z2 耗尽档:轮次跑满 ⇒ 同样是长度为 0 的数组四桶,failed/error 措辞一字未改', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const indexBefore = bg.indexBlobOf('a.txt', { root: dir })
+  plantIndexLock(dir, 0) // 锁很年轻 ⇒ 不满足让路条件,只能一轮轮等
+  try {
+    const r = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head, rounds: 2, waitMs: 1, lockMaxAgeMs: 600_000 })
+    assertAllBucketsAreEmptyArrays(r, '耗尽档')
+    assert.equal(r.failed, true, '耗尽档仍是失败档(判定语义不得随形态改动)')
+    assert.equal(r.lockAbandoned, false, '耗尽不是让路')
+    assert.equal(r.error, '轮次耗尽', '原因措辞必须原样保留')
+    assert.equal(bg.indexBlobOf('a.txt', { root: dir }), indexBefore, '耗尽档同样不得动索引')
+  } finally {
+    utimesSync(join(dir, '.git', 'index.lock'), new Date(), new Date())
+  }
+})
+
+test('Z3 反向对照(成对):真返回值喂旧消费形态不抛;把 0 加回 ⇒ 旧崩型当场重现', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  plantIndexLock(dir, 3_600_000)
+  let realDefer
+  let realExhaust
+  try {
+    realDefer = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head })
+    utimesSync(join(dir, '.git', 'index.lock'), new Date(), new Date())
+    plantIndexLock(dir, 0)
+    realExhaust = bg.alignSharedIndex({ root: dir, paths: ['a.txt'], parentRef: head, rounds: 2, waitMs: 1, lockMaxAgeMs: 600_000 })
+  } finally {
+    utimesSync(join(dir, '.git', 'index.lock'), new Date(), new Date())
+  }
+  // 正向:两档真返回值都吃得下旧消费形态 ⇒ 下游不需要靠守卫兜(Z69 的交付判据)
+  for (const [who, r] of [['让路档', realDefer], ['耗尽档', realExhaust]]) {
+    assert.doesNotThrow(() => oldSpreadConsume(r), `${who} 返回值喂进旧 spread 形态仍崩 ⇒ 桶没改回数组`)
+    assert.deepEqual(oldSpreadConsume(r), [], `${who} 旧形态消费结果必须是 0 条`)
+    assert.doesNotThrow(() => r.moved.length + r.already.length)
+    assert.equal(r.moved.length + r.already.length, 0, '计数消费面必须读出 0 而不是 NaN')
+  }
+  // 反向(尺子有牙):把 0 加回旧形态 ⇒ 同一把尺当场崩,证明上面的"不抛"不是空断言
+  assert.throws(() => oldSpreadConsume({ moved: 0, already: 0, lockAbandoned: true }), TypeError)
+  assert.throws(() => oldSpreadConsume({ moved: 0, already: 0, failed: true, error: '轮次耗尽' }), TypeError)
+})
+
+test('Z4 下游对照:真让路场景不触发 landing-worktree-align 的形态守卫;旧 0 形态仍被如实点名', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // 造一格"HEAD 里有、索引/磁盘没有"的旁路落地终态,再放超龄锁 ⇒ 下游必然走让路档
+  const { commit } = bg.commitTreeWithIndex({ root: dir, parent: head, message: 'z69 land', treePath: 'z69.txt', text: 'z69\n' })
+  assert.equal(bg.casUpdateRef(commit, head, { root: dir }), true)
+  plantIndexLock(dir, 3_600_000)
+  try {
+    const r = landingAlignApi.alignLandingPaths({ root: dir, paths: ['z69.txt'], parentRef: head })
+    assert.equal(r.lockAbandoned, true)
+    assert.deepEqual(r.aligned, [], '让路时一条也不许冒充已对齐')
+    const shapeHits = r.undetermined.filter((u) => /形态不是数组/.test(u.reason))
+    assert.deepEqual(shapeHits, [], `治本后不应再有形态异常点名:${JSON.stringify(shapeHits)}`)
+    // 守卫本身仍在(只是不再被真跑命中):旧 0 形态喂进同一把尺子必须归 null ⇒ 交调用方落未判定
+    assert.equal(landingAlignApi.bucketList(0), null, '守卫被摘掉 ⇒ Z4 的反向对照失去对象')
+    assert.deepEqual(landingAlignApi.bucketList([]), [])
+  } finally {
+    utimesSync(join(dir, '.git', 'index.lock'), new Date(), new Date())
+  }
+})
+
+test('Z5 源码形状锁:alignSharedIndex 体内不得出现 moved/already = 0 字面量(加回即翻红)', () => {
+  const raw = readFileSync(new URL('../lib/bypass-git.mjs', import.meta.url), 'utf8')
+  const src = maskCommentsAndStrings(raw) // 注释与字符串一律先遮:头注必须复述旧形态,不遮会把取证当违规
+  const ZERO_BUCKET = [/\bmoved:\s*0\b/, /\balready:\s*0\b/]
+  const hits = ZERO_BUCKET.filter((re) => re.test(src)).map(String)
+  assert.deepEqual(hits, [], `alignSharedIndex 的桶又写回数字 0(Z42 崩型根侧):\n${hits.join('\n')}`)
+  // 尺子有牙:旧形态两行喂进同一把尺必须各自命中,且遮罩后仍命中(锁不靠注释措辞)
+  const oldDefer = "        return { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: true, failed: false }"
+  const oldExhaust = "  return { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: false, failed: true, error: '轮次耗尽' }"
+  assert.ok(ZERO_BUCKET.every((re) => re.test(oldDefer) && re.test(oldExhaust)), '形状锁必须认得旧崩溃行')
+  assert.ok(
+    ZERO_BUCKET.every((re) => re.test(maskCommentsAndStrings(oldDefer)) && re.test(maskCommentsAndStrings(oldExhaust))),
+    '遮罩后旧形态仍须命中',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
