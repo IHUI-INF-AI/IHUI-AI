@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
@@ -33,6 +33,9 @@ export default function CheckinAssistant() {
   const [list, setList] = useState<CheckinAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  // 签到/启停是写操作,且 RN 同屏用 busyId 互斥;本端此前无锁,连点会并发打同一端点
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const busyRef = useRef(false)
   const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]>('trae')
   const [name, setName] = useState('')
   const [jwt, setJwt] = useState('')
@@ -57,6 +60,9 @@ export default function CheckinAssistant() {
   })
 
   const checkin = async (acc: CheckinAccount) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusyId(acc.id)
     try {
       // 端点直接回写库后的那条 record;读它才拿得到本次真值 —— 原先硬编码 credits: 0,
       // 而文案是「上次签到成功 +{credits}」,等于每天替用户谎报一次零收益。
@@ -79,15 +85,24 @@ export default function CheckinAssistant() {
       void load()
     } catch {
       onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
+    } finally {
+      busyRef.current = false
+      setBusyId(null)
     }
   }
 
   const toggle = async (acc: CheckinAccount) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    setBusyId(acc.id)
     try {
       await api.patch(`/checkin/accounts/${acc.id}/enabled`, { enabled: !acc.enabled })
       void load()
     } catch {
       onToast(t('checkinAssistant.actionFailed'), { kind: 'error' })
+    } finally {
+      busyRef.current = false
+      setBusyId(null)
     }
   }
 
@@ -188,13 +203,13 @@ export default function CheckinAssistant() {
                 ) : null}
                 <View className="mt-[16rpx] flex flex-wrap gap-[12rpx]">
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
+                    className={`rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground${busyId === acc.id ? ' opacity-60' : ''}`}
                     onClick={() => void checkin(acc)}
                   >
                     {t('checkinAssistant.checkin')}
                   </Text>
                   <Text
-                    className="rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground"
+                    className={`rounded-lg bg-muted px-[20rpx] py-[10rpx] text-label text-foreground${busyId === acc.id ? ' opacity-60' : ''}`}
                     onClick={() => void toggle(acc)}
                   >
                     {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
