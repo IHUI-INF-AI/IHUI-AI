@@ -12,11 +12,15 @@
 // 因此写凭据必须两步:写 + 显式 chmod 纠偏。凡是往 settings.json(或任何含凭据的文件)
 // 落盘的地方一律走本函数,不得再抄第三份。
 import * as fs from 'node:fs';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export function writePrivateFile(filePath: string, text: string): void {
-  fs.writeFileSync(filePath, text, { encoding: 'utf-8', mode: 0o600 });
+  // 裸 writeFileSync 是"先截断再写":进程在写到一半被 kill / 磁盘满的瞬间,settings.json 里
+  // 只剩半截 JSON —— 凭据、模型、租约开关一起丢,且下一次读会把它当成"从未配置"。
+  // 走 tmp+fsync+rename 替换:目标要么是旧整份、要么是新整份,不存在半截态。
+  writeFileAtomicSync(filePath, text, 0o600);
   try {
-    // 已存在文件的权限位只有这一步能改
+    // 已存在文件的权限位只有这一步能改(rename 已把 tmp 的 0600 带过来,这里再纠一次兜底)
     fs.chmodSync(filePath, 0o600);
   } catch {
     // Windows 无 POSIX 权限语义:写入已完成,不因纠偏失败而让整个命令报错

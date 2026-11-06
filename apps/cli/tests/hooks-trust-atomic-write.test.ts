@@ -49,6 +49,9 @@ const conc = vi.hoisted(() => ({
   template: 'OTHER#{n}\n',
   calls: {} as Record<string, number>,
   injections: 0,
+  /** G 组:把 renameSync 打成长期失败(EPERM),用来验"目标保持旧整份 + 无 tmp 残留" */
+  failRename: false,
+  renameCalls: 0,
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -69,6 +72,13 @@ vi.mock('node:fs', async (importOriginal) => {
       }
       return value;
     }) as typeof actual.readFileSync,
+    renameSync: ((...args: Parameters<typeof actual.renameSync>) => {
+      if (conc.failRename) {
+        conc.renameCalls += 1;
+        throw Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' });
+      }
+      return actual.renameSync(...args);
+    }) as typeof actual.renameSync,
   };
 });
 
@@ -86,6 +96,9 @@ import {
 
 // 反向锁用的判据 = 那道 blocking 守门自己的实现(§22c:测试不得再抄一份)
 import { __test__ as writeSafety } from '../../../scripts/check-file-write-safety.mjs'; // arch-exempt: §22c 镜像测试必须 import 被判门体本身(禁止在测试里抄第二份判据),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
+
+// G 组被测入口:凭证/配置的私有文件写点(与 A 组同一条原子出口,不同语义:快照覆盖不套 CAS)
+import { writePrivateFile } from '../src/lib/private-file.js';
 
 const { analyzeFile } = writeSafety;
 
@@ -107,6 +120,8 @@ beforeEach(() => {
   conc.template = 'OTHER#{n}\n';
   conc.calls = {};
   conc.injections = 0;
+  conc.failRename = false;
+  conc.renameCalls = 0;
   warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 });
 
@@ -482,6 +497,42 @@ describe('F readTrustFileSnapshot 的四个态', () => {
     expect(
       gateHook({ name: 'h', bundleDigest: 'sha' }, 'C:/any', undefined, undefined, trustPath).allowed,
     ).toBe(false);
+  });
+});
+
+/**
+ * G 凭证文件(settings.json / apiKey)落盘原子性。
+ *
+ * 钉的哪一格:`lib/private-file.ts` 的 `writePrivateFile` 此前是裸 `fs.writeFileSync(目标)`
+ * —— 截断后再写,写到一半被 kill / ENOSPC 的瞬间目标只剩半截 JSON,下一次读把它当"从未配置",
+ * 凭证与全部设置一并丢失且无从分辨。判据成对:G1 注入 rename 长期失败 ⇒ 抛错、目标逐字仍是
+ * 旧整份、无 tmp 残留;G2 正常路径 ⇒ 新内容完整落盘。只 mock rename 一处,测的仍是真实
+ * 写入/清理链路。
+ */
+describe('G 凭证文件原子替换:失败不截断,成功是整份', () => {
+  let settingsPath = '';
+  const old = '{"apiKey":"sk-old","model":"m-old"}';
+  const next = '{"apiKey":"sk-new","model":"m-new"}';
+
+  beforeEach(() => {
+    settingsPath = path.join(scratch, 'settings.json');
+  });
+
+  it('G1 rename 长期失败 ⇒ 抛错且目标仍是旧整份,不留 tmp', () => {
+    fs.writeFileSync(settingsPath, old, 'utf-8');
+    conc.failRename = true;
+
+    expect(() => writePrivateFile(settingsPath, next)).toThrow();
+    expect(conc.renameCalls).toBeGreaterThan(0);
+
+    expect(readText(settingsPath)).toBe(old);
+    expect(fs.readdirSync(scratch).filter((n: string) => n.includes('.tmp-'))).toEqual([]);
+  });
+
+  it('G2 正常路径 ⇒ 新内容完整落盘(不是"写入失败但命令报成功")', () => {
+    writePrivateFile(settingsPath, next);
+    expect(readText(settingsPath)).toBe(next);
+    expect(fs.readdirSync(scratch).filter((n: string) => n.includes('.tmp-'))).toEqual([]);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

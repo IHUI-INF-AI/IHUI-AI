@@ -229,8 +229,6 @@ export function commitAtomicWrite(baseline: WriteBaseline, content: string): voi
     throw new WriteConflictError(kind, absPath, baseline.content, now);
   }
 
-  fs.mkdirSync(path.dirname(absPath), { recursive: true });
-
   // POSIX 下保住原文件权限位(rename 会把 tmp 的 0o644 带过去,可执行文件会被改坏)
   let mode: number | null = null;
   if (process.platform !== 'win32' && now !== null) {
@@ -240,6 +238,27 @@ export function commitAtomicWrite(baseline: WriteBaseline, content: string): voi
       mode = null;
     }
   }
+
+  writeTmpAndRename(absPath, content, mode);
+}
+
+/**
+ * 无 CAS 的整份快照覆盖:仍走同一条 tmp+fsync+rename 通道,只是不做"磁盘是否被别人改过"的
+ * 比对。用于"后写覆盖前写"语义的状态文件(如凭据 settings.json)—— 套 CAS 会把正常保存
+ * 变成 WriteConflictError,属改语义而非加固。
+ *
+ * 为什么要存在这一格:`fs.writeFileSync(目标)` 是截断后再写,进程被 kill / 磁盘写满的瞬间
+ * 目标里只剩半截 JSON;下一次读到的是"凭据全丢",而调用方无从分辨。rename 替换保证目标
+ * 要么是旧整份、要么是新整份。
+ */
+export function writeFileAtomicSync(absPath: string, content: string, mode: number | null = null): void {
+  assertNotReparsePoint(absPath);
+  writeTmpAndRename(absPath, content, mode);
+}
+
+/** commitAtomicWrite 与 writeFileAtomicSync 的唯一落盘实现(避免两份 Atomics 套路漂移)。 */
+function writeTmpAndRename(absPath: string, content: string, mode: number | null): void {
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
 
   const tmp = tmpPathFor(absPath);
   let fd: number | null = null;
@@ -266,6 +285,9 @@ export function commitAtomicWrite(baseline: WriteBaseline, content: string): voi
     }
     renameWithRetry(tmp, absPath);
   } catch (e) {
+    if (fd !== null) {
+      try { fs.closeSync(fd); } catch { /* 已关闭/打开失败:忽略 */ }
+    }
     removeQuietly(tmp);
     const code = errCode(e);
     if (code === undefined || !RETRYABLE_RENAME_CODES.has(code)) throw e;
