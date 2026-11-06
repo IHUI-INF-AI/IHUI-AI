@@ -117,6 +117,8 @@ class _Store:
 _lock = threading.RLock()
 _store = _Store()
 _hydrated = False
+# 只有「真的没有文件」或「读到了对象」才允许整份替换。读不到或损坏时内存按未同意,但不得 os.replace。
+_load_ok = False
 
 
 def _now_iso() -> str:
@@ -129,27 +131,29 @@ def _env_global_default() -> bool:
 
 
 def _load() -> None:
-    """从磁盘载入(进程内只做一次)。读盘失败 = 不 hydrated = 全部按未同意。
-
-    这里刻意不吞异常后回退成"同意":读不到同意记录就当没同意,是 fail-closed。
-    """
+    """从磁盘载入(进程内只做一次)。读不到或损坏仍按未同意,并且禁止覆盖原文件。"""
     global _hydrated
     with _lock:
         if _hydrated:
             return
-        _hydrated = True  # 无论成败只尝试一次,避免热路径反复 IO
+        global _load_ok
         try:
             with open(_PERSIST_PATH, encoding="utf-8") as fh:
                 raw = json.load(fh)
         except FileNotFoundError:
+            _hydrated = True
+            _load_ok = True
             return  # 首次运行:空的,正常
         except (OSError, json.JSONDecodeError, TypeError) as exc:
-            # 损坏 ≠ 可信。记 error(不是 warning:这是需要人介入的异常态),
-            # 但不抛 —— 热路径不能因同意存储坏掉而崩。
-            logger.error("代码索引同意记录读取失败,本进程按『未同意』处理: %s", exc)
+            # 损坏 ≠ 可信。记 error,热路径不崩,但本进程不得把原文件替换成空同意表。
+            _hydrated = True
+            _load_ok = False
+            logger.error("代码索引同意记录读取失败,本进程按『未同意』处理且不覆盖原文件: %s", exc)
             return
         if not isinstance(raw, dict):
-            logger.error("代码索引同意记录格式异常(非对象),按『未同意』处理")
+            _hydrated = True
+            _load_ok = False
+            logger.error("代码索引同意记录格式异常(非对象),按『未同意』处理且不覆盖原文件")
             return
         users = raw.get("users")
         if isinstance(users, dict):
@@ -167,6 +171,8 @@ def _load() -> None:
         gd = raw.get("global_default")
         if isinstance(gd, bool):
             _store.global_default = gd
+        _hydrated = True
+        _load_ok = True
 
 
 def _persist_locked() -> None:
@@ -175,6 +181,9 @@ def _persist_locked() -> None:
     落盘失败的后果:该次表态在本进程内仍然有效(内存表已改),但重启后丢失,
     即回到 fail-closed 的"未同意"—— 这正是我们希望的方向(宁可少索引,不可偷跑)。
     """
+    if not _load_ok:
+        logger.error("代码索引同意记录没读成,不能覆盖原文件")
+        return
     payload = {
         "version": _SCHEMA_VERSION,
         "global_default": _store.global_default,
@@ -192,11 +201,12 @@ def _persist_locked() -> None:
 
 def reset_for_tests() -> None:
     """清空进程内状态并重置 hydrated 标记(仅测试用)。"""
-    global _hydrated
+    global _hydrated, _load_ok
     with _lock:
         _store.users.clear()
         _store.global_default = None
         _hydrated = False
+        _load_ok = False
 
 
 # ---------------------------------------------------------------------------

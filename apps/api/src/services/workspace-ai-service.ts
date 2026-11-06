@@ -1650,7 +1650,12 @@ export interface IndexStatus {
 
 class IncrementalIndexer {
   diff(workspacePath: string): IndexDiff {
-    const oldIndex = codebaseIndexer.load(workspacePath)
+    const indexFile = join(workspacePath, '.ihui', 'codebase-index.json')
+    const oldIndex = readJsonForUpdate<CodebaseIndex | null>(
+      indexFile,
+      null,
+      '代码索引读不到,不能把它覆盖成新索引',
+    )
     const oldFiles = new Map<string, FileIndex>()
     if (oldIndex) {
       for (const f of oldIndex.files) oldFiles.set(f.path, f)

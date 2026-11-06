@@ -1385,7 +1385,7 @@ ${requirementPreview}
       const specFile = join(specsDir, `${scopeHash}.md`)
       // 备份原文件(如果存在)
       await mkdir(backupDir, { recursive: true })
-      const oldSpec = await readFile(specFile, 'utf-8').catch(() => '')
+      const oldSpec = await readUtf8OrAbsent(specFile, '规格原文读不到,不能把它覆盖成新规格')
       if (oldSpec) {
         await writeFile(join(backupDir, `${scopeHash}.md.bak`), oldSpec, 'utf-8')
       }
