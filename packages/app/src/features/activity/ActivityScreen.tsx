@@ -161,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.medium,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     joinBtn: {

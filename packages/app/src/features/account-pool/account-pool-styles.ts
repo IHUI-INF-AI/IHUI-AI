@@ -12,7 +12,11 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     container: { flex: 1, backgroundColor: tk.surface.bg },
     header: { paddingHorizontal: rnSpacing.lg, paddingTop: rnSpacing.sm, gap: rnSpacing['2xs'] },
     title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    subtitle: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    subtitle: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     body: { padding: rnSpacing.lg, gap: rnSpacing.md, paddingBottom: rnSpacing['4xl'] },
     card: {
       backgroundColor: tk.surface.light,
@@ -34,7 +38,11 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       flexShrink: 1,
     },
-    muted: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    muted: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     badges: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     badge: {
       fontSize: rnType.caption.size,
