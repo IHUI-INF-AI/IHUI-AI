@@ -7,8 +7,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 // 把 README 内嵌的 "BEGIN GENERATED NUMBERS ... END GENERATED NUMBERS" 块刷新为
 // gen-doc-numbers.mjs 的现算输出。仅在该块的"数字"部分实际变化时写盘(幂等、安全):
-//   · 只替换 BEGIN/END 标记之间的内容(标记本身不动),块外一律不碰;
-//   · 比较时剥掉"最后核对日期"行,数字未变则不写盘 —— 避免每日仅日期滚动造成无意义提交;
+//   · 生成块:只替换 BEGIN/END 标记之间的内容(标记本身不动);
+//   · 散文:按门 173 同一分区只刷「最后一枚 END RECENT UPDATES」之前的活性区,
+//     历史快照区不批量改写(与门 173 / 清偿器 173 同一套判据与替换);
+//   · 比较时剥掉"最后核对日期"行,块与散文均无变化则不写盘 —— 避免每日仅日期滚动造成无意义提交;
 //   · 若某 README 不含该生成块(ko/ja 暂未嵌入),跳过,交由定期 AI 刷新处理;
 //   · 安全闸:仅当"块外内容"相对索引版本无差异时才 git add,绝不把他人/他席未提交的
 //     prose 改动吞进本次提交;若块外另有未提交差异,写盘但跳过 add 并提示手动处理。
@@ -23,6 +25,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
+import { collectNumbers } from './gen-doc-numbers.mjs'
+import { rebuildBlock, syncProseText } from './lib/readme-prose-sync.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -79,9 +83,20 @@ function outsideBlock(text) {
 const freshFull = genBlockMarkdown()
 const freshCmp = stripDateLine(freshFull)
 
+/** 本轮动了什么(生成块/散文),用于日志。 */
+function changedWhat(blockStale, proseEdits) {
+  return [
+    blockStale ? '生成块已刷新' : '',
+    proseEdits > 0 ? `散文数字已同步 ${proseEdits} 行` : '',
+  ]
+    .filter(Boolean)
+    .join('、')
+}
+
 const staged = []
 const skipped = []
 let touched = 0
+let artifactNumbers = null
 
 for (const f of README_FILES) {
   if (ONLY_FILES && !ONLY_FILES.has(f)) continue
@@ -92,12 +107,15 @@ for (const f of README_FILES) {
   const ei = wt.indexOf(END)
   if (bi === -1 || ei === -1 || ei < bi) continue // 无生成块 → 跳(ko/ja 由 AI 定期刷新)
   const embedded = wt.slice(bi, ei + END.length)
-  if (stripDateLine(embedded) === freshCmp) continue // 数字未变 → 幂等跳过
-  // 重建:保留块前/块后原文,用现算块替换块内。freshFull 末尾自带一个换行,
-  // 而 wt.slice(ei+END.length) 起头已是 END 标记后的换行 —— 去掉 freshFull 尾部换行,
-  // 避免 END 标记后重复空行(那会被"块外差异"安全闸误判为吞并他人 prose)。
-  const newText = wt.slice(0, bi) + freshFull.replace(/\n+$/, '') + wt.slice(ei + END.length)
-  fs.writeFileSync(p, newText)
+  const blockStale = stripDateLine(embedded) !== freshCmp
+  // 先刷生成块(块前/块后原文不动),再按门 173 同一分区刷活性区散文;两块都幂等。
+  const prose = syncProseText(
+    f,
+    blockStale ? rebuildBlock(wt, freshFull, BEGIN, END) : wt,
+    artifactNumbers ?? (artifactNumbers = collectNumbers({ root: ROOT, face: 'worktree' }).numbers),
+  )
+  if (!blockStale && prose.edits === 0) continue // 数字未变 → 幂等跳过
+  fs.writeFileSync(p, prose.text)
   touched++
   // 安全闸:仅当"块外内容"相对索引版本无差异时,才 git add,避免吞并他人在飞 prose 改动。
   let idxText = null
@@ -107,20 +125,21 @@ for (const f of README_FILES) {
     idxText = null
   }
   const safe = idxText !== null && outsideBlock(wt) === outsideBlock(idxText)
+  const what = changedWhat(blockStale, prose.edits)
   if (safe) {
     git(['add', f])
     staged.push(f)
-    console.log(`  ✅ ${f}: 生成块已刷新并加入 staged`)
+    console.log(`  ✅ ${f}: ${what} 已加入 staged`)
     console.log(`STAGED:${f}`)
   } else {
     skipped.push(f)
     console.log(
-      `  ⚠️  ${f}: 生成块已写盘,但块外另有未提交差异,已跳过 git add(请单独提交,避免吞并他人在飞改动)`,
+      `  ⚠️  ${f}: ${what} 已写盘,但块外另有未提交差异,已跳过 git add(请单独提交,避免吞并他人在飞改动)`,
     )
     console.log(`SKIP_PROSE:${f}`)
   }
 }
 
-if (touched === 0) console.log('  ✅ README 生成块数字无变化,跳过')
+if (touched === 0) console.log('  ✅ README 生成块与散文数字均无变化,跳过')
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
