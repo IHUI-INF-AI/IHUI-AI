@@ -2,8 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
-import { useDialogHeightStyle } from '../lib/use-dialog-height'
+import { DIALOG_HEIGHT_RATIOS, adaptiveDialogContentHeight } from '../lib/dialog-geometry'
+import { useDialogHeightStyle, useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QrCodeImage from '../../assets/images/common/qewm.png'
 import ShareZhuanmiImage from '../../assets/images/common/share-zhuanmi.png'
@@ -699,6 +699,8 @@ const navShareStyles = StyleSheet.create({
 export function HomeScreen() {
   const dialogHeightStyle = useDialogHeightStyle()
   const materialHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
+  /** 模型弹窗只需「数值上限」:内容短时自适应收高,内容长时封顶后内部滚动 */
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle()
   const { t } = useI18n()
   // ── i18n 消费侧(§19 端内禁硬编码文案,2026-10-24):以下三组替代原模块顶层
   //    FUNCTION_BLOCKS / MODEL_TYPES / MATERIAL_CATEGORIES 写死中文数组 ──
@@ -825,6 +827,29 @@ export function HomeScreen() {
   const [modelSearch, setModelSearch] = useState('')
   /** 搜索框展开态(头部右侧图标开关;收起时清空搜索词) */
   const [showModelSearch, setShowModelSearch] = useState(false)
+  // ── 模型弹窗几何(2026-11-06):高度按内容自适应,封顶沿用既有 70% 上限 ──
+  // RN 0.86 Fabric:百分比 maxHeight 不给子节点确定高度,列表只写 flex:1 会塌成 0,
+  // 弹窗只剩把手/标题/分类条 ⇒ 模型行不可见。故先给列表确定高度(统一上限),
+  // 再由列表回传的实测内容高把高度收回到「内容小则矮」。
+  /** 固定区(把手/标题/搜索/分类 tab/发丝线)实测高度,列表上限要扣掉它 */
+  const [modelModalChromeHeight, setModelModalChromeHeight] = useState(0)
+  /** 列表内容实测高度(≤0 = 尚未测量,先用上限保证列表能渲染并上报内容尺寸) */
+  const [modelModalContentHeight, setModelModalContentHeight] = useState(0)
+  const modelModalMaxHeight = dialogMaxHeightStyle?.maxHeight ?? 0
+  const modelModalListMaxHeight = Math.max(
+    0,
+    modelModalMaxHeight -
+      MODEL_MODAL_PADDING_TOP -
+      MODEL_MODAL_PADDING_BOTTOM -
+      modelModalChromeHeight,
+  )
+  const modelModalListHeight = adaptiveDialogContentHeight(
+    modelModalContentHeight,
+    modelModalListMaxHeight,
+  )
+  const modelModalListStyle = modelModalListHeight
+    ? [shellStyles.modelModalListBody, { height: modelModalListHeight }]
+    : shellStyles.modelModalListBody
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
   // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
   // 数据源:getMyCreation,按分类映射 agent/plugin/workflow(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
@@ -1909,136 +1934,141 @@ export function HomeScreen() {
             onPress={closeModelModal}
             accessibilityLabel={t('home.a11yCloseModels')}
           />
-          <View style={[shellStyles.modelModalSheet, dialogHeightStyle]}>
-            {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
-            <View style={shellStyles.modelModalGrabber} />
-            <View style={shellStyles.modelModalHeader}>
-              <View style={shellStyles.modelModalHeading}>
-                <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
-                  {t('home.modelSelectTitle')}
-                </Text>
-                <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
-                  {modelSearch.trim()
-                    ? t('home.modelSelectSearchCount', { count: modalModelCount })
-                    : modelModalTab === 'skills'
-                      ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
-                      : t('home.modelSelectGroupCount', { count: modalModelCount })}
-                </Text>
-              </View>
-              {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
-              <Tappable
-                onPress={() => {
-                  if (showModelSearch) {
-                    setShowModelSearch(false)
-                    setModelSearch('')
-                  } else {
-                    setShowModelSearch(true)
-                  }
-                }}
-                hitSlop={8}
-                style={shellStyles.modelSearchToggle}
-                accessibilityRole="button"
-                accessibilityLabel={t('home.a11yModelSearch')}
-                accessibilityState={{ selected: showModelSearch }}
-              >
-                <Search
-                  size={18}
-                  color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
-                />
-              </Tappable>
-              <Tappable
-                onPress={closeModelModal}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t('home.closeBtn')}
-              >
-                <Text style={shellStyles.modelModalClose}>×</Text>
-              </Tappable>
-            </View>
-            {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
-            {showModelSearch ? (
-              <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
-                <Search size={16} color={tokens.text.tertiary} />
-                <TextInput
-                  style={shellStyles.modelSearchInput}
-                  value={modelSearch}
-                  onChangeText={setModelSearch}
-                  onFocus={modelSearchFF.onFocus}
-                  onBlur={modelSearchFF.onBlur}
-                  placeholder={t('home.modelSearchPlaceholder')}
-                  placeholderTextColor={tokens.text.tertiary}
-                  returnKeyType="search"
-                  clearButtonMode="while-editing"
-                  accessibilityLabel={t('home.a11yModelSearchInput')}
-                />
-                {modelSearch ? (
-                  <Tappable
-                    onPress={() => setModelSearch('')}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('home.a11yClearQuery')}
-                  >
-                    <Text style={shellStyles.modelSearchClear}>×</Text>
-                  </Tappable>
-                ) : null}
-              </View>
-            ) : null}
-            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={shellStyles.modelModalTabRow}
-              contentContainerStyle={shellStyles.modelModalTabContent}
-            >
-              {modelTypeOptions.map((mt) => {
-                const active = !modelSearch.trim() && modelModalTab === mt.type
-                const Icon = mt.icon
-                return (
-                  <Tappable
-                    key={mt.type}
-                    onPress={() => {
+          <View style={[shellStyles.modelModalSheet, dialogMaxHeightStyle]}>
+            {/* 固定区实测(onLayout):列表高度上限 = 70% 上限 - 上下内边距 - 固定区 */}
+            <View onLayout={(e) => setModelModalChromeHeight(e.nativeEvent.layout.height)}>
+              {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
+              <View style={shellStyles.modelModalGrabber} />
+              <View style={shellStyles.modelModalHeader}>
+                <View style={shellStyles.modelModalHeading}>
+                  <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
+                    {t('home.modelSelectTitle')}
+                  </Text>
+                  <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
+                    {modelSearch.trim()
+                      ? t('home.modelSelectSearchCount', { count: modalModelCount })
+                      : modelModalTab === 'skills'
+                        ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
+                        : t('home.modelSelectGroupCount', { count: modalModelCount })}
+                  </Text>
+                </View>
+                {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
+                <Tappable
+                  onPress={() => {
+                    if (showModelSearch) {
+                      setShowModelSearch(false)
                       setModelSearch('')
-                      setModelModalTab(mt.type)
-                    }}
-                    style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={mt.label}
-                  >
-                    <Icon
-                      size={14}
-                      color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
-                    />
-                    <Text
-                      style={[
-                        shellStyles.modelModalTabText,
-                        active && shellStyles.modelModalTabActiveText,
-                      ]}
+                    } else {
+                      setShowModelSearch(true)
+                    }
+                  }}
+                  hitSlop={8}
+                  style={shellStyles.modelSearchToggle}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.a11yModelSearch')}
+                  accessibilityState={{ selected: showModelSearch }}
+                >
+                  <Search
+                    size={18}
+                    color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
+                  />
+                </Tappable>
+                <Tappable
+                  onPress={closeModelModal}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.closeBtn')}
+                >
+                  <Text style={shellStyles.modelModalClose}>×</Text>
+                </Tappable>
+              </View>
+              {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
+              {showModelSearch ? (
+                <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
+                  <Search size={16} color={tokens.text.tertiary} />
+                  <TextInput
+                    style={shellStyles.modelSearchInput}
+                    value={modelSearch}
+                    onChangeText={setModelSearch}
+                    onFocus={modelSearchFF.onFocus}
+                    onBlur={modelSearchFF.onBlur}
+                    placeholder={t('home.modelSearchPlaceholder')}
+                    placeholderTextColor={tokens.text.tertiary}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                    accessibilityLabel={t('home.a11yModelSearchInput')}
+                  />
+                  {modelSearch ? (
+                    <Tappable
+                      onPress={() => setModelSearch('')}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('home.a11yClearQuery')}
                     >
-                      {mt.label}
-                    </Text>
-                  </Tappable>
-                )
-              })}
-            </ScrollView>
-            <View style={shellStyles.modelModalHairline} />
+                      <Text style={shellStyles.modelSearchClear}>×</Text>
+                    </Tappable>
+                  ) : null}
+                </View>
+              ) : null}
+              {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={shellStyles.modelModalTabRow}
+                contentContainerStyle={shellStyles.modelModalTabContent}
+              >
+                {modelTypeOptions.map((mt) => {
+                  const active = !modelSearch.trim() && modelModalTab === mt.type
+                  const Icon = mt.icon
+                  return (
+                    <Tappable
+                      key={mt.type}
+                      onPress={() => {
+                        setModelSearch('')
+                        setModelModalTab(mt.type)
+                      }}
+                      style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={mt.label}
+                    >
+                      <Icon
+                        size={14}
+                        color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
+                      />
+                      <Text
+                        style={[
+                          shellStyles.modelModalTabText,
+                          active && shellStyles.modelModalTabActiveText,
+                        ]}
+                      >
+                        {mt.label}
+                      </Text>
+                    </Tappable>
+                  )
+                })}
+              </ScrollView>
+              <View style={shellStyles.modelModalHairline} />
+            </View>
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
               <AgentList
-                style={shellStyles.modelModalListBody}
+                style={modelModalListStyle}
                 items={skillAgentItems}
                 onItemClick={handleSkillAgentPress}
                 isLoading={false}
                 emptyText={t('home.noAgentsHint')}
+                onContentSizeChange={(_w, h) => setModelModalContentHeight(h)}
               />
             ) : (
               <ModelList
-                style={shellStyles.modelModalListBody}
+                style={modelModalListStyle}
                 groups={modalModelGroups}
                 selectionMode="single"
                 selectedIds={selectedModel ? [selectedModel.id] : []}
                 onSelectChange={handleModelSelect}
+                onContentSizeChange={(_w, h) => setModelModalContentHeight(h)}
               />
             )}
           </View>
@@ -2308,6 +2338,10 @@ export function HomeScreen() {
   )
 }
 
+/** 模型弹窗上下内边距:样式与「列表高度上限」计算共用同一常量,避免两处漂移 */
+const MODEL_MODAL_PADDING_TOP = rpx(32)
+const MODEL_MODAL_PADDING_BOTTOM = rpx(16)
+
 const shellStyles = {
   // 页面根容器不设底色(2026-10-20 用户定稿):底色由外层导航容器提供,本页不再叠一层
   root: { flex: 1 } as const,
@@ -2495,12 +2529,15 @@ const shellStyles = {
   } as const,
   modelModalSheet: {
     width: '100%',
+    // 高度不写百分比上限(RN 0.86 Fabric 下百分比不给子节点确定高度,列表会塌成 0):
+    // 保留 maxHeight 键(undefined)供门 217 识别 bounded 容器,真正数值由
+    // useDialogMaxHeightStyle 在调用处叠加;内容短时自适应、超上限后内部滚动。
     maxHeight: undefined,
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    paddingTop: rpx(32),
-    paddingBottom: rpx(16),
+    paddingTop: MODEL_MODAL_PADDING_TOP,
+    paddingBottom: MODEL_MODAL_PADDING_BOTTOM,
   } as const,
   modelModalHeader: {
     flexDirection: 'row',
@@ -2548,10 +2585,11 @@ const shellStyles = {
     flexShrink: 0,
   } as const,
   modelModalListBody: {
-    // 列表区是弹窗里唯一弹性块:吃掉 sheet 剩余高度并内部滚动
-    // (SectionList 需要确定高度父容器才能滚,RN 0.86),
-    // 避免自然高度撑爆 maxHeight 后压缩固定块(flexShrink 灾难)
-    flex: 1,
+    // 列表高度由调用处按「实测内容高,封顶 = 70% - 内边距 - 固定区」写成像素 height
+    // (SectionList/ScrollView 需要确定高度父容器才能渲染并滚动,RN 0.86 Fabric)。
+    // 这里只留兜底约束:不再写 flex:1,否则在高度由子内容决定的 sheet 里会被压成 0 高。
+    flexGrow: 0,
+    flexShrink: 1,
     minHeight: 0,
   } as const,
   modelModalTabContent: {

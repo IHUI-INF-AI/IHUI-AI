@@ -142,6 +142,11 @@ export interface ModelListProps {
    * 典型如 `style={{ flex: 1 }}`(RN 0.86 Fabric:ScrollView 需要父容器有确定高度才会滚动)。
    */
   style?: StyleProp<ViewStyle>
+  /**
+   * 列表内容尺寸变化(可选)。弹层要「按内容自适应高度」时由调用方消费:
+   * 列表必须先有确定高度才会渲染并上报内容尺寸,调用方据此把 height 收回到内容高。
+   */
+  onContentSizeChange?: (width: number, height: number) => void
 }
 
 function resolveTitle(group: ModelListGroup, t: (k: string) => string): string {
@@ -308,6 +313,7 @@ export default function ModelList({
   onAgentModeClick,
   animateEntrance = true,
   style,
+  onContentSizeChange,
 }: ModelListProps): React.ReactElement {
   const { t } = useI18n()
   /** 选择态:selectedIds(复数)优先,退化到单值 selectedId */
@@ -393,6 +399,7 @@ export default function ModelList({
     <SectionList<ModelListItem, { title: string }>
       style={style}
       sections={sections}
+      onContentSizeChange={onContentSizeChange}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
