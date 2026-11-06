@@ -89,6 +89,11 @@ export async function mintInternalServiceTicket(input: {
   ttlSeconds?: number
   jti?: string
 }): Promise<string> {
+  // 封闭枚举在**两侧都要成立**:验票侧对未知 scope 判 bad_scope,发票侧若照单全收,
+  // 就等于"任何用途的票都能签",把用途隔离降成注释。这里与验票侧同一条判据。
+  if (!isInternalTicketScope(input.scope)) {
+    throw new Error(`unknown internal ticket scope: ${String(input.scope)}`)
+  }
   const { getJwtSecret } = await import('@ihui/auth')
   const ttl = clampTicketTtl(input.ttlSeconds ?? DEFAULT_TICKET_TTL_SECONDS)
   const jti = input.jti ?? newJti()
