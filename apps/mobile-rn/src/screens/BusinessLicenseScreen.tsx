@@ -34,7 +34,6 @@ export function BusinessLicenseScreen() {
         title={title}
         onBack={() => navigation.goBack()}
         imageSource={LICENSE_IMAGE}
-        previewVisible={previewVisible}
         onPreviewVisibleChange={setPreviewVisible}
         colorScheme={resolvedTheme}
       />

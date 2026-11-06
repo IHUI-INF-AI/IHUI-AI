@@ -62,7 +62,6 @@ const THEME_GLYPHS = { auto: RefreshCw, light: Sun, dark: Moon }
  * 由宿主提供 —— RN 端生产页(apps/mobile-rn/src/screens/SettingsScreen.tsx)渲染 NavBar(含 Drawer 菜单入口),
  * demo 页(SharedDemoScreen)有常驻 tab 栏。此前组件内自带 BackChevron + 标题页头,与宿主 NavBar 同屏
  * 出现两条「设置」标题、两个返回 affordance(真机走查登记,守门 102 GA7 同型)。
- * onBack 仍留在 SettingsScreenProps 契约中(packages/types,本轮不可改),运行时不再消费。
  */
 export function SettingsScreen({
   t,
