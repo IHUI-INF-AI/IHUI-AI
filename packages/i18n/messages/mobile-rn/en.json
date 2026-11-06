@@ -4808,7 +4808,8 @@
     "title": "Knowledge Planet",
     "newOfficial": "Official",
     "newCommunity": "Community",
-    "enter": "Enter planet"
+    "enter": "Enter planet",
+    "memberCount": "{count} members"
   },
   "knowledgeRag": {
     "title": "RAG Knowledge Base",
