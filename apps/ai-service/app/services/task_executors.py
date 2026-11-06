@@ -1288,9 +1288,7 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
             worst = "critical"
         elif f["severity"] == "warning" and worst != "critical":
             worst = "warning"
-    if unread_dirs and worst == "ok":
-        worst = "warning"
-    elif unreadable and "unreadable_files" in checks and worst == "ok":
+    if unread_dirs and worst == "ok" or unreadable and "unreadable_files" in checks and worst == "ok":
         worst = "warning"
 
     artifact_path: str | None = None
