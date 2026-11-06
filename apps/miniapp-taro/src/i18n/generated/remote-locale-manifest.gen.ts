@@ -8,15 +8,15 @@
 // 与 src/assets/remote-locales/<locale>.b64.txt(CDN 部署),三者同批派生、同钉对账。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/gen-i18n-compressed.mjs
-// sourceCommit: 3dfbdf9a567c278bd5d20f7bbec0c022f6161be6
-// inputsSha256: ef85ebb7f036ea328226c13b4280d093dc7b3b9c40d7e38cfa893be030c0e77f
+// sourceCommit: bca76e727546057da679e8970511dbc809f09dbd
+// inputsSha256: 3a1fff10fee5ef27842e655fb4fa2ccf19e46de4d66aefa657ff1d06e8610052
 // input: packages/i18n/messages/miniapp-taro/en.json f3d1aa1545de3e7e9122a147348cb4e82b35fe0f0f88d1ad3cf279ffe0dfe923
 // input: packages/i18n/messages/miniapp-taro/ja.json 048c3bc52104d06ec5df3320145b274cbd3dbe5feb574208e99b8550dc670d2a
 // input: packages/i18n/messages/miniapp-taro/ko.json 971b34dfa479936ade0659dc9fafd8367d662f9f53a7a16b8edfaaf37c44d179
 // input: packages/i18n/messages/miniapp-taro/zh-TW.json 3b447239b83387cf6c27a207fe15088a571256c56339134ffe884d9f7fdbd34c
-// input: packages/i18n/messages/mobile-rn/en.json f2e8a75d091d69082d0a2f907e219c608e909fae9671d2a1af62dae7ae098780
-// input: packages/i18n/messages/mobile-rn/ja.json 78c7653e79b0993c50a5fc52989bf6042dd9ae78d882137e6a5d4dc1dcf7eb6b
-// input: packages/i18n/messages/mobile-rn/ko.json e40018149c5f58abe40fee2208ada8fd115b455f3216e6769bf40bf2270c3566
+// input: packages/i18n/messages/mobile-rn/en.json 47d085a50731e4c8264aa0cacf0e1a9f551794729629245f285b756ae17c3758
+// input: packages/i18n/messages/mobile-rn/ja.json 6b6e2338769021d228735cec075ba23d2bd5c059ccc4d2b5f685e5296e27d2f7
+// input: packages/i18n/messages/mobile-rn/ko.json 0cb14610cc4a8c97c9b8d3dedcd51c26f9400e64d270ca9dcf28ddeb754cfbb6
 // input: packages/i18n/messages/mobile-rn/zh-TW.json 52f489396ae2d6d82f2f8175ebbd2889df7b17802b94d41a669d227bbf2dfdc3
 // input: packages/i18n/messages/shared/en.json 34a2866503f59fcd043bc5e87a43bdfa988c6e78f8728249c3d822011c41149e
 // input: packages/i18n/messages/shared/ja.json 527698798fdd3389b1b83b768cbc850836d8eeb4196405f8d929e9812a16f679
@@ -24,7 +24,7 @@
 // input: packages/i18n/messages/shared/zh-TW.json 1401ddeaced673d2824b67fd31f0e9fcfa525d00e9a35108eff2094bd025fd41
 // carried: present
 // carriedKeys: en=634 ja=634 ko=634 zh-TW=634
-// generatedAt: 2026-11-06T12:00:13.228Z
+// generatedAt: 2026-11-06T14:20:34.937Z
 // IHUI-GEN-PIN-END
 export type RemoteLocale = 'en' | 'ja' | 'ko' | 'zh-TW'
 export const REMOTE_LOCALE_MANIFEST: Record<RemoteLocale, { version: string; bytes: number }> = {
