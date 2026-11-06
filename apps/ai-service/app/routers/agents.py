@@ -404,7 +404,11 @@ async def _build_loop_v2_tools(
     """
     pool = await _build_supertool_pool(tool_names, user_id)
     if pool is not None:
-        return _supertool_tools_from_pool(pool, tool_names, user_role, user_id)
+        return _with_spill_reader(
+            _supertool_tools_from_pool(pool, tool_names, user_role, user_id),
+            user_role=user_role,
+            session_key=session_key,
+        )
 
     # —— 现有路径(无外部 server / 开关关闭 / 聚合异常时逐字节等价) ——
     from ..services.agent_loop_v2 import ToolDefinition
@@ -449,7 +453,45 @@ async def _build_loop_v2_tools(
                     executor=_exec,
                 )
             )
-    return tools
+    return _with_spill_reader(tools, user_role=user_role, session_key=session_key)
+
+
+def _with_spill_reader(
+    tools: list[Any], *, user_role: int, session_key: str
+) -> list[Any]:
+    """批次 2:确保 `read_tool_output` 始终随清单暴露(只读,零副作用)。
+
+    理由:工具输出落盘后,正文会给出 `output_artifact_id` 让模型续读;若本会话的
+    工具是调用方显式白名单(`tool_names`),这个续读工具会被过滤掉 —— 模型拿着
+    续读凭据却无工具可用,长输出等于永久截断。把它定为"无论白名单如何都纳入"的
+    第二枚强制工具(第一枚是 deferral 下的 get_tool_schema),只读属性由 plan_mode
+    READONLY_TOOLS 同处保证。
+    """
+    if any(getattr(t, "name", "") == "read_tool_output" for t in tools):
+        return tools
+    from ..services.agent_loop_v2 import ToolDefinition
+    from ..services.mcp_server import mcp_server
+
+    meta = next(
+        (mt for mt in mcp_server.list_tools() if mt.name == "read_tool_output"), None
+    )
+    if meta is None:
+        return tools
+
+    async def _exec(args: dict[str, Any]) -> Any:
+        return await mcp_server.call_tool(
+            "read_tool_output", args, user_role=user_role, session_id=session_key or None
+        )
+
+    return [
+        *tools,
+        ToolDefinition(
+            name=meta.name,
+            description=meta.description,
+            parameters=meta.input_schema,
+            executor=_exec,
+        ),
+    ]
 
 
 class _LLMGatewayResponseError(RuntimeError):
