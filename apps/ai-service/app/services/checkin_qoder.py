@@ -128,8 +128,9 @@ def qoder_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
         exp = payload.get("exp")
         if not isinstance(exp, (int, float)):
             return None, None
-        exp_dt = datetime.datetime.fromtimestamp(exp)
-        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        exp_dt = datetime.datetime.fromtimestamp(exp, tz=_CN_TZ).replace(tzinfo=None)
+        now = datetime.datetime.now(_CN_TZ).replace(tzinfo=None)
+        remaining = (exp_dt - now).total_seconds() / 3600.0
         return exp_dt, remaining
     except Exception:
         return None, None
@@ -147,11 +148,16 @@ _REFRESH_EXPIRY_KEYS: Final = ("refresh_token_expires_at", "refreshTokenExpiresA
 
 
 def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
-    """单个过期值 → naive 本地 datetime(与 qoder_jwt_exp 的 fromtimestamp 语义一致)。
+    """单个过期值 → naive **东八区墙钟** datetime(与 qoder_jwt_exp 同语义)。
 
     接受两种落库形态:ISO 8601 字符串(auth.v1.dat 原文,Z 后缀)与 epoch 秒数
     (token 刷新链路写回的 expires_at)。epoch<=0 视为缺失(桌面端 as_i64 对
     ISO 字符串解析失败会 unwrap_or(0) 落 0)。坏格式返回 None,绝不抛栈。
+
+    时区口径:带偏移/Z 的串与 epoch 都先落到 ``CN_TZ`` 再去掉 tzinfo;
+    无偏移的 naive 串视为北京时间墙钟(本仓没有"第三方返回宿主本地时间串"的
+    生产者:Qoder 是 Z 后缀 UTC、WorkBuddy/MiniMax 是 epoch)。解析与比较必须
+    同一口径,否则 TZ=UTC/CI 宿主下到期结论会漂 8 小时。
     """
     if isinstance(raw, bool):
         return None
@@ -164,13 +170,13 @@ def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
         except ValueError:
             return None
         if exp_dt.tzinfo is not None:
-            exp_dt = exp_dt.astimezone().replace(tzinfo=None)
+            exp_dt = exp_dt.astimezone(_CN_TZ).replace(tzinfo=None)
         return exp_dt
     if isinstance(raw, (int, float)):
         if raw <= 0:
             return None
         try:
-            return datetime.datetime.fromtimestamp(raw)
+            return datetime.datetime.fromtimestamp(raw, tz=_CN_TZ).replace(tzinfo=None)
         except (OverflowError, OSError, ValueError):
             return None
     return None
@@ -191,7 +197,8 @@ def qoder_session_expiry(
         for key in keys:
             exp_dt = _parse_expiry_value(device_map.get(key))
             if exp_dt is not None:
-                remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+                now = datetime.datetime.now(_CN_TZ).replace(tzinfo=None)
+                remaining = (exp_dt - now).total_seconds() / 3600.0
                 return exp_dt, remaining
     return None, None
 
@@ -342,7 +349,9 @@ async def qoder_refresh_token(
     return {
         "access_token": tok,
         "refresh_token": str(new_refresh),
-        "expires_at": exp.timestamp() if exp is not None else None,
+        # exp 是东八区墙钟 naive;.timestamp() 会按宿主本地时区解释,
+        # 必须先钉上 _CN_TZ 再取 epoch,否则写回值在非 +08 宿主上漂 8 小时。
+        "expires_at": exp.replace(tzinfo=_CN_TZ).timestamp() if exp is not None else None,
     }
 
 

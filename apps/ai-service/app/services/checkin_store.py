@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from app.core.cn_time import CN_TZ as _CN_TZ
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
 from app.services.checkin_engine import (
@@ -1823,8 +1824,9 @@ def _account_jwt_exp(
             exp = exp / 1000.0
         if exp <= 0:
             return None
-        # 与 qoder_session_expiry 同口径:本地时区 naive(列表展示用)
-        return datetime.fromtimestamp(exp).isoformat()
+        # 与 qoder_session_expiry 同口径:东八区墙钟 naive(列表展示用,
+        # 同一 jwt_exp 字段在 TRAE/Qoder/MiniMax 三平台必须同源)
+        return datetime.fromtimestamp(exp, tz=_CN_TZ).replace(tzinfo=None).isoformat()
     try:
         jwt = _decrypt_jwt(jwt_enc)
     except ValueError:

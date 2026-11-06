@@ -45,6 +45,7 @@ from typing import Any, Final
 
 import httpx
 
+from app.core.cn_time import CN_TZ as _CN_TZ
 from app.core.logging import get_logger
 
 # `DEFAULT_TIMEOUT as DEFAULT_TIMEOUT` 是**显式再导出**:checkin_scheduler 按
@@ -165,11 +166,15 @@ def workbuddy_web_cookie(jwt: str, device_map: dict[str, Any]) -> str:
 
 
 def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
-    """过期值 → naive 本地 datetime。
+    """过期值 → naive **东八区墙钟** datetime(与 workbuddy_jwt_exp 同语义)。
 
     接受三种落库形态:ISO 8601 字符串、epoch 秒、epoch 毫秒(workbuddy-desktop.info
     的 auth.expiresAt 是毫秒,如 1794225169853)。>1e12 视为毫秒。
     坏格式返回 None,绝不抛栈。
+
+    时区口径:带偏移/Z 的串与 epoch 先落到 ``CN_TZ`` 再去掉 tzinfo;无偏移的
+    naive 串视为北京时间墙钟(WorkBuddy 捕获落库的是 epoch,无宿主本地串)。
+    解析与比较必须同一口径,否则 TZ=UTC/CI 宿主下会漂 8 小时。
     """
     if isinstance(raw, bool):
         return None
@@ -184,15 +189,17 @@ def _parse_expiry_value(raw: Any) -> datetime.datetime | None:
         except ValueError:
             return None
         if exp_dt.tzinfo is not None:
-            exp_dt = exp_dt.astimezone().replace(tzinfo=None)
+            exp_dt = exp_dt.astimezone(_CN_TZ).replace(tzinfo=None)
         return exp_dt
     if isinstance(raw, (int, float)):
         if raw <= 0:
             return None
         try:
             if raw > 1e12:  # epoch 毫秒
-                return datetime.datetime.fromtimestamp(raw / 1000.0)
-            return datetime.datetime.fromtimestamp(raw)
+                return datetime.datetime.fromtimestamp(raw / 1000.0, tz=_CN_TZ).replace(
+                    tzinfo=None
+                )
+            return datetime.datetime.fromtimestamp(raw, tz=_CN_TZ).replace(tzinfo=None)
         except (OverflowError, OSError, ValueError):
             return None
     return None
@@ -209,7 +216,8 @@ def workbuddy_session_expiry(
     for key in ("expires_at", "expiresAt", "expiry_ms"):
         exp_dt = _parse_expiry_value(device_map.get(key))
         if exp_dt is not None:
-            remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+            now = datetime.datetime.now(_CN_TZ).replace(tzinfo=None)
+            remaining = (exp_dt - now).total_seconds() / 3600.0
             return exp_dt, remaining
     return None, None
 
@@ -225,8 +233,9 @@ def workbuddy_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]
         exp = payload.get("exp")
         if not isinstance(exp, (int, float)):
             return None, None
-        exp_dt = datetime.datetime.fromtimestamp(exp)
-        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        exp_dt = datetime.datetime.fromtimestamp(exp, tz=_CN_TZ).replace(tzinfo=None)
+        now = datetime.datetime.now(_CN_TZ).replace(tzinfo=None)
+        remaining = (exp_dt - now).total_seconds() / 3600.0
         return exp_dt, remaining
     except Exception:
         return None, None

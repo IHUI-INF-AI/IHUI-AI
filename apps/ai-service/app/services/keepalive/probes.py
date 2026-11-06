@@ -28,6 +28,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol, runtime_checkable
 
+from app.core.cn_time import CN_TZ
 from app.core.logging import get_logger
 from app.services.keepalive.models import (
     KIND_ERROR,
@@ -457,6 +458,10 @@ class CheckinProbe:
 
         expires_at, _remaining_hours = get_jwt_exp(str(account.get("jwt") or ""))
         duration = int((time.monotonic() - started) * 1000)
+        if expires_at is not None and expires_at.tzinfo is None:
+            # get_jwt_exp 返回东八区墙钟 naive;as_utc 的 naive 分支按 UTC 解释,
+            # 签到域必须先钉上 CN_TZ,否则探针会早判 8 小时。
+            expires_at = expires_at.replace(tzinfo=CN_TZ)
         expires_at = as_utc(expires_at)
         if expires_at is None:
             return ProbeOutcome(

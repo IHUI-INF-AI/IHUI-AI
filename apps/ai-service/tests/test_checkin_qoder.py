@@ -13,7 +13,11 @@ from __future__ import annotations
 import base64
 import datetime
 import json
+import os
+import subprocess
+import sys
 import time
+from pathlib import Path
 
 import httpx
 import pytest
@@ -759,5 +763,151 @@ class TestConstants:
         assert PATH_CLAIM == "/sash/api/v1/me/campaigns/{cid}/claim"
         assert PATH_REFRESH == "/api/v1/deviceToken/refresh"
         assert PATH_QUOTA == "/api/v2/quota/usage"
+
+
+# ---------------------------------------------------------------------------
+# 签到域时区成对改造(2026-11-07):解析与比较统一按东八区。
+#
+# 同一组输入必须让三个平台(解析 + 比较)在 **TZ=UTC** 与 **TZ=Asia/Shanghai**
+# 两个宿主时区下得到逐字相同的到期结论。修前(naive 本地语义)在 UTC 宿主下,
+# naive 北京时间串会被当成 UTC 墙钟 ⇒ 本应「已过期」的样本被判成 +5h 未过期,
+# 展示串也整体早 8 小时 —— 这就是本文件的修前红。
+# ---------------------------------------------------------------------------
+
+
+_EXPIRY_TZ_PROBE = r'''
+import json
+import sys
+
+from app.routers.checkin import _validate_qoder_token, _validate_workbuddy_token
+from app.services.checkin_engine import get_jwt_exp
+from app.services.checkin_qoder import qoder_jwt_exp, qoder_session_expiry
+from app.services.checkin_workbuddy import workbuddy_jwt_exp, workbuddy_session_expiry
+
+cases = json.loads(sys.argv[1])
+
+
+def snap(exp_dt, remaining):
+    if exp_dt is None:
+        return {"exp_dt": None, "remaining": None, "expired": None, "naive": None}
+    return {
+        "exp_dt": exp_dt.strftime("%Y-%m-%d %H:%M"),
+        "remaining": round(remaining, 2) if remaining is not None else None,
+        "expired": remaining is not None and remaining <= 0,
+        "naive": exp_dt.tzinfo is None,
+    }
+
+
+def router_rejects(fn, device_map):
+    try:
+        fn("abcdefgh", device_map)
+    except Exception:
+        return True
+    return False
+
+
+out = {}
+for key, dm in cases["qoder_sessions"].items():
+    out["qoder:" + key] = snap(*qoder_session_expiry(dm))
+for key, dm in cases["wb_sessions"].items():
+    out["wb:" + key] = snap(*workbuddy_session_expiry(dm))
+out["qoder_jwt"] = snap(*qoder_jwt_exp(cases["jwt"]))
+out["wb_jwt"] = snap(*workbuddy_jwt_exp(cases["jwt"]))
+out["engine_jwt"] = snap(*get_jwt_exp(cases["jwt"]))
+out["router:qoder"] = {
+    "expired": router_rejects(_validate_qoder_token, cases["qoder_sessions"]["naive_past"])
+}
+out["router:wb"] = {
+    "expired": router_rejects(_validate_workbuddy_token, cases["wb_sessions"]["naive_past"])
+}
+print(json.dumps(out, sort_keys=True, ensure_ascii=False))
+'''
+
+
+def _expiry_tz_aliases() -> list[tuple[str, str]]:
+    """(标签, 实际 TZ 值)。Linux/CI 用 IANA;Windows CRT 只认 POSIX 串。
+
+    本机实测(Windows + Python 3.13):TZ=UTC0 ⇒ time.timezone=0;
+    TZ=CST-8 ⇒ time.timezone=-28800;IANA 名在 Windows 上不生效。
+    """
+    if os.name == "nt":
+        return [("UTC", "UTC0"), ("Asia/Shanghai", "CST-8")]
+    return [("UTC", "UTC"), ("Asia/Shanghai", "Asia/Shanghai")]
+
+
+def _expiry_tz_probe_cases() -> dict:
+    """父进程按东八区时钟构造**同一组输入**,两时区子进程只换宿主环境。"""
+    now_cn = datetime.datetime.now(_CN)
+    naive_past = (now_cn - datetime.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S")
+    aware_future = (now_cn + datetime.timedelta(hours=5)).isoformat()
+    epoch_future = int((now_cn + datetime.timedelta(hours=2)).timestamp())
+    ms_future = int((now_cn + datetime.timedelta(hours=1)).timestamp() * 1000)
+    return {
+        "qoder_sessions": {
+            "naive_past": {"expires_at": naive_past},
+            "aware_future": {"expires_at": aware_future},
+            "epoch_future": {"expires_at": epoch_future},
+        },
+        "wb_sessions": {
+            "naive_past": {"expires_at": naive_past},
+            "epoch_ms_future": {"expiresAt": ms_future},
+        },
+        "jwt": make_qoder_jwt(exp_offset=7200.0),
+        "expect": {
+            "aware_future_display": datetime.datetime.fromisoformat(aware_future)
+            .astimezone(_CN)
+            .strftime("%Y-%m-%d %H:%M"),
+            "epoch_future_display": datetime.datetime.fromtimestamp(
+                epoch_future, _CN
+            ).strftime("%Y-%m-%d %H:%M"),
+            "ms_future_display": datetime.datetime.fromtimestamp(
+                ms_future / 1000.0, _CN
+            ).strftime("%Y-%m-%d %H:%M"),
+        },
+    }
+
+
+def _run_expiry_tz_probe(tz_value: str, cases: dict) -> dict:
+    env = os.environ.copy()
+    env["TZ"] = tz_value
+    proc = subprocess.run(
+        [sys.executable, "-c", _EXPIRY_TZ_PROBE, json.dumps(cases)],
+        cwd=str(Path(__file__).resolve().parents[1]),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+class TestExpiryTimezonePairing:
+    def test_same_input_same_verdict_across_host_timezones(self):
+        cases = _expiry_tz_probe_cases()
+        runs = {label: _run_expiry_tz_probe(tz, cases) for label, tz in _expiry_tz_aliases()}
+        utc, cn = runs["UTC"], runs["Asia/Shanghai"]
+        assert utc == cn, (
+            "同一输入跨宿主时区得到不同到期结论/展示:\n"
+            f"UTC={json.dumps(utc, ensure_ascii=False, indent=2)}\n"
+            f"Asia/Shanghai={json.dumps(cn, ensure_ascii=False, indent=2)}"
+        )
+
+        for label, out in runs.items():
+            # naive 北京时间串 = 3 小时前 ⇒ 两时区都必须判已过期
+            # (修前 UTC 会被解析成 UTC 墙钟,remaining≈+5h ⇒ 未过期)
+            assert out["qoder:naive_past"]["expired"] is True, (label, out["qoder:naive_past"])
+            assert out["wb:naive_past"]["expired"] is True, (label, out["wb:naive_past"])
+            assert out["router:qoder"]["expired"] is True, (label, out["router:qoder"])
+            assert out["router:wb"]["expired"] is True, (label, out["router:wb"])
+            # 展示串统一为北京墙钟
+            assert out["qoder:aware_future"]["exp_dt"] == cases["expect"]["aware_future_display"]
+            assert out["qoder:epoch_future"]["exp_dt"] == cases["expect"]["epoch_future_display"]
+            assert out["wb:epoch_ms_future"]["exp_dt"] == cases["expect"]["ms_future_display"]
+            # 返回值仍是 naive(保住 jwt_exp 无偏移 ISO 契约)
+            assert out["qoder:epoch_future"]["naive"] is True
+            assert out["engine_jwt"]["naive"] is True
 # ⁠[IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

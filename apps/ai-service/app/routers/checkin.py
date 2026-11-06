@@ -136,7 +136,7 @@ def _validate_qoder_token(token: str, device_map: dict[str, Any]) -> None:
     if len(tok) < 8:
         raise HTTPException(status_code=400, detail="Qoder token 为空或过短,请重新抓取")
     exp_dt, _remaining = checkin_qoder.qoder_session_expiry(device_map)
-    if exp_dt is not None and exp_dt <= datetime.now():
+    if exp_dt is not None and exp_dt <= datetime.now(_CN_TZ).replace(tzinfo=None):
         raise HTTPException(
             status_code=400,
             detail=f"Qoder 会话已过期({exp_dt:%Y-%m-%d %H:%M}),请在 Qoder 客户端重新登录后重新抓取",
@@ -166,7 +166,7 @@ def _validate_workbuddy_token(token: str, device_map: dict[str, Any]) -> None:
             )
         raise HTTPException(status_code=400, detail="WorkBuddy token 为空或过短,请重新提取")
     exp_dt, _remaining = checkin_workbuddy.workbuddy_session_expiry(device_map or {})
-    if exp_dt is not None and exp_dt <= datetime.now():
+    if exp_dt is not None and exp_dt <= datetime.now(_CN_TZ).replace(tzinfo=None):
         raise HTTPException(
             status_code=400,
             detail=f"WorkBuddy 会话已过期({exp_dt:%Y-%m-%d %H:%M}),请打开 WorkBuddy 桌面端刷新登录态后重新提取",

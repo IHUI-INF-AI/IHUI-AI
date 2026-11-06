@@ -43,6 +43,7 @@ from typing import Any, Final
 
 import httpx
 
+from app.core.cn_time import CN_TZ as _CN_TZ
 from app.core.logging import get_logger
 from app.services.checkin_codes import PLATFORM_TRAE, is_already_checked_in
 from app.services.checkin_outbound import CHALLENGE_COOLDOWN_SECONDS, checkin_outbound_gate
@@ -157,7 +158,12 @@ def extract_user_id(jwt: str) -> str | None:
 
 
 def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
-    """从 JWT payload 取 exp 字段，返回 (exp_datetime, remaining_hours) 或 (None, None)。"""
+    """从 JWT payload 取 exp 字段，返回 (exp_datetime, remaining_hours) 或 (None, None)。
+
+    exp_datetime 是**东八区墙钟的 naive datetime**：解析（``fromtimestamp``）与
+    比较基准（``now``）都钉在 ``CN_TZ``。若两端各用宿主本地时间，在 TZ=UTC/CI
+    宿主上会整体漂 8 小时（既有的 ``tzinfo is None`` 契约保持不变）。
+    """
     token = jwt
     if token.startswith("Cloud-IDE-JWT "):
         token = token.split(None, 1)[1]
@@ -170,8 +176,9 @@ def get_jwt_exp(jwt: str) -> tuple[datetime.datetime | None, float | None]:
         exp = payload.get("exp")
         if not isinstance(exp, (int, float)):
             return None, None
-        exp_dt = datetime.datetime.fromtimestamp(exp)
-        remaining = (exp_dt - datetime.datetime.now()).total_seconds() / 3600.0
+        exp_dt = datetime.datetime.fromtimestamp(exp, tz=_CN_TZ).replace(tzinfo=None)
+        now = datetime.datetime.now(_CN_TZ).replace(tzinfo=None)
+        remaining = (exp_dt - now).total_seconds() / 3600.0
         return exp_dt, remaining
     except Exception:
         return None, None
