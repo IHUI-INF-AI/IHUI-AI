@@ -320,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     containerFullscreen: {
       flex: 1,
-      paddingHorizontal: 0,
+      paddingHorizontal: rnSpacing.none,
     },
     fullscreenHeader: {
       flexDirection: 'row',
@@ -420,7 +420,7 @@ function createStyles(tk: AppThemeTokens) {
     fileRemoveText: {
       color: tk.surface.light,
       fontSize: rnType.label.size,
-      lineHeight: 12,
+      lineHeight: rnType.badge.lineHeight,
       fontWeight: '700',
     },
     inputRow: {

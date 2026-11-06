@@ -434,10 +434,10 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: rnSpacing.sm, // 历史 avatar margin 16rpx
     },
     bubbleMedia: {
-      paddingVertical: 0,
-      paddingHorizontal: 0,
+      paddingVertical: rnSpacing.none,
+      paddingHorizontal: rnSpacing.none,
       backgroundColor: 'transparent',
-      marginHorizontal: 0,
+      marginHorizontal: rnSpacing.none,
     },
     bubbleText: {
       fontSize: rnType.body.size, // 历史 28rpx

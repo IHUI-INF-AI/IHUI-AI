@@ -126,7 +126,12 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    cardContent: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    cardContent: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     publishTime: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,

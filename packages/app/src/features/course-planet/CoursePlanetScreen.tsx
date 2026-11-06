@@ -52,7 +52,7 @@ export function CoursePlanetScreen({
   bannerImages,
   menuItems,
   onMenuPress,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: CoursePlanetScreenProps & {
   onRetry?: () => void
   bannerImages?: readonly ImageSourcePropType[]
@@ -100,12 +100,7 @@ export function CoursePlanetScreen({
         <Text style={styles.title}>课程星球</Text>
       </View>
       {error ? (
-        <ErrorState
-          message={error}
-          onRetry={onRetry}
-          retryLabel="重试"
-          colorScheme={colorScheme}
-        />
+        <ErrorState message={error} onRetry={onRetry} retryLabel="重试" colorScheme={colorScheme} />
       ) : (
         <ScrollView
           style={styles.scroll}
@@ -303,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     coursePrice: {
       fontSize: rnType.title.size,

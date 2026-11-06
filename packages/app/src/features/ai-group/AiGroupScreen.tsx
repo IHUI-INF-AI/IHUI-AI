@@ -306,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     cardFoot: {
       flexDirection: 'row',
@@ -352,7 +352,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     detailBody: { flex: 1 },
-    detailDesc: { fontSize: rnType.body.size, color: tk.gray[600], lineHeight: 20 },
+    detailDesc: {
+      fontSize: rnType.body.size,
+      color: tk.gray[600],
+      lineHeight: rnType.body.lineHeight,
+    },
     metaRow: { flexDirection: 'row', gap: rnSpacing.lg, marginTop: rnSpacing.sm },
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     sectionTitle: {
@@ -403,7 +407,11 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       marginBottom: rnSpacing.sm,
     },
-    previewText: { fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
+    previewText: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     previewBubbleMine: {
       padding: rnSpacing['sm-loose'],
       borderRadius: rnRadius.lg,
@@ -412,7 +420,11 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: '80%',
       marginBottom: rnSpacing.sm,
     },
-    previewTextMine: { fontSize: rnType.body.size, color: tk.brand.ctaForeground, lineHeight: 18 },
+    previewTextMine: {
+      fontSize: rnType.body.size,
+      color: tk.brand.ctaForeground,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     enterBtn: {
       marginTop: rnSpacing.lg,
       height: 44,

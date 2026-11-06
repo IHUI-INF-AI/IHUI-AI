@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   icon: {
     fontSize: rnType.subtitle.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   },
   label: {
     fontSize: rnType.title.size,

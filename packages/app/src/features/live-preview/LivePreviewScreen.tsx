@@ -110,7 +110,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       fontSize: rnType.title.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     btn: {
       marginTop: rnSpacing.xl,

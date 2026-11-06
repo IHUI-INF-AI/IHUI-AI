@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
       marginVertical: rnSpacing.sm,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     recordsList: { marginHorizontal: rnSpacing['sm-loose'], marginBottom: rnSpacing['2xl'] },
     recordCard: {

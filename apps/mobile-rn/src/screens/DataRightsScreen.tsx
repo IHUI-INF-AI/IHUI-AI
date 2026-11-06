@@ -364,7 +364,7 @@ function makeStyles() {
       marginTop: rnSpacing.xs,
     },
     label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     value: { fontSize: rnType.body.size, color: tokens.text.primary },
     error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
