@@ -13,10 +13,14 @@
  * 分工(§0.6):信封重建/进程检查/原子写等本机操作全在 scripts/lib/trae-client-switch.mjs,
  * 本文件只做连库取数、解密与编排。判据(参数面)也 import 自该 lib,不复制第二份。
  *
- * 模式:--list | --current | --to <uid|名称> [--dry-run] [--force] [--json]
- * 退出码:0 成功(含 dry-run)/ 1 业务失败(无匹配、歧义、客户端在跑、校验不过)/ 2 未判定
- * (参数错、本机无 storage.json、本机客户端会话取不到)。
- * 任何输出面不含凭据明文(只给 uid/名称/健康态/到期时刻/文件路径)。
+ * 模式:--list | --current | --to <uid|名称> [--owner <ops|owner 前缀≥8位>] [--dry-run] [--force] [--json]
+ * 退出码:0 成功(含 dry-run)/ 1 业务失败(无匹配、歧义、同 uid 多持有者未定向、客户端在跑、校验不过)
+ * / 2 未判定(参数错、本机无 storage.json、本机客户端会话取不到)。
+ * 任何输出面不含凭据明文(只给 uid/名称/健康态/到期时刻/文件路径;owner 走单源掩码)。
+ *
+ * 多持有者纪律(2026-11-06 立):号池去重键 = (owner_user_id, provider_code, uid),同一 uid 的
+ * 运营池行与个人池行合法并存 ⇒ `--to` 命中多行时不给"已切/无需切"的结论,只给具名歧义与定向
+ * 后的下一步命令(判据单源 = scripts/lib/trae-client-switch.mjs 的 pickPoolCandidates)。
  */
 import fs from 'node:fs'
 import { resolve as resolvePath, dirname, join } from 'node:path'
@@ -129,6 +133,7 @@ async function runCurrent(json: boolean): Promise<number> {
 
 async function runSwitch(options: {
   target: string
+  owner: string
   dryRun: boolean
   force: boolean
   json: boolean
@@ -138,22 +143,45 @@ async function runSwitch(options: {
     .from(aiRelayAccountPool)
     .where(eq(aiRelayAccountPool.providerCode, 'trae'))
   const t = options.target.trim()
-  let hit = rows.filter((r) => r.uid === t)
-  if (hit.length === 0) hit = rows.filter((r) => r.name === t)
-  if (hit.length === 0) hit = rows.filter((r) => r.name.includes(t))
-  if (hit.length === 0) {
-    process.stderr.write(`❌ 池内没有匹配 "${t}" 的 Trae 账号(--list 查看全部)\n`)
+  // 目标串 → 池行候选:判据单源 = scripts/lib/trae-client-switch.mjs 的 pickPoolCandidates
+  // (与 chat-switch 腿同一枚实现)。号池去重键 = (owner_user_id, provider_code, uid),
+  // 同 uid 的运营池行 + 个人池行是合法并存形态 ⇒ 命中多行时一律具名歧义,不再"取最近更新的一枚"。
+  const picked = sw.pickPoolCandidates(rows, t, { owner: options.owner ?? '' })
+  if (picked.decision === 'bad-owner-selector') {
+    process.stderr.write(`❌ ${picked.error}\n`)
+    return 2
+  }
+  if (picked.decision === 'not-found') {
+    process.stderr.write(
+      `❌ 池内没有匹配 "${t}" 的 Trae 账号${picked.scopeNote ?? ''}(--list 查看全部)\n`,
+    )
     return 1
   }
-  const uids = [...new Set(hit.map((r) => r.uid))]
-  if (uids.length > 1) {
+  if (picked.decision === 'ambiguous-uid') {
     process.stderr.write(`❌ "${t}" 命中多枚号,请用 uid 精确指定:\n`)
-    for (const r of hit) process.stderr.write(`  uid=${r.uid} 名称=${r.name}\n`)
+    for (const r of picked.candidates) process.stderr.write(`  uid=${r.uid} 名称=${r.name}\n`)
     return 1
   }
-  // 同 uid 多归属行(运营池/个人池并存)取最近更新的一枚
-  hit.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
-  const row = hit[0]
+  if (picked.decision === 'ambiguous-owner') {
+    const notice = sw.ambiguousOwnerNotice(t, picked.candidates, {
+      entry: 'node scripts/switch-trae-client-account.mjs',
+    })
+    for (const line of notice.printLines) process.stderr.write(`${line}\n`)
+    if (options.json) {
+      process.stdout.write(
+        `${JSON.stringify({
+          ok: false,
+          outcome: 'ambiguous-owner',
+          matched: t,
+          holderCount: picked.candidates.length,
+          holders: notice.holders,
+          nextCommands: notice.commands,
+        })}\n`,
+      )
+    }
+    return 1
+  }
+  const row = picked.row
   if (!row) {
     process.stderr.write(`❌ 匹配集为空(未判定)\n`)
     return 2
@@ -219,6 +247,7 @@ async function runSwitch(options: {
   if (options.dryRun) {
     process.stderr.write(
       `[dry-run] 计划写回: uid=${row.uid} 名称=${row.name} 健康=${row.healthStatus}` +
+        ` 归属=${sw.describePoolOwner(row)}` +
         ` token到期=${fmt(row.tokenExpiresAt)} rt到期=${fmt(row.refreshExpiresAt)}` +
         ` 设备=${device ? '有' : '无'} 档案=${profile ? '有' : '无'} 目标=${storageFile}\n`,
     )
@@ -265,12 +294,20 @@ async function runSwitch(options: {
   }
   if (options.json) {
     process.stdout.write(
-      `${JSON.stringify({ ok: true, uid: row.uid, name: row.name, storageFile, backup, changedKeys: changed })}\n`,
+      `${JSON.stringify({
+        ok: true,
+        uid: row.uid,
+        name: row.name,
+        holder: sw.describePoolOwner(row),
+        storageFile,
+        backup,
+        changedKeys: changed,
+      })}\n`,
     )
     return 0
   }
   process.stderr.write(
-    `✅ 已切号: uid=${row.uid} 名称=${row.name} token到期=${fmt(row.tokenExpiresAt)} 备份=${backup}\n`,
+    `✅ 已切号: uid=${row.uid} 名称=${row.name} 归属=${sw.describePoolOwner(row)} token到期=${fmt(row.tokenExpiresAt)} 备份=${backup}\n`,
   )
   for (const w of warn) process.stderr.write(`  ⚠️ ${w}\n`)
   process.stderr.write(
@@ -288,8 +325,9 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (options.help) {
     process.stdout.write(
-      '用法: pnpm tsx apps/api/scripts/relay-trae-client-switch.ts --list|--current|--to <uid|名称> [--dry-run] [--force] [--json]\n' +
-        '把号池里的 Trae 账号写回本机 Trae 客户端登录态(一键切号;日常入口 = node scripts/switch-trae-client-account.mjs)。\n',
+      '用法: pnpm tsx apps/api/scripts/relay-trae-client-switch.ts --list|--current|--to <uid|名称> [--owner <ops|owner 前缀≥8位>] [--dry-run] [--force] [--json]\n' +
+        '把号池里的 Trae 账号写回本机 Trae 客户端登录态(一键切号;日常入口 = node scripts/switch-trae-client-account.mjs)。\n' +
+        '  --owner  同一 uid 在池里有两个合法持有者(运营池 + 个人池)时定向用;不定向 ⇒ 具名歧义、不写任何文件。\n',
     )
     return 0
   }
