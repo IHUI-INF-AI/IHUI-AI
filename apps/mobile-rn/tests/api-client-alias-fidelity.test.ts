@@ -100,11 +100,7 @@ function maskComments(source: string): string {
       i += 1
       continue
     }
-    if (
-      (state === 'sq' && ch === "'") ||
-      (state === 'dq' && ch === '"') ||
-      (state === 'tpl' && ch === '`')
-    ) {
+    if ((state === 'sq' && ch === "'") || (state === 'dq' && ch === '"') || (state === 'tpl' && ch === '`')) {
       state = 'code'
     }
   }
@@ -243,10 +239,7 @@ function aliasTargetFor(spec: string): { abs: string; index: number } | null {
 
 describe('A1 · 别名面:@ihui/api-client* 必须直指 packages/api-client/src 真实源码', () => {
   it('别名表非空扫描(解析不到任何别名 = 判据失明)', () => {
-    expect(
-      ALIAS_ENTRIES.length,
-      'vitest.config.ts 里没解析出任何别名条目 ⇒ 判据失明',
-    ).toBeGreaterThan(0)
+    expect(ALIAS_ENTRIES.length, 'vitest.config.ts 里没解析出任何别名条目 ⇒ 判据失明').toBeGreaterThan(0)
   })
 
   it(`'${ROOT_SPEC}' 直指真实 barrel(指回 __mocks__ 即红)`, () => {
@@ -264,10 +257,7 @@ describe('A1 · 别名面:@ihui/api-client* 必须直指 packages/api-client/src
 
   it(`'${ENDPOINTS_SPEC}' 直指真实 endpoints 目录,且排在父别名之前`, () => {
     const hit = aliasTargetFor(ENDPOINTS_SPEC)
-    expect(
-      hit,
-      `别名表缺少 ${ENDPOINTS_SPEC}(子路径被父别名吞掉 = 深路径导入解析失败)`,
-    ).toBeTruthy()
+    expect(hit, `别名表缺少 ${ENDPOINTS_SPEC}(子路径被父别名吞掉 = 深路径导入解析失败)`).toBeTruthy()
     const abs = hit!.abs
     expect(isUnder(abs, API_CLIENT_SRC), `${ENDPOINTS_SPEC} 必须直指真实源码:${abs}`).toBe(true)
     try {
@@ -277,19 +267,14 @@ describe('A1 · 别名面:@ihui/api-client* 必须直指 packages/api-client/src
     }
     const parent = aliasTargetFor(ROOT_SPEC)
     expect(parent).toBeTruthy()
-    expect(
-      hit!.index,
-      `${ENDPOINTS_SPEC} 必须排在 ${ROOT_SPEC} 之前(前缀匹配按插入顺序)`,
-    ).toBeLessThan(parent!.index)
+    expect(hit!.index, `${ENDPOINTS_SPEC} 必须排在 ${ROOT_SPEC} 之前(前缀匹配按插入顺序)`).toBeLessThan(parent!.index)
   })
 
   it('父别名不吃子路径:任何更早出现的 key 都不得是 @ihui/api-client 的前缀', () => {
     for (const spec of [ROOT_SPEC, ENDPOINTS_SPEC]) {
       const hit = aliasTargetFor(spec)
       expect(hit, `别名表缺少 ${spec}`).toBeTruthy()
-      const swallowedBy = ALIAS_ENTRIES.filter(
-        (e, i) => i < hit!.index && (spec === e.key || spec.startsWith(`${e.key}/`)),
-      ).map((e) => e.key)
+      const swallowedBy = ALIAS_ENTRIES.filter((e, i) => i < hit!.index && (spec === e.key || spec.startsWith(`${e.key}/`))).map((e) => e.key)
       expect(swallowedBy, `${spec} 会被更早出现的别名 ${swallowedBy.join(', ')} 吞掉`).toEqual([])
     }
   })
@@ -302,28 +287,19 @@ describe('A2 · 替身面:死替身只许转发、不得多名字', () => {
 
   it('真实 barrel 非空扫描(判据的基准面先自证可见)', () => {
     const real = parseExports(REAL_INDEX)
-    expect(
-      real.names.size,
-      'packages/api-client/src/index.ts 一个导出都没解析到 ⇒ 判据失明',
-    ).toBeGreaterThan(50)
+    expect(real.names.size, 'packages/api-client/src/index.ts 一个导出都没解析到 ⇒ 判据失明').toBeGreaterThan(50)
   })
 
   it('替身的导出集合 ⊆ 真实 barrel', () => {
     const real = parseExports(REAL_INDEX)
     const stub = parseExports(STUB_FILE)
     const extra = [...stub.names].filter((n) => !real.names.has(n))
-    expect(
-      extra,
-      `替身导出真实包不存在的名字:${extra.join(', ')} —— 这就是"看着覆盖了 API,实则测虚构 API"那一型`,
-    ).toEqual([])
+    expect(extra, `替身导出真实包不存在的名字:${extra.join(', ')} —— 这就是"看着覆盖了 API,实则测虚构 API"那一型`).toEqual([])
   })
 
   it('替身只许转发(不得自己声明导出,也不得出现无 from 的 export {})', () => {
     const stub = parseExports(STUB_FILE)
-    expect(
-      stub.selfDeclared,
-      `替身自己声明了 ${stub.selfDeclared.join(', ')} ⇒ 那是第二份实现,不是转发`,
-    ).toEqual([])
+    expect(stub.selfDeclared, `替身自己声明了 ${stub.selfDeclared.join(', ')} ⇒ 那是第二份实现,不是转发`).toEqual([])
     expect(stub.localExportNames, '替身里出现不带模块说明符的 export { … } ⇒ 同上').toEqual([])
   })
 })
@@ -358,12 +334,7 @@ describe('A3 · 真实面在测试宿主里可装载(A2 的"只许转发"以此�
     for (const e of entries) {
       const full = path.join(dir, e.name)
       if (e.isDirectory()) collectRealFiles(full, out)
-      else if (
-        /\.tsx?$/.test(e.name) &&
-        !e.name.endsWith('.test.ts') &&
-        !/\.taro\.tsx?$/.test(e.name)
-      )
-        out.push(full)
+      else if (/\.tsx?$/.test(e.name) && !e.name.endsWith('.test.ts') && !/\.taro\.tsx?$/.test(e.name)) out.push(full)
     }
     return out
   }
@@ -387,10 +358,7 @@ describe('A3 · 真实面在测试宿主里可装载(A2 的"只许转发"以此�
 
   it('barrel 不引用 .taro 专用实现(Taro 拆分是"平台边界另开文件"的设计,不是替身理由)', () => {
     const code = readCode(REAL_INDEX)
-    expect(
-      code.includes('.taro'),
-      'index.ts 的代码面引用了 *.taro.* ⇒ 平台实现渗进了共享 barrel',
-    ).toBe(false)
+    expect(code.includes('.taro'), 'index.ts 的代码面引用了 *.taro.* ⇒ 平台实现渗进了共享 barrel').toBe(false)
   })
 })
 
@@ -407,13 +375,7 @@ describe('A4 · 消费方引的名字必须在真实模块里', () => {
       for (const d of entries) {
         const full = path.join(dir, d.name)
         if (d.isDirectory()) {
-          if (
-            d.name === '__mocks__' ||
-            d.name === 'node_modules' ||
-            d.name === 'dist' ||
-            d.name === '.expo'
-          )
-            continue
+          if (d.name === '__mocks__' || d.name === 'node_modules' || d.name === 'dist' || d.name === '.expo') continue
           walk(full)
           continue
         }
@@ -459,16 +421,11 @@ describe('A4 · 消费方引的名字必须在真实模块里', () => {
         banned.push(`${path.relative(REPO_ROOT, f)} → default import "${m[1]}"`)
       }
       for (const m of code.matchAll(reNamespace)) {
-        banned.push(
-          `${path.relative(REPO_ROOT, f)} → namespace import(${m[0].trim()})会让名字判据整体失明`,
-        )
+        banned.push(`${path.relative(REPO_ROOT, f)} → namespace import(${m[0].trim()})会让名字判据整体失明`)
       }
     }
 
-    expect(
-      found.length,
-      '没扫到任何 @ihui/api-client* 的具名消费点 ⇒ 本条判据看不见任何东西',
-    ).toBeGreaterThan(100)
+    expect(found.length, '没扫到任何 @ihui/api-client* 的具名消费点 ⇒ 本条判据看不见任何东西').toBeGreaterThan(100)
     expect(banned, `出现被禁止的导入形态:${banned.join(' | ')}`).toEqual([])
 
     const cache = new Map<string, Set<string>>()
@@ -476,14 +433,10 @@ describe('A4 · 消费方引的名字必须在真实模块里', () => {
     for (const { spec, name, file } of found) {
       if (!cache.has(spec)) {
         const set = parseExports(realFileFor(spec)).names
-        expect(
-          set.size,
-          `真实模块 ${spec} 一个导出都没解析到 ⇒ 判据失明(${path.relative(REPO_ROOT, realFileFor(spec))})`,
-        ).toBeGreaterThan(0)
+        expect(set.size, `真实模块 ${spec} 一个导出都没解析到 ⇒ 判据失明(${path.relative(REPO_ROOT, realFileFor(spec))})`).toBeGreaterThan(0)
         cache.set(spec, set)
       }
-      if (!cache.get(spec)?.has(name))
-        missing.push(`${path.relative(REPO_ROOT, file)} → ${name} @ ${spec}`)
+      if (!cache.get(spec)?.has(name)) missing.push(`${path.relative(REPO_ROOT, file)} → ${name} @ ${spec}`)
     }
     expect(missing, `消费方引了真实模块里不存在的名字:${missing.join(' | ')}`).toEqual([])
   })
@@ -521,25 +474,22 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
     // isConnected 只在真实 WebSocketClient 的实例原型上;替身手抄件没有这条。
     // (注意 Object.getPrototypeOf(类) 拿到的是 Function.prototype —— 判实例成员必须走 .prototype)
     const wscProto = (mod['WebSocketClient'] as { prototype?: Record<string, unknown> }).prototype
-    expect(
-      wscProto && 'isConnected' in wscProto,
-      'WebSocketClient 缺 isConnected ⇒ 拿到的是替身手抄件',
-    ).toBe(true)
+    expect(wscProto && 'isConnected' in wscProto, 'WebSocketClient 缺 isConnected ⇒ 拿到的是替身手抄件').toBe(true)
   })
 
   it('fetchApi 走真实信封映射:200 + code!==0 ⇒ success:false 且 errorCode 原样带出', async () => {
     const { fetchApi } = (await import('@ihui/api-client')) as {
       fetchApi: (url: string, options?: Record<string, unknown>) => Promise<Record<string, unknown>>
     }
+    const body = { code: 4001, message: 'boom', errorCode: 'BIZ_4001' }
     const fetchMock = vi.fn(async (_input: string | URL, _init?: unknown) => {
       void _input
       void _init
-      const body = { code: 4001, message: 'boom', errorCode: 'BIZ_4001' }
       return {
         ok: true,
         status: 200,
         headers: { get: () => null },
-        // BUG-13 起 2xx 走 response.text() 再解析(避免 204/空体 JSON.parse 抛错),替身必须给 text
+        // BUG-13:fetchApi 对 2xx 走 response.text(),mock 必须提供与 json 同源的 text。
         text: async () => JSON.stringify(body),
         json: async () => body,
       } as unknown as Response
@@ -560,15 +510,15 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
     const { branchConversation } = (await import('@ihui/api-client')) as {
       branchConversation: (c: string, m: string) => Promise<Record<string, unknown>>
     }
+    const body = { code: 0, message: 'ok', data: { conversation: { id: 'srv-9' } } }
     const fetchMock = vi.fn(async (_input: string | URL, init?: unknown) => {
       void _input
       void init
-      const body = { code: 0, message: 'ok', data: { conversation: { id: 'srv-9' } } }
       return {
         ok: true,
         status: 200,
         headers: { get: () => null },
-        // 同上:2xx 路径读 text()
+        // BUG-13:fetchApi 对 2xx 走 response.text(),mock 必须提供与 json 同源的 text。
         text: async () => JSON.stringify(body),
         json: async () => body,
       } as unknown as Response
@@ -583,9 +533,7 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
       expect(headers['X-Requested-With']).toBe('XMLHttpRequest')
       expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/chat/conversations/c-1/branch')
       expect(String((init as { method?: string } | undefined)?.method)).toBe('POST')
-      expect(JSON.parse(String((init as { body?: string } | undefined)?.body))).toMatchObject({
-        messageId: 'm-2',
-      })
+      expect(JSON.parse(String((init as { body?: string } | undefined)?.body))).toMatchObject({ messageId: 'm-2' })
     } finally {
       vi.unstubAllGlobals()
     }
@@ -653,10 +601,7 @@ describe('A5 · 运行时:别名拿到的是实现本身,不是 undefined,也不
 
   it('子路径 @ihui/api-client/endpoints/course 经别名解析到真实端点文件(barrel 同名出口一致)', async () => {
     const sub = (await import('@ihui/api-client/endpoints/course')) as Record<string, unknown>
-    expect(
-      typeof sub['getCourseById'],
-      '深路径导入解析失败或函数缺失 ⇒ endpoints 别名被父别名吞了',
-    ).toBe('function')
+    expect(typeof sub['getCourseById'], '深路径导入解析失败或函数缺失 ⇒ endpoints 别名被父别名吞了').toBe('function')
     const barrel = (await import('@ihui/api-client')) as Record<string, unknown>
     expect(barrel['getCourseById']).toBe(sub['getCourseById'])
   })

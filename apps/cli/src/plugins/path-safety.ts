@@ -119,6 +119,14 @@ function classifyRealpathFailure(err: unknown): RealpathFailureVerdict {
   return { kind: 'unsafe', errno, summary };
 }
 
+/**
+ * 路径明确不在。封闭集里的 EISDIR 不算：把目录当成文件读失败，不能说成这份路径没有。
+ */
+export function isDefinitePathAbsence(err: unknown): boolean {
+  const verdict = classifyRealpathFailure(err);
+  return verdict.kind === 'missing' && verdict.errno !== 'EISDIR';
+}
+
 // ==================== 符号链接可达性判定 ====================
 
 /** 失败发生在哪一步(两处的点名信息不同,所以 stage 是一等字段)。 */
