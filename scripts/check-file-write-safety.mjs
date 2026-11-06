@@ -90,12 +90,18 @@ const SCAN_SURFACES = [
   'apps/cli/src/sessions',
   'apps/cli/src/checkpoints',
   'apps/cli/src/subagents/state-store.ts',
+  // 2026-11-07(DBG-41):公告缓存与已读集合原先在射程外,而它们是三处裸 writeFileSync ——
+  // 多 CLI 进程并发写同一文件会互相截断(半截 JSON ⇒ 下次 load 解析失败 ⇒ 整份缓存被静默丢弃),
+  // 且失败被 catch 吞掉、用户侧只表现为"公告又变未读"。已同时改走 writeFileAtomicSync。
+  'apps/cli/src/announcements',
 ]
 /** 状态面:不 import 路径权限闸,但同样必须走原子写(BUG-0044) */
 const STATE_STORE_SURFACES = [
   'apps/cli/src/sessions',
   'apps/cli/src/checkpoints',
   'apps/cli/src/subagents/state-store.ts',
+  // 公告缓存/已读集合同样是"用户目录下的状态快照、无工作区路径权限闸语义"⇒ 同一档
+  'apps/cli/src/announcements',
 ]
 /** 兼容既有导出/用例的锚点(第一个面仍是工具面) */
 const SCAN_DIR = SCAN_SURFACES[0]
