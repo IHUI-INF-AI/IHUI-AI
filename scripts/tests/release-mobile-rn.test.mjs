@@ -15,7 +15,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC_PATH = join(HERE, '..', 'release-mobile-rn.mjs')
 const SRC = readFileSync(SRC_PATH, 'utf8')
 const { __test__ } = await import(import.meta.resolve('../release-mobile-rn.mjs'))
-const { foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, buildStoreLegs, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS } = __test__
+const { foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, buildStoreLegs, probeStoreDimension, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS } = __test__
 const { STORE_VENDORS } = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
 
 const okAndroid = { track: 'alpha', serviceAccountKeyPath: './credentials/x.json' }
@@ -252,6 +252,27 @@ test('M19 .properties 反斜杠判据:成对双写(正确形态)判 found,未成
     assert.match(bad.detail, /未成对/)
   } finally {
     rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('M17 渠道登记面实读单源件:0364+schema+路由在位判 found,缺件点名且不冒绿', () => {
+  const real = probeStoreDimension()
+  assert.equal(real.status, STATUS.FOUND, `store 维度真件未过:${real.detail}`)
+  assert.match(real.detail, /0364/)
+  const missing = probeStoreDimension((rel) => {
+    if (rel.includes('schema')) throw new Error('missing fixture')
+    return 'store'
+  })
+  assert.equal(missing.status, STATUS.MISSING)
+  assert.match(missing.detail, /schema/)
+  const legs = buildStoreLegs({
+    artifacts: { status: STATUS.FOUND, detail: '夹具' },
+    signing: { status: STATUS.FOUND, detail: '夹具' },
+    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.FOUND, detail: '夹具' } })),
+  })
+  for (const leg of legs) {
+    const gap = leg.checks.find((c) => c.k === '渠道登记面')
+    assert.equal(gap.status, STATUS.FOUND, `${leg.id} 仍把已落地的 store 维度报成缺口`)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
