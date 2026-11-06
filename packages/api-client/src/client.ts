@@ -2835,6 +2835,95 @@ export interface ToolApprovalEvent {
   expired?: true
   /** D-07:失效原因(stream_closed / cancelled / timeout),只读展示用 */
   expiredReason?: string
+  // 批次 2(2026-11-06):结构化审批决策信息(camelCase 消费形态)。
+  // 全部可选:缺席 = 老生产者/描述失败,端上退回 argsPreview;不是"没有风险"。
+  reasonCode?: ToolApprovalReasonCode
+  riskLevel?: 'low' | 'medium' | 'high'
+  argv?: string[] | null
+  cwd?: string | null
+  affectedPaths?: string[]
+  scope?: ToolApprovalOperationScope
+  summary?: string
+}
+
+/** 批次 2:审批原因码封闭集(与后端 tool_approval_descriptor.REASON_CODES 同集)。 */
+export const TOOL_APPROVAL_REASON_CODES = [
+  'dangerous_command',
+  'destructive_operation',
+  'writes_files',
+  'deletes_files',
+  'executes_command',
+  'network_access',
+  'database_write',
+  'high_risk_tool',
+  'requires_confirmation',
+] as const
+
+export type ToolApprovalReasonCode = (typeof TOOL_APPROVAL_REASON_CODES)[number]
+
+/** 批次 2:操作作用域封闭集(与后端 OPERATION_SCOPES 同集)。 */
+export const TOOL_APPROVAL_OPERATION_SCOPES = [
+  'fs_read',
+  'fs_write',
+  'fs_delete',
+  'exec',
+  'network',
+  'db',
+  'other',
+] as const
+
+export type ToolApprovalOperationScope = (typeof TOOL_APPROVAL_OPERATION_SCOPES)[number]
+
+/**
+ * 批次 2:结构化审批决策信息的投影(两条审批通道共用,与 D159 env 投影同一条纪律)。
+ * 封闭集外/型不符的字段一律缺席,不折叠成邻近档 —— 前端据此退回 argsPreview,
+ * 而不是把未知原因渲染成已知原因。
+ */
+export function projectToolApprovalDecisionInfo(json: {
+  reason_code?: unknown
+  risk_level?: unknown
+  argv?: unknown
+  cwd?: unknown
+  affected_paths?: unknown
+  scope?: unknown
+  summary?: unknown
+}): Pick<
+  ToolApprovalEvent,
+  'reasonCode' | 'riskLevel' | 'argv' | 'cwd' | 'affectedPaths' | 'scope' | 'summary'
+> {
+  const out: Pick<
+    ToolApprovalEvent,
+    'reasonCode' | 'riskLevel' | 'argv' | 'cwd' | 'affectedPaths' | 'scope' | 'summary'
+  > = {}
+  if (
+    typeof json.reason_code === 'string' &&
+    (TOOL_APPROVAL_REASON_CODES as readonly string[]).includes(json.reason_code)
+  ) {
+    out.reasonCode = json.reason_code as ToolApprovalReasonCode
+  }
+  if (json.risk_level === 'low' || json.risk_level === 'medium' || json.risk_level === 'high') {
+    out.riskLevel = json.risk_level
+  }
+  if (Array.isArray(json.argv) && json.argv.every((item) => typeof item === 'string')) {
+    out.argv = json.argv as string[]
+  } else if (json.argv === null) {
+    out.argv = null
+  }
+  if (typeof json.cwd === 'string') out.cwd = json.cwd
+  else if (json.cwd === null) out.cwd = null
+  if (Array.isArray(json.affected_paths)) {
+    out.affectedPaths = json.affected_paths.filter(
+      (item): item is string => typeof item === 'string',
+    )
+  }
+  if (
+    typeof json.scope === 'string' &&
+    (TOOL_APPROVAL_OPERATION_SCOPES as readonly string[]).includes(json.scope)
+  ) {
+    out.scope = json.scope as ToolApprovalOperationScope
+  }
+  if (typeof json.summary === 'string') out.summary = json.summary
+  return out
 }
 
 /**
@@ -3511,6 +3600,20 @@ export function tailWithOmittedCount<T>(
 const STREAM_MAX_RETRIES = 3
 const STREAM_INITIAL_RETRY_DELAY = 1000
 const STREAM_MAX_RETRY_DELAY = 30_000
+/**
+ * 读流空闲看门狗(ms):单个 chunk 间空闲超过该值即判本次尝试断线。
+ *
+ * 2026-11-06 批1 起该值与服务端 SSE 周期心跳间隔(15s,`apps/api/src/utils/
+ * sse-stream-registry.ts` 的唯一实现)绑定为 2 拍 —— 任意字节(含 `: ping`
+ * 注释帧)都会让 `reader.read()` 返回、重置窗口,因此容忍偶发丢一拍仍不断流;
+ * 连续两拍无字节才 abort 重连(带 Last-Event-ID 续传,不重跑上游)。
+ *
+ * 为什么不 import `@ihui/shared/constants` 的 STREAM_READ_TIMEOUT_MS:本包
+ * dependencies 只有 @ihui/types,补 @ihui/shared 会形成 shared↔api-client 依赖环
+ * (见 packages/shared/src/constants.ts 与 tests/g-693-stream-idle-parity.test.ts 头注)。
+ * 两处取值同值,改动必须同步(shared 侧已写明"与 client.ts 保持一致")。
+ */
+const STREAM_READ_TIMEOUT_MS = 30_000
 
 /**
  * 2026-08-06 修复:创建 AbortError 的安全工厂。
@@ -3654,7 +3757,7 @@ export async function runResumableSSEStream(opts: ResumableSSEStreamOptions): Pr
   const maxRetries = opts.maxRetries ?? STREAM_MAX_RETRIES
   const initialRetryDelayMs = opts.initialRetryDelayMs ?? STREAM_INITIAL_RETRY_DELAY
   const maxRetryDelayMs = opts.maxRetryDelayMs ?? STREAM_MAX_RETRY_DELAY
-  const readTimeoutMs = opts.readTimeoutMs ?? 30_000
+  const readTimeoutMs = opts.readTimeoutMs ?? STREAM_READ_TIMEOUT_MS
   // 断点续传游标:捕获 SSE id: 行,重连时经 appendResumeEventIdHeader 回传
   let lastEventId = ''
   let attempt = 0
@@ -4556,6 +4659,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           // D159:执行环境/网络目标事实必须随帧递出 —— 解析层不递 ⇒ 弹窗那一块
           // 结构上永远是"字段缺席=整块不渲染",组件测得再全也到不了端。
           ...projectToolApprovalEnvFacts(json),
+          // 批次 2:结构化决策信息(原因/风险/argv/cwd/路径/作用域/摘要)。
+          ...projectToolApprovalDecisionInfo(json),
           // D-07(2026-10-26):失效留痕帧原样递出 expired 标记,消费方据此分流成提示
           // 而不是弹窗。与 replay 同理 —— 解析层不递,端上就永远看不到"丢过什么"。
           ...projectToolApprovalExpiredFact(json),
@@ -5826,8 +5931,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       headers,
       signal: opts.signal,
       maxRetries,
-      // 原 streamChat 读环的 30s 读超时,数值逐字保留
-      readTimeoutMs: 30_000,
+      // 原 streamChat 读环的 30s 读超时:改为同一命名常量(2 拍服务端心跳),
+      // 数值与行为逐字不变,只消灭本文件内第二个硬编码字面量。
+      readTimeoutMs: STREAM_READ_TIMEOUT_MS,
       // 2026-07-27 跨域 SSE 直连:携带 credentials 让 CORS 允许凭证,
       // Bearer token 在 Authorization header 中不受影响。
       credentials: 'include',
