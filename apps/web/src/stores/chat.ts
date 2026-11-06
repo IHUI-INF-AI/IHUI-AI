@@ -2559,13 +2559,17 @@ export function createChatStore(persistName: string = 'ihui-chat') {
 /** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
 export const useChatStore = createChatStore()
 
-export type ColdStartTitleMode = 'auto' | 'user'
-
+/**
+ * 冷启快照项。2026-11-07 范围收窄:原设计还带 `titleMode`(auto/user)与 `spaceName`,
+ * 但这两项在 web 侧没有任何数据源 —— 会话列表上游(`GET /conversations` →
+ * `serializeConversation`,apps/api/src/routes/chat.ts)只回 id/title/model/metadata/
+ * lastMessageAt…,`chat_conversations` 表也无对应列,前端也无同源派生值。
+ * 收窄不是临时妥协:快照只承担"列表预填 + 深链预对",不展示工作区名与标题来源;
+ * 若将来要展示,先补上游字段再把契约扩回来,不要在端内编造。
+ */
 export type ColdStartItem = {
   id: string
   title: string
-  titleMode: ColdStartTitleMode
-  spaceName: string
 }
 
 export type ColdStartPlan = {
@@ -2589,7 +2593,10 @@ export type ColdStartPlan = {
 }
 
 const COLD_START_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/
-const COLD_START_ROUTE = /^\/conversation\/([A-Za-z0-9][A-Za-z0-9_-]{0,80})$/
+// web 端真实深链形态:`/chat?conversationId=<id>`(apps/web/app/(main)/chat/page.tsx 的
+// ChatConversationSync 用 useSearchParams 取 conversationId)。仓库里不存在
+// `/conversation/<id>` 路由,原契约的该形态是臆造,2026-11-07 一并纠正。
+const COLD_START_ROUTE = /^\/chat\?conversationId=([A-Za-z0-9][A-Za-z0-9_-]{0,80})$/
 const COLD_START_FUTURE_MS = 5 * 60 * 1000
 
 function coldStartClock(value: unknown, now: number): 'ok' | 'missing' | 'ahead' | 'bad' {
@@ -2608,35 +2615,22 @@ function readColdStartItem(value: unknown): ColdStartItem | null {
   const row = value as Record<string, unknown>
   if (typeof row.id !== 'string' || !COLD_START_ID.test(row.id)) return null
   if (typeof row.title !== 'string') return null
-  if (row.titleMode !== 'auto' && row.titleMode !== 'user') return null
-  if (typeof row.spaceName !== 'string' || row.spaceName.trim() === '') return null
-  return { id: row.id, title: row.title, titleMode: row.titleMode, spaceName: row.spaceName }
+  return { id: row.id, title: row.title }
 }
 
 /**
- * 冷启动分两段:列表快照可以先显示,深链必须指向这份快照里的会话。
- * 标题档只认 auto/user,数字或布尔不折成用户标题。
- * 快照或当前时刻没量到就不恢复。本函数不写盘、不导航。
+ * 冷启动分两段:列表快照可以先显示(侧栏首屏预填),深链命中快照才预打开会话。
+ * 快照或当前时刻没量到就不采信(items 置 null,消费端安静跳过)。本函数纯判定:不写盘、不导航。
  *
- * 接线状态(2026-11-07 判定):**未接线 —— 上游缺数据,待产品拍板**,不是缺一个调用点。
- * 证据与缺口:
- * - 快照项要求 `titleMode`(auto/user)与 `spaceName`,但会话列表上游
- *   (`GET /conversations` → `serializeConversation`,apps/api/src/routes/chat.ts)只回
- *   id/title/model/metadata/lastMessageAt/createdAt/updatedAt/archivedAt...,`chat_conversations`
- *   表也没有这两列(packages/database/src/schema/chat.ts);全仓检索除本契约与其用例无第三处。
- *   ⇒ 会话列表首屏写不出合法 items,`readColdStartItem` 恒 null ⇒ 整份快照 `item-unreadable`。
- * - 契约 route 形态 `/conversation/<id>` 在 web 不存在:真实深链是
- *   `/chat?conversationId=<id>`(apps/web/app/(main)/chat/page.tsx 的 ChatConversationSync);
- *   `apps/web` 内 `/conversation/` 除本契约与用例零命中。
- *   ⇒ 即便快照可写,route 也恒 `route-invalid`。
- * 结论:现在硬接线只会恒落 `unjudged`,即"接了但不生效"——按伪造接线处理,故不做。
- * 最小可行替代(待产品择一):
- *   A. 收窄项契约为 `{ id, title }`(列表行不再展示工作区名/标题来源),route 认真实
- *      `/chat?conversationId=<id>`;写入方放会话列表首屏成功处(节流落 localStorage),
- *      消费方放 ChatConversationSync 冷启首跑,并确认 `list-only` 是否真要"不导航"
- *      (现网深链并不校验本地快照,直接不导航会拦掉合法深链)。
- *   B. 上游补 `titleMode`/`spaceName`(列表接口 + 改名/自动标题落 metadata),契约不变。
- * 接入前本函数只由单测消费,不得作为功能宣称。
+ * 接线状态(2026-11-07):**已接线**,写入方与消费方同源(都走 lib/cold-start-restore.ts):
+ * - 写入:`sidebar-chat-history.tsx` 会话列表首屏成功处 → `writeColdStartSnapshot(userId, rows)`;
+ *   落 localStorage,按 userId 分桶,内容不变时不重写。
+ * - 消费:`chat/page.tsx` 的 `ChatConversationSync` 冷启首跑 → `applyColdStartRestore`,
+ *   `restore` 时预打开 routeId;侧栏用 `buildColdStartPlaceholder` 取同一快照预填首屏。
+ * - **不拦截导航**:快照只是提示/预填。任何合法 conversationId 都由既有深链同步照常进入;
+ *   快照缺失/不可读/route 不匹配(含 `list-only`)一律安静跳过,不阻断、不报错。
+ * - 项契约已收窄为 `{ id, title }`(原因见 ColdStartItem 注释);route 只认真实形态
+ *   `/chat?conversationId=<id>`。
  */
 export function planColdStartRestore(input: {
   now: unknown

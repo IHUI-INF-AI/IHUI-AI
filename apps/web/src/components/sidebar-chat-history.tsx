@@ -7,6 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { InfiniteData } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import {
   Loader2,
@@ -103,6 +104,8 @@ import {
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+// 2026-11-07 冷启快照:写入点=本组件首屏成功处,预填=同源快照(只作提示,不拦截深链)
+import { buildColdStartPlaceholder, writeColdStartSnapshot } from '@/lib/cold-start-restore'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 // D187:标记未读圆点悬停提示(§4 禁原生提示窗,与 conversation-list 未读徽章同款)
@@ -344,6 +347,16 @@ export function SidebarChatHistory({
     }
   }, [pendingRenameId])
 
+  // 2026-11-07 冷启快照预填:只作提示。快照不可用/未登录时返回 undefined(退回原骨架屏);
+  // 真实首屏返回后占位即被替换;深链导航从不依赖本快照,故这里不会拦住任何会话。
+  // 显式标注成列表查询的数据型,避免 placeholderData 的值型参与 TData 推断、
+  // 把 data 收窄成"接口行 ∪ 快照行"的联合(下游排序/过滤会拿不到 ConversationItem 字段)
+  const coldStartPlaceholder: InfiniteData<ConversationsResponse, number> | undefined =
+    React.useMemo(
+      () => (ready && isAuthenticated ? buildColdStartPlaceholder(userId) : undefined),
+      [ready, isAuthenticated, userId],
+    )
+
   const {
     data,
     isLoading,
@@ -351,7 +364,13 @@ export function SidebarChatHistory({
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<
+    ConversationsResponse,
+    Error,
+    InfiniteData<ConversationsResponse, number>,
+    readonly ['chat', 'conversations', 'infinite'],
+    number
+  >({
     queryKey: ['chat', 'conversations', 'infinite'],
     queryFn: ({ pageParam = 1 }) => fetchConversations(pageParam),
     initialPageParam: 1,
@@ -359,12 +378,23 @@ export function SidebarChatHistory({
       const totalPages = Math.ceil(last.total / last.pageSize)
       return last.page < totalPages ? last.page + 1 : undefined
     },
+    // 冷启快照占位:仅首屏未有真实数据时生效(react-query 语义),有真实/缓存数据时不覆盖
+    placeholderData: coldStartPlaceholder,
     // 2026-10-15:本行原本只看 isAuthenticated —— 冷启动时它可能是 localStorage 残留的
     // true 而 bootstrap 还没跑完,侧栏照样抢跑一发注定 401 的请求(L252-254 已取 ready
     // 却没进 enabled,即本模式原始缺陷)。补 ready 后所有会话冷启动的抢跑一并止血。
     enabled: ready && isAuthenticated && !collapsed,
     staleTime: 30 * 1000,
   })
+
+  // 2026-11-07 冷启快照写入点(会话列表首屏成功处):供下次冷启动预填列表。
+  // 只在已登录态写,按 userId 分桶;内容不变时 writer 内部跳过,不刷新 savedAt。
+  const firstPage = data?.pages?.[0]
+  React.useEffect(() => {
+    if (!ready || !isAuthenticated || !userId) return
+    if (!firstPage || firstPage.conversations.length === 0) return
+    writeColdStartSnapshot(userId, firstPage.conversations)
+  }, [ready, isAuthenticated, userId, firstPage])
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

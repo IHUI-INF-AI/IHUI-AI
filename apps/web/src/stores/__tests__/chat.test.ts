@@ -1303,24 +1303,21 @@ describe('冷启动先显示列表再对深链', () => {
   const snapshot = {
     version: 1,
     savedAt: '2026-11-06T05:09:00.000Z',
-    items: [{ id: 'c1', title: '进行中', titleMode: 'user', spaceName: 'G:/IHUI-AI' }],
+    items: [{ id: 'c1', title: '进行中' }],
   }
 
-  it('数字标题档不折成用户标题,深链不在快照里只留列表', () => {
+  it('深链命中快照才恢复,项不可读/不在快照里只留列表', () => {
     expect(
       planColdStartRestore({
         now,
         snapshot,
-        route: { path: '/conversation/c1', savedAt: '2026-11-06T05:09:30.000Z' },
+        route: { path: '/chat?conversationId=c1', savedAt: '2026-11-06T05:09:30.000Z' },
       }),
     ).toMatchObject({ disposition: 'restore', routeId: 'c1' })
     expect(
       planColdStartRestore({
         now,
-        snapshot: {
-          ...snapshot,
-          items: [{ id: 'c1', title: '进行中', titleMode: 2, spaceName: 'G:/IHUI-AI' }],
-        },
+        snapshot: { ...snapshot, items: [{ id: 'c1', title: 2 }] },
         route: null,
       }).reason,
     ).toBe('item-unreadable')
@@ -1328,7 +1325,7 @@ describe('冷启动先显示列表再对深链', () => {
       planColdStartRestore({
         now,
         snapshot,
-        route: { path: '/conversation/missing', savedAt: '2026-11-06T05:09:30.000Z' },
+        route: { path: '/chat?conversationId=missing', savedAt: '2026-11-06T05:09:30.000Z' },
       }),
     ).toMatchObject({ disposition: 'list-only', reason: 'route-absent', routeId: null })
     expect(planColdStartRestore({ now, snapshot: null, route: null }).reason).toBe(

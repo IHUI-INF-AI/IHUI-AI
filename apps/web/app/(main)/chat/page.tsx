@@ -31,6 +31,8 @@ import { useMounted } from '@/hooks/use-mounted'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { clearTurnDeepLink, parseTurnParam, setTurnDeepLink } from '@/lib/turn-deeplink'
+// 2026-11-07 冷启快照消费点(与 sidebar-chat-history.tsx 的写入点同源)
+import { applyColdStartRestore } from '@/lib/cold-start-restore'
 import { usePaneSplitStore } from '@/stores/pane-split'
 import { ROOT_PANE_ID, collectPaneLeaves } from '@ihui/shared/chat/multi-pane'
 import { Button } from '@ihui/ui-react'
@@ -58,8 +60,22 @@ function resolveDeepLinkPaneId(conversationId: string): string | null {
  */
 function ChatConversationSync() {
   const searchParams = useSearchParams()
+  const coldStartApplied = React.useRef(false)
   React.useEffect(() => {
     const convId = searchParams.get('conversationId')
+    // 2026-11-07 冷启首跑(真实消费点):快照只作提示 —— 命中快照时提前把会话摆正并开面板;
+    // 未命中/不可读时 applyColdStartRestore 只返回 list-only/unjudged,什么都不做,
+    // 下方常规深链同步照常执行 ⇒ 任何合法 conversationId 都不会被本地快照拦住。
+    // 带 ?turn= 的深链交给下方常规路径(锚点必须先于 setConversationId 写入),本段不插手。
+    if (!coldStartApplied.current) {
+      coldStartApplied.current = true
+      if (parseTurnParam(searchParams.get('turn')) === null) {
+        applyColdStartRestore({
+          userId: useAuthStore.getState().user?.id ?? null,
+          conversationId: convId,
+        })
+      }
+    }
     // 差距④(2026-10-30 立):?turn=<turnOrdinal> 深链锚点。目标必须在
     // setConversationId **之前**写入 —— conversationId 变更触发的 loadHistory effect
     // 要能 peek 到它,改走 around 居中窗口。无 turn 参数即清:URL 是目标的唯一权威,
