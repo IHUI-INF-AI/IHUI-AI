@@ -19,7 +19,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync, type Stats } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -137,13 +137,22 @@ export interface ManagedRelayResult {
 
 let memo: ManagedRelayResult | null = null;
 
+function errnoOf(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && code !== '') return code;
+  }
+  return 'unknown';
+}
+
 /** 进程内至多启动一枚 relay;拿不到就绪 ⇒ url=null + 点名(失效方向是"不点腿",不是"假装点")。 */
 export function ensureManagedEgressRelay(
   env: Record<string, string | undefined>,
   cwd: string,
+  stat?: (target: string) => Stats,
 ): ManagedRelayResult {
   if (memo !== null) return memo;
-  memo = launchManagedEgressRelay(env, cwd);
+  memo = launchManagedEgressRelay(env, cwd, stat);
   return memo;
 }
 
@@ -155,8 +164,17 @@ export function resetManagedEgressRelayForTests(): void {
 function launchManagedEgressRelay(
   _env: Record<string, string | undefined>,
   cwd: string,
+  stat?: (target: string) => Stats,
 ): ManagedRelayResult {
-  const root = findProjectRoot(cwd);
+  let root: string | null;
+  try {
+    root = findProjectRoot(cwd, stat);
+  } catch (error) {
+    return {
+      url: null,
+      warnings: [`egress relay: project root unreadable (${errnoOf(error)}); proxy leg not wired (undetermined, not a pass)`],
+    };
+  }
   if (root === null) {
     return {
       url: null,
@@ -174,9 +192,15 @@ function launchManagedEgressRelay(
   }
   const readyFile = join(root, '.ihui-agent', 'state', 'egress-relay.ready.json');
   try {
-    unlinkSync(readyFile); // 上一次会话的残影先清,免得探针认假账
-  } catch {
-    // 不存在即无需清
+    unlinkSync(readyFile);
+  } catch (error) {
+    const code = errnoOf(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      return {
+        url: null,
+        warnings: [`egress relay: previous ready file unreadable (${code}); proxy leg not wired`],
+      };
+    }
   }
   const payload: RunnerPayload = {
     v: 1,
