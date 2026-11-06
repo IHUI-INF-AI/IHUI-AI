@@ -2563,8 +2563,15 @@
     {
       "idx": 369,
       "version": "7",
-      "when": 1793948400000,
-      "tag": "20261106150000_fix_missing_indexes_fks",
+      "when": 1793959200000,
+      "tag": "20261106180000_share_token_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1793971800000,
+      "tag": "20261106213000_agent_meta_lessons_indexes",
       "breakpoints": true
     }
   ]
