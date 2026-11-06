@@ -117,7 +117,9 @@ const PANELS = [
       'shellStyles.materialSheet',
       'shellStyles.detailDialogContent',
     ],
-    vars: ['dialogHeightStyle', 'materialHeightStyle'],
+    // 模型弹窗改为「只取数值上限 + 实测内容高」的自适应面板:上限用 dialogMaxHeightStyle,
+    // 仍是单一真相源产出的运行时像素值,故并入同一组可接受变量。
+    vars: ['dialogHeightStyle', 'materialHeightStyle', 'dialogMaxHeightStyle'],
     min: 3,
     hook: 'useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)',
   },
