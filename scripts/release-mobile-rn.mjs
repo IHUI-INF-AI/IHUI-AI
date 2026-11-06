@@ -917,10 +917,16 @@ async function main() {
         message,
         '--non-interactive',
       ],
-      { timeout: 900000 },
+      // 15 min 不够:2026-11-05/06 三次成功轮实测 3.5–9 min,而 2026-11-06T144615Z 一轮超过
+      // 15 min 被 execFileSync 杀掉(exit=null,stdout 只剩入口横幅)。放宽到 30 min,超过才按
+      // "真卡死"处理 —— 外层计划任务单轮上限 4h,不会因此无限挂。
+      { timeout: 1800000 },
     )
     for (const line of summaryLines(r.out)) console.log(`  ${line}`)
     if (r.code !== 0) {
+      // 被杀(code=null)时 stdout 只有开头几行;先把最后几条结论行打出来,否则事后分不清
+      // "卡在打包"还是"卡在上传"。
+      for (const line of summaryLines(r.out)) console.log(`  ${line}`)
       console.log(
         `eas update(${channel}) exit=${r.code} ${firstMeaningfulLine(r.err) || firstMeaningfulLine(r.out)}`,
       )
