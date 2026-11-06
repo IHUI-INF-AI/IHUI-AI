@@ -1830,4 +1830,26 @@ def test_validate_image_dup_check_exception_is_fail(monkeypatch, tmp_path) -> No
     item22 = next(r for r in reports if r.startswith("22."))
     assert "(失败)" in item22
     assert "跳过" not in item22
+
+
+def test_token_cache_write_is_atomic_on_failure(monkeypatch, tmp_path) -> None:
+    """K5: token 缓存写盘失败不得截断旧缓存;走 temp + os.replace,临时文件不残留。"""
+    import importlib
+
+    wp = importlib.import_module("app.skills.content_engine.lib.wechat_publish")
+    cache = tmp_path / ".wechat_token_cache.json"
+    cache.write_text('{"access_token": "old-token", "expires_at": 9999999999}', encoding="utf-8")
+    monkeypatch.setattr(wp, "TOKEN_CACHE", str(cache))
+    monkeypatch.setattr(wp, "_load_env", lambda: ("appid", "secret"))
+    monkeypatch.setattr(wp, "_api_get", lambda _url: {"access_token": "new", "expires_in": 7200})
+
+    def _boom(*_a, **_kw):
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr(wp.json, "dump", _boom)
+    with pytest.raises(OSError):
+        wp.get_access_token(force_refresh=True)
+
+    assert cache.read_text(encoding="utf-8") == '{"access_token": "old-token", "expires_at": 9999999999}'
+    assert not list(tmp_path.glob(".wechat_token_cache.*.tmp"))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

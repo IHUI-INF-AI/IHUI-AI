@@ -17,6 +17,7 @@ import mimetypes
 import os
 import stat
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -157,8 +158,24 @@ def get_access_token(force_refresh: bool = False) -> str | None:
             'access_token': result['access_token'],
             'expires_at': time.time() + result.get('expires_in', 7200)
         }
-        with open(TOKEN_CACHE, 'w') as f:
-            json.dump(cache, f)
+        # 并发写最坏后果:两个进程各自 open('w')+json.dump 会互相截断,可能写出
+        # 不可解析的 JSON(下一次取 token 直接失败)。故必须 temp + os.replace:
+        # 每个写者先落一个完整临时文件,replace 原子生效,读者永远看到完整旧/新文件;
+        # 并发时最后一名覆盖(短暂不一致、可恢复),不加进程锁。
+        fd, tmp_path = tempfile.mkstemp(
+            dir=PROJECT_ROOT, prefix='.wechat_token_cache.', suffix='.tmp'
+        )
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(cache, f)
+            os.replace(tmp_path, TOKEN_CACHE)
+            tmp_path = None  # type: ignore[assignment]
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
         print(f'✅ access_token获取成功（有效期{result.get("expires_in", 7200)}秒）')
         return cast(str, result['access_token'])
     else:
