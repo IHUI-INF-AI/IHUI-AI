@@ -120,6 +120,7 @@ export function KnowledgeBaseScreen({
           {selectionMode ? (
             <TouchableOpacity
               onPress={() => onToggleSelect?.(item.id)}
+              hitSlop={8}
               activeOpacity={0.7}
               style={[styles.checkBox, selected && styles.checkBoxOn]}
               accessibilityRole="checkbox"
