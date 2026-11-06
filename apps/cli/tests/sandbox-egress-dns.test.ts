@@ -33,7 +33,7 @@ import {
   type DomainResolver,
 } from '../src/sandbox/egress/dns-adjudicator.js';
 import { applyEgressEnvExit, buildEgressEnvExit } from '../src/sandbox/egress/env-inject.js';
-import { appendEgressAuditRows, ledgerViolation, toAuditRow, FORBIDDEN_LEDGER_KEYS } from '../src/sandbox/egress/audit-ledger.js';
+import { appendEgressAuditRows, ledgerViolation, resolveLedgerPath, toAuditRow, FORBIDDEN_LEDGER_KEYS } from '../src/sandbox/egress/audit-ledger.js';
 
 function policyOf(rows: readonly EgressRule[], over: Partial<EgressPolicy> = {}): EgressPolicy {
   return { rules: rows, defaultDecision: 'allow', addressProof: false, enforcement: 'advisory', source: 'test', ...over };
@@ -217,6 +217,10 @@ describe('egress/env-inject — env 出口形态 + 留痕形状', () => {
     else expect(noRoot.state).toBe('written'); // 盘根上真挂着仓库根的那台机:落到 written 也算判过
     // 0 行不是"未判定",是"没发生":显式分档,免得把空集读成护栏坏了
     expect(appendEgressAuditRows([], { startDir: process.cwd(), env: {}, append: () => null }).state).toBe('skipped');
+    const denied = Object.assign(new Error('denied'), { code: 'EACCES' });
+    expect(resolveLedgerPath(process.cwd(), {}, () => {
+      throw denied;
+    })).toBeNull();
   });
 });
 
