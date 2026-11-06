@@ -29,6 +29,7 @@ export const STATUS_LABEL: Record<WithdrawalItem['status'], string> = {
   rejected: 'withdrawals.status.rejected',
   completed: 'withdrawals.status.completed',
   failed: 'withdrawals.status.failed',
+  processing: 'status.processing',
 }
 export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   pending: 'bg-amber-500/10 text-amber-600',
@@ -36,6 +37,7 @@ export const STATUS_STYLE: Record<WithdrawalItem['status'], string> = {
   rejected: 'bg-muted text-muted-foreground',
   completed: 'bg-emerald-500/10 text-emerald-600',
   failed: 'bg-red-500/10 text-red-600',
+  processing: 'bg-sky-500/10 text-sky-600',
 }
 export const FLOW_STATUS: Record<number, string> = {
   0: 'withdrawals.flowStatus.processing',
