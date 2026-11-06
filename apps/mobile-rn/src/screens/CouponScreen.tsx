@@ -96,6 +96,7 @@ export function CouponScreen() {
       error={error}
       onRefresh={refresh}
       onBack={() => navigation.goBack()}
+      onOpenCouponCenter={() => navigation.navigate('Promotion')}
       colorScheme={resolvedTheme}
     />
   )
