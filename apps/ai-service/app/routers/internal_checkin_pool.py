@@ -4,8 +4,8 @@
 
 """O64 号池↔签到助手同步 internal API(2026-10-23 立)。
 
-内网端点(api -> ai-service),鉴权 = X-Internal-Secret 匹配 ai_callback_secret
-(与 api 侧 AI_CALLBACK_SECRET 约定一致;input_sanitizer 对该头已有放行)。
+内网端点(api -> ai-service),鉴权 = X-Internal-Secret 族统一出口(2026-11-06):
+默认只认短期票(scope=checkin-pool);旧共享密钥仅在显式 dual/legacy 兼容档有效。
 **不走用户 JWT**:签到账号落固定系统 owner(checkin_store.POOL_SYNC_OWNER),
 用户态 API 按 owner 过滤 ⇒ 用户 UI 零感知。
 
@@ -24,14 +24,13 @@ codearts 等无签到引擎的平台由 api 侧在映射表就标 skipped,到这
 
 from __future__ import annotations
 
-import secrets as _secrets
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
+from app.core.internal_secret_auth import authorize_internal_secret_call
 from app.services import checkin_store
 from app.services.checkin_store import POOL_SYNC_OWNER
 
@@ -42,14 +41,9 @@ router = APIRouter(prefix="/internal/checkin", tags=["checkin-internal"])
 _POOL_PLATFORMS = ("trae", "workbuddy", "qoder", "minimax")
 
 
-def _require_internal(request: Request) -> None:
-    """内网密钥校验:未配置 503(不裸奔),不匹配 401。compare_digest 防时序侧信道。"""
-    secret = settings.ai_callback_secret
-    if not secret:
-        raise HTTPException(status_code=503, detail="内部密钥未配置(ai_callback_secret)")
-    provided = request.headers.get("X-Internal-Secret") or ""
-    if not _secrets.compare_digest(provided, secret):
-        raise HTTPException(status_code=401, detail="内部密钥不匹配")
+async def _require_internal(request: Request) -> None:
+    """内网鉴权:X-Internal-Secret 族统一出口(票优先;兼容档才认旧密钥)。"""
+    await authorize_internal_secret_call(request.headers, expected_scope="checkin-pool")
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +145,7 @@ def _build_device_map(acc: PoolAccountIn) -> dict[str, Any]:
 @router.post("/pool-sync")
 async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
     """账号 upsert:逐条 create_account(身份合并 + 版本防降级),结果逐条回状态。"""
-    _require_internal(request)
+    await _require_internal(request)
     if body.platform not in _POOL_PLATFORMS:
         # 白名单外平台(如 codearts):逐条 skipped,不假装同步成功
         return {
@@ -205,7 +199,7 @@ async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
 @router.post("/pool-state")
 async def pool_state(body: PoolStateIn, request: Request) -> dict[str, Any]:
     """状态联动:enabled / disabled / pool_deleted(停用保历史,不物理删)。"""
-    _require_internal(request)
+    await _require_internal(request)
     results: list[dict[str, Any]] = []
     for item in body.items:
         try:
@@ -244,7 +238,7 @@ async def pool_status_endpoint(
     ownerUserId: str | None = None,
 ) -> dict[str, Any]:
     """单账号签到状态(admin/个人池点查):记录/冷却/同步态/pending 回写标记。"""
-    _require_internal(request)
+    await _require_internal(request)
     return await checkin_store.pool_status(
         platform,
         uid,
@@ -272,7 +266,7 @@ class PoolRunIn(BaseModel):
 async def pool_accounts_endpoint(request: Request) -> dict[str, Any]:
     """系统 owner 全量摘要(对账收敛器用):poolAccountId / poolCredVersion /
     enabled / poolPendingCred;jwt 明文不出库。"""
-    _require_internal(request)
+    await _require_internal(request)
     return {"accounts": await checkin_store.list_pool_accounts()}
 
 
@@ -284,7 +278,7 @@ async def pool_cred_flush(body: PoolCredFlushIn, request: Request) -> dict[str, 
     expires_at 即回写载荷,与 checkin_one 末尾同一条代码路径;上次失败留的
     pool_pending_cred 在此自然重试。单账号失败不拖垮整批。
     """
-    _require_internal(request)
+    await _require_internal(request)
     # 延迟 import:该模块 import 链更重(httpx/api_tools_bridge),仅 flush 路径需要
     from app.services.checkin_pool_writeback import cred_fingerprint, maybe_writeback
 
@@ -327,7 +321,7 @@ async def pool_run(body: PoolRunIn, request: Request) -> dict[str, Any]:
     全局闸门与账号冷却(命中 429,绝不提供绕过冷却的后门);结果照写 records,
     积分/冷却语义与自动调度完全一致。
     """
-    _require_internal(request)
+    await _require_internal(request)
     # 延迟 import:scheduler 模块重(引擎/风控),仅 pool-run 路径需要
     from app.services import checkin_scheduler as checkin_scheduler_mod
 
