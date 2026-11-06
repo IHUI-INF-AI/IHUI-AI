@@ -25,6 +25,8 @@ import { readManifestChecked, type CorruptManifestEntry } from './manifest-integ
 // 会话/检查点 id 路径穿越修复:目录段收敛 + 根内/realpath 断言统一走 util/path-guard。
 // manifest 里的 files 键属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
 import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
+// BUG-0010:检查点 manifest 是"回滚赖以判断 files 档值"的状态,落盘必须原子(中断不留半截 JSON)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export * from './hunk-tracker.js';
 
@@ -159,11 +161,7 @@ export class CheckpointManager {
       }
     }
 
-    fs.writeFileSync(
-      path.join(cpDir, 'manifest.json'),
-      JSON.stringify(meta, null, 2),
-      'utf-8',
-    );
+    writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
 
     this.pruneOldCheckpoints();
     return meta;

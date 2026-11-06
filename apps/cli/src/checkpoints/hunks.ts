@@ -24,6 +24,8 @@ import { readManifestChecked, type CorruptManifestEntry } from './manifest-integ
 // 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
 // manifest 里的 file 字段属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
 import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
+// BUG-0010:hunk 检查点 manifest 同为回滚依赖的状态,落盘必须原子。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -191,11 +193,7 @@ export class HunkCheckpointManager {
 
     const cpDir = segmentPathInside(this.baseDir, id, 'hunk 检查点目录');
     this.ensureDir(cpDir);
-    fs.writeFileSync(
-      path.join(cpDir, 'manifest.json'),
-      JSON.stringify(meta, null, 2),
-      'utf-8',
-    );
+    writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
 
     this.pruneOldCheckpoints();
     return meta;

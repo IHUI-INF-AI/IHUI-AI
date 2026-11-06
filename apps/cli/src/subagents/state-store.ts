@@ -25,6 +25,8 @@ import { hydrateToolStateMap } from '../sessions/tool-part-hydration.js';
 import { isRecord } from '../util/json.js';
 // subagent 状态行文件名由 id 拼出:收敛 + 根内/realpath 断言统一走 util/path-guard。
 import { segmentFilePathInside } from '../util/path-guard.js';
+// BUG-0010:subagent 状态行落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 import type { SubagentLifecycleStatus } from './types.js';
 import { SUBAGENT_LIFECYCLE_STATUSES, isSubagentTerminalStatus } from './types.js';
 
@@ -123,7 +125,7 @@ export function saveSubagentState(state: SubagentState): void {
 function writeStateRow(state: SubagentState): void {
   ensureStateDir();
   const p = getSubagentStatePath(state.id);
-  fs.writeFileSync(p, JSON.stringify(state, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(state, null, 2));
 }
 
 /**

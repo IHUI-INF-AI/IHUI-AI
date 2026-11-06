@@ -17,6 +17,8 @@ import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/
 import { tryParseJson, isRecord } from '../util/json.js';
 // 会话 id 来自 --resume/--continue 或磁盘内容:文件名收敛 + 落点断言统一走 util/path-guard。
 import { assertPathInside, segmentFilePathInside } from '../util/path-guard.js';
+// BUG-0010:会话历史落盘走唯一原子写出口 —— 高频保存期间被中断/并发读不得留下截断 JSON。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -49,11 +51,7 @@ export function createSession(workspacePath: string, modelId: string): Session {
 export function saveSession(session: Session): void {
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  fs.writeFileSync(
-    sessionFilePath(session.id),
-    JSON.stringify(session, null, 2),
-    'utf-8',
-  );
+  writeFileAtomicSync(sessionFilePath(session.id), JSON.stringify(session, null, 2));
 }
 
 /** 会话文件路径的唯一构造入口(与 compaction 账本共用同一判据)。 */
