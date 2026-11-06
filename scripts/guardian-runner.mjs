@@ -3498,6 +3498,8 @@ const checks = [
       'apps/miniapp-taro/config/',
       'packages/app/src/',
       'apps/mobile-rn/src/',
+      // 2026-11-06:C9 判的就是这份编译期契约派生件;它自己变了却不触发 = 门在而判不到。
+      'apps/miniapp-taro/types/',
       'scripts/gen-rn-compat.mjs',
       'scripts/check-rn-compat-coverage.mjs',
     ],
