@@ -518,8 +518,10 @@ async def _apply_llm_factcheck(
     """用注入的 LLM 做语义级交叉核验,按 question 覆盖启发式结论。
 
     契约:返回 list[dict] 含 question / conclusion / reason / confidence。
-    conclusion 须为合法 VerificationStatus;返回异常/超时/非列表/条目畸形 → 静默跳过
-    (保留启发式),绝不炸管线。结果落进同一 evidence.verification / report.crosscheck /
+    带 votes 时以对抗计票为准:成立或驳倒才覆盖,未判定(含只有自评)不覆盖。
+    不带 votes 时 conclusion 须为合法 VerificationStatus。
+    返回异常/超时/非列表/条目畸形 → 静默跳过(保留启发式),绝不炸管线。
+    结果落进同一 evidence.verification / report.crosscheck /
     report.limitations 结构;crosscheck 仅新增 source/reason/confidence key,不改旧 key。
     """
     try:
@@ -540,8 +542,17 @@ async def _apply_llm_factcheck(
         if not isinstance(j, dict):
             continue  # 单条畸形 → 跳过该条,其余仍可用
         q = j.get("question")
+        if not isinstance(q, str):
+            continue
+        if "votes" in j:
+            outcome = adjudicate_claim(j.get("votes"))
+            if outcome["disposition"] == "killed":
+                by_q[q] = (VerificationStatus.CONFLICTING.value, outcome["reason"], 0.0)
+            elif outcome["disposition"] == "survives":
+                by_q[q] = (VerificationStatus.CORROBORATED.value, outcome["reason"], 1.0)
+            continue
         conc = j.get("conclusion")
-        if not isinstance(q, str) or conc not in _VERIFICATION_VALUES:
+        if conc not in _VERIFICATION_VALUES:
             continue
         conf = j.get("confidence")
         by_q[q] = (
@@ -1118,6 +1129,164 @@ class DeepResearchManager:
         )
         return None
 
+
+VOTES_PER_CLAIM = 3
+REFUTATIONS_REQUIRED = 2
+REQUEST_STEP_BUDGET = 100
+
+_CONFIDENCE = frozenset({"high", "medium", "low"})
+_FENCE_JSON = re.compile(r"```json\s*([\s\S]*?)```", re.IGNORECASE)
+_FENCE_ANY = re.compile(r"```\s*([\s\S]*?)```")
+_OBJECT = re.compile(r"(\{[\s\S]*\})")
+
+
+def extract_model_json(text: object) -> tuple[Any, str]:
+    """按代码块、普通代码块、原文对象的顺序抽 JSON。抽不到不猜。"""
+    if not isinstance(text, str) or not text.strip():
+        return None, "not-text"
+    saw_candidate = False
+    for name, pattern in (
+        ("fence-json", _FENCE_JSON),
+        ("fence", _FENCE_ANY),
+        ("object", _OBJECT),
+    ):
+        match = pattern.search(text)
+        if match is None:
+            continue
+        saw_candidate = True
+        piece = match.group(1).strip()
+        try:
+            return json.loads(piece), name
+        except json.JSONDecodeError:
+            if name != "object":
+                continue
+            later = _first_object_after(text, match.start() + 1)
+            if later is not None:
+                return later, name
+            continue
+    if saw_candidate:
+        return None, "json-invalid"
+    return None, "no-json"
+
+
+def _first_object_after(text: str, start: int) -> Any:
+    """贪婪括号失败后,从下一个左括号起用解码器找第一份对象。"""
+    decoder = json.JSONDecoder()
+    index = text.find("{", start)
+    while index >= 0:
+        try:
+            value, _end = decoder.raw_decode(text[index:])
+        except json.JSONDecodeError:
+            index = text.find("{", index + 1)
+            continue
+        if isinstance(value, dict):
+            return value
+        index = text.find("{", index + 1)
+    return None
+
+
+def _one_vote(raw: object) -> dict[str, Any] | None:
+    if isinstance(raw, str):
+        parsed, _how = extract_model_json(raw)
+        raw = parsed
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("role") == "claimant" or raw.get("selfClaim") is True:
+        return {"role": "claimant", "refuted": raw.get("refuted") is True}
+    if not isinstance(raw.get("refuted"), bool):
+        return None
+    confidence = raw.get("confidence")
+    if confidence is not None and confidence not in _CONFIDENCE:
+        return None
+    evidence = raw.get("evidence")
+    if evidence is not None and not isinstance(evidence, str):
+        return None
+    return {"role": "counter", "refuted": raw["refuted"]}
+
+
+def adjudicate_claim(votes: object) -> dict[str, Any]:
+    """对一条断言计票。返回 disposition / reason 与计数。"""
+    if not isinstance(votes, list):
+        return _outcome("unjudged", "votes-not-a-list", 0, 0, 0, 0)
+    if len(votes) > VOTES_PER_CLAIM:
+        return _outcome("unjudged", "panel-over", 0, 0, 0, 0)
+
+    independent = 0
+    refuted = 0
+    abstained = 0
+    self_yes = 0
+    for raw in votes:
+        ballot = _one_vote(raw)
+        if ballot is None:
+            abstained += 1
+            continue
+        if ballot["role"] == "claimant":
+            self_yes += 1
+            continue
+        independent += 1
+        if ballot["refuted"]:
+            refuted += 1
+
+    if independent < REFUTATIONS_REQUIRED:
+        reason = "self-yes-without-counter" if self_yes and independent == 0 else "quorum-short"
+        return _outcome("unjudged", reason, independent, refuted, abstained, self_yes)
+    if refuted >= REFUTATIONS_REQUIRED:
+        return _outcome("killed", "refuted", independent, refuted, abstained, self_yes)
+    return _outcome("survives", "quorum", independent, refuted, abstained, self_yes)
+
+
+def admit_request_step(
+    taken: object, *, limit: int | None = REQUEST_STEP_BUDGET
+) -> tuple[str, str]:
+    """请求级步数预算。没给上限是未判定,不当成无限步。与留存上限不是同一档。"""
+    if (
+        isinstance(limit, bool)
+        or (limit is not None and not isinstance(limit, int))
+        or (isinstance(limit, int) and limit <= 0)
+    ):
+        return "unjudged", "budget-invalid"
+    if limit is None:
+        return "unjudged", "budget-absent"
+    if isinstance(taken, bool) or not isinstance(taken, int) or taken < 0:
+        return "unjudged", "taken-invalid"
+    if taken >= limit:
+        return "stop", "budget-spent"
+    return "allow", "within-budget"
+
+
+def ledger_row(claim_id: str, outcome: dict[str, Any]) -> str:
+    """一行 JSON,给调用方落台账。不含模型原文。"""
+    return json.dumps(
+        {
+            "claimId": claim_id,
+            "disposition": outcome.get("disposition"),
+            "reason": outcome.get("reason"),
+            "independent": outcome.get("independent"),
+            "refuted": outcome.get("refuted"),
+            "abstained": outcome.get("abstained"),
+            "selfYes": outcome.get("selfYes"),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _outcome(
+    disposition: str,
+    reason: str,
+    independent: int,
+    refuted: int,
+    abstained: int,
+    self_yes: int,
+) -> dict[str, Any]:
+    return {
+        "disposition": disposition,
+        "reason": reason,
+        "independent": independent,
+        "refuted": refuted,
+        "abstained": abstained,
+        "selfYes": self_yes,
+    }
 
 # 对外单例(路由复用)
 manager = DeepResearchManager()
