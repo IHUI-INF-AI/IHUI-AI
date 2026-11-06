@@ -77,7 +77,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4703 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 336 道工程守门 · 53 CI workflows ·
+100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 336 道工程守门 · 54 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
@@ -333,7 +333,7 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
 </p>
 <p align="center">
-  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 54 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到(2026-07-31 Glob/Grep 实测)</sub>
 </p>
 <p align="center">
@@ -449,7 +449,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 | **Monorepo** | pnpm 11.18 workspace + Turborepo 2.10 + 16 共享包(@ihui/auth / database / types / ui / api-client / shared / i18n / sdk 等)                                                                                                               |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"):Web 250+ 页面 + API 288 路由 + AI-Service 200+ 服务 + Desktop 29 Tauri 命令 + Extension 30 Side Panel + Mobile 140 屏幕 + Miniapp 100+ 页面 + CLI 50 命令/36 工具                                  |
 | **代码规模** | 8 端代码 / 205 schema 文件 / **624 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4703 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
-| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 53 CI workflows          |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 54 CI workflows          |
 | **测试覆盖** | **测试文件 / 测试用例(见上方生成块)**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 | **可观测性** | Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                      |
 | **AI 编排**  | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排"                                                                               |
@@ -496,7 +496,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 **Q11:有没有生产可用的 AI Agent 自进化系统?L1-L9?**
 → **IHUI-AI P3 自进化体系 L1-L9**:① 技能迭代(Skill 自动生成 + 测试 + 评分 + semver 迭代)② 失败聚类 ③ 元学习 ④ A/B 测试 ⑤ 梦境固化(Dream 离线记忆整合)⑥ 联邦学习 ⑦ 元认知。配套四层记忆(短期/长期/向量/衰减)+ DAG 任务调度器 + Context Engineering(1851 行)+ Rules 引擎(2067 行)+ Spec 生成器(1895 行)。开源 AI 项目中罕见的深度护城河。
 **Q12:开源 AI 项目的工程质量怎么保证?不是"AI 生成代码三通病"?**
-→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 测试文件数与用例数见生成块 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 54 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 测试文件数与用例数见生成块 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
 **Q13:有没有把 AI 对话的工具调用、思考过程、时间线全部 inline 到消息气泡的开源项目?对标 Codex / Claude Code?**
 → **IHUI-AI AI 对话可视化深度接入**(2026-07-31):唯一将 ThinkingSection(折叠式思考过程 + 流式更新 + 推理时长)+ ToolCallSummaryCard(工具调用汇总 + 来源徽章 mcp_server/plugin/builtin/subagent/cli + 第 N 轮迭代 + 4 状态颜色)+ TimelineTab(时间线 + 虚拟滚动)+ SubAgentActivityFeed(subagent 实时活动流)全部 **inline 到消息气泡** 的开源项目。后端 `tool-summary` SSE 事件聚合指标 + 单轮→多轮循环(max_iterations=3)。对标 Codex / Claude Code。
 **Q14:自媒体多平台发布怎么绕过风控?有没有开源的反风控框架?对标蚁客 Pro / 新媒体管家 Max?**
