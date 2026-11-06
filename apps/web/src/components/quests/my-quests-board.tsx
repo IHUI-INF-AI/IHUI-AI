@@ -12,6 +12,7 @@ import { GOAL_STATUSES, type GoalStatus } from '@ihui/types'
 import { listMyGoals, type MyGoalRow } from '@ihui/api-client'
 
 import { cn } from '@/lib/utils'
+import { TruncatedText } from '@/components/common'
 import {
   groupQuestsByWorkspace,
   questStatusCounts,
@@ -77,9 +78,7 @@ function QuestRow({
       className="space-y-1 rounded-md border px-2 py-1.5"
     >
       <div className="flex items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-xs" title={quest.text}>
-          {quest.text}
-        </span>
+        <TruncatedText value={quest.text} className="min-w-0 flex-1 text-xs" />
         <span
           data-testid={`my-quests-status-${quest.goalId}`}
           className={cn(

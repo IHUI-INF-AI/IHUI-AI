@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-native-title-tooltip.mjs')
+const REPO_ROOT = join(__dirname, '..', '..')
 
 // ─── 辅助:创建临时扫描目录(含 apps/ 结构,用于全量模式) ─
 function createTempScanDir(files) {
@@ -402,6 +403,54 @@ test('违规: 多行 <span ...> 跨多行 + title=... 单独一行 → 报告 [t
     const r = runScript(dir)
     assertHasViolation(r, /\[title\]/)
     assert.match(r.stdout, /SpanMulti\.tsx/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── BUG-0029(2026-11-07 立):7 处真实站点已换真 Tooltip/TruncatedText ───
+// 绿臂:把这 7 处所在的 5 个真实文件原样扫一遍,必须 0 违规;
+// 红臂:旧写法(原生 title)样本逐个注入同样路径,必须恰好 7 违规。
+const BUG_0029_FILES = [
+  'apps/web/src/components/ide/host-git-section.tsx',
+  'apps/web/src/components/media/artifact-turn-badge.tsx',
+  'apps/web/src/components/quests/my-quests-board.tsx',
+  'apps/web/src/components/sidebar/CustomNavSection.tsx',
+  'apps/web/src/components/work-panel/web-work-panel.tsx',
+]
+
+test('BUG-0029 绿臂:5 个真实文件的原生 title 已清零(0 处)', () => {
+  const dir = createTempScanDir(
+    Object.fromEntries(
+      BUG_0029_FILES.map((p) => [p, readFileSync(join(REPO_ROOT, p), 'utf8')]),
+    ),
+  )
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0)
+    assert.match(r.stdout, /违规数:\s+0\s+处/, `真实文件仍命中原生 title:\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('BUG-0029 红臂:旧写法 7 处逐文件判红(样本即修前形态)', () => {
+  const dir = createTempScanDir({
+    // ① host-git 条目按钮:多行 button + title 单独一行
+    'apps/web/src/components/ide/host-git-section.tsx': `<button\n  type="button"\n  title={t('hostGit.diffTitle', { path: entry.path })}\n>\n  x\n</button>\n`,
+    // ② 产物轮次徽章:单行 button title
+    'apps/web/src/components/media/artifact-turn-badge.tsx': `<button type="button" title={t('jumpToOrigin')}>x</button>\n`,
+    // ③ quests 截断行:span title
+    'apps/web/src/components/quests/my-quests-board.tsx': `<span className="min-w-0 flex-1 truncate text-xs" title={quest.text}>\n  {quest.text}\n</span>\n`,
+    // ④⑤⑥ 侧栏拖拽手柄 / 移除 / 新增:三处 button title(两处多行)
+    'apps/web/src/components/sidebar/CustomNavSection.tsx': `<button\n  type="button"\n  aria-label={dragLabel}\n  title={dragLabel}\n>\n  x\n</button>\n<button type="button" aria-label={removeLabel} title={removeLabel}>x</button>\n<button type="button" aria-label={t('customAddTitle')} title={t('customAddTitle')}>x</button>\n`,
+    // ⑦ 停靠标签页:button title
+    'apps/web/src/components/work-panel/web-work-panel.tsx': `<button type="button" title={t.title || t.url}>x</button>\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assert.equal(r.status, 0, '全量模式应 exit 0(warn-only)')
+    assert.match(r.stdout, /违规数:\s+7\s+处/, `旧写法样本应恰好 7 违规:\n${r.stdout}`)
   } finally {
     rmScratch(dir)
   }
