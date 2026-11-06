@@ -82,7 +82,11 @@ import { classifyLegs, actionableRows } from './lib/autonomy-leg-liveness.mjs'
 // A12 全腿产出对账(2026-11-04 /goal R3):判据独立成库,本层只搬运输入 + 包成维度。
 import { classifyLegOutputs } from './lib/autonomy-leg-output.mjs'
 // A13 的 artifact 词汇零复算(§0.6):落地档/拒绝档都从阶梯那张表按前缀派生
-import { PROGRESS_ACTIONS, NON_PROGRESS_ACTIONS } from './lib/autonomy-nonprogress.mjs'
+import {
+  PROGRESS_ACTIONS,
+  NON_PROGRESS_ACTIONS,
+  SUPPLY_STALL_ROUND_ACTIONS,
+} from './lib/autonomy-nonprogress.mjs'
 import { UNKNOWN_RULE_ID, classifyAction, parseValveList, BUCKETS } from './lib/human-valve.mjs'
 import { judgeCarrierParity, judgeRoadmapClaims } from './lib/guardian-carrier-parity.mjs'
 // A14 的锚点表与解析器零复算(§0.6):"什么算一条判据锚点、怎么算命中"只住在门 299 那一份里。
@@ -279,9 +283,20 @@ export function judgeRange(events, ticketRows) {
   }
 }
 
-/** A4 白名单命中率:自开发射程有多宽(实测 25 轮 no-whitelist-hit 的对应维)。 */
+/** A4 白名单命中率:自开发射程有多宽(实测 25 轮 no-whitelist-hit 的对应维)。
+ *  2026-11-06 同批改判:发射端把"无票可派"拆成两型(`no-whitelist-hit` 面非空但零命中 /
+ *  `no-open-tickets` 面为空),本维若仍只认前者那个字面量 ⇒ 后一型**从读数里消失**,
+ *  A4 会在"票真的见底"时反报 ok(改发射端不改读数端的自伤,§0.6 词汇单源)。
+ *  集合取 lib 那份,不在这里抄第二个数组。 */
 export function judgeWhitelist(events, whitelist) {
-  const hits = events.filter((e) => e.action === 'no-whitelist-hit').length
+  const stallSet = new Set(SUPPLY_STALL_ROUND_ACTIONS)
+  const stalls = events.filter((e) => stallSet.has(String(e.action ?? '')))
+  const hits = stalls.length
+  const mismatch = stalls.filter((e) => Number(e.openFaceCount) > 0).length
+  const faceEmpty = stalls.filter((e) => Number(e.openFaceCount) === 0).length
+  // 旧台账行没有 openFaceCount(这一格 2026-11-06 才装上)⇒ 两型都落不进。必须单列出来:
+  // 否则读数会说出"无票可派 25 轮(政策面窄 0 / 面已见底 0)"这种自相矛盾的话,而真相是"25 轮未分型"。
+  const unclassified = hits - mismatch - faceEmpty
   // "真派发"按 `session-` 前缀认,不按枚举个数(2026-11-04):调度器新增 `session-no-write`(exit 0 但整班
   // 零写盘)之后,枚举个数的写法会把"跑了会话"读成"一次都没派"⇒ 本维由 ok 翻假红。前缀认法的失效方向
   // 是"多算一次派发",与 §0.10"宁可多要一次说明"同向;真需要区分档位的是 A7,不是这里。
@@ -296,7 +311,7 @@ export function judgeWhitelist(events, whitelist) {
   return {
     dim: 'A4-whitelist',
     state: hits > 0 && dispatched === 0 ? 'drift' : 'ok',
-    readout: `近 ${events.length} 轮:未命中白名单 ${hits} 轮 / 真派发 ${dispatched} 轮 / 白名单 ${whitelist.length} 档`,
+    readout: `近 ${events.length} 轮:无票可派 ${hits} 轮(政策面窄 ${mismatch} / 面已见底 ${faceEmpty} / 未分型 ${unclassified})/ 真派发 ${dispatched} 轮 / 白名单 ${whitelist.length} 档`,
     next:
       hits > 0 && dispatched === 0
         ? '出路:白名单与派单面题型不匹配 ⇒ 按证据扩档(每扩一档都得有对应的失败分型/预算闸兜着),不得借道 --no-verify 式绕行'
@@ -873,6 +888,9 @@ export const ACTION_CLAIMS = {
   },
   'no-ticket': { dim: 'A3', kind: 'non-progress' },
   'no-whitelist-hit': { dim: 'A4', kind: 'non-progress' },
+  // 供给断档拆出来的第二型与它的轮级终局档:漏登记 ⇒ A15 报"有动作没人认领"(对的),但今天同批装上更省事
+  'no-open-tickets': { dim: 'A4', kind: 'non-progress' },
+  'supply-stall-round': { dim: 'A4', kind: 'failure' },
   quarantined: { dim: 'A3', kind: 'failure' },
   'decision-undetermined': { dim: 'A5', kind: 'non-progress' },
   'nonprogress-unjudged': { dim: 'A7', kind: 'non-progress' },

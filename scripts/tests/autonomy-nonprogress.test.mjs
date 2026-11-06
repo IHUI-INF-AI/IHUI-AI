@@ -378,4 +378,66 @@ test('T17 终局档去重按串、不按时刻;两把尺的词汇表不得漂移
     '轮级终局档自身必须豁免票级阶梯(它不带 ticketKey)',
   )
 })
+
+test('T18 供给断档必须分两型计数(RP-66 同族第二型):同型攒串、换型断链、无计数行断链、终局行不自锁', () => {
+  const hit = (n, ts) => ({ action: 'no-whitelist-hit', openFaceCount: n, ts })
+  const open = (ts) => ({ action: 'no-open-tickets', openFaceCount: 0, ts })
+  const six = (n = 6) => Array.from({ length: n }, (_, i) => hit(8, 'T' + i))
+  // ① 攒到门限:emit 且身份是串首(去重键)
+  const a = np.decideSupplyStall(six(6), { streakN: 6 })
+  assert.equal(a.emit, true, a.reason)
+  assert.equal(a.kind, 'supply-mismatch')
+  assert.equal(a.sinceTs, 'T0', '串首时刻是去重身份,取最老那枚')
+  assert.equal(a.count, 6)
+  // ② 差一轮不响(成对反向:证明真在数行)
+  assert.equal(np.decideSupplyStall(six(5), { streakN: 6 }).emit, false)
+  // ③ 换型断链:三型不能互相攒串(合写就会诱导人去看错那一侧)
+  const mixed = [hit(8, 'T0'), hit(8, 'T1'), open('T2'), hit(8, 'T3'), hit(8, 'T4')]
+  const m = np.decideSupplyStall(mixed, { streakN: 3 })
+  assert.equal(m.kind, 'supply-mismatch')
+  assert.equal(m.count, 2, '中间一轮见底必须断链,不得攒成 4')
+  // ④ 取不到派单面计数 ⇒ unknown 且断链(不把"没读到"折进任何一型)
+  const noCount = [hit(8, 'T0'), { action: 'no-whitelist-hit', ts: 'T1' }, hit(8, 'T2')]
+  const u = np.decideSupplyStall(noCount, { streakN: 2 })
+  assert.equal(u.count, 1)
+  assert.equal(u.kind, 'supply-mismatch')
+  const u2 = np.decideSupplyStall([{ action: 'no-whitelist-hit', ts: 'T0' }], { streakN: 1 })
+  assert.equal(u2.kind, 'unknown')
+  assert.equal(u2.emit, false, 'unknown 档不得攒够就响')
+  // ⑤ 真派发一行断链(供给恢复即刻归零)
+  const back = [hit(8, 'T0'), hit(8, 'T1'), { action: 'dispatched', ts: 'T2' }, hit(8, 'T3')]
+  assert.equal(np.decideSupplyStall(back, { streakN: 3 }).count, 1)
+  // ⑥ 终局行不得切断自己那串(RP-66 踩过的自锁,同型反例必须在这儿也钉一遍)
+  const withOwn = [
+    ...six(6),
+    { action: 'supply-stall-round', streakSince: 'T0', ts: 'T6' },
+    hit(8, 'T7'),
+  ]
+  const w = np.decideSupplyStall(withOwn, { streakN: 6 })
+  assert.equal(w.count, 7, '终局行既不断链也不许多占一轮')
+  assert.equal(w.sinceTs, 'T0')
+  assert.equal(w.emit, false, '同一串只喊一次')
+  assert.match(w.reason, /已喊过/)
+  // ⑦ 新串会再喊(断裂后重新攒够 = 第二次断档,同样是事故)
+  const second = [hit(8, 'S0'), hit(8, 'S1'), hit(8, 'S2')]
+  assert.equal(
+    np.decideSupplyStall(withOwn.concat([{ action: 'dispatched', ts: 'D' }], second), {
+      streakN: 3,
+    }).emit,
+    true,
+  )
+  // ⑧ 门限形态:坏值一律不响(与 loadGates 同口径;NaN 会让 count >= NaN 恒假 = 永久静默)
+  for (const badV of [0, -2, 1.5, '6', NaN, null]) {
+    const r = np.decideSupplyStall(six(20), { streakN: badV })
+    assert.equal(r.emit, false, '门限 ' + String(badV) + ' 不是正整数,不得凭缺省值发信')
+  }
+  // ⑧b 门限**缺省**(undefined)不是"关掉":走文档缺省 6 ⇒ 该响还得响。
+  // 反向钉这一格是因为 loadGates 给的就是这条兜底路;若这里改成"缺省不响",
+  // 闸门配置文件少写一键就等于把终局档静默停用(与"两套时钟一比,按日上限静默失效"同型)。
+  assert.equal(np.decideSupplyStall(six(6)).emit, true, '不传门限 ⇒ 走缺省 6,仍要响')
+  // ⑨ 词汇表同源:分型集合里的每一枚都必须在票级豁免表里(摘了豁免而分型仍认它 = 两把尺互咬)
+  for (const act of np.SUPPLY_STALL_ROUND_ACTIONS)
+    assert.ok(np.ACTION_EXEMPTIONS[act], act + ' 不在票级豁免表')
+  assert.ok(np.ACTION_EXEMPTIONS['supply-stall-round'], '轮级终局档自身也必须豁免票级阶梯')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
