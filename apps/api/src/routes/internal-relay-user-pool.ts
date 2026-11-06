@@ -23,10 +23,12 @@ import fp from 'fastify-plugin'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { aiRelayAccountPool } from '@ihui/database'
-import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import { error, success } from '../utils/response.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
+import {
+  authorizeInternalSecretCall,
+  ticketSubjectAllows,
+} from '../plugins/internal-secret-auth.js'
 import { importAccounts } from '../services/relay-account-pool-service.js'
 import { isRelayProviderCode } from '../services/relay-account-format.js'
 
@@ -90,22 +92,13 @@ function deviceKeysToImportKeys(deviceMap: Record<string, unknown>): Record<stri
 }
 
 const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
-  const requireInternal = (request: { headers: Record<string, unknown> }): string | null => {
-    const secret = config.AI_CALLBACK_SECRET
-    if (!secret) return '内部密钥未配置(AI_CALLBACK_SECRET)'
-    const provided = request.headers['x-internal-secret']
-    // 2026-11-01 安全强化:改走 secretsEqual 单源(internal-service-token.ts:130)。
-    // 裸 `!==` 是非常数时间比较,而兄弟文件
-    // internal-relay-account-pool-credential.ts 早在 2026-10-31 那批已改过 —— 同一枚
-    // AI_CALLBACK_SECRET 在两处用两种强度比,漏的那一侧不会响。
-    if (typeof provided !== 'string' || !secretsEqual(provided, secret)) return '内部密钥不匹配'
-    return null
-  }
-
   server.post('/api/internal/relay/user-pool/upsert', async (request, reply) => {
-    const authErr = requireInternal(request)
-    if (authErr)
-      return reply.status(authErr.includes('未配置') ? 503 : 401).send(error(503, authErr))
+    // 2026-11-06:X-Internal-Secret 族统一出口(scope=relay-user-pool)。
+    // 票面主体若是真人 uuid,必须与请求体的归属 ownerUserId 一致,防止跨用户回填。
+    const auth = await authorizeInternalSecretCall(request, { scope: 'relay-user-pool' })
+    if (!auth.ok) {
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
     const parsed = upsertBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply
@@ -113,6 +106,9 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
         .send(error(400, parsed.error.issues[0]?.message ?? '个人号池同步参数错误'))
     }
     const body = parsed.data
+    if (auth.via === 'ticket' && !ticketSubjectAllows(auth.subject, body.ownerUserId)) {
+      return reply.status(401).send(error(401, 'Subject mismatch'))
+    }
     if (body.ownerUserId === 'system:relay-pool') {
       return reply.status(400).send(error(400, '运营池账号不走反向同步端点'))
     }
@@ -171,9 +167,10 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/api/internal/relay/user-pool/delete', async (request, reply) => {
-    const authErr = requireInternal(request)
-    if (authErr)
-      return reply.status(authErr.includes('未配置') ? 503 : 401).send(error(503, authErr))
+    const auth = await authorizeInternalSecretCall(request, { scope: 'relay-user-pool' })
+    if (!auth.ok) {
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
     const parsed = deleteBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply
@@ -181,6 +178,9 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
         .send(error(400, parsed.error.issues[0]?.message ?? '个人号池删除参数错误'))
     }
     const { ownerUserId, poolAccountId } = parsed.data
+    if (auth.via === 'ticket' && !ticketSubjectAllows(auth.subject, ownerUserId)) {
+      return reply.status(401).send(error(401, 'Subject mismatch'))
+    }
     if (ownerUserId === 'system:relay-pool') {
       return reply.status(400).send(error(400, '运营池账号不走反向同步端点'))
     }
