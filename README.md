@@ -5452,6 +5452,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-07**
+- 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
+- 🚀 新功能/改进:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
+
+**2026-11-07**
 - 🚀 新功能/改进:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
 
 **2026-11-06**
