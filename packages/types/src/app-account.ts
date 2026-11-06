@@ -425,6 +425,17 @@ export interface SecuritySettingsScreenProps {
   /**
    * 端侧数据。两端显式传且值不同:小程序 = 系统权限 5 行 + 本地隐私 3 行;RN = 账号安全 4 行。
    * null / 空数组 ⇒ 空态(不得凭空造行)。
+   *
+   * 行内四键(SecuritySettingsItem)的逐项可写性:一概而论的「后端无写端点」是谎,按项区分,
+   * 真相源是端点本身,不在类型里建清单:
+   *  - `twoFactorEnabled`:**可写**,走 `POST /api/auth/2fa/setup|verify|disable`
+   *    (packages/api-client/src/endpoints/system.ts 的 setupTwoFactor / verifyTwoFactor /
+   *    disableTwoFactor),RN「安全中心」屏整条流程在用;本屏只渲染入口。
+   *  - `passwordEnabled`:只读**派生**值(`users.password_hash` 非空),写面在改密流程,不在本屏。
+   *  - `biometricEnabled` / `loginAlert`:存 `user_preferences(group='security')` 的
+   *    `biometric` / `loginAlert` 两键;`GET /user/security`(apps/api/src/routes/
+   *    user-security-routes.ts)是这条路径上唯一的端点,api 层现读**没有写入方** ⇒ 真实只读。
+   * 「本条路径无写端点」只约束行内开关,**不等于后端不支持修改**。
    */
   sections: readonly SecuritySettingsSection[] | null
   loading: boolean
