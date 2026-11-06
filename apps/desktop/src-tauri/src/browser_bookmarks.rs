@@ -204,25 +204,105 @@ fn store_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(store_path_in(&data_dir))
 }
 
+/// 损坏文件的备份路径:`<file>.bak-<源文件修改时间秒>`。
+///
+/// T9:用源文件 mtime 而不是当前时间,同一份损坏内容重复读取时复用同名备份,
+/// 不会每次访问都堆一份 `.bak`。
+fn corrupt_backup_path(path: &Path) -> PathBuf {
+    let stamp = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut name = path
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_default();
+    name.push(format!(".bak-{stamp}"));
+    path.with_file_name(name)
+}
+
+/// 复制原文件到备份路径;备份已存在视为完成(幂等)。
+fn backup_corrupt(path: &Path, backup: &Path) -> Result<(), String> {
+    if backup.exists() {
+        return Ok(());
+    }
+    std::fs::copy(path, backup)
+        .map(|_| ())
+        .map_err(|e| format!("备份损坏书签文件失败({}): {e}", backup.display()))
+}
+
+/// 读取结果:可写或只读降级。
+enum LoadOutcome {
+    Ready(BrowserData),
+    /// 解析失败:先备份再降级为只读,写命令一律拒绝,绝不落回空数据把原文件覆盖掉。
+    Degraded {
+        backup: Option<PathBuf>,
+        error: String,
+    },
+}
+
 /// 读 + 归一。文件缺失/损坏一律回退空数据(首次运行属正常形态,不冒泡成错误)。
-fn load_data_from(path: &Path) -> BrowserData {
+fn load_outcome_from(path: &Path) -> LoadOutcome {
     let raw = match std::fs::read(path) {
         Ok(bytes) => bytes,
-        Err(_) => return BrowserData::default(),
+        Err(_) => return LoadOutcome::Ready(BrowserData::default()),
     };
     // 与 desktop_prefs 同一先例:Windows 侧非 Rust 写手会留 UTF-8 BOM。
     let body = raw.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(&raw);
     match serde_json::from_slice::<BrowserData>(body) {
         Ok(mut data) => {
             normalize(&mut data);
-            data
+            LoadOutcome::Ready(data)
         }
         Err(e) => {
-            log::warn!(
-                "[browser-bookmarks] {} 解析失败({e}),整份回退空数据",
-                path.display()
-            );
-            BrowserData::default()
+            let backup_path = corrupt_backup_path(path);
+            let backup = match backup_corrupt(path, &backup_path) {
+                Ok(()) => {
+                    log::error!(
+                        "[browser-bookmarks] {} 解析失败({e}),已备份为 {},进入只读降级",
+                        path.display(),
+                        backup_path.display()
+                    );
+                    Some(backup_path)
+                }
+                Err(berr) => {
+                    log::error!(
+                        "[browser-bookmarks] {} 解析失败({e}),备份亦失败({berr}),进入只读降级",
+                        path.display()
+                    );
+                    None
+                }
+            };
+            LoadOutcome::Degraded {
+                backup,
+                error: e.to_string(),
+            }
+        }
+    }
+}
+
+/// 只读入口:解析失败时仍返回空数据供 UI 渲染,原文件保持不动。
+fn load_data_from(path: &Path) -> BrowserData {
+    match load_outcome_from(path) {
+        LoadOutcome::Ready(data) => data,
+        LoadOutcome::Degraded { .. } => BrowserData::default(),
+    }
+}
+
+/// 写入口:解析失败时拒绝覆盖(原文件已备份,用户可手工修复后重启)。
+fn load_writable_from(path: &Path) -> Result<BrowserData, String> {
+    match load_outcome_from(path) {
+        LoadOutcome::Ready(data) => Ok(data),
+        LoadOutcome::Degraded { backup, error } => {
+            let where_ = match backup {
+                Some(path) => format!(",已备份为 {}", path.display()),
+                None => ",备份失败".to_string(),
+            };
+            Err(format!(
+                "书签文件解析失败({error}){where_};当前为只读降级,拒绝覆盖"
+            ))
         }
     }
 }
@@ -258,7 +338,7 @@ pub fn embedded_browser_add_bookmark(
         return Err(format!("只能收藏 http/https 地址: {url}"));
     }
     let path = store_path(&app)?;
-    let mut data = load_data_from(&path);
+    let mut data = load_writable_from(&path)?;
     let title = title
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
@@ -288,7 +368,7 @@ pub fn embedded_browser_add_bookmark(
 #[tauri::command]
 pub fn embedded_browser_delete_bookmark(app: AppHandle, id: String) -> Result<(), String> {
     let path = store_path(&app)?;
-    let mut data = load_data_from(&path);
+    let mut data = load_writable_from(&path)?;
     let before = data.bookmarks.len();
     data.bookmarks.retain(|b| b.id != id);
     if data.bookmarks.len() != before {
@@ -301,7 +381,7 @@ pub fn embedded_browser_delete_bookmark(app: AppHandle, id: String) -> Result<()
 #[tauri::command]
 pub fn embedded_browser_clear_history(app: AppHandle) -> Result<(), String> {
     let path = store_path(&app)?;
-    let mut data = load_data_from(&path);
+    let mut data = load_writable_from(&path)?;
     if data.history.is_empty() {
         return Ok(());
     }
@@ -321,7 +401,7 @@ pub fn embedded_browser_record_history(
         return Err(format!("只能记录 http/https 地址: {url}"));
     }
     let path = store_path(&app)?;
-    let mut data = load_data_from(&path);
+    let mut data = load_writable_from(&path)?;
     let title = title
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
@@ -349,7 +429,7 @@ pub fn embedded_browser_import_system_bookmarks(
     app: AppHandle,
 ) -> Result<ImportSummary, String> {
     let path = store_path(&app)?;
-    let mut data = load_data_from(&path);
+    let mut data = load_writable_from(&path)?;
 
     let files = system_bookmark_files()?;
     if files.is_empty() {
@@ -491,6 +571,92 @@ mod tests {
         assert_eq!(data.bookmarks[0].id, "a");
         assert_eq!(data.history.len(), 1);
         assert_eq!(data.history[0].visited_at, 2);
+    }
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ihui-bm-{tag}-{}", now_ms()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    fn corrupt_backups(dir: &Path) -> Vec<PathBuf> {
+        let prefix = format!("{STORE_FILE_NAME}.bak-");
+        std::fs::read_dir(dir)
+            .expect("read temp dir")
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+            .map(|e| e.path())
+            .collect()
+    }
+
+    /// T9 红夹具:解析失败必须先把原文件备份成 `<file>.bak-<ts>`,再进入只读降级。
+    /// 旧实现直接回退空数据,下一次写命令会把用户原文件覆盖成 `{bookmarks:[]}`。
+    #[test]
+    fn 解析失败先备份再只读降级() {
+        let dir = temp_dir("corrupt-read");
+        let path = store_path_in(&dir);
+        std::fs::write(&path, b"{broken").expect("write corrupt fixture");
+
+        let data = load_data_from(&path);
+        assert!(data.bookmarks.is_empty(), "降级读取仍应返回空数据供 UI 渲染");
+        assert_eq!(
+            std::fs::read(&path).expect("read original"),
+            b"{broken",
+            "读取阶段不得改写原文件"
+        );
+        assert_eq!(
+            corrupt_backups(&dir).len(),
+            1,
+            "解析失败必须先落一份 <file>.bak-<ts> 备份"
+        );
+    }
+
+    /// T9 写侧夹具:损坏文件写入被拒、原文件不被覆盖、重复访问只备一份。
+    #[test]
+    fn 损坏文件写入被拒且只备一份() {
+        let dir = temp_dir("corrupt-write");
+        let path = store_path_in(&dir);
+        std::fs::write(&path, b"{broken").expect("write corrupt fixture");
+
+        let first = load_writable_from(&path).expect_err("损坏文件必须拒绝写入");
+        assert!(
+            first.contains("只读降级") && first.contains(".bak-"),
+            "错误必须点明已备份且处于只读降级: {first}"
+        );
+        let second = load_writable_from(&path).expect_err("再次读取仍须拒绝");
+        assert!(second.contains("只读降级"), "第二次错误: {second}");
+
+        assert_eq!(
+            std::fs::read(&path).expect("read original"),
+            b"{broken",
+            "拒绝写入后原文件必须保持原样"
+        );
+        assert_eq!(
+            corrupt_backups(&dir).len(),
+            1,
+            "同一份损坏内容重复访问只应留一份备份"
+        );
+    }
+
+    #[test]
+    fn 正常文件不备份且可写() {
+        let dir = temp_dir("healthy");
+        let path = store_path_in(&dir);
+        let data = BrowserData {
+            bookmarks: vec![Bookmark {
+                id: "a".into(),
+                url: "https://aizhs.top/".into(),
+                title: "智汇AI".into(),
+                created_at: 1,
+            }],
+            history: vec![],
+        };
+        save_data_to(&path, &data).expect("write fixture");
+
+        let loaded = load_writable_from(&path).expect("正常文件必须可写");
+        assert_eq!(loaded.bookmarks.len(), 1);
+        assert!(corrupt_backups(&dir).is_empty(), "正常文件不应产生备份");
     }
 
     #[test]
