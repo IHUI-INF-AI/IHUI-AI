@@ -78,7 +78,7 @@ export function ArticleListScreen({
   onBackToTop,
   contentBottomPadding = 12,
   noMore = false,
-}: ArticleListScreenProps & { onRetry?: () => void }) {
+}: ArticleListScreenProps) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)

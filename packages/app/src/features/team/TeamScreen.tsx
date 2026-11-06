@@ -113,7 +113,7 @@ export function TeamScreen({
   clearDateLabel,
   memberMetrics,
   showRankBadge = false,
-}: TeamScreenProps & { onRetry?: () => void }) {
+}: TeamScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   /** 日期弹层(内置列表,不依赖平台 Picker;仅小程序变体经 sortBar 打开) */
@@ -551,11 +551,7 @@ function TeamTreeSection({
         <View style={styles.treeStateRow}>
           <Text style={styles.treeError}>{t('distribution.treeLoadFailed')}</Text>
           {onRetryTree ? (
-            <Pressable
-              onPress={onRetryTree}
-              accessibilityRole="button"
-              style={styles.treeRetryBtn}
-            >
+            <Pressable onPress={onRetryTree} accessibilityRole="button" style={styles.treeRetryBtn}>
               {({ pressed }) => (
                 <Text style={[styles.treeRetryText, pressed && styles.treeRetryBtnPressed]}>
                   {t('distribution.treeRetry')}
