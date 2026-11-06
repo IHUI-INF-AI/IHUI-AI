@@ -174,7 +174,14 @@ import {
 // watermark.mjs 那一处;本器过去拿 `verify <scratch>/probe.txt` 问它,而那份探针**从来不被
 // 水印口径覆盖**(实测 覆盖 0/0、RC 恒 0),等于无条件放行 —— 详见 payloadIntactViaWatermark 头注。
 import { injectText, __test__ as WM_PROBE } from './watermark.mjs'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+  appendFileSync,
+} from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -186,7 +193,15 @@ import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generat
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 // 单实例闸(2026-11-06 立,机理由环机制席承担):复用 git-lock 那一份既有原语,不自造第二把锁。
-import { tryAcquireSingleInstance } from './git-lock.mjs'
+import { tryAcquireSingleInstance, isPidAlive } from './git-lock.mjs'
+import {
+  judgeLandingLock,
+  shouldAnnounceLockStall,
+  resolveStallMs,
+  buildStallRow,
+  STALL_LEDGER_REL,
+  LOCK_STALL_ENV,
+} from './lib/landing-lock-stall.mjs'
 // L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
 // (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
 import { gateLandingMarkers, LANDING_MARKER_SKIP_ENV } from './lib/conflict-marker-landing-gate.mjs'
@@ -2751,6 +2766,95 @@ export function acquireLandLock({
   }
 }
 
+/**
+ * 等待路径的**终局读数**:本枚等满还拿不到锁时,把这一型停摆折成一个机读行 + 一条点名成因的读数,
+ * 而不是只留一行 stderr。
+ *
+ * 为什么必须落账(与前两型同族):落地器是一枚新进程,上一班喊过的停摆下一班完全看不见
+ * —— 机制停摆有 `runner-face-parked-round`、供给断档有 `supply-stall-round`,唯独"通道被一枚
+ * 活着但不动的持有者独占"只有当时被挡住那枚自己知道。没有账面,这型连着几十班也没人知道(§12e 同族)。
+ *
+ * 边界三条,都是硬约束:
+ *  ① **只喊不放行** —— 回收决定仍归 `git-lock` 原语(身份可核 ∧ 确证 pid 被复用才抢),本函数一个字
+ *     不碰锁目录,更不因为"等太久"就削拒抢(失效方向恒为多要一次定向说明,§0.10);
+ *  ② CPU 增量这一维在这里**故意不给** —— 一枚进程一生只等一趟,拿不到两个采样点 ⇒ 判据按 §0.3 落
+ *     `stall` / `held` / `residual` / `unjudged`,绝不冒充 `wedged`(那是守护 tick 有两点采样后才配说的);
+ *  ③ 结论形状不在已知态清单内 ⇒ **一行都不写**,并点名为什么没写(写一行假 state 比不写更坏)。
+ *
+ * @param {{dir:string, landLock?:object|null, root?:string, env?:object, log?:Function,
+ *          ledgerPath?:string|null, now?:Function}} a
+ * @returns {object} 判据结论原样返回(供调用方与测试断言,不改本轮退出码)
+ */
+export function noteLandLockStall({
+  dir,
+  landLock = null,
+  env = process.env,
+  log = (s) => console.error(s),
+  ledgerPath = null,
+  now = () => new Date(),
+} = {}) {
+  const metaPath = join(dir, 'meta.json')
+  let metaText = null
+  try {
+    metaText = readFileSync(metaPath, 'utf8')
+  } catch {
+    metaText = null
+  }
+  let metaMtimeMs = null
+  try {
+    metaMtimeMs = statSync(metaPath).mtimeMs
+  } catch {
+    metaMtimeMs = null
+  }
+  const { stallMs, why: capWhy } = resolveStallMs(env)
+  if (capWhy) log(`ℹ️ [lock-stall] ${capWhy}`)
+  const verdict = judgeLandingLock({
+    lockExists: existsSync(dir),
+    metaText,
+    metaMtimeMs,
+    nowMs: now().getTime(),
+    pidAlive: isPidAlive,
+    stallMs,
+  })
+  if (shouldAnnounceLockStall(verdict)) {
+    log(
+      `⚠️ [lock-stall/${verdict.state}] 这一型停摆的成因:${String(verdict.why ?? '').slice(0, 220)}`,
+    )
+    log(
+      `   出路(只喊人,不代裁):① 看持有者还在不在做动作 ` +
+        `node scripts/git-lock.mjs check --unit ${LAND_LOCK_UNIT};` +
+        `② 真要回收走抢占通道(先归档现场,绝不直删原路径)node scripts/git-lock.mjs clean;` +
+        `③ 本枚等待旗 IHUI_LAND_SINGLE_INSTANCE_WAIT_MS,停滞门限旗 ${LOCK_STALL_ENV}(坏值照旧回落实测缺省)。`,
+    )
+    const row = buildStallRow({
+      nowIso: now().toISOString(),
+      unitId: LAND_LOCK_UNIT,
+      verdict,
+      waitedMs: landLock?.waitedMs ?? null,
+    })
+    if (!row) {
+      log(
+        `⚠️ [lock-stall] 结论 state=${JSON.stringify(verdict?.state)} 不在已知态清单内 ⇒ 一行都不写`,
+      )
+    } else if (typeof ledgerPath === 'string' && ledgerPath !== '') {
+      try {
+        appendFileSync(ledgerPath, `${JSON.stringify(row)}\n`, 'utf8')
+        log(`ℹ️ [lock-stall] 已写 1 行账面 ${ledgerPath}(source=${row.source})`)
+      } catch (e) {
+        log(
+          `⚠️ [lock-stall] 账面未写入(${String(e?.code ?? e?.message ?? e).slice(0, 80)})⇒ 本轮读数只在 stderr,` +
+            '不得读成"没发生"',
+        )
+      }
+    }
+  } else {
+    log(
+      `ℹ️ [lock-stall/${verdict.state}] ${String(verdict.why ?? '').slice(0, 160)} ⇒ 本轮不喊(不等于通道空闲)`,
+    )
+  }
+  return verdict
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -2759,7 +2863,16 @@ async function main() {
   }
   const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
   // ── 单实例闸(排在一切取材之前:一进来就排队,别先把两面全量审跑完再发现该等)──
-  const landLock = acquireLandLock({ dir: landLockDirOf(root) })
+  const landLockDir = landLockDirOf(root)
+  const landLock = acquireLandLock({ dir: landLockDir })
+  // 拿不到锁 ⇒ 先把这一型停摆折成读数(成因为什么、下一步是什么、账面在哪一行),
+  // **不改本轮退出码**:拒抢本身就是正确结论,这里只补"谁也不必再猜是哪一型"那一格。
+  if (!landLock.acquired && landLock.kind === 'skipped-held')
+    noteLandLockStall({
+      dir: landLockDir,
+      landLock,
+      ledgerPath: join(root, STALL_LEDGER_REL),
+    })
   if (!landLock.acquired) {
     console.error(
       `❌ 未判定:拿不到落地器单实例闸(kind=${landLock.kind})⇒ 本枚不落地、不叠并发。${String(landLock.why ?? '').slice(0, 200)}`,
@@ -3610,7 +3723,9 @@ async function main() {
   }
   const finalCode = landingExitWithHeal(0, ledgerHeal)
   if (finalCode === 2)
-    console.error('❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;零丢失自证已过的落地不回滚、不判红,但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit')
+    console.error(
+      '❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;零丢失自证已过的落地不回滚、不判红,但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit',
+    )
   process.exit(finalCode)
 }
 
