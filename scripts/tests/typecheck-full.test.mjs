@@ -42,21 +42,24 @@ test('T2 自检短路必须排在清缓存之前(否则每跑一次自检就全�
 })
 
 test('T3 陈旧 dist 前置必须真接在主 typecheck 之前,且两种结论都要出声', () => {
-  // 2026-11-07:主 typecheck 从「单次 pnpm -r」改为「逐包执行器」。
-  // 执行顺序不能再按字面出现位置判(runner 定义在文件前部,主流程调用在后面),
-  // 必须锁「主流程里 perPackage 调用晚于 preflight 调用」+「spawn 住在执行器内部」。
-  const iRunnerDef = SRC.indexOf('function runTypecheckPerPackage()')
-  const iSpawn = SRC.indexOf("spawnSync('pnpm', ['--filter', pkg.name, 'run', 'typecheck']")
+  // 2026-11-07:主 typecheck 从「单次 pnpm -r」→「逐包串行」→「受限并发池」。
+  // 执行顺序不能按字面出现位置判(执行器定义在文件前部,主流程调用在后面),
+  // 必须锁「主流程里 perPackage 调用晚于 preflight 调用」+「spawn 住在单包执行器内部」。
+  const iRunnerDef = SRC.indexOf('async function runTypecheckPerPackage()')
+  const iOneDef = SRC.indexOf('function runOnePackage(pkg)')
+  const iSpawn = SRC.indexOf('pnpm --filter "${pkg.name}" run typecheck')
   const iLog = SRC.indexOf('运行分包 typecheck')
   const iCall = SRC.lastIndexOf('staleDistPreflight()')
-  const iRunnerCall = SRC.lastIndexOf('const perPackage = runTypecheckPerPackage()')
+  const iRunnerCall = SRC.lastIndexOf('const perPackage = await runTypecheckPerPackage()')
   assert.ok(
     iSpawn > 0 && iLog > 0,
     '找不到分包 typecheck 的 spawn/日志行(主流程被改写 ⇒ 本锁须同步)',
   )
-  assert.ok(iRunnerDef > 0 && iSpawn > iRunnerDef, '逐包 spawn 必须住在执行器内部')
+  assert.ok(iRunnerDef > 0 && iOneDef > 0, '并发池与单包执行器都必须存在')
+  assert.ok(iSpawn > iOneDef, '逐包 spawn 必须住在单包执行器内部')
+  assert.ok(iRunnerDef > iOneDef, '并发池必须复用单包执行器')
   assert.ok(iCall > 0, '前置被摘线 ⇒ 本文件回到"拿旧产物下结论"的原病')
-  assert.ok(iRunnerCall > 0, '主流程必须显式调用逐包执行器')
+  assert.ok(iRunnerCall > 0, '主流程必须显式调用(并 await)逐包执行器')
   assert.ok(iCall < iRunnerCall, '前置必须早于全量 typecheck(按主流程调用序判,不按函数定义位置)')
   assert.match(SRC, /IHUI_SKIP_STALE_DIST_PREFLIGHT/, '应急开关必须在位')
   assert.ok(
@@ -78,9 +81,43 @@ test('T6 分包计时必须逐包落盘、失败即停、汇总点名最慢包',
     /event: 'finish',[\s\S]{0,80}package: pkg\.name,[\s\S]{0,80}elapsedMs,/,
     '每包结束必须落盘耗时',
   )
-  assert.match(SRC, /return \{ ok: false, status: r\.status \?\? 1 \}/, '失败必须 fail-fast 非零退出')
+  assert.match(
+    SRC,
+    /return \{ ok: false, status: failure\.status \?\? 1 \}/,
+    '失败必须 fail-fast 非零退出',
+  )
   assert.match(SRC, /最慢包:/, '全量汇总必须点名最慢包')
   assert.match(SRC, /IHUI_TYPECHECK_TIMINGS_FILE/, '读数落盘路径必须可覆盖以便复查')
+})
+
+test('T8 并发池:失败不再派发新包、未派发包必须点名、并发度可覆盖且不得超过包数', () => {
+  assert.match(
+    SRC,
+    /async function worker\(\)[\s\S]{0,120}if \(failure\) return/,
+    '失败后必须停止派发(失败即停语义不得退化成继续跑)',
+  )
+  assert.match(SRC, /notRun/, '必须点名「未派发的包」,否则失败现场分不清是失败还是没跑')
+  assert.match(
+    SRC,
+    /previous\.get\(b\.name\) \?\? -1/,
+    '派发必须按上一轮实测耗时降序(LPT),否则重包排在最后会拖出长尾',
+  )
+  assert.match(SRC, /IHUI_TYPECHECK_CONCURRENCY/, '并发度必须可由环境变量覆盖(低内存机器退回 2)')
+  assert.match(
+    SRC,
+    /const workers = Math\.max\(1, Math\.min\(TYPECHECK_CONCURRENCY, packages\.length\)\)/,
+    '并发路数不得超过包数',
+  )
+  assert.match(
+    SRC,
+    /c=4 → 墙钟 179\.7s/,
+    '并发度定档必须写明实测依据(否则下次有人凭感觉改数字)',
+  )
+  assert.match(
+    SRC,
+    /300s 阈值一行未改/,
+    '必须留档「没有靠调大阈值消红」这件事',
+  )
 })
 
 test('T7 check-typecheck 超时分支必须先落分包读数再杀进程,且仍归 undetermined', () => {
