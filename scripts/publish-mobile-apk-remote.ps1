@@ -70,13 +70,33 @@ $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript
 if ($LASTEXITCODE -ne 0) { throw "生产发布失败 (exit=$LASTEXITCODE) —— 站点腿或版本登记未完成" }
 
 # 公网终检:线上 latest 必须就是本次版本(远程 exit 0 不构成成功证据)
-$r = Invoke-RestMethod -Uri "https://api.aizhs.top/api/app-version/latest?platform=android&t=$([DateTime]::UtcNow.Ticks)" -TimeoutSec 30
-$live = $r.data.latest
-if ($live.version -ne $Version -or [int]$live.buildNumber -ne $VersionCode) {
-  throw "线上 latest 未切到本次版本: 期望 $Version/$VersionCode, 实得 $($live.version)/$($live.buildNumber)"
+# 两条实测口径(2026-11-06):
+#  ① 必须 -NoProxy:本机系统代理(127.0.0.1:7897)对 api.aizhs.top 的 TLS 出口是坏的,
+#     .NET HttpClient 走默认代理直接 `The SSL connection could not be established`;
+#  ② 必须重试:该接口实测 3 次里有 1~2 次 25s 级超时(EdgeOne 偶发),单次超时会把
+#     "已发布且已登记"的整轮记成失败,下一轮再重复打同一个包。
+$live = $null
+$lastErr = ''
+for ($i = 1; $i -le 3; $i++) {
+  try {
+    $r = Invoke-RestMethod -Uri "https://api.aizhs.top/api/app-version/latest?platform=android&t=$([DateTime]::UtcNow.Ticks)&i=$i" -TimeoutSec 30 -NoProxy
+    $live = $r.data.latest
+    if ($live.version -eq $Version -and [int]$live.buildNumber -eq $VersionCode) { break }
+    $lastErr = "线上 latest 未切到本次版本: 期望 $Version/$VersionCode, 实得 $($live.version)/$($live.buildNumber)"
+  } catch {
+    $lastErr = $_.Exception.Message
+  }
+  if ($i -lt 3) { Start-Sleep -Seconds 5 }
+}
+if ($null -eq $live -or $live.version -ne $Version -or [int]$live.buildNumber -ne $VersionCode) {
+  throw "公网终检失败(3 次均未通过): $lastErr"
 }
 Write-Host "[remote] ✓ 生产已发布并登记: $($live.version)/$($live.buildNumber) → $($live.downloadUrl)" -ForegroundColor Green
 
 # 清掉生产临时包(80MB,不留在生产盘)
 & ssh -o BatchMode=yes $TargetHost "del /q $remoteApk" | Out-Null
+# 清理是收尾动作,失败不许污染发布结论:本脚本被 build-mobile-rn-release.ps1 以 `&` 同进程调用,
+# 调用方紧接着就检查 $LASTEXITCODE —— 这里的 ssh 抖动会被读成"远程发布腿失败"(实测过的假红)。
+if ($LASTEXITCODE -ne 0) { Write-Warning "生产临时包清理失败(exit=$LASTEXITCODE),不影响发布结论" }
+$global:LASTEXITCODE = 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
