@@ -11,7 +11,12 @@ const require2 = createRequire(import.meta.url)
 const { chromium } = require2(process.env.APPDATA + '/npm/node_modules/playwright')
 
 const password = fs.readFileSync('D:/DevEnv/secrets/admin-password.txt', 'utf8').trim()
-const BASE = 'http://127.0.0.1:8801'
+// 2026-11-06:本机 8801 是生产 web(ihui-prod 的 api-router),此脚本会带管理员口令登录,
+// 绝不能再默默指向它 —— 必须由调用方显式给隔离栈地址。
+const BASE = (process.env.PLAYWRIGHT_BASE_URL || process.env.E2E_BASE_URL || '').replace(/\/+$/, '')
+if (!BASE) {
+  throw new Error('e2e-monitor-panels: 必须显式给 PLAYWRIGHT_BASE_URL/E2E_BASE_URL(8801 在本机是生产)')
+}
 const OUT = 'D:/IHUI-AI/.ihui-agent/tmp'
 
 ;(async () => {

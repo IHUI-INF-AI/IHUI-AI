@@ -81,7 +81,8 @@ const OPTS = {
   requireLive: argv.includes('--require-live') || process.env.E2E_AGENT_ACCESS_REQUIRE_LIVE === '1',
   noTsx: argv.includes('--no-tsx'),
   apiUrl: (
-    flagOf('api-url') || envOr(['IHUI_AGENT_API_URL', 'API_URL'], 'http://127.0.0.1:8802')
+    flagOf('api-url') ||
+    envOr(['E2E_API_URL', 'IHUI_AGENT_API_URL', 'API_URL'], 'http://127.0.0.1:8809')
   ).replace(/\/$/, ''),
   aiUrl: (
     flagOf('ai-url') || envOr(['IHUI_AGENT_AI_URL', 'AI_SERVICE_URL'], 'http://127.0.0.1:8803')
@@ -118,7 +119,7 @@ e2e-agent-access.mjs —— 外部 Agent 接入能力端到端证明(O17)
 选项:
   --live               追加在线模式(真跑 OpenAI 兼容 / MCP JSON-RPC / OAuth DCR / A2A 四组)
   --require-live       在线用例全部 SKIP 时按失败退出(CI 强制真接通时使用)
-  --api-url <url>      apps/api 基址(默认 http://127.0.0.1:8802)
+  --api-url <url>      apps/api 基址(或 env E2E_API_URL;默认隔离栈 8809。本机 8802 是生产路由)
   --ai-url <url>       ai-service 基址(默认 http://127.0.0.1:8803)
   --api-key <key>      ihui_ 前缀机器凭据(或 env IHUI_API_KEY)
   --api-secret <sk>    X-Api-Secret 第二因子(或 env IHUI_API_SECRET)
@@ -1398,7 +1399,9 @@ async function runLiveChecks(api, ai) {
         body: rpc(3, 'tools/call', { name: pick.name, arguments: {} }),
       })
       const called =
-        call.status === 200 && (call.json?.result ?? null) !== null && call.json?.error == null
+        call.status === 200 &&
+        (call.json?.result ?? null) !== null &&
+        (call.json?.error ?? null) === null
       const detail = `initialize→${proto} / tools=${tools.length} / tools/call(${pick.name}) HTTP ${call.status}${call.json?.error ? ` error=${JSON.stringify(call.json.error).slice(0, 90)}` : ''}`
       if (called) return ['PASS', detail]
       return ['FAIL', `三步未全通:${detail}`]

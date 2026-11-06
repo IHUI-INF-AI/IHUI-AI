@@ -301,7 +301,12 @@ async function seedLoggedIn(page: Page): Promise<void> {
     {
       name: 'auth_token',
       value: 'e2e-tjc-access',
-      url: 'http://localhost:8801',
+      // 2026-11-06:不再写死 8801(本机那台是生产 web);CI/隔离栈由 PLAYWRIGHT_BASE_URL 给。
+      url: (
+        process.env.PLAYWRIGHT_BASE_URL ||
+        process.env.E2E_BASE_URL ||
+        'http://localhost:8801'
+      ).replace(/\/+$/, ''),
       httpOnly: false,
       secure: false,
       sameSite: 'Lax' as const,

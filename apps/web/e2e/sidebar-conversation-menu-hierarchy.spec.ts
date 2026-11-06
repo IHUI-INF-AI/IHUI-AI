@@ -19,18 +19,33 @@ import { test, expect, type Page } from '../e2e/fixtures'
 const DESKTOP_ASIDE = 'aside[aria-label="主导航"]:not([role="dialog"])'
 const SIDEBAR_HISTORY_SELECTOR = `${DESKTOP_ASIDE} [role="region"][aria-label="任务列表"]`
 const CONVERSATION_ITEM_SELECTOR = `${SIDEBAR_HISTORY_SELECTOR} ul > li > button`
-const CONVERSATIONS_URL = 'http://localhost:8801/api/chat/conversations'
+/**
+ * 2026-11-06:不再写死 8801 —— 本机 8801 是生产 web(ihui-prod 路由),而 page.request 会带
+ * 登录态 cookie(cookie 不按端口隔离,localhost 域对 8877/8801 同时生效)⇒ 旧写法会把
+ * `menu-smoke-conv-*` 直接 POST 进生产库。取 playwright 项目基址(CI/隔离栈均由供给面给),
+ * 缺省值只作 CI 兜底。只能在测试运行期求值(test.info() 在模块加载期不可用)。
+ */
+function conversationsUrl(): string {
+  const base = (
+    test.info().project.use.baseURL ||
+    process.env.PLAYWRIGHT_BASE_URL ||
+    process.env.E2E_BASE_URL ||
+    'http://localhost:8801'
+  ).replace(/\/+$/, '')
+  return `${base}/api/chat/conversations`
+}
 
 async function ensureConversations(page: Page): Promise<void> {
   try {
-    const listRes = await page.request.get(CONVERSATIONS_URL)
+    const url = conversationsUrl()
+    const listRes = await page.request.get(url)
     const listBody = (await listRes.json().catch(() => null)) as {
       data?: { conversations?: Array<{ title: string }> }
     } | null
     const existing = listBody?.data?.conversations ?? []
     const need = [1, 2].filter((i) => !existing.some((c) => c.title === `menu-smoke-conv-${i}`))
     for (const i of need) {
-      await page.request.post(CONVERSATIONS_URL, {
+      await page.request.post(url, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         data: { title: `menu-smoke-conv-${i}`, model: 'deepseek/deepseek-chat' },
       })

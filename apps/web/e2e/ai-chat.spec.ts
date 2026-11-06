@@ -209,7 +209,13 @@ function makeSSE(events: ReadonlyArray<Record<string, unknown>>): string {
 
 /** CORS 响应头(streamChat credentials:'include',不能通配 '*') — 复制自 phase-21-timeline-sse.spec.ts */
 const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': 'http://localhost:8801',
+  // 2026-11-06:不再写死 8801 —— 本机 8801 是生产 web(ihui-prod 路由);CI 与隔离栈
+  // 均由供给面给 PLAYWRIGHT_BASE_URL,缺省值只作 CI 兜底。
+  'Access-Control-Allow-Origin': (
+    process.env.PLAYWRIGHT_BASE_URL ||
+    process.env.E2E_BASE_URL ||
+    'http://localhost:8801'
+  ).replace(/\/+$/, ''),
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers':

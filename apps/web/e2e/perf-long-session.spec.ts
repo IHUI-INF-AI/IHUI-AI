@@ -43,7 +43,12 @@ function makeSSE(events: ReadonlyArray<Record<string, unknown>>): string {
 
 /** CORS 响应头(streamChat credentials:'include',不能通配 '*') — 复制自 ai-chat.spec.ts */
 const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': 'http://localhost:8801',
+  // 2026-11-06:不再写死 8801(本机那台是生产 web);CI/隔离栈由 PLAYWRIGHT_BASE_URL 给。
+  'Access-Control-Allow-Origin': (
+    process.env.PLAYWRIGHT_BASE_URL ||
+    process.env.E2E_BASE_URL ||
+    'http://localhost:8801'
+  ).replace(/\/+$/, ''),
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers':

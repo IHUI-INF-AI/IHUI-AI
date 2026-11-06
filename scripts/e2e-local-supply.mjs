@@ -621,14 +621,14 @@ async function modeStack(env, opts) {
     // 直连 API 的 spec(share-browser/share-function)读 E2E_API_URL,缺省值写死 8802 ——
     // 那是生产路由(ihui-api-router.mjs)的端口,落到那里会走 production 档登录限流(5/min)
     // 且与整机共享同一桶。本栈已起隔离 API,把这两条腿钉到它上面,不再泄漏到生产。
-    env.E2E_API_URL = `http://127.0.0.1:${apiPort}`
-    if (prod && env.CI) {
-      // CI 下 playwright.config 的 reuseExistingServer 默认 false ⇒ webServer 段会去跑
-      // `pnpm build && pnpm start`(默认 .next + 8801),既覆盖共享构建目录又打错端口。
-      // 本栈已按 CI 同形起好 build+start,这里让它复用本席服务。
-      env.PLAYWRIGHT_REUSE_SERVER = '1'
-    }
-    return await modeRun(env, opts)
+    // 本栈已自起 web(本席端口)⇒ playwright 只能复用它,绝不能再起一台:
+    //  - CI=true 时 playwright.config 的 reuseExistingServer=false,webServer 段会去跑
+    //    `pnpm build && pnpm start`(默认 .next + 8801),既覆盖共享构建目录又撞本席端口;
+    //  - 故显式置位并清掉 CI。两者都只进**本次 playwright 子进程**的 env(不写全局、
+    //    不改 playwright.config);外部已给 server 的复用分支(--run)不经此处,不会被覆盖。
+    const pwEnv = { ...env, E2E_API_URL: `http://127.0.0.1:${apiPort}`, PLAYWRIGHT_REUSE_SERVER: '1' }
+    delete pwEnv.CI
+    return await modeRun(pwEnv, opts)
   } finally {
     if (opts.keep) {
       // unref:否则 keep 档的父进程会一直挂在子进程句柄上,命令看起来"卡住不返回"
