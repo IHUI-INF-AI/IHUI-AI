@@ -1104,8 +1104,13 @@ async function installGit(
  * 优先根目录;否则扫描一级子目录(跳过 .git)。
  * 返回 undefined 表示根目录,字符串表示子目录名。
  */
-export function findPluginSubdir(cachePath: string, stat?: (path: string) => fs.Stats): string | undefined {
+export function findPluginSubdir(
+  cachePath: string,
+  stat?: (path: string) => fs.Stats,
+  readdir?: typeof fs.readdirSync,
+): string | undefined {
   const look = stat ?? ((target: string) => fs.statSync(target));
+  const list = readdir ?? fs.readdirSync;
   const kindOf = (target: string): 'present' | 'missing' | 'unreadable' => {
     try {
       look(target);
@@ -1128,9 +1133,11 @@ export function findPluginSubdir(cachePath: string, stat?: (path: string) => fs.
   // 扫描一级子目录
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(cachePath, { withFileTypes: true });
-  } catch {
-    return undefined;
+    entries = list(cachePath, { withFileTypes: true });
+  } catch (err) {
+    const verdict = classifyRealpathFailure(err);
+    if (verdict.kind === 'missing' && verdict.errno !== 'EISDIR') return undefined;
+    throw new Error(`插件目录列不出来,不能把它说成清单在根上 (${cachePath})`);
   }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
