@@ -1538,12 +1538,20 @@ interface VideoTabProps {
   onPlay: (url: string) => void
 }
 
+/**
+ * 视频画面 16:9 的单一真相源:列表封面与点开后的播放器共用同一比例,
+ * 避免「宽随视口变、高写死 200」在平板/折叠屏压成扁带、点开后比例突变。
+ */
+function videoHeightFor(width: number): number {
+  return Math.round((width * 9) / 16)
+}
+
 function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
   const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
-  // 视频封面宽度 = screenWidth - 32(容器 padding),高度默认 200(对齐 Uniapp 400rpx ≈ 200)
+  // 视频封面宽度 = screenWidth - 32(容器 padding),高度与播放器同源取 16:9
   const posterWidth = screenWidth - 32
-  const posterHeight = 200
+  const posterHeight = videoHeightFor(posterWidth)
 
   if (list.length === 0) {
     return <Empty text={t('profile.emptyVideoCat')} icon={Film} />
@@ -1943,9 +1951,9 @@ interface VideoPlayerModalProps {
 function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): React.JSX.Element {
   const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
-  // 视频容器宽度 = screenWidth - 32,高度按 16:9
+  // 视频容器宽度 = screenWidth - 32,高度与封面同源取 16:9
   const videoWidth = screenWidth - 32
-  const videoHeight = Math.round((videoWidth * 9) / 16)
+  const videoHeight = videoHeightFor(videoWidth)
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
