@@ -321,6 +321,16 @@ export async function extractDoubaoAccounts(opts = {}) {
         .sort()
         .join('\n')
       const bundleUid = `auto:${crypto.createHash('sha256').update(seed).digest('hex').slice(0, 32)}`
+      /**
+       * 跨界载荷补 `name` 同值别名(2026-11-06 Y-25,本票缺陷本体):下游两处消费方读的都是
+       * `name` —— ① service `mapSessionEntryImport` 的稳定键分支
+       * `stableKeyMaterial(c['name']) === 'uid_tt' | 'uid_tt_ss'`;② `doubao-adapter` 的
+       * `buildCookieHeader` 逐条拼 `${name}=${value}`。本模块内部条目一直是
+       * {source,key,host,value}(meta 摘要与 seed 都读 `key`;本文件头注第 26-27 行自述的
+       * **出界**形状本就是 {host,name,value}),只在出界这一格补齐 ⇒ 账号级稳定材料真能带出去,
+       * 换 sessionid 不再换 uid。`key` 保留 ⇒ 内部消费面零改动。
+       */
+      const cookiesPayload = valid.map((e) => ({ ...e, name: e.key }))
       return {
         providerCode: 'doubao',
         accounts: [
@@ -328,7 +338,7 @@ export async function extractDoubaoAccounts(opts = {}) {
             name: `豆包本机(${primary.key},${valid.length}票)`,
             token: primary.value,
             uid: bundleUid,
-            cookies: valid,
+            cookies: cookiesPayload,
             enabled: true,
           },
         ],
