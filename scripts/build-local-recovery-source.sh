@@ -29,7 +29,8 @@
 # 用法:bash scripts/build-local-recovery-source.sh
 set -euo pipefail
 
-REPO="${1:-G:/IHUI-AI}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 MAIN="$REPO/.git"
 DST="$REPO/.DevEnv/backups/git/IHUI-AI.git-backup-20260912"
 
