@@ -1778,6 +1778,16 @@ function makeLedgerDocRepo(t) {
   runGit(dir, ['config', 'user.email', 'heal@e2e.local'])
   runGit(dir, ['config', 'user.name', 'heal-e2e'])
   runGit(dir, ['config', 'commit.gpgsign', 'false'])
+  // RP-71/H1 夹具前置件(2026-11-06):真门 check-plan-line-loss.mjs 的 declaredLedgerGate()
+  // 要求两本摘除台账**在位**,否则 filesSeen===0 ⇒ 判「未判定」并 rc=2;落地器按 RP-71 契约把
+  // 这次补跑如实折成 exit 2。根因是夹具缺前置件,不是 accounted<expected 的语义边界,更不是
+  // 判据过宽 ⇒ 不得削判据求绿(§12e)。造空账(0 行)即可:filesSeen>0 / set.size=0 /
+  // malformed=0 ⇒ 判「在位、无声明」,真门照常点名被摘编号的行并建前向恢复提交。
+  // 与 object-space-land --self-test 的 SELFTEST_GUARD_JSON 同族(夹具补齐,不是放宽)。
+  // 两本账只在工作树存在、不进 git 索引(真实仓 .ihui-agent/state 亦是运行时状态面,非跟踪件)。
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(join(dir, '.ihui-agent', 'state', 'plan-row-drop.jsonl'), '', 'utf8')
+  writeFileSync(join(dir, '.ihui-agent', 'state', 'stale-claim-strip.jsonl'), '', 'utf8')
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), LD_PLAN)
   runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
   runGit(dir, ['commit', '-q', '-m', 'plan: 甲乙入库'])
@@ -3303,7 +3313,21 @@ test('T-DROP3 留痕:删除档只入未勾一形态(drops 桶),门 71 的 declar
   const { flips, drops } = flipPairsOf([{ before: '- [ ] G-9 甲', after: null, drop: true }])
   assert.equal(flips.length, 0, '删除档不进 flips(面上不会有已勾形态)')
   assert.equal(drops.length, 1)
-  assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'open' }])
+  // 2026-11-06 夹具跟上 966504445b:删除档的终态是**具名** form='dropped',不是与翻勾前像同值的
+  // 'open'。旧期望把「删除」与「待变已勾」混成同一账面形态,而生产侧、lib 自检(D11)、
+  // scrub-declared-removals 复洁器维三、留痕镜像早已统一按 'dropped' 认账 ⇒ 这条是存量恒红,
+  // 根因在夹具滞后,不在判据过宽。按 §12e 只让断言跟上语义,不动任何生产判据求绿。
+  // 关键不变:入账 rowBefore 仍是**未勾逐字原文**(门 71 declaredExempt 按整行逐字认它)。
+  assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'dropped' }])
+  // 成对形状锁:写口与读口必须同尺,防语义再次单边漂移(改形态须同时改两处 + 本夹具)。
+  const writer = readFileSync(join(HERE, '..', 'lib', 'plan-drop-record.mjs'), 'utf8')
+  assert.match(
+    writer,
+    /rows\.push\(\{ rowBefore: d\.before, form: 'dropped' \}\)/,
+    '写口:删除档留痕必须具名 dropped(与翻勾前像的 open 分开)',
+  )
+  const reader = readFileSync(join(HERE, '..', 'scrub-declared-removals.mjs'), 'utf8')
+  assert.match(reader, /form === 'dropped'/, '读口:复洁器维三必须仍按 dropped 认声明为删除的形态')
 })
 
 test('T-DROP-E2E 默认结清即删(2026-10-28):open→done 落地后该行整行消失、其余逐字原位、留痕只入未勾形态', (t) => {
