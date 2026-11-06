@@ -3598,7 +3598,13 @@ async def _tool_run_command(
     _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
     first_token = command.split()[0] if command.split() else ""
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
-    if cmd_name not in _ALLOWED_PREFIXES:
+    # 2026-11-07(BUG-0034 白名单判定缺陷):Windows 上可执行文件一律带 .exe/.cmd/.bat/.com,
+    # 而 allowed_prefixes 是按「无后缀命令名」维护的 ⇒ `C:\...\python.exe`、`git.exe` 这类
+    # 最常见也最规范的写法会被判非法(实测 test_run_command_streaming 9 条用例 exit_code=-1,
+    # 报 "命令 'python.exe' 不在白名单中")。判据本身不变 —— 仍是「命令名精确命中白名单」,
+    # 只把 Windows 的可执行后缀视为非语义部分;不做子串/前缀宽松匹配,不放宽任何一条名单。
+    cmd_base = re.sub(r"\.(?:exe|cmd|bat|com)$", "", cmd_name) or cmd_name
+    if cmd_base not in _ALLOWED_PREFIXES:
         return {
             "tool": "run_command", "command": command,
             "exit_code": -1, "stdout": "", "stderr": "",
