@@ -23,6 +23,9 @@
  *   node scripts/sync-prod-bundle-shadow.mjs            # dry-run(只读,列出将写哪些文件)
  *   node scripts/sync-prod-bundle-shadow.mjs --apply    # 备份 + 写盘 + 逐字节复验
  *   node scripts/sync-prod-bundle-shadow.mjs --self-test# 临时夹具自检(不碰真实 deploy/prod-bundle/)
+ *   node scripts/sync-prod-bundle-shadow.mjs --apply --allow-drop-runner-only <runner 相对路径>
+ *        # 人工放行:仅对 ALLOW_DROP_RUNNER_ONLY 里已登记"旧行可丢"理由的文件生效,可重复传入;
+ *        # 不传该参数时语义完全不变(运行副本独有内容仍然整批拒绝)
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -41,6 +44,59 @@ const GIT = gitBinary()
  * 的脚本副本会被读成"未登记运行副本"(只报数,但把账面搅浑);`.ihui-agent/` 不在 E1 射程内。
  */
 export const BACKUP_ROOT_REL = '.ihui-agent/backups/prod-bundle-shadow'
+
+/**
+ * 人工放行登记表 —— `--allow-drop-runner-only` 只接受**登记在此**的 runner。
+ * 每条必须写清理由:为什么运行副本里的独有行可以丢。没有这条理由,放行就等于给判据开后门。
+ *
+ * 现登记(2026-11-06,唯一一条):
+ *   · deploy/prod-bundle/deploy.sh —— 运行副本独有 5 行是 2026-08-17 的旧硬编码 APK 下载配置
+ *     (`NEXT_PUBLIC_DOWNLOAD_APK_URL=/apk/ihui-ai-latest.apk`、VERSION=1.0.0、
+ *     RELEASE_DATE=2026-08-17,及两行注释/成功提示)。入库源已改为单源:地址从
+ *     `scripts/data/mobile-download-leg.json` 读出并替换 `__MOBILE_DOWNLOAD_URL__`,
+ *     读不出即 exit 1 拒绝写空地址。旧值已被入库源有意取代,不含运行副本独有信息。
+ */
+export const ALLOW_DROP_RUNNER_ONLY = new Map([
+  ['deploy/prod-bundle/deploy.sh', '入库源已取代:2026-08-17 旧硬编码 APK 下载配置(5 行)'],
+])
+
+/**
+ * 解析 CLI 白名单参数。`--allow-drop-runner-only <rel>` 可重复;也接受 `=<rel>` 形式。
+ * 缺值即抛 —— 不把"参数写坏了"吞成"没传"。
+ */
+export function parseAllowArgs(argv) {
+  const out = []
+  const PREFIX = '--allow-drop-runner-only='
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    if (a === '--allow-drop-runner-only') {
+      const v = argv[i + 1]
+      if (typeof v !== 'string' || v === '' || v.startsWith('--')) {
+        throw new Error('--allow-drop-runner-only 缺少 <runner 相对路径> 参数')
+      }
+      out.push(v)
+      i += 1
+    } else if (a.startsWith(PREFIX)) {
+      const v = a.slice(PREFIX.length)
+      if (v === '') throw new Error('--allow-drop-runner-only= 后缺少 <runner 相对路径>')
+      out.push(v)
+    }
+  }
+  return out
+}
+
+/** 未登记路径一律拒绝(抛错 ⇒ 主流程 exit 2),不允许"传了就当放行"。 */
+export function assertAllowRegistered(paths) {
+  for (const p of paths) {
+    if (!ALLOW_DROP_RUNNER_ONLY.has(p)) {
+      throw new Error(
+        `--allow-drop-runner-only 拒绝:${p} 不在人工放行登记表(ALLOW_DROP_RUNNER_ONLY)中 —— ` +
+          '先在代码里写明"为什么可以丢"的理由,再传入',
+      )
+    }
+  }
+  return new Set(paths)
+}
 
 const sha1 = GATE.sha1
 
@@ -75,11 +131,12 @@ export function linesOnlyIn(aLines, bLines) {
  * status 五态:
  *   equal         两侧逐字节相同 ⇒ 无需动作
  *   pending       运行副本是入库源的**子集**(单向滞后)⇒ 可用入库源整份覆盖
+ *                 (allowDropRunnerOnly 命中时:运行副本独有行已被人工判定为旧值 ⇒ 同样按 pending 处理)
  *   refuse        运行副本存在入库源没有的行 ⇒ 丢内容风险,**拒绝覆盖**
  *   runner-absent 运行副本不在本机(非部署机 / CI)⇒ no-op,不是错误
  *   undetermined  入库源缺失或读取失败 ⇒ 无法判定
  */
-export function planSync(root, pairs) {
+export function planSync(root, pairs, { allowDropRunnerOnly = new Set() } = {}) {
   const items = []
   let undetermined = 0
   for (const pair of pairs) {
@@ -113,6 +170,21 @@ export function planSync(root, pairs) {
     const extraInRunner = linesOnlyIn(rl, tl)
     const extraInSource = linesOnlyIn(tl, rl)
     if (extraInRunner.length > 0) {
+      // 人工放行:仅当该 runner 已登记(CLI 入口已校验)且本对被显式点名时,才把独有行
+      // 当作"入库源已取代的旧值"放下;其余一切判据不变(同批其它对仍按 refuse 拒批)。
+      if (allowDropRunnerOnly.has(pair.runner)) {
+        items.push({
+          pair,
+          status: 'pending',
+          onlySource: extraInSource.length,
+          sourceLines: extraInSource,
+          onlyRunner: extraInRunner.length,
+          droppedLines: extraInRunner,
+          allowDropped: true,
+          bytes: tb.length,
+        })
+        continue
+      }
       items.push({
         pair,
         status: 'refuse',
@@ -178,8 +250,8 @@ export function assertBackupIgnored(root, backupRootRel = BACKUP_ROOT_REL) {
  * (部分同步会让"跑了一半"的现场比原状更难判)。
  * 逐文件顺序:先备份(旧字节)→ 覆盖(入库源字节)→ 立即逐字节复验 → 收尾整批复验。
  */
-export function applySync(root, pairs, { backupRootRel = BACKUP_ROOT_REL, now = new Date() } = {}) {
-  const before = planSync(root, pairs)
+export function applySync(root, pairs, { backupRootRel = BACKUP_ROOT_REL, now = new Date(), allowDropRunnerOnly = new Set() } = {}) {
+  const before = planSync(root, pairs, { allowDropRunnerOnly })
   const verdict = decidePlan(before)
   if (verdict.code === 2) {
     return { before, after: null, verdict, refused: true, wrote: [], backups: [] }
@@ -204,13 +276,15 @@ export function applySync(root, pairs, { backupRootRel = BACKUP_ROOT_REL, now = 
     const verified = sha1(readFileSync(tAbs)) === sha1(readFileSync(rAbs))
     wrote.push({ pair, backupAbs, verified })
   }
-  const after = planSync(root, pairs)
+  const after = planSync(root, pairs, { allowDropRunnerOnly })
   return { before, after, verdict: decidePlan(after), refused: false, wrote, backups, stamp }
 }
 
-function printPlan(plan, applyMode) {
+function printPlan(plan, applyMode, allowDropRunnerOnly = new Set()) {
+  const allowNote =
+    allowDropRunnerOnly.size > 0 ? ` · 人工放行=${[...allowDropRunnerOnly].join(',')}` : ''
   console.log(
-    `[prod-bundle-sync] 登记对 ${plan.items.length} 个 · 模式=${applyMode ? '--apply(写盘)' : 'dry-run(只读)'}`,
+    `[prod-bundle-sync] 登记对 ${plan.items.length} 个 · 模式=${applyMode ? '--apply(写盘)' : 'dry-run(只读)'}${allowNote}`,
   )
   const CAP = 20
   for (const it of plan.items) {
@@ -218,9 +292,16 @@ function printPlan(plan, applyMode) {
     if (it.status === 'equal') {
       console.log(`  ✅ 已等值 ${p.runner} == ${p.tracked}(${it.bytes} 字节)`)
     } else if (it.status === 'pending') {
-      console.log(
-        `  ⏳ 待同步 ${p.runner} ← ${p.tracked}(入库源独有 ${it.onlySource} 行,运行副本无独有内容)`,
-      )
+      const tail = it.allowDropped
+        ? `;⚠ 白名单放行:运行副本独有 ${it.onlyRunner} 行将被丢弃(理由见登记表)`
+        : ';运行副本无独有内容'
+      console.log(`  ⏳ 待同步 ${p.runner} ← ${p.tracked}(入库源独有 ${it.onlySource} 行${tail})`)
+      if (it.allowDropped) {
+        for (const l of it.droppedLines.slice(0, CAP)) console.log(`       - ${l}`)
+        if (it.droppedLines.length > CAP) {
+          console.log(`       … 另有 ${it.droppedLines.length - CAP} 行被丢弃内容未列出(逐条见备份)`)
+        }
+      }
     } else if (it.status === 'refuse') {
       console.log(
         `  ⛔ 拒绝覆盖 ${p.runner} —— 运行副本独有 ${it.onlyRunner} 行、入库源独有 ${it.onlySource} 行(丢内容风险)`,
@@ -247,8 +328,16 @@ function main() {
     return
   }
   const applyMode = process.argv.includes('--apply')
-  const plan = planSync(REPO, GATE.PAIRS)
-  printPlan(plan, applyMode)
+  let allowDropRunnerOnly
+  try {
+    allowDropRunnerOnly = assertAllowRegistered(parseAllowArgs(process.argv.slice(2)))
+  } catch (e) {
+    // 白名单参数写坏/未登记 ⇒ 直接 exit 2:不静默降级成"没传",也不冒充判据结论
+    console.error(`❌ 参数拒绝:${e.message}`)
+    process.exit(2)
+  }
+  const plan = planSync(REPO, GATE.PAIRS, { allowDropRunnerOnly })
+  printPlan(plan, applyMode, allowDropRunnerOnly)
   const verdict = decidePlan(plan)
 
   if (verdict.code === 2) {
@@ -263,17 +352,20 @@ function main() {
   if (verdict.code === 1) {
     const pend = plan.items.filter((it) => it.status === 'pending')
     if (applyMode) {
-      const res = applySync(REPO, GATE.PAIRS)
+      const res = applySync(REPO, GATE.PAIRS, { allowDropRunnerOnly })
       if (res.refused) {
         console.log('❌ 写入前复核出现拒绝态 —— 一个文件都没有写,原因见上')
         process.exit(2)
       }
       console.log(`备份落点:${BACKUP_ROOT_REL}/${res.stamp}/(${res.backups.length} 个文件)`)
       for (const w of res.wrote) {
+        const it = res.before.items.find((x) => x.pair === w.pair)
+        const dropNote =
+          it && it.allowDropped ? `;白名单放行丢弃运行副本独有 ${it.onlyRunner} 行(旧值已在备份)` : ''
         console.log(
           `  ${w.verified ? '✅' : '❌'} 已写 ${w.pair.runner} ← ${w.pair.tracked};` +
             `备份 ${BACKUP_ROOT_REL}/${res.stamp}/${relFromBundle(w.pair.runner)};` +
-            `逐字节复验 ${w.verified ? '通过' : '不通过(现场已偏离,请人工介入)'}`,
+            `逐字节复验 ${w.verified ? '通过' : '不通过(现场已偏离,请人工介入)'}${dropNote}`,
         )
       }
       const after = res.verdict
@@ -390,6 +482,80 @@ function selfTest() {
     noSrc.items[0].status === 'undetermined' && decidePlan(noSrc).code === 2,
   )
 
+  // ── 人工放行白名单(⑥–⑩)────────────────────────────────────────────────
+  //  ⑥ 默认语义不变:不传白名单 ⇒ refuse/exit 2/零写入
+  //  ⑦ 传白名单(已登记路径)⇒ 仅该对转 pending,写入 1 个,备份保存被丢弃的旧行
+  //  ⑧ 未登记路径 ⇒ 拒绝(不生效,不放行)
+  //  ⑨ 已登记但该对不在 refuse 集(已等值)⇒ 白名单不改变任何判定
+  //  ⑩ 白名单只影响被点名的那一对:同批另一对仍 refuse ⇒ 整批仍拒绝、零写入
+  const RD = 'deploy/prod-bundle/deploy.sh' // 登记表里唯一允许放行的 runner
+  const ALLOW = assertAllowRegistered([RD])
+  const OLD = `${BASE}Write-Host 'runner-only-old'\n`
+  writeFileSync(join(root, RD), OLD)
+
+  // ⑥
+  const pairsD = [{ tracked: T, runner: RD, why: 't' }]
+  const p6 = planSync(root, pairsD)
+  check('⑥ 不传白名单 ⇒ refuse', p6.items[0].status === 'refuse' && p6.items[0].onlyRunner === 1)
+  check('⑥ 不传白名单 ⇒ exit 2', decidePlan(p6).code === 2)
+  const r6 = applySync(root, pairsD)
+  check(
+    '⑥ 不传白名单 ⇒ 零写入(运行副本字节原样)',
+    r6.refused === true && r6.wrote.length === 0 && readFileSync(join(root, RD), 'utf8') === OLD,
+  )
+
+  // ⑦
+  const p7 = planSync(root, pairsD, { allowDropRunnerOnly: ALLOW })
+  check(
+    '⑦ 白名单 ⇒ 该对转 pending 且记录被丢弃行',
+    p7.items[0].status === 'pending' && p7.items[0].allowDropped === true && p7.items[0].onlyRunner === 1,
+  )
+  const r7 = applySync(root, pairsD, { allowDropRunnerOnly: ALLOW })
+  check('⑦ 白名单 ⇒ 写入 1 个且逐字节复验通过', r7.wrote.length === 1 && r7.wrote[0].verified === true)
+  check('⑦ 白名单 ⇒ 写后整批 exit 0', r7.verdict.code === 0)
+  check(
+    '⑦ 白名单 ⇒ 备份内容=含独有行的旧字节',
+    Boolean(r7.backups[0]) && readFileSync(r7.backups[0], 'utf8') === OLD,
+  )
+
+  // ⑧
+  let rejected = false
+  try {
+    assertAllowRegistered(['deploy/prod-bundle/x.ps1'])
+  } catch {
+    rejected = true
+  }
+  check('⑧ 未登记路径 ⇒ 拒绝(exit 2 语义),不放行', rejected === true)
+
+  // ⑨
+  writeFileSync(join(root, RD), BASE)
+  const p9 = planSync(root, pairsD, { allowDropRunnerOnly: ALLOW })
+  check('⑨ 已等值 + 白名单 ⇒ 仍 equal(不放宽判据)', p9.items[0].status === 'equal' && decidePlan(p9).code === 0)
+  check(
+    '⑨ 已等值 + 白名单 ⇒ apply 零写入',
+    applySync(root, pairsD, { allowDropRunnerOnly: ALLOW }).wrote.length === 0,
+  )
+
+  // ⑩
+  const R_REFUSE = `${BASE}Write-Host 'runner-only-b'\n`
+  writeFileSync(join(root, R), R_REFUSE)
+  writeFileSync(join(root, RD), OLD)
+  const twoPairs = [
+    { tracked: T, runner: R, why: 't' },
+    { tracked: T, runner: RD, why: 't' },
+  ]
+  const p10 = planSync(root, twoPairs, { allowDropRunnerOnly: ALLOW })
+  check('⑩ 白名单只放行一对,另一对仍 refuse', p10.counts.pending === 1 && p10.counts.refuse === 1)
+  check('⑩ 整批仍 exit 2', decidePlan(p10).code === 2)
+  const r10 = applySync(root, twoPairs, { allowDropRunnerOnly: ALLOW })
+  check(
+    '⑩ 整批零写入(两对字节均未变)',
+    r10.refused === true &&
+      r10.wrote.length === 0 &&
+      readFileSync(join(root, R), 'utf8') === R_REFUSE &&
+      readFileSync(join(root, RD), 'utf8') === OLD,
+  )
+
   console.log(fails === 0 ? 'self-test 全绿' : `self-test 失败 ${fails} 条`)
   process.exit(fails === 0 ? 0 : 1)
 }
@@ -406,6 +572,9 @@ if (isDirectRun) {
 
 export const __test__ = {
   BACKUP_ROOT_REL,
+  ALLOW_DROP_RUNNER_ONLY,
+  parseAllowArgs,
+  assertAllowRegistered,
   planSync,
   decidePlan,
   applySync,

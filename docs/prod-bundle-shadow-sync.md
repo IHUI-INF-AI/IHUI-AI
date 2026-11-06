@@ -33,6 +33,9 @@ node scripts/sync-prod-bundle-shadow.mjs --apply
 
 # 夹具自检(不碰真实 deploy/prod-bundle/)
 node scripts/sync-prod-bundle-shadow.mjs --self-test
+
+# 人工放行(仅对已登记理由的文件生效;可重复传入)
+node scripts/sync-prod-bundle-shadow.mjs --apply --allow-drop-runner-only deploy/prod-bundle/deploy.sh
 ```
 
 退出码三态:
@@ -43,11 +46,27 @@ node scripts/sync-prod-bundle-shadow.mjs --self-test
 | 1 | 存在待同步(dry-run 档);`--apply` 成功后回到 0 |
 | 2 | 拒绝(运行副本有入库源没有的内容)或无法判定(入库源缺失/读取失败) |
 
+## 人工放行白名单(2026-11-06)
+
+`--allow-drop-runner-only <runner>` 只对**代码里已登记理由**的文件生效:
+
+- 登记表 `ALLOW_DROP_RUNNER_ONLY` 是唯一入口,每条必须写明"为什么运行副本的独有行可以丢";
+- 未登记的路径直接拒绝(exit 2),不许"传了就当放行";
+- 不传该参数时,默认语义完全不变:运行副本独有内容 ⇒ refuse ⇒ 整批零写入;
+- 白名单只把**该一对**从 refuse 转成 pending,同批其它对的判定与整批 fail-closed 语义不变;
+- 被丢弃的独有行会在 dry-run / `--apply` 输出里逐条列出,并完整保存在备份里。
+
+现登记唯一一条:`deploy/prod-bundle/deploy.sh` —— 运行副本独有 5 行是 2026-08-17 旧硬编码 APK
+下载配置,入库源已改为单源 `scripts/data/mobile-download-leg.json` + `__MOBILE_DOWNLOAD_URL__`
+占位替换(读不出地址即 exit 1),旧值已被有意取代。
+
 ## 安全线
 
 - **单向滞后才可覆盖**:运行副本是入库源的子集(少行)时,用入库源整份覆盖。
 - **运行副本独有内容 ⇒ 拒绝**:逐条列出独有行并 exit 2,一个文件都不写。
   这是丢内容风险(典型形态:有人在部署机上直接改过运行副本),同步治不了,必须人工先把内容补进入库源。
+  唯一例外是「人工放行白名单」:文件必须已在 `ALLOW_DROP_RUNNER_ONLY` 登记理由**且**显式传参;
+  默认不生效,不传参时本节语义原样成立。
   整批 fail-closed:任一对拒绝/未判定时,同一轮的其他待同步对也不写 —— 半同步的现场比原状更难判。
 - **未登记的运行副本一律不动**:工具只遍历 `PAIRS`,不递归枚举目录,不会碰盲区目录里的其他文件。
 - **备份**:写前把旧字节落 `.ihui-agent/backups/prod-bundle-shadow/<YYYYMMDD-HHmmss>/<BUNDLE_REL 内相对路径>`。
