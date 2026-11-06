@@ -25,6 +25,7 @@ import { resolve as pathResolve, join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { z } from 'zod'
 import { requireAdminAuth } from './auth.js'
+import { normalizeChildExit } from '../lib/child-exit.js'
 import { config } from '../config.js'
 
 const SlugSchema = z.string().regex(/^[a-z0-9-]{3,20}$/, 'Invalid slug')
@@ -36,7 +37,7 @@ const SCRIPTS_DIR = pathResolve(config.SAAS_ROOT, 'scripts')
 /**
  * 执行脚本并返回结果
  */
-async function runScript(
+export async function runScript(
   scriptName: string,
   args: string[],
   log: FastifyBaseLogger,
@@ -64,7 +65,15 @@ async function runScript(
       log.error(s.trim())
     })
 
-    proc.on('close', (code) => res({ code: code ?? 0, stdout, stderr }))
+    // code=null 表示子进程被信号终止(超时/OOM/docker stop)。旧写法 `code ?? 0` 把被杀当成退出码 0,
+    // 于是 create/restore/destroy 这类路由会在脚本没跑完时回 status: created/restored/destroyed 的假成功。
+    proc.on('close', (code, signal) => {
+      res({
+        code: normalizeChildExit(code),
+        stdout,
+        stderr: code === null ? `${stderr}\n[killed by signal ${signal ?? 'unknown'}]` : stderr,
+      })
+    })
     proc.on('error', rej)
   })
 }
