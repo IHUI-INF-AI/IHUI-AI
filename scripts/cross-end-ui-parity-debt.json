@@ -236,7 +236,7 @@
     }
   ],
   "webRn": {
-    "recordedAt": "2026-11-06T03:01:47.955Z",
+    "recordedAt": "2026-11-06T04:31:11.683Z",
     "state": "judged",
     "dimensions": ["widthHeight", "padding", "spacing", "radius", "fontSize"],
     "uncoveredKeys": [],
@@ -261,6 +261,35 @@
       "over": 0,
       "invalid": 0,
       "unregistered": 128
+    },
+    "automationCeiling": {
+      "cells": 514,
+      "followable": 25,
+      "needsAdjudication": 489,
+      "pairsWithFollowable": 24,
+      "byDim": {
+        "widthHeight": {
+          "cells": 108,
+          "followable": 7
+        },
+        "padding": {
+          "cells": 121,
+          "followable": 3
+        },
+        "spacing": {
+          "cells": 114,
+          "followable": 5
+        },
+        "fontSize": {
+          "cells": 73,
+          "followable": 1
+        },
+        "radius": {
+          "cells": 98,
+          "followable": 9
+        }
+      },
+      "why": "其余记录是集合级歧义(一侧多候选或一侧无读数)⇒ 任何落档腿都必须 held 不猜,不得当成可自动修"
     },
     "total": 2099,
     "families": [
