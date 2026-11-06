@@ -16339,7 +16339,12 @@
       "points": "{n}点",
       "submittedAt": "提出時間：{time}",
       "unanswered": "未回答",
-      "yourAnswer": "あなたの回答："
+      "yourAnswer": "あなたの回答：",
+      "correct": "正答",
+      "wrong": "誤答",
+      "reviewCorrect": "正しい",
+      "reviewWrong": "誤り",
+      "unansweredAnswer": "未回答"
     },
     "score": "得点 {score} / {total}",
     "startExam": "試験を開始",
