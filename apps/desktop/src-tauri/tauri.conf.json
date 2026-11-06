@@ -25,7 +25,7 @@
         "fullscreen": false,
         "center": true,
         "theme": "Dark",
-        "dragDropEnabled": true,
+        "dragDropEnabled": false,
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "maximized": false,

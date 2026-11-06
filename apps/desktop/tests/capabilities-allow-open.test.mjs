@@ -196,10 +196,32 @@ function judgeShellOpenConf() {
   return openRe
 }
 
+// ── OS 级拖拽面收口(2026-11-07 缺陷挖掘 T5)────────────────────────────────
+// `dragDropEnabled` 默认 true:WRY 会向 webview 投递 tauri://drag-drop 事件,payload 里是
+// 用户拖入文件的**绝对路径**。主窗加载远程页(含任意 XSS),该页可通过
+// `getCurrentWebview().onDragDropEvent` 收到这些路径 —— 用户拖一次文件就泄露一次
+// 本机目录结构。远程页没有读文件授权(已撤销),但路径本身仍是隐私面。关掉 OS 级拖拽后
+// 改由浏览器 HTML5 DnD 处理,页面只拿到 File 对象,拿不到绝对路径。
+function judgeDragDropConf() {
+  const conf = JSON.parse(
+    readFileSync(join(here, '..', 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  )
+  const main = (conf.app?.windows ?? []).find((w) => w.label === 'main')
+  assert.ok(main, 'tauri.conf.json 找不到 main 窗口配置')
+  assert.equal(
+    main.dragDropEnabled,
+    false,
+    'main 窗口必须显式 dragDropEnabled:false(Tauri 默认 true ⇒ 远程页可拿到拖入文件绝对路径)',
+  )
+  return main.dragDropEnabled
+}
+
 if (isDirectRun) {
   main()
   const openRe = judgeShellOpenConf()
   console.log('PASS plugins.shell.open 运行面正则钉:' + openRe)
+  judgeDragDropConf()
+  console.log('PASS main 窗口 OS 级拖拽已关闭(远程页拿不到拖入文件绝对路径)')
 }
 
 export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, ALLOWED_EXACT, hostOf }
