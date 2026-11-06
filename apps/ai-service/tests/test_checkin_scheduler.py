@@ -1344,7 +1344,7 @@ def test_qoder_retry_times_parsing(monkeypatch):
     assert cs._qoder_retry_times() == [(11, 0), (12, 30)]  # 默认 11:00 / 12:30
 
 
-async def test_qoder_retry_uses_shanghai_natural_day(monkeypatch):
+async def test_qoder_retry_uses_shanghai_natural_day(monkeypatch, clock):
     """今日判定按 Asia/Shanghai 自然日,不是 UTC 日(跨 UTC 日界实证)。
 
     UTC 2026-11-01T15:30Z == 北京 11-01 23:30 ⇒ 算「今天」;
@@ -1367,13 +1367,48 @@ async def test_qoder_retry_uses_shanghai_natural_day(monkeypatch):
     # 端到端:补跑轮交给 store 的查询下界 == 北京当日 00:00(+08:00),不是 UTC 00:00
     monkeypatch.setattr(cs, "logger", _SpyLogger())
     sched = cs.CheckinScheduler()
+    # 测试侧注入:生产 _run_qoder_retry_round 读 datetime.now(UTC) 折北京日,用例末尾
+    # 又独立读一次墙钟 —— 两次读钟跨 UTC 日界(即北京 00:00)就假红。钉到同一 epoch。
+    epoch = clock(cs, at=clock.at(hour=23, minute=30, day="2026-11-01"))  # == 15:30Z
     batches, slot = _stub_retry_deps(monkeypatch, sched, [_qoder_acc(1)], [])
     await sched._daily_run_qoder_retry()
     assert len(batches) == 1
     since = slot["since"]
     assert (since.hour, since.minute) == (0, 0)
     assert since.utcoffset() == timedelta(hours=8)
-    assert cs._cn_day(since) == cs._cn_day(datetime.now(UTC))
+    # 15:30Z 属北京 11-01:下界必须是 11-01 00:00(+08),按 UTC 折日会落到 10-31
+    assert cs._cn_day(since) == clock.day_at(epoch) == date(2026, 11, 1)
+
+
+@pytest.mark.parametrize(
+    ("now_day", "hour", "minute", "second", "expected_day"),
+    [
+        ("2026-11-06", 23, 59, 59, date(2026, 11, 6)),
+        ("2026-11-07", 0, 0, 0, date(2026, 11, 7)),
+        ("2026-11-07", 0, 0, 1, date(2026, 11, 7)),
+    ],
+    ids=["before-midnight", "midnight", "after-midnight"],
+)
+async def test_qoder_retry_day_boundary(
+    monkeypatch, clock, now_day, hour, minute, second, expected_day
+):
+    """北京零点前后 1 秒(= UTC 15:59:59 / 16:00:00 / 16:00:01):补跑下界跟着北京日跳。
+
+    三个点在同一 UTC 日内只差 2 秒;若按 UTC 折日,00:00 与 00:00:01 会仍落在 D-1。
+    """
+    monkeypatch.setattr(cs, "logger", _SpyLogger())
+    sched = cs.CheckinScheduler()
+    in_day = clock(
+        cs, at=clock.at(hour=hour, minute=minute, second=second, day=now_day)
+    )
+    batches, slot = _stub_retry_deps(monkeypatch, sched, [_qoder_acc(1)], [])
+    await sched._daily_run_qoder_retry()
+    since = slot["since"]
+    assert len(batches) == 1
+    assert (since.hour, since.minute, since.second) == (0, 0, 0)
+    assert since.utcoffset() == timedelta(hours=8)
+    assert cs._cn_day(since) == expected_day
+    assert cs._cn_day(since) == clock.day_at(in_day)
 
 
 async def test_qoder_retry_skips_when_previous_round_still_running(monkeypatch):
