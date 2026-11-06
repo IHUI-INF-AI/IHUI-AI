@@ -12,7 +12,13 @@
  * 明文落在 **WebView 的 localStorage**(会话正文)与 **plugin-store 文本文件**(refresh token),
  * 两者都由 web 层写出。Rust 侧加密存储动不了 localStorage,只能多存一把密钥 ——
  * 那正是本模块用「已有的 tauri-plugin-store 通道」就能拿到的东西。
- * 故:零新增 cargo crate、零新增 npm 依赖、零改动 Rust 侧。
+ * 故:零新增 cargo crate、零新增 npm 依赖。
+ *
+ * 2026-11-07(T1 缺陷挖掘):远程 capability 已撤销 `store:default`,本模块的桌面通道
+ * 改走受限 Rust 命令 `vault_read` / `vault_write`(文件+键双白名单、app_data 包含性
+ * 校验见 src-tauri/src/vault_store.rs)。只有宿主没有 `__TAURI_INTERNALS__.invoke`
+ * (纯浏览器 / 测试替身)时才退回 plugin-store 旧通道;生产壳命令失败一律按"通道不可用"
+ * 降级(写明文,绝不覆盖既有密文)。
  *
  * ## 三道硬约束
  * 1. **不承认落盘就不加密**:`bootstrapMaster` 生成密钥后必须**回读比对一致**才返回;
@@ -96,9 +102,47 @@ interface TauriStoreFile {
   save: () => Promise<void>
 }
 
-/** 懒加载 plugin-store(动态 import,避免浏览器 bundle 引入 Tauri 依赖) */
+/** 宿主是否有可调用的 IPC 实现(Tauri v2 注入 `__TAURI_INTERNALS__.invoke`)。 */
+function hasTauriInvoke(): boolean {
+  const internals = (window as unknown as { __TAURI_INTERNALS__?: { invoke?: unknown } })
+    .__TAURI_INTERNALS__
+  return typeof internals?.invoke === 'function'
+}
+
+/**
+ * 受限命令通道:动态 import 避免浏览器 bundle 引入 Tauri 依赖。
+ * 保持 `TauriStoreFile` 形状与 autoSave:false 语义 —— set/delete 由 Rust 侧原子落盘,
+ * `save()` 仅为兼容既有调用序列(无中间态可丢)。
+ */
+async function openVaultCommandChannel(fileName: string): Promise<TauriStoreFile | null> {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return {
+      async get<T>(k: string): Promise<T | undefined> {
+        const value = await invoke<string | null>('vault_read', { file: fileName, key: k })
+        return (value ?? undefined) as T | undefined
+      },
+      async set(k: string, v: unknown): Promise<void> {
+        if (typeof v !== 'string') throw new TypeError('vault 条目只接受字符串')
+        await invoke('vault_write', { file: fileName, key: k, value: v })
+      },
+      async delete(k: string): Promise<boolean> {
+        await invoke('vault_write', { file: fileName, key: k, value: null })
+        return true
+      },
+      async save(): Promise<void> {
+        // 每次 set/delete 已在 Rust 侧完成原子替换,save 无需再落盘
+      },
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 打开 store 文件:优先受限命令;非 Tauri 宿主(纯浏览器 / 测试替身)退回旧通道 */
 async function openTauriStore(fileName: string): Promise<TauriStoreFile | null> {
   if (!isDesktopEnv()) return null
+  if (hasTauriInvoke()) return openVaultCommandChannel(fileName)
   try {
     const { load } = await import('@tauri-apps/plugin-store')
     // autoSave:false —— 显式 save(),避免并发写时中间态落盘

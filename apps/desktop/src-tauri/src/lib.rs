@@ -49,6 +49,9 @@ mod window_chrome;
 // 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
 // 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
 mod operator;
+// 2026-11-07 立(缺陷挖掘 T1):撤销远程 capability 的 store:default,改为受限的
+// vault_read/vault_write —— 双白名单(文件+键)+ app_data 包含性校验,详见模块头注。
+mod vault_store;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -4315,6 +4318,8 @@ pub fn run() {
             set_desktop_badge,
             take_pending_deep_links,
             take_pending_tray_actions,
+            vault_store::vault_read,
+            vault_store::vault_write,
             // 2026-10-09 签到捕获(WP-C):7 条命令,判据与执行都在 checkin_capture.rs,这里只注册。
             checkin_capture::checkin_detect_trae_dir,
             checkin_capture::checkin_capture_jwts,

@@ -28,7 +28,6 @@
     "global-shortcut:default",
     "notification:default",
     "os:default",
-    "store:default",
     "updater:default",
     "log:default",
     {
@@ -77,6 +76,8 @@
     "allow-set-desktop-badge",
     "allow-take-pending-deep-links",
     "allow-take-pending-tray-actions",
-    "allow-set-caption-button-theme"
+    "allow-set-caption-button-theme",
+    "allow-vault-read",
+    "allow-vault-write"
   ]
 }

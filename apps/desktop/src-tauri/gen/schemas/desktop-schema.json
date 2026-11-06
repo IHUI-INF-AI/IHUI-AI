@@ -2997,6 +2997,18 @@
           "markdownDescription": "Enables the toggle_fullscreen command without any pre-configured scope."
         },
         {
+          "description": "Enables the vault_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-vault-read",
+          "markdownDescription": "Enables the vault_read command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the vault_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-vault-write",
+          "markdownDescription": "Enables the vault_write command without any pre-configured scope."
+        },
+        {
           "description": "Enables the workbuddy_quarantine_delete command without any pre-configured scope.",
           "type": "string",
           "const": "allow-workbuddy-quarantine-delete",
@@ -3709,6 +3721,18 @@
           "type": "string",
           "const": "deny-toggle-fullscreen",
           "markdownDescription": "Denies the toggle_fullscreen command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the vault_read command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-vault-read",
+          "markdownDescription": "Denies the vault_read command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the vault_write command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-vault-write",
+          "markdownDescription": "Denies the vault_write command without any pre-configured scope."
         },
         {
           "description": "Denies the workbuddy_quarantine_delete command without any pre-configured scope.",

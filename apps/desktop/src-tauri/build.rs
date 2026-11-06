@@ -64,6 +64,9 @@ fn main() {
             "take_pending_deep_links",
             "take_pending_tray_actions",
             "set_caption_button_theme",
+            // 2026-11-07(T1):替掉远程 side 的 store:default —— 双白名单受限 store 通道。
+            "vault_read",
+            "vault_write",
             "checkin_detect_trae_dir",
             "checkin_capture_jwts",
             "checkin_capture_qoder",

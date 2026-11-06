@@ -125,15 +125,38 @@ export function judgeRemoteCommandGrants(caps) {
   return { ok: problems.length === 0, problems }
 }
 
+// ── remote 侧 store 通道收口(2026-11-07 缺陷挖掘 T1)────────────────────────
+// 旧面:`store:default` 对远程 origin 全量放行,tauri-plugin-store 的 load(path)
+// 把相对路径解析到 app_data_dir、**绝对路径原样返回**(无 scope 校验)。线上页被 XSS
+// 后可读写任意 name 的 store 文件(含路径逃逸),也能直接读走 ihui-vault.json 里的
+// 主密钥与 auth.json 里的 refresh token。
+// 新面:撤销 store:default,只留两条受限命令 —— vault_read / vault_write,
+// 文件名与键名双白名单 + app_data_dir 规范化包含性校验(Rust 侧 vault_store.rs)。
+const REQUIRED_VAULT_COMMANDS = ['allow-vault-read', 'allow-vault-write']
+
+export function judgeRemoteVaultScope(caps) {
+  const problems = []
+  const granted = (caps.permissions ?? []).filter((p) => typeof p === 'string')
+  if (granted.includes('store:default')) {
+    problems.push('remote capability 仍授予 store:default(任意 store 文件读写,含绝对路径逃逸)')
+  }
+  for (const required of REQUIRED_VAULT_COMMANDS) {
+    if (!granted.includes(required)) problems.push('受限 vault 命令未授予: ' + required)
+  }
+  return { ok: problems.length === 0, problems }
+}
+
 function main() {
   let verdict
   let guard
   let cmdGuard
+  let vaultGuard
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
     guard = judgeRemoteUrls(caps)
     cmdGuard = judgeRemoteCommandGrants(caps)
+    vaultGuard = judgeRemoteVaultScope(caps)
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
@@ -142,12 +165,14 @@ function main() {
   assert.equal(verdict.ok, true, 'allow-open 白名单违规:\n  ' + verdict.problems.join('\n  '))
   assert.equal(guard.ok, true, 'remote.urls 覆盖面缺失:\n  ' + guard.problems.join('\n  '))
   assert.equal(cmdGuard.ok, true, 'remote 命令授权缺失:\n  ' + cmdGuard.problems.join('\n  '))
+  assert.equal(vaultGuard.ok, true, 'remote store 通道未收口:\n  ' + vaultGuard.problems.join('\n  '))
   console.log(
     'PASS shell:allow-open 白名单 ' +
       verdict.urls.length +
       ' 条全显式域名(无裸协议通配/后缀通配),覆盖 aizhs.top/www.aizhs.top/localhost:8801',
   )
   console.log('PASS remote.urls 覆盖 apex+www(308 重定向后的真实 origin)')
+  console.log('PASS remote 侧无 store:default,仅 vault_read/vault_write 受限命令')
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -177,5 +202,5 @@ if (isDirectRun) {
   console.log('PASS plugins.shell.open 运行面正则钉:' + openRe)
 }
 
-export const __test__ = { judgeAllowOpen, ALLOWED_EXACT, hostOf }
+export const __test__ = { judgeAllowOpen, judgeRemoteVaultScope, ALLOWED_EXACT, hostOf }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
