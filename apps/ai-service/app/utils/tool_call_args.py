@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .json_repair import StreamingJsonRepair, create_streaming_json_repair, repair_json
 
@@ -31,12 +31,12 @@ __all__ = [
 ]
 
 
-def as_object_record(value: Any) -> Optional[Dict[str, Any]]:
+def as_object_record(value: Any) -> dict[str, Any] | None:
     """把「值」收敛为普通对象（剔除 None / 列表 / 原始类型）。"""
     return value if isinstance(value, dict) and not isinstance(value, list) else None
 
 
-def normalize_tool_call_args(raw: Any) -> Optional[Dict[str, Any]]:
+def normalize_tool_call_args(raw: Any) -> dict[str, Any] | None:
     """入参归一化单一出口。
 
     - 已是对象（非列表、非 None）-> 原样返回（引用不变，既有的 deep-equal 对账不受影响）
@@ -68,7 +68,7 @@ class ToolCallArgsStreamer:
     def __init__(self) -> None:
         self._repair: StreamingJsonRepair = create_streaming_json_repair()
 
-    def push(self, fragment: str) -> "ToolCallArgsState":
+    def push(self, fragment: str) -> ToolCallArgsState:
         snap = self._repair.push(fragment)
         return {
             "complete": snap["complete"],
@@ -87,16 +87,16 @@ def create_tool_call_args_streamer() -> ToolCallArgsStreamer:
     return ToolCallArgsStreamer()
 
 
-class ToolCallArgsState(Dict[str, Any]):
+class ToolCallArgsState(dict[str, Any]):
     """流式增量 args 解析态（dict 形态对齐 TS ``ToolCallArgsState``）。"""
 
 
 def accumulate_tool_call_arguments(
-    store: Dict[int, ToolCallArgsStreamer],
+    store: dict[int, ToolCallArgsStreamer],
     index: int,
     name: str,
     fragment: str,
-) -> "ToolCallArgsState":
+) -> ToolCallArgsState:
     """增量累积单个工具调用的 ``function.arguments`` 分片（SSE / 流式通道的接入缝）。
 
     参数:
