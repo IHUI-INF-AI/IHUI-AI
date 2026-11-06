@@ -370,6 +370,17 @@ def read_profile_cookie_names(user_data: Path, domain_suffix: str = "") -> set[s
     return names
 
 
+def _profile_dir_gone(path: str) -> bool:
+    """ENOENT 才是真的没了。权限错误不能当成已经删掉。"""
+    try:
+        os.stat(path)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
 def _prepare_scan_profile(user_data: Path, profile_dir: str) -> dict[str, Any]:
     """同步准备扫码临时 profile:清理遗留目录 + 复制登录态副本。
 
@@ -388,7 +399,7 @@ def _rmtree_retry(path: str, attempts: int = 5, delay: float = 0.4) -> None:
     """
     for _ in range(attempts):
         shutil.rmtree(path, ignore_errors=True)
-        if not os.path.exists(path):
+        if _profile_dir_gone(path):
             return
         time.sleep(delay)
 
@@ -1571,6 +1582,10 @@ class BrowserHub:
         finally:
             # BUG-9:finally 里的 time.sleep(0.4)×5 改真异步(to_thread),不阻塞循环。
             await asyncio.to_thread(_rmtree_retry, profile_dir)
+            if not _profile_dir_gone(profile_dir):
+                logger.warning(
+                    f"[browser_hub] 临时 profile 删除失败,不能把它说成已经删掉: {profile_dir}"
+                )
         return entries
 
     def list_sessions(self, owner_user_id: str | None = None) -> list[str]:
@@ -1620,11 +1635,11 @@ class BrowserHub:
                     proc.wait(timeout=5)
                 for _ in range(5):
                     shutil.rmtree(profile_dir, ignore_errors=True)
-                    if not os.path.exists(profile_dir):
+                    if _profile_dir_gone(profile_dir):
                         break
                     time.sleep(0.4)
-                if os.path.exists(profile_dir):
-                    logger.warning(f"[browser_hub] 临时 profile 删除失败,待兜底清理: {profile_dir}")
+                if not _profile_dir_gone(profile_dir):
+                    logger.warning(f"[browser_hub] 临时 profile 删除失败,不能把它说成已经删掉: {profile_dir}")
 
             # 用当前 loop 调度清理(旧写法 `if self._main_loop:` 在未启动 / loop 未注入时
             # 会把清理整段静默跳过,正是临时 profile 残留的原因之一)

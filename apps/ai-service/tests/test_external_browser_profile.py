@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -387,6 +388,37 @@ def test_close_session_removes_profile_copy(tmp_path: Path, monkeypatch: pytest.
 
     assert proc.terminated is True
     assert not profile_dir.exists()
+
+
+def test_unreadable_profile_is_not_reported_gone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    from app.services.browser_hub import BrowserSession
+
+    profile_dir = tmp_path / "ihui-chrome-scan-blocked"
+    cookie = profile_dir / "Default" / "Network" / "Cookies"
+    cookie.parent.mkdir(parents=True)
+    cookie.write_bytes(b"keep-cookies")
+    proc = _FakeProc()
+    hub = BrowserHub()
+    hub._started = True
+    hub._playwright = _FakePlaywright()
+    session = BrowserSession("s-unread", _FakeContext(), _FakePage(), hub._executor, None)  # type: ignore[arg-type]
+    hub._sessions["s-unread"] = session
+    hub._external_procs["s-unread"] = (proc, _FakeBrowser(), str(profile_dir))
+    monkeypatch.setattr(browser_hub.shutil, "rmtree", lambda *args, **kwargs: None)
+    monkeypatch.setattr(browser_hub.time, "sleep", lambda *_args, **_kwargs: None)
+    real_stat = os.stat
+
+    def fake_stat(path, *args, **kwargs):
+        if os.path.abspath(path) == os.path.abspath(profile_dir):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(browser_hub.os, "stat", fake_stat)
+    try:
+        assert asyncio.run(hub.close_session("s-unread")) is True
+    finally:
+        hub._executor.shutdown(wait=False)
+    assert cookie.read_bytes() == b"keep-cookies"
 
 
 def test_launch_external_chrome_uses_user_browser_and_profile(
