@@ -261,6 +261,7 @@ const CHECK_IN_URL = `${LIST_URL}/check-in`
 const CHECK_OUT_URL = `${LIST_URL}/check-out`
 const BATCH_URL = `${LIST_URL}/batch-check-in`
 const SELF_URL = `${LIST_URL}/self-check-in`
+const SELF_OUT_URL = `${LIST_URL}/self-check-out`
 const QR_URL = `${LIST_URL}/qrcode`
 const QR_SCAN_URL = `${LIST_URL}/qrcode-check-in`
 const CLASS_URL = '/api/edu-ai-management/class'
@@ -657,6 +658,72 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     expect(callsWith(ME_URL).length, '失败不得伪装成刷新').toBe(1)
     // 行内容仍是服务端回读的空列表(没被本地塞进一条「已签到」)
     expect(latestRows()).toHaveLength(0)
+  })
+
+  it('②④⑤ 自签退 = POST self-check-out,body 只有当日 date;成功后回读列表', async () => {
+    api.fetchApi.mockImplementation(async (url) =>
+      url.startsWith(ME_URL)
+        ? ok({
+            list: [
+              {
+                ...teacherRow(),
+                studentId: 'stu-own',
+                checkInTime: '2026-01-01T01:00:00.000Z',
+                status: 'present',
+              },
+            ],
+          })
+        : ok({ classId: 'cls-1', status: 'present', checkOutTime: '2026-01-01T09:00:00.000Z' }),
+    )
+    render(createElement(EduMyAttendanceScreen))
+    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    // 今日已签到且未签退 ⇒ 签退入口出现(资格只看服务端回读行)
+    await waitFor(() => expect(screen.getByText(zhKey('eduAttendance.checkOut'))).toBeTruthy())
+    fireEvent.click(screen.getByText(zhKey('eduAttendance.checkOut')))
+    await waitFor(() => expect(callsWith(SELF_OUT_URL).length).toBe(1))
+    expect(callsWith(SELF_OUT_URL)[0]?.[1]?.method).toBe('POST')
+    expect(firstBody(SELF_OUT_URL)).toEqual({ date: todayShanghai() })
+    expect(
+      Object.keys(firstBody(SELF_OUT_URL)),
+      '签退状态由服务端现算 ⇒ payload 不得带 status/studentId/classId',
+    ).not.toContain('status')
+    expect(lastAlert().message).toContain(zhKey('eduAttendance.actionDone'))
+    expect(lastAlert().message).toContain(zhKey('eduAttendance.status.present'))
+    await waitFor(() => expect(callsWith(ME_URL).length, '签退成功后必须回读列表').toBe(2))
+  })
+
+  it('② 今日已签退:不给签退入口(不重复提交)', async () => {
+    api.fetchApi.mockImplementation(async () =>
+      ok({
+        list: [
+          {
+            ...teacherRow(),
+            studentId: 'stu-own',
+            checkInTime: '2026-01-01T01:00:00.000Z',
+            checkOutTime: '2026-01-01T09:00:00.000Z',
+            status: 'present',
+          },
+        ],
+      }),
+    )
+    render(createElement(EduMyAttendanceScreen))
+    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    await waitFor(() => expect(latestRows()).toHaveLength(1))
+    expect(screen.queryByText(zhKey('eduAttendance.checkOut'))).toBeNull()
+    expect(callsWith(SELF_OUT_URL)).toHaveLength(0)
+  })
+
+  it('② 今日未签到:不给签退入口(先签到后签退由后端口径裁决)', async () => {
+    api.fetchApi.mockImplementation(async () =>
+      ok({
+        list: [{ ...teacherRow(), studentId: 'stu-own', status: 'absent' }],
+      }),
+    )
+    render(createElement(EduMyAttendanceScreen))
+    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    await waitFor(() => expect(latestRows()).toHaveLength(1))
+    expect(screen.queryByText(zhKey('eduAttendance.checkOut'))).toBeNull()
+    expect(callsWith(SELF_OUT_URL)).toHaveLength(0)
   })
 })
 
