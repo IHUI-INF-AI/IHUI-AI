@@ -8,7 +8,7 @@ import {
   createStdioFrameDecoder,
   encodeContentLength,
   encodeNdjson,
-} from '../src/tools/mcp-stdio-framing.ts';
+} from '../src/tools/mcp-stdio-framing.js';
 
 describe('mcp stdio framing', () => {
 it('ndjson 一行一个，空行跳过，坏行不打断后面的好行', () => {
