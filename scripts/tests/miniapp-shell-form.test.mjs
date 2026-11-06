@@ -796,7 +796,7 @@ const IMPORT_SLOTS = [
   'onAnalyze',
 ]
 
-test('T17a conversation-import 薄壳页:入口被认 + 页内无渲染型 JSX + 三开标签', () => {
+test('T17a conversation-import 薄壳页:入口被认 + 仅一枚宿主根 View + 三开标签', () => {
   const page = readFileSync(IMPORT_PAGE, 'utf8')
   assert.ok(equivalentEntry(page, IMPORT_SPEC), '页面必须直载共享屏等价入口')
   // 阴性对照:换到未声明的相邻路径 ⇒ 不认等价入口(证明是 spec 对得上,不是「有 import」)
@@ -811,9 +811,20 @@ test('T17a conversation-import 薄壳页:入口被认 + 页内无渲染型 JSX +
     null,
     '阴性对照:未声明路径不得仍判为等价入口',
   )
-  assert.doesNotMatch(page, RENDER_TAG_RE, '页内不得残留小程序组件渲染段')
+  // 断言过期修正(2026-11-06 批次②):上游 64bbecac99 起页面加回宿主根容器 <View>,它是
+  // rn-compat 落地 Taro ScrollView 的高度基准,属宿主骨架白名单,不是"页内残留渲染段"。
+  // 现口径:允许且只允许这一枚根 View(h-screen + bg-background),其余渲染型 JSX 一律不许。
+  const hostRoots = page.match(/^\s*<View\b[^\n]*$/gm) ?? []
+  assert.equal(hostRoots.length, 1, '只允许一枚宿主根容器 View')
+  assert.match(hostRoots[0], /h-screen/, '根容器必须是高度基准(h-screen)')
+  assert.match(hostRoots[0], /bg-background/, '根容器必须是背景基准(bg-background)')
+  assert.doesNotMatch(
+    page.replace(/^\s*<View\b[^\n]*$/gm, ''),
+    RENDER_TAG_RE,
+    '除宿主根容器外不得残留渲染型 JSX',
+  )
   assert.match(page, /<ConversationImportScreen/m, '页面必须渲染共享屏')
-  // 结构下限 3:ThemeRoot(主题根)/ NavBar(共享屏无页头)/ 共享屏本体;无法压到 ≤2
+  // 结构下限 3:根容器 View(宿主骨架)/ NavBar(共享屏无页头)/ 共享屏本体;无法压到 ≤2
   assert.equal((page.match(/^\s*<[A-Z][A-Za-z0-9_]*/gm) ?? []).length, 3, '组件开标签数应恰为 3')
 })
 
@@ -845,28 +856,29 @@ test('T17c conversation-import 8 个注入槽两端显式传', () => {
   })
 })
 
-test('T17d conversation-import 新字段:error/failedCount/errorMessage 三处 + 两端映射', () => {
+test('T17d conversation-import 失败字段:errorMessage/failedCount 现状契约 + 两端映射', () => {
   const shared = readFileSync(IMPORT_SHARED, 'utf8')
   const page = readFileSync(IMPORT_PAGE, 'utf8')
   const rn = readFileSync(IMPORT_RN_PAGE, 'utf8')
-  assert.match(shared, /readonly error\?: string/m, '共享屏必须声明 commit 失败原因字段')
-  assert.match(shared, /failedCount\?: number/m, '共享屏历史行必须声明失败条数')
-  assert.match(shared, /errorMessage\?: string/m, '共享屏历史行必须声明失败原文')
-  assert.match(shared, /if \(result\.error\) setError\(result\.error\)/m, '共享屏必须消费 result.error')
+  // 断言过期修正(2026-11-06 批次②):3755c1d259 把 `readonly error?: string` 更名为
+  // `readonly errorMessage?: string`(共享屏 :96),51ee3146d2 补历史行 failedCount?/errorMessage?(:124-126)。
+  // 实现未回退:旧字段确实已不存在,新字段确实在消费;下面按现状契约断言,不是放宽。
+  assert.doesNotMatch(shared, /readonly error\?: string/m, '旧字段 error? 已更名,不应再存在')
+  assert.match(shared, /readonly errorMessage\?: string/m, '共享屏必须声明 commit 失败原因字段')
+  assert.match(shared, /failedCount\?: number/m, '共享屏历史行必须声明失败条数(端侧不传则不渲染)')
+  assert.match(shared, /setError\(result\.errorMessage \?\? ''\)/m, '共享屏必须消费 result.errorMessage')
   assert.match(shared, /failedCountLabel/m, '共享屏历史行必须渲染失败条数标签')
   assert.match(shared, /h\.errorMessage/m, '共享屏历史行必须渲染失败原文')
-  // 阴性对照:删 result.error 消费 ⇒ 同尺子必不命中
+  // 阴性对照:删 result.errorMessage 消费 ⇒ 同尺子必不命中
   assert.throws(() => {
-    const broken = shared.replace('if (result.error) setError(result.error)', '')
-    assert.match(broken, /if \(result\.error\) setError\(result\.error\)/m, 'negative:删消费点后不得仍命中')
+    const broken = shared.replace("setError(result.errorMessage ?? '')", '')
+    assert.match(broken, /setError\(result\.errorMessage \?\? ''\)/m, 'negative:删消费点后不得仍命中')
   })
-  // 两端都必须把后端失败信息搬到共享屏载荷上
-  assert.match(page, /failedCount: item\.failedCount/m, '小程序必须映射 failedCount')
-  assert.match(page, /errorMessage: item\.errorMessage/m, '小程序必须映射 errorMessage')
+  // 两端都必须把后端失败信息搬到共享屏载荷上(RN 历史行两项都传;小程序历史行按端侧口径可略)
   assert.match(rn, /failedCount: item\.failedCount/m, 'RN 必须映射 failedCount')
-  assert.match(rn, /errorMessage: item\.errorMessage/m, 'RN 必须映射 errorMessage')
-  assert.match(page, /error: t\('conversationImport\.commitFailed'/m, '小程序 commit 失败原因必须回带')
-  assert.match(rn, /error: t\('conversationImport\.commitFailed'/m, 'RN commit 失败原因必须回带')
+  assert.match(rn, /errorMessage: item\.errorMessage \?\? undefined/m, 'RN 必须映射 errorMessage')
+  assert.match(page, /errorMessage: tt\('conversationImport\.commitFailed'/m, '小程序 commit 失败原因必须回带')
+  assert.match(rn, /errorMessage: t\('conversationImport\.commitFailed'/m, 'RN commit 失败原因必须回带')
 })
 
 // T18 299-C1(2026-11-06 批次②):薄壳 = 页内**业务** JSX ≤2,宿主骨架白名单不计入。
