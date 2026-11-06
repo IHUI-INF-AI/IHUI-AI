@@ -46,6 +46,7 @@ function cnProbe(over: Partial<LegProbe> = {}): LegProbe {
 describe('允许域(字面量白名单,不许拼变量)', () => {
   it.each([
     SITE,
+    'https://apk.aizhs.top/download/ihui-ai-0.0.18-26110608.apk?OSSAccessKeyId=x&Expires=1&Signature=y',
     APK_CN_LEG_URL,
     'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/x/ihui-ai-latest.apk',
     'https://objects.githubusercontent.com/x',
@@ -55,6 +56,8 @@ describe('允许域(字面量白名单,不许拼变量)', () => {
     'http://www.aizhs.top/remote-images/download/ihui-ai-latest.apk',
     'https://evil.com/ihui-ai-latest.apk',
     'https://www.aizhs.top.evil.com/ihui-ai-latest.apk',
+    'http://apk.aizhs.top/download/ihui-ai-latest.apk',
+    'https://apk.aizhs.top.evil.com/download/ihui-ai-latest.apk',
     'file:///sdcard/ihui-ai-latest.apk',
     '',
     'not a url',
