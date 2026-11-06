@@ -317,9 +317,10 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 >
 <p align="center">
   <sub>
-    <code>4393</code> API 路由 · <code>542</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>25</code> 平台发布 · <code>719</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码
+    <code>4393</code> API 路由 · <code>542</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>25</code> 平台发布 · <code>719</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码 <!-- doc-num-exempt: 截至 2026-09-21 的历史快照(旧版 hero 副本,非当前总量声明) -->
   </sub><br/>
   <sub><strong>每一个数字都在替我说话 —— 不是 PPT,不是画饼,不是占位,每一个数字都能在代码里 grep 到</strong></sub>
+  <sub><strong>以上为截至 2026-09-21 的历史快照(沿革留档,非当前值;当前值见上方「关键数字(现算)」)</strong></sub>
 </p>
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 176 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
 <p align="center">
