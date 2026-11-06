@@ -52,6 +52,12 @@ vi.mock('@ihui/database', () => ({
     createdAt: 'created_at',
     updatedAt: 'updated_at',
   },
+  // BUG-5 测试需要:isScopeMember 对团队作用域查询 teamMembers
+  teamMembers: {
+    id: 'id',
+    teamId: 'team_id',
+    userId: 'user_id',
+  },
   TEAM_MEMORY_KINDS: ['decision', 'convention', 'pitfall', 'fingerprint'],
 }))
 
@@ -135,6 +141,8 @@ import { teamMemoryRoutes } from '../team-memory.js'
 
 const ID_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const ID_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+// BUG-5:团队作用域(team UUID),用于成员隔离用例
+const TEAM_UUID = '11111111-1111-4111-8111-111111111111'
 
 function makeMemory(overrides: Record<string, unknown> = {}) {
   return {
@@ -316,6 +324,8 @@ describe('团队共享记忆路由', () => {
     })
 
     it('PUT /:id 更新标题', async () => {
+      // BUG-5:handler 先取行校验 scope 成员权(非 UUID scope 直接放行),再更新
+      store.pushSelect([makeMemory({ id: ID_A })])
       store.pushUpdate([makeMemory({ id: ID_A, title: '新标题' })])
       const res = await app.inject({
         method: 'PUT',
@@ -337,6 +347,8 @@ describe('团队共享记忆路由', () => {
     })
 
     it('DELETE /:id 删除成功', async () => {
+      // BUG-5:handler 先取行校验 scope 成员权(非 UUID scope 直接放行),再删除
+      store.pushSelect([makeMemory({ id: ID_A })])
       store.pushDelete([{ id: ID_A }])
       const res = await app.inject({ method: 'DELETE', url: `/api/team-memory/${ID_A}` })
       expect(res.statusCode).toBe(200)
@@ -347,6 +359,55 @@ describe('团队共享记忆路由', () => {
       store.pushDelete([])
       const res = await app.inject({ method: 'DELETE', url: `/api/team-memory/${ID_B}` })
       expect(res.statusCode).toBe(404)
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 6. BUG-5:scope 成员隔离(IDOR 修复)
+  //    团队作用域(scopeId 为 team UUID):非成员读/改/删 ⇒ 404;成员可访问。
+  //    自由文本/工作区作用域(scopeId 非 UUID):密钥即权限,不在此拦截。
+  // ───────────────────────────────────────────────────────────
+  describe('scope 成员隔离(IDOR, BUG-5)', () => {
+    it('非团队成员 GET /:id 团队作用域记忆 → 404', async () => {
+      // 先取记忆行(返回一条团队作用域记忆),再查成员(空 ⇒ 非成员)
+      store.pushSelect([makeMemory({ id: ID_A, scopeId: TEAM_UUID })])
+      store.pushSelect([])
+      const res = await app.inject({ method: 'GET', url: `/api/team-memory/${ID_A}` })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('团队成员 GET /:id 团队作用域记忆 → 200', async () => {
+      store.pushSelect([makeMemory({ id: ID_A, scopeId: TEAM_UUID })])
+      store.pushSelect([{ id: 'm-1' }]) // 成员命中
+      const res = await app.inject({ method: 'GET', url: `/api/team-memory/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.id).toBe(ID_A)
+    })
+
+    it('非团队成员 PUT /:id 团队作用域记忆 → 404', async () => {
+      store.pushSelect([makeMemory({ id: ID_A, scopeId: TEAM_UUID })])
+      store.pushSelect([])
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/api/team-memory/${ID_A}`,
+        payload: { title: '新标题' },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('非团队成员 DELETE /:id 团队作用域记忆 → 404', async () => {
+      store.pushSelect([makeMemory({ id: ID_A, scopeId: TEAM_UUID })])
+      store.pushSelect([])
+      const res = await app.inject({ method: 'DELETE', url: `/api/team-memory/${ID_A}` })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('自由文本作用域(scopeId 非 UUID)按密钥共享,非成员也可访问', async () => {
+      // 非 UUID scopeId ⇒ isScopeMember 直接放行,不查 teamMembers
+      store.pushSelect([makeMemory({ id: ID_A, scopeId: 'scope-A' })])
+      const res = await app.inject({ method: 'GET', url: `/api/team-memory/${ID_A}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.scopeId).toBe('scope-A')
     })
   })
 })

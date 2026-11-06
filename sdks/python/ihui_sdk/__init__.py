@@ -4,7 +4,8 @@
 
 """IHUI-AI Python SDK(骨架,后续真发布时填实现)。
 
-OpenAI 兼容:POST /api/chat/completions + GET /api/models
+端点对齐 ai-service 真实路由:POST /api/llm/complete + GET /api/llm/models
+(BUG-95:旧版 /api/chat/completions 与 /api/models 全仓无注册,调用必 404)。
 """
 
 from __future__ import annotations
@@ -96,25 +97,53 @@ class IhuiClient:
         return body
 
     def chat_completions_create(self, body: ChatCompletionRequest) -> ChatCompletionResponse:
-        """POST /api/chat/completions — 创建对话补全(OpenAI 兼容)。"""
-        data = self._request("/api/chat/completions", method="POST", json=body.to_dict())
+        """POST /api/llm/complete — 创建对话补全(真实端点;旧 /api/chat/completions 全仓零注册,调用必 404)。"""
+        data = self._request("/api/llm/complete", method="POST", json=body.to_dict())
+        # /api/llm/complete 返回内部网关结构(content/usage/model…),不是 OpenAI 信封;
+        # 防御式投影到本 SDK 的 dataclass,缺字段不 KeyError(骨架不假设上游字段齐全)。
+        payload: dict[str, Any] = data if isinstance(data, dict) else {}
+        raw_choices = payload.get("choices")
+        choices: list[dict[str, Any]] = raw_choices if isinstance(raw_choices, list) else []
+        if not choices:
+            content = payload.get("content")
+            if isinstance(content, str) and content:
+                choices = [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": content},
+                        "finish_reason": "stop",
+                    }
+                ]
+        created_raw = payload.get("created")
         return ChatCompletionResponse(
-            id=data["id"],
-            object=data["object"],
-            created=data["created"],
-            model=data["model"],
-            choices=data.get("choices", []),
-            usage=data.get("usage"),
+            id=str(payload.get("id") or payload.get("request_id") or ""),
+            object=str(payload.get("object") or "chat.completion"),
+            created=int(created_raw) if isinstance(created_raw, (int, float)) else 0,
+            model=str(payload.get("model") or body.model),
+            choices=choices,
+            usage=payload.get("usage") if isinstance(payload.get("usage"), dict) else None,
         )
 
     def models_list(self) -> ModelsListResponse:
-        """GET /api/models — 模型列表。"""
-        data = self._request("/api/models", method="GET")
+        """GET /api/llm/models — 模型列表(真实端点;旧 /api/models 全仓零注册,调用必 404)。"""
+        data = self._request("/api/llm/models", method="GET")
+        # 真实响应是 {"models":[{id,provider,…}],"default":…,"stub_mode":…},
+        # 不是 OpenAI 的 {"object":"list","data":[…]};两种形状都兼容,逐字段兜底。
+        payload: dict[str, Any] = data if isinstance(data, dict) else {}
+        raw = payload.get("models")
+        if not isinstance(raw, list):
+            raw = payload.get("data", [])
         return ModelsListResponse(
-            object=data["object"],
+            object=str(payload.get("object") or "list"),
             data=[
-                ModelInfo(id=m["id"], object=m["object"], created=m["created"], owned_by=m["owned_by"])
-                for m in data.get("data", [])
+                ModelInfo(
+                    id=str(m.get("id") or ""),
+                    object=str(m.get("object") or "model"),
+                    created=int(m["created"]) if isinstance(m.get("created"), (int, float)) else 0,
+                    owned_by=str(m.get("owned_by") or m.get("provider") or ""),
+                )
+                for m in raw
+                if isinstance(m, dict)
             ],
         )
 

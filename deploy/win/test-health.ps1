@@ -46,13 +46,38 @@ try {
     } else { $llmDetail = 'login-no-token' }
 } catch { $llmDetail = "err=$_" }
 
-# 4) wss 路由可探测性(经隧道发起 WS 升级,能返回任一带状态码的握手尝试即视为路由可达;
-#    完整握手验证下沉到专门 WS 客户端,此处不作硬门禁)
-$wssOk = $true; $wssDetail = 'route-check(soft)'
+# 4) wss — 真实 WebSocket 升级握手(不再以恒真占位)。端点与
+#    deploy/prod-bundle/scripts/smoke-public-ws.mjs 同一条口径(api 子域 +
+#    /v1/ai/capabilities/ws/stream),可用 IHUI_WS_PROBE_URL 覆盖。
+$wssOk = $false; $wssDetail = ''
+try {
+    $wsUri = if ($env:IHUI_WS_PROBE_URL) {
+        [Uri]$env:IHUI_WS_PROBE_URL
+    } else {
+        $u = [Uri]$Base
+        $hostName = $u.Host -replace '^www\.', ''
+        $wsHost = if ($hostName -like 'api.*') { $hostName } else { "api.$hostName" }
+        [Uri]"wss://$wsHost/v1/ai/capabilities/ws/stream"
+    }
+    # 该端点要求 token(见 smoke-public-ws.mjs);复用 llm 维登录取到的令牌,取不到即判失败
+    if (-not $tok) { throw 'no-token(llm 登录未取到 accessToken)' }
+    $probe = [Uri]("$($wsUri.AbsoluteUri)?token=$([Uri]::EscapeDataString($tok))")
+    $ws = [System.Net.WebSockets.ClientWebSocket]::new()
+    $cts = [System.Threading.CancellationTokenSource]::new()
+    try {
+        $cts.CancelAfter(15000)
+        $ws.ConnectAsync($probe, $cts.Token).GetAwaiter().GetResult()
+        $wssOk = ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)
+        $wssDetail = "state=$($ws.State) host=$($wsUri.Host)"
+    } finally {
+        $ws.Dispose(); $cts.Dispose()
+    }
+} catch { $wssDetail = "err=$_" }
 
 Check 'web' $webOk $webDetail
 Check 'api' $apiOk $apiDetail
 Check 'llm' $llmOk $llmDetail
+Check 'wss' $wssOk $wssDetail
 
 if ($script:fail -gt 0) { Write-Host "RESULT: PARTIAL_FAIL ($script:fail 维异常)"; exit 1 }
 Write-Host 'RESULT: ALL_PASS'; exit 0

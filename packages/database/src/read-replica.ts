@@ -205,19 +205,25 @@ export function createReadWriteDb(config: DatabaseConfig) {
    * 连续失败达 FAIL_THRESHOLD 后标记为不健康，getReader() 将跳过该副本。
    * 成功时减少失败计数，归零后恢复健康。
    */
-  function reportReplicaHealth(replicaId: string, ok: boolean, lagSec = 0): void {
+  /**
+   * lagSec 可选:监控只按"成功/失败"上报(不传延迟)时保留上次读数,绝不把真实延迟
+   * 抹成 0 —— 否则一次成功上报就会让"因延迟过大判不健康"的慢副本被 getReader()
+   * 重新选回来(BUG-32)。健康判据不得被 ok 覆盖:恢复健康须同时满足延迟未超阈值。
+   */
+  function reportReplicaHealth(replicaId: string, ok: boolean, lagSec?: number): void {
     const status = replicaHealth.get(replicaId)
     if (!status) return
-    status.lagSec = lagSec
+    if (lagSec !== undefined) status.lagSec = lagSec
+    const effectiveLagSec = status.lagSec
     if (ok) {
       status.failCount = Math.max(0, status.failCount - 1)
-      if (status.failCount === 0) status.healthy = true
+      if (status.failCount === 0 && effectiveLagSec <= MAX_LAG_SEC) status.healthy = true
     } else {
       status.failCount++
       if (status.failCount >= FAIL_THRESHOLD) status.healthy = false
     }
-    // 复制延迟过大也标记不健康
-    if (lagSec > MAX_LAG_SEC) status.healthy = false
+    // 复制延迟过大始终标记不健康(含"本次未提供 lagSec,但保留读数已超阈值"的情形)
+    if (effectiveLagSec > MAX_LAG_SEC) status.healthy = false
   }
 
   /** 获取所有读副本状态快照。 */

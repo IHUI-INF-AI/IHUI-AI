@@ -26,9 +26,12 @@
 inhibit_rules:
   # ===== API 级联抑制 =====
   # API 实例宕机是根因，其错误率/响应时间告警随之失去意义 → 抑制
+  # BUG-22:目标 ApiHighErrorRate 的 expr 是 sum(rate(...))/sum(rate(...)) 聚合后无 instance 标签,
+  # 而源 ApiDown = up{job="api"}==0 带 instance ⇒ equal:['instance'] 永不匹配、抑制永不生效。
+  # 改空标签集:只要 ApiDown(critical)在 firing 即抑制全部 ApiHighErrorRate(衍生告警)。
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiHighErrorRate"']
-    equal: ['instance']
+    equal: []
 
   - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
     target_matchers: ['alertname="ApiSlowResponse"']

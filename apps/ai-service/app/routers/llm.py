@@ -3676,6 +3676,28 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
                 "model": req.model,
             },
         )
+    # BUG-7 根治:非流式 /llm/complete 拿到 usage 后补 consume,与流式 done-usage 同一把尺。
+    # 入口 check(见本函数开头)只校验余量、不累加;缺这条腿 ⇒ 日额度永远停在 0,可无限刷。
+    _usage_obj = result.get("usage")
+    _trial_tokens = (
+        int(_usage_obj.get("total_tokens", 0) or 0)
+        if isinstance(_usage_obj, dict)
+        else 0
+    )
+    if owner_uuid and _trial_tokens > 0:
+        spawn(
+            user_trial_quota.consume(owner_uuid, _trial_tokens),
+            name="trial-quota-consume-nonstream",
+        )
+    # check/consume 配对断言:受额度约束的成功请求必须已累加;usage 缺失属上游异常,
+    # 记 error 可观测而非静默漏账(避免"逐处补又漏一处")。
+    if trial.get("limit", 0) > 0 and owner_uuid and _trial_tokens <= 0:
+        logger.error(
+            "[trial-quota] /llm/complete 成功响应缺少可用 usage,check/consume 未配对: "
+            "owner=%s usage=%r",
+            owner_uuid,
+            _usage_obj,
+        )
     # 透传 metadata
     if req.metadata:
         result["metadata"] = req.metadata

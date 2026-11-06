@@ -447,6 +447,11 @@ export function ToolApprovalDialog() {
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('EventSource' in window)) return
     const es = new EventSource('/api/agents/tasks/stream')
+    // BUG-11:真正连上(onopen)才复位「唯一一次续期」账。旧实现只在挂载初始为 false,
+    // 首次续期成功后永久为 true,审批流第二次致命断流后再也不重建且界面零提示。
+    es.onopen = () => {
+      approvalStreamRetryRef.current = false
+    }
     // t4(2026-09-19):wire 解析迁移至共享 parseToolApprovalEvent(type 守卫 + session_id
     // 顶层优先/payload 内兜底 + danger_level 缺省 high),此处仅保留入队去重职责。
     const onApproval = (e: MessageEvent) => {

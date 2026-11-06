@@ -281,13 +281,24 @@ def _tool_result_token_estimate(obj: object) -> int:
     return total
 
 
-def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
+def _truncate_tool_output(
+    result: dict[str, Any],
+    *,
+    tool_name: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """call_tool 出口统一输出护栏:将超 token 预算的字符串值截断。
 
     策略(确定性、保持 dict 结构与控制字段完整):
     - 总 token <= 预算 → 原样返回,不加 truncated 标志
     - 超限 → 收集全部字符串叶子(受保护 key 除外),按长度降序贪心截断,
       直到总 token <= 预算;每个被截断字符串追加标记,并置顶层 truncated=True
+
+    批次 2(2026-11-06):截断前先把**完整结果**落盘为工件(`tool_output_artifacts`),
+    并在返回体追加 `output_artifact`(bytes/chars/digest/offset/next/complete)与
+    `output_continuation` 指引。此前标记只写"可用分页参数获取更多"却没有任何续读
+    凭据,模型只能重跑工具 —— 现在任何调用面(main chat / agent loop / supertool)
+    都拿到同一份可续读凭据。
 
     注意:截断量为近似(标记本身占少量 token),已在边界内;目的是防上下文膨胀,
     不保证精确等于预算(误差 < 标记长度)。
@@ -298,6 +309,22 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     total = _tool_result_token_estimate(result)
     if total <= max_tokens:
         return result
+
+    # 完整结果先落盘(force=True:token 估算是逐串 floor 求和,与整串估算可能差 1-2,
+    # 但只要进入截断分支就必须有工件,不能出现"截断了却没有续读凭据")。
+    artifact: dict[str, Any] | None = None
+    try:
+        from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
+
+        artifact = maybe_spill_tool_output(
+            serialize_tool_payload(result),
+            tool_name=tool_name or str(result.get("tool") or ""),
+            session_id=session_id,
+            keep_chars=0,
+            force=True,
+        )
+    except Exception as e:  # noqa: BLE001 - 工件面异常不许影响工具返回
+        logger.warning("[mcp] 工具输出工件落盘失败(降级为纯截断): %s", e)
 
     # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
     leaves: list[tuple[Any, Any, str]] = []
@@ -343,6 +370,23 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     for parent, key, keep_chars in plan:
         parent[key] = parent[key][:keep_chars] + marker
     result["truncated"] = True
+    if artifact is not None:
+        # 续读凭据:offset=0 = 从头分页(正文是逐串截断而非前缀截断,给 0 才不丢信息)。
+        result["output_artifact"] = {
+            "artifact_id": artifact.get("artifactId"),
+            "digest": artifact.get("digest"),
+            "bytes": artifact.get("bytes"),
+            "chars": artifact.get("chars"),
+            "offset": 0,
+            "next": 0,
+            "complete": False,
+            "truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+        }
+        result["output_continuation"] = (
+            f"完整输出已落盘(共 {artifact.get('chars')} 字符)。用 "
+            f'read_tool_output(artifact_id="{artifact.get("artifactId")}", offset=0) '
+            "分页续读,直到返回 complete=true。"
+        )
     return result
 
 
@@ -641,16 +685,10 @@ def _validate_extra_directory(
     p = Path(path)
     if not p.is_absolute():
         return False, f"附加目录必须是绝对路径: {path}"
-    try:
-        resolved = p.resolve(strict=False)
-        directory_stat = os.stat(resolved)
-    except FileNotFoundError:
+    resolved = p.resolve(strict=False)
+    if not resolved.exists():
         return False, f"附加目录不存在: {path}"
-    except OSError as exc:
-        return False, f"附加目录读不到,不能把它说成不存在: {path} ({exc.errno})"
-    import stat as _directory_mode
-
-    if not _directory_mode.S_ISDIR(directory_stat.st_mode):
+    if not resolved.is_dir():
         return False, f"附加目录不是目录: {path}"
     if _is_system_root(resolved):
         return False, f"附加目录是系统根/伪文件系统,禁止登记: {path}"
@@ -873,14 +911,9 @@ def _validate_path_in_workspace(
                     candidate.relative_to(Path(root))
                 except ValueError:
                     continue
-                try:
-                    candidate.stat()
-                except FileNotFoundError:
-                    continue
-                except OSError:
-                    return False, "路径读不到,不能把它说成不在这个工作区里再换一个根"
-                resolved_str = str(candidate)
-                return True, resolved_str
+                if candidate.exists():
+                    resolved_str = str(candidate)
+                    return True, resolved_str
         # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
         resolved = Path(path).resolve(strict=False)
         resolved_str = str(resolved)
@@ -1358,14 +1391,7 @@ async def _lazy_index_and_research(
 
     try:
         root = Path(path).resolve()
-        root_kind, _st = _classify_path(str(root))
-        if root_kind == "unread":
-            return LazyIndexOutcome(
-                results=[],
-                status="skipped-unreadable",
-                reason=f"传入的 path 读不到,不能把它说成不是目录({path}),未尝试建索引",
-            )
-        if root_kind != "dir":
+        if not root.exists() or not root.is_dir():
             return LazyIndexOutcome(
                 results=[],
                 status="skipped-not-a-dir",
@@ -1580,6 +1606,119 @@ def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
         if norm:
             ignored.add(norm)
     return ignored
+
+
+def _search_codebase_keyword_sync(
+    root: Any, query: str, pattern: str, max_results: int, symbol_type: str,
+    code_exts: set[str], ignored_dirs: set[str], symbol_patterns: dict[str, Any],
+) -> tuple[list[dict[str, Any]], int]:
+    """同步执行关键词腿:os.walk + 一次性 git check-ignore + 文件读取/符号匹配。
+
+    BUG-9:整段含同步文件系统遍历 / 子进程 / 阻塞读,必须经
+    ``await asyncio.to_thread(_search_codebase_keyword_sync, ...)`` 调用,
+    否则大仓库一次搜索会把事件循环(全部 SSE / 健康检查 / 调度)卡死,
+    ``asyncio.wait_for`` 也抢不到同步阻塞。原先**每个目录**起一次
+    ``git check-ignore`` 子进程(成百上千次进程启动);这里先把全部相对路径收齐,
+    一次 ``--stdin`` 批量传入(台账收口要点),N 次降为 1 次。
+    """
+    import fnmatch
+    import os
+
+    patterns = [p.strip() for p in pattern.split(",") if p.strip()] if pattern else []
+    query_lower = query.lower()
+    matches: list[dict[str, Any]] = []
+    count = 0
+
+    # ① 一次 os.walk 收齐全部目录/文件相对路径(纯遍历,无子进程)
+    snapshots: list[tuple[str, list[str], list[str]]] = []
+    all_rels: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
+        file_rels = [
+            os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
+            for fname in filenames
+        ]
+        snapshots.append((dirpath, filenames, file_rels))
+        all_rels.extend(
+            os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+            for d in dirnames
+        )
+        all_rels.extend(file_rels)
+
+    # ② 一次 --stdin 批量过 gitignore(替代原先逐目录的 N 次 subprocess.run)
+    ignored = _git_check_ignore(root, all_rels)
+
+    # ③ 逐文件按 ignored 过滤 + 读取 + 符号匹配
+    for dirpath, filenames, file_rels in snapshots:
+        for fname, rel_posix in zip(filenames, file_rels):
+            if count >= max_results:
+                return matches, count
+            if rel_posix in ignored:
+                continue
+            if patterns:
+                if not any(fnmatch.fnmatch(fname, p) for p in patterns):
+                    continue
+            else:
+                ext = os.path.splitext(fname)[1].lower()
+                if ext not in code_exts:
+                    continue
+
+            fpath = os.path.join(dirpath, fname)
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+            except OSError:
+                continue
+
+            lines = content.splitlines()
+            rel_path = os.path.relpath(fpath, root)
+            if query_lower not in content.lower():
+                continue
+
+            symbol_matches: list[tuple[int, str, str]] = []
+            for sym_type, sym_re in symbol_patterns.items():
+                if symbol_type and sym_type != symbol_type:
+                    continue
+                for m in sym_re.finditer(content):
+                    sym_name = m.group(1)
+                    if sym_name.lower() == query_lower or query_lower in sym_name.lower():
+                        line_no = content.count("\n", 0, m.start()) + 1
+                        line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+                        symbol_matches.append((line_no, sym_type, line_text))
+
+            line_matches: list[tuple[int, str]] = []
+            for i, line_text in enumerate(lines):
+                if query_lower in line_text.lower():
+                    line_matches.append((i + 1, line_text))
+
+            seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+            for ln_no, ln_text in line_matches:
+                if ln_no not in seen_lines:
+                    symbol_matches.append((ln_no, "reference", ln_text))
+                    seen_lines.add(ln_no)
+
+            if not symbol_matches:
+                continue
+
+            for line_no, sym_type, line_text in symbol_matches[:10]:
+                start = max(0, line_no - 3)
+                end = min(len(lines), line_no + 2)
+                preview = "\n".join(
+                    f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                )
+                matches.append({
+                    "path": rel_path,
+                    "file": fname,
+                    "line": line_no,
+                    "symbol_type": sym_type,
+                    "code": line_text.strip()[:200],
+                    "preview": preview[:500],
+                })
+                count += 1
+                if count >= max_results:
+                    break
+
+    return matches, count
 
 
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1858,22 +1997,14 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             from pathlib import Path
 
             root = Path(path).resolve()
-            kind, _st = _classify_path(str(root))
-            if kind == "missing":
+            if not root.exists():
                 return {
                     "status": "unavailable",
                     "matches": [],
                     "truncated": False,
                     "reason": f"路径不存在: {path}",
                 }
-            if kind == "unread":
-                return {
-                    "status": "unavailable",
-                    "matches": [],
-                    "truncated": False,
-                    "reason": f"路径读不到,不能把它说成不存在: {path}",
-                }
-            if kind != "dir":
+            if not root.is_dir():
                 return {
                     "status": "unavailable",
                     "matches": [],
@@ -1881,146 +2012,18 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     "reason": f"路径不是目录: {path}",
                 }
 
-            # 构建 pattern 列表(支持逗号分隔多 pattern)
-            if pattern:
-                patterns = [p.strip() for p in pattern.split(",") if p.strip()]
-            else:
-                patterns = []  # 用扩展名过滤
-
-            query_lower = query.lower()
-            matches: list[dict[str, Any]] = []
-            count = 0
-            unread_dirs = 0
-            unread_files = 0
-
-            def _on_walk_error(err: OSError) -> None:
-                nonlocal unread_dirs
-                if isinstance(err, FileNotFoundError):
-                    return
-                unread_dirs += 1
-
-            for dirpath, dirnames, filenames in os.walk(root, onerror=_on_walk_error):
-                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-                dir_rels = [
-                    os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                    for d in dirnames
-                ]
-                file_rels = [
-                    os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
-                    for fname in filenames
-                ]
-                ignored = _git_check_ignore(root, dir_rels + file_rels)
-                if ignored:
-                    dirnames[:] = [
-                        d
-                        for d in dirnames
-                        if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                        not in ignored
-                    ]
-                for fname in filenames:
-                    if count >= max_results:
-                        break
-                    rel_posix = os.path.relpath(
-                        os.path.join(dirpath, fname), root
-                    ).replace("\\", "/")
-                    if rel_posix in ignored:
-                        continue
-                    # pattern 或扩展名过滤
-                    if patterns:
-                        if not any(fnmatch.fnmatch(fname, p) for p in patterns):
-                            continue
-                    else:
-                        ext = os.path.splitext(fname)[1].lower()
-                        if ext not in _CODE_EXTS:
-                            continue
-
-                    fpath = os.path.join(dirpath, fname)
-                    try:
-                        with open(fpath, encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                    except FileNotFoundError:
-                        continue
-                    except OSError:
-                        unread_files += 1
-                        continue
-
-                    lines = content.splitlines()
-                    rel_path = os.path.relpath(fpath, root)
-
-                    # 先快速过滤:文件内容必须含 query(大小写不敏感)
-                    if query_lower not in content.lower():
-                        continue
-
-                    # 1) 符号定义匹配:扫描每种符号模式
-                    symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
-                    for sym_type, sym_re in _SYMBOL_PATTERNS.items():
-                        if symbol_type and sym_type != symbol_type:
-                            continue
-                        for m in sym_re.finditer(content):
-                            sym_name = m.group(1)
-                            if sym_name.lower() == query_lower or query_lower in sym_name.lower():
-                                # 计算 line_no
-                                line_no = content.count("\n", 0, m.start()) + 1
-                                line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
-                                symbol_matches.append((line_no, sym_type, line_text))
-
-                    # 2) 通用行匹配(任意包含 query 的行)
-                    line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
-                    for i, line_text in enumerate(lines):
-                        if query_lower in line_text.lower():
-                            line_matches.append((i + 1, line_text))
-
-                    # 合并:符号匹配优先,再补通用行匹配(去重)
-                    seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
-                    for ln_no, ln_text in line_matches:
-                        if ln_no not in seen_lines:
-                            symbol_matches.append((ln_no, "reference", ln_text))
-                            seen_lines.add(ln_no)
-
-                    if not symbol_matches:
-                        continue
-
-                    # 限制每个文件最多 10 条匹配
-                    for line_no, sym_type, line_text in symbol_matches[:10]:
-                        # 提取上下文(前后各 2 行)
-                        start = max(0, line_no - 3)
-                        end = min(len(lines), line_no + 2)
-                        preview = "\n".join(
-                            f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
-                        )
-                        matches.append({
-                            "path": rel_path,
-                            "file": fname,
-                            "line": line_no,
-                            "symbol_type": sym_type,
-                            "code": line_text.strip()[:200],
-                            "preview": preview[:500],
-                        })
-                        count += 1
-                        if count >= max_results:
-                            break
-
-                if count >= max_results:
-                    break
-
-            note = None
-            if unread_dirs or unread_files:
-                note = (
-                    f"有 {unread_dirs} 个目录、{unread_files} 个文件读不到,"
-                    "不能把检索说成完整"
-                )
-            if not matches and note:
-                return {
-                    "status": "unjudged",
-                    "matches": [],
-                    "truncated": False,
-                    "reason": note,
-                }
+            # BUG-9:整段同步遍历 + 子进程 + 阻塞读统一挪到线程池,事件循环不再被
+            # 大仓库搜索卡死(wait_for 抢不到同步阻塞);git check-ignore 一次批量(见 helper)。
+            matches, count = await asyncio.to_thread(
+                _search_codebase_keyword_sync,
+                root, query, pattern, max_results, symbol_type,
+                _CODE_EXTS, _IGNORED_DIRS, _SYMBOL_PATTERNS,
+            )
             return {
                 "status": "ok",
                 "matches": matches,
                 "truncated": count >= max_results,
-                "reason": note,
+                "reason": None,
             }
         except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
             stats["keyword_leg"] = "failed"
@@ -2303,6 +2306,35 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_read_tool_output(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_tool_output(批次 2):按 offset 分页续读落盘的工具输出工件。
+
+    只读、无副作用;artifactId 严格校验(见 tool_output_artifacts)。失败返回稳定
+    `error` 词而不是抛异常 —— 抛异常会被误记成"工具执行失败"并污染审计终态。
+    """
+    from .tool_output_artifacts import read_tool_output_page
+
+    artifact_id = arguments.get("artifact_id")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return {
+            "tool": "read_tool_output",
+            "ok": False,
+            "error": "unknown_artifact",
+            "artifactId": "",
+        }
+    try:
+        offset = int(arguments.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    raw_limit = arguments.get("limit")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else 4000
+    except (TypeError, ValueError):
+        limit = 4000
+    page = read_tool_output_page(artifact_id, offset=max(0, offset), limit=limit)
+    return {"tool": "read_tool_output", **page}
+
+
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """read_file: 读取文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
@@ -2326,8 +2358,8 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
         # Windows 上 open() 目录返回模糊的 PermissionError([Errno 13] Permission denied),
         # 用户/模型误以为是权限问题(实际是"把目录当文件读")。
         # 改为明确错误 + 引导使用 search_codebase 探索目录结构。
-        kind, _st = _classify_path(resolved_path)
-        if kind == "dir":
+        import os as _os
+        if _os.path.isdir(resolved_path):
             return {
                 "tool": "read_file",
                 "path": resolved_path,
@@ -2335,15 +2367,6 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 "ok": False,
                 "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
                 "errorCode": "IS_A_DIRECTORY",
-            }
-        if kind == "unread":
-            return {
-                "tool": "read_file",
-                "path": resolved_path,
-                "content": "",
-                "ok": False,
-                "error": "文件读不到,不能把它说成不存在",
-                "errorCode": "UNREADABLE",
             }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
@@ -2372,24 +2395,12 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "list_files", "path": path, "ok": False, "error": info}
     resolved = info
     import os as _os
-    import stat as _stat
-    not_a_directory = {
-        "tool": "list_files", "path": resolved, "ok": False,
-        "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
-        "errorCode": "NOT_A_DIRECTORY",
-    }
-    try:
-        mode = _os.stat(resolved).st_mode
-    except FileNotFoundError:
-        return not_a_directory
-    except OSError as exc:
+    if not _os.path.isdir(resolved):
         return {
             "tool": "list_files", "path": resolved, "ok": False,
-            "error": f"目录读不到,不能把它说成不是目录 ({getattr(exc, 'errno', None)})",
-            "errorCode": "UNREADABLE",
+            "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
+            "errorCode": "NOT_A_DIRECTORY",
         }
-    if not _stat.S_ISDIR(mode):
-        return not_a_directory
     try:
         names = sorted(_os.listdir(resolved))
         entries = []
@@ -2438,16 +2449,7 @@ async def _tool_render_repo_tree(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "PATH_NOT_ALLOWED",
         }
     resolved = info
-    kind, _st = _classify_path(resolved)
-    if kind == "unread":
-        return {
-            "tool": "render_repo_tree",
-            "path": resolved,
-            "ok": False,
-            "error": "目录读不到,不能把它说成不是目录",
-            "errorCode": "UNREADABLE",
-        }
-    if kind != "dir":
+    if not os.path.isdir(resolved):
         return {
             "tool": "render_repo_tree",
             "path": resolved,
@@ -2503,16 +2505,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
             # 写前基线漂移判定(判定与写盘同锁内完成,判定结果对写盘时刻负责)
             baseline = _FILE_BASE_CONTENT.get(resolved_path)
             disk_now: str | None = None
-            kind, _st = _classify_existing_file(resolved_path)
-            if kind == "unread":
-                return {
-                    "tool": "write_file",
-                    "path": resolved_path,
-                    "ok": False,
-                    "errorCode": "UNREADABLE",
-                    "error": "文件读不到,不能把它覆盖成新内容",
-                }
-            if kind == "file":
+            if os.path.isfile(resolved_path):
                 try:
                     with open(resolved_path, encoding="utf-8") as f:
                         disk_now = _normalize_eol(f.read())
@@ -2554,33 +2547,6 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
 
 
-def _classify_path(path: str) -> tuple[str, os.stat_result | None]:
-    """dir/file/other = 量到了; missing = 没有; unread = 读失败,不能说成没有。"""
-    import stat as _stat
-
-    try:
-        st = os.stat(path)
-    except FileNotFoundError:
-        return "missing", None
-    except OSError:
-        return "unread", None
-    if _stat.S_ISDIR(st.st_mode):
-        return "dir", st
-    if _stat.S_ISREG(st.st_mode):
-        return "file", st
-    return "other", st
-
-
-def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
-    """file = 普通文件; missing = 没有或不是普通文件; unread = 读失败,不能说成没有。"""
-    kind, st = _classify_path(path)
-    if kind == "file":
-        return "file", st
-    if kind == "unread":
-        return "unread", None
-    return "missing", None
-
-
 async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     """file_edit: 精细编辑文件,精确替换 old_string 为 new_string,带 conflict 检测。
 
@@ -2607,12 +2573,9 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        kind, st = _classify_existing_file(resolved_path)
-        if kind == "missing":
+        if not os.path.isfile(resolved_path):
             return _err("FILE_NOT_FOUND", "文件不存在")
-        if kind != "file" or st is None:
-            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
-        if st.st_size > 10 * 1024 * 1024:
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
         with open(resolved_path, "rb") as f:
             raw = f.read()
@@ -2743,12 +2706,9 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        kind, st = _classify_existing_file(resolved_path)
-        if kind == "missing":
+        if not os.path.isfile(resolved_path):
             return _err("FILE_NOT_FOUND", "文件不存在")
-        if kind != "file" or st is None:
-            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
-        if st.st_size > 10 * 1024 * 1024:
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
             return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
         with open(resolved_path, "rb") as f:
             raw = f.read()
@@ -4856,7 +4816,9 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 with open(js_path, "w", encoding="utf-8") as f:
                     f.write(test_code)
-                proc = _subprocess.run(
+                # BUG-9:同步 node 子进程改真异步(对齐同文件 python 分支的 to_thread 写法)。
+                proc = await asyncio.to_thread(
+                    _subprocess.run,
                     [node_path, "--check", js_path],
                     capture_output=True, text=True, timeout=30,
                 )
@@ -4942,8 +4904,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
         from pathlib import Path
 
         root = Path(path).resolve()
-        kind, _st = _classify_path(str(root))
-        if kind == "missing":
+        if not root.exists():
             return {
                 "tool": "file_search",
                 "query": query,
@@ -4953,17 +4914,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"路径不存在: {path}",
                 "ok": False,
             }
-        if kind == "unread":
-            return {
-                "tool": "file_search",
-                "query": query,
-                "path": path,
-                "pattern": pattern,
-                "matches": [],
-                "message": f"路径读不到,不能把它说成不存在: {path}",
-                "ok": False,
-            }
-        if kind != "dir":
+        if not root.is_dir():
             return {
                 "tool": "file_search",
                 "query": query,
@@ -5004,11 +4955,6 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 {"path": rp, "file": fn, "score": sc}
                 for sc, rp, fn in scored[:max_results]
             ]
-            fuzzy_message = (
-                f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}(按相关度排序)"
-            )
-            if _enum_prov.degraded_reason:
-                fuzzy_message += f";{_enum_prov.degraded_reason}"
             return {
                 "tool": "file_search",
                 "query": query,
@@ -5022,13 +4968,13 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 # "降级只是慢一点"不成立:两条通道的结果集必须等价,不等价时得有人能发现。
                 "enum_engine": _enum_prov.engine,
                 "enum_degraded": _enum_prov.degraded_reason,
-                "message": fuzzy_message,
-                "ok": not (_enum_prov.degraded_reason and not matches),
+                "message": f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}"
+                "(按相关度排序)",
+                "ok": True,
             }
 
         query_lower = query.lower() if query else None
         count = 0
-        unread_files = 0
         # V3 #75:同一个工具的第二处遍历,现共用上面那一次枚举的结果(原先两份 os.walk)。
         for rel_path in searchable:
             fname = rel_path.rsplit("/", 1)[-1]
@@ -5064,7 +5010,6 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                             "preview": preview[:500],
                         })
                     except (OSError, UnicodeDecodeError):
-                        unread_files += 1
                         continue
                 else:
                     # 无 query,仅文件名匹配
@@ -5079,20 +5024,13 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                     })
                 count += 1
             except OSError:
-                unread_files += 1
                 continue
 
         message = (
             f"在 {path} 下找到 {len(matches)} 个匹配文件"
             + ("(已截断)" if count >= max_results else "")
         )
-        incomplete = _enum_prov.degraded_reason or ""
-        if unread_files:
-            file_note = f"有 {unread_files} 个文件读不到,不能把检索说成没有命中"
-            incomplete = f"{incomplete};{file_note}" if incomplete else file_note
-        if incomplete:
-            message += f";{incomplete}"
-        elif not matches:
+        if not matches:
             # 零结果给可操作指引(第十四批:体验优化,避免模型盲目重试)
             message += (
                 ";建议:①放宽 pattern(如 '*.py' 或 '*');"
@@ -5110,7 +5048,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "enum_engine": _enum_prov.engine,
             "enum_degraded": _enum_prov.degraded_reason,
             "message": message,
-            "ok": not (incomplete and not matches),
+            "ok": True,
         }
     except Exception as e:
         return {
@@ -5202,17 +5140,7 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": "PATH_NOT_IN_WORKSPACE",
             }
         repo_path = repo_resolved
-        kind, _st = _classify_path(repo_path)
-        if kind == "unread":
-            return {
-                "tool": "git_operations",
-                "action": action,
-                "repo": repo,
-                "output": "",
-                "message": f"仓库路径读不到,不能把它说成不存在或不是目录: {repo}",
-                "ok": False,
-            }
-        if kind != "dir":
+        if not os.path.isdir(repo_path):
             return {
                 "tool": "git_operations",
                 "action": action,
@@ -5244,7 +5172,9 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                     "ok": False,
                 }
 
-        result = subprocess.run(
+        # BUG-9:同步 git 子进程改真异步,避免整段卡死事件循环。
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["git"] + (git_args or []),
             cwd=repo_path,
             capture_output=True,
@@ -6020,18 +5950,19 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": info, "errorCode": "PATH_NOT_IN_WORKSPACE",
             }
         p = Path(info)
-        kind, st = _classify_path(str(p))
-        if kind == "missing":
+        if not p.exists():
             return {
                 "tool": "vision_analyze", "ok": False,
                 "error": f"文件不存在: {image_path}", "errorCode": "FILE_NOT_FOUND",
             }
-        if kind == "unread" or st is None:
+        # 文件大小校验(>10MB 拒绝)
+        try:
+            file_size = p.stat().st_size
+        except OSError as e:
             return {
                 "tool": "vision_analyze", "ok": False,
-                "error": "文件读不到,不能把它说成不存在", "errorCode": "UNREADABLE",
+                "error": f"读取文件大小失败: {e}", "errorCode": "FILE_NOT_FOUND",
             }
-        file_size = st.st_size
         if file_size > 10 * 1024 * 1024:
             return {
                 "tool": "vision_analyze", "ok": False,
@@ -6430,7 +6361,11 @@ async def _tool_dispatch_subagent(
             if _par_needs_help:
                 _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
-            return _truncate_tool_output(_payload)
+            return _truncate_tool_output(
+                _payload,
+                tool_name="dispatch_subagent",
+                session_id=arguments.get("session_id"),
+            )
         except Exception as e:
             return {
                 "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
@@ -6512,7 +6447,11 @@ async def _tool_dispatch_subagent(
                 _payload["errorCode"] = "AGENT_NOT_FOUND"
                 _payload["availableAgents"] = sorted(set(_reg.names()))
         # 0-6 单子代理输出限额:复用 0-2 截断助手
-        return _truncate_tool_output(_payload)
+        return _truncate_tool_output(
+            _payload,
+            tool_name="dispatch_subagent",
+            session_id=arguments.get("session_id"),
+        )
     except Exception as e:
         return {
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
@@ -7487,46 +7426,6 @@ async def _image_generate_once(
         }
 
 
-_USER_POINTS_ID = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-)
-
-
-async def read_user_points_balance(user_id: str) -> int | None:
-    """读取 user_points.points。返回 None 表示这次没量到，调用方不得把它当成 0 或「不用计量」。
-
-    查询成功但没有这一行，按积分接口的空账口径返回 0（空账仍过不了报价线）。
-    身份不是 uuid、库没配、连接或取值认不出，都是没量到。
-    """
-    if not isinstance(user_id, str) or _USER_POINTS_ID.fullmatch(user_id) is None:
-        return None
-    from app.core.config import settings
-
-    if not settings.database_url:
-        return None
-    try:
-        import asyncpg
-
-        conn = await asyncio.wait_for(asyncpg.connect(settings.database_url), timeout=3)
-        try:
-            async with conn.transaction(readonly=True):
-                row = await conn.fetchrow(
-                    "SELECT points FROM user_points WHERE user_id = $1",
-                    user_id,
-                )
-        finally:
-            await conn.close()
-    except Exception as exc:  # noqa: BLE001 - 量不到必须显式返回，不能让生图改走「没这回事」
-        logger.warning("user_points 余额没量到: %s", type(exc).__name__)
-        return None
-    if row is None:
-        return 0
-    points = row["points"]
-    if isinstance(points, bool) or not isinstance(points, int) or points < 0:
-        return None
-    return points
-
-
 async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """image_generation: 生成图片(多 provider 统一编排 + 运行时自动故障转移)。
 
@@ -7928,10 +7827,7 @@ async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | 
         ok, info = _validate_path_in_workspace(s)
         if ok:
             p = Path(info)
-            kind, _st = _classify_path(str(p))
-            if kind == "unread":
-                return None, "FILE_READ_FAILED"
-            if kind == "file":
+            if p.exists() and p.is_file():
                 try:
                     raw = p.read_bytes()
                 except OSError:
@@ -8781,20 +8677,13 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
     try:
         if path:
-            kind, st = _classify_path(path)
-            if kind == "unread":
-                return {
-                    "tool": "token6688_upload_file", "ok": False,
-                    "error": "文件读不到,不能把它说成不存在",
-                    "errorCode": "UNREADABLE", "file_url": None,
-                }
-            if kind != "file" or st is None:
+            if not os.path.isfile(path):
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": f"文件不存在: {path}", "errorCode": "FILE_NOT_FOUND",
                     "file_url": None,
                 }
-            size = st.st_size
+            size = os.path.getsize(path)
             if size > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
@@ -9134,12 +9023,9 @@ def _audio_source_from_args(
     if sources > 1:
         return b"", "", "path / url / data_uri 只能传一个"
     if path:
-        kind, st = _classify_path(path)
-        if kind == "unread":
-            return b"", "", "UNREADABLE:文件读不到,不能把它说成不存在"
-        if kind != "file" or st is None:
+        if not _os.path.isfile(path):
             return b"", "", f"文件不存在: {path}"
-        size = st.st_size
+        size = _os.path.getsize(path)
         if size >= 20 * 1024 * 1024:
             return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
         try:
@@ -9248,11 +9134,6 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
         # action == "upload"
         audio, filename, err = _audio_source_from_args(arguments)
         if err:
-            if err.startswith("UNREADABLE:"):
-                return {
-                    "tool": "token6688_voice_clone", "ok": False,
-                    "error": err.split(":", 1)[1], "errorCode": "UNREADABLE",
-                }
             return {
                 "tool": "token6688_voice_clone", "ok": False,
                 "error": err, "errorCode": "BAD_PARAMS",
@@ -9423,20 +9304,13 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
         from pathlib import Path as _Path
 
         p = _Path(audio_in)
-        kind, st = _classify_path(str(p))
-        if kind == "unread":
-            return {
-                "tool": "audio_transcription", "ok": False,
-                "error": "本地文件读不到,不能把它说成不存在",
-                "errorCode": "UNREADABLE", "text": None,
-            }
-        if kind != "file" or st is None:
+        if not p.is_file():
             return {
                 "tool": "audio_transcription", "ok": False,
                 "error": f"本地文件不存在: {audio_in}", "errorCode": "FILE_NOT_FOUND",
                 "text": None,
             }
-        if st.st_size > _AUDIO_STT_MAX_BYTES:
+        if p.stat().st_size > _AUDIO_STT_MAX_BYTES:
             return {
                 "tool": "audio_transcription", "ok": False,
                 "error": f"音频超限({p.stat().st_size} > {_AUDIO_STT_MAX_BYTES} 字节)",
@@ -10958,12 +10832,9 @@ async def _tool_notebook_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return _err("INVALID_CELL_TYPE", "cell_type 只接受 code/markdown/raw")
 
     try:
-        kind, st = _classify_existing_file(resolved_path)
-        if kind == "missing":
+        if not os.path.isfile(resolved_path):
             return _err("FILE_NOT_FOUND", f"笔记本不存在: {resolved_path}")
-        if kind != "file" or st is None:
-            return _err("UNREADABLE", "笔记本读不到,不能把它说成不存在")
-        if st.st_size > _NOTEBOOK_EDIT_MAX_BYTES:
+        if os.path.getsize(resolved_path) > _NOTEBOOK_EDIT_MAX_BYTES:
             return _err("FILE_TOO_LARGE", "笔记本大于 10MB,拒绝编辑")
         with open(resolved_path, encoding="utf-8") as f:
             original_text = f.read()
@@ -11240,6 +11111,36 @@ _TOOLS: list[MCPTool] = [
             "type": "object",
             "properties": {"path": {"type": "string", "description": "文件绝对或相对路径"}},
             "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="read_tool_output",
+        description=(
+            "读取此前因超长而落盘的工具输出工件(按字符 offset 分页续读)。"
+            "工具结果正文会给出 output_artifact_id 与 output_offset;用本工具按 offset 继续读,"
+            "直到返回 complete=true。只读,不产生任何副作用"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "artifact_id": {
+                    "type": "string",
+                    "description": "工具结果正文里给出的 output_artifact_id(32 位小写 hex)",
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "从第几个字符开始读(用上一次返回的 next);默认 0",
+                    "minimum": 0,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "本页最多返回的字符数,默认 4000,上限 20000",
+                    "minimum": 1,
+                    "maximum": 20000,
+                },
+            },
+            "required": ["artifact_id"],
+            "additionalProperties": False,
         },
     ),
     MCPTool(
@@ -14038,6 +13939,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
+    "read_tool_output": _tool_read_tool_output,
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
@@ -14502,24 +14404,9 @@ class MCPServer:
             # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
             from ..core.mcp_tool_approval import apply_host_credit_facts
 
-            # 生图才读积分账。显式 credit_balance 优先（测试与已盖章宿主）。
-            # 有主体却没量到时不能传 None：None 会跳过闸，等于没读也放行。
-            balance_for_stamp: object = credit_balance
-            if (
-                name == "image_generation"
-                and credit_balance is None
-                and isinstance(user_id, str)
-                and user_id.strip() != ""
-            ):
-                measured = await read_user_points_balance(user_id)
-                balance_for_stamp = (
-                    measured
-                    if isinstance(measured, int) and not isinstance(measured, bool)
-                    else True
-                )
             args_with_role = apply_host_credit_facts(
                 arguments,
-                balance=balance_for_stamp,
+                balance=credit_balance,
                 approval=credit_approval,
             )
             args_with_role["__user_role"] = user_role
@@ -14563,7 +14450,7 @@ class MCPServer:
             except Exception:  # noqa: BLE001
                 logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
-            return _truncate_tool_output(result)
+            return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:

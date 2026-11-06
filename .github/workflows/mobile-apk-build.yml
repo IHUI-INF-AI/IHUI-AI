@@ -73,6 +73,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # 2026-10-13 修(P0,真机实测立因):这两个 EXPO_PUBLIC_* 原先只挂在 `expo prebuild` 那一步,
     # 而真正把 `process.env.EXPO_PUBLIC_*` **内联进 JS 产物**的是其后 gradle 的
     # `createBundleReleaseJsAndAssets`(metro/babel 在转换期求值)—— 它不在那一步的 env 作用域内

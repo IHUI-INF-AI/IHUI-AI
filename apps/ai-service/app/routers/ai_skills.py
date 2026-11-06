@@ -21,6 +21,7 @@ API 响应统一规范,前端 api-client fetchApi 期望该格式)。
 16 个元数据占位:available=False,invoke 时返回引导 + GitHub 链接,
 不阻塞 UI 列表展示,用户可见可点击,引导用户了解每个 skill 详情。
 """
+import asyncio
 import datetime
 import json
 import re
@@ -32,6 +33,11 @@ from pydantic import BaseModel, Field
 
 from app.core.jwt_auth import require_request_user_id
 from app.core.llm_gateway import llm_gateway
+
+# BUG-35:_try_screenshot_html 的真实实现就在本模块,显式导入使
+# `app.services.screenshot_service` 包属性稳定存在(不依赖其它测试的导入顺序),
+# 也让"函数不存在即静默失效"无法再以隐式状态蒙混过关。
+import app.services.screenshot_service  # noqa: F401
 from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
 from app.services.skills import Skill, skill_registry
@@ -289,8 +295,12 @@ def _ensure_hashtags(text: str, topic: str) -> tuple[str, list[str]]:
 def _try_screenshot_html(html_content: str) -> str | None:
     """hugshu-design:可选调 screenshot_service 渲染 HTML 缩略图。
 
-    优先调 `screenshot_html_to_base64`;若不存在/失败,silently fallback 返回 None。
-    不影响主流程,仅作为增强。
+    BUG-35:原先 getattr 的 `screenshot_html_to_base64` 在 screenshot_service 里
+    **根本不存在**(无该名、无 __getattr__) ⇒ 恒 None ⇒ 整条增强静默失效。
+    现已在 screenshot_service 实现该函数;调用方统一经
+    `await asyncio.to_thread(...)` 调度,本函数不再自行起线程/同步 wait,
+    彻底消除 `future.result(timeout=15)` 阻塞事件循环的连带问题。
+    失败一律降级返回 None,不影响主流程。
     """
     try:
         from app.services import screenshot_service
@@ -300,24 +310,12 @@ def _try_screenshot_html(html_content: str) -> str | None:
     if func is None:
         return None
     try:
-        # 异步函数 → 用事件循环
-        import asyncio
-
         result = func(html_content)
         if asyncio.iscoroutine(result):
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                # 无运行中事件循环(协程外调用),直接 asyncio.run
-                result = asyncio.run(result)
-            else:
-                # 已在事件循环中 → 提交到独立线程执行
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    future = ex.submit(asyncio.run, func(html_content))
-                    result = future.result(timeout=15)
+            # 本函数只在 asyncio.to_thread 的线程里被调用,该线程无运行中事件循环,
+            # 可直接 asyncio.run(不再嵌套 ThreadPoolExecutor + 同步 result 等待)。
+            result = asyncio.run(result)
         if isinstance(result, str) and result:
-            # 已经是 data URL 或 base64
             if result.startswith("data:image/"):
                 return result
             return "data:image/png;base64," + result
@@ -516,7 +514,9 @@ async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
 
     # 2) hugshu-design: 检测 HTML + 可选截图缩略图
     if skill_id == "hugshu-design" and ("<html" in content.lower() or "<style" in content.lower() or "<div" in content.lower()):
-        screenshot_url = _try_screenshot_html(content)
+        # BUG-35 连带:截图含阻塞式浏览器渲染,统一走 to_thread 真异步调度,
+        # 不再让 future.result(timeout=15) 卡住事件循环。
+        screenshot_url = await asyncio.to_thread(_try_screenshot_html, content)
         return _ok(InvokeResponse(
             skillId=skill_id,
             ok=True,
