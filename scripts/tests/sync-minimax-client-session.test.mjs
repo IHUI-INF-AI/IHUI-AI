@@ -13,6 +13,9 @@ import path from 'node:path'
 
 import { __test__ as S } from '../sync-minimax-client-session.mjs'
 import { __test__ as E } from '../lib/minimax-auth-extract.mjs'
+// 心跳时刻判据与映像名清单的两个真相源(测试直接对账,免得本层测试自成第二份)
+import { __test__ as traeSyncTest } from '../sync-trae-client-session.mjs'
+import { CLIENT_IMAGES } from '../local-login.mjs'
 
 const RECORD_KEY =
   'com.minimax.mcode.oauth.prod.cn\u0000pn7olbPZk-liTDivJTlyUgyJxgtXvTojk5gKj6qHfMI'
@@ -187,5 +190,26 @@ test('⑨ 点名而本机不止一条会话 ⇒ 当场拒(认不出这条属于�
   // 反向牙:零条会话也算「认不出」(不冒绿:点名了却没有可写的会话 = 未判定)
   const zero = S.buildPayload({ accounts: [] }, 'auto:aaaa')
   assert.match(zero.meta.uidError, /本机有 0 条会话/)
+})
+
+// 心跳生产腿(2026-11-06 第四条同型腿):mcode 的 rt 是轮换型 ⇒ 客户端在跑时必须让位,
+// 而让位判据吃的就是 extraMetadata.clientActiveAt。判据单源在 Trae 腿,本层只产时刻。
+test('⑩ 心跳面:时刻只在"客户端在跑或未知"时带上,清单派生自 CLIENT_IMAGES 而非自立', () => {
+  const acc = [{ accessToken: 'acc-1', recordKey: RECORD_KEY }]
+  const withBeat = S.buildPayload({ accounts: acc }, '', '2026-11-06T00:00:00.000Z')
+  assert.equal(withBeat.clientActiveAt, '2026-11-06T00:00:00.000Z')
+  // 不带时刻 ⇒ 键都不出现(不带 ≠ false:没证据就不是"客户端没在跑")
+  const noBeat = S.buildPayload({ accounts: acc }, '', null)
+  assert.equal('clientActiveAt' in noBeat, false)
+
+  // 三态收敛判据单源 = Trae 腿的 heartbeatOf(复制一份就当场翻红,§22c)
+  assert.equal(S.heartbeatOf, traeSyncTest.heartbeatOf)
+  assert.equal(S.heartbeatOf(false, '2026-11-06T00:00:00.000Z'), null)
+  assert.equal(S.heartbeatOf(true, '2026-11-06T00:00:00.000Z'), '2026-11-06T00:00:00.000Z')
+  assert.equal(S.heartbeatOf(null, '2026-11-06T00:00:00.000Z'), '2026-11-06T00:00:00.000Z')
+
+  // 映像名清单派生自 local-login 的 CLIENT_IMAGES.minimax(换发行版只改那一处)
+  assert.deepEqual([...S.MINIMAX_PRODUCTS], [...CLIENT_IMAGES.minimax])
+  assert.ok(S.MINIMAX_PRODUCTS.length > 0, '候选映像名不得为空(空清单 = 心跳恒判不到在跑)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

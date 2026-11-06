@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any, Literal
 
 from app.core.session_taint import SessionTaint, requires_egress_approval
 
@@ -199,4 +200,160 @@ def requires_approval_with_taint(
     if base_requires:
         return True
     return url is not None and requires_egress_approval(taint, url)
+
+
+# ---------------------------------------------------------------------------
+# 高消耗生图:报价按像素现算,宿主盖章,拒绝发生在上游之前
+# ---------------------------------------------------------------------------
+CreditDisposition = Literal["allow", "require-approval", "denied", "unjudged"]
+
+HOST_BALANCE_KEY = "__credit_balance"
+HOST_APPROVAL_KEY = "__credit_approval"
+CREDIT_APPROVAL_ERROR = "CREDIT_APPROVAL_REQUIRED"
+
+# 低于这档不打扰。1024² 的报价是 10,所以默认尺寸跨得过这档。
+DEFAULT_FLOOR_CREDITS = 8
+DEFAULT_RATIO_NUM = 1
+DEFAULT_RATIO_DEN = 2
+_PIXEL_UNIT = 1024 * 1024
+_CREDITS_PER_UNIT = 10
+_MAX_EDGE = 8192
+
+
+def quote_image_credits(size: object) -> int | None:
+    """把 `宽x高` 折成积分报价。形状不对、边长越界 ⇒ None(未测定,不当 0)。"""
+    if not isinstance(size, str) or "x" not in size.lower():
+        return None
+    width_text, _, height_text = size.lower().partition("x")
+    if not width_text.isdigit() or not height_text.isdigit():
+        return None
+    width = int(width_text)
+    height = int(height_text)
+    if width <= 0 or height <= 0 or width > _MAX_EDGE or height > _MAX_EDGE:
+        return None
+    units = (width * height * _CREDITS_PER_UNIT + _PIXEL_UNIT - 1) // _PIXEL_UNIT
+    return max(1, units)
+
+
+def apply_host_credit_facts(
+    arguments: dict[str, Any] | None,
+    *,
+    balance: object,
+    approval: object,
+) -> dict[str, Any]:
+    """宿主盖章。模型自己写的同名键在这里被盖掉。"""
+    stamped = dict(arguments or {})
+    stamped[HOST_BALANCE_KEY] = balance
+    stamped[HOST_APPROVAL_KEY] = approval
+    return stamped
+
+
+def decide_credit_spend(
+    *,
+    quoted_credits: int | None,
+    balance_credits: int | None,
+    approval: str | None,
+    floor_credits: int = DEFAULT_FLOOR_CREDITS,
+    ratio_num: int = DEFAULT_RATIO_NUM,
+    ratio_den: int = DEFAULT_RATIO_DEN,
+) -> tuple[CreditDisposition, str]:
+    """纯函数。返回 (档位, 原因码)。不读环境、不碰余额账。"""
+    if (
+        isinstance(floor_credits, bool)
+        or isinstance(ratio_num, bool)
+        or isinstance(ratio_den, bool)
+        or not isinstance(floor_credits, int)
+        or not isinstance(ratio_num, int)
+        or not isinstance(ratio_den, int)
+        or floor_credits < 0
+        or ratio_num < 0
+        or ratio_den <= 0
+    ):
+        return "unjudged", "threshold-invalid"
+    if quoted_credits is None:
+        return "unjudged", "quote-unmeasured"
+    if (
+        isinstance(quoted_credits, bool)
+        or not isinstance(quoted_credits, int)
+        or quoted_credits < 0
+    ):
+        return "unjudged", "quote-invalid"
+    if balance_credits is None:
+        return "unjudged", "balance-absent"
+    if (
+        isinstance(balance_credits, bool)
+        or not isinstance(balance_credits, int)
+        or balance_credits < 0
+    ):
+        return "unjudged", "balance-invalid"
+    if quoted_credits < floor_credits:
+        return "allow", "below-floor"
+    line = max(floor_credits, (balance_credits * ratio_num) // ratio_den)
+    if quoted_credits < line:
+        return "allow", "below-line"
+    if approval == "granted":
+        return "allow", "granted"
+    if approval == "denied":
+        return "denied", "denied"
+    if approval is None:
+        return "require-approval", "needs-approval"
+    return "unjudged", "approval-unrecognized"
+
+
+def _host_credit_approval(arguments: dict[str, Any]) -> str | None:
+    raw = arguments.get(HOST_APPROVAL_KEY)
+    if raw == "granted":
+        return "granted"
+    if raw == "denied":
+        return "denied"
+    if raw is None:
+        return None
+    return "unrecognized"
+
+
+def gate_image_spend(arguments: dict[str, Any]) -> dict[str, Any] | None:
+    """生图入口用。返回 None = 可以往下走;否则是还没碰上游的拒绝体。
+
+    `__credit_balance is None`(宿主没给余额)⇒ 不计量,维持旧路径。
+    宿主给了余额却给错形状 ⇒ 未测定,拒绝,不把错形状当成「没这回事」。
+    """
+    if HOST_BALANCE_KEY not in arguments or arguments.get(HOST_BALANCE_KEY) is None:
+        return None
+    balance = arguments.get(HOST_BALANCE_KEY)
+    approval = _host_credit_approval(arguments)
+    if isinstance(balance, bool) or not isinstance(balance, int) or balance < 0:
+        return _blocked_credit(None, None, "unjudged", "balance-invalid")
+    size = arguments.get("size", "1024x1024")
+    quoted = quote_image_credits(size)
+    disposition, reason = decide_credit_spend(
+        quoted_credits=quoted,
+        balance_credits=balance,
+        approval=None if approval == "unrecognized" else approval,
+    )
+    if approval == "unrecognized":
+        disposition, reason = "unjudged", "approval-unrecognized"
+    if disposition == "allow":
+        return None
+    return _blocked_credit(quoted, balance, disposition, reason)
+
+
+def _blocked_credit(
+    quoted: int | None,
+    balance: int | None,
+    disposition: CreditDisposition,
+    reason: str,
+) -> dict[str, Any]:
+    return {
+        "tool": "image_generation",
+        "ok": False,
+        "saved_path": None,
+        "errorCode": CREDIT_APPROVAL_ERROR,
+        "error": "这次生图消耗需要人批准后才会调用上游,当前没有放行",
+        "creditSpend": {
+            "disposition": disposition,
+            "quotedCredits": quoted,
+            "balanceCredits": balance,
+            "reason": reason,
+        },
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

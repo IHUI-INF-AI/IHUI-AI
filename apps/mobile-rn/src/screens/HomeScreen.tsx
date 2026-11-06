@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QrCodeImage from '../../assets/images/common/qewm.png'
 import ShareZhuanmiImage from '../../assets/images/common/share-zhuanmi.png'
@@ -695,6 +697,8 @@ const navShareStyles = StyleSheet.create({
 })
 
 export function HomeScreen() {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const materialHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
   const { t } = useI18n()
   // ── i18n 消费侧(§19 端内禁硬编码文案,2026-10-24):以下三组替代原模块顶层
   //    FUNCTION_BLOCKS / MODEL_TYPES / MATERIAL_CATEGORIES 写死中文数组 ──
@@ -1903,7 +1907,7 @@ export function HomeScreen() {
             onPress={closeModelModal}
             accessibilityLabel={t('home.a11yCloseModels')}
           />
-          <View style={shellStyles.modelModalSheet}>
+          <View style={[shellStyles.modelModalSheet, dialogHeightStyle]}>
             {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
             <View style={shellStyles.modelModalGrabber} />
             <View style={shellStyles.modelModalHeader}>
@@ -2053,7 +2057,7 @@ export function HomeScreen() {
             onPress={() => setShowMaterialList(false)}
             accessibilityLabel={t('home.a11yCloseMatList')}
           />
-          <View style={shellStyles.materialSheet}>
+          <View style={[shellStyles.materialSheet, materialHeightStyle]}>
             <View style={shellStyles.materialSheetBar}>
               <Tappable
                 onPress={() => setShowMaterialList(false)}
@@ -2092,7 +2096,7 @@ export function HomeScreen() {
             onPress={closeMaterialDetail}
             accessibilityLabel={t('home.a11yCloseMatDetail')}
           />
-          <View style={shellStyles.detailDialogContent}>
+          <View style={[shellStyles.detailDialogContent, dialogHeightStyle]}>
             <View style={shellStyles.detailDialogHeader}>
               <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('home.matDetailFallback')}
@@ -2375,7 +2379,7 @@ const shellStyles = {
   } as const,
   materialSheet: {
     width: '100%',
-    height: '80%',
+    height: undefined,
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
@@ -2403,7 +2407,7 @@ const shellStyles = {
   } as const,
   detailDialogContent: {
     width: '84%',
-    maxHeight: '70%',
+    maxHeight: undefined,
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -2487,7 +2491,7 @@ const shellStyles = {
   } as const,
   modelModalSheet: {
     width: '100%',
-    maxHeight: '70%',
+    maxHeight: undefined,
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,

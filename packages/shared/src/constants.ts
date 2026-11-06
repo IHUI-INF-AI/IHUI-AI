@@ -81,6 +81,15 @@ export const NEXT_TURN_GROWTH_TOKENS = 1200
  */
 /** 单次读流超时(ms):超过则视为连接卡死并触发重试 */
 export const STREAM_READ_TIMEOUT_MS = 30000
+/**
+ * 服务端 SSE 周期心跳间隔(ms):写 SSE 注释帧 `: ping`,不编号、不进回放缓冲。
+ *
+ * 与 STREAM_READ_TIMEOUT_MS 的约束是"2 拍":消费侧任一字节(含注释帧)都会重置
+ * 空闲窗口,所以允许丢一拍不断流,连续两拍无字节才判死。改本值必须同步维持
+ * `STREAM_READ_TIMEOUT_MS >= 2 × SSE_HEARTBEAT_INTERVAL_MS`(api-client 侧
+ * 因依赖环无法 import 本文件,取值同值并有对应注释)。
+ */
+export const SSE_HEARTBEAT_INTERVAL_MS = 15000
 /** 最大重试次数(业务错误 401/403/429 不计入重试) */
 export const STREAM_MAX_RETRIES = 3
 /** 指数退避初始延迟(ms):delay = INITIAL * 2^attempt */

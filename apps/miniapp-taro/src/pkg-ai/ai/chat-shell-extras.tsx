@@ -26,6 +26,10 @@ import { InputArea, SkillsPopup, MaterialPopup } from '@/components'
 import ChatMessageItem from './ChatMessageItem'
 import MessageVersionMenu from './message-version-menu'
 import ContextUsageStrip from './context-usage-strip'
+import CompactionBoundaryStrip from './compaction-boundary-strip'
+import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
+import { describeBudgetStopMeta } from './chat-cap-text'
+import type { BudgetStopView } from '@/lib/chat-budget-ledger-frames'
 import McpStatusStrip from './mcp-status-strip'
 import TaskStatusBar from './task-status-bar'
 import ToolApprovalCard from './tool-approval-card'
@@ -33,7 +37,7 @@ import QueueInteractionBar from './queue-interaction-bar'
 import { ChatListHeader, ChatThinkingPlaceholder } from './chat-list-extras'
 import { ModelDrawer, AgentDrawer, HistoryDrawer } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
-import type { ChatScreenMessage, ChatScreenProps } from '@ihui/rn-app/features/chat/ChatScreen'
+import type { ChatScreenMessage, ChatScreenProps } from '@ihui/rn-app'
 
 // 端内壳上下文:页级状态/回调按页内局部名 shorthand 传入。
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,6 +78,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     workspaceTier,
     tierText,
     latestCacheTokens,
+    // 批次 3:七类上下文账本 / 压缩边界 / 预算停止终态(均由页内 SSE 或进入会话查询落 state)
+    contextLedger,
+    compactionBoundary,
+    budgetStop,
     scrollTop,
     scrollToBottom,
     earlierHasMore,
@@ -131,6 +139,8 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     selectSkill,
     inputValue,
     setInputValue,
+    pendingQuestion,
+    setPendingQuestion,
     imgsList,
     sendMessage,
     handleImageAdd,
@@ -271,8 +281,12 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
           maxTokens={currentModel ? getModelContextCapacity(currentModel) : 0}
           cacheReadTokens={latestCacheTokens.cacheReadTokens}
           cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
+          contextLedger={contextLedger?.ledger ?? null}
+          contextLedgerTurn={contextLedger?.turnIndex ?? null}
         />
       ) : null}
+      {/* 批次 3:压缩边界回看。boundary 缺席/旧会话无此能力时组件返回 null,不占位。 */}
+      <CompactionBoundaryStrip boundary={compactionBoundary} />
     </>
   )
 
@@ -497,6 +511,59 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         onClear={handleClearHistory}
       />
       <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
+      {/* BUG-67:AI 主动提问卡(question 帧 → onRawLine 认领 → onQuestion → 页级挂起态)。
+          挂共享屏既有 overlaySlot(容器内最后渲染位,视口固定定位 + zIndex 层级语义),
+          不再以页级浮层写回 chat.tsx;点选项把回答写回输入框,用户点发送即续流;
+          关闭只收卡,不吞掉已有输入。 */}
+      {pendingQuestion ? (
+        <View
+          style={{
+            position: 'fixed',
+            left: '16px',
+            right: '16px',
+            bottom: '96px',
+            zIndex: 999,
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
+          }}
+        >
+          <Text style={{ fontSize: '15px', fontWeight: 'bold', color: '#222222' }}>
+            {pendingQuestion.prompt}
+          </Text>
+          {pendingQuestion.options.map((o: { id: string; label: string }) => (
+            <View
+              key={o.id}
+              onClick={() => {
+                setInputValue(o.label)
+                setPendingQuestion(null)
+              }}
+              style={{
+                marginTop: '10px',
+                padding: '10px',
+                borderRadius: '8px',
+                borderWidth: '1px',
+                borderColor: '#dddddd',
+              }}
+            >
+              <Text style={{ fontSize: '14px', color: '#333333' }}>{o.label}</Text>
+            </View>
+          ))}
+          <View
+            onClick={() => setPendingQuestion(null)}
+            style={{ marginTop: '10px', padding: '8px' }}
+          >
+            <Text style={{ fontSize: '13px', color: '#888888' }}>
+              {pendingQuestion.allowCustom
+                ? pendingQuestion.allowMultiple
+                  ? '可多选 / 自行输入,也可关闭'
+                  : '可自行输入,也可关闭'
+                : '关闭'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {reasoningPopupVisible ? (
         <View
           style={{
@@ -605,6 +672,18 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     ),
     renderListFooter: (
       <>
+        {/* 批次 3:预算硬停止 = 会话终态的内联提示(非失败卡)。只消费 level='stopped' 的
+            BudgetStopView;其后即使再来 warning 帧也不会改写该 state,提示因此不被覆盖。 */}
+        {budgetStop ? (
+          <View className="budget-stop-inline">
+            <Text className="budget-stop-main">
+              {budgetStopReasonText((budgetStop as BudgetStopView).reasonCode)}
+            </Text>
+            <Text className="budget-stop-meta">
+              {describeBudgetStopMeta(budgetStop as BudgetStopView)}
+            </Text>
+          </View>
+        ) : null}
         {/* W5:流式执行事件最小可视化(工具调用 / subagent / 计划 / 终端等),简化列表 + 可折叠 */}
         {streamActivities.length > 0 ? (
           <View className="msg-item assistant">

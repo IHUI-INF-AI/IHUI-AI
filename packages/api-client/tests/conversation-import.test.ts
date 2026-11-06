@@ -28,7 +28,8 @@ function okTransport(json: unknown): Transport {
     ok: true,
     status: 200,
     headers: { get: () => null },
-    text: async () => '',
+    // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+    text: async () => JSON.stringify(json),
     json: async () => json,
   })) as unknown as Transport
 }

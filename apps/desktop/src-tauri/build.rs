@@ -19,6 +19,8 @@ fn main() {
             "get_app_info",
             "git_authorize_workspace",
             "git_workspace_status",
+            "git_workspace_diff",
+            "workspace_index_scan",
             "git_channel_info",
             "embedded_browser_open",
             "embedded_browser_close",

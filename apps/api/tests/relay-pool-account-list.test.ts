@@ -229,6 +229,15 @@ describe('号池名单只读出口', () => {
     ).toBe(0)
     expect(c.so.join('')).not.toMatch(/15699571035/)
     expect(c.so.join('')).toContain('u-keep')
+    // 带 --mask 时不该再多嘴提示
+    expect(c.so.join('')).not.toContain('未带 --mask')
+    // 反向:手敲不带 --mask 的那条路径必须自报"名称是原值"(净检出复量抓到的缺口)
+    const c3 = capture()
+    expect(
+      await listMain(['--provider', 'qoder'], { ...c3.deps, fetch: async () => outcome }),
+    ).toBe(0)
+    expect(c3.so.join('')).toContain('未带 --mask')
+    expect(c3.so.join('')).toContain('15699571035')
     // 人读档必须点出取数时刻(两屏之间池可能被别的会话改)
     expect(c.so.join('')).toContain('取数时刻=2026-11-05T12:00:00.000Z')
 

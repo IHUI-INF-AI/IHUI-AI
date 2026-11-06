@@ -11,12 +11,14 @@ import { getDistributionTree } from '../src/endpoints/distribution.js'
 import { getSignInHistory } from '../src/endpoints/sign-in.js'
 
 function okTransport(payload: unknown) {
+  const body = { code: 0, message: 'ok', data: payload }
   return vi.fn(async () => ({
     ok: true,
     status: 200,
     headers: { get: () => null },
-    text: async () => '',
-    json: async () => ({ code: 0, message: 'ok', data: payload }),
+    // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+    text: async () => JSON.stringify(body),
+    json: async () => body,
   })) as unknown as Transport
 }
 

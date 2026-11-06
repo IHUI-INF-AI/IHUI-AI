@@ -8,6 +8,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { CheckpointManager } from '../src/checkpoints/index.js'
 import { HunkCheckpointManager } from '../src/checkpoints/hunks.js'
+import { quarantineManifest } from '../src/checkpoints/manifest-integrity.js'
 
 /**
  * G-671(2026-10-01)checkpoint manifest 损坏隔离 —— 票面验收:
@@ -128,6 +129,15 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
     expect(mgr.getQuarantinedManifests()).toHaveLength(0)
   })
 
+  it('清单读不到时不改名,也不把它说成没有检查点', () => {
+    const dir = makeCpDir('cp_unread', null)
+    fs.mkdirSync(path.join(dir, 'manifest.json'))
+    expect(() => mgr.list()).toThrow(/读不到/)
+    expect(fs.existsSync(path.join(dir, 'manifest.json'))).toBe(true)
+    expect(warnSpy).not.toHaveBeenCalled()
+    expect(() => mgr.get('cp_unread')).toThrow(/读不到/)
+  })
+
   it('ENOENT(目录无 manifest)⇒ 不隔离不警告不进账,半成品目录原样保留', () => {
     makeCpDir('cp_empty', null)
     expect(mgr.list()).toHaveLength(0)
@@ -145,6 +155,29 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
         .readdirSync(path.join(baseDir, 'cp_getbad'))
         .some((f) => f.startsWith('manifest.corrupt-')),
     ).toBe(true)
+  })
+
+  it('回滚或比对坏清单时不说成不存在', async () => {
+    makeCpDir('cp_badrestore', 'not-json-at-all')
+    await expect(mgr.restore('cp_badrestore')).rejects.toThrow(/不能把它说成不存在/)
+    makeCpDir('cp_baddiff', '{')
+    expect(() => mgr.diff('cp_baddiff')).toThrow(/不能把它说成不存在/)
+    await expect(mgr.restore('cp_absent')).rejects.toThrow('检查点 cp_absent 不存在')
+  })
+
+  it('hunk 回滚坏清单时不说成不存在', () => {
+    const hm = new HunkCheckpointManager({
+      sessionId: sid,
+      workspacePath: workspaceDir,
+      onCorruptManifest: warnSpy,
+    })
+    makeCpDir('hunk_badrestore', 'not-json')
+    const restored = hm.restoreHunk('hunk_badrestore', 0)
+    expect(restored.restored).toBe(false)
+    expect(restored.reason).toContain('不能把它说成不存在')
+    makeCpDir('hunk_baddiff', '{')
+    expect(() => hm.diffHunks('hunk_baddiff')).toThrow(/不能把它说成不存在/)
+    expect(hm.restoreHunk('hunk_absent', 0).reason).toBe('检查点 hunk_absent 不存在')
   })
 
   it('hunk 版:坏 JSON ⇒ 隔离件在、账面有名字', () => {
@@ -181,6 +214,42 @@ describe('G-671 checkpoint manifest 损坏隔离', () => {
     )
     expect(hm.list()).toHaveLength(0)
     expect(hm.getQuarantinedManifests()[0]!.reason).toBe('shape-invalid')
+  })
+
+  // goal-b49 S3:两类检查点同居 ~/.ihui/checkpoints/<sid>/ 一层。旧实现 CheckpointManager.list()
+  // 无命名空间地把所有子目录都按 isCheckpointMeta 校验,于是把 hunk 清单判 shape-invalid 并改名隔离
+  // (实测:隔离件 manifest.corrupt-*.json 出现、hunk manifest.json 消失 ⇒ hunk 回滚静默失效)。
+  // 现只扫自己的命名空间(版本序列 `<uuid>@vN` 与历史 cp_ 前缀),别处的清单一概不碰。
+  it('命名空间隔离:CheckpointManager.list() 不再隔离 hunk_* 清单(成对正例:cp_ 坏件照旧隔离)', () => {
+    const hm = new HunkCheckpointManager({ sessionId: sid, workspacePath: workspaceDir, onCorruptManifest: warnSpy })
+    const hunkMeta = hm.snapshotHunks(
+      (() => {
+        const f = path.join(workspaceDir, 'h.ts')
+        fs.writeFileSync(f, 'l1\nl2\n', 'utf-8')
+        return f
+      })(),
+      [{ start: 1, end: 1 }],
+      'probe',
+    )
+    makeCpDir('cp_stillbad', '{broken')
+    mgr.list()
+    expect(fs.existsSync(path.join(baseDir, hunkMeta.id, 'manifest.json'))).toBe(true)
+    expect(mgr.getQuarantinedManifests().map((c) => c.checkpointId)).toEqual(['cp_stillbad'])
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('隔离目标名读不到时不改名,原清单留在原地', () => {
+    const dir = makeCpDir('cp_unread_dest', '{"id":"cp_unread_dest"}')
+    const manifest = path.join(dir, 'manifest.json')
+    const before = fs.readFileSync(manifest)
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    expect(quarantineManifest(manifest, denied)).toBeNull()
+    expect(fs.readFileSync(manifest)).toEqual(before)
+    expect(fs.readdirSync(dir).some((name) => name.startsWith('manifest.corrupt-'))).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

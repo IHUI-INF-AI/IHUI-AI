@@ -48,12 +48,16 @@ env:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
+      # BUG-56②:actions/setup-node 带 cache: 'pnpm' 时才有 cache-hit output;
+      # 原引用 steps.pnpm-cache 但该步无 id ⇒ output 恒空,现给该步补 id。
       cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        id: pnpm-cache
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
@@ -63,6 +67,7 @@ jobs:
   lint:
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # Format check 只判本次改动(scripts/check-format-changed.mjs 差值棘轮):
       # 需要上一枚提交作为 diff 基线,故取 2 层历史;取不到 FORMAT_BASE_REF 时脚本内回落 HEAD^。
@@ -103,6 +108,7 @@ jobs:
   typecheck:
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -168,6 +174,7 @@ jobs:
 
   source-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -196,6 +203,7 @@ jobs:
 
   port-registry-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -218,6 +226,7 @@ jobs:
   # PR/push 上补一道不可旁路层;脚本零依赖(fs/path),故免装依赖,与 port-registry-check 同形。
   sheet-flex-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -239,6 +248,7 @@ jobs:
   # 与 sheet-flex-contract 同形:脚本零依赖,免装依赖;HEAD 面即被审提交本身,基线退化才红。
   spec-coverage-ratchet:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -259,6 +269,7 @@ jobs:
   test:
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # 2026-11-03 实测改判(勿重开):本 workflow 曾按 4 分片跑同一套 scripts/ci-test-shards.mjs,
     # 真实 run 41567631844 的分片 job 墙钟 8m23/8m47/10m25/10m47,而分片前 Unit tests 步 =
     # 671s → 收益 3.5%(<10%),同时多占 3 个 runner 槽(该 run 里 setup/typecheck/lint 的排队
@@ -299,6 +310,7 @@ jobs:
   build:
     needs: [lint, typecheck, test]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         app: [web, api, miniapp-taro]
@@ -378,6 +390,7 @@ jobs:
   cli-smoke:
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -435,6 +448,7 @@ jobs:
 
   test-python:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         id: checkout
@@ -502,6 +516,7 @@ jobs:
   build-docker:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: github.ref == 'refs/heads/main'
     strategy:
       matrix:

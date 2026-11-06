@@ -367,7 +367,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     importText: { flex: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
-    chevron: { fontSize: 20, color: tk.text.tertiary },
+    chevron: { fontSize: rnType.heading.size, color: tk.text.tertiary },
     noticeRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -432,8 +432,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     iconFallback: { borderWidth: 1, borderColor: tk.border.light },
     emptyIcon: { width: 60, height: 60 },
-    rowBody: { flex: 1, gap: 2, paddingHorizontal: rnSpacing.sm },
-    rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    rowBody: { flex: 1, gap: rnSpacing['2xs'], paddingHorizontal: rnSpacing.sm },
+    rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     rowTitle: {
       flexShrink: 1,
       fontSize: rnType.body.size,

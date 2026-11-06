@@ -564,6 +564,21 @@ describe('市场条目解析', () => {
     expect(loaded.reason).toBe('marketplace-registry-malformed');
     expect(loaded.marketplaces).toEqual([]);
   });
+
+  it('登记台账读不到时不说成文件不存在', () => {
+    const file = path.join(scratch, 'blocked-marketplaces.json');
+    fs.writeFileSync(file, '{"version":1,"marketplaces":[]}\n', 'utf8');
+    const original = fs.readFileSync(file);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const loaded = loadRegisteredMarketplaces({ file, stat: denied });
+    expect(loaded.ok).toBe(false);
+    expect(loaded.reason).toBe('marketplace-registry-unreadable');
+    expect(fs.readFileSync(file)).toEqual(original);
+  });
 });
 
 // ==================== CLI 出口(默认零副作用 + 档位可分辨) ====================
@@ -662,6 +677,29 @@ describe('形状锁(§0.6/§22c:判据不得有第二份)', () => {
       expect(src, `判据层不得出现第二份实现:${forbidden}`).not.toContain(forbidden);
     }
     expect(locateIntegrityGateFile([path.dirname(srcFile)])).toContain('check-plugin-manifest-integrity.mjs');
+  });
+
+  it('门体读不到时不说成没装', () => {
+    const key = 'IHUI_PLUGIN_INTEGRITY_GATE';
+    const prev = process.env[key];
+    process.env[key] = path.join(path.dirname(srcFile), 'missing-gate.mjs');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    let err: unknown;
+    try {
+      locateIntegrityGateFile([path.dirname(srcFile)], denied);
+    } catch (caught) {
+      err = caught;
+    } finally {
+      if (prev === undefined) delete process.env[key];
+      else process.env[key] = prev;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('读不到');
+    expect((err as Error).message.startsWith('完整性门体没装')).toBe(false);
   });
 
   it('本测试自己也遵守同一条纪律:摘要只问写侧采集器,不复刻判据', () => {

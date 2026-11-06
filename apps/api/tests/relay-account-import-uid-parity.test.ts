@@ -332,4 +332,99 @@ describe('T8 CLI 预检面接线锁(键源只此一枚,不许回潮)', () => {
     ).toBe(1)
   })
 })
+
+/**
+ * T9 —— Y-24 稳定身份键(2026-11-06)。
+ *
+ * 席把键源从"含 token"收成"账号级稳定材料",但死在落码之后、写用例之前 ⇒ 这三把锁由主会话补。
+ * 缺陷实证(本机 dev 库现读):`minimax:cn` 一名占 3 行 3 枚 uid,而三行 extra_metadata.recordKey
+ * 的 sha 同为 `95f3a1fe` 且等于本机 mcode auth.json 当下那条记录键 ⇒ 唯一变量就是票。
+ * 缺材料时实现刻意回落 token 哈希(不硬造伪稳定键),所以退化档也要有锁,否则将来有人"顺手"
+ * 把回落改成常量,这把套件不会有任何一声响。
+ */
+describe('T9 Y-24 稳定身份键:换票不换键、换账号必换键、缺材料才退化', () => {
+  const mmx = (over: Record<string, unknown> = {}) =>
+    ({
+      recordKey: 'rec-95f3a1fe',
+      accessToken: 'syn-token-A',
+      refreshToken: 'syn-rt-A',
+      ...over,
+    }) as never
+
+  it('minimax:同一 recordKey、两枚不同的票 ⇒ uid 必须相同(旧口径在此必分叉)', async () => {
+    const uidA = await importedUid('minimax', [mmx()])
+    const uidB = await importedUid('minimax', [
+      mmx({ accessToken: 'syn-token-B', refreshToken: 'syn-rt-B' }),
+    ])
+    expect(uidA).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(uidB).toBe(uidA)
+  })
+
+  it('minimax:recordKey 变了 ⇒ uid 必变(不许把两枚账号并成一枚)', async () => {
+    const one = await importedUid('minimax', [mmx()])
+    const other = await importedUid('minimax', [mmx({ recordKey: 'rec-00000002' })])
+    expect(other).not.toBe(one)
+  })
+
+  it('minimax:recordKey 内嵌 NUL/首尾空白 ⇒ 与消毒后的同键(键与值不得两套消毒)', async () => {
+    const plain = await importedUid('minimax', [mmx({ recordKey: 'rec-a' })])
+    const dirty = await importedUid('minimax', [mmx({ recordKey: '  rec-a\u0000  ' })])
+    expect(dirty).toBe(plain)
+  })
+
+  it('minimax:没有 recordKey ⇒ 如实回落 token 哈希(两枚票两枚键,退化档不冒充稳定)', async () => {
+    const a = await importedUid('minimax', [mmx({ recordKey: '' })])
+    const b = await importedUid('minimax', [
+      mmx({ recordKey: '', accessToken: 'syn-token-Z', refreshToken: 'syn-rt-Z' }),
+    ])
+    expect(a).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(b).not.toBe(a)
+  })
+
+  it('doubao:uid_tt 相同而会话票(sessionid)不同 ⇒ uid 相同(本票最初报障的那一支)', async () => {
+    const withUid = (sid: string, uidTt: string) =>
+      ({
+        source: 'chrome-cookie',
+        key: 'sessionid',
+        value: sid,
+        cookies: [
+          { name: 'sessionid', value: sid },
+          { name: 'uid_tt', value: uidTt },
+        ],
+      }) as never
+    const a = await importedUid('doubao', [withUid('syn-sid-A', 'syn-uidtt-1')])
+    const b = await importedUid('doubao', [withUid('syn-sid-B', 'syn-uidtt-1')])
+    expect(a).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(b).toBe(a)
+    // 换账号 ⇒ 必换键(不许把两枚豆包号并成一枚)
+    const other = await importedUid('doubao', [withUid('syn-sid-A', 'syn-uidtt-2')])
+    expect(other).not.toBe(a)
+  })
+
+  it('doubao:载荷里没有 uid_tt 族 ⇒ 如实回落旧口径,不硬造伪稳定键', async () => {
+    const bare = (sid: string) =>
+      ({ source: 'chrome-cookie', key: 'sessionid', value: sid, cookies: [] }) as never
+    const a = await importedUid('doubao', [bare('syn-sid-A')])
+    const b = await importedUid('doubao', [bare('syn-sid-B')])
+    expect(a).toMatch(/^auto:[0-9a-f]{32}$/)
+    expect(b).not.toBe(a)
+  })
+
+  it('zcode:声明 customer_id 相同而票不同 ⇒ uid 相同;声明缺失才回落', async () => {
+    const b = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url')
+    const jwt = (claims: Record<string, unknown>) => `${b({ alg: 'none' })}.${b(claims)}.syn`
+    const same = { 'oauth:bigmodel:access_token': jwt({ customer_id: 'cust-1' }) }
+    const rotated = { 'oauth:bigmodel:access_token': jwt({ customer_id: 'cust-1', exp: 9999999 }) }
+    const uidSame = await importedUid('zcode', [same as never])
+    const uidRot = await importedUid('zcode', [rotated as never])
+    // zcode 的 uid 直接取声明值明文(与 qoder/codearts/workbuddy 的明文 uid 同形态),
+    // 不是 auto: 哈希 —— 断言按实现事实写,不按"uid 必带前缀"的想当然。
+    expect(uidSame).toBe('cust-1')
+    expect(uidRot).toBe(uidSame)
+    const noClaim = await importedUid('zcode', [
+      { 'oauth:bigmodel:access_token': jwt({ sub: 'x' }) } as never,
+    ])
+    expect(noClaim).not.toBe(uidSame)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

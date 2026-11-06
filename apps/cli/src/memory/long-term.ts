@@ -24,18 +24,13 @@ export class LongTermMemory {
     this.filePath = path.join(workspacePath, '.ihui-agent', 'memory', 'MEMORY.md');
   }
 
-  /** 追加条目到指定分类段(段不存在则新建),返回条目。 */
+  /** 追加条目到指定分类段(段不存在则新建),返回条目。读不到旧文件时不覆盖。 */
   append(text: string, category = '通用'): LongTermEntry {
     const dir = path.dirname(this.filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    let content = '';
-    if (fs.existsSync(this.filePath)) {
-      content = fs.readFileSync(this.filePath, 'utf-8');
-    } else {
-      content = `# Memory\n\n`;
-    }
+    let content = this.readContentOrNew();
     const sectionHeader = `## ${category}`;
     if (content.includes(sectionHeader)) {
       const lines = content.split('\n');
@@ -74,14 +69,32 @@ export class LongTermMemory {
     return this.load().filter((e) => e.text.toLowerCase().includes(q));
   }
 
+  /** 文件不存在是空清单。读失败不能当成没有条目。 */
+  private readContentOrNew(): string {
+    try {
+      return fs.readFileSync(this.filePath, 'utf-8');
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return '# Memory\n\n';
+      throw new Error(`长期记忆读不到,不能把它覆盖成新条目 (${code})`);
+    }
+  }
+
   /** 读取全部条目(解析 ## 分类 + - 条目)。 */
   load(): LongTermEntry[] {
-    if (!fs.existsSync(this.filePath)) return [];
     let content: string;
     try {
       content = fs.readFileSync(this.filePath, 'utf-8');
-    } catch {
-      return [];
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+      throw new Error(`长期记忆读不到,不能把它说成没有条目 (${code})`);
     }
     const entries: LongTermEntry[] = [];
     let category = '未分类';

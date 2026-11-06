@@ -237,8 +237,17 @@ if (args.has('--print')) {
   process.exit(0)
 }
 
-if (args.has('--update') || !existsSync(BASELINE_PATH)) {
-  const isInit = !existsSync(BASELINE_PATH)
+// BUG-43③:基线缺失时**自动生成**基线并 exit 0 ⇒ 删基线重跑一次就把门槛抬到当前值。
+// 基线不在位 = 拿不到比较基准 ⇒ 未判定(exit 2),绝不自动生成放行;只有显式 --update 才是人工动作。
+if (!existsSync(BASELINE_PATH)) {
+  console.error(
+    '[knip-ratchet] ❌ 未判定:基线 knip-baseline.json 不在位 ⇒ 无法判定(不得自动生成基线把门槛抬到当前值);' +
+      '请先人工核对当前计数,再显式运行 node scripts/check-knip-ratchet.mjs --update 生成并提交。',
+  )
+  process.exit(2)
+}
+
+if (args.has('--update')) {
   const payload = {
     // 说明:这是「允许存在的历史债上限」。只允许通过修复来收紧(重新 --update),
     // 不允许为了过门禁而放大——放大会在 PR 审查中被看见。
@@ -255,9 +264,7 @@ if (args.has('--update') || !existsSync(BASELINE_PATH)) {
     counts,
   }
   writeFileSync(BASELINE_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-  console.log(
-    `[knip-ratchet] ${isInit ? '已初始化' : '已更新'}基线 → knip-baseline.json(total=${currentTotal})`,
-  )
+  console.log(`[knip-ratchet] 已更新基线 → knip-baseline.json(total=${currentTotal})`)
   console.log('[knip-ratchet] 请把该文件一并提交(它是门禁的一部分)。')
   process.exit(0)
 }

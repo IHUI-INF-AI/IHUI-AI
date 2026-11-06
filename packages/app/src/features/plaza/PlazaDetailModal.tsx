@@ -13,7 +13,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
 import type { PlazaItem } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -107,7 +107,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: rnSpacing['2xl'],
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      backgroundColor: rnCssLight.black45,
     } as ViewStyle,
     card: {
       width: '100%',

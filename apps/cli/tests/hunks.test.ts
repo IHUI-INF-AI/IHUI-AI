@@ -102,6 +102,11 @@ describe('Hunk 级 Checkpoints', () => {
       expect(meta.hunks[0]!.originalLines).toEqual([]);
     });
 
+    it('目录不能被快照成空文件', () => {
+      fs.mkdirSync(path.join(workspaceDir, 'subdir'), { recursive: true });
+      expect(() => mgr.snapshotHunks('subdir', [{ start: 1, end: 1 }], 'dir')).toThrow(/不能把它当成空文件/);
+    });
+
     it('绝对路径自动转相对', () => {
       const abs = writeFile('a.ts', 'x\ny\n');
       const meta = mgr.snapshotHunks(abs, [{ start: 1, end: 2 }], 'abs path');
@@ -305,6 +310,21 @@ describe('Hunk 级 Checkpoints', () => {
 
     it('删除不存在的返回 false', () => {
       expect(mgr.delete('nonexistent')).toBe(false);
+    });
+
+    it('目标不是目录时不说成未找到', () => {
+      const base = path.join(tmpHome, '.ihui', 'checkpoints', 'test-hunk-session');
+      fs.mkdirSync(base, { recursive: true });
+      fs.writeFileSync(path.join(base, 'hunk_not_a_dir'), 'keep');
+      expect(() => mgr.delete('hunk_not_a_dir')).toThrow(/不能把它说成未找到/);
+      expect(fs.readFileSync(path.join(base, 'hunk_not_a_dir'), 'utf-8')).toBe('keep');
+    });
+
+    it('会话目录不是目录时不说成没有检查点', () => {
+      const parent = path.join(tmpHome, '.ihui', 'checkpoints');
+      fs.mkdirSync(parent, { recursive: true });
+      fs.writeFileSync(path.join(parent, 'test-hunk-session'), 'x');
+      expect(() => mgr.list()).toThrow(/不能把它说成没有检查点/);
     });
   });
 

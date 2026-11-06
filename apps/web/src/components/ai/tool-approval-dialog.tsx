@@ -25,6 +25,7 @@ import {
   refreshAccessTokenOnce,
   sendToolApprovalResponse,
 } from '@ihui/api-client'
+import type { ToolApprovalOperationScope, ToolApprovalReasonCode } from '@ihui/api-client'
 import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
 import { Modal, confirmDialog } from '@/components/feedback'
@@ -67,6 +68,36 @@ export interface ToolApprovalNetworkTarget {
 /** 归一后的词表(未知原因 ⇒ 'unknown',界面按"未知"渲染,不把后端原文当文案直出)。 */
 export const NETWORK_DENIAL_REASON_UNKNOWN = 'unknown'
 
+// 批次 2(2026-11-06):结构化审批决策信息的标签映射(与 messages 的 editor.toolApproval
+// 同名键对齐)。封闭集外的词在解析层已被丢弃,这里不再兜底造词。
+const REASON_LABEL_KEYS = {
+  dangerous_command: 'reasonDangerousCommand',
+  destructive_operation: 'reasonDestructiveOperation',
+  writes_files: 'reasonWritesFiles',
+  deletes_files: 'reasonDeletesFiles',
+  executes_command: 'reasonExecutesCommand',
+  network_access: 'reasonNetworkAccess',
+  database_write: 'reasonDatabaseWrite',
+  high_risk_tool: 'reasonHighRiskTool',
+  requires_confirmation: 'reasonRequiresConfirmation',
+} as const
+
+const OPERATION_SCOPE_LABEL_KEYS = {
+  fs_read: 'scopeFsRead',
+  fs_write: 'scopeFsWrite',
+  fs_delete: 'scopeFsDelete',
+  exec: 'scopeExec',
+  network: 'scopeNetwork',
+  db: 'scopeDb',
+  other: 'scopeOther',
+} as const
+
+const RISK_LABEL_KEYS = {
+  low: 'riskLow',
+  medium: 'riskMedium',
+  high: 'riskHigh',
+} as const
+
 /**
  * V3 #58(2026-09-26 立):主对话流审批请求在通用 ToolApprovalRequest 上附加的路由标记。
  * 两条审批链路的决策回传端点不同,弹窗必须按 channel 分流:
@@ -93,6 +124,15 @@ export interface ChatStreamToolApprovalRequest extends ToolApprovalRequest {
   networkTarget?: ToolApprovalNetworkTarget
   /** 已被静态策略判死的目标清单("还没有规则"不算被拦) */
   blockedNetworkTargets?: ToolApprovalNetworkTarget[]
+  // 批次 2(2026-11-06):结构化审批决策信息(全部可选)。缺席 = 老生产者/描述失败,
+  // 弹窗退回 argsPreview 裸 JSON;不是"没有风险/没有目录"。线格式权威在 contract.ts。
+  reasonCode?: ToolApprovalReasonCode
+  riskLevel?: 'low' | 'medium' | 'high'
+  argv?: string[] | null
+  cwd?: string | null
+  affectedPaths?: string[]
+  scope?: ToolApprovalOperationScope
+  summary?: string
 }
 
 /** 弹窗内部使用的合并形态(agent 任务流也带得上环境字段,不受 channel 标记约束)。 */
@@ -407,6 +447,11 @@ export function ToolApprovalDialog() {
   React.useEffect(() => {
     if (typeof window === 'undefined' || !('EventSource' in window)) return
     const es = new EventSource('/api/agents/tasks/stream')
+    // BUG-11:真正连上(onopen)才复位「唯一一次续期」账。旧实现只在挂载初始为 false,
+    // 首次续期成功后永久为 true,审批流第二次致命断流后再也不重建且界面零提示。
+    es.onopen = () => {
+      approvalStreamRetryRef.current = false
+    }
     // t4(2026-09-19):wire 解析迁移至共享 parseToolApprovalEvent(type 守卫 + session_id
     // 顶层优先/payload 内兜底 + danger_level 缺省 high),此处仅保留入队去重职责。
     const onApproval = (e: MessageEvent) => {
@@ -495,9 +540,32 @@ export function ToolApprovalDialog() {
   // 前缀展示与高危判定都从 argsPreview 尽力还原(argv / command 双形态兜底)。
   const isChatStream = (current as ChatStreamToolApprovalRequest | null)?.channel === 'chat-stream'
   const showGrantRule = isChatStream && current?.toolName === 'run_command'
-  const runCommandArgv = current ? extractRunCommandArgv(current.argsPreview) : []
+  const runCommandArgv = current
+    ? current.argv && current.argv.length > 0
+      ? current.argv
+      : extractRunCommandArgv(current.argsPreview)
+    : []
   const grantPrefix = runCommandArgv.slice(0, GRANT_RULE_TOKENS).join(' ')
   const grantDangerous = isDangerousCommand(runCommandArgv)
+
+  // 批次 2:结构化决策信息(全部可选;缺席 ⇒ 下面整块不渲染,退回裸 JSON)。
+  const reasonLabel = current?.reasonCode ? t(REASON_LABEL_KEYS[current.reasonCode]) : undefined
+  const scopeLabel = current?.scope ? t(OPERATION_SCOPE_LABEL_KEYS[current.scope]) : undefined
+  const structuredRisk = current?.riskLevel
+  const riskLabel = structuredRisk ? t(RISK_LABEL_KEYS[structuredRisk]) : undefined
+  const structuredArgv = current?.argv ?? []
+  const structuredPaths = current?.affectedPaths ?? []
+  const hasStructuredDetail =
+    !!current &&
+    !!(
+      reasonLabel ||
+      scopeLabel ||
+      riskLabel ||
+      current.summary ||
+      current.cwd ||
+      structuredArgv.length > 0 ||
+      structuredPaths.length > 0
+    )
 
   // D161:四字段推导(同步三字段纯函数;可逆性是异步通道,见下方 effect)。
   const whyNow = current ? deriveWhyNow(current) : undefined
@@ -624,14 +692,89 @@ export function ToolApprovalDialog() {
               {current.dangerLevel}
             </span>
           </div>
-          <div>
-            <div className="mb-1 text-label font-medium text-muted-foreground">
-              {t('argsPreview')}
+          {/* 批次 2(2026-11-06):结构化审批决策信息。审批面给"执行什么、在哪执行、
+              会碰哪些文件、为什么弹窗",而不是让用户读一段被截断的裸 JSON。 */}
+          {hasStructuredDetail && (
+            <div
+              data-testid="tool-approval-structured"
+              className="rounded-md border border-border bg-muted/30 p-2.5"
+            >
+              <div className="mb-1.5 text-label font-medium text-muted-foreground">
+                {t('decisionDetail')}
+              </div>
+              {current.summary && (
+                <p
+                  data-testid="tool-approval-summary"
+                  className="mb-2 break-all text-body font-medium leading-relaxed"
+                >
+                  {current.summary}
+                </p>
+              )}
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-label leading-relaxed">
+                {reasonLabel && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailReason')}</dt>
+                    <dd>{reasonLabel}</dd>
+                  </>
+                )}
+                {riskLabel && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailRisk')}</dt>
+                    <dd>{riskLabel}</dd>
+                  </>
+                )}
+                {scopeLabel && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailScope')}</dt>
+                    <dd>{scopeLabel}</dd>
+                  </>
+                )}
+                {current.cwd && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailCwd')}</dt>
+                    <dd className="break-all font-mono">{current.cwd}</dd>
+                  </>
+                )}
+                {structuredPaths.length > 0 && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailPaths')}</dt>
+                    <dd className="break-all font-mono">
+                      {structuredPaths.map((path) => (
+                        <div key={path}>{path}</div>
+                      ))}
+                    </dd>
+                  </>
+                )}
+                {structuredArgv.length > 0 && (
+                  <>
+                    <dt className="text-muted-foreground">{t('decisionDetailCommand')}</dt>
+                    <dd className="break-all font-mono">{structuredArgv.join(' ')}</dd>
+                  </>
+                )}
+              </dl>
             </div>
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-label leading-relaxed">
-              {current.argsPreview || '{}'}
-            </pre>
-          </div>
+          )}
+          {/* 结构化信息在位时,裸 JSON 只作可展开的原始参数(不再占据主视线);
+              缺席时保留旧行为(老生产者/描述失败的兜底)。 */}
+          {hasStructuredDetail ? (
+            <details className="rounded-md border border-border">
+              <summary className="cursor-pointer px-2.5 py-1.5 text-label text-muted-foreground">
+                {t('rawArgs')}
+              </summary>
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-muted/40 p-2.5 font-mono text-label leading-relaxed">
+                {current.argsPreview || '{}'}
+              </pre>
+            </details>
+          ) : (
+            <div>
+              <div className="mb-1 text-label font-medium text-muted-foreground">
+                {t('argsPreview')}
+              </div>
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-label leading-relaxed">
+                {current.argsPreview || '{}'}
+              </pre>
+            </div>
+          )}
           {/* D161(2026-09-29 立):决策信息四字段 —— 把审批从"风险标签"升级为"决策依据"。
               信息源红线:全部由引擎侧既有事实推导(危险档/会话归属/检查点通道),读不到 ⇒
               整行不渲染(不得显示空标签或"—");零行 ⇒ 块级空态;准入声明恒在块头。

@@ -12,6 +12,8 @@
  *   ② 评论(icon-comment + count → 原跳 /pagesA/news/comment?id=,该页未实现,点击提示)
  *   ③ 分享(icon-share → RN Share API,对齐 handleShare)
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {
@@ -55,6 +57,7 @@ type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function ArticleDetailScreen() {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.articleComment)
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const route = useRoute<Route>()
@@ -212,7 +215,7 @@ export function ArticleDetailScreen() {
       >
         <View style={styles.commentOverlay}>
           <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
-          <View style={styles.commentSheet}>
+          <View style={[styles.commentSheet, dialogHeightStyle]}>
             <View style={styles.commentHeader}>
               <Text style={styles.commentTitle}>评论</Text>
               <Tappable
@@ -344,7 +347,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadius.xl,
     paddingTop: rnSpacing['md-loose'],
     minHeight: 360,
-    maxHeight: '72%',
+    maxHeight: undefined,
   } as ViewStyle,
   commentHeader: {
     flexDirection: 'row',

@@ -538,7 +538,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 > `--no-verify` 不是流程事故,前提是本任务改动文件已通过 typecheck + lint + build 验证(见 [AGENTS.md §16](../AGENTS.md))。**2026-11-03 起该前提不再构成授权**:默认永不跳钩,见 §6.1。
 
-### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门)
+### 6.3 跨端门应急跳过变量(2026-11-03 五门 / 2026-11-05 补三门 / 2026-11-06 补 86 号)
 
 | 门 | 脚本 | 跳过变量 | 默认档 |
 |----|------|----------|--------|
@@ -550,8 +550,9 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 | 299 | `scripts/check-miniapp-shell-form.mjs` | `HUSKY_SKIP_MINIAPP_SHELL_FORM=1` | blocking(新增复制页;存量 93 页棘轮) |
 | 300 | `scripts/check-api-endpoint-delta.mjs` | `HUSKY_SKIP_API_ENDPOINT_DELTA=1` | blocking(未登记端内独有前缀) |
 | 301 | `scripts/check-web-mp-route-carriers.mjs` | `HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1` | blocking(缺承载/路由不存在/冲突) |
+| 86 | `scripts/check-verify-tmp-files.mjs` | `HUSKY_SKIP_VERIFY_TMP_FILES=1` | blocking(2026-11-06 由 warn 升档;前置 = 全量档存量 0) |
 
-> 八个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
+> 九个变量名以 `scripts/guardian-runner.mjs` 的 `skipEnv` 现值为准(`AGENTS.md §0.8`);跳过只免本次退出码,不销账、不删台账,且必须留痕(守门 89 同款纪律)。
 
 ---
 

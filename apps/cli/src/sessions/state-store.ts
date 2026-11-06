@@ -74,11 +74,38 @@ function pruneOnWrite(): void {
  * 写侧必须用这个 —— 水合会改写 toolState 的落库形态,若让它渗进写回路,
  * 一次 patch 就会把"未声明列"顺手改掉(G-820:维护性写入只拥有自己的列)。
  */
+export function sessionPathKind(
+  target: string,
+  stat: (file: string) => unknown = fs.statSync,
+): { kind: 'present' } | { kind: 'missing' } | { kind: 'unread'; code: string } {
+  try {
+    stat(target);
+    return { kind: 'present' };
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'missing' };
+    return { kind: 'unread', code };
+  }
+}
+
+function sessionReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
 function readStateFile(id: string): SessionState | null {
   const p = getSessionStatePath(id);
-  if (!fs.existsSync(p)) return null;
+  let raw: string;
   try {
-    const raw = fs.readFileSync(p, 'utf-8');
+    raw = fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`会话读不到,不能把它当成没有这场会话 (${code})`);
+  }
+  try {
     const parsed = JSON.parse(raw) as SessionState;
     if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') return null;
     return parsed;
@@ -170,9 +197,13 @@ export function loadSession(id: string): SessionState | null {
   return parsed;
 }
 
-export function listSessions(): SessionSummary[] {
+export function listSessions(stat?: (file: string) => unknown): SessionSummary[] {
   const dir = getSessionStateDir();
-  if (!fs.existsSync(dir)) return [];
+  const kind = sessionPathKind(dir, stat);
+  if (kind.kind === 'missing') return [];
+  if (kind.kind === 'unread') {
+    throw new Error(`会话目录读不到,不能把它说成没有会话 (${kind.code})`);
+  }
   const out: SessionSummary[] = [];
   for (const entry of fs.readdirSync(dir)) {
     if (!entry.endsWith('.json')) continue;
@@ -189,16 +220,27 @@ export function listSessions(): SessionSummary[] {
   return out;
 }
 
-export function deleteSession(id: string): boolean {
+export function deleteSession(id: string, stat?: (file: string) => unknown): boolean {
   const p = getSessionStatePath(id);
-  if (!fs.existsSync(p)) return false;
+  const kind = sessionPathKind(p, stat);
+  if (kind.kind === 'unread') {
+    throw new Error(`会话读不到,不能把它说成已删除 (${kind.code})`);
+  }
+  if (kind.kind === 'missing') return false;
   fs.unlinkSync(p);
   return true;
 }
 
-export function pruneOldSessions(maxAgeMs: number = DEFAULT_MAX_AGE_MS): number {
+export function pruneOldSessions(
+  maxAgeMs: number = DEFAULT_MAX_AGE_MS,
+  stat?: (file: string) => unknown,
+): number {
   const dir = getSessionStateDir();
-  if (!fs.existsSync(dir)) return 0;
+  const kind = sessionPathKind(dir, stat);
+  if (kind.kind === 'missing') return 0;
+  if (kind.kind === 'unread') {
+    throw new Error(`会话目录读不到,不能把它说成没有可清理的会话 (${kind.code})`);
+  }
   const now = Date.now();
   let removed = 0;
   for (const entry of fs.readdirSync(dir)) {

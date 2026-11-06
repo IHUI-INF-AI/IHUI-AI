@@ -155,7 +155,11 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             accessibilityRole="button"
             accessibilityLabel={t('common.close')}
           >
-            <X size={18} color={tokens.text.tertiary} />
+            {({ pressed }) => (
+              <View style={pressed ? styles.closePressed : undefined}>
+                <X size={18} color={tokens.text.tertiary} />
+              </View>
+            )}
           </Pressable>
 
           {/* Hero:金渐变奖励徽章(圆角方章,rx 引用 rnRadius 档位 —— 门 11 禁容器纯圆、
@@ -322,6 +326,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
+  closePressed: { opacity: 0.7 } as ViewStyle,
   coinWrap: {
     width: COIN_SIZE,
     height: COIN_SIZE,

@@ -644,6 +644,13 @@ export const REMOTE_ONLY_BAN_NOTE = '[台账点名·仅对侧]'
  *  2. 取不到结论行(输出只有噪声、为空、或崩在装载期)⇒ 说 `未判定:<原因>`,
  *     禁止读成"需人工" —— 那是本层存在的理由。
  *  3. 子进程 exit 0 而外层仍失败 ⇒ 不得沿用"亦判需人工",它压根没判过这个。
+ *  4. 逐型都不许静默吞(2026-11-06 立,本窗实测踩中):此前本层只认判据 1 点名的那一型顶格
+ *     ❌ 标题 + 摘要「需人工 N」,union-converge 其余的顶格结论行(旁路删除硬门、内容级防丢闸、
+ *     CAS 失败、用法错/闸未判定/旗标取值错那一族、落地后判据复跑、`UNDETERMINED 未判定`)
+ *     整行被吃掉,counts 回落到 `?? 0` ⇒ 外层只剩「落地闸不过 0 处 / 需人工 0 项 / exit=1」,
+ *     红不报名(§0.3 的反面 + §5e-1 可整改性)。现按 UNION_VERDICT_SHAPES 分型带出并计数,
+ *     表外的顶格 ❌/未判定行由 UNION_HEADLINE_FALLBACK_RE 兜底接住(记 `other:<型名>`):
+ *     新形态最坏只降级成"归到 other",结构上不可能再被吞。
  */
 
 /** 本器贴在裁决文本末尾的退出码标签(union 自己从不打这一行,所以判据先剥掉它)。 */
@@ -839,49 +846,130 @@ export const UNION_GATE_HEADER_RE = /^\s*❌ 落地闸不过 (\d+) 处:\s*$/
 /** 本器为崩溃补上的那行 stderr 出处(它是"为什么没判"的证据,必须随结论一起走)。 */
 export const UNION_STDERR_LINE_RE = /^\[子进程 stderr\] /
 
+/**
+ * union-converge **顶格结论行**的形态表(转述层,2026-11-06 立,判据 4)。
+ *
+ * 形态清单的真相源是 union-converge 自己的打印点(下列 file:line 为 2026-11-06 现读;
+ * 行号会漂,认"型"不认号,新登记先 grep `console.log` 的顶格 ❌/未判定 输出点再改表):
+ *   · L4321 `❌ 闸未判定:…`                      ⇒ flag-gate-undetermined
+ *   · L4327 `❌ 用法错:…`                        ⇒ usage-error
+ *   · L4356/L4617 `❌ --theirs/--base 需要一个…`  ⇒ flag-value-error(文本形状见 lib/flag-value.mjs)
+ *   · L4400 `❌ --resolve/--union-capped 需要 <path>=<内容文件>…` ⇒ resolve-arg-error
+ *   · L4420-4526 `❌ --supersede/--fold-keep …`、L4545-4571 `❌ --declare-side-loss …`、
+ *     L4588/4594 `❌ --accept-state-growth …`    ⇒ declaration-doc-error
+ *   · L4631 `[union-converge] UNDETERMINED 未判定:…` ⇒ undeclared(非 ❌ 前缀的顶格未判定行)
+ *   · L4795 `❌ 落地闸不过 N 处:` + 缩进条目       ⇒ landing-gate(本表之前的唯一旧认知,保留)
+ *   · L4829 `❌ 旁路删除硬门拒绝落地 N 处(…):` + `  · …` ⇒ bypass-delete-gate(本窗踩过被吞的那型)
+ *   · L4864 `❌ 内容级防丢闸拒绝落地:N 个路径少带内容(逐条点名)` + formatLossReport 缩进行 ⇒ content-loss-gate
+ *   · L4962 `❌ CAS 失败(HEAD 被他人推进)⇒…`     ⇒ cas-fail
+ *   · L5066/5071 `❌ 落地后受影响判据复跑判红/有臂无法判定(…)⇒…` ⇒ post-landing-red/unjudged
+ * 不在射程(有主或刻意不收):console.error 的 stderr 腿(L269,由调用方 stderrTail 带)、
+ * self-test 输出(L4310,不经过本层)、缩进的 needHuman 条目行与 `  ❌ 落地回写失败:`
+ * (前者由摘要「需人工 N」计数,后者只在 ✅ 落地后出现,kind 走 landed)。
+ *
+ * 纪律:
+ *  · 本表只读结论、不复判内容 —— 合并判据仍在 union-converge / content-loss-gate 本体(§0.6);
+ *  · detail:true 的型,其后连续缩进项行逐字带出(旧「落地闸不过」专属行为的一般化);
+ *  · 与 union 打印点的对账锁在 scripts/tests/git-sync-converge-relay-shapes.test.mjs:
+ *    union-converge 新增静态顶格 ❌ 打印点而本表未登记 ⇒ 该测试翻红(§0.6 防漂移)。
+ */
+export const UNION_VERDICT_SHAPES = [
+  { id: 'landing-gate', re: UNION_GATE_HEADER_RE, countGroup: 1, detail: true },
+  { id: 'bypass-delete-gate', re: /^\s*❌ 旁路删除硬门拒绝落地 (\d+) 处/, countGroup: 1, detail: true },
+  {
+    id: 'content-loss-gate',
+    re: /^\s*❌ 内容级防丢闸拒绝落地[:：]\s*(\d+) 个路径少带内容/,
+    countGroup: 1,
+    detail: true,
+  },
+  { id: 'flag-gate-undetermined', re: /^\s*❌ 闸未判定:/ },
+  { id: 'usage-error', re: /^\s*❌ 用法错:/ },
+  { id: 'flag-value-error', re: /^\s*❌ --\S+ 需要一个/ },
+  { id: 'resolve-arg-error', re: /^\s*❌ \S+ 需要 <path>=<内容文件>/ },
+  { id: 'declaration-doc-error', re: /^\s*❌ --(?:supersede|fold-keep|declare-side-loss|accept-state-growth)\b/ },
+  { id: 'cas-fail', re: /^\s*❌ CAS 失败/ },
+  { id: 'post-landing-red', re: /^\s*❌ 落地后受影响判据复跑判红/ },
+  { id: 'post-landing-unjudged', re: /^\s*❌ 落地后受影响判据复跑有臂无法判定/ },
+  { id: 'undeclared', re: /^\[union-converge\] UNDETERMINED 未判定:/ },
+]
+
+/**
+ * 顶格结论的兜底网(判据 4 的"逐型都不吞"由它构造性保证):凡顶格 ❌ 行、或
+ * `[union-converge]` 前缀且带 UNDETERMINED/未判定 的行,即便形态表没登记,也必须
+ * 原样进转述并按 `other:<型名>` 计数。只匹配**顶格**,缩进行的归属仍走 detail 段。
+ */
+export const UNION_HEADLINE_FALLBACK_RE =
+  /^(?:❌\s*\S|\[union-converge\][^\n]*(?:UNDETERMINED|未判定))/
+
+/** 从一条顶格结论行里提出"型名"(分型计数与 `other:` 桶共用这一份提取,不得另抄)。 */
+export function unionShapeLabelOf(line) {
+  const t = String(line ?? '').trimStart()
+  const body = t.startsWith('❌') ? t.slice(1).trimStart() : t.replace(/^\[union-converge\]\s*/, '')
+  const token = body.split(/[\s:：(（,，;；]/)[0] ?? ''
+  return token.slice(0, 40) || '未具名'
+}
+
 const byteLen = (s) => Buffer.byteLength(String(s), 'utf8')
 
 /**
  * 从 union-converge 的输出里挑出**它自己的结论行**,逐字、不改写:
  *  · 摘要行(带 `需人工 N`)
- *  · `❌ 落地闸不过 N 处:` 那一行,以及其后所有缩进条目行(union 自己封顶 15 条)
+ *  · 形态表(UNION_VERDICT_SHAPES)认领的每一型顶格结论行;detail 型连带其后的缩进条目行
+ *  · 表外但仍顶格的 ❌/未判定行(UNION_HEADLINE_FALLBACK_RE ⇒ `other:<型名>`,只降级不吞)
  *  · 崩溃/异常时那行 `[子进程 stderr]`(取不到结论时它就是原因)
  * 行数与字节两条上限,超了就点名截断了多少 —— 只封顶不喊,就等于又把"没带全"写成"带全了"。
  */
 export function extractUnionVerdict(text, opts = {}) {
   const maxLines = Number.isInteger(opts.maxLines) && opts.maxLines > 0 ? opts.maxLines : 40
   const maxBytes = Number.isInteger(opts.maxBytes) && opts.maxBytes > 0 ? opts.maxBytes : 6000
+  const shapes = Array.isArray(opts.shapes) ? opts.shapes : UNION_VERDICT_SHAPES
+  const headlineFallback =
+    opts.headlineFallback instanceof RegExp ? opts.headlineFallback : UNION_HEADLINE_FALLBACK_RE
   const lines = stripUnionExitMark(text).split(/\r?\n/)
   const picked = []
+  const shapeCounts = {}
   let needHumanCount = null
   let gateCount = null
-  let gateHeaderAt = -1
+  let detailRun = false
+  const pushLine = (l) => {
+    if (!picked.includes(l)) picked.push(l)
+  }
+  const bumpShape = (id) => {
+    shapeCounts[id] = (shapeCounts[id] ?? 0) + 1
+  }
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]
+    if (l.trim() === '') continue
     if (needHumanCount === null) {
       const m = UNION_NEEDHUMAN_RE.exec(l)
       if (m) {
         needHumanCount = Number(m[1])
-        picked.push(l)
+        pushLine(l)
       }
     }
-    if (gateHeaderAt < 0) {
-      const g = UNION_GATE_HEADER_RE.exec(l)
+    if (/^[ \t]+\S/.test(l)) {
+      if (detailRun) pushLine(l)
+      continue
+    }
+    detailRun = false
+    let hit = null
+    for (const s of shapes) {
+      const g = s.re.exec(l)
       if (g) {
-        gateCount = Number(g[1])
-        gateHeaderAt = i
-        picked.push(l)
+        hit = { s, g }
+        break
       }
     }
-  }
-  if (gateHeaderAt >= 0) {
-    for (let i = gateHeaderAt + 1; i < lines.length; i++) {
-      const l = lines[i]
-      // 条目行是缩进行;遇到顶格行说明这一段已经结束(后面的东西不属这一族)。空行跳过而不终止:
-      // union 在闸条目之间不打空行,但换行由 console.log 拼,多一个空行不该把转述整段截断。
-      if (/^[ \t]+\S/.test(l)) picked.push(l)
-      else if (l.trim() === '') continue
-      else break
+    if (hit) {
+      bumpShape(hit.s.id)
+      if (hit.s.id === 'landing-gate' && hit.s.countGroup) gateCount = Number(hit.g[hit.s.countGroup])
+      pushLine(l)
+      detailRun =
+        hit.s.detail === true || (hit.s.detail !== false && /[:：]\s*$/.test(l.trimEnd()))
+    } else if (headlineFallback.test(l)) {
+      bumpShape(`other:${unionShapeLabelOf(l)}`)
+      pushLine(l)
+      detailRun = /[:：]\s*$/.test(l.trimEnd())
     }
   }
   const errLine = lines.find((l) => UNION_STDERR_LINE_RE.test(l))
@@ -903,10 +991,13 @@ export function extractUnionVerdict(text, opts = {}) {
     hits: {
       needHuman: needHumanCount !== null,
       gateBlock: gateCount !== null,
-      none: needHumanCount === null && gateCount === null,
+      shapes: Object.keys(shapeCounts).length > 0,
+      none:
+        needHumanCount === null && gateCount === null && Object.keys(shapeCounts).length === 0,
     },
     needHumanCount,
     gateCount,
+    shapeCounts,
     total: { lines: picked.length, bytes: totalBytes },
     kept: { lines: kept.length, bytes },
     truncated:
@@ -961,8 +1052,9 @@ function renderUnionBlock(verdict) {
 
 /**
  * 把一次 union 尝试转述成外层可以直接打印的三段:kind / counts / headline + block。
- * headline 的规则就是本票的判据 2 与 3:
- *  · 取到了结论行 ⇒ 报条数(`落地闸不过 N 处 / 需人工 M 项 / exit=…`),`hasVerdict` 为真;
+ * headline 的规则就是本票的判据 2、3 与 4:
+ *  · 取到了结论行 ⇒ 报条数(`落地闸不过 N 处 / 需人工 M 项 / 顶格结论 <型>×<枚> / exit=…`),
+ *    `hasVerdict` 为真;N/M 没读到就写 `未读到`,不得回落成 0(§0.3:没判不许冒充判过 0);
  *  · 没取到 ⇒ 一律 `未判定:<原因>`,任何一支都不许出现"亦判需人工"那句话。
  */
 export function describeUnionRelay(input, opts = {}) {
@@ -973,16 +1065,29 @@ export function describeUnionRelay(input, opts = {}) {
   const verdict = extractUnionVerdict(text, opts)
   const kind = classifyUnionAttempt(input)
   const mark = exitCode === null ? '退出码未取到' : `exit=${exitCode}`
-  const counts = `落地闸不过 ${verdict.gateCount ?? 0} 处 / 需人工 ${verdict.needHumanCount ?? 0} 项 / ${mark}`
+  const shapeKeys = Object.keys(verdict.shapeCounts)
+  const topShapesText = shapeKeys
+    .filter((k) => k !== 'landing-gate')
+    .map((k) => `${k}×${verdict.shapeCounts[k]}`)
+    .join(' + ')
+  const counts =
+    `落地闸不过 ${verdict.gateCount ?? '未读到'} 处 / 需人工 ${verdict.needHumanCount ?? '未读到'} 项` +
+    (topShapesText ? ` / 顶格结论 ${topShapesText}` : '') +
+    ` / ${mark}`
   const block = renderUnionBlock(verdict)
+  // 红是它自己那行顶格结论报的,不是人工裁决那一型(CAS/用法错/旁路硬门……)⇒ 措辞分岔,
+  // 调用点据此不再说"亦判需人工"。落地闸不过与摘要行都命中时维持原判需人工措辞(既有锁)。
+  const topRedOnly =
+    kind === 'need-human' && verdict.gateCount === null && shapeKeys.some((k) => k !== 'landing-gate')
   if (kind === 'need-human' && !verdict.hits.none) {
     return {
       kind,
       exitCode,
       verdict,
       counts,
+      topRedOnly,
       hasVerdict: true,
-      headline: `union 判需人工(${counts})`,
+      headline: `${topRedOnly ? 'union 顶格判红' : 'union 判需人工'}(${counts})`,
       block,
     }
   }
@@ -995,7 +1100,7 @@ export function describeUnionRelay(input, opts = {}) {
           ? `子进程没有产出可用输出(${mark})⇒ 一处内容都没判`
           : kind === 'exited-clean'
             ? `子进程 ${mark} 却没报落地 ⇒ 它没下过人工裁决`
-            : `子进程 ${mark},输出里既没有「需人工 N」也没有「❌ 落地闸不过 N 处:」⇒ 本器没取到它的结论`
+            : `子进程 ${mark},输出里没有任何一型顶格结论行(摘要「需人工 N」/形态表各型顶格 ❌/「UNDETERMINED 未判定」/兜底网可及的任何顶格 ❌)⇒ 本器没取到它的结论`
   // "没取到结论"这一支的出路**不得**借用 unionOutcomeMessage('need-human') 那句话:
   // 那句含"亦判需人工",而这一支的全部意义就是不许把它当成已经判过。
   const advice =
@@ -1007,6 +1112,7 @@ export function describeUnionRelay(input, opts = {}) {
     exitCode,
     verdict,
     counts,
+    topRedOnly: false,
     hasVerdict: false,
     headline: `未判定:${why} ⇒ ${advice}`,
     block,
@@ -1091,13 +1197,6 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   // git 的 rev 规格只认正斜杠:`FIELDS_REL` 由 path.join 造,本机是 `scripts\data\…`,
   // 照原样送会恒判"取不到"(同 plan-tasks.mjs 的 fieldsSpecRel,§12f:出路必须真跑得通)。
   const FIELDS_GIT_REL = FIELDS_REL.split('\\').join('/')
-  const blobOf = (rev, rel) => {
-    try {
-      return git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 })
-    } catch {
-      return ''
-    }
-  }
   // 侧车那一路必须把"该面上没有这个 blob"与"blob 在、内容为空"分开:前者 = 未判定,
   // 后者 = 零条记录(loadFields 的三态就是这么分的,本器不得把两者揉成一团)。
   const blobOrNull = (rev, rel) => {
@@ -1107,7 +1206,38 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
       return null
     }
   }
-  const merged = blobOf(mergedTree, REL)
+  /**
+   * 活文档取材面的**三态读法**(§0.3 + §0.4;票 L3957 S-26 · Z46 席 2026-11-06 收口)。
+   *
+   * 旧写法这里只有一把 `blobOf`:失败一律回落成 `''`,于是三件事被揉成同一个形状 ——
+   *  ① `if (!merged.trim()) return []` 把"合并面的台账**读不到**"写成"该面没有台账 ⇒ 没有放大"
+   *     = 冒绿(§0.3 明令禁止的那一型:取不到输入不记绿);
+   *  ② 两侧面各喂一个 `''` 时,`planStateRegressions` 的 `max(两侧)` 被压成 0 ⇒ 一次通道故障
+   *     放大成 **F4/F9 假红**(2026-11-06 现读同一台机上:`F4 同一件事多条待办(副本行) 各侧最多 0,
+   *     归并结果 2` —— "各侧 0"里就藏着"那一侧压根没读到"这一格);
+   *  ③ 基线读失败与"合并树没有基线"同形 ⇒ 第②把尺子整维静默消失。
+   * 现按 §0.4 把取材面定死成 **blob 一面**,`absent`(该 rev 下无此路径)/ `error`(git 读失败)/
+   * 内容三态各归各位,**绝不回落另一个面**(不读索引、不读工作树滞后副本 —— 那正是本票的题面),
+   * 失效方向恒为"多要一次定向说明"(§0.10),既不放行也不冤枉。
+   */
+  const FACE_ABSENT_RE = /does not exist in|exists on disk, but not in/
+  const readFace = (rev, rel) => {
+    try {
+      return { text: git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 }) ?? '' }
+    } catch (e) {
+      const why = firstLineOf(e)
+      return FACE_ABSENT_RE.test(why) ? { absent: true, why } : { error: why }
+    }
+  }
+  const mergedFace = readFace(mergedTree, REL)
+  if (mergedFace.absent) return [] // 合并面根本没有这份台账 ⇒ 这一维在该面无语义(既有语义,不并桶)
+  if (mergedFace.error)
+    return [
+      `${STATE_GATE_UNDETERMINED} 合并树的 ${REL} blob 取不到(${mergedFace.error})⇒ 「任务状态是否被放大」整维**未判定**:` +
+        '不回落索引面、也不回落工作树副本(§0.4 三面各归各位),更不读成"没有放大"。出路:确认该对象可读' +
+        '(`git cat-file -t <tree>:PROJECT_PLAN.md`)后重跑本器。',
+    ]
+  const merged = mergedFace.text
   if (!merged.trim()) return []
   // 闸门尺子没装载成功 ⇒ 这一维**没跑**。绝不允许在这里返回 [] —— 那会把"看不见"写成"没有放大",
   // 而本器随后就 update-ref + 推送(本仓最高频的失效型:判据失效的表现永远是安静)。
@@ -1116,12 +1246,35 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
       `${STATE_GATE_UNDETERMINED} union-converge 装载失败 ⇒ 「相对两侧上限」那把尺子一处都没判(${unionGate.error});` +
         '这不是"没有放大"也不是"判了放大",本轮不推进。出路:把缺的那半边导出补上(或等它落盘)再重跑本器。',
     ]
-  const out = unionGate.mod.planStateRegressions(merged, [blobOf(local, REL), blobOf(remote, REL)])
-  const baseTxt = blobOf(mergedTree, BASE_REL)
-  if (!baseTxt.trim()) return out
+  const out = []
+  const sideFaces = [readFace(local, REL), readFace(remote, REL)]
+  const failedSides = sideFaces.filter((f) => f.error)
+  if (failedSides.length) {
+    // 少喂一侧 = 把 max(两侧) 压低 = 把通道故障说成内容放大。这一维整维不跑,只点名。
+    out.push(
+      `${STATE_GATE_UNDETERMINED} 「相对两侧上限」那把尺子本轮没跑(${failedSides.length} 侧的 ${REL} blob 取不到:` +
+        `${failedSides.map((f) => f.error).join(' / ')})⇒ 不猜"那侧没有台账"、不回落另一个面,也不判成放大。` +
+        '出路:fetch 到位让两侧 rev 可解析后重跑本器。',
+    )
+  } else {
+    out.push(
+      ...unionGate.mod.planStateRegressions(
+        merged,
+        sideFaces.map((f) => (f.absent ? '' : f.text)),
+      ),
+    )
+  }
+  const baseFace = readFace(mergedTree, BASE_REL)
+  if (baseFace.error)
+    return [
+      ...out,
+      `${STATE_GATE_UNDETERMINED} 合并树的基线 ${BASE_REL} blob 取不到(${baseFace.error})⇒ 第②把尺子(对入库基线的差值棘轮)` +
+        '未判定,不读成"没涨"、也不回落本地副本。出路:确认该对象可读后重跑本器。',
+    ]
+  if (baseFace.absent || !(baseFace.text ?? '').trim()) return out
   let base = null
   try {
-    base = JSON.parse(baseTxt)
+    base = JSON.parse(baseFace.text)
   } catch {
     return [...out, '基线 JSON 解析失败 ⇒ 第②把尺子未判定(不记为通过)']
   }
@@ -2214,7 +2367,7 @@ function main() {
         if (relay.hasVerdict) {
           log(
             C.red,
-            `❌ 合并冲突,且 union-converge 亦判需人工(${relay.counts})。它那句话逐字如下,不再是"见上":\n${relay.block}\n${noise}`,
+            `❌ 合并冲突,且 union-converge ${relay.topRedOnly ? '顶格判红(非人工裁决,按点名的那一型整改)' : '亦判需人工'}(${relay.counts})。它那句话逐字如下,不再是"见上":\n${relay.block}\n${noise}`,
           )
         } else {
           log(C.red, `❌ ${relay.headline}\n${relay.block}\n${noise}`)
@@ -2263,7 +2416,7 @@ function main() {
         }
         log(
           C.red,
-          `❌ union-converge 判需人工(${relay2.counts})。状态放大不是"选边"能收的 —— 两侧的行都得保住。它的结论逐字如下:\n${relay2.block}`,
+          `❌ union-converge ${relay2.topRedOnly ? '顶格判红(非人工裁决)' : '判需人工'}(${relay2.counts})。状态放大不是"选边"能收的 —— 两侧的行都得保住。它的结论逐字如下:\n${relay2.block}`,
         )
         process.exit(1)
       }
@@ -2571,6 +2724,13 @@ export const __test__ = {
   extractUnionVerdict,
   capText,
   describeUnionRelay,
+  // 顶格结论形态表 + 兜底网 + 型名提取一并导出(2026-11-06,判据 4):镜像测试只 import 这一份,
+  // 禁止在测试里另抄形态清单(§22c)。
+  UNION_NEEDHUMAN_RE,
+  UNION_GATE_HEADER_RE,
+  UNION_VERDICT_SHAPES,
+  UNION_HEADLINE_FALLBACK_RE,
+  unionShapeLabelOf,
   STATE_GATE_UNDETERMINED,
   REMOTE_ONLY_BAN_NOTE,
   mergedPlanStateRegressions,

@@ -19,7 +19,6 @@
  * 2026-07-29:补全 ChatScreen 包装层所需的 13+ MessageInput props/事件。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Platform } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import * as ImagePicker from 'expo-image-picker'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
@@ -45,6 +44,22 @@ function inferTypeFromMime(
   return 'document'
 }
 
+/**
+ * BUG-41③:MediaTypeOptions.All 允许选视频,当 asset.type / mimeType 都缺失时不能再
+ * 一律当图片(旧 fallback 是 `Platform.OS === 'ios' ? 'image' : 'image'` 三元两侧同值)。
+ * 从文件名/URI 扩展名兜底识别视频与图片,保证视频按 video 类型上传。
+ */
+function inferTypeFromName(
+  name: string | null | undefined,
+  fallback: MessageInputFileType,
+): MessageInputFileType {
+  if (!name) return fallback
+  const lower = name.toLowerCase()
+  if (/\.(mp4|mov|m4v|avi|mkv|webm|3gp|wmv|flv)$/.test(lower)) return 'video'
+  if (/\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?)$/.test(lower)) return 'image'
+  return fallback
+}
+
 function buildFileFromAsset(asset: AssetLike, fallback: MessageInputFileType): MessageInputFile {
   const mime = asset.mimeType ?? null
   let type: MessageInputFileType = fallback
@@ -52,6 +67,8 @@ function buildFileFromAsset(asset: AssetLike, fallback: MessageInputFileType): M
     type = asset.type
   } else if (mime) {
     type = inferTypeFromMime(mime, fallback)
+  } else {
+    type = inferTypeFromName(asset.fileName ?? asset.uri, fallback)
   }
   return {
     id: nextFileId(),
@@ -187,8 +204,9 @@ export function useChatInput(options?: UseChatInputOptions): UseChatInputResult 
       if (result.canceled) return
       const asset = result.assets?.[0] as AssetLike | undefined
       if (!asset?.uri) return
-      // type 字段存在(来自 ImagePicker)优先,否则从 mimeType 推断
-      const fallback: MessageInputFileType = Platform.OS === 'ios' ? 'image' : 'image'
+      // type 字段存在(来自 ImagePicker)优先,否则 mimeType / 文件名扩展名推断;
+      // BUG-41③:MediaTypeOptions.All 允许视频,信息全缺时按通用文件处理,绝不硬编码 image。
+      const fallback: MessageInputFileType = 'document'
       const file = buildFileFromAsset(asset, fallback)
       setInputFiles((prev) => [...prev, file])
     } catch (err: unknown) {

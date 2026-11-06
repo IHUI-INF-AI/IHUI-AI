@@ -467,6 +467,8 @@
       "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
       "docAnchor": "流式平滑渲染",
       "title": "流式平滑渲染",
+      "exemptUntil": "2026-11-30",
+      "exemptReason": "H20 ②(2026-11-04)已把批处理器由「逐帧小步长追平」重做为「提交节拍 + 8ms 帧预算 + 120 字/次上限」以消长任务,旧判据 max(2, ceil(remaining/8)) 随实现下线;按账本「锚点随实现改名更新属防锈」不能只换锚不换断言文案(那是削判据),回退实现又推翻 H20 ② 的长任务治理,故按合法暂态豁免,待对标文档线同批重锚该条 doc 原文与锚点。",
       "assertions": [
         {
           "text": "逐帧步长判据 max(2, ceil(remaining/8)) 在批处理器里在位",

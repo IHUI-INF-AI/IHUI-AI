@@ -78,21 +78,34 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       wrapperClassName,
       className,
       value,
+      defaultValue,
       onChange,
       ...props
     },
     ref,
   ) => {
     const s = sizeMap[size]
-    const hasValue = typeof value === 'string' ? value.length > 0 : Boolean(value)
+    // BUG-33③:受控 / 非受控统一。非受控时组件内部镜像当前值,否则 value===undefined
+    // 令 hasValue 恒 false、清空按钮永不渲染。defaultValue 从 props 解构掉,input 上
+    // 不再同时挂 value 与 defaultValue(消除 React 警告)。
+    const isControlled = value !== undefined
+    const [innerValue, setInnerValue] = React.useState<string>(
+      typeof defaultValue === 'string' ? defaultValue : '',
+    )
+    const currentValue = isControlled ? value : innerValue
+    const hasValue = typeof currentValue === 'string' ? currentValue.length > 0 : Boolean(currentValue)
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!isControlled) setInnerValue(e.target.value)
+      onChange?.(e)
+    }
     return (
       <div className={cn('relative', wrapperClassName)}>
         <div className="relative flex items-center gap-1.5 rounded-sm border border-border bg-muted/40 px-2.5 transition-colors focus-within:border-primary focus-within:bg-muted/60">
           <Search className={cn('pointer-events-none shrink-0 text-muted-foreground', s.icon)} />
           <input
             ref={ref}
-            value={value}
-            onChange={onChange}
+            value={currentValue}
+            onChange={handleChange}
             className={cn(
               'min-w-0 flex-1 border-0 bg-transparent px-0 outline-none shadow-none placeholder:text-muted-foreground focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50',
               s.input,
@@ -104,10 +117,18 @@ const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             <button
               type="button"
               onClick={() => {
-                const target = {
-                  target: { value: '', name: props.name },
+                if (!isControlled) setInnerValue('')
+                // BUG-33③:伪造的 ChangeEvent 必须补齐 currentTarget(与 target 同指、
+                // value 为空),否则消费方读 e.currentTarget.value 会抛 undefined。
+                const target = { value: '', name: props.name } as unknown as HTMLInputElement
+                const event = {
+                  target,
+                  currentTarget: target,
+                  preventDefault: () => {},
+                  stopPropagation: () => {},
+                  persist: () => {},
                 } as unknown as React.ChangeEvent<HTMLInputElement>
-                onChange?.(target)
+                onChange?.(event)
               }}
               aria-label={clearAriaLabel}
               data-testid={clearTestId}

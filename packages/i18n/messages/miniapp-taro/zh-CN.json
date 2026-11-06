@@ -2084,7 +2084,8 @@
     "new": "最新",
     "empty": "暂无内容",
     "noDesc": "暂无描述",
-    "useCount": "{n} 次使用"
+    "useCount": "{n} 次使用",
+    "recommended": "推荐"
   },
   "circle": {
     "empty": "暂无内容",

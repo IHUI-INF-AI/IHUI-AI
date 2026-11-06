@@ -15,10 +15,16 @@
  * - POST /api/internal/relay/user-pool/delete:签到侧删除时清掉对应个人池行。
  *   刻意不推 pool_deleted 回签到侧(账号已经不存在,推了只会原地打转)。
  *
- * 鉴权同其它内网点:X-Internal-Secret = config.AI_CALLBACK_SECRET。
- * ownerUserId 必须是真实平台用户,禁止借该端点写入运营池(owner 为 NULL)。
+ * 鉴权两层:① X-Internal-Secret = config.AI_CALLBACK_SECRET(机机凭据);
+ * ② 承载层主体 = checkInternalServiceToken 验短期票(scope 'ai-callback')后注入的
+ *    request.userId(AGENTS §5「认证不等于授权」,形态同 internal-user-broadcast.ts:65)。
+ *
+ * Y-24 收口(2026-11-06):**归属主体不再取自请求体** —— 原先 body.ownerUserId 直接进归属
+ * 谓词与 importAccounts,持机机凭据者可写/删任意用户的个人池行(身份住在客户端可整写字段)。
+ * 现在主体只来自承载层;body 那一位降级为兼容窗核对位(判序见 resolveOwnerSubject)。运营池在此
+ * 结构上不可达:承载层主体必须是 uuid ∧ 存在 ∧ 活跃的用户(见 internal-service-token 的 injectVerifiedUser)。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
@@ -26,17 +32,22 @@ import { aiRelayAccountPool } from '@ihui/database'
 import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import { error, success } from '../utils/response.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
+import { checkInternalServiceToken, secretsEqual } from '../plugins/internal-service-token.js'
 import { importAccounts } from '../services/relay-account-pool-service.js'
 import { isRelayProviderCode } from '../services/relay-account-format.js'
+
+/** 运营池主体:不可能是承载层注入的已验证用户(非 uuid) */
+const OPERATIONS_POOL_OWNER = 'system:relay-pool'
 
 /** 签到平台 → 号池 provider 同名;minimax 无号池适配器(如实 unsupported) */
 const CHECKIN_PLATFORM_TO_PROVIDER = new Set(['trae', 'workbuddy', 'qoder'])
 
 const upsertBodySchema = z.object({
-  ownerUserId: z.string().min(1).max(64),
+  // 兼容窗核对位(2026-11-06 起不是主体来源;与承载层主体不符即 403)
+  ownerUserId: z.string().min(1).max(64).optional(),
   platform: z.string().min(1).max(32),
   checkinAccountId: z.number().int().positive(),
+  // 第三方账号 uid(业务数据,由票内主体自己的凭证推导);不参与归属判定
   identityKey: z.string().min(1).max(128),
   name: z.string().max(128).optional(),
   token: z.string().min(1).max(8192),
@@ -47,7 +58,7 @@ const upsertBodySchema = z.object({
 })
 
 const deleteBodySchema = z.object({
-  ownerUserId: z.string().min(1).max(64),
+  ownerUserId: z.string().min(1).max(64).optional(), // 同上:兼容窗核对位
   poolAccountId: z.string().min(1).max(64),
 })
 
@@ -102,6 +113,41 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
     return null
   }
 
+  /**
+   * 归属主体解析的唯一出口(AGENTS §5「认证不等于授权」):只认承载层 —— checkInternalServiceToken
+   * 验短期票(scope 'ai-callback';dual 窗内兼容常驻密钥 + X-User-Id)后注入的 request.userId,
+   * 该出口已把主体钉在「uuid ∧ 存在 ∧ 活跃」。`declared`(body 那一位)可整写 ⇒ 不作来源:
+   * 不符即 403 具名拒(Y-24 那一格),相等也只在日志点名"已忽略"后按主体落库。
+   * 返回 null = 已发 4xx,调用方直接 return。
+   */
+  const resolveOwnerSubject = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    declared: string | undefined,
+  ): Promise<string | null> => {
+    if (declared === OPERATIONS_POOL_OWNER) {
+      reply.status(400).send(error(400, '运营池账号不走反向同步端点'))
+      return null
+    }
+    if (!(await checkInternalServiceToken(request, reply, { scope: 'ai-callback' }))) return null
+    const subject = request.userId
+    if (!subject) {
+      request.log.error('[user-pool] 承载层未注入已验证主体,拒写(宁拒不猜)')
+      reply.status(401).send(error(401, 'Verified principal required'))
+      return null
+    }
+    if (declared && declared !== subject) {
+      request.log.warn(
+        { ip: request.ip, endpoint: request.url },
+        '[user-pool] 自报的 ownerUserId 与已验证主体不符 ⇒ 拒(不接受客户端自报身份)',
+      )
+      reply.status(403).send(error(403, 'ownerUserId 不得由客户端自报:与内部票主体不符'))
+      return null
+    }
+    if (declared) request.log.warn('[user-pool] 兼容窗:自报位仅作核对,归属一律取承载层主体')
+    return subject
+  }
+
   server.post('/api/internal/relay/user-pool/upsert', async (request, reply) => {
     const authErr = requireInternal(request)
     if (authErr)
@@ -113,9 +159,8 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
         .send(error(400, parsed.error.issues[0]?.message ?? '个人号池同步参数错误'))
     }
     const body = parsed.data
-    if (body.ownerUserId === 'system:relay-pool') {
-      return reply.status(400).send(error(400, '运营池账号不走反向同步端点'))
-    }
+    const ownerUserId = await resolveOwnerSubject(request, reply, body.ownerUserId)
+    if (!ownerUserId) return
     if (!CHECKIN_PLATFORM_TO_PROVIDER.has(body.platform) || !isRelayProviderCode(body.platform)) {
       return reply
         .status(200)
@@ -140,7 +185,7 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
             ...(body.platform === 'trae' ? deviceKeysToImportKeys(dm) : {}),
           },
         ],
-        body.ownerUserId,
+        ownerUserId,
       )
       const item = result.items[0]
       if (!item || item.status === 'failed') {
@@ -151,7 +196,7 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
         .from(aiRelayAccountPool)
         .where(
           and(
-            eq(aiRelayAccountPool.ownerUserId, body.ownerUserId),
+            eq(aiRelayAccountPool.ownerUserId, ownerUserId),
             eq(aiRelayAccountPool.providerCode, body.platform),
             eq(aiRelayAccountPool.uid, item.uid ?? body.identityKey),
           ),
@@ -180,10 +225,9 @@ const internalRelayUserPoolRoutes: FastifyPluginAsync = async (server) => {
         .status(400)
         .send(error(400, parsed.error.issues[0]?.message ?? '个人号池删除参数错误'))
     }
-    const { ownerUserId, poolAccountId } = parsed.data
-    if (ownerUserId === 'system:relay-pool') {
-      return reply.status(400).send(error(400, '运营池账号不走反向同步端点'))
-    }
+    const { ownerUserId: declared, poolAccountId } = parsed.data
+    const ownerUserId = await resolveOwnerSubject(request, reply, declared)
+    if (!ownerUserId) return
     try {
       const deleted = await db
         .delete(aiRelayAccountPool)

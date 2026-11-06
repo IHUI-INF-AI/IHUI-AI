@@ -208,6 +208,12 @@ export { CategoryBar } from './components/category-bar'
 export type { CategoryBarItem, CategoryBarProps } from './components/category-bar'
 
 // AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
+// BUG-33①:这两条是有副作用(注入样式)的顶层 import。契约由 package.json 补齐:
+//   · sideEffects:["**/*.css"] —— 消费方开 sideEffects:false 时样式不被摇掉;
+//   · exports["./styles/*"] —— 允许显式 import '@ihui/ui-react/styles/auth-shell.css',
+//     RSC / 不想要 barrel 副作用的上下文改走子路径,不必 import 带 CSS 的 barrel。
+// 保留顶层 import 是为了不破坏依赖「index.ts 自动加载」的 extension globals.css;
+// 彻底解耦(barrel 完全无 CSS)需同步改 apps/extension(本次范围外,只读)。
 import './styles/auth-shell.css'
 import './styles/login-form.css'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

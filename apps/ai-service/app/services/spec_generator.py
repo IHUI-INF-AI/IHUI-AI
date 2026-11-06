@@ -48,6 +48,32 @@ from .codebase_indexer import (
 
 logger = logging.getLogger(__name__)
 
+
+def _presence(path: Path) -> str:
+    """dir/file/other = 量到了; missing = 没有; unread = 读失败,不能说成没有。"""
+    import stat as _stat
+
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    if _stat.S_ISDIR(mode):
+        return "dir"
+    if _stat.S_ISREG(mode):
+        return "file"
+    return "other"
+
+
+def _loaded_spec_error(loaded: dict[str, Any]) -> dict[str, str] | None:
+    """读不到不能说成没有这份规格。真的没有才是 spec_not_found。"""
+    if loaded.get("unreadable"):
+        return {"error": "spec_unreadable"}
+    if not loaded.get("spec"):
+        return {"error": "spec_not_found"}
+    return None
+
 # 软依赖:watchdog 监听文件变更(缺失时 watch 功能降级,保证模块可导入 + typecheck 通过)
 # TYPE_CHECKING 块定义 stub 类供 mypy 视为具体 class 类型;运行时用 globals() 注入真实类,
 # mypy 不跟踪 globals() 赋值,因此保留 stub 类型绑定(避免被 watchdog Any 污染)。
@@ -165,46 +191,73 @@ class SpecGenerator:
     # ------------------------------------------------------------------
 
     def _collect_files(self, root: Path, scope: dict[str, Any]) -> list[tuple[Path, str]]:
-        """按 scope 收集代码文件。
+        """按 scope 收集代码文件。未读目录数见 ``_collect_files_report``。"""
+        files, _unread = self._collect_files_report(root, scope)
+        return files
+
+    def _collect_files_report(
+        self, root: Path, scope: dict[str, Any]
+    ) -> tuple[list[tuple[Path, str]], int]:
+        """按 scope 收集代码文件,并返回列失败的目录数。
 
         scope.type:
           - file:   单文件(scope.path 必填)
           - dir:    目录递归(scope.path 必填)
           - workspace: 全工作区递归(scope.path 可省略)
+
+        目录不存在是空名单且未读数为 0。列目录失败时未读数大于 0,
+        不能把文件名单当成这次范围已经扫完。
         """
         scope_type = scope.get("type", "workspace")
         scope_path = scope.get("path")
 
         if scope_type == "file":
             if not scope_path:
-                return []
+                return [], 0
             target = (root / scope_path).resolve() if not Path(scope_path).is_absolute() else Path(scope_path)
-            if not target.is_file():
-                return []
+            kind = _presence(target)
+            if kind == "unread":
+                return [], 1
+            if kind != "file":
+                return [], 0
             ext = target.suffix.lower()
             lang = _EXT_TO_LANG.get(ext)
-            return [(target, lang)] if lang else []
+            return ([(target, lang)] if lang else []), 0
 
         if scope_type == "dir":
             if not scope_path:
-                return []
+                return [], 0
             base = (root / scope_path).resolve() if not Path(scope_path).is_absolute() else Path(scope_path)
-            if not base.is_dir():
-                return []
+            kind = _presence(base)
+            if kind == "unread":
+                return [], 1
+            if kind != "dir":
+                return [], 0
             return self._walk_dir(base)
 
         # workspace
         base = root if not scope_path else (
             (root / scope_path).resolve() if not Path(scope_path).is_absolute() else Path(scope_path)
         )
-        if not base.is_dir():
-            return []
+        kind = _presence(base)
+        if kind == "unread":
+            return [], 1
+        if kind != "dir":
+            return [], 0
         return self._walk_dir(base)
 
-    def _walk_dir(self, base: Path) -> list[tuple[Path, str]]:
+    def _walk_dir(self, base: Path) -> tuple[list[tuple[Path, str]], int]:
         """递归收集代码文件(复用 codebase_indexer 的忽略目录策略)。"""
         result: list[tuple[Path, str]] = []
-        for dirpath, dirnames, filenames in os.walk(base):
+        unread = 0
+
+        def _on_walk_error(err: OSError) -> None:
+            nonlocal unread
+            if isinstance(err, FileNotFoundError):
+                return
+            unread += 1
+
+        for dirpath, dirnames, filenames in os.walk(base, onerror=_on_walk_error):
             dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
             for fname in filenames:
                 ext = os.path.splitext(fname)[1].lower()
@@ -213,8 +266,8 @@ class SpecGenerator:
                     continue
                 result.append((Path(dirpath) / fname, lang))
                 if len(result) >= MAX_SPEC_FILES:
-                    return result
-        return result
+                    return result, unread
+        return result, unread
 
     # ------------------------------------------------------------------
     # AST 符号提取(复用 codebase_indexer 的 _SYMBOL_NODE_TYPES)
@@ -640,7 +693,10 @@ class SpecGenerator:
         root = Path(workspace_path).resolve()
         scope_hash = self._compute_scope_hash(scope)
         history_dir = root / ".ihui-agent" / "specs" / "history"
-        if not history_dir.is_dir():
+        history_kind = _presence(history_dir)
+        if history_kind == "unread":
+            raise OSError(f"规格历史读不到,不能把它说成没有历史: {history_dir}")
+        if history_kind != "dir":
             return []
 
         entries: list[dict[str, Any]] = []
@@ -653,6 +709,8 @@ class SpecGenerator:
             try:
                 content = f.read_text(encoding="utf-8", errors="replace")
                 summary = self._summarize_spec(content)
+            except OSError as e:
+                raise OSError(f"规格历史读不到,不能把它说成空版本: {f}") from e
             except Exception as e:
                 logger.warning("spec_generator.get_history 失败: %s", e, exc_info=True)
                 content = ""
@@ -693,7 +751,10 @@ class SpecGenerator:
             history_dir = root / ".ihui-agent" / "specs" / "history"
             target = history_dir / f"{version}-{scope_hash}.md"
 
-        if not target.is_file():
+        kind = _presence(target)
+        if kind == "unread":
+            return {"spec": "", "filePath": "", "unreadable": True}
+        if kind != "file":
             return {"spec": "", "filePath": ""}
 
         try:
@@ -702,6 +763,9 @@ class SpecGenerator:
                 "spec": content,
                 "filePath": str(target.relative_to(root)).replace("\\", "/"),
             }
+        except OSError as e:
+            logger.warning("spec 加载失败: %s", e)
+            return {"spec": "", "filePath": "", "unreadable": True}
         except Exception as e:
             logger.warning("spec 加载失败: %s", e)
             return {"spec": "", "filePath": ""}
@@ -717,6 +781,16 @@ class SpecGenerator:
         """
         # 1. 读取旧 spec(在 generate 覆盖之前)
         old_data = self.load_spec(workspace_path, scope, "latest")
+        if old_data.get("unreadable"):
+            return {
+                "oldSpec": "",
+                "newSpec": "",
+                "diff": "",
+                "addedLines": 0,
+                "removedLines": 0,
+                "changedFiles": [],
+                "error": "旧规格读不到,不能把它当成空规格再覆盖",
+            }
         old_spec = old_data["spec"]
 
         # 2. 生成新 spec(generate 内部会持久化,覆盖旧文件)
@@ -762,6 +836,7 @@ class SpecGenerator:
         schemas: list[ExtractedSchema],
         file_count: int,
         imports_map: dict[str, list[str]],
+        unread_dirs: int = 0,
     ) -> list[dict[str, Any]]:
         """构建结构化章节。"""
         sections: list[dict[str, Any]] = []
@@ -773,6 +848,11 @@ class SpecGenerator:
             f"> 由 IHUI-AI Spec 模式自动生成 · 范围: {scope_desc}",
             "",
             f"- 扫描文件数: **{file_count}**",
+            *(
+                [f"- 有 {unread_dirs} 处路径读不到,不能把本次扫描说成完整"]
+                if unread_dirs
+                else []
+            ),
             f"- 提取符号数: **{len(symbols)}**",
             f"- API endpoint 数: **{len(endpoints)}**",
             f"- 数据模型数: **{len(schemas)}**",
@@ -878,9 +958,17 @@ class SpecGenerator:
         """
         start_ts = time.time()
         root = Path(workspace_path).resolve()
-        workspace_name = root.name if root.exists() else "workspace"
-
-        if not root.exists() or not root.is_dir():
+        root_kind = _presence(root)
+        if root_kind == "unread":
+            message = f"工作区读不到,不能把它说成不存在: {workspace_path}"
+            return SpecResult(
+                spec=f"# 错误\n\n{message}",
+                sections=[{"title": "错误", "content": message, "level": 1}],
+                stats={"files": 0, "symbols": 0, "endpoints": 0, "schemas": 0, "directories_unreadable": 1},
+                duration_ms=int((time.time() - start_ts) * 1000),
+            )
+        workspace_name = root.name if root_kind != "missing" else "workspace"
+        if root_kind != "dir":
             return SpecResult(
                 spec=f"# 错误\n\n工作区路径不存在: {workspace_path}",
                 sections=[{"title": "错误", "content": f"工作区路径不存在: {workspace_path}", "level": 1}],
@@ -888,7 +976,7 @@ class SpecGenerator:
                 duration_ms=int((time.time() - start_ts) * 1000),
             )
 
-        files = self._collect_files(root, scope)
+        files, unread_dirs = self._collect_files_report(root, scope)
         if languages:
             lang_set = set(languages)
             files = [(f, l) for f, l in files if l in lang_set]
@@ -933,6 +1021,7 @@ class SpecGenerator:
             all_schemas,
             len(files),
             imports_map,
+            unread_dirs,
         )
 
         spec_md = "\n".join(s["content"] for s in sections)
@@ -970,6 +1059,7 @@ class SpecGenerator:
             sections=sections,
             stats={
                 "files": len(files),
+                "directories_unreadable": unread_dirs,
                 "symbols": len(all_symbols),
                 "endpoints": len(all_endpoints),
                 "schemas": len(all_schemas),
@@ -1233,12 +1323,28 @@ class SpecGenerator:
 
         for fpath in affected_files:
             abs_path = root / fpath
+            presence = _presence(abs_path)
+            if presence == "unread":
+                files_result.append({
+                    "path": fpath,
+                    "originalLines": 0,
+                    "patchedLines": 0,
+                    "status": "unreadable",
+                })
+                continue
             original = ""
-            if abs_path.is_file():
+            if presence == "file":
                 try:
                     original = abs_path.read_text(encoding="utf-8", errors="replace")
-                except Exception:
+                except OSError:
                     logger.exception("[spec_generator] read_file_failed: path=%s", str(abs_path))
+                    files_result.append({
+                        "path": fpath,
+                        "originalLines": 0,
+                        "patchedLines": 0,
+                        "status": "unreadable",
+                    })
+                    continue
             patched = self._apply_patch_to_content(original, file_patches.get(fpath, []))
             files_result.append({
                 "path": fpath,
@@ -1269,8 +1375,15 @@ class SpecGenerator:
         for fpath in affected_files:
             abs_path = root / fpath
             try:
+                presence = _presence(abs_path)
+                if presence == "unread":
+                    failed.append({"path": fpath, "error": "文件读不到,不能把它覆盖成补丁结果"})
+                    continue
+                if presence not in ("file", "missing"):
+                    failed.append({"path": fpath, "error": "目标不是文件,不能把它覆盖成补丁结果"})
+                    continue
                 original = ""
-                if abs_path.is_file():
+                if presence == "file":
                     original = abs_path.read_text(encoding="utf-8", errors="replace")
                     # 备份原文件
                     backup_path = backup_dir / fpath.replace("/", "_")
@@ -1567,8 +1680,9 @@ class SpecGenerator:
     ) -> dict[str, Any]:
         """提交 spec 进入评审(status: draft → pending_review)。"""
         current = self.load_spec(workspace_path, scope, "latest")
-        if not current["spec"]:
-            return {"error": "spec_not_found"}
+        blocked = _loaded_spec_error(current)
+        if blocked:
+            return blocked
         fields, _, _ = self._parse_frontmatter(current["spec"])
         if fields.get("status", "draft") not in ("draft", "rejected"):
             return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
@@ -1579,8 +1693,9 @@ class SpecGenerator:
     ) -> dict[str, Any]:
         """审批通过 spec(status: pending_review → approved)。"""
         current = self.load_spec(workspace_path, scope, "latest")
-        if not current["spec"]:
-            return {"error": "spec_not_found"}
+        blocked = _loaded_spec_error(current)
+        if blocked:
+            return blocked
         fields, _, _ = self._parse_frontmatter(current["spec"])
         if fields.get("status") != "pending_review":
             return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
@@ -1595,8 +1710,9 @@ class SpecGenerator:
     ) -> dict[str, Any]:
         """拒绝 spec(status: pending_review → rejected)。"""
         current = self.load_spec(workspace_path, scope, "latest")
-        if not current["spec"]:
-            return {"error": "spec_not_found"}
+        blocked = _loaded_spec_error(current)
+        if blocked:
+            return blocked
         fields, _, _ = self._parse_frontmatter(current["spec"])
         if fields.get("status") != "pending_review":
             return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
@@ -1611,10 +1727,14 @@ class SpecGenerator:
         """返回所有 pending_review 状态的 spec 列表。"""
         root = Path(workspace_path).resolve()
         specs_dir = root / ".ihui-agent" / "specs"
-        if not specs_dir.is_dir():
+        dir_kind = _presence(specs_dir)
+        if dir_kind == "unread":
+            return {"specs": [], "error": "spec_unreadable"}
+        if dir_kind != "dir":
             return {"specs": []}
 
         pending: list[dict[str, Any]] = []
+        unread_files = 0
         for f in specs_dir.glob("*.md"):
             try:
                 content = f.read_text(encoding="utf-8", errors="replace")
@@ -1628,9 +1748,15 @@ class SpecGenerator:
                         "reviewer": fields.get("reviewer", ""),
                         "submittedAt": fields.get("reviewed_at", ""),
                     })
+            except OSError as e:
+                unread_files += 1
+                logger.warning("spec_generator.get_pending_reviews 读不到: %s", e)
+                continue
             except Exception as e:
                 logger.warning("spec_generator.get_pending_reviews 失败: %s", e, exc_info=True)
                 continue
+        if unread_files:
+            return {"specs": pending, "error": "spec_unreadable", "unreadableFiles": unread_files}
         return {"specs": pending}
 
     # ------------------------------------------------------------------
@@ -1650,9 +1776,10 @@ class SpecGenerator:
             { tasks: [{ title, description, priority, estimated_complexity }] }
         """
         spec_data = self.load_spec(workspace_path, scope, "latest")
+        blocked = _loaded_spec_error(spec_data)
+        if blocked:
+            return blocked
         spec_md = spec_data["spec"]
-        if not spec_md:
-            return {"error": "spec_not_found"}
 
         # 按章节拆分
         sections = self._split_spec_sections(spec_md)
@@ -1819,9 +1946,10 @@ class SpecGenerator:
         降级:LLM 调用失败时省略智能分析章节,返回 { error }。
         """
         spec_data = self.load_spec(workspace_path, scope, "latest")
+        blocked = _loaded_spec_error(spec_data)
+        if blocked:
+            return blocked
         spec_md = spec_data["spec"]
-        if not spec_md:
-            return {"error": "spec_not_found"}
 
         prompt = (
             "你是资深架构师。分析以下 spec,生成智能分析章节。\n\n"

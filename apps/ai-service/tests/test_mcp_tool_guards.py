@@ -15,6 +15,13 @@ import asyncio
 
 import pytest
 
+from app.core.mcp_tool_approval import (
+    CREDIT_APPROVAL_ERROR,
+    apply_host_credit_facts,
+    decide_credit_spend,
+    gate_image_spend,
+    quote_image_credits,
+)
 from app.services import mcp_server as mcp_server_mod
 from app.services.mcp_server import (
     _match_destructive_command,
@@ -287,3 +294,163 @@ async def test_terminal_delta_empty_text_and_missing_cid(monkeypatch):
     assert frames[0]["terminalId"] == ""
     assert frames[0]["iteration"] is None
     assert "messageId" not in frames[0]
+
+
+def test_quote_is_measured_from_pixels() -> None:
+    assert quote_image_credits("1024x1024") == 10
+    assert quote_image_credits("512x512") == 3
+    assert quote_image_credits("not-a-size") is None
+    assert quote_image_credits("0x1024") is None
+    assert quote_image_credits(1024) is None
+
+
+def test_below_line_allows_without_asking() -> None:
+    disposition, reason = decide_credit_spend(
+        quoted_credits=10, balance_credits=1000, approval=None
+    )
+    assert disposition == "allow"
+    assert reason == "below-line"
+
+
+def test_high_share_needs_a_person() -> None:
+    disposition, reason = decide_credit_spend(
+        quoted_credits=10, balance_credits=1, approval=None
+    )
+    assert disposition == "require-approval"
+    assert reason == "needs-approval"
+
+
+def test_denied_is_not_allow_and_unknown_word_is_unjudged() -> None:
+    denied, denied_reason = decide_credit_spend(
+        quoted_credits=10, balance_credits=1, approval="denied"
+    )
+    assert denied == "denied"
+    assert denied_reason == "denied"
+    unknown, unknown_reason = decide_credit_spend(
+        quoted_credits=10, balance_credits=1, approval="yes"
+    )
+    assert unknown == "unjudged"
+    assert unknown_reason == "approval-unrecognized"
+
+
+def test_missing_quote_is_not_zero() -> None:
+    disposition, reason = decide_credit_spend(
+        quoted_credits=None, balance_credits=100, approval="granted"
+    )
+    assert disposition == "unjudged"
+    assert reason == "quote-unmeasured"
+
+
+def test_model_grant_cannot_overwrite_host() -> None:
+    stamped = apply_host_credit_facts(
+        {
+            "prompt": "cat",
+            "size": "1024x1024",
+            "credit_approval": "granted",
+            "__credit_approval": "granted",
+            "__credit_balance": 99999,
+        },
+        balance=1,
+        approval=None,
+    )
+    blocked = gate_image_spend(stamped)
+    assert blocked is not None
+    assert blocked["errorCode"] == CREDIT_APPROVAL_ERROR
+    assert blocked["creditSpend"]["balanceCredits"] == 1
+    assert blocked["creditSpend"]["disposition"] == "require-approval"
+
+
+def test_host_grant_and_low_share_do_not_block() -> None:
+    granted = apply_host_credit_facts(
+        {"size": "1024x1024"}, balance=1, approval="granted"
+    )
+    cheap = apply_host_credit_facts(
+        {"size": "1024x1024"}, balance=1000, approval=None
+    )
+    absent = apply_host_credit_facts(
+        {"credit_approval": "granted"}, balance=None, approval=None
+    )
+    assert gate_image_spend(granted) is None
+    assert gate_image_spend(cheap) is None
+    assert gate_image_spend(absent) is None
+
+
+def test_bad_balance_shape_blocks_instead_of_looking_absent() -> None:
+    blocked = gate_image_spend({"__credit_balance": True, "size": "1024x1024"})
+    assert blocked is not None
+    assert blocked["creditSpend"]["reason"] == "balance-invalid"
+
+
+@pytest.mark.asyncio
+async def test_rejection_does_not_touch_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"chain": 0, "once": 0}
+
+    def chain(_explicit: object) -> list[str]:
+        calls["chain"] += 1
+        return ["stub"]
+
+    async def once(*_args: object, **_kwargs: object) -> dict[str, object]:
+        calls["once"] += 1
+        return {"tool": "image_generation", "ok": True}
+
+    monkeypatch.setattr(mcp_server_mod, "_image_provider_chain", chain)
+    monkeypatch.setattr(mcp_server_mod, "_image_generate_once", once)
+    out = await mcp_server_mod._tool_image_generation(
+        apply_host_credit_facts(
+            {"prompt": "cat", "size": "1024x1024", "credit_approval": "granted"},
+            balance=1,
+            approval=None,
+        )
+    )
+    assert out["ok"] is False
+    assert out["errorCode"] == CREDIT_APPROVAL_ERROR
+    assert calls == {"chain": 0, "once": 0}
+
+
+@pytest.mark.asyncio
+async def test_host_grant_reaches_provider_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = {"once": 0}
+
+    monkeypatch.setattr(mcp_server_mod, "_image_provider_chain", lambda _explicit: ["stub"])
+
+    async def once(*_args: object, **_kwargs: object) -> dict[str, object]:
+        calls["once"] += 1
+        return {"tool": "image_generation", "ok": True, "provider": "stub"}
+
+    monkeypatch.setattr(mcp_server_mod, "_image_generate_once", once)
+    out = await mcp_server_mod._tool_image_generation(
+        apply_host_credit_facts(
+            {"prompt": "cat", "size": "1024x1024"}, balance=1, approval="granted"
+        )
+    )
+    assert out["ok"] is True
+    assert calls["once"] == 1
+
+
+@pytest.mark.asyncio
+async def test_call_tool_overwrites_model_self_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"chain": 0}
+
+    def chain(_explicit: object) -> list[str]:
+        calls["chain"] += 1
+        return ["stub"]
+
+    monkeypatch.setattr(mcp_server_mod, "_image_provider_chain", chain)
+    server = mcp_server_mod.MCPServer()
+    out = await server.call_tool(
+        "image_generation",
+        {
+            "prompt": "cat",
+            "size": "1024x1024",
+            "credit_approval": "granted",
+            "__credit_balance": 99999,
+            "__credit_approval": "granted",
+        },
+        credit_balance=1,
+        credit_approval=None,
+    )
+    assert out["errorCode"] == CREDIT_APPROVAL_ERROR
+    assert out["creditSpend"]["balanceCredits"] == 1
+    assert calls["chain"] == 0

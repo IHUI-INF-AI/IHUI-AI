@@ -16,6 +16,8 @@
 
 import base64
 import json
+import os
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -378,6 +380,29 @@ async def test_view_image_workspace_containment(tmp_path):
     assert "不存在" in str(missing.get("error", ""))
     wrong_type = await tool.executor({"path": "notes.txt"})
     assert "不支持的图片类型" in str(wrong_type.get("error", ""))
+
+
+@pytest.mark.asyncio
+async def test_view_image_unreadable_is_not_missing(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    engine, _ = _engine()
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    image = workspace / "pic.png"
+    image.write_bytes(b"\x89PNG fake-bytes")
+    started = await _rpc(engine, "thread.start", {"workspace": str(workspace)})
+    thread = engine._threads[started["threadId"]]
+    tool = _find_builtin(engine, thread, "view_image")
+    real_stat = Path.stat
+
+    def deny(self, *args, **kwargs):
+        if self.name == "pic.png":
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", deny)
+    result = await tool.executor({"path": "pic.png"})
+    assert str(result.get("error", "")).startswith("图片读不到")
+    assert image.read_bytes() == b"\x89PNG fake-bytes"
 
 
 # =============================================================================

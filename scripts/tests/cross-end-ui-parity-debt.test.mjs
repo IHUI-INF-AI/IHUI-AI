@@ -211,6 +211,21 @@ describe('在册快照与源脚本口径一致', () => {  const snapshot = () =>
     assert.ok(s.families.length > 0 && typeof s.total === 'number', '声明"保留轴一"却把轴一读数写空了')
     assert.equal(s.recordedAt, s.axis1PreservedFrom, '轴一保留时 recordedAt 必须仍是轴一那次的时刻')
   })
+
+  it('T22 在册快照带着自动化上界,且它自洽(followable ≤ cells,cells>0 ⇒ 不是空账)', () => {
+    const c = snapshot().webRn?.automationCeiling
+    assert.ok(c, '在册快照缺 webRn.automationCeiling ⇒ 这条边界又变回 tmp 探针里的一次性读数')
+    assert.ok(c.cells > 0, 'cells=0 意味着快照是在门没判的那一轮写的')
+    assert.ok(c.followable <= c.cells)
+    assert.equal(c.needsAdjudication, c.cells - c.followable)
+    const sumByDim = Object.values(c.byDim).reduce((a, x) => a + x.cells, 0)
+    assert.equal(sumByDim, c.cells, 'byDim 之和必须等于 cells(逐维漏桶 = 少算)')
+    assert.equal(
+      Array.isArray(c.items) ? c.items.length : -1,
+      c.followable,
+      '在册快照必须带可派工清单,且清单条数 == followable(只留计数 = 下一个人还得自己再探一遍)',
+    )
+  })
 })
 
 describe('在册快照的格式面:生成物的规范形态归全仓唯一的格式化器', () => {
@@ -470,6 +485,129 @@ describe('轴二 --check 裁决:没基线的那一轴不许贡献"涨",也不许
       checkVerdict({ ...judged, webRnUp: [{ name: 'Y' }], webRnLedger: 'not-in-ledger' }).code,
       2,
     )
+  })
+})
+
+/**
+ * 轴二的自动化上界(2026-11-06 实测:514 条 (对,维) 分叉里只有 25 条两侧各一个候选值)。
+ * 这组用例钉的是"别把 2099 读成 2099 个可自动修的点",以及分母不许把数据缺口算进去。
+ */
+describe('followableOf:可自动跟随上界只认"两侧各恰好一个候选值"', () => {
+  const cell = (o) => ({ webOnly: o.w ?? [], rnOnly: o.r ?? [], status: o.s ?? 'same' })
+  const jsonOf = (detail) => ({ webRn: { dimensions: ['padding', 'radius'], detail } })
+
+  it('F1 分母只含 status=diff 的记录;one-sided / no-data / same 一律不进', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'A', dims: { padding: cell({ w: ['8'], r: ['12'], s: 'diff' }), radius: cell({ w: ['6'], r: ['4', '8'], s: 'diff' }) } },
+        { name: 'B', dims: { padding: cell({ w: ['8', '16'], r: [], s: 'one-sided' }), radius: cell({ w: ['6'], r: ['4'], s: 'diff' }) } },
+        { name: 'C', dims: { padding: cell({ s: 'same' }), radius: cell({ s: 'no-data' }) } },
+      ]),
+    )
+    assert.equal(c.cells, 3, 'A.padding A.radius B.radius 三条才是分叉')
+    assert.equal(c.followable, 2)
+    assert.equal(c.needsAdjudication, c.cells - c.followable)
+    assert.deepEqual(c.byDim.padding, { cells: 1, followable: 1 })
+    assert.deepEqual(c.byDim.radius, { cells: 2, followable: 1 })
+  })
+
+  it('F2 反向对照:全 1v1 时 followable 必须等于 cells(否则这比例永远读 0,是坏尺)', () => {
+    const c = L.followableOf(jsonOf([{ name: 'Z', dims: { padding: cell({ w: ['8'], r: ['12'], s: 'diff' }) } }]))
+    assert.equal(c.cells, 1)
+    assert.equal(c.followable, 1)
+  })
+
+  it('F3 屏数按去重计(一条屏多条 1v1 只算一屏,派单口径要的是屏)', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'S', dims: { padding: cell({ w: ['8'], r: ['12'], s: 'diff' }), radius: cell({ w: ['6'], r: ['4'], s: 'diff' }) } },
+        { name: 'T', dims: { padding: cell({ w: ['8'], r: ['4', '8'], s: 'diff' }) } },
+      ]),
+    )
+    assert.equal(c.pairsWithFollowable, 1)
+  })
+
+  it('F4 空输入 / 没这段 ⇒ 0/0 且不抛(未判定由 webRnAxis 那一层负责,这里不冒红)', () => {
+    assert.deepEqual(
+      { n: L.followableOf({}).cells, f: L.followableOf({}).followable },
+      { n: 0, f: 0 },
+    )
+    assert.equal(L.followableOf({ webRn: { dimensions: [], detail: null } }).cells, 0)
+  })
+
+  it('F5 结论行必须自带"其余是歧义"的措辞(数字单独摆出来会被读成待修清单)', () => {
+    const c = L.followableOf(jsonOf([{ name: 'Z', dims: { padding: cell({ w: ['8'], r: ['4', '8'], s: 'diff' }) } }]))
+    assert.match(c.why, /held 不猜/)
+  })
+
+  it('F6 清单才是可派工形态:条数必须等于计数、每条都取自门的明细、排序稳定', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'S', dims: { radius: cell({ w: ['6'], r: ['4'], s: 'diff' }), padding: cell({ w: ['8'], r: ['12'], s: 'diff' }) } },
+        { name: 'A', dims: { padding: cell({ w: ['4'], r: ['6'], s: 'diff' }) } },
+      ]),
+    )
+    assert.equal(c.items.length, c.followable, 'items 与 followable 必须同数(不同数 = 计数与清单两把尺)')
+    assert.deepEqual(
+      c.items.map((x) => `${x.pair}/${x.dim}:${x.web}/${x.rn}`),
+      ['A/padding:4/6', 'S/padding:8/12', 'S/radius:6/4'],
+    )
+  })
+
+  it('F7 反向对照:one-sided 记录(一侧零候选)绝不进清单 —— 进了就是把数据缺口当可跟随', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'B', dims: { padding: cell({ w: ['8'], r: [], s: 'one-sided' }), radius: cell({ w: [], r: ['4'], s: 'one-sided' }) } },
+      ]),
+    )
+    assert.equal(c.cells, 0)
+    assert.deepEqual(c.items, [])
+  })
+
+  it('F8 形状分层用门的 webCount/rnCount:该维两侧各只有 1 个档 = single-tier,还有别的档 = residual(它只排"先量谁",不是"照它改")', () => {
+    const c = L.followableOf(
+      jsonOf([
+        { name: 'strong', dims: { radius: { webOnly: ['8'], rnOnly: ['6'], status: 'diff', webCount: 1, rnCount: 1 } } },
+        { name: 'residual', dims: { radius: { webOnly: ['6'], rnOnly: ['4'], status: 'diff', webCount: 2, rnCount: 2 } } },
+      ]),
+    )
+    assert.deepEqual(c.byStrength, { 'single-tier': 1, residual: 1 })
+    assert.equal(c.items[0].strength, 'single-tier', '取值唯一的排在前面(派单先量它)')
+    assert.equal(c.items[1].strength, 'residual')
+    assert.equal(c.followable, 2, '两者都算"取值无歧义" ⇒ 不许把弱档从计数里抹掉')
+  })
+
+  it('F8b 实测边界锁:人读面必须带"取值唯一 ≠ 同元素"那句(9 条逐条回源码抽检 0 条成立)', () => {
+    const src = readFileSync(resolve(HERE, '../cross-end-ui-parity-debt.mjs'), 'utf8').replace(/\s+/g, ' ')
+    assert.match(src, /"取值唯一"≠"同元素"/, '台账不许把 single-tier 说成可直接改 RN 的清单')
+    assert.match(src, /0 条是同元素同属性/)
+  })
+
+  it('F9 门没给档数计数 ⇒ strength=unknown,不猜(缺输入要落未判定色,不许折成 residual)', () => {
+    const c = L.followableOf(jsonOf([{ name: 'X', dims: { radius: cell({ w: ['6'], r: ['4'], s: 'diff' }) } }]))
+    assert.equal(c.items[0].strength, 'unknown')
+    assert.deepEqual(c.byStrength, { unknown: 1 })
+    assert.equal(c.followable, 1)
+  })
+
+  it('F10 清单必须自带两侧文件指针(取门的 detail.web/rn)—— 否则派单还要别人再 join 一次', () => {
+    const c = L.followableOf({
+      webRn: {
+        dimensions: ['radius'],
+        detail: [
+          {
+            name: 'wallet/withdraw',
+            web: 'apps/web/app/(main)/wallet/withdraw/page.tsx',
+            rn: 'packages/app/src/features/withdraw/WithdrawScreen.tsx',
+            dims: { radius: { webOnly: ['6'], rnOnly: ['4'], status: 'diff', webCount: 2, rnCount: 2 } },
+          },
+        ],
+      },
+    })
+    assert.equal(c.items[0].webFile, 'apps/web/app/(main)/wallet/withdraw/page.tsx')
+    assert.equal(c.items[0].rnFile, 'packages/app/src/features/withdraw/WithdrawScreen.tsx')
+    assert.equal(c.items[0].web, '6', '值必须逐字取门的明细(本层不换算成数字/不映射 token 档)')
+    assert.equal(c.items[0].rn, '4')
   })
 })
 

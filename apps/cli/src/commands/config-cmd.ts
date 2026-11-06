@@ -24,6 +24,7 @@ import { PERMISSION_MODES } from '@ihui/types/permission-mode';
 import {
   getSettingsPath,
   loadSettings,
+  readSettingsObjectForUpdate,
   type Settings,
   type SamplerSettings,
 } from './settings.js';
@@ -259,7 +260,8 @@ function handleConfigSet(key: string, valueStr: string): string {
     const n = parsed.value as number;
     if (n < 1 || n > 32768) return chalk.red(`✗ maxTokens 需在 1-32768 范围(收到: ${n})`);
   }
-  // 写入
+  // 写入。目标配置读不到时不把没读到的内容覆盖掉。
+  readSettingsObjectForUpdate(getSettingsPath());
   const settings = loadSettings() as Settings & Record<string, unknown>;
   setDeep(settings as Record<string, unknown>, field.key, parsed.value);
   // 确保 sampler 对象存在(为 sampler.temperature/maxTokens 写入兜底)

@@ -12,6 +12,7 @@ mock 策略:LLM 调用(mock llm_gateway.complete)/ 文件系统(tmp_path)/ git c
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -617,6 +618,50 @@ class TestGenerate:
         assert result.stats["endpoints"] >= 2
 
     @pytest.mark.asyncio
+    async def test_unreadable_directory_is_not_a_complete_spec(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """子目录列不出来时,规格不能写成这次扫描已经覆盖工作区。"""
+        (tmp_path / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        blocked = tmp_path / "blocked"
+        blocked.mkdir()
+        hidden = blocked / "hidden.py"
+        hidden.write_text("def hidden():\n    return 1\n", encoding="utf-8")
+        real_scandir = os.scandir
+
+        def deny(path: str) -> object:
+            if Path(path).name == "blocked":
+                raise PermissionError(13, "denied", str(path))
+            return real_scandir(path)
+
+        monkeypatch.setattr(os, "scandir", deny)
+        result = await generator.generate(str(tmp_path), {"type": "workspace"})
+        assert result.stats["directories_unreadable"] >= 1
+        assert "不能把本次扫描说成完整" in result.spec
+        assert "hidden.py" not in result.spec
+        assert hidden.read_text(encoding="utf-8") == "def hidden():\n    return 1\n"
+
+    @pytest.mark.asyncio
+    async def test_unreadable_file_scope_is_not_a_complete_spec(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """单文件读不到时,不能写成这次范围是空的而且已经扫完。"""
+        target = tmp_path / "keep.py"
+        target.write_text("def keep():\n    return 1\n", encoding="utf-8")
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        result = await generator.generate(str(tmp_path), {"type": "file", "path": "keep.py"})
+        assert result.stats["directories_unreadable"] >= 1
+        assert "不能把本次扫描说成完整" in result.spec
+        assert target.read_text(encoding="utf-8") == "def keep():\n    return 1\n"
+
+    @pytest.mark.asyncio
     async def test_empty_workspace(self, generator, tmp_path):
         """空工作区(无代码文件)。"""
         result = await generator.generate(str(tmp_path), {"type": "workspace"})
@@ -672,6 +717,27 @@ class TestLoadSpec:
         assert generator.get_history(str(tmp_path), {"type": "workspace"}) == []
 
     @pytest.mark.asyncio
+    async def test_unreadable_history_is_not_empty(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        (tmp_path / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        await generator.generate(str(tmp_path), {"type": "workspace"})
+        history_dir = tmp_path / ".ihui-agent" / "specs" / "history"
+        original = sorted(p.name for p in history_dir.iterdir())
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(history_dir)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        with pytest.raises(OSError, match="不能把它说成没有历史"):
+            generator.get_history(str(tmp_path), {"type": "workspace"})
+        monkeypatch.undo()
+        assert sorted(p.name for p in history_dir.iterdir()) == original
+
+    @pytest.mark.asyncio
     async def test_load_by_version(self, generator, ts_workspace):
         """按版本号加载历史文件。"""
         await generator.generate(str(ts_workspace), {"type": "workspace"})
@@ -689,6 +755,26 @@ class TestLoadSpec:
 # ════════════════════════════════════════════════════════════════════════
 
 class TestGenerateDiff:
+    @pytest.mark.asyncio
+    async def test_unreadable_saved_spec_is_not_overwritten(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        (tmp_path / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        await generator.generate(str(tmp_path), {"type": "workspace"})
+        spec_file = next((tmp_path / ".ihui-agent" / "specs").glob("*.md"))
+        original = spec_file.read_text(encoding="utf-8")
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(spec_file)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        result = await generator.generate_diff(str(tmp_path), {"type": "workspace"})
+        assert str(result["error"]).startswith("旧规格读不到")
+        assert spec_file.read_text(encoding="utf-8") == original
+
     @pytest.mark.asyncio
     async def test_diff_first_generation(self, generator, ts_workspace):
         """首次生成 diff:old 为空,new 有内容。"""
@@ -932,6 +1018,28 @@ class TestApplySpec:
         backup_dir = tmp_path / result["backupDir"]
         assert backup_dir.is_dir()
 
+    def test_apply_patch_unreadable_file_is_not_overwritten(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        target = tmp_path / "f.ts"
+        target.write_text("line1\nline2\n", encoding="utf-8")
+        patch = "--- a/f.ts\n+++ b/f.ts\n@@ -1,2 +1,3 @@\n line1\n+inserted\n line2\n"
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        preview = generator.apply_patch_preview(str(tmp_path), patch, ["f.ts"])
+        assert preview["files"][0]["status"] == "unreadable"
+        result = generator.apply_patch_confirm(str(tmp_path), patch, ["f.ts"])
+        assert result["applied"] == []
+        assert result["failed"][0]["error"].startswith("文件读不到")
+        monkeypatch.undo()
+        assert target.read_text(encoding="utf-8") == "line1\nline2\n"
+
     def test_apply_patch_confirm_nonexistent_file(self, generator, tmp_path):
         """patch 应用到不存在的文件(创建新文件)。"""
         patch = "--- a/new.ts\n+++ b/new.ts\n@@ -0,0 +1,1 @@\n+new content\n"
@@ -952,6 +1060,26 @@ class TestReviewWorkflow:
         """无 spec → spec_not_found。"""
         result = generator.submit_for_review(str(tmp_path), {"type": "workspace"})
         assert result["error"] == "spec_not_found"
+
+    @pytest.mark.asyncio
+    async def test_submit_unreadable_spec_is_not_missing(
+        self, generator, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        (tmp_path / "keep.py").write_text("def keep():\n    return 1\n", encoding="utf-8")
+        await generator.generate(str(tmp_path), {"type": "workspace"})
+        spec_file = next((tmp_path / ".ihui-agent" / "specs").glob("*.md"))
+        original = spec_file.read_text(encoding="utf-8")
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(spec_file)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        result = generator.submit_for_review(str(tmp_path), {"type": "workspace"})
+        assert result["error"] == "spec_unreadable"
+        assert spec_file.read_text(encoding="utf-8") == original
 
     @pytest.mark.asyncio
     async def test_submit_for_review_success(self, generator, ts_workspace):

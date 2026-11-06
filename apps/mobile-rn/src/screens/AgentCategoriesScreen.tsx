@@ -15,6 +15,8 @@
  * 分类详情 + 分类下智能体收进一个详情弹层(web 是独立路由,移动端不复制路由层级)。
  * 点智能体跳已注册的 AgentDetail 路由(参数 { id: agentId })。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -62,6 +64,7 @@ interface Agent {
 }
 
 export default function AgentCategoriesScreen() {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const { t, locale } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
@@ -206,7 +209,7 @@ export default function AgentCategoriesScreen() {
       >
         <View style={styles.overlay}>
           <Tappable style={styles.mask} onPress={() => setPanel(null)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, dialogHeightStyle]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.name}
@@ -359,7 +362,7 @@ function makeStyles() {
       backgroundColor: tokens.overlay.modal,
     },
     sheet: {
-      maxHeight: '85%',
+      maxHeight: undefined,
       padding: rnSpacing.lg,
       gap: rnSpacing.sm,
       borderTopLeftRadius: rnRadius.xl,

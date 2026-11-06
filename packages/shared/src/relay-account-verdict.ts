@@ -136,7 +136,8 @@ export function relayAccountIdleDays(
  * 五类中前四类是验收硬要求,`credential_expired` 是保活面补充:
  * - invalid_cookie_decrypt: publish_cookie 密文 InvalidTag,连探活都解不开。
  * - credential_expired: 其余 expired(含 checkin JWT 解密失败/真实到期),只能重录。
- * - expired_no_refresh: token 已过期且该平台没有可用 refresh 协议(如 minimax)。
+ * - expired_no_refresh: token 已过期且该平台没有可用 refresh 协议(如 codex/zcode/lingma;
+ *   minimax 已于 2026-11-06 按 mcode 端点取证补上 refreshToken + client-first,不再属这一类)。
  * - claim_failed: 凭证仍可用但 claim 被明确拒绝(SessionDead/Client/BusinessError)。
  * - account_down: 健康检查 down / tempUnschedulable,已被调度器摘除。
  *

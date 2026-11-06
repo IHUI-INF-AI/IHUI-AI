@@ -7,7 +7,9 @@ import fp from 'fastify-plugin'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tenants, tenantQuotas, type Tenant } from '@ihui/database'
-import { normalizeHeaderStrict, matchesAnyPrefix, parsePath } from '../utils/http-normalize.js'
+import { normalizeHeaderStrict, parsePath } from '../utils/http-normalize.js'
+// BUG-4:公开面清单与匹配收归单一真相源(plugins/public-paths.ts),租户隔离绕过与它共用同一把尺。
+import { isTenantBypassPath as sharedIsPublicPath } from './public-paths.js'
 // ihui_tenant_api_calls_total:与配额自增同一 onResponse 收口(setImmediate 内,标签白名单洗)
 import { recordTenantApiCall } from './business-metrics.js'
 
@@ -19,38 +21,6 @@ declare module 'fastify' {
 }
 
 const DEFAULT_TENANT_HEADER = 'x-tenant-id'
-const PUBLIC_PREFIXES = [
-  '/api/health',
-  '/api/auth/',
-  '/api/sms-proxy/',
-  // 短信厂商回调(2026-10-27 补登记):云服务器到服务器投递,不带 X-Tenant-Id。
-  // 与 plugins/csrf.ts 同一条纪律 —— 只放这三条**完整路径**,不放 /api/sms/callback/ 前缀,
-  // 否则今后往该前缀下加写端点会自动继承"免租户"待遇。漏登记的后果不是报错而是静默:
-  // TENANT_STRICT_MODE 一旦开成 true,回执整条链当场 401,送达状态与退订永久补不上。
-  '/api/sms/callback/tencent',
-  '/api/sms/callback/tencent/status',
-  '/api/sms/callback/tencent/reply',
-  '/api/oauth/',
-  '/api/payments/',
-  '/api/ai/callback',
-  // D30① 信源入口:同 ai-callback 属"机器回调",调用方不携带租户头(它带的是 HMAC 签名)。
-  // 只放这一条**完整路径**;`/api/webhooks/` 前缀一律不放(理由见 plugins/csrf.ts 同条注释)。
-  '/api/webhooks/github',
-  '/api/tbox/events',
-  '/api/csrf-token',
-  '/api/configs',
-  '/api/settings',
-  '/api/agreements/',
-  '/api/exchange-rates/',
-  '/api/share/',
-  '/api/openapi/',
-  '/api/developer/portal',
-  '/api/ai-pricing',
-  '/api/vip/levels',
-  '/api/vip/products',
-  '/docs',
-  '/openapi.json',
-]
 
 /** 从 header / subdomain 解析租户标识。 */
 export function resolveTenantIdentifier(request: FastifyRequest): string | null {
@@ -76,8 +46,7 @@ export function resolveTenantIdentifier(request: FastifyRequest): string | null 
 }
 
 export function isPublicPath(url: string): boolean {
-  const path = parsePath(url)
-  return matchesAnyPrefix(path, PUBLIC_PREFIXES)
+  return sharedIsPublicPath(parsePath(url))
 }
 
 /** 租户缓存：slug/uuid -> { tenant, expiredAt }，避免每请求查 DB。 */

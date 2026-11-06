@@ -235,6 +235,13 @@ pnpm qoder:import -- --file accounts.json --provider trae
 # 模式 C:已解密的本机会话 JSON(qoder-capture.ps1 产物;无 pwsh 环境的降级通道)
 pnpm qoder:import -- --session-file session.json
 
+# 归属旗标(2026-11-06 起,与 scripts/relay-account-pool.mjs 同一把尺子):
+#   不带旗标 ⇒ 读本机 ~/.wb-switch/pool-owner(一行 users.id),取到即落该用户个人池;
+#             取不到 ⇒ 落运营池并在输出面点名原因(不静默)。
+#   显式指定用户 / 强制运营池各自一枚,同给 ⇒ 未判定 exit 2,不猜。
+pnpm qoder:import -- --owner <users.id>
+pnpm qoder:import -- --ops-pool
+
 # 干跑(只解析不落库,核对来源/uid/到期)
 pnpm qoder:import -- --dry-run
 ```

@@ -16,9 +16,24 @@
  *   1008 = 余额不足,1039 = 限流 —— 三者均为**公开社区口径,未本机实证**。
  * - 凭证两类:pay-as-you-go(sk-api-…,走账户余额)与 Token Plan 订阅键(sk-cp-…,
  *   走套餐配额);额度端点只认订阅键(按量 key 会 401/403,社区调研口径)。
- * - 刷新:mcode 的 OAuth 刷新端点(auth.json 里 accessToken/refreshToken/expiresAtMs)
- *   **未实证**(CLI 内部行为,无公开文档)⇒ 本适配器不实现 refreshToken,
- *   401 自愈依赖重新导入号池,绝不猜端点。
+ * - 刷新(2026-11-06 起已实现,§0.12 逆向-复现-超越第③步):出处 = 本机 MiniMax Code 3.1.10
+ *   的 app.asar 字符串取证(@mavis/oauth-core 的 endpoint-config.js / contracts.js /
+ *   oauth-client.js / auth-core.js)。端点 = `POST {accountOrigin}/oauth2/token`,
+ *   form-urlencoded 五字段,除 Accept/Content-Type 外**不带任何头**(无设备证明、无签名,
+ *   当年卡住 Trae 的 ECDSA 那一型在此不存在);cn=`account.minimax.cn`,en=`account.minimax.io`。
+ *   ⚠ 上游 refresh_token 是**轮换型**:号池若抢在客户端之前刷,旧 rt 立刻 invalid_grant,
+ *   而客户端只在 `invalid_grant + HTTP 400` 这一档销毁会话 ⇒ 会把机主的桌面端直接顶下线。
+ *   因此本平台的续期策略必须与 trae/qoder 同档登记为 client-first(判据在
+ *   `relay-account-pool-scheduler.ts` 的 CLIENT_FIRST_FLAGS,同批已加 minimax 档)。
+ *   未实证面(不冒绿):新票 expires_in 真值、旧 rt 二用是否恒返 400、上游是否校验 Origin/UA。
+ * - 实弹核验(2026-11-06 本机,机主单独授权):
+ *   ① 对照组一把明显假的 rt ⇒ `400 invalid_grant`;② 本机现役号的真 rt ⇒ 同一个码;
+ *   ③ 同一枚号的 access 票打本适配器已实证的余量端点 ⇒ `401 {"error":"invalid access token"}`。
+ *   读法:两条独立端点都拒这枚号的凭据 ⇒ 判「这枚号在上游已失效」成立;
+ *   但**「我方请求形状对活号也正确」仍未证** —— 本机已无活号可作正向对照,该格留给
+ *   下一枚真登录的号(届时 refreshOne 成功即自动补上这格证据:成功会写 credVersion+1 并清零失败计数)。
+ *   副作用如实记:那次实验把该行 refreshFailureCount 推到 2、并按 authRejected 语义把到期列收敛到
+ *   实验时刻 —— 在"凭据已被上游拒"这个事实下,收敛是真阴性,不回滚。
  * - 凭证映射(服务端 mapMinimaxImport,主会话集成):token←accessToken,
  *   refreshTokenEnc←refreshToken,secretsEnc←JSON{clientId,audience,region,…};
  *   到期←expiresAtMs(上游给的真值)。
@@ -32,6 +47,7 @@ import type {
   RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
+  TokenRefreshResult,
   TranslatedChunk,
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
@@ -377,6 +393,176 @@ async function checkHealth(
 }
 
 // =============================================================================
+// OAuth 续票(2026-11-06 立)
+// 只复现**协议行为**(端点落点 / 请求面 / 响应硬校验 / 失败分档),不搬对方源码。
+// =============================================================================
+
+/** 账号面 origin(与 api 面不同域:api 走 minimaxi.com,账号面走 minimax.cn / .io) */
+const OAUTH_ACCOUNT_CN = 'https://account.minimax.cn'
+const OAUTH_ACCOUNT_GLOBAL = 'https://account.minimax.io'
+const OAUTH_TOKEN_PATH = '/oauth2/token'
+/** 客户端硬校验的三项常量;池内 secrets 有原值时优先用它自己的(secrets 就是导入时那台机的原样) */
+const OAUTH_CLIENT_ID = 'mcode-public'
+const OAUTH_SCOPE = 'agent.default'
+const OAUTH_AUDIENCE = 'agent-backend'
+
+/**
+ * 刷新失败载体。status/code 是「票死没死」的两要件;message 只许含状态码与 OAuth 错误码,
+ * 永不含凭据,也不转述上游 error_description(有的服务端会把 token 值原样写回描述里,
+ * 而 lastErrorMessage 是明文列)。
+ */
+export class MinimaxRefreshError extends Error {
+  readonly status: number
+  readonly code: string
+  constructor(status: number, code: string, message: string) {
+    super(message)
+    this.name = 'MinimaxRefreshError'
+    this.status = status
+    this.code = code
+  }
+}
+
+/** 「票已死」的唯一形态(取证:客户端自己也只在这一档销毁会话,其余档保留会话) */
+export function isDeadGrantError(status: number, code: string): boolean {
+  return status === 400 && code === 'invalid_grant'
+}
+
+/** OAuth 错误码取法:标准形 `{"error":"invalid_grant"}`,也接 `{"error":{"code":…}}` 包装形 */
+function pickOAuthErrorCode(body: unknown): string {
+  if (body === null || typeof body !== 'object') return ''
+  const raw = (body as Record<string, unknown>).error
+  if (typeof raw === 'string') return raw.trim()
+  if (raw !== null && typeof raw === 'object') {
+    const c = (raw as Record<string, unknown>).code
+    if (typeof c === 'string') return c.trim()
+  }
+  return ''
+}
+
+/**
+ * grant 响应 → 票面(纯函数)。四条硬校验与取证到的 parseTokenGrant 同语义:
+ * access_token 在场 ∧ token_type=bearer ∧ expires_in>0 ∧ scope 集含 agent.default;
+ * refresh_token 缺省 ⇒ 沿用旧值(上游允许不回新 rt,清空就是丢号)。
+ * 任一条不过 = invalid_token_response:不当成功、不写票(§0.3 形状不符是未判定,不是失效)。
+ */
+export function parseMinimaxTokenGrant(
+  body: unknown,
+  nowMs: number,
+  fallbackRefreshToken: string | null,
+): TokenRefreshResult {
+  const o = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  const token = str(o.access_token)
+  const tokenType = str(o.token_type).toLowerCase()
+  const expiresIn = typeof o.expires_in === 'number' ? o.expires_in : Number(str(o.expires_in))
+  const scopeField = o.scope
+  const scopes = Array.isArray(scopeField)
+    ? scopeField.map(str).filter(Boolean)
+    : str(scopeField).split(/\s+/).filter(Boolean)
+  if (!token) {
+    throw new MinimaxRefreshError(
+      200,
+      'invalid_token_response',
+      'MiniMax oauth2/token 响应缺 access_token(未判定,不写票)',
+    )
+  }
+  if (tokenType !== 'bearer') {
+    throw new MinimaxRefreshError(
+      200,
+      'invalid_token_response',
+      `MiniMax oauth2/token token_type=${tokenType || '(空)'} 非 bearer(未判定,不写票)`,
+    )
+  }
+  if (!Number.isFinite(expiresIn) || expiresIn <= 0) {
+    throw new MinimaxRefreshError(
+      200,
+      'invalid_token_response',
+      'MiniMax oauth2/token expires_in 非正数(未判定,不写票)',
+    )
+  }
+  if (!scopes.includes(OAUTH_SCOPE)) {
+    throw new MinimaxRefreshError(
+      200,
+      'invalid_token_response',
+      `MiniMax oauth2/token scope 集不含 ${OAUTH_SCOPE}(未判定,不写票)`,
+    )
+  }
+  return {
+    token,
+    refreshToken: str(o.refresh_token) || fallbackRefreshToken || null,
+    expiresAt: new Date(nowMs + expiresIn * 1000),
+    expiresIn,
+  }
+}
+
+/** 续票端点:env 显式给定时整体接管(与客户端同档),否则按 region 落账号面 origin */
+function oauthTokenEndpoint(ctx: AdapterAccountContext): string {
+  const override = str(process.env.MCODE_OAUTH_TOKEN_ENDPOINT)
+  if (override) return override
+  const base = resolveRegion(ctx) === 'global' ? OAUTH_ACCOUNT_GLOBAL : OAUTH_ACCOUNT_CN
+  return `${base}${OAUTH_TOKEN_PATH}`
+}
+
+async function refreshToken(
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
+): Promise<TokenRefreshResult | null> {
+  const rt = ctx.credentials.refreshToken
+  if (!rt) return null
+  const secrets = (ctx.credentials.secrets ?? {}) as Record<string, unknown>
+  const clientId = str(secrets.clientId) || OAUTH_CLIENT_ID
+  const audience = str(secrets.audience) || OAUTH_AUDIENCE
+  const poolScopes = Array.isArray(secrets.scopes) ? secrets.scopes.map(str).filter(Boolean) : []
+  const scope = poolScopes.length > 0 ? poolScopes.join(' ') : OAUTH_SCOPE
+  const doFetch = resolveFetchImpl(opts ?? {})
+  let res: Response
+  try {
+    res = await doFetch(oauthTokenEndpoint(ctx), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: rt,
+        client_id: clientId,
+        scope,
+        audience,
+      }).toString(),
+    })
+  } catch (e) {
+    throw new MinimaxRefreshError(
+      0,
+      'network',
+      `MiniMax oauth2/token 请求未送达:${e instanceof Error ? e.message : String(e)}`.slice(0, 300),
+    )
+  }
+  const text = await res.text().catch(() => '')
+  let body: unknown = null
+  try {
+    body = JSON.parse(text) as unknown
+  } catch {
+    body = null
+  }
+  if (!res.ok) {
+    const code = pickOAuthErrorCode(body) || `http_${res.status}`
+    throw new MinimaxRefreshError(
+      res.status,
+      code,
+      `MiniMax oauth2/token HTTP ${res.status} code=${code}`,
+    )
+  }
+  if (body === null) {
+    throw new MinimaxRefreshError(
+      res.status,
+      'invalid_token_response',
+      'MiniMax oauth2/token 响应体不是 JSON(未判定,不写票)',
+    )
+  }
+  return parseMinimaxTokenGrant(body, Date.now(), rt)
+}
+
+// =============================================================================
 // 导出
 // =============================================================================
 
@@ -387,11 +573,18 @@ export const minimaxAdapter: RelayUpstreamAdapter = {
   buildChatRequest,
   translateStreamChunk,
   translateNonStream,
-  // refreshToken 不实现:mcode OAuth 刷新端点未实证,绝不猜端点(401 自愈靠重新导入)
+  refreshToken,
   checkHealth,
   getQuota,
   // listModels 不实现:模型清单端点未实证(健康检查走余量端点)
   isAuthFailure,
   classifyUpstreamFailure,
+  /**
+   * 只有「票已死」这一档才算鉴权失效(上游明确拒收凭据 ⇒ 调度器据此收敛到期列);
+   * 网络类/5xx/形状不符一律 false(未判定 ≠ 失效,§0.3)。
+   */
+  isAuthError(err: unknown): boolean {
+    return err instanceof MinimaxRefreshError && isDeadGrantError(err.status, err.code)
+  },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

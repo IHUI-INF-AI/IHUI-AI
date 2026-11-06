@@ -2549,6 +2549,27 @@
     {
       "idx": 367,
       "version": "7",
+      "when": 1793937600000,
+      "tag": "20261106120000_tool_ledger_execution_facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 368,
+      "version": "7",
+      "when": 1793944800000,
+      "tag": "20261106140000_chat_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 369,
+      "version": "7",
+      "when": 1793948400000,
+      "tag": "20261106150000_fix_missing_indexes_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
       "when": 1793952000000,
       "tag": "20261106160000_chat_idempotency_changeset",
       "breakpoints": true

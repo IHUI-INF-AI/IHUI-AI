@@ -119,6 +119,8 @@ vi.mock('react-native', () => {
   return {
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     useColorScheme: () => 'light',
+    // use-dialog-height 走 useWindowDimensions;替身缺这一项会让整屏挂载即抛。
+    useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
     View: mk('div'),
     Text: mk('span'),
     Pressable: mk('button'),

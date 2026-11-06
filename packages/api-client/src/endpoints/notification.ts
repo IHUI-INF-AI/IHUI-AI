@@ -13,7 +13,7 @@ import type { ApiResult } from '@ihui/types'
 import type {
   MessageItem,
   NotificationItem,
-  NotificationPartition,
+  NotificationListFilters,
   CustomerServiceSession,
   CustomerServiceMessage,
   UnreadCount,
@@ -66,9 +66,12 @@ export async function deleteMessage(id: string): Promise<ApiResult<{ success: bo
 
 // ===================== notification（通知） =====================
 
-/** 获取通知列表 */
+/**
+ * 获取通知列表。`unread` 是"只看未读"的唯一过滤键(BUG-80):与后端
+ * listNotificationsQuery 及 @ihui/types 的 NotificationListFilters 对齐,不再用 `isRead`。
+ */
 export async function getNotifications(
-  query: PageQuery & { type?: string; isRead?: boolean; partition?: NotificationPartition } = {},
+  query: PageQuery & NotificationListFilters = {},
 ): Promise<ApiResult<PageData<NotificationItem>>> {
   return fetchApi<PageData<NotificationItem>>(`/api/notifications${buildQs(query)}`)
 }

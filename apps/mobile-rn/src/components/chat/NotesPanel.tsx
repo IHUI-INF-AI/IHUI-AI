@@ -14,6 +14,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import { Tappable } from '@ihui/ui-native'
 
 /** durationMs → `m:ss`;0/负值视为「无时长」(回空串,行上只留创建时间) */
@@ -35,7 +36,7 @@ const styles = StyleSheet.create({
   },
   listDialogContent: {
     width: '88%',
-    maxHeight: '70%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -182,6 +183,8 @@ export function NotesPanel({
   onRecordNew,
   onClose,
 }: NotesPanelProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const listDialogStyle = [styles.listDialogContent, dialogHeightStyle]
   const { t } = useI18n()
   const [notes, setNotes] = useState<VoiceNoteItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -212,7 +215,7 @@ export function NotesPanel({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Tappable style={styles.modalMask} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>语音笔记</Text>
             <Tappable

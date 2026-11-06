@@ -378,10 +378,13 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 它是**每轮恒在**字段(不像 finishReason/reasoningEffort 那样"缺席不带键"):
     # 端上缺这一格就只剩猜,而猜的默认正是今天写死的 false —— 那就等于没声明。
     SSEEventContract("done", ("usage", "model", "stub", "capabilities")),
-    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
+    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出。
+    # 批次 3(2026-11-06):新增 contextLedger(七类上下文账本,形状见 contract.ts)。
+    # 唯一生产点是 llm.py 流收尾,正常路径恒在;仅账本构造异常时降级缺席(那时
+    # `_sse()` 诊断会告警,属于真实故障信号,不是合法帧的常态)。
     SSEEventContract(
         "usage",
-        ("messageId", "usage", "timing", "model", "costUsd"),
+        ("messageId", "usage", "timing", "model", "costUsd", "contextLedger"),
     ),
     SSEEventContract("error", ("message", "errorCode")),
     # 模型降级通知(P4-2,2026-09-19 入契约):llm_gateway 主模型失败切换备用模型时

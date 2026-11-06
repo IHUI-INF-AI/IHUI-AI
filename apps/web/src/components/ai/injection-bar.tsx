@@ -115,7 +115,14 @@ export function ContextAssemblyBar({
   className,
 }: ContextAssemblyBarProps) {
   const t = useTranslations('chat')
-  const [open, setOpen] = React.useState(() => resolveAssemblyInitialOpen(readFoldPolicyMode()))
+  // BUG-27①:首帧确定值(收起),与 SSR 下 readFoldPolicyMode()==='auto' 的口径一致。
+  // 折叠偏好存于 localStorage(客户端状态),不能在 useState 初始化函数里读 —— 否则
+  // SSR 首帧收起 / CSR 首帧展开,hydration 首帧不一致会令整块子树被丢弃重建。
+  // 改由 useEffect 在水合后回填真实偏好。
+  const [open, setOpen] = React.useState(false)
+  React.useEffect(() => {
+    setOpen(resolveAssemblyInitialOpen(readFoldPolicyMode()))
+  }, [])
 
   if (injections.length === 0) return null
 

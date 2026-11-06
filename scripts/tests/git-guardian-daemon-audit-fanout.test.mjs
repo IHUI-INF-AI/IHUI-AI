@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 结构锁:daemon 常驻 tick 链必须覆盖 97 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,
+ * 结构锁:daemon 常驻 tick 链必须覆盖 98 个"曾只挂 main() 单轮链"的审计面(2026-11-03 立,
  * 同日先补 2 面、晚间再补 12 面;2026-11-04 再补 1 面 sweepFormatParity,与前两批共 30 面)。
  * 本席 W2 按票 RP-74 收口:HEAD 里 A9「承载面补齐(2026-11-04)」已把这批面搬进 tick,却没同步
  * 钉进本清单 ⇒ 按「该面读数谁在消费」分 3 批补齐 66 面(合计 96 面),每批带变异自证;
- * 2026-11-05 再加 1 面(回收站到期清理 `sweepTrashExpiry`,自建立起就双在)= 合计 97 面。
+ * 2026-11-05 再加 1 面(回收站到期清理 `sweepTrashExpiry`,自建立起就双在)= 97 面;
+ * 同日 RP-74 第一批再补 1 面(`sweepMiniappMessageKeysLeg`,W2 收口现读差集漏收)= 合计 98 面。
  * B 档(单轮≥5min / 真换口令 / 重启服务那族)一律不进本清单,理由钉在 git-guardian.mjs 挂点旁。
  *
  * 失效形态(已实测 18 小时零派发):`startDaemon()` 是内存常驻的 setTimeout 链,**不重读本文件**;
@@ -38,7 +39,7 @@ const GUARDIAN_SRC = path.join(ROOT, 'scripts', 'git-guardian.mjs')
 // 判据只此一份(§0.6/§22c):与门体 dispatch-parity 第三族共用,别处零副本
 const { tickBodyOf, mainBodyOf, hasLiveCall, liveCallOffset } = P
 
-/** 这 97 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
+/** 这 98 面原先只挂 main() 单轮链;计划任务档禁用后 daemon 是唯一执行体 ⇒ 必须同挂 tick。 */
 const TICK_REQUIRED = [
   'auditTunnelLegHealth',
   'auditSmsChannelHealth',
@@ -126,6 +127,9 @@ const TICK_REQUIRED = [
   'sweepLessonApply',
   'sweepLocalDevDbRotation',
   'sweepMiniappStyleTiers',
+  // 小程序词包搬运腿(RP-74 第一批补搬,2026-11-05):W2 收口现读差集时漏收的一枚,
+  // 与同族 sweepRnCompatLeg/sweepRnColorLiteralLeg 同样板、共用节流戳,搬入零行为变更 ⇒ 双在。
+  'sweepMiniappMessageKeysLeg',
   'sweepParityCockpit',
   'sweepPoolIsolation',
   'sweepRnColorLiteralLeg',
@@ -176,7 +180,7 @@ test('T0 判据单源:切片/非注释判据 import 门体 __test__,本文件零
   )
 })
 
-test('T1 装车锁:daemon tick 链必须有 97 个非注释派发,缺哪个就点哪个名', () => {
+test('T1 装车锁:daemon tick 链必须有 98 个非注释派发,缺哪个就点哪个名', () => {
   const body = tickBodyOf(src)
   assert.notEqual(body, '', '判不出 tick 体(startDaemon/const tick 形态变了)⇒ 不得默认已接线')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(body, name))
@@ -187,7 +191,7 @@ test('T1 装车锁:daemon tick 链必须有 97 个非注释派发,缺哪个就�
   )
 })
 
-test('T2 回填锁:main() 单轮链里原有 97 个派发仍在(不得因人工归并回灌被删)', () => {
+test('T2 回填锁:main() 单轮链里原有 98 个派发仍在(不得因人工归并回灌被删)', () => {
   const main = mainBodyOf(src)
   assert.notEqual(main, '', '判不出 main 体 ⇒ 本锁失效,按判红处理')
   const missing = TICK_REQUIRED.filter((name) => !hasLiveCall(main, name))

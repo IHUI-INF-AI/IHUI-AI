@@ -46,6 +46,20 @@ TOOL_APPROVAL_DENY_CAUSES: tuple[str, ...] = (
 )
 LEDGER_STATES: tuple[str, ...] = ("registered", "started", "settled", "lost")
 
+# 批次 2(2026-11-06 立):收尾原因封闭集,与 apps/api tool-invocation-ledger-service.ts
+# 的 TOOL_INVOCATION_TERMINAL_REASONS 逐值对应(TS zod enum 为权威;多一档/少一档
+# 都会表现为服务端 400 整行丢)。越界一律拒派并计数,不折叠成邻近档。
+TERMINAL_REASONS: tuple[str, ...] = (
+    "completed",
+    "error",
+    "rejected_by_user",
+    "approval_timeout",
+    "blocked",
+    "cancelled",
+    "timeout",
+    "unknown",
+)
+
 INGEST_PATH = "/api/internal/tool-ledger/invocation"
 _REQUEST_TIMEOUT_SECONDS = 5.0
 
@@ -55,6 +69,7 @@ _MAX_INVOCATION_ID = 160
 _MAX_SESSION_ID = 128
 _MAX_TOOL_NAME = 80
 _MAX_SUMMARY = 800
+_MAX_CWD = 1024
 
 # D172 同款:W3C trace id 只接受 32 位小写 hex,脏值不带(服务端 schema 会整行 400)。
 _TRACE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -115,6 +130,10 @@ def record_tool_invocation(
     input_summary: str | None = None,
     output_summary: str | None = None,
     trace_id: str | None = None,
+    cwd: str | None = None,
+    exit_code: int | None = None,
+    output_complete: bool | None = None,
+    terminal_reason: str | None = None,
 ) -> bool:
     """派发一条工具调用事实到 apps/api 摄入入口。
 
@@ -155,6 +174,12 @@ def record_tool_invocation(
         # cause 是可选档:越界 cause 降级为"无 cause"而不是丢整行 —— denied 事实本身仍是证据。
         logger.warning("[b04] 工具账 cause 词汇越界(%r),按无成因落账", permission_cause)
         permission_cause = None
+    if terminal_reason is not None and terminal_reason not in TERMINAL_REASONS:
+        # 同理:收尾原因是可选档,越界降级为"未回报",不丢整行(执行事实仍在)。
+        logger.warning(
+            "[b04] 工具账 terminalReason 词汇越界(%r),按未回报落账", terminal_reason
+        )
+        terminal_reason = None
 
     payload: dict[str, Any] = {
         "invocationId": _clip(invocation_id, _MAX_INVOCATION_ID, "invocationId"),
@@ -173,6 +198,16 @@ def record_tool_invocation(
         payload["output"] = _clip(output_summary, _MAX_SUMMARY, "output")
     if trace_id and _TRACE_ID_RE.match(trace_id):
         payload["traceId"] = trace_id
+    if cwd:
+        payload["cwd"] = _clip(cwd, _MAX_CWD, "cwd")
+    # exitCode 是 int32 列:越界值(含 bool 子类)不带,避免服务端整行 400。
+    if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+        if -2_147_483_648 <= exit_code <= 2_147_483_647:
+            payload["exitCode"] = exit_code
+    if output_complete is not None:
+        payload["outputComplete"] = bool(output_complete)
+    if terminal_reason is not None:
+        payload["terminalReason"] = terminal_reason
 
     try:
         loop = asyncio.get_running_loop()
@@ -222,6 +257,7 @@ __all__ = [
     "TOOL_APPROVAL_ROUTES",
     "TOOL_APPROVAL_DENY_CAUSES",
     "LEDGER_STATES",
+    "TERMINAL_REASONS",
     "INGEST_PATH",
     "record_tool_invocation",
     "dispatch_stats",

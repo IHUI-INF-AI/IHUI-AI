@@ -37,6 +37,7 @@ export type SubprocessFailureReason =
   | 'spawn' // 启动失败(binary 缺失 / fork 失败)
   | 'timeout' // 超时被杀
   | 'nonzero' // 退出码非 0
+  | 'output_limit' // stdout+stderr 超过 maxOutputBytes
   | 'wait' // wait 失败
 
 /** 子进程执行结果 */
@@ -83,6 +84,8 @@ export interface IsolatedSubprocessOptions {
   stdio?: StdioOptions
   /** 等待 reap 的最长时间(杀进程后到确认退出的最大等待,默认 2000ms) */
   reapTimeoutMs?: number
+  /** stdout+stderr 合计最大收集字节(默认 10MB);超限即截断并终止子进程,防 unbounded 输出打爆内存 */
+  maxOutputBytes?: number
   /**
    * G-998133:kill 清理结算的绝对 deadline(Date.now 基准,工具执行预算面传导进
    * kill 清理)。给出后 force 升级在 ≤ min(FORCE_EXIT 宽限, 绝对剩余) 内结算;
@@ -832,11 +835,28 @@ export async function spawnIsolated(
     })
   }
 
-  // 收集 stdout / stderr
+  // 收集 stdout / stderr(带字节上限:execFile/spawnSync 有 maxBuffer,这里此前没有,
+  // 一个话痨子进程能把 CLI 内存打爆)。超限即截断并停掉子进程,绝不留 unbounded 累积。
+  const maxOutputBytes = options.maxOutputBytes ?? 10 * 1024 * 1024
   const stdoutChunks: Buffer[] = []
   const stderrChunks: Buffer[] = []
-  child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk))
-  child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk))
+  let collectedBytes = 0
+  let outputOverflow = false
+  const collect = (chunks: Buffer[], chunk: Buffer): void => {
+    if (outputOverflow) return
+    const remaining = maxOutputBytes - collectedBytes
+    if (chunk.length > remaining) {
+      if (remaining > 0) chunks.push(chunk.subarray(0, remaining))
+      collectedBytes = maxOutputBytes
+      outputOverflow = true
+      killProcessTree(child)
+      return
+    }
+    chunks.push(chunk)
+    collectedBytes += chunk.length
+  }
+  child.stdout?.on('data', (chunk: Buffer) => collect(stdoutChunks, chunk))
+  child.stderr?.on('data', (chunk: Buffer) => collect(stderrChunks, chunk))
 
   // G-695:close 的唯一权威观察点 —— 订阅发生在拿到 child 的同一帧,必然赶得上真正的事件;
   // 之后每一个"等 close"的站点(含 await 之后的晚订阅)都走这份补发器。
@@ -927,16 +947,28 @@ export async function spawnIsolated(
     // 幂等:若超时已先触发过 requestStop,这里是 no-op,不会二次杀
     stopMachine.requestStop()
     await awaitReap(child, reapTimeoutMs, closeEvt.event)
-    throw makeError('wait', `等待子进程退出失败: ${err.message}`, {
+    const collected = {
       command,
       args,
-      exitCode: 0,
       stdout: Buffer.concat(stdoutChunks),
       stderr: Buffer.concat(stderrChunks),
       durationMs: Date.now() - startTime,
-    })
+    }
+    // 输出超限:上面的 kill 会让子进程带 signal 关闭,不能把它报成 "wait 失败"。
+    if (outputOverflow) {
+      throw makeError('output_limit', `子进程输出超过 ${maxOutputBytes} 字节上限(已截断并终止): ${command}`, { ...collected, exitCode: 0 })
+    }
+    // Node 的 spawn() 对 ENOENT/EACCES 是**异步** 'error' 事件、不会同步 throw,
+    // spawnWithRetry 的 try/catch 抓不到;这类错误必须直接归因 'spawn',
+    // 不能被 "等待子进程退出失败" 掩盖成 wait。
+    // waitErr 的赋值发生在 'error' 事件回调里,TS 的控制流分析在同步路径上
+    // 仍把它当作恒 null;显式断言取回真实类型(只有回调确已赋值才会走到这里)。
+    const spawnErr = waitErr as Error | null
+    if (spawnErr) {
+      throw makeError('spawn', `子进程启动失败: ${spawnErr.message} (${command})`, { ...collected, exitCode: 0 })
+    }
+    throw makeError('wait', `等待子进程退出失败: ${err.message}`, { ...collected, exitCode: 0 })
   }
-  void waitErr // waitErr 仅在 catch 路径使用,此处已通过 try/catch 捕获
 
   if (timedOut) {
     // requestStop 已在超时回调里 killTree,这里只等 reap。若 reap 超时仍未死,
@@ -961,6 +993,13 @@ export async function spawnIsolated(
   const stdout = Buffer.concat(stdoutChunks)
   const stderr = Buffer.concat(stderrChunks)
   const durationMs = Date.now() - startTime
+
+  // 输出超限即便子进程自己正常退出也不算成功:结果已被截断,不能当完整输出交出去。
+  if (outputOverflow) {
+    throw makeError('output_limit', `子进程输出超过 ${maxOutputBytes} 字节上限(已截断并终止): ${command}`, {
+      command, args, exitCode, stdout, stderr, durationMs,
+    })
+  }
 
   if (exitCode !== 0) {
     throw makeError('nonzero', `子进程退出码非零(exit ${exitCode}): ${command}`, {

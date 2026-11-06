@@ -466,14 +466,17 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 于是"不存在"与"服务坏了"在响应上完全同形(2026-09-28 真机普查实测)。
     if (!isUuidString(agentId)) return reply.status(404).send(error(404, '智能体不存在'))
     const detail = await getAgentDetail(agentId)
-    // 游客视图(2026-09-21 市场公开化):仅已发布可见,响应脱敏(不含 prompt/bot 配置)
     if (!detail?.agent) return reply.status(404).send(error(404, '智能体不存在'))
-    if (!request.userId) {
-      if (detail.agent.status !== 'published')
-        return reply.status(404).send(error(404, '智能体不存在'))
-      return reply.send(success(sanitizePublicAgent(detail.agent)))
-    }
-    return reply.send(success(detail.agent))
+    const agent = detail.agent
+    // 全字段视图只给属主与系统管理员;属主一律取令牌主体 request.userId,不读请求自报值。
+    const isOwner = Boolean(request.userId) && agent.userId === request.userId
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    if (isOwner || isAdmin) return reply.send(success(agent))
+    // 非属主/非管理员与游客同一公开面:仅 published 可见,且只投影 PUBLIC_AGENT_KEYS
+    // (不含 agentPrompt/agentVariables/remark/suggestedQuestions/botId 等私有字段)。
+    // 草稿/待审/驳回一律 404,不暴露资源存在性(与「非属主不暴露」同口径)。
+    if (agent.status !== 'published') return reply.status(404).send(error(404, '智能体不存在'))
+    return reply.send(success(sanitizePublicAgent(agent)))
   })
 
   // POST /agents/create - 创建代理
@@ -2294,7 +2297,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 11. GET /cozeZhsApi/agents/config/webhook-secret - 真实读取
-  server.get('/cozeZhsApi/agents/config/webhook-secret', async (_request, reply) => {
+  server.get('/cozeZhsApi/agents/config/webhook-secret', async (request, reply) => {
+    // 与 POST 同闸:密钥预览(前 8 + 后 4 位)只向系统管理员开放。
+    // 非管理员一律 404,不暴露该资源存在性(403 会把「密钥配置存在」泄露给任意登录用户)。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(404).send(error(404, '资源不存在'))
+    }
     // 2026-07-21 安全审计加固:用 runtimeWebhookSecret 实际值判断,
     // 移除对已废弃的 'your_webhook_secret_here' 默认值的对比
     const isConfigured = Boolean(runtimeWebhookSecret)

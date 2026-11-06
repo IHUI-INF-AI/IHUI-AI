@@ -171,7 +171,7 @@ function createAvatarStyles(tk: AppThemeTokens) {
     },
     avatarActionPrimaryText: { fontSize: rnType.body.size, color: tk.surface.light },
     avatarActionOutlineText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    avatarHint: { alignItems: 'center', gap: 2 },
+    avatarHint: { alignItems: 'center', gap: rnSpacing['2xs'] },
     avatarHintText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     avatarUrlEntry: { width: '100%', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
     avatarUrlInput: {

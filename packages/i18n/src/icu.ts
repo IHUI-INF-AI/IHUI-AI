@@ -280,8 +280,28 @@ function warnDegraded(pattern: string, reason: string): void {
   console.warn(`[ihui-i18n] ICU 解析失败已降级为原文(${reason}): ${short}`)
 }
 
+/**
+ * BUG-73:ICU 判据的运行时 locale 单一真相源。
+ * 非 web 端(RN/小程序/CLI/extension)的 t() 普遍不往 translate() 传 locale,
+ * 此前 formatIcu 恒回落 'zh-CN' ⇒ 英文 plural 的 `one` 分支永不命中
+ * (渲染成 "1 context sources in this turn")。
+ * 落点:loader 的 getMessagesForLocale() 在切换消息包时按包语言登记这里;
+ * 各端也可在初始化/切语言时显式 setIcuLocale()。options.locale 永远优先。
+ */
+let icuRuntimeLocale = 'zh-CN'
+
+/** 登记当前运行时语言(端内切语言 / 选包时调用)。空值忽略,不猜默认。 */
+export function setIcuLocale(locale: string): void {
+  if (typeof locale === 'string' && locale.length > 0) icuRuntimeLocale = locale
+}
+
+/** 读取当前 ICU 判据语言(options.locale 缺省时的兜底值)。 */
+export function getIcuLocale(): string {
+  return icuRuntimeLocale
+}
+
 export function formatIcu(pattern: string, params: Params, options?: IcuFormatOptions): string {
-  const ctx: Ctx = { params, locale: options?.locale ?? 'zh-CN' }
+  const ctx: Ctx = { params, locale: options?.locale ?? getIcuLocale() }
   try {
     const out = formatPattern(pattern, ctx)
     if (ctx.degraded !== undefined) warnDegraded(pattern, ctx.degraded)

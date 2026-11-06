@@ -337,7 +337,7 @@ function createStyles(tk: AppThemeTokens) {
     bubbleUser: { backgroundColor: tk.brand.DEFAULT },
     bubbleAi: { backgroundColor: tk.surface.muted },
     bubbleText: { fontSize: rnType.body.size, color: tk.text.primary, lineHeight: 22 },
-    reasoningToggle: { paddingVertical: 2 },
+    reasoningToggle: { paddingVertical: rnSpacing['2xs'] },
     reasoningToggleText: { fontSize: rnType.label.size, color: tk.text.secondary },
     reasoningBody: {
       fontSize: rnType.label.size,
@@ -358,7 +358,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: rnSpacing.sm,
       paddingHorizontal: rnSpacing.xs,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
     },
     codeLang: { flex: 1, fontSize: rnType.label.size, color: tk.text.tertiary },
     codeAction: { fontSize: rnType.label.size, color: tk.brand.DEFAULT },
@@ -380,3 +380,4 @@ function createStyles(tk: AppThemeTokens) {
     thinkingText: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
