@@ -8,13 +8,13 @@
  * sync-mobile-app-json-version.mjs — 把 `apps/mobile-rn/app.json` 的 `expo.version`
  * 变成 `apps/mobile-rn/package.json` 的**派生产物**(单一真源 = package.json)。
  *
- * 立因(2026-11-07):CI 门 214 `check-version-drift.mjs` 的 I 维在 main 上红了 ——
+ * 立因(2026-11-07):CI 门 `check-version-drift.mjs` 的 I 维在 main 上红了 ——
  *   `[version-drift] ✗ I 移动端版本双写不一致: app.json=0.0.5 而 apps/mobile-rn/package.json=0.0.12`
  * 而该漂移在父提交上逐字相同(存量,不是本笔引入)。根因不是"数字写错了",是
  * **app.json 的版本号不由任何东西驱动**:bump package.json 之后没人记得同步它,
  * 于是下一次发版必然再漂一次。手改一次数字只是把一个会复发的事故按下去。
  *
- * 口径(与门 214 I 维完全一致,不改门的比较字段、不放宽判据):
+ * 口径(与 `check-version-drift` 的 I 维判据完全一致,不改门的比较字段、不放宽判据):
  *   - 真源 = `apps/mobile-rn/package.json` 的 `version`;
  *   - 派生 = `apps/mobile-rn/app.json` 的 `expo.version`(app.config.js 在该值缺省时回落 package.json;
  *     app.json 里这份是"看起来像版本号、却不被任何东西驱动"的死字面量,正是本门要消灭的形态);
@@ -28,7 +28,7 @@
  * 接线:
  *   - 根 package.json `postinstall` 调用(仓内既有的 prepare 类钩子),bump 后跑一次安装即自动跟;
  *   - CI `.github/workflows/ci.yml` 在 `pnpm install` **之前**用 `--check` 断言提交里的派生值不陈旧
- *     (放在 install 之后就等于让 postinstall 先自愈,门 214 再也抓不到"提交漂了"这件事)。
+ *     (放在 install 之后就等于让 postinstall 先自愈,`check-version-drift` 的 I 维再也抓不到"提交漂了"这件事)。
  *
  * 用法:
  *   node scripts/sync-mobile-app-json-version.mjs            # 写入(默认)
