@@ -11,19 +11,33 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronDown, ChevronRight, FilePlus2 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
+import { ChevronDown, ChevronRight, FilePlus2, History } from 'lucide-react'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useSessionDiffStore } from '@/stores/session-diff'
+import { useTurnChangesStore } from '@/stores/turn-changes'
 
 /** 同文件多次编辑的次数徽章上限(超过显示 N+) */
 const CHANGED_COUNT_CAP = 9
 
 export function SessionDiffDialog() {
   const t = useTranslations('chat.sessionDiff')
+  const tReview = useTranslations('chat.turnChangeReview')
   const open = useSessionDiffStore((s) => s.open)
   const changes = useSessionDiffStore((s) => s.changes)
   const close = useSessionDiffStore((s) => s.close)
+  // 会话 id 取 pane 级 chat store(同组件树内与 message-input 同一 provider):
+  // 主 store 在分屏下不是"当前 pane 的会话",用它会开错会话的变更集。
+  const chatStore = usePaneChatStore()
+  const conversationId = chatStore((s) => s.conversationId)
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
+
+  // 入口:关掉本弹窗再开「按轮变更」,避免两个 Dialog 叠加挡层级
+  const openTurnChanges = (): void => {
+    if (!conversationId) return
+    useTurnChangesStore.getState().openForConversation(conversationId)
+    close()
+  }
 
   React.useEffect(() => {
     if (!open) setExpanded({})
@@ -108,6 +122,21 @@ export function SessionDiffDialog() {
             })}
           </ul>
         )}
+        {/* 入口(批次 4):本弹窗只读常驻展示,按轮变更集需要另取 detail/dry-run,
+            故只给一个跳转按钮,不把取数逻辑塞进这个纯展示件。 */}
+        <div className="mt-1 flex items-center justify-end border-t border-border pt-2">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            disabled={!conversationId}
+            aria-label={tReview('openEntryAria')}
+            onClick={openTurnChanges}
+          >
+            <History className="h-3.5 w-3.5" aria-hidden />
+            {tReview('openEntry')}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )

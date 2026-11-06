@@ -109,7 +109,7 @@ import {
   describeToolCall,
   type ToolCallView,
 } from '@ihui/shared'
-import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import { applyStreamError, isErrorTurn, resendTargetText, createInputId } from '@ihui/shared/chat'
 import {
   rnLightTokens as tokens,
   rnRadius,
@@ -1492,7 +1492,10 @@ export default function AiAssistantN8nScreen() {
     // 此前无 try/catch 会导致 unhandled rejection 且 sending 永远不复位。补 try/catch 把错误路由到
     // 本屏既有错误状态处理(sending 复位 + 空回复填充错误提示 + toast),对齐 ChatScreen 错误处理写法。
     try {
+      // 批次 4(2026-11-06 立):一次逻辑发送一个稳定 inputId,重连复用同一个请求体。
+      const inputId = createInputId()
       await streamChat({
+        inputId,
         model: selectedModelId,
         messages: apiMessages,
         agentId,

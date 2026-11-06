@@ -68,6 +68,23 @@ import {
 } from '../utils/sse-stream-registry.js'
 import { getReplayWindowStatus, isStreamActive } from '../utils/sse-replay-buffer.js'
 import { appendElementPackFrame } from '../db/element-pack-queries.js'
+import { dbClient } from '../db/index.js'
+// 批次 4(2026-11-06 立):输入幂等 receipt + 流式投影。两个服务都只认最小 Queryable 端口,
+// 网关主池在这里适配一次;单测用假表直接塞进服务,判据只有一份。
+import {
+  acquireInputReceipt,
+  buildAdmissionFrame,
+  fingerprintChatRequest,
+  INPUT_RECEIPT_HEARTBEAT_MS,
+  renewInputReceiptLease,
+  settleInputReceipt,
+  type Queryable,
+} from '../services/chat-input-receipts.js'
+import {
+  failProjection,
+  markMaterializing,
+  openProjection,
+} from '../services/chat-message-projections.js'
 // 票71 剩余缺口①:广播入参类型取 ws-broadcast 的发射契约(单源,不另抄形状)。
 // import type 编译后擦除 ⇒ 路由不因类型依赖把插件运行时(ioredis/rooms)拉进本模块。
 import type {
@@ -76,6 +93,17 @@ import type {
 } from '../plugins/ws-broadcast.js'
 // D64⑤:subagent 帧族收窄的唯一实现(与 sse-parse 的消费收窄同源)
 import { collectElementPackFrame } from '@ihui/shared/chat'
+
+/**
+ * 网关主池 → 最小 Queryable 端口(与 services/chat-input-receipts.ts 的假表端口同形)。
+ * 用 `unsafe` 而不是 drizzle 构造器:receipt/projection 的语句依赖
+ * `ON CONFLICT ... WHERE ... RETURNING` 这类构造器表达不了(或表达得很绕)的守卫。
+ */
+const chatRuntimeQueryable: Queryable = {
+  query: async (sql, params) => ({
+    rows: await dbClient.unsafe(sql, params as Parameters<typeof dbClient.unsafe>[1]),
+  }),
+}
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -319,6 +347,9 @@ const chatStreamSchema = z.object({
    *  上游 admission 帧按它原样回显配对。不在此声明会被 zod strip 静默丢弃
    *  (与 workspaceContext/mode/permissionMode 同型断链)。可选 ⇒ 旧客户端零破坏。 */
   inputId: z.string().min(1).max(128).optional(),
+  /** 批次 4(2026-11-06 立):同一 inputId 的重试序号。网关 receipt 的 attempt_count 是
+   *  权威值(受理成功后会覆盖此字段再透传);客户端自带值只在无 receipt 时兜底。 */
+  inputAttempt: z.number().int().nonnegative().optional(),
   model: z.string().optional(),
   modelId: z.string().optional(), // 向后兼容,优先使用 model
   agentId: z.string().optional(),
@@ -521,6 +552,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       /** 差距①(2026-10-30 立):客户端预生成的输入 ID,原样透传给上游
        *  (admission 帧按它回显配对);undefined 时 JSON.stringify 省略不注入。 */
       inputId?: string
+      /** 批次 4(2026-11-06 立):重试序号。receipt 受理后由网关覆盖为 attempt_count,
+       *  无 receipt(降级/旧客户端)时保留入参值;undefined ⇒ JSON.stringify 省略。 */
+      inputAttempt?: number
       resolvedModel?: string
       agentId?: string
       materialContent?: string
@@ -659,6 +693,186 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
         // 缓冲过期 / 窗口有洞:落到下方正常路径重新生成(降级,与改造前行为一致)
       }
+    }
+
+    // ── 批次 4(2026-11-06 立):输入幂等 receipt + 流式投影 ──────────────────────────
+    // 位置刻意排在**重放接管/重放分支之后**:带 Last-Event-ID 的重连是合法接续,
+    // 不能因为同一 inputId 的 receipt 还是 dispatching 就被判成 duplicate 而拒绝重放
+    // (那会把"断线重连"误杀成"二次生成")。只有真的要新开一条上游流时才做幂等判定。
+    const requestMeta = opts.metadata
+    // 逐项先落到局部常量:可选链的窄化在对象字面量里不可靠,显式 const 才稳。
+    const receiptConversationId =
+      requestMeta &&
+      typeof requestMeta.conversationId === 'string' &&
+      requestMeta.conversationId !== ''
+        ? requestMeta.conversationId
+        : null
+    const receiptInputId =
+      typeof opts.inputId === 'string' && opts.inputId !== '' ? opts.inputId : null
+    const requestUserId = typeof request.userId === 'string' ? request.userId : null
+    const receiptTarget =
+      receiptConversationId && receiptInputId && requestUserId
+        ? {
+            conversationId: receiptConversationId,
+            inputId: receiptInputId,
+            userId: requestUserId,
+          }
+        : null
+    let inputAttempt = opts.inputAttempt
+    let receiptAccepted = false
+    // 租约心跳(2026-11-06 增补):受理成功后起定时器续租,收尾时(结算之前)清掉。
+    let receiptHeartbeat: ReturnType<typeof setInterval> | null = null
+    if (receiptTarget) {
+      try {
+        const acquired = await acquireInputReceipt(chatRuntimeQueryable, {
+          conversationId: receiptTarget.conversationId,
+          userId: receiptTarget.userId,
+          inputId: receiptTarget.inputId,
+          messageId: requestMeta?.messageId ?? null,
+          fingerprint: fingerprintChatRequest({
+            model: opts.resolvedModel ?? null,
+            mode: opts.mode ?? null,
+            messages: finalMessages,
+          }),
+        })
+        if (acquired.kind === 'duplicate') {
+          // 已受理过(dispatching/dispatched):**绝不再开第二条生成**,只回准入回执后收流。
+          raw.write(
+            buildAdmissionFrame({
+              inputId: receiptTarget.inputId,
+              disposition: 'duplicate',
+              messageId: acquired.messageId,
+              attempt: acquired.attempt,
+            }),
+          )
+          raw.end()
+          return
+        }
+        if (acquired.kind === 'reused') {
+          // 同 inputId 换了正文:明确拒收,让客户端换 id 重发 —— 静默去重会把新正文吞掉。
+          raw.write(
+            buildAdmissionFrame({
+              inputId: receiptTarget.inputId,
+              disposition: 'rejected',
+              reason: 'input_id_reused',
+              attempt: acquired.attempt,
+            }),
+          )
+          raw.end()
+          return
+        }
+        receiptAccepted = true
+        inputAttempt = acquired.attempt
+        // 只有真正受理成功才起心跳:duplicate/reused 两条腿当场就收流,没有"活着的流"可续。
+        const heartbeatTarget = receiptTarget
+        receiptHeartbeat = setInterval(() => {
+          void renewInputReceiptLease(chatRuntimeQueryable, heartbeatTarget)
+            .then((renewed) => {
+              if (!renewed) {
+                // 已结算或已被别的实例接管:再续也无效,只记一笔,不重试。
+                request.log.warn(
+                  {
+                    conversationId: heartbeatTarget.conversationId,
+                    inputId: heartbeatTarget.inputId,
+                  },
+                  '[ChatReceipt] 续租未命中(已结算或被接管)',
+                )
+              }
+            })
+            .catch((err: unknown) => {
+              // 心跳失败绝不打断透传:漏一拍最多让崩溃接管提前一点点。
+              request.log.warn(
+                {
+                  err: err instanceof Error ? err.message : String(err),
+                  conversationId: heartbeatTarget.conversationId,
+                  inputId: heartbeatTarget.inputId,
+                },
+                '[ChatReceipt] 续租失败(继续生成,不阻塞透传)',
+              )
+            })
+        }, INPUT_RECEIPT_HEARTBEAT_MS)
+        receiptHeartbeat.unref()
+      } catch (e) {
+        // receipt 是防线不是主链:DB 抖动时降级直通,不能把整轮对话拦在幂等层上。
+        request.log.warn(
+          {
+            err: e instanceof Error ? e.message : String(e),
+            conversationId: receiptTarget.conversationId,
+            inputId: receiptTarget.inputId,
+          },
+          '[ChatReceipt] 受理失败,降级直通(本次不启用持久幂等)',
+        )
+      }
+    }
+    // 投影:有 (conversationId, messageId) 才有归属键;committed 的 turn 不重开。
+    const projectionConversationId =
+      requestMeta &&
+      typeof requestMeta.conversationId === 'string' &&
+      requestMeta.conversationId !== ''
+        ? requestMeta.conversationId
+        : null
+    const projectionClientMessageId =
+      requestMeta && typeof requestMeta.messageId === 'string' && requestMeta.messageId !== ''
+        ? requestMeta.messageId
+        : null
+    const projectionKey =
+      projectionConversationId && projectionClientMessageId && requestUserId
+        ? {
+            conversationId: projectionConversationId,
+            userId: requestUserId,
+            clientMessageId: projectionClientMessageId,
+          }
+        : null
+    let projectionWritable = false
+    if (projectionKey) {
+      try {
+        const opened = await openProjection(chatRuntimeQueryable, projectionKey)
+        if (opened.kind === 'opened') {
+          projectionWritable = true
+        } else {
+          request.log.warn(
+            {
+              conversationId: projectionKey.conversationId,
+              messageId: projectionKey.clientMessageId,
+            },
+            '[ChatProjection] 该轮已落库,不重开投影(worker 终稿优先)',
+          )
+        }
+      } catch (e) {
+        // 与元素包捕获同纪律:投影写入失败只出声,绝不打断透传主链路。
+        request.log.warn(
+          { err: e instanceof Error ? e.message : String(e), ...projectionKey },
+          '[ChatProjection] 打开投影失败(继续透传)',
+        )
+      }
+    }
+    // 累积器 + 节流状态。写入串成一条链(保序),但不 await —— 投影是旁路,不许阻塞转发。
+    let projectionContent = ''
+    let projectionReasoning = ''
+    let projectionCharsSinceFlush = 0
+    let projectionLastFlushAt = 0
+    let projectionChain: Promise<void> = Promise.resolve()
+    // receipt 结算判据"上游是否已把正文交给客户端";reasoning 不算正文(见 finally)。
+    let assistantContentForwarded = false
+    let receiptOutcome: 'normal' | 'failed' | null = null
+    let receiptErrorCode = 'upstream_error'
+    const flushProjection = (): Promise<void> => {
+      const key = projectionKey
+      if (!key || !projectionWritable) return projectionChain
+      projectionCharsSinceFlush = 0
+      projectionLastFlushAt = Date.now()
+      const content = projectionContent
+      const reasoning = projectionReasoning
+      projectionChain = projectionChain
+        .then(() => markMaterializing(chatRuntimeQueryable, key, { content, reasoning }))
+        .then(() => undefined)
+        .catch((e: unknown) => {
+          request.log.warn(
+            { err: e instanceof Error ? e.message : String(e), ...key },
+            '[ChatProjection] 写入 partial 失败(不阻塞透传)',
+          )
+        })
+      return projectionChain
     }
 
     // 正常路径:创建会话(启用事件编号 + replay buffer),断线进宽限而非立即 abort
@@ -852,6 +1066,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // 差距①(2026-10-30 立):inputId 原样透传,上游 admission 帧按它回显配对
           // (undefined 时 JSON.stringify 自动省略,旧客户端零变化)。
           inputId: opts.inputId,
+          // 批次 4(2026-11-06):重试序号 —— receipt 受理后用 attempt_count 覆盖,
+          // 无 receipt 时保留客户端入参;undefined 经 JSON.stringify 省略。
+          inputAttempt,
           // Steer(2026-09-19 立):流会话 ID 透传,ai-service 以此为键注册 steer 队列
           // (_steer_sessions[session_id],优先于 workspace_context 自生成 id);
           // 工具循环每轮 LLM 调用前 drain 注入。null 时省略不注入(降级流)。
@@ -924,6 +1141,20 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         emitEvent(session, JSON.stringify(errChunk))
         // 上游未建连/HTTP 错误 ⇒ 生成期错误(不是客户端中止),终态按 error 宣告。
         terminalReason = 'error'
+        // 批次 4:上游在产出任何正文前就失败 ⇒ receipt 落 failed(同 id 重试可再被受理),
+        // 投影同步标记失败(worker 不会为这一轮落库)。
+        receiptOutcome = 'failed'
+        receiptErrorCode = 'upstream_http_error'
+        if (projectionKey && projectionWritable) {
+          void failProjection(chatRuntimeQueryable, projectionKey, 'upstream_http_error').catch(
+            (e: unknown) => {
+              request.log.warn(
+                { err: e instanceof Error ? e.message : String(e), ...projectionKey },
+                '[ChatProjection] 标记失败未落库(不阻塞透传)',
+              )
+            },
+          )
+        }
         return
       }
 
@@ -999,7 +1230,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // sse_contract.py 同源);子代理帧(agentId ≠ 本次绑定)不并入主消息 ——
           // 与 api-client onAgentDelta / onDelta 的分流判据同源。persona 回贴的 agentId
           // 由网关在 emit 前注入,这里看到的是上游原样行,故 persona 正文照常采集。
-          if (chatSyncFrame && line.startsWith('data:') && line.includes('"type"')) {
+          if (
+            (chatSyncFrame || projectionWritable || receiptAccepted) &&
+            line.startsWith('data:') &&
+            line.includes('"type"')
+          ) {
             const rawData = line.slice(5).replace(/^\s/, '')
             if (rawData.startsWith('{')) {
               try {
@@ -1008,16 +1243,35 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
                 const belongsToMain = frameAgentId === null || frameAgentId === opts.agentId
                 if (belongsToMain) {
                   if (frame.type === 'chunk' && typeof frame.content === 'string') {
-                    chatSyncFrame.appendContent(frame.content)
+                    // 批次 4:正文一出现就记为"已转发" —— receipt 只在**未产出正文**时才允许
+                    // 落 failed(否则一次成功生成会被一次超时判成可重试)。
+                    assistantContentForwarded = true
+                    if (projectionWritable) {
+                      projectionContent += frame.content
+                      projectionCharsSinceFlush += frame.content.length
+                    }
+                    chatSyncFrame?.appendContent(frame.content)
                   } else if (frame.type === 'reasoning' && typeof frame.content === 'string') {
-                    chatSyncFrame.appendReasoning(frame.content)
+                    if (projectionWritable) {
+                      projectionReasoning += frame.content
+                      projectionCharsSinceFlush += frame.content.length
+                    }
+                    chatSyncFrame?.appendReasoning(frame.content)
                   }
                 }
                 // done 帧到达即内容已完整:提前冲掉尾巴,终态帧(rev=链头)不必等 finally。
-                if (frame.type === 'done') void chatSyncFrame.flush()
+                if (frame.type === 'done' && chatSyncFrame) void chatSyncFrame.flush()
               } catch {
                 /* 非 JSON data 行,透传,不采集 */
               }
+            }
+            // 批次 4:partial 落库节流 —— ≤4 次/秒 或 累积 ≥2000 字符才写一次;
+            // 串行链 + 不 await,保证不拖慢转发(收尾必写见 finally)。
+            if (
+              projectionWritable &&
+              (projectionCharsSinceFlush >= 2000 || Date.now() - projectionLastFlushAt >= 250)
+            ) {
+              void flushProjection()
             }
           }
           // D1(2026-09-19 立):usage 命名帧透传 —— `event: usage` 已暂存事件名时,
@@ -1140,6 +1394,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         }
       }
       if (streamBuffer && session.raw) session.raw.write(streamBuffer)
+      // 批次 4:读循环正常跑完(上游把 done/终止帧交完了)⇒ receipt 可结算为 dispatched。
+      receiptOutcome = 'normal'
       // 正常收尾:done 帧的 finishReason 是唯一证据;缺失(老上游/降级)按 stop,
       // 而重放窗口放弃是服务端侧中止,不能伪装成正常结束(aborted 是闭集里唯一的"停止"档)。
       terminalReason = streamAbandoned
@@ -1157,10 +1413,59 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       emitEvent(session, JSON.stringify(errChunk))
       // AbortError:客户端主动停止 ⇒ aborted;服务端超时不是用户意图,按 error 宣告。
       // 其余异常 = 生成期错误(上游/网关),同样 error。
-      terminalReason = (e as Error).name === 'AbortError' && !timedOut ? 'aborted' : 'error'
+      const isClientDisconnect = (e as Error).name === 'AbortError' && !timedOut
+      terminalReason = isClientDisconnect ? 'aborted' : 'error'
+      // 批次 4:只有"上游在产出任何正文前失败"才把 receipt 落 failed(同 id 重试可再受理)。
+      // 客户端断开**不**结算 —— 用户可能只是切后台,此时判 failed 会让重连被判 duplicate;
+      // 已产出正文后失败也不落 failed(那一轮事实上生成过,交给 worker/投影终态收口)。
+      if (!isClientDisconnect && !assistantContentForwarded) {
+        receiptOutcome = 'failed'
+        receiptErrorCode = timedOut ? 'upstream_timeout' : 'upstream_error'
+        if (projectionKey && projectionWritable) {
+          void failProjection(chatRuntimeQueryable, projectionKey, 'upstream_error').catch(
+            (err: unknown) => {
+              request.log.warn(
+                { err: err instanceof Error ? err.message : String(err), ...projectionKey },
+                '[ChatProjection] 标记失败未落库(不阻塞透传)',
+              )
+            },
+          )
+        }
+      }
     } finally {
       raw.off('close', onClose)
       clearTimeout(serverTimeout)
+      // 批次 4 租约:先停心跳再结算 —— 否则结算后下一拍续租会白跑一趟(且必然 miss)。
+      if (receiptHeartbeat) {
+        clearInterval(receiptHeartbeat)
+        receiptHeartbeat = null
+      }
+      // 批次 4:收尾必写 —— 冲刷最后一段 partial(排队在失败标记之后时会被状态守卫拦下)。
+      if (projectionWritable) void flushProjection()
+      // receipt 结算放在响应收尾之前 await:一次本地 UPDATE,换取"崩溃窗口"内也不丢终态。
+      if (receiptAccepted && receiptTarget && receiptOutcome) {
+        const settleStatus: 'dispatched' | 'failed' =
+          receiptOutcome === 'normal' ? 'dispatched' : 'failed'
+        try {
+          await settleInputReceipt(chatRuntimeQueryable, {
+            conversationId: receiptTarget.conversationId,
+            inputId: receiptTarget.inputId,
+            status: settleStatus,
+            errorCode: settleStatus === 'failed' ? receiptErrorCode : null,
+          })
+        } catch (err) {
+          // 结算失败绝不回写已完成的响应:留 dispatching 由后续同 id 重试判 duplicate,
+          // 比伪造 dispatched 更保守(宁可少生成,不可双生成)。
+          request.log.warn(
+            {
+              err: err instanceof Error ? err.message : String(err),
+              conversationId: receiptTarget.conversationId,
+              inputId: receiptTarget.inputId,
+            },
+            '[ChatReceipt] 结算失败(保留 dispatching,不阻塞收尾)',
+          )
+        }
+      }
       // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
       // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
       if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
@@ -1231,7 +1536,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         // 差距①(2026-10-30 立):inputId —— 不在这里解构就会被静默留在 parsed.data 里
         // ⇒ 上游收不到而界面看着正常(同 D130/sandboxMode 那一型)。
         inputId,
+        // 批次 4(2026-11-06):重试序号透传入口;receipt 受理后以 attempt_count 覆盖。
+        inputAttempt,
         model,
+        // 向后兼容字段:resolvedModel = model ?? modelId,漏解构会静默丢给上游
         modelId,
         agentId,
         materialContent,
@@ -1435,6 +1743,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           sessionId,
           // 差距①(2026-10-30 立):inputId 经上游请求体同名键透传
           inputId,
+          inputAttempt,
           resolvedModel,
           agentId,
           materialContent,

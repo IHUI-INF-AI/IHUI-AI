@@ -177,6 +177,19 @@ def generate_diff(old_content: str, new_content: str, file_path: str) -> str:
 # 判据(工具登记表 / 归属三态 / 回溯裁决)住在 app/core/ai_code_attribution.py,
 # 仓内**只此一份**;本模块只把「这次改动是谁写的」喂进去,自己不判归属。
 # 归属账是观测面不是控制面:记账失败只记日志,绝不影响编辑主流程。
+def _capture_change(file_path: str, before: str | None, after: str | None) -> None:
+    """把本次写盘喂给按轮变更集(无 turn 上下文时内部是 no-op)。
+
+    变更集是回滚/预览面,不是编辑成功的前提:采集异常只落日志,绝不影响返回值。
+    """
+    try:
+        from .change_set_store import record_file_change
+
+        record_file_change(file_path, before, after)
+    except Exception as e:  # noqa: BLE001 - 采集故障不得让编辑失败
+        logger.warning("file_editor 变更集采集失败(已忽略): %s", e)
+
+
 def _record_attribution(
     tool: str,
     file_path: str,
@@ -266,6 +279,8 @@ def edit_file(
                 line_start=1,
                 line_end=max(1, new_string.count("\n") + 1),
             )
+            # 批4(2026-11-06):新建文件 = before 侧不存在,变更集按 add 归类。
+            _capture_change(resolved_path, None, new_string)
             return {
                 "ok": True,
                 "action": "created",
@@ -375,6 +390,9 @@ def edit_file(
 
     # 12. 生成 unified diff
     diff = generate_diff(old_content, new_content, resolved_path)
+
+    # 批4(2026-11-06):写盘成功后才采集(失败路径没有实际改动,不该进台账)。
+    _capture_change(resolved_path, old_content, new_content)
 
     # 13. 归属记账(file_edit 这一格 = AI 生成面;行区间取自 diff 的 hunk 头)
     _line_start, _line_end = parse_diff_line_range(diff)

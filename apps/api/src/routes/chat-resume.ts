@@ -10,8 +10,21 @@ import { error, success } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { buildSseCorsHeaders } from '../plugins/cors-origin.js'
 import { findConversationById, findMessageById } from '../db/chat-queries.js'
+import { dbClient } from '../db/index.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { loadRepoWikiContext } from '../services/repo-wiki-context.js'
+import type { Queryable } from '../services/chat-input-receipts.js'
+import { getProjection } from '../services/chat-message-projections.js'
+
+/**
+ * 网关主池 → 最小 Queryable 端口(与 services 假表端口同形)。
+ * 只读一条投影行,用 `unsafe` 免去为一张旁路表再造 drizzle 查询构造。
+ */
+const chatRuntimeQueryable: Queryable = {
+  query: async (sql, params) => ({
+    rows: await dbClient.unsafe(sql, params as Parameters<typeof dbClient.unsafe>[1]),
+  }),
+}
 
 /**
  * P1-6 断点续传(2026-09-13 立,PROJECT_PLAN.md 2549 行)
@@ -114,6 +127,25 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
     }
     const msg = await findMessageById(messageId)
     if (!msg || msg.conversationId !== conversationId) {
+      // 批次 4(2026-11-06 立):消息尚未落库时,投影表可能已有网关实际观测到的半截正文。
+      // 只以**附加字段**下发(`partialContent` / `projectionState`),`content` 仍为空串、
+      // `exists` 仍为 false —— 既有消费方(只看 completed/content)语义零变化。
+      const projection = await getProjection(chatRuntimeQueryable, {
+        conversationId,
+        clientMessageId: messageId,
+      }).catch(() => null)
+      if (projection?.content) {
+        return reply.send(
+          success({
+            exists: false,
+            completed: false,
+            content: '',
+            updatedAt: null,
+            partialContent: projection.content,
+            projectionState: projection.state,
+          }),
+        )
+      }
       return reply.send(success({ exists: false, completed: false, content: '', updatedAt: null }))
     }
     return reply.send(

@@ -302,6 +302,8 @@ export * from './endpoints/auth.js'
 export * from './endpoints/banner.js'
 export * from './endpoints/business.js'
 export * from './endpoints/chat.js'
+// 批次 4(2026-11-06 立):按轮变更集 / 流式投影读面(web/mobile/小程序共用)
+export * from './endpoints/chat-changes.js'
 // D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
 export * from './endpoints/issue-binding.js'
 // D125:多用户协作会话(邀请/评论)REST 消费面

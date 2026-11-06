@@ -919,7 +919,31 @@ export function createSendMessage(
         inputId: admission.inputId,
         // Qoder 第 9 项:准入回执回调(api-client 分派后喂入;两格为并行会话固定接口,见桥类型注)。
         onSendAdmissionReceipt: (receipt) => {
-          if (admission.accept(receipt).changed) flushAdmission()
+          const resolution = admission.accept(receipt)
+          if (resolution.changed) flushAdmission()
+          // inputId 不符 ⇒ 不是本轮回执,除了上面那次(无变化的)判定外什么都不做
+          if (!resolution.matched) return
+          if (receipt.disposition === 'duplicate') {
+            // 幂等重放:服务端早已受理同一 inputId(副作用已发生)。
+            // 只结算本地「上一次未确认」账本,不报错、不再发 —— 不发第二枚用户气泡,
+            // 也不让账本把下一次同文发送误拦成"上一条还没确认"。
+            if (pendingCommandId) settlePendingSend(pendingCommandId)
+            return
+          }
+          if (receipt.disposition === 'rejected') {
+            // rejected 是终态:先结算账本,否则 pending-send 会拦住同一正文,
+            // 用户就没法用**新的** inputId 重发(新 id 由下一次发送的 createInputId 生成)。
+            if (pendingCommandId) settlePendingSend(pendingCommandId)
+            // 只对 input_id_reused 给可行动文案;其余拒收码仍交给既有流错误处置链,
+            // 不在这里抢文案(否则同一失败会弹两次不同的话)。
+            // 只有真正发生迁移的那一帧才弹(重放的拒收帧 changed=false,别重复弹)
+            if (resolution.changed && receipt.reason === 'input_id_reused') {
+              toast.error(t('inputIdReusedTitle'), {
+                description: t('inputIdReusedDesc'),
+                duration: 6000,
+              })
+            }
+          }
         },
         // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
         // Plan/Act 模式(2026-07-24 立):plan=只制定计划不执行工具,act=正常执行

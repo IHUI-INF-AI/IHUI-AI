@@ -385,4 +385,101 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     expect(adm?.phase).toBe('unconfirmed')
   })
 })
+
+describe('任务 3:准入回执终态(duplicate / input_id_reused)', () => {
+  it('duplicate ⇒ 视为已在别处受理:不报错、不追加第二枚用户气泡,并结算待确认账本', async () => {
+    const pane = makePane('adm-receipt-duplicate')
+    const send = createSendMessage(makeCtx(), pane)
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onSendAdmissionReceipt?.({ inputId: o.inputId, disposition: 'duplicate' })
+      // 幂等重放:呈现档等价于"已收下",但对用户不报错
+      expect(admissionOf(pane)?.phase).toBe('admitted')
+      expect(admissionOf(pane)?.disposition).toBe('duplicate')
+      o.onDone?.()
+    })
+
+    await expect(send(TEXT)).resolves.toBe(true)
+
+    expect(mockToast.error).not.toHaveBeenCalled()
+    const users = pane.getState().messages.filter((m) => m.role === 'user')
+    // 一次发送只对应一枚用户气泡;duplicate 不得把它二次上屏
+    expect(users).toHaveLength(1)
+
+    // 账本已结算:同一正文可再次发送(否则会被"上一条可能未确认"拦下)
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onDone?.()
+    })
+    await expect(send(TEXT)).resolves.toBe(true)
+    expect(mockStreamChat).toHaveBeenCalledTimes(2)
+    const duplicateTitleCalls = mockToast.warning.mock.calls.filter(
+      (c) => c[0] === 'duplicatePendingTitle',
+    )
+    expect(duplicateTitleCalls).toHaveLength(0)
+  })
+
+  it('rejected(input_id_reused) ⇒ 可行动错误提示,且结算账本后可用新的 inputId 重发', async () => {
+    const pane = makePane('adm-receipt-input-id-reused')
+    const send = createSendMessage(makeCtx(), pane)
+    let firstInputId: string | undefined
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      firstInputId = o.inputId
+      o.onSendAdmissionReceipt?.({
+        inputId: o.inputId,
+        disposition: 'rejected',
+        reason: 'input_id_reused',
+      })
+      // 拒收是终态:后续隐式证据不得洗白
+      expect(admissionOf(pane)?.phase).toBe('rejected')
+      expect(admissionOf(pane)?.reason).toBe('input_id_reused')
+      o.onResponse?.()
+      expect(admissionOf(pane)?.phase).toBe('rejected')
+      o.onDone?.()
+    })
+
+    await expect(send(TEXT)).resolves.toBe(true)
+
+    const call = mockToast.error.mock.calls.at(-1)
+    expect(call?.[0]).toBe('inputIdReusedTitle')
+    expect((call?.[1] as { description: string }).description).toBe('inputIdReusedDesc')
+
+    // 账本已结算:重发不被 pending-send 拦下,且新一次发送使用**新的** inputId
+    let secondInputId: string | undefined
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      secondInputId = o.inputId
+      o.onDone?.()
+    })
+    await expect(send(TEXT)).resolves.toBe(true)
+    expect(secondInputId).toBeTruthy()
+    expect(secondInputId).not.toBe(firstInputId)
+    const duplicateTitleCalls = mockToast.warning.mock.calls.filter(
+      (c) => c[0] === 'duplicatePendingTitle',
+    )
+    expect(duplicateTitleCalls).toHaveLength(0)
+  })
+
+  it('其它拒收码只结算账本,不在准入层抢文案(仍交给既有流错误处置链)', async () => {
+    const pane = makePane('adm-receipt-rejected-other')
+    const send = createSendMessage(makeCtx(), pane)
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onSendAdmissionReceipt?.({
+        inputId: o.inputId,
+        disposition: 'rejected',
+        reason: 'PERMISSION_DENIED',
+      })
+      o.onDone?.()
+    })
+
+    await expect(send(TEXT)).resolves.toBe(true)
+
+    expect(admissionOf(pane)?.phase).toBe('rejected')
+    // 没有 input_id_reused 专属提示
+    const reusedCalls = mockToast.error.mock.calls.filter((c) => c[0] === 'inputIdReusedTitle')
+    expect(reusedCalls).toHaveLength(0)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

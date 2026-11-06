@@ -155,6 +155,12 @@ from ..services.agent_events import (
     SSE_USAGE,
 )
 from ..services.async_gen_close import aclose_async_gen
+
+# 批4(2026-11-06):按轮变更集(turn 上下文)。入口在流被准入后 begin,流收尾 end 落库;
+# 工具侧(同 task 的 await 链)经 ContextVar 自动可见,无需显式传参。
+from ..services.change_set_store import ChangeTurnContext
+from ..services.change_set_store import begin_turn as begin_change_turn
+from ..services.change_set_store import end_turn as end_change_turn
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
 from ..services.expert_route import frame_payload as _expert_frame_payload
@@ -371,14 +377,42 @@ _admission_seen = ADMISSION_SEEN
 _ADMISSION_SEEN_LIMIT = 256
 
 
-def _admission_disposition(conversation_id: str | None, input_id: str) -> str:
-    """准入判定:转调 `sse_contract.take_admission`(判据与账本只有那一份实现)。"""
+def _admission_disposition(
+    conversation_id: str | None, input_id: str, attempt: int = 1
+) -> str:
+    """准入判定:转调 `sse_contract.take_admission`(判据与账本只有那一份实现)。
+
+    inputAttempt 兼容(批4,2026-11-06):网关在**同一 inputId 的重试**上带 attempt>=2,
+    而内存留痕只按 inputId 记 ⇒ 上一次未跑完的尝试会把重试挡成 duplicate,用户点了重试
+    却什么都不发生。attempt>=2 是网关确认的重试(不是客户端连点):先撤痕再登记,
+    结果恒 accepted 且账本仍记得该 inputId(之后真正的重复发送照旧判 duplicate)。
+    """
+    if attempt > 1:
+        _admission_unseen(conversation_id, input_id)
     return take_admission(conversation_id, input_id, limit=_ADMISSION_SEEN_LIMIT)
 
 
 def _admission_unseen(conversation_id: str | None, input_id: str) -> None:
     """差距③(2026-10-30):rejected 档撤销留痕 —— 拒收不是准入(同样转调单一来源)。"""
     release_admission(conversation_id, input_id)
+
+
+def _change_workspace_root() -> str | None:
+    """本轮变更集使用的绝对工作区根(与文件工具**同一份**根解析)。
+
+    刻意复用 mcp_server._get_workspace_roots 而不是自读 env:工具按哪份白名单判可写,
+    账本就按哪份根归一路径;自建第二份解析迟早与工具分叉,回滚时路径就再也对不上。
+    多根配置时取第一个:一次变更集只落一个根(schema 也只有一列),其余根下的写盘
+    会被 record_file_change 判为"工作区外"跳过(宁可少记,不记到会解析错的根)。
+    """
+    try:
+        from ..services.mcp_server import _get_workspace_roots
+
+        roots = _get_workspace_roots()
+        return roots[0] if roots else None
+    except Exception as e:  # noqa: BLE001 - 根解析失败不阻断聊天流
+        logger.warning("变更集工作区根解析失败(本轮不记账): %s", e)
+        return None
 
 
 # ── 断流续传(2026-10-31 接线):恢复态的唯一进出路 ──────────────────────────────
@@ -3179,6 +3213,11 @@ class LLMCompleteRequest(BaseModel):
     inputId: str | None = Field(
         None, description="客户端生成的稳定输入 ID,admission 帧原样回显用于发送侧配对"
     )
+    # 批4(2026-11-06):网关转发的尝试序号(默认 1)。attempt>=2 = 网关裁决的重试,
+    # 同一 inputId 不得再被内存留痕判成 duplicate(见 _admission_disposition)。
+    inputAttempt: int = Field(
+        1, ge=1, description="同一 inputId 的尝试序号:1=首次,>=2=网关确认的重试"
+    )
     # V3 #58(2026-09-26 立):工作区权限模式档位,透传自前端 ai-panel store
     # ('default'/'accept-edits'/'bypass-permissions'/'plan')。工具审批门据此决定
     # 高危工具执行前是否弹审批:bypass 不拦截;accept-edits 放行文件编辑类(medium)。
@@ -4474,6 +4513,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # G-815975:生成器是否正被"无消费者"地关闭(GeneratorExit/客户端断开取消)。
         # 此时 finally 不允许 yield,dropped 显式回报降级为日志留痕。
         _stream_exiting = False
+        # 批4(2026-11-06):本轮变更集收尾状态。正常走完 = committed;任一异常/取消 = partial
+        # (变更集必须如实区分"收全了"与"只收到一半",不能把 partial 冒充 committed)。
+        _change_turn_status = "committed"
         # 借来的异步生成器(本流下方 astream)的句柄:先置 None,让末尾 finally 在
         # "尚未创建生成器"的路径上也能安全引用 —— llm_gateway 里记过一次同型
         # UnboundLocalError(except/finally 引用了只在 try 内赋值的局部量)。
@@ -4489,7 +4531,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _admission_conv_id = (
                         str((req.metadata or {}).get("conversationId") or "") or None
                     )
-                    _disposition = _admission_disposition(_admission_conv_id, req.inputId)
+                    _disposition = _admission_disposition(
+                        _admission_conv_id, req.inputId, req.inputAttempt
+                    )
                     _admission_payload = {
                         "type": SSE_ADMISSION,
                         "inputId": req.inputId,
@@ -4590,6 +4634,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 },
                             )
                             return
+
+            # 批4(2026-11-06):本轮变更集开始 —— 位置固定在准入判定落地之后
+            # (accepted/queued 已交付到端上)、正文生成之前。turn_id = assistant
+            # messageId(客户端按它关联 UI),缺 messageId 时回落 inputId;两者皆无
+            # ⇒ 无法锚定一轮,不建账(不造值冒充)。
+            _change_turn_id = message_id or req.inputId
+            _change_conv_id = str((req.metadata or {}).get("conversationId") or "")
+            if _change_turn_id and _change_conv_id:
+                try:
+                    begin_change_turn(
+                        ChangeTurnContext(
+                            conversation_id=_change_conv_id,
+                            user_id=str(
+                                (req.metadata or {}).get("userId") or owner_uuid or ""
+                            ),
+                            turn_id=_change_turn_id,
+                            session_id=session_id,
+                            workspace_root=_change_workspace_root(),
+                        )
+                    )
+                except Exception:  # noqa: BLE001 - 账本入口坏了不拖主流
+                    logger.warning("变更集 begin_turn 失败(本轮不记账)", exc_info=True)
 
             # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
             _compaction_sse = _compaction_frame(compaction_info)
@@ -6795,6 +6861,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # G-815975:客户端断开 ⇒ 生成器被 aclose,finally 里不允许 yield,
             # dropped 回报降级为日志留痕(先置位再放行)。
             _stream_exiting = True
+            # 批4(2026-11-06):客户端断开 ⇒ 本轮变更集只收到一半,如实标 partial。
+            _change_turn_status = "partial"
             # 断流续传(2026-10-31 接线):断流这一刻就是"恢复态"的进入点 —— 经 sse_contract
             # 的唯一出口把本订阅标成"正在恢复",并记一个有期限的窗口供重连流认领。
             # 纯同步(取消作用域内不 yield);无订阅身份 ⇒ 整块不记。
@@ -6802,12 +6870,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             raise
         except asyncio.CancelledError:
             _stream_exiting = True
+            _change_turn_status = "partial"
             logger.info("SSE generator cancelled by client disconnect")
             _open_recovery_window_on_break(session_id)
             raise
         except Exception as e:
             # 流内运行时错误(PROVIDER_NOT_IMPLEMENTED / LLM_ERROR)无法 pre-flight,
             # 推送 event: error 含 errorCode,前端 attachErrorMeta 透传到 Error.errorCode
+            _change_turn_status = "partial"
             err_msg = str(e)
             err_code = "LLM_ERROR"
             if "NotImplemented" in err_msg:
@@ -6879,6 +6949,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 正常完成路径任务已被 await 且经完成回调移出集合,此处天然 no-op;
             # 取消仅 fire 不 await(避免在取消作用域内二次招致 CancelledError)。
             _inflight_tool_tasks.cancel_all()
+            # 批4(2026-11-06):本轮变更集唯一收尾点 —— 放在工具取消之后(此时不会再有
+            # 工具写盘),又早于后面几项清理(任何一项清理抛出都不能让账本整轮丢失)。
+            # partial/committed 已在 except 分支置位。取消作用域里任何 await 都可能被
+            # 再次点燃 ⇒ shield 包住;写入失败只落日志,绝不覆盖正在传播的关闭语义。
+            try:
+                await asyncio.shield(end_change_turn(_change_turn_status))
+            except asyncio.CancelledError:
+                logger.info("变更集 end_turn 收尾被取消(本轮账本可能缺失)")
+            except Exception as _cs_err:  # noqa: BLE001 - 观测面故障不拖聊天流
+                logger.warning("变更集 end_turn 收尾失败(已忽略): %s", _cs_err)
             # 阶段 2:清理委托 session(始终执行,先于计量帧)
             if session_id and session_id in _delegate_sessions:
                 del _delegate_sessions[session_id]

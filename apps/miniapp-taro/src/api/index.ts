@@ -11,6 +11,8 @@ import { t } from '../i18n'
 import { type UserInfo, type LoginResult } from '../utils/auth'
 import type { SSEEvent } from '../utils/sse-parse'
 import { formatDateByTemplate } from '@ihui/shared'
+// 批次 4(2026-11-06 立):与 web/RN 同源的稳定 inputId 生成器(跨端幂等)
+import { createInputId } from '@ihui/shared/chat'
 // #12 小程序 AI 增强,D138(承 V4 #96)收口:传输层收敛到 src/lib/sse.ts 薄壳 +
 // @ihui/api-client 的 runResumableSSEStream(重连/退避/读超时/续传游标的唯一实现);
 // 仅本端保留读超时常量传参。
@@ -700,6 +702,10 @@ export const chatStream = async (
 
   // W5:请求体(两分支共用,避免字段漂移;对齐 apps/api chatStreamSchema 的 11 个字段)
   const buildBody = () => ({
+    // 批次 4(2026-11-06 立):一次逻辑发送一个稳定 inputId。
+    // 为什么在 buildBody 里生成而 sse.ts 不管:body 对象在重连/退避/续传时被原样复用
+    // (runResumableSSEStream 只换游标,不重建 body)⇒ 同一轮的重连天然共用同一个 id。
+    inputId: createInputId(),
     messages,
     sessionId,
     model: resolvedModel,

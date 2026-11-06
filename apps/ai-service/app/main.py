@@ -120,6 +120,7 @@ from app.routers.ai_tutor import router as ai_tutor_router
 
 # 企业级补齐(2026-09-06 立):操作审计日志查询 + SSO/OIDC 集成路由
 from app.routers.audit import router as audit_log_router
+from app.routers.chat_changes import router as chat_changes_router
 from app.routers.checkpoint_rewind import router as checkpoint_rewind_router
 from app.routers.cloud_runs import router as cloud_runs_router
 from app.routers.computer_use import router as computer_use_router
@@ -1283,6 +1284,7 @@ def create_app() -> FastAPI:
     # 对标杀手锏四件套路由(2026-09-03 立)——见上方 import
     app.include_router(research_router, prefix="/api", tags=["research"])
     app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])
+    app.include_router(chat_changes_router, prefix="/api", tags=["chat-changes"])
     app.include_router(cloud_runs_router, prefix="/api", tags=["cloud-runs"])
     app.include_router(step_recorder_router, prefix="/api", tags=["agent-recorder"])
     app.include_router(ai_code_attribution_router, prefix="/api", tags=["ai-code-attribution"])

@@ -62,6 +62,10 @@ interface ResumeStatus {
   completed: boolean
   content: string
   updatedAt: number | null
+  /** 批次 4 服务端流式投影:消息未落库时,网关实际观测到的最后一帧正文(可能比本地更全) */
+  partialContent?: string
+  /** 同一投影的落库状态(仅服务端诊断用,web 当前只透传不判定) */
+  projectionState?: string
 }
 
 /**
@@ -174,6 +178,8 @@ export async function resumePendingMessage(
 ): Promise<void> {
   const chatStore = opts.chatStore ?? useChatStore
   const store = chatStore.getState()
+  // 续接上下文里的"已生成前缀":默认本地;服务端投影更全时换成服务端那份(见下方 ① 的补充判定)
+  let effective = p
 
   // ① 先问后端:该消息是否已经落库(落库 = 推理其实已完成,只是前端没收到尾事件)
   try {
@@ -191,13 +197,25 @@ export async function resumePendingMessage(
       chatStore.getState().setMessageStreamCompleted(p.messageId, true)
       return
     }
+    // 批次 4(2026-11-06 立):消息尚未落库,但网关投影表里已有实际观测到的最后一帧正文。
+    // 判据:非空字符串且**严格长于**本地前缀 ⇒ 以服务端为续接前缀并回填 store;
+    // 本地更长时保持本地(绝不把已生成内容回退)。查询失败/无该字段时 effective 仍是 p(原降级路径)。
+    const serverPartial = statusRes.success ? statusRes.data.partialContent : undefined
+    if (
+      typeof serverPartial === 'string' &&
+      serverPartial.length > 0 &&
+      serverPartial.length > (p.content ?? '').length
+    ) {
+      effective = { ...p, content: serverPartial }
+      chatStore.getState().editMessageContent(p.messageId, serverPartial)
+    }
   } catch (e) {
     if (isAbortError(e) || opts.signal.aborted) return
     logger.warn('[Resume] status 查询失败,退化为直接续生成:', e)
   }
 
   // ② 未落库 → 用已生成前缀作为上下文发起续生成
-  ensureMessagePresent(p, chatStore)
+  ensureMessagePresent(effective, chatStore)
   chatStore.getState().setStreaming(true)
   chatStore.getState().setError(null)
 
@@ -231,7 +249,7 @@ export async function resumePendingMessage(
         body: JSON.stringify({
           conversationId: p.conversationId,
           messageId: p.messageId,
-          messages: buildResumeMessages(p, chatStore),
+          messages: buildResumeMessages(effective, chatStore),
           model: store.currentModel,
           mode: getModeStoreForChatStore(chatStore).getState().currentMode,
           // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致

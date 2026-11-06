@@ -2359,12 +2359,17 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
             # 写前基线漂移判定(判定与写盘同锁内完成,判定结果对写盘时刻负责)
             baseline = _FILE_BASE_CONTENT.get(resolved_path)
             disk_now: str | None = None
+            # 批4(2026-11-06):额外保留未经 EOL 归一的原始正文 —— 变更集的 sha256 必须
+            # 对"盘上真实字节"负责(归一后的 \n 参与哈希会让回滚前的比对恒失真)。
+            disk_raw: str | None = None
             if os.path.isfile(resolved_path):
                 try:
                     with open(resolved_path, encoding="utf-8") as f:
-                        disk_now = _normalize_eol(f.read())
+                        disk_raw = f.read()
+                        disk_now = _normalize_eol(disk_raw)
                 except (OSError, UnicodeDecodeError, ValueError):
                     disk_now = None  # 二进制/读不了 → 判不了,交 classify 归 undecidable
+                    disk_raw = None
             verdict = classify_write_conflict(
                 disk_now, baseline, _normalize_eol(content)
             )
@@ -2385,6 +2390,14 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 f.write(content)
             # 1-2:写盘后刷新 base(agent 视角最新内容)
             _record_file_base(resolved_path, content)
+            # 批4(2026-11-06):写盘成功后才进按轮变更集(无 turn 上下文时内部 no-op)。
+            # 采集异常只记日志,返回值形状与错误语义一律不变。
+            try:
+                from .change_set_store import record_file_change
+
+                record_file_change(resolved_path, disk_raw, content)
+            except Exception as e:  # noqa: BLE001 - 观测面故障不得让写盘失败
+                logger.warning("write_file 变更集采集失败(已忽略): %s", e)
             # C 格自我写入登记:本会话自己的改动不报成他席覆盖;失败不影响写
             try:
                 record_self_write(arguments.get("__session_id"), resolved_path, content)

@@ -15,6 +15,8 @@ export default defineConfig({
       'src/routes/__tests__/**/*.test.ts',
       'src/services/__tests__/**/*.test.ts',
       'src/jobs/__tests__/**/*.test.ts',
+      // 批次 4(2026-11-06 立):worker 的投影接线锁(全 mock,不连 Redis/PG)
+      'src/workers/__tests__/**/*.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
       'src/utils/__tests__/**/*.test.ts',
       'src/db/__tests__/**/*.test.ts',

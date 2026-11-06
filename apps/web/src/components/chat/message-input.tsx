@@ -60,6 +60,8 @@ import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-b
 import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 // D117(2026-09-27):/diff 会话改动总览弹窗(全局单实例,useSessionDiffStore 驱动)
 import { SessionDiffDialog } from '@/components/ai/session-diff-dialog'
+// 批次 4:按轮变更集审查弹窗(由 session-diff 弹窗 footer 入口驱动,同为全局单实例)
+import { ChangeSetReviewDialog } from '@/components/ai/change-set-review-dialog'
 // D06 审查对象选择器(2026-10-27 装车):选择条 + 发送正文判定。此前两个文件只有测试引用
 // (生产面零引用 = 票面「审查对象选择器」格未装车),装车点在下方 JSX 与 submitAndDismissLinkPreview。
 import { ReviewTargetSelector } from '@/components/chat/review-target-selector'
@@ -1748,6 +1750,7 @@ export function MessageInput({
       <AgentProgressShortcutHost />
       {/* D117:/diff 会话改动总览弹窗(全局单实例) */}
       <SessionDiffDialog />
+      <ChangeSetReviewDialog />
       {/* 权限模式快捷键帮助面板(2026-07-25 深化,深度对标 Codex CLI /help):
           - ? 键(Shift+/)全局唤起/关闭,由本组件内 useEffect 监听
           - 排除 textarea/input/contenteditable 内,用户打字不误触

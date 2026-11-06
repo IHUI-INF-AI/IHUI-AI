@@ -4,6 +4,7 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useChatStore } from '@/stores/chat'
+import { fetchApi } from '@/lib/api'
 import { findPendingResume, autoResumeAfterHistory } from './resume-stream'
 
 // parseStreamLine 只保留测试需要的语义:从 `data: {"content":"..."}` 取文本块
@@ -134,6 +135,92 @@ describe('P1-6 断点续传', () => {
     const pendingRef = { current: findPendingResume('conv-1') }
     await autoResumeAfterHistory(pendingRef, 'conv-1', new AbortController().signal, LABELS)
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('服务端投影前缀更长时以其续接并回填 store(批次 4)', async () => {
+    const id = 'assistant-1'
+    useChatStore.setState({
+      conversationId: 'conv-1',
+      messages: [
+        { id: 'u1', role: 'user', content: '问题', createdAt: 1 },
+        { id, role: 'assistant', content: '本地较短前缀', createdAt: 2, streamCompleted: false },
+      ],
+      isStreaming: false,
+    })
+    // 消息未落库,但网关投影已观测到更全的最后一帧正文
+    vi.mocked(fetchApi).mockResolvedValueOnce({
+      success: true,
+      data: {
+        exists: false,
+        completed: false,
+        content: '',
+        updatedAt: null,
+        partialContent: '服务端更长的前缀',
+        projectionState: 'materializing',
+      },
+    } as never)
+
+    const pendingRef = { current: findPendingResume('conv-1') }
+    await autoResumeAfterHistory(pendingRef, 'conv-1', new AbortController().signal, LABELS)
+
+    const [url, init] = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      { body: string },
+    ]
+    expect(url).toContain('/api/chat/resume')
+    const body = JSON.parse(init.body) as { messages: Array<{ role: string; content: string }> }
+    expect(body.messages[body.messages.length - 1]).toEqual({
+      role: 'assistant',
+      content: '服务端更长的前缀',
+    })
+    // 服务端前缀先回填 store,续生成增量再追加其后
+    expect(useChatStore.getState().messages.find((m) => m.id === id)?.content).toBe(
+      '服务端更长的前缀后半段',
+    )
+  })
+
+  it('本地前缀比 partialContent 更长时保持本地,不回退(批次 4)', async () => {
+    const id = 'assistant-1'
+    useChatStore.setState({
+      conversationId: 'conv-1',
+      messages: [
+        { id: 'u1', role: 'user', content: '问题', createdAt: 1 },
+        {
+          id,
+          role: 'assistant',
+          content: '本地已生成更长的前缀',
+          createdAt: 2,
+          streamCompleted: false,
+        },
+      ],
+      isStreaming: false,
+    })
+    vi.mocked(fetchApi).mockResolvedValueOnce({
+      success: true,
+      data: {
+        exists: false,
+        completed: false,
+        content: '',
+        updatedAt: null,
+        partialContent: '服务端较短',
+      },
+    } as never)
+
+    const pendingRef = { current: findPendingResume('conv-1') }
+    await autoResumeAfterHistory(pendingRef, 'conv-1', new AbortController().signal, LABELS)
+
+    const [, init] = (global.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      { body: string },
+    ]
+    const body = JSON.parse(init.body) as { messages: Array<{ role: string; content: string }> }
+    expect(body.messages[body.messages.length - 1]).toEqual({
+      role: 'assistant',
+      content: '本地已生成更长的前缀',
+    })
+    expect(useChatStore.getState().messages.find((m) => m.id === id)?.content).toBe(
+      '本地已生成更长的前缀后半段',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

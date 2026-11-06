@@ -273,4 +273,82 @@ export interface UseChatReturn<TMessage extends ChatMessage = ChatMessage> {
   /** 手动设置 error */
   setError: (err: string | null) => void
 }
+
+// ============================================================================
+// 批次 4(2026-11-06 立):按轮变更集 / 流式投影的跨端 wire 契约
+//
+// 来源:`apps/api/src/routes/chat-changes.ts` 与 `packages/database/src/schema`
+// 的 chat_turn_change_sets / chat_turn_change_files / chat_message_projections。
+// 三端只读这一份形状,不得各写一份(§3 共享层优先)。
+// 时间字段在 wire 上是 ISO 字符串(JSON 序列化 Date 的结果)。
+// ============================================================================
+
+/** 变更集生命周期:轮次进行中 open / 正常收尾 committed / 上游崩溃前 flush 不全 partial */
+export type ChatTurnChangeSetStatus = 'open' | 'committed' | 'partial'
+
+/**
+ * 回滚状态轴(与变更集状态正交):回滚是变更集之上的又一次迁移,
+ * `available → rewinding → rewound | conflict`,`unavailable` = 本集不可回滚。
+ */
+export type ChatTurnChangeRewindStatus =
+  'available' | 'rewinding' | 'rewound' | 'conflict' | 'unavailable'
+
+/** 一轮变更集的摘要行(list 与 detail 的 changeSet 同形) */
+export interface ChatTurnChangeSet {
+  id: string
+  conversationId: string
+  /** 轮次锚点(assistant 占位消息 id,客户端可复用 messageId 关联 UI) */
+  turnId: string
+  status: ChatTurnChangeSetStatus
+  fileCount: number
+  additions: number
+  deletions: number
+  rewindStatus: ChatTurnChangeRewindStatus
+  createdAt: string
+  updatedAt: string
+}
+
+/** 逐文件明细。刻意不含 before_content:回滚由服务端完成,正文不出网关。 */
+export interface ChatTurnChangeFile {
+  path: string
+  operation: 'add' | 'modify' | 'delete'
+  beforeSha256: string | null
+  afterSha256: string | null
+  additions: number
+  deletions: number
+  unifiedDiff: string | null
+  /** false = 正文超限未落库,该文件不可回滚(接口如实标注,不假装能回滚) */
+  rewindTracked: boolean
+  contentTruncated: boolean
+  rewindAppliedAt: string | null
+}
+
+/** GET /api/chat/changes/:changeSetId 的 data */
+export interface ChatTurnChangeSetDetail {
+  changeSet: ChatTurnChangeSet
+  files: ChatTurnChangeFile[]
+}
+
+/** 流式投影状态机(与 DB check 约束同集) */
+export type ChatMessageProjectionState = 'pending' | 'materializing' | 'committed' | 'failed'
+
+/**
+ * GET /api/chat/changes/projections 的投影行。
+ * `committedMessageId` 非空 = 正式消息已落库(此时投影只作审计);
+ * 为空且 state≠failed = 只有服务端观测到的部分正文可用(崩溃/断线恢复场景)。
+ */
+export interface ChatMessageProjection {
+  conversationId: string
+  /** 客户端预生成的 assistant 占位消息 id(不是 chat_messages.id) */
+  clientMessageId: string
+  state: ChatMessageProjectionState
+  content: string | null
+  reasoning: string | null
+  tokens: number | null
+  attemptCount: number
+  committedMessageId: string | null
+  errorCode: string | null
+  lastActivityAt: string
+  updatedAt: string
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

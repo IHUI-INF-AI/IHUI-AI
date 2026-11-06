@@ -7,6 +7,11 @@ import type { Worker } from 'bullmq'
 import { createWorker, QUEUE_NAMES, type AICallbackJobData, type Job } from '../plugins/queue.js'
 import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
 import { consumeElementPackFrames } from '../db/element-pack-queries.js'
+// 批次 4(2026-11-06 立):流式投影的收敛出口。服务实现由并行工作流落在
+// services/chat-message-projections.ts —— 本文件只接线,不复制一份落库逻辑。
+import { commitProjection, failProjection } from '../services/chat-message-projections.js'
+import type { Queryable } from '../services/chat-input-receipts.js'
+import { dbClient } from '../db/index.js'
 // D64⑤:元素包 metadata 形状的唯一构造出口(空数组返回 null ⇒ 不写 key)。
 // parseElementPackFrames 是读侧守卫:暂存表 jsonb 读回的帧是宽类型,
 // 落 metadata 前必须收窄成 ElementPackFrame(形态不合的帧被丢弃)。
@@ -26,7 +31,18 @@ import { buildElementPackMetadata, parseElementPackFrames } from '@ihui/shared/c
  * - 其他 DB 错误 rethrow 触发 BullMQ 重试
  */
 export function startAiCallbackWorker(server: FastifyInstance): Worker {
-  return createWorker<AICallbackJobData>(
+  /**
+   * 网关主池 → 最小 Queryable 端口(与 services 假表端口同形,单测可整体替换)。
+   * 投影表是旁路台账,为它再造一套 drizzle 查询构造会把落库面拆成两种口径;
+   * 与 routes/chat-resume.ts 的 chatRuntimeQueryable 同形同源。
+   */
+  const projectionQueryable: Queryable = {
+    query: async (sql, params) => ({
+      rows: await dbClient.unsafe(sql, params as Parameters<typeof dbClient.unsafe>[1]),
+    }),
+  }
+
+  const worker = createWorker<AICallbackJobData>(
     server,
     QUEUE_NAMES.aiCallback,
     async (job: Job<AICallbackJobData>) => {
@@ -137,6 +153,37 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         })
       }
 
+      // 批次 4(2026-11-06 立):消息已落库 ⇒ 把投影收敛到 committed。
+      // 为什么必须在落库之后:投影是"服务端观测到的流式正文"的第二份事实来源,
+      // 若先标 committed 再落 chat_messages,中间崩溃会让读取方以为正文已在正式表里。
+      // 为什么失败只记日志:投影是旁路台账,丢了最多退化成"客户端凭本地前缀续流",
+      // 而消息本身已经持久化 —— 为一条旁路台账把整条回调判失败并触发重试是反向收益。
+      try {
+        // messageId 为空 = 没有占位消息 id(回溯/迁移链路直接新建消息),也就没有投影行可收敛。
+        if (messageId) {
+          await commitProjection(
+            projectionQueryable,
+            { conversationId, clientMessageId: messageId },
+            {
+              content,
+              reasoning,
+              tokens,
+              metadata: (savedMessage.metadata as Record<string, unknown> | null) ?? metadata,
+              committedMessageId: savedMessage.id,
+            },
+          )
+        }
+      } catch (e) {
+        server.log.warn(
+          {
+            err: e instanceof Error ? e.message : String(e),
+            conversationId,
+            messageId: savedMessage.id,
+          },
+          '[Projection] commitProjection failed (non-blocking)',
+        )
+      }
+
       // G3: LLM 扣费链路接通 - 集中扣费 + 记成本联动
       // 设计:消息持久化成功后才扣费;扣费失败不 rethrow(避免 BullMQ 重试导致重复扣费,idempotencyKey 兜底)
       if (tokens && tokens > 0 && userId) {
@@ -196,5 +243,42 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
       return { messageId: savedMessage.id }
     },
   )
+
+  /**
+   * 批次 4(2026-11-06 立):终态失败才把投影标 failed。
+   *
+   * 为什么在 worker 的 `failed` 事件里判、而不是在 processor 内 catch 里判:
+   * BullMQ 的每次失败(含仍有重试机会的中间失败)都会触发本事件,processor 抛错时
+   * 还拿不到"这是最后一次"的定论。`attemptsMade` 在事件触发时已包含本次失败,
+   * 只有 `attemptsMade >= opts.attempts` 才是终态 —— 中间重试写 failed 会让客户端
+   * 在重试窗口内读到"已终态"的伪事实,随后又看到正文冒出来。
+   */
+  worker.on('failed', (job, err) => {
+    if (!job) return
+    const attempts = job.opts?.attempts ?? 1
+    if (job.attemptsMade < attempts) return
+    const { conversationId, userId, messageId } = job.data
+    if (!conversationId || !userId || !messageId) return
+    const rawCode = (err as { code?: unknown } | null)?.code
+    const errorCode =
+      typeof rawCode === 'string' && rawCode ? rawCode.slice(0, 64) : 'AI_CALLBACK_FAILED'
+    void failProjection(
+      projectionQueryable,
+      { conversationId, clientMessageId: messageId },
+      errorCode,
+    ).catch((e: unknown) => {
+      server.log.warn(
+        {
+          err: e instanceof Error ? e.message : String(e),
+          conversationId,
+          messageId,
+          errorCode,
+        },
+        '[Projection] failProjection failed (non-blocking)',
+      )
+    })
+  })
+
+  return worker
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

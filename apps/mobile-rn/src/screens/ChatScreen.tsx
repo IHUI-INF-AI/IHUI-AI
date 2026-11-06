@@ -142,6 +142,8 @@ import {
   isErrorTurn,
   resendTargetText,
   conversationMetaLedger,
+  // 批次 4(2026-11-06 立):跨端幂等 —— 一次逻辑发送一个稳定 inputId
+  createInputId,
 } from '@ihui/shared/chat'
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
@@ -953,7 +955,12 @@ export function ChatScreen() {
     // 票 68:把 payload 交出去之前复核一次档位 —— streamChat 在触达网关前仍有 await,这期间用户
     // 换了档就得跟到新档(而不是拿入口快照发新一轮);最新档为空(回填中间态)则退回入口档。
     const roundModel = resolveRoundModel(model, modelRef.current)
+    // 批次 4(2026-11-06 立):inputId 在"这一轮真正开始"处生成一次。
+    // 为什么不在 onDelta/重连回调里现生成:api-client 的流体重连是复用同一个请求体重发,
+    // 每次重连另起 id 会让网关把同一次发送当成两次(重复落库/重复扣费)。
+    const inputId = createInputId()
     await streamChat({
+      inputId,
       model: roundModel,
       messages: apiMessages,
       // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
