@@ -31464,6 +31464,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] RP-65 (2026-11-06) **测试:tsc 复跑现读的 4 条 TS2532 仍在 `apps/api/tests/edu-attendance-write-and-parent-list-contract.test.ts`(:534/:535/:536/:647)** —— 落地器"落地后复跑判红"的 tsc 臂每轮都点名它;单文件射程,补非空断言或收窄类型即可,禁削判据
 - [ ] RP-67 (2026-11-06) **质量:`scripts/check-typecheck.mjs` 尚未消费 import-graph 的 `w.ok===false`(RP-67 落地后残留的 fail-open 一格)** —— 建图失败仍退回窄 scope 反而更易判"范围外";同时要打 `[IHUI-SCOPE-DEGRADE]` 签名行(push-attempt-triage 的 SCOPE_DEGRADE_EVIDENCE_RE 第二半至今无生产者);属判据面,提交带 immutable-exempt 签名
-- [ ]（进行中@2026-11-06/wb-main） RP-68 (2026-11-06) **旗标:`scripts/git-push-converge.mjs:88-91` 未知旗标仍静默按默认动作执行(RP-91 同族残留)** —— 该器头注自述"关闸须先清点发射侧";单文件射程,改显式 exit 2 + 打印用法,镜像钉"`--help` 不得推进 HEAD/不得写索引"
 - [ ] RP-69 (2026-11-06) **文档:webhook 异步派发面未进 README(§21 同批义务,枚 38542c0d15 落地时按令未动 README)** —— 需登记 `GITHUB_WEBHOOK_RESPONSE_BUDGET_MS`(缺省 500ms、0=纯异步)与响应新增的 `dispatch:inline|async` 两键,并写明 deferred 不落盘的已知缺口;跑 `pnpm doc:numbers` 重算派生数字行
 - [ ] RP-70 (2026-11-06) **测试:B25 与 B32 实测是重复 API 面,应收敛成单一出口并保留跨路径同判锁** —— 现读两路径各自注册独立处理器(`edu-ai-management.ts:2700` 与 `:3063`,`grep -c` 各=1,非别名),共用 `childAttendanceQuerySchema` 与同一 confirmed 归属判据;并票后 `edu-attendance-parent-child-authz.test.ts` 的跨路径逐字同判三例须继续成立
