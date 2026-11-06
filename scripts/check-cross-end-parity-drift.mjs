@@ -24,10 +24,17 @@
  * 三态(§0.3):任一子对账器取不到结论 ⇒ state=undetermined(不记绿也不冒红);
  * 取到且有倒退维 ⇒ state=regressed;否则 ok。文档数字与现读不等 ⇒ 单列 docStale(可整改:重跑生成命令)。
  *
+ * 回归制入口(2026-11-06 接提交链):`--gate` 不读上一轮本机快照,只比仓内基线
+ * `scripts/data/cross-end-drift-gate-baseline.json` —— 存量只报数,只有"比基线更坏"才 exit 1。
+ * `--push` 只改人读措辞(runner 侧登记为 push 面 blocking);退出码语义两面一致:
+ * 0=未恶化 / 1=相对基线恶化 / 2=未判定。基线读不到、某维现读取不到 ⇒ 一律 2,**不折成 0**。
+ *
  * Usage:
  *   node scripts/check-cross-end-parity-drift.mjs            # 现读并打印
  *   node scripts/check-cross-end-parity-drift.mjs --json     # 机读
  *   node scripts/check-cross-end-parity-drift.mjs --record   # 同时把本轮写进快照台账(守护轮用)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate     # 回归制:比仓内基线(commit 面 advisory)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(恶化即失败)
  *   node scripts/check-cross-end-parity-drift.mjs --self-test
  */
 import { execFileSync } from 'node:child_process'
@@ -36,16 +43,61 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
 import { readVerdicts } from './lib/cross-end-verdicts.mjs'
+// 回归制判定单源(§0.6):本文件不自己比基线,只把现读值交给纯函数。
+import { describeRegressions, judgeBaseline, readBaseline } from './lib/cross-end-baseline-gate.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
 const STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-parity-last.json')
 const DOC_PATH = 'docs/engineering/rn-miniapp-parity-matrix.md'
+/** 存量固化基线(回归制:存量只报数,只有"比基线更坏"才在 push 面阻断) */
+const GATE_BASELINE_PATH = join(ROOT, 'scripts', 'data', 'cross-end-drift-gate-baseline.json')
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
 const recordMode = argv.includes('--record')
 const selfTest = argv.includes('--self-test')
+const gateMode = argv.includes('--gate')
+const pushMode = argv.includes('--push')
+
+/**
+ * 变坏方向表(提交链判据原文)。'up' = 现读大于基线即恶化;'down' = 小于基线即恶化。
+ * 口径纪律:只有"掉下去就是丢东西 / 涨上来就是多欠账"的维才进表;机会窗(conversionUpgradable)
+ * 与手工保真数(fidelityHand)不是恶化,不进表 —— 判据不做"看着像坏"的主观判断。
+ */
+export const GATE_DIRECTIONS = [
+  ['mirrored', 'down', '已镜像共享屏数'],
+  ['registryEntries', 'down', '镜像登记表条目'],
+  ['coverageRed', 'up', '门 128 判红处'],
+  ['mapRot', 'up', 'web↔RN 登记表腐烂行'],
+  ['aligned', 'down', 'web→RN aligned 行'],
+  ['alignedUnique', 'down', 'web→RN 承载面(去重 web 键)'],
+  ['unmapped', 'up', 'web 路由未判定数'],
+  ['fidelityHosted', 'down', '壳承载对数'],
+  ['fidelityMissing', 'up', '镜像页未还原键数'],
+  ['fidelityBroken', 'up', '壳承载断链对数'],
+  ['fidelityOther', 'up', '声明与承载不符对数'],
+  ['fidelityPackAbsent', 'up', '缺整块命名空间的屏数'],
+  ['fidelityRetractionInvalid', 'up', '键级撤除台账不成立行'],
+  ['fidelityRetractionRot', 'up', '键级撤除台账腐烂行'],
+  ['tierRnMissingN', 'up', 'RN 端非档值用量(处)'],
+  ['tierRnMissingKinds', 'up', 'RN 端非档值种类'],
+  ['tierRnForkN', 'up', 'RN↔web 同元素取异档用量(处)'],
+  ['tierRnForkKinds', 'up', 'RN↔web 异档种类'],
+  ['tierWebOffN', 'up', 'web 端非档/异档用量(处)'],
+  ['tierWebOffKinds', 'up', 'web 端非档/异档种类'],
+  ['tierPending', 'up', '待裁分叉允许差异行'],
+  ['tierAllowanceExpired', 'up', '已到期未续期的分叉豁免'],
+  ['mpTierDefaulted', 'up', '小程序用 Tailwind 默认档的位置数'],
+  ['mpTierLiteral', 'up', '小程序裸字面量位置数'],
+  ['prefixContradicted', 'up', '门户表与段级豁免互斥路由'],
+  ['staleCountAssertions', 'up', '豁免 reason 自述计数腐烂'],
+  ['missingExpiry', 'up', '段级豁免缺期/到期'],
+  ['duplicateWebKeys', 'up', '同一 web 键多行'],
+  ['pendingWebPair', 'up', 'web↔RN 证据不足队列'],
+  ['judgedGapWeb', 'up', '判过确认 RN 缺屏数'],
+  ['conversionRefused', 'up', '预演拒绝转壳的页数'],
+]
 
 /** 跑一道对账器取 JSON;非零退出也可能带完整结论(判红档),故 stdout 优先、状态另报 */
 function runRuler(script, args = ['--json']) {
@@ -278,6 +330,27 @@ function judgeImpl({
      */
     pendingWebPair: finiteOrNull(webParity?.json?.pending),
     judgedGapWeb: finiteOrNull(webParity?.json?.judgedGap),
+    /**
+     * 样式档位的「种类数」与到期豁免(2026-11-06 追加):
+     * 处数只降一处的改善会被同时新增一种异档值抵消(net 0),只看处数会漏掉"按种扩面"这种恶化;
+     * 分叉豁免到期不回红此前只由 style-tiers 自己 exit 1 表达,进提交链后必须单独成维。
+     * 只在调用方交入 styleTiers 时才建键(与上面 tier 四维同一条纪律,避免旧夹具翻未判定)。
+     */
+    ...(styleTiers === undefined
+      ? {}
+      : {
+          tierRnMissingKinds: finiteOrNull(styleTiers?.json?.rn?.missingTier),
+          tierRnForkKinds: finiteOrNull(styleTiers?.json?.rn?.fork),
+          tierWebOffKinds: (() => {
+            const w = styleTiers?.json?.web
+            if (!w) return null
+            const a = finiteOrNull(w.missingTier)
+            const b = finiteOrNull(w.fork)
+            if (a === null && b === null) return null
+            return (a ?? 0) + (b ?? 0)
+          })(),
+          tierAllowanceExpired: finiteOrNull(styleTiers?.json?.forkAllowance?.expired),
+        }),
   }
   const reasons = []
   // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
@@ -1134,6 +1207,35 @@ function selfTestMain() {
     })(),
   })
 
+  // 回归制(2026-11-06):基线判定四例。存量在基线里 ⇒ ok;比基线更坏 ⇒ regressed;
+  // 基线没登记的维不判(不拿"基线缺键"当恶化);现读取不到该维 ⇒ undetermined(不折成 0)。
+  const gateBase = { dims: { mirrored: 256, mapRot: 2, tierRnMissingN: 134 } }
+  const dirs = [
+    ['mirrored', 'down', '镜像'],
+    ['mapRot', 'up', '腐烂'],
+    ['tierRnMissingN', 'up', '非档'],
+    ['unmapped', 'up', '未判'],
+  ]
+  cases.push({
+    name: 'G1 与基线持平 ⇒ ok(存量不造恒红)',
+    pass: judgeBaseline({ values: { mirrored: 256, mapRot: 2, tierRnMissingN: 134 }, baseline: gateBase, directions: dirs }).state === 'ok',
+  })
+  cases.push({
+    name: 'G2 镜像比基线少 1 ⇒ regressed(丢声明要拦)',
+    pass: (() => {
+      const j = judgeBaseline({ values: { mirrored: 255, mapRot: 2, tierRnMissingN: 134 }, baseline: gateBase, directions: dirs })
+      return j.state === 'regressed' && j.regressions.some((r) => r.dim === 'mirrored' && r.delta === -1)
+    })(),
+  })
+  cases.push({
+    name: 'G3 基线未登记的维(legacy)不参与判定',
+    pass: judgeBaseline({ values: { mirrored: 256, mapRot: 2, tierRnMissingN: 134, unmapped: 99 }, baseline: gateBase, directions: dirs }).state === 'ok',
+  })
+  cases.push({
+    name: 'G4 现读该维取不到 ⇒ undetermined(没判不能记绿)',
+    pass: judgeBaseline({ values: { mirrored: 256, mapRot: 2 }, baseline: gateBase, directions: dirs }).state === 'undetermined',
+  })
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
@@ -1218,19 +1320,59 @@ function main() {
     writeFileSync(STATE_FILE, JSON.stringify(result, null, 2) + '\n', 'utf8')
     result.recorded = true
   }
+  /**
+   * 回归制(2026-11-06):--gate 不看"绝对存量"(现读 mapRot=2 / 撤除台账腐烂=3 是既有存量),
+   * 只比仓内基线。基线读不到 ⇒ undetermined(exit 2),绝不折成"没有恶化"。
+   * pushMode 只影响人读措辞与 runner 侧登记档位;本脚本的退出码语义在两面一致:
+   * 0=未恶化 / 1=相对基线恶化 / 2=未判定。
+   */
+  if (gateMode) {
+    const read = readBaseline(GATE_BASELINE_PATH)
+    const values = { ...(result.cur ?? {}), ...(result.extras ?? {}) }
+    const judged = read.ok
+      ? judgeBaseline({ values, baseline: read.baseline, directions: GATE_DIRECTIONS })
+      : { state: 'undetermined', regressions: [], missing: [], why: read.why }
+    result.gate = {
+      ...judged,
+      face: pushMode ? 'push' : 'commit-advisory',
+      baseline: read.ok ? GATE_BASELINE_PATH.replace(/\\/g, '/').replace(`${ROOT.replace(/\\/g, '/')}/`, '') : null,
+      docStale: result.stale ?? [],
+      values,
+    }
+  }
   if (jsonMode) {
     console.log(JSON.stringify(result, null, 2))
   } else {
-    console.log(`STATE=${result.state}`)
+    console.log(gateMode ? `存量读数 STATE=${result.state}(仅报数,退出码以 GATE 为准)` : `STATE=${result.state}`)
     console.log(
       `现读:镜像 ${result.cur?.mirrored ?? '?'} / 登记 ${result.cur?.registryEntries ?? '?'} / web aligned ${result.cur?.aligned ?? '?'}(台账行) / 承载面(去重 web 键) ${result.extras?.alignedUnique ?? '未判定'} / unmapped ${result.cur?.unmapped ?? '?'} / 段级互斥 ${result.extras?.prefixContradicted ?? '未判定'} / 自述计数腐 ${result.extras?.staleCountAssertions ?? '未判定'} / 豁免缺期 ${result.extras?.missingExpiry ?? '未判定'} / 同键双行 ${result.extras?.duplicateWebKeys ?? '未判定'} / 还原度: 承载 ${result.cur?.fidelityHosted ?? '?'} 手写 ${result.cur?.fidelityHand ?? '?'} 未还原键 ${result.cur?.fidelityMissing ?? '?'} 断链 ${result.cur?.fidelityBroken ?? '?'} 声明不符 ${result.cur?.fidelityOther ?? '?'} 本端词包缺命名空间 ${result.cur?.fidelityPackAbsent ?? '未判定'}`,
     )
     if (result.why) console.log(`未判定原因:${result.why}`)
-    for (const r of result.reasons || []) console.log(`· ${r.dim} —— ${r.detail}`)
+    for (const r of result.reasons || []) console.log(gateMode ? `· [存量] ${r.dim} —— ${r.detail}` : `· ${r.dim} —— ${r.detail}`)
     for (const r of result.stale || [])
       console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
+    if (result.gate) {
+      console.log(
+        `GATE(${result.gate.face} · 基线 ${result.gate.baseline ?? '缺失'}) STATE=${result.gate.state} —— ${describeRegressions(result.gate)}`,
+      )
+      for (const r of result.gate.regressions || [])
+        console.log(`  ✗ ${r.dim}(${r.label}) 基线 ${r.baseline} → 现读 ${r.current}`)
+      if (result.gate.state === 'undetermined') console.log(`  ⚠ ${result.gate.why}`)
+    }
   }
-  process.exit(result.state === 'regressed' ? 1 : result.state === 'undetermined' ? 2 : 0)
+  process.exit(
+    gateMode
+      ? result.gate.state === 'regressed'
+        ? 1
+        : result.gate.state === 'undetermined'
+          ? 2
+          : 0
+      : result.state === 'regressed'
+        ? 1
+        : result.state === 'undetermined'
+          ? 2
+          : 0,
+  )
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
