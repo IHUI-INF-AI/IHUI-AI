@@ -16,7 +16,9 @@
  * 判据(机械可判,分类器唯一实现在 scripts/lib/miniapp-shell-form.mjs):
  *   S1 棘轮:当前面上「已在映射里被声明为镜像/委托、却没有 import 委托入口」的页面,
  *      若不在 scripts/data/miniapp-shell-copy-ledger.jsonl 存量台账里 ⇒ 红(新增复制页)。
- *   S2 存量只报数:台账里已收敛/行数漂移的条目记 advisory,不红(§12e,存量按批次收)。
+ *   S2 存量只报数:「可从台账摘除」只在当前判定确实成立时出现(现读薄壳 + 业务 JSX ≤2 +
+ *      零重复 UI 段 + 无单端消费 prop + 有入口证据);复制页/重复段/单端 prop/超阈值/不在射程/
+ *      当前面无对应页一律降级为只报差量或“不得摘除”。判据见 retirementShortfall,只许更严。
  *   委托入口 = `@rn-shells/*` | `@ihui/rn-app/features/*` | `@ihui/rn-app` barrel 同名屏。
  *   映射声明 = 登记表 cross-end-screen-registry.json ∪ 页面四形镜像声明(与既有一致)。
  *
@@ -45,6 +47,7 @@ import {
   ledgerKey,
   loadLedgerRows,
   loadRegistry,
+  retirementShortfall,
   LEDGER,
 } from './lib/miniapp-shell-form.mjs'
 
@@ -226,6 +229,18 @@ function selfTestFn(root) {
   const r4 = evaluateRatchet([], [ledgerRow])
   add('C4 存量已收敛 ⇒ advisory(S2)', r4.advisories.some((a) => a.rule === 'S2'), r4.advisories.length)
 
+  // S2 真值锁:只有当前判定确实成立才给「可从台账摘除」。下面每条都是“若判据被放宽就必红”。
+  const canRetireText = (ev) => ev.advisories.some((a) => /可从台账摘除/.test(a.why))
+  const shellRow = { route: shell.route, file: shell.file, loc: shell.loc, mapStatus: shell.mapStatus, reasonClass: null, impl: 'copy' }
+  add('C5 正例:薄壳页 + 台账 ⇒ 可摘(业务 JSX≤2/零重复/无单端)', canRetireText(evaluateRatchet([shell], [shellRow])), retirementShortfall(shell))
+  add('C6 反例:复制页 + 台账 ⇒ 绝不出现“可摘”(含行数相等时)', !canRetireText(evaluateRatchet([copy], [ledgerRow])), copy.impl)
+  add('C7 反例:当前面无对应页 ⇒ 只报无法核对,不给“可摘”', (() => { const ev = evaluateRatchet([], [ledgerRow]); return ev.advisories.some((a) => /无法核对/.test(a.why)) && !canRetireText(ev) })(), 'missing')
+  add('C8 反例:薄壳但有重复 UI 段 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, duplicateUi: true }], [shellRow])), retirementShortfall({ ...shell, duplicateUi: true }))
+  add('C9 反例:薄壳但有单端消费 prop ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, singleEndProps: ['renderTabBody'] }], [shellRow])), retirementShortfall({ ...shell, singleEndProps: ['renderTabBody'] }))
+  add('C10 反例:业务 JSX 超阈值 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, businessJsx: 3 }], [shellRow])), retirementShortfall({ ...shell, businessJsx: 3 }))
+  add('C11 反例:不在映射射程 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, mapStatus: 'none' }], [shellRow])), retirementShortfall({ ...shell, mapStatus: 'none' }))
+  add('C12 反例:无入口证据 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, shellEntry: null }], [shellRow])), retirementShortfall({ ...shell, shellEntry: null }))
+
   // 真实仓正反例(证明射程真覆盖,不是只跑合成夹具)
   let real = null
   try {
@@ -242,17 +257,49 @@ function selfTestFn(root) {
     add('D3 真实仓存在薄壳页(阴性对照材质)', Boolean(realShell), realShell ? realShell.route : null)
     add('D4 真实薄壳页 ⇒ evaluateRatchet 不红', Boolean(realShell) && evaluateRatchet([realShell], []).reds.length === 0, Boolean(realShell))
     if (realShell) {
-      // 变异对照:把真实薄壳页的壳 import 摘掉,分类必须翻成 copy(证明判定的是实现而非路径名)
+      // 变异对照:把真实薄壳页的入口 import 与声明屏渲染一并摘掉,分类必须翻成 copy
+      // (证明判定的是实现而非路径名)。只摘 import 不算退出入口 —— 新判据的入口双证里
+      // 「实际渲染声明屏」仍成立,单摘 import 会停留在 shell,那是对照失效而不是口径回退。
       const text = realShell.file ? loadText(root, realShell.file) : null
       add('D5a 真实薄壳页正文可读', Boolean(text), text ? `${text.length}B` : `${realShell.file} @ ${root}`)
-      const mutated = text ? text.split('\n').filter((l) => !/from\s*['"]@rn-shells/.test(l) && !/@ihui\/rn-app\/features/.test(l)).join('\n') : null
+      const baseName = String((realShell.declaredSpecs ?? [])[0] ?? '')
+        .split('/')
+        .pop()
+        .replace(/\.(tsx|ts|jsx|js)$/, '')
+      const tagRe = baseName
+        ? new RegExp(`<${baseName}\\b[\\s\\S]*?(?:/>|</${baseName}>)`)
+        : null
+      const mutated = text
+        ? text
+            .split('\n')
+            .filter((l) => !/from\s*['"]@rn-shells/.test(l) && !/@ihui\/rn-app\/features/.test(l))
+            .join('\n')
+            .replace(tagRe ?? /$^/, '')
+        : null
       const m = mutated === null ? null : classifyPage({ route: realShell.route, file: realShell.file, text: mutated, declaredSpecs: realShell.declaredSpecs, registry: { miniapp: realShell.route } })
-      add('D5 变异对照:摘掉真实薄壳页的 import ⇒ 翻红为 copy', Boolean(m) && m.impl === 'copy', m ? `${m.impl}/${m.reasonClass}` : null)
+      add('D5 变异对照:摘掉真实薄壳页的 import 与声明屏渲染 ⇒ 翻红为 copy', Boolean(m) && m.impl === 'copy', m ? `${m.impl}/${m.reasonClass}` : null)
       const putBack = mutated === null ? null : classifyPage({ route: realShell.route, file: realShell.file, text, declaredSpecs: realShell.declaredSpecs, registry: { miniapp: realShell.route } })
       add('D6 还原对照:原正文 ⇒ 仍为 shell', Boolean(putBack) && putBack.impl === 'shell', putBack ? putBack.impl : null)
     }
     const und = real.rows.filter((r) => r.impl === 'undetermined')
     add('D7 未判定桶单列且不折绿(只报数)', true, und.length)
+    // 真值锁:真实仓每一条「可从台账摘除」都必须逐条满足 strict 证据;若有人把复制页
+    // 或证据不全的页放进可摘名单,这条必须红(阴性对照 = 真实复制页 + 其台账行)。
+    const realLedger = loadLedgerRows(root)
+    const realEv = evaluateRatchet(real.rows, realLedger)
+    const retireLines = realEv.advisories.filter((a) => /可从台账摘除/.test(a.why))
+    const retireOk = retireLines.every((a) => {
+      const route = a.why.slice(a.why.lastIndexOf(': ') + 2)
+      return retirementShortfall(real.rows.find((r) => r.route === route)) === null
+    })
+    add('D8 真实仓「可摘」逐条有据(≤2/零重复/无单端)', retireOk, `${retireLines.length} 条`)
+    const realCopyRow = real.rows.find((r) => r.impl === 'copy')
+    const realLedgerRow = realLedger.find((l) => l.route === realCopyRow?.route)
+    add(
+      'D9 阴性对照:真实复制页即使有台账也不得出现“可摘”',
+      Boolean(realCopyRow) && !canRetireText(evaluateRatchet([realCopyRow], [realLedgerRow ?? {}])),
+      realCopyRow ? `${realCopyRow.route}/${realCopyRow.businessJsx}` : null,
+    )
   }
 
   // 取不到映射表/读不到文件 ⇒ exit 2 路径(不记绿)
