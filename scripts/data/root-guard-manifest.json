@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T16:23:23.177Z",
+  "sealedAt": "2026-11-06T16:54:40.646Z",
   "sealedBy": "root-guard --seal",
-  "reason": "RP-74 第二批: git-guardian.mjs 补戳位/节律默认参数与无戳位具名声明, 同枚重封根护栏清单",
+  "reason": "心跳口径纠错: 判据面改读锁 mtime, 浮出真实冻结而非放宽; 同枚重封根护栏清单",
   "targets": [
     {
       "id": "guardian-runner",
