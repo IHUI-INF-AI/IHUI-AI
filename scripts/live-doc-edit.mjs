@@ -1184,7 +1184,13 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
  * "携带"放过,只拦 `after` 新引入的 —— 否则每一次对存量行的正当结清动作都被他人欠的账钉红(§12e),
  * 而存量 56 条的清偿是格②,另有票。
  */
-const RESIDUAL_ID_TOKEN_RE = /(?:\{\{NEXT_ID\}\}|｛｛NEXT_ID(?::[A-Za-z]+|：[A-Za-z]+)?｝｝)/
+// 第三型(2026-11-06 实测逼出):带族令牌但**族名不合法** —— 消费用的 ID_TOKEN_RE 族位是
+// `[A-Za-z]+`,所以 `{{NEXT_ID:docs-207}}`/`{{NEXT_ID:A1}}`/`{{NEXT_ID:}}` 这一族**既不被消费、
+// 也不被前两档认住**,原样进 HEAD 后该行连编号都取不出(实测 HEAD 面存量 1 行,2026-10-25 登记)。
+// 负向预查排的是"合法整体"(字母族名 + 紧跟闭合括号),否则会把正当的 `{{NEXT_ID:G}}` 也判红。
+// 前两档逐字保留 ⇒ 原有成对用例 R1–R6 的射程一字不动,只做加法。
+const RESIDUAL_ID_TOKEN_RE =
+  /(?:\{\{NEXT_ID\}\}|｛｛NEXT_ID(?::[A-Za-z]+|：[A-Za-z]+)?｝｝|\{\{NEXT_ID:(?![A-Za-z]+\}\})[^{}]*\}\}|｛｛NEXT_ID(?::|：)(?![A-Za-z]+｝｝)[^｛｝]*｝｝)/
 
 const RESIDUAL_ID_TOKEN_RE_G = new RegExp(RESIDUAL_ID_TOKEN_RE.source, 'g')
 
@@ -1312,7 +1318,7 @@ export function residualIdTokenReport(v) {
       text:
         '❌ 本次要写的内容里有 ' +
         v.violations.length +
-        ' 处**消费不掉的取号令牌字面量**(裸写不带族 / 全角形态)⇒ 用法错,拒绝落地(G-15107 格①)。本器只消费带族的 `{{NEXT_ID:族}}`,其余字面量会原样进 HEAD 并被后续会话照抄。',
+        ' 处**消费不掉的取号令牌字面量**(裸写不带族 / 全角形态 / 族名不合法)⇒ 用法错,拒绝落地(G-15107 格①)。本器只消费 `{{NEXT_ID:<字母族>}}`(族名只允许字母,在册族另由取号器核验),其余字面量会原样进 HEAD 并被后续会话照抄。',
     })
     lines.push({
       kind: 'error',
