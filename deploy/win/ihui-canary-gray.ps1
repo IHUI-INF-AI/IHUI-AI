@@ -161,6 +161,15 @@ function Get-GrayPid {
     if ($pidValue -le 0) { return 0 }
     $proc = Get-Process -Id $pidValue -ErrorAction SilentlyContinue
     if (-not $proc) { return 0 }
+    # 2026-11-07 立(B 线残留):pid 会被复用,单凭"进程还在"会把别人的进程当成灰度实例,
+    # Stop-GrayProcess 随后 taskkill /PID 就会杀错进程(与 deploy-lock 记过的同型)。
+    # 身份判据:我们的实例必在写 pid 文件之前启动 ⇒ 进程启动时刻不得晚于文件写入时刻 +2s
+    # (容差盖住文件系统 mtime 粒度与时钟抖动)。启动时刻读不出 ⇒ 身份不可核验,不当成自己的。
+    $writtenAt = $null
+    try { $writtenAt = (Get-Item -LiteralPath $Path -ErrorAction Stop).LastWriteTime } catch { return 0 }
+    $startedAt = $null
+    try { $startedAt = $proc.StartTime } catch { return 0 }
+    if ($startedAt -gt $writtenAt.AddSeconds(2)) { return 0 }
     return $pidValue
 }
 
