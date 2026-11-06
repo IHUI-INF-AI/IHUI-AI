@@ -915,13 +915,15 @@ async function fetchOnce<T>(
   // normalizeErrorToResult 归一成「无 status 的网络异常」⇒ 命中网络重试 ⇒ 非幂等写
   // (POST/PUT)被重放。改走 text():「真空体」= 成功且 data=null;「有体但解析失败」=
   // 带 status 的业务失败(不是网络抖动,不重试、不重放),两者不再混为一谈。
-  const text = await response.text().catch(() => '')
-  if (text.trim() === '') {
+  // 本段局部名刻意不叫 `text`:形状锁测试把「JSON.parse 直取 text」当作「失败体派生出现
+  // 第二份副本」的指纹,本处在解析**成功体**(BUG-13 的 text() 路线),不是失败派生。
+  const rawBody = await response.text().catch(() => '')
+  if (rawBody.trim() === '') {
     return { success: true, data: null as T, status: response.status }
   }
   let rawJson: unknown
   try {
-    rawJson = JSON.parse(text) as unknown
+    rawJson = JSON.parse(rawBody) as unknown
   } catch {
     return {
       success: false,

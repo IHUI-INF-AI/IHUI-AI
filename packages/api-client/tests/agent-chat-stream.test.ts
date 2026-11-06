@@ -17,27 +17,30 @@ import { streamAgentChat } from '../src/endpoints/agent-chat-stream.js'
 import type { AgentChatMessage } from '@ihui/types'
 
 function jsonPage(items: AgentChatMessage[]): Response {
+  const pageBody = {
+    code: 0,
+    message: 'ok',
+    data: { items, total: items.length, hasMoreOlder: false, nextCursor: null },
+  }
   return {
     ok: true,
     status: 200,
     headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => ({
-      code: 0,
-      message: 'ok',
-      data: { items, total: items.length, hasMoreOlder: false, nextCursor: null },
-    }),
-    text: async () => '',
+    json: async () => pageBody,
+    // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+    text: async () => JSON.stringify(pageBody),
     body: null,
   } as unknown as Response
 }
 
 function jsonMessage(message: AgentChatMessage): Response {
+  const messageBody = { code: 0, message: 'ok', data: message }
   return {
     ok: true,
     status: 200,
     headers: new Headers({ 'content-type': 'application/json' }),
-    json: async () => ({ code: 0, message: 'ok', data: message }),
-    text: async () => '',
+    json: async () => messageBody,
+    text: async () => JSON.stringify(messageBody),
     body: null,
   } as unknown as Response
 }
