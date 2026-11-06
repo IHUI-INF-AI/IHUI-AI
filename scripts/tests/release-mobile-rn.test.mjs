@@ -68,7 +68,7 @@ test('M6 runtimeVersion 三臂:真件 found / 桶随显示版本漂移 missing /
   assert.equal(probeRuntimeVersion('module.exports = 42').status, STATUS.UNJUDGED, '导出非函数应落未判定而非猜')
 })
 
-test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必须自带出路命令', () => {
+test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必须自带出路命令', async () => {
   const ev = {
     whoami: { status: STATUS.FOUND, detail: 'x' },
     runtime: { status: STATUS.FOUND, detail: 'x' },
@@ -78,6 +78,7 @@ test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必
     site: { status: STATUS.FOUND, detail: 'x' },
     prodHost: { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务' },
     latest: { android: { status: STATUS.FOUND, detail: 'x' }, ios: { status: STATUS.MISSING, detail: 'x' } },
+    latestOwnLeg: { android: { status: STATUS.MISSING, detail: '夹具:apk.aizhs.top 不是自有腿' }, ios: { status: STATUS.MISSING, detail: 'x' } },
     submit: { status: STATUS.FOUND, detail: 'x' },
     saKey: { status: STATUS.FOUND, detail: 'x' },
     slot: { status: STATUS.FOUND, detail: 'x' },
@@ -99,6 +100,12 @@ test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必
   assert.equal(exitCode(legs.map((l) => ({ status: foldStatus(l.checks.map((c) => c.status)) }))), 2)
   assert.equal(foldStatus(legs.find((l) => l.id === 'ota-production').checks.map((c) => c.status)), 'ready')
   assert.equal(foldStatus(legs.find((l) => l.id === 'app-store').checks.map((c) => c.status)), 'blocked')
+  // 行在位 ≠ 更新卡拿到自有腿的包:site-apk 必须消费 latestOwnLeg,否则 apk.aizhs.top 会冒绿
+  const site = legs.find((l) => l.id === 'site-apk')
+  assert.equal(site.checks.find((c) => c.k === 'downloadUrl 指向自有站点腿').status, STATUS.MISSING)
+  const { judgeOwnLegUrl } = await import(import.meta.resolve('../check-app-version-latest.mjs'))
+  assert.equal(judgeOwnLegUrl('https://apk.aizhs.top/download/ihui-ai-0.0.18-26110614.apk').ok, false, '第三方/签名 OSS 腿不得算自有腿')
+  assert.equal(judgeOwnLegUrl('https://www.aizhs.top/remote-images/download/ihui-ai-0.0.18-26110614.apk').ok, true)
 })
 
 test('M8 凭据落件闸:git check-ignore 不命中就绝不写盘(结构邻接锁,§15c/§5d)', () => {

@@ -39,6 +39,7 @@ import { pathToFileURL } from 'node:url'
 import { STATUS, fp, expoToken, playServiceKey, androidSigning, easEntry, storeCredential, androidArtifacts, STORE_VENDORS } from './lib/rn-release-credentials.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
 import { siteLegPlan } from './publish-mobile-apk.mjs'
+import { judgeOwnLegUrl } from './check-app-version-latest.mjs'
 
 const ROOT = join(import.meta.dirname, '..')
 const RN_DIR = join(ROOT, 'apps', 'mobile-rn')
@@ -236,6 +237,7 @@ function takeEvidence({ withEas = true, withConfig = true }) {
       }
 
   const latest = {}
+  const latestRows = {}
   for (const platform of ['android', 'ios']) {
     let r = null
     let row = null
@@ -257,6 +259,24 @@ function takeEvidence({ withEas = true, withConfig = true }) {
       : row?.version
         ? { status: STATUS.FOUND, detail: `${platform} latest=${row.version}/${row.buildNumber} → ${row.downloadUrl}` }
         : { status: STATUS.MISSING, detail: `${platform} 无 status=latest 行 ⇒ 端内更新卡取不到包` }
+    latestRows[platform] = parsed ? row : null
+  }
+
+  // Y-14 第二判据:行在位 ≠ 端内更新卡拿到自有腿的包。downloadUrl 必须与网页按钮同源,
+  // 判据复用 check-app-version-latest.mjs 的 judgeOwnLegUrl(零复制,不在此另写一套 host/path)。
+  const latestOwnLeg = {}
+  for (const platform of ['android', 'ios']) {
+    if (latest[platform].status === STATUS.UNJUDGED) {
+      latestOwnLeg[platform] = { status: STATUS.UNJUDGED, detail: `${platform} latest 端点未取到 ⇒ downloadUrl 无法判` }
+      continue
+    }
+    const row = latestRows[platform]
+    if (!row) {
+      latestOwnLeg[platform] = { status: STATUS.MISSING, detail: `${platform} 无 status=latest 行 ⇒ 无 downloadUrl 可判` }
+      continue
+    }
+    const v = judgeOwnLegUrl(row.downloadUrl)
+    latestOwnLeg[platform] = v.ok ? { status: STATUS.FOUND, detail: v.reason } : { status: STATUS.MISSING, detail: v.reason }
   }
 
   const apple = (() => {
@@ -305,7 +325,7 @@ function takeEvidence({ withEas = true, withConfig = true }) {
   const artifacts = androidArtifacts({ dir: join(RN_DIR, 'android', 'app', 'build', 'outputs') })
   const stores = STORE_VENDORS.map((vendor) => ({ vendor, cred: storeCredential(vendor) }))
 
-  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, apple, xcode, artifacts, stores }
+  return { tok, entry, eas, canEas, whoami, channels, runtime, signing, saKey, submit, appJson, slot, site, prodHost, latest, latestOwnLeg, apple, xcode, artifacts, stores }
 }
 
 /**
@@ -381,7 +401,7 @@ export function buildLegs(ev) {
     {
       id: 'site-apk',
       title: 'Android → 官网固定地址 + 端内更新卡',
-      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '本机生产承载面', ...ev.prodHost }, { k: '线上 latest 登记(android)', ...ev.latest.android }],
+      checks: [{ k: '正式签名件', ...ev.signing }, { k: '站点落点', ...ev.site }, { k: '本机生产承载面', ...ev.prodHost }, { k: '线上 latest 登记(android)', ...ev.latest.android }, { k: 'downloadUrl 指向自有站点腿', ...ev.latestOwnLeg.android }],
       command: 'pwsh -File scripts/build-mobile-rn-release.ps1   # 出包链尾自动走 publish-mobile-apk.mjs(含 app_versions 登记)',
     },
     {
