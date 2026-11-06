@@ -13,6 +13,38 @@ declare module '@ihui/rn-app/features/about/AboutScreen' {
   export const AboutScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@ihui/rn-app/features/account-cancel/AccountCancelScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/account-cancel/AccountCancelScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AccountCancelScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/agent-screen/AgentMyApps' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/agent-screen/AgentMyApps.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AgentMyApps: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/agent-screen/AgentRecentUsed' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/agent-screen/AgentRecentUsed.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AgentRecentUsed: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/agent-screen/AgentScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/agent-screen/AgentScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AgentScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@ihui/rn-app/features/ai-assistant/AiAssistantScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 packages/app/src/features/ai-assistant/AiAssistantScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -45,6 +77,14 @@ declare module '@ihui/rn-app/features/app-permission/AppPermissionScreen' {
   export const AppPermissionScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@ihui/rn-app/features/article-list/ArticleListScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/article-list/ArticleListScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ArticleListScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@ihui/rn-app/features/business-license/BusinessLicenseScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 packages/app/src/features/business-license/BusinessLicenseScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
@@ -61,12 +101,62 @@ declare module '@ihui/rn-app/features/carte/CarteScreen' {
   export const CarteScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@ihui/rn-app/features/category-detail/CategoryDetailScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/category-detail/CategoryDetailScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const CategoryDetailScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/change-phone/ChangePhoneScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/change-phone/ChangePhoneScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ChangePhoneScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@ihui/rn-app/features/change-pwd/ChangePwdScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 packages/app/src/features/change-pwd/ChangePwdScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const ChangePwdScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/chat/ChatMessageItem' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/chat/ChatMessageItem.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ChatMessageItemView: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/chat/ChatScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/chat/ChatScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ChatScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/chat/ConversationHistoryScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/chat/ConversationHistoryScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ConversationHistoryScreen: ComponentType<Record<string, unknown>>
+  export const itemTimestamp: ComponentType<Record<string, unknown>>
+  export const orderHistoryRows: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/conversation-import/ConversationImportScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/conversation-import/ConversationImportScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ConversationImportScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@ihui/rn-app/features/coupon/CouponScreen' {
@@ -77,12 +167,52 @@ declare module '@ihui/rn-app/features/coupon/CouponScreen' {
   export const CouponScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@ihui/rn-app/features/developer/DeveloperScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/developer/DeveloperScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const DeveloperScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/distribution/DistributionScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/distribution/DistributionScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const DistributionScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/exam-intro/ExamIntroScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/exam-intro/ExamIntroScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ExamIntroScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@ihui/rn-app/features/exam-question/ExamQuestionScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 packages/app/src/features/exam-question/ExamQuestionScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const ExamQuestionScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/exam-result/ExamResultStats' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/exam-result/ExamResultStats.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ExamResultStats: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/exam-result/ReviewList' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/exam-result/ReviewList.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ReviewList: ComponentType<Record<string, unknown>>
 }
 
 declare module '@ihui/rn-app/features/help/HelpScreen' {
@@ -102,12 +232,160 @@ declare module '@ihui/rn-app/features/icp-record/IcpRecordScreen' {
   export const IcpRecordScreen: ComponentType<Record<string, unknown>>
 }
 
+declare module '@ihui/rn-app/features/lecturer-detail/LecturerDetailScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const LecturerDetailScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/live-host/LiveHostScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/live-host/LiveHostScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const LiveHostScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/live-list/LiveListScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/live-list/LiveListScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const LiveListScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/message-center/MessageCenterScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/message-center/MessageCenterScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const MessageCenterScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/model-edit/ModelEditScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/model-edit/ModelEditScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ModelEditScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/model-income/ModelIncomeScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/model-income/ModelIncomeScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ModelIncomeScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/n8n-model/N8nModelScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/n8n-model/N8nModelScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const N8nModelScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/notification-settings/NotificationSettingsScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const NotificationSettingsScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/order/OrderScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/order/OrderScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const OrderScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/plaza/PlazaScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/plaza/PlazaScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const PlazaScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/profile-edit/ProfileEditScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/profile-edit/ProfileEditScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const AvatarEditor: ComponentType<Record<string, unknown>>
+  export const ProfileEditScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/profile/ProfileScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/profile/ProfileScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ProfileScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/ranking/RankingScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/ranking/RankingScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const RankingScreen: ComponentType<Record<string, unknown>>
+}
+
 declare module '@ihui/rn-app/features/recruitment/RecruitmentScreen' {
   import type { ComponentType } from 'react'
   /** 真相源 packages/app/src/features/recruitment/RecruitmentScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const RecruitmentScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/security-settings/SecuritySettingsScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/security-settings/SecuritySettingsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const SecuritySettingsScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/settings/SettingsScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/settings/SettingsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const SettingsLanguageSection: ComponentType<Record<string, unknown>>
+  export const SettingsScreen: ComponentType<Record<string, unknown>>
+  export const SettingsThemeSection: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/share-landing/ShareLandingScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/share-landing/ShareLandingScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const ShareLandingScreen: ComponentType<Record<string, unknown>>
+  export const formatShareTime: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/subscriptions/SubscriptionsScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/subscriptions/SubscriptionsScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const SubscriptionsScreen: ComponentType<Record<string, unknown>>
+}
+
+declare module '@ihui/rn-app/features/team/TeamScreen' {
+  import type { ComponentType } from 'react'
+  /** 真相源 packages/app/src/features/team/TeamScreen.tsx —— 0 必填 props 才可被壳承载(造页器 form=shell 的前置)。 */
+  // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
+  // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
+  export const TeamScreen: ComponentType<Record<string, unknown>>
 }
 
 declare module '@ihui/rn-app/features/vip-benefit/VipBenefitScreen' {
