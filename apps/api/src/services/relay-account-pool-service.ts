@@ -348,6 +348,36 @@ function autoUid(seed: string): string {
 }
 
 /**
+ * 稳定键材料的唯一消毒口径(2026-11-06 Y-24 立):剥 NUL + 去首尾空白。
+ * 与落库侧 `stripNulDeep` 同判据(键与值不得两套消毒,§0.6);`recordKey` 实测内嵌
+ * leveldb 键分隔符 NUL,不消毒则"同一条记录两次导出算出两枚键"。
+ */
+function stableKeyMaterial(v: unknown): string {
+  return cstr(v)
+    .replace(/\u0000/g, '')
+    .trim()
+}
+
+/**
+ * 从票里取"账号级稳定标识"(2026-11-06 Y-24 立):只认声明名,**绝不把 token 本体当材料**。
+ * 取不到 ⇒ 返回 ''(交回调用方,由它显式决定退化形态;本函数不冒充稳定)。
+ */
+function stableClaimUid(claims: Record<string, unknown> | null, names: readonly string[]): string {
+  if (!claims) return ''
+  for (const n of names) {
+    const v = claims[n]
+    const s =
+      typeof v === 'string'
+        ? stableKeyMaterial(v)
+        : typeof v === 'number' && Number.isFinite(v)
+          ? String(v)
+          : ''
+    if (s) return s.slice(0, 128)
+  }
+  return ''
+}
+
+/**
  * 递归剥除字符串里的 NUL 字节(PG text/jsonb 拒收 \u0000;leveldb 键名等本机
  * 取证材料常内嵌键分隔符,透传进 extra_metadata 前统一消毒,只去非法字节不改语义)。
  */
@@ -434,7 +464,19 @@ function mapOpencodeImport(acc: ImportAccountInput): {
   }
 }
 
-/** MiniMax:mcode auth 记录(accessToken/refreshToken/expiresAtMs + region 溯源) */
+/**
+ * MiniMax 导入映射(2026-10-27 扩容;2026-11-06 Y-24 收稳定身份键)。
+ *
+ * 键源缺陷(主会话现读实证,dev 库 25 行 / 23 枚去重键):`minimax:cn` 一名占 3 行 3 枚 uid,
+ * 而这 3 行的 `extra_metadata.recordKey` sha256 前 8 位同为 `95f3a1fe`,且等于本机
+ * `~/.minimax/auth/prod/cn/mcode-public/auth.json` **当下**那条记录键(整键 sha 同为 `95f3a1fe`)
+ * ⇒ 同一账号、同一记录键、三枚不同 uid,唯一变量就是票 ⇒ 旧口径把 token 混进 seed,
+ * 换一次票就换一枚键,「同 provider+uid 覆盖」永远命中不到旧行,每重导出一次多留一行孤儿。
+ * 现收口:键 = `minimax:record:<recordKey>` 的哈希,token 只进凭据列。
+ * `recordKey` 是 mcode 客户端 `auth.json.records` 的映射键(账号级),`scripts/tests/local-login.test.mjs`
+ * ⑤ 族用例已钉"按 recordKey 打补丁、其它记录不得被动" ⇒ 记录键与账号一一对应、不随票旋转。
+ * 退化档:载荷没有 recordKey 时仍按 token 哈希(不硬造伪稳定键;该平台需补采集列已在册)。
+ */
 function mapMinimaxImport(acc: ImportAccountInput): {
   token: string
   refreshToken: string | null
@@ -452,7 +494,11 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
-    uid: autoUid(`${cstr(a['recordKey']) || 'minimax'}:${token}`),
+    // Y-24:键源 = 账号级 recordKey,token 不进键(缺材料才回落 token 哈希)
+    uid: (() => {
+      const rk = stableKeyMaterial(a['recordKey'])
+      return rk ? autoUid(`minimax:record:${rk}`) : autoUid(`minimax:${token}`)
+    })(),
     name: `minimax${region ? `:${region}` : ''}`,
     expiresAt: expMs !== null && Number.isFinite(expMs) ? new Date(expMs) : null,
     secrets: {
@@ -469,7 +515,14 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   }
 }
 
-/** ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token */
+/**
+ * ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token。
+ *
+ * 2026-11-06 Y-24 收稳定身份键:本机实提那枚票解出的 JWT 声明里带
+ * `customer_id / user_id / username`(账号级),而 `oauth:bigmodel:user_info.id` 与
+ * `customer_id` **同指纹**(同为 `c20d04f8`,两份互独立材料互相印证)⇒ 该 id 不是票派生量,
+ * 换票不改。故 uid = 声明 `customer_id`(缺则 `user_id`);两者皆缺才回落 token 哈希。
+ */
 function mapZcodeImport(acc: ImportAccountInput): {
   token: string
   refreshToken: string | null
@@ -491,7 +544,8 @@ function mapZcodeImport(acc: ImportAccountInput): {
   return {
     token,
     refreshToken: null,
-    uid: autoUid(token),
+    // Y-24:键源 = 票内账号级声明,token 不进键(声明皆缺才回落 token 哈希)
+    uid: stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id']) || autoUid(token),
     name: `zcode${region ? `:${region}` : ''}`,
     expiresAt: null,
     secrets: {
