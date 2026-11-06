@@ -346,6 +346,30 @@ describe('闸门拦下：可读原因 + 升级出口', () => {
       stderr.mockRestore();
     }
   });
+
+  it('损坏的更新缓存不会被收成只剩新结论', async () => {
+    const file = join(TMP_DIR, 'corrupt-update-check.json');
+    const body = '{not json';
+    writeFileSync(file, body, 'utf-8');
+    const writes: string[] = [];
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    try {
+      await enforceServerMinimumVersion({
+        currentVersion: '1.0.0',
+        baseUrl: BASE_URL,
+        cacheFile: file,
+        warn: () => undefined,
+        request: async () => serverBody('9.9.9'),
+      });
+      expect(writes.join('')).toContain('不能把它覆盖成新结论');
+      expect(readFileSync(file, 'utf-8')).toBe(body);
+    } finally {
+      stderr.mockRestore();
+    }
+  });
 });
 
 // -----------------------------------------------------------------------------

@@ -150,12 +150,22 @@ describe('todo_write 工具', () => {
     expect(saved[0]?.status).toBe('completed')
   })
 
-  it('持久化文件损坏时降级为空数组', async () => {
+  it('损坏的任务清单不会被写成只剩新的一条', async () => {
     const p = path.join(tmp, '.ihui', 'todos.json')
     fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(p, '{ invalid json', 'utf-8')
-    const saved = readTodoList(ctx)
-    expect(saved).toEqual([])
+    const body = '{ invalid json'
+    fs.writeFileSync(p, body, 'utf-8')
+    expect(() => readTodoList(ctx)).toThrow(/不能把它说成没有任务 \(corrupt\)/)
+    const result = await todo_write.execute(
+      {
+        todos: [{ id: 't1', content: '新任务', status: 'pending', priority: 'high' }],
+        merge: true,
+      },
+      ctx,
+    )
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('不能把它说成没有任务')
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
   })
 
   it('summary 字段在渲染中显示', async () => {
