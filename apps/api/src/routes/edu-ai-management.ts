@@ -2760,6 +2760,40 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 11. 孩子数据查看（家长端）
   // ===========================================================================
 
+  /**
+   * B25 + B32 收敛出口(§0.6 单源,RP-70):两条 `/parent/* .../attendance` 路由各自保留
+   * 自己的参数形状闸(`:id` 走 uuidParamSchema、`:childId` 走非空检查,错误文案各不同)、
+   * query 闸与筛选条件构建,但 confirmed 归属判据、考勤查询与 { list } 响应只在这里落一次;
+   * 两枚注册都委托本函数,免得两枚独立处理器各抄一份归属判据后漂移。
+   */
+  async function serveChildAttendance(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    studentId: string,
+    conds: SQL[],
+  ) {
+    const userId = request.userId!
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, studentId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+    const list = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(and(...conds))
+      .orderBy(desc(eduAttendanceRecord.date))
+    return reply.send(success({ list }))
+  }
+
   // 孩子考勤记录（按学生ID）
   server.get('/parent/child/:id/attendance', async (request, reply) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
@@ -2771,23 +2805,6 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId!
-
-    // 验证该学生确实是当前用户的孩子
-    const [binding] = await db
-      .select()
-      .from(eduParentStudentBinding)
-      .where(
-        and(
-          eq(eduParentStudentBinding.parentId, userId),
-          eq(eduParentStudentBinding.studentId, idParsed.data.id),
-          eq(eduParentStudentBinding.status, 'confirmed'),
-          isNull(eduParentStudentBinding.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
-
     const conds: SQL[] = [
       eq(eduAttendanceRecord.studentId, idParsed.data.id),
       isNull(eduAttendanceRecord.deletedAt),
@@ -2800,13 +2817,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     } else if (parsed.data.endDate) {
       conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
     }
-    const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(where)
-      .orderBy(desc(eduAttendanceRecord.date))
-    return reply.send(success({ list }))
+    return serveChildAttendance(request, reply, idParsed.data.id, conds)
   })
 
   // 孩子成绩列表（按学生ID）
@@ -3139,22 +3150,6 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId!
-
-    const [binding] = await db
-      .select()
-      .from(eduParentStudentBinding)
-      .where(
-        and(
-          eq(eduParentStudentBinding.parentId, userId),
-          eq(eduParentStudentBinding.studentId, childId),
-          eq(eduParentStudentBinding.status, 'confirmed'),
-          isNull(eduParentStudentBinding.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
-
     const conds: SQL[] = [
       eq(eduAttendanceRecord.studentId, childId),
       isNull(eduAttendanceRecord.deletedAt),
@@ -3167,12 +3162,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     } else if (parsed.data.endDate) {
       conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
     }
-    const list = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(and(...conds))
-      .orderBy(desc(eduAttendanceRecord.date))
-    return reply.send(success({ list }))
+    return serveChildAttendance(request, reply, childId, conds)
   })
 
   // 孩子考试成绩
