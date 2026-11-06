@@ -2618,16 +2618,25 @@ function readColdStartItem(value: unknown): ColdStartItem | null {
  * 标题档只认 auto/user,数字或布尔不折成用户标题。
  * 快照或当前时刻没量到就不恢复。本函数不写盘、不导航。
  *
- * 接线状态:待接线(PENDING)。当前只有单测消费,尚无生产调用点 —— 生产接线需要一份
- * 快照写入方,契约如下(写入方与调用方必须同源,不得各写一份):
- * - now: `Date.now()`;取不到为 `now-unmeasured`。
- * - snapshot: `{ version: 1, savedAt, items: [{ id, title, titleMode, spaceName }] }`,
- *   由会话列表首屏成功后的节流落盘产生(`version !== 1` 一律 `version-unrecognized`)。
- * - route: `{ path: '/conversation/<id>', savedAt }`,取自启动时的 `window.location.pathname`。
- * - 处置:`restore` = 打开 routeId 并渲染 items;`list-only` = 只渲染 items,不导航;
- *   `unjudged` = 回退服务端列表,不采信本地快照。
- * 建议接入点:`persist` 恢复完成后的 client-only 副作用。接线时补一条调用点断言,
- * 并把本段 PENDING 改为已接线。
+ * 接线状态(2026-11-07 判定):**未接线 —— 上游缺数据,待产品拍板**,不是缺一个调用点。
+ * 证据与缺口:
+ * - 快照项要求 `titleMode`(auto/user)与 `spaceName`,但会话列表上游
+ *   (`GET /conversations` → `serializeConversation`,apps/api/src/routes/chat.ts)只回
+ *   id/title/model/metadata/lastMessageAt/createdAt/updatedAt/archivedAt...,`chat_conversations`
+ *   表也没有这两列(packages/database/src/schema/chat.ts);全仓检索除本契约与其用例无第三处。
+ *   ⇒ 会话列表首屏写不出合法 items,`readColdStartItem` 恒 null ⇒ 整份快照 `item-unreadable`。
+ * - 契约 route 形态 `/conversation/<id>` 在 web 不存在:真实深链是
+ *   `/chat?conversationId=<id>`(apps/web/app/(main)/chat/page.tsx 的 ChatConversationSync);
+ *   `apps/web` 内 `/conversation/` 除本契约与用例零命中。
+ *   ⇒ 即便快照可写,route 也恒 `route-invalid`。
+ * 结论:现在硬接线只会恒落 `unjudged`,即"接了但不生效"——按伪造接线处理,故不做。
+ * 最小可行替代(待产品择一):
+ *   A. 收窄项契约为 `{ id, title }`(列表行不再展示工作区名/标题来源),route 认真实
+ *      `/chat?conversationId=<id>`;写入方放会话列表首屏成功处(节流落 localStorage),
+ *      消费方放 ChatConversationSync 冷启首跑,并确认 `list-only` 是否真要"不导航"
+ *      (现网深链并不校验本地快照,直接不导航会拦掉合法深链)。
+ *   B. 上游补 `titleMode`/`spaceName`(列表接口 + 改名/自动标题落 metadata),契约不变。
+ * 接入前本函数只由单测消费,不得作为功能宣称。
  */
 export function planColdStartRestore(input: {
   now: unknown
