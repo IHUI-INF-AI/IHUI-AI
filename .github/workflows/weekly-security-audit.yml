@@ -115,7 +115,7 @@ jobs:
 
       # 2. TypeScript 类型检查（turbo 并行）
       - name: TypeScript 类型检查 (tsc --noEmit)
-        run: pnpm run typecheck || echo "::warning::存在类型错误，详见日志"
+        run: pnpm run typecheck
 
       # 3. ESLint 静态分析
       - name: ESLint 静态分析
