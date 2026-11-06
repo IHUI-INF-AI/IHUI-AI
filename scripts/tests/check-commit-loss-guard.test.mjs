@@ -810,11 +810,13 @@ test('逐路径覆盖·端到端: 3b 未判定项不得被悬空档整体赋值�
   }
 })
 
-test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改动路径同路径同 blob ⇒ 放行并逐条给证据', () => {
+test('逐路径覆盖·端到端(修前必红夹具): 树与任何可达提交都不同,每条改动路径同路径同 blob ⇒ 仍判红(组合态从未入库)', () => {
   const dir = createTempRepo()
   const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
   try {
     // 两个可达提交分别覆盖 a.txt / b.txt 的新 blob;没有任何可达树同时含两者。
+    // 这正是原 pathCovered 放行的形态:每路径都有出处,但组合态 {a:vA, b:vB} 从未在可达面出现
+    // ⇒ 该枚提交是真丢失,放行 = 静默放过。
     git('git checkout -b side-a')
     writeFileSync(join(dir, 'a.txt'), 'vA\n')
     git('git add a.txt')
@@ -836,14 +838,17 @@ test('逐路径覆盖·端到端: 树与任何可达提交都不同,但每条改
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     assert.equal(
       r.status,
-      0,
-      `逐路径全覆盖应放行 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      1,
+      `逐路径覆盖不得再放行,该枚组合态从未入库 ⇒ 必须判红 exit 1,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
-    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
-    assert.match(r.stdout, /a\.txt/, '证据应逐条列出被覆盖的路径')
-    assert.match(r.stdout, /b\.txt/, '证据应逐条列出被覆盖的路径')
+    assert.match(r.stdout, /逐路径内容已覆盖但未备份 1 个/, '证据必须点名,且明确"仍判红"')
+    assert.match(r.stdout, /a\.txt/, '证据应逐条列出已覆盖的路径')
+    assert.match(r.stdout, /b\.txt/, '证据应逐条列出已覆盖的路径')
     assert.match(r.stdout, /\(ref\)/, '证据应标明覆盖面')
-    assert.match(r.stdout, /悬空分档:.*逐路径覆盖 1/, '分档行必须报数')
+    assert.match(r.stdout, /仍判红/, '必须明确覆盖只是证据,不是放行')
+    assert.match(r.stdout, /悬空分档:.*待处置 1/, '分档行必须把该枚算进退处置')
+    assert.match(r.stdout, /其中逐路径已覆盖\(仍判红\) 1/, '分档行必须保留覆盖证据计数')
+    assert.doesNotMatch(r.stdout, /逐路径覆盖放行/, '禁止再出现"放行"措辞')
   } finally {
     rmScratch(dir)
   }
@@ -903,7 +908,7 @@ test('逐路径覆盖·端到端: 新增路径只有"同内容不同路径" ⇒ 
       `同内容不同路径不得放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
     assert.match(r.stdout, /未覆盖:A new-name\.txt/, '未覆盖的新增路径必须点名')
-    assert.doesNotMatch(r.stdout, /逐路径覆盖放行 1 个/, '不得按"别处有同内容"放行')
+    assert.doesNotMatch(r.stdout, /逐路径内容已覆盖但未备份 1 个/, '不得按"别处有同内容"当作已覆盖')
   } finally {
     rmScratch(dir)
   }
@@ -1014,7 +1019,7 @@ test('D 类收紧①: 删 → 重建 → 再删 ⇒ 判红(旧删除记录不得
   }
 })
 
-test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放行并给出该删除记录', () => {
+test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 仍判红,但证据点名该删除记录', () => {
   const dir = createTempRepo()
   // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
   let clock = Date.now() - 3_600_000
@@ -1056,21 +1061,22 @@ test('D 类收紧②: 可达面最新改动就是删掉同一 old blob ⇒ 放�
     git('git checkout main')
     git('git branch -D temp-dangle')
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
-    // 为什么正确:可达面最新一次改动就是"删掉同一份内容",之后没有任何重建把该路径复活
-    // ⇒ 这次删除的意图已经在可达历史里原样发生过,放行不是降低标准。
+    // 为什么正确:可达面最新一次改动就是"删掉同一份内容",之后没有任何重建把该路径复活 ——
+    // 这证明的是"内容出处"已在可达面,但**不证明**该悬空提交对象已备份;2026-11-07 起一律判红。
     assert.equal(
       r.status,
-      0,
-      `最新状态即同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      1,
+      `同内容删除只作证据,提交仍未 tag 备份 ⇒ 必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
-    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名,不得静默')
+    assert.match(r.stdout, /逐路径内容已覆盖但未备份 1 个/, '证据必须点名,且明确"仍判红"')
+    assert.match(r.stdout, /仍判红:逐路径存在 ≠ 组合态\/提交身份入库/, '必须说明为什么覆盖不等于不丢')
     const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
     assert.match(line, /D p\.txt blob=[0-9a-f]{12}/, '证据必须写明"被删掉的那份内容"(old blob)')
     assert.ok(
       line.includes(deleteP.slice(0, 12)),
       `证据必须指向可达面那条最新删除记录 ${deleteP.slice(0, 12)},实际行: ${line}`,
     )
-    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '已证明的删除不得再判红')
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '已覆盖的删除只作证据,不进"未覆盖"档')
   } finally {
     rmScratch(dir)
   }
@@ -1134,7 +1140,7 @@ test('D 类收紧③: 最新删除记录删的 old blob 不同 ⇒ 判红(删的
   }
 })
 
-test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,且证据只指向最后一次', () => {
+test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 仍判红,证据只指向最后一次', () => {
   const dir = createTempRepo()
   // 夹具时钟:每次 git 调用推进 1 秒(否则同一秒的 D/M 并列会被判未判定)。
   let clock = Date.now() - 3_600_000
@@ -1184,12 +1190,13 @@ test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,�
     const r = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     // 为什么正确:第一次删除删的是 v1(既非最新状态、old blob 也不同),不作证;
     // 最后一次删除既是该路径最新改动、old blob 又与本次逐字相同 ⇒ 本次删除意图已在可达面落地。
+    // 但"意图已落地"仍是内容出处证据 ⇒ 2026-11-07 起不再放行,提交未 tag 备份即判红。
     assert.equal(
       r.status,
-      0,
-      `最新那次同内容删除应放行,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+      1,
+      `同内容删除只作证据,提交仍未 tag 备份 ⇒ 必须判红,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
     )
-    assert.match(r.stdout, /逐路径覆盖放行 1 个/, '放行必须点名')
+    assert.match(r.stdout, /逐路径内容已覆盖但未备份 1 个/, '证据必须点名且明确仍判红')
     const line = (r.stdout.split('\n').find((l) => l.includes('D p.txt')) || '').trim()
     assert.ok(
       line.includes(lastDelete.slice(0, 12)),
@@ -1199,7 +1206,7 @@ test('D 类收紧④: 多次删除中只有最后一次同 old blob ⇒ 放行,�
       !line.includes(firstDelete.slice(0, 12)),
       `证据不得指向那次 old blob 不同的旧删除 ${firstDelete.slice(0, 12)}`,
     )
-    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '最新同内容删除已作证,不得判红')
+    assert.doesNotMatch(r.stdout, /未覆盖:D p\.txt/, '已覆盖的删除只作证据,不进"未覆盖"档')
   } finally {
     rmScratch(dir)
   }
@@ -1739,10 +1746,10 @@ test('清单出口·全量档契约: --window-days 0 时 --list-unbacked 必须�
 })
 
 // ─── 逐路径覆盖全量落盘(--list-covered <file>,2026-11-05)────────────────────
-// 立因:展示行只打 `pathCovered.slice(0, 10)`,前 10 名之外的差异(典型"26→24 被移出的
-// 2 枚")无法命名,对账人只能改脚本或重算判据(重算那份必然与源漂开 §22c)。本开关只把
-// **已有的** pathCovered 全量落盘,不改任何判据。三条用例分别钉:默认零副作用 / 条数等于
-// pathCovered 且与 missing 集合互补 / 空集合也产出 0 条文件。
+// 立因:展示行只打 `pathCovered.slice(0, 10)`,前 10 名之外的差异无法命名,对账人只能改脚本或
+// 重算判据(重算那份必然与源漂开 §22c)。本开关只把**已有的** pathCovered 全量落盘,不改任何
+// 判据;2026-11-07 收紧后这些提交仍判红,落盘用于批量补 tag。三条用例分别钉:默认零副作用 /
+// 条数等于 pathCovered 且与 missing 集合互补 / 空集合也产出 0 条文件。
 function readCoveredJsonl(path) {
   const text = readFileSync(path, 'utf8')
   if (text === '') return []
@@ -1777,14 +1784,14 @@ test('--list-covered·反向①: 不给开关 ⇒ 不落盘、无新增输出(�
 
     const target = join(dir, 'covered-list.jsonl')
     const off = runScript(['--blocking', '--filter-stash'], { cwd: dir })
-    assert.equal(off.status, 0, `逐路径全覆盖应放行,实际 ${off.status}:\n${off.stdout}`)
+    assert.equal(off.status, 1, `逐路径覆盖不再放行(未 tag 备份仍判红),实际 ${off.status}:\n${off.stdout}`)
     assert.ok(!existsSync(target), '不给 --list-covered 时不得落盘')
     assert.doesNotMatch(off.stdout, /--list-covered:/, '默认输出不得出现开关横幅')
 
     const on = runScript(['--blocking', '--filter-stash', __test__.FLAGS.listCovered, target], {
       cwd: dir,
     })
-    assert.equal(on.status, 0, `开关只加落盘,不得改判定,实际 ${on.status}:\n${on.stdout}`)
+    assert.equal(on.status, 1, `开关只加落盘,不得改判定(仍判红),实际 ${on.status}:\n${on.stdout}`)
     const stripped = String(on.stdout)
       .split('\n')
       .filter((l) => !l.includes('--list-covered:'))
@@ -1847,11 +1854,11 @@ test('--list-covered·反向②: 开关开 ⇒ 落盘条数 == pathCovered.size,
     assert.ok(existsSync(target), '开关开时必须落盘')
     const recs = readCoveredJsonl(target)
     // 条数必须等于门自己报的 pathCovered 枚数(不是展示行的前 10 枚)
-    const shown = String(r.stdout).match(/逐路径覆盖放行 (\d+) 个/)
+    const shown = String(r.stdout).match(/逐路径内容已覆盖但未备份 (\d+) 个/)
     assert.ok(shown, '门必须仍在报告里给出 pathCovered 条数')
     assert.equal(recs.length, Number(shown[1]), '落盘条数必须等于 pathCovered.size')
     assert.equal(recs.length, 1, '本夹具的 pathCovered 应恰为 1 枚')
-    assert.equal(recs[0].hash, coveredOid, '落盘的必须是那枚被逐路径覆盖放行的提交')
+    assert.equal(recs[0].hash, coveredOid, '落盘的必须是那枚逐路径已覆盖但未备份的提交')
     assert.match(String(r.stdout), /--list-covered:1 条/, '横幅必须给出条数')
     // 与 missing 集合对上:缺口那枚在 stdout 的「未覆盖」清单里,且**不得**出现在落盘里
     assert.match(String(r.stdout), /未覆盖:A lost-unique\.txt/, '缺口必须被门点名')

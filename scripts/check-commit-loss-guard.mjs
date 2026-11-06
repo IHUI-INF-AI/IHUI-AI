@@ -482,8 +482,9 @@ function noteHealDone(fetchedCount) {
 /**
  * `--list-covered <file>` 的落盘器(2026-11-05)。
  * 一行一条 JSON:`{"hash":"…","evidence":[{status,path,blob,commit,surface}…]}` —— 与
- * `--list-unbacked` 的"一行一枚完整 oid"同款机读风格,但多了逐路径覆盖证据(否则无法命名
- * "26→24 被移出的 2 枚"是**哪** 2 枚)。条数逐条等于 `pathCovered.size`。
+ * `--list-unbacked` 的"一行一枚完整 oid"同款机读风格,但多了逐路径覆盖证据。条数逐条等于
+ * `pathCovered.size`。这些提交**仍判红**(2026-11-07 收紧:覆盖只是内容出处证据,不是备份),
+ * 全量落盘用于人工对账与批量补 `lost-commit/*` tag。
  * 只在开关显式打开时被调用 ⇒ 不给开关时零副作用、stdout 逐字不变。
  * 写失败**不吞**:吞掉等于"给了开关却没落盘",对账人会把缺件读成 0 条。抛给 onFatal → exit 2。
  */
@@ -913,17 +914,24 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
 }
 
 /**
- * 逐路径覆盖分档(**纯函数**,2026-11-04;门 30a 放行判据的唯一实现)。
+ * 逐路径覆盖分档(**纯函数**,2026-11-04;2026-11-07 收紧:悬空档只取证,不再放行)。
  *
- * 判据(取代原「整树逐字相等」):对悬空提交相对其 parent 的**每一个改动路径**——
- *   - A/M/T(路径存在):该提交在该路径上的 blob 必须能在**某个可达提交**(refs 面或 reflog 面)
- *     的**同一路径**上找到逐字同的 blob。少一条路径 ⇒ 不放行。
- *   - D(路径被删除):**两条同时成立**才放行 ——
+ * 判据:对悬空提交相对其 parent 的**每一个改动路径**——
+ *   - A/M/T(路径存在):该提交在该路径上的 blob 是否能在**某个可达提交**(refs 面或 reflog 面)
+ *     的**同一路径**上找到逐字同的 blob。少一条路径 ⇒ uncovered。
+ *   - D(路径被删除):**两条同时成立**才算 covered ——
  *     ① 可达面里该路径的**最新一次改动**是一条删除记录(不是"存在"的 A/M/T);
  *     ② 该删除记录的 **old blob 与本次 D 记录的 old blob 逐字相同**。
  *     不再只看"某个可达提交里该路径不存在"(2026-11-04 收紧,缘由见下)。
  *     也不是只看 "HEAD 没有":HEAD 可能被别的会话复活,所以取的是整条可达面历史。
  * 刻意**不做路径级豁免**:任何 `startsWith`/扩展名白名单都会把"未覆盖"读成"已覆盖"。
+ *
+ * 使用边界(2026-11-07 收紧,本条是判据的一部分):
+ *   `covered` 只说明"每条改动路径的内容都能在可达面找到同路径同 blob",**不说明**这枚提交的
+ *   组合态/身份/题已入库 —— 各路径可能来自不同可达提交(分叉各自落地),组合态从未出现过。
+ *   因此 3b 可以用它判"tag 里已无必要内容(已清偿)";**悬空档不得据此放行**,只作证据,
+ *   判决仍交给"是否 tag 备份"。原 2026-11-04 版把它当"门 30a 放行判据的唯一实现",已被
+ *   2026-11-07 的并发夹带夹具证伪(放行版 exit 0,该枚却是真丢失)。
  *
  * 为什么 D 不能只要求"某个可达提交里该路径不存在"(2026-11-04 收紧):
  *   旧判据下,可达面只要有**任意一条**该路径的删除记录,本次删除就被"作证"。具体假阴性:
@@ -935,12 +943,15 @@ function parseRawDiffZ(stdout, { withCommit = false } = {}) {
  *   - 只查"最新是删除"也不够:T3 删的可能是 T2 重建出的**另一份内容**(old blob 不同),
  *     那版内容从未进过可达面 ⇒ 删它同样是新决定,须判红。
  *   两条一起,才等价于"这次删除在可达历史里已经原样发生过,且之后没有任何改动把它撤销或改写"。
- *   判法上没有引入路径白名单,也不是"一律判红"(合法删除仍能凭最新那条同内容删除记录放行)。
+ *   判法上没有引入路径白名单,也不是"一律判红"(合法删除仍能凭最新那条同内容删除记录判为
+ *   covered —— 但 2026-11-07 起,covered 在悬空档只是证据,不再等于放行)。
  *
  * 为什么不是"整树相等":并发提交夹带会让悬空提交的树与任何可达提交都不同,即便它的每条路径
  * 内容都已在可达面(2026-11-04 实测 4 枚悬空全部如此形态)—— 整树判据对它们永不命中。
+ * 但"整树判据不命中"只说明取不到整树同副本,**不能反证**内容未丢;逐路径覆盖因此只能降级
+ * 为证据,不能当放行判据(2026-11-07)。
  *
- * 证据逐条保留(路径 / blob / 覆盖它的可达提交 / 面来源),用于判绿时的点名与复核。
+ * 证据逐条保留(路径 / blob / 覆盖它的可达提交 / 面来源),用于判红时的点名与复核(该 tag 还是该改判)。
  * `entriesByCommit` 取不到(null)或改动面为空(merge/空提交)⇒ 一律落 uncovered(朝红)。
  */
 function splitByPathCoverage({
@@ -2900,9 +2911,14 @@ async function main() {
           whitelistedSameContent.push(...split.sameContent)
           treeEquivalentResidual.push(...split.treeEquivalent)
         }
-        // ④ 逐路径覆盖放行(2026-11-04):取代原「整树逐字相等」判据。
-        // 并发提交夹带让悬空提交的树与任何可达提交都不同,但它的每条改动路径的 blob 可能都已在
-        // 可达面同路径上 ⇒ 内容没丢。判定与取材分离:derive 只派生数据,split 做纯判定。
+        // ④ 逐路径覆盖**取证**(2026-11-04 立;2026-11-07 收紧:不再放行)。
+        // 原判据把"每条改动路径的 blob 都能在可达面同路径找到"当成"这枚提交没丢" ⇒ 命中即放行。
+        // 该前提不成立:逐路径的存在**不等于**这枚提交的组合态已入库 —— 各路径可能来自不同
+        // 可达提交(分叉各自落地),组合态从未在可达面出现过;提交对象/身份/题也仍未备份。
+        // 2026-11-07 夹具实测(并发夹带形态:side-a 落 a=vA、side-b 落 b=vB,悬空枚同时含 a=vA
+        // 与 b=vB):放行版 exit 0,修后 exit 1 —— 这正是被静默放过的真丢失。
+        // 故本档只作证据(读数命名为"逐路径已覆盖但未备份"),判决一律交给时间窗与 tag 备份:
+        // 未 tag 备份 ⇒ 判红。绝不因"逐路径覆盖"命中而跳过判据。
         // 排除集必须是**全部悬空 commit**(含被 filter-stash 滤掉的):它们会出现在 HEAD reflog,
         // 若算作覆盖面,任何悬空提交都能自证通过。
         if (rest.length > 0) {
@@ -2924,8 +2940,14 @@ async function main() {
           // 它们留在外面单独成档,由主链落 exit 2(没判完 ≠ 判红,也绝不许折成绿)。
           for (const u of splitPaths.undetermined) pathCoverageUndetermined.set(u.hash, u)
           for (const u of splitPaths.uncovered) pathCoverageGaps.set(u.hash, u)
-          rest = splitPaths.uncovered.map((u) => u.hash)
-          mark(`path-coverage-done(covered=${pathCovered.length},undetermined=${pathCoverageUndetermined.size})`)
+          // 覆盖项与未覆盖项一并回到待处置:覆盖只是证据,不是放行凭证(2026-11-07)。
+          rest = [
+            ...splitPaths.covered.map((c) => c.hash),
+            ...splitPaths.uncovered.map((u) => u.hash),
+          ]
+          mark(
+            `path-coverage-done(covered-as-unbacked=${pathCovered.length},undetermined=${pathCoverageUndetermined.size})`,
+          )
         }
       }
       return {
@@ -2970,16 +2992,17 @@ async function main() {
         )
       }
     }
-    // 逐路径覆盖放行(2026-11-04):与"等价残留"同样不阻塞,但证据必须逐条可见 ——
-    // 判绿时也要能回答"哪条路径由哪个可达提交覆盖",否则下一次判红无从复核。
+    // 逐路径覆盖(2026-11-07 收紧):不再是放行档,而是"内容按路径散落在可达面、但提交对象
+    // 仍未 tag 备份"的证据。证据必须逐条可见,但判决仍红 —— 静默放行会让"组合态从未入库"
+    // 的真丢失被读成绿。
     if (pathCovered.length > 0) {
       console.log(
-        `  ${C.dim}↳ 逐路径覆盖放行 ${pathCovered.length} 个(相对 parent 的每条改动路径,其 blob 均能在可达面同路径找到逐字同副本:内容未丢,仅提交身份未入库):${C.reset}`,
+        `  ${C.dim}↳ 逐路径内容已覆盖但未备份 ${pathCovered.length} 个(仍判红:逐路径存在 ≠ 组合态/提交身份入库;请 git tag lost-commit/<name> <hash> 备份):${C.reset}`,
       )
       for (const { hash, evidence } of pathCovered.slice(0, 10)) {
         const subj = subjectByHash.get(hash) || ''
         console.log(
-          `  ${C.dim}   ↳ 放行:${C.cyan}${hash.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+          `  ${C.dim}   ↳ 判红:${C.cyan}${hash.slice(0, SHORT_HASH_LEN)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
         )
         for (const e of evidence) {
           const blobPart = e.blob ? ` blob=${e.blob.slice(0, SHORT_HASH_LEN)}` : ''
@@ -2991,22 +3014,21 @@ async function main() {
       }
     }
     if (unreachable.length > 0) {
-      // 分档出处一览(2026-11-03 判据补细;2026-11-04 增"逐路径覆盖"档):
-      // 已备份 / 同内容副本 / 等价残留 / 逐路径覆盖 / 待处置。
+      // 分档出处一览(2026-11-03 判据补细;2026-11-04 增"逐路径覆盖"档;
+      // 2026-11-07 起覆盖档不再减项:它已回到"待处置",只作待处置里的证据补充)。
       // 逐档报数是为了让"门绿了"仍能读出存量里有几枚对象滞留、各是什么出处。
       const backedOut =
         unreachable.length -
         whitelistedSameContent.length -
         treeEquivalentResidual.length -
-        pathCovered.length -
         unbacked.length -
         // 未判定档必须先扣掉:否则它会以余项形态被算进"已备份"(那是把它读成有出处 =
         // 往绿折),而它真实的语义是"没判完"。这里只扣**悬空档**的未判定(它们来自
         // `unreachable`);3b 的未判定项不在 `unreachable` 里,若一并扣会减成负数。
         pathCoverageUndetermined.size
-      // 只有真的出现逐路径覆盖档才加这一桶:老仓的存量账(0 枚)保持原有行形状,
-      // 免得下游按行解析的消费者(以及镜像测试)因为多一个 0 而读不到。
-      const coverageBucket = pathCovered.length > 0 ? ` / 逐路径覆盖 ${pathCovered.length}` : ''
+      // 覆盖档现在计入"待处置"(逐路径覆盖 ≠ 备份);这里只作待处置内部的证据计数。
+      const coverageBucket =
+        pathCovered.length > 0 ? ` / 其中逐路径已覆盖(仍判红) ${pathCovered.length}` : ''
       const undeterminedBucket =
         undeterminedCoverage.size > 0 ? ` / 未判定 ${undeterminedCoverage.size}` : ''
       console.log(
@@ -3128,12 +3150,11 @@ async function main() {
       } else if (unreachable.length > 0 && undeterminedCoverage.size === 0) {
         // 全部有出处时的措辞按档分流:纯 tag 备份那档保留原句(dangling-commit-autotag
         // 认档吃这句);含等价残留时点名,避免把"内容已入库、只是提交身份没入库"
-        // 读成"tag 备份了"。分档明细另有一行恒打印(见上方「悬空分档」)。
+        // 读成"tag 备份了"。逐路径覆盖档已回到待处置(2026-11-07),不会走到这里。
         issues.push(
-          treeEquivalentResidual.length === 0 && pathCovered.length === 0
+          treeEquivalentResidual.length === 0
             ? `${unreachable.length} 个悬空 commit 已全部 tag 备份(防止 git gc 清理)`
-            : `${unreachable.length} 个悬空 commit 已全部有出处(已备份 / 同内容副本 / 等价残留 ${treeEquivalentResidual.length}` +
-              ` / 逐路径覆盖 ${pathCovered.length});等价残留与逐路径覆盖的内容均未丢,仅提交身份未入库`,
+            : `${unreachable.length} 个悬空 commit 已全部有出处(已备份 / 同内容副本 / 等价残留 ${treeEquivalentResidual.length});等价残留内容未丢,仅提交身份未入库`,
         )
       }
       // `--list-out-of-window`:超窗那一批的机器可读名单(每行一枚完整 oid,与 --list-unbacked 同形,
@@ -3151,13 +3172,13 @@ async function main() {
   }
 
   // `--list-covered <file>`:把 pathCovered 的**全量**落盘(一行一条 JSON,条数 == 逐路径覆盖
-  // 放行的枚数)。默认只打前 10 枚展示行,"26→24 被移出的 2 枚"这类差异因此无法命名;
-  // 全量落盘供人工对账。刻意放在 `if (unreachable.length > 0)` **之外**:空集合时也要产出
+  // 证据的枚数)。这些提交**仍判红**(2026-11-07 收紧:覆盖只是内容出处证据,不是备份);
+  // 全量落盘供人工对账/批量补 tag。刻意放在 `if (unreachable.length > 0)` **之外**:空集合时也要产出
   // 一个 0 条的文件(否则"没有覆盖项"与"忘了落盘"无从区分)。不给开时零副作用。
   if (isListCovered) {
     writeCoveredList(coveredForList, listCoveredTarget)
     console.log(
-      `  ${C.cyan}${FLAGS.listCovered}:${coveredForList.length} 条(完整 pathCovered 全量,已写入 ${listCoveredTarget})${C.reset}`,
+      `  ${C.cyan}${FLAGS.listCovered}:${coveredForList.length} 条(逐路径已覆盖但未备份,仍判红;完整全量已写入 ${listCoveredTarget})${C.reset}`,
     )
   }
 
