@@ -615,7 +615,11 @@ export function rendersSharedIn(text, symbol) {
   // 必须锚在**语句起始**且块内不含 `}`:否则惰性匹配会从更早的 `import {` 一路吞到本语句,
   // 抓出来的 specifier 前面粘着别的 import(实测把 `PlanListScreen as SharedPlanListScreen`
   // 读成 `'@react-native-async-storage/...'\nimport {\n  PlanListScreen as ...`)⇒ 判据恒 false。
-  for (const m of src.matchAll(/(?:^|\n)\s*import\s*\{([^}]*)\}\s*from\s*['"]@ihui\/rn-app['"]/g)) {
+  // 2026-11-07 修因:原正则只匹配裸包名 `from '@ihui/rn-app'`,漏掉子路径导入
+  // (如 `from '@ihui/rn-app/features/account-cancel/AccountCancelScreen'`)。这类导入在仓内普遍存在
+  // (apps/mobile-rn 屏多走子路径),漏匹配会把"RN 真渲染了共享屏"误报成名义对齐(门 257 map-rot)。
+  // 放宽到裸包名或其任意子路径,只增不减检测。
+  for (const m of src.matchAll(/(?:^|\n)\s*import\s*\{([^}]*)\}\s*from\s*['"]@ihui\/rn-app(\/[^'"]*)?['"]/g)) {
     for (const piece of m[1].split(',')) {
       const p = piece.trim().replace(/^type\s+/, '')
       if (!p) continue
