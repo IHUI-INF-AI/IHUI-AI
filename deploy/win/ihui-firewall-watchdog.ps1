@@ -50,13 +50,23 @@ function Log($msg) {
   } catch {}
 }
 
-# 启动自检:加固脚本不在位就当场喊出来,而不是每小时后静默 ERROR 一行。
+# 启动自检:加固脚本不在位必须让服务**可见地失败**。
+# 旧写法只 Log FATAL 然后照常进 while($true):服务仍 Running、日志里一行 FATAL 被
+# 后面的 INFO 淹没,实际一条规则都没重放 —— 正是 2026-10-30 迁户记录里那种"器件在、
+# 台账在、实际没人守"。这里直接 exit 3,让 nssm/SCM 把服务标成 stopped/failed。
 if (-not (Test-Path $script)) {
-  Log "FATAL 加固脚本不在位:$script —— 看门狗无法重放,请先恢复 deploy/win/ihui-firewall-hardening.ps1"
+  Log "FATAL 加固脚本不在位:$script —— 看门狗无法重放,拒绝启动(exit 3),请先恢复 deploy/win/ihui-firewall-hardening.ps1"
+  exit 3
 }
 
 Log "watchdog started (pid=$pid, interval=${intervalSec}s, script=$script, powershell=$($PSVersionTable.PSVersion))"
 while ($true) {
+  # 运行期复核:脚本可能在服务启动后被清理(outputs/ 清理、手工误删)。缺失时同样
+  # 拒绝空转 —— 否则每一轮都只记 ERROR 再睡 6h,服务状态仍是 Running。
+  if (-not (Test-Path $script)) {
+    Log "FATAL 加固脚本在运行期消失:$script —— 拒绝继续空转(exit 3)"
+    exit 3
+  }
   try {
     Log "=== applying hardening (dot-sourced, no nested pwsh) ==="
     # 在子作用域里点源加固脚本,既避开嵌套子进程约束,又不污染看门狗自身作用域
