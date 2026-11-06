@@ -575,10 +575,30 @@ function mapSessionEntryImport(
   const token = hits[0]?.value ?? ''
   if (!token) return null
   const key = cstr(a['key'])
+  const source = cstr(a['source']) || providerCode
+  /**
+   * Y-24 收口(2026-11-06):这一支原本是 `autoUid(source:key:token)` —— 对豆包而言 token 就是
+   * `sessionid` 一类的**会话票**,重登即轮换 ⇒ 换一次票换一枚键,「同 provider+uid 覆盖」命中不到
+   * 旧行,每重导出一次多留一行孤儿(dev 库那 12 行的原始成因正是它)。
+   * 改取账号级稳定标识:字节系 `uid_tt` / `uid_tt_ss` 承载用户 id(本机实提的会话族 12 票里就有,
+   * 且席 A 一手量到"uid_tt 族值指纹登录期内不变")。载荷里没有这两枚 ⇒ 保持旧口径,
+   * **不硬造伪稳定键**(退化档有锁,见 tests T9 ⑤)。
+   */
+  const cookieList = Array.isArray(a['cookies'])
+    ? (a['cookies'] as Array<Record<string, unknown>>)
+    : []
+  const accountUid = (() => {
+    for (const n of ['uid_tt', 'uid_tt_ss']) {
+      const hit = cookieList.find((c) => stableKeyMaterial(c['name']) === n)
+      const v = hit ? stableKeyMaterial(hit['value']) : ''
+      if (v) return v
+    }
+    return ''
+  })()
   return {
     token,
     refreshToken: null,
-    uid: autoUid(`${cstr(a['source']) || providerLabel}:${key}:${token}`),
+    uid: accountUid ? autoUid(`${source}:uid:${accountUid}`) : autoUid(`${source}:${key}:${token}`),
     name: key ? `${providerLabel}:${key}` : providerLabel,
     expiresAt: null,
     secrets: {
