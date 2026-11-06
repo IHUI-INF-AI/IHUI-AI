@@ -160,3 +160,27 @@ def test_prefix_string_trap_component_level(tmp_path):
     ws.mkdir()
     wr = WritableRoot(root=str(ws))
     assert wr.is_path_writable(str(tmp_path / "ws2" / "f.txt")) is False
+
+
+def test_unreadable_metadata_stays_read_only(tmp_path, monkeypatch):
+    """读不到 .git / .agents / .codex 时仍进只读名单,不能当成没有再放行改写。"""
+    root = tmp_path / "ws"
+    root.mkdir()
+    real_stat = os.stat
+
+    def denied(path, *args, **kwargs):
+        name = os.path.basename(os.fspath(path))
+        if name in (".git", ".agents", ".codex"):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "app.core.sandbox_policy.os.stat",
+        denied,
+    )
+    protected = default_read_only_subpaths_for_writable_root(
+        str(root),
+        protect_missing_dot_codex=False,
+    )
+    for name in (".git", ".agents", ".codex"):
+        assert os.path.join(str(root), name) in protected

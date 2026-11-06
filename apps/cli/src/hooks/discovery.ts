@@ -330,15 +330,11 @@ export class HooksDiscovery {
       if (code === 'ENOENT' || code === 'ENOTDIR') return {};
       throw new Error(`钩子状态读不到,不能把它覆盖成新状态 (${code})`);
     }
-    try {
-      const parsed = tryParseJson(raw);
-      if (isRecord(parsed)) {
-        return parsed as unknown as HookState;
-      }
-      return {};
-    } catch {
-      return {};
+    const parsed = tryParseJson(raw);
+    if (!isRecord(parsed)) {
+      throw new Error('钩子状态读不到,不能把它覆盖成新状态 (corrupt)');
     }
+    return parsed as unknown as HookState;
   }
 
   private saveState(state: HookState): void {

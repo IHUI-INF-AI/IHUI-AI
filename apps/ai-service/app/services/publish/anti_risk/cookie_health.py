@@ -205,27 +205,36 @@ class CookieHealthMonitor:
             if decision == _DECISION_BACKOFF:
                 return  # 退避窗口内:本次调用不打 IO
             try:
-                if _HEALTH_FILE.is_file():
-                    data = json.loads(_HEALTH_FILE.read_text(encoding="utf-8"))
-                    for key_str, health_data in data.items():
-                        # key_str 格式: "account_id|platform"
-                        parts = key_str.split("|", 1)
-                        if len(parts) == 2:
-                            key = (parts[0], parts[1])
-                            self._health_cache[key] = CookieHealth.from_dict(health_data)
-                    logger.info(
-                        "[cookie_health] 加载历史 Cookie 健康度: %d 个账号",
-                        len(self._health_cache),
-                    )
+                try:
+                    _HEALTH_FILE.stat()
+                except FileNotFoundError:
+                    self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
+                    return
+                data = json.loads(_HEALTH_FILE.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("cookie health file is not an object")
+                for key_str, health_data in data.items():
+                    # key_str 格式: "account_id|platform"
+                    parts = key_str.split("|", 1)
+                    if len(parts) == 2:
+                        key = (parts[0], parts[1])
+                        self._health_cache[key] = CookieHealth.from_dict(health_data)
+                logger.info(
+                    "[cookie_health] 加载历史 Cookie 健康度: %d 个账号",
+                    len(self._health_cache),
+                )
                 self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
-            except (OSError, json.JSONDecodeError) as e:
+            except (OSError, json.JSONDecodeError, ValueError) as e:
                 self._load_failures, self._load_next_attempt_s = _state_after_failure(
                     self._load_failures, now
                 )
                 logger.warning("[cookie_health] 加载健康度文件失败(本次降级为空,退避后自动重试;连续失败到上限停自动重试): %s", e)
 
     def _persist(self) -> None:
-        """持久化元数据到文件(锁外调用)。"""
+        """持久化元数据到文件(锁外调用)。没读成时不覆盖原文件。"""
+        if not self._loaded:
+            logger.warning("[cookie_health] 没读成,不能覆盖原文件")
+            return
         try:
             _HEALTH_FILE.parent.mkdir(parents=True, exist_ok=True)
             data = {

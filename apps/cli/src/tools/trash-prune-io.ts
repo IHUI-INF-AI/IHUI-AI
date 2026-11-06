@@ -88,10 +88,24 @@ export function measureTrashEntry(dir: string, entry: TrashManifestEntry): numbe
 }
 
 /** 枚举回收站:根不存在 = 真空账;根读不到 / 清单坏 = 逐条点名(绝不当成空账) */
-export function scanTrash(trashRoot: string): { manifests: ScannedTrash[]; bad: TrashPruneSkip[] } {
+export function scanTrash(
+  trashRoot: string,
+  stat: (target: string) => fs.Stats = fs.statSync,
+): { manifests: ScannedTrash[]; bad: TrashPruneSkip[] } {
   const manifests: ScannedTrash[] = [];
   const bad: TrashPruneSkip[] = [];
-  if (!fs.existsSync(trashRoot)) return { manifests, bad };
+  try {
+    const rootStat = stat(trashRoot);
+    if (!rootStat.isDirectory()) {
+      bad.push({ trashId: null, relativeTrashPath: null, reason: '回收站根读不到:不是目录' });
+      return { manifests, bad };
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { manifests, bad };
+    bad.push({ trashId: null, relativeTrashPath: null, reason: `回收站根读不到:${msgOf(err)}` });
+    return { manifests, bad };
+  }
   let dirents: fs.Dirent[];
   try {
     dirents = fs.readdirSync(trashRoot, { withFileTypes: true });

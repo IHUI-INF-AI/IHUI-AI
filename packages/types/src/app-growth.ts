@@ -850,6 +850,8 @@ export interface TeamScreenProps {
   loading: boolean
   refreshing: boolean
   error: string
+  /** 屏内自身的「重试」入口(与层级树重试 onRetryTree 分开;不传则错误态不给重试键) */
+  onRetry?: () => void
   onSelectTab: (tab: TeamTab) => void
   onRefresh: () => void
   onBack: () => void

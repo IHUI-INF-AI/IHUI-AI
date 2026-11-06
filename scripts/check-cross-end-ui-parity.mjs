@@ -153,9 +153,14 @@ const GEO_KEY =
  * 而小程序 CSS 里的无单位倍数 `line-height: 1` 会被 `toPx` 当作 rpx 折半成 **0.5**
  * (实测 `IntelligentAssistant` 的"仅小程序档 0.5"就是这么来的 —— 两端源码里都没有 0.5 这个数)。
  * 行高是排版量、不是盒档,按属性名排除,不做值域猜测(猜"1 太小"会把真实的 1px 边框一起放过)。
+ * `byte` 是 2026-11-06 D3 票补的第二型:字节数(`PREVIEW_MAX_BYTES` / `MAX_FILE_BYTES`)永远不是长度。
+ * 这一族**只**收 `byte` 一个词,没有顺手收 `*_SIZE` / `MAX_*`,理由是现读的:
+ * `maxWidth` / `maxHeight` 是合法长度档(本文件"连字符属性"那一格实测过 `max-width: 320rpx`,
+ * 跳掉它凭空造出"仅 RN 档 160"),`iconSize` / `size={24}` 同样是合法盒档 —— 按这两个名字族一刀切
+ * 会把真读数一起抹掉(§12e「修红不得顺手削判据」)。字节型的正解在算式那一侧,见 `isUnitScaleProduct`。
  */
 const NON_GEO_KEY =
-  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page)/i
+  /(weight|letter|line-height|lineheight|opacity|zindex|z-index|duration|delay|easing|alpha|percent|ratio|count|index|version|iteration|order|priority|limit|timeout|timestamp|revision|level|depth|page|byte)/i
 const TW_SPACING_PX = (n) => n * 4
 const TW_FONT_PX = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, '2xl': 24, '3xl': 30 }
 /** 超过此值的"尺寸"不是组件几何(屏宽 / 动画毫秒 / 密度),不判。 */
@@ -328,16 +333,70 @@ export function cssVarTiers(sources) {
  * 不得读成"该侧没有变量取用")。
  */
 /**
+ * 列表**分隔线对象**的键名(2026-11-06 D3 票):`separator: { height: 12 }` 是
+ * `ItemSeparatorComponent` 用来占位的那一条**条目间距**,不是任何元素的宽高。
+ * 真仓现读同形 38 个文件(`git grep -l -F "separator: {" | wc -l`),其中
+ * `packages/app/src/features/search/SearchScreen.tsx` 与 `.../activity/ActivityScreen.tsx` 的
+ * `widthHeight` 读数**整族**就是这一型 —— 键名含 `height` 被 `dimOfKey` 收进盒档维,
+ * web↔RN 五维腿于是把"两端列表间距的写法不同"读成"两端宽高不同档"。
+ * 前缀(item/list/cell/row/grid/header/footer)与单复数一并认。
+ *
+ * 为什么按**上下文**改道而不是按键名排除:`height` 在同屏的 `card: { height: 80 }` 里就是真盒档,
+ * 按键名一刀切会把真读数一起抹掉(§12e)。改道只换维、不丢读数 —— 该值照旧进 `values`,
+ * 主腿的 V1 档集合口径与圆角维一字不动。
+ */
+const SEP_OBJECT_KEY_RE = /^(?:item|list|cell|row|grid|header|footer)?separators?$/i
+/**
+ * 数字字面量之后**紧邻**是否为量纲换算乘积(`× 1024` 字节档 / `× 1000` 毫秒·千分度档)。
+ * 命中即"这一格写的是字节数,不是长度":`const MAX_SIZE = 10 * 1024 * 1024`(10MB 上传上限)
+ * 的 `10` 因键名含 `size` 被收进 `widthHeight`,实测 `apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx`
+ * 的 widthHeight 整族 = `[10]`;同形还在 `packages/ui-react/src/components/Upload.tsx`
+ * (`DEFAULT_MAX_SIZE = 10 * 1024 * 1024`)、`apps/web/src/components/form/AttachmentsUpload.tsx`
+ * (`50 * 1024`)等 —— 判据看的是**算式形状**,与键名无关,所以 `maxWidth: 320` 这类合法档不受影响。
+ * `× 1024` 在样式语义里没有任何合法用法(长度不会用千分度写),因此这一条不是放宽,是纠错。
+ */
+const UNIT_SCALE_PRODUCT_RE = /^\s*\*\s*10(?:24|00)\b/
+/**
+ * 取遮罩纪律:两个位置判据都只在**遮罩文本**(`stripComments` 的输出,剥注释、留字符串)上运行,
+ * 绝不回原始 src 截行 —— 正则截到右花括号会读错后半段(本仓记过),而逐条 `slice` 一个 ≤16 字符
+ * 窗口 / 一次 `lastIndexOf` 是 O(1),不整文件切列。
+ *
+ * 单位乘积判定: `at` = 数字字面量**之后**的下标。
+ */
+export function isUnitScaleProduct(code, at) {
+  if (typeof code !== 'string' || !(at > 0)) return false
+  return UNIT_SCALE_PRODUCT_RE.test(code.slice(at, at + 16))
+}
+/**
+ * 取值位置**所处对象字面量**的键名:从该位置向前找最近的 `{`,再取紧邻其前的 `key:`。
+ * 找不到(函数体、CSS 规则体、模块顶层)⇒ null ⇒ 调用方按"无上下文"判,不猜。
+ * `at` = 键名(不是数字)的下标。引号键(`'separator': {`)一并认。
+ */
+export function enclosingObjectKeyOf(code, at) {
+  if (typeof code !== 'string' || !(at > 0)) return null
+  const brace = code.lastIndexOf('{', at - 1)
+  if (brace <= 0) return null
+  const m = /(['"`]?)([A-Za-z_$][\w$]*)\1\s*:\s*$/.exec(code.slice(Math.max(0, brace - 80), brace))
+  return m ? m[2] : null
+}
+
+/**
  * 键名 → 五类几何维之一;判不出返回 null(该值仍进 values,但不参与分类对账 ——
  * "没分类"不得冒充"这一类没有档")。
  * 顺序有意:font 先于 size(textSize 是字号不是盒宽)、padding 先于 spacing、
  * margin/gap 归「间距」、top/right/bottom/left/inset 也归「间距」(它们是偏移量,不是宽高)。
+ * `ctxKey`(可选)= 该取值所处**外层对象**的键名,只用于分隔线那一型改道(见 `SEP_OBJECT_KEY_RE`);
+ * 不传或传 null 时判据与旧版逐字相同,四维其余取用形态一字未动。
  */
-export function dimOfKey(raw) {
-  const s = String(raw ?? '')
-    .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
-    .toLowerCase()
+export function dimOfKey(raw, ctxKey = null) {
+  const camel = (v) =>
+    String(v ?? '')
+      .replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+      .toLowerCase()
+  const s = camel(raw)
   if (!s) return null
+  const ctx = camel(ctxKey)
+  if (ctx && SEP_OBJECT_KEY_RE.test(ctx) && /width|height/.test(s)) return 'spacing'
   if (/font|textsize|^text$/i.test(s)) return 'fontSize'
   if (/padding|^pad|^p$|^(px|py|pt|pb|pl|pr)$/i.test(s)) return 'padding'
   if (/margin|gap|spacing|space|inset|^m$|^mt$|^mb$|^ml$|^mr$|^mx$|^my$|^top$|^bottom$|^left$|^right$|offset/i.test(s))
@@ -374,6 +433,10 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
     /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*(\d+(?:\.\d+)?)(?![\w.])/g,
   )) {
     if (!keyed(m[1])) continue
+    // 量纲换算乘积(`N * 1024` / `N * 1000`)= 字节数·毫秒数,不是长度:整条不采,
+    // 连 `named` 表一起不记 —— 记进去就是拿 10MB 上传上限当盒档做跨端对账(同一条洞的第二格:
+    // 具名常量冲突维 N 会把"两端各自的上限不同"读成"两端同名几何常量不同值")。
+    if (isUnitScaleProduct(code, m.index + m[0].length)) continue
     const px = toPx(m[2], undefined, side)
     named[m[1]] = px
     push(px, dimOfKey(m[1]))
@@ -391,10 +454,11 @@ export function readGeometry(src, side, tiers = {}, cssVars = null) {
   )) {
     const key = m[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())
     if (!keyed(key)) continue
-    push(toPx(m[2], m[3], side), dimOfKey(key))
+    if (isUnitScaleProduct(code, m.index + m[0].length)) continue
+    push(toPx(m[2], m[3], side), dimOfKey(key, enclosingObjectKeyOf(code, m.index)))
   }
   for (const m of code.matchAll(/\brpx\(\s*(\d+(?:\.\d+)?)\s*\)/g))
-    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index)))
+    push(toPx(m[1], 'rpx', side), dimOfKey(keyBefore(m.index), enclosingObjectKeyOf(code, m.index)))
   /**
    * **内联引号串里的长度**(2026-09-27 三路并行取证各自独立指到同一格):
    * 小程序端把档写成 `style={{ padding: '0 20rpx 10rpx' }}` 或 `'20rpx'`,而下面的简写循环

@@ -333,6 +333,17 @@ describe('IP 白名单闸门 —— 新登录腿', () => {
     const noneConfigured = await evaluateLoginIpWhitelist({ request: { ip: '' }, userId: OWNER_ID })
     expect(noneConfigured.allowed).toBe(true)
   })
+
+  it('坏 JSON 不能当成没有白名单再写入', async () => {
+    seed(OWNER_ID, 'ipWhitelist', '{')
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/user/ip-whitelist',
+      payload: { ip: '198.51.100.7' },
+    })
+    expect(res.statusCode).toBe(409)
+    expect(store.get(rowKey(OWNER_ID, 'security', 'ipWhitelist'))).toBe('{')
+  })
 })
 
 describe('IP 白名单闸门 —— 续期腿不受影响', () => {

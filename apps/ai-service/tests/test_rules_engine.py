@@ -323,6 +323,23 @@ class TestCRUD:
     def test_delete_nonexistent_returns_false(self, engine):
         assert engine.delete("nonexistent") is False
 
+    def test_unreadable_rule_is_not_dropped(self, engine, monkeypatch):
+        rule = engine.create({"name": "Keep Me", "content": "stay"})
+        path = os.path.join(engine._rules_dir, f"{rule.id}.md")
+        original = open(path, encoding="utf-8").read()
+        real_stat = os.stat
+
+        def fake_stat(target, *args, **kwargs):
+            if os.path.abspath(target) == os.path.abspath(path):
+                raise PermissionError(13, "denied", target)
+            return real_stat(target, *args, **kwargs)
+
+        monkeypatch.setattr(re_module.os, "stat", fake_stat)
+        assert engine.delete(rule.id) is False
+        monkeypatch.undo()
+        assert engine.get(rule.id) is not None
+        assert open(path, encoding="utf-8").read() == original
+
     def test_reload_picks_up_new_files(self, engine, rules_dir):
         """reload 热加载新文件。"""
         # 手动写一个 .md 文件
@@ -377,6 +394,26 @@ class TestVersionControl:
         engine.create({"name": "Test", "content": "v1"})
         result = engine.rollback("test", "nonexistent-timestamp")
         assert result is None
+
+    def test_rollback_unreadable_is_not_missing(self, engine):
+        """历史版本读不到时不能当成没有,也不能改当前规则。"""
+        engine.create({"name": "Rollback", "content": "v1", "priority": 50})
+        engine.update("rollback", {"content": "v2"})
+        history = engine.get_history("rollback")
+        old_version = history[0]["timestamp"]
+        real_stat = os.stat
+
+        def denied(path, *args, **kwargs):
+            if str(path).endswith(f"{old_version}-rollback.md"):
+                raise PermissionError(13, "denied", path)
+            return real_stat(path, *args, **kwargs)
+
+        with patch("app.services.rules_engine.os.stat", denied):
+            with pytest.raises(OSError, match="没有这个版本"):
+                engine.rollback("rollback", old_version)
+            with pytest.raises(OSError, match="没有这个版本"):
+                engine.diff_versions("rollback", old_version, old_version)
+        assert engine.get("rollback").content == "v2"
 
     def test_diff_versions(self, engine):
         """diff_versions 返回 unified diff。"""

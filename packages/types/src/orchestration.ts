@@ -160,6 +160,46 @@ export interface OrchestrationPlaybook {
 // LLM 预算治理
 // ---------------------------------------------------------------------------
 
+/**
+ * 预算帧 `level` 档位的封闭词表 —— **唯一份**(2026-11-06 收口:此前同一件东西在仓内有四份字面量副本)。
+ *
+ * `stopped` 有生产者,不是设想档(现读取证):
+ *  · 生产侧:`apps/ai-service/app/routers/agents.py` 的预算硬停分支在
+ *    `frame_stop_reason == "budget_exceeded"` 时下发 `{"type":"budget","level":"stopped", …}`
+ *    (原因码闭集见 `app/core/budget_reason.py`);
+ *  · 落库侧:`apps/api/src/routes/ai-chat-stream.ts` 与 `routes/mobile-chat-routes.ts` 的
+ *    budget 中继只认 `level === 'stopped'` 才写 `chat_budget_stops` 一行;
+ *    `packages/database/src/schema/chat-ledger.ts` 该列注释同为三档。
+ * 而消费侧也早已按三档写,并各带用例:web `hooks/use-chat/budget-state.ts`(终态不被覆盖)、
+ * RN `utils/budget-note.ts`(stopped 走原因码文案 + `nextBudgetLevel`)、小程序
+ * `lib/chat-budget-ledger-frames.ts` 的 `applyBudgetStopEvent`(同判据,用例在
+ * `pkg-ai/ai/__tests__/cap-budget-ledger.test.ts`)。
+ *
+ * 副本清单(收口前):`@ihui/api-client` 的 `BudgetEvent.level` 联合 + 同包 `tryParseBudget`
+ * 的字面量守卫、`@ihui/shared` 的 `sse/contract.ts` budget 分支 + `utils/sse-parse.ts` 的字面量
+ * 守卫,再加 RN `api/chat-ledger.ts` 的一处 —— 同一闭集五处手抄。实测后果正是 §0.6 说的那一型:
+ * 2026-11-06 批次 3 把三档写进了其中几处,其余仍停在两档,于是"提交面说三档、工作树产物说两档",
+ * 表现是 `packages/shared/src/utils/sse-parse.ts` 交 `stopped` 给 `BudgetEvent` 时 TS2322
+ * (编译不过),或更安静的一型 —— 某条解析路径把终态帧整帧静默丢弃。
+ * 档位集合自此只这一份,两侧都从这里取。
+ *
+ * 三档语义各自不同,不可合并:warning(80%~95% 软提醒)/ critical(95%~100% 硬预警)/
+ * stopped(流内硬停止**终态**;≥100% 的 HTTP 429 仍是请求级错误,不走本帧)。
+ *
+ * 形态照 `monitor-vocabulary.ts` 的先例:canonical `as const` 一处声明,类型与守卫都从它走。
+ * 文案**不进这里** —— 标签归各端 i18n,这里只管"合法值有哪些"。
+ */
+export const BUDGET_LEVELS = ['warning', 'critical', 'stopped'] as const
+export type BudgetLevel = (typeof BUDGET_LEVELS)[number]
+
+/**
+ * 档位守卫。未知值返回 false —— **不猜档、不折成 warning**(同 `isMonitorAlertStatus` 的纪律):
+ * 解析器据此整帧不产出,写侧据此拒收。
+ */
+export function isBudgetLevel(value: unknown): value is BudgetLevel {
+  return typeof value === 'string' && (BUDGET_LEVELS as readonly string[]).includes(value)
+}
+
 /** 预算检查结果 */
 export interface BudgetCheckResult {
   allowed: boolean

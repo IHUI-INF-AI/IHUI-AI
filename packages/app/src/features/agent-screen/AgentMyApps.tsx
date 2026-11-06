@@ -12,22 +12,12 @@
 import { useMemo } from 'react'
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { AgentMyAppsProps } from '@ihui/types'
+
 import { getTokens, type AppThemeMode } from '../../theme/tokens'
 import { SectionHeader } from '../../components/SectionHeader'
-import type { AgentHomeItem } from './AgentRecentUsed'
 
-export interface AgentMyAppsProps {
-  items: AgentHomeItem[]
-  title: string
-  moreText: string
-  onItemClick: (item: AgentHomeItem, index: number) => void
-  onMore: (() => void) | undefined
-  showMore: boolean
-  colorScheme: AppThemeMode
-  defaultAvatar: string | null
-  /** null = 空态不渲染(小程序现状);字符串 = 渲染空态(RN 现状) */
-  emptyText: string | null
-}
+export type { AgentHomeItem, AgentMyAppsProps } from '@ihui/types'
 
 export function AgentMyApps({
   items,

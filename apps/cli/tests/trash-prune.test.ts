@@ -20,7 +20,7 @@ import {
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §15b/§26 唯一落点(禁 os.tmpdir/裸 mkdtemp、不得在仓库树内造 git 夹具=门 208);正解=给"测试支持层"在策略表建档 until 2026-12-28
 import { getDeleteTrashDir } from '../src/tools/file-batch-edit.js';
 import { admitSentinelReceipt, getExpiryLedgerPath, pruneExpiredTrash } from '../src/tools/trash-prune.js';
-import { deleteTrashEntry } from '../src/tools/trash-prune-io.js';
+import { deleteTrashEntry, scanTrash } from '../src/tools/trash-prune-io.js';
 
 const NOW = '2026-11-05T00:00:00.000Z';
 const DAY = 24 * 60 * 60 * 1000;
@@ -107,6 +107,24 @@ describe('① 空账:no-op 且零噪声', () => {
     expect(second.gate).toBe('empty');
     expect(second.scanned).toEqual({ manifests: 0, entries: 0 });
     expect(fs.existsSync(ledgerFile())).toBe(false);
+  });
+
+  it('根读不到不算空账,也不删除已有条目', () => {
+    const trash = getDeleteTrashDir(ws);
+    fs.mkdirSync(trash, { recursive: true });
+    fs.writeFileSync(path.join(trash, 'keep.txt'), 'stay', 'utf-8');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const scanned = scanTrash(trash, denied);
+    expect(scanned.manifests).toEqual([]);
+    expect(scanned.bad[0]?.reason).toMatch(/读不到/);
+    const r = pruneExpiredTrash(ws, { nowIso: NOW, stat: denied });
+    expect(r.gate).not.toBe('empty');
+    expect(r.removed).toEqual([]);
+    expect(fs.readFileSync(path.join(trash, 'keep.txt'), 'utf-8')).toBe('stay');
   });
 });
 

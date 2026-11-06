@@ -1023,3 +1023,28 @@ def test_g822_merge_entry_does_not_mutate_its_inputs():
     assert result.changed_columns == ("duration_ms",)
 
 
+def test_append_does_not_truncate_unreadable_or_corrupt_ledger(tmp_path, monkeypatch):
+    """账本读不到或损坏时,追加不能把原文件截成只剩这一条。"""
+    from pathlib import Path
+
+    corrupt = tmp_path / "corrupt.json"
+    body = "{not json"
+    corrupt.write_text(body, encoding="utf-8")
+    CostLedger(file_path=corrupt).append(_mk("new-1"))
+    assert corrupt.read_text(encoding="utf-8") == body
+
+    denied = tmp_path / "denied.json"
+    original = '{"keep": {"cost_usd": 1}}\n'
+    denied.write_text(original, encoding="utf-8")
+    real_stat = Path.stat
+
+    def boom(self, *args, **kwargs):
+        if self == denied:
+            raise PermissionError(13, "denied", str(denied))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", boom)
+    CostLedger(file_path=denied).append(_mk("new-2"))
+    assert denied.read_text(encoding="utf-8") == original
+
+
