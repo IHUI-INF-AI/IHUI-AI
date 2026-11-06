@@ -23,6 +23,7 @@ from collections import OrderedDict
 from typing import Any, cast
 
 from .ttl_json_store import (
+    TtlStoreUnread,
     file_mtime,
     is_expired,
     iso_now,
@@ -243,6 +244,18 @@ def _filter_by_user(
     return [r for r in results if r[1].get("user_id") == user_id]
 
 
+def _persist_archive_blocks_write(path: str) -> bool:
+    """没 hydrate 时,存档在或读不到都不能当没有再覆盖。真的没有才放行。"""
+    try:
+        os.stat(path)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        logger.warning("向量记忆存档读不到,不能把它覆盖成新快照")
+        return True
+    return True
+
+
 class VectorMemoryStore:
     """向量记忆存储(内存索引 + JSON 文件持久化,纯 Python cosine similarity)。
 
@@ -274,6 +287,9 @@ class VectorMemoryStore:
         """
         # 原子写 + 目录创建交给共享工具(与 code_index_consent 同一范式:
         # 临时文件 + os.replace,避免写一半崩溃留下半截 JSON)
+        if not self._hydrated and _persist_archive_blocks_write(self._persist_path):
+            logger.warning("向量记忆还没读到存档,不能覆盖")
+            return
         if write_json_atomic(self._persist_path, snapshot):
             self._dirty = False
         else:
@@ -337,12 +353,16 @@ class VectorMemoryStore:
         """
         if self._hydrated:
             return len(self._entries)
-        self._hydrated = True
         if not os.path.isfile(self._persist_path):
+            self._hydrated = True
             return 0
-        # fail-closed:读盘失败/JSON 损坏 ⇒ 按空处理。存档坏了不该让服务起不来,
-        # 但也绝不能把半截数据当有效记忆继续用(它可能缺 entries/vectors 的一半)。
-        data = read_json_file(self._persist_path)
+        # 内容损坏按空处理。读失败(权限/目录)不算空,也不标成已加载,避免随后覆盖。
+        try:
+            data = read_json_file(self._persist_path)
+        except TtlStoreUnread as exc:
+            logger.warning("向量记忆读不到,不能按空记忆覆盖: %s", exc)
+            return 0
+        self._hydrated = True
         if not isinstance(data, dict):
             if data is not None:
                 logger.warning("向量记忆 hydrate 失败:快照格式异常(非对象),按空处理")

@@ -201,6 +201,17 @@ def _record_attribution(
 # ---------------------------------------------------------------------------
 
 
+def _path_presence(path: str) -> str:
+    """missing = 没有; unread = 读失败; present = 量到了(文件或目录)。"""
+    try:
+        os.stat(path)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    return "present"
+
+
 def edit_file(
     file_path: str,
     old_string: str,
@@ -240,8 +251,15 @@ def edit_file(
         }
     resolved_path = info
 
-    # 3. 文件不存在场景
-    if not os.path.exists(resolved_path):
+    # 3. 文件不存在场景。读失败不能说成没有,更不能新建覆盖。
+    presence = _path_presence(resolved_path)
+    if presence == "unread":
+        return {
+            "ok": False,
+            "errorCode": "UNREADABLE",
+            "message": "文件读不到,不能把它说成不存在,也不能新建覆盖",
+        }
+    if presence == "missing":
         if create_if_missing:
             try:
                 Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
@@ -600,11 +618,19 @@ def snapshot_file(
     文件" —— 那是数据丢失。现把两者记成一等的布尔位,由 rollback_file 分流。
     """
     absolute = os.path.abspath(file_path)
-    existed_before = os.path.exists(absolute)
     content = ""
     read_ok = False
     read_error: str | None = None
-    if existed_before:
+    try:
+        os.stat(absolute)
+        existed_before = True
+    except FileNotFoundError:
+        existed_before = False
+    except OSError as e:
+        # os.path.exists 会把权限错误说成不存在,回滚就会把文件删掉
+        existed_before = True
+        read_error = f"文件读不到,不能把它说成不存在再回滚删掉: {type(e).__name__}: {e}"
+    if existed_before and read_error is None:
         try:
             content = Path(absolute).read_text(encoding="utf-8")
             read_ok = True

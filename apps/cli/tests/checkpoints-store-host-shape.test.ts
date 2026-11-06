@@ -116,9 +116,123 @@ describe('② 行为等价:抽层后快照/回滚/比对与拆分前同形', () 
     expect(meta.files['a.txt']).toBe('snap')
     fs.writeFileSync(file, 'two', 'utf-8')
     expect(mgr.diff(meta.id)).toEqual([{ path: 'a.txt', status: 'modified' }])
-    expect(await mgr.restore(meta.id)).toEqual({ restored: ['a.txt'], removed: [] })
+    expect(await mgr.restore(meta.id)).toEqual({ restored: ['a.txt'], removed: [], notRestored: [] })
     expect(fs.readFileSync(file, 'utf-8')).toBe('one')
     expect(mgr.diff(meta.id)).toEqual([])
+  })
+
+  it('快照副本读不到时不算已修改', () => {
+    const rel = 'b.txt'
+    fs.writeFileSync(path.join(ws, rel), 'live', 'utf-8')
+    const cpDir = path.join(scratch, 'missing-snap')
+    fs.mkdirSync(cpDir, { recursive: true })
+    expect(cpHost.diffSnapshotFiles(ws, cpDir, { [rel]: 'snap' })).toEqual([
+      { path: rel, status: 'unmeasured' },
+    ])
+    const before = fs.readFileSync(path.join(ws, rel), 'utf-8')
+    expect(cpHost.restoreSnapshotFiles(ws, cpDir, { [rel]: 'snap' })).toEqual({
+      restored: [],
+      removed: [],
+      notRestored: [rel],
+    })
+    expect(fs.readFileSync(path.join(ws, rel), 'utf-8')).toBe(before)
+  })
+
+  it('读不到的工作区文件不会被记成新增', () => {
+    const rel = 'locked.txt'
+    const abs = path.join(ws, rel)
+    fs.writeFileSync(abs, 'keep', 'utf-8')
+    const cpDir = path.join(scratch, 'locked-snap')
+    fs.mkdirSync(cpDir, { recursive: true })
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    expect(() =>
+      cpHost.copyFilesIntoSnapshot(ws, cpDir, [abs], {
+        statSync: () => {
+          throw denied
+        },
+      }),
+    ).toThrow(/不把它记成待删除的新文件/)
+    expect(fs.existsSync(path.join(cpDir, rel))).toBe(false)
+    expect(fs.readFileSync(abs, 'utf-8')).toBe('keep')
+  })
+
+  it('检查点目录读不到时不说成没有检查点', () => {
+    const absent = path.join(scratch, 'absent-root')
+    expect(cpHost.probeSnapshotRoot(absent)).toBe('missing')
+    expect(cpHost.listEntryNames(absent)).toEqual([])
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const io = {
+      statSync: () => {
+        throw denied
+      },
+    }
+    expect(cpHost.probeSnapshotRoot(path.join(scratch, 'locked-root'), io)).toBe('unreadable')
+    expect(() => cpHost.listEntryNames(path.join(scratch, 'locked-root'), io)).toThrow(/不能把它说成没有检查点/)
+    expect(() => cpHost.listSubDirNames(path.join(scratch, 'locked-root'), io)).toThrow(/不能把它说成没有检查点/)
+  })
+
+  it('没有检查点时比对不说成无差异', () => {
+    const mgr = new CheckpointManager({ sessionId: trackedSession('no-diff'), workspacePath: ws })
+    expect(() => mgr.diff()).toThrow(/不能把它说成没有差异/)
+  })
+
+  it('删检查点时目录读不到不说成未找到', () => {
+    const dir = path.join(scratch, 'keep-cp')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'manifest.json'), '{}', 'utf-8')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    expect(() =>
+      cpHost.removeSnapshotDir(dir, {
+        statSync: () => {
+          throw denied
+        },
+      }),
+    ).toThrow(/不能把它说成未找到/)
+    expect(fs.readFileSync(path.join(dir, 'manifest.json'), 'utf-8')).toBe('{}')
+    expect(cpHost.removeSnapshotDir(path.join(scratch, 'absent-cp'))).toBe(false)
+  })
+
+  it('目录不会被算进已创建的检查点', () => {
+    const dir = path.join(ws, 'nested')
+    fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(ws, 'c.txt')
+    fs.writeFileSync(file, 'c', 'utf-8')
+    const mgr = new CheckpointManager({ sessionId: trackedSession('skip-dir'), workspacePath: ws })
+    const meta = mgr.snapshotSync([dir, file], 'skip-dir')
+    expect(meta.files['c.txt']).toBe('snap')
+    expect(meta.files['nested']).toBeUndefined()
+    expect(meta.skipped).toEqual(['nested'])
+  })
+
+  it('工作区文件读不到时不算已删除', () => {
+    const rel = 'd.txt'
+    const abs = path.join(ws, rel)
+    fs.writeFileSync(abs, 'keep-d', 'utf-8')
+    const cpDir = path.join(scratch, 'diff-denied')
+    fs.mkdirSync(cpDir, { recursive: true })
+    fs.writeFileSync(path.join(cpDir, rel), 'old-d', 'utf-8')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const io = {
+      statSync: () => {
+        throw denied
+      },
+    }
+    expect(cpHost.diffSnapshotFiles(ws, cpDir, { [rel]: 'snap' }, io)).toEqual([
+      { path: rel, status: 'unmeasured' },
+    ])
+    expect(cpHost.diffSnapshotFiles(ws, cpDir, { 'gone.txt': 'snap' })).toEqual([
+      { path: 'gone.txt', status: 'removed' },
+    ])
+    expect(cpHost.restoreSnapshotFiles(ws, cpDir, { [rel]: 'added' }, io)).toEqual({
+      restored: [],
+      removed: [],
+      notRestored: [rel],
+    })
+    expect(fs.readFileSync(abs, 'utf-8')).toBe('keep-d')
   })
   it('工作区外路径仍按原文案抛错;added 档 restore 时删除新建文件', async () => {
     const mgr = new CheckpointManager({ sessionId: trackedSession('shape-b'), workspacePath: ws })
@@ -129,7 +243,7 @@ describe('② 行为等价:抽层后快照/回滚/比对与拆分前同形', () 
     const m2 = mgr.snapshotSync([fresh], 'added-case')
     expect(m2.files['fresh.txt']).toBe('added')
     fs.writeFileSync(fresh, 'x', 'utf-8')
-    expect(await mgr.restore(m2.id)).toEqual({ restored: [], removed: ['fresh.txt'] })
+    expect(await mgr.restore(m2.id)).toEqual({ restored: [], removed: ['fresh.txt'], notRestored: [] })
     expect(fs.existsSync(fresh)).toBe(false)
   })
 })

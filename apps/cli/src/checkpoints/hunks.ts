@@ -21,6 +21,7 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
+import { probeSnapshotRoot } from './snapshot-store-host.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -118,10 +119,16 @@ export class HunkCheckpointManager {
     return rel.replace(/\\/g, '/');
   }
 
-  /** 读取文件所有行(不含换行符),文件不存在时返回空数组。 */
+  /** 读取文件所有行(不含换行符)。文件不存在返回空数组;读不到则抛错,不当成空文件。 */
   private readLines(absPath: string): string[] {
-    if (!fs.existsSync(absPath)) return [];
-    const content = fs.readFileSync(absPath, 'utf-8');
+    let content: string;
+    try {
+      content = fs.readFileSync(absPath, 'utf-8');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+      throw new Error('文件读不到,不能把它当成空文件');
+    }
     // 保留行尾换行符信息:split('\n') 后,最后一行若为空(因 \n 结尾)则丢弃
     const lines = content.split('\n');
     if (lines.length > 0 && lines[lines.length - 1] === '') {
@@ -194,7 +201,9 @@ export class HunkCheckpointManager {
   }
 
   list(): HunkCheckpointMeta[] {
-    if (!fs.existsSync(this.baseDir)) return [];
+    const root = probeSnapshotRoot(this.baseDir);
+    if (root === 'missing') return [];
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成没有检查点');
     const entries = fs.readdirSync(this.baseDir, { withFileTypes: true });
     const metas: HunkCheckpointMeta[] = [];
     this.lastQuarantined = [];
@@ -206,20 +215,31 @@ export class HunkCheckpointManager {
         this.lastQuarantined.push(entry);
         this.onCorrupt(entry);
       });
+      if (result.status === 'unreadable') throw new Error(result.detail);
       if (result.status === 'ok') metas.push(result.meta);
     }
     return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  get(checkpointId: string): HunkCheckpointMeta | null {
+  private readHunkCheckpoint(
+    checkpointId: string,
+  ):
+    | { status: 'ok'; meta: HunkCheckpointMeta }
+    | { status: 'missing' }
+    | { status: 'unreadable'; detail: string }
+    | { status: 'corrupt'; reason: string } {
     const manifestPath = path.join(this.baseDir, checkpointId, 'manifest.json');
-    const result = readManifestChecked(
-      manifestPath,
-      checkpointId,
-      isHunkCheckpointMeta,
-      this.onCorrupt,
-    );
-    return result.status === 'ok' ? result.meta : null;
+    const result = readManifestChecked(manifestPath, checkpointId, isHunkCheckpointMeta, this.onCorrupt);
+    if (result.status === 'ok') return { status: 'ok', meta: result.meta };
+    if (result.status === 'unreadable') return { status: 'unreadable', detail: result.detail };
+    if (result.status === 'corrupt') return { status: 'corrupt', reason: result.entry.reason };
+    return { status: 'missing' };
+  }
+
+  get(checkpointId: string): HunkCheckpointMeta | null {
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') throw new Error(read.detail);
+    return read.status === 'ok' ? read.meta : null;
   }
 
   /**
@@ -228,16 +248,32 @@ export class HunkCheckpointManager {
    * @returns { restored: true } 成功;{ restored: false, reason } 失败
    */
   restoreHunk(checkpointId: string, hunkIdx: number): { restored: boolean; linesAffected: number; reason?: string } {
-    const meta = this.get(checkpointId);
-    if (!meta) {
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') {
+      return { restored: false, linesAffected: 0, reason: read.detail };
+    }
+    if (read.status === 'corrupt') {
+      return {
+        restored: false,
+        linesAffected: 0,
+        reason: `检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`,
+      };
+    }
+    if (read.status === 'missing') {
       return { restored: false, linesAffected: 0, reason: `检查点 ${checkpointId} 不存在` };
     }
+    const meta = read.meta;
     if (hunkIdx < 0 || hunkIdx >= meta.hunks.length) {
       return { restored: false, linesAffected: 0, reason: `hunkIdx ${hunkIdx} 越界(共 ${meta.hunks.length} 个 hunks)` };
     }
     const hunk = meta.hunks[hunkIdx]!;
     const absInWorkspace = path.join(this.workspacePath, meta.file);
-    const currentLines = this.readLines(absInWorkspace);
+    let currentLines: string[];
+    try {
+      currentLines = this.readLines(absInWorkspace);
+    } catch (err) {
+      return { restored: false, linesAffected: 0, reason: err instanceof Error ? err.message : String(err) };
+    }
 
     // 按记录的行范围替换,行号超出当前文件时截断
     const start = Math.min(hunk.range.start, currentLines.length + 1);
@@ -252,10 +288,21 @@ export class HunkCheckpointManager {
 
   /** 回滚所有 hunks(按 hunkIdx 倒序回滚,避免行号偏移问题)。 */
   restoreAll(checkpointId: string): { hunksRestored: number; linesAffected: number; reason?: string } {
-    const meta = this.get(checkpointId);
-    if (!meta) {
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') {
+      return { hunksRestored: 0, linesAffected: 0, reason: read.detail };
+    }
+    if (read.status === 'corrupt') {
+      return {
+        hunksRestored: 0,
+        linesAffected: 0,
+        reason: `检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`,
+      };
+    }
+    if (read.status === 'missing') {
       return { hunksRestored: 0, linesAffected: 0, reason: `检查点 ${checkpointId} 不存在` };
     }
+    const meta = read.meta;
     let totalLines = 0;
     let restored = 0;
     // 倒序回滚(从后往前),避免前一个 hunk 回滚后影响后一个 hunk 的行号
@@ -271,7 +318,9 @@ export class HunkCheckpointManager {
 
   delete(checkpointId: string): boolean {
     const cpDir = path.join(this.baseDir, checkpointId);
-    if (!fs.existsSync(cpDir)) return false;
+    const root = probeSnapshotRoot(cpDir);
+    if (root === 'missing') return false;
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成未找到');
     fs.rmSync(cpDir, { recursive: true, force: true });
     return true;
   }
@@ -280,8 +329,13 @@ export class HunkCheckpointManager {
    * 对比当前文件与 hunk 快照,返回每个 hunk 的状态。
    */
   diffHunks(checkpointId: string): Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> {
-    const meta = this.get(checkpointId);
-    if (!meta) return [];
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'missing') return [];
+    if (read.status === 'unreadable') throw new Error(read.detail);
+    if (read.status === 'corrupt') {
+      throw new Error(`检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`);
+    }
+    const meta = read.meta;
     const absInWorkspace = path.join(this.workspacePath, meta.file);
     const currentLines = this.readLines(absInWorkspace);
     const result: Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> = [];

@@ -72,14 +72,14 @@ KOUBO_KEYWORDS = (
 )
 
 
-def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
-    """递归扫描 root_dir，查找所有疑似口播稿文件。返回命中列表。
+def _scan_koubo_pollution(root_dir: str) -> tuple[list[tuple[str, str]], int]:
+    """递归扫描 root_dir，查找疑似口播稿文件。
 
-    排除合法的规则文档（AGENTS.md / MEMORY.md / SKILL.md / README.md），
-    这些文件本身就是描述"什么是口播稿特征词"的规则说明文件。
+    返回 (命中列表, 读失败次数)。目录不存在是空命中且读失败为 0。
+    列目录或读文件失败时,不能把空命中说成目录清洁。
     """
     if not os.path.isdir(root_dir):
-        return []
+        return [], 0
     # 合法规则文档（必须排除）: 文件名匹配跳过扫描
     DOC_FILES = {
         'AGENTS.md', 'README.md', 'SKILL.md',
@@ -89,7 +89,15 @@ def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
     # 整个 .workbuddy 目录属于 agent 记忆,内容是规则说明,跳过
     SKIP_DIRS = {'.workbuddy', '__pycache__'}
     hits: list[tuple[str, str]] = []
-    for cur, subdirs, files in os.walk(root_dir):
+    unread = 0
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread
+        if isinstance(err, FileNotFoundError):
+            return
+        unread += 1
+
+    for cur, subdirs, files in os.walk(root_dir, onerror=_on_walk_error):
         # 跳过 .workbuddy 整个目录
         subdirs[:] = [d for d in subdirs if d not in SKIP_DIRS]
         for f in files:
@@ -112,12 +120,37 @@ def _scan_koubo_pollution(root_dir: str) -> list[tuple[str, str]]:
                 try:
                     with open(fpath, encoding='utf-8', errors='ignore') as _f:
                         txt = _f.read()
-                except Exception:
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    unread += 1
                     continue
                 kw_hits = [k for k in KOUBO_KEYWORDS if k in txt]
                 if len(kw_hits) >= 2:
                     hits.append((rel, f'口播稿特征词命中({len(kw_hits)}个): {kw_hits[:4]}'))
-    return hits
+    return hits, unread
+
+
+def _list_pycache(base: str) -> tuple[list[str], int]:
+    """列出还能读到的 __pycache__。返回 (相对路径, 列失败的目录数)。
+
+    目录不存在是空名单且列失败为 0。列目录失败时不能说没有残留。
+    """
+    if not os.path.isdir(base):
+        return [], 0
+    found: list[str] = []
+    unread = 0
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread
+        if isinstance(err, FileNotFoundError):
+            return
+        unread += 1
+
+    for current, subdirs, _files in os.walk(base, onerror=_on_walk_error):
+        if '__pycache__' in subdirs:
+            found.append(os.path.relpath(os.path.join(current, '__pycache__'), base))
+    return found, unread
 
 
 def add(dim: str, ok: bool, detail: str = '', warn: bool = False) -> None:
@@ -177,8 +210,13 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
     # 这是"AI 误把口播稿写到公众号 output" 的根治防护。
     # 扫描范围：公众号/ 全树（含 wechat-article-system/、images/、archive/ 等所有子目录）
     scan_root = os.path.dirname(BASE)  # 公众号/ 目录
-    koubo_hits = _scan_koubo_pollution(scan_root)
-    if koubo_hits:
+    koubo_hits, unread_scans = _scan_koubo_pollution(scan_root)
+    if unread_scans:
+        unread_detail = f'有 {unread_scans} 处目录或文件读不到,不能把目录说成清洁'
+        if koubo_hits:
+            unread_detail += f'; 另发现 {len(koubo_hits)} 处越界'
+        add('C0 项目文件越界 (公众号目录无 .txt/口播稿特征词,零容忍)', False, unread_detail)
+    elif koubo_hits:
         detail_lines = [f'  ❌ {h[0]} → {h[1]}' for h in koubo_hits[:10]]
         add('C0 项目文件越界 (公众号目录无 .txt/口播稿特征词,零容忍)', False,
             f'发现 {len(koubo_hits)} 处越界: ' + ' | '.join(detail_lines))
@@ -698,14 +736,15 @@ def main(argv: list[str] | None = None) -> tuple[int, int, int, list[tuple[str, 
 
     # === H5 收尾后检测 (2026-07-14 修复:清理后再测,避免 audit 自身 import 触发误报) ===
     # 2026-07-14 二次修: 无残留时标 PASS (而非 WARN),有残留时才是 WARN (真推副作用)
-    cache_dirs_final = []
-    for _r, _dirs, _ in os.walk(BASE):
-        if '__pycache__' in _dirs:
-            cache_dirs_final.append(os.path.relpath(os.path.join(_r, '__pycache__'), BASE))
-    has_cache_final = len(cache_dirs_final) > 0
-    add('H5 流水线无 __pycache__ (WARN)', not has_cache_final,
-        f'可忽略:真推时 docx 库自动生成,建议跑完手动 rm -rf ({len(cache_dirs_final)} 处: {cache_dirs_final[:3]})' if has_cache_final else '无 __pycache__ 残留',
-        warn=has_cache_final)
+    cache_dirs_final, unread_cache = _list_pycache(BASE)
+    if unread_cache:
+        add('H5 流水线无 __pycache__ (WARN)', False,
+            f'有 {unread_cache} 个目录读不到,不能说没有 __pycache__ 残留')
+    else:
+        has_cache_final = len(cache_dirs_final) > 0
+        add('H5 流水线无 __pycache__ (WARN)', not has_cache_final,
+            f'可忽略:真推时 docx 库自动生成,建议跑完手动 rm -rf ({len(cache_dirs_final)} 处: {cache_dirs_final[:3]})' if has_cache_final else '无 __pycache__ 残留',
+            warn=has_cache_final)
 
     # === 汇总 ===
     section("汇总")

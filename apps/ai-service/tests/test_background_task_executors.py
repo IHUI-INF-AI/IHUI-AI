@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import uuid
 from pathlib import Path
@@ -197,6 +198,44 @@ def test_test_suite_parsers_are_pure_and_shape_exact() -> None:
     assert vfail == ["a c"]
 
 
+def test_unreadable_checkpoint_is_not_empty_progress(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = te.CheckpointStore(tmp_path)
+    first = store.load("keep")
+    first.mark_done("unit", artifact={"n": 1})
+    saved = store._path("keep")
+    original = saved.read_text(encoding="utf-8")
+    real_stat = Path.stat
+
+    def deny(self, *args, **kwargs):
+        if self == saved:
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", deny)
+    with pytest.raises(te.TaskExecutionError, match="不能把它当成没有进度"):
+        store.load("keep")
+    monkeypatch.undo()
+    assert saved.read_text(encoding="utf-8") == original
+
+
+def test_unreadable_vitest_report_is_not_an_empty_result(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report = tmp_path / "report.json"
+    report.write_text('{"numTotalTests": 1, "numPassedTests": 1}\n', encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(report)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", deny)
+    loaded, unread = te.read_vitest_report_file(report)
+    assert loaded == {}
+    assert unread is not None and unread.startswith("测试报告读不到")
+    monkeypatch.undo()
+    assert report.read_text(encoding="utf-8") == '{"numTotalTests": 1, "numPassedTests": 1}\n'
+
+
 # ---------------------------------------------------------------------------
 # 3. 代码索引
 # ---------------------------------------------------------------------------
@@ -365,6 +404,34 @@ async def test_patrol_walks_judges_and_emits_verdict(tmp_path: Path) -> None:
     assert "quiet.py" not in by_path
     assert result["verdict"] == "warning"
     assert result["findings_by_check"]["large_files"] == 1
+
+
+async def test_patrol_unreadable_directory_is_not_a_clean_verdict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来时,不能给出已巡完的 ok。"""
+    (tmp_path / "quiet.py").write_text("print(1)\n", encoding="utf-8")
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("# TODO secret\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    result = await te.execute_task(
+        "patrol",
+        {"root": str(tmp_path), "checks": ["todo_markers", "unreadable_files"]},
+        store=te.CheckpointStore(),
+        task_id=f"patrol-unread-{_uid()}",
+    )
+    assert result["verdict"] == "warning"
+    assert result["directories_unreadable"] >= 1
+    assert hidden.read_text(encoding="utf-8") == "# TODO secret\n"
 
 
 async def test_patrol_rejects_unknown_check_instead_of_silently_passing(

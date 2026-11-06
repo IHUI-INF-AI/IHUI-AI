@@ -303,6 +303,23 @@ async def test_boundary_rejections(nb_file: Path, tmp_path: Path, monkeypatch: p
     )
     assert out["ok"] is False and out["errorCode"] == "NOT_A_NOTEBOOK"
 
+    # 文件在但读不到 ⇒ 不是「笔记本不存在」,也不改盘
+    from app.services import mcp_server as _mcp
+
+    real_classify = _mcp._classify_existing_file
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_existing_file", lambda _path: ("unread", None)
+    )
+    original = nb_file.read_bytes()
+    out = await _tool_notebook_edit(
+        {"notebook_path": str(nb_file), "cell_id": "cell-0", "new_source": "y", **HOST}
+    )
+    assert out["ok"] is False and out["errorCode"] == "UNREADABLE"
+    assert nb_file.read_bytes() == original
+    monkeypatch.setattr(
+        "app.services.mcp_server._classify_existing_file", real_classify
+    )
+
     # 非法 JSON ⇒ INVALID_NOTEBOOK
     bad = tmp_path / "broken.ipynb"
     bad.write_text("{not json", encoding="utf-8")

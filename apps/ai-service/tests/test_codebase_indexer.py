@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -889,6 +890,29 @@ class TestWriteToApi:
 
 class TestIndexRepository:
     """index_repository 仓库索引。"""
+
+    @pytest.mark.asyncio
+    async def test_unreadable_root_is_not_missing(self, tmp_path, monkeypatch):
+        (tmp_path / "keep.py").write_text("keep\n", encoding="utf-8")
+        monkeypatch.setattr(codebase_indexer, "classify_fs_path", lambda _path: "unread")
+        idx = CodebaseIndexer.__new__(CodebaseIndexer)
+        result = await idx.index_repository(str(tmp_path), "repo-1")
+        assert any("读不到" in err for err in result.errors)
+        assert (tmp_path / "keep.py").read_text(encoding="utf-8") == "keep\n"
+
+    def test_classify_fs_path_permission_error_is_unread(self, tmp_path, monkeypatch):
+        target = tmp_path / "keep.py"
+        target.write_text("keep\n", encoding="utf-8")
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+                raise PermissionError(13, "denied", str(path))
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        assert codebase_indexer.classify_fs_path(target) == "unread"
+        assert target.read_text(encoding="utf-8") == "keep\n"
 
     @pytest.mark.asyncio
     async def test_nonexistent_path_returns_error(self):

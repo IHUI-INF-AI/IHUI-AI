@@ -20,6 +20,7 @@ import {
   uninstallSkillPackage,
   verifySkillPackageBuffer,
 } from '../src/skills/packaging/index.js';
+import { loadTrustedKeyStore } from '../src/skills/packaging/trust-store.js';
 import {
   baseManifest,
   buildPackage,
@@ -237,6 +238,21 @@ describe('skill package install security chain', () => {
     expect(verdict.error?.code).toBe('SKILL_PKG_SIGNATURE_INVALID');
   });
 
+  it('信任锚读不到时不说成不存在', () => {
+    const dir = makeTempDir();
+    const publisher = createPublisher(dir);
+    const original = fs.readFileSync(publisher.trustStorePath);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const error = capture(() => loadTrustedKeyStore(publisher.trustStorePath, denied));
+    expect(error.code).toBe('SKILL_PKG_TRUST_STORE_INVALID');
+    expect(error.message).toMatch(/读不到/);
+    expect(fs.readFileSync(publisher.trustStorePath)).toEqual(original);
+  });
+
   it('rejects when the trust store is absent (fail-closed)', () => {
     const dir = makeTempDir();
     const publisher = createPublisher(dir);
@@ -374,6 +390,37 @@ describe('skill package install security chain', () => {
     expect(second.version).toBe('2.0.0');
     expect(fs.readFileSync(path.join(root, 'demo-skill', 'SKILL.md'), 'utf8')).toBe('v2');
     expect(fs.existsSync(path.join(root, 'demo-skill', 'OLD.md'))).toBe(false);
+  });
+
+  it('安装目录读不到时不换成新包,也不说成没装过再卸载', () => {
+    const dir = makeTempDir();
+    const publisher = createPublisher(dir);
+    const root = path.join(dir, 'installed');
+    const v1 = writePackage(
+      dir,
+      buildPackage({ manifest: baseManifest(), publisher, payload: { 'SKILL.md': 'keep' } }),
+      'v1.tar',
+    );
+    const v2 = writePackage(
+      dir,
+      buildPackage({ manifest: baseManifest({ version: '2.0.0' }), publisher, payload: { 'SKILL.md': 'new' } }),
+      'v2.tar',
+    );
+    installSkillPackage(v1, { trustedKeysPath: publisher.trustStorePath, installRoot: root });
+    const skill = path.join(root, 'demo-skill', 'SKILL.md');
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const installError = capture(() =>
+      installSkillPackage(v2, { trustedKeysPath: publisher.trustStorePath, installRoot: root, stat: denied }),
+    );
+    expect(installError.message).toMatch(/读不到/);
+    expect(fs.readFileSync(skill, 'utf8')).toBe('keep');
+    const uninstallError = capture(() => uninstallSkillPackage('demo-skill', { installRoot: root, stat: denied }));
+    expect(uninstallError.message).toMatch(/读不到/);
+    expect(fs.readFileSync(skill, 'utf8')).toBe('keep');
   });
 
   it('uninstalls file-by-file and reports zero residue', () => {

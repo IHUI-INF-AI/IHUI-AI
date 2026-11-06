@@ -7,8 +7,9 @@
  *
  * 旧行为:index.ts / hunks.ts 各自 `catch {}` 静默跳过坏 manifest,损坏件留在原地,
  * 每次扫描都重新踩一遍且无人知情。本出口把三类分开:
- *   - missing:文件不存在(ENOENT)—— 不算损坏,调用方按"无此检查点"处理;
- *   - corrupt:读不了(io-error)/ 解析不了(parse-failed)/ 形状不对(shape-invalid)
+ *   - missing:文件不存在(ENOENT/ENOTDIR)—— 不算损坏,调用方按"无此检查点"处理;
+ *   - unreadable:权限等读不到、或目标不是文件 —— 不改名,也不能说成损坏或没有;
+ *   - corrupt:解析不了(parse-failed)/ 形状不对(shape-invalid)
  *     —— 损坏件改名隔离为 `manifest.corrupt-<ts>.json`(同目录保留证据,原文件
  *     不再被后续扫描命中),并通过 warn 钩子点名路径 —— 账面必须有名字,不允许静默。
  */
@@ -33,13 +34,8 @@ export interface CorruptManifestEntry {
 export type ManifestReadResult<T> =
   | { status: 'ok'; meta: T }
   | { status: 'missing' }
+  | { status: 'unreadable'; detail: string }
   | { status: 'corrupt'; entry: CorruptManifestEntry };
-
-function isEnoent(err: unknown): boolean {
-  return (
-    typeof err === 'object' && err !== null && (err as NodeJS.ErrnoException).code === 'ENOENT'
-  );
-}
 
 /** 隔离:manifest.json → manifest.corrupt-<ts>.json(同目录,保留证据)。目标名冲突追加序号。 */
 export function quarantineManifest(manifestPath: string): string | null {
@@ -72,7 +68,11 @@ export function readManifestChecked<T>(
   try {
     raw = fs.readFileSync(manifestPath, 'utf-8');
   } catch (err) {
-    if (isEnoent(err)) return { status: 'missing' };
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { status: 'missing' };
+    if (code) {
+      return { status: 'unreadable', detail: `检查点清单读不到,不能把它说成损坏或没有 (${code})` };
+    }
     const entry: CorruptManifestEntry = {
       checkpointId,
       manifestPath,

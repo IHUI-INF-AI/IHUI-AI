@@ -36,6 +36,15 @@ class FileWatcherEvent:
     paths: tuple[str, ...]
 
 
+class _SnapshotUnread(Exception):
+    """路径在,但这一轮没量到快照。不能当成已删除。"""
+
+    def __init__(self, path: Path, code: str) -> None:
+        self.path = path
+        self.code = code
+        super().__init__(f"文件快照读不到,不能把它说成已删除 ({code}): {path}")
+
+
 class Receiver:
     """轮询驱动的监听接收器:订阅路径集合上的变更逐事件产出。"""
 
@@ -71,31 +80,60 @@ class Receiver:
         try:
             stat = path.stat()
             return (stat.st_mtime_ns, stat.st_size)
-        except OSError:
-            return None  # 不存在(或已被删除)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise _SnapshotUnread(path, str(getattr(exc, "errno", None) or type(exc).__name__)) from exc
 
     def _snapshot_children(
-        self, directory: Path, into: dict[Path, list[Any]]
-    ) -> None:
-        """递归收集目录子项快照(深度/数量上限内;目录内容修改不改目录
-        mtime,必须扫子项才能探测 modify,故每轮全量重扫)。"""
+        self, directory: Path, into: dict[Path, list[Any]], previous: dict[Path, list[Any]] | None = None
+    ) -> str:
+        """递归收集目录子项快照。返回 missing/unread/ok。
+
+        目录不存在是真的没有。列目录失败不能把上一轮子项说成已删除。
+        """
+        try:
+            listed = list(directory.iterdir())
+        except FileNotFoundError:
+            into.clear()
+            return "missing"
+        except OSError:
+            return "unread"
         into.clear()
-        stack: list[tuple[Path, str, int]] = [(directory, str(directory), 0)]
+        stack: list[tuple[Path, str, int, list[Path] | None]] = [
+            (directory, str(directory), 0, listed)
+        ]
         count = 0
         while stack and count < self.max_entries:
-            directory_path, display, depth = stack.pop()
-            try:
-                children = list(directory_path.iterdir())
-            except OSError:
-                continue
+            directory_path, display, depth, prefetched = stack.pop()
+            if prefetched is None:
+                try:
+                    children = list(directory_path.iterdir())
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    if previous:
+                        resolved = directory_path.resolve()
+                        for old_key, old_val in previous.items():
+                            if old_key == resolved or resolved in old_key.parents:
+                                into.setdefault(old_key, old_val)
+                    continue
+            else:
+                children = prefetched
             for child in children:
                 if count >= self.max_entries:
-                    return
+                    return "ok"
                 child_display = str(child)
-                into[child.resolve()] = [child_display, self._snapshot(child)]
+                try:
+                    child_snap = self._snapshot(child)
+                except _SnapshotUnread:
+                    old = (previous or {}).get(child.resolve())
+                    child_snap = old[1] if old is not None else None
+                into[child.resolve()] = [child_display, child_snap]
                 count += 1
                 if depth < self.max_depth and child.is_dir():
-                    stack.append((child, child_display, depth + 1))
+                    stack.append((child, child_display, depth + 1, None))
+        return "ok"
 
     def add_watch(self, path: str | Path) -> None:
         key = Path(path).resolve()
@@ -103,9 +141,12 @@ class Receiver:
             key, {"display": str(path), "snap": None, "children": {}}
         )
         entry = self._watch[key]
-        entry["snap"] = self._snapshot(key)
+        try:
+            entry["snap"] = self._snapshot(key)
+        except _SnapshotUnread:
+            pass
         if key.is_dir():
-            self._snapshot_children(key, entry["children"])
+            self._snapshot_children(key, entry["children"], entry["children"])
 
     def remove_watch(self, path: str | Path) -> None:
         self._watch.pop(Path(path).resolve(), None)
@@ -114,7 +155,10 @@ class Receiver:
         changed: list[str] = []
         for key, entry in self._watch.items():
             display = entry["display"]
-            current = self._snapshot(key)
+            try:
+                current = self._snapshot(key)
+            except _SnapshotUnread:
+                current = entry["snap"]
             if current != entry["snap"]:
                 changed.append(display)
                 entry["snap"] = current
@@ -122,7 +166,8 @@ class Receiver:
             if key.is_dir():
                 previous: dict[Path, list[Any]] = entry["children"]
                 fresh: dict[Path, list[Any]] = {}
-                self._snapshot_children(key, fresh)
+                if self._snapshot_children(key, fresh, previous) == "unread":
+                    continue
                 for child_key, (child_display, child_snap) in fresh.items():
                     old = previous.get(child_key)
                     if old is None or old[1] != child_snap:

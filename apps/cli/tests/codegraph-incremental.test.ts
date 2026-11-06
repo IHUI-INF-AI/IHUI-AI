@@ -396,6 +396,25 @@ describe('IndexManager', () => {
     expect(result.elapsedMs).toBeGreaterThanOrEqual(0)
   })
 
+  it('子目录列不出来时不把代码图说成完整', async () => {
+    writeRel('keep.ts', 'function keep() {}\n')
+    const blocked = path.join(tmpDir, 'blocked')
+    fs.mkdirSync(blocked)
+    const hidden = path.join(blocked, 'hidden.ts')
+    fs.writeFileSync(hidden, 'function hidden() {}\n', 'utf-8')
+    const real = fs.readdirSync
+    await expect(manager.indexDirectory(undefined, (target) => {
+      if (path.basename(target) === 'blocked') {
+        const error = new Error('denied') as NodeJS.ErrnoException
+        error.code = 'EACCES'
+        throw error
+      }
+      return real(target, { withFileTypes: true })
+    })).rejects.toThrow('不能把代码图说成完整')
+    expect(manager.getIndex().hasDefinition('keep')).toBe(false)
+    expect(fs.readFileSync(hidden, 'utf-8')).toBe('function hidden() {}\n')
+  })
+
   it('indexDirectory 指定子目录', async () => {
     writeRel('a.ts', 'function foo() {}\n')
     writeRel('sub/b.ts', 'class Bar {}\n')
@@ -470,6 +489,20 @@ describe('persist', () => {
     const stats = loadedIndex.stats()
     expect(stats.files).toBe(2)
     expect(stats.symbols).toBe(2)
+  })
+
+  it('loadCache 读不到不能当成没有,save 也不覆盖', async () => {
+    const cachePath = path.join(tmpDir, 'blocked.json')
+    fs.writeFileSync(cachePath, '{"keep":true}\n', 'utf-8')
+    const original = fs.readFileSync(cachePath)
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    await expect(loadCache(cachePath, denied)).rejects.toThrow(/读不到/)
+    await expect(saveCache(new CodeGraphIndex(), cachePath, denied)).rejects.toThrow(/读不到/)
+    expect(fs.readFileSync(cachePath)).toEqual(original)
   })
 
   it('loadCache 不存在文件返回 undefined', async () => {

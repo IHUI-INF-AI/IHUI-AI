@@ -13,6 +13,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 
 import pytest
 
@@ -153,4 +155,23 @@ def test_json_corrupted_returns_empty(isolated_store):
 def test_non_list_json_returns_empty(isolated_store):
     isolated_store.write_text(json.dumps({"a": 1}), encoding="utf-8")
     assert store.list_owned(A) == []
+
+
+def test_unreadable_store_is_not_overwritten(isolated_store, monkeypatch):
+    original = json.dumps(
+        [{"key": "yuque:docs", "owner_user_id": A, "name": "keep", "app_secret": ""}],
+        ensure_ascii=False,
+    )
+    isolated_store.write_text(original, encoding="utf-8")
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(isolated_store):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    with pytest.raises(store.ConnectorStoreUnread, match="读不到"):
+        store.save(A, _record())
+    assert isolated_store.read_text(encoding="utf-8") == original
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

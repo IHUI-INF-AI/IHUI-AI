@@ -74,7 +74,7 @@ export class WorktreeManager {
    * 为 agent 创建隔离 worktree:目录 .worktrees/<agentId>,分支 agent-wt-<uuid8>。
    * **实现住在 `./worktree-state.ts#createAgentWorktree`**(Z30 拆档,§0.6 转接不复制判据)。
    */
-  create(agentId: string, opts?: { startPoint?: string }): WorktreeCreateResult {
+  create(agentId: string, opts?: { startPoint?: string; stat?: (target: string) => unknown }): WorktreeCreateResult {
     return createAgentWorktree(this.sourcePath, this.rootDir, agentId, opts);
   }
 
@@ -107,7 +107,7 @@ export class WorktreeManager {
    * @returns 是否实际移除了目录(路径本就不存在时返回 false)
    * @throws 容器性判越界 或 文件访问裁决判拒时抛带 `[worktree-containment` / `[file-acl` 的理由
    */
-  remove(agentId: string, opts?: { force?: boolean; deleteBranch?: boolean }): boolean {
+  remove(agentId: string, opts?: { force?: boolean; deleteBranch?: boolean; stat?: (target: string) => unknown }): boolean {
     const wtPath = path.join(this.rootDir, agentId);
     const containment = judgeWorktreeContainment(this.rootDir, wtPath);
     if (!containment.contained) {
@@ -123,7 +123,16 @@ export class WorktreeManager {
     }
     // advisory 档(守护面族)出声放行:静默等于没判(§0.9)
     if (aclDelete.note) emitWorktreeVoice(aclDelete.note);
-    if (!fs.existsSync(wtPath)) return false;
+    const look = opts?.stat ?? fs.statSync;
+    try {
+      look(wtPath);
+    } catch (error) {
+      const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+      throw new Error(`工作树读不到,不能把它说成已经不在 (${code})`);
+    }
 
     // 移除前先捕获分支名(移除后 git 元数据里已查不到)
     const entry = this.findByAgent(agentId);

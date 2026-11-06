@@ -28,11 +28,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from app.services import knowledge_graph as kg
 from app.services.knowledge_graph import (
     MEMORY_DEGRADED_NOTICE,
     FileGraphStore,
@@ -257,6 +259,25 @@ async def test_corrupt_snapshot_is_reported_not_swallowed(
     reopened = FileGraphStore(str(path))
     assert reopened.persistence_status()["load_failed"] is False
     assert [e["name"] for e in (await reopened.get_graph("owner-A"))["entities"]] == ["重建"]
+
+
+async def test_unreadable_snapshot_is_not_overwritten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "keep.json"
+    path.write_text('{"version":1,"keep":true}\n', encoding="utf-8")
+    original = path.read_bytes()
+    real_stat = os.stat
+
+    def fake_stat(target: str, *args: object, **kwargs: object) -> os.stat_result:
+        if os.path.abspath(target) == os.path.abspath(path):
+            raise PermissionError(13, "denied", target)
+        return real_stat(target, *args, **kwargs)
+
+    monkeypatch.setattr(kg.os, "stat", fake_stat)
+    store = FileGraphStore(str(path))
+    assert store.load_failed is True
+    assert store.persistence_error is not None and store.persistence_error.startswith("快照读不到")
+    await store.upsert_entity("owner-A", "new", "concept")
+    assert path.read_bytes() == original
 
 
 async def test_wrong_snapshot_version_is_treated_as_corrupt(tmp_path: Path) -> None:

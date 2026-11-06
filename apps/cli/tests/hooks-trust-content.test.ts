@@ -32,6 +32,9 @@ import * as os from 'node:os';
 import { computeHookContentDigests, hookTrustSkipReason } from '../src/hooks/index.js';
 import {
   gateHook,
+  hasHumanHookOverride,
+  listDisabledHooks,
+  listHumanHookOverrides,
   normalizeFolderPath,
   isFolderTrusted,
   listTrustedFolderRecords,
@@ -354,6 +357,33 @@ describe('F 落盘格式', () => {
 
   it('F3 含制表符的路径拒绝写入(无法表示就不写,而不是留一条永远读不回来的记录)', () => {
     expect(saveTrustedFolderRecord('C:/a20/we\trd', 'v1-sha256-b', {})).toBe(false);
+  });
+});
+
+describe('禁用名单读不到不是空名单', () => {
+  it('同名目录不放行钩子,列表也不说成没有禁用项', () => {
+    const dir = mkDir('disabled');
+    const blocked = path.join(dir, 'disabled-hooks');
+    fs.mkdirSync(blocked);
+    const missing = path.join(dir, 'missing-disabled-hooks');
+    const gated = gateHook({ name: 'h' }, dir, '', undefined, undefined, blocked);
+    expect(gated.allowed).toBe(false);
+    expect(gated.reason).toBe('disable-list-unreadable');
+    expect(gated.detail).toContain('不能把它说成没有禁用项');
+    expect(() => listDisabledHooks(blocked)).toThrow(/不能把它说成没有禁用项/);
+    expect(listDisabledHooks(missing)).toEqual([]);
+    const open = gateHook({ name: 'h' }, dir, '', undefined, undefined, missing);
+    expect(open.reason).not.toBe('disable-list-unreadable');
+  });
+
+  it('放行台账读不到不是没有放行,也不拿来放行', () => {
+    const dir = mkDir('overrides');
+    const blocked = path.join(dir, 'hook-overrides.jsonl');
+    fs.mkdirSync(blocked);
+    const missing = path.join(dir, 'missing-overrides.jsonl');
+    expect(hasHumanHookOverride('h', dir, 'v1-sha256-b', undefined, undefined, blocked)).toBe(false);
+    expect(() => listHumanHookOverrides(blocked)).toThrow(/不能把它说成没有放行/);
+    expect(listHumanHookOverrides(missing)).toEqual([]);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
