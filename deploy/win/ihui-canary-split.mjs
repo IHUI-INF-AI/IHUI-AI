@@ -318,8 +318,13 @@ export function createSplitServer({ contractPath, onLane = null, health = null, 
     const extraHeaders = {}
     if (contract) {
       // 灰度实例在位与否:不健康 ⇒ 命中灰度的流量回落 stable(绝不打到空端口)。
+      // percent=0(off 档)也必须为强制灰度头探活:强制头绕过比例把单枚请求钉到 canary 车道,
+      // 而 off 档的灰度实例已停 —— 「不打到空端口」对强制头同样成立(见镜像测试 T6/T16)。
+      const tagRaw = req.headers[contract.tagHeader]
+      const tagText = Array.isArray(tagRaw) ? tagRaw[0] : tagRaw
+      const forcedCanary = typeof tagText === 'string' && tagText.toLowerCase() === 'canary'
       let canaryUp = true
-      if (contract.percent > 0) canaryUp = await healthCache.isUp(contract.canaryPort)
+      if (contract.percent > 0 || forcedCanary) canaryUp = await healthCache.isUp(contract.canaryPort)
       const picked = laneFor({
         contract,
         headers: req.headers,

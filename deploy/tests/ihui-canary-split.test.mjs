@@ -250,6 +250,40 @@ test('T10 端到端:灰度上游不在位 ⇒ 请求不得打到空端口(回落
 })
 
 /**
+ * T16 钉「off 档 + 强制灰度头」这一格:percent=0 时 handler 不探活 canary,
+ * 而 laneFor 的强制头会绕过比例把请求钉到 canary 车道 ⇒ off 档(灰度实例已停)下
+ * 带 `x-canary-tag: canary` 的请求被转发到空端口 ⇒ 502。
+ * T6 已写明「强制头也回落(打空端口 ⇒ 502 比回现网坏)」,因此 percent=0 同样适用。
+ */
+test('T16 端到端:比例 0(off 档)+ 强制灰度头 ⇒ 灰度实例不在位时仍须回落 stable,不得 502', async () => {
+  const stable = await startEchoUpstream()
+  const deadPort = await (async () => {
+    const s = createServer(() => {})
+    const p = await listen(s)
+    await new Promise((r) => s.close(r))
+    return p
+  })()
+  const path = contractFile(CONTRACT_JSON(0, {
+    slots: { stable: { port: stable.port }, canary: { port: deadPort } },
+  }))
+  const split = createSplitServer({
+    contractPath: path,
+    health: { isUp: async (port) => port === stable.port },
+  })
+  const splitPort = await listen(split)
+  try {
+    const res = await fetch(`http://127.0.0.1:${splitPort}/probe`, { headers: { 'x-canary-tag': 'canary' } })
+    assert.equal(res.status, 200, 'off 档下强制灰度头不得打到空端口(502)')
+    assert.equal(await res.text(), `upstream:${stable.port}`, '灰度实例不在位 ⇒ 回落现网')
+    assert.equal(res.headers.get('x-ihui-canary-lane'), 'stable')
+    assert.equal(res.headers.get('x-ihui-canary-fallback'), '1', '回落要留证据')
+  } finally {
+    split.close()
+    stable.srv.close()
+  }
+})
+
+/**
  * T11/T12 钉的是 2026-10-29 现读抓到的一枚真缺陷:契约缺失时旧实现仍读
  * `contract.stablePort` ⇒ TypeError 未捕获 ⇒ **分流器进程整只退出**(线上从"灰度过半"
  * 掉成"全站不可达"),而模块头注与 readContract 都承诺"契约缺失 ⇒ 比例 0、全部回 stable"。
