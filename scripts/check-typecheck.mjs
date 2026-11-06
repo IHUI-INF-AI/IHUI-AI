@@ -165,9 +165,12 @@ function getHeadDiffFiles() {
 //  2. **取材面 = worktree**,与 tsc 实际读盘的面一致。门 103 的头注写过"取哪个面判错是
 //     本仓最高频的假绿源";本门判据面必须与被 typecheck 的面同面,否则闭包按磁盘建图却
 //     按索引判责,两套面互相对不上。
-//  3. **建图失败不静默、也不崩**:退回未加宽的 scope(= 改前的逐字行为)并打一行
-//     ⚠️ 可见告警。既不假装加宽成功(那会静默关掉一道判据),也不把环境故障升级成
-//     push 硬拦(§22b 的"按失败处理"是针对类型结论,不是针对判据增强失败)。
+//  3. **建图失败不静默、也不崩**:纯函数仍退回未加宽的 scope(= 改前的逐字行为)
+//     并给出可见 reason;但 RP-67 起这只是**数据** —— lib 同时产出 `ok:false`,消费侧
+//     必须消费它(见下方 scopeDegradeAllowed)。窄面比加宽面更容易把 importer 的报错
+//     判成「范围外」而 exit 0 放行,那是把「判据增强失败」冒充成「类型结论」
+//     (fail-open)。§22b 的"按失败处理"针对类型结论;这里维持的正是 typecheck 的
+//     原始结论,不是把环境故障凭空升级成一条新的硬拦。
 //  4. `buildGraph` 是**唯一的测试缝**(默认就是 import-graph 的 buildFileGraph):
 //     建图要 4~25 秒且只认真仓,不许单元测试里真建一次图。生产调用不传该参,
 //     走默认值 —— 缝只开在"怎么建图"这一层,判据本身(闭包/退回/可见理由)无可绕。
@@ -221,6 +224,19 @@ function shouldDegrade(errorFiles, stagedList) {
   if (!Array.isArray(stagedList) || stagedList.length === 0) return false
   if (!errorFiles || errorFiles.length === 0) return false
   return errorFiles.every((f) => !isPathInStaged(f, stagedList))
+}
+
+/**
+ * RP-67:消费 import-graph 的 `ok` 信号 —— 「范围外降级放行」的总开关。
+ * `widenFilesOverDependents` 建图/闭包失败时返回 `{ok:false, files: 退回的窄面}`;
+ * 窄面只含原始改动,拿它去 shouldDegrade 反而更容易把 importer 的报错判成
+ * 「范围外」而 exit 0 放行 —— 这是 fail-open(判据增强失败被冒充成类型结论)。
+ * ⇒ 只有 ok===true 才允许放行;ok===false(或拿不到 ok)一律 fail-closed:
+ *   关闭放行方向、显式记为未判定、维持原 typecheck 结论。
+ * 本函数是消费侧唯一开关;正反两态由 --self-test 与镜像测试钉住。
+ */
+function scopeDegradeAllowed(widen) {
+  return !!widen && widen.ok === true
 }
 
 // ─── --self-test:内置样例验证解析/匹配/降级分支(不跑 typecheck);断言失败以 exit 1 硬失败 ───
@@ -408,6 +424,31 @@ if (SELF_TEST) {
   )
   assert(noFileFaceVerdict({}) === null, '样例19c flag 未置位 ⇒ 原路径(全量门不被跳过)')
 
+  // 样例20-23(RP-67):消费 import-graph 的 ok:false —— 建图失败不得判「范围外」。
+  // 真信号走 widenScopeOverDependents 的测试缝(注入抛错的 buildGraph),不真建图。
+  const wGraphFail = widenScopeOverDependents(['apps/x/src/a.ts'], {
+    buildGraph: () => {
+      throw new Error('RP-67 模拟建图失败')
+    },
+  })
+  assert(wGraphFail.ok === false, '样例20a 建图失败 ⇒ lib 必须产出 ok:false(fail-closed 信号)')
+  assert(
+    !scopeDegradeAllowed(wGraphFail),
+    '样例20b 建图失败(ok:false) ⇒ 关闭「范围外降级放行」,不得把报错判成范围外',
+  )
+  assert(scopeDegradeAllowed(wA), '样例21 建图成功(ok:true) ⇒ 允许范围外降级放行(原语义不变)')
+  // 病根复现 + 闭合:窄面把 importer 报错判成范围外(改前 fail-open),消费侧必须堵住。
+  const narrowWouldDegrade = shouldDegrade(errOnImporter, wGraphFail.files)
+  assert(narrowWouldDegrade, '样例22a 病根复现:建图失败退窄面 ⇒ importer 报错被判成范围外')
+  assert(
+    !(scopeDegradeAllowed(wGraphFail) && narrowWouldDegrade),
+    '样例22b 但 ok:false 关闭放行 ⇒ 组合判据不得放行(病根被消费侧堵住)',
+  )
+  assert(
+    !scopeDegradeAllowed(null) && !scopeDegradeAllowed({}),
+    '样例23 拿不到 ok(未判定/异常形状)⇒ 同样不放行(fail-closed 偏好)',
+  )
+
   process.env.PUSH_SCOPE_FILES = prevEnv
 
   if (failedCount > 0) {
@@ -441,6 +482,14 @@ const scopeFilesRaw = scope.files
 // 定向快通道仍用 scopeFilesRaw(见 widenScopeOverDependents 边界 1)。
 const _widen = widenScopeOverDependents(scopeFilesRaw)
 const scopeFiles = _widen.files
+// RP-67:消费 import-graph 的 ok 信号 —— 建图/闭包失败(ok:false)时 files 退回窄面,
+// 拿窄面判「范围外」并放行是 fail-open;此时关闭放行方向、维持原失败结论。
+const scopeDegradeOk = scopeDegradeAllowed(_widen)
+if (!scopeDegradeOk) {
+  console.error(
+    `[check-typecheck] ⚠️ RP-67:依赖图建图/闭包失败(${_widen.reason}) ⇒ 关闭「范围外降级放行」(fail-closed / 显式未判定),本次报错一律维持原 typecheck 结论`,
+  )
+}
 const scopeEnabled = scopeFiles !== null && scopeFiles.length > 0
 const scopeLabel =
   scope.source === 'push-scope'
@@ -591,13 +640,16 @@ if (_fast) {
   }
   // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
   const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
-  if (scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
+  if (scopeDegradeOk && scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
     console.log('')
     console.log(
       `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
     )
     for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
     console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
+    // RP-67:降级块末尾的机器签名行(SCOPE_DEGRADE_EVIDENCE_RE 第二半的生产者);
+    // 放末尾保证 .husky/pre-push 的 tail -40 不把它截掉。
+    console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
     process.exit(0)
   }
   console.error(
@@ -697,12 +749,15 @@ child.on('close', (code, signal) => {
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)
   const errorFiles = extractErrorFiles(`${out}\n${err}`)
-  if (scopeEnabled && shouldDegrade(errorFiles, scopeFiles)) {
+  if (scopeDegradeOk && scopeEnabled && shouldDegrade(errorFiles, scopeFiles)) {
     console.log('')
     console.log(`ℹ️ 全部报错文件均不在本次改动范围(${scopeLabel},属并行会话工作区噪音),降级为警告`)
     console.log(`ℹ️ 解析到报错文件共 ${errorFiles.length} 个(样例前 20 个):`)
     for (const f of errorFiles.slice(0, 20)) console.log(`   - ${f}`)
     console.log('ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责')
+    // RP-67:降级块末尾的机器签名行(SCOPE_DEGRADE_EVIDENCE_RE 第二半的生产者);
+    // 放末尾保证 .husky/pre-push 的 tail -40 不把它截掉。
+    console.log('[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)')
     process.exit(0)
   }
 
