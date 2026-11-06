@@ -1611,6 +1611,49 @@ function poolWinnabilityNote(rows) {
   }
 }
 
+/**
+ * 一班会话是不是"被环自己的上限掐掉的"(RP-74 相关,2026-11-06 抽成纯出口)。
+ *
+ * 为什么要抽出来:这一段原本内联在 `dispatchSession` 里,而那个函数真派子进程,
+ * 测试够不到 ⇒ "超时那一支把 failureKind 落在哪" 这条判据只能靠端到端摸(§0.9:摸不到=没锁)。
+ * 现读依据:台账里 `session-timeout` **历史上 0 行**、107 条会话行最长 28.5 分钟、
+ * `maxSessionMinutes` 现读 45 ⇒ 这一支从没在真跑里落过地,而它的缺省 `failureKind='ok'`
+ * 一旦被触发就会把"被掐死"读成"成功"。趁它还没咬人先把归类钉对。
+ *
+ * 判序两条都保留(与改前逐字同条件),只把结论抽成机读:
+ *  ① `error.killed` —— Node 自己报被杀;
+ *  ② SIGTERM 且耗时已顶到上限(留 5s 抖动余量)—— Windows 上超时常表现为信号而无 killed 标记。
+ * 时长取不到 ⇒ 不判超时(不把"量不动"读成"被掐死",也不读成"正常结束")。
+ */
+export function classifyTimedOutRound({
+  killed = false,
+  signal = null,
+  durationMs = null,
+  maxSessionMinutes = null,
+} = {}) {
+  if (killed === true)
+    return {
+      timedOut: true,
+      failureKind: 'cancelled',
+      exitCode: null,
+      why: `子进程被杀(error.killed)⇒ 本轮按取消判,不计该票连败${signal ? `(信号=${signal})` : ''}`,
+    }
+  const cap = Number(maxSessionMinutes)
+  const dur = Number(durationMs)
+  // 上限或耗时取不到 ⇒ 不判超时。这不是"第三种结局":loadGates 已把 maxSessionMinutes 校成
+  // 正整数,而 NaN 参与比较的旧行为本来就是 false —— 这里只是把那条恒假写得可见。
+  if (!Number.isFinite(cap) || cap <= 0 || !Number.isFinite(dur) || dur < 0)
+    return { timedOut: false, failureKind: null, exitCode: null, why: '' }
+  if (signal === 'SIGTERM' && dur >= cap * 60_000 - 5_000)
+    return {
+      timedOut: true,
+      failureKind: 'cancelled',
+      exitCode: null,
+      why: `超过 maxSessionMinutes=${cap}(SIGTERM,实测 ${Math.round(dur / 1000)}s)⇒ 本轮按取消判,不计该票连败`,
+    }
+  return { timedOut: false, failureKind: null, exitCode: null, why: '' }
+}
+
 function dispatchSession(gates, ticket, dryRun) {
   const key = ticketKeyOf(ticket.text)
   if (!gates.sessionCommandTemplate.trim()) {
@@ -1747,14 +1790,19 @@ function dispatchSession(gates, ticket, dryRun) {
     why = '',
     timedOut = false,
     writes = null
-  if (
-    r.error?.killed ||
-    (signal === 'SIGTERM' && durationMs >= gates.maxSessionMinutes * 60_000 - 5_000)
-  ) {
+  const roundCut = classifyTimedOutRound({
+    killed: r.error?.killed === true,
+    signal,
+    durationMs,
+    maxSessionMinutes: gates.maxSessionMinutes,
+  })
+  if (roundCut.timedOut) {
     action = 'session-timeout'
-    exitCode = null
+    exitCode = roundCut.exitCode
     timedOut = true
-    why = `超过 maxSessionMinutes=${gates.maxSessionMinutes}`
+    failureKind = roundCut.failureKind
+    why = roundCut.why
+    // 归类理由(为何不再是 'ok')见 classifyTimedOutRound 头注与 ⓪ 那段现读依据。
   } else if (r.error) {
     const kind = classifySessionFailure({ status: null, stderr: '', error: r.error.message })
     action = 'session-failed'
