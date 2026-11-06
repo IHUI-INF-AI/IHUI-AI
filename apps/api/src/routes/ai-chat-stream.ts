@@ -63,6 +63,7 @@ import {
   findSession,
   finishSession,
   getReplayEvents,
+  startHeartbeat,
   takeoverStream,
   waitForReplayHeadroom,
 } from '../utils/sse-stream-registry.js'
@@ -695,6 +696,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       livePrevious.finished = true
     }
     const session = createSession(raw, new AbortController(), replayKey, upstreamSessionId)
+    // 2026-11-06 批1:主聊天流周期心跳。此前本链路只在「等审批/等表单/排队」的
+    // ai-service 分支里发 keep-alive,工具执行/长推理等静默期一个字节都没有 ——
+    // 而客户端读环是 30s 空闲判定(packages/api-client/src/client.ts),静默超窗
+    // 会被判成断线并重连/重跑上游。心跳是 SSE 注释帧(`: ping`,经 registry 唯一
+    // 实现),不编号、不进回放缓冲,重连重放语义零变化;断线期间 registry 自动跳过,
+    // 接管换绑后新连接继续收拍。必须在 finally 停止,否则会话结束后仍会写已关闭连接。
+    const stopHeartbeat = startHeartbeat(session)
 
     // 首事件:压缩通知等
     // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
@@ -1161,6 +1169,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     } finally {
       raw.off('close', onClose)
       clearTimeout(serverTimeout)
+      // 心跳必须先于 finishSession 停止:停止后再收尾,避免会话摘除后定时器仍持有 raw。
+      stopHeartbeat()
       // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
       // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
       if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
