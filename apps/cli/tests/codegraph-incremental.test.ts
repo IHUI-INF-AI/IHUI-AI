@@ -524,11 +524,12 @@ describe('persist', () => {
     expect(loaded).toBeUndefined()
   })
 
-  it('loadCache 损坏 JSON 返回 undefined', async () => {
+  it('loadCache 损坏 JSON 不说成没有缓存', async () => {
     const cachePath = path.join(tmpDir, 'corrupt.json')
-    fs.writeFileSync(cachePath, '{ not valid json', 'utf-8')
-    const loaded = await loadCache(cachePath)
-    expect(loaded).toBeUndefined()
+    const body = '{ not valid json'
+    fs.writeFileSync(cachePath, body, 'utf-8')
+    await expect(loadCache(cachePath)).rejects.toThrow(/不能把它当成没有再写成新的/)
+    expect(fs.readFileSync(cachePath, 'utf-8')).toBe(body)
   })
 
   it('saveCache 自动创建父目录', async () => {
