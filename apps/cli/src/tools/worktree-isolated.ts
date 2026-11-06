@@ -80,6 +80,8 @@ export interface RemoveIsolatedWorktreeRequest {
   manager?: WorktreeManager;
   /** 默认 true:语义是"调用方已判定该隔离区可弃",与子代理收尾同档 */
   force?: boolean;
+  /** 测试注入:确认目录是否还在。省略时用 fs.statSync */
+  stat?: (target: string) => unknown;
 }
 
 /**
@@ -99,7 +101,18 @@ export function removeIsolatedWorktree(
   const force = req.force !== false;
   if (req.viaManager && req.manager) {
     const removed = req.manager.remove(req.agentId, { force, deleteBranch: true });
-    if (fs.existsSync(req.path)) return { removed: false, pruned: null };
+    const look = req.stat ?? fs.statSync;
+    try {
+      look(req.path);
+      return { removed: false, pruned: null };
+    } catch (error) {
+      const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`工作树读不到,不能把它说成已经不在,也不摘注册 (${code})`);
+      }
+    }
     // 目录已真消失,才摘注册表条目(管理目录已被外部删掉的早退分支同样走到这里)
     return { removed, pruned: req.manager.prune() };
   }

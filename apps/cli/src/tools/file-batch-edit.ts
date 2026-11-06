@@ -239,7 +239,12 @@ function runBulkDeleteGuard(
  * 恢复出口(回收站 → 原位):manifest 形态坏 / 条目缺失 /  Trash 件丢失 ⇒ 一律抛错点名,
  * 不静默不硬试。文件按复制恢复(保留回收站原件),目录按 rename 归位。
  */
-export function restoreTrashEntry(workspacePath: string, trashId: string, originalPath: string): string {
+export function restoreTrashEntry(
+  workspacePath: string,
+  trashId: string,
+  originalPath: string,
+  stat?: (path: string) => fs.Stats,
+): string {
   if (!isSafeIdSegment(trashId)) {
     throw new Error(`恢复拒绝:trashId 形态不合法(${String(trashId).slice(0, 40)})`);
   }
@@ -260,13 +265,27 @@ export function restoreTrashEntry(workspacePath: string, trashId: string, origin
   const entry = findTrashEntry(manifest, originalPath);
   if (!entry) throw new Error(`恢复拒绝:该 trashId(${trashId})下无 ${originalPath} 的条目`);
   const trashPath = path.join(dir, entry.relativeTrashPath);
-  if (!fs.existsSync(trashPath)) {
-    throw new Error(`恢复拒绝:回收站件丢失 ${entry.relativeTrashPath}(未判定不静默)`);
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(trashPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      throw new Error(`恢复拒绝:回收站件丢失 ${entry.relativeTrashPath}(未判定不静默)`);
+    }
+    throw new Error(`恢复拒绝:回收站件读不到,不能把它说成丢失 (${code ?? 'unknown'})`);
+  }
+  try {
+    look(entry.originalPath);
+    throw new Error(`恢复拒绝:原路径 ${entry.originalPath} 已存在,不覆盖现网现场`);
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('恢复拒绝:')) throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`恢复拒绝:原路径读不到,不能把它说成不存在再恢复覆盖 (${code ?? 'unknown'})`);
+    }
   }
   if (entry.kind === 'directory') {
-    if (fs.existsSync(entry.originalPath)) {
-      throw new Error(`恢复拒绝:原路径 ${entry.originalPath} 已存在,不覆盖现网现场`);
-    }
     fs.mkdirSync(path.dirname(entry.originalPath), { recursive: true });
     fs.renameSync(trashPath, entry.originalPath);
   } else {
@@ -432,7 +451,8 @@ function diffForOp(v: ValidatedOp): string {
 
 // ==================== batch_edit 工具 ====================
 
-export function createBatchEditTool(ctx: EditToolContext): Tool {
+export function createBatchEditTool(ctx: EditToolContext, stat?: (path: string) => fs.Stats): Tool {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   return {
     name: 'batch_edit',
     description:
@@ -651,30 +671,54 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
       let rollbackPerformed = false;
       if (atomic && failureOccurred) {
         const m = manifest;
+        const rollbackFailed = new Map<string, string>();
         if (m) {
           // 逆序恢复每个文件到原始状态
           const filesReversed = [...m.files].reverse();
           for (const entry of filesReversed) {
             try {
               if (entry.existedBefore && entry.backupPath) {
+                const backupKind = pathKind(entry.backupPath, look);
+                const targetKind = pathKind(entry.filePath, look);
+                if (backupKind === 'unreadable' || targetKind === 'unreadable') {
+                  const where = backupKind === 'unreadable' ? entry.backupPath : entry.filePath;
+                  throw new Error(`回滚读不到,不能覆盖: ${where}`);
+                }
+                if (backupKind !== 'present') {
+                  throw new Error(`备份文件不存在: ${entry.backupPath}`);
+                }
                 fs.mkdirSync(path.dirname(entry.filePath), { recursive: true });
                 fs.copyFileSync(entry.backupPath, entry.filePath);
-              } else if (fs.existsSync(entry.filePath)) {
+              } else {
                 // 操作前不存在 ⇒ 删除的是**本事务自己新建**的文件:没有用户前像,不进回收站
-                fs.unlinkSync(entry.filePath);
+                const liveKind = pathKind(entry.filePath, look);
+                if (liveKind === 'unreadable') {
+                  throw new Error(`原文件读不到,不能把它说成已经不在: ${entry.filePath}`);
+                }
+                if (liveKind === 'present') fs.unlinkSync(entry.filePath);
               }
-            } catch {
-              // 单文件回滚失败不中断其余回滚
+            } catch (err) {
+              // 单文件回滚失败不中断其余回滚;读不到的不记成已完成
+              const msg = err instanceof Error ? err.message : String(err);
+              rollbackFailed.set(entry.filePath, msg);
+              guardNotes.push(msg);
             }
           }
         }
-        // 标记已执行的操作为 rolled-back
         for (const applied of appliedOps) {
+          const failMsg = rollbackFailed.get(applied.abs);
           const r = opResults.find((x) => x.filePath === applied.op.filePath);
-          if (r) r.status = 'rolled-back';
+          if (!r) continue;
+          if (failMsg) {
+            r.error = failMsg;
+            continue;
+          }
+          r.status = 'rolled-back';
         }
-        rollbackPerformed = true;
-        appliedCount = 0;
+        if (rollbackFailed.size === 0) {
+          rollbackPerformed = true;
+          appliedCount = 0;
+        }
       }
 
       // 回收站清单落盘(本批有搬运件才写;失败如实进 notes,不静默)
@@ -743,7 +787,19 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
 
 // ==================== batch_undo 工具 ====================
 
-export function createBatchUndoTool(ctx: EditToolContext): Tool {
+function pathKind(target: string, stat: (path: string) => fs.Stats): 'present' | 'missing' | 'unreadable' {
+  try {
+    stat(target);
+    return 'present';
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    return 'unreadable';
+  }
+}
+
+export function createBatchUndoTool(ctx: EditToolContext, stat?: (path: string) => fs.Stats): Tool {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   return {
     name: 'batch_undo',
     description:
@@ -765,8 +821,16 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
 
       const checkpointDir = getCheckpointDir(ctx.workspacePath, checkpointId);
       const manifestPath = path.join(checkpointDir, 'manifest.json');
-      if (!fs.existsSync(manifestPath)) {
+      const manifestKind = pathKind(manifestPath, look);
+      if (manifestKind === 'missing') {
         return { success: false, output: '', error: `checkpoint 不存在: ${checkpointId}` };
+      }
+      if (manifestKind === 'unreadable') {
+        return {
+          success: false,
+          output: '',
+          error: `checkpoint 读不到,不能把它说成不存在,也不回滚: ${checkpointId}`,
+        };
       }
 
       const preResult = await runPreToolCall('batch_undo', { checkpointId, cwd: ctx.workspacePath }, execCtx.signal);
@@ -805,14 +869,19 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
       for (const entry of filesReversed) {
         try {
           if (entry.existedBefore && entry.backupPath) {
-            if (!fs.existsSync(entry.backupPath)) {
-              throw new Error(`备份文件不存在: ${entry.backupPath}`);
+            const backupKind = pathKind(entry.backupPath, look);
+            if (backupKind === 'missing') throw new Error(`备份文件不存在: ${entry.backupPath}`);
+            if (backupKind === 'unreadable') {
+              throw new Error(`备份读不到,不能把它说成不存在再跳过回滚: ${entry.backupPath}`);
             }
             fs.mkdirSync(path.dirname(entry.filePath), { recursive: true });
             fs.copyFileSync(entry.backupPath, entry.filePath);
-          } else if (fs.existsSync(entry.filePath)) {
-            // 操作前不存在 → 删除
-            fs.unlinkSync(entry.filePath);
+          } else {
+            const liveKind = pathKind(entry.filePath, look);
+            if (liveKind === 'unreadable') {
+              throw new Error(`原文件读不到,不能把它说成已经不在: ${entry.filePath}`);
+            }
+            if (liveKind === 'present') fs.unlinkSync(entry.filePath);
           }
           results.push({ filePath: entry.relativePath, status: 'success' as const });
           successCount++;

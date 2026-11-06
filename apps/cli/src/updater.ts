@@ -140,11 +140,25 @@ interface CacheShape {
   minGate?: GateCacheShape;
 }
 
-/** 读原始 JSON(不做形状校验,合并写回时要保住另一方的键);损坏/不存在 ⇒ null。 */
+function cacheReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+/** 读原始 JSON(不做形状校验,合并写回时要保住另一方的键);损坏/不存在 ⇒ null。读失败不得当成空。 */
 function readRawCache(cacheFile: string): Record<string, unknown> | null {
+  let text: string;
   try {
-    if (!fs.existsSync(cacheFile)) return null;
-    const parsed: unknown = JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+    text = fs.readFileSync(cacheFile, 'utf-8');
+  } catch (error) {
+    const code = cacheReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`更新缓存读不到,不能把它覆盖成新结论 (${code})`);
+  }
+  try {
+    const parsed: unknown = JSON.parse(text);
     return isRecord(parsed) ? parsed : null;
   } catch {
     return null;
@@ -153,10 +167,17 @@ function readRawCache(cacheFile: string): Record<string, unknown> | null {
 
 /** 合并写回:只覆盖 patch 里点名的键,其余键(另一方写的结论)原样保留。 */
 function mergeWriteCache(cacheFile: string, patch: Record<string, unknown>): void {
+  let base: Record<string, unknown>;
+  try {
+    base = readRawCache(cacheFile) ?? {};
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`warning: ${message}\n`);
+    return;
+  }
   try {
     const dir = path.dirname(cacheFile);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const base = readRawCache(cacheFile) ?? {};
     fs.writeFileSync(cacheFile, JSON.stringify({ ...base, ...patch }), 'utf-8');
   } catch {
     // 写入失败不影响启动,也不影响本次结论
@@ -164,8 +185,12 @@ function mergeWriteCache(cacheFile: string, patch: Record<string, unknown>): voi
 }
 
 function readCache(): CacheShape | null {
-  const parsed = readRawCache(CACHE_FILE);
-  if (parsed && typeof parsed.checkedAt === 'number') return parsed as unknown as CacheShape;
+  try {
+    const parsed = readRawCache(CACHE_FILE);
+    if (parsed && typeof parsed.checkedAt === 'number') return parsed as unknown as CacheShape;
+  } catch {
+    // 读不到不能当成没有缓存;本函数只给检查方看,写回另走 mergeWriteCache
+  }
   return null;
 }
 
@@ -436,7 +461,12 @@ export function decideGate(currentVersion: string, facts: ServerMinVersionFacts 
  * 单独一份文件 = 两个地方描述同一次启动,迟早互相指认。
  */
 function readGateCache(cacheFile: string): GateCacheShape | null {
-  const raw = readRawCache(cacheFile);
+  let raw: Record<string, unknown> | null;
+  try {
+    raw = readRawCache(cacheFile);
+  } catch {
+    return null;
+  }
   const entry = raw && isRecord(raw.minGate) ? raw.minGate : null;
   if (!entry) return null;
   if (typeof entry.checkedAt !== 'number') return null;
@@ -762,5 +792,161 @@ export function createUpdateCheckMachine(deps: UpdateCheckMachineDeps): UpdateCh
       skipped = version;
     },
   };
+}
+
+const HANDOFF_SHA256 = /^[0-9a-f]{64}$/;
+
+export type UpdateHandoffPlan = {
+  disposition: 'apply' | 'refused' | 'unjudged';
+  action: 'apply' | 'stay';
+  reason:
+    | 'hash-match'
+    | 'hash-mismatch'
+    | 'verify-failed'
+    | 'timed-out'
+    | 'hash-unmeasured'
+    | 'hash-shape'
+    | 'timeout-unmeasured'
+    | 'verify-unmeasured'
+    | 'window-unmeasured'
+    | 'window-not-ready';
+};
+
+/**
+ * 更新交接。校验没做完、超时、摘要对不上,都留在当前版本。
+ * 只有超时已量到且没超时、两边摘要一致、校验错误明确为空,才允许替换。
+ */
+export function decideUpdateHandoff(input: {
+  manifestSha256: unknown;
+  measuredSha256: unknown;
+  timedOut: unknown;
+  verifyError: unknown;
+  windowReady: unknown;
+}): UpdateHandoffPlan {
+  const stay = (
+    disposition: 'refused' | 'unjudged',
+    reason: Exclude<UpdateHandoffPlan['reason'], 'hash-match'>,
+  ): UpdateHandoffPlan => ({ disposition, action: 'stay', reason });
+  if (typeof input.timedOut !== 'boolean') return stay('unjudged', 'timeout-unmeasured');
+  if (input.timedOut) return stay('refused', 'timed-out');
+  if (typeof input.manifestSha256 !== 'string' || !HANDOFF_SHA256.test(input.manifestSha256)) {
+    return stay('unjudged', 'hash-shape');
+  }
+  if (typeof input.measuredSha256 !== 'string' || !HANDOFF_SHA256.test(input.measuredSha256)) {
+    return stay('unjudged', 'hash-unmeasured');
+  }
+  if (input.measuredSha256 !== input.manifestSha256) return stay('refused', 'hash-mismatch');
+  if (typeof input.verifyError !== 'string') return stay('unjudged', 'verify-unmeasured');
+  if (input.verifyError.length > 0) return stay('refused', 'verify-failed');
+  if (typeof input.windowReady !== 'boolean') return stay('unjudged', 'window-unmeasured');
+  if (!input.windowReady) return stay('refused', 'window-not-ready');
+  return { disposition: 'apply', action: 'apply', reason: 'hash-match' };
+}
+
+export type RuntimeArtifactPlan = {
+  disposition: 'select' | 'unjudged' | 'refused';
+  reason:
+    | 'select'
+    | 'etag-unmeasured'
+    | 'app-unmeasured'
+    | 'platform-unmeasured'
+    | 'candidates-unmeasured'
+    | 'candidate-incomplete'
+    | 'none'
+    | 'app-too-old'
+    | 'version-ambiguous';
+  version: string | null;
+  sha256: string | null;
+};
+
+export type RuntimeCurrentPlan = {
+  disposition: 'use' | 'unjudged' | 'refused';
+  reason: 'use' | 'current-unmeasured' | 'installed-unmeasured' | 'path-pointer' | 'not-installed';
+  version: string | null;
+};
+
+const RUNTIME_SHA256 = /^[0-9a-f]{64}$/;
+const RUNTIME_PLATFORM = /^[a-z0-9]+-[a-z0-9]+$/;
+
+type RuntimeCandidateOk = { version: string; sha256: string; publishedAt: number };
+
+function readRuntimeCandidate(
+  value: unknown,
+  appVersion: string,
+): RuntimeCandidateOk | 'bad' | 'too-old' {
+  if (value === null || typeof value !== 'object') return 'bad';
+  const row = value as Record<string, unknown>;
+  if (typeof row.version !== 'string' || parseVersionTriple(row.version) === null) return 'bad';
+  if (typeof row.minAppVersion !== 'string' || parseVersionTriple(row.minAppVersion) === null) return 'bad';
+  if (typeof row.url !== 'string' || !row.url.startsWith('https://') || /\s/.test(row.url)) return 'bad';
+  if (typeof row.sha256 !== 'string' || !RUNTIME_SHA256.test(row.sha256)) return 'bad';
+  if (typeof row.size !== 'number' || !Number.isInteger(row.size) || row.size < 1) return 'bad';
+  if (typeof row.publishedAt !== 'string' || Number.isNaN(Date.parse(row.publishedAt))) return 'bad';
+  const order = compareVersionsOrUnknown(appVersion, row.minAppVersion);
+  if (order === null) return 'bad';
+  if (order < 0) return 'too-old';
+  return { version: row.version, sha256: row.sha256, publishedAt: Date.parse(row.publishedAt) };
+}
+
+/**
+ * 附属运行时只从已量到的平台清单里选。
+ * 任一候选缺摘要、体积、地址或最低应用版本，整份清单都不选。
+ * 本函数不下载。
+ */
+export function selectRuntimeArtifact(input: {
+  etag: unknown;
+  appVersion: unknown;
+  platform: unknown;
+  candidates: unknown;
+}): RuntimeArtifactPlan {
+  const none = (reason: RuntimeArtifactPlan['reason'], disposition: RuntimeArtifactPlan['disposition'] = 'unjudged'): RuntimeArtifactPlan => ({
+    disposition,
+    reason,
+    version: null,
+    sha256: null,
+  });
+  if (typeof input.etag !== 'string' || input.etag.trim() === '' || /\s/.test(input.etag)) return none('etag-unmeasured');
+  if (typeof input.appVersion !== 'string' || parseVersionTriple(input.appVersion) === null) return none('app-unmeasured');
+  if (typeof input.platform !== 'string' || !RUNTIME_PLATFORM.test(input.platform)) return none('platform-unmeasured');
+  if (!Array.isArray(input.candidates)) return none('candidates-unmeasured');
+  if (input.candidates.length === 0) return none('none', 'refused');
+  const eligible: RuntimeCandidateOk[] = [];
+  for (const row of input.candidates) {
+    const read = readRuntimeCandidate(row, input.appVersion);
+    if (read === 'bad') return none('candidate-incomplete');
+    if (read !== 'too-old') eligible.push(read);
+  }
+  if (eligible.length === 0) return none('app-too-old', 'refused');
+  eligible.sort((a, b) => {
+    const order = compareVersionsOrUnknown(a.version, b.version);
+    if (order === null || order === 0) return b.publishedAt - a.publishedAt;
+    return -order;
+  });
+  const best = eligible[0];
+  if (!best) return none('none', 'refused');
+  if (eligible.some((row) => row !== best && compareVersionsOrUnknown(row.version, best.version) === 0)) {
+    return none('version-ambiguous');
+  }
+  return { disposition: 'select', reason: 'select', version: best.version, sha256: best.sha256 };
+}
+
+/**
+ * `current` 只能是已安装版本名。路径或符号链接目标不算指针。
+ */
+export function admitRuntimeCurrent(input: {
+  current: unknown;
+  installed: readonly string[] | null;
+}): RuntimeCurrentPlan {
+  const none = (reason: RuntimeCurrentPlan['reason'], disposition: RuntimeCurrentPlan['disposition'] = 'unjudged'): RuntimeCurrentPlan => ({
+    disposition,
+    reason,
+    version: null,
+  });
+  if (typeof input.current !== 'string' || input.current.trim() === '') return none('current-unmeasured');
+  if (/[\\/]|\.\./.test(input.current)) return none('path-pointer', 'refused');
+  if (parseVersionTriple(input.current) === null) return none('current-unmeasured');
+  if (input.installed === null) return none('installed-unmeasured');
+  if (!input.installed.includes(input.current)) return none('not-installed', 'refused');
+  return { disposition: 'use', reason: 'use', version: input.current };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

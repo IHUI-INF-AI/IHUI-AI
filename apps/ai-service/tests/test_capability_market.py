@@ -19,6 +19,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -155,6 +158,24 @@ def test_store_write_failure_degrades(store_path, monkeypatch):
     """写失败降级返回 None,不抛异常。"""
     monkeypatch.setattr(cms, "_write", lambda records: False)
     assert cms.set_enabled("read_file", False) is None
+
+
+def test_unreadable_store_is_not_overwritten(store_path, monkeypatch):
+    store_path.write_text('{"keep":{"enabled":false,"updated_at":"t"}}\n', encoding="utf-8")
+    original = store_path.read_bytes()
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(store_path):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    assert cms.set_enabled("other", False) is None
+    with pytest.raises(cms.CapabilityMarketUnread, match="读不到"):
+        cms.is_enabled("keep")
+    monkeypatch.undo()
+    assert store_path.read_bytes() == original
 
 
 # =============================================================================

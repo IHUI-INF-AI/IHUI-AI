@@ -27,7 +27,15 @@ export interface Session {
 }
 
 export function getSessionsDir(): string {
+  if (process.env.IHUI_CLI_SESSIONS_DIR) return process.env.IHUI_CLI_SESSIONS_DIR;
   return path.join(os.homedir(), '.ihui', 'sessions');
+}
+
+function sessionReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
 }
 
 function ensureSessionsDir(): void {
@@ -45,25 +53,33 @@ export function createSession(workspacePath: string, modelId: string): Session {
 }
 
 export function saveSession(session: Session): void {
+  const filePath = path.join(getSessionsDir(), `${session.id}.json`);
+  try {
+    fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
+    }
+  }
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  fs.writeFileSync(
-    path.join(getSessionsDir(), `${session.id}.json`),
-    JSON.stringify(session, null, 2),
-    'utf-8',
-  );
+  fs.writeFileSync(filePath, JSON.stringify(session, null, 2), 'utf-8');
 }
 
 export function loadSession(id: string): Session | null {
   const filePath = path.join(getSessionsDir(), `${id}.json`);
-  if (!fs.existsSync(filePath)) return null;
+  let raw: string;
   try {
-    const parsed = tryParseJson(fs.readFileSync(filePath, 'utf-8'));
-    // 非对象内容视为损坏文件
-    return isRecord(parsed) ? (parsed as unknown as Session) : null;
-  } catch {
-    return null;
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
   }
+  const parsed = tryParseJson(raw);
+  // 非对象内容视为损坏文件
+  return isRecord(parsed) ? (parsed as unknown as Session) : null;
 }
 
 export function listSessions(): Session[] {
@@ -72,13 +88,18 @@ export function listSessions(): Session[] {
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
   const sessions: Session[] = [];
   for (const f of files) {
+    const filePath = path.join(dir, f);
+    let raw: string;
     try {
-      const parsed = tryParseJson(fs.readFileSync(path.join(dir, f), 'utf-8'));
-      // 跳过损坏 / 非对象文件
-      if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
-    } catch {
-      /* ignore corrupted files */
+      raw = fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+      const code = sessionReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
     }
+    const parsed = tryParseJson(raw);
+    // 跳过损坏 / 非对象文件
+    if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
   }
   return sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }

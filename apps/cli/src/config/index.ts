@@ -43,6 +43,8 @@ export interface LoadConfigOptions {
   cliArgs?: Record<string, unknown>
   /** 临时 session 配置(优先级高于 setSessionConfig 注入的模块级状态) */
   sessionOverrides?: Partial<Settings>
+  /** 测试注入。省略时用 fs.statSync。 */
+  stat?: (path: string) => fs.Stats
 }
 
 /** 全局配置路径:~/.ihui/settings.json */
@@ -56,18 +58,26 @@ export function getProjectSettingsPath(cwd?: string): string {
   return path.join(cwd ?? process.cwd(), '.ihui', 'settings.json')
 }
 
-/** 安全加载 settings.json:文件不存在或解析失败返回 {} */
-function loadSettingsFile(p: string): Partial<Settings> {
+/** 安全加载 settings.json。文件不存在或内容损坏返回 {}。读不到则抛错,不能当成空配置。 */
+function loadSettingsFile(p: string, stat?: (path: string) => fs.Stats): Partial<Settings> {
+  const look = stat ?? ((q: string) => fs.statSync(q))
   try {
-    if (!fs.existsSync(p)) return {}
+    look(p)
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置读不到,不能把它当成空配置 (${code ?? 'unknown'})`)
+  }
+  try {
     const raw = fs.readFileSync(p, 'utf-8')
     const parsed: unknown = JSON.parse(raw)
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed as Partial<Settings>
     }
     return {}
-  } catch {
-    // 损坏文件忽略,降级到默认
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code) throw new Error(`配置读不到,不能把它当成空配置 (${code})`)
     return {}
   }
 }
@@ -115,11 +125,11 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   // Layer 1: defaults(内置默认值,最低优先级)
   const defaults = DEFAULT_SETTINGS
   // Layer 2: global(~/.ihui/settings.json)
-  const globalConfig = loadSettingsFile(globalPath)
+  const globalConfig = loadSettingsFile(globalPath, opts.stat)
   // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
   // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
   // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。
-  const projectRaw = loadSettingsFile(projectPath)
+  const projectRaw = loadSettingsFile(projectPath, opts.stat)
   const projectFilter = filterProjectLayerSettings(projectRaw as Record<string, unknown>)
   if (projectFilter.rejected.length > 0) {
     // 拒绝必须可见:静默丢弃安全键等于让仓库作者可以"悄悄试",下一次换个键再来。

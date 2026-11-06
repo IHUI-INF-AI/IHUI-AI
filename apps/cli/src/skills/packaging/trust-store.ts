@@ -46,17 +46,45 @@ export function getDefaultSkillTrustStorePath(): string {
 /**
  * 从磁盘加载信任锚。任何"读不到/看不懂"都拒,不返回空集合冒充"没有发布者"。
  */
-export function loadTrustedKeyStore(storePath = getDefaultSkillTrustStorePath()): TrustedKeyStore {
-  if (!fs.existsSync(storePath)) {
+export function loadTrustedKeyStore(
+  storePath = getDefaultSkillTrustStorePath(),
+  stat?: (path: string) => fs.Stats,
+): TrustedKeyStore {
+  const look = stat ?? ((target: string) => fs.statSync(target))
+  try {
+    look(storePath)
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      throw new SkillPackageError(
+        'SKILL_PKG_TRUST_STORE_MISSING',
+        `发布者信任锚不存在:${storePath}(缺签名信任配置即拒装,不存在"没配置就跳过")`,
+        { path: storePath },
+      )
+    }
     throw new SkillPackageError(
-      'SKILL_PKG_TRUST_STORE_MISSING',
-      `发布者信任锚不存在:${storePath}(缺签名信任配置即拒装,不存在"没配置就跳过")`,
+      'SKILL_PKG_TRUST_STORE_INVALID',
+      `发布者信任锚读不到,不能把它说成不存在 (${code ?? 'unknown'})`,
       { path: storePath },
     )
   }
+  let text: string
+  try {
+    text = fs.readFileSync(storePath, 'utf8')
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    if (code) {
+      throw new SkillPackageError(
+        'SKILL_PKG_TRUST_STORE_INVALID',
+        `发布者信任锚读不到,不能把它说成不存在 (${code})`,
+        { path: storePath },
+      )
+    }
+    throw err
+  }
   let raw: unknown
   try {
-    raw = JSON.parse(fs.readFileSync(storePath, 'utf8')) as unknown
+    raw = JSON.parse(text) as unknown
   } catch (err) {
     throw new SkillPackageError(
       'SKILL_PKG_TRUST_STORE_INVALID',

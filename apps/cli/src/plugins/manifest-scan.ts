@@ -166,12 +166,32 @@ export interface ManifestLookup {
  * 在目录中查找清单文件(优先 plugin.json,其次 plugin.config.json)。
  * 高优先级文件在位时,另一份不是"不存在"而是"被忽略" —— 留一条 warning,静默会让
  * 用户以为自己写的那份生效了(与 G-683 同型:被跳过的内容必须报名)。
+ * 在位用 stat 而不是 existsSync:ENOENT / ENOTDIR 才算这份没有并继续看下一份;
+ * 其它错误不算进 present,也不改用下一份,primary 为 null 并留 manifest-unreadable。
+ * 第二参显式传入 undefined 时由函数体内 ?? 补 fs.statSync,不靠参数默认值。
  */
-export function findManifestInDir(dir: string): ManifestLookup {
+export function findManifestInDir(dir: string, stat?: (path: string) => fs.Stats): ManifestLookup {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   const present: string[] = [];
   for (const name of MANIFEST_FILES) {
     const candidate = path.join(dir, name);
-    if (fs.existsSync(candidate)) present.push(candidate);
+    try {
+      look(candidate);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      return {
+        primary: null,
+        diagnostics: [
+          diagnostic(
+            'manifest-unreadable',
+            candidate,
+            `清单读不到,不能改用下一份: ${errorText(err)}`,
+          ),
+        ],
+      };
+    }
+    present.push(candidate);
   }
   const primary = present[0] ?? null;
   const diagnostics: PluginDiagnostic[] = [];

@@ -15,6 +15,7 @@ import * as path from 'node:path';
 
 import {
   buildWorkspaceIndex,
+  workspaceRootKind,
   clearWorkspaceIndex,
   getWorkspaceIndexDir,
   isInsideWorkspace,
@@ -50,6 +51,23 @@ beforeEach(() => {
 
 afterEach(() => {
   fs.rmSync(sandbox, { recursive: true, force: true });
+});
+
+describe('工作区根', () => {
+  it('读不到时不能说成不存在', () => {
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    expect(
+      workspaceRootKind(workspace, () => {
+        throw denied;
+      }),
+    ).toBe('unread');
+    expect(workspaceRootKind(workspace)).toBe('dir');
+    const file = path.join(workspace, 'keep.ts');
+    fs.writeFileSync(file, 'export const keep = 1\n', 'utf-8');
+    expect(workspaceRootKind(file)).toBe('other');
+    expect(fs.readFileSync(file, 'utf8')).toBe('export const keep = 1\n');
+  });
 });
 
 describe('开关判定', () => {
@@ -129,6 +147,34 @@ describe('workspace 模式范围', () => {
   });
 });
 
+describe('读不到的目录', () => {
+  it('子目录列不出来 ⇒ 不把残缺名单写成完整索引', async () => {
+    write('src/keep.ts');
+    const blocked = path.join(workspace, 'blocked');
+    fs.mkdirSync(blocked);
+    const hidden = path.join(blocked, 'hidden.ts');
+    fs.writeFileSync(hidden, 'export const hidden = 1\n', 'utf-8');
+    const real = fs.readdirSync;
+    const err = await buildWorkspaceIndex({
+      workspaceRoot: workspace,
+      mode: 'workspace',
+      cacheRoot,
+      listDir: (target) => {
+        if (path.basename(target) === 'blocked') {
+          const error = new Error('denied') as NodeJS.ErrnoException;
+          error.code = 'EACCES';
+          throw error;
+        }
+        return real(target, { withFileTypes: true });
+      },
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('不能把索引说成完整');
+    expect(fs.existsSync(getWorkspaceIndexDir(workspace, cacheRoot))).toBe(false);
+    expect(fs.readFileSync(hidden, 'utf-8')).toBe('export const hidden = 1\n');
+  });
+});
+
 describe('硬阈值', () => {
   it('文件数超限 ⇒ 拒绝建索引并带实际值与上限', async () => {
     for (let i = 0; i < 5; i += 1) write(`src/f${i}.ts`);
@@ -177,6 +223,21 @@ describe('一键清除', () => {
     expect(fs.existsSync(getWorkspaceIndexDir(workspace, cacheRoot))).toBe(false);
     expect(fs.readdirSync(workspace).every((n) => n !== '.ihui')).toBe(true);
     expect(clearWorkspaceIndex(workspace, cacheRoot).removed).toBe(false);
+  });
+
+  it('索引目录读不到时不说成已经清除', () => {
+    const dir = getWorkspaceIndexDir(workspace, cacheRoot);
+    fs.mkdirSync(dir, { recursive: true });
+    const keep = path.join(dir, 'index.json');
+    fs.writeFileSync(keep, '{"keep":true}\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    expect(() =>
+      clearWorkspaceIndex(workspace, cacheRoot, () => {
+        throw denied;
+      }),
+    ).toThrow(/不能把它说成已经清除/);
+    expect(fs.readFileSync(keep, 'utf8')).toBe('{"keep":true}\n');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

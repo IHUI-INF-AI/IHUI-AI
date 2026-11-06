@@ -148,6 +148,9 @@ class CloudRunStore:
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
+        if not self._loaded:
+            logger.warning("cloud_run_store 读不到,不能把它覆盖成新记录")
+            return
         try:
             self._file.parent.mkdir(parents=True, exist_ok=True)
             data = [r.to_dict() for r in self._runs.values()]
