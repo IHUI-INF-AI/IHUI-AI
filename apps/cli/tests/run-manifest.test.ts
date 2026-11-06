@@ -97,5 +97,29 @@ describe('run manifest', () => {
     expect(dir).toContain('.ihui')
     expect(dir.endsWith(join('', 'runs'))).toBe(true)
   })
+
+  it('项目根标记读不到时不把清单写到上一层', () => {
+    const root = mkScratch('run-manifest-')
+    try {
+      const parent = join(root, 'parent')
+      mkdirSync(join(parent, '.git'), { recursive: true })
+      const deep = join(parent, 'child', 'src')
+      mkdirSync(deep, { recursive: true })
+      const denied = Object.assign(new Error('denied'), { code: 'EACCES' })
+      expect(() => findProjectRoot(deep, () => {
+        throw denied
+      })).toThrow(/读不到/)
+      expect(writeRunManifest({
+        cwd: deep,
+        cliVersion: '1.0.0',
+        stat: () => {
+          throw denied
+        },
+      })).toBeNull()
+      expect(existsSync(join(parent, '.ihui-agent', 'state', 'runs', 'latest.json'))).toBe(false)
+    } finally {
+      rmScratch(root)
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

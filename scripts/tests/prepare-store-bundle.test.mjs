@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC = readFileSync(join(HERE, '..', 'prepare-store-bundle.mjs'), 'utf8')
 const { __test__ } = await import(import.meta.resolve('../prepare-store-bundle.mjs'))
-const { reconcilePermissions, reconcileSdks, checkListingLimits, extractManifestPermissions, buildPlan, buildListing, VENDOR_LIMITS, SDK_WATCHLIST, ICP_FILING_GATE, STATUS } = __test__
+const { reconcilePermissions, reconcileSdks, checkListingLimits, extractManifestPermissions, buildPlan, buildListing, loadInputs, VENDOR_LIMITS, SDK_WATCHLIST, ICP_FILING_GATE, STATUS } = __test__
 
 const MANIFEST = `<manifest><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.CAMERA"/><uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/></manifest>`
 const APP_JSON = { plugins: ['expo-secure-store', ['expo-camera', { cameraPermission: '允许使用相机扫描二维码' }]] }
@@ -56,6 +56,26 @@ test('S3 SDK 三象限:漏声明最重、过度声明要点名、证不到的面
   // 观察表本身的形状锁:truthFaces 为空 = 结构上不可证 ⇒ 只允许 unjudged,不得参与"过度声明"判定
   assert.deepEqual(SDK_WATCHLIST.find((s) => /OkHttp/.test(s.name)).truthFaces, [], 'OkHttp 由 RN 内核带进依赖图,manifest/app 级 gradle/package.json 三面都证不到')
   assert.ok(SDK_WATCHLIST.every((s) => s.name && s.declared instanceof RegExp && Array.isArray(s.truthFaces)), '观察表每项都要有名称、声明特征与可证面')
+})
+
+test('S3b 在册隐私政策不得声明包内查无的 SDK(过度声明收口,读真档不读夹具)', () => {
+  // 取材走器物自己的读盘口 loadInputs、判定走同一份 reconcileSdks —— 本例零复抄判据(§0.6/§22c)。
+  const real = loadInputs()
+  const by = Object.fromEntries(reconcileSdks(real).rows.map((x) => [x.sdk, x]))
+  // 个推 / DCloud 是历史 Uniapp 底稿的遗留:本 RN 包 package.json + pnpm-lock、src(除本文案自身)、
+  // 仓内唯一原生工程 apps/mobile-cap 的 build.gradle 与 AndroidManifest 四面零命中。
+  // 政策再写它们即"过度声明"——商店与工信部按"政策与实际收集行为一致"双向判。
+  assert.equal(by['个推公共库SDK(Gtc)'].declared, false, '政策正文再次声明个推 ⇒ 本例必须翻红')
+  assert.equal(by['DCloud开发通用工具库'].declared, false, '政策正文再次声明 DCloud ⇒ 本例必须翻红')
+  // 反向牙:把声明加回同一份文本,同一套判据必须读出 declared=true(证明上两行不是恒真断言)
+  const polluted = { ...real, privacyText: `${real.privacyText}\n1. 个推公共库SDK(Gtc) 自动收集 IMEI。` }
+  const pollutedBy = Object.fromEntries(reconcileSdks(polluted).rows.map((x) => [x.sdk, x.declared]))
+  assert.equal(pollutedBy['个推公共库SDK(Gtc)'], true, '反向牙失效:加回声明却判不出 declared ⇒ 本例失去牙')
+  // OkHttp 不在摘除面:它由 RN 内核带进依赖图,那三面结构上看不见它 ⇒ 只许 unjudged,不得读成过度声明
+  assert.equal(by['OkHttp框架'].declared, true, 'OkHttp 声明应保持(摘除只针对包内查无的两家)')
+  assert.equal(by['OkHttp框架'].verdict, 'unjudged-face-cannot-prove')
+  // 摘两条不等于摘整章:商店按"完整文本"判,SDK 章节必须仍有在册条目
+  assert.ok(/OkHttp/.test(real.privacyText), '第三方 SDK 章节不得被整体清空')
 })
 
 test('S4 厂商 apiMode 三档:博客说法不得当官方通路;百度系已停服不列', () => {

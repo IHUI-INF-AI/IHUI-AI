@@ -94,9 +94,20 @@ export function snapshotRootExists(baseDir: string): boolean {
   return probeSnapshotRoot(baseDir) === 'present';
 }
 
-export function ensureHostDir(dir: string): void {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+export function ensureHostDir(dir: string, io: { statSync?: typeof fs.statSync } = {}): void {
+  const statSync = io.statSync ?? fs.statSync;
+  try {
+    if (!statSync(dir).isDirectory()) {
+      throw new Error(`检查点目录读不到,不能在这里新建: ${dir}`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('检查点目录读不到')) throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      fs.mkdirSync(dir, { recursive: true });
+      return;
+    }
+    throw new Error(`检查点目录读不到,不能在这里新建 (${code ?? 'unknown'})`);
   }
 }
 

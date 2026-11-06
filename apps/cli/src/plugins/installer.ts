@@ -253,7 +253,8 @@ export class PluginPathUnsafeError extends Error {
 // ==================== Registry 持久化 ====================
 
 /**
- * 加载安装注册表。文件不存在/损坏时返回空注册表,不抛异常。
+ * 加载安装注册表。文件不存在或空文件时返回空注册表。
+ * 非空但解析不出登记表时抛错,避免下一笔保存把已装插件写成空名单。
  */
 export function loadInstallRegistry(): InstallRegistry {
   const p = getRegistryPath();
@@ -268,14 +269,20 @@ export function loadInstallRegistry(): InstallRegistry {
     if (isDefinitePathAbsence(error)) return { records: [] };
     throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
   }
+  if (raw.trim() === '') return { records: [] };
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return { records: [] };
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
     const obj = parsed as Record<string, unknown>;
-    if (!Array.isArray(obj.records)) return { records: [] };
+    if (!Array.isArray(obj.records)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
     return parsed as InstallRegistry;
-  } catch {
-    return { records: [] };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('插件登记表读不到')) throw error;
+    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
 }
 

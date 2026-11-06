@@ -11,6 +11,7 @@ project_hygiene.py - 双项目目录卫生验证
 """
 import os
 import re
+import stat
 import sys
 
 # Windows UTF-8 fix。reconfigure 不替换 stdout,避免导入时关掉调用方的捕获流。
@@ -157,14 +158,34 @@ class HygieneChecker:
     # ===== 口播稿项目 =====
     def check_koubo(self) -> None:
         koubo_dir = os.path.join(MEDIA_ROOT, '\u53e3\u64ad\u7a3f', 'koubo')
-        if not os.path.isdir(koubo_dir):
-            self._add('\u53e3\u64ad\u7a3f/koubo/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
+        try:
+            root_stat = os.stat(koubo_dir)
+        except FileNotFoundError:
+            self._add('口播稿/koubo/目录', False, '目录不存在')
+            return
+        except OSError:
+            self._add('口播稿/koubo/目录', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(root_stat.st_mode):
+            self._add('口播稿/koubo/目录', False, '目录读不到,不能把它说成不存在')
             return
 
         # 1) __pycache__
         pycache = os.path.join(koubo_dir, '__pycache__')
-        self._add('\u53e3\u64ad\u7a3f __pycache__', not os.path.exists(pycache),
-                  '' if not os.path.exists(pycache) else '\u5b58\u5728__pycache__/\u76ee\u5f55')
+        try:
+            os.stat(pycache)
+            pycache_state = 'present'
+        except FileNotFoundError:
+            pycache_state = 'absent'
+        except OSError:
+            pycache_state = 'unread'
+        self._add(
+            '口播稿 __pycache__',
+            pycache_state == 'absent',
+            '' if pycache_state == 'absent' else (
+                '目录读不到,不能把它说成不存在' if pycache_state == 'unread' else '存在__pycache__/目录'
+            ),
+        )
 
         # 2) 根目录白名单
         unexpected = []
@@ -200,8 +221,16 @@ class HygieneChecker:
     # ===== 公众号项目 =====
     def check_wechat(self) -> None:
         wc_dir = os.path.join(MEDIA_ROOT, '\u516c\u4f17\u53f7')
-        if not os.path.isdir(wc_dir):
+        try:
+            root_stat = os.stat(wc_dir)
+        except FileNotFoundError:
             self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
+            return
+        except OSError:
+            self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(root_stat.st_mode):
+            self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '目录读不到,不能把它说成不存在')
             return
 
         # 1) 公众号根目录白名单
@@ -215,29 +244,76 @@ class HygieneChecker:
                   '' if not unexpected_root else '\u610f\u5916: ' + ', '.join(unexpected_root))
 
         was_dir = os.path.join(wc_dir, 'wechat-article-system')
-        if not os.path.isdir(was_dir):
+        try:
+            was_stat = os.stat(was_dir)
+        except FileNotFoundError:
+            return
+        except OSError:
+            self._add('公众号/wechat-article-system', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(was_stat.st_mode):
+            self._add('公众号/wechat-article-system', False, '目录读不到,不能把它说成不存在')
             return
 
         # 2) __pycache__
         for subdir in ['lib', 'config']:
             pycache = os.path.join(was_dir, subdir, '__pycache__')
-            self._add(f'\u516c\u4f17\u53f7 {subdir}/__pycache__',
-                      not os.path.exists(pycache),
-                      '' if not os.path.exists(pycache) else '\u5b58\u5728__pycache__/')
+            try:
+                os.stat(pycache)
+                pycache_state = 'present'
+            except FileNotFoundError:
+                pycache_state = 'absent'
+            except OSError:
+                pycache_state = 'unread'
+            self._add(
+                f'\u516c\u4f17\u53f7 {subdir}/__pycache__',
+                pycache_state == 'absent',
+                '' if pycache_state == 'absent' else (
+                    '目录读不到,不能把它说成不存在' if pycache_state == 'unread' else '\u5b58\u5728__pycache__/'
+                ),
+            )
 
         # 3) lib/ 白名单
         lib_dir = os.path.join(was_dir, 'lib')
-        if os.path.isdir(lib_dir):
-            unexpected_lib = []
-            for f in os.listdir(lib_dir):
-                if f in LIB_MODULES:
-                    continue
-                if f == '__pycache__':
-                    continue  # already checked above
-                unexpected_lib.append(f)
-            self._add('\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
-                      len(unexpected_lib) == 0,
-                      '' if not unexpected_lib else '\u610f\u5916\u6a21\u5757: ' + ', '.join(unexpected_lib))
+        try:
+            lib_mode = os.stat(lib_dir).st_mode
+        except FileNotFoundError:
+            lib_mode = None
+        except OSError:
+            self._add(
+                '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                False,
+                '目录读不到,不能把它说成不存在',
+            )
+            lib_mode = None
+        if lib_mode is not None and not stat.S_ISDIR(lib_mode):
+            self._add(
+                '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                False,
+                '目录读不到,不能把它说成不存在',
+            )
+        elif lib_mode is not None:
+            try:
+                names = os.listdir(lib_dir)
+            except OSError:
+                self._add(
+                    '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                    False,
+                    '目录读不到,不能把它说成不存在',
+                )
+            else:
+                unexpected_lib = []
+                for f in names:
+                    if f in LIB_MODULES:
+                        continue
+                    if f == '__pycache__':
+                        continue
+                    unexpected_lib.append(f)
+                self._add(
+                    '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                    len(unexpected_lib) == 0,
+                    '' if not unexpected_lib else '\u610f\u5916\u6a21\u5757: ' + ', '.join(unexpected_lib),
+                )
 
         # 4) skills/ 白名单
         skills_dir = os.path.join(wc_dir, 'skills')

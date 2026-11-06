@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
 | 跟踪文件 | 19577 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5454,10 +5452,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 **2026-11-07**
 - 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
 - 🚀 新功能/改进:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
-
 **2026-11-07**
 - 🚀 新功能/改进:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
-
 **2026-11-06**
 - 📚 文档:README 生成块 trackedFiles 19557→19559(按 HEAD 现算值归位) (5f0e886a89)
 - 🐞 修复:OTA 腿 eas update 超时 15→30 min,并把被杀的末段输出打出来 (e2ba407272)
@@ -5522,14 +5518,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:公网终检 -NoProxy + 重试,清理失败不再污染退出码 (d86d4c7d3f)
 - 🔧 工程/其他:versionName 优先 -P,显示版本与原生基座解耦 (fc592e25e1)
 - 🔧 工程/其他:origin/main 35c870f8705b115086a63aadefe2ecb8e5370558 + mobile overlay b77573788d5d2b31f8d2b09ae2e212c953131f9f (d76367ae48)
-
 **2026-11-05**
 - 📚 文档:记录 node_modules 空洞导致 eslint 加载失败的根因与恢复口径 (384c883107)
-
 **2026-11-04**
 - 🐞 修复:派生进度始终落地,门禁红只拦合并不拦推进 (252ef71a05)
 - 🚀 新功能/改进:跨端级联全自动流水线 web→RN→小程序 (机主令 2026-11-04) (06f85e2a91)
-
 **2026-11-05**
 - 📚 文档:随本轮文件面变动同步现算数字(表 621/测试文件 4108/守门 336) (2f779fcd75)
 - 📚 文档:第六回合五席产出入账 + §8c 那道合并分歧的结清读数 (2441c18be2)
@@ -42747,3 +42740,5 @@ A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 �
 | 测试文件 | 4247 | `testFiles` |
 | 跟踪文件 | 19553 | `trackedFiles` |
 A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 测试文件 | 4252 | `testFiles` |
+| 跟踪文件 | 19567 | `trackedFiles` |

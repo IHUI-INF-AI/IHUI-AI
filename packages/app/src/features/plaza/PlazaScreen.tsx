@@ -21,62 +21,16 @@ import { SearchInput } from '../../components/SearchInput'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { CategoryItem } from '../../components/category/types'
 import { Globe, User } from 'lucide-react-native'
-import type { TFunction } from '../../types'
-import type { PlazaItem, StatusChip } from '@ihui/types'
+import type { PlazaItem, PlazaScreenProps, StatusChip } from '@ihui/types'
+
+export type { PlazaScreenProps } from '@ihui/types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
 import { CategoryDropdown } from '../../components/category/CategoryDropdown'
-import { PlazaIdentitySheet, type PlazaIdentitySheetProps } from './PlazaIdentitySheet'
+import { PlazaIdentitySheet } from './PlazaIdentitySheet'
 import { PlazaDetailModal } from './PlazaDetailModal'
-
-export interface PlazaScreenProps {
-  t: TFunction
-  colorScheme?: 'light' | 'dark'
-  items: PlazaItem[]
-  loading: boolean
-  refreshing: boolean
-  loadingMore: boolean
-  error: string
-  status: string
-  search: string
-  showSearch: boolean
-  onRefresh: () => void
-  onEndReached: () => void
-  onStatusChange: (status: string) => void
-  onSearchChange: (search: string) => void
-  onSubmitSearch: () => void
-  onPressItem: (item: PlazaItem) => void
-  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
-  onChatPress?: (item: PlazaItem) => void
-  onPublish: () => void
-  /**
-   * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
-   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
-   */
-  contentBottomPadding?: number
-  /**
-   * 赛道分类弹层(2026-11-05 自小程序页内联抽屉上收;RN 同步消费同一实例)。
-   * 缺省不渲染 —— 两端都传,纯小程序手势留在页内不进共享屏。
-   */
-  trackFilter?: {
-    visible: boolean
-    items: readonly CategoryItem[]
-    selectedId: string
-    onSelect: (id: string) => void
-    onVisibleChange: (next: boolean) => void
-    panelTitle?: string
-  }
-  /** 身份切换弹层(两端同屏消费;用户区/底部入口由调用方按需给) */
-  identitySheet?: Omit<PlazaIdentitySheetProps, 't' | 'colorScheme'>
-  /** 卡片详情居中弹层(两端消费:RN 由整卡点击打开,弹层内「查看详情」再跳详情页) */
-  detail?: {
-    item: PlazaItem | null
-    onClose: () => void
-    onOpenDetail: (item: PlazaItem) => void
-  }
-}
 
 const STATUS_CHIPS: readonly StatusChip[] = [
   { label: '待接单', value: 'waiting' },
@@ -149,7 +103,7 @@ export function PlazaScreen({
   detail,
   colorScheme = 'light',
   contentBottomPadding = 80,
-}: PlazaScreenProps & { onRetry?: () => void }) {
+}: PlazaScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 

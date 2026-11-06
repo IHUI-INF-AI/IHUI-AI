@@ -12,7 +12,7 @@
 5. _git 异步:成功 / 失败 / 超时 / returncode=None / timeout 传参(7 tests)
 6. ensure_gitignore:文件不存在 / 已含 / 不含 / 末尾换行 / 末尾无换行(5 tests)
 7. create_worktree:非法 task_id / 默认 start_point / 显式 start_point / 失败抛错 / Windows 配置 / 返回 WorktreeInfo(8 tests)
-8. remove_worktree:force=True / force=False / git 成功 / git 失败 fallback / 目录仍存(5 tests)
+8. remove_worktree:force=True / force=False / git 成功 / git 失败 fallback / 目录仍存 / 删完读不到(6 tests)
 9. prune_worktrees:命令参数 / 不抛错(2 tests)
 10. list_worktrees:rc!=0 / 空 / 单 worktree with branch / 多 worktree / detached HEAD / refs/heads 前缀 / 空行分隔 / 末尾(8 tests)
 """
@@ -642,7 +642,7 @@ class TestCreateWorktree:
 
 
 # =============================================================================
-# 8. remove_worktree(5 tests)
+# 8. remove_worktree(7 tests)
 # =============================================================================
 
 
@@ -714,8 +714,7 @@ class TestRemoveWorktree:
 
         monkeypatch.setattr(worktree, "_git", fake_git)
         with patch("app.services.worktree.shutil.rmtree") as mock_rmtree:
-            with patch("app.services.worktree.os.path.exists", return_value=False):
-                await remove_worktree("/wt/path", str(tmp_path))
+            await remove_worktree("/wt/path", str(tmp_path))
         mock_rmtree.assert_called_once_with("/wt/path", ignore_errors=True)
 
     @pytest.mark.asyncio
@@ -725,10 +724,38 @@ class TestRemoveWorktree:
             return (1, b"", b"locked\n")
 
         monkeypatch.setattr(worktree, "_git", fake_git)
+
+        def still_there(path):
+            return None
+
         with patch("app.services.worktree.shutil.rmtree"):
-            with patch("app.services.worktree.os.path.exists", return_value=True):
-                # 不应抛错
-                await remove_worktree("/wt/path", str(tmp_path))
+            with patch("app.services.worktree.os.stat", still_there):
+                with patch.object(worktree.logger, "warning") as warn:
+                    await remove_worktree("/wt/path", str(tmp_path))
+        assert any("仍存在" in str(call) for call in warn.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_after_delete_unreadable_is_not_called_gone(self, tmp_path, monkeypatch):
+        """删完后读不到,不能当成已经不在。"""
+        seen = {"n": 0}
+
+        async def fake_git(args, cwd, *, timeout=30.0):
+            return (1, b"", b"locked\n")
+
+        def stat_then_denied(path):
+            seen["n"] += 1
+            if seen["n"] == 1:
+                raise FileNotFoundError(2, "missing", path)
+            raise PermissionError(13, "denied", path)
+
+        monkeypatch.setattr(worktree, "_git", fake_git)
+        with patch("app.services.worktree.shutil.rmtree"):
+            with patch("app.services.worktree.os.stat", stat_then_denied):
+                with patch.object(worktree.logger, "warning") as warn:
+                    await remove_worktree("/wt/path", str(tmp_path))
+        text = " ".join(str(call) for call in warn.call_args_list)
+        assert "删完后读不到" in text
+        assert "仍存在" not in text
 
 
 # =============================================================================

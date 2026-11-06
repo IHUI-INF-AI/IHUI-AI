@@ -82,4 +82,58 @@ def test_list_pagination_and_status(tmp_path):
 
     page2 = store.list(user_id="u1", page=2, page_size=2, status="done")
     assert len(page2["list"]) == 1
+
+
+def test_start_does_not_truncate_unreadable_or_corrupt_runs(tmp_path, monkeypatch):
+    """运行记录读不到或损坏时,新建运行不能把原文件换成只剩这一次。"""
+    from pathlib import Path
+
+    corrupt = tmp_path / "cloud_runs.json"
+    body = "{not a list"
+    corrupt.write_text(body, encoding="utf-8")
+    CloudRunStore(file_path=corrupt).start("task", run_id="r1", user_id="u1")
+    assert corrupt.read_text(encoding="utf-8") == body
+
+    denied = tmp_path / "denied.json"
+    original = '[{"run_id":"keep","task":"old","status":"done"}]\n'
+    denied.write_text(original, encoding="utf-8")
+    real_stat = Path.stat
+
+    def boom(self, *args, **kwargs):
+        if self == denied:
+            raise PermissionError(13, "denied", str(denied))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", boom)
+    CloudRunStore(file_path=denied).start("task", run_id="r2", user_id="u1")
+    assert denied.read_text(encoding="utf-8") == original
+
+
+def test_cookie_record_does_not_truncate_unreadable_or_corrupt_health(tmp_path, monkeypatch):
+    """Cookie 健康度读不到或损坏时,记一条不能把其它账号截掉。"""
+    from pathlib import Path
+
+    import app.services.publish.anti_risk.cookie_health as cookie_health
+
+    corrupt = tmp_path / "health.json"
+    body = "{not json"
+    corrupt.write_text(body, encoding="utf-8")
+    monkeypatch.setattr(cookie_health, "_HEALTH_FILE", corrupt)
+    cookie_health.CookieHealthMonitor().record_cookie_status("new", "web", "ok")
+    assert corrupt.read_text(encoding="utf-8") == body
+
+    denied = tmp_path / "denied-health.json"
+    original = '{"keep|web": {"status": "ok"}}\n'
+    denied.write_text(original, encoding="utf-8")
+    monkeypatch.setattr(cookie_health, "_HEALTH_FILE", denied)
+    real_stat = Path.stat
+
+    def boom(self, *args, **kwargs):
+        if self == denied:
+            raise PermissionError(13, "denied", str(denied))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", boom)
+    cookie_health.CookieHealthMonitor().record_cookie_status("new", "web", "ok")
+    assert denied.read_text(encoding="utf-8") == original
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

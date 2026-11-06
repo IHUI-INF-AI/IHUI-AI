@@ -181,6 +181,31 @@ def test_corrupt_file_fails_closed(_isolated_store):
     assert cic.has_consent(None) is False
 
 
+def test_grant_does_not_replace_corrupt_or_unreadable_consent(_isolated_store, monkeypatch):
+    """损坏或读不到的同意记录按未同意,但授权不能把原文件换成只剩这一次的表态。"""
+    corrupt = "{ this is not json "
+    Path(_isolated_store).write_text(corrupt, encoding="utf-8")
+    cic.reset_for_tests()
+    cic.grant("user-1")
+    assert Path(_isolated_store).read_text(encoding="utf-8") == corrupt
+
+    original = '{"version":1,"users":{"keep":{"granted":true}}}\n'
+    Path(_isolated_store).write_text(original, encoding="utf-8")
+    real_open = open
+    denied = {"done": False}
+
+    def boom(file, mode="r", *args, **kwargs):
+        if str(file) == _isolated_store and not denied["done"] and "w" not in str(mode):
+            denied["done"] = True
+            raise PermissionError(13, "denied", _isolated_store)
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", boom)
+    cic.reset_for_tests()
+    cic.grant("new-user")
+    assert Path(_isolated_store).read_text(encoding="utf-8") == original
+
+
 def test_file_missing_fails_closed(_isolated_store):
     """同意文件不存在(= 从未表态过)⇒ 未同意。"""
     cic.reset_for_tests()
