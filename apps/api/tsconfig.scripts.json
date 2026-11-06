@@ -1,6 +1,18 @@
 {
-  // scripts 面单独成档:主 tsconfig 的 rootDir=./src 同时服务 build(要往 dist 吐文件),
-  // 把 scripts 收进它的 include 会让 tsc 报 TS6059。本档 noEmit,只作 typecheck 的第二条腿。
+  // ─── 2026-11-07:两条 typecheck 腿合并为本档单腿 ───────────────────────────
+  // 改前 package.json: `tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json`
+  //   leg1 = tsconfig.json(src 面,带去重缓存 apps-api.tsbuildinfo)
+  //   leg2 = 本档(src ∪ scripts,noEmit)
+  // 合并证明(逐项对账,证明过程见提交信息):
+  //   1) 生效选项差异只有 declaration/noEmit/rootDir/sourceMap/tsBuildInfoFile/types 六项;
+  //      前四项只在 emit 阶段有意义(本档 noEmit),缓存文件名不影响判据;types 由"全部
+  //      @types 自动纳入"收窄为 ["node"] —— 收窄方向不会放走错误,且本仓 @types 里只有
+  //      node 提供全局声明,其余 8 个均为模块级且都被显式 import。
+  //   2) `--listFilesOnly`:leg2 1471 文件 ⊇ leg1 1416 文件,0 缺失,多出的 55 个全是 scripts/*.ts。
+  //   3) 注入对照:src / scripts 各造一枚 TS2322,leg1 只报 src,本档两枚都报;删除后本档 exit 0。
+  // 因此保留本档为唯一 typecheck 口,leg1 不再单跑(实测 apps/api 106.2s → 约 54.5s)。
+  // 主 tsconfig.json **不动**:它是 build 档(rootDir=./src,要往 dist 吐文件),收 scripts
+  // 会报 TS6059 —— 这也是本档当初单独存在的原因。
   // 立因(2026-10-29):一次合并把重复 const 留在 apps/api/scripts/ 里,src 射程外的这枚
   // 破损穿过了全部守门,把两条号池回灌腿静默炸死一整天。
   "extends": "./tsconfig.json",

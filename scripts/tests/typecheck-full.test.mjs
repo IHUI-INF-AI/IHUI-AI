@@ -134,4 +134,53 @@ test('T5 自检不得建 os.tmpdir 锁(自检不派生 tsc,并发自检不该在
   assert.ok(iLock > 0, '找不到真实全量跑的建锁调用(结构变了须同步本测试)')
   assert.ok(iGuard < iLock, '建锁必须在自检闸门之下,否则自检又去 os.tmpdir 落锁')
 })
+
+test('T9 apps/api 单腿合并档必须覆盖 src ∪ scripts,且覆盖项不得改松(防只改其中一条腿)', () => {
+  const apiRoot = join(ROOT, 'apps', 'api')
+  const pkg = JSON.parse(readFileSync(join(apiRoot, 'package.json'), 'utf8'))
+  // tsconfig 允许整行 // 注释(本仓 scripts 档头注即此形);本测试只剥整行注释,不改其余字节
+  const parseJsonc = (p) => JSON.parse(readFileSync(p, 'utf8').replace(/^\s*\/\/.*$/gm, ''))
+  const main = parseJsonc(join(apiRoot, 'tsconfig.json'))
+  const merged = parseJsonc(join(apiRoot, 'tsconfig.scripts.json'))
+
+  assert.equal(
+    pkg.scripts.typecheck,
+    'tsc --noEmit -p tsconfig.scripts.json',
+    'typecheck 必须是单腿合并档;再拆回两条腿 ⇒ 本测试红(合并不得被悄悄回退)',
+  )
+  assert.equal(
+    merged.extends,
+    './tsconfig.json',
+    '合并档必须继承主档,strict 族只在 base 定一处,不得另写一份',
+  )
+  const inc = merged.include || []
+  assert.ok(inc.includes('src/**/*.ts'), '合并档必须覆盖 src —— 只留 scripts 腿会漏 src')
+  assert.ok(inc.includes('scripts/**/*.ts'), '合并档必须覆盖 scripts —— 只跑 src 腿会漏 scripts')
+  assert.deepEqual(
+    merged.exclude,
+    main.exclude,
+    'exclude 不得比主档更宽(更宽 = 少检查文件,方向是变松)',
+  )
+  assert.deepEqual(
+    main.include,
+    ['src/**/*.ts'],
+    '主 tsconfig 是 build 档(rootDir=./src 要吐 dist),射程应保持 src 单面',
+  )
+  assert.deepEqual(merged.compilerOptions.types, ['node'], 'types 必须保持收窄档(全量自动纳入是变松)')
+  assert.equal(merged.compilerOptions.noEmit, true, '合并档必须 noEmit(不得让 typecheck 落产物)')
+
+  // 形状锁:合并档只允许覆盖 emit/缓存相关选项;新增任何其它键(尤其 strict 族)都必须先重新证明
+  const allowed = new Set([
+    'noEmit',
+    'rootDir',
+    'incremental',
+    'tsBuildInfoFile',
+    'declaration',
+    'sourceMap',
+    'types',
+  ])
+  for (const k of Object.keys(merged.compilerOptions)) {
+    assert.ok(allowed.has(k), `合并档新增选项 ${k} —— 必须重新证明"不变松"后再更新本测试`)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
