@@ -204,6 +204,7 @@ class ResearchReport:
     updated_at: float = field(default_factory=time.time)
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     iteration: int = 0
+    phase_log: list[str] = field(default_factory=list)
 
     # ---- 序列化(供 FastAPI JSON 返回)----
     def to_dict(self) -> dict[str, Any]:
@@ -259,6 +260,7 @@ class ResearchReport:
             "verifications": self.crosscheck,
             "limitations": self.limitations,
             "markdown": serialized_md,
+            "phases": list(self.phase_log),
             "stages": [
                 {
                     "phase": st.phase,
@@ -923,6 +925,19 @@ async def run_deep_research(
         query=query,
         max_iterations=max_iterations,
     )
+
+    def _enter(title: str) -> bool:
+        verdict = admit_research_phase(report.phase_log, title)
+        if verdict["disposition"] != "entered":
+            report.status = ResearchStatus.ERROR.value
+            report.error = f"{title}:{verdict['reason']}"[:500]
+            _apply_progress(report, PHASE_ERROR, report.error)
+            return False
+        report.phase_log.append(title)
+        return True
+
+    if not _enter("Scope"):
+        return report
     _apply_progress(report, PHASE_PLANNING)
 
     try:
@@ -933,6 +948,8 @@ async def run_deep_research(
         _apply_progress(report, PHASE_RETRIEVE, f"子问题数={len(report.subquestions)}")
 
         # 2. 多源检索(初始子问题,并行带并发上限)
+        if not _enter("Search"):
+            return report
         await _retrieve_many(
             report,
             report.subquestions,
@@ -941,6 +958,8 @@ async def run_deep_research(
             concurrency=concurrency,
             max_fetch=max_fetch,
         )
+        if not _enter("Fetch"):
+            return report
 
         # 3. 双向深度调查:gap 追问 + 再检索,循环至 max_iterations
         report.iteration = 0
@@ -957,6 +976,8 @@ async def run_deep_research(
                 break
             report.iteration = i
             report.gap_questions.extend(gaps)
+            if not _enter("Search"):
+                return report
             await _retrieve_many(
                 report,
                 gaps,
@@ -965,14 +986,20 @@ async def run_deep_research(
                 concurrency=concurrency,
                 max_fetch=max_fetch,
             )
+            if not _enter("Fetch"):
+                return report
 
         # 4. 综合成稿
         _apply_progress(report, PHASE_SYNTHESIZE)
         existing = _evidence_to_text(report)
         sources_md = _sources_markdown(report)
+        if not _enter("Verify"):
+            return report
         await _run_cross_check(  # 启发式兜底 + 可选 LLM 语义增强
             report, factcheck_llm_fn=factcheck_llm_fn
         )
+        if not _enter("Synthesize"):
+            return report
         verification_md = _verifications_markdown(report)
         try:
             markdown = await llm_complete_fn(
@@ -1252,6 +1279,59 @@ def admit_request_step(
     if taken >= limit:
         return "stop", "budget-spent"
     return "allow", "within-budget"
+
+
+_RESEARCH_PHASES = ("Scope", "Search", "Fetch", "Verify", "Synthesize")
+
+
+def _phase_allowed(done: list[str]) -> set[str] | None:
+    """把已走阶段演成状态。历史本身跳步则返回 None。"""
+    state = "start"
+    allowed = {
+        "start": {"Scope"},
+        "scope": {"Search"},
+        "search": {"Fetch"},
+        "fetch": {"Search", "Verify"},
+        "verify": {"Synthesize"},
+        "done": set(),
+    }
+    for title in done:
+        if title not in allowed[state]:
+            return None
+        if state == "start":
+            state = "scope"
+        elif state == "scope":
+            state = "search"
+        elif state == "search":
+            state = "fetch"
+        elif state == "fetch" and title == "Search":
+            state = "search"
+        elif state == "fetch":
+            state = "verify"
+        else:
+            state = "done"
+    return set(allowed[state])
+
+
+def admit_research_phase(done: object, title: object) -> dict[str, str]:
+    """声明式阶段只许按序进入。跳过核验直接成稿是拒绝,不是完成。
+
+    观察:对照流程把 Scope、Search、Fetch、Verify、Synthesize 写成有序阶段。
+    Fetch 之后可以再搜一轮,也可以进入核验;没核验不能成稿。
+    阶段名不在这五档里,或历史本身跳过,都是未判定。
+    """
+    if not isinstance(title, str) or title not in _RESEARCH_PHASES:
+        return {"disposition": "unjudged", "reason": "title-unrecognized"}
+    if not isinstance(done, list) or any(not isinstance(item, str) for item in done):
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    if any(item not in _RESEARCH_PHASES for item in done):
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    allowed = _phase_allowed(done)
+    if allowed is None:
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    if title in allowed:
+        return {"disposition": "entered", "reason": "in-order"}
+    return {"disposition": "refused", "reason": "out-of-order"}
 
 
 def ledger_row(claim_id: str, outcome: dict[str, Any]) -> str:
