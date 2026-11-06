@@ -6,7 +6,8 @@
 // 口径见 AGENTS.md §22c(import 源脚本的 __test__,禁止在测试里再抄一份判据)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -223,5 +224,34 @@ test('M16 探测只打只读端点:任何厂商的 URL 都不得含写动词(防
   assert.equal(classifySignatureProbe(200, JSON.stringify({ code: -20002, msg: '数字签名异常' })).status, 'missing')
   assert.equal(classifySignatureProbe(200, JSON.stringify({ code: 10010, msg: '此功能不存在，请联系vivo开放平台' })).status, 'unjudged', '对方没认我的 method ⇒ 端点活着不等于调用形态对,必须落未判定')
   assert.equal(classifySignatureProbe(200, JSON.stringify({ msg: 'unknown method' })).verdict, 'endpoint-alive-but-call-shape-unverified')
+})
+
+test('M19 .properties 反斜杠判据:成对双写(正确形态)判 found,未成对单反斜杠判 unjudged', async () => {
+  const { androidSigning } = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
+  const home = mkdtempSync(join(tmpdir(), 'ihui-sign-'))
+  try {
+    mkdirSync(join(home, '.android'))
+    writeFileSync(join(home, '.android', 'ihui-release.keystore'), 'fixture')
+    mkdirSync(join(home, '.gradle'))
+    const props = (storeFile) =>
+      [
+        `IHUI_RELEASE_STORE_FILE=${storeFile}`,
+        'IHUI_RELEASE_STORE_PASSWORD=pw',
+        'IHUI_RELEASE_KEY_ALIAS=ihui',
+        'IHUI_RELEASE_KEY_PASSWORD=pw',
+      ].join('\n')
+    const propsPath = join(home, '.gradle', 'gradle.properties')
+    // 正确形态:Windows 路径分隔符全部双写(JVM .properties 读到的是单个 `\`)
+    writeFileSync(propsPath, props(String.raw`C:\\Users\\x\\r.keystore`))
+    const ok = androidSigning({ home })
+    assert.equal(ok.status, STATUS.FOUND, `成对反斜杠被误判:${ok.detail}`)
+    // 反例:单反斜杠会被当转义吃掉(`\U` ⇒ `U`),必须不许冒绿
+    writeFileSync(propsPath, props(String.raw`C:\Users\x\r.keystore`))
+    const bad = androidSigning({ home })
+    assert.equal(bad.status, STATUS.UNJUDGED)
+    assert.match(bad.detail, /未成对/)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -96,10 +96,12 @@ export function androidSigning({ home = homedir() } = {}) {
     return !!m && m[1].trim() !== ''
   })
   const storeFileValue = (text.match(/^IHUI_RELEASE_STORE_FILE=(.*)$/m) || [])[1]?.trim()
-  // .properties 会把反斜杠当转义吃掉 ⇒ 路径必须是正斜杠形态(2026-10-20 实测 validateSigningRelease FAILED)
-  const slashOk = !storeFileValue || !storeFileValue.includes('\\')
+  // .properties 把反斜杠当转义符:Windows 路径里单个 `\` 会被吃掉(`C:\Users` ⇒ `C:Users`),
+  // 必须写成成对的 `\\`(或正斜杠)。判据是"有没有未成对的单反斜杠",不是"含不含反斜杠"
+  // —— 2026-11-06 实测本机已是 `C:\\Users\\…`(正确形态),旧判据把正确的双写也判红。
+  const hasUnpairedBackslash = (storeFileValue?.match(/\\+/g) ?? []).some((run) => run.length % 2 === 1)
   if (present.length < keys.length) return outcome(STATUS.MISSING, `${propsFile} 缺 ${keys.filter((k) => !present.includes(k)).join(',')}`, { store, propsFile, present })
-  if (!slashOk) return outcome(STATUS.UNJUDGED, `${propsFile} 的 IHUI_RELEASE_STORE_FILE 含反斜杠,Gradle 会当转义吃掉`, { store, propsFile, present })
+  if (hasUnpairedBackslash) return outcome(STATUS.UNJUDGED, `${propsFile} 的 IHUI_RELEASE_STORE_FILE 有未成对的单反斜杠,Gradle 的 .properties 解析会把它当转义吃掉;改成成对反斜杠或正斜杠`, { store, propsFile, present })
   return outcome(STATUS.FOUND, `keystore 与四键齐备 fp(storeFile)=${fp(storeFileValue)}`, { store, propsFile, present })
 }
 
