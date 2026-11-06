@@ -26365,7 +26365,6 @@
   },
   "activityDetail": {
     "title": "活動詳細",
-    "empty": "活動はありません",
     "startAt": "開始時間",
     "endAt": "終了時間",
     "location": "場所"
@@ -26497,9 +26496,7 @@
     "loadFailed": "問題の読み込みに失敗しました",
     "multi": "複数選択",
     "single": "単一選択",
-    "prev": "前の問題",
-    "submit": "送信",
-    "next": "次の問題"
+    "submit": "送信"
   },
   "feedbackDetail": {
     "empty": "フィードバック内容はありません",
@@ -26828,7 +26825,6 @@
     "tool": "ツール"
   },
   "agentCreate": {
-    "title": "エージェントを作成",
     "namePlaceholder": "名前を入力してください",
     "categoryPlaceholder": "カテゴリを選択してください",
     "descPlaceholder": "説明を入力してください",

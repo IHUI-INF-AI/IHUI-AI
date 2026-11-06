@@ -26366,7 +26366,6 @@
   },
   "activityDetail": {
     "title": "活动详情",
-    "empty": "暂无活动",
     "startAt": "开始时间",
     "endAt": "结束时间",
     "location": "地点"
@@ -26498,9 +26497,7 @@
     "loadFailed": "试题加载失败",
     "multi": "多选题",
     "single": "单选题",
-    "prev": "上一题",
-    "submit": "提交",
-    "next": "下一题"
+    "submit": "提交"
   },
   "feedbackDetail": {
     "empty": "暂无反馈内容",
@@ -26829,7 +26826,6 @@
     "tool": "工具"
   },
   "agentCreate": {
-    "title": "创建 Agent",
     "namePlaceholder": "请输入名称",
     "categoryPlaceholder": "请选择分类",
     "descPlaceholder": "请输入描述",

@@ -26362,7 +26362,6 @@
   },
   "activityDetail": {
     "title": "Activity details",
-    "empty": "No activities",
     "startAt": "Start time",
     "endAt": "End time",
     "location": "Location"
@@ -26494,9 +26493,7 @@
     "loadFailed": "Failed to load questions",
     "multi": "Multiple choice",
     "single": "Single choice",
-    "prev": "Previous",
-    "submit": "Submit",
-    "next": "Next"
+    "submit": "Submit"
   },
   "feedbackDetail": {
     "empty": "No feedback content",
@@ -26825,7 +26822,6 @@
     "tool": "Tool"
   },
   "agentCreate": {
-    "title": "Create Agent",
     "namePlaceholder": "Enter a name",
     "categoryPlaceholder": "Select a category",
     "descPlaceholder": "Enter a description",

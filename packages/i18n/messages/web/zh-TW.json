@@ -26337,7 +26337,6 @@
   },
   "activityDetail": {
     "title": "活動詳情",
-    "empty": "暫無活動",
     "startAt": "開始時間",
     "endAt": "結束時間",
     "location": "地點"
@@ -26469,9 +26468,7 @@
     "loadFailed": "試題載入失敗",
     "multi": "多選題",
     "single": "單選題",
-    "prev": "上一題",
-    "submit": "送出",
-    "next": "下一題"
+    "submit": "送出"
   },
   "feedbackDetail": {
     "empty": "暫無回饋內容",
@@ -26800,7 +26797,6 @@
     "tool": "工具"
   },
   "agentCreate": {
-    "title": "建立 Agent",
     "namePlaceholder": "請輸入名稱",
     "categoryPlaceholder": "請選擇分類",
     "descPlaceholder": "請輸入描述",

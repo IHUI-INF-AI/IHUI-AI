@@ -26365,7 +26365,6 @@
   },
   "activityDetail": {
     "title": "활동 상세",
-    "empty": "활동이 없습니다",
     "startAt": "시작 시간",
     "endAt": "종료 시간",
     "location": "장소"
@@ -26497,9 +26496,7 @@
     "loadFailed": "문제 로딩 실패",
     "multi": "객관식(복수)",
     "single": "객관식(단일)",
-    "prev": "이전 문제",
-    "submit": "제출",
-    "next": "다음 문제"
+    "submit": "제출"
   },
   "feedbackDetail": {
     "empty": "피드백 내용이 없습니다",
@@ -26828,7 +26825,6 @@
     "tool": "도구"
   },
   "agentCreate": {
-    "title": "에이전트 생성",
     "namePlaceholder": "이름을 입력하세요",
     "categoryPlaceholder": "카테고리를 선택하세요",
     "descPlaceholder": "설명을 입력하세요",
