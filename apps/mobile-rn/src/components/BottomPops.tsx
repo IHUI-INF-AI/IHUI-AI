@@ -24,7 +24,6 @@ import { tokens } from '../theme/active-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
   Animated,
-  Dimensions,
   Easing,
   KeyboardAvoidingView,
   Modal,
@@ -36,7 +35,7 @@ import {
   StyleSheet,
   Text,
   View,
-  type DimensionValue,
+  useWindowDimensions,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -45,6 +44,8 @@ import { X } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 
 import { rnGeometry, rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 
 export interface BottomPopsProps {
   visible: boolean
@@ -52,12 +53,10 @@ export interface BottomPopsProps {
   children: React.ReactNode
   title?: string
   /** 内容区高度,默认 'auto'(随内容撑开)。传数字则内容区固定高度可滚动。 */
-  height?: number | string
+  height?: number
 }
 
-const SCREEN_HEIGHT = Dimensions.get('window').height
 const ANIM_DURATION_MS = 300
-const SHEET_HIDDEN_OFFSET = SCREEN_HEIGHT // translateY 隐藏位置(屏幕高度,确保完全滑出)
 const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 
 const HEADER_PADDING_H = 20
@@ -70,8 +69,20 @@ const CONTENT_PADDING_B = 16
 export function BottomPops({ visible, onClose, children, title, height }: BottomPopsProps) {
   const { t } = useI18n()
   const insets = useSafeAreaInsets()
+  // 屏幕旋转/分屏后窗口高度会变(app.json orientation 已放开为 default):
+  // 隐藏位移取当次窗口高度,PanResponder 闭包通过 ref 读最新值(对齐 HandPlatePops)。
+  const { height: windowHeight } = useWindowDimensions()
+  const hiddenOffsetRef = useRef(windowHeight)
+  hiddenOffsetRef.current = windowHeight
+  // 承载件唯一的滚动容器必须封顶:sheet 是 absolute 且由子树撑高,ScrollView 若
+  // 不拿数值上限,Yoga 测不出 viewport,长内容 / 字体放大 / 键盘弹起会裁掉底部 CTA。
+  const sheetHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
+  const sheetMaxHeight = Math.min(
+    sheetHeightStyle?.maxHeight ?? windowHeight,
+    Math.max(0, windowHeight - insets.top - insets.bottom),
+  )
   const [rendered, setRendered] = useState(visible)
-  const translateY = useRef(new Animated.Value(SHEET_HIDDEN_OFFSET)).current
+  const translateY = useRef(new Animated.Value(windowHeight)).current
   const maskOpacity = useRef(new Animated.Value(0)).current
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -99,7 +110,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
       // 关闭:先播 300ms 下滑动画再卸载(对齐 .vue close() setTimeout 300ms)
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: SHEET_HIDDEN_OFFSET,
+          toValue: hiddenOffsetRef.current,
           duration: ANIM_DURATION_MS,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -125,7 +136,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
         if (g.dy > DRAG_CLOSE_THRESHOLD) {
           Animated.parallel([
             Animated.timing(translateY, {
-              toValue: SHEET_HIDDEN_OFFSET,
+              toValue: hiddenOffsetRef.current,
               duration: ANIM_DURATION_MS,
               easing: Easing.inOut(Easing.ease),
               useNativeDriver: true,
@@ -164,8 +175,8 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
 
   if (!rendered) return null
 
-  const contentHeightStyle: { height: DimensionValue } | undefined =
-    height !== undefined ? { height: height as DimensionValue } : undefined
+  const contentHeightStyle: { height: number } | undefined =
+    height !== undefined ? { height } : undefined
 
   return (
     <Modal
@@ -228,7 +239,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
               keyboardShouldPersistTaps 是必须的:RN 默认 'never' ⇒ 键盘弹起后第一下点击只收键盘、
               不触发按钮,而本层承载的是调用方传进来的 children(里面有没有输入框看不见),按构造就得让点透。 */}
           <ScrollView
-            style={contentHeightStyle}
+            style={[contentHeightStyle, { maxHeight: sheetMaxHeight }]}
             contentContainerStyle={styles.contentInner}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"

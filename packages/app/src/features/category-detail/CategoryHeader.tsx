@@ -99,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     badgeEnabled: { backgroundColor: tk.success.light },
     badgeDisabled: { backgroundColor: tk.surface.card },

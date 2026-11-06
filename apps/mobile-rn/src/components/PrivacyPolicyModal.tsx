@@ -24,7 +24,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native'
@@ -36,6 +35,8 @@ import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/pr
 import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 
 export interface PrivacyPolicyModalProps {
   /** 是否显示弹窗 */
@@ -68,9 +69,8 @@ const BUTTON_GAP = 8
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
   const { t } = useI18n()
-  const { height: windowHeight } = useWindowDimensions()
-  // 固定卡片高度 = 屏幕 80%,内部 flexbox 明确分配,按钮必然可见
-  const CARD_HEIGHT = Math.round(windowHeight * 0.8)
+  // 卡片高度取六档真相源的 tall 档({height,maxHeight} 恒等),不再手抄第七份 0.8。
+  const cardHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
 
   const handleDisagree = () => {
     // 复刻 Uniapp preventClose:不允许关闭,RN 用 Alert 提示
@@ -92,7 +92,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
     >
       <View style={styles.overlay}>
         <Tappable style={styles.overlayPressable} onPress={handleDisagree} />
-        <View style={[styles.card, { height: CARD_HEIGHT }]}>
+        <View style={[styles.card, cardHeightStyle]}>
           {/* 顶部:shield 图标 + 标题 + 副标题(对齐 web 端) */}
           <View style={styles.header}>
             <View style={styles.shieldWrap}>

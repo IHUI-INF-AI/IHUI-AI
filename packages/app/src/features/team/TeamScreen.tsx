@@ -551,11 +551,7 @@ function TeamTreeSection({
         <View style={styles.treeStateRow}>
           <Text style={styles.treeError}>{t('distribution.treeLoadFailed')}</Text>
           {onRetryTree ? (
-            <Pressable
-              onPress={onRetryTree}
-              accessibilityRole="button"
-              style={styles.treeRetryBtn}
-            >
+            <Pressable onPress={onRetryTree} accessibilityRole="button" style={styles.treeRetryBtn}>
               {({ pressed }) => (
                 <Text style={[styles.treeRetryText, pressed && styles.treeRetryBtnPressed]}>
                   {t('distribution.treeRetry')}
@@ -786,7 +782,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 28,
       height: 22,
       paddingHorizontal: rnSpacing.xs,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 10,
@@ -807,7 +803,7 @@ function createStyles(tk: AppThemeTokens) {
       marginLeft: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.DEFAULT,
     },
     viewSubordinatesText: { fontSize: rnType.badge.size, color: tk.brand.foreground },

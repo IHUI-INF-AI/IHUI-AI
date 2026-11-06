@@ -13,6 +13,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import {
+  ChevronDown,
+  FileText,
+  Keyboard,
+  Mic,
+  Paperclip,
+  Play,
+  Settings,
+} from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type {
@@ -230,7 +239,11 @@ export function ChatComposer({
                   <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.filePlaceholder}>
-                    <Text style={styles.fileGlyph}>{f.type === 'video' ? '▶' : '▤'}</Text>
+                    {f.type === 'video' ? (
+                      <Play size={16} color={tk.text.secondary} />
+                    ) : (
+                      <FileText size={16} color={tk.text.secondary} />
+                    )}
                     <Text style={styles.fileName} numberOfLines={1}>
                       {f.filename ||
                         t(f.type === 'video' ? 'messageInput.video' : 'messageInput.document')}
@@ -285,7 +298,7 @@ export function ChatComposer({
               <Text style={styles.modelName} numberOfLines={1}>
                 {currentModelName}
               </Text>
-              <Text style={styles.modelChevron}>▾</Text>
+              <ChevronDown size={12} color={tk.text.tertiary} />
             </TouchableOpacity>
           ) : (
             <Text style={styles.modelName} numberOfLines={1}>
@@ -299,7 +312,7 @@ export function ChatComposer({
               hitSlop={4}
               accessibilityLabel={t('bab.modelConfig')}
             >
-              <Text style={styles.iconGlyph}>⚙</Text>
+              <Settings size={16} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -318,7 +331,11 @@ export function ChatComposer({
             hitSlop={4}
             accessibilityLabel={t('messageInput.voiceHint')}
           >
-            <Text style={styles.iconGlyph}>{voiceMode ? '⌨' : '🎤'}</Text>
+            {voiceMode ? (
+              <Keyboard size={16} color={tk.text.secondary} />
+            ) : (
+              <Mic size={16} color={tk.text.secondary} />
+            )}
           </TouchableOpacity>
         ) : null}
 
@@ -381,7 +398,7 @@ export function ChatComposer({
               hitSlop={4}
               accessibilityLabel={t('messageInput.addFile')}
             >
-              <Text style={styles.iconGlyph}>📎</Text>
+              <Paperclip size={16} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
           {onClear && value.length > 0 && !loading ? (
@@ -566,12 +583,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       padding: rnSpacing.xs,
     },
-    fileGlyph: {
-      fontSize: rnType.title.size,
-      lineHeight: rnType.title.lineHeight,
-      color: tk.text.secondary,
-      marginBottom: rnSpacing['2xs'],
-    },
     fileName: {
       fontSize: rnType.badge.size,
       lineHeight: rnType.badge.lineHeight,
@@ -610,7 +621,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     toggleChipActive: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: tk.brandAccent.DEFAULT,
       backgroundColor: tk.surface.muted,
     },
     toggleChipDisabled: { opacity: 0.5 },
@@ -637,11 +648,6 @@ function createStyles(tk: AppThemeTokens) {
       lineHeight: rnType.label.lineHeight,
       color: tk.text.tertiary,
       flexShrink: 1,
-    },
-    modelChevron: {
-      fontSize: rnType.badge.size,
-      lineHeight: rnType.badge.lineHeight,
-      color: tk.text.tertiary,
     },
     inputRow: {
       flexDirection: 'row',
@@ -697,7 +703,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['md-loose'],
       paddingVertical: rnSpacing.sm,
       borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.cta,
       minWidth: 50,
       alignItems: 'center',
       justifyContent: 'center',
@@ -715,7 +721,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sendBtnDisabled: { backgroundColor: tk.text.tertiary },
     sendBtnText: {
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
       fontSize: rnType.body.size,
       lineHeight: rnType.body.lineHeight,
       fontWeight: '600',
@@ -740,8 +746,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     pickerCard: {
       maxHeight: PICKER_MAX_HEIGHT,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
+      borderTopLeftRadius: rnRadius.lg,
+      borderTopRightRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       paddingVertical: rnSpacing.sm,
     },

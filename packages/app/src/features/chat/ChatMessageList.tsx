@@ -190,7 +190,10 @@ export function ChatMessageBubble({
             )
           }
           return (
-            <Text key={`txt-${i}`} style={styles.bubbleText}>
+            <Text
+              key={`txt-${i}`}
+              style={[styles.bubbleText, isUser ? styles.bubbleUserText : null]}
+            >
               {seg.value}
             </Text>
           )
@@ -330,13 +333,14 @@ function createStyles(tk: AppThemeTokens) {
     rowAi: { alignItems: 'flex-start' },
     bubble: {
       maxWidth: '82%',
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius['2xl'],
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
     },
-    bubbleUser: { backgroundColor: tk.brand.DEFAULT },
+    bubbleUser: { backgroundColor: tk.brand.cta },
     bubbleAi: { backgroundColor: tk.surface.muted },
     bubbleText: { fontSize: rnType.body.size, color: tk.text.primary, lineHeight: 22 },
+    bubbleUserText: { color: tk.brand.ctaForeground },
     reasoningToggle: { paddingVertical: rnSpacing['2xs'] },
     reasoningToggleText: { fontSize: rnType.label.size, color: tk.text.secondary },
     reasoningBody: {

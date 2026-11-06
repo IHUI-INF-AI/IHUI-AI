@@ -177,12 +177,23 @@ function escapeForRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * 去掉值的首尾引号。正则用 unicode 转义书写:等价于 /^["']|["']$/g,
+ * 但源码里不裸露引号字符 —— 静态扫描器的字符串遮罩不解析正则字面量,
+ * 裸引号会让遮罩失步并把后续真实代码当成字符串吞掉(守门 129 曾因此看不到本文件的生产出口)。
+ */
+const QUOTE_TRIM_RE = new RegExp('^[\u0022\u0027]|[\u0022\u0027]$', 'g')
+
+function trimQuotes(text: string): string {
+  return text.replace(QUOTE_TRIM_RE, '')
+}
+
 /** 从 frontmatter 文本中解析单值字段(支持引号包裹) */
 function parseFrontmatterField(front: string, key: string): string | undefined {
   const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.+?)\\s*$`, 'm');
   const m = front.match(re);
   if (!m) return undefined;
-  return m[1]!.replace(/^["']|["']$/g, '').trim();
+  return trimQuotes(m[1]!).trim();
 }
 
 /** 从 frontmatter 文本中解析数组字段(支持 inline [a,b,c] 和 block `- a`)。
@@ -205,7 +216,7 @@ function parseFrontmatterArray(front: string, key: string): string[] | null | un
   if (inlineMatch) {
     return inlineMatch[1]!
       .split(',')
-      .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+      .map((s) => trimQuotes(s.trim()))
       .filter((s) => s.length > 0);
   }
   const blockRe = new RegExp(`^${escapeForRegExp(key)}:\\s*$\\n((?:[ \\t]*-\\s+.+\\n?)+)`, 'm');
@@ -215,7 +226,7 @@ function parseFrontmatterArray(front: string, key: string): string[] | null | un
       .split('\n')
       .map((l) => l.match(/^[ \t]*-\s+(.+?)\s*$/))
       .filter((m): m is RegExpMatchArray => m !== null)
-      .map((m) => m[1]!.replace(/^["']|["']$/g, '').trim());
+      .map((m) => trimQuotes(m[1]!).trim());
   }
   // Block-mapping detection: a bare `key:` line whose first following non-blank
   // line is indented but NOT a `- item` list entry. Checked AFTER the two valid
@@ -258,7 +269,7 @@ function parseListing(front: string, keys: readonly string[]): SkillListingState
     const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.*)\\s*$`, 'm');
     const match = front.match(re);
     if (!match) continue;
-    const token = match[1]!.trim().replace(/^["']|["']$/g, '');
+    const token = trimQuotes(match[1]!.trim());
     const plan = admitSkillListing(token);
     return plan.disposition === 'unlisted' ? plan.reason : null;
   }
@@ -270,7 +281,7 @@ function parseInvocableFlag(front: string, keys: readonly string[]): boolean | n
     const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.*)\\s*$`, 'm');
     const m = front.match(re);
     if (!m) continue;
-    const v = m[1]!.trim().toLowerCase().replace(/^["']|["']$/g, '');
+    const v = trimQuotes(m[1]!.trim().toLowerCase());
     if (v === 'true' || v === 'yes') return true;
     if (v === 'false' || v === 'no') return false;
     return null;
@@ -320,7 +331,7 @@ function parseFrontmatterBool(front: string, keys: readonly string[]): boolean |
     const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.+?)\\s*$`, 'm');
     const m = front.match(re);
     if (m) {
-      const v = m[1]!.trim().toLowerCase().replace(/^["']|["']$/g, '');
+      const v = trimQuotes(m[1]!.trim().toLowerCase());
       if (v === 'true' || v === 'yes') return true;
       if (v === 'false' || v === 'no') return false;
     }
@@ -458,7 +469,7 @@ export function findUnknownFrontmatterKeys(front: string): string[] {
 function splitArrayLiteral(raw: string): string[] {
   return raw
     .split(',')
-    .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+    .map((s) => trimQuotes(s.trim()))
     .filter((s) => s.length > 0);
 }
 
@@ -468,7 +479,7 @@ function parseBlockArray(raw: string): string[] {
     .split('\n')
     .map((l) => l.match(/^[ \t]*-\s+(.+?)\s*$/))
     .filter((m): m is RegExpMatchArray => m !== null)
-    .map((m) => m[1]!.replace(/^["']|["']$/g, '').trim());
+    .map((m) => trimQuotes(m[1]!).trim());
 }
 
 /**
