@@ -22,7 +22,8 @@
  * 用法:
  *   node scripts/gen-rn-shell-types.mjs            # 打印当前计划(不写盘)
  *   node scripts/gen-rn-shell-types.mjs --write    # 按 HEAD 面派生并写回工作树
- *   node scripts/gen-rn-shell-types.mjs --check    # 只判"派生件是否落后"(供门/CI 复用)
+ *   node scripts/gen-rn-shell-types.mjs --check    # 只判"派生件是否落后"(供门/CI 复用,取 HEAD 面)
+ *   node scripts/gen-rn-shell-types.mjs --check --staged  # 同上,但取**索引面**(提交链专用)
  *   node scripts/gen-rn-shell-types.mjs --self-test
  */
 import { execFileSync } from 'node:child_process'
@@ -121,6 +122,15 @@ export function applyBlock(current, next) {
   return current.slice(0, b) + next.replace(/^\n+/, '').replace(/\n+$/, '') + current.slice(e + DECL_END.length)
 }
 
+function stagedText(rel) {
+  const spec = `:${rel}`
+  try {
+    return catBatch(ROOT, [spec]).get(spec) ?? null
+  } catch {
+    return null
+  }
+}
+
 function headText(rel) {
   try {
     return execFileSync('git', ['show', `HEAD:${rel}`], {
@@ -163,9 +173,22 @@ export function facePages(face) {
 
 export function collect({ face }) {
   const pages = facePages(face)
-  const readTarget = (rel) => (face === 'worktree' ? readWorktreeFile(ROOT, rel) : headText(rel))
   if (pages.missing.length > 0) {
     throw new Error(`面上有 ${pages.missing.length} 枚页取不到正文(面错位,不回落):${pages.missing.slice(0, 3).join(' / ')}`)
+  }
+  // 真相源一次取齐(2026-11-06):旧写法 planDeclarations 每枚模块回调一次 headText ⇒
+  // 247 个 `git show` 子进程,实测本机 --check 单轮 54s(提交链每轮付这笔账不可接受)。
+  // 规格集合本来就由 specsOfPages 先算得出,所以批量取材不改变判据,只把 N 次 fork 收成 1 次。
+  const targets = [...new Set(specsOfPages(pages.texts).map((s) => targetOfSpecifier(s)).filter(Boolean))]
+  let readTarget
+  if (face === 'worktree') {
+    const map = new Map(targets.map((r) => [r, readWorktreeFile(ROOT, r)]))
+    readTarget = (rel) => (map.has(rel) ? map.get(rel) : readWorktreeFile(ROOT, rel))
+  } else {
+    const prefix = face === 'staged' ? ':' : 'HEAD:'
+    const got = catBatch(ROOT, targets.map((r) => `${prefix}${r}`))
+    const map = new Map(targets.map((r) => [r, got.get(`${prefix}${r}`) ?? null]))
+    readTarget = (rel) => (map.has(rel) ? map.get(rel) : stagedText(rel) ?? headText(rel))
   }
   return planDeclarations({ pageTexts: pages.texts, readTarget })
 }
@@ -254,11 +277,18 @@ function main() {
   if (argv.includes('--self-test')) return selfTest()
   const write = argv.includes('--write')
   const check = argv.includes('--check')
+  const staged = argv.includes('--staged')
   // 判它的门(251 C9)读的是 **HEAD blob** ⇒ 复核必须同面(§0.4 同面同轮)。
   // 写回默认仍取工作树(给人就地刷新自己的改动),另给 `--head`:把 HEAD 面的期望写进工作树,
   // 落地器据此推进 HEAD —— 否则"按工作树生成、按 HEAD 判"必然互相打脸(本机实测:工作树 122 个
   // 说明符 vs HEAD 118 个 ⇒ --write 之后 --check 仍报落后,那正是修复出口跑不通的形态)。
-  const face = check || argv.includes('--head') ? 'head' : 'worktree'
+  // 2026-11-06 补 --staged:提交链判的是**索引面**(251 --staged 同面)。HEAD 面看不见
+  // "只改索引、未进 HEAD"的手改(实测那条 49 行就是这样漏过提交链的),所以提交链必须显式取索引。
+  if (staged && (!check || argv.includes('--head'))) {
+    console.error('❌ --staged 只与 --check 同用(判索引面),且与 --head 互斥')
+    process.exit(2)
+  }
+  const face = staged ? 'staged' : check || argv.includes('--head') ? 'head' : 'worktree'
   let plan
   try {
     plan = collect({ face })
@@ -267,7 +297,14 @@ function main() {
     process.exit(2)
   }
   const abs = join(ROOT, OUT_REL)
-  const current = face === 'worktree' ? (existsSync(abs) ? readFileSync(abs, 'utf8') : '') : headText(OUT_REL) ?? ''
+  const current =
+    face === 'worktree'
+      ? existsSync(abs)
+        ? readFileSync(abs, 'utf8')
+        : ''
+      : face === 'staged'
+        ? stagedText(OUT_REL) ?? ''
+        : headText(OUT_REL) ?? ''
   const expected = applyBlock(current, plan.next)
   const stale = expected !== current
   for (const u of plan.undetermined) console.error(`❌ 未判定:${u}`)
