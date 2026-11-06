@@ -408,7 +408,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
