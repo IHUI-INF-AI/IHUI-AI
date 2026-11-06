@@ -4282,7 +4282,7 @@ A: Yes. 8 platforms from one monorepo(Web / API / AI-service / Desktop / Extensi
 **Q: Does it support MCP? / 支持 MCP 协议吗?**
 A: Yes. MCP + LangGraph + A2A triple stack(三栈协同),工具协议 + 工作流编排 + Agent 互通一体化。
 **Q: Is it production-ready? / 生产环境可用吗?**
-A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4699 API 路由 / 621 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4700 API 路由 / 621 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 ## Keywords
 > SEO 关键词索引。完整长尾词清单(100+ 条,按 Primary / Long-tail / Question / Comparison / Platform-specific 分类)见 [docs/seo-keywords.md](docs/seo-keywords.md)。
 **Primary Keywords:** AI Agent Platform | LLM Gateway | MCP Server | LangGraph | Multi-tenant AI | Open Source ChatGPT Alternative | AI Operating System | Agentic AI | RAG Knowledge Base | Agent Marketplace | LiteLLM | Next.js 16 | Fastify 5 | Tauri | WXT Extension | React Native | Taro Mini Program | Apache 2.0 | Multi-Platform Auto Publishing | Anti-Risk Framework | AI Conversation Visualization | Tool Call Summary Card
