@@ -100,6 +100,22 @@ const BAR_HEIGHT: u32 = 72;
 /// 单窗最多标签数(防御性上限,避免无限建 webview)。
 const MAX_TABS: usize = 12;
 
+/// 失焦省内存时,某个窗口焦点事件应作用于哪些 webview(2026-11-07 缺陷挖掘)。
+///
+/// 旧实现按「label 前缀」匹配:main/admin 的焦点事件也会命中 browser-tab-*,
+/// 把仍可见的内嵌浏览器页挂起(TrySuspend)⇒ 点主窗后浏览器页卡死;反之
+/// 聚焦浏览器又会把隐藏标签全量唤醒。正确归属:main/admin 只管自身,browser
+/// 窗管自身 + 自己的全部标签。
+pub(crate) fn should_toggle_memory(owner_label: &str, target_label: &str) -> bool {
+    if !matches!(owner_label, "main" | "admin" | BROWSER_WINDOW_LABEL) {
+        return false;
+    }
+    if target_label == owner_label {
+        return true;
+    }
+    owner_label == BROWSER_WINDOW_LABEL && target_label.starts_with(TAB_LABEL_PREFIX)
+}
+
 /// `wb-checkin-login` 看护轮询的防重入闸(2026-10-17):进行中再触发直接忽略,
 /// 用户在签到页狂点按钮不叠加看护任务。所有退出路径(ok/超时/关窗)都复位。
 static WB_LOGIN_POLLING: AtomicBool = AtomicBool::new(false);
@@ -1345,6 +1361,27 @@ mod tests {
 
     fn u(s: &str) -> Url {
         Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn memory_toggle_ownership() {
+        for (owner, target, want) in [
+            ("main", "main", true),
+            ("admin", "admin", true),
+            ("main", "admin", false),
+            // 旧实现会把这两条判成 true:主窗失焦/聚焦时挂起或唤醒内嵌浏览器标签。
+            ("main", "browser-tab-1", false),
+            ("admin", "browser-tab-2", false),
+            (BROWSER_WINDOW_LABEL, BROWSER_WINDOW_LABEL, true),
+            (BROWSER_WINDOW_LABEL, "browser-tab-3", true),
+            ("unknown-window", "main", false),
+        ] {
+            assert_eq!(
+                should_toggle_memory(owner, target),
+                want,
+                "owner={owner} target={target} 归属判定错误"
+            );
+        }
     }
 
     #[test]

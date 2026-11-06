@@ -3790,10 +3790,7 @@ pub fn run() {
                 if label == "main" || label == "admin" || label == embedded_browser::BROWSER_WINDOW_LABEL {
                     let app = window.app_handle().clone();
                     for (wl, wv) in app.webviews() {
-                        if wl == label
-                            || wl.starts_with(embedded_browser::TAB_LABEL_PREFIX)
-                            || wl == embedded_browser::BROWSER_WINDOW_LABEL
-                        {
+                        if embedded_browser::should_toggle_memory(&label, &wl) {
                             embedded_browser::set_memory_low(&wv, !focused);
                             embedded_browser::set_suspend(&wv, !focused);
                         }
