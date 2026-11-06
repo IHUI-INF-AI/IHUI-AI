@@ -24,7 +24,6 @@
 
 输出：选题池 markdown 到 stdout（可重定向到文件）。
 """
-import datetime
 import json
 import os
 import re
@@ -32,6 +31,8 @@ import sys
 import urllib.parse
 import urllib.request
 from typing import Any, cast
+
+from app.core.cn_time import cn_today
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from all_sources import PLATFORM_LABELS, by_platform, priority1_official
@@ -109,7 +110,7 @@ def main() -> None:
     take = 60
     if '--take' in sys.argv:
         take = int(sys.argv[sys.argv.index('--take') + 1])
-    date = datetime.date.today().strftime('%Y-%m-%d')
+    date = cn_today().strftime('%Y-%m-%d')
     if '--date' in sys.argv:
         date = sys.argv[sys.argv.index('--date') + 1]
     no_api = '--no-api' in sys.argv

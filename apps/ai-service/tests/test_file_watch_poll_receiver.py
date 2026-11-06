@@ -20,7 +20,7 @@ import asyncio
 import inspect
 import logging
 import sys
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +148,38 @@ def test_gate_states_are_declared_not_defaulted() -> None:
         {fw.POLL_ENABLED_ENV: "true", fw.POLL_UNTIL_ENV: FUTURE}, today=today
     )
     assert on.state == fw.POLL_STATE_ON and on.drives()
+
+
+def test_gate_default_today_uses_cn_calendar(monkeypatch) -> None:
+    """票2:未注入 today 时按东八区日历切日,不跟随主机(UTC)时区。"""
+    class _HostDate(date):
+        @classmethod
+        def today(cls) -> date:
+            return date(2026, 11, 8)  # 主机在 UTC 已过零点,比 CN 日历快一天
+
+    monkeypatch.setattr(fw, "date", _HostDate)
+    monkeypatch.setattr(fw, "cn_today", lambda: date(2026, 11, 6), raising=False)
+
+    gate = fw.resolve_watch_poll_gate(
+        {fw.POLL_ENABLED_ENV: "on", fw.POLL_UNTIL_ENV: "2026-11-07"}
+    )
+    # 按 CN 日历(11-06)尚未到期;按主机 UTC(11-08)会被误判为已到期
+    assert gate.state == fw.POLL_STATE_ON and gate.drives(), gate.reason
+
+
+def test_cn_today_ignores_host_timezone(monkeypatch) -> None:
+    """票2:东八区日历切日的固定时刻验收(UTC 11-06 16:30 = CN 11-07 00:30)。"""
+    from app.core import cn_time
+
+    fixed_utc = datetime(2026, 11, 6, 16, 30, tzinfo=UTC)
+
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # noqa: ANN001
+            return fixed_utc.astimezone(tz) if tz is not None else fixed_utc.replace(tzinfo=None)
+
+    monkeypatch.setattr(cn_time, "datetime", _FrozenDatetime)
+    assert cn_time.cn_today() == date(2026, 11, 7)
 
 
 @pytest.mark.asyncio

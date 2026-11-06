@@ -28,6 +28,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from .cn_time import cn_today
+
 
 @dataclass(frozen=True)
 class FileWatcherEvent:
@@ -372,7 +374,7 @@ def resolve_watch_poll_gate(
             POLL_STATE_UNJUDGED,
             f"{POLL_UNTIL_ENV}={until_raw!r} 不是 ISO 日期 ⇒ 未判定,不起轮询",
         )
-    current = today or date.today()
+    current = today or cn_today()
     if until < current:
         return WatchPollGate(
             POLL_STATE_OFF,

@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..core.background_tasks import spawn
+from ..core.cn_time import cn_today
 from .codebase_indexer import (
     _EXT_TO_LANG,
     _IGNORED_DIRS,
@@ -635,7 +636,7 @@ class SpecGenerator:
             logger.exception("[spec_generator] git_config_user_name_failed: path=%s", str(root))
 
         # date:当前日期 YYYY-MM-DD
-        date_str = datetime.date.today().strftime("%Y-%m-%d")
+        date_str = cn_today().strftime("%Y-%m-%d")
 
         # version + project:从 package.json 读取,降级 "1.0.0" / "project"
         version = "1.0.0"
@@ -1144,7 +1145,7 @@ class SpecGenerator:
         scope_desc = self._describe_scope(scope, Path("."))
         defaults = {
             "author": "Unknown",
-            "date": datetime.date.today().strftime("%Y-%m-%d"),
+            "date": cn_today().strftime("%Y-%m-%d"),
             "version": "1.0.0",
             "project": "project",
             "scope": scope_desc,

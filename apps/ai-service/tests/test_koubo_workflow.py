@@ -1637,4 +1637,19 @@ def test_wechat_lib_unreadable_is_not_a_clean_whitelist(
     failed = [row for row in checker.results if row[1] is False and 'lib' in row[0]]
     assert failed
     assert (root / 'lib').read_text(encoding='utf-8') == 'keep'
+
+
+def test_topic_pool_default_date_uses_cn_today(monkeypatch, capsys) -> None:
+    """票2:未显式 --date 时,选题池标题日期按东八区日历切日。"""
+    import sys
+    from datetime import date
+
+    from app.skills.koubo_workflow.tools import topic_pool as tp
+
+    monkeypatch.setattr(tp, "cn_today", lambda: date(2031, 2, 3), raising=False)
+    monkeypatch.setattr(sys, "argv", ["topic_pool.py", "--no-api"])
+
+    tp.main()
+    out = capsys.readouterr().out
+    assert "# 口播稿热点选题池 · 全网版 · 2031-02-03" in out
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

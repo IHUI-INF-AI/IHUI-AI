@@ -1326,4 +1326,24 @@ class TestSingleton:
 
     def test_singleton_has_indexer(self):
         assert spec_generator._indexer is not None
+
+    def test_build_frontmatter_from_fields_default_date_uses_cn_today(self, generator, monkeypatch):
+        """票2:默认 date 按东八区日历切日,不用宿主 naive date.today()。"""
+        from datetime import date
+
+        from app.services import spec_generator as sg
+
+        monkeypatch.setattr(sg, "cn_today", lambda: date(2031, 2, 3), raising=False)
+        fm = generator._build_frontmatter_from_fields({}, {"type": "workspace"})
+        assert "date: 2031-02-03" in fm
+
+    def test_get_template_variables_date_uses_cn_today(self, generator, ts_workspace, monkeypatch):
+        """票2:模板变量 date 同样按东八区日历切日。"""
+        from datetime import date
+
+        from app.services import spec_generator as sg
+
+        monkeypatch.setattr(sg, "cn_today", lambda: date(2031, 2, 3), raising=False)
+        variables = generator._get_template_variables(str(ts_workspace))
+        assert variables["date"] == "2031-02-03"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
