@@ -63,6 +63,7 @@ fn main() {
             "set_desktop_badge",
             "take_pending_deep_links",
             "take_pending_tray_actions",
+            "set_caption_button_theme",
             "checkin_detect_trae_dir",
             "checkin_capture_jwts",
             "checkin_capture_qoder",

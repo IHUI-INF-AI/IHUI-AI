@@ -103,13 +103,37 @@ export function judgeRemoteUrls(caps) {
   return { ok: problems.length === 0, problems }
 }
 
+// ── remote 侧真实调用命令必须被授予(2026-11-07 缺陷挖掘回归钉)──────────────
+// 线上页(308 后的 www origin)实测会 invoke 这两条命令:
+//   - take_pending_tray_actions ← apps/web/src/hooks/use-desktop.ts(冷启动取托盘动作)
+//   - set_caption_button_theme  ← apps/web/src/lib/tauri-bridge.ts:290(暗色标题栏按钮)
+// 命令在 invoke_handler 注册 + build.rs 生成权限,但 capability 没列 allow-* 时,
+// 远程 IPC 会被 ACL 静默拒绝(前端拿 no-op / 报错,按钮看不清、托盘点击丢失)。
+const REQUIRED_REMOTE_COMMANDS = [
+  'allow-take-pending-tray-actions',
+  'allow-set-caption-button-theme',
+]
+
+export function judgeRemoteCommandGrants(caps) {
+  const problems = []
+  const granted = (caps.permissions ?? []).filter((p) => typeof p === 'string')
+  for (const required of REQUIRED_REMOTE_COMMANDS) {
+    if (!granted.includes(required)) {
+      problems.push('remote 侧真实调用命令未被 capability 授予: ' + required)
+    }
+  }
+  return { ok: problems.length === 0, problems }
+}
+
 function main() {
   let verdict
   let guard
+  let cmdGuard
   try {
     const caps = JSON.parse(readFileSync(CAPS_PATH, 'utf8'))
     verdict = judgeAllowOpen(caps)
     guard = judgeRemoteUrls(caps)
+    cmdGuard = judgeRemoteCommandGrants(caps)
   } catch (e) {
     // 取不到输入/解析不了 ⇒ 显式「未判定」,不冒绿
     console.error('FAIL UNDETERMINED ' + CAPS_PATH + ': ' + (e?.message ?? e))
@@ -117,6 +141,7 @@ function main() {
   }
   assert.equal(verdict.ok, true, 'allow-open 白名单违规:\n  ' + verdict.problems.join('\n  '))
   assert.equal(guard.ok, true, 'remote.urls 覆盖面缺失:\n  ' + guard.problems.join('\n  '))
+  assert.equal(cmdGuard.ok, true, 'remote 命令授权缺失:\n  ' + cmdGuard.problems.join('\n  '))
   console.log(
     'PASS shell:allow-open 白名单 ' +
       verdict.urls.length +

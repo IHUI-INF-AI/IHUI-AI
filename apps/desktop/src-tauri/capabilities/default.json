@@ -75,6 +75,8 @@
     "allow-set-desktop-prefs",
     "allow-resolve-close-choice",
     "allow-set-desktop-badge",
-    "allow-take-pending-deep-links"
+    "allow-take-pending-deep-links",
+    "allow-take-pending-tray-actions",
+    "allow-set-caption-button-theme"
   ]
 }
