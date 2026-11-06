@@ -31,13 +31,12 @@ from typing import Any, TypeVar
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.jwt_auth import require_request_user_id
-from app.core.llm_gateway import llm_gateway
-
 # BUG-35:_try_screenshot_html 的真实实现就在本模块,显式导入使
 # `app.services.screenshot_service` 包属性稳定存在(不依赖其它测试的导入顺序),
 # 也让"函数不存在即静默失效"无法再以隐式状态蒙混过关。
 import app.services.screenshot_service  # noqa: F401
+from app.core.jwt_auth import require_request_user_id
+from app.core.llm_gateway import llm_gateway
 from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
 from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
 from app.services.skills import Skill, skill_registry
