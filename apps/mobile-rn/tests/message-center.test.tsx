@@ -48,33 +48,28 @@ vi.mock('@react-navigation/native', async () => {
   }
 })
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
-}))
+// t 必须是**稳定引用**:每次渲染新建箭头函数 ⇒ wrapper 的 useCallback(...,[t]) 每轮失效
+// ⇒ load 身份变化 ⇒ useEffect 每渲染重跑一次拉取 ⇒ 置顶成功后的重排会被后到的列表回填覆盖
+// (单跑侥幸绿,全量并发下 4s 超时必红,并伴 "Maximum update depth exceeded")。
+vi.mock('../src/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ t }) }
+})
 
 vi.mock('../src/context/ThemeContext', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
 }))
 
 // features 共享层 MessageCenterScreen 骨架(渲染 header/tab/列表/会话区块)
-vi.mock('@ihui/rn-app', async () => {
+//
+// 2026-11-06:mock key 必须是**深路径**。wrapper 已从 `@ihui/rn-app`(barrel)改成
+// `@ihui/rn-app/features/message-center/MessageCenterScreen` 直取共享屏,barrel 那条
+// vi.mock 拦不到它 ⇒ 真共享屏被渲染,data-testid 全不存在(5 例全红,且 Animated
+// 循环把 jsdom 拖进 "Maximum update depth exceeded")。vi.mock 认解析后的模块 id,
+// 与源码 import 串逐字相同才拦得住。
+vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', async () => {
   const { createElement: h } = await import('react')
-  // 2026-10-30(票 L30756):useRefreshOnFocus 薄壳经本包入口取 useScreenReappear;本文件局部
-  // mock 了整个包 ⇒ 必须补这条出口(纯 React hook,直连真源码),否则屏挂载即报缺导出。
-  const { useScreenReappear } = await import('../../../packages/app/src/hooks/use-screen-reappear')
   return {
-    useScreenReappear,
-    SearchInput: ({
-      value,
-      onChangeText,
-    }: {
-      value?: string
-      onChangeText?: (value: string) => void
-    }) =>
-      h('input', {
-        value,
-        onChange: (event: { target: { value: string } }) => onChangeText?.(event.target.value),
-      }),
     MessageCenterScreen: ({
       conversations,
       onPressConversation,
@@ -123,6 +118,9 @@ vi.mock('@ihui/rn-app', async () => {
   }
 })
 
+// 本套件保留自己的精简替身(比共享替身更贴本屏的 DOM 形状),只补共享层新增的必需出口:
+// PixelRatio(返回键/更多入口在模块求值期按字体缩放取档)与 DevSettings(active-tokens 单例
+// 的主题重载路径 import 了它)。ESM 下缺一个出口 = 整份文件加载失败,不是拿 undefined。
 vi.mock('react-native', async () => {
   const { createElement: h } = await import('react')
   const mk = (tag: string) =>
@@ -138,6 +136,11 @@ vi.mock('react-native', async () => {
     ScrollView: mk('div'),
     Image: mk('img'),
     RefreshControl: () => null,
+    PixelRatio: {
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (n: number) => n,
+      roundToNearestPixel: (n: number) => n,
+    },
     // MessageCenterScreen → src/lib/token.ts → src/lib/config.ts 在模块求值期读 Platform.OS
     // (APP_USER_AGENT / API_BASE_URL 两处);ESM 下 import 一个 mock 没有的出口不是拿 undefined,
     // 而是整个模块加载失败 ⇒ 收集期 0 用例。键与共享替身 __mocks__/react-native.ts 的 Platform 同源。
@@ -146,8 +149,52 @@ vi.mock('react-native', async () => {
     // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
     Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    DevSettings: { reload: () => {} },
     // AppState(2026-10-30):useRefreshOnFocus 的 RN adapter 挂载期订阅;本套件不测回前台。
     AppState: { currentState: 'active' as const, addEventListener: () => ({ remove() {} }) },
+    // BottomPops 经 importOriginal 真加载(只把 appAlert 换 spy),它的模块求值面还要
+    // Animated / Easing / Modal / PanResponder / KeyboardAvoidingView;缺一枚整份文件就炸。
+    Animated: {
+      View: mk('div'),
+      Text: mk('span'),
+      Value: class {
+        constructor(_v: number) {}
+        setValue(_v: number) {}
+        interpolate() {
+          return { interpolate: () => '0' }
+        }
+      },
+      timing: (_v: unknown, _c: unknown) => ({
+        start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }),
+        stop: () => {},
+      }),
+      spring: (_v: unknown, _c: unknown) => ({
+        start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }),
+        stop: () => {},
+      }),
+      parallel: (_a: unknown) => ({
+        start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }),
+        stop: () => {},
+      }),
+      sequence: (_a: unknown) => ({
+        start: (cb?: (r: { finished: boolean }) => void) => cb?.({ finished: true }),
+        stop: () => {},
+      }),
+      loop: (_a: unknown) => ({ start: () => {}, stop: () => {} }),
+      multiply: () => ({ interpolate: () => '0' }),
+      add: () => ({ interpolate: () => '0' }),
+    },
+    Easing: {
+      ease: (t: number) => t,
+      linear: (t: number) => t,
+      out: (f: (t: number) => number) => f,
+      inOut: (f: (t: number) => number) => f,
+      bezier: () => (t: number) => t,
+    },
+    Modal: ({ children, visible }: { children?: ReactNode; visible?: boolean }) =>
+      visible === false ? null : h('div', null, children),
+    PanResponder: { create: () => ({ panHandlers: {} }) },
+    KeyboardAvoidingView: mk('div'),
     StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
