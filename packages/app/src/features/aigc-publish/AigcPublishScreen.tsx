@@ -68,12 +68,19 @@ export function AigcPublishScreen({
   onBack,
   colorScheme = 'light',
   onToast,
+  workTypes,
+  showPromptField = true,
 }: AigcPublishScreenProps) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showTextInput = workType === 'text'
+  /** 宿主可收敛类型档;缺省四档全开(与 RN 原行为一致) */
+  const typeOptions = useMemo(
+    () => (workTypes ? TYPE_OPTIONS.filter((opt) => workTypes.includes(opt.key)) : TYPE_OPTIONS),
+    [workTypes],
+  )
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -85,7 +92,7 @@ export function AigcPublishScreen({
 
       <Text style={styles.label}>{t('aigcPublish.labelType')}</Text>
       <View style={styles.typeRow}>
-        {TYPE_OPTIONS.map((opt) => (
+        {typeOptions.map((opt) => (
           <TouchableOpacity
             key={opt.key}
             style={[styles.typeChip, workType === opt.key && styles.typeChipActive]}
@@ -216,17 +223,21 @@ export function AigcPublishScreen({
         textAlignVertical="top"
       />
 
-      <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
-      <TextField
-        colorScheme={colorScheme}
-        style={[styles.input, styles.textarea]}
-        value={prompt}
-        onChangeText={onPromptChange}
-        placeholder={t('aigcPublish.placeholderPrompt')}
-        placeholderTextColor={tk.text.tertiary}
-        multiline
-        textAlignVertical="top"
-      />
+      {showPromptField ? (
+        <>
+          <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
+          <TextField
+            colorScheme={colorScheme}
+            style={[styles.input, styles.textarea]}
+            value={prompt}
+            onChangeText={onPromptChange}
+            placeholder={t('aigcPublish.placeholderPrompt')}
+            placeholderTextColor={tk.text.tertiary}
+            multiline
+            textAlignVertical="top"
+          />
+        </>
+      ) : null}
 
       <TouchableOpacity
         style={[styles.submitBtn, saving && styles.submitDisabled]}

@@ -962,7 +962,25 @@
       "revokeConfirmTitle": "기기 취소",
       "taskColCreated": "생성 시간",
       "taskColFinished": "종료 시간"
-    }
+    },
+    "accountDeletionTitle": "계정 삭제",
+    "accountDeletionWarning": "이 작업은 되돌릴 수 없으며 모든 데이터가 영구적으로 손실됩니다.",
+    "accountDeletionPhoneLabel": "휴대전화 번호",
+    "accountDeletionPhonePlaceholder": "전화번호를 입력하세요",
+    "accountDeletionCodeLabel": "인증번호",
+    "accountDeletionCodePlaceholder": "인증 코드를 입력해 주십시오",
+    "accountDeletionSendCode": "코드 전송",
+    "accountDeletionConfirm": "계정 삭제 확인",
+    "accountDeletionSubmit": "삭제 확인",
+    "accountDeletionSubmitting": "제출 중...",
+    "accountDeletionConsequenceTitle": "삭제 후 영향",
+    "accountDeletionConsequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "accountDeletionConsequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "accountDeletionConsequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "accountDeletionConsequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "accountDeletionConsequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "accountDeletionConsequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "accountDeletionConsequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "menu": {
     "artifacts": "산출물 센터",
@@ -4725,7 +4743,9 @@
     "bindFail": "연동 실패",
     "bindOk": "연동 성공",
     "netBusy": "네트워크 오류",
-    "netBusyRetry": "네트워크 오류, 잠시 후 다시 시도해 주세요"
+    "netBusyRetry": "네트워크 오류, 잠시 후 다시 시도해 주세요",
+    "selectNation": "국가 코드 선택",
+    "submitting": "제출 중..."
   },
   "subagents": {
     "tabOverview": "개요",
@@ -4774,6 +4794,9 @@
   "devSpace": {
     "title": "개발자 상세",
     "notLoggedIn": "로그인되지 않음",
+    "opened": "활성화됨",
+    "notOpened": "미개통",
+    "enterPlaza": "광장으로",
     "renew": "갱신",
     "copy": "복사",
     "copied": "복사되었습니다",
@@ -4883,6 +4906,7 @@
     "historyFailed": "가져오기 기록을 불러오지 못했습니다: {error}",
     "historyParsed": "파싱",
     "historyImported": "가져옴",
+    "failedCountLabel": "실패",
     "statusSuccess": "성공",
     "statusPartial": "부분 성공",
     "statusFailed": "실패",
@@ -7342,6 +7366,17 @@
     "articles": {
       "prevPage": "이전",
       "nextPage": "다음"
+    },
+    "profile": {
+      "changePhoneTitle": "전화번호 변경",
+      "newPhonePlaceholder": "새 전화번호 입력",
+      "codePlaceholder": "6자리 인증코드 입력",
+      "sendNewCode": "새 코드 받기",
+      "resend": "{seconds}초 후 재시도",
+      "confirmChange": "변경 확인",
+      "oldPhone": "현재 전화번호",
+      "oldCode": "기존 전화번호 인증코드",
+      "sendOldCode": "기존 코드 받기"
     }
   },
   "NavBar": {

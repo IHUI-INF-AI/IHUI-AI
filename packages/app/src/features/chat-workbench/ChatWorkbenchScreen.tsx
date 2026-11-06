@@ -18,7 +18,7 @@
  * 排序与选中两个算式一律 import @ihui/shared,不在本件复算(AGENTS §0.6)。
  */
 import { useMemo } from 'react'
-import { Plus } from 'lucide-react-native'
+import { History, Plus } from 'lucide-react-native'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { sortPinnedFirst } from '@ihui/shared/utils'
 
@@ -48,6 +48,8 @@ export interface ChatWorkbenchScreenProps {
   onKeywordChange?: (keyword: string) => void
   onSelectConversation?: (conversationId: string) => void
   onNewConversation?: () => void
+  /** A2(2026-11-05):跳 AI 会话历史(共享 ConversationHistoryScreen)的入口;不传 = 不渲染 */
+  onOpenHistory?: () => void
   onRefresh?: () => void
 }
 
@@ -69,7 +71,7 @@ function filterByTitle(
 export function ChatWorkbenchScreen({
   t,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   locale,
   onBack,
   conversations,
@@ -80,6 +82,7 @@ export function ChatWorkbenchScreen({
   onKeywordChange,
   onSelectConversation,
   onNewConversation,
+  onOpenHistory,
 }: ChatWorkbenchScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createChatWorkbenchStyles(tk), [tk])
@@ -96,6 +99,17 @@ export function ChatWorkbenchScreen({
           {t('chatWorkbenchPage.title')}
         </Text>
         <View style={styles.headerActions}>
+          {onOpenHistory ? (
+            <TouchableOpacity
+              style={styles.headBtn}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('chatWorkbenchPage.history')}
+              onPress={onOpenHistory}
+            >
+              <History size={16} color={tk.text.primary} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : null}
           {onNewConversation ? (
             <TouchableOpacity
               style={styles.headBtn}

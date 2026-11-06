@@ -27,9 +27,12 @@ import {
   appendLanding,
   collectiblePaths,
   landingKeyOf,
+  legsCover,
+  normalizeLegs,
   readLanding,
   __test__,
 } from '../lib/cross-end-landing-ledger.mjs'
+import { __test__ as rnLand } from '../land-rn-style-tiers.mjs'
 
 const LIB_SRC = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'cross-end-landing-ledger.mjs'),
@@ -292,6 +295,88 @@ test('T12 形状锁:取材必须走 face-reader,库体内不得出现裸 git 派
   assert.match(LIB_SRC, /pathToFileURL/, '§22d:isDirectRun 守卫必须用 pathToFileURL,禁手拼 file:///')
   // 失效方向自检:collectiblePaths 对未知面绝不猜
   assert.equal(collectiblePaths(new Date(), { face: 'nope', root: process.env.SYSTEMROOT ?? '.' }).ok, false)
+})
+
+// ─── 腿感知续跑(2026-11-05 立)───────────────────────────────────────────────
+// 立因:续跑跳过只看 leg 名 + blob 相符。RN 字号腿是 2026-11-05 才随守护同口径补进级联的,
+// 而 11-04 的 spacing-only 那轮已把 apps/mobile-rn/src/components/Carousel.tsx 登记为"已落"
+// —— 于是预览恒报待落、写档恒报 skipLanded,RN 的字号轴结构上永远追不上 web。
+test('T13 legsCover:窄轴行不得替宽轴背书;未声明腿沿用旧口径(向后兼容)', () => {
+  assert.equal(legsCover(['spacing'], ['spacing', 'fontSize']), false, '缺 fontSize ⇒ 不背书')
+  assert.equal(legsCover(['fontSize', 'spacing', 'radius'], ['spacing', 'fontSize']), true, '超集 ⇒ 背书')
+  assert.equal(legsCover(undefined, ['spacing']), false, '历史行没记腿 ⇒ 一律不背书(多做一遍)')
+  assert.equal(legsCover(undefined, null), true, '本轮没声明腿 ⇒ 沿用旧口径(旧调用方零改)')
+  assert.equal(legsCover([], []), true, '两侧都空 ⇒ 无要求')
+  assert.deepEqual(normalizeLegs([' fontSize ', 'spacing', 'fontSize', '']), ['fontSize', 'spacing'])
+  assert.equal(normalizeLegs('spacing'), undefined, '非数组形态不认(不静默猜)')
+})
+
+test('T14 登记带腿 ⇒ 行内落 legs 数组且重放不重复;不带腿 ⇒ 一格都不多写', () => {
+  const dir = newRepo()
+  try {
+    put(dir, 'apps/mobile-rn/src/components/Carousel.tsx', 'const a = 1\n')
+    const rel = 'apps/mobile-rn/src/components/Carousel.tsx'
+    const oid = hash(dir, rel)
+    const ap = appendLanding(
+      [{ at: agedIso(10), leg: 'land-rn-style-tiers', path: rel, blobOid: oid, legs: ['spacing', 'fontSize'] }],
+      { root: dir },
+    )
+    assert.equal(ap.appended, 1)
+    const row = readLanding({ root: dir }).lines[0]
+    assert.deepEqual(row.legs, ['fontSize', 'spacing'], '腿集必须落账且字典序同形(幂等重放不造新行)')
+    const again = appendLanding([{ at: agedIso(1), leg: 'land-rn-style-tiers', path: rel, blobOid: oid, legs: ['fontSize', 'spacing'] }], {
+      root: dir,
+    })
+    assert.equal(again.deduped, 1, '同键同 oid ⇒ 重放必须幂等')
+    const col = collectiblePaths(new Date(), { quietMs: 0, root: dir })
+    assert.equal(col.collectible[0].legs.join(','), 'fontSize,spacing', 'collectible 必须带出腿集供调用方判')
+
+    const legacy = appendLanding([{ at: agedIso(10), leg: 'legacyLeg', path: rel, blobOid: oid }], { root: dir })
+    assert.equal(legacy.appended, 1)
+    const lRow = readLanding({ root: dir }).lines.find((r) => r.leg === 'legacyLeg')
+    assert.equal('legs' in lRow, false, '不带腿的旧写法不得凭空造一格')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
+
+test('T15 端到端回归:同一 blob,轮子声明两轴时 landedPathsOf 不再跳过窄轴行(而旧口径仍跳过)', () => {
+  const dir = newRepo()
+  try {
+    const rel = 'apps/mobile-rn/src/components/Carousel.tsx'
+    put(dir, rel, 'const a = 1\n')
+    appendLanding(
+      [{ at: agedIso(10), leg: rnLand.LEG_NAME, path: rel, blobOid: hash(dir, rel), legs: ['spacing'] }],
+      { root: dir },
+    )
+    // 本轮开了 spacing + fontSize ⇒ 那一行说不出字号轴落过没有 ⇒ 必须重查
+    const wide = rnLand.landedPathsOf({ root: dir, legs: ['spacing', 'fontSize'] })
+    assert.equal(wide.ok, true)
+    assert.equal(wide.paths.size, 0, '窄轴行替宽轴背书 = 后开的轴永久跳不过去(本回归要治的就是这一格)')
+    // 阳性对照:同一把尺,腿集一致时仍须跳过(否则等于把续跑能力整个废掉)
+    const same = rnLand.landedPathsOf({ root: dir, legs: ['spacing'] })
+    assert.equal(same.paths.has(rel), true, '同腿集必须照旧跳过(反向对照)')
+    // 向后兼容:不声明腿的旧调用形态维持原语义
+    assert.equal(rnLand.landedPathsOf({ root: dir }).paths.has(rel), true)
+    // 超集行反过来能替子集轮子背书(落点必须真实存在,否则 collectiblePaths 量不到 blob ⇒ contested)
+    put(dir, 'apps/mobile-rn/src/x.tsx', 'const a = 1\n')
+    appendLanding(
+      [
+        {
+          at: agedIso(10),
+          leg: rnLand.LEG_NAME,
+          path: 'apps/mobile-rn/src/x.tsx',
+          blobOid: hash(dir, 'apps/mobile-rn/src/x.tsx'),
+          legs: ['fontSize', 'radius', 'spacing'],
+        },
+      ],
+      { root: dir },
+    )
+    const superset = rnLand.landedPathsOf({ root: dir, legs: ['spacing', 'fontSize'] })
+    assert.equal(superset.paths.has('apps/mobile-rn/src/x.tsx'), true, '行腿集 ⊇ 本轮 ⇒ 背书')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 // 水印由 scripts/watermark.mjs inject 追加(勿手改本行以下区域)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

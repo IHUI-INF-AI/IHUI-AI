@@ -56,6 +56,32 @@ export function landingKeyOf(row) {
   return `${row?.leg ?? ''}\u0000${row?.path ?? ''}`
 }
 
+/**
+ * 腿清单归一(纯函数):非空字符串数组 ⇒ 去重 + 字典序;拿不出合规形态 ⇒ undefined(不写这格)。
+ * 排序是为了让同一腿集逐字节同形(账本可读、幂等重放不造新行)。
+ */
+export function normalizeLegs(value) {
+  if (!Array.isArray(value)) return undefined
+  const clean = [...new Set(value.map((v) => String(v ?? '').trim()).filter(Boolean))].sort()
+  return clean.length ? clean : undefined
+}
+
+/**
+ * 这一行能不能替本轮的轴背书(唯一判据,三枚 lander 共用,§0.6 禁各写一份):
+ *  · 本轮没声明轴(needLegs 空)⇒ 沿用旧口径,行即有效(向后兼容,旧调用方零改);
+ *  · 本轮声明了轴而该行没记轴 ⇒ **不背书**——窄轴落过的历史行说不出"字号腿也落过了"
+ *    (2026-11-05 实测:land-rn 字号腿 11-05 才随守护同口径补上,而 11-04 的 spacing-only
+ *     登记把 Carousel.tsx 钉成"已落",预览恒报待落、写档恒报 skipLanded);
+ *    失效方向恒为"多做一遍"(重查一次,内容没变则不写盘、不追账),绝不是"少放一次"(§0.10)。
+ */
+export function legsCover(rowLegs, needLegs) {
+  const need = normalizeLegs(needLegs)
+  if (!need) return true
+  const have = normalizeLegs(rowLegs)
+  if (!have) return false
+  return need.every((l) => have.includes(l))
+}
+
 /** 单行解析(纯函数):空行/非对象/非法 JSON ⇒ null,由调用方归 unreadable。 */
 export function parseLine(text) {
   const s = String(text ?? '').trim()
@@ -223,6 +249,10 @@ export function appendLanding(entries, opts = {}) {
     }
     seen.add(composite)
     const row = { at: iso, leg: String(e.leg), path: String(e.path), blobOid: oid }
+    // 腿清单(可选):登记"这一行是为哪几条轴落的"。只按 leg 名跳过的旧口径,会让后开的轴
+    // 永久跳过早前窄轴落过的文件(判据 = 本库 legsCover)。
+    const rowLegs = normalizeLegs(e.legs)
+    if (rowLegs) row.legs = rowLegs
     if (typeof e.landedSha === 'string' && e.landedSha.trim() !== '') row.landedSha = e.landedSha.trim()
     toWrite.push(row)
   }
@@ -321,7 +351,14 @@ export function collectiblePaths(now, { quietMs = DEFAULT_QUIET_MS, face = 'work
     const expected = String(row.blobOid).trim().toLowerCase()
     const actual = actualOf.get(row.path)
     if (actual === expected) {
-      collectible.push({ leg: row.leg, path: row.path, blobOid: expected, ageMs: c.age })
+      const rowLegs = normalizeLegs(row.legs)
+      collectible.push({
+        leg: row.leg,
+        path: row.path,
+        blobOid: expected,
+        ageMs: c.age,
+        ...(rowLegs ? { legs: rowLegs } : {}),
+      })
     } else {
       contested.push({ leg: row.leg, path: row.path, expectedOid: expected, actualOid: actual ?? null })
     }

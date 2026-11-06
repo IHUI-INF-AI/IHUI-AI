@@ -146,6 +146,8 @@ import {
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
   ChatScreen as SharedChatScreen,
+  ChatCollapsibleCard,
+  ChatCompactionBanner,
   ContextUsagePanel,
   type ChatScreenMessage,
   type ChatScreenModel,
@@ -2171,41 +2173,33 @@ export function ChatScreen() {
     const nodes: React.ReactNode[] = []
     // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
     nodes.push(
-      <View key="tishi-block" style={styles.tishiBlock}>
-        <Tappable
-          style={styles.tishiBtn}
-          onPress={() => setTishiShow((v) => !v)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={tishiShow ? t('chat.closeCard') : t('chat.viewCard')}
-        >
-          <Text style={styles.tishiBtnText}>
-            {tishiShow ? t('chat.closeCardShort') : t('chat.viewCardShort')}
-            {t('chat.cardWord')}
-          </Text>
-        </Tappable>
-        {tishiShow ? (
-          <View style={styles.tishiCardWrap}>
-            <IntelligentAssistant
-              tokenQuantity={tokenQuantity}
-              onRecharge={() => onNavigate('AppTopup')}
-            />
-          </View>
-        ) : null}
-      </View>,
+      <ChatCollapsibleCard
+        key="tishi-block"
+        t={t}
+        colorScheme={resolvedTheme}
+        expanded={tishiShow}
+        onToggle={() => setTishiShow((v) => !v)}
+        collapsedLabel={t('chat.viewCardShort')}
+        expandedLabel={t('chat.closeCardShort')}
+        title={t('chat.cardWord')}
+        body={
+          <IntelligentAssistant
+            tokenQuantity={tokenQuantity}
+            onRecharge={() => onNavigate('AppTopup')}
+          />
+        }
+      />,
     )
     if (compactionInfo) {
       nodes.push(
-        <View style={styles.compactionBanner}>
-          <Text style={styles.compactionTitle}>{t('chatAlert.compaction.title')}</Text>
-          <Text style={styles.compactionMessage}>
-            {t('chatAlert.compaction.message', {
-              before: compactionInfo.before,
-              after: compactionInfo.after,
-              removed: compactionInfo.removed,
-            })}
-          </Text>
-        </View>,
+        <ChatCompactionBanner
+          key="compaction-banner"
+          t={t}
+          colorScheme={resolvedTheme}
+          before={compactionInfo.before}
+          after={compactionInfo.after}
+          removed={compactionInfo.removed}
+        />,
       )
     }
     // D135 交互帧最小可视态(列表条目):AI 提问 / 业务表单请求帧到了就得看得见;
@@ -2913,33 +2907,39 @@ export function ChatScreen() {
           colorScheme={resolvedTheme}
           onNavigate={onNavigate}
           onToast={onToast}
+          statusSlot={
+            /* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */
+            <TaskStatusBar
+              planSteps={planViz?.planSteps ?? []}
+              toolCalls={planViz?.toolCalls}
+              isStreaming={isStreaming}
+            />
+          }
+          queueSlot={
+            <>
+              {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
+              <QueueInteractionBar
+                items={sideQueue}
+                streaming={isStreaming}
+                mode={followUpMode}
+                // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
+                awaitingApproval={toolApproval.awaitingApproval}
+                onReorder={handleQueueReorder}
+                onUndo={handleQueueUndo}
+                onEdit={handleQueueEdit}
+                onInterruptAndRun={handleInterruptAndRun}
+                onModeChange={handleFollowUpModeChange}
+              />
+              {/*
+                D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
+                数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
+                本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
+                FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
+              */}
+              <McpStatusStrip />
+            </>
+          }
         />
-        {/* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */}
-        <TaskStatusBar
-          planSteps={planViz?.planSteps ?? []}
-          toolCalls={planViz?.toolCalls}
-          isStreaming={isStreaming}
-        />
-        {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
-        <QueueInteractionBar
-          items={sideQueue}
-          streaming={isStreaming}
-          mode={followUpMode}
-          // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
-          awaitingApproval={toolApproval.awaitingApproval}
-          onReorder={handleQueueReorder}
-          onUndo={handleQueueUndo}
-          onEdit={handleQueueEdit}
-          onInterruptAndRun={handleInterruptAndRun}
-          onModeChange={handleFollowUpModeChange}
-        />
-        {/*
-          D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
-          数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
-          本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
-          FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
-        */}
-        <McpStatusStrip />
         <ChatInputBar
           prompt={prompt}
           onPromptChange={updatePrompt}

@@ -1190,7 +1190,15 @@
     "getCode": "Get code",
     "confirmLabel": "Confirmation text",
     "confirmPlaceholder": "Enter the text above",
-    "failed": "Account cancellation failed, please try again"
+    "failed": "Account cancellation failed, please try again",
+    "warning": "After account deletion, all your data will be permanently deleted and cannot be recovered.",
+    "consequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "consequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "consequence3": "Published posts, comments, favorites and chat history will be erased",
+    "consequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "consequence5": "Active memberships and courses will end immediately with no refund",
+    "consequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "consequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "ask": {
     "create": {
@@ -2948,7 +2956,9 @@
       "verifiedTip": "Current phone number verified",
       "bindDesc": "After binding, you can use it to log in, retrieve your password, and receive notifications",
       "bindTitle": "Bind Phone Number",
-      "codeLength": "Please enter the 6-digit verification code"
+      "codeLength": "Please enter the 6-digit verification code",
+      "selectNation": "Select country code",
+      "resend": "Retry in {s}s"
     },
     "profile": {
       "avatar": "Avatar",
@@ -6800,7 +6810,15 @@
     "newPassword": "New Password",
     "language": "Language",
     "theme": "Theme",
-    "version": "Version"
+    "version": "Version",
+    "accountDeletionConsequenceTitle": "What Happens After Deletion",
+    "accountDeletionConsequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "accountDeletionConsequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "accountDeletionConsequence3": "Published posts, comments, favorites and chat history will be erased",
+    "accountDeletionConsequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "accountDeletionConsequence5": "Active memberships and courses will end immediately with no refund",
+    "accountDeletionConsequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "accountDeletionConsequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "liveList": {
     "subtitle": "Great streams you won't want to miss",
@@ -6880,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "Conversations",
+    "deleteConv": "Delete conversation",
+    "loadMore": "Load more",
+    "markRead": "Mark as read",
+    "searchPh": "Search chats, contacts, services",
     "title": "Messages",
     "type": {
       "course": "Course",

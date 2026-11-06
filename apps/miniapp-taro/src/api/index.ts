@@ -262,6 +262,10 @@ export const getLiveList = (params?: { page?: number; pageSize?: number; status?
 /** 直播详情 */
 export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
 
+// 直播订阅端点已下沉 @ihui/api-client(endpoints/live.ts),端内不再自拼路径。
+// 显式具名再导出:本文件另有同名的本地 getLiveList,不能用 export * 整模块转出。
+export { getLiveSubscriptions, unsubscribeLive } from '@ihui/api-client'
+
 /* ============ 订单 ============ */
 
 /**
@@ -1107,7 +1111,9 @@ export const getAskList = (params?: { page?: number; pageSize?: number; keyword?
   get<{ list: Ask[]; total: number }>('/asks', params)
 export const getAskDetail = (id: string | number) =>
   get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
-export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
+// POST /asks 的同名薄封装已退役:唯一消费方 apps/miniapp-taro/src/pages/ask/create.tsx 改打
+// @ihui/api-client 的 createAsk(endpoints/community.ts),与 web 的 asks/edit 页、RN 的
+// AskCreateScreen 同一份端点真相源(§3 共享层优先:端内不得留第二份同名封装)。
 
 /* Ask 模块扩展（M-64 + D7/D8 端点） */
 export const getAskCategories = () =>

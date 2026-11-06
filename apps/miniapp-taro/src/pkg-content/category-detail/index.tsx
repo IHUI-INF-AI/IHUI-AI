@@ -2,16 +2,18 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/category-detail/CategoryDetailScreen.tsx
-import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+// 薄壳:渲染全部委托共享屏 packages/app/src/features/category-detail/CategoryDetailScreen.tsx
+// 端内保留:① 路由参数 id/categoryId;② getAgentList 取数;③ 三档排序(推荐=接口原序 / 热门=useCount 降序 / 最新=反转);
+// ④ 标题取词与三档文案 i18n;⑤ 条目跳转。
+// 删除:tags 分支 —— 无数据源(定义在本地 AgentItem,但映射从未赋值;API Agent 契约也无 tags),非漏渲染。
+import { useI18n, useTt } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import type { Agent } from '@ihui/api-client'
 import { getAgentList } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { useTheme } from '@/rn-compat/theme'
+import { CategoryDetailScreen } from '@ihui/rn-app/features/category-detail/CategoryDetailScreen'
 
 /** 本地视图模型:id 由 @/api 的 getAgentList 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id) */
 type AgentItem = Pick<Agent, 'name'> & {
@@ -19,16 +21,38 @@ type AgentItem = Pick<Agent, 'name'> & {
   description?: string
   avatar?: string
   useCount?: number
-  tags?: string[]
 }
 
-type SortType = 'hot' | 'new'
+/** 取数行 → 共享屏条目;avatar/useCount 在此映射(测试断言这两枚,摘掉即红) */
+export function toAgentItem(a: {
+  id: string
+  name: string
+  desc?: string
+  avatar?: string
+  uses?: number
+}): AgentItem {
+  return {
+    id: a.id,
+    name: a.name,
+    description: a.desc,
+    avatar: a.avatar,
+    useCount: a.uses,
+  }
+}
+
+export function sortItems(list: AgentItem[], tab: string): AgentItem[] {
+  if (tab === '热门') return [...list].sort((a, b) => (b.useCount || 0) - (a.useCount || 0))
+  if (tab === '最新') return [...list].reverse()
+  return list
+}
 
 export default function CategoryDetailPage() {
   const { t } = useI18n()
+  const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [sort, setSort] = useState<SortType>('hot')
+  const [activeTab, setActiveTab] = useState<string>('热门')
   const [categoryId, setCategoryId] = useState('')
 
   const load = useCallback(async () => {
@@ -39,117 +63,46 @@ export default function CategoryDetailPage() {
     setLoading(true)
     try {
       const res = await getAgentList()
-      let agents: AgentItem[] = (res.list || []).map((a) => ({
-        id: a.id,
-        name: a.name,
-        description: a.desc,
-        avatar: a.avatar,
-        useCount: a.uses,
-      }))
-      if (sort === 'hot') {
-        agents = [...agents].sort((a, b) => (b.useCount || 0) - (a.useCount || 0))
-      } else {
-        agents = [...agents].reverse()
-      }
-      setList(agents)
+      const agents: AgentItem[] = (res.list || []).map(toAgentItem)
+      setList(sortItems(agents, activeTab))
     } catch {
-      // ignore
+      // 对齐原页:失败保持空态;重试入口由共享屏 onRetry 提供
     } finally {
       setLoading(false)
     }
-  }, [sort])
+  }, [activeTab])
 
   useDidShow(load)
 
-  const handleSelect = (agent: AgentItem) => {
-    Taro.navigateTo({ url: `/pkg-ai/ai/agent-detail?id=${agent.id}` })
-  }
-
-  const toggleSort = () => {
-    setSort(sort === 'hot' ? 'new' : 'hot')
-  }
-
   return (
     <ThemeRoot>
-      {/* RN: container bg surface.bg */}
-      <View className="min-h-screen bg-background">
-        {/* RN header: paddingHorizontal 10dp=20rpx, paddingBottom 12dp=24rpx; 顶部 48dp 为 RN 状态栏补偿,小程序由系统导航栏承担 */}
-        <View className="flex items-center justify-between px-[20rpx] pt-[16rpx] pb-[24rpx]">
-          <Text className="text-heading font-semibold text-foreground">
-            {categoryId
-              ? t('categoryDetail.categoryId', { id: categoryId })
-              : t('categoryDetail.allCategories')}
-          </Text>
-          {/* RN tab: paddingHorizontal 10dp=20rpx, paddingVertical 6dp=12rpx, radius 6dp=12rpx, bg surface.card */}
-          <View
-            className="flex items-center px-[20rpx] py-[12rpx] ui-card rounded-lg bg-card"
-            hoverClass="opacity-60"
-            onClick={toggleSort}
-          >
-            <Text className="text-body text-muted-foreground">
-              {sort === 'hot' ? t('categoryDetail.hot') : t('categoryDetail.new')}
-            </Text>
-          </View>
-        </View>
-
-        {loading ? (
-          <ScreenSkeleton variant="list" count={4} />
-        ) : list.length === 0 ? (
-          <EmptyState title={t('categoryDetail.empty')} />
-        ) : (
-          <View className="px-[20rpx] pb-[48rpx]">
-            {list.map((agent) => (
-              <PressableCard
-                key={agent.id}
-                className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-lg"
-                onClick={() => handleSelect(agent)}
-              >
-                {agent.avatar ? (
-                  <Image
-                    className="w-[96rpx] h-[96rpx] rounded-md bg-muted"
-                    src={agent.avatar}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="flex items-center justify-center w-[96rpx] h-[96rpx] rounded-md bg-muted">
-                    <Text className="text-title font-medium text-muted-foreground">
-                      {agent.name.charAt(0)}
-                    </Text>
-                  </View>
-                )}
-                <View className="flex-1 min-w-0">
-                  <Text className="block text-title font-semibold text-foreground truncate">
-                    {agent.name}
-                  </Text>
-                  <Text className="block text-body text-muted-foreground truncate mt-[16rpx]">
-                    {agent.description || t('categoryDetail.noDesc')}
-                  </Text>
-                  {agent.tags && agent.tags.length > 0 && (
-                    <View className="flex flex-wrap mt-[8rpx]">
-                      {agent.tags.slice(0, 2).map((tag, i) => (
-                        <Text
-                          key={i}
-                          className="text-badge px-[12rpx] py-[4rpx] mr-[8rpx] rounded bg-muted text-muted-foreground"
-                        >
-                          {tag}
-                        </Text>
-                      ))}
-                    </View>
-                  )}
-                </View>
-                {agent.useCount !== undefined && (
-                  <Text className="text-body text-muted-foreground">
-                    {t('categoryDetail.useCount', { n: agent.useCount })}
-                  </Text>
-                )}
-                {/* RN itemArrow '›': fontSize 20dp=40rpx, color text.tertiary */}
-                <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-              </PressableCard>
-            ))}
-          </View>
-        )}
-      </View>
+      <CategoryDetailScreen
+        t={t}
+        items={list}
+        activeTab={activeTab}
+        title={
+          categoryId
+            ? t('categoryDetail.categoryId', { id: categoryId })
+            : t('categoryDetail.allCategories')
+        }
+        tabLabels={[
+          tt('categoryDetail.recommended', '推荐'),
+          t('categoryDetail.hot'),
+          t('categoryDetail.new'),
+        ]}
+        loading={loading}
+        hasMore={false}
+        error=""
+        onTabChange={(tab) => {
+          setActiveTab(tab)
+          setList((prev) => sortItems(prev, tab))
+        }}
+        onLoadMore={() => undefined}
+        onAgentPress={(id) => Taro.navigateTo({ url: `/pkg-ai/ai/agent-detail?id=${id}` })}
+        onBack={() => void Taro.navigateBack()}
+        onRetry={() => void load()}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
