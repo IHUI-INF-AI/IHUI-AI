@@ -91,7 +91,7 @@ BEGIN
                AND column_name = 'original_messages' AND data_type <> 'integer') THEN
     IF row_count = 0 THEN
       ALTER TABLE "agent_working_memory_compression" DROP COLUMN "original_messages";
-      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "original_messages" integer NOT NULL DEFAULT 0;
+      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "original_messages" integer NOT NULL;
     ELSE
       RAISE NOTICE 'BUG-90: agent_working_memory_compression 现有 % 行，跳过 original_messages 重建', row_count;
     END IF;
@@ -101,7 +101,7 @@ BEGIN
                AND column_name = 'compressed_to' AND data_type <> 'integer') THEN
     IF row_count = 0 THEN
       ALTER TABLE "agent_working_memory_compression" DROP COLUMN "compressed_to";
-      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "compressed_to" integer NOT NULL DEFAULT 0;
+      ALTER TABLE "agent_working_memory_compression" ADD COLUMN "compressed_to" integer NOT NULL;
     ELSE
       RAISE NOTICE 'BUG-90: agent_working_memory_compression 现有 % 行，跳过 compressed_to 重建', row_count;
     END IF;
