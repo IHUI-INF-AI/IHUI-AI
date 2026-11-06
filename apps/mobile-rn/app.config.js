@@ -128,6 +128,16 @@ module.exports = ({ config }) => {
     // OTA 桶与显示版本解耦(见 resolveRuntimeVersion 头注)——policy:"appVersion" 会把
     // 每次自动涨的 displayVersion 当成桶,导致 OTA 对已装用户永久不可达。
     runtimeVersion: resolveRuntimeVersion(),
+    // OTA 渠道钉死(2026-11-06):本地 gradlew 构建不经过 EAS CLI,不会把 channel 烤进包;
+    // expo-updates 只从请求头 expo-channel-name 取渠道 ⇒ 不带就是空渠道,EAS 侧永远判"无更新"
+    // (发了 OTA 没人收得到)。这里显式带上,与自动发版发布用的 --channel production 对齐。
+    updates: {
+      ...(config.updates ?? {}),
+      requestHeaders: {
+        ...((config.updates && config.updates.requestHeaders) ?? {}),
+        'expo-channel-name': process.env.IHUI_OTA_CHANNEL || 'production',
+      },
+    },
     android: { ...config.android, versionCode: buildNumber },
     ios: { ...config.ios, buildNumber: String(buildNumber) },
     plugins: [
@@ -170,6 +180,10 @@ module.exports = ({ config }) => {
       // 刻意排在 withPermissionPruning 之后:那条只管摘除,本条的"增"要落在最后一步,
       // 万一将来有人误把 REQUEST_INSTALL_PACKAGES 加进摘除集,插件会显式告警而不是静默失效。
       './plugins/withApkInstaller.cjs',
+      // 免点击安装(2026-11-05 立):系统安装器的确认键没有 API 可绕过(除 Device Owner/root/ADB),
+      // 唯一合法自动化手段是 AccessibilityService —— 由用户一次性在系统设置启用,之后代点确认。
+      // 服务只认安装器包名 + 界面出现本应用名,装别的 App 一律不碰(见插件头注的安全边界)。
+      './plugins/withAutoInstaller.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name
