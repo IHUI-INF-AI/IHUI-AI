@@ -7,13 +7,14 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Calendar, ChevronLeft, ChevronRight, Loader2, UserCheck } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Loader2, LogOut, UserCheck } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { SelfAttendanceTable, type StudentAttendanceRecord } from './SelfAttendanceTable'
+import { monthKey, monthRange, shiftMonth, todayStr } from './month'
 
 /** 状态码 → 取词键(与教师端协议码同源);value 是协议码不得取词 */
 const STATUS_KEYS: Record<string, string> = {
@@ -22,34 +23,6 @@ const STATUS_KEYS: Record<string, string> = {
   early: 'statusEarly',
   absent: 'statusAbsent',
   leave: 'statusLeave',
-}
-
-function todayStr(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-/** 本地业务月键('YYYY-MM');视图按整月推进,不硬编码天数 */
-function monthKey(dateStr: string): string {
-  return dateStr.slice(0, 7)
-}
-
-/** 'YYYY-MM' ⇒ 该月首末日(后端 GET /attendance/me 的 startDate/endDate 现读口径) */
-function monthRange(month: string): { startDate: string; endDate: string } {
-  const [year, num] = month.split('-').map(Number)
-  const last = new Date(year, num, 0)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return {
-    startDate: `${month}-01`,
-    endDate: `${last.getFullYear()}-${pad(last.getMonth() + 1)}-${pad(last.getDate())}`,
-  }
-}
-
-/** 整月前进一步/退一步(跨年由 Date 进位,不在端上补两位判断) */
-function shiftMonth(month: string, delta: number): string {
-  const [year, num] = month.split('-').map(Number)
-  const d = new Date(year, num - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 export default function MyAttendancePageClient() {
@@ -63,6 +36,12 @@ export default function MyAttendancePageClient() {
   const [month, setMonth] = React.useState(currentMonth)
   const [remark, setRemark] = React.useState('')
   const [signed, setSigned] = React.useState(false)
+  const [checkedOut, setCheckedOut] = React.useState(false)
+  // 切月即清掉上一月的成功横幅;今日签/退成功在当月内保持
+  React.useEffect(() => {
+    setSigned(false)
+    setCheckedOut(false)
+  }, [month])
   const viewRange = monthRange(month)
   /** 视图含今日才摆自签入口:翻到历史月时给一枚「点了签的是今天」的按钮是骗人 */
   const showsToday = month === currentMonth
@@ -95,8 +74,23 @@ export default function MyAttendancePageClient() {
     },
   })
 
+  // 自签退载荷只带业务日:身份/班级由后端按登录态现取;重复签退由后端幂等口径裁决(409 上屏)
+  const selfCheckOutMutation = useMutation({
+    mutationFn: () =>
+      apiOrThrow<{ classId: string; status: string; checkOutTime: string }>(
+        '/api/edu-ai-management/attendance/self-check-out',
+        { method: 'POST', body: JSON.stringify({ date: today }) },
+      ),
+    onSuccess: () => {
+      setCheckedOut(true)
+      queryClient.invalidateQueries({ queryKey: ['edu-attendance-self'] })
+    },
+  })
+
   const records = (recordsQuery.data?.list ?? []).filter((r) => !('deletedAt' in r && r.deletedAt))
   const todayRecord = records.find((r) => r.date === today) ?? null
+  /** 签退资格只由后端协议行现算:今日已签到且尚未签退;不另造状态判据 */
+  const canSelfCheckOut = !!todayRecord?.checkInTime && !todayRecord?.checkOutTime
 
   /** 后端可读 message 优先显示(409 取不到在册班级 / 403 / 401 一律不许静默) */
   const serverMessage = (error: unknown, fallbackKey: string): string => {
@@ -134,14 +128,11 @@ export default function MyAttendancePageClient() {
               size="icon-xs"
               variant="outline"
               aria-label={t('prevMonth')}
-              onClick={() => {
-                setMonth((m) => shiftMonth(m, -1))
-                setSigned(false)
-              }}
+              onClick={() => setMonth((m) => shiftMonth(m, -1))}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="inline-flex items-center gap-1 text-sm font-semibold tabular-nums">
+            <span className="inline-flex items-center gap-1 text-body font-semibold tabular-nums">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               {month}
             </span>
@@ -149,22 +140,12 @@ export default function MyAttendancePageClient() {
               size="icon-xs"
               variant="outline"
               aria-label={t('nextMonth')}
-              onClick={() => {
-                setMonth((m) => shiftMonth(m, 1))
-                setSigned(false)
-              }}
+              onClick={() => setMonth((m) => shiftMonth(m, 1))}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
             {!showsToday && (
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  setMonth(currentMonth)
-                  setSigned(false)
-                }}
-              >
+              <Button size="xs" variant="ghost" onClick={() => setMonth(currentMonth)}>
                 {t('thisMonth')}
               </Button>
             )}
@@ -195,6 +176,19 @@ export default function MyAttendancePageClient() {
                 )}
                 {t('selfCheckIn')}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => selfCheckOutMutation.mutate()}
+                disabled={selfCheckOutMutation.isPending || !canSelfCheckOut}
+              >
+                {selfCheckOutMutation.isPending ? (
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="mr-1 h-3.5 w-3.5" />
+                )}
+                {t('checkOut')}
+              </Button>
             </>
           )}
           {recordsQuery.isLoading && (
@@ -207,6 +201,13 @@ export default function MyAttendancePageClient() {
       </Card>
 
       {signed && <Alert variant="success" description={t('selfCheckInSuccess')} />}
+      {checkedOut && <Alert variant="success" description={t('selfCheckOutSuccess')} />}
+      {selfCheckOutMutation.error && (
+        <Alert
+          variant="danger"
+          description={serverMessage(selfCheckOutMutation.error, 'selfCheckOutFailed')}
+        />
+      )}
       {selfCheckInMutation.error && (
         <Alert
           variant="danger"

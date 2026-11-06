@@ -37,14 +37,33 @@ vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({ user: { id: 'stu-1' }, isAuthenticated: true }),
 }))
 
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  // 只替换本页与 ui-react 走到的图标出口,其余保持真实模块(避免 mock 漏出口连坐)
   const Icon = () => <span data-testid="icon" />
-  return { Calendar: Icon, ChevronLeft: Icon, ChevronRight: Icon, Loader2: Icon, UserCheck: Icon }
+  return {
+    ...actual,
+    Calendar: Icon,
+    ChevronLeft: Icon,
+    ChevronRight: Icon,
+    Loader2: Icon,
+    LogOut: Icon,
+    UserCheck: Icon,
+    CheckCircle2: Icon,
+    AlertCircle: Icon,
+    Terminal: Icon,
+  }
 })
 
 vi.mock('@/components/feedback', () => ({
   Alert: ({ description }: { description: string }) => <div>{description}</div>,
 }))
+
+// 固定业务日(=2024-02-29,闰年当月末日 29);只替换时钟出口,月推进逻辑仍走真实实现
+vi.mock('../month', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, todayStr: () => '2024-02-29' }
+})
 
 /** 同月两日(其中一日就是"今日"):旧实现只能渲染当日那一行 */
 const ROWS = [
@@ -53,6 +72,7 @@ const ROWS = [
     classId: 'c-1',
     date: '2024-02-29',
     checkInTime: '2024-02-29T00:10:00.000Z',
+    checkOutTime: null,
     status: 'present',
     checkInMethod: 'self',
     remark: null,
@@ -62,6 +82,7 @@ const ROWS = [
     classId: 'c-1',
     date: '2024-02-28',
     checkInTime: '2024-02-28T00:20:00.000Z',
+    checkOutTime: null,
     status: 'late',
     checkInMethod: 'qrcode',
     remark: null,
@@ -84,18 +105,19 @@ function selfReadUrls(): string[] {
     .filter((u) => u.includes('/attendance/me'))
 }
 
+/** 自签退的 POST 调用(端点 + 入参) */
+function selfCheckOutCalls(): unknown[][] {
+  return apiOrThrowMock.mock.calls.filter((c) => String(c[0]).includes('/self-check-out'))
+}
+
 describe('学生本人考勤页 · 整月区间', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
-    // 本地 2024-02-29 12:00 ⇒ "今日"= 2024-02-29,当月末日 = 29(闰年)
-    vi.setSystemTime(new Date(2024, 1, 29, 12, 0, 0))
     apiOrThrowMock.mockReset()
     apiOrThrowMock.mockResolvedValue({ list: ROWS })
   })
 
   afterEach(() => {
     cleanup()
-    vi.useRealTimers()
   })
 
   it('T1 首屏按整月区间问数,不再只传 date=当日', async () => {
@@ -145,7 +167,51 @@ describe('学生本人考勤页 · 整月区间', () => {
     fireEvent.click(screen.getByRole('button', { name: 'thisMonth' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'selfCheckIn' })).toBeTruthy())
     // 视图里 2024-02-29 已有 checkInTime ⇒ 自签按钮必须落在"今日已签"禁用态,不给重复签
-    await waitFor(() => expect(screen.getByRole('button', { name: 'selfCheckIn' })).toBeDisabled())
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'selfCheckIn' }) as HTMLButtonElement).disabled,
+      ).toBe(true),
+    )
+  })
+
+  it('T6 签退入口:今日已签到未签退时可点,POST 自签退载荷只带业务日', async () => {
+    mount()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'checkOut' })).toBeTruthy())
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'checkOut' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'checkOut' }))
+    await waitFor(() => expect(selfCheckOutCalls().length).toBe(1))
+    const call = selfCheckOutCalls()[0] ?? []
+    expect(call[0]).toBe('/api/edu-ai-management/attendance/self-check-out')
+    expect(JSON.parse(String((call[1] as { body: string }).body))).toEqual({
+      date: '2024-02-29',
+    })
+    await waitFor(() => expect(screen.getByText('selfCheckOutSuccess')).toBeTruthy())
+  })
+
+  it('T7 今日已签退:签退入口禁用,不给重复提交', async () => {
+    apiOrThrowMock.mockResolvedValue({
+      list: [{ ...ROWS[0], checkOutTime: '2024-02-29T09:00:00.000Z' }],
+    })
+    mount()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'checkOut' })).toBeTruthy())
+    expect((screen.getByRole('button', { name: 'checkOut' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
+  })
+
+  it('T8 今日未签到:签退入口禁用(先签到后签退由后端口径裁决)', async () => {
+    apiOrThrowMock.mockResolvedValue({
+      list: [{ ...ROWS[0], checkInTime: null, checkOutTime: null }],
+    })
+    mount()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'checkOut' })).toBeTruthy())
+    expect((screen.getByRole('button', { name: 'checkOut' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
