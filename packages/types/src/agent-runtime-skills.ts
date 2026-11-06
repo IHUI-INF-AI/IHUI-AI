@@ -39,6 +39,22 @@ export interface SkillFrontmatter {
   relatedSkills?: string[]
   /** 是否启用渐进式加载(元数据→指令→引用 3 层),默认 false */
   progressiveDisclosure?: boolean
+  /**
+   * 人能不能用斜杠把技能正文调出来。缺席=沿用旧行为(可以)。
+   * false=这条入口不执行。null=键在但值认不出,按未判定,不执行。
+   */
+  userInvocable?: boolean | null
+  /**
+   * 模型能不能通过 Skill 工具取正文。缺席=可以。
+   * false=不放行。null=值认不出,不放行。
+   */
+  modelInvocable?: boolean | null
+  /**
+   * 技能是否还在架上。缺席=在架。
+   * 四个终态各自记责任:平台下架、用户下架、退役、已删除。
+   * null=键在但值不在这四态里,未判定,不当成在架。
+   */
+  listing?: 'platform_unlisted' | 'user_unlisted' | 'retired' | 'removed' | null
   /** 来源:builtin(预置)/ user(用户编写)/ auto(自进化生成)/ hub(Skills Hub) */
   source?: SkillSource
   /**
