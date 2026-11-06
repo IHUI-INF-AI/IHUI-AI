@@ -74,7 +74,8 @@ describe('validateSettingsValues 纯函数', () => {
   it('未知键原样保留(全局层无封闭白名单需求;本票只判类型,如实不装作全覆盖)', () => {
     const { value, warnings } = validateSettingsValues({ myCustomExtension: { a: 1 } })
     expect(warnings).toEqual([])
-    expect(value.myCustomExtension).toEqual({ a: 1 })
+    // 未知键刻意在 Settings 类型之外,运行时保留;经 Record 视图取值,不 widen 返回类型
+    expect((value as Record<string, unknown>).myCustomExtension).toEqual({ a: 1 })
   })
 })
 
