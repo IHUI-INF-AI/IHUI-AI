@@ -14,7 +14,7 @@ import { render, waitFor } from '@testing-library/react'
 
 const { captured } = vi.hoisted(() => ({ captured: vi.fn() }))
 
-vi.mock('@ihui/rn-app/features/message-center/MessageCenterScreen', () => ({
+vi.mock('@ihui/rn-app', () => ({
   MessageCenterScreen: (props: Record<string, unknown>) => {
     captured(props)
     return null
