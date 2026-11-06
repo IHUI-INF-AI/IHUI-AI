@@ -70,7 +70,13 @@ const DB_PKG_JSON = join(ROOT, 'packages/database/package.json')
  * 与 TS schema 共同期望的形状 → 第二遍 325 变 no-op 通过。本门**复用**该脚本(子进程 +
  * DATABASE_URL 指向临时库),不复制任何判据。
  */
-const FRESH_DB_GUARD_PATH = join(ROOT, 'packages', 'database', 'scripts', 'pre-migrate-fresh-db-guard.mjs')
+const FRESH_DB_GUARD_PATH = join(
+  ROOT,
+  'packages',
+  'database',
+  'scripts',
+  'pre-migrate-fresh-db-guard.mjs',
+)
 const FRESH_DB_GUARD_TIMEOUT_MS = 120_000
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
@@ -121,6 +127,97 @@ const KNOWN_SCHEMA_HOLES = {
 const MAX_REPORTED_FAILURES = 25
 const PSQL_TIMEOUT_MS = 180_000
 const DRIZZLE_MIGRATE_TIMEOUT_MS = 1_800_000
+
+/**
+ * 2026-11-06 增补:「21:05 批」8 个改写件(8362ac24fa)的回归夹具。
+ * 该批为收口 BUG-85/86/87/88/89/90 给既有迁移加了 IF NOT EXISTS / DO 守卫 / DEFAULT,
+ * 但 0212 把搜索型 WHEN 混进简单 CASE,CASE 从空库重放时 42883 中断整链(本项目实测)。
+ * 这里在迁移后的库上逐条验证「改写意图仍成立」——只读 pg_catalog,不改任何判据:
+ *   ① 守卫没被删:唯一约束/索引实际建成(空库无重复数据,必须真建出来);
+ *   ② 为放行重放临时加的 DEFAULT 已撤:列默认值必须为 <none>(与 TS schema 一致);
+ *   ③ 0212 的类型改写已生效(order_type 必须是 integer)。
+ * 任一条不成立 ⇒ 门 FAIL。新增/删除条目必须同步改镜像测试的 tag 清单。
+ */
+const REWRITE_REGRESSIONS = [
+  {
+    tag: '0085_exam_wrong_unique',
+    label: 'exam_wrong_question 唯一约束建成',
+    sql: "SELECT count(*)::text FROM pg_constraint WHERE conname = 'exam_wrong_question_user_question_unique'",
+    expected: '1',
+  },
+  {
+    tag: '0108_r83_supplement_27_tables',
+    label: 'oauth_private_keys.client_id 无默认值',
+    sql: "SELECT coalesce(column_default,'<none>') FROM information_schema.columns WHERE table_name='oauth_private_keys' AND column_name='client_id'",
+    expected: '<none>',
+  },
+  {
+    tag: '0108_r83_supplement_27_tables',
+    label: 'oauth_private_keys.private_key 无默认值',
+    sql: "SELECT coalesce(column_default,'<none>') FROM information_schema.columns WHERE table_name='oauth_private_keys' AND column_name='private_key'",
+    expected: '<none>',
+  },
+  {
+    tag: '0115_r82_seed_unique_indexes',
+    label: '4 张内容表 title 唯一索引建成',
+    sql: "SELECT count(*)::text FROM pg_class WHERE relkind='i' AND relname IN ('live_channels_title_uniq','news_articles_title_uniq','asks_title_uniq','resources_title_uniq')",
+    expected: '4',
+  },
+  {
+    tag: '0125_knowledge_graph',
+    label: '知识图谱 2 个唯一索引建成',
+    sql: "SELECT count(*)::text FROM pg_class WHERE relkind='i' AND relname IN ('ux_knowledge_entity_owner_name_type','ux_knowledge_relation_edge')",
+    expected: '2',
+  },
+  {
+    tag: '0126_ai-world-sync',
+    label: 'ai_world_categories.slug 无默认值',
+    sql: "SELECT coalesce(column_default,'<none>') FROM information_schema.columns WHERE table_name='ai_world_categories' AND column_name='slug'",
+    expected: '<none>',
+  },
+  {
+    tag: '0126_ai-world-sync',
+    label: 'ai_world_items.kind 无默认值',
+    sql: "SELECT coalesce(column_default,'<none>') FROM information_schema.columns WHERE table_name='ai_world_items' AND column_name='kind'",
+    expected: '<none>',
+  },
+  {
+    tag: '0126_ai-world-sync',
+    label: 'ai_world_items.source 无默认值',
+    sql: "SELECT coalesce(column_default,'<none>') FROM information_schema.columns WHERE table_name='ai_world_items' AND column_name='source'",
+    expected: '<none>',
+  },
+  {
+    tag: '0126_ai-world-sync',
+    label: '2 个唯一约束建成',
+    sql: "SELECT count(*)::text FROM pg_constraint WHERE conname IN ('ai_world_categories_slug_unique','uq_ai_world_items_kind_source_url')",
+    expected: '2',
+  },
+  {
+    tag: '0212_phase2_refund_invoice_fk',
+    label: 'edu_refunds.order_type 已收敛为 integer',
+    sql: "SELECT data_type FROM information_schema.columns WHERE table_name='edu_refunds' AND column_name='order_type'",
+    expected: 'integer',
+  },
+  {
+    tag: '0212_phase2_refund_invoice_fk',
+    label: '2 个订单外键建成',
+    sql: "SELECT count(*)::text FROM pg_constraint WHERE conname IN ('edu_refunds_order_id_orders_id_fk','edu_invoice_applications_order_id_orders_id_fk')",
+    expected: '2',
+  },
+  {
+    tag: '20261018160000_agent_state_tables_runtime_reality',
+    label: 'working_memory 两列 integer NOT NULL 且无默认',
+    sql: "SELECT count(*)::text FROM information_schema.columns WHERE table_name='agent_working_memory_compression' AND column_name IN ('original_messages','compressed_to') AND data_type='integer' AND is_nullable='NO' AND column_default IS NULL",
+    expected: '2',
+  },
+  {
+    tag: '20261104120000_agent_team_collab',
+    label: '3 个团队唯一索引建成',
+    sql: "SELECT count(*)::text FROM pg_class WHERE relkind='i' AND relname IN ('agent_team_members_team_member_uq','agent_team_members_active_uq','agent_team_inbox_team_idem_uq')",
+    expected: '3',
+  },
+]
 
 const C = {
   red: '\x1b[31m',
@@ -433,7 +530,7 @@ function runPsql(url, password, database, extraArgs, timeoutMs) {
       timeout: timeoutMs ?? PSQL_TIMEOUT_MS,
       maxBuffer: 32 * 1024 * 1024,
       env: { ...process.env, PGPASSWORD: password, PGCONNECT_TIMEOUT: '15' },
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     },
   )
@@ -499,8 +596,7 @@ function runFreshDbGuard(targetUrl, password) {
   if (res.status !== 0) {
     return {
       ok: false,
-      detail:
-        res.error?.code === 'ETIMEDOUT' ? 'fresh-db-guard 超时' : errorFrom(res, password),
+      detail: res.error?.code === 'ETIMEDOUT' ? 'fresh-db-guard 超时' : errorFrom(res, password),
     }
   }
   return { ok: true, detail: '' }
@@ -577,7 +673,7 @@ function runDrizzleKitMigrate(url, password, tempUrl) {
       timeout: DRIZZLE_MIGRATE_TIMEOUT_MS,
       maxBuffer: 32 * 1024 * 1024,
       env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     })
   const first = spawnMigrate()
@@ -594,7 +690,9 @@ function runDrizzleKitMigrate(url, password, tempUrl) {
     return {
       ok: false,
       detail:
-        second.error?.code === 'ETIMEDOUT' ? 'drizzle-kit migrate 超时' : errorFrom(second, password),
+        second.error?.code === 'ETIMEDOUT'
+          ? 'drizzle-kit migrate 超时'
+          : errorFrom(second, password),
     }
   }
   return { ok: true, detail: '' }
@@ -679,6 +777,24 @@ ORDER BY 1, 2;`
   return out
 }
 
+/**
+ * 8 个「21:05 批改写件」的迁移后回归断言(只读 pg_catalog,不改既有判据)。
+ * 返回 { failures, total };failures 里带 tag/label/expected/actual,便于定位是哪一件。
+ */
+function verifyRewriteRegressions(url, password, dbName) {
+  const failures = []
+  for (const item of REWRITE_REGRESSIONS) {
+    const res = runPsql(url, password, dbName, ['-At', '-c', item.sql], 60_000)
+    if (res.status !== 0) {
+      failures.push({ ...item, actual: errorFrom(res, password) })
+      continue
+    }
+    const actual = String(res.stdout ?? '').trim()
+    if (actual !== item.expected) failures.push({ ...item, actual })
+  }
+  return { failures, total: REWRITE_REGRESSIONS.length }
+}
+
 function printDiff(diff, expectedSize, actualSize) {
   if (diff.tables.missing.length) {
     console.log(`${C.red}缺表(schema 有、库里没有)[${diff.tables.missing.length}]:${C.reset}`)
@@ -723,7 +839,9 @@ async function main() {
 
   // 取材走统一层(守门 118):journal 正文经 readWorktreeFile 按磁盘面取,文件缺失时返回 null,
   // parseJournalEntries 对 null 解析出空 entries ⇒ 走下一行的既有 fail 分支(与旧 ENOENT 同形)。
-  const entries = parseJournalEntries(readWorktreeFile(ROOT, 'packages/database/drizzle/meta/_journal.json'))
+  const entries = parseJournalEntries(
+    readWorktreeFile(ROOT, 'packages/database/drizzle/meta/_journal.json'),
+  )
   if (entries.length === 0) fail(`_journal.json 解析不到任何迁移(${JOURNAL_PATH})`)
 
   const { url, source, password } = resolveBaseUrl()
@@ -796,6 +914,21 @@ async function main() {
       console.log(`\n${C.red}③ schema diff 非空(对照库 ${diffDb})${C.reset}`)
       printDiff(diff, expected.size, actual.size)
     }
+    const rewrite = verifyRewriteRegressions(url, password, diffDb)
+    if (rewrite.failures.length) {
+      exitCode = 1
+      console.log(
+        `\n${C.red}④ 改写件回归失败 ${rewrite.failures.length}/${rewrite.total}:${C.reset}`,
+      )
+      for (const failure of rewrite.failures) {
+        console.log(`  ✗ ${failure.tag} · ${failure.label}`)
+        console.log(`      └─ 期望 ${failure.expected},实际 ${failure.actual}`)
+      }
+    } else {
+      console.log(
+        `  ${C.green}✓${C.reset} ④ 改写件回归:${rewrite.total}/${rewrite.total} 成立(守卫/默认值/类型)`,
+      )
+    }
     if (stale.length) {
       console.log(
         `${C.yellow}▲ 基线条目已失效(漂移被修好或被改名),请从 KNOWN_SCHEMA_HOLES 删除:${C.reset}\n  ${stale.join('\n  ')}`,
@@ -836,6 +969,7 @@ if (isDirectRun) {
 }
 
 export const __test__ = {
+  REWRITE_REGRESSIONS,
   parseJournalEntries,
   unquoteIdentifier,
   diffIdentifierSets,
