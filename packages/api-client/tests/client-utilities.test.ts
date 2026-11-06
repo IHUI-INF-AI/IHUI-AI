@@ -105,12 +105,14 @@ describe('compactConversation(POST /api/chat/compact 手动压缩)', () => {
       removedCount: 2,
       trigger: 'ratio',
     }
+    const body = { code: 0, message: 'success', data: payload }
     const transport = vi.fn(async () => ({
       ok: true,
       status: 200,
       headers: { get: () => null },
-      text: async () => '',
-      json: async () => ({ code: 0, message: 'success', data: payload }),
+      // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+      text: async () => JSON.stringify(body),
+      json: async () => body,
     }))
     setTransport(transport as unknown as Transport)
 
