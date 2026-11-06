@@ -55,6 +55,15 @@ describe('settings 加载/保存/合并', () => {
     expect(content.allowDangerous).toBe(false)
   })
 
+  it('损坏的配置即使 --force 也不覆盖', () => {
+    const p = getSettingsPath()
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    const body = '{not json'
+    fs.writeFileSync(p, body)
+    expect(() => saveSettingsTemplate(true)).toThrow(/不能把它覆盖成新内容/)
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
+  })
+
   it('resolveEffectiveConfig 优先级:CLI flag > settings > env > 默认', () => {
     process.env.IHUI_API_URL = 'http://env-host:1234'
     process.env.IHUI_API_KEY = 'env-key'
