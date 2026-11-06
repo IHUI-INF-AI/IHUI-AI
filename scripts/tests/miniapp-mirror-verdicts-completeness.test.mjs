@@ -17,12 +17,14 @@ import { dirname, join } from 'node:path'
 import {
   VERDICTS_PATH,
   VERDICT_KINDS,
+  verdictKey,
   serializeVerdicts,
 } from '../lib/cross-end-verdicts.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const REGISTRY_PATH = 'scripts/data/cross-end-screen-registry.json'
 const CHAT_SHARED = 'packages/app/src/features/chat/ChatScreen.tsx'
+const STUDY_PROGRESS_SHARED = 'packages/app/src/features/study-progress/StudyProgressScreen.tsx'
 
 function readLedger() {
   const text = readFileSync(join(ROOT, VERDICTS_PATH), 'utf8')
@@ -40,7 +42,15 @@ function readLedger() {
 
 function readRegistryRoutes() {
   const registry = JSON.parse(readFileSync(join(ROOT, REGISTRY_PATH), 'utf8'))
-  return new Map((registry.entries || []).map((entry) => [entry.shared, entry.miniapp]))
+  // 立因(2026-11-06 批次②):同一 shared 可有多条 miniapp 路由(合法多路别名,301 记为
+  // multi-route-alias)。旧实现 `new Map([[shared, miniapp]])` 会让末条静默覆盖前条,
+  // 拿它跟台账首条比 ⇒ 假红(StudyProgressScreen)。改为按 route 列表逐条比对。
+  const map = new Map()
+  for (const entry of registry.entries || []) {
+    if (!map.has(entry.shared)) map.set(entry.shared, [])
+    map.get(entry.shared).push(entry.miniapp)
+  }
+  return map
 }
 
 describe('miniapp-mirror-verdicts 完整性', () => {
@@ -63,27 +73,51 @@ describe('miniapp-mirror-verdicts 完整性', () => {
     }
   })
 
-  it('同一 shared 不得重复登记', () => {
+  it('同一 shared 不得重复登记(按 verdictKey:错配档才按 shared+route 分键)', () => {
     const rows = readLedger()
     const seen = new Set()
     for (const row of rows) {
-      assert.ok(!seen.has(row.shared), `重复登记:${row.shared}`)
-      seen.add(row.shared)
+      const key = verdictKey(row)
+      assert.ok(!seen.has(key), `重复登记:${key.replace('\u0000', ' @ ')}`)
+      seen.add(key)
     }
   })
 
-  it('route 与 registry 一致:generated 必须有真实路由,not-applicable 无路由写 -', () => {
+  it('route 与 registry 一致:generated 必须是 registry 里的一条真实路由,not-applicable 无路由写 -', () => {
     const rows = readLedger()
     const routes = readRegistryRoutes()
     for (const row of rows) {
-      const expected = routes.get(row.shared)
+      const expectedList = routes.get(row.shared) || []
       if (row.verdict === 'generated') {
-        assert.ok(expected, `${row.shared}: generated 行必须能在 registry 找到 miniapp 路由`)
-        assert.equal(row.route, expected, `${row.shared}: route 与 registry 不一致`)
+        assert.ok(expectedList.length > 0, `${row.shared}: generated 行必须能在 registry 找到 miniapp 路由`)
+        assert.ok(
+          expectedList.includes(row.route),
+          `${row.shared}: route 与 registry 不一致(registry=[${expectedList.join(',')}], 台账=${row.route})`,
+        )
       } else {
-        assert.equal(row.route, expected || '-', `${row.shared}: not-applicable 行 route 必须取 registry 或 '-'`)
+        assert.ok(
+          row.route === '-' || expectedList.includes(row.route),
+          `${row.shared}: not-applicable 行 route 必须取 registry 里的一条或 '-'`,
+        )
       }
     }
+  })
+
+  it('StudyProgressScreen 两条 miniapp 路由都被逐条检查(不被 Map 末条覆盖)', () => {
+    const rows = readLedger()
+    const routes = readRegistryRoutes()
+    const expectedList = routes.get(STUDY_PROGRESS_SHARED)
+    assert.ok(Array.isArray(expectedList), `${STUDY_PROGRESS_SHARED}: registry 必须登记该屏`)
+    assert.equal(expectedList.length, 2, `${STUDY_PROGRESS_SHARED}: 应恰有两条 miniapp 路由`)
+    // 显式断言"两条路由都被检查":两条都必须进入本轮比对集合,且台账 route 落其中一条。
+    assert.deepEqual(
+      [...expectedList].sort(),
+      ['pages/study/index', 'pkg-mirror3/study-progress/index'],
+      '两条路由必须都在比对集合里(顺序不敏感)',
+    )
+    const row = rows.find((r) => r.shared === STUDY_PROGRESS_SHARED)
+    assert.ok(row, `台账缺 StudyProgressScreen 行:${STUDY_PROGRESS_SHARED}`)
+    assert.ok(expectedList.includes(row.route), `台账 route ${row.route} 必须是两条之一`)
   })
 
   it('Chat 已登记为 not-applicable 且带真实小程序路由', () => {
