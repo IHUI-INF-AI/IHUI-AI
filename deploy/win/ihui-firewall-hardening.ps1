@@ -35,6 +35,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# 可见失败累积器:任何"改了但没验证成功"的步骤都记到这里,脚本末尾统一 exit 1。
+# 不吞错、不把失败折成绿色完成。
+$HardeningFailures = @()
+
 # --- 允许保留不被 Block 的网段(LAN + loopback) --------------------------------
 $LAN_ALLOW = @('192.168.1.0/24', '127.0.0.0/8')
 
@@ -210,6 +214,58 @@ if (-not $Verify) {
 }
 
 # -----------------------------------------------------------------------------
+# 2.9 RDP 端口迁移 + TermService 重启(可测函数)
+#   2026-11-07 立(B 线残留):端口迁移与重启是同一件事。旧写法在
+#   Restart-Service 上挂 -ErrorAction SilentlyContinue 后无条件往下走,等于
+#   "注册表改了、服务没重启、脚本仍报绿"。此时 WAN 已封 3389/53389、LAN 只放
+#   53389,RDP 实际不可达。现在重启失败返回 Ok=$false,由调用方记失败并 exit 1。
+# -----------------------------------------------------------------------------
+function Invoke-RdpPortMigration {
+  param([switch]$VerifyOnly)
+
+  if ($VerifyOnly) {
+    return [pscustomobject]@{ Ok = $true; Changed = $false; Error = ''; Restart = 'skipped-verify' }
+  }
+
+  $rdpKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp'
+  $curPort = $null
+  try {
+    $curPort = (Get-ItemProperty -Path $rdpKey -Name 'PortNumber' -ErrorAction Stop).PortNumber
+  } catch { }
+
+  if ($curPort -eq 53389) {
+    # 端口已迁移:只确保内网放行规则存在(幂等),不动 TermService,避免踢断活动会话。
+    if (-not (Test-FwRuleApplied -Name 'IHUI-ALLOW-LAN-RDP-53389' -Action Allow -LocalPorts '53389' -RemoteCidrs '192.168.1.0/24')) {
+      netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
+      netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
+        protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
+    }
+    return [pscustomobject]@{ Ok = $true; Changed = $false; Error = ''; Restart = 'not-needed' }
+  }
+
+  Set-ItemProperty -Path $rdpKey -Name 'PortNumber' -Value 53389 -Type DWord -Force
+  netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
+  netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
+    protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
+
+  try {
+    Restart-Service -Name TermService -Force -ErrorAction Stop
+    $svc = Get-Service -Name TermService -ErrorAction Stop
+    if ($svc.Status -ne 'Running') {
+      throw "重启后服务状态=$($svc.Status),不是 Running"
+    }
+    return [pscustomobject]@{ Ok = $true; Changed = $true; Error = ''; Restart = 'Running' }
+  } catch {
+    return [pscustomobject]@{
+      Ok = $false
+      Changed = $true
+      Error = "注册表已改端口 53389,但 TermService 重启失败:$($_.Exception.Message)"
+      Restart = 'failed'
+    }
+  }
+}
+
+# -----------------------------------------------------------------------------
 # 3. 公网 -> 系统服务端口 + IHUI 业务/中间件端口:显式 Block
 #    (LAN 与 loopback 不在范围内,CF Tunnel 与本机反代不受影响)
 # -----------------------------------------------------------------------------
@@ -227,27 +283,10 @@ if ($BlockRemoteAdmin) {
   $rules += @{ Name = 'IHUI-DENY-WAN-SSH22'; Ports = '22' }
   # RDP:端口从 3389 迁到 53389(躲开全网段扫描器),再把新旧端口都对公网封死,
   #     只留一条内网放行 —— 即"改非标端口 + 仅内网可达"。
-  $rdpKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp'
-  if (-not $Verify) {
-    # 仅在端口尚未迁移时才改注册表 + 重启 TermService,避免计划任务每轮都把活动 RDP 会话踢断。
-    $curPort = $null
-    try { $curPort = (Get-ItemProperty -Path $rdpKey -Name 'PortNumber' -ErrorAction Stop).PortNumber } catch { }
-    if ($curPort -ne 53389) {
-      Set-ItemProperty -Path $rdpKey -Name 'PortNumber' -Value 53389 -Type DWord -Force
-      netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
-      netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
-        protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
-      Restart-Service -Name TermService -Force -ErrorAction SilentlyContinue
-    }
-    else {
-      # 端口已迁移:只确保内网放行规则存在(幂等),不动 TermService。
-      # verify-first:同一条规则连着被「拆了再建」是重放空窗的典型来源,达标即跳过。
-      if (-not (Test-FwRuleApplied -Name 'IHUI-ALLOW-LAN-RDP-53389' -Action Allow -LocalPorts '53389' -RemoteCidrs '192.168.1.0/24')) {
-        netsh advfirewall firewall delete rule name='IHUI-ALLOW-LAN-RDP-53389' 2>$null | Out-Null
-        netsh advfirewall firewall add rule name='IHUI-ALLOW-LAN-RDP-53389' dir=in action=allow `
-          protocol=TCP localport=53389 remoteip='192.168.1.0/24' | Out-Null
-      }
-    }
+  $rdpResult = Invoke-RdpPortMigration -VerifyOnly:$Verify
+  if (-not $rdpResult.Ok) {
+    Write-Host ("[3/5] FAIL RDP: {0}" -f $rdpResult.Error) -ForegroundColor Red
+    $HardeningFailures += $rdpResult.Error
   }
   $rules += @{ Name = 'IHUI-DENY-WAN-RDP'; Ports = '3389,53389' }
   $rules += @{ Name = 'IHUI-DENY-WAN-WINRM'; Ports = '5985,5986' }
@@ -372,6 +411,15 @@ elseif ($PruneAppRules -and $Verify) {
 }
 else {
   Write-Host "[5/5] app-rule pruning skipped (use -PruneAppRules)" -ForegroundColor DarkGray
+}
+
+if ($HardeningFailures.Count -gt 0) {
+  Write-Host ""
+  Write-Host ("FAIL 加固未全部生效({0} 项):" -f $HardeningFailures.Count) -ForegroundColor Red
+  foreach ($f in $HardeningFailures) {
+    Write-Host ("  - {0}" -f $f) -ForegroundColor Red
+  }
+  exit 1
 }
 
 Write-Host ""
