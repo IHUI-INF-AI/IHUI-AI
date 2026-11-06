@@ -521,6 +521,18 @@ def build_child_env(
     return child
 
 
+def guarded_child_env(child_env: Mapping[str, str], argv0: str) -> tuple[dict[str, str], dict[str, str]]:
+    """宿主钩子从进程环境读,不从调用方传入的 env 读。"""
+    from app.core.exec_env import apply_child_runtime_guard
+
+    hooks = {
+        "bash": os.environ.get("IHUI_GUARD_BASH"),
+        "node": os.environ.get("IHUI_GUARD_NODE"),
+        "python": os.environ.get("IHUI_GUARD_PYTHON"),
+    }
+    return apply_child_runtime_guard(child_env, argv0, hooks, os.path.isfile)
+
+
 # ============================================================
 # 执行结果
 # ============================================================
@@ -538,6 +550,7 @@ class ExecResult:
     backend: str
     timed_out: bool = False
     killed_by_limit: bool = False
+    guard: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -1205,7 +1218,7 @@ class WinJobBackend:
         # 白名单过滤一切环境来源(继承 + 调用方传入),仅系统必需变量豁免
         merged_env: dict[str, str] = dict(os.environ)
         merged_env.update(env or {})
-        child_env = build_child_env(self.policy, merged_env)
+        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
         start = time.monotonic()
         timed_out = False
         job = WinJob.create()
@@ -1276,6 +1289,7 @@ class WinJobBackend:
                 backend=self.backend_name,
                 timed_out=timed_out,
                 killed_by_limit=killed,
+                guard=guard,
             )
         finally:
             # 关闭 job:kill_on_close 保证残留(孙)进程一并死亡
@@ -1584,7 +1598,7 @@ class LinuxSandboxBackend:
         )
         merged_env: dict[str, str] = dict(os.environ)
         merged_env.update(env or {})
-        child_env = build_child_env(self.policy, merged_env)
+        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
         start = time.monotonic()
         timed_out = False
         try:
@@ -1608,6 +1622,7 @@ class LinuxSandboxBackend:
             duration_ms=(time.monotonic() - start) * 1000,
             backend=self.backend_name,
             timed_out=timed_out,
+            guard=guard,
         )
 
 
