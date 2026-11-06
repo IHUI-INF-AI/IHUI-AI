@@ -234,6 +234,7 @@ export function TeamScreen() {
       loading={loading}
       refreshing={refreshing}
       error={error}
+      onRetry={() => void load()}
       onSelectTab={setActiveTab}
       onRefresh={() => {
         void load(true)
