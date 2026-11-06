@@ -597,7 +597,37 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const result = await importAccounts(providerCode, accounts as ImportAccountInput[], null, {
         preserveMissingRefresh,
       })
-      return reply.send(success(result))
+      // 归属落点必须回显(2026-11-06 立)。本端点交的是运营池(owner=null),而运营池的语义是
+      // "对一切请求者可见可用" —— 这与机主 2026-10-31 永久指令「我自己填入号池的账号只能
+      // 跟着我的账号走」正好是反方向。默认不改(运营池仍是本视图职责,存量视图零变化),
+      // 但从此不再静默:回显落在哪一格,并指出改判与检测的既定器物。
+      // 检测判据不在本层复算 —— 同 uid 跨归属的点名已由 scripts/check-pool-isolation.mjs
+      // 的 sameUidMultiRow 维承担;改判只认 relay-pool-owner-reclaim.ts(全仓唯一写
+      // owner_user_id 的器物,自带备份与写后自证)。
+      return reply.send(
+        success({
+          ...result,
+          ownership: {
+            pool: 'ops' as const,
+            label: '运营池(owner_user_id=NULL,对一切请求者可见可用)',
+            // 出路必须是能直接跑的那一条:reclaim 是 .ts,用 node 跑不通(§0.8 禁写跑不通的出路),
+            // 其既定形态是先 cd apps/api 再走 tsx;cwd+script 两字段合起来是仓内可回读的真实位置,
+            // 由镜像用例现读验存在(两口径分写就会漂成"cmd 里找不到 script"那种假出路)。
+            toPersonalPool: {
+              cmd: 'cd apps/api && pnpm exec tsx scripts/relay-pool-owner-reclaim.ts --apply',
+              cwd: 'apps/api',
+              script: 'scripts/relay-pool-owner-reclaim.ts',
+              why: '全仓唯一写 owner_user_id 的器物,自带写前备份与写后自证',
+            },
+            detectSameUidAcrossOwners: {
+              cmd: 'node scripts/check-pool-isolation.mjs',
+              cwd: '.',
+              script: 'scripts/check-pool-isolation.mjs',
+              why: 'sameUidMultiRow 维按 (provider,uid) 现量跨归属行数,判据不在本层复算',
+            },
+          },
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '批量导入失败'))
