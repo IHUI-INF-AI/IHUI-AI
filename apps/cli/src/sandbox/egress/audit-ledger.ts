@@ -17,7 +17,7 @@
  *  - 写失败**永不阻塞**主流程(观测件不挡干活的腿,同 `appendSandboxAuditLog`)。
  */
 
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, type Stats } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import { findProjectRoot } from '../../runs/manifest.js';
@@ -121,11 +121,16 @@ const defaultAppender: RowAppender = (abs, line) => {
 export function resolveLedgerPath(
   startDir: string,
   env: Record<string, string | undefined> = process.env,
+  stat?: (target: string) => Stats,
 ): string | null {
   const declared = env[EGRESS_ENV.ledger]?.trim();
   if (declared) return isAbsolute(declared) ? declared : resolve(startDir, declared);
-  const root = findProjectRoot(startDir);
-  return root === null ? null : join(root, EGRESS_LEDGER_REL_PATH);
+  try {
+    const root = findProjectRoot(startDir, stat);
+    return root === null ? null : join(root, EGRESS_LEDGER_REL_PATH);
+  } catch {
+    return null;
+  }
 }
 
 /**

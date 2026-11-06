@@ -58,6 +58,10 @@ const IDENTITY_GROUPS = [
   ['file', 'rule'],
   ['file', 'expr'],
   ['shared', 'domain'],
+  // web-rn 配对台账的复合主键(全仓唯一同时带 web 与 rn 两个键的 jsonl)。缺这一组时该文件的行
+  // 只能退到 `canon:` 整条规范形当身份 ⇒ 任何一次逐条附证据的改判(改 status/note/domainAudit)
+  // 都被读成「摘一条 + 新增一条」并索要 retired 标记 —— 而那条目并没有退休。
+  ['web', 'rn'],
   ['bucket', 'side', 'kind', 'prop'],
   ['key'],
   ['id'],

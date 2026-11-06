@@ -100,7 +100,7 @@ export function AgentScreen({
   colorScheme = 'light',
   nestedInScrollView = false,
   onNavigate,
-}: AgentScreenProps & { onRetry?: () => void }) {
+}: AgentScreenProps) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)

@@ -14,6 +14,7 @@ import {
   createProcessProbe,
   cimTicksToEpochMs,
   isProbeCommandAllowed,
+  judgeBoundedSystemJob,
   parseCimProcessList,
   parseCimProcessRow,
   parseLinuxStat,
@@ -429,4 +430,24 @@ describe.skipIf(process.platform !== 'win32')(
     )
   },
 )
+
+describe('系统调用超时是未判定', () => {
+  it('截止先到不算失败，超时退出码不当成结果', () => {
+    expect(
+      judgeBoundedSystemJob({ deadlineSec: 15, finished: true, exitCode: 0, log: 'primary' }),
+    ).toMatchObject({ disposition: 'succeeded', exitCode: 0 })
+    expect(
+      judgeBoundedSystemJob({ deadlineSec: 15, finished: false, exitCode: 4, log: 'fallback' }),
+    ).toMatchObject({ disposition: 'unjudged', reason: 'deadline-exceeded', exitCode: null })
+    expect(
+      judgeBoundedSystemJob({ deadlineSec: null, finished: true, exitCode: 0, log: 'primary' }).reason,
+    ).toBe('deadline-unmeasured')
+    expect(
+      judgeBoundedSystemJob({ deadlineSec: 15, finished: true, exitCode: 0, log: null }).reason,
+    ).toBe('log-unmeasured')
+    expect(
+      judgeBoundedSystemJob({ deadlineSec: 15, finished: true, exitCode: 1, log: 'fallback' }),
+    ).toMatchObject({ disposition: 'failed', reason: 'exit-nonzero', exitCode: 1 })
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

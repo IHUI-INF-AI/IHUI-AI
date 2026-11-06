@@ -208,6 +208,33 @@ describe('doubao buildCookieHeader(推断层)', () => {
     ctx.credentials.token = ''
     expect(() => buildCookieHeader(ctx)).toThrow(DoubaoUpstreamError)
   })
+
+  it('cookie 值含非 Latin-1(如 U+FFFD 解码残留)⇒ percent-encode,头值保持 ByteString 可构造', () => {
+    const ctx = makeCtx()
+    ctx.credentials.cookies = [
+      { name: 'sessionid', value: `sess-ok-\uFFFD-tail` },
+      { name: 'ttwid', value: 'plain-ascii' },
+    ]
+    const header = buildCookieHeader(ctx)
+    expect(header).toContain('sess-ok-%EF%BF%BD-tail')
+    expect(header).toContain('ttwid=plain-ascii')
+    // 逐字符都必须落在 Latin-1(否则 fetch 抛 ByteString 错,把未判定伪装成凭据错误)
+    for (const ch of header) expect(ch.codePointAt(0)!).toBeLessThanOrEqual(0xff)
+  })
+
+  it('token 兜底路径同样过 ByteString 归一;纯 ASCII 票逐字不变', () => {
+    const plain = makeCtx()
+    plain.credentials.cookies = []
+    expect(buildCookieHeader(plain)).toBe(
+      'sessionid_ss=doubao-sessionid-test; sessionid=doubao-sessionid-test',
+    )
+    const dirty = makeCtx()
+    dirty.credentials.cookies = []
+    dirty.credentials.token = `ticket-\uFFFD-x`
+    const header = buildCookieHeader(dirty)
+    expect(header).toContain('%EF%BF%BD')
+    for (const ch of header) expect(ch.codePointAt(0)!).toBeLessThanOrEqual(0xff)
+  })
 })
 
 describe('doubao buildChatRequest(推断构造)', () => {

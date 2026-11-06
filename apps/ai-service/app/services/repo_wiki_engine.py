@@ -32,6 +32,7 @@ import hashlib
 import json
 import logging as _logging
 import os
+import stat
 import time
 from typing import Any
 
@@ -148,35 +149,35 @@ def _discover_files(workspace_path: str) -> list[str]:
     root = workspace_path
     for name in _ROOT_FIXED:
         p = os.path.join(root, name)
-        if os.path.isfile(p) and not _is_sensitive_path(p, root):
+        if _path_kind(p) == "file" and not _is_sensitive_path(p, root):
             candidates.add(os.path.abspath(p))
     # 根级 *.md
     try:
         for entry in os.listdir(root):
             full = os.path.join(root, entry)
             if (
-                os.path.isfile(full)
+                _path_kind(full) == "file"
                 and entry.lower().endswith(".md")
                 and not entry.startswith(".")
                 and not _is_sensitive_path(full, root)
             ):
                 candidates.add(os.path.abspath(full))
-    except OSError:
-        pass
+    except OSError as exc:
+        raise WikiSourceUnread(root) from exc
     # docs/*.md(仅顶层,非递归,避免把依赖/构建产物卷进来)
     docs_dir = os.path.join(root, "docs")
-    if os.path.isdir(docs_dir):
+    if _path_kind(docs_dir) == "dir":
         try:
             for entry in os.listdir(docs_dir):
                 full = os.path.join(docs_dir, entry)
                 if (
-                    os.path.isfile(full)
+                    _path_kind(full) == "file"
                     and entry.lower().endswith(".md")
                     and not _is_sensitive_path(full, docs_dir)
                 ):
                     candidates.add(os.path.abspath(full))
-        except OSError:
-            pass
+        except OSError as exc:
+            raise WikiSourceUnread(docs_dir) from exc
     # 最终出口兜底:再过一次判据,任何漏网的敏感文件在此被拦下
     ordered = sorted(p for p in candidates if not _is_sensitive_path(p, root))
     return ordered[:_MAX_WIKI_FILES]
@@ -220,6 +221,28 @@ class WikiCacheUnread(Exception):
         super().__init__(f"百科缓存读不到,不能把它覆盖成新摘要 ({code}): {path}")
 
 
+class WikiSourceUnread(Exception):
+    """源文件或目录读不到。不能把缺了这些条目的清单写成新快照。"""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        super().__init__(f"百科源读不到,不能把缓存写成缺条目的快照: {path}")
+
+
+def _path_kind(path: str) -> str:
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
+        return "absent"
+    except OSError as exc:
+        raise WikiSourceUnread(path) from exc
+    if stat.S_ISREG(mode):
+        return "file"
+    if stat.S_ISDIR(mode):
+        return "dir"
+    return "other"
+
+
 def _load_disk(namespace: str, workspace_path: str) -> dict[str, Any] | None:
     fp = _cache_file(namespace, workspace_path)
     try:
@@ -227,14 +250,14 @@ def _load_disk(namespace: str, workspace_path: str) -> dict[str, Any] | None:
             data = json.load(fh)
     except FileNotFoundError:
         return None
-    except (json.JSONDecodeError, ValueError):
-        return None
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise WikiCacheUnread(fp, "corrupt") from exc
     except OSError as exc:
         code = str(getattr(exc, "errno", None) or type(exc).__name__)
         raise WikiCacheUnread(fp, code) from exc
     if isinstance(data, dict) and isinstance(data.get("files"), dict):
         return data
-    return None
+    raise WikiCacheUnread(fp, "corrupt")
 
 
 def _save_disk(namespace: str, workspace_path: str, data: dict[str, Any]) -> None:
@@ -337,7 +360,11 @@ async def ensure_wiki(
         if cached is not None and (_now() - cached.get("ts", 0.0)) < _WIKI_TTL_SECONDS:
             return cached.get("text")
 
-        files = _discover_files(wp)
+        try:
+            files = _discover_files(wp)
+        except WikiSourceUnread as exc:
+            logger.warning("%s", exc)
+            return None
         if not files:
             return None
 

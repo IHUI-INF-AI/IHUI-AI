@@ -358,6 +358,21 @@ describe('createWorktree', () => {
     )
   })
 
+  it('源 .git 读不到时不说成不是仓库,也不创建目标', async () => {
+    const dst = path.join(tmpDir, 'wt-unread-git')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    await expect(createWorktree({
+      source: sourceRepo,
+      destination: dst,
+      stat: (target) => {
+        if (target.endsWith(`${path.sep}.git`)) throw denied
+        return fs.statSync(target)
+      },
+    })).rejects.toThrow(/读不到/)
+    expect(fs.existsSync(dst)).toBe(false)
+  })
+
   it('ref checkout 切到指定分支', async () => {
     // 创建 feature-x 分支并提交一个新文件
     spawnSync('git', ['branch', 'feature-x'], { cwd: sourceRepo, encoding: 'utf-8', /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
@@ -538,6 +553,19 @@ describe('removeWorktree', () => {
     const denied = new Error('denied') as NodeJS.ErrnoException
     denied.code = 'EACCES'
     await expect(removeWorktree(wt, () => { throw denied })).rejects.toThrow(/读不到/)
+    expect(fs.readFileSync(path.join(wt, 'keep.txt'), 'utf8')).toBe('keep\n')
+  })
+
+  it('.git 读不到时不把它当成没有标记再整棵删除', async () => {
+    const wt = path.join(tmpDir, 'git-blocked')
+    fs.mkdirSync(wt)
+    fs.writeFileSync(path.join(wt, 'keep.txt'), 'keep\n', 'utf-8')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    await expect(removeWorktree(wt, (target) => {
+      if (target.endsWith(`${path.sep}.git`)) throw denied
+      return fs.statSync(target)
+    })).rejects.toThrow(/\.git 读不到/)
     expect(fs.readFileSync(path.join(wt, 'keep.txt'), 'utf8')).toBe('keep\n')
   })
 })
