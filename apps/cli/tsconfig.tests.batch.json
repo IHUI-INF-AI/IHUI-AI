@@ -1,0 +1,35 @@
+// ⚠️ 本文件只用于「**单批读数可复现**」,不是全仓配置:
+//   · include 只列当前批次的文件;复跑:`pnpm --filter ihui-cli exec tsc -p tsconfig.tests.batch.json --noEmit`
+//   · 显式钉 `noUncheckedIndexedAccess: true`,不继承工作树里别席可能改成 false 的 tsconfig.tests.json
+//   · **禁止**拿它当全仓 typecheck:tests 用;全量口径是 `apps/cli/tsconfig.tests.json`(package.json 的 typecheck:tests)
+//   · 每批随提交更新 include;历史批次版本用 `git show <该批 SHA>:apps/cli/tsconfig.tests.batch.json` 取回
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "incremental": false,
+    "rootDir": ".",
+    "noUncheckedIndexedAccess": true
+  },
+  "include": [
+    "tests/types/**/*.d.ts",
+    "tests/personas-contracts.test.ts",
+    "tests/usage-ledger.test.ts",
+    "tests/plugin-registry-upsert.test.ts",
+    "tests/background-task-hooks.test.ts",
+    "tests/concurrency-budget.test.ts",
+    "tests/g-654-derived-count.test.ts",
+    "tests/crash-handler.test.ts",
+    "tests/plugin-cache-rollback.test.ts",
+    "tests/hooks-turn.test.ts",
+    "tests/invisible-transport.test.ts",
+    "tests/a13-projection-equivalence.test.ts",
+    "tests/goal-verification.test.ts",
+    "tests/worker-pool-kill-residual.test.ts",
+    "tests/cli-auth-refresh.test.ts",
+    "tests/embedding.test.ts",
+    "tests/g-712-schema-missing.test.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
