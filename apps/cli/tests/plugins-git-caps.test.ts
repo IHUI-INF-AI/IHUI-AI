@@ -27,9 +27,11 @@ import {
   DEFAULT_GIT_TIMEOUT_MS,
   GIT_KILL_SIGNAL,
   GitCommandTimeoutError,
+  GitOperationAbortedError,
   GitOutputTooLargeError,
   buildGitEnv,
   execGitCapped,
+  execGitCappedAsync,
   execGitStatus,
   lastStatusDegradation,
   gitVerbOf,
@@ -121,6 +123,80 @@ describe('G-815 execGitCapped —— maxBuffer 封顶', () => {
       maxBufferBytes: 20 * 1024 * 1024,
     });
     expect(out.trim().length).toBe(500000);
+  });
+});
+
+describe('BUG-0040 execGitCappedAsync —— 可取消的异步出口', () => {
+  it('正常返回 stdout(与同步版同形)', async () => {
+    const out = await execGitCappedAsync(['-e', 'console.log("ok-async")'], {
+      binary: process.execPath,
+      timeoutMs: 15_000,
+    });
+    expect(out.trim()).toBe('ok-async');
+  });
+
+  it('timeout 仍归一为 GitCommandTimeoutError(execFile 没有 ETIMEDOUT 码,必须在出口补齐)', async () => {
+    const t0 = Date.now();
+    let thrown: unknown;
+    try {
+      await execGitCappedAsync(['-e', 'setTimeout(() => {}, 8000)'], {
+        binary: process.execPath,
+        timeoutMs: 300,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(GitCommandTimeoutError);
+    expect((thrown as GitCommandTimeoutError).timeoutMs).toBe(300);
+    expect(Date.now() - t0).toBeLessThan(4000);
+  });
+
+  it('maxBuffer 仍归一为 GitOutputTooLargeError(execFile 给的是 ERR_CHILD_PROCESS_STDIO_MAXBUFFER)', async () => {
+    let thrown: unknown;
+    try {
+      await execGitCappedAsync(['-e', 'console.log("x".repeat(500000))'], {
+        binary: process.execPath,
+        maxBufferBytes: 1024,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(GitOutputTooLargeError);
+    expect((thrown as GitOutputTooLargeError).code).toBe('ENOBUFS');
+  });
+
+  it('abort 立刻杀子进程:不等到 timeoutMs 到点', async () => {
+    const controller = new AbortController();
+    const t0 = Date.now();
+    // 子进程自己挂 8s;timeout 给 10s —— 只有 abort 生效才可能在这之前结束。
+    setTimeout(() => controller.abort(), 300);
+    let thrown: unknown;
+    try {
+      await execGitCappedAsync(['-e', 'setTimeout(() => {}, 8000)'], {
+        binary: process.execPath,
+        timeoutMs: 10_000,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(GitOperationAbortedError);
+    expect(Date.now() - t0).toBeLessThan(3_000);
+  });
+
+  it('预先取消 ⇒ 一轮都不派生', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    let thrown: unknown;
+    try {
+      await execGitCappedAsync(['-e', 'console.log("never")'], {
+        binary: process.execPath,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(GitOperationAbortedError);
   });
 });
 
