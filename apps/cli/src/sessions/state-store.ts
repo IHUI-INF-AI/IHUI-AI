@@ -19,6 +19,8 @@ import { randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
 // G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
 import { hydrateToolStateMap } from './tool-part-hydration.js';
+// BUG-0010:会话状态落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -114,7 +116,7 @@ export function saveSession(state: SessionState): void {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
   };
-  fs.writeFileSync(p, JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(next, null, 2));
 }
 
 /**
@@ -150,7 +152,7 @@ export function patchSession(
     id: current.id,
     updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
   };
-  fs.writeFileSync(getSessionStatePath(id), JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2));
   return next;
 }
 

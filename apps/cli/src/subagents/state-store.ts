@@ -23,6 +23,8 @@ import { sessionStatusFromInstance, type AgentInstanceState } from '@ihui/types'
 // G-719(2026-10-03):会话水合读侧唯一入口 —— 落库工具结果元数据的版本分账/剥后校验收敛在这一份。
 import { hydrateToolStateMap } from '../sessions/tool-part-hydration.js';
 import { isRecord } from '../util/json.js';
+// BUG-0010:subagent 状态行落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 import type { SubagentLifecycleStatus } from './types.js';
 import { SUBAGENT_LIFECYCLE_STATUSES, isSubagentTerminalStatus } from './types.js';
 
@@ -120,7 +122,7 @@ export function saveSubagentState(state: SubagentState): void {
 function writeStateRow(state: SubagentState): void {
   ensureStateDir();
   const p = getSubagentStatePath(state.id);
-  fs.writeFileSync(p, JSON.stringify(state, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(state, null, 2));
 }
 
 /**

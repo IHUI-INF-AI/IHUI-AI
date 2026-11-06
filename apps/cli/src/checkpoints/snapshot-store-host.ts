@@ -16,6 +16,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord } from '../util/json.js';
+// BUG-0010:manifest 是回滚/resume 依赖的状态,落盘必须原子(tmp+fsync+rename)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 import {
   readManifestChecked,
   type CorruptManifestEntry,
@@ -121,7 +123,7 @@ export function copyFilesIntoSnapshot(
 }
 
 export function writeSnapshotManifest(cpDir: string, meta: CheckpointMeta): void {
-  fs.writeFileSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2), 'utf-8');
+  writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
 }
 
 /** 读某快照目录的清单:missing/corrupt 三态由 manifest-integrity 给,本层只接线(onQuarantined 先于 onCorrupt) */

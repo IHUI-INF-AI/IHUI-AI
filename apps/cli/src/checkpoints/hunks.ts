@@ -21,6 +21,8 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
+// BUG-0010:hunk 检查点 manifest 同为回滚依赖的状态,落盘必须原子。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -183,11 +185,7 @@ export class HunkCheckpointManager {
 
     const cpDir = path.join(this.baseDir, id);
     this.ensureDir(cpDir);
-    fs.writeFileSync(
-      path.join(cpDir, 'manifest.json'),
-      JSON.stringify(meta, null, 2),
-      'utf-8',
-    );
+    writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
 
     this.pruneOldCheckpoints();
     return meta;

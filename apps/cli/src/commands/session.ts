@@ -15,6 +15,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
+// BUG-0010:会话历史落盘走唯一原子写出口 —— 高频保存期间被中断/并发读不得留下截断 JSON。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -47,10 +49,9 @@ export function createSession(workspacePath: string, modelId: string): Session {
 export function saveSession(session: Session): void {
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  fs.writeFileSync(
+  writeFileAtomicSync(
     path.join(getSessionsDir(), `${session.id}.json`),
     JSON.stringify(session, null, 2),
-    'utf-8',
   );
 }
 
