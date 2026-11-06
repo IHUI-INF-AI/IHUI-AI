@@ -23,6 +23,10 @@
  * 判据(任一不成立即 exit 1):
  *   A 桌面双写一致:tauri.conf.json 的 version === apps/desktop/package.json 的 version
  *     (桌面热修必须两处同笔 bump,这是仓库既有铁律,单独漏一侧就会发出版本号与包不符的包)
+ *   A2 桌面 crate 版本同源(2026-11-07 立):apps/desktop/src-tauri/Cargo.toml 的
+ *     `[package] version` 必须等于 tauri.conf.json 的 version —— 长期停在 0.1.0 的 crate 版本
+ *     没有任何驱动,凭肉眼永远不会漂红;两侧相等只靠"今天恰好忘了改"。
+ *     (Cargo.lock 里的镜像条目由 cargo 自身维护,不单独判。)
  *   I 移动端双写一致:apps/mobile-rn/app.json 的 version === 同目录 package.json 的 version
  *     (2026-10-27 立,A 的移动端同型:app.config.js 未注入 IHUI_MOBILE_VERSION 时回落 package.json,
  *      两处漂开就等于"包内显示的版本号"落后;实测曾出现 0.0.6 / 0.0.8 / 0.0.7 三处各说一套)
@@ -136,12 +140,34 @@ function readJson(rel) {
 }
 
 /**
+ * 从 Cargo.toml 正文取 `[package]` 段的 version(只在 package 段内认,不误取依赖的 version)。
+ * 取不到返回 null —— 由判据侧按"读到什么判什么"处理。
+ */
+export function cargoPackageVersion(toml) {
+  if (typeof toml !== 'string') return null
+  let inPackage = false
+  for (const raw of toml.split('\n')) {
+    const line = raw.trim()
+    if (/^\[/.test(line)) {
+      inPackage = /^\[package\]$/.test(line)
+      continue
+    }
+    if (inPackage) {
+      const m = line.match(/^version\s*=\s*"([^"]+)"/)
+      if (m) return m[1]
+    }
+  }
+  return null
+}
+
+/**
  * 纯判据集合:输入是"读到的文本/对象",输出是违规清单。
  * 抽成纯函数是为了让镜像测试能直接喂反例(见 scripts/tests/check-version-drift.test.mjs),
  * 而不是靠"改了源文件再跑一遍"这种会留下痕迹的验证方式。
  *
  * @param {{
- *   tauriConf: object|null, desktopPkg: object|null, appConfigJs: string|null,
+ *   tauriConf: object|null, desktopPkg: object|null, cargoToml: string|null,
+ *   appConfigJs: string|null,
  *   rnConfigTs: string|null, capGradle: string|null, downloadsConfig: string|null,
  *   feedRouteJs: string|null, feedRouteApi: string|null, workflows: Record<string,string>,
  *   mobileAppJson: object|null, mobilePkg: object|null,
@@ -155,6 +181,7 @@ export function findVersionDrift(input) {
   const {
     tauriConf,
     desktopPkg,
+    cargoToml,
     appConfigJs,
     rnConfigTs,
     capGradle,
@@ -177,6 +204,18 @@ export function findVersionDrift(input) {
     v.push(
       `A 桌面版本双写不一致:tauri.conf.json=${tauriV} 而 apps/desktop/package.json=${desktopV}` +
         '(热修必须两处同笔 bump,否则会发出"包版本 ≠ 界面版本"的包)',
+    )
+  }
+
+  // A2 桌面 crate 版本同源(2026-11-07 立)
+  //   tauri.conf.json 驱动安装包/更新器 feed,而 Cargo.toml 的 `[package] version` 从来没人看,
+  //   实测长期停在 0.1.0。两处漂开时"装出来的包版本"与"crate 自报版本"各说一套,没有任何门能发现。
+  //   取不到一侧就不判(与本门 A/I 一致的契约);两侧都在且不等即红。
+  const cargoV = cargoPackageVersion(cargoToml)
+  if (cargoV && tauriV && cargoV !== tauriV) {
+    v.push(
+      `A2 桌面 crate 版本与 tauri.conf.json 不一致:Cargo.toml=${cargoV} 而 tauri.conf.json=${tauriV}` +
+        '(版本源必须单一,两处同笔 bump;Cargo.lock 的镜像条目随 cargo 更新)',
     )
   }
 
@@ -498,6 +537,7 @@ export function collectInputs() {
   return {
     tauriConf: readJson('apps/desktop/src-tauri/tauri.conf.json'),
     desktopPkg: readJson('apps/desktop/package.json'),
+    cargoToml: read('apps/desktop/src-tauri/Cargo.toml'),
     mobileAppJson: readJson('apps/mobile-rn/app.json'),
     mobilePkg: readJson('apps/mobile-rn/package.json'),
     appConfigJs: read('apps/mobile-rn/app.config.js'),

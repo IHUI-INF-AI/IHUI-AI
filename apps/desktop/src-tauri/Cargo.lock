@@ -2299,7 +2299,7 @@ dependencies = [
 
 [[package]]
 name = "ihui-desktop"
-version = "0.1.0"
+version = "0.1.77"
 dependencies = [
  "aes",
  "aes-gcm",

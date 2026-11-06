@@ -76,6 +76,28 @@ describe('A 桌面双写一致', () => {
     assert.equal(v.length, 1)
     assert.match(v[0], /桌面版本双写不一致/)
   })
+
+  // T8:tauri.conf.json 是安装包/更新器 feed 的唯一版本源,Cargo.toml 的 crate 版本
+  // 长期停在 0.1.0 —— 两处漂开时「包内自报」与「包版本」各说一套,且没有任何门在看。
+  it('Cargo.toml 的 crate 版本与 tauri.conf.json 不一致要被抓', () => {
+    const v = findVersionDrift(
+      baseline({
+        cargoToml: '[package]\nname = "ihui-desktop"\nversion = "0.1.0"\n\n[dependencies]\n',
+      }),
+    )
+    assert.equal(v.length, 1)
+    assert.match(v[0], /Cargo/)
+    assert.match(v[0], /0\.1\.77|0\.1\.75/) // 报出两处实际值
+  })
+
+  it('Cargo.toml 与 tauri.conf.json 相等时不误伤', () => {
+    assert.deepEqual(
+      findVersionDrift(
+        baseline({ cargoToml: '[package]\nname = "ihui-desktop"\nversion = "0.1.75"\n' }),
+      ),
+      [],
+    )
+  })
 })
 
 describe('I 移动端双写一致(A 的移动端同型)', () => {

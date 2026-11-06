@@ -4,7 +4,7 @@
 
 [package]
 name = "ihui-desktop"
-version = "0.1.0"
+version = "0.1.77"
 description = "IHUI AI — Tauri 2 壳"
 authors = ["IHUI AI"]
 edition = "2021"
