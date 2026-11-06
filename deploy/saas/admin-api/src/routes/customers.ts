@@ -22,10 +22,9 @@
 import type { FastifyInstance, FastifyBaseLogger } from 'fastify'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve as pathResolve, join } from 'node:path'
-import { spawn } from 'node:child_process'
 import { z } from 'zod'
 import { requireAdminAuth } from './auth.js'
-import { normalizeChildExit } from '../lib/child-exit.js'
+import { DEFAULT_SCRIPT_TIMEOUT_MS, runWithTimeout } from '../lib/child-exit.js'
 import { config } from '../config.js'
 
 const SlugSchema = z.string().regex(/^[a-z0-9-]{3,20}$/, 'Invalid slug')
@@ -42,39 +41,20 @@ export async function runScript(
   args: string[],
   log: FastifyBaseLogger,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((res, rej) => {
-    const script = pathResolve(SCRIPTS_DIR, scriptName)
-    if (!existsSync(script)) {
-      return rej(new Error(`Script not found: ${script}`))
-    }
+  const script = pathResolve(SCRIPTS_DIR, scriptName)
+  if (!existsSync(script)) {
+    throw new Error(`Script not found: ${script}`)
+  }
 
-    const proc = spawn('bash', [script, ...args], {
-      env: { ...process.env, FORCE_DESTROY: '1' },
-    })
-
-    let stdout = ''
-    let stderr = ''
-    proc.stdout?.on('data', (d: Buffer) => {
-      const s = d.toString()
-      stdout += s
-      log.info(s.trim())
-    })
-    proc.stderr?.on('data', (d: Buffer) => {
-      const s = d.toString()
-      stderr += s
-      log.error(s.trim())
-    })
-
-    // code=null 表示子进程被信号终止(超时/OOM/docker stop)。旧写法 `code ?? 0` 把被杀当成退出码 0,
-    // 于是 create/restore/destroy 这类路由会在脚本没跑完时回 status: created/restored/destroyed 的假成功。
-    proc.on('close', (code, signal) => {
-      res({
-        code: normalizeChildExit(code),
-        stdout,
-        stderr: code === null ? `${stderr}\n[killed by signal ${signal ?? 'unknown'}]` : stderr,
-      })
-    })
-    proc.on('error', rej)
+  // 到点 kill + 超时按失败返回(口径见 lib/child-exit.ts):旧实现只等 close,脚本卡死时
+  // 路由 Promise 永不落地,HTTP 请求无限挂起且没有任何上限。
+  return runWithTimeout({
+    command: 'bash',
+    args: [script, ...args],
+    timeoutMs: DEFAULT_SCRIPT_TIMEOUT_MS,
+    env: { ...process.env, FORCE_DESTROY: '1' },
+    onStdout: (s) => log.info(s.trim()),
+    onStderr: (s) => log.error(s.trim()),
   })
 }
 
