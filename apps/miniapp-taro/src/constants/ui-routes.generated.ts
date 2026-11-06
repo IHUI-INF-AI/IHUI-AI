@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: a1799aa7241a9dff551aaa7c146fb88c3c5bc9da
-// inputsSha256: 48a577eea5fc0b5fc7bcebaff86441f1e29378ec35811acb5543e3cf5e30eb05
+// sourceCommit: a1986d9933b1fd31a7b4d490f34e26b32709cb29
+// inputsSha256: 6ab391406f91017e694ed9a0be7a4b5a91e7704c0e4c09763ea3c07562553c4d
 // input: apps/miniapp-taro/src/api/index.ts f887d5952947a0a3ce019beede733e8e357b2948cb576e4546192a5495ef3527
 // input: apps/miniapp-taro/src/api/social.ts fd88850ce0063cb633cf6aec38b9b982a1f11406481a5032a36227a3ea87dec4
 // input: apps/miniapp-taro/src/app.config.ts 6f6d4de4d24a7055c04079ac1a999cf19666ed414bd22a471cac31770b0a47f1
@@ -180,10 +180,11 @@
 // input: apps/miniapp-taro/src/pages/exam/answer.tsx 16d8671e3bcb0e270f8bbc0a203462006274a5e4aef7071fe9a13c5e6291256a
 // input: apps/miniapp-taro/src/pages/exam/detail.config.ts ab3672df3b36e609c80f870e1db9b6b9a513308b9eea6bc54ea0124e4651f64b
 // input: apps/miniapp-taro/src/pages/exam/detail.tsx 8ec40e01b63dec5dfc89949982f1da9241445d796ce808abef2ad06fbfe2dad5
+// input: apps/miniapp-taro/src/pages/exam/host-overlays.tsx 19e515d9346505641bc85551ff995636dfab73d7d01970b3b9a673f63ff7b78d
 // input: apps/miniapp-taro/src/pages/exam/list.config.ts 3fb925907bf3f04363f3cbfa163d2e7d739f5c7fdddbc3836e6024898f1ecc76
 // input: apps/miniapp-taro/src/pages/exam/list.tsx 8ed0027487429cb78d52d7bedbb1a787c69cf5cfaa1757ade304176aa03fb061
 // input: apps/miniapp-taro/src/pages/exam/result.config.ts 65c63f9f4b4aafd1bd720eaebd8356c502afbd8389beae41d166047ee9659f0f
-// input: apps/miniapp-taro/src/pages/exam/result.tsx 7723d85d0647d89ec8e56240c0a9b6335a7b539724fdb185986b7221714dea04
+// input: apps/miniapp-taro/src/pages/exam/result.tsx 3afadc0d3811a1f73cd669ee0ad4973857bd3d47ac15b87b6e261cc407745600
 // input: apps/miniapp-taro/src/pages/exam/wrong-list/index.tsx 3f7fa8f153605203385f7045e6daebb86d4c96f68295459113ccde98d41a89f2
 // input: apps/miniapp-taro/src/pages/forgot-password/index.config.ts 0d69f8ad5d67a6981d6a155a3bfa03a651f4acabf534813f153ed254eb4a8669
 // input: apps/miniapp-taro/src/pages/forgot-password/index.tsx 36330202edbf2cd1cc8518fa317b28b8200275ee77f9cb25bcd263212daca5d1
@@ -719,9 +720,9 @@
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts f3405919e3d130c52be0c105153f70c9bfad426ceb8e081adf65badc15580e5a
 // input: apps/miniapp-taro/src/utils/webview-trust.ts 6cfd058e107011b5e3c1037c3fc0b92d4600e178d96d4882e8d4dca690ab1fdc
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 585 source files(navigateTo url 参数探测,requiresParams 的依据)
+// scanned: 586 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=206(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-11-06T22:29:32.414Z
+// generatedAt: 2026-11-06T23:08:45.388Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -2253,7 +2254,7 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
     title: '考试详情',
     tab: false,
     subPackageRoot: 'pages/exam',
-    requiresParams: true,
+    requiresParams: false,
   },
   {
     path: '/pages/exam/answer',
