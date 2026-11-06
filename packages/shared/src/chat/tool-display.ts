@@ -13,6 +13,7 @@ import { FILE_WRITE_TOOLS, fileBasename, fileChangeForCall } from './task-status
  */
 const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   read_file: 'toolReadFile',
+  read_tool_output: 'toolReadToolOutput',
   edit_file: 'toolEditFile',
   file_edit: 'toolEditFile',
   apply_diff: 'toolEditFile',
@@ -419,8 +420,7 @@ export interface DescribeToolCallInput {
  */
 export function describeToolCall(input: DescribeToolCallInput): ToolCallView {
   const { toolName, args, result, status } = input
-  const kind =
-    (TOOL_SUBJECT_KINDS[toolName] as ToolSubjectKind | undefined) ?? 'none'
+  const kind = (TOOL_SUBJECT_KINDS[toolName] as ToolSubjectKind | undefined) ?? 'none'
   let subject = kind === 'none' ? '' : normalizeSubject(readArg(args, SUBJECT_KEYS[kind]))
   if (kind === 'none') {
     // 未登记的工具(插件 / MCP 动态名):按 path → url → query → command → name 试探

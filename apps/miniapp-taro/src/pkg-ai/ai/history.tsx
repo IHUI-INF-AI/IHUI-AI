@@ -490,6 +490,12 @@ export default function HistoryPage() {
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
 
+  /** 降级提示条上的「重试」:重新走一次真实取数(先回到加载态,失败会再次落回降级提示) */
+  const retryLoad = useCallback(() => {
+    setLoading(true)
+    void load()
+  }, [load])
+
   const onRefresh = useCallback(() => {
     setRefreshing(true)
     void load().then((result) => {
@@ -785,7 +791,7 @@ export default function HistoryPage() {
       onClearAll={source === 'server' ? () => void onClearServerAll() : onClearAll}
       onImport={goConversationImport}
       degraded={degraded}
-      onRetry={onRefresh}
+      onRetry={retryLoad}
       canPin={source === 'server'}
       onOpen={(row) => goChat(findRow(row))}
       onTogglePin={(row) => {

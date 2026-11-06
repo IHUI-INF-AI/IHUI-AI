@@ -203,9 +203,12 @@ function collectRetryCandidateFiles(face, surface) {
       })
       .sort()
   }
+  // --cached 是选项,必须排在 pattern 之前:git 的 parse-options 在首个非选项
+  // (这里是 onRetry)处停止,写在 pattern 之后会被当成 revision 解析 ⇒
+  // "fatal: unable to resolve revision: --cached",staged 面整面未判定(exit 2)。
   const args =
     face === 'staged'
-      ? ['grep', '-l', 'onRetry', '--cached', '--', dirPrefix]
+      ? ['grep', '-l', '--cached', 'onRetry', '--', dirPrefix]
       : ['grep', '-l', 'onRetry', face === 'head' ? 'HEAD' : face, '--', dirPrefix]
   let out
   try {
