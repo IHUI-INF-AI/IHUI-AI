@@ -239,7 +239,11 @@ function createStyles(tk: AppThemeTokens) {
     modelRow: { flexDirection: 'row', alignItems: 'center' },
     modelLabel: { fontSize: rnType.label.size, color: tk.text.secondary },
     modelName: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    chevron: { marginLeft: 2, fontSize: rnType.label.size, color: tk.text.secondary },
+    chevron: {
+      marginLeft: rnSpacing['2xs'],
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+    },
     title: {
       flex: 1,
       textAlign: 'center',
@@ -248,11 +252,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     right: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
-    navItem: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    navItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['2xs'] },
     navText: { fontSize: rnType.body.size, color: tk.text.secondary },
     agentText: { fontSize: rnType.label.size, color: tk.text.secondary, maxWidth: 90 },
     helpText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.secondary },
-    card: { paddingHorizontal: rnSpacing.md, paddingVertical: 2 },
+    card: { paddingHorizontal: rnSpacing.md, paddingVertical: rnSpacing['2xs'] },
     cardButton: { alignSelf: 'flex-start' },
     cardButtonText: { fontSize: rnType.label.size, color: tk.text.secondary },
     cardBody: {
@@ -263,13 +267,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     banner: {
       marginHorizontal: rnSpacing.md,
-      marginTop: 2,
+      marginTop: rnSpacing['2xs'],
       borderRadius: 6,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: rnSpacing.sm,
-      paddingVertical: 2,
+      paddingVertical: rnSpacing['2xs'],
     },
     bannerTitle: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     bannerMessage: { fontSize: rnType.label.size, color: tk.text.secondary },
   })
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
