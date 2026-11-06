@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import stat
 import sys
 import time
 import urllib.error
@@ -110,6 +111,17 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
 
 # ===== Token管理 =====
 
+def _regular_file_state(path: str) -> str:
+    """absent 才是真的没有。读不到或不是普通文件时不能截断重写。"""
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
+        return "absent"
+    except OSError:
+        return "unread"
+    return "present" if stat.S_ISREG(mode) else "unread"
+
+
 def get_access_token(force_refresh: bool = False) -> str | None:
     """获取access_token，自动缓存2小时"""
     app_id, app_secret = _load_env()
@@ -117,8 +129,11 @@ def get_access_token(force_refresh: bool = False) -> str | None:
         print('❌ 未配置WECHAT_APP_ID或WECHAT_APP_SECRET，请在.env文件中设置')
         return None
 
-    # 检查缓存
-    if not force_refresh and os.path.exists(TOKEN_CACHE):
+    cache_state = _regular_file_state(TOKEN_CACHE)
+    if cache_state == "unread":
+        print('❌ token 缓存读不到,不能把它截断重写')
+        return None
+    if not force_refresh and cache_state == "present":
         try:
             with open(TOKEN_CACHE) as f:
                 cache = cast(dict[str, Any], json.load(f))
@@ -126,12 +141,18 @@ def get_access_token(force_refresh: bool = False) -> str | None:
                 return cast(str, cache['access_token'])
         except (json.JSONDecodeError, KeyError):
             pass
+        except OSError:
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
 
     # 请求新token
     url = f'{API_BASE}/token?grant_type=client_credential&appid={app_id}&secret={app_secret}'
     result = _api_get(url)
 
     if 'access_token' in result:
+        if _regular_file_state(TOKEN_CACHE) == "unread":
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
         cache = {
             'access_token': result['access_token'],
             'expires_at': time.time() + result.get('expires_in', 7200)

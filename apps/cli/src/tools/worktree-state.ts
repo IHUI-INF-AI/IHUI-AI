@@ -29,12 +29,22 @@ import {
 } from './worktree-core.js';
 
 /** 确保 .gitignore 忽略 .worktrees/,避免隔离目录污染主仓库状态 */
+function readGitignoreOrEmpty(gitignorePath: string): string {
+  try {
+    return fs.readFileSync(gitignorePath, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return '';
+    throw new Error(`gitignore 读不到,不能把它覆盖成只剩隔离目录 (${code ?? 'unknown'})`);
+  }
+}
+
 export function ensureWorktreeGitignore(sourcePath: string): void {
   const gitignorePath = path.join(sourcePath, '.gitignore');
-  let content = '';
-  if (fs.existsSync(gitignorePath)) {
-    content = fs.readFileSync(gitignorePath, 'utf-8');
-  }
+  const content = readGitignoreOrEmpty(gitignorePath);
   if (content.split(/\r?\n/).includes(DEFAULT_WORKTREE_DIR + '/')) return;
   const newline = content.length > 0 && !content.endsWith('\n') ? '\n' : '';
   fs.writeFileSync(gitignorePath, content + newline + DEFAULT_WORKTREE_DIR + '/\n', 'utf-8');

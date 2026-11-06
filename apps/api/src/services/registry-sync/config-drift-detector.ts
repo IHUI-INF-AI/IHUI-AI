@@ -75,12 +75,32 @@ function resolvePath(rel: string): string {
   return join(PROJECT_ROOT, rel)
 }
 
+function nodeErrorCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
 async function readBaseline(): Promise<BaselineStore> {
+  let text: string
   try {
-    const text = await readFile(resolvePath(BASELINE_FILE), 'utf8')
-    return JSON.parse(text) as BaselineStore
-  } catch {
-    return {}
+    text = await readFile(resolvePath(BASELINE_FILE), 'utf8')
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置基线读不到,不能整份覆盖 (${code ?? 'unknown'})`)
+  }
+  try {
+    const parsed = JSON.parse(text) as unknown
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('配置基线不是对象,不能整份覆盖')
+    }
+    return parsed as BaselineStore
+  } catch (error) {
+    if (error instanceof Error && error.message === '配置基线不是对象,不能整份覆盖') throw error
+    throw new Error('配置基线读不到,不能整份覆盖 (parse)')
   }
 }
 
@@ -210,8 +230,11 @@ export async function detectDrift(fileType: ConfigFileType): Promise<ConfigDrift
   try {
     currentContent = await readFile(abs, 'utf8')
     currentHash = await sha256(currentContent)
-  } catch {
-    // 文件读取失败:视为内容为空,若有基线则判定为漂移(文件被删除)
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`配置文件读不到,不能把它说成已删除 (${code ?? 'unknown'}): ${abs}`)
+    }
     const drifted = !!baseEntry
     return {
       fileType,
@@ -278,9 +301,10 @@ export async function updateBaseline(fileType?: ConfigFileType): Promise<void> {
     let content = ''
     try {
       content = await readFile(abs, 'utf8')
-    } catch {
-      // 文件不存在则跳过该类型
-      continue
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue
+      throw new Error(`配置文件读不到,不能丢掉这一类的旧基线 (${code ?? 'unknown'}): ${abs}`)
     }
     const hash = await sha256(content)
     const keys: Record<string, string> = {}

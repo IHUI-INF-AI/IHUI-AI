@@ -9,7 +9,7 @@
  * - 内存:进程内即时去重(读内存,零 IO);
  * - 文件:.ihui-agent/tmp/automations-ledger.json(gitignore 目录),
  *   进程重启后仍能认出已认领条目,防止对同一 issue 重复建 PR 刷屏。
- * 文件读写失败不影响内存去重(记 warn 降级为进程内去重)。
+ * 文件确实不存在才从空账本开始。读不到或内容坏掉时拒绝落盘,不把原文件盖成空账本。
  *
  * G-669(2026-10-01 补)加了 release:此前 claim 是**单向门** —— orchestrator 先 claim
  * 再 execute,`ok=false` 永不释放,于是 transient 失败(上游重启、网络抖动)被永久静默丢弃,
@@ -17,7 +17,7 @@
  * 超过上限就不再释放(否则只是把"永久丢弃"换成"永久重放"另一种无限循环)。
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { AuditLogger } from './types.js'
 
@@ -51,20 +51,33 @@ interface LedgerFileShape {
   releases: Record<string, { count: number; lastReason: string; lastReleasedAt: string }>
 }
 
+function nodeErrorCode(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object' || !('code' in err)) return undefined
+  const code = (err as { code: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
 function loadFile(path: string, audit?: AuditLogger): LedgerFileShape {
+  let raw: string
   try {
-    if (!existsSync(path)) return { entries: {}, releases: {} }
-    const raw = readFileSync(path, 'utf8')
-    const parsed = JSON.parse(raw) as Partial<LedgerFileShape>
-    if (parsed && typeof parsed === 'object' && parsed.entries && typeof parsed.entries === 'object') {
-      return { entries: parsed.entries, releases: parsed.releases ?? {} }
-    }
-    return { entries: {}, releases: {} }
+    raw = readFileSync(path, 'utf8')
   } catch (err) {
-    // 账本损坏:不阻断主流程,降级为空账本(内存仍去重;文件会在下次认领时重建)
-    audit?.warn('[automations] 账本文件读取失败,按空账本降级', { path, err: String(err) })
-    return { entries: {}, releases: {} }
+    const code = nodeErrorCode(err)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { entries: {}, releases: {} }
+    audit?.warn('[automations] 账本文件读取失败,拒绝按空账本覆盖', { path, err: String(err) })
+    throw new Error(`认领账本读不到,不能按空账本覆盖 (${code ?? 'unknown'})`)
   }
+  let parsed: Partial<LedgerFileShape>
+  try {
+    parsed = JSON.parse(raw) as Partial<LedgerFileShape>
+  } catch (err) {
+    audit?.warn('[automations] 账本文件读取失败,拒绝按空账本覆盖', { path, err: String(err) })
+    throw new Error('认领账本读不到,不能按空账本覆盖 (parse)')
+  }
+  if (parsed && typeof parsed === 'object' && parsed.entries && typeof parsed.entries === 'object') {
+    return { entries: parsed.entries, releases: parsed.releases ?? {} }
+  }
+  throw new Error('认领账本读不到,不能按空账本覆盖 (parse)')
 }
 
 /** 创建文件 + 内存双保险账本。 */

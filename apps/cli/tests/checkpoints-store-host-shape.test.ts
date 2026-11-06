@@ -173,6 +173,24 @@ describe('② 行为等价:抽层后快照/回滚/比对与拆分前同形', () 
     expect(() => cpHost.listSubDirNames(path.join(scratch, 'locked-root'), io)).toThrow(/不能把它说成没有检查点/)
   })
 
+  it('检查点目录读不到时不在上面新建', () => {
+    const blocked = path.join(scratch, 'not-a-dir')
+    fs.writeFileSync(blocked, 'keep', 'utf-8')
+    expect(() => cpHost.ensureHostDir(blocked)).toThrow(/读不到/)
+    expect(fs.readFileSync(blocked, 'utf-8')).toBe('keep')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const target = path.join(scratch, 'locked-parent')
+    expect(() =>
+      cpHost.ensureHostDir(target, {
+        statSync: () => {
+          throw denied
+        },
+      }),
+    ).toThrow(/读不到/)
+    expect(fs.existsSync(target)).toBe(false)
+  })
+
   it('没有检查点时比对不说成无差异', () => {
     const mgr = new CheckpointManager({ sessionId: trackedSession('no-diff'), workspacePath: ws })
     expect(() => mgr.diff()).toThrow(/不能把它说成没有差异/)

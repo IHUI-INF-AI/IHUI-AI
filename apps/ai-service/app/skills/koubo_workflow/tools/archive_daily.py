@@ -36,6 +36,7 @@ archive_daily.py — 口播稿每日自动存档 v2.0
 """
 import os
 import re
+import stat
 import sys
 from datetime import datetime
 
@@ -54,6 +55,21 @@ DATE_RE = re.compile(r'^\d{4}\.txt$')
 SEG_RE = re.compile(r'^# (\d{4})\s*$', re.MULTILINE)
 
 
+def _path_state(path: str) -> str:
+    """absent 才是真的没有。读不到不能当成空汇编再删源稿。"""
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
+        return "absent"
+    except OSError:
+        return "unread"
+    if stat.S_ISDIR(mode):
+        return "dir"
+    if stat.S_ISREG(mode):
+        return "file"
+    return "unread"
+
+
 def today_mmdd() -> str:
     return datetime.now().strftime('%m%d')
 
@@ -65,10 +81,18 @@ def main() -> None:
     today = today_mmdd()
     os.makedirs(HISTORY, exist_ok=True)
     # 收集汇编中已存在的日期段（幂等依据）
-    existing = set()
-    if os.path.exists(ANTHOLOGY):
-        with open(ANTHOLOGY, encoding='utf-8') as f:
-            existing = set(SEG_RE.findall(f.read()))
+    existing: set[str] = set()
+    anthology_state = _path_state(ANTHOLOGY)
+    if anthology_state in ("unread", "dir"):
+        print('历史汇编读不到,不能把它说成没有再删源稿')
+        sys.exit(2)
+    if anthology_state == "file":
+        try:
+            with open(ANTHOLOGY, encoding='utf-8') as f:
+                existing = set(SEG_RE.findall(f.read()))
+        except OSError:
+            print('历史汇编读不到,不能把它说成没有再删源稿')
+            sys.exit(2)
 
     # --check：仅校验当日稿是否已归档，不移动任何文件
     if check:
@@ -80,8 +104,12 @@ def main() -> None:
             sys.exit(1)
 
     moved, skipped = [], []
-    if not os.path.isdir(OUTPUT):
+    output_state = _path_state(OUTPUT)
+    if output_state == "absent":
         print(f'⚠️ 未找到 Output/ 目录：{OUTPUT}')
+        sys.exit(2)
+    if output_state != "dir":
+        print(f'Output/ 读不到,不能把它说成没有：{OUTPUT}')
         sys.exit(2)
     for fn in sorted(os.listdir(OUTPUT)):
         fp = os.path.join(OUTPUT, fn)

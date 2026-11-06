@@ -78,6 +78,17 @@ function targetPresence(
   }
 }
 
+function isConfirmedAbsent(target: string, stat?: (path: string) => fs.Stats): boolean {
+  const look = stat ?? fs.statSync
+  try {
+    look(target)
+    return false
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code
+    return code === 'ENOENT' || code === 'ENOTDIR'
+  }
+}
+
 function assertSafePackageId(id: string): void {
   if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(id)) {
     throw new SkillPackageError('SKILL_PKG_INSTALL_COMMIT_FAILED', `非法技能包 id(拒绝作为目录名):${id}`, { id })
@@ -137,20 +148,31 @@ export function installSkillPackage(packagePath: string, options: InstallOptions
     // 回滚:新目录未提交 ⇒ 删 staging;旧目录已让位 ⇒ 原样搬回。
     try {
       if (!committed && movedOld) fs.renameSync(supersededPath, finalPath)
-      if (!committed && fs.existsSync(stagingDir)) fs.rmSync(stagingDir, { recursive: true, force: true })
+      if (!committed && !isConfirmedAbsent(stagingDir, options.stat)) {
+        try {
+          ;(options.stat ?? fs.statSync)(stagingDir)
+          fs.rmSync(stagingDir, { recursive: true, force: true })
+        } catch {
+          // 暂存目录读不到就不删,也不在下面把它说成已经删掉
+        }
+      }
     } catch {
       // 恢复失败也不能吞掉原始错误;rollback 详情进 detail 供报告点名
     }
+    const stagingRemoved = isConfirmedAbsent(stagingDir, options.stat)
+    const cause = err instanceof Error ? err.message : String(err)
     throw new SkillPackageError(
       'SKILL_PKG_INSTALL_COMMIT_FAILED',
-      `技能包落位失败并已回滚:${err instanceof Error ? err.message : String(err)}`,
+      stagingRemoved
+        ? `技能包落位失败并已回滚:${cause}`
+        : `技能包落位失败,暂存目录读不到,不能把它说成已经删掉:${cause}`,
       {
         id,
         installRoot,
         staging: stagingDir,
         finalPath,
-        cause: err instanceof Error ? err.message : String(err),
-        stagingRemoved: !fs.existsSync(stagingDir),
+        cause,
+        stagingRemoved,
         oldRestored: !movedOld || fs.existsSync(finalPath),
       },
     )

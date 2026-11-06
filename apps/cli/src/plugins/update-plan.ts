@@ -40,7 +40,7 @@ import {
   execGitCapped,
   type GitSpawnOptions,
 } from './git-runner.js';
-import { classifyRealpathFailure } from './path-safety.js';
+import { classifyRealpathFailure, isDefinitePathAbsence } from './path-safety.js';
 import {
   collectInstallFileDigests,
   loadInstallRegistry,
@@ -315,6 +315,32 @@ export function disposeStagingRoot(stagingRoot: string, base?: string): void {
   }
 }
 
+/** 候选子树在不在。明确没有才是 missing;读不到不能说成没有。 */
+export function classifyStagedSubtree(
+  stagedDir: string,
+  stat: (target: string) => fs.Stats = fs.statSync,
+): { ok: true } | { ok: false; reason: string; detail: string } {
+  try {
+    if (!stat(stagedDir).isDirectory()) {
+      return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有目录 ${stagedDir}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    if (isDefinitePathAbsence(error)) {
+      return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有 ${stagedDir}` };
+    }
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    return {
+      ok: false,
+      reason: 'candidate-subtree-unreadable',
+      detail: `候选子树读不到,不能把它说成没有 (${code})`,
+    };
+  }
+}
+
 /**
  * 生产取源器:全量 clone(浅克隆拿不到祖先关系 ⇒ 判据就无从证,所以刻意不用 `--depth 1`)
  * → detach 到候选 commit → 用**写侧唯一采集器** `collectInstallFileDigests` 取回新副本台账。
@@ -337,8 +363,12 @@ export const gitCandidateStager: CandidateStager = async ({ url, candidateSha, p
     return { ok: false, reason: 'candidate-checkout-failed', detail: e instanceof Error ? e.message : String(e) };
   }
   const stagedDir = pluginSubdir ? path.join(repoDir, pluginSubdir) : repoDir;
-  if (!fs.existsSync(stagedDir) || !fs.statSync(stagedDir).isDirectory()) {
-    return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+  const presence = classifyStagedSubtree(stagedDir);
+  if (!presence.ok) {
+    if (presence.reason === 'candidate-subtree-missing') {
+      return { ok: false, reason: presence.reason, detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+    }
+    return presence;
   }
   const ledger = collectInstallFileDigests(stagedDir);
   if (!ledger) {
