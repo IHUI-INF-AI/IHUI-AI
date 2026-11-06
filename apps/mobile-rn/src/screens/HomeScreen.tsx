@@ -63,7 +63,7 @@ import {
   Film,
   Volume2,
   Mic,
-  Handshake,
+  UserPlus,
   MessageCircle,
 } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
@@ -983,7 +983,9 @@ export function HomeScreen() {
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, a11yLabel: t('common.search'), onPress: () => setSearchOverlayVisible(true) },
-    { icon: Handshake, label: t('home.navJoinGroup'), onPress: handleJoinPress },
+    // 2026-11-06 用户定:加入群只留图标。Handshake(握手/合作)语义不对,换 UserPlus(加入);
+    // 文字移除后语义落 accessibilityLabel,不依赖可见文案
+    { icon: UserPlus, a11yLabel: t('home.navJoinGroup'), onPress: handleJoinPress },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -2290,7 +2292,9 @@ export function HomeScreen() {
             voiceNoteNode={
               <VoiceNote
                 conversationId={null}
-                onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+                onInsert={(text) =>
+                  setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))
+                }
               />
             }
             transparentBackground

@@ -637,6 +637,63 @@ export function externalsDiffUsable(myFace, baseline) {
 }
 
 /**
+ * 外部状态快照的**来源选择与读数组装**(纯函数,零 IO;2026-11-05 立)。
+ *
+ * 为什么加这一路:分支没有 upstream 时,旧口径只认 `@{u}` + `ls-remote` + `for-each-ref`
+ * 三件,任一取不到就让 `readGateExternals()` 返回 null ⇒ 归因层落 `undetermined-red`。
+ * 可本地 `refs/remotes/origin/main` 一直都在 —— 它同样是「外部已有状态」的可复现快照,
+ * 只是不联网、不会把「问不到远端」当成「远端没动」。所以:
+ *   · 三件齐全 ⇒ 输出与旧口径**逐字一致**(有 upstream 的机器行为不变);
+ *   · 三件取不全但本地有 `refs/remotes/origin/main` ⇒ 用本地 tip + `refs/remotes` 清单兜底;
+ *   · 两路都取不到 ⇒ 返回 null + why,归因层落今日的 `undetermined-red`(不静默放宽)。
+ * ⚠️ 兜底读数带 `source=remote-tracking` 前缀,与 network 口径**永远不能比成相等** ——
+ * 两跑之间换了来源就是「两侧不是同一份外部状态」,必须按 moved 处理,不得折算成没动。
+ */
+export const EXTERNALS_LOCAL_REF = 'refs/remotes/origin/main'
+
+export function composeExternalsSnapshot({
+  upstream = null,
+  remoteTip = null,
+  remoteRefs = null,
+  localRef = EXTERNALS_LOCAL_REF,
+  localTip = null,
+} = {}) {
+  const norm = (s) =>
+    String(s ?? '')
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .sort()
+  const up = String(upstream ?? '').trim()
+  const tip = norm(remoteTip)
+  const tracked = norm(remoteRefs)
+  if (up && tip.length > 0 && tracked.length > 0)
+    return {
+      ok: true,
+      mode: 'network',
+      why: null,
+      value: `upstream=${up}\nremoteTip=${tip.join(' | ')}\nremoteRefs=${tracked.join(' | ')}`,
+    }
+  const lr = String(localRef ?? '').trim()
+  const lt = String(localTip ?? '').trim()
+  if (lr && lt)
+    return {
+      ok: true,
+      mode: 'remote-tracking',
+      why: null,
+      value: `source=remote-tracking\nref=${lr}\ntip=${lt}${
+        tracked.length > 0 ? `\nremoteRefs=${tracked.join(' | ')}` : ''
+      }`,
+    }
+  return {
+    ok: false,
+    mode: 'unavailable',
+    value: null,
+    why: `外部状态快照现读失败(rev-parse @{u} / ls-remote 取不到,且本地没有 ${EXTERNALS_LOCAL_REF} remote-tracking ref)⇒ 取不到`,
+  }
+}
+
+/**
  * 解析 guardian-runner 的汇总块。
  * 返回 { batchReported, executed, total, earlyAbort, failed:[{id,label,script}] }
  *
@@ -3188,6 +3245,84 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     `D13k 提前中止的批次不得用半张未判定名单定档,实得 ${d13k.kind}`,
   )
 
+  // ── S30(2026-11-05 第二阶段,票「无 upstream 也要能差分归属」)──────────────────────────
+  // 改的只是外部状态快照的**来源**:三件齐全仍走网络真值;取不全时用本地
+  // `refs/remotes/origin/main`(带 `source=remote-tracking` 前缀,与网络读数不可比成相等)。
+  // 下面四条钉的是"换了来源之后四态语义一格没动",尤其不许把存量放宽成本票引入的反面。
+  const extUnobtainable = Object.freeze({
+    before: null,
+    after: null,
+    why: '外部状态快照现读失败(rev-parse @{u} / ls-remote 取不到,且本地没有 refs/remotes/origin/main remote-tracking ref)⇒ 取不到',
+  })
+  const extLocalStable = Object.freeze({
+    before: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    after: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    why: null,
+  })
+  const extLocalAdvanced = Object.freeze({
+    before: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    after: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=def456',
+    why: null,
+  })
+  const myRedNoExt = () => ({ status: 1, output: GATE55_REAL, externals: extUnobtainable })
+  const myRedLocalExt = () => ({ status: 1, output: GATE55_REAL, externals: extLocalStable })
+  const myRedLocalAdvanced = () => ({ status: 1, output: GATE55_REAL, externals: extLocalAdvanced })
+  const greenBaselineLocal = () => ({
+    ran: true,
+    status: 0,
+    output: '✅ 覆盖率 87/87',
+    why: null,
+    externals: extLocalStable,
+  })
+  const stockBaselineLocal = () => ({
+    ran: true,
+    status: 1,
+    output: 'HEAD 面同样红(存量)',
+    why: null,
+    externals: extLocalStable,
+  })
+  // S30f 无 ref ⇒ 退回今日口径:undetermined-red 且点名"取不到",不得落存量档
+  const s30f = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedNoExt,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(
+    s30f.kind === 'undetermined-red' && /取不到/.test(s30f.reason),
+    `S30f 无本地 ref 时必须退回今日口径并点名 why,实得 ${s30f.kind}:${s30f.reason}`,
+  )
+  assert(s30f.kind !== 'not-ours', 'S30f 无快照不得被写成"与本次无关"(§0.3 不得把取不到折成没变)')
+  // S30g 两侧同红 + 本地快照稳定 ⇒ 存量(不阻断本票)
+  const s30g = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalExt,
+    runGateBaseline: stockBaselineLocal,
+  })
+  assert(s30g.kind === 'not-ours', `S30g 两侧同红必须仍是存量档,实得 ${s30g.kind}`)
+  // S30h 本票引入(我的面红 / 基线面绿)+ 本地快照稳定 ⇒ mine(红),没被快照洗绿
+  const s30h = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalExt,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(s30h.kind === 'mine', `S30h 基线面绿而我的面红必须仍判 mine,实得 ${s30h.kind}`)
+  assert(s30g.kind !== s30h.kind, 'S30g/S30h 唯一差别是基线面读数 ⇒ 换来源后两态仍必须可分')
+  // S30i 本地快照在两跑之间前移 ⇒ moved ⇒ 未判定,不得折成存量,也不得折成本票引入
+  const s30i = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalAdvanced,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(
+    s30i.kind === 'undetermined-red',
+    `S30i 快照前移时必须落未判定档,实得 ${s30i.kind}`,
+  )
+  assert(s30i.kind !== 'not-ours' && s30i.kind !== 'mine', 'S30i 外部动过 ≠ 存量,也 ≠ 本票引入')
+
   return { parsedFixture: p }
 }
 
@@ -3198,6 +3333,8 @@ export const __test__ = {
   lineNamesFile,
   baselineUsable,
   externalsDiffUsable,
+  composeExternalsSnapshot,
+  EXTERNALS_LOCAL_REF,
   findingLines,
   parseGateSummary,
   parseUndeterminedGates,

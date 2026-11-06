@@ -271,19 +271,39 @@ export interface ExamResultWrongQuestion {
   correctAnswer: string
 }
 
+/** 单题作答回顾 —— web 端「全量解析」与 mobile-rn `getResult.details` 的统一口径 */
+export interface ExamResultReviewItem {
+  id: string
+  title: string
+  yourAnswer?: string | string[] | null
+  correctAnswer?: string | string[] | null
+  isCorrect: boolean
+  score: number
+  analysis?: string | null
+}
+
 /** 考试结果详情(平台注入,字段对齐 mobile-rn ExamResultScreen ExamResult) */
 export interface ExamResultItem {
   id: string
-  examTitle: string
+  examTitle?: string
+  /** 已提交记录对应的试卷 id(再考一次需要) */
+  examId?: string
   score: number
   totalScore: number
   passed: boolean
   correctCount: number
   totalCount: number
+  wrongCount?: number
+  unansweredCount?: number
   /** 答题时长(分钟) */
   duration: number
-  submittedAt: string
-  wrongQuestions: ExamResultWrongQuestion[]
+  submittedAt?: string
+  /** 同卷已提交记录中的名次 / 参与排名人数 */
+  rank?: number
+  rankTotal?: number
+  /** 全量作答回顾(题干/答案/解析);缺省时回落到 wrongQuestions */
+  details?: ExamResultReviewItem[]
+  wrongQuestions?: ExamResultWrongQuestion[]
 }
 
 /** ExamResultScreen props */
@@ -296,6 +316,10 @@ export interface ExamResultScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+  /** 底部三操作:平台能力一律注入,屏内零平台 API */
+  onRetryExam?: () => void
+  onViewList?: () => void
+  onShare?: () => void
 }
 
 /**

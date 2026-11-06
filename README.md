@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4249 | `testFiles` |
+| 测试文件 | 4256 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19559 | `trackedFiles` |
+| 跟踪文件 | 19577 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5451,6 +5451,81 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-07**
+- 🚀 新功能/改进:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
+
+**2026-11-06**
+- 📚 文档:README 生成块 trackedFiles 19557→19559(按 HEAD 现算值归位) (5f0e886a89)
+- 🐞 修复:OTA 腿 eas update 超时 15→30 min,并把被杀的末段输出打出来 (e2ba407272)
+- 🐞 修复:深度收口 RN 样式高度口径 + 百分比判据进提交链 (88958244a0)
+- 🐞 修复:余下 ciWorkflows 53→54 对齐现算值 (f56a522031)
+- 🐞 修复:ciWorkflows 53→54 对齐现算值(cross-end-sync 工作流落地后) (e0124cd427)
+- 📚 文档:记录 Taro 侧四条平台硬限制(onLayout/RootPortal/定高/line-clamp) (2e99f52b07)
+- 🚀 新功能/改进:补齐五类原语能力缺口(ScrollView 高度边界/Modal Portal/onLayout/threshold 换算/numberOfLines≥2) (abe20accdb)
+- 🐞 修复:OSS 签名 Content-Type 大小写不敏感(修 0.0.18 快腿 SignatureDoesNotMatch) (b6617e4d20)
+- 🐞 修复:补 zh-TW 的 menu.autoInstallPermission 并按合并后源重算离线包 —— 门 2f 点名本票 overlay 重放只写进四语，§19 五语同批补齐;生成件由 gen-i18n-compressed 重算而非手改(4 枚 CDN b64 载荷本轮逐字节未变，不入清单) (cbae427abd)
+- 🔧 工程/其他:代码检索两腿行为补锁——读不到目录或文件必须显式 unjudged、同步段必须经线程池 (48e81a85d6)
+- 🐞 修复:永久保活接管前先当场探测客户端,把"顶掉机主正在用的号"翻成默认让位 (fe0ab4cbe3)
+- 🐞 修复:离线包按现读尖 bca76e72 重生成(消 B2 缺 categoryDetail.recommended 与 G5 钉值不等) (8875e2b728)
+- 📚 文档:刷新生成块数字 testFiles 4247 / trackedFiles 19553(推送门 [173] 要求) (bca76e7275)
+- 🐞 修复:逐页裁决退休 2 页纯壳并加严 S2 可摘判据 (080d16775f)
+- 🐞 修复:合并残留的 createOrder 改回 createVipOrder,并补 text() 替身(BUG-13) (0b4351eee6)
+- 🔧 工程/其他:同步桶入口替身与受影响的三个套件 (165213038e)
+- 🚀 新功能/改进:补齐剩余 RN 薄壳导入与 301 三屏映射(未判定 3→0) (a744c37ec7)
+- 🐞 修复:4 份测试替身对齐 BUG-13/字体缩放取档(消 rn-tests 13 例恒红) (fc6784fd1c)
+- 📚 文档:补 4 条删除意图通知书 —— 两枚 src-tauri mod 与两枚死图标 svg 均由主干自身提交(d050d90d10/bce2df19d4)整文件删除，mod 声明两侧实算 0 命中(lib.rs 作阳性对照) (40d1e01772)
+- 🐞 修复:budget-note 判据对齐 formatTokenCount 一位小数口径(85.3K,消 rn-tests 恒红) (1d9ffcb447)
+- 🐞 修复:主进程探测三态化(量不到 != 没进程) + 超时带出 signal (bdc5eff9ed)
+- 🐞 修复:插件读失败只认一份缺失名单 (8c0c0b88f3)
+- 🐞 修复:测试 mock 的 text() 与 json() 同源(BUG-13 2xx 走 text 后 19 例转绿) (ba90dfce18)
+- 🐞 修复:主进程探测三态化(量不到 != 没进程) + 超时带出 signal (f27ffc8809)
+- 🔧 工程/其他:G-815989 公开清单钉子改钉单一真相源(消 rn-tests 红) (f681776468)
+- 📚 文档:README 生成块与现算面数字刷新(消 DN2 红) (f57a72c81e)
+- 🐞 修复:qoder:import 降级通道接上 pool-owner 默认归属,不再恒落运营池 (7ae99e02dc)
+- 📚 文档:README 现算面 API 路由 4702→4703 对齐(消 DN2 红) (7a03f720f6)
+- 🐞 修复:S 族编号判据补族 + S-26 同号归并;消除 ESM 图 TLA 令两把尺恢复同步加载(§22c 16 红→25 绿) (ed4a870092)
+- 🐞 修复:插件目录和完整性门体读不到时不再当成没有 (173a79ac95)
+- 🐞 修复:全量收口 RN 百分比限高面板到高度单一真相源(15 处/12 屏) (ff5f6ac52f)
+- 📚 文档:生成块 trackedFiles 对齐 HEAD 实测 19545(.tmp 未跟踪文件不计入) (20d8c82fdd)
+- 📚 文档:merge 后同步关键数字与生成块(622->624 表, 4699->4703 路由, 4078/4099->4243 测试文件, 333->336 守门) (dee7c77466)
+- 🐞 修复:修复 public-paths 溯源水印载荷损坏(消门47p红) (d79ffb249c)
+- 🐞 修复:pkg-ai/ai/chat 按 S1 撤销退休重新在册(消门299红) (1455683633)
+- 🐞 修复:admin 批量导入把归属落点回显出来,不再静默交运营池 (845ba68a36)
+- 📚 文档:Y-24 结清摘行 — c59c7052e5 键源稳定身份+同批迁库 / 637aa1d8 validate CLI 换 resolveImportAccountUidProbe 与镜像 22+196 例 / 628fba02b7 同 uid 双行根因封口; --check clean 24/24 dupGroups=0, Z68 探针 0 重复组, 61/61+27/27 绿 (dc41e4afa1)
+- 🐞 修复:壳声明不再遮蔽可解析的 @ihui/rn-app 深路径，tsc 101 归零 (e4951cabd2)
+- 🐞 修复:VipScreen 下单改用后端契约 createVipOrder(消 typecheck 红) (c474857607)
+- 🐞 修复:安装包只有路径不能当成内容已核验 (d624bd5852)
+- 🔧 工程/其他:同步 README 生成块现算数字(门173 归零) (2681ff4d52)
+- 🔧 工程/其他:重生成 ui-routes 与 README 现算数字(门105/173 归零) (60a958977f)
+- 🔧 工程/其他:同步 README 现算数字与小程序离线语言包(门173/105 归零) (31f9323852)
+- 🐞 修复:BUG-67 提问卡迁入共享屏 overlaySlot,chat 页恢复真薄壳(门299 归零) (f0325cf3a7)
+- 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (1a18e2d274)
+- 🚀 新功能/改进:APK 快腿接入发版链(OSS 签名直链/证书自动续签/--download-url 登记) (41a9fad663)
+- 🐞 修复:代码检索读不到目录或文件时标明不完整 (470e7dea5a)
+- 🔧 工程/其他:land Z58 bridge: apps/ai-service/app/services/checkin_user_pool_bridge.py, apps/ai-service/tests/test_checkin_user_pool_bridge_owner_subject.py, apps/ai-service/tests/test_checkin_user_pool_bridge_internal_ticket.py (06c4bb2583)
+- 🔧 工程/其他:land Z66 relay-pool artifacts: apps/api/scripts/relay-account-import-validate.ts, apps/api/scripts/relay-pool-uid-keysource-audit.ts, apps/api/tests/relay-pool-validate-cli-uid-keysource.test.ts, apps/api/tests/relay-pool-uid-keysource-audit.test.ts (637aa1d817)
+- 🐞 修复:本机会话自动入池改按 pool-owner 落个人池,同 uid 双行根因封口 (628fba02b7)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d911713aba)
+- 🐞 修复:全量收口 RN 弹层高度 bug、门131/273 交互缺陷与样式文档漂移(14 文件) (97f70b4b84)
+- 🐞 修复:alignSharedIndex 让路/耗尽两档桶形态 0→[] 坐实并钉住(Z69R) (533b67bfde)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (652ce1d097)
+- 📚 文档:落地取证册§16(第十一回合死席收编与机主面分家定稿,6处短sha补全40位)+RELEASE.md鸿蒙行改五格现读事实(Z67残余3) (ba2af37965)
+- 🐞 修复:读不到的文件不再当成没有再覆盖、删除或改用下一份 (faf9aa9ced)
+- 🐞 修复:根治 BUG-65/79 共享契约字段错位 + 补齐 miniapp 导出声明 + 清理明文 DSN 兜底注释 (52505f20c3)
+- 🐞 修复:简介数字对齐现算口径并移除两枚死图标 (bce2df19d4)
+- 🐞 修复:OTA 腿必须回读新组才算落地 + hook 顺序回归锁 (ede655949e)
+- 🐞 修复:AutoInstallGuide 的 hook 必须早退前声明 (f070fddf2f)
+- 🐞 修复:公网终检 -NoProxy + 重试,清理失败不再污染退出码 (d86d4c7d3f)
+- 🔧 工程/其他:versionName 优先 -P,显示版本与原生基座解耦 (fc592e25e1)
+- 🔧 工程/其他:origin/main 35c870f8705b115086a63aadefe2ecb8e5370558 + mobile overlay b77573788d5d2b31f8d2b09ae2e212c953131f9f (d76367ae48)
+
+**2026-11-05**
+- 📚 文档:记录 node_modules 空洞导致 eslint 加载失败的根因与恢复口径 (384c883107)
+
+**2026-11-04**
+- 🐞 修复:派生进度始终落地,门禁红只拦合并不拦推进 (252ef71a05)
+- 🚀 新功能/改进:跨端级联全自动流水线 web→RN→小程序 (机主令 2026-11-04) (06f85e2a91)
+
 **2026-11-05**
 - 📚 文档:随本轮文件面变动同步现算数字(表 621/测试文件 4108/守门 336) (2f779fcd75)
 - 📚 文档:第六回合五席产出入账 + §8c 那道合并分歧的结清读数 (2441c18be2)
