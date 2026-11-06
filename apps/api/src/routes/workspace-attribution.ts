@@ -72,8 +72,8 @@ function parseDoc(value: string | null): AttributionDoc {
       if (Array.isArray(records)) files[path] = records as LineAttribution[]
     }
     return { files }
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('归属记录读不到')) throw error
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('归属记录读不到')) throw err
     throw new Error('归属记录读不到,不能把它说成没有')
   }
 }
@@ -132,8 +132,8 @@ export const workspaceAttributionRoutes: FastifyPluginAsync = async (server) => 
     let records: LineAttribution[]
     try {
       records = await loadRecords(request.userId!, workspacePath)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '归属记录读不到,不能把它说成没有'
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '归属记录读不到,不能把它说成没有'
       return reply.status(409).send(error(409, message))
     }
     const outcome = queryAttribution({ workspacePath, file, records })
@@ -170,8 +170,8 @@ export const workspaceAttributionRoutes: FastifyPluginAsync = async (server) => 
     let doc: AttributionDoc
     try {
       doc = parseDoc(row?.value ?? null)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : '归属记录读不到,不能把它说成没有'
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '归属记录读不到,不能把它说成没有'
       return reply.status(409).send(error(409, message))
     }
     doc.files[relative] = records.map((record) => ({
