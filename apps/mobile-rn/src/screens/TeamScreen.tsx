@@ -191,6 +191,10 @@ export function TeamScreen() {
         void load(true)
         if (user) void loadTree()
       }}
+      onRetry={() => void load()}
+      emptyText={t('team.empty')}
+      showHeader
+      showTabs
       onBack={() => navigation.goBack()}
       onPressMember={(memberId) => navigation.navigate('TeamDetail', { memberId })}
       tree={user ? tree : undefined}

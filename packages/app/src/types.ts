@@ -16,7 +16,6 @@ export type {
   SharedMenuSection,
   SharedLocaleOption,
   SharedThemeOption,
-  SharedAppInfo,
   SharedNotificationToggles,
   AboutScreenProps,
   ProfileScreenProps,

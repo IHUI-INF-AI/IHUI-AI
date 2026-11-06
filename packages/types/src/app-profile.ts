@@ -13,7 +13,6 @@
 
 import type { ReactNode } from 'react'
 import type {
-  SharedAppInfo,
   SharedIdentityTag,
   SharedLocaleOption,
   SharedMenuItem,
@@ -30,7 +29,6 @@ import type { OnNavigate, OnToast } from './app-host-ports.js'
 /** About 屏 props */
 export interface AboutScreenProps {
   t: TFunction
-  appInfo?: SharedAppInfo
   onBack: () => void
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate

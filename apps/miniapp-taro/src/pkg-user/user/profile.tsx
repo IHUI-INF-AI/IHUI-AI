@@ -36,12 +36,15 @@ export default function Profile() {
   const [stats, setStats] = useState<ProfileStats | null>(null)
   const [orderCount, setOrderCount] = useState<number | null>(null)
   const [realnameVerified, setRealnameVerified] = useState<boolean | null>(null)
+  const [error, setError] = useState('')
 
   const load = useCallback(async () => {
+    setError('')
     try {
       setForm(await getProfile())
     } catch (e) {
       logger.error('user/profile', '获取用户信息', e)
+      setError(t('common.failed'))
       onToast(t('common.failed'), { kind: 'error' })
     }
     // 三枚读数各自独立:取不到留 null(渲染 '--' / 不出值),不把「没取到」说成「就是 0 / 没认证」。
@@ -141,6 +144,7 @@ export default function Profile() {
         stats={stats}
         orderCount={orderCount}
         loading={false}
+        error={error}
         realnameStatus={
           realnameVerified === null ? undefined : realnameVerified ? 'verified' : 'unverified'
         }

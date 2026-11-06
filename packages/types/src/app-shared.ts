@@ -75,16 +75,6 @@ export interface SharedThemeOption {
   label: string
 }
 
-/** 应用信息(About 页展示) */
-export interface SharedAppInfo {
-  appName?: string
-  version?: string
-  description?: string
-  officialSite?: string
-  contactEmail?: string
-  license?: string
-}
-
 /** 通知开关状态(设置页) */
 export interface SharedNotificationToggles {
   push: boolean
