@@ -14,10 +14,14 @@
 //      `apps/cli/tests/file-edit-atomic-write.test.ts` 证明(静态门只能判形态,判不了语义)。
 //
 // 三条判据:
-//   R1 工作区写面(= import 了 checkPathWritePermission 的工具文件)不得有裸 writeFileSync /
-//      appendFileSync。**棘轮锚点 = 该文件 HEAD 自身违规数**(与守门 77/83/98 同取向):
-//      只拦"这次改动把裸写加回来",不把别人欠的债钉红 —— 与改动无关的恒红门只会逼人
-//      --no-verify 并连带废掉全部守门(§12e 同型)。
+//   R1 工作区写面不得有裸 writeFileSync / appendFileSync。**棘轮锚点 = 该文件 HEAD 自身违规数**
+//      (与守门 77/83/98 同取向):只拦"这次改动把裸写加回来",不把别人欠的债钉红。
+//      **BUG-0044 扩面**:判据面此前只收"import 了 checkPathWritePermission 的工具文件",
+//      于是 `sessions/**`、`checkpoints/**`、`subagents/state-store.ts` 的裸写不在判据内,
+//      BUG-0010(会话/检查点状态裸写非原子)在门上是绿的。现把这三处**状态面**并入:
+//      状态面文件不 import 路径权限闸(它们写的是自己管理的状态文件,不是用户工作区),
+//      所以按"面内即参与"判定,而不是按闸符号判定;棘轮锚点仍是各文件 HEAD 自身计数,
+//      存量欠债不会被一次性钉红(扩面在新面上首读即 0 额度 = 任何裸写都会红)。
 //   R2 唯一出口 `apps/cli/src/util/atomic-write.ts` 在位且导出齐备(被摘线即红)。
 //   R3 落盘方 `apps/cli/src/tools/file-edit.ts` 必须真用它(防"造好没装车",守门 64/97 同型):
 //      已入库的接线不得回退;import 了却不调用(半个接线)同判红。
@@ -80,8 +84,21 @@ const SKIP_ENV = 'HUSKY_SKIP_FILE_WRITE_SAFETY'
 export const EXIT_MODULE = 'apps/cli/src/util/atomic-write.ts'
 /** 已收口的落盘方(本票范围内) */
 export const TOOL_MODULE = 'apps/cli/src/tools/file-edit.ts'
-/** 扫描面:模型可调用的写盘面 */
-const SCAN_DIR = 'apps/cli/src/tools'
+/** 扫描面:模型可调用的写盘面 + 会话/检查点/子代理状态面(BUG-0044 扩面) */
+const SCAN_SURFACES = [
+  'apps/cli/src/tools',
+  'apps/cli/src/sessions',
+  'apps/cli/src/checkpoints',
+  'apps/cli/src/subagents/state-store.ts',
+]
+/** 状态面:不 import 路径权限闸,但同样必须走原子写(BUG-0044) */
+const STATE_STORE_SURFACES = [
+  'apps/cli/src/sessions',
+  'apps/cli/src/checkpoints',
+  'apps/cli/src/subagents/state-store.ts',
+]
+/** 兼容既有导出/用例的锚点(第一个面仍是工具面) */
+const SCAN_DIR = SCAN_SURFACES[0]
 const SCAN_EXTS = ['.ts']
 
 /** 名单:每条都必须在 --self-test 里有"输入取自名单本身"的正向用例(守门 120 的要求) */
@@ -170,6 +187,7 @@ export function analyzeFile(rel, text) {
     present: typeof text === 'string',
     bareWrites: [],
     usesWorkspaceWriteGate: false,
+    inStateStoreSurface: inStateStoreSurface(rel),
     importsAtomicExit: false,
     callsCommitAtomic: 0,
     callsCaptureBaseline: 0,
@@ -215,7 +233,8 @@ export function evaluateBareWrites(files, headCounts) {
   const ratcheted = []
   for (const f of files) {
     if (!f.present || f.rel === EXIT_MODULE) continue
-    if (!f.usesWorkspaceWriteGate) continue
+    // 工具面按"是否有路径权限闸"参与;状态面按"是否在 sessions/checkpoints/子代理状态面"参与
+    if (!f.usesWorkspaceWriteGate && !f.inStateStoreSurface) continue
     if (f.bareWrites.length === 0) continue
     const allowed = Number.isInteger(headCounts?.[f.rel]) ? headCounts[f.rel] : 0
     if (f.bareWrites.length > allowed) findings.push({ rel: f.rel, hits: f.bareWrites, allowed })
@@ -306,26 +325,31 @@ export function evaluateWiring({
 /** 反假绿:扫描面枚举到 0 个文件 = 判据没跑起来,不是"仓库干净"。 */
 export function assertNonEmptyScan(files, face) {
   if (!Array.isArray(files) || files.length === 0) {
-    throw new Undetermined(`${FACE_LABEL[face] ?? face} 面在 ${SCAN_DIR} 内枚举到 0 个文件 ⇒ 无法判定`)
+    throw new Undetermined(`${FACE_LABEL[face] ?? face} 面在 ${SCAN_SURFACES.join(' / ')} 内枚举到 0 个文件 ⇒ 无法判定`)
   }
   return files.length
 }
 
 function inScope(rel) {
   const norm = rel.replace(/\\/g, '/')
-  if (!norm.startsWith(`${SCAN_DIR}/`)) return false
   if (!SCAN_EXTS.includes(path.extname(norm))) return false
   if (norm.includes('/node_modules/')) return false
-  return true
+  return SCAN_SURFACES.some((s) => norm === s || norm.startsWith(`${s}/`))
+}
+
+/** 状态面文件:没有路径权限闸也参与 R1(BUG-0044) */
+function inStateStoreSurface(rel) {
+  const norm = rel.replace(/\\/g, '/')
+  return STATE_STORE_SURFACES.some((s) => norm === s || norm.startsWith(`${s}/`))
 }
 
 function listToolFiles(root, face) {
   const args =
     face === 'head'
-      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', SCAN_DIR]
+      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCAN_SURFACES]
       : face === 'staged'
-        ? ['ls-files', '--cached', '--', SCAN_DIR]
-        : ['ls-files', '--', SCAN_DIR]
+        ? ['ls-files', '--cached', '--', ...SCAN_SURFACES]
+        : ['ls-files', '--', ...SCAN_SURFACES]
   let out
   try {
     out = gitRaw(args, root)
@@ -519,7 +543,7 @@ export function collectFaultInjectionFace(root, face) {
 function report(res) {
   const total = res.bare.findings.length + res.wiring.findings.length
   console.log(
-    `文件写盘安全对账 · 判定面=${FACE_LABEL[res.face]} · 扫描 ${res.scanned} 个工具文件 · 越线 ${res.bare.findings.length} 个 · 结构红 ${res.wiring.findings.length} 项 · 棘轮内存量 ${res.bare.ratcheted.reduce((a, b) => a + b.n, 0)} 处`,
+    `文件写盘安全对账 · 判定面=${FACE_LABEL[res.face]} · 扫描 ${res.scanned} 个写面文件 · 越线 ${res.bare.findings.length} 个 · 结构红 ${res.wiring.findings.length} 项 · 棘轮内存量 ${res.bare.ratcheted.reduce((a, b) => a + b.n, 0)} 处`,
   )
   for (const a of res.anchorNotes) {
     if (a.downgraded) {
@@ -645,6 +669,37 @@ function selfTest() {
   check(
     'B9 出口模块自身豁免(门不得咬自己写的 tmp)',
     evaluateBareWrites([analyzeFile(EXIT_MODULE, srcW)], {}).findings.length === 0,
+  )
+  // ---- BUG-0044 扩面:状态面即使没有路径权限闸也参与 R1 ----
+  const STATE_FILES = [
+    'apps/cli/src/sessions/state-store.ts',
+    'apps/cli/src/checkpoints/index.ts',
+    'apps/cli/src/subagents/state-store.ts',
+  ]
+  const stateBare = (rel) => analyzeFile(rel, `fs.writeFileSync(abs, body, 'utf-8');\n`)
+  check(
+    'B10 sessions/checkpoints/子代理状态面各自在扫描面内(逐名正向)',
+    STATE_FILES.every((rel) => inScope(rel) === true) &&
+      analyzeFile(STATE_FILES[0], `fs.writeFileSync(p, x)\n`).inStateStoreSurface === true,
+  )
+  check(
+    'B11 状态面裸写(**无**路径权限闸)⇒ 判红,额度 0(扩面之前这里是假绿)',
+    STATE_FILES.every(
+      (rel) => evaluateBareWrites([{ ...stateBare(rel), present: true }], { [rel]: 0 }).findings.length === 1,
+    ),
+  )
+  check(
+    'B12 状态面 HEAD 自身存量 ⇒ 不红(棘轮锚点不变,扩面不制造恒红)',
+    evaluateBareWrites([{ ...stateBare(STATE_FILES[0]), present: true }], { [STATE_FILES[0]]: 1 }).findings.length === 0,
+  )
+  check(
+    'B13 面外文件仍不受 R1 扩面波及(e.g. hooks/trust.ts 裸写不在判据内)',
+    inScope('apps/cli/src/hooks/trust.ts') === false &&
+      evaluateBareWrites([{ ...stateBare('apps/cli/src/hooks/trust.ts'), present: true }], {}).findings.length === 0,
+  )
+  check(
+    'B14 状态面无裸写 ⇒ 零 findings(正常树不被扩面误杀)',
+    evaluateBareWrites(STATE_FILES.map((rel) => analyzeFile(rel, `const s = readState(p)\n`)), {}).findings.length === 0,
   )
   const ratchet = evaluateBareWrites([G({ bareWrites: [{ line: 1, api: 'writeFileSync' }] })], { [TOOL_MODULE]: 1 })
   check('B2 HEAD 自身存量 ⇒ 不红(反恒红)', ratchet.findings.length === 0)
