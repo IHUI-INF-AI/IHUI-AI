@@ -383,7 +383,7 @@ def _render_rule_md(rule: Rule) -> str:
     )
 
 
-def _rule_path_present(path: str) -> bool:
+def _rule_path_present(path: str, *, unread: str | None = None) -> bool:
     """ENOENT 才是真的没有。其它读失败必须抛,不能让删除把规则从内存摘掉。"""
     try:
         os.stat(path)
@@ -391,7 +391,8 @@ def _rule_path_present(path: str) -> bool:
     except FileNotFoundError:
         return False
     except OSError as exc:
-        raise OSError(f"规则文件读不到,不能把它说成已删除: {exc}") from exc
+        detail = unread or "规则文件读不到,不能把它说成已删除"
+        raise OSError(f"{detail}: {exc}") from exc
 
 
 class RulesEngine:
@@ -740,13 +741,15 @@ class RulesEngine:
             version: 版本 timestamp(文件名前缀)。
 
         Returns:
-            回滚后的 Rule,失败返回 None。
+            回滚后的 Rule。版本确实没有时返回 None。读不到必须抛,不能当成没有这个版本。
         """
+        filename = f"{version}-{rule_id}.md"
+        path = os.path.join(self._history_dir, filename)
+        if not _rule_path_present(
+            path, unread="规则版本读不到,不能把它说成没有这个版本"
+        ):
+            return None
         try:
-            filename = f"{version}-{rule_id}.md"
-            path = os.path.join(self._history_dir, filename)
-            if not os.path.exists(path):
-                return None
             with open(path, encoding="utf-8") as f:
                 content = f.read()
             # 去掉 action 注释
@@ -782,6 +785,8 @@ class RulesEngine:
                 self._rules[rule_id] = rule
             self._record_audit("rollback", rule.id, rule.name, "system")
             return rule
+        except OSError:
+            raise
         except Exception as e:
             logger.warning("[rules_engine] 回滚失败: %s", e)
             return None
@@ -806,17 +811,18 @@ class RulesEngine:
         self, rule_id: str, timestamp: str
     ) -> str | None:
         """读取指定版本的规则文件内容(去掉 action 注释)。"""
+        filename = f"{timestamp}-{rule_id}.md"
+        path = os.path.join(self._history_dir, filename)
+        if not _rule_path_present(
+            path, unread="规则版本读不到,不能把它说成没有这个版本"
+        ):
+            return None
         try:
-            filename = f"{timestamp}-{rule_id}.md"
-            path = os.path.join(self._history_dir, filename)
-            if not os.path.exists(path):
-                return None
             with open(path, encoding="utf-8") as f:
                 content = f.read()
-            return re.sub(r"^<!-- action: \w+ -->\n", "", content)
-        except Exception as e:
-            logger.warning("rules_engine._read_version_content 失败: %s", e, exc_info=True)
-            return None
+        except OSError as exc:
+            raise OSError(f"规则版本读不到,不能把它说成没有这个版本: {exc}") from exc
+        return re.sub(r"^<!-- action: \w+ -->\n", "", content)
 
     # ── 匹配(Scope 继承链)──────────────────────────────────
 

@@ -279,13 +279,31 @@ export function listSnapshots(paths: SwitchPaths): SnapshotInfo[] {
   return out
 }
 
+export function classifySwitchPath(
+  target: string,
+  stat: (path: string) => unknown = statSync,
+): 'absent' | 'present' {
+  try {
+    stat(target)
+    return 'present'
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error
+        ? (error as { code?: unknown }).code
+        : undefined
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent'
+    const name = typeof code === 'string' ? code : 'unknown'
+    throw new Error(`登录态文件读不到,不能把它说成没有再覆盖 (${name})`)
+  }
+}
+
 function writeSnapshotContent(paths: SwitchPaths, snapDir: string): void {
   mkdirSync(snapDir, { recursive: true })
   const sha256s: Record<string, string> = {}
   const baseDir = resolveBaseDir(paths.target)
   for (const rel of paths.target.files) {
     const src = join(baseDir, rel)
-    if (!existsSync(src)) continue // 缺失文件记录为缺失,恢复时跳过
+    if (classifySwitchPath(src) === 'absent') continue // 确实没有才跳过;读不到必须中止,不能留下残缺备份
     const dest = join(snapDir, rel)
     mkdirSync(dest.replace(/[^/\\]+$/, ''), { recursive: true })
     copyFileSync(src, dest)
@@ -411,7 +429,7 @@ export function applySwitch(paths: SwitchPaths, plan: SwitchPlan): SwitchApplyRe
     const baseDir = resolveBaseDir(paths.target)
     for (const rel of paths.target.files) {
       const src = join(plan.targetDir, rel)
-      if (!existsSync(src)) continue
+      if (classifySwitchPath(src) === 'absent') continue
       const dest = join(baseDir, rel)
       mkdirSync(dest.replace(/[^/\\]+$/, ''), { recursive: true })
       const tmp = `${dest}.switching-${Date.now()}.tmp`

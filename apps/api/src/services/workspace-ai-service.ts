@@ -12,6 +12,7 @@
 import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
 import {
@@ -77,6 +78,31 @@ function readJson<T>(file: string, fallback: T): T {
     return JSON.parse(readFileSync(file, 'utf-8')) as T
   } catch {
     return fallback
+  }
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
+/** 确实没有才用 fallback。读不到或内容损坏必须抛,调用方不得把 fallback 写回去。 */
+function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
+  let text: string
+  try {
+    text = readFileSync(file, 'utf-8')
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return fallback
+    throw new Error(`${unread} (${code ?? 'unknown'})`)
+  }
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(`${unread} (parse)`)
   }
 }
 
@@ -853,6 +879,42 @@ export function clampSandboxTimeout(raw: unknown, fallbackMs = 60000): number {
   return Math.min(Math.max(Math.trunc(n), 1000), 120000)
 }
 
+/**
+ * 把一次沙箱子进程收成判定。
+ * 截止先到时不保留子进程退出码；没有数字退出码时也不编成 1。
+ */
+export function settleSandboxJob(input: {
+  timeoutMs: unknown
+  killed: unknown
+  code: unknown
+  stdout: unknown
+  stderr: unknown
+}): BoundedJobVerdict {
+  const deadlineSec =
+    typeof input.timeoutMs === 'number' && Number.isFinite(input.timeoutMs)
+      ? Math.floor(input.timeoutMs / 1000)
+      : input.timeoutMs
+  const sawLog = typeof input.stdout === 'string' || typeof input.stderr === 'string'
+  let finished: unknown
+  let exitCode: unknown
+  if (input.killed === true) {
+    finished = false
+    exitCode = null
+  } else if (typeof input.code === 'number' && Number.isInteger(input.code)) {
+    finished = true
+    exitCode = input.code
+  } else {
+    finished = input.killed === false ? true : input.killed
+    exitCode = input.code
+  }
+  return judgeBoundedSystemJob({
+    deadlineSec,
+    finished,
+    exitCode,
+    log: sawLog ? 'primary' : null,
+  })
+}
+
 const NETWORK_COMMANDS = [
   'curl',
   'wget',
@@ -1093,7 +1155,7 @@ class SandboxExecutor {
     timeoutMs?: number
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
     // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
@@ -1243,18 +1305,38 @@ class SandboxExecutor {
           )
         },
       )
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: false,
+        code: 0,
+        stdout,
+        stderr,
+      })
       return {
         stdout: stdout.slice(0, MAX_STDOUT),
         stderr: stderr.slice(0, MAX_STDERR),
-        exitCode: 0,
+        exitCode: verdict.exitCode,
         mode,
       }
     } catch (e) {
-      const err = e as Error & { stdout?: string; stderr?: string; code?: number }
+      const err = e as Error & {
+        stdout?: string
+        stderr?: string
+        code?: unknown
+        killed?: unknown
+      }
+      const stderrText = err.stderr ?? err.message
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: err.killed,
+        code: err.code,
+        stdout: err.stdout,
+        stderr: stderrText,
+      })
       return {
         stdout: (err.stdout ?? '').slice(0, MAX_STDOUT),
-        stderr: (err.stderr ?? err.message).slice(0, MAX_STDERR),
-        exitCode: err.code ?? 1,
+        stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
+        exitCode: verdict.exitCode,
         mode,
       }
     }
@@ -1923,10 +2005,16 @@ class CheckpointManager {
 
   private getStore(workspacePath: string): Checkpoint[] {
     if (!this.stores.has(workspacePath)) {
-      this.stores.set(workspacePath, [])
       const file = join(workspacePath, '.ihui', 'checkpoints.json')
-      const data = readJson<Checkpoint[] | null>(file, null)
-      if (data) this.stores.set(workspacePath, data)
+      const data = readJsonForUpdate<Checkpoint[] | null>(
+        file,
+        null,
+        '检查点读不到,不能把它覆盖成只剩这一次',
+      )
+      if (data !== null && !Array.isArray(data)) {
+        throw new Error('检查点读不到,不能把它覆盖成只剩这一次 (parse)')
+      }
+      this.stores.set(workspacePath, data ?? [])
     }
     return this.stores.get(workspacePath)!
   }
@@ -2204,11 +2292,10 @@ class PermissionManager {
 
   loadRules(workspacePath: string): PermissionRule[] {
     const file = join(workspacePath, '.claude', 'settings.json')
-    if (!existsSync(file)) return []
-    const data = readJson<{ permissions?: { allow?: string[]; ask?: string[]; deny?: string[] } }>(
-      file,
-      {},
-    )
+    const data = readJsonForUpdate<{
+      permissions?: { allow?: string[]; ask?: string[]; deny?: string[] }
+    } | null>(file, null, '权限规则读不到,不能把它说成没有拒绝规则')
+    if (!data) return []
     const rules: PermissionRule[] = []
     for (const r of data.permissions?.allow ?? []) rules.push(this.parseRule(r, 'allow'))
     for (const r of data.permissions?.ask ?? []) rules.push(this.parseRule(r, 'ask'))
@@ -2994,11 +3081,20 @@ const BUILTIN_PERSONAS: Persona[] = [
 
 class PersonaRegistry {
   private personas = new Map<string, Persona>()
+  private blockedWrite: string | null = null
 
   constructor() {
     for (const p of BUILTIN_PERSONAS) this.personas.set(p.id, p)
-    const saved = readJson<Persona[] | null>(PERSONAS_FILE, null)
-    if (saved) for (const p of saved) this.personas.set(p.id, p)
+    try {
+      const saved = readJsonForUpdate<Persona[] | null>(
+        PERSONAS_FILE,
+        null,
+        '人格档案读不到,不能按内置名单覆盖',
+      )
+      if (saved) for (const p of saved) this.personas.set(p.id, p)
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
   }
 
   list(category?: string): Persona[] {
@@ -3068,6 +3164,7 @@ class PersonaRegistry {
   }
 
   private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
     writeJson(PERSONAS_FILE, Array.from(this.personas.values()))
   }
 }
@@ -3095,10 +3192,19 @@ export interface Routine {
 class RoutineManager {
   private routines = new Map<string, Routine>()
   private timer: NodeJS.Timeout | null = null
+  private blockedWrite: string | null = null
 
   constructor() {
-    const saved = readJson<Routine[] | null>(ROUTINES_FILE, null)
-    if (saved) for (const r of saved) this.routines.set(r.id, r)
+    try {
+      const saved = readJsonForUpdate<Routine[] | null>(
+        ROUTINES_FILE,
+        null,
+        '例行程序读不到,不能按空名单覆盖',
+      )
+      if (saved) for (const r of saved) this.routines.set(r.id, r)
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
   }
 
   list(): Routine[] {
@@ -3243,6 +3349,7 @@ class RoutineManager {
   }
 
   private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
     writeJson(ROUTINES_FILE, Array.from(this.routines.values()))
   }
 }
@@ -3567,7 +3674,7 @@ class FSBridge {
     mode?: SandboxMode
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
     return sandboxExecutor.execute({
       command: params.command,
       workspacePath: params.workspacePath,
@@ -3581,7 +3688,14 @@ class FSBridge {
   /** 记录最近工作区 */
   addRecent(meta: { path: string; name: string; techStack?: string[] }): void {
     const file = join(STORE_ROOT, 'recent-workspaces.json')
-    const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(file, [])
+    const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
+      file,
+      [],
+      '最近工作区读不到,不能把它覆盖成只剩刚打开的这一条',
+    )
+    if (!Array.isArray(list)) {
+      throw new Error('最近工作区读不到,不能把它覆盖成只剩刚打开的这一条 (parse)')
+    }
     const filtered = list.filter((w) => w.path !== meta.path)
     filtered.unshift({ path: meta.path, name: meta.name, lastOpened: nowSec() })
     writeJson(file, filtered.slice(0, 20))

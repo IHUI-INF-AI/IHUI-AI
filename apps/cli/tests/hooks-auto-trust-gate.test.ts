@@ -15,11 +15,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { agentsMdExists } from '../src/commands/template.js'
 import {
   HookAutoDiscovery,
   addTrustedWorkspace,
   loadTrustedWorkspaces,
 } from '../src/commands/hooks-auto.js'
+import { ensureWorktreeGitignore } from '../src/tools/worktree-state.js'
 
 let scratch: string
 let savedTrustFile: string | undefined
@@ -68,8 +70,12 @@ describe('工作区 hook 信任门', () => {
 
   it('信任名单读不到时不覆盖,执行侧仍视为未信任', () => {
     mkdirSync(join(scratch, 'trust.json'))
-    expect(loadTrustedWorkspaces().size).toBe(0)
+    expect(() => loadTrustedWorkspaces()).toThrow(/读不到/)
     expect(() => addTrustedWorkspace(scratch)).toThrow(/不能把它覆盖成只剩新的工作区/)
+    const discovery = new HookAutoDiscovery(scratch)
+    const workspaceHooks = discovery.discover().filter((h) => h.sourceLabel !== 'global')
+    expect(workspaceHooks.length).toBeGreaterThan(0)
+    for (const h of workspaceHooks) expect(h.enabled).toBe(false)
     expect(statSync(join(scratch, 'trust.json')).isDirectory()).toBe(true)
   })
 
@@ -92,6 +98,39 @@ describe('工作区 hook 信任门', () => {
   it('信任文件损坏 ⇒ 视为空集(fail-closed,不抛错)', () => {
     // loadTrustedWorkspaces 读固定路径;此处只验证"空集语义"由调用方保证
     expect(loadTrustedWorkspaces().has(scratch)).toBe(false)
+  })
+})
+
+describe('读不到不覆盖 gitignore 和 AGENTS.md', () => {
+  it('gitignore 是目录时不改写成隔离条目', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-unread-cover-'))
+    try {
+      const file = join(dir, '.gitignore')
+      mkdirSync(file)
+      expect(() => ensureWorktreeGitignore(dir)).toThrow(/读不到/)
+      expect(statSync(file).isDirectory()).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('AGENTS.md 读不到时不用模板覆盖', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-unread-cover-'))
+    try {
+      const file = join(dir, 'AGENTS.md')
+      mkdirSync(file)
+      expect(agentsMdExists(dir)).toBe(true)
+      expect(statSync(file).isDirectory()).toBe(true)
+      const denied = Object.assign(new Error('denied'), { code: 'EACCES' })
+      expect(() =>
+        agentsMdExists(dir, () => {
+          throw denied
+        }),
+      ).toThrow(/读不到/)
+      expect(statSync(file).isDirectory()).toBe(true)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

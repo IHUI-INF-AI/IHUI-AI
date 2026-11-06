@@ -86,16 +86,28 @@ export function normalizeIpLiteral(raw: string | null | undefined): string | nul
   return full.map((g) => g.toString(16)).join(':')
 }
 
-/** 存储面取值口径：坏行不把读面打碎，写面仍会整体覆盖。 */
+/** 存储面取值口径：没有记录才是空表。坏 JSON 不能当成没有，否则登录会放行、写入会整表覆盖。 */
+export class IpWhitelistUnreadableError extends Error {
+  constructor() {
+    super('IP 白名单读不到,不能把它说成没有')
+    this.name = 'IpWhitelistUnreadableError'
+  }
+}
+
+/** 存储面取值口径：没有记录才是空表。坏 JSON 必须抛，调用方不得写回。 */
 export async function readIpWhitelist(userId: string): Promise<string[]> {
   const { list } = await findUserPreferences(userId, GROUP)
   const raw = list.find((row) => row.key === IP_WHITELIST_KEY)?.value
   if (!raw) return []
   try {
     const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
-  } catch {
-    return []
+    if (!Array.isArray(parsed) || parsed.some((item) => typeof item !== 'string')) {
+      throw new IpWhitelistUnreadableError()
+    }
+    return parsed
+  } catch (error) {
+    if (error instanceof IpWhitelistUnreadableError) throw error
+    throw new IpWhitelistUnreadableError()
   }
 }
 
@@ -152,7 +164,14 @@ export async function gateLoginIpWhitelist(
   reply: FastifyReply,
   userId: string,
 ): Promise<LoginIpGate> {
-  const decision = await evaluateLoginIpWhitelist({ request, userId })
+  let decision: LoginIpDecision
+  try {
+    decision = await evaluateLoginIpWhitelist({ request, userId })
+  } catch (error) {
+    if (!(error instanceof IpWhitelistUnreadableError)) throw error
+    const blocked = reply.status(409).send(error(409, error.message))
+    return { allowed: false, reply: blocked }
+  }
   if (decision.allowed) return { allowed: true }
   await recordSecurityEvent(
     request,

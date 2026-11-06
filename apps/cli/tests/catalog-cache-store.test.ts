@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { Skill } from '../src/skills/index.js';
+import { SkillScanUnread } from '../src/skills/index.js';
 import { readSkillCatalog, skillCatalogCachePath, skillCatalogScopeOf } from '../src/skills/catalog-cache-store.js';
 
 const BASE_NOW = 1_800_000_000_000;
@@ -214,6 +215,32 @@ describe('命中 / 判脏 / 过期 / 换机', () => {
     const healed = JSON.parse(fs.readFileSync(skillCatalogCachePath(), 'utf-8'));
     expect(healed.results).toHaveLength(1);
     expect(healed.scope.projectDir).toBe(path.resolve(tmpProject));
+  });
+
+  it('扫描读不到时不把已有缓存收成空清单', () => {
+    const scan = () => [fakeSkill('alpha', skillFile, '1.0.0')];
+    readSkillCatalog({
+      cwd: tmpProject,
+      cachePath: skillCatalogCachePath(),
+      now: () => BASE_NOW,
+      freshnessMs: FRESHNESS,
+      scan,
+      onNotice: () => {},
+    });
+    const before = fs.readFileSync(skillCatalogCachePath(), 'utf-8');
+    const out = readSkillCatalog({
+      cwd: tmpProject,
+      cachePath: skillCatalogCachePath(),
+      now: () => BASE_NOW + FRESHNESS + 1,
+      freshnessMs: FRESHNESS,
+      scan: () => {
+        throw new SkillScanUnread(tmpProject, 'EACCES');
+      },
+      onNotice: () => {},
+    });
+    expect(out.state).toBe('unjudged');
+    expect(out.entries.map((entry) => entry.name)).toEqual(['alpha']);
+    expect(fs.readFileSync(skillCatalogCachePath(), 'utf-8')).toBe(before);
   });
 });
 

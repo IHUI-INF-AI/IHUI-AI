@@ -53,7 +53,7 @@
  * 照常放行,正是本条要禁的语义。"恢复成空清单"永远不是成功,只是留证后的一个事实。
  */
 
-import { readFileSync, existsSync, renameSync } from 'node:fs'
+import { readFileSync, existsSync, renameSync, statSync } from 'node:fs'
 import { join, resolve, isAbsolute } from 'node:path'
 import { homedir } from 'node:os'
 // 规范化器只认这一份实现(AGENTS「两处算同一 key 必须共用一份实现」):
@@ -187,7 +187,18 @@ function corruptEvidencePathFor(trustFilePath: string, seq: number): string {
 function quarantineTrustFile(trustFilePath: string): { evidencePath: string | null; failed: string } {
   for (let seq = 0; seq < 10; seq += 1) {
     const candidate = corruptEvidencePathFor(trustFilePath, seq)
-    if (existsSync(candidate)) continue
+    try {
+      statSync(candidate)
+      continue
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : undefined
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        return { evidencePath: null, failed: `留证件读不到,不能改名盖掉 (${code ?? 'unknown'})` }
+      }
+    }
     try {
       renameSync(trustFilePath, candidate)
       return { evidencePath: candidate, failed: '' }

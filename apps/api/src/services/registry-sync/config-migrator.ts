@@ -78,13 +78,30 @@ export async function backupFile(fileType: ConfigFileType, backupDir?: string): 
   await mkdir(absDir, { recursive: true })
   const src = resolvePath(CONFIG_FILE_PATHS[fileType])
   const dst = join(absDir, fileType)
+  await copyOrPlaceholder(src, dst)
+  return dst
+}
+
+/** 源文件确实没有才写空占位。读不到必须抛,不能让回滚把活配置覆盖成空。 */
+export async function copyOrPlaceholder(src: string, dst: string): Promise<void> {
   try {
     await copyFile(src, dst)
-  } catch {
-    // 源文件可能不存在,写入空占位以保留备份槽位
-    await writeFile(dst, '', 'utf8')
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      await writeFile(dst, '', 'utf8')
+      return
+    }
+    throw new Error(`配置备份读不到,不能写成空占位 (${code ?? 'unknown'}): ${src}`)
   }
-  return dst
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
 }
 
 /** 兼容性校验(检查 schema 兼容、键名冲突、类型匹配) */
@@ -176,8 +193,16 @@ export async function migrateFile(
     return { status: 'failed', message: `兼容性校验失败: ${compat.reason}` }
   }
 
-  // 备份 + 写入,失败回滚
-  const backupPath = await backupFile(fileType, backupDir)
+  // 备份失败不能继续写活文件:空备份再回滚会把配置覆盖成空。
+  let backupPath: string
+  try {
+    backupPath = await backupFile(fileType, backupDir)
+  } catch (error) {
+    return {
+      status: 'failed',
+      message: error instanceof Error ? error.message : String(error),
+    }
+  }
   try {
     await writeFile(resolvePath(CONFIG_FILE_PATHS[fileType]), baseline.content, 'utf8')
     return { status: 'migrated', message: '已恢复到基线内容', backupPath }
@@ -268,8 +293,10 @@ export async function listMigrationHistory(): Promise<
   let entries: string[] = []
   try {
     entries = await readdir(root)
-  } catch {
-    return []
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return []
+    throw new Error(`迁移备份目录读不到,不能把它说成没有历史 (${code ?? 'unknown'})`)
   }
   const result: Array<{ timestamp: string; files: ConfigFileType[] }> = []
   for (const entry of entries) {

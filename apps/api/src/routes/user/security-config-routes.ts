@@ -17,6 +17,7 @@ import {
   IP_WHITELIST_KEY,
   readIpWhitelist,
   recordIpWhitelistChangeSourceIp,
+  IpWhitelistUnreadableError,
 } from './ip-whitelist-guard.js'
 
 /**
@@ -82,7 +83,14 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     if (!emptyQuerySchema.safeParse(request.query).success) {
       return reply.status(400).send(error(400, '参数错误'))
     }
-    return reply.send(success(await readIpWhitelist(request.userId!)))
+    let ips: string[]
+    try {
+      ips = await readIpWhitelist(request.userId!)
+    } catch (error) {
+      if (!(error instanceof IpWhitelistUnreadableError)) throw error
+      return reply.status(409).send(error(409, error.message))
+    }
+    return reply.send(success(ips))
   })
 
   // POST /user/ip-whitelist {ip} — 幂等追加；响应仍是字符串数组
@@ -93,7 +101,13 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '请输入合法的 IP 地址（不支持 CIDR 段）'))
     }
     const userId = request.userId!
-    const ips = await readIpWhitelist(userId)
+    let ips: string[]
+    try {
+      ips = await readIpWhitelist(userId)
+    } catch (error) {
+      if (!(error instanceof IpWhitelistUnreadableError)) throw error
+      return reply.status(409).send(error(409, error.message))
+    }
     if (!ips.includes(parsed.data.ip)) ips.push(parsed.data.ip)
     await upsertUserPreference(userId, GROUP, IP_WHITELIST_KEY, JSON.stringify(ips))
     await recordIpWhitelistChangeSourceIp(userId, request.ip)
@@ -105,7 +119,14 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     const parsed = ipQuerySchema.safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
     const userId = request.userId!
-    const next = (await readIpWhitelist(userId)).filter((x) => x !== parsed.data.ip)
+    let current: string[]
+    try {
+      current = await readIpWhitelist(userId)
+    } catch (error) {
+      if (!(error instanceof IpWhitelistUnreadableError)) throw error
+      return reply.status(409).send(error(409, error.message))
+    }
+    const next = current.filter((x) => x !== parsed.data.ip)
     if (next.length === 0) await deleteUserPreference(userId, GROUP, IP_WHITELIST_KEY)
     else await upsertUserPreference(userId, GROUP, IP_WHITELIST_KEY, JSON.stringify(next))
     // 清空/删项也要留自救锚点：能走到这里说明这台 IP 已经登录成功过

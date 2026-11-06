@@ -151,16 +151,41 @@ export interface LoadSkillsOptions {
   readFile?: (file: string) => string;
 }
 
+/** 扫描没读完。这份清单不能当成完整结果写进缓存。 */
+export class SkillScanUnread extends Error {
+  readonly scanPath: string;
+  readonly code: string;
+  constructor(scanPath: string, code: string) {
+    super(`skill scan unread, cache must not be replaced: ${scanPath} (${code})`);
+    this.name = 'SkillScanUnread';
+    this.scanPath = scanPath;
+    this.code = code;
+  }
+}
+
+function gitMarkerState(dir: string, stat: (target: string) => fs.Stats): 'present' | 'absent' | 'unreadable' {
+  try {
+    stat(path.join(dir, '.git'));
+    return 'present';
+  } catch (error) {
+    const code = fsErrorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent';
+    return 'unreadable';
+  }
+}
+
 /**
  * 从 cwd 向上查找仓库根(含 .git 目录)。
- * 找不到则返回 cwd 本身。
+ * 找不到则返回 cwd 本身。读不到 .git 时不改去上一层。
  */
-export function findRepoRoot(cwd: string): string {
+export function findRepoRoot(cwd: string, stat: (target: string) => fs.Stats = fs.statSync): string {
   let current = path.resolve(cwd);
   for (let i = 0; i < 20; i++) {
-    if (fs.existsSync(path.join(current, '.git'))) {
-      return current;
+    const marker = gitMarkerState(current, stat);
+    if (marker === 'unreadable') {
+      throw new SkillScanUnread(path.join(current, '.git'), 'unreadable');
     }
+    if (marker === 'present') return current;
     const parent = path.dirname(current);
     if (parent === current) break;
     current = parent;
@@ -702,7 +727,7 @@ function readSkillFile(
     const code = fsErrorCode(error);
     if (code === 'ENOENT' || code === 'ENOTDIR') return null;
     onNotice(`[skills] file could not be read, so this is not "no such skill": ${fullPath} (${code})`);
-    return null;
+    throw new SkillScanUnread(fullPath, code);
   }
   try {
     const def = parseSkillDefinition(raw, fullPath);
@@ -870,7 +895,7 @@ function scanDir(
   if (root.disposition === 'absent') return [];
   if (root.disposition === 'unjudged') {
     onNotice(`[skills] 扫描根无法判定,不当成没有技能: ${dir} (${root.code})`);
-    return [];
+    throw new SkillScanUnread(dir, root.code);
   }
   if (root.disposition === 'link') {
     onNotice(`[skills] 拒绝跟随符号链接/junction(扫描根本体),该根整根不扫: ${dir}`);
@@ -884,8 +909,9 @@ function scanDir(
     const list = readDir ?? ((target: string) => fs.readdirSync(target, { withFileTypes: true }));
     entries = list(dir);
   } catch (error) {
-    onNotice(`[skills] 目录读不到,不当成没有技能: ${dir} (${fsErrorCode(error)})`);
-    return [];
+    const code = fsErrorCode(error);
+    onNotice(`[skills] 目录读不到,不当成没有技能: ${dir} (${code})`);
+    throw new SkillScanUnread(dir, code);
   }
   const push = (file: string, fallbackName: string): void => {
     // 第三粒度:根下条目都是真目录时,`<dir>/<name>/SKILL.md` 本体仍可能是链接

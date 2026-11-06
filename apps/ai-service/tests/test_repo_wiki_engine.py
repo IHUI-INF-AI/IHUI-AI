@@ -230,10 +230,41 @@ def test_wiki_text_never_contains_sensitive_file_content(fake_llm, tmp_path, mon
     assert "public readme" in text, "非敏感文件应正常进入文本(证明扫描没被整体打死)"
 
 
+def test_unreadable_cache_is_not_replaced(fake_llm, workspace):
+    """缓存路径是目录时,不能把它换成一份新摘要。"""
+    repo_wiki_engine.clear_wiki_cache()
+    cache = repo_wiki_engine._cache_file(workspace, workspace)
+    os.makedirs(cache)
+    marker = os.path.join(cache, "keep.txt")
+    with open(marker, "w", encoding="utf-8") as fh:
+        fh.write("keep")
+    text = asyncio.run(repo_wiki_engine.ensure_wiki(workspace, workspace))
+    assert text
+    assert "SUMMARY[README.md]" in text
+    assert os.path.isdir(cache)
+    with open(marker, encoding="utf-8") as fh:
+        assert fh.read() == "keep"
+
+
 def test_ihui_wiki_disable_hard_switch_still_wins(fake_llm, workspace, monkeypatch):
     """IHUI_WIKI_DISABLE=1 仍是最高优先级硬开关(不放宽任何情况下都生效)。"""
     repo_wiki_engine.clear_wiki_cache()
     monkeypatch.setenv("IHUI_WIKI_DISABLE", "1")
 
     assert asyncio.run(repo_wiki_engine.ensure_wiki(workspace, workspace)) is None
+
+
+def test_unreadable_source_listing_is_not_an_empty_wiki(tmp_path, monkeypatch):
+    """根目录列不出来时不能当成没有 markdown,再写成缺条目的快照。"""
+    (tmp_path / "README.md").write_text("# ok\n", encoding="utf-8")
+    real_listdir = os.listdir
+
+    def denied(path):
+        if os.path.abspath(path) == os.path.abspath(tmp_path):
+            raise PermissionError(13, "denied", path)
+        return real_listdir(path)
+
+    monkeypatch.setattr(repo_wiki_engine.os, "listdir", denied)
+    with pytest.raises(repo_wiki_engine.WikiSourceUnread):
+        repo_wiki_engine._discover_files(str(tmp_path))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
