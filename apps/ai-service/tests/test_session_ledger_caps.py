@@ -24,9 +24,11 @@ from app.services import artifacts_store
 @pytest.fixture(autouse=True)
 def _clean():
     sse_contract.ADMISSION_SEEN.clear()
+    sse_contract._EVICTION_WARNINGS.clear()
     artifacts_store._fallback_cache.clear()
     yield
     sse_contract.ADMISSION_SEEN.clear()
+    sse_contract._EVICTION_WARNINGS.clear()
     artifacts_store._fallback_cache.clear()
 
 
@@ -46,7 +48,10 @@ def test_admission_outer_conversation_keys_are_capped(monkeypatch) -> None:
     assert len(sse_contract.ADMISSION_SEEN) <= 3, "外层会话键必须封顶"
     assert sse_contract.admission_conversation_evictions >= 7, "逐出必须量得到"
     # 被逐出的老会话再次准入仍是 accepted(逐出=忘记留痕,不冒充 duplicate)
+    assert "conv-0" in sse_contract._EVICTION_WARNINGS
+    assert sse_contract.close_eviction_warning("never")["reason"] == "recovery-without-warning"
     assert sse_contract.take_admission("conv-0", "same-input", limit=8) == "accepted"
+    assert "conv-0" not in sse_contract._EVICTION_WARNINGS
 
 
 def test_release_returns_the_conversation_key_when_ledger_empties() -> None:

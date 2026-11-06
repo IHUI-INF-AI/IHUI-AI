@@ -47,6 +47,7 @@ from app.core.sse_contract import (
     open_recovery_window,
     peek_recovery_window,
     recovery_clock_ms,
+    measured_queue_ahead,
     release_admission,
     take_admission,
 )
@@ -4580,6 +4581,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _lane["waiting"].append(_queued_entry)
                                 _admission_payload["disposition"] = "queued"
                                 _admission_payload["queuedTurnId"] = _queued_turn_id
+                                _ahead = measured_queue_ahead(_lane["waiting"], _queued_turn_id)
+                                if _ahead is not None:
+                                    _admission_payload["ahead"] = _ahead
                         else:
                             _lane["active"] = _conv_turn_token
                     if message_id:
@@ -4603,6 +4607,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         # 晋升由前流 finally 的 _conv_lane_release 完成(set event)。
                         _conv_waited = 0.0
                         _conv_promoted = False
+                        _last_ahead = _admission_payload.get("ahead")
                         while _conv_waited < _CONV_QUEUE_WAIT_TIMEOUT:
                             _conv_remain = _CONV_QUEUE_WAIT_TIMEOUT - _conv_waited
                             try:
@@ -4615,6 +4620,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             except TimeoutError:
                                 _conv_waited += _CONV_QUEUE_KEEPALIVE_INTERVAL
                                 if _conv_waited < _CONV_QUEUE_WAIT_TIMEOUT:
+                                    _now_ahead = measured_queue_ahead(
+                                        _lane["waiting"], _queued_turn_id
+                                    )
+                                    if _now_ahead is not None and _now_ahead != _last_ahead:
+                                        _last_ahead = _now_ahead
+                                        yield _sse(
+                                            SSE_ADMISSION,
+                                            {
+                                                "type": SSE_ADMISSION,
+                                                "inputId": req.inputId,
+                                                "disposition": "queued",
+                                                "queuedTurnId": _queued_turn_id,
+                                                "ahead": _now_ahead,
+                                            },
+                                        )
                                     yield ": keep-alive (waiting conversation turn)\n\n"
                                 continue
                             _conv_promoted = True
