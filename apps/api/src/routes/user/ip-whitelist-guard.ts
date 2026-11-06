@@ -105,8 +105,8 @@ export async function readIpWhitelist(userId: string): Promise<string[]> {
       throw new IpWhitelistUnreadableError()
     }
     return parsed
-  } catch (error) {
-    if (error instanceof IpWhitelistUnreadableError) throw error
+  } catch (err) {
+    if (err instanceof IpWhitelistUnreadableError) throw err
     throw new IpWhitelistUnreadableError()
   }
 }
@@ -167,9 +167,9 @@ export async function gateLoginIpWhitelist(
   let decision: LoginIpDecision
   try {
     decision = await evaluateLoginIpWhitelist({ request, userId })
-  } catch (error) {
-    if (!(error instanceof IpWhitelistUnreadableError)) throw error
-    const blocked = reply.status(409).send(error(409, error.message))
+  } catch (err) {
+    if (!(err instanceof IpWhitelistUnreadableError)) throw err
+    const blocked = reply.status(409).send(error(409, err.message))
     return { allowed: false, reply: blocked }
   }
   if (decision.allowed) return { allowed: true }

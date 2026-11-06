@@ -86,9 +86,9 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     let ips: string[]
     try {
       ips = await readIpWhitelist(request.userId!)
-    } catch (error) {
-      if (!(error instanceof IpWhitelistUnreadableError)) throw error
-      return reply.status(409).send(error(409, error.message))
+    } catch (err) {
+      if (!(err instanceof IpWhitelistUnreadableError)) throw err
+      return reply.status(409).send(error(409, err.message))
     }
     return reply.send(success(ips))
   })
@@ -104,9 +104,9 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     let ips: string[]
     try {
       ips = await readIpWhitelist(userId)
-    } catch (error) {
-      if (!(error instanceof IpWhitelistUnreadableError)) throw error
-      return reply.status(409).send(error(409, error.message))
+    } catch (err) {
+      if (!(err instanceof IpWhitelistUnreadableError)) throw err
+      return reply.status(409).send(error(409, err.message))
     }
     if (!ips.includes(parsed.data.ip)) ips.push(parsed.data.ip)
     await upsertUserPreference(userId, GROUP, IP_WHITELIST_KEY, JSON.stringify(ips))
@@ -122,9 +122,9 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     let current: string[]
     try {
       current = await readIpWhitelist(userId)
-    } catch (error) {
-      if (!(error instanceof IpWhitelistUnreadableError)) throw error
-      return reply.status(409).send(error(409, error.message))
+    } catch (err) {
+      if (!(err instanceof IpWhitelistUnreadableError)) throw err
+      return reply.status(409).send(error(409, err.message))
     }
     const next = current.filter((x) => x !== parsed.data.ip)
     if (next.length === 0) await deleteUserPreference(userId, GROUP, IP_WHITELIST_KEY)
