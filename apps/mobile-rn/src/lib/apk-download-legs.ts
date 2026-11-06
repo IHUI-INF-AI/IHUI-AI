@@ -45,6 +45,10 @@ export const APK_CN_LEG_URL = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/release
 
 /** 字面量白名单,与 desktop-download-leg.ts 的 RELEASE_TARGET_ALLOWED_ORIGINS 同源纪律。 */
 export const APK_LEG_ALLOWED_ORIGINS: readonly string[] = [
+  // 2026-11-06: 快腿 = 阿里云 OSS 北京节点(CNAME apk.aizhs.top,签名直链)。
+  // 实测单流 38–48MB/s,而站点腿(EdgeOne)单流 0.28MB/s、12 路并发封顶 3.87MB/s。
+  // 服务端 latest 的 downloadUrl 指向它;Gitee 仍是国内兜底腿。
+  'https://apk.aizhs.top',
   'https://www.aizhs.top',
   'https://gitee.com',
   'https://github.com',
