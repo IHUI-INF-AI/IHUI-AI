@@ -459,6 +459,7 @@ export function classifyPage(page) {
     businessJsx: info.count,
     duplicateUi: null,
     injectedProps: [...info.injected],
+    singleEndProps: null,
   }
   const asCopy = (note, duplicateUi = null) => ({
     route: page.route,
@@ -513,7 +514,9 @@ export function classifyPage(page) {
   }
   const oneEnd = singleEndProps(info, page?.rnText)
   if (Array.isArray(oneEnd) && oneEnd.length > 0) {
-    return asCopy(`单端消费 prop(${oneEnd.join(',')}): 另一端未传同名 prop`, false)
+    const row = asCopy(`单端消费 prop(${oneEnd.join(',')}): 另一端未传同名 prop`, false)
+    row.singleEndProps = [...oneEnd]
+    return row
   }
   if (dup === null || oneEnd === null) {
     const why = [dup === null ? '共享屏正文读不到' : null, oneEnd === null ? 'RN 对照读不到' : null]
@@ -533,6 +536,7 @@ export function classifyPage(page) {
     businessJsx: info.count,
     duplicateUi: false,
     injectedProps: [...info.injected],
+    singleEndProps: [],
     note: shellEntry
       ? `结构与 import 双证(业务 JSX ${info.count},零重复 UI 段,无单端 prop)`
       : `结构薄壳(业务 JSX ${info.count},零重复 UI 段,无单端 prop;未命中 import 入口)`,
@@ -663,6 +667,30 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
 }
 
 /**
+ * 台账条目“可摘”的真值判据(只许更严,不得放宽)。
+ * 只有当前判定确实成立才返回 null:页面在册且现读为薄壳、业务 JSX ≤2、零重复 UI 段、
+ * 无单端消费 prop、有共享屏入口证据。任一不成立都返回原因 ⇒ 调用方不得给摘除建议。
+ * @param {object|null} row 当前面分类结果(`classifyPage`/`classifyMiniappPages` 的产物)
+ * @returns {string|null} null = 可摘;否则为不可摘的具体原因
+ */
+export function retirementShortfall(row) {
+  if (!row) return '当前面无对应页'
+  if (row.impl === 'copy') return '现读仍为复制页'
+  if (row.impl === 'undetermined') return '当前形态不可判'
+  if (row.impl !== 'shell') return `当前判为 ${row.impl}(不在薄壳射程)`
+  if (row.mapStatus === 'none' || row.mapStatus === 'missing-file') return '当前未接共享屏映射'
+  if (typeof row.businessJsx !== 'number' || row.businessJsx > 2) {
+    return `业务 JSX ${row.businessJsx} 超阈值(>2)`
+  }
+  if (row.duplicateUi !== false) return '仍有重复 UI 段(或不可判)'
+  if (!Array.isArray(row.singleEndProps) || row.singleEndProps.length > 0) {
+    return `仍有单端消费 prop(${Array.isArray(row.singleEndProps) ? row.singleEndProps.join(',') : '未取证'})`
+  }
+  if (!row.shellEntry) return '无共享屏入口证据'
+  return null
+}
+
+/**
  * 棘轮纯判定(不读盘,供自测复用)。
  * @param {object[]} rows 当前面分类结果
  * @param {object[]} ledger 存量台账行
@@ -697,15 +725,34 @@ export function evaluateRatchet(rows, ledger) {
       advisories.push({ rule: 'S2', why: `存量页当前未判定,不得摘除: ${l.route}(${r.note})` })
       continue
     }
-    if (!r || r.impl !== 'copy') {
-      advisories.push({ rule: 'S2', why: `存量复制页已收敛(可从台账摘除): ${l.route}` })
+    // 摘除建议只认“当前判定确实成立”:复制页/重复段/单端 prop/业务 JSX 超阈值/不在射程/
+    // 当前面无对应页,一律不给“可摘”,降级为只报差量或明确的“不得摘除”。
+    if (!r) {
+      advisories.push({ rule: 'S2', why: `存量台账条目当前面无对应页(无法核对,不得摘除): ${l.route}` })
+      continue
+    }
+    if (r.impl === 'copy') continue
+    const shortfall = retirementShortfall(r)
+    if (shortfall === null) {
+      advisories.push({
+        rule: 'S2',
+        why: `存量复制页已收敛(可从台账摘除:业务 JSX ${r.businessJsx} ≤ 2、零重复 UI 段、无单端 prop): ${l.route}`,
+      })
+    } else {
+      advisories.push({
+        rule: 'S2',
+        why: `存量条目当前判为 ${r.impl},摘除证据不成立(${shortfall}),不得摘除: ${l.route}`,
+      })
     }
   }
   const ledgerLoc = new Map(ledger.map((l) => [ledgerKey(l), l.loc]))
   for (const r of currentCopies) {
     const old = ledgerLoc.get(ledgerKey(r))
     if (typeof old === 'number' && old !== r.loc) {
-      advisories.push({ rule: 'S2', why: `复制页行数变化(台账 ${old} → 现读 ${r.loc}): ${r.route}` })
+      advisories.push({
+        rule: 'S2',
+        why: `复制页行数变化(台账 ${old} → 现读 ${r.loc};仍为复制页,不得摘除): ${r.route}`,
+      })
     }
   }
   const totalLoc = rows.reduce((a, r) => a + (r.loc || 0), 0)

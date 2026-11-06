@@ -27,6 +27,7 @@ import {
   evaluateRatchet,
   hasShellImport,
   loadLedgerRows,
+  retirementShortfall,
 } from '../lib/miniapp-shell-form.mjs'
 import { __test__ as G } from '../check-miniapp-shell-form.mjs'
 
@@ -1075,6 +1076,79 @@ test('T17e conversation-import failedCountLabel 十份词包逐键非空/非裸 
     delete zh.conversationImport.failedCountLabel
     assertCopyResolvable(zh, keys, null, 'negative/zh-CN')
   })
+})
+
+// T22 299-S2「可摘」真值锁(2026-11-06 收尾批):「可从台账摘除」只在当前判定确实成立时出现。
+// 判据 = retirementShortfall:现读薄壳 + 业务 JSX ≤2 + 零重复 UI 段 + 无单端 prop + 有入口证据。
+// 阴性对照:复制页/重复段/单端 prop/超阈值/不在射程/无入口证据/当前面无对应页 ⇒ 一律不得"可摘"。
+test('T22 S2「可摘」真值锁:任一条不成立即不得给摘除建议', () => {
+  const shell = {
+    route: 'demo/s2',
+    file: 'demo/s2.tsx',
+    loc: 10,
+    mapStatus: 'registry+declaration',
+    impl: 'shell',
+    reasonClass: null,
+    businessJsx: 2,
+    duplicateUi: false,
+    singleEndProps: [],
+    injectedProps: [],
+    shellEntry: '@rn-shells/DemoScreen',
+  }
+  const ledger = { ...shell, impl: 'copy' }
+  assert.equal(retirementShortfall(shell), null, '正例:三判据全过 ⇒ 可摘')
+  assert.ok(
+    evaluateRatchet([shell], [ledger]).advisories.some((a) => /可从台账摘除/.test(a.why)),
+    '正例:薄壳 + 台账必须给出可摘',
+  )
+
+  const copy = { ...shell, impl: 'copy', reasonClass: 'pure-copy', duplicateUi: null, singleEndProps: null }
+  assert.equal(retirementShortfall(copy), '现读仍为复制页')
+  assert.ok(
+    !evaluateRatchet([copy], [ledger]).advisories.some((a) => /可从台账摘除/.test(a.why)),
+    '阴性对照:复制页绝不能出现"可摘"(否则退休依据被放宽)',
+  )
+
+  const cases = [
+    [{ ...shell, duplicateUi: true }, /重复 UI 段/],
+    [{ ...shell, singleEndProps: ['renderTabBody'] }, /单端消费 prop/],
+    [{ ...shell, businessJsx: 3 }, /超阈值/],
+    [{ ...shell, mapStatus: 'none' }, /未接共享屏映射/],
+    [{ ...shell, shellEntry: null }, /入口证据/],
+    [{ ...shell, impl: 'undetermined' }, /不可判/],
+    [null, /当前面无对应页/],
+  ]
+  for (const [row, re] of cases) {
+    assert.match(retirementShortfall(row) ?? '', re)
+    if (row) {
+      assert.ok(
+        !evaluateRatchet([row], [ledger]).advisories.some((a) => /可从台账摘除/.test(a.why)),
+        `阴性对照:${re} 不得出现"可摘"`,
+      )
+    }
+  }
+  // 当前面无对应页:只能报"无法核对",不得"可摘"
+  const missing = evaluateRatchet([], [ledger])
+  assert.ok(missing.advisories.some((a) => /无法核对/.test(a.why)))
+  assert.ok(!missing.advisories.some((a) => /可从台账摘除/.test(a.why)))
+})
+
+test('T22b 真实仓 S2 真值锁:每一条"可摘"逐页对得上 strict 证据', () => {
+  const { rows } = classifyMiniappPages(ROOT, 'head')
+  const ev = evaluateRatchet(rows, loadLedgerRows(ROOT))
+  const retire = ev.advisories.filter((a) => /可从台账摘除/.test(a.why))
+  for (const a of retire) {
+    const route = a.why.slice(a.why.lastIndexOf(': ') + 2)
+    assert.equal(
+      retirementShortfall(rows.find((r) => r.route === route)),
+      null,
+      `真实仓误标可摘:${route}`,
+    )
+  }
+  // 真实复制页逐条反查:不得混进可摘名单
+  for (const r of rows.filter((x) => x.impl === 'copy')) {
+    assert.notEqual(retirementShortfall(r), null, `复制页被误判可摘:${r.route}`)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
