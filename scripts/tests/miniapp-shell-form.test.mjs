@@ -1151,4 +1151,41 @@ test('T22b 真实仓 S2 真值锁:每一条"可摘"逐页对得上 strict 证据
   }
 })
 
+// T23 299-C4(2026-11-06,pkg-ai/ai/chat):薄壳页被 BUG-67 页级提问浮层顶回"复制"后必须重新在册。
+// 现场:8fedf1d129 把 chat 页压到业务 JSX 1(薄壳),同日台账行按 JSX 615→2 退休;
+// d050d90d10(BUG-67)加回 6 枚浮层 JSX ⇒ 业务 JSX 7 > 2 ⇒ 判复制页,退休行被过滤 ⇒ S1 报未登记。
+// 三向锁:①现读仍是复制页(判据不因登记被削弱);②在册行 loc 与现读一致且棘轮判绿;
+// ③阴性对照:同一页拿掉登记后仍必须红(同类未登记不放过)。
+const CHAT_PAGE = join(ROOT, 'apps/miniapp-taro/src/pkg-ai/ai/chat.tsx')
+const CHAT_SPEC = ['packages/app/src/features/chat/ChatScreen.tsx']
+
+test('T23 chat 页(薄壳 + BUG-67 浮层)在册:S1 判绿,同类未登记仍判红', () => {
+  const page = readFileSync(CHAT_PAGE, 'utf8')
+  const chat = classifyPage({
+    route: 'pkg-ai/ai/chat',
+    file: 'apps/miniapp-taro/src/pkg-ai/ai/chat.tsx',
+    text: page,
+    declaredSpecs: CHAT_SPEC,
+    registry: { miniapp: 'pkg-ai/ai/chat' },
+  })
+  assert.equal(chat.impl, 'copy', '现读必须仍判复制页,登记不得把判据改弱')
+  assert.ok(chat.businessJsx > 2)
+  assert.notEqual(retirementShortfall(chat), null, '复制页不得落入"可摘"建议')
+  assert.ok(equivalentEntry(page, CHAT_SPEC), '主体仍直载共享 ChatScreen(不是整页复制)')
+
+  const ledger = loadLedgerRows(ROOT)
+  const active = ledger.filter((r) => r.route === chat.route)
+  assert.equal(active.length, 1, '在册行必须恰好一条(退休行已被 loadLedgerRows 滤掉)')
+  assert.equal(active[0].file, chat.file)
+  assert.equal(active[0].loc, chat.loc, '台账 loc 与现读不一致 = 登记是陈的')
+  assert.equal(evaluateRatchet([chat], ledger).reds.length, 0, '登记后 S1 必须判绿')
+
+  const unregistered = evaluateRatchet(
+    [chat],
+    ledger.filter((r) => r.route !== chat.route),
+  )
+  assert.equal(unregistered.reds.length, 1, '同类未登记仍必须判红')
+  assert.match(unregistered.reds[0].why, /新增复制页未登记/)
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
