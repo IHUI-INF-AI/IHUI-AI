@@ -5,7 +5,7 @@
 -->
 # AGENTS.md — IHUI-AI 项目 Agent 指南
 > 作用域:`G:/IHUI-AI` 仓库根目录及所有子目录。凡「盘符 / gitdir 形态 / 远端 URL / 代理 / 服务承载体(nssm·计划任务·daemon) / PowerShell 解释器身份 / TEMP」七类机器事实,**每次使用前按当次实测取值**,不得把本文或另一台机的现状当本机事实写进判据。
-> **本文件为 2026-10-14 压缩版**:规则条款全部保留;历史叙述、失效原文残留、重复登记副本与超长守门登记整区逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`。本文与归档原文冲突时以本文为准;本文未写的历史案例按归档件查。另见 `.ihui-agent/archive/AGENTS_history.md`。2026-10-21 二次压缩:压缩前原文逐字归档于 `.ihui-agent/archive/AGENTS-pre-compress-2026-10-21.md`。
+> **2026-10-14 压缩版**:规则条款全保留;历史叙述/失效原文/重复登记副本/超长守门登记整区归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`;冲突以本文为准,未写历史案例查归档件(另见 `.ihui-agent/archive/AGENTS_history.md`)。2026-10-21 二次压缩原文归档于 `.ihui-agent/archive/AGENTS-pre-compress-2026-10-21.md`。
 ## 0. 全局铁律(先读,跨节通用)
 1. **凡数字一律现读**:本文所有计数、门编号、例数都是登记时刻读数,派单/问责前必须重跑对应脚本取现值。
 2. **恒红门禁令(§12e/§12f)**:与本次提交内容无关的红门,唯一结局是逼人 `--no-verify`、连带废掉全部守门。判机器状态/判历史存量的 → warn 或差值棘轮(只拦新增);**升 blocking 的前置 = 存量归零**。

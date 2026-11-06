@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T15:11:11.343Z",
+  "sealedAt": "2026-11-06T15:31:16.240Z",
   "sealedBy": "root-guard --seal",
-  "reason": "按即将入库的索引面重封:本枚把门 185 正规豁免说明写入 guardian-runner,并同步对齐 d050d90 合并后已入库的 runner/judgement-libs(清单与被改规则文件同枚提交,不留 stale-manifest)",
+  "reason": "集成合流重封根护栏清单:合并结果面 guardian-runner/judgement-libs/AGENTS.md 被审内容与本侧不同;全部哈希由 hashTarget 现算,未手改数字",
   "targets": [
     {
       "id": "guardian-runner",
