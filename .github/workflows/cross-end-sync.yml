@@ -68,6 +68,9 @@ env:
 jobs:
   cascade:
     runs-on: ubuntu-latest
+    # cron 任务没有默认超时(GitHub 上限 360min),级联合并卡住会把下一个整点的
+    # cron 排在 concurrency 队列后,表现为"同步停摆但不红"。30 分钟足够一次级联。
+    timeout-minutes: 30
     steps:
       - name: 检出
         uses: actions/checkout@v4
