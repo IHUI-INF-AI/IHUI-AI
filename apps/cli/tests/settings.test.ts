@@ -12,6 +12,7 @@ import {
   saveSettingsTemplate,
   resolveEffectiveConfig,
 } from '../src/commands/settings.js'
+import { recordInstall } from '../src/lib/registry-client.js'
 
 describe('settings 加载/保存/合并', () => {
   let tmpDir: string
@@ -105,6 +106,26 @@ describe('settings 加载/保存/合并', () => {
     fs.writeFileSync(p, JSON.stringify({ auditEnabled: false }))
     const r = resolveEffectiveConfig({})
     expect(r.auditEnabled).toBe(false)
+  })
+})
+
+describe('安装清单损坏时不覆盖', () => {
+  it('损坏的安装清单不会被记成只剩这一条', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-registry-installs-'))
+    const corrupt = path.join(dir, 'corrupt.json')
+    const body = '{not json'
+    fs.writeFileSync(corrupt, body, 'utf-8')
+    try {
+      expect(() =>
+        recordInstall(
+          { sourceType: 'skill', sourceId: 'demo', version: '1.0.0', installedAt: '2026-11-06T00:00:00.000Z' },
+          corrupt,
+        ),
+      ).toThrow(/不能把它说成没有已装项 \(corrupt\)/)
+      expect(fs.readFileSync(corrupt, 'utf-8')).toBe(body)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
