@@ -43,24 +43,59 @@ test.describe('@browser-hub 发布账号 · 扫码登录必须走 HTTP 二维码
       }
     })
 
+    // 就绪信号(2026-11-06 实测):domcontentloaded 早于 React 挂载 —— dev 冷编译下
+    // 点击会落在 onClick 绑上之前(该窗口内页面连 /accounts/me 都没发),弹窗自然不出现。
+    // 页面挂载后自己会拉这一条:拿到答复即等价于"客户端组件已跑起来、按钮可交互",
+    // 不引入固定等待,也不靠计时器试。
+    const accountsLoaded = page.waitForResponse(
+      (r) => r.url().includes('/api/publish/accounts/me') && r.request().method() === 'GET',
+      { timeout: 30000 },
+    )
+    // 先挂监听再导航:domcontentloaded 只保证 SSR 到位,客户端组件挂载与那次
+    // /accounts/me 都在其后 —— 监听后置会漏掉已发出的请求而白等 30s。
     await page.goto('/publish/accounts', { waitUntil: 'domcontentloaded' })
+    const addBtn = page.getByRole('button', { name: /添加账号/ }).first()
+    await expect(addBtn).toBeVisible()
+    await accountsLoaded
+    await expect(addBtn).toBeEnabled()
 
-    // 打开单平台扫码弹窗
-    await page
-      .getByRole('button', { name: /添加账号/ })
-      .first()
-      .click()
+    // platforms 是弹窗挂载后才异步拉的 ⇒ 先等这条答复,再读 pill 集合。
+    // count() 不重试,把它当等待必然读到首帧空集(实测 retry1 就是这样误走下拉分支)。
+    const platformsLoaded = page.waitForResponse(
+      (r) => r.url().includes('/api/publish/scan-login/platforms') && r.status() === 200,
+      { timeout: 30000 },
+    )
+    await addBtn.click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 10000 })
+    await platformsLoaded
+    // 平台区渲染落定:pill 或「更多平台」下拉任一出现 —— 可观察条件,非固定等待。
+    await expect
+      .poll(
+        async () =>
+          (await dialog.getByRole('button', { name: PICK_PLATFORM, exact: true }).count()) +
+          (await dialog.getByRole('combobox').count()),
+        { timeout: 10000 },
+      )
+      .toBeGreaterThan(0)
 
-    // 2026-10-21:产品 09-30 重设计后,热门平台(含知乎)是弹窗内直接可见的 pill,
-    // 只有「更多平台」才走 combobox 下拉 ⇒ 先按 pill 点,取不到再回落到下拉。
+    // 2026-10-21:产品 09-30 重设计后,热门平台(含知乎)是弹窗内直接可见的 pill。
     const platformPill = dialog.getByRole('button', { name: PICK_PLATFORM, exact: true }).first()
     if (await platformPill.count()) {
       await platformPill.click()
     } else {
+      // 真实行为(ScanLoginDialog 的 restPlatforms):「更多平台」下拉按设计排除常用平台,
+      // 所以 PICK_PLATFORM 不会出现在 option 里 —— 这里验证该设计成立,不再盲等一个
+      // 永远不会出现的 option。pill 缺失本身即产品重设计回归,具名失败而不是降级放行。
       await dialog.getByRole('combobox').first().click()
-      await page.getByRole('option', { name: PICK_PLATFORM, exact: true }).first().click()
+      await expect(page.getByRole('option').first(), '「更多平台」下拉必须能展开').toBeVisible()
+      await expect(
+        page.getByRole('option', { name: PICK_PLATFORM, exact: true }),
+        '常用平台按设计不进「更多平台」下拉',
+      ).toHaveCount(0)
+      throw new Error(
+        `热门平台 pill 未渲染(${PICK_PLATFORM} 不在平台集合里):产品重设计回归,拒绝盲走下拉路径`,
+      )
     }
 
     await dialog

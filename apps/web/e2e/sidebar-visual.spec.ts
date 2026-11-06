@@ -267,8 +267,26 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
     })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    // 等 React hydration + 折叠态样式应用
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    // 就绪信号(2026-11-06 实测):`load` 早于 hydration —— layout.tsx 的内联脚本只先把
+    // --sidebar-width 写成 60px,导航项类名仍是 SSR 的展开态 w-full(实测 44×36)。
+    // 判据 = aside 已 60px 且导航区出现折叠类 w-9,即 React 已把 collapsed 落到 DOM。
+    await expect
+      .poll(
+        async () =>
+          authenticatedPage.evaluate(() => {
+            const aside = document.querySelector('aside')
+            const nav = aside?.querySelector('nav')
+            if (!aside || !nav) return false
+            if (Math.round(aside.getBoundingClientRect().width) !== 60) return false
+            const items = Array.from(nav.querySelectorAll('a[href^="/"], button[aria-label]'))
+            return items.some((el) => {
+              const cls = el.className
+              return typeof cls === 'string' && cls.includes('w-9')
+            })
+          }),
+        { timeout: 15000 },
+      )
+      .toBe(true)
   })
 
   test('折叠态 aside 宽度为 60px', async ({ authenticatedPage }) => {
@@ -447,8 +465,16 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     }, mockAuthState)
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    // 等 React hydration + useMounted() 返回 true 后 SidebarUserRow 才渲染
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    // hydration 就绪信号(2026-11-06):load 只代表资源到位,早于 useMounted() 翻 true。
+    // group/row 只在 mounted && isAuthenticated 之后才进 DOM —— 等它出现再采样,
+    // 不拿 load 当"React 已接管"的替身(实测首轮读到 no group/row,重试才过)。
+    await expect
+      .poll(
+        async () =>
+          await authenticatedPage.evaluate(() => !!document.querySelector('aside .group\\/row')),
+        { timeout: 15000 },
+      )
+      .toBe(true)
   })
 
   // 提取核心几何断言,light/dark 共用
@@ -745,8 +771,20 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    // 等 React hydration + isTabletViewport layout effect 切折叠态
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    // 就绪信号(2026-11-06 实测):同 `load` ≠ hydration。用户行只在
+    // `mounted && isAuthenticated` 后才带 .group/row(未就绪时渲染的是登录 trigger)。
+    await expect
+      .poll(
+        async () =>
+          authenticatedPage.evaluate(() => {
+            const aside = document.querySelector('aside')
+            if (!aside) return false
+            if (Math.round(aside.getBoundingClientRect().width) !== 60) return false
+            return aside.querySelector('.group\\/row') !== null
+          }),
+        { timeout: 15000 },
+      )
+      .toBe(true)
 
     const data = await authenticatedPage.evaluate(() => {
       const aside = document.querySelector('aside')
@@ -786,7 +824,19 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.setViewportSize({ width: 900, height: 800 })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    // 就绪信号(2026-11-06):与平板折叠态那条同源 —— aside 60px 且用户行已挂载。
+    await expect
+      .poll(
+        async () =>
+          authenticatedPage.evaluate(() => {
+            const aside = document.querySelector('aside')
+            if (!aside) return false
+            if (Math.round(aside.getBoundingClientRect().width) !== 60) return false
+            return aside.querySelector('.group\\/row') !== null
+          }),
+        { timeout: 15000 },
+      )
+      .toBe(true)
 
     // header 拉出(展开)按钮:aria-label 正则,与现有 collapse 按钮测试同源
     // (2026-08-29 修:自定义 PanelLeftRounded 无 lucide 类名,只能走 getByLabel)
@@ -822,7 +872,15 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    // 就绪信号(2026-11-06):用户行在 mounted && isAuthenticated 前渲染的是登录 trigger,
+    // 不带 .group/row(实测首轮 null、重试通过即此窗口)。
+    await expect
+      .poll(
+        async () =>
+          authenticatedPage.evaluate(() => document.querySelector('aside .group\\/row') !== null),
+        { timeout: 15000 },
+      )
+      .toBe(true)
 
     const data = await authenticatedPage.evaluate(() => {
       const row = document.querySelector('aside .group\\/row')
@@ -856,27 +914,17 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     })
     await authenticatedPage.goto('/')
 
-    // 2026-09-14 修复:移动视口下 AI 工作区面板默认全屏(fixed inset-0 z-sticky)盖住
-    // 首页 header,汉堡按钮虽可见但 click 永远等不到 pointer events(与
-    // dialog-position-regression 移动端同根因)—— 按真实用户路径先关面板再点汉堡。
-    // 注意 goto 后面板水合渲染需要时间,isVisible 即时检查会误判跳过(实测单跑即挂),
-    // 必须 waitFor 轮询;面板缺席(≤8s 未出现)则视为已关闭,继续原流程。
-    // 2026-11-04 信息架构重构:header 的可见「关闭」收进溢出菜单
-    // (`[data-testid="ai-panel-close"]`,Radix DropdownMenu.Item ⇒ role=menuitem)。
-    // 面板缺席(≤8s 溢出菜单未出现)则视为已关闭,继续原流程。
-    const overflowTrigger = authenticatedPage
-      .locator('[data-testid="ai-panel-overflow-trigger"]')
-      .first()
-    const panelShown = await overflowTrigger
-      .waitFor({ state: 'visible', timeout: 8000 })
-      .then(() => true)
-      .catch(() => false)
-    if (panelShown) {
-      await overflowTrigger.click()
-      await authenticatedPage.locator('[data-testid="ai-panel-close"]').click()
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
-      await authenticatedPage.waitForTimeout(500)
-    }
+    // 就绪信号(2026-11-06):goto 返回只代表 SSR 到位 —— AI 面板根与用户行都是客户端
+    // 组件,SSR 里不存在。面板 open 在 store 里恒为 true(不持久化,刷新回默认展开),
+    // 所以 <640px 下它必然全屏;等头部「关闭」按钮真正可交互,再按真实用户路径关掉它。
+    // 旧写法用 8s 盲等 [data-testid=ai-panel-overflow-trigger],该 testid 已不在源码里
+    // ⇒ 恒超时 ⇒ 被误判为"没有面板",随后的汉堡点击必被 fixed inset-0 遮罩抢走。
+    const panelClose = authenticatedPage
+      .locator('[data-testid="ai-panel-root"]')
+      .getByRole('button', { name: '关闭', exact: true })
+    await expect(panelClose.first()).toBeVisible({ timeout: 20000 })
+    await panelClose.first().click()
+    await expect(panelClose).toHaveCount(0, { timeout: 5000 })
 
     // 顶栏汉堡按钮(min-[640px]:hidden,只在 <640px 可见;640-1023px 隐藏)——
     // 图标 PanelLeftOpen 为页面唯一 lucide-panel-left-open,作稳定定位器

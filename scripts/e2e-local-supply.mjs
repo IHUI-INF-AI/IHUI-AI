@@ -417,6 +417,23 @@ export function swapDbName(dsn, db) {
   return u.toString()
 }
 
+/**
+ * 把一个 redis URL 的 DB 号换成本次运行专属 DB。
+ *
+ * 2026-11-06 实测:API 的限流计数落在 Redis(`ihui:rl:` 命名空间,键只含 IP),
+ * 同机多进程/多会话共用 `127.0.0.1` 一个桶 ⇒ 别席流量会把额度吃光,登录偶发 429。
+ * 换 DB 号后每个隔离栈用自己的桶;生产仍是 8811/0,不受影响。
+ */
+export function swapRedisDb(url, db) {
+  try {
+    const u = new URL(url)
+    u.pathname = `/${db}`
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 /** 取 DSN 里的库名(与 swapDbName 同一套 URL 解析;解析不出返回空串,不猜) */
 export function dbNameFromDsn(dsn) {
   try {
@@ -510,6 +527,16 @@ async function modeStack(env, opts) {
         PORT: String(apiPort),
         // 坑②:脚本登录不带 turnstileToken,键在即 403(CI 无该键,故此处与 CI 同形)
         TURNSTILE_SECRET_KEY: '',
+        // e2e 运行档位(2026-11-06):显式声明非 production,不依赖 apps/api/.env 的缺省;
+        // 生产默认档一行不改。档位单源见 config/index.ts 的 isProductionGuard。
+        ZCODE_RUNTIME_ENV: 'test',
+        NODE_ENV: 'test',
+        // 终端路由放行:与 .github/workflows/e2e.yml 同形的自托管开关,只放开
+        // terminal 一条路由的 auth 档(不加则管理员账号被 ADMIN_TOTP_MODE=enforce 拦成 403);
+        // 比全局 ADMIN_TOTP_MODE=off 的爆炸半径小。
+        IHUI_TERMINAL_LOCAL_ENABLED: '1',
+        // 限流/锁定计数按本次运行隔离:同机多进程共用 127.0.0.1 桶会互相吃额度。
+        REDIS_URL: swapRedisDb(env.REDIS_URL ?? 'redis://127.0.0.1:8811', apiPort % 16),
       },
     },
     apiLog,
@@ -591,6 +618,10 @@ async function modeStack(env, opts) {
       return 2
     }
     console.log('  两侧已就绪;开始跑 spec\n')
+    // 直连 API 的 spec(share-browser/share-function)读 E2E_API_URL,缺省值写死 8802 ——
+    // 那是生产路由(ihui-api-router.mjs)的端口,落到那里会走 production 档登录限流(5/min)
+    // 且与整机共享同一桶。本栈已起隔离 API,把这两条腿钉到它上面,不再泄漏到生产。
+    env.E2E_API_URL = `http://127.0.0.1:${apiPort}`
     if (prod && env.CI) {
       // CI 下 playwright.config 的 reuseExistingServer 默认 false ⇒ webServer 段会去跑
       // `pnpm build && pnpm start`(默认 .next + 8801),既覆盖共享构建目录又打错端口。
