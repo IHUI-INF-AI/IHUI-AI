@@ -225,6 +225,7 @@ import {
   DISPOSITIONS,
 } from './lib/plan-task-index.mjs'
 import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
+import { loadRetiredIdSets } from './lib/plan-id-retire-io.mjs'
 // Y-2(2026-10-29):让位账本的**读口**只有一份(裁决器里),本器只调它的两个纯函数取号集 ——
 // 不在本器重算"哪些号让得",也不在本器解析 jsonl 语法(两处解析必漂)。
 import {
@@ -663,7 +664,9 @@ export function loadYieldedIdSets({ root = null, path = null } = {}) {
     led = readYieldLedgers(paths)
   } catch (e) {
     console.error(
-      `⚠️ 让位账本读失败(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)})⇒ 本轮不让位任何号(比改前更严,不会多发号)`,
+      `⚠️ 让位账本读失败(${String(e?.message ?? e)
+        .split(/\r?\n/)[0]
+        .slice(0, 120)})⇒ 本轮不让位任何号(比改前更严,不会多发号)`,
     )
     return new Map()
   }
@@ -711,11 +714,39 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         ? new Map(
             Object.entries(opts.yieldedIds).map(([k, v]) => [
               String(k).toUpperCase(),
-              new Set((Array.isArray(v) ? v : v instanceof Set ? [...v] : []).map(Number).filter(Number.isFinite)),
+              new Set(
+                (Array.isArray(v) ? v : v instanceof Set ? [...v] : [])
+                  .map(Number)
+                  .filter(Number.isFinite),
+              ),
             ]),
           )
         : null
   const famCtx = new Map() // f -> { localDeclared:Set<number>, remoteNums:Set<number>, scanned:Map, chosenMax:number }
+  const retiredFace =
+    typeof opts?.retiredLoader === 'function'
+      ? opts.retiredLoader(allFams)
+      : {
+          state: 'absent',
+          byFamily: new Map(),
+          why: '调用层未给装载器 ⇒ 本轮不做已结清避让(旧形态)',
+        }
+  /**
+   * 「已结清号」避让集(与 yieldedIds 同款形状:Map<族, Set<号>>)。
+   * `state` 的三态各有不同出路(live 判据在 lib/plan-id-face.mjs 的 collectRetiredIds,本器不复算):
+   *  - ok / partial ⇒ 并进占用面(partial 只是避让面窄一些,顶号仍安全);
+   *  - absent      ⇒ 旧形态,零避让(测试与不接历史的调用方保持逐字同形);
+   *  - undetermined ⇒ **拒发号**:`id-retire-face-undetermined`。读不到"哪些号结清过"时把洞当空闲,
+   *    正是本缺陷的原形(§0.3 不把"没读到"读成"没历史"),与既有 `id-scan-undetermined` 同一档出路。
+   */
+  const retiredIds = retiredFace.byFamily instanceof Map ? retiredFace.byFamily : new Map()
+  const retiredIdsForFam = (f) => retiredIds.get?.(f) ?? null
+  if (retiredFace.state === 'undetermined' && families.length > 0)
+    return {
+      ok: false,
+      reason: `id-retire-face-undetermined:${String(retiredFace.why ?? '').slice(0, 160)}`,
+      basis: [],
+    }
   const numOf = (label) => {
     const m = /(\d+)$/.exec(String(label))
     return m ? Number(m[1]) : Number.NaN
@@ -726,7 +757,10 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     // 本器**只吃号集、不判该不该让**(判据在裁决器,取号层不写第二份)。减法仍走判据单源:
     // `usedIdsOfPrefixExcluding` 是 `usedIdsOfPrefix` 的集合差,不重扫正文、不另写编号语法。
     const yset = yieldedIds?.get?.(f) ?? null
-    const used = yset && yset.size ? usedIdsOfPrefixExcluding(baseContent, f, yset) : usedIdsOfPrefix(baseContent, f)
+    const used =
+      yset && yset.size
+        ? usedIdsOfPrefixExcluding(baseContent, f, yset)
+        : usedIdsOfPrefix(baseContent, f)
     if (used === null) {
       // 手填号所在族在底稿一条登记行都没有 ⇒ 该维判不出,行**原样保留**(族在底稿无行即无底稿撞号);
       // 令牌族保持旧口径:宁拒不发"<族>-1"。
@@ -741,6 +775,13 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       .map(numOf)
       .filter(Number.isFinite)
     const usedNums = [...(used.ids ?? []).map(numOf).filter(Number.isFinite), ...remoteNums]
+    // 「近期已结清号」避让(2026-11-06 立,根因由台账席实测给出):本仓完成即删 ⇒ 结清当天那个号
+    // 就从两张占用面(台账 ⊕ 归档件、全文件扫)上消失,洞因此被当成空闲复发 —— 实测 RP-67 当日被复用,
+    // HEAD 面只剩一条 RP-67 却同号跨题,后人按号回查凭据读到错的枚号。
+    // 本器**只吃号集、不判该不该避让**(判据与读史住在 lib/plan-id-face.mjs 的 collectRetiredIds,
+    // 与 Y-2 让位集同一分工)。undetermined ⇒ 传进来的就是空集,而调用层会同时把"本轮不得填洞"落到面上。
+    const retiredSet = retiredIdsForFam(f)
+    if (retiredSet && retiredSet.size) usedNums.push(...retiredSet)
     // G-313 ①:本地声明位已用与远端已用**分面记账** —— 撞本地已用的手填号不改判(交 F9/登记闸
     // 判红裁归属),撞远端/归档引用面的才改判(那两面对既有闸不可见,改判是唯一不静默的出路)。
     const localDeclared = new Set((used.ids ?? []).map(numOf).filter(Number.isFinite))
@@ -800,7 +841,9 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       // 不再算占用。**只对账本点名的号生效**,且账本里每一枚都带着"全face每次出现都已结清且早于窗"
       // 的证据 ⇒ 这不是"归档面不扫了"(那等于撤 G-14),而是逐号的、可反查的退出。
       if (yset && yset.has(n)) {
-        yieldNotes.push(`${lbl(n)} 已让位(账本 ${YIELD_LEDGER_RELS_TEXT})⇒ 面引用不计占用;反查 node scripts/plan-pool-yield.mjs --trace ${lbl(n)}`)
+        yieldNotes.push(
+          `${lbl(n)} 已让位(账本 ${YIELD_LEDGER_RELS_TEXT})⇒ 面引用不计占用;反查 node scripts/plan-pool-yield.mjs --trace ${lbl(n)}`,
+        )
         return true
       }
       const hit = scanned.get(n)
@@ -2635,6 +2678,9 @@ async function main() {
       // Y-2:让位账本每轮现读(与"号段基准每轮重算"同一条理由 —— HEAD 在动,账本也会随裁决推进;
       // 提到循环外就把让位面烘成一次性读数)。账本缺位/读不出 ⇒ 空集,与改前逐字同形。
       yieldedIds: loadYieldedIdSets({ root }),
+      // 「已结清号」避让面每轮现读(同一理由:HEAD 与摘除台账都在动)。两源读史住在 lib,
+      // 本器只把装载器递进去 —— 判据不在这儿重写第二份(§0.6)。
+      retiredLoader: (fams) => loadRetiredIdSets({ root, families: fams }),
     })
     if (!tok.ok) {
       if (tok.reason === 'duplicate-title') {
