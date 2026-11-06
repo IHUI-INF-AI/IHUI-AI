@@ -37,8 +37,127 @@ export function agreementTitleKey(apiType: string): string {
 }
 
 /**
- * 协议正文 HTML → 段落纯文本数组。
- * RN 端无 SafeHtml 等价物,剥标签后按段落渲染,内容与 web prose 展示同源。
+ * 协议正文结构化块:标题/段落/列表项保留文档语义。
+ * 标题由共享屏按 level 加 `accessibilityRole="header"` 与字号/字重区分;
+ * 列表项由共享屏补项目符号或序号,三端(web/RN/小程序)消费同一份结构。
+ */
+export type AgreementBlock =
+  | { type: 'heading'; level: 1 | 2 | 3; text: string }
+  | { type: 'paragraph'; text: string }
+  | { type: 'listItem'; ordered: boolean; index: number; text: string }
+
+const BLOCK_TAGS = new Set([
+  'p',
+  'div',
+  'blockquote',
+  'section',
+  'article',
+  'tr',
+  'table',
+  'thead',
+  'tbody',
+  'td',
+  'th',
+])
+
+/** 自闭合(如 `<br/>`)与带属性标签均需命中:斜杠在 `>` 之前单独放行。 */
+const TAG_RE = /<\s*(\/?)\s*([a-zA-Z][a-zA-Z0-9]*)(?:\s[^>]*?)?\s*\/?>/g
+
+/** 实体与空白归一化:与 htmlToParagraphs 的解码口径保持一致。 */
+function normalizeAgreementText(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * 协议正文 HTML → 结构化块(RN 无 SafeHtml 等价物,由共享屏按块渲染)。
+ * 支持 h1-h6 / ul / ol / li / p / div / br 等块级边界;其余行内标签仅保留文本。
+ */
+export function htmlToBlocks(html: string): AgreementBlock[] {
+  const blocks: AgreementBlock[] = []
+  const listStack: { ordered: boolean; index: number }[] = []
+  let headingLevel: 1 | 2 | 3 | null = null
+  let listItem: { ordered: boolean; index: number } | null = null
+  let buffer = ''
+
+  const flush = () => {
+    const lines = buffer.split('\n')
+    buffer = ''
+    for (const raw of lines) {
+      const text = normalizeAgreementText(raw)
+      if (!text) continue
+      if (headingLevel) {
+        blocks.push({ type: 'heading', level: headingLevel, text })
+      } else if (listItem) {
+        blocks.push({ type: 'listItem', ordered: listItem.ordered, index: listItem.index, text })
+      } else {
+        blocks.push({ type: 'paragraph', text })
+      }
+    }
+  }
+
+  let lastIndex = 0
+  for (const match of html.matchAll(TAG_RE)) {
+    const index = match.index ?? 0
+    buffer += html.slice(lastIndex, index)
+    lastIndex = index + match[0].length
+
+    const closing = match[1] === '/'
+    const tag = (match[2] ?? '').toLowerCase()
+    if (tag === 'br') {
+      buffer += '\n'
+      continue
+    }
+
+    const headingMatch = /^h([1-6])$/.exec(tag)
+    if (headingMatch) {
+      flush()
+      headingLevel = closing ? null : (Math.min(Number(headingMatch[1]), 3) as 1 | 2 | 3)
+      continue
+    }
+
+    if (tag === 'ol' || tag === 'ul') {
+      flush()
+      if (closing) listStack.pop()
+      else listStack.push({ ordered: tag === 'ol', index: 0 })
+      continue
+    }
+
+    if (tag === 'li') {
+      flush()
+      if (closing) {
+        listItem = null
+      } else {
+        const context = listStack[listStack.length - 1]
+        const ordered = context?.ordered ?? false
+        const itemIndex = ordered && context ? (context.index += 1) : 0
+        listItem = { ordered, index: itemIndex }
+      }
+      continue
+    }
+
+    if (BLOCK_TAGS.has(tag) && closing) {
+      flush()
+    }
+  }
+
+  buffer += html.slice(lastIndex)
+  flush()
+  return blocks
+}
+
+/**
+ * 协议正文 HTML → 段落纯文本数组(新闻屏等既有消费方保持原观感,本函数语义不变)。
+ * 协议屏改用 htmlToBlocks 保留标题/列表结构;此函数的输出不参与 agreement 渲染。
  */
 export function htmlToParagraphs(html: string): string[] {
   return html

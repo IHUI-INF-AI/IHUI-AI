@@ -32,6 +32,24 @@ export function createAgreementStyles(tk: AppThemeTokens) {
     metaLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
     metaValue: { fontSize: rnType.label.size, color: tk.text.secondary },
     paragraph: { fontSize: 14, color: tk.text.medium, lineHeight: 22 },
+    /** 正文 h1:标题档(20/28/700),与正文 14/22 明确区分 */
+    heading1: {
+      fontSize: rnType.heading.size,
+      lineHeight: rnType.heading.lineHeight,
+      fontWeight: String(rnType.heading.weight) as '700',
+      color: tk.text.primary,
+    },
+    /** 正文 h2/h3:强调档(15/22/500),次级但仍强于正文 */
+    heading2: {
+      fontSize: rnType.strong.size,
+      lineHeight: rnType.strong.lineHeight,
+      fontWeight: String(rnType.strong.weight) as '500',
+      color: tk.text.primary,
+    },
+    /** 列表项:符号/序号列 + 文本列,文本沿用正文观感 */
+    listItem: { flexDirection: 'row', gap: rnSpacing['sm-loose'] },
+    listMarker: { fontSize: 14, color: tk.text.medium, lineHeight: 22 },
+    listText: { flex: 1, fontSize: 14, color: tk.text.medium, lineHeight: 22 },
     loadingText: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,

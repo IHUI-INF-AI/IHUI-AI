@@ -10,7 +10,7 @@ import { BackChevron } from '../../components/BackChevron'
 import { LegalDocScreen } from '../legal-doc/LegalDocScreen'
 import type { AgreementScreenProps, LegalDocSection } from '../../types'
 import { createAgreementStyles } from './agreement-styles'
-import { htmlToParagraphs } from './agreement-type'
+import { htmlToBlocks } from './agreement-type'
 
 /** 按类型取当前协议时注入的视图模型(字段对齐 web agreement/[type] 渲染的 Agreement)。 */
 export interface AgreementContentView {
@@ -57,6 +57,10 @@ export function AgreementScreen({
   const scheme = colorScheme ?? 'light'
   const tk = getTokens(scheme)
   const styles = useMemo(() => createAgreementStyles(tk), [tk])
+  const contentBlocks = useMemo(
+    () => (agreement?.content ? htmlToBlocks(agreement.content) : []),
+    [agreement?.content],
+  )
 
   if (!agreement && !loading) {
     const sections: LegalDocSection[] = [
@@ -90,7 +94,9 @@ export function AgreementScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={scheme} />
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text accessibilityRole="header" aria-level={1} style={styles.headerTitle}>
+          {title}
+        </Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
@@ -117,11 +123,35 @@ export function AgreementScreen({
               ) : null}
             </View>
             <View style={styles.card}>
-              {htmlToParagraphs(agreement.content).map((paragraph, index) => (
-                <Text key={`${index}-${paragraph.slice(0, 24)}`} style={styles.paragraph}>
-                  {paragraph}
-                </Text>
-              ))}
+              {contentBlocks.map((block, index) => {
+                if (block.type === 'heading') {
+                  return (
+                    <Text
+                      key={`h-${index}-${block.text.slice(0, 24)}`}
+                      accessibilityRole="header"
+                      aria-level={block.level}
+                      style={block.level === 1 ? styles.heading1 : styles.heading2}
+                    >
+                      {block.text}
+                    </Text>
+                  )
+                }
+                if (block.type === 'listItem') {
+                  return (
+                    <View key={`li-${index}-${block.text.slice(0, 24)}`} style={styles.listItem}>
+                      <Text style={styles.listMarker}>
+                        {block.ordered ? `${block.index}.` : '•'}
+                      </Text>
+                      <Text style={styles.listText}>{block.text}</Text>
+                    </View>
+                  )
+                }
+                return (
+                  <Text key={`p-${index}-${block.text.slice(0, 24)}`} style={styles.paragraph}>
+                    {block.text}
+                  </Text>
+                )
+              })}
             </View>
           </>
         ) : (
