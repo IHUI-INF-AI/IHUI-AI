@@ -10,6 +10,48 @@ import { useNotificationStore } from '@/stores/notification'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { getUnreadCount } from '@ihui/api-client'
+import {
+  isSoundNotificationEnabled,
+  playNotificationSound,
+  showDesktopNotification,
+} from '@ihui/shared/notifications/notification-store'
+import type { WSNotification } from '@ihui/types'
+
+/** agent.action 是 AI 控制指令;ai_response/chat_message 由各自面板消费 */
+const NON_NOTIFICATION_TYPES = new Set(['ai_response', 'chat_message', 'agent.action'])
+
+/** 去重窗口上限:只防同一条通知被多个订阅面各呈现一次,不做长期去重 */
+const PRESENTED_LIMIT = 200
+const presentedIds = new Set<string>()
+
+/**
+ * 通知呈现(桌面通知 + 提示音)的单一入口。
+ *
+ * 2026-11-07(P1 深挖修复):此前呈现逻辑只写在 `useNotification`,而该 hook 仅由通知设置页
+ * 挂载 ⇒ 用户开启桌面通知/提示音后,只有停留在设置页时才会真正弹出/发声,其余页面收到的
+ * WS 通知只进 store 不呈现。现在由全局 WS 消费面调用本函数,并按 id 去重,避免设置页与全局
+ * 面同时挂载时重复弹窗/双声。
+ */
+export function presentIncomingNotification(data: WSNotification['data'] | null | undefined): void {
+  if (!data || NON_NOTIFICATION_TYPES.has(data.type)) return
+
+  const rawId = data.id
+  if (rawId !== undefined && rawId !== null && String(rawId).trim()) {
+    const id = String(rawId).trim()
+    if (presentedIds.has(id)) return
+    if (presentedIds.size >= PRESENTED_LIMIT) {
+      const oldest = presentedIds.values().next().value
+      if (oldest !== undefined) presentedIds.delete(oldest)
+    }
+    presentedIds.add(id)
+  }
+
+  showDesktopNotification(
+    String(data.title ?? '新通知'),
+    data.content ? String(data.content) : undefined,
+  )
+  if (isSoundNotificationEnabled()) playNotificationSound()
+}
 
 export interface UseGlobalNotificationReturn {
   unreadCount: number
@@ -42,6 +84,8 @@ export function useGlobalNotification(): UseGlobalNotificationReturn {
 
   React.useEffect(() => {
     handleWsMessage(lastMessage)
+    // 全局唯一呈现面:桌面通知/提示音不能在"通知设置页"才生效(此前只挂在 useNotification)
+    presentIncomingNotification(lastMessage?.data)
   }, [lastMessage, handleWsMessage])
 
   // 登录后从 API 初始化未读计数(仅一次,避免角标在 WS 推送前为 0)

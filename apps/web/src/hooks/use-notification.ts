@@ -24,12 +24,11 @@ import type { NotificationItem } from '@ihui/types'
 import {
   getDesktopPermission,
   isSoundNotificationEnabled,
-  playNotificationSound,
   requestDesktopNotificationPermission,
   setSoundNotificationEnabled,
-  showDesktopNotification,
   type DesktopPermission,
 } from '@ihui/shared/notifications/notification-store'
+import { presentIncomingNotification } from '@/hooks/use-global-notification'
 
 export type { NotificationItem }
 
@@ -124,9 +123,8 @@ export function useNotification(): UseNotificationReturn {
     const title = String(data.title ?? '新通知')
     const content = data.content ? String(data.content) : undefined
 
-    // 桌面通知 + 声音播放委托给 shared SSR 安全纯函数
-    showDesktopNotification(title, content)
-    if (isSoundNotificationEnabled()) playNotificationSound()
+    // 桌面通知 + 声音播放走全局唯一呈现入口(按 id 去重,见 notification-presenter)
+    presentIncomingNotification(data)
 
     setNotifications((prev) => [
       {

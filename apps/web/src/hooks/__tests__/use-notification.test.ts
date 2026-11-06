@@ -20,6 +20,7 @@ vi.mock('@/lib/api', () => ({
 }))
 
 import { useNotification } from '../use-notification'
+import { useGlobalNotification } from '../use-global-notification'
 
 function makeMessage(type: string, overrides: Record<string, unknown> = {}): WSNotification {
   return {
@@ -153,6 +154,61 @@ describe('useNotification - 通知声音', () => {
     })
     expect(result.current.soundEnabled).toBe(false)
     expect(window.localStorage.getItem('ihui-notification-sound-enabled')).toBeNull()
+  })
+})
+
+describe('全局通知面 - 桌面通知呈现', () => {
+  let constructed = 0
+
+  beforeEach(() => {
+    constructed = 0
+    mockState.lastMessage = null
+    Object.defineProperty(globalThis, 'Notification', {
+      value: class CountingNotification {
+        static permission: NotificationPermission = 'granted'
+        static requestPermission = vi.fn(async (): Promise<NotificationPermission> => 'granted')
+        constructor(_title: string, _options?: NotificationOptions) {
+          constructed += 1
+        }
+      },
+      writable: true,
+      configurable: true,
+    })
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    })
+    window.localStorage.clear()
+    window.localStorage.setItem('ihui-desktop-notification-enabled', '1')
+  })
+
+  it('全局通知面在非设置页也呈现桌面通知', () => {
+    const { rerender } = renderHook(() => useGlobalNotification())
+
+    mockState.lastMessage = makeMessage('notification', { id: 'global-present-1' })
+    rerender()
+
+    expect(constructed).toBe(1)
+  })
+
+  it('ai_response 不呈现桌面通知(与本地过滤口径一致)', () => {
+    const { rerender } = renderHook(() => useGlobalNotification())
+
+    mockState.lastMessage = makeMessage('ai_response', { id: 'global-ai-present-1' })
+    rerender()
+
+    expect(constructed).toBe(0)
+  })
+
+  it('全局面与设置页面同收一条通知时只呈现一次', () => {
+    const global = renderHook(() => useGlobalNotification())
+    const local = renderHook(() => useNotification())
+
+    mockState.lastMessage = makeMessage('notification', { id: 'global-dedupe-1' })
+    global.rerender()
+    local.rerender()
+
+    expect(constructed).toBe(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
