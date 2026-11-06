@@ -14,6 +14,13 @@ import {
   stripOrphanZwj,
 } from '../src/util/invisible-transport.js'
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index]
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`)
+  return item
+}
+
 // 夹具一律按码点构造,源码不落任何真实零宽字符 —— 否则测试文件自己就成了载荷源。
 const cp = (...codes: number[]): string => String.fromCharCode(...codes)
 const ZWSP = cp(0x200b)
@@ -68,20 +75,20 @@ describe('invisible-transport(自治会话自毒病灶,2026-11-05 三次修正�
       { role: 'tool', content: '无参数的 tool 档' },
     ]
     const out = sanitizeMessagesForTransport(msgs, 'test')
-    const args = (out[1].tool_calls ?? []).map((c) => c?.function?.arguments).join('|')
+    const args = (at(out, 1).tool_calls ?? []).map((c) => c?.function?.arguments).join('|')
     expect(args).not.toContain(ZW)
     expect(args).toContain('{"path":"ab.ts"}')
     // 成对反向:参数本来就干净的调用**不得被重写**(引用相等 = 不复制、不重排)
-    expect(out[1].tool_calls?.[1]).toBe(cleanCall)
+    expect(at(out, 1).tool_calls?.[1]).toBe(cleanCall)
     // content 为 null 的助手消息保持 null(不得把"没有正文"洗成空串)
-    expect(out[1].content).toBeNull()
+    expect(at(out, 1).content).toBeNull()
     // 只在参数格命中(content 干净)也必须触发清洗
     const onlyArgs = [{ role: 'assistant', content: '正常正文', tool_calls: [dirtyCall] }]
     expect(
-      (sanitizeMessagesForTransport(onlyArgs, 'test')[0].tool_calls?.[0]?.function?.arguments ??
+      (at(sanitizeMessagesForTransport(onlyArgs, 'test'), 0).tool_calls?.[0]?.function?.arguments ??
         '') as string,
     ).not.toContain(ZW)
-    expect(onlyArgs[0].content).toBe('正常正文')
+    expect(at(onlyArgs, 0).content).toBe('正常正文')
   })
 
   it('⑤ 非字符串/空值不炸', () => {
@@ -116,9 +123,11 @@ describe('invisible-transport(自治会话自毒病灶,2026-11-05 三次修正�
     const user = { role: 'user', content: `工具输出改走这档${ZWSP}${ZWJ}` }
     const summary = { role: 'system', content: `上下文摘要${BOM}` }
     const clean = { role: 'assistant', content: family0() }
-    const out = sanitizeMessagesForTransport([user, clean, tool, summary])
-    expect(out[2]!.content).toBe('read_file 结果')
-    expect(out[2]!.tool_call_id).toBe('c1')
+    // 显式给出元素类型:数组字面量会把 T 收窄成首元素形状,导致 tool_call_id 在类型上"不存在"
+    type Msg = { role: string; content: string | null; tool_call_id?: string }
+    const out = sanitizeMessagesForTransport<Msg>([user, clean, tool, summary])
+    expect(at(out, 2).content).toBe('read_file 结果')
+    expect(at(out, 2).tool_call_id).toBe('c1')
     // 收窄后的契约:user 档也清到底(ZWJ 两侧非图画字符 ⇒ 剥)
     expect(out[0]!.content).toBe('工具输出改走这档')
     expect(out[3]!.content).toBe('上下文摘要')
