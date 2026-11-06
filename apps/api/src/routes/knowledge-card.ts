@@ -26,8 +26,10 @@ import { z } from 'zod'
 import { knowledgeCards } from '@ihui/database'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
-import { config } from '../config/index.js'
+import {
+  authorizeInternalSecretCall,
+  ticketSubjectAllows,
+} from '../plugins/internal-secret-auth.js'
 import { parseOrThrow, success, error } from '../utils/response.js'
 
 // =============================================================================
@@ -147,17 +149,22 @@ export const knowledgeCardRoutes: FastifyPluginAsync = async (app) => {
   // - 内部调用(ai-service 经验抽取写卡):X-Internal-Secret 匹配 AI_CALLBACK_SECRET
   //   时绕过 JWT(同 skills.ts 模式),source 固定 agent,userId 由 body 指定(缺省全局卡)
   app.post('/', async (request, reply) => {
-    const internalSecret = request.headers['x-internal-secret']
-    // 常量时间比较(secretsEqual 单源):`===` 逐字节短路可被计时侧信道剥密钥
-    const isInternal =
-      typeof config.AI_CALLBACK_SECRET === 'string' &&
-      config.AI_CALLBACK_SECRET.length > 0 &&
-      typeof internalSecret === 'string' &&
-      secretsEqual(internalSecret, config.AI_CALLBACK_SECRET)
+    // 2026-11-06:内部凭据走 X-Internal-Secret 族统一出口(scope=knowledge-card)。
+    // 坏票 ⇒ 直接 401(fallbackAllowed=false),绝不回落登录态;没带内部凭据或旧密钥
+    // 不匹配 ⇒ 回落用户鉴权(历史用户通道不被误挡)。
+    const auth = await authorizeInternalSecretCall(request, { scope: 'knowledge-card' })
+    if (!auth.ok && !auth.fallbackAllowed) {
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
+    const isInternal = auth.ok
     if (!isInternal) {
       if (!(await requireLogin(request, reply))) return
     }
     const body = parseOrThrow(createSchema, request.body)
+    // 票主体绑定:真人票只能写自己的卡;服务主体票可写全局/指定用户卡。
+    if (auth.ok && auth.via === 'ticket' && !ticketSubjectAllows(auth.subject, body.userId)) {
+      return reply.status(401).send(error(401, 'Subject mismatch'))
+    }
     const [row] = await db
       .insert(knowledgeCards)
       .values({

@@ -26,7 +26,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const ROUTE_FILE = 'apps/api/src/routes/internal-relay-user-pool.ts'
 
 // vi.mock 的工厂会被提升到文件最前执行,普通 const 那时还没初始化 ⇒ 供值件必须走 vi.hoisted
-const { SECRET_HOLDER } = vi.hoisted(() => ({ SECRET_HOLDER: { AI_CALLBACK_SECRET: '' } }))
+const { SECRET_HOLDER } = vi.hoisted(() => ({
+  SECRET_HOLDER: { AI_CALLBACK_SECRET: '', INTERNAL_SECRET_AUTH_MODE: 'dual' },
+}))
 
 vi.mock('../src/config/index.js', () => ({ config: SECRET_HOLDER }))
 
@@ -92,16 +94,14 @@ describe('内部凭据比较必须走 secretsEqual 单源', () => {
     await fresh.close()
   })
 
-  it('接线锁:该文件不得再出现裸 `!==` 比内部密钥,且必须 import secretsEqual', () => {
+  it('接线锁:鉴权必须走 X-Internal-Secret 族统一出口,本文件不得再自行比对密钥', () => {
     const src = readFileSync(join(ROOT, ROUTE_FILE), 'utf8')
     expect(src).toMatch(
-      /import \{ secretsEqual \} from '\.\.\/plugins\/internal-service-token\.js'/,
+      /import \{ authorizeInternalSecretCall, ticketSubjectAllows \} from '\.\.\/plugins\/internal-secret-auth\.js'/,
     )
-    expect(src).not.toMatch(/provided\s*!==\s*secret/)
-    // 变异自证:把新写法摘回旧写法,同一把尺子必须量出来(否则上面那条 not.toMatch 只是文本巧合)
-    const mutated = src.replace('!secretsEqual(provided, secret)', 'provided !== secret')
-    expect(mutated).not.toBe(src)
-    expect(/provided\s*!==\s*secret/.test(mutated)).toBe(true)
+    // 第二道:端点自己不得再直接读旧密钥头/自行比较 —— 判据只有一处,才不会两侧强度分叉
+    expect(src).not.toMatch(/request\.headers\['x-internal-secret'\]/)
+    expect(src).not.toMatch(/secretsEqual/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
