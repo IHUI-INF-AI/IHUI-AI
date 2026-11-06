@@ -746,4 +746,112 @@ def captured_tool_results():
     结束后检查 repeated / ok / errorCode 等字段。
     """
     return []
+
+
+# =============================================================================
+# 固定测试时钟 seam(2026-11-06 立)
+# =============================================================================
+# 病征:一批用例直接读墙上时钟造数据/写断言,结论由**运行时刻**决定 —— 跨零点
+# (或两次读钟恰好跨零点)就用红,与业务逻辑无关。这不是某个用例的私有问题,
+# 所以只在这一处提供注入手段,各文件复用,不再各写一套:
+#
+#   clock(qoder_mod)                  # 把该模块的 time.time()/datetime.now() 钉到 clock.NOW
+#   clock(mod, at=clock.at(0, 0, 30)) # 钉到指定时刻(边界用例)
+#
+# 为什么必须**按模块**打补丁而不是替换全局 datetime.datetime:
+# `from datetime import datetime` 是绑定式导入,模块拿到的是原类引用;改全局模块
+# 属性对已导入模块无效。故 fixture 只替换调用方显式给出的模块名。
+# 冻结类带 __instancecheck__,保证 `isinstance(x, datetime)` 对真实 datetime 仍为 True
+# (如 checkin_scheduler._run_qoder_retry_round 的入参校验),避免冻结把正常分支改坏。
+import datetime as _dt_for_clock
+import time as _time_for_clock
+
+
+class _ClockSeam:
+    """固定时钟 + 注入器。常量与注入共用一个对象,调用方无需自带 epoch 换算。"""
+
+    CN_TZ = _dt_for_clock.timezone(_dt_for_clock.timedelta(hours=8))
+    DAY = "2026-11-06"
+    NOW = _dt_for_clock.datetime(2026, 11, 6, 11, 0, tzinfo=CN_TZ).timestamp()
+    TODAY = _dt_for_clock.date(2026, 11, 6)
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._mp = monkeypatch
+
+    def at(self, hour: int = 11, minute: int = 0, second: int = 0, day: str | None = None) -> float:
+        """'+08 的某个钟点' → 固定 epoch 秒(不读墙钟)。"""
+        y, m, d = (int(x) for x in (day or self.DAY).split("-"))
+        return _dt_for_clock.datetime(
+            y, m, d, hour, minute, second, tzinfo=self.CN_TZ
+        ).timestamp()
+
+    def day_at(self, epoch: float) -> _dt_for_clock.date:
+        """epoch → +08 自然日(与生产侧 _cn_day 同口径)。"""
+        return _dt_for_clock.datetime.fromtimestamp(epoch, tz=self.CN_TZ).date()
+
+    def __call__(
+        self, *modules, at: float | None = None, patch_datetime: bool = True
+    ) -> float:
+        """把给定模块的 datetime / time 钉到 at(默认 NOW),返回该 epoch。
+
+        patch_datetime=False 只钉 time.time():留给「模块内 datetime 还要读真墙钟
+        (如跟真实 now 比 session 剩余寿命)」的用例,避免把相对偏移一并冻死。
+        """
+        epoch = self.NOW if at is None else at
+
+        class _FrozenMeta(type):
+            def __instancecheck__(cls, obj):
+                return isinstance(obj, _dt_for_clock.datetime)
+
+        class _FrozenDateTime(_dt_for_clock.datetime, metaclass=_FrozenMeta):
+            @classmethod
+            def now(cls, tz=None):
+                if tz is None:
+                    # 与本仓业务口径一致:naive now() 视为 +08 墙上时间
+                    return _dt_for_clock.datetime.fromtimestamp(epoch, tz=_ClockSeam.CN_TZ).replace(
+                        tzinfo=None
+                    )
+                return _dt_for_clock.datetime.fromtimestamp(epoch, tz=tz)
+
+            @classmethod
+            def utcnow(cls):
+                return _dt_for_clock.datetime.fromtimestamp(
+                    epoch, tz=_dt_for_clock.UTC
+                ).replace(tzinfo=None)
+
+        class _FrozenTimeModule:
+            def time(self):
+                return epoch
+
+            def __getattr__(self, name):
+                return getattr(_time_for_clock, name)
+
+        for module in modules:
+            if patch_datetime:
+                dt_attr = getattr(module, "datetime", None)
+                if isinstance(dt_attr, type):
+                    # `from datetime import datetime` 式导入
+                    self._mp.setattr(module, "datetime", _FrozenDateTime)
+                elif dt_attr is not None:
+                    # `import datetime` 式导入:只换 .datetime,其余属性透传
+                    shim = type(
+                        "_DateTimeShim",
+                        (),
+                        {
+                            "datetime": _FrozenDateTime,
+                            "__getattr__": lambda self, name, _dt=dt_attr: getattr(_dt, name),
+                        },
+                    )
+                    self._mp.setattr(module, "datetime", shim())
+            # 只换真正的 stdlib time 模块;`from datetime import time` 的模块里
+            # time 是 datetime.time 类(如 checkin_scheduler 的 time.min),不能覆盖。
+            if getattr(module, "time", None) is _time_for_clock:
+                self._mp.setattr(module, "time", _FrozenTimeModule())
+        return epoch
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    """固定测试时钟注入器,详见上方 seam 注释。"""
+    return _ClockSeam(monkeypatch)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
