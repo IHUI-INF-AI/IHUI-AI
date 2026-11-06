@@ -64,6 +64,19 @@ export interface KvPort {
   remove(key: string): void
 }
 
+/**
+ * 异步键值存储端口(草稿自动保存等"必须落盘到系统存储"的场景)。
+ *
+ * 与 `KvPort` 并列而不是替换:RN 侧只有 AsyncStorage(全异步 API),小程序侧
+ * Taro storage 是同步的 —— 同步端口写不出真实现,只能在端内伪造,故单独立异步形。
+ * `get` 解析失败返回 null;`set` / `remove` 不 reject。
+ */
+export interface AsyncKvPort {
+  get<T>(key: string): Promise<T | null>
+  set(key: string, value: unknown): Promise<void>
+  remove(key: string): Promise<void>
+}
+
 /** 媒体资源句柄(统一 pickImage / pickFile 的返回形态)。 */
 export interface MediaAsset {
   uri: string
@@ -79,10 +92,16 @@ export interface PickImageOptions {
   source?: 'album' | 'camera'
 }
 
-/** 媒体端口。用户取消返回 null(不是抛错)。 */
+/** 媒体端口。用户取消返回空值(不是抛错)。 */
 export interface MediaPort {
   pickImage(options?: PickImageOptions): Promise<MediaAsset | null>
-  previewImage(urls: readonly string[], index?: number): Promise<void>
+  /**
+   * 批量选图(一声"+"多选,N 张一次返回)。用户取消返回 `[]`。
+   * 只支持单选的宿主实现不得用"循环调 pickImage"冒充 N 选 —— 那是改交互,不是等价实现。
+   */
+  pickImages(options?: PickImageOptions): Promise<readonly MediaAsset[]>
+  /** 预览能力为可选:宿主没有图片查看器时缺省,消费方必须显式跳过。 */
+  previewImage?(urls: readonly string[], index?: number): Promise<void>
   pickFile?(): Promise<MediaAsset | null>
 }
 

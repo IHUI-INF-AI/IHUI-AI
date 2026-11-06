@@ -15,6 +15,7 @@
  */
 
 import type {
+  AsyncKvPort,
   ListPort,
   MediaPort,
   NavParams,
@@ -28,6 +29,7 @@ import type {
 } from '@ihui/types'
 
 export type {
+  AsyncKvPort,
   ListPort,
   MediaPort,
   NavParams,
