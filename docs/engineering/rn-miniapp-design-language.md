@@ -103,7 +103,8 @@ md  → 0 2px 8px /0.08   lg  → 0 4px 16px /0.12   xl → 0 8px 24px /0.16
 - 改 token 改 `packages/design-tokens` 一处,跑 `pnpm check:cross-end-tokens` / `pnpm check:design-tokens-sync`。
 - 圆角走 `RADIUS_ROLES` / `rnRadiusFor`,跑 `pnpm check:radius-role`。
 - 组件视觉偏差由门 128 `check-cross-end-ui-parity.mjs` 对账(基线 `cross-end-ui-parity-baseline.json`、债务 `cross-end-ui-parity-debt.json`)。
-  债务台账是**只读尺**(不进提交链也不进 CI),现记两条轴:轴一 = 小程序↔RN 同名配对四维,轴二 = web↔RN 五维几何(门侧 advisory,故这 128 对分叉只有这本账看得见)。读数与回潮:`node scripts/cross-end-ui-parity-debt.mjs`(人读)/ `--check`(任一轴涨=1,某一轴没判或没基线=2,**不会**回 0 冒充两轴都判过)。
+  债务台账是**只读尺**(不进提交链也不进 CI),现记两条轴:轴一 = 小程序↔RN 同名配对四维,轴二 = web↔RN 五维几何(门侧 advisory,故这 128 对分叉只有这本账看得见)。读数与回潮:`node scripts/cross-end-ui-parity-debt.mjs`(人读)/ `--check`(任一轴涨=1,某一轴没判或没基线=2,**不会**回 0 冒充两轴都判过)。调度 = `git-guardian.mjs` 的 `auditCrossEndDebtLedger()`(60 分钟、main 健康轮次 + daemon tick 双挂点共用一枚节流戳、先写戳后派生;rc=1 族涨只逐族写日志不到人,§5e-1;rc=2 落未判定)。
+  **轴二不许当"待修清单"用**:它比的是整文件档值集合差。现读 514 条 (对,维) 分叉里"两侧各恰好一个候选值"只有 25 条(4.9%),而对这 25 条中"该维两侧各只有 1 个档"的 9 条逐条回源码抽检,结果是 **0 条同元素同属性** —— 图标 16px 档 vs 标签列宽 80、列表分隔线 `separator:{height:12}` 被键名归进宽高、`const MAX_SIZE = 10 * 1024 * 1024` 的字节上限被收成盒档、web 语义字号档 `text-body/label/display` 不在门的词汇表里(越 token 化越把唯一裸档顶成"web 的档")。所以这一轴的次序是**先修量具(取面/词汇表/键名归类)再加粒度(按元素配对),最后才谈落档腿**;批量登记豁免消红仍然禁。
 - 小程序 token 一致性跑 `pnpm check:miniapp-parity`(`check-miniapp-taro-design-tokens.mjs` / `check-miniapp-taro-style-parity.mjs`)。
 - RN 样式一致性跑 `pnpm check:rn-parity`(`check-mobile-rn-style-parity.mjs`)。
 
