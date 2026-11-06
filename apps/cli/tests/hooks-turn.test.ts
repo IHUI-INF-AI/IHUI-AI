@@ -35,6 +35,13 @@ const exit1 = isWindows ? 'cmd /c exit 1' : "sh -c 'exit 1'";
 
 const TURN_EVENTS: HookEvent[] = ['turnStart', 'turnEnd', 'turnError', 'turnComplete'];
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 describe('P2-4 HookEvent Turn 级事件类型完整性', () => {
   it('应支持 4 种 Turn 级事件', () => {
     expect(TURN_EVENTS).toHaveLength(4);
@@ -268,14 +275,14 @@ describe('P2-4 deepMergeHooks Turn 级事件键合并', () => {
     const merged = deepMergeHooks(a, b);
 
     expect(merged.turnStart).toHaveLength(2);
-    expect(merged.turnStart?.[0].name).toBe('a-turn-start');
-    expect(merged.turnStart?.[1].name).toBe('b-turn-start');
+    expect(at(merged.turnStart ?? [], 0).name).toBe('a-turn-start');
+    expect(at(merged.turnStart ?? [], 1).name).toBe('b-turn-start');
     expect(merged.turnEnd).toHaveLength(1);
-    expect(merged.turnEnd?.[0].name).toBe('a-turn-end');
+    expect(at(merged.turnEnd ?? [], 0).name).toBe('a-turn-end');
     expect(merged.turnError).toHaveLength(1);
-    expect(merged.turnError?.[0].name).toBe('b-turn-error');
+    expect(at(merged.turnError ?? [], 0).name).toBe('b-turn-error');
     expect(merged.turnComplete).toHaveLength(1);
-    expect(merged.turnComplete?.[0].name).toBe('b-turn-complete');
+    expect(at(merged.turnComplete ?? [], 0).name).toBe('b-turn-complete');
   });
 
   it('仅一边存在的 Turn 级事件键被保留', () => {
@@ -286,7 +293,7 @@ describe('P2-4 deepMergeHooks Turn 级事件键合并', () => {
     const merged = deepMergeHooks(a, b);
 
     expect(merged.turnComplete).toHaveLength(1);
-    expect(merged.turnComplete?.[0].name).toBe('a-complete');
+    expect(at(merged.turnComplete ?? [], 0).name).toBe('a-complete');
   });
 
   it('原有事件键合并不受影响(回归)', () => {

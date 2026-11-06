@@ -42,6 +42,13 @@ import {
 const executedArgs: unknown[] = [];
 const executedIdentity: unknown[] = [];
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 /** 描述面**完好**的工具:所有对照用例都从它出发,证明"缺席"这一档没有波及正常路径。 */
 function okTool(over: Partial<Tool> = {}): Tool {
   return {
@@ -354,7 +361,7 @@ describe('④ 离线回放 SchemaMissing 单列一档并点名工具', () => {
   it('SchemaMissing 影子入口直调同样计一档(shadowValidateToolArguments 不经执行链)', () => {
     process.env[TOOL_ARG_VALIDATION_ENV] = 'shadow';
     shadowValidateToolArguments(toolWithoutParameters(), { path: 'x' });
-    const bucket = snapshotToolArgShadow().tools[0];
+    const bucket = at(snapshotToolArgShadow().tools, 0);
     expect(bucket.tool).toBe('g712_no_params');
     expect(bucket.schemaMissing).toBe(1);
     expect(bucket.shadowRuns).toBe(0);
