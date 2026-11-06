@@ -305,7 +305,11 @@ function makeStyles() {
       paddingVertical: rnSpacing['5xl'],
     },
     muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
-    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    hint: {
+      fontSize: rnType.caption.size,
+      color: tokens.text.tertiary,
+      lineHeight: rnType.label.lineHeight,
+    },
     errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },

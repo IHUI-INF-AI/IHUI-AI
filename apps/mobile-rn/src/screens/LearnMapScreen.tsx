@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   stepBadgeText: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.secondary },
   cardMain: { flex: 1, gap: rnSpacing.xs },
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
-  cardDesc: { fontSize: 13, lineHeight: 19, color: tokens.text.secondary },
+  cardDesc: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tokens.text.secondary },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
   metaText: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
   expandBox: {
@@ -330,6 +330,10 @@ const styles = StyleSheet.create({
   },
   nodeMain: { flex: 1, gap: rnSpacing['2xs'] },
   nodeTitle: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tokens.text.primary },
-  nodeDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.secondary },
+  nodeDesc: {
+    fontSize: rnType.label.size,
+    lineHeight: rnType.bodySm.lineHeight,
+    color: tokens.text.secondary,
+  },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

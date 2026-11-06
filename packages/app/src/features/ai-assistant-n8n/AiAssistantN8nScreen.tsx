@@ -269,7 +269,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     messageText: {
       fontSize: rnType.title.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     } as TextStyle,
     messageTextUser: {
       color: tk.brand.ctaForeground,
