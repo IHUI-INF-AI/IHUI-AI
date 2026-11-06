@@ -38,6 +38,16 @@
  */
 const IS_H5 = process.env.TARO_ENV === 'h5'
 
+/**
+ * BUG-68:漏配时的**兜底生产域名**(含 /api 后缀,与 BASE_URL 约定一致)。
+ * 仅作最后一搏的默认值,绝非常态路径 —— 部署脚本按 TARO_APP_API_BASE_URL 校验其存在,
+ * 正常生产构建该键必被显式配置。此处兜底用于:非启动链的代码路径(或未来重构绕过
+ * assertApiBaseConfigured 时)不至于落到空串 base(空串会让整族请求打到相对路径而全失败)。
+ * 注意:这不是 localhost,不会触发 BUG-41① 担忧的"手机上 localhost 不存在"白屏;
+ * 启动链仍由 assertApiBaseConfigured() 硬失败 + 上报(见下),本兜底只是防御纵深。
+ */
+const PROD_API_BASE_URL = 'https://api.aizhs.top/api'
+
 /** 读取 TARO_APP_API_BASE_URL(编译期内联为字面量;缺失时运行期访问,try/catch 兜底无 process 场景)。 */
 function getEnvApiBase(): string | undefined {
   try {
@@ -51,9 +61,11 @@ const configuredApiBase = getEnvApiBase()
 
 /**
  * 后端 API 基础地址(含 /api 后缀)。
- * H5 保持相对 /api;小程序生产未配置 ⇒ 空串(不回落 localhost),配合启动链断言直接失败。
+ * H5 保持相对 /api;小程序生产未配置 ⇒ 兜底生产域名 PROD_API_BASE_URL(绝不为空串,
+ * 也绝不静默回落 http://localhost:8802/api —— 手机上没有这个 localhost)。启动链仍由
+ * assertApiBaseConfigured() 硬失败 + 上报白屏根因,本兜底只在绕过启动链的非启动路径上兜底。
  */
-export const BASE_URL = configuredApiBase ?? (IS_H5 ? '/api' : '')
+export const BASE_URL = configuredApiBase ?? (IS_H5 ? '/api' : PROD_API_BASE_URL)
 
 /** 生产/真机是否已完成 API base 配置(H5 走同源 /api,视为已配置)。 */
 export const isApiBaseConfigured = IS_H5 || configuredApiBase !== undefined

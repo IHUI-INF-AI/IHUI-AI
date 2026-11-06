@@ -3954,7 +3954,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 - **两条派单模板教训（本轮实测，代理报的路径不可照抄）**：① W2-1 引 `apps/cli/src/permissions.ts`、W2-7 引 `apps/web/src/app/settings/notifications/page.tsx` —— 两者在 HEAD 面**都不存在**（真实是 `apps/cli/src/tools/permissions.ts` 与 `apps/web/app/(main)/settings/notifications/page.tsx`，后者带路由组括号）。两处我按真实文件名重取后结论成立，但**引用他仓/他端路径必须先 glob 真实文件名**，否则下一人按行号去改会改错文件（本仓 §12 记过的批量 codemod 同名组件事故同一根）。② W2-9 差点把"枚举输出溢出"记成我方缺口——它按"调用行有没有同现 `maxBuffer`"判覆盖面，而我方 `scripts/lib/face-reader.mjs:80-95` 的 `gitRaw` 有**中心默认值**且头注第 5 条已写着同一事故。⇒ **判覆盖面不得按"调用点同现"，要问共用出口**（与"两处算同一件事必须共用一份实现"是同一条）。
 - [ ]（原 Y-12） RP-7 (2026-10-29) **公网腿 p95 响应 8 秒级（api.aizhs.top）**:机器外视角实测(GitHub App 最近 100 条回调投递,时间跨度 03:03:46Z→03:06:03Z,约 2.3 分钟)成功 95 条中 p50=0.69s、p95=8.34s、max=8.72s,直方图 <0.5s 只有 20 条、>=2s 有 21 条 ⇒ 手机用户走这条腿会持续感到"转圈"。先按维度拆开量(隧道边缘 RTT / 源站处理耗时 / 冷启动排队),再决定是加源站并发还是把该端点挪到不经隧道的臂;判"腿坏"必须用外部正证(GitHub 投递成功率),不得拿本机 curl 自环读数定责
 - [ ] O69 (2026-11-01) 本机 dev 库口令轮换器已入库但**没挂调度** ⇒ 照 `git-guardian.mjs` 的 `sweepExposedCredentialRotation()` 形态挂一轮巡检（`--check` 先行、只在无活服务窗口 `--apply`、结论写"未判定"、节流戳落 `.ihui-agent/state/`），并补镜像用例钉"活服务在场 ⇒ 整轮让路且不记绿"。
-- [ ] S-26 (2026-11-06) **合流把活文档的工作树滞后副本当成对侧内容带回落 later ⇒ F9 反复拦 converge**:席取证 union-converge / git-sync-converge 的活文档三面全取 blob(原前提不成立),真通道是 scripts/merge-live-doc.mjs 自述「以工作树为底」⇒ 修法只有一条:该器取材面改被审面 blob + 成对夹具(带回落判红、正常归并不红);禁覆盖他席在飞副本、禁放宽 F9 基线
 - [ ] S-28 (2026-11-06) 〔归:机主凭据面〕**mcode 那枚死号只能机主手机验证码重登解锁;OpenCode 那枚仍需新建 API key**:11-06 实跑切号(正牌闭环 relay-login-local-verified,continuity-ok)后 mcode 10 秒内把该会话判无效并清空槽(status=anonymous)⇒ 池内 refresh token 上游已死,号池侧无续期路;所谓「两枚」是 loginEpoch 相同的同一登录副本,登一次即可,登后跑 scripts/sync-minimax-client-session.mjs --uid=<行uid> 点名回灌
   现读:工作树 `PROJECT_PLAN.md` 13887 行 vs HEAD 7240 行(工作树独有 7150 行 = 已被归档搬走的正文仍躺在他人**未提交**的副本里)。
   **零副作用实证**:把工作树那份 blob 只放进私有 `GIT_INDEX_FILE` 探针索引、按 `--staged` 喂守门 84 ⇒ **RC=0**,并打印"✅ 反回退守门通过(判定 1 个文件,无历史版本回写)"。
@@ -31449,7 +31448,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] Y-58 (2026-11-02) **RN 发布链路余两格:站点落点 + Play 签名一致性**:发布链五腿已由 `scripts/release-mobile-rn.mjs` 收成一处分档读数(OTA 两渠道实测 ready、Play 授权与轨道实测在位),剩两格:① `site-apk` 的站点落点——生产签出副本 `ihui-prod` 在本机任何候选根都不存在,下次出包会在 publish 腿失败,恢复落点唯一合法位置是 `D:/DevEnv/ihui-prod`(不得落仓内 `.DevEnv/`,那会造守门 208 的嵌套 git 仓);② Play 现网签名身份未量到(`appSigningInfo` 对本应用回 HTML 404),而官网 keystore 证书 `62:B0:FF:0E…` 与 EAS 云端那枚 `62:0C:C9:58…` 不同源 ⇒ 以本机 key 提交会不会被拒属未判定,提交前必须先量一次,不得凭"应该可以"下结论。（认领已释放@2026-11-05/stale-claim-strip#mw2tde15-0）
 - [ ] Y-26 (2026-11-06) n8n workflow-card.tsx 远端已删而本机 list-view.tsx:8 仍引用 ⇒ 旁路删除硬门拒合流,本机 main 推不上去;先清该引用再收敛
 - [ ] Y-27 (2026-11-06) object-space-land 有 RC=0+零输出+HEAD 不推进的静默空跑(同形复跑反落占位信息枚);出路=落地器自证推进 sha,取不到即 exit 2
-- [ ] Y-24 (2026-11-06) 剩格=把 relay-account-import-validate.ts 的 resolveImportAccountUidProbe 那一腿(现读别席工作树 +125/−14)落到提交面并跑其镜像;键源改稳定身份与 25→23 迁库两格已在 HEAD
 - [ ] RP-74 守护常驻 tick 只覆盖 29 面、main 链仍有约 37 面长腿没搬 ⇒ 出路:按「该面读数谁在消费」分批搬,每批同批扩 `scripts/tests/git-guardian-daemon-audit-fanout.test.mjs` 的 TICK_REQUIRED 并带变异自证;并给 `scripts/check-sweeper-liveness.mjs` 加 dispatch-parity 第三族(键表从 `git-guardian.mjs` 源码现解析 (腿→tickFile→intervalMs),不抄第二份清单)(登记@2026-11-04;现读 main 派发面 99 / tick 面 32、`.ihui-agent/state/` 冻结戳 46 份;B 档=单轮 ≥5 分钟、真换口令、重启服务那族,理由钉在 `git-guardian.mjs` 挂点旁)
 <!-- 〔RP-79 裁并锚 @2026-11-03:同号双行 2→1(保留剩余面行,原 git-sync 守卫行全文并入);本行原为 Z-1 重复登记,已被 HEAD 85f1c08855 删除,此处仅作 plan-union-merge 冲突锚,无任务语义〕 -->
 - [ ] B31 **邮件投递通道故障排查** [auto-triage](24h 内连续失败 ≥2 封,查 SMTP 出口/进程/配额)(登记@2026-11-02/auto-triage;来源:mail-failure 哨兵;证据:failed=4 why=SMTP 发送失败,回落 Resend: connect ECONNREFUSED 127.0.0.1:1 / Resend HTTP 401: {"message":"API key is invalid","name":"validat);归属:auto-triage
@@ -31538,7 +31536,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - ③`scripts/lib/judgement-libs.json` 白名单腐烂：按"被 ≥3 道门 import"的口径实测 `bypass-git`(16 门)、`git-paths`(13)、`cross-end-landing-ledger`(12)、`psql-client-locate`(12)、`key-dir`(11)、`commit-attestation`(10)、`face-scan`(10)、`plan-id-lease`(9) 均未入册 ⇒ 改这些共享判据只触发 meta 档、无门当场变红。
   - 连带：同文件 typecheck/lint/license 亦全为 `|| true`/warning ⇒ 本轮审计对"密钥入库"这一项结构上不可能红。
   - 收口要点：若确有存量红，走差值棘轮而非整体豁免。
-- [ ] BUG-22 **监控面匿名可读 + 明文弱口令 + 一条 inhibit 永不匹配**：Grafana 匿名 Viewer 免登录可读全部经营数据面板，且 admin 口令写死入库；Alertmanager 的 `ApiDown → ApiHighErrorRate` 抑制因 `equal` 标签不存在而永不生效。出路=关匿名、口令走环境变量、inhibit 改标签集。(登记@2026-11-05;归属:机主)
+- [x] BUG-22 **监控面匿名可读 + 明文弱口令 + 一条 inhibit 永不匹配**：Grafana 匿名 Viewer 免登录可读全部经营数据面板，且 admin 口令写死入库；Alertmanager 的 `ApiDown → ApiHighErrorRate` 抑制因 `equal` 标签不存在而永不生效。出路=关匿名、口令走环境变量、inhibit 改标签集。(登记@2026-11-05;归属:机主)
   - 判据：`monitoring/grafana/grafana.ini` 的 `[auth.anonymous]` 为 `enabled = true` / `org_role = Viewer`，`[security] admin_password` 写死 `ihui-admin`。
   - 告警：`monitoring/alertmanager/alertmanager.yml.tmpl` 的 inhibit 规则 `equal: ['instance']`，而目标告警表达式是 `sum(rate(...)) / sum(rate(...))`、聚合后无 instance 标签 ⇒ `equal` 永不匹配，同一根因双告警必然各寄一封。
   - 收口要点：inhibit 改 `equal: []` 或补 `job` 等确实存在的标签。
@@ -31616,7 +31614,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - ③`scripts/check-knip-ratchet.mjs` 的 `if (args.has('--update') || !existsSync(BASELINE_PATH)) { …writeFileSync(BASELINE_PATH, …currentCounts…) ; process.exit(0) }` 在基线缺失时用当前计数自动生成基线并 exit 0 ⇒ 删基线重跑一次就把门槛抬到当前值。
   - ④`scripts/check-adapter-wiring.mjs` 在 `!existsSync(ADAPTERS_DIR)` 时 `return 0`、`scripts/check-cli-i18n-parity.mjs` 在目录不存在时 `process.exit(0)` 并打 `[OK]`。
   - 后果：依赖装不上时后续 Syntax check 在空环境跑或直接放行，CI 账面绿而 ai-service 从未被验证；文件自述"observe 档"，但 observe 档等于恒绿。
-- [ ] BUG-45 **`render.yaml` 两处使部署必然失败/语义错位**：web 服务在 `rootDir: apps/web` 下跑 workspace 级命令、redis 条目缺 `type: redis` 会被当作 PG 创建。出路=rootDir 上提 + 补 type。(登记@2026-11-05;归属:机主)
+- [x] BUG-45 **`render.yaml` 两处使部署必然失败/语义错位**：web 服务在 `rootDir: apps/web` 下跑 workspace 级命令、redis 条目缺 `type: redis` 会被当作 PG 创建。出路=rootDir 上提 + 补 type。(登记@2026-11-05;归属:机主)
   - ①service `ihui-web` 的 `rootDir: apps/web` 却执行 `pnpm install --frozen-lockfile && pnpm --filter @ihui/web... build` —— `apps/web` 下既无 `pnpm-lock.yaml` 也无 `pnpm-workspace.yaml`，`--frozen-lockfile` 当场失败、`--filter` 也解析不到工作区；`healthCheckPath: /api/health` 在 web 服务上无上游（rewrites 默认指 `127.0.0.1:8802`，Render 上不存在本地 API）。
   - ②`databases` 段的 `ihui-redis` 条目缺 `type: redis`（也无 `databaseName`）⇒ 按 Render blueprint 语义会被当作 PostgreSQL 创建，应用 `REDIS_URL` 指向一个 PG 实例。
   - ①`deploy/win/test-health.ps1` 头注声明"四维健康自检(web / api / llm / wss)"，但 `$wssOk = $true` 硬编码为真且从未 `Check 'wss'` ⇒ WebSocket 全断时仍打印 `RESULT: ALL_PASS`、退出码 0。
@@ -31629,12 +31627,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - ②`.github/workflows/ci-monorepo.yml` 的 `outputs.cache-hit: ${{ steps.pnpm-cache.outputs.cache-hit }}` 引用了不存在的 step id（全文件唯一出现处即该行，无 `id: pnpm-cache`）⇒ output 恒空。
   - ③`.github/workflows/s3-lifecycle-drift.yml` 解析声明文件用 `subprocess.run(...).stdout` 不检查 returncode/stderr，解析失败时 `declared_rules = []`，若线上也为 0 条则判 `drift=false` 并打印"✅ 无漂移"（未定义 `yaml` 模块的 runner 上必现）。
   - ④`.github/workflows/assistant-release-upload.yml` 把 `workflow_dispatch` 输入直接内插进 shell（`gh release upload "${{ github.event.inputs.release_tag }}" … --clobber`），双引号内 `$(...)` 仍会被 bash 求值，而该 job 持 `contents: write`。
-- [ ] BUG-57 **部署脚本八处硬编码盘符 + 三份脚本缺 `$ErrorActionPreference`**：`ihui-deploy.ps1` 的 `$BackupDir`/`$AdminPwdFile`/`$IhuiPnpmHome` 等、`install-deploy-loop-service.ps1` 的 `$logDir`、`deploy-window-common.ps1` 的状态路径均写死 `D:\DevEnv\...`；`alert-dedup.ps1` / `clean-build-purge.ps1` / `admin-credential.ps1` 无 `Stop`。出路=路径从 `$env:` 或仓库相对路径推导 + 补 `Stop`。(登记@2026-11-05;归属:机主)
-- [ ] BUG-59 **蓝绿部署工作流无并发组、SSH 指纹走 TOFU、部署代码与本 run 的 SHA 无绑定**：`blue-green-deploy.yml` 无 `concurrency:`、`ssh-keyscan` 无指纹校验、部署的是部署机 `git pull` 的结果；回滚前置仅 `docker compose ps | grep -q "Up"`、`nginx -s reload` 前未 `nginx -t`。出路=补并发组 + 固定指纹 + 传 SHA + 回滚前功能探测。(登记@2026-11-05;归属:机主)
+- [x] BUG-57 **部署脚本八处硬编码盘符 + 三份脚本缺 `$ErrorActionPreference`**：`ihui-deploy.ps1` 的 `$BackupDir`/`$AdminPwdFile`/`$IhuiPnpmHome` 等、`install-deploy-loop-service.ps1` 的 `$logDir`、`deploy-window-common.ps1` 的状态路径均写死 `D:\DevEnv\...`；`alert-dedup.ps1` / `clean-build-purge.ps1` / `admin-credential.ps1` 无 `Stop`。出路=路径从 `$env:` 或仓库相对路径推导 + 补 `Stop`。(登记@2026-11-05;归属:机主)
+- [x] BUG-59 **蓝绿部署工作流无并发组、SSH 指纹走 TOFU、部署代码与本 run 的 SHA 无绑定**：`blue-green-deploy.yml` 无 `concurrency:`、`ssh-keyscan` 无指纹校验、部署的是部署机 `git pull` 的结果；回滚前置仅 `docker compose ps | grep -q "Up"`、`nginx -s reload` 前未 `nginx -t`。出路=补并发组 + 固定指纹 + 传 SHA + 回滚前功能探测。(登记@2026-11-05;归属:机主)
 ### 机器判定面（4 条，全部为 `node scripts/all-checks-runner.mjs` 全量 28 步的实测红）
-- [ ] BUG-60 **`@ihui/types` 的 dist 声明落后源码 11 项（第 5 步 `pnpm check:stale-dist` rc=1）**：实测「✗ @ihui/types [档a] 声明落后 11 项 ⇒ 判红」，缺 `PRODUCT_CAPABILITIES`/`PRODUCT_FORMS`/`ProductCapability` 等；`@ihui/database` 落后 98 项、`@ihui/shared` 落后 2 项（档 b 只报数）。apps/* 有按 dist 消费的路径 ⇒ 运行时取到 `undefined`。出路=`pnpm --filter @ihui/types build` + 纳入发布前检查。(登记@2026-11-05;归属:机主)
-- [ ] BUG-61 **web 端新增 4 个死 i18n key（第 18 步 `scan-dead-i18n-keys --target all --exit 1` rc=1）**：判据输出「`--exit 1`:发现 4 个死 key(存量基线 0,新增 4)」，判定面为 HEAD blob，报告落在 `.ihui-agent/tmp/i18n-dead-keys-2026-11-05.md`（机器运行态、不入库）。另有 7 枚 web 键与 5 枚 miniapp 键按契约声明豁免（`eduCertificates.*`、`ai.stream.subagent`、`byok.stepN Title` 等，依据已逐条钉在测试里）。出路=读报告点名 4 个键，或补消费点、或按契约声明免除；不得直接抬基线。(登记@2026-11-05;归属:机主)
-- [ ] BUG-63 **基准交付账 `#16 流式平滑渲染` 仍存在且无有效豁免（第 28 步 `check:benchmark-delivery` rc=2）**：判据输出「三态:已交付 41 / 仍存在 2 / 判不出 0」「未豁免的仍存在 1 条:#16 —— `--strict` 下顶红」，另三条"如实登记（不参与定性）"项仍在（`#51 自证 stub 类型`、`#D151 extension 端未接线`、`#45 AGENT_SELF_HEALING_ENABLED 默认 off`）。该尺子刻意不在提交链上（判文档与代码一致性、与提交内容无关）。出路=#16 要么补实现要么按合法暂态挂 `exemptUntil` + `exemptReason`。(登记@2026-11-05;归属:机主)
+- [x] BUG-60 **`@ihui/types` 的 dist 声明落后源码 11 项（第 5 步 `pnpm check:stale-dist` rc=1）**：实测「✗ @ihui/types [档a] 声明落后 11 项 ⇒ 判红」，缺 `PRODUCT_CAPABILITIES`/`PRODUCT_FORMS`/`ProductCapability` 等；`@ihui/database` 落后 98 项、`@ihui/shared` 落后 2 项（档 b 只报数）。apps/* 有按 dist 消费的路径 ⇒ 运行时取到 `undefined`。出路=`pnpm --filter @ihui/types build` + 纳入发布前检查。(登记@2026-11-05;归属:机主)
+- [x] BUG-61 **web 端新增 4 个死 i18n key（第 18 步 `scan-dead-i18n-keys --target all --exit 1` rc=1）**：判据输出「`--exit 1`:发现 4 个死 key(存量基线 0,新增 4)」，判定面为 HEAD blob，报告落在 `.ihui-agent/tmp/i18n-dead-keys-2026-11-05.md`（机器运行态、不入库）。另有 7 枚 web 键与 5 枚 miniapp 键按契约声明豁免（`eduCertificates.*`、`ai.stream.subagent`、`byok.stepN Title` 等，依据已逐条钉在测试里）。出路=读报告点名 4 个键，或补消费点、或按契约声明免除；不得直接抬基线。(登记@2026-11-05;归属:机主)
+- [x] BUG-63 **基准交付账 `#16 流式平滑渲染` 仍存在且无有效豁免（第 28 步 `check:benchmark-delivery` rc=2）**：判据输出「三态:已交付 41 / 仍存在 2 / 判不出 0」「未豁免的仍存在 1 条:#16 —— `--strict` 下顶红」，另三条"如实登记（不参与定性）"项仍在（`#51 自证 stub 类型`、`#D151 extension 端未接线`、`#45 AGENT_SELF_HEALING_ENABLED 默认 off`）。该尺子刻意不在提交链上（判文档与代码一致性、与提交内容无关）。出路=#16 要么补实现要么按合法暂态挂 `exemptUntil` + `exemptReason`。(登记@2026-11-05;归属:机主)
 ### 本批覆盖边界（未判的不写成判过）
 - **机器判定已过**：`apps/web` 与 `apps/api` 的 `tsc --noEmit` 均 RC=0、输出 0 行；`apps/ai-service` 的 `python -m compileall -q app` RC=0 ⇒ 缺陷集中在语义层（鉴权、并发、契约、判据），不在类型层。
 - **未逐点核到的面**：① `apps/ai-service` 排除 `.venv`/`tests` 后仍有约 480 处 `httpx.AsyncClient`/`httpx.Client` 调用点未逐点打开（高风险入口 `web_crawl_tools` / `media_tasks` / `screenshot_service` / `browser_render` / `figma_*` / `scan_login` / `mcp_server` 已逐条核对过 SSRF 尺，其余为发布适配器与内部服务调用）；② `apps/api` 的 DTO 与 `packages/types` 未做全量字段比对（只抽样），BUG-30 列的是已确证的四格；③ `scripts/` 下 2066 个 .mjs 中只深审了守门与迁移相关族，业务辅助脚本未逐个体检；④ 迁移链只对"会毁数据/不可重入"的模式做定向扫，未逐份通读 366 份 SQL。
@@ -31650,7 +31648,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 收口：二选一——后端改 `list` 键，或 `PageData` 改 `items` 并全仓同步；必须成对改并补"两端键名一致"的契约测试。
   - web 与 RN 的解析器有 `question` 处理（共享 `packages/shared` 的 sse_contract 含该事件），唯独小程序 pkg-ai 缺 ⇒ 同一事件三端两种命运。
   - 收口：小程序 pkg-ai 的 SSE 派发补 `question` case，对齐 web/RN 的提问卡渲染。
-- [ ] BUG-68 **web 与小程序 base URL 配置键不统一**：web 用 `NEXT_PUBLIC_API_BASE_URL`（`apps/web/.env.example:13,17` + `process.env.NEXT_PUBLIC_API_BASE_URL`），小程序用 `BASE_URL`（`apps/miniapp-taro/.env.example:20`、`src/api/index.ts:8`）。两端构建期各读各的键，任一漏配即在运行时静默指向错误/空 base。(登记@2026-11-05;归属:机主)
+- [x] BUG-68 **web 与小程序 base URL 配置键不统一**：web 用 `NEXT_PUBLIC_API_BASE_URL`（`apps/web/.env.example:13,17` + `process.env.NEXT_PUBLIC_API_BASE_URL`），小程序用 `BASE_URL`（`apps/miniapp-taro/.env.example:20`、`src/api/index.ts:8`）。两端构建期各读各的键，任一漏配即在运行时静默指向错误/空 base。(登记@2026-11-05;归属:机主)
   - 原补扫报告称"三套键名（含 `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_API_BASE`）"，实读 `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_API_BASE` 在仓内零命中，确证只有上述两套；按实登记。
   - 收口：统一为单一环境变量名，跨端构建脚本校验其存在。
   - 后果：同一张过期/吊销 token，web 让用户续期、RN 直接踢出、小程序半死不活 ⇒ 跨端体验与安全口径不一致，且小程序不清凭据存在重放窗口。
@@ -31664,14 +31662,14 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 收口：缺失/非法 expiresAt 应 fail-closed（`return true` 或抛错），并补全写入侧强制 expiry。
   - 证据：loader.ts:61 注释自承"非 web 端会把[ICU]语法原样吐成文案"——根因正是 locale 没透传，英文 plural/select 在非 zh 语言下错位（如渲染成 "1 context sources in this turn"）。
   - 收口：非 web 端 `t()` 接入运行时 locale，或在 loader 层按消息包语言兜底透传。
-- [ ] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
+- [x] BUG-74 **mobile-cap `versionCode` 缺注入时回退到小时粒度，同小时两次构建冲突**：`apps/mobile-cap/android/app/build.gradle:10-17` 注释"缺省时按 UTC YYMMDDHH 现算（天然单调递增）"，即 `YYMMDDHH` 仅小时精度。CI 未注入版本时，一小时内两次 `assembleRelease` 产相同 `versionCode`。(登记@2026-11-05;归属:机主)
   - 后果：覆盖安装判定失败、Google Play 拒收"versionCode 未递增"；属 latent 缺陷，依赖 CI 稳定注入才能规避。
   - 收口：回退值改分钟/秒粒度（如 `YYMMDDHHmm`），或构建失败而非复用旧值。
 #### 复核后排除（原补扫报告记载、实读不成立，登记以免重复审计）
 - **排除 A · "RN 渲染 `packages/app` 的 `PayButton`/`TabBar`（DOM）即崩"**：实读 `packages/app/src/index.ts:472` 确实 `export { PayButton, TabBar } from './components'`（DOM 实现，见 `PayButton.tsx:9` 引 `lucide-react`、`TabBar.tsx:18` 注释"用 div/span/img"）。但全仓无任何 app 在 `package.json` 依赖 `@ihui/app`，且 `apps/mobile-rn` 用的是自己的 `apps/mobile-rn/src/components/TabBar.tsx`（RN 原生），根本不引入该 barrel ⇒ 当前不会触发。属"潜在 footgun"而非现行崩溃，不列为 BUG，仅在门禁层建议对 `@ihui/app` 加 RN 引用守卫。
 - **排除 B · "benchmarks/gen.mjs 写字面量 `\\n`"**：实读 `benchmarks/gen.mjs:51-52` 为 `l.replace(/\\/g,'\\\\').replace(/'/g,"\\'")` + `].join('\n')`——是对反斜杠/单引号的**正确转义**，`.join('\n')` 是真实换行而非两字符字面量。原报告把正确转义误读成 bug，撤销。
 - **待核（本次未直接核验、不强行登记）**：① mobile-cap 权限声明与已装插件是否匹配；② `capacitor.config` 是否用 `server.url` 远程加载导致 webDir 白拷；③ release 是否缺 `signingConfig`；④ 亮色模式状态栏近黑；⑤ 推送注册状态前后矛盾；⑥ python SDK `agent_engine.py:603` 的 `stream=True` 是否真的使调用崩。这几条要么证据不足、要么需运行态验证，留待下一轮定向核验，不占派单额度。
-- [ ] S-26 (2026-11-06) **合流时活文档取的是工作树那份滞后副本,把已入库的对侧旧行带回落 later ⇒ F9 反复拦 converge**:现读三面 HEAD=0 / origin/main=0 / **工作树=2 命中**(Y-70 11-02、11-03 两行,且工作树那两行带未提交的 `进行中@…/qoder-rn-release` 牌) ⇒ 两侧账面早已没有这个编号,唯一还带着它的是盘上副本;`git-sync-converge.mjs` 的活文档行级 union 把它带回合并结果 ⇒ F9「基线键集里没有的编号」六轮拒绝推进,而 `plan-collide-renumber.mjs --apply` 按自己的 base 判「新增撞号组 0 ⇒ 无需让号」(两把尺输入面不同,都不算错)。**不许的两种修法**:覆盖工作树副本(= 丢持牌那席的在飞现场)、借 `--update-baseline` 把 F9 键集加宽(= 给新撞号发通行证,§只许收窄)。出路=给 converge 的活文档取材面补一档"只取两侧 blob、不取工作树副本"(与 §5b 把活文档排除在索引自愈之外并不冲突:那一条治的是回盘,这一条治的是合并取材),同批配成对用例:工作树滞后含已入库旧行 ⇒ 归并结果不得出现该键;持牌行真在飞 ⇒ 仍不得覆盖。 **解锁**:该器物落地后重跑 converge 即通(本行由 object-space-land 落,未触碰工作树)。 (持有行题面「S-26」)
+- [ ] S-26 (2026-11-06) **合流时活文档取的是工作树那份滞后副本,把已入库的对侧旧行带回落 later ⇒ F9 反复拦 converge**:现读三面 HEAD=0 / origin/main=0 / **工作树=2 命中**(Y-70 11-02、11-03 两行,且工作树那两行带未提交的 `进行中@…/qoder-rn-release` 牌) ⇒ 两侧账面早已没有这个编号,唯一还带着它的是盘上副本;`git-sync-converge.mjs` 的活文档行级 union 把它带回合并结果 ⇒ F9「基线键集里没有的编号」六轮拒绝推进,而 `plan-collide-renumber.mjs --apply` 按自己的 base 判「新增撞号组 0 ⇒ 无需让号」(两把尺输入面不同,都不算错)。**不许的两种修法**:覆盖工作树副本(= 丢持牌那席的在飞现场)、借 `--update-baseline` 把 F9 键集加宽(= 给新撞号发通行证,§只许收窄)。出路=给 converge 的活文档取材面补一档"只取两侧 blob、不取工作树副本"(与 §5b 把活文档排除在索引自愈之外并不冲突:那一条治的是回盘,这一条治的是合并取材),同批配成对用例:工作树滞后含已入库旧行 ⇒ 归并结果不得出现该键;持牌行真在飞 ⇒ 仍不得覆盖。 **解锁**:该器物落地后重跑 converge 即通(本行由 object-space-land 落,未触碰工作树)。 (持有行题面「S-26」) 〔2026-11-06 同号归并并入的短版原文〕 - [ ] S-26 (2026-11-06) **合流把活文档的工作树滞后副本当成对侧内容带回落 later ⇒ F9 反复拦 converge**:席取证 union-converge / git-sync-converge 的活文档三面全取 blob(原前提不成立),真通道是 scripts/merge-live-doc.mjs 自述「以工作树为底」⇒ 修法只有一条:该器取材面改被审面 blob + 成对夹具(带回落判红、正常归并不红);禁覆盖他席在飞副本、禁放宽 F9 基线
 - [ ] S-28 (2026-11-06) 〔归:机主凭据面〕**号池两枚死号只能由机主供值解锁:MiniMax 两枚需把 mcode 切到该号登一次再回灌 / OpenCode 一枚需新建 API key**:与保活链无关(强保与回灌已闭环),这三枚各自卡在一手事实上——① minimax `auto:b9d`/`auto:1f9`(票 10-27 过期、从未刷成):其适配器明写"mcode 的 OAuth 刷新端点未实证,不实现 refreshToken,401 自愈靠重新导入",且 minimax 稳定身份是 recordKey(`uid=auto:sha256(recordKey:token)` 随票旋转而变),本机 mcode 现登录的是**另一枚**(`auto:39c7`,dry-run 判 same-token)⇒ 出路=在 mcode 登这两个号之一,再跑 `node scripts/sync-minimax-client-session.mjs`;② opencode `auto:356`(上游 401 `api_key_expired`,适配器注:该错**不可续期、重登无效**)⇒ 需在 opencode 控制台新建 key 后走 `node scripts/relay-account-pool.mjs --from opencode`(本机 auth.json 那枚失效凭据已按 §26 摘净并逐字节备份,agent 不代登录/代注册账号);③ trae `32077461` **结构性无救**(GetUserToken 401 + refreshExpiresAt 为 NULL + is_enabled=false + Trae 已禁验证码重登,本仓无任何再铸票通道)⇒ 它不占本票,事实已在提交信息留痕。解锁:机主任做一项后回话,我跑回灌/导入并当场验健康;两枚确认不救则本行摘除。 (持有行题面「S-28」)
 - [ ] Y-3 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（认领已释放@2026-11-05/stale-claim-strip#mw330uhz-13）〔同题原号 Y-20079〕〔让号@2026-11-06:本行原声明号 Y-70 与 2026-11-03 同号新登记行(题面以「全平台发布四格动手清单」起头)构成一号两题;按 §1「一个编号只能有一行当前状态」「后来者改号」,由本行让号为 Y-3,Y-70 留给 11-03 那行。同一裁决此前已落过一次(当时发号即 Y-3):2026-11-05 活文档对账落盘枚 be91ef2c1831b6561ca365fabb9b59506f27d905 在 PROJECT_PLAN.md 上删去含「Y-3 (2026-11-02)」的那一行且未增回(现读该枚对本文件 +0 命中 / −1 命中,当下 HEAD 与 origin/main 面 Y-3 声明位均 0 命中)⇒ Y-3 形态连同其让号注记一并退出入库面,一号两题回潮,本次就地重施。定性判据(可复跑,不必凭印象):HEAD 与 origin/main 面声明位 `- [ ] Y-70 ` 各 2 行,两行逐字节不同、互不包含(长度 764 / 2971 字符);逐格比对——本行独有「鸿蒙产物适配」「/download/harmony 静默 fallback 改显式态」两格,彼行独有「App 备案号登记」「四家接口凭据开通」「0364 迁移先于上线的落地次序」「三端 store 消费接线」四格,交叠仅「华为 AGC Connect API 客户端」「app_versions 无 store 维度」两格 ⇒ 属异题撞号而非漂开副本,折叠会把两件真工作并成一条 = 假结清,所以只让号、不折叠、不加任何副本指针注记(§1 指针注记存量已清零)。原 〔同题原号 Y-20079〕 指针保留不动〕〔同题原号 Y-70〕
 ### 第三轮补扫（ai-service 网络 / DTO 全量 / scripts 业务 / SQL 迁移 / web-api 五面并行深审，BUG-75~92）
@@ -31679,12 +31677,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`return requests.get(url, params=params, headers={...}, timeout=timeout,)` 在同步 `_request`；调用点 `html = _request(f'https://www.yuque.com/{user}/{repo}').text` 在 `async def sync` 内
   - 对照：同目录 `wecom.py`/`feishu.py`/`dingtalk.py` 均用 `async with httpx.AsyncClient(timeout=...) as client: await client.get(...)`
   - 收口：把 `_request` 改为 `httpx.AsyncClient` + `await`，或至少 `await asyncio.to_thread(requests.get, ...)`
-- [ ] BUG-76 **ai-service 微信发布库把 app_secret/access_token 拼进 URL query（微信协议强制 token 在 query，非代码可消除；残余风险=凭据经 httpx DEBUG 日志/反代 access_log/异常上下文泄露，缓解=日志脱敏+限 DEBUG 级）**：`get_access_token`/`upload_image`/`upload_media` 等多处 URL 带 `secret=`/`access_token=`。(登记@2026-11-06;归属:机主)
+- [x] BUG-76 **ai-service 微信发布库把 app_secret/access_token 拼进 URL query（微信协议强制 token 在 query，非代码可消除；残余风险=凭据经 httpx DEBUG 日志/反代 access_log/异常上下文泄露，缓解=日志脱敏+限 DEBUG 级）**：`get_access_token`/`upload_image`/`upload_media` 等多处 URL 带 `secret=`/`access_token=`。(登记@2026-11-06;归属:机主)
   - 位置：`apps/ai-service/app/skills/content_engine/lib/wechat_publish.py :: get_access_token(116) / upload_image(140) / upload_media(155,170,199...)`
   - 判据：`url = f'{API_BASE}/token?grant_type=client_credential&appid={app_id}&secret={app_secret}'`；`url = f'{API_BASE}/media/uploadimg?access_token={token}'`
   - 对照：同仓 `providers/gemini_provider.py::_auth_headers` 明确凭据只走头、绝不进 URL 并注释 `?key=` 会落 DEBUG 日志；但微信系接口协议强制 query 带 token，代码无法规避
   - 收口：日志层对 `access_token=`/`secret=` 做正则脱敏，运营环境勿开 httpx DEBUG
-- [ ] BUG-77 **ai-service 企业微信连接器把 corpsecret 放进请求 params（企业微信 gettoken 协议强制 corpid+corpsecret 在 query，非代码可消除；残余风险同 BUG-76，缓解=日志脱敏）**：`WecomConnector.get_access_token` 把 `corpsecret` 进 query。(登记@2026-11-06;归属:机主)
+- [x] BUG-77 **ai-service 企业微信连接器把 corpsecret 放进请求 params（企业微信 gettoken 协议强制 corpid+corpsecret 在 query，非代码可消除；残余风险同 BUG-76，缓解=日志脱敏）**：`WecomConnector.get_access_token` 把 `corpsecret` 进 query。(登记@2026-11-06;归属:机主)
   - 位置：`apps/ai-service/app/services/connectors/wecom.py :: WecomConnector.get_access_token(78)`
   - 判据：`params = {'corpid': self.corpid, 'corpsecret': self.corpsecret}` 紧随 `resp = await client.get(url, params=params)`
   - 对照：同仓 `core/sso.py` OIDC 用 POST body 传 `client_secret` 不进 query；但企业微信官方 gettoken 接口要求 query 携带，无法改
@@ -31717,17 +31715,17 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：第12行注释「幂等:先清空再插入」；第49行 DELETE，第52-63行 INSERT 循环，无 `sql.begin`、无 `--dry-run`
   - 对照：应包 `await sql.begin(async tx => { await tx\`DELETE…\`; for(…) await tx\`INSERT…\` })`；`scan-upstream-models.mjs` 已有 `--dry-run`
   - 收口：包事务 + 加 `--dry-run` 开关
-- [ ] BUG-85 **迁移 `0126_ai-world-sync.sql` 对已存在的 `ai_world_categories`/`ai_world_items` 表新增 `NOT NULL` 列（`slug`/`kind`/`source`）却无 `DEFAULT`，若这两张表在生产已有数据，迁移直接在 `ADD COLUMN ... NOT NULL` 处报错中断，阻断整轮部署**：(登记@2026-11-06;归属:机主)
+- [x] BUG-85 **迁移 `0126_ai-world-sync.sql` 对已存在的 `ai_world_categories`/`ai_world_items` 表新增 `NOT NULL` 列（`slug`/`kind`/`source`）却无 `DEFAULT`，若这两张表在生产已有数据，迁移直接在 `ADD COLUMN ... NOT NULL` 处报错中断，阻断整轮部署**：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0126_ai-world-sync.sql:20,24,28` :: `ADD COLUMN slug varchar(100) NOT NULL` / `kind varchar(32) NOT NULL` / `source varchar(200) NOT NULL`
   - 判据：该文件 17-19 行已对这两表做 `ALTER COLUMN`，证明是存量表；同仓 0065/0122/0130 加 NOT NULL 前均带 `DEFAULT`
   - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；本处核心列漏 DEFAULT
   - 收口：加 `DEFAULT ''`/`DEFAULT 'unknown'` 或先加可空列回填再 `SET NOT NULL`
-- [ ] BUG-86 **迁移 `0212_phase2_refund_invoice_fk.sql` 把 `edu_refunds.order_type` varchar→integer 用 `USING CASE … ELSE COALESCE(CAST(order_type AS integer),0) END`；PG 中 `CAST('' AS integer)` 及任意非数字串（如 `gift`/`recharge`）先抛转换错，COALESCE 捕获不到，整段迁移失败**：(登记@2026-11-06;归属:机主)
+- [x] BUG-86 **迁移 `0212_phase2_refund_invoice_fk.sql` 把 `edu_refunds.order_type` varchar→integer 用 `USING CASE … ELSE COALESCE(CAST(order_type AS integer),0) END`；PG 中 `CAST('' AS integer)` 及任意非数字串（如 `gift`/`recharge`）先抛转换错，COALESCE 捕获不到，整段迁移失败**：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0212_phase2_refund_invoice_fk.sql :: edu_refunds.order_type`
   - 判据：`ALTER COLUMN order_type SET DATA TYPE integer USING CASE … ELSE COALESCE(CAST(order_type AS integer), 0) END;`
   - 对照：仅映射 `course→7`、`card→8`；未映射值直接走 CAST 报错
   - 收口：USING 改用 `CASE WHEN order_type IN (…) THEN … ELSE 0 END` 且不走 CAST（先 `USING (CASE … END)::integer` 或先清脏数据）
-- [ ] BUG-87 **迁移 `0085_exam_wrong_unique.sql` 用 `ADD CONSTRAINT … UNIQUE` 加唯一约束，既无 `IF NOT EXISTS` 守卫，又不处理存量重复行；重放报 already exists，且表内已有重复 (user_id,question_id) 时直接中断**：(登记@2026-11-06;归属:机主)
+- [x] BUG-87 **迁移 `0085_exam_wrong_unique.sql` 用 `ADD CONSTRAINT … UNIQUE` 加唯一约束，既无 `IF NOT EXISTS` 守卫，又不处理存量重复行；重放报 already exists，且表内已有重复 (user_id,question_id) 时直接中断**：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0085_exam_wrong_unique.sql :: exam_wrong_question_user_question_unique`
   - 判据：`ALTER TABLE exam_wrong_question ADD CONSTRAINT exam_wrong_question_user_question_unique UNIQUE(user_id, question_id);`
   - 对照：同仓 `0115_r82_seed_unique_indexes.sql` 用 `CREATE UNIQUE INDEX IF NOT EXISTS` 且内容表索引用 `IF NOT EXISTS`
@@ -31736,12 +31734,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构）
   - 对照：`circles.slug` 本就唯一，可建 UNIQUE；title 不应唯一
   - 收口：改普通 INDEX 或先 `SELECT title,count(*) FROM … GROUP BY title HAVING count>1` 查重清洗
-- [ ] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；该表创建于更早的 `0038_missing_tables.sql`/`0043`（既有表），存量非空则 ADD COLUMN 当场中断**〔已坐实：既有表 + 无 DEFAULT〕：(登记@2026-11-06;归属:机主)
+- [x] BUG-89 **迁移 `0108_r83_supplement_27_tables.sql` 对 `oauth_private_keys` 新增 `client_id`/`private_key` 为 `NOT NULL` 且无 `DEFAULT`；该表创建于更早的 `0038_missing_tables.sql`/`0043`（既有表），存量非空则 ADD COLUMN 当场中断**〔已坐实：既有表 + 无 DEFAULT〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0108_r83_supplement_27_tables.sql :: oauth_private_keys(client_id, private_key)`
   - 判据：`ALTER TABLE oauth_private_keys ADD COLUMN IF NOT EXISTS client_id varchar(100) NOT NULL;` `ADD COLUMN IF NOT EXISTS private_key text NOT NULL;`
   - 对照：同文件 `is_active` 等带 `DEFAULT 0/1`；此处核心 OAuth 字段漏 DEFAULT
   - 收口：加 `DEFAULT ''` 或先确认表空再 NOT NULL
-- [ ] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；安全性完全押在注释自称的「现存 0 行」上，无任何运行时 `count` 守卫**〔已坐实：结构性赌注〕：(登记@2026-11-06;归属:机主)
+- [x] BUG-90 **迁移 `20261018160000_agent_state_tables_runtime_reality.sql` 在 DO 块内 `DROP COLUMN original_messages` 后 `ADD COLUMN original_messages integer NOT NULL`（compressed_to 同构），均无 `DEFAULT`；安全性完全押在注释自称的「现存 0 行」上，无任何运行时 `count` 守卫**〔已坐实：结构性赌注〕：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/20261018160000_agent_state_tables_runtime_reality.sql :: agent_working_memory_compression(original_messages, compressed_to)`
   - 判据：`ALTER TABLE agent_working_memory_compression DROP COLUMN original_messages; … ADD COLUMN original_messages integer NOT NULL;`（compressed_to 同构，均无 DEFAULT）
   - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；此处重建列漏 DEFAULT
@@ -31754,7 +31752,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`fetchApi(...).then(...).catch(()=>{})`——失败被零痕迹吞掉
   - 对照：同仓 `use-agent-stream` 在吞错处至少 `console.warn`
   - 收口：`.catch((e)=>console.warn('[home-schema] load failed', e))`
-- [ ] BUG-88 **迁移 `0115_r82_seed_unique_indexes.sql` 在 `news_articles`/`asks`/`resources`/`live_channels` 的 `title` 上建 `UNIQUE INDEX`；内容表标题本不保证唯一且 4 张表全部是更早迁移（0014/0016/0018/0034 等）建的既有表，一旦存量出现重复 title，迁移当场中断**〔已坐实：结构性无守卫〕：(登记@2026-11-06;归属:机主)〔待核：生产数据是否已有重复〕
+- [x] BUG-88 **迁移 `0115_r82_seed_unique_indexes.sql` 在 `news_articles`/`asks`/`resources`/`live_channels` 的 `title` 上建 `UNIQUE INDEX`；内容表标题本不保证唯一且 4 张表全部是更早迁移（0014/0016/0018/0034 等）建的既有表，一旦存量出现重复 title，迁移当场中断**〔已坐实：结构性无守卫〕：(登记@2026-11-06;归属:机主)〔待核：生产数据是否已有重复〕
   - 判据：`CREATE UNIQUE INDEX IF NOT EXISTS news_articles_title_uniq ON news_articles (title);`（另 3 张同构；全文件仅 14 行、无任何去重/体检块）
   - 坐实：4 张表创建于 0014/0016/0018/0034/0043 等更早迁移 ⇒ 既有表非新建；`IF NOT EXISTS` 只防重放、不防存量重复
   - 对照：同仓 `20261002033500_im_messages_platform_msg_unique.sql` 对同类风险做了完整守卫（先 `count` 重复组、`dup_groups>0` 即 `RAISE EXCEPTION` 并把处置顺序写进异常文本）
@@ -31763,12 +31761,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 坐实：DO 块仅在「列存在且类型不匹配」时重建列 ⇒ 若生产该表已被 agent 运行时写入（类型不匹配+非空），`ADD COLUMN NOT NULL` 中断；文件头注释「幂等性…USING 分支在 0 行表上不求值」也以 0 行为前提
   - 收口：加 `DEFAULT 0`，或 DO 块内先 `count(*)` 非零即 RAISE（照 im_messages 守卫模式）
 ### 第四轮补扫坐实（2026-11-06 深夜：待核闭环 + 四面全量扫描）
-- [ ] BUG-93 **`apps/mobile-cap` 的 release `buildType` 完全没有 `signingConfig`：release 块只有 `minifyEnabled false` 与 proguardFiles，产出未签名 APK（无法安装）或误用 debug 签名发布**：(登记@2026-11-06;归属:机主)
+- [x] BUG-93 **`apps/mobile-cap` 的 release `buildType` 完全没有 `signingConfig`：release 块只有 `minifyEnabled false` 与 proguardFiles，产出未签名 APK（无法安装）或误用 debug 签名发布**：(登记@2026-11-06;归属:机主)
   - 位置：`apps/mobile-cap/android/app/build.gradle :: buildTypes { release { … } }`
   - 判据：`release { minifyEnabled false proguardFiles … }` —— 全块无 `signingConfig signingConfigs.release`，文件内也无 `signingConfigs {}` 定义段
   - 对照：标准 Capacitor 模板 release 会挂 `signingConfig signingConfigs.release` 并由 keystore.properties 提供
   - 收口：补 signingConfigs + keystore.properties（凭据走本机密钥目录，不入仓）
-- [ ] BUG-94 **`apps/mobile-cap` 以 `server.url: 'https://aizhs.top'` 远程加载整站，`webDir='www'` 同步产物每次构建白拷进 APK：离线壳失效、包体白白增大**（注释自承首版决策、待后端 CORS 补 `https://localhost` 后切回本地资产）：(登记@2026-11-06;归属:机主)
+- [x] BUG-94 **`apps/mobile-cap` 以 `server.url: 'https://aizhs.top'` 远程加载整站，`webDir='www'` 同步产物每次构建白拷进 APK：离线壳失效、包体白白增大**（注释自承首版决策、待后端 CORS 补 `https://localhost` 后切回本地资产）：(登记@2026-11-06;归属:机主)
   - 位置：`apps/mobile-cap/capacitor.config.ts :: server.url`
   - 判据：`url: 'https://aizhs.top'` + 注释「首版采用 server.url 远程加载…本地资产离线模式待后端 CORS 白名单补 https://localhost 后切回（见 .mode-local-assets 备注分支）」
   - 影响：APK 含全量 www 静态资源但运行时不加载；无网即白屏
@@ -31788,7 +31786,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 位置：`scripts/check-agents.mjs :: const url = process.env.DATABASE_URL || envFile.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ihui'`
   - 判据：与 BUG-82/83 同源模式；仓库内已修复写法 `apply-realistic-pricing.mjs`/`grant-ihui-superuser.mjs` 的注释点名要剔除该模式
   - 收口：改 `requireEnv('DATABASE_URL')` 缺失即 exit 2
-- [ ] BUG-99 **`0125_knowledge_graph.sql`（:22/:41 两处）与 `20261104120000_agent_team_collab.sql`（:44/:47/:72 三处）共 5 处 `CREATE UNIQUE INDEX` 无 `IF NOT EXISTS` 也无前置体检：同文件新建表首跑安全，但任何原因重跑/补跑即中断，违反仓库「迁移全幂等」约定**：(登记@2026-11-06;归属:机主)
+- [x] BUG-99 **`0125_knowledge_graph.sql`（:22/:41 两处）与 `20261104120000_agent_team_collab.sql`（:44/:47/:72 三处）共 5 处 `CREATE UNIQUE INDEX` 无 `IF NOT EXISTS` 也无前置体检：同文件新建表首跑安全，但任何原因重跑/补跑即中断，违反仓库「迁移全幂等」约定**：(登记@2026-11-06;归属:机主)
   - 位置：`packages/database/drizzle/0125_knowledge_graph.sql :: ux_knowledge_entity_owner_name_type, ux_knowledge_relation_edge`；`20261104120000_agent_team_collab.sql :: agent_team_members_team_member_uq, agent_team_members_active_uq, agent_team_inbox_team_idem_uq`
   - 对照：`0115` 全部用 `IF NOT EXISTS`；`20261002033500_im_messages` 前置重复体检
   - 收口：补 `IF NOT EXISTS`（表为同文件新建，无需数据体检）
