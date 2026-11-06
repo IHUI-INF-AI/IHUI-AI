@@ -3430,7 +3430,7 @@
     "phonePlaceholder": "请输入手机号",
     "privacyPolicy": "隐私政策",
     "registerNow": "立即注册",
-    "resendCode": "重新发送",
+    "resendCode": "{seconds}s 后重发",
     "termsOfService": "服务条款",
     "loginFailed": "登录失败，请重试"
   },

@@ -3430,7 +3430,7 @@
     "phonePlaceholder": "Enter your phone number",
     "privacyPolicy": "Privacy Policy",
     "registerNow": "Sign up now",
-    "resendCode": "Resend",
+    "resendCode": "Resend in {seconds}s",
     "termsOfService": "Terms of Service",
     "loginFailed": "Login failed. Please try again."
   },

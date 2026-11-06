@@ -3430,7 +3430,7 @@
     "phonePlaceholder": "請輸入手機號碼",
     "privacyPolicy": "隱私權政策",
     "registerNow": "立即註冊",
-    "resendCode": "重新發送",
+    "resendCode": "{seconds}s 後重發",
     "termsOfService": "服務條款",
     "loginFailed": "登入失敗，請重試"
   },

@@ -3430,7 +3430,7 @@
     "phonePlaceholder": "휴대폰 번호를 입력하세요",
     "privacyPolicy": "개인정보처리방침",
     "registerNow": "지금 가입",
-    "resendCode": "재전송",
+    "resendCode": "{seconds}s 후 재전송",
     "termsOfService": "이용약관",
     "loginFailed": "로그인 실패, 재시도"
   },
