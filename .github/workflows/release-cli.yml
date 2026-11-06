@@ -24,6 +24,11 @@ permissions:
   # 显式声明 permissions 块后未列出的 scope 一律为 none,缺这条签名步会读不到 artifact。
   actions: read
 
+# 发布互斥:同一 tag 的两次触发/重跑不得并发(gh release create 会互相覆盖 notes/资产)。
+concurrency:
+  group: release-cli-${{ github.event.inputs.tag || github.ref }}
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '9'

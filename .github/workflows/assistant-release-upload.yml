@@ -19,6 +19,11 @@ on:
 permissions:
   contents: write
 
+# 发布互斥:同一 release tag 的两次上传/重跑不得并发(--clobber 会互相覆盖同名资产)。
+concurrency:
+  group: assistant-release-upload-${{ github.event.inputs.release_tag }}
+  cancel-in-progress: false
+
 jobs:
   upload:
     runs-on: ubuntu-latest

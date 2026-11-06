@@ -16,6 +16,11 @@ on:
 permissions:
   contents: write
 
+# 发布互斥:同一 tag 的两次触发/重跑不得并发(gh release create 会互相覆盖 notes/资产)。
+concurrency:
+  group: release-on-tag-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
