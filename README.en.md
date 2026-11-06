@@ -59,7 +59,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **621 tables · 4699 API routes ·
+Headline claims (same source as the table below, all live-computed): **621 tables · 4700 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
 336 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **621 table
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19497 | `trackedFiles` |
+| 跟踪文件 | 19498 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
