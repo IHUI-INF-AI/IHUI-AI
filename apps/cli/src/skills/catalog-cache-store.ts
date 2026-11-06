@@ -37,7 +37,13 @@ import {
 } from '@ihui/shared/skills/catalog-cache-schema';
 import { getIhuiRoot } from '../plugins/paths.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
-import { findRepoRoot, loadSkills, type LoadSkillsOptions, type Skill } from './index.js';
+import {
+  findRepoRoot,
+  loadSkills,
+  SkillScanUnread,
+  type LoadSkillsOptions,
+  type Skill,
+} from './index.js';
 
 /** 清单条目(可序列化;与 Skill 的差别只有 body)。 */
 export interface SkillCatalogEntry {
@@ -184,10 +190,24 @@ export function readSkillCatalog(opts: SkillCatalogCacheOptions): SkillCatalogOu
     say(`[skill-catalog] rescan: cache age ${Math.round(verdict.ageMs / 1000)}s > freshness ${Math.round(freshnessMs / 1000)}s`);
   }
 
-  const skills = (opts.scan ?? ((o: LoadSkillsOptions) => loadSkills(o)))({
-    cwd: scope.projectDir,
-    repoRoot: scope.repoRoot,
-  });
+  let skills: readonly Skill[];
+  try {
+    skills = (opts.scan ?? ((o: LoadSkillsOptions) => loadSkills(o)))({
+      cwd: scope.projectDir,
+      repoRoot: scope.repoRoot,
+    });
+  } catch (error) {
+    if (!(error instanceof SkillScanUnread)) throw error;
+    say(`[skill-catalog] ${error.message}`);
+    const signature = envelope?.signature ?? fingerprintCatalogEntries([]);
+    return {
+      entries: envelope ? (envelope.results as readonly SkillCatalogEntry[]) : [],
+      loadedFrom: envelope ? 'cache' : 'scan',
+      state: 'unjudged',
+      notes,
+      signature,
+    };
+  }
   const entries = toEntries(skills);
   const signature = fingerprintCatalogEntries(seedsOf(entries));
   const next: CatalogCacheEnvelope<SkillCatalogEntry> = {
