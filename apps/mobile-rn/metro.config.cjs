@@ -213,6 +213,19 @@ function tryResolveWithExts(basePath, originDir, platform) {
     return basePath
   }
   const exts = ['ts', 'tsx', 'js', 'jsx', 'json', 'mjs', 'cjs']
+  // 2. 工作区 TS 源码按 Node ESM 约定写 `.js` 说明符(packages/shared 的
+  //    import '../utils/command-risk.js' 实际文件是 command-risk.ts)。Metro 默认链
+  //    与下面的扩展名拼接都不认这种写法:basePath 是 command-risk.js 时只会尝试
+  //    command-risk.js.ts。这里在"直接命中"失败后剥掉脚本扩展,复用同一套
+  //    TS/平台后缀查找 —— 只在 .js 文件确实不存在时才生效,已有产物零影响。
+  //    立因(实测):0.0.10 出包 createBundleReleaseJsAndAssets 红
+  //    "Unable to resolve module ../utils/command-risk.js"。
+  {
+    const stripped = basePath.replace(/\.(js|jsx|mjs|cjs)$/, '')
+    if (stripped !== basePath) {
+      basePath = stripped
+    }
+  }
   // 2. 优先尝试平台扩展(.native/.ios/.android/.web)— 与 Metro 默认解析器行为对齐
   //    2026-07-29 修复:原顺序是先 .js 后 .native.js,导致 doctor.js(web 版)被
   //    错误加载而非 doctor.native.js。平台扩展必须在普通扩展之前,确保 .native.js 优先。
