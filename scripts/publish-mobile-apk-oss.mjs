@@ -60,7 +60,9 @@ function readCreds() {
 function ossRequest(cfg, method, key, { headers = {}, body = null, timeoutMs = 180000 } = {}) {
   const host = `${cfg.bucket}.${cfg.region}.aliyuncs.com`
   const date = new Date().toUTCString()
-  const contentType = headers['content-type'] || ''
+  // 大小写不敏感:PUT 的调用方写的是 `Content-Type`,只查小写会把 canonical 里的
+  // Content-Type 变成空串,而线上实际发的是 vnd.android.package-archive ⇒ SignatureDoesNotMatch。
+  const contentType = headers['content-type'] ?? headers['Content-Type'] ?? ''
   const ossHeaders = Object.keys(headers)
     .filter((h) => h.toLowerCase().startsWith('x-oss-'))
     .map((h) => h.toLowerCase())

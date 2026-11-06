@@ -7,7 +7,8 @@
  *
  * 钉的是「掉线就登不回来」这一枚号不会静默死掉的四条边界:
  *  1. 登记判据只认布尔 true(jsonb 里的 "true" 字符串/缺失/坏形态一律不算);
- *  2. 让位/接管的三态:心跳新鲜 ⇒ 让位、心跳陈旧或没有 ⇒ 接管(失效方向=多刷一次,不是等死);
+ *  2. 让位/接管的三态(2026-11-10 C 档改造):接管必须「探测明确没在跑 ∧ 心跳已过 TTL(或没有)」
+ *     两条证据同向;在跑/未判定一律让位 —— 这一枚的失效方向 = 多让(顶掉机主客户端不可逆);
  *  3. 空闲保活候选面在给了 foreverCutoff 时确实把 jsonb 判据带进 SQL,不给时形状与历史逐字一致
  *     (普通号窗口不能被我这次改动悄悄挪走);
  *  4. 解摘档只吃「已摘除 ∧ 永久保活 ∧ 退避达标」这一交集,且解摘写回把摘除态打回 false。
@@ -118,45 +119,66 @@ describe('客户端心跳判据 clientActiveAtOf', () => {
   })
 })
 
-describe('让位/接管 shouldDeferRefresh', () => {
+describe('让位/接管 shouldDeferRefresh(C 档 2026-11-10:接管前当场再探测)', () => {
+  const staleHeartbeat = new Date(NOW.getTime() - (S.CLIENT_ACTIVE_TTL_MS + 60_000))
+  const freshHeartbeat = new Date(NOW.getTime() - 5 * 60 * 1000)
+  const foreverRow = (clientActiveAt: Date | null) => ({
+    providerCode: 'trae',
+    tokenExpiresAt: FUTURE,
+    extraMetadata: {
+      [S.KEEPALIVE_FOREVER_KEY]: true,
+      ...(clientActiveAt ? { [S.CLIENT_ACTIVE_AT_KEY]: iso(clientActiveAt) } : {}),
+    },
+  })
   it('⑤ 永久保活 + 心跳新鲜 ⇒ 让位(绝不顶掉正在续期的客户端)', () => {
-    const row = {
-      providerCode: 'trae',
-      tokenExpiresAt: FUTURE,
-      extraMetadata: {
-        [S.KEEPALIVE_FOREVER_KEY]: true,
-        [S.CLIENT_ACTIVE_AT_KEY]: iso(new Date(NOW.getTime() - 5 * 60 * 1000)),
-      },
+    expect(S.shouldDeferRefresh(foreverRow(freshHeartbeat), NOW)).toBe(true)
+  })
+  it('⑥ 永久保活 + 心跳陈旧 + 探测「在跑」⇒ 仍让位(心跳陈旧只是第二道缓冲,C 档核心格)', () => {
+    expect(S.shouldDeferRefresh(foreverRow(staleHeartbeat), NOW, process.env, true)).toBe(true)
+  })
+  it('⑥b 永久保活 + 心跳陈旧 + 探测未判定/缺省 ⇒ 让位(默认方向=多让;量不到绝不接管)', () => {
+    for (const probe of [undefined, null]) {
+      expect(S.shouldDeferRefresh(foreverRow(staleHeartbeat), NOW, process.env, probe)).toBe(true)
     }
+  })
+  it('⑥c 永久保活 + 心跳陈旧 + 探测明确「没在跑」⇒ 接管(两条证据同向才授权)', () => {
+    expect(S.shouldDeferRefresh(foreverRow(staleHeartbeat), NOW, process.env, false)).toBe(false)
+  })
+  it('⑦ 永久保活 + 从来没有心跳:未判定 ⇒ 让位;明确没在跑 ⇒ 接管', () => {
+    const row = foreverRow(null)
     expect(S.shouldDeferRefresh(row, NOW)).toBe(true)
+    expect(S.shouldDeferRefresh(row, NOW, process.env, null)).toBe(true)
+    expect(S.shouldDeferRefresh(row, NOW, process.env, false)).toBe(false)
   })
-  it('⑥ 永久保活 + 心跳已过 TTL ⇒ 接管(客户端停了就该由池续,否则号静默死)', () => {
-    const stale = new Date(NOW.getTime() - (S.CLIENT_ACTIVE_TTL_MS + 60_000))
-    const row = {
-      providerCode: 'trae',
-      tokenExpiresAt: FUTURE,
-      extraMetadata: { [S.KEEPALIVE_FOREVER_KEY]: true, [S.CLIENT_ACTIVE_AT_KEY]: iso(stale) },
-    }
-    expect(S.shouldDeferRefresh(row, NOW)).toBe(false)
+  it('⑦b 探测「没在跑」但心跳仍新鲜 ⇒ 让位(客户端刚停,票可能还在它手里)', () => {
+    expect(S.shouldDeferRefresh(foreverRow(freshHeartbeat), NOW, process.env, false)).toBe(true)
   })
-  it('⑦ 永久保活 + 从来没有心跳 ⇒ 接管(缺失按静默,不按「未知就等着」)', () => {
-    const row = {
-      providerCode: 'trae',
-      tokenExpiresAt: FUTURE,
-      extraMetadata: { [S.KEEPALIVE_FOREVER_KEY]: true },
-    }
-    expect(S.shouldDeferRefresh(row, NOW)).toBe(false)
-  })
-  it('⑧ 永久保活不看 client-first 开关:退回 server 也让位给新鲜心跳(机主的号优先不被顶)', () => {
-    const row = {
-      providerCode: 'trae',
-      tokenExpiresAt: FUTURE,
-      extraMetadata: {
-        [S.KEEPALIVE_FOREVER_KEY]: true,
-        [S.CLIENT_ACTIVE_AT_KEY]: iso(NOW),
-      },
-    }
+  it('⑧ 永久保活不看 client-first 开关:退回 server 也让位(机主的号优先不被顶)', () => {
+    const row = foreverRow(freshHeartbeat)
     expect(S.shouldDeferRefresh(row, NOW, { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe(true)
+    expect(
+      S.shouldDeferRefresh(foreverRow(staleHeartbeat), NOW, {
+        RELAY_TRAE_CLIENT_FIRST_REFRESH: '0',
+      }),
+    ).toBe(true)
+  })
+  it('⑧b verdict 具名结论:让位不许静默,每一枚都要答出为什么(§0.10)', () => {
+    expect(S.keepAliveForeverVerdictOf(foreverRow(staleHeartbeat), NOW, true)).toEqual({
+      defer: true,
+      reason: 'client-running-or-unjudged',
+    })
+    expect(S.keepAliveForeverVerdictOf(foreverRow(staleHeartbeat), NOW, undefined)).toEqual({
+      defer: true,
+      reason: 'client-running-or-unjudged',
+    })
+    expect(S.keepAliveForeverVerdictOf(foreverRow(freshHeartbeat), NOW, false)).toEqual({
+      defer: true,
+      reason: 'heartbeat-fresh',
+    })
+    expect(S.keepAliveForeverVerdictOf(foreverRow(staleHeartbeat), NOW, false)).toEqual({
+      defer: false,
+      reason: 'client-stopped-and-heartbeat-stale',
+    })
   })
   it('⑨ 未登记的号保持原语义:client-first + 票未过期 ⇒ 让位;票已过期 ⇒ 兜底放行', () => {
     const base = { providerCode: 'trae', tokenExpiresAt: FUTURE, extraMetadata: {} }
@@ -166,6 +188,15 @@ describe('让位/接管 shouldDeferRefresh', () => {
     ).toBe(false)
     expect(S.shouldDeferRefresh({ ...base, tokenExpiresAt: null }, NOW)).toBe(false)
     expect(S.shouldDeferRefresh({ ...base, providerCode: 'codearts' }, NOW)).toBe(false)
+    // 第四参对普通 client-first 号不生效(不让「在跑」把兜底刷新也一起让掉)
+    expect(
+      S.shouldDeferRefresh(
+        { ...base, tokenExpiresAt: new Date(NOW.getTime() - 1000) },
+        NOW,
+        process.env,
+        true,
+      ),
+    ).toBe(false)
   })
 })
 
@@ -307,7 +338,7 @@ describe('永久保活腿的心跳取数(2026-11-05 扩容 trae+qoder;取数键�
     )
   })
 
-  it('⑲ 心跳落库取主键 id,且只拨给「回灌腿已记下心跳且未超窗」的那几枚', async () => {
+  it('⑲ 心跳落库取主键 id;B 档(2026-11-10)摘掉「已有心跳且未超窗」前置 ⇒ 断供后 --once 仍拨得回', async () => {
     const { __test__: K } = await load()
     const now = '2026-11-05T10:00:00.000Z'
     const rows = [
@@ -339,17 +370,25 @@ describe('永久保活腿的心跳取数(2026-11-05 扩容 trae+qoder;取数键�
       { id: 'uuid-6', providerCode: 'qoder', uid: '019f47e7', clientActiveAt: '不是时刻' },
     ] as never[]
     // 取主键:原形态传 uid ⇒ uuid 列比对报类型错、被 `.catch(()=>[])` 吞成 0 命中(静默失效)
-    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toEqual(['uuid-2'])
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toEqual([
+      'uuid-2',
+      'uuid-3',
+      'uuid-4',
+      'uuid-5',
+      'uuid-6',
+    ])
     expect(K.heartbeatRowIdsOf(rows, 'trae', now, 24)).toEqual(['uuid-1'])
-    // 从没有心跳的号不拨 ⇒ 留给池接管续期(永久保活的本职;整族拨出去会把它们饿死)
-    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-3')
-    // 比强保窗口还旧的心跳不算证据
-    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-4')
-    // 未来的 / 解不开的时刻同样不算证据(不拿脏值冒「客户端在跑」)
-    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-5')
-    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).not.toContain('uuid-6')
-    // 非法入参 ⇒ 零候选(不猜一个出来)
+    // B 档立因:原「已有心跳且 ≤24h」前置把补心跳的腿自己堵死 —— 断供超 24h 的行
+    // (uuid-4)与从未有心跳的行(uuid-3)都拨不回去 = 永久死锁。C 档改造后接管第一道闸
+    // 是当场探测三态(keepAliveForeverVerdictOf),心跳只是第二道缓冲,拨错一枚的最坏
+    // 代价 = 一个 TTL 的让位延迟;饿死型(整族拨出)在接管判据里已结构性不可能。
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toContain('uuid-3')
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toContain('uuid-4')
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toContain('uuid-5')
+    expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 24)).toContain('uuid-6')
+    // 强保档整体关掉(foreverHours≤0)⇒ 零候选:没人读心跳时拨它 = 留假证据
     expect(K.heartbeatRowIdsOf(rows, 'qoder', now, 0)).toEqual([])
+    // nowIso 解不开 ⇒ 零候选(与 touchClientHeartbeat「时刻解不开不写」边界同口径)
     expect(K.heartbeatRowIdsOf(rows, 'qoder', '不是时刻', 24)).toEqual([])
   })
 })
