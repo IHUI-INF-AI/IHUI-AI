@@ -211,7 +211,14 @@ test('T8 接线锁:门 217 注册在 guardian-runner(blocking + stagedTriggers,�
   const block = lines.slice(Math.max(0, at - 4), at + 5).join('\n')
   assert.match(block, /id: '217'/, '门号漂移会让下一次取号撞号(原注 213/214 已两度让位给上游门)')
   assert.match(block, /mode: 'blocking'/, '必须是 blocking(pre-commit 阻断),不许被降级成 warn')
-  assert.match(block, /stagedTriggers: \['apps\/mobile-rn\/src\/'\]/, '触发面必须圈住 mobile-rn/src(数组形态,裸串会让链崩)')
+  assert.match(block, /stagedTriggers: \[/, '触发面必须是数组形态,裸串会让链崩')
+  assert.match(block, /'apps\/mobile-rn\/src\/'/, '触发面必须圈住 mobile-rn/src')
+  assert.match(block, /'packages\/app\/src\/'/, '共享层改动必须能触发门 217 的 R3 差值棘轮')
+  assert.match(
+    block,
+    /'scripts\/lib\/rn-percent-height-policy\.mjs'/,
+    '判据 lib 改动必须触发门 217',
+  )
 })
 
 test('T9 接线锁:package.json 有 check:sheet-flex 一键入口(防"造好没装车")', () => {
