@@ -14,19 +14,13 @@
   },
   "include": [
     "tests/types/**/*.d.ts",
-    "tests/argument-validation-replay.test.ts",
-    "tests/argument-validation-shadow.test.ts",
-    "tests/browser-page-snapshot.test.ts",
-    "tests/cloud-run.test.ts",
-    "tests/debug.test.ts",
-    "tests/goal-verification-egress.test.ts",
-    "tests/mcp-credentials.test.ts",
-    "tests/mcp-oauth.test.ts",
-    "tests/mermaid-inflight.test.ts",
-    "tests/permission-lease.test.ts",
-    "tests/plugin-install-atomicity.test.ts",
-    "tests/prompt-boundary.test.ts",
-    "tests/tool-result-budget-contract.test.ts"
+    "benchmarks/runner.ts",
+    "scripts/compaction-eval.ts",
+    "tests/auto-background.test.ts",
+    "tests/interject.test.ts",
+    "tests/mermaid.test.ts",
+    "tests/permission-lease-digest-flag.test.ts",
+    "tests/repl-abort.test.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }
