@@ -27,6 +27,7 @@ import { z } from 'zod'
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
+import { buildInternalCallHeaders } from '../utils/internal-call-headers.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { fetchPublicAsset, formatPublicAssetFailure } from '../utils/public-asset-fetch.js'
 import { getSystemAccessToken } from '../utils/system-access-token.js'
@@ -614,12 +615,18 @@ async function callLlm(
           'Content-Type': 'application/json',
           Authorization: `Bearer ${systemToken}`,
         }
-        // 携带内部密钥,让 ai-service 的输入净化中间件跳过 Prompt-Injection 内容扫描:
-        // 本管道正文是已审核来源的原始标题,走关键词扫描会把含 "jailbreak"/"system prompt"
-        // 等主题词的合法 AI 安全研究误判为注入(实测 400 拦截,导致资讯漏翻译/漏分类)。
-        // 密钥仅服务端持有,用户侧无此头,注入防护不受影响。
+        // 携带内部票据(2026-11-06 票据化),让 ai-service 的输入净化中间件跳过
+        // Prompt-Injection 内容扫描:本管道正文是已审核来源的原始标题,走关键词扫描会把
+        // 含 "jailbreak"/"system prompt" 等主题词的合法 AI 安全研究误判为注入
+        // (实测 400 拦截,导致资讯漏翻译/漏分类)。票据仅服务端持有,用户侧无此头。
+        // 签不出票就干脆不带凭据(本次照常被扫描),绝不退化成"只带常驻旧密钥"。
         if (env.AI_CALLBACK_SECRET) {
-          headers['X-Internal-Secret'] = env.AI_CALLBACK_SECRET
+          const internalHeaders = await buildInternalCallHeaders({
+            scope: 'prompt-scan-bypass',
+            legacySecret: env.AI_CALLBACK_SECRET,
+          })
+          if (internalHeaders) Object.assign(headers, internalHeaders)
+          else logger.warn('内部票据签发失败,本次请求不携带免扫描凭据')
         }
         const res = await aiServiceFetch(null, '/api/llm/complete', {
           method: 'POST',
@@ -2029,7 +2036,10 @@ export async function proxyImage(url: string): Promise<{
   if (!isAllowedProxyImageMime(result.contentType)) {
     throw new Error('响应内容不是受支持的图片格式')
   }
-  return { buffer: Buffer.from(result.bytes), contentType: (result.contentType.split(';')[0] ?? '').trim().toLowerCase() }
+  return {
+    buffer: Buffer.from(result.bytes),
+    contentType: (result.contentType.split(';')[0] ?? '').trim().toLowerCase(),
+  }
 }
 
 // =============================================================================
