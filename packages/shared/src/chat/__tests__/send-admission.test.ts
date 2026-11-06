@@ -71,6 +71,27 @@ describe('readSendAdmissionReceipt:形状不认一律 null(不猜、不补默认
       reason: 'RATE_LIMITED',
     })
   })
+
+  it('排队位置只在 queued 且为非负整数时保留', () => {
+    const queued = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'queued',
+      ahead: 2,
+    })
+    expect(queued?.ahead).toBe(2)
+    const running = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'accepted',
+      ahead: 2,
+    })
+    expect(running?.ahead).toBeUndefined()
+    const bad = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'queued',
+      ahead: 1.5,
+    })
+    expect(bad?.ahead).toBeUndefined()
+  })
 })
 
 describe('isAdmissionDisposition:表外取值恒 false', () => {

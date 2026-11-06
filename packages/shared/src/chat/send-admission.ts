@@ -73,6 +73,8 @@ export type SendAdmissionReceipt = {
   readonly messageId?: string
   /** `queued` 档专用:排队项标识,供队列面板后续插队 / 撤回 */
   readonly queuedTurnId?: string
+  /** `queued` 档专用:前面还有几位。0 表示下一位。缺席表示没量到,不得当成 0 */
+  readonly ahead?: number
   /** 拒收原因码(命名错误码,与 stream-error-disposition 同一套码表) */
   readonly reason?: string
 }
@@ -94,6 +96,7 @@ export function readSendAdmissionReceipt(raw: unknown): SendAdmissionReceipt | n
     disposition: AdmissionDisposition
     messageId?: string
     queuedTurnId?: string
+    ahead?: number
     reason?: string
   } = { inputId, disposition }
   const messageId = v['messageId']
@@ -101,6 +104,15 @@ export function readSendAdmissionReceipt(raw: unknown): SendAdmissionReceipt | n
   const queuedTurnId = v['queuedTurnId']
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
+  const ahead = v['ahead']
+  if (
+    disposition === 'queued' &&
+    typeof ahead === 'number' &&
+    Number.isInteger(ahead) &&
+    ahead >= 0
+  ) {
+    receipt.ahead = ahead
+  }
   const reason = v['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt
