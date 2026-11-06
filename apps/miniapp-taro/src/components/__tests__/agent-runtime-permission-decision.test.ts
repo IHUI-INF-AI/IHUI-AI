@@ -9,7 +9,8 @@
 //    `translate(mergeMessages(shared, miniapp-taro), key, { fallback: zhCN })`,即
 //    `src/i18n/index.tsx` 里 Provider 的那一行(见下方「端接线证据」),词值全部来自
 //    `packages/i18n/messages/*` 的**真实词包**,测试内不写任何字面词映射。
-//  - **调用点层(完整)**:直接对 `src/components/AgentRuntimePanel.tsx` 的源码文本做结构断言,
+//  - **调用点层(完整)**:直接对共享层 `packages/app/src/features/agent-runtime/AgentRuntimePanel.tsx`
+//    的源码文本做结构断言(2026-11-07 本面板已从小程序端内私有件下沉为两端同源共享件),
 //    实现退化为 `{permission.decision}` 或丢掉 `stepDecision.` 命名空间都会红。
 //  - **渲染层(本端做不到,非偷懒)**:该端 vitest 是 `environment: 'node'`,端内没有 jsdom /
 //    @testing-library 依赖;且组件与 `@/i18n` 都会连带 import `@tarojs/components` /
@@ -96,7 +97,10 @@ describe('权限决策徽章取词(miniapp-taro 合并视图)', () => {
 })
 
 describe('权限决策徽章端接线证据(miniapp-taro 源码)', () => {
-  const panel = readFileSync(join(__dirname, '../AgentRuntimePanel.tsx'), 'utf8')
+  const panel = readFileSync(
+    join(__dirname, '../../../../../packages/app/src/features/agent-runtime/AgentRuntimePanel.tsx'),
+    'utf8',
+  )
   const i18nEntry = readFileSync(join(__dirname, '../../i18n/index.tsx'), 'utf8')
   // 2026-10-15 主包选项 A:zh-CN 的"shared ⊕ miniapp-taro 深合并"从运行时搬到**生成期**
   // (生成器产出压缩内联包),所以这条不变式的生成端判据要读生成器,不能只读 i18n/index.tsx。

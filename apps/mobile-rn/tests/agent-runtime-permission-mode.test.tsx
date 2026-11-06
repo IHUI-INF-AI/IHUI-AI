@@ -65,9 +65,17 @@ vi.mock('@ihui/shared', async (importOriginal) => {
 })
 
 // vi.mock 由 vitest 提升到文件顶部,此处静态 import 真实组件不影响 mock 生效
-import { AgentRuntimePanel } from '../src/components/AgentRuntimePanel'
+import { AgentRuntimePanel } from '@ihui/rn-app/features/agent-runtime/AgentRuntimePanel'
+import { agentRuntimePanelLabels } from '../src/components/agent-runtime-panel-labels'
+import { useI18n } from '../src/i18n'
 
 const wrapper = ({ children }: { children: ReactNode }) => <I18nProvider>{children}</I18nProvider>
+
+/** 端侧接线壳:共享层不自取词,文案由端内真 I18nProvider 解析后注入 */
+function Panel() {
+  const { t } = useI18n()
+  return <AgentRuntimePanel t={t} labels={agentRuntimePanelLabels(t)} />
+}
 
 /** 渲染带权限事件的面板,返回整棵树的可见文本 */
 function renderWithMode(mode: string): string {
@@ -77,7 +85,7 @@ function renderWithMode(mode: string): string {
     dangerLevel: 'high',
     decision: 'deny', // 审批结果词已有专测覆盖,此处固定不干扰档名断言
   }
-  const { container } = render(<AgentRuntimePanel />, { wrapper })
+  const { container } = render(<Panel />, { wrapper })
   return container.textContent ?? ''
 }
 

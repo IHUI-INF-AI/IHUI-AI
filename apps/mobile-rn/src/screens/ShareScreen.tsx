@@ -42,7 +42,8 @@ import { deleteConversation, listConversations, type ConversationDetail } from '
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { ShareScreen as SharedShareScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
-import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
+import { AgentRuntimePanel } from '@ihui/rn-app/features/agent-runtime/AgentRuntimePanel'
+import { agentRuntimePanelLabels } from '../components/agent-runtime-panel-labels'
 import { VoiceInput } from '../components/VoiceInput'
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -317,7 +318,11 @@ export function ShareScreen() {
             {/* AgentRuntimePanel — AI Agent 运行时内容(可分享的 AI 生成结果) */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('share.aiContent')}</Text>
-              <AgentRuntimePanel />
+              <AgentRuntimePanel
+                colorScheme={resolvedTheme}
+                t={t}
+                labels={agentRuntimePanelLabels(t)}
+              />
             </View>
 
             {/* VoiceInput — 语音输入分享描述 */}
@@ -344,7 +349,7 @@ export function ShareScreen() {
                   {/* 守门 131 改型:absolute 定位盒(position/top/right/24×24)是外层槽位,
                       底色圆角等可视档进满尺寸内层 face,pressed 淡出仍覆盖整颗圆钮。 */}
                   <Pressable
-                  hitSlop={6}
+                    hitSlop={6}
                     style={styles.clearBtn}
                     onPress={() => setImageUri('')}
                     accessibilityRole="button"

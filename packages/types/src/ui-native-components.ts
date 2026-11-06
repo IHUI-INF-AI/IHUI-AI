@@ -65,9 +65,38 @@ export interface AgentRuntimePermissionEvent {
   decision: string
 }
 
-/** AgentRuntimePanel Props(两端完全相同) */
+/**
+ * AgentRuntimePanel 静态文案(端侧各自按本端词包解析后传入)
+ * 共享层不自取词:两端现有词值不同(如 RN `agent.runtimeTitle`="运行时"、
+ * 小程序 `ai.agentDetail.runtimeTitle`="智能体运行"),由端侧解析才能保持各自文案等价。
+ */
+export interface AgentRuntimePanelLabels {
+  title: string
+  clear: string
+  plan: string
+  permission: string
+  permissionTool: string
+  permissionLevel: string
+  permissionMode: string
+  output: string
+  error: string
+  empty: string
+  placeholder: string
+  stop: string
+  send: string
+}
+
+/**
+ * AgentRuntimePanel Props(共享层唯一实现,两端真消费)
+ * - `t`:仅用于动态命名空间取词(stepDecision.* / permissionTier.* / taskStatus.*),
+ *   两端词包里这三组键同源同键,可直接注入本端 t
+ * - 本组件零平台 API:不读写存储、不导航、不取词(文案全部走 labels/t 注入)
+ */
 export interface AgentRuntimePanelProps {
   sessionId?: string
+  labels: AgentRuntimePanelLabels
+  t: (key: string) => string
+  colorScheme?: 'light' | 'dark'
 }
 
 // ===== ModelConfigDialog =====

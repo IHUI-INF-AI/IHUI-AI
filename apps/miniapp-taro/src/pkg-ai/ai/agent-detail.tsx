@@ -12,10 +12,11 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
 import { get, getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
-import AgentRuntimePanel from '@/components/AgentRuntimePanel'
+import AgentRuntimePanel from '@ihui/rn-app/features/agent-runtime/AgentRuntimePanel'
 import { ErrorState } from '@/components/ScreenStates.taro'
 import AgentDetailMeta from './agent-detail-meta'
 import { onToast } from '@/host/on-toast'
+import { useTheme } from '@/rn-compat/theme'
 
 /**
  * 本地视图模型(非 api-client Agent 直投):
@@ -195,6 +196,7 @@ export default function AgentDetailPage() {
   const tt = useTt()
   const router = useRouter()
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const [agent, setAgent] = useState<AgentDetail | null>(null)
   const [permission, setPermission] = useState<AgentPermission | null>(null)
   const [permLoading, setPermLoading] = useState(false)
@@ -612,7 +614,25 @@ export default function AgentDetailPage() {
 
       {tab === 'runtime' && agent && (
         <View className="mx-[24rpx] my-[24rpx]">
-          <AgentRuntimePanel />
+          <AgentRuntimePanel
+            colorScheme={resolvedTheme}
+            t={t}
+            labels={{
+              title: t('ai.agentDetail.runtimeTitle'),
+              clear: t('ai.agentDetail.runtimeClear'),
+              plan: t('ai.agentDetail.runtimePlan'),
+              permission: t('ai.agentDetail.runtimePermission'),
+              permissionTool: t('ai.agentDetail.runtimePermissionTool'),
+              permissionLevel: t('ai.agentDetail.runtimePermissionLevel'),
+              permissionMode: t('ai.agentDetail.runtimePermissionMode'),
+              output: t('ai.agentDetail.runtimeOutput'),
+              error: t('ai.agentDetail.runtimeError'),
+              empty: t('ai.agentDetail.runtimeEmpty'),
+              placeholder: t('ai.agentDetail.runtimeInputPlaceholder'),
+              stop: t('ai.agentDetail.runtimeStop'),
+              send: t('ai.agentDetail.runtimeSend'),
+            }}
+          />
         </View>
       )}
     </View>
