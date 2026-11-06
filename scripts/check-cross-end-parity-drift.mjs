@@ -13,13 +13,19 @@
  * 倒退(镜像减少 / 登记表腐烂 / 账本文档与现读脱节)才报警,涨不报。
  *
  * 判据零复算(§0.6):数字全部**取自现成对账器的 --json 输出**,本文件不重算任何一条判据,
- * 只做"上一轮快照 ↔ 本轮现读"的比较(四道)
- *   · scripts/check-cross-end-screen-coverage.mjs --json  → 共享屏/已镜像/登记表条目/判红数
- *   · scripts/check-web-rn-screen-parity.mjs --json       → web 路由/aligned/unmapped/腐烂数
- *   · scripts/check-miniapp-mirror-fidelity.mjs --json    → 承载对数/手写对数/未还原键数/断链/声明不符
+ * 只做"上一轮快照 ↔ 本轮现读"的比较(6 把子尺)
+ *   · scripts/check-cross-end-screen-coverage.mjs --json  → 共享屏/已镜像/登记表条目/判红数(237)
+ *   · scripts/check-web-rn-screen-parity.mjs --json       → web 路由/aligned/unmapped/腐烂数(128)
+ *   · scripts/check-miniapp-mirror-fidelity.mjs --json    → 承载对数/手写对数/未还原键数/断链/声明不符(283)
  *     (2026-10-27 接:还原度这条链此前只有 CI 与"人想起来才跑"的尺,守护轮的倒退⇒到人不认识它,
  *      于是"承载页被改回头抄""文案键被删掉""壳断链"三类都在账面上无声)
- *   · docs/engineering/rn-miniapp-parity-matrix.md        → 缺口账本文档自述的三个数
+ *   · scripts/upgrade-miniapp-shell-pages.mjs --json      → 可升级/拒落页数(升级落地)
+ *   · scripts/check-web-rn-style-tiers.mjs --json         → RN↔web 同源档位分叉/待裁(RN↔web 样式档)
+ *   · scripts/check-miniapp-style-tiers.mjs --json        → 小程序档位 defaulted/literal(小程序样式档)
+ *   · docs/engineering/rn-miniapp-parity-matrix.md        → 缺口账本文档自述的三个数(docStale)
+ *
+ * 明确不覆盖(不得在本尺名下宣称):token 93、props 288、文案 291、薄壳 299、
+ * 承载 301、生成物 105、文档数字 173;这七门须各自独立跑,本尺的绿不等于它们绿。
  *
  * 三态(§0.3):任一子对账器取不到结论 ⇒ state=undetermined(不记绿也不冒红);
  * 取到且有倒退维 ⇒ state=regressed;否则 ok。文档数字与现读不等 ⇒ 单列 docStale(可整改:重跑生成命令)。
