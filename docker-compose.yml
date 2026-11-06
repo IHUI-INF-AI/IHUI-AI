@@ -225,6 +225,12 @@ services:
         condition: service_healthy
     networks:
       - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8801/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # AI 服务(FastAPI + LangGraph + LiteLLM + MCP)
   ai-service:
