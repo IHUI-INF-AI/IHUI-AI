@@ -98,6 +98,8 @@ export interface LiveListScreenProps {
   onNavigate: OnNavigate
   /** 页头下方快捷动作条(开播/日历/我的订阅);不传则不渲染 */
   quickActions?: LiveQuickActionsProps
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 直播列表项(平台注入,字段对齐 mobile-rn LiveScreen Live) */

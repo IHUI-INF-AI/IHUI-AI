@@ -104,6 +104,8 @@ export interface ArticleListScreenProps extends ListPaginationProps {
   contentBottomPadding?: number
   /** 无更多数据(页脚显示"没有更多了") */
   noMore?: boolean
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
@@ -649,6 +651,18 @@ export interface StatusChip {
 }
 
 /** AI 需求广场 Screen Props */
+/** 端侧分类筛选项的最小面(端内 CategoryItem 的可选扩展字段不属于契约) */
+export interface PlazaFilterItem {
+  id: string
+  label: string
+}
+
+/** 身份选项(两端同一组 id+label) */
+export interface PlazaIdentityOption {
+  id: string
+  label: string
+}
+
 export interface PlazaScreenProps {
   t: TFunction
   colorScheme?: 'light' | 'dark'
@@ -667,12 +681,45 @@ export interface PlazaScreenProps {
   onSubmitSearch: () => void
   onPressItem: (item: PlazaItem) => void
   onPublish: () => void
+  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
+  onChatPress?: (item: PlazaItem) => void
+  /**
+   * 赛道分类弹层(2026-11-05 自小程序页内联抽屉上收;RN 同步消费同一实例)。
+   * 端侧只传「可选」id+label;图标/图片是端内可选扩展,故契约不锚死端内 CategoryItem。
+   */
+  trackFilter?: {
+    visible: boolean
+    items: readonly PlazaFilterItem[]
+    selectedId: string
+    onSelect: (id: string) => void
+    onVisibleChange: (next: boolean) => void
+    panelTitle?: string
+  }
+  /** 身份切换弹层(两端同屏消费;用户区/底部入口由调用方按需给) */
+  identitySheet?: {
+    visible: boolean
+    title?: string
+    items: readonly PlazaIdentityOption[]
+    selectedId?: string
+    user?: { avatar?: string; name: string; subtext?: string }
+    footer?: { title: string; text: string; onPress: () => void }
+    onSelect: (id: string) => void
+    onClose: () => void
+  }
+  /** 卡片详情居中弹层(两端消费:RN 由整卡点击打开,弹层内「查看详情」再跳详情页) */
+  detail?: {
+    item: PlazaItem | null
+    onClose: () => void
+    onOpenDetail: (item: PlazaItem) => void
+  }
   onBack?: () => void
   /**
    * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
    * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
    */
   contentBottomPadding?: number
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 需求广场 Screen Props */
