@@ -1611,6 +1611,8 @@ def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
 def _search_codebase_keyword_sync(
     root: Any, query: str, pattern: str, max_results: int, symbol_type: str,
     code_exts: set[str], ignored_dirs: set[str], symbol_patterns: dict[str, Any],
+    on_walk_error: Callable[[OSError], None] | None = None,
+    on_unread_file: Callable[[], None] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """同步执行关键词腿:os.walk + 一次性 git check-ignore + 文件读取/符号匹配。
 
@@ -1620,6 +1622,9 @@ def _search_codebase_keyword_sync(
     ``asyncio.wait_for`` 也抢不到同步阻塞。原先**每个目录**起一次
     ``git check-ignore`` 子进程(成百上千次进程启动);这里先把全部相对路径收齐,
     一次 ``--stdin`` 批量传入(台账收口要点),N 次降为 1 次。
+
+    读不到不等于没有:调用方可传 on_walk_error / on_unread_file。不传时保持
+    os.walk 的默认静默,返回形状不变。FileNotFoundError 是遍历期消失,不计未读。
     """
     import fnmatch
     import os
@@ -1632,7 +1637,7 @@ def _search_codebase_keyword_sync(
     # ① 一次 os.walk 收齐全部目录/文件相对路径(纯遍历,无子进程)
     snapshots: list[tuple[str, list[str], list[str]]] = []
     all_rels: list[str] = []
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=on_walk_error):
         dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
         file_rels = [
             os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
@@ -1667,7 +1672,11 @@ def _search_codebase_keyword_sync(
             try:
                 with open(fpath, encoding="utf-8", errors="ignore") as f:
                     content = f.read()
+            except FileNotFoundError:
+                continue
             except OSError:
+                if on_unread_file is not None:
+                    on_unread_file()
                 continue
 
             lines = content.splitlines()
@@ -2014,16 +2023,44 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
             # BUG-9:整段同步遍历 + 子进程 + 阻塞读统一挪到线程池,事件循环不再被
             # 大仓库搜索卡死(wait_for 抢不到同步阻塞);git check-ignore 一次批量(见 helper)。
+            # 读不到的计数住在本帧:遍历在线程里跑,钩子把次数加回来。
+            unread_dirs = 0
+            unread_files = 0
+
+            def _on_walk_error(err: OSError) -> None:
+                nonlocal unread_dirs
+                if isinstance(err, FileNotFoundError):
+                    return
+                unread_dirs += 1
+
+            def _on_unread_file() -> None:
+                nonlocal unread_files
+                unread_files += 1
+
             matches, count = await asyncio.to_thread(
                 _search_codebase_keyword_sync,
                 root, query, pattern, max_results, symbol_type,
                 _CODE_EXTS, _IGNORED_DIRS, _SYMBOL_PATTERNS,
+                _on_walk_error, _on_unread_file,
             )
+            note = None
+            if unread_dirs or unread_files:
+                note = (
+                    f"有 {unread_dirs} 个目录、{unread_files} 个文件读不到,"
+                    "不能把检索说成完整"
+                )
+            if not matches and note:
+                return {
+                    "status": "unjudged",
+                    "matches": [],
+                    "truncated": False,
+                    "reason": note,
+                }
             return {
                 "status": "ok",
                 "matches": matches,
                 "truncated": count >= max_results,
-                "reason": None,
+                "reason": note,
             }
         except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
             stats["keyword_leg"] = "failed"
