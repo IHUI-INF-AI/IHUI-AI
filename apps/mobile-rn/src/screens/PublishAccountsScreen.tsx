@@ -18,6 +18,8 @@
  * 「重新授权」走真实扫码链路:start → 轮询 status → 展示服务端截图二维码 → 成功自动刷新。
  * 不搬 web 的批量导入 / 批量验证 / 分组管理(移动端低频)。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -80,6 +82,7 @@ function fmt(iso: string | null | undefined, locale: string): string {
 }
 
 export default function PublishAccountsScreen() {
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const { t, locale } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
@@ -369,7 +372,7 @@ export default function PublishAccountsScreen() {
       <Modal visible={panel !== null} transparent animationType="slide" onRequestClose={closePanel}>
         <View style={styles.overlay}>
           <Tappable style={styles.mask} onPress={closePanel} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, dialogMaxHeightStyle]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {scan ? t('publishAccounts.scanTitle') : panel?.displayName}
@@ -511,7 +514,7 @@ function makeStyles() {
       backgroundColor: tokens.overlay.modal,
     },
     sheet: {
-      maxHeight: '85%',
+      maxHeight: undefined,
       padding: rnSpacing.lg,
       gap: rnSpacing['sm-loose'],
       borderTopLeftRadius: rnRadius.xl,
