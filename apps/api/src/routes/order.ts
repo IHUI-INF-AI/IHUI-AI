@@ -369,7 +369,18 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findOrders({ ...parsed.data, userId: request.userId! })
-      return reply.send(success(result))
+      // BUG-65 修复:findOrders 实查 edu_orders 表,列名为 payAmount/payTime/refundTime,
+      // 但前端共享契约 Order 期望 amount/paidAt/refundedAt。此处补齐这三字段,避免前端读 order.amount
+      // 恒为 undefined 而金额渲染占位符。payAmount/payTime/refundTime 原字段保留,旧消费方不受影响。
+      const list = result.list.map((o) => ({
+        ...o,
+        amount: o.payAmount != null ? Number(o.payAmount) : 0,
+        paidAt: o.payTime != null ? o.payTime.toISOString() : null,
+        refundedAt: o.refundTime != null ? o.refundTime.toISOString() : null,
+      }))
+      return reply.send(
+        success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),
+      )
     },
   )
 
