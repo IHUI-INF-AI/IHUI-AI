@@ -182,7 +182,14 @@ jobs:
         id: source-check
         run: |
           set -e
-          FILES=$(find apps -path 'apps/*/src/*' -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.vue' \) || true)
+          # 先断言扫描根存在:旧写法 `find ... || true` 会把 find 本身失败(目录不存在/权限)
+          # 吞成空集,步骤照绿 —— "没扫到"与"扫完没问题"无法区分。
+          SRC_DIRS=$(find apps -maxdepth 2 -type d -name src -path 'apps/*/src')
+          if [ -z "$SRC_DIRS" ]; then
+            echo "::error::找不到 apps/*/src 扫描根,判据失明"
+            exit 1
+          fi
+          FILES=$(find apps -path 'apps/*/src/*' -type f \( -name '*.js' -o -name '*.jsx' -o -name '*.vue' \))
           if [ -n "$FILES" ]; then
             echo "::error::Found .js/.jsx/.vue files in apps/*/src/. Use .ts/.tsx instead."
             echo "$FILES"
