@@ -14053,10 +14053,11 @@ function startDaemon(bootGuard = null) {
         // 这一批是把剩下的整族收口,不再一格一格撞见)。
         // 下面每一条都自带节流戳(与 main() 共用同一 tick 文件)⇒ 双执行体并存只有先到那个真跑,
         // 未到期时一次调用只是读一个小 JSON 后早退。验收尺 = A9 的 darkCount 递减、A8 dark=3 转 ok。
-        // 刻意不搬的 7 条(auditMergeAdditionLoss / dispatchGuardMail / ensureGuardDaemonAlive /
-        // ensureS4u / refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)尚无节流戳,
-        // 每 10s 真跑一次是不可接受的;其中 ensureGuardDaemonAlive 是"重启 daemon"本身,
-        // 挂进 daemon 里属自指,必须留在一次性面。逐条裁决见 A9 的 next 文案。
+        // 刻意不搬的 3 条(dispatchGuardMail / ensureGuardDaemonAlive / ensureS4u)仍无 tick 面挂点:
+        // ensureGuardDaemonAlive 是"重启 daemon"本身,挂进 daemon 里属自指,必须留在一次性面;
+        // ensureS4u 是任务档自身配置;dispatchGuardMail 尚无节流戳,每 10s 真跑一次不可接受。
+        // (原列 7 条中的 auditMergeAdditionLoss / refreshRecoverySource / rotateRunLogs /
+        // reportBaselineFreshness 已于下方"第二批"用调用点 legThrottle 补戳后搬进 tick,不再算不搬。)
         auditCrossEndParityDrift()
         auditI18nCrossEndWording()
         auditLandedReverts()
@@ -14085,6 +14086,12 @@ function startDaemon(bootGuard = null) {
         sweepKeepAliveForever()
         sweepLessonApply()
         sweepLocalDevDbRotation()
+        // RP-74 第一批补搬(2026-11-05 现读差集时漏收的一枚):与同族 sweepRnCompatLeg /
+        // sweepRnColorLiteralLeg 同一条 runCrossEndApplyLeg 样板,自带节流戳(与 main() 共用
+        // miniapp-message-keys-last.json)⇒ 双执行体并存只先到者真跑,搬入零行为变更;
+        // 读数有人消费:写盘由 sweepCrossEndLandingLeg 收编、词包由 healI18nBundleLeg 进离线包,
+        // dispatch-parity 第三族此前已把它点名为"仅 main 面"。
+        sweepMiniappMessageKeysLeg()
         sweepMiniappStyleTiers()
         sweepParityCockpit()
         sweepPoolIsolation()

@@ -27,6 +27,11 @@ const searchSchema = z.object({
   query: z.string().min(1),
   repoId: z.string().optional(),
   language: z.string().optional(),
+  // 符号名精确过滤位(2026-11-06 Z36 立):逐字等值,过滤在 SQL 侧发生且早于 LIMIT,
+  // 故该档能取回库内**全部**同符号切片(不受 topK 先截影响)。
+  // min(1) 是有意的:空串必须是 400,不能被静默读成"不过滤"—— 调用方以为在筛、
+  // 实际拿到全库结果,是这类过滤位最坏的失效方向。
+  symbolName: z.string().min(1).max(200).optional(),
   topK: z.number().int().min(1).max(50).default(10),
   scoreThreshold: z.number().min(0).max(1).default(0),
   // hybrid=向量+关键词 RRF 融合(默认,2026-09-07 立);vector=纯语义;keyword=纯词法
@@ -99,6 +104,9 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
         query: b.query,
         repoId: b.repoId,
         language: b.language,
+        // 过滤位透传:它是**被筛的数据列**,不是身份 —— 归属仍只取上面验过的 req.userId,
+        // 请求体里没有(也不允许有)能指定归属人的字段(§5「认证不等于授权」)。
+        symbolName: b.symbolName,
         topK: b.topK,
         scoreThreshold: b.scoreThreshold,
         ownerUuid,

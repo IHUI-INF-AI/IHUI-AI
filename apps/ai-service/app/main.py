@@ -261,6 +261,21 @@ async def _run_shutdown_steps(
         logger.warning("[shutdown] 非正常完成 %d 项: %s", len(bad), ", ".join(bad))
 
 
+async def _s_agent_engine_watchers() -> None:
+    """Z35:关停序列的引擎侧排空腿(接 Z32 已备齐的 `shutdown_workspace_watchers`)。
+
+    现读事实:Z32 四路关停排空(thread.close/delete/archive、fs.unwatch)已在 HEAD,独缺
+    「进程退出」这一路在 lifespan 步表里的登记 ⇒ 本行即那条前置。语义三条:
+    ① 异常不外抛:_run_shutdown_steps 第③条已把单步异常报名后继续,本函数不另吞;
+    ② 门控 off 零动作:off 档下 `_workspace_watchers` 恒空,引擎腿幂等空转(零日志),
+       main 侧不加第二层门控判断(§0.6 单一真相源);
+    ③ 必须排在 shared_db_pool/legacy_db_pool 之前:排空经 index_changed_paths 可能用池。
+    """
+    from app.routers.engine import ENGINE
+
+    await ENGINE.shutdown_workspace_watchers()
+
+
 def seed_provider_capability_snapshot() -> dict[str, Any]:
     """G-649 开机播种:注册账号上游源 + 首发布一轮 + 把 fail-closed 投影喊出来。
 
@@ -1034,6 +1049,9 @@ async def lifespan(app: FastAPI) -> Any:
         ("api_client_http", _s_api_client),
         ("mcp_client", _s_mcp_client),
         ("mcp_stdio_bridge", _s_mcp_stdio),
+        # Z35 接线(2026-11-06):进程退出的引擎侧文件监控排空腿(Z32 遗留的唯一一行)。
+        # 位置证据:必须排在 shared_db_pool / legacy_db_pool 之前(排空写库经连接池)。
+        ("agent_engine_watchers", _s_agent_engine_watchers),
         # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(原 14 个独立 pool 已复用 get_shared_pool)
         ("shared_db_pool", _s_shared_pool),
         ("knowledge_graph", _s_knowledge_graph),

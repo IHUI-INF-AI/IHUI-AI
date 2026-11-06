@@ -1091,13 +1091,6 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
   // git 的 rev 规格只认正斜杠:`FIELDS_REL` 由 path.join 造,本机是 `scripts\data\…`,
   // 照原样送会恒判"取不到"(同 plan-tasks.mjs 的 fieldsSpecRel,§12f:出路必须真跑得通)。
   const FIELDS_GIT_REL = FIELDS_REL.split('\\').join('/')
-  const blobOf = (rev, rel) => {
-    try {
-      return git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 })
-    } catch {
-      return ''
-    }
-  }
   // 侧车那一路必须把"该面上没有这个 blob"与"blob 在、内容为空"分开:前者 = 未判定,
   // 后者 = 零条记录(loadFields 的三态就是这么分的,本器不得把两者揉成一团)。
   const blobOrNull = (rev, rel) => {
@@ -1107,7 +1100,38 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
       return null
     }
   }
-  const merged = blobOf(mergedTree, REL)
+  /**
+   * 活文档取材面的**三态读法**(§0.3 + §0.4;票 L3957 S-26 · Z46 席 2026-11-06 收口)。
+   *
+   * 旧写法这里只有一把 `blobOf`:失败一律回落成 `''`,于是三件事被揉成同一个形状 ——
+   *  ① `if (!merged.trim()) return []` 把"合并面的台账**读不到**"写成"该面没有台账 ⇒ 没有放大"
+   *     = 冒绿(§0.3 明令禁止的那一型:取不到输入不记绿);
+   *  ② 两侧面各喂一个 `''` 时,`planStateRegressions` 的 `max(两侧)` 被压成 0 ⇒ 一次通道故障
+   *     放大成 **F4/F9 假红**(2026-11-06 现读同一台机上:`F4 同一件事多条待办(副本行) 各侧最多 0,
+   *     归并结果 2` —— "各侧 0"里就藏着"那一侧压根没读到"这一格);
+   *  ③ 基线读失败与"合并树没有基线"同形 ⇒ 第②把尺子整维静默消失。
+   * 现按 §0.4 把取材面定死成 **blob 一面**,`absent`(该 rev 下无此路径)/ `error`(git 读失败)/
+   * 内容三态各归各位,**绝不回落另一个面**(不读索引、不读工作树滞后副本 —— 那正是本票的题面),
+   * 失效方向恒为"多要一次定向说明"(§0.10),既不放行也不冤枉。
+   */
+  const FACE_ABSENT_RE = /does not exist in|exists on disk, but not in/
+  const readFace = (rev, rel) => {
+    try {
+      return { text: git(['show', `${rev}:${rel}`], { cwd: repoRoot, maxBuffer: 1 << 26 }) ?? '' }
+    } catch (e) {
+      const why = firstLineOf(e)
+      return FACE_ABSENT_RE.test(why) ? { absent: true, why } : { error: why }
+    }
+  }
+  const mergedFace = readFace(mergedTree, REL)
+  if (mergedFace.absent) return [] // 合并面根本没有这份台账 ⇒ 这一维在该面无语义(既有语义,不并桶)
+  if (mergedFace.error)
+    return [
+      `${STATE_GATE_UNDETERMINED} 合并树的 ${REL} blob 取不到(${mergedFace.error})⇒ 「任务状态是否被放大」整维**未判定**:` +
+        '不回落索引面、也不回落工作树副本(§0.4 三面各归各位),更不读成"没有放大"。出路:确认该对象可读' +
+        '(`git cat-file -t <tree>:PROJECT_PLAN.md`)后重跑本器。',
+    ]
+  const merged = mergedFace.text
   if (!merged.trim()) return []
   // 闸门尺子没装载成功 ⇒ 这一维**没跑**。绝不允许在这里返回 [] —— 那会把"看不见"写成"没有放大",
   // 而本器随后就 update-ref + 推送(本仓最高频的失效型:判据失效的表现永远是安静)。
@@ -1116,12 +1140,35 @@ export function mergedPlanStateRegressions(mergedTree, local, remote, repoRoot) 
       `${STATE_GATE_UNDETERMINED} union-converge 装载失败 ⇒ 「相对两侧上限」那把尺子一处都没判(${unionGate.error});` +
         '这不是"没有放大"也不是"判了放大",本轮不推进。出路:把缺的那半边导出补上(或等它落盘)再重跑本器。',
     ]
-  const out = unionGate.mod.planStateRegressions(merged, [blobOf(local, REL), blobOf(remote, REL)])
-  const baseTxt = blobOf(mergedTree, BASE_REL)
-  if (!baseTxt.trim()) return out
+  const out = []
+  const sideFaces = [readFace(local, REL), readFace(remote, REL)]
+  const failedSides = sideFaces.filter((f) => f.error)
+  if (failedSides.length) {
+    // 少喂一侧 = 把 max(两侧) 压低 = 把通道故障说成内容放大。这一维整维不跑,只点名。
+    out.push(
+      `${STATE_GATE_UNDETERMINED} 「相对两侧上限」那把尺子本轮没跑(${failedSides.length} 侧的 ${REL} blob 取不到:` +
+        `${failedSides.map((f) => f.error).join(' / ')})⇒ 不猜"那侧没有台账"、不回落另一个面,也不判成放大。` +
+        '出路:fetch 到位让两侧 rev 可解析后重跑本器。',
+    )
+  } else {
+    out.push(
+      ...unionGate.mod.planStateRegressions(
+        merged,
+        sideFaces.map((f) => (f.absent ? '' : f.text)),
+      ),
+    )
+  }
+  const baseFace = readFace(mergedTree, BASE_REL)
+  if (baseFace.error)
+    return [
+      ...out,
+      `${STATE_GATE_UNDETERMINED} 合并树的基线 ${BASE_REL} blob 取不到(${baseFace.error})⇒ 第②把尺子(对入库基线的差值棘轮)` +
+        '未判定,不读成"没涨"、也不回落本地副本。出路:确认该对象可读后重跑本器。',
+    ]
+  if (baseFace.absent || !(baseFace.text ?? '').trim()) return out
   let base = null
   try {
-    base = JSON.parse(baseTxt)
+    base = JSON.parse(baseFace.text)
   } catch {
     return [...out, '基线 JSON 解析失败 ⇒ 第②把尺子未判定(不记为通过)']
   }

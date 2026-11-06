@@ -71,10 +71,17 @@ export type RelayRenewalPolicy = 'server' | 'client-first'
  * qoder(2026-10-28 纳入):refresh 响应**轮换 refresh_token**(见 qoder-adapter 的
  * 真机实测形状),池主动续期会当场把本机客户端的票顶废 —— 与 trae 同一型。
  * 回灌腿 = worker 的 `qoder-session-sync`(每 10 分钟读本机 auth.v1.dat 写回池)。
+ *
+ * minimax(2026-11-06 纳入):适配器已按 mcode 3.1.10 字符串取证实现 refreshToken,而
+ * `oauth-core` 的请求面证明上游 rt 是**轮换型**(客户端每次刷都换 rt),且客户端只在
+ * `invalid_grant + HTTP 400` 这一档销毁本地会话 —— 号池抢刷 = 直接把机主的 mcode 顶下线,
+ * 所以「实现了 refreshToken」必须先配上这一档才能装(两半同批,缺一边都是半件武器)。
+ * 回灌腿 = worker 的 `minimax-session-sync`。未登记档 ⇒ renewalPolicyOf 回 'server' ⇒ 抢刷。
  */
 const CLIENT_FIRST_FLAGS: Record<string, string> = {
   trae: 'RELAY_TRAE_CLIENT_FIRST_REFRESH',
   qoder: 'RELAY_QODER_CLIENT_FIRST_REFRESH',
+  minimax: 'RELAY_MINIMAX_CLIENT_FIRST_REFRESH',
 }
 
 export function renewalPolicyOf(

@@ -58,6 +58,8 @@ const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
 // rt 终点键名单源与 Trae/Qoder 腿共用(§0.6):消费端不得各写一份字面量
 const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
+// 心跳写回腿也与 Trae/Qoder 同一条(本腿不写第二份 jsonb 合并 SQL)
+const touchClientHeartbeat = traeSync.touchClientHeartbeat
 // 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
 // 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
@@ -89,6 +91,8 @@ export interface MinimaxSyncCandidate {
 export interface MinimaxSyncPayload {
   providerCode: string
   accounts: MinimaxSyncCandidate[]
+  /** 客户端心跳时刻(编排器探测在跑/未知时带;不带 = 没证据,不写心跳) */
+  clientActiveAt?: string | null
   meta?: Record<string, unknown>
 }
 
@@ -137,6 +141,8 @@ export interface MinimaxSyncSummary {
   revived: number
   /** 池内 minimax 行里 secrets 解不出的行数(身份识别对它们失效,如实报数) */
   undecryptable: number
+  /** 本轮写下的客户端心跳行数(client-first 让位判据的产地;0 = 载荷没带心跳) */
+  heartbeat?: number
   rows: RowOutcome[]
 }
 
@@ -409,6 +415,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
   }
 
   let pool: { rows: PoolRowSlice[]; undecryptable: number } | null = null
+  // 心跳只拨给「本轮真认到的那一行」(一台机一个会话槽 ⇒ 每份载荷至多一行);
+  // 整族都拨会把其余号的 client-first 让位判据洗成常亮(2026-11-05 同型缺陷已踩过一次)
+  const heartbeatRowIds: string[] = []
   const ensurePool = async (): Promise<PoolRowSlice[]> => {
     if (!pool) {
       pool = await loadPoolRows()
@@ -507,6 +516,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         continue
       }
       const row = decision.row
+      heartbeatRowIds.push(row.id)
 
       const final = decideSync({
         poolToken: row.tokenPlain,
@@ -568,6 +578,8 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
       })
     }
   }
+  // 心跳写回与票面写回解耦:认到了行但载荷没带时刻 ⇒ 一条都不拨(不拿"没证据"当"客户端在跑")
+  summary.heartbeat = await touchClientHeartbeat(heartbeatRowIds, payload.clientActiveAt, dryRun)
   if (summary.failed > 0) summary.ok = false
   return summary
 }
@@ -622,7 +634,7 @@ export async function main(argv: string[]): Promise<number> {
   } else {
     process.stderr.write(
       `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} ` +
-        `imported=${summary.imported} revived=${summary.revived} failed=${summary.failed}` +
+        `imported=${summary.imported} revived=${summary.revived} 心跳=${summary.heartbeat ?? 0} failed=${summary.failed}` +
         `${summary.undecryptable > 0 ? ` undecryptable=${summary.undecryptable}` : ''}` +
         `${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
     )

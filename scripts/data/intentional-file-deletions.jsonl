@@ -115,3 +115,9 @@
 {"path":"apps/miniapp-taro/src/pages/exam/review-list.tsx","reason":"内容域路由收敛:评审列表与设置分件已并入壳承载实现,合并树内零运行时 import"}
 {"path":"apps/miniapp-taro/src/pages/setting/parts.tsx","reason":"内容域路由收敛:评审列表与设置分件已并入壳承载实现,合并树内零运行时 import"}
 {"path":"apps/miniapp-taro/src/pkg-ai/ai/conversation-import-parts.tsx","reason":"会话历史合面:导入分件已被 ConversationHistoryScreen 单源取代,合并树内零运行时 import"}
+{"path":"apps/miniapp-taro/src/pkg-ai/aigc/list.css","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)。"}
+{"path":"apps/miniapp-taro/src/pkg-ai/aigc/publish-form.tsx","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)。"}
+{"path":"apps/miniapp-taro/src/pkg-ai/aigc/publish-sections.tsx","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)。"}
+{"path":"apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/workflow-card.tsx","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动;唯一引用方 list-view.tsx 由对侧同批一并删除并同步登记,故合并树内 0 处运行时引用。"}
+{"path":"apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/list-view.tsx","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动;它同时是 workflow-card.tsx 的唯一引用方,两文件必须一并对齐对侧删除才能消除悬空引用,故本通知书与 workflow-card 同笔登记。"}
+{"path":"apps/miniapp-taro/src/pkg-learn/teacher/detail.css","reason":"2026-11-06 远端收敛裁决:origin/main 1388255cb8 相对共同基底 c76c57d280f 整文件删除;本侧 blob 与基底逐字同一即从未改动,删除随合并传播按 git 三方语义不丢内容;合并树内 0 处运行时引用(旁路删除门逐路径实测)。"}

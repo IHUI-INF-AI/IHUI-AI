@@ -1322,6 +1322,8 @@ async def _lazy_index_and_research(
     path: str,
     max_results: int,
     internal_user_id: str | None = None,
+    *,
+    symbol_name: str | None = None,
 ) -> LazyIndexOutcome:
     """懒索引:语义通道空结果且 path 为本地目录时,尽力做一次 Merkle 增量索引后重搜。
 
@@ -1399,9 +1401,14 @@ async def _lazy_index_and_research(
             return LazyIndexOutcome(results=[], status=guard.status, reason=guard.reason, guard=guard)
         await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
         # 2026-10-03:检索同样带归属(api 侧按 owner_uuid 隔离检索面)
+        # Z37:重搜这一跳必须带上同一枚符号过滤位 —— 不带就等于「建完索引后把整仓 topK
+        # 端回来再指望装配层挑」,那正是本票要拆掉的先截后滤。缺省档连关键字都不多发。
+        research_kwargs: dict[str, Any] = {"top_k": max_results, "internal_user_id": internal_user_id}
+        if symbol_name:
+            research_kwargs["symbol_name"] = symbol_name
         results = cast(
             list[dict[str, Any]],
-            await indexer.search(query, top_k=max_results, internal_user_id=internal_user_id),
+            await indexer.search(query, **research_kwargs),
         )
         if results:
             return LazyIndexOutcome(results=results, status="searched", reason=None, guard=guard)
@@ -1568,7 +1575,17 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     - symbol_type: 符号类型过滤(def/class/func/function/interface/type,默认空=全部)
     - symbol_name: 符号名**精确**过滤(逐字相等、大小写敏感;Z28 格 1)。默认空 ⇒ 过滤链
       根本不发起,返回体与旧实现逐字节相同;非空时命中集只保留"被定义符号名逐字等于该值"
-      的片(不做前缀/包含匹配 —— 那是 query 那一维已有的语义)
+      的片(不做前缀/包含匹配 —— 那是 query 那一维已有的语义)。
+      **Z37 起该位已下推到检索腿**:symbol_name 随首跳进 HTTP 请求体
+      (`POST /api/v1/codebase/search` 的 `symbolName`),等值条件在 api 侧进 SQL `WHERE`、
+      发生在 `LIMIT` 之前,且该档的取回预算脱离 topK(单源 = api 的 `rowBudget()`)。
+      装配层的逐字过滤**保留**(不是回落):关键词腿是本地文件系统扫描,不经 HTTP,
+      下推覆盖不到它;对已下推的语义腿而言这一层是幂等的,两侧不一致的次数读进
+      `stats.symbol_pushdown_disagree`。api 侧取不到响应 ⇒ `stats.symbol_filter`
+      落 `unjudged:<原委>` 并让语义腿具名失败,不静默当成本地过滤成功。
+      符号档另有一处**必须出声的口径变化**:`max_results` 不再截断出参(Z28 那格
+      「先截后滤」缺口的另一半),命中条数只受 api 那份行预算约束;
+      段账 detail 与 `stats.symbol_filter` 都点名当下是哪一档,缺省档一字不动。
     - 忽略常见依赖/构建/缓存目录
     - 忽略二进制文件
     - 返回: 文件路径 + 行号 + 符号类型 + 代码行 + 上下文预览
@@ -1723,11 +1740,18 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 "reason": "use_semantic=False(调用方显式关闭语义腿)",
             }
         try:
-            from .codebase_indexer import codebase_indexer
+            from .codebase_indexer import SymbolFilterUndetermined, codebase_indexer
             # 2026-10-03:检索按归属隔离(见 _caller_user_id 处注释)
-            semantic_results = await codebase_indexer.search(
-                query, top_k=max_results, internal_user_id=_caller_user_id
-            )
+            # Z37 下推:符号档才追加 `symbol_name` 这一枚关键字入参 —— 缺省档连**调用形状**
+            # 都与今天逐字相同(在册替身里那些把签名收紧成 query/top_k/internal_user_id 的
+            # fake_search 因此结构上不可能被本票碰坏)。
+            search_kwargs: dict[str, Any] = {"top_k": max_results, "internal_user_id": _caller_user_id}
+            if symbol_name:
+                search_kwargs["symbol_name"] = symbol_name
+            semantic_results = await codebase_indexer.search(query, **search_kwargs)
+            if symbol_name:
+                # 走到这里 = 首跳判过了(`search()` 在未判定时抛 SymbolFilterUndetermined)。
+                stats["symbol_filter"] = "pushed"
             # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
             # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
             if not semantic_results:
@@ -1738,9 +1762,16 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     path,
                     max_results,
                     internal_user_id=_caller_user_id,
+                    **({"symbol_name": symbol_name} if symbol_name else {}),
                 )
                 semantic_results = lazy.results
                 semantic_index_field = lazy.as_response_field()
+                if symbol_name and lazy.status == "failed":
+                    # 懒索引把重搜异常咽成 status="failed" 是在册兜底(缺省档一字不动),
+                    # 符号档不借这一格把「取不到」读成「库里没有」⇒ 就地转具名未判定(§0.3)。
+                    raise SymbolFilterUndetermined(
+                        f"symbol_name={symbol_name} 懒索引重搜未判定:{lazy.reason}"
+                    )
                 stages.record(
                     "lazy_index",
                     "ok" if semantic_results else "empty",
@@ -1749,7 +1780,12 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     detail=f"status={lazy.status}: {lazy.reason}",
                 )
             leg_matches: list[dict[str, Any]] = []
-            for r in list(semantic_results)[:max_results]:
+            # Z37:符号档不在本侧补 topK 那一刀。api 的 `rowBudget()` 早把该档的取回预算
+            # 脱钩出 topK(Z36 单源 = SYMBOL_SCOPED_ROW_CAP),这里再 `[:max_results]`
+            # 就是把刚摆正的次序重新削成「先截后滤」(§0.6:预算只许那份判据算一次)。
+            # 缺省档口径逐字节不变:仍然 top_k = max_results、仍然先截。
+            scoped_semantic = list(semantic_results)
+            for r in scoped_semantic if symbol_name else scoped_semantic[:max_results]:
                 content_preview = r.get("content", "")
                 if len(content_preview) > 500:
                     content_preview = content_preview[:500]
@@ -1771,6 +1807,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         except TimeoutError as e:
             semantic_index_field = {"status": "timeout", "reason": f"{type(e).__name__}: {e}"}
             stats["vector_leg"] = "timeout"
+            if symbol_name:
+                stats["symbol_filter"] = f"unjudged:TimeoutError:{e}"
             return {
                 "status": "timeout",
                 "matches": [],
@@ -1779,6 +1817,10 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         except Exception as e:  # noqa: BLE001 - 本腿失败不带走整次检索,但必须出声
             semantic_index_field = {"status": "failed", "reason": f"{type(e).__name__}: {e}"}
             stats["vector_leg"] = "failed"
+            # Z37:符号档的「取不到响应」必须在这一格落名(含 `SymbolFilterUndetermined`,
+            # 它由检索腿在首跳未判定时抛出)。缺省档不写这一格 ⇒ 出参形状逐字节不变。
+            if symbol_name:
+                stats["symbol_filter"] = f"unjudged:{type(e).__name__}:{e}"
             logger.warning(
                 "search_codebase 语义腿失败(状态与原因已进返回体,不再静默回落): %s: %s",
                 type(e).__name__,
@@ -2042,22 +2084,44 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     asm_clock = stages.clock()
     # 精确过滤位在截断**之前**生效:先截再滤会把"名次在 topK 之后但符号名逐字命中"的片
     # 直接筛掉(那是召回损失,不是过滤)。未启用过滤时截断口径与旧实现逐字节相同。
+    #
+    # Z37:符号档这一格也**不再按 max_results 收尾** —— 过滤位已下推到检索腿,行预算归
+    # api 侧 `rowBudget()` 单源(Z36 立 SYMBOL_SCOPED_ROW_CAP),本侧再补一刀就是把刚
+    # 摆正的次序再削一次。`max_results` 在符号档因此降级为「非符号档的出参上限」,
+    # 这不是静默改动:段账 detail 与 stats.symbol_filter 都点名了当下走的是哪一档。
     candidates = fused if symbol_name else fused[:max_results]
     matches: list[dict[str, Any]] = []
+    pushdown_disagree = 0
     for f in candidates:
         item = dict(f.item)
         if symbol_name and not _symbol_exact_hit(item):
+            # 「两侧逐字一致」做成**量出来的读数**,不是硬断言:被本侧摘掉的片若来自已下推的
+            # 语义腿,说明 api 那份过滤位与本侧判据读出了不同结果 —— 记数点名,不因此判死。
+            if "vector" in f.fused_from:
+                pushdown_disagree += 1
             continue
         item["fused_from"] = "+".join(f.fused_from)
         item["rrf_score"] = round(f.score, 6)
         matches.append(item)
-        if symbol_name and len(matches) >= max_results:
-            break
+    if symbol_name:
+        stats["symbol_pushdown_disagree"] = pushdown_disagree
+        stats.setdefault(
+            "symbol_filter",
+            # 语义腿压根没跑(use_semantic=False)时不存在「下推」这件事,只有装配层本地过滤;
+            # 跑了却没写下结论 = 没走到给 stats 赋值的那一行,按未判定记,不冒充 pushed。
+            "not-attempted:use_semantic=False" if not use_semantic else "unjudged:语义腿未给出结论",
+        )
     stages.record(
         "assemble", "ok" if matches else "empty",
         duration_ms=asm_clock.elapsed_ms(), count=len(matches),
         **(
-            {"detail": f"symbol_name={symbol_name} 逐字精确过滤后剩 {len(matches)} 片"}
+            {
+                "detail": (
+                    f"symbol_name={symbol_name} 逐字精确过滤后剩 {len(matches)} 片"
+                    f"(已下推检索腿:{stats.get('symbol_filter')};max_results={max_results} "
+                    f"在符号档不截断,不一致读数 {pushdown_disagree})"
+                )
+            }
             if symbol_name
             else {}
         ),
@@ -7308,6 +7372,15 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"save_path 校验失败: {err_code}",
             }
 
+    # 高消耗审批:宿主盖过的余额/批准才算数。拒绝发生在选 provider 之前,
+    # 所以上游调用次数在拒绝时是 0。没给余额则不计量,旧调用保持原样。
+    from ..core.mcp_tool_approval import gate_image_spend
+
+    credit_block = gate_image_spend(arguments)
+    if credit_block is not None:
+        credit_block["prompt"] = prompt
+        return credit_block
+
     chain = _image_provider_chain(provider)
     if not chain:
         return {
@@ -10837,7 +10910,7 @@ _TOOLS: list[MCPTool] = [
                 "path": {"type": "string", "description": "搜索路径(默认当前目录)"},
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
-                "symbol_name": {"type": "string", "description": "符号名精确过滤(逐字相等、大小写敏感;默认空=不过滤)。这是**装配层的精确过滤位**,不是第 2 个查询词:命中集只保留被定义符号名逐字等于本值的片。要按索引列在库侧精确取回某符号的**全部**切片,还得靠 api 侧 searchSchema 的 symbolName 过滤位(现读该处只有 indexSchema 有 symbolName,searchSchema 无,见 apps/api/src/routes/v1-codebase-search.ts)。"},
+                "symbol_name": {"type": "string", "description": "符号名精确过滤(逐字相等、大小写敏感;默认空=不过滤)。这不是第 2 个查询词:命中集只保留被定义符号名逐字等于本值的片。Z37 起该位**已下推到检索腿**(随首跳进 POST /api/v1/codebase/search 的 symbolName,等值条件在 api 侧进 SQL WHERE、早于 LIMIT,取回预算脱离 topK,单源 = apps/api/src/services/codebase-index-service.ts 的 rowBudget),故按符号名取回库内切片不再受 max_results 截断;装配层仍做一次逐字过滤(关键词腿是本地扫描,不经 HTTP)。出参 stats.symbol_filter 读数三档:pushed / unjudged:<原委> / not-attempted。"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
                 "use_semantic": {"type": "boolean", "description": "是否启用语义腿(pgvector ANN,默认 True;False=显式只要关键词腿)。语义腿不可用不再静默回落:响应体 mode/reasons 会点名是哪条腿没答上来", "default": True},
             },
@@ -14130,6 +14203,8 @@ class MCPServer:
         user_role: int = 0,
         user_id: str | None = None,
         session_id: str | None = None,
+        credit_balance: int | None = None,
+        credit_approval: str | None = None,
     ) -> dict[str, Any]:
         """调用指定工具(带权限矩阵校验)。
 
@@ -14202,7 +14277,13 @@ class MCPServer:
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
             # G6(2026-07-26):同时注入 __user_id/__session_id 供 knowledge_lookup
             # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
-            args_with_role = dict(arguments or {})
+            from ..core.mcp_tool_approval import apply_host_credit_facts
+
+            args_with_role = apply_host_credit_facts(
+                arguments,
+                balance=credit_balance,
+                approval=credit_approval,
+            )
             args_with_role["__user_role"] = user_role
             args_with_role["__user_id"] = user_id
             args_with_role["__session_id"] = session_id
