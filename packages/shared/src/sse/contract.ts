@@ -481,7 +481,16 @@ export interface CompactBoundary {
     head: PreservedSegmentAnchor | null
     anchor: PreservedSegmentAnchor | null
     tail: PreservedSegmentAnchor | null
+    /**
+     * 2026-11-06 起:被**原文保留**(未折进摘要)的锚点消息,`index` 为压缩前下标。
+     * · task_anchor = head 首个 user 组(会话任务陈述,受窗口 10%/2000 token 预算约束)
+     * · pinned      = 显式钉住(pinned=true 或 metadata.pinned=true)的整组(含工具配对)
+     * 缺席 = 本轮没有任何锚点(旧版服务端不回传该字段,不是"未知")。
+     */
+    anchors?: Array<PreservedSegmentAnchor & { reason: 'task_anchor' | 'pinned' }>
   }
+  /** 与原 `messagesSummarized` 并列的锚点条数(可选;缺席按 0 读) */
+  anchorsCount?: number
   removedRange: { startIndex: number; endIndex: number } | null
 }
 
