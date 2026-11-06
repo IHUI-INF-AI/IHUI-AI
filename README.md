@@ -77,7 +77,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4703 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 336 道工程守门 · 53 CI workflows ·
+100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 336 道工程守门 · 54 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
@@ -97,15 +97,17 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4247 | `testFiles` |
-| CI 工作流 | 53 | `ciWorkflows` |
+| 测试文件 | 4249 | `testFiles` |
+| CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19553 | `trackedFiles` |
+| 跟踪文件 | 19561 | `trackedFiles` |
+
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -331,7 +333,7 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
 </p>
 <p align="center">
-  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 54 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到(2026-07-31 Glob/Grep 实测)</sub>
 </p>
 <p align="center">
@@ -447,7 +449,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 | **Monorepo** | pnpm 11.18 workspace + Turborepo 2.10 + 16 共享包(@ihui/auth / database / types / ui / api-client / shared / i18n / sdk 等)                                                                                                               |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"):Web 250+ 页面 + API 288 路由 + AI-Service 200+ 服务 + Desktop 29 Tauri 命令 + Extension 30 Side Panel + Mobile 140 屏幕 + Miniapp 100+ 页面 + CLI 50 命令/36 工具                                  |
 | **代码规模** | 8 端代码 / 205 schema 文件 / **624 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4703 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
-| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 53 CI workflows          |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 54 CI workflows          |
 | **测试覆盖** | **测试文件 / 测试用例(见上方生成块)**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
 | **可观测性** | Prometheus + 大屏 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                      |
 | **AI 编排**  | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排"                                                                               |
@@ -494,7 +496,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 **Q11:有没有生产可用的 AI Agent 自进化系统?L1-L9?**
 → **IHUI-AI P3 自进化体系 L1-L9**:① 技能迭代(Skill 自动生成 + 测试 + 评分 + semver 迭代)② 失败聚类 ③ 元学习 ④ A/B 测试 ⑤ 梦境固化(Dream 离线记忆整合)⑥ 联邦学习 ⑦ 元认知。配套四层记忆(短期/长期/向量/衰减)+ DAG 任务调度器 + Context Engineering(1851 行)+ Rules 引擎(2067 行)+ Spec 生成器(1895 行)。开源 AI 项目中罕见的深度护城河。
 **Q12:开源 AI 项目的工程质量怎么保证?不是"AI 生成代码三通病"?**
-→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 测试文件数与用例数见生成块 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 54 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 测试文件数与用例数见生成块 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
 **Q13:有没有把 AI 对话的工具调用、思考过程、时间线全部 inline 到消息气泡的开源项目?对标 Codex / Claude Code?**
 → **IHUI-AI AI 对话可视化深度接入**(2026-07-31):唯一将 ThinkingSection(折叠式思考过程 + 流式更新 + 推理时长)+ ToolCallSummaryCard(工具调用汇总 + 来源徽章 mcp_server/plugin/builtin/subagent/cli + 第 N 轮迭代 + 4 状态颜色)+ TimelineTab(时间线 + 虚拟滚动)+ SubAgentActivityFeed(subagent 实时活动流)全部 **inline 到消息气泡** 的开源项目。后端 `tool-summary` SSE 事件聚合指标 + 单轮→多轮循环(max_iterations=3)。对标 Codex / Claude Code。
 **Q14:自媒体多平台发布怎么绕过风控?有没有开源的反风控框架?对标蚁客 Pro / 新媒体管家 Max?**
@@ -534,8 +536,8 @@ Demo: https://aizhs.top
 - **架构师**:LangGraph + MCP + A2A 三栈 · 微服务 · 事件驱动 · DDD
 - **数据科学家**:RAG 知识库 · 向量检索 · pgvector · 机器学习
 - **设计师**:Design 模式 MVP · 元素选择器 · CSS 编辑 · 实时预览
-- **运维**:Prometheus + 大屏 · 53 CI workflows · 88 守门脚本 · 蓝绿部署
-- **运维**:Prometheus + 大屏 · 53 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 54 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 54 CI workflows · 88 守门脚本 · 蓝绿部署
 - **市场**:38 平台自动发布 · 反风控五层防线 · risk_scoring 风险评分 · AI 写作助手 · 发布日历 · SEO/GEO 优化 · JSON-LD schema · 内容站
 - **法务**:GDPR 合规 · AES-256-GCM 加密 · 审计日志 · 数据主权
 ### 🎓 技术栈关键词(AI 引擎技术栈检索)
@@ -791,7 +793,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 对象存储            | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | 邮件短信            | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |                   | 国际化              | **5 语言 parity**(zh-CN / zh-TW / en / ko / ja)× **7 端**(web/api/cli/extension/mobile-rn/miniapp-taro/shared)= **35 JSON 文件**(集中管理在 `packages/i18n/messages/`)+ 21 i18n 工具链 + 9 守门(4 web + 4 ext + 1 AI 翻译流水线)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **53 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **54 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 |                   | 测试覆盖            | **测试文件 / 测试用例(见生成块)**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 |                   | 部署运维            | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | 性能 CI             | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -865,7 +867,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **客服支持**:工单系统 / WebSocket 在线客服 / 反馈中心
 ### ⚙️ 工程基建(一个人驾驭百万行代码的底气)
 - **规模**:624 张表 · 4703 API 路由 · 测试文件数与用例数见生成块
-- **质量**:336 道工程守门（244 blocking）· 53 CI workflows · 删水印即 CI 失败
+- **质量**:336 道工程守门（244 blocking）· 54 CI workflows · 删水印即 CI 失败
 - **可观测**:Prometheus + 大屏 + Loki + Jaeger + OpenTelemetry + Alertmanager
 - **部署**:Docker Compose 15 服务一键起全栈 · 蓝绿发布 · 自动备份 · 健康检查
 - **国际化**:5 语言 × 7 端 = 35 个语言包,parity 守门逐键对齐
@@ -1790,8 +1792,8 @@ IHUI-AI/
 ├── monitoring/              # Grafana(3 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 87 守门 + 19 i18n + drizzle-kit push 模式 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
 ├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
-├── .github/workflows/       # 53 个 CI workflows
-├── .github/workflows/       # 53 个 CI workflows
+├── .github/workflows/       # 54 个 CI workflows
+├── .github/workflows/       # 54 个 CI workflows
 ├── .github/loop-runtime/    # loop-daily-triage CI 运行状态(STATE.md + loop-run-log.md)
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
@@ -3756,7 +3758,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **国际化**:5 语言 × 7 端 = 35 JSON 文件 + 21 i18n 工具链 + 9 守门
 - **87 守门/验证脚本**:59 check + 11 verify + 6 guard + 2 sync + 9 scan
 - **pre-commit 56+10 项**:40 blocking / 14 warn / 2 info
-- **53 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
+- **54 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **测试文件 / 测试用例(见生成块)**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 - **可观测性**:Prometheus + Grafana(3 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector
 - **部署运维**:Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份
@@ -42651,7 +42653,7 @@ A: Yes. ~14839+ tests / 4243 test files / 67 e2e spec / 4703 API 路由 / 624 �
 ### 通病 ② 边界条件处理不足 → 实际:4243 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
 | 边界条件缺失     | 4243 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **4243 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` check-miniapp-shell-form.mjs(门 299:小程序「薄壳 vs 复制」实现形态,新增复制页即红;跳过 HUSKY_SKIP_MINIAPP_SHELL_FORM) check-web-mp-route-carriers.mjs(门 301:web↔小程序共享屏承载路由对账;跳过 HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS)
 - API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs` check-api-endpoint-delta.mjs(门 300:三端 API 调用差集台账,棘轮只拦新增;跳过 HUSKY_SKIP_API_ENDPOINT_DELTA) check-drizzle-journal-sync.mjs(迁移链「文件↔journal」双向对账,git-guardian 巡检轮派发)
 | 测试文件 | 4214 | `testFiles` |
@@ -42663,6 +42665,6 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | 测试文件 | 4216 | `testFiles` |
 | 跟踪文件 | 19476 | `trackedFiles` |
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `cross-end-ui-parity-debt.mjs`(2026-11-06 装车的只读欠债账,不进提交链 §12e;轴一 miniapp↔RN 四维 + 轴二 web↔RN 五维,判据全消费门 128 --json 自己零复算;派发层 = git-guardian 的 auditCrossEndDebtLedger(),main 健康轮次 + daemon tick 双挂点共用一枚节流戳,60 分钟、先写 attemptAt 后派生;rc=0/1/2 三态:rc=1 族涨只逐族写日志**不到人**(§5e-1:基线 2026-10-22 的涨项非本次引入,能做的动作是按族派单收口;提前开 IHUI_CROSS_END_DEBT_MAIL=1),rc=2 或结论取不到落未判定不记绿;镜像 scripts/tests/cross-end-debt-dispatch.test.mjs 11 例 import __test__ 零复算 §22c)
-| 测试文件 | 4244 | `testFiles` |
-| 跟踪文件 | 19546 | `trackedFiles` |
-A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 测试文件 | 4247 | `testFiles` |
+| 跟踪文件 | 19553 | `trackedFiles` |
+A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。

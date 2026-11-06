@@ -6,13 +6,13 @@
 
 # 小程序共享屏薄壳化 · 收尾（2026-11-06）
 
-基线：`origin/main = a1b1bf04ff`（`git rev-parse origin/main`）；落地尖 `chore/ledger-s2-retire = 6ac3ef1b5c`（尚未 ff 进 main）。本文件读数在 `chore/closure-final-20261106`（= `6ac3ef1b5c` + 本批收尾提交）树上实测。
+基线：`origin/main = a1b1bf04ff`（`git rev-parse origin/main`）；原落地尖 `chore/ledger-s2-retire = 6ac3ef1b5c`（已不在 main 上），该内容作为 `84b7ce3fa8` 落入 main，最终落点见 §。本文件读数在 `chore/closure-final-20261106`（= 该基尖内容 + 本批收尾提交）树上实测。
 
 口径：开标签 = `JsxElement + JsxSelfClosingElement`；节点 = 开标签 + 非空 `JsxText` + `JsxFragment`；LOC 按内容行计（尾换行不计）。299 的分类计数以其脚本自身输出为准，本文件只转述并标注判据面。
 
 ## 1. 终版状态表
 
-| 指标 | main `a1b1bf04ff` 上 299 现读 | 落地尖实测（`6ac3ef1b5c` + 本批） | 证据 |
+| 指标 | main `a1b1bf04ff` 上 299 现读 | 落地尖实测（原基尖内容作 `84b7ce3fa8` 落 main，见 §；本批） | 证据 |
 | --- | --- | --- | --- |
 | 共享屏（真相源） | 275 | 275 | `check-miniapp-shell-form.mjs --worktree` 输出 `共享屏(真相源) : 275` |
 | 小程序在册页 | 329（映射登记 251 条） | 329（251） | 同上：`小程序在册页 : 329(映射登记 251 条)` |

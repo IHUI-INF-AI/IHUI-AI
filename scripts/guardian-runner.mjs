@@ -5210,7 +5210,7 @@ const checks = [
   },
 
   // --- 217/218(2026-10-15/16 立;原注 213/214→214/215 两度与上游撞号让位顺延:213 已归盘根写入门、214 已归 ApiKeyPermission 三面对账;病理五类实锤/hex 取材口径逐字归档 .ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md §门214/215,2026-10-16 C1 腾行)---
-  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/'] },
+  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约 + RN 百分比高度零容忍(bounded 容器内列表唯一弹性块 / R3 百分比只能走数值真相源)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/lib/rn-percent-height-policy.mjs'] },
   {
     id: '218',
     label: '🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)',

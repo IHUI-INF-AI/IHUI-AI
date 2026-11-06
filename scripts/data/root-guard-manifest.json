@@ -1,21 +1,21 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T07:15:28.196Z",
+  "sealedAt": "2026-11-06T16:18:36.992Z",
   "sealedBy": "root-guard --seal",
-  "reason": "上一枚给 git-guardian 加 auditCrossEndDebtLedger 调度腿(规则文件被改),清单必须按 HEAD 面重封才能同源;否则 root-guard --check 在所有签出 fail-closed",
+  "reason": "合并 origin/main 0b17ae1193:采用远端更新后的 guardian-runner / judgement-libs 规则文件,按合并后索引面(Tree 177a1d8d6874c1811fd0011f68806c56339bd57b)重封根护栏清单,判据未改",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "49d1d2326e6b6df7af6a2c975fe02f430def0aa904735f59cc4c0b371cbf5ec5"
+      "sha256": "d80961984219d378aa0c335285380655a130bd3e53f5a4431bc689ac87ba44c3"
     },
     {
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "619674c0ebb424165919bedee340ef0229e3d2067e12516ea61e04c3fb478a3c"
+      "sha256": "3c0c9911433d755ed746336a32c264b7bb62a86b3e20dc53d8b3be3f5668d0f2"
     },
     {
       "id": "agents-ironlaw",

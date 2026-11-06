@@ -40,7 +40,7 @@ vi.mock('../src/components/BottomPops', () => ({ appAlert: apiMocks.appAlert }))
 vi.mock('@ihui/shared/utils', () => ({ toUserFriendlyMessage: (e: unknown) => String(e) }))
 
 import AccountCancelScreen from '../src/screens/AccountCancelScreen'
-import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app/features/account-cancel/AccountCancelScreen'
+import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
 
 const SHARED_BASE_PROPS = {
   t: (key: string) => key,
