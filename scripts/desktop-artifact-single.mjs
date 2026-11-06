@@ -4,12 +4,17 @@
 
 // 桌面端 tauri build 之后的收敛钩子:保证 bundle/nsis 目录里**不存在多个版本**的安装包。
 
+import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs'
+import {
+  archFromInstallerName,
+  judgeContentManifest,
+  planArtifactInvariant,
+} from './lib/desktop-artifact-invariant.mjs'
 // 未签名豁免开关的常量与判据单源(§0.6):本文件只 import,不重抄(原本地副本已删)。
 import { ALLOW_UNSIGNED_ENV, allowUnsignedFrom } from './lib/desktop-unsigned-config.mjs'
 // 带值旗标取值判据单源(G-322,§0.6):旧副本 `argv[i+1]` 会把紧邻的下一个旗标当值收下。
@@ -52,6 +57,56 @@ function partitionViolations(files, exeName, allowUnsigned) {
     : { blocking: violations, excused: [] }
 }
 
+function measureInstaller(absPath) {
+  let buf
+  try {
+    buf = readFileSync(absPath)
+  } catch (error) {
+    const code = error && typeof error === 'object' ? error.code : undefined
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'absent' }
+    return { kind: 'unreadable', code: typeof code === 'string' ? code : 'unknown' }
+  }
+  return {
+    kind: 'present',
+    sha256: createHash('sha256').update(buf).digest('hex'),
+    bytes: buf.length,
+  }
+}
+
+function verifyInstallerContent(nsisDir, exeName) {
+  const arch = archFromInstallerName(exeName)
+  if (!arch) {
+    console.error(`[artifact-single] 安装包文件名里没有架构标记,不能把它说成已核验: ${exeName}`)
+    return 2
+  }
+  const measured = measureInstaller(path.join(nsisDir, exeName))
+  if (measured.kind === 'unreadable') {
+    console.error(
+      `[artifact-single] 安装包读不到,不能把它说成内容已核验: ${exeName} (${measured.code})`,
+    )
+    return 2
+  }
+  if (measured.kind === 'absent') {
+    console.error(`[artifact-single] 安装包在清理后不在目录里: ${exeName}`)
+    return 1
+  }
+  const manifest = {
+    fileCount: 1,
+    files: [{ path: exeName, sha256: measured.sha256, bytes: measured.bytes, arch }],
+  }
+  const verdict = judgeContentManifest(manifest, {
+    [exeName]: { sha256: measured.sha256, bytes: measured.bytes },
+  })
+  if (verdict.disposition !== 'intact') {
+    console.error(`[artifact-single] 安装包内容清单未通过: ${verdict.reason}`)
+    return verdict.disposition === 'unjudged' ? 2 : 1
+  }
+  console.info(
+    `[artifact-single] 内容已核验 sha256=${measured.sha256} bytes=${measured.bytes} arch=${arch}`,
+  )
+  return 0
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   // 给了旗标就必须给一个值:旧副本 `--dir --expect x.exe` 会把 "--expect" 当目录,
@@ -63,7 +118,8 @@ async function main() {
     return 2
   }
   // --dir / --expect 只为把判据放进临时目录做负向对照;默认走真实构建产物目录。
-  const nsisDir = dirOpt.value ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
+  const nsisDir =
+    dirOpt.value ?? path.join(ROOT, 'apps/desktop/src-tauri/target/release/bundle/nsis')
   const expected = expectOpt.value ?? undefined
   const allowUnsigned = allowUnsignedFrom(process.env)
 
@@ -80,7 +136,9 @@ async function main() {
   // 豁免开关**不**改变这一条:它不产 nsis 的判断与签名无关。
   if (!keep.includes(exeName)) {
     if (stale.length > 0) {
-      console.log(`[artifact-single] 目录内无 ${exeName},按不产 nsis 处理,保留现有 ${stale.length} 项`)
+      console.log(
+        `[artifact-single] 目录内无 ${exeName},按不产 nsis 处理,保留现有 ${stale.length} 项`,
+      )
     }
     return 0
   }
@@ -102,6 +160,8 @@ async function main() {
     )
     return 1
   }
+  const content = verifyInstallerContent(nsisDir, exeName)
+  if (content !== 0) return content
   if (excused.length > 0) {
     console.log(
       `[artifact-single] !! 已按 ${ALLOW_UNSIGNED_ENV}=1 放行「${excused.join(';')}」\n` +
