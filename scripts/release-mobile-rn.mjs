@@ -309,6 +309,30 @@ function takeEvidence({ withEas = true, withConfig = true }) {
 }
 
 /**
+ * 渠道登记面:app_versions.store 维度是否真的落地(2026-11-06 现读)。
+ * 旧读数是 2026-11-02 的快照 —— 0364 迁移 + schema 列 + 路由 store 过滤早已合并,它仍长期
+ * 报 MISSING,等于把已关掉的格子当缺口。判据改为实读三个单源件,缺任一才判 MISSING 并点名。
+ */
+const STORE_DIMENSION_SOURCES = [
+  ['迁移', 'packages/database/drizzle/0364_app_versions_store_channel.sql'],
+  ['schema', 'packages/database/src/schema/app-version.ts'],
+  ['路由', 'apps/api/src/routes/app-version.ts'],
+]
+export function probeStoreDimension(read = (rel) => readFileSync(join(ROOT, rel), 'utf8')) {
+  const missing = []
+  for (const [k, rel] of STORE_DIMENSION_SOURCES) {
+    try {
+      if (!read(rel).includes('store')) missing.push(`${k}:${rel}`)
+    } catch {
+      missing.push(`${k}:${rel}`)
+    }
+  }
+  return missing.length
+    ? { status: STATUS.MISSING, detail: `store 维度单源件缺失/未含列:${missing.join(' | ')}` }
+    : { status: STATUS.FOUND, detail: 'app_versions.store 已落地(0364 迁移 + schema 列 + 路由 store 过滤);各商店凭据/上传器另格判定' }
+}
+
+/**
  * 国内商店 + 鸿蒙矩阵腿(2026-11-02 加)。
  * 这一族此前**整仓零接线**(实读:appgallery/hms/小米/OPPO/vivo/应用宝 的命中全是 i18n 术语表、
  * 品牌图标或上游中转适配器,没有一处是上传器),所以先把"每家缺什么"做成可重跑的读数,
@@ -318,8 +342,7 @@ function takeEvidence({ withEas = true, withConfig = true }) {
 export function buildStoreLegs(ev) {
   const channelGap = {
     k: '渠道登记面',
-    status: STATUS.MISSING,
-    detail: 'app_versions.platform 枚举 = ios/android/web/harmony/cli,无 store 维度 ⇒ 多家商店各自一条 latest 与下载地址在数据面上表达不出来(需一次加列迁移,属数据面不在发布器射程)',
+    ...probeStoreDimension(),
   }
   return ev.stores.map(({ vendor, cred }) => ({
     id: `store-${vendor.id}`,
@@ -550,7 +573,7 @@ function selfTest() {
   return fail ? 1 : 0
 }
 
-export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, buildStoreLegs, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
+export const __test__ = { foldStatus, checkSubmitProfile, findChannel, firstMeaningfulLine, probeRuntimeVersion, buildLegs, buildStoreLegs, probeStoreDimension, render, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
