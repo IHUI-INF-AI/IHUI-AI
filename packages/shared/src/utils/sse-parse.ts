@@ -561,7 +561,13 @@ function parseLineEvent(line: string): SSEEvent | null {
         },
       }
     }
-    if (json?.type === 'budget' && (json.level === 'warning' || json.level === 'critical')) {
+    // 批次 3(2026-11-06):stopped 是预算硬停止终态帧。此前这里只认 warning/critical,
+    // 会让"因预算停止"在 CLI/扩展等共享解析器消费端被静默丢弃 —— 失败表现是安静的,
+    // 故必须在同一分支接住,并原样透传原因码(不猜档、不造默认)。
+    if (
+      json?.type === 'budget' &&
+      (json.level === 'warning' || json.level === 'critical' || json.level === 'stopped')
+    ) {
       return {
         type: 'budget',
         budget: {
@@ -571,6 +577,14 @@ function parseLineEvent(line: string): SSEEvent | null {
           limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
           tier: typeof json.tier === 'string' ? json.tier : undefined,
           resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
+          reasonCode: typeof json.reasonCode === 'string' ? json.reasonCode : undefined,
+          scope: typeof json.scope === 'string' ? json.scope : undefined,
+          pillar: typeof json.pillar === 'string' ? json.pillar : undefined,
+          usagePercent: typeof json.usagePercent === 'number' ? json.usagePercent : undefined,
+          remainingTokens:
+            typeof json.remainingTokens === 'number' ? json.remainingTokens : undefined,
+          stoppedAtIteration:
+            typeof json.stoppedAtIteration === 'number' ? json.stoppedAtIteration : undefined,
         },
       }
     }

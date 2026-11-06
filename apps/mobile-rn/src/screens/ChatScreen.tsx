@@ -136,7 +136,7 @@ import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
-import type { ChatMessage } from '@ihui/shared'
+import type { ChatMessage, CompactBoundary, ContextLedger } from '@ihui/shared'
 import {
   applyStreamError,
   isErrorTurn,
@@ -219,7 +219,18 @@ import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
 // D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
-import { budgetNoteText } from '../utils/budget-note'
+import { budgetNoteText, nextBudgetLevel } from '../utils/budget-note'
+// 批次 3(2026-11-06):预算硬停止 / 七类上下文账本 / 压缩边界的展示与回填。
+// 查询面统一走 api-client 的 fetchApi(见 api/chat-ledger);失败静默,不阻断聊天。
+import {
+  fetchLatestBudgetStop,
+  fetchLatestCompactionBoundary,
+  fetchLatestContextLedger,
+  type ChatBudgetStopRow,
+} from '../api/chat-ledger'
+import { BudgetStopNotice } from '../components/chat/BudgetStopNotice'
+import { ContextLedgerPanel } from '../components/chat/ContextLedgerPanel'
+import { CompactionBoundaryNote } from '../components/chat/CompactionBoundaryNote'
 import { useI18n } from '../i18n'
 import {
   resolveRoundModel,
@@ -635,6 +646,74 @@ export function ChatScreen() {
   } | null>(null)
   // 手动压缩上下文请求进行中(✂ 按钮 loading + 防重复点击)
   const [compacting, setCompacting] = useState(false)
+  // ── 批次 3(2026-11-06)三件账本态 ──
+  // 预算硬停止:ref 供同一流内的后续 warning 同步判终态(setState 异步,闭包读不到新值)。
+  const [budgetStop, setBudgetStop] = useState<ChatBudgetStopRow | null>(null)
+  const budgetStopRef = useRef<ChatBudgetStopRow | null>(null)
+  // 七类账本:turnIndex 是 0 起轮次下标;-1 = 尚未拿到任何一轮(首轮帧到达后 +1 → 0)。
+  const [contextLedgerView, setContextLedgerView] = useState<{
+    ledger: ContextLedger
+    turnIndex: number
+  } | null>(null)
+  const ledgerTurnRef = useRef(-1)
+  const ledgerCapturedAtRef = useRef<string | null>(null)
+  // 压缩边界:live 帧带 boundary 时写入;进会话由查询面回填最新一条。
+  const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
+
+  // 进会话/换会话时回填账本态:刷新或换端后,硬停止提示条、七类账本、压缩边界仍要可见。
+  // 三个查询各自失败静默(contract:查询面失败回退到既有本地估算,不阻断聊天),代际由 AbortController 收口。
+  useEffect(() => {
+    if (!conversationId) {
+      budgetStopRef.current = null
+      setBudgetStop(null)
+      setContextLedgerView(null)
+      setCompactionBoundary(null)
+      ledgerTurnRef.current = -1
+      ledgerCapturedAtRef.current = null
+      return
+    }
+    const controller = new AbortController()
+    void fetchLatestBudgetStop(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        budgetStopRef.current = row
+        setBudgetStop(row)
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) logger.warn('chat', 'budget-stops 查询失败', String(error))
+      })
+    void fetchLatestContextLedger(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        // live 帧先到:查询返回的旧一轮不得把屏幕上的新一轮顶掉(capturedAt 是同一把尺)
+        const current = ledgerCapturedAtRef.current
+        if (current !== null && current > row.ledger.capturedAt) return
+        ledgerTurnRef.current = row.turnIndex
+        ledgerCapturedAtRef.current = row.ledger.capturedAt
+        setContextLedgerView({ ledger: row.ledger, turnIndex: row.turnIndex })
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          logger.warn('chat', 'context-ledger 查询失败', String(error))
+      })
+    void fetchLatestCompactionBoundary(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        setCompactionBoundary(row.boundary)
+        setCompactionInfo({
+          before: row.tokensBefore,
+          after: row.tokensAfter,
+          removed: row.messagesSummarized,
+        })
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          logger.warn('chat', 'compaction-boundaries 查询失败', String(error))
+        }
+      })
+    return () => controller.abort()
+    // 只随会话 id 变;回填结果不再反向触发查询。
+  }, [conversationId])
 
   // D136(承 V4 #94/D84):高危工具审批。host = 审批面板 + 常驻待审批胶囊(AGENTS §30:
   // 关闭 ≠ 决策,被拒/收起后仍留人工放行入口);onToolApproval 挂进 streamChat 回调表。
@@ -942,6 +1021,9 @@ export function ChatScreen() {
     roundTraceIdRef.current = undefined
     // G-403:新一轮开始,重置上一轮的缓存读数 —— 旧账挂到本轮归因面板就是把别人的账记到这一页
     setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+    // 批次 3:新一轮开始,上一轮的硬停止提示条退出列表尾部(重发 = 开新一轮,不把旧终态挂着)
+    budgetStopRef.current = null
+    setBudgetStop(null)
     // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
     // 否则"请求出错"那句会被模型当成自己上一轮的回答读进去
     const apiMessages = history
@@ -1071,6 +1153,15 @@ export function ChatScreen() {
           cacheWriteTokens: usage.cacheWriteTokens ?? null,
         })
         if (usage.totalTokens <= 0) return
+        // 批次 3:七类账本随 usage 帧下发,按轮次快照落到用量面板下方(不入消息 meta)。
+        if (usage.contextLedger) {
+          const ledger = usage.contextLedger
+          if (ledgerCapturedAtRef.current !== ledger.capturedAt) {
+            ledgerCapturedAtRef.current = ledger.capturedAt
+            ledgerTurnRef.current += 1
+          }
+          setContextLedgerView({ ledger, turnIndex: ledgerTurnRef.current })
+        }
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1]
@@ -1084,16 +1175,38 @@ export function ChatScreen() {
         })
       },
       // 额度分档告警:复用两屏共用的一行措辞(utils/budget-note → @ihui/shared)
+      // 批次 3:stopped 是硬停止终态 —— 不走 toast,改在消息列表尾部常驻内联条;
+      // 且一旦 stopped,同流后续 warning/critical 不得把它覆盖回"可继续"(nextBudgetLevel 判据)。
       onBudget: (event) => {
+        const previousLevel = budgetStopRef.current?.level ?? null
+        const level = nextBudgetLevel(previousLevel, event.level)
+        if (previousLevel === 'stopped') return
+        if (level === 'stopped') {
+          const stop: ChatBudgetStopRow = {
+            level: 'stopped',
+            reasonCode: event.reasonCode ?? null,
+            usedTokens: event.usedTokens ?? null,
+            limitTokens: event.limitTokens ?? null,
+            usagePercent: event.usagePercent ?? event.percent ?? null,
+            remainingTokens: event.remainingTokens ?? null,
+            stoppedAtIteration: event.stoppedAtIteration ?? null,
+            createdAt: new Date().toISOString(),
+          }
+          budgetStopRef.current = stop
+          setBudgetStop(stop)
+          return
+        }
         showToast(event.level === 'critical' ? 'warning' : 'info', budgetNoteText(event, t))
       },
       // 上下文自动压缩提示:接入本屏既有提示条渲染阀门(renderListHeader 的 compactionInfo)
+      // 批次 3:帧带 boundary 时,额外在状态条下挂"查看压缩前关键片段"的展开位。
       onCompaction: (info) => {
         setCompactionInfo({
           before: info.tokensBefore,
           after: info.tokensAfter,
           removed: info.removedCount,
         })
+        setCompactionBoundary(info.boundary ?? null)
       },
       // 模型降级(P4-2):本端无横幅位,FloatBox 是既有瞬时提示出口
       onFallback: (event) => {
@@ -2202,6 +2315,13 @@ export function ChatScreen() {
         />,
       )
     }
+    // 批次 3:压缩边界回看位(head/anchor/tail + removedRange)。状态条讲"压了多少",
+    // 这里讲"压缩前保留了哪几段";默认收起,点开才展示摘录。
+    if (compactionBoundary) {
+      nodes.push(
+        <CompactionBoundaryNote key="compaction-boundary-note" boundary={compactionBoundary} />,
+      )
+    }
     // D135 交互帧最小可视态(列表条目):AI 提问 / 业务表单请求帧到了就得看得见;
     // 完整弹窗 + 作答/填报续流属后续票面,此处刻意只读不写(不造假可交互控件)
     if (pendingQuestions.length > 0 || pendingForms.length > 0) {
@@ -2283,6 +2403,8 @@ export function ChatScreen() {
     removeMaterialCard,
     removeImage,
     compactionInfo,
+    compactionBoundary,
+    resolvedTheme,
     pendingQuestions,
     pendingForms,
     businessForm.host,
@@ -2851,6 +2973,14 @@ export function ChatScreen() {
           cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
         />
       ) : null}
+      {/* 批次 3:七类账本挂在用量面板下方(不是第三份归因实现,后者继续讲缓存命中)。
+          只渲染最新一轮;查询面失败时 contextLedgerView 保持 null,此处零占位。 */}
+      {messages.length && contextLedgerView ? (
+        <ContextLedgerPanel
+          ledger={contextLedgerView.ledger}
+          turnIndex={contextLedgerView.turnIndex}
+        />
+      ) : null}
 
       <KeyboardAvoidingView
         style={styles.body}
@@ -2880,6 +3010,11 @@ export function ChatScreen() {
           renderMessage={renderMessage}
           renderListHeader={renderListHeader() as React.ReactNode}
           renderListFooter={renderListFooter() as React.ReactNode}
+          // 批次 3:硬停止提示条挂在消息列表尾部(最后一条消息之后、脚注之前),
+          // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
+          messageListSlots={{
+            orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
+          }}
           itemSeparatorComponent={null}
           containerStyle={{ flex: 1 }}
           flatListStyle={{ flex: 1 }}

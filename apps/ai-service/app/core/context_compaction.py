@@ -57,9 +57,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
 import re
+import time
 from typing import Any
 
 import tiktoken
@@ -532,6 +535,97 @@ def assess_context_pressure(
     }
 
 
+# ==================== 压缩边界(compaction 帧 boundary,批次 3:上下文账本) ====================
+# 目标:压缩不只报"省了多少 token",还要让前端/回放端能画出"哪一刀切在哪、切掉了
+# 哪几条、摘要落在哪"。契约见 packages/shared/src/sse/contract.ts 的 compaction.boundary。
+# 下标口径(与父任务定义一致,不在这里自创第二套):
+#   - removedRange 是**压缩前**原列表下标(0 起,含首条 system 占位);
+#   - preservedSegment.anchor 是**压缩后**列表里摘要消息的下标;
+#   - preservedSegment.head 是压缩后列表里 anchor 之后第一条保留消息(下标同压缩后列表);
+#   - preservedSegment.tail 是 removedRange.endIndex 那条原文(下标为压缩前)。
+# 摘要消息只有压缩后才存在,因此 anchor 只能按压缩后下标报;它同时由 anchor 键本身
+# 说明语义,不存在"用哪个基准"的歧义。
+_BOUNDARY_EXCERPT_MAX = 200
+_BOUNDARY_DIGEST_HEX_LEN = 16
+
+
+def _boundary_content_text(content: Any) -> str:
+    """把消息 content 归一成可截断/可摘要的字符串(空/非 str 内容不抛错)。"""
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    try:
+        return json.dumps(content, ensure_ascii=False)
+    except Exception:
+        return str(content)
+
+
+def _boundary_segment(msg: dict[str, Any] | None, index: int) -> dict[str, Any] | None:
+    """构造一个 boundary 锚点段 {index, role, messageId, excerpt, digest};无消息返回 None。"""
+    if not isinstance(msg, dict):
+        return None
+    text = _boundary_content_text(msg.get("content"))
+    raw_id = msg.get("id")
+    return {
+        "index": int(index),
+        "role": str(msg.get("role") or ""),
+        "messageId": raw_id if isinstance(raw_id, str) and raw_id else None,
+        "excerpt": text[:_BOUNDARY_EXCERPT_MAX],
+        # 摘要用全文摘要(不是截断后的 excerpt),前端拿它做"同一条消息"的去重键。
+        "digest": hashlib.sha256(text.encode("utf-8")).hexdigest()[
+            :_BOUNDARY_DIGEST_HEX_LEN
+        ],
+    }
+
+
+def _build_compaction_boundary(
+    *,
+    trigger: str,
+    system_count: int,
+    removed_messages: list[dict[str, Any]],
+    anchor_message: dict[str, Any],
+    compressed_tail: list[dict[str, Any]],
+    original_tokens: int,
+    compressed_tokens: int,
+    duration_ms: int,
+) -> dict[str, Any]:
+    """构造 compaction.boundary(只在真正压缩成功时产出)。
+
+    Args:
+        trigger: ratio / truncated
+        system_count: 压缩前保留下来的 system 消息条数(0 或 1)
+        removed_messages: 被摘要替换掉的 head 原文(压缩前顺序)
+        anchor_message: 压缩后列表里的摘要消息
+        compressed_tail: 压缩后 anchor 之后保留的消息(用于取 head)
+        original_tokens / compressed_tokens: 压缩前后 token 估算
+        duration_ms: 本次压缩耗时(调用方用 perf_counter 计时)
+    """
+    start_index = int(system_count)
+    end_index = start_index + len(removed_messages) - 1
+    anchor_index = int(system_count)
+    return {
+        "trigger": trigger,
+        "tokensBefore": int(original_tokens),
+        "tokensAfter": int(compressed_tokens),
+        "messagesSummarized": len(removed_messages),
+        "durationMs": int(duration_ms),
+        "preservedSegment": {
+            "head": _boundary_segment(
+                compressed_tail[0] if compressed_tail else None, anchor_index + 1
+            ),
+            "anchor": _boundary_segment(anchor_message, anchor_index),
+            "tail": _boundary_segment(
+                removed_messages[-1] if removed_messages else None, end_index
+            ),
+        },
+        "removedRange": {
+            "startIndex": start_index,
+            "endIndex": end_index,
+        },
+    }
+
+
 def _truncate_fallback(
     system_msgs: list[dict[str, Any]],
     non_system: list[dict[str, Any]],
@@ -658,6 +752,10 @@ def compress_messages_if_needed(
             **assess_context_pressure(0, context_limit, trigger_ratio=trigger_ratio),
         }
 
+    # 批次 3:压缩耗时用 perf_counter 从进入函数算起(包含摘要生成与防循环降级),
+    # 口径是"这一次压缩决策花了多久",不是单条消息的编码耗时。
+    _started_at = time.perf_counter()
+
     original_tokens = estimate_messages_tokens(messages)
     trigger_threshold = int(context_limit * trigger_ratio)
 
@@ -770,6 +868,20 @@ def compress_messages_if_needed(
                     trigger_ratio=trigger_ratio,
                 )
             )
+            # 批次 3:截断降级同样要给边界 —— 它也是"一次真实压缩",只是摘要+截断
+            # 而不是纯摘要。被摘要的消息 = 最后一组之前的所有 non-system 消息。
+            _fb_tail = fallback_messages[len(system_msgs) + 1:]
+            _fb_removed = non_system[: max(0, len(non_system) - len(_fb_tail))]
+            fallback_info["boundary"] = _build_compaction_boundary(
+                trigger="truncated",
+                system_count=len(system_msgs),
+                removed_messages=_fb_removed,
+                anchor_message=fallback_messages[len(system_msgs)],
+                compressed_tail=_fb_tail,
+                original_tokens=original_tokens,
+                compressed_tokens=int(fallback_info.get("compressed_tokens") or 0),
+                duration_ms=int((time.perf_counter() - _started_at) * 1000),
+            )
             return fallback_messages, fallback_info
 
         # 第二级 incompressible:截断到最小长度仍超触发阈值
@@ -808,6 +920,17 @@ def compress_messages_if_needed(
         "removed_count": removed_count,
         "usage_ratio": original_tokens / context_limit,
         "trigger": "ratio",
+        # 批次 3:边界信息(压缩前后范围 + 摘要锚点 + 首条保留 + 最后一条被压缩原文)
+        "boundary": _build_compaction_boundary(
+            trigger="ratio",
+            system_count=len(system_msgs),
+            removed_messages=head,
+            anchor_message=summary_msg,
+            compressed_tail=tail,
+            original_tokens=original_tokens,
+            compressed_tokens=compressed_tokens,
+            duration_ms=int((time.perf_counter() - _started_at) * 1000),
+        ),
         **assess_context_pressure(
             compressed_tokens, context_limit, trigger_ratio=trigger_ratio
         ),
