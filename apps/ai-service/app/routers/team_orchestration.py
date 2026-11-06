@@ -17,8 +17,16 @@
     6. PATCH  /orchestration/teams/{team_id}/tasks/{task_id}        — 改标题/状态/持有者
     7. POST   /orchestration/teams/{team_id}/tasks/{task_id}/claim  — 并发安全认领
     8. DELETE /orchestration/teams/{team_id}/tasks/{task_id}        — 删任务
+    并行编辑冲突消解(2026-11-07):
+    9. POST   /orchestration/teams/edits/resolve                    — 三态消解(merged/conflict/replan)
+    子代理能力边界(2026-11-07):
+   10. PUT    /orchestration/subagents/{agent}/capability           — 声明工具白名单/再派发开关
+   11. GET    /orchestration/subagents/{agent}/capability           — 读生效能力
+   12. POST   /orchestration/subagents/capabilities/authorize       — 统一授权(越权 403 + 留痕)
     换手事件(owner 变更)不在这里开新帧:投到既有编排事件总线,读出口是
-    GET /api/orchestration/events?event_type=subagent.handoff。
+    GET /api/orchestration/events?event_type=subagent.handoff;
+    并行编辑消解与越权拒绝同样复用该出口(subagent.edit_conflict_resolution /
+    subagent.capability_denied)。
 
 注册到 main.py:app.include_router(team_orchestration.router, prefix="/api",
                                   tags=["orchestration-teams"])
@@ -34,6 +42,11 @@ from ..core.executor_switch import (
     guard_loop_v2_pilot,
     take_loop_v2_handoff,
 )
+from ..services.agent_edit_conflicts import (
+    EditIntent,
+    resolve_team_edit_conflicts,
+    team_edit_auditor,
+)
 from ..services.agent_teams import (
     ResultAggregator,
     TeamContributor,
@@ -42,6 +55,11 @@ from ..services.agent_teams import (
     team_task_board,
 )
 from ..services.dag_scheduler import KANBAN_TASK_STATUSES
+from ..services.subagent_capabilities import (
+    CapabilityDeclarationError,
+    CapabilityDenied,
+    SubagentCapability,
+)
 
 router = APIRouter()
 
@@ -58,6 +76,13 @@ class TeamTask(BaseModel):
     task: str = Field(..., description="子任务描述")
     context: dict[str, Any] | None = Field(None, description="可选上下文")
     conclusion: str = Field("", description="可选简短结论标签(供共识/冲突检测)")
+    tools: list[str] | None = Field(
+        None,
+        description=(
+            "可选。本次子任务要用到的工具名;逐个对照该子代理的生效白名单,"
+            "越权则本条任务不派发并留痕(不静默降级)。省略 = 不声明工具请求。"
+        ),
+    )
 
 
 class TeamRoundBody(BaseModel):
@@ -65,17 +90,36 @@ class TeamRoundBody(BaseModel):
     tasks: list[TeamTask] = Field(..., description="并行派发的子任务")
     strategy: str = Field("merge", description="merge/best_of/consensus")
     max_concurrency: int = Field(5, ge=1, le=20)
+    team_id: str = Field("", max_length=64, description="可选团队 id(审计留痕用)")
+    requester: str = Field(
+        "",
+        max_length=64,
+        description=(
+            "可选发起者 agent 名。非空表示本轮由子代理发起;该子代理未声明 "
+            "can_be_sub_agent=true 时整轮拒绝(403 spawn_forbidden)并留痕。"
+        ),
+    )
+    edit_bases: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "可选。本轮各 subagent 共享的 base 快照(path → 内容);"
+            "成员结果里带 edits 时据此做并行编辑冲突消解,缺 base 的文件按 replan 处理。"
+        ),
+    )
 
 
 class RoundSpec(BaseModel):
     tasks: list[TeamTask] = Field(default_factory=list)
     strategy: str = Field("merge", description="merge/best_of/consensus")
     max_concurrency: int = Field(5, ge=1, le=20)
+    edit_bases: dict[str, str] = Field(default_factory=dict)
 
 
 class TeamRunBody(BaseModel):
     objective: str = Field(..., description="多轮团队总目标")
     rounds: list[RoundSpec] = Field(..., description="逐轮任务/策略")
+    team_id: str = Field("", max_length=64, description="可选团队 id(审计留痕用)")
+    requester: str = Field("", max_length=64, description="可选发起者 agent 名")
 
 
 class TeamAggregateBody(BaseModel):
@@ -83,6 +127,84 @@ class TeamAggregateBody(BaseModel):
 
     contributors: list[dict[str, Any]] = Field(..., description="TeamContributor 的 dict 列表")
     strategy: str = Field("merge", description="merge/best_of/consensus")
+
+
+# ---------------------------------------------------------------------------
+# 并行编辑冲突消解 + 子代理能力边界(extra="forbid":拼错字段直接 422,不静默吞)
+# ---------------------------------------------------------------------------
+
+
+class TeamEditIntentBody(BaseModel):
+    """一份编辑意图。old_string 为空 = 整文件覆盖(与其它编辑并存时按 replan 处理)。"""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    agent: str = Field(..., min_length=1, max_length=64)
+    path: str = Field(..., min_length=1, max_length=512)
+    old_string: str = ""
+    new_string: str = ""
+    replace_all: bool = False
+    base_revision: str = Field(
+        "", max_length=128, description="可选。agent 看到版本的 sha256;与共享 base 不符 → replan"
+    )
+
+
+class TeamBaseFileBody(BaseModel):
+    """共享 base 快照的单个文件。"""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    path: str = Field(..., min_length=1, max_length=512)
+    base: str
+
+
+class TeamEditsResolveBody(BaseModel):
+    """对一批并行编辑意图做冲突检测与消解(纯计算,不写盘)。"""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    team_id: str = Field("", max_length=64)
+    round_id: str = Field("", max_length=64)
+    files: list[TeamBaseFileBody] = Field(default_factory=list)
+    edits: list[TeamEditIntentBody]
+
+
+# 消解状态 → 业务码:merged=0;conflict=409(明确报冲突,不静默覆盖);replan=422
+_EDIT_STATUS_CODES: dict[str, int] = {
+    "merged": 0,
+    "conflict": 409,
+    "replan_required": 422,
+}
+
+
+class SubagentCapabilityBody(BaseModel):
+    """子代理能力声明。缺省字段即最小权限:空白名单 + 不可再派发。"""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    allowed_tools: list[str] = Field(
+        default_factory=list, description="工具白名单;未列出的工具一律拒绝"
+    )
+    can_be_sub_agent: bool = Field(
+        False, description="是否允许该子代理继续派发子代理(默认 false)"
+    )
+
+
+class CapabilityAuthorizeBody(BaseModel):
+    """能力授权校验请求(拒绝时返回 403,并写审计/事件)。"""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    action: str = Field(..., description="tool(工具授权) 或 spawn(再派发授权)")
+    agent: str = Field(..., min_length=1, max_length=64)
+    tool: str = Field("", max_length=128, description="action=tool 时必填")
+
+    @field_validator("action")
+    @classmethod
+    def _action_vocabulary(cls, value: str) -> str:
+        if value not in ("tool", "spawn"):
+            raise ValueError("action 必须是 tool 或 spawn")
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -223,8 +345,14 @@ async def run_team_round(body: TeamRoundBody) -> dict[str, Any]:
             tasks=[t.model_dump() for t in body.tasks],
             strategy=body.strategy,  # type: ignore[arg-type]
             max_concurrency=body.max_concurrency,
+            team_id=body.team_id,
+            requester=body.requester,
+            edit_bases=body.edit_bases or None,
         )
         return {"code": 0, "message": "success", "data": result.to_dict()}
+    except CapabilityDenied as denial:
+        # 越权即拒绝:403 + 结构化原因 + 留痕回执;不降级成"部分派发成功"。
+        return {"code": 403, "message": denial.code, "data": denial.to_dict()}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
 
@@ -236,8 +364,12 @@ async def run_team_multi_rounds(body: TeamRunBody) -> dict[str, Any]:
         data = await team_orchestrator.run_multi_rounds(
             objective=body.objective,
             rounds=[r.model_dump() for r in body.rounds],
+            team_id=body.team_id,
+            requester=body.requester,
         )
         return {"code": 0, "message": "success", "data": data}
+    except CapabilityDenied as denial:
+        return {"code": 403, "message": denial.code, "data": denial.to_dict()}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
 
@@ -253,6 +385,112 @@ async def aggregate_results(body: TeamAggregateBody) -> dict[str, Any]:
             contributors, body.strategy  # type: ignore[arg-type]
         )
         return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+# ---------------------------------------------------------------------------
+# 并行编辑冲突消解(纯计算)
+#
+# 为什么不把这段塞进 /round:消解是**确定性纯函数**,不需要派发;把它独立成面,
+# 主循环可以在写盘前只带着"编辑意图 + base 快照"来问一次决策,拿到 merged 才写,
+# 拿到 conflict/replan 就重规划 —— 冲突判定与写入解耦,才有"不静默覆盖"的落点。
+# ---------------------------------------------------------------------------
+
+
+@router.post("/orchestration/teams/edits/resolve")
+async def resolve_parallel_edits(body: TeamEditsResolveBody) -> dict[str, Any]:
+    """并行编辑三态消解:merged=0 / conflict=409 / replan_required=422。
+
+    所有结果都写审计与事件;conflict/replan 时 ``data.content`` 恒为 None,
+    调用方不存在"拿到空内容继续写盘"的路径。
+    """
+    try:
+        bases: dict[str, str] = {}
+        for base_file in body.files:
+            if base_file.path in bases:
+                return {"code": 400, "message": "duplicate_base_path", "data": None}
+            bases[base_file.path] = base_file.base
+        intents = [
+            EditIntent(
+                agent=edit.agent,
+                path=edit.path,
+                old_string=edit.old_string,
+                new_string=edit.new_string,
+                replace_all=edit.replace_all,
+                base_revision=edit.base_revision,
+            )
+            for edit in body.edits
+        ]
+        resolution = resolve_team_edit_conflicts(intents, bases)
+        data = resolution.to_dict()
+        data["audit"] = await team_edit_auditor.record_resolution(
+            body.team_id, body.round_id, resolution
+        )
+        return {
+            "code": _EDIT_STATUS_CODES[resolution.status],
+            "message": resolution.status,
+            "data": data,
+        }
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+# ---------------------------------------------------------------------------
+# 子代理能力边界(工具白名单 + 是否可再派发)
+#
+# 声明面与判定面分开:PUT 只登记边界;authorize 才写留痕。这样"改权限"与
+# "被拒绝"各自可审计,不会把一次声明误读成一次越权尝试。
+# ---------------------------------------------------------------------------
+
+
+@router.post("/orchestration/subagents/capabilities/authorize")
+async def authorize_subagent_capability(body: CapabilityAuthorizeBody) -> dict[str, Any]:
+    """统一授权入口。白名单外工具 / 不可再派发 → 403 + 结构化原因 + 留痕回执。"""
+    guard = team_orchestrator.capability_guard
+    declared_tools, can_be_sub_agent = team_orchestrator.agent_capability_inputs(body.agent)
+    try:
+        if body.action == "tool":
+            data = await guard.authorize_tool(
+                body.agent,
+                body.tool,
+                declared_tools=declared_tools,
+                can_be_sub_agent=can_be_sub_agent,
+            )
+        else:
+            data = await guard.authorize_spawn(
+                body.agent,
+                declared_tools=declared_tools,
+                can_be_sub_agent=can_be_sub_agent,
+            )
+        return {"code": 0, "message": "success", "data": data}
+    except CapabilityDenied as denial:
+        return {"code": 403, "message": denial.code, "data": denial.to_dict()}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.put("/orchestration/subagents/{agent}/capability")
+async def declare_subagent_capability(
+    agent: str, body: SubagentCapabilityBody
+) -> dict[str, Any]:
+    """声明子代理能力边界(缺省字段即最小权限:空白名单 + 不可再派发)。"""
+    try:
+        capability = SubagentCapability.from_dict(body.model_dump())
+        resolved = team_orchestrator.capability_guard.registry.declare(agent, capability)
+        return {"code": 0, "message": "success", "data": resolved.to_dict()}
+    except CapabilityDeclarationError as e:
+        return {"code": 400, "message": str(e), "data": None}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.get("/orchestration/subagents/{agent}/capability")
+async def get_subagent_capability(agent: str) -> dict[str, Any]:
+    """读生效能力(来源:declared / agent_definition / default_deny)。"""
+    try:
+        resolved = team_orchestrator.resolve_agent_capability(agent)
+        return {"code": 0, "message": "success", "data": resolved.to_dict()}
     except Exception as e:
         return {"code": 500, "message": str(e), "data": None}
 

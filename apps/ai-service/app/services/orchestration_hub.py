@@ -100,6 +100,11 @@ PILLAR_EVENTS: dict[str, str] = {
     # 票面明令"SSE 复用 subagent_* 帧族扩 event 子类型,禁新帧族",故它是本族的一个
     # 子类型而不是新帧名;无匹配 playbook ⇒ 决策为 skipped(不触发任何支柱联动)。
     "subagent.handoff": "Subagent 换手",
+    # 2026-11-07:并行编辑冲突消解(agent_edit_conflicts.TeamEditAuditor)。
+    # 同样复用 subagent_* 族,不新开帧族;无匹配 playbook ⇒ 决策 skipped。
+    "subagent.edit_conflict_resolution": "Subagent 并行编辑消解",
+    # 2026-11-07:子代理能力越权拒绝(subagent_capabilities.SubagentCapabilityGuard)。
+    "subagent.capability_denied": "Subagent 能力越权拒绝",
     "terminal.command_failed": "命令失败",
     "terminal.command_succeeded": "命令成功",
     "terminal.ai_diagnosed": "AI 诊断完成",

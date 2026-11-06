@@ -37,13 +37,28 @@ from __future__ import annotations
 import logging
 import threading
 import uuid
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from .agent_edit_conflicts import (
+    EditIntent,
+    EditResolution,
+    TeamEditAuditor,
+    resolve_team_edit_conflicts,
+    team_edit_auditor,
+)
 from .agent_orchestrator import agent_orchestrator
 from .dag_scheduler import KANBAN_TASK_STATUSES
+from .subagent_capabilities import (
+    CapabilityDenied,
+    ResolvedCapability,
+    SubagentCapabilityGuard,
+    SubagentCapabilityRegistry,
+    evaluate_tool_request,
+    subagent_capability_guard,
+)
 from .ttl_json_store import iso_now, load_ttl_records, resolve_retention_days, write_json_atomic
 
 logger = logging.getLogger(__name__)
@@ -69,11 +84,14 @@ class TeamContributor:
     duration_ms: float = 0.0
     conclusion: str = ""        # 简短结论标签(供 consensus / 冲突检测)
     score: float | None = None  # 0-100,供 best_of 择优
+    # 结构化编辑意图(可选;来自 subagent 结果里的 edits)。多个成员改同一文件时,
+    # 由 agent_edit_conflicts 做区域级冲突检测与消解,而不是后写覆盖先写。
+    edits: list[EditIntent] = field(default_factory=list)
 
     @classmethod
     def from_task_result(cls, result: dict[str, Any]) -> TeamContributor:
         """从 invoke_parallel 结果的单条 result 构造贡献者。"""
-        return cls(
+        contributor = cls(
             name=str(result.get("name", "")),
             task=str(result.get("task", "")),
             status=str(result.get("status", "failed")),
@@ -82,6 +100,17 @@ class TeamContributor:
             duration_ms=float(result.get("duration_ms", 0.0) or 0.0),
             conclusion=str(result.get("conclusion", "") or ""),
         )
+        raw_edits = result.get("edits")
+        if isinstance(raw_edits, list):
+            for raw in raw_edits:
+                try:
+                    contributor.edits.append(EditIntent.from_dict(raw))
+                except ValueError as e:
+                    # 坏意图不得静默丢弃:保留成"不可解析"条目,消解层据此要求重规划。
+                    contributor.edits.append(
+                        EditIntent(agent=contributor.name, path="", parse_error=str(e))
+                    )
+        return contributor
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +122,7 @@ class TeamContributor:
             "duration_ms": self.duration_ms,
             "conclusion": self.conclusion,
             "score": self.score,
+            "edits": [e.to_dict() for e in self.edits],
         }
 
 
@@ -111,6 +141,8 @@ class TeamRoundResult:
     summary_context: str
     round_index: int = 0
     round_count: int = 1
+    # 并行编辑消解决策(本轮没有结构化编辑意图时为 None;有则含三态与理由)。
+    edit_resolution: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -125,6 +157,7 @@ class TeamRoundResult:
             "summary_context": self.summary_context,
             "round_index": self.round_index,
             "round_count": self.round_count,
+            "edit_resolution": self.edit_resolution,
         }
 
 
@@ -289,37 +322,140 @@ TeamRunner = Callable[[list[dict[str, Any]], int], Any]
 class TeamOrchestrator:
     """团队 fan-out + 聚合 + 回传主循环的编排器。"""
 
-    def __init__(self, orchestrator: Any = None) -> None:
-        """orchestrator 可注入(测试用 fake),默认进程内 agent_orchestrator。"""
+    def __init__(
+        self,
+        orchestrator: Any = None,
+        capability_registry: SubagentCapabilityRegistry | None = None,
+        capability_guard: SubagentCapabilityGuard | None = None,
+    ) -> None:
+        """orchestrator 可注入(测试用 fake),默认进程内 agent_orchestrator。
+
+        ``capability_registry`` / ``capability_guard`` 供测试与多实例隔离;
+        默认共用模块级单例(生产默认最小权限声明表)。
+        """
         self._orchestrator = orchestrator or agent_orchestrator
+        if capability_guard is not None:
+            self._capability_guard = capability_guard
+        elif capability_registry is not None:
+            self._capability_guard = SubagentCapabilityGuard(capability_registry)
+        else:
+            self._capability_guard = subagent_capability_guard
+
+    def agent_capability_inputs(self, name: str) -> tuple[list[str] | None, bool]:
+        """从 AgentDefinition 取该 agent 自己声明过的工具面与再派发开关。
+
+        查不到定义 → ``(None, False)``,由 ``resolve`` 落到默认拒绝(不是继承父级)。
+        """
+        registry = getattr(self._orchestrator, "registry", None)
+        getter = getattr(registry, "get", None)
+        if not callable(getter):
+            return None, False
+        definition = getter(name)
+        if definition is None:
+            return None, False
+        raw_tools = getattr(definition, "tools", None)
+        tools: list[str] | None = None
+        if isinstance(raw_tools, list):
+            tools = [str(t) for t in raw_tools]
+        metadata = getattr(definition, "metadata", None)
+        can_be_sub_agent = (
+            bool(metadata.get("can_be_sub_agent", False))
+            if isinstance(metadata, dict)
+            else False
+        )
+        return tools, can_be_sub_agent
+
+    @property
+    def capability_guard(self) -> SubagentCapabilityGuard:
+        return self._capability_guard
+
+    def resolve_agent_capability(self, name: str) -> ResolvedCapability:
+        """公开的只读解析(路由的 GET/POST 授权面用),不写留痕。"""
+        tools, can_be_sub_agent = self.agent_capability_inputs(name)
+        return self._capability_guard.resolve(
+            name, declared_tools=tools, can_be_sub_agent=can_be_sub_agent
+        )
 
     async def _default_runner(
         self, tasks: list[dict[str, Any]], max_concurrency: int
     ) -> list[TeamContributor]:
-        """默认 runner:调用 orchestrator.invoke_parallel 并映射为贡献者。
+        """默认 runner:先过子代理能力门,再调用 orchestrator.invoke_parallel。
 
-        tasks 每项可带可选 `conclusion`,会被附到对应贡献者上(供共识/冲突检测)。
+        task 可声明 ``tools``(该子代理本次要用到的工具名)。逐个对照该子代理的
+        生效白名单:越权则该 task **不派发**,产出失败贡献者并留痕,其它 task 不受
+        影响 —— 不做"删掉这条任务继续跑"的静默降级。
         """
-        specs = [
-            {
-                "name": str(t.get("name", "")),
-                "task": str(t.get("task", "")),
-                "context": t.get("context") or None,
-            }
-            for t in tasks
-        ]
-        out = await self._orchestrator.invoke_parallel(specs, max_concurrency=max_concurrency)
-        results = out.get("results") if isinstance(out, dict) else []
-        if not isinstance(results, list):
-            results = []
+        specs: list[dict[str, Any]] = []
+        spec_task_indexes: list[int] = []
+        denied: dict[int, TeamContributor] = {}
+        for index, task in enumerate(tasks):
+            name = str(task.get("name", ""))
+            if "tools" in task:
+                capability = self.resolve_agent_capability(name)
+                _, code, offending = evaluate_tool_request(capability, task.get("tools"))
+                if code:
+                    denial = CapabilityDenied(
+                        code=code, agent=name, detail=f"tool={offending}"
+                    )
+                    denial.receipt = await self._capability_guard.record_denial(
+                        denial, action="tool"
+                    )
+                    denied[index] = TeamContributor(
+                        name=name,
+                        task=str(task.get("task", "")),
+                        status="failed",
+                        output="",
+                        error=f"capability_denied:{code}:{offending}",
+                        duration_ms=0.0,
+                    )
+                    continue
+            specs.append(
+                {
+                    "name": name,
+                    "task": str(task.get("task", "")),
+                    "context": task.get("context") or None,
+                }
+            )
+            spec_task_indexes.append(index)
+
+        results: list[Any] = []
+        if specs:
+            out = await self._orchestrator.invoke_parallel(
+                specs, max_concurrency=max_concurrency
+            )
+            raw_results = out.get("results") if isinstance(out, dict) else []
+            if isinstance(raw_results, list):
+                results = raw_results
+
         by_name = {
             str(t.get("name", "")): str(t.get("conclusion", "") or "")
             for t in tasks
         }
-        contributors = [TeamContributor.from_task_result(r) for r in results]
-        for c in contributors:
-            c.conclusion = by_name.get(c.name, "") or c.conclusion
-        return contributors
+        dispatched: dict[int, TeamContributor] = {}
+        for offset, task_index in enumerate(spec_task_indexes):
+            task = tasks[task_index]
+            if offset < len(results):
+                contributor = TeamContributor.from_task_result(results[offset])
+            else:
+                # invoke_parallel 少回一条也不假装成功:明确失败,便于上层归因。
+                contributor = TeamContributor(
+                    name=str(task.get("name", "")),
+                    task=str(task.get("task", "")),
+                    status="failed",
+                    output="",
+                    error="派发未返回结果",
+                    duration_ms=0.0,
+                )
+            contributor.conclusion = by_name.get(contributor.name, "") or contributor.conclusion
+            dispatched[task_index] = contributor
+
+        ordered: list[TeamContributor] = []
+        for index in range(len(tasks)):
+            if index in denied:
+                ordered.append(denied[index])
+            elif index in dispatched:
+                ordered.append(dispatched[index])
+        return ordered
 
     @staticmethod
     def _build_summary_context(
@@ -355,6 +491,16 @@ class TeamOrchestrator:
             )
         if aggregate.get("winner"):
             lines.append(f"择优胜出: {aggregate['winner']['name']}")
+        edit_res = aggregate.get("edit_resolution")
+        if isinstance(edit_res, dict):
+            # 并行编辑消解必须回传主循环:主 agent 若看不到这行,会以为"并行改同一
+            # 文件已被框架处理好",从而不再复核 —— 那正是本层要消灭的静默。
+            lines.append(
+                f"并行编辑消解: {edit_res.get('status')} — {edit_res.get('rationale')}"
+            )
+            for file_res in edit_res.get("files") or []:
+                if file_res.get("status") != "merged":
+                    lines.append(f"- 未写入 {file_res.get('path')}: {file_res.get('rationale')}")
         lines.append(f"建议: {aggregate.get('recommendation', '')}")
         lines.append("--- 团队聚合内容(供主循环决策) ---")
         lines.append(aggregate.get("merged_text", "") or "无聚合内容")
@@ -369,12 +515,29 @@ class TeamOrchestrator:
         runner: TeamRunner | None = None,
         round_index: int = 0,
         round_count: int = 1,
+        team_id: str = "",
+        requester: str = "",
+        edit_bases: Mapping[str, str] | None = None,
+        edit_auditor: TeamEditAuditor | None = None,
     ) -> TeamRoundResult:
-        """一轮团队协作:并行 fan-out → 聚合 → 构建回传主循环的 summary_context。
+        """一轮团队协作:并行 fan-out → 聚合 → 并行编辑消解 → 回传主循环。
 
-        tasks 每项:{name, task, context?(可选), conclusion?(可选)}。
+        tasks 每项:{name, task, context?(可选), conclusion?(可选), tools?(可选)}。
         空 tasks 时确定性返回空聚合,不抛错。
+
+        ``requester`` 非空表示本轮由某个**子代理**发起:先过能力门,该子代理未声明
+        ``can_be_sub_agent=true`` 时直接拒绝并留痕(``CapabilityDenied``/spawn_forbidden),
+        主循环发起时留空即可(主循环不是子代理,不受再派发开关约束)。
+
+        ``edit_bases`` 是本轮各 subagent 共享的 base 快照(path → 内容)。只有当
+        至少一位成员的结果里带 ``edits`` 时才做消解;缺少 base 的文件按
+        ``replan_required`` 处理 —— 不允许在没有 base 的情况下猜测区域后写盘。
         """
+        if requester:
+            tools, can_be_sub_agent = self.agent_capability_inputs(requester)
+            await self._capability_guard.authorize_spawn(
+                requester, declared_tools=tools, can_be_sub_agent=can_be_sub_agent
+            )
         tasks = list(tasks)
         exec_runner = runner or self._default_runner
 
@@ -387,8 +550,27 @@ class TeamOrchestrator:
         failed = len(contributors) - succeeded
         aggregate = ResultAggregator.aggregate(contributors, strategy)
 
+        round_id = f"round-{uuid.uuid4().hex[:8]}"
+        edit_resolution: EditResolution | None = None
+        edit_intents = [
+            edit
+            for contributor in contributors
+            if contributor.status == "completed"
+            for edit in contributor.edits
+        ]
+        if edit_intents:
+            edit_resolution = resolve_team_edit_conflicts(
+                edit_intents, edit_bases or {}
+            )
+            resolution_dict = edit_resolution.to_dict()
+            auditor = edit_auditor or team_edit_auditor
+            resolution_dict["audit"] = await auditor.record_resolution(
+                team_id, round_id, edit_resolution
+            )
+            aggregate["edit_resolution"] = resolution_dict
+
         rr = TeamRoundResult(
-            round_id=f"round-{uuid.uuid4().hex[:8]}",
+            round_id=round_id,
             objective=objective,
             strategy=strategy,
             contributors=contributors,
@@ -399,6 +581,7 @@ class TeamOrchestrator:
             summary_context="",
             round_index=round_index,
             round_count=round_count,
+            edit_resolution=aggregate.get("edit_resolution"),
         )
         rr.summary_context = self._build_summary_context(
             rr, aggregate, objective, strategy
@@ -410,10 +593,15 @@ class TeamOrchestrator:
         objective: str,
         rounds: list[dict[str, Any]],
         runner: TeamRunner | None = None,
+        team_id: str = "",
+        requester: str = "",
+        edit_auditor: TeamEditAuditor | None = None,
     ) -> dict[str, Any]:
         """多轮团队协作闭环:每轮把上一轮聚合摘要回传给下一轮各 subagent。
 
-        rounds 每项:{tasks, strategy?, max_concurrency?}。
+        rounds 每项:{tasks, strategy?, max_concurrency?, edit_bases?}。
+        ``edit_bases`` 为该轮并行编辑共享的 base 快照(缺省则该轮编辑按 replan 处理)。
+        ``requester`` 为本轮发起者:非空时首轮就要过再派发开关,后续轮次沿用。
         返回 {objective, rounds:[TeamRoundResult.to_dict()...],
               final_summary_context} — 末轮聚合摘要即回传主循环的最终上下文。
         """
@@ -428,6 +616,12 @@ class TeamOrchestrator:
                     ctx = dict(t.get("context") or {})
                     ctx["round_context"] = prev_summary
                     t["context"] = ctx
+            raw_bases = spec.get("edit_bases")
+            edit_bases: dict[str, str] | None = (
+                {str(k): str(v) for k, v in raw_bases.items()}
+                if isinstance(raw_bases, dict)
+                else None
+            )
             rr = await self.run_round(
                 objective=objective,
                 tasks=spec_tasks,
@@ -436,6 +630,10 @@ class TeamOrchestrator:
                 runner=runner,
                 round_index=i,
                 round_count=len(rounds),
+                team_id=team_id,
+                requester=requester,
+                edit_bases=edit_bases,
+                edit_auditor=edit_auditor,
             )
             transcript.append(rr.summary_context)
             result_dicts.append(rr.to_dict())

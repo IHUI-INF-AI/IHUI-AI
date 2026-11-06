@@ -137,8 +137,10 @@ class TestConstants:
 
     def test_pillar_events_count(self):
         # 27 = 原 26 条 + D121 片一新增的 `subagent.handoff`(团队换手事件)。
+        # 29 = 27 + 2026-11-07 并行编辑消解 / 子代理能力越权拒绝两条 subagent 子类型
+        #      (`subagent.edit_conflict_resolution` / `subagent.capability_denied`)。
         # 这条断言是"事件族成员变更必须被显式复核"的计数锁:改数字必须同笔说明来源。
-        assert len(PILLAR_EVENTS) == 27
+        assert len(PILLAR_EVENTS) == 29
 
     def test_pillar_events_all_have_descriptions(self):
         for key, desc in PILLAR_EVENTS.items():
