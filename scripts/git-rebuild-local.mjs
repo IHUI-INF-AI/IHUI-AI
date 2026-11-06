@@ -143,19 +143,28 @@ function main() {
   // 2026-09-10 立:重建全程持有 git 写锁(根治多会话并发重建互相摧毁 .git 的事故链:
   // 会话 A 重建期间会话 B 的 git 命令撞上 .git 缺失 → B 也触发重建/清理 → 互删)。
   // 同一 unitId 可重入;锁被他人持有时快速失败,严禁绕过。
+  //
+  // 2026-11-07(DBG-85,判据语义写反 ⇒ 这条注释此前是空头承诺):
+  // `run(cmd, allowFail=true)` 成功返回 trim 后的 stdout(**可能是空串**)、失败返回 null;
+  // 而 `git-lock.mjs check` 的契约是 exit 0 = 无锁、exit 1 = 有锁。
+  // 原写法 `!== null` 只在"无锁"时为真 ⇒ **锁被别人持有时反而跳过整个取锁块、直接往下重建**,
+  // 正是它要防的那场事故。现改为:check 判 null(有锁)即 fail-fast,取到锁才继续。
   const lockUnit = 'git-rebuild-local'
   const lockScript = join(repoRoot, 'scripts', 'git-lock.mjs')
-  if (run(`node "${lockScript}" check`, true) !== null) {
-    // check exit 0 = 无锁,可安全获取
-    if (run(`node "${lockScript}" acquire --unit ${lockUnit} --timeout 5000`, true) === null) {
-      console.error('❌ 获取 git 写锁失败:另一会话/进程正在进行 git 写操作')
-      console.error('   请等待其完成后再试;严禁绕过锁强行重建(会互相删除对方的 .git)')
-      process.exit(1)
-    }
-    process.on('exit', () => {
-      run(`node "${lockScript}" release --unit ${lockUnit}`, true)
-    })
+  if (run(`node "${lockScript}" check`, true) === null) {
+    console.error('❌ git 写锁被其他会话/进程持有:此时重建会互相删除对方的 .git')
+    console.error('   请等待其完成后再试;严禁绕过锁强行重建')
+    process.exit(1)
   }
+  // 到这里 = check 退出 0 = 无锁,可安全获取
+  if (run(`node "${lockScript}" acquire --unit ${lockUnit} --timeout 5000`, true) === null) {
+    console.error('❌ 获取 git 写锁失败:另一会话/进程正在进行 git 写操作')
+    console.error('   请等待其完成后再试;严禁绕过锁强行重建(会互相删除对方的 .git)')
+    process.exit(1)
+  }
+  process.on('exit', () => {
+    run(`node "${lockScript}" release --unit ${lockUnit}`, true)
+  })
 
   const url = remoteUrl(repoRoot)
 
