@@ -18,7 +18,7 @@
  * - `options.tools = []` 必须显式传（实测：init 帧 tools=[] 且模型照常作答）。
  *   不传则默认挂 Agent/Bash/Edit/Write 等 18 个工具，上游模型可能在本机真的执行命令。
  * - cwd 必须是**干净空目录**：worker 会自动读取 cwd 下的 AGENTS.md / 项目上下文喂给上游
- *   （实测在 D:/IHUI-AI 触发 AGENTS_MD_SIZE_THRESHOLD_REACHED，96KB）。
+ *   （实测在仓库根触发 AGENTS_MD_SIZE_THRESHOLD_REACHED，96KB）。
  * - 只监听 127.0.0.1，并要求 X-Qoder-Bridge-Key 与启动时下发的随机 key 一致。
  *
  * 协议（OpenAI 兼容子集）：
@@ -52,6 +52,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // ───────────────────────────── 参数 ─────────────────────────────
 function arg(name, fallback) {
@@ -65,10 +66,12 @@ const CLEAN_CWD = arg('cwd', process.env.QODER_BRIDGE_CWD || '')
 const MAX_CONCURRENCY = Number(process.env.QODER_BRIDGE_MAX_CONCURRENCY || 4)
 const REQUEST_TIMEOUT_MS = Number(process.env.QODER_BRIDGE_TIMEOUT_MS || 180000)
 
-/** 候选安装根目录（env 优先） */
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/** 候选安装根目录（env 优先,其余为仓根内约定落点与常见安装位置） */
 const APP_DIR_CANDIDATES = [
   process.env.QODER_APP_DIR,
-  'D:/电脑软件/Qoder CN',
+  path.join(REPO_ROOT, '.DevEnv', 'tools', 'Qoder CN'),
   'C:/Program Files/Qoder CN',
   'C:/Program Files (x86)/Qoder CN',
 ].filter(Boolean)
