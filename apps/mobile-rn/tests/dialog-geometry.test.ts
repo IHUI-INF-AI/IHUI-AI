@@ -16,7 +16,6 @@
  * 接线扫描刻意不用复杂正则:逐个切出 style={...} 块再按字面量比对,避免转义写法漂移。
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -28,7 +27,9 @@ import {
   isValidWindowHeight,
 } from '../src/lib/dialog-geometry'
 
-const SRC_DIR = fileURLToPath(new URL('../src/', import.meta.url))
+// 不用 import.meta.url:jsdom 环境下它可能不是 file: 方案(fileURLToPath 直接抛);
+// vitest 的 cwd 恒为包根(pnpm --filter 与直接 vitest run 都是),用 cwd 更稳。
+const SRC_DIR = join(process.cwd(), 'src')
 const HOOK_RE =
   /dialogContentHeightStyle|useDialogHeightStyle|useDialogMaxHeightStyle|dialogMaxHeightStyle/
 
