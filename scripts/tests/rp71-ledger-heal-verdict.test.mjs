@@ -178,4 +178,65 @@ test('T8 变异自证:等价实现把契约B 失败臂改成恒返回 0 时,T6 �
     '变异只钉失败臂,成功臂仍与契约一致(变异是精确的)',
   )
 })
+
+// ── T9/T10/T11 有牙静态锁:只读源码文本,不跑真仓、不 import 会落盘的模块 ──
+
+test('T9 软退出码不回落:baseBefore 保住 dec 软设的 2,旧洗码形态不得复活', () => {
+  // 摘掉 baseBefore ⇒ 真实仓 dec 软设的 2 会被末尾 process.exit 洗成 0(RP-71 旧 bug 复发)。
+  const code = SRC('object-space-land.mjs')
+  assert.match(
+    code,
+    /const\s+baseBefore\s*=\s*Number\(process\.exitCode\)\s*\|\|\s*0/,
+    'T9 摘掉会红:必须先把 process.exitCode(含 dec 软设的 2)读进 baseBefore,否则末尾 process.exit 把软设值洗成 0',
+  )
+  assert.match(
+    code,
+    /landingExitWithHeal\(baseBefore,\s*ledgerHeal\)/,
+    'T9 摘掉会红:折算必须消费 baseBefore 而非硬编码 0,否则 dec 软设 2 永远喂不进最终退出码',
+  )
+  assert.doesNotMatch(
+    code,
+    /landingExitWithHeal\(0,\s*ledgerHeal\)/,
+    'T9 旧洗码形态 landingExitWithHeal(0, ledgerHeal) 复活 ⇒ 软退出码被抹平 ⇒ 必须红',
+  )
+})
+
+test('T10 形状锁不恒真复发:healBodySrc 在位,旧自引用锚点已死(配缺锚变异自证)', () => {
+  // 旧锚点 indexOf('function heal(commit)') 只命中形状锁自身字面量 ⇒ body 包含自己 ⇒ includes 恒真。
+  const code = SRC('check-plan-line-loss.mjs')
+  assert.match(
+    code,
+    /healBodySrc/,
+    'T10 摘掉会红:必须用 healBodySrc() 把真实 heal() 函数体截出再判定,否则形状锁把自身字面量算进 body',
+  )
+  assert.doesNotMatch(
+    code,
+    /indexOf\('function heal\(commit\)'\)/,
+    'T10 旧自引用锚点复活 ⇒ body 包含自己 ⇒ includes 恒真 ⇒ 形状锁永远过 ⇒ 必须红',
+  )
+  // 变异自证:在测试内把 healBodySrc 锚点抹掉构造缺锚源码,本锁正则必须失配 ⇒ 证明锁不是永远过。
+  const mutated = code.replace(/healBodySrc/g, 'MUTATED_NO_ANCHOR')
+  assert.doesNotMatch(mutated, /healBodySrc/, 'T10 变异自证:摘掉锚点后本锁失配 ⇒ 锁有牙、非恒真')
+})
+
+test('T11 夹具真绿不退化:SELFTEST_GUARD_JSON 清单写进两个夹具(配缺锚变异自证)', () => {
+  // 夹具缺判据面清单 ⇒ dec 恒 undetermined ⇒ 软设 2 ⇒ 5 正控假红。
+  const code = SRC('object-space-land.mjs')
+  assert.match(code, /SELFTEST_GUARD_JSON/, 'T11 摘掉会红:夹具判据面清单常量必须存在')
+  assert.match(code, /function stMakeRepo\(/, 'T11 摘掉会红:stMakeRepo 夹具函数必须在位')
+  assert.match(code, /function stMakeRestoreRepo\(/, 'T11 摘掉会红:stMakeRestoreRepo 夹具函数必须在位')
+  // writeFileSync 首个实参是 join(...),内含 ')',故用 [^;\n]* 限定在同一语句内跨过内层括号命中清单常量。
+  const writes = code.match(/writeFileSync\([^;\n]*SELFTEST_GUARD_JSON/g) || []
+  assert.ok(
+    writes.length >= 2,
+    `T11 摘掉会红:两个夹具函数体内必须各写一次清单,实得 ${writes.length} 次(<2 ⇒ dec 恒 undetermined ⇒ 5 正控假红)`,
+  )
+  // 变异自证:把清单写回抹掉后,本锁计数正则必须失配 ⇒ 证明锁不是永远过。
+  const mutated = code.replace(/writeFileSync\([^;\n]*SELFTEST_GUARD_JSON/g, 'writeFileSync(MUTATED_NO_GUARD')
+  assert.equal(
+    (mutated.match(/writeFileSync\([^;\n]*SELFTEST_GUARD_JSON/g) || []).length,
+    0,
+    'T11 变异自证:摘掉清单写回后计数归 0 ⇒ 本锁会红,非恒真',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

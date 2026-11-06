@@ -4060,10 +4060,25 @@ function selfTest() {
     )
   })
 
-  t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
+  // 取 heal() 函数体本身:锚点用「换行 + function heal(」正则命中真实顶层定义(它带第二形参),
+  // 截到其后最近的顶层 export / 顶层 function 为止。旧形状锁用失效字面量起切,全文只命中
+  // 用例自己 ⇒ body 把用例源码一并包进去,每条 includes 都命中自己、恒真(摘掉调用仍绿)。
+  // 单一实现供下面两条用例共用,免得两套锚点各自漂移。
+  const healBodySrc = () => {
     const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    const body = src.slice(src.indexOf('function heal(commit)'))
+    const healAt = src.search(/\nfunction heal\(/)
+    if (healAt <= 0) return ''
+    const afterHeal = src.slice(healAt + 1)
+    const ends = [afterHeal.search(/\nexport\s/), afterHeal.search(/\nfunction\s/)].filter((n) => n > 0)
+    const cut = ends.length ? Math.min(...ends) : -1
+    return cut > 0 ? src.slice(healAt, healAt + 1 + cut) : src.slice(healAt)
+  }
+
+  t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
+    const body = healBodySrc()
     return (
+      // 自证不恒真:切片里绝不许出现形状锁自身那行字面量 —— 一旦锚点又退回自引用,这里立刻红。
+      !body.includes("body.includes('healOutcomeExit(')") &&
       body.includes('declaredLedgerGate()') &&
       body.includes('rescueDecisionFromGate(gate, legs)') &&
       /if\s*\(\s*gate\.undetermined\s*&&\s*!rescue\.rescue\s*\)/.test(body) &&
@@ -4072,6 +4087,12 @@ function selfTest() {
       body.includes('healOutcomeExit(')
     )
   })
+
+  {
+    // 独立钉「heal 体内 healOutcomeExit( 至少 1 次」,把计数写进用例名:接线退化时日志直接显示 1→0。
+    const hits = (healBodySrc().match(/healOutcomeExit\(/g) || []).length
+    t(`形状锁计数:heal() 体内 healOutcomeExit( 调用数=${hits}(须≥1,摘掉接线即为 0)`, () => hits >= 1)
+  }
 
   let failed = 0
   for (const c of cases) {
@@ -4525,7 +4546,7 @@ function heal(commit, picks = new Map()) {
     }
   } catch (e) {
     console.error(`❌ [plan-line-loss] 恢复提交失败:${e?.message ?? e}`)
-    return 1
+    return finish(1)
   } finally {
     rmSync(idx, { force: true })
     rmSync(tmp, { force: true })
