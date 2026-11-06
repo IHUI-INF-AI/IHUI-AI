@@ -30,6 +30,8 @@ concurrency:
 jobs:
   build-api:
     runs-on: ubuntu-latest
+    # 2026-11-06:显式上限 —— 缺省 360 分钟会让卡死的 docker build 长期占机(冷缓存首建含依赖安装)。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # 2026-11-03:postinstall 新增 scripts/lib/patch-lint-staged-stdio.mjs 而镜像未 COPY,
@@ -54,6 +56,8 @@ jobs:
 
   build-web:
     runs-on: ubuntu-latest
+    # web 镜像含两次构建(build + build:static),留足冷缓存余量。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Check Dockerfile build context
@@ -71,6 +75,7 @@ jobs:
 
   build-ai-service:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3

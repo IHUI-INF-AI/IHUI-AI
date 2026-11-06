@@ -16,9 +16,17 @@ on:
 permissions:
   contents: write
 
+# 同一 tag 的发布互斥(2026-11-06):重复触发的 run 串行化,后到者等前一轮结束再判,
+# 避免两个 run 同时 `gh release create` 造成重复 Release / 半套资产。
+# 发布语义不得被打断,故 cancel-in-progress: false(与 release-desktop.yml 同形)。
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
