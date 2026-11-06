@@ -11,10 +11,13 @@
  *    对标 workbuddy-switch 桌面端的「每日保活」,差别在:① 这里是服务端集中做,
  *    不依赖任何人开着 GUI;② client-first 平台让位本机客户端(见 shouldDeferRefresh),
  *    不会把本机手里的票顶废。env RELAY_ACCOUNT_KEEPALIVE_DAYS 调窗口,0/off/false 整档关。
- * 0b. 永久保活档(2026-10-31 立):登记 `extraMetadata.keepAliveForever` 的号窗口默认 24h,
- *    且**只看客户端心跳不看 client-first**(心跳停 ⇒ 池接管续期);被失败计数摘除后由
- *    `reviveKeepAliveForeverAccounts` 退避 6h 自动解摘 —— 对「掉线就再也登不回来」的号,
- *    摘除不能是终点。详见 KEEPALIVE_FOREVER_KEY 一组常量处的立因注。
+ * 0b. 永久保活档(2026-10-31 立;2026-11-10 C 档改造):登记 `extraMetadata.keepAliveForever`
+ *    的号窗口默认 24h。原形态「只看客户端心跳、心跳一停即授权接管」被实测证伪 —— 回灌腿与
+ *    接管腿同 Worker 无先后保证,心跳陈旧 ≠ 客户端停了。现接管前必须由调用方当场再探一次
+ *    客户端(三态,经 sweepAccountPool 的 clientRunningProbe 传入):在跑/未判定 ⇒ 让位;
+ *    只有「明确没在跑 且 心跳已过 TTL」才接管。默认方向 = 多让(顶掉机主客户端不可逆)。
+ *    被失败计数摘除后由 `reviveKeepAliveForeverAccounts` 退避 6h 自动解摘 —— 对「掉线就再也
+ *    登不回来」的号,摘除不能是终点。详见 KEEPALIVE_FOREVER_KEY 一组常量处的立因注。
  * 1. refreshExpiring:access token 距过期 < 15 分钟且有 refreshToken → 调适配器刷新回写
  *    (对标 trae-cn-proxy-rs 的 15 分钟临期检测 + ExchangeToken 续期)
  * 2. sweepUnknown:healthStatus=unknown 的账号 → 适配器 checkHealth 定级 healthy/down
@@ -114,12 +117,15 @@ export const KEEPALIVE_FOREVER_KEY = 'keepAliveForever'
 /**
  * 客户端活跃心跳键:回灌腿(scripts/sync-trae-client-session.mjs → relay-trae-session-sync.ts)
  * 每轮在**探测到客户端进程在跑**时写入。scheduler 不探进程(那是机器侧事实,不该住服务层),
- * 只读这条心跳 —— 心跳在 = 客户端正在自己续期 = 池继续让位;心跳停 = 池接管。
+ * 只读这条心跳 —— 2026-11-10 C 档起它是接管判据的**第二道缓冲**(第一道 = 调用方传入的
+ * clientRunning 三态):探测明确「没在跑」时,心跳仍新鲜 ⇒ 继续让位;心跳陈旧 ⇒ 才接管。
  */
 export const CLIENT_ACTIVE_AT_KEY = 'clientActiveAt'
 /**
  * 心跳有效期(毫秒):回灌腿本身每 10 分钟一轮,给 3 倍余量。
- * 失效方向 = 心跳过期 ⇒ 池接管续期(宁可多刷一次,不可让号静默死)。
+ * 2026-11-10 语义收窄(C 档):心跳只是「第二道让位缓冲」——接管方向现在必须先过
+ * `clientRunning`(调用方当场探测的三态)这一闸;心跳陈旧只在**探测明确说没在跑**时
+ * 才与接管共同成立。失效方向由此翻成「多让」:量不到 = 按在跑处理 = 让位。
  */
 export const CLIENT_ACTIVE_TTL_MS = 30 * 60 * 1000
 /** 永久保活号的空闲窗口(小时):远窄于普通号的 7 天,保证 rt 会话在 upstream 眼里始终不闲置 */
@@ -170,17 +176,54 @@ export function keepaliveForeverIdleHours(env: NodeJS.ProcessEnv = process.env):
   return Number.isFinite(n) && n > 0 ? n : KEEPALIVE_FOREVER_DEFAULT_HOURS
 }
 
+/**
+ * 永久保活号的「本轮让位还是接管」唯一判据(2026-11-10 C 档,纯函数,调用方喂三态)。
+ *
+ * 立因(上一席现读 + 机主定案):原语义只看心跳 TTL,心跳一陈旧就授权接管 —— 而回灌腿
+ * (worker 每 10 分钟)与接管轮(同一 Worker concurrency:1)**没有先后保证**,
+ * 接管轮完全可能跑在心跳回灌之前,把机主正在用的 Qoder 顶下线,且这条号掉线后要
+ * 手机验证码才登得回来(不可逆)。修法 = 接管前必须由调用方当场再探一次客户端:
+ *  - `clientRunning === true`  ⇒ 让位(即使心跳陈旧);
+ *  - `clientRunning === null/undefined`(探测未判定/未提供)⇒ **按在跑处理 ⇒ 让位**;
+ *    这一枚的默认方向必须是「多让」:多刷一次 = 机主不可逆掉线,多让一次 = rt 晚续
+ *    最多一个 TTL(§0.3 反向应用:量不到绝不冒「判过没在跑」);
+ *  - `clientRunning === false` ⇒ 才落到心跳维:心跳仍新鲜 ⇒ 让位(客户端刚停,票面
+ *    可能还在它手里),心跳陈旧/没有 ⇒ 接管(此时两条证据同向指「客户端已不在续期」)。
+ *
+ * scheduler 本体不 spawn 进程探测 —— 副作用留在调用方(worker / --once 承载腿 / --explain),
+ * 判据留在这里唯一一份(§0.6)。
+ */
+export type KeepAliveForeverVerdict = {
+  defer: boolean
+  reason: 'client-running-or-unjudged' | 'heartbeat-fresh' | 'client-stopped-and-heartbeat-stale'
+}
+
+export function keepAliveForeverVerdictOf(
+  row: { extraMetadata?: unknown },
+  now: Date,
+  clientRunning: boolean | null | undefined,
+): KeepAliveForeverVerdict {
+  if (clientRunning !== false) {
+    return { defer: true, reason: 'client-running-or-unjudged' }
+  }
+  const activeAt = clientActiveAtOf(row)
+  if (activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS) {
+    return { defer: true, reason: 'heartbeat-fresh' }
+  }
+  return { defer: false, reason: 'client-stopped-and-heartbeat-stale' }
+}
+
 /** client-first 且票尚未过期 ⇒ 本轮不许刷(刷了就是和客户端抢轮换);票已过期 ⇒ 兜底放行。 */
 export function shouldDeferRefresh(
   row: { providerCode: string; tokenExpiresAt: Date | null; extraMetadata?: unknown },
   now: Date,
   env: NodeJS.ProcessEnv = process.env,
+  clientRunning?: boolean | null,
 ): boolean {
   if (keepAliveForeverOf(row)) {
-    // 永久保活号不看 client-first 开关,只看「客户端此刻是不是正在续期」。
-    // 顶掉正在干活的客户端 = 机主要重登 = 而他登不回来,所以只在心跳停了以后才接管。
-    const activeAt = clientActiveAtOf(row)
-    return activeAt !== null && now.getTime() - activeAt.getTime() < CLIENT_ACTIVE_TTL_MS
+    // 永久保活号不看 client-first 开关,看「调用方当场探到的客户端三态 + 心跳」(C 档,
+    // 判据单源 = keepAliveForeverVerdictOf;缺省不传 = 未判定 = 让位,绝不因量不到而接管)。
+    return keepAliveForeverVerdictOf(row, now, clientRunning).defer
   }
   if (renewalPolicyOf(row.providerCode, env) !== 'client-first') return false
   return row.tokenExpiresAt !== null && row.tokenExpiresAt.getTime() > now.getTime()
@@ -370,6 +413,12 @@ export interface AccountPoolSweepResult {
    * null = 未命中。这是号池「再过几天整批无法续票」的提前可见信号。
    */
   refreshExpiryWarn: string | null
+  /**
+   * 永久保活让位计数(2026-11-10 C 档):本轮有多少枚 keepAliveForever 号因「客户端在跑/
+   * 未判定」或「心跳仍新鲜」而让位未刷。让位不得静默(§0.10)——总数进本读数面,
+   * 逐枚原因进调度日志(两分支同键集 + 全标量契约由 relay-account-pool-sweep-result.test.ts 钉)。
+   */
+  foreverDeferred: number
 }
 
 function ctxOf(row: AiRelayAccountPool, credentials: AccountCredentials): AdapterAccountContext {
@@ -741,8 +790,19 @@ export async function refreshOne(
 /**
  * 巡检入口(多实例安全):先抢分布式锁(SET NX PX),锁被其他实例持有 ⇒ 本轮跳过。
  * 锁在 finally 释放;进程崩溃未释放时靠租约 TTL(10 分钟)自愈。
+ *
+ * `clientRunningProbe`(2026-11-10 C 档):调用方在**本轮开始时**当场探测到的
+ * 「各平台客户端此刻在不在跑」三态(provider ⇒ true/false/null)。scheduler 自己不
+ * spawn 进程(判据留在本层、副作用留在调用方);不传/取不到 ⇒ null ⇒ 永久保活号按
+ * 「在跑」让位 —— 失效方向是「多让」,不是「多刷」。
  */
-export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
+export type ClientRunningProbe = (
+  providerCode: string,
+) => boolean | null | undefined | Promise<boolean | null | undefined>
+
+export async function sweepAccountPool(
+  clientRunningProbe?: ClientRunningProbe,
+): Promise<AccountPoolSweepResult> {
   const lock = await tryAcquireSharedLock(SWEEP_LOCK_NAME, SWEEP_LOCK_TTL_MS)
   if (!lock) {
     logger.info('[relay-account-pool] 巡检分布式锁被其他实例持有,本轮跳过')
@@ -756,16 +816,19 @@ export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
       skipped: true,
       refreshExpiresAt: null,
       refreshExpiryWarn: null,
+      foreverDeferred: 0,
     }
   }
   try {
-    return await runSweepOnce()
+    return await runSweepOnce(clientRunningProbe)
   } finally {
     await lock.release().catch(() => {})
   }
 }
 
-async function runSweepOnce(): Promise<AccountPoolSweepResult> {
+async function runSweepOnce(
+  clientRunningProbe?: ClientRunningProbe,
+): Promise<AccountPoolSweepResult> {
   const out: AccountPoolSweepResult = {
     refreshed: 0,
     refreshFailed: 0,
@@ -776,11 +839,38 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     skipped: false,
     refreshExpiresAt: null,
     refreshExpiryWarn: null,
+    foreverDeferred: 0,
   }
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
   // 出口选取台账(仅日志观测;不新增 sweep 产出键,保持全标量契约)
   const egress: EgressProxyTally = { proxied: 0, direct: 0 }
+
+  // 客户端三态逐轮逐平台缓存:接管前"当场再探测一次"由调用方完成,本层只消费其结果,
+  // 同轮多枚同号不重复问(探测本身可能是同步 spawn,值也要逐字一致)。
+  const probeCache = new Map<string, boolean | null>()
+  async function clientRunningFor(providerCode: string): Promise<boolean | null> {
+    if (!clientRunningProbe) return null // 未提供 = 未判定 = 按在跑让位(方向见 verdict)
+    if (probeCache.has(providerCode)) return probeCache.get(providerCode) ?? null
+    let value: boolean | null = null
+    try {
+      value = (await clientRunningProbe(providerCode)) ?? null
+    } catch {
+      // 探测炸 ⇒ 未判定,按在跑处理;绝不因异常冒「没在跑」授权接管
+      value = null
+    }
+    probeCache.set(providerCode, value)
+    return value
+  }
+
+  /** 本轮对一枚号的让位判定:永久保活走 C 档三态判据,普通 client-first 走原票面语义。 */
+  async function deferOfRow(row: AiRelayAccountPool): Promise<{ defer: boolean; reason: string }> {
+    if (keepAliveForeverOf(row)) {
+      const verdict = keepAliveForeverVerdictOf(row, now, await clientRunningFor(row.providerCode))
+      return { defer: verdict.defer, reason: verdict.reason }
+    }
+    return { defer: shouldDeferRefresh(row, now), reason: 'client-first-token-not-expired' }
+  }
 
   // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
   await maybePurgeUsageLedger()
@@ -792,11 +882,22 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     .where(expiringRefreshWhere(deadline))
     .limit(BATCH_LIMIT)
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
-    if (shouldDeferRefresh(row, now)) {
+    const verdict = await deferOfRow(row)
+    if (verdict.defer) {
       // client-first:票还没过期,刷新 = 和本机客户端抢轮换(会把客户端顶下线)。
       // 客户端新票由 scripts/sync-trae-client-session.mjs 每 10 分钟回灌;
       // 票一旦真过期(客户端已不在续期)这里不再拦,池兜底刷。
+      // 永久保活号走 C 档三态判据(2026-11-10):让位必须留声(计数 + 逐枚日志),不许静默。
       out.refreshSkipped++
+      if (keepAliveForeverOf(row)) {
+        out.foreverDeferred++
+        logger.info('[relay-account-pool] 永久保活号本轮让位客户端(未接管)', {
+          accountId: row.id,
+          providerCode: row.providerCode,
+          uid: row.uid,
+          reason: verdict.reason,
+        })
+      }
       return
     }
     const adapter = getRelayAdapter(row.providerCode)
@@ -851,8 +952,18 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       })
     }
     await runWithConcurrency(idles, SWEEP_CONCURRENCY, async (row) => {
-      if (shouldDeferRefresh(row, now)) {
+      const verdict = await deferOfRow(row)
+      if (verdict.defer) {
         out.refreshSkipped++
+        if (keepAliveForeverOf(row)) {
+          out.foreverDeferred++
+          logger.info('[relay-account-pool] 永久保活号空闲保活轮让位客户端(未接管)', {
+            accountId: row.id,
+            providerCode: row.providerCode,
+            uid: row.uid,
+            reason: verdict.reason,
+          })
+        }
         return
       }
       const adapter = getRelayAdapter(row.providerCode)
@@ -924,7 +1035,20 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const downs = await dbRead.select().from(aiRelayAccountPool).where(downRecoveryWhere()).limit(10)
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
-    if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
+    const verdict = await deferOfRow(row)
+    if (verdict.defer) {
+      // 同上:票未过期不抢客户端的轮换权;永久保活号让位同样要留声(2026-11-10 C 档)
+      if (keepAliveForeverOf(row)) {
+        out.foreverDeferred++
+        logger.info('[relay-account-pool] 永久保活号 down 恢复轮让位客户端(未接管)', {
+          accountId: row.id,
+          providerCode: row.providerCode,
+          uid: row.uid,
+          reason: verdict.reason,
+        })
+      }
+      continue
+    }
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row, egress)) out.healthRecovered++
