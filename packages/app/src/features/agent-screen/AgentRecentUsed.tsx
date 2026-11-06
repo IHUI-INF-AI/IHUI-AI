@@ -12,28 +12,11 @@
 import { useMemo } from 'react'
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import type { AgentRecentUsedProps } from '@ihui/types'
+
 import { getTokens, type AppThemeMode } from '../../theme/tokens'
 
-export interface AgentHomeItem {
-  id?: string
-  name?: string
-  avatar?: string
-  type?: string | number
-  source?: string
-  /** 原 Uniapp 字段别名(缺失时回退 name/avatar/id) */
-  agentAvatar?: string
-  agentName?: string
-  agentId?: string
-}
-
-export interface AgentRecentUsedProps {
-  items: AgentHomeItem[]
-  title: string
-  onItemClick: (item: AgentHomeItem, index: number) => void
-  colorScheme: AppThemeMode
-  /** 无头像时的兜底图;两端都显式传,无兜底传 null */
-  defaultAvatar: string | null
-}
+export type { AgentHomeItem, AgentRecentUsedProps } from '@ihui/types'
 
 export function AgentRecentUsed({
   items,
