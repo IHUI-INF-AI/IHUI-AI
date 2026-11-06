@@ -93,7 +93,15 @@ def _get_redis() -> Any:
             return None
         # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
         # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-        client = redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
+        # socket_timeout 必须显式设置:只设 connect_timeout 时,连接建立后服务端
+        # 不返回(HGETALL/HSET 挂起)会让同步调用无限期阻塞(同 agent_runtime)。
+        client = redis.from_url(
+            url,
+            decode_responses=True,
+            protocol=2,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
         client.ping()
         _redis_client = client
         return _redis_client

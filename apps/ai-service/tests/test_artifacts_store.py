@@ -559,6 +559,30 @@ class TestArtifactsStoreRedis:
 # -----------------------------------------------------------------------------
 
 
+def test_sync_redis_client_sets_socket_timeout(monkeypatch):
+    """连接建立后的读写同样要有上限:只设 connect_timeout 时 HGETALL/HSET 可无限挂起。"""
+    import redis as redis_mod
+
+    from app.core.config import settings
+
+    captured: dict[str, object] = {}
+
+    class _Client:
+        def ping(self) -> bool:
+            return True
+
+    def _from_url(_url: str, **kwargs: object) -> _Client:
+        captured.update(kwargs)
+        return _Client()
+
+    monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(redis_mod, "from_url", _from_url)
+
+    assert artifacts_store._get_redis() is not None
+    assert captured.get("socket_connect_timeout") == 2
+    assert captured.get("socket_timeout") == 2
+
+
 class TestArtifactsStoreDegradation:
     def test_stub_mode_when_redis_url_empty(self, monkeypatch):
         """settings.redis_url 为空 → _use_redis=False(内存模式)。"""
