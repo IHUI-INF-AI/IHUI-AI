@@ -120,6 +120,17 @@ async def _write_file(path: str, content: str, **extra) -> dict:
 
 
 class TestWriteFileConflictGate:
+    def test_unreadable_existing_file_is_not_overwritten(self, tmp_path, monkeypatch):
+        target = tmp_path / "keep.txt"
+        target.write_text("keep", encoding="utf-8")
+        monkeypatch.setattr(
+            mcp_server, "_classify_existing_file", lambda _path: ("unread", None)
+        )
+        r = asyncio.run(_write_file(str(target), "gone"))
+        assert r["ok"] is False
+        assert r["errorCode"] == "UNREADABLE"
+        assert target.read_text(encoding="utf-8") == "keep"
+
     def test_new_file_no_baseline_passes(self, tmp_path):
         target = tmp_path / "new.txt"
         r = asyncio.run(_write_file(str(target), "hello"))
