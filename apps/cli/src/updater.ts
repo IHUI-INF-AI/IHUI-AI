@@ -147,7 +147,7 @@ function cacheReadCode(error: unknown): string {
   return 'unknown';
 }
 
-/** 读原始 JSON(不做形状校验,合并写回时要保住另一方的键);损坏/不存在 ⇒ null。读失败不得当成空。 */
+/** 读原始 JSON(不做形状校验,合并写回时要保住另一方的键)。空文件或不存在 ⇒ null。非空损坏必须抛,读失败不得当成空。 */
 function readRawCache(cacheFile: string): Record<string, unknown> | null {
   let text: string;
   try {
@@ -157,12 +157,17 @@ function readRawCache(cacheFile: string): Record<string, unknown> | null {
     if (code === 'ENOENT' || code === 'ENOTDIR') return null;
     throw new Error(`更新缓存读不到,不能把它覆盖成新结论 (${code})`);
   }
+  if (text.trim() === '') return null;
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(text);
-    return isRecord(parsed) ? parsed : null;
+    parsed = JSON.parse(text);
   } catch {
-    return null;
+    throw new Error('更新缓存读不到,不能把它覆盖成新结论 (corrupt)');
   }
+  if (!isRecord(parsed)) {
+    throw new Error('更新缓存读不到,不能把它覆盖成新结论 (corrupt)');
+  }
+  return parsed;
 }
 
 /** 合并写回:只覆盖 patch 里点名的键,其余键(另一方写的结论)原样保留。 */

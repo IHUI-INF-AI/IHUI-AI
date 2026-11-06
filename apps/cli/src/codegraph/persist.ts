@@ -90,7 +90,8 @@ export async function saveCache(
 
 /**
  * 从缓存文件加载索引。
- * 文件不存在 / 解析失败 / magic 不符 / version 不符 → 返回 undefined。
+ * 文件不存在 / magic 不符 / version 不符 → 返回 undefined。
+ * 解析失败或根不是对象 → 抛错,不能当成没有再写成新的。
  * 权限等读不到 → 抛错,调用方不得据此新建一份再覆盖。
  */
 export async function loadCache(
@@ -111,7 +112,9 @@ export async function loadCache(
     throw error
   }
   const parsed = tryParseJson(text)
-  if (!isRecord(parsed)) return undefined
+  if (!isRecord(parsed)) {
+    throw new Error('代码图缓存读不到,不能把它当成没有再写成新的 (corrupt)')
+  }
   const data = parsed as unknown as PersistedGraph
 
   // 校验 magic

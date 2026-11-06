@@ -97,6 +97,10 @@ describe('开发者空间屏 i18n 词包:devSpace.* 与 developerInfo.* 五语�
       'faqHeading',
       'contactHeading',
       'contactDesc',
+      // 会员卡状态/入口三枚:端内屏真消费(src/screens/DeveloperScreen.tsx:170,173),不是孤儿键
+      'opened',
+      'notOpened',
+      'enterPlaza',
     ])
     const infoLeaves = [
       'title',

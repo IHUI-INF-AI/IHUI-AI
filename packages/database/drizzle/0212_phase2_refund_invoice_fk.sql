@@ -17,11 +17,14 @@ DO $ot_conv$ BEGIN
       AND data_type IN ('character varying', 'character', 'text')
   ) THEN
     ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DATA TYPE integer USING
-      CASE "order_type"
-        WHEN 'course' THEN 7
-        WHEN 'card' THEN 8
-        -- BUG-86: 只有纯数字串能安全转 integer；空串/非数字枚举(gift、recharge 等)会让
-        -- CAST 直接抛 22P02，COALESCE 捕获不到异常，整段迁移中断。先用正则判形再转换。
+      -- 必须用 searched CASE(CASE WHEN 条件):简单 CASE(CASE 列 WHEN 表达式)会把
+      -- `列 ~ 正则` 改写成 `列 = (boolean)`,规划期即 42883
+      -- "operator does not exist: character varying = boolean",整条迁移链中断。
+      -- 只有纯数字串能安全转 integer;空串/非数字枚举(gift、recharge 等)会让
+      -- CAST 直接抛 22P02,COALESCE 捕获不到异常,故先用正则判形再转换。
+      CASE
+        WHEN "order_type" = 'course' THEN 7
+        WHEN "order_type" = 'card' THEN 8
         WHEN "order_type" ~ '^[0-9]+$' THEN "order_type"::integer
         ELSE 0
       END;
@@ -30,12 +33,8 @@ END $ot_conv$;--> statement-breakpoint
 ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DEFAULT 0;--> statement-breakpoint
 
 -- 3. edu_refunds: 添加新 FK（→ orders, ON DELETE cascade）
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'edu_refunds_order_id_orders_id_fk') THEN
-    ALTER TABLE "edu_refunds" ADD CONSTRAINT "edu_refunds_order_id_orders_id_fk"
-      FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
-  END IF;
-END $$;--> statement-breakpoint
+ALTER TABLE "edu_refunds" ADD CONSTRAINT "edu_refunds_order_id_orders_id_fk"
+  FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 
 -- 4. edu_invoice_applications: 删除旧 FK（→ edu_orders），改为新 FK（→ orders）
 ALTER TABLE "edu_invoice_applications" DROP CONSTRAINT IF EXISTS "edu_invoice_applications_order_id_edu_orders_id_fk";--> statement-breakpoint

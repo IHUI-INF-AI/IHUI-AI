@@ -178,6 +178,23 @@ describe('D22046 /undo 撤销前的检查点探测(集成)', () => {
     expect(fs.statSync(blocked).isDirectory()).toBe(true);
   });
 
+  it('损坏的撤销历史不会被记成只剩这一次改动', () => {
+    const file = indexFileOf(SESSION);
+    const body = '{"undoStack": [';
+    writeIndex(SESSION, body);
+    const mgr = new UndoRedoManager(ws);
+    expect(() =>
+      mgr.recordChange(SESSION, {
+        toolName: 'edit_file',
+        filePath: 'a.txt',
+        beforeContent: 'a1',
+        afterContent: 'a2',
+        timestamp: 1,
+      }),
+    ).toThrow(/不能把它覆盖成新记录 \(corrupt\)/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body);
+  });
+
   it('撤销目标读不到时不覆盖也不删除', async () => {
     const file = path.join(ws, 'keep.txt');
     fs.writeFileSync(file, 'keep\n', 'utf-8');

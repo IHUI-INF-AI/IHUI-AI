@@ -988,6 +988,8 @@ export interface DevEnterCoverScreenProps {
 export interface KnowledgePlanetScreenProps {
   t: TFunction
   items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
+  /** 星球资讯头卡(GET /knowledge-planet/info);缺省即不渲染该轴 */
+  planet?: { name: string; memberCount: number; description: string } | null
   loading: boolean
   refreshing: boolean
   error: string
