@@ -351,7 +351,7 @@ class PublishScheduler:
                 # 全部兄弟协程结束才返回 ⇒ finally 里 pop _running 时不再有"仍在后台
                 # 发布"的兄弟协程(旧写法异常立即上抛、兄弟未取消 ⇒ 用户可立刻重提,重复发布)。
                 gathered = await asyncio.gather(*coros, return_exceptions=True)
-                for target, item in zip(targets, gathered):
+                for target, item in zip(targets, gathered, strict=False):
                     if isinstance(item, BaseException):
                         # 只把异常平台补成失败项,已成功平台的结果原样保留,不整体抹空。
                         results.append(PublishResult(
