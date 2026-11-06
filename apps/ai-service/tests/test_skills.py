@@ -4,6 +4,8 @@
 
 """skills.py 单元测试:6 个预置 skill + SkillRegistry。"""
 
+import os
+
 import pytest
 
 from app.services.skills import _BUILTIN_SKILLS, Skill, SkillRegistry, skill_registry
@@ -593,6 +595,31 @@ class TestLoadAutoSkills:
         assert r.exists("code-review")
         assert not r.exists("empty-skill")
 
+    def test_unreadable_auto_skill_is_not_dropped(self, tmp_path, monkeypatch):
+        skill_md = (
+            "---\n"
+            "name: keep-skill\n"
+            "description: keep\n"
+            "---\n"
+            "keep body"
+        )
+        target = tmp_path / "keep.md"
+        target.write_text(skill_md, encoding="utf-8")
+        monkeypatch.setattr(SkillRegistry, "_auto_dir", staticmethod(lambda: str(tmp_path)))
+        registry = SkillRegistry()
+        assert registry.exists("keep-skill")
+        real_stat = os.stat
+
+        def deny(path, *args, **kwargs):
+            if os.path.basename(str(path)) == "keep.md":
+                raise PermissionError(13, "denied", path)
+            return real_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(os, "stat", deny)
+        registry.reload_auto()
+        assert registry.exists("keep-skill")
+        assert target.read_text(encoding="utf-8").startswith("---")
+
     def test_load_auto_loads_md_files(self, tmp_path, monkeypatch):
         skill_md = (
             "---\n"
@@ -659,6 +686,34 @@ class TestLoadAutoSkills:
         r.reload_auto()
         assert r.exists("new-skill")
         assert r.get("new-skill").description == "newly added"
+
+    def test_unreadable_scan_root_does_not_drop_skills(self, tmp_path, monkeypatch):
+        """扫描根列不出来时,已登记技能还在,不能当成文件已删除。"""
+        import os
+
+        skill_md = (
+            "---\n"
+            "name: keep-skill\n"
+            "description: stays\n"
+            "---\n"
+            "keep"
+        )
+        target = tmp_path / "keep.md"
+        target.write_text(skill_md, encoding="utf-8")
+        monkeypatch.setattr(SkillRegistry, "_auto_dir", staticmethod(lambda: str(tmp_path)))
+        registry = SkillRegistry()
+        assert registry.exists("keep-skill")
+        real_listdir = os.listdir
+
+        def deny(path: str) -> list[str]:
+            if os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(tmp_path)):
+                raise PermissionError(13, "denied", str(path))
+            return real_listdir(path)
+
+        monkeypatch.setattr(os, "listdir", deny)
+        registry.reload_auto()
+        assert registry.exists("keep-skill")
+        assert target.read_text(encoding="utf-8") == skill_md
 
 
 # ------------------------------------------------------------

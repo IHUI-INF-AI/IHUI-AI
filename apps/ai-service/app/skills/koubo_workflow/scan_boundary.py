@@ -19,6 +19,7 @@
 import json
 import os
 import re
+import stat
 import sys
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # skills/
@@ -44,9 +45,15 @@ def add(where: str, detail: str) -> None:
     issues.append(f"[{where}] {detail}")
 
 def scan_tree(root: str, side: str) -> int:
-    """扫描一棵树。返回列失败的目录数。目录不存在返回 0。"""
-    if not os.path.isdir(root):
+    """扫描一棵树。返回列失败的目录数。目录确实不存在返回 0。"""
+    try:
+        root_stat = os.stat(root)
+    except FileNotFoundError:
         return 0
+    except OSError:
+        return 1
+    if not stat.S_ISDIR(root_stat.st_mode):
+        return 1
     unread = 0
 
     def _on_walk_error(err: OSError) -> None:

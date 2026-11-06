@@ -35,7 +35,7 @@
  * 停机:stopOpsWatchReaderScheduler 进 shutdown syncStopPhase 清单。
  */
 import cron, { type ScheduledTask } from 'node-cron'
-import { existsSync, readdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { logger } from '../utils/logger.js'
@@ -83,6 +83,12 @@ export interface DedupRecord {
   alerted: boolean
 }
 
+function nodeErrorCode(err: unknown): string | undefined {
+  if (!err || typeof err !== 'object' || !('code' in err)) return undefined
+  const code = (err as { code: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
+
 export class OpsWatchDedupStore {
   private mem = new Map<string, DedupRecord>()
   private loaded = false
@@ -96,18 +102,36 @@ export class OpsWatchDedupStore {
 
   private ensureLoaded(): void {
     if (this.loaded) return
-    this.loaded = true
+    let raw: string
     try {
-      if (existsSync(this.file)) {
-        const obj = JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, DedupRecord>
-        for (const [k, v] of Object.entries(obj)) this.mem.set(k, v)
-      }
+      raw = readFileSync(this.file, 'utf8')
     } catch (e) {
-      logger.warn('[ops-watch] 去重文件读取失败,从空状态启动(本会话内仍内存去重)', {
+      const code = nodeErrorCode(e)
+      if (code === 'ENOENT' || code === 'ENOTDIR') {
+        this.loaded = true
+        return
+      }
+      logger.warn('[ops-watch] 去重文件读取失败,拒绝按空记录覆盖', {
         file: this.file,
         err: e instanceof Error ? e.message : String(e),
       })
+      throw new Error(`去重记录读不到,不能按空记录覆盖 (${code ?? 'unknown'})`)
     }
+    let obj: unknown
+    try {
+      obj = JSON.parse(raw) as unknown
+    } catch (e) {
+      logger.warn('[ops-watch] 去重文件读取失败,拒绝按空记录覆盖', {
+        file: this.file,
+        err: e instanceof Error ? e.message : String(e),
+      })
+      throw new Error('去重记录读不到,不能按空记录覆盖 (parse)')
+    }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      throw new Error('去重记录读不到,不能按空记录覆盖 (parse)')
+    }
+    for (const [k, v] of Object.entries(obj as Record<string, DedupRecord>)) this.mem.set(k, v)
+    this.loaded = true
   }
 
   private persist(): void {
@@ -147,6 +171,7 @@ export class OpsWatchDedupStore {
   }
 
   clear(): void {
+    this.ensureLoaded()
     this.mem.clear()
     this.persist()
   }
@@ -175,12 +200,31 @@ function pick(o: unknown, keys: string[]): string | null {
 const cap = (v: string | null, n = 90): string =>
   v === null ? '(未记)' : v.replace(/[\r\n]+/g, ' ').slice(0, n)
 
+function unreadDirFinding(dir: string, why: string): WatchFinding {
+  return {
+    key: `undelivered-dir:${dir}`,
+    title: '未送达标记目录读不到',
+    identity: 'undelivered-dir-unreadable',
+    detail: `${dir}: ${why}(未判定,不读成"无未送达")`,
+    severity: 'warning',
+  }
+}
+
 /**
  * 扫一个目录下的 UNDELIVERED 标记。目录不存在 ⇒ 空(开发机/非本机安静);
  * JSON 坏 ⇒ undetermined 口径 finding(不静默、不洗成通过)。
  */
-export function scanUndeliveredDir(dir: string): WatchFinding[] {
-  if (!existsSync(dir)) return []
+export function scanUndeliveredDir(
+  dir: string,
+  stat: (target: string) => ReturnType<typeof statSync> = statSync,
+): WatchFinding[] {
+  try {
+    if (!stat(dir).isDirectory()) return [unreadDirFinding(dir, '不是目录')]
+  } catch (e) {
+    const code = nodeErrorCode(e)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return []
+    return [unreadDirFinding(dir, code ?? 'unknown')]
+  }
   let files: string[]
   try {
     files = readdirSync(dir).filter((n) => UNDELIVERED_RE.test(n))
