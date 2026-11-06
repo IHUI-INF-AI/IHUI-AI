@@ -487,6 +487,11 @@
       "miniapp": "pages/exam/answer"
     },
     {
+      "shared": "packages/app/src/features/exam-intro/ExamIntroScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamIntroScreen.tsx",
+      "miniapp": "pages/exam/detail"
+    },
+    {
       "shared": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ExamResultScreen.tsx",
       "miniapp": "pages/exam/result"
@@ -1010,6 +1015,11 @@
       "shared": "packages/app/src/features/share/ShareScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ShareScreen.tsx",
       "miniapp": "pages/share/index"
+    },
+    {
+      "shared": "packages/app/src/features/share-landing/ShareLandingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ShareLandingScreen.tsx",
+      "miniapp": "pkg-content/share/creation"
     },
     {
       "shared": "packages/app/src/features/sign-up/SignUpScreen.tsx",
