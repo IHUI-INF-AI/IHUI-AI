@@ -17,6 +17,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config import settings
+
+
+@pytest.fixture(autouse=True)
+def _internal_secret_compat_mode(monkeypatch):
+    """X-Internal-Secret 族(2026-11-06):存量用例以"只带旧密钥"为夹具,测试面统一跑
+    显式 dual 兼容档;默认 ticket 档的拒绝行为由 test_internal_secret_auth.py 覆盖。"""
+    monkeypatch.setattr(settings, "internal_secret_auth_mode", "dual")
+
 # ---------------------------------------------------------------------------
 # 2026-09-20 xdist loadscope 收尾竞态守卫(防 INTERNALERROR 中止全量跑)。
 #
