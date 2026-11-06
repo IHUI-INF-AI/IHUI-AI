@@ -178,6 +178,13 @@ def test_unreadable_store_is_not_overwritten(store_path, monkeypatch):
     assert store_path.read_bytes() == original
 
 
+def test_corrupt_market_is_not_overwritten(store_path):
+    body = "{not json"
+    store_path.write_text(body, encoding="utf-8")
+    assert cms.set_enabled("other", False) is None
+    assert store_path.read_text(encoding="utf-8") == body
+
+
 # =============================================================================
 # 列表 / 详情端点
 # =============================================================================
