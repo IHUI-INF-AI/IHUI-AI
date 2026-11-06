@@ -33,6 +33,38 @@ try {
 } catch { $apiDetail = "err=$_" }
 
 # 3) llm 网关(需 Bearer,用 admin 探活;密码经环境变量 IHUI_ADMIN_PASSWORD 注入)
+#
+# 判据不再看 HTTP 码:该端点即使所有 provider 都 unreachable/invalid_key 也照样
+# 返回 200(信封错误是 HTTP 200 + 业务字段),旧写法 `StatusCode 2xx ⇒ PASS` 会把
+# 「provider 全挂」判成健康。现在必须读信封:
+#   code === 0
+#   summary.total > 0 且 summary.ok > 0
+#   至少有一个 provider 自身可用:status=ok 且 is_in_cooldown=false 且 consecutive_failures=0
+# 三者任一不成立即判红;冷却/连续失败/可用数都会写进 detail,便于现读。
+function Get-LlmProvidersHealthVerdict([object]$envelope) {
+    $code = if ($envelope) { $envelope.code } else { $null }
+    $data = if ($envelope) { $envelope.data } else { $null }
+    $summary = if ($data) { $data.summary } else { $null }
+    if ($null -eq $summary) { return @{ Ok = $false; Detail = 'envelope-missing-summary' } }
+    $providers = @($data.providers)
+    $usable = @($providers | Where-Object {
+        $_.status -eq 'ok' -and $_.is_in_cooldown -ne $true -and [int]$_.consecutive_failures -eq 0
+    })
+    $cool = @($providers | Where-Object { $_.is_in_cooldown -eq $true })
+    $maxFail = 0
+    foreach ($p in $providers) {
+        $n = 0
+        try { $n = [int]$p.consecutive_failures } catch { $n = 0 }
+        if ($n -gt $maxFail) { $maxFail = $n }
+    }
+    $okCount = 0
+    try { $okCount = [int]$summary.ok } catch { $okCount = 0 }
+    $total = 0
+    try { $total = [int]$summary.total } catch { $total = 0 }
+    $ok = ($code -eq 0 -and $total -gt 0 -and $okCount -gt 0 -and $usable.Count -gt 0)
+    return @{ Ok = $ok; Detail = "code=$code total=$total ok=$okCount usable=$($usable.Count) cooldown=$($cool.Count) max_fail=$maxFail" }
+}
+
 $llmOk = $false; $llmDetail = ''
 try {
     if (-not $env:IHUI_ADMIN_PASSWORD) { throw 'missing IHUI_ADMIN_PASSWORD' }
@@ -41,8 +73,10 @@ try {
     $tok = $lg.data.accessToken
     if ($tok) {
         $rr = Invoke-WebRequest -Uri "$Base/api/llm/providers/health" -Headers @{ Authorization = "Bearer $tok" } -TimeoutSec 20 -UseBasicParsing -ErrorAction Stop
-        $llmOk = ($rr.StatusCode -ge 200 -and $rr.StatusCode -lt 400)
-        $llmDetail = "status=$($rr.StatusCode)"
+        $envelope = $rr.Content | ConvertFrom-Json -ErrorAction Stop
+        $verdict = Get-LlmProvidersHealthVerdict $envelope
+        $llmOk = $verdict.Ok
+        $llmDetail = "http=$($rr.StatusCode) $($verdict.Detail)"
     } else { $llmDetail = 'login-no-token' }
 } catch { $llmDetail = "err=$_" }
 
