@@ -48,8 +48,13 @@ const ledgerRows = () =>
     .filter(Boolean)
     .map((x) => JSON.parse(x))
 
-test('B1 词表不变:VERDICT_KINDS 仍三档,侧车没有偷偷新增第四档', () => {
-  assert.deepEqual([...VERDICT_KINDS].sort(), ['generated', 'missing', 'not-applicable'])
+test('B1 词表锁:VERDICT_KINDS 四档(declared-object-mismatch 为 2026-11-06 显式授权新增,declare 仍不在列)', () => {
+  assert.deepEqual([...VERDICT_KINDS].sort(), [
+    'declared-object-mismatch',
+    'generated',
+    'missing',
+    'not-applicable',
+  ])
 })
 
 test('B2 分桶不因侧车改变:三桶之和恒等于已造页,blocked 桶条数由 evidence 决定', () => {
