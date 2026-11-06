@@ -1219,14 +1219,6 @@
       "reviewBy": "2027-05-31"
     },
     {
-      "id": "SKIP-0045",
-      "category": "ENV",
-      "ref": "ENV:BACKEND_SERVICE",
-      "reason": "未判定:${ghostPath} 回 500 = 探针问不到(四态 'unknown'),按判据不落 404;需活的后端在场才判得动",
-      "owner": "S-E2E",
-      "reviewBy": "2027-05-31"
-    },
-    {
       "id": "SKIP-0046",
       "category": "ENV",
       "ref": "ENV:BACKEND_SERVICE",

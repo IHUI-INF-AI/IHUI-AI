@@ -7,7 +7,7 @@
 # e2e skip 与固定等待制度（SKIP-WAIT-POLICY）
 
 本文件是 `apps/web/e2e/` 与 `apps/web/tests/visual/` 下所有 `.spec.ts(x)` / `.setup.ts` 的
-唯一判据来源。守门 **300**（`scripts/check-e2e-skip-wait-policy.mjs`）按本文件执行，其纯判据
+唯一判据来源。守门 **302**（`scripts/check-e2e-skip-wait-policy.mjs`）按本文件执行，其纯判据
 实现在 `scripts/lib/e2e-skip-wait-policy.mjs`，登记台账在 `apps/web/e2e/skip-register.json`。
 
 结论先写死：**没有理由、没有关联编号的 skip 一律判失败**；固定等待只能出现在“条件不可观察”
