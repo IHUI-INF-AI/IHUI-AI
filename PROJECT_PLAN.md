@@ -31701,7 +31701,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [x] BUG-64 **`VipScreen` 用 `createOrder({type:'vip'})` 而下单 schema 必填 `orderType`**：`apps/mobile-rn/src/screens/VipScreen.tsx:296,338` 调 `createOrder({type:'vip',targetId})`，但 `apps/api/src/routes/order.ts:141` `createOrderSchema` 是 `orderType: z.string().min(1).max(32)`（无 `type`）。后果=RN 会员购买整条链路 400 失败。(登记@2026-11-05;归属:机主)
   - 后端同文件 `getPriceByOrderType(orderType:string)`（:64）与支付回调查 `orderType` ⇒ 全链路字段名是 `orderType`，前端传 `type` 全丢。
   - 收口：RN 改传 `orderType`，并在 `api-client` 的 `createOrder` 入参把 `type` 改名 `orderType`（连同 `OrderType` 枚举对齐）。
-- [ ] BUG-65 **`api-client` 的 `Order` 类型与后端订单列字段错位**：`packages/api-client/src/endpoints/order.ts:15-34` 声明 `amount:number`/`type`/`payMethod`/`paidAt`/`refundedAt`，而后端列是 `payAmount`(numeric→字符串)/`orderType`/`payType`/`payTime`/`refundTime`，无 `amount` 列。`getOrders` 返回 `PageData<Order>` ⇒ 订单金额恒渲染占位符。(登记@2026-11-05;归属:机主)
+- [x] BUG-65 **`api-client` 的 `Order` 类型与后端订单列字段错位**：`packages/api-client/src/endpoints/order.ts:15-34` 声明 `amount:number`/`type`/`payMethod`/`paidAt`/`refundedAt`，而后端列是 `payAmount`(numeric→字符串)/`orderType`/`payType`/`payTime`/`refundTime`，无 `amount` 列。`getOrders` 返回 `PageData<Order>` ⇒ 订单金额恒渲染占位符。(登记@2026-11-05;归属:机主)
   - RN 已私下打补丁：`apps/mobile-rn/src/screens/PaymentScreen.tsx:34-50` 注释"后端返回 payAmount/paymentNo/orderType，类型声明 amount/orderNo/type"，用 `row.payAmount ?? row.amount` 兜底 ⇒ 错位属实且已被迫局部绕过，但 `/api/orders/me` 列表端仍未修。
   - 收口：以数据库列名为真相源统一两端声明，删掉 RN 的临时兜底。
 - [x] BUG-66 **分页响应契约错位：`paginatedSuccess` 产 `{items,total}` 而客户端 `PageData` 只读 `list`**：`apps/api/src/utils/response.ts:30` `PaginatedData<T>{items,total}` 经 `paginatedSuccess` 返回；`packages/api-client/src/utils.ts:14` `PageData<T>{list,total}`。所有 `fetchApi<PageData<T>>(...)` 消费 `.list` 拿到 `undefined`。(登记@2026-11-05;归属:机主)
@@ -31740,7 +31740,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] S-28 (2026-11-06) 〔归:机主凭据面〕**号池两枚死号只能由机主供值解锁:MiniMax 两枚需把 mcode 切到该号登一次再回灌 / OpenCode 一枚需新建 API key**:与保活链无关(强保与回灌已闭环),这三枚各自卡在一手事实上——① minimax `auto:b9d`/`auto:1f9`(票 10-27 过期、从未刷成):其适配器明写"mcode 的 OAuth 刷新端点未实证,不实现 refreshToken,401 自愈靠重新导入",且 minimax 稳定身份是 recordKey(`uid=auto:sha256(recordKey:token)` 随票旋转而变),本机 mcode 现登录的是**另一枚**(`auto:39c7`,dry-run 判 same-token)⇒ 出路=在 mcode 登这两个号之一,再跑 `node scripts/sync-minimax-client-session.mjs`;② opencode `auto:356`(上游 401 `api_key_expired`,适配器注:该错**不可续期、重登无效**)⇒ 需在 opencode 控制台新建 key 后走 `node scripts/relay-account-pool.mjs --from opencode`(本机 auth.json 那枚失效凭据已按 §26 摘净并逐字节备份,agent 不代登录/代注册账号);③ trae `32077461` **结构性无救**(GetUserToken 401 + refreshExpiresAt 为 NULL + is_enabled=false + Trae 已禁验证码重登,本仓无任何再铸票通道)⇒ 它不占本票,事实已在提交信息留痕。解锁:机主任做一项后回话,我跑回灌/导入并当场验健康;两枚确认不救则本行摘除。 (持有行题面「S-28」)
 - [ ] Y-3 (2026-11-02) **RN 全平台发布矩阵三格未收:华为缺 Connect API 客户端 / app_versions 无 store 维度 / 鸿蒙无产物**:发布面已由 `scripts/release-mobile-rn.mjs` 扩成 12 腿逐家现读(实读:签名件与 87MB release APK 在位、EAS Update 两渠道端到端实证可发、Google Play SA 已授权且 alpha 挂 0.0.6/26101921)。三格各差一件事:① 华为那枚 `华为appid 密钥.txt` 过 Publishing API 回 `205524993 client token auth failed`(端点已证可达,旁证 HMS OAuth 能签 token)⇒ 缺的是 AGC「用户与权限→Connect API」创建的 API 客户端 client_id/client_secret,补进密钥目录即通;② `app_versions.platform` 枚举 = ios/android/web/harmony/cli 无 store 维度 ⇒ 多渠道各一条 latest 表达不出来,需一次加列迁移(走门 49 B1–B9);③ 鸿蒙全仓零 `.ets`/`oh-package.json5`/`react-native-harmony` ⇒ 先做产物适配再回本腿。附带真缺陷:`/download/harmony` 被静默 fallback 成 desktop(`DownloadDetailContent.tsx:107`),须改显式态。（认领已释放@2026-11-05/stale-claim-strip#mw330uhz-13）〔同题原号 Y-20079〕〔让号@2026-11-06:本行原声明号 Y-70 与 2026-11-03 同号新登记行(题面以「全平台发布四格动手清单」起头)构成一号两题;按 §1「一个编号只能有一行当前状态」「后来者改号」,由本行让号为 Y-3,Y-70 留给 11-03 那行。同一裁决此前已落过一次(当时发号即 Y-3):2026-11-05 活文档对账落盘枚 be91ef2c1831b6561ca365fabb9b59506f27d905 在 PROJECT_PLAN.md 上删去含「Y-3 (2026-11-02)」的那一行且未增回(现读该枚对本文件 +0 命中 / −1 命中,当下 HEAD 与 origin/main 面 Y-3 声明位均 0 命中)⇒ Y-3 形态连同其让号注记一并退出入库面,一号两题回潮,本次就地重施。定性判据(可复跑,不必凭印象):HEAD 与 origin/main 面声明位 `- [ ] Y-70 ` 各 2 行,两行逐字节不同、互不包含(长度 764 / 2971 字符);逐格比对——本行独有「鸿蒙产物适配」「/download/harmony 静默 fallback 改显式态」两格,彼行独有「App 备案号登记」「四家接口凭据开通」「0364 迁移先于上线的落地次序」「三端 store 消费接线」四格,交叠仅「华为 AGC Connect API 客户端」「app_versions 无 store 维度」两格 ⇒ 属异题撞号而非漂开副本,折叠会把两件真工作并成一条 = 假结清,所以只让号、不折叠、不加任何副本指针注记(§1 指针注记存量已清零)。原 〔同题原号 Y-20079〕 指针保留不动〕〔同题原号 Y-70〕
 ### 第三轮补扫（ai-service 网络 / DTO 全量 / scripts 业务 / SQL 迁移 / web-api 五面并行深审，BUG-75~92）
-- [ ] BUG-75 **ai-service 语雀连接器在 async 函数内用同步 `requests.get` 阻塞整个事件循环**：模块级 `def _request` 调 `requests.get`，却被 `async def sync` / `async def fetch_document` 直接同步调用，任一语雀请求卡住即冻结所有协程。(登记@2026-11-06;归属:机主)
+- [x] BUG-75 **ai-service 语雀连接器在 async 函数内用同步 `requests.get` 阻塞整个事件循环**：模块级 `def _request` 调 `requests.get`，却被 `async def sync` / `async def fetch_document` 直接同步调用，任一语雀请求卡住即冻结所有协程。(登记@2026-11-06;归属:机主)
   - 位置：`apps/ai-service/app/services/connectors/yuque.py :: import requests(37) / def _request(65) / return requests.get(69)` 被 `async def sync(110)`、`async def fetch_document(160)` 调用
   - 判据：`return requests.get(url, params=params, headers={...}, timeout=timeout,)` 在同步 `_request`；调用点 `html = _request(f'https://www.yuque.com/{user}/{repo}').text` 在 `async def sync` 内
   - 对照：同目录 `wecom.py`/`feishu.py`/`dingtalk.py` 均用 `async with httpx.AsyncClient(timeout=...) as client: await client.get(...)`
@@ -31760,7 +31760,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`success({ count })` vs `export interface UnreadCount { message:number; notification:number; customerService:number; total:number }`
   - 对照：web 现靠列表 `unread` 字段与本地计算绕开，但 api-client 类型错误会让 TS 消费方误信四字段存在
   - 收口：后端改回 `success({ message, notification, customerService, total })`，或把 `UnreadCount` 收敛成 `{ count:number }` 并修正所有消费点
-- [ ] BUG-79 **通知模块 `getMessages`(/api/messages) 声明 `ApiResult<PageData<MessageItem>>`，`MessageItem` 含 `fromUserId/fromNickname/fromAvatar`，但后端 `findEduMessages` 实回 `EduMessage`（列 memberId/senderId/title/content/msgType/isRead/createdAt），发件人三字段在响应中恒为 `undefined`**：(登记@2026-11-06;归属:机主)
+- [x] BUG-79 **通知模块 `getMessages`(/api/messages) 声明 `ApiResult<PageData<MessageItem>>`，`MessageItem` 含 `fromUserId/fromNickname/fromAvatar`，但后端 `findEduMessages` 实回 `EduMessage`（列 memberId/senderId/title/content/msgType/isRead/createdAt），发件人三字段在响应中恒为 `undefined`**：(登记@2026-11-06;归属:机主)
   - 位置：`packages/api-client/src/endpoints/notification.ts:38-42`；`packages/types/src/notification.ts:147-156`；`apps/api/src/routes/message.ts:194-219` → `findEduMessages` → `packages/database/src/schema/message.ts:51-71`
   - 判据：`eduMessages` 无 `fromUserId/fromNickname/fromAvatar`；消费侧 `MessageItem` 期望这三字段
   - 对照：web 实际用的聊天历史加载器是 `chat.ts:573` 的 `getMessages(id,{cursor,direction})`（同名不同源），本函数是通知模块对 `/api/messages` 的错误契约绑定
@@ -31775,12 +31775,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：后端 z.enum `['pending','open','resolved','closed','rejected']` vs 类型 `'pending'|'active'|'closed'`
   - 对照：无
   - 收口：把类型枚举收敛成与后端一致（加 `open/resolved/rejected`，删 `active`）
-- [ ] BUG-82 **`scripts/seed-all-providers.mjs` 在 `DATABASE_URL` 缺失时用明文 `postgres://postgres:postgres@localhost:5432/ihui` 作兜底 DSN，误在无该变量的环境运行且本机口令可用时会连错库/用弱口令连库**：(登记@2026-11-06;归属:机主)
+- [x] BUG-82 **`scripts/seed-all-providers.mjs` 在 `DATABASE_URL` 缺失时用明文 `postgres://postgres:postgres@localhost:5432/ihui` 作兜底 DSN，误在无该变量的环境运行且本机口令可用时会连错库/用弱口令连库**：(登记@2026-11-06;归属:机主)
   - 位置：`scripts/seed-all-providers.mjs:483` :: `postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', { max:4, prepare:false })`
   - 判据：`const sql = postgres(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui', {...})`
   - 对照：同仓 `seed-ai-feed-source.mjs:27-31` 在缺失环境变量时 `console.error('[FATAL] DATABASE_URL 未设置'); process.exit(1)` 不内置口令
   - 收口：删除兜底默认，缺失即 fail-closed 退出
-- [ ] BUG-83 **`scripts/scan-upstream-models.mjs` 同样在 `DATABASE_URL` 缺失时兜底明文 `postgres://postgres:postgres@localhost:5432/ihui`，与上条同源缺陷**：(登记@2026-11-06;归属:机主)
+- [x] BUG-83 **`scripts/scan-upstream-models.mjs` 同样在 `DATABASE_URL` 缺失时兜底明文 `postgres://postgres:postgres@localhost:5432/ihui`，与上条同源缺陷**：(登记@2026-11-06;归属:机主)
   - 位置：`scripts/scan-upstream-models.mjs:94` :: `const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'`
   - 判据：`const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'`
   - 对照：`seed-ai-feed-source.mjs` 缺失即退出的正确写法
@@ -31819,12 +31819,12 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
   - 判据：`ALTER TABLE agent_working_memory_compression DROP COLUMN original_messages; … ADD COLUMN original_messages integer NOT NULL;`（compressed_to 同构，均无 DEFAULT）
   - 对照：同文件 `created_at/updated_at` 带 `DEFAULT now()`；此处重建列漏 DEFAULT
   - 收口：加 `DEFAULT 0` 或先确认表空
-- [ ] BUG-91 **web `EarningsOverview` 用 `${d.conversionRate.toFixed(1)}%` 直接格式化；仅兜底 `data===null`，若后端返回非空但缺 `conversionRate` 的对象，`undefined.toFixed(1)` 抛 TypeError 致组件白屏，唯独该字段走裸 `.toFixed` 而其他指标用 `Intl.NumberFormat`**：(登记@2026-11-06;归属:机主)
+- [x] BUG-91 **web `EarningsOverview` 用 `${d.conversionRate.toFixed(1)}%` 直接格式化；仅兜底 `data===null`，若后端返回非空但缺 `conversionRate` 的对象，`undefined.toFixed(1)` 抛 TypeError 致组件白屏，唯独该字段走裸 `.toFixed` 而其他指标用 `Intl.NumberFormat`**：(登记@2026-11-06;归属:机主)
   - 位置：`apps/web/src/components/earnings/EarningsOverview.tsx :: value: \`${d.conversionRate.toFixed(1)}%\``
   - 判据：`const d = data ?? { … conversionRate: 0 … }` 仅兜底 `data===null`；`d.conversionRate.toFixed(1)` 在 `conversionRate===undefined` 时崩
   - 对照：同组件其余指标用 `Intl.NumberFormat` 且依赖同一 fallback，唯独该字段走裸 `.toFixed`
   - 收口：`(d.conversionRate ?? 0).toFixed(1)`
-- [ ] BUG-92 **web `use-home-schema.ts` 在拉取首页 schema 时 `.then(...).catch(() => {})` 完全吞掉网络/解析错误，无日志无信号，schema 静默回退；同仓 `use-agent-stream` 等至少 `console.warn` 留痕**：(登记@2026-11-06;归属:机主)
+- [x] BUG-92 **web `use-home-schema.ts` 在拉取首页 schema 时 `.then(...).catch(() => {})` 完全吞掉网络/解析错误，无日志无信号，schema 静默回退；同仓 `use-agent-stream` 等至少 `console.warn` 留痕**：(登记@2026-11-06;归属:机主)
   - 位置：`apps/web/src/hooks/use-home-schema.ts :: .then((res)=>{ if(cancelled||!res.success) return; applySchema(res.data) }).catch(()=>{})`
   - 判据：`fetchApi(...).then(...).catch(()=>{})`——失败被零痕迹吞掉
   - 对照：同仓 `use-agent-stream` 在吞错处至少 `console.warn`

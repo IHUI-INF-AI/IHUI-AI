@@ -14,6 +14,7 @@ import {
   eduMessages,
   chatConversations,
   chatMessages,
+  users,
 } from '@ihui/database'
 import { eq, sql, and, or, desc, inArray, lt } from 'drizzle-orm'
 import {
@@ -216,7 +217,38 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       }
       const userId = request.userId!
       const result = await findEduMessages({ ...parsed.data, memberId: userId })
-      return reply.send(success(result))
+      // BUG-79 修复:findEduMessages 实回 edu_messages 原始行(memberId/senderId/title/content/...),
+      // 而前端共享契约 MessageItem 期望 fromUserId/fromNickname/fromAvatar。批量查 users 补全发件人
+      // 信息再映射,避免三字段恒为 undefined(此前前端发件人区域空白)。
+      const senderIds = Array.from(
+        new Set(
+          result.list.flatMap((m) => [m.memberId, m.senderId].filter(Boolean) as string[]),
+        ),
+      )
+      const senderRows =
+        senderIds.length > 0
+          ? await db
+              .select({ id: users.id, nickname: users.nickname, avatar: users.avatar })
+              .from(users)
+              .where(inArray(users.id, senderIds))
+          : []
+      const senderMap = new Map(senderRows.map((u) => [u.id, u]))
+      const list = result.list.map((m) => {
+        const senderId = m.memberId ?? m.senderId ?? ''
+        const sender = senderMap.get(senderId)
+        return {
+          id: m.id,
+          fromUserId: senderId,
+          fromNickname: sender?.nickname ?? '',
+          fromAvatar: sender?.avatar ?? null,
+          content: m.content ?? '',
+          isRead: m.isRead,
+          createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt ?? ''),
+        }
+      })
+      return reply.send(
+        success({ list, total: result.total, page: result.page, pageSize: result.pageSize }),
+      )
     },
   )
 

@@ -302,6 +302,21 @@ declare module '@ihui/rn-app/features/order/OrderScreen' {
   // props 取开放记录档:本契约保证"模块存在且是组件",逐 props 的强弱由源头那一侧的 d.ts 负责
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const OrderScreen: ComponentType<Record<string, unknown>>
+  /** 订单 Tab(真相源 @ihui/types OrderTab;经 OrderScreen 同文件 re-export) */
+  export type OrderTab = 'all' | 'pending' | 'paid' | 'shipped' | 'completed' | string
+  /** 订单列表项(真相源 @ihui/types OrderItem;经 OrderScreen 同文件 re-export) */
+  export interface OrderItem {
+    id: string
+    orderNo: string
+    title: string
+    /** 商品图 URL,有值则卡片渲染 130×130 圆角图 */
+    image?: string
+    /** 实付金额(元);null = 无金额可显示 */
+    amount: number | null
+    /** 订单状态(真相源 AppOrderStatus 含 '...' | string,此处以 string 等价承接) */
+    status: string
+    createdAt: string
+  }
 }
 
 declare module '@ihui/rn-app/features/plaza/PlazaScreen' {
@@ -370,6 +385,40 @@ declare module '@ihui/rn-app/features/share-landing/ShareLandingScreen' {
   // (把 paths 直接指到源码去要真类型 = 用本包档位编别人的端内源,实测 243 → 2742 条错,两头都不是出路)。
   export const ShareLandingScreen: ComponentType<Record<string, unknown>>
   export const formatShareTime: ComponentType<Record<string, unknown>>
+  /** 视频块(真相源 @ihui/app ShareLandingScreen.tsx 同口) */
+  export interface ShareLandingVideo {
+    url: string
+    cover?: string
+    /** 平台侧播放器可据此保留原始宽高比 */
+    width?: number
+    height?: number
+  }
+  /** 音频块(真相源 @ihui/app ShareLandingScreen.tsx 同口) */
+  export interface ShareLandingAudio {
+    url: string
+    /** 秒 */
+    duration?: number
+  }
+  /** 回答块(真相源 @ihui/app ShareLandingScreen.tsx 同口) */
+  export interface ShareLandingAnswer {
+    thinking?: string
+    text?: string
+    images?: string[]
+    video?: { url: string; cover?: string; width?: number; height?: number }
+    audio?: { url: string; duration?: number }
+    lists?: Array<{ type: 'text' | 'image' | 'video' | 'audio'; content: string }>
+  }
+  /** 只读分享落地页全部静态内容(不含端内取数与路由;真相源 @ihui/app ShareLandingScreen.tsx 同口) */
+  export interface ShareLandingContent {
+    modelName?: string
+    modelIcon?: string
+    question: string
+    answer?: ShareLandingAnswer
+    tokenCost?: number
+    createdAt?: string
+    userAvatar?: string | null
+    userName?: string | null
+  }
 }
 
 declare module '@ihui/rn-app/features/subscriptions/SubscriptionsScreen' {
