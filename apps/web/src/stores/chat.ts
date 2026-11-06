@@ -2617,6 +2617,17 @@ function readColdStartItem(value: unknown): ColdStartItem | null {
  * 冷启动分两段:列表快照可以先显示,深链必须指向这份快照里的会话。
  * 标题档只认 auto/user,数字或布尔不折成用户标题。
  * 快照或当前时刻没量到就不恢复。本函数不写盘、不导航。
+ *
+ * 接线状态:待接线(PENDING)。当前只有单测消费,尚无生产调用点 —— 生产接线需要一份
+ * 快照写入方,契约如下(写入方与调用方必须同源,不得各写一份):
+ * - now: `Date.now()`;取不到为 `now-unmeasured`。
+ * - snapshot: `{ version: 1, savedAt, items: [{ id, title, titleMode, spaceName }] }`,
+ *   由会话列表首屏成功后的节流落盘产生(`version !== 1` 一律 `version-unrecognized`)。
+ * - route: `{ path: '/conversation/<id>', savedAt }`,取自启动时的 `window.location.pathname`。
+ * - 处置:`restore` = 打开 routeId 并渲染 items;`list-only` = 只渲染 items,不导航;
+ *   `unjudged` = 回退服务端列表,不采信本地快照。
+ * 建议接入点:`persist` 恢复完成后的 client-only 副作用。接线时补一条调用点断言,
+ * 并把本段 PENDING 改为已接线。
  */
 export function planColdStartRestore(input: {
   now: unknown
