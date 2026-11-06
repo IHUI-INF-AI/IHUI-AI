@@ -87,6 +87,13 @@ from ..core.agent_failure_vocabulary import (
 # 裸 create_task 的返回值一丢,任务可能被 GC 静默回收且零报错。
 from ..core.background_tasks import spawn
 
+# 批次 3(2026-11-06):预算硬停原因归一到与 TS 契约一致的封闭集(不把 free-text
+# reason 直接丢给前端/BI,也不在这里另立一份码表)。
+from ..core.budget_reason import (
+    normalize_budget_reason,
+    scope_for_budget_reason,
+)
+
 # 79 号票(2026-10-18 立):权限双轴消费面的**唯一**接线点。三个名字都取进来:
 # 解析在路由层做(routers/agents.py),执行面只负责判定,判定权不落两处。
 from ..core.permission_axis_gate import (
@@ -461,9 +468,16 @@ def _high_risk_tools_from_env() -> frozenset[str]:
 def _agent_budget_enabled_from_env() -> bool:
     """Agent 主循环预算硬约束总开关(env AGENT_BUDGET_ENABLED)。
 
-    默认 off:Phase 1 剩余项未验收,避免线上突变;设为 on/1/true/yes 时完全生效。
+    批次 3(2026-11-06)改为**默认开启**:
+    - 成本护栏是硬约束,默认关闭等于没有护栏 —— 配置中心(Redis `hub:budget:config`)
+      已经有阈值,但开关不打开时一条也不会被执行,超支只能靠账单事后发现。
+    - 阈值不在代码里写死,仍然走 `BudgetConfig` 的 Redis 覆盖 + 代码默认;运维可以
+      随时用 env 显式置 off/0/false/no 关掉,不需要改代码。
+    - 无 Redis / 无配置时 check_budget 以内存零用量返回 allowed=True(取不到用量才
+      fail-open),不会把正常调用误阻断;真实超限发生在有配置且用量可读的场景,
+      那种场景下 `allowed=False` 一定被尊重。
     """
-    return os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
+    return os.environ.get("AGENT_BUDGET_ENABLED", "true").strip().lower() in (
         "on", "1", "true", "yes",
     )
 
@@ -473,6 +487,10 @@ def _rollout_budget_limit_from_env() -> int:
 
     >0 时启用 RolloutBudget 记账 + 阈值提醒投递(默认 off,零行为变化);
     提醒阈值默认 (10000, 2000)(剩余 token 两档)。
+
+    刻意**不随批次 3 一起默认开启**:与日/小时护栏不同,per-session 覆盖会截断
+    正在进行的长任务(护栏按租户维度、不会因为一次长任务提前耗尽),而 per-session
+    上限该定多少是产品定价决策,不是工程常量。默认关闭是取舍,不是遗漏。
     """
     try:
         return int(os.environ.get("AGENT_ROLLOUT_BUDGET_TOKENS", "0") or 0)
@@ -1091,6 +1109,10 @@ class ToolResult:
     # L5-8 错误恢复:失败的错误分类(timeout/connection/http_5xx/http_4xx/unknown,
     # 2026-08-12 立,供前端展示与可观测;成功为 None)
     error_type: str | None = None
+    # 批次 2(2026-11-06 立):超阈值输出的落盘分页凭据(artifactId/digest/offset/next/
+    # complete/totalChars/path)。None = 输出完整进入上下文,无落盘。由 _execute_tools
+    # 在账行/事件之前统一填充,供 bound_tool_result_for_context、tool_after 与审计复用。
+    output_artifact: dict[str, Any] | None = None
 
 
 @dataclass
@@ -1237,6 +1259,74 @@ def _ledger_permission_facts(
     if decision_hint in ("auto_skip_approval", "bypass_skip_approval"):
         return "flag", None
     return "approved", None
+
+
+# 批次 2(2026-11-06 立):账行执行事实的取值键(只认声明/回报的原样值,不反推路径)。
+_CWD_ARG_KEYS: tuple[str, ...] = ("cwd", "working_directory", "workingDirectory", "workdir", "directory")
+_EXIT_CODE_KEYS: tuple[str, ...] = ("exit_code", "exitCode")
+
+
+def _ledger_terminal_reason(
+    tr: ToolResult, hint: tuple[str, str] | None
+) -> str:
+    """把循环终态映射到收尾原因封闭集(镜像 apps/api TOOL_INVOCATION_TERMINAL_REASONS)。
+
+    映射只读既有事实(error_type / hint / error),不新造判定:
+    - 用户拒绝 → rejected_by_user;审批超时 → approval_timeout;
+    - 权限/注入/扫描拦截 → blocked;工具自身超时 → timeout;调用取消 → cancelled;
+    - 其余有 error 或非零退出码 → error;无错 → completed。
+    """
+    decision_hint = hint[0] if hint else None
+    if tr.error_type == "user_rejected" or decision_hint == "rejected_by_user":
+        return "rejected_by_user"
+    if tr.error_type == "approval_timeout":
+        return "approval_timeout"
+    if tr.error_type in (
+        "permission_denied",
+        ERROR_INJECTION_BLOCKED,
+        ERROR_SCAN_BLOCKED,
+    ) or decision_hint == "security_blocked":
+        return "blocked"
+    if tr.error_type == "timeout":
+        return "timeout"
+    if tr.error_type in ("cancelled", "canceled", "aborted"):
+        return "cancelled"
+    if tr.error:
+        return "error"
+    return "completed"
+
+
+def _ledger_execution_facts(
+    tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
+) -> tuple[str | None, int | None, bool, str]:
+    """从入参与结果提取账行执行事实 `(cwd, exitCode, outputComplete, terminalReason)`。
+
+    cwd 优先取结果回报(宿主真实执行目录),否则取入参声明;两者都没有 = None。
+    exitCode 只认整数(排除 bool),缺省 None(未观测 ≠ 0)。
+    outputComplete = 本次输出是否完整进入上下文(false 表示已落盘分页)。
+    """
+    cwd: str | None = None
+    for source in (tr.result if isinstance(tr.result, dict) else None, tc.args):
+        if not isinstance(source, dict):
+            continue
+        for key in _CWD_ARG_KEYS:
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                cwd = value.strip()[:1024]
+                break
+        if cwd:
+            break
+
+    exit_code: int | None = None
+    if isinstance(tr.result, dict):
+        for key in _EXIT_CODE_KEYS:
+            value = tr.result.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                exit_code = value
+                break
+
+    output_complete = tr.output_artifact is None
+    return cwd, exit_code, output_complete, _ledger_terminal_reason(tr, hint)
 
 
 # ---------------------------------------------------------------------------
@@ -1514,6 +1604,24 @@ class AgentEventStream:
                     "retry_count": tr.retry_count,
                     "duration_ms": round(tr.duration_ms, 2),
                     **evidence,
+                    # 批次 2:超阈值输出已落盘时下发可续读凭据(未落盘不带键,
+                    # 与"篇幅正常"无法区分 —— 键缺席 = 输出完整进入上下文)。
+                    **(
+                        {
+                            "output_artifact": {
+                                "artifact_id": tr.output_artifact.get("artifactId"),
+                                "digest": tr.output_artifact.get("digest"),
+                                "bytes": tr.output_artifact.get("bytes"),
+                                "chars": tr.output_artifact.get("chars"),
+                                "complete": False,
+                                "truncated_on_disk": bool(
+                                    tr.output_artifact.get("truncatedOnDisk")
+                                ),
+                            }
+                        }
+                        if tr.output_artifact
+                        else {}
+                    ),
                 })
             payload: dict[str, Any] = {
                 "session_id": session_id,
@@ -1552,6 +1660,7 @@ class AgentEventStream:
         network_target: dict[str, Any] | None = None,
         blocked_network_targets: list[dict[str, Any]] | None = None,
         prompt_options: dict[str, Any] | None = None,
+        decision_info: dict[str, Any] | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "approval_id": approval_id,
@@ -1561,6 +1670,17 @@ class AgentEventStream:
             "danger_level": "high",
             "session_id": session_id,
         }
+        # 批次 2(2026-11-06):结构化审批决策信息(原因/风险/argv/cwd/受影响路径/
+        # 作用域/可读摘要)。与主对话流共用同一份 `tool_approval_descriptor`,两条
+        # 链路字段逐名一致;缺席 = 老生产者未上报,前端按旧 args_preview 渲染。
+        if decision_info is not None:
+            payload["reason_code"] = decision_info.get("reason_code")
+            payload["risk_level"] = decision_info.get("risk_level") or payload["danger_level"]
+            payload["argv"] = decision_info.get("argv")
+            payload["cwd"] = decision_info.get("cwd")
+            payload["affected_paths"] = decision_info.get("affected_paths") or []
+            payload["scope"] = decision_info.get("scope")
+            payload["summary"] = decision_info.get("summary")
         # V3 #80:guardian 复核三态随弹窗事件下发(status 恒在,缺席≠无风险)。
         if guardian_review is not None:
             payload["guardian_review"] = guardian_review
@@ -2155,10 +2275,15 @@ def bound_tool_result_for_context(
     *,
     tool_name: str | None = None,
     session_id: str | None = None,
+    artifact: dict[str, Any] | None = None,
 ) -> str:
     """把工具结果收成 role:tool 正文。预算复用 mcp_server 的工具输出上限。
 
-    未超预算原样 json。超出部分落临时文件,正文留截断说明和文件指针。
+    未超预算原样 json。超出预算时走 `tool_output_artifacts` 落盘分页(批次 2):
+    完整输出落工件,正文保留预览 + `output_artifact_id/output_offset/output_next/
+    output_complete/output_digest` 五项机器可读凭据,模型可用 `read_tool_output`
+    按 offset 续读;`artifact` 由 `_execute_tools` 提前产出(保证账行/事件/上下文
+    共用同一份凭据),缺省时本函数就地落盘(兼容其它调用方)。
 
     2026-10-31:截断完之后还要过一层**宿主定界**。工具结果是外部世界(网页、MCP server、
     文件、命令输出)写进模型上下文的路径,原样拼接时模型分不清"宿主的话"和"捞回来的一段字",
@@ -2167,23 +2292,55 @@ def bound_tool_result_for_context(
     """
     from .mcp_server import _estimate_tokens_len, _get_tool_output_max_tokens
     from .tool_context_boundary import scan_and_frame_tool_result
+    from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
 
-    try:
-        text = json.dumps(payload, ensure_ascii=False, default=str)
-    except (TypeError, ValueError):
-        text = json.dumps({"error": "tool result not serializable"}, ensure_ascii=False)
+    text = serialize_tool_payload(payload)
     max_tokens = _get_tool_output_max_tokens()
     if _estimate_tokens_len(text) > max_tokens:
         keep_chars = max_tokens * 4
-        overflow = text[keep_chars:]
-        spilled = _spill_tool_overflow(overflow)
-        dropped = _estimate_tokens_len(overflow)
-        if spilled:
-            note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+        if artifact is None:
+            artifact = maybe_spill_tool_output(
+                text,
+                tool_name=tool_name or "",
+                session_id=session_id,
+                keep_chars=keep_chars,
+                # 已在超预算分支:必须落盘,不能因两套估算差 1-2 token 退回无凭据截断。
+                force=True,
+            )
+        if artifact is not None:
+            # 预留 ~360 字符给说明与 JSON 凭据,预览取工件预览与预算的较小者。
+            preview_budget = max(0, keep_chars - 360)
+            preview = artifact.get("preview") or text[:preview_budget]
+            preview = preview[:preview_budget]
+            offset = len(preview)
+            status = {
+                "output_artifact_id": artifact.get("artifactId"),
+                "output_offset": offset,
+                "output_next": offset,
+                "output_complete": False,
+                "output_digest": artifact.get("digest"),
+                "output_total_bytes": artifact.get("bytes"),
+                "output_total_chars": artifact.get("chars"),
+                "output_truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+            }
+            note = (
+                f"\n…[输出过长,已落盘:共 {artifact.get('chars')} 字符;"
+                f"用 read_tool_output(artifact_id=\"{artifact.get('artifactId')}\", "
+                f"offset={offset}) 续读]\n"
+                + json.dumps(status, ensure_ascii=False)
+            )
+            text = preview + note
         else:
-            note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
-        head_len = max(0, keep_chars - len(note))
-        text = text[:head_len] + note
+            # 落盘失败:退回历史行为(尾部写临时文件),并在正文明确"未能落盘"。
+            overflow = text[keep_chars:]
+            spilled = _spill_tool_overflow(overflow)
+            dropped = _estimate_tokens_len(overflow)
+            if spilled:
+                note = f"\n…[已截断,共截断 {dropped} token,超出部分已写入 {spilled}]"
+            else:
+                note = f"\n…[已截断,共截断 {dropped} token,超出部分未能落盘]"
+            head_len = max(0, keep_chars - len(note))
+            text = text[:head_len] + note
     return scan_and_frame_tool_result(
         text, source="tool", tool_name=tool_name, session_id=session_id
     )
@@ -2253,7 +2410,8 @@ class AgentLoopV2:
         # 判 [arg-type] 红 ⇒ 整条 ai-service 提交链被这条存量堵住。
         axis_resolution: "_AxisResolution | None" = None,  # noqa: UP037 -- 本模块没有 from __future__ import annotations,去引号会在 import 期求值并 NameError(实测 agents.py:498 同型);类型线索只走 TYPE_CHECKING-only import,运行时不构造
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
-        # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
+        # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(批次 3 起
+        #   默认 on:成本护栏默认开启,阈值由 Redis 配置中心决定;置 off 可显式关闭);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
         # budget_pillar:check_budget/record_usage 使用的预算支柱(默认 terminal,见
         #   _agent_budget_pillar_from_env 注释;值须 ∈ _VALID_PILLARS)。
@@ -2531,7 +2689,10 @@ class AgentLoopV2:
             }
 
         # 1-6 token 治理:预算硬约束开关/支柱/粗估 token(2026-09-02 立)。
-        # 优先级:构造参数 > env;默认 off(向后兼容,避免 Phase 1 未验收线上突变)。
+        # 优先级:构造参数 > env;默认 on(批次 3:成本护栏默认开启,阈值仍由
+        # Redis 配置中心决定;运维可用 AGENT_BUDGET_ENABLED=off 显式关闭)。
+        # 注意 AGENT_ROLLOUT_BUDGET_TOKENS(per-session 硬上限)保持默认关闭,
+        # 理由见 _rollout_budget_limit_from_env。
         self._budget_enabled: bool = (
             _agent_budget_enabled_from_env() if budget_enabled is None else bool(budget_enabled)
         )
@@ -3075,6 +3236,9 @@ class AgentLoopV2:
                     "retention_dropped_groups": int(
                         retention_meta.get("dropped_groups") or 0
                     ),
+                    # 批次 3:压缩边界(与 chat 链路 compaction 帧同一份 boundary,
+                    # 只加不改既有键)。
+                    **({"boundary": info["boundary"]} if info.get("boundary") else {}),
                 }
             )
             # W9#5(2026-09-18):压缩发生即经 hook_engine 发 SSE 通知(此前压缩结果只进
@@ -3088,6 +3252,8 @@ class AgentLoopV2:
                     "compressed_tokens": info.get("compressed_tokens"),
                     "removed_count": info.get("removed_count"),
                     "trigger": "llm" if info.get("llm_summary") else "deterministic",
+                    # 批次 3:边界随事件下发(默认路径无 boundary 时连键都不出现)。
+                    **({"boundary": info["boundary"]} if info.get("boundary") else {}),
                 },
             )
             logger.warning(
@@ -4550,41 +4716,55 @@ class AgentLoopV2:
     # 1-6 token 治理:预算硬约束辅助(2026-09-02 立)
     # ------------------------------------------------------------------
 
-    async def _check_budget_safe(self) -> tuple[bool, str, float, int]:
+    async def _check_budget_safe(self) -> tuple[bool, str, float, int, str, str]:
         """每轮 LLM 调用前的预算硬约束检查(安全版,永不阻塞主循环)。
 
         Returns:
-            (是否硬停止, 原因, usage_percent, remaining_tokens)
+            (是否硬停止, 原因, usage_percent, remaining_tokens, reason_code, scope)
 
         语义:
-        - check_budget 抛 BudgetExceededError → 视为硬停止(allowed=False 同处理)。
-        - check_budget 返回 allowed=False(已达 hard_stop)→ 硬停止,优雅中断循环。
+        - check_budget 抛 BudgetExceededError → 视为硬停止(allowed=False 同处理);
+          异常里只有 free-text,原因码用 core.budget_reason 归一化。
+        - check_budget 返回 allowed=False(已达 hard_stop)→ 硬停止,优雅中断循环,
+          reason_code/scope 直接取结果里的机器字段(批次 3)。
         - 返回 allowed=True 但 degrade_to_model 非空 → 仅记日志提示,不中断(软降级)。
-        - 任何其它异常 → 降级放行(不阻塞),记录 warning。
+        - 任何其它异常 → 降级放行(不阻塞),记录 warning。放行只用于"取不到用量",
+          不掩盖真实超限:`allowed=False` 那条路不经过异常分支。
         """
         if not self._budget_enabled:
-            return False, "", 0.0, 0
+            return False, "", 0.0, 0, "", ""
         try:
             budget_check = await llm_budget_governor.check_budget(
                 self._budget_pillar,
                 estimated_tokens=self._budget_max_token_estimate,
             )
         except BudgetExceededError as e:
+            reason_text = str(e)
+            reason_code = normalize_budget_reason(reason_text)
             return (
                 True,
-                str(e),
+                reason_text,
                 getattr(e, "usage_percent", 0.0),
                 getattr(e, "remaining_tokens", 0),
+                reason_code,
+                scope_for_budget_reason(reason_code),
             )
         except Exception as e:
             logger.warning("budget_governor.check_budget 调用失败(降级放行,不阻塞): %s", e)
-            return False, "", 0.0, 0
+            return False, "", 0.0, 0, "", ""
         if not budget_check.allowed:
+            # 批次 3:governor 已给出封闭集码;缺省时用 free-text 归一化兜底,
+            # 绝不让 reason_code 为空(空码在前端/BI 侧等于"原因未知")。
+            reason_code = budget_check.reason_code or normalize_budget_reason(
+                budget_check.reason
+            )
             return (
                 True,
                 budget_check.reason,
                 budget_check.usage_percent,
                 budget_check.remaining_tokens,
+                reason_code,
+                budget_check.scope or scope_for_budget_reason(reason_code),
             )
         # 软降级:仅记录提示,不中断循环
         if budget_check.degrade_to_model:
@@ -4595,7 +4775,7 @@ class AgentLoopV2:
                 budget_check.usage_percent * 100,
                 budget_check.reason,
             )
-        return False, "", budget_check.usage_percent, budget_check.remaining_tokens
+        return False, "", budget_check.usage_percent, budget_check.remaining_tokens, "", ""
 
     async def _record_budget_usage_safe(
         self, content: str, usage: Any, model: str
@@ -4710,11 +4890,27 @@ class AgentLoopV2:
                     budget_reason,
                     budget_pct,
                     budget_rem,
+                    budget_code,
+                    budget_scope,
                 ) = await self._check_budget_safe()
                 if budget_stopped:
                     # 优雅中断:保留已完成 iterations、不抛未捕获异常、落 checkpoint
+                    budget_detail = {
+                        "enabled": True,
+                        "pillar": self._budget_pillar,
+                        "reason_code": budget_code,
+                        "scope": budget_scope,
+                        "usage_percent": budget_pct,
+                        "remaining_tokens": budget_rem,
+                        "stopped_at_iteration": i,
+                    }
                     checkpoint_id = await self._save_checkpoint_safe(
-                        iteration=i - 1, messages=messages, status="budget_exceeded",
+                        iteration=i - 1,
+                        messages=messages,
+                        status="budget_exceeded",
+                        # 批次 3:checkpoint 的 budget_exceeded 记录必须带机器原因码,
+                        # 续跑方/运维据此区分"额度耗尽"与"取数失败放行",不靠散文。
+                        metadata={"budget_exceeded": dict(budget_detail)},
                     )
                     return AgentLoopResult(
                         compaction_events=self._compaction_events,
@@ -4734,6 +4930,10 @@ class AgentLoopV2:
                             "usage_percent": budget_pct,
                             "remaining_tokens": budget_rem,
                             "stopped_at_iteration": i,
+                            # 批次 3 新增(与既有键兼容,只加不改):
+                            "reason_code": budget_code,
+                            "scope": budget_scope,
+                            "reason": budget_reason,
                         },
                     )
 
@@ -5137,6 +5337,8 @@ class AgentLoopV2:
                             "content": bound_tool_result_for_context(
                                 tr.result if not tr.error else {"error": tr.error},
                                 tool_name=tr.name,
+                                session_id=self._session_id,
+                                artifact=tr.output_artifact,
                             ),
                         }
                     )
@@ -5709,6 +5911,13 @@ class AgentLoopV2:
             # 语义一字未变:读不到/形状不对 ⇒ 该字段缺席(与"上报了但读不到"仍是两件事)。
             exec_env = env_facts.get("exec_environment")
             blocked_net = env_facts.get("blocked_network_targets")
+            try:
+                from .tool_approval_descriptor import describe_tool_request
+
+                decision_info = describe_tool_request(tc.name, tc.args)
+            except Exception as exc:  # noqa: BLE001 - 描述失败不阻断弹窗(退旧字段)
+                logger.warning("审批决策信息组装失败(tool=%s): %s", tc.name, exc)
+                decision_info = None
             await self._events.tool_approval(
                 approval_id=approval_id,
                 tool_name=tc.name,
@@ -5723,6 +5932,7 @@ class AgentLoopV2:
                 ),
                 # G-09:选项真实可用性随弹窗帧下发(持久选项受 elicitation 能力门控)
                 prompt_options=prompt_options.to_event_payload(),
+                decision_info=decision_info,
             )
             # 等待用户决策(批准/拒绝/超时)
             try:
@@ -6134,10 +6344,12 @@ class AgentLoopV2:
                         duration_ms=0,
                     )
                     results.append(tr)
+                    self._attach_tool_output_artifact(tc, tr)
                     self._maybe_record_step(tc, tr)
                     self._record_deliverable_step(tc, tr)
                 else:
                     results.append(item)
+                    self._attach_tool_output_artifact(tc, item)
                     self._maybe_record_step(tc, item)
                     self._record_deliverable_step(tc, item)
                     tr = item
@@ -6153,6 +6365,7 @@ class AgentLoopV2:
             for idx, tc in enumerate(tool_calls):
                 result = await self._execute_single(tc)
                 serial_results.append(result)
+                self._attach_tool_output_artifact(tc, result)
                 self._maybe_record_step(tc, result)
                 self._record_deliverable_step(tc, result)
                 decision, reason = _derive_step_decision(result)
@@ -6312,6 +6525,49 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("b04 中断批补录工具账失败(降级,不影响中断): %s", e)
 
+    def _attach_tool_output_artifact(self, tc: ToolCall, tr: ToolResult) -> None:
+        """批次 2:超预算工具输出落盘为工件,把凭据挂到 ToolResult 上(失败不阻塞)。
+
+        账行/`tool_after` 事件/上下文正文三处共用这一份凭据 —— 各自再算一遍会漂移
+        (同一输出出现两个 artifactId 或两套 offset)。落盘失败保持 None,由
+        `bound_tool_result_for_context` 退回历史纯截断路径。
+        """
+        if tr.output_artifact is not None:
+            return
+        try:
+            # MCP 工具面已在出口 `_truncate_tool_output` 统一落盘并下发凭据(覆盖
+            # main chat / agent loop / supertool 全部调用面),这里只做搬运,避免
+            # 同一输出出现第二个 artifactId。
+            if isinstance(tr.result, dict) and isinstance(
+                tr.result.get("output_artifact"), dict
+            ):
+                raw = tr.result["output_artifact"]
+                tr.output_artifact = {
+                    "artifactId": raw.get("artifact_id"),
+                    "digest": raw.get("digest"),
+                    "bytes": raw.get("bytes"),
+                    "chars": raw.get("chars"),
+                    "complete": bool(raw.get("complete")),
+                    "truncatedOnDisk": bool(raw.get("truncated_on_disk")),
+                }
+                return
+            # 非 MCP 执行器(自定义 registry / 测试替身):就地落盘作为兜底。
+            from .mcp_server import _get_tool_output_max_tokens
+            from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
+
+            payload = {"error": tr.error} if tr.error else tr.result
+            artifact = maybe_spill_tool_output(
+                serialize_tool_payload(payload),
+                tool_name=tr.name or tc.name or "",
+                session_id=self._session_id,
+                tool_call_id=tc.id,
+                keep_chars=_get_tool_output_max_tokens() * 4,
+            )
+            if artifact is not None:
+                tr.output_artifact = artifact
+        except Exception as e:  # noqa: BLE001 - 工件面任何异常都不许影响工具执行
+            logger.warning("工具输出落盘失败(降级为纯截断): %s", e)
+
     def _maybe_ingest_tool_ledger(
         self, tc: ToolCall, tr: ToolResult, hint: tuple[str, str] | None
     ) -> tuple[str, str | None, str]:
@@ -6335,6 +6591,9 @@ class AgentLoopV2:
         """
         try:
             decision, cause = _ledger_permission_facts(tr, hint)
+            cwd, exit_code, output_complete, terminal_reason = _ledger_execution_facts(
+                tc, tr, hint
+            )
             invocation_id = str(uuid.uuid4())
             dispatched = record_tool_invocation(
                 user_id=self._user_id,
@@ -6350,6 +6609,10 @@ class AgentLoopV2:
                     {"error": tr.error} if tr.error else tr.result
                 ),
                 trace_id=self._trace_id,
+                cwd=cwd,
+                exit_code=exit_code,
+                output_complete=output_complete,
+                terminal_reason=terminal_reason,
             )
             return decision, cause, invocation_id if dispatched else ""
         except Exception as e:

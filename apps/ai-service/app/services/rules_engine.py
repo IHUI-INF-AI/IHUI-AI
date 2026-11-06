@@ -383,6 +383,17 @@ def _render_rule_md(rule: Rule) -> str:
     )
 
 
+def _rule_path_present(path: str) -> bool:
+    """ENOENT 才是真的没有。其它读失败必须抛,不能让删除把规则从内存摘掉。"""
+    try:
+        os.stat(path)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        raise OSError(f"规则文件读不到,不能把它说成已删除: {exc}") from exc
+
+
 class RulesEngine:
     """Rules 引擎:文件存储 + 热加载 + 匹配 + 应用到 system prompt。
 
@@ -619,19 +630,30 @@ class RulesEngine:
             self._save_version(rule, "delete")
         deleted = False
         try:
-            if os.path.exists(path):
+            present = _rule_path_present(path)
+        except OSError as e:
+            logger.warning("[rules_engine] %s", e)
+            return False
+        try:
+            if present:
                 os.remove(path)
                 deleted = True
             else:
                 # 尝试按 id 匹配文件名(id 可能与文件名不完全一致)
                 with self._lock:
-                    if rule_id in self._rules:
-                        alt_path = rule_file_path(self._rules_dir, self._rules[rule_id].id)
-                        if alt_path and os.path.exists(alt_path):
-                            os.remove(alt_path)
-                            deleted = True
+                    alt_path = rule_file_path(self._rules_dir, self._rules[rule_id].id) if rule_id in self._rules else None
+                if alt_path is not None:
+                    try:
+                        alt_present = _rule_path_present(alt_path)
+                    except OSError as e:
+                        logger.warning("[rules_engine] %s", e)
+                        return False
+                    if alt_present:
+                        os.remove(alt_path)
+                        deleted = True
         except Exception as e:
             logger.warning("[rules_engine] 删除规则 %s 失败: %s", rule_id, e)
+            return False
         with self._lock:
             self._rules.pop(rule_id, None)
         if deleted:

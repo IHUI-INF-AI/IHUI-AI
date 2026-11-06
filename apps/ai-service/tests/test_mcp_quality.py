@@ -24,6 +24,8 @@
 from __future__ import annotations
 
 import json
+import os
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -540,6 +542,23 @@ def test_review_store_corrupt_json_defaults(review_path):
 def test_review_store_invalid_status_raises(review_path):
     with pytest.raises(ValueError, match="非法审核状态"):
         mcp_market_review.set_status("git", "bogus")
+
+
+def test_unreadable_review_store_is_not_overwritten(review_path, monkeypatch):
+    review_path.write_text('{"keep":{"status":"rejected","note":"stay"}}\n', encoding="utf-8")
+    original = review_path.read_bytes()
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(review_path):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    assert mcp_market_review.set_status("other", "approved") is None
+    with pytest.raises(mcp_market_review.MarketReviewUnread, match="读不到"):
+        mcp_market_review.get_status("keep")
+    assert review_path.read_bytes() == original
 
 
 def test_review_store_write_failure_returns_none(review_path, monkeypatch):

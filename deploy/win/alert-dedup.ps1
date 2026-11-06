@@ -26,6 +26,8 @@
 # 当作"已经寄过"——那等于把告警变成哑弹,而哑弹的症状就是安静。
 # =============================================================================
 
+$ErrorActionPreference = 'Stop'
+
 function Get-AlertDedupKey {
     # 签名可能很长且含换行/中文 ⇒ 用 SHA-256 前 16 位当槽键,同时保留一段人类可读标签。
     param([Parameter(Mandatory = $true)][string]$Sig)

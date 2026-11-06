@@ -44,6 +44,12 @@ export function useHomeSchema(): HomeSchema {
 
   React.useEffect(() => {
     let cancelled = false
+    // BUG-92:网络/解析失败与非 success 响应一律留痕,禁止 `.catch(() => {})` 零痕迹吞掉
+    //(与 use-agent-stream 同口径:至少 console.warn 一行)。
+    const logFailure = (channel: string, reason: unknown) => {
+      if (cancelled) return
+      console.warn(`[home-schema] ${channel} load failed`, reason)
+    }
 
     const applySchema = (data: unknown) => {
       const validated = safeGetHomeSchema(data)
@@ -54,28 +60,40 @@ export function useHomeSchema(): HomeSchema {
       // 预览模式:优先加载 draft,draft 不存在则 fallback 生产 schema
       getHomeSchemaDraftConfig()
         .then((res) => {
-          if (cancelled || !res.success) return
+          if (cancelled) return
+          if (!res.success) {
+            logFailure('draft', new Error('response not success'))
+            return
+          }
           if (res.data === null) {
             // 草稿未保存 → fallback 生产 schema
             getHomeSchemaConfig()
               .then((prodRes) => {
-                if (cancelled || !prodRes.success) return
+                if (cancelled) return
+                if (!prodRes.success) {
+                  logFailure('prod', new Error('response not success'))
+                  return
+                }
                 applySchema(prodRes.data)
               })
-              .catch(() => {})
+              .catch((e) => logFailure('prod', e))
             return
           }
           applySchema(res.data)
         })
-        .catch(() => {})
+        .catch((e) => logFailure('draft', e))
     } else {
       // 正常模式:加载生产 schema
       getHomeSchemaConfig()
         .then((res) => {
-          if (cancelled || !res.success) return
+          if (cancelled) return
+          if (!res.success) {
+            logFailure('prod', new Error('response not success'))
+            return
+          }
           applySchema(res.data)
         })
-        .catch(() => {})
+        .catch((e) => logFailure('prod', e))
     }
 
     return () => {

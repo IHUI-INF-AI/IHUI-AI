@@ -11,6 +11,7 @@ import {
   type AvatarSize,
   type AvatarShape,
 } from '@ihui/shared/ui/avatar-spec'
+import { truncateByGrapheme } from '@ihui/shared/utils/truncate'
 
 export interface AvatarProps extends Omit<ComponentProps<typeof View>, 'children'> {
   source?: ComponentProps<typeof Image>['source']
@@ -30,7 +31,7 @@ export function Avatar({
   const initials = name
     ? name
         .split(' ')
-        .map((n) => n[0])
+        .map((n) => truncateByGrapheme(n, 1))
         .slice(0, 2)
         .join('')
         .toUpperCase()

@@ -8866,6 +8866,10 @@
           "title": "服務提供商繁忙",
           "action": "請稍後重試"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "這次消耗需要你確認",
+          "action": "確認後再重試，未確認不會呼叫生圖"
+        },
         "ALREADY_CLAIMED": {
           "title": "該任務已被他人認領",
           "action": "改領其他任務，或等對方釋放後再試"
@@ -8997,6 +9001,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "該操作已被安全原則攔截",
           "action": "修改後重試"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "這條命令被原則拒絕",
+          "action": "換一條命令，或請管理員調整原則"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "這條命令的原則還沒判出來",
+          "action": "先不要執行，等原則可讀後再試"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "需要確認後才會執行",
@@ -15016,6 +15028,33 @@
       "grantRuleConfirmCancel": "取消",
       "approve": "批准",
       "argsPreview": "參數預覽",
+      "decisionDetail": "操作詳情",
+      "decisionDetailReason": "原因",
+      "decisionDetailRisk": "風險",
+      "decisionDetailScope": "作用域",
+      "decisionDetailCwd": "執行目錄",
+      "decisionDetailPaths": "受影響路徑",
+      "decisionDetailCommand": "命令",
+      "rawArgs": "原始參數",
+      "riskLow": "低",
+      "riskMedium": "中",
+      "riskHigh": "高",
+      "scopeFsRead": "讀取",
+      "scopeFsWrite": "寫入",
+      "scopeFsDelete": "刪除",
+      "scopeExec": "執行",
+      "scopeNetwork": "網路",
+      "scopeDb": "資料庫",
+      "scopeOther": "其他",
+      "reasonDangerousCommand": "危險命令",
+      "reasonDestructiveOperation": "破壞性操作",
+      "reasonWritesFiles": "寫入檔案",
+      "reasonDeletesFiles": "刪除檔案",
+      "reasonExecutesCommand": "執行命令",
+      "reasonNetworkAccess": "存取網路",
+      "reasonDatabaseWrite": "寫入資料庫",
+      "reasonHighRiskTool": "高風險工具",
+      "reasonRequiresConfirmation": "需要確認",
       "description": "AI 要求執行以下高風險操作,請確認是否允許",
       "pendingCount": "還有 {count} 個待審批",
       "reject": "拒絕",

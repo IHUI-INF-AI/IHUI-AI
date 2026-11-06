@@ -13,6 +13,7 @@
  *
  * 保守口径:
  *   - 无账本文件(ENOENT)⇒ 无悬挂可收敛,空账直通(不代建文件);
+ *   - 账本读不到 ⇒ 抛错,不能当成没有再整文件重写;
  *   - 账本损坏(非法 JSON / 非数组 / 条目越界)⇒ 抛错,不吞 —— 静默把坏账当空账
  *     会把"该收敛"伪装成"没得收敛",正是本票要堵的缺口;异常沿调用点
  *     (index.ts resolveSession)向上冒,中断 resume,绝不拿坏账装成功;
@@ -44,12 +45,24 @@ const LEDGER_KINDS: ReadonlySet<string> = new Set([
   'interrupted',
 ]);
 
+type LedgerStat = (path: string) => fs.Stats;
+
 /**
- * 读账本:文件不存在 ⇒ [](无账 = 无悬挂);存在但内容不可信 ⇒ 抛错(大声失败)。
+ * 读账本:文件不存在 ⇒ [](无账 = 无悬挂);读不到或内容不可信 ⇒ 抛错(大声失败)。
  */
-export function readCompactionTimelineLedger(sessionId: string): CompactTimelineRecord[] {
+export function readCompactionTimelineLedger(
+  sessionId: string,
+  stat?: LedgerStat,
+): CompactTimelineRecord[] {
+  const look = stat ?? ((p: string) => fs.statSync(p));
   const p = getCompactionTimelineLedgerPath(sessionId);
-  if (!fs.existsSync(p)) return [];
+  try {
+    look(p);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+    throw new Error(`压缩账本读不到,不能把它当成没有 (${code ?? 'unknown'})`);
+  }
   const parsed: unknown = JSON.parse(fs.readFileSync(p, 'utf-8'));
   if (!Array.isArray(parsed)) {
     throw new Error(`compaction timeline ledger is not an array: ${p}`);
@@ -81,8 +94,9 @@ export function readCompactionTimelineLedger(sessionId: string): CompactTimeline
 export function recoverCompactionTimelinesForSession(
   sessionId: string,
   nowMs: number = Date.now(),
+  stat?: (path: string) => fs.Stats,
 ): TimelineRecoveryReport {
-  const records = readCompactionTimelineLedger(sessionId);
+  const records = readCompactionTimelineLedger(sessionId, stat);
   const { records: converged, report } = recoverInterruptedCompactTimelines(records, nowMs);
   if (report.appended.length > 0) {
     fs.writeFileSync(

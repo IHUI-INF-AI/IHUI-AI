@@ -9979,6 +9979,10 @@ const CROSS_END_LEGS = new Set([
   // 连起点件都不写 ⇒ 这一格瞎了(末行不是结论 JSON / 子进程被超时掐死)永远读成"本轮没判,下轮重试",
   // 存续门槛与到人对它结构上都不存在(§12f「判据失效的表现永远是安静」)。
   'hand-upgrade',
+  // 2026-11-06 立:跨端样式欠债台账(auditCrossEndDebtLedger → cross-end-ui-parity-debt.mjs)。
+  // 不在册 ⇒ noteCrossEndUndetermined / settleCrossEndLeg 双双走「未知腿」分支当场 return
+  // { mailed:false },连起点件都不写 ⇒ 这一格瞎了永远读成"本轮没判"(§12f 同型失效,不再重犯)。
+  'debt-ledger',
 ])
 const crossEndUndetFile = (leg) =>
   join(WORKTREE, '.ihui-agent', 'state', `cross-end-${leg}-undetermined-first.json`)
@@ -10733,6 +10737,252 @@ export function auditCrossEndParityDrift(opts = {}) {
       ` · 门 128 判红 ${cur.coverageRed ?? '?'} · 登记表腐烂 ${cur.mapRot ?? '?'})`,
   )
   return { ran: true, ok: true, state: 'ok', cur }
+}
+
+const CROSS_END_DEBT_INTERVAL_MS = Number(
+  process.env.IHUI_CROSS_END_DEBT_INTERVAL_MS || 60 * 60 * 1000,
+)
+/**
+ * 派生上限必须**大于**尺子自己内部那道对账门的超时(现读 `scripts/cross-end-ui-parity-debt.mjs`
+ * 的 `GATE_TIMEOUT_MS` = 600_000 ms):掐在一轮全量对账跑完之前 ⇒ 结论恒取不到 ⇒ 这一格永远
+ * "未判定",而账面看起来只是"本轮没判"(§0.3 的反面:把掐死读成没事)。
+ * 接线现读:单轮 21 秒、stdout 103,452 字节、rc=1(2026-11-06)⇒ maxBuffer 4 MiB 有余量,
+ * 超限走 ENOBUFS ⇒ status=null ⇒ 落未判定,不猜。
+ */
+const CROSS_END_DEBT_TIMEOUT_MS = Number(process.env.IHUI_CROSS_END_DEBT_TIMEOUT_MS || 12 * 60 * 1000)
+
+/**
+ * 跨端样式欠债台账巡检(2026-11-06 接线)。
+ *
+ * 立因:只读尺 `scripts/cross-end-ui-parity-debt.mjs`(轴一 miniapp↔RN 四维 + 轴二 web↔RN 五维;
+ * 判据全部消费门 128 `check-cross-end-ui-parity.mjs --json`,自己零复算)判据齐全、镜像测试在册,
+ * 而全仓**零调度点**(接线现读:`git grep -n cross-end-ui-parity-debt` 只命中门 128 的头注文案、
+ * 它自己的镜像测试与它本体)= §0.9「造好没装车 = 没有」。本函数是它唯一的调度器。
+ *
+ * 与 `auditCrossEndParityDrift` **不是重复**(现读该尺的取材清单:coverage / web-rn-screen-parity
+ * / mirror-fidelity / conversion 四条子尺,不含门 128 的同名配对组件几何轴)⇒ 两把尺输入集不相交,
+ * 派生成本也不是同一份,拿"已经有人跑跨端"给这一格免检是假账。
+ *
+ * 三态(§0.3;退出码语义由尺子自己的 `checkVerdict()` 定义,本层只搬运、不重算):
+ *   rc=0 两轴均无回潮 ⇒ ✅ 一行读数(未裁决/合计/配对数/基线时刻全部现读,不写死);
+ *   rc=1 有族欠债上升 ⇒ ❌ 逐族点名写日志,**默认不到人**(理由见下,取舍就写在这里);
+ *   rc=2 / 结论 JSON 取不到 / rc 不在 {0,1,2} / rc=1 却点不出名 ⇒ 未判定:既不记绿也不冒红,
+ *          落 undetermined 起点件并逐条点名"哪一轴没有输入"。
+ *
+ * **为什么 rc=1 不发到人(§5e-1 准入之问:红了收信人能做什么?)**:这把尺的 1 是**长期态**——
+ * 接线那一轮实测就是「轴一 5 族欠债上升」,而 `againstBaseline.baseline` 仍是 2026-10-22 那枚在册
+ * 快照,即这 5 条既非本次改动引入、也没有"当场改一行"的出路:收信人能动的是**按族派单收口**,
+ * 那是台账的活,不是收件箱的活。挂上邮件就变成 §12e 明令禁止的恒响警报(恒响的信唯一结局是逼人
+ * 屏蔽整条到人通道,连真正能整改的一起淹掉)。升到人档的前置 = 现存涨项归零后再观察一轮。
+ * 要提前开:显式 `IHUI_CROSS_END_DEBT_MAIL=1`(去重身份 = `cross-end-debt;debt-up`,按稳定语义、
+ * 不把会抖动的族明细塞进身份,§5e-3)。
+ * 反过来"这一格瞎了"(未判定连击满 `CROSS_END_UNDET_HORIZON_MS`)**仍**按既有
+ * `noteCrossEndUndetermined` 机制到人 —— 那是结构性故障、出路明确(手动复跑尺子 / 查门 128 是否
+ * 真跑不动),与"族涨"是两件事,不得混为一谈。
+ *
+ * 节流 60 分钟(与同族 drift 腿一致):尺子内部要跑门 128 的全量对账(实测 21 秒),欠债是慢变量。
+ * **配额先写后跑**:节流戳在派生**之前**落盘(裸 `attemptAt` 从此专表示"派发了但没回来"),
+ * 派生返回后由 `stampCrossEndDispatch` 补 finishedAt/rc —— 与本文件其余跨端腿逐字同型。
+ * 判机器状态 ⇒ 绝不进提交链(§12e);不改本守护退出码(与 auditCrossEndParityDrift 同型)。
+ *
+ * 轴的"在册"只认尺子自述(接线现读:HEAD 面 `schema: 2` 只有轴一,`schema: 3` 的轴二仍在别席未提交
+ * 的工作树里):本层不把"这版尺子压根没第二条轴"读成瞎(那是没造,不是没判 ⇒ 读数行显式写「仅轴一」),
+ * 而尺子自称有第二条轴却读不出对比段 ⇒ 口径漂移 ⇒ 落未判定,两种情形不混桶。
+ */
+export function auditCrossEndDebtLedger(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = CROSS_END_DEBT_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'cross-end-debt-last.json'),
+    logger = log,
+    runner = null,
+    notify = notifyGuardRed,
+    mailDebtUp = process.env.IHUI_CROSS_END_DEBT_MAIL === '1',
+    timeoutMs = CROSS_END_DEBT_TIMEOUT_MS,
+    // 这两枚只为准成对夹具而开(测试不得碰真 .ihui-agent/state 的起点件,也不得等真 3 小时;
+    // script 注入只为"尺子不在位"那一格夹具):生产调用一律走默认值,语义与不带参数逐字相同。
+    script = join(dirname(fileURLToPath(import.meta.url)), 'cross-end-ui-parity-debt.mjs'),
+    undetFile = crossEndUndetFile('debt-ledger'),
+    undetHorizonMs = CROSS_END_UNDET_HORIZON_MS,
+  } = opts
+  if (!existsSync(script)) {
+    logger(
+      'ℹ️ 跨端欠债台账:尺子不在位(scripts/cross-end-ui-parity-debt.mjs)⇒ 本轮跳过,不记为已探测',
+    )
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(
+      `⚠️ 跨端欠债台账:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`,
+    )
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json', '--check'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: timeoutMs, // 守门 80:热路径派生一律带上限(取值见上方常量注释)
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'], // §12g:不显式接管 stdio 在本机稳定 EBUSY
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // rc=1 是"量到族涨"、rc=2 是"某一轴没输入",两种都**不是**尺子坏了;
+            // 结论整份在 stdout(e.stdout)里,照常出账 —— 与尺子自己的 parseGateOutput 同一口径。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  beatRoundLock()
+  stampCrossEndDispatch(tickFile, now, r, String(r.out ?? r.stdout ?? ''))
+  // runner 两种契约都收:生产派生(`{ok,out,err,status}`)与镜像测试(`{status,stdout,stderr}`)。
+  const stdout = String(r.out ?? r.stdout ?? '')
+  const stderr = String(r.err ?? r.stderr ?? '')
+  const rc = typeof r.status === 'number' ? r.status : null
+  let parsed = null
+  try {
+    const a = stdout.indexOf('{')
+    const b = stdout.lastIndexOf('}')
+    if (a >= 0 && b > a) parsed = JSON.parse(stdout.slice(a, b + 1))
+  } catch {
+    /* 落到下面"结论不可用"那一支 */
+  }
+  /** 未判定的唯一出口:⚠️ 一行 + 起点件,**不**记绿也不冒红;明细逐条点名,不写"可能"。 */
+  const undet = (why, state) => {
+    logger(
+      `⚠️ 跨端欠债台账:未判定 —— ${String(why).slice(0, 200)} ⇒ 本轮没判,` +
+        `既不等于"欠债没涨"也不等于"涨了"(§0.3)`,
+    )
+    noteCrossEndUndetermined(
+      'debt-ledger',
+      `派生 rc=${rc === null ? '?' : rc};${why}\n` +
+        `stderr 前 160:${stderr.slice(0, 160) || '(空)'}\n` +
+        `这表示**跨端样式欠债这一格现在是瞎的**(涨跌无人量得到),不是"没有欠债"。\n` +
+        `出路:① node scripts/cross-end-ui-parity-debt.mjs --json --check(只读复跑,看它实际报什么)` +
+        ` ② 它唯一的输入是 node scripts/check-cross-end-ui-parity.mjs --json(门 128;` +
+        `它 rc=1 是"量到分叉"而不是跑不动,别按红门去改口径)`,
+      { logger, notify, file: undetFile, horizonMs: undetHorizonMs },
+    )
+    return { ran: true, ok: false, state }
+  }
+  if (!parsed) {
+    return undet('未取到结论 JSON(子进程被超时掐死 / 末行不是 JSON / 门的口径改了)', 'unparsed')
+  }
+  const upA = Array.isArray(parsed.againstBaseline?.up) ? parsed.againstBaseline.up : null
+  const upB = Array.isArray(parsed.againstBaselineWebRn?.up) ? parsed.againstBaselineWebRn.up : null
+  /**
+   * 轴二(web↔RN)是不是**在册**:只认尺子自己的自述(schema ≥ 3,或吐出 webRnState)。
+   * 接线现读:HEAD 面那把尺是 `schema: 2`(只有轴一),`schema: 3` 的轴二仍在别席的未提交工作树里
+   * ⇒ 本层绝不把"这一版尺子压根没第二条轴"当成瞎(那是没造,不是没判);而一旦尺子自称有第二条轴
+   * 却读不出对比段,那才是口径漂移 ⇒ 落未判定。两种情形分别点名,不混桶。
+   */
+  const axis2InLedger = Number(parsed.schema ?? 0) >= 3 || typeof parsed.webRnState === 'string'
+  const fmtUp = (x) =>
+    `${x?.name ?? '(未命名)'} ${x?.from ?? '(新出现)'} → ${x?.to ?? '?'}(+${x?.delta ?? '?'})`
+  if (rc === 2) {
+    const gaps = []
+    if (axis2InLedger && parsed.webRnState && parsed.webRnState !== 'judged') {
+      gaps.push(`轴二 ${parsed.webRnState}:${parsed.webRnWhy ?? '(尺子未附原因)'}`)
+    }
+    if (!upA) gaps.push('轴一基线对比段 againstBaseline.up 不在(口径变了)')
+    if (!Array.isArray(parsed.families)) gaps.push('轴一族表段 families 不在(口径变了)')
+    if (axis2InLedger && !upB) {
+      gaps.push('尺子自述轴二在册(schema≥3)却读不出 againstBaselineWebRn 段(口径变了)')
+    }
+    if (gaps.length === 0) {
+      gaps.push(
+        `尺子自述未判定:${stderr.split('\n').map((s) => s.trim()).filter(Boolean)[0] ?? '(stderr 空)'}`,
+      )
+    }
+    return undet(gaps.join(' | '), 'undetermined')
+  }
+  if (rc !== 0 && rc !== 1) {
+    return undet(`退出码 ${rc} 不在三态语义(0/1/2)之内 ⇒ 本层不猜结论`, 'undetermined')
+  }
+  if (!upA) {
+    return undet('轴一基线对比段 againstBaseline.up 不在 ⇒ 涨跌无人量得到,不拿"读不到"当持平', 'unparsed')
+  }
+  if (axis2InLedger && !upB) {
+    return undet('尺子自述轴二在册却读不到对比段 againstBaselineWebRn.up ⇒ 不拿缺段当持平', 'unparsed')
+  }
+  const upBsafe = upB ?? []
+  if (rc === 1 && upA.length === 0 && upBsafe.length === 0) {
+    // rc=1 却说有族涨、而两轴都点不出名 = 枚举到 0 个候选 ⇒ 判死不记绿(§0.3),不猜是谁涨了。
+    return undet('rc=1(尺子判有族涨)但两轴 up 清单均为空 ⇒ 口径漂移,点不出名', 'unparsed')
+  }
+  settleCrossEndLeg('debt-ledger', { logger, file: undetFile })
+  const axisNote = axis2InLedger ? '两轴' : `仅轴一(这把尺自述 schema=${parsed.schema ?? '?'},无第二条轴)`
+  const baselineOf = (p) => p?.againstBaseline?.baseline ?? '未在册'
+  if (rc === 1) {
+    const named =
+      `轴一 ${upA.length} 族涨:${upA.map(fmtUp).join(' · ') || '(无)'}` +
+      (upBsafe.length ? ` / 轴二 ${upBsafe.length} 对涨:${upBsafe.map(fmtUp).join(' · ')}` : '')
+    logger(
+      `❌ 跨端样式欠债台账:${axisNote} 有族涨 —— ${named}(未裁决 ${parsed.openTotal ?? '?'}` +
+        `/${parsed.total ?? '?'} 读数 · 同名配对 ${parsed.pairCount ?? '?'} · 基线 ${baselineOf(parsed)})`,
+    )
+    logger(
+      '  ⓘ 本条刻意不到人(§5e-1:基线时刻早于本轮,这些涨项不是本次改动引入,能做的动作是按族派单' +
+        '收口而非当场修;升到人档的前置 = 现存涨项归零,或显式 IHUI_CROSS_END_DEBT_MAIL=1)',
+    )
+    if (mailDebtUp) {
+      notify(
+        '跨端样式欠债台账:有族欠债上升',
+        [
+          `${axisNote} 有族涨`,
+          named,
+          '',
+          `轴一 未裁决 ${parsed.openTotal ?? '?'} / 合计读数 ${parsed.total ?? '?'}` +
+            ` / 同名配对 ${parsed.pairCount ?? '?'}`,
+          `在册基线时刻:${baselineOf(parsed)}`,
+          '',
+          '下一步(可执行):',
+          '① node scripts/cross-end-ui-parity-debt.mjs   # 两条轴的族表 + 与在册快照对比',
+          '② node scripts/check-cross-end-ui-parity.mjs  # 门 128 逐条点名(仅小程序档/仅 RN 档/同名常量不同值)',
+          '③ 收口后的验收 = 该族名单行下降 + 该族两端截图同形(尺子头注口径)',
+          '',
+          stderr.slice(0, 300),
+        ].join('\n'),
+        { severity: 'warning', dedupKey: 'cross-end-debt;debt-up', logger },
+      )
+    }
+    return {
+      ran: true,
+      ok: false,
+      state: 'debt-up',
+      up: upA.length + upBsafe.length,
+      detail: { axis1: upA, axis2: upBsafe },
+    }
+  }
+  logger(
+    `✅ 跨端样式欠债台账:${axisNote} 均无回潮(轴一 未裁决 ${parsed.openTotal ?? '?'}/${parsed.total ?? '?'}` +
+      ` · 同名配对 ${parsed.pairCount ?? '?'} · 基线 ${baselineOf(parsed)}` +
+      `${
+        axis2InLedger
+          ? ` · 轴二 ${parsed.webRnState ?? '?'}${parsed.webRn?.total === undefined ? '' : ` total ${parsed.webRn.total}`}`
+          : ''
+      })`,
+  )
+  return { ran: true, ok: true, state: 'ok', axis2InLedger }
 }
 
 const PARITY_COCKPIT_INTERVAL_MS = Number(
@@ -12254,6 +12504,53 @@ const CROSS_END_LANDING_INTERVAL_MS = Number(
   process.env.IHUI_CROSS_END_LANDING_INTERVAL_MS || 15 * 60 * 1000,
 )
 
+/**
+ * 收编腿的基线让路判据(2026-11-06 机主令)。
+ *
+ * 立因(现读):主树 `main` 落后 `origin/main` 83 枚(0 ahead / 83 behind),而收编器会把
+ * **工作树字节**交给 safe-commit(`scripts/auto-commit-quiet.mjs:473-475`)——工作树里的
+ * README 副本仍写着旧数(门 173 staged 面实测 `dbTables 622→621` / `testFiles 4098→4189`),
+ * 一旦收编就是"在 83 枚前的旧基线上提交旧内容";post-commit 的 push-guard 又必然被非快进
+ * 拒绝(`scripts/git-push-guard.mjs:220` 默认推 main),结果只堆本地旧提交。
+ *
+ * 判据:
+ *   · `merge-base --is-ancestor origin/main HEAD` 退出 0 ⇒ `descendant`(允许收编);
+ *   · 退出 1 ⇒ `behind`(落后或分叉)⇒ 让路;
+ *   · 取不到 `origin/main` / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
+ *     不许把"忘了 fetch"读成"已同步")。
+ */
+export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)) {
+  const headSha = String(run(['rev-parse', '--verify', 'HEAD'], true) ?? '').trim() || null
+  const mainSha = String(run(['rev-parse', '--verify', 'origin/main'], true) ?? '').trim() || null
+  if (!headSha || !mainSha) {
+    return {
+      state: 'unknown',
+      headSha,
+      mainSha,
+      behind: null,
+      why: !mainSha ? 'origin/main 取不到(未 fetch 或远端分支不存在)' : 'HEAD 取不到',
+    }
+  }
+  let behind = null
+  try {
+    behind = Number(String(run(['rev-list', '--count', 'HEAD..origin/main'])).trim())
+  } catch {
+    behind = null
+  }
+  // `merge-base --is-ancestor` 的退出码是唯一凭据:0=后代,1=不是后代(落后/分叉),其它=未判定。
+  // 用抛错对象上的 .status 判,而不是 allowFail 的 null —— null 会把"退出 1"与"真错误"折成同一档。
+  let state = 'unknown'
+  try {
+    run(['merge-base', '--is-ancestor', 'origin/main', 'HEAD'])
+    state = 'descendant'
+  } catch (e) {
+    state = e && typeof e.status === 'number' && e.status === 1 ? 'behind' : 'unknown'
+  }
+  // 反向自证:rev-list 数出落后枚数 > 0 时,即便 merge-base 给了 0 也不放行(两条判据取严)。
+  if (state === 'descendant' && Number.isFinite(behind) && behind > 0) state = 'behind'
+  return { state, headSha, mainSha, behind, why: state === 'unknown' ? 'merge-base 判不出祖先关系' : null }
+}
+
 export function sweepCrossEndLandingLeg(opts = {}) {
   const {
     now = Date.now(),
@@ -12261,6 +12558,7 @@ export function sweepCrossEndLandingLeg(opts = {}) {
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
     logger = log,
     runner = null,
+    ancestry = null,
     // 与其余跨端腿同一注入面(被别的 sweepXxx 用同名默认):漏了这一行就是运行期 ReferenceError,
     // 而 node --check 查不出来(模块能加载 ≠ 能调用)。
     notify = notifyGuardRed,
@@ -12269,6 +12567,19 @@ export function sweepCrossEndLandingLeg(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '器物不在位' }
+  }
+  // 基线让路闸放在节流之前:让路轮不得消耗 15 分钟窗口,否则追上 origin/main 后还要空等一轮。
+  const anc = typeof ancestry === 'function' ? ancestry() : readMainAncestry()
+  if (!anc || anc.state !== 'descendant') {
+    const head = anc?.headSha ?? '未判定'
+    const main = anc?.mainSha ?? '未判定'
+    const behind = anc?.behind === null || anc?.behind === undefined ? '未判定' : String(anc.behind)
+    logger(
+      anc?.state === 'unknown'
+        ? `⏸️ 跨端落库:本轮让路 —— origin/main 取不到或判不出(${anc?.why ?? '未判定'};HEAD=${head})⇒ 无法证明已含远端,按未同步处理(fail-closed),不派 auto-commit-quiet`
+        : `⏸️ 跨端落库:本轮让路 —— HEAD=${head} 不是 origin/main=${main} 的后代(落后 ${behind} 枚)⇒ 旧基线收编会被 push-guard 非快进拒推、只堆本地提交,不派 auto-commit-quiet`,
+    )
+    return { ran: false, why: 'HEAD 不是 origin/main 的后代', ancestry: anc }
   }
   if (!legThrottle(tickFile, intervalMs, now, logger)) return { ran: false, why: '未到节流窗口' }
   const timeoutMs = Number(process.env.IHUI_CROSS_END_LANDING_TIMEOUT_MS || 20 * 60 * 1000)
@@ -13694,6 +14005,10 @@ async function main() {
     if (!CHECK_ONLY) auditRootGuardManifestSync()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
+    // 跨端样式欠债台账(2026-11-06 接线):只读尺 scripts/cross-end-ui-parity-debt.mjs 此前全仓
+    // 零调度点 = §0.9「造好没装车 = 没有」。与上面 drift 腿同一挂点语义、各自节流戳 ⇒
+    // 双执行体并存只有先到那个真跑;判机器状态 ⇒ 绝不进提交链(§12e)。
+    if (!CHECK_ONLY) auditCrossEndDebtLedger()
     // 格式对账尺巡检轮(2026-11-04 立):十面漂移此前零派发,只挂 main() 会在 daemon 独占
     // 轮级锁后永久不跑(与上面同一判据)⇒ 两处执行体同挂,共用一枚节流戳,先到者真跑。
     if (!CHECK_ONLY) sweepFormatParity()
@@ -13992,11 +14307,15 @@ function startDaemon(bootGuard = null) {
         // 这一批是把剩下的整族收口,不再一格一格撞见)。
         // 下面每一条都自带节流戳(与 main() 共用同一 tick 文件)⇒ 双执行体并存只有先到那个真跑,
         // 未到期时一次调用只是读一个小 JSON 后早退。验收尺 = A9 的 darkCount 递减、A8 dark=3 转 ok。
-        // 刻意不搬的 7 条(auditMergeAdditionLoss / dispatchGuardMail / ensureGuardDaemonAlive /
-        // ensureS4u / refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)尚无节流戳,
-        // 每 10s 真跑一次是不可接受的;其中 ensureGuardDaemonAlive 是"重启 daemon"本身,
-        // 挂进 daemon 里属自指,必须留在一次性面。逐条裁决见 A9 的 next 文案。
+        // 刻意不搬的 3 条(dispatchGuardMail / ensureGuardDaemonAlive / ensureS4u)仍无 tick 面挂点:
+        // ensureGuardDaemonAlive 是"重启 daemon"本身,挂进 daemon 里属自指,必须留在一次性面;
+        // ensureS4u 是任务档自身配置;dispatchGuardMail 尚无节流戳,每 10s 真跑一次不可接受。
+        // (原列 7 条中的 auditMergeAdditionLoss / refreshRecoverySource / rotateRunLogs /
+        // reportBaselineFreshness 已于下方"第二批"用调用点 legThrottle 补戳后搬进 tick,不再算不搬。)
         auditCrossEndParityDrift()
+        // 跨端样式欠债台账(2026-11-06 接线):与 main() 同一挂点语义、共用同一枚节流戳 ⇒
+        // 常驻 daemon 载体下这条腿才会真的每 60 分钟跑一趟(只挂 main() = 装了没车跑的车站)。
+        auditCrossEndDebtLedger()
         auditI18nCrossEndWording()
         auditLandedReverts()
         auditPushChannel()
@@ -14024,6 +14343,12 @@ function startDaemon(bootGuard = null) {
         sweepKeepAliveForever()
         sweepLessonApply()
         sweepLocalDevDbRotation()
+        // RP-74 第一批补搬(2026-11-05 现读差集时漏收的一枚):与同族 sweepRnCompatLeg /
+        // sweepRnColorLiteralLeg 同一条 runCrossEndApplyLeg 样板,自带节流戳(与 main() 共用
+        // miniapp-message-keys-last.json)⇒ 双执行体并存只先到者真跑,搬入零行为变更;
+        // 读数有人消费:写盘由 sweepCrossEndLandingLeg 收编、词包由 healI18nBundleLeg 进离线包,
+        // dispatch-parity 第三族此前已把它点名为"仅 main 面"。
+        sweepMiniappMessageKeysLeg()
         sweepMiniappStyleTiers()
         sweepParityCockpit()
         sweepPoolIsolation()
@@ -15061,6 +15386,9 @@ export const __test__ = {
   // 跨端漂移巡检的派发腿(镜像测试 cross-end-parity-drift-dispatch 的 T6 装车锁按名 import)。
   // 此前函数已 export 而未登记进本台账 ⇒ 那道锁自本票立日起结构上打不到这一格(恒红,§0.2)。
   auditCrossEndParityDrift,
+  // 跨端样式欠债台账的派发腿(2026-11-06 接线;镜像测试 cross-end-debt-dispatch 按名 import 本体,
+  // 不在测试里复制判据 §22c;不登记进本台账 ⇒ 装车锁结构上打不到这一格)。
+  auditCrossEndDebtLedger,
   // 跨端镜像声明链自愈的派发腿(镜像测试 cross-end-mirror-heal-dispatch 的 T6 装车锁按名 import)。
   // 同上一格同型失效:函数虽 `export function`,但 T6 判的是「符号在 __test__ 台账里」——
   // 不登记 ⇒ 测试拿不到生产判据本体,§22c「镜像 import 源脚本、不复制判据」结构上作废,

@@ -39,6 +39,9 @@
 import { execFileSync } from 'node:child_process'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
+// BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
+// 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
@@ -2308,13 +2311,21 @@ const checks = [
   },
   {
     id: '86',
-    label: '🗂  verify-*.mjs 临时验证文件落点(warn,AGENTS §25 配套,补装)',
+    label: '🗂  一次性验证/探针脚本落点对账(verify-*.{mjs,ts} + tmp-*.{mjs,mts,ts,js},blocking,AGENTS §25 配套)',
     script: 'check-verify-tmp-files.mjs',
-    args: [],
-    mode: 'warn',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_VERIFY_TMP_FILES',
     stagedTriggers: ["apps/"],
-    // 该脚本自身默认 warn-only(有警告也 exit 0),--strict 才阻断 ⇒ 放 CI 用 --strict。
-    // 这里保持 warn:§25 的原意是"提示层",升 blocking 会拦掉合法的 scripts/e2e-* 长期脚本。
+    // 升档留痕(2026-11-06,goal-b49 Z41):只翻档位字段(mode/skipEnv/args 的 --strict),
+    //   判据、阈值、覆盖面(射程仍由门体 STRAY_FORMS 登记表决定)一字未动 —— §12e 不许为升档削判据。
+    // 升档前置 = 现读实测存量 0:全量档 0 警告 + --strict exit 0 + --self-test 5 例全过 + 镜像 23 例全过;
+    //   前置不成立时本条目必须留在 warn,故复算入口就是上面那四条命令(数字现读,不采信转述)。
+    // args 必须同批带 --strict:该脚本自身默认 warn-only(有警告也 exit 0),--strict 才阻断 ⇒
+    //   只把 mode 写成 blocking 而不给 --strict,门永远翻不了红 = 判据当场不成立(§0.9);同型先例见 L3172 那条注释。
+    // 取材面 = 工作树文件系统(门体自行声明:"未跟踪"这一事实只在工作树面存在,HEAD/索引面结构上看不见),
+    //   故 §0.4 的 HEAD/索引两档不适用本门;扫描根缺失时 --strict 记 exit 2「未判定」,不冒充全绿(§0.3)。
+    // 旧注释"升 blocking 会拦掉合法 scripts/e2e-* 长期脚本"已随 Z40 扩面失效:豁免口径由门体登记表判定,与档位无关。
   },
   {
     id: '87',
@@ -7392,7 +7403,7 @@ let effectiveChecks = pushGate ? pushGateChecks : checks
 if (passStaged && !pushGate) {
   try {
     const stagedPaths = String(
-      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
+      execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
         encoding: 'utf8',
         cwd: process.cwd(),
         windowsHide: true,

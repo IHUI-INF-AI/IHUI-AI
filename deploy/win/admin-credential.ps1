@@ -22,6 +22,8 @@
 #     见 AGENTS §27 的适用面例外):不用 `?:` / `??` / `-not (x -isnot …)` 之类的新语法。
 # =============================================================================
 
+$ErrorActionPreference = 'Stop'
+
 function Get-CredentialFingerprint {
     param([string]$Value)
     if ($null -eq $Value) { return '(null)' }

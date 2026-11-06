@@ -211,21 +211,38 @@ def _cache_file(namespace: str, workspace_path: str) -> str:
     return os.path.join(_cache_dir(workspace_path), f"{slug}.json")
 
 
+class WikiCacheUnread(Exception):
+    """百科缓存读失败。这不是空缓存。"""
+
+    def __init__(self, path: str, code: str) -> None:
+        self.path = path
+        self.code = code
+        super().__init__(f"百科缓存读不到,不能把它覆盖成新摘要 ({code}): {path}")
+
+
 def _load_disk(namespace: str, workspace_path: str) -> dict[str, Any] | None:
+    fp = _cache_file(namespace, workspace_path)
     try:
-        fp = _cache_file(namespace, workspace_path)
         with open(fp, encoding="utf-8") as fh:
             data = json.load(fh)
-        if isinstance(data, dict) and isinstance(data.get("files"), dict):
-            return data
-    except (OSError, json.JSONDecodeError, ValueError):
-        pass
+    except FileNotFoundError:
+        return None
+    except (json.JSONDecodeError, ValueError):
+        return None
+    except OSError as exc:
+        code = str(getattr(exc, "errno", None) or type(exc).__name__)
+        raise WikiCacheUnread(fp, code) from exc
+    if isinstance(data, dict) and isinstance(data.get("files"), dict):
+        return data
     return None
 
 
 def _save_disk(namespace: str, workspace_path: str, data: dict[str, Any]) -> None:
     try:
         fp = _cache_file(namespace, workspace_path)
+        if os.path.isdir(fp):
+            logger.warning("百科缓存读不到,不能把它覆盖成新摘要: %s", fp)
+            return
         os.makedirs(os.path.dirname(fp), exist_ok=True)
         with open(fp, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False)
@@ -326,8 +343,14 @@ async def ensure_wiki(
 
         # 载入上一轮 hash/摘要映射(内存优先,否则磁盘)
         prev = cached.get("files") if cached else None
+        cache_unread = False
         if prev is None:
-            disk = _load_disk(ns, wp)
+            try:
+                disk = _load_disk(ns, wp)
+            except WikiCacheUnread as exc:
+                logger.warning("%s", exc)
+                cache_unread = True
+                disk = None
             prev = disk.get("files") if disk else None
         if prev is None:
             prev = {}
@@ -335,10 +358,16 @@ async def ensure_wiki(
         new_files: dict[str, dict[str, str]] = {}
         for abs_path in files:
             rel = _rel_path(wp, abs_path)
+            old = prev.get(rel) if isinstance(prev, dict) else None
             file_hash = _sha256_file(abs_path)
             if file_hash is None:
+                if isinstance(old, dict) and old.get("summary"):
+                    new_files[rel] = {
+                        "hash": str(old.get("hash") or ""),
+                        "summary": str(old.get("summary")),
+                    }
                 continue
-            old = prev.get(rel)
+            old = old if isinstance(old, dict) else None
             if old and old.get("hash") == file_hash and old.get("summary"):
                 # 未变更:复用旧摘要(增量核心)
                 new_files[rel] = {"hash": file_hash, "summary": old["summary"]}
@@ -348,6 +377,11 @@ async def ensure_wiki(
                 with open(abs_path, encoding="utf-8", errors="replace") as fh:
                     content = fh.read()
             except OSError:
+                if isinstance(old, dict) and old.get("summary"):
+                    new_files[rel] = {
+                        "hash": str(old.get("hash") or file_hash),
+                        "summary": str(old.get("summary")),
+                    }
                 continue
             summary = await _summarize_file(rel, content)
             new_files[rel] = {"hash": file_hash, "summary": summary}
@@ -369,9 +403,10 @@ async def ensure_wiki(
         if max_chars and len(wiki_text) > max_chars:
             wiki_text = wiki_text[:max_chars] + "\n...(项目百科已截断)"
 
-        # 写回内存 + 磁盘缓存
-        _remember_wiki(ns, {"ts": _now(), "text": wiki_text, "files": new_files})
-        _save_disk(ns, wp, {"files": new_files})
+        # 缓存读不到时不记内存、不写盘:下一轮还能再读,不会把没量到的摘要盖掉。
+        if not cache_unread:
+            _remember_wiki(ns, {"ts": _now(), "text": wiki_text, "files": new_files})
+            _save_disk(ns, wp, {"files": new_files})
 
         return wiki_text
     except Exception as exc:  # 全链路静默降级,绝不阻塞主聊天

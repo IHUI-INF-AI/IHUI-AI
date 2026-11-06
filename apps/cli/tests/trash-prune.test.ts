@@ -19,7 +19,8 @@ import {
 } from '@ihui/shared/delete-guard';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §15b/§26 唯一落点(禁 os.tmpdir/裸 mkdtemp、不得在仓库树内造 git 夹具=门 208);正解=给"测试支持层"在策略表建档 until 2026-12-28
 import { getDeleteTrashDir } from '../src/tools/file-batch-edit.js';
-import { getExpiryLedgerPath, pruneExpiredTrash } from '../src/tools/trash-prune.js';
+import { admitSentinelReceipt, getExpiryLedgerPath, pruneExpiredTrash } from '../src/tools/trash-prune.js';
+import { deleteTrashEntry } from '../src/tools/trash-prune-io.js';
 
 const NOW = '2026-11-05T00:00:00.000Z';
 const DAY = 24 * 60 * 60 * 1000;
@@ -69,6 +70,26 @@ function loseEntry(trashId: string, flat: string): void {
   fs.rmSync(path.join(getDeleteTrashDir(ws), trashId, flat));
 }
 
+describe('运行账目读不到不能覆盖', () => {
+  it('不把它当成首次运行,也不改账、也不摘件', () => {
+    seedTrash('keep-id', DAY, [{ flat: 'keep.txt', content: 'stay' }]);
+    const ledger = ledgerFile();
+    fs.mkdirSync(path.dirname(ledger), { recursive: true });
+    fs.writeFileSync(ledger, '{"keep":true}\n', 'utf-8');
+    const original = fs.readFileSync(ledger);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    const r = pruneExpiredTrash(ws, { nowIso: NOW, stat: denied });
+    expect(r.state).toBe('undetermined');
+    expect(r.removed).toEqual([]);
+    expect(fs.readFileSync(ledger)).toEqual(original);
+    expect(fs.readFileSync(path.join(getDeleteTrashDir(ws), 'keep-id', 'keep.txt'), 'utf-8')).toBe('stay');
+  });
+});
+
 describe('① 空账:no-op 且零噪声', () => {
   it('根不存在 ⇒ gate=empty 且零 fs 写;目录在但无清单同档', () => {
     const r = pruneExpiredTrash(ws, { nowIso: NOW });
@@ -77,6 +98,9 @@ describe('① 空账:no-op 且零噪声', () => {
     expect(r.skipped).toEqual([]);
     expect(r.failed).toEqual([]);
     expect(fs.existsSync(path.join(ws, '.ihui'))).toBe(false); // 零写:连 .ihui 都不建
+    expect(r.receipt).toMatchObject({
+      disposition: 'complete', reason: 'receipt-complete', scanned: 0, linked: 0, reclaimedBytes: 0, truncated: false,
+    });
 
     fs.mkdirSync(getDeleteTrashDir(ws), { recursive: true });
     const second = pruneExpiredTrash(ws, { nowIso: NOW });
@@ -284,6 +308,78 @@ describe('⑥ 结论可被上层直读(不反解 summary)', () => {
     // summary/lines 只做日志面:存在即够,结论不从字符串里取
     expect(r.summary).toContain('state=pruned');
     expect(r.lines.some((l) => l.startsWith('TRASH-EXPIRY'))).toBe(true);
+  });
+});
+
+describe('哨兵回执缺计数不算完成', () => {
+  it('没量到的字节数不写成 0，版本烤进文件名的形态拒绝', () => {
+    const done = admitSentinelReceipt({
+      name: 'node-reuse.done',
+      status: 'ok',
+      reason: 'linked',
+      scanned: 4,
+      linked: 2,
+      reclaimedBytes: 32,
+      scannedAt: '2026-11-06T05:00:00.000Z',
+      truncated: false,
+    });
+    expect(done).toMatchObject({ disposition: 'complete', scanned: 4, linked: 2, reclaimedBytes: 32, truncated: false });
+    expect(admitSentinelReceipt({
+      name: 'node-reuse.done',
+      status: 'ok',
+      reason: 'linked',
+      scanned: 4,
+      linked: 2,
+      reclaimedBytes: null,
+      scannedAt: '2026-11-06T05:00:00.000Z',
+      truncated: false,
+    }).reason).toBe('count-unmeasured');
+    expect(admitSentinelReceipt({
+      name: 'session_fragment_repair_done520',
+      status: 'ok',
+      reason: 'linked',
+      scanned: 1,
+      linked: 1,
+      reclaimedBytes: 0,
+      scannedAt: '2026-11-06T05:00:00.000Z',
+      truncated: false,
+    }).disposition).toBe('refused');
+    expect(admitSentinelReceipt({
+      name: 'node-reuse.done',
+      status: 'ok',
+      reason: 'linked',
+      scanned: 1,
+      linked: 2,
+      reclaimedBytes: 0,
+      scannedAt: '2026-11-06T05:00:00.000Z',
+      truncated: false,
+    }).reason).toBe('linked-exceeds-scanned');
+  });
+});
+
+describe('回收件读不到不能说成已经不存在', () => {
+  it('读不到时不删除', () => {
+    const dir = getDeleteTrashDir(ws);
+    fs.mkdirSync(dir, { recursive: true });
+    const payload = path.join(dir, 'keep.txt');
+    fs.writeFileSync(payload, 'keep\n', 'utf-8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const outcome = deleteTrashEntry(ws, dir, 'keep.txt', () => { throw denied; });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.reason).toContain('读不到');
+      expect(outcome.reason).not.toContain('已不存在');
+    }
+    expect(fs.readFileSync(payload, 'utf8')).toBe('keep\n');
+  });
+
+  it('确实不在仍报已不存在', () => {
+    const dir = getDeleteTrashDir(ws);
+    fs.mkdirSync(dir, { recursive: true });
+    const outcome = deleteTrashEntry(ws, dir, 'missing.txt');
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toContain('已不存在');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

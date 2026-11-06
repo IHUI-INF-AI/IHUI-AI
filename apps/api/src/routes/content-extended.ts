@@ -8,6 +8,7 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { carousels, aiGcContent } from '@ihui/database'
 
 // =============================================================================
@@ -86,6 +87,9 @@ const updateBannerSchema = z.object({
 // =============================================================================
 
 export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // BUG-3 根治:全局要求管理员权限,收口全部 12 个内容管理接口
+  // (此前仅 authenticate,任意注册用户可越权伪造活动/改写轮播/删全局文件)。
+  server.addHook('preHandler', requireAdmin)
   // ==========================================================================
   // activities — 活动管理（表 activities，尚未迁移为 Drizzle schema）
   // ==========================================================================

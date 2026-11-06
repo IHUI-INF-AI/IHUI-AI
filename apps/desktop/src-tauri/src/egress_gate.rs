@@ -7,7 +7,7 @@
 //! 立因:前票 Z3(`.ihui-agent/tmp/rea-goal-b49/Z3-impl.md` §4 第 1 条)把 CLI 侧三条腿入库后
 //! 点名「desktop 同源腿交主席另票」。现读 `apps/desktop/src-tauri/src/**` 的出站点
 //! (`reqwest` 命中处:`auto_refresh.rs:249/441`、`checkin_web_login.rs:138/171`、
-//! `checkin_trae_web_login.rs:171`、`checkin_capture.rs:3265`)在本模块之前**零出口判定**:
+//! `checkin_capture.rs:3265`)在本模块之前**零出口判定**:
 //! 主机名直接进 `Client::*`,拒与放都无声音(§0.9「判过没出声 = 没判」的反面:连判都没有)。
 //!
 //! 同源的**边界**(本模块只接能同源的格,不造第二把尺,§0.6):

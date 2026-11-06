@@ -152,10 +152,20 @@ export interface BuildWorkspaceIndexOptions {
   cacheRoot?: string
   fileLimit?: number
   byteLimit?: number
+  /** 测试注入列目录。生产不传,走 fs.readdirSync。 */
+  listDir?: ListDir
 }
 
-function collectFiles(dir: string, workspaceRoot: string): string[] {
+type ListDir = (dir: string) => fs.Dirent[]
+
+function collectFiles(
+  dir: string,
+  workspaceRoot: string,
+  listDir?: ListDir,
+): { files: string[]; unreadDirs: number } {
+  const readDir = listDir ?? ((target: string) => fs.readdirSync(target, { withFileTypes: true }))
   const out: string[] = []
+  let unreadDirs = 0
   const stack: string[] = [dir]
   while (stack.length > 0) {
     const cur = stack.pop() as string
@@ -163,8 +173,13 @@ function collectFiles(dir: string, workspaceRoot: string): string[] {
     resolveWorkspacePath(workspaceRoot, cur)
     let entries: fs.Dirent[]
     try {
-      entries = fs.readdirSync(cur, { withFileTypes: true })
-    } catch {
+      entries = readDir(cur)
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error
+          ? (error as { code?: string }).code
+          : undefined
+      if (code !== 'ENOENT') unreadDirs += 1
       continue
     }
     for (const entry of entries) {
@@ -183,7 +198,36 @@ function collectFiles(dir: string, workspaceRoot: string): string[] {
       out.push(abs)
     }
   }
-  return out
+  return { files: out, unreadDirs }
+}
+
+export function workspaceRootKind(
+  root: string,
+  stat: (file: string) => { isDirectory: () => boolean } = fs.statSync,
+): 'dir' | 'missing' | 'other' | 'unread' {
+  try {
+    return stat(root).isDirectory() ? 'dir' : 'other'
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing'
+    return 'unread'
+  }
+}
+
+function refuseWorkspaceRoot(root: string): void {
+  const kind = workspaceRootKind(root)
+  if (kind === 'unread') {
+    throw new Error(`工作区读不到,不能把它说成不存在或不是目录:${root} ⇒ 拒绝建索引`)
+  }
+  if (kind !== 'dir') {
+    throw new Error(`工作区不存在或不是目录:${root} ⇒ 拒绝建索引`)
+  }
+}
+
+function refuseIncompleteScan(unreadDirs: number): void {
+  if (unreadDirs > 0) {
+    throw new Error(`有 ${unreadDirs} 个目录读不到,不能把索引说成完整`)
+  }
 }
 
 function sha256File(absPath: string): string {
@@ -197,14 +241,15 @@ function sha256File(absPath: string): string {
 export function assertWorkspaceIndexBudget(
   workspaceRoot: string,
   limits: { fileLimit?: number; byteLimit?: number } = {},
+  listDir?: ListDir,
 ): { files: number; bytes: number } {
   const root = path.resolve(workspaceRoot)
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    throw new Error(`工作区不存在或不是目录:${root} ⇒ 拒绝建索引`)
-  }
+  refuseWorkspaceRoot(root)
   const fileLimit = limits.fileLimit ?? MAX_INDEX_FILES
   const byteLimit = limits.byteLimit ?? MAX_INDEX_BYTES
-  const absFiles = collectFiles(root, root)
+  const collected = collectFiles(root, root, listDir)
+  refuseIncompleteScan(collected.unreadDirs)
+  const absFiles = collected.files
   if (absFiles.length > fileLimit) {
     throw new WorkspaceIndexLimitError(
       'files',
@@ -251,14 +296,14 @@ export async function buildWorkspaceIndex(
   }
 
   const root = path.resolve(opts.workspaceRoot)
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    throw new Error(`工作区不存在或不是目录:${root} ⇒ 拒绝建索引`)
-  }
+  refuseWorkspaceRoot(root)
   const scanRoot = opts.subdir ? resolveWorkspacePath(root, opts.subdir) : root
   const fileLimit = opts.fileLimit ?? MAX_INDEX_FILES
   const byteLimit = opts.byteLimit ?? MAX_INDEX_BYTES
 
-  const absFiles = collectFiles(scanRoot, root)
+  const collected = collectFiles(scanRoot, root, opts.listDir)
+  refuseIncompleteScan(collected.unreadDirs)
+  const absFiles = collected.files
   if (absFiles.length > fileLimit) {
     throw new WorkspaceIndexLimitError(
       'files',
@@ -320,9 +365,14 @@ export async function buildWorkspaceIndex(
 export function clearWorkspaceIndex(
   workspaceRoot: string,
   cacheRoot?: string,
+  stat?: (file: string) => { isDirectory: () => boolean },
 ): { removed: boolean; dir: string } {
   const dir = getWorkspaceIndexDir(workspaceRoot, cacheRoot)
-  if (!fs.existsSync(dir)) return { removed: false, dir }
+  const kind = workspaceRootKind(dir, stat)
+  if (kind === 'missing') return { removed: false, dir }
+  if (kind === 'unread') {
+    throw new Error(`索引目录读不到,不能把它说成已经清除:${dir}`)
+  }
   if (path.resolve(dir) === path.resolve(workspaceRoot)) {
     throw new Error(`拒绝清除:索引目录等于工作区根(${dir})`)
   }

@@ -25,6 +25,7 @@ import {
 } from '../worktree.js';
 import { readSubagentState } from './state-store.js';
 import { evaluateFileAccess, toAclPath, announceGuardUnjudged, judgeWorktreeContainment } from '../sandbox/file-access-policy.js';
+import { measuredPruneCount } from '../tools/worktree-state.js';
 
 export interface WorktreeInfo {
   path: string;
@@ -121,6 +122,7 @@ export function createWorktree(
   parentId: string,
   subagentId: string,
   sourcePath: string,
+  stat?: (target: string) => unknown,
 ): WorktreeInfo {
   const root = getDefaultWorktreeRoot(sourcePath);
   if (!fs.existsSync(root)) {
@@ -131,7 +133,20 @@ export function createWorktree(
   const wtPath = path.join(root, subagentId);
   const branch = worktreeBranchName(subagentId);
 
-  if (fs.existsSync(wtPath)) {
+  const look = stat ?? fs.statSync;
+  let occupied = false;
+  try {
+    look(wtPath);
+    occupied = true;
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树路径读不到,不能把它说成不存在再新建 (${code})`);
+    }
+  }
+  if (occupied) {
     throw new Error(`worktree 路径已存在: ${wtPath}`);
   }
 
@@ -155,9 +170,9 @@ export function createWorktree(
   };
 }
 
-export function listWorktrees(sourcePath: string): WorktreeInfo[] {
+function readSubagentWorktrees(sourcePath: string): { listed: boolean; entries: WorktreeInfo[] } {
   const r = runGit(['worktree', 'list', '--porcelain'], sourcePath);
-  if (!r.ok) return [];
+  if (!r.ok) return { listed: false, entries: [] };
   const out: WorktreeInfo[] = [];
   let curPath = '';
   let curBranch = '';
@@ -189,12 +204,17 @@ export function listWorktrees(sourcePath: string): WorktreeInfo[] {
       createdAt: '',
     });
   }
-  return out;
+  return { listed: true, entries: out };
+}
+
+export function listWorktrees(sourcePath: string): WorktreeInfo[] {
+  return readSubagentWorktrees(sourcePath).entries;
 }
 
 export interface RemoveWorktreeOptions {
   sourcePath: string;
   force?: boolean;
+  stat?: (target: string) => unknown;
 }
 
 /** 文件访问裁决的出声腿(报名通道不可用不改判据结论,与 `tools/worktree.ts` 同形)。 */
@@ -232,7 +252,7 @@ function containmentRoot(sourcePath: string): string {
  * 容器性之后即问 delete 轴 —— `wtPath` 的两条来路(`removeIsolatedWorktree` 非 manager 臂、
  * worker-pool 收尾)都是 `path.join(<worktree 根>, subagentId)`,而 `subagentId` 可以是
  * `dispatch_subagent` 的模型入参 `resumeFrom`,`..` 段能把删除目标折出隔离区之外 ⇒
- * 命拒时 `existsSync` / `git worktree remove` / `spawnSync('rm','-rf')` / prune 一条都不发生。
+ * 命拒时 `stat` / `git worktree remove` / `spawnSync('rm','-rf')` / prune 一条都不发生。
  * 拒时必须**先出声再抛**:同上,只抛不出声等于把一次判拒写成静默(§0.9/§0.10 的反面)。
  *
  * @returns 是否实际移除了目录(路径本就不存在时返回 false)
@@ -256,7 +276,20 @@ export function removeWorktree(
     throw new Error(refusal);
   }
   if (aclDelete.note) emitFileAccessVoice(aclDelete.note);
-  if (!fs.existsSync(wtPath)) {
+  const stat = opts.stat ?? fs.statSync;
+  let present = true;
+  try {
+    stat(wtPath);
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`工作树读不到,不能把它说成已经不在,也不回收注册 (${code})`);
+    }
+    present = false;
+  }
+  if (!present) {
     // 目录已经不在(上一轮 fallback 删过 / 外部删掉):注册表条目可能还指着它 ⇒ 同样要 prune,
     // 否则"回收一个目录已不在的检出"这条路会永久留一条 prunable 条目(prune 只摘目录确实
     // 不存在的条目,对在场检出零副作用)。S3 接线(2026-11-01):改走 pruneWorktrees ——
@@ -291,11 +324,15 @@ export function removeWorktree(
 }
 
 export function pruneWorktrees(sourcePath: string): number {
-  const before = listWorktrees(sourcePath);
+  const before = readSubagentWorktrees(sourcePath);
   const r = runGit(['worktree', 'prune'], sourcePath);
+  const after = r.ok ? readSubagentWorktrees(sourcePath) : { listed: false, entries: [] };
+  if (!before.listed || (r.ok && !after.listed)) {
+    process.stderr.write('warning: worktree 列表读不到,不能把清理条数说成 0\n');
+    return 0;
+  }
   if (!r.ok) return 0;
-  const after = listWorktrees(sourcePath);
-  return Math.max(0, before.length - after.length);
+  return measuredPruneCount(before.listed, before.entries.length, after.listed, after.entries.length, r.ok) ?? 0;
 }
 
 /**
@@ -351,7 +388,7 @@ function normalizeLandingPath(p: string): string {
  */
 export function reconcileWorktreeArtifacts(
   sourcePath: string,
-  opts?: { excludeSubagentIds?: Set<string> },
+  opts?: { excludeSubagentIds?: Set<string>; stat?: (path: string) => fs.Stats },
 ): WorktreeReconcileEntry[] {
   const actions: WorktreeReconcileEntry[] = [];
   let root: string;
@@ -396,7 +433,7 @@ export function reconcileWorktreeArtifacts(
       });
       continue;
     }
-    const read = readSubagentState(name);
+    const read = readSubagentState(name, opts?.stat);
     if (!read.stateKnown) {
       actions.push({
         subagentId: name,

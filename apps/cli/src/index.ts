@@ -386,7 +386,11 @@ async function runAgentAndExit(
       if (session && !jsonMode) {
         console.info(chalk.yellow(t('cliEntry.interruptSaving')));
       }
+      return;
     }
+    // 第二次 Ctrl-C:注册 SIGINT listener 后默认终止行为已被抑制,保存流程若卡住
+    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130)。
+    process.exit(130);
   };
   process.on('SIGINT', onSigint);
   try {

@@ -256,9 +256,18 @@ export class PluginPathUnsafeError extends Error {
  */
 export function loadInstallRegistry(): InstallRegistry {
   const p = getRegistryPath();
-  if (!fs.existsSync(p)) return { records: [] };
+  let raw: string;
   try {
-    const raw = fs.readFileSync(p, 'utf-8');
+    raw = fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { records: [] };
+    throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
+  }
+  try {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return { records: [] };
     const obj = parsed as Record<string, unknown>;
@@ -441,10 +450,20 @@ const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
  * 读取插件目录下的清单文件,返回 name + version。
  * 不存在或损坏时抛 PluginManifestMissingError。
  */
-function readPluginManifest(pluginDir: string): { name: string; version?: string } {
+export function readPluginManifest(
+  pluginDir: string,
+  stat?: (path: string) => fs.Stats,
+): { name: string; version?: string } {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   for (const name of MANIFEST_FILES) {
     const p = path.join(pluginDir, name);
-    if (!fs.existsSync(p)) continue;
+    try {
+      look(p);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      throw new Error(`插件清单读不到,不能改用下一份候选 (${code ?? 'unknown'}): ${p}`);
+    }
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
@@ -457,7 +476,11 @@ function readPluginManifest(pluginDir: string): { name: string; version?: string
           };
         }
       }
-    } catch {
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code && code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`插件清单读不到,不能改用下一份候选 (${code}): ${p}`);
+      }
       // 损坏 JSON 继续尝试下一个候选
     }
   }
@@ -491,10 +514,10 @@ function isLocalSourceString(source: string): boolean {
  */
 export async function installPlugin(
   source: string,
-  opts?: { trust?: boolean; ref?: string; sha?: string; signal?: AbortSignal },
+  opts?: { trust?: boolean; ref?: string; sha?: string; signal?: AbortSignal; stat?: (path: string) => fs.Stats },
 ): Promise<InstallOutcome> {
   if (isLocalSourceString(source)) {
-    return installLocal(source, process.cwd(), opts?.signal);
+    return installLocal(source, process.cwd(), opts?.signal, opts?.stat);
   }
   return installGit(source, opts);
 }
@@ -784,6 +807,7 @@ async function installLocal(
   localPath: string,
   baseDir: string,
   signal?: AbortSignal,
+  stat?: (path: string) => fs.Stats,
 ): Promise<InstallOutcome> {
   // 安全校验(结论结构化:被拒时点名是哪条链接、哪个 errno、发生在哪一步)
   const safety = inspectLocalPathSafety(localPath, baseDir);
@@ -791,7 +815,18 @@ async function installLocal(
     throw new PluginPathUnsafeError(safety.message, safety.detail);
   }
   const resolvedSrc = path.resolve(baseDir, localPath);
-  if (!fs.existsSync(resolvedSrc) || !fs.statSync(resolvedSrc).isDirectory()) {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  let sourceStat: fs.Stats;
+  try {
+    sourceStat = look(resolvedSrc);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') {
+      throw new Error(`本地源不是目录: ${resolvedSrc}`);
+    }
+    throw new Error(`本地源读不到,不能把它说成不是目录 (${code ?? 'unknown'}): ${resolvedSrc}`);
+  }
+  if (!sourceStat.isDirectory()) {
     throw new Error(`本地源不是目录: ${resolvedSrc}`);
   }
 
@@ -1069,10 +1104,26 @@ async function installGit(
  * 优先根目录;否则扫描一级子目录(跳过 .git)。
  * 返回 undefined 表示根目录,字符串表示子目录名。
  */
-function findPluginSubdir(cachePath: string): string | undefined {
-  // 根目录有清单
+export function findPluginSubdir(cachePath: string, stat?: (path: string) => fs.Stats): string | undefined {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  const kindOf = (target: string): 'present' | 'missing' | 'unreadable' => {
+    try {
+      look(target);
+      return 'present';
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+      return 'unreadable';
+    }
+  };
+  // 根目录有清单。读不到就停,不改用子目录里的另一份。
   for (const name of MANIFEST_FILES) {
-    if (fs.existsSync(path.join(cachePath, name))) return undefined;
+    const target = path.join(cachePath, name);
+    const kind = kindOf(target);
+    if (kind === 'unreadable') {
+      throw new Error(`插件清单读不到,不能改用子目录里的另一份 (${target})`);
+    }
+    if (kind === 'present') return undefined;
   }
   // 扫描一级子目录
   let entries: fs.Dirent[];
@@ -1086,7 +1137,12 @@ function findPluginSubdir(cachePath: string): string | undefined {
     if (e.name === '.git') continue;
     const sub = path.join(cachePath, e.name);
     for (const name of MANIFEST_FILES) {
-      if (fs.existsSync(path.join(sub, name))) return e.name;
+      const target = path.join(sub, name);
+      const kind = kindOf(target);
+      if (kind === 'unreadable') {
+        throw new Error(`插件清单读不到,不能改用子目录里的另一份 (${target})`);
+      }
+      if (kind === 'present') return e.name;
     }
   }
   return undefined;
@@ -1147,30 +1203,42 @@ async function installFromMarketplaceEntry(
  * @param opts.confirm 预留确认参数(暂未使用)
  * @param opts.keepData true 时保留 plugin-data 目录
  */
+function pluginDirPresence(target: string, stat: (target: string) => unknown): 'present' | 'missing' {
+  try {
+    stat(target);
+    return 'present';
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    throw new Error(`插件目录读不到,不能把它说成没装过,也不摘注册 (${code})`);
+  }
+}
+
 export async function uninstallPlugin(
   name: string,
-  opts?: { confirm?: boolean; keepData?: boolean },
+  opts?: { confirm?: boolean; keepData?: boolean; stat?: (target: string) => unknown },
 ): Promise<UninstallOutcome> {
   const reg = loadInstallRegistry();
   const idx = reg.records.findIndex((r) => r.name === name);
   const hadRecord = idx >= 0;
 
-  // 删除安装目录
+  const look = opts?.stat ?? fs.statSync;
   const installPath = getPluginInstallPath(name);
+  const dataDir = getPluginDataDir(name);
+  const installPresence = pluginDirPresence(installPath, look);
+  const dataPresence = pluginDirPresence(dataDir, look);
+
   let removedPath = '';
-  if (fs.existsSync(installPath)) {
+  if (installPresence === 'present') {
     fs.rmSync(installPath, { recursive: true, force: true });
     removedPath = installPath;
   }
 
-  // 处理 plugin-data
-  const dataDir = getPluginDataDir(name);
-  let hadData = false;
-  if (fs.existsSync(dataDir)) {
-    hadData = true;
-    if (!opts?.keepData) {
-      fs.rmSync(dataDir, { recursive: true, force: true });
-    }
+  const hadData = dataPresence === 'present';
+  if (hadData && !opts?.keepData) {
+    fs.rmSync(dataDir, { recursive: true, force: true });
   }
 
   // 移除注册表记录 —— 删该 name 的**全部**行,不是只删第一条。

@@ -8866,6 +8866,10 @@
           "title": "プロバイダーが混雑しています",
           "action": "後でもう一度お試しください"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "この消費には確認が必要です",
+          "action": "承認してから再試行してください。承認前は画像を生成しません"
+        },
         "ALREADY_CLAIMED": {
           "title": "このタスクはすでに他のエージェントに引き受けられています",
           "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
@@ -9001,6 +9005,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "この操作はセキュリティポリシーによりブロックされました",
           "action": "内容を変更して再試行"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "このコマンドはポリシーで拒否されました",
+          "action": "別のコマンドを使うか、管理者にポリシー変更を依頼してください"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "このコマンドのポリシーは判定できませんでした",
+          "action": "判定できるまで実行しないでください"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "実行するには確認が必要です",
@@ -14819,7 +14831,7 @@
     "vipMembers": "VIPメンバー",
     "withdrawAmount": "出金金額",
     "withdrawAmountInvalid": "がです",
-    "withdrawAmountPlaceholder": "ご",
+    "withdrawAmountPlaceholder": "出金額を入力",
     "withdrawBtn": "申請を送信",
     "withdrawFail": "出金失敗",
     "withdrawInsufficient": "残高不足",
@@ -15015,6 +15027,33 @@
       "grantRuleConfirmCancel": "キャンセル",
       "approve": "承認",
       "argsPreview": "引数プレビュー",
+      "decisionDetail": "操作の詳細",
+      "decisionDetailReason": "理由",
+      "decisionDetailRisk": "リスク",
+      "decisionDetailScope": "スコープ",
+      "decisionDetailCwd": "実行ディレクトリ",
+      "decisionDetailPaths": "影響パス",
+      "decisionDetailCommand": "コマンド",
+      "rawArgs": "生の引数",
+      "riskLow": "低",
+      "riskMedium": "中",
+      "riskHigh": "高",
+      "scopeFsRead": "読み取り",
+      "scopeFsWrite": "書き込み",
+      "scopeFsDelete": "削除",
+      "scopeExec": "実行",
+      "scopeNetwork": "ネットワーク",
+      "scopeDb": "データベース",
+      "scopeOther": "その他",
+      "reasonDangerousCommand": "危険なコマンド",
+      "reasonDestructiveOperation": "破壊的な操作",
+      "reasonWritesFiles": "ファイル書き込み",
+      "reasonDeletesFiles": "ファイル削除",
+      "reasonExecutesCommand": "コマンド実行",
+      "reasonNetworkAccess": "ネットワークアクセス",
+      "reasonDatabaseWrite": "データベース書き込み",
+      "reasonHighRiskTool": "高リスクツール",
+      "reasonRequiresConfirmation": "確認が必要",
       "description": "AI が次の高リスク操作の実行を要求しています。実行を許可するか確認してください。",
       "pendingCount": "他に {count} 件保留中",
       "reject": "拒否",

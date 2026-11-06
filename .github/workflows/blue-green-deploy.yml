@@ -41,6 +41,13 @@ on:
 permissions:
   contents: read
 
+# 同一环境同一时刻只允许一条部署/回滚在跑,避免并发切换把 active-env 标记与
+# nginx upstream 打乱。cancel-in-progress=false:已在跑的部署不许被新 run 取消,
+# 取消只会留下"切了一半"的中间态。
+concurrency:
+  group: blue-green-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -86,14 +93,30 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: 配置 SSH 连接
+      - name: 配置 SSH 连接(固定主机公钥指纹校验)
+        env:
+          SSH_PRIVATE_KEY: ${{ env.SSH_PRIVATE_KEY }}
+          DEPLOY_HOST_FINGERPRINT: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
         run: |
+          set -euo pipefail
+          # 没有预置固定指纹就拒绝连接 —— 不退回 TOFU(ssh-keyscan 盲信扫到的键)。
+          if [ -z "${DEPLOY_HOST_FINGERPRINT}" ]; then
+            echo "::error::未配置 DEPLOY_HOST_FINGERPRINT,拒绝以 TOFU 方式建立 SSH 连接"
+            exit 1
+          fi
           mkdir -p ~/.ssh
           echo "${SSH_PRIVATE_KEY}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
-        env:
-          SSH_PRIVATE_KEY: ${{ env.SSH_PRIVATE_KEY }}
+          # 先抓明文主机公钥算指纹,与预置固定值逐条精确比对;不符即拒,绝不落 known_hosts。
+          ssh-keyscan "${DEPLOY_HOST}" 2>/dev/null > /tmp/ihui-hostkeys.pub
+          if ! ssh-keygen -lf /tmp/ihui-hostkeys.pub | awk '{print $2}' | grep -Fxq "${DEPLOY_HOST_FINGERPRINT}"; then
+            echo "::error::主机公钥指纹与预置固定值不符(疑似 MITM / 密钥轮换),拒绝连接"
+            echo "::error::实测指纹: $(ssh-keygen -lf /tmp/ihui-hostkeys.pub | awk '{print $2}' | tr '\n' ' ')"
+            exit 1
+          fi
+          # 校验通过才把 hashed 形式写入 known_hosts,后续 ssh 全部按这枚固定键校验。
+          ssh-keyscan -H "${DEPLOY_HOST}" 2>/dev/null > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: 检查当前活跃环境
         id: active-env
@@ -129,20 +152,32 @@ jobs:
               exit 1
             fi
 
+            # 回滚前功能探测:容器 Up 不等于服务可用,api/web 必须真的能应答,否则拒绝切换。
+            if [ "${TARGET}" = "blue" ]; then WP=8801; AP=8802; else WP=8803; AP=8804; fi
+            curl -sf "http://localhost:\${AP}/api/health" > /dev/null || { echo "错误: $TARGET api 健康探测失败,拒绝切换"; exit 1; }
+            curl -sf "http://localhost:\${WP}" > /dev/null || { echo "错误: $TARGET web 健康探测失败,拒绝切换"; exit 1; }
+
+            # nginx 配置先验再 reload,避免把一份坏配置 reload 进去(与切换流量步同口径)。
+            nginx -t
+
             # 切换 nginx upstream 指向目标环境
             echo "${TARGET}" > /opt/ihui/active-env
             nginx -s reload
             echo "已回滚到 $TARGET 环境"
           EOF
 
-      - name: 构建新镜像
+      - name: 构建新镜像(绑定本 run SHA)
         if: ${{ inputs.rollback != true }}
         run: |
-          echo "=== 在部署服务器上构建镜像 ==="
+          echo "=== 在部署服务器上按本 run 的 SHA ${{ github.sha }} 构建镜像 ==="
           ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'EOF'
             set -euo pipefail
             cd /opt/ihui
-            git pull origin main
+            # 部署代码必须与触发本 run 的 commit 严格一致:游离检出该 SHA,不用
+            # git pull 的浮动 origin/main(它可能已领先或落后于本 run)。
+            git fetch --no-tags origin main
+            git checkout --detach '${{ github.sha }}'
+            test "$(git rev-parse HEAD)" = '${{ github.sha }}'
             docker compose build api web ai-service
           EOF
 
