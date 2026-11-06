@@ -241,6 +241,8 @@ import { AgentMarketScreen } from '../screens/AgentMarketScreen'
 import { AgentCreateScreen } from '../screens/AgentCreateScreen'
 import { AgentEditScreen } from '../screens/AgentEditScreen'
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
+import { ExamIntroScreen } from '../screens/ExamIntroScreen'
+import { ShareLandingScreen } from '../screens/ShareLandingScreen'
 import { ArticleListScreen } from '../screens/ArticleListScreen'
 import { PostDetailScreen } from '../screens/PostDetailScreen'
 import { PostCreateScreen } from '../screens/PostCreateScreen'
@@ -671,6 +673,8 @@ export type RootStackParamList = {
   ExamDetail: { id: string }
   ExamHistory: undefined
   ExamQuestion: { examId: string }
+  // 门 301 还账(2026-11-06):试卷介绍屏 RN 腿,入口由 ExamScreen「开始考试」进入
+  ExamIntro: { id: string }
   CertDetail: { id: string }
   CertVerify: { certNo?: string }
   MessageDetail: { id: string }
@@ -680,6 +684,8 @@ export type RootStackParamList = {
   History: undefined
   Bookmark: undefined
   Share: undefined
+  // 门 301 还账(2026-11-06):分享落地页 RN 腿,入口为 web 分享链接 h5/share/:code deep link
+  ShareLanding: { code: string }
   SharedDemo: undefined
   Recharge: undefined
   AigcCover: { id: string; title: string }
@@ -1246,6 +1252,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ExamDetail" component={ExamResultScreen} />
             <RootStack.Screen name="ExamHistory" component={ExamHistoryScreen} />
             <RootStack.Screen name="ExamQuestion" component={ExamQuestionScreen} />
+            <RootStack.Screen name="ExamIntro" component={ExamIntroScreen} />
             <RootStack.Screen name="CertDetail" component={CertDetailScreen} />
             <RootStack.Screen name="CertVerify" component={CertVerifyScreen} />
             <RootStack.Screen name="MessageDetail" component={MessageDetailScreen} />
@@ -1255,6 +1262,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="History" component={HistoryScreen} />
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
+            <RootStack.Screen name="ShareLanding" component={ShareLandingScreen} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
             {/* Recharge 指向完整充值页 AppTopup(真实微信支付链),替代此前复用钱包页的占位 */}
             <RootStack.Screen name="Recharge" component={AppTopupScreen} />
