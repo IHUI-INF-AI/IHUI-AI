@@ -741,13 +741,19 @@ describe('O4-7 请求链集成(Fastify)', () => {
     expect(res.json().principal.capability).toMatchObject({ scope: 'agents:read' })
 
     expect(contextCapture.queries.length).toBeGreaterThan(0)
-    const built = builtContextQuery(contextCapture.queries.length - 1)
+    // 第 0 条是"鉴权后写入"的 set_config;F-02 之后 onResponse 还会补一条复位语句,
+    // 取末尾一条会读到复位值(全空串)。此处钉写入面,复位另有专条用例。
+    const built = builtContextQuery(0)
     expect(built.sql).toContain('app.user_id')
     expect(built.sql).toContain('app.api_key_id')
     expect(built.sql).toContain('app.current_user_id')
     expect(built.sql).toContain('app.current_user_role')
     // 变量值来自鉴权后的真实主体(鉴权前这些字段全是 undefined)
     expect(built.params).toEqual([USER_ID, API_KEY_ID, USER_ID, '0'])
+    // F-02:写过主体的请求在出口必须复位 —— 末尾那条 set_config 的四值全为空串,
+    // 连接归还给下一个人时不带本次主体。
+    expect(contextCapture.queries).toHaveLength(2)
+    expect(builtContextQuery(1).params).toEqual(['', '', '', ''])
     await app.close()
   })
 
