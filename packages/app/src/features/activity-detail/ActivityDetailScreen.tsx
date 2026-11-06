@@ -39,12 +39,17 @@ export function ActivityDetailScreen({
 
   if (error || !item) {
     return (
-      <ErrorState
-        message={error || t('activityDetail.empty')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+          <Text style={styles.title}>{t('activityDetail.title')}</Text>
+        </View>
+        <ErrorState
+          message={error || t('activityDetail.empty')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 
