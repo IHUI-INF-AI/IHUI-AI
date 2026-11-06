@@ -1,19 +1,14 @@
 {
-  "schema": 2,
+  "schema": 3,
   "recordedAt": "2026-10-22T22:24:12.203Z",
   "face": "head",
   "gate": "scripts/check-cross-end-ui-parity.mjs --json",
   "waiversSource": "scripts/cross-end-ui-parity-baseline.json",
-  "dimensions": [
-    "diffCount",
-    "radiusCount",
-    "elementRadiusCount",
-    "langMismatch"
-  ],
+  "dimensions": ["diffCount", "radiusCount", "elementRadiusCount", "langMismatch"],
   "uncoveredFindingKeys": [],
-  "pairCount": 17,
-  "onlyMiniappNames": 74,
-  "onlyRnNames": 293,
+  "pairCount": 19,
+  "onlyMiniappNames": 71,
+  "onlyRnNames": 385,
   "total": 123,
   "waivedTotal": 123,
   "openTotal": 0,
@@ -239,5 +234,2853 @@
       "lang": "className vs className",
       "langMismatch": 0
     }
-  ]
+  ],
+  "webRn": {
+    "recordedAt": "2026-11-06T03:01:47.955Z",
+    "state": "judged",
+    "dimensions": ["widthHeight", "padding", "spacing", "radius", "fontSize"],
+    "uncoveredKeys": [],
+    "pairCount": 280,
+    "judgedPairs": 129,
+    "findings": 128,
+    "unregistered": 128,
+    "dimCoverage": {
+      "widthHeight": 109,
+      "padding": 121,
+      "spacing": 120,
+      "radius": 111,
+      "fontSize": 73
+    },
+    "oneSided": 572,
+    "undetermined": 151,
+    "pending": 13,
+    "allowedDiff": {
+      "matched": 0,
+      "shrunk": 0,
+      "expired": 0,
+      "over": 0,
+      "invalid": 0,
+      "unregistered": 128
+    },
+    "total": 2099,
+    "families": [
+      {
+        "name": "edu-ai/map",
+        "debt": 37,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 15,
+          "padding": 8,
+          "spacing": 5,
+          "radius": 2,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/edu-ai/map/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/LearnMapScreen.tsx"
+      },
+      {
+        "name": "learn/review",
+        "debt": 33,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 11,
+          "padding": 8,
+          "spacing": 6,
+          "radius": 1,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/learn/review/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/LearnReviewScreen.tsx"
+      },
+      {
+        "name": "checkin",
+        "debt": 32,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 16,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/checkin/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/CheckinAssistantScreen.tsx"
+      },
+      {
+        "name": "distribution/team",
+        "debt": 30,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 10,
+          "padding": 8,
+          "spacing": 2,
+          "radius": 4,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/team/page.tsx",
+        "rn": "packages/app/src/features/team/TeamScreen.tsx"
+      },
+      {
+        "name": "agents/categories",
+        "debt": 28,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 4,
+          "spacing": 6,
+          "radius": 1,
+          "fontSize": 8
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/agents/categories/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx"
+      },
+      {
+        "name": "learn/map",
+        "debt": 28,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 13,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/learn/map/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/LearnMapScreen.tsx"
+      },
+      {
+        "name": "topics",
+        "debt": 27,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/topics/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/TopicListScreen.tsx"
+      },
+      {
+        "name": "publish/accounts",
+        "debt": 26,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 10,
+          "padding": 5,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/publish/accounts/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PublishAccountsScreen.tsx"
+      },
+      {
+        "name": "models/keys",
+        "debt": 24,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/models/keys/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx"
+      },
+      {
+        "name": "settings/authorizations",
+        "debt": 24,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 4,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/authorizations/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx"
+      },
+      {
+        "name": "student/my-articles",
+        "debt": 24,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 10,
+          "padding": 8,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/my-articles/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/UserArticlesScreen.tsx"
+      },
+      {
+        "name": "wallet/recharge",
+        "debt": 24,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 5,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/wallet/recharge/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PurchaseScreen.tsx"
+      },
+      {
+        "name": "agents/create",
+        "debt": 23,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 5,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/agents/create/page.tsx",
+        "rn": "packages/app/src/features/agent-create/AgentCreateScreen.tsx"
+      },
+      {
+        "name": "edu/qa",
+        "debt": 23,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 7,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/edu/qa/page.tsx",
+        "rn": "packages/app/src/features/course-qa-list/CourseQAListScreen.tsx"
+      },
+      {
+        "name": "exam/wrong-questions",
+        "debt": 23,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 7,
+          "spacing": 4,
+          "radius": 3,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/exam/wrong-questions/page.tsx",
+        "rn": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx"
+      },
+      {
+        "name": "n8n-agents",
+        "debt": 23,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 7,
+          "spacing": 5,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/n8n-agents/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/N8nModelScreen.tsx"
+      },
+      {
+        "name": "publish/analytics",
+        "debt": 23,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 4,
+          "spacing": 5,
+          "radius": 3,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/publish/analytics/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PublishAnalyticsScreen.tsx"
+      },
+      {
+        "name": "distribution",
+        "debt": 22,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 4,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/page.tsx",
+        "rn": "packages/app/src/features/distribution/DistributionScreen.tsx"
+      },
+      {
+        "name": "knowledge-cards",
+        "debt": 22,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 3,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/knowledge-cards/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/KnowledgeRagManageScreen.tsx"
+      },
+      {
+        "name": "learn",
+        "debt": 22,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 11,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/learn/page.tsx",
+        "rn": "packages/app/src/features/learn/LearnScreen.tsx"
+      },
+      {
+        "name": "memory/new",
+        "debt": 22,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 6,
+          "spacing": 6,
+          "radius": 1,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/memory/new/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/MemoryNewScreen.tsx"
+      },
+      {
+        "name": "settings/usage",
+        "debt": 22,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 3,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/usage/page.tsx",
+        "rn": "packages/app/src/features/usage/UsageScreen.tsx"
+      },
+      {
+        "name": "wallet",
+        "debt": 22,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/wallet/page.tsx",
+        "rn": "packages/app/src/features/wallet/WalletScreen.tsx"
+      },
+      {
+        "name": "app-permissions",
+        "debt": 21,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 7,
+          "spacing": 4,
+          "radius": 4,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/app-permissions/page.tsx",
+        "rn": "packages/app/src/features/app-permission/AppPermissionScreen.tsx"
+      },
+      {
+        "name": "business-license",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/business-license/page.tsx",
+        "rn": "packages/app/src/features/business-license/BusinessLicenseScreen.tsx"
+      },
+      {
+        "name": "edu/exam",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 6,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/edu/exam/page.tsx",
+        "rn": "packages/app/src/features/exam/ExamScreen.tsx"
+      },
+      {
+        "name": "exam",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/exam/page.tsx",
+        "rn": "packages/app/src/features/exam/ExamScreen.tsx"
+      },
+      {
+        "name": "groups",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/groups/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/GroupsScreen.tsx"
+      },
+      {
+        "name": "help",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 6,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/help/page.tsx",
+        "rn": "packages/app/src/features/help/HelpScreen.tsx"
+      },
+      {
+        "name": "resources",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 7,
+          "spacing": 2,
+          "radius": 4,
+          "fontSize": 1
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/resources/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ResourcesScreen.tsx"
+      },
+      {
+        "name": "user/articles",
+        "debt": 21,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 8,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/articles/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/UserArticlesScreen.tsx"
+      },
+      {
+        "name": "user/ask",
+        "debt": 21,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 8,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/user/ask/page.tsx",
+        "rn": "packages/app/src/features/ask-list/AskListScreen.tsx"
+      },
+      {
+        "name": "ai-world/create",
+        "debt": 20,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 7,
+          "radius": 1,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/ai-world/create/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/AiWorldCreateScreen.tsx"
+      },
+      {
+        "name": "articles/hot",
+        "debt": 20,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 9,
+          "padding": 5,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/articles/hot/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ArticleHotScreen.tsx"
+      },
+      {
+        "name": "chat",
+        "debt": 20,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 3,
+          "spacing": 6,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/chat/page.tsx",
+        "rn": "packages/app/src/features/chat/ChatScreen.tsx"
+      },
+      {
+        "name": "chat/templates",
+        "debt": 20,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 8,
+          "spacing": 6,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/chat/templates/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ChatTemplatesScreen.tsx"
+      },
+      {
+        "name": "distribution/company",
+        "debt": 20,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/company/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx"
+      },
+      {
+        "name": "member/help",
+        "debt": 20,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 8,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/member/help/page.tsx",
+        "rn": "packages/app/src/features/help/HelpScreen.tsx"
+      },
+      {
+        "name": "models/skills",
+        "debt": 20,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/models/skills/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/AiSkillScreen.tsx"
+      },
+      {
+        "name": "publish/calendar",
+        "debt": 20,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 4,
+          "radius": 4,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/publish/calendar/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PublishCalendarScreen.tsx"
+      },
+      {
+        "name": "activities",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 0,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/activities/page.tsx",
+        "rn": "packages/app/src/features/activity/ActivityScreen.tsx"
+      },
+      {
+        "name": "agents/featured",
+        "debt": 19,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 7,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/agents/featured/page.tsx",
+        "rn": "packages/app/src/features/agent-market/AgentMarketScreen.tsx"
+      },
+      {
+        "name": "dashboard",
+        "debt": 19,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 10,
+          "spacing": 6,
+          "radius": 3,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/dashboard/page.tsx",
+        "rn": "packages/app/src/features/home/HomeScreen.tsx"
+      },
+      {
+        "name": "distribution/commission",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/commission/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx"
+      },
+      {
+        "name": "image-gen/templates",
+        "debt": 19,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 6,
+          "spacing": 6,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/image-gen/templates/page.tsx",
+        "rn": "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx"
+      },
+      {
+        "name": "knowledge-base/edit",
+        "debt": 19,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 8,
+          "spacing": 5,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/knowledge-base/edit/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx"
+      },
+      {
+        "name": "live",
+        "debt": 19,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 11,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 0,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/live/page.tsx",
+        "rn": "packages/app/src/features/live/LiveScreen.tsx"
+      },
+      {
+        "name": "member/subscription",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 3,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/subscription/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
+        "name": "payment",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 5,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/payment/page.tsx",
+        "rn": "packages/app/src/features/payment/PaymentScreen.tsx"
+      },
+      {
+        "name": "settings/devices",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/devices/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DevicesScreen.tsx"
+      },
+      {
+        "name": "tools/voice-stt",
+        "debt": 19,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 8,
+          "spacing": 5,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/tools/voice-stt/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/VoiceSttScreen.tsx"
+      },
+      {
+        "name": "user/qr-code",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/user/qr-code/page.tsx",
+        "rn": "packages/app/src/features/qr-code/QrCodeScreen.tsx"
+      },
+      {
+        "name": "user/subscription",
+        "debt": 19,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/user/subscription/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
+        "name": "chat/history",
+        "debt": 18,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/chat/history/page.tsx",
+        "rn": "packages/app/src/features/chat/ChatScreen.tsx"
+      },
+      {
+        "name": "member/feedback",
+        "debt": 18,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 7,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/member/feedback/page.tsx",
+        "rn": "packages/app/src/features/feedback/FeedbackScreen.tsx"
+      },
+      {
+        "name": "memory",
+        "debt": 18,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 3,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/memory/page.tsx",
+        "rn": "packages/app/src/features/memory/MemoryScreen.tsx"
+      },
+      {
+        "name": "plaza/new",
+        "debt": 18,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 3,
+          "spacing": 5,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/plaza/new/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PlazaNewScreen.tsx"
+      },
+      {
+        "name": "repo-wiki",
+        "debt": 18,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 4,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/repo-wiki/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/RepoWikiScreen.tsx"
+      },
+      {
+        "name": "settings/api-keys",
+        "debt": 18,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 6,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/api-keys/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ApiKeysScreen.tsx"
+      },
+      {
+        "name": "spec/generate",
+        "debt": 18,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/spec/generate/page.tsx",
+        "rn": "packages/app/src/features/spec/SpecScreen.tsx"
+      },
+      {
+        "name": "member/coupons",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/coupons/page.tsx",
+        "rn": "packages/app/src/features/coupon/CouponScreen.tsx"
+      },
+      {
+        "name": "self-healing",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 2,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/self-healing/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SelfHealingScreen.tsx"
+      },
+      {
+        "name": "settings/connected-accounts",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 4,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/connected-accounts/page.tsx",
+        "rn": "packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx"
+      },
+      {
+        "name": "settings/data-export",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/data-export/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx"
+      },
+      {
+        "name": "settings/icp-record",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/icp-record/page.tsx",
+        "rn": "packages/app/src/features/icp-record/IcpRecordScreen.tsx"
+      },
+      {
+        "name": "settings/security-log",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/security-log/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx"
+      },
+      {
+        "name": "student/wrong-book",
+        "debt": 17,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/wrong-book/page.tsx",
+        "rn": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx"
+      },
+      {
+        "name": "user/realname",
+        "debt": 17,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 3,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/user/realname/page.tsx",
+        "rn": "packages/app/src/features/real-name-auth/RealNameAuthScreen.tsx"
+      },
+      {
+        "name": "agent-runtime",
+        "debt": 16,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 3,
+          "spacing": 6,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/agent-runtime/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx"
+      },
+      {
+        "name": "member/addresses",
+        "debt": 16,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 3,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/member/addresses/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/AddressesScreen.tsx"
+      },
+      {
+        "name": "settings/activity",
+        "debt": 16,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 7,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/activity/page.tsx",
+        "rn": "packages/app/src/features/activity/ActivityScreen.tsx"
+      },
+      {
+        "name": "vip",
+        "debt": 16,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/vip/page.tsx",
+        "rn": "packages/app/src/features/vip/VipScreen.tsx"
+      },
+      {
+        "name": "agent-teams",
+        "debt": 15,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/agent-teams/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx"
+      },
+      {
+        "name": "distribution/referrer",
+        "debt": 15,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/distribution/referrer/page.tsx",
+        "rn": "packages/app/src/features/referrer/ReferrerScreen.tsx"
+      },
+      {
+        "name": "edu/progress",
+        "debt": 15,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 2,
+          "spacing": 2,
+          "radius": 4,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/edu/progress/page.tsx",
+        "rn": "packages/app/src/features/study-progress/StudyProgressScreen.tsx"
+      },
+      {
+        "name": "member/exam/record",
+        "debt": 15,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 9,
+          "spacing": 3,
+          "radius": 0,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/exam/record/page.tsx",
+        "rn": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx"
+      },
+      {
+        "name": "student/my-circles",
+        "debt": 15,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 4,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/my-circles/page.tsx",
+        "rn": "packages/app/src/features/circle-member/CircleMemberScreen.tsx"
+      },
+      {
+        "name": "team-memory",
+        "debt": 15,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/team-memory/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/TeamMemoryScreen.tsx"
+      },
+      {
+        "name": "image-gen/gallery",
+        "debt": 14,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 7,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/image-gen/gallery/page.tsx",
+        "rn": "packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx"
+      },
+      {
+        "name": "search",
+        "debt": 14,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 8,
+          "spacing": 4,
+          "radius": 3,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/search/page.tsx",
+        "rn": "packages/app/src/features/search/SearchScreen.tsx"
+      },
+      {
+        "name": "student/notes",
+        "debt": 14,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 6,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/notes/page.tsx",
+        "rn": "packages/app/src/features/note-list/NoteListScreen.tsx"
+      },
+      {
+        "name": "team-knowledge",
+        "debt": 14,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 3,
+          "spacing": 0,
+          "radius": 4,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/team-knowledge/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx"
+      },
+      {
+        "name": "tools/pdf",
+        "debt": 14,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 1,
+          "spacing": 5,
+          "radius": 2,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/tools/pdf/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PdfToolsScreen.tsx"
+      },
+      {
+        "name": "user/follow",
+        "debt": 14,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/follow/page.tsx",
+        "rn": "packages/app/src/features/follow/FollowScreen.tsx"
+      },
+      {
+        "name": "edu/notes",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 5,
+          "spacing": 1,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/edu/notes/page.tsx",
+        "rn": "packages/app/src/features/note-list/NoteListScreen.tsx"
+      },
+      {
+        "name": "feedback",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 0,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/feedback/page.tsx",
+        "rn": "packages/app/src/features/feedback/FeedbackScreen.tsx"
+      },
+      {
+        "name": "member/favorites",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 3,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/member/favorites/page.tsx",
+        "rn": "packages/app/src/features/favorite/FavoriteScreen.tsx"
+      },
+      {
+        "name": "patrol",
+        "debt": 13,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 5,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/patrol/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PatrolScreen.tsx"
+      },
+      {
+        "name": "publish/new",
+        "debt": 13,
+        "judgedDims": 2,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 6,
+          "spacing": 7,
+          "radius": 0,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "one-sided",
+          "spacing": "diff",
+          "radius": "no-data",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/publish/new/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PublishNewScreen.tsx"
+      },
+      {
+        "name": "settings/data-rights",
+        "debt": 13,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 2,
+          "spacing": 1,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/data-rights/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DataRightsScreen.tsx"
+      },
+      {
+        "name": "student/certificates",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/certificates/page.tsx",
+        "rn": "packages/app/src/features/cert-list/CertListScreen.tsx"
+      },
+      {
+        "name": "student/my-asks",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/my-asks/page.tsx",
+        "rn": "packages/app/src/features/ask-list/AskListScreen.tsx"
+      },
+      {
+        "name": "student/papers",
+        "debt": 13,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 4,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/student/papers/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/MyPapersScreen.tsx"
+      },
+      {
+        "name": "wallet/withdraw",
+        "debt": 13,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 1,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/wallet/withdraw/page.tsx",
+        "rn": "packages/app/src/features/withdraw/WithdrawScreen.tsx"
+      },
+      {
+        "name": "workspace/permissions",
+        "debt": 13,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 3,
+          "spacing": 0,
+          "radius": 3,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/workspace/permissions/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx"
+      },
+      {
+        "name": "context/mentions",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 6,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/context/mentions/page.tsx",
+        "rn": "packages/app/src/features/context/ContextScreen.tsx"
+      },
+      {
+        "name": "deep-research",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/deep-research/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/DeepResearchScreen.tsx"
+      },
+      {
+        "name": "favorites",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/favorites/page.tsx",
+        "rn": "packages/app/src/features/favorite/FavoriteScreen.tsx"
+      },
+      {
+        "name": "member/benefits",
+        "debt": 12,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 1,
+          "spacing": 3,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/member/benefits/page.tsx",
+        "rn": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx"
+      },
+      {
+        "name": "points",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 7
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/points/page.tsx",
+        "rn": "packages/app/src/features/points/PointsScreen.tsx"
+      },
+      {
+        "name": "user/circle",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/circle/page.tsx",
+        "rn": "packages/app/src/features/circle-member/CircleMemberScreen.tsx"
+      },
+      {
+        "name": "user/exam",
+        "debt": 12,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/exam/page.tsx",
+        "rn": "packages/app/src/features/exam/ExamScreen.tsx"
+      },
+      {
+        "name": "edu/parent",
+        "debt": 11,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 8,
+          "padding": 7,
+          "spacing": 6,
+          "radius": 2,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "one-sided",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/edu/parent/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/EduParentScreen.tsx"
+      },
+      {
+        "name": "image-gen",
+        "debt": 11,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 3,
+          "spacing": 2,
+          "radius": 0,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/image-gen/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx"
+      },
+      {
+        "name": "settings/notifications",
+        "debt": 11,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 2,
+          "spacing": 2,
+          "radius": 3,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/notifications/page.tsx",
+        "rn": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx"
+      },
+      {
+        "name": "subagents/topology",
+        "debt": 11,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 7,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/subagents/topology/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx"
+      },
+      {
+        "name": "subscriptions",
+        "debt": 11,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 2,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/subscriptions/page.tsx",
+        "rn": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx"
+      },
+      {
+        "name": "workspace",
+        "debt": 11,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 4,
+          "spacing": 1,
+          "radius": 4,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/workspace/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/WorkspaceScreen.tsx"
+      },
+      {
+        "name": "automations",
+        "debt": 10,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 5,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/automations/page.tsx",
+        "rn": "packages/app/src/features/automations/AutomationsScreen.tsx"
+      },
+      {
+        "name": "carte",
+        "debt": 10,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 1,
+          "spacing": 0,
+          "radius": 4,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/carte/page.tsx",
+        "rn": "packages/app/src/features/carte/CarteScreen.tsx"
+      },
+      {
+        "name": "context/compression",
+        "debt": 9,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 5,
+          "spacing": 0,
+          "radius": 0,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "same",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/context/compression/page.tsx",
+        "rn": "packages/app/src/features/context/ContextScreen.tsx"
+      },
+      {
+        "name": "settings/account-deletion",
+        "debt": 9,
+        "judgedDims": 5,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 1,
+          "spacing": 0,
+          "radius": 3,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "diff",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/account-deletion/page.tsx",
+        "rn": "packages/app/src/features/account-cancel/AccountCancelScreen.tsx"
+      },
+      {
+        "name": "agents/stats",
+        "debt": 8,
+        "judgedDims": 2,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 4,
+          "spacing": 4,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/agents/stats/page.tsx",
+        "rn": "packages/app/src/features/agent-stat/AgentStatScreen.tsx"
+      },
+      {
+        "name": "announcements",
+        "debt": 8,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 6,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 0,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/announcements/page.tsx",
+        "rn": "packages/app/src/features/announcement/AnnouncementScreen.tsx"
+      },
+      {
+        "name": "subagents",
+        "debt": 8,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 6,
+          "spacing": 2,
+          "radius": 0,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "same",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/subagents/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/SubagentsScreen.tsx"
+      },
+      {
+        "name": "user/security",
+        "debt": 8,
+        "judgedDims": 2,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 5,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/security/page.tsx",
+        "rn": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx"
+      },
+      {
+        "name": "context",
+        "debt": 7,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 6,
+          "spacing": 0,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "same",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/context/page.tsx",
+        "rn": "packages/app/src/features/context/ContextScreen.tsx"
+      },
+      {
+        "name": "settings",
+        "debt": 7,
+        "judgedDims": 4,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 1,
+          "padding": 2,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 3
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "diff"
+        },
+        "web": "apps/web/app/(main)/settings/page.tsx",
+        "rn": "packages/app/src/features/security-settings/SecuritySettingsScreen.tsx"
+      },
+      {
+        "name": "user/profile",
+        "debt": 7,
+        "judgedDims": 2,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 7,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 4,
+          "fontSize": 6
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/user/profile/page.tsx",
+        "rn": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx"
+      },
+      {
+        "name": "image-gen/history",
+        "debt": 6,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 1,
+          "radius": 1,
+          "fontSize": 4
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/image-gen/history/page.tsx",
+        "rn": "packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx"
+      },
+      {
+        "name": "member/history",
+        "debt": 6,
+        "judgedDims": 3,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 3,
+          "padding": 3,
+          "spacing": 2,
+          "radius": 1,
+          "fontSize": 5
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "diff",
+          "radius": "diff",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/member/history/page.tsx",
+        "rn": "packages/app/src/features/history/HistoryScreen.tsx"
+      },
+      {
+        "name": "settings/import",
+        "debt": 5,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 5,
+          "spacing": 6,
+          "radius": 3,
+          "fontSize": 2
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "one-sided"
+        },
+        "web": "apps/web/app/(main)/settings/import/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/ConversationImportScreen.tsx"
+      },
+      {
+        "name": "status",
+        "debt": 5,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 5,
+          "padding": 4,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/status/page.tsx",
+        "rn": "packages/app/src/features/status/StatusScreen.tsx"
+      },
+      {
+        "name": "tools/pdf/watermark",
+        "debt": 4,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 3,
+          "radius": 2,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/(main)/tools/pdf/watermark/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx"
+      },
+      {
+        "name": "user/fans",
+        "debt": 4,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 4,
+          "padding": 4,
+          "spacing": 5,
+          "radius": 1,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/(main)/user/fans/page.tsx",
+        "rn": "packages/app/src/features/user-fans/UserFansScreen.tsx"
+      },
+      {
+        "name": "tools/pdf/merge",
+        "debt": 2,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 2,
+          "spacing": 3,
+          "radius": 1,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/(main)/tools/pdf/merge/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx"
+      },
+      {
+        "name": "tools/pdf/split",
+        "debt": 2,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 2,
+          "padding": 3,
+          "spacing": 4,
+          "radius": 2,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "diff",
+          "padding": "one-sided",
+          "spacing": "one-sided",
+          "radius": "one-sided",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/(main)/tools/pdf/split/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/PdfToolsHubScreen.tsx"
+      },
+      {
+        "name": "token-value",
+        "debt": 1,
+        "judgedDims": 1,
+        "adjudicated": "unknown",
+        "per": {
+          "widthHeight": 1,
+          "padding": 1,
+          "spacing": 4,
+          "radius": 0,
+          "fontSize": 0
+        },
+        "status": {
+          "widthHeight": "one-sided",
+          "padding": "diff",
+          "spacing": "one-sided",
+          "radius": "no-data",
+          "fontSize": "no-data"
+        },
+        "web": "apps/web/app/(main)/token-value/page.tsx",
+        "rn": "apps/mobile-rn/src/screens/TokenValueScreen.tsx"
+      }
+    ]
+  },
+  "axis1PreservedFrom": "2026-10-22T22:24:12.203Z"
 }
