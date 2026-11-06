@@ -28,6 +28,7 @@ import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { success, error } from '../utils/response.js'
 import { recordCall } from '../services/relay-billing-service.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 常量
@@ -118,10 +119,14 @@ function mapStatus(upstream: string): string {
 
 /** 通用上游 fetch 封装:自动注入鉴权头,非 2xx 抛错。 */
 async function mjFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(mjUrl(path), {
-    ...init,
-    headers: { ...mjHeaders(), ...(init?.headers as Record<string, string> | undefined) },
-  })
+  const res = await fetchWithTimeout(
+    mjUrl(path),
+    {
+      ...init,
+      headers: { ...mjHeaders(), ...(init?.headers as Record<string, string> | undefined) },
+    },
+    60000,
+  )
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`上游 MJ 返回 HTTP ${res.status}: ${body.slice(0, 200)}`)

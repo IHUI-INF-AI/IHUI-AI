@@ -42,6 +42,7 @@ import {
   type KeyObject,
 } from 'node:crypto'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const PAYMENT_MOCK_DEFAULT_PORT = 45_217
 /** 真实微信支付 V3 网关(与 wechat-pay.ts 的缺省一致)。 */
@@ -97,7 +98,9 @@ function readEnvOptions(env: NodeJS.ProcessEnv): PaymentMockGatewayOptions {
     ...(env['IHUI_PAY_MOCK_PLATFORM_PRIVATE_KEY']
       ? { platformPrivateKeyPem: env['IHUI_PAY_MOCK_PLATFORM_PRIVATE_KEY'] }
       : {}),
-    ...(env['IHUI_PAY_MOCK_NOTIFY_URL'] ? { notifyUrlFallback: env['IHUI_PAY_MOCK_NOTIFY_URL'] } : {}),
+    ...(env['IHUI_PAY_MOCK_NOTIFY_URL']
+      ? { notifyUrlFallback: env['IHUI_PAY_MOCK_NOTIFY_URL'] }
+      : {}),
   }
 }
 
@@ -298,7 +301,11 @@ export async function startPaymentMockGateway(
       transaction_id: order.transactionId,
       amount: { total: order.amountTotal, currency: 'CNY' },
     })
-    const cipher = createCipheriv('aes-256-gcm', Buffer.from(v3Key, 'utf8'), Buffer.from(resourceNonce, 'utf8'))
+    const cipher = createCipheriv(
+      'aes-256-gcm',
+      Buffer.from(v3Key, 'utf8'),
+      Buffer.from(resourceNonce, 'utf8'),
+    )
     cipher.setAAD(Buffer.from(associatedData, 'utf8'))
     const ciphertext = Buffer.concat([
       cipher.update(plain, 'utf8'),
@@ -358,11 +365,15 @@ export async function startPaymentMockGateway(
       return
     }
     try {
-      const resp = await fetch(order.notifyUrl, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...callback.headers },
-        body: callback.body,
-      })
+      const resp = await fetchWithTimeout(
+        order.notifyUrl,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...callback.headers },
+          body: callback.body,
+        },
+        15000,
+      )
       order.callbackDelivered = true
       order.callbackAcked = resp.ok
       counters.callbacksDelivered += 1

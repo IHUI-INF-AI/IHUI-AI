@@ -26,6 +26,7 @@ import { db } from '../db/index.js'
 import { aiTutorLogs } from '@ihui/database'
 import { error, success } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 interface AiTutorBody {
   subject?: string
@@ -51,11 +52,15 @@ async function proxyToAiService(
   const bodyText = JSON.stringify(body)
 
   try {
-    const upstream = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: bodyText,
-    })
+    const upstream = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers,
+        body: bodyText,
+      },
+      120000,
+    )
     const text = await upstream.text()
     let payload: unknown = text
     const ct = upstream.headers.get('content-type') || ''

@@ -27,6 +27,7 @@ export {
   SCAN_ITEM_KEY_SOURCES,
   SCAN_ITEM_KEY_FORMAT,
 } from './scan-item-key.js'
+import { fetchWithTimeout } from '../../utils/fetch-deadline.js'
 export { loadAutomationsConfig, validateConfig } from './config.js'
 export { redactSecrets, makeAuditLogger } from './redact.js'
 export { createFileLedger } from './ledger.js'
@@ -114,7 +115,7 @@ export function startAutomationsScheduler(): boolean {
 
   const audit = makeAuditLogger([raw.pat], defaultAudit())
   // 注入式 transport:生产为 global fetch(凭证只经 github-client 的 header 通道)
-  const transport: FetchLike = (url, init) => fetch(url, init)
+  const transport: FetchLike = (url, init) => fetchWithTimeout(url, init, 15000)
   const ledger = createFileLedger(raw.ledgerPath, audit)
   const github = createGitHubClient({ pat: raw.pat, repo: raw.repo, transport, audit })
   const executor =

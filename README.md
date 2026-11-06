@@ -85,7 +85,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 数据库表 | 624 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
 | API 路由 | 4703 | `apiRoutes` |
-| 路由文件 | 669 | `apiRouteFiles` |
+| 路由文件 | 670 | `apiRouteFiles` |
 | AI 服务路由 | 631 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4263 | `testFiles` |
+| 测试文件 | 4265 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19592 | `trackedFiles` |
+| 跟踪文件 | 19594 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

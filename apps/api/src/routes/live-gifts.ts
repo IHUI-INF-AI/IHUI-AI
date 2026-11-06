@@ -288,14 +288,24 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
 
       // 扣款 + 写打赏记录在同一事务(防止扣款成功但记录失败的资金丢失)
       const result = await db.transaction(async (tx) => {
-        // 原子扣减(条件 UPDATE 兜底并发)
+        // 原子扣减(条件 UPDATE 兜底并发)。
+        // T-4:回执余额必须取「扣减后的库值」而不是事务前的 SELECT 快照 ——
+        // 两笔并发打赏都用旧快照计算,会让用户看到错误余额(甚至负数被 Math.max 抹平)。
         const updateResult = await tx.execute(
-          sql`UPDATE user_token_balance SET balance = balance - ${totalPrice}, updated_at = now() WHERE user_uuid = ${userId} AND balance >= ${totalPrice}`,
+          sql`UPDATE user_token_balance SET balance = balance - ${totalPrice}, updated_at = now() WHERE user_uuid = ${userId} AND balance >= ${totalPrice} RETURNING balance`,
         )
-        const affected = (updateResult as { count?: number }).count
+        const rows = updateResult as unknown as Array<{ balance: string | number }> & {
+          count?: number
+        }
+        const affected = rows.count
         if (typeof affected === 'number' && affected < 1) {
           return { code: 400, message: '余额不足' } as const
         }
+        const updatedRow = rows[0]
+        if (!updatedRow) {
+          return { code: 400, message: '余额不足' } as const
+        }
+        const balanceAfter = Number(updatedRow.balance)
 
         // 写打赏记录(live_gift 表)
         const inserted = await tx
@@ -312,7 +322,7 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
           .returning()
         const record = inserted[0]
         if (!record) return { code: 500, message: '写入打赏记录失败' } as const
-        return { code: 0, record } as const
+        return { code: 0, record, balanceAfter } as const
       })
 
       if (result.code !== 0) {
@@ -320,34 +330,38 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       }
       // ihui_live_gift_income_total:扣款+写 live_gift 事务成功后累加(平台币,room_id=liveId)
       recordLiveGiftIncome(String(parsed.data.liveId ?? 0), totalPrice)
-      return reply.send(
-        success({ record: result.record, balanceAfter: Math.max(0, currentBalance - totalPrice) }),
-      )
+      return reply.send(success({ record: result.record, balanceAfter: result.balanceAfter }))
     },
   )
 
   // ----- 打赏记录列表(分页) -----
-  server.get('/live-gifts/records', async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = listQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { page, pageSize } = parsed.data
-    const [rows, totalRows] = await Promise.all([
-      db
-        .select({ record: liveGift, senderName: users.nickname })
-        .from(liveGift)
-        .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
-        .orderBy(desc(liveGift.createdAt))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize),
-      db.select({ count: sql<number>`count(*)::int` }).from(liveGift),
-    ])
-    const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
-      ...r.record,
-      senderName: r.senderName,
-    }))
-    return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
-  })
+  // 公开前缀 /api/live 下曾漏鉴权:任何匿名访问者可分页遍历全平台打赏记录
+  // (含 senderName 昵称),属于 PII 枚举。该列表是管理侧数据,收敛为管理员可见。
+  server.get(
+    '/live-gifts/records',
+    { preHandler: [requireAdmin] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = listQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize } = parsed.data
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select({ record: liveGift, senderName: users.nickname })
+          .from(liveGift)
+          .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
+          .orderBy(desc(liveGift.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db.select({ count: sql<number>`count(*)::int` }).from(liveGift),
+      ])
+      const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
+        ...r.record,
+        senderName: r.senderName,
+      }))
+      return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

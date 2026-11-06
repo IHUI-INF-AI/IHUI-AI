@@ -89,6 +89,7 @@ import {
   regenerateOAuthAppSecret,
   listActiveScopeMeta,
 } from '../db/oauth-queries.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 function toInt(v: string | undefined): number | undefined {
   if (v === undefined || v === '') return undefined
@@ -1846,9 +1847,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       )
     }
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.coze.cn/v1/bot/get_online_info?bot_id=${encodeURIComponent(agent.botId)}`,
         { headers: { Authorization: `Bearer ${cozeToken}` } },
+        15000,
       )
       const body = (await res.json()) as { code: number; msg?: string; data?: CozeOnlineInfoData }
       if (body.code !== 0) {
@@ -2404,48 +2406,50 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     '/cozeZhsApi/agents/token/balance/:userUuid',
     { preHandler: requireAdmin },
     async (request, reply) => {
-    try {
-      const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
-      const parsed = z
-        .object({
-          balance: z.number().optional(),
-          frozen_balance: z.number().optional(),
-          reason: z.string().optional(),
-        })
-        .safeParse(request.body ?? {})
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { balance, frozen_balance, reason } = parsed.data
-      // 真实 SQL: 尝试 UPDATE user_token_balance, 无表则尝试 zhs_credit_records
-      const setObj: Record<string, unknown> = { updated_at: new Date() }
-      if (balance !== undefined) setObj.balance = balance
-      if (frozen_balance !== undefined) setObj.frozen_balance = frozen_balance
       try {
-        await db.execute(
-          sql`UPDATE user_token_balance SET balance = COALESCE(${balance ?? null}, balance), frozen_balance = COALESCE(${frozen_balance ?? null}, frozen_balance), updated_at = now() WHERE user_uuid = ${userUuid}`,
-        )
-      } catch {
-        // 表不存在时 fallback 写 zhs_credit_records
+        const { userUuid } = z.object({ userUuid: z.string().min(1) }).parse(request.params)
+        const parsed = z
+          .object({
+            balance: z.number().optional(),
+            frozen_balance: z.number().optional(),
+            reason: z.string().optional(),
+          })
+          .safeParse(request.body ?? {})
+        if (!parsed.success) {
+          return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        }
+        const { balance, frozen_balance, reason } = parsed.data
+        // 真实 SQL: 尝试 UPDATE user_token_balance, 无表则尝试 zhs_credit_records
+        const setObj: Record<string, unknown> = { updated_at: new Date() }
+        if (balance !== undefined) setObj.balance = balance
+        if (frozen_balance !== undefined) setObj.frozen_balance = frozen_balance
         try {
           await db.execute(
-            sql`INSERT INTO zhs_credit_records (user_uuid, change_amount, reason, created_at) VALUES (${userUuid}, ${balance ?? 0}, ${reason ?? 'manual_adjust'}, now())`,
+            sql`UPDATE user_token_balance SET balance = COALESCE(${balance ?? null}, balance), frozen_balance = COALESCE(${frozen_balance ?? null}, frozen_balance), updated_at = now() WHERE user_uuid = ${userUuid}`,
           )
         } catch {
-          // 静默失败, 仍返回 OK 表示已尝试
+          // 表不存在时 fallback 写 zhs_credit_records
+          try {
+            await db.execute(
+              sql`INSERT INTO zhs_credit_records (user_uuid, change_amount, reason, created_at) VALUES (${userUuid}, ${balance ?? 0}, ${reason ?? 'manual_adjust'}, now())`,
+            )
+          } catch {
+            // 静默失败, 仍返回 OK 表示已尝试
+          }
         }
+        return reply.send(
+          success({
+            userUuid,
+            applied: { balance, frozen_balance, reason },
+            message:
+              '余额更新已尝试(若 user_token_balance 表存在则生效, 否则写入 zhs_credit_records 审计)',
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(500)
+          .send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
       }
-      return reply.send(
-        success({
-          userUuid,
-          applied: { balance, frozen_balance, reason },
-          message:
-            '余额更新已尝试(若 user_token_balance 表存在则生效, 否则写入 zhs_credit_records 审计)',
-        }),
-      )
-    } catch (e) {
-      return reply.status(500).send(error(500, `更新 token 余额失败: ${toUserFriendlyMessage(e)}`))
-    }
     },
   )
 

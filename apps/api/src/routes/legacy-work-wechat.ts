@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
 import { checkAuth } from '../plugins/auth.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 /**
  * 历史项目缺失端点补齐 — 企业微信模块(D19)。
@@ -32,7 +33,7 @@ export const legacyWorkWechatRoutes: FastifyPluginAsync = async (fastify: Fastif
       })
       .parse(request.query)
     const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(corpId)}&corpsecret=${encodeURIComponent(secret)}`
-    const res = await fetch(url)
+    const res = await fetchWithTimeout(url, {}, 15000)
     const data = (await res.json()) as { access_token?: string; errcode?: number; errmsg?: string }
     return {
       accessToken: data.access_token ?? null,

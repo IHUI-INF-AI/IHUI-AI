@@ -184,10 +184,11 @@ describe('Live Gifts API', () => {
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)
       expect(body.code).toBe(0)
-      expect(body.data.items).toHaveLength(1)
+      // paginatedSuccess 的契约字段是 list(不是 items)
+      expect(body.data.list).toHaveLength(1)
       expect(body.data.total).toBe(1)
-      expect(body.data.items[0].name).toBe('玫瑰')
-      expect(body.data.items[0].price).toBe('10')
+      expect(body.data.list[0].name).toBe('玫瑰')
+      expect(body.data.list[0].price).toBe('10')
     })
   })
 
@@ -237,8 +238,8 @@ describe('Live Gifts API', () => {
         .mockResolvedValueOnce([makeGift()]) // 礼物查询
         .mockResolvedValueOnce([makeUser()]) // 赠送人昵称
       mockExecute
-        .mockResolvedValueOnce([{ balance: '100' }]) // 余额查询
-        .mockResolvedValueOnce({ count: 1 }) // 扣减
+        .mockResolvedValueOnce([{ balance: '100' }]) // 余额查询(事务前快照)
+        .mockResolvedValueOnce([{ balance: '80' }]) // UPDATE ... RETURNING 的真实库值
       mockInsertValues.mockResolvedValueOnce([makeRecord()])
 
       const res = await app.inject({
@@ -267,6 +268,46 @@ describe('Live Gifts API', () => {
       const inserted = mockInsertValues.mock.calls[0]?.[0] as Record<string, unknown>
       expect(inserted.giftName).toBe('玫瑰')
       expect(inserted.totalPrice).toBe(20)
+    })
+
+    it('并发两笔打赏:回执余额取 UPDATE...RETURNING 库值,两笔拿到不同余额', async () => {
+      mockSelectResult.mockImplementation(async () => [makeGift()])
+      let balance = 100
+      mockExecute.mockImplementation(async (sqlObj: unknown) => {
+        const s = sqlText(sqlObj)
+        if (s.includes('SELECT balance FROM user_token_balance')) {
+          // 两笔并发都在扣减前读到同一快照 100 —— 旧实现会用该快照算回执
+          return [{ balance: String(balance) }]
+        }
+        if (s.includes('UPDATE user_token_balance')) {
+          // 原子扣减:后到的一笔必须看到前一笔写入后的余额
+          balance -= 20
+          return [{ balance: String(balance) }]
+        }
+        return []
+      })
+      let seq = 0
+      mockInsertValues.mockImplementation(async () => [makeRecord({ id: ++seq })])
+
+      const send = () =>
+        app.inject({
+          method: 'POST',
+          url: '/api/live-gifts/1/send',
+          headers: AUTH_HEADERS,
+          payload: { quantity: 2 },
+        })
+
+      const [a, b] = await Promise.all([send(), send()])
+      expect(a.statusCode).toBe(200)
+      expect(b.statusCode).toBe(200)
+
+      const balances = [
+        JSON.parse(a.body).data.balanceAfter as number,
+        JSON.parse(b.body).data.balanceAfter as number,
+      ].sort((x, y) => x - y)
+      // 旧实现两笔都回 80;修复后必须是 60 与 80
+      expect(balances).toEqual([60, 80])
+      expect(balance).toBe(60)
     })
 
     it('余额不足返回 400 且不扣款不写记录', async () => {
@@ -316,14 +357,23 @@ describe('Live Gifts API', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/live-gifts/records?page=1&pageSize=20',
+        headers: AUTH_HEADERS,
       })
 
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)
       expect(body.code).toBe(0)
-      expect(body.data.items).toHaveLength(1)
-      expect(body.data.items[0].senderName).toBe('测试用户')
-      expect(body.data.items[0].giftName).toBe('玫瑰')
+      expect(body.data.list).toHaveLength(1)
+      expect(body.data.list[0].senderName).toBe('测试用户')
+      expect(body.data.list[0].giftName).toBe('玫瑰')
+    })
+
+    it('匿名访问被拒(修复公开前缀下的 PII 枚举)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/live-gifts/records',
+      })
+      expect(res.statusCode).toBe(401)
     })
   })
 })

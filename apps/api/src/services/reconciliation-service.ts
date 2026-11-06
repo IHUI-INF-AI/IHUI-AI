@@ -20,6 +20,7 @@ import { findPaidOrdersByDate, findExpiredOrders } from './order-service.js'
 import { updateOrderStatus } from '../db/payment-queries.js'
 import { formatDateByTemplate } from '@ihui/shared'
 import type { Order } from '@ihui/database'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const MS_PER_DAY = 86400_000
 
@@ -56,7 +57,7 @@ export interface ReconcileResult {
 export async function reconcileAlipay(billDate: string): Promise<ReconcileResult> {
   try {
     const billUrl = await downloadBillUrl(billDate, 'trade')
-    const resp = await fetch(billUrl)
+    const resp = await fetchWithTimeout(billUrl, {}, 15000)
     const csvText = await resp.text()
 
     const remoteTrades = parseAlipayBill(csvText)

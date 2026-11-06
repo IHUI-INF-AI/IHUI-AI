@@ -52,6 +52,7 @@ import { getRelayPoolLiveSnapshot } from './relay-pool-stats-service.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
 // 插件系统(2026-09-17,补强 59):upstream_header_inject 解释器接线(带 30s 缓存,失败降级不注入)
 import { getEnabledPlugins, applyUpstreamHeaderPlugins } from './relay-plugins-service.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 类型
@@ -366,7 +367,7 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
       // 能让"校验时公网、连接时内网"。直连分支交带 connect.lookup 钩子的 dispatcher 才堵得住。
       // 已装配代理分流时全局 dispatcher 接管,此处不得覆盖,否则代理腿被绕掉(那一支由代理解析)。
       const resp = isRelayOutboundProxyInstalled()
-        ? await fetch(targetUrl, init)
+        ? await fetchWithTimeout(targetUrl, init, 120000)
         : ((await undiciFetch(targetUrl, {
             ...init,
             dispatcher: directEgressDispatcher(),

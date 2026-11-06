@@ -22,6 +22,7 @@ import { db } from '../db/index.js'
 import { integrationConfigs } from '@ihui/database'
 import { and, eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 interface TokenCache {
   accessToken: string
@@ -124,7 +125,7 @@ export async function refreshWorkWechatToken(): Promise<RefreshResult> {
   }
   try {
     const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${encodeURIComponent(cfg.corpId)}&corpsecret=${encodeURIComponent(cfg.corpSecret)}`
-    const resp = await fetch(url, { method: 'GET' })
+    const resp = await fetchWithTimeout(url, { method: 'GET' }, 15000)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = (await resp.json()) as {
       access_token?: string
@@ -170,7 +171,7 @@ export async function refreshWechatToken(): Promise<RefreshResult> {
   }
   try {
     const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${encodeURIComponent(cfg.appId)}&secret=${encodeURIComponent(cfg.appSecret)}`
-    const resp = await fetch(url, { method: 'GET' })
+    const resp = await fetchWithTimeout(url, { method: 'GET' }, 15000)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = (await resp.json()) as {
       access_token?: string
@@ -212,14 +213,18 @@ export async function refreshDingTalkToken(): Promise<RefreshResult> {
   }
   try {
     const url = 'https://oapi.dingtalk.com/gettoken'
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        appkey: cfg.appKey,
-        appsecret: cfg.appSecret,
-      }).toString(),
-    })
+    const resp = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          appkey: cfg.appKey,
+          appsecret: cfg.appSecret,
+        }).toString(),
+      },
+      15000,
+    )
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     const data = (await resp.json()) as {
       access_token?: string

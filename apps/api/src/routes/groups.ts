@@ -74,23 +74,43 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const [group] = await db
-      .insert(userGroups)
-      .values({
-        name: parsed.data.name,
-        type: parsed.data.type ?? 'custom',
-        description: parsed.data.description,
-        ownerId: userId,
+    // T-5:建组三步(建组 → 写创建者成员 → 回填 memberCount)必须是一个事务,
+    // 否则任一步失败会留下「组存在但没有 owner 成员」或 memberCount 与实际不一致的半成品。
+    const group = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(userGroups)
+        .values({
+          name: parsed.data.name,
+          type: parsed.data.type ?? 'custom',
+          description: parsed.data.description,
+          ownerId: userId,
+        })
+        .returning()
+      if (!created) return null
+
+      // 创建者自动成为 admin 成员
+      await tx.insert(userGroupMembers).values({
+        groupId: created.id,
+        userId,
+        role: 'admin',
       })
-      .returning()
-    if (!group) return reply.status(500).send(error(500, '创建用户组失败'))
-    // 创建者自动成为 admin 成员
-    await db.insert(userGroupMembers).values({
-      groupId: group.id,
-      userId,
-      role: 'admin',
+
+      // memberCount 由实际成员数回填,不写死 1
+      const [countRow] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(userGroupMembers)
+        .where(eq(userGroupMembers.groupId, created.id))
+      const memberCount = Number(countRow?.count ?? 0)
+
+      const [updated] = await tx
+        .update(userGroups)
+        .set({ memberCount })
+        .where(eq(userGroups.id, created.id))
+        .returning()
+
+      return { ...created, memberCount: updated?.memberCount ?? memberCount }
     })
-    await db.update(userGroups).set({ memberCount: 1 }).where(eq(userGroups.id, group.id))
+    if (!group) return reply.status(500).send(error(500, '创建用户组失败'))
     return reply.status(201).send(success({ group }))
   })
 

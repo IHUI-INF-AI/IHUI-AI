@@ -14,6 +14,7 @@ import { getMemoryService } from './memory.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 import { config } from '../../config/index.js'
+import { fetchWithTimeout } from '../../utils/fetch-deadline.js'
 
 export interface EvolutionTask {
   id: string
@@ -68,19 +69,23 @@ async function publishEvolvedSkillToMarket(params: {
     headers['X-Internal-Secret'] = config.AI_CALLBACK_SECRET
   }
   try {
-    const resp = await fetch(`${baseUrl}/api/skills/market`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        name: params.name,
-        description: params.description,
-        tags: ['auto_generated', 'evolution'],
-        author: 'clawdbot-self-evolution',
-        version: params.version,
-        license: 'MIT',
-        content: JSON.stringify(params.steps),
-      }),
-    })
+    const resp = await fetchWithTimeout(
+      `${baseUrl}/api/skills/market`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: params.name,
+          description: params.description,
+          tags: ['auto_generated', 'evolution'],
+          author: 'clawdbot-self-evolution',
+          version: params.version,
+          license: 'MIT',
+          content: JSON.stringify(params.steps),
+        }),
+      },
+      15000,
+    )
     if (!resp.ok) {
       const text = await resp.text().catch(() => '')
       logger.warn(

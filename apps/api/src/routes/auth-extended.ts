@@ -179,6 +179,7 @@ import {
   recordAuth2faUsed,
 } from '../plugins/business-metrics.js'
 import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -2823,10 +2824,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { token, baseUrl } = parsed.data
       const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
       try {
-        const res = await fetch(apiUrl, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        })
+        const res = await fetchWithTimeout(
+          apiUrl,
+          {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          },
+          15000,
+        )
         if (!res.ok) {
           return reply.status(401).send(error(401, `Coze 认证失败: HTTP ${res.status}`))
         }
@@ -2870,10 +2875,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { token, baseUrl } = parsed.data
       const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
       try {
-        const res = await fetch(apiUrl, {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        })
+        const res = await fetchWithTimeout(
+          apiUrl,
+          {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          },
+          15000,
+        )
         if (!res.ok) {
           return reply.status(401).send(error(401, `Coze 异步认证失败: HTTP ${res.status}`))
         }
@@ -3104,17 +3113,25 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           const ghSecret = process.env.GITHUB_CLIENT_SECRET
           if (!ghClientId || !ghSecret)
             return reply.status(400).send(error(400, 'GitHub OAuth 未配置'))
-          const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-            method: 'POST',
-            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({ client_id: ghClientId, client_secret: ghSecret, code }),
-          })
+          const tokenRes = await fetchWithTimeout(
+            'https://github.com/login/oauth/access_token',
+            {
+              method: 'POST',
+              headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+              body: JSON.stringify({ client_id: ghClientId, client_secret: ghSecret, code }),
+            },
+            15000,
+          )
           const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
           if (!tokenData.access_token)
             return reply.status(400).send(error(400, 'GitHub 授权码无效'))
-          const userRes = await fetch('https://api.github.com/user', {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          })
+          const userRes = await fetchWithTimeout(
+            'https://api.github.com/user',
+            {
+              headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            },
+            15000,
+          )
           const ghUser = (await userRes.json()) as {
             id: number
             login: string
@@ -3204,16 +3221,20 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             return reply.status(400).send(error(400, 'Apple OAuth 未配置 (APPLE_CLIENT_ID 缺失)'))
           }
           if (appleClientSecret) {
-            const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: new URLSearchParams({
-                client_id: appleClientId,
-                client_secret: appleClientSecret,
-                code,
-                grant_type: 'authorization_code',
-              }),
-            })
+            const tokenRes = await fetchWithTimeout(
+              'https://appleid.apple.com/auth/token',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  client_id: appleClientId,
+                  client_secret: appleClientSecret,
+                  code,
+                  grant_type: 'authorization_code',
+                }),
+              },
+              15000,
+            )
             const tokenData = (await tokenRes.json()) as {
               access_token?: string
               id_token?: string

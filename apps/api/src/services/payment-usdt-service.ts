@@ -39,6 +39,7 @@ import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/data
 import type { UsdtPayment } from '@ihui/database'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { config } from '../config/index.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 常量
@@ -529,7 +530,7 @@ async function checkTrc20Payment(
   const headers: Record<string, string> = {}
   if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
 
-  const response = await fetch(url, { headers })
+  const response = await fetchWithTimeout(url, { headers }, 15000)
   if (!response.ok) {
     throw new Error(`TronGrid API 返回 ${response.status}`)
   }
@@ -575,7 +576,7 @@ async function checkErc20Payment(
   if (apiKey) params.set('apikey', apiKey)
   const url = `https://api.etherscan.io/api?${params}`
 
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url, {}, 15000)
   if (!response.ok) {
     throw new Error(`Etherscan API 返回 ${response.status}`)
   }
@@ -610,7 +611,7 @@ async function checkErc20Payment(
  */
 async function fetchTrc20LatestBlock(): Promise<number> {
   const url = 'https://api.trongrid.io/wallet/getnowblock'
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url, {}, 15000)
   if (!response.ok) throw new Error(`TronGrid getnowblock 返回 ${response.status}`)
   const data = (await response.json()) as {
     block_header?: { raw_data?: { number?: number } }
@@ -625,7 +626,7 @@ async function fetchErc20LatestBlock(): Promise<number> {
   const apiKey = process.env.ETHERSCAN_API_KEY
   let url = 'https://api.etherscan.io/api?module=proxy&action=eth_blockNumber'
   if (apiKey) url += `&apikey=${apiKey}`
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url, {}, 15000)
   if (!response.ok) throw new Error(`Etherscan eth_blockNumber 返回 ${response.status}`)
   const data = (await response.json()) as { result?: string }
   if (!data.result) throw new Error('Etherscan eth_blockNumber 响应异常')
@@ -674,7 +675,7 @@ async function verifyTrc20OnChain(
   const headers: Record<string, string> = {}
   if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
 
-  const response = await fetch(url, { headers })
+  const response = await fetchWithTimeout(url, { headers }, 15000)
   if (!response.ok) throw new Error(`TronGrid 返回 ${response.status}`)
   const data = (await response.json()) as TronGridResponse
   if (!data.success || !data.data) throw new Error('TronGrid 响应异常')
@@ -761,7 +762,7 @@ async function verifyErc20OnChain(
   if (apiKey) params.set('apikey', apiKey)
   const url = `https://api.etherscan.io/api?${params}`
 
-  const response = await fetch(url)
+  const response = await fetchWithTimeout(url, {}, 15000)
   if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
   const data = (await response.json()) as EtherscanResponse
   if (data.status !== '1' || !Array.isArray(data.result)) throw new Error('Etherscan 响应异常')

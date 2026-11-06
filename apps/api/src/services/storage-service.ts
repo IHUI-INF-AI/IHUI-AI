@@ -12,13 +12,7 @@
  * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
  */
 
-import {
-  createHash,
-  createHmac,
-  createPublicKey,
-  createVerify,
-  randomUUID,
-} from 'node:crypto'
+import { createHash, createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import {
   existsSync,
@@ -33,6 +27,7 @@ import { join, resolve } from 'node:path'
 import { env } from 'node:process'
 // ihui_oss_download_bytes_total:storage-service 不持有 fastify 实例,走模块级桥接
 import { recordOssDownloadBytes } from '../plugins/business-metrics.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const BASE_DIR = env.STORAGE_DIR ?? 'storage'
 const UPLOADS_DIR = join(BASE_DIR, 'uploads')
@@ -498,7 +493,7 @@ export async function verifyOssCallback(params: {
   let cached = pubKeyCache.get(pubKeyUrl)
   if (!cached || Date.now() - cached.fetchedAt > PUB_KEY_TTL_MS) {
     try {
-      const resp = await fetch(pubKeyUrl)
+      const resp = await fetchWithTimeout(pubKeyUrl, {}, 15000)
       if (!resp.ok) return false
       const pem = await resp.text()
       cached = {
@@ -620,11 +615,15 @@ async function callOss(
   headers['Authorization'] = `OSS ${config.accessKeyId}:${signature}`
 
   // 发起请求
-  const resp = await fetch(fullUrl, {
-    method,
-    headers,
-    body: options.body,
-  })
+  const resp = await fetchWithTimeout(
+    fullUrl,
+    {
+      method,
+      headers,
+      body: options.body,
+    },
+    15000,
+  )
 
   const respHeaders: Record<string, string> = {}
   resp.headers.forEach((v, k) => {

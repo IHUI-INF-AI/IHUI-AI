@@ -58,6 +58,7 @@ import {
   type FixResultInput,
 } from './github-app/pr-creator.js'
 import type { GithubAppInstallationRow } from './github-app/store.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // ---------------------------------------------------------------------------
 // 互斥认领锁(复用既有 DistributedLock;接口化以便测试注入 fake)
@@ -653,7 +654,7 @@ export async function buildRepairService(
     const github: GitHubClient = createGitHubClient({
       pat: cfg.pat,
       repo: cfg.repo,
-      transport: (url, init) => fetch(url, init),
+      transport: (url, init) => fetchWithTimeout(url, init, 15000),
       audit,
     })
     const itemsProvider = async (): Promise<ScanItem[]> => {

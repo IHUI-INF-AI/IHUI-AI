@@ -56,6 +56,7 @@ import { persistableLatency } from '../utils/latency-persistence.js'
 import { success, error } from '../utils/response.js'
 // 内部调用主体:与 v1-knowledge-tools / v1-multimodal 同一个出口(单一真相源,不另签一份)
 import { mintInternalJwt } from './v1-shared.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // MCP tool 按次计费基准(非 token 计费,每次调用固定 1000 token 基准)。
@@ -134,11 +135,15 @@ async function forwardToAiService(
 
   let resp: Response
   try {
-    resp = await fetch(url, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
+    resp = await fetchWithTimeout(
+      url,
+      {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      },
+      60000,
+    )
   } catch {
     // 网络错误 / 连接超时 → ai-service 不可用
     return { ok: false, code: 5015, httpStatus: 503, message: 'ai-service 不可用' }

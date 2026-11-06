@@ -62,6 +62,7 @@ import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 import { recordCall, refundTaskCall } from '../services/relay-billing-service.js'
 import { forwardToChannel, type SelectedChannelKey } from '../services/relay-upstream-forwarder.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 常量
@@ -303,7 +304,7 @@ async function callInternal(
   const token = await mintInternalJwt(userId)
   const headers = new Headers(init.headers)
   headers.set('Authorization', `Bearer ${token}`)
-  const resp = await fetch(`${INTERNAL_BASE}${path}`, { ...init, headers })
+  const resp = await fetchWithTimeout(`${INTERNAL_BASE}${path}`, { ...init, headers }, 120000)
   const contentType = resp.headers.get('content-type') ?? ''
 
   // 二进制音频/图片直返

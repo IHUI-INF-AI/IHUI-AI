@@ -12,6 +12,7 @@ import {
   analyzePacing,
   suggestChapterOutline,
 } from '../services/ai/plot-advisor-service.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const enhanceBodySchema = z.object({
   title: z.transform(emptyToUndefined).pipe(z.string().optional()),
@@ -67,14 +68,18 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
           const prompt = instruction
             ? `改写以下剧本对白,要求:${instruction}。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
             : `优化以下剧本对白,使其更自然生动。只返回改写后的对白文本,不要解释。\n\n原文:${content}`
-          const llmResp = await fetch(`${aiServiceUrl}/api/llm/complete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [{ role: 'user', content: prompt }],
-              metadata: { source: 'drama-enhance-line', scriptId: id, sceneIndex, lineIndex },
-            }),
-          })
+          const llmResp = await fetchWithTimeout(
+            `${aiServiceUrl}/api/llm/complete`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                messages: [{ role: 'user', content: prompt }],
+                metadata: { source: 'drama-enhance-line', scriptId: id, sceneIndex, lineIndex },
+              }),
+            },
+            120000,
+          )
           if (llmResp.ok) {
             const llmData = (await llmResp.json().catch(() => ({}))) as {
               content?: string

@@ -19,6 +19,7 @@ import {
   renderWelcomeEmail,
   type VerificationScene,
 } from './email-templates.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 /**
  * 邮箱本地脱敏:user@example.com → u***@example.com
@@ -420,21 +421,25 @@ async function sendViaResend(mail: OutgoingMail): Promise<SendEmailResult> {
         }
       : {}
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${config.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
+    const res = await fetchWithTimeout(
+      'https://api.resend.com/emails',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: [mail.to],
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          ...attachments,
+        }),
       },
-      body: JSON.stringify({
-        from,
-        to: [mail.to],
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
-        ...attachments,
-      }),
-    })
+      15000,
+    )
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
       return {

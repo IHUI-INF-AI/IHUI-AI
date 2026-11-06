@@ -16,6 +16,7 @@
 import { createHmac, createHash, randomBytes } from 'node:crypto'
 import { env } from 'node:process'
 import { issueStsCredentials } from './storage-service.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 export type OssProviderType = 'aliyun' | 'tencent' | 'aws'
 
@@ -167,19 +168,23 @@ class TencentCosProvider implements OssStsProvider {
     const signature = hmacHex(secretSigning, stringToSign)
     const authorization = `TC3-HMAC-SHA256 Credential=${secretId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
 
-    const resp = await fetch(`https://${host}/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Host: host,
-        'X-TC-Action': 'AssumeRole',
-        'X-TC-Version': '2018-08-13',
-        'X-TC-Region': region,
-        'X-TC-Timestamp': String(timestamp),
-        Authorization: authorization,
+    const resp = await fetchWithTimeout(
+      `https://${host}/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Host: host,
+          'X-TC-Action': 'AssumeRole',
+          'X-TC-Version': '2018-08-13',
+          'X-TC-Region': region,
+          'X-TC-Timestamp': String(timestamp),
+          Authorization: authorization,
+        },
+        body,
       },
-      body,
-    })
+      15000,
+    )
 
     const result = (await resp.json()) as TencentStsResponse
     const creds = result.Response?.Credentials
@@ -282,16 +287,20 @@ class AwsS3Provider implements OssStsProvider {
     const signature = hmacHex(kSigning, stringToSign)
     const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`
 
-    const resp = await fetch(`https://${host}/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Host: host,
-        'X-Amz-Date': timestamp,
-        Authorization: authorization,
+    const resp = await fetchWithTimeout(
+      `https://${host}/`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Host: host,
+          'X-Amz-Date': timestamp,
+          Authorization: authorization,
+        },
+        body,
       },
-      body,
-    })
+      15000,
+    )
 
     const text = await resp.text()
     const parsed = parseAwsStsXml(text)

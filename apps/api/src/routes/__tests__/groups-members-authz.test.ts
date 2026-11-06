@@ -20,6 +20,8 @@ const h = vi.hoisted(() => {
     results: [] as unknown[][],
     currentUser: '',
     isAdmin: false,
+    txCalls: 0,
+    inserts: [] as Record<string, unknown>[],
   }
   function makeChain(): Record<string, unknown> {
     const chain: Record<string, unknown> = {}
@@ -33,10 +35,35 @@ const h = vi.hoisted(() => {
       Promise.resolve(state.results.shift() ?? []).then(resolve)
     return chain
   }
+  function makeTx(): Record<string, unknown> {
+    return {
+      insert: (_table: unknown) => ({
+        values: (vals: Record<string, unknown>) => {
+          state.inserts.push(vals)
+          const row = { id: GROUP_ID, ...vals }
+          return {
+            returning: async () => [row],
+            then: (resolve: (v: unknown) => void) => Promise.resolve(row).then(resolve),
+          }
+        },
+      }),
+      select: () => makeChain(),
+      update: (_table: unknown) => ({
+        set: (patch: Record<string, unknown>) => ({
+          where: () => ({ returning: async () => [{ id: GROUP_ID, ...patch }] }),
+        }),
+      }),
+    }
+  }
   return {
     state,
+    makeChain,
     db: {
       select: () => makeChain(),
+      transaction: async (fn: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        state.txCalls++
+        return fn(makeTx())
+      },
     },
   }
 })
@@ -153,6 +180,46 @@ describe('GET /groups/:id/members — 成员归属闸', () => {
     )
     const res = await app.inject({ method: 'GET', url: `/api/groups/${GROUP_ID}/members` })
     expect(res.statusCode).toBe(200)
+  })
+})
+
+describe('POST /groups — 建组事务(T-5)', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(groupsRoutes, { prefix: '/api/groups' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(() => {
+    h.state.currentUser = OWNER_ID
+    h.state.isAdmin = false
+    h.state.results = []
+    h.state.txCalls = 0
+    h.state.inserts = []
+  })
+
+  it('建组、写创建者成员、回填 memberCount 在同一事务内完成', async () => {
+    // 实际成员数(夹具刻意给 3,证明 memberCount 不是写死的 1)
+    h.state.results = [[{ count: 3 }]]
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/groups',
+      payload: { name: '项目组' },
+    })
+
+    expect(res.statusCode).toBe(201)
+    expect(h.state.txCalls).toBe(1)
+    // 建组 + 写成员 两次 insert 都发生在事务回调内
+    expect(h.state.inserts).toHaveLength(2)
+    expect(h.state.inserts[1]).toMatchObject({ userId: OWNER_ID, role: 'admin' })
+    expect(res.json().data.group.memberCount).toBe(3)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

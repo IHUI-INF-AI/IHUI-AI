@@ -30,6 +30,7 @@ import { isUuidString } from '../utils/uuid.js'
 type GcType = 'text' | 'image' | 'audio' | 'video'
 
 import { parsePaging } from '../utils/paging.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 async function listGcHistory(
   userId: string,
@@ -191,14 +192,18 @@ async function proxyToAiService(
   body: unknown,
 ) {
   try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: request.headers.authorization ?? '',
+    const resp = await fetchWithTimeout(
+      `${config.AI_SERVICE_URL}${path}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: request.headers.authorization ?? '',
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    })
+      15000,
+    )
     const data = (await resp.json().catch(() => ({}))) as unknown
     if (!resp.ok) {
       const code = resp.status === 401 ? 401 : 502
@@ -316,9 +321,13 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const rows = await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
       try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
-          headers: { Authorization: request.headers.authorization ?? '' },
-        })
+        const resp = await fetchWithTimeout(
+          `${config.AI_SERVICE_URL}/api/mcp/external/servers`,
+          {
+            headers: { Authorization: request.headers.authorization ?? '' },
+          },
+          15000,
+        )
         if (resp.ok) {
           const data = (await resp.json().catch(() => ({}))) as {
             servers?: Array<{ name: string; connected?: boolean }>
@@ -398,9 +407,13 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai/mcp/servers/:id/tools', async (request, reply) => {
     const { id } = (request.params as { id: string }) ?? { id: '' }
     try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools`, {
-        headers: { Authorization: request.headers.authorization ?? '' },
-      })
+      const resp = await fetchWithTimeout(
+        `${config.AI_SERVICE_URL}/api/mcp/tools`,
+        {
+          headers: { Authorization: request.headers.authorization ?? '' },
+        },
+        15000,
+      )
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
       }
@@ -432,9 +445,13 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 真形态在 ai-service GET /api/mcp/resources(mcp.py:152,返回 {resources,count}) ⇒ 代理并拆壳。
   server.get('/ai/mcp/resources', async (request, reply) => {
     try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/resources`, {
-        headers: { Authorization: request.headers.authorization ?? '' },
-      })
+      const resp = await fetchWithTimeout(
+        `${config.AI_SERVICE_URL}/api/mcp/resources`,
+        {
+          headers: { Authorization: request.headers.authorization ?? '' },
+        },
+        15000,
+      )
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
       }
@@ -453,9 +470,13 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 真形态在 ai-service GET /api/mcp/prompts(mcp.py:171,返回 {prompts,count}) ⇒ 代理并拆壳。
   server.get('/ai/mcp/prompts', async (request, reply) => {
     try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/prompts`, {
-        headers: { Authorization: request.headers.authorization ?? '' },
-      })
+      const resp = await fetchWithTimeout(
+        `${config.AI_SERVICE_URL}/api/mcp/prompts`,
+        {
+          headers: { Authorization: request.headers.authorization ?? '' },
+        },
+        15000,
+      )
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
       }

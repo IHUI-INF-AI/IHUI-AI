@@ -8,6 +8,7 @@
  */
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { success, error } from '../../utils/response.js'
+import { fetchWithTimeout } from '../../utils/fetch-deadline.js'
 
 const VENDOR_BASES: Record<string, { base: string; keyEnv: string; name: string }> = {
   openrouter: {
@@ -33,11 +34,15 @@ async function proxyChatCompletion(
     return
   }
   try {
-    const resp = await fetch(`${cfg.base}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify(body),
-    })
+    const resp = await fetchWithTimeout(
+      `${cfg.base}/chat/completions`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+      },
+      120000,
+    )
     const data = await resp.json().catch(() => ({}))
     if (!resp.ok) {
       reply
@@ -70,9 +75,13 @@ const proxyRoutes: FastifyPluginAsync = async (server) => {
       return
     }
     try {
-      const resp = await fetch(`${cfg.base}/models`, {
-        headers: { Authorization: `Bearer ${key}` },
-      })
+      const resp = await fetchWithTimeout(
+        `${cfg.base}/models`,
+        {
+          headers: { Authorization: `Bearer ${key}` },
+        },
+        120000,
+      )
       const data = await resp.json().catch(() => ({ data: [] }))
       if (!resp.ok) {
         reply.status(502).send(error(502, `上游 ${resp.status}`))

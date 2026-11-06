@@ -145,6 +145,7 @@ import { knowledgeRagService } from '../services/knowledge-rag-service.js'
 import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
 import { XlsxFileTooLargeError } from '../services/xlsx-parser.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 常量
@@ -415,7 +416,7 @@ async function callInternal(
   const token = await mintInternalJwt(userId)
   const headers = new Headers(init.headers)
   headers.set('Authorization', `Bearer ${token}`)
-  const resp = await fetch(`${INTERNAL_BASE}${path}`, { ...init, headers })
+  const resp = await fetchWithTimeout(`${INTERNAL_BASE}${path}`, { ...init, headers }, 60000)
   const contentType = resp.headers.get('content-type') ?? ''
 
   // 二进制文件直返

@@ -47,6 +47,7 @@ import { hasNestedQuantifier } from './rules-service.js'
 // 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
 import { computeFacts, decideApproval } from '@ihui/shared/permission'
 import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const execAsync = promisify(exec)
 
@@ -3398,16 +3399,20 @@ class GitHubClient {
   private async api(path: string, method = 'GET', body?: unknown): Promise<unknown> {
     const token = this.loadToken()
     if (!token) throw new Error('未配置 GITHUB_TOKEN')
-    const res = await fetch(`${GITHUB_API_BASE}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Content-Type': 'application/json',
+    const res = await fetchWithTimeout(
+      `${GITHUB_API_BASE}${path}`,
+      {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
       },
-      body: body ? JSON.stringify(body) : undefined,
-    })
+      15000,
+    )
     if (!res.ok) {
       const errText = await res.text()
       throw new Error(`GitHub API ${res.status}: ${errText}`)

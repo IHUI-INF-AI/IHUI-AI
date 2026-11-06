@@ -42,6 +42,7 @@ import { config } from '../config/index.js'
 import { FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
 import { authenticate } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 13 平台 adapter 元数据(本地注册表,2026-07-30 立)
@@ -110,7 +111,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 原 buvid3 不被适配器读取 ⇒ 用户"填了等于没填"。见 tests/publish-credential-field-parity.test.ts
     requiresCredentials: ['sessdata', 'bili_jct', 'dedeuserid'],
     needsBrowser: false,
-    setupHint: 'B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid),参考 docs/PUBLISH_SETUP.md#bilibili',
+    setupHint:
+      'B 站 Cookie 凭据(SESSDATA / bili_jct / dedeuserid),参考 docs/PUBLISH_SETUP.md#bilibili',
   },
   {
     platformId: 'wechat',
@@ -139,7 +141,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:抖音适配器(douyin.py)走开放平台 OAuth 四键,不读 cookie。
     requiresCredentials: ['access_token', 'open_id', 'client_key', 'client_secret'],
     needsBrowser: false,
-    setupHint: '抖音开放平台 OAuth 凭据(access_token/open_id/client_key/client_secret),参考 docs/PUBLISH_SETUP.md#douyin',
+    setupHint:
+      '抖音开放平台 OAuth 凭据(access_token/open_id/client_key/client_secret),参考 docs/PUBLISH_SETUP.md#douyin',
   },
   {
     platformId: 'kuaishou',
@@ -149,7 +152,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:快手适配器(kuaishou.py)走开放平台 access_token/app_id/app_secret,不读 cookie。
     requiresCredentials: ['access_token', 'app_id', 'app_secret'],
     needsBrowser: false,
-    setupHint: '快手开放平台 OAuth 凭据(access_token/app_id/app_secret),参考 docs/PUBLISH_SETUP.md#kuaishou',
+    setupHint:
+      '快手开放平台 OAuth 凭据(access_token/app_id/app_secret),参考 docs/PUBLISH_SETUP.md#kuaishou',
   },
   {
     platformId: 'weibo',
@@ -207,7 +211,8 @@ const PLATFORM_REGISTRY: readonly PlatformRegistryEntry[] = [
     // 2026-09-27 键名对账:视频号适配器(shipinhao.py)读 wechat_channels(cookie 名),泛键 cookie 不被读取。
     requiresCredentials: ['wechat_channels'],
     needsBrowser: true,
-    setupHint: '视频号 Cookie(wechat_channels)+ Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#shipinhao',
+    setupHint:
+      '视频号 Cookie(wechat_channels)+ Playwright 浏览器内核,参考 docs/PUBLISH_SETUP.md#shipinhao',
   },
 ] as const
 
@@ -300,7 +305,7 @@ async function proxyToAiService(
   }
 
   try {
-    const upstream = await fetch(url, { method, headers, body })
+    const upstream = await fetchWithTimeout(url, { method, headers, body }, 120000)
     const text = await upstream.text()
     let payload: unknown = text
     const ct = upstream.headers.get('content-type') || ''
@@ -358,7 +363,11 @@ async function proxyMultipartToAiService(
   if (authHeader) headers.authorization = authHeader
 
   try {
-    const upstream = await fetch(url, { method: 'POST', headers, body: formData })
+    const upstream = await fetchWithTimeout(
+      url,
+      { method: 'POST', headers, body: formData },
+      120000,
+    )
     const text = await upstream.text()
     let payload: unknown = text
     const ct = upstream.headers.get('content-type') || ''
@@ -568,7 +577,7 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     const authHeader = resolveAuthHeader(request)
     if (authHeader) headers.authorization = authHeader
     try {
-      const upstream = await fetch(url, { method: 'GET', headers })
+      const upstream = await fetchWithTimeout(url, { method: 'GET', headers }, 120000)
       const buf = Buffer.from(await upstream.arrayBuffer())
       reply
         .status(upstream.status)

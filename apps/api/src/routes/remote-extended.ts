@@ -52,6 +52,7 @@ const asrSchema = z.object({
 })
 
 import { parsePaging } from '../utils/paging.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 路由
@@ -294,21 +295,25 @@ export const remoteExtendedRoutes: FastifyPluginAsync = async (server) => {
         }
 
         // 调用腾讯云 ASR 一句话识别 API
-        const resp = await fetch('https://asr.tencentcloudapi.com/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-TC-Action': 'SentenceRecognition',
-            'X-TC-Region': 'ap-guangzhou',
-            Authorization: `Bearer ${tencentSecretId}`,
+        const resp = await fetchWithTimeout(
+          'https://asr.tencentcloudapi.com/',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-TC-Action': 'SentenceRecognition',
+              'X-TC-Region': 'ap-guangzhou',
+              Authorization: `Bearer ${tencentSecretId}`,
+            },
+            body: JSON.stringify({
+              EngSerViceType: language === 'en' ? 2 : 1,
+              SourceType: 0,
+              Url: audioUrl,
+              VoiceFormat: 'wav',
+            }),
           },
-          body: JSON.stringify({
-            EngSerViceType: language === 'en' ? 2 : 1,
-            SourceType: 0,
-            Url: audioUrl,
-            VoiceFormat: 'wav',
-          }),
-        })
+          15000,
+        )
 
         if (!resp.ok) {
           return reply.status(502).send(error(502, '腾讯云 ASR 服务调用失败'))

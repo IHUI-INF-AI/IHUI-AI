@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -120,14 +121,18 @@ class DashScopeEmbeddingProvider implements EmbeddingProvider {
 
   async embed(texts: string[]): Promise<number[][]> {
     const inputs = texts.map((t) => t.slice(0, DASHSCOPE_MAX_INPUT))
-    const resp = await fetch(DASHSCOPE_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const resp = await fetchWithTimeout(
+      DASHSCOPE_URL,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: DASHSCOPE_MODEL, input: { texts: inputs } }),
       },
-      body: JSON.stringify({ model: DASHSCOPE_MODEL, input: { texts: inputs } }),
-    })
+      30000,
+    )
     if (!resp.ok) {
       throw new Error(`DashScope embedding HTTP ${resp.status}`)
     }
@@ -154,14 +159,18 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   constructor(private readonly apiKey: string) {}
 
   async embed(texts: string[]): Promise<number[][]> {
-    const resp = await fetch(OPENAI_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const resp = await fetchWithTimeout(
+      OPENAI_URL,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: OPENAI_MODEL, input: texts }),
       },
-      body: JSON.stringify({ model: OPENAI_MODEL, input: texts }),
-    })
+      30000,
+    )
     if (!resp.ok) {
       throw new Error(`OpenAI embedding HTTP ${resp.status}`)
     }
@@ -204,14 +213,18 @@ class MinimaxEmbeddingProvider implements EmbeddingProvider {
   ) {}
 
   async embed(texts: string[]): Promise<number[][]> {
-    const resp = await fetch(this.endpoint, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const resp = await fetchWithTimeout(
+      this.endpoint,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model: 'embo-01', input: texts }),
       },
-      body: JSON.stringify({ model: 'embo-01', input: texts }),
-    })
+      30000,
+    )
     if (!resp.ok) {
       throw new Error(`MiniMax embedding HTTP ${resp.status}`)
     }

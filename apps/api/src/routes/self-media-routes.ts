@@ -33,6 +33,7 @@ import { config } from '../config/index.js'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const recordSchema = z.object({
   category: z.enum(['wechat', 'koubo']),
@@ -65,7 +66,7 @@ async function proxyToAiService(
   }
 
   try {
-    const upstream = await fetch(url, { method, headers, body })
+    const upstream = await fetchWithTimeout(url, { method, headers, body }, 120000)
     const text = await upstream.text()
     let payload: unknown = text
     const ct = upstream.headers.get('content-type') || ''

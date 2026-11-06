@@ -11,6 +11,7 @@ import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { startStopwatch } from '../../utils/elapsed-ms.js'
 import { isPrivateOrReservedIp } from '../../utils/ssrf-guard.js'
+import { fetchWithTimeout } from '../../utils/fetch-deadline.js'
 
 /**
  * 内网/元数据主机的**字面**黑名单(与 ssrf-guard 的 IP 判据同源部分复用,不另造 IP 规则)。
@@ -153,13 +154,17 @@ export class IntegrationManager extends EventEmitter {
 
     const sw = startStopwatch()
     const queryString = request.query ? '?' + new URLSearchParams(request.query).toString() : ''
-    const response = await fetch(`${url}${queryString}`, {
-      method: request.method,
-      headers,
-      // 不跟随重定向:否则一次 302 就能把上面判定过的落点换成内网/元数据主机
-      redirect: 'error',
-      body: request.body ? JSON.stringify(request.body) : undefined,
-    })
+    const response = await fetchWithTimeout(
+      `${url}${queryString}`,
+      {
+        method: request.method,
+        headers,
+        // 不跟随重定向:否则一次 302 就能把上面判定过的落点换成内网/元数据主机
+        redirect: 'error',
+        body: request.body ? JSON.stringify(request.body) : undefined,
+      },
+      15000,
+    )
 
     const data = await response.json().catch(() => null)
     const responseHeaders: Record<string, string> = {}

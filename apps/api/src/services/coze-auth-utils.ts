@@ -20,6 +20,7 @@
 import { env } from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { SignJWT } from 'jose'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const TOKEN_TTL = 86399 // 24h - 1s, 与 Coze JWT 流程一致
 
@@ -120,17 +121,21 @@ export async function getCozeAccessToken(
     const tokenUrl =
       env.COZE_OAUTH_TOKEN_URL ??
       `${env.COZE_API_BASE ?? DEFAULT_COZE_API_BASE}/api/permission/oauth2/token`
-    const resp = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${jwtToken}`,
-        'Content-Type': 'application/json',
+    const resp = await fetchWithTimeout(
+      tokenUrl,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          duration_seconds: TOKEN_TTL,
+        }),
       },
-      body: JSON.stringify({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        duration_seconds: TOKEN_TTL,
-      }),
-    })
+      15000,
+    )
     if (!resp.ok) {
       throw new Error(`Coze 授权接口 HTTP ${resp.status}`)
     }

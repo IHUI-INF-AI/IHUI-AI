@@ -28,6 +28,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { env } from 'node:process'
 import { join } from 'node:path'
 import { formatDateByTemplate } from '@ihui/shared'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const GATEWAY = env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'
 // 自适应:pnpm filter 运行时 cwd=apps/api(用 certs/),项目根运行时用 apps/api/certs/
@@ -311,11 +312,15 @@ export async function exchangeAuthCode(
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
   const data = (await resp.json()) as {
     alipay_system_oauth_token_response: {
       access_token?: string
@@ -385,11 +390,15 @@ export async function tradeCreate(params: {
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
   const data = (await resp.json()) as {
     alipay_trade_create_response: {
       trade_no: string
@@ -426,11 +435,15 @@ export async function queryOrder(outTradeNo: string): Promise<Record<string, unk
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
   return (await resp.json()) as Record<string, unknown>
 }
 
@@ -459,11 +472,15 @@ export async function refundOrder(params: {
   addCertParams(paramsObj)
   paramsObj.sign = signParams(paramsObj)
   const body = new URLSearchParams(paramsObj).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
   const data = (await resp.json()) as { alipay_trade_refund_response: Record<string, unknown> }
   const refundResp = data.alipay_trade_refund_response ?? {}
   return { success: refundResp.code === '10000', response: refundResp }
@@ -483,11 +500,15 @@ export async function closeOrder(outTradeNo: string): Promise<void> {
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
 }
 
 /** 下载账单 URL(对账用) */
@@ -507,11 +528,15 @@ export async function downloadBillUrl(
   addCertParams(params)
   params.sign = signParams(params)
   const body = new URLSearchParams(params).toString()
-  const resp = await fetch(GATEWAY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  })
+  const resp = await fetchWithTimeout(
+    GATEWAY,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    },
+    15000,
+  )
   const data = (await resp.json()) as {
     alipay_data_dataservice_bill_downloadurl_query_response: { bill_download_url: string }
   }

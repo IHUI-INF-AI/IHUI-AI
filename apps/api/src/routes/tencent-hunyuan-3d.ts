@@ -28,6 +28,7 @@ import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { generateTrackingId } from '../utils/crypto-random.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const PREFIX = '/tencent/hunyuan3d'
 
@@ -140,11 +141,15 @@ async function queryTencentJob(jobId: string): Promise<TencentQueryResponse | nu
         },
       },
     )
-    const tencentRes = await fetch('https://ai3d.tencentcloudapi.com/', {
-      method: 'POST',
-      headers: authResult.headers,
-      body: authResult.body,
-    })
+    const tencentRes = await fetchWithTimeout(
+      'https://ai3d.tencentcloudapi.com/',
+      {
+        method: 'POST',
+        headers: authResult.headers,
+        body: authResult.body,
+      },
+      15000,
+    )
     const raw = (await tencentRes.json()) as TencentQueryResponse & {
       Response?: TencentQueryResponse
     }
@@ -249,11 +254,15 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
               },
             },
           )
-          const tencentRes = await fetch('https://ai3d.tencentcloudapi.com/', {
-            method: 'POST',
-            headers: authResult.headers,
-            body: authResult.body,
-          })
+          const tencentRes = await fetchWithTimeout(
+            'https://ai3d.tencentcloudapi.com/',
+            {
+              method: 'POST',
+              headers: authResult.headers,
+              body: authResult.body,
+            },
+            15000,
+          )
           tencentResponse = (await tencentRes.json()) as {
             JobId?: string
             Status?: string

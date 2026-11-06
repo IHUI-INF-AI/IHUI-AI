@@ -33,6 +33,7 @@ import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 import { error } from '../utils/response.js'
 import { MEDIA_FILE_UPLOAD_BODY_LIMIT } from '../config/body-limits.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 // =============================================================================
 // 常量
@@ -256,10 +257,14 @@ function mjHeaders(): Record<string, string> {
 
 /** 通用上游 MJ fetch 封装:自动注入鉴权头,非 2xx 抛错。 */
 async function mjFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(mjUrl(path), {
-    ...init,
-    headers: { ...mjHeaders(), ...(init?.headers as Record<string, string> | undefined) },
-  })
+  const res = await fetchWithTimeout(
+    mjUrl(path),
+    {
+      ...init,
+      headers: { ...mjHeaders(), ...(init?.headers as Record<string, string> | undefined) },
+    },
+    120000,
+  )
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`上游 MJ 返回 HTTP ${res.status}: ${body.slice(0, 200)}`)
@@ -737,11 +742,15 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       if (fields.temperature) form.append('temperature', fields.temperature)
 
       try {
-        const resp = await fetch(`${upstream.baseUrl}/v1/audio/translations`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${upstream.apiKey}` },
-          body: form,
-        })
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/audio/translations`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${upstream.apiKey}` },
+            body: form,
+          },
+          120000,
+        )
 
         if (!resp.ok) {
           const errText = await upstreamErrorText(resp)
@@ -833,11 +842,15 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       if (fields.user) form.append('user', fields.user)
 
       try {
-        const resp = await fetch(`${upstream.baseUrl}/v1/images/variations`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${upstream.apiKey}` },
-          body: form,
-        })
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/images/variations`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${upstream.apiKey}` },
+            body: form,
+          },
+          120000,
+        )
 
         if (!resp.ok) {
           const errText = await upstreamErrorText(resp)
@@ -921,14 +934,18 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       if (suffix) upstreamBody.suffix = suffix
 
       try {
-        const resp = await fetch(`${upstream.baseUrl}/v1/fine_tuning/jobs`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${upstream.apiKey}`,
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/fine_tuning/jobs`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${upstream.apiKey}`,
+            },
+            body: JSON.stringify(upstreamBody),
           },
-          body: JSON.stringify(upstreamBody),
-        })
+          120000,
+        )
 
         if (!resp.ok) {
           const errText = await upstreamErrorText(resp)
@@ -1016,9 +1033,13 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       if (after) qs.set('after', after)
 
       try {
-        const resp = await fetch(`${upstream.baseUrl}/v1/fine_tuning/jobs?${qs.toString()}`, {
-          headers: { Authorization: `Bearer ${upstream.apiKey}` },
-        })
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/fine_tuning/jobs?${qs.toString()}`,
+          {
+            headers: { Authorization: `Bearer ${upstream.apiKey}` },
+          },
+          120000,
+        )
         if (!resp.ok) {
           const errText = await upstreamErrorText(resp)
           return reply
@@ -1075,9 +1096,10 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       }
 
       try {
-        const resp = await fetch(
+        const resp = await fetchWithTimeout(
           `${upstream.baseUrl}/v1/fine_tuning/jobs/${encodeURIComponent(id)}`,
           { headers: { Authorization: `Bearer ${upstream.apiKey}` } },
+          120000,
         )
         if (resp.status === 404) {
           // 上游 404 时尝试本地缓存(任务可能已过期但本地仍存)
@@ -1143,7 +1165,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       }
 
       try {
-        const resp = await fetch(
+        const resp = await fetchWithTimeout(
           `${upstream.baseUrl}/v1/fine_tuning/jobs/${encodeURIComponent(id)}/cancel`,
           {
             method: 'POST',
@@ -1152,6 +1174,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
               Authorization: `Bearer ${upstream.apiKey}`,
             },
           },
+          120000,
         )
         if (resp.status === 404) {
           return reply.status(404).send(error(404, `微调任务不存在: ${id}`))
@@ -1220,9 +1243,10 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
       if (after) qs.set('after', after)
 
       try {
-        const resp = await fetch(
+        const resp = await fetchWithTimeout(
           `${upstream.baseUrl}/v1/fine_tuning/jobs/${encodeURIComponent(id)}/events?${qs.toString()}`,
           { headers: { Authorization: `Bearer ${upstream.apiKey}` } },
+          120000,
         )
         if (resp.status === 404) {
           return reply.status(404).send(error(404, `微调任务不存在: ${id}`))

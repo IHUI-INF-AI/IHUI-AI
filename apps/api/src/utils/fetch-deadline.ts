@@ -43,7 +43,10 @@ const BODY_CONSUMERS = ['json', 'text', 'arrayBuffer', 'blob', 'bytes', 'formDat
 const releasers = new WeakMap<object, () => void>()
 
 /** 本出口实际调用的 fetch 形态（默认 `globalThis.fetch`，代理分支注入 undici 自带 fetch）。 */
-export type FetchDeadlineImpl = (input: string | URL | Request, init: RequestInit) => Promise<Response>
+export type FetchDeadlineImpl = (
+  input: string | URL | Request,
+  init: RequestInit,
+) => Promise<Response>
 
 export interface FetchDeadlineOptions {
   /** 罩住「发出请求 → 响应体消费结束」整段的毫秒数。 */
@@ -146,6 +149,25 @@ export async function fetchWithinDeadline(
 }
 
 /**
+ * 统一出站超时出口（T-3，2026-11-07）。
+ *
+ * `fetch()` 本身没有超时：上游只发 headers 后停滞、或 DNS/TCP 阶段挂住时，
+ * 调用方会无限等待并占满请求队列。本函数是所有出站 fetch 的唯一入口，
+ * 默认 8s；查单/对账等允许更慢的链路由调用方显式传 15s。
+ *
+ * deadline 覆盖「发出请求 → 响应体消费结束」整段（见 `fetchWithinDeadline`），
+ * 不会在 headers 到达时就解除。
+ */
+export async function fetchWithTimeout(
+  input: string | URL | Request,
+  init: RequestInit = {},
+  timeoutMs = 8000,
+  label = 'fetchWithTimeout',
+): Promise<Response> {
+  return fetchWithinDeadline(input, init, { timeoutMs, label })
+}
+
+/**
  * 取消 + 超时组合器（b75-3#1，2026-09-30，上游出处 zcode script-workflow-utils.ts:116-123）：
  * `AbortSignal.any([signal, AbortSignal.timeout(ms)])` 一行把「人控取消」与「超时」
  * 合成单个 signal，调用方无需手写 race/监听器清理。超时计时由平台托管（Timer 不占调用方代码）。
@@ -184,7 +206,10 @@ export async function withBody<T>(
 function manageBodyConsumption(response: Response, release: () => void): Response {
   return new Proxy(response, {
     get(target, prop) {
-      if (typeof prop === 'string' && BODY_CONSUMERS.includes(prop as (typeof BODY_CONSUMERS)[number])) {
+      if (
+        typeof prop === 'string' &&
+        BODY_CONSUMERS.includes(prop as (typeof BODY_CONSUMERS)[number])
+      ) {
         const method = Reflect.get(target, prop, target) as unknown as () => Promise<unknown>
         if (typeof method !== 'function') return method
         return async (): Promise<unknown> => {
@@ -200,16 +225,16 @@ function manageBodyConsumption(response: Response, release: () => void): Respons
       // 注：`closed` 是**返回 Promise 的 getter**，不是方法，所以判据取 thenable 而不是 function。
       if (prop === 'body') {
         const raw = Reflect.get(target, 'body', target) as
-          | { closed?: { then?: unknown } }
-          | null
-          | undefined
+          { closed?: { then?: unknown } } | null | undefined
         if (raw?.closed && typeof raw.closed.then === 'function') {
           raw.closed.then(release, release)
         }
         return raw
       }
       const value = Reflect.get(target, prop, target)
-      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value
+      return typeof value === 'function'
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value
     },
   })
 }

@@ -31,6 +31,7 @@ import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 // P0 第二批次(2026-07-31 立):rerank/moderations 计费集成
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 /** 鉴权后注入 request 的 API Key 上下文(与 v1-public.ts ApiKeyContext 结构一致) */
 interface ApiKeyContext {
@@ -184,14 +185,18 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
         }
         if (top_n !== undefined) body.top_n = top_n
 
-        const resp = await fetch(`${upstream.baseUrl}/v1/rerank`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${upstream.apiKey}`,
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/rerank`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${upstream.apiKey}`,
+            },
+            body: JSON.stringify(body),
           },
-          body: JSON.stringify(body),
-        })
+          60000,
+        )
 
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '')
@@ -278,14 +283,18 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
       try {
         const body: Record<string, unknown> = { input, model }
 
-        const resp = await fetch(`${upstream.baseUrl}/v1/moderations`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${upstream.apiKey}`,
+        const resp = await fetchWithTimeout(
+          `${upstream.baseUrl}/v1/moderations`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${upstream.apiKey}`,
+            },
+            body: JSON.stringify(body),
           },
-          body: JSON.stringify(body),
-        })
+          60000,
+        )
 
         if (!resp.ok) {
           const errText = await resp.text().catch(() => '')

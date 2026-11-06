@@ -24,6 +24,7 @@ import {
   DEEP_SYNTHESIS_BATCH_SEEDS,
   DEEP_SYNTHESIS_DISCOVERY_URL,
 } from './algorithm-record-seeds.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 export const ALGORITHM_RECOMMEND_KIND = 'algorithm_recommend'
 export const DEEP_SYNTHESIS_KIND = 'deep_synthesis'
@@ -35,19 +36,27 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36'
 
 async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
-    redirect: 'follow',
-  })
+  const res = await fetchWithTimeout(
+    url,
+    {
+      headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
+      redirect: 'follow',
+    },
+    15000,
+  )
   if (!res.ok) throw new Error(`fetch failed ${res.status}: ${url}`)
   return res.text()
 }
 
 async function fetchBytes(url: string): Promise<Buffer> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': UA },
-    redirect: 'follow',
-  })
+  const res = await fetchWithTimeout(
+    url,
+    {
+      headers: { 'User-Agent': UA },
+      redirect: 'follow',
+    },
+    15000,
+  )
   if (!res.ok) throw new Error(`download failed ${res.status}: ${url}`)
   return Buffer.from(await res.arrayBuffer())
 }
@@ -293,7 +302,11 @@ export async function syncAlgorithmRecords(opts: SyncOptions = {}): Promise<Impo
     }
     // ② 深度合成发现源(beian 系统公告列表,自动发现未列入种子的新批次)
     try {
-      const res = await fetch(DEEP_SYNTHESIS_DISCOVERY_URL, { headers: { 'User-Agent': UA } })
+      const res = await fetchWithTimeout(
+        DEEP_SYNTHESIS_DISCOVERY_URL,
+        { headers: { 'User-Agent': UA } },
+        15000,
+      )
       if (res.ok) {
         const json = (await res.json()) as { datas?: { title?: string; content?: string }[] }
         const pages = (json.datas ?? [])

@@ -24,6 +24,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 type Period = '7d' | '30d' | '90d'
 
@@ -93,7 +94,7 @@ async function fetchAiService<T>(path: string, authHeader: string | undefined): 
   const headers: Record<string, string> = {}
   if (authHeader) headers.authorization = authHeader
   try {
-    const resp = await fetch(url, { method: 'GET', headers })
+    const resp = await fetchWithTimeout(url, { method: 'GET', headers }, 15000)
     if (!resp.ok) return null
     const ct = resp.headers.get('content-type') || ''
     if (!ct.includes('application/json')) return null

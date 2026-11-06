@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const COZE_DEFAULT_BASE_URL = 'https://api.coze.cn'
 
@@ -36,9 +37,13 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
     const pat = patFromHeader(request)
     if (!pat) return reply.status(400).send(error(400, '缺少 X-Coze-PAT header'))
     try {
-      const res = await fetch(`${cozeBaseUrl()}/v1/users/me`, {
-        headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
-      })
+      const res = await fetchWithTimeout(
+        `${cozeBaseUrl()}/v1/users/me`,
+        {
+          headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' },
+        },
+        15000,
+      )
       if (!res.ok) return reply.status(502).send(error(502, `Coze PAT 无效: HTTP ${res.status}`))
       const data = (await res.json()) as CozeMeResponse
       if (data.code !== 0)
@@ -61,9 +66,13 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
     const apiKey = cozeApiKey()
     if (!apiKey) return reply.status(400).send(error(400, '未配置 COZE_API_KEY'))
     try {
-      const res = await fetch(`${cozeBaseUrl()}/v1/users/me`, {
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      })
+      const res = await fetchWithTimeout(
+        `${cozeBaseUrl()}/v1/users/me`,
+        {
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        },
+        15000,
+      )
       if (!res.ok)
         return reply.status(502).send(error(502, `Coze API key 无效: HTTP ${res.status}`))
       const data = (await res.json()) as CozeMeResponse
@@ -99,9 +108,10 @@ export const cozeTestRoutes: FastifyPluginAsync = async (server) => {
     const token = patFromHeader(request) ?? cozeApiKey()
     if (!token) return reply.status(400).send(error(400, '未提供 PAT 或配置 COZE_API_KEY'))
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${cozeBaseUrl()}/v1/bot/get_online_info?bot_id=${encodeURIComponent(parsed.data.botId)}`,
         { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+        15000,
       )
       if (!res.ok) return reply.status(502).send(error(502, `Bot 不可访问: HTTP ${res.status}`))
       const data = (await res.json()) as { code?: number; msg?: string; data?: unknown }

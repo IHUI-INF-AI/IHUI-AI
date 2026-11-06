@@ -22,6 +22,7 @@
  */
 
 import { env } from 'node:process'
+import { fetchWithTimeout } from '../utils/fetch-deadline.js'
 
 const API_BASE = env.PAYPAL_API_BASE ?? 'https://api-m.sandbox.paypal.com'
 const PAYPAL_FETCH_TIMEOUT_MS = 10_000
@@ -110,7 +111,7 @@ async function paypalRequest<T>(method: 'GET' | 'POST', path: string, body?: unk
   if (body !== undefined && method === 'POST') {
     init.body = JSON.stringify(body)
   }
-  const resp = await fetch(`${API_BASE}${path}`, init)
+  const resp = await fetchWithTimeout(`${API_BASE}${path}`, init, 15000)
   const text = await resp.text()
   if (!resp.ok) {
     let detail = text

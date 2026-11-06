@@ -169,26 +169,59 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '账户已注销'))
     }
 
+    // T-6(P1,合规):擦除必须做到「要么确认删干净,要么明确告知没删干净」。
+    // 旧实现把 clearSearchHistory 的失败吞掉后仍回 erased:true —— 对外承诺已完全擦除,
+    // 实际可能仍留有检索记录,属于合规事故。以下逐步收集失败,不允许任何一步静默。
+    const failedSteps: string[] = []
+    let piiPurged = true
+
     // 1. 统一 PII 清除：遍历删除 PII 子表 + 彻底匿名化 users 主行(status=3) + 吊销 refresh token
     //    （含 user_auth_info / addresses / devices / chat / memory / notes / oauth / preferences / passkeys 等，幂等）
-    await purgeUserPii(userId)
+    try {
+      await purgeUserPii(userId)
+    } catch (e) {
+      piiPurged = false
+      failedSteps.push('pii')
+      request.log.error({ err: e, userId, step: 'purgeUserPii' }, 'GDPR erase: PII 清除失败')
+    }
 
-    // 2. 清理搜索历史
-    await clearSearchHistory(userId).catch(() => {
-      /* 搜索历史清理失败不阻断擦除主流程 */
-    })
+    // 2. 清理搜索历史（失败必须计入 failedSteps,不得 catch 后当成功）
+    try {
+      await clearSearchHistory(userId)
+    } catch (e) {
+      failedSteps.push('searchHistory')
+      request.log.error(
+        { err: e, userId, step: 'clearSearchHistory' },
+        'GDPR erase: 搜索历史清理失败',
+      )
+    }
 
-    await addAuditLog({
-      userId,
-      action: 'GDPR_ERASE',
-      resourceType: 'gdpr',
-      resourceId: userId,
-      details: { anonymized: true, status: 3 },
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    })
+    const partial = failedSteps.length > 0
+    // 审计必须记录真实结果:未删干净时不得写 anonymized:true/status:3
+    try {
+      await addAuditLog({
+        userId,
+        action: 'GDPR_ERASE',
+        resourceType: 'gdpr',
+        resourceId: userId,
+        details: {
+          anonymized: piiPurged,
+          status: piiPurged ? 3 : null,
+          outcome: partial ? (piiPurged ? 'partial' : 'failed') : 'completed',
+          failedSteps,
+        },
+        ip: request.ip,
+        userAgent: request.headers['user-agent'],
+      })
+    } catch (e) {
+      request.log.error({ err: e, userId }, 'GDPR erase: 审计日志写入失败')
+    }
 
-    return reply.send(success({ erased: true, userId }))
+    if (!piiPurged) {
+      // 主行未匿名化 ⇒ 不能回 200;让调用方重试,避免把「失败」误报成「已擦除」
+      return reply.status(500).send(error(500, '数据擦除未完成,请稍后重试'))
+    }
+    return reply.send(success({ erased: !partial, partial, userId, failedSteps }))
   })
 
   // POST /portability - 数据可携带性导出（结构化 JSON）
