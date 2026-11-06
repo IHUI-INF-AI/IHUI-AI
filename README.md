@@ -97,13 +97,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4243 | `testFiles` |
+| 测试文件 | 4244 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19545 | `trackedFiles` |
+| 跟踪文件 | 19546 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -42654,7 +42654,7 @@ A: Yes. ~14839+ tests / 4243 test files / 67 e2e spec / 4703 API 路由 / 624 �
 ### 通病 ② 边界条件处理不足 → 实际:4243 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
 | 边界条件缺失     | 4243 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
 - **4243 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
-A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 - UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` check-miniapp-shell-form.mjs(门 299:小程序「薄壳 vs 复制」实现形态,新增复制页即红;跳过 HUSKY_SKIP_MINIAPP_SHELL_FORM) check-web-mp-route-carriers.mjs(门 301:web↔小程序共享屏承载路由对账;跳过 HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS)
 - API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs` check-api-endpoint-delta.mjs(门 300:三端 API 调用差集台账,棘轮只拦新增;跳过 HUSKY_SKIP_API_ENDPOINT_DELTA) check-drizzle-journal-sync.mjs(迁移链「文件↔journal」双向对账,git-guardian 巡检轮派发)
 | 测试文件 | 4214 | `testFiles` |
