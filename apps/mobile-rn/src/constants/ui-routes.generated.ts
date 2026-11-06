@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: fa028c5f8de87407790ef885636392495755c927
-// inputsSha256: 9315db0f0fc75c18ea959eec630c43e4d3efff25205e76abaa25c144d0bf563c
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx ffdb406300444496f99992ab16e0651247739cbdc0cbdba8adbe56ae90801cfe
-// input: apps/mobile-rn/src/navigation/linking.ts 5d0669776885554d59463e5bf928d7a3c264d936a4977c0428877a9a19612cb6
+// sourceCommit: b2a7ae07f93dbd2099233ddacd466b3b9a5e4235
+// inputsSha256: 79e36581007d2295f845374b4b1c12f8a5be2e93267fcfa17b19343566f3fb4b
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 2289cf575e23f6e04e742c5b8b054ee1ceb4f69054ecc22777aaab745e68be1b
+// input: apps/mobile-rn/src/navigation/linking.ts d003573a24de25dea1e7fc9abe5deb78223e68486d626712ebc1ce1721531cd7
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-11-05T22:37:20.094Z
+// generatedAt: 2026-11-06T07:47:05.404Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
@@ -28,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 342 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 344 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -271,6 +271,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'ExamDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'ExamHistory', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'ExamQuestion', tab: false, requiresParams: true, requiredParams: ['examId'] },
+  { name: 'ExamIntro', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'CertDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
   { name: 'CertVerify', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'MessageDetail', tab: false, requiresParams: true, requiredParams: ['id'] },
@@ -280,6 +281,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'History', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Bookmark', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Share', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ShareLanding', tab: false, requiresParams: true, requiredParams: ['code'] },
   { name: 'SharedDemo', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Recharge', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'AigcCover', tab: false, requiresParams: true, requiredParams: ['id', 'title'] },
