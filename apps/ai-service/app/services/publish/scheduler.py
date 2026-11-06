@@ -347,7 +347,20 @@ class PublishScheduler:
             # 并发执行(每平台一个 task)
             coros = [self._run_single_platform(task_id, user_id, content, t) for t in targets]
             if coros:
-                results = await asyncio.gather(*coros, return_exceptions=False)
+                # BUG-34①:return_exceptions=True 让单平台异常作为结果返回,gather 会等
+                # 全部兄弟协程结束才返回 ⇒ finally 里 pop _running 时不再有"仍在后台
+                # 发布"的兄弟协程(旧写法异常立即上抛、兄弟未取消 ⇒ 用户可立刻重提,重复发布)。
+                gathered = await asyncio.gather(*coros, return_exceptions=True)
+                for target, item in zip(targets, gathered):
+                    if isinstance(item, BaseException):
+                        # 只把异常平台补成失败项,已成功平台的结果原样保留,不整体抹空。
+                        results.append(PublishResult(
+                            success=False,
+                            platform=str(target.get("platform", "")),
+                            error_message=f"{type(item).__name__}: {item}",
+                        ))
+                    else:
+                        results.append(item)
 
             # 汇总
             success_count = sum(1 for r in results if r.success)
@@ -403,6 +416,16 @@ class PublishScheduler:
                 "results": results_payload,
                 "finished_at": datetime.now(UTC).isoformat(),
             })
+        except asyncio.CancelledError:
+            # BUG-8:task.cancel() 投递的是 BaseException,except Exception 捕不到;
+            # 旧实现路由只回响应不写库 ⇒ DB 的 running 行永久悬挂(_poll_once 只捞
+            # scheduled,进程重启也不回收)。统一收口:任何取消来源都写回终态 cancelled。
+            # shield 保证这次写库不被"再来一次取消"打断。
+            with contextlib.suppress(Exception):
+                await asyncio.shield(
+                    self._finish_task_db(task_id, "cancelled", [], "任务已取消")
+                )
+            raise
         except Exception as e:
             logger.exception("[publish.scheduler] task crashed: %s", task_id)
             await self._finish_task_db(task_id, "failed", [], f"crashed: {e}")

@@ -14,11 +14,16 @@ import { describe, it, expect } from 'vitest'
 import { formatCompact } from '../../src/utils/number-format'
 
 describe('formatCompact 空值契约(调用方靠它决定"要不要渲染热度徽标")', () => {
-  it('null / undefined / 0 一律返回空串(三种假值同族,不得出现 "0")', () => {
+  it('null / undefined(缺席)一律返回空串,与真实 0 严格可分', () => {
     expect(formatCompact(null, 'en')).toBe('')
     expect(formatCompact(undefined, 'en')).toBe('')
-    expect(formatCompact(0, 'en')).toBe('')
-    expect(formatCompact(0, 'zh-CN')).toBe('')
+    expect(formatCompact(null, 'zh-CN')).toBe('')
+    expect(formatCompact(undefined, 'zh-CN')).toBe('')
+  })
+
+  it('真实 0 是有效值,渲染成 "0"(BUG-28⑤:0 与缺席不可互换)', () => {
+    expect(formatCompact(0, 'en')).toBe('0')
+    expect(formatCompact(0, 'zh-CN')).toBe('0')
   })
 })
 

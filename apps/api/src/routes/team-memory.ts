@@ -17,8 +17,11 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { and, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { parseOrThrow, success, error } from '../utils/response.js'
+import { teamMembers } from '@ihui/database'
+import { db } from '../db/index.js'
 import {
   listTeamMemories,
   getTeamMemory,
@@ -74,6 +77,36 @@ async function requireLogin(request: FastifyRequest, reply: FastifyReply): Promi
   }
 }
 
+const ADMIN_ROLE_ID = 1
+/** 团队作用域判定:scopeId 形如 team UUID 才走成员枚举,其余按密钥共享处理 */
+const TEAM_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * BUG-5 根治:校验调用者是否有权访问某 scope 下的记忆。
+ * - 管理员放行;
+ * - 团队作用域(scopeId 为 team UUID):必须是该团队成员,否则视为无权限;
+ * - 工作区/自由文本作用域:scopeId 即共享密钥,知悉即成员(既有协作模型),
+ *   不在此做成员枚举,避免破坏按 key 共享的设计。
+ * 返回 false ⇒ 路由统一按 404 处理(不暴露"存在但无权")。
+ */
+async function isScopeMember(
+  scopeId: string,
+  userId: string | undefined,
+  roleId: number,
+): Promise<boolean> {
+  if (roleId >= ADMIN_ROLE_ID) return true
+  if (!userId) return false
+  // 非团队作用域:密钥即权限,知悉即成员
+  if (!TEAM_UUID_RE.test(scopeId)) return true
+  const [row] = await db
+    .select({ id: teamMembers.id })
+    .from(teamMembers)
+    .where(and(eq(teamMembers.teamId, scopeId), eq(teamMembers.userId, userId)))
+    .limit(1)
+  return !!row
+}
+
 // =============================================================================
 // 路由
 // =============================================================================
@@ -82,6 +115,16 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
   // GET / — 列表(按 scopeId 隔离 + kind/tag/keyword 过滤)
   app.get('/', { preHandler: requireLogin }, async (request, reply) => {
     const query = parseOrThrow(listQuerySchema, request.query)
+    // BUG-5 连带:列表同样按 scope 成员权收敛,非成员访问团队作用域 ⇒ 404
+    if (
+      !(await isScopeMember(
+        query.scopeId,
+        request.userId,
+        request.jwtPayload?.roleId ?? 0,
+      ))
+    ) {
+      return reply.status(404).send(error(404, 'scope 不存在或无权限'))
+    }
     const rows = await listTeamMemories({
       scopeId: query.scopeId,
       kind: query.kind as ListTeamMemoryKind,
@@ -117,6 +160,12 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     if (!row) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
+    // BUG-5 根治:校验调用者对该记忆 scope 的访问权,非成员 ⇒ 404(不暴露存在性)
+    if (
+      !(await isScopeMember(row.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
+    ) {
+      return reply.status(404).send(error(404, '记忆不存在'))
+    }
     return reply.send(success(row))
   })
 
@@ -124,6 +173,16 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
   app.put('/:id', { preHandler: requireLogin }, async (request, reply) => {
     const params = parseOrThrow(idParamSchema, request.params)
     const body = parseOrThrow(updateSchema, request.body)
+    // BUG-5 根治:先取行校验 scope 成员权,再局部更新
+    const existing = await getTeamMemory(params.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '记忆不存在'))
+    }
+    if (
+      !(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
+    ) {
+      return reply.status(404).send(error(404, '记忆不存在'))
+    }
     const patch: UpdateTeamMemoryInput = {}
     if (body.kind !== undefined) patch.kind = body.kind as UpdateTeamMemoryKind
     if (body.title !== undefined) patch.title = body.title
@@ -139,6 +198,16 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
   // DELETE /:id — 删除
   app.delete('/:id', { preHandler: requireLogin }, async (request, reply) => {
     const params = parseOrThrow(idParamSchema, request.params)
+    // BUG-5 根治:先取行校验 scope 成员权,再删除
+    const existing = await getTeamMemory(params.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '记忆不存在'))
+    }
+    if (
+      !(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
+    ) {
+      return reply.status(404).send(error(404, '记忆不存在'))
+    }
     const ok = await deleteTeamMemory(params.id)
     if (!ok) {
       return reply.status(404).send(error(404, '记忆不存在'))

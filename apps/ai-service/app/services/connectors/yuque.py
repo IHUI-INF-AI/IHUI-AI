@@ -27,6 +27,7 @@ URL 格式:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -65,7 +66,11 @@ def _extra(record: dict[str, Any]) -> dict[str, Any]:
 def _request(
     url: str, params: dict[str, Any] | None = None, timeout: int = 20
 ) -> requests.Response:
-    """带浏览器 UA 的 GET 请求(统一超时,避免挂死)。"""
+    """带浏览器 UA 的 GET 请求(统一超时,避免挂死)。
+
+    BUG-75:本函数同步阻塞,禁止在事件循环线程内直接调用;所有调用点必须经
+    ``await asyncio.to_thread(_request, ...)``,否则任一语雀请求卡住即冻结全进程协程。
+    """
     return requests.get(
         url,
         params=params,
@@ -123,7 +128,7 @@ async def sync(record: dict[str, Any]) -> dict[str, Any]:
             "last_sync_at": "",
         }
     try:
-        html = _request(f"https://www.yuque.com/{user}/{repo}").text
+        html = (await asyncio.to_thread(_request, f"https://www.yuque.com/{user}/{repo}")).text
         appdata = _extract_appdata(html)
         raw_book = appdata.get("book")
         book: dict[str, Any] = raw_book if isinstance(raw_book, dict) else {}
@@ -186,7 +191,7 @@ async def fetch_document(record: dict[str, Any], doc_id: str) -> dict[str, Any]:
         }
     try:
         # book_id 不在配置里,每次从首页 appData 取(公开库公开可读)
-        html = _request(f"https://www.yuque.com/{user}/{repo}").text
+        html = (await asyncio.to_thread(_request, f"https://www.yuque.com/{user}/{repo}")).text
         appdata = _extract_appdata(html)
         raw_book = appdata.get("book")
         book: dict[str, Any] = raw_book if isinstance(raw_book, dict) else {}
@@ -200,7 +205,8 @@ async def fetch_document(record: dict[str, Any], doc_id: str) -> dict[str, Any]:
                 "truncated": False,
                 "message": "无法从首页获取 book_id(可能非公开库或页面结构变更)",
             }
-        resp = _request(
+        resp = await asyncio.to_thread(
+            _request,
             f"https://www.yuque.com/api/docs/{slug}",
             params={
                 "book_id": book_id,

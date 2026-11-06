@@ -21,6 +21,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import chalk from 'chalk';
 import { t } from '../i18n/index.js';
+import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 
 // === 类型 ===
 
@@ -89,27 +90,34 @@ function taskReadCode(error: unknown): string {
   return 'unknown';
 }
 
+function readTasksRaw(p: string): string {
+  const raw = fs.readFileSync(p, 'utf-8');
+  return raw;
+}
+
 function loadStore(): TasksStore {
   const p = getTasksPath();
   let raw: string;
   try {
     raw = fs.readFileSync(p, 'utf-8');
+    raw = readTasksRaw(p);
   } catch (error) {
     const code = taskReadCode(error);
     if (code === 'ENOENT' || code === 'ENOTDIR') return { ...EMPTY_STORE };
     throw new Error(`任务清单读不到,不能把它覆盖成空清单 (${code})`);
   }
-  try {
-    const parsed = JSON.parse(raw) as Partial<TasksStore>;
-    if (!parsed || typeof parsed !== 'object') return { ...EMPTY_STORE };
-    return {
-      version: 1,
-      workspaces: parsed.workspaces && typeof parsed.workspaces === 'object' ? parsed.workspaces : {},
-      nextId: Number.isFinite(parsed.nextId) && (parsed.nextId ?? 0) > 0 ? parsed.nextId! : 1,
-    };
-  } catch {
-    return { ...EMPTY_STORE };
+  if (!fs.existsSync(p)) return { ...EMPTY_STORE };
+  // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
+  // 那会让用户全部任务静默清零(半截 JSON 会稳定触发这条路径)。
+  const parsed = JSON.parse(raw) as Partial<TasksStore> | null;
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error(`任务库文件损坏(不是对象): ${p}`);
   }
+  return {
+    version: 1,
+    workspaces: parsed.workspaces && typeof parsed.workspaces === 'object' ? parsed.workspaces : {},
+    nextId: Number.isFinite(parsed.nextId) && (parsed.nextId ?? 0) > 0 ? parsed.nextId! : 1,
+  };
 }
 
 function saveStore(store: TasksStore): void {
@@ -123,7 +131,9 @@ function saveStore(store: TasksStore): void {
     }
   }
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  fs.writeFileSync(p, JSON.stringify(store, null, 2) + '\n', 'utf-8');
+  // 走唯一原子写出口:同目录 tmp + rename(崩溃不留半截 JSON)、落盘前重读基线
+  // 做 stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。
+  commitAtomicWrite(captureWriteBaseline(p), JSON.stringify(store, null, 2) + '\n');
 }
 
 /** 获取(或创建)指定 workspace 的任务容器 */
@@ -319,7 +329,14 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
  * 分母口径:cancelled(已取消)不再执行,移出分母;blocked(受阻)仍欠完成,留在分母。
  */
 export function renderCompactProgress(workspacePath: string): string {
-  const stats = getTaskStats(workspacePath);
+  // banner 的一行装饰不该因任务库损坏让整个 REPL 起不来:读失败时降级为不显示,
+  // 真正的"读失败即报错"由 /tasks 命令的 try/catch 与写路径承担。
+  let stats: ReturnType<typeof getTaskStats>;
+  try {
+    stats = getTaskStats(workspacePath);
+  } catch {
+    return '';
+  }
   const total = stats.total - stats.cancelled;
   if (total === 0) return '';
   const done = stats.completed;
@@ -429,7 +446,8 @@ export function handleTasksCommand(input: string, workspacePath: string): string
   const parts = input.trim().split(/\s+/);
   const sub = parts[0] ?? 'list';
 
-  switch (sub) {
+  try {
+    switch (sub) {
     case '':
     case 'list':
       return renderTaskList(workspacePath);
@@ -517,6 +535,10 @@ export function handleTasksCommand(input: string, workspacePath: string): string
 
     default:
       return chalk.yellow(`未知子命令: ${sub}\n${renderTasksHelp()}`);
+    }
+  } catch (e) {
+    // 读失败即报错:绝不把"读不到"吞成空清单再整体覆写(磁盘原样不动)。
+    return chalk.red(`/tasks 操作失败(未改动任何数据): ${(e as Error).message}`);
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

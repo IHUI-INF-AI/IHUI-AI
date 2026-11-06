@@ -26,15 +26,18 @@ export function EarningsOverview({ data, loading }: Props) {
   const currencyFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
   const numFmt = new Intl.NumberFormat(locale)
 
-  const d = data ?? {
-    todayIncome: 0,
-    todayIncomeTrend: 0,
-    byokIncome: 0,
-    byokIncomeTrend: 0,
-    referralCount: 0,
-    referralTrend: 0,
-    conversionRate: 0,
-    conversionTrend: 0,
+  // BUG-91:后端可能返回非 null 却缺字段的对象,旧 `data ?? {…}` 只兜底 data===null,
+  // 缺字段时 conversionRate 为 undefined → 裸 .toFixed 抛 TypeError 整块白屏。
+  // 逐字段归一到确定数值(任意残缺对象都不再让数值方法裸调 undefined)。
+  const d = {
+    todayIncome: data?.todayIncome ?? 0,
+    todayIncomeTrend: data?.todayIncomeTrend ?? 0,
+    byokIncome: data?.byokIncome ?? 0,
+    byokIncomeTrend: data?.byokIncomeTrend ?? 0,
+    referralCount: data?.referralCount ?? 0,
+    referralTrend: data?.referralTrend ?? 0,
+    conversionRate: data?.conversionRate ?? 0,
+    conversionTrend: data?.conversionTrend ?? 0,
   }
 
   const cards = [
@@ -61,7 +64,7 @@ export function EarningsOverview({ data, loading }: Props) {
     },
     {
       title: t('conversionRate'),
-      value: `${d.conversionRate.toFixed(1)}%`,
+      value: `${(d.conversionRate ?? 0).toFixed(1)}%`,
       icon: Percent,
       trend: d.conversionTrend,
       trendLabel: t('vsYesterday'),

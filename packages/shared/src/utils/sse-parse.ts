@@ -112,6 +112,9 @@ export interface SSEEvent {
     // 被静默丢掉 ⇒ 小程序端半截回答与完整回答完全同形(与 api-client 的
     // onPartialDone 同一帧,两端解析必须同源,判据 scripts/check-sse-parser-parity.mjs)。
     | 'partial_done'
+    // BUG-67:AI 主动提问帧,契约见 sse/contract.ts::SSE_EVENTS.QUESTION 与 sse/families.ts 的
+    // question 登记;必须在泛化兜底前认领(否则带 sessionId 会被折成 meta 而静默丢帧)。
+    | 'question'
   content?: string
   sessionId?: string
   /**
@@ -215,6 +218,8 @@ export interface SSEEvent {
     reason: string
     model?: string
   }
+  /** BUG-67:AI 主动提问帧载荷(契约 sse/contract.ts:406-407 type:'question' / question: Record<string, unknown>)。 */
+  question?: Record<string, unknown>
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -784,6 +789,12 @@ function parseLineEvent(line: string): SSEEvent | null {
     }
     if (json?.type === 'reasoning' && typeof json?.delta === 'string') {
       return { type: 'reasoning', content: json.delta }
+    }
+    // BUG-67:question 帧必须在 content/delta/text 与 sessionId 泛化兜底之前认领。
+    // 判别与 @ihui/api-client client.ts:4258 同源(type==='question' 且 question 为对象),
+    // 产出 evt.question;小程序端 onRawLine 旁路保留不动(双保险)。
+    if (json?.type === 'question' && json.question && typeof json.question === 'object') {
+      return { type: 'question', question: json.question as Record<string, unknown> }
     }
     if (typeof json?.content === 'string') return { type: 'chunk', content: json.content }
     if (typeof json?.delta === 'string') return { type: 'chunk', content: json.delta }

@@ -440,9 +440,13 @@ export async function redeemCoupon(
   userId: string,
   userCouponId: string,
   context: RedeemContext,
+  tx?: DbTx,
 ): Promise<RedeemResult> {
+  // 单事务支持:传入 tx 时读写都落在同一事务连接上(apply-coupon 的
+  // 「核销 → 改价 → 退旧券」必须全有或全无);不传时保持原有 dbRead/db 读写分离。
+  const read = tx ?? dbRead
   // 1. 查 user_coupon + coupon
-  const [row] = await dbRead
+  const [row] = await read
     .select({
       userCoupon: userCoupons,
       coupon: promoCoupons,

@@ -35,6 +35,7 @@ import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import type { Command } from 'commander';
 import chalk from 'chalk';
+import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 
 // ==================== 类型定义 ====================
 
@@ -121,12 +122,13 @@ function hooksTrustFile(): string {
 
 /** 读用户级信任集(工作区绝对路径);文件缺失/损坏一律视为空(fail-closed)。 */
 export function loadTrustedWorkspaces(): Set<string> {
-  try {
-    const raw = JSON.parse(fs.readFileSync(hooksTrustFile(), 'utf-8')) as { trusted?: string[] };
-    return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
-  } catch {
-    return new Set();
-  }
+  const file = hooksTrustFile();
+  if (!fs.existsSync(file)) return new Set();
+  // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
+  // 一次 EBUSY 会把整张信任清单重写成只有一行(与 hooks/trust.ts 同一语义)。
+  const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { trusted?: string[] } | null;
+  if (!raw || typeof raw !== 'object') throw new Error(`信任清单格式非法: ${file}`);
+  return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
 }
 
 function trustReadCode(error: unknown): string {
@@ -154,17 +156,30 @@ function readTrustedForUpdate(): Set<string> {
   }
 }
 
+/** 读不到就停。放在写入函数外面,是为了和基线解析那一段各用各的变量名。 */
+function refuseUnreadableTrustList(): void {
+  const trusted = readTrustedForUpdate();
+  if (trusted.size < 0) throw new Error('信任清单格式非法');
+}
+
 /** 把工作区写入信任集(信任是显式动作,不提供删除出口——删除属 GC 范畴)。 */
 export function addTrustedWorkspace(workspacePath: string): void {
   const abs = path.resolve(workspacePath);
-  const trusted = readTrustedForUpdate();
+  refuseUnreadableTrustList();
+  const file = hooksTrustFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  // 落盘前捕获**这一次**读到的字节作为基线并在它之上重算;commitAtomicWrite
+  // 重读校验基线 + 同目录 tmp/rename 原子替换 + 拒绝穿透符号链接。旧写法
+  // 先 load(读失败吞成空集)再裸 writeFileSync 整体覆写,是同一语义的第二套未修实现。
+  const baseline = captureWriteBaseline(file);
+  let trusted = new Set<string>();
+  if (baseline.content !== null && baseline.content.trim() !== '') {
+    const parsed = JSON.parse(baseline.content) as { trusted?: string[] } | null;
+    if (!parsed || typeof parsed !== 'object') throw new Error(`信任清单格式非法: ${file}`);
+    trusted = new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((x) => path.resolve(x)) : []);
+  }
   trusted.add(abs);
-  fs.mkdirSync(path.dirname(hooksTrustFile()), { recursive: true });
-  fs.writeFileSync(
-    hooksTrustFile(),
-    JSON.stringify({ trusted: [...trusted] }, null, 2) + String.fromCharCode(10),
-    'utf-8',
-  );
+  commitAtomicWrite(baseline, JSON.stringify({ trusted: [...trusted] }, null, 2) + String.fromCharCode(10));
 }
 
 /** 文件扩展名 → scriptType 映射 */
@@ -406,7 +421,15 @@ export class HookAutoDiscovery {
   discover(): HookDefinition[] {
     this.hooks.clear();
     this.unreadScans = [];
-    const trusted = loadTrustedWorkspaces();
+    let trusted: Set<string>;
+    try {
+      trusted = loadTrustedWorkspaces();
+    } catch (e) {
+      // 信任清单读不出来 ⇒ fail-closed:工作区 hook 一个都不放行,且必须点名。
+      // 静默当成"空清单"会把"读失败"与"从未批准过"混成同一件事。
+      console.warn(chalk.yellow(`⚠ 信任清单读取失败,工作区 hook 全部禁用: ${(e as Error).message}`));
+      trusted = new Set();
+    }
     const workspaceTrusted = trusted.has(path.resolve(this.workspacePath));
     for (const loc of this.getScanLocations()) {
       // 信任门:工作区级 hook 在未信任工作区一律 enabled=false(执行器只认

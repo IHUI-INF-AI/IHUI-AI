@@ -1020,10 +1020,12 @@ console.log(
   '⏳ 守门批量检查本机实测约 9~15 分钟,期间本进程无输出属正常;' +
     '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
 )
-// 快档默认开(2026-10-21,机主要求"整体 ≤1 分钟"):33 道重型门(>3s)实测占全量 86%,
-// 它们由 post-commit 后台补跑;提交链只跑 121 道快门(8 并发 ≈ 20s)。
-// 要全量(CI / 发版前 / 排障):IHUI_GATE_FAST=0。
-process.env.IHUI_GATE_FAST = process.env.IHUI_GATE_FAST ?? '1'
+// 2026-11-06 BUG-19① 根治:快档把 37 道重型 id 一律只 skipped++ 写 deferredGates,
+// printSummary 与退出码都不因此变红 ⇒ 33+ 道 blocking 门在常规提交上根本没跑、退出码仍 0。
+// 常规提交必须真跑全部 blocking 门 ⇒ 默认档改为**全量**(IHUI_GATE_FAST=0);快档只作显式逃生档,
+// 且执行器对快档/预算/应急放行跳过的 blocking 门单列"未判定"档(不记绿、批量 exit 2)。
+// 要临时快档请显式设 IHUI_GATE_FAST=1 并自行承担未判定后果;CI/发版/排障默认即全量。
+process.env.IHUI_GATE_FAST = process.env.IHUI_GATE_FAST ?? '0'
 console.log(
   process.env.IHUI_GATE_FAST === '1'
     ? '⚡ 快档:仅跑快门(重型门由 post-commit 后台补跑);全量请设 IHUI_GATE_FAST=0'
