@@ -495,7 +495,7 @@ $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
 $env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
-Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
 
@@ -512,7 +512,9 @@ try {
   $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
   try {
     # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
-    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" --console=plain
+    # versionName 必须经 -P 传入(2026-11-06):build.gradle 侧的 appVersionName 优先读它,
+    # package.json 只做缺省。不传的话系统设置里永远显示原生基座(0.0.12),与站点/DB 登记脱节。
+    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" "-PversionName=$VersionName" --console=plain
     if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease/bundleRelease 失败 (exit=$LASTEXITCODE)" }
   } finally {
     $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = $prevAbiEnv
