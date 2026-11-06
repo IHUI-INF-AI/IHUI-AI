@@ -487,6 +487,8 @@ interface TrafficSnapshot {
   aggregationAgeSec: number | null
   /** true = 族分解被 UA 种类预算截断,族值只是下界 */
   truncated: boolean | null
+  /** 族分解预算前的 UA 种类观测总数(与 `truncated` 成对;null = 快照取不到) */
+  uaKindsTotal: number | null
   /**
    * 近 24h 页面访问排行(visit_logs 口径,最多 8 条);null = 页面热度腿取不到。
    * 2026-10-26 立:此前大屏只有 api_logs 的 PV/UV 与客户端族,回答不了"哪些页面
@@ -593,6 +595,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       families: live.families,
       aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
       truncated: live.truncated,
+      uaKindsTotal: live.uaKindsTotal,
       pageTop: pageUsage?.top ?? null,
       pageTotalPv: pageUsage?.totalPv ?? null,
       scopeSplit: pageUsage?.scopes ?? null,

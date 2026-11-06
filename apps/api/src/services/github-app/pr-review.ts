@@ -91,6 +91,8 @@ export interface PrDiff {
   deletions: number
   /** 因文件数或字符预算被裁掉时为 true(模型须知,避免它以为看到了全貌) */
   truncated: boolean
+  /** 上游返回的文件总数(与 `files.length` 可能不同,截断时它才是分母) */
+  filesTotal: number
 }
 
 const prFileSchema = z.object({
@@ -163,6 +165,7 @@ export async function fetchPrDiff(
     additions: files.reduce((sum, file) => sum + file.additions, 0),
     deletions: files.reduce((sum, file) => sum + file.deletions, 0),
     truncated,
+    filesTotal: parsed.data.length,
   }
 }
 
