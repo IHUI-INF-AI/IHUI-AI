@@ -156,6 +156,14 @@ export { WithdrawScreen } from '../../../../packages/app/src/features/withdraw/W
 // D28 多端同步(2026-09-21):外部会话导入共享屏直连真实实现(与上方 Settings/Order 同款做法),
 // 便于 wrapper 测试覆盖「注入的 picker/parse/commit」与共享 UI 的联动。
 export { ConversationImportScreen } from '../../../../packages/app/src/features/conversation-import/ConversationImportScreen'
+// 2026-11-06 薄壳批:以下四屏 RN 壳改为从 '@ihui/rn-app' 桶入口取共享屏(门 rn-host-shell-coverage
+// 只认桶入口),替身必须同步转发真实组件;若缺席,壳渲染即 "Element type is invalid: got: undefined"。
+// 同上方纪律:re-export 真实件,不另写假实现。
+export { AccountCancelScreen } from '../../../../packages/app/src/features/account-cancel/AccountCancelScreen'
+export { ChangePhoneScreen } from '../../../../packages/app/src/features/change-phone/ChangePhoneScreen'
+export { MessageCenterScreen } from '../../../../packages/app/src/features/message-center/MessageCenterScreen'
+export { ConversationHistoryScreen } from '../../../../packages/app/src/features/chat/ConversationHistoryScreen'
+export type { ConversationHistoryGroup } from '../../../../packages/app/src/features/chat/ConversationHistoryScreen'
 // InputArea(端内)以 <TextField> 渲染三处参数变量行;ChatScreen(端内)自 @ihui/rn-app
 // 取共享 ChatScreen 整屏复用(D137 纠偏后恢复的消费面)。两者此前不在替身导出面里 ⇒
 // 渲染到即 "Element type is invalid: got: undefined"(use-ui-text-field 那条正是这么红的)。
