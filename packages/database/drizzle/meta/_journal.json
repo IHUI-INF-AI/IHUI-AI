@@ -2566,6 +2566,20 @@
       "when": 1793948400000,
       "tag": "20261106150000_fix_missing_indexes_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1793952000000,
+      "tag": "20261107000000_repair_api_subscription_drift",
+      "breakpoints": true
+    },
+    {
+      "idx": 371,
+      "version": "7",
+      "when": 1793952060000,
+      "tag": "20261107001000_drop_stale_refund_order_fk",
+      "breakpoints": true
     }
   ]
 }
