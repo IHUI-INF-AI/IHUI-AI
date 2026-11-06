@@ -179,6 +179,29 @@ export async function consumeNotifyNonce(
   }
 }
 
+/**
+ * 释放一枚已消费的回调 nonce。
+ *
+ * 业务处理失败时必须调用:nonce 在进入业务前就 SETNX 占位,若失败仍返回 FAIL,
+ * 微信重投会命中 `replayed` 被当成重复通知吞掉 —— 等于把一次可重试失败变成永久丢单。
+ * 仅在「已消费且后续处理未成功」的路径调用;释放失败只记日志,不改变 FAIL 应答。
+ */
+export async function releaseNotifyNonce(
+  endpoint: string,
+  timestamp: string,
+  nonce: string,
+): Promise<void> {
+  if (!nonce || !timestamp) return
+  const redis = getNotifyNonceRedis()
+  if (!redis) return
+  const digest = crypto.createHash('sha256').update(`${timestamp}\n${nonce}`).digest('hex')
+  try {
+    await redis.del(`wechatpay:notify:nonce:${endpoint}:${digest}`)
+  } catch (e) {
+    console.error('[wechat-pay] notify nonce release failed:', (e as Error).message)
+  }
+}
+
 /** AES-256-GCM 解密回调资源（resource.ciphertext） */
 export function decryptCallback(
   ciphertext: string,

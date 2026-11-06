@@ -35,6 +35,7 @@ import {
   queryContract,
   verifyCallbackSignature,
   consumeNotifyNonce,
+  releaseNotifyNonce,
   decryptCallback,
   generateOutTradeNo,
   parseContractExpiredTime,
@@ -446,6 +447,8 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
+      // 已占位的去重 nonce:业务失败时必须回滚占位,否则微信重投会被判 replayed 吞掉。
+      let consumedNonce: { timestamp: string; nonce: string } | null = null
       try {
         const timestamp = request.headers['wechatpay-timestamp'] as string
         const nonce = request.headers['wechatpay-nonce'] as string
@@ -473,6 +476,9 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
           }
           if (recurringNonceVerdict === 'unavailable') {
             return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+          }
+          if (recurringNonceVerdict === 'ok') {
+            consumedNonce = { timestamp, nonce }
           }
         }
 
@@ -742,7 +748,14 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
         return reply.send({ code: 0, message: 'SUCCESS' })
       } catch (e) {
         request.log.error({ err: e }, 'recurring notify processing failed')
-        return reply.send({ code: 0, message: 'SUCCESS' })
+        // 此前 catch 无条件回 200 SUCCESS:业务失败被静默吞掉,微信认为已送达不再重投,
+        // 用户已扣款但订单/VIP 永久不落地(与 wechat-pay.consumeNotifyNonce 的
+        // 「fail-closed + 重投不丢单」口径相反)。改为 FAIL + 释放 nonce,交给微信重试;
+        // 业务写路径均已事务化且有 lastChargeStatus 幂等闸,重放松弛安全。
+        if (consumedNonce) {
+          await releaseNotifyNonce('recurring', consumedNonce.timestamp, consumedNonce.nonce)
+        }
+        return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
       }
     },
   )
