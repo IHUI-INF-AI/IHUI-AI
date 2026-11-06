@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FlatList,
@@ -1116,11 +1118,12 @@ const LEVEL_INTRO_DATA: readonly {
  * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
  */
 function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
   const { t } = useI18n()
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.levelIntroOverlay}>
-        <View style={styles.levelIntroCard}>
+        <View style={[styles.levelIntroCard, dialogHeightStyle]}>
           <Text style={styles.levelIntroTitle}>{t('profile.levelIntro')}</Text>
           <ScrollView style={styles.levelIntroScroll} showsVerticalScrollIndicator={false}>
             {LEVEL_INTRO_DATA.map((item) => (
@@ -2594,7 +2597,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
-    maxHeight: '80%',
+    maxHeight: undefined,
   },
   levelIntroTitle: {
     fontSize: rnType.subtitle.size,

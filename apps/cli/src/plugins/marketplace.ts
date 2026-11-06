@@ -25,6 +25,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDefinitePathAbsence } from './path-safety.js';
 import { getInstalledPluginsDir } from './paths.js';
 
 /** Marketplace 索引根结构 */
@@ -99,13 +100,14 @@ export function scanMarketplace(root: string, stat?: (path: string) => fs.Stats)
   const look = stat ?? ((target: string) => fs.statSync(target));
   for (const segments of CANDIDATE_PATHS) {
     const p = path.join(root, ...segments);
+    let missing = false;
     try {
       look(p);
     } catch (err) {
-      const code = (err as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
-      return { found: false, indexPath: p, unreadable: true };
+      if (!isDefinitePathAbsence(err)) return { found: false, indexPath: p, unreadable: true };
+      missing = true;
     }
+    if (missing) continue;
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
@@ -263,8 +265,7 @@ export function loadRegisteredMarketplaces(opts: { file?: string; stat?: (path: 
   try {
     look(file);
   } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') {
+    if (isDefinitePathAbsence(e)) {
       return {
         ok: false,
         marketplaces: [],

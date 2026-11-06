@@ -15,6 +15,7 @@
  *   ⑥ 用户关掉的一次性提示,在新一轮查到更新时必须复位。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+// 只作类型锚点(import() 类型注解被 eslint consistent-type-imports 禁止,且会被 hoist 抹掉)
 import type * as RangedDownloadModule from '../ranged-download'
 
 const h = vi.hoisted(() => ({
@@ -54,14 +55,34 @@ vi.mock('expo-file-system/legacy', () => ({
   getContentUriAsync: h.getContentUriAsync,
 }))
 
+/**
+ * 多分片腿接管点:默认恒"清单不可用" ⇒ 普通用例落到原来的单文件腿,
+ * 与 2026-11-04 那组老断言(createDownloadResumable 被调用)保持同一口径。
+ */
+const parts = vi.hoisted(() => ({
+  impl: null as
+    null | ((options: unknown) => Promise<{ uri: string; bytes: number; connections: number }>),
+}))
+
 /** 选腿的 IO 面在 apk-download-legs.test.ts 单独钉;这里只接管出口,避免用例真发探针。 */
 vi.mock('../apk-download-legs', () => ({
+  APK_CN_LEG_URL:
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-latest.apk',
+  APK_MIN_BYTES: 52_428_800,
+  APK_PARTS_MANIFEST_URL:
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/mobile-apk-latest/ihui-ai-parts.json',
   resolveApkDownloadUrl: async (primary: string) => ({
     url: legChoice.url ?? primary,
     leg: legChoice.url ? 'cn' : 'site',
     reason: '测试夹具',
     probed: Boolean(legChoice.url),
   }),
+}))
+
+/** 多分片的调度细节在 multipart-download.test.ts 单独钉;这里只钉"失败必须回退单文件腿"。 */
+vi.mock('../multipart-download', () => ({
+  downloadApkParts: (options: unknown) =>
+    parts.impl ? parts.impl(options) : Promise.reject(new Error('测试:清单不可用,回退单文件腿')),
 }))
 
 /**
@@ -114,13 +135,18 @@ async function freshModule(os: 'android' | 'ios' | 'web' = 'android') {
   return await import('../apk-update')
 }
 
-/** 服务端"有更新"的标准响应;各用例只改必要的字段。 */
+/**
+ * 服务端"有更新"的标准响应;各用例只改必要的字段。
+ * latestVersion 必须**高于** src/lib/config.ts 的 APP_VERSION(package.json 的 version):
+ * 客户端会用自己的版本号再复核一次(见 decideHasUpdate),夹具一旦落后于当前版本,
+ * 整组"查到更新 → 下载 → 安装"用例都会静默落到 up-to-date 而假红。
+ */
 function updateResponse(overrides: Record<string, unknown> = {}) {
   return {
     success: true,
     data: {
       hasUpdate: true,
-      latestVersion: '0.0.9',
+      latestVersion: '1.0.0',
       downloadUrl: 'https://example.test/ihui-ai-latest.apk',
       releaseNotes: null,
       forceUpdate: false,
@@ -137,6 +163,7 @@ beforeEach(() => {
   h.startActivityAsync.mockReset()
   h.downloadAsync.mockReset()
   ranged.impl = null
+  parts.impl = null
   legChoice.url = null
   setNativeLauncher(false)
 })
@@ -234,7 +261,7 @@ describe('检查:环境判定与状态落库', () => {
     const mod = await freshModule()
     await expect(mod.checkApkUpdate()).resolves.toBe('available')
     const snap = mod.apkSnapshot()
-    expect(snap.latestVersion).toBe('0.0.9')
+    expect(snap.latestVersion).toBe('1.0.0')
     expect(snap.downloadUrl).toBe('https://example.test/ihui-ai-latest.apk')
     expect(snap.releaseNotes).toBe('修复若干问题')
     expect(snap.dismissed).toBe(false)
@@ -299,7 +326,7 @@ describe('下载 + 安装', () => {
 
   it('有原生模块 ⇒ 下载到缓存 → content:// → 系统安装器(APK mime)', async () => {
     h.checkAppVersion.mockResolvedValue(updateResponse())
-    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-0.0.9.apk' })
+    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-1.0.0.apk' })
     h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
     h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
     h.startActivity.mockResolvedValue(undefined)
@@ -313,11 +340,11 @@ describe('下载 + 安装', () => {
     expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
     expect(h.createDownloadResumable).toHaveBeenCalledWith(
       'https://example.test/ihui-ai-latest.apk',
-      'file:///cache/ihui-ai-0.0.9.apk',
+      'file:///cache/ihui-ai-1.0.0.apk',
       expect.anything(),
       expect.any(Function),
     )
-    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-0.0.9.apk')
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-1.0.0.apk')
     expect(h.startActivity).toHaveBeenCalledWith('android.intent.action.VIEW', {
       data: 'content://zh.ai.sq.FileSystemFileProvider/apk',
       flags: 1,
@@ -327,12 +354,52 @@ describe('下载 + 安装', () => {
     expect(mod.apkSnapshot().progress).toBe(100)
   })
 
+  it('多分片腿可用 ⇒ 直接装,不探单文件腿、不下单流', async () => {
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+    h.startActivity.mockResolvedValue(undefined)
+    parts.impl = async () => ({
+      uri: 'file:///cache/ihui-ai-1.0.0.apk',
+      bytes: 83310445,
+      connections: 8,
+    })
+    setNativeLauncher(true)
+
+    const mod = await freshModule()
+    await mod.checkApkUpdate()
+    await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+
+    // 多分片在,就不该再回到"选腿探针 + 单流":两条老腿一次都不许发。
+    expect(h.createDownloadResumable).not.toHaveBeenCalled()
+    // 探针被绕开:resolveApkDownloadUrl 在 apk-download-legs.test 里单独钉,这里用"下载腿记 cn"旁证。
+    expect(mod.apkSnapshot().downloadLeg).toBe('cn')
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-1.0.0.apk')
+  })
+
+  it('多分片腿不可用 ⇒ 回退单文件腿(不许直接把用户堵死)', async () => {
+    h.checkAppVersion.mockResolvedValue(updateResponse())
+    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-1.0.0.apk' })
+    h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
+    h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
+    h.startActivity.mockResolvedValue(undefined)
+    parts.impl = async () => {
+      throw new Error('清单 404')
+    }
+    setNativeLauncher(true)
+
+    const mod = await freshModule()
+    await mod.checkApkUpdate()
+    await expect(mod.applyApkUpdate()).resolves.toBe('installing')
+    expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
+    expect(mod.apkSnapshot().installMode).toBe('in-app')
+  })
+
   it('分片腿可用 ⇒ 走分片,不回到单流', async () => {
     h.checkAppVersion.mockResolvedValue(updateResponse())
     h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
     h.startActivity.mockResolvedValue(undefined)
     ranged.impl = async () => ({
-      uri: 'file:///cache/ihui-ai-0.0.9.apk',
+      uri: 'file:///cache/ihui-ai-1.0.0.apk',
       bytes: 84915649,
       connections: 4,
     })
@@ -343,7 +410,7 @@ describe('下载 + 安装', () => {
     await expect(mod.applyApkUpdate()).resolves.toBe('installing')
 
     expect(h.createDownloadResumable).not.toHaveBeenCalled()
-    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-0.0.9.apk')
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-1.0.0.apk')
     expect(h.startActivity).toHaveBeenCalledWith('android.intent.action.VIEW', {
       data: 'content://zh.ai.sq.FileSystemFileProvider/apk',
       flags: 1,
@@ -359,7 +426,7 @@ describe('下载 + 安装', () => {
     ['落盘不完整', '下载不完整:期望 84915649 字节'],
   ])('分片腿 %s ⇒ 立刻退回原生单流,绝不把 0%% 伪装成下载中', async (_label, message) => {
     h.checkAppVersion.mockResolvedValue(updateResponse())
-    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-0.0.9.apk' })
+    h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-1.0.0.apk' })
     h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
     h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
     h.startActivity.mockResolvedValue(undefined)
@@ -373,7 +440,7 @@ describe('下载 + 安装', () => {
     await expect(mod.applyApkUpdate()).resolves.toBe('installing')
 
     expect(h.createDownloadResumable).toHaveBeenCalledTimes(1)
-    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-0.0.9.apk')
+    expect(h.getContentUriAsync).toHaveBeenCalledWith('file:///cache/ihui-ai-1.0.0.apk')
     expect(mod.apkSnapshot().installMode).toBe('in-app')
   })
 
@@ -383,7 +450,7 @@ describe('下载 + 安装', () => {
 
     async function arrange() {
       h.checkAppVersion.mockResolvedValue(updateResponse())
-      h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-0.0.9.apk' })
+      h.downloadAsync.mockResolvedValue({ uri: 'file:///cache/ihui-ai-1.0.0.apk' })
       h.createDownloadResumable.mockReturnValue({ downloadAsync: h.downloadAsync })
       h.getContentUriAsync.mockResolvedValue('content://zh.ai.sq.FileSystemFileProvider/apk')
       h.startActivity.mockResolvedValue(undefined)
@@ -399,7 +466,7 @@ describe('下载 + 安装', () => {
       await expect(mod.applyApkUpdate()).resolves.toBe('installing')
       expect(h.createDownloadResumable).toHaveBeenCalledWith(
         CN,
-        'file:///cache/ihui-ai-0.0.9.apk',
+        'file:///cache/ihui-ai-1.0.0.apk',
         expect.anything(),
         expect.any(Function),
       )
@@ -412,7 +479,7 @@ describe('下载 + 安装', () => {
       await expect(mod.applyApkUpdate()).resolves.toBe('installing')
       expect(h.createDownloadResumable).toHaveBeenCalledWith(
         'https://example.test/ihui-ai-latest.apk',
-        'file:///cache/ihui-ai-0.0.9.apk',
+        'file:///cache/ihui-ai-1.0.0.apk',
         expect.anything(),
         expect.any(Function),
       )

@@ -50,4 +50,86 @@ export function planArtifactInvariant(files, exeName) {
   if (exeCount > 1) violations.push(`残留 ${exeCount} 个 setup 包`)
   return { keep, stale, violations }
 }
+
+const INSTALLER_ARCH = /_((?:x64|arm64|ia32))-setup\.exe$/
+const SHA256_HEX = /^[a-f0-9]{64}$/
+
+/** 从安装包文件名取出架构。取不到就返回 null,调用方不得把 null 写成某一档。 */
+export function archFromInstallerName(name) {
+  if (typeof name !== 'string') return null
+  const hit = INSTALLER_ARCH.exec(name)
+  return hit ? hit[1] : null
+}
+
+/**
+ * 安装内容清单裁决。
+ * 对方清单的 files 是路径字符串,哈希和体积都没有,判不出内容是否被换。
+ * measured[path] === null 表示该路径读不到:这是未判定,不是「文件不在」。
+ * 路径不在 measured 里,才是清单声明了但目录里没有。
+ *
+ * @param {object | null} manifest
+ * @param {Record<string, { sha256: string, bytes: number } | null> | null} measured
+ */
+export function judgeContentManifest(manifest, measured) {
+  const unjudged = (reason) => ({ disposition: 'unjudged', reason, mismatches: [] })
+  if (
+    manifest === null ||
+    manifest === undefined ||
+    typeof manifest !== 'object' ||
+    Array.isArray(manifest)
+  ) {
+    return unjudged('manifest-unmeasured')
+  }
+  if (
+    measured === null ||
+    measured === undefined ||
+    typeof measured !== 'object' ||
+    Array.isArray(measured)
+  ) {
+    return unjudged('measurement-unmeasured')
+  }
+  const files = manifest.files
+  if (!Array.isArray(files)) return unjudged('files-unmeasured')
+  if (files.length === 0) return unjudged('files-empty')
+  if (files.some((entry) => typeof entry === 'string')) {
+    return { disposition: 'path-only', reason: 'paths-cannot-prove-content', mismatches: [] }
+  }
+  if (typeof manifest.fileCount === 'number' && manifest.fileCount !== files.length) {
+    return { disposition: 'incomplete', reason: 'file-count-mismatch', mismatches: [] }
+  }
+  const mismatches = []
+  for (const entry of files) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+      return unjudged('entry-invalid')
+    const rel = entry.path
+    const sha256 = entry.sha256
+    const bytes = entry.bytes
+    const arch = entry.arch
+    if (
+      typeof rel !== 'string' ||
+      rel.length === 0 ||
+      typeof sha256 !== 'string' ||
+      !SHA256_HEX.test(sha256) ||
+      !Number.isInteger(bytes) ||
+      bytes < 0 ||
+      typeof arch !== 'string' ||
+      arch.length === 0
+    ) {
+      return unjudged('entry-invalid')
+    }
+    if (!Object.prototype.hasOwnProperty.call(measured, rel)) {
+      mismatches.push({ path: rel, kind: 'absent' })
+      continue
+    }
+    const got = measured[rel]
+    if (got === null || got === undefined) return unjudged('content-unmeasured')
+    if (got.sha256 !== sha256 || got.bytes !== bytes) {
+      mismatches.push({ path: rel, kind: 'content' })
+    }
+  }
+  if (mismatches.length > 0) {
+    return { disposition: 'incomplete', reason: 'content-or-absence', mismatches }
+  }
+  return { disposition: 'intact', reason: 'measured-match', mismatches: [] }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

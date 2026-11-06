@@ -22,9 +22,11 @@ import importlib
 from pathlib import Path
 from typing import Any
 
+import jwt as pyjwt
 import pytest
 
-from app.core.config import settingsfrom app.core.internal_ticket import (
+from app.core.config import settings
+from app.core.internal_ticket import (
     INTERNAL_TICKET_HEADER,
     INTERNAL_TOKEN_HEADER,
     USER_ID_HEADER,
@@ -63,6 +65,16 @@ def real_bridge(monkeypatch: pytest.MonkeyPatch) -> Any:
     mod = importlib.reload(ub)
     monkeypatch.setattr(mod, "derive_account_identity", lambda *_a, **_k: "uid-fixed")
     return mod
+
+
+def _claims(headers: dict[str, str]) -> dict[str, Any]:
+    """解出票面声明(主体必须住在票里,不住在 body 里)。"""
+    return pyjwt.decode(
+        headers[INTERNAL_TICKET_HEADER],
+        settings.jwt_secret,
+        algorithms=["HS256"],
+        audience="ihui-internal-service",
+    )
 
 
 class _Recorder:
@@ -124,14 +136,7 @@ async def test_upsert_桥发出的载荷_键级不含自报主体_主体在票�
     # 正向对照:摘掉 body 那一位之后,归属主体依旧签进短期票
     assert headers[USER_ID_HEADER] == OWNER
     assert headers[INTERNAL_TOKEN_HEADER] == LEGACY
-    import jwt as pyjwt
-
-    claims = pyjwt.decode(
-        headers[INTERNAL_TICKET_HEADER],
-        settings.jwt_secret,
-        algorithms=["HS256"],
-        audience="ihui-internal-service",
-    )
+    claims = _claims(headers)
     assert claims["sub"] == OWNER, "主体必须住在票里,不住在 body 里"
     assert claims["scope"] == "ai-callback"
     assert changed is True and dm["pool_account_id"] == "pa-1"
@@ -149,15 +154,7 @@ async def test_delete_桥发出的载荷_键级不含自报主体_主体在票�
     assert BODY_OWNER_KEY not in body, f"body 仍在自报主体: {sorted(body)}"
     assert body == {"poolAccountId": "pa-1"}
     assert headers[USER_ID_HEADER] == OWNER
-    import jwt as pyjwt
-
-    claims = pyjwt.decode(
-        headers[INTERNAL_TICKET_HEADER],
-        settings.jwt_secret,
-        algorithms=["HS256"],
-        audience="ihui-internal-service",
-    )
-    assert claims["sub"] == OWNER
+    assert _claims(headers)["sub"] == OWNER
 
 
 # ── ③ 缺主体:不发枪 / 对端 401 也不冒 500 ──────────────────────────────────
@@ -204,59 +201,48 @@ async def test_票缺主体被对端拒_桥只留待重试不冒500(
 
 
 # ── ④ 读点锁:引用该端点的源文件再无该键的生产点 ───────────────────────────
-def _iter_code_faces() -> list[Path]:
-    out: list[Path] = []
+def _iter_code_faces() -> list[tuple[Path, str]]:
+    """全仓运行代码面(apps + packages,跳过依赖/构建产物),一次读完带文本。"""
+    out: list[tuple[Path, str]] = []
     for base in (_REPO_ROOT / "apps", _REPO_ROOT / "packages"):
         for path in base.rglob("*"):
+            rel = path.relative_to(_REPO_ROOT).parts
             if not path.is_file() or path.suffix not in _SCAN_SUFFIXES:
                 continue
-            if _SKIP_DIR_NAMES & {part.lower() for part in path.parts}:
+            if _SKIP_DIR_NAMES & {part.lower() for part in rel} or rel[:2] == ("apps", "api"):
+                continue  # apps/api = 接收侧,兼容窗核对位住在它的 schema 里,不是生产点
+            if _is_test_file(rel, path.name):
+                continue  # 用例里的键名是断言对象,不是生产点
+            try:
+                out.append((path, path.read_text(encoding="utf-8")))
+            except (OSError, UnicodeDecodeError):
                 continue
-            out.append(path)
     return out
 
 
 def _is_test_file(rel_parts: tuple[str, ...], name: str) -> bool:
-    """用例文件里的这个键是**断言对象**,不是生产点;读点锁只判运行代码面。"""
-    return bool({"tests", "__tests__"} & set(rel_parts)) or name.startswith("test_") or name in {
-        "conftest.py",
-        "conftest.pyi",
-    } or ".test." in name
+    return bool({"tests", "__tests__"} & set(rel_parts)) or name.startswith("test_") or (
+        ".test." in name or name.startswith("conftest.")
+    )  # 用例里的键名是断言对象,不是生产点
 
 
 def test_读点锁_全仓代码面再无向号池端点自报主体() -> None:
-    """工作树代码面(唯一能判「现在还在发」的那一面)。
+    """工作树代码面(唯一能判「现在还在发」的那一面);HEAD 面/索引面同判序由 git grep 核过。
 
-    apps/api 是**接收侧**,那个键在它的 zod 兼容窗核对位与用例里必须留着一份,
-    因此排除;其余凡出现 relay/user-pool 路径的运行文件都算发送侧候选。
-    HEAD 面 / 索引面在同一条判序下由本票人工 `git grep` 复核(记录见状态件):
-    三面扫过之后,发送侧候选全仓只有本模块一个。
+    三面扫过的结果记在状态件:发送侧候选全仓只有本模块一个 —— 故本用例一旦在
+    「候选集为空」或「候选集里没有桥」时判死,绝不用 0 冒充绿。
     """
-    senders: list[Path] = []
-    for path in _iter_code_faces():
-        rel_parts = path.relative_to(_REPO_ROOT).parts
-        if rel_parts[:2] == ("apps", "api"):
-            continue  # 接收侧:兼容窗核对位住在对端 schema 里,不是生产点
-        if _is_test_file(rel_parts, path.name):
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if not any(marker in text for marker in _USER_POOL_PATHS):
-            continue
-        senders.append(path)
+    senders = [
+        (path, text)
+        for path, text in _iter_code_faces()
+        if any(marker in text for marker in _USER_POOL_PATHS)
+    ]
     assert senders, "扫描面枚举到 0 个候选 = 判据失效,不算绿"
-    bridge = next(
-        (p for p in senders if p.name == "checkin_user_pool_bridge.py"),
-        None,
+    assert any(p.name == "checkin_user_pool_bridge.py" for p, _ in senders), (
+        f"桥自身不在候选集里,扫描面已漂: {[str(p) for p, _ in senders]}"
     )
-    assert bridge is not None, f"桥自身不在候选集里,扫描面已漂: {senders}"
-    offenders: list[str] = []
-    for path in senders:
-        text = path.read_text(encoding="utf-8")
-        if f'"{BODY_OWNER_KEY}"' in text or f"'{BODY_OWNER_KEY}'" in text:
-            offenders.append(str(path.relative_to(_REPO_ROOT)))
+    quoted = (f'"{BODY_OWNER_KEY}"', f"'{BODY_OWNER_KEY}'")
+    offenders = [str(p.relative_to(_REPO_ROOT)) for p, t in senders if any(k in t for k in quoted)]
     assert offenders == [], f"仍在向 relay user-pool 端点自报主体的文件: {offenders}"
 
 

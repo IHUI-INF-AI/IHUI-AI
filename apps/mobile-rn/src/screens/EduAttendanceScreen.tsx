@@ -23,6 +23,8 @@
  * 三屏(教师/本人/孩子)共用的 attendanceBizDay / attendanceStatusTone / attendanceStatusLabel
  * 单源在 ../components/attendance-status(本文件 re-export 保持既有 import 路径不变)。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
@@ -80,6 +82,7 @@ interface BatchCheckInResult {
 }
 
 function EduAttendanceScreen() {
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.stats)
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()
@@ -342,7 +345,10 @@ function EduAttendanceScreen() {
       {/* 统计区 + 趋势区:与 web 统计 Tab / 小程序面板同一份数据源、同一档形态。
           RN 侧 ConsoleTableScreen 自带滚动且无可插槽位 ⇒ 本端用限高滚动区承载同一份内容
           (平台独占形态差异,内容/取数/档位三样都对齐)。 */}
-      <ScrollView style={styles.statsArea} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.statsArea, dialogMaxHeightStyle]}
+        showsVerticalScrollIndicator={false}
+      >
         <AttendanceStatsPanel
           payload={stats}
           loading={statsLoading}
@@ -407,7 +413,7 @@ function createScreenStyles(tk: ReturnType<typeof getTokens>) {
     },
     pressed: { opacity: 0.85 },
     // 统计/趋势的限高滚动区:内容再长也不把下面的清单挤出屏幕(上限是真上限,不是偏好值)
-    statsArea: { flexGrow: 0, maxHeight: '45%' },
+    statsArea: { flexGrow: 0, maxHeight: undefined },
   })
 }
 

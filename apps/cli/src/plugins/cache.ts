@@ -48,7 +48,7 @@ import { captureWriteBaseline, commitAtomicWrite, sleepSync } from '../util/atom
 import { assertGitCloneInputs } from './url-shape.js';
 // G-747:符号链接可达性判定的**唯一**实现(G-705 落地)。本文件只消费它的四态结论 ——
 // 不得在此再抄一份可降级错误码名单,也不得自己包一层真实路径解析(两处实现必漂移,AGENTS §4/守门 131)。
-import { checkSymlinkContainment, type ContainmentStage } from './path-safety.js';
+import { checkSymlinkContainment, isDefinitePathAbsence, type ContainmentStage } from './path-safety.js';
 // 只取**类型**(编译期擦除):installer.js 在运行期 import 本文件,值边会成环,类型边不会。
 import type { PluginPathUnsafeReason } from './installer.js';
 
@@ -883,8 +883,8 @@ export function takeOwnershipOfTarget(
   try {
     look(target);
   } catch (e) {
+    if (isDefinitePathAbsence(e)) return { ...swapBase, superseded: null, hadPrevious: false };
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return { ...swapBase, superseded: null, hadPrevious: false };
     throw new DirectorySwapError(
       target,
       `插件目录读不到,不能把它当成没有再换上新副本 (${code ?? 'unknown'})`,
@@ -966,7 +966,7 @@ export function landStagedSwap(swap: StagedSwap): void {
 
 /**
  * 把归档放回目标位置;成功返回 null(= 现状已复原),失败返回保留路径。
- * 归档确实没有(ENOENT/ENOTDIR) ⇒ null。其它读失败 ⇒ 抛错(消息含「读不到」),不改名、不删除。
+ * 归档明确不在 ⇒ null。其它读失败 ⇒ 抛错(消息含「读不到」),不改名、不删除。
  * 目标读不到 ⇒ 返回保留路径,不把归档盖上去。
  */
 export function restoreSuperseded(swap: StagedSwap, stat?: (path: string) => fs.Stats): string | null {
@@ -975,16 +975,15 @@ export function restoreSuperseded(swap: StagedSwap, stat?: (path: string) => fs.
   try {
     look(swap.superseded);
   } catch (e) {
+    if (isDefinitePathAbsence(e)) return null;
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
     throw new Error(`归档读不到,不能把它当成已经复原 (${code ?? 'unknown'}):${swap.superseded}`);
   }
   let targetMissing = false;
   try {
     look(swap.target);
   } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code;
-    if (code !== 'ENOENT' && code !== 'ENOTDIR') return swap.superseded;
+    if (!isDefinitePathAbsence(e)) return swap.superseded;
     targetMissing = true;
   }
   if (!targetMissing) return swap.superseded; // 槽位又被占了 ⇒ 不许覆盖,现场保留
@@ -1017,7 +1016,7 @@ export function finalizeStagedSwap(swap: StagedSwap, stat?: (path: string) => fs
       return { kind: 'present' };
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'absent', code };
+      if (isDefinitePathAbsence(e)) return { kind: 'absent', code };
       return { kind: 'unreadable', code };
     }
   };
@@ -1271,7 +1270,7 @@ export async function recoverStaleSwapArtifacts(
       error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
         ? (error as { code: string }).code
         : 'unknown';
-    if (code === 'ENOENT') return [];
+    if (isDefinitePathAbsence(error)) return [];
     return [
       {
         archive: parent,
@@ -1326,7 +1325,7 @@ export async function recoverStaleSwapArtifacts(
         error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
           ? (error as { code: string }).code
           : 'unknown';
-      if (code === 'ENOENT' || code === 'ENOTDIR') slotFree = true;
+      if (isDefinitePathAbsence(error)) slotFree = true;
       else {
         outcomes.push({
           archive,

@@ -20,6 +20,7 @@
  *   8. 生产环境必填 env vars 提示(.env.production / .env)
  *   9. MIGRATION_GAP_REPORT.md 缺失数 ≤ 上限(如有)
  *  10. Git 工作区状态(uncommitted 改动只警告不阻断)
+ *  11. packages/* dist 产物与源码同步(node scripts/check-stale-dist.mjs --strict)
  *
  * 用法:
  *   node scripts/pre-deploy.mjs                # 全量硬性门禁
@@ -32,7 +33,7 @@
  *   其它任何东西 / 漏值 / `--env --skip-tests`(紧邻 token 以 `-` 开头)⇒ **exit 2 并点名实得 token**,
  *   在跑任何门禁**之前**退出。**绝不**静默降级成开发档 —— 旧写法
  *   `ARGS[ARGS.indexOf('--env') + 1] === 'production'` 让 `--env --skip-tests` 悄悄按开发档跑完
- *   10 项并 exit 0,即"生产模式 env 检查更严"这一档结构性没跑而账面全绿(G-322 那一族)。
+ *   11 项并 exit 0,即"生产模式 env 检查更严"这一档结构性没跑而账面全绿(G-322 那一族)。
  *
  * 输出:每项 [OK] / [FAIL] / [WARN] 颜色标注 + 最终汇总 + exit code
  */
@@ -566,6 +567,22 @@ function checkGitStatus() {
 }
 
 // =====================================================
+// 11. dist 产物与源码同步(packages/* 声明对账)
+// =====================================================
+function checkStaleDist() {
+  header('11. dist 产物与源码同步 (packages/*)')
+  // 复用仓库既有守门脚本,不在本脚本里另抄一份判据(同一件事两把尺子必漂移)。
+  const r = run('pnpm run check:stale-dist --strict')
+  if (r.ok) {
+    recordStatus('ok', 'pnpm run check:stale-dist --strict', '所有 dist 与源码同步')
+  } else {
+    recordStatus('fail', 'pnpm run check:stale-dist --strict', `exit ${r.code ?? '?'} —— 修复:按输出里的 pnpm --filter <包> build 重建`)
+    const tail = (r.stdout || '').split('\n').filter(Boolean).slice(-12).join('\n')
+    if (tail) console.log(C.dim + tail + C.reset)
+  }
+}
+
+// =====================================================
 // 主流程
 // =====================================================
 async function main() {
@@ -591,6 +608,7 @@ async function main() {
   checkEnvVars()
   checkMigrationGapReport()
   checkGitStatus()
+  checkStaleDist()
 
   // ============ 汇总 ============
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1)

@@ -24,51 +24,41 @@ const h = vi.hoisted(() => ({
   fetchImpl: null as ((url: string, opts: unknown) => Promise<unknown>) | null,
 }))
 
-/**
- * 2026-11-06 修红:打桩层下移到 client 模块的 fetchApi 出口(根因是端点迁移,不是"少补一个导出")。
- *
- * 桥实现早已改成从 `@ihui/api-client` 取 `reportAgentControlCapability/Result`,端点文件
- * (packages/api-client/src/endpoints/agent-control.ts:31/41)内部是
- * `import { fetchApi } from '../client.js'` —— **不经包 barrel 取 fetchApi**。此前整模块替换
- * '@ihui/api-client'(alias → packages/api-client/src/index.ts)只删掉了两个端点函数,
- * 桥调用时得到 undefined ⇒ 全部上报被 catch 吞成 warn,断言拿到的全是空数组/undefined。
- *
- * 故此处按**同一个真实模块 id**(端点的 '../client.js' 与本文件的相对路径解析到同一文件)
- * 部分替换:保留 client 全部导出(apiOrThrow/setTokenProvider/streamChat 等以及 401 续期、
- * normalizeUrl 归一化语义),只在 fetchApi 出口打桩。断言拿到的 url 是端点源码传入的
- * **原始路径**('/api/agent-control/...'),baseUrl 拼接发生在更内层的 normalizeUrl。
- */
-vi.mock('../../../packages/api-client/src/client', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return {
-    ...actual,
-    fetchApi: (url: string, opts: { body?: string }) => {
-      h.posts.push({
-        url,
-        body: typeof opts.body === 'string' ? JSON.parse(opts.body) : {},
-      })
-      return h.fetchImpl ? h.fetchImpl(url, opts) : Promise.resolve({ success: true })
-    },
-  }
-})
-
-/** 通知 WS 工厂单独打桩(桥层要断言基址/tokenProvider/onMessage 挂载),其余导出保持真实实现 */
-vi.mock('@ihui/api-client', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return {
-    ...actual,
-    createNotificationClient: (
-      config: { baseUrl: string; tokenProvider: () => string | null },
-      handlers: { onMessage?: (msg: unknown) => void },
-    ) => {
-      h.configs.push(config)
-      h.handlers = handlers
-      const client = { connect: vi.fn(), disconnect: vi.fn() }
-      h.clients.push(client)
-      return client
-    },
-  }
-})
+vi.mock('@ihui/api-client', () => ({
+  // 2026-11-06:主干把桥接层的上报收口成 api-client 的两个具名端口
+  // (reportAgentControlCapability / reportAgentControlResult),不再由桥层直调 fetchApi。
+  // 替身必须同时补出口 **并** 把载荷落回 h.posts(否则断言"发了几条/发了什么"全部空转),
+  // 失败面仍经 h.fetchImpl 注入,与真实现走 fetchApi 的路径一致。
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/capability', { body: JSON.stringify(payload) })
+      : Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/result', { body: JSON.stringify(payload) })
+      : Promise.resolve({ success: true })
+  },
+  fetchApi: (url: string, opts: { body?: string }) => {
+    h.posts.push({
+      url,
+      body: typeof opts.body === 'string' ? JSON.parse(opts.body) : {},
+    })
+    return h.fetchImpl ? h.fetchImpl(url, opts) : Promise.resolve({ success: true })
+  },
+  createNotificationClient: (
+    config: { baseUrl: string; tokenProvider: () => string | null },
+    handlers: { onMessage?: (msg: unknown) => void },
+  ) => {
+    h.configs.push(config)
+    h.handlers = handlers
+    const client = { connect: vi.fn(), disconnect: vi.fn() }
+    h.clients.push(client)
+    return client
+  },
+}))
 
 /** 版本哨兵:mock 工厂被 hoist,只能用 vi.hoisted 取常量 */
 const APP_VERSION_SENTINEL = vi.hoisted(() => '9.9.9-test-sentinel')

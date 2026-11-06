@@ -38,12 +38,22 @@ export type ManifestReadResult<T> =
   | { status: 'corrupt'; entry: CorruptManifestEntry };
 
 /** 隔离:manifest.json → manifest.corrupt-<ts>.json(同目录,保留证据)。目标名冲突追加序号。 */
-export function quarantineManifest(manifestPath: string): string | null {
+export function quarantineManifest(
+  manifestPath: string,
+  stat?: (target: string) => fs.Stats,
+): string | null {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   const dir = path.dirname(manifestPath);
   for (let i = 0; i < 100; i++) {
     const suffix = i === 0 ? '' : `-${i}`;
     const dest = path.join(dir, `manifest.corrupt-${Date.now()}${suffix}.json`);
-    if (fs.existsSync(dest)) continue;
+    try {
+      look(dest);
+      continue;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') return null;
+    }
     try {
       fs.renameSync(manifestPath, dest);
       return dest;

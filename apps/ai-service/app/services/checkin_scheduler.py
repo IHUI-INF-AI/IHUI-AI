@@ -1816,7 +1816,9 @@ class CheckinScheduler:
                     # 不拿未确认权威的本地票去判(既不无谓打鉴权点,也不把没判过
                     # 的 401 写成真实失败)。
                     qoder_cred = await checkin_store.load_qoder_cred(
-                        str(device_map.get("uid") or acc.get("uid") or "")
+                        str(device_map.get("uid") or acc.get("uid") or ""),
+                        pool_account_id=device_map.get("pool_account_id"),
+                        owner_user_id=acc.get("owner_user_id"),
                     )
                     if not qoder_cred or not qoder_cred.get("token"):
                         na_count += 1
@@ -1925,7 +1927,11 @@ class CheckinScheduler:
         qoder_cred: dict[str, Any] | None = None
         if platform == "qoder":
             _uid = str(device_map.get("uid") or account.get("uid") or "")
-            qoder_cred = await checkin_store.load_qoder_cred(_uid)
+            qoder_cred = await checkin_store.load_qoder_cred(
+                _uid,
+                pool_account_id=device_map.get("pool_account_id"),
+                owner_user_id=account.get("owner_user_id"),
+            )
             if qoder_cred:
                 account = {**account, "jwt": qoder_cred["token"]}
                 if qoder_cred.get("refresh_token"):
@@ -1968,7 +1974,10 @@ class CheckinScheduler:
         finally:
             if owned:
                 await client.aclose()
-        # 刷新回写 relay(唯一写点):引擎若轮换了票,把结果里的当前 token 同步回 relay
+        # 刷新回写 relay(唯一写点):引擎若轮换了票,把结果里的当前 token 同步回 relay。
+        # 同 uid 双行纪律:凭据只回写它真正所属的那一行 —— 收窄锚点(pool_account_id
+        # 主键优先,否则 owner 归属)由本会话手里的 device_map/account 直接交出;
+        # 交不出 ⇒ store 层判「未判定」拒写并点名,这里把结果如实打进日志(上层可观测)。
         if platform == "qoder" and qoder_cred is not None:
             _new_token = result.get("access_token")
             _new_rt = device_map.get("refresh_token")
@@ -1977,14 +1986,25 @@ class CheckinScheduler:
                 or _new_rt != qoder_cred.get("refresh_token")
             ):
                 try:
-                    await checkin_store.save_qoder_cred(
-                        str(device_map.get("uid") or account.get("uid") or ""),
+                    writeback = await checkin_store.save_qoder_cred(
+                        _uid,
                         str(_new_token),
                         str(_new_rt) if _new_rt else None,
                         int(device_map["expires_at"])
                         if isinstance(device_map.get("expires_at"), (int, float))
                         else None,
+                        pool_account_id=device_map.get("pool_account_id"),
+                        owner_user_id=account.get("owner_user_id"),
                     )
+                    if writeback.get("status") != "applied":
+                        logger.warning(
+                            "[checkin_scheduler] 账号 %s qoder 凭证回写 relay 未生效: "
+                            "status=%s path=%s reason=%s",
+                            account.get("name"),
+                            writeback.get("status"),
+                            writeback.get("path"),
+                            writeback.get("reason"),
+                        )
                 except Exception as e:
                     logger.warning("[checkin_scheduler] qoder 凭证回写 relay 失败(忽略): %s", e)
         try:

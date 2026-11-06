@@ -24,6 +24,7 @@ import base64
 import json
 import os
 import secrets
+import uuid
 from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -554,24 +555,92 @@ def _relay_decrypt(stored: str) -> str:
         return raw
 
 
-async def load_qoder_cred(uid: str) -> dict[str, Any] | None:
-    """按 uid 从 relay 池取 Qoder 活凭证(解密)。无行/解密失败 → None(调用方回退旧路径)。
+def _uuid_shaped(value: Any) -> str | None:
+    """值是 uuid 形态则返回去空白后的字符串,否则 None(只判形态,不抛异常)。"""
+    if not isinstance(value, str):
+        return None
+    v = value.strip()
+    if not v:
+        return None
+    try:
+        uuid.UUID(v)
+    except (ValueError, AttributeError, TypeError):
+        return None
+    return v
 
-    返回 {token, refresh_token, expires_at(epoch 秒|None), cosy(dict), machine_id}。
+
+def _qoder_row_target(
+    uid: str,
+    pool_account_id: Any,
+    owner_user_id: Any,
+) -> tuple[str, list[Any], str] | None:
+    """Qoder 凭证读写行的收窄判据(纯判据,零 IO)。
+
+    同 uid 双行纪律(与 apps/api/scripts/relay-qoder-session-sync.ts 头注同源):
+    ai_relay_account_pool 允许同一 (provider, uid) 并存两行 —— 运营池一行
+    (owner_user_id IS NULL)+ 某用户个人池一行。按 uid 通配会写穿同 uid 的
+    他人副本,读写都必须收窄到"它真正所属的那一行"。归属语义不在此层新立
+    规矩,直接取号池侧列值(packages/database/src/schema/ai-relay.ts:
+    ownerUserId NULL=运营池 / 非 NULL=个人池)。
+
+    返回 (WHERE 子句, 绑定参数, 档位短名);None = 归属判不出,调用方**必须拒写**
+    (失效方向 = 少写 + 点名,§0.3/§0.10),绝不回落 uid 通配。档位:
+    ① primary-key — pool_account_id 为 uuid 形态,主键 id + uid 双锚(防错位写);
+    ② owner-personal / owner-ops — 无主键可用但 owner 可归一(uuid=个人池行,
+       POOL_SYNC_OWNER=运营池行 NULL);
+    ③ None — 两者皆拿不到(含 dev-anonymous 等非归属形态)。
+    """
+    conds = ["provider_code = 'qoder'", "uid = $1"]
+    params: list[Any] = [uid]
+    pk = _uuid_shaped(pool_account_id)
+    if pk is not None:
+        params.append(pk)
+        conds.append(f"id = ${len(params)}")
+        return (" AND ".join(conds), params, "primary-key")
+    owner = _uuid_shaped(owner_user_id)
+    if owner is not None:
+        params.append(owner)
+        conds.append(f"owner_user_id = ${len(params)}")
+        return (" AND ".join(conds), params, "owner-personal")
+    if isinstance(owner_user_id, str) and owner_user_id.strip() == POOL_SYNC_OWNER:
+        conds.append("owner_user_id IS NULL")
+        return (" AND ".join(conds), params, "owner-ops")
+    return None
+
+
+async def load_qoder_cred(
+    uid: str,
+    *,
+    pool_account_id: Any = None,
+    owner_user_id: Any = None,
+) -> dict[str, Any] | None:
+    """按归属从 relay 池取 Qoder 活凭证(解密)。无行/解密失败 → None(调用方回退旧路径)。
+
+    同 uid 双行纪律:拿到收窄锚(pool_account_id/owner)时只读所属那一行;
+    两者都拿不到时维持旧的"该 uid 最新一行"兜底(读面单行、无写穿风险),
+    并在返回值 pool_row_path 字段如实回显走了哪一档("uid-latest" 即未收窄)。
+
+    返回 {token, refresh_token, expires_at(epoch 秒|None), cosy(dict), machine_id,
+    pool_row_path}。
     """
     if not uid:
         return None
+    target = _qoder_row_target(uid, pool_account_id, owner_user_id)
+    if target is None:
+        where_sql, addr_params, path = "provider_code = 'qoder' AND uid = $1", [uid], "uid-latest"
+    else:
+        where_sql, addr_params, path = target
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """
+            f"""
             SELECT token_enc, refresh_token_enc, token_expires_at, machine_id, extra_metadata
             FROM ai_relay_account_pool
-            WHERE provider_code = 'qoder' AND uid = $1
+            WHERE {where_sql}
             ORDER BY updated_at DESC
             LIMIT 1
             """,
-            uid,
+            *addr_params,
         )
     if row is None:
         return None
@@ -595,32 +664,95 @@ async def load_qoder_cred(uid: str) -> dict[str, Any] | None:
         "expires_at": int(exp.timestamp()) if isinstance(exp, datetime) else None,
         "cosy": cosy if isinstance(cosy, dict) else {},
         "machine_id": row["machine_id"],
+        "pool_row_path": path,
     }
 
 
 async def save_qoder_cred(
-    uid: str, token: str, refresh_token: str | None, expires_at_epoch: int | None = None
-) -> None:
-    """把最新 Qoder 票回写 relay 池(唯一写点)。AES-256-GCM 加密,与 API 侧互通。"""
+    uid: str,
+    token: str,
+    refresh_token: str | None,
+    expires_at_epoch: int | None = None,
+    *,
+    pool_account_id: Any = None,
+    owner_user_id: Any = None,
+) -> dict[str, Any]:
+    """把最新 Qoder 票回写 relay 池(唯一写点)。AES-256-GCM 加密,与 API 侧互通。
+
+    同 uid 双行纪律(2026-11-08 收口):写必须经 `_qoder_row_target` 收窄到凭
+    所属的那一行,绝不按 uid 通配写穿同 uid 的他人副本(运营池行/个人池行并存
+    时旧实现会把新票同时写进两行,把两个持有者当成一枚号)。失效方向 = 少写 +
+    点名:
+    - 档位③(主键与归属都判不出)⇒ 一条都不写,logger.warning 点名并返回
+      status="undetermined";
+    - 档位①②但落库确认命中 0 行(行已删/锚点漂移)⇒ status="miss" 点名,
+      **不得**再按 uid 通配补写;
+    - 正常 ⇒ status="applied",writtenIds 为 `UPDATE ... RETURNING id` 回库
+      确认的真实落集(请求侧条数不当 affected)。
+    返回 {status, path, writtenIds, reason},path 如实回显走了哪一档。
+    """
     if not uid or not token:
-        return
+        return {
+            "status": "skipped",
+            "path": None,
+            "writtenIds": [],
+            "reason": "uid/token 为空,无可回写",
+        }
+    target = _qoder_row_target(uid, pool_account_id, owner_user_id)
+    if target is None:
+        logger.warning(
+            "[checkin_store] qoder 凭证回写未判定:uid=%s pool_account_id=%r owner_user_id=%r "
+            "主键与归属均判不出,拒绝按 uid 通配写(不写任何人)",
+            uid,
+            pool_account_id,
+            owner_user_id,
+        )
+        return {
+            "status": "undetermined",
+            "path": None,
+            "writtenIds": [],
+            "reason": "主键与归属均判不出,拒绝 uid 通配写",
+        }
+    where_sql, addr_params, path = target
+    n = len(addr_params)
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """
+        rows = await conn.fetch(
+            f"""
             UPDATE ai_relay_account_pool
-            SET token_enc = $2,
-                refresh_token_enc = COALESCE($3, refresh_token_enc),
-                token_expires_at = COALESCE($4, token_expires_at),
+            SET token_enc = ${n + 1},
+                refresh_token_enc = COALESCE(${n + 2}, refresh_token_enc),
+                token_expires_at = COALESCE(${n + 3}, token_expires_at),
                 last_refresh_at = now(),
                 updated_at = now()
-            WHERE provider_code = 'qoder' AND uid = $1
+            WHERE {where_sql}
+            RETURNING id
             """,
-            uid,
+            *addr_params,
             _relay_encrypt(token),
             _relay_encrypt(refresh_token) if refresh_token else None,
             datetime.fromtimestamp(expires_at_epoch, UTC) if expires_at_epoch else None,
         )
+    written = [str(r["id"]) for r in rows]
+    if not written:
+        logger.warning(
+            "[checkin_store] qoder 凭证回写命中 0 行(path=%s uid=%s 锚点=%r),不回退通配补写",
+            path,
+            uid,
+            addr_params[1] if len(addr_params) > 1 else None,
+        )
+        return {"status": "miss", "path": path, "writtenIds": [], "reason": "回写命中 0 行"}
+    if len(written) > 1:
+        # 两枚部分唯一约束下主键/owner 档结构上不可能命中多行;真出现就是表
+        # 约束被绕过,如实点名,不假装只写了一行。
+        logger.error(
+            "[checkin_store] qoder 凭证回写命中 %d 行(path=%s uid=%s),超出唯一约束预期: %s",
+            len(written),
+            path,
+            uid,
+            written,
+        )
+    return {"status": "applied", "path": path, "writtenIds": written, "reason": None}
 
 
 def reset_fernet_cache() -> None:
