@@ -1667,7 +1667,15 @@ function listUnreachableHashes() {
     // rc=2「fsck 判定面取不到」,而 rc=2 不报警,跑久了被当成绿的(§0.3)。
     // 阈值必须与实测规模匹配,不是越短越安全:短到永远超时 = 这道门从未真正判过。
     // 取 4× 实测值留出并发负载余量;真超了仍照旧 rc=2 并点名原因,不折成通过。
-    timeout: 240_000,
+    // ⚠️ 缺省值一律不动(240s 是 2026-10-30 按当次实测标的),但**必须能抬**:今天这台在并发
+    // fetch/fsck 争用下 240s 会撞穿,而撞穿之后的结论是 rc=2「没判成」—— 那道门既不报警也无法
+    // 被任何人在不改代码的前提下复核(唯一的旗是 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1`,那是跳门,方向相反)。
+    // 所以这里给一个**只抬预算、不改判据**的出口:先用它把真实耗时量出来,再把缺省改成量到的数,
+    // 而不是让下一个人只能在"跳门"和"改文件"之间二选一。取值坏/缺省 ⇒ 原样 240s(不读成无限)。
+    timeout: (() => {
+      const n = Number(process.env.IHUI_COMMIT_LOSS_FSCK_TIMEOUT_MS)
+      return Number.isFinite(n) && n > 0 ? n : 240_000
+    })(),
     maxBuffer: 64 << 20,
     // stdio[0]='ignore':本环境 pipe-stdin spawn git 确定性 EBUSY(见 lib/gitdir.mjs 同款注),
     // 而 fsck 不读 stdin ⇒ ignore 无副作用,换来的是躲开那扇病窗。
