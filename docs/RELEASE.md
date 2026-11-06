@@ -159,6 +159,20 @@ CLI 侧发布走 token:本地 `ihui-cli-publish`;CI 由 `release-cli.yml` 先试
 | 10 | DB schema 无漂移 | `node scripts/check-db-schema-drift.mjs` |
 | 11 | packages/* dist 产物与源码同步 | `node scripts/check-stale-dist.mjs --strict` |
 
+### 发布前人工核对项
+
+- [ ] **直播推流内部回调密钥**:生产 env 必须至少有 `LIVE_NOTIFY_SECRET` 或 `TENCENT_LIVE_CALLBACK_KEY`;两者皆空时 `/api/live/notify/stream-begin|stream-end` 会按 fail-closed 返回 503。调用方需在请求头带 `x-live-notify-secret`。
+
+### 发布后首日验收(与 11 项门禁同等效力)
+
+- [ ] **自动续费回调报文形态**:上线后**第一次真实 `recurring_charge` 回调**到达时,必须在 API 日志里确认出现下面二者之一:
+  1. 可判定幂等键:`out_trade_no` 或 `transaction_id` 至少一个非空;
+  2. 若两个都为空且无 `out_contract_code`,必须出现
+     `recurring charge callback has no idempotency key (nonce-only dedup, needs real payload verification)` warn。
+  两者都没有 ⇒ 说明真实报文形态与代码假设不一致(不是"没日志"),**暂停放量**并把脱敏后的真实报文回报后端。
+  判据代码:`apps/api/src/routes/payment-recurring.ts` 的 `resolveChargeIdempotencyKey` 与 undetermined warn 分支。
+  不要等"下次有人想起来"再验;首次回调当天就要给出结论。
+
 ### 一键执行
 
 ```bash

@@ -8,6 +8,8 @@ import Fastify, { type FastifyInstance } from 'fastify'
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+  // 2026-11-07:notify begin/end 加共享密钥校验,200 用例必须带正确头
+  process.env.LIVE_NOTIFY_SECRET ??= 'test-live-notify-secret'
 })
 
 import { liveRoutes, adminLiveRoutes } from '../live.js'
@@ -36,11 +38,14 @@ describe('Live Extended API', () => {
     })
   })
 
-  describe('Public endpoints — Stream callbacks', () => {
+  const NOTIFY_AUTH = { 'x-live-notify-secret': 'test-live-notify-secret' }
+
+  describe('Internal notify endpoints — Stream callbacks', () => {
     it('POST /api/live/notify/stream-begin — callback', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-begin',
+        headers: NOTIFY_AUTH,
         payload: { streamId: 'test-stream', eventType: 'notify' },
       })
       expect(res.statusCode).toBe(200)
@@ -50,6 +55,7 @@ describe('Live Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-end',
+        headers: NOTIFY_AUTH,
         payload: { streamId: 'test-stream', eventType: 'notify' },
       })
       expect(res.statusCode).toBe(200)
@@ -59,6 +65,7 @@ describe('Live Extended API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/live/notify/stream-begin',
+        headers: NOTIFY_AUTH,
       })
       expect([400, 200]).toContain(res.statusCode)
     })

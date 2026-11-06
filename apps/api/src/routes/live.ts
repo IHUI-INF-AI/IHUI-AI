@@ -34,6 +34,7 @@ import { findLiveCalendar } from '../db/live-calendar-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { config } from '../config/index.js'
+import { secretsEqual } from '../plugins/internal-service-token.js'
 import {
   verifyCallbackSignature,
   handleCallbackEvent,
@@ -176,6 +177,32 @@ const streamNotifySchema = z.object({
   t: z.string().optional(),
 })
 
+/**
+ * 直播推流 begin/end 内部回调的共享密钥校验(2026-11-07)。
+ *
+ * 这两个端点不在腾讯云 checkSign 体系内(后者只在 /live/tencent/callback 用),原先完全公开,
+ * 任何人都能伪造 stream-end 把直播状态刷成断开、把 disconnected_total 指标打偏。
+ * 用独立共享密钥头,而不是复用 body 里的 sign/t —— 后者是给腾讯云回调的,内部调用方没有。
+ * 未配置密钥 ⇒ 503(fail closed):宁可回调失败,不可继续裸奔。
+ */
+function verifyLiveNotifySecret(
+  request: FastifyRequest,
+): { ok: true } | { ok: false; status: 401 | 403 | 503; reason: string } {
+  const expected = config.LIVE_NOTIFY_SECRET || config.TENCENT_LIVE_CALLBACK_KEY
+  if (!expected) {
+    return { ok: false, status: 503, reason: '直播推流通知未配置共享密钥' }
+  }
+  const raw = request.headers['x-live-notify-secret']
+  const provided = Array.isArray(raw) ? raw[0] : raw
+  if (!provided) {
+    return { ok: false, status: 401, reason: '缺少 x-live-notify-secret 请求头' }
+  }
+  if (!secretsEqual(provided, expected)) {
+    return { ok: false, status: 403, reason: '共享密钥不匹配' }
+  }
+  return { ok: true }
+}
+
 const tencentStreamQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -279,6 +306,14 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /live/notify/stream-begin - 直播推流开始回调（腾讯云回调）
   server.post('/live/notify/stream-begin', async (request, reply) => {
+    const auth = verifyLiveNotifySecret(request)
+    if (!auth.ok) {
+      request.log.warn(
+        { route: request.url, ip: request.ip, status: auth.status, reason: auth.reason },
+        '[live-notify] 拒绝未授权的 stream-begin 回调',
+      )
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
     const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -288,6 +323,14 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /live/notify/stream-end - 直播推流结束回调（腾讯云回调）
   server.post('/live/notify/stream-end', async (request, reply) => {
+    const auth = verifyLiveNotifySecret(request)
+    if (!auth.ok) {
+      request.log.warn(
+        { route: request.url, ip: request.ip, status: auth.status, reason: auth.reason },
+        '[live-notify] 拒绝未授权的 stream-end 回调',
+      )
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
     const parsed = streamNotifySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

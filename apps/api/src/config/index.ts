@@ -216,6 +216,9 @@ const envSchema = z.object({
 
   // 腾讯云直播回调验签密钥(可选,为空时回调端点返回 503;配置后回调需带 X-Signature/X-Timestamp/X-Nonce 头)
   TENCENT_LIVE_CALLBACK_KEY: z.string().default(''),
+  // 直播推流 begin/end 内部回调共享密钥(可选;为空时回退 TENCENT_LIVE_CALLBACK_KEY,两者皆空则 503)。
+  // 请求头:x-live-notify-secret。2026-11-07:这两个端点原先完全公开,可被伪造刷直播状态与指标。
+  LIVE_NOTIFY_SECRET: z.string().default(''),
   // 腾讯云直播 AppID(用于流管理 API,预留)
   TENCENT_LIVE_APP_ID: z.string().default(''),
   // 腾讯云直播 API 密钥(用于流管理 API 签名,预留)

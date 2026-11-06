@@ -17,8 +17,17 @@
  * 用法：pnpm typecheck:full
  */
 
-import { readdirSync, statSync, rmSync, existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import {
+  readdirSync,
+  statSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+  appendFileSync,
+} from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -27,9 +36,17 @@ import { fileURLToPath } from 'node:url'
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
+import { formatDuration } from './lib/typecheck-timing.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
+
+// 分包读数落盘位置:node_modules/.cache 已被 git 忽略,不会污染工作树。
+// 超时/被杀时 check-typecheck 与 guardian 都从这里读「哪些包已完成、哪个卡住」。
+const TIMINGS_FILE =
+  process.env.IHUI_TYPECHECK_TIMINGS_FILE ||
+  join(ROOT, 'node_modules', '.cache', 'ihui', 'typecheck-timings.jsonl')
+const RUN_ID = `${Date.now()}-${process.pid}`
 
 const EXCLUDE_DIRS = new Set([
   '.git',
@@ -346,6 +363,143 @@ if (removed.length === 0) {
   }
 }
 
+// ─── 分包计时(2026-11-07 立)─────────────────────────────────────────────
+// 背景:全量 typecheck 实测 346s,300s 看门狗在 apps/web 未 Done 时杀掉整条门。
+// 单次 `pnpm -r` 不吐每包耗时,超时后只能看到「整条门挂了」,分不清谁卡住。
+// 改为逐包跑 + 每包跑完立即落盘读数:即使外层被杀,读数文件仍保留已完成包与在飞包。
+// 语义不变:任一个包失败 ⇒ 非零退出;超时仍由外层归 undetermined,绝不折成 pass。
+// **不调看门狗阈值** —— 阈值只是把 380s/420s 的包继续往后推,解决不了串行结构。
+function resetTimings() {
+  try {
+    mkdirSync(dirname(TIMINGS_FILE), { recursive: true })
+    writeFileSync(TIMINGS_FILE, '')
+  } catch (e) {
+    console.warn(`[typecheck:full] ⚠️ 分包读数文件初始化失败(不影响检查): ${e.message}`)
+  }
+}
+
+function appendTiming(record) {
+  try {
+    appendFileSync(TIMINGS_FILE, `${JSON.stringify({ runId: RUN_ID, ...record })}\n`)
+  } catch (e) {
+    // 读数只是可观测性,写失败不得改变 typecheck 结论
+    console.warn(`[typecheck:full] ⚠️ 分包读数写入失败(不影响检查): ${e.message}`)
+  }
+}
+
+/** 枚举有 typecheck 脚本的 workspace 包:先 packages/ 后被依赖的 apps/,与 pnpm -r 拓扑序同向。 */
+function listTypecheckPackages() {
+  const out = []
+  for (const group of ['packages', 'apps']) {
+    const groupDir = join(ROOT, group)
+    let entries = []
+    try {
+      entries = readdirSync(groupDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    const dirs = entries
+      .filter((e) => e.isDirectory())
+      .sort((a, b) => a.name.localeCompare(b.name))
+    for (const ent of dirs) {
+      const pkgFile = join(groupDir, ent.name, 'package.json')
+      if (!existsSync(pkgFile)) continue
+      try {
+        const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'))
+        if (pkg?.name && pkg?.scripts?.typecheck) out.push({ name: pkg.name, dir: ent.name })
+      } catch {
+        /* 坏 package.json 交给后续 pnpm 报错,不在枚举期吞掉 */
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 逐包执行 typecheck,每包结束立即落盘。返回 {ok, status}。
+ * 失败即停(fail-fast),与原 `pnpm -r` 的 bail 语义一致;读数文件里已完成的包全部保留。
+ */
+function runTypecheckPerPackage() {
+  const packages = listTypecheckPackages()
+  resetTimings()
+  appendTiming({ event: 'run-start', at: Date.now(), packages: packages.map((p) => p.name) })
+
+  const totalStart = Date.now()
+  const timings = []
+  console.log(
+    `\n[typecheck:full] 运行分包 typecheck（${packages.length} 个包，串行，逐包计时）...`,
+  )
+  console.log(`[typecheck:full] 分包读数: ${TIMINGS_FILE}`)
+
+  for (const pkg of packages) {
+    appendTiming({ event: 'start', package: pkg.name, at: Date.now() })
+    // 走 stderr:guardian 超时落盘时能看见「最后开始的是哪个包」= 卡住候选
+    console.error(`[typecheck:full] ▶ ${pkg.name}`)
+    const startedAt = Date.now()
+    const r = spawnSync('pnpm', ['--filter', pkg.name, 'run', 'typecheck'], {
+      cwd: ROOT,
+      stdio: 'inherit',
+      shell: true,
+      windowsHide: true,
+      env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' },
+    })
+    const elapsedMs = Date.now() - startedAt
+    const done = r.status === 0
+    timings.push({ name: pkg.name, elapsedMs, status: r.status, done })
+    appendTiming({
+      event: 'finish',
+      package: pkg.name,
+      elapsedMs,
+      status: r.status,
+      done,
+      at: Date.now(),
+    })
+
+    const slowest = timings.reduce((a, b) => (b.elapsedMs > a.elapsedMs ? b : a), timings[0])
+    // stderr:guardian 超时会把 stderr 缓冲一并落日志,这行让「谁最慢」在超时现场也可见
+    console.error(
+      `[typecheck:full] ⏱ ${pkg.name} ${formatDuration(elapsedMs)} ${done ? 'Done' : 'FAIL'} (slowest so far: ${slowest.name} ${formatDuration(slowest.elapsedMs)})`,
+    )
+
+    if (!done) {
+      appendTiming({
+        event: 'run-end',
+        at: Date.now(),
+        totalMs: timings.reduce((s, t) => s + t.elapsedMs, 0),
+        wallMs: Date.now() - totalStart,
+        ok: false,
+        failed: pkg.name,
+      })
+      console.error(
+        `\n[typecheck:full] 失败:${pkg.name} exit ${r.status ?? '?'};后续包未运行。`,
+      )
+      return { ok: false, status: r.status ?? 1 }
+    }
+  }
+
+  const sorted = [...timings].sort((a, b) => b.elapsedMs - a.elapsedMs)
+  const totalMs = timings.reduce((s, t) => s + t.elapsedMs, 0)
+  const wallMs = Date.now() - totalStart
+  console.log('\n[typecheck:full] 📊 分包耗时汇总(降序):')
+  for (const t of sorted) {
+    console.log(`  - ${t.name}: ${formatDuration(t.elapsedMs)} ${t.done ? 'Done' : 'FAIL'}`)
+  }
+  if (sorted[0]) {
+    console.log(
+      `[typecheck:full] 🐢 最慢包: ${sorted[0].name} ${formatDuration(sorted[0].elapsedMs)}(串行相加 ${formatDuration(totalMs)},墙钟 ${formatDuration(wallMs)})`,
+    )
+  }
+  appendTiming({
+    event: 'run-end',
+    at: Date.now(),
+    totalMs,
+    wallMs,
+    ok: true,
+    slowest: sorted[0]?.name ?? null,
+  })
+  return { ok: true, status: 0 }
+}
+
 /**
  * 前置:把陈旧的 packages 各包 dist 重建掉,再开始类型检查。
  * 重建失败 ⇒ 直接非零退出:此时任何"类型通过"的结论都不可信(要么拿着旧产物,要么产物残缺),
@@ -387,18 +541,13 @@ function staleDistPreflight() {
 
 staleDistPreflight()
 
-console.log('\n[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...')
-// 使用 pnpm -r 递归串行运行，避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
-const result = spawnSync('pnpm -r run typecheck', {
-  cwd: ROOT,
-  stdio: 'inherit',
-  shell: true,
-  windowsHide: true, // 根治:pnpm -r 给每个子包拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口(实测一次 typecheck ~30 次闪窗)
-})
+// 逐包串行 + 逐包计时:仍是串行(不引入 turbo 多进程竞态),只是把「一锅端」拆成可读数的包。
+// windowsHide:每个包都会拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口。
+const perPackage = runTypecheckPerPackage()
 
-if (result.status !== 0) {
-  console.error(`\n[typecheck:full] 失败，退出码 ${result.status}`)
-  process.exit(result.status ?? 1)
+if (!perPackage.ok) {
+  console.error(`\n[typecheck:full] 失败，退出码 ${perPackage.status}`)
+  process.exit(perPackage.status ?? 1)
 }
 
 // ─── Phase 1.5:e2e typecheck 阻断门(2026-07-26 立) ──
@@ -417,12 +566,23 @@ if (existsSync(webE2eTsconfig)) {
     )
   } else {
     console.log('\n[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...')
+    const e2eStartedAt = Date.now()
     const e2eResult = spawnSync('pnpm', ['--filter', '@ihui/web', 'typecheck:e2e'], {
       cwd: ROOT,
       stdio: 'inherit',
       shell: true,
       windowsHide: true,
     })
+    const e2eElapsedMs = Date.now() - e2eStartedAt
+    appendTiming({
+      event: 'phase',
+      phase: 'e2e',
+      elapsedMs: e2eElapsedMs,
+      status: e2eResult.status,
+      done: e2eResult.status === 0,
+      at: Date.now(),
+    })
+    console.error(`[typecheck:full] ⏱ phase:e2e ${formatDuration(e2eElapsedMs)}`)
 
     if (e2eResult.status !== 0) {
       console.error(
@@ -495,12 +655,23 @@ if (existsSync(aiServiceDir)) {
       )
     } else {
       console.log(`\n[typecheck:full] 运行 apps/ai-service mypy (blocking) [${mypyExecutable}]...`)
+      const mypyStartedAt = Date.now()
       const mypyResult = spawnSync(mypyExecutable, ['app/'], {
         cwd: aiServiceDir,
         stdio: 'inherit',
         shell: true,
         windowsHide: true,
       })
+      const mypyElapsedMs = Date.now() - mypyStartedAt
+      appendTiming({
+        event: 'phase',
+        phase: 'mypy',
+        elapsedMs: mypyElapsedMs,
+        status: mypyResult.status,
+        done: mypyResult.status === 0,
+        at: Date.now(),
+      })
+      console.error(`[typecheck:full] ⏱ phase:mypy ${formatDuration(mypyElapsedMs)}`)
 
       if (mypyResult.status !== 0) {
         console.error(

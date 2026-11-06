@@ -161,8 +161,13 @@ async function readMultipart(request: FastifyRequest): Promise<{
   return { fields, file, tooLarge }
 }
 
+// 2026-11-07:SSE 空闲超时(不是全量 body deadline)。
+// 长连接可以合法地开很久,但不能「半个死连接」一直占着:上游停流超过阈值即断开并记日志。
+// 默认 60s;每收到一个 chunk 就重置计时,正常流式输出不会被误杀。
+const COZE_SSE_IDLE_TIMEOUT_MS = Number(process.env.COZE_SSE_IDLE_TIMEOUT_MS || 60_000)
+
 /** SSE 流式代理:POST JSON 到 Coze 上游,逐行转发为 text/event-stream。 */
-async function streamCozeSse(
+export async function streamCozeSse(
   reply: FastifyReply,
   upstreamPath: string,
   payload: unknown,
@@ -170,16 +175,35 @@ async function streamCozeSse(
   if (!requireCozeConfig(reply)) return
   reply.hijack()
   const raw = reply.raw
+  const log = reply.request.log
   raw.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   })
+
+  const idleMs =
+    Number.isFinite(COZE_SSE_IDLE_TIMEOUT_MS) && COZE_SSE_IDLE_TIMEOUT_MS > 0
+      ? COZE_SSE_IDLE_TIMEOUT_MS
+      : 60_000
+  const controller = new AbortController()
+  let idleTimer: ReturnType<typeof setTimeout> | null = null
+  let idleAborted = false
+  const armIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => {
+      idleAborted = true
+      controller.abort()
+    }, idleMs)
+  }
+
   try {
+    armIdleTimer()
     const resp = await fetch(cozeBaseUrl() + upstreamPath, {
       method: 'POST',
       headers: cozeHeaders(),
       body: JSON.stringify(payload),
+      signal: controller.signal,
     })
     if (!resp.ok || !resp.body) {
       raw.write(`data: ${JSON.stringify({ error: `Coze ${resp.status}` })}\n\n`)
@@ -192,6 +216,8 @@ async function streamCozeSse(
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
+      // 数据到达即重置空闲计时:停流 N 秒才断,不是从请求开始算总时长
+      armIdleTimer()
       buf += decoder.decode(value, { stream: true })
       let idx: number
       while ((idx = buf.indexOf('\n')) >= 0) {
@@ -202,12 +228,19 @@ async function streamCozeSse(
     }
     if (buf.trim()) raw.write(`data: ${buf.trim()}\n\n`)
     raw.end()
-  } catch {
+  } catch (e) {
+    if (idleAborted) {
+      log.warn(
+        { upstreamPath, idleMs, err: e instanceof Error ? e.message : String(e) },
+        '[coze-proxy] SSE 空闲超时,已断开半死连接',
+      )
+    }
     // 2026-10-31 安全强化第 13 批:错误帧固定文案 —— fetch 错误原文可能带内网主机
-    // 与上游响应片段;此辅助函数无 request.log 可用,细节只到进程 stderr 不可达,
-    // 调用方路由层日志已覆盖请求面
+    // 与上游响应片段;细节只进服务端日志,不回给客户端
     raw.write(`data: ${JSON.stringify({ error: '流式生成失败,请稍后重试' })}\n\n`)
     raw.end()
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer)
   }
 }
 

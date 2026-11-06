@@ -58,6 +58,7 @@ import {
   installSignalExit,
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
+import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from './lib/typecheck-timing.mjs'
 // G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
 // 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
 // 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
@@ -511,6 +512,44 @@ function killChildTree(child) {
   }
 }
 
+// 分包读数:typecheck-full 每跑完一个包就 append 一条,超时/被杀时这里仍能读出进度。
+const TIMINGS_FILE =
+  process.env.IHUI_TYPECHECK_TIMINGS_FILE ||
+  resolve(ROOT, 'node_modules', '.cache', 'ihui', 'typecheck-timings.jsonl')
+
+/** 超时现场把读数打出来:哪些包 Done、哪个包在飞(卡住候选)。超时仍是 undetermined,不折成 pass。 */
+function dumpTypecheckTimings() {
+  const records = readTimings(TIMINGS_FILE)
+  if (records.length === 0) {
+    console.error(`[check-typecheck] 📊 分包读数不可用(文件不存在或为空): ${TIMINGS_FILE}`)
+    return
+  }
+  const summary = summarizeTimings(records, Date.now())
+  console.error(`[check-typecheck] 📊 分包读数(超时现场): ${TIMINGS_FILE}`)
+  console.error(
+    `[check-typecheck]    ${formatSummaryLine(summary)};墙钟 ${formatDuration(summary.wallMs)}`,
+  )
+  for (const p of summary.packages) {
+    console.error(
+      `[check-typecheck]    ${p.done ? '✅' : '❌'} ${p.name}: ${formatDuration(p.elapsedMs)} ${p.done ? 'Done' : 'FAIL'}`,
+    )
+  }
+  if (summary.inFlight.length > 0) {
+    for (const p of summary.inFlight) {
+      console.error(
+        `[check-typecheck]    ⏳ ${p.name}: 已运行 ${formatDuration(p.elapsedMs)} 未完成(卡住候选)`,
+      )
+    }
+  } else {
+    console.error('[check-typecheck]    ⏳ 无在飞包(超时发生在包边界或读数未落盘)')
+  }
+  for (const ph of summary.phases) {
+    console.error(
+      `[check-typecheck]    ⏱ phase:${ph.phase}: ${formatDuration(ph.elapsedMs)} ${ph.done ? 'Done' : 'FAIL'}`,
+    )
+  }
+}
+
 installSignalExit({
   label: 'check-typecheck',
   onSignal: () => killChildTree(streamChild),
@@ -648,6 +687,8 @@ const timeoutTimer = setTimeout(() => {
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
   )
   console.error('   如需放宽上限:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...')
+  // 先把已完成包/在飞包读出来,再杀;否则读数只剩文件,日志里看不出谁卡住
+  dumpTypecheckTimings()
   // G-611:内联 taskkill 块提成 killChildTree —— 与信号处理器的清场共用一份实现
   // (两处实现必漂移;语义与原逐字路径等值:win32 连树 taskkill /T /F,其余 SIGKILL)
   killChildTree(child)
