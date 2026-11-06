@@ -38,10 +38,18 @@
  *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
  *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
  *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
- *  - ⑤ [G-04 新建路径注入格 · 2026-10-25] 父提交里不存在的声明路径,
- *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
- *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
- *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *  - ⑤ [G-04 新建路径注入格 · 2026-10-25;盘面口径随 ② 段回写层于 2026-11-06 更正] 父提交里不存在的
+ *    声明路径,正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再
+ *    `hash-object` —— **注入这一格只落在对象空间,不改盘上那份**。已存在路径不进这一档(横幅保持/
+ *    祖先对账/行级复活照旧)。blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *    **本器对盘上那份的口径由下面四条逐字界定**(旧版写在那儿的那句绝对表述与行为相反,已废):
+ *    ① **只补盘上根本不存在的声明路径**(判据单源 `lib/landing-worktree-align.mjs`;那一份从新 HEAD
+ *       落下来,带的就是注入后的内容);
+ *    ② **盘上已有副本一律不动**(`existsSync` 那一格直接跳过 —— 没有副本才谈不上覆写别人的在飞现场);
+ *    ③ **索引 blob 与父提交态不一致 ⇒ 归属他人**,不动并逐条点名(索引里躺着别人暂存的第三份 blob);
+ *    ④ 结论行出现「N 未判定 / N 归属他人」那一档 ⇒ **退出码 2,不得读成绿**(HEAD 已推进 ≠ 索引/磁盘已对上)。
+ *    ⇒ 据此纪律:落地后仍要按结论行判盘面,别把旧绝对表述读成"不必校验磁盘";也别反过来以为
+ *    "补齐盘上那份必然越界"而绕过本器手搓索引。
  *  - ⑥ [L33560 最后一格 · 2026-11-01] 落地(CAS)**之前**,对"将要进树的那份内容"跑一次冲突
  *    标记判据(`lib/conflict-marker-landing-gate.mjs` 唯一实现,union-converge 落地闸同源):
  *    `must-block` ⇒ 不落地 + 逐条点名(文件/行号/标记原文),exit 1;`strippable`(空区)只建议
@@ -131,13 +139,17 @@
  *              命中祖先)。判不出(解析失败)退回原行级判据并大声报名;Markdown 类活文档永不进这一档。
  *              这面旗对 .json/.jsonl 不再有豁免权(键路径档已默认生效),保留给"非 JSON 后缀但
  *              内容确是机器 JSON"的落地面(镜像测试 T-JS-1 钉的那一格)。
- * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
+ * 退出码:0 = 已落地且回读通过,且 ② 段回写没有任何 failed / skipped(归属他人) / 未判定
+ *        (三类逐条点名并各自决定档位:skipped / 未判定 ⇒ 2,failed ⇒ 1;自 2026-11-06 契约起
+ *        不再"只在 stdout 点名"就记绿);
  *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
  *            CAS 12 次未抢到 / 提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限);
- *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
+ *        2 = 用法或环境错,以及**回写让路/未判定**(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
  *            提交面回读"问不到"⇒ 未判定:落地已推进 HEAD,但存在性未能判定 —— 既不报成功也不报"缺路径",
- *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真)。
+ *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真 /
+ *            ② 段回写有 skipped(归属他人)或 undetermined ⇒ "落地回写未判定/让路"那行 N 未判定 N 归属他人
+ *            就是这一档的凭据,磁盘与索引没对上就不是绿;回写真失败(failed / 索引未完成 / 锁龄超上限)⇒ 1)。
  *
  * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
  *
@@ -1709,6 +1721,7 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       problems: [],
       dropped: 0,
       retired: 0,
+      preExistingRetired: 0,
       covered: 0,
       rewritten: 0,
       rewriteSample: [],
@@ -1731,6 +1744,7 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
       problems: [`退休通道解析失败:${String(e?.message ?? e).slice(0, 120)}`],
       dropped: 0,
       retired: 0,
+      preExistingRetired: 0,
       covered: 0,
       rewritten: 0,
       rewriteSample: [],
@@ -1738,6 +1752,16 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   }
   const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
   const activeNext = nextItems.filter((it) => !isRetiredRecord(it.value))
+  // ⓪ base 里**已是退休行**且本枚落地里**逐字节仍在册**的条目:不是本轮"被摘",也不再逐条重验
+  // (它们在上一枚落地时已验过一次)。base 已退休却在落地里消失 ⇒ 不进本档豁免,照旧进 dropped
+  // (删行仍红)。2026-11-05 补:此前本档把 base 里既有的退休行也读成"被摘",于是第二轮起
+  // 正规落地通道恒报"假登记/多登记"而误拒,被迫改走 safe-commit。
+  const baseRetiredByCanon = new Map()
+  for (const it of baseItems)
+    if (isRetiredRecord(it.value)) baseRetiredByCanon.set(it.canon, (baseRetiredByCanon.get(it.canon) ?? 0) + 1)
+  const nextRetiredByCanon = new Map()
+  for (const it of retiredItems) nextRetiredByCanon.set(it.canon, (nextRetiredByCanon.get(it.canon) ?? 0) + 1)
+  let preExistingRetired = 0
   // ① 先按身份做多重集匹配(同身份优先配同原文),剩余才是"被摘条目"。
   const used = new Set()
   const nextById = new Map()
@@ -1748,6 +1772,13 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   })
   const dropped = []
   for (const it of baseItems) {
+    if (isRetiredRecord(it.value)) {
+      const c = nextRetiredByCanon.get(it.canon) ?? 0
+      if (c > 0) {
+        nextRetiredByCanon.set(it.canon, c - 1)
+        continue
+      }
+    }
     const id = retireIdentityOf(it.value)
     const pool = nextById.get(id) ?? []
     let pick = pool.find((i) => !used.has(i) && activeNext[i].canon === it.canon)
@@ -1809,7 +1840,16 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   const coveredCounters = new Map()
   let covered = 0
   const overDeclared = []
+  const preExistingRetiredByCanon = new Map()
   for (const it of retiredItems) {
+    const pre = baseRetiredByCanon.get(it.canon) ?? 0
+    if (pre > 0) {
+      // base 里已登记且逐字节未变的退休行:上一枚落地已核验过,不再要求它对应本轮的"被摘"。
+      baseRetiredByCanon.set(it.canon, pre - 1)
+      preExistingRetired++
+      preExistingRetiredByCanon.set(it.canon, (preExistingRetiredByCanon.get(it.canon) ?? 0) + 1)
+      continue
+    }
     const v = it.value
     const where = `退休行 ${(v.retiredFrom ?? '').slice(0, 80) || '(无 retiredFrom)'}`
     if (typeof v.retiredAt !== 'string' || !RETIRED_AT_RE.test(v.retiredAt) || Number.isNaN(Date.parse(v.retiredAt)))
@@ -1870,24 +1910,43 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
   if (ok && covered > 0) {
     if (kind === 'jsonl') {
       const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
       filteredBaseText =
         baseItems
           .filter((it) => {
             const c = left.get(it.canon) ?? 0
-            if (c <= 0) return true
-            left.set(it.canon, c - 1)
-            return false
+            if (c > 0) {
+              left.set(it.canon, c - 1)
+              return false
+            }
+            // base 里既有的退休行:落地内容那一侧已被 activeNext 整体剥掉,基线侧必须同步剥掉,
+            // 否则它们的标记键会被读成"消失"(同根因的另一半)。
+            const p = leftPre.get(it.canon) ?? 0
+            if (p > 0) {
+              leftPre.set(it.canon, p - 1)
+              return false
+            }
+            return true
           })
           .map((it) => it.raw)
           .join('\n') + '\n'
       filteredNextText = activeNext.map((it) => it.raw).join('\n') + '\n'
     } else {
       const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
       const prunedBase = pruneJsonValue(JSON.parse(baseText), (el) => {
-        const c = left.get(canonOf(el)) ?? 0
-        if (c <= 0) return false
-        left.set(canonOf(el), c - 1)
-        return true
+        const k = canonOf(el)
+        const c = left.get(k) ?? 0
+        if (c > 0) {
+          left.set(k, c - 1)
+          return true
+        }
+        const p = leftPre.get(k) ?? 0
+        if (p > 0) {
+          leftPre.set(k, p - 1)
+          return true
+        }
+        return false
       })
       const prunedNext = pruneJsonValue(JSON.parse(newText), (el) => isRetiredRecord(el))
       filteredBaseText = JSON.stringify(prunedBase)
@@ -1900,7 +1959,8 @@ export function jsonRetirementAudit({ baseText, newText, kind, path }) {
     channel,
     problems,
     dropped: dropped.length,
-    retired: retiredItems.length,
+    retired: retiredItems.length - preExistingRetired,
+    preExistingRetired,
     covered,
     overDeclared: overDeclared.length,
     // ④ 窄档读数:改写条数 + 逐条补了什么键 + 有多少条是"同主体但判定变了"(只点名,不放行)。
@@ -2255,7 +2315,8 @@ function defaultRun(cmd, args, opts) {
  * G-04 第三格(2026-10-25 立):**新建路径**在对象空间内补齐溯源水印。
  *
  * 票面事实(现读 HEAD 可复现):本器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,
- * 刻意**从不写工作树**(§1/§12 要求,这条本身是对的),于是 §5c 的
+ * 内容一律在对象空间构造,注入这一格不改盘上那份(§1/§12 要求;盘上那份只在「声明路径盘上
+ * 根本没有」时才由落地后的索引+工作树回写层补齐,口径逐字见头注⑤),于是 §5c 的
  * 「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 —— 新建的归档台账曾以
  * "无水印"形态直接进 HEAD(2026-10-15 实测 `.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`,
  * 门 47 换面后才在本地看得见,换面之前只有 CI 会红)。
@@ -2263,7 +2324,8 @@ function defaultRun(cmd, args, opts) {
  * 本函数只动**父提交里不存在**的路径(调用方用 `headBlobOf(baseRef, p) === ABSENT` 选出):
  *  - 正文 → `injectText`(watermark.mjs 的文本级唯一构造处,横幅/L2 载荷/L3 尾行只在那一处算)
  *  - 注入后的文本 → `hashText` 回写对象库拿新 oid
- *  - **工作树副本一个字节都不写**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它)
+ *  - **本函数只落对象空间,不改盘上那份**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它;
+ *    盘上根本没有的那一格由落地后的索引+工作树回写层补齐,不在本函数射程)
  * 已存在路径一律不进来 —— 它们的语义(横幅保持 `blobBannerPreserved` / 祖先对账 /
  * 行级复活)一字未动。
  *
@@ -2923,13 +2985,14 @@ async function main() {
    * ── G-04 第二格(2026-10-25):**新建路径**在建 blob 之前先注入水印 ────────────────
    *
    * 判据面 = 父提交(`baseRef`,缺省 HEAD)里**不存在**的路径。这类路径没有"横幅保持"
-   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、又不写工作树
+   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、注入这一格又不落盘
    * ⇒ 它们是"无水印内容进 HEAD"的唯一缺口(2026-10-15 实测一枚归档台账即此型)。
    *
    * 三条不许动的边界:
    *  ① **已存在路径的语义一字不改** —— 不进 `newPaths`,不重算 blob,横幅保持/祖先对账/
    *     行级复活三道判据照旧读 `blobOf` 里那份构造内容;
-   *  ② 工作树副本**一个字节都不写**(注入只发生在对象空间:文本 → injectText → hash-object);
+   *  ② 注入只发生在对象空间(文本 → injectText → hash-object),**这一格不改盘上那份**;
+   *     盘上那份的补齐由落地后的索引+工作树回写层管(口径逐字见头注⑤),不在本格射程;
    *  ③ 豁免面(第三方台账 / 上游工具生成物)复用各自的唯一判据,不在这里另立第二张表。
    * `refused` 非空 ⇒ exit 2:取不到正文 ≠ 无需注入(§0.3)。
    */
@@ -2988,11 +3051,16 @@ async function main() {
     // 注入改写了"将要进树的字节" ⇒ 必须逐条点名,静默改写比不注入更糟(§0.3 可见性)。
     if (newPathWatermark.injected.length > 0) {
       console.log(
-        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;工作树副本一个字节都没写):`,
+        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;注入只落在对象空间,这一格没改盘上那份):`,
       )
       for (const p of newPathWatermark.injected) console.log(`   · ${p}`)
       console.log(
-        '   盘上副本滞后是预期的(本器绝不写工作树);要把它补齐 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
+        '   盘上那份的口径(与落地后的索引+工作树回写层逐字一致):只补**盘上根本没有**的声明路径;' +
+          '已有副本一律不动(那可能是别人的在飞现场);索引 blob 与父提交态不一致 ⇒ 归属他人,不动并点名;' +
+          '结论行里的「N 未判定 / N 归属他人」(例:0 未判定 7 归属他人)⇒ 退出码 2,那一档不得读成绿。',
+      )
+      console.log(
+        '   盘上这份滞后是预期的(本格只改对象空间里的 blob);要把盘上这份也补上横幅 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
       )
     }
     if (newPathWatermark.already.length > 0)
@@ -4163,7 +4231,9 @@ const USAGE = [
   '  LAND_ROOT           仓库根(缺省本仓)',
   '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
   '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
-  '退出码: 0 正常/用法打印 · 1 判据红(自证不过) · 2 用法或环境错(空清单/空消息/路径不在盘上/根不可当仓库问)',
+  '退出码: 0 正常(落地+回读+回写全对上)/用法打印 · 1 判据红(自证不过)、落地被拒、回写未完成(failed)',
+  '          2 用法或环境错(空清单/空消息/声明路径不在盘上/根不可当仓库问),以及回写让路或未判定',
+  '          (结论行「N 未判定 / N 归属他人」⇒ 索引/磁盘没对上,那一档不得读成绿)',
 ]
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

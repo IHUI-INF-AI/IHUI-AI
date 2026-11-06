@@ -1190,7 +1190,15 @@
     "getCode": "取得驗證碼",
     "confirmLabel": "確認文字",
     "confirmPlaceholder": "請輸入上方文字",
-    "failed": "註銷失敗,請重試"
+    "failed": "註銷失敗,請重試",
+    "warning": "註銷帳號後，您的所有資料將被永久刪除且無法復原。",
+    "consequence1": "帳號資料、頭像與暱稱將被永久刪除",
+    "consequence2": "訂單、積分、餘額與會員權益將清零且無法恢復",
+    "consequence3": "已發佈的動態、評論、收藏與聊天記錄將被清除",
+    "consequence4": "已綁定的手機號與信箱將被解綁，無法再用該帳號登入",
+    "consequence5": "正在生效的會員、課程等權益將立即終止且不退費",
+    "consequence6": "註銷後同一手機號可重新註冊，但歷史資料無法找回",
+    "consequence7": "存在未結清交易或違規記錄的帳號，申請可能被拒"
   },
   "ask": {
     "create": {
@@ -2948,7 +2956,9 @@
       "verifiedTip": "當前手機號已通過驗證",
       "bindDesc": "綁定後可用於登入、找回密碼、接收通知",
       "bindTitle": "綁定手機號碼",
-      "codeLength": "請輸入 6 位驗證碼"
+      "codeLength": "請輸入 6 位驗證碼",
+      "selectNation": "選擇區號",
+      "resend": "{s}s 後重新取得"
     },
     "profile": {
       "avatar": "頭像",
@@ -6800,7 +6810,15 @@
     "newPassword": "新密碼",
     "language": "語言",
     "theme": "主題",
-    "version": "版本"
+    "version": "版本",
+    "accountDeletionConsequenceTitle": "註銷後果",
+    "accountDeletionConsequence1": "帳號資料、頭像與暱稱將被永久刪除",
+    "accountDeletionConsequence2": "訂單、積分、餘額與會員權益將清零且無法恢復",
+    "accountDeletionConsequence3": "已發佈的動態、評論、收藏與聊天記錄將被清除",
+    "accountDeletionConsequence4": "已綁定的手機號與信箱將被解綁，無法再用該帳號登入",
+    "accountDeletionConsequence5": "正在生效的會員、課程等權益將立即終止且不退費",
+    "accountDeletionConsequence6": "註銷後同一手機號可重新註冊，但歷史資料無法找回",
+    "accountDeletionConsequence7": "存在未結清交易或違規記錄的帳號，申請可能被拒"
   },
   "liveList": {
     "subtitle": "精彩直播,不見不散",
@@ -6880,6 +6898,10 @@
   },
   "messageCenter": {
     "conversations": "會話",
+    "deleteConv": "刪除會話",
+    "loadMore": "載入更多",
+    "markRead": "標記已讀",
+    "searchPh": "搜尋對話記錄/聯絡人/服務號",
     "title": "訊息",
     "type": {
       "course": "課程",

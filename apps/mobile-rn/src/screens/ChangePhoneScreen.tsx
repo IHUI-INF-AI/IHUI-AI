@@ -9,9 +9,11 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
-import { ChangePhoneScreen as SharedChangePhoneScreen, type NationOption } from '@ihui/rn-app'
+import { ChangePhoneScreen as SharedChangePhoneScreen } from '@ihui/rn-app/features/change-phone/ChangePhoneScreen'
+import type { NationOption } from '@ihui/types'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useI18n } from '../i18n'
+import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -31,12 +33,14 @@ const NATIONS: NationOption[] = [
  * shell 层职责:
  * - 主体调用 @ihui/rn-app.SharedChangePhoneScreen(国家区号 + 手机号 + 验证码 + 提交)
  * - 验证码发往新手机号(/api/auth/sms/send),提交打 /api/auth/change-phone/confirm
- *   (confirm 校验的是新手机号的验证码,身份只取 JWT 主体,无旧码前置步骤)
+ *   (confirm 校验的是新手机号的验证码,身份只取 JWT 主体;旧码为端内侧安全步骤,
+ *   与 web ChangePhoneModal:145 的闸门对齐,不写入 confirm 请求体)
  * - 浮动提示 FloatBox(成功/错误 toast)
  */
 export function ChangePhoneScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
+  const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const [phoneNumber, setPhoneNumber] = useState('')
   const [codeValue, setCodeValue] = useState('')
@@ -46,10 +50,14 @@ export function ChangePhoneScreen() {
   const [sendCodeShow, setSendCodeShow] = useState(true)
   const [tip, setTip] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [oldPhone] = useState(user?.phone ?? '')
+  const [oldCode, setOldCode] = useState('')
+  const [oldCodeMin, setOldCodeMin] = useState(0)
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
   const [toastMessage, setToastMessage] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const showToast = useCallback((type: FloatBoxType, message: string) => {
     setToastType(type)
@@ -64,8 +72,43 @@ export function ChangePhoneScreen() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      if (oldTimerRef.current) clearInterval(oldTimerRef.current)
     }
   }, [])
+
+  const startOldCountdown = () => {
+    setOldCodeMin(60)
+    oldTimerRef.current = setInterval(() => {
+      setOldCodeMin((m) => {
+        if (m > 1) return m - 1
+        if (oldTimerRef.current) clearInterval(oldTimerRef.current)
+        return 0
+      })
+    }, 1000)
+  }
+
+  const sendOldCode = async () => {
+    if (oldCodeMin > 0) return
+    if (!oldPhone || oldPhone.length !== 11) {
+      setTip(t('changePhone.phoneRequired'))
+      showToast('warning', t('changePhone.phoneRequired'))
+      return
+    }
+    try {
+      const res = await fetchApi('/api/auth/sms/send', {
+        method: 'POST',
+        body: JSON.stringify({ phone: oldPhone, scene: 'phone-binding' }),
+      })
+      if (!res.success) throw apiFailureToError(res)
+      startOldCountdown()
+      showToast('success', t('changePhone.codeSent'))
+    } catch (e: unknown) {
+      const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
+      const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
+      setTip(friendly || t('changePhone.codeSendFailRetry'))
+      showToast('error', friendly || t('changePhone.codeSendFail'))
+    }
+  }
 
   const startCountdown = () => {
     setSendCodeShow(false)
@@ -112,6 +155,11 @@ export function ChangePhoneScreen() {
     if (!phoneNumber) {
       setTip(t('changePhone.phoneRequired'))
       showToast('warning', t('changePhone.phoneRequired'))
+      return
+    }
+    if (oldPhone && !oldCode.trim()) {
+      setTip(t('user.profile.oldCode'))
+      showToast('warning', t('user.profile.oldCode'))
       return
     }
     if (!codeValue) {
@@ -171,6 +219,11 @@ export function ChangePhoneScreen() {
           onSendCode={sendCode}
           onSubmit={handleSubmit}
           onBack={() => navigation.goBack()}
+          oldPhone={oldPhone}
+          oldCode={oldCode}
+          oldCodeMin={oldCodeMin}
+          onOldCodeChange={setOldCode}
+          onSendOldCode={sendOldCode}
           colorScheme={resolvedTheme}
         />
       </View>

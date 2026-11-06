@@ -16,176 +16,14 @@
 
 .dist-page {
   min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--color-background);
 }
 
-/* 对齐 RN shell:personalInfoWrap paddingT 24 + paddingH 32,scrollContent paddingBottom 32 (dp→rpx 1:2) */
-.dist-content {
-  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-3xl);
-}
-
-/* 对齐 RN 卡片:padding 16 (dp→rpx 1:2);RN 三类卡片均无描边;圆角按角色档 card→lg */
-.dist-card {
-  background: var(--color-card);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--spacing-md);
-  padding: var(--spacing-lg);
-}
-
-/* ===== 个人信息卡(对齐 RN PersonalInformationCard: header 昵称+头像) ===== */
-.dist-person {
-  display: flex;
-  align-items: center;
-}
-.dist-person-avatar {
-  /* 对齐 RN avatar 36x32 / radius 4 (dp→rpx 1:2) */
-  width: 72rpx;
-  height: var(--spacing-3xl);
-  margin-right: var(--spacing-md);
-  flex-shrink: 0;
-}
-.dist-person-img {
-  width: 72rpx;
-  height: var(--spacing-3xl);
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-}
-.dist-person-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-muted-foreground);
-  font-size: var(--text-body);
-  font-weight: 600;
-}
-.dist-person-info {
-  flex: 1;
-  min-width: 0;
-}
-.dist-person-name {
-  display: block;
-  /* 对齐 RN nickname fontSize 14 / fontWeight 600 (dp→rpx 1:2) */
-  font-size: var(--text-body);
-  font-weight: 600;
-  color: var(--color-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dist-person-identity {
-  display: block;
-  /* 对齐 RN legacyText fontSize 11 (dp→rpx 1:2);原图上白字改语义灰 */
-  font-size: var(--text-caption);
-  color: var(--color-muted-foreground);
-  margin-top: var(--spacing-xs);
-}
-.dist-person-company {
-  display: block;
-  font-size: var(--text-caption);
-  color: var(--color-text-tertiary);
-  margin-top: var(--spacing-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ===== 收益统计卡(对齐 RN EarningsStatisticsCard) ===== */
-.dist-stats-tabs {
-  /* 对齐 RN tabSwitcher: 无容器底,仅 Tab 胶囊 + marginBottom 16 (dp→rpx 1:2) */
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-}
-.dist-stats-tab {
-  flex: 1;
-  text-align: center;
-  /* 对齐 RN tabItem paddingH 14 / paddingV 6 / radius 8 (dp→rpx 1:2) */
-  padding: var(--spacing-xs-loose) var(--spacing-md-loose);
-  font-size: var(--text-body-sm);
-  color: var(--color-muted-foreground);
-  border-radius: var(--radius-lg);
-}
-.dist-stats-tab.active {
-  /* 对齐 RN tabItemActive brand 底;暗色文字用 primary-foreground 保证对比度 */
-  background: var(--color-cta);
-  color: var(--color-cta-foreground);
-  font-weight: 600;
-}
-.dist-stats-body {
-  display: flex;
-  /* 对齐 RN dataRow marginBottom 12 (dp→rpx 1:2) */
-  margin-bottom: var(--spacing-md);
-}
-.dist-stats-item {
-  flex: 1;
-  text-align: center;
-}
-.dist-stats-num {
-  display: block;
-  /* 对齐 RN dataValue fontSize 16 / fontWeight 700 (dp→rpx 1:2) */
-  font-size: var(--text-title);
-  font-weight: 700;
-  color: var(--color-foreground);
-}
-.dist-stats-label {
-  display: block;
-  /* 对齐 RN dataLabel fontSize 12 / marginTop 2 (dp→rpx 1:2) */
-  font-size: var(--text-label);
-  color: var(--color-muted-foreground);
-  margin-top: var(--spacing-2xs);
-}
-
-/* ===== 功能块列(对齐 RN FunctionBlockColumn columns=2: 双列卡片网格) ===== */
-.dist-menu {
-  /* 容器透明,卡片直接铺在页面底上(RN functionBlocksWrap 仅提供 padding) */
-  padding: 0;
-  background: transparent;
-  border-radius: 0;
-  margin-bottom: var(--spacing-md);
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-}
-.dist-menu-item {
-  /* 对齐 RN gridCard: 宽 49% + gap 10 / padding 14 / radius 12 (dp→rpx 1:2) */
-  width: calc(50% - 10rpx);
-  display: flex;
-  align-items: center;
-  padding: var(--spacing-md-loose);
-  background: var(--color-card);
-  border-radius: var(--radius-xl);
-  margin-bottom: var(--spacing-sm-loose);
-  box-sizing: border-box;
-}
-.dist-menu-item:active {
-  opacity: 0.8;
-}
-.dist-menu-icon-box {
-  /* 对齐 RN iconWrap 44 / radius 8 / marginRight 12 (dp→rpx 1:2) */
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--radius-lg);
-  background: var(--color-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: var(--spacing-md);
-  flex-shrink: 0;
-}
-.dist-menu-icon {
-  flex-shrink: 0;
-}
-.dist-menu-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  /* 对齐 RN title fontSize 15 / fontWeight 600 (dp→rpx 1:2) */
-  font-size: var(--text-strong);
-  font-weight: 600;
-  color: var(--color-foreground);
-}
+/* 宫格与二维码弹层已上收共享屏 DistributionScreen(functionBlocks / qrSheet),
+   本文件只保留主题根与"仅小程序消费"的实名弹层样式 + 微信分享按钮样式。 */
 
 /* ===== 弹窗遮罩 ===== */
 .dist-mask {
@@ -202,67 +40,11 @@
   padding: var(--spacing-2xl);
 }
 
-/* ===== 二维码弹窗 ===== */
-.dist-qrpop {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  width: 100%;
-  max-width: 600rpx;
-}
-.dist-qrpop-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-md);
-}
-.dist-qrpop-title {
-  font-size: var(--text-title);
-  font-weight: 600;
-  color: var(--color-foreground);
-}
-.dist-qrpop-close {
-  font-size: var(--text-heading);
-  color: var(--color-muted-foreground);
-  line-height: 1;
-  padding: 0 var(--spacing-xs);
-}
-.dist-qrpop-qr {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 400rpx;
-  height: 400rpx;
-  margin: 0 auto;
-  /* custom color: #ffffff 二维码背景需始终保持白色以确保可扫描,无对应 token */
-  background: var(--color-card);
-  border-radius: var(--radius-md);
-}
-.dist-qrpop-img {
-  width: 360rpx;
-  height: 360rpx;
-}
-.dist-qrpop-loading {
-  color: var(--color-muted-foreground);
-  font-size: var(--text-label);
-}
-.dist-qrpop-copyright {
-  display: block;
-  text-align: center;
-  font-size: var(--text-badge);
-  color: var(--color-muted-foreground);
-  margin-top: var(--spacing-md);
-}
-.dist-qrpop-actions {
-  margin-top: var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+/* ===== 微信分享按钮(宿主能力节点,注入共享屏 qrSheet.shareAction) ===== */
 .dist-qrpop-btn {
-  width: 100%;
-  height: var(--spacing-4xl);
+  flex-grow: 1;
+  min-width: 200rpx;
+  height: 80rpx;
   line-height: 80rpx;
   text-align: center;
   font-size: var(--text-body);
@@ -275,13 +57,6 @@
 }
 .dist-qrpop-btn::after {
   border: none;
-}
-.dist-qrpop-link {
-  display: block;
-  text-align: center;
-  font-size: var(--text-body-sm);
-  color: var(--color-primary);
-  margin-top: var(--spacing-md);
 }
 
 /* ===== 身份验证弹窗 ===== */

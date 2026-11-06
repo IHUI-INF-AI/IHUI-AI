@@ -352,15 +352,20 @@ export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
 /** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
 export interface ModelIncomeItem {
   id: string
-  orderId: string
-  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
-  status: string
-  createdAt: string
-  userNickname: string
-  orderAmount: number
-  /** 佣金费率(百分比) */
-  rate: number
-  commissionAmount: number
+  /** 订单号(平台只回流水号时由流水号顶替;缺省则不渲染订单行) */
+  orderId?: string
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算;缺省不渲染状态徽标) */
+  status?: string
+  /** 已格式化的时间文案;缺省不渲染时间行 */
+  createdAt?: string
+  /** 结算对象昵称;缺省不渲染头像/昵称块 */
+  userNickname?: string
+  /** 订单金额;平台无此字段时省略,不补 0(缺省不渲染订单金额) */
+  orderAmount?: number
+  /** 佣金费率(百分比);平台无此列时省略,不补 0 */
+  rate?: number
+  /** 本次结算佣金金额;平台无此字段时省略,不补 0(缺省不渲染金额) */
+  commissionAmount?: number
 }
 
 /** 模型收益概要(平台注入,字段对齐 @ihui/api-client CommissionOverview + DayMonthSummary) */
@@ -393,6 +398,8 @@ export interface ModelIncomeScreenProps {
   onOpenWithdraw: () => void
   onCloseWithdraw: () => void
   onConfirmWithdraw: () => void
+  /** 提现按钮置灰(可提现额为 0 时为 true,点击不再打开弹窗;缺省 false 与旧行为一致) */
+  withdrawDisabled?: boolean
   /** 触底续取下一页中(列表尾部显示"加载中…") */
   loadingMore?: boolean
   /** 是否还有下一页(壳按 total 算出;false 且已有数据时列表尾部显示"没有更多了") */

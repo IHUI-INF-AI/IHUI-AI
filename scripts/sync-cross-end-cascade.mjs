@@ -27,6 +27,11 @@
  *      并**显式点名跳过** —— "没判"绝不写成"判过"(§0.3),也不再谎称"预演过了"。
  *      要落盘显式 --apply。--dry-run 与 --apply 同时给 ⇒ exit 2 用法错(与守门横向口径同一条)。
  *   ⑤ 派生进程纪律(§12g):execFileSync 一律显式 stdio + windowsHide,不 shell:true。
+ *   ⑥ "有待落"有两半,缺一半就是假绿(2026-11-05 立,见 PENDING_PROBES):器物说"本轮有活"
+ *      有的靠**退出码**(登记 `pendingRc`),有的只在**自述结论正文**里退 0(三枚 land-*、
+ *      heal-stale-dist、plan-rn-token-pairing 等)。旧实现只看退出码 ⇒ rc=0 一律记 done,
+ *      实测把 RN 字号待落与 dist 落后都读成"判过了"。现在 rc=0 再问一层正文探针(只读器物
+ *      自己已打印的字段,级联层零复算);探针登记了却拿不到结论 ⇒ `unjudged`,不冒充绿(§0.3)。
  *
  * 用法:
  *   node scripts/sync-cross-end-cascade.mjs                 # 真预演(各写盘段跑零写档;无零写档的段点名跳过)
@@ -130,6 +135,28 @@ const STAGES = [
     preview: ['--json'],
     write: true,
     timeoutMs: 10 * 60 * 1000,
+  },
+  {
+    // 2026-11-05 补链(色轴):守护以 runCrossEndApplyLeg 派发的 4 枚跨端写盘腿里,本腿与
+    // gen-rn-compat 两枚在级联缺席(现读 grep=0)⇒ 一键链只跟着**非色档**(间距/字号/圆角),
+    // 颜色轴改完 web 只能等守护节拍或人敲 —— 机主要"改一发就三端跟随",色轴必须在链里。
+    //  argv 口径与守护逐字同形(git-guardian 现读:sweepRnColorLiteralLeg args:['--apply'])。
+    name: 'rn-color',
+    kind: 'land',
+    desc: 'RN 端色值字面量 → token 取用落档(等价性由器物自己的 colorsAgree 前置断言兜底)',
+    script: 'fix-rn-color-literals.mjs',
+    base: [],
+    apply: ['--apply'],
+    // 零写取证:面由 :531 `argv.includes('--apply') ? 'worktree' : 'head'` 定;:553
+    // `if (!--apply && !--emit-blobs)` 直接返回"只读档(未写盘)",结构上到不了 :509 的
+    // writeFileSync 与 :663 的 registerLanding;--emit-blobs 会往仓根写文件 ⇒ 预演绝不含它。
+    // 有待落时器物退 0(safe 计数写在正文 summary.safe)⇒ 只能靠正文探针认。
+    preview: ['--json'],
+    // 器物含 `hash-object -w`(--emit-blobs 出口)⇒ S11 要求**行为级**零写证明,不接受读码保证。
+    previewProof: 'tests/fix-rn-color-literals-preview-zero-write.test.mjs',
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
+    note: '同值歧义(literal 命中多档)器物自己不猜 ⇒ safe=0,本段判无待落;歧义面归色档对账尺管',
   },
   {
     name: 'land-web',
@@ -249,6 +276,26 @@ const STAGES = [
     previewProof: 'tests/land-cross-end-shell-pages-preview.test.mjs',
     write: true,
     timeoutMs: 20 * 60 * 1000,
+  },
+  {
+    // 2026-11-05 补链(小程序兼容面):守护 runCrossEndApplyLeg 派发的第 4 枚腿,级联此前 0 引用。
+    // 它产的是**小程序端 RN 兼容层派生件**(lucide 图标全集 + RN 路由名→小程序页映射),
+    // 上游"发新图标名 / 登记表新增一条 rn↔miniapp"不触发提交 ⇒ 不在链里就永远靠人当场手敲
+    // (守门 251 的修法出口正是它;门 260 同型教训已写过一次)。argv 与守护逐字同形(--write)。
+    name: 'rn-compat',
+    kind: 'create',
+    desc: '小程序 RN 兼容层派生件落档(图标全集 + RN 路由名→小程序页映射;排在新落承载页之后)',
+    script: 'gen-rn-compat.mjs',
+    base: [],
+    apply: ['--write'],
+    // 零写取证:默认档与 --check 都不进 --write 分支;--check 取材走 readHeadFace(HEAD 面),
+    // 结构上不碰工作树。缺名字 ⇒ exit 1(现读源码 :813 uncovered>0 出口),那正是 pendingRc;
+    // 取不到输入 ⇒ exit 2 未判定(不记绿也不冒红)。本器只认 --write/--check/--self-test,
+    // 未知旗当场 exit 2 拒绝(不接受被静默当默认档)⇒ 预演档绝不会被误装成"没活"。
+    preview: ['--check'],
+    pendingRc: [1],
+    write: true,
+    timeoutMs: 15 * 60 * 1000,
   },
   {
     name: 'hand-mirror',
@@ -399,6 +446,51 @@ const STAGES = [
   },
 ]
 
+/**
+ * 待落探针登记表(2026-11-05 立)。
+ *
+ * 立因: classifyStage 旧实现 `rc === 0 ⇒ done`,而本仓三枚 land-* 与 heal-stale-dist /
+ * plan-rn-token-pairing 这些器物**把"本轮有待落"写在自述结论正文里、退出码照退 0**
+ * (land-rn 头注自己就写着"有待落退 0";2026-11-05 实测:Carousel.tsx 2 处字号待落 + @ihui/types
+ * dist 落后,级联两处都报 done —— 一键入口于是把"还有活"说成"没活",机主要的全自动同步就永远读不出缺口)。
+ *
+ * 本表只做一件事:**问器物自己已经打印的那个数**,不在级联层复算任何判据(§0.6 单一真相源 / §22c)。
+ * 只在**缺省预演档**生效(探针答的是"要不要落");--apply 档落完就是落完,由压轴 verify 段判结果。
+ * 字段取不到(器物改了结论形状)⇒ 该段 `unjudged`,绝不用"退 0"冒充"判过了"(§0.3)。
+ * 形状由镜像测试 A15–A19 钉住:每个写盘段必须至少有一条"有待落"通道(pendingRc 或本表)。
+ */
+const PENDING_PROBES = {
+  // 派生族
+  'derive-tokens': [{ field: 'pending' }],
+  // 可配对集是唯一"本器物自己写得动"的一维;歧义待裁/源无等值没有可落形态(可配对=0 时
+  // --apply 也写不出东西),把它们算成 pending 会让链永远读不出绿 —— 那两维归对账门与台账管。
+  'rn-token-pairs': [{ field: 'pairs' }],
+  // 三端落档族(land-rn 的 changedFiles 是数组,web/miniapp 是计数 —— 取值器两形都认)
+  'land-web': [{ field: 'changes', optional: true }, { field: 'changedFiles' }],
+  'land-rn': [{ field: 'changedFiles' }, { field: 'totalChanges', optional: true }],
+  'land-miniapp': [{ field: 'changes', optional: true }, { field: 'changedFiles' }],
+  // 色轴:器物退 0 而把"可直接改写"写在正文 summary.safe(同值歧义不进 safe ⇒ 本段无待落)
+  'rn-color': [{ field: 'summary.safe' }],
+  // 声明/收敛/造页族
+  'mirror-declare': [{ field: 'summary.findings', optional: true }, { field: 'findings' }],
+  'portal-converge': [{ field: 'portalConverge.candidates' }, { field: 'renderConverge.candidates' }],
+  'miniapp-pages': [{ field: 'summary.planned' }],
+  'hand-mirror': [{ field: 'upgradable' }],
+  'message-pack': [{ field: 'planned' }, { field: 'pendingLanding' }],
+  // 重建族:state='pending' 是预演档的自述,targets 是同批读数
+  'rebuild-dist': [{ field: 'state', equals: 'pending' }, { field: 'targets' }],
+}
+for (const [stageName, probe] of Object.entries(PENDING_PROBES)) {
+  const stage = STAGES.find((s) => s.name === stageName)
+  if (!stage) {
+    throw new Error(`PENDING_PROBES 登记了不在 STAGES 里的段 id:${stageName}(段改名必须同批改这里)`)
+  }
+  if (!stage.write) {
+    throw new Error(`PENDING_PROBES 给非写盘段 ${stageName} 登记了探针(verify 段的红由 rc 判,不需要正文)`)
+  }
+  stage.pendingProbe = probe
+}
+
 const KINDS = [...new Set(STAGES.map((s) => s.kind))]
 /** 段 id 唯一真相:--only 的白名单与报错清单都必须从这里取,不得另抄一份字面量。 */
 const STAGE_IDS = STAGES.map((s) => s.name)
@@ -470,19 +562,114 @@ export function stageDisposition(stage, opts) {
 }
 
 /**
+ * rc=0 不等于"没活"(2026-11-05 立的正文探针层,唯一实现)。
+ * 只读器物**自己已经打印**的结论字段:数字档 >0 即有待落,数组档非空即有待落,字符串档按 equals 比。
+ * 三种结局:pending(自述有活)/ done(自述为 0)/ unjudged(登记了探针却拿不到结论或字段)。
+ */
+export function pendingFromBody(stage, conclusion) {
+  const probe = stage.pendingProbe
+  if (!probe) return null
+  if (conclusion === null || typeof conclusion !== 'object') {
+    return { state: 'unjudged', detail: '登记了待落探针却拿不到器物自述结论(非 JSON)⇒ 不冒充判绿' }
+  }
+  const hits = []
+  const missing = []
+  let readable = 0
+  for (const spec of probe) {
+    const v = getPath(conclusion, spec.field)
+    if (v === undefined) {
+      if (!spec.optional) missing.push(spec.field)
+      continue
+    }
+    readable++
+    if (spec.equals !== undefined) {
+      if (v === spec.equals) hits.push(`${spec.label ?? spec.field}=${String(v)}`)
+      continue
+    }
+    const n = Array.isArray(v) ? v.length : typeof v === 'number' ? v : null
+    if (n === null) {
+      if (!spec.optional) missing.push(`${spec.field}(既非数字也非数组:${typeof v})`)
+      continue
+    }
+    if (n > 0) hits.push(`${spec.label ?? spec.field}=${n}`)
+  }
+  if (missing.length || readable === 0) {
+    return {
+      state: 'unjudged',
+      detail: `探针字段取不到:${missing.join(', ') || '全部缺失'} ⇒ 器物结论形状与登记不符,本段未判定`,
+    }
+  }
+  return hits.length
+    ? { state: 'pending', detail: `器物自述仍有待落 ${hits.join(' / ')}` }
+    : { state: 'done', detail: '' }
+}
+
+function getPath(obj, dotted) {
+  let cur = obj
+  for (const seg of dotted.split('.')) {
+    if (cur === null || typeof cur !== 'object') return undefined
+    cur = cur[seg]
+  }
+  return cur
+}
+
+/**
+ * 从 stdout 里取器物自述的 JSON 结论:整段是 JSON 直接解;前面混着日志行则从最后一个
+ * 以 `{` 开头的行起向前试解(容忍 `AUTO-REGISTER-PORTAL …` 这类先打印的人读行)。解不出 ⇒ null。
+ */
+export function extractConclusion(stdoutText) {
+  const raw = String(stdoutText ?? '')
+  const whole = raw.trim()
+  if (whole.startsWith('{') || whole.startsWith('[')) {
+    try {
+      return JSON.parse(whole)
+    } catch {
+      /* 回落逐行窗口 */
+    }
+  }
+  // 器物把机读行夹在人读行**中间**是实测形态(fix-rn-color-literals:报告行 ⇒ {"summary":…} ⇒
+  // "只读档(未写盘)" 尾行)。只从候选起点取到文末会把尾部的散文一起喂给 JSON.parse ⇒ 恒解不出,
+  // 而"解不出"在本层落 unjudged —— 那不是保守,那是把看得见的结论读成看不见(§0.3 反向失效)。
+  const lines = raw.split(/\r?\n/)
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!/^\s*[{[]/.test(lines[i])) continue
+    for (let k = lines.length - 1; k >= i; k--) {
+      if (!/[}\]]\s*$/.test(lines[k])) continue
+      try {
+        return JSON.parse(lines.slice(i, k + 1).join('\n'))
+      } catch {
+        /* 这段不是完整 JSON,继续往前收 */
+      }
+    }
+  }
+  return null
+}
+
+/**
  * 单段四态裁决(§0.3):绿 done / 分红 red(仅 verify 段 rc≠0)/ 预演有待落 pending / 其余 unjudged。
  * 器物在写盘档跑了但 rc≠0 且不是 verify 段 ⇒ failed(真败,不是未判)。
  *
  * 预演档必须把"本轮有待落"和"器物坏了"分桶:各写盘器用退出码说这两件事的码**不一样**
  * (gen-rn-host-shell 有待补壳退 1、heal-stale-dist 拒批退 3、三枚 land-* 有待落退 0),
  * 所以每段自己登记 pendingRc;rc=2 在预演档一律按"取不到输入 = 未判定"落桶,不冒红。
+ *
+ * 2026-11-05 补齐"有待落退 0"那一格:退 0 时若该段登记了正文探针,由 bodyState 决定
+ * pending / done / unjudged —— 旧实现在这里无条件 done,把 land-rn 的 2 处待落与 dist 落后
+ * 都读成了"判过了"(实测假绿,机主的自动同步链因此看不见缺口)。
  */
-export function classifyStage(stage, { ran, rc, spawnable, preview = false }) {
+export function classifyStage(stage, { ran, rc, spawnable, preview = false, bodyState = null }) {
   if (!ran) return 'skipped'
   if (!spawnable) return 'unjudged' // 不在位/起不动/超时 ⇒ 这一维没判完,不冒充绿也不冒红
-  if (rc === 0) return 'done'
+  if (rc === 0) {
+    if (preview && stage.pendingProbe) return bodyState === 'pending' || bodyState === 'unjudged' ? bodyState : 'done'
+    return 'done'
+  }
+  // 本仓守门横向口径是**三态** 0/1/2(§0.3):2 = "取不到输入 ⇒ 未判定",与"判红(1)"是两件事。
+  // 旧实现只在预演档认 2,写盘档与 verify 档的 2 会被折成 failed/red —— 于是"器物判不了"被说成
+  // "这条链坏了/这维真分叉"(2026-11-05 实测:dist 腿面差让路以 rc=2 退出,写盘档被报成 failed)。
+  // 失效方向恒为"多问一次为什么没判",绝不把没判定成判过,也绝不把没判成红(§0.10)。
+  if (rc === 2) return 'unjudged'
   if (preview && Array.isArray(stage.pendingRc) && stage.pendingRc.includes(rc)) return 'pending'
-  if (preview && rc === 2) return 'unjudged'
   if (stage.redOnFail) return 'red'
   return 'failed'
 }
@@ -527,9 +714,20 @@ function runStage(stage, opts, logger) {
       maxBuffer: 1 << 24,
       stdio: ['ignore', 'pipe', 'pipe'], // §12g 显式接管 stdio
     })
-    const tail = summarize(out)
-    logger(`✅ ${stage.name} —— ${tail}`)
-    return { name: stage.name, kind: stage.kind, state: 'done', detail: tail }
+    const previewRun = Boolean(stage.write) && !opts.apply
+    // 正文探针只在预演档问:--apply 档落完就是落完(器物自述的 changedFiles 那格在写档里
+    // 报的是"这次写了谁",不是"还剩谁"),绿线上挂一句探针话术会把人引去查不存在的问题。
+    const body = previewRun ? pendingFromBody(stage, extractConclusion(out)) : null
+    const state = classifyStage(stage, {
+      ran: true,
+      rc: 0,
+      spawnable: true,
+      preview: previewRun,
+      bodyState: body ? body.state : null,
+    })
+    const tail = body && body.state !== 'done' && body.detail ? `${body.detail} ｜ ${summarize(out)}` : summarize(out)
+    logger(`${state === 'done' ? '✅' : state === 'pending' ? '⏳' : '❓'} ${stage.name} —— ${tail}`)
+    return { name: stage.name, kind: stage.kind, state, detail: tail }
   } catch (e) {
     const rc = typeof e?.status === 'number' ? e.status : null
     const preview = Boolean(stage.write) && !opts.apply
@@ -544,10 +742,13 @@ function runStage(stage, opts, logger) {
       state === 'red'
         ? `尺子判红:${redReason(out, errText)}`
         : state === 'failed'
-          ? `器物失败 rc=${rc}:${errText}`
+          ? `器物失败 rc=${rc}:${redReason(out, errText)}`
           : state === 'pending'
             ? `本轮待落(rc=${rc}):${redReason(out, errText)}`
-            : `未能判定:${errText.slice(0, 160)}`
+            : // 未判定必须点名原因。器物把结论打在 **stdout** 而以 rc=2 退出是常态(如 dist 腿的
+              // 面差让路:state=face-skew 打在 stdout),旧式只取 errText ⇒ 打出「未能判定:」后面
+              // 空空如也,等于把"为什么没判"丢了(§0.3 要求点名原因;§0.8 出路必须真跑得通)。
+              `未能判定(rc=${rc}):${redReason(out, errText)}`
     logger(
       `${state === 'red' ? '🔴' : state === 'failed' ? '❌' : state === 'pending' ? '⏳' : '❓'} ${stage.name} —— ${detail}`,
     )
@@ -577,7 +778,12 @@ export function summarize(stdoutText) {
     try {
       const obj = JSON.parse(joined)
       const pick = obj?.verdict ?? obj?.state ?? obj?.summary ?? obj
-      return clip(typeof pick === 'string' ? pick : JSON.stringify(pick))
+      const head = typeof pick === 'string' ? pick : JSON.stringify(pick)
+      // 器物把"为什么"写在 why/reason 里(dist 腿的面差让路、heal 族的取不到原因都是这一形)。
+      // 只报 state 等于把原因丢了:读数从"判不了,因为 X"退化成"判不了",后人只能重跑一遍猜(§0.3)。
+      const why = typeof obj?.why === 'string' ? obj.why : typeof obj?.reason === 'string' ? obj.reason : ''
+      const tail = why && !head.includes(why.slice(0, 24)) ? ` —— ${why}` : ''
+      return clip(`${head}${tail}`)
     } catch {
       return clip(joined.replace(/\s+/g, ' '))
     }
@@ -664,7 +870,9 @@ async function selfTestRun() {
   await test('S5 --only 认段类但不会扩成全部段;打错字/空值当场 exit 2 并列可用 id', () => {
     assert.equal(parseArgs(['--only=verify']).usageError, null)
     const land = selectStages(STAGES, parseArgs(['--only=land']))
-    assert.equal(land.length, 3, '--only=land 应只命中三条 land 段')
+    // 段类档数不写死(2026-11-05 补色轴腿后 land 由 3 变 4;写死的读数与"选择器少选一段"同形)
+    assert.equal(land.length, STAGES.filter((s) => s.kind === 'land').length, '--only=land 必须命中 land 段类全集')
+    assert.ok(land.length >= 3, 'land 段数异常坍缩')
     assert.ok(land.every((s) => s.kind === 'land'))
     const bad = parseArgs(['--only=reconcile']).usageError
     assert.match(bad, /未知令牌/)
@@ -893,6 +1101,9 @@ export const __test__ = {
   chainExit,
   summarize,
   redReason,
+  pendingFromBody,
+  extractConclusion,
+  PENDING_PROBES,
   selfTestRun,
 }
 

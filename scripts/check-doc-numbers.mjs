@@ -27,8 +27,15 @@
  *       ② **行级(`splitStagedRatchet`,staged 档专用)**:活性区的旧账同样按"本轮动过哪几行"
  *          收窄 —— 2026-10-31 现读 README.md 活性声明只有 **37 处**、README.en.md **1 处**,
  *          但改 README 的那枚此前要把这 38 处存量连同全仓六万条一起背走 ⇒ **README 实际不可改**
- *          (逼人 `--no-verify`,§12e 恒红门同型)。现在:**基线 = 该文档 HEAD 面自身**
- *          (基线正文 + 基线命中集合),只判本轮新增/改写出来的声明行,HEAD 存量只报数不判红。
+ *          (逼人 `--no-verify`,§12e 恒红门同型)。现在:**基线 = 本地 remote-tracking ref
+ *          `origin/main` 快照 ∪ 该文档 HEAD 面自身**(基线正文 + 基线命中集合),
+ *          只判本轮新增/改写出来的声明行,存量只报数不判红。
+ *          为什么快照面要含 `origin/main`(2026-11-05):此前面只有 HEAD 一个本地面,而"存量"
+ *          的判定口径是"这行在**外部已有状态**里红过"。本地 HEAD 之外的已推送面就是 `origin/main`
+ *          (仓库里一直存在,不依赖分支 upstream,也不需要联网)。只认 HEAD ⇒ 分支无 upstream 时
+ *          每枚提交都被归属层判 `undetermined-red`,只能人工授权跳钩。
+ *          快照取不到(`origin/main` 这个 ref 真的不存在 ⇒ 仓库没有 origin)⇒ 退回今日口径:
+ *          基线面取不到 ⇒ **全判并点名**(失效方向恒为"多要一次定向说明",绝不静默放宽)。
  *          两条判据联立(任一成立即判红):① 命中落在本轮新增/改写的行上(diff 的 `+` 行);
  *          ② 命中的存量指纹(键+数值+行全文)在基线命中集合里找不到 ⇒ 本轮新造的说法。
  *          取不到基线面或改动行清单 ⇒ **全判并点名**(失效方向恒为"多要一次定向说明")。
@@ -42,6 +49,10 @@
  *       `trackedFiles` 必须等于现算值,否则红并点名重跑命令。**独立于"是否触及 README"**:
  *       旧机制只在"本轮碰了生成块"时整块重算,于是"改文件清单但不碰 README"的提交
  *       (279875ba85 定格 / 224b4b020f −2)全绿。清单未变的轮次只报数(防恒红,§12e)。
+ *
+ * pre-push 档(`--push`,2026-11-05,判责时机补位):DN2 **全量(head 面)**判据挂到推送 —— 提交频次高、
+ *   推送频次低 ⇒ 不恒红;语义 = 不许把带过期正文的树推上去。本档 ≡ `--strict` + 简介面(DN3)
+ *   不记未判定(推送腿不联网);`planAccountability` 一行未改(只传 strict=true)。射程外:只判本地 HEAD。
  *
  * 判责时机(DN4,本门的防恒红设计):块里多数数字(`trackedFiles`/`apiRoutes`/`testFiles`…)随
  *   **每一次**普通提交漂移,若任何提交都必须同步重算块,本门就在与提交内容无关处恒红 —— 唯一
@@ -90,6 +101,11 @@ export const UPDATES_END = '<!-- END RECENT UPDATES -->'
 export const SELF_SKIP = 'HUSKY_SKIP_DOC_NUMBERS'
 /** 带对外数字、必须被审的文档(新增一份就加一行,别在别处再抄清单) */
 export const AUDITED_DOCS = ['README.md', 'README.en.md']
+/**
+ * staged 档的基准快照 ref(2026-11-05):本地 remote-tracking ref,不依赖分支 upstream、不联网。
+ * 取不到它(= 仓库没有 origin)⇒ `pickStagedBaselineRef` 落 undetermined,退回今日全判口径。
+ */
+export const STAGED_BASELINE_REF = 'origin/main'
 
 /**
  * DN2 的措辞表:**封闭集**,每条都带 `pick` 从捕获组里挑那个数字。
@@ -338,19 +354,23 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
  *
  * @param {{line:number,key:string,found:number,want:number}[]} violations 门按行报的点(行号 1-based)
  * @param {string} text 被审面正文
- * @param {string|null} baselineText 基线面正文(HEAD 面档取 HEAD^,提交链/工作树档取 HEAD;取不到传 null)
+ * @param {string|null} baselineText 基线面正文(HEAD 面档取 HEAD^,提交链/工作树档取 HEAD^/HEAD;取不到传 null)
+ * @param {string[]|null} baselineTexts 多快照正文(2026-11-05:staged 档 = origin/main ∪ HEAD);
+ *   给了它就以它为准(并集),否则退回单面 `baselineText`(旧调用/自检口径不变)
  */
-export function splitArchiveStock(violations, text, baselineText, { archiveMarker = UPDATES_END } = {}) {
+export function splitArchiveStock(violations, text, baselineText, { archiveMarker = UPDATES_END, baselineTexts = null } = {}) {
   const lines = text.split(/\r?\n/)
   let archiveStart = -1
   for (let i = 0; i < lines.length; i += 1) if (lines[i].includes(archiveMarker)) archiveStart = i
   if (archiveStart < 0) {
     return { actionable: violations, stock: [], archiveStart, why: '缺 END RECENT UPDATES 标记 ⇒ 分不出历史区,全判' }
   }
-  if (baselineText === null || baselineText === undefined) {
+  const texts = Array.isArray(baselineTexts) && baselineTexts.length ? baselineTexts : baselineText === null || baselineText === undefined ? null : [baselineText]
+  if (texts === null) {
     return { actionable: violations, stock: [], archiveStart, why: '基线面取不到 ⇒ 全判(不静默放宽)' }
   }
-  const baseline = new Set(baselineText.split(/\r?\n/))
+  const baseline = new Set()
+  for (const t of texts) for (const l of String(t).split(/\r?\n/)) baseline.add(l)
   const actionable = []
   const stock = []
   for (const v of violations) {
@@ -448,29 +468,39 @@ export function blockTouchedByRound(text, changedLines, { blockBegin = BLOCK_BEG
  * 历史快照区)。于是任何一次改 README 的提交,都得先把 HEAD 面自己的旧账一起还清 ——
  * 改不动文档(README 实际不可改),逼人 `--no-verify`(§12e 恒红门同型)。
  *
- * 正解(本函数):**基线 = 该文档 HEAD 面自身**,只判本轮新增/改写出来的声明行,
- * HEAD 已有的存量漂移只报数、不判红。两条判据联立(任一成立即判红):
+ * 正解(本函数):**基线 = 本地 remote-tracking ref `origin/main` 快照 ∪ 该文档 HEAD 面自身**
+ * (2026-11-05 起;此前只有 HEAD 单快照),只判本轮新增/改写出来的声明行,存量漂移只报数、不判红。
+ * 为什么要 origin/main:存量 = "在外部已有状态里红过"。分支没有 upstream 时,归属层拿不到
+ * 外部快照 ⇒ 把每一枚红都判 `undetermined-red` 逼人跳钩;而 `origin/main` 这个 ref 在仓库里
+ * 一直存在(不依赖分支 upstream、不联网),门此前没用它。取不到该 ref(仓库没有 origin)⇒
+ * 退回今日口径(基线面取不到 ⇒ 全判)。
+ * 两条判据联立(任一成立即判红):
  *   ① 该命中落在**本轮新增/改写的行**上(diff 的 `+` 行)⇒ 本轮带进来的;
- *   ② 该命中的「存量指纹」= 键 + 数值 + 所在行全文,在**基线命中集合**里找不到
- *      ⇒ 本轮新造的说法(即便那一行没进 diff,基线面也没有这句话)。
- * 两条都不成立 ⇒ HEAD 存量漂移 ⇒ 只报数。
+ *   ② 该命中的「存量指纹」= 键 + 数值 + 所在行全文,在**基线命中集合(并集)**里找不到
+ *      ⇒ 本轮新造的说法(即便那一行没进 diff,任一基线面也没有这句话)。
+ * 两条都不成立 ⇒ 存量漂移 ⇒ 只报数。
  *
  * 失效方向恒为「多要一次定向说明」,**绝不**是"多放一次跳门":
- *   · 基线面(HEAD)取不到 ⇒ 全判并点名;
+ *   · 基线面(origin/main ∪ HEAD)取不到 ⇒ 全判并点名;
  *   · 本轮改动行清单取不到 ⇒ 全判并点名;
  *   · 两者都取到但指纹算不出 ⇒ 落到 ② ⇒ 判红(多问一句,不是放过)。
  */
-export function splitStagedRatchet(violations, { text, baselineText, numbers, changedLines = null } = {}) {
+export function splitStagedRatchet(violations, { text, baselineText, baselineTexts = null, numbers, changedLines = null } = {}) {
   if (changedLines === null || changedLines === undefined)
     return { actionable: violations, stock: [], why: '本轮改动行清单取不到 ⇒ 全判(不静默放宽)' }
-  if (baselineText === null || baselineText === undefined)
-    return { actionable: violations, stock: [], why: '基线面(HEAD)取不到 ⇒ 全判(不静默放宽)' }
+  // 2026-11-05:staged 档的基准快照 = 本地 remote-tracking ref `origin/main` ∪ HEAD 面自身。
+  // 只给 `baselineText` 的旧调用(HEAD 面档 / 自检)口径不变。
+  const texts = Array.isArray(baselineTexts) && baselineTexts.length ? baselineTexts : baselineText === null || baselineText === undefined ? null : [baselineText]
+  if (texts === null)
+    return { actionable: violations, stock: [], why: '基线面(origin/main ∪ HEAD)取不到 ⇒ 全判(不静默放宽)' }
   const curLines = String(text ?? '').split(/\r?\n/)
-  const baseLines = String(baselineText).split(/\r?\n/)
-  // 基线命中集合 = 该文档 HEAD 面自身的存量(同一把 CLAIMS、同一轮现算值 ⇒ 口径同源,零复算)
+  // 基线命中集合 = 各快照面自己的存量(同一把 CLAIMS、同一轮现算值 ⇒ 口径同源,零复算)
   const baseFingerprints = new Set()
-  for (const bv of findStaleClaims(baselineText, numbers).violations) {
-    baseFingerprints.add(`${bv.key}|${bv.found}|${baseLines[bv.line - 1] ?? ''}`)
+  for (const snapshot of texts) {
+    const baseLines = String(snapshot).split(/\r?\n/)
+    for (const bv of findStaleClaims(snapshot, numbers).violations) {
+      baseFingerprints.add(`${bv.key}|${bv.found}|${baseLines[bv.line - 1] ?? ''}`)
+    }
   }
   const actionable = []
   const stock = []
@@ -481,6 +511,26 @@ export function splitStagedRatchet(violations, { text, baselineText, numbers, ch
     else stock.push(v)
   }
   return { actionable, stock, why: null }
+}
+
+/**
+ * staged 档的基准快照 ref(2026-11-05)。纯函数,IO 在 `resolveStagedBaselineRef`。
+ *
+ * 取本地 remote-tracking ref `origin/main` 当基准快照 —— 它不依赖当前分支有没有 upstream,
+ * 也不需要联网(旧口径要求 `@{u}` 存在,分支无 upstream 时归属层只能判 `undetermined-red`)。
+ * 只有该 ref 真的不存在(仓库没有 origin)时才落 `undetermined`:退回今日"基线面取不到 ⇒ 全判"
+ * 的行为,绝不改判据语义、绝不把真红折成绿。
+ * @param {{ tip?: string|null }} opts tip = `git rev-parse --verify origin/main^{commit}` 的读数
+ * @returns {{ ref: string|null, mode: 'remote-tracking'|'undetermined', why: string|null }}
+ */
+export function pickStagedBaselineRef({ tip = null } = {}) {
+  if (typeof tip === 'string' && tip.trim())
+    return { ref: STAGED_BASELINE_REF, mode: 'remote-tracking', why: null }
+  return {
+    ref: null,
+    mode: 'undetermined',
+    why: `本地没有 ${STAGED_BASELINE_REF} 这个 remote-tracking ref(仓库没有 origin)⇒ 基线快照取不到:全判(今日未判定口径)`,
+  }
 }
 
 /**
@@ -671,6 +721,11 @@ function readArg(argv, name) {
   const i = argv.findIndex((a) => a === name || a.startsWith(`${name}=`))
   if (i < 0) return null
   return argv[i].includes('=') ? argv[i].slice(i === -1 ? 0 : argv[i].indexOf('=') + 1) : argv[i + 1] ?? null
+}
+
+/** push 档不联网取简介 ⇒ 未给 --description 时不记"简介未判定"(否则内容全对的推送也 exit 2)。 */
+export function shouldRecordDescUndetermined(argv) {
+  return !argv.includes('--push') && readArg(argv, '--description') === null
 }
 
 /** 自检:构造面(不依赖真仓),正反成对。 */
@@ -954,6 +1009,62 @@ export function selfTest() {
     'S27f readBlockTrackedFiles 只认生成块内的行,块外同形文本不冒充',
     readBlockTrackedFiles(`${s27doc(19095)}| 跟踪文件 | 1 | \`trackedFiles\` |\n`) === 19095,
   )
+  // S28 pre-push 档(2026-11-05):判责时机挪到推送,判据一字不改。
+  ok('S28a push 档未给简介 ⇒ 不记未判定(否则全对的推送也 exit 2)', shouldRecordDescUndetermined(['--strict', '--push']) === false)
+  ok('S28b 非 push 档未给简介 ⇒ 仍记未判定(提交链/总览档口径不变)', shouldRecordDescUndetermined(['--strict']) === true)
+  const s28n = { dbTables: numbers.dbTables, testFiles: numbers.testFiles }
+  const s28doc = `正文 ${numbers.testFiles - 3} 个测试文件;另有 ${numbers.dbTables} 张表\n${BLOCK_BEGIN}\n| 数据库表 | ${numbers.dbTables} | \`dbTables\` |\n| 测试文件 | ${numbers.testFiles} | \`testFiles\` |\n${BLOCK_END}\n`
+  const s28r = findStaleClaims(s28doc, s28n)
+  ok(
+    'S28c 生成块正确、正文抄旧数 ⇒ 红并点名第 1 行(DN2;DN5 不适用 ⇒ 非重复)',
+    checkGeneratedBlock(s28doc, s28n).ok &&
+      s28r.violations.length === 1 && s28r.violations[0].line === 1 && s28r.violations[0].key === 'testFiles' &&
+      judgeTrackedInventory({ docText: s28doc, numbers: s28n, inventory: { changed: [] } }).applicable === false,
+  )
+  // S29 staged 档基准快照换成本地 remote-tracking ref `origin/main`(2026-11-05):
+  // 差分归属不再依赖分支 upstream;四组对照 = 无 ref / 两侧同红 / 本票引入 / 存量红。
+  const s29n = { ...numbers, dbTables: 583 }
+  const s29tip = pickStagedBaselineRef({ tip: 'abcdef0123456789' })
+  ok(
+    'S29a ref 存在 ⇒ 基准快照取本地 origin/main(remote-tracking,不依赖 upstream)',
+    s29tip.ref === STAGED_BASELINE_REF && s29tip.mode === 'remote-tracking' && s29tip.why === null,
+  )
+  const s29none = pickStagedBaselineRef({ tip: null })
+  const s29new = '542 张表\n999 张表\n'
+  const s29v = findStaleClaims(s29new, s29n).violations
+  const s29a = splitStagedRatchet(s29v, { text: s29new, baselineTexts: null, numbers: s29n, changedLines: new Set([2]) })
+  ok(
+    'S29b ref 不存在(仓库没有 origin)⇒ 退回今日未判定口径:基线面取不到,全判并点名 why',
+    s29none.ref === null && s29none.mode === 'undetermined' && s29a.actionable.length === 2 && typeof s29a.why === 'string',
+  )
+  // ② 两侧快照同红:同一行在 origin/main 与 HEAD 都已红过、本票未触及 ⇒ 存量
+  const s29both = '542 张表\n999 张表\n'
+  const s29b = splitStagedRatchet(s29v, {
+    text: s29both,
+    baselineTexts: [s29both, s29both],
+    numbers: s29n,
+    changedLines: new Set(),
+  })
+  ok('S29c origin/main 与 HEAD 两侧同红、本票未触及 ⇒ 全部记存量(不阻断本票)', s29b.actionable.length === 0 && s29b.stock.length === 2)
+  // ③ 本票引入:第 2 行是本票新增/改写 ⇒ 仍判红(不改判据语义)
+  const s29c = splitStagedRatchet(s29v, {
+    text: s29new,
+    baselineTexts: ['542 张表\n', '542 张表\n'],
+    numbers: s29n,
+    changedLines: new Set([2]),
+  })
+  ok('S29d 本票新增/改写的声明行 ⇒ 仍判红(本票引入,不被快照洗绿)', s29c.actionable.length === 1 && s29c.actionable[0].line === 2 && s29c.stock.length === 1)
+  // ④ 存量红只在外快照上:origin/main 有那句话、HEAD 已修正,本票未触及那行 ⇒ 记存量
+  const s29d = splitStagedRatchet(findStaleClaims('999 张表\n542 张表\n', s29n).violations, {
+    text: '999 张表\n542 张表\n',
+    baselineTexts: ['542 张表\n', `${s29n.dbTables} 张表\n`],
+    numbers: s29n,
+    changedLines: new Set([1]),
+  })
+  ok(
+    'S29e 只在 origin/main 快照里红过的行(HEAD 已修正)、本票未触及 ⇒ 记存量;本票新增行照判红',
+    s29d.actionable.length === 1 && s29d.actionable[0].line === 1 && s29d.stock.length === 1 && s29d.stock[0].line === 2,
+  )
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -967,7 +1078,8 @@ function main(argv) {
     console.error(`❌ 无法判定:${error}`)
     return 2
   }
-  const strict = argv.includes('--strict')
+  const pushMode = argv.includes('--push')
+  const strict = argv.includes('--strict') || pushMode
   const root = resolve(readArg(argv, '--root') ?? ROOT)
   let derived
   const docsText = new Map()
@@ -1027,18 +1139,52 @@ function main(argv) {
   // 未触及文档的偏差如实计入"漂移只报数",它被改动的那枚必判。
   const judgeAll = plan.enforce && (strict || face === 'worktree')
   const driftDocs = []
-  // DN2 差值棘轮取材:基线面 = HEAD 面档取 HEAD^、其余取 HEAD;取不到 ⇒ null(该篇全判,不静默放宽)。
-  const baselineRef = face === 'head' ? 'HEAD^' : 'HEAD'
-  const baselines = new Map()
-  let baselineWhy = null
-  try {
-    const bs = catBatch(root, AUDITED_DOCS.map((rel) => `${baselineRef}:${rel}`))
-    for (const rel of AUDITED_DOCS) {
-      const v = bs.get(`${baselineRef}:${rel}`)
-      if (typeof v === 'string') baselines.set(rel, v)
+  // DN2 差值棘轮取材:基线面 = HEAD 面档取 HEAD^、worktree 档取 HEAD;
+  // staged 档(2026-11-05)取本地 remote-tracking ref `origin/main` ∪ HEAD(两快照并集),
+  // 不依赖分支 upstream;该 ref 真的不存在 ⇒ 快照为 null(退回今日口径:该篇全判,不静默放宽)。
+  let stagedBaseline = null
+  if (face === 'staged') {
+    let tip = null
+    try {
+      tip = gitRaw(['rev-parse', '--verify', `${STAGED_BASELINE_REF}^{commit}`], root, { timeout: 30000 }).trim()
+    } catch {
+      tip = null
     }
-  } catch (e) {
-    baselineWhy = `基线面 ${baselineRef} 取不到(${e?.message ?? e})⇒ 历史快照区按全判处理`
+    stagedBaseline = pickStagedBaselineRef({ tip })
+  }
+  const baselineRef = face === 'head' ? 'HEAD^' : face === 'staged' ? stagedBaseline.ref : 'HEAD'
+  const baselines = new Map()
+  /** staged 档的多快照正文(origin/main ∪ HEAD);某个文档缺远端面 ⇒ 该篇置 null ⇒ 全判。 */
+  const stagedBaselineTexts = new Map()
+  let baselineWhy = stagedBaseline?.why ?? null
+  if (baselineRef) {
+    // 逐文件读取:某份文档在某个快照面上不存在(例如新文档)只影响它自己,不连坐整批。
+    const readOne = (ref, rel) => {
+      try {
+        const v = catBatch(root, [`${ref}:${rel}`]).get(`${ref}:${rel}`)
+        return typeof v === 'string' ? v : null
+      } catch {
+        return null
+      }
+    }
+    if (face === 'staged') {
+      for (const rel of AUDITED_DOCS) {
+        const remote = readOne(baselineRef, rel)
+        if (remote === null) {
+          baselineWhy = `基线快照 ${baselineRef}:${rel} 取不到 ⇒ 该篇按全判处理`
+          stagedBaselineTexts.set(rel, null)
+          continue
+        }
+        const head = readOne('HEAD', rel)
+        stagedBaselineTexts.set(rel, head === null ? [remote] : [remote, head])
+      }
+    } else {
+      for (const rel of AUDITED_DOCS) {
+        const v = readOne(baselineRef, rel)
+        if (v !== null) baselines.set(rel, v)
+      }
+      if (baselines.size === 0) baselineWhy = `基线面 ${baselineRef} 取不到 ⇒ 历史快照区按全判处理`
+    }
   }
   const archiveStock = []
   // ── staged 档的行级差值棘轮取材(2026-10-31)──────────────────────────────
@@ -1079,15 +1225,18 @@ function main(argv) {
       continue
     }
     candidates += r.checked + g.checked
-    const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null)
+    // staged 档:基准快照 = origin/main ∪ HEAD(多快照);其余档沿用单一基线面。
+    const snapshots = face === 'staged' ? (stagedBaselineTexts.get(rel) ?? null) : null
+    const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null, { baselineTexts: snapshots })
     let actionable = ratchet.actionable
     const stock = [...ratchet.stock]
     let why = ratchet.why
     if (isRatchetFace) {
-      // 行级差值棘轮:只判本轮新增/改写的声明行;HEAD 面自身的存量漂移只报数。
+      // 行级差值棘轮:只判本轮新增/改写的声明行;存量漂移(origin/main ∪ HEAD 已红过)只报数。
       const s = splitStagedRatchet(actionable, {
         text,
         baselineText: baselines.get(rel) ?? null,
+        baselineTexts: snapshots,
         numbers: derived.numbers,
         changedLines: changedWhy.has(rel) ? null : (changedLineNumbers.get(rel) ?? null),
       })
@@ -1123,7 +1272,7 @@ function main(argv) {
   if (isRatchetFace) {
     console.log(
       `ℹ 差值棘轮(staged 档):本轮新增/改写的声明行 ${ratchetNew} 处(判红见上);` +
-        `HEAD 面存量漂移 ${ratchetStock} 处只报数不判红(锚点 = 该文档 HEAD 面自身的命中集合)`,
+        `存量漂移 ${ratchetStock} 处只报数不判红(锚点 = ${baselineRef ? `${baselineRef} ∪ HEAD` : '基线快照(取不到 ⇒ 全判)'} 的命中集合)`,
     )
     for (const b of blockStock)
       console.log(`ℹ ${b.rel}:生成块存量 ${b.n} 处(本轮未碰生成块):只报数不判红(要刷新块跑 node scripts/gen-doc-numbers.mjs --markdown)`)
@@ -1142,7 +1291,7 @@ function main(argv) {
     } catch (e) {
       undetermined.push({ key: 'description', reason: `读不到简介输入(${descArg}):${e.message}` })
     }
-  } else {
+  } else if (shouldRecordDescUndetermined(argv)) {
     undetermined.push({ key: 'description', reason: '未提供 --description ⇒ 简介面本轮不判(问责请跑 --strict --description -)' })
   }
 
