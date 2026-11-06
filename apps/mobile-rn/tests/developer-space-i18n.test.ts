@@ -83,6 +83,11 @@ describe('开发者空间屏 i18n 词包:devSpace.* 与 developerInfo.* 五语�
       ...TABLE_KEYS.map((k) => k.slice(k.indexOf('.') + 1)),
       'title',
       'notLoggedIn',
+      // RN 薄壳现读消费(此前被当作孤儿删过一次,developer-screen-render 立刻把裸键打上屏):
+      // apps/mobile-rn/src/screens/DeveloperScreen.tsx:170 statusText / :173 footerAction。
+      'opened',
+      'notOpened',
+      'enterPlaza',
       'renew',
       'copy',
       'copied',

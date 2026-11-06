@@ -81,6 +81,11 @@
 .PARAMETER AllowLocalBackend
   显式允许产出连回环地址(localhost/127.0.0.1/10.0.2.2)的包,配 `adb reverse` 用。
   **不给这个旗就不许产出连回环的包** —— 缺省直接拒绝构建,而不是等人装到手机上才发现全不通。
+.PARAMETER VersionName
+  发布版本名(写进 JS bundle 的 EXPO_PUBLIC_IHUI_MOBILE_VERSION,并作为站点腿/DB 登记的版本)。
+  缺省 = apps/mobile-rn/package.json 的 version(手工构建的旧行为)。
+  自动发版传 `<base>.<UTC yyyyMMddHH>` 形态(4 段,compareVersions 认),每次构建都严格大于上一版,
+  否则 App 端 `latestVersion > currentVersion` 不成立 ⇒ 包发了但没人收到更新提示。
 .PARAMETER NoPublish
   只出包、不发布到公网固定地址(2026-10-29 立的第 5 步默认开启)。
   默认动作:构建+回读+验签全过后,调 `node scripts/publish-mobile-apk.mjs` 发到站点 CDN 腿
@@ -104,6 +109,7 @@ param(
   [string]$WebBaseUrl = '',
   [string]$WsBaseUrl = '',
   [switch]$AllowLocalBackend,
+  [string]$VersionName = '',
   [string]$SelfTestApk = ''
 )
 
@@ -467,13 +473,29 @@ if (-not $AllowLocalBackend -and (Test-WsArmCannotUpgrade $Backend.Ws)) {
   )
 }
 
+# ---- 发布版本号:注入 bundle 与登记的唯一来源 -----------------------------------------
+# 自动发版传 -VersionName(形态 `<base>.<UTC yyyyMMddHH>`,4 段);缺省回落 package.json(手工路径不变)。
+# 为什么必须两端同源:App 端 `decideHasUpdate` 比较的是 bundle 里的 APP_VERSION
+# (= EXPO_PUBLIC_IHUI_MOBILE_VERSION)与服务端 latestVersion;两处差一个字符,结果就是
+# "包发了、DB 登记了、但没有任何用户收到更新提示" —— 这条已在 0.0.12 的手工发布中验证过。
+if ([string]::IsNullOrWhiteSpace($VersionName)) {
+  $VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+}
+if ($VersionName -notmatch '^\d+(\.\d+){0,3}$') {
+  throw ("版本名非法:'" + $VersionName + "'(须为 1~4 段纯数字,如 0.0.12.2026110519)")
+}
+# 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
+$env:IHUI_MOBILE_VERSION = $VersionName
+$env:EXPO_PUBLIC_IHUI_MOBILE_VERSION = $VersionName
+Write-Host "  发布版本号: $VersionName(注入 IHUI_MOBILE_VERSION + EXPO_PUBLIC_IHUI_MOBILE_VERSION)" -ForegroundColor Gray
+
 # 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
 $env:EXPO_PUBLIC_API_BASE_URL = $Backend.Api
 $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
 $env:EXPO_PUBLIC_WS_BASE_URL = $Backend.Ws
 if ($AllowLocalBackend) { Write-Warning 'AllowLocalBackend:本次包的基址含回环地址,只能在配了 adb reverse 的机器上验证' }
 
-Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionCode=$VersionCode) =====" -ForegroundColor Cyan
+Write-Host "`n===== [3/5] gradlew assembleRelease + bundleRelease (versionName=$VersionName versionCode=$VersionCode) =====" -ForegroundColor Cyan
 Write-Host "  ABI: $($abiArg -replace '^.*=','')"
 if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo prebuild)" }
 
@@ -490,7 +512,9 @@ try {
   $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
   try {
     # AAB 与 APK 一次构建:createBundleReleaseJsAndAssets 是两者共享的任务,不会把 JS bundle 打两遍。
-    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" --console=plain
+    # versionName 必须经 -P 传入(2026-11-06):build.gradle 侧的 appVersionName 优先读它,
+    # package.json 只做缺省。不传的话系统设置里永远显示原生基座(0.0.12),与站点/DB 登记脱节。
+    & .\gradlew.bat :app:assembleRelease :app:bundleRelease "-PversionCode=$VersionCode" "-PversionName=$VersionName" --console=plain
     if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease/bundleRelease 失败 (exit=$LASTEXITCODE)" }
   } finally {
     $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = $prevAbiEnv
@@ -566,7 +590,8 @@ try {
 } finally { Pop-Location }
 
 Write-Host "`n===== [5/5] 发布到固定下载地址 =====" -ForegroundColor Cyan
-$VersionName = (Get-Content (Join-Path $RepoRoot 'apps/mobile-rn/package.json') -Raw | ConvertFrom-Json).version
+# $VersionName 已在 [2.5] 解析并注入 bundle(见该处注释);此处不再二次取值,避免出现
+# "包里是 A、登记的是 B" 的两处漂移。
 # 站点 CDN 腿(EdgeOne,2026-10-29 实测国内 1–4MB/s);这是唯一出口,
 # COS/CF 备用腿已于 2026-10-30 下线(按流量计费且比站点腿慢两个数量级)。
 # 地址不在本脚本复制:唯一真源 = scripts/data/mobile-download-leg.json(部署机可用 env 覆盖)。
