@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as React from 'react'
 
 import { WebInputCore } from '@/components/chat/web-input-core'
+import { usePredictiveEditPrefsStore } from '@/stores/predictive-edit'
 
 // Tooltip 与本票判据无关,但它来自 @/components/feedback 整桶导出(会牵进 next 运行时依赖);
 // 换成透明容器,断言面不受影响(与 web-input-core-enter-key-ordering.test.tsx 同形)。
@@ -55,6 +56,7 @@ const textarea = () => screen.getByRole('textbox') as HTMLTextAreaElement
 
 afterEach(() => {
   cleanup()
+  usePredictiveEditPrefsStore.setState({ enabled: true })
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -88,6 +90,28 @@ describe('Predictive Edit — 成功落到输入区', () => {
     fireEvent.click(screen.getByRole('button', { name: 'predictiveEditApply' }))
 
     expect(textarea().value).toBe('>> hello there')
+    expect(screen.queryByTestId('predictive-edit-suggestion')).toBeNull()
+  })
+})
+
+describe('Predictive Edit — 总开关(用户意志)', () => {
+  it('总开关关闭 ⇒ 零请求、无建议条(不等于后端 no_action)', async () => {
+    usePredictiveEditPrefsStore.setState({ enabled: false })
+    const fetchSpy = vi.fn(async () =>
+      jsonResponse(
+        envelope({
+          disposition: 'suggested',
+          actions: [{ kind: 'insert', start: 0, end: 0, text: '>> ' }],
+        }),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchSpy)
+
+    render(<Harness initial="hello world" />)
+
+    // 越过 400ms debounce 仍不得发起 edit-intent 请求。
+    await new Promise((r) => setTimeout(r, 900))
+    expect(fetchSpy).not.toHaveBeenCalled()
     expect(screen.queryByTestId('predictive-edit-suggestion')).toBeNull()
   })
 })
