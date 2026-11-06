@@ -186,6 +186,14 @@ logging.basicConfig(
 # 故 app 启动钩子里再调一次(同一函数幂等)。
 install_stdlib_secret_redaction()
 
+# BUG-76/77 缓解(限 DEBUG 级):httpx 默认在 `httpx` logger 以 INFO 打印逐请求行
+# `HTTP Request: GET https://...?access_token=... 200 OK`,URL 查询串里带微信
+# app_secret/access_token、企业微信 corpsecret(协议强制在 query,非代码可消除)。
+# 上面的脱敏闸已能在落盘前把值换成 [REDACTED_SECRET],但更稳妥的做法是直接把
+# httpx 的请求行压到 WARNING 以下 —— 既不产生含凭据的日志行(即便已脱敏),也降低
+# 日志量与反代 access_log 之外的二次泄露面。脱敏闸仍作为最后兜底保留。
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 # 同步 settings 关键变量到 os.environ,确保用 os.getenv() 读取的模块(如 agent_runtime)
 # 能拿到 .env 配置(pydantic-settings 只加载到 Settings 对象,不同步到 os.environ)。
 # 仅在变量未设置时 setdefault,不覆盖运行时注入的值(如测试 monkeypatch)。

@@ -20,19 +20,30 @@ DO $ot_conv$ BEGIN
       CASE "order_type"
         WHEN 'course' THEN 7
         WHEN 'card' THEN 8
-        ELSE COALESCE(CAST("order_type" AS integer), 0)
+        -- BUG-86: 只有纯数字串能安全转 integer；空串/非数字枚举(gift、recharge 等)会让
+        -- CAST 直接抛 22P02，COALESCE 捕获不到异常，整段迁移中断。先用正则判形再转换。
+        WHEN "order_type" ~ '^[0-9]+$' THEN "order_type"::integer
+        ELSE 0
       END;
   END IF;
 END $ot_conv$;--> statement-breakpoint
 ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DEFAULT 0;--> statement-breakpoint
 
 -- 3. edu_refunds: 添加新 FK（→ orders, ON DELETE cascade）
-ALTER TABLE "edu_refunds" ADD CONSTRAINT "edu_refunds_order_id_orders_id_fk"
-  FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'edu_refunds_order_id_orders_id_fk') THEN
+    ALTER TABLE "edu_refunds" ADD CONSTRAINT "edu_refunds_order_id_orders_id_fk"
+      FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
 
 -- 4. edu_invoice_applications: 删除旧 FK（→ edu_orders），改为新 FK（→ orders）
 ALTER TABLE "edu_invoice_applications" DROP CONSTRAINT IF EXISTS "edu_invoice_applications_order_id_edu_orders_id_fk";--> statement-breakpoint
 
-ALTER TABLE "edu_invoice_applications" ADD CONSTRAINT "edu_invoice_applications_order_id_orders_id_fk"
-  FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE set null ON UPDATE no action;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'edu_invoice_applications_order_id_orders_id_fk') THEN
+    ALTER TABLE "edu_invoice_applications" ADD CONSTRAINT "edu_invoice_applications_order_id_orders_id_fk"
+      FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
