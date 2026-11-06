@@ -240,6 +240,7 @@ function selfTestFn(root) {
   add('C10 反例:业务 JSX 超阈值 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, businessJsx: 3 }], [shellRow])), retirementShortfall({ ...shell, businessJsx: 3 }))
   add('C11 反例:不在映射射程 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, mapStatus: 'none' }], [shellRow])), retirementShortfall({ ...shell, mapStatus: 'none' }))
   add('C12 反例:无入口证据 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, shellEntry: null }], [shellRow])), retirementShortfall({ ...shell, shellEntry: null }))
+  add('C13 反例:薄壳但仍有本地数据层痕迹 ⇒ 不给“可摘”', !canRetireText(evaluateRatchet([{ ...shell, localDelta: true }], [shellRow])), retirementShortfall({ ...shell, localDelta: true }))
 
   // 真实仓正反例(证明射程真覆盖,不是只跑合成夹具)
   let real = null
