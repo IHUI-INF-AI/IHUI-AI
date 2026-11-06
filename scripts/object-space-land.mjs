@@ -139,17 +139,28 @@
  *              命中祖先)。判不出(解析失败)退回原行级判据并大声报名;Markdown 类活文档永不进这一档。
  *              这面旗对 .json/.jsonl 不再有豁免权(键路径档已默认生效),保留给"非 JSON 后缀但
  *              内容确是机器 JSON"的落地面(镜像测试 T-JS-1 钉的那一格)。
- * 退出码:0 = 已落地且回读通过,且 ② 段回写没有任何 failed / skipped(归属他人) / 未判定
- *        (三类逐条点名并各自决定档位:skipped / 未判定 ⇒ 2,failed ⇒ 1;自 2026-11-06 契约起
- *        不再"只在 stdout 点名"就记绿);
- *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
+ * 退出码(S-OSL-PROOF 2026-11-06 起四档,不再是"0 与沉默同义";回写档位口径同批并入别席 11-06 契约):
+ *        0 = **真建了提交**且末尾自证通过:打印 `LANDED <40 位 sha>`,并回读 `git rev-parse HEAD`
+ *            逐字节等于它(或本轮那枚确在 HEAD 历史里 = CAS 之后本器补跑的台账自愈建了前向提交,
+ *            那一支必须同时点名 HEAD_NOW),且 ② 段回写没有任何 failed / skipped(归属他人) / 未判定
+ *            (三类逐条点名并各自决定档位:skipped / 未判定 ⇒ 2,failed ⇒ 1;自 2026-11-06 契约起
+ *            不再"只在 stdout 点名"就记绿);
+ *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径**部分**无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
- *            CAS 12 次未抢到 / 提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限);
- *        2 = 用法或环境错,以及**回写让路/未判定**(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
- *            提交面回读"问不到"⇒ 未判定:落地已推进 HEAD,但存在性未能判定 —— 既不报成功也不报"缺路径",
- *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真 /
- *            ② 段回写有 skipped(归属他人)或 undetermined ⇒ "落地回写未判定/让路"那行 N 未判定 N 归属他人
- *            就是这一档的凭据,磁盘与索引没对上就不是绿;回写真失败(failed / 索引未完成 / 锁龄超上限)⇒ 1)。
+ *            CAS 12 次未抢到(**DEFERRED**:HEAD 被别人推进,本轮一枚也没落,大声点名)/
+ *            提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限 /
+ *            ② 段回写真失败(failed / 索引对齐未完成);
+ *        2 = 用法或环境错、**回写让路/未判定**,以及**落地自证不通过**(空清单 / 空消息 / 声明路径不在盘上 /
+ *            根不可当仓库问 / 提交面回读"问不到"⇒ 未判定:既不报成功也不报"缺路径",因为假失败会诱使
+ *            重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真 / ② 段回写有 skipped(归属他人)或
+ *            undetermined ⇒ 结论行「N 未判定 / N 归属他人」就是这一档的凭据,磁盘与索引没对上就不是绿 /
+ *            末尾回读 HEAD 既不等于本轮 sha、本轮 sha 也不在 HEAD 历史里(或祖先判定问不到)⇒ 逐字点名两个 sha
+ *            (§0.3:不许把"没推进"报成 0)/ 带完整落地基约却**没被认成直接执行** ⇒ 点名"一个字节都没落地"
+ *            (原负分支是静默 rc=0;2026-11-06 实测事故即此型:第一次跑 rc=0 零输出 HEAD 不动,同形复跑才真落地,
+ *            落的却是占位信息);
+ *        3 = **无需落地且逐条举证**(NOTHING-TO-LAND):声明面每一条写入路径的 blob 与基线逐字节相同、
+ *            每一条待摘除路径本就不在基线树里 ⇒ 本轮建不出任何差异,不建提交、不推 ref;
+ *            该档必须打出逐路径 oid 等值证据与 baseRef 的全量 sha,且**绝不与 0 共用**(0 = 真落了)。
  *
  * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
  *
@@ -179,7 +190,7 @@ import {
 // (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
 // `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
 import { injectText } from './watermark.mjs'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -437,6 +448,156 @@ export function parseArgs(env = process.env) {
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
 export function clobberedPaths(paths, baseMap, headNow, { root }) {
   return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
+}
+
+/** 落地成功自证与「无需落地」两条档的退出码(S-OSL-PROOF 2026-11-06;镜像测试按 §22c import 它们,不复制数字)。 */
+export const RC = { LANDED: 0, REFUSED: 1, UNJUDGED: 2, NOTHING_TO_LAND: 3 }
+const FULL_SHA_RE = /^[0-9a-f]{40}$/
+
+/**
+ * **落地自证**(2026-11-06 立,机主亲历事故):本轮 commit-tree 造出并已 CAS 成功的那枚 sha,
+ * 必须在**末尾**被回读证明"它现在就是 HEAD",证明不了就绝不是 0。
+ *
+ * 为什么判据必须是"回读逐字节等值",而不是"我刚才 CAS 成功了":
+ *  - CAS 成功与"进程结束时 HEAD 是什么"之间还隔着提交面回读、索引/工作树对齐、受影响判据复跑
+ *    三段,任何一段被别席插进来推进 HEAD,报"已落地"就是在替别人的一枚做证;
+ *  - 本仓的失效史上最难查的一型正是"rc=0 + 零输出 + HEAD 未推进"被读成"落地没生效"⇒
+ *    同形复跑 ⇒ 复跑那枚才真落地(2026-11-06 实测,占位信息 `docs: probe` 因此入库)。
+ *    把"没发生"报成 0,就是把"没判"写成"判过了"(§0.3),所以两枚 sha 必须逐字打出来。
+ *
+ * 三态不并桶:`headAfter` 取不到 ⇒ 未判定(2),不是"不等";等值 ⇒ 0 且必须打印全量 40 位。
+ * 纯函数(不碰 git),便于注入假执行做镜像取证。
+ *
+ * **允许的前向推进**(2026-11-06 L1 现读撞出来的边界,不是放宽):本器在 CAS 之后还会就地
+ * 补跑守门 71 的台账自愈(`rerunLedgerHeal`),它**有权再建一枚前向恢复提交** —— 那时 HEAD 自然
+ * 不等于本轮那枚。这一型必须仍然是 0(否则每一枚含台账的旁路落地都恒红,§12e),前提是
+ * `headContainsMade` 由调用方量好后交进来(true = 本轮那枚确实在 HEAD 的历史里),并且必须
+ * 把 `HEAD_NOW` 一起点名:绿的含义是"本轮 sha 已入库",不是"HEAD 停在本轮 sha"。
+ * 反过来,`headContainsMade` 为 false(本轮 sha 不在 HEAD 历史里 ⇒ 被别席顶掉/根本没推进)
+ * 或 null(祖先判定问不到)⇒ 一律非零并逐字点名两个 sha。
+ */
+export function judgeLandedProof({ createdSha, headAfter, parentSha = null, headContainsMade = null }) {
+  const made = String(createdSha ?? '').trim()
+  if (!FULL_SHA_RE.test(made))
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `本轮拿不出一枚 40 位提交 sha(实得 "${made.slice(0, 12) || '(空)'}")⇒ 落地没有发生,` +
+        '绝不报 0;也不得据此重跑同一形命令(重跑的那枚才会真落地,而信息是第二次凑的)',
+    }
+  const got = String(headAfter ?? '').trim()
+  if (got === '')
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why: `HEAD 回读取不到(git rev-parse HEAD 问不到)⇒ 未判定:本轮提交 ${made} 是否已成为 HEAD 无法证明(§0.3)`,
+    }
+  if (!FULL_SHA_RE.test(got))
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why: `HEAD 回读不是一枚 40 位 sha(实得 "${got.slice(0, 12)}")⇒ 未判定,不记绿`,
+    }
+  if (got === made)
+    return { ok: true, code: RC.LANDED, line: `LANDED ${made}`, headNow: got, forward: false, why: null }
+  if (headContainsMade === null || headContainsMade === undefined)
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `HEAD 现为 ${got} 而本轮提交是 ${made},两者不等且**祖先关系问不到** ⇒ 未判定:` +
+        '"本轮那枚到底进没进 HEAD 的历史"必须量得出,拿不到结论不得记绿也不得报缺(§0.3)',
+    }
+  if (headContainsMade === false)
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `HEAD 未推进到本轮提交:本轮造出并 CAS 的是 ${made},HEAD 现为 ${got}` +
+        `${parentSha ? `(本轮基线 ${parentSha})` : ''},且 ${made} 不在 ${got} 的历史里 ⇒ 这一型必须非零退出:` +
+        '把"没推进"报成 0,下一席就会同形复跑,而真落地的是复跑那枚(2026-11-06 实测事故)',
+    }
+  return {
+    ok: true,
+    code: RC.LANDED,
+    line: `LANDED ${made}`,
+    headNow: got,
+    forward: true,
+    why: null,
+  }
+}
+
+/**
+ * **「无需落地」档**(2026-11-06 立;与 exit 0 严格分开):
+ * 声明面**全部**落空 —— 每条写入路径将要提交的 blob 与基线逐字节相同,且每条待摘除路径
+ * 本就不在基线树里 —— 结构上建不出任何差异,于是不建提交、不推 ref,退出码单列 3 档并逐条举证。
+ *
+ * 为什么不折成 0:"这次什么都不必做"与"这次真做了一枚提交"在账面必须长得就不一样;
+ * 也不折成 1:1 是"被守卫拦下",而本档是"无事可做"。既有语义(partial 无差异仍 ⇒ 1)一字不动。
+ * 纯函数:等值事实由调用方(main)从 git 量好后交进来,镜像测试注入假面即可(§22c)。
+ */
+export function judgeNothingToLand({
+  paths = [],
+  removePaths = [],
+  mine,
+  base,
+  noDiff = [],
+  removeInBase = [],
+  baseRef = 'HEAD',
+  baseSha = null,
+}) {
+  const declared = paths.length + removePaths.length
+  if (declared === 0)
+    return { noop: false, evidence: [], why: '声明面为空(由 parseArgs 的清单守卫负责)' }
+  if (noDiff.length !== paths.length || removeInBase.length > 0)
+    return {
+      noop: false,
+      evidence: [],
+      why:
+        noDiff.length !== paths.length
+          ? `声明面里还有 ${paths.length - noDiff.length} 条路径与基线不同 ⇒ 本轮确有东西要落`
+          : `待摘除路径仍有 ${removeInBase.length} 条在基线树里 ⇒ 本轮确有东西要摘`,
+    }
+  const evidence = paths.map((p) => {
+    const oid = mine?.get?.(p) ?? '(无)'
+    const baseOid = base?.get?.(p) ?? '(无)'
+    return `写入 ${p}:本轮 blob ${oid} == 基线 ${baseRef}:${p} 的 blob ${baseOid}(逐字节相同)`
+  })
+  for (const p of removePaths)
+    evidence.push(`摘除 ${p}:${baseRef} 的树里本就不在位 ⇒ 无需再摘(不是"已经摘过"的凭据,只是本轮无事)`)
+  return {
+    noop: true,
+    evidence,
+    baseSha,
+    why: null,
+    rerun:
+      `可复跑的证据:baseRef=${baseRef}${baseSha ? `=${baseSha}` : ''};` +
+      '要真落东西必须先改动 LAND_PATHS 里那份内容(或给出仍在基线树里的 LAND_REMOVE_PATHS)再重跑同一形命令;' +
+      '确属"这一枚早已入库"则无需再落 —— 本档不建提交、不推 ref、不动索引(退出码 3,不是 0)',
+  }
+}
+
+/**
+ * 「是否带着完整落地基约」(纯函数,给直接执行识别的负分支用):
+ * LAND_MSG 齐备 且 LAND_PATHS / LAND_REMOVE_PATHS 至少一边非空 ⇒ 调用方**确实想落一枚提交**。
+ * 这种形态下若本器没被认成直接执行,就必须大声非零,绝不能让事件循环排空换来一个静默的 0。
+ */
+export function looksLikeLandingContract(env = {}) {
+  // 清单口径与 parseArgs 逐字同源(以 ; 分隔、逐项 trim 后取非空),不在这里发明第二种"非空":
+  // 否则 `LAND_PATHS=" ; "` 在这把尺上算"想落地",在那把尺上是"空清单 ⇒ 用法错",两把尺必漂移。
+  const listed = (v) =>
+    String(v ?? '')
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean).length > 0
+  const content = listed(env.LAND_PATHS) || listed(env.LAND_REMOVE_PATHS)
+  return content && String(env.LAND_MSG ?? '').trim() !== ''
 }
 
 /* 计行口径与行级复活判据(linesOf / tallyLines / resurrectKey / lineDelta / resurrectAnalysis)
@@ -3163,11 +3324,42 @@ async function main() {
 
   // 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了"改了它";safe-commit Step③ 同型的中止语义,前置到写盘之前)
   const noDiff = paths.filter((p) => mine.get(p) === base.get(p))
+  /**
+   * 「无需落地」档(S-OSL-PROOF 2026-11-06):上一版把"声明面**整片**与基线逐字节相同"也折进
+   * 下面那条 exit 1,与"部分无差异被拦"同码同形;而 0 那一档又从不出现 —— 于是"重跑一枚早已
+   * 入库的票"读起来像"被守卫拦下了"。本档把它单列 exit 3 并逐条举证(oid 等值 + 在位性),
+   * 与真落地的 0 严格分开。判据本体是纯函数 judgeNothingToLand,镜像注入假面即可(§22c)。
+   */
+  const removeInBase = removePaths.filter(
+    (p) => headBlobOf(baseRef, p, { root }) !== ABSENT,
+  )
+  const noop = judgeNothingToLand({
+    paths,
+    removePaths,
+    mine,
+    base,
+    noDiff,
+    removeInBase,
+    baseRef,
+    // 只有 baseRef 就是 HEAD 时 head0 才是它的现读 sha;带 LAND_BASE_REF 取证通道时不拿 HEAD 冒充基线 sha。
+    baseSha: baseRef === 'HEAD' ? head0 : null,
+  })
+  if (noop.noop) {
+    console.error(
+      `ℹ️ NOTHING-TO-LAND ⇒ 不建提交、不推 ref、不动索引(exit 3,不是 exit 0:本轮结构上没有差异可落):`,
+    )
+    for (const l of noop.evidence) console.error(`   ${l}`)
+    console.error(`   ${noop.rerun}`)
+    process.exit(RC.NOTHING_TO_LAND)
+  }
   if (noDiff.length > 0) {
     console.error(
       `❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`,
     )
-    process.exit(1)
+    console.error(
+      `   注:只有**整片**无差异才走"无需落地"(exit 3 并逐条举证);这里是部分相同 ⇒ 仍按业务拒绝拦。`,
+    )
+    process.exit(RC.REFUSED)
   }
 
   /**
@@ -3554,8 +3746,11 @@ async function main() {
       `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`,
       root,
     )
-    console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
-    process.exit(1)
+    console.error(
+      `❌ DEFERRED:${MAX_CAS_ATTEMPTS} 次均未抢到 CAS(别人一直在推进 HEAD)⇒ 本轮一枚也没落地、主索引未动;` +
+        '这是"让位"不是"完成",不得按 0 重跑同一形命令',
+    )
+    process.exit(RC.REFUSED)
   }
 
   // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
@@ -3645,7 +3840,7 @@ async function main() {
   })
   if (!attest.ok)
     console.log(
-      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed},不改退出码):${attest.why}`,
     )
   else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
 
@@ -3703,18 +3898,18 @@ async function main() {
     process.exit(1)
   }
   if (landingAlign.alignFailed) {
-    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):HEAD 已推进 ${landed.slice(0, 11)}`)
+    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):HEAD 已推进 ${landed}`)
     process.exit(1)
   }
   if (landingAlign.failed.length > 0) {
     console.error(
-      `❌ 落地回写未完成(${landingAlign.failed.length} 路径)⇒ HEAD 已推进 ${landed.slice(0, 11)},但索引/工作树没有全部对上`,
+      `❌ 落地回写未完成(${landingAlign.failed.length} 路径)⇒ HEAD 已推进 ${landed},但索引/工作树没有全部对上`,
     )
     process.exit(1)
   }
   if (landingAlign.undetermined.length > 0 || landingAlign.skipped.length > 0) {
     console.error(
-      `❌ 落地回写未判定/让路(${landingAlign.undetermined.length} 未判定 / ${landingAlign.skipped.length} 归属他人)⇒ HEAD 已推进 ${landed.slice(0, 11)},这些路径的索引/磁盘状态不记绿`,
+      `❌ 落地回写未判定/让路(${landingAlign.undetermined.length} 未判定 / ${landingAlign.skipped.length} 归属他人)⇒ HEAD 已推进 ${landed},这些路径的索引/磁盘状态不记绿`,
     )
     process.exit(2)
   }
@@ -3730,17 +3925,42 @@ async function main() {
   const affected = rerunAffectedGates({ root, paths: paths.concat(removePaths) })
   if (affected.verdict === 1) {
     console.error(
-      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
     )
     process.exit(1)
   }
   if (affected.verdict === 2) {
     console.error(
-      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed}(不回滚),请人工复跑点名臂`,
     )
     process.exit(2)
   }
-  process.exit(0)
+  /**
+   * 落地自证(S-OSL-PROOF,2026-11-06):最后一句必须是"回读 HEAD 逐字节等于本轮那枚 40 位 sha",
+   * 证明不了 ⇒ 非零并点名两个 sha。判据本体是纯函数 judgeLandedProof(镜像注入假面钉三态,§22c)。
+   */
+  const headAfter = String(git(['rev-parse', 'HEAD'], { root, allowFail: true }) ?? '').trim()
+  // 两者不等时才问祖先性(等值那一支不需要任何派生):true = 本轮 sha 已进 HEAD 历史
+  // (CAS 之后本器自己补跑的台账自愈可能再建一枚前向恢复提交 ⇒ 这是合法前向,不是没落地)。
+  const headContainsMade =
+    headAfter === landed || !FULL_SHA_RE.test(headAfter) ? null : isAncestor(landed, headAfter, { root })
+  const proof = judgeLandedProof({ createdSha: landed, headAfter, parentSha, headContainsMade })
+  if (!proof.ok) {
+    console.error(`❌ 落地自证不通过(未记绿,亦不 rollback:既成事实交人工裁决):${proof.why}`)
+    console.error(
+      '   方向:先问 HEAD 为何不等于本轮 sha(别席推进 / detached / rev-parse 问不到),再决定是否重落;' +
+        '**禁止**按"刚才没落地"直接同形复跑(§0.3:取不到 ⇒ 未判定,不记绿也不冒红)。',
+    )
+    process.exit(proof.code)
+  }
+  console.log(proof.line)
+  console.log(
+    proof.forward
+      ? `   HEAD_NOW=${proof.headNow}(本轮那枚之后有**前向提交** = CAS 后本器补跑的台账自愈替身所建;` +
+          `LANDED 的 40 位 sha 已逐字证明在 HEAD 历史里 ⇒ 0 档成立,含义是"本轮 sha 已入库",不是"HEAD 停在它")`
+      : `   (0 档的唯一含义:上面这枚 40 位 sha 就是回读到的 HEAD;parent=${parentSha},基线 ${baseRef}=${head0})`,
+  )
+  process.exit(RC.LANDED)
 }
 
 /**
@@ -3857,6 +4077,21 @@ const SELF_TEST_PLAN = [
   {
     id: 'ST12',
     name: '声明式还原·未被消费的声明(该行没复活)⇒ 拒;与 ALLOW_STALE 同举 ⇒ exit 2',
+    expect: 'reject',
+  },
+  {
+    id: 'ST13',
+    name: '无需落地档:整片声明与基线逐字节相同 ⇒ rc=3 且逐条举证(绝不与 0 共用)',
+    expect: 'reject',
+  },
+  {
+    id: 'ST14',
+    name: '落地自证:真建提交必须打印 LANDED <40 位 sha>,且回读 HEAD 逐字节等于它',
+    expect: 'accept',
+  },
+  {
+    id: 'ST15',
+    name: '空跑必须响:带完整落地基约却没被认成直接执行 ⇒ 非零 + 点名"一个字节都没落地"(旧形态是静默 rc=0)',
     expect: 'reject',
   },
 ]
@@ -4193,6 +4428,54 @@ async function runSelfTest() {
     return null
   })
 
+  await one('ST13', SELF_TEST_PLAN[12].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // keep.txt 的盘上副本 == 基线 blob ⇒ 整片声明无差异(唯一声明的就是这一条)
+    const r = stRun(dir, { paths: 'keep.txt', msg: 'selftest nothing-to-land' })
+    if (r.rc !== RC.NOTHING_TO_LAND)
+      return `整片无差异必须走"无需落地"档 rc=3,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (!/NOTHING-TO-LAND/.test(r.out)) return '必须点名 NOTHING-TO-LAND,实得:' + r.out.slice(0, 300)
+    if (!/逐字节相同/.test(r.out)) return '必须逐条举证 blob 等值,实得:' + r.out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '无需落地档不得推进 HEAD'
+    return null
+  })
+
+  await one('ST14', SELF_TEST_PLAN[13].name, (dir) => {
+    writeFileSync(join(dir, 'keep.txt'), 'keep me v14(自证用例)\n', 'utf8')
+    const r = stRun(dir, { paths: 'keep.txt', msg: 'selftest landed-proof' })
+    if (r.rc !== 0) return `真落地必须 rc=0,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    const m = r.out.match(/^LANDED ([0-9a-f]{40})$/m)
+    if (!m) return '末尾必须打印整条 LANDED <40 位 sha>,实得:' + r.out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== m[1])
+      return `打印的 LANDED ${m[1]} 与回读 HEAD 不一致(实得 ${stGit(dir, ['rev-parse', 'HEAD']).trim()})`
+    return null
+  })
+
+  await one('ST15', SELF_TEST_PLAN[14].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // 注入"没被认成直接执行"的假执行面:以 import 形态带完整落地基约调本器。
+    // 旧形态 = 事件循环排空 ⇒ rc 0 + 零输出 + HEAD 不动(2026-11-06 实测事故那一支)。
+    const href = pathToFileURL(fileURLToPath(import.meta.url)).href
+    const r = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(href)})`], {
+      env: {
+        ...process.env,
+        LAND_ROOT: dir,
+        LAND_PATHS: 'keep.txt',
+        LAND_MSG: 'selftest silent-zero must shout',
+      },
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    if ((r.status ?? -1) === 0)
+      return `带落地基约的空跑必须非零退出,实得 rc=0:${out.slice(0, 300)}(这正是把"没发生"报成"发生过")`
+    if (!/一个字节都没落地/.test(out)) return '必须点名"一个字节都没落地",实得:' + out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '空跑不得动 HEAD'
+    return null
+  })
+
   for (const r of results)
     console.log(`${r.ok ? '✅' : '❌'} ${r.id} ${r.name}${r.ok ? '' : `\n    ${r.why}`}`)
   const bad = results.filter((r) => !r.ok).length
@@ -4231,12 +4514,47 @@ const USAGE = [
   '  LAND_ROOT           仓库根(缺省本仓)',
   '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
   '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
-  '退出码: 0 正常(落地+回读+回写全对上)/用法打印 · 1 判据红(自证不过)、落地被拒、回写未完成(failed)',
-  '          2 用法或环境错(空清单/空消息/声明路径不在盘上/根不可当仓库问),以及回写让路或未判定',
-  '          (结论行「N 未判定 / N 归属他人」⇒ 索引/磁盘没对上,那一档不得读成绿)',
+  '退出码: 0 = 真建了提交且末尾自证通过(必打 LANDED <40 位 sha>;回读 HEAD 等值,或本轮那枚在 HEAD 历史里的前向分支并点名 HEAD_NOW)且回写全对上',
+  '        1 = 业务拒绝(被拦 / 部分无差异 / CAS 12 次未抢到 = DEFERRED)+ 回写真失败(failed / 索引未完成)',
+  '        2 = 用法或环境错(空清单/空消息/声明路径不在盘上/根不可当仓库问)、回写让路或未判定,',
+  '            以及落地自证不通过(HEAD 既不等于本轮 sha 也不含它)或「带落地基约却没被认成直接执行」',
+  '        3 = NOTHING-TO-LAND 无需落地:整片声明与基线逐字节相同且待摘项本就不在位 ⇒ 逐条举证,不建提交(绝不与 0 共用)',
+  '        # 用法打印(--help)同样回 0,但它不碰 refs/索引(零副作用是这条口径能被测的前提)',
 ]
 
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+/**
+ * 「本器被当成可执行文件跑了吗」(§22d 的 Windows 加固,S-OSL-PROOF 2026-11-06 立)。
+ *
+ * 旧写法 `import.meta.url === pathToFileURL(process.argv[1]).href` 是**逐字节比 URL**,
+ * 而同一个本器在 URL 面上可以长成好几种样子:8.3 短名(`OBJECT-S~1.MJS`)、junction/符号链接
+ * 提供的另一条路径、盘符大小写、经 realpath 解析后不同的挂载点 —— 任一种不等值都会掉进
+ * 负分支,而负分支过去**什么也不做**:模块加载完 ⇒ 事件循环排空 ⇒ Node 自然退出 0、
+ * stdout 零字节、HEAD 一动不动。2026-11-06 实测事故正是这一型:第一次带真 LAND_MSG 跑
+ * 拿到 rc=0 + 零输出,席据此判"没落地",同形复跑才真落地(而第二次跑的是占位信息)。
+ * 正解两条:① 比对前先 realpath + (win32) 大小写折叠,把"同一个文件的各种写法"收敛成一个身份;
+ * ② 负分支不再沉默 —— 带着完整落地基约(LAND_MSG + 至少一边清单)却没被认成直接执行,
+ *    一律大声 exit 2 并点名"一个字节都没落地",失效方向恒为"多要一次说明"(§0.10)。
+ */
+function looksLikeThisModule(arg) {
+  if (!arg) return false
+  const norm = (p) => {
+    let real = p
+    try {
+      real = realpathSync(p)
+    } catch {
+      /* 取不到 realpath 就用原值 —— 判不出时宁可走回落比对,不在这里猜 */
+    }
+    const abs = resolve(real)
+    return process.platform === 'win32' ? abs.toLowerCase() : abs
+  }
+  try {
+    return norm(arg) === norm(fileURLToPath(import.meta.url))
+  } catch {
+    return import.meta.url === pathToFileURL(arg).href
+  }
+}
+
+const isDirectRun = !!process.argv[1] && looksLikeThisModule(process.argv[1])
 if (isDirectRun) {
   // help 排在**第一位**:它不该被 env 契约(缺 LAND_PATHS 即拒 exit 2)挡成"用法错",
   // 也不该排到 --self-test 之后 —— 用户要的是用法,不是自证。
@@ -4258,6 +4576,17 @@ if (isDirectRun) {
       process.exit(2)
     })
   }
+} else if (looksLikeLandingContract(process.env)) {
+  console.error(
+    '❌ 本器带着完整落地基约(LAND_MSG + LAND_PATHS/LAND_REMOVE_PATHS)被调用,**却没被认成直接执行**' +
+      '⇒ 一个字节都没落地、一枚提交都没建、HEAD 未动。' +
+      '这一型过去会静默回 0(模块被 import / argv[1] 写法对不上 ⇒ 事件循环排空自然退出),' +
+      '于是"没发生"在账面上读成"发生了",下一席的同形复跑才是真落地那枚(2026-11-06 实测事故)。',
+  )
+  console.error(
+    `   argv[1]="${process.argv[1] ?? '(无)'}" 本器="${fileURLToPath(import.meta.url)}" ⇒ 请用 \`node <本文件路径> \` 直跑(env 契约见 --help)。`,
+  )
+  process.exit(RC.UNJUDGED)
 }
 
 export const __test__ = {
@@ -4278,6 +4607,12 @@ export const __test__ = {
   // ④ 窄档「改写 ≠ 摘除」:镜像测试按 §22c 直接 import 这两个出口,不在测试里另抄一份锚点表。
   REWRITE_ANCHOR_KEYS,
   isLedgerRewrite,
+  // S-OSL-PROOF(2026-11-06):三档语义的判据本体都是纯函数,镜像测试按 §22c 注入假面直接判,
+  // 不在测试里复制第二份实现(数字 RC.* 也走同一份出口)。
+  RC,
+  judgeLandedProof,
+  judgeNothingToLand,
+  looksLikeLandingContract,
   staleReport,
   commitFacePresence,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
