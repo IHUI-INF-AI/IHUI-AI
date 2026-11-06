@@ -308,7 +308,11 @@ function createStyles(tk: AppThemeTokens) {
     headerLeft: { flex: 1 },
     headerRight: { flexDirection: 'row', alignItems: 'center' },
     greeting: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
-    welcome: { marginTop: rnSpacing['xs-loose'], fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    welcome: {
+      marginTop: rnSpacing['xs-loose'],
+      fontSize: rnType.bodySm.size,
+      color: tk.text.secondary,
+    },
     dot: { marginRight: rnSpacing.sm, width: 8, height: 8, borderRadius: rnRadius.xs },
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
@@ -400,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.success.DEFAULT,
     },
-    mutedText: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
+    mutedText: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
     progressBar: {
       marginTop: rnSpacing['sm-loose'],
       height: 6,
@@ -415,7 +419,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     menuGrid: { flexDirection: 'row', flexWrap: 'wrap' },
     menuCell: {
       width: '33.333%',
@@ -425,7 +433,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['xs-loose'],
       gap: rnSpacing.sm,
     },
-    menuIcon: { fontSize: 22, lineHeight: 26 },
+    menuIcon: { fontSize: 22, lineHeight: rnType.subtitle.lineHeight },
     menuLabel: { fontSize: rnType.bodySm.size, color: tk.text.secondary, textAlign: 'center' },
   })
 }

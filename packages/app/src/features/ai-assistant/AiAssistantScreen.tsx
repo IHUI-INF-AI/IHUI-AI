@@ -228,7 +228,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     tagRow: {
       flexDirection: 'row',

@@ -9,6 +9,7 @@
  * 与内联新建/编辑表单(type/title/description/hours/occurredAt)。
  * 附件上传为 web 端对话框能力(RN 薄壳展示附件数并原样回传已有附件,不提供新增上传)。
  */
+import { rnSpacing } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import { CalendarClock, Paperclip, Pencil, Plus, Trash2 } from 'lucide-react-native'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
@@ -183,7 +184,7 @@ export function OfflineRecordsScreen({
               />
             </View>
             <View style={styles.formRow}>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1, gap: rnSpacing.xs }}>
                 <Text style={styles.formLabel}>{t('offlineRecordsPage.hoursLabel')}</Text>
                 <TextField
                   colorScheme={colorScheme}
@@ -193,7 +194,7 @@ export function OfflineRecordsScreen({
                   onChangeText={(v) => onFieldChange?.('hours', v)}
                 />
               </View>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1, gap: rnSpacing.xs }}>
                 <Text style={styles.formLabel}>{t('offlineRecordsPage.dateLabel')}</Text>
                 <TextField
                   colorScheme={colorScheme}

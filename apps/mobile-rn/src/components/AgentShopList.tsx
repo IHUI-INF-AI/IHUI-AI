@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     marginTop: rnSpacing.xs,
     fontSize: rnType.label.size,
     color: tokens.text.secondary,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
   },
   tagRow: {
     flexDirection: 'row',

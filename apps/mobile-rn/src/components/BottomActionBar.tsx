@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   configEmoji: {
     fontSize: rnType.title.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   voiceEmoji: {
     fontSize: rnType.subtitle.size,
-    lineHeight: 22,
+    lineHeight: rnType.strong.lineHeight,
   } as TextStyle,
   // ── 2026-10-16 录音态覆盖层(简约黑白:surface.card 底 + text.primary 波形)──
   recordingOverlay: {

@@ -20,7 +20,7 @@ export function AgentReviewDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: AgentReviewDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -101,7 +101,7 @@ function createStyles(tk: AppThemeTokens) {
     content: {
       marginTop: rnSpacing.md,
       fontSize: rnType.title.size,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       color: tk.text.primary,
     },
     createdAt: { marginTop: rnSpacing.md, fontSize: rnType.caption.size, color: tk.text.tertiary },
