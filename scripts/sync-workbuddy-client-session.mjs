@@ -101,7 +101,12 @@ function runJudge(dryRun) {
       resolve({
         code: signal ? 2 : (code ?? 2),
         summary,
-        error: summary ? null : (stderr.trim() || `退出码 ${code ?? '?'}`).slice(0, 400),
+        error: summary
+          ? null
+          : (
+              stderr.trim() ||
+              `退出码 ${code ?? '?'}${signal ? `(信号 ${signal},180000ms 窗口超时被杀,本轮未判定)` : ''}`
+            ).slice(0, 400),
       })
     })
   })

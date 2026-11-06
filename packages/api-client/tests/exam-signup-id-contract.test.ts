@@ -49,14 +49,16 @@ interface RecordedCall {
 
 function makeTransport(payload: unknown): { transport: Transport; calls: RecordedCall[] } {
   const calls: RecordedCall[] = []
+  const body = { code: 0, message: 'ok', data: payload }
   const transport: Transport = async (url, init) => {
     calls.push({ url, method: init.method, body: init.body })
     return {
       ok: true,
       status: 200,
       headers: { get: () => null },
-      text: async () => '',
-      json: async () => ({ code: 0, message: 'ok', data: payload }),
+      // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+      text: async () => JSON.stringify(body),
+      json: async () => body,
     }
   }
   return { transport, calls }
