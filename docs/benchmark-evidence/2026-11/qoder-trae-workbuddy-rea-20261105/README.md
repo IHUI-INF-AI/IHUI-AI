@@ -287,4 +287,38 @@ node scripts/git-sync-converge.mjs            # 收敛唯一入口(勿手工 fet
 - 落档面的「两枚 docs 账」由主席代落:goal-b46 席 `T12-mtree-and-hook-host.md` §C1 表 1.0.91 行的「8 条里 5 条 async」现读为 **6 条 async / 2 条 sync**,「首次出现 `matcher`」现读位置在 **grp 层**(包裹 `hooks:[...]` 那一级)而非叶子 `hook` 层,1.0.91 的 8 条叶子共带 4 处非空 matcher ⇒ 依据 = 同目录 `T12-mtree-native-and-hook-host.md` §3 末「就地更正」表,已就地更正该两行(不抄副本、不加指针注记)。
 - 门禁复跑红全部与本次内容无关,按 §12e 只报不修:门 29 push-sync(随推送腿结清)/ 门 30c 点名 `scripts/tests/{check-mobile-download-leg,check-web-rn-copy-parity}.test.mjs` 陈旧副本(他席在飞,`scripts/**` 票面排除)/ 门 41 旁支与 stale 远程跟踪引用(机器状态)/ 门 42 rc=2 未判定(点名 8 个 `apps/miniapp-taro/**`、`packages/database/**` 文件不存在,他席删除面在飞,结构上取不到输入)/ 门 277 未判定(装机根 `C:\Users\Administrator\.ihui\installed-plugins` 不存在)/ 门 275 存量 62 只报数;Z14 那枚曾点名门 30a 的 5 枚悬空 commit 未 tag(`fix(knip)`/`fix(cli)` 他席产物)与 6 道超预算未跑门,后续枚次复跑归零或转绿,无一道点名本席内容。
 - 残留未落(全部是票面排除项,非漏落):`apps/cli/tests/checkpoints-corrupt-manifest.test.ts`(头注自述 goal-b49 **S3** 席产物)/ `apps/desktop/src/lib/__tests__/task-receiver.test.mjs`(索引里他席新加)。
+## 15. 第十回合(2026-11-06 00:00–)第四波八格 · 主席自写(前一张写账席 Z43 死在读素材阶段,29 次调用零落笔)
+
+### 15a. 已入库(提交号一律 `git log --format='%H %s' -25` 现读,§1 禁短 sha)
+
+| 能力/格 | 提交 | 主席自己复量过的读数 |
+| --- | --- | --- |
+| 内置网段表改派生态单源件 + 生成器 + 三格对账尺 + Rust `include_str!`(Z26) | 现读取全 40 位,见 `git log --oneline -- scripts/generate-egress-builtin-list.mjs` | 六枚路径中 `generate-egress-builtin-list.mjs` 与 `packages/shared/src/utils/egress-builtin-list.json` 经 `git cat-file -e HEAD:<path>` 逐枚命中 ✓ |
+| `registry.ts` 270→248(键集迁 `plugin-extensions.ts`)+ `worktree.ts` 396→223(五档,三把可改锁改指新档并**加严**)+ prettier 长行族具名豁免(Z30) | 同上现读 | `apps/cli/src/plugins/plugin-extensions.ts`、`apps/cli/src/tools/worktree-state.ts` 命中 HEAD ✓ |
+| 事件驱动增量索引的关停前排空四路 + 第二条既有 2s 循环兜底(Z32) | 同上现读 | `apps/ai-service/tests/test_file_watch_drain_shutdown.py` 命中 HEAD ✓ |
+| MCP `symbol_name` 精确过滤 + 段账改吃 `stage_telemetry` 单源 + 验收尺 J5 维(Z28) | 同上现读 | `apps/ai-service/tests/test_symbol_name_filter_b49z28.py` 命中 HEAD ✓ |
+| 取证册 §14 与旧册 §C1 两格就地更正(Z25) | `96cf3502d0704e1b0d2c01e20b52674050868489` / `c72e99d6eb2423352bf35a787bb3bdb3f8a780ac`(Z25 自读) | 该席末行 `origin=ALREADY` 且水印 2/2 |
+
+### 15b. 待落清单(由 Z42 合车落地,落地后必须在下一枚提交补账——**没发生的事不写成已完成**)
+
+- Z36:apps/api 侧 `symbolName` 过滤位前移(条件进 `whereParts`、`LIMIT` 吃脱离 topK 的行预算)。主席自己复跑:`npx vitest run tests/codebase-search-symbol-name-{filter,route}.test.ts` = **2 files / 17 passed** ✓(同族 `codebase-search.test.ts` 在该端不存在,vitest 未点名 ⇒ 记「该路径无此件」而非「跑绿」)。
+- Z40:卫生尺 `check-verify-tmp-files.mjs` 扩 `tmp-*` 形态射程 + 镜像 23 条。主席自己复量:全量档「verify-*.* / tmp-*.* 均在合法落点」**存量 0**、`node --test` = **23 pass / 0 fail** ✓。
+- Z35:`main.py` 关停步表挂 `agent_engine_watchers`(排 mcp_stdio_bridge 后、shared_db_pool 前)+ 3 例;该席读数 pytest 10/10、mypy 0 errors。
+- Z37(Z36 之后那半格:MCP 侧改下推)与 Z41(86 号门升 blocking 前置复量 + `docs/guardian-reference.md` 措辞)**本节节稿时仍在飞**,读数待补,不许预先翻勾。
+
+### 15c. 推翻主席假设的四处现读(派单的人也要被证伪)
+
+1. **Z32 推翻「没有 watchWorkspace 就没有周期 = 选择而非缺陷」**:fork 不携带 `watch_workspace` 字段 ⇒ 分叉后周期**结构上归零**;且确有第二条不依赖它的既有 2s 循环(`fs/watch` 的 `_watch()`)可挂兜底。
+2. **Z33 抓到一枚恒真断言**:`command-policy-syntax-surface` 第⑥例把布尔塞进 `expect` 第二参、比的是同一个字符串 ⇒ 自拆档落起从未生效;反向实验(预算改 20 仍全绿)坐实,改真断言后当场翻红,已还原并证零变异残留。
+3. **Z36 定位根因是位置不是缺失**:HTTP 侧「按符号取全部」做不到,是因为三腿都 **SQL `LIMIT topK*2` 先截、JS `slice(0,topK)` 后滤**,不是"库里没这个字段"。
+4. **Z38 纠正本席派单书**:第二腿错误数是 **4 条**(`tmp-mcode-identity` 2 + `tmp-mcode-queue-state` 2),不是 6 条;`tmp-mcode-guard.ts` 在 include 面内但贡献 0 条。同时量出 §25 那把尺**结构上看不见 `tmp-*` 形态** ⇒ 才有 Z40 的扩射程。
+
+### 15d. 裁决登记(不留待拍板)与合法终态
+
+- **插件执行入口 = 已裁未开**(Z31):真拦路不是信任面缺失(`src/hooks/trust.ts` 默认拒+摘要+fail-closed 早已在场),而是 `LoadPluginsOptions` 无信任入参、`PluginDefinition` 的 JSON 路径产不出可调用体,且加执行腿必破 HEAD 的静态锁。对侧现读纠正:`catalog.v1.json` 10/10 枚带 `main`+`sha256` ⇒ **入口住宿主中央 catalog,不住插件清单**;开通道形态钉死为「约定入口+摘要台账+trust 双条件+dataClass 默认拒」四件同批。`onCommand` 保持 `reject`。
+- **prettier 长行族 = 具名豁免**(Z30,`owner/expires=2027-01-31/evidence/why` + 两条到期复评出口),没选改判据;如实边界:既有 `cli/` 通配本就整片排除 apps/cli,这次买到的是把"偶然通配"换成可到期、可问责的裁决。
+- **`upgradeGates` = 非缺口**(Z27):版本门三方早已接通(api `decideCliMinVersion` / web `app-version-gate.ts` / CLI `updater.ts`),另立声明维无消费者即 §0.9 空壳。
+- **合法终态,不是待办**:巨型 PE 函数级穷尽性 = 未判定·射程外(Ghidra >1h,REA 硬预算 5.5min);`-F`/`ProxyJump` 值内二跳 = 诚实边界(留反例);`tmp-*.{json,md}` 刻意不收(扩展名口径以 tsconfig include 面为准);`SYMBOL_SCOPED_ROW_CAP=200` 触顶按相关度取前 200 = 为守住缺省形状未加 `truncated` 键的已知取舍。
+
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

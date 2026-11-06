@@ -77,6 +77,13 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'PROVIDER_BUSY.action',
     category: 'backendTimeout',
   },
+  // 生图高消耗审批(对照 WorkBuddy skillApprovalRules 的 requireApproval)。
+  // 产出点 apps/ai-service/app/core/mcp_tool_approval.py。未批准不调用上游。
+  CREDIT_APPROVAL_REQUIRED: {
+    titleKey: 'CREDIT_APPROVAL_REQUIRED.title',
+    actionKey: 'CREDIT_APPROVAL_REQUIRED.action',
+    category: 'authForbidden',
+  },
   // —— 守门 94(R1)补录:顾问子模型五码,产出点 apps/ai-service/app/services/advisor.py 的 consult。
   //   分档依据(逐条对齐既有同族,不另立分类):ADVISOR_PROMPT_EMPTY 是"送进去的内容不合契约"
   //   (invalidResponse,与 EMPTY_TASKS / EMPTY_RESULT 同档);ADVISOR_PROMPT_TOO_LONG 与
@@ -294,6 +301,18 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
   EXEC_POLICY_DENIED: {
     titleKey: 'EXEC_POLICY_DENIED.title',
     actionKey: 'EXEC_POLICY_DENIED.action',
+    category: 'authForbidden',
+  },
+  // 命令多档策略(产出点 mcp_server.py 的 adjudicate_command)。
+  // 未判定不折成拒绝或放行,界面仍要有标题,不能落到「未知错误」。
+  COMMAND_POLICY_DENIED: {
+    titleKey: 'COMMAND_POLICY_DENIED.title',
+    actionKey: 'COMMAND_POLICY_DENIED.action',
+    category: 'authForbidden',
+  },
+  COMMAND_POLICY_UNDETERMINED: {
+    titleKey: 'COMMAND_POLICY_UNDETERMINED.title',
+    actionKey: 'COMMAND_POLICY_UNDETERMINED.action',
     category: 'authForbidden',
   },
   EXEC_POLICY_NEEDS_APPROVAL: {

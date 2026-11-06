@@ -195,6 +195,59 @@ function buildWebRnRows(json) {
 }
 
 /**
+ * 轴二的**自动化上界**(2026-11-06 实测后并进来,免得下一个人再拿 2099 当"2099 个可自动修的点")。
+ *
+ * 这一腿比的是**整文件出现过的档值集合**,不是同一元素的同属性:一个屏两侧各自用十几种宽高本来正常。
+ * 所以一条 (对,维) 分叉只有在"两侧都恰好一个候选值"时才有机械可跟随的语义,其余三桶(web 多/RN 多/
+ * 都多)选哪个都是猜 ⇒ 必须交裁决。把这个比例放进台账,是为了让"造落档腿"这个决定看见自己的上界,
+ * 而不是看见总数。
+ *
+ * 计数只消费门的 `dims[d].webOnly/rnOnly` 两个明细数组与 `status` —— 本层零几何复算(§0.6)。
+ */
+function followableOf(json) {
+  const dims = Array.isArray(json?.webRn?.dimensions) ? json?.webRn?.dimensions : []
+  const byDim = {}
+  let cells = 0
+  let followable = 0
+  const items = []
+  const pairsWithFollowable = new Set()
+  for (const f of json?.webRn?.detail ?? []) {
+    for (const d of dims) {
+      const c = f?.dims?.[d]
+      if (!c || c.status !== 'diff') continue // one-sided / no-data / same 都不是分叉,不进分母
+      const w = (c.webOnly ?? []).length
+      const r = (c.rnOnly ?? []).length
+      cells++
+      byDim[d] = byDim[d] || { cells: 0, followable: 0 }
+      byDim[d].cells++
+      if (w === 1 && r === 1) {
+        followable++
+        byDim[d].followable++
+        pairsWithFollowable.add(f.name)
+        /**
+         * 清单才是可派工的形态:一个计数只回答"值不值得造腿",逐条 (屏, 维, web 值, RN 值)
+         * 才回答"动哪一行"。值也一律取门的明细数组,本层不换算单位、不映射 token 档。
+         */
+        items.push({ pair: f.name, dim: d, web: (c.webOnly ?? [])[0], rn: (c.rnOnly ?? [])[0] })
+      }
+    }
+  }
+  items.sort((a, b) => a.pair.localeCompare(b.pair) || a.dim.localeCompare(b.dim))
+  return {
+    cells,
+    followable,
+    needsAdjudication: cells - followable,
+    pairsWithFollowable: pairsWithFollowable.size,
+    byDim,
+    items,
+    why:
+      cells === 0
+        ? '本轮没有 (对,维) 分叉记录'
+        : '其余记录是集合级歧义(一侧多候选或一侧无读数)⇒ 任何落档腿都必须 held 不猜,不得当成可自动修',
+  }
+}
+
+/**
  * `--check` 的裁决(纯函数,镜像测试直接调用它,不靠跑 main)。红优先于未判定,但**只认有基线那一轴的涨**:
  * 轴二还没建基线时把全部读数报成"新出现的配对"是自证循环(没有可比的前值),那种情形落 2 而不是 1。
  * 某一轴"门判不了 / 还没在册"顶 2 —— **绝不回 0 冒充两轴都判过**(§0.3)。
@@ -404,6 +457,7 @@ async function main() {
   const wrLedgerState = !snap?.webRn ? 'not-in-ledger' : Array.isArray(snap.webRn.families) ? 'present' : 'broken'
   const dw = diffAgainst(webRows, wrLedgerState === 'present' ? snap.webRn : null)
   const uncoveredW = uncoveredWebRnKeys(json)
+  const ceiling = followableOf(json)
   const nowIso = new Date().toISOString()
 
   const payload = {
@@ -437,6 +491,7 @@ async function main() {
             undetermined: (json.webRn.undetermined ?? []).length,
             pending: (json.webRn.pending ?? []).length,
             allowedDiff: json.webRn.allowedDiff ?? null,
+            automationCeiling: ceiling,
             total: webTotal,
             families: webRows,
           }
@@ -567,6 +622,20 @@ async function main() {
       )
       const ad = w.allowedDiff ?? {}
       console.log(
+        `  可自动跟随上界 = ${ceiling.followable} / ${ceiling.cells} 条 (对,维) 分叉` +
+          `(${ceiling.cells ? ((ceiling.followable / ceiling.cells) * 100).toFixed(1) : '0'}%,涉及 ${ceiling.pairsWithFollowable} 屏)` +
+          ` —— 只有"两侧各恰好一个候选值"才有机械可跟随的语义;其余 ${ceiling.needsAdjudication} 条是集合级歧义或一侧无读数,` +
+          `任何落档腿都必须 held 不猜(${ceiling.why})`,
+      )
+      if (ceiling.items.length)
+        console.log(
+          `    清单(前 ${Math.min(8, ceiling.items.length)} 条,全量见 --json 的 webRn.automationCeiling.items):` +
+            ceiling.items
+              .slice(0, 8)
+              .map((x) => `${x.pair}/${x.dim} web=${x.web} RN=${x.rn}`)
+              .join(' | '),
+        )
+      console.log(
         `  登记核销(门只给聚合,逐对裁决态本尺子读不到 ⇒ 每行记 unknown,不猜):` +
           `matched ${ad.matched ?? 0} / shrunk ${ad.shrunk ?? 0} / over ${ad.over ?? 0} / ` +
           `expired ${ad.expired ?? 0} / invalid ${ad.invalid ?? 0} / unregistered ${ad.unregistered ?? 0}`,
@@ -661,6 +730,7 @@ export const __test__ = {
   buildWebRnRows,
   webRnAxis,
   uncoveredWebRnKeys,
+  followableOf,
   checkVerdict,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

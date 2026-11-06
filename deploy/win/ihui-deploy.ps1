@@ -3002,6 +3002,26 @@ function Invoke-PreMigrationSnapshot {
     return @{ Ok = $true; Path = $dumpPath; Detail = "size=$len sha256=$hash strength=$strength shaFile=$shaFile" }
 }
 
+function Invoke-MigrationsLandedAudit {
+    # 迁移先行闸·逐枚落地审计(2026-11-06 立,归票 Y-70③;判据单源在
+    # scripts/check-migrations-landed.mjs,本函数只派发不复算,AGENTS §0.6)。
+    # 立因:Get-PendingMigrationCount 是"journal 总数 − 库内行数"的数量算术(负数还截 0),
+    # 枚数配平而 0364_app_versions_store_channel 恰未落地的那种形态在它这里恒等于 0 ——
+    # Y-70③ 的硬约束「先 db:migrate 应用迁移,再上线含 store 列 select 的代码(反过来以
+    # 42703 失败)」要成立,必须逐枚点名"差哪几枚",而不是比个数。
+    # 三态绝不并桶:0=全部落地;1=点名缺哪几枚(拒切流);2=未判定(同样不切流,fail-closed §0.3)。
+    $gate = Join-Path $Root 'scripts\check-migrations-landed.mjs'
+    if (-not (Test-Path $gate)) { return @{ Code = 2; Out = "落地审计闸文件缺失:$gate" } }
+    Push-Location $Root
+    try {
+        $out = & node scripts\check-migrations-landed.mjs --json 2>&1 | Out-String
+        $code = [int]$LASTEXITCODE
+    } catch {
+        return @{ Code = 2; Out = "落地审计闸调用异常:$_" }
+    } finally { Pop-Location }
+    return @{ Code = $code; Out = ($out -replace '\s+$', '') }
+}
+
 function Invoke-DbMigrate {
     Log "DB 迁移检查(packages/database db:migrate)"
     $apiEnv = "$Root\apps\api\.env"
@@ -3098,11 +3118,29 @@ function Invoke-DbMigrate {
                 # reason 只留固定类(它会进两层身份);生效预算的实时数值只进正文 —— 见
                 # Note-MigrateFailure 头注 [2026-10-26] 那一格。
                 Note-MigrateFailure -reason "超时被终止(未判定,无退出码)" -pendingTxt $pendTxt -RealtimeDetail "db:migrate 生效超时预算 ${migBudgetSec}s(env IHUI_DEPLOY_MIGRATE_TIMEOUT_SEC 可覆写;生效值以 deploy-loop.log 的 MIG 行为准)"
+                # 2026-11-06(Y-70③):旧链在超时(=迁移结果未知)后照常切流,会把半迁移 schema
+                # 推给读新列的代码(42703 型)。现由逐枚审计裁决:全落地才继续,否则不切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -eq 0) {
+                    Log "OK  db:migrate 超时未判定,但逐枚落地审计通过(journal 每条在库内都有本人行),本轮继续"
+                } else {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "timeout landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(迁移超时且逐枚审计未通过 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
             'UNDET' {
                 # 显式"无法判定"分支:既不得记成功,也不得记失败(两回事);打印取不到的原因。
                 # 措辞刻意不含「完成」二字 —— 让"判不了"在日志 grep 面上也不冒充成功态。
                 Log "WARN  db:migrate exit 0 但待应用数**无法判定**(原因:${script:PendingMigrationReason})—— 不计为成功,也不计失败"
+                # 2026-11-06(Y-70③):"数不出枚数"不再原样往下走。改问逐枚落地审计:
+                # 全落地才放行(计数面抖动反而不再误伤);缺则点名拒切流;审计也判不了 ⇒ fail-closed 不切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -eq 0) {
+                    Ok "待应用数无法判定,但逐枚落地审计通过(journal 每条在库内都有本人行)"
+                } else {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "pending=UNDET landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(pending 无法判定且逐枚审计未通过 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
             'PEND' {
                 # 2026-11-04:exit 0 但仍有 pending = 「跑过没应用完」,属确定性坏状态(不是抖动),
@@ -3115,6 +3153,13 @@ function Invoke-DbMigrate {
             'OK' {
                 # 唯一能打出"完成"字样的分支:退出码=0(取码即存的那份)且 pending=0 两者齐备。
                 Ok "db:migrate 完成(exit 0)"
+                # 2026-11-06(Y-70③):exit 0 + pending=0 仍是数量算术,看不见"枚数配平而恰差
+                # 0364"与 2026-09-13 那型"跑过没应用"。切流前逐枚审计,缺则点名拒切流。
+                $landed = Invoke-MigrationsLandedAudit
+                if ($landed.Code -ne 0) {
+                    Write-HardFailSummary -Class 'db-migrate' -Attempts 1 -Detail "landed-audit exit=$($landed.Code) $($landed.Out)"
+                    Fail "迁移先行闸拒绝上线(逐枚落地审计 exit=$($landed.Code)):本轮不切流、非 0 退出(线上保持旧版本)" -Detail $landed.Out -Reason 'db-migrations-not-landed'
+                }
             }
         }
     } finally { Pop-Location }
