@@ -134,6 +134,7 @@ import {
   casUpdateRef,
   commitTreeWithIndex,
   rerunLedgerHeal,
+  landingExitWithHeal,
 } from './lib/bypass-git.mjs'
 // 落地要按**调用方给的 root** 问 HEAD(未勾单行档的端到端取证跑在临时仓里,而上面那三个出口
 // 都收 root 参数)。单独一条 import 语句不是笔误:镜像测试 R4 把上一行逐字钉成"落地只走
@@ -1581,7 +1582,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (x) => (Array.isArray(x) ? x.length : Number(x) || 0)
     console.log(
@@ -1591,7 +1592,7 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
         `${nOf(align.skipped) ? ` / 归属他人未动 ${align.skipped.map((s) => s.path).join(',')}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑,否则下一次普通提交会写回旧版)' : ''}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
   // 末枚 = 最后造出、不会再有下一轮覆盖的那一枚 ⇒ 必须照打(中间轮次被下一轮取代,见函数头注)。
@@ -2064,7 +2065,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     // alignSharedIndex 正常路径返回**数组**、等锁超上限那条返回 0 ⇒ 归一成计数再打印,
     // 否则同一条日志会在两种形态间跳(把"没对齐"读成"对齐了 0 个")。
@@ -2081,7 +2082,7 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
         `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
   backupUnlanded(lastMadeCommit, `dedupe-rows ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`)
@@ -2609,7 +2610,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
       headBefore: parent,
       root,
     })
-    rerunLedgerHeal({ root, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     const restGroups = leftAll.filter((g) => !scope || !scope.has(g.line))
@@ -2631,6 +2632,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
     )
     return {
       kind: 'landed',
+      heal: ledgerHeal,
       deletedCount: r.deletedCount,
       sha: landed.commit,
       remainingGroups: restGroups.length,
@@ -2662,6 +2664,7 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
   let totalDeleted = 0
   let lastSha = null
   let lastRemaining = null
+  let healAgg = null
   for (let round = 1; round <= rounds; round++) {
     if (rounds > 1)
       console.log(
@@ -2673,6 +2676,18 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
       totalDeleted += res.deletedCount
       lastSha = res.sha
       lastRemaining = { groups: res.remainingGroups, rows: res.remainingRows }
+      // RP-13:多轮落地各自补跑过台账自愈,按「任一 triggered 且 !(ran && ok) 即判未成功」聚合最坏结果,
+      // 末尾交给 landingExitWithHeal 折成 exit 2 未判定(不回滚、不判红、拒绝报绿)。
+      if (res.heal) {
+        if (!healAgg) healAgg = { triggered: false, ran: true, ok: true }
+        if (res.heal.triggered) {
+          healAgg.triggered = true
+          if (!(res.heal.ran && res.heal.ok)) {
+            healAgg.ran = false
+            healAgg.ok = false
+          }
+        }
+      }
       continue
     }
     if (res.kind === 'empty') return 0
@@ -2696,7 +2711,7 @@ export function openRowsDedupeAndLand(match = null, maxAttempts = 8, opts = {}) 
     `✅ 分块档共落 ${landedCount} 枚提交 / 删 ${totalDeleted} 行,末枚 ${String(lastSha).slice(0, 11)};${tail}` +
       `(每块单独一枚提交,任一块都可单独 git revert —— 这是这条路径的唯一审计单位)`,
   )
-  return 0
+  return landingExitWithHeal(0, healAgg)
 }
 
 // ── 同题不同编号的孪生登记折叠档(F10,2026-09-28 立)─────────────────
@@ -3159,7 +3174,7 @@ export function twinFoldAndLand(maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
@@ -3170,7 +3185,7 @@ export function twinFoldAndLand(maxAttempts = 8) {
         `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
   backupUnlandedOrphan(lastMadeCommit, `折叠档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, ROOT)
@@ -3635,14 +3650,14 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
       headBefore: parent,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
       `✅ 漂开归并落地 ${landed.commit.slice(0, 11)}:持有行 L${keeperLine} 保持原样,折副本 ${f.edits.length} 行;` +
         `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
   backupUnlandedOrphan(lastMadeCommit, `漂开归并档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, ROOT)
@@ -4030,7 +4045,7 @@ export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
       headBefore: parent,
       root,
     })
-    rerunLedgerHeal({ root, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root, paths: [PLAN_REL] })
     const align = alignSharedIndex({ root, paths: [PLAN_REL], parentRef: parent })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
     console.log(
@@ -4038,7 +4053,7 @@ export function foldDriftedFamiliesAndLand(maxAttempts = 8, opts = {}) {
         `(保留行 ${plan.folds.map((f) => `L${f.keeper.line}`).join(',')});留痕 ${led.written} 条 → ${led.file};` +
         `共享索引 移动 ${nOf(align.moved)} / 已就位 ${nOf(align.already)}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   }
   console.log(`❌ ${maxAttempts} 轮都没抢到 CAS,放弃`)
   backupUnlandedOrphan(lastMadeCommit, `漂开族折叠档 ${maxAttempts} 轮均未抢到 CAS(末枚兜底)`, root)
@@ -4287,7 +4302,7 @@ export function healAndLand() {
       headBefore: head,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
     const t0 = Date.now()
     while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
       if (Date.now() - t0 > 120000) {
@@ -4320,7 +4335,7 @@ export function healAndLand() {
         `   ℹ️ 落地面 F4 ${after.dupOpenCopies} / F4b ${after.verbatimDupCopies} / F10 可折 ${twinLeft} —— 自动档刻意不注记、不折叠(交人工出口),不得当"已清零"引用。`,
       )
 
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   } finally {
     rmScratch(scratch)
   }
@@ -4455,7 +4470,7 @@ function healWithPrefixHolder(holderFragment, { commit }) {
       headBefore: head0,
       root: ROOT,
     })
-    rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+    const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
 // 〈原 3 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#plan-merge-l4491(门 103 C1 收口)〉首意: 本站点此前是七个落地站点里唯一**不做共享索引对齐**的那一个:HEAD 被推进了,而主索引还停在
     const align = alignSharedIndex({ root: ROOT, paths: [PLAN_REL], parentRef: head0 })
     const nOf = (v) => (Array.isArray(v) ? v.length : Number(v) || 0)
@@ -4468,7 +4483,7 @@ function healWithPrefixHolder(holderFragment, { commit }) {
         `${nOf(align.undetermined) ? ` / 未判定 ${nOf(align.undetermined)}` : ''}` +
         `${align.lockAbandoned || align.failed ? '(共享索引未对齐 ⇒ 必须复跑一次,否则下一次普通提交会写回旧版)' : ''}`,
     )
-    return 0
+    return landingExitWithHeal(0, ledgerHeal)
   } finally {
     rmScratch(scratch)
   }
@@ -4572,7 +4587,7 @@ export function dedupeAndLand(maxAttempts = 8) {
         headBefore: head,
         root: ROOT,
       })
-      rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
+      const ledgerHeal = rerunLedgerHeal({ root: ROOT, paths: [PLAN_REL] })
       const t0 = Date.now()
       while (existsSync(path.join(ROOT, '.git', 'index.lock'))) {
         if (Date.now() - t0 > 120000) {
@@ -4585,7 +4600,7 @@ export function dedupeAndLand(maxAttempts = 8) {
       console.log(
         `✅ 块级收口落地 ${commit.slice(0, 11)}:F6 ${b0.dupBlocks}→${after.dupBlocks},删 ${r.deletedCount} 行(逐字相同的第 2..N 份),漂移 ${b0.dupBlockDrifted} 块原样留给人工`,
       )
-      return 0
+      return landingExitWithHeal(0, ledgerHeal)
     } finally {
       rmScratch(scratch)
     }
