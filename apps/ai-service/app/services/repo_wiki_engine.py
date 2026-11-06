@@ -250,14 +250,14 @@ def _load_disk(namespace: str, workspace_path: str) -> dict[str, Any] | None:
             data = json.load(fh)
     except FileNotFoundError:
         return None
-    except (json.JSONDecodeError, ValueError):
-        return None
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise WikiCacheUnread(fp, "corrupt") from exc
     except OSError as exc:
         code = str(getattr(exc, "errno", None) or type(exc).__name__)
         raise WikiCacheUnread(fp, code) from exc
     if isinstance(data, dict) and isinstance(data.get("files"), dict):
         return data
-    return None
+    raise WikiCacheUnread(fp, "corrupt")
 
 
 def _save_disk(namespace: str, workspace_path: str, data: dict[str, Any]) -> None:

@@ -246,6 +246,21 @@ def test_unreadable_cache_is_not_replaced(fake_llm, workspace):
         assert fh.read() == "keep"
 
 
+def test_corrupt_cache_is_not_replaced(fake_llm, workspace):
+    """损坏的百科缓存不能被换成一份新摘要。"""
+    repo_wiki_engine.clear_wiki_cache()
+    cache = repo_wiki_engine._cache_file(workspace, workspace)
+    os.makedirs(os.path.dirname(cache), exist_ok=True)
+    body = "{not json"
+    with open(cache, "w", encoding="utf-8") as fh:
+        fh.write(body)
+    text = asyncio.run(repo_wiki_engine.ensure_wiki(workspace, workspace))
+    assert text
+    assert "SUMMARY[README.md]" in text
+    with open(cache, encoding="utf-8") as fh:
+        assert fh.read() == body
+
+
 def test_ihui_wiki_disable_hard_switch_still_wins(fake_llm, workspace, monkeypatch):
     """IHUI_WIKI_DISABLE=1 仍是最高优先级硬开关(不放宽任何情况下都生效)。"""
     repo_wiki_engine.clear_wiki_cache()
