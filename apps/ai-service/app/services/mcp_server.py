@@ -281,13 +281,24 @@ def _tool_result_token_estimate(obj: object) -> int:
     return total
 
 
-def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
+def _truncate_tool_output(
+    result: dict[str, Any],
+    *,
+    tool_name: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """call_tool 出口统一输出护栏:将超 token 预算的字符串值截断。
 
     策略(确定性、保持 dict 结构与控制字段完整):
     - 总 token <= 预算 → 原样返回,不加 truncated 标志
     - 超限 → 收集全部字符串叶子(受保护 key 除外),按长度降序贪心截断,
       直到总 token <= 预算;每个被截断字符串追加标记,并置顶层 truncated=True
+
+    批次 2(2026-11-06):截断前先把**完整结果**落盘为工件(`tool_output_artifacts`),
+    并在返回体追加 `output_artifact`(bytes/chars/digest/offset/next/complete)与
+    `output_continuation` 指引。此前标记只写"可用分页参数获取更多"却没有任何续读
+    凭据,模型只能重跑工具 —— 现在任何调用面(main chat / agent loop / supertool)
+    都拿到同一份可续读凭据。
 
     注意:截断量为近似(标记本身占少量 token),已在边界内;目的是防上下文膨胀,
     不保证精确等于预算(误差 < 标记长度)。
@@ -298,6 +309,22 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     total = _tool_result_token_estimate(result)
     if total <= max_tokens:
         return result
+
+    # 完整结果先落盘(force=True:token 估算是逐串 floor 求和,与整串估算可能差 1-2,
+    # 但只要进入截断分支就必须有工件,不能出现"截断了却没有续读凭据")。
+    artifact: dict[str, Any] | None = None
+    try:
+        from .tool_output_artifacts import maybe_spill_tool_output, serialize_tool_payload
+
+        artifact = maybe_spill_tool_output(
+            serialize_tool_payload(result),
+            tool_name=tool_name or str(result.get("tool") or ""),
+            session_id=session_id,
+            keep_chars=0,
+            force=True,
+        )
+    except Exception as e:  # noqa: BLE001 - 工件面异常不许影响工具返回
+        logger.warning("[mcp] 工具输出工件落盘失败(降级为纯截断): %s", e)
 
     # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
     leaves: list[tuple[Any, Any, str]] = []
@@ -343,6 +370,23 @@ def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
     for parent, key, keep_chars in plan:
         parent[key] = parent[key][:keep_chars] + marker
     result["truncated"] = True
+    if artifact is not None:
+        # 续读凭据:offset=0 = 从头分页(正文是逐串截断而非前缀截断,给 0 才不丢信息)。
+        result["output_artifact"] = {
+            "artifact_id": artifact.get("artifactId"),
+            "digest": artifact.get("digest"),
+            "bytes": artifact.get("bytes"),
+            "chars": artifact.get("chars"),
+            "offset": 0,
+            "next": 0,
+            "complete": False,
+            "truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
+        }
+        result["output_continuation"] = (
+            f"完整输出已落盘(共 {artifact.get('chars')} 字符)。用 "
+            f'read_tool_output(artifact_id="{artifact.get("artifactId")}", offset=0) '
+            "分页续读,直到返回 complete=true。"
+        )
     return result
 
 
@@ -2187,6 +2231,35 @@ async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         ),
     }
+
+
+async def _tool_read_tool_output(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_tool_output(批次 2):按 offset 分页续读落盘的工具输出工件。
+
+    只读、无副作用;artifactId 严格校验(见 tool_output_artifacts)。失败返回稳定
+    `error` 词而不是抛异常 —— 抛异常会被误记成"工具执行失败"并污染审计终态。
+    """
+    from .tool_output_artifacts import read_tool_output_page
+
+    artifact_id = arguments.get("artifact_id")
+    if not isinstance(artifact_id, str) or not artifact_id:
+        return {
+            "tool": "read_tool_output",
+            "ok": False,
+            "error": "unknown_artifact",
+            "artifactId": "",
+        }
+    try:
+        offset = int(arguments.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    raw_limit = arguments.get("limit")
+    try:
+        limit = int(raw_limit) if raw_limit is not None else 4000
+    except (TypeError, ValueError):
+        limit = 4000
+    page = read_tool_output_page(artifact_id, offset=max(0, offset), limit=limit)
+    return {"tool": "read_tool_output", **page}
 
 
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -6211,7 +6284,11 @@ async def _tool_dispatch_subagent(
             if _par_needs_help:
                 _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
-            return _truncate_tool_output(_payload)
+            return _truncate_tool_output(
+                _payload,
+                tool_name="dispatch_subagent",
+                session_id=arguments.get("session_id"),
+            )
         except Exception as e:
             return {
                 "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
@@ -6293,7 +6370,11 @@ async def _tool_dispatch_subagent(
                 _payload["errorCode"] = "AGENT_NOT_FOUND"
                 _payload["availableAgents"] = sorted(set(_reg.names()))
         # 0-6 单子代理输出限额:复用 0-2 截断助手
-        return _truncate_tool_output(_payload)
+        return _truncate_tool_output(
+            _payload,
+            tool_name="dispatch_subagent",
+            session_id=arguments.get("session_id"),
+        )
     except Exception as e:
         return {
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
@@ -10947,6 +11028,36 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="read_tool_output",
+        description=(
+            "读取此前因超长而落盘的工具输出工件(按字符 offset 分页续读)。"
+            "工具结果正文会给出 output_artifact_id 与 output_offset;用本工具按 offset 继续读,"
+            "直到返回 complete=true。只读,不产生任何副作用"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "artifact_id": {
+                    "type": "string",
+                    "description": "工具结果正文里给出的 output_artifact_id(32 位小写 hex)",
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "从第几个字符开始读(用上一次返回的 next);默认 0",
+                    "minimum": 0,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "本页最多返回的字符数,默认 4000,上限 20000",
+                    "minimum": 1,
+                    "maximum": 20000,
+                },
+            },
+            "required": ["artifact_id"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="list_files",
         description="列出目录内容(返回子项名称/类型/大小;路径必须在工作区白名单内)",
         input_schema={
@@ -13742,6 +13853,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # test_tools_count_matches_registry 的"定义 ↔ 处理函数"双射。
     "request_business_form": _tool_request_business_form,
     "read_file": _tool_read_file,
+    "read_tool_output": _tool_read_tool_output,
     "list_files": _tool_list_files,
     "render_repo_tree": _tool_render_repo_tree,
     "write_file": _tool_write_file,
@@ -14244,7 +14356,7 @@ class MCPServer:
             except Exception:  # noqa: BLE001
                 logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
-            return _truncate_tool_output(result)
+            return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:

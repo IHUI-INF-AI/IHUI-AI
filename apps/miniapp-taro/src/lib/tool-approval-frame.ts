@@ -24,7 +24,7 @@
  *     映射口径由常驻测试 `tests/tool-approval-frame-claim.test.ts` 对着 api-client 源码钉住
  *     (键清单漂开即红),不是"写了就算"。
  */
-import { projectToolApprovalEnvFacts } from '@ihui/api-client'
+import { projectToolApprovalDecisionInfo, projectToolApprovalEnvFacts } from '@ihui/api-client'
 import type { ToolApprovalEvent } from '@ihui/api-client'
 
 /** 帧名(SSE data 里的 type 值);与 @ihui/shared/sse/contract.ts 的 SSE_EVENTS.TOOL_APPROVAL 同字。 */
@@ -79,6 +79,9 @@ export function parseToolApprovalLine(line: string): ToolApprovalEvent | null {
       json.danger_level === 'medium' ? 'medium' : json.danger_level === 'low' ? 'low' : 'high',
     ...(typeof sessionId === 'string' && sessionId !== '' ? { sessionId } : {}),
     ...projectToolApprovalEnvFacts(json),
+    // 批次 2(2026-11-06):结构化审批决策信息与 api-client 共用同一投影(不抄第二份）。
+    // 小程序按"字段对齐 + 渲染降级"接:字段全量解析入视图,卡片只渲染摘要/目录/路径/命令。
+    ...projectToolApprovalDecisionInfo(json),
     // D-07(2026-10-26):失效留痕帧透传 expired 标记(与 api-client 同口径),
     // 消费方据此分流成提示而不是审批卡。
     ...(json.expired === true
