@@ -4938,6 +4938,8 @@
   "bookmark": {
     "empty": "No bookmarks",
     "loadFailed": "Failed to load",
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
     "remove": "Remove",
     "title": "My Bookmarks",
     "type": {
