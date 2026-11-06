@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -91,14 +90,43 @@ def _write_koubo_file(output_dir, mmdd: str, content: str = "正文"):
 # =============================================================================
 
 
-def test_today_mmdd_format():
-    """today_mmdd 返回 4 位数字字符串(MMDD)。"""
+def test_today_mmdd_format(clock):
+    """today_mmdd 返回 4 位数字字符串(MMDD),且等于同一注入时刻的 %m%d。
+
+    改前:实现内部读一次 datetime.now(),用例再读一次作期望 —— 两次独立读钟,
+    只要起跑到断言跨过零点就必红(实测 +08 23:59:59 起跑、断言已 00:00:00 时
+    '1106' != '1107')。改后两次读数收口到同一个注入 epoch。
+    """
+    epoch = clock(archive_daily)
     result = archive_daily.today_mmdd()
     assert isinstance(result, str)
     assert len(result) == 4
     assert result.isdigit()
-    # 应等于 datetime.now() 的 %m%d
-    assert result == datetime.now().strftime("%m%d")
+    # 应等于同一时刻的 %m%d
+    assert result == clock.day_at(epoch).strftime("%m%d")
+
+
+@pytest.mark.parametrize(
+    ("day", "hour", "minute", "second", "expected"),
+    [
+        ("2026-11-06", 23, 59, 59, "1106"),
+        ("2026-11-07", 0, 0, 0, "1107"),
+        ("2026-11-07", 0, 0, 1, "1107"),
+    ],
+    ids=["before-midnight", "midnight", "after-midnight"],
+)
+def test_today_mmdd_day_boundary(clock, day, hour, minute, second, expected):
+    """跨零点前 1 秒 / 零点 / 零点后 1 秒:MMDD 必须随日界切换,不是靠放宽通过。
+
+    注入 seam 把 naive `datetime.now()` 解释为 +08 墙上时间,因此本机时区
+    (CI 常见 UTC)不再影响读数;三个点里 00:00:00 已是 UTC 前一日 16:00,
+    按 UTC 折日会得 '1106',按注入的 +08 日才是 '1107'。
+    """
+    epoch = clock(
+        archive_daily, at=clock.at(hour=hour, minute=minute, second=second, day=day)
+    )
+    assert clock.day_at(epoch).isoformat() == day
+    assert archive_daily.today_mmdd() == expected
 
 
 # =============================================================================
