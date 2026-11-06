@@ -17,18 +17,18 @@ import {
   type ConversationImportSource,
   type ParsedImportConversation,
 } from '@ihui/api-client'
-import { ConversationImportScreen as SharedConversationImportScreen } from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
+import {
+  ConversationImportScreen as SharedConversationImportScreen,
+  type CommittedImportConversation,
+  type ConversationImportHistoryRow,
+  type ConversationImportHistoryStatus,
+  type ConversationImportSourceOption,
+  type ImportCommitResult,
+  type ImportParseResult,
+  type ImportPreviewRow,
+  type PickedImportFile,
+} from '@ihui/rn-app'
 import { useHostPorts } from '../host/use-host-ports'
-import type {
-  CommittedImportConversation,
-  ConversationImportHistoryRow,
-  ConversationImportHistoryStatus,
-  ConversationImportSourceOption,
-  ImportCommitResult,
-  ImportParseResult,
-  ImportPreviewRow,
-  PickedImportFile,
-} from '@ihui/rn-app/features/conversation-import/ConversationImportScreen'
 import { apiFailureToText } from '@ihui/shared/utils'
 import type { ImportSource } from '@ihui/shared/import-analysis'
 import { NavBar } from '../components/NavBar'
