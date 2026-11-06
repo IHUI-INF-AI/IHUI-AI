@@ -274,6 +274,39 @@ export function toInt(text) {
 }
 
 /**
+ * 行内标签白名单(DN2 盲区修,2026-11-06):**封闭集**,只认这几个行内标签。
+ * 不许通配任意标签 —— `<a>`/`<div>` 之类会改变语义结构,不在本判据的归一范围内。
+ */
+const INLINE_TAGS = ['code', 'strong', 'span', 'sub', 'sup', 'b', 'i', 'em', 'small', 'mark', 'kbd', 'u', 'br']
+/** `<br>` 没有闭合配对,本身就是一个换行位 ⇒ 同样换成一个空格。 */
+const INLINE_VOID_TAG = /<br(?:\s[^<>]*)?\s*\/?>/gi
+/** 其余白名单标签按"成对"处理:开/闭标签各自换空格,缺闭合的原样留着(不猜)。 */
+const INLINE_PAIRS = INLINE_TAGS.filter((t) => t !== 'br').map((tag) => ({
+  open: new RegExp(`<${tag}(?:\\s[^<>]*)?>`, 'gi'),
+  close: new RegExp(`</${tag}\\s*>`, 'gi'),
+}))
+
+/**
+ * 行内标签归一:把**成对**行内标签的起止标签各自换成一个空格,供 DN2 措辞正则读数字。
+ *
+ * 盲区实证:`<code>4393</code> API 路由` / `<code>542</code> 张表` 这类写法,数字被标签
+ * 包住 ⇒ 措辞正则整型看不见(命中 0 条);同文去掉标签后立刻判红。归一只换"判据吃进的
+ * 文本",**行号与 excerpt 仍用原始行**,证据可指回原文。
+ *
+ * 换**空格**不是空串:空串会把两段文本粘成一段(`<code>5</code><code>4393</code>` 被读成
+ * `54393`),归一瞬间自己造出新数字 = 假阳,比漏报贵。
+ */
+export function normalizeInlineTags(line) {
+  let out = String(line)
+  out = out.replace(INLINE_VOID_TAG, ' ')
+  for (const { open, close } of INLINE_PAIRS) {
+    if (out.search(close) < 0) continue
+    out = out.replace(open, ' ').replace(close, ' ')
+  }
+  return out
+}
+
+/**
  * DN2:找出块外所有命中措辞的数字并判等。纯函数 ⇒ 构造面可证,不依赖仓库瞬时状态。
  * @returns {{violations:{key:string,found:number,want:number,line:number,excerpt:string}[],checked:number,unmappable:{line:number,excerpt:string}[]}}
  */
@@ -312,10 +345,14 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
     // 与守门 102/108 同一条锁)。用在"这个数字是叙述性引用、不是当前总量声明"的场合,
     // 例如记录历史事故的"当年约 110 道守门对全队同时失效"—— 它讲的是过去某个时点的量。
     if (/doc-num-exempt:\s*\S/.test(line)) continue
+    // 行内标签归一(2026-11-06 DN2 盲区):数字被 `<code>`/`<strong>` 之类包住时措辞正则
+    // 整型看不见(实测 0 命中)。归一只换判据吃进的文本;豁免判定在上一步已用**原始行**做完,
+    // 行号与 excerpt 也仍取原始行,证据可指回原文。块内行在上面的 masked 里已置空,不参与归一。
+    const normalized = normalizeInlineTags(line)
     for (const claim of CLAIMS) {
       claim.re.lastIndex = 0
       let m
-      while ((m = claim.re.exec(line))) {
+      while ((m = claim.re.exec(normalized))) {
         const digits = claim.pick(m)
         if (digits === undefined) continue // 该措辞这一支不带数 ⇒ 只当触发器不计数
         const found = toInt(digits)
@@ -1065,6 +1102,49 @@ export function selfTest() {
     'S29e 只在 origin/main 快照里红过的行(HEAD 已修正)、本票未触及 ⇒ 记存量;本票新增行照判红',
     s29d.actionable.length === 1 && s29d.actionable[0].line === 1 && s29d.stock.length === 1 && s29d.stock[0].line === 2,
   )
+  // S30 行内标签归一(2026-11-06,DN2 盲区):`<code>542</code> 张表` 这类被标签包住的数字
+  //     以前整型看不见(0 命中),同文去标签立刻判红 ⇒ 归一必须真把数字送进措辞正则。
+  //     每例都断 checked:只断"0 违规"会把"根本没看见"当成"一致"(本门历史上就栽在这型恒真断言)。
+  const s30n = { dbTables: 621, apiRoutes: 4699 }
+  const s30a = findStaleClaims('<code>542</code> 张表', s30n)
+  ok(
+    'S30a 正例:<code>542</code> 张表 ⇒ 恰 1 条,found=542 / want=621(且真被看见)',
+    s30a.checked === 1 &&
+      s30a.violations.length === 1 &&
+      s30a.violations[0].key === 'dbTables' &&
+      s30a.violations[0].found === 542 &&
+      s30a.violations[0].want === 621,
+  )
+  const s30b = findStaleClaims('<code>621</code> 张表', s30n)
+  ok('S30b 阴性:<code>621</code> 张表 ⇒ 0 违规(且 checked=1,不是没看见)', s30b.checked === 1 && s30b.violations.length === 0)
+  const s30cRaw = '<strong>542</strong><strong>张表</strong>'
+  ok(
+    'S30c 粘连反例:相邻标签换空格不粘连,542 仍点名 dbTables,且不把 5+4393 粘成 54393',
+    findStaleClaims(s30cRaw, s30n).violations.length === 1 &&
+      findStaleClaims(s30cRaw, s30n).violations[0].key === 'dbTables' &&
+      findStaleClaims(s30cRaw, s30n).violations[0].found === 542 &&
+      !normalizeInlineTags(s30cRaw).includes('542张表') &&
+      !normalizeInlineTags('<code>5</code><code>4393</code> API 路由').includes('54393'),
+  )
+  const s30plainStale = findStaleClaims('542 张表', s30n)
+  const s30plainGood = findStaleClaims('621 张表', s30n)
+  const s30doc = `第一行\n<code>542</code> 张表`
+  const s30d = findStaleClaims(s30doc, s30n)
+  ok(
+    'S30d 纯文本回归 + 证据指回原文:542⇒1 条、621⇒0 条;行号=2、excerpt 仍含 <code>',
+    s30plainStale.violations.length === 1 &&
+      s30plainGood.violations.length === 0 &&
+      s30d.violations.length === 1 &&
+      s30d.violations[0].line === 2 &&
+      s30d.violations[0].excerpt.includes('<code>'),
+  )
+  // 阴性对照:把归一"改回"返回原行 —— 直接拿原始行跑同一批 CLAIMS,必须 0 命中。
+  // 这一条证明 S30a 不是恒真(否则归一是死代码,测试照样绿)。
+  const s30eRawHits = CLAIMS.filter((c) => {
+    c.re.lastIndex = 0
+    return c.re.test('<code>542</code> 张表')
+  })
+  ok('S30e 阴性对照:不归一(原始行直跑 CLAIMS)⇒ 0 命中,证明 S30a 有牙', s30eRawHits.length === 0)
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -1341,4 +1421,6 @@ function main(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main(process.argv.slice(2)))
 }
+/** §22c 镜像测试出口:行内标签归一单独暴露,测试直接 import 生产实现,不复制判据。 */
+export const __test__ = { normalizeInlineTags }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
