@@ -26,6 +26,12 @@
  *       - 带 `sheet-flex-ok` 豁免注释。
  *   R2  「需调用方契约」业务列表组件(SELF_CONSTRAINED=false 白名单)在 maxHeight 容器内
  *       同样必须有弹性契约或豁免(定高容器豁免:组件顶层 flex:1 自适应)。
+ *   R3  RN/共享层百分比高度:maxHeight/minHeight 任意百分比、非 100% 的 height 百分比
+ *       一律违规,唯一豁免是「父容器确定高度下的图片内容比例」(逐行登记、带存活期)。
+ *       RN 端存量归零 ⇒ 全量档绝对零容忍;共享层历史存量只报数,staged 档按
+ *       「同一路径 HEAD 面 vs 暂存面」多重集差值只拦新增(§12e 恒红门禁令)。
+ *       判据只有 scripts/lib/rn-percent-height-policy.mjs 一份,
+ *       门与 apps/mobile-rn/tests/dialog-geometry.test.ts 共用,不许再写第二份正则。
  *   匹配大小写不敏感(覆盖 styles.xxx 与 shellStyles.xxx 两种引用形式,2026-10-15 实锤:
  *   首版正则小写 styles\. 漏匹配 shellStyles. 大写 S,导致全量漏检假 OK)。
  *
@@ -43,6 +49,13 @@
 import { readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, FACE_LABEL } from './lib/face-reader.mjs'
+import {
+  PERCENT_HEIGHT_SCAN_RELS,
+  SCAN_EXT_RE,
+  exemptionExpired,
+  exemptionRotCheck,
+  findPercentHeightViolations,
+} from './lib/rn-percent-height-policy.mjs'
 
 const srcArgIdx = process.argv.indexOf('--src')
 const SRC_ARG = srcArgIdx >= 0 ? process.argv[srcArgIdx + 1] : undefined
@@ -278,6 +291,121 @@ for (const fileRel of files) {
     }
   }
 }
+
+// ── R3:百分比高度零容忍(独立扫描面;判据只在 scripts/lib/rn-percent-height-policy.mjs 一份) ──
+/** R3 枚举 RN 端 + 共享层的 ts/tsx/js/jsx;R1/R2 的 SRC_REL 只扫 .tsx,不能复用。 */
+function walkAny(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) walkAny(p, out)
+    else if (SCAN_EXT_RE.test(name)) out.push(p)
+  }
+  return out
+}
+
+function listPercentFaceFiles(f) {
+  const keep = (p) => p && SCAN_EXT_RE.test(p)
+  const toRel = (p) => relative(REPO_ROOT, p).replaceAll('\\', '/')
+  if (SRC_ARG) {
+    const abs = resolve(SRC_ARG)
+    const files = statSync(abs).isDirectory() ? walkAny(abs) : [abs]
+    return files.map(toRel).filter(keep)
+  }
+  if (f === 'staged') {
+    return gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACM', '--', ...PERCENT_HEIGHT_SCAN_RELS],
+      REPO_ROOT,
+    )
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(keep)
+  }
+  if (f === 'worktree') {
+    return PERCENT_HEIGHT_SCAN_RELS.flatMap((r) => walkAny(join(REPO_ROOT, r)))
+      .map(toRel)
+      .filter(keep)
+  }
+  return gitRaw(
+    ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...PERCENT_HEIGHT_SCAN_RELS],
+    REPO_ROOT,
+  )
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(keep)
+}
+
+// 判定面分层(§12e 恒红门禁令):
+//   apps/mobile-rn/src  存量已归零 ⇒ 全量档绝对零容忍、staged 档出现即红;
+//   packages/app/src    共享层有历史存量 ⇒ 全量档只报数不判红,staged 档按
+//                      「同一路径 HEAD 面 vs 暂存面」的违规多重集差值,只拦新增。
+// 共享层是 web/小程序/RN 共用的组件,不能套 RN 专属 hook;把存量判成恒红
+// 只会逼人 --no-verify,连带废掉全部守门。存量如实列出,新增一枚都拦得住。
+const R3_STRICT_PREFIX = 'apps/mobile-rn/src/'
+const violationSig = (v) => `${v.prop}:${v.percent}%`
+function countBySig(hits) {
+  const m = new Map()
+  for (const v of hits) m.set(violationSig(v), (m.get(violationSig(v)) ?? 0) + 1)
+  return m
+}
+function headTextOf(rel) {
+  const spec = `HEAD:${rel}`
+  const got = catBatch(REPO_ROOT, [spec], { maxBuffer: 1 << 28, timeout: 120000 })
+  return got.get(spec) ?? null
+}
+
+// --src 属回归 fixture(外部输入,不判仓库内容);R3 的正反例由
+// scripts/tests/rn-percent-height-policy.test.mjs 直接 import 判据覆盖。
+if (!SRC_ARG) {
+  const percentFiles = listPercentFaceFiles(face)
+  const percentPrefetched = prefetchFace(face, percentFiles)
+  const seenExemptions = new Set()
+  const stock = []
+  for (const fileRel of percentFiles) {
+    const src = faceText(face, fileRel, percentPrefetched)
+    if (src === null) continue
+    const hits = findPercentHeightViolations(src, fileRel)
+    for (const v of hits) if (v.allowed) seenExemptions.add(v.exemptionKey)
+    const bad = hits.filter((v) => !v.allowed)
+    if (bad.length === 0) continue
+
+    if (fileRel.startsWith(R3_STRICT_PREFIX)) {
+      for (const v of bad) {
+        violations.push(`${v.rel}:${v.line} — ${v.text} ⇒ ${v.reason}`)
+      }
+      continue
+    }
+    if (face === 'staged') {
+      const base = headTextOf(fileRel)
+      const before = countBySig(
+        base === null ? [] : findPercentHeightViolations(base, fileRel).filter((v) => !v.allowed),
+      )
+      for (const [sig, n] of countBySig(bad)) {
+        const grew = n - (before.get(sig) ?? 0)
+        if (grew > 0) {
+          violations.push(`${fileRel} — 共享层新增百分比限高 ${sig} ${grew} 处(存量治理另立专项)`)
+        }
+      }
+    } else {
+      stock.push(...bad)
+    }
+  }
+  if (stock.length > 0) {
+    console.error(
+      `[sheet-flex-contract] [R3] 共享层历史存量 ${stock.length} 处(只报数不判红;新增由 staged 差值棘轮拦下):`,
+    )
+    for (const v of stock) console.error(`   · ${v.rel}:${v.line} ${v.text}`)
+  }
+  // 全量档才对账豁免清单;staged 面只看本次改动,不能要求它命中全部登记项。
+  if (face !== 'staged') {
+    if (exemptionExpired()) {
+      violations.push('豁免族已过存活期,须逐条复评后再续期(不得静默放行)')
+    }
+    for (const k of exemptionRotCheck(seenExemptions)) {
+      violations.push(`豁免清单腐烂:登记项 ${k} 在审面上未命中,请删登记或修键名`)
+    }
+  }
+}
+
 
 if (violations.length > 0) {
   console.error(`\n[sheet-flex-contract] 违规 ${violations.length} 处:`)
