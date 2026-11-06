@@ -480,8 +480,13 @@ export interface AdminResourcesData {
 /** 提现渠道(admin/shop/withdrawals WithdrawalItem['channel']) */
 export type WithdrawalChannel = 'alipay' | 'wechat' | 'bank'
 
-/** 提现状态(admin/shop/withdrawals WithdrawalItem['status']) */
-export type WithdrawalStatus = 'pending' | 'approved' | 'rejected' | 'completed' | 'failed'
+/**
+ * 提现状态 —— 全仓单一真相源(6 值,与库列注释 / @ihui/api-client endpoints/agent.ts 同集合)。
+ * BUG-30②:此前本处只有 5 值、缺 `processing`,后台按 5 值写穷尽 switch 时
+ * 遇到 processing 行直接落空;其余包一律 import 本类型,不得再抄一份值集合。
+ */
+export type WithdrawalStatus =
+  'pending' | 'approved' | 'processing' | 'rejected' | 'completed' | 'failed'
 
 /** 提现申请项(admin/shop/withdrawals WithdrawalItem) */
 export interface WithdrawalItem {

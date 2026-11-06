@@ -21,7 +21,8 @@ export interface PageData<T> {
 export interface PageQuery {
   page?: number
   pageSize?: number
-  [key: string]: string | number | undefined | null
+  // 允许 boolean:BUG-80 起通知列表的 `unread` 过滤是 boolean,buildQs 用 String(v) 序列化。
+  [key: string]: string | number | boolean | undefined | null
 }
 
 export function buildQs(params: object): string {

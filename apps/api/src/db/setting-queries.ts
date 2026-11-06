@@ -111,10 +111,12 @@ export async function findEduSettingByGroupKey(
 
 /** 按 group 查询单组配置(公开接口可用)。 */
 export async function findEduSettingsByGroup(group: string): Promise<EduSettingPublicRow[]> {
+  // 公开接口的真相源与 findPublicEduSettings() 必须同形:isPublic=true 是不公开 value
+  // 不出仓的唯一判据。此前只过滤 status=1,被标记为不公开的配置同样会被 /settings/:group 带出。
   return db
     .select(publicFields)
     .from(eduSettings)
-    .where(and(eq(eduSettings.group, group), eq(eduSettings.status, 1)))
+    .where(and(eq(eduSettings.group, group), eq(eduSettings.status, 1), eq(eduSettings.isPublic, true)))
     .orderBy(asc(eduSettings.sort), asc(eduSettings.key))
 }
 

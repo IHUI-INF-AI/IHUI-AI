@@ -38,15 +38,17 @@ export function MobileLoginGate({ children }: { children: React.ReactNode }) {
   const { ready } = useAuthBootstrap()
   const isMobile = useIsMobile()
 
-  // SSR 安全:仅客户端探测。纯浏览器无 window.Capacitor → false,守卫短路。
-  const [isNativeApp] = React.useState(() => {
-    if (typeof window === 'undefined') return false
-    return (
+  // BUG-27③:首帧确定值 false(与 SSR 一致)。Capacitor 探测属客户端状态,放在
+  // useState 初始化函数里会让「服务端渲染 children / 客户端首帧返回空片段」→ 首帧不一致、
+  // 整块子树被丢弃重建。改由 useEffect 水合后回填;纯浏览器无 Capacitor 时仍为 false。
+  const [isNativeApp, setIsNativeApp] = React.useState(false)
+  React.useEffect(() => {
+    setIsNativeApp(
       (
         window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }
-      )?.Capacitor?.isNativePlatform?.() === true
+      )?.Capacitor?.isNativePlatform?.() === true,
     )
-  })
+  }, [])
 
   const shouldGate = ready && isNativeApp && isMobile && !isAuthenticated
 

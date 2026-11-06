@@ -21,6 +21,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // D163 回退臂(2026-10-18 立):撤回前后的工作区快照与比对。
 // 接进来的唯一理由:/undo 现在的失败路径是**异常冒泡**——applyChange 用
 // fs.writeFileSync/unlinkSync,中途任一文件写失败就整段抛出,返回面里
@@ -404,7 +405,9 @@ export class UndoRedoManager {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(fullPath, content, 'utf-8');
+      // 走唯一原子写出口:同目录 tmp + rename(不留半截文件)、落盘前重读基线做
+      // stale 冲突检测、拒绝穿透符号链接。裸 writeFileSync 三样都没有。
+      commitAtomicWrite(captureWriteBaseline(fullPath), content);
     }
   }
 

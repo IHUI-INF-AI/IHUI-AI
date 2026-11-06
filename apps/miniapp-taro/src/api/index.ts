@@ -71,7 +71,7 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
-import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
+import { parseToolApprovalLine, parseQuestionLine } from '@/lib/tool-approval-frame'
 // D77(2026-10-17 落地小程序腿 / 2026-10-19 收编):form_request 帧的**认领层 + 投影**单源在共享层
 // (@ihui/shared/chat/form-request-frame)。端内**不再走 onRawLine 二次认领**:共享解析面
 // (@ihui/shared/utils/sse-parse)已于 2026-10-18 在 meta 泛化兜底之前认领该帧族,
@@ -448,6 +448,18 @@ export interface StreamEventCallbacks {
    */
   onToolApproval?: (evt: ToolApprovalEvent) => void
   /**
+   * BUG-67:AI 主动提问卡(question 帧)。共享 sse-parse 不认领该帧(web/RN 走
+   * tryParseQuestion 整行旁路),故本端在 streamSSE.onRawLine 旁路认领后分发到这里;
+   * 载荷形状与 @ihui/api-client streamChat.onQuestion 逐字对齐。
+   */
+  onQuestion?: (question: {
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  }) => void
+  /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
    * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
    * (字段口径与 @ihui/api-client 的 tryParseFormRequest 逐字同,镜像锁见
@@ -743,6 +755,13 @@ export const chatStream = async (
       const evt = parseToolApprovalLine(line)
       if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
         callbacks.onToolApproval(evt)
+      }
+      // BUG-67:question 帧不经共享解析面(SSEEvent 联合类型里根本没有这一格,
+      // parseSSEChunk 也不认领),只在整行旁路补这一条分发分支 → onQuestion 回调;
+      // 不注册回调 ⇒ 帧照旧静默丢弃(与 D136 同纪律)。
+      const question = parseQuestionLine(line)
+      if (question && callbacks && typeof callbacks.onQuestion === 'function') {
+        callbacks.onQuestion(question)
       }
     },
     onReconnect: (attempt, delayMs) => {

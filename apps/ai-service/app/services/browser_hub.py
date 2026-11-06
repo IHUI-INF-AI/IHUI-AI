@@ -370,6 +370,29 @@ def read_profile_cookie_names(user_data: Path, domain_suffix: str = "") -> set[s
     return names
 
 
+def _prepare_scan_profile(user_data: Path, profile_dir: str) -> dict[str, Any]:
+    """同步准备扫码临时 profile:清理遗留目录 + 复制登录态副本。
+
+    内含 glob/shutil 文件操作与最多 3 次 ``time.sleep(0.3)`` 重试。
+    BUG-9:必须经 ``await asyncio.to_thread(_prepare_scan_profile, ...)`` 调用,
+    禁止在事件循环线程内直接跑(否则冻结全部 SSE / 健康检查 / 调度)。
+    """
+    _cleanup_stale_scan_profiles()
+    return _copy_browser_profile(user_data, Path(profile_dir))
+
+
+def _rmtree_retry(path: str, attempts: int = 5, delay: float = 0.4) -> None:
+    """同步重试删除临时目录(含 time.sleep 等待 Chrome 释放句柄)。
+
+    BUG-9:必须经 ``await asyncio.to_thread(...)`` 调用,禁止在事件循环里 sleep。
+    """
+    for _ in range(attempts):
+        shutil.rmtree(path, ignore_errors=True)
+        if not os.path.exists(path):
+            return
+        time.sleep(delay)
+
+
 def _cleanup_stale_scan_profiles(max_age_seconds: float = 2 * 3600) -> int:
     """清理遗留的扫码临时 profile 目录(内含用户登录态副本,不应长期留存)。
 
@@ -1363,8 +1386,10 @@ class BrowserHub:
             port = s.getsockname()[1]
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
-        _cleanup_stale_scan_profiles()  # 清理上次异常退出遗留的登录态副本
-        profile_info = _copy_browser_profile(browser.user_data, Path(profile_dir))
+        # BUG-9:同步清理 + 复制(含 time.sleep 重试)改真异步,不阻塞事件循环。
+        profile_info = await asyncio.to_thread(
+            _prepare_scan_profile, browser.user_data, profile_dir
+        )
         if not self._started or not self._playwright:
             await self.start()
         if self._playwright is None:
@@ -1487,8 +1512,10 @@ class BrowserHub:
             return []
 
         profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
-        _cleanup_stale_scan_profiles()
-        info = _copy_browser_profile(user_data, Path(profile_dir))
+        # BUG-9:同步 profile 准备改真异步,不阻塞事件循环。
+        info = await asyncio.to_thread(
+            _prepare_scan_profile, user_data, profile_dir
+        )
         if not info["profile_used"]:
             logger.warning(f"[browser_hub] 读取登录态失败:profile 复制失败({info.get('error')})")
             shutil.rmtree(profile_dir, ignore_errors=True)
@@ -1542,11 +1569,8 @@ class BrowserHub:
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[browser_hub] 读取登录态失败: {e}")
         finally:
-            for _ in range(5):
-                shutil.rmtree(profile_dir, ignore_errors=True)
-                if not os.path.exists(profile_dir):
-                    break
-                time.sleep(0.4)
+            # BUG-9:finally 里的 time.sleep(0.4)×5 改真异步(to_thread),不阻塞循环。
+            await asyncio.to_thread(_rmtree_retry, profile_dir)
         return entries
 
     def list_sessions(self, owner_user_id: str | None = None) -> list[str]:

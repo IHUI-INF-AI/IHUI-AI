@@ -61,11 +61,26 @@ const DEFAULT_ALLOWED_ATTR = [
   'rowspan',
 ]
 
+/**
+ * SSR 安全的确定性首帧值(BUG-27④):**不依赖 DOM**,服务端与客户端首帧算出同一结果。
+ * 先剥掉标签只留正文文字,再做 HTML 转义 —— 转义保证任何残留都不会被解析成标签/脚本,
+ * 所以无需 dompurify 也可安全上屏;协议正文不再 SSR 恒空,爬虫与无 JS 环境都能读到正文。
+ */
+function deterministicFirstFrame(html: string): string {
+  const text = html
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** 客户端完整净化:dompurify 依赖 DOM,只在 useEffect(水合后)里跑。 */
 function sanitize(html: string, allowedTags: string[]): string {
-  // SSR 安全:dompurify 依赖 DOM,只能在客户端运行
-  if (typeof window === 'undefined') {
-    return ''
-  }
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: allowedTags,
     ALLOWED_ATTR: DEFAULT_ALLOWED_ATTR,
@@ -80,18 +95,16 @@ function sanitize(html: string, allowedTags: string[]): string {
  * - 仅保留安全的属性白名单
  * - 自动移除 script/style 标签、事件处理器、javascript: 协议等危险内容
  *
- * SSR 安全:dompurify 依赖 DOM,只能在客户端运行。服务端渲染时返回空内容,
- * 客户端水合后渲染消毒后的 HTML。
+ * SSR/首帧(BUG-27④):dompurify 依赖 DOM,不能在服务端跑。首帧改用确定性的
+ * 「剥标签 + 转义」纯文本(SSR 与 CSR 算同一值,协议正文不再恒空、爬虫抓得到),
+ * 水合后由 useEffect 用 dompurify 回填富文本;suppressHydrationWarning 抑制第二帧差异。
  */
 export function SafeHtml({
   html,
   className,
   allowedTags = DEFAULT_ALLOWED_TAGS,
 }: SafeHtmlProps): React.ReactElement {
-  // 2026-08-02 修复: SSR sanitize 返回 '' 而 CSR 后返回真实 HTML 导致 hydration mismatch。
-  // 用 state + useEffect 模式:首帧 SSR 与 CSR 一致都为 '',useEffect 触发后再 setSanitized 真实内容;
-  // suppressHydrationWarning 抑制第二帧差异引起的 warning。
-  const [sanitized, setSanitized] = React.useState('')
+  const [sanitized, setSanitized] = React.useState(() => deterministicFirstFrame(html))
   React.useEffect(() => {
     setSanitized(sanitize(html, allowedTags))
   }, [html, allowedTags])

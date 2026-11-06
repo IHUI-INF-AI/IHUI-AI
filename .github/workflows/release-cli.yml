@@ -33,6 +33,7 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # 2026-10-19 定案:不启用 2FA → 不登记 Trusted Publisher。发布实际走 secrets.NPM_PUBLISH_TOKEN
     # (granular token,bypass_2fa),OIDC/--provenance 仅作前向兼容保留,失败会自动回退。
     # 首版 1.0.0 已 bootstrap 完成(docs/npm-publish-guide.md §7.2)。
@@ -124,6 +125,7 @@ jobs:
     # 与 npm-publish 完全解耦(needs: []):npm 侧无论 bootstrap 与否,6 平台二进制照常发布
     needs: []
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     env:
       # SignPath 通道开关:四项凭据齐备才置 true(step-level if 不支持 secrets 上下文,
       # 故先在此折算成 env)。2026-11-05 起这不再是"缺凭据就静默跳过"的降级开关——
@@ -368,6 +370,7 @@ jobs:
     name: Build & Push Docker Image
     needs: []
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -431,6 +434,7 @@ jobs:
     name: Release Summary
     needs: [npm-publish, build-binary, build-docker]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     if: always()
     steps:
       - name: Checkout

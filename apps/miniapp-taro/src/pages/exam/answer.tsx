@@ -126,16 +126,21 @@ export default function ExamAnswer() {
         // —— 0 会被计时条读成「时间到,已自动交卷」,并在第一秒真的自动交卷。
         const seconds = Math.max(0, Math.floor(Number(paper.duration) || 0)) * 60
         if (seconds <= 0) return
+        // BUG-41②:用绝对截止时间而非每秒递减 —— 切后台被挂起/节流后回前台按
+        // Date.now() 补偿,考生无法靠后台挂起无限延长作答(对齐 RN ExamQuestionScreen
+        // 的 deadlineRef 与本端 pkg-shop/pay 的同款实现)。
+        const deadline = Date.now() + seconds * 1000
         setRemain(seconds)
         timerRef.current = setInterval(() => {
-          setRemain((prev) => {
-            if (prev === null) return prev
-            if (prev <= 1) {
-              onSubmitRef.current()
-              return 0
+          const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+          setRemain(left)
+          if (left <= 0) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current)
+              timerRef.current = null
             }
-            return prev - 1
-          })
+            onSubmitRef.current()
+          }
         }, 1000)
       })
       .catch((e) => {

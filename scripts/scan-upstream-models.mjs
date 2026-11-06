@@ -91,7 +91,11 @@ function resolveApiKey(raw) {
   throw new Error(`api_key_enc 类型不支持: ${typeof raw}`)
 }
 
-const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/ihui'
+const dbUrl = process.env.DATABASE_URL
+if (!dbUrl) {
+  console.error('[FATAL] DATABASE_URL 未设置(拒绝使用内置默认连接串)')
+  process.exit(2)
+}
 const sql = postgres(dbUrl, { max: 4, prepare: false })
 
 function log(step, msg, data = null) {

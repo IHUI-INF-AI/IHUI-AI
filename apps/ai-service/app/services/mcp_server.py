@@ -1608,6 +1608,119 @@ def _git_check_ignore(root: Path, rels: list[str]) -> set[str]:
     return ignored
 
 
+def _search_codebase_keyword_sync(
+    root: Any, query: str, pattern: str, max_results: int, symbol_type: str,
+    code_exts: set[str], ignored_dirs: set[str], symbol_patterns: dict[str, Any],
+) -> tuple[list[dict[str, Any]], int]:
+    """同步执行关键词腿:os.walk + 一次性 git check-ignore + 文件读取/符号匹配。
+
+    BUG-9:整段含同步文件系统遍历 / 子进程 / 阻塞读,必须经
+    ``await asyncio.to_thread(_search_codebase_keyword_sync, ...)`` 调用,
+    否则大仓库一次搜索会把事件循环(全部 SSE / 健康检查 / 调度)卡死,
+    ``asyncio.wait_for`` 也抢不到同步阻塞。原先**每个目录**起一次
+    ``git check-ignore`` 子进程(成百上千次进程启动);这里先把全部相对路径收齐,
+    一次 ``--stdin`` 批量传入(台账收口要点),N 次降为 1 次。
+    """
+    import fnmatch
+    import os
+
+    patterns = [p.strip() for p in pattern.split(",") if p.strip()] if pattern else []
+    query_lower = query.lower()
+    matches: list[dict[str, Any]] = []
+    count = 0
+
+    # ① 一次 os.walk 收齐全部目录/文件相对路径(纯遍历,无子进程)
+    snapshots: list[tuple[str, list[str], list[str]]] = []
+    all_rels: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
+        file_rels = [
+            os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
+            for fname in filenames
+        ]
+        snapshots.append((dirpath, filenames, file_rels))
+        all_rels.extend(
+            os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
+            for d in dirnames
+        )
+        all_rels.extend(file_rels)
+
+    # ② 一次 --stdin 批量过 gitignore(替代原先逐目录的 N 次 subprocess.run)
+    ignored = _git_check_ignore(root, all_rels)
+
+    # ③ 逐文件按 ignored 过滤 + 读取 + 符号匹配
+    for dirpath, filenames, file_rels in snapshots:
+        for fname, rel_posix in zip(filenames, file_rels):
+            if count >= max_results:
+                return matches, count
+            if rel_posix in ignored:
+                continue
+            if patterns:
+                if not any(fnmatch.fnmatch(fname, p) for p in patterns):
+                    continue
+            else:
+                ext = os.path.splitext(fname)[1].lower()
+                if ext not in code_exts:
+                    continue
+
+            fpath = os.path.join(dirpath, fname)
+            try:
+                with open(fpath, encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+            except OSError:
+                continue
+
+            lines = content.splitlines()
+            rel_path = os.path.relpath(fpath, root)
+            if query_lower not in content.lower():
+                continue
+
+            symbol_matches: list[tuple[int, str, str]] = []
+            for sym_type, sym_re in symbol_patterns.items():
+                if symbol_type and sym_type != symbol_type:
+                    continue
+                for m in sym_re.finditer(content):
+                    sym_name = m.group(1)
+                    if sym_name.lower() == query_lower or query_lower in sym_name.lower():
+                        line_no = content.count("\n", 0, m.start()) + 1
+                        line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+                        symbol_matches.append((line_no, sym_type, line_text))
+
+            line_matches: list[tuple[int, str]] = []
+            for i, line_text in enumerate(lines):
+                if query_lower in line_text.lower():
+                    line_matches.append((i + 1, line_text))
+
+            seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+            for ln_no, ln_text in line_matches:
+                if ln_no not in seen_lines:
+                    symbol_matches.append((ln_no, "reference", ln_text))
+                    seen_lines.add(ln_no)
+
+            if not symbol_matches:
+                continue
+
+            for line_no, sym_type, line_text in symbol_matches[:10]:
+                start = max(0, line_no - 3)
+                end = min(len(lines), line_no + 2)
+                preview = "\n".join(
+                    f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                )
+                matches.append({
+                    "path": rel_path,
+                    "file": fname,
+                    "line": line_no,
+                    "symbol_type": sym_type,
+                    "code": line_text.strip()[:200],
+                    "preview": preview[:500],
+                })
+                count += 1
+                if count >= max_results:
+                    break
+
+    return matches, count
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(关键词腿 + 语义腿并跑,RRF 融合)。
 
@@ -1899,117 +2012,13 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                     "reason": f"路径不是目录: {path}",
                 }
 
-            # 构建 pattern 列表(支持逗号分隔多 pattern)
-            if pattern:
-                patterns = [p.strip() for p in pattern.split(",") if p.strip()]
-            else:
-                patterns = []  # 用扩展名过滤
-
-            query_lower = query.lower()
-            matches: list[dict[str, Any]] = []
-            count = 0
-
-            for dirpath, dirnames, filenames in os.walk(root):
-                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
-                dir_rels = [
-                    os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                    for d in dirnames
-                ]
-                file_rels = [
-                    os.path.relpath(os.path.join(dirpath, fname), root).replace("\\", "/")
-                    for fname in filenames
-                ]
-                ignored = _git_check_ignore(root, dir_rels + file_rels)
-                if ignored:
-                    dirnames[:] = [
-                        d
-                        for d in dirnames
-                        if os.path.relpath(os.path.join(dirpath, d), root).replace("\\", "/")
-                        not in ignored
-                    ]
-                for fname in filenames:
-                    if count >= max_results:
-                        break
-                    rel_posix = os.path.relpath(
-                        os.path.join(dirpath, fname), root
-                    ).replace("\\", "/")
-                    if rel_posix in ignored:
-                        continue
-                    # pattern 或扩展名过滤
-                    if patterns:
-                        if not any(fnmatch.fnmatch(fname, p) for p in patterns):
-                            continue
-                    else:
-                        ext = os.path.splitext(fname)[1].lower()
-                        if ext not in _CODE_EXTS:
-                            continue
-
-                    fpath = os.path.join(dirpath, fname)
-                    try:
-                        with open(fpath, encoding="utf-8", errors="ignore") as f:
-                            content = f.read()
-                    except OSError:
-                        continue
-
-                    lines = content.splitlines()
-                    rel_path = os.path.relpath(fpath, root)
-
-                    # 先快速过滤:文件内容必须含 query(大小写不敏感)
-                    if query_lower not in content.lower():
-                        continue
-
-                    # 1) 符号定义匹配:扫描每种符号模式
-                    symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
-                    for sym_type, sym_re in _SYMBOL_PATTERNS.items():
-                        if symbol_type and sym_type != symbol_type:
-                            continue
-                        for m in sym_re.finditer(content):
-                            sym_name = m.group(1)
-                            if sym_name.lower() == query_lower or query_lower in sym_name.lower():
-                                # 计算 line_no
-                                line_no = content.count("\n", 0, m.start()) + 1
-                                line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
-                                symbol_matches.append((line_no, sym_type, line_text))
-
-                    # 2) 通用行匹配(任意包含 query 的行)
-                    line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
-                    for i, line_text in enumerate(lines):
-                        if query_lower in line_text.lower():
-                            line_matches.append((i + 1, line_text))
-
-                    # 合并:符号匹配优先,再补通用行匹配(去重)
-                    seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
-                    for ln_no, ln_text in line_matches:
-                        if ln_no not in seen_lines:
-                            symbol_matches.append((ln_no, "reference", ln_text))
-                            seen_lines.add(ln_no)
-
-                    if not symbol_matches:
-                        continue
-
-                    # 限制每个文件最多 10 条匹配
-                    for line_no, sym_type, line_text in symbol_matches[:10]:
-                        # 提取上下文(前后各 2 行)
-                        start = max(0, line_no - 3)
-                        end = min(len(lines), line_no + 2)
-                        preview = "\n".join(
-                            f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
-                        )
-                        matches.append({
-                            "path": rel_path,
-                            "file": fname,
-                            "line": line_no,
-                            "symbol_type": sym_type,
-                            "code": line_text.strip()[:200],
-                            "preview": preview[:500],
-                        })
-                        count += 1
-                        if count >= max_results:
-                            break
-
-                if count >= max_results:
-                    break
-
+            # BUG-9:整段同步遍历 + 子进程 + 阻塞读统一挪到线程池,事件循环不再被
+            # 大仓库搜索卡死(wait_for 抢不到同步阻塞);git check-ignore 一次批量(见 helper)。
+            matches, count = await asyncio.to_thread(
+                _search_codebase_keyword_sync,
+                root, query, pattern, max_results, symbol_type,
+                _CODE_EXTS, _IGNORED_DIRS, _SYMBOL_PATTERNS,
+            )
             return {
                 "status": "ok",
                 "matches": matches,
@@ -4807,7 +4816,9 @@ async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 with open(js_path, "w", encoding="utf-8") as f:
                     f.write(test_code)
-                proc = _subprocess.run(
+                # BUG-9:同步 node 子进程改真异步(对齐同文件 python 分支的 to_thread 写法)。
+                proc = await asyncio.to_thread(
+                    _subprocess.run,
                     [node_path, "--check", js_path],
                     capture_output=True, text=True, timeout=30,
                 )
@@ -5161,7 +5172,9 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                     "ok": False,
                 }
 
-        result = subprocess.run(
+        # BUG-9:同步 git 子进程改真异步,避免整段卡死事件循环。
+        result = await asyncio.to_thread(
+            subprocess.run,
             ["git"] + (git_args or []),
             cwd=repo_path,
             capture_output=True,

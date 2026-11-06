@@ -19,7 +19,29 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import * as path from 'node:path';
 import type { Tool, ToolResult } from './index.js';
+
+/**
+ * Windows 上可用的 PowerShell 引擎绝对路径(PS7 优先,Windows PowerShell 5.1 兜底)。
+ * 判定与读写**同源**:isClipboardAvailable / readClipboardExcerpt /
+ * writeClipboardWithOutcome 都只认这一个出口,不再出现"判定放行 powershell、
+ * 执行只 spawn 'pwsh.exe'"导致只装 5.1 的机器上功能静默全灭。
+ * 全绝对路径 + existsSync 预筛,不落 PATH 短名(防 PATH 被顶替)。
+ */
+function resolvePowerShell(): string | null {
+  const localAppData = process.env.LOCALAPPDATA ?? '';
+  const candidates = [
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    ...(localAppData !== '' ? [path.join(localAppData, 'Microsoft', 'WindowsApps', 'pwsh.exe')] : []),
+    'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null;
+}
 
 /** 最大支持的剪贴板文本长度(避免超大内容塞爆 LLM 上下文) */
 const MAX_CLIPBOARD_CHARS = 32_000;
@@ -74,7 +96,9 @@ export function readClipboardExcerpt(): ClipboardReadOutcome {
     if (platform === 'win32') {
       // PowerShell Get-Clipboard 返回纯文本(-Format Text 避免 RTF)
       // PowerShell 会附加尾部 \r\n,需 trimEnd 保持往返一致
-      const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', 'Get-Clipboard -Format Text'], {
+      const ps = resolvePowerShell();
+      if (ps === null) return EMPTY_CLIP;
+      const r = spawnSync(ps, ['-NoProfile', '-Command', 'Get-Clipboard -Format Text'], {
         // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
         stdio: ['ignore', 'pipe', 'pipe'],
         encoding: 'utf-8',
@@ -147,7 +171,9 @@ export function writeClipboardWithOutcome(text: string): ClipboardWriteOutcome {
     const platform = currentPlatform();
     if (platform === 'win32') {
       // PowerShell Set-Clipboard 接受 stdin 管道输入
-      const r = spawnSync('pwsh.exe', ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
+      const ps = resolvePowerShell();
+      if (ps === null) return fail();
+      const r = spawnSync(ps, ['-NoProfile', '-Command', '$input | Set-Clipboard'], {
         input,
         encoding: 'utf-8',
         windowsHide: true,
@@ -196,24 +222,10 @@ export function writeClipboard(text: string): boolean {
 export function isClipboardAvailable(): boolean {
   const platform = currentPlatform();
   if (platform === 'win32') {
-    // Windows 需要 pwsh.exe(PowerShell Core) 或 powershell.exe(标准 Windows PowerShell)
-    // 优先检测 pwsh.exe, 再检测 powershell.exe
-    const pwsh = spawnSync('where', ['pwsh.exe'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-      timeout: 2000,
-    });
-    if (!pwsh.error && pwsh.status === 0) return true;
-    const ps = spawnSync('where', ['powershell.exe'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-      timeout: 2000,
-    });
-    return !ps.error && ps.status === 0;
+    // 判定与执行同源:只认 resolvePowerShell() 真正会 spawn 的那个引擎绝对路径。
+    // 旧写法用 `where` 判 "pwsh 或 powershell"、执行却只 spawn 'pwsh.exe',
+    // 只装 5.1 的机器判定 true、执行 ENOENT,剪贴板功能静默全灭。
+    return resolvePowerShell() !== null;
   }
   if (platform === 'darwin') return true;
   if (platform === 'linux') {

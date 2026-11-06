@@ -39,6 +39,9 @@
 import { execFileSync } from 'node:child_process'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
+// BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
+// 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
@@ -7400,7 +7403,7 @@ let effectiveChecks = pushGate ? pushGateChecks : checks
 if (passStaged && !pushGate) {
   try {
     const stagedPaths = String(
-      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
+      execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
         encoding: 'utf8',
         cwd: process.cwd(),
         windowsHide: true,
