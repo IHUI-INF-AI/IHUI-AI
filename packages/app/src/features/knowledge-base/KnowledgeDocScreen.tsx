@@ -198,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
     chunkContent: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.body.size,
-      lineHeight: 24,
+      lineHeight: rnType.title.lineHeight,
       color: tk.text.medium,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
