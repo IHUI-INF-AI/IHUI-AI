@@ -926,6 +926,8 @@ export interface CategoryDetailScreenProps {
   onAgentPress: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 课程星球 Screen Props */
