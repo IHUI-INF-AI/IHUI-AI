@@ -31,6 +31,7 @@
     "test": "turbo run test",
     "test:real": "pnpm --filter @ihui/api run test:real",
     "test:scripts": "node scripts/run-script-tests.mjs",
+    "test:deploy": "node --test --test-concurrency=1 \"deploy/tests/*.test.mjs\"",
     "test:e2e": "turbo run test:e2e",
     "check:pytest": "pnpm --filter @ihui/ai-service run test:py",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
